@@ -9,6 +9,7 @@ import (
 
 // Include empty departures after a concentrated burst of passenger arrivals.
 func TestScale100Station19BurstDrainsSafely(t *testing.T) {
+	t.Parallel()
 	config := Scale100()
 	simulation := newSimulation(t, config)
 	var origins []string
