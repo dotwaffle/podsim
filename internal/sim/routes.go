@@ -2,7 +2,10 @@ package sim
 
 const routeCacheLimit = 4096
 
-type routeKey struct{ from, to string }
+type routeKey struct {
+	from, to string
+	station  bool
+}
 type routeResult struct {
 	lanes []Lane
 	err   error
@@ -16,6 +19,22 @@ func (s *Simulation) route(from, to string) ([]Lane, error) {
 		return cached.lanes, cached.err
 	}
 	lanes, err := s.network.Route(from, to)
+	if s.routes == nil {
+		s.routes = make(map[routeKey]routeResult)
+	}
+	if len(s.routes) >= routeCacheLimit {
+		clear(s.routes)
+	}
+	s.routes[key] = routeResult{lanes: lanes, err: err}
+	return lanes, err
+}
+
+func (s *Simulation) stationPath(from, to string) ([]Lane, error) {
+	key := routeKey{from: from, to: to, station: true}
+	if cached, ok := s.routes[key]; ok {
+		return cached.lanes, cached.err
+	}
+	lanes, err := s.network.stationPath(from, to)
 	if s.routes == nil {
 		s.routes = make(map[routeKey]routeResult)
 	}

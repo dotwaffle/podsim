@@ -122,13 +122,22 @@ func pointDistance(a, b Point) float64 { return math.Hypot(b.X-a.X, b.Y-a.Y) }
 
 // Route chooses minimum free-flow travel time. Slice order breaks equal-cost ties.
 func (n Network) Route(from, to string) ([]Lane, error) {
-	if _, ok := n.Node(from); !ok {
-		return nil, fmt.Errorf("unknown origin %q", from)
+	return n.route(networkRouteInput{from: from, to: to})
+}
+
+type networkRouteInput struct {
+	from, to  string
+	forbidden map[string]bool
+}
+
+func (n Network) route(input networkRouteInput) ([]Lane, error) {
+	if _, ok := n.Node(input.from); !ok {
+		return nil, fmt.Errorf("unknown origin %q", input.from)
 	}
-	if _, ok := n.Node(to); !ok {
-		return nil, fmt.Errorf("unknown destination %q", to)
+	if _, ok := n.Node(input.to); !ok {
+		return nil, fmt.Errorf("unknown destination %q", input.to)
 	}
-	distance := map[string]float64{from: 0}
+	distance := map[string]float64{input.from: 0}
 	visited := make(map[string]bool)
 	previous := make(map[string]Lane)
 	for {
@@ -141,12 +150,15 @@ func (n Network) Route(from, to string) ([]Lane, error) {
 		if current == "" {
 			return nil, ErrUnreachable
 		}
-		if current == to {
+		if current == input.to {
 			break
 		}
 		visited[current] = true
 		for _, lane := range n.Lanes {
 			if lane.From != current {
+				continue
+			}
+			if lane.To != input.to && input.forbidden[lane.To] {
 				continue
 			}
 			candidate := best + n.Length(lane)/lane.SpeedLimit
@@ -157,7 +169,7 @@ func (n Network) Route(from, to string) ([]Lane, error) {
 		}
 	}
 	var route []Lane
-	for current := to; current != from; {
+	for current := input.to; current != input.from; {
 		lane := previous[current]
 		route = append(route, lane)
 		current = lane.From
@@ -194,13 +206,37 @@ func (n Network) validate() error {
 			}
 			berths[berth.ID] = true
 			berthNodes[berth.Node] = true
-			// Berths need entry and exit lanes plus a through lane.
-			if !n.connected(station.Entry, berth.Node) || !n.connected(berth.Node, station.Exit) || !n.connected(station.Entry, station.Exit) {
+		}
+	}
+	for _, station := range n.Stations {
+		if !n.connected(station.Entry, station.Exit) {
+			return fmt.Errorf("station %q needs entry, exit, and through lanes", station.ID)
+		}
+		for _, berth := range station.Berths {
+			if _, err := n.stationPath(station.Entry, berth.Node); err != nil {
+				return fmt.Errorf("station %q needs entry, exit, and through lanes", station.ID)
+			}
+			if _, err := n.stationPath(berth.Node, station.Exit); err != nil {
 				return fmt.Errorf("station %q needs entry, exit, and through lanes", station.ID)
 			}
 		}
 	}
 	return nil
+}
+
+// stationPath finds an access path without crossing another station boundary.
+func (n Network) stationPath(from, to string) ([]Lane, error) {
+	forbidden := make(map[string]bool)
+	for _, candidate := range n.Stations {
+		forbidden[candidate.Entry] = true
+		forbidden[candidate.Exit] = true
+		for _, berth := range candidate.Berths {
+			forbidden[berth.Node] = true
+		}
+	}
+	delete(forbidden, from)
+	delete(forbidden, to)
+	return n.route(networkRouteInput{from: from, to: to, forbidden: forbidden})
 }
 
 func (n Network) connected(from, to string) bool {

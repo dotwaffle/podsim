@@ -61,6 +61,53 @@ func TestCommittedTerminalBranchDoesNotReroute(t *testing.T) {
 	}
 }
 
+func TestBerthChoiceAtMultiLaneBranch(t *testing.T) {
+	t.Parallel()
+	s, err := NewFleet(ladderNetwork(), []Placement{{ID: "01", StationID: "harbor"}, {ID: "02", StationID: "garden"}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := s.RequestJourney("01", "market"); err != nil {
+		t.Fatal(err)
+	}
+	v := s.findVehicle("01")
+	s.owners[resource{kind: berthResource, id: "market-1"}] = "02"
+	s.owners[resource{kind: nodeResource, id: "market-berth"}] = "02"
+	positionBeforeTerminalInlet(t, terminalInletPosition{simulation: s, vehicle: v})
+	granted := slices.Clone(v.blocks[:v.reservedThrough+1])
+
+	s.reevaluateTerminalBerth(v)
+
+	if v.destination.ID != "market-2" || v.Route[len(v.Route)-1].ID != "market-in-2" {
+		t.Fatalf("destination = %q via %q, want market-2 via market-in-2", v.destination.ID, v.Route[len(v.Route)-1].ID)
+	}
+	if !reflect.DeepEqual(v.blocks[:v.reservedThrough+1], granted) {
+		t.Fatal("reroute changed granted blocks")
+	}
+}
+
+func TestCommittedMultiLaneBranchDoesNotReroute(t *testing.T) {
+	t.Parallel()
+	s, err := NewFleet(ladderNetwork(), []Placement{{ID: "01", StationID: "harbor"}, {ID: "02", StationID: "garden"}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := s.RequestJourney("01", "market"); err != nil {
+		t.Fatal(err)
+	}
+	v := s.findVehicle("01")
+	s.owners[resource{kind: berthResource, id: "market-1"}] = "02"
+	s.owners[resource{kind: nodeResource, id: "market-berth"}] = "02"
+	positionBeforeTerminalInlet(t, terminalInletPosition{simulation: s, vehicle: v, committed: true})
+	route, blocks := slices.Clone(v.Route), slices.Clone(v.blocks)
+
+	s.reevaluateTerminalBerth(v)
+
+	if !reflect.DeepEqual(v.Route, route) || !reflect.DeepEqual(v.blocks, blocks) || v.destination.ID != "market-1" {
+		t.Fatal("committed multi-lane branch state changed")
+	}
+}
+
 func TestCompetingArrivalsCompleteOnSeparateTerminalBranches(t *testing.T) {
 	t.Parallel()
 	s, err := NewFleet(Example(), []Placement{{ID: "01", StationID: "harbor"}, {ID: "02", StationID: "garden"}})
