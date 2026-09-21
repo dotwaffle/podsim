@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"image/color"
 	"math"
+	"runtime"
 	"strconv"
 	"strings"
 	"time"
@@ -49,6 +50,8 @@ type Game struct {
 	stationPage, podPage int
 	mapScale             float64
 	mapOrigin            sim.Point
+	camera               mapCamera
+	cameraKey            networkCacheKey
 	networkBase          *ebiten.Image
 	networkBaseKey       networkCacheKey
 	networkBaseValid     bool
@@ -74,6 +77,7 @@ func New(ctx context.Context, serverURL string) (*Game, error) {
 // Update reads shared state and handles local input.
 func (g *Game) Update() error {
 	g.readRemote()
+	g.fitNetwork()
 	if g.noticeTicks > 0 {
 		g.noticeTicks--
 		if g.noticeTicks == 0 {
@@ -109,13 +113,39 @@ func (g *Game) Update() error {
 	if inpututil.IsKeyJustPressed(ebiten.KeyS) {
 		g.cycleSpeed()
 	}
-	if inpututil.IsMouseButtonJustPressed(ebiten.MouseButtonLeft) {
-		x, y := ebiten.CursorPosition()
-		if g.click(sim.Point{X: float64(x), Y: float64(y)}) {
-			return nil
-		}
+	if g.updateMapInput() {
+		return nil
 	}
 	return nil
+}
+
+func (g *Game) updateMapInput() bool {
+	x, y := ebiten.CursorPosition()
+	point := sim.Point{X: float64(x), Y: float64(y)}
+	if _, wheelY := ebiten.Wheel(); wheelY != 0 && pointInMap(point) {
+		factor := wheelZoomFactor(wheelY, runtime.GOOS == "js")
+		if g.camera.zoomAt(point, factor) {
+			g.syncCamera()
+		}
+	}
+	if inpututil.IsMouseButtonJustPressed(ebiten.MouseButtonLeft) {
+		if pointInMap(point) {
+			g.camera.beginDrag(point)
+			return false
+		}
+		return g.click(point)
+	}
+	if ebiten.IsMouseButtonPressed(ebiten.MouseButtonLeft) && g.camera.dragging {
+		if g.camera.drag(point) {
+			g.syncCamera()
+		}
+	}
+	if inpututil.IsMouseButtonJustReleased(ebiten.MouseButtonLeft) && g.camera.dragging {
+		if g.camera.endDrag() {
+			return g.click(point)
+		}
+	}
+	return false
 }
 
 func (g *Game) pause() {
@@ -155,6 +185,9 @@ func (g *Game) buttons() []button {
 		pauseLabel = "Resume [Space]"
 	}
 	buttons := []button{
+		{x: 617, y: 104, w: 28, h: 24, label: "−", action: "map-zoom-out"},
+		{x: 651, y: 104, w: 28, h: 24, label: "+", action: "map-zoom-in"},
+		{x: 685, y: 104, w: 66, h: 24, label: "Fit", action: "map-fit"},
 		{x: 810, y: 529, w: 120, h: 26, label: fmt.Sprintf("Orders %d", len(outstandingOrders(state))), selected: g.showOrders, action: "orders"},
 		{x: 940, y: 529, w: 120, h: 26, label: "Demand", selected: g.showDemand, action: "demand"},
 		{x: 840, y: 644, w: 215, h: 42, label: "Run traffic demo [D]", action: "demo"},
@@ -205,6 +238,13 @@ func (g *Game) click(point sim.Point) bool {
 			continue
 		}
 		switch b.action {
+		case "map-zoom-out":
+			g.zoomMap(1 / mapZoomStep)
+		case "map-zoom-in":
+			g.zoomMap(mapZoomStep)
+		case "map-fit":
+			g.camera.fit(g.camera.world)
+			g.syncCamera()
 		case "pods-next":
 			g.podPage = (g.podPage + 1) % ((len(g.state.Simulation.Vehicles) + 5) / 6)
 		case "stations-next":
@@ -247,7 +287,13 @@ func (g *Game) click(point sim.Point) bool {
 		}
 		return false
 	}
+	if !pointInMap(point) {
+		return false
+	}
 	for i, v := range g.mapSnapshot().Vehicles {
+		if g.podHiddenInCluster(v, i) {
+			continue
+		}
 		p := g.mapPoint(v.Pod.Position)
 		if math.Hypot(point.X-p.X, point.Y-p.Y) < 18 {
 			g.selected, g.message = i, ""
@@ -291,50 +337,73 @@ func (g *Game) Draw(screen *ebiten.Image) {
 }
 
 func (g *Game) mapPoint(p sim.Point) sim.Point {
-	return sim.Point{X: g.mapOrigin.X + p.X*g.mapScale, Y: g.mapOrigin.Y + p.Y*g.mapScale}
+	return g.camera.screenPoint(p)
+}
+
+func (g *Game) zoomMap(factor float64) {
+	center := sim.Point{X: float64(mapViewport.Min.X+mapViewport.Max.X) / 2, Y: float64(mapViewport.Min.Y+mapViewport.Max.Y) / 2}
+	if g.camera.zoomAt(center, factor) {
+		g.syncCamera()
+	}
+}
+
+func (g *Game) syncCamera() {
+	g.mapScale, g.mapOrigin = g.camera.scale, g.camera.origin
+	g.networkBaseValid = false
 }
 
 func (g *Game) drawNetwork(screen *ebiten.Image, state sim.Snapshot) {
 	g.label(screen, label{x: 44, y: 113, size: 12, value: "NETWORK", color: muted})
-	g.label(screen, label{x: 520, y: 113, size: 12, value: "ONE-WAY LANES  /  METERS", color: muted})
+	g.label(screen, label{x: 410, y: 113, size: 11, value: "SCROLL ZOOM / DRAG PAN", color: muted})
+	mapScreen, ok := screen.SubImage(mapViewport).(*ebiten.Image)
+	if !ok {
+		return
+	}
 	detailed := len(g.network.Lanes) <= detailedLanes
 	if detailed {
 		g.releaseNetworkBase()
-		g.drawBaseNetwork(screen, true)
+		g.drawBaseNetwork(mapScreen, true)
 	} else {
-		g.drawCachedNetworkBase(screen)
+		g.drawCachedNetworkBase(mapScreen)
 	}
 	selected := state.Vehicles[g.selected]
 	if selected.Pod.Activity != sim.Idle {
 		shade := podColor(selected.Pod.ID)
 		for _, lane := range selected.Route {
 			geometry := g.laneGeometry(lane, detailed)
-			geometry.draw(screen, laneStroke{width: 2, color: shade, antialias: detailed})
-			drawArrow(screen, arrow{from: geometry.arrowFrom, to: geometry.arrowTo, color: shade, antialias: detailed})
+			geometry.draw(mapScreen, laneStroke{width: 2, color: shade, antialias: detailed})
+			drawArrow(mapScreen, arrow{from: geometry.arrowFrom, to: geometry.arrowTo, color: shade, antialias: detailed})
 		}
 	}
+	collapsedStations := make(map[string]bool)
 	for _, station := range g.network.Stations {
 		occupied, reserved := 0, 0
 		center := sim.Point{}
+		showBerths := g.showStationBerths(station)
+		collapsedStations[station.ID] = !showBerths
 		for j, berth := range station.Berths {
 			node, _ := g.network.Node(berth.Node)
 			p := g.mapPoint(node.Position)
+			center.X += p.X
+			center.Y += p.Y
 			shade := uint32(muted)
 			for _, v := range state.Vehicles {
 				if v.Pod.BerthID == berth.ID {
 					shade = podColor(v.Pod.ID)
 				}
 			}
-			vector.StrokeCircle(screen, float32(p.X), float32(p.Y), 13, 2, rgb(shade), detailed)
+			if showBerths {
+				vector.StrokeCircle(mapScreen, float32(p.X), float32(p.Y), 13, 2, rgb(shade), detailed)
+			}
 			name := station.Name
 			labelX, labelY := p.X-26, p.Y+20
 			if station.ParkingOnly || len(station.Berths) > 1 {
 				name = strconv.Itoa(j + 1)
 				labelX, labelY = p.X-26, p.Y-9
-				center.X += p.X
-				center.Y += p.Y
 			}
-			g.label(screen, label{x: labelX, y: labelY, size: 16, value: name, color: foreground})
+			if showBerths {
+				g.label(mapScreen, label{x: labelX, y: labelY, size: 16, value: name, color: foreground})
+			}
 			occupancy := "BERTH 0/1"
 			for _, b := range state.Berths {
 				if b.ID == berth.ID {
@@ -352,40 +421,85 @@ func (g *Game) drawNetwork(screen *ebiten.Image, state sim.Snapshot) {
 					}
 				}
 			}
-			if !station.ParkingOnly && len(station.Berths) == 1 {
-				g.label(screen, label{x: labelX, y: labelY + 21, size: 10, value: occupancy, color: shade})
+			if showBerths && !station.ParkingOnly && len(station.Berths) == 1 {
+				g.label(mapScreen, label{x: labelX, y: labelY + 21, size: 10, value: occupancy, color: shade})
 			}
 		}
-		if station.ParkingOnly || len(station.Berths) > 1 {
-			x := center.X/float64(len(station.Berths)) + 25
-			y := center.Y/float64(len(station.Berths)) - 24
-			g.label(screen, label{x: x, y: y, size: 16, value: station.Name, color: foreground})
-			g.label(screen, label{x: x, y: y + 23, size: 11, value: fmt.Sprintf("%d/%d occupied", occupied, len(station.Berths)), color: muted})
+		if len(station.Berths) == 0 {
+			continue
+		}
+		center.X /= float64(len(station.Berths))
+		center.Y /= float64(len(station.Berths))
+		if !showBerths {
+			vector.FillCircle(mapScreen, float32(center.X), float32(center.Y), 10, rgb(track), detailed)
+			vector.StrokeCircle(mapScreen, float32(center.X), float32(center.Y), 10, 2, rgb(muted), detailed)
+			g.label(mapScreen, label{x: center.X + 16, y: center.Y - 8, size: 11, value: fmt.Sprintf("%s %d/%d", shortText(strings.TrimPrefix(station.Name, "Station "), 7), occupied, len(station.Berths)), color: foreground})
+		} else if station.ParkingOnly || len(station.Berths) > 1 {
+			x := center.X + 25
+			y := center.Y - 24
+			g.label(mapScreen, label{x: x, y: y, size: 16, value: station.Name, color: foreground})
+			g.label(mapScreen, label{x: x, y: y + 23, size: 11, value: fmt.Sprintf("%d/%d occupied", occupied, len(station.Berths)), color: muted})
 			if reserved > 0 {
-				g.label(screen, label{x: x, y: y + 40, size: 10, value: fmt.Sprintf("%d reserved", reserved), color: amber})
+				g.label(mapScreen, label{x: x, y: y + 40, size: 10, value: fmt.Sprintf("%d reserved", reserved), color: amber})
 			}
 		}
 	}
 	for i, v := range state.Vehicles {
+		parkedInCluster := v.Pod.Activity == sim.Idle && collapsedStations[v.Pod.StationID]
+		if parkedInCluster && i != g.selected {
+			continue
+		}
 		p := g.mapPoint(v.Pod.Position)
 		shade := podColor(v.Pod.ID)
 		if v.Pod.WaitReason != sim.NoWait {
 			shade = amber
 		}
 		if i == g.selected {
-			vector.StrokeCircle(screen, float32(p.X), float32(p.Y), 9, 1.5, rgb(shade), detailed)
+			vector.StrokeCircle(mapScreen, float32(p.X), float32(p.Y), 9, 1.5, rgb(shade), detailed)
 		}
-		vector.FillCircle(screen, float32(p.X), float32(p.Y), 4, rgb(shade), detailed)
-		g.label(screen, label{x: p.X + 11, y: p.Y - 18, size: 11, value: fleetPodLabel(i), color: shade})
+		vector.FillCircle(mapScreen, float32(p.X), float32(p.Y), 4, rgb(shade), detailed)
+		if !parkedInCluster || i == g.selected {
+			g.label(mapScreen, label{x: p.X + 11, y: p.Y - 18, size: 11, value: fleetPodLabel(i), color: shade})
+		}
 	}
 	vector.StrokeLine(screen, 48, 540, 125, 540, 2, rgb(muted), detailed)
 	g.label(screen, label{x: 141, y: 531, size: 12, value: fmt.Sprintf("%.0f m", 77/g.mapScale), color: muted})
 	g.label(screen, label{x: 433, y: 531, size: 12, value: "Selected pod and route highlighted", color: muted})
 }
 
+func (g *Game) showStationBerths(station sim.Station) bool {
+	if len(station.Berths) < 2 {
+		return true
+	}
+	minimum := math.Inf(1)
+	for i, berth := range station.Berths {
+		node, ok := g.network.Node(berth.Node)
+		if !ok {
+			continue
+		}
+		for _, other := range station.Berths[i+1:] {
+			otherNode, found := g.network.Node(other.Node)
+			if found {
+				minimum = min(minimum, math.Hypot(node.Position.X-otherNode.Position.X, node.Position.Y-otherNode.Position.Y)*g.mapScale)
+			}
+		}
+	}
+	return minimum >= 34
+}
+
+func (g *Game) podHiddenInCluster(vehicle sim.Vehicle, index int) bool {
+	if index == g.selected || vehicle.Pod.Activity != sim.Idle {
+		return false
+	}
+	station, ok := g.network.Station(vehicle.Pod.StationID)
+	return ok && !g.showStationBerths(station)
+}
+
 type networkCacheKey struct {
 	epoch      string
 	generation uint64
+	scale      float64
+	origin     sim.Point
 }
 
 type laneGeometry struct {
@@ -458,7 +572,7 @@ func (g *Game) drawBaseNetwork(screen *ebiten.Image, detailed bool) {
 }
 
 func (g *Game) drawCachedNetworkBase(screen *ebiten.Image) {
-	key := networkCacheKey{epoch: g.state.Epoch, generation: g.state.Generation}
+	key := g.currentNetworkCacheKey()
 	if g.networkBase == nil {
 		g.networkBase = ebiten.NewImage(width, height)
 	}
@@ -472,8 +586,12 @@ func (g *Game) drawCachedNetworkBase(screen *ebiten.Image) {
 }
 
 func (g *Game) networkBaseNeedsRefresh() bool {
-	key := networkCacheKey{epoch: g.state.Epoch, generation: g.state.Generation}
+	key := g.currentNetworkCacheKey()
 	return !g.networkBaseValid || g.networkBaseKey != key
+}
+
+func (g *Game) currentNetworkCacheKey() networkCacheKey {
+	return networkCacheKey{epoch: g.state.Epoch, generation: g.state.Generation, scale: g.mapScale, origin: g.mapOrigin}
 }
 
 func (g *Game) releaseNetworkBase() {
@@ -698,11 +816,17 @@ func (g *Game) fitNetwork() {
 		}
 	}
 	if len(g.network.Nodes) == 0 {
-		g.mapScale = 1
+		g.camera = mapCamera{scale: 1, minScale: 1, maxScale: mapMaxZoom, initialized: true}
+		g.syncCamera()
 		return
 	}
-	g.mapScale = min(590/max(1, right-left), 300/max(1, bottom-top))
-	g.mapOrigin = sim.Point{X: 80 + (590-(right-left)*g.mapScale)/2 - left*g.mapScale, Y: 165 + (300-(bottom-top)*g.mapScale)/2 - top*g.mapScale}
+	key := networkCacheKey{epoch: g.state.Epoch, generation: g.state.Generation}
+	if g.camera.initialized && g.cameraKey.epoch == key.epoch && g.cameraKey.generation == key.generation {
+		return
+	}
+	g.camera.fit(worldBounds{left: left, top: top, right: right, bottom: bottom})
+	g.cameraKey = key
+	g.syncCamera()
 }
 
 func (g *Game) normalizeSelection() {

@@ -1,0 +1,197 @@
+package view
+
+import (
+	"math"
+	"testing"
+
+	"github.com/dotwaffle/podsim/internal/session"
+	"github.com/dotwaffle/podsim/internal/sim"
+)
+
+func TestMapCameraZoomKeepsCursorWorldPoint(t *testing.T) {
+	t.Parallel()
+	camera := fittedTestCamera()
+	cursor := sim.Point{X: 311, Y: 287}
+	want := camera.worldPoint(cursor)
+
+	if !camera.zoomAt(cursor, 2) {
+		t.Fatal("zoom did not change camera")
+	}
+	got := camera.worldPoint(cursor)
+	if !closePoint(got, want) {
+		t.Fatalf("world point under cursor moved: got %+v, want %+v", got, want)
+	}
+}
+
+func TestMapCameraMutationGuards(t *testing.T) {
+	t.Parallel()
+	tests := []struct {
+		name string
+		run  func(*mapCamera) bool
+	}{
+		{name: "minimum zoom", run: func(camera *mapCamera) bool {
+			camera.zoomAt(sim.Point{X: 300, Y: 300}, 0.0001)
+			return camera.scale == camera.minScale
+		}},
+		{name: "maximum zoom", run: func(camera *mapCamera) bool {
+			camera.zoomAt(sim.Point{X: 300, Y: 300}, 1000)
+			return camera.scale == camera.maxScale
+		}},
+		{name: "horizontal pan bound", run: func(camera *mapCamera) bool {
+			camera.zoomAt(sim.Point{X: 300, Y: 300}, 4)
+			camera.pan(sim.Point{X: 1e6})
+			return camera.screenPoint(sim.Point{X: camera.world.left}).X == float64(mapViewport.Min.X+mapPanMargin)
+		}},
+		{name: "vertical pan bound", run: func(camera *mapCamera) bool {
+			camera.zoomAt(sim.Point{X: 300, Y: 300}, 8)
+			camera.pan(sim.Point{Y: -1e6})
+			return camera.screenPoint(sim.Point{Y: camera.world.bottom}).Y == float64(mapViewport.Max.Y-mapPanMargin)
+		}},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			camera := fittedTestCamera()
+			if !test.run(&camera) {
+				t.Fatal("camera invariant failed")
+			}
+		})
+	}
+}
+
+func TestMapCameraDragThresholdSuppressesClick(t *testing.T) {
+	t.Parallel()
+	tests := []struct {
+		name  string
+		move  sim.Point
+		click bool
+	}{
+		{name: "stationary click", move: sim.Point{X: 102, Y: 102}, click: true},
+		{name: "small jitter", move: sim.Point{X: 104, Y: 102}, click: true},
+		{name: "drag", move: sim.Point{X: 108, Y: 102}, click: false},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			camera := fittedTestCamera()
+			camera.beginDrag(sim.Point{X: 102, Y: 102})
+			camera.drag(test.move)
+			if got := camera.endDrag(); got != test.click {
+				t.Fatalf("click = %t, want %t", got, test.click)
+			}
+		})
+	}
+}
+
+func TestGameCameraWiring(t *testing.T) {
+	t.Parallel()
+	tests := []struct {
+		name string
+		run  func(*testing.T)
+	}{
+		{name: "camera change invalidates base cache", run: func(t *testing.T) {
+			t.Helper()
+			game := cameraTestGame()
+			game.networkBaseValid = true
+			game.camera.zoomAt(sim.Point{X: 300, Y: 300}, 2)
+			game.syncCamera()
+			if game.networkBaseValid {
+				t.Fatal("camera change kept stale base cache")
+			}
+		}},
+		{name: "outside map cannot select pod", run: func(t *testing.T) {
+			t.Helper()
+			game := cameraTestGame()
+			target := game.state.Simulation.Vehicles[1].Pod.Position
+			game.camera.origin = sim.Point{X: 10 - target.X*game.camera.scale, Y: 10 - target.Y*game.camera.scale}
+			game.syncCamera()
+			game.click(sim.Point{X: 10, Y: 10})
+			if game.selected != 0 {
+				t.Fatalf("selected pod %d outside map", game.selected)
+			}
+		}},
+		{name: "selection follows zoom and pan", run: func(t *testing.T) {
+			t.Helper()
+			game := cameraTestGame()
+			game.camera.zoomAt(sim.Point{X: 300, Y: 300}, 3)
+			game.camera.pan(sim.Point{X: -80, Y: 30})
+			game.syncCamera()
+			game.click(game.mapPoint(game.state.Simulation.Vehicles[1].Pod.Position))
+			if game.selected != 1 {
+				t.Fatalf("selected pod %d, want 1", game.selected)
+			}
+		}},
+		{name: "berths reveal with screen spacing", run: func(t *testing.T) {
+			t.Helper()
+			game := cameraTestGame()
+			station := game.network.Stations[0]
+			game.mapScale = 1
+			if game.showStationBerths(station) {
+				t.Fatal("showed overlapping berth details")
+			}
+			game.mapScale = 4
+			if !game.showStationBerths(station) {
+				t.Fatal("kept spaced berth details collapsed")
+			}
+		}},
+	}
+	for _, test := range tests {
+		t.Run(test.name, test.run)
+	}
+}
+
+func cameraTestGame() *Game {
+	network := sim.Network{
+		Nodes: []sim.Node{
+			{ID: "b1", Position: sim.Point{X: 100, Y: 100}},
+			{ID: "b2", Position: sim.Point{X: 110, Y: 100}},
+			{ID: "far", Position: sim.Point{X: 800, Y: 500}},
+		},
+		Stations: []sim.Station{{ID: "parking", Name: "Parking", ParkingOnly: true, Berths: []sim.Berth{{ID: "1", Node: "b1"}, {ID: "2", Node: "b2"}}}},
+	}
+	game := &Game{
+		network: network,
+		state: session.State{Simulation: sim.Snapshot{Vehicles: []sim.Vehicle{
+			{Pod: sim.Pod{ID: "01", Position: sim.Point{X: 100, Y: 100}}},
+			{Pod: sim.Pod{ID: "02", Position: sim.Point{X: 500, Y: 300}, Activity: sim.Traveling}},
+		}}},
+	}
+	game.camera.fit(worldBounds{left: 100, top: 100, right: 800, bottom: 500})
+	game.syncCamera()
+	return game
+}
+
+func fittedTestCamera() mapCamera {
+	var camera mapCamera
+	camera.fit(worldBounds{left: -100, top: -50, right: 900, bottom: 550})
+	return camera
+}
+
+func closePoint(a, b sim.Point) bool {
+	return math.Abs(a.X-b.X) < 1e-9 && math.Abs(a.Y-b.Y) < 1e-9
+}
+
+func TestWheelZoomFactor(t *testing.T) {
+	t.Parallel()
+	tests := []struct {
+		name   string
+		delta  float64
+		pixels bool
+		steps  float64
+	}{
+		{name: "native step", delta: 1, steps: 1},
+		{name: "browser step", delta: 100, pixels: true, steps: 1},
+		{name: "browser trackpad", delta: 10, pixels: true, steps: .1},
+		{name: "large scroll", delta: 600, pixels: true, steps: 3},
+		{name: "reverse scroll", delta: -600, pixels: true, steps: -3},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			got := wheelZoomFactor(test.delta, test.pixels)
+			if want := math.Pow(mapZoomStep, test.steps); math.Abs(got-want) > 1e-9 {
+				t.Fatalf("factor %g, want %g", got, want)
+			}
+		})
+	}
+}
