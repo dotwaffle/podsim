@@ -2,13 +2,15 @@
 
 These measurements use Go 1.27.1 on a Ryzen 5 3600 with 12 logical CPUs and Debian 13.
 They compare the accepted `0f8f10f` baseline with the changes documented here.
+The recorded scale measurements use the ring fixture from `fe8fbe7`, before the mesh and map-navigation changes.
 Run the commands below to repeat the checks on another machine.
 [Recorded performance samples](measurements/performance.json) retain the individual timing and size measurements.
 
 ## Scale and safety
 
-The generated `scale100` scenario has 20 stations, including one parking station, and 100 pods in 138 berths.
-The network has 316 lanes, including 276 curves.
+The measured ring fixture has 20 stations, including one parking station, and 100 pods in 138 berths.
+That network has 316 lanes, including 276 curves.
+The `scale100` preset now uses a directed mesh. The performance benchmark retains the ring fixture for comparison.
 
 | Check | Result |
 | --- | --- |
@@ -130,7 +132,9 @@ Static-track caching increased that median to 18.9 FPS in fresh SwiftShader runs
 Moving 100-pod runs at 1x and 8x sampled about 11 to 19 FPS.
 The server advanced at about 59 and 445 simulation ticks per wall second, respectively.
 These software-rendered results do not establish frame rates on a physical client GPU.
-The 100-pod fixture still has overlapping map labels. Sidebar inspection and paged station controls remain available.
+The later navigation update adds pointer-centered zoom, drag pan, and Fit controls.
+At overview scale, crowded stations use one marker and an occupancy count. Individual berths appear when their screen spacing permits.
+Map drawing stays inside the viewport. Camera changes invalidate cached tracks and do not change the shared session.
 Pod selectors and map labels use compact fleet numbers, with the full ID retained in inspection.
 
 Browser tests compared an applied project's cached image with a fresh render of that project.
@@ -165,3 +169,18 @@ The automated gate runs race tests, editor tests, lint, vet, vulnerability check
 Browser acceptance also covers editing, undo and redo, background calibration, import and export, apply, stale conflicts, and visible WASM rendering.
 A known stale save no longer pauses another browser's running simulation.
 Malformed imports preserve the current draft.
+
+## Mesh and navigation follow-up
+
+The revised scale preset has a four-row, five-column grid with directed streets and explicit junctions.
+Station spurs keep stopped pods outside through traffic. Interior junctions provide alternate routes.
+Capacity remains 100 pods and 138 berths, including one parking station with 24 berths.
+
+Mesh qualification checks 20 scheduled journeys over a maximum of 20 simulated minutes.
+A separate 180-second dense window checks pod separation every tick.
+Geometry checks reject crossings between unrelated sampled lane segments.
+These checks cover this fixture and demand schedule, not every possible traffic pattern.
+
+Camera tests cover zoom anchoring, limits, drag thresholds, selection, and cache invalidation.
+Browser checks cover wheel zoom, drag pan, Fit, clipping, and unchanged shared-session revision.
+The original ring performance measurements above do not measure the new mesh or camera implementation.

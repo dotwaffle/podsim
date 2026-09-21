@@ -49,6 +49,8 @@ The browser export wraps this object as `scenario` and can also contain a backgr
 - Select **Run traffic demo** to reset and run the supplied merge-and-berth experiment.
 - Select a **Pod** button, or click a pod on the map, to inspect it.
 - Compact fleet numbers match the pod buttons and map. Inspection also shows the full pod ID.
+- Scroll over the map to zoom at the pointer. Drag the map to pan. Use **Fit** to show the whole network.
+- Map navigation stays local to your browser. Zoom in to see individual berths in crowded stations.
 - Select **From** and **To**, then **Request journey**. Pod selection affects inspection only.
 - An idle local pod serves the request. Otherwise, the nearest available empty pod comes to collect the passenger.
 - Requests wait when no pod is available. Open **Orders** to see queued and active journeys and their status.
@@ -150,7 +152,8 @@ mise run serve -- -project /tmp/podsim-scale100.json
 ```
 
 Presets include `small`, `busy`, `parking-constrained`, and `scale100`.
-The scale preset has 19 passenger stations, one parking station, 138 berths, and 100 pods.
+The scale preset uses a connected grid with alternate routes and explicit junctions.
+It has 19 passenger stations, one parking station, 138 berths, and 100 pods.
 Demand starts disabled. Configure and start it from the Demand panel.
 Generated files contain raw server settings. The editor can export the loaded scenario with optional local background data.
 See [qualification results](docs/qualification.md) for safety checks, performance measurements, and redistribution limits.
