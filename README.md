@@ -149,12 +149,15 @@ Run the same seeded demand schedule with redistribution off and on:
 mise run compare -- -seed 7 -duration 10m -request-every 60s
 ```
 
-The report compares average and maximum pickup wait, completed and remaining journeys, empty travel, and positioning moves.
+The report compares average and maximum pickup wait, completed and remaining journeys,
+passenger and empty travel, loaded-distance percentage, and positioning moves.
 The default comparison uses a Market-heavy pickup forecast and identical initial fleets.
 Use `-patterns all -seeds 1,2,3 -loads 30s,45s,60s` for a paired matrix.
 Use `-format json` or `-format csv` to save results, and `-project scenario.json` to test another network.
 Schedule IDs identify the identical requests used for each off/on pair.
-The supported patterns are balanced, destination, hotspot, and bursty-hotspot.
+The supported patterns are balanced, destination, hotspot, bursty-hotspot, and hub-burst.
+Use `-arrivals-for` to stop new requests before the measurement ends.
+Use `-burst-size` to group burst-pattern requests at the same simulated time.
 Pending requests contribute their elapsed wait at the end of the measurement window.
 
 ### Generated scenarios
@@ -166,7 +169,16 @@ mise run scenario -- -preset scale100 -output /tmp/podsim-scale100.json
 mise run serve -- -project /tmp/podsim-scale100.json
 ```
 
-Presets include `small`, `busy`, `parking-constrained`, and `scale100`.
+Presets include `small`, `busy`, `parking-constrained`, `rail-hub`, and `scale100`.
+The rail-hub preset has six passenger stations, 30 pods, six berths per passenger
+station, and 12 parking berths with 12 initial reserve pods.
+It supports the recorded finite-arrival station-capacity experiment:
+
+```sh
+mise run scenario -- -preset rail-hub -output /tmp/podsim-rail-hub.json
+mise run compare -- -project /tmp/podsim-rail-hub.json -pattern hub-burst -duration 30m -arrivals-for 5m -request-every 5s -burst-size 12 -seeds 1,2,3,4,5
+```
+
 The scale preset uses a connected grid with alternate routes and explicit junctions.
 It has 19 passenger stations, one parking station, 138 berths, and 100 pods.
 Each station has separate road connections for arrival and departure, 600 meters apart.

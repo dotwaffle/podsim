@@ -7,8 +7,9 @@ project persistence, manual and automatic demand, pod dispatch, local traffic
 control, inspection, pod following, and fleet-use statistics.
 The server owns one shared simulation session for all connected browsers.
 Optional empty-pod redistribution is available but remains off by default.
-Detailed station maneuvers, protocol compaction, and the experiments in Section 6
-remain later work.
+The first railway-hub capacity experiment is complete.
+Detailed station maneuvers, protocol compaction, and the other experiments in
+Section 6 remain later work.
 See [README.md](README.md) for controls, validation commands, and current model limits.
 
 This document records the project direction, initial feature scope, architecture, effort estimates, and research.
@@ -373,6 +374,14 @@ Then add an alternative route to test congestion-aware routing.
 
 This provides a small, observable experiment before introducing mixed fleets or platoons.
 The sequence is a recommendation, not a committed roadmap.
+
+**Status:** The repeatable railway-hub preset, finite burst schedule, station
+capacity measurements, and advance-positioning comparison are complete.
+The five-seed experiment served all demand with either policy. Advance
+positioning reduced mean pickup wait by about four seconds, added 45.2 km of
+empty travel, and reduced loaded distance from 45.96% to 42.15%.
+See [docs/qualification.md](docs/qualification.md#rail-hub-burst-experiment).
+Same-destination sharing and the alternative-route experiment remain future work.
 
 ## 7. Research and reference tools
 

@@ -89,6 +89,49 @@ The earlier seed-7, 10-minute, 60-second hotspot example still performs worse wi
 | Maximum pickup wait | 139.07 s | 160.73 s |
 | Empty travel | 4,047 m | 5,619 m |
 
+## Rail-hub burst experiment
+
+The `rail-hub` preset has six passenger stations and one parking station.
+Its 30-pod fleet starts with three pods at each passenger station and 12 pods
+in parking. Each passenger station has six berths.
+
+The recorded experiment sends five train-like bursts from the Rail Hub during
+the first five minutes, then allows the network to drain for the rest of a
+30-minute run. The first four bursts contain 12 requests. The last contains 11,
+for 59 requests per run. Five seeds use identical off/on request schedules.
+
+```sh
+mise run scenario -- -preset rail-hub -output /tmp/podsim-rail-hub.json
+mise run compare -- -project /tmp/podsim-rail-hub.json -pattern hub-burst -duration 30m -arrivals-for 5m -request-every 5s -burst-size 12 -seeds 1,2,3,4,5 -format csv -output docs/measurements/rail-hub.csv
+```
+
+[Recorded rail-hub runs](measurements/rail-hub.csv) include the station queue,
+berth, wait, clearance, passenger-distance, empty-distance, and positioning
+measurements for every arm. Station peaks are sampled once per simulated second
+and immediately after each request burst.
+
+| Five-seed mean | Redistribution off | Redistribution on | On minus off |
+| --- | ---: | ---: | ---: |
+| Served requests | 59 | 59 | 0 |
+| Average pickup wait | 532.29 s | 528.32 s | -3.97 s |
+| Maximum pickup wait | 1053.65 s | 1056.02 s | +2.37 s |
+| Queue clearance after final arrival | 1054.0 s | 1056.4 s | +2.4 s |
+| Passenger distance | 230.5 km | 230.4 km | -0.1 km |
+| Empty distance | 271.0 km | 316.2 km | +45.2 km |
+| Loaded distance | 45.96% | 42.15% | -3.81 points |
+| Positioning moves | 0.0 | 16.2 | +16.2 |
+
+Both policies served every request. Redistribution reduced mean pickup wait by
+about four seconds, but it slightly increased mean maximum wait and queue-clearance
+time. It also added 45.2 km of empty travel and reduced the loaded share of
+distance by 3.81 percentage points. This workload does not justify enabling
+redistribution by default.
+
+A ten-minute arrival window scheduled 119 requests in the same 30-minute run.
+Both policies served 69 and left 50 pending. That overload probe shows why the
+recorded experiment uses a finite five-minute arrival window and reports drain
+time instead of treating an undrained queue as completed capacity.
+
 ## WASM loading
 
 The build now creates `podsim.wasm.gz` with maximum gzip compression.
