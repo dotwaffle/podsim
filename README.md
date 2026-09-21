@@ -4,6 +4,10 @@ A browser playground for personal rapid transit networks, built with Go and Ebit
 
 The supplied scenario starts two pods on a network with three passenger stations and a two-space parking station.
 Use the scenario editor to change the network, fleet, berth capacity, and demand settings.
+
+Select **Download debug state** above the simulation to save a timestamped JSON capture of the current server state.
+It includes the network, pod positions and routes, queues, berth reservations, and demand settings without pausing the run.
+Share this file when reporting congestion or other unexpected behavior. It is a diagnostic capture, not a reloadable project or checkpoint.
 Request journeys or run the supplied four-pod traffic demo to inspect merge and station queues.
 The network includes a branch, a bypass, a merge, and station berths outside the through lanes.
 

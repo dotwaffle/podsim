@@ -7,13 +7,51 @@
   <style>
     html, body { margin: 0; width: 100%; height: 100%; overflow: hidden; background: #0b121a; }
     body { display: flex; flex-direction: column; }
-    nav { height: 40px; flex: none; display: flex; align-items: center; justify-content: flex-end; padding: 0 12px; }
+    nav { height: 40px; flex: none; display: flex; align-items: center; justify-content: flex-end; gap: 8px; padding: 0 12px; }
     iframe { border: 0; width: 100%; flex: 1; min-height: 0; }
-    a { padding: 4px 10px; border: 1px solid #345064; border-radius: 7px; background: #101d28e8; color: #9fe4eb; font: 13px system-ui, sans-serif; text-decoration: none; }
+    a, button { flex: none; padding: 4px 10px; border: 1px solid #345064; border-radius: 7px; background: #101d28e8; color: #9fe4eb; font: 13px system-ui, sans-serif; text-decoration: none; cursor: pointer; }
+    button:disabled { opacity: .6; cursor: wait; }
+    #debugStatus { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #9fb4c5; font: 13px system-ui, sans-serif; }
   </style>
 </head>
 <body>
-  <nav aria-label="Scenario tools"><a href="editor.html">Edit scenario</a></nav>
+  <nav aria-label="Scenario tools">
+    <span id="debugStatus" role="status"></span>
+    <button id="debugButton" type="button" title="Save the current run for debugging. This capture cannot be reloaded.">Download debug state</button>
+    <a href="editor.html">Edit scenario</a>
+  </nav>
   <iframe src="game.html" title="Podsim interactive network simulation"></iframe>
+  <script>
+    document.getElementById("debugButton").addEventListener("click", async () => {
+      const button = document.getElementById("debugButton");
+      const status = document.getElementById("debugStatus");
+      const requestedAt = new Date().toISOString();
+      button.disabled = true;
+      status.textContent = "Capturing…";
+      try {
+        const response = await fetch("/api/state", { cache: "no-store", signal: AbortSignal.timeout(15000) });
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        const state = await response.json();
+        if (!state.network || !state.simulation || !Number.isSafeInteger(state.simulation.Tick)) {
+          throw new Error("Invalid server state");
+        }
+        const capture = { ...state, debugCapture: { version: 1, requestedAt, receivedAt: new Date().toISOString() } };
+        const url = URL.createObjectURL(new Blob([JSON.stringify(capture, null, 2)], { type: "application/json" }));
+        const link = document.createElement("a");
+        link.href = url;
+        link.download = `podsim-debug-${requestedAt.replace(/[:.]/g, "-")}-tick-${state.simulation.Tick}.json`;
+        document.body.append(link);
+        link.click();
+        link.remove();
+        setTimeout(() => URL.revokeObjectURL(url), 1000);
+        status.textContent = `Debug state downloaded: tick ${state.simulation.Tick}.`;
+      } catch (error) {
+        status.textContent = `Capture failed. ${error.message}. Try again.`;
+      } finally {
+        button.disabled = false;
+        status.title = status.textContent;
+      }
+    });
+  </script>
 </body>
 </html>
