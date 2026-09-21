@@ -125,8 +125,11 @@ func TestMotionIgnoresDuplicateAndOldRevisions(t *testing.T) {
 	for i := 1; i <= 100; i++ {
 		motion.Observe(motionState(int64(i), float64(i)*.1), start.Add(time.Duration(i)*50*time.Millisecond))
 	}
-	if len(motion.frames) > 32 {
-		t.Fatal("unbounded motion buffer")
+	if len(motion.frames) != maxMotionFrames {
+		t.Fatalf("motion buffer has %d frames, want %d", len(motion.frames), maxMotionFrames)
+	}
+	if got := motion.Sample(start.Add(5 * time.Second)).Vehicles[0].Pod.Position.X; math.Abs(got-9.7) > 1e-9 {
+		t.Fatalf("motion after buffer rollover = %v, want 9.7", got)
 	}
 	motion.Observe(state, start.Add(6*time.Second))
 	if motion.frames[len(motion.frames)-1].state.Simulation.Tick != 100 {
