@@ -770,6 +770,16 @@
     }
   }
 
+  async function runExampleSequence() {
+    const button = $("#demoButton"); button.disabled = true;
+    try {
+      await postCommand({ action: "demo" });
+      toast("The example sequence started. Return to the simulation to view it.");
+    } catch (error) {
+      toast(`The example sequence could not start. ${error.message}`, true);
+    } finally { button.disabled = false; }
+  }
+
   async function applyProject() {
     const errors = runValidation(); if (errors.length) { toast("Fix the listed problems before you apply the scenario.", true); return; }
     const button = $("#applyButton"); button.disabled = true; button.textContent = "Pausing…";
@@ -853,6 +863,7 @@
     $("#undoButton").addEventListener("click", () => { if (state.history.undo()) { state.selection = null; render(); } });
     $("#redoButton").addEventListener("click", () => { if (state.history.redo()) { state.selection = null; render(); } });
     $("#resetButton").addEventListener("click", () => { if (!state.loaded) return; state.history.replace(state.loaded); state.background = state.loaded.background ? clone(state.loaded.background) : null; state.selection = null; render(); fitNetwork(); toast("The draft matches the last loaded project."); });
+    $("#demoButton").addEventListener("click", runExampleSequence);
     $("#validateButton").addEventListener("click", runValidation); $("#applyButton").addEventListener("click", applyProject);
     $("#exportButton").addEventListener("click", exportProject); $("#projectImport").addEventListener("change", (event) => { importProject(event.target.files[0]); event.target.value = ""; });
     $("#backgroundImport").addEventListener("change", (event) => { importBackground(event.target.files[0]); event.target.value = ""; });
