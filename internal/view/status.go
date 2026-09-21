@@ -21,9 +21,9 @@ const (
 func (purpose podPurpose) color() uint32 {
 	switch purpose {
 	case purposePickup:
-		return 0x62cce6
+		return 0x579dff
 	case purposePassengers:
-		return accent
+		return 0x76df70
 	case purposeParking:
 		return 0xb6a0ff
 	case purposeRedistribution:
