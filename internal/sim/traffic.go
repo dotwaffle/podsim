@@ -11,6 +11,7 @@ const (
 	berthResource resourceKind = iota
 	nodeResource
 	trackResource
+	junctionResource
 )
 
 type resource struct {
@@ -27,8 +28,16 @@ type block struct {
 	last       bool
 }
 
+type laneConflict struct {
+	junction   string
+	start, end float64
+}
+
 // routeBlocks uses the same cell boundaries for every route through a lane.
 func (s *Simulation) routeBlocks(route []Lane) []block {
+	if s.junctionConflicts == nil {
+		s.junctionConflicts = buildJunctionConflicts(s.network)
+	}
 	var blocks []block
 	distance := 0.0
 	for _, lane := range route {
@@ -48,6 +57,13 @@ func (s *Simulation) routeBlocks(route []Lane) []block {
 			}
 			if b.last {
 				b.resources = append(b.resources, resource{kind: nodeResource, id: lane.To})
+			}
+			for _, conflict := range s.junctionConflicts[lane.ID] {
+				laneEnd := b.end - b.laneStart
+				laneStart := b.start - b.laneStart
+				if laneStart < conflict.end && conflict.start < laneEnd {
+					b.resources = append(b.resources, resource{kind: junctionResource, id: conflict.junction})
+				}
 			}
 			b.resources = append(b.resources, resource{kind: trackResource, id: lane.ID, cell: cell})
 			blocks = append(blocks, b)
@@ -111,11 +127,7 @@ func (s *Simulation) admit() {
 
 func (s *Simulation) grant(in intent) {
 	v := &s.vehicles[in.index]
-	through := in.block
-	// Acquire a junction and its downstream cell together. Never wait inside a junction for its exit cell.
-	if v.blocks[through].last && through+1 < len(v.blocks) {
-		through++
-	}
+	through := reservationEnd(v.blocks, in.block)
 	for _, b := range v.blocks[in.block : through+1] {
 		for _, r := range b.resources {
 			if owner := s.owners[r]; owner != "" && owner != v.Pod.ID {
@@ -124,6 +136,8 @@ func (s *Simulation) grant(in intent) {
 				case berthResource:
 					v.Pod.WaitReason = BerthOccupied
 				case nodeResource:
+					v.Pod.WaitReason = JunctionOccupied
+				case junctionResource:
 					v.Pod.WaitReason = JunctionOccupied
 				case trackResource:
 					v.Pod.WaitReason = TrackOccupied
@@ -139,6 +153,26 @@ func (s *Simulation) grant(in intent) {
 	}
 	v.reservedThrough = through
 	v.pending = -1
+}
+
+// reservationEnd reserves each contiguous conflict zone as one movement.
+// A lane endpoint also needs its downstream cell before admission.
+func reservationEnd(blocks []block, start int) int {
+	through := start
+	for i := start; i <= through; i++ {
+		if blocks[i].last && i+1 < len(blocks) {
+			through = max(through, i+1)
+		}
+		for _, r := range blocks[i].resources {
+			if r.kind != junctionResource {
+				continue
+			}
+			for j := i + 1; j < len(blocks) && slices.Contains(blocks[j].resources, r); j++ {
+				through = max(through, j)
+			}
+		}
+	}
+	return through
 }
 
 func (s *Simulation) move(v *vehicle) {
@@ -199,6 +233,10 @@ func (s *Simulation) retainResources(v *vehicle, keep map[resource]bool) {
 			}
 			for _, r := range b.resources {
 				clearAt := b.end + Clearance
+				// Conflict extents already include physical clearance.
+				if r.kind == junctionResource {
+					clearAt = b.end
+				}
 				// A departure clears the node before it clears the first downstream cell.
 				if r.kind == nodeResource && r.id == b.lane.From {
 					clearAt = b.start + Clearance

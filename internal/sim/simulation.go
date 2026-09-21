@@ -154,6 +154,7 @@ type Simulation struct {
 	initial                      []Placement
 	vehicles                     []vehicle
 	owners                       map[resource]string
+	junctionConflicts            map[string][]laneConflict
 	tick                         int64
 	paused                       bool
 	completed, requestID         int

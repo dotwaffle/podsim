@@ -238,3 +238,43 @@ func checkScaleSafety(t *testing.T, state sim.Snapshot) {
 		}
 	}
 }
+
+// Check every tick, including the final empty moves after passenger delivery.
+func TestScale100Station19QueueDrainsSafely(t *testing.T) {
+	config := Scale100()
+	simulation := newSimulation(t, config)
+	var origins []string
+	for _, station := range config.Network.Stations {
+		if !station.ParkingOnly && station.ID != "station-19" {
+			origins = append(origins, station.ID)
+		}
+	}
+	const orders = 40
+	submitted := 0
+	for tick := range 2400 * sim.TicksPerSecond {
+		if submitted < orders && tick%(15*sim.TicksPerSecond) == 0 {
+			if err := simulation.RequestTrip(origins[submitted%len(origins)], "station-19"); err != nil {
+				t.Fatal(err)
+			}
+			submitted++
+		}
+		simulation.Step()
+		state := simulation.Snapshot()
+		checkScaleSafety(t, state)
+		if state.Completed != orders || len(state.Pending) != 0 {
+			continue
+		}
+		settled := true
+		for _, v := range state.Vehicles {
+			if v.Pod.Activity != sim.Idle {
+				settled = false
+			}
+		}
+		if settled {
+			t.Logf("%d Station 19 orders complete, %d pods idle after %.1fs", orders, len(state.Vehicles), float64(state.Tick)/sim.TicksPerSecond)
+			return
+		}
+	}
+	state := simulation.Snapshot()
+	t.Fatalf("Station 19 queue did not drain: completed=%d submitted=%d", state.Completed, submitted)
+}

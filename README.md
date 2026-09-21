@@ -189,7 +189,11 @@ They extend reservations to cover the stopping distance at the lane speed plus t
 On clear track, this allows steady cruising at 14 m/s across block boundaries.
 The local controller divides lanes into exclusive blocks of up to 30 meters.
 It retains trailing blocks until a four-meter pod and eight-meter gap have cleared.
-Each junction has one conflict resource, acquired together with downstream space.
+Each junction has one conflict resource for nearby sections of its incident lanes.
+The controller derives these sections from the same geometry used for movement, including the 12-meter clearance.
+It acquires each continuous conflict section together, including downstream cells needed to cross lane endpoints.
+It releases the conflict resource after the pod reaches the end of that section.
+Before admission reaches a terminal inlet, the controller can choose a free berth on another direct branch.
 The oldest local admission request wins, with pod ID as the tie-breaker.
 Admission uses the state before movement. Released resources become available on the next tick.
 

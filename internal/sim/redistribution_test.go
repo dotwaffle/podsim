@@ -191,6 +191,7 @@ func TestPassengerDispatchSpreadsConcurrentArrivals(t *testing.T) {
 }
 
 func addMarketBerth(s *Simulation) {
+	s.junctionConflicts = nil
 	s.network.Nodes = append(s.network.Nodes, Node{ID: "market-berth-2", Position: Point{X: 760, Y: 250}})
 	s.network.Lanes = append(s.network.Lanes,
 		Lane{ID: "market-in-2", From: "market-entry", To: "market-berth-2", SpeedLimit: 14},

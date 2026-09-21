@@ -6,11 +6,15 @@ import "slices"
 // final branch. Existing track ownership and movement state remain unchanged.
 func (s *Simulation) reevaluateTerminalBerth(v *vehicle) {
 	next := v.reservedThrough + 1
-	if next < 0 || next+1 >= len(v.blocks) || !v.blocks[next].last || v.blocks[next+1].cell != 0 {
+	if next < 0 || next >= len(v.blocks) || len(v.Route) == 0 {
 		return
 	}
 	terminal := v.Route[len(v.Route)-1]
-	if v.blocks[next+1].lane.ID != terminal.ID {
+	first := len(v.blocks) - 1
+	for first > 0 && v.blocks[first-1].lane.ID == terminal.ID {
+		first--
+	}
+	if first <= v.reservedThrough || first > reservationEnd(v.blocks, next) {
 		return
 	}
 	passenger := v.Pod.Occupied || v.Pod.Activity == Boarding && v.Request != nil || s.assigned(v.Pod.ID)
@@ -32,7 +36,7 @@ func (s *Simulation) reevaluateTerminalBerth(v *vehicle) {
 		}
 		route := append(slices.Clone(v.Route[:len(v.Route)-1]), suffix...)
 		blocks := s.routeBlocks(route)
-		if next+1 >= len(blocks) || blocks[next].lane.ID != v.blocks[next].lane.ID || blocks[next+1].lane.ID != suffix[0].ID {
+		if first >= len(blocks) || blocks[first].lane.ID != suffix[0].ID {
 			continue
 		}
 		v.Route, v.blocks, v.destination = route, blocks, berth
