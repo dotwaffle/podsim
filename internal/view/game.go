@@ -31,6 +31,7 @@ const (
 	accent        = 0x6de5c1
 	track         = 0x354b5e
 	amber         = 0xf3c479
+	detailedLanes = 100
 )
 
 // Game owns presentation state and submits commands to the simulation.
@@ -48,6 +49,9 @@ type Game struct {
 	stationPage, podPage int
 	mapScale             float64
 	mapOrigin            sim.Point
+	networkBase          *ebiten.Image
+	networkBaseKey       networkCacheKey
+	networkBaseValid     bool
 	showOrders           bool
 	notice               string
 	noticeTicks          int
@@ -163,7 +167,7 @@ func (g *Game) buttons() []button {
 		if i/6 != g.podPage {
 			continue
 		}
-		buttons = append(buttons, button{x: 810 + float64((i%6)*36), y: 393, w: 32, h: 34, label: v.Pod.ID, selected: !g.showOrders && !g.showDemand && g.selected == i, action: "pod/" + v.Pod.ID})
+		buttons = append(buttons, button{x: 810 + float64((i%6)*36), y: 393, w: 32, h: 34, label: fleetPodLabel(i), selected: !g.showOrders && !g.showDemand && g.selected == i, action: "pod/" + v.Pod.ID})
 	}
 	if len(state.Vehicles) > 6 {
 		buttons = append(buttons, button{x: 1026, y: 393, w: 34, h: 34, label: ">", action: "pods-next"})
@@ -293,36 +297,21 @@ func (g *Game) mapPoint(p sim.Point) sim.Point {
 func (g *Game) drawNetwork(screen *ebiten.Image, state sim.Snapshot) {
 	g.label(screen, label{x: 44, y: 113, size: 12, value: "NETWORK", color: muted})
 	g.label(screen, label{x: 520, y: 113, size: 12, value: "ONE-WAY LANES  /  METERS", color: muted})
-	active := make(map[string]bool)
-	if state.Vehicles[g.selected].Pod.Activity != sim.Idle {
-		for _, lane := range state.Vehicles[g.selected].Route {
-			active[lane.ID] = true
-		}
+	detailed := len(g.network.Lanes) <= detailedLanes
+	if detailed {
+		g.releaseNetworkBase()
+		g.drawBaseNetwork(screen, true)
+	} else {
+		g.drawCachedNetworkBase(screen)
 	}
-	for _, lane := range g.network.Lanes {
-		shade := uint32(track)
-		if active[lane.ID] {
-			shade = podColor(state.Vehicles[g.selected].Pod.ID)
+	selected := state.Vehicles[g.selected]
+	if selected.Pod.Activity != sim.Idle {
+		shade := podColor(selected.Pod.ID)
+		for _, lane := range selected.Route {
+			geometry := g.laneGeometry(lane, detailed)
+			geometry.draw(screen, laneStroke{width: 2, color: shade, antialias: detailed})
+			drawArrow(screen, arrow{from: geometry.arrowFrom, to: geometry.arrowTo, color: shade, antialias: detailed})
 		}
-		length := g.network.Length(lane)
-		segments := 1
-		if lane.Control != nil {
-			segments = 32
-		}
-		from := g.mapPoint(g.network.Position(lane, 0))
-		for i := 1; i <= segments; i++ {
-			to := g.mapPoint(g.network.Position(lane, length*float64(i)/float64(segments)))
-			vector.StrokeLine(screen, float32(from.X), float32(from.Y), float32(to.X), float32(to.Y), 5, rgb(track), true)
-			if active[lane.ID] {
-				vector.StrokeLine(screen, float32(from.X), float32(from.Y), float32(to.X), float32(to.Y), 2, rgb(shade), true)
-			}
-			from = to
-		}
-		drawArrow(screen, arrow{from: g.mapPoint(g.network.Position(lane, length*.55)), to: g.mapPoint(g.network.Position(lane, length*.65)), color: shade})
-	}
-	for _, node := range g.network.Nodes {
-		p := g.mapPoint(node.Position)
-		vector.FillCircle(screen, float32(p.X), float32(p.Y), 3, rgb(muted), true)
 	}
 	for _, station := range g.network.Stations {
 		occupied, reserved := 0, 0
@@ -336,7 +325,7 @@ func (g *Game) drawNetwork(screen *ebiten.Image, state sim.Snapshot) {
 					shade = podColor(v.Pod.ID)
 				}
 			}
-			vector.StrokeCircle(screen, float32(p.X), float32(p.Y), 13, 2, rgb(shade), true)
+			vector.StrokeCircle(screen, float32(p.X), float32(p.Y), 13, 2, rgb(shade), detailed)
 			name := station.Name
 			labelX, labelY := p.X-26, p.Y+20
 			if station.ParkingOnly || len(station.Berths) > 1 {
@@ -384,19 +373,123 @@ func (g *Game) drawNetwork(screen *ebiten.Image, state sim.Snapshot) {
 			shade = amber
 		}
 		if i == g.selected {
-			vector.StrokeCircle(screen, float32(p.X), float32(p.Y), 9, 1.5, rgb(shade), true)
+			vector.StrokeCircle(screen, float32(p.X), float32(p.Y), 9, 1.5, rgb(shade), detailed)
 		}
-		vector.FillCircle(screen, float32(p.X), float32(p.Y), 4, rgb(shade), true)
-		g.label(screen, label{x: p.X + 11, y: p.Y - 18, size: 11, value: v.Pod.ID, color: shade})
+		vector.FillCircle(screen, float32(p.X), float32(p.Y), 4, rgb(shade), detailed)
+		g.label(screen, label{x: p.X + 11, y: p.Y - 18, size: 11, value: fleetPodLabel(i), color: shade})
 	}
-	vector.StrokeLine(screen, 48, 540, 125, 540, 2, rgb(muted), true)
+	vector.StrokeLine(screen, 48, 540, 125, 540, 2, rgb(muted), detailed)
 	g.label(screen, label{x: 141, y: 531, size: 12, value: fmt.Sprintf("%.0f m", 77/g.mapScale), color: muted})
 	g.label(screen, label{x: 433, y: 531, size: 12, value: "Selected pod and route highlighted", color: muted})
 }
 
+type networkCacheKey struct {
+	epoch      string
+	generation uint64
+}
+
+type laneGeometry struct {
+	points             [33]sim.Point
+	count              int
+	arrowFrom, arrowTo sim.Point
+}
+
+type laneStroke struct {
+	width     float32
+	color     uint32
+	antialias bool
+}
+
+func (geometry laneGeometry) draw(screen *ebiten.Image, stroke laneStroke) {
+	for i := 1; i < geometry.count; i++ {
+		from, to := geometry.points[i-1], geometry.points[i]
+		vector.StrokeLine(screen, float32(from.X), float32(from.Y), float32(to.X), float32(to.Y), stroke.width, rgb(stroke.color), stroke.antialias)
+	}
+}
+
+func (g *Game) laneGeometry(lane sim.Lane, detailed bool) laneGeometry {
+	fromNode, _ := g.network.Node(lane.From)
+	toNode, _ := g.network.Node(lane.To)
+	position := func(t float64) sim.Point {
+		if lane.Control == nil {
+			return sim.Point{X: fromNode.Position.X + (toNode.Position.X-fromNode.Position.X)*t, Y: fromNode.Position.Y + (toNode.Position.Y-fromNode.Position.Y)*t}
+		}
+		u := 1 - t
+		return sim.Point{X: u*u*fromNode.Position.X + 2*u*t*lane.Control.X + t*t*toNode.Position.X, Y: u*u*fromNode.Position.Y + 2*u*t*lane.Control.Y + t*t*toNode.Position.Y}
+	}
+	segments := 1
+	if lane.Control != nil {
+		segments = 32
+		if !detailed {
+			extent := math.Hypot(lane.Control.X-fromNode.Position.X, lane.Control.Y-fromNode.Position.Y) + math.Hypot(toNode.Position.X-lane.Control.X, toNode.Position.Y-lane.Control.Y)
+			segments = min(32, max(4, int(math.Ceil(extent*g.mapScale/8))))
+		}
+	}
+	length := 0.0
+	if detailed {
+		length = g.network.Length(lane)
+	}
+	geometry := laneGeometry{count: segments + 1}
+	for i := 0; i <= segments; i++ {
+		point := position(float64(i) / float64(segments))
+		if detailed {
+			point = g.network.Position(lane, length*float64(i)/float64(segments))
+		}
+		geometry.points[i] = g.mapPoint(point)
+	}
+	geometry.arrowFrom, geometry.arrowTo = g.mapPoint(position(.55)), g.mapPoint(position(.65))
+	if detailed {
+		geometry.arrowFrom = g.mapPoint(g.network.Position(lane, length*.55))
+		geometry.arrowTo = g.mapPoint(g.network.Position(lane, length*.65))
+	}
+	return geometry
+}
+
+func (g *Game) drawBaseNetwork(screen *ebiten.Image, detailed bool) {
+	for _, lane := range g.network.Lanes {
+		geometry := g.laneGeometry(lane, detailed)
+		geometry.draw(screen, laneStroke{width: 5, color: track, antialias: detailed})
+		drawArrow(screen, arrow{from: geometry.arrowFrom, to: geometry.arrowTo, color: track, antialias: detailed})
+	}
+	for _, node := range g.network.Nodes {
+		point := g.mapPoint(node.Position)
+		vector.FillCircle(screen, float32(point.X), float32(point.Y), 3, rgb(muted), detailed)
+	}
+}
+
+func (g *Game) drawCachedNetworkBase(screen *ebiten.Image) {
+	key := networkCacheKey{epoch: g.state.Epoch, generation: g.state.Generation}
+	if g.networkBase == nil {
+		g.networkBase = ebiten.NewImage(width, height)
+	}
+	if g.networkBaseNeedsRefresh() {
+		g.networkBase.Clear()
+		g.drawBaseNetwork(g.networkBase, false)
+		g.networkBaseKey = key
+		g.networkBaseValid = true
+	}
+	screen.DrawImage(g.networkBase, nil)
+}
+
+func (g *Game) networkBaseNeedsRefresh() bool {
+	key := networkCacheKey{epoch: g.state.Epoch, generation: g.state.Generation}
+	return !g.networkBaseValid || g.networkBaseKey != key
+}
+
+func (g *Game) releaseNetworkBase() {
+	if g.networkBase == nil {
+		return
+	}
+	g.networkBase.Deallocate()
+	g.networkBase = nil
+	g.networkBaseKey = networkCacheKey{}
+	g.networkBaseValid = false
+}
+
 type arrow struct {
-	from, to sim.Point
-	color    uint32
+	from, to  sim.Point
+	color     uint32
+	antialias bool
 }
 
 func drawArrow(screen *ebiten.Image, a arrow) {
@@ -408,12 +501,17 @@ func drawArrow(screen *ebiten.Image, a arrow) {
 	ux, uy := dx/length, dy/length
 	x, y := a.from.X+dx*.6, a.from.Y+dy*.6
 	for _, side := range []float64{-1, 1} {
-		vector.StrokeLine(screen, float32(x), float32(y), float32(x-ux*7+uy*4*side), float32(y-uy*7-ux*4*side), 1.5, rgb(a.color), true)
+		vector.StrokeLine(screen, float32(x), float32(y), float32(x-ux*7+uy*4*side), float32(y-uy*7-ux*4*side), 1.5, rgb(a.color), a.antialias)
 	}
 }
 
 func (g *Game) drawInspection(screen *ebiten.Image, state sim.Snapshot) {
-	g.label(screen, label{x: 816, y: 115, size: 12, value: "POD " + state.Vehicles[g.selected].Pod.ID, color: muted})
+	podID := state.Vehicles[g.selected].Pod.ID
+	podLabel := fleetPodLabel(g.selected)
+	if podID != podLabel {
+		podLabel += " / " + podID
+	}
+	g.label(screen, label{x: 816, y: 115, size: 12, value: "POD " + podLabel, color: muted})
 	g.label(screen, label{x: 816, y: 143, size: 26, value: activityLabel(state.Vehicles[g.selected].Pod), color: podColor(state.Vehicles[g.selected].Pod.ID)})
 	status := "Available for passenger requests."
 	station, _ := g.network.Station(state.Vehicles[g.selected].Pod.StationID)
@@ -471,6 +569,10 @@ func (g *Game) drawInspection(screen *ebiten.Image, state sim.Snapshot) {
 	for i, row := range rows {
 		g.label(screen, label{x: 816, y: 266 + float64(i*31), size: 14, value: row, color: muted})
 	}
+}
+
+func fleetPodLabel(index int) string {
+	return fmt.Sprintf("%02d", index+1)
 }
 
 func (g *Game) drawControls(screen *ebiten.Image, state sim.Snapshot) {
