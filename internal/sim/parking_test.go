@@ -1,6 +1,7 @@
 package sim
 
 import (
+	"fmt"
 	"math"
 	"reflect"
 	"testing"
@@ -132,6 +133,53 @@ func TestPassengerBerthClearingPrefersUntargetedBerth(t *testing.T) {
 			if !s.clearToPassengerBerth(blocker) || blocker.destination.ID != tc.want {
 				t.Fatalf("clearing destination %q, want %q", blocker.destination.ID, tc.want)
 			}
+		})
+	}
+}
+
+func TestPassengerBerthClearingYieldsClaimToPassengerTarget(t *testing.T) {
+	t.Parallel()
+	for _, passengerFirst := range []bool{false, true} {
+		t.Run(fmt.Sprintf("passenger_first_%t", passengerFirst), func(t *testing.T) {
+			t.Parallel()
+			s, err := NewFleet(Example(), []Placement{
+				{ID: "01", StationID: "parking", BerthID: "parking-1"},
+				{ID: "02", StationID: "garden"},
+			})
+			if err != nil {
+				t.Fatal(err)
+			}
+			request := func() {
+				if err := s.RequestJourney("02", "market"); err != nil {
+					t.Fatal(err)
+				}
+			}
+			if passengerFirst {
+				request()
+			}
+			clearing := s.findVehicle("01")
+			destination := Berth{ID: "market-1", Node: "market-berth"}
+			if err := s.startEmptyMove(clearing, emptyDestination{station: "market", berth: destination, reserveBerth: true}); err != nil {
+				t.Fatal(err)
+			}
+			if !passengerFirst {
+				request()
+			}
+			s.Step()
+			for _, claimed := range []resource{{kind: berthResource, id: destination.ID}, {kind: nodeResource, id: destination.Node}} {
+				if s.owners[claimed] == clearing.Pod.ID {
+					t.Fatalf("clearing move kept passenger destination claim %+v", claimed)
+				}
+			}
+			for range 15 * 60 * TicksPerSecond {
+				s.Step()
+				state := s.Snapshot()
+				checkTraffic(t, state)
+				if state.Completed == 1 && state.Vehicles[0].Pod.Activity == Idle && state.Vehicles[1].Pod.Activity == Idle {
+					return
+				}
+			}
+			t.Fatalf("passenger and yielding empty pod did not settle: %+v", s.Snapshot())
 		})
 	}
 }

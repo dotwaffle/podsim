@@ -88,14 +88,14 @@ func TestRedistributionNeverYieldsAdmittedDestination(t *testing.T) {
 	}
 	before := maps.Clone(s.owners)
 	rebalancing.reservedThrough = len(rebalancing.blocks) - 1
-	if !s.redistributionDestinationAdmitted(rebalancing) {
+	if !s.relocationDestinationAdmitted(rebalancing) {
 		t.Fatal("test did not admit the destination block")
 	}
 	// Mark another pod as assigned to the same pickup berth.
 	pickup := s.findVehicle("02")
 	pickup.destination = rebalancing.destination
 	s.waiting = append(s.waiting, waitingTrip{request: Request{ID: 1, From: "market", To: "garden", PodID: "02"}})
-	s.yieldRedistributionClaims()
+	s.yieldRelocationClaims()
 	for claimed, owner := range before {
 		if s.owners[claimed] != owner {
 			t.Fatalf("admitted resource %+v changed owner from %q to %q", claimed, owner, s.owners[claimed])
@@ -112,7 +112,7 @@ func TestRedistributionKeepsClaimForCompletedPassenger(t *testing.T) {
 	completed := s.findVehicle("02")
 	completed.destination = rebalancing.destination
 	completed.Request = &Request{ID: 1, From: "garden", To: "market", Completed: true}
-	s.yieldRedistributionClaims()
+	s.yieldRelocationClaims()
 	if s.owners[claimed] != "01" {
 		t.Fatal("completed passenger caused a remote redistribution claim to yield")
 	}
@@ -132,7 +132,7 @@ func TestRedistributionDoesNotDeleteAnotherPodsClaim(t *testing.T) {
 	} {
 		s.owners[claimed] = "02"
 	}
-	s.yieldRedistributionClaims()
+	s.yieldRelocationClaims()
 	if s.owners[resource{kind: berthResource, id: rebalancing.destination.ID}] != "02" ||
 		s.owners[resource{kind: nodeResource, id: rebalancing.destination.Node}] != "02" {
 		t.Fatal("redistribution deleted another pod's destination claim")

@@ -50,7 +50,7 @@ func (s *Simulation) SetDemandWeights(weights map[string]float64) error {
 }
 
 func (s *Simulation) redistribute() {
-	s.yieldRedistributionClaims()
+	s.yieldRelocationClaims()
 	if !s.redistribution || s.tick < s.nextRedistributionTick || len(s.waiting) > 0 {
 		return
 	}
@@ -77,29 +77,29 @@ func (s *Simulation) redistribute() {
 	}
 }
 
-// yieldRedistributionClaims lets passenger traffic arbitrate a remote berth locally.
-// A pod keeps the claim after admission to the destination block.
-func (s *Simulation) yieldRedistributionClaims() {
+// yieldRelocationClaims lets passenger traffic arbitrate a remote berth locally.
+// An empty pod keeps the claim after admission to the destination block.
+func (s *Simulation) yieldRelocationClaims() {
 	for i := range s.vehicles {
-		rebalancing := &s.vehicles[i]
-		if !rebalancing.Rebalancing || !s.redistributionConflictsWithPassenger(rebalancing) || s.redistributionDestinationAdmitted(rebalancing) {
+		relocating := &s.vehicles[i]
+		if relocating.RelocatingTo == "" || !s.relocationConflictsWithPassenger(relocating) || s.relocationDestinationAdmitted(relocating) {
 			continue
 		}
 		for _, claimed := range []resource{
-			{kind: berthResource, id: rebalancing.destination.ID},
-			{kind: nodeResource, id: rebalancing.destination.Node},
+			{kind: berthResource, id: relocating.destination.ID},
+			{kind: nodeResource, id: relocating.destination.Node},
 		} {
-			if s.owners[claimed] == rebalancing.Pod.ID {
+			if s.owners[claimed] == relocating.Pod.ID {
 				delete(s.owners, claimed)
 			}
 		}
 	}
 }
 
-func (s *Simulation) redistributionConflictsWithPassenger(rebalancing *vehicle) bool {
+func (s *Simulation) relocationConflictsWithPassenger(relocating *vehicle) bool {
 	for i := range s.vehicles {
 		arrival := &s.vehicles[i]
-		if arrival == rebalancing || arrival.destination.ID != rebalancing.destination.ID {
+		if arrival == relocating || arrival.destination.ID != relocating.destination.ID {
 			continue
 		}
 		activePassenger := arrival.Request != nil && !arrival.Request.Completed &&
@@ -111,7 +111,7 @@ func (s *Simulation) redistributionConflictsWithPassenger(rebalancing *vehicle) 
 	return false
 }
 
-func (s *Simulation) redistributionDestinationAdmitted(v *vehicle) bool {
+func (s *Simulation) relocationDestinationAdmitted(v *vehicle) bool {
 	for i := 0; i <= v.reservedThrough && i < len(v.blocks); i++ {
 		for _, claimed := range v.blocks[i].resources {
 			if claimed.kind == berthResource && claimed.id == v.destination.ID ||
