@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Podsim</title>
+  <style>
+    html, body { margin: 0; height: 100%; background: #0b121a; color: #e5edf5; font: 16px system-ui, sans-serif; }
+    #status { position: absolute; inset: 40% 10% auto; text-align: center; z-index: 1; }
+  </style>
+  <script src="wasm_exec.js"></script>
+</head>
+<body>
+  <div id="status" role="status">Loading Podsim…</div>
+  <script>
+    async function start() {
+      const status = document.getElementById("status");
+      try {
+        const go = new Go();
+        const response = await fetch("podsim.wasm");
+        if (!response.ok) throw new Error(`Download failed: HTTP ${response.status}`);
+        const result = await WebAssembly.instantiateStreaming(response, go.importObject);
+        const running = go.run(result.instance);
+        status.hidden = true;
+        await running;
+        throw new Error("The simulation stopped. Reload this page to restart.");
+      } catch (error) {
+        status.hidden = false;
+        status.textContent = `Podsim could not start. ${error.message}`;
+        console.error(error);
+      }
+    }
+    start();
+  </script>
+</body>
+</html>

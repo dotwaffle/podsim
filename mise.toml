@@ -1,0 +1,51 @@
+min_version = "2026.7.12"
+
+[settings]
+lockfile = true
+
+[tools]
+actionlint = "1.7.12"
+go = "1.26.8"
+golangci-lint = "2.13.2"
+
+[tasks.format]
+description = "Format Go sources"
+run = "golangci-lint fmt"
+
+[tasks.lint]
+description = "Run static analysis"
+run = """
+actionlint
+go vet ./...
+golangci-lint run
+"""
+
+[tasks.test]
+description = "Run the quick test suite"
+run = "go test ./..."
+
+[tasks.test-race]
+description = "Run tests with the race detector"
+run = "go test -race ./..."
+
+[tasks.build]
+description = "Build all native packages"
+run = "go build -trimpath ./..."
+
+[tasks.web]
+description = "Build the browser application"
+run = """
+mkdir -p dist
+GOOS=js GOARCH=wasm go build -trimpath -o dist/podsim.wasm ./cmd/podsim
+cp "$(go env GOROOT)/lib/wasm/wasm_exec.js" dist/wasm_exec.js
+cp web/index.html web/game.html dist/
+"""
+
+[tasks.serve]
+description = "Build and serve the browser application"
+depends = ["web"]
+run = "go run ./cmd/serve"
+
+[tasks.check]
+description = "Run tests, static analysis, and native and browser builds"
+depends = ["test-race", "lint", "build", "web"]

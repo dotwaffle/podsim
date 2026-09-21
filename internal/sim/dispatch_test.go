@@ -1,0 +1,359 @@
+package sim
+
+import (
+	"errors"
+	"reflect"
+	"testing"
+)
+
+func TestStationRequestDispatch(t *testing.T) {
+	t.Parallel()
+	for _, tc := range []struct {
+		name, origin, destination, pod string
+		placements                     []Placement
+	}{
+		{"local", "harbor", "garden", "01", []Placement{{ID: "01", StationID: "harbor"}, {ID: "02", StationID: "parking"}}},
+		{"nearest parked", "harbor", "garden", "02", []Placement{{ID: "01", StationID: "garden"}, {ID: "02", StationID: "parking"}}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			s, err := NewFleet(Example(), tc.placements)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if err := s.RequestTrip(tc.origin, tc.destination); err != nil {
+				t.Fatal(err)
+			}
+			expectedID := s.requestID
+			pod := s.findVehicle(tc.pod)
+			if tc.name == "local" {
+				if pod.Pod.Activity != Boarding || len(s.waiting) != 0 {
+					t.Fatal("local pod did not board immediately")
+				}
+			} else {
+				if len(s.waiting) != 1 || s.waiting[0].request.PodID != tc.pod || pod.RelocatingTo != tc.origin {
+					t.Fatalf("wrong pickup assignment: %+v", s.Snapshot())
+				}
+			}
+			pickupSeen := false
+			for range 400 * TicksPerSecond {
+				s.Step()
+				checkTraffic(t, s.Snapshot())
+				if pod.RelocatingTo != "" {
+					pickupSeen = true
+					if pod.Pod.Occupied || s.completed != 0 {
+						t.Fatal("empty pickup counted as passenger travel")
+					}
+				}
+				if pod.Pod.Activity == Idle && s.assigned(tc.pod) {
+					if err := s.RequestJourney(tc.pod, "market"); !errors.Is(err, ErrBusy) {
+						t.Fatal("assigned pickup pod could be stolen")
+					}
+				}
+				if s.completed == 1 {
+					break
+				}
+			}
+			if tc.name != "local" && !pickupSeen {
+				t.Fatal("missing empty pickup")
+			}
+			if s.completed != 1 || s.requestID != expectedID || pod.Request == nil || pod.Request.ID != expectedID || !pod.Request.Completed || pod.Pod.StationID != tc.destination || len(s.waiting) != 0 {
+				t.Fatalf("pickup did not preserve original passenger journey: %+v", s.Snapshot())
+			}
+		})
+	}
+}
+
+func TestQueuedRequestsReusePod(t *testing.T) {
+	t.Parallel()
+	s, err := New(Example(), "parking")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for range 2 {
+		if err := s.RequestTrip("harbor", "garden"); err != nil {
+			t.Fatal(err)
+		}
+	}
+	state := s.Snapshot()
+	if len(state.Pending) != 2 || state.Pending[0].PodID != "01" || state.Pending[1].PodID != "" {
+		t.Fatalf("wrong queue: %+v", state.Pending)
+	}
+	state.Pending[0].From = "mutated"
+	if s.Snapshot().Pending[0].From != "harbor" {
+		t.Fatal("snapshot exposes mutable requests")
+	}
+	s.SetPaused(true)
+	paused := s.Snapshot()
+	advance(s, 100)
+	if !reflect.DeepEqual(paused, s.Snapshot()) {
+		t.Fatal("pause advanced dispatch")
+	}
+	s.SetPaused(false)
+	for range 900 * TicksPerSecond {
+		s.Step()
+		checkTraffic(t, s.Snapshot())
+		if s.completed == 2 {
+			break
+		}
+	}
+	if s.completed != 2 || len(s.waiting) != 0 || s.requestID != 2 || s.vehicles[0].Request.ID != 2 {
+		t.Fatalf("queued request did not reuse pod: %+v", s.Snapshot())
+	}
+	s.Reset()
+	if s.requestID != 0 || len(s.waiting) != 0 || s.vehicles[0].Pod.StationID != "parking" {
+		t.Fatal("reset retained dispatch state")
+	}
+}
+
+func TestInfeasiblePickupDoesNotBlockOtherStation(t *testing.T) {
+	t.Parallel()
+	n := Example()
+	for i, lane := range n.Lanes {
+		if lane.ID == "market-approach" {
+			n.Lanes = append(n.Lanes[:i], n.Lanes[i+1:]...)
+			break
+		}
+	}
+	s, err := NewFleet(n, []Placement{{ID: "01", StationID: "market"}, {ID: "02", StationID: "harbor"}, {ID: "03", StationID: "parking"}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := s.RequestJourney("01", "garden"); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.RequestTrip("market", "harbor"); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.RequestTrip("harbor", "garden"); err != nil {
+		t.Fatal(err)
+	}
+	if len(s.waiting) != 1 || s.waiting[0].request.PodID != "" || s.findVehicle("02").Pod.Activity != Boarding || s.findVehicle("03").Pod.Activity != Idle {
+		t.Fatalf("blocked origin stalled other work or claimed a pod: %+v", s.Snapshot())
+	}
+}
+
+func TestLocalDemandPrecedesParking(t *testing.T) {
+	t.Parallel()
+	s, err := NewFleet(Example(), []Placement{{ID: "01", StationID: "harbor"}, {ID: "02", StationID: "market"}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	local := s.findVehicle("02")
+	local.Pod.Activity, local.Pod.Occupied = Unloading, true
+	local.phaseTicks = 180 * TicksPerSecond
+	local.Request = &Request{ID: 1, From: "garden", To: "market", PartySize: 1, PodID: "02"}
+	s.requestID = 1
+	if err := s.RequestJourney("01", "market"); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.RequestTrip("market", "garden"); err != nil {
+		t.Fatal(err)
+	}
+	for range 120 * TicksPerSecond {
+		s.Step()
+	}
+	if s.findVehicle("01").Pod.WaitReason != BerthOccupied {
+		t.Fatal("fixture did not queue an occupied arrival")
+	}
+	local.phaseTicks = 1
+	s.Step()
+	if local.Pod.Activity != Boarding || local.RelocatingTo != "" || local.Request.ID != 3 || len(s.waiting) != 0 {
+		t.Fatalf("local request lost pod to parking: %+v", s.Snapshot())
+	}
+}
+
+func TestRejectedStationRequestsDoNotMutate(t *testing.T) {
+	t.Parallel()
+	for _, pair := range [][2]string{{"missing", "market"}, {"harbor", "missing"}, {"parking", "market"}, {"harbor", "parking"}, {"harbor", "harbor"}} {
+		t.Run(pair[0]+" to "+pair[1], func(t *testing.T) {
+			s := newTraffic(t)
+			before := s.Snapshot()
+			if err := s.RequestTrip(pair[0], pair[1]); err == nil {
+				t.Fatal("invalid trip accepted")
+			}
+			if s.requestID != 0 || !reflect.DeepEqual(before, s.Snapshot()) {
+				t.Fatal("rejected trip mutated state")
+			}
+		})
+	}
+}
+
+func TestStationRequestsAfterExpandedDemo(t *testing.T) {
+	t.Parallel()
+	s := newTraffic(t)
+	if err := s.StartDemo(); err != nil {
+		t.Fatal(err)
+	}
+	for range 900 * TicksPerSecond {
+		s.Step()
+		checkTraffic(t, s.Snapshot())
+		if !s.Snapshot().Demo {
+			break
+		}
+	}
+	if s.completed != demoJourneys || s.demo != nil {
+		t.Fatal("demo did not finish")
+	}
+	for range 2 {
+		if err := s.RequestTrip("harbor", "garden"); err != nil {
+			t.Fatal(err)
+		}
+	}
+	for range 900 * TicksPerSecond {
+		s.Step()
+		checkTraffic(t, s.Snapshot())
+		if s.completed == demoJourneys+2 {
+			break
+		}
+	}
+	if s.completed != demoJourneys+2 || len(s.waiting) != 0 {
+		t.Fatalf("parked fleet did not serve queued trips: %+v", s.Snapshot())
+	}
+}
+
+func TestPickupWaitsForIncomingPassengerPod(t *testing.T) {
+	t.Parallel()
+	s, err := NewFleet(Example(), []Placement{{ID: "01", StationID: "harbor"}, {ID: "02", StationID: "parking"}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := s.RequestJourney("01", "market"); err != nil {
+		t.Fatal(err)
+	}
+	for range 120 * TicksPerSecond {
+		s.Step()
+		if s.findVehicle("01").Pod.LaneID == "market-in" {
+			break
+		}
+	}
+	if s.findVehicle("01").Pod.LaneID != "market-in" || s.owners[resource{kind: berthResource, id: "market-1"}] != "" {
+		t.Fatal("fixture needs an incoming pod before berth admission")
+	}
+	if err := s.RequestTrip("market", "garden"); err != nil {
+		t.Fatal(err)
+	}
+	for range 360 * TicksPerSecond {
+		s.Step()
+		checkTraffic(t, s.Snapshot())
+		if s.completed == 2 {
+			break
+		}
+	}
+	if s.completed != 2 || len(s.waiting) != 0 {
+		t.Fatalf("remote pickup trapped an incoming passenger pod: %+v", s.Snapshot())
+	}
+}
+
+func TestPassengerAndPickupShareBerthAdmission(t *testing.T) {
+	t.Parallel()
+	s, err := NewFleet(Example(), []Placement{{ID: "01", StationID: "harbor"}, {ID: "02", StationID: "parking"}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	local := s.findVehicle("01")
+	local.Pod.Activity, local.Pod.Occupied = Unloading, true
+	local.phaseTicks = 120 * TicksPerSecond
+	local.Request = &Request{ID: 1, From: "garden", To: "harbor", PartySize: 1, PodID: "01"}
+	s.requestID = 1
+	if err := s.RequestTrip("market", "garden"); err != nil {
+		t.Fatal(err)
+	}
+	local.phaseTicks = 1
+	s.Step()
+	if err := s.RequestTrip("harbor", "market"); err != nil {
+		t.Fatal(err)
+	}
+	if s.findVehicle("01").Pod.Activity != Boarding {
+		t.Fatal("passenger departure was delayed by a remote pickup claim")
+	}
+	for range 600 * TicksPerSecond {
+		s.Step()
+		checkTraffic(t, s.Snapshot())
+		if s.completed == 3 {
+			break
+		}
+	}
+	if s.completed != 3 || len(s.waiting) != 0 {
+		t.Fatalf("pickup reservation stalled new passenger trip: %+v", s.Snapshot())
+	}
+}
+
+func TestPickupDepartsBeforeBerthClears(t *testing.T) {
+	t.Parallel()
+	s, err := NewFleet(Example(), []Placement{{ID: "01", StationID: "garden"}, {ID: "02", StationID: "market"}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := s.RequestJourney("01", "market"); err != nil {
+		t.Fatal(err)
+	}
+	s.findVehicle("01").phaseTicks = 180 * TicksPerSecond
+	if err := s.RequestTrip("garden", "market"); err != nil {
+		t.Fatal(err)
+	}
+	pickup := s.findVehicle("02")
+	if pickup.RelocatingTo != "garden" || pickup.Pod.Activity != DepartingEmpty {
+		t.Fatal("pickup did not leave for occupied berth")
+	}
+	if s.owners[resource{kind: berthResource, id: "garden-1"}] != "01" {
+		t.Fatal("pickup stole occupied berth")
+	}
+	queued := false
+	for range 700 * TicksPerSecond {
+		s.Step()
+		checkTraffic(t, s.Snapshot())
+		if pickup.Pod.LaneID == "garden-in" && pickup.Pod.Speed < 0.1 && pickup.Pod.WaitReason == BerthOccupied {
+			queued = true
+			if pickup.Pod.Occupied {
+				t.Fatal("passenger boarded outside berth")
+			}
+		}
+		if s.completed == 2 {
+			break
+		}
+	}
+	if !queued || s.completed != 2 {
+		t.Fatalf("pickup did not queue safely then serve order: queued=%v state=%+v", queued, s.Snapshot())
+	}
+}
+
+func TestPickupArrivalOrderDoesNotReorderPassengers(t *testing.T) {
+	t.Parallel()
+	s, err := NewFleet(Example(), []Placement{{ID: "01", StationID: "harbor"}, {ID: "02", StationID: "market"}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := s.RequestTrip("garden", "market"); err != nil {
+		t.Fatal(err)
+	}
+	s.findVehicle("01").phaseTicks = 180 * TicksPerSecond
+	if err := s.RequestTrip("garden", "harbor"); err != nil {
+		t.Fatal(err)
+	}
+	if s.waiting[0].request.PodID != "01" || s.waiting[1].request.PodID != "02" {
+		t.Fatal("fixture did not assign two pickup pods")
+	}
+	boarded := make(map[int]bool)
+	for range 800 * TicksPerSecond {
+		s.Step()
+		checkTraffic(t, s.Snapshot())
+		for _, v := range s.vehicles {
+			if v.Pod.Activity != Boarding || v.Request == nil {
+				continue
+			}
+			if v.Request.ID == 2 && !boarded[1] {
+				t.Fatal("later passenger boarded first")
+			}
+			if v.Request.ID == 1 && v.Pod.ID != "02" {
+				t.Fatal("oldest passenger did not take first arriving pod")
+			}
+			boarded[v.Request.ID] = true
+		}
+		if s.completed == 2 {
+			break
+		}
+	}
+	if s.completed != 2 || len(boarded) != 2 {
+		t.Fatalf("out-of-order pickups failed: %+v", s.Snapshot())
+	}
+}
