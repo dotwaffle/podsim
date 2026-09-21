@@ -13,7 +13,7 @@ import (
 	"github.com/dotwaffle/podsim/internal/sim"
 )
 
-const qualificationTicks = 10 * 60 * sim.TicksPerSecond
+const qualificationTicks = 20 * 60 * sim.TicksPerSecond
 
 type scheduledRequest struct {
 	tick        int64
@@ -55,7 +55,7 @@ func TestScale100DenseSafetyWindow(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	const denseWindowTicks = 30 * sim.TicksPerSecond
+	const denseWindowTicks = 180 * sim.TicksPerSecond
 	for range denseWindowTicks {
 		simulation.Step()
 		checkScaleSafety(t, simulation.Snapshot())
@@ -105,7 +105,7 @@ func TestParkingConstrainedSafetyAndAccounting(t *testing.T) {
 }
 
 func BenchmarkScale100StepActiveTraffic(b *testing.B) {
-	config := Scale100()
+	config := scale100Ring()
 	passenger := project.PassengerStations(config.Network)
 	simulation := newSimulation(b, config)
 	requestIndex := 0

@@ -3,7 +3,9 @@ package scenarios
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"reflect"
+	"strings"
 	"testing"
 
 	"github.com/dotwaffle/podsim/internal/project"
@@ -99,5 +101,145 @@ func TestScale100Capacity(t *testing.T) {
 	}
 	if parkingBerths != 24 || freeBerths != 38 {
 		t.Fatalf("got %d parking berths and %d free berths", parkingBerths, freeBerths)
+	}
+}
+
+func TestScale100UsesConnectedMeshWithRouteChoices(t *testing.T) {
+	t.Parallel()
+	network := Scale100().Network
+	junctions := make(map[string]bool)
+	for _, node := range network.Nodes {
+		if strings.HasPrefix(node.ID, "junction-") {
+			junctions[node.ID] = true
+		}
+	}
+	if len(junctions) != 20 {
+		t.Fatalf("got %d explicit mesh junctions, want 20", len(junctions))
+	}
+	conflicts := 0
+	for junction := range junctions {
+		incoming, outgoing := 0, 0
+		for _, lane := range network.Lanes {
+			if lane.To == junction {
+				incoming++
+			}
+			if lane.From == junction {
+				outgoing++
+			}
+		}
+		if incoming >= 3 && outgoing >= 3 {
+			conflicts++
+		}
+	}
+	if conflicts < 6 {
+		t.Fatalf("got %d junctions with at least three incoming and outgoing lanes, want at least 6", conflicts)
+	}
+
+	from, to := "junction-2-2", "junction-3-4"
+	route, err := network.Route(from, to)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(route) < 6 {
+		t.Fatalf("interior route uses only %d lanes", len(route))
+	}
+	removed := route[0]
+	alternate := network
+	alternate.Lanes = make([]sim.Lane, 0, len(network.Lanes)-1)
+	for _, lane := range network.Lanes {
+		if lane.ID != removed.ID {
+			alternate.Lanes = append(alternate.Lanes, lane)
+		}
+	}
+	if alternateRoute, err := alternate.Route(from, to); err != nil {
+		t.Fatalf("removing %q eliminated the alternate interior route: %v", removed.ID, err)
+	} else if reflect.DeepEqual(route, alternateRoute) {
+		t.Fatal("alternate route did not change")
+	}
+}
+
+func TestScale100MeshLanesCrossOnlyAtJunctions(t *testing.T) {
+	t.Parallel()
+	network := Scale100().Network
+	nodes := make(map[string]sim.Point, len(network.Nodes))
+	for _, node := range network.Nodes {
+		nodes[node.ID] = node.Position
+	}
+	var mesh []sim.Lane
+	for _, lane := range network.Lanes {
+		if strings.HasPrefix(lane.ID, "mesh-junction-") {
+			mesh = append(mesh, lane)
+		}
+	}
+	for index, first := range mesh {
+		for _, second := range mesh[index+1:] {
+			if first.From == second.From || first.From == second.To || first.To == second.From || first.To == second.To {
+				continue
+			}
+			if segmentsCross(lineSegment{from: nodes[first.From], to: nodes[first.To]}, lineSegment{from: nodes[second.From], to: nodes[second.To]}) {
+				t.Fatalf("mesh lanes %q and %q cross without a shared junction", first.ID, second.ID)
+			}
+		}
+	}
+}
+
+func TestScale100UnrelatedLanesDoNotCross(t *testing.T) {
+	t.Parallel()
+	network := Scale100().Network
+	segments := make(map[string][]lineSegment, len(network.Lanes))
+	for _, lane := range network.Lanes {
+		length := network.Length(lane)
+		for segmentIndex := range 12 {
+			segments[lane.ID] = append(segments[lane.ID], lineSegment{
+				from: network.Position(lane, length*float64(segmentIndex)/12),
+				to:   network.Position(lane, length*float64(segmentIndex+1)/12),
+			})
+		}
+	}
+	for firstIndex, first := range network.Lanes {
+		for _, second := range network.Lanes[firstIndex+1:] {
+			if first.From == second.From || first.From == second.To || first.To == second.From || first.To == second.To {
+				continue
+			}
+			for _, firstSegment := range segments[first.ID] {
+				for _, secondSegment := range segments[second.ID] {
+					if segmentsCross(firstSegment, secondSegment) {
+						t.Fatalf("lanes %q and %q cross without a shared node", first.ID, second.ID)
+					}
+				}
+			}
+		}
+	}
+}
+
+type lineSegment struct {
+	from, to sim.Point
+}
+
+func segmentsCross(first, second lineSegment) bool {
+	return orientation(second.from, first)*orientation(second.to, first) < 0 &&
+		orientation(first.from, second)*orientation(first.to, second) < 0
+}
+
+func orientation(point sim.Point, segment lineSegment) float64 {
+	return (segment.to.X-segment.from.X)*(point.Y-segment.from.Y) -
+		(segment.to.Y-segment.from.Y)*(point.X-segment.from.X)
+}
+
+func TestScale100StationSpursAttachToExpectedJunctions(t *testing.T) {
+	t.Parallel()
+	network := Scale100().Network
+	lanes := make(map[string]sim.Lane, len(network.Lanes))
+	for _, lane := range network.Lanes {
+		lanes[lane.ID] = lane
+	}
+	for index := range 20 {
+		junction := meshJunctionID(index/5, index%5)
+		in := lanes[fmt.Sprintf("mesh-in-%02d", index+1)]
+		out := lanes[fmt.Sprintf("mesh-out-%02d", index+1)]
+		if in.From != junction || in.To != stationNodeID(index, "entry") ||
+			out.From != stationNodeID(index, "exit") || out.To != junction {
+			t.Fatalf("station %d spur does not attach through %q: in=%+v out=%+v", index+1, junction, in, out)
+		}
 	}
 }

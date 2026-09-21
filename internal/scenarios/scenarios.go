@@ -111,11 +111,158 @@ func ParkingConstrained() project.Config {
 
 // Scale100 returns the 20-station, 100-pod browser qualification scenario.
 func Scale100() project.Config {
-	return mustConfig(Parameters{
+	parameters := scale100Parameters()
+	config := project.Config{
+		Version: 1,
+		Name:    parameters.Name,
+		Network: scaleMesh(parameters),
+		Demand: project.DemandConfig{
+			PerMinute: parameters.DemandPerMinute,
+			Pattern:   "balanced",
+			Seed:      parameters.DemandSeed,
+		},
+	}
+	config.Fleet = placements(parameters, parameters.Pods-parameters.InitialParkingPods)
+	if err := project.Validate(config); err != nil {
+		panic(fmt.Errorf("validate scale scenario: %w", err))
+	}
+	return config
+}
+
+func scale100Parameters() Parameters {
+	return Parameters{
 		Name: "Scale qualification: 20 stations and 100 pods", Stations: 20, Pods: 100,
 		PassengerBerths: 6, ParkingBerths: 24, InitialParkingPods: 5,
 		DemandPerMinute: 20, DemandSeed: 100,
-	})
+	}
+}
+
+func scale100Ring() project.Config {
+	return mustConfig(scale100Parameters())
+}
+
+func scaleMesh(parameters Parameters) sim.Network {
+	const (
+		columns = 5
+		rows    = 4
+		spacing = 1200.0
+	)
+	network := sim.Network{}
+	for row := range rows {
+		for column := range columns {
+			index := row*columns + column
+			junction := meshJunctionID(row, column)
+			network.Nodes = append(network.Nodes, sim.Node{
+				ID: junction, Position: sim.Point{X: float64(column) * spacing, Y: float64(row) * spacing},
+			})
+			parking := index == parameters.Stations-1
+			berths := parameters.PassengerBerths
+			if parking {
+				berths = parameters.ParkingBerths
+			}
+			station, nodes, lanes := meshStationGeometry(meshStationParameters{index: index, row: row, column: column, berths: berths, parking: parking})
+			network.Stations = append(network.Stations, station)
+			network.Nodes = append(network.Nodes, nodes...)
+			network.Lanes = append(network.Lanes, lanes...)
+		}
+	}
+	for row := range rows {
+		for column := range columns {
+			if column+1 < columns {
+				nodes, lanes := meshCarriageways(meshEdge{rowA: row, columnA: column, rowB: row, columnB: column + 1})
+				network.Nodes = append(network.Nodes, nodes...)
+				network.Lanes = append(network.Lanes, lanes...)
+			}
+			if row+1 < rows {
+				nodes, lanes := meshCarriageways(meshEdge{rowA: row, columnA: column, rowB: row + 1, columnB: column})
+				network.Nodes = append(network.Nodes, nodes...)
+				network.Lanes = append(network.Lanes, lanes...)
+			}
+		}
+	}
+	return network
+}
+
+type meshStationParameters struct {
+	index, row, column, berths int
+	parking                    bool
+}
+
+func meshStationGeometry(parameters meshStationParameters) (sim.Station, []sim.Node, []sim.Lane) {
+	const spacing = 1200.0
+	junction := meshJunctionID(parameters.row, parameters.column)
+	center := sim.Point{X: float64(parameters.column)*spacing + 500, Y: float64(parameters.row)*spacing + 360}
+	entryID, exitID := stationNodeID(parameters.index, "entry"), stationNodeID(parameters.index, "exit")
+	nodes := []sim.Node{
+		{ID: entryID, Position: sim.Point{X: center.X - stationHalf, Y: center.Y}},
+		{ID: exitID, Position: sim.Point{X: center.X + stationHalf, Y: center.Y}},
+	}
+	lanes := []sim.Lane{
+		{ID: fmt.Sprintf("mesh-in-%02d", parameters.index+1), From: junction, To: entryID, SpeedLimit: speedLimit},
+		{ID: stationLaneID(parameters.index, "through"), From: entryID, To: exitID, SpeedLimit: speedLimit},
+		{ID: fmt.Sprintf("mesh-out-%02d", parameters.index+1), From: exitID, To: junction, SpeedLimit: speedLimit},
+	}
+	stationID := fmt.Sprintf("station-%02d", parameters.index+1)
+	name := fmt.Sprintf("Station %02d", parameters.index+1)
+	if parameters.parking {
+		stationID, name = "parking", "Parking"
+	}
+	station := sim.Station{ID: stationID, Name: name, Entry: entryID, Exit: exitID, ParkingOnly: parameters.parking}
+	for berthIndex := range parameters.berths {
+		berthNodeID := fmt.Sprintf("s%02d-berth-%02d", parameters.index+1, berthIndex+1)
+		depth := berthOffset + berthSpacing*float64(berthIndex)
+		approach := stationHalf + 80 + 48*float64(min(berthIndex, 5))
+		berthID := fmt.Sprintf("%s-%02d", stationID, berthIndex+1)
+		nodes = append(nodes, sim.Node{ID: berthNodeID, Position: sim.Point{X: center.X, Y: center.Y + depth}})
+		station.Berths = append(station.Berths, sim.Berth{ID: berthID, Node: berthNodeID})
+		lanes = append(lanes,
+			sim.Lane{
+				ID: fmt.Sprintf("s%02d-in-%02d", parameters.index+1, berthIndex+1), From: entryID, To: berthNodeID,
+				SpeedLimit: speedLimit, Control: new(sim.Point{X: center.X - approach, Y: center.Y + depth/2}),
+			},
+			sim.Lane{
+				ID: fmt.Sprintf("s%02d-out-%02d", parameters.index+1, berthIndex+1), From: berthNodeID, To: exitID,
+				SpeedLimit: speedLimit, Control: new(sim.Point{X: center.X + approach, Y: center.Y + depth/2}),
+			},
+		)
+	}
+	return station, nodes, lanes
+}
+
+type meshEdge struct {
+	rowA, columnA, rowB, columnB int
+}
+
+func meshCarriageways(edge meshEdge) ([]sim.Node, []sim.Lane) {
+	const (
+		spacing = 1200.0
+		offset  = 90.0
+	)
+	a, b := meshJunctionID(edge.rowA, edge.columnA), meshJunctionID(edge.rowB, edge.columnB)
+	ax, ay := float64(edge.columnA)*spacing, float64(edge.rowA)*spacing
+	bx, by := float64(edge.columnB)*spacing, float64(edge.rowB)*spacing
+	if edge.rowA == edge.rowB && edge.rowA%2 == 1 || edge.columnA == edge.columnB && meshColumnRunsBackward(edge.columnA) {
+		a, b = b, a
+		ax, ay, bx, by = bx, by, ax, ay
+	}
+	perpendicularX, perpendicularY := -(by - ay), bx-ax
+	length := math.Hypot(perpendicularX, perpendicularY)
+	perpendicularX, perpendicularY = offset*perpendicularX/length, offset*perpendicularY/length
+	abMid := "mid-" + a + "-" + b
+	nodes := []sim.Node{{ID: abMid, Position: sim.Point{X: (ax+bx)/2 + perpendicularX, Y: (ay+by)/2 + perpendicularY}}}
+	lanes := []sim.Lane{
+		{ID: fmt.Sprintf("mesh-%s-%s-a", a, b), From: a, To: abMid, SpeedLimit: speedLimit},
+		{ID: fmt.Sprintf("mesh-%s-%s-b", a, b), From: abMid, To: b, SpeedLimit: speedLimit},
+	}
+	return nodes, lanes
+}
+
+func meshColumnRunsBackward(column int) bool {
+	return column == 0 || column == 2
+}
+
+func meshJunctionID(row, column int) string {
+	return fmt.Sprintf("junction-%d-%d", row+1, column+1)
 }
 
 func mustConfig(parameters Parameters) project.Config {
