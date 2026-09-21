@@ -33,8 +33,8 @@ func TestScale100SampledSafetyAndProgress(t *testing.T) {
 		requestCount = 20
 		requestEvery = 10 * sim.TicksPerSecond
 	)
-	schedule := requestSchedule(config, seed, requestCount, requestEvery)
-	first := runQualification(t, config, schedule, true)
+	schedule := requestSchedule(config, scheduleParameters{seed: seed, count: requestCount, interval: requestEvery})
+	first := runQualification(t, qualificationInput{config: config, schedule: schedule, checkSafety: true})
 	if first.state.Completed != requestCount || len(first.state.Pending) != 0 {
 		t.Fatalf("feasible demand did not finish: completed=%d remaining=%d", first.state.Completed, first.state.Submitted-first.state.Completed)
 	}
@@ -71,9 +71,9 @@ func TestBusyScenarioRepeatability(t *testing.T) {
 		requestCount = 10
 		requestEvery = 10 * sim.TicksPerSecond
 	)
-	schedule := requestSchedule(config, seed, requestCount, requestEvery)
-	first := runQualification(t, config, schedule, false)
-	second := runQualification(t, config, schedule, false)
+	schedule := requestSchedule(config, scheduleParameters{seed: seed, count: requestCount, interval: requestEvery})
+	first := runQualification(t, qualificationInput{config: config, schedule: schedule})
+	second := runQualification(t, qualificationInput{config: config, schedule: schedule})
 	if !reflect.DeepEqual(first.state, second.state) {
 		t.Fatal("identical scenario and request schedule produced different results")
 	}
@@ -93,8 +93,8 @@ func TestParkingConstrainedSafetyAndAccounting(t *testing.T) {
 		requestCount = 40
 		requestEvery = 3 * sim.TicksPerSecond
 	)
-	schedule := requestSchedule(config, seed, requestCount, requestEvery)
-	result := runQualification(t, config, schedule, true)
+	schedule := requestSchedule(config, scheduleParameters{seed: seed, count: requestCount, interval: requestEvery})
+	result := runQualification(t, qualificationInput{config: config, schedule: schedule, checkSafety: true})
 	if result.state.Completed > result.state.Submitted {
 		t.Fatalf("completed %d of %d submitted requests", result.state.Completed, result.state.Submitted)
 	}
@@ -141,13 +141,19 @@ func BenchmarkScale100StepActiveTraffic(b *testing.B) {
 	}
 }
 
-func runQualification(t *testing.T, config project.Config, schedule []scheduledRequest, checkSafety bool) qualificationResult {
+type qualificationInput struct {
+	config      project.Config
+	schedule    []scheduledRequest
+	checkSafety bool
+}
+
+func runQualification(t *testing.T, input qualificationInput) qualificationResult {
 	t.Helper()
-	simulation := newSimulation(t, config)
+	simulation := newSimulation(t, input.config)
 	next := 0
 	for tick := range qualificationTicks {
-		for next < len(schedule) && schedule[next].tick == int64(tick) {
-			request := schedule[next]
+		for next < len(input.schedule) && input.schedule[next].tick == int64(tick) {
+			request := input.schedule[next]
 			if err := simulation.RequestTrip(request.origin, request.destination); err != nil {
 				t.Fatalf("request %s to %s at tick %d: %v", request.origin, request.destination, tick, err)
 			}
@@ -156,15 +162,15 @@ func runQualification(t *testing.T, config project.Config, schedule []scheduledR
 		simulation.Step()
 		if tick%sim.TicksPerSecond == 0 {
 			state := simulation.Snapshot()
-			if checkSafety {
+			if input.checkSafety {
 				checkScaleSafety(t, state)
 			}
-			if next == len(schedule) && state.Completed == len(schedule) {
-				return qualificationResult{state: state, fingerprint: scheduleFingerprint(schedule)}
+			if next == len(input.schedule) && state.Completed == len(input.schedule) {
+				return qualificationResult{state: state, fingerprint: scheduleFingerprint(input.schedule)}
 			}
 		}
 	}
-	return qualificationResult{state: simulation.Snapshot(), fingerprint: scheduleFingerprint(schedule)}
+	return qualificationResult{state: simulation.Snapshot(), fingerprint: scheduleFingerprint(input.schedule)}
 }
 
 func newSimulation(tb testing.TB, config project.Config) *sim.Simulation {
@@ -176,15 +182,20 @@ func newSimulation(tb testing.TB, config project.Config) *sim.Simulation {
 	return simulation
 }
 
-func requestSchedule(config project.Config, seed uint64, count, interval int) []scheduledRequest {
+type scheduleParameters struct {
+	seed            uint64
+	count, interval int
+}
+
+func requestSchedule(config project.Config, parameters scheduleParameters) []scheduledRequest {
 	passenger := project.PassengerStations(config.Network)
-	rng := rand.New(rand.NewPCG(seed, ^seed))
-	schedule := make([]scheduledRequest, count)
+	rng := rand.New(rand.NewPCG(parameters.seed, ^parameters.seed))
+	schedule := make([]scheduledRequest, parameters.count)
 	for index := range schedule {
 		originIndex := rng.IntN(len(passenger))
 		destinationIndex := (originIndex + 1 + rng.IntN(min(3, len(passenger)-1))) % len(passenger)
 		schedule[index] = scheduledRequest{
-			tick: int64((index + 1) * interval), origin: passenger[originIndex].ID,
+			tick: int64((index + 1) * parameters.interval), origin: passenger[originIndex].ID,
 			destination: passenger[destinationIndex].ID,
 		}
 	}

@@ -136,7 +136,7 @@ func ring(parameters Parameters) sim.Network {
 		if parking {
 			berthCount = parameters.ParkingBerths
 		}
-		station, stationNodes, stationLanes := stationGeometry(index, parameters.Stations, berthCount, parking)
+		station, stationNodes, stationLanes := stationGeometry(stationParameters{index: index, count: parameters.Stations, berths: berthCount, parking: parking})
 		stations = append(stations, station)
 		nodes = append(nodes, stationNodes...)
 		lanes = append(lanes, stationLanes...)
@@ -151,28 +151,33 @@ func ring(parameters Parameters) sim.Network {
 	return sim.Network{Nodes: nodes, Lanes: lanes, Stations: stations}
 }
 
-func stationGeometry(index, stationCount, berthCount int, parking bool) (sim.Station, []sim.Node, []sim.Lane) {
-	theta := 2 * math.Pi * float64(index) / float64(stationCount)
-	radius := 180 * float64(stationCount)
+type stationParameters struct {
+	index, count, berths int
+	parking              bool
+}
+
+func stationGeometry(parameters stationParameters) (sim.Station, []sim.Node, []sim.Lane) {
+	theta := 2 * math.Pi * float64(parameters.index) / float64(parameters.count)
+	radius := 180 * float64(parameters.count)
 	center := sim.Point{X: radius * math.Cos(theta), Y: radius * math.Sin(theta)}
 	tangent := sim.Point{X: -math.Sin(theta), Y: math.Cos(theta)}
 	radial := sim.Point{X: math.Cos(theta), Y: math.Sin(theta)}
-	entryID, exitID := stationNodeID(index, "entry"), stationNodeID(index, "exit")
+	entryID, exitID := stationNodeID(parameters.index, "entry"), stationNodeID(parameters.index, "exit")
 	nodes := []sim.Node{
 		{ID: entryID, Position: add(center, scale(tangent, -stationHalf))},
 		{ID: exitID, Position: add(center, scale(tangent, stationHalf))},
 	}
 	lanes := []sim.Lane{{
-		ID: stationLaneID(index, "through"), From: entryID, To: exitID, SpeedLimit: speedLimit,
+		ID: stationLaneID(parameters.index, "through"), From: entryID, To: exitID, SpeedLimit: speedLimit,
 	}}
-	stationID := fmt.Sprintf("station-%02d", index+1)
-	name := fmt.Sprintf("Station %02d", index+1)
-	if parking {
+	stationID := fmt.Sprintf("station-%02d", parameters.index+1)
+	name := fmt.Sprintf("Station %02d", parameters.index+1)
+	if parameters.parking {
 		stationID, name = "parking", "Parking"
 	}
-	station := sim.Station{ID: stationID, Name: name, Entry: entryID, Exit: exitID, ParkingOnly: parking}
-	for berthIndex := range berthCount {
-		berthNodeID := fmt.Sprintf("s%02d-berth-%02d", index+1, berthIndex+1)
+	station := sim.Station{ID: stationID, Name: name, Entry: entryID, Exit: exitID, ParkingOnly: parameters.parking}
+	for berthIndex := range parameters.berths {
+		berthNodeID := fmt.Sprintf("s%02d-berth-%02d", parameters.index+1, berthIndex+1)
 		depth := berthOffset + berthSpacing*float64(berthIndex)
 		approach := stationHalf + 80 + 60*float64(berthIndex)
 		berthID := fmt.Sprintf("%s-%02d", stationID, berthIndex+1)
@@ -180,11 +185,11 @@ func stationGeometry(index, stationCount, berthCount int, parking bool) (sim.Sta
 		station.Berths = append(station.Berths, sim.Berth{ID: berthID, Node: berthNodeID})
 		lanes = append(lanes,
 			sim.Lane{
-				ID: fmt.Sprintf("s%02d-in-%02d", index+1, berthIndex+1), From: entryID, To: berthNodeID,
+				ID: fmt.Sprintf("s%02d-in-%02d", parameters.index+1, berthIndex+1), From: entryID, To: berthNodeID,
 				SpeedLimit: speedLimit, Control: new(add(add(center, scale(tangent, -approach)), scale(radial, depth/2))),
 			},
 			sim.Lane{
-				ID: fmt.Sprintf("s%02d-out-%02d", index+1, berthIndex+1), From: berthNodeID, To: exitID,
+				ID: fmt.Sprintf("s%02d-out-%02d", parameters.index+1, berthIndex+1), From: berthNodeID, To: exitID,
 				SpeedLimit: speedLimit, Control: new(add(add(center, scale(tangent, approach)), scale(radial, depth/2))),
 			},
 		)

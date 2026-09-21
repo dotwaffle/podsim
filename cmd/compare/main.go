@@ -87,45 +87,52 @@ type report struct {
 	Results       []result `json:"results"`
 }
 
-func main() { os.Exit(runCLI(os.Args[1:], os.Stdout, os.Stderr)) }
+type cliInput struct {
+	args           []string
+	stdout, stderr io.Writer
+}
 
-func runCLI(args []string, stdout, stderr io.Writer) int {
-	opts, err := parseOptions(args, stderr)
+func main() {
+	os.Exit(runCLI(cliInput{args: os.Args[1:], stdout: os.Stdout, stderr: os.Stderr}))
+}
+
+func runCLI(input cliInput) int {
+	opts, err := parseOptions(input.args, input.stderr)
 	if errors.Is(err, flag.ErrHelp) {
 		return 0
 	}
 	if err != nil {
-		_, _ = fmt.Fprintln(stderr, err)
+		_, _ = fmt.Fprintln(input.stderr, err)
 		return 2
 	}
 	caseStudy, err := loadScenario(opts.projectPath, opts.focus)
 	if err != nil {
-		_, _ = fmt.Fprintln(stderr, err)
+		_, _ = fmt.Fprintln(input.stderr, err)
 		return 1
 	}
 	results, err := compare(opts, caseStudy)
 	if err != nil {
-		_, _ = fmt.Fprintln(stderr, err)
+		_, _ = fmt.Fprintln(input.stderr, err)
 		return 1
 	}
-	output := stdout
+	output := input.stdout
 	closeOutput := func() error { return nil }
 	if opts.outputPath != "" {
 		file, err := os.Create(opts.outputPath) // #nosec G304 -- The operator selects this report file.
 		if err != nil {
-			_, _ = fmt.Fprintf(stderr, "create report %s: %v\n", opts.outputPath, err)
+			_, _ = fmt.Fprintf(input.stderr, "create report %s: %v\n", opts.outputPath, err)
 			return 1
 		}
 		output = file
 		closeOutput = file.Close
 	}
-	if err := writeReport(output, opts.format, results); err != nil {
+	if err := writeReport(writeReportInput{output: output, format: opts.format, results: results}); err != nil {
 		_ = closeOutput()
-		_, _ = fmt.Fprintln(stderr, err)
+		_, _ = fmt.Fprintln(input.stderr, err)
 		return 1
 	}
 	if err := closeOutput(); err != nil {
-		_, _ = fmt.Fprintf(stderr, "close report %s: %v\n", opts.outputPath, err)
+		_, _ = fmt.Fprintf(input.stderr, "close report %s: %v\n", opts.outputPath, err)
 		return 1
 	}
 	return 0
@@ -175,7 +182,7 @@ func parseOptions(args []string, stderr io.Writer) (options, error) {
 	if err != nil {
 		return options{}, err
 	}
-	opts.loads, err = parseLoads(opts.requestEvery, opts.loadsText, opts.duration)
+	opts.loads, err = parseLoads(parseLoadsInput{single: opts.requestEvery, list: opts.loadsText, duration: opts.duration})
 	if err != nil {
 		return options{}, err
 	}
@@ -236,11 +243,16 @@ func parsePatterns(single, list string) ([]string, error) {
 	return patterns, nil
 }
 
-func parseLoads(single time.Duration, list string, duration time.Duration) ([]time.Duration, error) {
-	if list == "" {
-		return validateLoads([]time.Duration{single}, duration)
+type parseLoadsInput struct {
+	single, duration time.Duration
+	list             string
+}
+
+func parseLoads(input parseLoadsInput) ([]time.Duration, error) {
+	if input.list == "" {
+		return validateLoads([]time.Duration{input.single}, input.duration)
 	}
-	parts := strings.Split(list, ",")
+	parts := strings.Split(input.list, ",")
 	if len(parts) > maxLoads {
 		return nil, fmt.Errorf("loads must contain at most %d values", maxLoads)
 	}
@@ -257,7 +269,7 @@ func parseLoads(single time.Duration, list string, duration time.Duration) ([]ti
 		seen[load] = true
 		loads = append(loads, load)
 	}
-	return validateLoads(loads, duration)
+	return validateLoads(loads, input.duration)
 }
 
 func validateLoads(loads []time.Duration, duration time.Duration) ([]time.Duration, error) {
@@ -511,19 +523,25 @@ func demandWeights(pattern string, scenario scenario) map[string]float64 {
 	return weights
 }
 
-func writeReport(output io.Writer, format string, results []result) error {
-	switch format {
+type writeReportInput struct {
+	output  io.Writer
+	format  string
+	results []result
+}
+
+func writeReport(input writeReportInput) error {
+	switch input.format {
 	case "json":
-		encoder := json.NewEncoder(output)
+		encoder := json.NewEncoder(input.output)
 		encoder.SetIndent("", "  ")
-		if err := encoder.Encode(report{SchemaVersion: 1, Results: results}); err != nil {
+		if err := encoder.Encode(report{SchemaVersion: 1, Results: input.results}); err != nil {
 			return fmt.Errorf("write JSON report: %w", err)
 		}
 		return nil
 	case "csv":
-		return writeCSV(output, results)
+		return writeCSV(input.output, input.results)
 	default:
-		return writeTable(output, results)
+		return writeTable(input.output, input.results)
 	}
 }
 

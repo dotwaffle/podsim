@@ -84,10 +84,10 @@ func TestCLIOutputIsRepeatable(t *testing.T) {
 	}
 	var firstOutput, secondOutput bytes.Buffer
 	var firstError, secondError bytes.Buffer
-	if code := runCLI(args, &firstOutput, &firstError); code != 0 {
+	if code := runCLI(cliInput{args: args, stdout: &firstOutput, stderr: &firstError}); code != 0 {
 		t.Fatalf("first run exit = %d, error = %s", code, firstError.String())
 	}
-	if code := runCLI(args, &secondOutput, &secondError); code != 0 {
+	if code := runCLI(cliInput{args: args, stdout: &secondOutput, stderr: &secondError}); code != 0 {
 		t.Fatalf("second run exit = %d, error = %s", code, secondError.String())
 	}
 	if !bytes.Equal(firstOutput.Bytes(), secondOutput.Bytes()) {
@@ -126,7 +126,7 @@ func TestReportFormatsAreMachineReadable(t *testing.T) {
 	t.Parallel()
 	results := []result{{Pattern: "balanced", Policy: "off", ScheduleID: "abc", Scheduled: 1}}
 	var jsonOutput bytes.Buffer
-	if err := writeReport(&jsonOutput, "json", results); err != nil {
+	if err := writeReport(writeReportInput{output: &jsonOutput, format: "json", results: results}); err != nil {
 		t.Fatal(err)
 	}
 	var decoded report
@@ -138,7 +138,7 @@ func TestReportFormatsAreMachineReadable(t *testing.T) {
 	}
 
 	var csvOutput bytes.Buffer
-	if err := writeReport(&csvOutput, "csv", results); err != nil {
+	if err := writeReport(writeReportInput{output: &csvOutput, format: "csv", results: results}); err != nil {
 		t.Fatal(err)
 	}
 	records, err := csv.NewReader(&csvOutput).ReadAll()
