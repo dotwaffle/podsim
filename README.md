@@ -59,6 +59,11 @@ The browser export wraps this object as `scenario` and can also contain a backgr
 - The map legend explains the colors. An amber ring marks waiting pods, and a white ring marks the selected pod.
 - Scroll over the map to zoom at the pointer. Drag the map to pan. Use **Fit** to show the whole network.
 - Map navigation stays local to your browser. Zoom in to see individual berths in crowded stations.
+- Overview labels show occupied berths and nonzero entrance and exit queues.
+- Expanded labels show occupied, reserved-empty, and free berths. These counts sum to station capacity.
+- Expanded entrance labels show stopped and approaching pods. Exit labels show stopped departing pods.
+  Queue counts include dedicated access spurs, but exclude general road traffic.
+  A reserved-empty berth can still have a departing pod that holds its clearance resource.
 - Select **From** and **To**, then **Order**. Pod selection affects inspection only.
 - An idle local pod serves the request. Otherwise, the nearest available empty pod comes to collect the passenger.
 - Requests wait when no pod is available. Open **Orders** to see queued and active journeys and their status.
@@ -162,6 +167,9 @@ mise run serve -- -project /tmp/podsim-scale100.json
 Presets include `small`, `busy`, `parking-constrained`, and `scale100`.
 The scale preset uses a connected grid with alternate routes and explicit junctions.
 It has 19 passenger stations, one parking station, 138 berths, and 100 pods.
+Each station has separate road connections for arrival and departure, 600 meters apart.
+Parallel arrival and departure lanes serve successive berth rows. Parking extends outside the road grid.
+This geometry separates incoming and outgoing traffic and shortens the parking entrance conflict sections.
 Demand starts disabled. Configure and start it from the Demand panel.
 Generated files contain raw server settings. The editor can export the loaded scenario with optional local background data.
 See [qualification results](docs/qualification.md) for safety checks, performance measurements, and redistribution limits.
@@ -197,7 +205,7 @@ Each junction has one conflict resource for nearby sections of its incident lane
 The controller derives these sections from the same geometry used for movement, including the 12-meter clearance.
 It acquires each continuous conflict section together, including downstream cells needed to cross lane endpoints.
 It releases the conflict resource after the pod reaches the end of that section.
-Before admission reaches a terminal inlet, the controller can choose a free berth on another direct branch.
+Before admission reaches a station branch, the controller can choose a free berth through an unreserved local path.
 The oldest local admission request wins, with pod ID as the tie-breaker.
 Admission uses the state before movement. Released resources become available on the next tick.
 
@@ -209,17 +217,20 @@ Lanes can be straight or quadratic curves. The simulator and browser measure eac
 Set each lane speed explicitly. Bends do not impose extra speed limits.
 Station entry, berth, and exit connections have stable identities.
 Passenger and parking stations can have multiple berths.
-All berths have direct entry and exit lanes, separate from through traffic.
+Berths can connect through intermediate arrival and departure lanes, separate from through traffic.
+Station-local paths cannot cross another berth or station. Each station retains a direct entry-to-exit through lane.
 
 This block model is conservative. It does not model continuous car-following or optimized junction capacity.
 The current traffic model requires lanes at least 24 meters long.
-An idle empty pod clears its berth when it blocks a passenger arrival or an assigned pickup pod.
+An idle empty pod clears its berth when it blocks a passenger arrival, an assigned pickup pod, or an empty relocation.
 It first reserves a free reachable parking berth and retains its origin until physical clearance.
 If parking is full or unreachable, it reserves reachable passenger space instead.
 It prefers local space that no request targets.
 The pod shows "No parking available" only when no reachable physical space exists.
-At a direct terminal fork, a passenger or pickup pod checks for a free alternate berth before it reserves a branch.
-After the pod reserves a branch, it stays on that branch.
+A passenger or pickup pod can choose a free alternate berth before it reserves the next station branch.
+A route change preserves all admitted track.
+Empty relocations yield remote destination claims to competing passenger trips and pickups until destination admission.
+Physical ownership and admitted destination resources remain protected.
 Empty moves have no boarding or unloading delay and do not count as passenger journeys.
 Parking serves no passengers. Parked pods return to service automatically when assigned to a pickup request.
 After the demo, request a trip from Harbor or Garden to see an available pod return for pickup.

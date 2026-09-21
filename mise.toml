@@ -31,7 +31,7 @@ run = "go test ./..."
 
 [tasks.test-race]
 description = "Run tests with the race detector"
-run = "go test -race ./..."
+run = "go test -race ./... -timeout=30m"
 
 [tasks.vulncheck]
 description = "Check dependencies for known vulnerabilities"

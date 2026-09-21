@@ -211,3 +211,56 @@ The complete scenario race suite passed in 394.32 seconds.
 mise exec -- go test -race ./internal/scenarios -run '^$' -bench BenchmarkScale100SafetyState -count=3 -benchmem
 mise exec -- go test -race ./internal/scenarios -count=1 -timeout=20m -v
 ```
+
+## Separate station access
+
+The scale preset now separates each station's road divergence and merge by 600 meters.
+Arrival and departure lanes serve berth rows at 75-meter intervals.
+Parking extends outside the grid, so its access lanes do not cross unrelated roads.
+The longest parking inlet conflict section fell from about 680 meters to 13 meters.
+The fleet remains 100 pods with 138 berths, 14 m/s lane speeds, and a 12-meter clearance requirement.
+Road-only route lengths between the original road nodes remain unchanged.
+
+The layout requires station-local paths through intermediate nodes.
+Validation rejects paths through another station, another berth, or the wrong station entry or exit.
+Late berth choice preserves admitted track.
+Empty relocations yield remote claims to competing passenger trips until destination admission.
+An empty relocation can also clear an idle pod that later occupies its destination.
+Regression tests cover both claim orderings and eventual settlement.
+
+The comparison below uses the same final controller for both layouts.
+Orders target Station 19, with origins cycling through the other 18 passenger stations.
+Each run checks every pod pair and berth ownership every tick, through final empty-pod settlement.
+All runs completed every order and left all pods idle.
+Times are simulated seconds from the start of each run.
+
+| Orders | Orders/min | Layout | First delivery | Last delivery | All idle | Peak stopped pods | Minimum separation (m) |
+| --- | --- | --- | ---: | ---: | ---: | ---: | ---: |
+| 40 | 4 | Previous | 411.7 | 1313.8 | 1963.0 | 8 | 13.58 |
+| 40 | 4 | Separate access | 540.4 | 1271.8 | 1829.3 | 3 | 28.29 |
+| 40 | 12 | Previous | 281.7 | 1207.4 | 1832.9 | 14 | 13.58 |
+| 40 | 12 | Separate access | 363.1 | 964.2 | 1521.7 | 2 | 25.20 |
+| 100 | 12 | Previous | 281.7 | 2630.4 | 3184.6 | 52 | 13.58 |
+| 100 | 12 | Separate access | 373.8 | 1763.1 | 2192.3 | 17 | 22.87 |
+
+In the 100-order burst, last delivery improved by 33% and final settlement improved by 31%.
+Arrivals used all six Station 19 berths.
+First delivery took longer in all three cases because station access locations and travel paths changed.
+These results establish progress for the tested workloads. They do not establish capacity under unlimited demand.
+
+The automated suite retains the 40-order regression and adds the 100-order burst.
+Both preserve every-tick physical checks.
+The race task permits 30 minutes for the expanded suite.
+CI permits 40 minutes for tests and the remaining build checks.
+The final combined race run reached its earlier 20-minute limit after the 100-order burst and four other qualification tests passed.
+The remaining tests passed in a separate 374.85-second race run, without repeating completed qualification work.
+Together, the two runs cover every test in the suite.
+
+A short ring benchmark measured median step cost at 192 microseconds, versus 173 microseconds before the controller changes.
+The three samples used 1,000 steps each. They show a possible controller cost and do not measure the new mesh workload.
+The observation savings above apply separately.
+
+```sh
+mise exec -- go test -race ./internal/scenarios -run 'TestScale100Station19' -count=1 -timeout=30m -v
+mise run check
+```

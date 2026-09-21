@@ -150,20 +150,11 @@ func scaleMesh(parameters Parameters) sim.Network {
 	network := sim.Network{}
 	for row := range rows {
 		for column := range columns {
-			index := row*columns + column
 			junction := meshJunctionID(row, column)
 			network.Nodes = append(network.Nodes, sim.Node{
 				ID: junction, Position: sim.Point{X: float64(column) * spacing, Y: float64(row) * spacing},
 			})
-			parking := index == parameters.Stations-1
-			berths := parameters.PassengerBerths
-			if parking {
-				berths = parameters.ParkingBerths
-			}
-			station, nodes, lanes := meshStationGeometry(meshStationParameters{index: index, row: row, column: column, berths: berths, parking: parking})
-			network.Stations = append(network.Stations, station)
-			network.Nodes = append(network.Nodes, nodes...)
-			network.Lanes = append(network.Lanes, lanes...)
+
 		}
 	}
 	for row := range rows {
@@ -180,53 +171,23 @@ func scaleMesh(parameters Parameters) sim.Network {
 			}
 		}
 	}
+	for row := range rows {
+		for column := range columns {
+			index := row*columns + column
+			parking := index == parameters.Stations-1
+			berths := parameters.PassengerBerths
+			if parking {
+				berths = parameters.ParkingBerths
+			}
+			addMeshStation(&network, meshStationParameters{index: index, row: row, column: column, berths: berths, parking: parking})
+		}
+	}
 	return network
 }
 
 type meshStationParameters struct {
 	index, row, column, berths int
 	parking                    bool
-}
-
-func meshStationGeometry(parameters meshStationParameters) (sim.Station, []sim.Node, []sim.Lane) {
-	const spacing = 1200.0
-	junction := meshJunctionID(parameters.row, parameters.column)
-	center := sim.Point{X: float64(parameters.column)*spacing + 500, Y: float64(parameters.row)*spacing + 360}
-	entryID, exitID := stationNodeID(parameters.index, "entry"), stationNodeID(parameters.index, "exit")
-	nodes := []sim.Node{
-		{ID: entryID, Position: sim.Point{X: center.X - stationHalf, Y: center.Y}},
-		{ID: exitID, Position: sim.Point{X: center.X + stationHalf, Y: center.Y}},
-	}
-	lanes := []sim.Lane{
-		{ID: fmt.Sprintf("mesh-in-%02d", parameters.index+1), From: junction, To: entryID, SpeedLimit: speedLimit},
-		{ID: stationLaneID(parameters.index, "through"), From: entryID, To: exitID, SpeedLimit: speedLimit},
-		{ID: fmt.Sprintf("mesh-out-%02d", parameters.index+1), From: exitID, To: junction, SpeedLimit: speedLimit},
-	}
-	stationID := fmt.Sprintf("station-%02d", parameters.index+1)
-	name := fmt.Sprintf("Station %02d", parameters.index+1)
-	if parameters.parking {
-		stationID, name = "parking", "Parking"
-	}
-	station := sim.Station{ID: stationID, Name: name, Entry: entryID, Exit: exitID, ParkingOnly: parameters.parking}
-	for berthIndex := range parameters.berths {
-		berthNodeID := fmt.Sprintf("s%02d-berth-%02d", parameters.index+1, berthIndex+1)
-		depth := berthOffset + berthSpacing*float64(berthIndex)
-		approach := stationHalf + 80 + 48*float64(min(berthIndex, 5))
-		berthID := fmt.Sprintf("%s-%02d", stationID, berthIndex+1)
-		nodes = append(nodes, sim.Node{ID: berthNodeID, Position: sim.Point{X: center.X, Y: center.Y + depth}})
-		station.Berths = append(station.Berths, sim.Berth{ID: berthID, Node: berthNodeID})
-		lanes = append(lanes,
-			sim.Lane{
-				ID: fmt.Sprintf("s%02d-in-%02d", parameters.index+1, berthIndex+1), From: entryID, To: berthNodeID,
-				SpeedLimit: speedLimit, Control: new(sim.Point{X: center.X - approach, Y: center.Y + depth/2}),
-			},
-			sim.Lane{
-				ID: fmt.Sprintf("s%02d-out-%02d", parameters.index+1, berthIndex+1), From: berthNodeID, To: exitID,
-				SpeedLimit: speedLimit, Control: new(sim.Point{X: center.X + approach, Y: center.Y + depth/2}),
-			},
-		)
-	}
-	return station, nodes, lanes
 }
 
 type meshEdge struct {

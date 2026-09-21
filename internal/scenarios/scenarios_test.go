@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"math"
 	"reflect"
 	"strings"
 	"testing"
@@ -127,12 +128,12 @@ func TestScale100UsesConnectedMeshWithRouteChoices(t *testing.T) {
 				outgoing++
 			}
 		}
-		if incoming >= 3 && outgoing >= 3 {
+		if incoming >= 2 && outgoing >= 2 {
 			conflicts++
 		}
 	}
 	if conflicts < 6 {
-		t.Fatalf("got %d junctions with at least three incoming and outgoing lanes, want at least 6", conflicts)
+		t.Fatalf("got %d junctions with at least two incoming and outgoing lanes, want at least 6", conflicts)
 	}
 
 	from, to := "junction-2-2", "junction-3-4"
@@ -226,20 +227,108 @@ func orientation(point sim.Point, segment lineSegment) float64 {
 		(segment.to.Y-segment.from.Y)*(point.X-segment.from.X)
 }
 
-func TestScale100StationSpursAttachToExpectedJunctions(t *testing.T) {
+func TestScale100StationAccessUsesSeparateRoadNodes(t *testing.T) {
 	t.Parallel()
 	network := Scale100().Network
 	lanes := make(map[string]sim.Lane, len(network.Lanes))
+	incoming, outgoing := make(map[string]int), make(map[string]int)
 	for _, lane := range network.Lanes {
 		lanes[lane.ID] = lane
+		incoming[lane.To]++
+		outgoing[lane.From]++
 	}
 	for index := range 20 {
-		junction := meshJunctionID(index/5, index%5)
 		in := lanes[fmt.Sprintf("mesh-in-%02d", index+1)]
 		out := lanes[fmt.Sprintf("mesh-out-%02d", index+1)]
-		if in.From != junction || in.To != stationNodeID(index, "entry") ||
-			out.From != stationNodeID(index, "exit") || out.To != junction {
-			t.Fatalf("station %d spur does not attach through %q: in=%+v out=%+v", index+1, junction, in, out)
+		if in.From == out.To || in.To != stationNodeID(index, "entry") || out.From != stationNodeID(index, "exit") {
+			t.Fatalf("station %d access is not separate: in=%+v out=%+v", index+1, in, out)
+		}
+		if incoming[in.From] != 1 || outgoing[in.From] != 2 || incoming[out.To] != 2 || outgoing[out.To] != 1 {
+			t.Fatalf("station %d needs a road diverge and merge", index+1)
+		}
+		entry, _ := network.Node(in.From)
+		exit, _ := network.Node(out.To)
+		if math.Hypot(entry.Position.X-exit.Position.X, entry.Position.Y-exit.Position.Y) < 20*sim.Clearance {
+			t.Fatalf("station %d road connections are too close", index+1)
+		}
+	}
+}
+
+func TestScale100UnrelatedLanesKeepClearance(t *testing.T) {
+	t.Parallel()
+	network := Scale100().Network
+	nodes := make(map[string]sim.Point, len(network.Nodes))
+	for _, node := range network.Nodes {
+		nodes[node.ID] = node.Position
+	}
+	for index, first := range network.Lanes {
+		if first.Control != nil {
+			t.Fatalf("update clearance check for curved lane %q", first.ID)
+		}
+		a := lineSegment{from: nodes[first.From], to: nodes[first.To]}
+		for _, second := range network.Lanes[index+1:] {
+			if first.From == second.From || first.From == second.To || first.To == second.From || first.To == second.To {
+				continue
+			}
+			b := lineSegment{from: nodes[second.From], to: nodes[second.To]}
+			gap := min(distanceToSegment(a.from, b), distanceToSegment(a.to, b), distanceToSegment(b.from, a), distanceToSegment(b.to, a))
+			if segmentsCross(a, b) || gap < sim.Clearance {
+				t.Fatalf("unrelated lanes %q and %q lack clearance: %.3fm", first.ID, second.ID, gap)
+			}
+		}
+	}
+}
+
+func distanceToSegment(point sim.Point, segment lineSegment) float64 {
+	dx, dy := segment.to.X-segment.from.X, segment.to.Y-segment.from.Y
+	fraction := max(0, min(1, ((point.X-segment.from.X)*dx+(point.Y-segment.from.Y)*dy)/(dx*dx+dy*dy)))
+	return math.Hypot(point.X-segment.from.X-fraction*dx, point.Y-segment.from.Y-fraction*dy)
+}
+
+func TestScale100StationAccessPreservesRoadTravel(t *testing.T) {
+	t.Parallel()
+	network := Scale100().Network
+	road := sim.Network{Nodes: network.Nodes}
+	for _, lane := range network.Lanes {
+		if lane.SpeedLimit != speedLimit {
+			t.Fatalf("lane %q changes the scenario speed limit", lane.ID)
+		}
+		if strings.HasPrefix(lane.ID, "mesh-junction-") {
+			road.Lanes = append(road.Lanes, lane)
+		}
+	}
+	for row := range 4 {
+		for column := range 5 {
+			var edges []meshEdge
+			if column < 4 {
+				edges = append(edges, meshEdge{rowA: row, columnA: column, rowB: row, columnB: column + 1})
+			}
+			if row < 3 {
+				edges = append(edges, meshEdge{rowA: row, columnA: column, rowB: row + 1, columnB: column})
+			}
+			for _, edge := range edges {
+				_, original := meshCarriageways(edge)
+				for _, lane := range original {
+					route, err := road.Route(lane.From, lane.To)
+					if err != nil {
+						t.Fatalf("station access disconnects road %q: %v", lane.ID, err)
+					}
+					length := 0.0
+					for _, part := range route {
+						length += road.Length(part)
+					}
+					if math.Abs(length-road.Length(lane)) > 1e-6 {
+						t.Fatalf("station access changes road %q length: %.3f", lane.ID, length)
+					}
+				}
+			}
+		}
+	}
+	parking, _ := network.Station("parking")
+	for _, berth := range parking.Berths {
+		node, _ := network.Node(berth.Node)
+		if node.Position.Y <= 3*1200+sim.Clearance {
+			t.Fatalf("parking berth %q must remain outside the mesh", berth.ID)
 		}
 	}
 }
