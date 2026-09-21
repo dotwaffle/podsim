@@ -1,4 +1,4 @@
-package view
+package observe
 
 import (
 	"testing"
@@ -6,10 +6,10 @@ import (
 	"github.com/dotwaffle/podsim/internal/sim"
 )
 
-func TestSummarizeStation(t *testing.T) {
+func TestStationMonitorSummarize(t *testing.T) {
 	t.Parallel()
 	network := stationStatusNetwork()
-	topology := newStationTopology(network)
+	monitor := NewStationMonitor(network)
 	station, _ := network.Station("passenger")
 	parking, _ := network.Station("parking")
 	state := sim.Snapshot{
@@ -38,16 +38,16 @@ func TestSummarizeStation(t *testing.T) {
 	tests := []struct {
 		name    string
 		station sim.Station
-		want    stationStatus
+		want    StationMetrics
 	}{
-		{name: "passenger station", station: station, want: stationStatus{occupied: 1, reservedEmpty: 1, totalReserved: 2, free: 1, approaching: 6, entranceStopped: 2, exitStopped: 2}},
-		{name: "parking station", station: parking, want: stationStatus{reservedEmpty: 1, totalReserved: 1, free: 1, approaching: 1, entranceStopped: 1, exitStopped: 1}},
+		{name: "passenger station", station: station, want: StationMetrics{Occupied: 1, ReservedEmpty: 1, TotalReserved: 2, Free: 1, Approaching: 6, EntranceStopped: 2, ExitStopped: 2}},
+		{name: "parking station", station: parking, want: StationMetrics{ReservedEmpty: 1, TotalReserved: 1, Free: 1, Approaching: 1, EntranceStopped: 1, ExitStopped: 1}},
 	}
-	for _, tc := range tests {
-		t.Run(tc.name, func(t *testing.T) {
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
-			if got := summarizeStation(summarizeStationInput{topology: topology, station: tc.station, state: state}); got != tc.want {
-				t.Fatalf("summarizeStation() = %+v, want %+v", got, tc.want)
+			if got := monitor.Summarize(test.station, state); got != test.want {
+				t.Fatalf("Summarize() = %+v, want %+v", got, test.want)
 			}
 		})
 	}

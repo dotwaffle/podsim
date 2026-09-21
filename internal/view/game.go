@@ -19,6 +19,7 @@ import (
 	"github.com/hajimehoshi/ebiten/v2/vector"
 	"golang.org/x/image/font/gofont/goregular"
 
+	"github.com/dotwaffle/podsim/internal/observe"
 	"github.com/dotwaffle/podsim/internal/remote"
 	"github.com/dotwaffle/podsim/internal/session"
 	"github.com/dotwaffle/podsim/internal/sim"
@@ -430,9 +431,9 @@ func (g *Game) drawNetwork(screen *ebiten.Image, state sim.Snapshot) {
 		}
 	}
 	collapsedStations := make(map[string]bool)
-	topology := newStationTopology(g.network)
+	stationMonitor := observe.NewStationMonitor(g.network)
 	for _, station := range g.network.Stations {
-		status := summarizeStation(summarizeStationInput{topology: topology, station: station, state: state})
+		status := stationMonitor.Summarize(station, state)
 		center := sim.Point{}
 		showBerths := g.showStationBerths(station)
 		collapsedStations[station.ID] = !showBerths
@@ -477,8 +478,8 @@ func (g *Game) drawNetwork(screen *ebiten.Image, state sim.Snapshot) {
 			}
 			if showBerths && !station.ParkingOnly && len(station.Berths) == 1 {
 				g.label(mapScreen, label{x: labelX, y: labelY + 21*g.layout.unit, size: 10, value: occupancy, color: shade})
-				g.label(mapScreen, label{x: labelX, y: labelY + 37*g.layout.unit, size: 9, value: fmt.Sprintf("%d occupied · %d reserved empty · %d free", status.occupied, status.reservedEmpty, status.free), color: muted})
-				g.label(mapScreen, label{x: labelX, y: labelY + 52*g.layout.unit, size: 9, value: fmt.Sprintf("In %d stopped / %d approaching · Out %d stopped", status.entranceStopped, status.approaching, status.exitStopped), color: muted})
+				g.label(mapScreen, label{x: labelX, y: labelY + 37*g.layout.unit, size: 9, value: fmt.Sprintf("%d occupied · %d reserved empty · %d free", status.Occupied, status.ReservedEmpty, status.Free), color: muted})
+				g.label(mapScreen, label{x: labelX, y: labelY + 52*g.layout.unit, size: 9, value: fmt.Sprintf("In %d stopped / %d approaching · Out %d stopped", status.EntranceStopped, status.Approaching, status.ExitStopped), color: muted})
 			}
 		}
 		if len(station.Berths) == 0 {
@@ -491,16 +492,16 @@ func (g *Game) drawNetwork(screen *ebiten.Image, state sim.Snapshot) {
 			vector.StrokeCircle(mapScreen, float32(center.X), float32(center.Y), float32(10*g.layout.unit), float32(2*g.layout.unit), rgb(muted), detailed)
 			x := center.X + 16*g.layout.unit
 			y := center.Y - 14*g.layout.unit
-			g.label(mapScreen, label{x: x, y: y, size: 10, value: fmt.Sprintf("%s  %d/%d", shortText(strings.TrimPrefix(station.Name, "Station "), 7), status.occupied, len(station.Berths)), color: foreground})
-			if status.entranceStopped > 0 || status.exitStopped > 0 {
-				g.label(mapScreen, label{x: x, y: y + 16*g.layout.unit, size: 9, value: fmt.Sprintf("In %d · Out %d", status.entranceStopped, status.exitStopped), color: amber})
+			g.label(mapScreen, label{x: x, y: y, size: 10, value: fmt.Sprintf("%s  %d/%d", shortText(strings.TrimPrefix(station.Name, "Station "), 7), status.Occupied, len(station.Berths)), color: foreground})
+			if status.EntranceStopped > 0 || status.ExitStopped > 0 {
+				g.label(mapScreen, label{x: x, y: y + 16*g.layout.unit, size: 9, value: fmt.Sprintf("In %d · Out %d", status.EntranceStopped, status.ExitStopped), color: amber})
 			}
 		} else if station.ParkingOnly || len(station.Berths) > 1 {
 			x := center.X + 25*g.layout.unit
 			y := center.Y - 32*g.layout.unit
 			g.label(mapScreen, label{x: x, y: y, size: 16, value: station.Name, color: foreground})
-			g.label(mapScreen, label{x: x, y: y + 23*g.layout.unit, size: 10, value: fmt.Sprintf("%d/%d occupied · %d reserved empty · %d free", status.occupied, len(station.Berths), status.reservedEmpty, status.free), color: muted})
-			g.label(mapScreen, label{x: x, y: y + 40*g.layout.unit, size: 9, value: fmt.Sprintf("In %d stopped / %d approaching · Out %d stopped", status.entranceStopped, status.approaching, status.exitStopped), color: muted})
+			g.label(mapScreen, label{x: x, y: y + 23*g.layout.unit, size: 10, value: fmt.Sprintf("%d/%d occupied · %d reserved empty · %d free", status.Occupied, len(station.Berths), status.ReservedEmpty, status.Free), color: muted})
+			g.label(mapScreen, label{x: x, y: y + 40*g.layout.unit, size: 9, value: fmt.Sprintf("In %d stopped / %d approaching · Out %d stopped", status.EntranceStopped, status.Approaching, status.ExitStopped), color: muted})
 		}
 	}
 	for i, v := range state.Vehicles {
