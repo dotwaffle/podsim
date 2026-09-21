@@ -141,17 +141,21 @@ func TestPassengerDispatchUsesFreeReachableBerth(t *testing.T) {
 		t.Fatal(err)
 	}
 	v := s.findVehicle("01")
-	if v.destination.ID != "market-2" || len(v.Route) == 0 || v.Route[len(v.Route)-1].To != "market-berth-2" {
-		t.Fatalf("dispatch did not preserve the free berth route: %+v", v.Vehicle)
+	if v.destination.ID != "" || len(v.Route) == 0 || v.Route[len(v.Route)-1].To != "market-entry" {
+		t.Fatalf("dispatch chose a berth before station access: %+v", v.Vehicle)
 	}
+	assigned := ""
 	for range 240 * TicksPerSecond {
 		s.Step()
 		checkTraffic(t, s.Snapshot())
+		if v.destination.ID != "" && assigned == "" {
+			assigned = v.destination.ID
+		}
 		if s.Snapshot().Completed == 1 {
 			break
 		}
 	}
-	if state := s.Snapshot(); state.Completed != 1 || state.Vehicles[0].Pod.BerthID != "market-2" || state.Vehicles[1].Pod.BerthID != "market-1" {
+	if state := s.Snapshot(); assigned != "market-2" || state.Completed != 1 || state.Vehicles[0].Pod.BerthID != "market-2" || state.Vehicles[1].Pod.BerthID != "market-1" {
 		t.Fatalf("multi-berth dispatch failed: %+v", state)
 	}
 }
@@ -169,17 +173,23 @@ func TestPassengerDispatchSpreadsConcurrentArrivals(t *testing.T) {
 		}
 	}
 	first, second := s.findVehicle("01"), s.findVehicle("02")
-	if first.destination.ID == second.destination.ID {
-		t.Fatalf("concurrent arrivals share berth %q", first.destination.ID)
+	if first.destination.ID != "" || second.destination.ID != "" {
+		t.Fatalf("concurrent arrivals chose berths before station access: %q %q", first.destination.ID, second.destination.ID)
 	}
-	assigned := map[string]string{"01": first.destination.ID, "02": second.destination.ID}
+	assigned := map[string]string{"01": "", "02": ""}
 	for range 240 * TicksPerSecond {
 		s.Step()
 		checkTraffic(t, s.Snapshot())
 		for _, v := range s.vehicles {
-			if v.Pod.Activity == Traveling && v.destination.ID != assigned[v.Pod.ID] {
+			if assigned[v.Pod.ID] == "" && v.destination.ID != "" {
+				assigned[v.Pod.ID] = v.destination.ID
+			}
+			if assigned[v.Pod.ID] != "" && v.Pod.Activity == Traveling && v.destination.ID != assigned[v.Pod.ID] {
 				t.Fatalf("pod %s retargeted from %s to %s", v.Pod.ID, assigned[v.Pod.ID], v.destination.ID)
 			}
+		}
+		if assigned["01"] != "" && assigned["01"] == assigned["02"] {
+			t.Fatalf("concurrent arrivals share berth %q", assigned["01"])
 		}
 		if s.Snapshot().Completed == 2 {
 			break

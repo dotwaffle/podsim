@@ -205,7 +205,9 @@ Each junction has one conflict resource for nearby sections of its incident lane
 The controller derives these sections from the same geometry used for movement, including the 12-meter clearance.
 It acquires each continuous conflict section together, including downstream cells needed to cross lane endpoints.
 It releases the conflict resource after the pod reaches the end of that section.
-Before admission reaches a station branch, the controller can choose a free berth through an unreserved local path.
+Passenger journeys route to the station entry without a berth assignment.
+The controller chooses the least-assigned reachable berth when the pod enters the final station-access lane.
+The controller can change this choice before it reserves a berth branch.
 The oldest local admission request wins, with pod ID as the tie-breaker.
 Admission uses the state before movement. Released resources become available on the next tick.
 
@@ -229,7 +231,7 @@ It prefers local space that no request targets.
 The pod shows "No parking available" only when no reachable physical space exists.
 A passenger or pickup pod can choose a free alternate berth before it reserves the next station branch.
 A route change preserves all admitted track.
-Empty relocations yield remote destination claims to competing passenger trips and pickups until destination admission.
+Empty relocations yield unadmitted destination claims when a local passenger or pickup needs the same berth.
 Physical ownership and admitted destination resources remain protected.
 Empty moves have no boarding or unloading delay and do not count as passenger journeys.
 Parking serves no passengers. Parked pods return to service automatically when assigned to a pickup request.

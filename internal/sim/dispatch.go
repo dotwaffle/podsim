@@ -60,7 +60,8 @@ func (s *Simulation) dispatch() {
 					i++
 					continue
 				}
-				trip.route, trip.destination, _ = s.stationRoute(v.destination.Node, trip.request.To)
+				trip.route, _ = s.stationApproachRoute(v.destination.Node, trip.request.To)
+				trip.destination = Berth{}
 			}
 			trip.request.PodID = v.Pod.ID
 		}
@@ -112,10 +113,11 @@ func (s *Simulation) board(v *vehicle, trip waitingTrip) error {
 	origin, _ := from.berth(v.Pod.BerthID)
 	if len(trip.route) == 0 {
 		var err error
-		trip.route, trip.destination, err = s.stationRoute(origin.Node, trip.request.To)
+		trip.route, err = s.stationApproachRoute(origin.Node, trip.request.To)
 		if err != nil {
 			return err
 		}
+		trip.destination = Berth{}
 	}
 	request := trip.request
 	request.DispatchReason = ""

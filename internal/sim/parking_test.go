@@ -137,7 +137,7 @@ func TestPassengerBerthClearingPrefersUntargetedBerth(t *testing.T) {
 	}
 }
 
-func TestPassengerBerthClearingYieldsClaimToPassengerTarget(t *testing.T) {
+func TestDeferredPassengerBerthClearingSettlesBothPods(t *testing.T) {
 	t.Parallel()
 	for _, passengerFirst := range []bool{false, true} {
 		t.Run(fmt.Sprintf("passenger_first_%t", passengerFirst), func(t *testing.T) {
@@ -165,11 +165,9 @@ func TestPassengerBerthClearingYieldsClaimToPassengerTarget(t *testing.T) {
 			if !passengerFirst {
 				request()
 			}
-			s.Step()
-			for _, claimed := range []resource{{kind: berthResource, id: destination.ID}, {kind: nodeResource, id: destination.Node}} {
-				if s.owners[claimed] == clearing.Pod.ID {
-					t.Fatalf("clearing move kept passenger destination claim %+v", claimed)
-				}
+			passenger := s.findVehicle("02")
+			if passenger.destination.ID != "" {
+				t.Fatalf("passenger chose berth %q before station access", passenger.destination.ID)
 			}
 			for range 15 * 60 * TicksPerSecond {
 				s.Step()

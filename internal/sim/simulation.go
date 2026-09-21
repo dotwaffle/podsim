@@ -333,12 +333,12 @@ func (s *Simulation) RequestJourney(podID, destination string) error {
 		return ErrSameStation
 	}
 	origin, _ := from.berth(v.Pod.BerthID)
-	route, target, err := s.stationRoute(origin.Node, to.ID)
+	route, err := s.stationApproachRoute(origin.Node, to.ID)
 	if err != nil {
 		return fmt.Errorf("route %s to %s: %w", from.Name, to.Name, err)
 	}
 	s.requestID++
-	return s.board(v, waitingTrip{request: Request{ID: s.requestID, From: from.ID, To: to.ID, PartySize: 1, RequestedTick: s.tick}, route: route, destination: target})
+	return s.board(v, waitingTrip{request: Request{ID: s.requestID, From: from.ID, To: to.ID, PartySize: 1, RequestedTick: s.tick}, route: route})
 }
 
 func (s *Simulation) findVehicle(id string) *vehicle {

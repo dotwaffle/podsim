@@ -223,8 +223,10 @@ Road-only route lengths between the original road nodes remain unchanged.
 
 The layout requires station-local paths through intermediate nodes.
 Validation rejects paths through another station, another berth, or the wrong station entry or exit.
-Late berth choice preserves admitted track.
-Empty relocations yield remote claims to competing passenger trips until destination admission.
+Passenger routes end at the station entry until the pod enters the final access lane.
+The controller then chooses the reachable berth with the least assigned demand.
+Late berth changes preserve admitted track.
+Empty relocations yield unadmitted claims when local passenger traffic needs the same berth.
 An empty relocation can also clear an idle pod that later occupies its destination.
 Regression tests cover both claim orderings and eventual settlement.
 
@@ -247,6 +249,36 @@ In the 100-order burst, last delivery improved by 33% and final settlement impro
 Arrivals used all six Station 19 berths.
 First delivery took longer in all three cases because station access locations and travel paths changed.
 These results establish progress for the tested workloads. They do not establish capacity under unlimited demand.
+
+### Deferred berth assignment
+
+A live demand run exposed a temporary 20/4/1/1/1/1 split across Station 19's six berth routes.
+The first reachable berth received most trips after all berths had one assigned arrival.
+One capture had 20 active trips for berth 1 while its departing pod still held the clearance resource.
+The resource wait was correct, but the early berth assignments created the queue.
+
+Passenger journeys now target the station entry instead of a berth.
+The controller assigns a berth when the pod gets access to the final station lane.
+Current occupants, reservations, and local assignments contribute to the berth load.
+Berth order breaks equal-load ties, so the result remains deterministic.
+An idle berth occupant still moves if an admitted passenger arrival needs its berth.
+
+The comparison below uses the separate-access layout and the same fixed workloads.
+The deferred runs retained every-tick separation and berth ownership checks.
+
+| Orders | Orders/min | Assignment | First delivery | Last delivery | All idle | Peak stopped pods | Minimum separation (m) |
+| --- | --- | --- | ---: | ---: | ---: | ---: | ---: |
+| 40 | 4 | Journey start | 540.4 | 1271.8 | 1829.3 | 3 | 28.29 |
+| 40 | 4 | Station access | 531.5 | 1271.8 | 1829.3 | 1 | 28.11 |
+| 40 | 12 | Journey start | 363.1 | 964.2 | 1521.7 | 2 | 25.20 |
+| 40 | 12 | Station access | 418.7 | 965.9 | 1523.5 | 2 | 27.24 |
+| 100 | 12 | Journey start | 373.8 | 1763.1 | 2192.3 | 17 | 22.87 |
+| 100 | 12 | Station access | 418.7 | 1778.1 | 2202.8 | 17 | 22.87 |
+
+The 100-order deferred run used the six berths 27/26/14/17/8/8 times.
+The earlier fixed run used them 37/26/7/14/1/15 times.
+Final settlement changed by less than one percent, and peak stopped pods stayed at 17.
+The first delivery took 45 seconds longer because more arrivals used deeper berths.
 
 The automated suite retains the 40-order regression and adds the 100-order burst.
 Both preserve every-tick physical checks.

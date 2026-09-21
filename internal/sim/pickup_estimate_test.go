@@ -91,6 +91,29 @@ func TestPickupForecastIncludesCommittedPassengerTrip(t *testing.T) {
 	}
 }
 
+func TestPickupForecastUsesStationBeforeBerthAssignment(t *testing.T) {
+	t.Parallel()
+	s, err := New(Example(), "harbor")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := s.RequestJourney("01", "market"); err != nil {
+		t.Fatal(err)
+	}
+	v := s.findVehicle("01")
+	v.Pod.Activity, v.Pod.Occupied = Traveling, true
+	v.phaseTicks = 0
+
+	node, seconds, ok := s.availableAfter(v)
+	if !ok || node != "market-berth" {
+		t.Fatalf("forecast destination = %q, ok=%t", node, ok)
+	}
+	approach := s.routeSeconds(v.Route, motionEstimate{}) + float64(unloadingTicks)/TicksPerSecond
+	if seconds <= approach {
+		t.Fatalf("forecast omitted station access: got %.2fs, approach %.2fs", seconds, approach)
+	}
+}
+
 func TestWaitStatistics(t *testing.T) {
 	t.Parallel()
 	s, err := New(Example(), "harbor")

@@ -71,6 +71,7 @@ func TestBerthChoiceAtMultiLaneBranch(t *testing.T) {
 		t.Fatal(err)
 	}
 	v := s.findVehicle("01")
+	assignPassengerBerthForTest(t, assignPassengerBerthInput{simulation: s, vehicle: v})
 	s.owners[resource{kind: berthResource, id: "market-1"}] = "02"
 	s.owners[resource{kind: nodeResource, id: "market-berth"}] = "02"
 	positionBeforeTerminalInlet(t, terminalInletPosition{simulation: s, vehicle: v})
@@ -96,6 +97,7 @@ func TestCommittedMultiLaneBranchDoesNotReroute(t *testing.T) {
 		t.Fatal(err)
 	}
 	v := s.findVehicle("01")
+	assignPassengerBerthForTest(t, assignPassengerBerthInput{simulation: s, vehicle: v})
 	s.owners[resource{kind: berthResource, id: "market-1"}] = "02"
 	s.owners[resource{kind: nodeResource, id: "market-berth"}] = "02"
 	positionBeforeTerminalInlet(t, terminalInletPosition{simulation: s, vehicle: v, committed: true})
@@ -118,9 +120,6 @@ func TestCompetingArrivalsCompleteOnSeparateTerminalBranches(t *testing.T) {
 		if err := s.RequestJourney(id, "market"); err != nil {
 			t.Fatal(err)
 		}
-	}
-	if first, second := s.findVehicle("01"), s.findVehicle("02"); first.destination.ID != "market-1" || second.destination.ID != "market-1" {
-		t.Fatal("fixture needs both arrivals assigned before another berth becomes available")
 	}
 	addMarketBerth(s)
 	for range 240 * TicksPerSecond {
@@ -151,7 +150,23 @@ func berthChoiceSimulation(t *testing.T) *Simulation {
 	if err := s.RequestJourney("01", "market"); err != nil {
 		t.Fatal(err)
 	}
+	assignPassengerBerthForTest(t, assignPassengerBerthInput{simulation: s, vehicle: s.findVehicle("01")})
 	return s
+}
+
+type assignPassengerBerthInput struct {
+	simulation *Simulation
+	vehicle    *vehicle
+}
+
+func assignPassengerBerthForTest(t *testing.T, input assignPassengerBerthInput) {
+	t.Helper()
+	s, v := input.simulation, input.vehicle
+	route, destination, err := s.stationRoute(v.origin.Node, v.destinationStation)
+	if err != nil {
+		t.Fatal(err)
+	}
+	v.Route, v.blocks, v.destination = route, s.routeBlocks(route), destination
 }
 
 type terminalInletPosition struct {

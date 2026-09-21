@@ -56,7 +56,21 @@ func (s *Simulation) availableAfter(v *vehicle) (string, float64, bool) {
 	}
 	seconds := float64(v.phaseTicks)/TicksPerSecond + s.routeSeconds(v.Route, motionEstimate{distance: v.distance, speed: v.Pod.Speed})
 	if v.RelocatingTo == "" {
-		return v.destination.Node, seconds + float64(unloadingTicks)/TicksPerSecond, true
+		destination := v.destination.Node
+		if destination == "" {
+			station, ok := s.network.Station(v.destinationStation)
+			if !ok {
+				return "", 0, false
+			}
+			berth := station.Berths[0]
+			suffix, err := s.stationPath(station.Entry, berth.Node)
+			if err != nil {
+				return "", 0, false
+			}
+			seconds += s.routeSeconds(suffix, motionEstimate{})
+			destination = berth.Node
+		}
+		return destination, seconds + float64(unloadingTicks)/TicksPerSecond, true
 	}
 	for _, trip := range s.waiting {
 		if trip.request.PodID != v.Pod.ID {
