@@ -40,12 +40,12 @@ func TestMapCameraMutationGuards(t *testing.T) {
 		{name: "horizontal pan bound", run: func(camera *mapCamera) bool {
 			camera.zoomAt(sim.Point{X: 300, Y: 300}, 4)
 			camera.pan(sim.Point{X: 1e6})
-			return camera.screenPoint(sim.Point{X: camera.world.left}).X == float64(mapViewport.Min.X+mapPanMargin)
+			return camera.screenPoint(sim.Point{X: camera.world.left}).X == float64(camera.viewport.Min.X)+camera.panMargin
 		}},
 		{name: "vertical pan bound", run: func(camera *mapCamera) bool {
 			camera.zoomAt(sim.Point{X: 300, Y: 300}, 8)
 			camera.pan(sim.Point{Y: -1e6})
-			return camera.screenPoint(sim.Point{Y: camera.world.bottom}).Y == float64(mapViewport.Max.Y-mapPanMargin)
+			return camera.screenPoint(sim.Point{Y: camera.world.bottom}).Y == float64(camera.viewport.Max.Y)-camera.panMargin
 		}},
 	}
 	for _, test := range tests {
@@ -156,14 +156,16 @@ func cameraTestGame() *Game {
 			{Pod: sim.Pod{ID: "02", Position: sim.Point{X: 500, Y: 300}, Activity: sim.Traveling}},
 		}}},
 	}
-	game.camera.fit(worldBounds{left: 100, top: 100, right: 800, bottom: 500})
+	game.ensureLayout()
+	game.camera.fit(cameraFit{bounds: worldBounds{left: 100, top: 100, right: 800, bottom: 500}, viewport: game.layout.mapViewport, unit: game.layout.unit})
 	game.syncCamera()
 	return game
 }
 
 func fittedTestCamera() mapCamera {
 	var camera mapCamera
-	camera.fit(worldBounds{left: -100, top: -50, right: 900, bottom: 550})
+	layout := newDisplayLayout(layoutInput{outsideWidth: minimumWidth, outsideHeight: minimumHeight, deviceScale: 1})
+	camera.fit(cameraFit{bounds: worldBounds{left: -100, top: -50, right: 900, bottom: 550}, viewport: layout.mapViewport, unit: layout.unit})
 	return camera
 }
 

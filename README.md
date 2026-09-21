@@ -22,6 +22,8 @@ mise run serve
 ```
 
 Open http://127.0.0.1:8080 in desktop Chrome.
+The network view fills the browser window and renders at the display pixel density.
+Resize the window to give the map more space. Map navigation and layout stay local to each browser.
 The build creates static files in `dist/`, including the matching Go WebAssembly runtime and a precompressed WASM file.
 The first build downloads Go dependencies.
 Keep the server running while using the application.
