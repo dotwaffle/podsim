@@ -19,13 +19,7 @@ func (s *Simulation) route(from, to string) ([]Lane, error) {
 		return cached.lanes, cached.err
 	}
 	lanes, err := s.network.Route(from, to)
-	if s.routes == nil {
-		s.routes = make(map[routeKey]routeResult)
-	}
-	if len(s.routes) >= routeCacheLimit {
-		clear(s.routes)
-	}
-	s.routes[key] = routeResult{lanes: lanes, err: err}
+	s.cacheRoute(key, routeResult{lanes: lanes, err: err})
 	return lanes, err
 }
 
@@ -35,14 +29,34 @@ func (s *Simulation) stationPath(from, to string) ([]Lane, error) {
 		return cached.lanes, cached.err
 	}
 	lanes, err := s.network.stationPath(from, to)
+	s.cacheRoute(key, routeResult{lanes: lanes, err: err})
+	return lanes, err
+}
+
+func (s *Simulation) cacheRoute(key routeKey, result routeResult) {
 	if s.routes == nil {
 		s.routes = make(map[routeKey]routeResult)
 	}
-	if len(s.routes) >= routeCacheLimit {
-		clear(s.routes)
+	if _, exists := s.routes[key]; exists {
+		s.routes[key] = result
+		return
 	}
-	s.routes[key] = routeResult{lanes: lanes, err: err}
-	return lanes, err
+	if len(s.routes) >= routeCacheLimit {
+		for len(s.routeOrder) > 0 {
+			oldest := s.routeOrder[0]
+			s.routeOrder = s.routeOrder[1:]
+			if _, exists := s.routes[oldest]; exists {
+				delete(s.routes, oldest)
+				break
+			}
+		}
+		if len(s.routes) >= routeCacheLimit {
+			clear(s.routes)
+			s.routeOrder = s.routeOrder[:0]
+		}
+	}
+	s.routes[key] = result
+	s.routeOrder = append(s.routeOrder, key)
 }
 
 // laneLength reuses geometry measurements for the fixed network.

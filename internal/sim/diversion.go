@@ -7,7 +7,15 @@ import (
 
 // pickupRoute includes the track already committed by a pod moving toward parking.
 func (s *Simulation) pickupRoute(v *vehicle, stationID string) ([]Lane, Berth, bool) {
-	if v.Pod.Occupied || s.assigned(v.Pod.ID) {
+	return s.pickupRouteWithAssignments(v, stationID, nil)
+}
+
+func (s *Simulation) pickupRouteWithAssignments(v *vehicle, stationID string, assigned map[string]bool) ([]Lane, Berth, bool) {
+	claimed := assigned[v.Pod.ID]
+	if assigned == nil {
+		claimed = s.assigned(v.Pod.ID)
+	}
+	if v.Pod.Occupied || claimed {
 		return nil, Berth{}, false
 	}
 	if v.Pod.Activity == Idle {

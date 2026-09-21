@@ -2,6 +2,7 @@ package sim
 
 import (
 	"errors"
+	"fmt"
 	"reflect"
 	"testing"
 )
@@ -52,5 +53,30 @@ func TestRouteCacheCapacity(t *testing.T) {
 	}
 	if len(simulation.routes) > routeCacheLimit {
 		t.Fatal("route cache exceeded limit")
+	}
+}
+
+func TestRouteCacheEvictsOldestEntry(t *testing.T) {
+	t.Parallel()
+	simulation, err := New(Example(), "harbor")
+	if err != nil {
+		t.Fatal(err)
+	}
+	simulation.routes = make(map[routeKey]routeResult)
+	for index := range routeCacheLimit {
+		key := routeKey{from: fmt.Sprintf("from-%d", index), to: "destination"}
+		simulation.cacheRoute(key, routeResult{})
+	}
+	oldest := routeKey{from: "from-0", to: "destination"}
+	newest := routeKey{from: "new", to: "destination"}
+	simulation.cacheRoute(newest, routeResult{})
+	if _, exists := simulation.routes[oldest]; exists {
+		t.Fatal("oldest route remained after capacity eviction")
+	}
+	if _, exists := simulation.routes[newest]; !exists {
+		t.Fatal("new route missing after capacity eviction")
+	}
+	if len(simulation.routes) != routeCacheLimit {
+		t.Fatalf("route cache size = %d, want %d", len(simulation.routes), routeCacheLimit)
 	}
 }

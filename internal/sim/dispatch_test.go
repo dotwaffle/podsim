@@ -64,6 +64,62 @@ func TestStationRequestDispatch(t *testing.T) {
 	}
 }
 
+func TestBoardRoutesFromActualPickupBerth(t *testing.T) {
+	t.Parallel()
+	s, err := NewFleet(ladderNetwork(), []Placement{{ID: "01", StationID: "market", BerthID: "market-2"}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	staleRoute, err := s.stationApproachRoute("market-berth", "garden")
+	if err != nil {
+		t.Fatal(err)
+	}
+	trip := waitingTrip{
+		request: Request{ID: 1, From: "market", To: "garden", PodID: "01"},
+		route:   staleRoute,
+	}
+	if err := s.board(s.findVehicle("01"), trip); err != nil {
+		t.Fatal(err)
+	}
+	vehicle := s.findVehicle("01")
+	if len(vehicle.Route) == 0 || vehicle.Route[0].From != "market-berth-2" {
+		t.Fatalf("passenger route starts at %q, want actual berth market-berth-2", vehicle.Route[0].From)
+	}
+}
+
+func TestRemotePickupYieldsToNewLocalPod(t *testing.T) {
+	t.Parallel()
+	s, err := NewFleet(Example(), []Placement{
+		{ID: "01", StationID: "parking", BerthID: "parking-1"},
+		{ID: "02", StationID: "market"},
+		{ID: "03", StationID: "parking", BerthID: "parking-2"},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	local := s.findVehicle("02")
+	local.Pod.Activity, local.Pod.Occupied = Unloading, true
+	local.Request = &Request{ID: 99, From: "garden", To: "market", PodID: local.Pod.ID}
+	local.phaseTicks = 180 * TicksPerSecond
+	if err := s.RequestTrip("market", "garden"); err != nil {
+		t.Fatal(err)
+	}
+	remote := s.findVehicle("01")
+	if len(s.waiting) != 1 || s.waiting[0].request.PodID != remote.Pod.ID || remote.RelocatingTo != "market" {
+		t.Fatalf("fixture did not assign remote pickup: %+v", s.Snapshot())
+	}
+
+	local.phaseTicks = 1
+	s.Step()
+
+	if local.Pod.Activity != Boarding || local.Request == nil || local.Request.ID != 1 || len(s.waiting) != 0 {
+		t.Fatalf("new local pod did not replace remote pickup: %+v", s.Snapshot())
+	}
+	if s.assigned(remote.Pod.ID) || remote.RelocatingTo != "market" {
+		t.Fatal("remote pickup retained the passenger assignment")
+	}
+}
+
 func TestQueuedRequestsReusePod(t *testing.T) {
 	t.Parallel()
 	s, err := New(Example(), "parking")

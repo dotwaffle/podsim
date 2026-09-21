@@ -159,6 +159,7 @@ type vehicle struct {
 type Simulation struct {
 	lengths                      map[string]float64
 	routes                       map[routeKey]routeResult
+	routeOrder                   []routeKey
 	network                      Network
 	initial                      []Placement
 	vehicles                     []vehicle

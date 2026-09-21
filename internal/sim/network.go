@@ -131,51 +131,154 @@ type networkRouteInput struct {
 }
 
 func (n Network) route(input networkRouteInput) ([]Lane, error) {
-	if _, ok := n.Node(input.from); !ok {
+	graph := newRouteGraph(n)
+	from, ok := graph.nodes[input.from]
+	if !ok {
 		return nil, fmt.Errorf("unknown origin %q", input.from)
 	}
-	if _, ok := n.Node(input.to); !ok {
+	to, ok := graph.nodes[input.to]
+	if !ok {
 		return nil, fmt.Errorf("unknown destination %q", input.to)
 	}
-	distance := map[string]float64{input.from: 0}
-	visited := make(map[string]bool)
-	previous := make(map[string]Lane)
-	for {
-		current, best := "", math.Inf(1)
-		for _, node := range n.Nodes {
-			if d, ok := distance[node.ID]; ok && !visited[node.ID] && d < best {
-				current, best = node.ID, d
-			}
+	distance := make([]float64, len(n.Nodes))
+	previous := make([]int, len(n.Nodes))
+	visited := make([]bool, len(n.Nodes))
+	for i := range distance {
+		distance[i], previous[i] = math.Inf(1), -1
+	}
+	distance[from] = 0
+	queue := routeQueue{{node: from}}
+	for len(queue) > 0 {
+		item := queue.pop()
+		if visited[item.node] || item.distance != distance[item.node] {
+			continue
 		}
-		if current == "" {
-			return nil, ErrUnreachable
-		}
-		if current == input.to {
+		if item.node == to {
 			break
 		}
-		visited[current] = true
-		for _, lane := range n.Lanes {
-			if lane.From != current {
-				continue
-			}
+		visited[item.node] = true
+		for _, laneIndex := range graph.outgoing[item.node] {
+			lane := n.Lanes[laneIndex]
 			if lane.To != input.to && input.forbidden[lane.To] {
 				continue
 			}
-			candidate := best + n.Length(lane)/lane.SpeedLimit
-			old, exists := distance[lane.To]
-			if !exists || candidate < old {
-				distance[lane.To], previous[lane.To] = candidate, lane
+			next := graph.nodes[lane.To]
+			candidate := item.distance + graph.lengths[laneIndex]/lane.SpeedLimit
+			if candidate < distance[next] {
+				distance[next], previous[next] = candidate, laneIndex
+				queue.push(routeQueueItem{node: next, distance: candidate})
 			}
 		}
 	}
+	if math.IsInf(distance[to], 1) {
+		return nil, ErrUnreachable
+	}
 	var route []Lane
-	for current := input.to; current != input.from; {
-		lane := previous[current]
+	for current := to; current != from; {
+		laneIndex := previous[current]
+		if laneIndex < 0 {
+			return nil, ErrUnreachable
+		}
+		lane := n.Lanes[laneIndex]
 		route = append(route, lane)
-		current = lane.From
+		current = graph.nodes[lane.From]
 	}
 	slices.Reverse(route)
 	return route, nil
+}
+
+type routeGraph struct {
+	nodes    map[string]int
+	outgoing [][]int
+	lengths  []float64
+}
+
+func newRouteGraph(network Network) routeGraph {
+	graph := routeGraph{
+		nodes: make(map[string]int, len(network.Nodes)), outgoing: make([][]int, len(network.Nodes)),
+		lengths: make([]float64, len(network.Lanes)),
+	}
+	for index, node := range network.Nodes {
+		graph.nodes[node.ID] = index
+	}
+	for index, lane := range network.Lanes {
+		from, fromOK := graph.nodes[lane.From]
+		to, toOK := graph.nodes[lane.To]
+		if !fromOK || !toOK {
+			continue
+		}
+		graph.outgoing[from] = append(graph.outgoing[from], index)
+		graph.lengths[index] = indexedLaneLength(lane, network.Nodes[from].Position, network.Nodes[to].Position)
+	}
+	return graph
+}
+
+func indexedLaneLength(lane Lane, from, to Point) float64 {
+	if lane.Control == nil {
+		return pointDistance(from, to)
+	}
+	length, previous := 0.0, from
+	for i := 1; i <= 64; i++ {
+		t := float64(i) / 64
+		u := 1 - t
+		point := Point{X: u*u*from.X + 2*u*t*lane.Control.X + t*t*to.X, Y: u*u*from.Y + 2*u*t*lane.Control.Y + t*t*to.Y}
+		length += pointDistance(previous, point)
+		previous = point
+	}
+	return length
+}
+
+type routeQueueItem struct {
+	node     int
+	distance float64
+}
+
+type routeQueue []routeQueueItem
+
+func (q *routeQueue) push(item routeQueueItem) {
+	*q = append(*q, item)
+	for child := len(*q) - 1; child > 0; {
+		parent := (child - 1) / 2
+		if !routeQueueLess((*q)[child], (*q)[parent]) {
+			break
+		}
+		(*q)[parent], (*q)[child] = (*q)[child], (*q)[parent]
+		child = parent
+	}
+}
+
+func (q *routeQueue) pop() routeQueueItem {
+	root := (*q)[0]
+	last := (*q)[len(*q)-1]
+	*q = (*q)[:len(*q)-1]
+	if len(*q) == 0 {
+		return root
+	}
+	(*q)[0] = last
+	for parent := 0; ; {
+		left := parent*2 + 1
+		if left >= len(*q) {
+			break
+		}
+		child := left
+		right := left + 1
+		if right < len(*q) && routeQueueLess((*q)[right], (*q)[left]) {
+			child = right
+		}
+		if !routeQueueLess((*q)[child], (*q)[parent]) {
+			break
+		}
+		(*q)[parent], (*q)[child] = (*q)[child], (*q)[parent]
+		parent = child
+	}
+	return root
+}
+
+func routeQueueLess(a, b routeQueueItem) bool {
+	if a.distance == b.distance {
+		return a.node < b.node
+	}
+	return a.distance < b.distance
 }
 
 func (n Network) validate() error {

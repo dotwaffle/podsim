@@ -12,6 +12,8 @@ type waitingTrip struct {
 	route       []Lane
 	destination Berth
 	deferUntil  int64
+	deferCheck  int64
+	deferPodID  string
 }
 
 // RequestTrip queues a passenger journey between stations and assigns an available pod when possible.
@@ -38,20 +40,35 @@ func (s *Simulation) RequestTrip(origin, destination string) error {
 
 // dispatch considers requests in submission order. Unavailable pickups do not block other stations.
 func (s *Simulation) dispatch() {
+	assigned := make(map[string]bool, len(s.waiting))
+	for _, trip := range s.waiting {
+		if trip.request.PodID != "" {
+			assigned[trip.request.PodID] = true
+		}
+	}
 	for i := 0; i < len(s.waiting); {
 		s.promoteReadyPickup(i)
 		trip := &s.waiting[i]
 		trip.request.DispatchReason = ""
 		v := s.findVehicle(trip.request.PodID)
+		if v != nil && (v.Pod.Activity != Idle || v.Pod.StationID != trip.request.From) {
+			if local := s.localPickup(trip.request.From, assigned); local != nil {
+				delete(assigned, v.Pod.ID)
+				trip.request.PodID = local.Pod.ID
+				trip.route, trip.destination = nil, Berth{}
+				assigned[local.Pod.ID] = true
+				v = local
+			}
+		}
 		if v == nil {
-			v = s.pickupPod(trip.request.From)
+			v = s.pickupPod(trip.request.From, assigned)
 			if v == nil {
 				trip.request.DispatchReason = "Waiting for an available pod"
 				i++
 				continue
 			}
 			if v.Pod.StationID != trip.request.From || v.Pod.Activity != Idle {
-				if s.waitForFinishingPod(trip, v) {
+				if s.waitForFinishingPod(trip, v, assigned) {
 					i++
 					continue
 				}
@@ -64,6 +81,7 @@ func (s *Simulation) dispatch() {
 				trip.destination = Berth{}
 			}
 			trip.request.PodID = v.Pod.ID
+			assigned[v.Pod.ID] = true
 		}
 		if v.Pod.Activity == Idle && v.Pod.StationID == trip.request.From {
 			if err := s.board(v, *trip); err != nil {
@@ -90,13 +108,23 @@ func (s *Simulation) assigned(podID string) bool {
 	return slices.ContainsFunc(s.waiting, func(trip waitingTrip) bool { return trip.request.PodID == podID })
 }
 
+func (s *Simulation) localPickup(stationID string, assigned map[string]bool) *vehicle {
+	for i := range s.vehicles {
+		v := &s.vehicles[i]
+		if v.Pod.Activity == Idle && v.Pod.StationID == stationID && !assigned[v.Pod.ID] {
+			return v
+		}
+	}
+	return nil
+}
+
 // pickupPod chooses the fastest available idle or divertible parking pod, with pod ID breaking ties.
-func (s *Simulation) pickupPod(stationID string) *vehicle {
+func (s *Simulation) pickupPod(stationID string, assigned map[string]bool) *vehicle {
 	var best *vehicle
 	bestTime := math.Inf(1)
 	for i := range s.vehicles {
 		v := &s.vehicles[i]
-		route, _, ok := s.pickupRoute(v, stationID)
+		route, _, ok := s.pickupRouteWithAssignments(v, stationID, assigned)
 		if !ok {
 			continue
 		}
@@ -111,14 +139,11 @@ func (s *Simulation) pickupPod(stationID string) *vehicle {
 func (s *Simulation) board(v *vehicle, trip waitingTrip) error {
 	from, _ := s.network.Station(trip.request.From)
 	origin, _ := from.berth(v.Pod.BerthID)
-	if len(trip.route) == 0 {
-		var err error
-		trip.route, err = s.stationApproachRoute(origin.Node, trip.request.To)
-		if err != nil {
-			return err
-		}
-		trip.destination = Berth{}
+	route, err := s.stationApproachRoute(origin.Node, trip.request.To)
+	if err != nil {
+		return err
 	}
+	trip.route, trip.destination = route, Berth{}
 	request := trip.request
 	request.DispatchReason = ""
 	wait := s.tick - request.RequestedTick

@@ -8,12 +8,16 @@ const (
 )
 
 // waitForFinishingPod is advisory. It never assigns a busy pod or reserves a berth.
-func (s *Simulation) waitForFinishingPod(trip *waitingTrip, idle *vehicle) bool {
+func (s *Simulation) waitForFinishingPod(trip *waitingTrip, idle *vehicle, assigned map[string]bool) bool {
 	if trip.deferUntil != 0 && s.tick >= trip.deferUntil {
 		return false
 	}
+	if trip.deferCheck > s.tick {
+		trip.request.DispatchReason = "Waiting for pod " + trip.deferPodID + " to finish"
+		return true
+	}
 	station, _ := s.network.Station(trip.request.From)
-	route, _, ok := s.pickupRoute(idle, trip.request.From)
+	route, _, ok := s.pickupRouteWithAssignments(idle, trip.request.From, assigned)
 	if !ok {
 		return false
 	}
@@ -40,6 +44,8 @@ func (s *Simulation) waitForFinishingPod(trip *waitingTrip, idle *vehicle) bool 
 	if trip.deferUntil == 0 {
 		trip.deferUntil = s.tick + maxDispatchDeferral
 	}
+	trip.deferCheck = s.tick + TicksPerSecond
+	trip.deferPodID = best.Pod.ID
 	trip.request.DispatchReason = "Waiting for pod " + best.Pod.ID + " to finish"
 	return true
 }
