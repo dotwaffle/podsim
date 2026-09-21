@@ -1,19 +1,14 @@
 package session
 
 import (
-	"errors"
 	"math/rand/v2"
 
+	"github.com/dotwaffle/podsim/internal/project"
 	"github.com/dotwaffle/podsim/internal/sim"
 )
 
 // DemandConfig controls deterministic arrivals per simulated minute.
-type DemandConfig struct {
-	Enabled   bool   `json:"enabled"`
-	PerMinute int    `json:"perMinute"`
-	Pattern   string `json:"pattern"`
-	Seed      uint64 `json:"seed"`
-}
+type DemandConfig = project.DemandConfig
 
 // DemandState reports accepted and skipped generated orders for the current stream.
 type DemandState struct {
@@ -24,29 +19,43 @@ type DemandState struct {
 }
 
 type demandRun struct {
-	state  DemandState
-	rng    *rand.Rand
-	budget int
+	state       DemandState
+	rng         *rand.Rand
+	budget      int
+	passenger   []string
+	destination int
 }
 
-func newDemand() demandRun {
-	return demandRun{state: DemandState{Config: DemandConfig{PerMinute: 2, Pattern: "balanced", Seed: 1}}}
-}
-
-func (d *demandRun) configure(config DemandConfig) error {
-	if config.PerMinute < 1 || config.PerMinute > 12 {
-		return errors.New("demand rate must be 1 to 12 orders per simulated minute")
+func newDemand(config DemandConfig, network sim.Network) demandRun {
+	stations := project.PassengerStations(network)
+	passenger := make([]string, len(stations))
+	for i, station := range stations {
+		passenger[i] = station.ID
 	}
-	if config.Pattern != "balanced" && config.Pattern != "market" {
-		return errors.New("demand pattern must be balanced or market")
+	destination := len(passenger) - 1
+	for i, id := range passenger {
+		if config.Pattern == "destination" && id == config.Destination || config.Pattern == "market" && id == "market" {
+			destination = i
+			break
+		}
+	}
+	return demandRun{
+		state:       DemandState{Config: config},
+		rng:         rand.New(rand.NewPCG(config.Seed, ^config.Seed)),
+		passenger:   passenger,
+		destination: destination,
+	}
+}
+
+func (d *demandRun) configure(config DemandConfig, network sim.Network) error {
+	if err := project.ValidateDemand(config, network); err != nil {
+		return err
 	}
 	if config == d.state.Config {
 		return nil
 	}
 	if config.Enabled {
-		d.state = DemandState{Config: config}
-		d.rng = rand.New(rand.NewPCG(config.Seed, ^config.Seed))
-		d.budget = 0
+		*d = newDemand(config, network)
 	} else {
 		d.state.Config = config
 	}
@@ -62,22 +71,25 @@ func (d *demandRun) step(simulation *sim.Simulation) {
 		return
 	}
 	d.budget -= 60 * sim.TicksPerSecond
-	stations := []string{"harbor", "garden", "market"}
-	from, to := 0, 2
-	if d.state.Config.Pattern == "market" {
-		from = d.rng.IntN(2)
-	} else {
-		from = d.rng.IntN(3)
-		to = d.rng.IntN(2)
+	var from int
+	to := d.destination
+	if d.state.Config.Pattern == "balanced" {
+		from = d.rng.IntN(len(d.passenger))
+		to = d.rng.IntN(len(d.passenger) - 1)
 		if to >= from {
 			to++
+		}
+	} else {
+		from = d.rng.IntN(len(d.passenger) - 1)
+		if from >= to {
+			from++
 		}
 	}
 	if len(simulation.Snapshot().Pending) >= QueueLimit {
 		d.state.Skipped++
 		return
 	}
-	if err := simulation.RequestTrip(stations[from], stations[to]); err != nil {
+	if err := simulation.RequestTrip(d.passenger[from], d.passenger[to]); err != nil {
 		d.state.Skipped++
 		d.state.Error = err.Error()
 		return

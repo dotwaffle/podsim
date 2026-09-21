@@ -8,9 +8,10 @@ import (
 )
 
 type waitingTrip struct {
-	request    Request
-	route      []Lane
-	deferUntil int64
+	request     Request
+	route       []Lane
+	destination Berth
+	deferUntil  int64
 }
 
 // RequestTrip queues a passenger journey between stations and assigns an available pod when possible.
@@ -26,12 +27,11 @@ func (s *Simulation) RequestTrip(origin, destination string) error {
 	if from.ID == to.ID {
 		return ErrSameStation
 	}
-	route, err := s.network.Route(from.Berths[0].Node, to.Berths[0].Node)
-	if err != nil {
-		return fmt.Errorf("passenger route %s to %s: %w", origin, destination, err)
+	if !s.stationsConnected(from, to) {
+		return fmt.Errorf("passenger route %s to %s: %w", origin, destination, ErrUnreachable)
 	}
 	s.requestID++
-	s.waiting = append(s.waiting, waitingTrip{request: Request{ID: s.requestID, From: origin, To: destination, PartySize: 1, RequestedTick: s.tick}, route: route})
+	s.waiting = append(s.waiting, waitingTrip{request: Request{ID: s.requestID, From: origin, To: destination, PartySize: 1, RequestedTick: s.tick}})
 	s.dispatch()
 	return nil
 }
@@ -60,11 +60,16 @@ func (s *Simulation) dispatch() {
 					i++
 					continue
 				}
+				trip.route, trip.destination, _ = s.stationRoute(v.destination.Node, trip.request.To)
 			}
 			trip.request.PodID = v.Pod.ID
 		}
 		if v.Pod.Activity == Idle && v.Pod.StationID == trip.request.From {
-			s.board(v, *trip)
+			if err := s.board(v, *trip); err != nil {
+				trip.request.DispatchReason = "Waiting for destination access"
+				i++
+				continue
+			}
 			s.waiting = slices.Delete(s.waiting, i, i+1)
 			continue
 		}
@@ -90,7 +95,7 @@ func (s *Simulation) pickupPod(stationID string) *vehicle {
 	bestTime := math.Inf(1)
 	for i := range s.vehicles {
 		v := &s.vehicles[i]
-		route, ok := s.pickupRoute(v, stationID)
+		route, _, ok := s.pickupRoute(v, stationID)
 		if !ok {
 			continue
 		}
@@ -102,10 +107,16 @@ func (s *Simulation) pickupPod(stationID string) *vehicle {
 	return best
 }
 
-func (s *Simulation) board(v *vehicle, trip waitingTrip) {
+func (s *Simulation) board(v *vehicle, trip waitingTrip) error {
 	from, _ := s.network.Station(trip.request.From)
-	to, _ := s.network.Station(trip.request.To)
 	origin, _ := from.berth(v.Pod.BerthID)
+	if len(trip.route) == 0 {
+		var err error
+		trip.route, trip.destination, err = s.stationRoute(origin.Node, trip.request.To)
+		if err != nil {
+			return err
+		}
+	}
 	request := trip.request
 	request.DispatchReason = ""
 	wait := s.tick - request.RequestedTick
@@ -114,11 +125,12 @@ func (s *Simulation) board(v *vehicle, trip waitingTrip) {
 	s.maxWaitTicks = max(s.maxWaitTicks, wait)
 	request.PodID = v.Pod.ID
 	v.Request = &request
-	v.origin, v.destination, v.destinationStation = origin, to.Berths[0], to.ID
+	v.origin, v.destination, v.destinationStation = origin, trip.destination, trip.request.To
 	v.Route, v.blocks = trip.route, s.routeBlocks(trip.route)
 	v.Pod.Activity, v.Pod.WaitReason, v.Pod.BlockedBy = Boarding, NoWait, ""
 	v.phaseTicks, v.blockIndex, v.reservedThrough = boardingTicks, 0, -1
 	v.distance, v.pending = 0, -1
+	return nil
 }
 
 // promoteReadyPickup serves the oldest passenger first when pickup pods arrive out of order.
@@ -137,6 +149,8 @@ func (s *Simulation) promoteReadyPickup(index int) {
 		ready := s.findVehicle(later.request.PodID)
 		if ready != nil && ready.Pod.Activity == Idle && ready.Pod.StationID == trip.request.From {
 			trip.request.PodID, later.request.PodID = later.request.PodID, trip.request.PodID
+			trip.route, later.route = nil, nil
+			trip.destination, later.destination = Berth{}, Berth{}
 			return
 		}
 	}

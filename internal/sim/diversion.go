@@ -6,24 +6,22 @@ import (
 )
 
 // pickupRoute includes the track already committed by a pod moving toward parking.
-func (s *Simulation) pickupRoute(v *vehicle, stationID string) ([]Lane, bool) {
+func (s *Simulation) pickupRoute(v *vehicle, stationID string) ([]Lane, Berth, bool) {
 	if v.Pod.Occupied || s.assigned(v.Pod.ID) {
-		return nil, false
+		return nil, Berth{}, false
 	}
-	station, _ := s.network.Station(stationID)
-	target := station.Berths[0].Node
 	if v.Pod.Activity == Idle {
 		from, _ := s.network.Station(v.Pod.StationID)
 		berth, _ := from.berth(v.Pod.BerthID)
-		route, err := s.network.Route(berth.Node, target)
-		return route, err == nil
+		route, destination, err := s.stationRoute(berth.Node, stationID)
+		return route, destination, err == nil
 	}
-	parking, ok := s.network.Station(v.RelocatingTo)
-	if !ok || !parking.ParkingOnly {
-		return nil, false
+	destination, ok := s.network.Station(v.RelocatingTo)
+	if !ok || (!destination.ParkingOnly && !v.Rebalancing) {
+		return nil, Berth{}, false
 	}
 	if v.Pod.Activity != Traveling && v.Pod.Activity != DepartingEmpty {
-		return nil, false
+		return nil, Berth{}, false
 	}
 	prefix := 0
 	from := v.origin.Node
@@ -34,7 +32,7 @@ func (s *Simulation) pickupRoute(v *vehicle, stationID string) ([]Lane, bool) {
 		for i, lane := range v.Route {
 			// Finish a committed parking inlet before returning to service.
 			if lane.To == v.destination.Node {
-				return nil, false
+				return nil, Berth{}, false
 			}
 			distance += s.network.Length(lane)
 			prefix, from = i+1, lane.To
@@ -43,11 +41,11 @@ func (s *Simulation) pickupRoute(v *vehicle, stationID string) ([]Lane, bool) {
 			}
 		}
 	}
-	suffix, err := s.network.Route(from, target)
+	suffix, berth, err := s.stationRoute(from, stationID)
 	if err != nil {
-		return nil, false
+		return nil, Berth{}, false
 	}
-	return append(slices.Clone(v.Route[:prefix]), suffix...), true
+	return append(slices.Clone(v.Route[:prefix]), suffix...), berth, true
 }
 
 func (s *Simulation) pickupSeconds(v *vehicle, route []Lane) float64 {
@@ -61,9 +59,15 @@ func (s *Simulation) pickupSeconds(v *vehicle, route []Lane) float64 {
 func (s *Simulation) sendPickup(v *vehicle, stationID string) error {
 	station, _ := s.network.Station(stationID)
 	if v.Pod.Activity == Idle {
-		return s.startEmptyMove(v, emptyDestination{station: stationID, berth: station.Berths[0]})
+		from, _ := s.network.Station(v.Pod.StationID)
+		origin, _ := from.berth(v.Pod.BerthID)
+		_, berth, err := s.stationRoute(origin.Node, stationID)
+		if err != nil {
+			return err
+		}
+		return s.startEmptyMove(v, emptyDestination{station: stationID, berth: berth})
 	}
-	route, ok := s.pickupRoute(v, stationID)
+	route, berth, ok := s.pickupRoute(v, stationID)
 	if !ok {
 		return errors.New("pod cannot divert before its committed maneuver finishes")
 	}
@@ -74,8 +78,9 @@ func (s *Simulation) sendPickup(v *vehicle, stationID string) error {
 		}
 	}
 	v.Route, v.blocks = route, s.routeBlocks(route)
-	v.destination, v.destinationStation = station.Berths[0], stationID
+	v.destination, v.destinationStation = berth, station.ID
 	v.RelocatingTo = stationID
+	v.Rebalancing = false
 	if len(route) == 0 {
 		v.Pod.Activity = Idle
 		v.RelocatingTo = ""

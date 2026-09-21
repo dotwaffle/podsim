@@ -16,6 +16,7 @@ func TestStationRequestDispatch(t *testing.T) {
 		{"nearest parked", "harbor", "garden", "02", []Placement{{ID: "01", StationID: "garden"}, {ID: "02", StationID: "parking"}}},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
 			s, err := NewFleet(Example(), tc.placements)
 			if err != nil {
 				t.Fatal(err)
@@ -166,6 +167,7 @@ func TestRejectedStationRequestsDoNotMutate(t *testing.T) {
 	t.Parallel()
 	for _, pair := range [][2]string{{"missing", "market"}, {"harbor", "missing"}, {"parking", "market"}, {"harbor", "parking"}, {"harbor", "harbor"}} {
 		t.Run(pair[0]+" to "+pair[1], func(t *testing.T) {
+			t.Parallel()
 			s := newTraffic(t)
 			before := s.Snapshot()
 			if err := s.RequestTrip(pair[0], pair[1]); err == nil {

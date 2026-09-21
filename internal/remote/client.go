@@ -14,6 +14,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/dotwaffle/podsim/internal/project"
 	"github.com/dotwaffle/podsim/internal/session"
 )
 
@@ -66,6 +67,9 @@ func (c *Client) Submit(command session.Command) error {
 	}
 	if c.pending {
 		return errors.New("waiting for the previous command")
+	}
+	if command.Project != nil {
+		command.Project = new(project.Clone(*command.Project))
 	}
 	c.sequence++
 	command.Client, command.Sequence, command.Epoch = c.client, c.sequence, c.state.Epoch
@@ -136,7 +140,7 @@ func (c *Client) send(ctx context.Context, command session.Command) Result {
 		result.Err = err
 		return result
 	}
-	for attempt := 0; attempt < 3; attempt++ {
+	for range 3 {
 		result.Reply = session.Reply{}
 		result.Err = c.exchange(ctx, "POST", "/api/command", body, &result.Reply)
 		if result.Reply.State.Epoch != "" {

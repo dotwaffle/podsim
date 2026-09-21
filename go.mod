@@ -1,6 +1,6 @@
 module github.com/dotwaffle/podsim
 
-go 1.26.8
+go 1.27.1
 
 require (
 	github.com/hajimehoshi/ebiten/v2 v2.10.2

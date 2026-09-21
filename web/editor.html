@@ -1,0 +1,124 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Podsim scenario editor</title>
+  <link rel="stylesheet" href="editor.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <a href="index.html" aria-label="Return to simulation">← Simulation</a>
+      <div>
+        <h1>Scenario editor</h1>
+        <p id="serverStatus">Loading the live scenario…</p>
+      </div>
+    </div>
+    <div class="actions" aria-label="File and server actions">
+      <button id="undoButton" type="button">Undo</button>
+      <button id="redoButton" type="button">Redo</button>
+      <button id="resetButton" type="button">Reset draft</button>
+      <label class="button" for="projectImport">Import JSON</label>
+      <input id="projectImport" class="visually-hidden" type="file" accept="application/json,.json">
+      <button id="exportButton" type="button">Export JSON</button>
+      <button id="applyButton" class="primary" type="button">Pause and apply</button>
+    </div>
+  </header>
+
+  <main class="workspace">
+    <aside class="toolbox" aria-label="Drawing tools">
+      <h2>Build</h2>
+      <div class="tool-grid" role="toolbar" aria-label="Editor mode">
+        <button class="tool active" data-tool="select" type="button"><span>↖</span>Select</button>
+        <button class="tool" data-tool="junction" type="button"><span>＋</span>Junction</button>
+        <button class="tool" data-tool="station" type="button"><span>▣</span>Station</button>
+        <button class="tool" data-tool="lane" type="button"><span>⇢</span>Guideway</button>
+      </div>
+      <label class="check"><input id="pairedLanes" type="checkbox"> Add paired lanes</label>
+      <button id="cancelLinkButton" class="wide quiet" type="button" hidden>Cancel guideway</button>
+
+      <section>
+        <h2>Background</h2>
+        <label class="button wide" for="backgroundImport">Choose PNG or JPEG</label>
+        <input id="backgroundImport" class="visually-hidden" type="file" accept="image/png,image/jpeg">
+        <label>Opacity <output id="opacityValue">45%</output>
+          <input id="backgroundOpacity" type="range" min="0" max="1" step="0.05" value="0.45">
+        </label>
+        <button id="calibrateButton" class="wide" type="button">Calibrate scale</button>
+        <button id="removeBackgroundButton" class="wide quiet" type="button">Remove background</button>
+        <div id="calibrationPanel" class="subpanel" hidden>
+          <p>Select two points on the image.</p>
+          <label>Real distance (m)<input id="calibrationDistance" type="number" min="1" step="1" value="100"></label>
+          <div class="row">
+            <button id="finishCalibrationButton" type="button" disabled>Set scale</button>
+            <button id="cancelCalibrationButton" type="button">Cancel</button>
+          </div>
+        </div>
+      </section>
+
+      <section>
+        <h2>View</h2>
+        <p class="hint">Drag empty space to pan. Use the wheel to zoom. Press Escape to cancel drawing.</p>
+        <button id="fitButton" class="wide" type="button">Fit network</button>
+      </section>
+    </aside>
+
+    <section class="map-panel" aria-label="Network drawing area">
+      <svg id="networkMap" tabindex="0" role="application" aria-label="Scenario network editor">
+        <defs>
+          <marker id="arrow" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto" markerUnits="strokeWidth">
+            <path d="M0,0 L0,6 L8,3 z"></path>
+          </marker>
+          <filter id="shadow"><feDropShadow dx="0" dy="2" stdDeviation="3" flood-opacity=".35"></feDropShadow></filter>
+        </defs>
+        <g id="viewport">
+          <g id="backgroundLayer"></g>
+          <g id="laneLayer"></g>
+          <g id="stationLayer"></g>
+          <g id="nodeLayer"></g>
+          <g id="handleLayer"></g>
+        </g>
+      </svg>
+      <div id="mapPrompt" class="map-prompt">Select an item to edit it.</div>
+      <div class="zoom-controls" aria-label="Zoom controls">
+        <button id="zoomInButton" type="button" aria-label="Zoom in">＋</button>
+        <button id="zoomOutButton" type="button" aria-label="Zoom out">−</button>
+      </div>
+    </section>
+
+    <aside class="inspector">
+      <section>
+        <h2>Scenario</h2>
+        <label>Name<input id="scenarioName" maxlength="80"></label>
+      </section>
+      <section id="selectionPanel">
+        <h2>Selection</h2>
+        <div id="selectionContent" class="empty">No item selected.</div>
+      </section>
+      <section>
+        <h2>Fleet</h2>
+        <div id="fleetControls"></div>
+        <p class="hint">Each berth can hold one initial pod.</p>
+      </section>
+      <section>
+        <h2>Passenger demand</h2>
+        <label class="check"><input id="demandEnabled" type="checkbox"> Generate passengers</label>
+        <label>Trips per minute<input id="demandRate" type="number" min="1" max="120" step="1"></label>
+        <label>Pattern<select id="demandPattern"><option value="balanced">Balanced</option><option value="destination">One destination</option></select></label>
+        <label id="destinationLabel">Destination<select id="demandDestination"></select></label>
+        <label>Seed<input id="demandSeed" type="number" min="0" step="1"></label>
+        <label class="check"><input id="redistribution" type="checkbox"> Redistribute empty pods</label>
+      </section>
+      <section>
+        <div class="section-title"><h2>Checks</h2><button id="validateButton" type="button">Run checks</button></div>
+        <div id="validationSummary" class="validation neutral">Checks have not run.</div>
+        <ul id="validationList" class="validation-list"></ul>
+      </section>
+    </aside>
+  </main>
+
+  <div id="toast" role="status" aria-live="polite"></div>
+  <script src="editor.js"></script>
+</body>
+</html>

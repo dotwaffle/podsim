@@ -35,7 +35,8 @@ func TestCompressedSnapshotsAndAssets(t *testing.T) {
 	handler := shared.Handler(directory)
 	for _, path := range []string{"/api/state", "/podsim.wasm"} {
 		t.Run(path, func(t *testing.T) {
-			request := httptest.NewRequest(http.MethodGet, path, nil)
+			t.Parallel()
+			request := httptest.NewRequestWithContext(t.Context(), http.MethodGet, path, http.NoBody)
 			request.Header.Set("Accept-Encoding", "gzip")
 			response := httptest.NewRecorder()
 			handler.ServeHTTP(response, request)
@@ -70,7 +71,7 @@ func TestCompressedSnapshotsAndAssets(t *testing.T) {
 		})
 	}
 	for _, tc := range []struct{ encoding, byteRange string }{{"gzip;q=0", ""}, {"gzip", "bytes=0-3"}} {
-		request := httptest.NewRequest(http.MethodGet, "/podsim.wasm", nil)
+		request := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/podsim.wasm", http.NoBody)
 		request.Header.Set("Accept-Encoding", tc.encoding)
 		request.Header.Set("Range", tc.byteRange)
 		response := httptest.NewRecorder()
@@ -92,7 +93,7 @@ func TestCompressionKeepsBodylessResponsesEmpty(t *testing.T) {
 	t.Parallel()
 	for _, status := range []int{http.StatusNoContent, http.StatusNotModified} {
 		handler := compressResponse(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(status) }))
-		request := httptest.NewRequest(http.MethodGet, "/", nil)
+		request := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/", http.NoBody)
 		request.Header.Set("Accept-Encoding", "gzip")
 		response := httptest.NewRecorder()
 		handler.ServeHTTP(response, request)
@@ -109,7 +110,7 @@ func TestCompressedEmptyFile(t *testing.T) {
 		t.Fatal(err)
 	}
 	handler := newTestSession(t).Handler(directory)
-	request := httptest.NewRequest(http.MethodGet, "/empty.txt", nil)
+	request := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/empty.txt", http.NoBody)
 	request.Header.Set("Accept-Encoding", "gzip")
 	response := httptest.NewRecorder()
 	handler.ServeHTTP(response, request)

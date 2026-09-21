@@ -164,11 +164,8 @@ func (s *Simulation) move(v *vehicle) {
 		v.blockIndex++
 	}
 	b := v.blocks[v.blockIndex]
-	a, _ := s.network.Node(b.lane.From)
-	z, _ := s.network.Node(b.lane.To)
 	v.Pod.LaneID, v.Pod.LaneDistance = b.lane.ID, v.distance-b.laneStart
-	fraction := v.Pod.LaneDistance / s.network.Length(b.lane)
-	v.Pod.Position = Point{X: a.Position.X + fraction*(z.Position.X-a.Position.X), Y: a.Position.Y + fraction*(z.Position.Y-a.Position.Y)}
+	v.Pod.Position = s.network.Position(b.lane, v.Pod.LaneDistance)
 }
 
 func (s *Simulation) releaseCleared(v *vehicle) {

@@ -44,6 +44,7 @@ type emptyDestination struct {
 	station      string
 	berth        Berth
 	reserveBerth bool
+	rebalance    bool
 }
 
 func (s *Simulation) startEmptyMove(v *vehicle, to emptyDestination) error {
@@ -64,6 +65,7 @@ func (s *Simulation) startEmptyMove(v *vehicle, to emptyDestination) error {
 	v.origin, v.destination, v.destinationStation = origin, to.berth, to.station
 	v.Route, v.blocks = route, s.routeBlocks(route)
 	v.RelocatingTo = to.station
+	v.Rebalancing = to.rebalance
 	v.Pod.Activity, v.Pod.WaitReason, v.Pod.BlockedBy = DepartingEmpty, NoWait, ""
 	v.phaseTicks, v.blockIndex, v.reservedThrough = 0, 0, -1
 	v.distance, v.pending = 0, -1

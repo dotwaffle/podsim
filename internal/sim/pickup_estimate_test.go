@@ -16,6 +16,7 @@ func TestWaitForFinishingPod(t *testing.T) {
 		{"closer pod takes too long", 120, false},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
 			s, err := NewFleet(Example(), []Placement{{ID: "01", StationID: "harbor"}, {ID: "02", StationID: "garden"}})
 			if err != nil {
 				t.Fatal(err)

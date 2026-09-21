@@ -9,6 +9,7 @@ func TestParkingDiversionPreservesMotion(t *testing.T) {
 	t.Parallel()
 	for _, phase := range []string{"before departure", "on return lane"} {
 		t.Run(phase, func(t *testing.T) {
+			t.Parallel()
 			s, err := New(Example(), "market")
 			if err != nil {
 				t.Fatal(err)

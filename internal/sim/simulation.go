@@ -57,61 +57,81 @@ var (
 
 // Request describes a party's journey separately from the vehicle.
 type Request struct {
-	ID        int
-	From, To  string
-	PartySize int
-	PodID     string
-	Completed bool
+	ID        int    `json:"ID"`
+	From      string `json:"From"`
+	To        string `json:"To"`
+	PartySize int    `json:"PartySize"`
+	PodID     string `json:"PodID"`
+	Completed bool   `json:"Completed"`
 	// RequestedTick marks submission, before any pickup travel.
-	RequestedTick int64
+	RequestedTick int64 `json:"RequestedTick"`
 	// DispatchReason explains why a pending order has not started boarding.
-	DispatchReason string
+	DispatchReason string `json:"DispatchReason"`
 }
 
 // Pod contains observable vehicle state. LaneDistance is measured from the lane start.
 type Pod struct {
-	ID                  string
-	Position            Point
-	Activity            Activity
-	StationID, BerthID  string
-	LaneID              string
-	LaneDistance, Speed float64
-	Occupied            bool
-	WaitReason          WaitReason
-	BlockedBy           string
+	ID           string     `json:"ID"`
+	Position     Point      `json:"Position"`
+	Activity     Activity   `json:"Activity"`
+	StationID    string     `json:"StationID"`
+	BerthID      string     `json:"BerthID"`
+	LaneID       string     `json:"LaneID"`
+	LaneDistance float64    `json:"LaneDistance"`
+	Speed        float64    `json:"Speed"`
+	Occupied     bool       `json:"Occupied"`
+	WaitReason   WaitReason `json:"WaitReason"`
+	BlockedBy    string     `json:"BlockedBy"`
 }
 
 // Vehicle is an independent display copy of a pod and its assigned journey.
 type Vehicle struct {
-	Pod     Pod
-	Request *Request
-	Route   []Lane
+	Pod     Pod      `json:"Pod"`
+	Request *Request `json:"Request"`
+	Route   []Lane   `json:"Route"`
 	// RelocatingTo identifies the destination station during an empty move.
-	RelocatingTo string
+	RelocatingTo string `json:"RelocatingTo"`
+	// Rebalancing reports whether an empty move was started by redistribution.
+	Rebalancing bool `json:"Rebalancing"`
 }
 
 // BerthState separates physical occupancy from local arrival admission.
-type BerthState struct{ ID, Occupant, ReservedBy string }
+type BerthState struct {
+	ID         string `json:"ID"`
+	Occupant   string `json:"Occupant"`
+	ReservedBy string `json:"ReservedBy"`
+}
 
 // Snapshot is a copy of the fleet, clock, and station resources.
 type Snapshot struct {
+
 	// Submitted counts accepted passenger orders since reset.
-	Submitted int
-	Tick      int64
-	Paused    bool
-	Vehicles  []Vehicle
-	Berths    []BerthState
-	Completed int
-	Demo      bool
-	DemoError string
+	Submitted int          `json:"Submitted"`
+	Tick      int64        `json:"Tick"`
+	Paused    bool         `json:"Paused"`
+	Vehicles  []Vehicle    `json:"Vehicles"`
+	Berths    []BerthState `json:"Berths"`
+	Completed int          `json:"Completed"`
+	Demo      bool         `json:"Demo"`
+	DemoError string       `json:"DemoError"`
 	// Pending holds passenger requests that have not started boarding.
-	Pending []Request
+	Pending []Request `json:"Pending"`
 	// Wait summarizes request-to-boarding delay, including elapsed pending waits.
-	Wait WaitStats
+	Wait WaitStats `json:"Wait"`
+	// PassengerDistanceMeters is the distance traveled with a passenger.
+	PassengerDistanceMeters float64 `json:"PassengerDistanceMeters"`
+	// EmptyDistanceMeters is the distance traveled without a passenger.
+	EmptyDistanceMeters float64 `json:"EmptyDistanceMeters"`
+	// RebalanceMoves counts proactive empty moves started since reset.
+	RebalanceMoves int `json:"RebalanceMoves"`
 }
 
 // Placement starts a pod at an empty station berth.
-type Placement struct{ ID, StationID, BerthID string }
+type Placement struct {
+	ID        string `json:"ID"`
+	StationID string `json:"StationID"`
+	BerthID   string `json:"BerthID"`
+}
 
 type vehicle struct {
 	Vehicle
@@ -121,6 +141,7 @@ type vehicle struct {
 	distance                    float64
 	pending                     int
 	waitSince                   int64
+	rebalanceAfter              int64
 	origin, destination         Berth
 	destinationStation          string
 }
@@ -139,6 +160,12 @@ type Simulation struct {
 	waiting                      []waitingTrip
 	boarded                      int
 	totalWaitTicks, maxWaitTicks int64
+	redistribution               bool
+	demandWeights                map[string]float64
+	nextRedistributionTick       int64
+	passengerDistanceMeters      float64
+	emptyDistanceMeters          float64
+	rebalanceMoves               int
 }
 
 // New creates a one-pod scenario for focused experiments.
@@ -195,6 +222,9 @@ func (s *Simulation) Reset() {
 	s.paused, s.demo, s.demoError = false, nil, ""
 	s.waiting = nil
 	s.boarded, s.totalWaitTicks, s.maxWaitTicks = 0, 0, 0
+	s.redistribution, s.demandWeights = false, nil
+	s.nextRedistributionTick = 0
+	s.passengerDistanceMeters, s.emptyDistanceMeters, s.rebalanceMoves = 0, 0, 0
 	s.owners = make(map[resource]string)
 	s.vehicles = nil
 	for _, p := range s.initial {
@@ -202,7 +232,7 @@ func (s *Simulation) Reset() {
 		berth, _ := station.berth(p.BerthID)
 		node, _ := s.network.Node(berth.Node)
 		pod := Pod{ID: p.ID, Position: node.Position, Activity: Idle, StationID: station.ID, BerthID: berth.ID}
-		s.vehicles = append(s.vehicles, vehicle{Vehicle: Vehicle{Pod: pod}, pending: -1, reservedThrough: -1})
+		s.vehicles = append(s.vehicles, vehicle{Pod: pod, pending: -1, reservedThrough: -1})
 		s.owners[resource{kind: berthResource, id: berth.ID}] = p.ID
 		s.owners[resource{kind: nodeResource, id: berth.Node}] = p.ID
 	}
@@ -210,18 +240,22 @@ func (s *Simulation) Reset() {
 
 // Snapshot does not expose mutable simulation storage.
 func (s *Simulation) Snapshot() Snapshot {
-	state := Snapshot{Submitted: s.requestID, Tick: s.tick, Paused: s.paused, Completed: s.completed, Demo: s.demo != nil, DemoError: s.demoError, Wait: s.waitStats()}
+	state := Snapshot{
+		Submitted: s.requestID, Tick: s.tick, Paused: s.paused,
+		Completed: s.completed, Demo: s.demo != nil, DemoError: s.demoError,
+		Wait: s.waitStats(), PassengerDistanceMeters: s.passengerDistanceMeters,
+		EmptyDistanceMeters: s.emptyDistanceMeters, RebalanceMoves: s.rebalanceMoves,
+	}
 	for _, trip := range s.waiting {
 		state.Pending = append(state.Pending, trip.request)
 	}
 	for _, v := range s.vehicles {
-		copy := v.Vehicle
-		copy.Route = slices.Clone(copy.Route)
-		if copy.Request != nil {
-			request := *copy.Request
-			copy.Request = &request
+		cloned := v.Vehicle
+		cloned.Route = cloneLanes(cloned.Route)
+		if cloned.Request != nil {
+			cloned.Request = new(*cloned.Request)
 		}
-		state.Vehicles = append(state.Vehicles, copy)
+		state.Vehicles = append(state.Vehicles, cloned)
 	}
 	for _, station := range s.network.Stations {
 		for _, berth := range station.Berths {
@@ -261,14 +295,12 @@ func (s *Simulation) RequestJourney(podID, destination string) error {
 		return ErrSameStation
 	}
 	origin, _ := from.berth(v.Pod.BerthID)
-	target := to.Berths[0]
-	route, err := s.network.Route(origin.Node, target.Node)
+	route, target, err := s.stationRoute(origin.Node, to.ID)
 	if err != nil {
 		return fmt.Errorf("route %s to %s: %w", from.Name, to.Name, err)
 	}
 	s.requestID++
-	s.board(v, waitingTrip{request: Request{ID: s.requestID, From: from.ID, To: to.ID, PartySize: 1, RequestedTick: s.tick}, route: route})
-	return nil
+	return s.board(v, waitingTrip{request: Request{ID: s.requestID, From: from.ID, To: to.ID, PartySize: 1, RequestedTick: s.tick}, route: route, destination: target})
 }
 
 func (s *Simulation) findVehicle(id string) *vehicle {
@@ -299,6 +331,7 @@ func (s *Simulation) Step() {
 		}
 	}
 	s.dispatch()
+	s.redistribute()
 	s.admit()
 	s.clearBlockedBerths()
 	for i := range s.vehicles {
@@ -310,7 +343,7 @@ func (s *Simulation) Step() {
 			continue
 		}
 		if v.Pod.Activity == Traveling {
-			s.move(v)
+			s.moveAndMeasure(v)
 		}
 	}
 	// No pod can reuse resources released during this tick until the next tick.
@@ -328,5 +361,9 @@ func (s *Simulation) arrive(v *vehicle) {
 	if v.RelocatingTo != "" {
 		v.Pod.Activity, v.Pod.Occupied = Idle, false
 		v.phaseTicks, v.RelocatingTo = 0, ""
+		if v.Rebalancing {
+			v.rebalanceAfter = s.tick + redistributionCooldownTicks
+			v.Rebalancing = false
+		}
 	}
 }

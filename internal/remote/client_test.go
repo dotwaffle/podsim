@@ -1,7 +1,6 @@
 package remote
 
 import (
-	"context"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -9,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/dotwaffle/podsim/internal/project"
 	"github.com/dotwaffle/podsim/internal/session"
 )
 
@@ -45,7 +45,7 @@ func TestLostReplyRetryAndReconnect(t *testing.T) {
 	var failPoll atomic.Bool
 	var posts atomic.Int32
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method == "GET" {
+		if r.Method == http.MethodGet {
 			if failPoll.Load() {
 				http.Error(w, "offline", http.StatusServiceUnavailable)
 				return
@@ -66,8 +66,7 @@ func TestLostReplyRetryAndReconnect(t *testing.T) {
 		_ = json.NewEncoder(w).Encode(reply)
 	}))
 	defer server.Close()
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := t.Context()
 	client := New(ctx, server.URL)
 	waitFor(t, func() bool { _, connected, _ := client.View(); return connected })
 	if err := client.Submit(session.Command{Action: "trip", Origin: "harbor", Destination: "market"}); err != nil {
@@ -91,4 +90,18 @@ func TestLostReplyRetryAndReconnect(t *testing.T) {
 	}
 	failPoll.Store(false)
 	waitFor(t, func() bool { state, connected, _ := client.View(); return connected && state.Simulation.Submitted == 1 })
+}
+
+func TestSubmitOwnsProjectPayload(t *testing.T) {
+	t.Parallel()
+	client := &Client{connected: true, commands: make(chan session.Command, 1)}
+	config := project.Default()
+	if err := client.Submit(session.Command{Action: "project", Project: &config}); err != nil {
+		t.Fatal(err)
+	}
+	config.Network.Nodes[0].ID = "changed after submit"
+	queued := <-client.commands
+	if queued.Project.Network.Nodes[0].ID == config.Network.Nodes[0].ID {
+		t.Fatal("queued command aliases caller project")
+	}
 }

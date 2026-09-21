@@ -18,7 +18,10 @@ func compressResponse(next http.Handler) http.Handler {
 			next.ServeHTTP(w, r)
 			return
 		}
-		writer := pool.Get().(*gzip.Writer)
+		writer, ok := pool.Get().(*gzip.Writer)
+		if !ok {
+			panic("gzip pool contains an invalid writer")
+		}
 		writer.Reset(w)
 		response := &compressedResponse{ResponseWriter: w, writer: writer, bodyAllowed: r.Method != http.MethodHead}
 		defer func() {
@@ -42,6 +45,7 @@ type compressedResponse struct {
 	bodyAllowed bool
 }
 
+// WriteHeader selects compression before sending the status.
 func (w *compressedResponse) WriteHeader(status int) {
 	if w.wroteHeader {
 		return
@@ -56,6 +60,7 @@ func (w *compressedResponse) WriteHeader(status int) {
 	w.ResponseWriter.WriteHeader(status)
 }
 
+// Write sends a compressed response body.
 func (w *compressedResponse) Write(body []byte) (int, error) {
 	if !w.wroteHeader {
 		if w.Header().Get("Content-Type") == "" {

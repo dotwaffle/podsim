@@ -11,6 +11,7 @@ actionlint = "1"
 go = "1.27"
 golangci-lint = "2"
 govulncheck = "1"
+node = "24"
 
 [tasks.format]
 description = "Format Go sources"
@@ -49,7 +50,7 @@ run = """
 mkdir -p dist
 GOOS=js GOARCH=wasm go build -trimpath -o dist/podsim.wasm ./cmd/podsim
 cp "$(go env GOROOT)/lib/wasm/wasm_exec.js" dist/wasm_exec.js
-cp web/index.html web/game.html dist/
+cp web/index.html web/game.html web/editor.html web/editor.css web/editor.js dist/
 """
 
 [tasks.serve]
@@ -57,6 +58,10 @@ description = "Build and serve the browser application"
 depends = ["web"]
 run = "go run ./cmd/serve"
 
+[tasks.test-web]
+description = "Test editor model and project validation"
+run = "node --test web/editor_test.cjs"
+
 [tasks.check]
 description = "Run tests, static analysis, and native and browser builds"
-depends = ["test-race", "lint", "vulncheck", "build", "web"]
+depends = ["test-race", "test-web", "lint", "vulncheck", "build", "web"]

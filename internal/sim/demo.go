@@ -12,7 +12,7 @@ const demoJourneys = 8
 
 // StartDemo adds two parked pods for a fixed eight-journey experiment. Reset restores the original fleet.
 func (s *Simulation) StartDemo() error {
-	if len(s.initial) != 2 || s.initial[0] != (Placement{ID: "01", StationID: "harbor"}) || s.initial[1] != (Placement{ID: "02", StationID: "garden"}) {
+	if len(s.initial) != 2 || !demoPlacement(s.initial[0], Placement{ID: "01", StationID: "harbor", BerthID: "harbor-1"}) || !demoPlacement(s.initial[1], Placement{ID: "02", StationID: "garden", BerthID: "garden-1"}) {
 		return errors.New("the traffic demo needs pod 01 at Harbor and pod 02 at Garden")
 	}
 	if _, ok := s.network.Station("market"); !ok {
@@ -94,4 +94,8 @@ func (s *Simulation) validateDemo() error {
 func (s *Simulation) failDemo(err error) {
 	s.demoError = fmt.Sprintf("Traffic demo stopped: %v", err)
 	s.demo = nil
+}
+
+func demoPlacement(actual, expected Placement) bool {
+	return actual.ID == expected.ID && actual.StationID == expected.StationID && (actual.BerthID == "" || actual.BerthID == expected.BerthID)
 }

@@ -19,6 +19,7 @@ func (g *Game) readRemote() {
 			g.selected = 0
 		}
 		g.network = state.Network
+		g.normalizeSelection()
 	}
 	select {
 	case result := <-g.client.Results():
@@ -37,7 +38,8 @@ func (g *Game) readRemote() {
 		case result.Command.Action == "reset" || result.Command.Action == "demo":
 			g.showOrders, g.showDemand = false, false
 			g.notice, g.noticeTicks = "", 0
-			g.origin, g.destination, g.selected = "harbor", "market", 0
+			g.selected, g.podPage = 0, 0
+			g.normalizeSelection()
 		}
 	default:
 	}
@@ -66,8 +68,12 @@ func (g *Game) connectionLabel() string {
 func (g *Game) demandButtons() []button {
 	config := g.state.Demand.Config
 	pattern := "Balanced"
-	if config.Pattern == "market" {
+	switch config.Pattern {
+	case "market":
 		pattern = "Market-bound"
+	case "destination":
+		station, _ := g.network.Station(config.Destination)
+		pattern = station.Name + "-bound"
 	}
 	toggle := "Start demand"
 	if config.Enabled {
@@ -95,10 +101,12 @@ func (g *Game) changeDemand(action string) {
 		}
 		config.PerMinute = next
 	case "demand-pattern":
-		if config.Pattern == "market" {
+		if config.Pattern != "balanced" {
 			config.Pattern = "balanced"
+			config.Destination = ""
 		} else {
-			config.Pattern = "market"
+			config.Pattern = "destination"
+			config.Destination = g.destination
 		}
 	case "demand-seed":
 		config.Seed = config.Seed%9 + 1
@@ -113,5 +121,5 @@ func (g *Game) drawDemand(screen *ebiten.Image) {
 	g.label(screen, label{x: 816, y: 115, size: 12, value: "PASSENGER DEMAND", color: muted})
 	g.label(screen, label{x: 816, y: 140, size: 11, value: "Per simulated minute / shared settings", color: foreground})
 	g.label(screen, label{x: 816, y: 352, size: 11, value: fmt.Sprintf("Generated %d / skipped %d", demand.Generated, demand.Skipped), color: foreground})
-	g.label(screen, label{x: 816, y: 371, size: 10, value: "Start or change settings to restart the stream.", color: muted})
+	g.label(screen, label{x: 816, y: 371, size: 10, value: fmt.Sprintf("Reposition: %t / %d moves / %.0f m empty", g.state.Redistribution, g.state.Simulation.RebalanceMoves, g.state.Simulation.EmptyDistanceMeters), color: muted})
 }

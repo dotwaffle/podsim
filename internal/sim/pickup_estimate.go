@@ -13,7 +13,7 @@ func (s *Simulation) waitForFinishingPod(trip *waitingTrip, idle *vehicle) bool 
 		return false
 	}
 	station, _ := s.network.Station(trip.request.From)
-	route, ok := s.pickupRoute(idle, trip.request.From)
+	route, _, ok := s.pickupRoute(idle, trip.request.From)
 	if !ok {
 		return false
 	}

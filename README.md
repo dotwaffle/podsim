@@ -2,7 +2,8 @@
 
 A browser playground for personal rapid transit networks, built with Go and Ebitengine.
 
-This prototype runs two pods on a supplied network with three passenger stations and a two-space parking station.
+The supplied scenario starts two pods on a network with three passenger stations and a two-space parking station.
+Use the scenario editor to change the network, fleet, berth capacity, and demand settings.
 Request journeys or run the supplied four-pod traffic demo to inspect merge and station queues.
 The network includes a branch, a bypass, a merge, and station berths outside the through lanes.
 
@@ -25,13 +26,23 @@ The build creates static files in `dist/`, including the matching Go WebAssembly
 The first build downloads Go dependencies.
 Keep the server running while using the application.
 All browsers connected to this server share one in-memory session.
-Refreshing a browser retains the session. Restarting the server resets it.
+Refreshing a browser retains the session. Restarting the server resets the running simulation.
 
 To select a different listen address:
 
 ```sh
 mise run serve -- -addr 127.0.0.1:8081
 ```
+
+To load and save server settings, provide an existing scenario JSON file:
+
+```sh
+mise run serve -- -project scenario.json
+```
+
+This file contains the `project` object from `/api/project`.
+The server saves accepted setting changes with an atomic file replacement.
+The browser export wraps this object as `scenario` and can also contain a background image.
 
 ## Controls
 
@@ -44,9 +55,9 @@ mise run serve -- -addr 127.0.0.1:8081
 - Pickup wait statistics show average and maximum seconds since reset. Pending orders contribute their elapsed wait.
 - Wait ends when boarding starts, so it includes empty-pod travel to pickup.
 - Use **Pause**, **Resume**, **Reset**, and **Speed** to control playback.
-- Keyboard: **1–3** select destinations, **Enter** requests, **Tab** selects the next pod, **D** starts the demo.
+- Keyboard: **1-3** select destinations, **Enter** requests, **Tab** selects the next pod, **D** starts the demo.
 - **Space** pauses, **R** resets, and **S** changes speed.
-- Reset restores pod 01 at Harbor and pod 02 at Garden, clears requests and reservations, and returns to 1x playback.
+- Reset restores the saved scenario fleet and demand settings, clears requests and reservations, and returns to 1x playback.
 
 Boarding takes three simulated seconds. Unloading takes two.
 The selected pod shows its activity, speed in whole km/h, occupancy, route, and local waiting reason.
@@ -69,7 +80,8 @@ The demo ends after eight passenger journeys and all empty moves finish.
 
 Use 8x speed to see the experiment in about 41 seconds, or slow playback to inspect a queue.
 Starting the demo resets the current run and disables automatic demand. Manual requests are disabled during the demo.
-The four pods remain available after it ends. **Reset** restores the normal two-pod fleet.
+The four pods remain available after it ends. **Reset** restores the configured fleet.
+The supplied traffic demo requires the unchanged example network and fleet.
 
 ### Passenger demand
 
@@ -79,9 +91,47 @@ Balanced traffic chooses among all passenger stations. Market-bound traffic send
 Arrivals have equal time intervals. The seed determines the station choices.
 The same seed, settings, initial state, and manual actions produce the same run.
 Starting demand or changing enabled settings restarts the stream and its counters.
-Pause stops both movement and arrivals. Reset and the traffic demo disable demand.
+Pause stops both movement and arrivals. Reset restores configured demand. The traffic demo temporarily disables demand.
 The queue holds up to 200 pending orders. Full queues skip generated arrivals and reject new manual orders.
 Skipped arrivals appear in the Demand panel and do not accumulate for a later burst.
+
+## Scenario editor
+
+Select **Edit scenario** above the simulation to open the editor.
+The draft stays local until you select **Pause and apply**.
+Applying a valid draft resets the shared simulation and leaves it paused.
+If another browser changes the project, the server rejects stale edits and preserves the draft.
+Export the draft before reloading a newer server project.
+
+- Create stations and explicit junctions, then connect their nodes with directed guideways.
+- Select paired lanes to add both directions. Crossing lines do not create a junction.
+- Select a guideway to adjust its curve and speed in km/h.
+- Set station berth capacity and place initial pods in free berths.
+- Set the passenger rate, destination pattern, seed, and redistribution option.
+- Use undo and redo for draft changes. Pan empty space and use the wheel to zoom.
+- Import a PNG or JPEG background. Calibrate two points with a known distance in meters.
+- Export JSON to save the scenario and optional background. Import JSON to restore a draft.
+
+Project files save the design and settings, not an exact running checkpoint.
+Malformed or unsupported files do not replace the draft.
+Validation checks routes between passenger stations, pod placement, resource IDs, and the 24-meter minimum lane length.
+
+### Redistribution comparison
+
+Redistribution is off by default. Passenger assignments take priority over empty positioning.
+Before a pod moves, redistribution reserves a free destination berth. A cooldown limits repeated moves.
+Demand weights forecast pickup locations.
+This policy can increase waiting or empty travel when demand differs from the forecast.
+
+Run the same seeded demand schedule with redistribution off and on:
+
+```sh
+mise exec -- go run ./cmd/compare -seed 7 -duration 10m -request-every 60s
+```
+
+The report compares average and maximum pickup wait, completed and remaining journeys, empty travel, and positioning moves.
+The supplied benchmark uses a fixed Market-heavy pickup forecast and identical initial fleets.
+Pending requests contribute their elapsed wait at the end of the measurement window.
 
 ## Scope and model
 
@@ -118,9 +168,10 @@ A pod reserves its berth before entering the final inlet block.
 It keeps the berth through unloading and idle time, until its departure clears the resource.
 Other pods can queue on the inlet while through traffic uses the separate through lane.
 The controller makes local reservations, not a whole-journey timetable.
-Lanes are straight, and bends do not impose extra speed limits.
+Lanes can be straight or quadratic curves. The simulator and browser measure each curve along the same sampled path.
+Set each lane speed explicitly. Bends do not impose extra speed limits.
 Station entry, berth, and exit connections have stable identities.
-Each passenger station has one berth. The parking station has two.
+Passenger and parking stations can have multiple berths.
 All berths have direct entry and exit lanes, separate from through traffic.
 
 This block model is conservative. It does not model continuous car-following or optimized junction capacity.
@@ -132,7 +183,7 @@ Empty moves have no boarding or unloading delay and do not count as passenger jo
 Parking serves no passengers. Parked pods return to service automatically when assigned to a pickup request.
 After the demo, request a trip from Harbor or Garden to see an available pod return for pickup.
 The tests establish progress for feasible supplied scenarios, not for every saturated network.
-Proactive empty-pod redistribution before requests and detailed station maneuvers remain future work.
+Optional redistribution moves idle empty pods toward configured demand before requests arrive. Detailed station maneuvers remain future work.
 One server owns the simulation clock, commands, and demand settings.
 Browsers poll snapshots and show connection status. Controls wait for server confirmation.
 The map buffers 150 ms of snapshots and interpolates movement along lanes between updates.
@@ -143,18 +194,20 @@ A lost connection disables commands. Reconnection restores the current shared st
 The server deduplicates command retries by client and sequence.
 Replay records support 1,024 browser loads per server lifetime. Restart the server if this prototype limit is reached.
 Pod selection, origin, destination, and the open inspection panel stay local to each browser.
-Map import and editing follow the simulation milestone.
+Background images stay in the editor and exported project file. The shared simulation receives network geometry and settings.
 See [the project brief](PROJECT_BRIEF.md) for the wider scope and research.
 
 ## Code and validation
 
 - `internal/sim`: network, routing, requests, pod movement, and deterministic tests.
+- `internal/project`: versioned scenario settings, validation, and detached copies.
 - `internal/session`: shared clock, command validation, HTTP API, and repeatable demand.
 - `internal/remote`: snapshot polling, command retries, and connection state.
 - `internal/view`: Ebitengine rendering and input. Commands go to the server. Drawing reads a copied snapshot.
 - `cmd/podsim`: desktop and WASM entry point.
 - `cmd/serve`: shared session and browser file server.
-- `web`: browser loader.
+- `cmd/compare`: reproducible redistribution comparison.
+- `web`: browser loader and scenario editor.
 
 ```sh
 mise run test
@@ -163,11 +216,12 @@ mise run check
 
 `mise.toml` tracks Go 1.27 and major versions for the other development tools.
 `mise.lock` records the resolved tool downloads.
-`mise run check` runs workflow validation, race tests, vet, lint, vulnerability checks, and native and WASM builds.
+`mise run check` runs workflow validation, race tests, editor model tests, vet, lint, vulnerability checks, and native and WASM builds.
 GitHub Actions runs the same check on pull requests and pushes to main, with a manual trigger available.
 New pull-request updates cancel older runs. Each main-branch push keeps its own run.
 The workflow uses major-version action tags and installs tools from `mise.lock`.
 Go module, build, and lint analysis caches use job-specific keys and refresh after successful runs.
+The lint configuration follows Q, with Podsim package boundaries and no database, protobuf, or tracing rules.
 Core tests cover route selection, journey completion, invalid requests, pause/reset, repeatability, and state isolation.
 Rendering tests cover buffered movement, lane corners, arrival/departure, pause/reset, and stale snapshots.
 HTTP tests cover compression negotiation, snapshot decoding, WASM content type, and byte-range responses.

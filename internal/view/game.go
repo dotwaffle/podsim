@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"image/color"
 	"math"
+	"strconv"
 	"strings"
 	"time"
 
@@ -34,19 +35,22 @@ const (
 
 // Game owns presentation state and submits commands to the simulation.
 type Game struct {
-	network             sim.Network
-	client              *remote.Client
-	motion              remote.Motion
-	state               session.State
-	connected, pending  bool
-	showDemand          bool
-	font                *text.GoTextFaceSource
-	origin, destination string
-	message             string
-	selected            int
-	showOrders          bool
-	notice              string
-	noticeTicks         int
+	network              sim.Network
+	client               *remote.Client
+	motion               remote.Motion
+	state                session.State
+	connected, pending   bool
+	showDemand           bool
+	font                 *text.GoTextFaceSource
+	origin, destination  string
+	message              string
+	selected             int
+	stationPage, podPage int
+	mapScale             float64
+	mapOrigin            sim.Point
+	showOrders           bool
+	notice               string
+	noticeTicks          int
 }
 
 // New creates the first playable scenario.
@@ -75,6 +79,7 @@ func (g *Game) Update() error {
 	if inpututil.IsKeyJustPressed(ebiten.KeyTab) {
 		g.showOrders, g.showDemand = false, false
 		g.selected = (g.selected + 1) % len(g.state.Simulation.Vehicles)
+		g.podPage = g.selected / 6
 		g.message = ""
 	}
 	if inpututil.IsKeyJustPressed(ebiten.KeyD) {
@@ -92,8 +97,8 @@ func (g *Game) Update() error {
 		g.request()
 	}
 	for i, key := range []ebiten.Key{ebiten.Key1, ebiten.Key2, ebiten.Key3} {
-		if inpututil.IsKeyJustPressed(key) {
-			g.destination = g.network.Stations[i].ID
+		if stations := g.passengerStations(); inpututil.IsKeyJustPressed(key) && g.stationPage*3+i < len(stations) {
+			g.destination = stations[g.stationPage*3+i].ID
 			g.message = ""
 		}
 	}
@@ -155,15 +160,26 @@ func (g *Game) buttons() []button {
 		{x: 941, y: 486, w: 119, h: 36, label: "Reset [R]", action: "reset"},
 	}
 	for i, v := range state.Vehicles {
-		buttons = append(buttons, button{x: 810 + float64(i*36), y: 393, w: 32, h: 34, label: v.Pod.ID, selected: !g.showOrders && !g.showDemand && g.selected == i, action: "pod/" + v.Pod.ID})
-	}
-	for i, station := range g.network.Stations {
-		if station.ParkingOnly {
+		if i/6 != g.podPage {
 			continue
 		}
+		buttons = append(buttons, button{x: 810 + float64((i%6)*36), y: 393, w: 32, h: 34, label: v.Pod.ID, selected: !g.showOrders && !g.showDemand && g.selected == i, action: "pod/" + v.Pod.ID})
+	}
+	if len(state.Vehicles) > 6 {
+		buttons = append(buttons, button{x: 1026, y: 393, w: 34, h: 34, label: ">", action: "pods-next"})
+	}
+	stations := g.passengerStations()
+	if len(stations) > 3 {
+		buttons = append(buttons, button{x: 595, y: 649, w: 36, h: 30, label: ">", action: "stations-next"})
+	}
+	for i, station := range stations {
+		if i/3 != g.stationPage {
+			continue
+		}
+		i %= 3
 		buttons = append(buttons,
-			button{x: float64(100 + i*165), y: 632, w: 150, h: 28, label: station.Name, selected: g.origin == station.ID, disabled: busy, action: "from/" + station.ID},
-			button{x: float64(100 + i*165), y: 668, w: 150, h: 28, label: fmt.Sprintf("%s [%d]", station.Name, i+1), selected: g.destination == station.ID, disabled: busy, action: station.ID},
+			button{x: float64(100 + i*165), y: 632, w: 150, h: 28, label: shortText(station.Name, 17), selected: g.origin == station.ID, disabled: busy, action: "from/" + station.ID},
+			button{x: float64(100 + i*165), y: 668, w: 150, h: 28, label: fmt.Sprintf("%s [%d]", shortText(station.Name, 12), i+1), selected: g.destination == station.ID, disabled: busy, action: station.ID},
 		)
 	}
 	if g.showDemand {
@@ -185,6 +201,10 @@ func (g *Game) click(point sim.Point) bool {
 			continue
 		}
 		switch b.action {
+		case "pods-next":
+			g.podPage = (g.podPage + 1) % ((len(g.state.Simulation.Vehicles) + 5) / 6)
+		case "stations-next":
+			g.stationPage = (g.stationPage + 1) % ((len(g.passengerStations()) + 2) / 3)
 		case "demo":
 			g.runDemo()
 			return true
@@ -224,7 +244,7 @@ func (g *Game) click(point sim.Point) bool {
 		return false
 	}
 	for i, v := range g.mapSnapshot().Vehicles {
-		p := mapPoint(v.Pod.Position)
+		p := g.mapPoint(v.Pod.Position)
 		if math.Hypot(point.X-p.X, point.Y-p.Y) < 18 {
 			g.selected, g.message = i, ""
 			g.showOrders, g.showDemand = false, false
@@ -241,20 +261,22 @@ func (g *Game) Layout(_, _ int) (int, int) { return width, height }
 
 // Draw renders an independent snapshot without changing simulation state.
 func (g *Game) Draw(screen *ebiten.Image) {
+	g.fitNetwork()
 	screen.Fill(rgb(background))
 	g.label(screen, label{x: 28, y: 22, size: 30, value: "podsim", color: foreground})
 	g.label(screen, label{x: 157, y: 34, size: 14, value: "NETWORK PLAYGROUND / LOCAL TRAFFIC", color: muted})
-	g.label(screen, label{x: 815, y: 34, size: 14, value: fmt.Sprintf("3 STOPS + PARKING     %d PODS", len(g.state.Simulation.Vehicles)), color: accent})
+	g.label(screen, label{x: 815, y: 34, size: 14, value: fmt.Sprintf("%d STOPS     %d PODS", len(g.passengerStations()), len(g.state.Simulation.Vehicles)), color: accent})
 	vector.FillRect(screen, 24, 96, 748, 474, rgb(panel), false)
 	vector.FillRect(screen, 796, 96, 280, 474, rgb(panel), false)
 	vector.FillRect(screen, 24, 590, 1052, 142, rgb(panel), false)
 	state := g.state.Simulation
 	g.drawNetwork(screen, g.mapSnapshot())
-	if g.showDemand {
+	switch {
+	case g.showDemand:
 		g.drawDemand(screen)
-	} else if g.showOrders {
+	case g.showOrders:
 		g.drawOrders(screen, state)
-	} else {
+	default:
 		g.drawInspection(screen, state)
 	}
 	g.drawControls(screen, state)
@@ -264,10 +286,12 @@ func (g *Game) Draw(screen *ebiten.Image) {
 	g.label(screen, label{x: 28, y: 740, size: 11, value: g.connectionLabel(), color: muted})
 }
 
-func mapPoint(p sim.Point) sim.Point { return sim.Point{X: 34 + p.X*.77, Y: 144 + p.Y*.77} }
+func (g *Game) mapPoint(p sim.Point) sim.Point {
+	return sim.Point{X: g.mapOrigin.X + p.X*g.mapScale, Y: g.mapOrigin.Y + p.Y*g.mapScale}
+}
 
 func (g *Game) drawNetwork(screen *ebiten.Image, state sim.Snapshot) {
-	g.label(screen, label{x: 44, y: 113, size: 12, value: "THE LOOP", color: muted})
+	g.label(screen, label{x: 44, y: 113, size: 12, value: "NETWORK", color: muted})
 	g.label(screen, label{x: 520, y: 113, size: 12, value: "ONE-WAY LANES  /  METERS", color: muted})
 	active := make(map[string]bool)
 	if state.Vehicles[g.selected].Pod.Activity != sim.Idle {
@@ -276,32 +300,36 @@ func (g *Game) drawNetwork(screen *ebiten.Image, state sim.Snapshot) {
 		}
 	}
 	for _, lane := range g.network.Lanes {
-		a, _ := g.network.Node(lane.From)
-		b, _ := g.network.Node(lane.To)
-		from, to := mapPoint(a.Position), mapPoint(b.Position)
 		shade := uint32(track)
 		if active[lane.ID] {
 			shade = podColor(state.Vehicles[g.selected].Pod.ID)
 		}
-		vector.StrokeLine(screen, float32(from.X), float32(from.Y), float32(to.X), float32(to.Y), 5, rgb(track), true)
-		if active[lane.ID] {
-			vector.StrokeLine(screen, float32(from.X), float32(from.Y), float32(to.X), float32(to.Y), 2, rgb(shade), true)
+		length := g.network.Length(lane)
+		segments := 1
+		if lane.Control != nil {
+			segments = 32
 		}
-		drawArrow(screen, arrow{from: from, to: to, color: shade})
+		from := g.mapPoint(g.network.Position(lane, 0))
+		for i := 1; i <= segments; i++ {
+			to := g.mapPoint(g.network.Position(lane, length*float64(i)/float64(segments)))
+			vector.StrokeLine(screen, float32(from.X), float32(from.Y), float32(to.X), float32(to.Y), 5, rgb(track), true)
+			if active[lane.ID] {
+				vector.StrokeLine(screen, float32(from.X), float32(from.Y), float32(to.X), float32(to.Y), 2, rgb(shade), true)
+			}
+			from = to
+		}
+		drawArrow(screen, arrow{from: g.mapPoint(g.network.Position(lane, length*.55)), to: g.mapPoint(g.network.Position(lane, length*.65)), color: shade})
 	}
 	for _, node := range g.network.Nodes {
-		p := mapPoint(node.Position)
+		p := g.mapPoint(node.Position)
 		vector.FillCircle(screen, float32(p.X), float32(p.Y), 3, rgb(muted), true)
 	}
-	g.label(screen, label{x: 256, y: 320, size: 11, value: "BRANCH", color: muted})
-	g.label(screen, label{x: 524, y: 320, size: 11, value: "MERGE", color: muted})
-	g.label(screen, label{x: 370, y: 405, size: 11, value: "BYPASS", color: muted})
 	for _, station := range g.network.Stations {
 		occupied, reserved := 0, 0
 		center := sim.Point{}
 		for j, berth := range station.Berths {
 			node, _ := g.network.Node(berth.Node)
-			p := mapPoint(node.Position)
+			p := g.mapPoint(node.Position)
 			shade := uint32(muted)
 			for _, v := range state.Vehicles {
 				if v.Pod.BerthID == berth.ID {
@@ -311,8 +339,8 @@ func (g *Game) drawNetwork(screen *ebiten.Image, state sim.Snapshot) {
 			vector.StrokeCircle(screen, float32(p.X), float32(p.Y), 13, 2, rgb(shade), true)
 			name := station.Name
 			labelX, labelY := p.X-26, p.Y+20
-			if station.ParkingOnly {
-				name = fmt.Sprint(j + 1)
+			if station.ParkingOnly || len(station.Berths) > 1 {
+				name = strconv.Itoa(j + 1)
 				labelX, labelY = p.X-26, p.Y-9
 				center.X += p.X
 				center.Y += p.Y
@@ -335,11 +363,11 @@ func (g *Game) drawNetwork(screen *ebiten.Image, state sim.Snapshot) {
 					}
 				}
 			}
-			if !station.ParkingOnly {
+			if !station.ParkingOnly && len(station.Berths) == 1 {
 				g.label(screen, label{x: labelX, y: labelY + 21, size: 10, value: occupancy, color: shade})
 			}
 		}
-		if station.ParkingOnly {
+		if station.ParkingOnly || len(station.Berths) > 1 {
 			x := center.X/float64(len(station.Berths)) + 25
 			y := center.Y/float64(len(station.Berths)) - 24
 			g.label(screen, label{x: x, y: y, size: 16, value: station.Name, color: foreground})
@@ -350,7 +378,7 @@ func (g *Game) drawNetwork(screen *ebiten.Image, state sim.Snapshot) {
 		}
 	}
 	for i, v := range state.Vehicles {
-		p := mapPoint(v.Pod.Position)
+		p := g.mapPoint(v.Pod.Position)
 		shade := podColor(v.Pod.ID)
 		if v.Pod.WaitReason != sim.NoWait {
 			shade = amber
@@ -362,7 +390,7 @@ func (g *Game) drawNetwork(screen *ebiten.Image, state sim.Snapshot) {
 		g.label(screen, label{x: p.X + 11, y: p.Y - 18, size: 11, value: v.Pod.ID, color: shade})
 	}
 	vector.StrokeLine(screen, 48, 540, 125, 540, 2, rgb(muted), true)
-	g.label(screen, label{x: 141, y: 531, size: 12, value: "100 m", color: muted})
+	g.label(screen, label{x: 141, y: 531, size: 12, value: fmt.Sprintf("%.0f m", 77/g.mapScale), color: muted})
 	g.label(screen, label{x: 433, y: 531, size: 12, value: "Selected pod and route highlighted", color: muted})
 }
 
@@ -374,6 +402,9 @@ type arrow struct {
 func drawArrow(screen *ebiten.Image, a arrow) {
 	dx, dy := a.to.X-a.from.X, a.to.Y-a.from.Y
 	length := math.Hypot(dx, dy)
+	if length < 0.001 {
+		return
+	}
 	ux, uy := dx/length, dy/length
 	x, y := a.from.X+dx*.6, a.from.Y+dy*.6
 	for _, side := range []float64{-1, 1} {
@@ -390,6 +421,8 @@ func (g *Game) drawInspection(screen *ebiten.Image, state sim.Snapshot) {
 		status = "Available for pickup requests."
 	}
 	switch state.Vehicles[g.selected].Pod.Activity {
+	case sim.Idle:
+	// The station type determines the idle status above.
 	case sim.DepartingEmpty:
 		status = "Waits to depart without a passenger."
 	case sim.Boarding:
@@ -468,9 +501,12 @@ func (g *Game) drawButton(screen *ebiten.Image, b button) {
 	fill, ink := uint32(track), uint32(foreground)
 	selectedFill := uint32(accent)
 	padding := 12.0
+	fontSize := 14.0
 	if id, ok := strings.CutPrefix(b.action, "pod/"); ok {
 		ink, selectedFill = podColor(id), podColor(id)
-		padding = 8
+		padding = 5
+		fontSize = 12
+		b.label = shortText(b.label, 3)
 	}
 	if b.selected {
 		fill, ink = selectedFill, background
@@ -479,7 +515,7 @@ func (g *Game) drawButton(screen *ebiten.Image, b button) {
 		fill, ink = 0x1b2a36, 0x63788a
 	}
 	vector.FillRect(screen, float32(b.x), float32(b.y), float32(b.w), float32(b.h), rgb(fill), false)
-	g.label(screen, label{x: b.x + padding, y: b.y + (b.h-17)/2, size: 14, value: b.label, color: ink})
+	g.label(screen, label{x: b.x + padding, y: b.y + (b.h-17)/2, size: fontSize, value: b.label, color: ink})
 }
 
 type label struct {
@@ -496,11 +532,13 @@ func (g *Game) label(screen *ebiten.Image, label label) {
 }
 
 func rgb(hex uint32) color.RGBA {
-	return color.RGBA{R: uint8(hex >> 16), G: uint8(hex >> 8), B: uint8(hex), A: 255}
+	return color.RGBA{R: uint8((hex >> 16) & 255), G: uint8((hex >> 8) & 255), B: uint8(hex & 255), A: 255}
 }
 
 func podColor(id string) uint32 {
 	switch id {
+	case "01":
+		return accent
 	case "02":
 		return 0x89b9ff
 	case "03":
@@ -508,7 +546,12 @@ func podColor(id string) uint32 {
 	case "04":
 		return 0xe6d889
 	}
-	return accent
+	palette := []uint32{0xb6a0ff, 0xffa879, 0x8cdba0, 0x83d6e8, 0xdfa9ea, 0xd4d48a}
+	hash := uint32(2166136261)
+	for i := range len(id) {
+		hash = (hash ^ uint32(id[i])) * 16777619
+	}
+	return palette[int(hash)%len(palette)]
 }
 
 func activityLabel(pod sim.Pod) string {
@@ -524,4 +567,69 @@ func (g *Game) mapSnapshot() sim.Snapshot {
 		return g.state.Simulation
 	}
 	return state
+}
+
+func (g *Game) passengerStations() []sim.Station {
+	var stations []sim.Station
+	for _, s := range g.network.Stations {
+		if !s.ParkingOnly {
+			stations = append(stations, s)
+		}
+	}
+	return stations
+}
+
+func (g *Game) fitNetwork() {
+	left, top, right, bottom := math.Inf(1), math.Inf(1), math.Inf(-1), math.Inf(-1)
+	include := func(p sim.Point) {
+		left = min(left, p.X)
+		top = min(top, p.Y)
+		right = max(right, p.X)
+		bottom = max(bottom, p.Y)
+	}
+	for _, n := range g.network.Nodes {
+		include(n.Position)
+	}
+	for _, l := range g.network.Lanes {
+		if l.Control != nil {
+			include(*l.Control)
+		}
+	}
+	if len(g.network.Nodes) == 0 {
+		g.mapScale = 1
+		return
+	}
+	g.mapScale = min(590/max(1, right-left), 300/max(1, bottom-top))
+	g.mapOrigin = sim.Point{X: 80 + (590-(right-left)*g.mapScale)/2 - left*g.mapScale, Y: 165 + (300-(bottom-top)*g.mapScale)/2 - top*g.mapScale}
+}
+
+func (g *Game) normalizeSelection() {
+	stations := g.passengerStations()
+	if len(stations) == 0 {
+		return
+	}
+	valid := func(id string) bool {
+		for _, s := range stations {
+			if s.ID == id {
+				return true
+			}
+		}
+		return false
+	}
+	if !valid(g.origin) {
+		g.origin = stations[0].ID
+	}
+	if !valid(g.destination) {
+		g.destination = stations[len(stations)-1].ID
+	}
+	g.stationPage = min(g.stationPage, (len(stations)-1)/3)
+	g.podPage = min(g.podPage, (len(g.state.Simulation.Vehicles)-1)/6)
+}
+
+func shortText(value string, limit int) string {
+	letters := []rune(value)
+	if len(letters) <= limit {
+		return value
+	}
+	return string(letters[:limit-1]) + "…"
 }

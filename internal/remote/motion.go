@@ -29,7 +29,7 @@ func (m *Motion) Observe(state session.State, at time.Time) {
 			return
 		}
 		a, b := previous.state.Simulation, state.Simulation
-		if state.Epoch != previous.state.Epoch || b.Tick < a.Tick || b.Submitted < a.Submitted || b.Paused != a.Paused || state.Speed != previous.state.Speed || b.Demo != a.Demo || at.Sub(previous.at) > motionGap {
+		if state.Epoch != previous.state.Epoch || state.Generation != previous.state.Generation || b.Tick < a.Tick || b.Submitted < a.Submitted || b.Paused != a.Paused || state.Speed != previous.state.Speed || b.Demo != a.Demo || at.Sub(previous.at) > motionGap {
 			m.frames = nil
 		}
 	}
@@ -102,10 +102,7 @@ func interpolatePosition(network sim.Network, before, after sim.Vehicle, fractio
 		for _, lane := range route {
 			length := network.Length(lane)
 			if distance <= length && length > 0 {
-				from, _ := network.Node(lane.From)
-				to, _ := network.Node(lane.To)
-				ratio := distance / length
-				return sim.Point{X: from.Position.X + (to.Position.X-from.Position.X)*ratio, Y: from.Position.Y + (to.Position.Y-from.Position.Y)*ratio}, true
+				return network.Position(lane, distance), true
 			}
 			distance -= length
 		}

@@ -3,10 +3,10 @@ package session
 import (
 	"bytes"
 	"encoding/json"
-	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"reflect"
+	"strconv"
 	"strings"
 	"sync"
 	"testing"
@@ -56,7 +56,7 @@ func TestCommandRetriesAndReset(t *testing.T) {
 	}
 	for i := range 600 {
 		cmd := commandFor(s, "pause")
-		cmd.Client = fmt.Sprint(i)
+		cmd.Client = strconv.Itoa(i)
 		s.Apply(cmd)
 	}
 	if s.Apply(command).Error == "" || s.State().Simulation.Submitted != 0 {
@@ -103,8 +103,8 @@ func TestDemandDeterminismAndSpeed(t *testing.T) {
 	cmd = commandFor(slow, "reset")
 	cmd.Sequence = 3
 	slow.Apply(cmd)
-	if slow.State().Demand.Config.Enabled || slow.State().Demand.Generated != 0 {
-		t.Fatal("reset retained demand")
+	if !slow.State().Demand.Config.Enabled || slow.State().Demand.Generated != 0 {
+		t.Fatal("reset did not restore configured demand")
 	}
 }
 
@@ -112,7 +112,7 @@ func TestDemandQueueLimitConsumesArrivals(t *testing.T) {
 	t.Parallel()
 	s := newTestSession(t)
 	config := DemandConfig{Enabled: true, PerMinute: 12, Pattern: "market", Seed: 3}
-	if err := s.demand.configure(config); err != nil {
+	if err := s.demand.configure(config, s.project.Network); err != nil {
 		t.Fatal(err)
 	}
 	for len(s.simulation.Snapshot().Pending) < QueueLimit {
@@ -156,12 +156,14 @@ func TestDemandQueueLimitConsumesArrivals(t *testing.T) {
 }
 
 func TestHTTPValidationAndSharedObservers(t *testing.T) {
-	t.Parallel()
 	s := newTestSession(t)
 	handler := s.Handler(t.TempDir())
 	command := commandFor(s, "trip")
 	command.Origin, command.Destination = "harbor", "market"
-	body, _ := json.Marshal(command)
+	body, err := json.Marshal(command)
+	if err != nil {
+		t.Fatal(err)
+	}
 	cases := []struct {
 		name, method, body, origin, contentType string
 		status                                  int
@@ -173,11 +175,11 @@ func TestHTTPValidationAndSharedObservers(t *testing.T) {
 		{"type", "POST", string(body), "", "text/plain", 415},
 		{"trailing", "POST", string(body) + " {}", "", "application/json", 400},
 		{"unknown", "POST", `{"unknown":1}`, "", "application/json", 400},
-		{"oversize", "POST", `{"client":"` + strings.Repeat("a", 9000) + `"}`, "", "application/json", 400},
+		{"oversize", "POST", `{"client":"` + strings.Repeat("a", (2<<20)+1) + `"}`, "", "application/json", 400},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			request := httptest.NewRequest(tc.method, "http://example.com/api/command", strings.NewReader(tc.body))
+			request := httptest.NewRequestWithContext(t.Context(), tc.method, "http://example.com/api/command", strings.NewReader(tc.body))
 			request.Header.Set("Origin", tc.origin)
 			request.Header.Set("Content-Type", tc.contentType)
 			response := httptest.NewRecorder()
@@ -190,7 +192,7 @@ func TestHTTPValidationAndSharedObservers(t *testing.T) {
 	var observers [2]State
 	for i := range observers {
 		response := httptest.NewRecorder()
-		handler.ServeHTTP(response, httptest.NewRequest(http.MethodGet, "http://example.com/api/state", nil))
+		handler.ServeHTTP(response, httptest.NewRequestWithContext(t.Context(), http.MethodGet, "http://example.com/api/state", http.NoBody))
 		if err := json.NewDecoder(response.Body).Decode(&observers[i]); err != nil {
 			t.Fatal(err)
 		}
@@ -226,7 +228,7 @@ func TestConcurrentClockAndCommands(t *testing.T) {
 	for i := range 8 {
 		group.Go(func() {
 			cmd := commandFor(s, "pause")
-			cmd.Client = fmt.Sprint(i)
+			cmd.Client = strconv.Itoa(i)
 			for j := range 20 {
 				cmd.Sequence = uint64(j + 1)
 				cmd.Paused = j%2 == 0
@@ -242,7 +244,7 @@ func TestConcurrentClockAndCommands(t *testing.T) {
 
 func TestInvalidDemandDoesNotChangeState(t *testing.T) {
 	t.Parallel()
-	for _, config := range []DemandConfig{{PerMinute: 0, Pattern: "balanced"}, {PerMinute: 13, Pattern: "market"}, {PerMinute: 2, Pattern: "unknown"}} {
+	for _, config := range []DemandConfig{{PerMinute: 0, Pattern: "balanced"}, {PerMinute: 121, Pattern: "market"}, {PerMinute: 2, Pattern: "unknown"}} {
 		s := newTestSession(t)
 		before := s.State()
 		cmd := commandFor(s, "demand")

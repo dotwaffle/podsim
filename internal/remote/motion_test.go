@@ -40,6 +40,7 @@ func TestMotionFollowsCornersAndBerthTransitions(t *testing.T) {
 	t.Parallel()
 	for _, name := range []string{"corner", "arrival", "departure", "changed route", "impossible teleport"} {
 		t.Run(name, func(t *testing.T) {
+			t.Parallel()
 			a, b := motionState(0, 9), motionState(12, 9)
 			b.Simulation.Vehicles[0].Pod.LaneID = "bc"
 			b.Simulation.Vehicles[0].Pod.LaneDistance = 1
@@ -77,13 +78,16 @@ func TestMotionFollowsCornersAndBerthTransitions(t *testing.T) {
 
 func TestMotionDiscontinuitiesSnap(t *testing.T) {
 	t.Parallel()
-	for _, name := range []string{"pause", "resume", "reset", "epoch", "speed", "gap", "demo"} {
+	for _, name := range []string{"pause", "resume", "reset", "epoch", "speed", "gap", "demo", "generation"} {
 		t.Run(name, func(t *testing.T) {
+			t.Parallel()
 			var motion Motion
 			start := time.Unix(100, 0)
 			a, b := motionState(30, 5), motionState(36, 6)
 			at := start.Add(100 * time.Millisecond)
 			switch name {
+			case "generation":
+				b.Generation = a.Generation + 1
 			case "pause":
 				b.Simulation.Paused = true
 			case "resume":
@@ -127,5 +131,24 @@ func TestMotionIgnoresDuplicateAndOldRevisions(t *testing.T) {
 	motion.Observe(state, start.Add(6*time.Second))
 	if motion.frames[len(motion.frames)-1].state.Simulation.Tick != 100 {
 		t.Fatal("old revision replaced latest")
+	}
+}
+
+func TestMotionFollowsCurvedLane(t *testing.T) {
+	a, b := motionState(0, 0), motionState(600, 0)
+	lane := sim.Lane{ID: "curve", From: "a", To: "b", SpeedLimit: 14, Control: &sim.Point{X: 5, Y: 10}}
+	a.Network.Lanes = []sim.Lane{lane}
+	b.Network = a.Network
+	length := a.Network.Length(lane)
+	for i, state := range []*session.State{&a, &b} {
+		v := &state.Simulation.Vehicles[0]
+		v.Route = []sim.Lane{lane}
+		v.Pod.LaneID = lane.ID
+		v.Pod.LaneDistance = float64(i) * length
+		v.Pod.Position = state.Network.Position(lane, v.Pod.LaneDistance)
+	}
+	got := interpolate(a, b, .5).Vehicles[0].Pod.Position
+	if math.Abs(got.X-5) > 0.001 || math.Abs(got.Y-5) > 0.001 {
+		t.Fatalf("cut across curve: %+v", got)
 	}
 }

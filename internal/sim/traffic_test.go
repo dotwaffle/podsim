@@ -174,6 +174,7 @@ func TestFleetValidation(t *testing.T) {
 		{"unknown station", []Placement{{ID: "01", StationID: "missing"}}},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
 			if _, err := NewFleet(Example(), tc.placements); err == nil {
 				t.Fatal("invalid fleet accepted")
 			}
@@ -221,6 +222,7 @@ func TestFullBerthDoesNotBlockThroughLane(t *testing.T) {
 			name = "two-cell inlet"
 		}
 		t.Run(name, func(t *testing.T) {
+			t.Parallel()
 			network := withoutParking()
 			if short {
 				for i := range network.Nodes {
@@ -275,6 +277,7 @@ func TestDemoRejectsBrokenScriptBeforeReset(t *testing.T) {
 	t.Parallel()
 	for _, broken := range []string{"bypass-in", "garden-merge", "return-start"} {
 		t.Run(broken, func(t *testing.T) {
+			t.Parallel()
 			n := Example()
 			for i := range n.Lanes {
 				if n.Lanes[i].ID != broken {

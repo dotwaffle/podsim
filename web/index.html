@@ -3,14 +3,16 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Podsim — Network playground</title>
+  <title>Podsim: Network playground</title>
   <style>
     html, body { margin: 0; width: 100%; height: 100%; background: #0b121a; }
     body { display: grid; place-items: center; }
     iframe { border: 0; width: min(100vw, 144.737vh); height: min(100vh, 69.091vw); }
+    a { position: fixed; z-index: 2; top: 12px; right: 12px; padding: 8px 11px; border: 1px solid #345064; border-radius: 7px; background: #101d28e8; color: #9fe4eb; font: 13px system-ui, sans-serif; text-decoration: none; }
   </style>
 </head>
 <body>
+  <a href="editor.html">Edit scenario</a>
   <iframe src="game.html" title="Podsim interactive network simulation"></iframe>
 </body>
 </html>

@@ -9,35 +9,48 @@ import (
 )
 
 // Point is a position in meters.
-type Point struct{ X, Y float64 }
+type Point struct {
+	X float64 `json:"X"`
+	Y float64 `json:"Y"`
+}
 
 // Node is a connection point in the directed network.
 type Node struct {
-	ID       string
-	Position Point
+	ID       string `json:"ID"`
+	Position Point  `json:"Position"`
 }
 
-// Lane is a straight, directed connection with a speed limit in meters per second.
+// Lane is a directed connection with a speed limit in meters per second.
 type Lane struct {
-	ID, From, To string
-	SpeedLimit   float64
+	ID         string  `json:"ID"`
+	From       string  `json:"From"`
+	To         string  `json:"To"`
+	SpeedLimit float64 `json:"SpeedLimit"`
+	// Control adds a quadratic curve. Nil keeps the lane straight.
+	Control *Point `json:",omitempty"`
 }
 
 // Berth is a station resource with its own connection point.
-type Berth struct{ ID, Node string }
+type Berth struct {
+	ID   string `json:"ID"`
+	Node string `json:"Node"`
+}
 
 // Station keeps passenger access separate from through traffic.
 type Station struct {
-	ID, Name, Entry, Exit string
-	Berths                []Berth
-	ParkingOnly           bool
+	ID          string  `json:"ID"`
+	Name        string  `json:"Name"`
+	Entry       string  `json:"Entry"`
+	Exit        string  `json:"Exit"`
+	Berths      []Berth `json:"Berths"`
+	ParkingOnly bool    `json:"ParkingOnly"`
 }
 
 // Network describes immutable geometry and connectivity during a run.
 type Network struct {
-	Nodes    []Node
-	Lanes    []Lane
-	Stations []Station
+	Nodes    []Node    `json:"Nodes"`
+	Lanes    []Lane    `json:"Lanes"`
+	Stations []Station `json:"Stations"`
 }
 
 // ErrUnreachable means no directed route connects the requested nodes.
@@ -65,10 +78,45 @@ func (n Network) Station(id string) (Station, bool) {
 
 // Length returns the lane length in meters for a validated network.
 func (n Network) Length(lane Lane) float64 {
+	points := n.lanePoints(lane)
+	length := 0.0
+	for i := 1; i < len(points); i++ {
+		length += pointDistance(points[i-1], points[i])
+	}
+	return length
+}
+
+// Position returns a point at a distance along the lane, clamped to its ends.
+func (n Network) Position(lane Lane, distance float64) Point {
+	points := n.lanePoints(lane)
+	for i := 1; i < len(points); i++ {
+		length := pointDistance(points[i-1], points[i])
+		if distance <= length && length > 0 {
+			t := max(0, distance) / length
+			return Point{X: points[i-1].X + t*(points[i].X-points[i-1].X), Y: points[i-1].Y + t*(points[i].Y-points[i-1].Y)}
+		}
+		distance -= length
+	}
+	return points[len(points)-1]
+}
+
+// Use the same polyline for length, movement, and browser interpolation.
+func (n Network) lanePoints(lane Lane) []Point {
 	a, _ := n.Node(lane.From)
 	b, _ := n.Node(lane.To)
-	return math.Hypot(b.Position.X-a.Position.X, b.Position.Y-a.Position.Y)
+	if lane.Control == nil {
+		return []Point{a.Position, b.Position}
+	}
+	points := make([]Point, 65)
+	for i := range points {
+		t := float64(i) / 64
+		u := 1 - t
+		points[i] = Point{X: u*u*a.Position.X + 2*u*t*lane.Control.X + t*t*b.Position.X, Y: u*u*a.Position.Y + 2*u*t*lane.Control.Y + t*t*b.Position.Y}
+	}
+	return points
 }
+
+func pointDistance(a, b Point) float64 { return math.Hypot(b.X-a.X, b.Y-a.Y) }
 
 // Route chooses minimum free-flow travel time. Slice order breaks equal-cost ties.
 func (n Network) Route(from, to string) ([]Lane, error) {
@@ -134,7 +182,7 @@ func (n Network) validate() error {
 	}
 	stations, berths, berthNodes := make(map[string]bool), make(map[string]bool), make(map[string]bool)
 	for _, station := range n.Stations {
-		if station.ID == "" || stations[station.ID] || !nodes[station.Entry] || !nodes[station.Exit] || station.Entry == station.Exit || len(station.Berths) == 0 || (!station.ParkingOnly && len(station.Berths) != 1) {
+		if station.ID == "" || stations[station.ID] || !nodes[station.Entry] || !nodes[station.Exit] || station.Entry == station.Exit || len(station.Berths) == 0 {
 			return fmt.Errorf("station %q needs valid entry, exit, and berth capacity", station.ID)
 		}
 		stations[station.ID] = true
@@ -144,7 +192,7 @@ func (n Network) validate() error {
 			}
 			berths[berth.ID] = true
 			berthNodes[berth.Node] = true
-			// The first scenario uses explicit straight entry, exit, and through lanes.
+			// Berths need entry and exit lanes plus a through lane.
 			if !n.connected(station.Entry, berth.Node) || !n.connected(berth.Node, station.Exit) || !n.connected(station.Entry, station.Exit) {
 				return fmt.Errorf("station %q needs entry, exit, and through lanes", station.ID)
 			}
@@ -160,7 +208,7 @@ func (n Network) connected(from, to string) bool {
 func finite(v float64) bool { return !math.IsNaN(v) && !math.IsInf(v, 0) }
 
 func (n Network) clone() Network {
-	n.Nodes, n.Lanes, n.Stations = slices.Clone(n.Nodes), slices.Clone(n.Lanes), slices.Clone(n.Stations)
+	n.Nodes, n.Lanes, n.Stations = slices.Clone(n.Nodes), cloneLanes(n.Lanes), slices.Clone(n.Stations)
 	for i := range n.Stations {
 		n.Stations[i].Berths = slices.Clone(n.Stations[i].Berths)
 	}
@@ -175,4 +223,14 @@ func (station Station) berth(id string) (Berth, bool) {
 		}
 	}
 	return Berth{}, false
+}
+
+func cloneLanes(lanes []Lane) []Lane {
+	lanes = slices.Clone(lanes)
+	for i := range lanes {
+		if lanes[i].Control != nil {
+			lanes[i].Control = new(*lanes[i].Control)
+		}
+	}
+	return lanes
 }

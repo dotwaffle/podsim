@@ -36,6 +36,7 @@ func TestRoutes(t *testing.T) {
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
 			route, err := Example().Route(tc.from, tc.to)
 			if err != nil {
 				t.Fatal(err)
@@ -55,6 +56,7 @@ func TestJourneyLifecycle(t *testing.T) {
 	t.Parallel()
 	for _, destination := range []string{"garden", "market"} {
 		t.Run(destination, func(t *testing.T) {
+			t.Parallel()
 			s := newExample(t)
 			if err := s.RequestJourney("01", destination); err != nil {
 				t.Fatal(err)
@@ -120,6 +122,7 @@ func TestRejectedRequestsDoNotMutate(t *testing.T) {
 		{"busy", "market", true, ErrBusy},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
 			s := newExample(t)
 			if tc.busy {
 				if err := s.RequestJourney("01", "garden"); err != nil {
@@ -142,6 +145,7 @@ func TestPauseResetAndRepeatability(t *testing.T) {
 	t.Parallel()
 	for _, ticks := range []int{0, 30, boardingTicks + 600, 300 * TicksPerSecond} {
 		t.Run(stringPhase(ticks), func(t *testing.T) {
+			t.Parallel()
 			s := newExample(t)
 			initial := s.Snapshot()
 			if err := s.RequestJourney("01", "market"); err != nil {
@@ -241,6 +245,7 @@ func TestInvalidNetwork(t *testing.T) {
 		{"berth on entry", func(n *Network) { n.Stations[0].Berths[0].Node = n.Stations[0].Entry }},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
 			network := Example()
 			tc.change(&network)
 			if _, err := New(network, "harbor"); err == nil {

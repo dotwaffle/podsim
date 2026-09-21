@@ -10,6 +10,7 @@ func TestAutomaticBerthClearing(t *testing.T) {
 	t.Parallel()
 	for _, occupied := range []bool{false, true} {
 		t.Run(map[bool]string{false: "empty blocker", true: "unloading blocker"}[occupied], func(t *testing.T) {
+			t.Parallel()
 			s, err := NewFleet(Example(), []Placement{{ID: "01", StationID: "harbor"}, {ID: "02", StationID: "market"}})
 			if err != nil {
 				t.Fatal(err)
@@ -77,6 +78,7 @@ func TestUnavailableParking(t *testing.T) {
 	t.Parallel()
 	for _, mode := range []string{"full", "unreachable"} {
 		t.Run(mode, func(t *testing.T) {
+			t.Parallel()
 			n := Example()
 			placements := []Placement{{ID: "01", StationID: "harbor"}, {ID: "02", StationID: "market"}}
 			if mode == "full" {

@@ -195,16 +195,16 @@ Detailed station layouts beyond the initial schematic treatment need a separate 
 
 | Stage | Deliverable | Estimated effort |
 |---|---|---:|
-| Playable experiment | Supplied network, demand controls, routing, local queues, moving pods, inspection | 20–40 hours |
-| Usable 2D version | Curves, undo, persistence, finite fleet, demand, dispatch, traffic control, statistics | 80–160 hours total |
-| Optional shared track | Opposing traffic, reservations, fairness, deadlock handling | Additional 40–100 hours |
-| Optional basic 3D client | Three.js rendering, ride camera, pods, stations, live map | Additional 60–140 hours |
+| Playable experiment | Supplied network, demand controls, routing, local queues, moving pods, inspection | 20-40 hours |
+| Usable 2D version | Curves, undo, persistence, finite fleet, demand, dispatch, traffic control, statistics | 80-160 hours total |
+| Optional shared track | Opposing traffic, reservations, fairness, deadlock handling | Additional 40-100 hours |
+| Optional basic 3D client | Three.js rendering, ride camera, pods, stations, live map | Additional 60-140 hours |
 | Optional scenery | Terrain, buildings, trees, atmosphere | Separate project-sized effort |
 
 The 3D estimate includes introducing a second renderer and browser integration.
 Significant JavaScript learning may extend it.
 
-At eight hours per week, the usable 2D version represents roughly 10–20 weeks.
+At eight hours per week, the usable 2D version represents roughly 10-20 weeks.
 The first experiment should provide something playable much earlier.
 
 Keep multiplayer, live map services, realistic scenery, legacy simulator file import, and advanced fleet optimization outside the first release.
