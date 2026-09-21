@@ -59,6 +59,7 @@ The browser export wraps this object as `scenario` and can also contain a backgr
 - The map legend explains the colors. An amber ring marks waiting pods, and a white ring marks the selected pod.
 - Scroll over the map to zoom at the pointer. Drag the map to pan. Use **Fit** to show the whole network.
 - Map navigation stays local to your browser. Zoom in to see individual berths in crowded stations.
+- Select **Follow** or press **F** to keep the selected pod centered. Dragging the map or selecting **Fit** stops following.
 - Overview labels show occupied berths and nonzero entrance and exit queues.
 - Expanded labels show occupied, reserved-empty, and free berths. These counts sum to station capacity.
 - Expanded entrance labels show stopped and approaching pods. Exit labels show stopped departing pods.
@@ -70,9 +71,10 @@ The browser export wraps this object as `scenario` and can also contain a backgr
 - Each accepted request shows its order number and briefly changes the request button to **Order accepted**.
 - Pickup wait statistics show average and maximum seconds since reset. Pending orders contribute their elapsed wait.
 - Wait ends when boarding starts, so it includes empty-pod travel to pickup.
+- Fleet use shows the percentage of pods with assigned or active work and the percentage currently in passenger service.
 - Use **Pause**, **Resume**, **Reset**, and **Speed** to control playback.
 - Keyboard: **Enter** submits an order and **Tab** selects the next pod.
-- **Space** pauses, **R** resets, and **S** changes speed.
+- **Space** pauses, **R** resets, **S** changes speed, and **F** toggles pod following.
 - Reset restores the saved scenario fleet and demand settings, clears requests and reservations, and returns to 1x playback.
 
 Boarding takes three simulated seconds. Unloading takes two.

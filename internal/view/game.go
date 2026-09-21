@@ -47,6 +47,7 @@ type Game struct {
 	origin, destination  string
 	message              string
 	selected             int
+	followSelected       bool
 	stationPage, podPage int
 	mapScale             float64
 	mapOrigin            sim.Point
@@ -104,6 +105,12 @@ func (g *Game) Update() error {
 	if inpututil.IsKeyJustPressed(ebiten.KeyS) {
 		g.cycleSpeed()
 	}
+	if inpututil.IsKeyJustPressed(ebiten.KeyF) {
+		g.toggleFollow()
+	}
+	if g.followSelected {
+		g.followSelectedPod()
+	}
 	if g.updateMapInput() {
 		return nil
 	}
@@ -121,6 +128,7 @@ func (g *Game) updateMapInput() bool {
 	}
 	if inpututil.IsMouseButtonJustPressed(ebiten.MouseButtonLeft) {
 		if g.camera.contains(point) {
+			g.followSelected = false
 			g.camera.beginDrag(point)
 			return false
 		}
@@ -178,10 +186,15 @@ func (g *Game) buttons() []button {
 	if state.Paused {
 		pauseLabel = "Resume [Space]"
 	}
+	followLabel := "Follow [F]"
+	if g.followSelected {
+		followLabel = "Following [F]"
+	}
 	buttons := []button{
 		{x: 617, y: 104, w: 28, h: 24, label: "−", action: "map-zoom-out"},
 		{x: 651, y: 104, w: 28, h: 24, label: "+", action: "map-zoom-in"},
 		{x: 685, y: 104, w: 66, h: 24, label: "Fit", action: "map-fit"},
+		{x: 964, y: 104, w: 96, h: 24, label: followLabel, selected: g.followSelected, action: "map-follow", fontSize: 11},
 		{x: 810, y: 529, w: 120, h: 26, label: fmt.Sprintf("Orders %d", len(outstandingOrders(state))), selected: g.showOrders, action: "orders"},
 		{x: 940, y: 529, w: 120, h: 26, label: "Demand", selected: g.showDemand, action: "demand"},
 		{x: 930, y: 644, w: 130, h: 42, label: requestLabel, selected: true, disabled: busy || g.destination == g.origin, action: "request"},
@@ -236,8 +249,11 @@ func (g *Game) click(point sim.Point) bool {
 		case "map-zoom-in":
 			g.zoomMap(mapZoomStep)
 		case "map-fit":
+			g.followSelected = false
 			g.camera.fit(cameraFit{bounds: g.camera.world, viewport: g.layout.mapViewport, unit: g.layout.unit})
 			g.syncCamera()
+		case "map-follow":
+			g.toggleFollow()
 		case "pods-next":
 			g.podPage = (g.podPage + 1) % ((len(g.state.Simulation.Vehicles) + 5) / 6)
 		case "stations-prev":
@@ -370,6 +386,24 @@ func (g *Game) zoomMap(factor float64) {
 func (g *Game) syncCamera() {
 	g.mapScale, g.mapOrigin = g.camera.scale, g.camera.origin
 	g.networkBaseValid = false
+}
+
+func (g *Game) toggleFollow() {
+	g.followSelected = !g.followSelected
+	if g.followSelected {
+		g.followSelectedPod()
+	}
+}
+
+func (g *Game) followSelectedPod() {
+	state := g.mapSnapshot()
+	if g.selected < 0 || g.selected >= len(state.Vehicles) {
+		g.followSelected = false
+		return
+	}
+	if g.camera.centerOn(state.Vehicles[g.selected].Pod.Position) {
+		g.syncCamera()
+	}
 }
 
 func (g *Game) drawNetwork(screen *ebiten.Image, state sim.Snapshot) {
@@ -743,6 +777,8 @@ func (g *Game) drawControls(screen *ebiten.Image, state sim.Snapshot) {
 		g.label(screen, label{x: 850, y: 609, size: 10, value: fmt.Sprintf("%d / %d", g.stationPage+1, len(pages)), color: muted})
 	}
 	g.label(screen, label{x: 816, y: 557, size: 10, value: fmt.Sprintf("Pickup wait: avg %.0f s / max %.0f s", state.Wait.AverageSeconds, state.Wait.MaxSeconds), color: muted})
+	use := summarizeFleet(state)
+	g.label(screen, label{x: 816, y: 576, size: 10, value: fmt.Sprintf("Fleet use: %d%% active / %d%% passenger", use.activePercent(), use.passengerPercent()), color: muted})
 	shade := uint32(muted)
 	if g.notice != "" {
 		hint, shade = g.notice, accent

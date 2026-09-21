@@ -23,6 +23,21 @@ func TestMapCameraZoomKeepsCursorWorldPoint(t *testing.T) {
 	}
 }
 
+func TestMapCameraCentersOnWorldPoint(t *testing.T) {
+	t.Parallel()
+	camera := fittedTestCamera()
+	center := sim.Point{X: float64(camera.viewport.Min.X+camera.viewport.Max.X) / 2, Y: float64(camera.viewport.Min.Y+camera.viewport.Max.Y) / 2}
+	target := sim.Point{X: 500, Y: 300}
+	camera.zoomAt(center, 3)
+
+	if !camera.centerOn(target) {
+		t.Fatal("camera did not move")
+	}
+	if got := camera.screenPoint(target); !closePoint(got, center) {
+		t.Fatalf("target screen point = %+v, want %+v", got, center)
+	}
+}
+
 func TestMapCameraMutationGuards(t *testing.T) {
 	t.Parallel()
 	tests := []struct {
@@ -132,6 +147,31 @@ func TestGameCameraWiring(t *testing.T) {
 			game.mapScale = 4
 			if !game.showStationBerths(station) {
 				t.Fatal("kept spaced berth details collapsed")
+			}
+		}},
+		{name: "follow centers selected pod and invalidates cache", run: func(t *testing.T) {
+			t.Helper()
+			game := cameraTestGame()
+			game.selected = 1
+			center := sim.Point{X: float64(game.camera.viewport.Min.X+game.camera.viewport.Max.X) / 2, Y: float64(game.camera.viewport.Min.Y+game.camera.viewport.Max.Y) / 2}
+			game.camera.zoomAt(center, 3)
+			game.syncCamera()
+			game.networkBaseValid = true
+			game.toggleFollow()
+			if got := game.mapPoint(game.state.Simulation.Vehicles[1].Pod.Position); !closePoint(got, center) {
+				t.Fatalf("followed pod screen point = %+v, want %+v", got, center)
+			}
+			if !game.followSelected || game.networkBaseValid {
+				t.Fatal("follow state or map cache not updated")
+			}
+		}},
+		{name: "fit stops follow", run: func(t *testing.T) {
+			t.Helper()
+			game := cameraTestGame()
+			game.followSelected = true
+			game.click(centerOfButton(findButton(t, game.buttons(), "map-fit")))
+			if game.followSelected {
+				t.Fatal("fit kept pod follow enabled")
 			}
 		}},
 	}

@@ -89,6 +89,19 @@ func (c *mapCamera) pan(delta sim.Point) bool {
 	return c.origin != before
 }
 
+func (c *mapCamera) centerOn(world sim.Point) bool {
+	if !c.initialized {
+		return false
+	}
+	before := c.origin
+	c.origin = sim.Point{
+		X: float64(c.viewport.Min.X+c.viewport.Max.X)/2 - world.X*c.scale,
+		Y: float64(c.viewport.Min.Y+c.viewport.Max.Y)/2 - world.Y*c.scale,
+	}
+	c.clamp()
+	return c.origin != before
+}
+
 func (c *mapCamera) clamp() {
 	c.origin.X = clampOrigin(axisBounds{origin: c.origin.X, contentMin: c.world.left * c.scale, contentMax: c.world.right * c.scale, viewMin: float64(c.viewport.Min.X), viewMax: float64(c.viewport.Max.X), margin: c.panMargin})
 	c.origin.Y = clampOrigin(axisBounds{origin: c.origin.Y, contentMin: c.world.top * c.scale, contentMax: c.world.bottom * c.scale, viewMin: float64(c.viewport.Min.Y), viewMax: float64(c.viewport.Max.Y), margin: c.panMargin})

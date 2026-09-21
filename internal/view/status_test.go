@@ -43,6 +43,30 @@ func TestPodPurpose(t *testing.T) {
 	}
 }
 
+func TestSummarizeFleet(t *testing.T) {
+	t.Parallel()
+	state := sim.Snapshot{
+		Vehicles: []sim.Vehicle{
+			{Pod: sim.Pod{ID: "idle", Activity: sim.Idle}},
+			{Pod: sim.Pod{ID: "assigned", Activity: sim.Idle}},
+			{Pod: sim.Pod{ID: "empty", Activity: sim.Traveling}},
+			{Pod: sim.Pod{ID: "boarding", Activity: sim.Boarding}},
+			{Pod: sim.Pod{ID: "occupied", Activity: sim.Traveling, Occupied: true}},
+		},
+		Pending: []sim.Request{{PodID: "assigned"}},
+	}
+	use := summarizeFleet(state)
+	if use.active != 4 || use.passenger != 2 || use.total != 5 {
+		t.Fatalf("fleet use = %+v", use)
+	}
+	if use.activePercent() != 80 || use.passengerPercent() != 40 {
+		t.Fatalf("fleet percentages = %d active / %d passenger", use.activePercent(), use.passengerPercent())
+	}
+	if got := summarizeFleet(sim.Snapshot{}); got.activePercent() != 0 || got.passengerPercent() != 0 {
+		t.Fatalf("empty fleet percentages = %+v", got)
+	}
+}
+
 func TestPodPurposeFollowsActualPickup(t *testing.T) {
 	t.Parallel()
 	network := sim.Example()

@@ -18,6 +18,40 @@ const (
 	purposeEmpty
 )
 
+type fleetUse struct {
+	active, passenger, total int
+}
+
+func summarizeFleet(state sim.Snapshot) fleetUse {
+	assigned := make(map[string]bool, len(state.Pending))
+	for _, request := range state.Pending {
+		if request.PodID != "" {
+			assigned[request.PodID] = true
+		}
+	}
+	use := fleetUse{total: len(state.Vehicles)}
+	for _, vehicle := range state.Vehicles {
+		if vehicle.Pod.Activity != sim.Idle || assigned[vehicle.Pod.ID] {
+			use.active++
+		}
+		if vehicle.Pod.Occupied || vehicle.Pod.Activity == sim.Boarding || vehicle.Pod.Activity == sim.Unloading {
+			use.passenger++
+		}
+	}
+	return use
+}
+
+func (use fleetUse) activePercent() int { return percent(use.active, use.total) }
+
+func (use fleetUse) passengerPercent() int { return percent(use.passenger, use.total) }
+
+func percent(count, total int) int {
+	if total == 0 {
+		return 0
+	}
+	return (100*count + total/2) / total
+}
+
 func (purpose podPurpose) color() uint32 {
 	switch purpose {
 	case purposePickup:
