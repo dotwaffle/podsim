@@ -29,8 +29,8 @@
     config.network.Stations = Array.isArray(config.network.Stations) ? config.network.Stations : [];
     config.fleet = Array.isArray(config.fleet) ? config.fleet : [];
     for (const pod of config.fleet) {
-      if (!pod.BerthID) {
-        const station = config.network.Stations.find((item) => item.ID === pod.StationID);
+      if (pod && !pod.BerthID) {
+        const station = config.network.Stations.find((item) => item && item.ID === pod.StationID);
         pod.BerthID = station?.Berths?.[0]?.ID || "";
       }
     }
@@ -40,8 +40,8 @@
     if (config.demand.pattern === "market") {
       config.demand.pattern = "destination";
       if (!config.demand.destination) {
-        const market = config.network.Stations.find((station) => !station.ParkingOnly && (station.ID === "market"));
-        const first = config.network.Stations.filter((station) => !station.ParkingOnly).at(-1);
+        const market = config.network.Stations.find((station) => station && !station.ParkingOnly && station.ID === "market");
+        const first = config.network.Stations.filter((station) => station && !station.ParkingOnly).at(-1);
         config.demand.destination = (market || first || {}).ID || "";
       }
     }
@@ -73,7 +73,7 @@
   }
 
   function point(config, nodeID) {
-    const node = config.network.Nodes.find((item) => item.ID === nodeID);
+    const node = config.network.Nodes.find((item) => item && item.ID === nodeID);
     return node && node.Position;
   }
 
@@ -262,19 +262,27 @@
   }
 
   function reachable(config, from, to) {
+    const adjacency = new Map();
+    for (const lane of config.network.Lanes) {
+      if (!adjacency.has(lane.From)) adjacency.set(lane.From, []);
+      adjacency.get(lane.From).push(lane.To);
+    }
+    return reachableFrom(adjacency, from).has(to);
+  }
+
+  function reachableFrom(adjacency, from) {
     const seen = new Set([from]);
     const queue = [from];
-    while (queue.length) {
-      const current = queue.shift();
-      if (current === to) return true;
-      for (const lane of config.network.Lanes) {
-        if (lane.From === current && !seen.has(lane.To)) {
-          seen.add(lane.To);
-          queue.push(lane.To);
+    for (let index = 0; index < queue.length; index += 1) {
+      const current = queue[index];
+      for (const next of adjacency.get(current) || []) {
+        if (!seen.has(next)) {
+          seen.add(next);
+          queue.push(next);
         }
       }
     }
-    return false;
+    return seen;
   }
 
   function validateConfig(value) {
@@ -296,67 +304,78 @@
       else if (idSet.has(id)) errors.push(`ID ${id} is used more than once.`);
       else idSet.add(id);
     }
+    const isRecord = (item) => item && typeof item === "object" && !Array.isArray(item);
+    const validNodes = network.Nodes.filter(isRecord);
+    const validLanes = network.Lanes.filter(isRecord);
+    const validStations = network.Stations.filter(isRecord);
     const nodeIDs = new Set();
     for (const node of network.Nodes) {
       uniqueID(node && node.ID, "A node");
-      if (node && typeof node.ID === "string") nodeIDs.add(node.ID);
-      if (!node || !node.Position || !Number.isFinite(node.Position.X) || !Number.isFinite(node.Position.Y)) errors.push(`Node ${(node && node.ID) || "?"} has an invalid position.`);
+      if (isRecord(node) && typeof node.ID === "string") nodeIDs.add(node.ID);
+      if (!isRecord(node) || !isRecord(node.Position) || !Number.isFinite(node.Position.X) || !Number.isFinite(node.Position.Y)) errors.push(`Node ${(node && node.ID) || "?"} has an invalid position.`);
     }
     const lanesByPair = new Set();
+    const directed = new Map();
+    const undirected = new Map();
     for (const lane of network.Lanes) {
       uniqueID(lane && lane.ID, "A lane");
-      if (!lane || !nodeIDs.has(lane.From) || !nodeIDs.has(lane.To) || lane.From === lane.To) errors.push(`Lane ${(lane && lane.ID) || "?"} has invalid endpoints.`);
-      if (!lane || !Number.isFinite(lane.SpeedLimit) || lane.SpeedLimit <= 0) errors.push(`Lane ${(lane && lane.ID) || "?"} needs a positive speed limit.`);
-      if (lane && lane.Control && (!Number.isFinite(lane.Control.X) || !Number.isFinite(lane.Control.Y))) errors.push(`Lane ${lane.ID} has an invalid control point.`);
-      if (lane && nodeIDs.has(lane.From) && nodeIDs.has(lane.To) && laneLength(value, lane) < MIN_LANE_LENGTH) errors.push(`Lane ${lane.ID} is shorter than ${MIN_LANE_LENGTH} m.`);
-      if (lane) {
+      if (!isRecord(lane) || !nodeIDs.has(lane.From) || !nodeIDs.has(lane.To) || lane.From === lane.To) errors.push(`Lane ${(lane && lane.ID) || "?"} has invalid endpoints.`);
+      if (!isRecord(lane) || !Number.isFinite(lane.SpeedLimit) || lane.SpeedLimit <= 0) errors.push(`Lane ${(lane && lane.ID) || "?"} needs a positive speed limit.`);
+      if (isRecord(lane) && lane.Control && (!isRecord(lane.Control) || !Number.isFinite(lane.Control.X) || !Number.isFinite(lane.Control.Y))) errors.push(`Lane ${lane.ID} has an invalid control point.`);
+      if (isRecord(lane) && nodeIDs.has(lane.From) && nodeIDs.has(lane.To) && laneLength(value, lane) < MIN_LANE_LENGTH) errors.push(`Lane ${lane.ID} is shorter than ${MIN_LANE_LENGTH} m.`);
+      if (isRecord(lane)) {
         const pair = `${lane.From}\u0000${lane.To}`;
-        
         lanesByPair.add(pair);
+        if (!directed.has(lane.From)) directed.set(lane.From, []);
+        directed.get(lane.From).push(lane.To);
+        for (const [from, to] of [[lane.From, lane.To], [lane.To, lane.From]]) {
+          if (!undirected.has(from)) undirected.set(from, []);
+          undirected.get(from).push(to);
+        }
       }
     }
     const stationIDs = new Set();
     const berthIDs = new Set();
     const componentNodes = new Set();
+    const berthNodes = new Set();
     for (const station of network.Stations) {
       uniqueID(station && station.ID, "A station");
-      if (!station) continue;
+      if (!isRecord(station)) {
+        errors.push("A station has an invalid value.");
+        continue;
+      }
       stationIDs.add(station.ID);
+      if ("ParkingOnly" in station && typeof station.ParkingOnly !== "boolean") errors.push(`Station ${station.ID} has an invalid parking setting.`);
       if (typeof station.Name === "string" && new TextEncoder().encode(station.Name).length>80) errors.push(`Station ${station.ID} name exceeds 80 bytes.`);
       if (Array.isArray(station.Berths) && station.Berths.length>200) errors.push(`Station ${station.ID} exceeds 200 berths.`);
       if (typeof station.Name !== "string" || !station.Name.trim()) errors.push(`Station ${station.ID} needs a name.`);
       if (!nodeIDs.has(station.Entry) || !nodeIDs.has(station.Exit) || station.Entry === station.Exit) errors.push(`Station ${station.ID} has invalid entry or exit nodes.`);
       componentNodes.add(station.Entry); componentNodes.add(station.Exit);
       if (!Array.isArray(station.Berths) || station.Berths.length === 0) errors.push(`Station ${station.ID} needs at least one berth.`);
-      for (const berth of station.Berths || []) {
+      for (const berth of Array.isArray(station.Berths) ? station.Berths : []) {
         uniqueID(berth && berth.ID, "A berth");
-        if (!berth) continue;
+        if (!isRecord(berth)) {
+          errors.push(`Station ${station.ID} has an invalid berth.`);
+          continue;
+        }
         berthIDs.add(berth.ID);
         componentNodes.add(berth.Node);
         if (!nodeIDs.has(berth.Node) || berth.Node === station.Entry || berth.Node === station.Exit) errors.push(`Berth ${berth.ID} has an invalid node.`);
+        if (berthNodes.has(berth.Node)) errors.push(`Berth node ${berth.Node} is used more than once.`);
+        berthNodes.add(berth.Node);
         if (!lanesByPair.has(`${station.Entry}\u0000${berth.Node}`)) errors.push(`Berth ${berth.ID} needs an entry lane.`);
         if (!lanesByPair.has(`${berth.Node}\u0000${station.Exit}`)) errors.push(`Berth ${berth.ID} needs an exit lane.`);
       }
       if (!lanesByPair.has(`${station.Entry}\u0000${station.Exit}`)) errors.push(`Station ${station.ID} needs a through lane.`);
     }
-    for (const node of network.Nodes) {
+    for (const node of validNodes) {
       if (componentNodes.has(node.ID)) continue;
-      const connected = network.Lanes.some((lane) => lane.From === node.ID || lane.To === node.ID);
+      const connected = validLanes.some((lane) => lane.From === node.ID || lane.To === node.ID);
       if (!connected) errors.push(`Junction ${node.ID} is disconnected.`);
     }
-    if (network.Nodes.length) {
-      const visited = new Set([network.Nodes[0].ID]);
-      const queue = [network.Nodes[0].ID];
-      while (queue.length) {
-        const current = queue.shift();
-        for (const lane of network.Lanes) {
-          let neighbor = "";
-          if (lane.From === current) neighbor = lane.To;
-          else if (lane.To === current) neighbor = lane.From;
-          if (neighbor && !visited.has(neighbor)) { visited.add(neighbor); queue.push(neighbor); }
-        }
-      }
-      if (network.Nodes.some((node) => !visited.has(node.ID))) errors.push("The network has disconnected sections.");
+    if (validNodes.length) {
+      const visited = reachableFrom(undirected, validNodes[0].ID);
+      if (validNodes.some((node) => !visited.has(node.ID))) errors.push("The network has disconnected sections.");
     }
     if (!Array.isArray(value.fleet)) errors.push("The scenario needs a fleet array.");
     if (typeof value.redistribution !== "boolean") errors.push("The redistribution setting must be true or false.");
@@ -364,23 +383,28 @@
     const occupied = new Set();
     for (const pod of fleet) {
       uniqueID(pod && pod.ID, "A pod");
-      const podStation = pod && network.Stations.find((station) => station.ID === pod.StationID);
-      if (!pod || !podStation || !berthIDs.has(pod.BerthID) || !podStation.Berths.some((berth) => berth.ID === pod.BerthID)) errors.push(`Pod ${(pod && pod.ID) || "?"} has an invalid station or berth.`);
-      if (pod && occupied.has(pod.BerthID)) errors.push(`Berth ${pod.BerthID} has more than one pod.`);
-      if (pod) occupied.add(pod.BerthID);
+      const podStation = isRecord(pod) && validStations.find((station) => station.ID === pod.StationID);
+      const stationBerths = podStation && Array.isArray(podStation.Berths) ? podStation.Berths : [];
+      if (!isRecord(pod) || !podStation || !berthIDs.has(pod.BerthID) || !stationBerths.some((berth) => isRecord(berth) && berth.ID === pod.BerthID)) errors.push(`Pod ${(pod && pod.ID) || "?"} has an invalid station or berth.`);
+      if (isRecord(pod) && occupied.has(pod.BerthID)) errors.push(`Berth ${pod.BerthID} has more than one pod.`);
+      if (isRecord(pod)) occupied.add(pod.BerthID);
     }
-    const passenger = network.Stations.filter((station) => !station.ParkingOnly);
+    const passenger = validStations.filter((station) => station.ParkingOnly !== true);
     if (passenger.length < 2) errors.push("The network needs at least two passenger stations.");
     if (network.Stations.length > 100 || network.Nodes.length > 2000 || network.Lanes.length > 4000) errors.push("The network exceeds the supported size.");
     if (fleet.length < 1 || fleet.length > 200) errors.push("The fleet must contain 1 to 200 pods.");
+    const reachability = new Map();
+    for (const origin of passenger) reachability.set(origin.ID, reachableFrom(directed, origin.Exit));
     for (const origin of passenger) {
       for (const destination of passenger) {
-        if (origin.ID !== destination.ID && !reachable(value, origin.Exit, destination.Entry)) errors.push(`${origin.Name} cannot reach ${destination.Name}.`);
+        if (origin.ID !== destination.ID && !reachability.get(origin.ID).has(destination.Entry)) errors.push(`${origin.Name} cannot reach ${destination.Name}.`);
       }
     }
     const demand = value.demand;
+    if (isRecord(demand) && "enabled" in demand && typeof demand.enabled !== "boolean") errors.push("The passenger demand enabled setting must be true or false.");
     if (!demand || !Number.isInteger(demand.perMinute) || demand.perMinute < 1 || demand.perMinute > 120) errors.push("Passenger demand must be 1 to 120 trips per minute.");
     if (!demand || !["balanced", "destination", "market"].includes(demand.pattern)) errors.push("The passenger demand pattern is invalid.");
+    if (isRecord(demand) && "destination" in demand && (typeof demand.destination !== "string" || new TextEncoder().encode(demand.destination).length > 64)) errors.push("The passenger demand destination is invalid.");
     if (demand && demand.pattern === "destination" && !passenger.some((station) => station.ID === demand.destination)) errors.push("Select a passenger destination.");
     if (!demand || !Number.isSafeInteger(demand.seed) || demand.seed < 0) errors.push("The demand seed must be a nonnegative whole number.");
     return [...new Set(errors)];
@@ -405,15 +429,15 @@
     const scenario = clone(document.scenario);
     for (const pod of Array.isArray(scenario.fleet) ? scenario.fleet : []) {
       if (pod && !pod.BerthID) {
-        const station = scenario.network?.Stations?.find((item) => item.ID === pod.StationID);
+        const station = scenario.network?.Stations?.find((item) => item && item.ID === pod.StationID);
         pod.BerthID = station?.Berths?.[0]?.ID || "";
       }
     }
     if (scenario.demand && scenario.demand.pattern === "market") {
       scenario.demand.pattern = "destination";
       if (!scenario.demand.destination && scenario.network && Array.isArray(scenario.network.Stations)) {
-        const market = scenario.network.Stations.find((station) => !station.ParkingOnly && (station.ID === "market"));
-        const first = scenario.network.Stations.filter((station) => !station.ParkingOnly).at(-1);
+        const market = scenario.network.Stations.find((station) => station && !station.ParkingOnly && station.ID === "market");
+        const first = scenario.network.Stations.filter((station) => station && !station.ParkingOnly).at(-1);
         scenario.demand.destination = (market || first || {}).ID || "";
       }
     }
@@ -749,9 +773,16 @@
   async function applyProject() {
     const errors = runValidation(); if (errors.length) { toast("Fix the listed problems before you apply the scenario.", true); return; }
     const button = $("#applyButton"); button.disabled = true; button.textContent = "Pausing…";
+    let pausedForApply = false;
     try {
+      const current = await getJSON("/api/project");
+      const currentRevision = Number(current.revision ?? current.Revision ?? 0);
+      if (currentRevision !== state.loadedRevision) {
+        const error = new Error("The live scenario changed."); error.status = 409; throw error;
+      }
       if (!state.epoch) { const live = await getJSON("/api/state"); state.epoch = live.epoch || live.Epoch || ""; }
       await postCommand({ action: "pause", paused: true });
+      pausedForApply = true;
       button.textContent = "Applying…";
       const reply = await postCommand({ action: "project", projectRevision: state.loadedRevision, project: draft() });
       const replyState = reply && (reply.state || reply.State || reply);
@@ -760,7 +791,10 @@
       updateStatus(`Applied revision ${state.loadedRevision}. The simulation is paused.`); toast("The scenario was applied. The simulation remains paused.");
     } catch (error) {
       if (error.status === 409) updateStatus("Apply conflict. Reload the page to get the current live scenario.");
-      toast(error.status === 409 ? "The live scenario changed. Your draft is safe and was not applied." : `Apply failed. ${error.message}`, true);
+      const conflict = pausedForApply
+        ? "The live scenario changed. Your draft is safe. The apply attempt paused the simulation."
+        : "The live scenario changed. Your draft is safe and the simulation was not paused.";
+      toast(error.status === 409 ? conflict : `Apply failed. ${error.message}`, true);
     } finally { button.disabled = false; button.textContent = "Pause and apply"; }
   }
 

@@ -136,9 +136,99 @@ test("history coalesces a drag snapshot and supports redo", () => {
   assert.deepEqual(history.value, moved);
 });
 
+test("history preserves the full draft through repeated undo", () => {
+  const original = {
+    scenario: connectedScenario(),
+    background: { dataURL: "data:image/jpeg;base64,AA==", x: 2, y: 3, width: 40, height: 30, opacity: 0.5 },
+  };
+  const history = editor.createHistory(original);
+
+  for (let i = 0; i < 60; i += 1) {
+    const next = history.value;
+    next.scenario.name = `Revision ${i}`;
+    history.replace(next);
+  }
+  for (let i = 0; i < 60; i += 1) assert.equal(history.undo(), true);
+
+  assert.deepEqual(history.value, original);
+  assert.equal(history.undo(), false);
+});
+
+test("berth edits preserve pods in unchanged berths", () => {
+  let config = connectedScenario();
+  const station = config.network.Stations[0];
+  const originalPod = { ...config.fleet[0] };
+
+  config = editor.addBerth(config, station.ID);
+  assert.deepEqual(config.fleet[0], originalPod);
+  const addedBerth = config.network.Stations[0].Berths[1];
+  config = editor.setFleetCount(config, station.ID, 2);
+  assert.deepEqual(config.fleet[0], originalPod);
+  assert.equal(config.fleet[1].BerthID, addedBerth.ID);
+
+  config = editor.removeBerth(config, station.ID, addedBerth.ID);
+  assert.deepEqual(config.fleet, [originalPod]);
+});
+
 test("a connected scenario passes all editor checks", () => {
   const config = connectedScenario();
   assert.deepEqual(editor.validateConfig(config), []);
+});
+
+test("validation reports malformed import values without throwing", () => {
+  const config = connectedScenario();
+  config.network.Nodes.unshift(null);
+  config.network.Stations.push(null);
+  config.network.Stations[0].Berths = { bad: true };
+  config.network.Lanes.push(null);
+  config.fleet.push(null);
+  config.demand = "invalid";
+
+  let errors;
+  assert.doesNotThrow(() => { errors = editor.validateConfig(config); });
+  assert.ok(errors.some((error) => error.includes("invalid value")));
+  assert.ok(errors.some((error) => error.includes("at least one berth")));
+  assert.ok(errors.some((error) => error.includes("Passenger demand")));
+});
+
+test("legacy import normalization defers malformed stations to validation", () => {
+  const config = connectedScenario();
+  config.network.Stations.unshift(null);
+  config.fleet[0].BerthID = "";
+  config.demand.pattern = "market";
+
+  assert.throws(
+    () => editor.parseDocument(editor.serializeDocument(config, null)),
+    /The project has/,
+  );
+});
+
+test("validation matches server guards for duplicate berth nodes and demand fields", () => {
+  let config = connectedScenario();
+  config = editor.addBerth(config, config.network.Stations[0].ID);
+  config.network.Stations[0].Berths[1].Node = config.network.Stations[0].Berths[0].Node;
+  config.demand.enabled = "yes";
+  config.demand.destination = "x".repeat(65);
+
+  const errors = editor.validateConfig(config);
+  assert.ok(errors.some((error) => error.includes("Berth node") && error.includes("used more than once")));
+  assert.ok(errors.some((error) => error.includes("enabled setting")));
+  assert.ok(errors.some((error) => error.includes("destination is invalid")));
+});
+
+test("validation stays responsive at the supported station limit", () => {
+  let config = editor.emptyConfig();
+  for (let i = 0; i < 100; i += 1) config = editor.addStation(config, i * 120, (i % 2) * 120, { name: `Station ${i}` });
+  for (let i = 0; i < 100; i += 1) {
+    const current = config.network.Stations[i];
+    const next = config.network.Stations[(i + 1) % 100];
+    config = editor.addLane(config, current.Exit, next.Entry, false);
+  }
+  for (let i = 0; i < 20; i += 1) config = editor.setFleetCount(config, config.network.Stations[i].ID, 1);
+
+  const start = performance.now();
+  assert.deepEqual(editor.validateConfig(config), []);
+  assert.ok(performance.now() - start < 500, "validation exceeded 500 ms");
 });
 
  test("default berth shorthand loads and round trips", () => {
