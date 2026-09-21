@@ -19,10 +19,38 @@ func (s *Simulation) clearBlockedBerths() {
 		if blocker == nil || blocker.Pod.Activity != Idle || blocker.Pod.Occupied || s.assigned(blocker.Pod.ID) || blocker.Pod.BerthID != arrival.destination.ID {
 			continue
 		}
-		if !s.park(blocker) {
+		if !s.park(blocker) && !s.clearToPassengerBerth(blocker) {
 			arrival.Pod.WaitReason = ParkingUnavailable
 		}
 	}
+}
+
+// clearToPassengerBerth reserves a free passenger berth when dedicated parking is full.
+func (s *Simulation) clearToPassengerBerth(v *vehicle) bool {
+	from, _ := s.network.Station(v.Pod.StationID)
+	origin, _ := from.berth(v.Pod.BerthID)
+	for _, requireAvailable := range []bool{true, false} {
+		for _, local := range []bool{true, false} {
+			for _, station := range s.network.Stations {
+				if station.ParkingOnly || (station.ID == from.ID) != local {
+					continue
+				}
+				for _, berth := range station.Berths {
+					if berth.ID == origin.ID || (requireAvailable && !s.berthAvailable(berth)) {
+						continue
+					}
+					route, err := s.route(origin.Node, berth.Node)
+					if err != nil || len(route) == 0 {
+						continue
+					}
+					if s.startEmptyMove(v, emptyDestination{station: station.ID, berth: berth, reserveBerth: true}) == nil {
+						return true
+					}
+				}
+			}
+		}
+	}
+	return false
 }
 
 // park reserves a reachable destination before an empty pod leaves its passenger berth.

@@ -105,6 +105,7 @@ func TestFullBerthWaitAndClearance(t *testing.T) {
 	if err = s.RequestJourney("01", "market"); err != nil {
 		t.Fatal(err)
 	}
+	blockPassengerClearingRoutes(s)
 	advance(s, 180*TicksPerSecond)
 	state := s.Snapshot()
 	checkTraffic(t, state)
@@ -115,6 +116,7 @@ func TestFullBerthWaitAndClearance(t *testing.T) {
 	if state.Completed != 0 {
 		t.Fatal("blocked arrival completed")
 	}
+	delete(s.routes, routeKey{from: "market-berth", to: "garden-berth"})
 	if err = s.RequestJourney("02", "garden"); err != nil {
 		t.Fatal(err)
 	}
@@ -193,6 +195,7 @@ func TestQueueBehindStoppedPod(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
+	blockPassengerClearingRoutes(s)
 	followed := false
 	for range 240 * TicksPerSecond {
 		s.Step()
@@ -245,6 +248,7 @@ func checkThroughTraffic(t *testing.T, network Network) {
 	if err := s.RequestJourney("01", "market"); err != nil {
 		t.Fatal(err)
 	}
+	blockPassengerClearingRoutes(s)
 	advance(s, 180*TicksPerSecond)
 	if got := s.Snapshot().Vehicles[0].Pod; got.WaitReason != ParkingUnavailable {
 		t.Fatalf("expected berth queue: %+v", got)
@@ -332,6 +336,13 @@ func withoutParking() Network {
 	n := Example()
 	n.Stations = n.Stations[:3]
 	return n
+}
+
+// blockPassengerClearingRoutes keeps these tests focused on an unavailable berth destination.
+func blockPassengerClearingRoutes(s *Simulation) {
+	for _, destination := range []string{"harbor-berth", "garden-berth"} {
+		s.routes[routeKey{from: "market-berth", to: destination}] = routeResult{err: ErrUnreachable}
+	}
 }
 
 func TestDemoStartsWithParkedPodsAndDispatchesBoth(t *testing.T) {
