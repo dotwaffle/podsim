@@ -148,6 +148,8 @@ type vehicle struct {
 
 // Simulation owns a fixed fleet and local track, junction, and berth resources.
 type Simulation struct {
+	lengths                      map[string]float64
+	routes                       map[routeKey]routeResult
 	network                      Network
 	initial                      []Placement
 	vehicles                     []vehicle
@@ -347,9 +349,7 @@ func (s *Simulation) Step() {
 		}
 	}
 	// No pod can reuse resources released during this tick until the next tick.
-	for i := range s.vehicles {
-		s.releaseCleared(&s.vehicles[i])
-	}
+	s.releaseCleared()
 }
 
 func (s *Simulation) arrive(v *vehicle) {

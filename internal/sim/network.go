@@ -78,7 +78,8 @@ func (n Network) Station(id string) (Station, bool) {
 
 // Length returns the lane length in meters for a validated network.
 func (n Network) Length(lane Lane) float64 {
-	points := n.lanePoints(lane)
+	var storage [65]Point
+	points := n.lanePoints(lane, storage[:0])
 	length := 0.0
 	for i := 1; i < len(points); i++ {
 		length += pointDistance(points[i-1], points[i])
@@ -88,7 +89,8 @@ func (n Network) Length(lane Lane) float64 {
 
 // Position returns a point at a distance along the lane, clamped to its ends.
 func (n Network) Position(lane Lane, distance float64) Point {
-	points := n.lanePoints(lane)
+	var storage [65]Point
+	points := n.lanePoints(lane, storage[:0])
 	for i := 1; i < len(points); i++ {
 		length := pointDistance(points[i-1], points[i])
 		if distance <= length && length > 0 {
@@ -101,13 +103,13 @@ func (n Network) Position(lane Lane, distance float64) Point {
 }
 
 // Use the same polyline for length, movement, and browser interpolation.
-func (n Network) lanePoints(lane Lane) []Point {
+func (n Network) lanePoints(lane Lane, points []Point) []Point {
 	a, _ := n.Node(lane.From)
 	b, _ := n.Node(lane.To)
 	if lane.Control == nil {
-		return []Point{a.Position, b.Position}
+		return append(points, a.Position, b.Position)
 	}
-	points := make([]Point, 65)
+	points = points[:65]
 	for i := range points {
 		t := float64(i) / 64
 		u := 1 - t

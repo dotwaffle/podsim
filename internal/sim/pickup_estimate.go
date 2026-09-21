@@ -70,7 +70,7 @@ func (s *Simulation) availableAfter(v *vehicle) (string, float64, bool) {
 }
 
 func (s *Simulation) emptySeconds(from, to string) float64 {
-	route, err := s.network.Route(from, to)
+	route, err := s.route(from, to)
 	if err != nil {
 		return math.Inf(1)
 	}
@@ -84,7 +84,7 @@ type motionEstimate struct{ distance, speed float64 }
 func (s *Simulation) routeSeconds(route []Lane, motion motionEstimate) float64 {
 	seconds, firstSpeed, lastSpeed := 0.0, 0.0, 0.0
 	for _, lane := range route {
-		length := s.network.Length(lane)
+		length := s.laneLength(lane)
 		if motion.distance >= length {
 			motion.distance -= length
 			continue

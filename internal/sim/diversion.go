@@ -27,14 +27,14 @@ func (s *Simulation) pickupRoute(v *vehicle, stationID string) ([]Lane, Berth, b
 	from := v.origin.Node
 	if v.reservedThrough >= 0 {
 		committed := v.blocks[v.reservedThrough]
-		end := committed.laneStart + s.network.Length(committed.lane)
+		end := committed.laneStart + s.laneLength(committed.lane)
 		distance := 0.0
 		for i, lane := range v.Route {
 			// Finish a committed parking inlet before returning to service.
 			if lane.To == v.destination.Node {
 				return nil, Berth{}, false
 			}
-			distance += s.network.Length(lane)
+			distance += s.laneLength(lane)
 			prefix, from = i+1, lane.To
 			if distance >= end-1e-9 {
 				break

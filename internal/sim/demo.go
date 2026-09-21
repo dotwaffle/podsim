@@ -80,7 +80,7 @@ func (s *Simulation) validateDemo() error {
 		if !ok {
 			return fmt.Errorf("traffic demo needs station %s", pair[1])
 		}
-		route, err := s.network.Route(from.Berths[0].Node, to.Berths[0].Node)
+		route, err := s.route(from.Berths[0].Node, to.Berths[0].Node)
 		if err != nil {
 			return fmt.Errorf("traffic demo route %s to %s: %w", pair[0], pair[1], err)
 		}

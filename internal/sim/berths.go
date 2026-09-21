@@ -13,7 +13,7 @@ func (s *Simulation) stationRoute(fromNode, stationID string) ([]Lane, Berth, er
 			if requireFree && !s.berthAvailable(berth) {
 				continue
 			}
-			route, err := s.network.Route(fromNode, berth.Node)
+			route, err := s.route(fromNode, berth.Node)
 			if err == nil {
 				return route, berth, nil
 			}
@@ -39,7 +39,7 @@ func (s *Simulation) berthAvailable(berth Berth) bool {
 func (s *Simulation) stationsConnected(from, to Station) bool {
 	for _, origin := range from.Berths {
 		for _, destination := range to.Berths {
-			if _, err := s.network.Route(origin.Node, destination.Node); err == nil {
+			if _, err := s.route(origin.Node, destination.Node); err == nil {
 				return true
 			}
 		}

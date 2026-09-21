@@ -32,7 +32,7 @@ func (s *Simulation) routeBlocks(route []Lane) []block {
 	var blocks []block
 	distance := 0.0
 	for _, lane := range route {
-		length := s.network.Length(lane)
+		length := s.laneLength(lane)
 		count := max(2, int(math.Ceil(length/30)))
 		for cell := range count {
 			b := block{lane: lane, cell: cell, start: distance + float64(cell)*length/float64(count), end: distance + float64(cell+1)*length/float64(count), laneStart: distance, last: cell == count-1}
@@ -168,13 +168,29 @@ func (s *Simulation) move(v *vehicle) {
 	v.Pod.Position = s.network.Position(b.lane, v.Pod.LaneDistance)
 }
 
-func (s *Simulation) releaseCleared(v *vehicle) {
-	keep := make(map[resource]bool)
+func (s *Simulation) releaseCleared() {
+	keep := make(map[resource]bool, len(s.owners))
+	for i := range s.vehicles {
+		s.retainResources(&s.vehicles[i], keep)
+	}
+	for r := range s.owners {
+		if !keep[r] {
+			delete(s.owners, r)
+		}
+	}
+}
+
+func (s *Simulation) retainResources(v *vehicle, keep map[resource]bool) {
+	retain := func(r resource) {
+		if s.owners[r] == v.Pod.ID {
+			keep[r] = true
+		}
+	}
 	if v.Pod.Activity != Traveling {
 		station, _ := s.network.Station(v.Pod.StationID)
 		berth, _ := station.berth(v.Pod.BerthID)
-		keep[resource{kind: berthResource, id: berth.ID}] = true
-		keep[resource{kind: nodeResource, id: berth.Node}] = true
+		retain(resource{kind: berthResource, id: berth.ID})
+		retain(resource{kind: nodeResource, id: berth.Node})
 	} else {
 		for i, b := range v.blocks {
 			if i > v.reservedThrough {
@@ -187,22 +203,17 @@ func (s *Simulation) releaseCleared(v *vehicle) {
 					clearAt = b.start + Clearance
 				}
 				if clearAt > v.distance {
-					keep[r] = true
+					retain(r)
 				}
 			}
 		}
 		if v.distance < Clearance {
-			keep[resource{kind: berthResource, id: v.origin.ID}] = true
-			keep[resource{kind: nodeResource, id: v.origin.Node}] = true
+			retain(resource{kind: berthResource, id: v.origin.ID})
+			retain(resource{kind: nodeResource, id: v.origin.Node})
 		}
 	}
 	if v.RelocatingTo != "" {
-		keep[resource{kind: berthResource, id: v.destination.ID}] = true
-		keep[resource{kind: nodeResource, id: v.destination.Node}] = true
-	}
-	for r, owner := range s.owners {
-		if owner == v.Pod.ID && !keep[r] {
-			delete(s.owners, r)
-		}
+		retain(resource{kind: berthResource, id: v.destination.ID})
+		retain(resource{kind: nodeResource, id: v.destination.Node})
 	}
 }
