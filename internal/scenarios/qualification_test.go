@@ -26,6 +26,11 @@ type qualificationResult struct {
 	fingerprint string
 }
 
+var (
+	benchmarkSnapshot    sim.Snapshot
+	benchmarkObservation sim.SafetyObservation
+)
+
 func TestScale100SampledSafetyAndProgress(t *testing.T) {
 	config := Scale100()
 	const (
@@ -58,7 +63,7 @@ func TestScale100DenseSafetyWindow(t *testing.T) {
 	const denseWindowTicks = 180 * sim.TicksPerSecond
 	for range denseWindowTicks {
 		simulation.Step()
-		checkScaleSafety(t, simulation.Snapshot())
+		checkScaleSafety(t, simulation.SafetyObservation())
 	}
 	state := simulation.Snapshot()
 	t.Logf("preset=scale100 dense_safety_ticks=%d submitted=%d completed=%d remaining=%d", denseWindowTicks, state.Submitted, state.Completed, state.Submitted-state.Completed)
@@ -141,6 +146,50 @@ func BenchmarkScale100StepActiveTraffic(b *testing.B) {
 	}
 }
 
+func BenchmarkScale100SafetyState(b *testing.B) {
+	config := Scale100()
+
+	b.Run("snapshot", func(b *testing.B) {
+		simulation := activeSafetyBenchmarkSimulation(b, config)
+		b.ReportAllocs()
+		for b.Loop() {
+			benchmarkSnapshot = simulation.Snapshot()
+		}
+	})
+
+	b.Run("observation", func(b *testing.B) {
+		simulation := activeSafetyBenchmarkSimulation(b, config)
+		b.ReportAllocs()
+		for b.Loop() {
+			benchmarkObservation = simulation.SafetyObservation()
+		}
+	})
+}
+
+func activeSafetyBenchmarkSimulation(b *testing.B, config project.Config) *sim.Simulation {
+	b.Helper()
+	simulation := newSimulation(b, config)
+	passenger := project.PassengerStations(config.Network)
+	for requestIndex := range 50 {
+		origin := passenger[requestIndex%len(passenger)].ID
+		destination := passenger[(requestIndex%len(passenger)+2)%len(passenger)].ID
+		if err := simulation.RequestTrip(origin, destination); err != nil {
+			b.Fatal(err)
+		}
+	}
+	state := simulation.Snapshot()
+	activeRoutes := 0
+	for _, vehicle := range state.Vehicles {
+		if len(vehicle.Route) > 0 {
+			activeRoutes++
+		}
+	}
+	if activeRoutes == 0 {
+		b.Fatal("benchmark has no active routes")
+	}
+	return simulation
+}
+
 type qualificationInput struct {
 	config      project.Config
 	schedule    []scheduledRequest
@@ -161,12 +210,12 @@ func runQualification(t *testing.T, input qualificationInput) qualificationResul
 		}
 		simulation.Step()
 		if tick%sim.TicksPerSecond == 0 {
-			state := simulation.Snapshot()
+			observation := simulation.SafetyObservation()
 			if input.checkSafety {
-				checkScaleSafety(t, state)
+				checkScaleSafety(t, observation)
 			}
-			if next == len(input.schedule) && state.Completed == len(input.schedule) {
-				return qualificationResult{state: state, fingerprint: scheduleFingerprint(input.schedule)}
+			if next == len(input.schedule) && observation.Completed == len(input.schedule) {
+				return qualificationResult{state: simulation.Snapshot(), fingerprint: scheduleFingerprint(input.schedule)}
 			}
 		}
 	}
@@ -210,25 +259,25 @@ func scheduleFingerprint(schedule []scheduledRequest) string {
 	return hex.EncodeToString(hash.Sum(nil))
 }
 
-func checkScaleSafety(t *testing.T, state sim.Snapshot) {
+func checkScaleSafety(t *testing.T, state sim.SafetyObservation) {
 	t.Helper()
-	for index, first := range state.Vehicles {
-		if math.IsNaN(first.Pod.Position.X) || math.IsNaN(first.Pod.Position.Y) || first.Pod.Speed < 0 || first.Pod.Speed > 14.000001 {
-			t.Fatalf("invalid pod at tick %d: %+v", state.Tick, first.Pod)
+	for index, first := range state.Pods {
+		if math.IsNaN(first.Position.X) || math.IsNaN(first.Position.Y) || first.Speed < 0 || first.Speed > 14.000001 {
+			t.Fatalf("invalid pod at tick %d: %+v", state.Tick, first)
 		}
-		for _, second := range state.Vehicles[index+1:] {
-			gap := math.Hypot(first.Pod.Position.X-second.Pod.Position.X, first.Pod.Position.Y-second.Pod.Position.Y)
+		for _, second := range state.Pods[index+1:] {
+			gap := math.Hypot(first.Position.X-second.Position.X, first.Position.Y-second.Position.Y)
 			if gap < sim.Clearance-1e-6 {
-				t.Fatalf("tick %d: pods %s and %s are %.5f meters apart: %+v %+v", state.Tick, first.Pod.ID, second.Pod.ID, gap, first.Pod, second.Pod)
+				t.Fatalf("tick %d: pods %s and %s are %.5f meters apart: %+v %+v", state.Tick, first.ID, second.ID, gap, first, second)
 			}
 		}
 	}
 	for _, berth := range state.Berths {
 		occupants := 0
-		for _, vehicle := range state.Vehicles {
-			if vehicle.Pod.BerthID == berth.ID {
+		for _, pod := range state.Pods {
+			if pod.BerthID == berth.ID {
 				occupants++
-				if berth.Occupant != vehicle.Pod.ID || berth.ReservedBy != vehicle.Pod.ID {
+				if berth.Occupant != pod.ID || berth.ReservedBy != pod.ID {
 					t.Fatalf("invalid berth state at tick %d: %+v", state.Tick, berth)
 				}
 			}
@@ -259,19 +308,20 @@ func TestScale100Station19QueueDrainsSafely(t *testing.T) {
 			submitted++
 		}
 		simulation.Step()
-		state := simulation.Snapshot()
+		state := simulation.SafetyObservation()
 		checkScaleSafety(t, state)
-		if state.Completed != orders || len(state.Pending) != 0 {
+		if state.Completed != orders || state.Pending != 0 {
 			continue
 		}
 		settled := true
-		for _, v := range state.Vehicles {
-			if v.Pod.Activity != sim.Idle {
+		for _, pod := range state.Pods {
+			if pod.Activity != sim.Idle {
 				settled = false
 			}
 		}
 		if settled {
-			t.Logf("%d Station 19 orders complete, %d pods idle after %.1fs", orders, len(state.Vehicles), float64(state.Tick)/sim.TicksPerSecond)
+			final := simulation.Snapshot()
+			t.Logf("%d Station 19 orders complete, %d pods idle after %.1fs", orders, len(final.Vehicles), float64(final.Tick)/sim.TicksPerSecond)
 			return
 		}
 	}

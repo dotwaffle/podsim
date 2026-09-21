@@ -184,3 +184,30 @@ These checks cover this fixture and demand schedule, not every possible traffic 
 Camera tests cover zoom anchoring, limits, drag thresholds, selection, and cache invalidation.
 Browser checks cover wheel zoom, drag pan, Fit, clipping, and unchanged shared-session revision.
 The original ring performance measurements above do not measure the new mesh or camera implementation.
+
+## Safety observation cost
+
+Qualification reads pod values, berth state, completion counts, and the clock through a separate observation method.
+It does not copy routes or passenger requests on every tick.
+Full snapshots remain available for final results and diagnostics.
+Both methods index berth occupants once instead of scanning the fleet for each berth.
+
+Lifecycle tests compare observations with snapshots during pickup, boarding, travel, unloading, and completion.
+An independent berth scan checks the shared berth-state builder.
+Mutating an observation does not change the simulation.
+Every-tick qualification still checks all 4,950 pod pairs and berth ownership.
+The checks generate pairs in memory. They do not store a pair corpus.
+
+Active-traffic race benchmarks measured median observation cost at 73.3 microseconds, versus 1,043 microseconds for the previous snapshot implementation.
+The indexed snapshot implementation measured 169.4 microseconds in a separate sample set.
+These measurements cover state observation, not simulation steps or the safety checks themselves.
+
+The original-layout Station 19 regression still settled at exactly 1,963 simulated seconds.
+Its race run took 297.85 wall seconds, compared with 475.6 seconds in the earlier qualification run.
+Those wall times came from separate runs and include scheduling differences.
+The complete scenario race suite passed in 394.32 seconds.
+
+```sh
+mise exec -- go test -race ./internal/scenarios -run '^$' -bench BenchmarkScale100SafetyState -count=3 -benchmem
+mise exec -- go test -race ./internal/scenarios -count=1 -timeout=20m -v
+```

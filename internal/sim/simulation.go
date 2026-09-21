@@ -126,6 +126,15 @@ type Snapshot struct {
 	RebalanceMoves int `json:"RebalanceMoves"`
 }
 
+// SafetyObservation is the state needed to check fleet separation and berth use.
+type SafetyObservation struct {
+	Tick      int64
+	Completed int
+	Pending   int
+	Pods      []Pod
+	Berths    []BerthState
+}
+
 // Placement starts a pod at an empty station berth.
 type Placement struct {
 	ID        string `json:"ID"`
@@ -260,18 +269,44 @@ func (s *Simulation) Snapshot() Snapshot {
 		}
 		state.Vehicles = append(state.Vehicles, cloned)
 	}
-	for _, station := range s.network.Stations {
-		for _, berth := range station.Berths {
-			b := BerthState{ID: berth.ID, ReservedBy: s.owners[resource{kind: berthResource, id: berth.ID}]}
-			for _, v := range s.vehicles {
-				if v.Pod.BerthID == berth.ID {
-					b.Occupant = v.Pod.ID
-				}
-			}
-			state.Berths = append(state.Berths, b)
-		}
+	state.Berths = s.berthStates()
+	return state
+}
+
+// SafetyObservation does not expose mutable simulation storage.
+func (s *Simulation) SafetyObservation() SafetyObservation {
+	state := SafetyObservation{
+		Tick: s.tick, Completed: s.completed, Pending: len(s.waiting),
+		Pods: make([]Pod, len(s.vehicles)), Berths: s.berthStates(),
+	}
+	for index := range s.vehicles {
+		state.Pods[index] = s.vehicles[index].Pod
 	}
 	return state
+}
+
+func (s *Simulation) berthStates() []BerthState {
+	occupants := make(map[string]string, len(s.vehicles))
+	for _, v := range s.vehicles {
+		if v.Pod.BerthID != "" {
+			occupants[v.Pod.BerthID] = v.Pod.ID
+		}
+	}
+	berthCount := 0
+	for _, station := range s.network.Stations {
+		berthCount += len(station.Berths)
+	}
+	states := make([]BerthState, 0, berthCount)
+	for _, station := range s.network.Stations {
+		for _, berth := range station.Berths {
+			states = append(states, BerthState{
+				ID:         berth.ID,
+				Occupant:   occupants[berth.ID],
+				ReservedBy: s.owners[resource{kind: berthResource, id: berth.ID}],
+			})
+		}
+	}
+	return states
 }
 
 // SetPaused controls whether Step advances the simulation clock.

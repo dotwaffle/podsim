@@ -226,6 +226,83 @@ func TestScenarioAndSnapshotIsolation(t *testing.T) {
 	}
 }
 
+func TestSafetyObservationMatchesSnapshotAndIsIsolated(t *testing.T) {
+	s := newExample(t)
+	assertSafetyObservation(t, safetyObservationInput{simulation: s, name: "initial idle"})
+	if err := s.RequestTrip("market", "harbor"); err != nil {
+		t.Fatal(err)
+	}
+	assertSafetyObservation(t, safetyObservationInput{simulation: s, name: "pending"})
+	advanceToObservationState(t, safetyObservationInput{simulation: s, name: "moving to pickup", match: func(state Snapshot) bool {
+		return state.Vehicles[0].Pod.Activity == Traveling && state.Vehicles[0].Pod.LaneID != ""
+	}})
+	advanceToObservationState(t, safetyObservationInput{simulation: s, name: "boarding", match: func(state Snapshot) bool {
+		return state.Vehicles[0].Pod.Activity == Boarding
+	}})
+	advanceToObservationState(t, safetyObservationInput{simulation: s, name: "moving with passenger", match: func(state Snapshot) bool {
+		return state.Vehicles[0].Pod.Activity == Traveling && state.Vehicles[0].Pod.Occupied && state.Vehicles[0].Pod.LaneID != ""
+	}})
+	advanceToObservationState(t, safetyObservationInput{simulation: s, name: "unloading", match: func(state Snapshot) bool {
+		return state.Vehicles[0].Pod.Activity == Unloading
+	}})
+	advanceToObservationState(t, safetyObservationInput{simulation: s, name: "completed idle", match: func(state Snapshot) bool {
+		return state.Completed == 1 && state.Vehicles[0].Pod.Activity == Idle
+	}})
+
+	observation := s.SafetyObservation()
+	observation.Pods[0].ID = "changed"
+	observation.Berths[0].Occupant = "changed"
+	got := s.SafetyObservation()
+	if got.Pods[0].ID == "changed" || got.Berths[0].Occupant == "changed" {
+		t.Fatalf("safety observation exposes simulation storage: %+v", got)
+	}
+}
+
+type safetyObservationInput struct {
+	simulation *Simulation
+	name       string
+	match      func(Snapshot) bool
+}
+
+func advanceToObservationState(t *testing.T, input safetyObservationInput) {
+	t.Helper()
+	for range 300 * TicksPerSecond {
+		if input.match(input.simulation.Snapshot()) {
+			assertSafetyObservation(t, input)
+			return
+		}
+		input.simulation.Step()
+	}
+	t.Fatalf("did not reach %s: %+v", input.name, input.simulation.Snapshot())
+}
+
+func assertSafetyObservation(t *testing.T, input safetyObservationInput) {
+	t.Helper()
+	s := input.simulation
+	snapshot := s.Snapshot()
+	observation := s.SafetyObservation()
+	pods := make([]Pod, len(snapshot.Vehicles))
+	for index := range snapshot.Vehicles {
+		pods[index] = snapshot.Vehicles[index].Pod
+	}
+	var berths []BerthState
+	for _, station := range s.network.Stations {
+		for _, berth := range station.Berths {
+			state := BerthState{ID: berth.ID, ReservedBy: s.owners[resource{kind: berthResource, id: berth.ID}]}
+			for _, vehicle := range s.vehicles {
+				if vehicle.Pod.BerthID == berth.ID {
+					state.Occupant = vehicle.Pod.ID
+				}
+			}
+			berths = append(berths, state)
+		}
+	}
+	if observation.Tick != snapshot.Tick || observation.Completed != snapshot.Completed || observation.Pending != len(snapshot.Pending) ||
+		!reflect.DeepEqual(observation.Pods, pods) || !reflect.DeepEqual(observation.Berths, berths) || !reflect.DeepEqual(snapshot.Berths, berths) {
+		t.Fatalf("%s safety observation differs: observation=%+v snapshot=%+v independent_berths=%+v", input.name, observation, snapshot, berths)
+	}
+}
+
 func TestInvalidNetwork(t *testing.T) {
 	t.Parallel()
 	for _, tc := range []struct {
