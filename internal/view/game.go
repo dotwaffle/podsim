@@ -726,14 +726,16 @@ func (g *Game) drawInspection(screen *ebiten.Image, state sim.Snapshot) {
 	if state.Vehicles[g.selected].Pod.Occupied {
 		passengers = "1 party / 1 passenger"
 	}
-	rows := []string{
-		fmt.Sprintf("Speed         %3.0f km/h", state.Vehicles[g.selected].Pod.Speed*3.6),
-		"On board     " + passengers,
-		fmt.Sprintf("Completed   %d journeys", state.Completed),
-		fmt.Sprintf("Sim time      %.1f s", float64(state.Tick)/sim.TicksPerSecond),
+	rows := []struct{ name, value string }{
+		{"Speed", fmt.Sprintf("%.0f km/h", state.Vehicles[g.selected].Pod.Speed*3.6)},
+		{"On board", passengers},
+		{"Completed", fmt.Sprintf("%d journeys", state.Completed)},
+		{"Sim time", fmt.Sprintf("%.1f s", float64(state.Tick)/sim.TicksPerSecond)},
 	}
 	for i, row := range rows {
-		g.label(screen, label{x: 816, y: 266 + float64(i*31), size: 14, value: row, color: muted})
+		y := 266 + float64(i*31)
+		g.label(screen, label{x: 816, y: y, size: 14, value: row.name, color: muted})
+		g.label(screen, label{x: 924, y: y, size: 14, value: row.value, color: foreground})
 	}
 }
 
