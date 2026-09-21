@@ -71,6 +71,7 @@ func (s *Simulation) admit() {
 		if !ready && v.Pod.Activity != Traveling {
 			continue
 		}
+		s.reevaluateTerminalBerth(v)
 		v.Pod.WaitReason, v.Pod.BlockedBy = NoWait, ""
 		next := v.reservedThrough + 1
 		if next >= len(v.blocks) {
