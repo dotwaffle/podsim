@@ -109,6 +109,29 @@ func ParkingConstrained() project.Config {
 	})
 }
 
+// RailHub returns a station-capacity experiment with a large parked reserve.
+func RailHub() project.Config {
+	config := mustConfig(Parameters{
+		Name: "Rail-hub burst experiment", Stations: 7, Pods: 30,
+		PassengerBerths: 6, ParkingBerths: 12, InitialParkingPods: 12,
+		DemandPerMinute: 12, DemandSeed: 41,
+	})
+	for index := range config.Network.Stations {
+		station := &config.Network.Stations[index]
+		switch {
+		case station.ID == "station-01":
+			station.Name = "Rail Hub"
+		case !station.ParkingOnly:
+			station.Name = fmt.Sprintf("District %d", index)
+		}
+	}
+	config.Demand.Destination = "station-01"
+	if err := project.Validate(config); err != nil {
+		panic(fmt.Errorf("validate rail-hub scenario: %w", err))
+	}
+	return config
+}
+
 // Scale100 returns the 20-station, 100-pod browser qualification scenario.
 func Scale100() project.Config {
 	parameters := scale100Parameters()

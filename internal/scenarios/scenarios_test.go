@@ -24,6 +24,7 @@ func TestPresetsValidateAndRemainStable(t *testing.T) {
 		{name: "small", config: Small, stations: 5, pods: 12},
 		{name: "busy", config: Busy, stations: 8, pods: 32},
 		{name: "parking constrained", config: ParkingConstrained, stations: 6, pods: 20},
+		{name: "rail hub", config: RailHub, stations: 7, pods: 30},
 		{name: "scale 100", config: Scale100, stations: 20, pods: 100},
 	}
 	for _, test := range tests {
@@ -57,6 +58,34 @@ func TestPresetsValidateAndRemainStable(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+func TestRailHubHasExplicitCapacityAndReserveFleet(t *testing.T) {
+	t.Parallel()
+	config := RailHub()
+	hub, ok := config.Network.Station(config.Demand.Destination)
+	if !ok || hub.Name != "Rail Hub" || len(hub.Berths) != 6 {
+		t.Fatalf("rail hub = %+v, found = %t", hub, ok)
+	}
+	parked := 0
+	for _, placement := range config.Fleet {
+		if placement.StationID == "parking" {
+			parked++
+		}
+	}
+	if parked != 12 {
+		t.Fatalf("parked pods = %d, want 12", parked)
+	}
+	for _, berth := range hub.Berths {
+		arrival, err := config.Network.Route(hub.Entry, berth.Node)
+		if err != nil || len(arrival) == 0 {
+			t.Fatalf("route to berth %q = %v, %v", berth.ID, arrival, err)
+		}
+		departure, err := config.Network.Route(berth.Node, hub.Exit)
+		if err != nil || len(departure) == 0 {
+			t.Fatalf("route from berth %q = %v, %v", berth.ID, departure, err)
+		}
 	}
 }
 

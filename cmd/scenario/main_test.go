@@ -42,3 +42,19 @@ func TestRunRejectsUnknownPreset(t *testing.T) {
 		t.Fatal("accepted a positional argument")
 	}
 }
+
+func TestRunWritesRailHubPreset(t *testing.T) {
+	t.Parallel()
+	var output bytes.Buffer
+	if err := run([]string{"-preset", "rail-hub"}, &output); err != nil {
+		t.Fatal(err)
+	}
+	var config project.Config
+	if err := json.Unmarshal(output.Bytes(), &config); err != nil {
+		t.Fatal(err)
+	}
+	hub, ok := config.Network.Station(config.Demand.Destination)
+	if !ok || hub.Name != "Rail Hub" || len(config.Fleet) != 30 {
+		t.Fatalf("rail-hub preset = %+v, found = %t", config, ok)
+	}
+}
