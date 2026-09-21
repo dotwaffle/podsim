@@ -20,8 +20,10 @@ func TestParseOptionsRejectsInvalidBounds(t *testing.T) {
 		{name: "zero duration", args: []string{"-duration", "0s"}, want: "duration must"},
 		{name: "long duration", args: []string{"-duration", "25h"}, want: "duration must"},
 		{name: "subtick duration", args: []string{"-duration", "1ms"}, want: "simulation tick"},
+		{name: "long arrival window", args: []string{"-duration", "1m", "-arrivals-for", "2m"}, want: "arrivals-for"},
 		{name: "zero load", args: []string{"-request-every", "0s"}, want: "each load"},
 		{name: "load after window", args: []string{"-duration", "1m", "-request-every", "2m"}, want: "each load"},
+		{name: "load at arrival end", args: []string{"-duration", "2m", "-arrivals-for", "1m", "-request-every", "1m"}, want: "each load"},
 		{name: "subtick load", args: []string{"-request-every", "1ms"}, want: "simulation tick"},
 		{name: "duplicate seed", args: []string{"-seeds", "1,1"}, want: "more than once"},
 		{name: "invalid seed", args: []string{"-seeds", "one"}, want: "parse seed"},
@@ -30,6 +32,7 @@ func TestParseOptionsRejectsInvalidBounds(t *testing.T) {
 		{name: "duplicate pattern", args: []string{"-patterns", "balanced,balanced"}, want: "more than once"},
 		{name: "unknown format", args: []string{"-format", "yaml"}, want: "format must"},
 		{name: "zero queue", args: []string{"-queue-limit", "0"}, want: "queue-limit"},
+		{name: "zero burst", args: []string{"-burst-size", "0"}, want: "burst-size"},
 		{name: "positional argument", args: []string{"extra"}, want: "unexpected positional"},
 	}
 	for _, test := range tests {
@@ -99,7 +102,7 @@ func TestDemandSchedulePatterns(t *testing.T) {
 	t.Parallel()
 	base := scheduleInput{
 		seed: 7, durationTicks: durationTicks(10 * time.Minute), intervalTicks: durationTicks(time.Minute),
-		passengers: []string{"harbor", "garden", "market"}, focus: "market",
+		burstSize: 3, passengers: []string{"harbor", "garden", "market"}, focus: "market",
 	}
 	for _, pattern := range knownPatterns {
 		input := base
@@ -119,6 +122,16 @@ func TestDemandSchedulePatterns(t *testing.T) {
 		if pattern == "bursty-hotspot" && (first[0].tick != first[1].tick || first[1].tick != first[2].tick) {
 			t.Fatalf("bursty pattern did not group arrivals: %+v", first[:3])
 		}
+		if pattern == "hub-burst" {
+			if first[0].tick != first[1].tick || first[1].tick != first[2].tick {
+				t.Fatalf("hub burst did not group arrivals: %+v", first[:3])
+			}
+			for _, request := range first {
+				if request.origin != "market" {
+					t.Fatalf("hub burst generated %+v", request)
+				}
+			}
+		}
 	}
 }
 
@@ -133,7 +146,7 @@ func TestReportFormatsAreMachineReadable(t *testing.T) {
 	if err := json.Unmarshal(jsonOutput.Bytes(), &decoded); err != nil {
 		t.Fatal(err)
 	}
-	if decoded.SchemaVersion != 1 || !reflect.DeepEqual(decoded.Results, results) {
+	if decoded.SchemaVersion != 2 || !reflect.DeepEqual(decoded.Results, results) {
 		t.Fatalf("JSON report changed values: %+v", decoded)
 	}
 
@@ -147,6 +160,58 @@ func TestReportFormatsAreMachineReadable(t *testing.T) {
 	}
 	if len(records) != 2 || records[0][0] != "pattern" || records[1][0] != "balanced" {
 		t.Fatalf("unexpected CSV report: %+v", records)
+	}
+}
+
+func TestArrivalWindowLeavesDrainTime(t *testing.T) {
+	t.Parallel()
+	opts, err := parseOptions([]string{
+		"-duration", "4m", "-arrivals-for", "1m", "-request-every", "5s", "-burst-size", "6", "-pattern", "hub-burst",
+	}, &bytes.Buffer{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	caseStudy, err := loadScenario("", "market")
+	if err != nil {
+		t.Fatal(err)
+	}
+	results, err := compare(opts, caseStudy)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(results) != 2 {
+		t.Fatalf("result count = %d, want 2", len(results))
+	}
+	for _, outcome := range results {
+		if outcome.ArrivalEndSeconds >= outcome.WindowEndSeconds || outcome.BurstSize != 6 || outcome.FocusStation != "market" {
+			t.Fatalf("experiment window = %+v", outcome)
+		}
+		if outcome.PeakPending == 0 || outcome.PeakFocusOccupiedBerths == 0 {
+			t.Fatalf("experiment did not record demand and berth use: %+v", outcome)
+		}
+		if outcome.PassengerDistanceMeters <= 0 || outcome.LoadedDistancePercent <= 0 || outcome.LoadedDistancePercent >= 100 {
+			t.Fatalf("experiment did not record loaded distance: %+v", outcome)
+		}
+	}
+}
+
+func TestLoadedDistancePercent(t *testing.T) {
+	t.Parallel()
+	for _, test := range []struct {
+		name             string
+		passenger, empty float64
+		want             float64
+	}{
+		{name: "no travel", want: 0},
+		{name: "all passenger", passenger: 25, want: 100},
+		{name: "quarter loaded", passenger: 25, empty: 75, want: 25},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			if got := loadedDistancePercent(test.passenger, test.empty); got != test.want {
+				t.Fatalf("loadedDistancePercent(%v, %v) = %v, want %v", test.passenger, test.empty, got, test.want)
+			}
+		})
 	}
 }
 

@@ -18,6 +18,7 @@ import (
 	"text/tabwriter"
 	"time"
 
+	"github.com/dotwaffle/podsim/internal/observe"
 	"github.com/dotwaffle/podsim/internal/project"
 	"github.com/dotwaffle/podsim/internal/sim"
 )
@@ -28,27 +29,29 @@ const (
 	maxLoads       = 20
 	maxComparisons = 1000
 	maxQueueLimit  = 1_000_000
+	maxBurstSize   = 1_000
 	maxProjectSize = 2 << 20
 )
 
-var knownPatterns = []string{"balanced", "destination", "hotspot", "bursty-hotspot"}
+var knownPatterns = []string{"balanced", "destination", "hotspot", "bursty-hotspot", "hub-burst"}
 
 type options struct {
-	duration     time.Duration
-	requestEvery time.Duration
-	seed         int64
-	seedsText    string
-	pattern      string
-	patternsText string
-	loadsText    string
-	focus        string
-	format       string
-	projectPath  string
-	outputPath   string
-	queueLimit   int
-	seeds        []int64
-	patterns     []string
-	loads        []time.Duration
+	duration, arrivalsFor time.Duration
+	requestEvery          time.Duration
+	seed                  int64
+	seedsText             string
+	pattern               string
+	patternsText          string
+	loadsText             string
+	focus                 string
+	format                string
+	projectPath           string
+	outputPath            string
+	queueLimit            int
+	burstSize             int
+	seeds                 []int64
+	patterns              []string
+	loads                 []time.Duration
 }
 
 type scheduledRequest struct {
@@ -65,21 +68,34 @@ type scenario struct {
 }
 
 type result struct {
-	Pattern              string  `json:"pattern"`
-	RequestEverySeconds  float64 `json:"request_every_seconds"`
-	Seed                 int64   `json:"seed"`
-	Policy               string  `json:"policy"`
-	WindowStartSeconds   float64 `json:"window_start_seconds"`
-	WindowEndSeconds     float64 `json:"window_end_seconds"`
-	ScheduleID           string  `json:"schedule_id"`
-	Scheduled            int     `json:"scheduled"`
-	Served               int     `json:"served"`
-	Remaining            int     `json:"remaining"`
-	Skipped              int     `json:"skipped"`
-	WaitAverageSeconds   float64 `json:"wait_average_seconds"`
-	WaitMaximumSeconds   float64 `json:"wait_maximum_seconds"`
-	EmptyDistanceMeters  float64 `json:"empty_distance_meters"`
-	PositioningMoveCount int     `json:"positioning_moves"`
+	Pattern                      string  `json:"pattern"`
+	RequestEverySeconds          float64 `json:"request_every_seconds"`
+	BurstSize                    int     `json:"burst_size"`
+	Seed                         int64   `json:"seed"`
+	Policy                       string  `json:"policy"`
+	FocusStation                 string  `json:"focus_station"`
+	WindowStartSeconds           float64 `json:"window_start_seconds"`
+	WindowEndSeconds             float64 `json:"window_end_seconds"`
+	ArrivalEndSeconds            float64 `json:"arrival_end_seconds"`
+	ScheduleID                   string  `json:"schedule_id"`
+	Scheduled                    int     `json:"scheduled"`
+	Served                       int     `json:"served"`
+	Remaining                    int     `json:"remaining"`
+	Skipped                      int     `json:"skipped"`
+	PeakPending                  int     `json:"peak_pending"`
+	PeakFocusApproaching         int     `json:"peak_focus_approaching"`
+	PeakFocusEntranceStopped     int     `json:"peak_focus_entrance_stopped"`
+	PeakFocusExitStopped         int     `json:"peak_focus_exit_stopped"`
+	PeakFocusOccupiedBerths      int     `json:"peak_focus_occupied_berths"`
+	PeakFocusReservedEmptyBerths int     `json:"peak_focus_reserved_empty_berths"`
+	QueueCleared                 bool    `json:"queue_cleared"`
+	QueueClearSeconds            float64 `json:"queue_clear_seconds"`
+	WaitAverageSeconds           float64 `json:"wait_average_seconds"`
+	WaitMaximumSeconds           float64 `json:"wait_maximum_seconds"`
+	PassengerDistanceMeters      float64 `json:"passenger_distance_meters"`
+	EmptyDistanceMeters          float64 `json:"empty_distance_meters"`
+	LoadedDistancePercent        float64 `json:"loaded_distance_percent"`
+	PositioningMoveCount         int     `json:"positioning_moves"`
 }
 
 type report struct {
@@ -143,6 +159,7 @@ func parseOptions(args []string, stderr io.Writer) (options, error) {
 	flags := flag.NewFlagSet("compare", flag.ContinueOnError)
 	flags.SetOutput(stderr)
 	flags.DurationVar(&opts.duration, "duration", 30*time.Minute, "simulated comparison duration")
+	flags.DurationVar(&opts.arrivalsFor, "arrivals-for", 0, "simulated arrival window; default is the full duration")
 	flags.DurationVar(&opts.requestEvery, "request-every", 45*time.Second, "simulated time between requests")
 	flags.Int64Var(&opts.seed, "seed", 1, "demand schedule seed")
 	flags.StringVar(&opts.seedsText, "seeds", "", "comma-separated demand schedule seeds")
@@ -154,6 +171,7 @@ func parseOptions(args []string, stderr io.Writer) (options, error) {
 	flags.StringVar(&opts.projectPath, "project", "", "raw project configuration path")
 	flags.StringVar(&opts.outputPath, "output", "", "write the report to this path")
 	flags.IntVar(&opts.queueLimit, "queue-limit", 200, "maximum pending requests before arrivals are skipped")
+	flags.IntVar(&opts.burstSize, "burst-size", 3, "requests in each burst for burst patterns")
 	if err := flags.Parse(args); err != nil {
 		return options{}, err
 	}
@@ -166,8 +184,17 @@ func parseOptions(args []string, stderr io.Writer) (options, error) {
 	if durationTicks(opts.duration) < 1 {
 		return options{}, errors.New("duration must be at least one simulation tick")
 	}
+	if opts.arrivalsFor == 0 {
+		opts.arrivalsFor = opts.duration
+	}
+	if opts.arrivalsFor <= 0 || opts.arrivalsFor > opts.duration || durationTicks(opts.arrivalsFor) < 1 {
+		return options{}, errors.New("arrivals-for must be at least one simulation tick and no longer than duration")
+	}
 	if opts.queueLimit < 1 || opts.queueLimit > maxQueueLimit {
 		return options{}, fmt.Errorf("queue-limit must be between 1 and %d", maxQueueLimit)
+	}
+	if opts.burstSize < 1 || opts.burstSize > maxBurstSize {
+		return options{}, fmt.Errorf("burst-size must be between 1 and %d", maxBurstSize)
 	}
 	if opts.format != "table" && opts.format != "json" && opts.format != "csv" {
 		return options{}, errors.New("format must be table, json, or csv")
@@ -182,7 +209,7 @@ func parseOptions(args []string, stderr io.Writer) (options, error) {
 	if err != nil {
 		return options{}, err
 	}
-	opts.loads, err = parseLoads(parseLoadsInput{single: opts.requestEvery, list: opts.loadsText, duration: opts.duration})
+	opts.loads, err = parseLoads(parseLoadsInput{single: opts.requestEvery, list: opts.loadsText, duration: opts.arrivalsFor})
 	if err != nil {
 		return options{}, err
 	}
@@ -274,8 +301,8 @@ func parseLoads(input parseLoadsInput) ([]time.Duration, error) {
 
 func validateLoads(loads []time.Duration, duration time.Duration) ([]time.Duration, error) {
 	for _, load := range loads {
-		if load <= 0 || load > duration {
-			return nil, errors.New("each load must be positive and no longer than duration")
+		if load <= 0 || load >= duration {
+			return nil, errors.New("each load must be positive and shorter than the arrival window")
 		}
 		if durationTicks(load) < 1 {
 			return nil, errors.New("each load must be at least one simulation tick")
@@ -361,13 +388,13 @@ func readProject(path string) (project.Config, error) {
 }
 
 func compare(opts options, scenario scenario) ([]result, error) {
-	ticks := durationTicks(opts.duration)
 	results := make([]result, 0, len(opts.patterns)*len(opts.loads)*len(opts.seeds)*2)
 	for _, pattern := range opts.patterns {
 		for _, load := range opts.loads {
 			for _, seed := range opts.seeds {
 				schedule := demandSchedule(scheduleInput{
-					seed: seed, durationTicks: ticks, intervalTicks: durationTicks(load), pattern: pattern,
+					seed: seed, durationTicks: durationTicks(opts.arrivalsFor), intervalTicks: durationTicks(load), pattern: pattern,
+					burstSize:  opts.burstSize,
 					passengers: scenario.passengers, focus: scenario.focus,
 				})
 				id := scheduleID(schedule)
@@ -375,7 +402,8 @@ func compare(opts options, scenario scenario) ([]result, error) {
 					outcome, err := run(runInput{
 						enabled: enabled, duration: opts.duration, requestEvery: load, seed: seed,
 						pattern: pattern, scheduleID: id, queueLimit: opts.queueLimit,
-						schedule: schedule, scenario: scenario,
+						burstSize: opts.burstSize,
+						schedule:  schedule, scenario: scenario,
 					})
 					if err != nil {
 						return nil, err
@@ -391,6 +419,7 @@ func compare(opts options, scenario scenario) ([]result, error) {
 type scheduleInput struct {
 	seed                         int64
 	durationTicks, intervalTicks int64
+	burstSize                    int
 	pattern, focus               string
 	passengers                   []string
 }
@@ -401,8 +430,8 @@ func demandSchedule(input scheduleInput) []scheduledRequest {
 	requests := make([]scheduledRequest, 0, count)
 	for i := range count {
 		tick := int64(i+1) * input.intervalTicks
-		if input.pattern == "bursty-hotspot" {
-			tick = input.intervalTicks + int64(i/3)*3*input.intervalTicks
+		if isBurstPattern(input.pattern) {
+			tick = input.intervalTicks + int64(i/input.burstSize)*int64(input.burstSize)*input.intervalTicks
 		}
 		origin, destination := demandPair(rng, input)
 		requests = append(requests, scheduledRequest{tick: tick, origin: origin, destination: destination})
@@ -428,11 +457,18 @@ func demandPair(rng *rand.Rand, input scheduleInput) (string, string) {
 		origin := origins[rng.Intn(len(origins))]
 		destinations := without(input.passengers, origin)
 		return origin, destinations[rng.Intn(len(destinations))]
+	case "hub-burst":
+		destinations := without(input.passengers, input.focus)
+		return input.focus, destinations[rng.Intn(len(destinations))]
 	default:
 		origin := input.passengers[rng.Intn(len(input.passengers))]
 		destinations := without(input.passengers, origin)
 		return origin, destinations[rng.Intn(len(destinations))]
 	}
+}
+
+func isBurstPattern(pattern string) bool {
+	return pattern == "bursty-hotspot" || pattern == "hub-burst"
 }
 
 func without(stations []string, excluded string) []string {
@@ -459,6 +495,7 @@ type runInput struct {
 	seed                   int64
 	pattern, scheduleID    string
 	queueLimit             int
+	burstSize              int
 	schedule               []scheduledRequest
 	scenario               scenario
 }
@@ -468,12 +505,17 @@ func run(input runInput) (result, error) {
 	if err != nil {
 		return result{}, fmt.Errorf("create comparison: %w", err)
 	}
-	if err := simulation.SetDemandWeights(demandWeights(input.pattern, input.scenario)); err != nil {
-		return result{}, fmt.Errorf("set demand weights: %w", err)
+	if demandErr := simulation.SetDemandWeights(demandWeights(input.pattern, input.scenario)); demandErr != nil {
+		return result{}, fmt.Errorf("set demand weights: %w", demandErr)
 	}
 	simulation.SetRedistribution(input.enabled)
+	metrics, err := newRunMetrics(input.scenario, input.schedule)
+	if err != nil {
+		return result{}, err
+	}
 	next, skipped := 0, 0
 	for tick := range durationTicks(input.duration) {
+		injected := false
 		for next < len(input.schedule) && input.schedule[next].tick == tick {
 			request := input.schedule[next]
 			if len(simulation.Snapshot().Pending) >= input.queueLimit {
@@ -485,21 +527,52 @@ func run(input runInput) (result, error) {
 				return result{}, fmt.Errorf("request %s to %s: %w", request.origin, request.destination, err)
 			}
 			next++
+			injected = true
+		}
+		if injected {
+			metrics.observe(simulation.Snapshot())
 		}
 		simulation.Step()
+		if (tick+1)%sim.TicksPerSecond == 0 {
+			metrics.observe(simulation.Snapshot())
+		}
 	}
 	state := simulation.Snapshot()
+	metrics.observe(state)
 	policy := "off"
 	if input.enabled {
 		policy = "on"
 	}
+	burstSize := 1
+	if isBurstPattern(input.pattern) {
+		burstSize = input.burstSize
+	}
+	arrivalEnd := 0.0
+	if len(input.schedule) > 0 {
+		arrivalEnd = float64(input.schedule[len(input.schedule)-1].tick) / sim.TicksPerSecond
+	}
 	return result{
 		Pattern: input.pattern, RequestEverySeconds: input.requestEvery.Seconds(), Seed: input.seed,
-		Policy: policy, WindowStartSeconds: 0, WindowEndSeconds: input.duration.Seconds(), ScheduleID: input.scheduleID,
+		BurstSize: burstSize, Policy: policy, FocusStation: input.scenario.focus,
+		WindowStartSeconds: 0, WindowEndSeconds: input.duration.Seconds(), ArrivalEndSeconds: arrivalEnd, ScheduleID: input.scheduleID,
 		Scheduled: len(input.schedule), Served: state.Completed, Remaining: state.Submitted - state.Completed, Skipped: skipped,
+		PeakPending: metrics.peakPending, PeakFocusApproaching: metrics.peakApproaching,
+		PeakFocusEntranceStopped: metrics.peakEntranceStopped, PeakFocusExitStopped: metrics.peakExitStopped,
+		PeakFocusOccupiedBerths: metrics.peakOccupiedBerths, PeakFocusReservedEmptyBerths: metrics.peakReservedEmptyBerths,
+		QueueCleared: metrics.queueCleared, QueueClearSeconds: metrics.queueClearSeconds,
 		WaitAverageSeconds: state.Wait.AverageSeconds, WaitMaximumSeconds: state.Wait.MaxSeconds,
-		EmptyDistanceMeters: state.EmptyDistanceMeters, PositioningMoveCount: state.RebalanceMoves,
+		PassengerDistanceMeters: state.PassengerDistanceMeters, EmptyDistanceMeters: state.EmptyDistanceMeters,
+		LoadedDistancePercent: loadedDistancePercent(state.PassengerDistanceMeters, state.EmptyDistanceMeters),
+		PositioningMoveCount:  state.RebalanceMoves,
 	}, nil
+}
+
+func loadedDistancePercent(passenger, empty float64) float64 {
+	total := passenger + empty
+	if total == 0 {
+		return 0
+	}
+	return 100 * passenger / total
 }
 
 func demandWeights(pattern string, scenario scenario) map[string]float64 {
@@ -534,7 +607,7 @@ func writeReport(input writeReportInput) error {
 	case "json":
 		encoder := json.NewEncoder(input.output)
 		encoder.SetIndent("", "  ")
-		if err := encoder.Encode(report{SchemaVersion: 1, Results: input.results}); err != nil {
+		if err := encoder.Encode(report{SchemaVersion: 2, Results: input.results}); err != nil {
 			return fmt.Errorf("write JSON report: %w", err)
 		}
 		return nil
@@ -549,18 +622,21 @@ func writeTable(output io.Writer, results []result) error {
 	if len(results) == 0 {
 		return nil
 	}
-	if _, err := fmt.Fprintf(output, "window: %.2fs to %.2fs\n", results[0].WindowStartSeconds, results[0].WindowEndSeconds); err != nil {
+	if _, err := fmt.Fprintf(output, "window: %.2fs to %.2fs / arrivals end: %.2fs / focus: %s\n", results[0].WindowStartSeconds, results[0].WindowEndSeconds, results[0].ArrivalEndSeconds, results[0].FocusStation); err != nil {
 		return fmt.Errorf("write table window: %w", err)
 	}
 	w := tabwriter.NewWriter(output, 0, 4, 2, ' ', 0)
-	if _, err := fmt.Fprintln(w, "PATTERN\tLOAD (S)\tSEED\tPOLICY\tWAIT AVG (S)\tWAIT MAX (S)\tSERVED\tREMAINING\tSKIPPED\tEMPTY (M)\tMOVES"); err != nil {
+	if _, err := fmt.Fprintln(w, "PATTERN\tLOAD (S)\tBURST\tSEED\tPOLICY\tWAIT AVG\tWAIT MAX\tSERVED\tLEFT\tSKIPPED\tPEAK WAIT\tHUB IN\tHUB OUT\tHUB OCC\tHUB RSV\tCLEAR (S)\tPASSENGER (M)\tEMPTY (M)\tLOADED %\tMOVES"); err != nil {
 		return fmt.Errorf("write table header: %w", err)
 	}
 	for _, outcome := range results {
-		if _, err := fmt.Fprintf(w, "%s\t%.2f\t%d\t%s\t%.2f\t%.2f\t%d\t%d\t%d\t%.1f\t%d\n",
-			outcome.Pattern, outcome.RequestEverySeconds, outcome.Seed, outcome.Policy,
-			outcome.WaitAverageSeconds, outcome.WaitMaximumSeconds, outcome.Served,
-			outcome.Remaining, outcome.Skipped, outcome.EmptyDistanceMeters, outcome.PositioningMoveCount); err != nil {
+		if _, err := fmt.Fprintf(w, "%s\t%.2f\t%d\t%d\t%s\t%.2f\t%.2f\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%s\t%.1f\t%.1f\t%.2f\t%d\n",
+			outcome.Pattern, outcome.RequestEverySeconds, outcome.BurstSize, outcome.Seed, outcome.Policy,
+			outcome.WaitAverageSeconds, outcome.WaitMaximumSeconds, outcome.Served, outcome.Remaining, outcome.Skipped,
+			outcome.PeakPending, outcome.PeakFocusEntranceStopped, outcome.PeakFocusExitStopped,
+			outcome.PeakFocusOccupiedBerths, outcome.PeakFocusReservedEmptyBerths, queueClearText(outcome),
+			outcome.PassengerDistanceMeters, outcome.EmptyDistanceMeters, outcome.LoadedDistancePercent,
+			outcome.PositioningMoveCount); err != nil {
 			return fmt.Errorf("write table row: %w", err)
 		}
 	}
@@ -573,18 +649,23 @@ func writeTable(output io.Writer, results []result) error {
 func writeCSV(output io.Writer, results []result) error {
 	w := csv.NewWriter(output)
 	header := []string{
-		"pattern", "request_every_seconds", "seed", "policy", "window_start_seconds", "window_end_seconds", "schedule_id",
-		"scheduled", "served", "remaining", "skipped", "wait_average_seconds", "wait_maximum_seconds", "empty_distance_meters", "positioning_moves",
+		"pattern", "request_every_seconds", "burst_size", "seed", "policy", "focus_station", "window_start_seconds", "window_end_seconds", "arrival_end_seconds", "schedule_id",
+		"scheduled", "served", "remaining", "skipped", "peak_pending", "peak_focus_approaching", "peak_focus_entrance_stopped", "peak_focus_exit_stopped",
+		"peak_focus_occupied_berths", "peak_focus_reserved_empty_berths", "queue_cleared", "queue_clear_seconds",
+		"wait_average_seconds", "wait_maximum_seconds", "passenger_distance_meters", "empty_distance_meters", "loaded_distance_percent", "positioning_moves",
 	}
 	if err := w.Write(header); err != nil {
 		return fmt.Errorf("write CSV header: %w", err)
 	}
 	for _, outcome := range results {
 		row := []string{
-			outcome.Pattern, floatText(outcome.RequestEverySeconds), strconv.FormatInt(outcome.Seed, 10), outcome.Policy,
-			floatText(outcome.WindowStartSeconds), floatText(outcome.WindowEndSeconds), outcome.ScheduleID,
+			outcome.Pattern, floatText(outcome.RequestEverySeconds), strconv.Itoa(outcome.BurstSize), strconv.FormatInt(outcome.Seed, 10), outcome.Policy, outcome.FocusStation,
+			floatText(outcome.WindowStartSeconds), floatText(outcome.WindowEndSeconds), floatText(outcome.ArrivalEndSeconds), outcome.ScheduleID,
 			strconv.Itoa(outcome.Scheduled), strconv.Itoa(outcome.Served), strconv.Itoa(outcome.Remaining), strconv.Itoa(outcome.Skipped),
-			floatText(outcome.WaitAverageSeconds), floatText(outcome.WaitMaximumSeconds), floatText(outcome.EmptyDistanceMeters),
+			strconv.Itoa(outcome.PeakPending), strconv.Itoa(outcome.PeakFocusApproaching), strconv.Itoa(outcome.PeakFocusEntranceStopped), strconv.Itoa(outcome.PeakFocusExitStopped),
+			strconv.Itoa(outcome.PeakFocusOccupiedBerths), strconv.Itoa(outcome.PeakFocusReservedEmptyBerths), strconv.FormatBool(outcome.QueueCleared), floatText(outcome.QueueClearSeconds),
+			floatText(outcome.WaitAverageSeconds), floatText(outcome.WaitMaximumSeconds), floatText(outcome.PassengerDistanceMeters),
+			floatText(outcome.EmptyDistanceMeters), floatText(outcome.LoadedDistancePercent),
 			strconv.Itoa(outcome.PositioningMoveCount),
 		}
 		if err := w.Write(row); err != nil {
@@ -600,6 +681,56 @@ func writeCSV(output io.Writer, results []result) error {
 
 func floatText(value float64) string { return strconv.FormatFloat(value, 'f', -1, 64) }
 
+func queueClearText(outcome result) string {
+	if !outcome.QueueCleared {
+		return "-"
+	}
+	return fmt.Sprintf("%.1f", outcome.QueueClearSeconds)
+}
+
 func durationTicks(duration time.Duration) int64 {
 	return int64(duration * sim.TicksPerSecond / time.Second)
+}
+
+type runMetrics struct {
+	monitor                 observe.StationMonitor
+	station                 sim.Station
+	lastArrivalTick         int64
+	peakPending             int
+	peakApproaching         int
+	peakEntranceStopped     int
+	peakExitStopped         int
+	peakOccupiedBerths      int
+	peakReservedEmptyBerths int
+	queueCleared            bool
+	queueClearSeconds       float64
+}
+
+func newRunMetrics(caseStudy scenario, schedule []scheduledRequest) (runMetrics, error) {
+	station, ok := caseStudy.network.Station(caseStudy.focus)
+	if !ok {
+		return runMetrics{}, fmt.Errorf("observe focus station %q: station not found", caseStudy.focus)
+	}
+	metrics := runMetrics{
+		monitor: observe.NewStationMonitor(caseStudy.network),
+		station: station,
+	}
+	if len(schedule) > 0 {
+		metrics.lastArrivalTick = schedule[len(schedule)-1].tick
+	}
+	return metrics, nil
+}
+
+func (metrics *runMetrics) observe(state sim.Snapshot) {
+	station := metrics.monitor.Summarize(metrics.station, state)
+	metrics.peakPending = max(metrics.peakPending, len(state.Pending))
+	metrics.peakApproaching = max(metrics.peakApproaching, station.Approaching)
+	metrics.peakEntranceStopped = max(metrics.peakEntranceStopped, station.EntranceStopped)
+	metrics.peakExitStopped = max(metrics.peakExitStopped, station.ExitStopped)
+	metrics.peakOccupiedBerths = max(metrics.peakOccupiedBerths, station.Occupied)
+	metrics.peakReservedEmptyBerths = max(metrics.peakReservedEmptyBerths, station.ReservedEmpty)
+	if !metrics.queueCleared && metrics.lastArrivalTick > 0 && state.Tick >= metrics.lastArrivalTick && len(state.Pending) == 0 {
+		metrics.queueCleared = true
+		metrics.queueClearSeconds = float64(state.Tick-metrics.lastArrivalTick) / sim.TicksPerSecond
+	}
 }
