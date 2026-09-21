@@ -91,10 +91,6 @@ func (g *Game) Update() error {
 		g.podPage = g.selected / 6
 		g.message = ""
 	}
-	if inpututil.IsKeyJustPressed(ebiten.KeyD) {
-		g.runDemo()
-		return nil
-	}
 	if inpututil.IsKeyJustPressed(ebiten.KeySpace) {
 		g.pause()
 	}
@@ -104,12 +100,6 @@ func (g *Game) Update() error {
 	}
 	if inpututil.IsKeyJustPressed(ebiten.KeyEnter) {
 		g.request()
-	}
-	for i, key := range []ebiten.Key{ebiten.Key1, ebiten.Key2, ebiten.Key3} {
-		if stations := g.passengerStations(); inpututil.IsKeyJustPressed(key) && g.stationPage*3+i < len(stations) {
-			g.destination = stations[g.stationPage*3+i].ID
-			g.message = ""
-		}
 	}
 	if inpututil.IsKeyJustPressed(ebiten.KeyS) {
 		g.cycleSpeed()
@@ -172,13 +162,15 @@ type button struct {
 	label              string
 	selected, disabled bool
 	action             string
+	expandsWithMap     bool
+	fontSize           float64
 }
 
 func (g *Game) buttons() []button {
 	g.ensureLayout()
 	state := g.state.Simulation
 	busy := state.Demo || !g.connected || g.pending
-	requestLabel := "Request journey"
+	requestLabel := "Order"
 	if g.noticeTicks > 150 {
 		requestLabel = "Order accepted"
 	}
@@ -192,8 +184,7 @@ func (g *Game) buttons() []button {
 		{x: 685, y: 104, w: 66, h: 24, label: "Fit", action: "map-fit"},
 		{x: 810, y: 529, w: 120, h: 26, label: fmt.Sprintf("Orders %d", len(outstandingOrders(state))), selected: g.showOrders, action: "orders"},
 		{x: 940, y: 529, w: 120, h: 26, label: "Demand", selected: g.showDemand, action: "demand"},
-		{x: 840, y: 644, w: 215, h: 42, label: "Run traffic demo [D]", action: "demo"},
-		{x: 646, y: 644, w: 174, h: 42, label: requestLabel, selected: true, disabled: busy || g.destination == g.origin, action: "request"},
+		{x: 930, y: 644, w: 130, h: 42, label: requestLabel, selected: true, disabled: busy || g.destination == g.origin, action: "request"},
 		{x: 810, y: 440, w: 250, h: 36, label: pauseLabel, action: "pause"},
 		{x: 810, y: 486, w: 119, h: 36, label: fmt.Sprintf("Speed %dx [S]", g.state.Speed), action: "speed"},
 		{x: 941, y: 486, w: 119, h: 36, label: "Reset [R]", action: "reset"},
@@ -207,26 +198,13 @@ func (g *Game) buttons() []button {
 	if len(state.Vehicles) > 6 {
 		buttons = append(buttons, button{x: 1026, y: 393, w: 34, h: 34, label: ">", action: "pods-next"})
 	}
-	stations := g.passengerStations()
-	if len(stations) > 3 {
-		buttons = append(buttons, button{x: 595, y: 649, w: 36, h: 30, label: ">", action: "stations-next"})
-	}
-	for i, station := range stations {
-		if i/3 != g.stationPage {
-			continue
-		}
-		i %= 3
-		buttons = append(buttons,
-			button{x: float64(100 + i*165), y: 632, w: 150, h: 28, label: shortText(station.Name, 17), selected: g.origin == station.ID, disabled: busy, action: "from/" + station.ID},
-			button{x: float64(100 + i*165), y: 668, w: 150, h: 28, label: fmt.Sprintf("%s [%d]", shortText(station.Name, 12), i+1), selected: g.destination == station.ID, disabled: busy, action: station.ID},
-		)
-	}
+	buttons = append(buttons, g.journeyButtons(busy)...)
 	if g.showDemand {
 		buttons = append(buttons, g.demandButtons()...)
 	}
 	for i := range buttons {
 		switch buttons[i].action {
-		case "pause", "speed", "reset", "demo":
+		case "pause", "speed", "reset":
 			buttons[i].disabled = !g.connected || g.pending
 		}
 		buttons[i] = g.layoutButton(buttons[i])
@@ -236,7 +214,7 @@ func (g *Game) buttons() []button {
 
 func (g *Game) layoutButton(b button) button {
 	x, y := b.x*g.layout.unit, b.y*g.layout.unit
-	if b.x >= 796 || strings.HasPrefix(b.action, "map-") || b.action == "request" || b.action == "demo" {
+	if b.x >= 796 && !b.expandsWithMap || strings.HasPrefix(b.action, "map-") || b.action == "request" {
 		x += g.layout.extraX
 	}
 	if b.y >= 529 {
@@ -262,11 +240,10 @@ func (g *Game) click(point sim.Point) bool {
 			g.syncCamera()
 		case "pods-next":
 			g.podPage = (g.podPage + 1) % ((len(g.state.Simulation.Vehicles) + 5) / 6)
+		case "stations-prev":
+			g.stationPage--
 		case "stations-next":
-			g.stationPage = (g.stationPage + 1) % ((len(g.passengerStations()) + 2) / 3)
-		case "demo":
-			g.runDemo()
-			return true
+			g.stationPage++
 		case "orders":
 			g.showOrders = !g.showOrders
 			g.showDemand = false
@@ -318,8 +295,6 @@ func (g *Game) click(point sim.Point) bool {
 	}
 	return false
 }
-
-func (g *Game) runDemo() { g.submit(session.Command{Action: "demo"}) }
 
 // Layout is the integer fallback for platforms that do not use LayoutF.
 func (g *Game) Layout(outsideWidth, outsideHeight int) (int, int) {
@@ -751,8 +726,17 @@ func (g *Game) drawControls(screen *ebiten.Image, state sim.Snapshot) {
 		hint = "Four pods, eight journeys: Market arrivals, pickups from parking, and follow-up orders."
 	}
 	g.label(screen, label{x: 44, y: 607, size: 13, value: title, color: foreground})
+	if from, fromOK := g.network.Station(g.origin); fromOK {
+		if to, toOK := g.network.Station(g.destination); toOK {
+			value := fitText(from.Name+" > "+to.Name, textFit{face: g.textFace(11), width: 560 * g.layout.unit})
+			g.label(screen, label{x: 230, y: 609, size: 11, value: value, color: muted})
+		}
+	}
 	g.label(screen, label{x: 44, y: 638, size: 11, value: "FROM", color: muted})
 	g.label(screen, label{x: 44, y: 674, size: 11, value: "TO", color: muted})
+	if pages := g.stationPages(); len(pages) > 1 {
+		g.label(screen, label{x: 850, y: 609, size: 10, value: fmt.Sprintf("%d / %d", g.stationPage+1, len(pages)), color: muted})
+	}
 	g.label(screen, label{x: 816, y: 557, size: 10, value: fmt.Sprintf("Pickup wait: avg %.0f s / max %.0f s", state.Wait.AverageSeconds, state.Wait.MaxSeconds), color: muted})
 	shade := uint32(muted)
 	if g.notice != "" {
@@ -770,12 +754,13 @@ func (g *Game) drawControls(screen *ebiten.Image, state sim.Snapshot) {
 func (g *Game) drawButton(screen *ebiten.Image, b button) {
 	fill, ink := uint32(track), uint32(foreground)
 	selectedFill := uint32(accent)
-	padding := 12.0
 	fontSize := 14.0
+	if b.fontSize > 0 {
+		fontSize = b.fontSize
+	}
 	if id, ok := strings.CutPrefix(b.action, "pod/"); ok {
 		ink = g.podButtonColor(id)
 		selectedFill = ink
-		padding = 5
 		fontSize = 12
 		b.label = shortText(b.label, 3)
 	}
@@ -786,7 +771,13 @@ func (g *Game) drawButton(screen *ebiten.Image, b button) {
 		fill, ink = 0x1b2a36, 0x63788a
 	}
 	vector.FillRect(screen, float32(b.x), float32(b.y), float32(b.w), float32(b.h), rgb(fill), false)
-	g.label(screen, label{x: b.x + padding*g.layout.unit, y: b.y + (b.h-17*g.layout.unit)/2, size: fontSize, value: b.label, color: ink, physical: true})
+	face := g.textFace(fontSize)
+	textWidth, textHeight := text.Measure(b.label, face, 0)
+	g.label(screen, label{x: b.x + (b.w-textWidth)/2, y: b.y + (b.h-textHeight)/2, size: fontSize, value: b.label, color: ink, physical: true})
+}
+
+func (g *Game) textFace(size float64) *text.GoTextFace {
+	return &text.GoTextFace{Source: g.font, Size: size * g.layout.unit}
 }
 
 type label struct {
@@ -887,7 +878,7 @@ func (g *Game) normalizeSelection() {
 	if !valid(g.destination) {
 		g.destination = stations[len(stations)-1].ID
 	}
-	g.stationPage = min(g.stationPage, (len(stations)-1)/3)
+	g.stationPage = min(g.stationPage, len(g.stationPages())-1)
 	g.podPage = min(g.podPage, (len(g.state.Simulation.Vehicles)-1)/6)
 }
 

@@ -48,21 +48,21 @@ The browser export wraps this object as `scenario` and can also contain a backgr
 
 ## Controls
 
-- Select **Run traffic demo** to reset and run the supplied merge-and-berth experiment.
+- Open **Scenario**, select **Example traffic sequence**, then select **Start example sequence**.
 - Select a **Pod** button, or click a pod on the map, to inspect it.
 - Compact fleet numbers match the pod buttons and map. Inspection also shows the full pod ID.
 - Pod colors show their purpose: idle, pickup, passenger service, parking, redistribution, or other empty travel.
 - The map legend explains the colors. An amber ring marks waiting pods, and a white ring marks the selected pod.
 - Scroll over the map to zoom at the pointer. Drag the map to pan. Use **Fit** to show the whole network.
 - Map navigation stays local to your browser. Zoom in to see individual berths in crowded stations.
-- Select **From** and **To**, then **Request journey**. Pod selection affects inspection only.
+- Select **From** and **To**, then **Order**. Pod selection affects inspection only.
 - An idle local pod serves the request. Otherwise, the nearest available empty pod comes to collect the passenger.
 - Requests wait when no pod is available. Open **Orders** to see queued and active journeys and their status.
 - Each accepted request shows its order number and briefly changes the request button to **Order accepted**.
 - Pickup wait statistics show average and maximum seconds since reset. Pending orders contribute their elapsed wait.
 - Wait ends when boarding starts, so it includes empty-pod travel to pickup.
 - Use **Pause**, **Resume**, **Reset**, and **Speed** to control playback.
-- Keyboard: **1-3** select destinations, **Enter** requests, **Tab** selects the next pod, **D** starts the demo.
+- Keyboard: **Enter** submits an order and **Tab** selects the next pod.
 - **Space** pauses, **R** resets, and **S** changes speed.
 - Reset restores the saved scenario fleet and demand settings, clears requests and reservations, and returns to 1x playback.
 
@@ -206,8 +206,12 @@ All berths have direct entry and exit lanes, separate from through traffic.
 This block model is conservative. It does not model continuous car-following or optimized junction capacity.
 The current traffic model requires lanes at least 24 meters long.
 An idle empty pod clears its berth when it blocks a passenger arrival or an assigned pickup pod.
-It reserves a free reachable parking berth before departure and retains its origin until physical clearance.
-If parking is full or unreachable, the arrival stops and shows "No parking available."
+It first reserves a free reachable parking berth and retains its origin until physical clearance.
+If parking is full or unreachable, it reserves reachable passenger space instead.
+It prefers local space that no request targets.
+The pod shows "No parking available" only when no reachable physical space exists.
+At a direct terminal fork, a passenger or pickup pod checks for a free alternate berth before it reserves a branch.
+After the pod reserves a branch, it stays on that branch.
 Empty moves have no boarding or unloading delay and do not count as passenger journeys.
 Parking serves no passengers. Parked pods return to service automatically when assigned to a pickup request.
 After the demo, request a trip from Harbor or Garden to see an available pod return for pickup.
