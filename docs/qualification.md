@@ -170,6 +170,13 @@ Browser acceptance also covers editing, undo and redo, background calibration, i
 A known stale save no longer pauses another browser's running simulation.
 Malformed imports preserve the current draft.
 
+On September 21, 2026, one combined acceptance run imported a PNG, calibrated
+two points to 200 meters, drew and undid a junction, changed a station, and
+passed editor validation. It exported and reloaded the project with the
+background intact, applied revision 2, resumed at 8x speed, submitted a journey
+through the canvas controls, and observed completion. The run also toggled pod
+following and reported no browser errors.
+
 ## Mesh and navigation follow-up
 
 The revised scale preset has a four-row, five-column grid with directed streets and explicit junctions.
@@ -181,7 +188,7 @@ A separate 180-second dense window checks pod separation every tick.
 Geometry checks reject crossings between unrelated sampled lane segments.
 These checks cover this fixture and demand schedule, not every possible traffic pattern.
 
-Camera tests cover zoom anchoring, limits, drag thresholds, selection, and cache invalidation.
+Camera tests cover zoom anchoring, limits, drag thresholds, selection, follow centering, and cache invalidation.
 Browser checks cover wheel zoom, drag pan, Fit, clipping, and unchanged shared-session revision.
 The original ring performance measurements above do not measure the new mesh or camera implementation.
 

@@ -1,16 +1,14 @@
 # Podsim: Project Brief and Research
 
-**Status:** The prototype supports a fixed fleet, braking-distance reservations, automatic empty-pod berth clearing, and a two-space parking station.
+**Status:** The initial usable 2D version was accepted on September 21, 2026.
 
-Passengers can now request trips by pickup station and destination. Available pods, including parked pods, dispatch to pickup.
-Outstanding orders queue and show their status, plus average and maximum pickup wait.
-Dispatch can wait briefly for a nearer finishing pod, send pickup pods to queue on station approaches, and divert empty parking moves.
-The traffic demo uses four pods, including two that start in Parking, and eight passenger journeys.
-Speeds display in whole km/h.
-Later work includes proactive empty-pod redistribution toward busy stations before requests arrive.
-The server now owns a shared session for all connected browsers.
-Configurable demand provides a rate, traffic pattern, seed, and generated/skipped counts.
-The larger playable milestone remains incomplete.
+The browser supports local map backgrounds, scale calibration, network editing,
+project persistence, manual and automatic demand, pod dispatch, local traffic
+control, inspection, pod following, and fleet-use statistics.
+The server owns one shared simulation session for all connected browsers.
+Optional empty-pod redistribution is available but remains off by default.
+Detailed station maneuvers, protocol compaction, and the experiments in Section 6
+remain later work.
 See [README.md](README.md) for controls, validation commands, and current model limits.
 
 This document records the project direction, initial feature scope, architecture, effort estimates, and research.
@@ -154,6 +152,20 @@ A small browser adapter handles file selection and downloads.
 Define a clear boundary between user commands, simulation updates, and state exposed for display.
 Avoid a general plugin system in the first version.
 
+### Typed client protocol
+
+Keep the current HTTP and JSON protocol while its measured traffic remains
+manageable. Before changing the wire contract, evaluate
+[ConnectRPC](https://connectrpc.com/) with Protocol Buffers as the schema source
+for generated Go and browser clients. Connect supports binary Protocol Buffers,
+JSON, compression, and browser-compatible RPC.
+
+Do not treat binary encoding alone as the complete optimization. The current
+client repeatedly receives a complete state, including static network data and
+routes. Compare a normalized or delta state protocol with binary complete
+snapshots, and measure response size, server cost, and browser update cost.
+Preserve the current authoritative server and retry-safe command identity.
+
 ### Separate passengers, vehicles, and service policies
 
 Keep passenger requests and party size separate from vehicles and assignments.
@@ -231,6 +243,15 @@ Their effort has not been estimated, except where an optional stage appears in t
 - Exercise undo, invalid input, pause, reset, and pod following.
 - Run a proposed baseline of 20 stations and 100 pods.
 - Record hardware, frame rate, and simulation update cost before establishing performance guarantees.
+
+**Acceptance status:** Complete for the initial usable version on September 21,
+2026. A combined browser run imported a PNG, calibrated 200 meters, exercised
+drawing and undo, edited and applied the network, exported and reloaded the
+project with its background, submitted a journey through the simulation UI,
+and observed its completion. It also toggled pod following and reported no
+browser errors. Separate browser checks cover invalid input, reset, stale edit
+conflicts, and the 20-station, 100-pod scenario. The hardware and performance
+record is in [docs/qualification.md](docs/qualification.md).
 
 ## 6. Future extensions and experiments
 
