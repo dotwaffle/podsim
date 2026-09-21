@@ -1,0 +1,199 @@
+{
+  "date": "2026-09-21",
+  "go": "1.27.1",
+  "cpu": "AMD Ryzen 5 3600",
+  "logical_cpus": 12,
+  "step_benchmark": {
+    "iterations": 6000,
+    "baseline_ns": [
+      567208,
+      553413,
+      553231
+    ],
+    "optimized_ns": [
+      216622,
+      204506,
+      206105
+    ],
+    "baseline_bytes_per_op": [
+      53325,
+      53324,
+      53324
+    ],
+    "optimized_bytes_per_op": [
+      26438,
+      26409,
+      26438
+    ],
+    "baseline_allocs_per_op": 141,
+    "optimized_allocs_per_op": 59,
+    "baseline_simulation_commit": "0f8f10f",
+    "fixture_commit": "fe8fbe7",
+    "optimized_simulation_commit": "47b525a"
+  },
+  "wasm_load": {
+    "network": {
+      "downloadMbps": 10,
+      "latencyMs": 50
+    },
+    "results": [
+      {
+        "variant": "baseline",
+        "rep": 0,
+        "readyMs": 7756.360087999999,
+        "encodedBytes": 8154231,
+        "decodedBytes": 28737787,
+        "downloadMs": 6584.39999961853
+      },
+      {
+        "variant": "precompressed",
+        "rep": 0,
+        "readyMs": 6606.417152000002,
+        "encodedBytes": 6630784,
+        "decodedBytes": 28737787,
+        "downloadMs": 5359.699999809265
+      },
+      {
+        "variant": "precompressed",
+        "rep": 1,
+        "readyMs": 6565.424124000001,
+        "encodedBytes": 6630784,
+        "decodedBytes": 28737787,
+        "downloadMs": 5363.60000038147
+      },
+      {
+        "variant": "baseline",
+        "rep": 1,
+        "readyMs": 7855.788852999998,
+        "encodedBytes": 8154231,
+        "decodedBytes": 28737787,
+        "downloadMs": 6584.199999809265
+      },
+      {
+        "variant": "baseline",
+        "rep": 2,
+        "readyMs": 7908.054081000002,
+        "encodedBytes": 8154231,
+        "decodedBytes": 28737787,
+        "downloadMs": 6587.799999237061
+      },
+      {
+        "variant": "precompressed",
+        "rep": 2,
+        "readyMs": 6783.234569,
+        "encodedBytes": 6630784,
+        "decodedBytes": 28737787,
+        "downloadMs": 5390.5
+      }
+    ],
+    "wasm_commit": "0f8f10f"
+  },
+  "moving_browser": {
+    "renderer": "Chromium SwiftShader",
+    "pods": 100,
+    "arrivals_per_minute": 20,
+    "seed": 7,
+    "runs": [
+      {
+        "speed": 1,
+        "elapsed": 10.152088003000001,
+        "moved": 4,
+        "simulationTicksPerSecond": 58.8056368131938,
+        "samples": [
+          {
+            "fps": 11.174221791436935,
+            "tps": 53.07755350932544
+          },
+          {
+            "fps": 12.100903994868085,
+            "tps": 53.05780982365237
+          },
+          {
+            "fps": 14.474572553134882,
+            "tps": 57.89829021253953
+          },
+          {
+            "fps": 12.802837127616286,
+            "tps": 55.150683011270154
+          },
+          {
+            "fps": 13.93450559418643,
+            "tps": 58.72398786121423
+          },
+          {
+            "fps": 14.703000334240366,
+            "tps": 54.8912012478307
+          },
+          {
+            "fps": 15.448489421986736,
+            "tps": 57.931835332450255
+          },
+          {
+            "fps": 10.854548357320807,
+            "tps": 53.28596466321123
+          },
+          {
+            "tps": 54.824561403508774,
+            "fps": 11.961722488038278
+          },
+          {
+            "fps": 15.220700152207002,
+            "tps": 59.93150684931507
+          }
+        ],
+        "snapshotBytes": 102173,
+        "gzipBytes": 15673
+      },
+      {
+        "speed": 8,
+        "elapsed": 10.053751235,
+        "moved": 36,
+        "simulationTicksPerSecond": 444.8090961741406,
+        "samples": [
+          {
+            "fps": 17.797118543679982,
+            "tps": 60.312457286915496
+          },
+          {
+            "fps": 13.891644285507805,
+            "tps": 58.54335806035432
+          },
+          {
+            "fps": 11.42857003537432,
+            "tps": 48.57142265034086
+          },
+          {
+            "fps": 13.319377669964393,
+            "tps": 55.18027891842391
+          },
+          {
+            "fps": 18.262209090314077,
+            "tps": 59.592471768393295
+          },
+          {
+            "fps": 17.36948706376186,
+            "tps": 60.793204723166504
+          },
+          {
+            "fps": 16.218279944638347,
+            "tps": 60.103037441895054
+          },
+          {
+            "tps": 48.28278010863152,
+            "fps": 11.842946064381316
+          },
+          {
+            "fps": 11.842946064381316,
+            "tps": 48.28278010863152
+          },
+          {
+            "fps": 19.35662101738813,
+            "tps": 58.99160691013525
+          }
+        ],
+        "snapshotBytes": 123179,
+        "gzipBytes": 19498
+      }
+    ]
+  }
+}

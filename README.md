@@ -48,6 +48,7 @@ The browser export wraps this object as `scenario` and can also contain a backgr
 
 - Select **Run traffic demo** to reset and run the supplied merge-and-berth experiment.
 - Select a **Pod** button, or click a pod on the map, to inspect it.
+- Compact fleet numbers match the pod buttons and map. Inspection also shows the full pod ID.
 - Select **From** and **To**, then **Request journey**. Pod selection affects inspection only.
 - An idle local pod serves the request. Otherwise, the nearest available empty pod comes to collect the passenger.
 - Requests wait when no pod is available. Open **Orders** to see queued and active journeys and their status.
@@ -120,18 +121,39 @@ Validation checks routes between passenger stations, pod placement, resource IDs
 
 Redistribution is off by default. Passenger assignments take priority over empty positioning.
 Before a pod moves, redistribution reserves a free destination berth. A cooldown limits repeated moves.
+A remote reservation yields to passenger traffic until the empty pod enters the final admitted block.
+Admitted track and physical berth ownership remain protected.
 Demand weights forecast pickup locations.
 This policy can increase waiting or empty travel when demand differs from the forecast.
 
 Run the same seeded demand schedule with redistribution off and on:
 
 ```sh
-mise exec -- go run ./cmd/compare -seed 7 -duration 10m -request-every 60s
+mise run compare -- -seed 7 -duration 10m -request-every 60s
 ```
 
 The report compares average and maximum pickup wait, completed and remaining journeys, empty travel, and positioning moves.
-The supplied benchmark uses a fixed Market-heavy pickup forecast and identical initial fleets.
+The default comparison uses a Market-heavy pickup forecast and identical initial fleets.
+Use `-patterns all -seeds 1,2,3 -loads 30s,45s,60s` for a paired matrix.
+Use `-format json` or `-format csv` to save results, and `-project scenario.json` to test another network.
+Schedule IDs identify the identical requests used for each off/on pair.
+The supported patterns are balanced, destination, hotspot, and bursty-hotspot.
 Pending requests contribute their elapsed wait at the end of the measurement window.
+
+### Generated scenarios
+
+Create a repeatable server scenario:
+
+```sh
+mise run scenario -- -preset scale100 -output /tmp/podsim-scale100.json
+mise run serve -- -project /tmp/podsim-scale100.json
+```
+
+Presets include `small`, `busy`, `parking-constrained`, and `scale100`.
+The scale preset has 19 passenger stations, one parking station, 138 berths, and 100 pods.
+Demand starts disabled. Configure and start it from the Demand panel.
+Generated files contain raw server settings. The editor can export the loaded scenario with optional local background data.
+See [qualification results](docs/qualification.md) for safety checks, performance measurements, and redistribution limits.
 
 ## Scope and model
 
@@ -203,12 +225,14 @@ See [the project brief](PROJECT_BRIEF.md) for the wider scope and research.
 
 - `internal/sim`: network, routing, requests, pod movement, and deterministic tests.
 - `internal/project`: versioned scenario settings, validation, and detached copies.
+- `internal/scenarios`: deterministic scale fixtures and qualification tests.
 - `internal/session`: shared clock, command validation, HTTP API, and repeatable demand.
 - `internal/remote`: snapshot polling, command retries, and connection state.
 - `internal/view`: Ebitengine rendering and input. Commands go to the server. Drawing reads a copied snapshot.
 - `cmd/podsim`: desktop and WASM entry point.
 - `cmd/serve`: shared session and browser file server.
 - `cmd/compare`: reproducible redistribution comparison.
+- `cmd/scenario`: generated scenario files.
 - `web`: browser loader and scenario editor.
 
 ```sh

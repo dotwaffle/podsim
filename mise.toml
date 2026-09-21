@@ -66,3 +66,19 @@ run = "node --test web/editor_test.cjs"
 [tasks.check]
 description = "Run tests, static analysis, and native and browser builds"
 depends = ["test-race", "test-web", "lint", "vulncheck", "build", "web"]
+
+[tasks.scenario]
+description = "Write a generated scenario JSON file"
+run = "go run ./cmd/scenario"
+
+[tasks.compare]
+description = "Compare redistribution against the same passenger requests"
+run = "go run ./cmd/compare"
+
+[tasks.qualify]
+description = "Check scale, safety, and repeatability"
+run = "go test ./internal/scenarios -count=1 -v"
+
+[tasks.benchmark]
+description = "Measure 6000 simulation steps on the 100-pod scenario"
+run = "go test ./internal/scenarios -run '^$' -bench BenchmarkScale100StepActiveTraffic -benchtime=6000x -count=3 -benchmem"
