@@ -51,6 +51,8 @@ The browser export wraps this object as `scenario` and can also contain a backgr
 - Select **Run traffic demo** to reset and run the supplied merge-and-berth experiment.
 - Select a **Pod** button, or click a pod on the map, to inspect it.
 - Compact fleet numbers match the pod buttons and map. Inspection also shows the full pod ID.
+- Pod colors show their purpose: idle, pickup, passenger service, parking, redistribution, or other empty travel.
+- The map legend explains the colors. An amber ring marks waiting pods, and a white ring marks the selected pod.
 - Scroll over the map to zoom at the pointer. Drag the map to pan. Use **Fit** to show the whole network.
 - Map navigation stays local to your browser. Zoom in to see individual berths in crowded stations.
 - Select **From** and **To**, then **Request journey**. Pod selection affects inspection only.

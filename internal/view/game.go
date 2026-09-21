@@ -413,7 +413,7 @@ func (g *Game) drawNetwork(screen *ebiten.Image, state sim.Snapshot) {
 	}
 	selected := state.Vehicles[g.selected]
 	if selected.Pod.Activity != sim.Idle {
-		shade := podColor(selected.Pod.ID)
+		shade := g.podPurpose(selected, state).color()
 		for _, lane := range selected.Route {
 			geometry := g.laneGeometry(lane, detailed)
 			geometry.draw(mapScreen, laneStroke{width: float32(2 * g.layout.unit), color: shade, antialias: detailed})
@@ -434,7 +434,7 @@ func (g *Game) drawNetwork(screen *ebiten.Image, state sim.Snapshot) {
 			shade := uint32(muted)
 			for _, v := range state.Vehicles {
 				if v.Pod.BerthID == berth.ID {
-					shade = podColor(v.Pod.ID)
+					shade = g.podPurpose(v, state).color()
 				}
 			}
 			if showBerths {
@@ -495,12 +495,12 @@ func (g *Game) drawNetwork(screen *ebiten.Image, state sim.Snapshot) {
 			continue
 		}
 		p := g.mapPoint(v.Pod.Position)
-		shade := podColor(v.Pod.ID)
+		shade := g.podPurpose(v, state).color()
 		if v.Pod.WaitReason != sim.NoWait {
-			shade = amber
+			vector.StrokeCircle(mapScreen, float32(p.X), float32(p.Y), float32(11*g.layout.unit), float32(2*g.layout.unit), rgb(amber), detailed)
 		}
 		if i == g.selected {
-			vector.StrokeCircle(mapScreen, float32(p.X), float32(p.Y), float32(9*g.layout.unit), float32(1.5*g.layout.unit), rgb(shade), detailed)
+			vector.StrokeCircle(mapScreen, float32(p.X), float32(p.Y), float32(9*g.layout.unit), float32(1.5*g.layout.unit), rgb(foreground), detailed)
 		}
 		vector.FillCircle(mapScreen, float32(p.X), float32(p.Y), float32(4*g.layout.unit), rgb(shade), detailed)
 		if !parkedInCluster || i == g.selected {
@@ -509,7 +509,7 @@ func (g *Game) drawNetwork(screen *ebiten.Image, state sim.Snapshot) {
 	}
 	vector.StrokeLine(screen, float32(g.layout.x(48)), float32(g.layout.bottom(540)), float32(g.layout.x(125)), float32(g.layout.bottom(540)), float32(2*g.layout.unit), rgb(muted), detailed)
 	g.label(screen, label{x: 141, y: 531, size: 12, value: fmt.Sprintf("%.0f m", 77*g.layout.unit/g.mapScale), color: muted})
-	g.label(screen, label{x: 433, y: 531, size: 12, value: "Selected pod and route highlighted", color: muted})
+	g.drawPodLegend(screen)
 }
 
 func (g *Game) showStationBerths(station sim.Station) bool {
@@ -678,7 +678,7 @@ func (g *Game) drawInspection(screen *ebiten.Image, state sim.Snapshot) {
 		podLabel += " / " + podID
 	}
 	g.label(screen, label{x: 816, y: 115, size: 12, value: "POD " + podLabel, color: muted})
-	g.label(screen, label{x: 816, y: 143, size: 26, value: activityLabel(state.Vehicles[g.selected].Pod), color: podColor(state.Vehicles[g.selected].Pod.ID)})
+	g.label(screen, label{x: 816, y: 143, size: 26, value: activityLabel(state.Vehicles[g.selected].Pod, g.podPurpose(state.Vehicles[g.selected], state)), color: g.podPurpose(state.Vehicles[g.selected], state).color()})
 	status := "Available for passenger requests."
 	station, _ := g.network.Station(state.Vehicles[g.selected].Pod.StationID)
 	if station.ParkingOnly {
@@ -771,7 +771,8 @@ func (g *Game) drawButton(screen *ebiten.Image, b button) {
 	padding := 12.0
 	fontSize := 14.0
 	if id, ok := strings.CutPrefix(b.action, "pod/"); ok {
-		ink, selectedFill = podColor(id), podColor(id)
+		ink = g.podButtonColor(id)
+		selectedFill = ink
 		padding = 5
 		fontSize = 12
 		b.label = shortText(b.label, 3)
@@ -807,28 +808,12 @@ func rgb(hex uint32) color.RGBA {
 	return color.RGBA{R: uint8((hex >> 16) & 255), G: uint8((hex >> 8) & 255), B: uint8(hex & 255), A: 255}
 }
 
-func podColor(id string) uint32 {
-	switch id {
-	case "01":
-		return accent
-	case "02":
-		return 0x89b9ff
-	case "03":
-		return 0xf2a4cf
-	case "04":
-		return 0xe6d889
-	}
-	palette := []uint32{0xb6a0ff, 0xffa879, 0x8cdba0, 0x83d6e8, 0xdfa9ea, 0xd4d48a}
-	hash := uint32(2166136261)
-	for i := range len(id) {
-		hash = (hash ^ uint32(id[i])) * 16777619
-	}
-	return palette[int(hash)%len(palette)]
-}
-
-func activityLabel(pod sim.Pod) string {
+func activityLabel(pod sim.Pod, purpose podPurpose) string {
 	if pod.WaitReason != sim.NoWait && pod.Speed < 0.01 {
 		return "Waiting"
+	}
+	if pod.Activity == sim.Traveling || pod.Activity == sim.DepartingEmpty || pod.Activity == sim.Idle {
+		return purpose.label()
 	}
 	return string(pod.Activity)
 }
