@@ -16,7 +16,7 @@ func (s *Session) Handler(directory string) http.Handler {
 	mux.HandleFunc("GET /api/project", func(w http.ResponseWriter, _ *http.Request) { writeJSON(w, s.Project()) })
 	mux.HandleFunc("POST /api/command", s.commandHTTP)
 	mux.Handle("/", http.FileServer(http.Dir(directory)))
-	return compressResponse(mux)
+	return precompressedWASM(directory, compressResponse(mux))
 }
 
 func (s *Session) commandHTTP(w http.ResponseWriter, r *http.Request) {

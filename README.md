@@ -22,7 +22,7 @@ mise run serve
 ```
 
 Open http://127.0.0.1:8080 in desktop Chrome.
-The build creates static files in `dist/`, including the matching Go WebAssembly runtime.
+The build creates static files in `dist/`, including the matching Go WebAssembly runtime and a precompressed WASM file.
 The first build downloads Go dependencies.
 Keep the server running while using the application.
 All browsers connected to this server share one in-memory session.
@@ -190,6 +190,8 @@ The map buffers 150 ms of snapshots and interpolates movement along lanes betwee
 Controls and order status use the latest server state. Pauses, resets, and long connection gaps clear buffered motion.
 Rendering never predicts movement beyond the latest received position.
 The server uses gzip for snapshots and browser assets when the client supports it. Range responses remain uncompressed.
+WASM uses a build-time gzip artifact to reduce downloads without repeating compression for each browser.
+If that artifact is missing or older than the WASM file, the server compresses the current file during the request.
 A lost connection disables commands. Reconnection restores the current shared state.
 The server deduplicates command retries by client and sequence.
 Replay records support 1,024 browser loads per server lifetime. Restart the server if this prototype limit is reached.

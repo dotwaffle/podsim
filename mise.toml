@@ -51,6 +51,7 @@ mkdir -p dist
 GOOS=js GOARCH=wasm go build -trimpath -o dist/podsim.wasm ./cmd/podsim
 cp "$(go env GOROOT)/lib/wasm/wasm_exec.js" dist/wasm_exec.js
 cp web/index.html web/game.html web/editor.html web/editor.css web/editor.js dist/
+node scripts/compress-wasm.cjs dist/podsim.wasm
 """
 
 [tasks.serve]
