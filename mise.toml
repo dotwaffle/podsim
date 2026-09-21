@@ -3,10 +3,14 @@ min_version = "2026.7.12"
 [settings]
 lockfile = true
 
+[tool_alias]
+govulncheck = "go:golang.org/x/vuln/cmd/govulncheck"
+
 [tools]
-actionlint = "1.7.12"
-go = "1.26.8"
-golangci-lint = "2.13.2"
+actionlint = "1"
+go = "1.27"
+golangci-lint = "2"
+govulncheck = "1"
 
 [tasks.format]
 description = "Format Go sources"
@@ -28,6 +32,13 @@ run = "go test ./..."
 description = "Run tests with the race detector"
 run = "go test -race ./..."
 
+[tasks.vulncheck]
+description = "Check dependencies for known vulnerabilities"
+run = """
+govulncheck ./...
+GOOS=js GOARCH=wasm govulncheck ./cmd/podsim
+"""
+
 [tasks.build]
 description = "Build all native packages"
 run = "go build -trimpath ./..."
@@ -48,4 +59,4 @@ run = "go run ./cmd/serve"
 
 [tasks.check]
 description = "Run tests, static analysis, and native and browser builds"
-depends = ["test-race", "lint", "build", "web"]
+depends = ["test-race", "lint", "vulncheck", "build", "web"]

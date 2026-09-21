@@ -161,12 +161,13 @@ mise run test
 mise run check
 ```
 
-`mise.toml` specifies the Go, golangci-lint, and actionlint versions.
+`mise.toml` tracks Go 1.27 and major versions for the other development tools.
 `mise.lock` records the resolved tool downloads.
-It runs workflow validation, race tests, vet, lint, and native and WASM builds.
-GitHub Actions runs the same check on pull requests and pushes to main.
-The workflow uses pinned actions and installs tools from `mise.lock`.
-Go module and build caches use job-specific keys and refresh after successful runs.
+`mise run check` runs workflow validation, race tests, vet, lint, vulnerability checks, and native and WASM builds.
+GitHub Actions runs the same check on pull requests and pushes to main, with a manual trigger available.
+New pull-request updates cancel older runs. Each main-branch push keeps its own run.
+The workflow uses major-version action tags and installs tools from `mise.lock`.
+Go module, build, and lint analysis caches use job-specific keys and refresh after successful runs.
 Core tests cover route selection, journey completion, invalid requests, pause/reset, repeatability, and state isolation.
 Rendering tests cover buffered movement, lane corners, arrival/departure, pause/reset, and stale snapshots.
 HTTP tests cover compression negotiation, snapshot decoding, WASM content type, and byte-range responses.
