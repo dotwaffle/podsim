@@ -135,6 +135,9 @@ func validateNames(config Config) error {
 		if !validID(lane.ID) || !validID(lane.From) || !validID(lane.To) {
 			return fmt.Errorf("lane IDs must contain 1 to %d characters", maxIDLength)
 		}
+		if len(lane.SeparationGroup) > maxIDLength {
+			return fmt.Errorf("lane separation groups must contain at most %d characters", maxIDLength)
+		}
 	}
 	for _, station := range config.Network.Stations {
 		if !validID(station.ID) || !validID(station.Entry) || !validID(station.Exit) {
@@ -149,6 +152,9 @@ func validateNames(config Config) error {
 		for _, berth := range station.Berths {
 			if !validID(berth.ID) || !validID(berth.Node) {
 				return fmt.Errorf("berth IDs must contain 1 to %d characters", maxIDLength)
+			}
+			if len(berth.SeparationGroup) > maxIDLength {
+				return fmt.Errorf("berth separation groups must contain at most %d characters", maxIDLength)
 			}
 		}
 	}

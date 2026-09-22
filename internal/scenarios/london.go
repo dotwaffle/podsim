@@ -152,10 +152,10 @@ func addLondonCarriageway(network *sim.Network, index int, link londonSourceLink
 	aID, bID := londonJunctionID(link.A), londonJunctionID(link.B)
 	prefix := fmt.Sprintf("london-link-%03d", index+1)
 	network.Lanes = append(network.Lanes,
-		sim.Lane{ID: prefix + "-ab-1", From: aID, To: abMidID, SpeedLimit: speedLimit},
-		sim.Lane{ID: prefix + "-ab-2", From: abMidID, To: bID, SpeedLimit: speedLimit},
-		sim.Lane{ID: prefix + "-ba-1", From: bID, To: baMidID, SpeedLimit: speedLimit},
-		sim.Lane{ID: prefix + "-ba-2", From: baMidID, To: aID, SpeedLimit: speedLimit},
+		sim.Lane{ID: prefix + "-ab-1", From: aID, To: abMidID, SpeedLimit: speedLimit, SeparationGroup: prefix},
+		sim.Lane{ID: prefix + "-ab-2", From: abMidID, To: bID, SpeedLimit: speedLimit, SeparationGroup: prefix},
+		sim.Lane{ID: prefix + "-ba-1", From: bID, To: baMidID, SpeedLimit: speedLimit, SeparationGroup: prefix},
+		sim.Lane{ID: prefix + "-ba-2", From: baMidID, To: aID, SpeedLimit: speedLimit, SeparationGroup: prefix},
 	)
 }
 
@@ -168,6 +168,7 @@ func addLondonStation(network *sim.Network, id, name, junction string, direction
 	tangent := sim.Point{X: -outward.Y, Y: outward.X}
 	divergeID, mergeID := id+"-diverge", id+"-merge"
 	entryID, exitID := id+"-entry", id+"-exit"
+	separationGroup := id + "-station"
 	diverge := add(center.Position, add(scale(outward, 80), scale(tangent, -100)))
 	merge := add(center.Position, add(scale(outward, 80), scale(tangent, 100)))
 	entry := add(center.Position, add(scale(outward, 200), scale(tangent, -100)))
@@ -179,11 +180,11 @@ func addLondonStation(network *sim.Network, id, name, junction string, direction
 		sim.Node{ID: exitID, Position: exit},
 	)
 	network.Lanes = append(network.Lanes,
-		sim.Lane{ID: id + "-road-in", From: junction, To: divergeID, SpeedLimit: speedLimit},
-		sim.Lane{ID: id + "-access-in", From: divergeID, To: entryID, SpeedLimit: speedLimit},
-		sim.Lane{ID: id + "-through", From: entryID, To: exitID, SpeedLimit: speedLimit},
-		sim.Lane{ID: id + "-access-out", From: exitID, To: mergeID, SpeedLimit: speedLimit},
-		sim.Lane{ID: id + "-road-out", From: mergeID, To: junction, SpeedLimit: speedLimit},
+		sim.Lane{ID: id + "-road-in", From: junction, To: divergeID, SpeedLimit: speedLimit, SeparationGroup: separationGroup},
+		sim.Lane{ID: id + "-access-in", From: divergeID, To: entryID, SpeedLimit: speedLimit, SeparationGroup: separationGroup},
+		sim.Lane{ID: id + "-through", From: entryID, To: exitID, SpeedLimit: speedLimit, SeparationGroup: separationGroup},
+		sim.Lane{ID: id + "-access-out", From: exitID, To: mergeID, SpeedLimit: speedLimit, SeparationGroup: separationGroup},
+		sim.Lane{ID: id + "-road-out", From: mergeID, To: junction, SpeedLimit: speedLimit, SeparationGroup: separationGroup},
 	)
 	station := sim.Station{ID: id, Name: name, Entry: entryID, Exit: exitID, ParkingOnly: parking}
 	for index := range berths {
@@ -192,10 +193,10 @@ func addLondonStation(network *sim.Network, id, name, junction string, direction
 		depth := 290.0 + 32*float64(index)
 		berthPosition := add(center.Position, scale(outward, depth))
 		network.Nodes = append(network.Nodes, sim.Node{ID: berthNodeID, Position: berthPosition})
-		station.Berths = append(station.Berths, sim.Berth{ID: berthID, Node: berthNodeID})
+		station.Berths = append(station.Berths, sim.Berth{ID: berthID, Node: berthNodeID, SeparationGroup: separationGroup})
 		network.Lanes = append(network.Lanes,
-			sim.Lane{ID: berthID + "-in", From: entryID, To: berthNodeID, SpeedLimit: speedLimit},
-			sim.Lane{ID: berthID + "-out", From: berthNodeID, To: exitID, SpeedLimit: speedLimit},
+			sim.Lane{ID: berthID + "-in", From: entryID, To: berthNodeID, SpeedLimit: speedLimit, SeparationGroup: separationGroup},
+			sim.Lane{ID: berthID + "-out", From: berthNodeID, To: exitID, SpeedLimit: speedLimit, SeparationGroup: separationGroup},
 		)
 	}
 	network.Stations = append(network.Stations, station)

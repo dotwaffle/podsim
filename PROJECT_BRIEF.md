@@ -300,9 +300,10 @@ See [docs/london.md](docs/london.md) and
 [docs/qualification.md](docs/qualification.md#london-am-peak-sample).
 
 The network does not include a background map or tunnel depth.
-The existing two-dimensional safety oracle cannot distinguish
-grade-separated crossings, so geographic physical-separation qualification
-remains future work.
+Explicit separation groups distinguish unrelated grade-separated paths while
+retaining geometric checks at shared junctions.
+The London AM peak sample now runs the separation oracle once per simulated
+second.
 The general OSM-backed import workflow above also remains future work.
 
 ### Congestion-aware routing

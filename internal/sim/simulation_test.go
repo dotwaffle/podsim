@@ -252,8 +252,9 @@ func TestSafetyObservationMatchesSnapshotAndIsIsolated(t *testing.T) {
 	observation := s.SafetyObservation()
 	observation.Pods[0].ID = "changed"
 	observation.Berths[0].Occupant = "changed"
+	observation.Locations[observation.Pods[0].ID] = SafetyLocation{SeparationGroup: "changed"}
 	got := s.SafetyObservation()
-	if got.Pods[0].ID == "changed" || got.Berths[0].Occupant == "changed" {
+	if got.Pods[0].ID == "changed" || got.Berths[0].Occupant == "changed" || got.Locations["changed"].SeparationGroup == "changed" {
 		t.Fatalf("safety observation exposes simulation storage: %+v", got)
 	}
 }
@@ -286,6 +287,14 @@ func assertSafetyObservation(t *testing.T, input safetyObservationInput) {
 		pods[index] = snapshot.Vehicles[index].Pod
 	}
 	var berths []BerthState
+	locations := make(map[string]SafetyLocation, len(s.vehicles))
+	for _, vehicle := range s.vehicles {
+		if vehicle.Pod.LaneID != "" {
+			locations[vehicle.Pod.ID] = s.laneSafety[vehicle.Pod.LaneID]
+		} else if vehicle.Pod.BerthID != "" {
+			locations[vehicle.Pod.ID] = s.berthSafety[vehicle.Pod.BerthID]
+		}
+	}
 	for _, station := range s.network.Stations {
 		for _, berth := range station.Berths {
 			state := BerthState{ID: berth.ID, ReservedBy: s.owners[resource{kind: berthResource, id: berth.ID}]}
@@ -298,7 +307,8 @@ func assertSafetyObservation(t *testing.T, input safetyObservationInput) {
 		}
 	}
 	if observation.Tick != snapshot.Tick || observation.Completed != snapshot.Completed || observation.Pending != len(snapshot.Pending) ||
-		!reflect.DeepEqual(observation.Pods, pods) || !reflect.DeepEqual(observation.Berths, berths) || !reflect.DeepEqual(snapshot.Berths, berths) {
+		!reflect.DeepEqual(observation.Pods, pods) || !reflect.DeepEqual(observation.Berths, berths) ||
+		!reflect.DeepEqual(observation.Locations, locations) || !reflect.DeepEqual(snapshot.Berths, berths) {
 		t.Fatalf("%s safety observation differs: observation=%+v snapshot=%+v independent_berths=%+v", input.name, observation, snapshot, berths)
 	}
 }

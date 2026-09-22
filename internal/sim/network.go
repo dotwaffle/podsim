@@ -22,18 +22,20 @@ type Node struct {
 
 // Lane is a directed connection with a speed limit in meters per second.
 type Lane struct {
-	ID         string  `json:"ID"`
-	From       string  `json:"From"`
-	To         string  `json:"To"`
-	SpeedLimit float64 `json:"SpeedLimit"`
+	ID              string  `json:"ID"`
+	From            string  `json:"From"`
+	To              string  `json:"To"`
+	SpeedLimit      float64 `json:"SpeedLimit"`
+	SeparationGroup string  `json:"SeparationGroup,omitempty"`
 	// Control adds a quadratic curve. Nil keeps the lane straight.
 	Control *Point `json:",omitempty"`
 }
 
 // Berth is a station resource with its own connection point.
 type Berth struct {
-	ID   string `json:"ID"`
-	Node string `json:"Node"`
+	ID              string `json:"ID"`
+	Node            string `json:"Node"`
+	SeparationGroup string `json:"SeparationGroup,omitempty"`
 }
 
 // Station keeps passenger access separate from through traffic.

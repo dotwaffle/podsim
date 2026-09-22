@@ -44,12 +44,13 @@ Each station has distinct road, diverge, entry, exit, and merge nodes.
 This prevents one junction reservation from consuming the complete terminal
 access lane before the controller assigns a berth.
 
-The network does not yet model tunnel depth.
-Therefore, unrelated lines can cross in the drawing without sharing a
-junction.
-A future geographic safety qualification must distinguish these
-grade-separated crossings before it treats every close two-dimensional pod
-position as a collision.
+The network does not model tunnel depth.
+Instead, each link and station path has an explicit separation group.
+Different groups declare that unrelated paths can cross at different physical
+levels.
+Paths that share a junction remain subject to the separation check, even when
+their groups differ.
+Projects without separation groups keep the original two-dimensional check.
 
 ## Demand
 
@@ -88,8 +89,9 @@ All 40 completed by 1,083.0 simulated seconds.
 Average pickup wait was 58.744 seconds, and maximum pickup wait was 235.133
 seconds.
 The test also rejects any stationary pod without an assigned berth.
-It does not run the all-pairs two-dimensional separation oracle because that
-oracle cannot distinguish grade-separated tunnel crossings.
+It runs the geometric separation oracle once per simulated second.
+The oracle skips only pod pairs in distinct separation groups that do not
+share a junction.
 
 ## Sources
 

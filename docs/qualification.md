@@ -412,8 +412,10 @@ The schedule SHA-256 is
 mise exec -- go test -count=1 -run '^TestLondonAMPeakSampleCompletes$' -v ./internal/scenarios
 ```
 
-This run checks completion, queue accounting, and terminal berth assignment.
-It does not apply the two-dimensional all-pairs separation oracle.
-The geographic drawing contains grade-separated Underground crossings that the
-current simulator cannot distinguish from same-level crossings.
+This run checks completion, queue accounting, terminal berth assignment, and
+pod separation once per simulated second.
+London links and station paths have explicit separation groups.
+The oracle excludes only pairs in different groups that do not share a
+junction.
+Unlabeled projects retain the original two-dimensional all-pairs check.
 See [the London network notes](london.md) for the boundary and source details.

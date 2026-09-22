@@ -94,6 +94,9 @@ func TestLondonUsesRealScaleAndDirectedGuideways(t *testing.T) {
 
 	pairedSegments := 0
 	for _, lane := range config.Network.Lanes {
+		if lane.SeparationGroup == "" {
+			t.Fatalf("London lane %q has no separation group", lane.ID)
+		}
 		if strings.HasPrefix(lane.ID, "london-link-") {
 			pairedSegments++
 		}
@@ -108,6 +111,11 @@ func TestLondonHasDistributedParking(t *testing.T) {
 	config := London()
 	parking, parkingPods := 0, 0
 	for _, station := range config.Network.Stations {
+		for _, berth := range station.Berths {
+			if berth.SeparationGroup == "" {
+				t.Fatalf("London berth %q has no separation group", berth.ID)
+			}
+		}
 		if station.ParkingOnly {
 			parking++
 			if len(station.Berths) != londonParkingBerths {

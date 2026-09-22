@@ -15,6 +15,8 @@ func TestConfigJSONRoundTripAndClone(t *testing.T) {
 	want := Default()
 	want.Redistribution = true
 	want.Demand = DemandConfig{Enabled: true, PerMinute: 30, Pattern: "destination", Seed: 9, Destination: "garden"}
+	want.Network.Lanes[0].SeparationGroup = "surface"
+	want.Network.Stations[0].Berths[0].SeparationGroup = "surface"
 	data, err := json.Marshal(want)
 	if err != nil {
 		t.Fatal(err)
@@ -45,6 +47,10 @@ func TestValidateRejectsMalformedProjects(t *testing.T) {
 		{"name", func(config *Config) { config.Name = "" }},
 		{"long name", func(config *Config) { config.Name = strings.Repeat("x", maxNameLength+1) }},
 		{"long node ID", func(config *Config) { config.Network.Nodes[0].ID = strings.Repeat("x", maxIDLength+1) }},
+		{"long lane separation group", func(config *Config) { config.Network.Lanes[0].SeparationGroup = strings.Repeat("x", maxIDLength+1) }},
+		{"long berth separation group", func(config *Config) {
+			config.Network.Stations[0].Berths[0].SeparationGroup = strings.Repeat("x", maxIDLength+1)
+		}},
 		{"long station name", func(config *Config) { config.Network.Stations[0].Name = strings.Repeat("x", maxNameLength+1) }},
 		{"berth bound", func(config *Config) { config.Network.Stations[3].Berths = make([]sim.Berth, maxBerths+1) }},
 		{"nan", func(config *Config) { config.Network.Nodes[0].Position.X = math.NaN() }},

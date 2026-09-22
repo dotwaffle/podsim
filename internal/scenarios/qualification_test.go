@@ -284,6 +284,9 @@ func scaleSafety(state sim.SafetyObservation) (float64, error) {
 			return 0, fmt.Errorf("invalid pod at tick %d: %+v", state.Tick, first)
 		}
 		for _, second := range state.Pods[index+1:] {
+			if safetyLocationsSeparated(state.Locations[first.ID], state.Locations[second.ID]) {
+				continue
+			}
 			dx := first.Position.X - second.Position.X
 			dy := first.Position.Y - second.Position.Y
 			gapSquared := dx*dx + dy*dy
@@ -319,6 +322,18 @@ func scaleSafety(state sim.SafetyObservation) (float64, error) {
 	return math.Sqrt(minimumObservedSquared), nil
 }
 
+func safetyLocationsSeparated(first, second sim.SafetyLocation) bool {
+	if first.SeparationGroup == "" || second.SeparationGroup == "" || first.SeparationGroup == second.SeparationGroup {
+		return false
+	}
+	return !safetyLocationsShareNode(first, second)
+}
+
+func safetyLocationsShareNode(first, second sim.SafetyLocation) bool {
+	return first.From != "" && (first.From == second.From || first.From == second.To) ||
+		first.To != "" && (first.To == second.From || first.To == second.To)
+}
+
 func TestScaleSafetyOracle(t *testing.T) {
 	t.Parallel()
 	valid := sim.SafetyObservation{
@@ -337,8 +352,19 @@ func TestScaleSafetyOracle(t *testing.T) {
 		want  string
 	}{
 		{name: "overlap", state: sim.SafetyObservation{Pods: []sim.Pod{{ID: "one"}, {ID: "two", Position: sim.Point{X: sim.Clearance - 1}}}}, want: "meters apart"},
+		{name: "separate groups sharing a node", state: sim.SafetyObservation{Pods: []sim.Pod{{ID: "one"}, {ID: "two"}}, Locations: map[string]sim.SafetyLocation{"one": {SeparationGroup: "upper", To: "junction"}, "two": {SeparationGroup: "lower", From: "junction"}}}, want: "meters apart"},
 		{name: "duplicate berth", state: sim.SafetyObservation{Pods: []sim.Pod{{ID: "one", BerthID: "berth-one"}, {ID: "two", Position: sim.Point{X: sim.Clearance}, BerthID: "berth-one"}}, Berths: []sim.BerthState{{ID: "berth-one", Occupant: "two", ReservedBy: "two"}}}, want: "capacity exceeded"},
 		{name: "mismatched berth", state: sim.SafetyObservation{Pods: []sim.Pod{{ID: "one", BerthID: "berth-one"}}, Berths: []sim.BerthState{{ID: "berth-one", Occupant: "other", ReservedBy: "other"}}}, want: "invalid berth state"},
+	}
+	separated := sim.SafetyObservation{
+		Pods: []sim.Pod{{ID: "one"}, {ID: "two"}},
+		Locations: map[string]sim.SafetyLocation{
+			"one": {SeparationGroup: "upper", From: "a", To: "b"},
+			"two": {SeparationGroup: "lower", From: "c", To: "d"},
+		},
+	}
+	if err := scaleSafetyError(separated); err != nil {
+		t.Fatalf("grade-separated observation: %v", err)
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {

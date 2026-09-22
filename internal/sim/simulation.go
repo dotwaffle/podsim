@@ -136,6 +136,14 @@ type SafetyObservation struct {
 	Pending   int
 	Pods      []Pod
 	Berths    []BerthState
+	Locations map[string]SafetyLocation
+}
+
+// SafetyLocation identifies the physical plane and endpoints occupied by a pod.
+type SafetyLocation struct {
+	SeparationGroup string
+	From            string
+	To              string
 }
 
 // Placement starts a pod at an empty station berth.
@@ -185,6 +193,8 @@ type Simulation struct {
 	emptyDistanceMeters          float64
 	rebalanceMoves               int
 	reservationLookaheadSeconds  float64
+	laneSafety                   map[string]SafetyLocation
+	berthSafety                  map[string]SafetyLocation
 }
 
 // New creates a one-pod scenario for focused experiments.
@@ -233,6 +243,16 @@ func NewFleet(network Network, placements []Placement) (*Simulation, error) {
 	s := &Simulation{
 		network: network.clone(), initial: initial,
 		reservationLookaheadSeconds: defaultReservationLookaheadSeconds,
+		laneSafety:                  make(map[string]SafetyLocation, len(network.Lanes)),
+		berthSafety:                 make(map[string]SafetyLocation),
+	}
+	for _, lane := range network.Lanes {
+		s.laneSafety[lane.ID] = SafetyLocation{SeparationGroup: lane.SeparationGroup, From: lane.From, To: lane.To}
+	}
+	for _, station := range network.Stations {
+		for _, berth := range station.Berths {
+			s.berthSafety[berth.ID] = SafetyLocation{SeparationGroup: berth.SeparationGroup, From: berth.Node, To: berth.Node}
+		}
 	}
 	s.Reset()
 	return s, nil
@@ -288,9 +308,16 @@ func (s *Simulation) SafetyObservation() SafetyObservation {
 	state := SafetyObservation{
 		Tick: s.tick, Completed: s.completed, Pending: len(s.waiting),
 		Pods: make([]Pod, len(s.vehicles)), Berths: s.berthStates(),
+		Locations: make(map[string]SafetyLocation, len(s.vehicles)),
 	}
 	for index := range s.vehicles {
-		state.Pods[index] = s.vehicles[index].Pod
+		pod := s.vehicles[index].Pod
+		state.Pods[index] = pod
+		if pod.LaneID != "" {
+			state.Locations[pod.ID] = s.laneSafety[pod.LaneID]
+		} else if pod.BerthID != "" {
+			state.Locations[pod.ID] = s.berthSafety[pod.BerthID]
+		}
 	}
 	return state
 }

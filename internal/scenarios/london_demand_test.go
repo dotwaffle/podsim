@@ -113,7 +113,7 @@ func TestLondonAMPeakSampleCompletes(t *testing.T) {
 	config := London()
 	const requestCount = 40
 	schedule := londonDemandSchedule(20260922, LondonDemand()[2], requestCount)
-	result := runQualification(t, qualificationInput{config: config, schedule: schedule})
+	result := runQualification(t, qualificationInput{config: config, schedule: schedule, checkSafety: true})
 	if result.state.Completed != requestCount || len(result.state.Pending) != 0 {
 		t.Fatalf("London sample did not finish: completed=%d remaining=%d", result.state.Completed, result.state.Submitted-result.state.Completed)
 	}
