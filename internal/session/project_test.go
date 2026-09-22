@@ -23,6 +23,11 @@ func customProject() project.Config {
 			config.Network.Stations[i].Name = replacement
 		}
 	}
+	for i := range config.Network.Lanes {
+		if replacement := renames[config.Network.Lanes[i].StationID]; replacement != "" {
+			config.Network.Lanes[i].StationID = replacement
+		}
+	}
 	for i := range config.Fleet {
 		config.Fleet[i].StationID = renames[config.Fleet[i].StationID]
 	}

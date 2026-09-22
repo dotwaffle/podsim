@@ -23,6 +23,8 @@ test("station creation makes separate safe entry, exit, and berth geometry", () 
   assert.equal(config.network.Nodes.length, 3);
   assert.equal(config.network.Lanes.length, 3);
   for (const lane of config.network.Lanes) assert.ok(editor.laneLength(config, lane) >= editor.MIN_LANE_LENGTH);
+  assert.deepEqual(config.network.Lanes.map((lane) => lane.StationRole).sort(), ["berth-access", "departure", "through"]);
+  assert.ok(config.network.Lanes.every((lane) => lane.StationID === station.ID));
 });
 
 test("capacity changes create physical lanes and clean placements on removal", () => {
@@ -136,9 +138,21 @@ test("portable projects preserve the shared ride party limit", () => {
   assert.ok(editor.validateConfig(config).some((error) => error.includes("shared ride party limit")));
 });
 
+test("station lane roles validate and round trip", () => {
+  const config = connectedScenario();
+  assert.deepEqual(editor.validateConfig(config), []);
+  const parsed = editor.parseDocument(editor.serializeDocument(config));
+  assert.deepEqual(parsed.scenario.network.Lanes, config.network.Lanes);
+
+  config.network.Lanes[0].StationRole = "invalid";
+  assert.ok(editor.validateConfig(config).some((error) => error.includes("invalid station role")));
+});
+
 test("portable import accepts the legacy market demand pattern", () => {
   const config = connectedScenario();
+  const oldID = config.network.Stations[1].ID;
   config.network.Stations[1].ID = "market";
+  for (const lane of config.network.Lanes) if (lane.StationID === oldID) lane.StationID = "market";
   config.demand.pattern = "market";
   config.demand.destination = "";
   const parsed = editor.parseDocument(editor.serializeDocument(config, null));

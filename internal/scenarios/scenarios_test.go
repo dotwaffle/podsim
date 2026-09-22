@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"math"
 	"reflect"
+	"slices"
 	"strings"
 	"testing"
 
@@ -106,6 +107,96 @@ func TestLondonUsesRealScaleAndDirectedGuideways(t *testing.T) {
 	}
 	if pairedSegments != 4*127 {
 		t.Fatalf("got %d directed guideway segments, want %d", pairedSegments, 4*127)
+	}
+}
+
+func TestLondonStationsExposeManeuverRoles(t *testing.T) {
+	t.Parallel()
+	config := London()
+	rolesByStation := make(map[string]map[sim.StationLaneRole]bool, len(config.Network.Stations))
+	lanesByID := make(map[string]sim.Lane, len(config.Network.Lanes))
+	for _, lane := range config.Network.Lanes {
+		lanesByID[lane.ID] = lane
+		if lane.StationID == "" {
+			continue
+		}
+		roles := rolesByStation[lane.StationID]
+		if roles == nil {
+			roles = make(map[sim.StationLaneRole]bool)
+			rolesByStation[lane.StationID] = roles
+		}
+		roles[lane.StationRole] = true
+	}
+	wantRoles := []sim.StationLaneRole{
+		sim.StationApproachRole,
+		sim.StationEntryRole,
+		sim.StationBerthAccessRole,
+		sim.StationThroughRole,
+		sim.StationDepartureRole,
+		sim.StationExitRole,
+	}
+	for _, station := range config.Network.Stations {
+		for _, role := range wantRoles {
+			if !rolesByStation[station.ID][role] {
+				t.Fatalf("station %q has no %q lane", station.Name, role)
+			}
+		}
+		for _, berth := range station.Berths {
+			in := lanesByID[berth.ID+"-in"]
+			out := lanesByID[berth.ID+"-out"]
+			if in.StationID != station.ID || in.StationRole != sim.StationBerthAccessRole {
+				t.Fatalf("berth inlet %q = station %q, role %q", in.ID, in.StationID, in.StationRole)
+			}
+			if out.StationID != station.ID || out.StationRole != sim.StationDepartureRole {
+				t.Fatalf("berth outlet %q = station %q, role %q", out.ID, out.StationID, out.StationRole)
+			}
+		}
+	}
+}
+
+func TestLondonJourneyReportsStationManeuvers(t *testing.T) {
+	t.Parallel()
+	config := London()
+	stations := make(map[string]sim.Station, len(config.Network.Stations))
+	for _, station := range config.Network.Stations {
+		stations[station.Name] = station
+	}
+	holborn := stations["Holborn"]
+	chancery := stations["Chancery Lane"]
+	simulation, err := sim.New(config.Network, holborn.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := simulation.RequestJourney("01", chancery.ID); err != nil {
+		t.Fatal(err)
+	}
+	type observation struct {
+		phase   sim.StationPhase
+		station string
+	}
+	var got []observation
+	for range 180 * sim.TicksPerSecond {
+		pod := simulation.Snapshot().Vehicles[0].Pod
+		current := observation{phase: pod.StationPhase, station: pod.ManeuverStationID}
+		if current.phase != "" && (len(got) == 0 || got[len(got)-1] != current) {
+			got = append(got, current)
+		}
+		if simulation.Snapshot().Completed == 1 {
+			break
+		}
+		simulation.Step()
+	}
+	want := []observation{
+		{phase: sim.AtBerth, station: holborn.ID},
+		{phase: sim.DepartingBerth, station: holborn.ID},
+		{phase: sim.ExitingStation, station: holborn.ID},
+		{phase: sim.ApproachingStation, station: chancery.ID},
+		{phase: sim.EnteringStation, station: chancery.ID},
+		{phase: sim.AccessingBerth, station: chancery.ID},
+		{phase: sim.AtBerth, station: chancery.ID},
+	}
+	if !slices.Equal(got, want) {
+		t.Fatalf("station phases = %+v, want %+v", got, want)
 	}
 }
 

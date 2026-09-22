@@ -20,13 +20,28 @@ type Node struct {
 	Position Point  `json:"Position"`
 }
 
+// StationLaneRole identifies a lane's function in one station maneuver.
+type StationLaneRole string
+
+// Station lane roles identify each part of a station path.
+const (
+	StationApproachRole    StationLaneRole = "approach"
+	StationEntryRole       StationLaneRole = "entry"
+	StationBerthAccessRole StationLaneRole = "berth-access"
+	StationThroughRole     StationLaneRole = "through"
+	StationDepartureRole   StationLaneRole = "departure"
+	StationExitRole        StationLaneRole = "exit"
+)
+
 // Lane is a directed connection with a speed limit in meters per second.
 type Lane struct {
-	ID              string  `json:"ID"`
-	From            string  `json:"From"`
-	To              string  `json:"To"`
-	SpeedLimit      float64 `json:"SpeedLimit"`
-	SeparationGroup string  `json:"SeparationGroup,omitempty"`
+	ID              string          `json:"ID"`
+	From            string          `json:"From"`
+	To              string          `json:"To"`
+	SpeedLimit      float64         `json:"SpeedLimit"`
+	SeparationGroup string          `json:"SeparationGroup,omitempty"`
+	StationID       string          `json:"StationID,omitempty"`
+	StationRole     StationLaneRole `json:"StationRole,omitempty"`
 	// Control adds a quadratic curve. Nil keeps the lane straight.
 	Control *Point `json:",omitempty"`
 }
@@ -308,7 +323,8 @@ func (n Network) validate() error {
 		to, toOK := nodes[lane.To]
 		length := indexedLaneLength(lane, from, to)
 		if lane.ID == "" || lanes[lane.ID] || !fromOK || !toOK ||
-			!finite(lane.SpeedLimit) || lane.SpeedLimit <= 0 || length <= 0 || !finite(length) {
+			!finite(lane.SpeedLimit) || lane.SpeedLimit <= 0 || length <= 0 || !finite(length) ||
+			!validStationLaneRole(lane.StationRole) || (lane.StationID == "") != (lane.StationRole == "") {
 			return fmt.Errorf("invalid or duplicate lane %q", lane.ID)
 		}
 		lanes[lane.ID] = true
@@ -328,6 +344,11 @@ func (n Network) validate() error {
 			}
 			berths[berth.ID] = true
 			berthNodes[berth.Node] = true
+		}
+	}
+	for _, lane := range n.Lanes {
+		if lane.StationID != "" && !stations[lane.StationID] {
+			return fmt.Errorf("lane %q has unknown station %q", lane.ID, lane.StationID)
 		}
 	}
 	graph := newRouteGraph(n)
@@ -365,6 +386,16 @@ func (n Network) connected(from, to string) bool {
 }
 
 func finite(v float64) bool { return !math.IsNaN(v) && !math.IsInf(v, 0) }
+
+func validStationLaneRole(role StationLaneRole) bool {
+	switch role {
+	case "", StationApproachRole, StationEntryRole, StationBerthAccessRole,
+		StationThroughRole, StationDepartureRole, StationExitRole:
+		return true
+	default:
+		return false
+	}
+}
 
 func (n Network) clone() Network {
 	n.Nodes, n.Lanes, n.Stations = slices.Clone(n.Nodes), cloneLanes(n.Lanes), slices.Clone(n.Stations)

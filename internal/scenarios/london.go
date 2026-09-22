@@ -182,11 +182,11 @@ func addLondonStation(network *sim.Network, id, name, junction string, direction
 		sim.Node{ID: exitID, Position: exit},
 	)
 	network.Lanes = append(network.Lanes,
-		sim.Lane{ID: id + "-road-in", From: junction, To: divergeID, SpeedLimit: speedLimit, SeparationGroup: separationGroup},
-		sim.Lane{ID: id + "-access-in", From: divergeID, To: entryID, SpeedLimit: speedLimit, SeparationGroup: separationGroup},
-		sim.Lane{ID: id + "-through", From: entryID, To: exitID, SpeedLimit: speedLimit, SeparationGroup: separationGroup},
-		sim.Lane{ID: id + "-access-out", From: exitID, To: mergeID, SpeedLimit: speedLimit, SeparationGroup: separationGroup},
-		sim.Lane{ID: id + "-road-out", From: mergeID, To: junction, SpeedLimit: speedLimit, SeparationGroup: separationGroup},
+		sim.Lane{ID: id + "-road-in", From: junction, To: divergeID, SpeedLimit: speedLimit, SeparationGroup: separationGroup, StationID: id, StationRole: sim.StationApproachRole},
+		sim.Lane{ID: id + "-access-in", From: divergeID, To: entryID, SpeedLimit: speedLimit, SeparationGroup: separationGroup, StationID: id, StationRole: sim.StationEntryRole},
+		sim.Lane{ID: id + "-through", From: entryID, To: exitID, SpeedLimit: speedLimit, SeparationGroup: separationGroup, StationID: id, StationRole: sim.StationThroughRole},
+		sim.Lane{ID: id + "-access-out", From: exitID, To: mergeID, SpeedLimit: speedLimit, SeparationGroup: separationGroup, StationID: id, StationRole: sim.StationExitRole},
+		sim.Lane{ID: id + "-road-out", From: mergeID, To: junction, SpeedLimit: speedLimit, SeparationGroup: separationGroup, StationID: id, StationRole: sim.StationExitRole},
 	)
 	station := sim.Station{ID: id, Name: name, Entry: entryID, Exit: exitID, ParkingOnly: parking}
 	for index := range berths {
@@ -197,8 +197,8 @@ func addLondonStation(network *sim.Network, id, name, junction string, direction
 		network.Nodes = append(network.Nodes, sim.Node{ID: berthNodeID, Position: berthPosition})
 		station.Berths = append(station.Berths, sim.Berth{ID: berthID, Node: berthNodeID, SeparationGroup: separationGroup})
 		network.Lanes = append(network.Lanes,
-			sim.Lane{ID: berthID + "-in", From: entryID, To: berthNodeID, SpeedLimit: speedLimit, SeparationGroup: separationGroup},
-			sim.Lane{ID: berthID + "-out", From: berthNodeID, To: exitID, SpeedLimit: speedLimit, SeparationGroup: separationGroup},
+			sim.Lane{ID: berthID + "-in", From: entryID, To: berthNodeID, SpeedLimit: speedLimit, SeparationGroup: separationGroup, StationID: id, StationRole: sim.StationBerthAccessRole},
+			sim.Lane{ID: berthID + "-out", From: berthNodeID, To: exitID, SpeedLimit: speedLimit, SeparationGroup: separationGroup, StationID: id, StationRole: sim.StationDepartureRole},
 		)
 	}
 	network.Stations = append(network.Stations, station)

@@ -43,6 +43,13 @@ Station berths are separate from the through junction.
 Each station has distinct road, diverge, entry, exit, and merge nodes.
 This prevents one junction reservation from consuming the complete terminal
 access lane before the controller assigns a berth.
+Each station lane has one maneuver role: approach, entry, berth access, through,
+departure, or exit.
+The simulation snapshot derives each pod's station phase from its current lane.
+The pod inspector shows phases such as `Approaching station`, `Accessing berth`,
+and `Departing berth` with the station name.
+These roles describe the existing movement and reservation flow.
+They do not change route selection, admission priority, or resource ownership.
 
 The network does not model tunnel depth.
 Instead, each link and station path has an explicit separation group.

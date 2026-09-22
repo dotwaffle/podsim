@@ -260,7 +260,8 @@ func TestFullBerthWaitAndClearance(t *testing.T) {
 	state := s.Snapshot()
 	checkTraffic(t, state)
 	waiting := state.Vehicles[0].Pod
-	if waiting.WaitReason != ParkingUnavailable || waiting.Speed > 0.01 || waiting.LaneID != "market-in" || waiting.BerthID != "" {
+	if waiting.WaitReason != ParkingUnavailable || waiting.Speed > 0.01 || waiting.LaneID != "market-in" || waiting.BerthID != "" ||
+		waiting.StationPhase != AccessingBerth || waiting.ManeuverStationID != "market" {
 		t.Fatalf("arrival must wait on the inlet outside the occupied berth: %+v", waiting)
 	}
 	if state.Completed != 0 {
@@ -485,6 +486,12 @@ func TestDemoReportsInterruptedRequest(t *testing.T) {
 func withoutParking() Network {
 	n := Example()
 	n.Stations = n.Stations[:3]
+	for index := range n.Lanes {
+		if n.Lanes[index].StationID == "parking" {
+			n.Lanes[index].StationID = ""
+			n.Lanes[index].StationRole = ""
+		}
+	}
 	return n
 }
 

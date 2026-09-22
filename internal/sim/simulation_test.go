@@ -110,6 +110,64 @@ func TestJourneyLifecycle(t *testing.T) {
 	}
 }
 
+func TestStationManeuverPhases(t *testing.T) {
+	t.Parallel()
+	network := Example()
+	roles := map[string]struct {
+		station string
+		role    StationLaneRole
+	}{
+		"approach-branch": {station: "harbor", role: StationExitRole},
+		"bypass-merge":    {station: "market", role: StationApproachRole},
+		"market-approach": {station: "market", role: StationEntryRole},
+	}
+	for index := range network.Lanes {
+		if role, ok := roles[network.Lanes[index].ID]; ok {
+			network.Lanes[index].StationID = role.station
+			network.Lanes[index].StationRole = role.role
+		}
+	}
+	s, err := New(network, "harbor")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := s.RequestJourney("01", "market"); err != nil {
+		t.Fatal(err)
+	}
+	type observation struct {
+		phase   StationPhase
+		station string
+	}
+	var got []observation
+	record := func() {
+		pod := s.Snapshot().Vehicles[0].Pod
+		current := observation{phase: pod.StationPhase, station: pod.ManeuverStationID}
+		if current.phase != "" && (len(got) == 0 || got[len(got)-1] != current) {
+			got = append(got, current)
+		}
+	}
+	record()
+	for range 300 * TicksPerSecond {
+		s.Step()
+		record()
+		if s.Snapshot().Completed == 1 {
+			break
+		}
+	}
+	want := []observation{
+		{phase: AtBerth, station: "harbor"},
+		{phase: DepartingBerth, station: "harbor"},
+		{phase: ExitingStation, station: "harbor"},
+		{phase: ApproachingStation, station: "market"},
+		{phase: EnteringStation, station: "market"},
+		{phase: AccessingBerth, station: "market"},
+		{phase: AtBerth, station: "market"},
+	}
+	if !slices.Equal(got, want) {
+		t.Fatalf("station phases = %+v, want %+v", got, want)
+	}
+}
+
 func TestRejectedRequestsDoNotMutate(t *testing.T) {
 	t.Parallel()
 	for _, tc := range []struct {

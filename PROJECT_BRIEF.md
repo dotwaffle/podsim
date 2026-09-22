@@ -8,8 +8,10 @@ control, inspection, pod following, and fleet-use statistics.
 The server owns one shared simulation session for all connected browsers.
 Optional empty-pod redistribution is available but remains off by default.
 The railway-hub capacity and same-destination sharing experiments are complete.
-Detailed station maneuvers, protocol compaction, and the other experiments in
-Section 6 remain later work.
+The first station-maneuver slice is complete: station lanes have explicit roles,
+pod snapshots expose the current phase, and the inspector names the maneuver.
+Configurable station geometry, protocol compaction, and the other experiments
+in Section 6 remain later work.
 See [README.md](README.md) for controls, validation commands, and current model limits.
 
 This document records the project direction, initial feature scope, architecture, effort estimates, and research.
@@ -310,6 +312,10 @@ See [docs/london.md](docs/london.md) and
 The network does not include a background map or tunnel depth.
 Explicit separation groups distinguish unrelated grade-separated paths while
 retaining geometric checks at shared junctions.
+Each station lane also identifies its approach, entry, berth access, through,
+departure, or exit role.
+Snapshots and the pod inspector use these roles to report station maneuvers
+without changing the existing traffic controller.
 The London AM peak sample now runs the separation oracle once per simulated
 second.
 The general OSM-backed import workflow above also remains future work.

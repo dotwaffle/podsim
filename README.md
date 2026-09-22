@@ -198,6 +198,11 @@ See [qualification results](docs/qualification.md) for safety checks, performanc
 The [London qualification network](docs/london.md) uses TfL station locations
 and topology, real station names, directed twin guideways, off-line berths, and
 three Parking facilities.
+Station lanes identify approach, entry, berth access, through, departure, and
+exit maneuvers.
+The pod inspector reports the current maneuver and station name.
+Projects without this optional lane metadata still load; the simulator infers
+berth access and departure roles from the station paths.
 
 ## Scope and model
 
@@ -242,6 +247,8 @@ Admission uses the state before movement. Released resources become available on
 A pod reserves its berth before entering the final inlet block.
 It keeps the berth through unloading and idle time, until its departure clears the resource.
 Other pods can queue on the inlet while through traffic uses the separate through lane.
+Station maneuver roles describe this existing movement and reservation behavior.
+They do not add a second station controller or change admission priority.
 The controller makes local reservations, not a whole-journey timetable.
 Lanes can be straight or quadratic curves. The simulator and browser measure each curve along the same sampled path.
 Set each lane speed explicitly. Bends do not impose extra speed limits.

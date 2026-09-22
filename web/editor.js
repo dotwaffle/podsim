@@ -3,6 +3,7 @@
 
   const MIN_LANE_LENGTH = 24;
   const DEFAULT_SPEED = 12;
+  const STATION_LANE_ROLES = new Set(["approach", "entry", "berth-access", "through", "departure", "exit"]);
 
   function clone(value) {
     return JSON.parse(JSON.stringify(value));
@@ -102,6 +103,16 @@
     return out;
   }
 
+  function addStationLane(config, from, to, stationID, stationRole) {
+    const out = addLane(config, from, to, false);
+    const lane = out.network.Lanes.find((item) => item.From === from && item.To === to);
+    if (lane) {
+      lane.StationID = stationID;
+      lane.StationRole = stationRole;
+    }
+    return out;
+  }
+
   function addJunction(config, x, y) {
     const out = clone(config);
     out.network.Nodes.push({ ID: nextID(out, "node"), Position: { X: x, Y: y } });
@@ -127,9 +138,9 @@
       ParkingOnly: Boolean(options && options.parkingOnly),
     };
     out.network.Stations.push(station);
-    const withInlet = addLane(out, entryID, berthNodeID, false);
-    const withOutlet = addLane(withInlet, berthNodeID, exitID, false);
-    return addLane(withOutlet, entryID, exitID, false);
+    const withInlet = addStationLane(out, entryID, berthNodeID, stationID, "berth-access");
+    const withOutlet = addStationLane(withInlet, berthNodeID, exitID, stationID, "departure");
+    return addStationLane(withOutlet, entryID, exitID, stationID, "through");
   }
 
   function addBerth(config, stationID) {
@@ -148,7 +159,7 @@
     const y = (entry.Y + exit.Y) / 2 + direction * row * 30;
     out.network.Nodes.push({ ID: nodeID, Position: { X: x, Y: y } });
     station.Berths.push({ ID: berthID, Node: nodeID });
-    return addLane(addLane(out, station.Entry, nodeID, false), nodeID, station.Exit, false);
+    return addStationLane(addStationLane(out, station.Entry, nodeID, stationID, "berth-access"), nodeID, station.Exit, stationID, "departure");
   }
 
   function removeBerth(config, stationID, berthID) {
@@ -221,6 +232,12 @@
     out.network.Stations = out.network.Stations.filter((item) => item.ID !== stationID);
     out.network.Nodes = out.network.Nodes.filter((node) => !ids.has(node.ID));
     out.network.Lanes = out.network.Lanes.filter((lane) => !ids.has(lane.From) && !ids.has(lane.To));
+    for (const lane of out.network.Lanes) {
+      if (lane.StationID === stationID) {
+        delete lane.StationID;
+        delete lane.StationRole;
+      }
+    }
     out.fleet = out.fleet.filter((pod) => pod.StationID !== stationID && !berthIDs.has(pod.BerthID));
     if (out.demand.destination === stationID) out.demand.destination = "";
     return out;
@@ -376,6 +393,12 @@
         if (!lanesByPair.has(`${berth.Node}\u0000${station.Exit}`)) errors.push(`Berth ${berth.ID} needs an exit lane.`);
       }
       if (!lanesByPair.has(`${station.Entry}\u0000${station.Exit}`)) errors.push(`Station ${station.ID} needs a through lane.`);
+    }
+    for (const lane of validLanes) {
+      const hasStation = typeof lane.StationID === "string" && lane.StationID.length > 0;
+      const hasRole = typeof lane.StationRole === "string" && lane.StationRole.length > 0;
+      if (hasStation !== hasRole || hasRole && !STATION_LANE_ROLES.has(lane.StationRole)) errors.push(`Lane ${lane.ID} has an invalid station role.`);
+      else if (hasStation && !stationIDs.has(lane.StationID)) errors.push(`Lane ${lane.ID} refers to an unknown station.`);
     }
     for (const node of validNodes) {
       if (componentNodes.has(node.ID)) continue;

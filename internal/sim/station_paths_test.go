@@ -76,6 +76,36 @@ func TestStationPathCacheDoesNotShareRoadRoutes(t *testing.T) {
 	}
 }
 
+func TestLegacyStationPathsInferManeuvers(t *testing.T) {
+	t.Parallel()
+	network := ladderNetwork()
+	for _, lane := range network.Lanes {
+		if lane.ID == "market-arrival-link" && lane.StationRole != "" {
+			t.Fatal("legacy input unexpectedly has a station role")
+		}
+	}
+	simulation, err := New(network, "harbor")
+	if err != nil {
+		t.Fatal(err)
+	}
+	roles := make(map[string]StationLaneRole)
+	for _, lane := range simulation.network.Lanes {
+		if lane.StationID == "market" {
+			roles[lane.ID] = lane.StationRole
+		}
+	}
+	for _, laneID := range []string{"market-arrival-link", "market-arrival-next", "market-in", "market-in-2"} {
+		if roles[laneID] != StationBerthAccessRole {
+			t.Fatalf("lane %q role = %q", laneID, roles[laneID])
+		}
+	}
+	for _, laneID := range []string{"market-out", "market-out-2", "market-departure-next", "market-departure-link"} {
+		if roles[laneID] != StationDepartureRole {
+			t.Fatalf("lane %q role = %q", laneID, roles[laneID])
+		}
+	}
+}
+
 func ladderNetwork() Network {
 	network := Example()
 	network.Nodes = append(network.Nodes,

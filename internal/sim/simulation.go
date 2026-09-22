@@ -76,17 +76,19 @@ type Request struct {
 
 // Pod contains observable vehicle state. LaneDistance is measured from the lane start.
 type Pod struct {
-	ID           string     `json:"ID"`
-	Position     Point      `json:"Position"`
-	Activity     Activity   `json:"Activity"`
-	StationID    string     `json:"StationID"`
-	BerthID      string     `json:"BerthID"`
-	LaneID       string     `json:"LaneID"`
-	LaneDistance float64    `json:"LaneDistance"`
-	Speed        float64    `json:"Speed"`
-	Occupied     bool       `json:"Occupied"`
-	WaitReason   WaitReason `json:"WaitReason"`
-	BlockedBy    string     `json:"BlockedBy"`
+	ID                string       `json:"ID"`
+	Position          Point        `json:"Position"`
+	Activity          Activity     `json:"Activity"`
+	StationID         string       `json:"StationID"`
+	BerthID           string       `json:"BerthID"`
+	LaneID            string       `json:"LaneID"`
+	LaneDistance      float64      `json:"LaneDistance"`
+	Speed             float64      `json:"Speed"`
+	Occupied          bool         `json:"Occupied"`
+	WaitReason        WaitReason   `json:"WaitReason"`
+	BlockedBy         string       `json:"BlockedBy"`
+	StationPhase      StationPhase `json:"StationPhase,omitempty"`
+	ManeuverStationID string       `json:"ManeuverStationID,omitempty"`
 }
 
 // Vehicle is an independent display copy of a pod and its assigned journey.
@@ -225,8 +227,10 @@ func NewFleet(network Network, placements []Placement) (*Simulation, error) {
 	if err := network.validate(); err != nil {
 		return nil, err
 	}
-	graph := newRouteGraph(network)
-	for index, lane := range network.Lanes {
+	owned := network.clone()
+	inferStationLaneRoles(&owned)
+	graph := newRouteGraph(owned)
+	for index, lane := range owned.Lanes {
 		if graph.lengths[index] < 2*Clearance {
 			return nil, fmt.Errorf("lane %q must be at least %.0f meters long", lane.ID, 2*Clearance)
 		}
@@ -259,7 +263,6 @@ func NewFleet(network Network, placements []Placement) (*Simulation, error) {
 		}
 		return 0
 	})
-	owned := network.clone()
 	s := &Simulation{
 		network: owned, initial: initial, graph: graph,
 		stationIndexes:              indexStations(owned),
@@ -270,10 +273,10 @@ func NewFleet(network Network, placements []Placement) (*Simulation, error) {
 		laneSafety:                  make(map[string]SafetyLocation, len(network.Lanes)),
 		berthSafety:                 make(map[string]SafetyLocation),
 	}
-	for _, lane := range network.Lanes {
+	for _, lane := range owned.Lanes {
 		s.laneSafety[lane.ID] = SafetyLocation{SeparationGroup: lane.SeparationGroup, From: lane.From, To: lane.To}
 	}
-	for _, station := range network.Stations {
+	for _, station := range owned.Stations {
 		for _, berth := range station.Berths {
 			s.berthSafety[berth.ID] = SafetyLocation{SeparationGroup: berth.SeparationGroup, From: berth.Node, To: berth.Node}
 		}
@@ -298,7 +301,11 @@ func (s *Simulation) Reset() {
 		station, _ := s.station(p.StationID)
 		berth, _ := station.berth(p.BerthID)
 		node, _ := s.network.Node(berth.Node)
-		pod := Pod{ID: p.ID, Position: node.Position, Activity: Idle, StationID: station.ID, BerthID: berth.ID}
+		pod := Pod{
+			ID: p.ID, Position: node.Position, Activity: Idle,
+			StationID: station.ID, BerthID: berth.ID,
+			StationPhase: AtBerth, ManeuverStationID: station.ID,
+		}
 		s.vehicles = append(s.vehicles, vehicle{Pod: pod, pending: -1, reservedThrough: -1})
 		s.owners[resource{kind: berthResource, id: berth.ID}] = p.ID
 		s.owners[resource{kind: nodeResource, id: berth.Node}] = p.ID
@@ -450,13 +457,20 @@ func (s *Simulation) Step() {
 	}
 	// No pod can reuse resources released during this tick until the next tick.
 	s.releaseCleared()
+	for i := range s.vehicles {
+		s.updateStationPhase(&s.vehicles[i])
+	}
 }
 
 func (s *Simulation) arrive(v *vehicle) {
 	station, _ := s.station(v.destinationStation)
 	berth := v.destination
 	node, _ := s.network.Node(berth.Node)
-	v.Pod = Pod{ID: v.Pod.ID, Position: node.Position, Activity: Unloading, StationID: station.ID, BerthID: berth.ID, Occupied: true}
+	v.Pod = Pod{
+		ID: v.Pod.ID, Position: node.Position, Activity: Unloading,
+		StationID: station.ID, BerthID: berth.ID, Occupied: true,
+		StationPhase: AtBerth, ManeuverStationID: station.ID,
+	}
 	v.phaseTicks = unloadingTicks
 	if v.RelocatingTo != "" {
 		v.Pod.Activity, v.Pod.Occupied = Idle, false

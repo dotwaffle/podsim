@@ -188,6 +188,9 @@ func validateNames(config Config) error {
 		if !validID(lane.ID) || !validID(lane.From) || !validID(lane.To) {
 			return fmt.Errorf("lane IDs must contain 1 to %d characters", maxIDLength)
 		}
+		if lane.StationID != "" && !validID(lane.StationID) {
+			return fmt.Errorf("lane station IDs must contain 1 to %d characters", maxIDLength)
+		}
 		if len(lane.SeparationGroup) > maxIDLength {
 			return fmt.Errorf("lane separation groups must contain at most %d characters", maxIDLength)
 		}

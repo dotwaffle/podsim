@@ -61,6 +61,11 @@ func TestValidateRejectsMalformedProjects(t *testing.T) {
 		{"long name", func(config *Config) { config.Name = strings.Repeat("x", maxNameLength+1) }},
 		{"long node ID", func(config *Config) { config.Network.Nodes[0].ID = strings.Repeat("x", maxIDLength+1) }},
 		{"long lane separation group", func(config *Config) { config.Network.Lanes[0].SeparationGroup = strings.Repeat("x", maxIDLength+1) }},
+		{"unknown lane station", func(config *Config) {
+			config.Network.Lanes[0].StationID, config.Network.Lanes[0].StationRole = "missing", sim.StationThroughRole
+		}},
+		{"missing lane station role", func(config *Config) { config.Network.Lanes[0].StationRole = "" }},
+		{"invalid lane station role", func(config *Config) { config.Network.Lanes[0].StationRole = "invalid" }},
 		{"long berth separation group", func(config *Config) {
 			config.Network.Stations[0].Berths[0].SeparationGroup = strings.Repeat("x", maxIDLength+1)
 		}},

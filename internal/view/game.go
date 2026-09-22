@@ -835,6 +835,7 @@ func (g *Game) drawInspection(screen *ebiten.Image, state sim.Snapshot) {
 	}
 	rows := []struct{ name, value string }{
 		{"Speed", fmt.Sprintf("%.0f km/h", state.Vehicles[g.selected].Pod.Speed*3.6)},
+		{"Station phase", stationPhaseLabel(state.Vehicles[g.selected].Pod, g.network)},
 		{"On board", passengers},
 		{"Completed", fmt.Sprintf("%d journeys", state.Completed)},
 		{"Sim time", fmt.Sprintf("%.1f s", float64(state.Tick)/sim.TicksPerSecond)},
@@ -844,6 +845,17 @@ func (g *Game) drawInspection(screen *ebiten.Image, state sim.Snapshot) {
 		g.label(screen, label{x: 816, y: y, size: 14, value: row.name, color: muted})
 		g.label(screen, label{x: 924, y: y, size: 14, value: row.value, color: foreground})
 	}
+}
+
+func stationPhaseLabel(pod sim.Pod, network sim.Network) string {
+	if pod.StationPhase == "" {
+		return "Main network"
+	}
+	value := string(pod.StationPhase)
+	if station, ok := network.Station(pod.ManeuverStationID); ok {
+		value += " / " + station.Name
+	}
+	return value
 }
 
 func countNoun(count int, singular, plural string) string {

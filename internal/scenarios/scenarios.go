@@ -294,18 +294,19 @@ func stationGeometry(parameters stationParameters) (sim.Station, []sim.Node, []s
 	tangent := sim.Point{X: -math.Sin(theta), Y: math.Cos(theta)}
 	radial := sim.Point{X: math.Cos(theta), Y: math.Sin(theta)}
 	entryID, exitID := stationNodeID(parameters.index, "entry"), stationNodeID(parameters.index, "exit")
+	stationID := fmt.Sprintf("station-%02d", parameters.index+1)
+	name := fmt.Sprintf("Station %02d", parameters.index+1)
+	if parameters.parking {
+		stationID, name = "parking", "Parking"
+	}
 	nodes := []sim.Node{
 		{ID: entryID, Position: add(center, scale(tangent, -stationHalf))},
 		{ID: exitID, Position: add(center, scale(tangent, stationHalf))},
 	}
 	lanes := []sim.Lane{{
 		ID: stationLaneID(parameters.index, "through"), From: entryID, To: exitID, SpeedLimit: speedLimit,
+		StationID: stationID, StationRole: sim.StationThroughRole,
 	}}
-	stationID := fmt.Sprintf("station-%02d", parameters.index+1)
-	name := fmt.Sprintf("Station %02d", parameters.index+1)
-	if parameters.parking {
-		stationID, name = "parking", "Parking"
-	}
 	station := sim.Station{ID: stationID, Name: name, Entry: entryID, Exit: exitID, ParkingOnly: parameters.parking}
 	for berthIndex := range parameters.berths {
 		berthNodeID := fmt.Sprintf("s%02d-berth-%02d", parameters.index+1, berthIndex+1)
@@ -318,10 +319,12 @@ func stationGeometry(parameters stationParameters) (sim.Station, []sim.Node, []s
 			sim.Lane{
 				ID: fmt.Sprintf("s%02d-in-%02d", parameters.index+1, berthIndex+1), From: entryID, To: berthNodeID,
 				SpeedLimit: speedLimit, Control: new(add(add(center, scale(tangent, -approach)), scale(radial, depth/2))),
+				StationID: stationID, StationRole: sim.StationBerthAccessRole,
 			},
 			sim.Lane{
 				ID: fmt.Sprintf("s%02d-out-%02d", parameters.index+1, berthIndex+1), From: berthNodeID, To: exitID,
 				SpeedLimit: speedLimit, Control: new(add(add(center, scale(tangent, approach)), scale(radial, depth/2))),
+				StationID: stationID, StationRole: sim.StationDepartureRole,
 			},
 		)
 	}

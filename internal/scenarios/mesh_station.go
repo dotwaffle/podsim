@@ -19,21 +19,23 @@ func (frame stationFrame) position(along, outward float64) sim.Point {
 func addMeshStation(network *sim.Network, parameters meshStationParameters) {
 	frame := splitStationRoad(network, parameters)
 	entry, exit := stationNodeID(parameters.index, "entry"), stationNodeID(parameters.index, "exit")
+	stationID := fmt.Sprintf("station-%02d", parameters.index+1)
+	stationName := fmt.Sprintf("Station %02d", parameters.index+1)
+	if parameters.parking {
+		stationID, stationName = "parking", "Parking"
+	}
 	network.Nodes = append(network.Nodes,
 		sim.Node{ID: entry, Position: frame.position(400, 110)},
 		sim.Node{ID: exit, Position: frame.position(800, 110)},
 	)
 	network.Lanes = append(network.Lanes,
-		sim.Lane{ID: fmt.Sprintf("mesh-in-%02d", parameters.index+1), From: stationNodeID(parameters.index, "diverge"), To: entry, SpeedLimit: speedLimit},
-		sim.Lane{ID: stationLaneID(parameters.index, "through"), From: entry, To: exit, SpeedLimit: speedLimit},
-		sim.Lane{ID: fmt.Sprintf("mesh-out-%02d", parameters.index+1), From: exit, To: stationNodeID(parameters.index, "merge"), SpeedLimit: speedLimit},
+		sim.Lane{ID: fmt.Sprintf("mesh-in-%02d", parameters.index+1), From: stationNodeID(parameters.index, "diverge"), To: entry, SpeedLimit: speedLimit, StationID: stationID, StationRole: sim.StationEntryRole},
+		sim.Lane{ID: stationLaneID(parameters.index, "through"), From: entry, To: exit, SpeedLimit: speedLimit, StationID: stationID, StationRole: sim.StationThroughRole},
+		sim.Lane{ID: fmt.Sprintf("mesh-out-%02d", parameters.index+1), From: exit, To: stationNodeID(parameters.index, "merge"), SpeedLimit: speedLimit, StationID: stationID, StationRole: sim.StationExitRole},
 	)
 	station := sim.Station{
-		ID: fmt.Sprintf("station-%02d", parameters.index+1), Name: fmt.Sprintf("Station %02d", parameters.index+1),
+		ID: stationID, Name: stationName,
 		Entry: entry, Exit: exit, ParkingOnly: parameters.parking,
-	}
-	if parameters.parking {
-		station.ID, station.Name = "parking", "Parking"
 	}
 	previousArrival, previousDeparture := entry, exit
 	for index := range parameters.berths {
@@ -48,10 +50,10 @@ func addMeshStation(network *sim.Network, parameters meshStationParameters) {
 			sim.Node{ID: departure, Position: frame.position(800, depth)},
 		)
 		network.Lanes = append(network.Lanes,
-			sim.Lane{ID: stationLaneID(parameters.index, fmt.Sprintf("arrival-link-%02d", index+1)), From: previousArrival, To: arrival, SpeedLimit: speedLimit},
-			sim.Lane{ID: stationLaneID(parameters.index, fmt.Sprintf("departure-link-%02d", index+1)), From: departure, To: previousDeparture, SpeedLimit: speedLimit},
-			sim.Lane{ID: stationLaneID(parameters.index, fmt.Sprintf("in-%02d", index+1)), From: arrival, To: berth.Node, SpeedLimit: speedLimit},
-			sim.Lane{ID: stationLaneID(parameters.index, fmt.Sprintf("out-%02d", index+1)), From: berth.Node, To: departure, SpeedLimit: speedLimit},
+			sim.Lane{ID: stationLaneID(parameters.index, fmt.Sprintf("arrival-link-%02d", index+1)), From: previousArrival, To: arrival, SpeedLimit: speedLimit, StationID: stationID, StationRole: sim.StationBerthAccessRole},
+			sim.Lane{ID: stationLaneID(parameters.index, fmt.Sprintf("departure-link-%02d", index+1)), From: departure, To: previousDeparture, SpeedLimit: speedLimit, StationID: stationID, StationRole: sim.StationDepartureRole},
+			sim.Lane{ID: stationLaneID(parameters.index, fmt.Sprintf("in-%02d", index+1)), From: arrival, To: berth.Node, SpeedLimit: speedLimit, StationID: stationID, StationRole: sim.StationBerthAccessRole},
+			sim.Lane{ID: stationLaneID(parameters.index, fmt.Sprintf("out-%02d", index+1)), From: berth.Node, To: departure, SpeedLimit: speedLimit, StationID: stationID, StationRole: sim.StationDepartureRole},
 		)
 		station.Berths = append(station.Berths, berth)
 		previousArrival, previousDeparture = arrival, departure
