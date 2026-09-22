@@ -307,12 +307,14 @@ A high-load A/B run reduced the peak stopped fleet from 60 pods to three.
 The portal network drained all 199 requests, while the old network left five
 requests after 60 simulated minutes.
 
-The earlier 192-arm sweep measured the shared-junction network across all eight
-bands, eight offered rates, and three seeds.
-Its tested limits are now a historical baseline.
-The portal network needs a new multi-band sweep before it gets capacity limits.
+A 360-arm sweep measured the portal network across all eight bands, 15 offered
+rates, and three seeds.
+Recovery limits range from 7 requests per minute in Early to 12 in AM peak,
+Interpeak, Evening, and Late.
+In every band except Early, the results suggest that the 114-pod fleet, not
+track congestion, sets the limit.
 See [docs/london.md](docs/london.md) and
-[docs/qualification.md](docs/qualification.md#london-portal-comparison).
+[docs/qualification.md](docs/qualification.md#london-capacity-envelope).
 
 The network does not include a background map or stored tunnel depth.
 Explicit separation groups distinguish unrelated grade-separated paths.
