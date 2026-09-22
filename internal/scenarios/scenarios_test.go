@@ -26,6 +26,7 @@ func TestPresetsValidateAndRemainStable(t *testing.T) {
 		{name: "parking constrained", config: ParkingConstrained, stations: 6, pods: 20},
 		{name: "rail hub", config: RailHub, stations: 7, pods: 30},
 		{name: "scale 100", config: Scale100, stations: 20, pods: 100},
+		{name: "London", config: London, stations: 99, pods: 114},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -58,6 +59,70 @@ func TestPresetsValidateAndRemainStable(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+func TestLondonUsesRealScaleAndDirectedGuideways(t *testing.T) {
+	t.Parallel()
+	config := London()
+	stations := make(map[string]sim.Station, len(config.Network.Stations))
+	for _, station := range config.Network.Stations {
+		stations[station.Name] = station
+	}
+	for _, name := range []string{"Holborn", "Goodge Street", "Euston", "Bank and Monument", "Willesden Green"} {
+		if _, ok := stations[name]; !ok {
+			t.Fatalf("missing named London station %q", name)
+		}
+	}
+	holborn := stations["Holborn"]
+	chancery := stations["Chancery Lane"]
+	holbornJunction, _ := config.Network.Node(londonJunctionID(holborn.ID))
+	chanceryJunction, _ := config.Network.Node(londonJunctionID(chancery.ID))
+	distance := math.Hypot(
+		holbornJunction.Position.X-chanceryJunction.Position.X,
+		holbornJunction.Position.Y-chanceryJunction.Position.Y,
+	)
+	if distance < 500 || distance > 800 {
+		t.Fatalf("Holborn to Chancery Lane projection = %.1f meters", distance)
+	}
+	if holborn.Entry == londonJunctionID(holborn.ID) || holborn.Exit == londonJunctionID(holborn.ID) {
+		t.Fatal("Holborn berths are not off the through guideway")
+	}
+	if _, err := config.Network.Route(stations["Brixton"].Berths[0].Node, stations["Willesden Green"].Berths[0].Node); err != nil {
+		t.Fatalf("route across London extent: %v", err)
+	}
+
+	pairedSegments := 0
+	for _, lane := range config.Network.Lanes {
+		if strings.HasPrefix(lane.ID, "london-link-") {
+			pairedSegments++
+		}
+	}
+	if pairedSegments != 4*127 {
+		t.Fatalf("got %d directed guideway segments, want %d", pairedSegments, 4*127)
+	}
+}
+
+func TestLondonHasDistributedParking(t *testing.T) {
+	t.Parallel()
+	config := London()
+	parking, parkingPods := 0, 0
+	for _, station := range config.Network.Stations {
+		if station.ParkingOnly {
+			parking++
+			if len(station.Berths) != londonParkingBerths {
+				t.Fatalf("parking %q has %d berths", station.Name, len(station.Berths))
+			}
+		}
+	}
+	for _, placement := range config.Fleet {
+		station, _ := config.Network.Station(placement.StationID)
+		if station.ParkingOnly {
+			parkingPods++
+		}
+	}
+	if parking != 3 || parkingPods != 18 {
+		t.Fatalf("got %d Parking stations and %d parked pods", parking, parkingPods)
 	}
 }
 

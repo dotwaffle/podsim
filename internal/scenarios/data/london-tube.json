@@ -1,0 +1,1614 @@
+{
+  "source": {
+    "retrieved": "2026-09-22",
+    "url": "https://api.tfl.gov.uk/line/{line}/route/sequence/{direction}",
+    "attribution": "Data provided by Transport for London"
+  },
+  "stations": [
+    {
+      "id": "940GZZLUALD",
+      "name": "Aldgate",
+      "zone": "1",
+      "lat": 51.514246,
+      "lon": -0.075689
+    },
+    {
+      "id": "940GZZLUADE",
+      "name": "Aldgate East",
+      "zone": "1",
+      "lat": 51.515037,
+      "lon": -0.072384
+    },
+    {
+      "id": "940GZZLUAGL",
+      "name": "Angel",
+      "zone": "1",
+      "lat": 51.532624,
+      "lon": -0.105898
+    },
+    {
+      "id": "940GZZLUBST",
+      "name": "Baker Street",
+      "zone": "1",
+      "lat": 51.522883,
+      "lon": -0.15713
+    },
+    {
+      "id": "940GZZLUBNK",
+      "name": "Bank and Monument",
+      "zone": "1",
+      "lat": 51.51225,
+      "lon": -0.087792
+    },
+    {
+      "id": "940GZZLUBBN",
+      "name": "Barbican",
+      "zone": "1",
+      "lat": 51.520275,
+      "lon": -0.097993
+    },
+    {
+      "id": "940GZZLUBSC",
+      "name": "Barons Court",
+      "zone": "2",
+      "lat": 51.490311,
+      "lon": -0.213427
+    },
+    {
+      "id": "940GZZBPSUST",
+      "name": "Battersea Power Station",
+      "zone": "1",
+      "lat": 51.479932,
+      "lon": -0.142142
+    },
+    {
+      "id": "940GZZLUBWT",
+      "name": "Bayswater",
+      "zone": "1",
+      "lat": 51.512284,
+      "lon": -0.187938
+    },
+    {
+      "id": "940GZZLUBMY",
+      "name": "Bermondsey",
+      "zone": "2",
+      "lat": 51.49775,
+      "lon": -0.063993
+    },
+    {
+      "id": "940GZZLUBLG",
+      "name": "Bethnal Green",
+      "zone": "2",
+      "lat": 51.527222,
+      "lon": -0.055506
+    },
+    {
+      "id": "940GZZLUBKF",
+      "name": "Blackfriars",
+      "zone": "1",
+      "lat": 51.511581,
+      "lon": -0.103659
+    },
+    {
+      "id": "940GZZLUBND",
+      "name": "Bond Street",
+      "zone": "1",
+      "lat": 51.514304,
+      "lon": -0.149723
+    },
+    {
+      "id": "940GZZLUBOR",
+      "name": "Borough",
+      "zone": "1",
+      "lat": 51.501199,
+      "lon": -0.09337
+    },
+    {
+      "id": "940GZZLUBXN",
+      "name": "Brixton",
+      "zone": "2",
+      "lat": 51.462618,
+      "lon": -0.114888
+    },
+    {
+      "id": "940GZZLUCAR",
+      "name": "Caledonian Road",
+      "zone": "2",
+      "lat": 51.548519,
+      "lon": -0.118493
+    },
+    {
+      "id": "940GZZLUCTN",
+      "name": "Camden Town",
+      "zone": "2",
+      "lat": 51.539292,
+      "lon": -0.14274
+    },
+    {
+      "id": "940GZZLUCWR",
+      "name": "Canada Water",
+      "zone": "2",
+      "lat": 51.497931,
+      "lon": -0.049405
+    },
+    {
+      "id": "940GZZLUCST",
+      "name": "Cannon Street",
+      "zone": "1",
+      "lat": 51.51151,
+      "lon": -0.090432
+    },
+    {
+      "id": "940GZZLUCHL",
+      "name": "Chancery Lane",
+      "zone": "1",
+      "lat": 51.518247,
+      "lon": -0.111583
+    },
+    {
+      "id": "940GZZLUCHX",
+      "name": "Charing Cross",
+      "zone": "1",
+      "lat": 51.50741,
+      "lon": -0.127277
+    },
+    {
+      "id": "940GZZLUCGN",
+      "name": "Covent Garden",
+      "zone": "1",
+      "lat": 51.513093,
+      "lon": -0.124436
+    },
+    {
+      "id": "940GZZLUECT",
+      "name": "Earl's Court",
+      "zone": "1+2",
+      "lat": 51.492063,
+      "lon": -0.193378
+    },
+    {
+      "id": "940GZZLUERB",
+      "name": "Edgware Road (Bakerloo)",
+      "zone": "1",
+      "lat": 51.520299,
+      "lon": -0.17015
+    },
+    {
+      "id": "940GZZLUERC",
+      "name": "Edgware Road (Circle Line)",
+      "zone": "1",
+      "lat": 51.519858,
+      "lon": -0.167832
+    },
+    {
+      "id": "940GZZLUEAC",
+      "name": "Elephant & Castle",
+      "zone": "1+2",
+      "lat": 51.494536,
+      "lon": -0.100606
+    },
+    {
+      "id": "940GZZLUEMB",
+      "name": "Embankment",
+      "zone": "1",
+      "lat": 51.507058,
+      "lon": -0.122666
+    },
+    {
+      "id": "940GZZLUEUS",
+      "name": "Euston",
+      "zone": "1",
+      "lat": 51.528344,
+      "lon": -0.1323
+    },
+    {
+      "id": "940GZZLUESQ",
+      "name": "Euston Square",
+      "zone": "1",
+      "lat": 51.525604,
+      "lon": -0.135829
+    },
+    {
+      "id": "940GZZLUFCN",
+      "name": "Farringdon",
+      "zone": "1",
+      "lat": 51.520252,
+      "lon": -0.104913
+    },
+    {
+      "id": "940GZZLUFYR",
+      "name": "Finchley Road",
+      "zone": "2",
+      "lat": 51.546825,
+      "lon": -0.179845
+    },
+    {
+      "id": "940GZZLUFPK",
+      "name": "Finsbury Park",
+      "zone": "2",
+      "lat": 51.564158,
+      "lon": -0.106825
+    },
+    {
+      "id": "940GZZLUFBY",
+      "name": "Fulham Broadway",
+      "zone": "2",
+      "lat": 51.480081,
+      "lon": -0.195422
+    },
+    {
+      "id": "940GZZLUGTR",
+      "name": "Gloucester Road",
+      "zone": "1",
+      "lat": 51.494316,
+      "lon": -0.182658
+    },
+    {
+      "id": "940GZZLUGDG",
+      "name": "Goodge Street",
+      "zone": "1",
+      "lat": 51.520599,
+      "lon": -0.134361
+    },
+    {
+      "id": "940GZZLUGPS",
+      "name": "Great Portland Street",
+      "zone": "1",
+      "lat": 51.52384,
+      "lon": -0.144262
+    },
+    {
+      "id": "940GZZLUGPK",
+      "name": "Green Park",
+      "zone": "1",
+      "lat": 51.506947,
+      "lon": -0.142787
+    },
+    {
+      "id": "940GZZLUHSD",
+      "name": "Hammersmith",
+      "zone": "2",
+      "lat": 51.4923,
+      "lon": -0.22362
+    },
+    {
+      "id": "940GZZLUHSK",
+      "name": "High Street Kensington",
+      "zone": "1",
+      "lat": 51.501055,
+      "lon": -0.192792
+    },
+    {
+      "id": "940GZZLUHAI",
+      "name": "Highbury & Islington",
+      "zone": "2",
+      "lat": 51.54635,
+      "lon": -0.103324
+    },
+    {
+      "id": "940GZZLUHBN",
+      "name": "Holborn",
+      "zone": "1",
+      "lat": 51.51758,
+      "lon": -0.120475
+    },
+    {
+      "id": "940GZZLUHPK",
+      "name": "Holland Park",
+      "zone": "2",
+      "lat": 51.507143,
+      "lon": -0.205679
+    },
+    {
+      "id": "940GZZLUHWY",
+      "name": "Holloway Road",
+      "zone": "2",
+      "lat": 51.552697,
+      "lon": -0.113244
+    },
+    {
+      "id": "940GZZLUHPC",
+      "name": "Hyde Park Corner",
+      "zone": "1",
+      "lat": 51.503035,
+      "lon": -0.152441
+    },
+    {
+      "id": "940GZZLUKNG",
+      "name": "Kennington",
+      "zone": "1+2",
+      "lat": 51.488337,
+      "lon": -0.105963
+    },
+    {
+      "id": "940GZZLUKOY",
+      "name": "Kensington (Olympia)",
+      "zone": "2",
+      "lat": 51.497624,
+      "lon": -0.210015
+    },
+    {
+      "id": "940GZZLUKSH",
+      "name": "Kentish Town",
+      "zone": "2",
+      "lat": 51.550312,
+      "lon": -0.140733
+    },
+    {
+      "id": "940GZZLUKBN",
+      "name": "Kilburn",
+      "zone": "2",
+      "lat": 51.547183,
+      "lon": -0.204248
+    },
+    {
+      "id": "940GZZLUKSX",
+      "name": "King's Cross St. Pancras",
+      "zone": "1",
+      "lat": 51.530663,
+      "lon": -0.123194
+    },
+    {
+      "id": "940GZZLUKNB",
+      "name": "Knightsbridge",
+      "zone": "1",
+      "lat": 51.501669,
+      "lon": -0.160508
+    },
+    {
+      "id": "940GZZLULBN",
+      "name": "Lambeth North",
+      "zone": "1",
+      "lat": 51.498808,
+      "lon": -0.112315
+    },
+    {
+      "id": "940GZZLULGT",
+      "name": "Lancaster Gate",
+      "zone": "1",
+      "lat": 51.511723,
+      "lon": -0.175494
+    },
+    {
+      "id": "940GZZLULSQ",
+      "name": "Leicester Square",
+      "zone": "1",
+      "lat": 51.511386,
+      "lon": -0.128426
+    },
+    {
+      "id": "940GZZLULVT",
+      "name": "Liverpool Street",
+      "zone": "1",
+      "lat": 51.517372,
+      "lon": -0.083182
+    },
+    {
+      "id": "940GZZLULNB",
+      "name": "London Bridge",
+      "zone": "1",
+      "lat": 51.505721,
+      "lon": -0.088873
+    },
+    {
+      "id": "940GZZLUMSH",
+      "name": "Mansion House",
+      "zone": "1",
+      "lat": 51.512117,
+      "lon": -0.094009
+    },
+    {
+      "id": "940GZZLUMBA",
+      "name": "Marble Arch",
+      "zone": "1",
+      "lat": 51.513424,
+      "lon": -0.158953
+    },
+    {
+      "id": "940GZZLUMYB",
+      "name": "Marylebone",
+      "zone": "1",
+      "lat": 51.522322,
+      "lon": -0.163207
+    },
+    {
+      "id": "940GZZLUMED",
+      "name": "Mile End",
+      "zone": "2",
+      "lat": 51.525122,
+      "lon": -0.03364
+    },
+    {
+      "id": "940GZZLUMGT",
+      "name": "Moorgate",
+      "zone": "1",
+      "lat": 51.518176,
+      "lon": -0.088322
+    },
+    {
+      "id": "940GZZLUMTC",
+      "name": "Mornington Crescent",
+      "zone": "2",
+      "lat": 51.534679,
+      "lon": -0.138789
+    },
+    {
+      "id": "940GZZNEUGST",
+      "name": "Nine Elms",
+      "zone": "1",
+      "lat": 51.479912,
+      "lon": -0.128476
+    },
+    {
+      "id": "940GZZLUNHG",
+      "name": "Notting Hill Gate",
+      "zone": "1+2",
+      "lat": 51.509128,
+      "lon": -0.196104
+    },
+    {
+      "id": "940GZZLUODS",
+      "name": "Old Street",
+      "zone": "1",
+      "lat": 51.525864,
+      "lon": -0.08777
+    },
+    {
+      "id": "940GZZLUOVL",
+      "name": "Oval",
+      "zone": "2",
+      "lat": 51.48185,
+      "lon": -0.112439
+    },
+    {
+      "id": "940GZZLUOXC",
+      "name": "Oxford Circus",
+      "zone": "1",
+      "lat": 51.515224,
+      "lon": -0.141903
+    },
+    {
+      "id": "940GZZLUPAC",
+      "name": "Paddington",
+      "zone": "1",
+      "lat": 51.518187,
+      "lon": -0.178306
+    },
+    {
+      "id": "940GZZLUPCC",
+      "name": "Piccadilly Circus",
+      "zone": "1",
+      "lat": 51.51005,
+      "lon": -0.133798
+    },
+    {
+      "id": "940GZZLUPCO",
+      "name": "Pimlico",
+      "zone": "1",
+      "lat": 51.489097,
+      "lon": -0.133761
+    },
+    {
+      "id": "940GZZLUQWY",
+      "name": "Queensway",
+      "zone": "1",
+      "lat": 51.510312,
+      "lon": -0.187152
+    },
+    {
+      "id": "940GZZLURGP",
+      "name": "Regent's Park",
+      "zone": "1",
+      "lat": 51.523344,
+      "lon": -0.146444
+    },
+    {
+      "id": "940GZZLURYO",
+      "name": "Royal Oak",
+      "zone": "2",
+      "lat": 51.519113,
+      "lon": -0.188748
+    },
+    {
+      "id": "940GZZLURSQ",
+      "name": "Russell Square",
+      "zone": "1",
+      "lat": 51.523073,
+      "lon": -0.124285
+    },
+    {
+      "id": "940GZZLUSBC",
+      "name": "Shepherd's Bush",
+      "zone": "2",
+      "lat": 51.504376,
+      "lon": -0.218813
+    },
+    {
+      "id": "940GZZLUSSQ",
+      "name": "Sloane Square",
+      "zone": "1",
+      "lat": 51.49227,
+      "lon": -0.156377
+    },
+    {
+      "id": "940GZZLUSKS",
+      "name": "South Kensington",
+      "zone": "1",
+      "lat": 51.494094,
+      "lon": -0.174138
+    },
+    {
+      "id": "940GZZLUSWK",
+      "name": "Southwark",
+      "zone": "1",
+      "lat": 51.50427,
+      "lon": -0.105331
+    },
+    {
+      "id": "940GZZLUSJP",
+      "name": "St. James's Park",
+      "zone": "1",
+      "lat": 51.499544,
+      "lon": -0.133608
+    },
+    {
+      "id": "940GZZLUSJW",
+      "name": "St. John's Wood",
+      "zone": "2",
+      "lat": 51.534521,
+      "lon": -0.173948
+    },
+    {
+      "id": "940GZZLUSPU",
+      "name": "St. Paul's",
+      "zone": "1",
+      "lat": 51.514936,
+      "lon": -0.097567
+    },
+    {
+      "id": "940GZZLUSKW",
+      "name": "Stockwell",
+      "zone": "2",
+      "lat": 51.472184,
+      "lon": -0.122644
+    },
+    {
+      "id": "940GZZLUSWC",
+      "name": "Swiss Cottage",
+      "zone": "2",
+      "lat": 51.543681,
+      "lon": -0.174894
+    },
+    {
+      "id": "940GZZLUTMP",
+      "name": "Temple",
+      "zone": "1",
+      "lat": 51.511006,
+      "lon": -0.11426
+    },
+    {
+      "id": "940GZZLUTCR",
+      "name": "Tottenham Court Road",
+      "zone": "1",
+      "lat": 51.516426,
+      "lon": -0.13041
+    },
+    {
+      "id": "940GZZLUTWH",
+      "name": "Tower Hill",
+      "zone": "1",
+      "lat": 51.509971,
+      "lon": -0.076546
+    },
+    {
+      "id": "940GZZLUVXL",
+      "name": "Vauxhall",
+      "zone": "1+2",
+      "lat": 51.485743,
+      "lon": -0.124204
+    },
+    {
+      "id": "940GZZLUVIC",
+      "name": "Victoria",
+      "zone": "1",
+      "lat": 51.496359,
+      "lon": -0.143102
+    },
+    {
+      "id": "940GZZLUWRR",
+      "name": "Warren Street",
+      "zone": "1",
+      "lat": 51.524951,
+      "lon": -0.138321
+    },
+    {
+      "id": "940GZZLUWKA",
+      "name": "Warwick Avenue",
+      "zone": "2",
+      "lat": 51.523263,
+      "lon": -0.183783
+    },
+    {
+      "id": "940GZZLUWLO",
+      "name": "Waterloo",
+      "zone": "1",
+      "lat": 51.503299,
+      "lon": -0.11478
+    },
+    {
+      "id": "940GZZLUWBN",
+      "name": "West Brompton",
+      "zone": "2",
+      "lat": 51.487268,
+      "lon": -0.195599
+    },
+    {
+      "id": "940GZZLUWHP",
+      "name": "West Hampstead",
+      "zone": "2",
+      "lat": 51.546638,
+      "lon": -0.191059
+    },
+    {
+      "id": "940GZZLUWKN",
+      "name": "West Kensington",
+      "zone": "2",
+      "lat": 51.490459,
+      "lon": -0.206636
+    },
+    {
+      "id": "940GZZLUWSM",
+      "name": "Westminster",
+      "zone": "1",
+      "lat": 51.50132,
+      "lon": -0.124861
+    },
+    {
+      "id": "940GZZLUWPL",
+      "name": "Whitechapel",
+      "zone": "2",
+      "lat": 51.519518,
+      "lon": -0.059971
+    },
+    {
+      "id": "940GZZLUWIG",
+      "name": "Willesden Green",
+      "zone": "2+3",
+      "lat": 51.549146,
+      "lon": -0.221537
+    }
+  ],
+  "links": [
+    {
+      "a": "940GZZBPSUST",
+      "b": "940GZZNEUGST",
+      "lines": [
+        "Northern"
+      ]
+    },
+    {
+      "a": "940GZZLUADE",
+      "b": "940GZZLULVT",
+      "lines": [
+        "Hammersmith & City"
+      ]
+    },
+    {
+      "a": "940GZZLUADE",
+      "b": "940GZZLUTWH",
+      "lines": [
+        "District"
+      ]
+    },
+    {
+      "a": "940GZZLUADE",
+      "b": "940GZZLUWPL",
+      "lines": [
+        "District",
+        "Hammersmith & City"
+      ]
+    },
+    {
+      "a": "940GZZLUAGL",
+      "b": "940GZZLUKSX",
+      "lines": [
+        "Northern"
+      ]
+    },
+    {
+      "a": "940GZZLUAGL",
+      "b": "940GZZLUODS",
+      "lines": [
+        "Northern"
+      ]
+    },
+    {
+      "a": "940GZZLUALD",
+      "b": "940GZZLULVT",
+      "lines": [
+        "Circle",
+        "Metropolitan"
+      ]
+    },
+    {
+      "a": "940GZZLUALD",
+      "b": "940GZZLUTWH",
+      "lines": [
+        "Circle"
+      ]
+    },
+    {
+      "a": "940GZZLUBBN",
+      "b": "940GZZLUFCN",
+      "lines": [
+        "Circle",
+        "Hammersmith & City",
+        "Metropolitan"
+      ]
+    },
+    {
+      "a": "940GZZLUBBN",
+      "b": "940GZZLUMGT",
+      "lines": [
+        "Circle",
+        "Hammersmith & City",
+        "Metropolitan"
+      ]
+    },
+    {
+      "a": "940GZZLUBKF",
+      "b": "940GZZLUMSH",
+      "lines": [
+        "Circle",
+        "District"
+      ]
+    },
+    {
+      "a": "940GZZLUBKF",
+      "b": "940GZZLUTMP",
+      "lines": [
+        "Circle",
+        "District"
+      ]
+    },
+    {
+      "a": "940GZZLUBLG",
+      "b": "940GZZLULVT",
+      "lines": [
+        "Central"
+      ]
+    },
+    {
+      "a": "940GZZLUBLG",
+      "b": "940GZZLUMED",
+      "lines": [
+        "Central"
+      ]
+    },
+    {
+      "a": "940GZZLUBMY",
+      "b": "940GZZLUCWR",
+      "lines": [
+        "Jubilee"
+      ]
+    },
+    {
+      "a": "940GZZLUBMY",
+      "b": "940GZZLULNB",
+      "lines": [
+        "Jubilee"
+      ]
+    },
+    {
+      "a": "940GZZLUBND",
+      "b": "940GZZLUBST",
+      "lines": [
+        "Jubilee"
+      ]
+    },
+    {
+      "a": "940GZZLUBND",
+      "b": "940GZZLUGPK",
+      "lines": [
+        "Jubilee"
+      ]
+    },
+    {
+      "a": "940GZZLUBND",
+      "b": "940GZZLUMBA",
+      "lines": [
+        "Central"
+      ]
+    },
+    {
+      "a": "940GZZLUBND",
+      "b": "940GZZLUOXC",
+      "lines": [
+        "Central"
+      ]
+    },
+    {
+      "a": "940GZZLUBNK",
+      "b": "940GZZLUCST",
+      "lines": [
+        "Circle",
+        "District"
+      ]
+    },
+    {
+      "a": "940GZZLUBNK",
+      "b": "940GZZLULNB",
+      "lines": [
+        "Northern"
+      ]
+    },
+    {
+      "a": "940GZZLUBNK",
+      "b": "940GZZLULVT",
+      "lines": [
+        "Central"
+      ]
+    },
+    {
+      "a": "940GZZLUBNK",
+      "b": "940GZZLUMGT",
+      "lines": [
+        "Northern"
+      ]
+    },
+    {
+      "a": "940GZZLUBNK",
+      "b": "940GZZLUSPU",
+      "lines": [
+        "Central"
+      ]
+    },
+    {
+      "a": "940GZZLUBNK",
+      "b": "940GZZLUTWH",
+      "lines": [
+        "Circle",
+        "District"
+      ]
+    },
+    {
+      "a": "940GZZLUBNK",
+      "b": "940GZZLUWLO",
+      "lines": [
+        "Waterloo & City"
+      ]
+    },
+    {
+      "a": "940GZZLUBOR",
+      "b": "940GZZLUEAC",
+      "lines": [
+        "Northern"
+      ]
+    },
+    {
+      "a": "940GZZLUBOR",
+      "b": "940GZZLULNB",
+      "lines": [
+        "Northern"
+      ]
+    },
+    {
+      "a": "940GZZLUBSC",
+      "b": "940GZZLUECT",
+      "lines": [
+        "Piccadilly"
+      ]
+    },
+    {
+      "a": "940GZZLUBSC",
+      "b": "940GZZLUHSD",
+      "lines": [
+        "District",
+        "Piccadilly"
+      ]
+    },
+    {
+      "a": "940GZZLUBSC",
+      "b": "940GZZLUWKN",
+      "lines": [
+        "District"
+      ]
+    },
+    {
+      "a": "940GZZLUBST",
+      "b": "940GZZLUERC",
+      "lines": [
+        "Circle",
+        "Hammersmith & City"
+      ]
+    },
+    {
+      "a": "940GZZLUBST",
+      "b": "940GZZLUFYR",
+      "lines": [
+        "Metropolitan"
+      ]
+    },
+    {
+      "a": "940GZZLUBST",
+      "b": "940GZZLUGPS",
+      "lines": [
+        "Circle",
+        "Hammersmith & City",
+        "Metropolitan"
+      ]
+    },
+    {
+      "a": "940GZZLUBST",
+      "b": "940GZZLUMYB",
+      "lines": [
+        "Bakerloo"
+      ]
+    },
+    {
+      "a": "940GZZLUBST",
+      "b": "940GZZLURGP",
+      "lines": [
+        "Bakerloo"
+      ]
+    },
+    {
+      "a": "940GZZLUBST",
+      "b": "940GZZLUSJW",
+      "lines": [
+        "Jubilee"
+      ]
+    },
+    {
+      "a": "940GZZLUBWT",
+      "b": "940GZZLUNHG",
+      "lines": [
+        "Circle",
+        "District"
+      ]
+    },
+    {
+      "a": "940GZZLUBWT",
+      "b": "940GZZLUPAC",
+      "lines": [
+        "Circle",
+        "District"
+      ]
+    },
+    {
+      "a": "940GZZLUBXN",
+      "b": "940GZZLUSKW",
+      "lines": [
+        "Victoria"
+      ]
+    },
+    {
+      "a": "940GZZLUCAR",
+      "b": "940GZZLUHWY",
+      "lines": [
+        "Piccadilly"
+      ]
+    },
+    {
+      "a": "940GZZLUCAR",
+      "b": "940GZZLUKSX",
+      "lines": [
+        "Piccadilly"
+      ]
+    },
+    {
+      "a": "940GZZLUCGN",
+      "b": "940GZZLUHBN",
+      "lines": [
+        "Piccadilly"
+      ]
+    },
+    {
+      "a": "940GZZLUCGN",
+      "b": "940GZZLULSQ",
+      "lines": [
+        "Piccadilly"
+      ]
+    },
+    {
+      "a": "940GZZLUCHL",
+      "b": "940GZZLUHBN",
+      "lines": [
+        "Central"
+      ]
+    },
+    {
+      "a": "940GZZLUCHL",
+      "b": "940GZZLUSPU",
+      "lines": [
+        "Central"
+      ]
+    },
+    {
+      "a": "940GZZLUCHX",
+      "b": "940GZZLUEMB",
+      "lines": [
+        "Bakerloo",
+        "Northern"
+      ]
+    },
+    {
+      "a": "940GZZLUCHX",
+      "b": "940GZZLULSQ",
+      "lines": [
+        "Northern"
+      ]
+    },
+    {
+      "a": "940GZZLUCHX",
+      "b": "940GZZLUPCC",
+      "lines": [
+        "Bakerloo"
+      ]
+    },
+    {
+      "a": "940GZZLUCST",
+      "b": "940GZZLUMSH",
+      "lines": [
+        "Circle",
+        "District"
+      ]
+    },
+    {
+      "a": "940GZZLUCTN",
+      "b": "940GZZLUEUS",
+      "lines": [
+        "Northern"
+      ]
+    },
+    {
+      "a": "940GZZLUCTN",
+      "b": "940GZZLUKSH",
+      "lines": [
+        "Northern"
+      ]
+    },
+    {
+      "a": "940GZZLUCTN",
+      "b": "940GZZLUMTC",
+      "lines": [
+        "Northern"
+      ]
+    },
+    {
+      "a": "940GZZLUEAC",
+      "b": "940GZZLUKNG",
+      "lines": [
+        "Northern"
+      ]
+    },
+    {
+      "a": "940GZZLUEAC",
+      "b": "940GZZLULBN",
+      "lines": [
+        "Bakerloo"
+      ]
+    },
+    {
+      "a": "940GZZLUECT",
+      "b": "940GZZLUGTR",
+      "lines": [
+        "District",
+        "Piccadilly"
+      ]
+    },
+    {
+      "a": "940GZZLUECT",
+      "b": "940GZZLUHSK",
+      "lines": [
+        "District"
+      ]
+    },
+    {
+      "a": "940GZZLUECT",
+      "b": "940GZZLUKOY",
+      "lines": [
+        "District"
+      ]
+    },
+    {
+      "a": "940GZZLUECT",
+      "b": "940GZZLUWBN",
+      "lines": [
+        "District"
+      ]
+    },
+    {
+      "a": "940GZZLUECT",
+      "b": "940GZZLUWKN",
+      "lines": [
+        "District"
+      ]
+    },
+    {
+      "a": "940GZZLUEMB",
+      "b": "940GZZLUTMP",
+      "lines": [
+        "Circle",
+        "District"
+      ]
+    },
+    {
+      "a": "940GZZLUEMB",
+      "b": "940GZZLUWLO",
+      "lines": [
+        "Bakerloo",
+        "Northern"
+      ]
+    },
+    {
+      "a": "940GZZLUEMB",
+      "b": "940GZZLUWSM",
+      "lines": [
+        "Circle",
+        "District"
+      ]
+    },
+    {
+      "a": "940GZZLUERB",
+      "b": "940GZZLUMYB",
+      "lines": [
+        "Bakerloo"
+      ]
+    },
+    {
+      "a": "940GZZLUERB",
+      "b": "940GZZLUPAC",
+      "lines": [
+        "Bakerloo"
+      ]
+    },
+    {
+      "a": "940GZZLUERC",
+      "b": "940GZZLUPAC",
+      "lines": [
+        "Circle",
+        "District",
+        "Hammersmith & City"
+      ]
+    },
+    {
+      "a": "940GZZLUESQ",
+      "b": "940GZZLUGPS",
+      "lines": [
+        "Circle",
+        "Hammersmith & City",
+        "Metropolitan"
+      ]
+    },
+    {
+      "a": "940GZZLUESQ",
+      "b": "940GZZLUKSX",
+      "lines": [
+        "Circle",
+        "Hammersmith & City",
+        "Metropolitan"
+      ]
+    },
+    {
+      "a": "940GZZLUEUS",
+      "b": "940GZZLUKSX",
+      "lines": [
+        "Northern",
+        "Victoria"
+      ]
+    },
+    {
+      "a": "940GZZLUEUS",
+      "b": "940GZZLUMTC",
+      "lines": [
+        "Northern"
+      ]
+    },
+    {
+      "a": "940GZZLUEUS",
+      "b": "940GZZLUWRR",
+      "lines": [
+        "Northern",
+        "Victoria"
+      ]
+    },
+    {
+      "a": "940GZZLUFBY",
+      "b": "940GZZLUWBN",
+      "lines": [
+        "District"
+      ]
+    },
+    {
+      "a": "940GZZLUFCN",
+      "b": "940GZZLUKSX",
+      "lines": [
+        "Circle",
+        "Hammersmith & City",
+        "Metropolitan"
+      ]
+    },
+    {
+      "a": "940GZZLUFPK",
+      "b": "940GZZLUHAI",
+      "lines": [
+        "Victoria"
+      ]
+    },
+    {
+      "a": "940GZZLUFYR",
+      "b": "940GZZLUSWC",
+      "lines": [
+        "Jubilee"
+      ]
+    },
+    {
+      "a": "940GZZLUFYR",
+      "b": "940GZZLUWHP",
+      "lines": [
+        "Jubilee"
+      ]
+    },
+    {
+      "a": "940GZZLUFYR",
+      "b": "940GZZLUWIG",
+      "lines": [
+        "Metropolitan"
+      ]
+    },
+    {
+      "a": "940GZZLUGDG",
+      "b": "940GZZLUTCR",
+      "lines": [
+        "Northern"
+      ]
+    },
+    {
+      "a": "940GZZLUGDG",
+      "b": "940GZZLUWRR",
+      "lines": [
+        "Northern"
+      ]
+    },
+    {
+      "a": "940GZZLUGPK",
+      "b": "940GZZLUHPC",
+      "lines": [
+        "Piccadilly"
+      ]
+    },
+    {
+      "a": "940GZZLUGPK",
+      "b": "940GZZLUOXC",
+      "lines": [
+        "Victoria"
+      ]
+    },
+    {
+      "a": "940GZZLUGPK",
+      "b": "940GZZLUPCC",
+      "lines": [
+        "Piccadilly"
+      ]
+    },
+    {
+      "a": "940GZZLUGPK",
+      "b": "940GZZLUVIC",
+      "lines": [
+        "Victoria"
+      ]
+    },
+    {
+      "a": "940GZZLUGPK",
+      "b": "940GZZLUWSM",
+      "lines": [
+        "Jubilee"
+      ]
+    },
+    {
+      "a": "940GZZLUGTR",
+      "b": "940GZZLUHSK",
+      "lines": [
+        "Circle"
+      ]
+    },
+    {
+      "a": "940GZZLUGTR",
+      "b": "940GZZLUSKS",
+      "lines": [
+        "Circle",
+        "District",
+        "Piccadilly"
+      ]
+    },
+    {
+      "a": "940GZZLUHAI",
+      "b": "940GZZLUKSX",
+      "lines": [
+        "Victoria"
+      ]
+    },
+    {
+      "a": "940GZZLUHBN",
+      "b": "940GZZLURSQ",
+      "lines": [
+        "Piccadilly"
+      ]
+    },
+    {
+      "a": "940GZZLUHBN",
+      "b": "940GZZLUTCR",
+      "lines": [
+        "Central"
+      ]
+    },
+    {
+      "a": "940GZZLUHPC",
+      "b": "940GZZLUKNB",
+      "lines": [
+        "Piccadilly"
+      ]
+    },
+    {
+      "a": "940GZZLUHPK",
+      "b": "940GZZLUNHG",
+      "lines": [
+        "Central"
+      ]
+    },
+    {
+      "a": "940GZZLUHPK",
+      "b": "940GZZLUSBC",
+      "lines": [
+        "Central"
+      ]
+    },
+    {
+      "a": "940GZZLUHSK",
+      "b": "940GZZLUNHG",
+      "lines": [
+        "Circle",
+        "District"
+      ]
+    },
+    {
+      "a": "940GZZLUKBN",
+      "b": "940GZZLUWHP",
+      "lines": [
+        "Jubilee"
+      ]
+    },
+    {
+      "a": "940GZZLUKBN",
+      "b": "940GZZLUWIG",
+      "lines": [
+        "Jubilee"
+      ]
+    },
+    {
+      "a": "940GZZLUKNB",
+      "b": "940GZZLUSKS",
+      "lines": [
+        "Piccadilly"
+      ]
+    },
+    {
+      "a": "940GZZLUKNG",
+      "b": "940GZZLUOVL",
+      "lines": [
+        "Northern"
+      ]
+    },
+    {
+      "a": "940GZZLUKNG",
+      "b": "940GZZLUWLO",
+      "lines": [
+        "Northern"
+      ]
+    },
+    {
+      "a": "940GZZLUKNG",
+      "b": "940GZZNEUGST",
+      "lines": [
+        "Northern"
+      ]
+    },
+    {
+      "a": "940GZZLUKSX",
+      "b": "940GZZLURSQ",
+      "lines": [
+        "Piccadilly"
+      ]
+    },
+    {
+      "a": "940GZZLULBN",
+      "b": "940GZZLUWLO",
+      "lines": [
+        "Bakerloo"
+      ]
+    },
+    {
+      "a": "940GZZLULGT",
+      "b": "940GZZLUMBA",
+      "lines": [
+        "Central"
+      ]
+    },
+    {
+      "a": "940GZZLULGT",
+      "b": "940GZZLUQWY",
+      "lines": [
+        "Central"
+      ]
+    },
+    {
+      "a": "940GZZLULNB",
+      "b": "940GZZLUSWK",
+      "lines": [
+        "Jubilee"
+      ]
+    },
+    {
+      "a": "940GZZLULSQ",
+      "b": "940GZZLUPCC",
+      "lines": [
+        "Piccadilly"
+      ]
+    },
+    {
+      "a": "940GZZLULSQ",
+      "b": "940GZZLUTCR",
+      "lines": [
+        "Northern"
+      ]
+    },
+    {
+      "a": "940GZZLULVT",
+      "b": "940GZZLUMGT",
+      "lines": [
+        "Circle",
+        "Hammersmith & City",
+        "Metropolitan"
+      ]
+    },
+    {
+      "a": "940GZZLUMGT",
+      "b": "940GZZLUODS",
+      "lines": [
+        "Northern"
+      ]
+    },
+    {
+      "a": "940GZZLUNHG",
+      "b": "940GZZLUQWY",
+      "lines": [
+        "Central"
+      ]
+    },
+    {
+      "a": "940GZZLUOVL",
+      "b": "940GZZLUSKW",
+      "lines": [
+        "Northern"
+      ]
+    },
+    {
+      "a": "940GZZLUOXC",
+      "b": "940GZZLUPCC",
+      "lines": [
+        "Bakerloo"
+      ]
+    },
+    {
+      "a": "940GZZLUOXC",
+      "b": "940GZZLURGP",
+      "lines": [
+        "Bakerloo"
+      ]
+    },
+    {
+      "a": "940GZZLUOXC",
+      "b": "940GZZLUTCR",
+      "lines": [
+        "Central"
+      ]
+    },
+    {
+      "a": "940GZZLUOXC",
+      "b": "940GZZLUWRR",
+      "lines": [
+        "Victoria"
+      ]
+    },
+    {
+      "a": "940GZZLUPAC",
+      "b": "940GZZLURYO",
+      "lines": [
+        "Circle",
+        "Hammersmith & City"
+      ]
+    },
+    {
+      "a": "940GZZLUPAC",
+      "b": "940GZZLUWKA",
+      "lines": [
+        "Bakerloo"
+      ]
+    },
+    {
+      "a": "940GZZLUPCO",
+      "b": "940GZZLUVIC",
+      "lines": [
+        "Victoria"
+      ]
+    },
+    {
+      "a": "940GZZLUPCO",
+      "b": "940GZZLUVXL",
+      "lines": [
+        "Victoria"
+      ]
+    },
+    {
+      "a": "940GZZLUSJP",
+      "b": "940GZZLUVIC",
+      "lines": [
+        "Circle",
+        "District"
+      ]
+    },
+    {
+      "a": "940GZZLUSJP",
+      "b": "940GZZLUWSM",
+      "lines": [
+        "Circle",
+        "District"
+      ]
+    },
+    {
+      "a": "940GZZLUSJW",
+      "b": "940GZZLUSWC",
+      "lines": [
+        "Jubilee"
+      ]
+    },
+    {
+      "a": "940GZZLUSKS",
+      "b": "940GZZLUSSQ",
+      "lines": [
+        "Circle",
+        "District"
+      ]
+    },
+    {
+      "a": "940GZZLUSKW",
+      "b": "940GZZLUVXL",
+      "lines": [
+        "Victoria"
+      ]
+    },
+    {
+      "a": "940GZZLUSSQ",
+      "b": "940GZZLUVIC",
+      "lines": [
+        "Circle",
+        "District"
+      ]
+    },
+    {
+      "a": "940GZZLUSWK",
+      "b": "940GZZLUWLO",
+      "lines": [
+        "Jubilee"
+      ]
+    },
+    {
+      "a": "940GZZLUWLO",
+      "b": "940GZZLUWSM",
+      "lines": [
+        "Jubilee"
+      ]
+    }
+  ]
+}

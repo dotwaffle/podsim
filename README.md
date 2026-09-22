@@ -169,7 +169,8 @@ mise run scenario -- -preset scale100 -output /tmp/podsim-scale100.json
 mise run serve -- -project /tmp/podsim-scale100.json
 ```
 
-Presets include `small`, `busy`, `parking-constrained`, `rail-hub`, and `scale100`.
+Presets include `small`, `busy`, `parking-constrained`, `rail-hub`, `scale100`,
+and `london`.
 The rail-hub preset has six passenger stations, 30 pods, six berths per passenger
 station, and 12 parking berths with 12 initial reserve pods.
 It supports the recorded finite-arrival station-capacity experiment:
@@ -187,6 +188,9 @@ This geometry separates incoming and outgoing traffic and shortens the parking e
 Demand starts disabled. Configure and start it from the Demand panel.
 Generated files contain raw server settings. The editor can export the loaded scenario with optional local background data.
 See [qualification results](docs/qualification.md) for safety checks, performance measurements, and redistribution limits.
+The [London qualification network](docs/london.md) uses TfL station locations
+and topology, real station names, directed twin guideways, off-line berths, and
+three Parking facilities.
 
 ## Scope and model
 

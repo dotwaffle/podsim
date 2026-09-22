@@ -23,7 +23,7 @@ func main() {
 func run(arguments []string, stdout io.Writer) error {
 	flags := flag.NewFlagSet("scenario", flag.ContinueOnError)
 	flags.SetOutput(stdout)
-	preset := flags.String("preset", "scale100", "Preset: small, busy, parking-constrained, rail-hub, or scale100")
+	preset := flags.String("preset", "scale100", "Preset: small, busy, parking-constrained, rail-hub, scale100, or london")
 	output := flags.String("output", "", "Output file; omit to write standard output")
 	if err := flags.Parse(arguments); err != nil {
 		return err
@@ -78,6 +78,8 @@ func presetConfig(name string) (project.Config, error) {
 		return scenarios.RailHub(), nil
 	case "scale100":
 		return scenarios.Scale100(), nil
+	case "london":
+		return scenarios.London(), nil
 	default:
 		return project.Config{}, fmt.Errorf("unknown preset %q", name)
 	}
