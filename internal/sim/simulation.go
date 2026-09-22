@@ -149,7 +149,9 @@ type vehicle struct {
 	Vehicle
 	phaseTicks                  int
 	blocks                      []block
+	routeReleases               map[resource]float64
 	blockIndex, reservedThrough int
+	originReleased              bool
 	distance                    float64
 	pending                     int
 	waitSince                   int64

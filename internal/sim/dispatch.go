@@ -156,6 +156,7 @@ func (s *Simulation) board(v *vehicle, trip waitingTrip) error {
 	v.Route, v.blocks = trip.route, s.routeBlocks(trip.route)
 	v.Pod.Activity, v.Pod.WaitReason, v.Pod.BlockedBy = Boarding, NoWait, ""
 	v.phaseTicks, v.blockIndex, v.reservedThrough = boardingTicks, 0, -1
+	v.originReleased = false
 	v.distance, v.pending = 0, -1
 	return nil
 }

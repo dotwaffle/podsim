@@ -1,6 +1,7 @@
 package sim
 
 import (
+	"maps"
 	"math"
 	"reflect"
 	"testing"
@@ -33,6 +34,133 @@ func TestReservationLookaheadConfiguration(t *testing.T) {
 		if err := s.SetReservationLookahead(seconds); err == nil {
 			t.Fatalf("SetReservationLookahead(%v) accepted", seconds)
 		}
+	}
+}
+
+func TestResourceReleaseDistance(t *testing.T) {
+	t.Parallel()
+	b := block{start: 30, end: 60, lane: Lane{From: "origin"}}
+	for _, test := range []struct {
+		name string
+		kind resourceKind
+		id   string
+		want float64
+	}{
+		{name: "junction extent includes clearance", kind: junctionResource, want: 60},
+		{name: "departure node", kind: nodeResource, id: "origin", want: 30 + Clearance},
+		{name: "arrival node", kind: nodeResource, id: "destination", want: 60 + Clearance},
+		{name: "track cell", kind: trackResource, want: 60 + Clearance},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			if got := resourceReleaseDistance(b, resource{kind: test.kind, id: test.id}); got != test.want {
+				t.Fatalf("release distance = %v, want %v", got, test.want)
+			}
+		})
+	}
+}
+
+func TestIncrementalResourceRelease(t *testing.T) {
+	t.Parallel()
+	junction := resource{kind: junctionResource, id: "junction"}
+	clearedTrack := resource{kind: trackResource, id: "lane", cell: 1}
+	futureOrigin := resource{kind: nodeResource, id: "origin"}
+	originBerth := resource{kind: berthResource, id: "origin-berth"}
+	v := vehicle{
+		Pod:      Pod{ID: "01", Activity: Traveling},
+		origin:   Berth{ID: originBerth.id, Node: futureOrigin.id},
+		distance: 60,
+		routeReleases: map[resource]float64{
+			junction:     100,
+			clearedTrack: 50,
+			futureOrigin: 100,
+		},
+	}
+	s := &Simulation{
+		owners: map[resource]string{
+			junction: "01", clearedTrack: "01", futureOrigin: "01", originBerth: "01",
+		},
+		vehicles: []vehicle{v},
+	}
+	s.releaseCleared()
+	if s.owners[clearedTrack] != "" {
+		t.Fatal("cleared track remains owned")
+	}
+	for _, retained := range []resource{junction, futureOrigin} {
+		if s.owners[retained] != "01" {
+			t.Fatalf("future resource %+v was released", retained)
+		}
+	}
+	if s.owners[originBerth] != "" {
+		t.Fatal("cleared origin berth remains owned")
+	}
+}
+
+func TestArrivalReleasesRouteAndKeepsBerth(t *testing.T) {
+	t.Parallel()
+	berth := resource{kind: berthResource, id: "destination-berth"}
+	node := resource{kind: nodeResource, id: "destination-node"}
+	track := resource{kind: trackResource, id: "lane", cell: 1}
+	s := &Simulation{
+		network: Network{
+			Nodes:    []Node{{ID: node.id}},
+			Stations: []Station{{ID: "destination", Berths: []Berth{{ID: berth.id, Node: node.id}}}},
+		},
+		owners: map[resource]string{berth: "01", node: "01", track: "01"},
+		vehicles: []vehicle{{
+			Pod:           Pod{ID: "01", Activity: Unloading, StationID: "destination", BerthID: berth.id},
+			routeReleases: map[resource]float64{berth: 100, node: 100, track: 100},
+		}},
+	}
+	s.releaseCleared()
+	if s.owners[berth] != "01" || s.owners[node] != "01" {
+		t.Fatalf("arrival berth was released: %v", s.owners)
+	}
+	if s.owners[track] != "" {
+		t.Fatal("arrival retained old track")
+	}
+	if len(s.vehicles[0].routeReleases) != 0 {
+		t.Fatalf("arrival retained release state: %v", s.vehicles[0].routeReleases)
+	}
+}
+
+func checkIncrementalOwners(t *testing.T, s *Simulation) {
+	t.Helper()
+	want := make(map[resource]string)
+	for i := range s.vehicles {
+		v := &s.vehicles[i]
+		if v.Pod.Activity != Traveling {
+			station, _ := s.network.Station(v.Pod.StationID)
+			berth, _ := station.berth(v.Pod.BerthID)
+			want[resource{kind: berthResource, id: berth.ID}] = v.Pod.ID
+			want[resource{kind: nodeResource, id: berth.Node}] = v.Pod.ID
+		} else {
+			for blockIndex := 0; blockIndex <= v.reservedThrough; blockIndex++ {
+				b := v.blocks[blockIndex]
+				for _, r := range b.resources {
+					if resourceReleaseDistance(b, r) > v.distance {
+						want[r] = v.Pod.ID
+					}
+				}
+			}
+			if v.distance < Clearance {
+				want[resource{kind: berthResource, id: v.origin.ID}] = v.Pod.ID
+				want[resource{kind: nodeResource, id: v.origin.Node}] = v.Pod.ID
+			}
+		}
+		if v.RelocatingTo != "" {
+			for _, r := range []resource{
+				{kind: berthResource, id: v.destination.ID},
+				{kind: nodeResource, id: v.destination.Node},
+			} {
+				if s.owners[r] == v.Pod.ID {
+					want[r] = v.Pod.ID
+				}
+			}
+		}
+	}
+	if !maps.Equal(s.owners, want) {
+		t.Fatalf("incremental owners differ from retention scan at tick %d:\n got %v\nwant %v", s.tick, s.owners, want)
 	}
 }
 
@@ -80,6 +208,7 @@ func TestTrafficDemoSafetyAndProgress(t *testing.T) {
 		s.Step()
 		state := s.Snapshot()
 		checkTraffic(t, state)
+		checkIncrementalOwners(t, s)
 		for _, v := range state.Vehicles {
 			if v.Pod.WaitReason != NoWait {
 				if waits[v.Pod.WaitReason] == 0 {

@@ -264,6 +264,15 @@ Route construction and search used 12.9%. The test-only safety oracle used
 10.1%. The profile supports incremental held-resource release as the next
 controller optimization. It does not support adding parallel sector workers.
 
+Incremental release removed the full route-prefix and owner-map scans. Each pod
+now records only its active route resources and their final release distances.
+The same combined profile took 8.73 wall seconds and 16.04 CPU-seconds, 66% and
+53% lower respectively. Resource release fell to 6.4% of cumulative CPU. The
+complete non-race scenario package fell from 35.50 to 22.87 wall seconds. The
+100-order Station 19 result remained exact: first delivery at 258.4 seconds,
+last delivery at 1582.9 seconds, all pods idle at 2171.9 seconds, and a peak of
+12 stopped pods.
+
 ```sh
 mise exec -- go test -count=1 -run 'Station19QueueDrains|DenseSafety' -cpuprofile /tmp/podsim-scenarios-cpu.out -o /tmp/podsim-scenarios.test ./internal/scenarios
 mise exec -- go tool pprof -top -nodecount=40 /tmp/podsim-scenarios-cpu.out

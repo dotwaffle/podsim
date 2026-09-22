@@ -163,6 +163,7 @@ func (s *Simulation) grant(in intent) {
 	for _, b := range v.blocks[in.block : through+1] {
 		for _, r := range b.resources {
 			s.owners[r] = v.Pod.ID
+			v.retainRouteResource(r, resourceReleaseDistance(b, r))
 		}
 	}
 	v.reservedThrough = through
@@ -218,55 +219,80 @@ func (s *Simulation) move(v *vehicle) {
 }
 
 func (s *Simulation) releaseCleared() {
-	keep := make(map[resource]bool, len(s.owners))
 	for i := range s.vehicles {
-		s.retainResources(&s.vehicles[i], keep)
-	}
-	for r := range s.owners {
-		if !keep[r] {
-			delete(s.owners, r)
-		}
+		s.releaseVehicleResources(&s.vehicles[i])
 	}
 }
 
-func (s *Simulation) retainResources(v *vehicle, keep map[resource]bool) {
-	retain := func(r resource) {
-		if s.owners[r] == v.Pod.ID {
-			keep[r] = true
-		}
+func resourceReleaseDistance(b block, r resource) float64 {
+	if r.kind == junctionResource {
+		return b.end
 	}
+	// A departure clears the node before it clears the first downstream cell.
+	if r.kind == nodeResource && r.id == b.lane.From {
+		return b.start + Clearance
+	}
+	return b.end + Clearance
+}
+
+func (v *vehicle) retainRouteResource(r resource, releaseAt float64) {
+	if v.routeReleases == nil {
+		v.routeReleases = make(map[resource]float64)
+	}
+	v.routeReleases[r] = max(v.routeReleases[r], releaseAt)
+}
+
+func (s *Simulation) releaseVehicleResources(v *vehicle) {
 	if v.Pod.Activity != Traveling {
-		station, _ := s.network.Station(v.Pod.StationID)
-		berth, _ := station.berth(v.Pod.BerthID)
-		retain(resource{kind: berthResource, id: berth.ID})
-		retain(resource{kind: nodeResource, id: berth.Node})
-	} else {
-		for i, b := range v.blocks {
-			if i > v.reservedThrough {
-				break
-			}
-			for _, r := range b.resources {
-				clearAt := b.end + Clearance
-				// Conflict extents already include physical clearance.
-				if r.kind == junctionResource {
-					clearAt = b.end
-				}
-				// A departure clears the node before it clears the first downstream cell.
-				if r.kind == nodeResource && r.id == b.lane.From {
-					clearAt = b.start + Clearance
-				}
-				if clearAt > v.distance {
-					retain(r)
-				}
-			}
+		if len(v.routeReleases) == 0 {
+			return
 		}
-		if v.distance < Clearance {
-			retain(resource{kind: berthResource, id: v.origin.ID})
-			retain(resource{kind: nodeResource, id: v.origin.Node})
+		s.releaseRouteResourcesExcept(v,
+			resource{kind: berthResource, id: v.Pod.BerthID},
+			resource{kind: nodeResource, id: s.podBerthNode(v)},
+		)
+		return
+	}
+	for r, releaseAt := range v.routeReleases {
+		if s.owners[r] != v.Pod.ID {
+			delete(v.routeReleases, r)
+			continue
+		}
+		if releaseAt <= v.distance {
+			s.releaseOwned(v, r)
+			delete(v.routeReleases, r)
 		}
 	}
-	if v.RelocatingTo != "" {
-		retain(resource{kind: berthResource, id: v.destination.ID})
-		retain(resource{kind: nodeResource, id: v.destination.Node})
+	if !v.originReleased && v.distance >= Clearance {
+		for _, r := range []resource{
+			{kind: berthResource, id: v.origin.ID},
+			{kind: nodeResource, id: v.origin.Node},
+		} {
+			if releaseAt, retained := v.routeReleases[r]; !retained || releaseAt <= v.distance {
+				s.releaseOwned(v, r)
+			}
+		}
+		v.originReleased = true
 	}
+}
+
+func (s *Simulation) releaseRouteResourcesExcept(v *vehicle, retained ...resource) {
+	for r := range v.routeReleases {
+		if !slices.Contains(retained, r) {
+			s.releaseOwned(v, r)
+		}
+	}
+	clear(v.routeReleases)
+}
+
+func (s *Simulation) releaseOwned(v *vehicle, r resource) {
+	if s.owners[r] == v.Pod.ID {
+		delete(s.owners, r)
+	}
+}
+
+func (s *Simulation) podBerthNode(v *vehicle) string {
+	station, _ := s.network.Station(v.Pod.StationID)
+	berth, _ := station.berth(v.Pod.BerthID)
+	return berth.Node
 }
