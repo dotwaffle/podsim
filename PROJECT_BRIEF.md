@@ -287,6 +287,24 @@ Choose a source that supports the intended area export and saved-project use, an
 The public OSM tile endpoint is not a bulk or offline export service, as its [tile usage policy](https://operations.osmfoundation.org/policies/tiles/) explains.
 Provider choice, export limits, and any hosting needs remain implementation decisions for this later feature.
 
+**Status:** A generated London qualification preset now provides the first
+geographic network without implementing a general map importer.
+It uses a normalized TfL topology snapshot for 96 passenger stations, real
+station names and locations, 127 unique adjacencies, twin directed guideways,
+off-line berths, and three Parking facilities.
+The local projection uses meters.
+A separate normalized 2019 midweek NUMBAT profile provides 8,474 in-scope OD
+pairs across eight time bands.
+The fixed 40-request AM peak sample completed every request.
+See [docs/london.md](docs/london.md) and
+[docs/qualification.md](docs/qualification.md#london-am-peak-sample).
+
+The network does not include a background map or tunnel depth.
+The existing two-dimensional safety oracle cannot distinguish
+grade-separated crossings, so geographic physical-separation qualification
+remains future work.
+The general OSM-backed import workflow above also remains future work.
+
 ### Congestion-aware routing
 
 Compare the initial shortest expected travel-time policy with a policy that accounts for observed queues and delays.
