@@ -1,0 +1,6 @@
+lookahead_seconds,first_delivery_seconds,last_delivery_seconds,all_idle_seconds,peak_stopped,entry_blocks,entry_stops,entry_blocked_seconds,exit_blocks,exit_stops,exit_blocked_seconds,minimum_gap_m,berth_spread
+0.033333,258.4,1583,2172,12,83,1,443.1,292,45,1068.0,22.92,28
+0.250000,258.4,1583,2172,12,83,14,491.7,249,37,975.5,22.87,43
+0.500000,258.4,1582,2171,12,83,1,444.7,276,44,1154.0,22.87,34
+1.000000,258.4,1593,2171,12,104,2,459.9,302,49,1316.0,23.07,34
+2.000000,258.4,1589,2170,12,157,1,478.3,425,117,2435.0,22.87,32

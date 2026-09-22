@@ -257,7 +257,16 @@ Its race run took 297.85 wall seconds, compared with 475.6 seconds in the earlie
 Those wall times came from separate runs and include scheduling differences.
 The complete scenario race suite passed in 394.32 seconds.
 
+A combined CPU profile of the current Station 19 queue-drain and dense-safety
+tests took 25.95 wall seconds and collected 33.81 CPU-seconds. Resource release
+used 32.0% of cumulative CPU. Its nested `retainResources` scan used 24.5%.
+Route construction and search used 12.9%. The test-only safety oracle used
+10.1%. The profile supports incremental held-resource release as the next
+controller optimization. It does not support adding parallel sector workers.
+
 ```sh
+mise exec -- go test -count=1 -run 'Station19QueueDrains|DenseSafety' -cpuprofile /tmp/podsim-scenarios-cpu.out -o /tmp/podsim-scenarios.test ./internal/scenarios
+mise exec -- go tool pprof -top -nodecount=40 /tmp/podsim-scenarios-cpu.out
 mise exec -- go test -race ./internal/scenarios -run '^$' -bench BenchmarkScale100SafetyState -count=3 -benchmem
 mise exec -- go test -race ./internal/scenarios -count=1 -timeout=20m -v
 ```
@@ -346,3 +355,32 @@ The observation savings above apply separately.
 mise exec -- go test -race ./internal/scenarios -run 'TestScale100Station19' -count=1 -timeout=30m -v
 mise run check
 ```
+
+### Reservation lookahead
+
+The Station 19 burst also compared the current two-tick reservation lookahead
+with 0.25, 0.5, 1, and 2-second buffers. Each arm submitted 100 orders at 12
+orders per minute. The run checked separation and berth ownership every tick.
+It kept the 12-meter physical clearance unchanged.
+
+```sh
+mise exec -- go test -run '^$' -bench '^BenchmarkReservationLookahead$' -benchtime=1x -count=1 ./internal/scenarios
+```
+
+[Recorded lookahead results](measurements/reservation-lookahead.csv) contain the
+completion, station-boundary, safety, and berth-use measurements for all five
+arms.
+
+| Lookahead | Last delivery | All idle | Entry stops | Exit stops | Entry blocked | Exit blocked | Berth spread |
+| ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| 0.033 s | 1583 s | 2172 s | 1 | 45 | 443.1 s | 1068.0 s | 28 |
+| 0.250 s | 1583 s | 2172 s | 14 | 37 | 491.7 s | 975.5 s | 43 |
+| 0.500 s | 1582 s | 2171 s | 1 | 44 | 444.7 s | 1154.0 s | 34 |
+| 1.000 s | 1593 s | 2171 s | 2 | 49 | 459.9 s | 1316.0 s | 34 |
+| 2.000 s | 1589 s | 2170 s | 1 | 117 | 478.3 s | 2435.0 s | 32 |
+
+Every arm kept at least 22.87 meters between pod centers and had the same
+12-pod peak stopped queue. The 0.25-second arm moved some blocking from the
+exit to the entrance and increased total stop events. The 0.5-second arm was
+effectively neutral. Longer buffers increased exit blocking. No arm provided a
+clear flow improvement, so the production default remains two ticks.
