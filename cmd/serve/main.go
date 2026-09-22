@@ -15,15 +15,27 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/KimMachineGun/automemlimit/memlimit"
+
 	"github.com/dotwaffle/podsim/internal/project"
 	"github.com/dotwaffle/podsim/internal/session"
 )
 
 func main() {
+	configureMemoryLimit()
 	if err := run(); err != nil {
 		slog.Error("Serve prototype", slog.Any("error", err))
 		os.Exit(1)
 	}
+}
+
+func configureMemoryLimit() {
+	limit, err := memlimit.Set()
+	if err != nil {
+		slog.Warn("Automatic memory limit unavailable", slog.Any("error", err))
+		return
+	}
+	slog.Info("Configured Go memory limit", slog.Int64("bytes", limit))
 }
 
 func run() error {

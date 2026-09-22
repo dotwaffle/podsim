@@ -3,6 +3,7 @@ module github.com/dotwaffle/podsim
 go 1.27.1
 
 require (
+	github.com/KimMachineGun/automemlimit v1.0.0
 	github.com/hajimehoshi/ebiten/v2 v2.10.2
 	golang.org/x/image v0.45.0
 )
@@ -12,6 +13,7 @@ require (
 	github.com/ebitengine/hideconsole v1.0.0 // indirect
 	github.com/ebitengine/purego v0.11.0 // indirect
 	github.com/go-text/typesetting v0.3.5 // indirect
+	github.com/pbnjay/memory v0.0.0-20210728143218-7b4eea64cf58 // indirect
 	github.com/srwiley/rasterx v0.0.0-20220730225603-2ab79fcdd4ef // indirect
 	golang.org/x/sync v0.22.0 // indirect
 	golang.org/x/sys v0.47.0 // indirect
