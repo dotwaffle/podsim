@@ -147,7 +147,7 @@ Project files save the design and settings, not an exact running checkpoint.
 Malformed or unsupported files do not replace the draft.
 Validation checks routes between passenger stations, pod placement, resource IDs, and the 24-meter minimum lane length.
 
-### Redistribution comparison
+### Demand and policy comparisons
 
 Redistribution is off by default. Passenger assignments take priority over empty positioning.
 Before a pod moves, redistribution reserves a free destination berth. A cooldown limits repeated moves.
@@ -162,14 +162,20 @@ Run the same seeded demand schedule with redistribution off and on:
 mise run compare -- -seed 7 -duration 10m -request-every 60s
 ```
 
-The report compares average and maximum pickup wait, completed and remaining journeys,
-passenger and empty travel, loaded-distance percentage, and positioning moves.
+The report includes demand throughput, backlog, drain time, fleet use, pickup
+wait, completed and remaining journeys, passenger and empty travel,
+loaded-distance percentage, and positioning moves.
 The default comparison uses a Market-heavy pickup forecast and identical initial fleets.
 Use `-patterns all -seeds 1,2,3 -loads 30s,45s,60s` for a paired matrix.
 Use `-format json` or `-format csv` to save results, and `-project scenario.json` to test another network.
 Schedule IDs identify the identical requests used for each off/on pair.
-The supported patterns are balanced, destination, hotspot, bursty-hotspot, and hub-burst.
+The synthetic patterns are balanced, destination, hotspot, bursty-hotspot, and
+hub-burst. Use `-pattern profile -bands all` with a project demand profile to
+run its origin-destination bands.
 Use `-arrivals-for` to stop new requests before the measurement ends.
+Use `-stop-when-drained` to stop an arm after all accepted requests complete.
+Use `-workers` to run independent arms concurrently. Reports retain their
+deterministic order.
 Use `-burst-size` to group burst-pattern requests at the same simulated time.
 Use `-sharing-limits 1,4` to compare same-destination party limits.
 Use `-routing-policies free-flow,congestion` for the experimental route-cost A/B.

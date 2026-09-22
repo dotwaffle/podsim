@@ -71,7 +71,7 @@ description = "Write a generated scenario JSON file"
 run = "go run ./cmd/scenario"
 
 [tasks.compare]
-description = "Compare redistribution against the same passenger requests"
+description = "Run repeatable demand and policy experiments"
 run = "go run ./cmd/compare"
 
 [tasks.qualify]

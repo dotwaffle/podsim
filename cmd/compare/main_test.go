@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/dotwaffle/podsim/internal/project"
 	"github.com/dotwaffle/podsim/internal/sim"
 )
 
@@ -35,6 +36,7 @@ func TestParseOptionsRejectsInvalidBounds(t *testing.T) {
 		{name: "unknown format", args: []string{"-format", "yaml"}, want: "format must"},
 		{name: "zero queue", args: []string{"-queue-limit", "0"}, want: "queue-limit"},
 		{name: "zero burst", args: []string{"-burst-size", "0"}, want: "burst-size"},
+		{name: "zero workers", args: []string{"-workers", "0"}, want: "workers"},
 		{name: "zero sharing limit", args: []string{"-sharing-limits", "0"}, want: "sharing limits"},
 		{name: "duplicate sharing limit", args: []string{"-sharing-limits", "2,2"}, want: "more than once"},
 		{name: "unknown routing policy", args: []string{"-routing-policies", "fast"}, want: "unknown routing policy"},
@@ -70,6 +72,7 @@ func TestCompareIsRepeatableAndPairsSchedules(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	opts.workers = 4
 	second, err := compare(opts, scenario)
 	if err != nil {
 		t.Fatal(err)
@@ -160,7 +163,7 @@ func TestDemandSchedulePatterns(t *testing.T) {
 		seed: 7, durationTicks: durationTicks(10 * time.Minute), intervalTicks: durationTicks(time.Minute),
 		burstSize: 3, passengers: []string{"harbor", "garden", "market"}, focus: "market",
 	}
-	for _, pattern := range knownPatterns {
+	for _, pattern := range syntheticPatterns {
 		input := base
 		input.pattern = pattern
 		first, second := demandSchedule(input), demandSchedule(input)
@@ -191,6 +194,56 @@ func TestDemandSchedulePatterns(t *testing.T) {
 	}
 }
 
+func TestProfileDemandBandsAreRepeatable(t *testing.T) {
+	t.Parallel()
+	caseStudy, err := loadScenario("", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	caseStudy.demand = project.DemandConfig{Pattern: "profile", Profile: "test", Band: "peak"}
+	caseStudy.demandProfiles = []project.DemandProfile{{
+		ID: "test", Name: "Test profile",
+		Bands: []project.DemandBand{{ID: "peak", Name: "Peak"}, {ID: "quiet", Name: "Quiet"}},
+		Flows: []project.DemandFlow{
+			{From: "harbor", To: "market", Weights: []float64{9, 1}},
+			{From: "garden", To: "harbor", Weights: []float64{1, 9}},
+		},
+	}}
+	opts, err := parseOptions([]string{
+		"-duration", "2m", "-arrivals-for", "1m", "-request-every", "10s", "-pattern", "profile", "-bands", "all",
+	}, &bytes.Buffer{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	arms, err := demandArms(opts, caseStudy)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(arms) != 2 || arms[0].band != "peak" || arms[1].band != "quiet" {
+		t.Fatalf("profile arms = %+v", arms)
+	}
+	weights, err := demandWeights("profile", "peak", caseStudy)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if weights["harbor"] != 9 || weights["garden"] != 1 {
+		t.Fatalf("profile pickup weights = %+v", weights)
+	}
+	input := scheduleInput{
+		seed: 7, durationTicks: durationTicks(time.Minute), intervalTicks: durationTicks(10 * time.Second),
+		pattern: "profile", profileFlows: arms[0].flows,
+	}
+	first, second := demandSchedule(input), demandSchedule(input)
+	if !reflect.DeepEqual(first, second) || len(first) != 5 {
+		t.Fatalf("profile schedule is not repeatable: first=%+v second=%+v", first, second)
+	}
+	for _, request := range first {
+		if request.origin == request.destination {
+			t.Fatalf("profile generated same-station request: %+v", request)
+		}
+	}
+}
+
 func TestReportFormatsAreMachineReadable(t *testing.T) {
 	t.Parallel()
 	results := []result{{Pattern: "balanced", Policy: "off", ScheduleID: "abc", Scheduled: 1}}
@@ -202,7 +255,7 @@ func TestReportFormatsAreMachineReadable(t *testing.T) {
 	if err := json.Unmarshal(jsonOutput.Bytes(), &decoded); err != nil {
 		t.Fatal(err)
 	}
-	if decoded.SchemaVersion != 4 || !reflect.DeepEqual(decoded.Results, results) {
+	if decoded.SchemaVersion != 5 || !reflect.DeepEqual(decoded.Results, results) {
 		t.Fatalf("JSON report changed values: %+v", decoded)
 	}
 

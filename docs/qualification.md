@@ -508,3 +508,54 @@ The oracle excludes only pairs in different groups that do not share a
 junction.
 Unlabeled projects retain the original two-dimensional all-pairs check.
 See [the London network notes](london.md) for the boundary and source details.
+
+## London capacity envelope
+
+The capacity sweep uses the London project's NUMBAT origin-destination profile.
+It covers all eight demand bands, eight offered rates, and seeds 1, 2, and 3.
+Each arm accepts requests for 30 simulated minutes, then has up to 30 minutes
+to finish them. Redistribution and ride sharing are off. Free-flow routing is
+on. The queue limit is high enough that no request is skipped.
+
+```sh
+mise run scenario -- -preset london -output /tmp/podsim-london-capacity.json
+mise run compare -- -project /tmp/podsim-london-capacity.json -pattern profile -bands all -duration 60m -arrivals-for 30m -loads 60s,30s,20s,15s,12s,10s,8.571429s,7.5s -seeds 1,2,3 -redistribution-policies off -focus 940GZZLUEUS -queue-limit 1000000 -stop-when-drained -workers 6 -format csv -output docs/measurements/london-capacity.csv
+```
+
+The schedule starts after the first interval and excludes the arrival-window
+endpoint. The exact offered rates in the report are therefore 0.967, 1.967,
+2.967, 3.967, 4.967, 5.967, 7.000, and 7.967 requests per minute. The table
+rounds these values to whole requests per minute.
+
+The recovery limit is the highest tested rate at which all three seeds finish
+every accepted request before the 60-minute cap. Late throughput measures
+completions per minute during the second half of the arrival window. Late
+backlog change compares outstanding requests at the midpoint and end of that
+window.
+
+| NUMBAT band | Recovery limit | Late throughput | Late backlog change | Mean recovery after arrivals | Average wait | Maximum wait | Loaded distance | Next rate drained |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| Early | 2/min | 1.44/min | +8.3 | 1,259 s | 193.2 s | 453.7 s | 47.3% | 0/3 at 3/min |
+| Morning | 6/min | 4.44/min | +23.3 | 1,508 s | 164.1 s | 876.4 s | 63.7% | 0/3 at 7/min |
+| AM peak | 6/min | 5.22/min | +11.7 | 1,179 s | 113.9 s | 579.6 s | 67.3% | 2/3 at 7/min |
+| Interpeak | 7/min | 6.27/min | +11.0 | 1,145 s | 94.4 s | 580.6 s | 71.1% | 1/3 at 8/min |
+| PM peak | 7/min | 5.96/min | +15.7 | 958 s | 144.3 s | 639.8 s | 65.5% | 0/3 at 8/min |
+| Evening | 7/min | 5.09/min | +28.7 | 1,538 s | 181.0 s | 786.7 s | 60.4% | 1/3 at 8/min |
+| Late | 7/min | 5.29/min | +25.7 | 1,376 s | 220.7 s | 949.9 s | 59.3% | 2/3 at 8/min |
+| Night | 3/min | 2.62/min | +5.7 | 1,315 s | 98.7 s | 436.0 s | 58.1% | 2/3 at 4/min |
+
+OD mix causes most of the variation. At the lowest load, an Early journey uses
+6.30 km of passenger travel and 6.96 km of empty travel on average. The other
+bands use 4.71 to 5.71 km of passenger travel and 1.32 to 3.39 km of empty
+travel. Early and Night demand therefore consume much more empty-pod capacity.
+
+These limits describe a finite 30-minute demand pulse with up to 30 minutes of
+recovery. They are not continuous steady-state limits. Backlog still grows in
+the second half of every limit-rate arm, so an operating target needs headroom.
+The sweep establishes where the current fleet and fixed station geometry start
+to fail. It does not prove that the next lower whole-number rate can run
+indefinitely.
+
+The 192-arm run took 690.01 wall seconds and reached 325,040 KB peak RSS on the
+qualification host with six workers. Raw results are in
+[`measurements/london-capacity.csv`](measurements/london-capacity.csv).

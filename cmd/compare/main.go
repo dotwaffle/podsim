@@ -1,4 +1,4 @@
-// Command compare runs identical demand schedules with redistribution off and on.
+// Command compare runs repeatable demand and policy experiments.
 package main
 
 import (
@@ -11,10 +11,13 @@ import (
 	"fmt"
 	"io"
 	"math/rand"
+	randv2 "math/rand/v2"
 	"os"
 	"slices"
+	"sort"
 	"strconv"
 	"strings"
+	"sync"
 	"text/tabwriter"
 	"time"
 
@@ -30,9 +33,11 @@ const (
 	maxComparisons = 1000
 	maxQueueLimit  = 1_000_000
 	maxBurstSize   = 1_000
+	maxWorkers     = 64
 )
 
-var knownPatterns = []string{"balanced", "destination", "hotspot", "bursty-hotspot", "hub-burst"}
+var syntheticPatterns = []string{"balanced", "destination", "hotspot", "bursty-hotspot", "hub-burst"}
+var knownPatterns = append(append([]string(nil), syntheticPatterns...), "profile")
 
 type options struct {
 	duration, arrivalsFor  time.Duration
@@ -41,6 +46,7 @@ type options struct {
 	seedsText              string
 	pattern                string
 	patternsText           string
+	bandsText              string
 	loadsText              string
 	sharingLimitsText      string
 	routingPoliciesText    string
@@ -51,12 +57,14 @@ type options struct {
 	outputPath             string
 	queueLimit             int
 	burstSize              int
+	workers                int
 	seeds                  []int64
 	patterns               []string
 	loads                  []time.Duration
 	sharingLimits          []int
 	routingPolicies        []string
 	redistributionPolicies []bool
+	stopWhenDrained        bool
 }
 
 type scheduledRequest struct {
@@ -66,44 +74,64 @@ type scheduledRequest struct {
 }
 
 type scenario struct {
-	network    sim.Network
-	fleet      []sim.Placement
-	passengers []string
-	focus      string
+	network        sim.Network
+	fleet          []sim.Placement
+	passengers     []string
+	focus          string
+	demand         project.DemandConfig
+	demandProfiles []project.DemandProfile
 }
 
 type result struct {
-	Pattern                      string  `json:"pattern"`
-	RequestEverySeconds          float64 `json:"request_every_seconds"`
-	BurstSize                    int     `json:"burst_size"`
-	Seed                         int64   `json:"seed"`
-	Policy                       string  `json:"policy"`
-	SharedRidePartyLimit         int     `json:"shared_ride_party_limit"`
-	SharedParties                int     `json:"shared_parties"`
-	RoutingPolicy                string  `json:"routing_policy"`
-	FocusStation                 string  `json:"focus_station"`
-	WindowStartSeconds           float64 `json:"window_start_seconds"`
-	WindowEndSeconds             float64 `json:"window_end_seconds"`
-	ArrivalEndSeconds            float64 `json:"arrival_end_seconds"`
-	ScheduleID                   string  `json:"schedule_id"`
-	Scheduled                    int     `json:"scheduled"`
-	Served                       int     `json:"served"`
-	Remaining                    int     `json:"remaining"`
-	Skipped                      int     `json:"skipped"`
-	PeakPending                  int     `json:"peak_pending"`
-	PeakFocusApproaching         int     `json:"peak_focus_approaching"`
-	PeakFocusEntranceStopped     int     `json:"peak_focus_entrance_stopped"`
-	PeakFocusExitStopped         int     `json:"peak_focus_exit_stopped"`
-	PeakFocusOccupiedBerths      int     `json:"peak_focus_occupied_berths"`
-	PeakFocusReservedEmptyBerths int     `json:"peak_focus_reserved_empty_berths"`
-	QueueCleared                 bool    `json:"queue_cleared"`
-	QueueClearSeconds            float64 `json:"queue_clear_seconds"`
-	WaitAverageSeconds           float64 `json:"wait_average_seconds"`
-	WaitMaximumSeconds           float64 `json:"wait_maximum_seconds"`
-	PassengerDistanceMeters      float64 `json:"passenger_distance_meters"`
-	EmptyDistanceMeters          float64 `json:"empty_distance_meters"`
-	LoadedDistancePercent        float64 `json:"loaded_distance_percent"`
-	PositioningMoveCount         int     `json:"positioning_moves"`
+	Pattern                        string  `json:"pattern"`
+	DemandProfile                  string  `json:"demand_profile,omitempty"`
+	DemandBand                     string  `json:"demand_band,omitempty"`
+	RequestEverySeconds            float64 `json:"request_every_seconds"`
+	OfferedPerMinute               float64 `json:"offered_per_minute"`
+	BurstSize                      int     `json:"burst_size"`
+	Seed                           int64   `json:"seed"`
+	Policy                         string  `json:"policy"`
+	SharedRidePartyLimit           int     `json:"shared_ride_party_limit"`
+	SharedParties                  int     `json:"shared_parties"`
+	RoutingPolicy                  string  `json:"routing_policy"`
+	FocusStation                   string  `json:"focus_station"`
+	WindowStartSeconds             float64 `json:"window_start_seconds"`
+	WindowEndSeconds               float64 `json:"window_end_seconds"`
+	ActualEndSeconds               float64 `json:"actual_end_seconds"`
+	ArrivalWindowSeconds           float64 `json:"arrival_window_seconds"`
+	ArrivalEndSeconds              float64 `json:"arrival_end_seconds"`
+	ScheduleID                     string  `json:"schedule_id"`
+	Scheduled                      int     `json:"scheduled"`
+	Served                         int     `json:"served"`
+	Remaining                      int     `json:"remaining"`
+	Skipped                        int     `json:"skipped"`
+	CompletedAtArrivalEnd          int     `json:"completed_at_arrival_end"`
+	BacklogAtArrivalEnd            int     `json:"backlog_at_arrival_end"`
+	ArrivalThroughputPerMinute     float64 `json:"arrival_throughput_per_minute"`
+	CompletedAtArrivalMidpoint     int     `json:"completed_at_arrival_midpoint"`
+	BacklogAtArrivalMidpoint       int     `json:"backlog_at_arrival_midpoint"`
+	LateArrivalThroughputPerMinute float64 `json:"late_arrival_throughput_per_minute"`
+	LateBacklogChange              int     `json:"late_backlog_change"`
+	Drained                        bool    `json:"drained"`
+	DrainSeconds                   float64 `json:"drain_seconds"`
+	PeakPending                    int     `json:"peak_pending"`
+	PeakOutstanding                int     `json:"peak_outstanding"`
+	PeakActiveVehicles             int     `json:"peak_active_vehicles"`
+	PeakPassengerVehicles          int     `json:"peak_passenger_vehicles"`
+	PeakStoppedVehicles            int     `json:"peak_stopped_vehicles"`
+	PeakFocusApproaching           int     `json:"peak_focus_approaching"`
+	PeakFocusEntranceStopped       int     `json:"peak_focus_entrance_stopped"`
+	PeakFocusExitStopped           int     `json:"peak_focus_exit_stopped"`
+	PeakFocusOccupiedBerths        int     `json:"peak_focus_occupied_berths"`
+	PeakFocusReservedEmptyBerths   int     `json:"peak_focus_reserved_empty_berths"`
+	QueueCleared                   bool    `json:"queue_cleared"`
+	QueueClearSeconds              float64 `json:"queue_clear_seconds"`
+	WaitAverageSeconds             float64 `json:"wait_average_seconds"`
+	WaitMaximumSeconds             float64 `json:"wait_maximum_seconds"`
+	PassengerDistanceMeters        float64 `json:"passenger_distance_meters"`
+	EmptyDistanceMeters            float64 `json:"empty_distance_meters"`
+	LoadedDistancePercent          float64 `json:"loaded_distance_percent"`
+	PositioningMoveCount           int     `json:"positioning_moves"`
 }
 
 type report struct {
@@ -173,6 +201,7 @@ func parseOptions(args []string, stderr io.Writer) (options, error) {
 	flags.StringVar(&opts.seedsText, "seeds", "", "comma-separated demand schedule seeds")
 	flags.StringVar(&opts.pattern, "pattern", "hotspot", "demand pattern")
 	flags.StringVar(&opts.patternsText, "patterns", "", "comma-separated demand patterns or all")
+	flags.StringVar(&opts.bandsText, "bands", "", "comma-separated profile bands or all")
 	flags.StringVar(&opts.loadsText, "loads", "", "comma-separated request intervals")
 	flags.StringVar(&opts.sharingLimitsText, "sharing-limits", "1", "comma-separated same-destination party limits")
 	flags.StringVar(&opts.routingPoliciesText, "routing-policies", "free-flow", "comma-separated routing policies: free-flow, congestion")
@@ -183,6 +212,8 @@ func parseOptions(args []string, stderr io.Writer) (options, error) {
 	flags.StringVar(&opts.outputPath, "output", "", "write the report to this path")
 	flags.IntVar(&opts.queueLimit, "queue-limit", 200, "maximum pending requests before arrivals are skipped")
 	flags.IntVar(&opts.burstSize, "burst-size", 3, "requests in each burst for burst patterns")
+	flags.IntVar(&opts.workers, "workers", 1, "independent simulation arms to run concurrently")
+	flags.BoolVar(&opts.stopWhenDrained, "stop-when-drained", false, "stop after the arrival window when all accepted requests complete")
 	if err := flags.Parse(args); err != nil {
 		return options{}, err
 	}
@@ -206,6 +237,9 @@ func parseOptions(args []string, stderr io.Writer) (options, error) {
 	}
 	if opts.burstSize < 1 || opts.burstSize > maxBurstSize {
 		return options{}, fmt.Errorf("burst-size must be between 1 and %d", maxBurstSize)
+	}
+	if opts.workers < 1 || opts.workers > maxWorkers {
+		return options{}, fmt.Errorf("workers must be between 1 and %d", maxWorkers)
 	}
 	if opts.format != "table" && opts.format != "json" && opts.format != "csv" {
 		return options{}, errors.New("format must be table, json, or csv")
@@ -329,7 +363,7 @@ func parsePatterns(single, list string) ([]string, error) {
 		list = single
 	}
 	if strings.TrimSpace(list) == "all" {
-		return append([]string(nil), knownPatterns...), nil
+		return append([]string(nil), syntheticPatterns...), nil
 	}
 	parts := strings.Split(list, ",")
 	patterns := make([]string, 0, len(parts))
@@ -434,7 +468,10 @@ func loadScenario(path, focus string) (scenario, error) {
 	if !found {
 		return scenario{}, fmt.Errorf("focus %q must name a passenger station", focus)
 	}
-	return scenario{network: config.Network, fleet: config.Fleet, passengers: passengers, focus: focus}, nil
+	return scenario{
+		network: config.Network, fleet: config.Fleet, passengers: passengers, focus: focus,
+		demand: config.Demand, demandProfiles: config.DemandProfiles,
+	}, nil
 }
 
 func readProject(path string) (project.Config, error) {
@@ -465,37 +502,172 @@ func readProject(path string) (project.Config, error) {
 	return config, nil
 }
 
+type demandArm struct {
+	pattern, profile, band string
+	flows                  []weightedDemandFlow
+}
+
+type weightedDemandFlow struct {
+	from, to   string
+	cumulative float64
+}
+
 func compare(opts options, scenario scenario) ([]result, error) {
-	results := make([]result, 0, len(opts.patterns)*len(opts.loads)*len(opts.seeds)*len(opts.sharingLimits)*len(opts.routingPolicies)*2)
-	for _, pattern := range opts.patterns {
+	arms, err := demandArms(opts, scenario)
+	if err != nil {
+		return nil, err
+	}
+	if len(opts.seeds)*len(arms)*len(opts.loads)*len(opts.sharingLimits)*len(opts.routingPolicies) > maxComparisons {
+		return nil, fmt.Errorf("the expanded matrix must contain at most %d comparisons", maxComparisons)
+	}
+	inputs := make([]runInput, 0, len(arms)*len(opts.loads)*len(opts.seeds)*len(opts.sharingLimits)*len(opts.routingPolicies)*2)
+	for _, arm := range arms {
 		for _, load := range opts.loads {
 			for _, seed := range opts.seeds {
 				schedule := demandSchedule(scheduleInput{
-					seed: seed, durationTicks: durationTicks(opts.arrivalsFor), intervalTicks: durationTicks(load), pattern: pattern,
+					seed: seed, durationTicks: durationTicks(opts.arrivalsFor), intervalTicks: durationTicks(load), pattern: arm.pattern,
 					burstSize:  opts.burstSize,
-					passengers: scenario.passengers, focus: scenario.focus,
+					passengers: scenario.passengers, focus: scenario.focus, profileFlows: arm.flows,
 				})
 				id := scheduleID(schedule)
 				for _, sharingLimit := range opts.sharingLimits {
 					for _, routingPolicy := range opts.routingPolicies {
 						for _, enabled := range opts.redistributionPolicies {
-							outcome, err := run(runInput{
+							inputs = append(inputs, runInput{
 								enabled: enabled, duration: opts.duration, requestEvery: load, seed: seed,
-								pattern: pattern, scheduleID: id, queueLimit: opts.queueLimit,
+								pattern: arm.pattern, profile: arm.profile, band: arm.band,
+								scheduleID: id, queueLimit: opts.queueLimit, arrivalsFor: opts.arrivalsFor,
 								burstSize: opts.burstSize, sharingLimit: sharingLimit, routingPolicy: routingPolicy,
-								schedule: schedule, scenario: scenario,
+								schedule: schedule, scenario: scenario, stopWhenDrained: opts.stopWhenDrained,
 							})
-							if err != nil {
-								return nil, err
-							}
-							results = append(results, outcome)
 						}
 					}
 				}
 			}
 		}
 	}
+	return runComparisons(inputs, opts.workers)
+}
+
+type comparisonJob struct {
+	index int
+	input runInput
+}
+
+func runComparisons(inputs []runInput, workers int) ([]result, error) {
+	results := make([]result, len(inputs))
+	errorsByIndex := make([]error, len(inputs))
+	jobs := make(chan comparisonJob)
+	var group sync.WaitGroup
+	for range min(workers, len(inputs)) {
+		group.Go(func() {
+			for job := range jobs {
+				results[job.index], errorsByIndex[job.index] = run(job.input)
+			}
+		})
+	}
+	for index, input := range inputs {
+		jobs <- comparisonJob{index: index, input: input}
+	}
+	close(jobs)
+	group.Wait()
+	for _, err := range errorsByIndex {
+		if err != nil {
+			return nil, err
+		}
+	}
 	return results, nil
+}
+
+func demandArms(opts options, scenario scenario) ([]demandArm, error) {
+	arms := make([]demandArm, 0, len(opts.patterns))
+	for _, pattern := range opts.patterns {
+		if pattern != "profile" {
+			if opts.bandsText != "" {
+				return nil, errors.New("bands require the profile demand pattern")
+			}
+			arms = append(arms, demandArm{pattern: pattern})
+			continue
+		}
+		profile, err := selectedDemandProfile(scenario)
+		if err != nil {
+			return nil, err
+		}
+		bands, err := selectedDemandBands(profile, scenario.demand.Band, opts.bandsText)
+		if err != nil {
+			return nil, err
+		}
+		for _, band := range bands {
+			flows := weightedProfileFlows(profile, band)
+			arms = append(arms, demandArm{pattern: pattern, profile: profile.ID, band: profile.Bands[band].ID, flows: flows})
+		}
+	}
+	return arms, nil
+}
+
+func selectedDemandProfile(scenario scenario) (project.DemandProfile, error) {
+	profileID := scenario.demand.Profile
+	if profileID == "" && len(scenario.demandProfiles) == 1 {
+		profileID = scenario.demandProfiles[0].ID
+	}
+	for _, profile := range scenario.demandProfiles {
+		if profile.ID == profileID {
+			return profile, nil
+		}
+	}
+	return project.DemandProfile{}, errors.New("profile demand requires a selected project demand profile")
+}
+
+func selectedDemandBands(profile project.DemandProfile, defaultBand, bandsText string) ([]int, error) {
+	if bandsText == "" {
+		bandsText = defaultBand
+	}
+	if strings.TrimSpace(bandsText) == "all" {
+		bands := make([]int, len(profile.Bands))
+		for index := range bands {
+			bands[index] = index
+		}
+		return bands, nil
+	}
+	if strings.TrimSpace(bandsText) == "" {
+		return nil, errors.New("profile demand requires a demand band")
+	}
+	parts := strings.Split(bandsText, ",")
+	bands := make([]int, 0, len(parts))
+	seen := make(map[string]bool, len(parts))
+	for _, part := range parts {
+		id := strings.TrimSpace(part)
+		if seen[id] {
+			return nil, fmt.Errorf("demand band %q appears more than once", id)
+		}
+		found := -1
+		for index, band := range profile.Bands {
+			if band.ID == id {
+				found = index
+				break
+			}
+		}
+		if found < 0 {
+			return nil, fmt.Errorf("unknown demand band %q", id)
+		}
+		seen[id] = true
+		bands = append(bands, found)
+	}
+	return bands, nil
+}
+
+func weightedProfileFlows(profile project.DemandProfile, band int) []weightedDemandFlow {
+	flows := make([]weightedDemandFlow, 0, len(profile.Flows))
+	total := 0.0
+	for _, flow := range profile.Flows {
+		weight := flow.Weights[band]
+		if weight <= 0 {
+			continue
+		}
+		total += weight
+		flows = append(flows, weightedDemandFlow{from: flow.From, to: flow.To, cumulative: total})
+	}
+	return flows
 }
 
 type scheduleInput struct {
@@ -504,9 +676,13 @@ type scheduleInput struct {
 	burstSize                    int
 	pattern, focus               string
 	passengers                   []string
+	profileFlows                 []weightedDemandFlow
 }
 
 func demandSchedule(input scheduleInput) []scheduledRequest {
+	if input.pattern == "profile" {
+		return profileDemandSchedule(input)
+	}
 	rng := rand.New(rand.NewSource(input.seed))
 	count := int((input.durationTicks - 1) / input.intervalTicks)
 	requests := make([]scheduledRequest, 0, count)
@@ -517,6 +693,25 @@ func demandSchedule(input scheduleInput) []scheduledRequest {
 		}
 		origin, destination := demandPair(rng, input)
 		requests = append(requests, scheduledRequest{tick: tick, origin: origin, destination: destination})
+	}
+	return requests
+}
+
+func profileDemandSchedule(input scheduleInput) []scheduledRequest {
+	count := int((input.durationTicks - 1) / input.intervalTicks)
+	requests := make([]scheduledRequest, 0, count)
+	seed := uint64(input.seed) // #nosec G115 -- Preserve the signed seed's bits for deterministic PCG input.
+	rng := randv2.New(randv2.NewPCG(seed, ^seed))
+	total := input.profileFlows[len(input.profileFlows)-1].cumulative
+	for index := range count {
+		target := rng.Float64() * total
+		selected := sort.Search(len(input.profileFlows), func(flowIndex int) bool {
+			return input.profileFlows[flowIndex].cumulative > target
+		})
+		flow := input.profileFlows[selected]
+		requests = append(requests, scheduledRequest{
+			tick: int64(index+1) * input.intervalTicks, origin: flow.from, destination: flow.to,
+		})
 	}
 	return requests
 }
@@ -572,16 +767,17 @@ func scheduleID(schedule []scheduledRequest) string {
 }
 
 type runInput struct {
-	enabled                bool
-	duration, requestEvery time.Duration
-	seed                   int64
-	pattern, scheduleID    string
-	queueLimit             int
-	burstSize              int
-	sharingLimit           int
-	routingPolicy          string
-	schedule               []scheduledRequest
-	scenario               scenario
+	enabled                             bool
+	duration, arrivalsFor, requestEvery time.Duration
+	seed                                int64
+	pattern, profile, band, scheduleID  string
+	queueLimit                          int
+	burstSize                           int
+	sharingLimit                        int
+	routingPolicy                       string
+	schedule                            []scheduledRequest
+	scenario                            scenario
+	stopWhenDrained                     bool
 }
 
 func run(input runInput) (result, error) {
@@ -589,7 +785,11 @@ func run(input runInput) (result, error) {
 	if err != nil {
 		return result{}, fmt.Errorf("create comparison: %w", err)
 	}
-	if demandErr := simulation.SetDemandWeights(demandWeights(input.pattern, input.scenario)); demandErr != nil {
+	weights, err := demandWeights(input.pattern, input.band, input.scenario)
+	if err != nil {
+		return result{}, err
+	}
+	if demandErr := simulation.SetDemandWeights(weights); demandErr != nil {
 		return result{}, fmt.Errorf("set demand weights: %w", demandErr)
 	}
 	if sharingErr := simulation.SetSharedRidePartyLimit(input.sharingLimit); sharingErr != nil {
@@ -602,6 +802,10 @@ func run(input runInput) (result, error) {
 		return result{}, err
 	}
 	next, skipped := 0, 0
+	arrivalWindowTicks := durationTicks(input.arrivalsFor)
+	arrivalMidpointTicks := arrivalWindowTicks / 2
+	midpointState := simulation.Snapshot()
+	arrivalState := simulation.Snapshot()
 	for tick := range durationTicks(input.duration) {
 		injected := false
 		for next < len(input.schedule) && input.schedule[next].tick == tick {
@@ -621,11 +825,27 @@ func run(input runInput) (result, error) {
 			metrics.observe(simulation.Snapshot())
 		}
 		simulation.Step()
-		if (tick+1)%sim.TicksPerSecond == 0 {
-			metrics.observe(simulation.Snapshot())
+		if (tick+1)%sim.TicksPerSecond == 0 || tick+1 == arrivalMidpointTicks || tick+1 == arrivalWindowTicks {
+			state := simulation.Snapshot()
+			if state.Tick == arrivalMidpointTicks {
+				midpointState = state
+			}
+			if state.Tick == arrivalWindowTicks {
+				arrivalState = state
+			}
+			metrics.observe(state)
+			if input.stopWhenDrained && state.Tick >= arrivalWindowTicks && next == len(input.schedule) && state.Completed == state.Submitted {
+				break
+			}
 		}
 	}
 	state := simulation.Snapshot()
+	if arrivalState.Tick != arrivalWindowTicks {
+		arrivalState = state
+	}
+	if midpointState.Tick != arrivalMidpointTicks {
+		midpointState = arrivalState
+	}
 	metrics.observe(state)
 	policy := "off"
 	if input.enabled {
@@ -639,13 +859,32 @@ func run(input runInput) (result, error) {
 	if len(input.schedule) > 0 {
 		arrivalEnd = float64(input.schedule[len(input.schedule)-1].tick) / sim.TicksPerSecond
 	}
+	drained := next == len(input.schedule) && state.Completed == state.Submitted
+	drainSeconds := 0.0
+	if drained && state.Tick > arrivalWindowTicks {
+		drainSeconds = float64(state.Tick-arrivalWindowTicks) / sim.TicksPerSecond
+	}
+	arrivalMinutes := input.arrivalsFor.Minutes()
+	lateArrivalMinutes := float64(arrivalWindowTicks-arrivalMidpointTicks) / sim.TicksPerSecond / 60
+	midpointBacklog := midpointState.Submitted - midpointState.Completed
+	arrivalBacklog := arrivalState.Submitted - arrivalState.Completed
 	return result{
-		Pattern: input.pattern, RequestEverySeconds: input.requestEvery.Seconds(), Seed: input.seed,
+		Pattern: input.pattern, DemandProfile: input.profile, DemandBand: input.band,
+		RequestEverySeconds: input.requestEvery.Seconds(), OfferedPerMinute: float64(len(input.schedule)) / arrivalMinutes, Seed: input.seed,
 		BurstSize: burstSize, Policy: policy, SharedRidePartyLimit: input.sharingLimit,
 		SharedParties: state.SharedParties, RoutingPolicy: input.routingPolicy, FocusStation: input.scenario.focus,
-		WindowStartSeconds: 0, WindowEndSeconds: input.duration.Seconds(), ArrivalEndSeconds: arrivalEnd, ScheduleID: input.scheduleID,
+		WindowStartSeconds: 0, WindowEndSeconds: input.duration.Seconds(), ActualEndSeconds: float64(state.Tick) / sim.TicksPerSecond,
+		ArrivalWindowSeconds: input.arrivalsFor.Seconds(), ArrivalEndSeconds: arrivalEnd, ScheduleID: input.scheduleID,
 		Scheduled: len(input.schedule), Served: state.Completed, Remaining: state.Submitted - state.Completed, Skipped: skipped,
-		PeakPending: metrics.peakPending, PeakFocusApproaching: metrics.peakApproaching,
+		CompletedAtArrivalEnd: arrivalState.Completed, BacklogAtArrivalEnd: arrivalState.Submitted - arrivalState.Completed,
+		ArrivalThroughputPerMinute: float64(arrivalState.Completed) / arrivalMinutes,
+		CompletedAtArrivalMidpoint: midpointState.Completed, BacklogAtArrivalMidpoint: midpointBacklog,
+		LateArrivalThroughputPerMinute: float64(arrivalState.Completed-midpointState.Completed) / lateArrivalMinutes,
+		LateBacklogChange:              arrivalBacklog - midpointBacklog,
+		Drained:                        drained, DrainSeconds: drainSeconds,
+		PeakPending: metrics.peakPending, PeakOutstanding: metrics.peakOutstanding,
+		PeakActiveVehicles: metrics.peakActiveVehicles, PeakPassengerVehicles: metrics.peakPassengerVehicles,
+		PeakStoppedVehicles: metrics.peakStoppedVehicles, PeakFocusApproaching: metrics.peakApproaching,
 		PeakFocusEntranceStopped: metrics.peakEntranceStopped, PeakFocusExitStopped: metrics.peakExitStopped,
 		PeakFocusOccupiedBerths: metrics.peakOccupiedBerths, PeakFocusReservedEmptyBerths: metrics.peakReservedEmptyBerths,
 		QueueCleared: metrics.queueCleared, QueueClearSeconds: metrics.queueClearSeconds,
@@ -664,11 +903,25 @@ func loadedDistancePercent(passenger, empty float64) float64 {
 	return 100 * passenger / total
 }
 
-func demandWeights(pattern string, scenario scenario) map[string]float64 {
+func demandWeights(pattern, band string, scenario scenario) (map[string]float64, error) {
 	if pattern == "balanced" {
-		return nil
+		return nil, nil
 	}
 	weights := make(map[string]float64, len(scenario.passengers))
+	if pattern == "profile" {
+		profile, err := selectedDemandProfile(scenario)
+		if err != nil {
+			return nil, err
+		}
+		bands, err := selectedDemandBands(profile, "", band)
+		if err != nil {
+			return nil, err
+		}
+		for _, flow := range profile.Flows {
+			weights[flow.From] += flow.Weights[bands[0]]
+		}
+		return weights, nil
+	}
 	for _, station := range scenario.passengers {
 		switch pattern {
 		case "destination":
@@ -682,7 +935,7 @@ func demandWeights(pattern string, scenario scenario) map[string]float64 {
 			}
 		}
 	}
-	return weights
+	return weights, nil
 }
 
 type writeReportInput struct {
@@ -696,7 +949,7 @@ func writeReport(input writeReportInput) error {
 	case "json":
 		encoder := json.NewEncoder(input.output)
 		encoder.SetIndent("", "  ")
-		if err := encoder.Encode(report{SchemaVersion: 4, Results: input.results}); err != nil {
+		if err := encoder.Encode(report{SchemaVersion: 5, Results: input.results}); err != nil {
 			return fmt.Errorf("write JSON report: %w", err)
 		}
 		return nil
@@ -715,15 +968,18 @@ func writeTable(output io.Writer, results []result) error {
 		return fmt.Errorf("write table window: %w", err)
 	}
 	w := tabwriter.NewWriter(output, 0, 4, 2, ' ', 0)
-	if _, err := fmt.Fprintln(w, "PATTERN\tLOAD (S)\tBURST\tSEED\tPOLICY\tROUTING\tSHARE LIMIT\tSHARED\tWAIT AVG\tWAIT MAX\tSERVED\tLEFT\tSKIPPED\tPEAK WAIT\tHUB IN\tHUB OUT\tHUB OCC\tHUB RSV\tCLEAR (S)\tPASSENGER (M)\tEMPTY (M)\tLOADED %\tMOVES"); err != nil {
+	if _, err := fmt.Fprintln(w, "PATTERN\tBAND\tLOAD (S)\tOFFERED/M\tARRIVAL/M\tLATE/M\tBACKLOG\tLATE DELTA\tDRAIN (S)\tSEED\tPOLICY\tWAIT AVG\tWAIT MAX\tSERVED\tLEFT\tSKIPPED\tPEAK OUT\tPEAK ACTIVE\tPEAK PAX\tPEAK STOPPED\tHUB IN\tHUB OUT\tHUB OCC\tHUB RSV\tPASSENGER (M)\tEMPTY (M)\tLOADED %\tMOVES"); err != nil {
 		return fmt.Errorf("write table header: %w", err)
 	}
 	for _, outcome := range results {
-		if _, err := fmt.Fprintf(w, "%s\t%.2f\t%d\t%d\t%s\t%s\t%d\t%d\t%.2f\t%.2f\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%s\t%.1f\t%.1f\t%.2f\t%d\n",
-			outcome.Pattern, outcome.RequestEverySeconds, outcome.BurstSize, outcome.Seed, outcome.Policy, outcome.RoutingPolicy, outcome.SharedRidePartyLimit, outcome.SharedParties,
+		if _, err := fmt.Fprintf(w, "%s\t%s\t%.2f\t%.2f\t%.2f\t%.2f\t%d\t%d\t%s\t%d\t%s\t%.2f\t%.2f\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%.1f\t%.1f\t%.2f\t%d\n",
+			outcome.Pattern, outcome.DemandBand, outcome.RequestEverySeconds, outcome.OfferedPerMinute,
+			outcome.ArrivalThroughputPerMinute, outcome.LateArrivalThroughputPerMinute,
+			outcome.BacklogAtArrivalEnd, outcome.LateBacklogChange, drainText(outcome), outcome.Seed, outcome.Policy,
 			outcome.WaitAverageSeconds, outcome.WaitMaximumSeconds, outcome.Served, outcome.Remaining, outcome.Skipped,
-			outcome.PeakPending, outcome.PeakFocusEntranceStopped, outcome.PeakFocusExitStopped,
-			outcome.PeakFocusOccupiedBerths, outcome.PeakFocusReservedEmptyBerths, queueClearText(outcome),
+			outcome.PeakOutstanding, outcome.PeakActiveVehicles, outcome.PeakPassengerVehicles, outcome.PeakStoppedVehicles,
+			outcome.PeakFocusEntranceStopped, outcome.PeakFocusExitStopped,
+			outcome.PeakFocusOccupiedBerths, outcome.PeakFocusReservedEmptyBerths,
 			outcome.PassengerDistanceMeters, outcome.EmptyDistanceMeters, outcome.LoadedDistancePercent,
 			outcome.PositioningMoveCount); err != nil {
 			return fmt.Errorf("write table row: %w", err)
@@ -738,8 +994,10 @@ func writeTable(output io.Writer, results []result) error {
 func writeCSV(output io.Writer, results []result) error {
 	w := csv.NewWriter(output)
 	header := []string{
-		"pattern", "request_every_seconds", "burst_size", "seed", "policy", "routing_policy", "shared_ride_party_limit", "shared_parties", "focus_station", "window_start_seconds", "window_end_seconds", "arrival_end_seconds", "schedule_id",
-		"scheduled", "served", "remaining", "skipped", "peak_pending", "peak_focus_approaching", "peak_focus_entrance_stopped", "peak_focus_exit_stopped",
+		"pattern", "demand_profile", "demand_band", "request_every_seconds", "offered_per_minute", "burst_size", "seed", "policy", "routing_policy", "shared_ride_party_limit", "shared_parties", "focus_station", "window_start_seconds", "window_end_seconds", "actual_end_seconds", "arrival_window_seconds", "arrival_end_seconds", "schedule_id",
+		"scheduled", "served", "remaining", "skipped", "completed_at_arrival_end", "backlog_at_arrival_end", "arrival_throughput_per_minute",
+		"completed_at_arrival_midpoint", "backlog_at_arrival_midpoint", "late_arrival_throughput_per_minute", "late_backlog_change", "drained", "drain_seconds",
+		"peak_pending", "peak_outstanding", "peak_active_vehicles", "peak_passenger_vehicles", "peak_stopped_vehicles", "peak_focus_approaching", "peak_focus_entrance_stopped", "peak_focus_exit_stopped",
 		"peak_focus_occupied_berths", "peak_focus_reserved_empty_berths", "queue_cleared", "queue_clear_seconds",
 		"wait_average_seconds", "wait_maximum_seconds", "passenger_distance_meters", "empty_distance_meters", "loaded_distance_percent", "positioning_moves",
 	}
@@ -748,11 +1006,15 @@ func writeCSV(output io.Writer, results []result) error {
 	}
 	for _, outcome := range results {
 		row := []string{
-			outcome.Pattern, floatText(outcome.RequestEverySeconds), strconv.Itoa(outcome.BurstSize), strconv.FormatInt(outcome.Seed, 10), outcome.Policy, outcome.RoutingPolicy,
+			outcome.Pattern, outcome.DemandProfile, outcome.DemandBand, floatText(outcome.RequestEverySeconds), floatText(outcome.OfferedPerMinute), strconv.Itoa(outcome.BurstSize), strconv.FormatInt(outcome.Seed, 10), outcome.Policy, outcome.RoutingPolicy,
 			strconv.Itoa(outcome.SharedRidePartyLimit), strconv.Itoa(outcome.SharedParties), outcome.FocusStation,
-			floatText(outcome.WindowStartSeconds), floatText(outcome.WindowEndSeconds), floatText(outcome.ArrivalEndSeconds), outcome.ScheduleID,
+			floatText(outcome.WindowStartSeconds), floatText(outcome.WindowEndSeconds), floatText(outcome.ActualEndSeconds), floatText(outcome.ArrivalWindowSeconds), floatText(outcome.ArrivalEndSeconds), outcome.ScheduleID,
 			strconv.Itoa(outcome.Scheduled), strconv.Itoa(outcome.Served), strconv.Itoa(outcome.Remaining), strconv.Itoa(outcome.Skipped),
-			strconv.Itoa(outcome.PeakPending), strconv.Itoa(outcome.PeakFocusApproaching), strconv.Itoa(outcome.PeakFocusEntranceStopped), strconv.Itoa(outcome.PeakFocusExitStopped),
+			strconv.Itoa(outcome.CompletedAtArrivalEnd), strconv.Itoa(outcome.BacklogAtArrivalEnd), floatText(outcome.ArrivalThroughputPerMinute),
+			strconv.Itoa(outcome.CompletedAtArrivalMidpoint), strconv.Itoa(outcome.BacklogAtArrivalMidpoint), floatText(outcome.LateArrivalThroughputPerMinute), strconv.Itoa(outcome.LateBacklogChange),
+			strconv.FormatBool(outcome.Drained), floatText(outcome.DrainSeconds),
+			strconv.Itoa(outcome.PeakPending), strconv.Itoa(outcome.PeakOutstanding), strconv.Itoa(outcome.PeakActiveVehicles), strconv.Itoa(outcome.PeakPassengerVehicles), strconv.Itoa(outcome.PeakStoppedVehicles),
+			strconv.Itoa(outcome.PeakFocusApproaching), strconv.Itoa(outcome.PeakFocusEntranceStopped), strconv.Itoa(outcome.PeakFocusExitStopped),
 			strconv.Itoa(outcome.PeakFocusOccupiedBerths), strconv.Itoa(outcome.PeakFocusReservedEmptyBerths), strconv.FormatBool(outcome.QueueCleared), floatText(outcome.QueueClearSeconds),
 			floatText(outcome.WaitAverageSeconds), floatText(outcome.WaitMaximumSeconds), floatText(outcome.PassengerDistanceMeters),
 			floatText(outcome.EmptyDistanceMeters), floatText(outcome.LoadedDistancePercent),
@@ -771,11 +1033,11 @@ func writeCSV(output io.Writer, results []result) error {
 
 func floatText(value float64) string { return strconv.FormatFloat(value, 'f', -1, 64) }
 
-func queueClearText(outcome result) string {
-	if !outcome.QueueCleared {
+func drainText(outcome result) string {
+	if !outcome.Drained {
 		return "-"
 	}
-	return fmt.Sprintf("%.1f", outcome.QueueClearSeconds)
+	return fmt.Sprintf("%.1f", outcome.DrainSeconds)
 }
 
 func durationTicks(duration time.Duration) int64 {
@@ -787,6 +1049,10 @@ type runMetrics struct {
 	station                 sim.Station
 	lastArrivalTick         int64
 	peakPending             int
+	peakOutstanding         int
+	peakActiveVehicles      int
+	peakPassengerVehicles   int
+	peakStoppedVehicles     int
 	peakApproaching         int
 	peakEntranceStopped     int
 	peakExitStopped         int
@@ -814,6 +1080,22 @@ func newRunMetrics(caseStudy scenario, schedule []scheduledRequest) (runMetrics,
 func (metrics *runMetrics) observe(state sim.Snapshot) {
 	station := metrics.monitor.Summarize(metrics.station, state)
 	metrics.peakPending = max(metrics.peakPending, len(state.Pending))
+	metrics.peakOutstanding = max(metrics.peakOutstanding, state.Submitted-state.Completed)
+	active, passenger, stopped := 0, 0, 0
+	for _, vehicle := range state.Vehicles {
+		if vehicle.Request != nil || vehicle.RelocatingTo != "" {
+			active++
+		}
+		if vehicle.Pod.Occupied {
+			passenger++
+		}
+		if vehicle.Pod.WaitReason != sim.NoWait && vehicle.Pod.Speed < 0.01 {
+			stopped++
+		}
+	}
+	metrics.peakActiveVehicles = max(metrics.peakActiveVehicles, active)
+	metrics.peakPassengerVehicles = max(metrics.peakPassengerVehicles, passenger)
+	metrics.peakStoppedVehicles = max(metrics.peakStoppedVehicles, stopped)
 	metrics.peakApproaching = max(metrics.peakApproaching, station.Approaching)
 	metrics.peakEntranceStopped = max(metrics.peakEntranceStopped, station.EntranceStopped)
 	metrics.peakExitStopped = max(metrics.peakExitStopped, station.ExitStopped)

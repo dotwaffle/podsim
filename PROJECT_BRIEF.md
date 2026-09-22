@@ -7,7 +7,8 @@ project persistence, manual and automatic demand, pod dispatch, local traffic
 control, inspection, pod following, and fleet-use statistics.
 The server owns one shared simulation session for all connected browsers.
 Optional empty-pod redistribution is available but remains off by default.
-The railway-hub capacity and same-destination sharing experiments are complete.
+The railway-hub, London demand-capacity, and same-destination sharing
+experiments are complete.
 The first station-maneuver slice is complete: station lanes have explicit roles,
 pod snapshots expose the current phase, and the inspector names the maneuver.
 Configurable station geometry, protocol compaction, and the other experiments
@@ -299,9 +300,12 @@ A separate normalized 2019 midweek NUMBAT profile provides 8,474 in-scope OD
 pairs across eight time bands.
 The portable London project includes these bands, and the live session can
 generate requests from a selected band.
-The fixed 40-request AM peak sample completed every request.
+The fixed 40-request AM peak sample completed every request. A 192-arm sweep
+now measures the 114-pod fleet across all eight bands, eight offered rates, and
+three seeds. Its tested 30-minute recovery limits range from about two requests
+per minute in the Early band to about seven in four daytime bands.
 See [docs/london.md](docs/london.md) and
-[docs/qualification.md](docs/qualification.md#london-am-peak-sample).
+[docs/qualification.md](docs/qualification.md#london-capacity-envelope).
 
 The network does not include a background map or tunnel depth.
 Explicit separation groups distinguish unrelated grade-separated paths while
