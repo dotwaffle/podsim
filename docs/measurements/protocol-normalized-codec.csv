@@ -1,0 +1,12 @@
+fixture,operation,ns_per_operation,bytes_per_operation,allocations_per_operation
+scale100,json_marshal,409200,124043,3
+scale100,protobuf_marshal,121187,65536,1
+scale100,json_unmarshal,850937,235406,3114
+scale100,protobuf_unmarshal,271685,218376,4271
+london,json_marshal,464182,140592,3
+london,protobuf_marshal,135571,73728,1
+london,json_unmarshal,991331,277338,3513
+london,protobuf_unmarshal,311593,255424,4893
+london,json_gzip_level_1,318417,217,0
+london,json_gzip_level_6,639871,563,0
+london,protobuf_gzip_level_1,285111,194,0

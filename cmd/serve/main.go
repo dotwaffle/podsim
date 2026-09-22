@@ -20,6 +20,7 @@ import (
 	"github.com/KimMachineGun/automemlimit/memlimit"
 
 	"github.com/dotwaffle/podsim"
+	"github.com/dotwaffle/podsim/internal/connectapi"
 	"github.com/dotwaffle/podsim/internal/project"
 	"github.com/dotwaffle/podsim/internal/session"
 	"github.com/dotwaffle/podsim/internal/telemetry"
@@ -82,7 +83,7 @@ func run() error {
 		}
 	}()
 	go shared.Run(ctx)
-	handler := telemetryProvider.HTTPHandler(shared.HandlerFS(files))
+	handler := telemetryProvider.HTTPHandler(shared.HandlerFS(files, connectapi.Register(shared)))
 	application := &http.Server{
 		Addr:              *address,
 		Handler:           handler,

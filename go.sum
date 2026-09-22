@@ -1,3 +1,5 @@
+connectrpc.com/connect/v2 v2.0.0-alpha.1 h1:T0Fk30RdHUG8Z8K5/ezkhGclsuoPoNp7ekK/YWjuB9Q=
+connectrpc.com/connect/v2 v2.0.0-alpha.1/go.mod h1:h651FA//hXdrOxDQ1Hiwte02sVqSPt+XY1Mj0kpLToI=
 github.com/KimMachineGun/automemlimit v1.0.0 h1:+MqlvDE/pkJNjk1rU+O14QsH8k10nJAD0frB0lsxyvw=
 github.com/KimMachineGun/automemlimit v1.0.0/go.mod h1:n+BSXxQWDFS1DKh67Rqo0lgTsowsg6x65ak5uyngML0=
 github.com/cenkalti/backoff/v5 v5.0.3 h1:ZN+IMa753KfX5hd8vVaMixjnqRZ3y8CuJKRKj1xcsSM=

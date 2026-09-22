@@ -3,6 +3,7 @@ module github.com/dotwaffle/podsim
 go 1.27.1
 
 require (
+	connectrpc.com/connect/v2 v2.0.0-alpha.1
 	github.com/KimMachineGun/automemlimit v1.0.0
 	github.com/hajimehoshi/ebiten/v2 v2.10.2
 	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.71.0
@@ -14,6 +15,7 @@ require (
 	go.opentelemetry.io/otel/sdk v1.46.0
 	go.opentelemetry.io/otel/sdk/metric v1.46.0
 	golang.org/x/image v0.45.0
+	google.golang.org/protobuf v1.36.12
 )
 
 require (
@@ -41,5 +43,4 @@ require (
 	google.golang.org/genproto/googleapis/api v0.0.0-20260819154853-08b0e4226688 // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20260819154853-08b0e4226688 // indirect
 	google.golang.org/grpc v1.83.2 // indirect
-	google.golang.org/protobuf v1.36.12 // indirect
 )

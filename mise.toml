@@ -8,10 +8,13 @@ govulncheck = "go:golang.org/x/vuln/cmd/govulncheck"
 
 [tools]
 actionlint = "1"
+buf = "1"
 go = "1.27"
 golangci-lint = "2"
 govulncheck = "1"
 node = "24"
+"go:connectrpc.com/connect/v2/cmd/protoc-gen-connect-go" = "2.0.0-alpha.1"
+"go:google.golang.org/protobuf/cmd/protoc-gen-go" = "1.36.12"
 
 [tasks.format]
 description = "Format Go sources"

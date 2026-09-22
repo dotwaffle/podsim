@@ -1,0 +1,11 @@
+fixture,workload,format,raw_bytes,gzip_level_1_bytes,gzip_level_6_bytes,poll_hz,gzip_level_1_bytes_per_second,gzip_level_6_bytes_per_second
+scale100,200 accepted requests,previous_json,394962,44444,,20,888880,
+scale100,200 accepted requests,normalized_json,116556,11600,7921,20,232000,158420
+scale100,200 accepted requests,binary_protobuf,65399,9775,,20,195500,
+london,200 accepted requests,previous_json,743060,94779,,20,1895580,
+london,200 accepted requests,normalized_json,132915,17513,14499,20,350260,289980
+london,200 accepted requests,binary_protobuf,71143,15704,,20,314080,
+scale100,project revision,topology_json,133238,15872,,0,0,
+scale100,project revision,topology_protobuf,84606,13998,,0,0,
+london,project revision,topology_json,374121,51803,,0,0,
+london,project revision,topology_protobuf,222961,46374,,0,0,

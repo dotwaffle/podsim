@@ -56,6 +56,8 @@ The browser export wraps this object as `scenario` and can also contain a backgr
 An `embed_assets` server build contains all browser files in one executable.
 The project also includes a non-root, multiarchitecture ko image and a GHCR publishing workflow.
 The server provides `/healthz`, opt-in pprof on a separate listener, and opt-in OTLP telemetry.
+The browser uses normalized gzip JSON frames. An experimental ConnectRPC and
+binary Protobuf service is available for comparison and typed clients.
 See [distribution and operations](docs/operations.md) for build and runtime settings.
 
 ## Controls
@@ -321,7 +323,8 @@ Optional redistribution moves idle empty pods toward configured demand before re
 ### Server and browser
 
 One server owns the simulation clock, commands, and demand settings.
-Browsers poll snapshots and show connection status.
+Browsers poll dynamic state frames and show connection status.
+They fetch network topology on connection and after a project revision changes.
 Controls wait for server confirmation.
 
 The map buffers 150 ms of snapshots and interpolates movement along lanes between updates.
@@ -344,7 +347,7 @@ Pod selection, origin, destination, and the open inspection panel stay local to 
 Background images stay in the editor and exported project file.
 The shared simulation receives network geometry and settings.
 
-See [the client protocol evaluation](docs/protocol.md) for payload measurements and the ConnectRPC plan.
+See [the client protocol](docs/protocol.md) for payload measurements and the ConnectRPC evaluation.
 See [the project brief](PROJECT_BRIEF.md) for the wider scope and research.
 
 ## Code and validation
@@ -355,6 +358,8 @@ See [the project brief](PROJECT_BRIEF.md) for the wider scope and research.
 | `internal/project` | Versioned scenario settings, validation, and detached copies. |
 | `internal/scenarios` | Deterministic scale fixtures and qualification tests. |
 | `internal/session` | Shared clock, command validation, HTTP API, and repeatable demand. |
+| `internal/connectapi` | Experimental ConnectRPC adapter, conversions, and codec benchmarks. |
+| `internal/gen` | Generated Protobuf messages and ConnectRPC clients and handlers. |
 | `internal/remote` | Snapshot polling, command retries, and connection state. |
 | `internal/view` | Ebitengine rendering and input against copied snapshots. |
 | `internal/telemetry` | Optional OTLP traces, HTTP metrics, runtime metrics, and session gauges. |
@@ -364,6 +369,7 @@ See [the project brief](PROJECT_BRIEF.md) for the wider scope and research.
 | `cmd/compare` | Reproducible policy comparisons. |
 | `cmd/scenario` | Generated scenario files. |
 | `web` | Browser loader and scenario editor. |
+| `proto` | Versioned client protocol schema. |
 
 ```sh
 mise run test
@@ -386,6 +392,7 @@ Validation has five main parts:
 
 - Core tests cover routing, journeys, invalid requests, pause and reset behavior, repeatability, and state isolation.
 - Rendering tests cover buffered movement, lane corners, station movement, pause and reset behavior, and stale snapshots.
-- HTTP tests cover compression, snapshot decoding, WASM responses, byte ranges, health, and diagnostics.
+- HTTP tests cover compression, topology and frame decoding, command
+  acknowledgments, WASM responses, byte ranges, health, and diagnostics.
 - Traffic tests cover separation, merge contention, berth capacity, stopped queues, through traffic, and eventual progress.
 - Browser checks confirm visible movement and working controls. A WASM build alone is not sufficient.
