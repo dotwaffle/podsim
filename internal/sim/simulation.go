@@ -180,6 +180,9 @@ type vehicle struct {
 
 // Simulation owns a fixed fleet and local track, junction, and berth resources.
 type Simulation struct {
+	// NewFleet builds junctionConflicts from the network. No code writes to it
+	// in place. ensureNetworkIndexes replaces it only when the network changes.
+	junctionConflicts            map[string][]laneConflict
 	lengths                      map[string]float64
 	routes                       map[routeKey]routeResult
 	routeOrder                   []routeKey
@@ -191,7 +194,6 @@ type Simulation struct {
 	initial                      []Placement
 	vehicles                     []vehicle
 	owners                       map[resource]string
-	junctionConflicts            map[string][]laneConflict
 	tick                         int64
 	paused                       bool
 	completed, requestID         int
@@ -243,6 +245,7 @@ func NewFleet(network Network, placements []Placement) (*Simulation, error) {
 		stationIndexes:              indexStations(owned),
 		stationForbidden:            owned.stationForbidden(),
 		geometry:                    buildLaneGeometry(owned),
+		junctionConflicts:           buildJunctionConflicts(owned),
 		sharedRidePartyLimit:        1,
 		reservationLookaheadSeconds: defaultReservationLookaheadSeconds,
 		laneSafety:                  make(map[string]SafetyLocation, len(network.Lanes)),

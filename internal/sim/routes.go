@@ -88,6 +88,7 @@ func (s *Simulation) ensureNetworkIndexes() {
 	s.stationIndexes = indexStations(s.network)
 	s.stationForbidden = s.network.stationForbidden()
 	s.geometry = buildLaneGeometry(s.network)
+	s.junctionConflicts = buildJunctionConflicts(s.network)
 	s.lengths = nil
 	s.routes = nil
 	s.routeOrder = nil

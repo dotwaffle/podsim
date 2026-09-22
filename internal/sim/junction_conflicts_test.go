@@ -2,8 +2,98 @@ package sim
 
 import (
 	"math"
+	"reflect"
 	"testing"
 )
+
+func TestFleetBuildsJunctionConflictsOnce(t *testing.T) {
+	t.Parallel()
+	for _, tc := range []struct {
+		name    string
+		network Network
+	}{
+		{name: "example", network: Example()},
+		{name: "ladder", network: ladderNetwork()},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			s, err := NewFleet(tc.network, []Placement{{ID: "01", StationID: "harbor"}, {ID: "02", StationID: "garden"}})
+			if err != nil {
+				t.Fatal(err)
+			}
+			// NewFleet builds the table from its owned copy of the network.
+			want := buildJunctionConflicts(s.network)
+			if len(want) == 0 {
+				t.Fatal("fixture has no junction conflicts")
+			}
+			if s.junctionConflicts == nil || !reflect.DeepEqual(s.junctionConflicts, want) {
+				t.Fatalf("NewFleet table = %v, want %v", s.junctionConflicts, want)
+			}
+			built := reflect.ValueOf(s.junctionConflicts).Pointer()
+			for _, trip := range [][2]string{{"harbor", "market"}, {"garden", "market"}} {
+				if err := s.RequestTrip(trip[0], trip[1]); err != nil {
+					t.Fatal(err)
+				}
+			}
+			for range 240 * TicksPerSecond {
+				s.Step()
+				if s.completed == 2 {
+					break
+				}
+			}
+			if s.completed != 2 {
+				t.Fatalf("trips did not complete: %+v", s.Snapshot())
+			}
+			if reflect.ValueOf(s.junctionConflicts).Pointer() != built {
+				t.Fatal("steps replaced the junction conflict table")
+			}
+			if !reflect.DeepEqual(s.junctionConflicts, want) {
+				t.Fatalf("steps changed the junction conflict table: %v, want %v", s.junctionConflicts, want)
+			}
+		})
+	}
+}
+
+func TestNetworkIndexesRebuildJunctionConflicts(t *testing.T) {
+	t.Parallel()
+	for _, tc := range []struct {
+		name  string
+		lane  string
+		build func(*testing.T) *Simulation
+	}{
+		{
+			name: "changed fleet network",
+			lane: "market-in-2",
+			build: func(t *testing.T) *Simulation {
+				t.Helper()
+				s := newTraffic(t)
+				addMarketBerth(s)
+				return s
+			},
+		},
+		{
+			name: "literal simulation",
+			lane: "bypass-merge",
+			build: func(*testing.T) *Simulation {
+				s := &Simulation{network: Example()}
+				s.ensureNetworkIndexes()
+				return s
+			},
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			s := tc.build(t)
+			want := buildJunctionConflicts(s.network)
+			if len(want[tc.lane]) == 0 {
+				t.Fatalf("fixture lane %q has no junction conflicts", tc.lane)
+			}
+			if !reflect.DeepEqual(s.junctionConflicts, want) {
+				t.Fatalf("junction conflicts = %v, want %v", s.junctionConflicts, want)
+			}
+		})
+	}
+}
 
 func TestAcuteJunctionLanesPreservePhysicalClearance(t *testing.T) {
 	t.Parallel()

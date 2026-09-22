@@ -36,9 +36,6 @@ type laneConflict struct {
 
 // routeBlocks uses the same cell boundaries for every route through a lane.
 func (s *Simulation) routeBlocks(route []Lane) []block {
-	if s.junctionConflicts == nil {
-		s.junctionConflicts = buildJunctionConflicts(s.network)
-	}
 	var blocks []block
 	distance := 0.0
 	for _, lane := range route {
