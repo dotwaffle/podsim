@@ -81,3 +81,15 @@ Session gauges report journeys, pods, stopped pods, distance, and passenger wait
 The server flushes both providers during graceful shutdown.
 Invalid endpoint syntax stops startup with an error.
 An unreachable collector reports export errors without stopping the simulation.
+
+## Graceful shutdown
+
+The server starts a graceful shutdown when it gets `SIGINT` or `SIGTERM`, or when a listener fails.
+It logs `Stop accepting commands` with the cause.
+Then it stops the simulation clock and rejects new commands with HTTP 409 and the `server_stopping` error code.
+A command that is already in progress completes.
+An exact retry of the last command from a client still gets the stored reply.
+
+Then the server closes its listeners and does not accept new requests.
+Requests that are already in progress, including reads, get up to 5 seconds to complete.
+Last, the server waits up to 5 seconds for the clock goroutine to return, then flushes telemetry.

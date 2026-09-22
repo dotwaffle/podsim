@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"reflect"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/dotwaffle/podsim/internal/project"
@@ -78,6 +79,7 @@ const (
 	SequenceConflict CommandErrorCode = "sequence_conflict"
 	ClientLimit      CommandErrorCode = "client_limit"
 	CommandRejected  CommandErrorCode = "command_rejected"
+	ServerStopping   CommandErrorCode = "server_stopping"
 )
 
 // Reply acknowledges one command without repeating the current state frame.
@@ -106,6 +108,8 @@ func WithProjectSaver(save func(project.Config) error) Option {
 
 // Session contains one fleet and one simulation clock. Use Run once per session.
 type Session struct {
+	// Close sets closed without mu, so a slow command cannot block shutdown.
+	closed          atomic.Bool
 	mu              sync.Mutex
 	simulation      *sim.Simulation
 	project         project.Config
@@ -166,10 +170,14 @@ func (s *Session) Run(ctx context.Context) {
 	}
 }
 
+// Close stops the clock and rejects new commands. Reads continue. Close does not
+// wait for a tick or a command that is already in progress. Close is idempotent.
+func (s *Session) Close() { s.closed.Store(true) }
+
 func (s *Session) advance() {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	if s.simulation.Snapshot().Paused {
+	if s.closed.Load() || s.simulation.Snapshot().Paused {
 		return
 	}
 	for range s.speed {
@@ -260,6 +268,8 @@ func (s *Session) Project() ProjectState {
 }
 
 // Apply serializes commands. The latest sequence can be retried; older sequences never replay.
+// After Close, a command that passes the epoch and sequence checks gets ServerStopping.
+// An exact retry still gets its stored reply.
 func (s *Session) Apply(command Command) Reply {
 	command = cloneCommand(command)
 	s.mu.Lock()
@@ -281,6 +291,8 @@ func (s *Session) Apply(command Command) Reply {
 			} else {
 				reply = previous.reply
 			}
+		case s.closed.Load():
+			reply.reject(ServerStopping, "The server is stopping. Try again after it restarts.")
 		case !exists && len(s.receipts) >= 1024:
 			reply.reject(ClientLimit, "The session client limit was reached. Restart the server.")
 		default:

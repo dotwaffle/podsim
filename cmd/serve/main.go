@@ -14,6 +14,7 @@ import (
 	"os/signal"
 	"path/filepath"
 	"runtime/debug"
+	"sync"
 	"syscall"
 	"time"
 
@@ -81,7 +82,10 @@ func run() error {
 			slog.Warn("Shut down telemetry", slog.Any("error", err))
 		}
 	}()
-	go shared.Run(ctx)
+	clockContext, stopClock := context.WithCancel(ctx)
+	defer stopClock()
+	var clock sync.WaitGroup
+	clock.Go(func() { shared.Run(clockContext) })
 	handler := telemetryProvider.HTTPHandler(shared.HandlerFS(files))
 	application := &http.Server{
 		Addr:              *address,
@@ -105,7 +109,35 @@ func run() error {
 		servers = append(servers, namedServer{name: "pprof", server: diagnostics})
 		slog.Info("Enabled pprof", slog.String("address", *pprofAddress))
 	}
-	return runServers(ctx, servers)
+	serveErr := runServers(ctx, serveInput{servers: servers, stopping: func() {
+		shared.Close()
+		stopClock()
+	}})
+	joinClock(&clock, 5*time.Second)
+	return serveErr
+}
+
+// joinClock waits for the clock goroutine. It stops waiting after the timeout,
+// so a blocked tick cannot keep the process alive. It returns true if the clock stopped.
+func joinClock(clock *sync.WaitGroup, timeout time.Duration) bool {
+	done := make(chan struct{})
+	go func() {
+		clock.Wait()
+		close(done)
+	}()
+	select {
+	case <-done:
+		return true
+	case <-time.After(timeout):
+		slog.Warn("Simulation clock did not stop", slog.Duration("timeout", timeout))
+		return false
+	}
+}
+
+// serveInput holds the servers and a hook that runs once before the HTTP drain starts.
+type serveInput struct {
+	servers  []namedServer
+	stopping func()
 }
 
 type namedServer struct {
@@ -118,26 +150,32 @@ type serverResult struct {
 	err  error
 }
 
-func runServers(ctx context.Context, servers []namedServer) error {
-	results := make(chan serverResult, len(servers))
-	for _, current := range servers {
+// runServers serves until cancellation or the first server failure. Then it
+// calls input.stopping once and drains all servers.
+func runServers(ctx context.Context, input serveInput) error {
+	results := make(chan serverResult, len(input.servers))
+	for _, current := range input.servers {
 		go func() {
 			results <- serverResult{name: current.name, err: current.server.ListenAndServe()}
 		}()
 	}
-	remaining := len(servers)
+	remaining := len(input.servers)
 	var errs []error
+	cause := "signal"
 	select {
 	case result := <-results:
 		remaining--
+		cause = result.name + " server failed"
 		if err := unexpectedServerError(result); err != nil {
 			errs = append(errs, err)
 		}
 	case <-ctx.Done():
 	}
+	slog.Info("Stop accepting commands", slog.String("cause", cause))
+	input.stopping()
 	shutdown, cancel := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Second)
 	defer cancel()
-	for _, current := range servers {
+	for _, current := range input.servers {
 		if err := current.server.Shutdown(shutdown); err != nil {
 			errs = append(errs, fmt.Errorf("shut down %s server: %w", current.name, err))
 		}
