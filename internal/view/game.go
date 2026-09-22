@@ -35,6 +35,13 @@ const (
 	track         = 0x354b5e
 	amber         = 0xf3c479
 	detailedLanes = 100
+
+	inspectionLeft       = 816.0
+	inspectionRight      = 1054.0
+	inspectionValueLeft  = 924.0
+	inspectionRowsTop    = 258.0
+	inspectionRowSpacing = 27.0
+	podSelectorTop       = 393.0
 )
 
 // Game owns presentation state and submits commands to the simulation.
@@ -208,10 +215,10 @@ func (g *Game) buttons() []button {
 		if i/6 != g.podPage {
 			continue
 		}
-		buttons = append(buttons, button{x: 810 + float64((i%6)*36), y: 393, w: 32, h: 34, label: fleetPodLabel(i), selected: !g.showOrders && !g.showDemand && g.selected == i, action: "pod/" + v.Pod.ID})
+		buttons = append(buttons, button{x: 810 + float64((i%6)*36), y: podSelectorTop, w: 32, h: 34, label: fleetPodLabel(i), selected: !g.showOrders && !g.showDemand && g.selected == i, action: "pod/" + v.Pod.ID})
 	}
 	if len(state.Vehicles) > 6 {
-		buttons = append(buttons, button{x: 1026, y: 393, w: 34, h: 34, label: ">", action: "pods-next"})
+		buttons = append(buttons, button{x: 1026, y: podSelectorTop, w: 34, h: 34, label: ">", action: "pods-next"})
 	}
 	buttons = append(buttons, g.journeyButtons(busy)...)
 	if g.showDemand {
@@ -781,7 +788,8 @@ func (g *Game) drawInspection(screen *ebiten.Image, state sim.Snapshot) {
 	if podID != podLabel {
 		podLabel += " / " + podID
 	}
-	g.label(screen, label{x: 816, y: 115, size: 12, value: "POD " + podLabel, color: muted})
+	heading := g.fitText("POD "+podLabel, 12, 140)
+	g.label(screen, label{x: inspectionLeft, y: 115, size: 12, value: heading, color: muted})
 	g.label(screen, label{x: 816, y: 143, size: 26, value: activityLabel(state.Vehicles[g.selected].Pod, g.podPurpose(state.Vehicles[g.selected], state)), color: g.podPurpose(state.Vehicles[g.selected], state).color()})
 	status := "Available for passenger requests."
 	station, _ := g.network.Station(state.Vehicles[g.selected].Pod.StationID)
@@ -811,7 +819,8 @@ func (g *Game) drawInspection(screen *ebiten.Image, state sim.Snapshot) {
 	if state.Paused {
 		status = "Paused. Resume to advance."
 	}
-	g.label(screen, label{x: 816, y: 183, size: 13, value: status, color: muted})
+	status = g.fitText(status, 13, inspectionRight-inspectionLeft)
+	g.label(screen, label{x: inspectionLeft, y: 183, size: 13, value: status, color: muted})
 	journey := "No active journey"
 	if state.Vehicles[g.selected].Request != nil {
 		from, _ := g.network.Station(state.Vehicles[g.selected].Request.From)
@@ -825,7 +834,8 @@ func (g *Game) drawInspection(screen *ebiten.Image, state sim.Snapshot) {
 		station, _ := g.network.Station(to)
 		journey = "Empty > " + station.Name
 	}
-	g.label(screen, label{x: 816, y: 224, size: 17, value: journey, color: foreground})
+	journey = g.fitText(journey, 17, inspectionRight-inspectionLeft)
+	g.label(screen, label{x: inspectionLeft, y: 224, size: 17, value: journey, color: foreground})
 	passengers := "Empty"
 	selected := state.Vehicles[g.selected]
 	if selected.Pod.Occupied && selected.Request != nil {
@@ -841,9 +851,10 @@ func (g *Game) drawInspection(screen *ebiten.Image, state sim.Snapshot) {
 		{"Sim time", fmt.Sprintf("%.1f s", float64(state.Tick)/sim.TicksPerSecond)},
 	}
 	for i, row := range rows {
-		y := 266 + float64(i*31)
-		g.label(screen, label{x: 816, y: y, size: 14, value: row.name, color: muted})
-		g.label(screen, label{x: 924, y: y, size: 14, value: row.value, color: foreground})
+		y := inspectionRowsTop + float64(i)*inspectionRowSpacing
+		value := g.fitText(row.value, 14, inspectionRight-inspectionValueLeft)
+		g.label(screen, label{x: inspectionLeft, y: y, size: 14, value: row.name, color: muted})
+		g.label(screen, label{x: inspectionValueLeft, y: y, size: 14, value: value, color: foreground})
 	}
 }
 
@@ -925,8 +936,17 @@ func (g *Game) drawButton(screen *ebiten.Image, b button) {
 	}
 	vector.FillRect(screen, float32(b.x), float32(b.y), float32(b.w), float32(b.h), rgb(fill), false)
 	face := g.textFace(fontSize)
+	b.label = g.fitButtonText(b.label, fontSize, b.w)
 	textWidth, textHeight := text.Measure(b.label, face, 0)
 	g.label(screen, label{x: b.x + (b.w-textWidth)/2, y: b.y + (b.h-textHeight)/2, size: fontSize, value: b.label, color: ink, physical: true})
+}
+
+func (g *Game) fitButtonText(value string, size, width float64) string {
+	return fitText(value, textFit{face: g.textFace(size), width: max(1, width-12*g.layout.unit)})
+}
+
+func (g *Game) fitText(value string, size, width float64) string {
+	return fitText(value, textFit{face: g.textFace(size), width: width * g.layout.unit})
 }
 
 func (g *Game) textFace(size float64) *text.GoTextFace {

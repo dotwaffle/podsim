@@ -4,6 +4,8 @@ import (
 	"image"
 	"testing"
 
+	"github.com/hajimehoshi/ebiten/v2/text/v2"
+
 	"github.com/dotwaffle/podsim/internal/sim"
 )
 
@@ -73,6 +75,59 @@ func TestGameLayoutMovesControlsAndInvalidatesCamera(t *testing.T) {
 		if control.x < 0 || control.y < 0 || control.x+control.w > float64(game.layout.width) || control.y+control.h > float64(game.layout.height) {
 			t.Fatalf("control %q outside layout: %+v", control.action, control)
 		}
+	}
+}
+
+func TestInspectionRowsClearPodSelector(t *testing.T) {
+	t.Parallel()
+	game := journeyTestGame(t, 2)
+	for _, input := range []layoutInput{
+		{outsideWidth: minimumWidth, outsideHeight: minimumHeight, deviceScale: 1},
+		{outsideWidth: 1600, outsideHeight: 1000, deviceScale: 1},
+		{outsideWidth: 1600, outsideHeight: 1000, deviceScale: 2},
+	} {
+		game.layoutFor(input)
+		_, height := text.Measure("999999.9 s", game.textFace(14), 0)
+		lastRowBottom := (inspectionRowsTop+4*inspectionRowSpacing)*game.layout.unit + height
+		selectorTop := podSelectorTop * game.layout.unit
+		if lastRowBottom >= selectorTop {
+			t.Fatalf("inspection rows end at %g, pod selector starts at %g for %+v", lastRowBottom, selectorTop, input)
+		}
+	}
+}
+
+func TestInspectorAndButtonTextFitAvailableWidth(t *testing.T) {
+	t.Parallel()
+	game := journeyTestGame(t, 2)
+	game.layoutFor(layoutInput{outsideWidth: 1600, outsideHeight: 1000, deviceScale: 1})
+	tests := []struct {
+		name, value string
+		size, width float64
+		button      bool
+	}{
+		{name: "pod heading", value: "POD 01 / london-waterloo-parking-pod-001", size: 12, width: 140},
+		{name: "status", value: "Waiting for destination access at Waterloo Underground Station", size: 13, width: inspectionRight - inspectionLeft},
+		{name: "journey", value: "Heathrow Terminal 5 > King's Cross St Pancras", size: 17, width: inspectionRight - inspectionLeft},
+		{name: "station phase", value: "Approaching station / Tottenham Court Road", size: 14, width: inspectionRight - inspectionValueLeft},
+		{name: "demand pattern", value: "Pattern: london-weekday / weekday-am-peak", size: 14, width: 250, button: true},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			limit := test.width * game.layout.unit
+			got := game.fitText(test.value, test.size, test.width)
+			if test.button {
+				got = game.fitButtonText(test.value, test.size, limit)
+				limit -= 12 * game.layout.unit
+			}
+			width, _ := text.Measure(got, game.textFace(test.size), 0)
+			if width > limit {
+				t.Fatalf("fitted text %q width %g exceeds %g", got, width, limit)
+			}
+			if got == test.value {
+				t.Fatalf("long text %q was not shortened", test.value)
+			}
+		})
 	}
 }
 
