@@ -1,6 +1,11 @@
 package sim
 
-const routeCacheLimit = 4096
+const (
+	routeCacheLimit                 = 4096
+	ownedTrackCongestionSeconds     = 6.0
+	stoppedVehicleCongestionSeconds = 20.0
+	congestionRouteRefreshTicks     = 5 * TicksPerSecond
+)
 
 type routeKey struct {
 	from, to string
@@ -15,6 +20,9 @@ type routeResult struct {
 // Snapshots copy routes before they leave the simulation.
 func (s *Simulation) route(from, to string) ([]Lane, error) {
 	s.ensureNetworkIndexes()
+	if s.congestionRouting {
+		return s.congestionRoute(from, to)
+	}
 	key := routeKey{from: from, to: to}
 	if cached, ok := s.routes[key]; ok {
 		return cached.lanes, cached.err
@@ -22,6 +30,43 @@ func (s *Simulation) route(from, to string) ([]Lane, error) {
 	lanes, err := s.network.routeIndexed(networkRouteInput{from: from, to: to}, s.graph)
 	s.cacheRoute(key, routeResult{lanes: lanes, err: err})
 	return lanes, err
+}
+
+func (s *Simulation) congestionRoute(from, to string) ([]Lane, error) {
+	if s.congestionRouteCosts == nil || s.tick >= s.nextCongestionRouteRefresh {
+		s.congestionRouteCosts = s.congestionCosts()
+		s.congestionRoutes = make(map[routeKey]routeResult)
+		s.nextCongestionRouteRefresh = s.tick + congestionRouteRefreshTicks
+	}
+	key := routeKey{from: from, to: to}
+	if cached, ok := s.congestionRoutes[key]; ok {
+		return cached.lanes, cached.err
+	}
+	lanes, err := s.network.routeIndexed(networkRouteInput{from: from, to: to, extraCost: s.congestionRouteCosts}, s.graph)
+	s.congestionRoutes[key] = routeResult{lanes: lanes, err: err}
+	return lanes, err
+}
+
+func (s *Simulation) congestionCosts() []float64 {
+	costs := make([]float64, len(s.network.Lanes))
+	for claimed, owner := range s.owners {
+		if owner == "" || claimed.kind != trackResource {
+			continue
+		}
+		if index, ok := s.graph.lanes[claimed.id]; ok {
+			costs[index] += ownedTrackCongestionSeconds
+		}
+	}
+	for index := range s.vehicles {
+		pod := s.vehicles[index].Pod
+		if pod.Activity != Traveling || pod.LaneID == "" || pod.WaitReason == NoWait {
+			continue
+		}
+		if laneIndex, ok := s.graph.lanes[pod.LaneID]; ok {
+			costs[laneIndex] += stoppedVehicleCongestionSeconds
+		}
+	}
+	return costs
 }
 
 func (s *Simulation) stationPath(from, to string) ([]Lane, error) {
@@ -46,6 +91,8 @@ func (s *Simulation) ensureNetworkIndexes() {
 	s.lengths = nil
 	s.routes = nil
 	s.routeOrder = nil
+	s.congestionRouteCosts = nil
+	s.congestionRoutes = nil
 }
 
 func indexStations(network Network) map[string]int {

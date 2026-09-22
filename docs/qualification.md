@@ -165,6 +165,40 @@ and slightly worsened wait and clearance, so it remains off by default.
 Raw results are in
 [`measurements/rail-hub-sharing.csv`](measurements/rail-hub-sharing.csv).
 
+## Congestion-aware routing experiment
+
+The `scale100` mesh provides alternate paths between the Rail Hub focus and
+the other passenger stations. The experimental policy adds six seconds per
+owned track cell and 20 seconds for a stopped pod when it assigns a new route.
+It holds one cost snapshot for five simulated seconds. It does not change a
+route after departure, and it does not change movement or safety arbitration.
+
+The final comparison fixes redistribution off and uses the same 59-request
+hub-burst schedule for each routing policy. Three seeds run for 30 simulated
+minutes so free-flow traffic drains completely.
+
+```sh
+mise run compare -- -project /tmp/podsim-scale100.json -pattern hub-burst -duration 30m -arrivals-for 5m -request-every 5s -burst-size 12 -seeds 1,2,3 -redistribution-policies off -routing-policies free-flow,congestion -format csv -output docs/measurements/routing-policy.csv
+```
+
+| Three-seed mean | Free-flow | Congestion snapshot | Snapshot minus free-flow |
+| --- | ---: | ---: | ---: |
+| Served requests | 59.00 | 57.67 | -1.33 |
+| Remaining requests | 0.00 | 1.33 | +1.33 |
+| Average pickup wait | 326.66 s | 328.14 s | +1.48 s |
+| Peak pending requests | 47.0 | 47.0 | 0.0 |
+| Empty distance | 382.2 km | 388.2 km | +6.0 km |
+| Peak focus entrance stops | 1.00 | 1.33 | +0.33 |
+
+The snapshot policy performed worse. Its lower maximum wait and earlier
+pending-queue clearance are not benefits because fewer active journeys finish
+within the window. Free-flow remains the default. Keep the experimental arm
+for future work with measured lane travel times or junction-level delay, not
+as a user-facing routing mode.
+
+Raw results are in
+[`measurements/routing-policy.csv`](measurements/routing-policy.csv).
+
 ## WASM loading
 
 The build now creates `podsim.wasm.gz` with maximum gzip compression.

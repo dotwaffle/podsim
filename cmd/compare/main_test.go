@@ -37,6 +37,10 @@ func TestParseOptionsRejectsInvalidBounds(t *testing.T) {
 		{name: "zero burst", args: []string{"-burst-size", "0"}, want: "burst-size"},
 		{name: "zero sharing limit", args: []string{"-sharing-limits", "0"}, want: "sharing limits"},
 		{name: "duplicate sharing limit", args: []string{"-sharing-limits", "2,2"}, want: "more than once"},
+		{name: "unknown routing policy", args: []string{"-routing-policies", "fast"}, want: "unknown routing policy"},
+		{name: "duplicate routing policy", args: []string{"-routing-policies", "free-flow,free-flow"}, want: "more than once"},
+		{name: "unknown redistribution policy", args: []string{"-redistribution-policies", "maybe"}, want: "unknown redistribution policy"},
+		{name: "duplicate redistribution policy", args: []string{"-redistribution-policies", "off,off"}, want: "more than once"},
 		{name: "positional argument", args: []string{"extra"}, want: "unexpected positional"},
 	}
 	for _, test := range tests {
@@ -110,6 +114,28 @@ func TestComparePairsSharedRideLimits(t *testing.T) {
 	}
 }
 
+func TestComparePairsRoutingPolicies(t *testing.T) {
+	t.Parallel()
+	opts, err := parseOptions([]string{
+		"-duration", "2m", "-request-every", "20s", "-routing-policies", "free-flow,congestion",
+	}, &bytes.Buffer{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	caseStudy, err := loadScenario("", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	results, err := compare(opts, caseStudy)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(results) != 4 || results[0].RoutingPolicy != "free-flow" || results[1].RoutingPolicy != "free-flow" ||
+		results[2].RoutingPolicy != "congestion" || results[3].RoutingPolicy != "congestion" {
+		t.Fatalf("routing comparison arms = %+v", results)
+	}
+}
+
 func TestCLIOutputIsRepeatable(t *testing.T) {
 	t.Parallel()
 	args := []string{
@@ -176,7 +202,7 @@ func TestReportFormatsAreMachineReadable(t *testing.T) {
 	if err := json.Unmarshal(jsonOutput.Bytes(), &decoded); err != nil {
 		t.Fatal(err)
 	}
-	if decoded.SchemaVersion != 3 || !reflect.DeepEqual(decoded.Results, results) {
+	if decoded.SchemaVersion != 4 || !reflect.DeepEqual(decoded.Results, results) {
 		t.Fatalf("JSON report changed values: %+v", decoded)
 	}
 

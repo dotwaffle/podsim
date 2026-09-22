@@ -35,24 +35,28 @@ const (
 var knownPatterns = []string{"balanced", "destination", "hotspot", "bursty-hotspot", "hub-burst"}
 
 type options struct {
-	duration, arrivalsFor time.Duration
-	requestEvery          time.Duration
-	seed                  int64
-	seedsText             string
-	pattern               string
-	patternsText          string
-	loadsText             string
-	sharingLimitsText     string
-	focus                 string
-	format                string
-	projectPath           string
-	outputPath            string
-	queueLimit            int
-	burstSize             int
-	seeds                 []int64
-	patterns              []string
-	loads                 []time.Duration
-	sharingLimits         []int
+	duration, arrivalsFor  time.Duration
+	requestEvery           time.Duration
+	seed                   int64
+	seedsText              string
+	pattern                string
+	patternsText           string
+	loadsText              string
+	sharingLimitsText      string
+	routingPoliciesText    string
+	redistributionText     string
+	focus                  string
+	format                 string
+	projectPath            string
+	outputPath             string
+	queueLimit             int
+	burstSize              int
+	seeds                  []int64
+	patterns               []string
+	loads                  []time.Duration
+	sharingLimits          []int
+	routingPolicies        []string
+	redistributionPolicies []bool
 }
 
 type scheduledRequest struct {
@@ -76,6 +80,7 @@ type result struct {
 	Policy                       string  `json:"policy"`
 	SharedRidePartyLimit         int     `json:"shared_ride_party_limit"`
 	SharedParties                int     `json:"shared_parties"`
+	RoutingPolicy                string  `json:"routing_policy"`
 	FocusStation                 string  `json:"focus_station"`
 	WindowStartSeconds           float64 `json:"window_start_seconds"`
 	WindowEndSeconds             float64 `json:"window_end_seconds"`
@@ -170,6 +175,8 @@ func parseOptions(args []string, stderr io.Writer) (options, error) {
 	flags.StringVar(&opts.patternsText, "patterns", "", "comma-separated demand patterns or all")
 	flags.StringVar(&opts.loadsText, "loads", "", "comma-separated request intervals")
 	flags.StringVar(&opts.sharingLimitsText, "sharing-limits", "1", "comma-separated same-destination party limits")
+	flags.StringVar(&opts.routingPoliciesText, "routing-policies", "free-flow", "comma-separated routing policies: free-flow, congestion")
+	flags.StringVar(&opts.redistributionText, "redistribution-policies", "off,on", "comma-separated redistribution policies: off, on")
 	flags.StringVar(&opts.focus, "focus", "", "passenger station used by focused patterns")
 	flags.StringVar(&opts.format, "format", "table", "output format: table, json, or csv")
 	flags.StringVar(&opts.projectPath, "project", "", "raw project configuration path")
@@ -221,10 +228,55 @@ func parseOptions(args []string, stderr io.Writer) (options, error) {
 	if err != nil {
 		return options{}, err
 	}
-	if len(opts.seeds)*len(opts.patterns)*len(opts.loads)*len(opts.sharingLimits) > maxComparisons {
+	opts.routingPolicies, err = parseRoutingPolicies(opts.routingPoliciesText)
+	if err != nil {
+		return options{}, err
+	}
+	opts.redistributionPolicies, err = parseRedistributionPolicies(opts.redistributionText)
+	if err != nil {
+		return options{}, err
+	}
+	if len(opts.seeds)*len(opts.patterns)*len(opts.loads)*len(opts.sharingLimits)*len(opts.routingPolicies) > maxComparisons {
 		return options{}, fmt.Errorf("the matrix must contain at most %d comparisons", maxComparisons)
 	}
 	return opts, nil
+}
+
+func parseRedistributionPolicies(value string) ([]bool, error) {
+	parts := strings.Split(value, ",")
+	policies := make([]bool, 0, len(parts))
+	seen := make(map[bool]bool, len(parts))
+	for _, part := range parts {
+		name := strings.TrimSpace(part)
+		if name != "off" && name != "on" {
+			return nil, fmt.Errorf("unknown redistribution policy %q", name)
+		}
+		enabled := name == "on"
+		if seen[enabled] {
+			return nil, fmt.Errorf("redistribution policy %q appears more than once", name)
+		}
+		seen[enabled] = true
+		policies = append(policies, enabled)
+	}
+	return policies, nil
+}
+
+func parseRoutingPolicies(value string) ([]string, error) {
+	parts := strings.Split(value, ",")
+	policies := make([]string, 0, len(parts))
+	seen := make(map[string]bool, len(parts))
+	for _, part := range parts {
+		policy := strings.TrimSpace(part)
+		if policy != "free-flow" && policy != "congestion" {
+			return nil, fmt.Errorf("unknown routing policy %q", policy)
+		}
+		if seen[policy] {
+			return nil, fmt.Errorf("routing policy %q appears more than once", policy)
+		}
+		seen[policy] = true
+		policies = append(policies, policy)
+	}
+	return policies, nil
 }
 
 func parseSharingLimits(value string) ([]int, error) {
@@ -414,7 +466,7 @@ func readProject(path string) (project.Config, error) {
 }
 
 func compare(opts options, scenario scenario) ([]result, error) {
-	results := make([]result, 0, len(opts.patterns)*len(opts.loads)*len(opts.seeds)*len(opts.sharingLimits)*2)
+	results := make([]result, 0, len(opts.patterns)*len(opts.loads)*len(opts.seeds)*len(opts.sharingLimits)*len(opts.routingPolicies)*2)
 	for _, pattern := range opts.patterns {
 		for _, load := range opts.loads {
 			for _, seed := range opts.seeds {
@@ -425,17 +477,19 @@ func compare(opts options, scenario scenario) ([]result, error) {
 				})
 				id := scheduleID(schedule)
 				for _, sharingLimit := range opts.sharingLimits {
-					for _, enabled := range []bool{false, true} {
-						outcome, err := run(runInput{
-							enabled: enabled, duration: opts.duration, requestEvery: load, seed: seed,
-							pattern: pattern, scheduleID: id, queueLimit: opts.queueLimit,
-							burstSize: opts.burstSize, sharingLimit: sharingLimit,
-							schedule: schedule, scenario: scenario,
-						})
-						if err != nil {
-							return nil, err
+					for _, routingPolicy := range opts.routingPolicies {
+						for _, enabled := range opts.redistributionPolicies {
+							outcome, err := run(runInput{
+								enabled: enabled, duration: opts.duration, requestEvery: load, seed: seed,
+								pattern: pattern, scheduleID: id, queueLimit: opts.queueLimit,
+								burstSize: opts.burstSize, sharingLimit: sharingLimit, routingPolicy: routingPolicy,
+								schedule: schedule, scenario: scenario,
+							})
+							if err != nil {
+								return nil, err
+							}
+							results = append(results, outcome)
 						}
-						results = append(results, outcome)
 					}
 				}
 			}
@@ -525,6 +579,7 @@ type runInput struct {
 	queueLimit             int
 	burstSize              int
 	sharingLimit           int
+	routingPolicy          string
 	schedule               []scheduledRequest
 	scenario               scenario
 }
@@ -540,6 +595,7 @@ func run(input runInput) (result, error) {
 	if sharingErr := simulation.SetSharedRidePartyLimit(input.sharingLimit); sharingErr != nil {
 		return result{}, fmt.Errorf("set sharing limit: %w", sharingErr)
 	}
+	simulation.SetCongestionRouting(input.routingPolicy == "congestion")
 	simulation.SetRedistribution(input.enabled)
 	metrics, err := newRunMetrics(input.scenario, input.schedule)
 	if err != nil {
@@ -586,7 +642,7 @@ func run(input runInput) (result, error) {
 	return result{
 		Pattern: input.pattern, RequestEverySeconds: input.requestEvery.Seconds(), Seed: input.seed,
 		BurstSize: burstSize, Policy: policy, SharedRidePartyLimit: input.sharingLimit,
-		SharedParties: state.SharedParties, FocusStation: input.scenario.focus,
+		SharedParties: state.SharedParties, RoutingPolicy: input.routingPolicy, FocusStation: input.scenario.focus,
 		WindowStartSeconds: 0, WindowEndSeconds: input.duration.Seconds(), ArrivalEndSeconds: arrivalEnd, ScheduleID: input.scheduleID,
 		Scheduled: len(input.schedule), Served: state.Completed, Remaining: state.Submitted - state.Completed, Skipped: skipped,
 		PeakPending: metrics.peakPending, PeakFocusApproaching: metrics.peakApproaching,
@@ -640,7 +696,7 @@ func writeReport(input writeReportInput) error {
 	case "json":
 		encoder := json.NewEncoder(input.output)
 		encoder.SetIndent("", "  ")
-		if err := encoder.Encode(report{SchemaVersion: 3, Results: input.results}); err != nil {
+		if err := encoder.Encode(report{SchemaVersion: 4, Results: input.results}); err != nil {
 			return fmt.Errorf("write JSON report: %w", err)
 		}
 		return nil
@@ -659,12 +715,12 @@ func writeTable(output io.Writer, results []result) error {
 		return fmt.Errorf("write table window: %w", err)
 	}
 	w := tabwriter.NewWriter(output, 0, 4, 2, ' ', 0)
-	if _, err := fmt.Fprintln(w, "PATTERN\tLOAD (S)\tBURST\tSEED\tPOLICY\tSHARE LIMIT\tSHARED\tWAIT AVG\tWAIT MAX\tSERVED\tLEFT\tSKIPPED\tPEAK WAIT\tHUB IN\tHUB OUT\tHUB OCC\tHUB RSV\tCLEAR (S)\tPASSENGER (M)\tEMPTY (M)\tLOADED %\tMOVES"); err != nil {
+	if _, err := fmt.Fprintln(w, "PATTERN\tLOAD (S)\tBURST\tSEED\tPOLICY\tROUTING\tSHARE LIMIT\tSHARED\tWAIT AVG\tWAIT MAX\tSERVED\tLEFT\tSKIPPED\tPEAK WAIT\tHUB IN\tHUB OUT\tHUB OCC\tHUB RSV\tCLEAR (S)\tPASSENGER (M)\tEMPTY (M)\tLOADED %\tMOVES"); err != nil {
 		return fmt.Errorf("write table header: %w", err)
 	}
 	for _, outcome := range results {
-		if _, err := fmt.Fprintf(w, "%s\t%.2f\t%d\t%d\t%s\t%d\t%d\t%.2f\t%.2f\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%s\t%.1f\t%.1f\t%.2f\t%d\n",
-			outcome.Pattern, outcome.RequestEverySeconds, outcome.BurstSize, outcome.Seed, outcome.Policy, outcome.SharedRidePartyLimit, outcome.SharedParties,
+		if _, err := fmt.Fprintf(w, "%s\t%.2f\t%d\t%d\t%s\t%s\t%d\t%d\t%.2f\t%.2f\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%s\t%.1f\t%.1f\t%.2f\t%d\n",
+			outcome.Pattern, outcome.RequestEverySeconds, outcome.BurstSize, outcome.Seed, outcome.Policy, outcome.RoutingPolicy, outcome.SharedRidePartyLimit, outcome.SharedParties,
 			outcome.WaitAverageSeconds, outcome.WaitMaximumSeconds, outcome.Served, outcome.Remaining, outcome.Skipped,
 			outcome.PeakPending, outcome.PeakFocusEntranceStopped, outcome.PeakFocusExitStopped,
 			outcome.PeakFocusOccupiedBerths, outcome.PeakFocusReservedEmptyBerths, queueClearText(outcome),
@@ -682,7 +738,7 @@ func writeTable(output io.Writer, results []result) error {
 func writeCSV(output io.Writer, results []result) error {
 	w := csv.NewWriter(output)
 	header := []string{
-		"pattern", "request_every_seconds", "burst_size", "seed", "policy", "shared_ride_party_limit", "shared_parties", "focus_station", "window_start_seconds", "window_end_seconds", "arrival_end_seconds", "schedule_id",
+		"pattern", "request_every_seconds", "burst_size", "seed", "policy", "routing_policy", "shared_ride_party_limit", "shared_parties", "focus_station", "window_start_seconds", "window_end_seconds", "arrival_end_seconds", "schedule_id",
 		"scheduled", "served", "remaining", "skipped", "peak_pending", "peak_focus_approaching", "peak_focus_entrance_stopped", "peak_focus_exit_stopped",
 		"peak_focus_occupied_berths", "peak_focus_reserved_empty_berths", "queue_cleared", "queue_clear_seconds",
 		"wait_average_seconds", "wait_maximum_seconds", "passenger_distance_meters", "empty_distance_meters", "loaded_distance_percent", "positioning_moves",
@@ -692,7 +748,7 @@ func writeCSV(output io.Writer, results []result) error {
 	}
 	for _, outcome := range results {
 		row := []string{
-			outcome.Pattern, floatText(outcome.RequestEverySeconds), strconv.Itoa(outcome.BurstSize), strconv.FormatInt(outcome.Seed, 10), outcome.Policy,
+			outcome.Pattern, floatText(outcome.RequestEverySeconds), strconv.Itoa(outcome.BurstSize), strconv.FormatInt(outcome.Seed, 10), outcome.Policy, outcome.RoutingPolicy,
 			strconv.Itoa(outcome.SharedRidePartyLimit), strconv.Itoa(outcome.SharedParties), outcome.FocusStation,
 			floatText(outcome.WindowStartSeconds), floatText(outcome.WindowEndSeconds), floatText(outcome.ArrivalEndSeconds), outcome.ScheduleID,
 			strconv.Itoa(outcome.Scheduled), strconv.Itoa(outcome.Served), strconv.Itoa(outcome.Remaining), strconv.Itoa(outcome.Skipped),

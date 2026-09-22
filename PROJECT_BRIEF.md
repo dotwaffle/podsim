@@ -403,8 +403,10 @@ positioning reduced mean pickup wait by about four seconds, added 45.2 km of
 empty travel, and reduced loaded distance from 45.96% to 42.15%.
 See [docs/qualification.md](docs/qualification.md#rail-hub-burst-experiment).
 The four-party sharing arm cut mean wait by 65%, queue clearance by 53%, and
-empty travel by 49% while serving every request. The alternative-route
-experiment remains future work.
+empty travel by 49% while serving every request. A three-seed alternate-route
+experiment rejected the first occupied-track snapshot cost: it served 1.33
+fewer requests on average, increased mean wait, and added empty travel.
+Free-flow routing remains the default.
 
 ## 7. Research and reference tools
 

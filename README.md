@@ -163,6 +163,8 @@ The supported patterns are balanced, destination, hotspot, bursty-hotspot, and h
 Use `-arrivals-for` to stop new requests before the measurement ends.
 Use `-burst-size` to group burst-pattern requests at the same simulated time.
 Use `-sharing-limits 1,4` to compare same-destination party limits.
+Use `-routing-policies free-flow,congestion` for the experimental route-cost A/B.
+Use `-redistribution-policies off` to hold redistribution fixed.
 Pending requests contribute their elapsed wait at the end of the measurement window.
 
 ### Generated scenarios

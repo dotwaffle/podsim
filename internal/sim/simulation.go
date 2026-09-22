@@ -206,6 +206,10 @@ type Simulation struct {
 	rebalanceMoves               int
 	sharedRidePartyLimit         int
 	sharedParties                int
+	congestionRouting            bool
+	congestionRouteCosts         []float64
+	congestionRoutes             map[routeKey]routeResult
+	nextCongestionRouteRefresh   int64
 	reservationLookaheadSeconds  float64
 	laneSafety                   map[string]SafetyLocation
 	berthSafety                  map[string]SafetyLocation
@@ -286,6 +290,7 @@ func (s *Simulation) Reset() {
 	s.boarded, s.totalWaitTicks, s.maxWaitTicks = 0, 0, 0
 	s.redistribution, s.demandWeights = false, nil
 	s.nextRedistributionTick = 0
+	s.nextCongestionRouteRefresh, s.congestionRouteCosts, s.congestionRoutes = 0, nil, nil
 	s.passengerDistanceMeters, s.emptyDistanceMeters, s.rebalanceMoves, s.sharedParties = 0, 0, 0, 0
 	s.owners = make(map[resource]string)
 	s.vehicles = nil

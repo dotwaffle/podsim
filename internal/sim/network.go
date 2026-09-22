@@ -130,6 +130,7 @@ func (n Network) Route(from, to string) ([]Lane, error) {
 type networkRouteInput struct {
 	from, to  string
 	forbidden map[string]bool
+	extraCost []float64
 }
 
 func (n Network) route(input networkRouteInput) ([]Lane, error) {
@@ -169,7 +170,11 @@ func (n Network) routeIndexed(input networkRouteInput, graph routeGraph) ([]Lane
 				continue
 			}
 			next := graph.nodes[lane.To]
-			candidate := item.distance + graph.lengths[laneIndex]/lane.SpeedLimit
+			extra := 0.0
+			if laneIndex < len(input.extraCost) {
+				extra = input.extraCost[laneIndex]
+			}
+			candidate := item.distance + graph.lengths[laneIndex]/lane.SpeedLimit + extra
 			if candidate < distance[next] {
 				distance[next], previous[next] = candidate, laneIndex
 				queue.push(routeQueueItem{node: next, distance: candidate})
@@ -195,19 +200,21 @@ func (n Network) routeIndexed(input networkRouteInput, graph routeGraph) ([]Lane
 
 type routeGraph struct {
 	nodes    map[string]int
+	lanes    map[string]int
 	outgoing [][]int
 	lengths  []float64
 }
 
 func newRouteGraph(network Network) routeGraph {
 	graph := routeGraph{
-		nodes: make(map[string]int, len(network.Nodes)), outgoing: make([][]int, len(network.Nodes)),
+		nodes: make(map[string]int, len(network.Nodes)), lanes: make(map[string]int, len(network.Lanes)), outgoing: make([][]int, len(network.Nodes)),
 		lengths: make([]float64, len(network.Lanes)),
 	}
 	for index, node := range network.Nodes {
 		graph.nodes[node.ID] = index
 	}
 	for index, lane := range network.Lanes {
+		graph.lanes[lane.ID] = index
 		from, fromOK := graph.nodes[lane.From]
 		to, toOK := graph.nodes[lane.To]
 		if !fromOK || !toOK {
