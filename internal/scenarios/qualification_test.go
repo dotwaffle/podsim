@@ -266,23 +266,30 @@ func scheduleFingerprint(schedule []scheduledRequest) string {
 
 func checkScaleSafety(t *testing.T, state sim.SafetyObservation) {
 	t.Helper()
-	if err := scaleSafetyError(state); err != nil {
+	if _, err := scaleSafety(state); err != nil {
 		t.Fatal(err)
 	}
 }
 
 func scaleSafetyError(state sim.SafetyObservation) error {
+	_, err := scaleSafety(state)
+	return err
+}
+
+func scaleSafety(state sim.SafetyObservation) (float64, error) {
 	const minimumGapSquared = (sim.Clearance - 1e-6) * (sim.Clearance - 1e-6)
+	minimumObservedSquared := math.Inf(1)
 	for index, first := range state.Pods {
 		if math.IsNaN(first.Position.X) || math.IsNaN(first.Position.Y) || first.Speed < 0 || first.Speed > 14.000001 {
-			return fmt.Errorf("invalid pod at tick %d: %+v", state.Tick, first)
+			return 0, fmt.Errorf("invalid pod at tick %d: %+v", state.Tick, first)
 		}
 		for _, second := range state.Pods[index+1:] {
 			dx := first.Position.X - second.Position.X
 			dy := first.Position.Y - second.Position.Y
 			gapSquared := dx*dx + dy*dy
+			minimumObservedSquared = min(minimumObservedSquared, gapSquared)
 			if gapSquared < minimumGapSquared {
-				return fmt.Errorf("tick %d: pods %s and %s are %.5f meters apart: %+v %+v", state.Tick, first.ID, second.ID, math.Sqrt(gapSquared), first, second)
+				return 0, fmt.Errorf("tick %d: pods %s and %s are %.5f meters apart: %+v %+v", state.Tick, first.ID, second.ID, math.Sqrt(gapSquared), first, second)
 			}
 		}
 	}
@@ -303,13 +310,13 @@ func scaleSafetyError(state sim.SafetyObservation) error {
 	for _, berth := range state.Berths {
 		occupied := occupants[berth.ID]
 		if occupied.count > 1 {
-			return fmt.Errorf("berth capacity exceeded at tick %d: %+v", state.Tick, berth)
+			return 0, fmt.Errorf("berth capacity exceeded at tick %d: %+v", state.Tick, berth)
 		}
 		if occupied.count == 1 && (berth.Occupant != occupied.podID || berth.ReservedBy != occupied.podID) {
-			return fmt.Errorf("invalid berth state at tick %d: %+v", state.Tick, berth)
+			return 0, fmt.Errorf("invalid berth state at tick %d: %+v", state.Tick, berth)
 		}
 	}
-	return nil
+	return math.Sqrt(minimumObservedSquared), nil
 }
 
 func TestScaleSafetyOracle(t *testing.T) {

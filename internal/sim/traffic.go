@@ -1,6 +1,7 @@
 package sim
 
 import (
+	"fmt"
 	"math"
 	"slices"
 )
@@ -79,6 +80,16 @@ type intent struct {
 	id           string
 }
 
+// SetReservationLookahead controls how early pods request track beyond their
+// braking distance. It does not change physical clearance.
+func (s *Simulation) SetReservationLookahead(seconds float64) error {
+	if math.IsNaN(seconds) || math.IsInf(seconds, 0) || seconds < 0 || seconds > maxReservationLookaheadSeconds {
+		return fmt.Errorf("reservation lookahead must be between 0 and %.0f seconds", maxReservationLookaheadSeconds)
+	}
+	s.reservationLookaheadSeconds = seconds
+	return nil
+}
+
 func (s *Simulation) admit() {
 	var intents []intent
 	for i := range s.vehicles {
@@ -96,10 +107,10 @@ func (s *Simulation) admit() {
 		if next >= len(v.blocks) {
 			continue
 		}
-		// Reserve enough track for cruising speed plus two ticks of travel.
+		// Reserve enough track for cruising speed plus the configured lookahead.
 		// A denied extension leaves the existing stopping boundary intact.
 		speed := math.Max(v.Pod.Speed, v.blocks[v.blockIndex].lane.SpeedLimit)
-		horizon := speed*speed/(2*acceleration) + 2*speed/TicksPerSecond
+		horizon := speed*speed/(2*acceleration) + speed*s.reservationLookaheadSeconds
 		if v.reservedThrough >= 0 && v.blocks[v.reservedThrough].end-v.distance >= horizon {
 			continue
 		}

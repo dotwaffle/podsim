@@ -12,6 +12,9 @@ const (
 	boardingTicks  = 3 * TicksPerSecond
 	unloadingTicks = 2 * TicksPerSecond
 	acceleration   = 2.0
+
+	defaultReservationLookaheadSeconds = 2.0 / TicksPerSecond
+	maxReservationLookaheadSeconds     = 10.0
 	// Clearance combines a four-meter pod length and an eight-meter gap.
 	Clearance = 4.0 + 8.0
 )
@@ -179,6 +182,7 @@ type Simulation struct {
 	passengerDistanceMeters      float64
 	emptyDistanceMeters          float64
 	rebalanceMoves               int
+	reservationLookaheadSeconds  float64
 }
 
 // New creates a one-pod scenario for focused experiments.
@@ -224,7 +228,10 @@ func NewFleet(network Network, placements []Placement) (*Simulation, error) {
 		}
 		return 0
 	})
-	s := &Simulation{network: network.clone(), initial: initial}
+	s := &Simulation{
+		network: network.clone(), initial: initial,
+		reservationLookaheadSeconds: defaultReservationLookaheadSeconds,
+	}
 	s.Reset()
 	return s, nil
 }
