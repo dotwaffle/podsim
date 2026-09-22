@@ -127,6 +127,15 @@ test("portable OD profiles validate and round trip", () => {
   assert.ok(editor.validateConfig(config).some((error) => error.includes("invalid weight")));
 });
 
+test("portable projects preserve the shared ride party limit", () => {
+  const config = connectedScenario();
+  config.sharedRidePartyLimit = 4;
+  assert.deepEqual(editor.validateConfig(config), []);
+  assert.equal(editor.parseDocument(editor.serializeDocument(config)).scenario.sharedRidePartyLimit, 4);
+  config.sharedRidePartyLimit = 9;
+  assert.ok(editor.validateConfig(config).some((error) => error.includes("shared ride party limit")));
+});
+
 test("portable import accepts the legacy market demand pattern", () => {
   const config = connectedScenario();
   config.network.Stations[1].ID = "market";

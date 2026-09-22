@@ -7,7 +7,7 @@ project persistence, manual and automatic demand, pod dispatch, local traffic
 control, inspection, pod following, and fleet-use statistics.
 The server owns one shared simulation session for all connected browsers.
 Optional empty-pod redistribution is available but remains off by default.
-The first railway-hub capacity experiment is complete.
+The railway-hub capacity and same-destination sharing experiments are complete.
 Detailed station maneuvers, protocol compaction, and the other experiments in
 Section 6 remain later work.
 See [README.md](README.md) for controls, validation commands, and current model limits.
@@ -402,7 +402,9 @@ The five-seed experiment served all demand with either policy. Advance
 positioning reduced mean pickup wait by about four seconds, added 45.2 km of
 empty travel, and reduced loaded distance from 45.96% to 42.15%.
 See [docs/qualification.md](docs/qualification.md#rail-hub-burst-experiment).
-Same-destination sharing and the alternative-route experiment remain future work.
+The four-party sharing arm cut mean wait by 65%, queue clearance by 53%, and
+empty travel by 49% while serving every request. The alternative-route
+experiment remains future work.
 
 ## 7. Research and reference tools
 

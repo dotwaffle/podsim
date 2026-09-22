@@ -132,6 +132,39 @@ Both policies served 69 and left 50 pending. That overload probe shows why the
 recorded experiment uses a finite five-minute arrival window and reports drain
 time instead of treating an undrained queue as completed capacity.
 
+### Same-destination sharing
+
+The rail-hub schedule also compares the default one-party policy with a limit
+of four parties per pod. A party can join only while a pod is still boarding at
+the same origin for the same destination. It never diverts an assigned pickup
+pod, delays departure to wait for another party, or adds an intermediate stop.
+The limit counts parties separately from passenger `PartySize`.
+
+```sh
+mise run compare -- -project /tmp/podsim-rail-hub.json -pattern hub-burst -duration 30m -arrivals-for 5m -request-every 5s -burst-size 12 -seeds 1,2,3,4,5 -sharing-limits 1,4 -format csv -output docs/measurements/rail-hub-sharing.csv
+```
+
+| Five-seed mean | Limit 1, redistribution off | Limit 4, redistribution off | Limit 4, redistribution on |
+| --- | ---: | ---: | ---: |
+| Served requests | 59 | 59 | 59 |
+| Parties joining a boarding pod | 0 | 26.4 | 25.8 |
+| Average pickup wait | 532.29 s | 186.27 s | 189.38 s |
+| Maximum pickup wait | 1053.65 s | 537.31 s | 543.24 s |
+| Queue clearance after final arrival | 1054.0 s | 492.0 s | 514.4 s |
+| Peak pending requests | 48.0 | 35.2 | 35.8 |
+| Occupied-pod distance | 230.5 km | 125.0 km | 128.3 km |
+| Empty distance | 271.0 km | 137.6 km | 212.2 km |
+| Loaded distance | 45.96% | 47.65% | 37.69% |
+
+With redistribution off, sharing reduced mean wait by 65%, queue-clearance
+time by 53%, and empty travel by 49%. All demand still completed. The lower
+occupied-pod distance records physical pod movement, not passenger-kilometers;
+several parties now use one movement. Redistribution again added empty travel
+and slightly worsened wait and clearance, so it remains off by default.
+
+Raw results are in
+[`measurements/rail-hub-sharing.csv`](measurements/rail-hub-sharing.csv).
+
 ## WASM loading
 
 The build now creates `podsim.wasm.gz` with maximum gzip compression.

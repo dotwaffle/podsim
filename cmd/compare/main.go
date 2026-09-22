@@ -42,6 +42,7 @@ type options struct {
 	pattern               string
 	patternsText          string
 	loadsText             string
+	sharingLimitsText     string
 	focus                 string
 	format                string
 	projectPath           string
@@ -51,6 +52,7 @@ type options struct {
 	seeds                 []int64
 	patterns              []string
 	loads                 []time.Duration
+	sharingLimits         []int
 }
 
 type scheduledRequest struct {
@@ -72,6 +74,8 @@ type result struct {
 	BurstSize                    int     `json:"burst_size"`
 	Seed                         int64   `json:"seed"`
 	Policy                       string  `json:"policy"`
+	SharedRidePartyLimit         int     `json:"shared_ride_party_limit"`
+	SharedParties                int     `json:"shared_parties"`
 	FocusStation                 string  `json:"focus_station"`
 	WindowStartSeconds           float64 `json:"window_start_seconds"`
 	WindowEndSeconds             float64 `json:"window_end_seconds"`
@@ -165,6 +169,7 @@ func parseOptions(args []string, stderr io.Writer) (options, error) {
 	flags.StringVar(&opts.pattern, "pattern", "hotspot", "demand pattern")
 	flags.StringVar(&opts.patternsText, "patterns", "", "comma-separated demand patterns or all")
 	flags.StringVar(&opts.loadsText, "loads", "", "comma-separated request intervals")
+	flags.StringVar(&opts.sharingLimitsText, "sharing-limits", "1", "comma-separated same-destination party limits")
 	flags.StringVar(&opts.focus, "focus", "", "passenger station used by focused patterns")
 	flags.StringVar(&opts.format, "format", "table", "output format: table, json, or csv")
 	flags.StringVar(&opts.projectPath, "project", "", "raw project configuration path")
@@ -212,10 +217,32 @@ func parseOptions(args []string, stderr io.Writer) (options, error) {
 	if err != nil {
 		return options{}, err
 	}
-	if len(opts.seeds)*len(opts.patterns)*len(opts.loads) > maxComparisons {
+	opts.sharingLimits, err = parseSharingLimits(opts.sharingLimitsText)
+	if err != nil {
+		return options{}, err
+	}
+	if len(opts.seeds)*len(opts.patterns)*len(opts.loads)*len(opts.sharingLimits) > maxComparisons {
 		return options{}, fmt.Errorf("the matrix must contain at most %d comparisons", maxComparisons)
 	}
 	return opts, nil
+}
+
+func parseSharingLimits(value string) ([]int, error) {
+	parts := strings.Split(value, ",")
+	limits := make([]int, 0, len(parts))
+	seen := make(map[int]bool, len(parts))
+	for _, part := range parts {
+		limit, err := strconv.Atoi(strings.TrimSpace(part))
+		if err != nil || limit < 1 || limit > sim.MaxSharedRideParties {
+			return nil, fmt.Errorf("sharing limits must be integers from 1 to %d", sim.MaxSharedRideParties)
+		}
+		if seen[limit] {
+			return nil, fmt.Errorf("sharing limit %d appears more than once", limit)
+		}
+		seen[limit] = true
+		limits = append(limits, limit)
+	}
+	return limits, nil
 }
 
 func parseSeeds(single int64, list string) ([]int64, error) {
@@ -387,7 +414,7 @@ func readProject(path string) (project.Config, error) {
 }
 
 func compare(opts options, scenario scenario) ([]result, error) {
-	results := make([]result, 0, len(opts.patterns)*len(opts.loads)*len(opts.seeds)*2)
+	results := make([]result, 0, len(opts.patterns)*len(opts.loads)*len(opts.seeds)*len(opts.sharingLimits)*2)
 	for _, pattern := range opts.patterns {
 		for _, load := range opts.loads {
 			for _, seed := range opts.seeds {
@@ -397,17 +424,19 @@ func compare(opts options, scenario scenario) ([]result, error) {
 					passengers: scenario.passengers, focus: scenario.focus,
 				})
 				id := scheduleID(schedule)
-				for _, enabled := range []bool{false, true} {
-					outcome, err := run(runInput{
-						enabled: enabled, duration: opts.duration, requestEvery: load, seed: seed,
-						pattern: pattern, scheduleID: id, queueLimit: opts.queueLimit,
-						burstSize: opts.burstSize,
-						schedule:  schedule, scenario: scenario,
-					})
-					if err != nil {
-						return nil, err
+				for _, sharingLimit := range opts.sharingLimits {
+					for _, enabled := range []bool{false, true} {
+						outcome, err := run(runInput{
+							enabled: enabled, duration: opts.duration, requestEvery: load, seed: seed,
+							pattern: pattern, scheduleID: id, queueLimit: opts.queueLimit,
+							burstSize: opts.burstSize, sharingLimit: sharingLimit,
+							schedule: schedule, scenario: scenario,
+						})
+						if err != nil {
+							return nil, err
+						}
+						results = append(results, outcome)
 					}
-					results = append(results, outcome)
 				}
 			}
 		}
@@ -495,6 +524,7 @@ type runInput struct {
 	pattern, scheduleID    string
 	queueLimit             int
 	burstSize              int
+	sharingLimit           int
 	schedule               []scheduledRequest
 	scenario               scenario
 }
@@ -506,6 +536,9 @@ func run(input runInput) (result, error) {
 	}
 	if demandErr := simulation.SetDemandWeights(demandWeights(input.pattern, input.scenario)); demandErr != nil {
 		return result{}, fmt.Errorf("set demand weights: %w", demandErr)
+	}
+	if sharingErr := simulation.SetSharedRidePartyLimit(input.sharingLimit); sharingErr != nil {
+		return result{}, fmt.Errorf("set sharing limit: %w", sharingErr)
 	}
 	simulation.SetRedistribution(input.enabled)
 	metrics, err := newRunMetrics(input.scenario, input.schedule)
@@ -552,7 +585,8 @@ func run(input runInput) (result, error) {
 	}
 	return result{
 		Pattern: input.pattern, RequestEverySeconds: input.requestEvery.Seconds(), Seed: input.seed,
-		BurstSize: burstSize, Policy: policy, FocusStation: input.scenario.focus,
+		BurstSize: burstSize, Policy: policy, SharedRidePartyLimit: input.sharingLimit,
+		SharedParties: state.SharedParties, FocusStation: input.scenario.focus,
 		WindowStartSeconds: 0, WindowEndSeconds: input.duration.Seconds(), ArrivalEndSeconds: arrivalEnd, ScheduleID: input.scheduleID,
 		Scheduled: len(input.schedule), Served: state.Completed, Remaining: state.Submitted - state.Completed, Skipped: skipped,
 		PeakPending: metrics.peakPending, PeakFocusApproaching: metrics.peakApproaching,
@@ -606,7 +640,7 @@ func writeReport(input writeReportInput) error {
 	case "json":
 		encoder := json.NewEncoder(input.output)
 		encoder.SetIndent("", "  ")
-		if err := encoder.Encode(report{SchemaVersion: 2, Results: input.results}); err != nil {
+		if err := encoder.Encode(report{SchemaVersion: 3, Results: input.results}); err != nil {
 			return fmt.Errorf("write JSON report: %w", err)
 		}
 		return nil
@@ -625,12 +659,12 @@ func writeTable(output io.Writer, results []result) error {
 		return fmt.Errorf("write table window: %w", err)
 	}
 	w := tabwriter.NewWriter(output, 0, 4, 2, ' ', 0)
-	if _, err := fmt.Fprintln(w, "PATTERN\tLOAD (S)\tBURST\tSEED\tPOLICY\tWAIT AVG\tWAIT MAX\tSERVED\tLEFT\tSKIPPED\tPEAK WAIT\tHUB IN\tHUB OUT\tHUB OCC\tHUB RSV\tCLEAR (S)\tPASSENGER (M)\tEMPTY (M)\tLOADED %\tMOVES"); err != nil {
+	if _, err := fmt.Fprintln(w, "PATTERN\tLOAD (S)\tBURST\tSEED\tPOLICY\tSHARE LIMIT\tSHARED\tWAIT AVG\tWAIT MAX\tSERVED\tLEFT\tSKIPPED\tPEAK WAIT\tHUB IN\tHUB OUT\tHUB OCC\tHUB RSV\tCLEAR (S)\tPASSENGER (M)\tEMPTY (M)\tLOADED %\tMOVES"); err != nil {
 		return fmt.Errorf("write table header: %w", err)
 	}
 	for _, outcome := range results {
-		if _, err := fmt.Fprintf(w, "%s\t%.2f\t%d\t%d\t%s\t%.2f\t%.2f\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%s\t%.1f\t%.1f\t%.2f\t%d\n",
-			outcome.Pattern, outcome.RequestEverySeconds, outcome.BurstSize, outcome.Seed, outcome.Policy,
+		if _, err := fmt.Fprintf(w, "%s\t%.2f\t%d\t%d\t%s\t%d\t%d\t%.2f\t%.2f\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%s\t%.1f\t%.1f\t%.2f\t%d\n",
+			outcome.Pattern, outcome.RequestEverySeconds, outcome.BurstSize, outcome.Seed, outcome.Policy, outcome.SharedRidePartyLimit, outcome.SharedParties,
 			outcome.WaitAverageSeconds, outcome.WaitMaximumSeconds, outcome.Served, outcome.Remaining, outcome.Skipped,
 			outcome.PeakPending, outcome.PeakFocusEntranceStopped, outcome.PeakFocusExitStopped,
 			outcome.PeakFocusOccupiedBerths, outcome.PeakFocusReservedEmptyBerths, queueClearText(outcome),
@@ -648,7 +682,7 @@ func writeTable(output io.Writer, results []result) error {
 func writeCSV(output io.Writer, results []result) error {
 	w := csv.NewWriter(output)
 	header := []string{
-		"pattern", "request_every_seconds", "burst_size", "seed", "policy", "focus_station", "window_start_seconds", "window_end_seconds", "arrival_end_seconds", "schedule_id",
+		"pattern", "request_every_seconds", "burst_size", "seed", "policy", "shared_ride_party_limit", "shared_parties", "focus_station", "window_start_seconds", "window_end_seconds", "arrival_end_seconds", "schedule_id",
 		"scheduled", "served", "remaining", "skipped", "peak_pending", "peak_focus_approaching", "peak_focus_entrance_stopped", "peak_focus_exit_stopped",
 		"peak_focus_occupied_berths", "peak_focus_reserved_empty_berths", "queue_cleared", "queue_clear_seconds",
 		"wait_average_seconds", "wait_maximum_seconds", "passenger_distance_meters", "empty_distance_meters", "loaded_distance_percent", "positioning_moves",
@@ -658,7 +692,8 @@ func writeCSV(output io.Writer, results []result) error {
 	}
 	for _, outcome := range results {
 		row := []string{
-			outcome.Pattern, floatText(outcome.RequestEverySeconds), strconv.Itoa(outcome.BurstSize), strconv.FormatInt(outcome.Seed, 10), outcome.Policy, outcome.FocusStation,
+			outcome.Pattern, floatText(outcome.RequestEverySeconds), strconv.Itoa(outcome.BurstSize), strconv.FormatInt(outcome.Seed, 10), outcome.Policy,
+			strconv.Itoa(outcome.SharedRidePartyLimit), strconv.Itoa(outcome.SharedParties), outcome.FocusStation,
 			floatText(outcome.WindowStartSeconds), floatText(outcome.WindowEndSeconds), floatText(outcome.ArrivalEndSeconds), outcome.ScheduleID,
 			strconv.Itoa(outcome.Scheduled), strconv.Itoa(outcome.Served), strconv.Itoa(outcome.Remaining), strconv.Itoa(outcome.Skipped),
 			strconv.Itoa(outcome.PeakPending), strconv.Itoa(outcome.PeakFocusApproaching), strconv.Itoa(outcome.PeakFocusEntranceStopped), strconv.Itoa(outcome.PeakFocusExitStopped),

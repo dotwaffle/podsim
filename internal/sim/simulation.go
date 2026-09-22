@@ -17,6 +17,8 @@ const (
 	maxReservationLookaheadSeconds     = 10.0
 	// Clearance combines a four-meter pod length and an eight-meter gap.
 	Clearance = 4.0 + 8.0
+	// MaxSharedRideParties bounds the same-destination sharing experiment.
+	MaxSharedRideParties = 8
 )
 
 // Activity is the pod's current operation.
@@ -92,6 +94,8 @@ type Vehicle struct {
 	Pod     Pod      `json:"Pod"`
 	Request *Request `json:"Request"`
 	Route   []Lane   `json:"Route"`
+	// Parties counts separately submitted passenger groups aboard this pod.
+	Parties int `json:"Parties,omitempty"`
 	// RelocatingTo identifies the destination station during an empty move.
 	RelocatingTo string `json:"RelocatingTo"`
 	// Rebalancing reports whether an empty move was started by redistribution.
@@ -123,6 +127,9 @@ type Snapshot struct {
 	Wait WaitStats `json:"Wait"`
 	// PassengerDistanceMeters is the distance traveled with a passenger.
 	PassengerDistanceMeters float64 `json:"PassengerDistanceMeters"`
+	// SharedParties counts parties that joined another party's boarding pod.
+	SharedParties        int `json:"SharedParties"`
+	SharedRidePartyLimit int `json:"SharedRidePartyLimit"`
 	// EmptyDistanceMeters is the distance traveled without a passenger.
 	EmptyDistanceMeters float64 `json:"EmptyDistanceMeters"`
 	// RebalanceMoves counts proactive empty moves started since reset.
@@ -197,6 +204,8 @@ type Simulation struct {
 	passengerDistanceMeters      float64
 	emptyDistanceMeters          float64
 	rebalanceMoves               int
+	sharedRidePartyLimit         int
+	sharedParties                int
 	reservationLookaheadSeconds  float64
 	laneSafety                   map[string]SafetyLocation
 	berthSafety                  map[string]SafetyLocation
@@ -252,6 +261,7 @@ func NewFleet(network Network, placements []Placement) (*Simulation, error) {
 		stationIndexes:              indexStations(owned),
 		stationForbidden:            owned.stationForbidden(),
 		geometry:                    buildLaneGeometry(owned),
+		sharedRidePartyLimit:        1,
 		reservationLookaheadSeconds: defaultReservationLookaheadSeconds,
 		laneSafety:                  make(map[string]SafetyLocation, len(network.Lanes)),
 		berthSafety:                 make(map[string]SafetyLocation),
@@ -276,7 +286,7 @@ func (s *Simulation) Reset() {
 	s.boarded, s.totalWaitTicks, s.maxWaitTicks = 0, 0, 0
 	s.redistribution, s.demandWeights = false, nil
 	s.nextRedistributionTick = 0
-	s.passengerDistanceMeters, s.emptyDistanceMeters, s.rebalanceMoves = 0, 0, 0
+	s.passengerDistanceMeters, s.emptyDistanceMeters, s.rebalanceMoves, s.sharedParties = 0, 0, 0, 0
 	s.owners = make(map[resource]string)
 	s.vehicles = nil
 	for _, p := range s.initial {
@@ -297,6 +307,7 @@ func (s *Simulation) Snapshot() Snapshot {
 		Completed: s.completed, Demo: s.demo != nil, DemoError: s.demoError,
 		Wait: s.waitStats(), PassengerDistanceMeters: s.passengerDistanceMeters,
 		EmptyDistanceMeters: s.emptyDistanceMeters, RebalanceMoves: s.rebalanceMoves,
+		SharedParties: s.sharedParties, SharedRidePartyLimit: s.sharedRidePartyLimit,
 	}
 	for _, trip := range s.waiting {
 		state.Pending = append(state.Pending, trip.request)
@@ -412,7 +423,8 @@ func (s *Simulation) Step() {
 		if v.Pod.Activity == Unloading && v.phaseTicks == 0 {
 			v.Pod.Activity, v.Pod.Occupied = Idle, false
 			v.Request.Completed = true
-			s.completed++
+			s.completed += max(1, v.Parties)
+			v.Parties = 0
 		}
 	}
 	s.dispatch()

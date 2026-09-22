@@ -75,7 +75,9 @@ type Config struct {
 	Fleet          []sim.Placement `json:"fleet"`
 	Demand         DemandConfig    `json:"demand"`
 	DemandProfiles []DemandProfile `json:"demandProfiles,omitempty"`
-	Redistribution bool            `json:"redistribution"`
+	// SharedRidePartyLimit caps same-destination parties per pod. Zero loads as one.
+	SharedRidePartyLimit int  `json:"sharedRidePartyLimit,omitempty"`
+	Redistribution       bool `json:"redistribution"`
 }
 
 // Default returns the supplied example project.
@@ -88,7 +90,8 @@ func Default() Config {
 			{ID: "01", StationID: "harbor", BerthID: "harbor-1"},
 			{ID: "02", StationID: "garden", BerthID: "garden-1"},
 		},
-		Demand: DemandConfig{PerMinute: 2, Pattern: "balanced", Seed: 1},
+		Demand:               DemandConfig{PerMinute: 2, Pattern: "balanced", Seed: 1},
+		SharedRidePartyLimit: 1,
 	}
 }
 
@@ -111,6 +114,9 @@ func Validate(config Config) error {
 	}
 	if len(config.Fleet) == 0 || len(config.Fleet) > maxPods {
 		return fmt.Errorf("fleet must contain 1 to %d pods", maxPods)
+	}
+	if config.SharedRidePartyLimit < 0 || config.SharedRidePartyLimit > sim.MaxSharedRideParties {
+		return fmt.Errorf("shared ride party limit must be 1 to %d", sim.MaxSharedRideParties)
 	}
 	if err := validateNames(config); err != nil {
 		return err
@@ -148,6 +154,11 @@ func Validate(config Config) error {
 		}
 	}
 	return nil
+}
+
+// EffectiveSharedRidePartyLimit returns one for legacy projects that omit the setting.
+func EffectiveSharedRidePartyLimit(config Config) int {
+	return max(1, config.SharedRidePartyLimit)
 }
 
 func directedReachable(adjacent map[string][]string, start string) map[string]bool {

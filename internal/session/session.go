@@ -100,6 +100,9 @@ func NewWithProject(config project.Config, options ...Option) (*Session, error) 
 	if err != nil {
 		return nil, fmt.Errorf("create shared fleet: %w", err)
 	}
+	if err := simulation.SetSharedRidePartyLimit(project.EffectiveSharedRidePartyLimit(owned)); err != nil {
+		return nil, fmt.Errorf("configure shared rides: %w", err)
+	}
 	session := &Session{
 		simulation:      simulation,
 		project:         owned,
@@ -305,6 +308,9 @@ func (s *Session) applyProject(command Command) error {
 	candidate, err := sim.NewFleet(config.Network, config.Fleet)
 	if err != nil {
 		return fmt.Errorf("create project fleet: %w", err)
+	}
+	if err := candidate.SetSharedRidePartyLimit(project.EffectiveSharedRidePartyLimit(config)); err != nil {
+		return fmt.Errorf("configure shared rides: %w", err)
 	}
 	candidate.SetPaused(true)
 	if err := s.save(config); err != nil {

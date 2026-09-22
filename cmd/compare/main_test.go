@@ -8,6 +8,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/dotwaffle/podsim/internal/sim"
 )
 
 func TestParseOptionsRejectsInvalidBounds(t *testing.T) {
@@ -33,6 +35,8 @@ func TestParseOptionsRejectsInvalidBounds(t *testing.T) {
 		{name: "unknown format", args: []string{"-format", "yaml"}, want: "format must"},
 		{name: "zero queue", args: []string{"-queue-limit", "0"}, want: "queue-limit"},
 		{name: "zero burst", args: []string{"-burst-size", "0"}, want: "burst-size"},
+		{name: "zero sharing limit", args: []string{"-sharing-limits", "0"}, want: "sharing limits"},
+		{name: "duplicate sharing limit", args: []string{"-sharing-limits", "2,2"}, want: "more than once"},
 		{name: "positional argument", args: []string{"extra"}, want: "unexpected positional"},
 	}
 	for _, test := range tests {
@@ -77,6 +81,32 @@ func TestCompareIsRepeatableAndPairsSchedules(t *testing.T) {
 		if off.Policy != "off" || on.Policy != "on" || off.ScheduleID != on.ScheduleID || off.Scheduled != on.Scheduled {
 			t.Fatalf("comparison pair does not share a schedule: off=%+v on=%+v", off, on)
 		}
+	}
+}
+
+func TestComparePairsSharedRideLimits(t *testing.T) {
+	t.Parallel()
+	opts, err := parseOptions([]string{
+		"-duration", "2m", "-request-every", "10s", "-pattern", "hub-burst", "-burst-size", "3", "-sharing-limits", "1,3",
+	}, &bytes.Buffer{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	caseStudy, err := loadScenario("", "market")
+	if err != nil {
+		t.Fatal(err)
+	}
+	caseStudy.fleet = append(caseStudy.fleet, sim.Placement{ID: "03", StationID: "market", BerthID: "market-1"})
+	results, err := compare(opts, caseStudy)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(results) != 4 || results[0].SharedRidePartyLimit != 1 || results[1].SharedRidePartyLimit != 1 ||
+		results[2].SharedRidePartyLimit != 3 || results[3].SharedRidePartyLimit != 3 {
+		t.Fatalf("sharing comparison arms = %+v", results)
+	}
+	if results[2].SharedParties == 0 || results[3].SharedParties == 0 {
+		t.Fatalf("sharing comparison did not combine parties: %+v", results)
 	}
 }
 
@@ -146,7 +176,7 @@ func TestReportFormatsAreMachineReadable(t *testing.T) {
 	if err := json.Unmarshal(jsonOutput.Bytes(), &decoded); err != nil {
 		t.Fatal(err)
 	}
-	if decoded.SchemaVersion != 2 || !reflect.DeepEqual(decoded.Results, results) {
+	if decoded.SchemaVersion != 3 || !reflect.DeepEqual(decoded.Results, results) {
 		t.Fatalf("JSON report changed values: %+v", decoded)
 	}
 

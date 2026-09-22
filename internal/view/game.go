@@ -196,7 +196,7 @@ func (g *Game) buttons() []button {
 		{x: 651, y: 104, w: 28, h: 24, label: "+", action: "map-zoom-in"},
 		{x: 685, y: 104, w: 66, h: 24, label: "Fit", action: "map-fit"},
 		{x: 964, y: 104, w: 96, h: 24, label: followLabel, selected: g.followSelected, action: "map-follow", fontSize: 11},
-		{x: 810, y: 529, w: 120, h: 26, label: fmt.Sprintf("Orders %d", len(outstandingOrders(state))), selected: g.showOrders, action: "orders"},
+		{x: 810, y: 529, w: 120, h: 26, label: fmt.Sprintf("Orders %d", outstandingOrderCount(state)), selected: g.showOrders, action: "orders"},
 		{x: 940, y: 529, w: 120, h: 26, label: "Demand", selected: g.showDemand, action: "demand"},
 		{x: 930, y: 644, w: 130, h: 42, label: requestLabel, selected: true, disabled: busy || g.destination == g.origin, action: "request"},
 		{x: 810, y: 440, w: 250, h: 36, label: pauseLabel, action: "pause"},
@@ -738,8 +738,11 @@ func (g *Game) drawInspection(screen *ebiten.Image, state sim.Snapshot) {
 	}
 	g.label(screen, label{x: 816, y: 224, size: 17, value: journey, color: foreground})
 	passengers := "Empty"
-	if state.Vehicles[g.selected].Pod.Occupied {
-		passengers = "1 party / 1 passenger"
+	selected := state.Vehicles[g.selected]
+	if selected.Pod.Occupied && selected.Request != nil {
+		parties := max(1, selected.Parties)
+		passengers = fmt.Sprintf("%d %s / %d %s", parties, countNoun(parties, "party", "parties"),
+			selected.Request.PartySize, countNoun(selected.Request.PartySize, "passenger", "passengers"))
 	}
 	rows := []struct{ name, value string }{
 		{"Speed", fmt.Sprintf("%.0f km/h", state.Vehicles[g.selected].Pod.Speed*3.6)},
@@ -752,6 +755,13 @@ func (g *Game) drawInspection(screen *ebiten.Image, state sim.Snapshot) {
 		g.label(screen, label{x: 816, y: y, size: 14, value: row.name, color: muted})
 		g.label(screen, label{x: 924, y: y, size: 14, value: row.value, color: foreground})
 	}
+}
+
+func countNoun(count int, singular, plural string) string {
+	if count == 1 {
+		return singular
+	}
+	return plural
 }
 
 func fleetPodLabel(index int) string {

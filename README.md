@@ -162,6 +162,7 @@ Schedule IDs identify the identical requests used for each off/on pair.
 The supported patterns are balanced, destination, hotspot, bursty-hotspot, and hub-burst.
 Use `-arrivals-for` to stop new requests before the measurement ends.
 Use `-burst-size` to group burst-pattern requests at the same simulated time.
+Use `-sharing-limits 1,4` to compare same-destination party limits.
 Pending requests contribute their elapsed wait at the end of the measurement window.
 
 ### Generated scenarios
@@ -203,7 +204,10 @@ Routing chooses the shortest free-flow travel time on directed lanes.
 Equal-cost routes use scenario order for deterministic results.
 Automatic demand is optional and starts disabled.
 
-One party contains one passenger and uses one pod.
+One party contains one passenger. By default, each party uses one pod.
+An optional limit of two to eight lets unassigned parties join a pod that is
+still boarding at the same origin for the same destination.
+Sharing does not wait for more parties or add stops.
 Passengers request travel between stations independently of pod selection.
 Dispatch considers requests in submission order. An idle local pod serves the oldest waiting passenger.
 Otherwise it compares idle pods and empty pods that can divert from parking, using estimated pickup time and pod ID as the tie-breaker.

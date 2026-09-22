@@ -74,6 +74,7 @@ func TestValidateRejectsMalformedProjects(t *testing.T) {
 		{"occupied berth", func(config *Config) { config.Fleet[1].StationID = config.Fleet[0].StationID }},
 		{"rate low", func(config *Config) { config.Demand.PerMinute = 0 }},
 		{"rate high", func(config *Config) { config.Demand.PerMinute = 121 }},
+		{"sharing limit", func(config *Config) { config.SharedRidePartyLimit = sim.MaxSharedRideParties + 1 }},
 		{"pattern", func(config *Config) { config.Demand.Pattern = "rush" }},
 		{"missing profile", func(config *Config) {
 			config.Demand.Pattern, config.Demand.Profile, config.Demand.Band = "profile", "missing", "am"
@@ -123,6 +124,18 @@ func TestValidateRejectsMalformedProjects(t *testing.T) {
 				t.Fatal("accepted malformed project")
 			}
 		})
+	}
+}
+
+func TestLegacySharedRideLimitDefaultsToOne(t *testing.T) {
+	t.Parallel()
+	config := Default()
+	config.SharedRidePartyLimit = 0
+	if err := Validate(config); err != nil {
+		t.Fatal(err)
+	}
+	if got := EffectiveSharedRidePartyLimit(config); got != 1 {
+		t.Fatalf("effective shared ride party limit = %d", got)
 	}
 }
 

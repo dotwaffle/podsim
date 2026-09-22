@@ -88,6 +88,7 @@ func TestProjectApplyIsAtomicDetachedAndIdempotent(t *testing.T) {
 	t.Parallel()
 	session := newTestSession(t)
 	config := customProject()
+	config.SharedRidePartyLimit = 3
 	original := project.Clone(config)
 	reply := applyCustomProject(t, session, config)
 	if reply.Error != "" {
@@ -95,6 +96,9 @@ func TestProjectApplyIsAtomicDetachedAndIdempotent(t *testing.T) {
 	}
 	if !reply.State.Simulation.Paused || reply.State.ProjectRevision != 2 || reply.State.Generation != 2 || reply.State.Simulation.Submitted != 0 {
 		t.Fatalf("invalid applied state: %+v", reply.State)
+	}
+	if reply.State.Simulation.SharedRidePartyLimit != 3 {
+		t.Fatalf("shared ride party limit = %d", reply.State.Simulation.SharedRidePartyLimit)
 	}
 	config.Name = "caller mutation"
 	config.Network.Nodes[0].ID = "caller mutation"

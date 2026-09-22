@@ -50,6 +50,10 @@ func (s *Simulation) dispatch() {
 		s.promoteReadyPickup(i)
 		trip := &s.waiting[i]
 		trip.request.DispatchReason = ""
+		if trip.request.PodID == "" && s.joinSharedRide(trip.request) {
+			s.waiting = slices.Delete(s.waiting, i, i+1)
+			continue
+		}
 		v := s.findVehicle(trip.request.PodID)
 		if v != nil && (v.Pod.Activity != Idle || v.Pod.StationID != trip.request.From) {
 			if local := s.localPickup(trip.request.From, assigned); local != nil {
@@ -146,12 +150,10 @@ func (s *Simulation) board(v *vehicle, trip waitingTrip) error {
 	trip.route, trip.destination = route, Berth{}
 	request := trip.request
 	request.DispatchReason = ""
-	wait := s.tick - request.RequestedTick
-	s.boarded++
-	s.totalWaitTicks += wait
-	s.maxWaitTicks = max(s.maxWaitTicks, wait)
+	s.recordBoarding(request)
 	request.PodID = v.Pod.ID
 	v.Request = &request
+	v.Parties = 1
 	v.origin, v.destination, v.destinationStation = origin, trip.destination, trip.request.To
 	s.setVehicleRoute(v, trip.route)
 	v.Pod.Activity, v.Pod.WaitReason, v.Pod.BlockedBy = Boarding, NoWait, ""
@@ -159,6 +161,32 @@ func (s *Simulation) board(v *vehicle, trip waitingTrip) error {
 	v.originReleased = false
 	v.distance, v.pending = 0, -1
 	return nil
+}
+
+func (s *Simulation) joinSharedRide(request Request) bool {
+	if s.sharedRidePartyLimit <= 1 {
+		return false
+	}
+	for index := range s.vehicles {
+		v := &s.vehicles[index]
+		if v.Pod.Activity != Boarding || v.Pod.StationID != request.From || v.destinationStation != request.To ||
+			v.Request == nil || v.Parties >= s.sharedRidePartyLimit {
+			continue
+		}
+		s.recordBoarding(request)
+		v.Parties++
+		v.Request.PartySize += request.PartySize
+		s.sharedParties++
+		return true
+	}
+	return false
+}
+
+func (s *Simulation) recordBoarding(request Request) {
+	wait := s.tick - request.RequestedTick
+	s.boarded++
+	s.totalWaitTicks += wait
+	s.maxWaitTicks = max(s.maxWaitTicks, wait)
 }
 
 // promoteReadyPickup serves the oldest passenger first when pickup pods arrive out of order.
