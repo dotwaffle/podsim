@@ -50,6 +50,14 @@ This file contains the `project` object from `/api/project`.
 The server saves accepted setting changes with an atomic file replacement.
 The browser export wraps this object as `scenario` and can also contain a background image.
 
+## Production server
+
+`go generate ./...` builds the browser application and gzip WASM asset.
+An `embed_assets` server build contains all browser files in one executable.
+The project also includes a non-root, multiarchitecture ko image and a GHCR publishing workflow.
+The server provides `/healthz`, opt-in pprof on a separate listener, and opt-in OTLP telemetry.
+See [distribution and operations](docs/operations.md) for build and runtime settings.
+
 ## Controls
 
 - Open **Scenario**, select **Example traffic sequence**, then select **Start example sequence**.
@@ -206,102 +214,156 @@ berth access and departure roles from the station paths.
 
 ## Scope and model
 
+### Time, geometry, and routing
+
 The Go core uses fixed 60 Hz steps and world coordinates in meters.
 Routing chooses the shortest free-flow travel time on directed lanes.
 Equal-cost routes use scenario order for deterministic results.
 Automatic demand is optional and starts disabled.
 
+Lanes can be straight or quadratic curves.
+The simulator and browser measure each curve along the same sampled path.
+Each lane has an explicit speed limit.
+Bends do not impose extra speed limits.
+
+### Passenger service and dispatch
+
 One party contains one passenger. By default, each party uses one pod.
 An optional limit of two to eight lets unassigned parties join a pod that is
 still boarding at the same origin for the same destination.
 Sharing does not wait for more parties or add stops.
+
 Passengers request travel between stations independently of pod selection.
-Dispatch considers requests in submission order. An idle local pod serves the oldest waiting passenger.
-Otherwise it compares idle pods and empty pods that can divert from parking, using estimated pickup time and pod ID as the tie-breaker.
-It can wait for a busy pod whose committed work should finish soon enough to reach pickup at least two seconds earlier.
-These estimates include travel, acceleration/braking allowances, boarding, and unloading. They do not predict traffic delays.
-Deliberate waiting lasts at most 30 simulated seconds before using an available pod. Existing traffic rules still apply.
+Dispatch considers requests in submission order.
+An idle local pod serves the oldest waiting passenger.
+Otherwise, dispatch compares idle pods and empty pods that can divert from parking.
+It uses estimated pickup time, then pod ID, as the tie-breaker.
+
+Dispatch can wait for a busy pod if it should reach pickup at least two seconds earlier.
+The estimate includes travel, acceleration, braking, boarding, and unloading.
+It does not predict traffic delays.
+Dispatch waits for at most 30 simulated seconds before it uses an available pod.
+
 Assigned pickup pods can depart while the berth is occupied and queue on its approach.
-They claim the berth through local admission, not a remote reservation. No passenger boards outside a berth.
+They claim the berth through local admission, not a remote reservation.
+Passengers board only at a berth.
+
 If pickup pods arrive out of order, the first available pod takes the oldest passenger at that station.
 The other pod retains a pickup at the same station for the later order.
-An empty pod heading to parking can divert for a pickup. It preserves all committed track and releases its unused parking claim.
+
+An empty pod heading to parking can divert for a pickup.
+It preserves all committed track and releases its unused parking claim.
 A pod already committed to the parking inlet finishes that maneuver before returning to service.
 Empty pickup travel retains the original request ID and does not count as a passenger journey.
 The fixed demo can still submit journeys directly to specific pods.
+
+### Track admission and junctions
+
 Pods accelerate and brake within their admitted track distance.
 They extend reservations to cover the stopping distance at the lane speed plus two simulation ticks of travel.
 On clear track, this allows steady cruising at 14 m/s across block boundaries.
+
 The local controller divides lanes into exclusive blocks of up to 30 meters.
 It retains trailing blocks until a four-meter pod and eight-meter gap have cleared.
 Each junction has one conflict resource for nearby sections of its incident lanes.
 The controller derives these sections from the same geometry used for movement, including the 12-meter clearance.
 It acquires each continuous conflict section together, including downstream cells needed to cross lane endpoints.
 It releases the conflict resource after the pod reaches the end of that section.
+
+The oldest local admission request wins.
+Pod ID breaks a tie.
+Admission uses the state before movement.
+Released resources become available on the next tick.
+
+The block model is conservative.
+It does not model continuous car-following or optimized junction capacity.
+The traffic model requires lanes at least 24 meters long.
+
+### Stations and parking
+
 Passenger journeys route to the station entry without a berth assignment.
 The controller chooses the least-assigned reachable berth when the pod enters the final station-access lane.
 The controller can change this choice before it reserves a berth branch.
-The oldest local admission request wins, with pod ID as the tie-breaker.
-Admission uses the state before movement. Released resources become available on the next tick.
 
 A pod reserves its berth before entering the final inlet block.
 It keeps the berth through unloading and idle time, until its departure clears the resource.
 Other pods can queue on the inlet while through traffic uses the separate through lane.
+
 Station maneuver roles describe this existing movement and reservation behavior.
 They do not add a second station controller or change admission priority.
 The controller makes local reservations, not a whole-journey timetable.
-Lanes can be straight or quadratic curves. The simulator and browser measure each curve along the same sampled path.
-Set each lane speed explicitly. Bends do not impose extra speed limits.
+
 Station entry, berth, and exit connections have stable identities.
 Passenger and parking stations can have multiple berths.
 Berths can connect through intermediate arrival and departure lanes, separate from through traffic.
-Station-local paths cannot cross another berth or station. Each station retains a direct entry-to-exit through lane.
+Station-local paths cannot cross another berth or station.
+Each station retains a direct entry-to-exit through lane.
 
-This block model is conservative. It does not model continuous car-following or optimized junction capacity.
-The current traffic model requires lanes at least 24 meters long.
 An idle empty pod clears its berth when it blocks a passenger arrival, an assigned pickup pod, or an empty relocation.
 It first reserves a free reachable parking berth and retains its origin until physical clearance.
 If parking is full or unreachable, it reserves reachable passenger space instead.
 It prefers local space that no request targets.
 The pod shows "No parking available" only when no reachable physical space exists.
+
 A passenger or pickup pod can choose a free alternate berth before it reserves the next station branch.
 A route change preserves all admitted track.
 Empty relocations yield unadmitted destination claims when a local passenger or pickup needs the same berth.
 Physical ownership and admitted destination resources remain protected.
+
 Empty moves have no boarding or unloading delay and do not count as passenger journeys.
-Parking serves no passengers. Parked pods return to service automatically when assigned to a pickup request.
+Parking serves no passengers.
+Parked pods return to service automatically when assigned to a pickup request.
 After the demo, request a trip from Harbor or Garden to see an available pod return for pickup.
+
 The tests establish progress for feasible supplied scenarios, not for every saturated network.
-Optional redistribution moves idle empty pods toward configured demand before requests arrive. Detailed station maneuvers remain future work.
+Optional redistribution moves idle empty pods toward configured demand before requests arrive.
+
+### Server and browser
+
 One server owns the simulation clock, commands, and demand settings.
-Browsers poll snapshots and show connection status. Controls wait for server confirmation.
+Browsers poll snapshots and show connection status.
+Controls wait for server confirmation.
+
 The map buffers 150 ms of snapshots and interpolates movement along lanes between updates.
-Controls and order status use the latest server state. Pauses, resets, and long connection gaps clear buffered motion.
+Controls and order status use the latest server state.
+Pauses, resets, and long connection gaps clear buffered motion.
 Rendering never predicts movement beyond the latest received position.
-The server uses gzip for snapshots and browser assets when the client supports it. Range responses remain uncompressed.
-See [the client protocol evaluation](docs/protocol.md) for current payload measurements and the staged normalization and ConnectRPC plan.
+
+The server uses gzip for snapshots and browser assets when the client supports it.
+Range responses remain uncompressed.
 WASM uses a build-time gzip artifact to reduce downloads without repeating compression for each browser.
 If that artifact is missing or older than the WASM file, the server compresses the current file during the request.
-A lost connection disables commands. Reconnection restores the current shared state.
+
+A lost connection disables commands.
+Reconnection restores the current shared state.
 The server deduplicates command retries by client and sequence.
-Replay records support 1,024 browser loads per server lifetime. Restart the server if this prototype limit is reached.
+Replay records support 1,024 browser loads per server lifetime.
+Restart the server if this prototype limit is reached.
+
 Pod selection, origin, destination, and the open inspection panel stay local to each browser.
-Background images stay in the editor and exported project file. The shared simulation receives network geometry and settings.
+Background images stay in the editor and exported project file.
+The shared simulation receives network geometry and settings.
+
+See [the client protocol evaluation](docs/protocol.md) for payload measurements and the ConnectRPC plan.
 See [the project brief](PROJECT_BRIEF.md) for the wider scope and research.
 
 ## Code and validation
 
-- `internal/sim`: network, routing, requests, pod movement, and deterministic tests.
-- `internal/project`: versioned scenario settings, validation, and detached copies.
-- `internal/scenarios`: deterministic scale fixtures and qualification tests.
-- `internal/session`: shared clock, command validation, HTTP API, and repeatable demand.
-- `internal/remote`: snapshot polling, command retries, and connection state.
-- `internal/view`: Ebitengine rendering and input. Commands go to the server. Drawing reads a copied snapshot.
-- `cmd/podsim`: desktop and WASM entry point.
-- `cmd/serve`: shared session and browser file server.
-- `cmd/compare`: reproducible redistribution comparison.
-- `cmd/scenario`: generated scenario files.
-- `web`: browser loader and scenario editor.
+| Path | Purpose |
+| --- | --- |
+| `internal/sim` | Network, routing, requests, pod movement, and deterministic tests. |
+| `internal/project` | Versioned scenario settings, validation, and detached copies. |
+| `internal/scenarios` | Deterministic scale fixtures and qualification tests. |
+| `internal/session` | Shared clock, command validation, HTTP API, and repeatable demand. |
+| `internal/remote` | Snapshot polling, command retries, and connection state. |
+| `internal/view` | Ebitengine rendering and input against copied snapshots. |
+| `internal/telemetry` | Optional OTLP traces, HTTP metrics, runtime metrics, and session gauges. |
+| `internal/cmd/buildweb` | Generated browser files and gzip WASM artifact. |
+| `cmd/podsim` | Desktop and WASM entry point. |
+| `cmd/serve` | Shared session, browser assets, health checks, and diagnostics. |
+| `cmd/compare` | Reproducible policy comparisons. |
+| `cmd/scenario` | Generated scenario files. |
+| `web` | Browser loader and scenario editor. |
 
 ```sh
 mise run test
@@ -310,14 +372,20 @@ mise run check
 
 `mise.toml` tracks Go 1.27 and major versions for the other development tools.
 `mise.lock` records the resolved tool downloads.
-`mise run check` runs workflow validation, race tests, editor model tests, vet, lint, vulnerability checks, and native and WASM builds.
-GitHub Actions runs the same check on pull requests and pushes to main, with a manual trigger available.
-New pull-request updates cancel older runs. Each main-branch push keeps its own run.
+`mise run check` runs workflow validation, race tests, editor tests, vet, lint, vulnerability checks, and both builds.
+
+GitHub Actions runs the same check on pull requests and pushes to `main`.
+The workflow also supports a manual trigger.
+New pull-request updates cancel older runs.
+Each `main` push keeps its own run.
 The workflow uses major-version action tags and installs tools from `mise.lock`.
 Go module, build, and lint analysis caches use job-specific keys and refresh after successful runs.
-The lint configuration follows Q, with Podsim package boundaries and no database, protobuf, or tracing rules.
-Core tests cover route selection, journey completion, invalid requests, pause/reset, repeatability, and state isolation.
-Rendering tests cover buffered movement, lane corners, arrival/departure, pause/reset, and stale snapshots.
-HTTP tests cover compression negotiation, snapshot decoding, WASM content type, and byte-range responses.
-Traffic tests check physical separation each tick, merge contention, berth capacity, stopped-pod queues, through traffic, and eventual progress.
-Browser checks must also confirm visible movement and working controls. A WASM build alone does not establish browser behavior.
+The lint configuration follows Q but omits irrelevant database and protobuf rules.
+
+Validation has five main parts:
+
+- Core tests cover routing, journeys, invalid requests, pause and reset behavior, repeatability, and state isolation.
+- Rendering tests cover buffered movement, lane corners, station movement, pause and reset behavior, and stale snapshots.
+- HTTP tests cover compression, snapshot decoding, WASM responses, byte ranges, health, and diagnostics.
+- Traffic tests cover separation, merge contention, berth capacity, stopped queues, through traffic, and eventual progress.
+- Browser checks confirm visible movement and working controls. A WASM build alone is not sufficient.
