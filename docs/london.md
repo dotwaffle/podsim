@@ -83,6 +83,13 @@ The caller can apply one scale factor to choose the simulated request rate.
 This keeps the source station and OD ratios while avoiding a claim that the
 PRT system carries the complete Underground volume.
 
+The portable London project includes the raw OD weights and all eight bands.
+Its demand settings select the AM peak profile by default.
+The shared session samples those weights when automatic demand runs.
+The editor can select another band before it applies the project.
+The recurring simulation state contains only the selected profile and band
+IDs, not the complete OD matrix.
+
 A deterministic AM peak qualification submits 40 source-weighted requests at
 five-second intervals.
 All 40 completed by 1,083.0 simulated seconds.

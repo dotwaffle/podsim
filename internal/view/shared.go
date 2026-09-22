@@ -74,6 +74,8 @@ func (g *Game) demandButtons() []button {
 	case "destination":
 		station, _ := g.network.Station(config.Destination)
 		pattern = station.Name + "-bound"
+	case "profile":
+		pattern = config.Profile + " / " + config.Band
 	}
 	toggle := "Start demand"
 	if config.Enabled {
@@ -101,12 +103,17 @@ func (g *Game) changeDemand(action string) {
 		}
 		config.PerMinute = next
 	case "demand-pattern":
-		if config.Pattern != "balanced" {
-			config.Pattern = "balanced"
-			config.Destination = ""
-		} else {
+		switch {
+		case config.Pattern == "balanced":
 			config.Pattern = "destination"
 			config.Destination = g.destination
+		case config.Pattern == "destination" && config.Profile != "":
+			config.Pattern = "profile"
+		case config.Pattern == "profile":
+			config.Pattern = "balanced"
+			config.Destination = ""
+		default:
+			config.Pattern = "balanced"
 		}
 	case "demand-seed":
 		config.Seed = config.Seed%9 + 1

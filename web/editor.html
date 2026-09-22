@@ -110,8 +110,10 @@
         <h2>Passenger demand</h2>
         <label class="check"><input id="demandEnabled" type="checkbox"> Generate passengers</label>
         <label>Trips per minute<input id="demandRate" type="number" min="1" max="120" step="1"></label>
-        <label>Pattern<select id="demandPattern"><option value="balanced">Balanced</option><option value="destination">One destination</option></select></label>
+        <label>Pattern<select id="demandPattern"><option value="balanced">Balanced</option><option value="destination">One destination</option><option value="profile">OD profile</option></select></label>
         <label id="destinationLabel">Destination<select id="demandDestination"></select></label>
+        <label id="profileLabel">Profile<select id="demandProfile"></select></label>
+        <label id="bandLabel">Time band<select id="demandBand"></select></label>
         <label>Seed<input id="demandSeed" type="number" min="0" step="1"></label>
         <label class="check"><input id="redistribution" type="checkbox"> Redistribute empty pods</label>
       </section>

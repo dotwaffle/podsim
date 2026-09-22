@@ -52,6 +52,13 @@ func TestLondonDemandBandsAreNormalized(t *testing.T) {
 		t.Fatalf("got %d demand bands", len(bands))
 	}
 	config := London()
+	if config.Demand.Pattern != "profile" || config.Demand.Profile != londonDemandProfileID || config.Demand.Band != "am-peak" || len(config.DemandProfiles) != 1 {
+		t.Fatalf("London project demand = %+v, profiles=%d", config.Demand, len(config.DemandProfiles))
+	}
+	profile := config.DemandProfiles[0]
+	if len(profile.Bands) != len(want) || len(profile.Flows) != 8474 {
+		t.Fatalf("London profile has %d bands and %d flows", len(profile.Bands), len(profile.Flows))
+	}
 	valid := make(map[string]bool)
 	for _, station := range project.PassengerStations(config.Network) {
 		valid[station.ID] = true
@@ -71,6 +78,13 @@ func TestLondonDemandBandsAreNormalized(t *testing.T) {
 		}
 		if math.Abs(share-1) > 1e-9 {
 			t.Fatalf("band %q shares sum to %.12f", band.Name, share)
+		}
+		profileTotal := 0.0
+		for _, flow := range profile.Flows {
+			profileTotal += flow.Weights[index]
+		}
+		if math.Abs(profileTotal-band.ObservedJourneys) > 1e-6 {
+			t.Fatalf("band %q profile total %.3f, want %.3f", band.Name, profileTotal, band.ObservedJourneys)
 		}
 	}
 	if len(origins) != 94 {

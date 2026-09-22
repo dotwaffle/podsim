@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/dotwaffle/podsim/internal/project"
+	"github.com/dotwaffle/podsim/internal/scenarios"
 )
 
 func TestProjectFileRoundTrip(t *testing.T) {
@@ -35,6 +36,22 @@ func TestProjectFileRoundTrip(t *testing.T) {
 	}
 }
 
+func TestLondonProjectFileRoundTrip(t *testing.T) {
+	t.Parallel()
+	path := filepath.Join(t.TempDir(), "london.json")
+	want := scenarios.London()
+	if err := saveProject(path, want); err != nil {
+		t.Fatal(err)
+	}
+	got, err := loadProject(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatal("saved London project changed")
+	}
+}
+
 func TestLoadProjectRejectsInvalidFiles(t *testing.T) {
 	t.Parallel()
 	tests := []struct {
@@ -44,7 +61,7 @@ func TestLoadProjectRejectsInvalidFiles(t *testing.T) {
 		{"malformed", "{"},
 		{"unknown field", `{"version":1,"unknown":true}`},
 		{"trailing", `{}` + `{}`},
-		{"oversize", strings.Repeat(" ", (2<<20)+1)},
+		{"oversize", strings.Repeat(" ", project.MaxFileBytes+1)},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {

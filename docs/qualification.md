@@ -408,6 +408,12 @@ seconds.
 The schedule SHA-256 is
 `02d3b6086d3ee5f58c9cbdb5bb574c042e0b8cd911656ed2c98099ea595aa024`.
 
+The London project also carries all eight bands as a portable OD profile.
+A live-session test enables the project demand and verifies that the first
+generated request has a positive weight in the selected AM peak band.
+The profile is available from the project endpoint and is not repeated in
+simulation state responses.
+
 ```sh
 mise exec -- go test -count=1 -run '^TestLondonAMPeakSampleCompletes$' -v ./internal/scenarios
 ```

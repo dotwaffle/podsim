@@ -10,6 +10,9 @@ import (
 	"strings"
 	"sync"
 	"testing"
+
+	"github.com/dotwaffle/podsim/internal/project"
+	"github.com/dotwaffle/podsim/internal/sim"
 )
 
 func newTestSession(t *testing.T) *Session {
@@ -108,11 +111,70 @@ func TestDemandDeterminismAndSpeed(t *testing.T) {
 	}
 }
 
+func profileDemandProject() project.Config {
+	config := project.Default()
+	config.DemandProfiles = []project.DemandProfile{{
+		ID: "weekday", Name: "Weekday",
+		Bands: []project.DemandBand{{ID: "am", Name: "AM peak", StartMinute: 420, DurationMinutes: 180}},
+		Flows: []project.DemandFlow{
+			{From: "harbor", To: "garden", Weights: []float64{3}},
+			{From: "garden", To: "market", Weights: []float64{1}},
+		},
+	}}
+	config.Demand = DemandConfig{Enabled: true, PerMinute: 12, Pattern: "profile", Seed: 42, Profile: "weekday", Band: "am"}
+	return config
+}
+
+func TestProfileDemandIsDeterministicAndLive(t *testing.T) {
+	t.Parallel()
+	config := profileDemandProject()
+	first, err := NewWithProject(config)
+	if err != nil {
+		t.Fatal(err)
+	}
+	second, err := NewWithProject(config)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(first.demand.pickupWeights, map[string]float64{"harbor": 3, "garden": 1}) {
+		t.Fatalf("pickup weights = %#v", first.demand.pickupWeights)
+	}
+	for range 300 {
+		first.advance()
+		second.advance()
+	}
+	firstState, secondState := first.State(), second.State()
+	if !reflect.DeepEqual(firstState.Simulation, secondState.Simulation) || firstState.Demand != secondState.Demand {
+		t.Fatal("profile demand is not repeatable")
+	}
+	if firstState.Demand.Generated != 1 || firstState.Simulation.Submitted != 1 {
+		t.Fatalf("profile demand did not generate: %+v", firstState.Demand)
+	}
+	if bytes.Contains(mustJSON(t, firstState), []byte(`"flows"`)) {
+		t.Fatal("recurring state embeds the demand profile")
+	}
+	requests := append([]sim.Request(nil), firstState.Simulation.Pending...)
+	for _, vehicle := range firstState.Simulation.Vehicles {
+		if vehicle.Request != nil && !vehicle.Request.Completed {
+			requests = append(requests, *vehicle.Request)
+		}
+	}
+	if len(requests) != 1 {
+		t.Fatalf("generated requests = %+v", requests)
+	}
+	for _, flow := range config.DemandProfiles[0].Flows {
+		if requests[0].From == flow.From && requests[0].To == flow.To && flow.Weights[0] > 0 {
+			return
+		}
+	}
+	t.Fatalf("generated request is absent from the profile: %+v", requests[0])
+}
+
 func TestDemandQueueLimitConsumesArrivals(t *testing.T) {
 	t.Parallel()
 	s := newTestSession(t)
 	config := DemandConfig{Enabled: true, PerMinute: 12, Pattern: "market", Seed: 3}
-	if err := s.demand.configure(config, s.project.Network); err != nil {
+	if err := s.demand.configure(demandInput{config: config, network: s.project.Network, profiles: s.project.DemandProfiles}); err != nil {
 		t.Fatal(err)
 	}
 	for len(s.simulation.Snapshot().Pending) < QueueLimit {

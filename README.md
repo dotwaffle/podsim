@@ -106,6 +106,10 @@ The supplied traffic demo requires the unchanged example network and fleet.
 Open **Demand** to select the rate, traffic pattern, and seed, then select **Start demand**.
 Rates use simulated minutes, so 8x playback generates orders eight times faster in wall time.
 Balanced traffic chooses among all passenger stations. Market-bound traffic sends Harbor and Garden passengers to Market.
+Projects can also include weighted origin-destination profiles with named time
+bands.
+The London preset includes eight TfL bands and selects AM peak by default.
+The selected band remains active until the demand settings change.
 Arrivals have equal time intervals. The seed determines the station choices.
 The same seed, settings, initial state, and manual actions produce the same run.
 Starting demand or changing enabled settings restarts the stream and its counters.
@@ -125,7 +129,7 @@ Export the draft before reloading a newer server project.
 - Select paired lanes to add both directions. Crossing lines do not create a junction.
 - Select a guideway to adjust its curve and speed in km/h.
 - Set station berth capacity and place initial pods in free berths.
-- Set the passenger rate, destination pattern, seed, and redistribution option.
+- Set the passenger rate, pattern, OD profile, time band, seed, and redistribution option.
 - Use undo and redo for draft changes. Pan empty space and use the wheel to zoom.
 - Import a PNG or JPEG background. Calibrate two points with a known distance in meters.
 - Export JSON to save the scenario and optional background. Import JSON to restore a draft.

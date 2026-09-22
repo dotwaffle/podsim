@@ -84,10 +84,10 @@ func loadProject(path string) (project.Config, error) {
 	if err != nil {
 		return project.Config{}, fmt.Errorf("stat project %s: %w", path, err)
 	}
-	if info.Size() > 2<<20 {
-		return project.Config{}, fmt.Errorf("read project %s: file exceeds 2 MiB", path)
+	if info.Size() > project.MaxFileBytes {
+		return project.Config{}, fmt.Errorf("read project %s: file exceeds 4 MiB", path)
 	}
-	decoder := json.NewDecoder(io.LimitReader(file, 2<<20))
+	decoder := json.NewDecoder(io.LimitReader(file, project.MaxFileBytes))
 	decoder.DisallowUnknownFields()
 	var config project.Config
 	if err := decoder.Decode(&config); err != nil {

@@ -4,6 +4,7 @@ package project
 import (
 	"errors"
 	"fmt"
+	"math"
 	"strings"
 
 	"github.com/dotwaffle/podsim/internal/sim"
@@ -18,7 +19,13 @@ const (
 	maxStations    = 100
 	maxNodes       = 2000
 	maxLanes       = 4000
+	maxProfiles    = 8
+	maxBands       = 24
+	maxFlows       = 20000
 )
+
+// MaxFileBytes is the largest encoded project accepted from local storage.
+const MaxFileBytes = 4 << 20
 
 // DemandConfig controls deterministic arrivals per simulated minute.
 type DemandConfig struct {
@@ -27,6 +34,37 @@ type DemandConfig struct {
 	Pattern     string `json:"pattern"`
 	Seed        uint64 `json:"seed"`
 	Destination string `json:"destination,omitempty"`
+	Profile     string `json:"profile,omitempty"`
+	Band        string `json:"band,omitempty"`
+}
+
+// DemandProfile contains a portable origin-destination demand matrix.
+type DemandProfile struct {
+	ID    string       `json:"id"`
+	Name  string       `json:"name"`
+	Bands []DemandBand `json:"bands"`
+	Flows []DemandFlow `json:"flows"`
+}
+
+// DemandBand identifies one set of weights in a demand profile.
+type DemandBand struct {
+	ID              string `json:"id"`
+	Name            string `json:"name"`
+	StartMinute     int    `json:"startMinute"`
+	DurationMinutes int    `json:"durationMinutes"`
+}
+
+// DemandFlow contains one origin-destination pair and one weight per band.
+type DemandFlow struct {
+	From    string    `json:"from"`
+	To      string    `json:"to"`
+	Weights []float64 `json:"weights"`
+}
+
+// DemandContext supplies the network and profiles used to validate demand settings.
+type DemandContext struct {
+	Network  sim.Network
+	Profiles []DemandProfile
 }
 
 // Config is the versioned, portable scenario configuration.
@@ -36,6 +74,7 @@ type Config struct {
 	Network        sim.Network     `json:"network"`
 	Fleet          []sim.Placement `json:"fleet"`
 	Demand         DemandConfig    `json:"demand"`
+	DemandProfiles []DemandProfile `json:"demandProfiles,omitempty"`
 	Redistribution bool            `json:"redistribution"`
 }
 
@@ -76,7 +115,10 @@ func Validate(config Config) error {
 	if err := validateNames(config); err != nil {
 		return err
 	}
-	if err := ValidateDemand(config.Demand, config.Network); err != nil {
+	if err := validateDemandProfiles(config.DemandProfiles, config.Network); err != nil {
+		return err
+	}
+	if err := ValidateDemand(config.Demand, DemandContext{Network: config.Network, Profiles: config.DemandProfiles}); err != nil {
 		return err
 	}
 	if _, err := sim.NewFleet(config.Network, config.Fleet); err != nil {
@@ -166,21 +208,31 @@ func validateNames(config Config) error {
 	return nil
 }
 
-// ValidateDemand checks demand settings against the active passenger stations.
-func ValidateDemand(config DemandConfig, network sim.Network) error {
+// ValidateDemand checks demand settings against the active passenger stations and profiles.
+func ValidateDemand(config DemandConfig, context DemandContext) error {
 	if config.PerMinute < 1 || config.PerMinute > 120 {
 		return errors.New("demand rate must be 1 to 120 orders per simulated minute")
 	}
-	if config.Pattern != "balanced" && config.Pattern != "market" && config.Pattern != "destination" {
-		return errors.New("demand pattern must be balanced, market, or destination")
+	if config.Pattern != "balanced" && config.Pattern != "market" && config.Pattern != "destination" && config.Pattern != "profile" {
+		return errors.New("demand pattern must be balanced, market, destination, or profile")
 	}
-	if len(config.Destination) > maxIDLength {
-		return fmt.Errorf("demand destination must contain at most %d characters", maxIDLength)
+	if len(config.Destination) > maxIDLength || len(config.Profile) > maxIDLength || len(config.Band) > maxIDLength {
+		return fmt.Errorf("demand references must contain at most %d characters", maxIDLength)
+	}
+	if config.Pattern == "profile" {
+		profile, ok := demandProfile(context.Profiles, config.Profile)
+		if !ok {
+			return fmt.Errorf("unknown demand profile %q", config.Profile)
+		}
+		if _, ok := demandBand(profile, config.Band); !ok {
+			return fmt.Errorf("unknown demand band %q", config.Band)
+		}
+		return nil
 	}
 	if config.Pattern != "destination" {
 		return nil
 	}
-	station, ok := network.Station(config.Destination)
+	station, ok := context.Network.Station(config.Destination)
 	if !ok {
 		return fmt.Errorf("unknown demand destination %q", config.Destination)
 	}
@@ -188,6 +240,88 @@ func ValidateDemand(config DemandConfig, network sim.Network) error {
 		return errors.New("demand destination must be a passenger station")
 	}
 	return nil
+}
+
+func validateDemandProfiles(profiles []DemandProfile, network sim.Network) error {
+	if len(profiles) > maxProfiles {
+		return fmt.Errorf("project must contain at most %d demand profiles", maxProfiles)
+	}
+	passenger := make(map[string]bool)
+	for _, station := range PassengerStations(network) {
+		passenger[station.ID] = true
+	}
+	profileIDs := make(map[string]bool, len(profiles))
+	for _, profile := range profiles {
+		if profile.ID == "" || len(profile.ID) > maxIDLength || profileIDs[profile.ID] {
+			return fmt.Errorf("invalid or duplicate demand profile %q", profile.ID)
+		}
+		if strings.TrimSpace(profile.Name) == "" || len(profile.Name) > maxNameLength {
+			return fmt.Errorf("demand profile name must contain 1 to %d characters", maxNameLength)
+		}
+		if len(profile.Bands) == 0 || len(profile.Bands) > maxBands {
+			return fmt.Errorf("demand profile %q must contain 1 to %d bands", profile.ID, maxBands)
+		}
+		if len(profile.Flows) == 0 || len(profile.Flows) > maxFlows {
+			return fmt.Errorf("demand profile %q must contain 1 to %d flows", profile.ID, maxFlows)
+		}
+		profileIDs[profile.ID] = true
+		if err := validateDemandProfile(profile, passenger); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func validateDemandProfile(profile DemandProfile, passenger map[string]bool) error {
+	bandIDs := make(map[string]bool, len(profile.Bands))
+	for _, band := range profile.Bands {
+		if band.ID == "" || len(band.ID) > maxIDLength || bandIDs[band.ID] {
+			return fmt.Errorf("demand profile %q has an invalid or duplicate band", profile.ID)
+		}
+		if strings.TrimSpace(band.Name) == "" || len(band.Name) > maxNameLength || band.StartMinute < 0 || band.StartMinute >= 24*60 || band.DurationMinutes < 1 || band.DurationMinutes > 24*60 {
+			return fmt.Errorf("demand profile %q has an invalid band %q", profile.ID, band.ID)
+		}
+		bandIDs[band.ID] = true
+	}
+	totals := make([]float64, len(profile.Bands))
+	pairs := make(map[[2]string]bool, len(profile.Flows))
+	for _, flow := range profile.Flows {
+		pair := [2]string{flow.From, flow.To}
+		if !passenger[flow.From] || !passenger[flow.To] || flow.From == flow.To || pairs[pair] || len(flow.Weights) != len(profile.Bands) {
+			return fmt.Errorf("demand profile %q has an invalid flow from %q to %q", profile.ID, flow.From, flow.To)
+		}
+		pairs[pair] = true
+		for index, weight := range flow.Weights {
+			if math.IsNaN(weight) || math.IsInf(weight, 0) || weight < 0 {
+				return fmt.Errorf("demand profile %q has an invalid weight", profile.ID)
+			}
+			totals[index] += weight
+		}
+	}
+	for index, total := range totals {
+		if total <= 0 || math.IsInf(total, 0) {
+			return fmt.Errorf("demand profile %q band %q needs a finite positive weight total", profile.ID, profile.Bands[index].ID)
+		}
+	}
+	return nil
+}
+
+func demandProfile(profiles []DemandProfile, id string) (DemandProfile, bool) {
+	for _, profile := range profiles {
+		if profile.ID == id {
+			return profile, true
+		}
+	}
+	return DemandProfile{}, false
+}
+
+func demandBand(profile DemandProfile, id string) (int, bool) {
+	for index, band := range profile.Bands {
+		if band.ID == id {
+			return index, true
+		}
+	}
+	return 0, false
 }
 
 // PassengerStations returns the passenger stations in network order.
@@ -206,7 +340,20 @@ func Clone(config Config) Config {
 	clone := config
 	clone.Network = CloneNetwork(config.Network)
 	clone.Fleet = append([]sim.Placement(nil), config.Fleet...)
+	clone.DemandProfiles = cloneDemandProfiles(config.DemandProfiles)
 	return clone
+}
+
+func cloneDemandProfiles(profiles []DemandProfile) []DemandProfile {
+	cloned := append([]DemandProfile(nil), profiles...)
+	for index := range cloned {
+		cloned[index].Bands = append([]DemandBand(nil), profiles[index].Bands...)
+		cloned[index].Flows = append([]DemandFlow(nil), profiles[index].Flows...)
+		for flowIndex := range cloned[index].Flows {
+			cloned[index].Flows[flowIndex].Weights = append([]float64(nil), profiles[index].Flows[flowIndex].Weights...)
+		}
+	}
+	return cloned
 }
 
 // CloneNetwork returns detached network slices.

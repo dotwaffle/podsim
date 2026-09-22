@@ -15,6 +15,7 @@
       network: { Nodes: [], Lanes: [], Stations: [] },
       fleet: [],
       demand: { enabled: false, perMinute: 2, pattern: "balanced", destination: "", seed: 1 },
+      demandProfiles: [],
       redistribution: false,
     };
   }
@@ -28,6 +29,7 @@
     config.network.Lanes = Array.isArray(config.network.Lanes) ? config.network.Lanes : [];
     config.network.Stations = Array.isArray(config.network.Stations) ? config.network.Stations : [];
     config.fleet = Array.isArray(config.fleet) ? config.fleet : [];
+    config.demandProfiles = Array.isArray(config.demandProfiles) ? config.demandProfiles : [];
     for (const pod of config.fleet) {
       if (pod && !pod.BerthID) {
         const station = config.network.Stations.find((item) => item && item.ID === pod.StationID);
@@ -45,8 +47,13 @@
         config.demand.destination = (market || first || {}).ID || "";
       }
     }
-    if (config.demand.pattern !== "destination") config.demand.pattern = "balanced";
+    if (!["destination", "profile"].includes(config.demand.pattern)) config.demand.pattern = "balanced";
     config.demand.destination = typeof config.demand.destination === "string" ? config.demand.destination : "";
+    config.demand.profile = typeof config.demand.profile === "string" ? config.demand.profile : "";
+    config.demand.band = typeof config.demand.band === "string" ? config.demand.band : "";
+    if (config.demandProfiles.length && !config.demandProfiles.some((profile) => profile && profile.id === config.demand.profile)) config.demand.profile = config.demandProfiles[0].id;
+    const demandProfile = config.demandProfiles.find((profile) => profile && profile.id === config.demand.profile);
+    if (demandProfile && Array.isArray(demandProfile.bands) && !demandProfile.bands.some((band) => band && band.id === config.demand.band)) config.demand.band = demandProfile.bands[0]?.id || "";
     config.demand.seed = Math.max(0, Math.floor(Number(config.demand.seed) || 0));
     config.redistribution = Boolean(config.redistribution);
     return config;
@@ -305,6 +312,7 @@
       else idSet.add(id);
     }
     const isRecord = (item) => item && typeof item === "object" && !Array.isArray(item);
+    const validID = (id) => typeof id === "string" && id.trim() && new TextEncoder().encode(id).length <= 64;
     const validNodes = network.Nodes.filter(isRecord);
     const validLanes = network.Lanes.filter(isRecord);
     const validStations = network.Stations.filter(isRecord);
@@ -403,9 +411,40 @@
     const demand = value.demand;
     if (isRecord(demand) && "enabled" in demand && typeof demand.enabled !== "boolean") errors.push("The passenger demand enabled setting must be true or false.");
     if (!demand || !Number.isInteger(demand.perMinute) || demand.perMinute < 1 || demand.perMinute > 120) errors.push("Passenger demand must be 1 to 120 trips per minute.");
-    if (!demand || !["balanced", "destination", "market"].includes(demand.pattern)) errors.push("The passenger demand pattern is invalid.");
+    const profiles = Array.isArray(value.demandProfiles) ? value.demandProfiles : [];
+    if (!Array.isArray(value.demandProfiles || [])) errors.push("Demand profiles must be an array.");
+    if (profiles.length > 8) errors.push("The project has too many demand profiles.");
+    const profileIDs = new Set();
+    const passengerIDs = new Set(passenger.map((station) => station.ID));
+    for (const profile of profiles) {
+      if (!isRecord(profile) || !validID(profile.id) || profileIDs.has(profile.id)) { errors.push("A demand profile has an invalid or duplicate ID."); continue; }
+      profileIDs.add(profile.id);
+      if (typeof profile.name !== "string" || !profile.name.trim() || new TextEncoder().encode(profile.name).length > 80) errors.push(`Demand profile ${profile.id} has an invalid name.`);
+      const bands = Array.isArray(profile.bands) ? profile.bands : [];
+      const flows = Array.isArray(profile.flows) ? profile.flows : [];
+      if (bands.length < 1 || bands.length > 24) errors.push(`Demand profile ${profile.id} must contain 1 to 24 bands.`);
+      if (flows.length < 1 || flows.length > 20000) errors.push(`Demand profile ${profile.id} must contain 1 to 20000 flows.`);
+      const bandIDs = new Set(); const totals = new Array(bands.length).fill(0); const pairs = new Set();
+      for (const band of bands) {
+        if (!isRecord(band) || !validID(band.id) || bandIDs.has(band.id) || typeof band.name !== "string" || !band.name.trim() || !Number.isInteger(band.startMinute) || band.startMinute < 0 || band.startMinute >= 1440 || !Number.isInteger(band.durationMinutes) || band.durationMinutes < 1 || band.durationMinutes > 1440) errors.push(`Demand profile ${profile.id} has an invalid band.`);
+        else bandIDs.add(band.id);
+      }
+      for (const flow of flows) {
+        const pair = isRecord(flow) ? `${flow.from}\0${flow.to}` : "";
+        if (!isRecord(flow) || !passengerIDs.has(flow.from) || !passengerIDs.has(flow.to) || flow.from === flow.to || pairs.has(pair) || !Array.isArray(flow.weights) || flow.weights.length !== bands.length) { errors.push(`Demand profile ${profile.id} has an invalid flow.`); continue; }
+        pairs.add(pair);
+        flow.weights.forEach((weight, index) => { if (!Number.isFinite(weight) || weight < 0) errors.push(`Demand profile ${profile.id} has an invalid weight.`); else totals[index] += weight; });
+      }
+      if (totals.some((total) => !Number.isFinite(total) || total <= 0)) errors.push(`Demand profile ${profile.id} has an empty band.`);
+    }
+    if (!demand || !["balanced", "destination", "market", "profile"].includes(demand.pattern)) errors.push("The passenger demand pattern is invalid.");
     if (isRecord(demand) && "destination" in demand && (typeof demand.destination !== "string" || new TextEncoder().encode(demand.destination).length > 64)) errors.push("The passenger demand destination is invalid.");
     if (demand && demand.pattern === "destination" && !passenger.some((station) => station.ID === demand.destination)) errors.push("Select a passenger destination.");
+    if (demand && demand.pattern === "profile") {
+      const profile = profiles.find((item) => isRecord(item) && item.id === demand.profile);
+      if (!profile) errors.push("Select a demand profile.");
+      else if (!profile.bands.some((band) => isRecord(band) && band.id === demand.band)) errors.push("Select a demand time band.");
+    }
     if (!demand || !Number.isSafeInteger(demand.seed) || demand.seed < 0) errors.push("The demand seed must be a nonnegative whole number.");
     return [...new Set(errors)];
   }
@@ -627,6 +666,13 @@
       config.demand.destination = passenger[0].ID; state.history.replace({ scenario: config, background: state.background }, false);
     }
     select.value = config.demand.destination; $("#destinationLabel").hidden = demand.pattern !== "destination";
+    const profiles = config.demandProfiles || []; const profileSelect = $("#demandProfile"); profileSelect.replaceChildren();
+    for (const profile of profiles) { const option = document.createElement("option"); option.value = profile.id; option.textContent = profile.name; profileSelect.append(option); }
+    profileSelect.value = demand.profile;
+    const profile = profiles.find((item) => item.id === demand.profile); const bandSelect = $("#demandBand"); bandSelect.replaceChildren();
+    for (const band of profile?.bands || []) { const option = document.createElement("option"); option.value = band.id; option.textContent = band.name; bandSelect.append(option); }
+    bandSelect.value = demand.band; $("#profileLabel").hidden = demand.pattern !== "profile"; $("#bandLabel").hidden = demand.pattern !== "profile";
+    $("#demandPattern").querySelector('option[value="profile"]').disabled = profiles.length === 0;
   }
 
   function render() {
@@ -882,8 +928,10 @@
     $("#scenarioName").addEventListener("change", (event) => mutate((config) => { config.name = event.target.value.trim(); return config; }));
     $("#demandEnabled").addEventListener("change", (event) => mutate((config) => { config.demand.enabled = event.target.checked; return config; }));
     $("#demandRate").addEventListener("change", (event) => mutate((config) => { config.demand.perMinute = Math.floor(Number(event.target.value)); return config; }));
-    $("#demandPattern").addEventListener("change", (event) => mutate((config) => { config.demand.pattern = event.target.value; return config; }));
+    $("#demandPattern").addEventListener("change", (event) => mutate((config) => { config.demand.pattern = event.target.value; if (event.target.value === "profile" && config.demandProfiles.length) { config.demand.profile = config.demandProfiles[0].id; config.demand.band = config.demandProfiles[0].bands?.[0]?.id || ""; } return config; }));
     $("#demandDestination").addEventListener("change", (event) => mutate((config) => { config.demand.destination = event.target.value; return config; }));
+    $("#demandProfile").addEventListener("change", (event) => mutate((config) => { config.demand.profile = event.target.value; config.demand.band = config.demandProfiles.find((profile) => profile.id === event.target.value)?.bands?.[0]?.id || ""; return config; }));
+    $("#demandBand").addEventListener("change", (event) => mutate((config) => { config.demand.band = event.target.value; return config; }));
     $("#demandSeed").addEventListener("change", (event) => mutate((config) => { config.demand.seed = Math.max(0, Math.floor(Number(event.target.value))); return config; }));
     $("#redistribution").addEventListener("change", (event) => mutate((config) => { config.redistribution = event.target.checked; return config; }));
     $("#fleetControls").addEventListener("change", (event) => { if (event.target.dataset.station) setDraft(setFleetCount(draft(), event.target.dataset.station, event.target.value)); });

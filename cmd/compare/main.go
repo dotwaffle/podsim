@@ -30,7 +30,6 @@ const (
 	maxComparisons = 1000
 	maxQueueLimit  = 1_000_000
 	maxBurstSize   = 1_000
-	maxProjectSize = 2 << 20
 )
 
 var knownPatterns = []string{"balanced", "destination", "hotspot", "bursty-hotspot", "hub-burst"}
@@ -369,10 +368,10 @@ func readProject(path string) (project.Config, error) {
 	if err != nil {
 		return project.Config{}, fmt.Errorf("stat project %s: %w", path, err)
 	}
-	if info.Size() > maxProjectSize {
-		return project.Config{}, fmt.Errorf("read project %s: file exceeds 2 MiB", path)
+	if info.Size() > project.MaxFileBytes {
+		return project.Config{}, fmt.Errorf("read project %s: file exceeds 4 MiB", path)
 	}
-	decoder := json.NewDecoder(io.LimitReader(file, maxProjectSize))
+	decoder := json.NewDecoder(io.LimitReader(file, project.MaxFileBytes))
 	decoder.DisallowUnknownFields()
 	var config project.Config
 	if err := decoder.Decode(&config); err != nil {

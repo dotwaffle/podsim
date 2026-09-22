@@ -75,9 +75,12 @@ func mustLondonConfig() project.Config {
 		Network: londonNetwork(source),
 		Demand: project.DemandConfig{
 			PerMinute: 20,
-			Pattern:   "balanced",
+			Pattern:   "profile",
 			Seed:      20260922,
+			Profile:   londonDemandProfileID,
+			Band:      "am-peak",
 		},
+		DemandProfiles: []project.DemandProfile{londonDemandProfile()},
 		Redistribution: true,
 	}
 	config.Fleet = londonFleet(config.Network)

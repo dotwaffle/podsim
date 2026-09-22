@@ -107,7 +107,7 @@ func NewWithProject(config project.Config, options ...Option) (*Session, error) 
 		projectRevision: 1,
 		generation:      1,
 		speed:           1,
-		demand:          newDemand(owned.Demand, owned.Network),
+		demand:          newDemand(demandInput{config: owned.Demand, network: owned.Network, profiles: owned.DemandProfiles}),
 		receipts:        make(map[string]receipt),
 	}
 	for _, option := range options {
@@ -245,7 +245,7 @@ func (s *Session) apply(command Command) (int, error) {
 		s.simulation.Reset()
 		s.simulation.SetPaused(paused)
 		s.speed = 1
-		s.demand = newDemand(s.project.Demand, s.project.Network)
+		s.demand = newDemand(demandInput{config: s.project.Demand, network: s.project.Network, profiles: s.project.DemandProfiles})
 		s.configureRedistribution()
 		s.generation++
 	case "demo":
@@ -259,13 +259,14 @@ func (s *Session) apply(command Command) (int, error) {
 		s.speed = 1
 		disabled := s.project.Demand
 		disabled.Enabled = false
-		s.demand = newDemand(disabled, s.project.Network)
+		s.demand = newDemand(demandInput{config: disabled, network: s.project.Network, profiles: s.project.DemandProfiles})
 		s.generation++
 	case "demand":
 		if s.simulation.Snapshot().Demo {
 			return 0, errors.New("wait for the demo to finish before changing demand")
 		}
-		if err := project.ValidateDemand(command.Demand, s.project.Network); err != nil {
+		demandContext := project.DemandContext{Network: s.project.Network, Profiles: s.project.DemandProfiles}
+		if err := project.ValidateDemand(command.Demand, demandContext); err != nil {
 			return 0, err
 		}
 		updated := project.Clone(s.project)
@@ -273,7 +274,7 @@ func (s *Session) apply(command Command) (int, error) {
 		if err := s.save(updated); err != nil {
 			return 0, err
 		}
-		if err := s.demand.configure(command.Demand, s.project.Network); err != nil {
+		if err := s.demand.configure(demandInput{config: command.Demand, network: s.project.Network, profiles: s.project.DemandProfiles}); err != nil {
 			return 0, err
 		}
 		s.project = updated
@@ -312,7 +313,7 @@ func (s *Session) applyProject(command Command) error {
 	s.project = config
 	s.simulation = candidate
 	s.speed = 1
-	s.demand = newDemand(config.Demand, config.Network)
+	s.demand = newDemand(demandInput{config: config.Demand, network: config.Network, profiles: config.DemandProfiles})
 	s.configureRedistribution()
 	s.projectRevision++
 	s.generation++
@@ -331,16 +332,9 @@ func (s *Session) save(config project.Config) error {
 
 // Expected pickup weights follow the configured arrival pattern.
 func (s *Session) configureRedistribution() {
-	demand := newDemand(s.project.Demand, s.project.Network)
-	weights := make(map[string]float64, len(demand.passenger))
-	for i, id := range demand.passenger {
-		weights[id] = 1
-		if s.project.Demand.Pattern != "balanced" && i == demand.destination {
-			weights[id] = 0
-		}
-	}
+	demand := newDemand(demandInput{config: s.project.Demand, network: s.project.Network, profiles: s.project.DemandProfiles})
 	// Project validation guarantees at least two passenger stations and valid settings.
-	if err := s.simulation.SetDemandWeights(weights); err != nil {
+	if err := s.simulation.SetDemandWeights(demand.pickupWeights); err != nil {
 		panic(err)
 	}
 	s.simulation.SetRedistribution(s.project.Redistribution)

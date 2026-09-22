@@ -2,6 +2,7 @@ package session
 
 import (
 	"math/rand/v2"
+	"sort"
 
 	"github.com/dotwaffle/podsim/internal/project"
 	"github.com/dotwaffle/podsim/internal/sim"
@@ -19,45 +20,102 @@ type DemandState struct {
 }
 
 type demandRun struct {
-	state       DemandState
-	rng         *rand.Rand
-	budget      int
-	passenger   []string
-	destination int
+	state         DemandState
+	rng           *rand.Rand
+	budget        int
+	passenger     []string
+	destination   int
+	profileFlows  []weightedDemandFlow
+	profileTotal  float64
+	pickupWeights map[string]float64
 }
 
-func newDemand(config DemandConfig, network sim.Network) demandRun {
-	stations := project.PassengerStations(network)
+type demandInput struct {
+	config   DemandConfig
+	network  sim.Network
+	profiles []project.DemandProfile
+}
+
+type weightedDemandFlow struct {
+	from       string
+	to         string
+	cumulative float64
+}
+
+func newDemand(input demandInput) demandRun {
+	stations := project.PassengerStations(input.network)
 	passenger := make([]string, len(stations))
 	for i, station := range stations {
 		passenger[i] = station.ID
 	}
 	destination := len(passenger) - 1
 	for i, id := range passenger {
-		if config.Pattern == "destination" && id == config.Destination || config.Pattern == "market" && id == "market" {
+		if input.config.Pattern == "destination" && id == input.config.Destination || input.config.Pattern == "market" && id == "market" {
 			destination = i
 			break
 		}
 	}
-	return demandRun{
-		state:       DemandState{Config: config},
-		rng:         rand.New(rand.NewPCG(config.Seed, ^config.Seed)),
-		passenger:   passenger,
-		destination: destination,
+	run := demandRun{
+		state:         DemandState{Config: input.config},
+		rng:           rand.New(rand.NewPCG(input.config.Seed, ^input.config.Seed)),
+		passenger:     passenger,
+		destination:   destination,
+		pickupWeights: make(map[string]float64, len(passenger)),
+	}
+	run.prepareLegacyWeights()
+	if input.config.Pattern == "profile" {
+		run.prepareProfile(input.profiles)
+	}
+	return run
+}
+
+func (d *demandRun) prepareLegacyWeights() {
+	for index, id := range d.passenger {
+		d.pickupWeights[id] = 1
+		if d.state.Config.Pattern != "balanced" && index == d.destination {
+			d.pickupWeights[id] = 0
+		}
 	}
 }
 
-func (d *demandRun) configure(config DemandConfig, network sim.Network) error {
-	if err := project.ValidateDemand(config, network); err != nil {
+func (d *demandRun) prepareProfile(profiles []project.DemandProfile) {
+	var selected project.DemandProfile
+	for _, profile := range profiles {
+		if profile.ID == d.state.Config.Profile {
+			selected = profile
+			break
+		}
+	}
+	bandIndex := 0
+	for index, band := range selected.Bands {
+		if band.ID == d.state.Config.Band {
+			bandIndex = index
+			break
+		}
+	}
+	clear(d.pickupWeights)
+	for _, flow := range selected.Flows {
+		weight := flow.Weights[bandIndex]
+		if weight == 0 {
+			continue
+		}
+		d.profileTotal += weight
+		d.pickupWeights[flow.From] += weight
+		d.profileFlows = append(d.profileFlows, weightedDemandFlow{from: flow.From, to: flow.To, cumulative: d.profileTotal})
+	}
+}
+
+func (d *demandRun) configure(input demandInput) error {
+	if err := project.ValidateDemand(input.config, project.DemandContext{Network: input.network, Profiles: input.profiles}); err != nil {
 		return err
 	}
-	if config == d.state.Config {
+	if input.config == d.state.Config {
 		return nil
 	}
-	if config.Enabled {
-		*d = newDemand(config, network)
+	if input.config.Enabled {
+		*d = newDemand(input)
 	} else {
-		d.state.Config = config
+		d.state.Config = input.config
 	}
 	return nil
 }
@@ -71,6 +129,28 @@ func (d *demandRun) step(simulation *sim.Simulation) {
 		return
 	}
 	d.budget -= 60 * sim.TicksPerSecond
+	from, to := d.nextPair()
+	if len(simulation.Snapshot().Pending) >= QueueLimit {
+		d.state.Skipped++
+		return
+	}
+	if err := simulation.RequestTrip(from, to); err != nil {
+		d.state.Skipped++
+		d.state.Error = err.Error()
+		return
+	}
+	d.state.Generated++
+}
+
+func (d *demandRun) nextPair() (string, string) {
+	if d.state.Config.Pattern == "profile" {
+		target := d.rng.Float64() * d.profileTotal
+		index := sort.Search(len(d.profileFlows), func(index int) bool {
+			return d.profileFlows[index].cumulative > target
+		})
+		flow := d.profileFlows[index]
+		return flow.from, flow.to
+	}
 	var from int
 	to := d.destination
 	if d.state.Config.Pattern == "balanced" {
@@ -85,14 +165,5 @@ func (d *demandRun) step(simulation *sim.Simulation) {
 			from++
 		}
 	}
-	if len(simulation.Snapshot().Pending) >= QueueLimit {
-		d.state.Skipped++
-		return
-	}
-	if err := simulation.RequestTrip(d.passenger[from], d.passenger[to]); err != nil {
-		d.state.Skipped++
-		d.state.Error = err.Error()
-		return
-	}
-	d.state.Generated++
+	return d.passenger[from], d.passenger[to]
 }

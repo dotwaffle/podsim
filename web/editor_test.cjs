@@ -112,6 +112,21 @@ test("portable documents round trip the scenario and local background", () => {
   assert.throws(() => editor.parseDocument('{broken'), /not valid JSON/);
 });
 
+test("portable OD profiles validate and round trip", () => {
+  const config = connectedScenario();
+  const [alpha, beta] = config.network.Stations;
+  config.demandProfiles = [{
+    id: "weekday", name: "Weekday", bands: [{ id: "am", name: "AM peak", startMinute: 420, durationMinutes: 180 }],
+    flows: [{ from: alpha.ID, to: beta.ID, weights: [3] }],
+  }];
+  config.demand = { enabled: true, perMinute: 12, pattern: "profile", profile: "weekday", band: "am", seed: 9 };
+
+  assert.deepEqual(editor.validateConfig(config), []);
+  assert.deepEqual(editor.parseDocument(editor.serializeDocument(config)).scenario, config);
+  config.demandProfiles[0].flows[0].weights = [-1];
+  assert.ok(editor.validateConfig(config).some((error) => error.includes("invalid weight")));
+});
+
 test("portable import accepts the legacy market demand pattern", () => {
   const config = connectedScenario();
   config.network.Stations[1].ID = "market";

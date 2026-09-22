@@ -295,6 +295,8 @@ off-line berths, and three Parking facilities.
 The local projection uses meters.
 A separate normalized 2019 midweek NUMBAT profile provides 8,474 in-scope OD
 pairs across eight time bands.
+The portable London project includes these bands, and the live session can
+generate requests from a selected band.
 The fixed 40-request AM peak sample completed every request.
 See [docs/london.md](docs/london.md) and
 [docs/qualification.md](docs/qualification.md#london-am-peak-sample).
