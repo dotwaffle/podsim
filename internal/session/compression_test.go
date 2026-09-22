@@ -58,7 +58,7 @@ func TestCompressedSnapshotsAndAssets(t *testing.T) {
 				t.Fatal(err)
 			}
 			if path == "/api/state" {
-				var state State
+				var state StateFrame
 				if err := json.Unmarshal(decoded, &state); err != nil {
 					t.Fatal(err)
 				}

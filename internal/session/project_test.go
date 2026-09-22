@@ -99,11 +99,12 @@ func TestProjectApplyIsAtomicDetachedAndIdempotent(t *testing.T) {
 	if reply.Error != "" {
 		t.Fatal(reply.Error)
 	}
-	if !reply.State.Simulation.Paused || reply.State.ProjectRevision != 2 || reply.State.Generation != 2 || reply.State.Simulation.Submitted != 0 {
-		t.Fatalf("invalid applied state: %+v", reply.State)
+	state := session.State()
+	if !state.Simulation.Paused || reply.ProjectRevision != 2 || reply.Generation != 2 || state.Simulation.Submitted != 0 || reply.Revision != state.Revision {
+		t.Fatalf("invalid applied state: reply=%+v state=%+v", reply, state)
 	}
-	if reply.State.Simulation.SharedRidePartyLimit != 3 {
-		t.Fatalf("shared ride party limit = %d", reply.State.Simulation.SharedRidePartyLimit)
+	if state.Simulation.SharedRidePartyLimit != 3 {
+		t.Fatalf("shared ride party limit = %d", state.Simulation.SharedRidePartyLimit)
 	}
 	config.Name = "caller mutation"
 	config.Network.Nodes[0].ID = "caller mutation"
@@ -114,7 +115,7 @@ func TestProjectApplyIsAtomicDetachedAndIdempotent(t *testing.T) {
 	retry.Sequence = 2
 	retry.ProjectRevision = 1
 	retry.Project = &original
-	if got := session.Apply(retry); got.Error != "" || got.State.Revision != reply.State.Revision || got.State.ProjectRevision != 2 {
+	if got := session.Apply(retry); got.Error != "" || got.Revision != reply.Revision || got.ProjectRevision != 2 {
 		t.Fatalf("retry changed project: %+v", got)
 	}
 	detached := session.Project()
@@ -151,13 +152,14 @@ func TestCustomDemandAndResetUseActiveProject(t *testing.T) {
 	reset := commandFor(session, "reset")
 	reset.Sequence = 3
 	reply := session.Apply(reset)
-	if reply.Error != "" || reply.State.Generation != 3 || !reply.State.Simulation.Paused {
+	state := session.State()
+	if reply.Error != "" || reply.Generation != 3 || !state.Simulation.Paused {
 		t.Fatalf("reset failed: %+v", reply)
 	}
-	if !reflect.DeepEqual(reply.State.Demand.Config, config.Demand) || reply.State.Demand.Generated != 0 {
+	if !reflect.DeepEqual(state.Demand.Config, config.Demand) || state.Demand.Generated != 0 {
 		t.Fatal("reset did not restore configured demand")
 	}
-	if len(reply.State.Simulation.Vehicles) != len(config.Fleet) {
+	if len(state.Simulation.Vehicles) != len(config.Fleet) {
 		t.Fatal("reset did not restore configured fleet")
 	}
 }
@@ -234,7 +236,7 @@ func TestRedistributionRestoredAfterDemoAndReset(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if reply := shared.Apply(commandFor(shared, "demo")); reply.Error != "" || reply.State.Redistribution {
+	if reply := shared.Apply(commandFor(shared, "demo")); reply.Error != "" || shared.State().Redistribution {
 		t.Fatalf("demo policy: %+v", reply)
 	}
 	for range 600 * sim.TicksPerSecond {
@@ -263,7 +265,8 @@ func TestRedistributionRestoredAfterDemoAndReset(t *testing.T) {
 	reset := commandFor(shared, "reset")
 	reset.Sequence = 3
 	reply := shared.Apply(reset)
-	if reply.Error != "" || !reply.State.Redistribution || reply.State.Simulation.RebalanceMoves != 0 {
+	state := shared.State()
+	if reply.Error != "" || !state.Redistribution || state.Simulation.RebalanceMoves != 0 {
 		t.Fatalf("reset policy: %+v", reply)
 	}
 }

@@ -67,17 +67,33 @@ type Command struct {
 	ProjectRevision uint64          `json:"projectRevision,omitempty"`
 }
 
-// Reply acknowledges one command and includes current authoritative state.
+// CommandErrorCode classifies a rejected command independently of its wording.
+type CommandErrorCode string
+
+// Command error codes are stable machine-readable rejection categories.
+const (
+	SessionChanged   CommandErrorCode = "session_changed"
+	InvalidCommand   CommandErrorCode = "invalid_command"
+	ExpiredCommand   CommandErrorCode = "expired_command"
+	SequenceConflict CommandErrorCode = "sequence_conflict"
+	ClientLimit      CommandErrorCode = "client_limit"
+	CommandRejected  CommandErrorCode = "command_rejected"
+)
+
+// Reply acknowledges one command without repeating the current state frame.
 type Reply struct {
-	State   State  `json:"state"`
-	OrderID int    `json:"orderID,omitempty"`
-	Error   string `json:"error,omitempty"`
+	Epoch           string           `json:"epoch"`
+	Revision        uint64           `json:"revision"`
+	ProjectRevision uint64           `json:"projectRevision"`
+	Generation      uint64           `json:"generation"`
+	OrderID         int              `json:"orderID,omitempty"`
+	ErrorCode       CommandErrorCode `json:"errorCode,omitempty"`
+	Error           string           `json:"error,omitempty"`
 }
 
 type receipt struct {
-	command   Command
-	orderID   int
-	errorText string
+	command Command
+	reply   Reply
 }
 
 // Option configures a session constructor.
@@ -170,6 +186,23 @@ func (s *Session) advance() {
 // State returns a detached snapshot safe for concurrent observers.
 func (s *Session) State() State { s.mu.Lock(); defer s.mu.Unlock(); return s.state() }
 
+// Topology returns detached geometry for the active project revision.
+func (s *Session) Topology() TopologySnapshot {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return TopologySnapshot{
+		Epoch: s.epoch, ProjectRevision: s.projectRevision,
+		Network: project.CloneNetwork(s.project.Network),
+	}
+}
+
+// Frame returns recurring state without network geometry or complete route lanes.
+func (s *Session) Frame() StateFrame {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return stateFrame(s.stateWithoutNetwork())
+}
+
 // Metrics returns a compact session snapshot for operational monitoring.
 func (s *Session) Metrics() Metrics {
 	s.mu.Lock()
@@ -201,14 +234,18 @@ func (s *Session) Metrics() Metrics {
 }
 
 func (s *Session) state() State {
-	network := project.CloneNetwork(s.project.Network)
+	state := s.stateWithoutNetwork()
+	state.Network = project.CloneNetwork(s.project.Network)
+	return state
+}
+
+func (s *Session) stateWithoutNetwork() State {
 	return State{
 		Epoch:           s.epoch,
 		Revision:        s.revision,
 		ProjectRevision: s.projectRevision,
 		Generation:      s.generation,
 		Redistribution:  s.project.Redistribution && !s.simulation.Snapshot().Demo,
-		Network:         network,
 		Simulation:      s.simulation.Snapshot(),
 		Speed:           s.speed,
 		Demand:          s.demand.state,
@@ -227,38 +264,51 @@ func (s *Session) Apply(command Command) Reply {
 	command = cloneCommand(command)
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	reply := Reply{}
+	reply := s.reply()
 	switch {
 	case command.Epoch != s.epoch:
-		reply.Error = "The server session changed. Review the current state and try again."
+		reply.reject(SessionChanged, "The server session changed. Review the current state and try again.")
 	case command.Client == "" || len(command.Client) > 100 || command.Sequence == 0:
-		reply.Error = "Invalid client or command sequence."
+		reply.reject(InvalidCommand, "Invalid client or command sequence.")
 	default:
 		previous, exists := s.receipts[command.Client]
 		switch {
 		case exists && command.Sequence < previous.command.Sequence:
-			reply.Error = "This command has expired. Review the current state."
+			reply.reject(ExpiredCommand, "This command has expired. Review the current state.")
 		case exists && command.Sequence == previous.command.Sequence:
 			if !reflect.DeepEqual(previous.command, command) {
-				reply.Error = "This sequence was already used for another command."
+				reply.reject(SequenceConflict, "This sequence was already used for another command.")
 			} else {
-				reply.OrderID, reply.Error = previous.orderID, previous.errorText
+				reply = previous.reply
 			}
 		case !exists && len(s.receipts) >= 1024:
-			reply.Error = "The session client limit was reached. Restart the server."
+			reply.reject(ClientLimit, "The session client limit was reached. Restart the server.")
 		default:
 			orderID, err := s.apply(command)
-			reply.OrderID = orderID
-			if err != nil {
-				reply.Error = err.Error()
-			} else {
+			if err == nil {
 				s.revision++
 			}
-			s.receipts[command.Client] = receipt{command: cloneCommand(command), orderID: reply.OrderID, errorText: reply.Error}
+			reply = s.reply()
+			reply.OrderID = orderID
+			if err != nil {
+				reply.reject(CommandRejected, err.Error())
+			}
+			s.receipts[command.Client] = receipt{command: cloneCommand(command), reply: reply}
 		}
 	}
-	reply.State = s.state()
 	return reply
+}
+
+func (s *Session) reply() Reply {
+	return Reply{
+		Epoch: s.epoch, Revision: s.revision,
+		ProjectRevision: s.projectRevision, Generation: s.generation,
+	}
+}
+
+func (r *Reply) reject(code CommandErrorCode, message string) {
+	r.ErrorCode = code
+	r.Error = message
 }
 
 func cloneCommand(command Command) Command {

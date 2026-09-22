@@ -29,13 +29,23 @@
       button.disabled = true;
       status.textContent = "Capturing…";
       try {
-        const response = await fetch("/api/state", { cache: "no-store", signal: AbortSignal.timeout(15000) });
-        if (!response.ok) throw new Error(`HTTP ${response.status}`);
-        const state = await response.json();
+        const signal = AbortSignal.timeout(15000);
+        const [stateResponse, topologyResponse] = await Promise.all([
+          fetch("/api/state", { cache: "no-store", signal }),
+          fetch("/api/topology", { cache: "no-store", signal }),
+        ]);
+        if (!stateResponse.ok) throw new Error(`State HTTP ${stateResponse.status}`);
+        if (!topologyResponse.ok) throw new Error(`Topology HTTP ${topologyResponse.status}`);
+        const frame = await stateResponse.json();
+        const topology = await topologyResponse.json();
+        if (frame.epoch !== topology.epoch || frame.projectRevision !== topology.projectRevision) {
+          throw new Error("State changed while capturing");
+        }
+        const state = { ...frame, network: topology.network };
         if (!state.network || !state.simulation || !Number.isSafeInteger(state.simulation.Tick)) {
           throw new Error("Invalid server state");
         }
-        const capture = { ...state, debugCapture: { version: 1, requestedAt, receivedAt: new Date().toISOString() } };
+        const capture = { ...state, debugCapture: { version: 2, requestedAt, receivedAt: new Date().toISOString() } };
         const url = URL.createObjectURL(new Blob([JSON.stringify(capture, null, 2)], { type: "application/json" }));
         const link = document.createElement("a");
         link.href = url;

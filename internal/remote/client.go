@@ -31,6 +31,7 @@ type Client struct {
 	url       string
 	http      *http.Client
 	state     session.State
+	topology  session.TopologySnapshot
 	connected bool
 	pending   bool
 	client    string
@@ -98,10 +99,14 @@ func (c *Client) poll(ctx context.Context) {
 	ticker := time.NewTicker(50 * time.Millisecond)
 	defer ticker.Stop()
 	for {
-		var state session.State
-		err := c.exchange(ctx, "GET", "/api/state", nil, &state)
+		var frame session.StateFrame
+		err := c.exchange(ctx, "GET", "/api/state", nil, &frame)
 		if err == nil {
-			c.accept(state)
+			var state session.State
+			state, err = c.stateForFrame(ctx, frame)
+			if err == nil {
+				c.accept(state)
+			}
 		}
 		c.mu.Lock()
 		c.connected = err == nil
@@ -112,6 +117,24 @@ func (c *Client) poll(ctx context.Context) {
 		case <-ticker.C:
 		}
 	}
+}
+
+func (c *Client) stateForFrame(ctx context.Context, frame session.StateFrame) (session.State, error) {
+	c.mu.Lock()
+	topology := c.topology
+	c.mu.Unlock()
+	if topology.Epoch != frame.Epoch || topology.ProjectRevision != frame.ProjectRevision {
+		if err := c.exchange(ctx, "GET", "/api/topology", nil, &topology); err != nil {
+			return session.State{}, err
+		}
+		if topology.Epoch != frame.Epoch || topology.ProjectRevision != frame.ProjectRevision {
+			return session.State{}, errors.New("topology changed while reading state")
+		}
+		c.mu.Lock()
+		c.topology = topology
+		c.mu.Unlock()
+	}
+	return session.FrameState(topology, frame)
 }
 
 func (c *Client) runCommands(ctx context.Context) {
@@ -143,9 +166,6 @@ func (c *Client) send(ctx context.Context, command session.Command) Result {
 	for range 3 {
 		result.Reply = session.Reply{}
 		result.Err = c.exchange(ctx, "POST", "/api/command", body, &result.Reply)
-		if result.Reply.State.Epoch != "" {
-			c.accept(result.Reply.State)
-		}
 		if result.Err == nil || result.Reply.Error != "" {
 			return result
 		}

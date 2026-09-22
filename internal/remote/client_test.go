@@ -1,6 +1,7 @@
 package remote
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -11,6 +12,37 @@ import (
 	"github.com/dotwaffle/podsim/internal/project"
 	"github.com/dotwaffle/podsim/internal/session"
 )
+
+func TestStateForFrameCachesMatchingTopology(t *testing.T) {
+	t.Parallel()
+	shared, err := session.New()
+	if err != nil {
+		t.Fatal(err)
+	}
+	var requests atomic.Int32
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/api/topology" {
+			t.Errorf("path = %q", r.URL.Path)
+		}
+		requests.Add(1)
+		_ = json.NewEncoder(w).Encode(shared.Topology())
+	}))
+	defer server.Close()
+	client := &Client{url: server.URL, http: server.Client(), topology: shared.Topology()}
+	if _, err := client.stateForFrame(context.Background(), shared.Frame()); err != nil {
+		t.Fatal(err)
+	}
+	if requests.Load() != 0 {
+		t.Fatal("fetched unchanged topology")
+	}
+	client.topology = session.TopologySnapshot{}
+	if _, err := client.stateForFrame(context.Background(), shared.Frame()); err != nil {
+		t.Fatal(err)
+	}
+	if requests.Load() != 1 {
+		t.Fatalf("topology requests = %d", requests.Load())
+	}
+}
 
 func waitFor(t *testing.T, condition func() bool) {
 	t.Helper()
@@ -50,7 +82,11 @@ func TestLostReplyRetryAndReconnect(t *testing.T) {
 				http.Error(w, "offline", http.StatusServiceUnavailable)
 				return
 			}
-			_ = json.NewEncoder(w).Encode(shared.State())
+			if r.URL.Path == "/api/topology" {
+				_ = json.NewEncoder(w).Encode(shared.Topology())
+			} else {
+				_ = json.NewEncoder(w).Encode(shared.Frame())
+			}
 			return
 		}
 		var command session.Command

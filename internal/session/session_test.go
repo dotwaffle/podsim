@@ -49,24 +49,26 @@ func TestCommandRetriesAndReset(t *testing.T) {
 	if first.Error != "" || first.OrderID != 1 {
 		t.Fatalf("first: %+v", first)
 	}
+	firstState := s.State()
 	for range 3 {
 		reply := s.Apply(command)
-		if reply.OrderID != 1 || reply.Error != "" || reply.State.Revision != first.State.Revision || reply.State.Simulation.Submitted != 1 {
+		if reply.OrderID != 1 || reply.Error != "" || reply.Revision != first.Revision || s.State().Simulation.Submitted != 1 {
 			t.Fatal("retry changed state")
 		}
 	}
 	changed := command
 	changed.Destination = "garden"
-	if s.Apply(changed).Error == "" {
+	if reply := s.Apply(changed); reply.Error == "" || reply.ErrorCode != SequenceConflict {
 		t.Fatal("accepted reused sequence with different command")
 	}
 	reset := commandFor(s, "reset")
 	reset.Sequence = 2
 	reply := s.Apply(reset)
-	if reply.Error != "" || reply.State.Simulation.Submitted != 0 || reply.State.Epoch != first.State.Epoch || reply.State.Revision <= first.State.Revision {
+	resetState := s.State()
+	if reply.Error != "" || resetState.Simulation.Submitted != 0 || reply.Epoch != firstState.Epoch || reply.Revision <= first.Revision || reply.Revision != resetState.Revision {
 		t.Fatal("invalid reset")
 	}
-	if s.Apply(command).Error == "" || s.State().Simulation.Submitted != 0 {
+	if expired := s.Apply(command); expired.Error == "" || expired.ErrorCode != ExpiredCommand || s.State().Simulation.Submitted != 0 {
 		t.Fatal("old retry replayed after reset")
 	}
 	for i := range 600 {
@@ -224,7 +226,7 @@ func TestDemandQueueLimitConsumesArrivals(t *testing.T) {
 	}
 	cmd := commandFor(s, "demo")
 	cmd.Sequence = 2
-	if reply := s.Apply(cmd); reply.Error != "" || reply.State.Demand.Config.Enabled {
+	if reply := s.Apply(cmd); reply.Error != "" || s.State().Demand.Config.Enabled {
 		t.Fatal("demo retained demand")
 	}
 }
@@ -263,7 +265,7 @@ func TestHTTPValidationAndSharedObservers(t *testing.T) {
 			}
 		})
 	}
-	var observers [2]State
+	var observers [2]StateFrame
 	for i := range observers {
 		response := httptest.NewRecorder()
 		handler.ServeHTTP(response, httptest.NewRequestWithContext(t.Context(), http.MethodGet, "http://example.com/api/state", http.NoBody))
@@ -274,10 +276,19 @@ func TestHTTPValidationAndSharedObservers(t *testing.T) {
 	if !reflect.DeepEqual(observers[0], observers[1]) || observers[0].Simulation.Submitted != 1 {
 		t.Fatal("observers have different orders")
 	}
-	observers[0].Network.Stations[0].Berths[0].ID = "mutated"
 	observers[0].Simulation.Vehicles[0].Pod.ID = "mutated"
 	if bytes.Contains(mustJSON(t, s.State()), []byte("mutated")) {
 		t.Fatal("snapshot aliases session")
+	}
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, httptest.NewRequestWithContext(t.Context(), http.MethodGet, "http://example.com/api/topology", http.NoBody))
+	var topology TopologySnapshot
+	if err := json.NewDecoder(response.Body).Decode(&topology); err != nil {
+		t.Fatal(err)
+	}
+	topology.Network.Stations[0].Berths[0].ID = "mutated"
+	if bytes.Contains(mustJSON(t, s.Topology()), []byte("mutated")) {
+		t.Fatal("topology aliases session")
 	}
 }
 

@@ -12,23 +12,30 @@ import (
 )
 
 // Handler serves the session API and supplied static application files.
-func (s *Session) Handler(directory string) http.Handler {
-	return s.HandlerFS(os.DirFS(directory))
+func (s *Session) Handler(directory string, routes ...func(*http.ServeMux)) http.Handler {
+	return s.HandlerFS(os.DirFS(directory), routes...)
 }
 
 // HandlerFS serves the session API and supplied static application files.
-func (s *Session) HandlerFS(files fs.FS) http.Handler {
-	mux := http.NewServeMux()
-	mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, _ *http.Request) {
+func (s *Session) HandlerFS(files fs.FS, routes ...func(*http.ServeMux)) http.Handler {
+	application := http.NewServeMux()
+	application.HandleFunc("GET /healthz", func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 		w.Header().Set("Cache-Control", "no-store")
 		_, _ = io.WriteString(w, "ok\n")
 	})
-	mux.HandleFunc("GET /api/state", func(w http.ResponseWriter, _ *http.Request) { writeJSON(w, s.State()) })
-	mux.HandleFunc("GET /api/project", func(w http.ResponseWriter, _ *http.Request) { writeJSON(w, s.Project()) })
-	mux.HandleFunc("POST /api/command", s.commandHTTP)
-	mux.Handle("/", http.FileServerFS(files))
-	return precompressedWASM(files, compressResponse(mux))
+	application.HandleFunc("GET /api/topology", func(w http.ResponseWriter, _ *http.Request) { writeJSON(w, s.Topology()) })
+	application.HandleFunc("GET /api/state", func(w http.ResponseWriter, _ *http.Request) { writeJSON(w, s.Frame()) })
+	application.HandleFunc("GET /api/project", func(w http.ResponseWriter, _ *http.Request) { writeJSON(w, s.Project()) })
+	application.HandleFunc("POST /api/command", s.commandHTTP)
+	application.Handle("/", http.FileServerFS(files))
+
+	root := http.NewServeMux()
+	for _, register := range routes {
+		register(root)
+	}
+	root.Handle("/", precompressedWASM(files, compressResponse(application)))
+	return root
 }
 
 func (s *Session) commandHTTP(w http.ResponseWriter, r *http.Request) {
