@@ -5,47 +5,39 @@
 Use normalized gzip JSON for the browser client.
 
 The normalized protocol removes the network and complete lane objects from the
-20 Hz state response. This change provides most of the available bandwidth
-saving without changing codecs. The client fetches topology only when the
-project revision changes.
+20 Hz state response. The client fetches topology only when the project
+revision changes.
 
-The server also exposes an experimental ConnectRPC service with binary
-Protocol Buffers. Keep it for schema validation and measurement, but do not
-move the browser client to it yet. The published Connect-Go v2 module is still
-an alpha release. On the measured London fixture, gzip binary Protobuf saves
-only 10% compared with normalized gzip JSON.
+The project evaluated ConnectRPC and binary Protocol Buffers, then removed the
+implementation. No application client used the service. The small remaining
+bandwidth and CPU savings did not justify a second protocol implementation.
 
 ## Message boundaries
 
-The JSON and Protobuf APIs use the same four boundaries:
+The JSON API uses four message boundaries:
 
 | Boundary | JSON endpoint | Purpose |
 | --- | --- | --- |
 | Topology | `GET /api/topology` | Network geometry for one project revision. |
-| State | `GET /api/state` | Recurring controls, demand, queues, berths, metrics, and dynamic vehicle fields. |
+| State | `GET /api/state` | Controls, demand, queues, berths, metrics, and dynamic vehicle fields. |
 | Project | `GET /api/project` | Complete editable scenario data. |
 | Command | `POST /api/command` | Retry-safe mutation and compact acknowledgment. |
 
 State frames contain ordered lane IDs for vehicle routes. They do not contain
 lane objects or network geometry. The Go client caches topology by session
-epoch and project revision, then reconstructs the existing presentation state.
-It rejects a frame if matching topology is not available.
+epoch and project revision, then reconstructs the presentation state. It
+rejects a frame if matching topology is not available.
 
 Command acknowledgments contain the accepted state revision, project revision,
 generation, optional order ID, and a stable error code. They do not repeat a
 state frame. Exact retries return the original acknowledgment. Expired and
 conflicting sequences retain their previous behavior.
 
-The Connect service defines matching `GetTopology`, `GetState`, `GetProject`,
-and `Command` methods in `proto/podsim/v1/podsim.proto`. It is mounted beside
-the JSON API at `/podsim.v1.PodsimService/*`.
-
 ## Payload measurements
 
 The comparison used equivalent states with 200 accepted requests. It used the
-Scale100 and London projects. Gzip used level 1, which matches live JSON and
-Connect responses. These are deterministic codec samples, not network
-throughput limits.
+Scale100 and London projects. Both formats used gzip level 1. These are
+deterministic codec samples, not network throughput limits.
 
 | Fixture | Format | Raw frame | Gzip frame | Traffic at 20 Hz |
 | --- | --- | ---: | ---: | ---: |
@@ -56,9 +48,9 @@ throughput limits.
 | London | Normalized JSON | 132,915 B | 17,513 B | 0.35 MB/s |
 | London | Binary Protobuf | 71,143 B | 15,704 B | 0.31 MB/s |
 
-For London, normalization reduces the gzip frame by 81.5%. Binary Protobuf then
-reduces the normalized gzip frame by another 10.3%. Its raw frame is 46.5%
-smaller than normalized JSON, but gzip removes most of that difference.
+For London, normalization reduces the gzip frame by 81.5%. Binary Protobuf
+reduces the normalized frame by another 10.3%. Its raw frame is 46.5% smaller,
+but gzip removes most of that difference.
 
 Topology is a one-time cost per project revision. London topology is 51,803
 gzip bytes as JSON and 46,374 gzip bytes as Protobuf. The editor project is not
@@ -82,15 +74,13 @@ three one-second benchmark runs.
 | London | Decode | 0.991 ms | 0.312 ms | 3.18x faster |
 
 Protobuf uses one allocation when encoding. JSON uses three. London Protobuf
-decode allocates about 255 KB, compared with 277 KB for JSON, but it creates
-4,893 allocations instead of 3,513. Generated nested message pointers account
-for much of the higher allocation count.
+decode allocates about 255 KB, compared with 277 KB for JSON. It creates 4,893
+allocations instead of 3,513 because of generated nested message pointers.
 
 Level-1 gzip compression took 0.310 ms for the London JSON frame and 0.285 ms
 for the Protobuf frame. At 20 Hz, marshal and compression use about 15.5 ms of
 CPU per wall second for JSON and 8.4 ms for Protobuf. The saving is about 0.7%
-of one full CPU core per connected client. It is more material on a fractional
-shared CPU allocation.
+of one full CPU core per connected client.
 
 The gzip-level comparison used five more one-second runs for the London frame.
 
@@ -103,56 +93,34 @@ The gzip-level comparison used five more one-second runs for the London frame.
 
 Level 6 saves 3,014 bytes, or 17.2%, for each London frame. It takes about twice
 the compression CPU. At 20 Hz, it adds about 6.4 ms of CPU per wall second and
-saves about 60 KB/s for each client. The server keeps level 1 because CPU is
-the tighter resource on the proposed shared-CPU deployment.
+saves about 60 KB/s for each client. The server uses level 1 because CPU is the
+tighter resource on the proposed shared-CPU deployment.
 
-These codec measurements exclude frame construction, Protobuf conversion,
-HTTP work, decompression, rendering, and simulation work. They do not show the
-fraction of total application CPU.
+These measurements exclude frame construction, Protobuf conversion, HTTP work,
+decompression, rendering, and simulation work. They do not show the fraction
+of total application CPU.
 
 The codec data is in
 [`measurements/protocol-normalized-codec.csv`](measurements/protocol-normalized-codec.csv).
-Run the benchmark again with:
 
-```sh
-go test ./internal/connectapi -run '^$' -bench 'BenchmarkProtocol(Codecs|Gzip)$' -benchtime=1s -count=3 -benchmem
-```
+## Removed ConnectRPC experiment
 
-## ConnectRPC evaluation
+The experiment defined matching topology, state, project, and command methods.
+It used Connect-Go `v2.0.0-alpha.1`, generated Go clients and handlers, and
+binary Protobuf. Tests verified state reconstruction, project conversion,
+command retries, and invalid commands.
 
-Connect-Go v2 integrates cleanly with the existing server:
+The experiment added 4,055 checked-in lines, including 3,065 generated lines.
+It increased the unembedded server binary by 782,126 bytes, or 2.9%. No
+application client used the RPC service, so it provided no live CPU or traffic
+saving. Commit `cf50eca` preserves the implementation and benchmark source.
 
-- Generated clients and handlers use the same schema.
-- The handler mounts on the existing `net/http` multiplexer.
-- Binary Protobuf is the default codec.
-- Connect uses pooled level-1 gzip compression.
-- The existing OpenTelemetry HTTP wrapper observes the RPC paths.
-- The generated packages compile for `js/wasm`.
+Reconsider a typed RPC protocol when at least one condition is true:
 
-Tests call the service through the generated binary client. They compare the
-reconstructed state and editable project with the JSON model. They also verify
-retry deduplication and invalid command handling.
-
-The application client still uses normalized JSON. The plain JavaScript editor
-also remains on JSON, so this evaluation does not add a JavaScript package or
-generation pipeline.
-
-Schema generation uses Buf and pinned generators from `mise.toml`:
-
-```sh
-go generate ./...
-buf lint
-```
-
-## When to reconsider
-
-Reconsider a client cutover when at least one condition is true:
-
-- Connect-Go v2 reaches a stable release.
-- Remote use makes the remaining 10% to 16% gzip saving material.
+- Remote use makes a 10% to 16% gzip saving material.
 - Multiple viewers make JSON codec CPU significant.
-- External clients need the generated schema more than they need simple HTTP
-  inspection.
+- External clients need a generated schema.
+- The application needs streaming or gRPC compatibility.
 
 Measure browser decode and state-application time before a cutover. Add deltas
 or streaming only if normalized complete frames become a measured limit.

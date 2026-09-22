@@ -157,23 +157,17 @@ Avoid a general plugin system in the first version.
 
 ### Typed client protocol
 
-Keep the current HTTP and JSON protocol while its measured traffic remains
-manageable. Before changing the wire contract, evaluate
-[ConnectRPC](https://connectrpc.com/) with Protocol Buffers as the schema source
-for generated Go and browser clients. Connect supports binary Protocol Buffers,
-JSON, compression, and browser-compatible RPC.
+Keep the HTTP and JSON protocol while its measured traffic remains manageable.
+Preserve the authoritative server and retry-safe command identity.
 
-Do not treat binary encoding alone as the complete optimization. The current
-client repeatedly receives a complete state, including static network data and
-routes. Compare a normalized or delta state protocol with binary complete
-snapshots, and measure response size, server cost, and browser update cost.
-Preserve the current authoritative server and retry-safe command identity.
+The September 22 evaluation normalized recurring JSON state, then compared it
+with ConnectRPC and binary Protocol Buffers. Protobuf reduced the London gzip
+frame by another 10.3%. Its codec saved about 0.7% of one CPU core per client.
 
-The September 22 evaluation measured active gzip traffic of about 0.80 MB/s
-per Scale100 browser and 1.55 MB/s per London browser at the current 20 Hz poll
-rate. The current protocol remains adequate for local use. Normalize recurring
-JSON state before adopting another codec, then evaluate ConnectRPC against that
-normalized baseline. See [the protocol evaluation](docs/protocol.md).
+No application client used the experimental service. The project removed it to
+avoid a second protocol implementation and an alpha runtime dependency. Review
+this choice if remote traffic, multiple viewers, or external clients make a
+typed RPC protocol useful. See [the protocol evaluation](docs/protocol.md).
 
 ### Separate passengers, vehicles, and service policies
 

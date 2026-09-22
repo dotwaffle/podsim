@@ -56,8 +56,7 @@ The browser export wraps this object as `scenario` and can also contain a backgr
 An `embed_assets` server build contains all browser files in one executable.
 The project also includes a non-root, multiarchitecture ko image and a GHCR publishing workflow.
 The server provides `/healthz`, opt-in pprof on a separate listener, and opt-in OTLP telemetry.
-The browser uses normalized gzip JSON frames. An experimental ConnectRPC and
-binary Protobuf service is available for comparison and typed clients.
+The browser uses normalized gzip JSON frames.
 See [distribution and operations](docs/operations.md) for build and runtime settings.
 
 ## Controls
@@ -347,7 +346,7 @@ Pod selection, origin, destination, and the open inspection panel stay local to 
 Background images stay in the editor and exported project file.
 The shared simulation receives network geometry and settings.
 
-See [the client protocol](docs/protocol.md) for payload measurements and the ConnectRPC evaluation.
+See [the client protocol](docs/protocol.md) for payload measurements and the Protobuf evaluation.
 See [the project brief](PROJECT_BRIEF.md) for the wider scope and research.
 
 ## Code and validation
@@ -358,8 +357,6 @@ See [the project brief](PROJECT_BRIEF.md) for the wider scope and research.
 | `internal/project` | Versioned scenario settings, validation, and detached copies. |
 | `internal/scenarios` | Deterministic scale fixtures and qualification tests. |
 | `internal/session` | Shared clock, command validation, HTTP API, and repeatable demand. |
-| `internal/connectapi` | Experimental ConnectRPC adapter, conversions, and codec benchmarks. |
-| `internal/gen` | Generated Protobuf messages and ConnectRPC clients and handlers. |
 | `internal/remote` | Snapshot polling, command retries, and connection state. |
 | `internal/view` | Ebitengine rendering and input against copied snapshots. |
 | `internal/telemetry` | Optional OTLP traces, HTTP metrics, runtime metrics, and session gauges. |
@@ -369,7 +366,6 @@ See [the project brief](PROJECT_BRIEF.md) for the wider scope and research.
 | `cmd/compare` | Reproducible policy comparisons. |
 | `cmd/scenario` | Generated scenario files. |
 | `web` | Browser loader and scenario editor. |
-| `proto` | Versioned client protocol schema. |
 
 ```sh
 mise run test
