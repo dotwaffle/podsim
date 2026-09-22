@@ -167,6 +167,12 @@ routes. Compare a normalized or delta state protocol with binary complete
 snapshots, and measure response size, server cost, and browser update cost.
 Preserve the current authoritative server and retry-safe command identity.
 
+The September 22 evaluation measured active gzip traffic of about 0.80 MB/s
+per Scale100 browser and 1.55 MB/s per London browser at the current 20 Hz poll
+rate. The current protocol remains adequate for local use. Normalize recurring
+JSON state before adopting another codec, then evaluate ConnectRPC against that
+normalized baseline. See [the protocol evaluation](docs/protocol.md).
+
 ### Separate passengers, vehicles, and service policies
 
 Keep passenger requests and party size separate from vehicles and assignments.

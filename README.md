@@ -272,6 +272,7 @@ The map buffers 150 ms of snapshots and interpolates movement along lanes betwee
 Controls and order status use the latest server state. Pauses, resets, and long connection gaps clear buffered motion.
 Rendering never predicts movement beyond the latest received position.
 The server uses gzip for snapshots and browser assets when the client supports it. Range responses remain uncompressed.
+See [the client protocol evaluation](docs/protocol.md) for current payload measurements and the staged normalization and ConnectRPC plan.
 WASM uses a build-time gzip artifact to reduce downloads without repeating compression for each browser.
 If that artifact is missing or older than the WASM file, the server compresses the current file during the request.
 A lost connection disables commands. Reconnection restores the current shared state.

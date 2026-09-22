@@ -1,0 +1,7 @@
+fixture,sample,endpoint,tick,submitted,pending,vehicles,route_lanes,raw_bytes,gzip_bytes,poll_hz,gzip_bytes_per_second
+scale100,idle,state,847,0,0,100,0,138638,17405,20,348100
+scale100,active,state,6096,98,55,100,1585,311895,40030,20,800600
+london,idle,state,779,0,0,114,38,383182,55444,20,1108880
+london,active,state,5975,128,92,114,1118,559260,77433,20,1548660
+scale100,current,project,,,,,,108637,15082,0,0
+london,current,project,,,,,,1155812,251570,0,0

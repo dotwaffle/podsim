@@ -1,0 +1,7 @@
+fixture,operation,ns_per_operation,bytes_per_operation,allocations_per_operation
+scale100_active,json_marshal,1540313,330845,3
+scale100_active,json_marshal_gzip,2230618,1791,2
+scale100_active,json_unmarshal,2833789,808156,6411
+london_active,json_marshal,2326853,613267,3
+london_active,json_marshal_gzip,3597241,7347,2
+london_active,json_unmarshal,4305207,969878,8654
