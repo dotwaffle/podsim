@@ -469,8 +469,8 @@ time bands.
 
 The fixed AM peak run submitted 40 OD-weighted requests at five-second
 intervals.
-All 40 completed by 1,083.0 simulated seconds.
-Average pickup wait was 58.744 seconds, and maximum pickup wait was 235.133
+All 40 completed by 1,420.0 simulated seconds.
+Average pickup wait was 57.021 seconds, and maximum pickup wait was 394.217
 seconds.
 The schedule SHA-256 is
 `02d3b6086d3ee5f58c9cbdb5bb574c042e0b8cd911656ed2c98099ea595aa024`.
@@ -509,7 +509,42 @@ junction.
 Unlabeled projects retain the original two-dimensional all-pairs check.
 See [the London network notes](london.md) for the boundary and source details.
 
-## London capacity envelope
+## London portal comparison
+
+The first London network joined all guideways and station access at one node per
+station.
+Waterloo had 14 lanes on one junction resource.
+Embankment had 10 lanes on one junction resource.
+This design serialized unrelated directions and corridors.
+
+The portal network gives each adjacency a separate arrival portal and departure
+portal.
+Local movement lanes connect the portals.
+The controller now reserves a shared portal only for a real diverge or merge.
+
+The comparison used one AM peak schedule with seed `20260922`.
+It submitted 199 requests during a 10-minute window at one request every three
+seconds.
+Both runs used the same schedule ID, `f13d587848b9176e`.
+Redistribution and shared rides were off.
+The run stopped after the queue drained or after 60 simulated minutes.
+
+| Network | Served | Remaining | Peak stopped pods | Waterloo entrance stopped | Waterloo exit stopped | Average wait | Maximum wait | Recovery after arrivals |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| Shared station junction | 194 | 5 | 60 | 2 | 5 | 503.2 s | 3,039.1 s | Did not drain |
+| Directional portals | 199 | 0 | 3 | 0 | 1 | 298.8 s | 1,152.9 s | 1,719 s |
+
+This comparison tests one high-load demand pulse.
+It confirms that the shared station node caused most stopped traffic in this
+run.
+It does not replace the multi-band capacity sweep.
+
+## Historical London capacity envelope
+
+The following sweep used the earlier shared-junction network at commit
+`5e556e0`.
+Its limits do not describe the directional-portal network.
+Keep these results as a baseline until a new multi-band sweep replaces them.
 
 The capacity sweep uses the London project's NUMBAT origin-destination profile.
 It covers all eight demand bands, eight offered rates, and seeds 1, 2, and 3.
@@ -552,8 +587,8 @@ travel. Early and Night demand therefore consume much more empty-pod capacity.
 These limits describe a finite 30-minute demand pulse with up to 30 minutes of
 recovery. They are not continuous steady-state limits. Backlog still grows in
 the second half of every limit-rate arm, so an operating target needs headroom.
-The sweep establishes where the current fleet and fixed station geometry start
-to fail. It does not prove that the next lower whole-number rate can run
+The sweep establishes where the old shared-junction network starts to fail.
+It does not prove that the next lower whole-number rate can run
 indefinitely.
 
 The 192-arm run took 690.01 wall seconds and reached 325,040 KB peak RSS on the

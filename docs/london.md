@@ -36,13 +36,22 @@ The generator uses a local meter projection centered on Charing Cross.
 This preserves useful distance and density differences across the selected
 area without adding a mapping dependency.
 
-Guideway links are straight between station locations in this first version.
-Their two directions are offset by 18 meters from the centerline at the link
-midpoint.
-Station berths are separate from the through junction.
-Each station has distinct road, diverge, entry, exit, and merge nodes.
-This prevents one junction reservation from consuming the complete terminal
-access lane before the controller assigns a berth.
+Guideway links are straight between station areas.
+Their two directions are offset by 18 meters from the centerline.
+Each link has a separate arrival portal and departure portal at each end.
+The portals prevent opposite directions from sharing one station node.
+
+Short movement lanes connect each arrival portal to each departure portal.
+These lanes let pods continue through the station area or change corridors.
+Each movement has a separate separation group.
+Movements conflict when they share a portal.
+Unconnected movement crossings represent grade-separated paths.
+
+Station access branches from every arrival portal and rejoins every departure
+portal.
+Each station has distinct diverge, entry, exit, and merge nodes.
+Berths use separate arrival and departure spines with a 75-meter pitch.
+This layout keeps access lanes away from occupied berths.
 Each station lane has one maneuver role: approach, entry, berth access, through,
 departure, or exit.
 The simulation snapshot derives each pod's station phase from its current lane.
@@ -51,8 +60,8 @@ and `Departing berth` with the station name.
 These roles describe the existing movement and reservation flow.
 They do not change route selection, admission priority, or resource ownership.
 
-The network does not model tunnel depth.
-Instead, each link and station path has an explicit separation group.
+The network does not store tunnel depth.
+Instead, each guideway and controlled movement has an explicit separation group.
 Different groups declare that unrelated paths can cross at different physical
 levels.
 Paths that share a junction remain subject to the separation check, even when
@@ -99,8 +108,8 @@ IDs, not the complete OD matrix.
 
 A deterministic AM peak qualification submits 40 source-weighted requests at
 five-second intervals.
-All 40 completed by 1,083.0 simulated seconds.
-Average pickup wait was 58.744 seconds, and maximum pickup wait was 235.133
+All 40 completed by 1,420.0 simulated seconds.
+Average pickup wait was 57.021 seconds, and maximum pickup wait was 394.217
 seconds.
 The test also rejects any stationary pod without an assigned berth.
 It runs the geometric separation oracle once per simulated second.
@@ -134,8 +143,9 @@ mise run scenario -- -preset london -output /tmp/podsim-london.json
 mise run serve -- -project /tmp/podsim-london.json
 ```
 
-The generated project has 99 stations, 974 nodes, 1,459 lanes, and 114 pods.
+The generated project has 99 stations, 1,842 nodes, 3,101 lanes, and 114 pods.
 Project validation checks directed reachability between all passenger berths.
-The supported project limit is 100 stations, so this preset permits one added
-station in the editor. Change the limit only with measured editor validation.
+The station-count limit permits one added station in the editor.
+The node, lane, and file-size limits also apply to that edit.
+Change a limit only after measured editor validation.
 The preset starts with automatic demand and redistribution disabled.

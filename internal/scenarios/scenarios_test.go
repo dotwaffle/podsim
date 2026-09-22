@@ -80,16 +80,22 @@ func TestLondonUsesRealScaleAndDirectedGuideways(t *testing.T) {
 	}
 	holborn := stations["Holborn"]
 	chancery := stations["Chancery Lane"]
-	holbornJunction, _ := config.Network.Node(londonJunctionID(holborn.ID))
-	chanceryJunction, _ := config.Network.Node(londonJunctionID(chancery.ID))
+	var source londonSource
+	if err := decodeLondonSource(&source); err != nil {
+		t.Fatal(err)
+	}
+	positions := make(map[string]sim.Point, len(source.Stations))
+	for _, station := range source.Stations {
+		positions[station.ID] = londonPoint(station.Latitude, station.Longitude)
+	}
 	distance := math.Hypot(
-		holbornJunction.Position.X-chanceryJunction.Position.X,
-		holbornJunction.Position.Y-chanceryJunction.Position.Y,
+		positions[holborn.ID].X-positions[chancery.ID].X,
+		positions[holborn.ID].Y-positions[chancery.ID].Y,
 	)
 	if distance < 500 || distance > 800 {
 		t.Fatalf("Holborn to Chancery Lane projection = %.1f meters", distance)
 	}
-	if holborn.Entry == londonJunctionID(holborn.ID) || holborn.Exit == londonJunctionID(holborn.ID) {
+	if entry, _ := config.Network.Node(holborn.Entry); entry.Position == positions[holborn.ID] {
 		t.Fatal("Holborn berths are not off the through guideway")
 	}
 	if _, err := config.Network.Route(stations["Brixton"].Berths[0].Node, stations["Willesden Green"].Berths[0].Node); err != nil {
@@ -107,6 +113,51 @@ func TestLondonUsesRealScaleAndDirectedGuideways(t *testing.T) {
 	}
 	if pairedSegments != 4*127 {
 		t.Fatalf("got %d directed guideway segments, want %d", pairedSegments, 4*127)
+	}
+}
+
+func TestLondonWaterlooUsesIndependentPortalMovements(t *testing.T) {
+	t.Parallel()
+	network := London().Network
+	if len(network.Nodes) != 1842 || len(network.Lanes) != 3101 {
+		t.Fatalf("London network has %d nodes and %d lanes", len(network.Nodes), len(network.Lanes))
+	}
+	lanes := make(map[string]sim.Lane, len(network.Lanes))
+	for _, lane := range network.Lanes {
+		lanes[lane.ID] = lane
+	}
+	for index := range 127 {
+		prefix := fmt.Sprintf("london-link-%03d", index+1)
+		aDeparture := lanes[prefix+"-ab-1"].From
+		aArrival := lanes[prefix+"-ba-2"].To
+		bArrival := lanes[prefix+"-ab-2"].To
+		bDeparture := lanes[prefix+"-ba-1"].From
+		if aDeparture == "" || aArrival == "" || aDeparture == aArrival {
+			t.Fatalf("link %q shares its A portal %q", prefix, aArrival)
+		}
+		if bDeparture == "" || bArrival == "" || bDeparture == bArrival {
+			t.Fatalf("link %q shares its B portal %q", prefix, bArrival)
+		}
+	}
+
+	waterlooArrival := lanes["london-link-063-ab-2"].To
+	waterlooDeparture := lanes["london-link-063-ba-1"].From
+	if waterlooArrival == "" || waterlooDeparture == "" || waterlooArrival == waterlooDeparture {
+		t.Fatalf("Waterloo opposite directions share portal %q", waterlooArrival)
+	}
+	embankmentDeparture := lanes["london-link-063-ab-1"].From
+	embankmentArrival := lanes["london-link-063-ba-2"].To
+	if embankmentArrival == "" || embankmentDeparture == "" || embankmentArrival == embankmentDeparture {
+		t.Fatalf("Embankment opposite directions share portal %q", embankmentArrival)
+	}
+
+	first := lanes["940GZZLUWLO-move-01-01"]
+	second := lanes["940GZZLUWLO-move-02-02"]
+	if first.From == "" || first.To == "" || second.From == "" || second.To == "" {
+		t.Fatal("Waterloo is missing independent movement lanes")
+	}
+	if first.From == second.From || first.To == second.To {
+		t.Fatalf("independent Waterloo movements share a portal: %+v %+v", first, second)
 	}
 }
 

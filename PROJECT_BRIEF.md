@@ -300,16 +300,23 @@ A separate normalized 2019 midweek NUMBAT profile provides 8,474 in-scope OD
 pairs across eight time bands.
 The portable London project includes these bands, and the live session can
 generate requests from a selected band.
-The fixed 40-request AM peak sample completed every request. A 192-arm sweep
-now measures the 114-pod fleet across all eight bands, eight offered rates, and
-three seeds. Its tested 30-minute recovery limits range from about two requests
-per minute in the Early band to about seven in four daytime bands.
-See [docs/london.md](docs/london.md) and
-[docs/qualification.md](docs/qualification.md#london-capacity-envelope).
+The fixed 40-request AM peak sample completed every request.
+Directional portals now keep opposite guideways and unrelated corridors on
+separate station resources.
+A high-load A/B run reduced the peak stopped fleet from 60 pods to three.
+The portal network drained all 199 requests, while the old network left five
+requests after 60 simulated minutes.
 
-The network does not include a background map or tunnel depth.
-Explicit separation groups distinguish unrelated grade-separated paths while
-retaining geometric checks at shared junctions.
+The earlier 192-arm sweep measured the shared-junction network across all eight
+bands, eight offered rates, and three seeds.
+Its tested limits are now a historical baseline.
+The portal network needs a new multi-band sweep before it gets capacity limits.
+See [docs/london.md](docs/london.md) and
+[docs/qualification.md](docs/qualification.md#london-portal-comparison).
+
+The network does not include a background map or stored tunnel depth.
+Explicit separation groups distinguish unrelated grade-separated paths.
+Directional portals retain geometric checks at real diverges and merges.
 Each station lane also identifies its approach, entry, berth access, through,
 departure, or exit role.
 Snapshots and the pod inspector use these roles to report station maneuvers

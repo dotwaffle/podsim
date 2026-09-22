@@ -15,6 +15,7 @@ const (
 	londonReferenceLatitude  = 51.5074
 	londonReferenceLongitude = -0.1278
 	londonTrackOffset        = 18.0
+	londonPortalInset        = 60.0
 	londonStationBerths      = 2
 	londonParkingBerths      = 12
 )
@@ -49,6 +50,14 @@ type londonSourceLink struct {
 type londonParkingSource struct {
 	ID, Name, Gateway string
 	Direction         float64
+}
+
+type londonPortal struct {
+	node string
+}
+
+type londonStationPortals struct {
+	arrivals, departures []londonPortal
 }
 
 var (
@@ -99,10 +108,11 @@ func decodeLondonSource(source *londonSource) error {
 func londonNetwork(source londonSource) sim.Network {
 	network := sim.Network{}
 	positions := make(map[string]sim.Point, len(source.Stations))
+	portals := make(map[string]*londonStationPortals, len(source.Stations))
 	for _, station := range source.Stations {
 		position := londonPoint(station.Latitude, station.Longitude)
 		positions[station.ID] = position
-		network.Nodes = append(network.Nodes, sim.Node{ID: londonJunctionID(station.ID), Position: position})
+		portals[station.ID] = &londonStationPortals{}
 	}
 	for index, link := range source.Links {
 		a, aOK := positions[link.A]
@@ -110,11 +120,12 @@ func londonNetwork(source londonSource) sim.Network {
 		if !aOK || !bOK || len(link.Lines) == 0 {
 			panic(fmt.Sprintf("invalid London source link %q to %q", link.A, link.B))
 		}
-		addLondonCarriageway(&network, index, link, a, b)
+		addLondonCarriageway(&network, portals, index, link, a, b)
 	}
 	for index, station := range source.Stations {
 		direction := londonStationDirection(positions[station.ID], index)
-		addLondonStation(&network, station.ID, station.Name, londonJunctionID(station.ID), direction, londonStationBerths, false)
+		addLondonMovements(&network, station.ID, positions[station.ID], *portals[station.ID])
+		addLondonStation(&network, station.ID, station.Name, positions[station.ID], direction, *portals[station.ID], londonStationBerths, false)
 	}
 	for _, parking := range []londonParkingSource{
 		{ID: "parking-west", Name: "West London Parking", Gateway: "940GZZLUHSD", Direction: math.Pi},
@@ -124,7 +135,7 @@ func londonNetwork(source londonSource) sim.Network {
 		if _, ok := positions[parking.Gateway]; !ok {
 			panic(fmt.Sprintf("unknown London parking gateway %q", parking.Gateway))
 		}
-		addLondonStation(&network, parking.ID, parking.Name, londonJunctionID(parking.Gateway), parking.Direction, londonParkingBerths, true)
+		addLondonStation(&network, parking.ID, parking.Name, positions[parking.Gateway], parking.Direction, *portals[parking.Gateway], londonParkingBerths, true)
 	}
 	return network
 }
@@ -137,69 +148,118 @@ func londonPoint(latitude, longitude float64) sim.Point {
 	return sim.Point{X: x, Y: y}
 }
 
-func addLondonCarriageway(network *sim.Network, index int, link londonSourceLink, a, b sim.Point) {
+func addLondonCarriageway(network *sim.Network, portals map[string]*londonStationPortals, index int, link londonSourceLink, a, b sim.Point) {
 	dx, dy := b.X-a.X, b.Y-a.Y
 	length := math.Hypot(dx, dy)
 	if length == 0 {
 		panic(fmt.Sprintf("London source link %q to %q has zero length", link.A, link.B))
 	}
-	perpendicular := sim.Point{X: -dy * londonTrackOffset / length, Y: dx * londonTrackOffset / length}
+	direction := sim.Point{X: dx / length, Y: dy / length}
+	perpendicular := sim.Point{X: -direction.Y * londonTrackOffset, Y: direction.X * londonTrackOffset}
 	midpoint := sim.Point{X: (a.X + b.X) / 2, Y: (a.Y + b.Y) / 2}
+	inset := min(londonPortalInset, length/4)
+	aPortalCenter := add(a, scale(direction, inset))
+	bPortalCenter := add(b, scale(direction, -inset))
 	abMidID := fmt.Sprintf("london-mid-%03d-a", index+1)
 	baMidID := fmt.Sprintf("london-mid-%03d-b", index+1)
+	prefix := fmt.Sprintf("london-link-%03d", index+1)
+	aDepartureID, aArrivalID := prefix+"-a-departure", prefix+"-a-arrival"
+	bDepartureID, bArrivalID := prefix+"-b-departure", prefix+"-b-arrival"
 	network.Nodes = append(network.Nodes,
 		sim.Node{ID: abMidID, Position: add(midpoint, perpendicular)},
 		sim.Node{ID: baMidID, Position: add(midpoint, scale(perpendicular, -1))},
+		sim.Node{ID: aDepartureID, Position: add(aPortalCenter, perpendicular)},
+		sim.Node{ID: aArrivalID, Position: add(aPortalCenter, scale(perpendicular, -1))},
+		sim.Node{ID: bDepartureID, Position: add(bPortalCenter, scale(perpendicular, -1))},
+		sim.Node{ID: bArrivalID, Position: add(bPortalCenter, perpendicular)},
 	)
-	aID, bID := londonJunctionID(link.A), londonJunctionID(link.B)
-	prefix := fmt.Sprintf("london-link-%03d", index+1)
 	network.Lanes = append(network.Lanes,
-		sim.Lane{ID: prefix + "-ab-1", From: aID, To: abMidID, SpeedLimit: speedLimit, SeparationGroup: prefix},
-		sim.Lane{ID: prefix + "-ab-2", From: abMidID, To: bID, SpeedLimit: speedLimit, SeparationGroup: prefix},
-		sim.Lane{ID: prefix + "-ba-1", From: bID, To: baMidID, SpeedLimit: speedLimit, SeparationGroup: prefix},
-		sim.Lane{ID: prefix + "-ba-2", From: baMidID, To: aID, SpeedLimit: speedLimit, SeparationGroup: prefix},
+		sim.Lane{ID: prefix + "-ab-1", From: aDepartureID, To: abMidID, SpeedLimit: speedLimit, SeparationGroup: prefix},
+		sim.Lane{ID: prefix + "-ab-2", From: abMidID, To: bArrivalID, SpeedLimit: speedLimit, SeparationGroup: prefix},
+		sim.Lane{ID: prefix + "-ba-1", From: bDepartureID, To: baMidID, SpeedLimit: speedLimit, SeparationGroup: prefix},
+		sim.Lane{ID: prefix + "-ba-2", From: baMidID, To: aArrivalID, SpeedLimit: speedLimit, SeparationGroup: prefix},
 	)
+	portals[link.A].departures = append(portals[link.A].departures, londonPortal{node: aDepartureID})
+	portals[link.A].arrivals = append(portals[link.A].arrivals, londonPortal{node: aArrivalID})
+	portals[link.B].departures = append(portals[link.B].departures, londonPortal{node: bDepartureID})
+	portals[link.B].arrivals = append(portals[link.B].arrivals, londonPortal{node: bArrivalID})
 }
 
-func addLondonStation(network *sim.Network, id, name, junction string, direction float64, berths int, parking bool) {
-	center, ok := network.Node(junction)
-	if !ok {
-		panic(fmt.Sprintf("unknown London station junction %q", junction))
+func addLondonMovements(network *sim.Network, stationID string, center sim.Point, portals londonStationPortals) {
+	for arrivalIndex, arrival := range portals.arrivals {
+		for departureIndex, departure := range portals.departures {
+			id := fmt.Sprintf("%s-move-%02d-%02d", stationID, arrivalIndex+1, departureIndex+1)
+			var control *sim.Point
+			from, _ := network.Node(arrival.node)
+			to, _ := network.Node(departure.node)
+			if math.Hypot(to.Position.X-from.Position.X, to.Position.Y-from.Position.Y) < 2*sim.Clearance {
+				point := center
+				control = &point
+			}
+			network.Lanes = append(network.Lanes, sim.Lane{
+				ID: id, From: arrival.node, To: departure.node,
+				SpeedLimit: speedLimit, SeparationGroup: id, Control: control,
+			})
+		}
 	}
+}
+
+func addLondonStation(network *sim.Network, id, name string, center sim.Point, direction float64, portals londonStationPortals, berths int, parking bool) {
 	outward := sim.Point{X: math.Cos(direction), Y: math.Sin(direction)}
 	tangent := sim.Point{X: -outward.Y, Y: outward.X}
 	divergeID, mergeID := id+"-diverge", id+"-merge"
 	entryID, exitID := id+"-entry", id+"-exit"
 	separationGroup := id + "-station"
-	diverge := add(center.Position, add(scale(outward, 80), scale(tangent, -100)))
-	merge := add(center.Position, add(scale(outward, 80), scale(tangent, 100)))
-	entry := add(center.Position, add(scale(outward, 200), scale(tangent, -100)))
-	exit := add(center.Position, add(scale(outward, 200), scale(tangent, 100)))
+	diverge := add(center, add(scale(outward, 80), scale(tangent, -100)))
+	merge := add(center, add(scale(outward, 80), scale(tangent, 100)))
+	entry := add(center, add(scale(outward, 200), scale(tangent, -100)))
+	exit := add(center, add(scale(outward, 200), scale(tangent, 100)))
 	network.Nodes = append(network.Nodes,
 		sim.Node{ID: divergeID, Position: diverge},
 		sim.Node{ID: mergeID, Position: merge},
 		sim.Node{ID: entryID, Position: entry},
 		sim.Node{ID: exitID, Position: exit},
 	)
+	for index, portal := range portals.arrivals {
+		laneID := fmt.Sprintf("%s-road-in-%02d", id, index+1)
+		network.Lanes = append(network.Lanes, sim.Lane{
+			ID: laneID, From: portal.node, To: divergeID,
+			SpeedLimit: speedLimit, SeparationGroup: laneID, StationID: id, StationRole: sim.StationApproachRole,
+		})
+	}
 	network.Lanes = append(network.Lanes,
-		sim.Lane{ID: id + "-road-in", From: junction, To: divergeID, SpeedLimit: speedLimit, SeparationGroup: separationGroup, StationID: id, StationRole: sim.StationApproachRole},
 		sim.Lane{ID: id + "-access-in", From: divergeID, To: entryID, SpeedLimit: speedLimit, SeparationGroup: separationGroup, StationID: id, StationRole: sim.StationEntryRole},
 		sim.Lane{ID: id + "-through", From: entryID, To: exitID, SpeedLimit: speedLimit, SeparationGroup: separationGroup, StationID: id, StationRole: sim.StationThroughRole},
 		sim.Lane{ID: id + "-access-out", From: exitID, To: mergeID, SpeedLimit: speedLimit, SeparationGroup: separationGroup, StationID: id, StationRole: sim.StationExitRole},
-		sim.Lane{ID: id + "-road-out", From: mergeID, To: junction, SpeedLimit: speedLimit, SeparationGroup: separationGroup, StationID: id, StationRole: sim.StationExitRole},
 	)
+	for index, portal := range portals.departures {
+		laneID := fmt.Sprintf("%s-road-out-%02d", id, index+1)
+		network.Lanes = append(network.Lanes, sim.Lane{
+			ID: laneID, From: mergeID, To: portal.node,
+			SpeedLimit: speedLimit, SeparationGroup: laneID, StationID: id, StationRole: sim.StationExitRole,
+		})
+	}
 	station := sim.Station{ID: id, Name: name, Entry: entryID, Exit: exitID, ParkingOnly: parking}
+	previousArrival, previousDeparture := entryID, exitID
 	for index := range berths {
 		berthID := fmt.Sprintf("%s-%02d", id, index+1)
 		berthNodeID := berthID + "-node"
-		depth := 290.0 + 32*float64(index)
-		berthPosition := add(center.Position, scale(outward, depth))
-		network.Nodes = append(network.Nodes, sim.Node{ID: berthNodeID, Position: berthPosition})
+		arrivalNodeID, departureNodeID := berthID+"-arrival", berthID+"-departure"
+		depth := 290.0 + 75*float64(index)
+		berthPosition := add(center, scale(outward, depth))
+		network.Nodes = append(network.Nodes,
+			sim.Node{ID: arrivalNodeID, Position: add(berthPosition, scale(tangent, -100))},
+			sim.Node{ID: berthNodeID, Position: berthPosition},
+			sim.Node{ID: departureNodeID, Position: add(berthPosition, scale(tangent, 100))},
+		)
 		station.Berths = append(station.Berths, sim.Berth{ID: berthID, Node: berthNodeID, SeparationGroup: separationGroup})
 		network.Lanes = append(network.Lanes,
-			sim.Lane{ID: berthID + "-in", From: entryID, To: berthNodeID, SpeedLimit: speedLimit, SeparationGroup: separationGroup, StationID: id, StationRole: sim.StationBerthAccessRole},
-			sim.Lane{ID: berthID + "-out", From: berthNodeID, To: exitID, SpeedLimit: speedLimit, SeparationGroup: separationGroup, StationID: id, StationRole: sim.StationDepartureRole},
+			sim.Lane{ID: berthID + "-arrival-link", From: previousArrival, To: arrivalNodeID, SpeedLimit: speedLimit, SeparationGroup: separationGroup, StationID: id, StationRole: sim.StationBerthAccessRole},
+			sim.Lane{ID: berthID + "-departure-link", From: departureNodeID, To: previousDeparture, SpeedLimit: speedLimit, SeparationGroup: separationGroup, StationID: id, StationRole: sim.StationDepartureRole},
+			sim.Lane{ID: berthID + "-in", From: arrivalNodeID, To: berthNodeID, SpeedLimit: speedLimit, SeparationGroup: separationGroup, StationID: id, StationRole: sim.StationBerthAccessRole},
+			sim.Lane{ID: berthID + "-out", From: berthNodeID, To: departureNodeID, SpeedLimit: speedLimit, SeparationGroup: separationGroup, StationID: id, StationRole: sim.StationDepartureRole},
 		)
+		previousArrival, previousDeparture = arrivalNodeID, departureNodeID
 	}
 	network.Stations = append(network.Stations, station)
 }
@@ -209,10 +269,6 @@ func londonStationDirection(position sim.Point, index int) float64 {
 		return math.Atan2(position.Y, position.X)
 	}
 	return 2 * math.Pi * float64(index%12) / 12
-}
-
-func londonJunctionID(stationID string) string {
-	return "london-junction-" + stationID
 }
 
 func londonFleet(network sim.Network) []sim.Placement {

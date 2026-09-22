@@ -127,8 +127,23 @@ func TestLondonAMPeakSampleCompletes(t *testing.T) {
 	config := London()
 	const requestCount = 40
 	schedule := londonDemandSchedule(20260922, LondonDemand()[2], requestCount)
-	result := runQualification(t, qualificationInput{config: config, schedule: schedule, checkSafety: true})
+	result := runQualification(t, qualificationInput{
+		config: config, schedule: schedule, checkSafety: true,
+		ticks: 30 * 60 * sim.TicksPerSecond,
+	})
 	if result.state.Completed != requestCount || len(result.state.Pending) != 0 {
+		for _, request := range result.state.Pending {
+			t.Logf("pending request: %+v", request)
+		}
+		for _, vehicle := range result.state.Vehicles {
+			if vehicle.Request != nil && !vehicle.Request.Completed {
+				lanes := make([]string, len(vehicle.Route))
+				for index, lane := range vehicle.Route {
+					lanes[index] = lane.ID
+				}
+				t.Logf("active vehicle: pod=%+v request=%+v route=%v", vehicle.Pod, *vehicle.Request, lanes)
+			}
+		}
 		t.Fatalf("London sample did not finish: completed=%d remaining=%d", result.state.Completed, result.state.Submitted-result.state.Completed)
 	}
 	for _, vehicle := range result.state.Vehicles {

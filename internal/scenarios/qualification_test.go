@@ -199,13 +199,18 @@ type qualificationInput struct {
 	config      project.Config
 	schedule    []scheduledRequest
 	checkSafety bool
+	ticks       int
 }
 
 func runQualification(t *testing.T, input qualificationInput) qualificationResult {
 	t.Helper()
 	simulation := newSimulation(t, input.config)
 	next := 0
-	for tick := range qualificationTicks {
+	ticks := input.ticks
+	if ticks == 0 {
+		ticks = qualificationTicks
+	}
+	for tick := range ticks {
 		for next < len(input.schedule) && input.schedule[next].tick == int64(tick) {
 			request := input.schedule[next]
 			if err := simulation.RequestTrip(request.origin, request.destination); err != nil {
