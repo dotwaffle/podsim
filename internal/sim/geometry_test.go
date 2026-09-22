@@ -28,6 +28,26 @@ func TestCurvedLaneGeometry(t *testing.T) {
 	}
 }
 
+func TestCachedLaneGeometryMatchesNetwork(t *testing.T) {
+	t.Parallel()
+	network := Example()
+	network.Lanes[0].Control = &Point{X: 150, Y: 100}
+	simulation, err := New(network, "harbor")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, lane := range network.Lanes {
+		length := network.Length(lane)
+		for _, distance := range []float64{-1, 0, length / 3, length, length + 1} {
+			want := network.Position(lane, distance)
+			got := simulation.position(lane, distance)
+			if pointDistance(got, want) > 1e-9 {
+				t.Fatalf("lane %s distance %v: got %+v want %+v", lane.ID, distance, got, want)
+			}
+		}
+	}
+}
+
 func TestCurveRejectsNonfiniteControl(t *testing.T) {
 	n := Example()
 	n.Lanes[0].Control = &Point{X: math.NaN()}

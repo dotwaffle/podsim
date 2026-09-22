@@ -134,6 +134,10 @@ type networkRouteInput struct {
 
 func (n Network) route(input networkRouteInput) ([]Lane, error) {
 	graph := newRouteGraph(n)
+	return n.routeIndexed(input, graph)
+}
+
+func (n Network) routeIndexed(input networkRouteInput, graph routeGraph) ([]Lane, error) {
 	from, ok := graph.nodes[input.from]
 	if !ok {
 		return nil, fmt.Errorf("unknown origin %q", input.from)
@@ -161,7 +165,7 @@ func (n Network) route(input networkRouteInput) ([]Lane, error) {
 		visited[item.node] = true
 		for _, laneIndex := range graph.outgoing[item.node] {
 			lane := n.Lanes[laneIndex]
-			if lane.To != input.to && input.forbidden[lane.To] {
+			if lane.To != input.from && lane.To != input.to && input.forbidden[lane.To] {
 				continue
 			}
 			next := graph.nodes[lane.To]
@@ -284,44 +288,52 @@ func routeQueueLess(a, b routeQueueItem) bool {
 }
 
 func (n Network) validate() error {
-	nodes := make(map[string]bool)
+	nodes := make(map[string]Point)
 	for _, node := range n.Nodes {
-		if node.ID == "" || nodes[node.ID] || !finite(node.Position.X) || !finite(node.Position.Y) {
+		if _, exists := nodes[node.ID]; node.ID == "" || exists || !finite(node.Position.X) || !finite(node.Position.Y) {
 			return fmt.Errorf("invalid or duplicate node %q", node.ID)
 		}
-		nodes[node.ID] = true
+		nodes[node.ID] = node.Position
 	}
 	lanes := make(map[string]bool)
 	for _, lane := range n.Lanes {
-		if lane.ID == "" || lanes[lane.ID] || !nodes[lane.From] || !nodes[lane.To] ||
-			!finite(lane.SpeedLimit) || lane.SpeedLimit <= 0 || n.Length(lane) <= 0 || !finite(n.Length(lane)) {
+		from, fromOK := nodes[lane.From]
+		to, toOK := nodes[lane.To]
+		length := indexedLaneLength(lane, from, to)
+		if lane.ID == "" || lanes[lane.ID] || !fromOK || !toOK ||
+			!finite(lane.SpeedLimit) || lane.SpeedLimit <= 0 || length <= 0 || !finite(length) {
 			return fmt.Errorf("invalid or duplicate lane %q", lane.ID)
 		}
 		lanes[lane.ID] = true
 	}
 	stations, berths, berthNodes := make(map[string]bool), make(map[string]bool), make(map[string]bool)
 	for _, station := range n.Stations {
-		if station.ID == "" || stations[station.ID] || !nodes[station.Entry] || !nodes[station.Exit] || station.Entry == station.Exit || len(station.Berths) == 0 {
+		_, entryOK := nodes[station.Entry]
+		_, exitOK := nodes[station.Exit]
+		if station.ID == "" || stations[station.ID] || !entryOK || !exitOK || station.Entry == station.Exit || len(station.Berths) == 0 {
 			return fmt.Errorf("station %q needs valid entry, exit, and berth capacity", station.ID)
 		}
 		stations[station.ID] = true
 		for _, berth := range station.Berths {
-			if berth.ID == "" || berths[berth.ID] || berthNodes[berth.Node] || !nodes[berth.Node] || berth.Node == station.Entry || berth.Node == station.Exit {
+			_, nodeOK := nodes[berth.Node]
+			if berth.ID == "" || berths[berth.ID] || berthNodes[berth.Node] || !nodeOK || berth.Node == station.Entry || berth.Node == station.Exit {
 				return fmt.Errorf("station %q has an invalid or duplicate berth", station.ID)
 			}
 			berths[berth.ID] = true
 			berthNodes[berth.Node] = true
 		}
 	}
+	graph := newRouteGraph(n)
+	forbidden := n.stationForbidden()
 	for _, station := range n.Stations {
 		if !n.connected(station.Entry, station.Exit) {
 			return fmt.Errorf("station %q needs entry, exit, and through lanes", station.ID)
 		}
 		for _, berth := range station.Berths {
-			if _, err := n.stationPath(station.Entry, berth.Node); err != nil {
+			if _, err := n.routeIndexed(networkRouteInput{from: station.Entry, to: berth.Node, forbidden: forbidden}, graph); err != nil {
 				return fmt.Errorf("station %q needs entry, exit, and through lanes", station.ID)
 			}
-			if _, err := n.stationPath(berth.Node, station.Exit); err != nil {
+			if _, err := n.routeIndexed(networkRouteInput{from: berth.Node, to: station.Exit, forbidden: forbidden}, graph); err != nil {
 				return fmt.Errorf("station %q needs entry, exit, and through lanes", station.ID)
 			}
 		}
@@ -329,8 +341,7 @@ func (n Network) validate() error {
 	return nil
 }
 
-// stationPath finds an access path without crossing another station boundary.
-func (n Network) stationPath(from, to string) ([]Lane, error) {
+func (n Network) stationForbidden() map[string]bool {
 	forbidden := make(map[string]bool)
 	for _, candidate := range n.Stations {
 		forbidden[candidate.Entry] = true
@@ -339,9 +350,7 @@ func (n Network) stationPath(from, to string) ([]Lane, error) {
 			forbidden[berth.Node] = true
 		}
 	}
-	delete(forbidden, from)
-	delete(forbidden, to)
-	return n.route(networkRouteInput{from: from, to: to, forbidden: forbidden})
+	return forbidden
 }
 
 func (n Network) connected(from, to string) bool {

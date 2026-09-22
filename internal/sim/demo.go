@@ -15,13 +15,13 @@ func (s *Simulation) StartDemo() error {
 	if len(s.initial) != 2 || !demoPlacement(s.initial[0], Placement{ID: "01", StationID: "harbor", BerthID: "harbor-1"}) || !demoPlacement(s.initial[1], Placement{ID: "02", StationID: "garden", BerthID: "garden-1"}) {
 		return errors.New("the traffic demo needs pod 01 at Harbor and pod 02 at Garden")
 	}
-	if _, ok := s.network.Station("market"); !ok {
+	if _, ok := s.station("market"); !ok {
 		return errors.New("the traffic demo needs Market")
 	}
 	if err := s.validateDemo(); err != nil {
 		return err
 	}
-	parking, _ := s.network.Station("parking")
+	parking, _ := s.station("parking")
 	if len(parking.Berths) < 2 {
 		return errors.New("the traffic demo needs two parking berths")
 	}
@@ -75,8 +75,8 @@ func (s *Simulation) stepDemo() {
 
 func (s *Simulation) validateDemo() error {
 	for _, pair := range [][2]string{{"harbor", "market"}, {"garden", "market"}, {"market", "parking"}, {"parking", "harbor"}, {"parking", "garden"}, {"harbor", "garden"}, {"garden", "harbor"}, {"market", "harbor"}, {"market", "garden"}} {
-		from, _ := s.network.Station(pair[0])
-		to, ok := s.network.Station(pair[1])
+		from, _ := s.station(pair[0])
+		to, ok := s.station(pair[1])
 		if !ok {
 			return fmt.Errorf("traffic demo needs station %s", pair[1])
 		}

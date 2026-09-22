@@ -16,7 +16,7 @@ func (s *Simulation) waitForFinishingPod(trip *waitingTrip, idle *vehicle, assig
 		trip.request.DispatchReason = "Waiting for pod " + trip.deferPodID + " to finish"
 		return true
 	}
-	station, _ := s.network.Station(trip.request.From)
+	station, _ := s.station(trip.request.From)
 	route, _, ok := s.pickupRouteWithAssignments(idle, trip.request.From, assigned)
 	if !ok {
 		return false
@@ -56,7 +56,7 @@ func (s *Simulation) availableAfter(v *vehicle) (string, float64, bool) {
 		return "", 0, false
 	}
 	if v.Pod.Activity == Unloading {
-		station, _ := s.network.Station(v.Pod.StationID)
+		station, _ := s.station(v.Pod.StationID)
 		berth, _ := station.berth(v.Pod.BerthID)
 		return berth.Node, float64(v.phaseTicks) / TicksPerSecond, true
 	}
@@ -64,7 +64,7 @@ func (s *Simulation) availableAfter(v *vehicle) (string, float64, bool) {
 	if v.RelocatingTo == "" {
 		destination := v.destination.Node
 		if destination == "" {
-			station, ok := s.network.Station(v.destinationStation)
+			station, ok := s.station(v.destinationStation)
 			if !ok {
 				return "", 0, false
 			}
@@ -82,7 +82,7 @@ func (s *Simulation) availableAfter(v *vehicle) (string, float64, bool) {
 		if trip.request.PodID != v.Pod.ID {
 			continue
 		}
-		destination, _ := s.network.Station(trip.request.To)
+		destination, _ := s.station(trip.request.To)
 		seconds += float64(boardingTicks+unloadingTicks)/TicksPerSecond + s.routeSeconds(trip.route, motionEstimate{})
 		return destination.Berths[0].Node, seconds, true
 	}

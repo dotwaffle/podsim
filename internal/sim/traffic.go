@@ -80,6 +80,29 @@ type intent struct {
 	id           string
 }
 
+func (s *Simulation) setVehicleRoute(v *vehicle, route []Lane) {
+	v.Route = route
+	v.blocks = s.routeBlocks(route)
+	v.blockStarts = indexBlockStarts(v.blocks, len(route))
+}
+
+func indexBlockStarts(blocks []block, capacity int) map[string]int {
+	starts := make(map[string]int, capacity)
+	for index, block := range blocks {
+		if _, exists := starts[block.lane.ID]; !exists {
+			starts[block.lane.ID] = index
+		}
+	}
+	return starts
+}
+
+func (v *vehicle) firstBlockForLane(laneID string) int {
+	if first, ok := v.blockStarts[laneID]; ok {
+		return first
+	}
+	return firstBlockForLane(v.blocks, laneID)
+}
+
 // SetReservationLookahead controls how early pods request track beyond their
 // braking distance. It does not change physical clearance.
 func (s *Simulation) SetReservationLookahead(seconds float64) error {
@@ -215,7 +238,7 @@ func (s *Simulation) move(v *vehicle) {
 	}
 	b := v.blocks[v.blockIndex]
 	v.Pod.LaneID, v.Pod.LaneDistance = b.lane.ID, v.distance-b.laneStart
-	v.Pod.Position = s.network.Position(b.lane, v.Pod.LaneDistance)
+	v.Pod.Position = s.position(b.lane, v.Pod.LaneDistance)
 }
 
 func (s *Simulation) releaseCleared() {
@@ -292,7 +315,7 @@ func (s *Simulation) releaseOwned(v *vehicle, r resource) {
 }
 
 func (s *Simulation) podBerthNode(v *vehicle) string {
-	station, _ := s.network.Station(v.Pod.StationID)
+	station, _ := s.station(v.Pod.StationID)
 	berth, _ := station.berth(v.Pod.BerthID)
 	return berth.Node
 }

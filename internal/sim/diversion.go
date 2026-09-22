@@ -19,12 +19,12 @@ func (s *Simulation) pickupRouteWithAssignments(v *vehicle, stationID string, as
 		return nil, Berth{}, false
 	}
 	if v.Pod.Activity == Idle {
-		from, _ := s.network.Station(v.Pod.StationID)
+		from, _ := s.station(v.Pod.StationID)
 		berth, _ := from.berth(v.Pod.BerthID)
 		route, destination, err := s.stationRoute(berth.Node, stationID)
 		return route, destination, err == nil
 	}
-	destination, ok := s.network.Station(v.RelocatingTo)
+	destination, ok := s.station(v.RelocatingTo)
 	if !ok || (!destination.ParkingOnly && !v.Rebalancing) {
 		return nil, Berth{}, false
 	}
@@ -65,9 +65,9 @@ func (s *Simulation) pickupSeconds(v *vehicle, route []Lane) float64 {
 }
 
 func (s *Simulation) sendPickup(v *vehicle, stationID string) error {
-	station, _ := s.network.Station(stationID)
+	station, _ := s.station(stationID)
 	if v.Pod.Activity == Idle {
-		from, _ := s.network.Station(v.Pod.StationID)
+		from, _ := s.station(v.Pod.StationID)
 		origin, _ := from.berth(v.Pod.BerthID)
 		_, berth, err := s.stationRoute(origin.Node, stationID)
 		if err != nil {
@@ -85,7 +85,7 @@ func (s *Simulation) sendPickup(v *vehicle, stationID string) error {
 			delete(s.owners, r)
 		}
 	}
-	v.Route, v.blocks = route, s.routeBlocks(route)
+	s.setVehicleRoute(v, route)
 	v.destination, v.destinationStation = berth, station.ID
 	v.RelocatingTo = stationID
 	v.Rebalancing = false

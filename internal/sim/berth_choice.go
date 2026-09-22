@@ -16,7 +16,7 @@ func (s *Simulation) assignTerminalBerth(v *vehicle) bool {
 	if next < 0 || next >= len(v.blocks) || v.blocks[next].lane.ID != v.Route[len(v.Route)-1].ID {
 		return true
 	}
-	station, ok := s.network.Station(v.destinationStation)
+	station, ok := s.station(v.destinationStation)
 	if !ok {
 		return false
 	}
@@ -24,8 +24,7 @@ func (s *Simulation) assignTerminalBerth(v *vehicle) bool {
 	if err != nil {
 		return false
 	}
-	v.Route = append(slices.Clone(v.Route), suffix...)
-	v.blocks = s.routeBlocks(v.Route)
+	s.setVehicleRoute(v, append(slices.Clone(v.Route), suffix...))
 	v.destination = berth
 	v.pending = -1
 	return true
@@ -38,7 +37,7 @@ func (s *Simulation) reevaluateTerminalBerth(v *vehicle) {
 	if next < 0 || next >= len(v.blocks) || len(v.Route) == 0 {
 		return
 	}
-	station, ok := s.network.Station(v.destinationStation)
+	station, ok := s.station(v.destinationStation)
 	if !ok {
 		return
 	}
@@ -47,7 +46,7 @@ func (s *Simulation) reevaluateTerminalBerth(v *vehicle) {
 	eligible := len(v.Route)
 	for routeIndex := stationStart; routeIndex < len(v.Route); routeIndex++ {
 		lane := v.Route[routeIndex]
-		first := firstBlockForLane(v.blocks, lane.ID)
+		first := v.firstBlockForLane(lane.ID)
 		if first <= v.reservedThrough {
 			continue
 		}
@@ -63,7 +62,7 @@ func (s *Simulation) reevaluateTerminalBerth(v *vehicle) {
 	}
 	for routeIndex := eligible; routeIndex < len(v.Route); routeIndex++ {
 		lane := v.Route[routeIndex]
-		first := firstBlockForLane(v.blocks, lane.ID)
+		first := v.firstBlockForLane(lane.ID)
 		if first > through {
 			return
 		}
@@ -81,6 +80,7 @@ func (s *Simulation) reevaluateTerminalBerth(v *vehicle) {
 				continue
 			}
 			v.Route, v.blocks, v.destination = route, blocks, berth
+			v.blockStarts = indexBlockStarts(blocks, len(route))
 			v.pending = -1
 			return
 		}

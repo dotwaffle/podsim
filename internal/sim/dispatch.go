@@ -18,11 +18,11 @@ type waitingTrip struct {
 
 // RequestTrip queues a passenger journey between stations and assigns an available pod when possible.
 func (s *Simulation) RequestTrip(origin, destination string) error {
-	from, ok := s.network.Station(origin)
+	from, ok := s.station(origin)
 	if !ok || from.ParkingOnly {
 		return errors.New("choose a passenger pickup station")
 	}
-	to, ok := s.network.Station(destination)
+	to, ok := s.station(destination)
 	if !ok || to.ParkingOnly {
 		return errors.New("choose a passenger destination")
 	}
@@ -137,7 +137,7 @@ func (s *Simulation) pickupPod(stationID string, assigned map[string]bool) *vehi
 }
 
 func (s *Simulation) board(v *vehicle, trip waitingTrip) error {
-	from, _ := s.network.Station(trip.request.From)
+	from, _ := s.station(trip.request.From)
 	origin, _ := from.berth(v.Pod.BerthID)
 	route, err := s.stationApproachRoute(origin.Node, trip.request.To)
 	if err != nil {
@@ -153,7 +153,7 @@ func (s *Simulation) board(v *vehicle, trip waitingTrip) error {
 	request.PodID = v.Pod.ID
 	v.Request = &request
 	v.origin, v.destination, v.destinationStation = origin, trip.destination, trip.request.To
-	v.Route, v.blocks = trip.route, s.routeBlocks(trip.route)
+	s.setVehicleRoute(v, trip.route)
 	v.Pod.Activity, v.Pod.WaitReason, v.Pod.BlockedBy = Boarding, NoWait, ""
 	v.phaseTicks, v.blockIndex, v.reservedThrough = boardingTicks, 0, -1
 	v.originReleased = false

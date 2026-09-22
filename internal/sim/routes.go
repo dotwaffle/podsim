@@ -14,23 +14,54 @@ type routeResult struct {
 // route shares read-only paths within this simulation's immutable network.
 // Snapshots copy routes before they leave the simulation.
 func (s *Simulation) route(from, to string) ([]Lane, error) {
+	s.ensureNetworkIndexes()
 	key := routeKey{from: from, to: to}
 	if cached, ok := s.routes[key]; ok {
 		return cached.lanes, cached.err
 	}
-	lanes, err := s.network.Route(from, to)
+	lanes, err := s.network.routeIndexed(networkRouteInput{from: from, to: to}, s.graph)
 	s.cacheRoute(key, routeResult{lanes: lanes, err: err})
 	return lanes, err
 }
 
 func (s *Simulation) stationPath(from, to string) ([]Lane, error) {
+	s.ensureNetworkIndexes()
 	key := routeKey{from: from, to: to, station: true}
 	if cached, ok := s.routes[key]; ok {
 		return cached.lanes, cached.err
 	}
-	lanes, err := s.network.stationPath(from, to)
+	lanes, err := s.network.routeIndexed(networkRouteInput{from: from, to: to, forbidden: s.stationForbidden}, s.graph)
 	s.cacheRoute(key, routeResult{lanes: lanes, err: err})
 	return lanes, err
+}
+
+func (s *Simulation) ensureNetworkIndexes() {
+	if len(s.graph.nodes) == len(s.network.Nodes) && len(s.graph.lengths) == len(s.network.Lanes) {
+		return
+	}
+	s.graph = newRouteGraph(s.network)
+	s.stationIndexes = indexStations(s.network)
+	s.stationForbidden = s.network.stationForbidden()
+	s.geometry = buildLaneGeometry(s.network)
+	s.lengths = nil
+	s.routes = nil
+	s.routeOrder = nil
+}
+
+func indexStations(network Network) map[string]int {
+	indexes := make(map[string]int, len(network.Stations))
+	for index, station := range network.Stations {
+		indexes[station.ID] = index
+	}
+	return indexes
+}
+
+func (s *Simulation) station(id string) (Station, bool) {
+	index, ok := s.stationIndexes[id]
+	if !ok || index >= len(s.network.Stations) || s.network.Stations[index].ID != id {
+		return s.network.Station(id)
+	}
+	return s.network.Stations[index], true
 }
 
 func (s *Simulation) cacheRoute(key routeKey, result routeResult) {

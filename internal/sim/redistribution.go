@@ -29,7 +29,7 @@ func (s *Simulation) SetDemandWeights(weights map[string]float64) error {
 	cloned := make(map[string]float64, len(weights))
 	total := 0.0
 	for stationID, weight := range weights {
-		station, ok := s.network.Station(stationID)
+		station, ok := s.station(stationID)
 		if !ok || station.ParkingOnly {
 			return errors.New("demand weights require passenger stations")
 		}
@@ -140,7 +140,7 @@ func (s *Simulation) redistributionSupply() (map[string]int, int) {
 			continue
 		}
 		eligible++
-		station, _ := s.network.Station(v.Pod.StationID)
+		station, _ := s.station(v.Pod.StationID)
 		if !station.ParkingOnly {
 			supply[station.ID]++
 		}
@@ -234,7 +234,7 @@ func (s *Simulation) redistributionCandidate(v *vehicle, supply, desired map[str
 	if v.Pod.Activity != Idle || v.Pod.Occupied || s.assigned(v.Pod.ID) || v.rebalanceAfter > s.tick {
 		return false
 	}
-	station, _ := s.network.Station(v.Pod.StationID)
+	station, _ := s.station(v.Pod.StationID)
 	return station.ParkingOnly || supply[station.ID] > desired[station.ID]
 }
 

@@ -27,7 +27,7 @@ func (s *Simulation) clearBlockedBerths() {
 
 // clearToPassengerBerth reserves a free passenger berth when dedicated parking is full.
 func (s *Simulation) clearToPassengerBerth(v *vehicle) bool {
-	from, _ := s.network.Station(v.Pod.StationID)
+	from, _ := s.station(v.Pod.StationID)
 	origin, _ := from.berth(v.Pod.BerthID)
 	for _, requireAvailable := range []bool{true, false} {
 		for _, local := range []bool{true, false} {
@@ -81,7 +81,7 @@ func (s *Simulation) startEmptyMove(v *vehicle, to emptyDestination) error {
 	if to.reserveBerth && (s.owners[space] != "" || s.owners[node] != "") {
 		return ErrBerthUnavailable
 	}
-	from, _ := s.network.Station(v.Pod.StationID)
+	from, _ := s.station(v.Pod.StationID)
 	origin, _ := from.berth(v.Pod.BerthID)
 	route, err := s.route(origin.Node, to.berth.Node)
 	if err != nil {
@@ -91,7 +91,7 @@ func (s *Simulation) startEmptyMove(v *vehicle, to emptyDestination) error {
 		s.owners[space], s.owners[node] = v.Pod.ID, v.Pod.ID
 	}
 	v.origin, v.destination, v.destinationStation = origin, to.berth, to.station
-	v.Route, v.blocks = route, s.routeBlocks(route)
+	s.setVehicleRoute(v, route)
 	v.RelocatingTo = to.station
 	v.Rebalancing = to.rebalance
 	v.Pod.Activity, v.Pod.WaitReason, v.Pod.BlockedBy = DepartingEmpty, NoWait, ""

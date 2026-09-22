@@ -157,6 +157,7 @@ type vehicle struct {
 	Vehicle
 	phaseTicks                  int
 	blocks                      []block
+	blockStarts                 map[string]int
 	routeReleases               map[resource]float64
 	blockIndex, reservedThrough int
 	originReleased              bool
@@ -173,6 +174,10 @@ type Simulation struct {
 	lengths                      map[string]float64
 	routes                       map[routeKey]routeResult
 	routeOrder                   []routeKey
+	graph                        routeGraph
+	stationIndexes               map[string]int
+	stationForbidden             map[string]bool
+	geometry                     map[string]laneGeometry
 	network                      Network
 	initial                      []Placement
 	vehicles                     []vehicle
@@ -207,8 +212,9 @@ func NewFleet(network Network, placements []Placement) (*Simulation, error) {
 	if err := network.validate(); err != nil {
 		return nil, err
 	}
-	for _, lane := range network.Lanes {
-		if network.Length(lane) < 2*Clearance {
+	graph := newRouteGraph(network)
+	for index, lane := range network.Lanes {
+		if graph.lengths[index] < 2*Clearance {
 			return nil, fmt.Errorf("lane %q must be at least %.0f meters long", lane.ID, 2*Clearance)
 		}
 	}
@@ -240,8 +246,12 @@ func NewFleet(network Network, placements []Placement) (*Simulation, error) {
 		}
 		return 0
 	})
+	owned := network.clone()
 	s := &Simulation{
-		network: network.clone(), initial: initial,
+		network: owned, initial: initial, graph: graph,
+		stationIndexes:              indexStations(owned),
+		stationForbidden:            owned.stationForbidden(),
+		geometry:                    buildLaneGeometry(owned),
 		reservationLookaheadSeconds: defaultReservationLookaheadSeconds,
 		laneSafety:                  make(map[string]SafetyLocation, len(network.Lanes)),
 		berthSafety:                 make(map[string]SafetyLocation),
@@ -270,7 +280,7 @@ func (s *Simulation) Reset() {
 	s.owners = make(map[resource]string)
 	s.vehicles = nil
 	for _, p := range s.initial {
-		station, _ := s.network.Station(p.StationID)
+		station, _ := s.station(p.StationID)
 		berth, _ := station.berth(p.BerthID)
 		node, _ := s.network.Node(berth.Node)
 		pod := Pod{ID: p.ID, Position: node.Position, Activity: Idle, StationID: station.ID, BerthID: berth.ID}
@@ -358,8 +368,8 @@ func (s *Simulation) RequestJourney(podID, destination string) error {
 	if v.Pod.Activity != Idle || s.assigned(v.Pod.ID) {
 		return ErrBusy
 	}
-	from, _ := s.network.Station(v.Pod.StationID)
-	to, ok := s.network.Station(destination)
+	from, _ := s.station(v.Pod.StationID)
+	to, ok := s.station(destination)
 	if !ok {
 		return fmt.Errorf("unknown destination %q", destination)
 	}
@@ -426,7 +436,7 @@ func (s *Simulation) Step() {
 }
 
 func (s *Simulation) arrive(v *vehicle) {
-	station, _ := s.network.Station(v.destinationStation)
+	station, _ := s.station(v.destinationStation)
 	berth := v.destination
 	node, _ := s.network.Node(berth.Node)
 	v.Pod = Pod{ID: v.Pod.ID, Position: node.Position, Activity: Unloading, StationID: station.ID, BerthID: berth.ID, Occupied: true}

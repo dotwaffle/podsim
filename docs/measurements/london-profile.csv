@@ -1,0 +1,4 @@
+stage,wall_seconds,cpu_sample_seconds,go_test_seconds,largest_avoidable_hotspot
+baseline,4.50,4.72,4.255,linear node lookup and lane geometry reconstruction
+geometry-route-index,3.11,2.76,2.698,linear station lookup
+station-block-index,2.13,1.97,1.900,none above 15 percent cumulative CPU

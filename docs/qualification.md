@@ -414,6 +414,22 @@ generated request has a positive weight in the selected AM peak band.
 The profile is available from the project endpoint and is not repeated in
 simulation state responses.
 
+### London CPU profile
+
+The same 40-request AM peak qualification was profiled before and after two
+measured indexing changes. The simulation now reuses its immutable route
+graph and lane geometry, indexes stations, and records each route lane's first
+resource block. These indexes do not change routing, arbitration, or movement
+ordering.
+
+Wall time fell from 4.50 to 2.13 seconds. CPU samples fell from 4.72 to 1.97
+seconds. The qualification retained the same completion and wait assertions.
+The final profile had no remaining avoidable hotspot above 15 percent
+cumulative CPU, so no parallel simulation path was added.
+
+Raw measurements are in
+[`measurements/london-profile.csv`](measurements/london-profile.csv).
+
 ```sh
 mise exec -- go test -count=1 -run '^TestLondonAMPeakSampleCompletes$' -v ./internal/scenarios
 ```

@@ -4,7 +4,7 @@ import "fmt"
 
 // stationApproachRoute routes to the station boundary without choosing a berth.
 func (s *Simulation) stationApproachRoute(fromNode, stationID string) ([]Lane, error) {
-	station, ok := s.network.Station(stationID)
+	station, ok := s.station(stationID)
 	if !ok {
 		return nil, fmt.Errorf("unknown station %q", stationID)
 	}
@@ -18,7 +18,7 @@ func (s *Simulation) stationApproachRoute(fromNode, stationID string) ([]Lane, e
 // stationRoute selects a reachable berth with the least assigned demand.
 // Berth order breaks equal-load ties.
 func (s *Simulation) stationRoute(fromNode, stationID string) ([]Lane, Berth, error) {
-	station, ok := s.network.Station(stationID)
+	station, ok := s.station(stationID)
 	if !ok {
 		return nil, Berth{}, fmt.Errorf("unknown station %q", stationID)
 	}
