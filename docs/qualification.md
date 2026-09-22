@@ -393,3 +393,27 @@ Every arm kept at least 22.87 meters between pod centers and had the same
 exit to the entrance and increased total stop events. The 0.5-second arm was
 effectively neutral. Longer buffers increased exit blocking. No arm provided a
 clear flow improvement, so the production default remains two ticks.
+
+## London AM peak sample
+
+The London preset uses 2019 midweek NUMBAT OD weights for 94 modeled stations.
+The test normalizes the 8,474 retained OD pairs within each of eight source
+time bands.
+
+The fixed AM peak run submitted 40 OD-weighted requests at five-second
+intervals.
+All 40 completed by 1,083.0 simulated seconds.
+Average pickup wait was 58.744 seconds, and maximum pickup wait was 235.133
+seconds.
+The schedule SHA-256 is
+`02d3b6086d3ee5f58c9cbdb5bb574c042e0b8cd911656ed2c98099ea595aa024`.
+
+```sh
+mise exec -- go test -count=1 -run '^TestLondonAMPeakSampleCompletes$' -v ./internal/scenarios
+```
+
+This run checks completion, queue accounting, and terminal berth assignment.
+It does not apply the two-dimensional all-pairs separation oracle.
+The geographic drawing contains grade-separated Underground crossings that the
+current simulator cannot distinguish from same-level crossings.
+See [the London network notes](london.md) for the boundary and source details.

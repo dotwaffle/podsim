@@ -40,6 +40,9 @@ Guideway links are straight between station locations in this first version.
 Their two directions are offset by 18 meters from the centerline at the link
 midpoint.
 Station berths are separate from the through junction.
+Each station has distinct road, diverge, entry, exit, and merge nodes.
+This prevents one junction reservation from consuming the complete terminal
+access lane before the controller assigns a berth.
 
 The network does not yet model tunnel depth.
 Therefore, unrelated lines can cross in the drawing without sharing a
@@ -47,6 +50,46 @@ junction.
 A future geographic safety qualification must distinguish these
 grade-separated crossings before it treats every close two-dimensional pod
 position as a collision.
+
+## Demand
+
+The checked-in demand snapshot is
+[`internal/scenarios/data/london-od-2019.csv`](../internal/scenarios/data/london-od-2019.csv).
+It comes from TfL's 2019 midweek NUMBAT Underground OD matrix:
+<https://crowding.data.tfl.gov.uk/NUMBAT/NUMBAT%202019/NBT19_OD_data/NBT19MTT2b_od__LU_tb_wf.csv>.
+
+The snapshot contains 8,474 directed OD pairs whose endpoints are both in the
+modeled network.
+It covers 94 of the 96 passenger stations.
+Nine Elms and Battersea Power Station have no rows because they opened after
+the 2019 source data.
+
+The source defines eight bands:
+
+| Band | Time |
+| --- | --- |
+| Early | 03:00-05:00 |
+| Morning | 05:00-07:00 |
+| AM peak | 07:00-10:00 |
+| Interpeak | 10:00-16:00 |
+| PM peak | 16:00-19:00 |
+| Evening | 19:00-22:00 |
+| Late | 22:00-00:30 |
+| Night | 00:30-03:00 |
+
+`LondonDemand` normalizes the retained OD weights separately for each band.
+The caller can apply one scale factor to choose the simulated request rate.
+This keeps the source station and OD ratios while avoiding a claim that the
+PRT system carries the complete Underground volume.
+
+A deterministic AM peak qualification submits 40 source-weighted requests at
+five-second intervals.
+All 40 completed by 1,083.0 simulated seconds.
+Average pickup wait was 58.744 seconds, and maximum pickup wait was 235.133
+seconds.
+The test also rejects any stationary pod without an assigned berth.
+It does not run the all-pairs two-dimensional separation oracle because that
+oracle cannot distinguish grade-separated tunnel crossings.
 
 ## Sources
 
@@ -75,5 +118,5 @@ mise run scenario -- -preset london -output /tmp/podsim-london.json
 mise run serve -- -project /tmp/podsim-london.json
 ```
 
-The generated project has 99 stations, 776 nodes, 1,261 lanes, and 114 pods.
+The generated project has 99 stations, 974 nodes, 1,459 lanes, and 114 pods.
 Project validation checks directed reachability between all passenger berths.

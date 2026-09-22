@@ -66,8 +66,8 @@ func London() project.Config {
 
 func mustLondonConfig() project.Config {
 	var source londonSource
-	if err := json.Unmarshal(londonSourceJSON, &source); err != nil {
-		panic(fmt.Errorf("decode London source: %w", err))
+	if err := decodeLondonSource(&source); err != nil {
+		panic(err)
 	}
 	config := project.Config{
 		Version: 1,
@@ -85,6 +85,13 @@ func mustLondonConfig() project.Config {
 		panic(fmt.Errorf("validate London scenario: %w", err))
 	}
 	return config
+}
+
+func decodeLondonSource(source *londonSource) error {
+	if err := json.Unmarshal(londonSourceJSON, source); err != nil {
+		return fmt.Errorf("decode London source: %w", err)
+	}
+	return nil
 }
 
 func londonNetwork(source londonSource) sim.Network {
@@ -159,23 +166,30 @@ func addLondonStation(network *sim.Network, id, name, junction string, direction
 	}
 	outward := sim.Point{X: math.Cos(direction), Y: math.Sin(direction)}
 	tangent := sim.Point{X: -outward.Y, Y: outward.X}
+	divergeID, mergeID := id+"-diverge", id+"-merge"
 	entryID, exitID := id+"-entry", id+"-exit"
-	entry := add(center.Position, add(scale(outward, 75), scale(tangent, -65)))
-	exit := add(center.Position, add(scale(outward, 75), scale(tangent, 65)))
+	diverge := add(center.Position, add(scale(outward, 80), scale(tangent, -100)))
+	merge := add(center.Position, add(scale(outward, 80), scale(tangent, 100)))
+	entry := add(center.Position, add(scale(outward, 200), scale(tangent, -100)))
+	exit := add(center.Position, add(scale(outward, 200), scale(tangent, 100)))
 	network.Nodes = append(network.Nodes,
+		sim.Node{ID: divergeID, Position: diverge},
+		sim.Node{ID: mergeID, Position: merge},
 		sim.Node{ID: entryID, Position: entry},
 		sim.Node{ID: exitID, Position: exit},
 	)
 	network.Lanes = append(network.Lanes,
-		sim.Lane{ID: id + "-access-in", From: junction, To: entryID, SpeedLimit: speedLimit},
+		sim.Lane{ID: id + "-road-in", From: junction, To: divergeID, SpeedLimit: speedLimit},
+		sim.Lane{ID: id + "-access-in", From: divergeID, To: entryID, SpeedLimit: speedLimit},
 		sim.Lane{ID: id + "-through", From: entryID, To: exitID, SpeedLimit: speedLimit},
-		sim.Lane{ID: id + "-access-out", From: exitID, To: junction, SpeedLimit: speedLimit},
+		sim.Lane{ID: id + "-access-out", From: exitID, To: mergeID, SpeedLimit: speedLimit},
+		sim.Lane{ID: id + "-road-out", From: mergeID, To: junction, SpeedLimit: speedLimit},
 	)
 	station := sim.Station{ID: id, Name: name, Entry: entryID, Exit: exitID, ParkingOnly: parking}
 	for index := range berths {
 		berthID := fmt.Sprintf("%s-%02d", id, index+1)
 		berthNodeID := berthID + "-node"
-		depth := 145.0 + 32*float64(index)
+		depth := 290.0 + 32*float64(index)
 		berthPosition := add(center.Position, scale(outward, depth))
 		network.Nodes = append(network.Nodes, sim.Node{ID: berthNodeID, Position: berthPosition})
 		station.Berths = append(station.Berths, sim.Berth{ID: berthID, Node: berthNodeID})
