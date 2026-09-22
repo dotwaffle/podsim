@@ -224,34 +224,9 @@ func New(network Network, startStation string) (*Simulation, error) {
 
 // NewFleet validates and copies a fixed fleet. An omitted berth ID selects the first berth.
 func NewFleet(network Network, placements []Placement) (*Simulation, error) {
-	if err := network.validate(); err != nil {
+	owned, graph, err := prepareFleet(network, placements)
+	if err != nil {
 		return nil, err
-	}
-	owned := network.clone()
-	inferStationLaneRoles(&owned)
-	graph := newRouteGraph(owned)
-	for index, lane := range owned.Lanes {
-		if graph.lengths[index] < 2*Clearance {
-			return nil, fmt.Errorf("lane %q must be at least %.0f meters long", lane.ID, 2*Clearance)
-		}
-	}
-	if len(placements) == 0 {
-		return nil, errors.New("the fleet needs at least one pod")
-	}
-	ids, berths := make(map[string]bool), make(map[string]bool)
-	for _, p := range placements {
-		if p.ID == "" || ids[p.ID] {
-			return nil, fmt.Errorf("invalid or duplicate pod %q", p.ID)
-		}
-		station, ok := network.Station(p.StationID)
-		if !ok {
-			return nil, fmt.Errorf("unknown start station %q", p.StationID)
-		}
-		berth, ok := station.berth(p.BerthID)
-		if !ok || berths[berth.ID] {
-			return nil, fmt.Errorf("invalid or occupied initial berth at %q", p.StationID)
-		}
-		ids[p.ID], berths[berth.ID] = true, true
 	}
 	initial := slices.Clone(placements)
 	slices.SortFunc(initial, func(a, b Placement) int {
@@ -283,6 +258,48 @@ func NewFleet(network Network, placements []Placement) (*Simulation, error) {
 	}
 	s.Reset()
 	return s, nil
+}
+
+// ValidateFleet returns the error that NewFleet returns for the same network and fleet.
+// It does not build the simulation, so it costs less than NewFleet.
+func ValidateFleet(network Network, placements []Placement) error {
+	_, _, err := prepareFleet(network, placements)
+	return err
+}
+
+// prepareFleet validates a network and a fleet. It returns an owned copy of the
+// network with inferred station lane roles, and the route graph of that copy.
+func prepareFleet(network Network, placements []Placement) (Network, routeGraph, error) {
+	if err := network.validate(); err != nil {
+		return Network{}, routeGraph{}, err
+	}
+	owned := network.clone()
+	inferStationLaneRoles(&owned)
+	graph := newRouteGraph(owned)
+	for index, lane := range owned.Lanes {
+		if graph.lengths[index] < 2*Clearance {
+			return Network{}, routeGraph{}, fmt.Errorf("lane %q must be at least %.0f meters long", lane.ID, 2*Clearance)
+		}
+	}
+	if len(placements) == 0 {
+		return Network{}, routeGraph{}, errors.New("the fleet needs at least one pod")
+	}
+	ids, berths := make(map[string]bool), make(map[string]bool)
+	for _, p := range placements {
+		if p.ID == "" || ids[p.ID] {
+			return Network{}, routeGraph{}, fmt.Errorf("invalid or duplicate pod %q", p.ID)
+		}
+		station, ok := network.Station(p.StationID)
+		if !ok {
+			return Network{}, routeGraph{}, fmt.Errorf("unknown start station %q", p.StationID)
+		}
+		berth, ok := station.berth(p.BerthID)
+		if !ok || berths[berth.ID] {
+			return Network{}, routeGraph{}, fmt.Errorf("invalid or occupied initial berth at %q", p.StationID)
+		}
+		ids[p.ID], berths[berth.ID] = true, true
+	}
+	return owned, graph, nil
 }
 
 // Reset restores the initial fleet, clock, and resources. It clears supplied demo requests.

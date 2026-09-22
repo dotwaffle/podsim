@@ -1,9 +1,11 @@
 package sim
 
 import (
+	"fmt"
 	"maps"
 	"math"
 	"reflect"
+	"strings"
 	"testing"
 )
 
@@ -330,6 +332,46 @@ func TestFleetValidation(t *testing.T) {
 			t.Parallel()
 			if _, err := NewFleet(Example(), tc.placements); err == nil {
 				t.Fatal("invalid fleet accepted")
+			}
+		})
+	}
+}
+
+func TestValidateFleetMatchesNewFleet(t *testing.T) {
+	t.Parallel()
+	pods := []Placement{{ID: "01", StationID: "harbor"}, {ID: "02", StationID: "garden"}}
+	for _, tc := range []struct {
+		name       string
+		change     func(*Network)
+		placements []Placement
+		want       string
+	}{
+		{name: "valid", placements: pods},
+		{name: "duplicate node", change: func(n *Network) { n.Nodes[1].ID = n.Nodes[0].ID }, placements: pods, want: "duplicate node"},
+		{name: "short lane", change: func(n *Network) { n.Nodes[3].Position = Point{X: 210, Y: 260} }, placements: pods, want: "must be at least"},
+		{name: "empty fleet", want: "at least one pod"},
+		{name: "duplicate ID", placements: []Placement{{ID: "01", StationID: "harbor"}, {ID: "01", StationID: "garden"}}, want: "duplicate pod"},
+		{name: "unknown station", placements: []Placement{{ID: "01", StationID: "missing"}}, want: "unknown start station"},
+		{name: "occupied berth", placements: []Placement{{ID: "01", StationID: "harbor"}, {ID: "02", StationID: "harbor"}}, want: "occupied initial berth"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			network := Example()
+			if tc.change != nil {
+				tc.change(&network)
+			}
+			err := ValidateFleet(network, tc.placements)
+			if _, fleetErr := NewFleet(network, tc.placements); fmt.Sprint(err) != fmt.Sprint(fleetErr) {
+				t.Fatalf("ValidateFleet() = %v, NewFleet() = %v", err, fleetErr)
+			}
+			if tc.want == "" {
+				if err != nil {
+					t.Fatalf("ValidateFleet() = %v, want nil", err)
+				}
+				return
+			}
+			if err == nil || !strings.Contains(err.Error(), tc.want) {
+				t.Fatalf("ValidateFleet() = %v, want %q", err, tc.want)
 			}
 		})
 	}

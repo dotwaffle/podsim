@@ -127,7 +127,7 @@ func Validate(config Config) error {
 	if err := ValidateDemand(config.Demand, DemandContext{Network: config.Network, Profiles: config.DemandProfiles}); err != nil {
 		return err
 	}
-	if _, err := sim.NewFleet(config.Network, config.Fleet); err != nil {
+	if err := sim.ValidateFleet(config.Network, config.Fleet); err != nil {
 		return fmt.Errorf("invalid project scenario: %w", err)
 	}
 	passenger := PassengerStations(config.Network)
