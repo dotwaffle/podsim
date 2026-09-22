@@ -29,7 +29,7 @@ golangci-lint run
 description = "Run the quick test suite"
 run = "go test ./..."
 
-[tasks.test-race]
+[tasks."test:race"]
 description = "Run tests with the race detector"
 run = "go test -race ./... -timeout=30m"
 
@@ -46,26 +46,25 @@ run = "go build -trimpath ./..."
 
 [tasks.web]
 description = "Build the browser application"
-run = """
-mkdir -p dist
-GOOS=js GOARCH=wasm go build -trimpath -o dist/podsim.wasm ./cmd/podsim
-cp "$(go env GOROOT)/lib/wasm/wasm_exec.js" dist/wasm_exec.js
-cp web/index.html web/game.html web/editor.html web/editor.css web/editor.js dist/
-node scripts/compress-wasm.cjs dist/podsim.wasm
-"""
+run = "go generate ./..."
+
+[tasks."test:embedded"]
+description = "Check the embedded production server"
+depends = ["web"]
+run = "go test -tags=embed_assets . ./cmd/serve ./internal/session"
 
 [tasks.serve]
 description = "Build and serve the browser application"
 depends = ["web"]
 run = "go run ./cmd/serve"
 
-[tasks.test-web]
+[tasks."test:web"]
 description = "Test editor model and project validation"
 run = "node --test web/editor_test.cjs"
 
 [tasks.check]
 description = "Run tests, static analysis, and native and browser builds"
-depends = ["test-race", "test-web", "lint", "vulncheck", "build", "web"]
+depends = ["test:race", "test:web", "lint", "vulncheck", "build", "test:embedded"]
 
 [tasks.scenario]
 description = "Write a generated scenario JSON file"

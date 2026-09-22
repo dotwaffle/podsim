@@ -28,6 +28,18 @@ func commandFor(s *Session, action string) Command {
 	return Command{Client: "test", Sequence: 1, Epoch: s.State().Epoch, Action: action}
 }
 
+func TestSessionMetrics(t *testing.T) {
+	t.Parallel()
+	s := newTestSession(t)
+	state := s.State()
+	metrics := s.Metrics()
+	if metrics.Tick != state.Simulation.Tick || metrics.Submitted != state.Simulation.Submitted ||
+		metrics.Completed != state.Simulation.Completed || metrics.Pending != len(state.Simulation.Pending) ||
+		metrics.Vehicles != len(state.Simulation.Vehicles) {
+		t.Fatalf("metrics do not match state: %+v", metrics)
+	}
+}
+
 func TestCommandRetriesAndReset(t *testing.T) {
 	t.Parallel()
 	s := newTestSession(t)

@@ -3,20 +3,32 @@ package session
 import (
 	"encoding/json"
 	"io"
+	"io/fs"
 	"log/slog"
 	"mime"
 	"net/http"
 	"net/url"
+	"os"
 )
 
 // Handler serves the session API and supplied static application files.
 func (s *Session) Handler(directory string) http.Handler {
+	return s.HandlerFS(os.DirFS(directory))
+}
+
+// HandlerFS serves the session API and supplied static application files.
+func (s *Session) HandlerFS(files fs.FS) http.Handler {
 	mux := http.NewServeMux()
+	mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+		w.Header().Set("Cache-Control", "no-store")
+		_, _ = io.WriteString(w, "ok\n")
+	})
 	mux.HandleFunc("GET /api/state", func(w http.ResponseWriter, _ *http.Request) { writeJSON(w, s.State()) })
 	mux.HandleFunc("GET /api/project", func(w http.ResponseWriter, _ *http.Request) { writeJSON(w, s.Project()) })
 	mux.HandleFunc("POST /api/command", s.commandHTTP)
-	mux.Handle("/", http.FileServer(http.Dir(directory)))
-	return precompressedWASM(directory, compressResponse(mux))
+	mux.Handle("/", http.FileServerFS(files))
+	return precompressedWASM(files, compressResponse(mux))
 }
 
 func (s *Session) commandHTTP(w http.ResponseWriter, r *http.Request) {

@@ -7,18 +7,22 @@ import (
 	"flag"
 	"fmt"
 	"io"
+	"io/fs"
 	"log/slog"
 	"net/http"
 	"os"
 	"os/signal"
 	"path/filepath"
+	"runtime/debug"
 	"syscall"
 	"time"
 
 	"github.com/KimMachineGun/automemlimit/memlimit"
 
+	"github.com/dotwaffle/podsim"
 	"github.com/dotwaffle/podsim/internal/project"
 	"github.com/dotwaffle/podsim/internal/session"
+	"github.com/dotwaffle/podsim/internal/telemetry"
 )
 
 func main() {
@@ -40,11 +44,13 @@ func configureMemoryLimit() {
 
 func run() error {
 	address := flag.String("addr", "127.0.0.1:8080", "HTTP listen address")
-	directory := flag.String("dir", "dist", "Directory containing the browser build")
+	directory := flag.String("dir", "", "Browser build directory; overrides embedded assets")
+	pprofAddress := flag.String("pprof-addr", "", "Separate pprof listen address; disabled when empty")
 	projectPath := flag.String("project", "", "Project JSON file to load and save")
 	flag.Parse()
-	if _, err := os.Stat(filepath.Join(*directory, "index.html")); err != nil {
-		return fmt.Errorf("build the browser files with mise run web first: %w", err)
+	files, err := browserFiles(*directory)
+	if err != nil {
+		return err
 	}
 	config := project.Default()
 	var options []session.Option
@@ -64,26 +70,113 @@ func run() error {
 	}
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
+	telemetryProvider, err := telemetry.New(ctx, buildVersion(), shared.Metrics)
+	if err != nil {
+		return err
+	}
+	defer func() {
+		shutdown, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		if err := telemetryProvider.Shutdown(shutdown); err != nil {
+			slog.Warn("Shut down telemetry", slog.Any("error", err))
+		}
+	}()
 	go shared.Run(ctx)
-	server := &http.Server{
+	handler := telemetryProvider.HTTPHandler(shared.HandlerFS(files))
+	application := &http.Server{
 		Addr:              *address,
-		Handler:           shared.Handler(*directory),
+		Handler:           handler,
 		ReadHeaderTimeout: 5 * time.Second,
 		ReadTimeout:       10 * time.Second,
 		WriteTimeout:      30 * time.Second,
 		IdleTimeout:       60 * time.Second,
 	}
-	go func() {
-		<-ctx.Done()
-		shutdown, cancel := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Second)
-		defer cancel()
-		_ = server.Shutdown(shutdown)
-	}()
 	slog.Info("Open Podsim in your browser", slog.String("url", "http://"+*address))
-	if err := server.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
-		return fmt.Errorf("listen: %w", err)
+	servers := []namedServer{{name: "application", server: application}}
+	if *pprofAddress != "" {
+		diagnostics := &http.Server{
+			Addr:              *pprofAddress,
+			Handler:           pprofHandler(),
+			ReadHeaderTimeout: 5 * time.Second,
+			ReadTimeout:       10 * time.Second,
+			WriteTimeout:      5 * time.Minute,
+			IdleTimeout:       60 * time.Second,
+		}
+		servers = append(servers, namedServer{name: "pprof", server: diagnostics})
+		slog.Info("Enabled pprof", slog.String("address", *pprofAddress))
 	}
-	return nil
+	return runServers(ctx, servers)
+}
+
+type namedServer struct {
+	name   string
+	server *http.Server
+}
+
+type serverResult struct {
+	name string
+	err  error
+}
+
+func runServers(ctx context.Context, servers []namedServer) error {
+	results := make(chan serverResult, len(servers))
+	for _, current := range servers {
+		go func() {
+			results <- serverResult{name: current.name, err: current.server.ListenAndServe()}
+		}()
+	}
+	remaining := len(servers)
+	var errs []error
+	select {
+	case result := <-results:
+		remaining--
+		if err := unexpectedServerError(result); err != nil {
+			errs = append(errs, err)
+		}
+	case <-ctx.Done():
+	}
+	shutdown, cancel := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Second)
+	defer cancel()
+	for _, current := range servers {
+		if err := current.server.Shutdown(shutdown); err != nil {
+			errs = append(errs, fmt.Errorf("shut down %s server: %w", current.name, err))
+		}
+	}
+	for range remaining {
+		if err := unexpectedServerError(<-results); err != nil {
+			errs = append(errs, err)
+		}
+	}
+	return errors.Join(errs...)
+}
+
+func unexpectedServerError(result serverResult) error {
+	if result.err == nil || errors.Is(result.err, http.ErrServerClosed) {
+		return nil
+	}
+	return fmt.Errorf("serve %s HTTP: %w", result.name, result.err)
+}
+
+func buildVersion() string {
+	info, ok := debug.ReadBuildInfo()
+	if !ok || info.Main.Version == "" || info.Main.Version == "(devel)" {
+		return "devel"
+	}
+	return info.Main.Version
+}
+
+func browserFiles(directory string) (fs.FS, error) {
+	if directory == "" {
+		if embedded, ok := podsim.WebAssets(); ok {
+			return embedded, nil
+		}
+		directory = "dist"
+	}
+	files := os.DirFS(directory)
+	if _, err := fs.Stat(files, "index.html"); err != nil {
+		return nil, fmt.Errorf("build the browser files with mise run web first: %w", err)
+	}
+	return files, nil
 }
 
 func loadProject(path string) (project.Config, error) {

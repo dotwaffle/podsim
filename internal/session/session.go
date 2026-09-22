@@ -36,6 +36,22 @@ type ProjectState struct {
 	Project  project.Config `json:"project"`
 }
 
+// Metrics contains low-cardinality operational measurements for one session.
+type Metrics struct {
+	Tick                    int64
+	Submitted               int
+	Completed               int
+	Pending                 int
+	Vehicles                int
+	ActiveVehicles          int
+	PassengerVehicles       int
+	StoppedVehicles         int
+	PassengerDistanceMeters float64
+	EmptyDistanceMeters     float64
+	AverageWaitSeconds      float64
+	MaximumWaitSeconds      float64
+}
+
 // Command describes an explicit mutation with a per-client sequence for safe retries.
 type Command struct {
 	Client          string          `json:"client"`
@@ -153,6 +169,36 @@ func (s *Session) advance() {
 
 // State returns a detached snapshot safe for concurrent observers.
 func (s *Session) State() State { s.mu.Lock(); defer s.mu.Unlock(); return s.state() }
+
+// Metrics returns a compact session snapshot for operational monitoring.
+func (s *Session) Metrics() Metrics {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	state := s.simulation.Snapshot()
+	metrics := Metrics{
+		Tick:                    state.Tick,
+		Submitted:               state.Submitted,
+		Completed:               state.Completed,
+		Pending:                 len(state.Pending),
+		Vehicles:                len(state.Vehicles),
+		PassengerDistanceMeters: state.PassengerDistanceMeters,
+		EmptyDistanceMeters:     state.EmptyDistanceMeters,
+		AverageWaitSeconds:      state.Wait.AverageSeconds,
+		MaximumWaitSeconds:      state.Wait.MaxSeconds,
+	}
+	for _, vehicle := range state.Vehicles {
+		if vehicle.Request != nil || vehicle.RelocatingTo != "" {
+			metrics.ActiveVehicles++
+		}
+		if vehicle.Pod.Occupied {
+			metrics.PassengerVehicles++
+		}
+		if vehicle.Pod.WaitReason != sim.NoWait && vehicle.Pod.Speed < 0.01 {
+			metrics.StoppedVehicles++
+		}
+	}
+	return metrics
+}
 
 func (s *Session) state() State {
 	network := project.CloneNetwork(s.project.Network)

@@ -1,15 +1,71 @@
 package main
 
 import (
+	"context"
+	"io/fs"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"reflect"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/dotwaffle/podsim/internal/project"
 	"github.com/dotwaffle/podsim/internal/scenarios"
 )
+
+func TestBrowserFilesUsesSelectedDirectory(t *testing.T) {
+	t.Parallel()
+	directory := t.TempDir()
+	if err := os.WriteFile(filepath.Join(directory, "index.html"), []byte("podsim"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	files, err := browserFiles(directory)
+	if err != nil {
+		t.Fatal(err)
+	}
+	contents, err := fs.ReadFile(files, "index.html")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(contents) != "podsim" {
+		t.Fatalf("index contents = %q", contents)
+	}
+}
+
+func TestBrowserFilesRejectsMissingBuild(t *testing.T) {
+	t.Parallel()
+	if _, err := browserFiles(t.TempDir()); err == nil {
+		t.Fatal("accepted a browser directory without index.html")
+	}
+}
+
+func TestPprofHandlerIsScoped(t *testing.T) {
+	t.Parallel()
+	for _, test := range []struct {
+		path string
+		want int
+	}{{path: "/debug/pprof/", want: http.StatusOK}, {path: "/", want: http.StatusNotFound}} {
+		request := httptest.NewRequestWithContext(t.Context(), http.MethodGet, test.path, http.NoBody)
+		response := httptest.NewRecorder()
+		pprofHandler().ServeHTTP(response, request)
+		if response.Code != test.want {
+			t.Fatalf("%s status = %d", test.path, response.Code)
+		}
+	}
+}
+
+func TestRunServersStopsAfterCancellation(t *testing.T) {
+	t.Parallel()
+	ctx, cancel := context.WithCancel(t.Context())
+	cancel()
+	server := &http.Server{Addr: "127.0.0.1:0", Handler: http.NotFoundHandler(), ReadHeaderTimeout: time.Second}
+	if err := runServers(ctx, []namedServer{{name: "test", server: server}}); err != nil {
+		t.Fatal(err)
+	}
+}
 
 func TestProjectFileRoundTrip(t *testing.T) {
 	t.Parallel()

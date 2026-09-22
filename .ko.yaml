@@ -1,0 +1,11 @@
+defaultBaseImage: cgr.dev/chainguard/static:latest
+defaultPlatforms:
+  - linux/amd64
+  - linux/arm64
+builds:
+  - id: podsim
+    dir: .
+    main: ./cmd/serve
+    flags:
+      - -trimpath
+      - -tags=embed_assets

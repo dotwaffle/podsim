@@ -1,0 +1,40 @@
+name: Publish container
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+
+concurrency:
+  group: container-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+      - uses: jdx/mise-action@v4
+      - name: Build browser application
+        run: mise run web
+      - name: Check embedded server
+        run: go test -tags=embed_assets . ./cmd/serve ./internal/session
+      - uses: ko-build/setup-ko@v0.10
+        with:
+          version: v0.19.1
+      - name: Publish image
+        shell: bash
+        run: |
+          tags="${GITHUB_SHA}"
+          if [[ "${GITHUB_REF_TYPE}" == "tag" ]]; then
+            tags="${GITHUB_REF_NAME},${tags}"
+          elif [[ "${GITHUB_REF_NAME}" == "main" ]]; then
+            tags="latest,${tags}"
+          fi
+          ko build --bare --tags "${tags}" ./cmd/serve
