@@ -81,7 +81,6 @@ func mustLondonConfig() project.Config {
 			Band:      "am-peak",
 		},
 		DemandProfiles: []project.DemandProfile{londonDemandProfile()},
-		Redistribution: true,
 	}
 	config.Fleet = londonFleet(config.Network)
 	if err := project.Validate(config); err != nil {

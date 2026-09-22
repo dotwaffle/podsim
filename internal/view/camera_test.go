@@ -1,12 +1,51 @@
 package view
 
 import (
+	"image"
 	"math"
 	"testing"
 
 	"github.com/dotwaffle/podsim/internal/session"
 	"github.com/dotwaffle/podsim/internal/sim"
 )
+
+func TestCollapsedStationLabelsPreferSelectedContext(t *testing.T) {
+	t.Parallel()
+	labels := []boundedStationLabel{
+		{stationID: "first", bounds: image.Rect(0, 0, 60, 20)},
+		{stationID: "preferred", bounds: image.Rect(20, 0, 80, 20)},
+		{stationID: "separate", bounds: image.Rect(100, 0, 160, 20)},
+	}
+	visible := selectCollapsedStationLabels(labels, map[string]bool{"preferred": true}, true)
+	if visible[0] || !visible[1] || !visible[2] {
+		t.Fatalf("visible labels = %v, want [false true true]", visible)
+	}
+	if all := selectCollapsedStationLabels(labels, nil, false); !all[0] || !all[1] || !all[2] {
+		t.Fatalf("small-network labels = %v, want all visible", all)
+	}
+}
+
+func TestDenseOverviewHidesUnselectedPodLabels(t *testing.T) {
+	t.Parallel()
+	game := Game{
+		network:  sim.Network{Stations: make([]sim.Station, 31)},
+		selected: 2,
+		mapScale: 1,
+		camera:   mapCamera{minScale: 1},
+	}
+	if game.showPodMapLabel(1) || !game.showPodMapLabel(2) {
+		t.Fatal("dense overview did not keep only the selected pod label")
+	}
+	game.mapScale = 4
+	if !game.showPodMapLabel(1) {
+		t.Fatal("dense zoom did not restore pod labels")
+	}
+	game.network.Stations = game.network.Stations[:3]
+	game.mapScale = 1
+	if !game.showPodMapLabel(1) {
+		t.Fatal("small network hid a pod label")
+	}
+}
 
 func TestMapCameraZoomKeepsCursorWorldPoint(t *testing.T) {
 	t.Parallel()

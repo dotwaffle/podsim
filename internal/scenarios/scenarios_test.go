@@ -65,6 +65,9 @@ func TestPresetsValidateAndRemainStable(t *testing.T) {
 func TestLondonUsesRealScaleAndDirectedGuideways(t *testing.T) {
 	t.Parallel()
 	config := London()
+	if config.Redistribution {
+		t.Fatal("London enables redistribution by default")
+	}
 	stations := make(map[string]sim.Station, len(config.Network.Stations))
 	for _, station := range config.Network.Stations {
 		stations[station.Name] = station

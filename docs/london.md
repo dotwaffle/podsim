@@ -129,3 +129,6 @@ mise run serve -- -project /tmp/podsim-london.json
 
 The generated project has 99 stations, 974 nodes, 1,459 lanes, and 114 pods.
 Project validation checks directed reachability between all passenger berths.
+The supported project limit is 100 stations, so this preset permits one added
+station in the editor. Change the limit only with measured editor validation.
+The preset starts with automatic demand and redistribution disabled.

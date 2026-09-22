@@ -9,6 +9,7 @@ import (
 	"image/color"
 	"math"
 	"runtime"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -432,6 +433,7 @@ func (g *Game) drawNetwork(screen *ebiten.Image, state sim.Snapshot) {
 	}
 	collapsedStations := make(map[string]bool)
 	stationMonitor := observe.NewStationMonitor(g.network)
+	var collapsedLabels []collapsedStationLabel
 	for _, station := range g.network.Stations {
 		status := stationMonitor.Summarize(station, state)
 		center := sim.Point{}
@@ -492,10 +494,16 @@ func (g *Game) drawNetwork(screen *ebiten.Image, state sim.Snapshot) {
 			vector.StrokeCircle(mapScreen, float32(center.X), float32(center.Y), float32(10*g.layout.unit), float32(2*g.layout.unit), rgb(muted), detailed)
 			x := center.X + 16*g.layout.unit
 			y := center.Y - 14*g.layout.unit
-			g.label(mapScreen, label{x: x, y: y, size: 10, value: fmt.Sprintf("%s  %d/%d", shortText(strings.TrimPrefix(station.Name, "Station "), 7), status.Occupied, len(station.Berths)), color: foreground})
-			if status.EntranceStopped > 0 || status.ExitStopped > 0 {
-				g.label(mapScreen, label{x: x, y: y + 16*g.layout.unit, size: 9, value: fmt.Sprintf("In %d · Out %d", status.EntranceStopped, status.ExitStopped), color: amber})
+			shortName := shortText(strings.TrimPrefix(station.Name, "Station "), 7)
+			collapsed := collapsedStationLabel{
+				stationID:      station.ID,
+				primary:        label{x: x, y: y, size: 10, value: fmt.Sprintf("%s  %d/%d", shortName, status.Occupied, len(station.Berths)), color: foreground},
+				collisionValue: fmt.Sprintf("%s  %d/%d", shortName, len(station.Berths), len(station.Berths)),
 			}
+			if status.EntranceStopped > 0 || status.ExitStopped > 0 {
+				collapsed.secondary = fmt.Sprintf("In %d · Out %d", status.EntranceStopped, status.ExitStopped)
+			}
+			collapsedLabels = append(collapsedLabels, collapsed)
 		} else if station.ParkingOnly || len(station.Berths) > 1 {
 			x := center.X + 25*g.layout.unit
 			y := center.Y - 32*g.layout.unit
@@ -504,6 +512,7 @@ func (g *Game) drawNetwork(screen *ebiten.Image, state sim.Snapshot) {
 			g.label(mapScreen, label{x: x, y: y + 40*g.layout.unit, size: 9, value: fmt.Sprintf("In %d stopped / %d approaching · Out %d stopped", status.EntranceStopped, status.Approaching, status.ExitStopped), color: muted})
 		}
 	}
+	g.drawCollapsedStationLabels(mapScreen, collapsedLabels, selected)
 	for i, v := range state.Vehicles {
 		parkedInCluster := v.Pod.Activity == sim.Idle && collapsedStations[v.Pod.StationID]
 		if parkedInCluster && i != g.selected {
@@ -518,7 +527,7 @@ func (g *Game) drawNetwork(screen *ebiten.Image, state sim.Snapshot) {
 			vector.StrokeCircle(mapScreen, float32(p.X), float32(p.Y), float32(9*g.layout.unit), float32(1.5*g.layout.unit), rgb(foreground), detailed)
 		}
 		vector.FillCircle(mapScreen, float32(p.X), float32(p.Y), float32(4*g.layout.unit), rgb(shade), detailed)
-		if !parkedInCluster || i == g.selected {
+		if (!parkedInCluster || i == g.selected) && g.showPodMapLabel(i) {
 			g.label(mapScreen, label{x: p.X + 11*g.layout.unit, y: p.Y - 18*g.layout.unit, size: 11, value: fleetPodLabel(i), color: shade})
 		}
 	}
@@ -545,6 +554,86 @@ func (g *Game) showStationBerths(station sim.Station) bool {
 		}
 	}
 	return minimum >= 34*g.layout.unit
+}
+
+type collapsedStationLabel struct {
+	stationID      string
+	primary        label
+	collisionValue string
+	secondary      string
+}
+
+type boundedStationLabel struct {
+	stationID string
+	bounds    image.Rectangle
+}
+
+func (g *Game) drawCollapsedStationLabels(screen *ebiten.Image, labels []collapsedStationLabel, selected sim.Vehicle) {
+	preferred := map[string]bool{g.origin: true, g.destination: true, selected.Pod.StationID: true, selected.RelocatingTo: true}
+	if selected.Request != nil {
+		preferred[selected.Request.From] = true
+		preferred[selected.Request.To] = true
+	}
+	delete(preferred, "")
+	bounded := make([]boundedStationLabel, len(labels))
+	for index, candidate := range labels {
+		bounded[index] = boundedStationLabel{stationID: candidate.stationID, bounds: g.collapsedStationLabelBounds(candidate)}
+	}
+	visible := selectCollapsedStationLabels(bounded, preferred, len(g.network.Stations) > 30)
+	for index, candidate := range labels {
+		if !visible[index] {
+			continue
+		}
+		g.label(screen, candidate.primary)
+		if candidate.secondary != "" {
+			g.label(screen, label{
+				x: candidate.primary.x, y: candidate.primary.y + 16*g.layout.unit,
+				size: 9, value: candidate.secondary, color: amber,
+			})
+		}
+	}
+}
+
+func (g *Game) collapsedStationLabelBounds(candidate collapsedStationLabel) image.Rectangle {
+	width, _ := text.Measure(candidate.collisionValue, g.textFace(candidate.primary.size), 0)
+	secondaryWidth, _ := text.Measure("In 000 · Out 000", g.textFace(9), 0)
+	width = max(width, secondaryWidth)
+	padding := 3 * g.layout.unit
+	return image.Rect(
+		int(math.Floor(candidate.primary.x-padding)),
+		int(math.Floor(candidate.primary.y-padding)),
+		int(math.Ceil(candidate.primary.x+width+padding)),
+		int(math.Ceil(candidate.primary.y+32*g.layout.unit+padding)),
+	)
+}
+
+func selectCollapsedStationLabels(labels []boundedStationLabel, preferred map[string]bool, dense bool) []bool {
+	visible := make([]bool, len(labels))
+	if !dense {
+		for index := range visible {
+			visible[index] = true
+		}
+		return visible
+	}
+	var occupied []image.Rectangle
+	for _, priority := range []bool{true, false} {
+		for index, candidate := range labels {
+			if preferred[candidate.stationID] != priority {
+				continue
+			}
+			blocked := slices.ContainsFunc(occupied, candidate.bounds.Overlaps)
+			if blocked && !priority {
+				continue
+			}
+			visible[index] = true
+			occupied = append(occupied, candidate.bounds)
+		}
+	}
+	return visible
+}
+
+func (g *Game) showPodMapLabel(index int) bool {
+	return index == g.selected || len(g.network.Stations) <= 30 || g.mapScale >= 4*g.camera.minScale
 }
 
 func (g *Game) podHiddenInCluster(vehicle sim.Vehicle, index int) bool {
