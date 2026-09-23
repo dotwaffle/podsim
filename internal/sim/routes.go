@@ -17,7 +17,9 @@ type routeResult struct {
 }
 
 // route shares read-only paths within this simulation's immutable network.
-// Snapshots copy routes before they leave the simulation.
+// Snapshots copy routes before they leave the simulation. Clones share the
+// routes of pods and waiting trips, so code replaces a route whole and never
+// writes into it in place.
 func (s *Simulation) route(from, to string) ([]Lane, error) {
 	s.ensureNetworkIndexes()
 	if s.congestionRouting {

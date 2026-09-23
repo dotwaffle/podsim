@@ -179,6 +179,13 @@ type vehicle struct {
 }
 
 // Simulation owns a fixed fleet and local track, junction, and berth resources.
+//
+// Clone shares some fields with its source. They are the network, the route
+// graph, and the station, geometry, junction, and safety indexes. They also
+// include the initial fleet, the demand weights, the congestion costs, the
+// routes of pods and waiting trips, and the block tables of pods. Code must
+// replace a shared field whole. It must not write into a shared field in
+// place, because that change also changes the clones.
 type Simulation struct {
 	// NewFleet builds junctionConflicts from the network. No code writes to it
 	// in place. ensureNetworkIndexes replaces it only when the network changes.
