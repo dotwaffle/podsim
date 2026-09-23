@@ -242,9 +242,13 @@ An import does not replace the draft when the file is malformed, unsupported, or
 Validation checks routes between passenger stations, berth routes, pod placement, resource IDs, and the 24-meter minimum lane length.
 A berth route goes from the station entry to the berth, or from the berth to the station exit.
 It can use a chain of lanes, as in the London stations. It cannot pass through the entry, exit, or berth node of a station.
+Two editor checks give warnings: a junction with no lanes, and a network section that no lane connects to the other nodes.
+The server accepts a project with these warnings, so a warning does not block an apply or an import.
+A passenger station in a separate section still gives an error, because the other passenger stations cannot reach it.
 Validation also limits a project to 4 MiB of compact JSON.
 The editor sends the project in one command, and the server accepts a command of at most 2 MiB.
-If the server project fails these checks, the editor still loads it as the draft. The **Checks** section lists the problems.
+If the server project fails these checks, the editor still loads it as the draft.
+The **Checks** section lists the errors first, then the warnings. When the draft has only warnings, the summary tells you that the scenario is ready to apply and gives the number of warnings.
 
 ### Demand and policy comparisons
 

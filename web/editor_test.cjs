@@ -253,6 +253,72 @@ test("validation reports short lanes and unreachable passenger pairs", () => {
   assert.ok(errors.some((error) => error.includes("cannot reach")));
 });
 
+// The server accepts a junction with no lanes and a separate section, so the
+// editor gives warnings for them and no errors.
+test("a junction with no lanes gives one warning and no error", () => {
+  const config = editor.addJunction(connectedScenario(), 600, 300);
+  const junction = config.network.Nodes.at(-1);
+  assert.deepEqual(editor.validateConfig(config), []);
+  assert.deepEqual(editor.configWarnings(config), [`Junction ${junction.ID} is disconnected.`]);
+
+  // The section check starts at a node with lanes, also when the first node
+  // has no lanes.
+  config.network.Nodes = [junction, ...config.network.Nodes.slice(0, -1)];
+  assert.deepEqual(editor.validateConfig(config), []);
+  assert.deepEqual(editor.configWarnings(config), [`Junction ${junction.ID} is disconnected.`]);
+});
+
+test("a separate section with no passenger station gives a warning and no error", () => {
+  let config = editor.addJunction(connectedScenario(), 600, 300);
+  const first = config.network.Nodes.at(-1).ID;
+  config = editor.addJunction(config, 700, 300);
+  config = editor.addLane(config, first, config.network.Nodes.at(-1).ID, true);
+  assert.deepEqual(editor.validateConfig(config), []);
+  assert.deepEqual(editor.configWarnings(config), ["The network has disconnected sections."]);
+
+  // A parking station in a separate section is also only a warning.
+  const parking = editor.addStation(connectedScenario(), 600, 300, { name: "Depot", parkingOnly: true });
+  assert.deepEqual(editor.validateConfig(parking), []);
+  assert.deepEqual(editor.configWarnings(parking), ["The network has disconnected sections."]);
+});
+
+test("the section check follows lanes in both directions", () => {
+  // A one-way lane from a junction into a station connects the junction.
+  let source = editor.addJunction(connectedScenario(), 100, 300);
+  source = editor.addLane(source, source.network.Nodes.at(-1).ID, source.network.Stations[0].Entry, false);
+  assert.deepEqual(editor.validateConfig(source), []);
+  assert.deepEqual(editor.configWarnings(source), []);
+
+  // A one-way lane from a station to a junction also connects the junction.
+  let sink = editor.addJunction(connectedScenario(), 340, 300);
+  sink = editor.addLane(sink, sink.network.Stations[1].Exit, sink.network.Nodes.at(-1).ID, false);
+  assert.deepEqual(editor.validateConfig(sink), []);
+  assert.deepEqual(editor.configWarnings(sink), []);
+});
+
+test("a passenger station in a separate section is an error", () => {
+  const config = editor.addStation(connectedScenario(), 600, 300, { name: "Gamma" });
+  const errors = editor.validateConfig(config);
+  assert.ok(errors.includes("Alpha cannot reach Gamma."));
+  assert.ok(errors.includes("Gamma cannot reach Beta."));
+  assert.deepEqual(editor.configWarnings(config), ["The network has disconnected sections."]);
+});
+
+test("import accepts a project with only warnings", () => {
+  const config = editor.addJunction(connectedScenario(), 600, 300);
+  assert.deepEqual(editor.parseDocument(editor.serializeDocument(config, null)).scenario, config);
+  delete config.demandProfiles;
+  assert.deepEqual(editor.parseDocument(JSON.stringify(config)).scenario, editor.normalizeConfig(config));
+});
+
+test("the checks summary gives errors, then warnings, then ready", () => {
+  assert.deepEqual(editor.validationSummary(["A.", "B."], ["C."]), { tone: "bad", text: "2 problems must be fixed." });
+  assert.deepEqual(editor.validationSummary(["A."], []), { tone: "bad", text: "1 problem must be fixed." });
+  assert.deepEqual(editor.validationSummary([], ["C."]), { tone: "warn", text: "The scenario is ready to apply. It has 1 warning." });
+  assert.deepEqual(editor.validationSummary([], ["C.", "D."]), { tone: "warn", text: "The scenario is ready to apply. It has 2 warnings." });
+  assert.deepEqual(editor.validationSummary([], []), { tone: "good", text: "The scenario is ready to apply." });
+});
+
 test("portable documents round trip the scenario and local background", () => {
   const config = connectedScenario();
   const background = { dataURL: "data:image/png;base64,AA==", x: -10, y: 5, width: 800, height: 600, opacity: 0.4 };
@@ -370,11 +436,14 @@ for (const preset of ["scale100", "london"]) {
   test(`the generated ${preset} project passes the editor checks`, () => {
     const config = generatedProject(preset);
     assert.deepEqual(editor.validateConfig(config), []);
+    assert.deepEqual(editor.configWarnings(config), []);
 
     // A delete removes the berth chains and the demand flows of the station,
     // and keeps the road network whole.
     const station = config.network.Stations.find((item) => !item.ParkingOnly);
-    assert.deepEqual(editor.validateConfig(editor.deleteStation(config, station.ID)), []);
+    const deleted = editor.deleteStation(config, station.ID);
+    assert.deepEqual(editor.validateConfig(deleted), []);
+    assert.deepEqual(editor.configWarnings(deleted), []);
   });
 
   test(`import accepts the generated ${preset} project file`, () => {
@@ -819,6 +888,7 @@ test("berth edits preserve pods in unchanged berths", () => {
 test("a connected scenario passes all editor checks", () => {
   const config = connectedScenario();
   assert.deepEqual(editor.validateConfig(config), []);
+  assert.deepEqual(editor.configWarnings(config), []);
 });
 
 test("validation reports malformed import values without throwing", () => {
@@ -835,6 +905,7 @@ test("validation reports malformed import values without throwing", () => {
   assert.ok(errors.some((error) => error.includes("invalid value")));
   assert.ok(errors.some((error) => error.includes("at least one berth")));
   assert.ok(errors.some((error) => error.includes("Passenger demand")));
+  assert.doesNotThrow(() => editor.configWarnings(config));
 });
 
 test("legacy import normalization defers malformed stations to validation", () => {
@@ -874,6 +945,7 @@ test("validation stays responsive at the supported station limit", () => {
 
   const start = performance.now();
   assert.deepEqual(editor.validateConfig(config), []);
+  assert.deepEqual(editor.configWarnings(config), []);
   assert.ok(performance.now() - start < 500, "validation exceeded 500 ms");
 });
 

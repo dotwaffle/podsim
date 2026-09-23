@@ -405,6 +405,8 @@
     return seen;
   }
 
+  // validateConfig gives the errors for a scenario. An error blocks an apply
+  // or an import. configWarnings gives the checks that do not block.
   function validateConfig(value) {
     const errors = [];
     if (!value || typeof value !== "object" || Array.isArray(value)) return ["The scenario must be a JSON object."];
@@ -426,7 +428,6 @@
     }
     const isRecord = (item) => item && typeof item === "object" && !Array.isArray(item);
     const validID = (id) => typeof id === "string" && id.trim() && new TextEncoder().encode(id).length <= 64;
-    const validNodes = network.Nodes.filter(isRecord);
     const validLanes = network.Lanes.filter(isRecord);
     const validStations = network.Stations.filter(isRecord);
     const nodeIDs = new Set();
@@ -437,7 +438,6 @@
     }
     const lanesByPair = new Set();
     const directed = new Map();
-    const undirected = new Map();
     for (const lane of network.Lanes) {
       uniqueID(lane && lane.ID, "A lane");
       if (!isRecord(lane) || !nodeIDs.has(lane.From) || !nodeIDs.has(lane.To) || lane.From === lane.To) errors.push(`Lane ${(lane && lane.ID) || "?"} has invalid endpoints.`);
@@ -449,10 +449,6 @@
         lanesByPair.add(pair);
         if (!directed.has(lane.From)) directed.set(lane.From, []);
         directed.get(lane.From).push(lane.To);
-        for (const [from, to] of [[lane.From, lane.To], [lane.To, lane.From]]) {
-          if (!undirected.has(from)) undirected.set(from, []);
-          undirected.get(from).push(to);
-        }
       }
     }
     const stationIDs = new Set();
@@ -500,15 +496,6 @@
       const hasRole = typeof lane.StationRole === "string" && lane.StationRole.length > 0;
       if (hasStation !== hasRole || hasRole && !STATION_LANE_ROLES.has(lane.StationRole)) errors.push(`Lane ${lane.ID} has an invalid station role.`);
       else if (hasStation && !stationIDs.has(lane.StationID)) errors.push(`Lane ${lane.ID} refers to an unknown station.`);
-    }
-    for (const node of validNodes) {
-      if (componentNodes.has(node.ID)) continue;
-      const connected = validLanes.some((lane) => lane.From === node.ID || lane.To === node.ID);
-      if (!connected) errors.push(`Junction ${node.ID} is disconnected.`);
-    }
-    if (validNodes.length) {
-      const visited = reachableFrom(undirected, validNodes[0].ID);
-      if (validNodes.some((node) => !visited.has(node.ID))) errors.push("The network has disconnected sections.");
     }
     if (!Array.isArray(value.fleet)) errors.push("The scenario needs a fleet array.");
     if (typeof value.redistribution !== "boolean") errors.push("The redistribution setting must be true or false.");
@@ -573,6 +560,49 @@
     if (!demand || !Number.isSafeInteger(demand.seed) || demand.seed < 0) errors.push("The demand seed must be a nonnegative whole number.");
     if ("sharedRidePartyLimit" in value && (!Number.isInteger(value.sharedRidePartyLimit) || value.sharedRidePartyLimit < 0 || value.sharedRidePartyLimit > 8)) errors.push("The shared ride party limit must be 1 to 8.");
     return [...new Set(errors)];
+  }
+
+  // configWarnings gives the warnings for a scenario. The server accepts a
+  // scenario with warnings, so a warning does not block an apply or an
+  // import. A junction with no lanes gives a warning. Two nodes that no chain
+  // of lanes connects, in any lane direction, also give a warning. That check
+  // skips a junction with no lanes, because the junction has its own warning.
+  function configWarnings(value) {
+    const network = value && value.network;
+    if (!network || !Array.isArray(network.Nodes) || !Array.isArray(network.Lanes) || !Array.isArray(network.Stations)) return [];
+    const isRecord = (item) => item && typeof item === "object" && !Array.isArray(item);
+    const stationNodes = new Set();
+    for (const station of network.Stations.filter(isRecord)) {
+      stationNodes.add(station.Entry); stationNodes.add(station.Exit);
+      for (const berth of Array.isArray(station.Berths) ? station.Berths.filter(isRecord) : []) stationNodes.add(berth.Node);
+    }
+    const undirected = new Map();
+    for (const lane of network.Lanes.filter(isRecord)) {
+      for (const [from, to] of [[lane.From, lane.To], [lane.To, lane.From]]) {
+        if (!undirected.has(from)) undirected.set(from, []);
+        undirected.get(from).push(to);
+      }
+    }
+    const warnings = [];
+    const sectionNodes = [];
+    for (const node of network.Nodes.filter(isRecord)) {
+      if (stationNodes.has(node.ID) || undirected.has(node.ID)) sectionNodes.push(node);
+      else warnings.push(`Junction ${node.ID} is disconnected.`);
+    }
+    if (sectionNodes.length) {
+      const visited = reachableFrom(undirected, sectionNodes[0].ID);
+      if (sectionNodes.some((node) => !visited.has(node.ID))) warnings.push("The network has disconnected sections.");
+    }
+    return [...new Set(warnings)];
+  }
+
+  // validationSummary gives the tone and the text of the Checks summary.
+  // With no errors, the scenario is ready to apply, and the text gives the
+  // number of warnings.
+  function validationSummary(errors, warnings) {
+    if (errors.length) return { tone: "bad", text: `${errors.length} problem${errors.length === 1 ? "" : "s"} must be fixed.` };
+    if (warnings.length) return { tone: "warn", text: `The scenario is ready to apply. It has ${warnings.length} warning${warnings.length === 1 ? "" : "s"}.` };
+    return { tone: "good", text: "The scenario is ready to apply." };
   }
 
   function serializeDocument(config, background) {
@@ -864,7 +894,7 @@
   const API = {
     MIN_LANE_LENGTH, MIN_ZOOM, NODE_LABEL_SCALE, NODE_LABEL_SIZE, emptyConfig, normalizeConfig, addLane, addJunction, addStation, addBerth,
     removeBerth, moveStation, moveNode, deleteNode, deleteLane, deleteStation, stationFlowCount, setFleetCount,
-    laneLength, reachable, stationNodeOwners, dragTargets, validateConfig, serializeDocument, parseDocument, createHistory,
+    laneLength, reachable, stationNodeOwners, dragTargets, validateConfig, configWarnings, validationSummary, serializeDocument, parseDocument, createHistory,
     networkBounds, fitView, zoomScale, nodeLabelSize, applyToServer, applyFailureText, applyFailureStatus, applyToast,
   };
   if (typeof module !== "undefined" && module.exports) module.exports = API;
@@ -1207,12 +1237,14 @@
 
   function fitNetwork() { state.view = fitView(state.map.bounds, $("#networkMap").getBoundingClientRect()); setView(); }
 
-  function runValidation() { return showValidation(validateConfig(draft())); }
-  function showValidation(errors) {
+  function runValidation() { const config = draft(); return showValidation(validateConfig(config), configWarnings(config)); }
+  // showValidation shows the checks in the Checks section. It lists the
+  // errors first, then the warnings. It gives the errors.
+  function showValidation(errors, warnings) {
     const summary = $("#validationSummary"); const list = $("#validationList"); list.replaceChildren();
-    if (!errors.length) { summary.className = "validation good"; summary.textContent = "The scenario is ready to apply."; return errors; }
-    summary.className = "validation bad"; summary.textContent = `${errors.length} problem${errors.length === 1 ? "" : "s"} must be fixed.`;
+    const { tone, text } = validationSummary(errors, warnings); summary.className = `validation ${tone}`; summary.textContent = text;
     for (const error of errors) { const item = document.createElement("li"); item.textContent = error; list.append(item); }
+    for (const warning of warnings) { const item = document.createElement("li"); item.className = "warning"; item.textContent = `Warning: ${warning}`; list.append(item); }
     return errors;
   }
 
@@ -1227,9 +1259,11 @@
       state.loaded = { scenario: clone(project), background: null };
       state.history.reset(state.loaded); state.background = null; state.selection = null;
       updateStatus(`Live revision ${state.loadedRevision}. Draft changes stay in this browser.`); render(); fitNetwork();
-      // Keep a server scenario that fails the editor checks, and list the problems.
-      const errors = validateConfig(project);
-      if (errors.length) { showValidation(errors); toast(`The server scenario has ${errors.length} validation problem${errors.length === 1 ? "" : "s"}. See Checks.`, true); }
+      // Keep a server scenario that fails the editor checks, and list the
+      // problems. Only errors show the error toast.
+      const errors = validateConfig(project); const warnings = configWarnings(project);
+      if (errors.length || warnings.length) showValidation(errors, warnings);
+      if (errors.length) toast(`The server scenario has ${errors.length} validation problem${errors.length === 1 ? "" : "s"}. See Checks.`, true);
     } catch (error) {
       let fallback = addStation(addStation(emptyConfig(), 100, 120, { name: "Origin" }), 340, 120, { name: "Destination" });
       fallback = addLane(fallback, fallback.network.Stations[0].Exit, fallback.network.Stations[1].Entry, false);

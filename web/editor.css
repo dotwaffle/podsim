@@ -92,7 +92,9 @@ output { float: right; color: var(--text); }
 .validation.neutral { background: #1a2832; color: #a9bbc7; }
 .validation.good { background: #183326; color: var(--success); }
 .validation.bad { background: #3b2022; color: #ffaaa6; }
+.validation.warn { background: #352a17; color: var(--orange); }
 .validation-list { margin: 8px 0 0; padding-left: 18px; color: #ffaaa6; font-size: 12px; }
+.validation-list .warning { color: var(--orange); }
 #toast { position: fixed; z-index: 20; left: 50%; bottom: 24px; translate: -50% 20px; min-width: 240px; max-width: min(560px, 90vw); padding: 10px 14px; border: 1px solid var(--line); border-radius: 8px; background: #162632; color: var(--text); box-shadow: 0 8px 30px #0008; opacity: 0; pointer-events: none; transition: .18s ease; text-align: center; }
 #toast.show { opacity: 1; translate: -50% 0; }
 #toast.error { border-color: var(--danger); }
