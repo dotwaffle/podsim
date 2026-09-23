@@ -119,9 +119,11 @@ See [distribution and operations](docs/operations.md) for build and runtime sett
   Queue counts include dedicated access spurs, but exclude general road traffic.
   A reserved-empty berth can still have a departing pod that holds its clearance resource.
 - Select **From** and **To**, then **Order**. Pod selection affects inspection only.
+  When **From** and **To** are the same station, **Order** is disabled, and the line below **From** and **To** shows **Choose a different destination.** in amber.
 - An idle local pod serves the request. Otherwise, the nearest available empty pod comes to collect the passenger.
 - Requests wait when no pod is available. Open **Orders** to see queued and active journeys and their status.
-- Each accepted request shows its order number, opens **Orders**, and briefly changes the request button to **Order accepted**.
+- Each accepted request shows its order number and opens **Orders**.
+  For 3 s, the request button reads **Order accepted** while **From** and **To** show the stations of that order.
 - Pickup wait statistics show average and maximum seconds since reset. Pending orders contribute their elapsed wait.
 - Wait ends when boarding starts, so it includes empty-pod travel to pickup.
 - Fleet use shows the percentage of pods with assigned or active work and the percentage currently in passenger service.
@@ -418,6 +420,8 @@ One server owns the simulation clock, commands, and demand settings.
 Browsers poll dynamic state frames and show connection status.
 They fetch network topology on connection and after a project revision changes.
 Controls wait for server confirmation.
+During the wait, the line below the panels shows **Shared session / waiting for command confirmation**.
+**From** and **To** send no command, so you can change them during the wait.
 
 The map buffers 150 ms of snapshots and interpolates movement along lanes between updates.
 Controls and order status use the latest server state.

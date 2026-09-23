@@ -3,6 +3,7 @@ package view
 import (
 	"errors"
 	"log/slog"
+	"net/http"
 	"net/http/httptest"
 	"testing"
 	"testing/fstest"
@@ -185,7 +186,7 @@ func TestCommandResultNotices(t *testing.T) {
 			game := journeyTestGame(t, 2)
 			game.state.Checkpoints = []session.Checkpoint{{ID: 2, Tick: 10 * sim.TicksPerSecond}, {ID: 3, Tick: 42 * sim.TicksPerSecond}}
 			game.state.Simulation.Vehicles = make([]sim.Vehicle, 8)
-			game.message = "Sending command..."
+			game.message = "waiting for the previous command"
 			game.showDemand, game.selected, game.podPage = true, 7, 1
 			game.handleResult(test.result)
 			if game.notice != test.wantNotice || game.message != test.wantMessage {
@@ -267,11 +268,19 @@ func sharedTestGame(t *testing.T) *Game {
 // session of config. The session clock does not run.
 func sharedProjectGame(t *testing.T, config project.Config) *Game {
 	t.Helper()
+	return sharedHandlerGame(t, config, func(handler http.Handler) http.Handler { return handler })
+}
+
+// sharedHandlerGame returns a game that is connected over HTTP to a new
+// session of config. wrap gets the session handler and returns the handler
+// that the server uses. The session clock does not run.
+func sharedHandlerGame(t *testing.T, config project.Config, wrap func(http.Handler) http.Handler) *Game {
+	t.Helper()
 	shared, err := session.NewWithProject(config, session.WithLogger(slog.New(slog.DiscardHandler)))
 	if err != nil {
 		t.Fatalf("create session: %v", err)
 	}
-	server := httptest.NewServer(shared.HandlerFS(fstest.MapFS{}))
+	server := httptest.NewServer(wrap(shared.HandlerFS(fstest.MapFS{})))
 	t.Cleanup(server.Close)
 	game := journeyTestGame(t, 2)
 	game.client = remote.New(t.Context(), server.URL)

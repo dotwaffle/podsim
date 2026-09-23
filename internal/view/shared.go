@@ -75,6 +75,7 @@ func (g *Game) handleResult(result remote.Result) {
 		g.message = result.Reply.Error
 	case result.Command.Action == "trip":
 		g.showOrders, g.showDemand = true, false
+		g.acceptedOrigin, g.acceptedDestination = result.Command.Origin, result.Command.Destination
 		from, _ := g.network.Station(result.Command.Origin)
 		to, _ := g.network.Station(result.Command.Destination)
 		g.showNotice("trip", fmt.Sprintf("Order #%d accepted: %s > %s. See Orders for status.", result.Reply.OrderID, from.Name, to.Name))
@@ -124,13 +125,18 @@ func (g *Game) rewindNotice(result remote.Result) string {
 	return notice
 }
 
+// submit sends command to the server. When the client rejects the command,
+// the error shows in the hint line. A sent command clears the message and
+// the notice. The line below the panels shows that the command waits for the
+// server. The hint line does not show this wait, because a wait is not an
+// error.
 func (g *Game) submit(command session.Command) {
 	if err := g.client.Submit(command); err != nil {
 		g.message = err.Error()
 		return
 	}
 	g.pending = true
-	g.message = "Sending command..."
+	g.message = ""
 	g.notice, g.noticeAction, g.noticeTicks = "", "", 0
 }
 

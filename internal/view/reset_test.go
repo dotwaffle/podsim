@@ -121,10 +121,18 @@ func TestHintLine(t *testing.T) {
 		name                  string
 		message, noticeAction string
 		notice, demoError     string
-		wantValue             string
-		wantColor             uint32
+		// sameStation sets To to the From station. noSelection clears From
+		// and To, as before the first state frame.
+		sameStation, noSelection, demo bool
+		wantValue                      string
+		wantColor                      uint32
 	}{
 		{name: "hint", wantValue: hint, wantColor: muted},
+		{name: "same station", sameStation: true, wantValue: sameStationHint, wantColor: amber},
+		{name: "same station in the demo", sameStation: true, demo: true, wantValue: hint, wantColor: muted},
+		{name: "no selection", noSelection: true, wantValue: hint, wantColor: muted},
+		{name: "notice over same station", noticeAction: "reset", notice: resetNotice, sameStation: true, wantValue: resetNotice, wantColor: accent},
+		{name: "message over same station", message: message, sameStation: true, wantValue: message, wantColor: amber},
 		{name: "notice", noticeAction: "checkpoint", notice: notice, wantValue: notice, wantColor: accent},
 		{name: "demo error over notice", noticeAction: "checkpoint", notice: notice, demoError: demoError, wantValue: demoError, wantColor: amber},
 		{name: "reset confirmation over demo error", noticeAction: resetConfirmAction, notice: resetConfirmNotice, demoError: demoError, wantValue: resetConfirmNotice, wantColor: accent},
@@ -138,7 +146,13 @@ func TestHintLine(t *testing.T) {
 			game := journeyTestGame(t, 2)
 			game.message = test.message
 			game.notice, game.noticeAction, game.noticeTicks = test.notice, test.noticeAction, 1
-			got := game.hintLine(sim.Snapshot{DemoError: test.demoError}, hint)
+			if test.sameStation {
+				game.destination = game.origin
+			}
+			if test.noSelection {
+				game.origin, game.destination = "", ""
+			}
+			got := game.hintLine(sim.Snapshot{Demo: test.demo, DemoError: test.demoError}, hint)
 			if got.value != test.wantValue || got.color != test.wantColor {
 				t.Errorf("hint line = %q color %#06x, want %q color %#06x", got.value, got.color, test.wantValue, test.wantColor)
 			}

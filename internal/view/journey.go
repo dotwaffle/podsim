@@ -62,7 +62,9 @@ func (g *Game) stationPages() [][]stationChip {
 	return pages
 }
 
-func (g *Game) journeyButtons(busy bool) []button {
+// journeyButtons returns the station page arrows and the From and To chips
+// of the current station page. The chips are disabled when disabled is true.
+func (g *Game) journeyButtons(disabled bool) []button {
 	pages := g.stationPages()
 	if len(pages) == 0 {
 		return nil
@@ -82,8 +84,8 @@ func (g *Game) journeyButtons(busy bool) []button {
 	}
 	for _, chip := range pages[g.stationPage] {
 		buttons = append(buttons,
-			button{x: left, y: 632, w: chip.width, h: 28, label: chip.label, selected: g.origin == chip.station.ID, disabled: busy, action: "from/" + chip.station.ID, expandsWithMap: true, fontSize: stationFontSize},
-			button{x: left, y: 668, w: chip.width, h: 28, label: chip.label, selected: g.destination == chip.station.ID, disabled: busy, action: "to/" + chip.station.ID, expandsWithMap: true, fontSize: stationFontSize},
+			button{x: left, y: 632, w: chip.width, h: 28, label: chip.label, selected: g.origin == chip.station.ID, disabled: disabled, action: "from/" + chip.station.ID, expandsWithMap: true, fontSize: stationFontSize},
+			button{x: left, y: 668, w: chip.width, h: 28, label: chip.label, selected: g.destination == chip.station.ID, disabled: disabled, action: "to/" + chip.station.ID, expandsWithMap: true, fontSize: stationFontSize},
 		)
 		left += chip.width + stationChipGap
 	}

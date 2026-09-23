@@ -80,6 +80,10 @@ type Game struct {
 	notice               string
 	noticeAction         string
 	noticeTicks          int
+	// acceptedOrigin and acceptedDestination are the stations of the last
+	// accepted order. The request button reads Order accepted only while
+	// From and To are these stations.
+	acceptedOrigin, acceptedDestination string
 	// savedEpoch and savedRevision come from the last accepted save point.
 	// The command reply can arrive before the state that lists the save point,
 	// so Rewind waits for that state and does not target an older save point.
@@ -312,8 +316,12 @@ func (g *Game) buttons() []button {
 	g.ensureLayout()
 	state := g.state.Simulation
 	busy := state.Demo || !g.connected || g.pending
+	// The request button reads Order accepted for as long as the notice of
+	// the accepted order shows. The user can change From and To during and
+	// after the order, so the label shows only while From and To are the
+	// stations of that order.
 	requestLabel := "Order"
-	if g.noticeAction == "trip" && g.noticeTicks > 150 {
+	if g.noticeAction == "trip" && g.origin == g.acceptedOrigin && g.destination == g.acceptedDestination {
 		requestLabel = "Order accepted"
 	}
 	pauseLabel := "Pause [Space]"
@@ -349,7 +357,9 @@ func (g *Game) buttons() []button {
 	if len(state.Vehicles) > 6 {
 		buttons = append(buttons, button{x: 1026, y: podSelectorTop, w: 34, h: 34, label: ">", action: "pods-next"})
 	}
-	buttons = append(buttons, g.journeyButtons(busy)...)
+	// A station chip changes only the local selection and sends no command,
+	// so the chips stay enabled while a command waits for the server.
+	buttons = append(buttons, g.journeyButtons(state.Demo || !g.connected)...)
 	if g.showDemand {
 		buttons = append(buttons, g.demandButtons()...)
 	}
@@ -1411,12 +1421,19 @@ func (g *Game) drawControls(screen *ebiten.Image, state sim.Snapshot) {
 	g.label(screen, g.hintLine(state, hint))
 }
 
+// sameStationHint tells the user why Order is disabled when From and To are
+// the same station.
+const sameStationHint = "Choose a different destination."
+
 // hintLine returns the line below the journey controls. It shows the first
 // text that is set, in this order: the reset confirmation, the message, the
-// demo error, the notice, and hint. A second Reset press resets the session
-// while the confirmation is set, so the confirmation shows in place of all
-// other text. The server update message of the desktop client and a demo
-// error can stay for a long time. They must not hide the confirmation.
+// demo error, the notice, sameStationHint, and hint. A second Reset press
+// resets the session while the confirmation is set, so the confirmation
+// shows in place of all other text. The server update message of the
+// desktop client and a demo error can stay for a long time. They must not
+// hide the confirmation. sameStationHint shows while From and To are the
+// same station, but not in the traffic demo. It stays until the user
+// changes the selection, so a notice shows before it.
 func (g *Game) hintLine(state sim.Snapshot, hint string) label {
 	value, shade := hint, uint32(muted)
 	switch {
@@ -1428,6 +1445,8 @@ func (g *Game) hintLine(state sim.Snapshot, hint string) label {
 		value, shade = state.DemoError, amber
 	case g.notice != "":
 		value, shade = g.notice, accent
+	case !state.Demo && g.origin != "" && g.origin == g.destination:
+		value, shade = sameStationHint, amber
 	}
 	return label{x: 44, y: 701, size: 13, value: value, color: shade}
 }
