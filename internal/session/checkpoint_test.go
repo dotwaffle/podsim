@@ -989,7 +989,7 @@ var sessionRewindRules = map[string]rewindRule{
 	// different project, it increases projectRevision and does not restore
 	// it, so topology caches and editor drafts always see a new revision.
 	"project": rewindRestore, "projectOrigin": rewindRestore,
-	"epoch": rewindKeep, "speed": rewindKeep, "receipts": rewindKeep,
+	"epoch": rewindKeep, "speed": rewindKeep, "receipts": rewindKeep, "restoredSequences": rewindKeep,
 	"checkpoints": rewindKeep, "lastCheckpoint": rewindKeep, "restore": rewindKeep,
 	"revision": rewindBump, "generation": rewindBump, "projectRevision": rewindBump,
 }

@@ -97,6 +97,8 @@ var stateJSONLimits = jsonLimits{
 		// A saved trip route has at most as many lanes as the network has
 		// nodes.
 		"/simulation/waiting/*/route": project.MaxNodes,
+		// A session records the sequences of at most clientLimit clients.
+		"/sequences": clientLimit,
 	},
 }
 
@@ -125,10 +127,21 @@ type stateFile struct {
 	Speed           int    `json:"speed"`
 	// RestoreAttempts counts the restores of the saved state since the last
 	// periodic or final save.
-	RestoreAttempts int            `json:"restoreAttempts,omitzero"`
-	Demand          savedDemand    `json:"demand"`
-	Simulation      sim.SavedState `json:"simulation"`
-	Project         project.Config `json:"project"`
+	RestoreAttempts int `json:"restoreAttempts,omitzero"`
+	// Sequences holds the last command sequence of each client, in
+	// increasing order of client ID.
+	Sequences  []savedSequence `json:"sequences,omitempty"`
+	Demand     savedDemand     `json:"demand"`
+	Simulation sim.SavedState  `json:"simulation"`
+	Project    project.Config  `json:"project"`
+}
+
+// savedSequence is the last command sequence of one client. A restore that
+// keeps the epoch refuses a command with this sequence or a lower one,
+// because the reply of the command is lost.
+type savedSequence struct {
+	Client   string `json:"client"`
+	Sequence uint64 `json:"sequence"`
 }
 
 // savedDemand is the saved demand stream.
@@ -390,7 +403,27 @@ func (file *stateFile) validate() error {
 	case !slices.Contains([]int{1, 2, 4, 8}, file.Speed):
 		return fmt.Errorf("speed %d is not 1, 2, 4 or 8", file.Speed)
 	}
+	if err := validateSequences(file.Sequences); err != nil {
+		return err
+	}
 	return file.Demand.validate(project.DemandContext{Network: file.Project.Network, Profiles: file.Project.DemandProfiles})
+}
+
+// validateSequences checks the saved command sequences. The session applies
+// the same limits to commands. The client IDs must increase, so that each
+// client has one sequence. The prescan limits the number of sequences.
+func validateSequences(sequences []savedSequence) error {
+	for index, saved := range sequences {
+		switch {
+		case saved.Client == "" || len(saved.Client) > maxClientBytes:
+			return fmt.Errorf("client ID has %d bytes, not 1 to %d", len(saved.Client), maxClientBytes)
+		case saved.Sequence == 0:
+			return fmt.Errorf("client %.20q has sequence 0", saved.Client)
+		case index > 0 && saved.Client <= sequences[index-1].Client:
+			return fmt.Errorf("client %.20q is not after client %.20q", saved.Client, sequences[index-1].Client)
+		}
+	}
+	return nil
 }
 
 // validate checks the saved demand stream against the saved project.

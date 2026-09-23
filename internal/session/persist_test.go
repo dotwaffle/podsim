@@ -383,6 +383,13 @@ func TestNewFromStoreRoundTrip(t *testing.T) {
 	if got.Checkpoints != nil || restored.checkpoints != nil || len(restored.receipts) != 0 {
 		t.Fatalf("restored %d save points and %d receipts, want none", len(restored.checkpoints), len(restored.receipts))
 	}
+	wantSequences := make(map[string]uint64)
+	for client, stored := range run.session.receipts {
+		wantSequences[client] = stored.command.Sequence
+	}
+	if len(wantSequences) == 0 || !reflect.DeepEqual(restored.restoredSequences, wantSequences) {
+		t.Fatalf("restored command sequences %v, want %v", restored.restoredSequences, wantSequences)
+	}
 	if got.Restore != (RestoreInfo{Tier: "physical"}) || got.Build != testBuildID {
 		t.Fatalf("restored state has restore %+v and build %q", got.Restore, got.Build)
 	}
@@ -431,16 +438,28 @@ func TestNewFromStoreEpoch(t *testing.T) {
 		{"logical tier on a final file", run.edited(t, logicalOnly), "logical", true},
 		{"logical tier on a non-final file", run.edited(t, func(file *stateFile) { nonFinal(file); logicalOnly(file) }), "logical", false},
 		{"rejection of a final file", run.edited(t, invalidSpeed), "empty", false},
+		// The saved clients stay in the client limit with the saved epoch.
+		{"final file with one client free", run.edited(t, func(file *stateFile) {
+			file.Sequences = testSequences(clientLimit - 1)
+		}), "physical", true},
+		{"final file at the client limit", run.edited(t, func(file *stateFile) {
+			file.Sequences = testSequences(clientLimit)
+		}), "physical", false},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
-			state := startFromStore(t, StoreInput{Store: &fakeStore{data: test.data}}).State()
+			s := startFromStore(t, StoreInput{Store: &fakeStore{data: test.data}})
+			state := s.State()
 			if state.Restore.Tier != test.tier {
 				t.Fatalf("restore tier = %q, want %q", state.Restore.Tier, test.tier)
 			}
 			if kept := state.Epoch == run.file.Epoch; kept != test.kept {
 				t.Fatalf("epoch kept = %t, want %t", kept, test.kept)
+			}
+			// Only the saved epoch needs the saved command sequences.
+			if restored := len(s.restoredSequences) > 0; restored != test.kept {
+				t.Fatalf("restored command sequences = %t, want %t", restored, test.kept)
 			}
 		})
 	}
@@ -807,6 +826,242 @@ func TestNewFromStoreRedistribution(t *testing.T) {
 			t.Fatalf("the %s session moved no idle pod in 300 simulated seconds", run.name)
 		}
 	}
+}
+
+// retryRun is the final saved state of a session in which the client
+// "api" ordered a trip with sequence 1, and the client "idle" paused the
+// session with sequences 1 to 3.
+type retryRun struct {
+	config project.Config
+	trip   Command
+	data   []byte
+}
+
+// newRetryRun makes a retryRun of the example project.
+func newRetryRun(t *testing.T) retryRun {
+	t.Helper()
+	config := project.Default()
+	store := &fakeStore{}
+	s := startFromStore(t, StoreInput{Store: store, Project: &config})
+	trip := newTestClient(s, "api").next(Command{Action: "trip", Origin: "harbor", Destination: "market"})
+	if reply := s.Apply(trip); reply.Error != "" || reply.OrderID != 1 {
+		t.Fatalf("trip reply = %+v, want order 1", reply)
+	}
+	idle := newTestClient(s, "idle")
+	for range 3 {
+		idle.mustApply(t, Command{Action: "pause", Paused: true})
+	}
+	s.Close()
+	if err := s.SaveState(t.Context(), SaveFinal); err != nil {
+		t.Fatal(err)
+	}
+	writes := store.writeList()
+	return retryRun{config: config, trip: trip, data: writes[len(writes)-1]}
+}
+
+// restore restores the final state of run after edit changed it. edit can
+// be nil. It stops the test when the restore does not keep the epoch.
+func (run retryRun) restore(t *testing.T, edit func(*stateFile)) (*Session, *fakeStore) {
+	t.Helper()
+	file := decodeTestState(t, run.data)
+	if edit != nil {
+		edit(&file)
+	}
+	store := &fakeStore{data: encodeTestState(t, file)}
+	s := startFromStore(t, StoreInput{Store: store, Project: &run.config})
+	if state := s.State(); state.Epoch != run.trip.Epoch || state.Restore.Tier != "physical" {
+		t.Fatalf("restore %+v in epoch %q, want the physical tier in epoch %q", state.Restore, state.Epoch, run.trip.Epoch)
+	}
+	return s, store
+}
+
+// restartRefusal is the reply message for a command from before a restore.
+const restartRefusal = "The server restarted after this command. Review the current state."
+
+// TestNewFromStoreRefusesReplays restores a final state with the saved epoch.
+// A command from before the restore then gets ExpiredCommand and changes
+// nothing. A command with a higher sequence runs as usual.
+func TestNewFromStoreRefusesReplays(t *testing.T) {
+	t.Parallel()
+	run := newRetryRun(t)
+	restoredSequences := []savedSequence{{Client: "api", Sequence: 1}, {Client: "idle", Sequence: 3}}
+	if final := decodeTestState(t, run.data); !reflect.DeepEqual(final.Sequences, restoredSequences) {
+		t.Fatalf("final save has sequences %+v, want %+v", final.Sequences, restoredSequences)
+	}
+	s, store := run.restore(t, nil)
+	if startup := store.lastWrite(t); !reflect.DeepEqual(startup.Sequences, restoredSequences) {
+		t.Fatalf("startup save has sequences %+v, want %+v", startup.Sequences, restoredSequences)
+	}
+	otherTrip := run.trip
+	otherTrip.Destination = "garden"
+	idleCommand := func(sequence uint64) Command {
+		return Command{Client: "idle", Sequence: sequence, Epoch: run.trip.Epoch, Action: "pause"}
+	}
+	before := s.State()
+	if before.Simulation.Submitted != 1 {
+		t.Fatalf("restored session has %d orders, want 1", before.Simulation.Submitted)
+	}
+	replays := []struct {
+		name    string
+		command Command
+	}{
+		{"exact retry", run.trip},
+		{"other command with the same sequence", otherTrip},
+		{"exact retry of the last sequence", idleCommand(3)},
+		{"lower sequence", idleCommand(2)},
+	}
+	for _, replay := range replays {
+		reply := s.Apply(replay.command)
+		if reply.ErrorCode != ExpiredCommand || reply.Error != restartRefusal {
+			t.Fatalf("%s: reply = %+v, want %s", replay.name, reply, ExpiredCommand)
+		}
+	}
+	if after := s.State(); !reflect.DeepEqual(after, before) {
+		t.Fatalf("refused commands changed the state:\n got %+v\nwant %+v", after, before)
+	}
+
+	next := run.trip
+	next.Sequence = 2
+	accepted := s.Apply(next)
+	if accepted.Error != "" || accepted.OrderID != 2 {
+		t.Fatalf("trip with sequence 2: reply = %+v, want order 2", accepted)
+	}
+	if retry := s.Apply(next); retry != accepted {
+		t.Fatalf("retry of sequence 2: reply = %+v, want %+v", retry, accepted)
+	}
+	if reply := s.Apply(run.trip); reply.ErrorCode != ExpiredCommand {
+		t.Fatalf("trip with sequence 1 after sequence 2: reply = %+v, want %s", reply, ExpiredCommand)
+	}
+	newTestClient(s, "new").mustApply(t, Command{Action: "pause", Paused: true})
+	if submitted := s.State().Simulation.Submitted; submitted != 2 {
+		t.Fatalf("session has %d orders, want 2", submitted)
+	}
+	// A save keeps the restored sequence of a client that sent no command
+	// after the restore.
+	if err := s.SaveState(t.Context(), SavePeriodic); err != nil {
+		t.Fatal(err)
+	}
+	want := []savedSequence{{Client: "api", Sequence: 2}, {Client: "idle", Sequence: 3}, {Client: "new", Sequence: 1}}
+	if periodic := store.lastWrite(t); !reflect.DeepEqual(periodic.Sequences, want) {
+		t.Fatalf("periodic save has sequences %+v, want %+v", periodic.Sequences, want)
+	}
+}
+
+// TestRestoredSequenceRules checks that the restored sequences stay after
+// each change that keeps the command receipts.
+func TestRestoredSequenceRules(t *testing.T) {
+	t.Parallel()
+	run := newRetryRun(t)
+	tests := []struct {
+		name   string
+		change func(*testing.T, *testClient)
+	}{
+		{"reset", func(t *testing.T, client *testClient) {
+			t.Helper()
+			client.mustApply(t, Command{Action: "reset"})
+		}},
+		{"demo", func(t *testing.T, client *testClient) {
+			t.Helper()
+			client.mustApply(t, Command{Action: "demo"})
+		}},
+		{"project apply", applyTestProject},
+		{"demand change", changeTestDemand},
+		{"rewind", func(t *testing.T, client *testClient) {
+			t.Helper()
+			id := client.mustApply(t, Command{Action: "checkpoint"}).Checkpoint
+			advanceTicks(client.session, 20)
+			client.mustApply(t, Command{Action: "rewind", Checkpoint: id})
+		}},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			s, _ := run.restore(t, nil)
+			test.change(t, newTestClient(s, "other"))
+			submitted := s.State().Simulation.Submitted
+			if reply := s.Apply(run.trip); reply.ErrorCode != ExpiredCommand || reply.Error != restartRefusal {
+				t.Fatalf("retry after the %s: reply = %+v, want %s", test.name, reply, ExpiredCommand)
+			}
+			if got := s.State().Simulation.Submitted; got != submitted {
+				t.Fatalf("retry after the %s: %d orders, want %d", test.name, got, submitted)
+			}
+		})
+	}
+}
+
+// TestRestoredClientLimit checks that the restored clients count toward the
+// client limit.
+func TestRestoredClientLimit(t *testing.T) {
+	t.Parallel()
+	sequences := testSequences(clientLimit - 1)
+	s, _ := newRetryRun(t).restore(t, func(file *stateFile) { file.Sequences = sequences })
+	epoch, restored := s.State().Epoch, sequences[0]
+	steps := []struct {
+		name    string
+		command Command
+		want    CommandErrorCode
+	}{
+		{"new client in the free place", Command{Client: "new0", Sequence: 1}, ""},
+		{"new client at the limit", Command{Client: "new1", Sequence: 1}, ClientLimit},
+		// A restored client with a higher sequence does not use one more
+		// place.
+		{"restored client at the limit", Command{Client: restored.Client, Sequence: restored.Sequence + 1}, ""},
+	}
+	for _, step := range steps {
+		command := step.command
+		command.Epoch, command.Action = epoch, "pause"
+		if reply := s.Apply(command); reply.ErrorCode != step.want {
+			t.Fatalf("%s: reply = %+v, want error code %q", step.name, reply, step.want)
+		}
+	}
+	if clients := len(s.receipts) + len(s.restoredSequences); clients != clientLimit {
+		t.Fatalf("session records %d clients, want %d", clients, clientLimit)
+	}
+}
+
+// TestClientLimitRestart fills the client limit with commands and restarts
+// the session after a final save. The restart uses a new epoch, so that the
+// session accepts new clients again.
+func TestClientLimitRestart(t *testing.T) {
+	t.Parallel()
+	config := project.Default()
+	store := &fakeStore{}
+	s := startFromStore(t, StoreInput{Store: store, Project: &config})
+	first := newTestClient(s, "page0000")
+	firstCommand := first.next(Command{Action: "pause", Paused: true})
+	if reply := s.Apply(firstCommand); reply.Error != "" {
+		t.Fatalf("first client: reply = %+v", reply)
+	}
+	for index := 1; index < clientLimit; index++ {
+		newTestClient(s, fmt.Sprintf("page%04d", index)).mustApply(t, Command{Action: "pause", Paused: true})
+	}
+	late := newTestClient(s, "late").next(Command{Action: "pause"})
+	if reply := s.Apply(late); reply.ErrorCode != ClientLimit ||
+		reply.Error != "The session client limit was reached. Restart the server." {
+		t.Fatalf("client after the limit: reply = %+v, want %s", reply, ClientLimit)
+	}
+	s.Close()
+	if err := s.SaveState(t.Context(), SaveFinal); err != nil {
+		t.Fatal(err)
+	}
+	if final := store.lastWrite(t); !final.Final || len(final.Sequences) != clientLimit {
+		t.Fatalf("final save has final %t and %d client sequences, want %d", final.Final, len(final.Sequences), clientLimit)
+	}
+
+	restarted := startFromStore(t, StoreInput{Store: store, Project: &config})
+	if state := restarted.State(); state.Restore.Tier != "physical" || state.Epoch == firstCommand.Epoch {
+		t.Fatalf("restore %+v in epoch %q, want the physical tier in a new epoch", state.Restore, state.Epoch)
+	}
+	if clients := len(restarted.receipts) + len(restarted.restoredSequences); clients != 0 {
+		t.Fatalf("restarted session records %d clients, want 0", clients)
+	}
+	if startup := store.lastWrite(t); startup.Sequences != nil {
+		t.Fatalf("startup save has %d client sequences, want none", len(startup.Sequences))
+	}
+	if reply := restarted.Apply(firstCommand); reply.ErrorCode != SessionChanged {
+		t.Fatalf("retry from before the restart: reply = %+v, want %s", reply, SessionChanged)
+	}
+	newTestClient(restarted, "late").mustApply(t, Command{Action: "pause"})
 }
 
 func TestSaveStateRules(t *testing.T) {
@@ -1356,9 +1611,10 @@ var sessionPersistRules = map[string]persistRule{
 	"epoch": persistSave, "revision": persistSave, "projectRevision": persistSave,
 	"generation": persistSave, "speed": persistSave, "lastCheckpoint": persistSave,
 	// projectOrigin is projectRevision after a restore. restore tells how
-	// the restore went.
-	"projectOrigin": persistDerive, "restore": persistDerive,
-	// A receipt can hold a large project. Save points stay in memory only.
+	// the restore went. restoredSequences comes from the sequences member.
+	"projectOrigin": persistDerive, "restore": persistDerive, "restoredSequences": persistDerive,
+	// A receipt can hold a large project, so the state file keeps only its
+	// sequence. Save points stay in memory only.
 	"receipts": persistReset, "checkpoints": persistReset,
 	"closed": persistInfrastructure, "mu": persistInfrastructure,
 	"saveProject": persistInfrastructure, "logger": persistInfrastructure,

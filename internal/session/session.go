@@ -12,6 +12,7 @@ import (
 	"sync"
 	"sync/atomic"
 	"time"
+	"unicode/utf8"
 
 	"github.com/dotwaffle/podsim/internal/project"
 	"github.com/dotwaffle/podsim/internal/sim"
@@ -19,6 +20,14 @@ import (
 
 // QueueLimit bounds pending work from both manual and generated requests.
 const QueueLimit = 200
+
+const (
+	// clientLimit is the largest number of clients that a session records.
+	// A command from one more client gets ClientLimit.
+	clientLimit = 1024
+	// maxClientBytes is the largest size of a client ID, in bytes.
+	maxClientBytes = 100
+)
 
 // State is an authoritative, immutable copy sent to observers.
 // Checkpoints lists the retained save points, oldest first. Build identifies
@@ -173,8 +182,14 @@ type Session struct {
 	speed           int
 	demand          demandRun
 	receipts        map[string]receipt
-	saveProject     func(project.Config) error
-	logger          *slog.Logger
+	// restoredSequences holds the last command sequence of each client
+	// before a restore that kept the epoch. The session does not have the
+	// replies of these commands. A client leaves the map when the session
+	// records a receipt for it, so a client is in receipts or in
+	// restoredSequences, not in both.
+	restoredSequences map[string]uint64
+	saveProject       func(project.Config) error
+	logger            *slog.Logger
 	// build identifies the server build. A rewind does not change it.
 	build string
 	// checkpoints holds the retained save points, oldest first. lastCheckpoint
@@ -354,6 +369,8 @@ func (s *Session) Project() ProjectState {
 }
 
 // Apply serializes commands. The latest sequence can be retried; older sequences never replay.
+// After a restore that kept the epoch, a sequence from before the restore
+// gets ExpiredCommand, because the session does not have its reply.
 // After Close, a command that passes the epoch and sequence checks gets ServerStopping.
 // An exact retry still gets its stored reply.
 func (s *Session) Apply(command Command) Reply {
@@ -384,10 +401,14 @@ func (s *Session) applyCommand(command Command) (Reply, *sessionEvent, bool) {
 	switch {
 	case command.Epoch != s.epoch:
 		reply.reject(SessionChanged, "The server session changed. Review the current state and try again.")
-	case command.Client == "" || len(command.Client) > 100 || command.Sequence == 0:
+	// A state save stores the client ID, and the JSON encoder accepts only
+	// valid UTF-8.
+	case command.Client == "" || len(command.Client) > maxClientBytes || !utf8.ValidString(command.Client) ||
+		command.Sequence == 0:
 		reply.reject(InvalidCommand, "Invalid client or command sequence.")
 	default:
 		previous, exists := s.receipts[command.Client]
+		restored, isRestored := s.restoredSequences[command.Client]
 		switch {
 		case exists && command.Sequence < previous.command.Sequence:
 			reply.reject(ExpiredCommand, "This command has expired. Review the current state.")
@@ -397,9 +418,13 @@ func (s *Session) applyCommand(command Command) (Reply, *sessionEvent, bool) {
 			} else {
 				reply = previous.reply
 			}
+		case isRestored && command.Sequence <= restored:
+			// The session can have applied the command before the restart,
+			// but it lost the reply. Do not apply the command again.
+			reply.reject(ExpiredCommand, "The server restarted after this command. Review the current state.")
 		case s.closed.Load():
 			reply.reject(ServerStopping, "The server is stopping. Try again after it restarts.")
-		case !exists && len(s.receipts) >= 1024:
+		case !exists && !isRestored && len(s.receipts)+len(s.restoredSequences) >= clientLimit:
 			reply.reject(ClientLimit, "The session client limit was reached. Restart the server.")
 		default:
 			started := time.Now()
@@ -413,6 +438,7 @@ func (s *Session) applyCommand(command Command) (Reply, *sessionEvent, bool) {
 				reply.reject(CommandRejected, err.Error())
 			}
 			s.receipts[command.Client] = receipt{command: cloneCommand(command), reply: reply}
+			delete(s.restoredSequences, command.Client)
 			if result.event != nil {
 				event = result.event
 				event.client, event.duration = command.Client, time.Since(started)

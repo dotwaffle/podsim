@@ -106,7 +106,8 @@ spec:
 The `-state` option keeps the shared session across server restarts.
 Its value is a bucket URL. This server build has only the `file://` driver.
 Without `-state`, the server does not save or read a session state.
-The saved state does not hold save points or command receipts, so a restart clears them.
+The saved state holds the last command sequence of each client, but not the save points or the command receipts.
+A restart clears those.
 
 A `file://` URL needs an empty host and an absolute path, for example `file:///var/lib/podsim`.
 `file://var/lib/podsim` is not valid, because `var` is then the host.
@@ -173,7 +174,7 @@ A stop for another cause also counts, for example a `SIGKILL` before the first p
 When startup fails after the startup save, for example because a listen address is in use, the server makes a final save before it stops.
 Thus a failed startup does not count as a restore.
 
-The server keeps the saved epoch only after a final save and a `physical` or `logical` restore.
+The server keeps the saved epoch only after a final save and a `physical` or `logical` restore, and only when the saved state has fewer than 1,024 clients.
 See [server restarts](protocol.md#server-restarts) for the effect on clients.
 
 Only one server can use a state location, which is one directory and prefix.

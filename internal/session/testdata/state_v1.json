@@ -11,6 +11,12 @@
   "lastCheckpoint": 1,
   "speed": 2,
   "restoreAttempts": 1,
+  "sequences": [
+    {
+      "client": "state",
+      "sequence": 3
+    }
+  ],
   "demand": {
     "state": {
       "config": {

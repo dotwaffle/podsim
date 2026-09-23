@@ -10,7 +10,9 @@ import (
 	"io/fs"
 	"log/slog"
 	"runtime/debug"
+	"slices"
 	"strconv"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -511,13 +513,24 @@ func restoreDemand(saved savedDemand, config project.Config) (demandRun, error) 
 // The project revision stays, so the topology caches of clients stay
 // valid. The session keeps the saved epoch only when the saved state came
 // from a final save, because a crash can lose changes that clients saw.
-// Command receipts and save points start empty.
+// Command receipts and save points start empty. With the saved epoch, the
+// session keeps the saved command sequences, so that it does not apply a
+// command from before the restore again. A command from another epoch
+// gets SessionChanged, so a new epoch does not need them. The saved
+// clients stay in the client limit with the saved epoch. Thus a saved
+// state at the client limit gets a new epoch, so that a restart makes
+// the session accept new clients again.
 func (s *Session) installRestored(loaded loadedState) {
 	file, result := loaded.file, loaded.result
 	s.project, s.simulation, s.demand = loaded.config, loaded.simulation, loaded.demand
 	s.epoch = rand.Text()
-	if file.Final && (result.Tier == sim.RestorePhysical || result.Tier == sim.RestoreLogical) {
+	if file.Final && len(file.Sequences) < clientLimit &&
+		(result.Tier == sim.RestorePhysical || result.Tier == sim.RestoreLogical) {
 		s.epoch = file.Epoch
+		s.restoredSequences = make(map[string]uint64, len(file.Sequences))
+		for _, saved := range file.Sequences {
+			s.restoredSequences[saved.Client] = saved.Sequence
+		}
 	}
 	s.revision, s.generation = file.Revision+1, file.Generation+1
 	s.projectRevision, s.projectOrigin = file.ProjectRevision, file.ProjectRevision
@@ -678,7 +691,7 @@ func (s *Session) captureState(kind SaveKind) (stateFile, bool, error) {
 	file := stateFile{
 		Format: stateFormat, Version: stateVersion, Final: kind == SaveFinal, Epoch: s.epoch,
 		Revision: s.revision, ProjectRevision: s.projectRevision, Generation: s.generation,
-		LastCheckpoint: s.lastCheckpoint, Speed: s.speed,
+		LastCheckpoint: s.lastCheckpoint, Speed: s.speed, Sequences: s.commandSequences(),
 		Demand:     savedDemand{State: s.demand.state, Random: random, Budget: s.demand.budget},
 		Simulation: s.simulation.ExportState(),
 		Project:    s.project,
@@ -688,6 +701,26 @@ func (s *Session) captureState(kind SaveKind) (stateFile, bool, error) {
 		file.Build = s.build
 	}
 	return file, true, nil
+}
+
+// commandSequences returns the last command sequence of each client, in
+// increasing order of client ID. These are the clients with a receipt and
+// the restored clients without one. commandSequences returns nil when
+// there are no clients. The caller holds s.mu.
+func (s *Session) commandSequences() []savedSequence {
+	count := len(s.receipts) + len(s.restoredSequences)
+	if count == 0 {
+		return nil
+	}
+	sequences := make([]savedSequence, 0, count)
+	for client, stored := range s.receipts {
+		sequences = append(sequences, savedSequence{Client: client, Sequence: stored.command.Sequence})
+	}
+	for client, sequence := range s.restoredSequences {
+		sequences = append(sequences, savedSequence{Client: client, Sequence: sequence})
+	}
+	slices.SortFunc(sequences, func(a, b savedSequence) int { return strings.Compare(a.Client, b.Client) })
+	return sequences
 }
 
 // RunStateSaver saves the session state every interval, and 1 s after a

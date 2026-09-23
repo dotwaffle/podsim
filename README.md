@@ -72,7 +72,7 @@ mise run serve -- -state file:///var/lib/podsim
 The server makes the directory if it does not exist. The server user needs write access to it.
 The server saves the session state at startup, every 60 seconds while the session changes, and a final time at a graceful shutdown.
 It also saves about 1 second after a demand change, a project apply, or a rewind that restores a project.
-The saved state holds the project, the pods, the order queue, the demand stream, the statistics, the playback speed, and the pause state.
+The saved state holds the project, the pods, the order queue, the demand stream, the statistics, the playback speed, the pause state, and the last command sequence of each client.
 It does not hold save points or command receipts.
 After a stop without the final save, the restored session can be up to about 60 seconds old.
 
@@ -407,13 +407,14 @@ Reconnection restores the current shared state.
 When the server restarts with different browser files, open browser pages reload by themselves.
 The desktop client shows a message instead. Restart it to load the new version.
 The server deduplicates command retries by client and sequence.
-The server keeps command receipts for at most 1,024 browser page loads per server lifetime.
+The server keeps command receipts for at most 1,024 browser page loads per session.
 Only a page that sends a command uses a receipt.
 If a new page reports the session client limit, restart the server.
-The saved session state does not hold command receipts, so the limit of 1,024 page loads also starts again after a restart with `-state`.
 If the server made its final save at a graceful shutdown and restores the session with the `physical` or `logical` tier, the session continues.
-Then an exact retry of a command from before the restart applies the command again.
-After other restarts, the retry gets the `session_changed` error.
+Then a retry of a command from before the restart gets the `expired_command` error, and the server does not apply the command again.
+The pages from before the restart also stay in the count of 1,024 page loads.
+The session does not continue after a restart at the client limit or after other restarts.
+Then the retry gets the `session_changed` error, and the count starts again.
 See [server restarts](docs/protocol.md#server-restarts).
 
 Pod selection, origin, destination, and the open inspection panel stay local to each browser.

@@ -72,10 +72,13 @@ message.
 
 Exact retries return the original acknowledgment. A sequence lower than the
 last sequence from the same client gets `expired_command`. The same sequence
-with a different command gets `sequence_conflict`.
+with a different command gets `sequence_conflict`. After a server restart, a
+sequence from before the restart can also get `expired_command`. See
+[server restarts](#server-restarts).
 
 A command from another epoch gets `session_changed`. A missing client ID, a
-client ID longer than 100 bytes, or a zero sequence gets `invalid_command`.
+client ID that is longer than 100 bytes or is not valid UTF-8, or a zero
+sequence gets `invalid_command`.
 After the server records commands from 1,024 clients, a command from a new
 client gets `client_limit`. A command that the server cannot apply gets
 `command_rejected`. After a graceful shutdown starts, the server rejects new
@@ -142,10 +145,11 @@ option does not save them. A rewind to an unknown or removed ID gets
 Without `-state`, a server restart starts a new session with a new epoch.
 
 With `-state`, the server saves the session state and restores it at the next
-start. The server keeps the saved epoch only when both of these are true:
+start. The server keeps the saved epoch only when all of these are true:
 
 - The saved state came from a final save.
 - The restore tier is `physical` or `logical`.
+- The saved state has fewer than 1,024 clients.
 
 The server makes a final save at a graceful shutdown. When startup fails after
 the startup save, for example because a listen address is in use, the server
@@ -170,13 +174,20 @@ A startup that fails after the startup save writes the increased revision and
 generation in its final save. Thus after one or more failed startups, clients
 can see an increase of more than one.
 
-The `-state` option does not save command receipts. After a restart with a
-kept epoch, the next command of each client is new. An exact retry of a
-command from before the restart applies the command again. For example, a
-retried `trip` makes a second order. The limit of 1,024 clients starts again.
+The server saves the last sequence of each client, but not the command
+receipts. After a restart with a kept epoch, a command with the saved
+sequence of its client or a lower one gets `expired_command`. The server got
+a command with that sequence before the restart, but it did not save the
+acknowledgment, so it does not apply the command again. For example, a
+retried `trip` does not make a second order. Read the current state to find
+the result of the first command. A command with a higher sequence is new.
+The saved clients stay in the limit of 1,024 clients. When the saved state
+has 1,024 clients, the server uses a new epoch, so that new clients can send
+commands after the restart.
 
 With a new epoch, clients switch to the new session. A command from the old
-epoch gets `session_changed`.
+epoch gets `session_changed`. The server does not keep the saved sequences,
+and the limit of 1,024 clients starts again.
 
 ## Payload measurements
 

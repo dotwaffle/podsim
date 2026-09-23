@@ -14,6 +14,10 @@ generation number
 lastCheckpoint number
 speed number
 restoreAttempts number
+sequences array
+sequences[] object
+sequences[].client string
+sequences[].sequence number
 demand object
 demand.state object
 demand.state.config object

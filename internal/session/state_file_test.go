@@ -8,6 +8,7 @@ import (
 	"encoding/json/v2"
 	"errors"
 	"flag"
+	"fmt"
 	"io"
 	"maps"
 	"math"
@@ -87,10 +88,20 @@ func sessionStateFile(t *testing.T, shared *Session) stateFile {
 		Build:   shared.build, Epoch: testStateEpoch,
 		Revision: shared.revision, ProjectRevision: shared.projectRevision, Generation: shared.generation,
 		LastCheckpoint: shared.lastCheckpoint, Speed: shared.speed, RestoreAttempts: 1,
+		Sequences:  shared.commandSequences(),
 		Demand:     savedDemand{State: shared.demand.state, Random: random, Budget: shared.demand.budget},
 		Simulation: shared.simulation.ExportState(),
 		Project:    shared.project,
 	}
+}
+
+// testSequences returns count client sequences with increasing client IDs.
+func testSequences(count int) []savedSequence {
+	sequences := make([]savedSequence, count)
+	for index := range sequences {
+		sequences[index] = savedSequence{Client: fmt.Sprintf("client%05d", index), Sequence: uint64(index + 1)}
+	}
+	return sequences
 }
 
 // encodeTestState encodes file with a new encoder.
@@ -300,6 +311,25 @@ func TestDecodeStateFileRejects(t *testing.T) {
 		{"random source", edit(func(file *stateFile) { file.Demand.Random = []byte("pcg:") }), reasonInvalidState, nil},
 		{"budget -1", edit(func(file *stateFile) { file.Demand.Budget = -1 }), reasonInvalidState, nil},
 		{"budget 3600", edit(func(file *stateFile) { file.Demand.Budget = 3600 }), reasonInvalidState, nil},
+		{"1,025 client sequences", edit(func(file *stateFile) {
+			file.Sequences = testSequences(clientLimit + 1)
+		}), reasonInvalidState, errJSONArrayTooLong},
+		{"client ID of 0 bytes", edit(func(file *stateFile) {
+			file.Sequences = []savedSequence{{Client: "", Sequence: 1}}
+		}), reasonInvalidState, nil},
+		{"client ID of 101 bytes", edit(func(file *stateFile) {
+			file.Sequences = []savedSequence{{Client: strings.Repeat("c", maxClientBytes+1), Sequence: 1}}
+		}), reasonInvalidState, nil},
+		{"client ID not UTF-8", replace(`"client":"state"`, "\"client\":\"\xff\""), reasonInvalidState, nil},
+		{"client sequence 0", edit(func(file *stateFile) {
+			file.Sequences = []savedSequence{{Client: "c", Sequence: 0}}
+		}), reasonInvalidState, nil},
+		{"duplicate client", edit(func(file *stateFile) {
+			file.Sequences = []savedSequence{{Client: "c", Sequence: 1}, {Client: "c", Sequence: 2}}
+		}), reasonInvalidState, nil},
+		{"clients out of order", edit(func(file *stateFile) {
+			file.Sequences = []savedSequence{{Client: "d", Sequence: 1}, {Client: "c", Sequence: 2}}
+		}), reasonInvalidState, nil},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
@@ -330,6 +360,11 @@ func TestDecodeStateFileAcceptsLimits(t *testing.T) {
 		{"budget 3599", func(file *stateFile) { file.Demand.Budget = 3599 }},
 		{"revision 0", func(file *stateFile) { file.Revision = 0 }},
 		{"200 pods", func(file *stateFile) { file.Simulation.Pods = make([]sim.SavedPod, 200) }},
+		{"1,024 client sequences", func(file *stateFile) { file.Sequences = testSequences(clientLimit) }},
+		{"client ID of 100 bytes", func(file *stateFile) {
+			file.Sequences = []savedSequence{{Client: strings.Repeat("c", maxClientBytes), Sequence: math.MaxUint64}}
+		}},
+		{"no client sequences", func(file *stateFile) { file.Sequences = nil }},
 		{"destination demand", func(file *stateFile) {
 			file.Demand.State.Config.Pattern, file.Demand.State.Config.Destination = "destination", "market"
 		}},
@@ -577,8 +612,10 @@ func TestDecodeStateFileBombs(t *testing.T) {
 // largest project member that the encoder writes. There are maxSavedPods
 // pods, each with a route of the largest saved length. There are
 // maxSavedTrips queued trips, each with a route of the largest saved length.
-// Each other value has its largest length. The size must be accepted, so
-// that a save fails only when its project member is too large.
+// There are clientLimit client sequences, and each client ID has the
+// longest JSON form. Each other value has its largest length. The size must
+// be accepted, so that a save fails only when its project member is too
+// large.
 func TestStateFileWorstCaseSize(t *testing.T) {
 	t.Parallel()
 	const nodes, lanes = project.MaxNodes, project.MaxLanes
@@ -626,6 +663,15 @@ func TestStateFileWorstCaseSize(t *testing.T) {
 		Request: request, Route: route(nodes), Parties: widest,
 		DeferUntil: widest, DeferCheck: widest, DeferPodID: id("p", 0),
 	}
+	// A client ID of control characters has the longest JSON form, 6 bytes
+	// for each byte. The last 3 bytes make the IDs increase.
+	sequences := make([]savedSequence, clientLimit)
+	for index := range sequences {
+		suffix := string([]byte{byte(0x10 + index/256), byte(0x10 + index/16%16), byte(0x10 + index%16)})
+		sequences[index] = savedSequence{
+			Client: strings.Repeat("\x01", maxClientBytes-len(suffix)) + suffix, Sequence: math.MaxUint64,
+		}
+	}
 	demand := config.Demand
 	demand.Enabled, demand.PerMinute, demand.Seed = true, 120, math.MaxUint64
 	demand.Destination, demand.Profile, demand.Band = id("d", 0), id("p", 0), id("b", 0)
@@ -638,7 +684,7 @@ func TestStateFileWorstCaseSize(t *testing.T) {
 		SavedAt: time.Date(2026, time.September, 23, 9, 0, 0, 123456789, time.FixedZone("", -12*60*60)),
 		Build:   testBuildID, Epoch: strings.Repeat("E", maxEpochBytes),
 		Revision: math.MaxUint64 - 1, ProjectRevision: math.MaxUint64, Generation: math.MaxUint64 - 1,
-		LastCheckpoint: math.MaxUint64, Speed: 8, RestoreAttempts: math.MaxInt,
+		LastCheckpoint: math.MaxUint64, Speed: 8, RestoreAttempts: math.MaxInt, Sequences: sequences,
 		Demand: savedDemand{
 			State:  DemandState{Config: demand, Generated: math.MaxInt, Skipped: math.MaxInt, Error: text},
 			Random: random, Budget: demandBudgetLimit - 1,

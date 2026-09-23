@@ -95,6 +95,31 @@ func TestCommandRetriesAndReset(t *testing.T) {
 	}
 }
 
+func TestCommandClientRules(t *testing.T) {
+	t.Parallel()
+	s := newTestSession(t)
+	tests := []struct {
+		name     string
+		client   string
+		sequence uint64
+		want     CommandErrorCode
+	}{
+		{"no client ID", "", 1, InvalidCommand},
+		{"client ID of 101 bytes", strings.Repeat("c", maxClientBytes+1), 1, InvalidCommand},
+		// A state save cannot encode such an ID.
+		{"client ID not UTF-8", "c\xff", 1, InvalidCommand},
+		{"sequence 0", "c", 0, InvalidCommand},
+		{"client ID of 100 bytes", strings.Repeat("c", maxClientBytes), 1, ""},
+	}
+	for _, test := range tests {
+		command := commandFor(s, "pause")
+		command.Client, command.Sequence = test.client, test.sequence
+		if reply := s.Apply(command); reply.ErrorCode != test.want {
+			t.Errorf("%s: reply = %+v, want error code %q", test.name, reply, test.want)
+		}
+	}
+}
+
 func TestDemandDeterminismAndSpeed(t *testing.T) {
 	t.Parallel()
 	slow, fast := newTestSession(t), newTestSession(t)
