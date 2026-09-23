@@ -13,6 +13,15 @@
 <body>
   <div id="status" role="status">Loading Podsim…</div>
   <script>
+    // Ebitengine does not focus its canvas inside an iframe, and it reads the
+    // keys only from the canvas. Focus the canvas when the game starts and
+    // each time that this page gets the focus, so that the keyboard shortcuts
+    // work without a click. Do not take the focus from the top page.
+    function focusCanvas() {
+      if (document.hasFocus()) document.querySelector("canvas")?.focus();
+    }
+    window.addEventListener("focus", focusCanvas);
+
     async function start() {
       const status = document.getElementById("status");
       try {
@@ -22,6 +31,7 @@
         const result = await WebAssembly.instantiateStreaming(response, go.importObject);
         const running = go.run(result.instance);
         status.hidden = true;
+        focusCanvas();
         await running;
         throw new Error("The simulation stopped. Reload this page to restart.");
       } catch (error) {

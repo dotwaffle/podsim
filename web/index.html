@@ -22,8 +22,22 @@
   </nav>
   <iframe src="game.html" title="Podsim interactive network simulation"></iframe>
   <script>
-    document.getElementById("debugButton").addEventListener("click", async () => {
-      const button = document.getElementById("debugButton");
+    const game = document.querySelector("iframe");
+    const button = document.getElementById("debugButton");
+    // Ebitengine does not focus its canvas inside an iframe. Give the game the
+    // keyboard focus, so that its keyboard shortcuts work without a click. Do
+    // not take the focus from a different control that the user selected.
+    function focusGame() {
+      if (document.activeElement === document.body || document.activeElement === button) game.focus();
+    }
+    game.addEventListener("load", focusGame);
+    // When the browser restores this page from its back/forward cache, the
+    // iframe gets no load event, and the focus stays on the link that the user
+    // clicked. Give the game the focus, as after a new load.
+    window.addEventListener("pageshow", (event) => {
+      if (event.persisted) game.focus();
+    });
+    button.addEventListener("click", async (event) => {
       const status = document.getElementById("debugStatus");
       const requestedAt = new Date().toISOString();
       button.disabled = true;
@@ -60,6 +74,10 @@
       } finally {
         button.disabled = false;
         status.title = status.textContent;
+        // Give the game the focus only after a mouse or touch click. After
+        // Enter or Space on the button, the click detail is 0. The game keeps
+        // the Tab key, so do not move a keyboard user into the game.
+        if (event.detail > 0) focusGame();
       }
     });
   </script>
