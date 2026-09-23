@@ -89,6 +89,15 @@ type Game struct {
 	// so Rewind waits for that state and does not target an older save point.
 	savedEpoch    string
 	savedRevision uint64
+	// sentAction is the action of the last command that the client
+	// accepted. While pending is true, this command waits for its reply.
+	sentAction string
+	// ownEpoch and ownGeneration come from the last accepted reply to a
+	// command of this game that starts a new generation. A change in the
+	// same epoch to this generation or to an earlier one shows no session
+	// change notice.
+	ownEpoch      string
+	ownGeneration uint64
 	layout        displayLayout
 	// reload loads the page again. It is nil in the desktop client.
 	// serverUpdated becomes true when the game sees a new server build, so

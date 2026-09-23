@@ -440,6 +440,9 @@ N is the time in seconds since the last state frame.
 Reconnection restores the current shared state.
 When the server restarts with different browser files, open browser pages reload by themselves.
 The desktop client shows a message instead. Restart it to load the new version.
+After a server restart with the same build, the line below **From** and **To** shows **Server restarted. Save points cleared.** for 3 s.
+When another browser resets or rewinds the session, starts the traffic demo, or applies a project, this line shows **Another browser reset or rewound the session.** for 3 s.
+A reset or a rewind from this browser shows its own notice instead.
 The server deduplicates command retries by client and sequence.
 The server keeps command receipts for at most 1,024 browser page loads per session.
 Only a page that sends a command uses a receipt.

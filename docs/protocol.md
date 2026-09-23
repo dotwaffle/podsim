@@ -208,6 +208,13 @@ With a new epoch, clients switch to the new session. A command from the old
 epoch gets `session_changed`. The server does not keep the saved sequences,
 and the limit of 1,024 clients starts again.
 
+The Go client tells the user about a restart. Only a restart makes a new
+epoch. With a kept epoch, the first frame after the restart has a new
+generation, a `restore` tier of `physical` or `logical`, and no save points.
+A reset, a demo, and a project apply remove the `restore` key, and a rewind
+keeps the save points. Thus a command never makes a frame with all three of
+these properties.
+
 ## Payload measurements
 
 The comparison used equivalent states with 200 accepted requests. It used the
