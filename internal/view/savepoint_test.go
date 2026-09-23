@@ -55,6 +55,41 @@ func TestSavePointButtons(t *testing.T) {
 	}
 }
 
+// TestRewindWaitsForSavedState checks that Rewind does not target an older
+// save point while the state does not yet list the one that was just saved.
+func TestRewindWaitsForSavedState(t *testing.T) {
+	t.Parallel()
+	older := []session.Checkpoint{{ID: 1, Tick: 600}}
+	both := []session.Checkpoint{{ID: 1, Tick: 600}, {ID: 2, Tick: 1200}}
+	tests := []struct {
+		name         string
+		state        session.State
+		wantDisabled bool
+		wantLabel    string
+	}{
+		{name: "state before the save point", state: session.State{Epoch: "a", Revision: 10, Checkpoints: older}, wantDisabled: true, wantLabel: "Rewind 10.0 s"},
+		{name: "state with the save point", state: session.State{Epoch: "a", Revision: 11, Checkpoints: both}, wantLabel: "Rewind 20.0 s"},
+		{name: "newer state", state: session.State{Epoch: "a", Revision: 14, Checkpoints: both}, wantLabel: "Rewind 20.0 s"},
+		{name: "new epoch", state: session.State{Epoch: "b", Revision: 3, Checkpoints: older}, wantLabel: "Rewind 10.0 s"},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			game := journeyTestGame(t, 2)
+			game.state = session.State{Epoch: "a", Revision: 10, Checkpoints: older}
+			game.handleResult(remote.Result{
+				Command: session.Command{Action: "checkpoint"},
+				Reply:   session.Reply{Epoch: "a", Revision: 11, Checkpoint: 2},
+			})
+			game.state = test.state
+			rewind := findButton(t, game.buttons(), "rewind")
+			if rewind.disabled != test.wantDisabled || rewind.label != test.wantLabel {
+				t.Fatalf("rewind button = %q disabled %t, want %q disabled %t", rewind.label, rewind.disabled, test.wantLabel, test.wantDisabled)
+			}
+		})
+	}
+}
+
 func TestRewindTarget(t *testing.T) {
 	t.Parallel()
 	tests := []struct {

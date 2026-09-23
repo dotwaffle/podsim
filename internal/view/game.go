@@ -73,7 +73,12 @@ type Game struct {
 	// rewindProjectRevision is the project revision at the last rewind click.
 	// A larger revision in the reply shows that the rewind restored a project.
 	rewindProjectRevision uint64
-	layout                displayLayout
+	// savedEpoch and savedRevision come from the last accepted save point.
+	// The command reply can arrive before the state that lists the save point,
+	// so Rewind waits for that state and does not target an older save point.
+	savedEpoch    string
+	savedRevision uint64
+	layout        displayLayout
 }
 
 // New creates the first playable scenario.
@@ -186,11 +191,18 @@ func (g *Game) checkpoint() { g.submit(session.Command{Action: "checkpoint"}) }
 // the server has no default save point.
 func (g *Game) rewind() {
 	target, ok := rewindTarget(g.state)
-	if !ok {
+	if !ok || !g.rewindReady() {
 		return
 	}
 	g.rewindProjectRevision = g.state.ProjectRevision
 	g.submit(session.Command{Action: "rewind", Checkpoint: target.ID})
+}
+
+// rewindReady reports whether the state includes the last accepted save
+// point. A state from a new epoch does not wait, because a restart clears the
+// save points.
+func (g *Game) rewindReady() bool {
+	return g.state.Epoch != g.savedEpoch || g.state.Revision >= g.savedRevision
 }
 
 // rewindTarget returns the save point with the highest ID. It does not
@@ -243,6 +255,7 @@ func (g *Game) buttons() []button {
 		followLabel = "Following [F]"
 	}
 	_, canRewind := rewindTarget(g.state)
+	canRewind = canRewind && g.rewindReady()
 	buttons := []button{
 		{x: 810, y: 60, w: 90, h: 28, label: "Save point", action: "checkpoint"},
 		{x: 912, y: 60, w: 148, h: 28, label: rewindLabel(g.state), action: "rewind"},

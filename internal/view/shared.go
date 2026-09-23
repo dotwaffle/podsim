@@ -46,6 +46,7 @@ func (g *Game) handleResult(result remote.Result) {
 		to, _ := g.network.Station(result.Command.Destination)
 		g.showNotice("trip", fmt.Sprintf("Order #%d accepted: %s > %s. See Orders for status.", result.Reply.OrderID, from.Name, to.Name))
 	case result.Command.Action == "checkpoint":
+		g.savedEpoch, g.savedRevision = result.Reply.Epoch, result.Reply.Revision
 		g.showNotice("checkpoint", fmt.Sprintf("Save point #%d saved.", result.Reply.Checkpoint))
 	case result.Command.Action == "rewind":
 		// Panels and selection stay as they are. readRemote clamps the
