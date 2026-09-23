@@ -677,6 +677,53 @@ func TestStaleEditorApplyRejectedAfterRewind(t *testing.T) {
 	}
 }
 
+// TestRewindReplyReportsProjectRestore checks projectRestored in rewind
+// replies. Only a rewind that restores a different project sets it. A second
+// rewind to the same save point restores nothing, and an exact retry returns
+// the stored reply.
+func TestRewindReplyReportsProjectRestore(t *testing.T) {
+	t.Parallel()
+	tests := []struct {
+		name string
+		// change runs between the save point and the first rewind. It can be
+		// nil.
+		change func(*testing.T, *testClient)
+		// want holds projectRestored for the first and the second rewind.
+		want [2]bool
+	}{
+		{name: "same project"},
+		{name: "project apply", change: applyTestProject, want: [2]bool{true, false}},
+		{name: "demand change", change: changeTestDemand, want: [2]bool{true, false}},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			s, err := NewWithProject(balancedDemandProject(), WithProjectSaver((&projectFile{}).save))
+			if err != nil {
+				t.Fatal(err)
+			}
+			client := newTestClient(s, "test")
+			id := client.mustApply(t, Command{Action: "checkpoint"}).Checkpoint
+			if test.change != nil {
+				test.change(t, client)
+			}
+			for i, want := range test.want {
+				command := client.next(Command{Action: "rewind", Checkpoint: id})
+				reply := s.Apply(command)
+				if reply.Error != "" {
+					t.Fatalf("rewind %d: %s", i+1, reply.Error)
+				}
+				if reply.ProjectRestored != want {
+					t.Errorf("rewind %d: projectRestored = %t, want %t", i+1, reply.ProjectRestored, want)
+				}
+				if retry := s.Apply(command); retry != reply {
+					t.Errorf("rewind %d: retry = %+v, want %+v", i+1, retry, reply)
+				}
+			}
+		})
+	}
+}
+
 func TestCheckpointEvictionAndIDs(t *testing.T) {
 	t.Parallel()
 	s := newTestSession(t)

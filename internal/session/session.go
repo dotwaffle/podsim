@@ -91,6 +91,7 @@ const (
 
 // Reply acknowledges one command without repeating the current state frame.
 // Only a checkpoint command sets Checkpoint, the ID of the new save point.
+// Only a rewind that restores a different project sets ProjectRestored.
 type Reply struct {
 	Epoch           string           `json:"epoch"`
 	Revision        uint64           `json:"revision"`
@@ -98,6 +99,7 @@ type Reply struct {
 	Generation      uint64           `json:"generation"`
 	OrderID         int              `json:"orderID,omitempty"`
 	Checkpoint      uint64           `json:"checkpoint,omitzero"`
+	ProjectRestored bool             `json:"projectRestored,omitzero"`
 	ErrorCode       CommandErrorCode `json:"errorCode,omitempty"`
 	Error           string           `json:"error,omitempty"`
 }
@@ -345,7 +347,7 @@ func (s *Session) applyCommand(command Command) (Reply, *sessionEvent) {
 				s.revision++
 			}
 			reply = s.reply()
-			reply.OrderID, reply.Checkpoint = result.orderID, result.checkpoint
+			reply.OrderID, reply.Checkpoint, reply.ProjectRestored = result.orderID, result.checkpoint, result.projectRestored
 			if err != nil {
 				reply.reject(CommandRejected, err.Error())
 			}
@@ -381,9 +383,10 @@ func cloneCommand(command Command) Command {
 // outcome holds the reply values of an accepted command. event is nil when
 // the command has no event to log.
 type outcome struct {
-	orderID    int
-	checkpoint uint64
-	event      *sessionEvent
+	orderID         int
+	checkpoint      uint64
+	projectRestored bool
+	event           *sessionEvent
 }
 
 // sessionEvent is a log record for an accepted command. Apply writes it after

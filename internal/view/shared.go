@@ -67,9 +67,8 @@ func (g *Game) showNotice(action, text string) {
 }
 
 // rewindNotice describes an accepted rewind. It gives the time of the save
-// point when the state still lists it. A reply project revision above the one
-// at the click shows that the rewind restored a different project. The notice
-// then says so.
+// point when the state still lists it. When the reply shows that the rewind
+// restored a different project, the notice says so.
 func (g *Game) rewindNotice(result remote.Result) string {
 	id := result.Command.Checkpoint
 	notice := fmt.Sprintf("Rewound to save point #%d. Paused.", id)
@@ -78,7 +77,7 @@ func (g *Game) rewindNotice(result remote.Result) string {
 		seconds := float64(g.state.Checkpoints[index].Tick) / sim.TicksPerSecond
 		notice = fmt.Sprintf("Rewound to save point #%d (%.1f s). Paused.", id, seconds)
 	}
-	if result.Reply.ProjectRevision > g.rewindProjectRevision {
+	if result.Reply.ProjectRestored {
 		notice += " Project settings restored."
 	}
 	return notice

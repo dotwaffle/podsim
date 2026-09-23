@@ -118,61 +118,49 @@ func TestRewindTarget(t *testing.T) {
 func TestCommandResultNotices(t *testing.T) {
 	t.Parallel()
 	tests := []struct {
-		name string
-		// stateRevision is the project revision in the state when the reply
-		// arrives. clickRevision is the project revision at the rewind click.
-		stateRevision, clickRevision uint64
-		result                       remote.Result
-		wantNotice                   string
-		wantMessage                  string
-		wantOrderLabel               string
+		name           string
+		result         remote.Result
+		wantNotice     string
+		wantMessage    string
+		wantOrderLabel string
 		// wantOrders is true when the result opens Orders in place of Demand.
 		wantOrders bool
 	}{
 		{
 			name:           "checkpoint",
-			stateRevision:  1,
 			result:         remote.Result{Command: session.Command{Action: "checkpoint"}, Reply: session.Reply{ProjectRevision: 1, Checkpoint: 3}},
 			wantNotice:     "Save point #3 saved.",
 			wantOrderLabel: "Order",
 		},
 		{
 			name:           "rewind",
-			stateRevision:  1,
-			clickRevision:  1,
 			result:         remote.Result{Command: session.Command{Action: "rewind", Checkpoint: 3}, Reply: session.Reply{ProjectRevision: 1, Generation: 2}},
 			wantNotice:     "Rewound to save point #3 (42.0 s). Paused.",
 			wantOrderLabel: "Order",
 		},
 		{
 			name:           "rewind restores project",
-			stateRevision:  1,
-			clickRevision:  1,
-			result:         remote.Result{Command: session.Command{Action: "rewind", Checkpoint: 2}, Reply: session.Reply{ProjectRevision: 2, Generation: 2}},
+			result:         remote.Result{Command: session.Command{Action: "rewind", Checkpoint: 2}, Reply: session.Reply{ProjectRevision: 2, Generation: 2, ProjectRestored: true}},
 			wantNotice:     "Rewound to save point #2 (10.0 s). Paused. Project settings restored.",
 			wantOrderLabel: "Order",
 		},
 		{
-			// readRemote copies a new state before it handles the reply. The
-			// state can already show the restored project.
-			name:           "rewind restores project after state refresh",
-			stateRevision:  2,
-			clickRevision:  1,
-			result:         remote.Result{Command: session.Command{Action: "rewind", Checkpoint: 2}, Reply: session.Reply{ProjectRevision: 2, Generation: 2}},
-			wantNotice:     "Rewound to save point #2 (10.0 s). Paused. Project settings restored.",
+			// Another browser restored the project of the save point before
+			// this rewind. The project revision went up, but this rewind
+			// restored nothing.
+			name:           "rewind after another restore",
+			result:         remote.Result{Command: session.Command{Action: "rewind", Checkpoint: 2}, Reply: session.Reply{ProjectRevision: 3, Generation: 3}},
+			wantNotice:     "Rewound to save point #2 (10.0 s). Paused.",
 			wantOrderLabel: "Order",
 		},
 		{
 			name:           "rewind to unlisted save point",
-			stateRevision:  1,
-			clickRevision:  1,
 			result:         remote.Result{Command: session.Command{Action: "rewind", Checkpoint: 9}, Reply: session.Reply{ProjectRevision: 1, Generation: 2}},
 			wantNotice:     "Rewound to save point #9. Paused.",
 			wantOrderLabel: "Order",
 		},
 		{
 			name:           "trip",
-			stateRevision:  1,
 			result:         remote.Result{Command: session.Command{Action: "trip", Origin: "station-01", Destination: "station-02"}, Reply: session.Reply{OrderID: 7}},
 			wantNotice:     "Order #7 accepted: Station 01 > Station 02. See Orders for status.",
 			wantOrderLabel: "Order accepted",
@@ -180,14 +168,12 @@ func TestCommandResultNotices(t *testing.T) {
 		},
 		{
 			name:           "rejected rewind",
-			stateRevision:  1,
 			result:         remote.Result{Command: session.Command{Action: "rewind", Checkpoint: 1}, Reply: session.Reply{ErrorCode: session.CommandRejected, Error: "save point #1 is no longer available"}},
 			wantMessage:    "save point #1 is no longer available",
 			wantOrderLabel: "Order",
 		},
 		{
 			name:           "transport error",
-			stateRevision:  1,
 			result:         remote.Result{Command: session.Command{Action: "checkpoint"}, Err: errors.New("send command: connection refused")},
 			wantMessage:    "send command: connection refused",
 			wantOrderLabel: "Order",
@@ -197,10 +183,8 @@ func TestCommandResultNotices(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
 			game := journeyTestGame(t, 2)
-			game.state.ProjectRevision = test.stateRevision
 			game.state.Checkpoints = []session.Checkpoint{{ID: 2, Tick: 10 * sim.TicksPerSecond}, {ID: 3, Tick: 42 * sim.TicksPerSecond}}
 			game.state.Simulation.Vehicles = make([]sim.Vehicle, 8)
-			game.rewindProjectRevision = test.clickRevision
 			game.message = "Sending command..."
 			game.showDemand, game.selected, game.podPage = true, 7, 1
 			game.handleResult(test.result)
@@ -226,8 +210,7 @@ func TestCommandResultNotices(t *testing.T) {
 
 // TestSavePointClicks clicks Save point and Rewind in a game that is
 // connected to a session server. It checks the command that each click
-// sends, the project revision that the rewind click records, and the notice
-// for each reply.
+// sends and the notice for each reply.
 func TestSavePointClicks(t *testing.T) {
 	t.Parallel()
 	tests := []struct {
@@ -258,13 +241,9 @@ func TestSavePointClicks(t *testing.T) {
 			if label := findButton(t, game.buttons(), "rewind").label; label != test.wantRewindLabel {
 				t.Fatalf("rewind button = %q, want %q", label, test.wantRewindLabel)
 			}
-			clickRevision := game.state.ProjectRevision
 			rewound := clickCommand(t, game, "rewind")
 			if rewound.Command.Action != "rewind" || rewound.Command.Checkpoint != saved.Reply.Checkpoint {
 				t.Fatalf("rewind click sent %q to save point %d, want rewind to %d", rewound.Command.Action, rewound.Command.Checkpoint, saved.Reply.Checkpoint)
-			}
-			if game.rewindProjectRevision != clickRevision {
-				t.Fatalf("recorded project revision %d, want %d from the click", game.rewindProjectRevision, clickRevision)
 			}
 			if game.notice != test.wantNotice || game.message != "" {
 				t.Fatalf("notice %q message %q, want notice %q", game.notice, game.message, test.wantNotice)

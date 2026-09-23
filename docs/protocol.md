@@ -33,9 +33,10 @@ Each command contains a `client` ID, a `sequence`, the session `epoch`, and an
 `project`, `checkpoint`, and `rewind`.
 
 Command acknowledgments contain the session epoch, state revision, project
-revision, generation, optional order ID, and optional checkpoint ID. They do
-not repeat a state frame. A rejected command gets HTTP 409 and an
-acknowledgment with a stable `errorCode` and an `error` message.
+revision, generation, optional order ID, optional checkpoint ID, and optional
+`projectRestored` flag. They do not repeat a state frame. A rejected command
+gets HTTP 409 and an acknowledgment with a stable `errorCode` and an `error`
+message.
 
 Exact retries return the original acknowledgment. A sequence lower than the
 last sequence from the same client gets `expired_command`. The same sequence
@@ -81,9 +82,11 @@ A rewind to such a save point restores its project and increases the project
 revision by one. With `-project`, the server also saves the project to that
 file. The project revision never goes back to an earlier value, so clients
 fetch the topology again. The server also rejects project edits from before
-the rewind. A repeated rewind to the same save point does not save the project
-again. If the save fails, the server rejects the rewind with
-`command_rejected`, and nothing changes.
+the rewind. The acknowledgment of this rewind has `projectRestored` set to
+`true`. A repeated rewind to the same save point does not save or restore the
+project again, and its acknowledgment omits `projectRestored`. If the save
+fails, the server rejects the rewind with `command_rejected`, and nothing
+changes.
 
 A rewind does not roll back the command receipts. An exact retry of a rewind
 gets the stored acknowledgment and does not rewind again. This is also true

@@ -70,9 +70,6 @@ type Game struct {
 	notice               string
 	noticeAction         string
 	noticeTicks          int
-	// rewindProjectRevision is the project revision at the last rewind click.
-	// A larger revision in the reply shows that the rewind restored a project.
-	rewindProjectRevision uint64
 	// savedEpoch and savedRevision come from the last accepted save point.
 	// The command reply can arrive before the state that lists the save point,
 	// so Rewind waits for that state and does not target an older save point.
@@ -194,7 +191,6 @@ func (g *Game) rewind() {
 	if !ok || !g.rewindReady() {
 		return
 	}
-	g.rewindProjectRevision = g.state.ProjectRevision
 	g.submit(session.Command{Action: "rewind", Checkpoint: target.ID})
 }
 
