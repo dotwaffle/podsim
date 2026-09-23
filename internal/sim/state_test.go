@@ -378,9 +378,9 @@ func TestOrdersGapCountsPartiesInSharedRides(t *testing.T) {
 		if second%30 != 0 {
 			continue
 		}
-		restored, _, err := RestoreState(RestoreStateInput{Network: Example(), Fleet: demoFleet(), State: state})
-		if err != nil {
-			t.Fatalf("second %d: %v", second, err)
+		restored, result, err := RestoreState(RestoreStateInput{Network: Example(), Fleet: demoFleet(), State: state})
+		if err != nil || result.Tier != RestorePhysical {
+			t.Fatalf("second %d: %v, %+v", second, err, result)
 		}
 		if gap := restored.ordersGap(); gap != 0 {
 			t.Fatalf("second %d: restored order gap %d", second, gap)

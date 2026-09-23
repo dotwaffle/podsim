@@ -72,6 +72,9 @@ func restorePhysical(input RestoreStateInput) (*Simulation, RestoreResult, error
 	if err := checkSavedPodIDs(s.initial, input.State); err != nil {
 		return nil, RestoreResult{}, err
 	}
+	if err := checkFleetSaved(s.initial, input.State); err != nil {
+		return nil, RestoreResult{}, err
+	}
 	r := newPhysicalRestore(s, input.State, gap)
 	r.restoreCounters()
 	if err := r.decodePods(); err != nil {
@@ -102,7 +105,7 @@ func restorePhysical(input RestoreStateInput) (*Simulation, RestoreResult, error
 		r.result.Demoted = append(r.result.Demoted, s.vehicles[index].Pod.ID)
 	}
 	r.restoreWaiting()
-	if err := r.verify(); err != nil {
+	if err := s.verifyRestore(r.gap + r.result.DroppedParties); err != nil {
 		return nil, RestoreResult{}, err
 	}
 	r.result.Tier = RestorePhysical
@@ -175,7 +178,7 @@ func (state SavedState) validRequest(request SavedRequest) bool {
 		request.RequestedTick >= 0 && request.RequestedTick <= state.Tick && len(request.DispatchReason) <= maxSavedText
 }
 
-// checkSavedPodIDs checks that the saved pods are the fleet pods. A demo fleet
+// checkSavedPodIDs checks that each saved pod is a fleet pod. A demo fleet
 // can also have the parked demo pods, because they stay after the demo ends.
 func checkSavedPodIDs(fleet []Placement, state SavedState) error {
 	demoFleet := isDemoFleet(fleet)
@@ -191,15 +194,20 @@ func checkSavedPodIDs(fleet []Placement, state SavedState) error {
 			known[id] = true
 		}
 	}
-	saved := make(map[string]bool, len(state.Pods))
 	for _, pod := range state.Pods {
 		if !known[pod.ID] {
 			return fmt.Errorf("saved pod %s is not in the fleet", pod.ID)
 		}
-		saved[pod.ID] = true
 	}
+	return nil
+}
+
+// checkFleetSaved checks that the saved state has each fleet pod. Only the
+// physical tier needs this, because the logical tier puts each fleet pod at
+// its initial berth.
+func checkFleetSaved(fleet []Placement, state SavedState) error {
 	for _, placement := range fleet {
-		if !saved[placement.ID] {
+		if !slices.ContainsFunc(state.Pods, func(pod SavedPod) bool { return pod.ID == placement.ID }) {
 			return fmt.Errorf("fleet pod %s is not in the saved state", placement.ID)
 		}
 	}
@@ -229,17 +237,24 @@ func newPhysicalRestore(s *Simulation, state SavedState, gap int) *physicalResto
 
 func (r *physicalRestore) restoreCounters() {
 	s, state := r.s, r.state
-	s.tick, s.paused, s.completed, s.requestID = state.Tick, state.Paused, state.Completed, state.RequestID
-	s.boarded, s.totalWaitTicks, s.maxWaitTicks = state.Boarded, state.TotalWaitTicks, state.MaxWaitTicks
-	s.nextRedistributionTick = state.NextRedistributionTick
-	s.passengerDistanceMeters, s.emptyDistanceMeters = state.PassengerDistanceMeters, state.EmptyDistanceMeters
-	s.rebalanceMoves, s.sharedParties = state.RebalanceMoves, state.SharedParties
-	s.sharedRidePartyLimit, s.demoError = state.SharedRidePartyLimit, state.DemoError
+	s.setSavedCounters(state)
+	s.demoError = state.DemoError
 	if state.Demo != nil {
 		s.demo = &demoRun{secondSent: state.Demo.SecondSent, followupsSent: state.Demo.FollowupsSent}
 	}
 	s.owners = make(map[resource]string)
 	s.vehicles = make([]vehicle, len(state.Pods))
+}
+
+// setSavedCounters sets the clock, the paused flag, the counters and the
+// shared ride party limit of a saved state. Both restore tiers keep them.
+func (s *Simulation) setSavedCounters(state SavedState) {
+	s.tick, s.paused, s.completed, s.requestID = state.Tick, state.Paused, state.Completed, state.RequestID
+	s.boarded, s.totalWaitTicks, s.maxWaitTicks = state.Boarded, state.TotalWaitTicks, state.MaxWaitTicks
+	s.nextRedistributionTick = state.NextRedistributionTick
+	s.passengerDistanceMeters, s.emptyDistanceMeters = state.PassengerDistanceMeters, state.EmptyDistanceMeters
+	s.rebalanceMoves, s.sharedParties = state.RebalanceMoves, state.SharedParties
+	s.sharedRidePartyLimit = state.SharedRidePartyLimit
 }
 
 // decodePods fills a vehicle for each saved pod. It fails for a pod that Step
@@ -318,15 +333,15 @@ func (r *physicalRestore) checkPassengers(v *vehicle) error {
 		return errors.New("an empty pod is occupied")
 	case activity == DepartingEmpty && v.RelocatingTo == "":
 		return errors.New("an empty departure has no station to relocate to")
-	case v.carriesPassengers() && (!r.passengerStation(v.Request.From) || !r.passengerStation(v.Request.To)):
+	case v.carriesPassengers() && (!r.s.passengerStation(v.Request.From) || !r.s.passengerStation(v.Request.To)):
 		return errors.New("the request does not join two passenger stations")
 	default:
 		return nil
 	}
 }
 
-func (r *physicalRestore) passengerStation(id string) bool {
-	station, ok := r.s.station(id)
+func (s *Simulation) passengerStation(id string) bool {
+	station, ok := s.station(id)
 	return ok && !station.ParkingOnly
 }
 
@@ -805,11 +820,17 @@ func (r *physicalRestore) boardAgain(v *vehicle, berth Berth) bool {
 // requeue returns the request of a pod to the queue with its party count. The
 // boarding of the parties stays recorded.
 func (r *physicalRestore) requeue(v *vehicle) {
-	request := *v.Request
-	request.PodID, request.DispatchReason = "", ""
-	r.requeued = append(r.requeued, waitingTrip{request: request, parties: max(1, v.Parties)})
-	r.result.Requeued = append(r.result.Requeued, request.ID)
+	r.requeued = append(r.requeued, requeuedTrip(*v.Request, v.Parties))
+	r.result.Requeued = append(r.result.Requeued, v.Request.ID)
 	v.Request = nil
+}
+
+// requeuedTrip returns the queued trip for the request of a pod that carried
+// parties. The trip keeps the party count, so board and joinSharedRide do not
+// record the boarding again.
+func requeuedTrip(request Request, parties int) waitingTrip {
+	request.PodID, request.DispatchReason = "", ""
+	return waitingTrip{request: request, parties: max(1, parties)}
 }
 
 // moveTo puts a pod at rest at a berth. The pod releases each other resource.
@@ -850,7 +871,7 @@ func (r *physicalRestore) restoreWaiting() {
 		}
 		request := Request(saved.Request)
 		if !r.state.validRequest(saved.Request) || carried[request.ID] ||
-			!r.passengerStation(request.From) || !r.passengerStation(request.To) {
+			!s.passengerStation(request.From) || !s.passengerStation(request.To) {
 			r.result.Dropped = append(r.result.Dropped, request.ID)
 			r.result.DroppedParties += max(1, saved.Parties)
 			continue
@@ -869,7 +890,7 @@ func (r *physicalRestore) restoreTrip(index int, request Request) waitingTrip {
 	}
 	unbound := r.unbound[index] || !r.activePod(request.PodID) || !r.activePod(trip.deferPodID) ||
 		trip.deferCheck < 0 || trip.deferCheck > r.s.tick+TicksPerSecond
-	if trip.deferUntil < 0 || trip.deferUntil > r.s.tick+maxDispatchDeferral {
+	if !r.s.deferralInRange(trip.deferUntil) {
 		trip.deferUntil, unbound = 0, true
 	}
 	if indexes := r.tripRoutes[index]; indexes != nil && !unbound {
@@ -882,6 +903,13 @@ func (r *physicalRestore) restoreTrip(index int, request Request) waitingTrip {
 	return trip
 }
 
+// deferralInRange reports whether a saved deferral deadline is one that a
+// live simulation can set. The deadline is at most maxDispatchDeferral after
+// the current tick.
+func (s *Simulation) deferralInRange(until int64) bool {
+	return until >= 0 && until <= s.tick+maxDispatchDeferral
+}
+
 // activePod reports whether a trip can name a pod. The pod must exist and
 // keep its place.
 func (r *physicalRestore) activePod(id string) bool {
@@ -892,11 +920,10 @@ func (r *physicalRestore) activePod(id string) bool {
 	return index >= 0 && !r.demoted[index]
 }
 
-// verify derives the station phases and checks the result: pod separation
-// and berth use, the retention rules for each resource owner, and the order
-// count.
-func (r *physicalRestore) verify() error {
-	s := r.s
+// verifyRestore derives the station phases of a restored simulation and
+// checks the result: pod separation and berth use, the retention rules for
+// each resource owner, and the order gap, which must be gap.
+func (s *Simulation) verifyRestore(gap int) error {
 	for index := range s.vehicles {
 		s.updateStationPhase(&s.vehicles[index])
 	}
@@ -906,8 +933,8 @@ func (r *physicalRestore) verify() error {
 	if !maps.Equal(s.owners, s.retainedOwners()) {
 		return errors.New("the resource owners differ from the retention rules")
 	}
-	if gap, want := s.ordersGap(), r.gap+r.result.DroppedParties; gap != want {
-		return fmt.Errorf("the restore changed the order gap to %d, want %d", gap, want)
+	if got := s.ordersGap(); got != gap {
+		return fmt.Errorf("the restore changed the order gap to %d, want %d", got, gap)
 	}
 	return nil
 }

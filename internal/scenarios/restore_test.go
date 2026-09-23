@@ -118,6 +118,51 @@ func checkLondonRestore(t *testing.T, live *sim.Simulation, config project.Confi
 	return restored, state
 }
 
+// checkLondonLogicalRestore restores the state of a live simulation with the
+// logical tier only. Each fleet pod must wait empty at its initial berth. The
+// parties in an unloading pod count as completed, and the parties in each
+// other pod go back to the queue.
+func checkLondonLogicalRestore(t *testing.T, live *sim.Simulation, config project.Config) {
+	t.Helper()
+	state := live.ExportState()
+	restored, result, err := sim.RestoreState(sim.RestoreStateInput{
+		Network: config.Network, Fleet: config.Fleet, State: state, LogicalOnly: true,
+	})
+	if err != nil {
+		t.Fatalf("tick %d: %v", state.Tick, err)
+	}
+	if _, err := restored.SafetyObservation().Check(); err != nil {
+		t.Fatalf("tick %d: %v", state.Tick, err)
+	}
+	want, got := live.Snapshot(), restored.Snapshot()
+	requeued, completed := 0, want.Completed
+	for _, v := range want.Vehicles {
+		if v.Request == nil || v.Request.Completed || (v.Pod.Activity != sim.Boarding && !v.Pod.Occupied) {
+			continue
+		}
+		if v.Pod.Activity == sim.Unloading {
+			completed += max(1, v.Parties)
+		} else {
+			requeued++
+		}
+	}
+	if result.Tier != sim.RestoreLogical || result.PhysicalError != nil || len(result.Dropped) > 0 ||
+		len(result.Requeued) != requeued || requeued == 0 {
+		t.Fatalf("tick %d: result %+v, want %d requeued requests", state.Tick, result, requeued)
+	}
+	if got.Submitted != want.Submitted || got.Completed != completed || len(got.Pending) != len(want.Pending)+requeued {
+		t.Fatalf("tick %d: submitted %d, completed %d, pending %d, want %d, %d, %d", state.Tick,
+			got.Submitted, got.Completed, len(got.Pending), want.Submitted, completed, len(want.Pending)+requeued)
+	}
+	for index, v := range got.Vehicles {
+		placement := config.Fleet[index]
+		if v.Pod.ID != placement.ID || v.Pod.Activity != sim.Idle || v.Pod.BerthID != placement.BerthID || v.Request != nil {
+			t.Fatalf("tick %d: pod %+v, want pod %s idle at berth %s", state.Tick, v.Pod, placement.ID, placement.BerthID)
+		}
+	}
+	t.Logf("tick %d: logical restore requeued %d requests and completed %d parties", state.Tick, requeued, completed-want.Completed)
+}
+
 func TestRestorePhysicalLondon(t *testing.T) {
 	if testing.Short() {
 		t.Skip("the London restore test runs for about 15 s with the race detector")
@@ -142,6 +187,7 @@ func TestRestorePhysicalLondon(t *testing.T) {
 		}
 	}
 	work.check(t, config.Network)
+	checkLondonLogicalRestore(t, live, config)
 	restored.SetRedistribution(true)
 	start := restored.Snapshot()
 	runLondon(t, restored, londonRun{

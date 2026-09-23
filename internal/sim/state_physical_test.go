@@ -69,6 +69,15 @@ func (f restoreFixture) restore(state SavedState) (*Simulation, RestoreResult, e
 	return RestoreState(RestoreStateInput{Network: f.network, Fleet: f.fleet, State: state})
 }
 
+// restoreTiers are the tiers that a test can make RestoreState use.
+var restoreTiers = []RestoreTier{RestorePhysical, RestoreLogical}
+
+// restoreTier restores a saved state. For the logical tier, the restore
+// skips the physical tier.
+func (f restoreFixture) restoreTier(state SavedState, tier RestoreTier) (*Simulation, RestoreResult, error) {
+	return RestoreState(RestoreStateInput{Network: f.network, Fleet: f.fleet, State: state, LogicalOnly: tier == RestoreLogical})
+}
+
 func (f restoreFixture) berth(t *testing.T, id string) berthRef {
 	t.Helper()
 	for _, station := range f.network.Stations {
@@ -671,15 +680,22 @@ func TestRestoreClearsInvalidTripBindings(t *testing.T) {
 			tc.edit(&trip)
 			state := f.state(tc.pods...)
 			state.RequestID, state.Waiting = state.RequestID+1, []SavedTrip{trip}
-			s, result, err := f.restore(state)
-			if err != nil {
-				t.Fatal(err)
-			}
-			if result.OverCap != tc.overCap {
-				t.Fatalf("result %+v", result)
-			}
-			if got := s.ExportState().Waiting; !reflect.DeepEqual(got, []SavedTrip{tc.want}) {
-				t.Fatalf("queue\n got %+v\nwant %+v", got, tc.want)
+			for _, tier := range restoreTiers {
+				s, result, err := f.restoreTier(state, tier)
+				if err != nil || result.Tier != tier {
+					t.Fatalf("%s tier: %v, %+v", tier, err, result)
+				}
+				// The logical tier clears each binding and builds no route.
+				want, overCap := tc.want, tc.overCap
+				if tier == RestoreLogical {
+					want.Request.PodID, want.Route, want.DeferCheck, want.DeferPodID, overCap = "", nil, 0, "", 0
+				}
+				if result.OverCap != overCap {
+					t.Fatalf("%s tier: result %+v", tier, result)
+				}
+				if got := s.ExportState().Waiting; !reflect.DeepEqual(got, []SavedTrip{want}) {
+					t.Fatalf("%s tier: queue\n got %+v\nwant %+v", tier, got, want)
+				}
 			}
 		})
 	}
@@ -688,6 +704,11 @@ func TestRestoreClearsInvalidTripBindings(t *testing.T) {
 func TestRestoreDropsInvalidTrips(t *testing.T) {
 	t.Parallel()
 	f := newRestoreFixture(t, Example())
+	unloading := SavedPod{
+		ID: "05", Activity: activityCode(Unloading), StationID: "market", BerthID: "market-1", Occupied: true,
+		Request: &SavedRequest{ID: 1, From: "harbor", To: "market", PartySize: 1, PodID: "05", RequestedTick: 10},
+		Parties: 1, PhaseTicks: unloadingTicks / 2, Origin: "harbor-1", Destination: "market-1", DestinationStation: "market",
+	}
 	for _, tc := range []struct {
 		name string
 		pods []SavedPod
@@ -696,13 +717,20 @@ func TestRestoreDropsInvalidTrips(t *testing.T) {
 		parties int
 		// duplicate gives the dropped trip the ID of the trip before it.
 		duplicate bool
+		// requeued tells whether the logical tier puts the request of the
+		// first pod back in the queue.
+		requeued bool
 	}{
 		{
 			name: "three parties from a parking station", parties: 3,
 			trip: SavedTrip{Request: SavedRequest{ID: 1, From: "parking", To: "market", PartySize: 3, RequestedTick: 10}, Parties: 3},
 		},
 		{
-			name: "request that a pod carries", parties: 1, pods: []SavedPod{f.boarding(t, "01", "harbor-1")},
+			name: "request that a pod carries", parties: 1, pods: []SavedPod{f.boarding(t, "01", "harbor-1")}, requeued: true,
+			trip: SavedTrip{Request: SavedRequest{ID: 1, From: "harbor", To: "market", PartySize: 1, RequestedTick: 10}},
+		},
+		{
+			name: "request that an unloading pod carries", parties: 1, pods: []SavedPod{unloading},
 			trip: SavedTrip{Request: SavedRequest{ID: 1, From: "harbor", To: "market", PartySize: 1, RequestedTick: 10}},
 		},
 		{
@@ -726,23 +754,37 @@ func TestRestoreDropsInvalidTrips(t *testing.T) {
 			if gap := state.ordersGap(); gap != 0 {
 				t.Fatalf("the saved order gap is %d", gap)
 			}
-			s, result, err := f.restore(state)
-			if err != nil {
-				t.Fatal(err)
-			}
-			if !slices.Equal(result.Dropped, []int{tc.trip.Request.ID}) || result.DroppedParties != tc.parties {
-				t.Fatalf("result %+v", result)
-			}
-			if gap := s.ordersGap(); gap != tc.parties {
-				t.Fatalf("the order gap is %d, want %d", gap, tc.parties)
-			}
-			if got := s.ExportState().Waiting; !reflect.DeepEqual(got, []SavedTrip{kept}) {
-				t.Fatalf("queue %+v", got)
+			for _, tier := range restoreTiers {
+				s, result, err := f.restoreTier(state, tier)
+				if err != nil || result.Tier != tier {
+					t.Fatalf("%s tier: %v, %+v", tier, err, result)
+				}
+				// The request of a boarding pod goes back to the queue in front
+				// of the saved trip with the same ID.
+				var requeued []int
+				want := []SavedTrip{kept}
+				if tier == RestoreLogical && tc.requeued {
+					trip := SavedTrip{Request: *tc.pods[0].Request, Parties: tc.pods[0].Parties}
+					trip.Request.PodID = ""
+					requeued, want = []int{trip.Request.ID}, []SavedTrip{trip, kept}
+				}
+				if !slices.Equal(result.Dropped, []int{tc.trip.Request.ID}) || result.DroppedParties != tc.parties ||
+					!slices.Equal(result.Requeued, requeued) {
+					t.Fatalf("%s tier: result %+v", tier, result)
+				}
+				if gap := s.ordersGap(); gap != tc.parties {
+					t.Fatalf("%s tier: the order gap is %d, want %d", tier, gap, tc.parties)
+				}
+				if got := s.ExportState().Waiting; !reflect.DeepEqual(got, want) {
+					t.Fatalf("%s tier: queue %+v", tier, got)
+				}
 			}
 		})
 	}
 }
 
+// TestRestoreFailsForInvalidState restores states that the physical tier
+// does not accept. The logical tier restores some of them.
 func TestRestoreFailsForInvalidState(t *testing.T) {
 	t.Parallel()
 	example := newRestoreFixture(t, Example())
@@ -770,41 +812,53 @@ func TestRestoreFailsForInvalidState(t *testing.T) {
 		name    string
 		fixture restoreFixture
 		edit    func(*SavedState)
-		want    string
+		// want is a part of the error of the physical tier.
+		want string
+		// logical tells whether the logical tier restores the state.
+		logical bool
 	}{
 		{
-			name: "two pods at one berth", fixture: example, want: "are at berth",
+			name: "two pods at one berth", fixture: example, want: "are at berth", logical: true,
 			edit: func(state *SavedState) { state.Pods[0] = example.idle(t, "01", "garden-1") },
 		},
 		{name: "two pods at berths within clearance", fixture: crowded, edit: func(*SavedState) {}, want: "restored pods at berths"},
-		{name: "unknown berth", fixture: example, edit: func(state *SavedState) { state.Pods[2].BerthID = "parking-9" }, want: "unknown berth"},
 		{
-			name: "unloading without a request", fixture: example, want: "no active request",
+			name: "unknown berth", fixture: example, want: "unknown berth", logical: true,
+			edit: func(state *SavedState) { state.Pods[2].BerthID = "parking-9" },
+		},
+		{
+			name: "unloading without a request", fixture: example, want: "no active request", logical: true,
 			edit: func(state *SavedState) { state.Pods[4].Activity = activityCode(Unloading) },
 		},
-		{name: "missing fleet pod", fixture: example, edit: func(state *SavedState) { state.Pods = state.Pods[:4] }, want: "not in the saved state"},
+		{
+			name: "missing fleet pod", fixture: example, want: "not in the saved state", logical: true,
+			edit: func(state *SavedState) { state.Pods = state.Pods[:4] },
+		},
 		{
 			name: "pods out of order", fixture: example, want: "out of order",
 			edit: func(state *SavedState) { state.Pods[0], state.Pods[1] = state.Pods[1], state.Pods[0] },
 		},
 		{
-			name: "no free berth for a demoted pod", fixture: example, want: "no berth is free",
+			name: "no free berth for a demoted pod", fixture: example, want: "no berth is free", logical: true,
 			edit: func(state *SavedState) {
 				state.Pods[0], state.Pods[1] = departing, example.idle(t, "02", "garden-1")
 				state.Pods[3], state.Pods[4] = misplaced, example.idle(t, "05", "market-1")
 			},
 		},
-		{name: "negative phase", fixture: example, edit: withBoarding(func(pod *SavedPod) { pod.PhaseTicks = -1 }), want: "out of range"},
 		{
-			name: "phase longer than boarding", fixture: example, want: "out of range",
+			name: "negative phase", fixture: example, want: "out of range", logical: true,
+			edit: withBoarding(func(pod *SavedPod) { pod.PhaseTicks = -1 }),
+		},
+		{
+			name: "phase longer than boarding", fixture: example, want: "out of range", logical: true,
 			edit: withBoarding(func(pod *SavedPod) { pod.PhaseTicks = boardingTicks + 1 }),
 		},
 		{
-			name: "boarding route with an unknown lane", fixture: example, want: "unknown lane",
+			name: "boarding route with an unknown lane", fixture: example, want: "unknown lane", logical: true,
 			edit: withBoarding(func(pod *SavedPod) { pod.Route = []int{len(example.network.Lanes)} }),
 		},
 		{
-			name: "boarding route to another station", fixture: example, want: "does not connect",
+			name: "boarding route to another station", fixture: example, want: "does not connect", logical: true,
 			edit: withBoarding(func(pod *SavedPod) { pod.Route = pod.Route[:len(pod.Route)-1] }),
 		},
 		{name: "request with no party", fixture: example, edit: withBoarding(func(pod *SavedPod) { pod.Request.PartySize = 0 }), want: "not valid"},
@@ -816,14 +870,18 @@ func TestRestoreFailsForInvalidState(t *testing.T) {
 			},
 		},
 		{
-			name: "empty departure without a station", fixture: example, want: "no station to relocate to",
+			name: "empty departure without a station", fixture: example, want: "no station to relocate to", logical: true,
 			edit: func(state *SavedState) { state.Pods[2].Activity = activityCode(DepartingEmpty) },
 		},
 		{
-			name: "wait after the saved tick", fixture: example, want: "out of range",
+			name: "wait after the saved tick", fixture: example, want: "out of range", logical: true,
 			edit: withBoarding(func(pod *SavedPod) { pod.Waiting, pod.WaitSince = true, restoreTick+1 }),
 		},
 		{name: "more parties than orders", fixture: example, edit: withBoarding(func(pod *SavedPod) { pod.Parties = 2 }), want: "more parties"},
+		{
+			name: "more completed than submitted", fixture: example, want: "completed or boarded more orders",
+			edit: func(state *SavedState) { state.Completed = state.RequestID + 1 },
+		},
 		{
 			name: "too many pods", fixture: example, want: "201 pods",
 			edit: func(state *SavedState) {
@@ -844,11 +902,17 @@ func TestRestoreFailsForInvalidState(t *testing.T) {
 			state := tc.fixture.state()
 			tc.edit(&state)
 			s, result, err := tc.fixture.restore(state)
-			if err == nil || s != nil {
-				t.Fatalf("the restore succeeded with %+v", result)
+			if result.PhysicalError == nil || !strings.Contains(result.PhysicalError.Error(), tc.want) {
+				t.Fatalf("physical tier error %v, want %q", result.PhysicalError, tc.want)
 			}
-			if result.Tier != "" || !errors.Is(err, result.PhysicalError) || !strings.Contains(err.Error(), tc.want) {
-				t.Fatalf("error %q with %+v, want %q", err, result, tc.want)
+			if tc.logical {
+				if err != nil || s == nil || result.Tier != RestoreLogical {
+					t.Fatalf("the logical tier failed: %v, %+v", err, result)
+				}
+				return
+			}
+			if err == nil || s != nil || result.Tier != "" || !errors.Is(err, result.PhysicalError) {
+				t.Fatalf("error %v with %+v", err, result)
 			}
 		})
 	}

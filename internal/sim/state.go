@@ -101,8 +101,13 @@ type SavedTrip struct {
 // RestoreTier names the method that RestoreState used.
 type RestoreTier string
 
-// RestorePhysical keeps each pod where the saved state puts it.
-const RestorePhysical RestoreTier = "physical"
+const (
+	// RestorePhysical keeps each pod where the saved state puts it.
+	RestorePhysical RestoreTier = "physical"
+	// RestoreLogical puts each fleet pod at its initial berth. The parties
+	// that were on their way go back to the queue.
+	RestoreLogical RestoreTier = "logical"
+)
 
 // RestoreStateInput holds the network and the fleet of the saved simulation,
 // and its saved state.
@@ -110,6 +115,8 @@ type RestoreStateInput struct {
 	Network Network
 	Fleet   []Placement
 	State   SavedState
+	// LogicalOnly makes RestoreState skip the physical tier.
+	LogicalOnly bool
 }
 
 // RestoreResult tells how RestoreState rebuilt the simulation.
@@ -131,19 +138,37 @@ type RestoreResult struct {
 	// berth counts two times.
 	OverBudget int
 	// PhysicalError tells why the physical tier failed. It is nil when the
-	// tier is physical.
+	// tier is physical, and when LogicalOnly made RestoreState skip the
+	// physical tier.
 	PhysicalError error
 }
 
 // RestoreState rebuilds a running simulation from a saved state. The network
-// and the fleet must be the ones that the saved simulation used. It returns
-// an error when the physical tier fails.
+// and the fleet must be the ones that the saved simulation used. It tries the
+// physical tier first. When that tier fails, or when input.LogicalOnly is
+// set, it uses the logical tier. It returns an error only when the last tier
+// that it tries fails. The error then wraps the error of each tier that it
+// tried.
 func RestoreState(input RestoreStateInput) (*Simulation, RestoreResult, error) {
-	s, result, err := restorePhysical(input)
-	if err != nil {
-		return nil, RestoreResult{PhysicalError: err}, fmt.Errorf("restore the saved simulation: %w", err)
+	var physicalErr error
+	if !input.LogicalOnly {
+		s, result, err := restorePhysical(input)
+		if err == nil {
+			return s, result, nil
+		}
+		physicalErr = err
 	}
-	return s, result, nil
+	s, result, err := restoreLogical(input)
+	switch {
+	case err == nil:
+		result.PhysicalError = physicalErr
+		return s, result, nil
+	case physicalErr != nil:
+		return nil, RestoreResult{PhysicalError: physicalErr},
+			fmt.Errorf("restore the saved simulation: physical tier: %w, logical tier: %w", physicalErr, err)
+	default:
+		return nil, RestoreResult{}, fmt.Errorf("restore the saved simulation: logical tier: %w", err)
+	}
 }
 
 // ExportState copies the state that RestoreState needs. The result shares no
