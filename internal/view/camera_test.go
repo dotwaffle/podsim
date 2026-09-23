@@ -3,6 +3,7 @@ package view
 import (
 	"image"
 	"math"
+	"slices"
 	"testing"
 
 	"github.com/dotwaffle/podsim/internal/session"
@@ -216,6 +217,96 @@ func TestGameCameraWiring(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.name, test.run)
+	}
+}
+
+// TestGameCameraAcrossStateChanges checks when a new state refits the map.
+// Changes on the same network keep the zoom, pan, and follow state of the
+// user. New network bounds, a new epoch, an unfitted camera, and a layout
+// change fit the whole network again.
+func TestGameCameraAcrossStateChanges(t *testing.T) {
+	t.Parallel()
+	fullNetwork := worldBounds{left: 100, top: 100, right: 800, bottom: 500}
+	tests := []struct {
+		name string
+		// startup fits the placeholder state before the first server state.
+		// That state has no epoch.
+		startup bool
+		change  func(*Game)
+		keep    bool
+		// world is the expected camera bounds after a refit.
+		world worldBounds
+	}{
+		{name: "rewind or reset on the same network", keep: true, change: func(g *Game) {
+			g.state.Generation++
+		}},
+		{name: "demand edit", keep: true, change: func(g *Game) {
+			g.state.ProjectRevision++
+		}},
+		{name: "project restore with the same bounds", keep: true, change: func(g *Game) {
+			g.state.Generation++
+			g.state.ProjectRevision++
+			g.network.Nodes = slices.Clone(g.network.Nodes)
+			g.network.Nodes[1].Position = sim.Point{X: 300, Y: 200}
+		}},
+		{name: "project with different bounds", world: worldBounds{left: 100, top: 100, right: 1200, bottom: 700}, change: func(g *Game) {
+			g.state.Generation++
+			g.state.ProjectRevision++
+			g.network.Nodes = slices.Clone(g.network.Nodes)
+			g.network.Nodes[2].Position = sim.Point{X: 1200, Y: 700}
+		}},
+		{name: "lane control point outside the nodes", world: worldBounds{left: 100, top: 50, right: 900, bottom: 500}, change: func(g *Game) {
+			g.state.Generation++
+			g.network.Lanes = []sim.Lane{{ID: "curve", From: "b1", To: "far", Control: new(sim.Point{X: 900, Y: 50})}}
+		}},
+		{name: "new epoch", world: fullNetwork, change: func(g *Game) {
+			g.state.Epoch, g.state.Generation = "restarted", 1
+		}},
+		{name: "first server state", startup: true, world: fullNetwork, change: func(g *Game) {
+			g.state.Epoch = "server"
+		}},
+		{name: "unfitted camera at startup", startup: true, world: fullNetwork, change: func(g *Game) {
+			g.camera, g.cameraKey = mapCamera{}, cameraFitKey{}
+		}},
+		{name: "layout change", world: fullNetwork, change: func(g *Game) {
+			g.layoutFor(layoutInput{outsideWidth: 1600, outsideHeight: 1000, deviceScale: 1})
+		}},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			game := cameraTestGame()
+			game.state.Generation = 1
+			if !test.startup {
+				game.state.Epoch = "server"
+			}
+			game.fitNetwork()
+			center := sim.Point{X: float64(game.camera.viewport.Min.X+game.camera.viewport.Max.X) / 2, Y: float64(game.camera.viewport.Min.Y+game.camera.viewport.Max.Y) / 2}
+			game.camera.zoomAt(center, 3)
+			game.camera.pan(sim.Point{X: -80, Y: 30})
+			game.syncCamera()
+			game.followSelected = true
+			before := game.camera
+
+			test.change(game)
+			game.fitNetwork()
+
+			if test.keep {
+				if game.camera != before || game.mapScale != before.scale || game.mapOrigin != before.origin || !game.followSelected {
+					t.Fatalf("camera = %+v, follow %t, want kept camera %+v and follow", game.camera, game.followSelected, before)
+				}
+				return
+			}
+			var want mapCamera
+			want.fit(cameraFit{bounds: test.world, viewport: game.layout.mapViewport, unit: game.layout.unit})
+			got := game.camera
+			if got.world != want.world || got.viewport != want.viewport || got.scale != want.scale || got.origin != want.origin {
+				t.Fatalf("camera world %+v, viewport %v, scale %g, origin %+v, want refit to %+v, %v, %g, %+v", got.world, got.viewport, got.scale, got.origin, want.world, want.viewport, want.scale, want.origin)
+			}
+			if game.mapScale != want.scale || game.mapOrigin != want.origin {
+				t.Fatalf("map scale %g and origin %+v not synced with refit camera", game.mapScale, game.mapOrigin)
+			}
+		})
 	}
 }
 

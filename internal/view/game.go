@@ -62,7 +62,7 @@ type Game struct {
 	mapScale             float64
 	mapOrigin            sim.Point
 	camera               mapCamera
-	cameraKey            networkCacheKey
+	cameraKey            cameraFitKey
 	networkBase          *ebiten.Image
 	networkBaseKey       networkCacheKey
 	networkBaseValid     bool
@@ -1070,32 +1070,51 @@ func (g *Game) passengerStations() []sim.Station {
 	return stations
 }
 
-func (g *Game) fitNetwork() {
-	left, top, right, bottom := math.Inf(1), math.Inf(1), math.Inf(-1), math.Inf(-1)
+// cameraFitKey identifies the network of the last camera fit. It does not
+// contain the state generation or the project revision. Rewinds, resets, and
+// demand edits change these values on the same network. The camera then keeps
+// the zoom and pan of the user.
+type cameraFitKey struct {
+	epoch  string
+	bounds worldBounds
+}
+
+// networkBounds returns the world bounds of the network nodes and the lane
+// control points. It returns false when the network has no nodes.
+func networkBounds(network sim.Network) (worldBounds, bool) {
+	bounds := worldBounds{left: math.Inf(1), top: math.Inf(1), right: math.Inf(-1), bottom: math.Inf(-1)}
 	include := func(p sim.Point) {
-		left = min(left, p.X)
-		top = min(top, p.Y)
-		right = max(right, p.X)
-		bottom = max(bottom, p.Y)
+		bounds.left = min(bounds.left, p.X)
+		bounds.top = min(bounds.top, p.Y)
+		bounds.right = max(bounds.right, p.X)
+		bounds.bottom = max(bounds.bottom, p.Y)
 	}
-	for _, n := range g.network.Nodes {
+	for _, n := range network.Nodes {
 		include(n.Position)
 	}
-	for _, l := range g.network.Lanes {
+	for _, l := range network.Lanes {
 		if l.Control != nil {
 			include(*l.Control)
 		}
 	}
-	if len(g.network.Nodes) == 0 {
+	return bounds, len(network.Nodes) > 0
+}
+
+// fitNetwork fits the camera to the whole network when the epoch or the
+// network bounds change. A layout change also clears the camera and causes a
+// fit. Otherwise the camera keeps the zoom and pan of the user.
+func (g *Game) fitNetwork() {
+	bounds, ok := networkBounds(g.network)
+	if !ok {
 		g.camera = mapCamera{scale: 1, minScale: 1, maxScale: mapMaxZoom, initialized: true, viewport: g.layout.mapViewport, panMargin: mapPanMargin * g.layout.unit, dragThreshold: mapDragThreshold * g.layout.unit}
 		g.syncCamera()
 		return
 	}
-	key := networkCacheKey{epoch: g.state.Epoch, generation: g.state.Generation}
-	if g.camera.initialized && g.cameraKey.epoch == key.epoch && g.cameraKey.generation == key.generation {
+	key := cameraFitKey{epoch: g.state.Epoch, bounds: bounds}
+	if g.camera.initialized && g.cameraKey == key {
 		return
 	}
-	g.camera.fit(cameraFit{bounds: worldBounds{left: left, top: top, right: right, bottom: bottom}, viewport: g.layout.mapViewport, unit: g.layout.unit})
+	g.camera.fit(cameraFit{bounds: bounds, viewport: g.layout.mapViewport, unit: g.layout.unit})
 	g.cameraKey = key
 	g.syncCamera()
 }

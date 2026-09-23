@@ -68,6 +68,7 @@ See [distribution and operations](docs/operations.md) for build and runtime sett
 - The map legend explains the colors. An amber ring marks waiting pods, and a white ring marks the selected pod.
 - Scroll over the map to zoom at the pointer. Drag the map to pan. Use **Fit** to show the whole network.
 - Map navigation stays local to your browser. Zoom in to see individual berths in crowded stations.
+  **Reset** and **Rewind** keep the map view when the network does not change.
 - Select **Follow** or press **F** to keep the selected pod centered. Dragging the map or selecting **Fit** stops following.
 - Overview labels show occupied berths and nonzero entrance and exit queues.
 - Expanded labels show occupied, reserved-empty, and free berths. These counts sum to station capacity.
