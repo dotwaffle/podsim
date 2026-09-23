@@ -170,6 +170,11 @@ The supplied traffic demo requires the unchanged example network and fleet.
 ### Passenger demand
 
 Open **Demand** to select the rate, traffic pattern, and seed, then select **Start demand**.
+**Rate** cycles through 1, 2, 4, 8, 12, 20, 30, and 60 orders per simulated minute, then starts again at 1.
+A project rate that is not in this list, for example 7, shows until the first click.
+That click selects the next higher rate in the list, or 1 for a rate above 60.
+Each click on **Seed** adds 1 to the seed.
+Each change in the **Demand** panel saves to the project at once, and the panel shows **Changes save to the project**.
 Rates use simulated minutes, so 8x playback generates orders eight times faster in wall time.
 Balanced traffic chooses among all passenger stations.
 Destination traffic sends passengers from the other passenger stations to one station.

@@ -166,14 +166,7 @@ func (g *Game) changeDemand(action string) {
 	config := g.state.Demand.Config
 	switch action {
 	case "demand-rate":
-		next := 1
-		for _, rate := range []int{1, 2, 4, 8, 12} {
-			if rate > config.PerMinute {
-				next = rate
-				break
-			}
-		}
-		config.PerMinute = next
+		config.PerMinute = nextDemandRate(config.PerMinute)
 	case "demand-pattern":
 		switch {
 		case config.Pattern == "balanced":
@@ -188,17 +181,53 @@ func (g *Game) changeDemand(action string) {
 			config.Pattern = "balanced"
 		}
 	case "demand-seed":
-		config.Seed = config.Seed%9 + 1
+		config.Seed = nextDemandSeed(config.Seed)
 	case "demand-toggle":
 		config.Enabled = !config.Enabled
 	}
 	g.submit(session.Command{Action: "demand", Demand: config})
 }
 
+// nextDemandRate returns the rate in orders per simulated minute that the
+// Rate button selects after current. The cycle contains the rates 1, 2, 4,
+// 8, 12, 20, 30, and 60 and the current rate, in ascending order. Thus the
+// London rate of 20 is in the cycle. A project rate that is not in the list
+// stays in the cycle until the rate changes. After the highest rate, the
+// cycle starts again at 1.
+func nextDemandRate(current int) int {
+	for _, rate := range []int{1, 2, 4, 8, 12, 20, 30, 60} {
+		if rate > current {
+			return rate
+		}
+	}
+	return 1
+}
+
+// nextDemandSeed returns the seed that the Seed button selects after seed.
+// After the largest seed, the next seed is 0. project.ValidateDemand
+// accepts all seeds, 0 included.
+func nextDemandSeed(seed uint64) uint64 {
+	return seed + 1
+}
+
+// demandSavesNote tells the user that each change in the Demand panel
+// changes the project.
+const demandSavesNote = "Changes save to the project"
+
 func (g *Game) drawDemand(screen *ebiten.Image) {
+	for _, value := range g.demandLabels() {
+		g.label(screen, value)
+	}
+}
+
+// demandLabels returns the text of the Demand panel.
+func (g *Game) demandLabels() []label {
 	demand := g.state.Demand
-	g.label(screen, label{x: 816, y: 115, size: 12, value: "PASSENGER DEMAND", color: muted})
-	g.label(screen, label{x: 816, y: 140, size: 11, value: "Per simulated minute / shared settings", color: foreground})
-	g.label(screen, label{x: 816, y: 352, size: 11, value: fmt.Sprintf("Generated %d / skipped %d", demand.Generated, demand.Skipped), color: foreground})
-	g.label(screen, label{x: 816, y: 371, size: 10, value: fmt.Sprintf("Reposition: %t / %d moves / %.0f m empty", g.state.Redistribution, g.state.Simulation.RebalanceMoves, g.state.Simulation.EmptyDistanceMeters), color: muted})
+	return []label{
+		{x: 816, y: 115, size: 12, value: "PASSENGER DEMAND", color: muted},
+		{x: 816, y: 140, size: 11, value: "Per simulated minute / shared settings", color: foreground},
+		{x: 816, y: 158, size: 10, value: demandSavesNote, color: muted},
+		{x: 816, y: 352, size: 11, value: fmt.Sprintf("Generated %d / skipped %d", demand.Generated, demand.Skipped), color: foreground},
+		{x: 816, y: 371, size: 10, value: fmt.Sprintf("Reposition: %t / %d moves / %.0f m empty", g.state.Redistribution, g.state.Simulation.RebalanceMoves, g.state.Simulation.EmptyDistanceMeters), color: muted},
+	}
 }

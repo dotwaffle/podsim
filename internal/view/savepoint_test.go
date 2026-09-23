@@ -260,7 +260,14 @@ func TestSavePointClicks(t *testing.T) {
 // The session clock does not run.
 func sharedTestGame(t *testing.T) *Game {
 	t.Helper()
-	shared, err := session.NewWithProject(project.Default(), session.WithLogger(slog.New(slog.DiscardHandler)))
+	return sharedProjectGame(t, project.Default())
+}
+
+// sharedProjectGame returns a game that is connected over HTTP to a new
+// session of config. The session clock does not run.
+func sharedProjectGame(t *testing.T, config project.Config) *Game {
+	t.Helper()
+	shared, err := session.NewWithProject(config, session.WithLogger(slog.New(slog.DiscardHandler)))
 	if err != nil {
 		t.Fatalf("create session: %v", err)
 	}
