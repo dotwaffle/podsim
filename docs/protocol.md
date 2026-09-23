@@ -64,6 +64,23 @@ Each command contains a `client` ID, a `sequence`, the session `epoch`, and an
 `action`. The actions are `trip`, `pause`, `speed`, `reset`, `demo`, `demand`,
 `project`, `checkpoint`, and `rewind`.
 
+The other members depend on the action:
+
+| Action | Members | Effect |
+| --- | --- | --- |
+| `trip` | `origin`, `destination`: station IDs | Adds an order. The stations must be different, connected passenger stations. The server rejects the order during the demo or when the queue holds 200 orders. |
+| `pause` | `paused`: boolean | `true` pauses the session. `false` or an absent member resumes it. |
+| `speed` | `speed`: 1, 2, 4, or 8 | Sets the playback speed. |
+| `reset` | None | Restores the project fleet and demand settings, and clears the orders. It sets the speed to 1 and keeps the pause state. |
+| `demo` | None | Resets the run, starts the traffic demo, disables automatic demand, and sets the speed to 1. It needs the unchanged example network and fleet. |
+| `demand` | `demand`: the `demand` object of a project | Replaces the demand settings of the project and increases the project revision. The server rejects it during the demo. |
+| `project` | `project`: the `project` object from `GET /api/project`. `projectRevision`: integer | Replaces the project and increases the project revision. The new fleet starts paused at speed 1. The session must be paused, and `projectRevision` must be the current project revision. |
+| `checkpoint` | None | Makes a save point. |
+| `rewind` | `checkpoint`: save point ID, an integer | Restores the save point and pauses the session. |
+
+In the acknowledgment, `trip` sets `orderID`, `checkpoint` sets `checkpoint`,
+and a `rewind` that restores a project sets `projectRestored`.
+
 Command acknowledgments contain the session epoch, state revision, project
 revision, generation, optional order ID, optional checkpoint ID, and optional
 `projectRestored` flag. They do not repeat a state frame. A rejected command

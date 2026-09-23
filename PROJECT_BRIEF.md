@@ -258,6 +258,7 @@ This brief does not estimate their effort, except where an optional stage appear
 - Export and reload the project with its background intact.
 - Exercise undo, invalid input, pause, reset, and pod following.
 - Select Save point, run the simulation, then select Rewind. The session must pause at the saved time.
+- Start the server with `-state`, and run the simulation with pods and orders for at least 60 s. Stop the server with Ctrl-C, then start it again with the same command. The `Restored session` log record must give `tier=physical` and `epochKept=true`. The pods must continue from the same positions, and the open page must keep its session.
 - Run a proposed baseline of 20 stations and 100 pods.
 - Record hardware, frame rate, and simulation update cost before establishing performance guarantees.
 
@@ -271,8 +272,8 @@ invalid input, reset, stale edit conflicts, and the 20-station, 100-pod
 scenario. The hardware and performance record is in
 [docs/qualification.md](docs/qualification.md).
 
-The project added the save point and rewind checks above on September 23,
-2026, after this acceptance.
+The project added the save point, rewind, and `-state` restart checks above
+on September 23, 2026, after this acceptance.
 
 ## 6. Future extensions and experiments
 

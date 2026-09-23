@@ -462,7 +462,7 @@ New pull-request updates cancel older runs.
 Each `main` push keeps its own run.
 The workflow uses major-version action tags and installs tools from `mise.lock`.
 Go module, build, and lint analysis caches use job-specific keys and refresh after successful runs.
-The lint configuration follows Q without its database and protobuf rules.
+The lint configuration adds resource, context, and security linters to the standard golangci-lint set.
 It also checks package boundaries. `internal/sim` can import only the standard library.
 `internal/session`, `internal/project`, and `cmd/serve` cannot import the renderer or browser APIs.
 Packages in the browser build cannot import cloud storage packages or `internal/statestore`.
