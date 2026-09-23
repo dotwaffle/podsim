@@ -3,6 +3,16 @@
 
   const MIN_LANE_LENGTH = 24;
   const DEFAULT_SPEED = 12;
+  // A view scale is in screen pixels per meter. Fit keeps FIT_MARGIN pixels of
+  // the map free, half on each side of the network.
+  const MIN_ZOOM = 0.15;
+  const MAX_ZOOM = 5;
+  const MAX_FIT_ZOOM = 3;
+  const FIT_MARGIN = 100;
+  // NODE_LABEL_SCALE is the lowest scale at which all junctions show their ID.
+  // NODE_LABEL_SIZE is the font size of a junction ID label in meters.
+  const NODE_LABEL_SCALE = 0.5;
+  const NODE_LABEL_SIZE = 9;
   const STATION_LANE_ROLES = new Set(["approach", "entry", "berth-access", "through", "departure", "exit"]);
 
   function clone(value) {
@@ -203,24 +213,47 @@
     return ids;
   }
 
+  // shiftNodes moves a set of nodes by an offset, in place. It also moves the
+  // curve control point of each lane between two nodes of the set.
+  function shiftNodes(config, shift) {
+    for (const node of config.network.Nodes) {
+      if (shift.ids.has(node.ID)) {
+        node.Position.X += shift.dx;
+        node.Position.Y += shift.dy;
+      }
+    }
+    for (const lane of config.network.Lanes) {
+      if (lane.Control && shift.ids.has(lane.From) && shift.ids.has(lane.To)) {
+        lane.Control.X += shift.dx;
+        lane.Control.Y += shift.dy;
+      }
+    }
+  }
+
   function moveStation(config, stationID, dx, dy) {
     const out = clone(config);
     const station = out.network.Stations.find((item) => item.ID === stationID);
     if (!station) return config;
-    const ids = stationNodeIDs(out, station);
-    for (const node of out.network.Nodes) {
-      if (ids.has(node.ID)) {
-        node.Position.X += dx;
-        node.Position.Y += dy;
-      }
-    }
-    for (const lane of out.network.Lanes) {
-      if (lane.Control && ids.has(lane.From) && ids.has(lane.To)) {
-        lane.Control.X += dx;
-        lane.Control.Y += dy;
-      }
-    }
+    shiftNodes(out, { ids: stationNodeIDs(out, station), dx, dy });
     return out;
+  }
+
+  // dragTargets gives the items that a drag moves. A station drag moves the
+  // station nodes, and a node drag moves one node. The targets are these
+  // nodes, the lanes that touch them, and the stations whose shape they move.
+  // A control drag moves the curve of one lane. The map redraws only the
+  // targets during a drag.
+  function dragTargets(config, drag) {
+    const moved = new Set();
+    if (drag.type === "station") {
+      const station = config.network.Stations.find((item) => item.ID === drag.id);
+      if (station) for (const id of stationNodeIDs(config, station)) moved.add(id);
+    } else if (drag.type === "node") moved.add(drag.id);
+    return {
+      nodeIDs: config.network.Nodes.filter((node) => moved.has(node.ID)).map((node) => node.ID),
+      laneIDs: config.network.Lanes.filter((lane) => (drag.type === "control" && lane.ID === drag.id) || moved.has(lane.From) || moved.has(lane.To)).map((lane) => lane.ID),
+      stationIDs: config.network.Stations.filter((station) => moved.has(station.Entry) || moved.has(station.Exit)).map((station) => station.ID),
+    };
   }
 
   function moveNode(config, nodeID, x, y) {
@@ -600,10 +633,50 @@
     };
   }
 
+  // networkBounds gives the box around the nodes and the background image. It
+  // gives null when the map has nothing to show.
+  function networkBounds(config, background) {
+    const points = config.network.Nodes.map((node) => node.Position);
+    if (background) points.push({ X: background.x, Y: background.y }, { X: background.x + background.width, Y: background.y + background.height });
+    if (!points.length) return null;
+    const xs = points.map((item) => item.X); const ys = points.map((item) => item.Y);
+    return { minX: Math.min(...xs), minY: Math.min(...ys), maxX: Math.max(...xs), maxY: Math.max(...ys) };
+  }
+
+  // fitView gives the view that shows the bounds in the center of a map of
+  // the given size. The scale has no lower limit, so a large network fits.
+  function fitView(bounds, size) {
+    if (!bounds) return { x: 0, y: 0, scale: 1 };
+    const width = Math.max(80, bounds.maxX - bounds.minX); const height = Math.max(80, bounds.maxY - bounds.minY);
+    const scale = Math.min(MAX_FIT_ZOOM, Math.max(1, size.width - FIT_MARGIN) / width, Math.max(1, size.height - FIT_MARGIN) / height);
+    return { scale, x: size.width / 2 - ((bounds.minX + bounds.maxX) / 2) * scale, y: size.height / 2 - ((bounds.minY + bounds.maxY) / 2) * scale };
+  }
+
+  // zoomScale gives the scale after one zoom step. The lowest scale is
+  // MIN_ZOOM, or the fit scale if the network needs a lower scale to fit. A
+  // step out never increases the scale, also when the view is already below
+  // that limit.
+  function zoomScale(step) {
+    const lowest = Math.min(MIN_ZOOM, step.fitScale, step.scale);
+    return Math.min(MAX_ZOOM, Math.max(lowest, step.scale * step.factor));
+  }
+
+  // nodeLabelSize gives the font size in meters of the ID label of a junction,
+  // or 0 when the label does not show. All labels show at NODE_LABEL_SCALE or
+  // more. The label of the selected junction and of the start node of a new
+  // guideway always shows. It is never smaller than NODE_LABEL_SIZE screen
+  // pixels, so it stays readable when the map is zoomed out.
+  function nodeLabelSize(label) {
+    const selected = label.id === label.linkFrom || Boolean(label.selection && label.selection.type === "node" && label.selection.id === label.id);
+    if (selected) return NODE_LABEL_SIZE / Math.min(1, label.scale);
+    return label.scale >= NODE_LABEL_SCALE ? NODE_LABEL_SIZE : 0;
+  }
+
   const API = {
-    MIN_LANE_LENGTH, emptyConfig, normalizeConfig, addLane, addJunction, addStation, addBerth,
+    MIN_LANE_LENGTH, MIN_ZOOM, NODE_LABEL_SCALE, NODE_LABEL_SIZE, emptyConfig, normalizeConfig, addLane, addJunction, addStation, addBerth,
     removeBerth, moveStation, moveNode, deleteNode, deleteLane, deleteStation, setFleetCount,
-    laneLength, reachable, stationNodeOwners, validateConfig, serializeDocument, parseDocument, createHistory,
+    laneLength, reachable, stationNodeOwners, dragTargets, validateConfig, serializeDocument, parseDocument, createHistory,
+    networkBounds, fitView, zoomScale, nodeLabelSize,
   };
   if (typeof module !== "undefined" && module.exports) module.exports = API;
   root.PodsimEditorModel = API;
@@ -624,6 +697,8 @@
     tool: "select",
     linkFrom: "",
     view: { x: 0, y: 0, scale: 1 },
+    // map holds the drawn map elements by ID, so a drag can move them in place.
+    map: null,
     drag: null,
     calibrating: false,
     calibrationPoints: [],
@@ -631,11 +706,11 @@
   };
 
   function draft() { return state.history.value.scenario; }
-  function svgElement(name, attributes) {
-    const element = document.createElementNS(svgNS, name);
+  function setAttributes(element, attributes) {
     for (const [key, value] of Object.entries(attributes || {})) element.setAttribute(key, value);
     return element;
   }
+  function svgElement(name, attributes) { return setAttributes(document.createElementNS(svgNS, name), attributes); }
   function nodeFor(config, id) { return config.network.Nodes.find((node) => node.ID === id); }
   function stationForNode(config, id) { const stationID = stationNodeOwners(config).get(id); return config.network.Stations.find((station) => station.ID === stationID); }
   function stationCenter(config, station) {
@@ -656,11 +731,14 @@
     const rect = $("#networkMap").getBoundingClientRect();
     return { X: (event.clientX - rect.left - state.view.x) / state.view.scale, Y: (event.clientY - rect.top - state.view.y) / state.view.scale };
   }
-  function setView() { $("#viewport").setAttribute("transform", `translate(${state.view.x} ${state.view.y}) scale(${state.view.scale})`); }
+  function setView() {
+    $("#viewport").setAttribute("transform", `translate(${state.view.x} ${state.view.y}) scale(${state.view.scale})`);
+    if (state.map && state.map.labelScale !== state.view.scale) renderNodeLabels();
+  }
   function zoomAt(factor, clientX, clientY) {
     const rect = $("#networkMap").getBoundingClientRect();
     const sx = clientX - rect.left; const sy = clientY - rect.top;
-    const old = state.view.scale; const next = Math.max(.15, Math.min(5, old * factor));
+    const old = state.view.scale; const next = zoomScale({ scale: old, factor, fitScale: fitView(state.map.bounds, rect).scale });
     const wx = (sx - state.view.x) / old; const wy = (sy - state.view.y) / old;
     state.view.scale = next; state.view.x = sx - wx * next; state.view.y = sy - wy * next; setView();
   }
@@ -672,37 +750,51 @@
     return `M ${from.Position.X} ${from.Position.Y} L ${to.Position.X} ${to.Position.Y}`;
   }
 
+  // The place functions give the position attributes of the drawn items.
+  // renderMap and a drag both use them, so a moved item matches a redrawn one.
+  // A junction label has an offset of one font size from its node, so its
+  // position does not change when its font size changes.
+  function placeNode(position) { return { cx: position.X, cy: position.Y }; }
+  function placeNodeLabel(position) { return { x: position.X, y: position.Y }; }
+  function placeStation(center) { return { shape: { x: center.X - 34, y: center.Y - 16 }, label: { x: center.X, y: center.Y - 21 } }; }
+  function placeControl(config, lane) {
+    const from = nodeFor(config, lane.From); const to = nodeFor(config, lane.To);
+    return { line: { d: `M ${from.Position.X} ${from.Position.Y} L ${lane.Control.X} ${lane.Control.Y} L ${to.Position.X} ${to.Position.Y}` }, handle: { cx: lane.Control.X, cy: lane.Control.Y } };
+  }
+
   function renderMap() {
     const config = draft();
     const backgroundLayer = $("#backgroundLayer"); const laneLayer = $("#laneLayer"); const stationLayer = $("#stationLayer"); const nodeLayer = $("#nodeLayer"); const handleLayer = $("#handleLayer");
     backgroundLayer.replaceChildren(); laneLayer.replaceChildren(); stationLayer.replaceChildren(); nodeLayer.replaceChildren(); handleLayer.replaceChildren();
+    const map = { bounds: networkBounds(config, state.background), lanes: new Map(), stations: new Map(), nodes: new Map(), junctions: [], labels: new Map(), labelScale: null, handles: null };
     if (state.background) {
       const image = svgElement("image", { class: "background-image", href: state.background.dataURL, x: state.background.x, y: state.background.y, width: state.background.width, height: state.background.height, opacity: state.background.opacity, preserveAspectRatio: "none" });
       backgroundLayer.append(image);
     }
     for (const lane of config.network.Lanes) {
       const path = svgElement("path", { class: `lane${state.selection && state.selection.type === "lane" && state.selection.id === lane.ID ? " selected" : ""}`, d: lanePath(config, lane), "data-type": "lane", "data-id": lane.ID });
-      laneLayer.append(path);
+      laneLayer.append(path); map.lanes.set(lane.ID, path);
     }
     for (const station of config.network.Stations) {
-      const center = stationCenter(config, station);
-      const shape = svgElement("rect", { class: `station-shape${state.selection && state.selection.type === "station" && state.selection.id === station.ID ? " selected" : ""}`, x: center.X - 34, y: center.Y - 16, width: 68, height: 32, rx: 8, "data-type": "station", "data-id": station.ID });
-      stationLayer.append(shape);
-      const label = svgElement("text", { class: "station-label", x: center.X, y: center.Y - 21 }); label.textContent = station.Name; stationLayer.append(label);
+      const place = placeStation(stationCenter(config, station));
+      const shape = svgElement("rect", { class: `station-shape${state.selection && state.selection.type === "station" && state.selection.id === station.ID ? " selected" : ""}`, ...place.shape, width: 68, height: 32, rx: 8, "data-type": "station", "data-id": station.ID });
+      const label = svgElement("text", { class: "station-label", ...place.label }); label.textContent = station.Name;
+      stationLayer.append(shape, label); map.stations.set(station.ID, { shape, label });
     }
     const component = stationNodeOwners(config);
     for (const node of config.network.Nodes) {
       const stationID = component.get(node.ID);
-      const circle = svgElement("circle", { class: stationID ? "station-node" : `junction${state.selection && state.selection.type === "node" && state.selection.id === node.ID ? " selected" : ""}`, cx: node.Position.X, cy: node.Position.Y, r: stationID ? 5 : 7, "data-type": stationID ? "station-node" : "node", "data-id": node.ID, "data-station": stationID || "" });
-      nodeLayer.append(circle);
-      if (!stationID) { const label = svgElement("text", { class: "node-label", x: node.Position.X + 9, y: node.Position.Y - 9 }); label.textContent = node.ID; nodeLayer.append(label); }
+      const circle = svgElement("circle", { class: stationID ? "station-node" : `junction${state.selection && state.selection.type === "node" && state.selection.id === node.ID ? " selected" : ""}`, ...placeNode(node.Position), r: stationID ? 5 : 7, "data-type": stationID ? "station-node" : "node", "data-id": node.ID, "data-station": stationID || "" });
+      nodeLayer.append(circle); map.nodes.set(node.ID, circle);
+      if (!stationID) map.junctions.push(node);
     }
     if (state.selection && state.selection.type === "lane") {
       const lane = config.network.Lanes.find((item) => item.ID === state.selection.id);
       if (lane && lane.Control) {
-        const from = nodeFor(config, lane.From); const to = nodeFor(config, lane.To);
-        handleLayer.append(svgElement("path", { class: "control-line", d: `M ${from.Position.X} ${from.Position.Y} L ${lane.Control.X} ${lane.Control.Y} L ${to.Position.X} ${to.Position.Y}` }));
-        handleLayer.append(svgElement("circle", { class: "control-handle", cx: lane.Control.X, cy: lane.Control.Y, r: 7, "data-type": "control", "data-id": lane.ID }));
+        const place = placeControl(config, lane);
+        const line = svgElement("path", { class: "control-line", ...place.line });
+        const handle = svgElement("circle", { class: "control-handle", ...place.handle, r: 7, "data-type": "control", "data-id": lane.ID });
+        handleLayer.append(line, handle); map.handles = { laneID: lane.ID, line, handle };
       }
     }
     if (state.linkFrom) {
@@ -710,7 +802,58 @@
       if (from) handleLayer.append(svgElement("circle", { class: "control-handle", cx: from.Position.X, cy: from.Position.Y, r: 10 }));
     }
     for (const calibration of state.calibrationPoints) handleLayer.append(svgElement("circle", { class: "calibration-point", cx: calibration.X, cy: calibration.Y, r: 7 }));
-    setView();
+    state.map = map; renderNodeLabels(); setView();
+  }
+
+  // renderNodeLabels draws the junction ID labels that nodeLabelSize allows at
+  // the current scale. setView calls it again when the scale changes. If the
+  // scale does not cross NODE_LABEL_SCALE, the same labels show, and only a
+  // selected label can change its font size.
+  function renderNodeLabels() {
+    const map = state.map; const scale = state.view.scale;
+    const size = (id) => nodeLabelSize({ scale, id, selection: state.selection, linkFrom: state.linkFrom });
+    const sameLabels = map.labelScale !== null && (map.labelScale >= NODE_LABEL_SCALE) === (scale >= NODE_LABEL_SCALE);
+    map.labelScale = scale;
+    if (sameLabels) {
+      for (const id of [state.linkFrom, state.selection && state.selection.id]) { const label = map.labels.get(id); if (label) label.setAttribute("font-size", size(id)); }
+      return;
+    }
+    const layer = $("#labelLayer"); layer.replaceChildren(); map.labels.clear();
+    for (const node of map.junctions) {
+      const fontSize = size(node.ID);
+      if (!fontSize) continue;
+      const label = svgElement("text", { class: "node-label", ...placeNodeLabel(node.Position), dx: "1em", dy: "-1em", "font-size": fontSize }); label.textContent = node.ID;
+      layer.append(label); map.labels.set(node.ID, label);
+    }
+    // A zoom during a drag draws the labels again. Put the moved labels at
+    // their drag positions.
+    if (state.drag && state.drag.working) drawDragTargets(state.drag.working, state.drag.targets);
+  }
+
+  // drawDragTargets moves the drawn targets of a drag to their positions in
+  // the working copy of the draft. The other map items stay as they are.
+  function drawDragTargets(config, targets) {
+    const map = state.map;
+    for (const id of targets.nodeIDs) {
+      const node = nodeFor(config, id); const circle = map.nodes.get(id); const label = map.labels.get(id);
+      if (node && circle) setAttributes(circle, placeNode(node.Position));
+      if (node && label) setAttributes(label, placeNodeLabel(node.Position));
+    }
+    for (const id of targets.laneIDs) {
+      const lane = config.network.Lanes.find((item) => item.ID === id); const path = map.lanes.get(id);
+      if (!lane) continue;
+      if (path) path.setAttribute("d", lanePath(config, lane));
+      if (map.handles && map.handles.laneID === id && lane.Control) {
+        const place = placeControl(config, lane);
+        setAttributes(map.handles.line, place.line); setAttributes(map.handles.handle, place.handle);
+      }
+    }
+    for (const id of targets.stationIDs) {
+      const station = config.network.Stations.find((item) => item.ID === id); const drawn = map.stations.get(id);
+      if (!station || !drawn) continue;
+      const place = placeStation(stationCenter(config, station));
+      setAttributes(drawn.shape, place.shape); setAttributes(drawn.label, place.label);
+    }
   }
 
   function renderSelection() {
@@ -765,6 +908,9 @@
   }
 
   function render() {
+    // A render draws the draft from the history. It ends a drag of a working
+    // copy, so that a pointer up cannot record that copy over a newer draft.
+    if (state.drag && state.drag.working) state.drag = null;
     state.background = state.history.value.background;
     const config = draft(); $("#scenarioName").value = config.name; $("#backgroundOpacity").value = state.background ? state.background.opacity : .45; $("#opacityValue").value = `${Math.round(Number($("#backgroundOpacity").value) * 100)}%`;
     $("#undoButton").disabled = !state.history.canUndo; $("#redoButton").disabled = !state.history.canRedo;
@@ -790,8 +936,17 @@
   function selectItem(type, id) { state.selection = { type, id }; render(); }
 
   function beginDrag(type, id, event) {
-    const config = draft(); const position = worldPoint(event);
-    state.drag = { type, id, before: state.history.value, last: position, startClient: { x: event.clientX, y: event.clientY }, originalView: { ...state.view } };
+    const drag = { type, id, startClient: { x: event.clientX, y: event.clientY }, originalView: { ...state.view } };
+    if (type !== "pan") {
+      // Commit a changed form field first. Its change event renders, and a
+      // render ends a drag of a working copy.
+      const field = document.activeElement;
+      if (field && field.matches("input, select, textarea")) field.blur();
+      // The drag changes a working copy of the draft and redraws only its
+      // targets. The pointer up records the result in the history.
+      drag.working = draft(); drag.targets = dragTargets(drag.working, { type, id }); drag.moved = new Set(drag.targets.nodeIDs); drag.last = worldPoint(event);
+    }
+    state.drag = drag;
     $("#networkMap").setPointerCapture(event.pointerId);
   }
 
@@ -829,33 +984,29 @@
   }
 
   function onPointerMove(event) {
-    if (!state.drag) return;
-    if (state.drag.type === "pan") {
-      state.view.x = state.drag.originalView.x + event.clientX - state.drag.startClient.x; state.view.y = state.drag.originalView.y + event.clientY - state.drag.startClient.y; setView(); return;
+    const drag = state.drag;
+    if (!drag) return;
+    if (drag.type === "pan") {
+      state.view.x = drag.originalView.x + event.clientX - drag.startClient.x; state.view.y = drag.originalView.y + event.clientY - drag.startClient.y; setView(); return;
     }
-    const location = worldPoint(event); let config = draft();
-    if (state.drag.type === "station") { config = moveStation(config, state.drag.id, location.X - state.drag.last.X, location.Y - state.drag.last.Y); state.drag.last = location; }
-    else if (state.drag.type === "node") config = moveNode(config, state.drag.id, location.X, location.Y);
-    else if (state.drag.type === "control") { config = clone(config); const lane = config.network.Lanes.find((item) => item.ID === state.drag.id); if (lane) lane.Control = location; }
-    state.history.replace({ scenario: config, background: state.background }, false); renderMap(); renderSelection();
+    const location = worldPoint(event); const config = drag.working;
+    if (drag.type === "station") { shiftNodes(config, { ids: drag.moved, dx: location.X - drag.last.X, dy: location.Y - drag.last.Y }); drag.last = location; }
+    else if (drag.type === "node") { const node = nodeFor(config, drag.id); if (node) node.Position = { X: location.X, Y: location.Y }; }
+    else if (drag.type === "control") { const lane = config.network.Lanes.find((item) => item.ID === drag.id); if (lane) lane.Control = location; }
+    // The selection panel shows the new values after the pointer up. A panel
+    // change during the drag would make the browser lay out the whole map again.
+    drawDragTargets(config, drag.targets);
   }
 
   function onPointerUp(event) {
-    if (!state.drag) return;
-    const drag = state.drag; state.drag = null;
+    const drag = state.drag;
+    if (!drag) return;
+    state.drag = null;
     try { $("#networkMap").releasePointerCapture(event.pointerId); } catch (_) {}
-    if (drag.type !== "pan") state.history.commitFrom(drag.before, state.history.value);
-    render();
+    if (drag.type !== "pan") setDraft(drag.working);
   }
 
-  function fitNetwork() {
-    const config = draft(); const points = config.network.Nodes.map((node) => node.Position);
-    if (state.background) points.push({ X: state.background.x, Y: state.background.y }, { X: state.background.x + state.background.width, Y: state.background.y + state.background.height });
-    if (!points.length) { state.view = { x: 0, y: 0, scale: 1 }; setView(); return; }
-    const xs = points.map((item) => item.X); const ys = points.map((item) => item.Y); const minX = Math.min(...xs); const maxX = Math.max(...xs); const minY = Math.min(...ys); const maxY = Math.max(...ys);
-    const rect = $("#networkMap").getBoundingClientRect(); const scale = Math.max(.15, Math.min(3, Math.min((rect.width - 100) / Math.max(80, maxX - minX), (rect.height - 100) / Math.max(80, maxY - minY))));
-    state.view = { scale, x: rect.width / 2 - ((minX + maxX) / 2) * scale, y: rect.height / 2 - ((minY + maxY) / 2) * scale }; setView();
-  }
+  function fitNetwork() { state.view = fitView(state.map.bounds, $("#networkMap").getBoundingClientRect()); setView(); }
 
   function runValidation() { return showValidation(validateConfig(draft())); }
   function showValidation(errors) {

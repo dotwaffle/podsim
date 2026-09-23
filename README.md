@@ -195,7 +195,8 @@ Export the draft before reloading a newer server project.
 - Set station berth capacity and place initial pods in free berths.
 - Drag a station to move it. The drag also moves the nodes that only its station lanes use, such as a berth chain. **Delete station and connections** removes these nodes too.
 - Set the passenger generation option, rate, pattern, destination, OD profile, time band, same-destination party limit, seed, and redistribution option.
-- Use undo and redo for draft changes. Drag empty space to pan, and use the wheel to zoom.
+- Use undo and redo for draft changes. Drag empty space to pan, and use the wheel to zoom. Press Escape to cancel drawing or moving an item.
+- Select **Fit network** to show the whole network, also a large network such as London. Junction ID labels show at 0.5 screen pixels per meter or more. The selected junction and the start node of a new guideway always show their ID label, at a font size of 9 screen pixels or more.
 - Import a PNG or JPEG background. Select **Calibrate scale**, select two points on the image, enter their distance in meters, then select **Set scale**.
 - Export JSON to save the scenario and optional background. Import JSON to restore a draft.
 

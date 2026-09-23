@@ -312,7 +312,135 @@ for (const preset of ["scale100", "london"]) {
   test(`import accepts the generated ${preset} project file`, () => {
     assert.deepEqual(editor.parseDocument(generatedFile(preset)), { scenario: generatedProject(preset), background: null });
   });
+
+  test(`a drag on the generated ${preset} project redraws only the moved items`, () => {
+    const config = generatedProject(preset);
+    const station = config.network.Stations.find((item) => !item.ParkingOnly);
+    const owners = editor.stationNodeOwners(config);
+    const junction = config.network.Nodes.find((node) => !owners.has(node.ID));
+    assert.deepEqual(editor.dragTargets(config, { type: "station", id: station.ID }), movedItems(config, editor.moveStation(config, station.ID, 20, -10)));
+    assert.deepEqual(editor.dragTargets(config, { type: "node", id: junction.ID }), movedItems(config, editor.moveNode(config, junction.ID, junction.Position.X + 20, junction.Position.Y - 10)));
+  });
 }
+
+// movedItems gives the nodes, lanes, and stations whose drawn position
+// differs between two versions of a scenario.
+function movedItems(before, after) {
+  const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
+  const positions = new Map(after.network.Nodes.map((node) => [node.ID, node.Position]));
+  const controls = new Map(after.network.Lanes.map((lane) => [lane.ID, lane.Control]));
+  const moved = new Set(before.network.Nodes.filter((node) => !same(node.Position, positions.get(node.ID))).map((node) => node.ID));
+  return {
+    nodeIDs: [...moved],
+    laneIDs: before.network.Lanes.filter((lane) => moved.has(lane.From) || moved.has(lane.To) || !same(lane.Control, controls.get(lane.ID))).map((lane) => lane.ID),
+    stationIDs: before.network.Stations.filter((station) => moved.has(station.Entry) || moved.has(station.Exit)).map((station) => station.ID),
+  };
+}
+
+test("a drag redraws only the items that it moves", () => {
+  let { config, arrival, departure } = chainScenario();
+  const [alpha, beta] = config.network.Stations;
+  config = editor.addJunction(config, 220, 260);
+  const junction = config.network.Nodes.at(-1).ID;
+  config = editor.addLane(config, alpha.Exit, junction, true);
+  const through = config.network.Lanes.find((lane) => lane.From === alpha.Entry && lane.To === alpha.Exit);
+  through.Control = { X: 100, Y: 60 };
+  const curved = structuredClone(config);
+  curved.network.Lanes.find((lane) => lane.ID === through.ID).Control = { X: 90, Y: 40 };
+  const cases = [
+    { name: "a station drag", drag: { type: "station", id: alpha.ID }, after: editor.moveStation(config, alpha.ID, 20, -10) },
+    { name: "a junction drag", drag: { type: "node", id: junction }, after: editor.moveNode(config, junction, 300, 280) },
+    { name: "a curve drag", drag: { type: "control", id: through.ID }, after: curved },
+  ];
+  for (const item of cases) assert.deepEqual(editor.dragTargets(config, item.drag), movedItems(config, item.after), item.name);
+
+  const targets = editor.dragTargets(config, { type: "station", id: alpha.ID });
+  for (const id of [arrival, departure]) assert.ok(targets.nodeIDs.includes(id), id);
+  assert.deepEqual(targets.stationIDs, [alpha.ID]);
+  assert.ok(!targets.nodeIDs.includes(beta.Entry) && !targets.nodeIDs.includes(junction));
+  assert.deepEqual(editor.dragTargets(config, { type: "control", id: through.ID }), { nodeIDs: [], laneIDs: [through.ID], stationIDs: [] });
+});
+
+test("fit centers the network at a scale of up to 3", () => {
+  const cases = [
+    { name: "an empty map", bounds: null, size: { width: 940, height: 824 }, want: { x: 0, y: 0, scale: 1 } },
+    { name: "a small network", bounds: { minX: 0, minY: 0, maxX: 100, maxY: 50 }, size: { width: 940, height: 824 }, want: { x: 320, y: 337, scale: 3 } },
+    { name: "a wide network", bounds: { minX: -1000, minY: 0, maxX: 1000, maxY: 100 }, size: { width: 500, height: 400 }, want: { x: 250, y: 190, scale: 0.2 } },
+    { name: "a tall network", bounds: { minX: 0, minY: -1000, maxX: 100, maxY: 1000 }, size: { width: 500, height: 400 }, want: { x: 242.5, y: 200, scale: 0.15 } },
+    { name: "a map smaller than its margin", bounds: { minX: 0, minY: 0, maxX: 1000, maxY: 1000 }, size: { width: 50, height: 50 }, want: { x: 24.5, y: 24.5, scale: 0.001 } },
+  ];
+  for (const item of cases) assert.deepEqual(editor.fitView(item.bounds, item.size), item.want, item.name);
+});
+
+test("the network bounds hold the nodes and the background", () => {
+  const background = { x: -50, y: 10, width: 200, height: 100 };
+  const nodes = editor.addJunction(editor.addJunction(editor.emptyConfig(), 20, -30), 400, 60);
+  const cases = [
+    { name: "an empty map", config: editor.emptyConfig(), background: null, want: null },
+    { name: "a background only", config: editor.emptyConfig(), background, want: { minX: -50, minY: 10, maxX: 150, maxY: 110 } },
+    { name: "nodes only", config: nodes, background: null, want: { minX: 20, minY: -30, maxX: 400, maxY: 60 } },
+    { name: "nodes and a background", config: nodes, background, want: { minX: -50, minY: -30, maxX: 400, maxY: 110 } },
+  ];
+  for (const item of cases) assert.deepEqual(editor.networkBounds(item.config, item.background), item.want, item.name);
+});
+
+test("fit shows the whole London network below the 0.15 zoom floor", () => {
+  const config = generatedProject("london");
+  const size = { width: 940, height: 824 };
+  const bounds = editor.networkBounds(config, null);
+  const view = editor.fitView(bounds, size);
+
+  // London fits at about 0.055. The network fills the map width or height
+  // inside the margin, and every node is on the map.
+  assert.ok(view.scale < editor.MIN_ZOOM, `fit scale ${view.scale}`);
+  const fill = Math.max((bounds.maxX - bounds.minX) * view.scale / (size.width - 100), (bounds.maxY - bounds.minY) * view.scale / (size.height - 100));
+  assert.ok(Math.abs(fill - 1) < 1e-9, `fill ${fill}`);
+  for (const node of config.network.Nodes) {
+    const x = view.x + node.Position.X * view.scale; const y = view.y + node.Position.Y * view.scale;
+    assert.ok(x >= 0 && x <= size.width && y >= 0 && y <= size.height, node.ID);
+  }
+  assert.equal(editor.zoomScale({ scale: view.scale, factor: 0.8, fitScale: view.scale }), view.scale);
+  const owners = editor.stationNodeOwners(config);
+  for (const node of config.network.Nodes.filter((item) => !owners.has(item.ID))) {
+    assert.equal(editor.nodeLabelSize({ scale: view.scale, id: node.ID, selection: null, linkFrom: "" }), 0, node.ID);
+  }
+});
+
+test("the zoom floor is the lower of 0.15 and the fit scale", () => {
+  const cases = [
+    { name: "a small network stops at 0.15", scale: 0.2, factor: 0.5, fitScale: 1, want: editor.MIN_ZOOM },
+    { name: "a large network zooms out below 0.15", scale: 0.2, factor: 0.5, fitScale: 0.055, want: 0.1 },
+    { name: "a large network stops at its fit scale", scale: 0.06, factor: 0.8, fitScale: 0.055, want: 0.055 },
+    { name: "zoom in stops at 5", scale: 4.5, factor: 1.25, fitScale: 1, want: 5 },
+    { name: "a step out below the floor keeps the scale", scale: 0.05, factor: 0.8, fitScale: 0.1, want: 0.05 },
+    { name: "a step in below the floor zooms in", scale: 0.05, factor: 1.25, fitScale: 0.1, want: 0.0625 },
+  ];
+  for (const item of cases) assert.equal(editor.zoomScale({ scale: item.scale, factor: item.factor, fitScale: item.fitScale }), item.want, item.name);
+});
+
+test("junction labels show only when zoomed in or selected", () => {
+  // want is the font size of the label on the screen, in pixels. It is 0 when
+  // the label does not show.
+  const selected = { type: "node", id: "node-1" };
+  const cases = [
+    { name: "a junction at a scale below the London fit scale", scale: 0.0625, want: 0 },
+    { name: "a junction just below the label scale", scale: editor.NODE_LABEL_SCALE * 0.99, want: 0 },
+    { name: "a junction at the label scale", scale: editor.NODE_LABEL_SCALE, want: 4.5 },
+    { name: "a junction at the fit scale of the default example", scale: 1, want: 9 },
+    { name: "a junction zoomed in", scale: 2, want: 18 },
+    { name: "a junction when another junction is selected", scale: 0.25, selection: { type: "node", id: "node-2" }, want: 0 },
+    { name: "a junction when a lane with the same ID is selected", scale: 0.25, selection: { type: "lane", id: "node-1" }, want: 0 },
+    { name: "the selected junction zoomed out", scale: 0.0625, selection: selected, want: 9 },
+    { name: "the selected junction above the label scale", scale: 0.75, selection: selected, want: 9 },
+    { name: "the selected junction zoomed in", scale: 2, selection: selected, want: 18 },
+    { name: "the start node of a new guideway zoomed out", scale: 0.0625, linkFrom: "node-1", want: 9 },
+    { name: "a junction when another node starts a new guideway", scale: 0.0625, linkFrom: "node-2", want: 0 },
+  ];
+  for (const item of cases) {
+    const size = editor.nodeLabelSize({ scale: item.scale, id: "node-1", selection: item.selection || null, linkFrom: item.linkFrom || "" });
+    assert.equal(size * item.scale, item.want, item.name);
+  }
+});
 
 test("station lane roles validate and round trip", () => {
   const config = connectedScenario();
