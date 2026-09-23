@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math"
 	"net/http"
 	"os"
 	"strings"
@@ -12,6 +13,7 @@ import (
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 	otelruntime "go.opentelemetry.io/contrib/instrumentation/runtime"
 	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/exporters/otlp/otlpmetric/otlpmetrichttp"
 	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracehttp"
 	"go.opentelemetry.io/otel/metric"
@@ -139,11 +141,25 @@ func enabledSignals(getenv func(string) string) (bool, bool) {
 	return traces, metrics
 }
 
+// Attributes of the podsim.state.saves series.
+var (
+	savedResult  = metric.WithAttributeSet(attribute.NewSet(attribute.String("result", "ok")))
+	failedResult = metric.WithAttributeSet(attribute.NewSet(attribute.String("result", "error")))
+)
+
 type sessionInstruments struct {
 	tick, submitted, completed, pending                        metric.Int64ObservableGauge
 	vehicles, activeVehicles, passengerVehicles, stoppedPods   metric.Int64ObservableGauge
 	checkpoints                                                metric.Int64ObservableGauge
 	passengerDistance, emptyDistance, averageWait, maximumWait metric.Float64ObservableGauge
+	state                                                      stateInstruments
+}
+
+// stateInstruments report the session state saves.
+type stateInstruments struct {
+	saves         metric.Int64ObservableCounter
+	size, enabled metric.Int64ObservableGauge
+	unsaved       metric.Float64ObservableGauge
 }
 
 func registerSessionMetrics(meter metric.Meter, snapshot func() session.Metrics) (metric.Registration, error) {
@@ -166,8 +182,36 @@ func registerSessionMetrics(meter metric.Meter, snapshot func() session.Metrics)
 		observer.ObserveFloat64(instruments.averageWait, state.AverageWaitSeconds)
 		observer.ObserveFloat64(instruments.maximumWait, state.MaximumWaitSeconds)
 		observer.ObserveInt64(instruments.checkpoints, int64(state.Checkpoints))
+		// The state series exist only when the session has a state store.
+		if state.StateConfigured {
+			instruments.state.observe(observer, state)
+		}
 		return nil
 	}, instruments.observables()...)
+}
+
+// observe observes the state saves. The size exists after the first good
+// save.
+func (i stateInstruments) observe(observer metric.Observer, state session.Metrics) {
+	observer.ObserveInt64(i.saves, counterValue(state.StateSaves), savedResult)
+	observer.ObserveInt64(i.saves, counterValue(state.StateSaveErrors), failedResult)
+	if state.StateSaves > 0 {
+		observer.ObserveInt64(i.size, state.StateBytes)
+	}
+	observer.ObserveFloat64(i.unsaved, state.StateUnsavedSeconds)
+	var enabled int64
+	if state.StateEnabled {
+		enabled = 1
+	}
+	observer.ObserveInt64(i.enabled, enabled)
+}
+
+// counterValue returns count as an int64. It stops at math.MaxInt64.
+func counterValue(count uint64) int64 {
+	if count > math.MaxInt64 {
+		return math.MaxInt64
+	}
+	return int64(count)
 }
 
 func newSessionInstruments(meter metric.Meter) (sessionInstruments, error) {
@@ -213,6 +257,31 @@ func newSessionInstruments(meter metric.Meter) (sessionInstruments, error) {
 		metric.WithDescription("Save points that the session keeps in memory.")); err != nil {
 		return instruments, fmt.Errorf("create retained checkpoint metric: %w", err)
 	}
+	if instruments.state, err = newStateInstruments(meter); err != nil {
+		return instruments, err
+	}
+	return instruments, nil
+}
+
+func newStateInstruments(meter metric.Meter) (stateInstruments, error) {
+	var instruments stateInstruments
+	var err error
+	if instruments.saves, err = meter.Int64ObservableCounter("podsim.state.saves", metric.WithUnit("{save}"),
+		metric.WithDescription("Session state saves by result.")); err != nil {
+		return instruments, fmt.Errorf("create state save metric: %w", err)
+	}
+	if instruments.size, err = meter.Int64ObservableGauge("podsim.state.size", metric.WithUnit("By"),
+		metric.WithDescription("Compressed size of the last saved session state.")); err != nil {
+		return instruments, fmt.Errorf("create state size metric: %w", err)
+	}
+	if instruments.unsaved, err = meter.Float64ObservableGauge("podsim.state.unsaved", metric.WithUnit("s"),
+		metric.WithDescription("Time since the last good save, or 0 when the session did not change after it.")); err != nil {
+		return instruments, fmt.Errorf("create unsaved state metric: %w", err)
+	}
+	if instruments.enabled, err = meter.Int64ObservableGauge("podsim.state.enabled", metric.WithUnit("{1}"),
+		metric.WithDescription("1 while the session saves its state, and 0 when saving is off.")); err != nil {
+		return instruments, fmt.Errorf("create state saving metric: %w", err)
+	}
 	return instruments, nil
 }
 
@@ -222,5 +291,6 @@ func (i sessionInstruments) observables() []metric.Observable {
 		i.vehicles, i.activeVehicles, i.passengerVehicles, i.stoppedPods,
 		i.passengerDistance, i.emptyDistance, i.averageWait, i.maximumWait,
 		i.checkpoints,
+		i.state.saves, i.state.size, i.state.unsaved, i.state.enabled,
 	}
 }

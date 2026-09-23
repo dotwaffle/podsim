@@ -918,8 +918,218 @@ func TestSaveStateLogs(t *testing.T) {
 	if saves, failures := s.persist.saves.Load(), s.persist.failures.Load(); saves != 3 || failures != 2 {
 		t.Fatalf("the session counted %d saves and %d failures, want 3 and 2", saves, failures)
 	}
-	if revision, savedAt := s.persist.savedRevision.Load(), s.persist.savedAt.Load(); revision != 3 || savedAt != now.UnixNano() {
+	wantSavedAt := int64(now.Sub(s.persist.started))
+	if revision, savedAt := s.persist.savedRevision.Load(), s.persist.savedAt.Load(); revision != 3 || savedAt != wantSavedAt {
 		t.Fatalf("last good save at revision %d and time %d", revision, savedAt)
+	}
+}
+
+// TestMetricsReportStateSaves checks the state fields of Metrics at 30 s and
+// at 90 s after the start on the clock of the saves.
+func TestMetricsReportStateSaves(t *testing.T) {
+	t.Parallel()
+	started := time.Date(2026, time.September, 23, 9, 0, 0, 0, time.UTC)
+	diskErr := errors.New("disk full")
+	type startFunc func(t *testing.T, store *fakeStore, clock func() time.Time) *Session
+	fromStore := func(t *testing.T, store *fakeStore, clock func() time.Time) *Session {
+		t.Helper()
+		return startFromStore(t, StoreInput{
+			Store: store, Options: []Option{WithLogger(slog.New(&recordHandler{})), withClock(clock)},
+		})
+	}
+	// save saves once for each write error in errs. Before each save, it
+	// advances the session one tick.
+	save := func(errs ...error) func(*testing.T, *Session, *fakeStore) {
+		return func(t *testing.T, s *Session, store *fakeStore) {
+			t.Helper()
+			for _, err := range errs {
+				store.setWriteErr(err)
+				s.advance()
+				if got := s.SaveState(t.Context(), SavePeriodic); !errors.Is(got, err) {
+					t.Fatalf("save error = %v, want %v", got, err)
+				}
+			}
+		}
+	}
+	tests := []struct {
+		name  string
+		start startFunc
+		// change changes the session at changeAt after the start. It can be
+		// nil.
+		change              func(t *testing.T, s *Session, store *fakeStore)
+		changeAt            time.Duration
+		configured, enabled bool
+		saves, failures     uint64
+		// unsaved holds StateUnsavedSeconds at 30 s and at 90 s.
+		unsaved [2]float64
+	}{
+		{name: "no store", start: func(t *testing.T, _ *fakeStore, clock func() time.Time) *Session {
+			t.Helper()
+			s, err := NewWithProject(project.Default(), withClock(clock))
+			if err != nil {
+				t.Fatal(err)
+			}
+			return s
+		}},
+		// NewFromStore saves before it returns, so this session starts
+		// without it.
+		{name: "no good save", start: func(t *testing.T, store *fakeStore, clock func() time.Time) *Session {
+			t.Helper()
+			s := newSession(newPersistence(store), []Option{withClock(clock)})
+			s.persist.started = s.persist.now()
+			if err := s.startProject(project.Default()); err != nil {
+				t.Fatal(err)
+			}
+			return s
+		}, configured: true, enabled: true, unsaved: [2]float64{30, 90}},
+		{
+			name: "saved revision", start: fromStore, change: save(nil),
+			configured: true, enabled: true, saves: 2,
+		},
+		{
+			name: "good and bad save", start: fromStore, change: save(diskErr),
+			configured: true, enabled: true, saves: 1, failures: 1, unsaved: [2]float64{30, 90},
+		},
+		{
+			name: "good save later", start: fromStore, change: save(nil, diskErr), changeAt: 20 * time.Second,
+			configured: true, enabled: true, saves: 2, failures: 1, unsaved: [2]float64{10, 70},
+		},
+		// At 30 s, the clock is before the last good save.
+		{
+			name: "clock went back", start: fromStore, change: save(nil, diskErr), changeAt: 60 * time.Second,
+			configured: true, enabled: true, saves: 2, failures: 1, unsaved: [2]float64{0, 30},
+		},
+		{name: "saving off", start: func(t *testing.T, store *fakeStore, clock func() time.Time) *Session {
+			t.Helper()
+			store.readErr = diskErr
+			return fromStore(t, store, clock)
+		}, configured: true, unsaved: [2]float64{30, 90}},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			now := started
+			store := &fakeStore{}
+			s := test.start(t, store, func() time.Time { return now })
+			if test.change != nil {
+				now = started.Add(test.changeAt)
+				test.change(t, s, store)
+			}
+			want := Metrics{
+				StateConfigured: test.configured, StateEnabled: test.enabled,
+				StateSaves: test.saves, StateSaveErrors: test.failures,
+			}
+			if writes := store.writeList(); len(writes) > 0 {
+				want.StateBytes = int64(len(writes[len(writes)-1]))
+			}
+			for index, elapsed := range []time.Duration{30 * time.Second, 90 * time.Second} {
+				now = started.Add(elapsed)
+				want.StateUnsavedSeconds = test.unsaved[index]
+				if got := stateMetrics(s.Metrics()); got != want {
+					t.Fatalf("state metrics at %v = %+v, want %+v", elapsed, got, want)
+				}
+			}
+		})
+	}
+}
+
+// stateMetrics returns the state fields of metrics.
+func stateMetrics(metrics Metrics) Metrics {
+	return Metrics{
+		StateConfigured: metrics.StateConfigured, StateEnabled: metrics.StateEnabled,
+		StateSaves: metrics.StateSaves, StateSaveErrors: metrics.StateSaveErrors,
+		StateBytes: metrics.StateBytes, StateUnsavedSeconds: metrics.StateUnsavedSeconds,
+	}
+}
+
+// TestMetricsDuringBlockedSave checks that Metrics does not wait for a save
+// that holds persist.mu. Metrics must not lock persist.mu, because a save
+// holds persist.mu while it waits for the session lock.
+func TestMetricsDuringBlockedSave(t *testing.T) {
+	t.Parallel()
+	store := &fakeStore{}
+	s := startFromStore(t, StoreInput{Store: store})
+	release := make(chan struct{})
+	store.blockWrite = release
+	s.advance()
+	saved := make(chan error, 1)
+	go func() { saved <- s.SaveState(t.Context(), SavePeriodic) }()
+	// Wait until the save holds persist.mu. It holds it until the test
+	// closes release.
+	for s.persist.mu.TryLock() {
+		s.persist.mu.Unlock()
+		time.Sleep(time.Millisecond)
+	}
+	got := make(chan Metrics, 1)
+	go func() { got <- s.Metrics() }()
+	var metrics Metrics
+	select {
+	case metrics = <-got:
+	case <-time.After(10 * time.Second):
+		close(release)
+		t.Fatal("Metrics waited for the save")
+	}
+	close(release)
+	if err := <-saved; err != nil {
+		t.Fatal(err)
+	}
+	if metrics.StateSaves != 1 || metrics.StateSaveErrors != 0 {
+		t.Fatalf("metrics during the save = %+v, want the startup save only", metrics)
+	}
+}
+
+// TestMetricsDuringSaves reads Metrics while saves run. Run it with the race
+// detector. When Metrics locks persist.mu, this test locks up until the test
+// timeout, and TestMetricsDuringBlockedSave reports the cause.
+func TestMetricsDuringSaves(t *testing.T) {
+	t.Parallel()
+	diskErr := errors.New("disk full")
+	store := &fakeStore{}
+	s := startFromStore(t, StoreInput{Store: store, Options: []Option{WithLogger(slog.New(&recordHandler{}))}})
+	ctx, cancel := context.WithCancel(t.Context())
+	defer cancel()
+	const steps = 50
+	var group sync.WaitGroup
+	group.Go(func() { s.Run(ctx) })
+	group.Go(func() { s.RunStateSaver(ctx, time.Millisecond) })
+	group.Go(func() {
+		defer cancel()
+		for step := range steps {
+			var err error
+			if step%2 == 1 {
+				err = diskErr
+			}
+			store.setWriteErr(err)
+			s.advance()
+			_ = s.SaveState(ctx, SavePeriodic)
+			time.Sleep(time.Millisecond)
+		}
+	})
+	var previous Metrics
+	var failure string
+	for ctx.Err() == nil && failure == "" {
+		metrics := s.Metrics()
+		switch {
+		case metrics.StateSaves < previous.StateSaves || metrics.StateSaveErrors < previous.StateSaveErrors:
+			failure = fmt.Sprintf("save counts went back from %+v to %+v", previous, metrics)
+		case metrics.StateUnsavedSeconds < 0:
+			failure = fmt.Sprintf("unsaved seconds = %v", metrics.StateUnsavedSeconds)
+		}
+		previous = metrics
+	}
+	group.Wait()
+	if failure != "" {
+		t.Fatal(failure)
+	}
+	metrics, writes := s.Metrics(), store.writeList()
+	writeCalls := uint64(len(slices.DeleteFunc(store.callList(), func(call string) bool { return call != "write" })))
+	if metrics.StateSaves != uint64(len(writes)) || metrics.StateSaves+metrics.StateSaveErrors != writeCalls ||
+		metrics.StateBytes != int64(len(writes[len(writes)-1])) {
+		t.Fatalf("metrics %+v do not match %d good writes of %d", metrics, len(writes), writeCalls)
+	}
+	// Each odd step fails, because no good save has its revision.
+	if metrics.StateSaveErrors < steps/2 {
+		t.Fatalf("%d failed saves, want at least %d", metrics.StateSaveErrors, steps/2)
 	}
 }
 

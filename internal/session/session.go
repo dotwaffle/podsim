@@ -63,6 +63,23 @@ type Metrics struct {
 	AverageWaitSeconds      float64
 	MaximumWaitSeconds      float64
 	Checkpoints             int
+
+	// StateConfigured is true when the session has a state store. The other
+	// state fields are zero without a state store.
+	StateConfigured bool
+	// StateEnabled is true while the session saves its state.
+	StateEnabled bool
+	// StateSaves counts the saves that wrote the state, and StateSaveErrors
+	// counts the saves that failed.
+	StateSaves      uint64
+	StateSaveErrors uint64
+	// StateBytes is the compressed size in bytes of the state that the last
+	// good save wrote.
+	StateBytes int64
+	// StateUnsavedSeconds is 0 when the last good save has the current
+	// revision. Otherwise it is the time since the last good save, or since
+	// the start when no save succeeded.
+	StateUnsavedSeconds float64
 }
 
 // Command describes an explicit mutation with a per-client sequence for safe retries.
@@ -273,6 +290,7 @@ func (s *Session) Frame() StateFrame {
 }
 
 // Metrics returns a compact session snapshot for operational monitoring.
+// It does not wait for a state save.
 func (s *Session) Metrics() Metrics {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -299,6 +317,9 @@ func (s *Session) Metrics() Metrics {
 		if vehicle.Pod.WaitReason != sim.NoWait && vehicle.Pod.Speed < 0.01 {
 			metrics.StoppedVehicles++
 		}
+	}
+	if s.persist != nil {
+		s.persist.setMetrics(&metrics, s.revision)
 	}
 	return metrics
 }

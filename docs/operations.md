@@ -254,6 +254,30 @@ Compare it with the runtime memory metrics to see the memory that save points us
 A reset, a demo, a project apply, or a rewind can decrease `podsim.simulation.tick`, `podsim.journey.submitted`, `podsim.journey.completed`, `podsim.travel.passenger.distance`, and `podsim.travel.empty.distance`.
 These metrics are gauges, not counters, so do not use `rate()` on them.
 
+With `-state`, the server also reports the saves of the session state.
+Without `-state`, these metrics do not exist.
+`podsim.state.saves` is a counter of the saves by `result`, `ok` or `error`.
+`podsim.state.size` is the compressed size in bytes of the last good save.
+It has no value before the first good save.
+`podsim.state.enabled` is 1 while the server saves the session state, and 0 when saving is off.
+
+`podsim.state.unsaved` is the time in seconds since the last good save.
+It is 0 when the session did not change after that save.
+Before the first good save, it counts from the server start.
+While the clock runs, it rises to about 60 seconds between two periodic saves.
+
+Alert when `podsim.state.unsaved` is more than 180 seconds.
+This is three periodic save intervals without a good save.
+Alert when `podsim.state.enabled` is 0.
+The server turns saving off at startup when it cannot read the saved state or cannot move it aside.
+A restart then loses the changes after the start.
+The `Read saved session state` or `Move rejected session state` log record gives the cause.
+
+The state store uses the gocloud.dev blob package, which also sends spans and metrics through the same providers.
+The server keeps them on.
+The spans have names such as `gocloud.dev/blob.NewWriter`.
+The metrics are `gocloud.dev/blob/latency` in milliseconds, and `gocloud.dev/blob/bytes_read` and `gocloud.dev/blob/bytes_written` in bytes.
+
 The server flushes both providers during graceful shutdown.
 An endpoint that is not a valid URL does not stop startup.
 The exporter logs a `parse url` error and ignores that value.

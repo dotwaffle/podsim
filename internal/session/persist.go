@@ -154,7 +154,11 @@ type persistence struct {
 	started time.Time
 	// saves and failures count the saves that wrote and that failed. bytes
 	// is the size of the last saved state. savedAt is the time of the last
-	// good save in Unix nanoseconds, and savedRevision is its revision.
+	// good save as a time.Duration after started, and savedRevision is its
+	// revision. The difference of two clock readings uses the monotonic
+	// clock, so a step of the wall clock does not change savedAt. SaveState
+	// sets bytes, savedAt and savedRevision before it adds to saves, so a
+	// reader that sees a good save also sees its results.
 	saves         atomic.Uint64
 	failures      atomic.Uint64
 	bytes         atomic.Int64
@@ -176,6 +180,37 @@ func withClock(now func() time.Time) Option {
 			session.persist.now = now
 		}
 	}
+}
+
+// setMetrics sets the state fields of metrics. revision is the current
+// revision of the session. setMetrics reads only the atomic fields and does
+// not lock mu, so the caller can hold the session lock.
+func (p *persistence) setMetrics(metrics *Metrics, revision uint64) {
+	// Load saves before the other fields. SaveState counts a save after it
+	// sets its results, so the results are set for each counted save.
+	saves := p.saves.Load()
+	metrics.StateConfigured = true
+	metrics.StateEnabled = p.enabled.Load()
+	metrics.StateSaves, metrics.StateSaveErrors = saves, p.failures.Load()
+	metrics.StateBytes = p.bytes.Load()
+	metrics.StateUnsavedSeconds = p.unsavedSeconds(saves, revision)
+}
+
+// unsavedSeconds returns 0 when the last good save has revision. Otherwise
+// it returns the seconds since the last good save, or since the start when
+// saves is 0.
+func (p *persistence) unsavedSeconds(saves, revision uint64) float64 {
+	var savedAt time.Duration
+	switch {
+	case saves == 0:
+	case p.savedRevision.Load() == revision:
+		return 0
+	default:
+		savedAt = time.Duration(p.savedAt.Load())
+	}
+	// A clock without a monotonic reading can go back. Do not report a
+	// negative time.
+	return max(0, (p.now().Sub(p.started) - savedAt).Seconds())
 }
 
 // restoreSteps holds the steps of NewFromStore that tests replace.
@@ -601,10 +636,10 @@ func (s *Session) SaveState(ctx context.Context, kind SaveKind) error {
 			slog.Any("cause", context.Cause(ctx)), slog.Int("failures", persist.consecutiveFailures))
 		return fmt.Errorf("save %s session state: %w", kind, err)
 	}
-	persist.saves.Add(1)
 	persist.bytes.Store(int64(len(data)))
-	persist.savedAt.Store(file.SavedAt.UnixNano())
+	persist.savedAt.Store(int64(file.SavedAt.Sub(persist.started)))
 	persist.savedRevision.Store(file.Revision)
+	persist.saves.Add(1)
 	persist.consecutiveFailures = 0
 	if kind != saveStartup {
 		persist.lastRevision, persist.saved = file.Revision, true
