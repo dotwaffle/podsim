@@ -144,8 +144,9 @@ func TestInspectionRowsClearPodSelector(t *testing.T) {
 		{outsideWidth: 1600, outsideHeight: 1000, deviceScale: 2},
 	} {
 		game.layoutFor(input)
-		_, height := text.Measure("999999.9 s", game.textFace(14), 0)
-		lastRowBottom := (inspectionRowsTop+4*inspectionRowSpacing)*game.layout.unit + height
+		last := len(game.inspectionRows(sim.Vehicle{})) - 1
+		_, height := text.Measure("Station phase", game.textFace(14), 0)
+		lastRowBottom := (inspectionRowsTop+float64(last)*inspectionRowSpacing)*game.layout.unit + height
 		selectorTop := podSelectorTop * game.layout.unit
 		if lastRowBottom >= selectorTop {
 			t.Fatalf("inspection rows end at %g, pod selector starts at %g for %+v", lastRowBottom, selectorTop, input)

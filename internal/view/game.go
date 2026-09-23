@@ -519,17 +519,35 @@ func (g *Game) Draw(screen *ebiten.Image) {
 }
 
 // headerLabels returns the title and the header text above the panels.
-// Before the first state frame, the game has no network and no pods, so the
-// header does not count them.
+// Beside the title, the run status shows in muted text, or in amber while
+// the run is paused. Before the first state frame, the game has no run
+// state, no network, and no pods, so the header shows only the title.
 func (g *Game) headerLabels() []label {
-	labels := []label{
-		{x: 28, y: 22, size: 30, value: "podsim", color: foreground},
-		{x: 157, y: 34, size: 14, value: "NETWORK PLAYGROUND / LOCAL TRAFFIC", color: muted},
-	}
+	labels := []label{{x: 28, y: 22, size: 30, value: "podsim", color: foreground}}
 	if g.state.Epoch == "" {
 		return labels
 	}
-	return append(labels, label{x: 815, y: 34, size: 14, value: fmt.Sprintf("%d STOPS     %d PODS", len(g.passengerStations()), len(g.state.Simulation.Vehicles)), color: accent})
+	status := label{x: 157, y: 34, size: 14, value: runStatus(g.state), color: muted}
+	if g.state.Simulation.Paused {
+		status.color = amber
+	}
+	return append(labels, status, label{x: 815, y: 34, size: 14, value: fmt.Sprintf("%d STOPS     %d PODS", len(g.passengerStations()), len(g.state.Simulation.Vehicles)), color: accent})
+}
+
+// runStatus returns the run status of state for the header. The status
+// gives PAUSED while the run is paused, then the playback speed, the
+// simulated time, and the number of completed journeys. An example is
+// "PAUSED  2x  1234.5 s  57 completed". Before the first state frame, the
+// state has no epoch, and the status is empty.
+func runStatus(state session.State) string {
+	if state.Epoch == "" {
+		return ""
+	}
+	status := fmt.Sprintf("%dx  %.1f s  %d completed", state.Speed, float64(state.Simulation.Tick)/sim.TicksPerSecond, state.Simulation.Completed)
+	if state.Simulation.Paused {
+		status = "PAUSED  " + status
+	}
+	return status
 }
 
 // focusHint tells the user how to give the keyboard focus to the simulation.
@@ -1293,25 +1311,31 @@ func (g *Game) drawInspection(screen *ebiten.Image, state sim.Snapshot) {
 	}
 	journey = g.fitText(journey, 17, inspectionRight-inspectionLeft)
 	g.label(screen, label{x: inspectionLeft, y: 224, size: 17, value: journey, color: foreground})
-	passengers := "Empty"
-	selected := state.Vehicles[g.selected]
-	if selected.Pod.Occupied && selected.Request != nil {
-		parties := max(1, selected.Parties)
-		passengers = fmt.Sprintf("%d %s / %d %s", parties, countNoun(parties, "party", "parties"),
-			selected.Request.PartySize, countNoun(selected.Request.PartySize, "passenger", "passengers"))
-	}
-	rows := []struct{ name, value string }{
-		{"Speed", fmt.Sprintf("%.0f km/h", state.Vehicles[g.selected].Pod.Speed*3.6)},
-		{"Station phase", stationPhaseLabel(state.Vehicles[g.selected].Pod, g.network)},
-		{"On board", passengers},
-		{"Completed", fmt.Sprintf("%d journeys", state.Completed)},
-		{"Sim time", fmt.Sprintf("%.1f s", float64(state.Tick)/sim.TicksPerSecond)},
-	}
-	for i, row := range rows {
+	for i, row := range g.inspectionRows(state.Vehicles[g.selected]) {
 		y := inspectionRowsTop + float64(i)*inspectionRowSpacing
 		value := g.fitText(row.value, 14, inspectionRight-inspectionValueLeft)
 		g.label(screen, label{x: inspectionLeft, y: y, size: 14, value: row.name, color: muted})
 		g.label(screen, label{x: inspectionValueLeft, y: y, size: 14, value: value, color: foreground})
+	}
+}
+
+// inspectionRow is a name and a value in the pod inspector.
+type inspectionRow struct{ name, value string }
+
+// inspectionRows returns the name and value rows of the pod inspector for
+// vehicle. The rows show only values of the pod. The run status in the
+// header shows the simulated time and the completed journeys.
+func (g *Game) inspectionRows(vehicle sim.Vehicle) []inspectionRow {
+	passengers := "Empty"
+	if vehicle.Pod.Occupied && vehicle.Request != nil {
+		parties := max(1, vehicle.Parties)
+		passengers = fmt.Sprintf("%d %s / %d %s", parties, countNoun(parties, "party", "parties"),
+			vehicle.Request.PartySize, countNoun(vehicle.Request.PartySize, "passenger", "passengers"))
+	}
+	return []inspectionRow{
+		{"Speed", fmt.Sprintf("%.0f km/h", vehicle.Pod.Speed*3.6)},
+		{"Station phase", stationPhaseLabel(vehicle.Pod, g.network)},
+		{"On board", passengers},
 	}
 }
 

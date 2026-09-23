@@ -126,6 +126,7 @@ See [distribution and operations](docs/operations.md) for build and runtime sett
 - Wait ends when boarding starts, so it includes empty-pod travel to pickup.
 - Fleet use shows the percentage of pods with assigned or active work and the percentage currently in passenger service.
 - Use **Pause**, **Resume**, **Reset**, and **Speed** to control playback. **Speed** cycles through 1x, 2x, 4x, and 8x.
+- The run status beside the title shows the playback speed, the simulated time, and the number of completed journeys. While the run is paused, the run status is amber and starts with **PAUSED**.
 - Keyboard: **Enter** submits an order and **Tab** selects the next pod.
 - **Space** pauses or resumes, **Shift+R** resets, **S** changes speed, and **F** toggles pod following.
 - The simulation gets the keyboard focus when the page opens and after a click on **Download debug state**. After a click outside the simulation, click the simulation to use the keyboard shortcuts again.
