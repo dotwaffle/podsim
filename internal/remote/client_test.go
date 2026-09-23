@@ -118,11 +118,18 @@ func waitFor(t *testing.T, condition func() bool) {
 	t.Fatal("condition timed out")
 }
 
+// accept runs acceptLocked with the client lock, as poll does.
+func accept(c *Client, state session.State) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.acceptLocked(state)
+}
+
 func TestStateOrdering(t *testing.T) {
 	t.Parallel()
 	c := &Client{oldEpochs: make(map[string]bool)}
 	for _, state := range []session.State{{Epoch: "first", Revision: 10}, {Epoch: "first", Revision: 9}, {Epoch: "second", Revision: 0}, {Epoch: "first", Revision: 11}, {Epoch: "second", Revision: 5}, {Epoch: "second", Revision: 3}} {
-		c.accept(state)
+		accept(c, state)
 	}
 	state, _, _ := c.View()
 	if state.Epoch != "second" || state.Revision != 5 {
@@ -158,7 +165,7 @@ func TestAcceptRetiredEpoch(t *testing.T) {
 			t.Parallel()
 			c := &Client{oldEpochs: make(map[string]bool)}
 			for _, state := range test.frames {
-				c.accept(state)
+				accept(c, state)
 			}
 			state, _, _ := c.View()
 			retired := slices.Sorted(maps.Keys(c.oldEpochs))
@@ -208,7 +215,7 @@ func TestReturnedEpochUsesItsTopology(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		client.accept(state)
+		accept(client, state)
 	}
 	poll(first)
 	poll(second)
@@ -413,6 +420,60 @@ func TestLostReplyRetryAndReconnect(t *testing.T) {
 	}
 	failPoll.Store(false)
 	waitFor(t, func() bool { state, connected, _ := client.View(); return connected && state.Simulation.Submitted == 1 })
+}
+
+// TestLastFrame checks the time of the last good state frame. The time is
+// zero before the first frame. While polls fail, it stays at the time of the
+// last good frame.
+func TestLastFrame(t *testing.T) {
+	t.Parallel()
+	shared, err := session.New()
+	if err != nil {
+		t.Fatal(err)
+	}
+	var failPoll atomic.Bool
+	var polls atomic.Int32
+	failPoll.Store(true)
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/api/state" {
+			polls.Add(1)
+		}
+		if failPoll.Load() {
+			http.Error(w, "offline", http.StatusServiceUnavailable)
+			return
+		}
+		if r.URL.Path == "/api/topology" {
+			_ = json.NewEncoder(w).Encode(shared.Topology())
+			return
+		}
+		_ = json.NewEncoder(w).Encode(shared.Frame())
+	}))
+	defer server.Close()
+	client := New(t.Context(), server.URL)
+	// The client polls in one goroutine. When the client sends a poll, it
+	// has handled the previous poll.
+	waitForPoll := func() {
+		t.Helper()
+		seen := polls.Load()
+		waitFor(t, func() bool { return polls.Load() >= seen+2 })
+	}
+	waitForPoll()
+	if got := client.LastFrame(); !got.IsZero() {
+		t.Fatalf("LastFrame() = %v before the first frame, want the zero time", got)
+	}
+	before := time.Now()
+	failPoll.Store(false)
+	waitFor(t, func() bool { _, connected, _ := client.View(); return connected })
+	if got, now := client.LastFrame(), time.Now(); got.Before(before) || got.After(now) {
+		t.Fatalf("LastFrame() = %v after the first frame, want a time from %v to %v", got, before, now)
+	}
+	failPoll.Store(true)
+	waitFor(t, func() bool { _, connected, _ := client.View(); return !connected })
+	lost := client.LastFrame()
+	waitForPoll()
+	if got := client.LastFrame(); !got.Equal(lost) {
+		t.Fatalf("LastFrame() = %v after failed polls, want %v", got, lost)
+	}
 }
 
 func TestLostReplyRewindAppliesOnce(t *testing.T) {

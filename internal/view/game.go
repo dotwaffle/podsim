@@ -91,6 +91,9 @@ type Game struct {
 	// the game reloads the page only once.
 	reload        func()
 	serverUpdated bool
+	// lastFrame is the time of the last state frame that the client read.
+	// While the connection is lost, the map banner gives its age.
+	lastFrame time.Time
 }
 
 // Option configures a Game.
@@ -103,18 +106,15 @@ func WithReload(reload func()) Option {
 	return func(g *Game) { g.reload = reload }
 }
 
-// New creates the first playable scenario.
+// New creates a game for the shared session of the server at serverURL.
+// The game has no network and no pods until the first state frame arrives.
+// Until then, the map shows connectingMessage.
 func New(ctx context.Context, serverURL string, options ...Option) (*Game, error) {
-	network := sim.Example()
-	simulation, err := sim.NewFleet(network, []sim.Placement{{ID: "01", StationID: "harbor"}, {ID: "02", StationID: "garden"}})
-	if err != nil {
-		return nil, fmt.Errorf("create simulation: %w", err)
-	}
 	font, err := text.NewGoTextFaceSource(bytes.NewReader(goregular.TTF))
 	if err != nil {
 		return nil, fmt.Errorf("load font: %w", err)
 	}
-	game := &Game{network: network, client: remote.New(ctx, serverURL), state: session.State{Simulation: simulation.Snapshot(), Speed: 1}, font: font, origin: "harbor", destination: "market", layout: newDisplayLayout(layoutInput{outsideWidth: minimumWidth, outsideHeight: minimumHeight, deviceScale: 1})}
+	game := &Game{client: remote.New(ctx, serverURL), state: session.State{Speed: 1}, font: font, layout: newDisplayLayout(layoutInput{outsideWidth: minimumWidth, outsideHeight: minimumHeight, deviceScale: 1})}
 	for _, option := range options {
 		option(game)
 	}
@@ -127,10 +127,7 @@ func (g *Game) Update() error {
 	g.fitNetwork()
 	g.tickNotice()
 	if inpututil.IsKeyJustPressed(ebiten.KeyTab) {
-		g.showOrders, g.showDemand = false, false
-		g.selected = (g.selected + 1) % len(g.state.Simulation.Vehicles)
-		g.podPage = g.selected / 6
-		g.message = ""
+		g.selectNextPod()
 	}
 	if inpututil.IsKeyJustPressed(ebiten.KeySpace) {
 		g.pause()
@@ -155,6 +152,20 @@ func (g *Game) Update() error {
 		return nil
 	}
 	return nil
+}
+
+// selectNextPod selects the next pod for inspection. After the last pod,
+// it selects the first pod. Before the first state frame, the game has no
+// pods, and it does nothing.
+func (g *Game) selectNextPod() {
+	count := len(g.state.Simulation.Vehicles)
+	if count == 0 {
+		return
+	}
+	g.showOrders, g.showDemand = false, false
+	g.selected = (g.selected + 1) % count
+	g.podPage = g.selected / 6
+	g.message = ""
 }
 
 // tickNotice counts down the notice time by one tick. It clears the notice
@@ -491,6 +502,7 @@ func (g *Game) Draw(screen *ebiten.Image) {
 	vector.FillRect(screen, float32(g.layout.x(24)), float32(g.layout.bottom(590)), float32(g.layout.x(1052)+g.layout.extraX), float32(g.layout.y(142)), rgb(panel), false)
 	state := g.state.Simulation
 	g.drawNetwork(screen, g.mapSnapshot())
+	g.drawConnectionState(screen, time.Now())
 	switch {
 	case g.showDemand:
 		g.drawDemand(screen)
@@ -507,12 +519,17 @@ func (g *Game) Draw(screen *ebiten.Image) {
 }
 
 // headerLabels returns the title and the header text above the panels.
+// Before the first state frame, the game has no network and no pods, so the
+// header does not count them.
 func (g *Game) headerLabels() []label {
-	return []label{
+	labels := []label{
 		{x: 28, y: 22, size: 30, value: "podsim", color: foreground},
 		{x: 157, y: 34, size: 14, value: "NETWORK PLAYGROUND / LOCAL TRAFFIC", color: muted},
-		{x: 815, y: 34, size: 14, value: fmt.Sprintf("%d STOPS     %d PODS", len(g.passengerStations()), len(g.state.Simulation.Vehicles)), color: accent},
 	}
+	if g.state.Epoch == "" {
+		return labels
+	}
+	return append(labels, label{x: 815, y: 34, size: 14, value: fmt.Sprintf("%d STOPS     %d PODS", len(g.passengerStations()), len(g.state.Simulation.Vehicles)), color: accent})
 }
 
 // focusHint tells the user how to give the keyboard focus to the simulation.
@@ -592,8 +609,8 @@ func (g *Game) drawNetwork(screen *ebiten.Image, state sim.Snapshot) {
 			vector.StrokeCircle(mapScreen, float32(marker.X), float32(marker.Y), float32(style.markerRadius), float32(markerOutlineWidth*g.layout.unit), rgb(muted), detailed)
 		}
 	}
-	selected := state.Vehicles[g.selected]
-	if selected.Pod.Activity != sim.Idle {
+	selected, hasSelected := selectedVehicle(state, g.selected)
+	if hasSelected && selected.Pod.Activity != sim.Idle {
 		shade := g.podPurpose(selected, state).color()
 		for _, lane := range selected.Route {
 			geometry := g.laneGeometry(lane, detailed)
@@ -672,9 +689,14 @@ func (g *Game) drawNetwork(screen *ebiten.Image, state sim.Snapshot) {
 		}
 	}
 	podLabels := g.podMapLabels(state.Vehicles, collapsedStations)
+	// The selected index can be past the pods of an empty or smaller state.
+	var selectedPodLabel label
+	if g.selected >= 0 && g.selected < len(podLabels) {
+		selectedPodLabel = podLabels[g.selected]
+	}
 	shownLabels := g.drawCollapsedStationLabels(mapScreen, collapsedLabelsInput{
 		labels: collapsedLabels, selected: selected,
-		markers: markers, markerRadius: style.markerRadius, selectedPodLabel: podLabels[g.selected],
+		markers: markers, markerRadius: style.markerRadius, selectedPodLabel: selectedPodLabel,
 	})
 	podLabels = g.clearPodLabels(podLabels, shownLabels)
 	for i, v := range state.Vehicles {
@@ -697,9 +719,22 @@ func (g *Game) drawNetwork(screen *ebiten.Image, state sim.Snapshot) {
 			g.label(mapScreen, podLabel)
 		}
 	}
-	vector.StrokeLine(screen, float32(g.layout.x(48)), float32(g.layout.bottom(540)), float32(g.layout.x(125)), float32(g.layout.bottom(540)), float32(2*g.layout.unit), rgb(muted), detailed)
-	g.label(screen, label{x: 141, y: 531, size: 12, value: fmt.Sprintf("%.0f m", 77*g.layout.unit/g.mapScale), color: muted})
+	// Without a network, the map has no scale.
+	if len(g.network.Nodes) > 0 {
+		vector.StrokeLine(screen, float32(g.layout.x(48)), float32(g.layout.bottom(540)), float32(g.layout.x(125)), float32(g.layout.bottom(540)), float32(2*g.layout.unit), rgb(muted), detailed)
+		g.label(screen, label{x: 141, y: 531, size: 12, value: fmt.Sprintf("%.0f m", 77*g.layout.unit/g.mapScale), color: muted})
+	}
 	g.drawPodLegend(screen)
+}
+
+// selectedVehicle returns the vehicle at index in state. It returns false
+// when state has no vehicle at index, for example before the first state
+// frame.
+func selectedVehicle(state sim.Snapshot, index int) (sim.Vehicle, bool) {
+	if index < 0 || index >= len(state.Vehicles) {
+		return sim.Vehicle{}, false
+	}
+	return state.Vehicles[index], true
 }
 
 func (g *Game) showStationBerths(station sim.Station) bool {
@@ -1202,6 +1237,9 @@ func drawArrow(screen *ebiten.Image, a arrow) {
 }
 
 func (g *Game) drawInspection(screen *ebiten.Image, state sim.Snapshot) {
+	if _, ok := selectedVehicle(state, g.selected); !ok {
+		return
+	}
 	podID := state.Vehicles[g.selected].Pod.ID
 	podLabel := fleetPodLabel(g.selected)
 	if podID != podLabel {
@@ -1398,6 +1436,15 @@ func (g *Game) label(screen *ebiten.Image, label label) {
 	options.GeoM.Translate(label.x, label.y)
 	options.ColorScale.ScaleWithColor(rgb(label.color))
 	text.Draw(screen, label.value, &text.GoTextFace{Source: g.font, Size: label.size * g.layout.unit}, options)
+}
+
+// centerLabel returns value as a physical label in the center of area.
+func (g *Game) centerLabel(area image.Rectangle, value label) label {
+	width, height := text.Measure(value.value, g.textFace(value.size), 0)
+	value.x = float64(area.Min.X) + (float64(area.Dx())-width)/2
+	value.y = float64(area.Min.Y) + (float64(area.Dy())-height)/2
+	value.physical = true
+	return value
 }
 
 func rgb(hex uint32) color.RGBA {

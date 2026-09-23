@@ -257,6 +257,8 @@ func TestHeaderTextClearsControls(t *testing.T) {
 		t.Run(layout.name, func(t *testing.T) {
 			t.Parallel()
 			game := controlTestGame(t, layout.input)
+			// The header counts stations and pods after the first state frame.
+			game.state.Epoch = "test"
 			game.state.Checkpoints = []session.Checkpoint{{ID: 1, Tick: 600}}
 			controls := game.buttons()
 			savePointRow := []button{findButton(t, controls, "checkpoint"), findButton(t, controls, "rewind")}

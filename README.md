@@ -425,7 +425,10 @@ Range responses remain uncompressed.
 WASM uses a build-time gzip artifact to reduce downloads without repeating compression for each browser.
 If that artifact is missing or older than the WASM file, the server compresses the current file during the request.
 
+Until the first state frame arrives, the map shows **Connecting to server...** and no network.
 A lost connection disables commands.
+While the connection is lost, the map is dimmed and an amber banner shows **Connection lost. Showing state from N s ago.**
+N is the time in seconds since the last state frame.
 Reconnection restores the current shared state.
 When the server restarts with different browser files, open browser pages reload by themselves.
 The desktop client shows a message instead. Restart it to load the new version.

@@ -39,6 +39,9 @@ type Client struct {
 	state     session.State
 	topology  session.TopologySnapshot
 	connected bool
+	// lastFrame is the time of the last poll that read a state frame
+	// without an error.
+	lastFrame time.Time
 	pending   bool
 	client    string
 	sequence  uint64
@@ -69,6 +72,15 @@ func (c *Client) View() (session.State, bool, bool) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	return c.state, c.connected, c.pending
+}
+
+// LastFrame returns the time of the last poll that read a state frame
+// without an error. A game uses it to give the age of the shown state while
+// the connection is lost. Before the first frame, it returns the zero time.
+func (c *Client) LastFrame() time.Time {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return c.lastFrame
 }
 
 // BuildChanged reports whether a state frame gave a build that differs
@@ -102,13 +114,11 @@ func (c *Client) Submit(command session.Command) error {
 	return nil
 }
 
-// accept keeps a state from a new epoch, or a state from the current epoch
-// with the same or a higher revision. It drops a state from a retired epoch
-// until retiredEpochPolls frames in a row carry that epoch. Then that epoch
-// becomes the current epoch again.
-func (c *Client) accept(state session.State) {
-	c.mu.Lock()
-	defer c.mu.Unlock()
+// acceptLocked keeps a state from a new epoch, or a state from the current
+// epoch with the same or a higher revision. It drops a state from a retired
+// epoch until retiredEpochPolls frames in a row carry that epoch. Then that
+// epoch becomes the current epoch again. The caller must hold c.mu.
+func (c *Client) acceptLocked(state session.State) {
 	if state.Epoch == "" {
 		return
 	}
@@ -161,15 +171,19 @@ func (c *Client) poll(ctx context.Context) {
 		// fail on a new server. The build change must show in these cases.
 		// A failed request leaves the build empty, and noteBuild ignores it.
 		c.noteBuild(frame.Build)
+		var state session.State
 		if err == nil {
-			var state session.State
 			state, err = c.stateForFrame(ctx, frame)
-			if err == nil {
-				c.accept(state)
-			}
 		}
+		// Change the state, the connection state, and the frame time in one
+		// step. A reader then does not see a new state together with the
+		// connection state of an earlier poll.
 		c.mu.Lock()
 		c.connected = err == nil
+		if c.connected {
+			c.acceptLocked(state)
+			c.lastFrame = time.Now()
+		}
 		c.mu.Unlock()
 		select {
 		case <-ctx.Done():
