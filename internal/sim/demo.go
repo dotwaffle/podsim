@@ -10,9 +10,13 @@ type demoRun struct{ secondSent, followupsSent bool }
 
 const demoJourneys = 8
 
+// demoParkedPods are the pods that StartDemo adds. They stay after the demo
+// ends, until Reset.
+var demoParkedPods = [...]string{"03", "04"}
+
 // StartDemo adds two parked pods for a fixed eight-journey experiment. Reset restores the original fleet.
 func (s *Simulation) StartDemo() error {
-	if len(s.initial) != 2 || !demoPlacement(s.initial[0], Placement{ID: "01", StationID: "harbor", BerthID: "harbor-1"}) || !demoPlacement(s.initial[1], Placement{ID: "02", StationID: "garden", BerthID: "garden-1"}) {
+	if !isDemoFleet(s.initial) {
 		return errors.New("the traffic demo needs pod 01 at Harbor and pod 02 at Garden")
 	}
 	if _, ok := s.station("market"); !ok {
@@ -25,7 +29,7 @@ func (s *Simulation) StartDemo() error {
 	if len(parking.Berths) < 2 {
 		return errors.New("the traffic demo needs two parking berths")
 	}
-	placements := append(slices.Clone(s.initial), Placement{ID: "03", StationID: "parking", BerthID: parking.Berths[0].ID}, Placement{ID: "04", StationID: "parking", BerthID: parking.Berths[1].ID})
+	placements := append(slices.Clone(s.initial), Placement{ID: demoParkedPods[0], StationID: "parking", BerthID: parking.Berths[0].ID}, Placement{ID: demoParkedPods[1], StationID: "parking", BerthID: parking.Berths[1].ID})
 	candidate, err := NewFleet(s.network, placements)
 	if err != nil {
 		return fmt.Errorf("create demo fleet: %w", err)
@@ -94,6 +98,13 @@ func (s *Simulation) validateDemo() error {
 func (s *Simulation) failDemo(err error) {
 	s.demoError = fmt.Sprintf("Traffic demo stopped: %v", err)
 	s.demo = nil
+}
+
+// isDemoFleet reports whether a fleet sorted by pod ID is the fleet that the
+// traffic demo needs.
+func isDemoFleet(fleet []Placement) bool {
+	return len(fleet) == 2 && demoPlacement(fleet[0], Placement{ID: "01", StationID: "harbor", BerthID: "harbor-1"}) &&
+		demoPlacement(fleet[1], Placement{ID: "02", StationID: "garden", BerthID: "garden-1"})
 }
 
 func demoPlacement(actual, expected Placement) bool {

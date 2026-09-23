@@ -3,6 +3,7 @@ package sim
 import (
 	"errors"
 	"fmt"
+	"maps"
 	"reflect"
 	"slices"
 	"sync"
@@ -78,20 +79,44 @@ func clonedElements(t reflect.Type) []reflect.Type {
 	}
 }
 
+// fieldRuleCheck describes a rule table for the fields of one type.
+type fieldRuleCheck struct {
+	// kind names the rule table in errors.
+	kind string
+	typ  reflect.Type
+	// names holds the fields that have a rule.
+	names []string
+	// needsRule reports whether a field must have a rule.
+	needsRule func(reflect.StructField) bool
+}
+
+// checkFieldRules reports each field that needs a rule and has none, and each
+// rule for a field that the type does not have.
+func checkFieldRules(t *testing.T, check fieldRuleCheck) {
+	t.Helper()
+	fields := make(map[string]bool)
+	for field := range check.typ.Fields() {
+		fields[field.Name] = true
+		if !slices.Contains(check.names, field.Name) && check.needsRule(field) {
+			t.Errorf("%s.%s has no %s rule", check.typ.Name(), field.Name, check.kind)
+		}
+	}
+	for _, name := range check.names {
+		if !fields[name] {
+			t.Errorf("%s has a %s rule for the missing field %s", check.typ.Name(), check.kind, name)
+		}
+	}
+}
+
 func TestCloneRulesCoverReferenceFields(t *testing.T) {
 	t.Parallel()
 	for typ, rules := range cloneRules {
-		fields := make(map[string]bool)
+		checkFieldRules(t, fieldRuleCheck{
+			kind: "clone", typ: typ, names: slices.Collect(maps.Keys(rules)),
+			needsRule: func(field reflect.StructField) bool { return holdsReferences(field.Type) },
+		})
 		for field := range typ.Fields() {
-			fields[field.Name] = true
-			rule, ok := rules[field.Name]
-			if !ok {
-				if holdsReferences(field.Type) {
-					t.Errorf("%s.%s holds references but has no clone rule", typ.Name(), field.Name)
-				}
-				continue
-			}
-			if rule != cloneCopy {
+			if rules[field.Name] != cloneCopy {
 				continue
 			}
 			for _, element := range clonedElements(field.Type) {
@@ -100,16 +125,85 @@ func TestCloneRulesCoverReferenceFields(t *testing.T) {
 				}
 			}
 		}
-		for name := range rules {
-			if !fields[name] {
-				t.Errorf("%s has a clone rule for the missing field %s", typ.Name(), name)
-			}
-		}
 	}
 	for _, typ := range clonePlainTypes {
 		if holdsReferences(typ) {
 			t.Errorf("%s holds references, so a value copy is not deep", typ.Name())
 		}
+	}
+}
+
+type persistRule int
+
+const (
+	// persistSave marks a field that ExportState writes and RestoreState reads.
+	persistSave persistRule = iota + 1
+	// persistDerive marks a field that RestoreState computes from the saved
+	// fields or from the network.
+	persistDerive
+	// persistReset marks a field that RestoreState sets to its start value.
+	persistReset
+	// persistSession marks a field that the session gives or sets again.
+	persistSession
+	// persistUnsupported marks a setting that a restore does not keep. Only
+	// experiments change it, so a restore uses the NewFleet value.
+	persistUnsupported
+)
+
+// persistRules gives a rule for each field of the types that ExportState
+// reads. A new field needs a rule, so its author decides how a restore keeps
+// it.
+var persistRules = map[reflect.Type]map[string]persistRule{
+	reflect.TypeFor[Simulation](): {
+		"junctionConflicts": persistDerive, "lengths": persistReset, "routes": persistReset, "routeOrder": persistReset,
+		"graph": persistDerive, "stationIndexes": persistDerive, "stationForbidden": persistDerive,
+		"geometry": persistDerive, "network": persistSession, "initial": persistSession,
+		"vehicles": persistSave, "owners": persistDerive, "tick": persistSave, "paused": persistSave,
+		"completed": persistSave, "requestID": persistSave, "demo": persistSave, "demoError": persistSave,
+		"waiting": persistSave, "boarded": persistSave, "totalWaitTicks": persistSave, "maxWaitTicks": persistSave,
+		"redistribution": persistSession, "demandWeights": persistSession, "nextRedistributionTick": persistSave,
+		"passengerDistanceMeters": persistSave, "emptyDistanceMeters": persistSave, "rebalanceMoves": persistSave,
+		"sharedRidePartyLimit": persistSave, "sharedParties": persistSave,
+		"laneSafety": persistDerive, "berthSafety": persistDerive,
+		"congestionRouting": persistUnsupported, "congestionRouteCosts": persistUnsupported,
+		"congestionRoutes": persistUnsupported, "nextCongestionRouteRefresh": persistUnsupported,
+		"reservationLookaheadSeconds": persistUnsupported,
+	},
+	reflect.TypeFor[vehicle](): {
+		"Vehicle": persistSave, "phaseTicks": persistSave, "blocks": persistDerive, "blockStarts": persistDerive,
+		"routeReleases": persistDerive, "blockIndex": persistDerive, "reservedThrough": persistDerive,
+		"originReleased": persistDerive, "distance": persistSave, "pending": persistDerive, "waitSince": persistSave,
+		"rebalanceAfter": persistSave, "origin": persistSave, "destination": persistSave,
+		"destinationStation": persistSave,
+	},
+	reflect.TypeFor[Vehicle](): {
+		"Pod": persistSave, "Request": persistSave, "Route": persistSave, "Parties": persistSave,
+		"RelocatingTo": persistSave, "Rebalancing": persistSave,
+	},
+	reflect.TypeFor[Pod](): {
+		"ID": persistSave, "Position": persistDerive, "Activity": persistSave, "StationID": persistSave,
+		"BerthID": persistSave, "LaneID": persistSave, "LaneDistance": persistSave, "Speed": persistReset,
+		"Occupied": persistSave, "WaitReason": persistReset, "BlockedBy": persistReset,
+		"StationPhase": persistDerive, "ManeuverStationID": persistDerive,
+	},
+	reflect.TypeFor[Request](): {
+		"ID": persistSave, "From": persistSave, "To": persistSave, "PartySize": persistSave, "PodID": persistSave,
+		"Completed": persistSave, "RequestedTick": persistSave, "DispatchReason": persistSave,
+	},
+	reflect.TypeFor[waitingTrip](): {
+		"request": persistSave, "route": persistSave, "destination": persistReset, "deferUntil": persistSave,
+		"deferCheck": persistSave, "deferPodID": persistSave, "parties": persistSave,
+	},
+	reflect.TypeFor[demoRun](): {"secondSent": persistSave, "followupsSent": persistSave},
+}
+
+func TestSimulationFieldsHavePersistRules(t *testing.T) {
+	t.Parallel()
+	for typ, rules := range persistRules {
+		checkFieldRules(t, fieldRuleCheck{
+			kind: "persistence", typ: typ, names: slices.Collect(maps.Keys(rules)),
+			needsRule: func(reflect.StructField) bool { return true },
+		})
 	}
 }
 

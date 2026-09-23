@@ -34,13 +34,19 @@ type laneConflict struct {
 	start, end float64
 }
 
+// laneBlockCount returns the number of track cells in a lane of a length in
+// meters.
+func laneBlockCount(length float64) int {
+	return max(2, int(math.Ceil(length/30)))
+}
+
 // routeBlocks uses the same cell boundaries for every route through a lane.
 func (s *Simulation) routeBlocks(route []Lane) []block {
 	var blocks []block
 	distance := 0.0
 	for _, lane := range route {
 		length := s.laneLength(lane)
-		count := max(2, int(math.Ceil(length/30)))
+		count := laneBlockCount(length)
 		for cell := range count {
 			b := block{lane: lane, cell: cell, start: distance + float64(cell)*length/float64(count), end: distance + float64(cell+1)*length/float64(count), laneStart: distance, last: cell == count-1}
 			for _, station := range s.network.Stations {

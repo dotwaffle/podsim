@@ -1,0 +1,59 @@
+{
+  "tick": 1500,
+  "completed": 0,
+  "requestID": 1,
+  "boarded": 1,
+  "totalWaitTicks": 0,
+  "maxWaitTicks": 0,
+  "nextRedistributionTick": 0,
+  "passengerDistanceMeters": 259.1166666666598,
+  "emptyDistanceMeters": 0,
+  "rebalanceMoves": 0,
+  "sharedParties": 0,
+  "sharedRidePartyLimit": 1,
+  "demo": {},
+  "pods": [
+    {
+      "id": "01",
+      "activity": "traveling",
+      "occupied": true,
+      "request": {
+        "id": 1,
+        "from": "harbor",
+        "to": "market",
+        "partySize": 1,
+        "podID": "01",
+        "requestedTick": 0
+      },
+      "parties": 1,
+      "origin": "harbor-1",
+      "destinationStation": "market",
+      "route": [
+        9,
+        10,
+        11
+      ],
+      "laneID": "bypass-in",
+      "laneDistance": 45.099124156746,
+      "distance": 45.099124156746
+    },
+    {
+      "id": "02",
+      "activity": "idle",
+      "stationID": "garden",
+      "berthID": "garden-1"
+    },
+    {
+      "id": "03",
+      "activity": "idle",
+      "stationID": "parking",
+      "berthID": "parking-1"
+    },
+    {
+      "id": "04",
+      "activity": "idle",
+      "stationID": "parking",
+      "berthID": "parking-2"
+    }
+  ]
+}
