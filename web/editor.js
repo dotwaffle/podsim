@@ -687,13 +687,17 @@
   }
 
   // postCommand sends one command. A rejected command throws an error with
-  // the HTTP status.
+  // status, the HTTP status, and errorCode, the error code of the
+  // acknowledgment. The message of the error is the error text of the
+  // acknowledgment. A reply without an acknowledgment gives an empty
+  // errorCode and the HTTP status as the message.
   async function postCommand(connection, command) {
     connection.sequence += 1;
     const response = await connection.fetch("/api/command", { method: "POST", headers: { "Content-Type": "application/json", Accept: "application/json" }, body: JSON.stringify({ client: connection.clientID, sequence: connection.sequence, epoch: connection.epoch, ...command }) });
     let body = null; try { body = await response.json(); } catch (_) {}
     if (!response.ok || (body && (body.error || body.Error))) {
-      const error = new Error((body && (body.error || body.Error)) || `HTTP ${response.status}`); error.status = response.status; throw error;
+      const error = new Error((body && (body.error || body.Error)) || `HTTP ${response.status}`);
+      error.status = response.status; error.errorCode = (body && body.errorCode) || ""; throw error;
     }
     const replyState = body && (body.state || body.State || body);
     if (replyState && (replyState.epoch || replyState.Epoch)) connection.epoch = replyState.epoch || replyState.Epoch;
@@ -716,8 +720,11 @@
   // the live project revision that the draft started from. apply.onApplying
   // runs after the pause, when it is set.
   //
-  // A failure error has status, the HTTP status of a rejected command, and
-  // pause, the state of the simulation after the failure:
+  // A failure error has status, the HTTP status of a rejected command,
+  // errorCode, the error code of a rejected command, and pause, the state of
+  // the simulation after the failure. When the live project revision is not
+  // apply.revision before the pause, the error has status 409 and errorCode
+  // "stale_project", as the server gives. The pause values are:
   // - "not-paused": the editor did not pause the simulation.
   // - "was-paused": the simulation was paused before the apply and stays paused.
   // - "resumed": the editor paused the simulation, then resumed it.
@@ -732,7 +739,7 @@
     try {
       const current = await getJSON(connection, "/api/project");
       if (Number(current.revision ?? current.Revision ?? 0) !== apply.revision) {
-        const error = new Error("The live scenario changed."); error.status = 409; throw error;
+        const error = new Error("The live scenario changed."); error.status = 409; error.errorCode = "stale_project"; throw error;
       }
       const live = await getJSON(connection, "/api/state");
       if (!connection.epoch) connection.epoch = live.epoch || live.Epoch || "";
@@ -787,11 +794,38 @@
     "restarted": "The simulation restarted after the pause. The editor did not resume it.",
   };
 
-  // applyFailureText gives the message for an error from applyToServer. A
-  // 409 status is a conflict with the live session.
+  // APPLY_FAILURE gives the reason and the status line for the error codes
+  // of a failed apply that need their own text. "stale_project" is a
+  // conflict with the live project. "session_changed" is a server restart.
+  // The page keeps the epoch that it loaded, so each later apply also fails.
+  // The text tells the user to export the draft before the reload, because
+  // a reload loses the draft.
+  const APPLY_FAILURE = new Map([
+    ["stale_project", { reason: "The live scenario changed. Your draft is safe.", status: "Apply conflict. Reload the page to get the current live scenario." }],
+    ["session_changed", {
+      reason: "The server session changed. The draft stays on this page. Export the draft, reload the page, then import the draft.",
+      status: "The server session changed. Export the draft, reload the page, then import the draft.",
+    }],
+  ]);
+
+  // APPLY_FAILED_STATUS is the status line for an error code that is not in
+  // APPLY_FAILURE. The toast with the reason hides after 4 seconds. The
+  // status line stays.
+  const APPLY_FAILED_STATUS = "Apply failed. The draft stays on this page.";
+
+  // applyFailureText gives the message for an error from applyToServer. For
+  // an error code that is not in APPLY_FAILURE, the reason is the error
+  // text, for example the reason from the server or a network error.
   function applyFailureText(error) {
-    const reason = error.status === 409 ? "The live scenario changed. Your draft is safe." : `Apply failed. ${String(error.message).replace(/\.?$/, ".")}`;
+    const text = String(error.message).replace(/\.?$/, ".");
+    const reason = APPLY_FAILURE.get(error.errorCode)?.reason ?? `Apply failed. ${text.charAt(0).toUpperCase()}${text.slice(1)}`;
     return [reason, APPLY_PAUSE_TEXT[error.pause]].filter(Boolean).join(" ");
+  }
+
+  // applyFailureStatus gives the status line for an error from
+  // applyToServer.
+  function applyFailureStatus(error) {
+    return APPLY_FAILURE.get(error.errorCode)?.status ?? APPLY_FAILED_STATUS;
   }
 
   // applyToast gives the arguments of toast for an applied project. applied
@@ -808,7 +842,7 @@
     MIN_LANE_LENGTH, MIN_ZOOM, NODE_LABEL_SCALE, NODE_LABEL_SIZE, emptyConfig, normalizeConfig, addLane, addJunction, addStation, addBerth,
     removeBerth, moveStation, moveNode, deleteNode, deleteLane, deleteStation, setFleetCount,
     laneLength, reachable, stationNodeOwners, dragTargets, validateConfig, serializeDocument, parseDocument, createHistory,
-    networkBounds, fitView, zoomScale, nodeLabelSize, applyToServer, applyFailureText, applyToast,
+    networkBounds, fitView, zoomScale, nodeLabelSize, applyToServer, applyFailureText, applyFailureStatus, applyToast,
   };
   if (typeof module !== "undefined" && module.exports) module.exports = API;
   root.PodsimEditorModel = API;
@@ -1195,8 +1229,7 @@
       state.loaded = { scenario: project, background: state.background ? clone(state.background) : null };
       updateStatus(`Applied revision ${state.loadedRevision}. The simulation is paused.`); toast(...applyToast(applied));
     } catch (error) {
-      if (error.status === 409) updateStatus("Apply conflict. Reload the page to get the current live scenario.");
-      toast(applyFailureText(error), true);
+      updateStatus(applyFailureStatus(error)); toast(applyFailureText(error), true);
     } finally { button.disabled = false; button.textContent = "Pause and apply"; }
   }
 

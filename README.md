@@ -211,6 +211,8 @@ A rewind to a save point from before a project apply or a demand change restores
 The rewind also rewrites the `-project` file.
 An open draft then gets an apply conflict. Reload the page to get the restored project.
 Export the draft before reloading a newer server project.
+For other failures, the editor shows the reason from the server, for example a project file that the server cannot save.
+If the server restarted with a new session, the open editor cannot apply the draft. Export the draft, reload the page, then import the draft.
 
 - Create stations and explicit junctions, then connect their nodes with directed guideways.
 - Select paired lanes to add both directions. Crossing lines do not create a junction.
