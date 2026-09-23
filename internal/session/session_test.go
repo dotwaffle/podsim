@@ -38,6 +38,16 @@ func TestSessionMetrics(t *testing.T) {
 		metrics.Vehicles != len(state.Simulation.Vehicles) {
 		t.Fatalf("metrics do not match state: %+v", metrics)
 	}
+	client := newTestClient(s, "test")
+	// Each step adds save points to the ones before it.
+	for _, step := range []struct{ saves, want int }{{0, 0}, {1, 1}, {checkpointLimit, checkpointLimit}} {
+		for range step.saves {
+			client.mustApply(t, Command{Action: "checkpoint"})
+		}
+		if got := s.Metrics().Checkpoints; got != step.want {
+			t.Fatalf("after %d more saves: checkpoints = %d, want %d", step.saves, got, step.want)
+		}
+	}
 }
 
 func TestCommandRetriesAndReset(t *testing.T) {

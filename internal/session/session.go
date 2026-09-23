@@ -6,7 +6,9 @@ import (
 	"crypto/rand"
 	"errors"
 	"fmt"
+	"log/slog"
 	"reflect"
+	"slices"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -53,6 +55,7 @@ type Metrics struct {
 	EmptyDistanceMeters     float64
 	AverageWaitSeconds      float64
 	MaximumWaitSeconds      float64
+	Checkpoints             int
 }
 
 // Command describes an explicit mutation with a per-client sequence for safe retries.
@@ -112,6 +115,15 @@ func WithProjectSaver(save func(project.Config) error) Option {
 	return func(session *Session) { session.saveProject = save }
 }
 
+// WithLogger sets the logger for session events. The default is slog.Default().
+func WithLogger(logger *slog.Logger) Option {
+	return func(session *Session) {
+		if logger != nil {
+			session.logger = logger
+		}
+	}
+}
+
 // Session contains one fleet and one simulation clock. Use Run once per session.
 type Session struct {
 	// Close sets closed without mu, so a slow command cannot block shutdown.
@@ -127,6 +139,7 @@ type Session struct {
 	demand          demandRun
 	receipts        map[string]receipt
 	saveProject     func(project.Config) error
+	logger          *slog.Logger
 	// checkpoints holds the retained save points, oldest first. lastCheckpoint
 	// is the last issued ID. The session never uses an ID again in an epoch.
 	checkpoints    []checkpoint
@@ -162,6 +175,7 @@ func NewWithProject(config project.Config, options ...Option) (*Session, error) 
 		speed:           1,
 		demand:          newDemand(demandInput{config: owned.Demand, network: owned.Network, profiles: owned.DemandProfiles}),
 		receipts:        make(map[string]receipt),
+		logger:          slog.Default(),
 	}
 	for _, option := range options {
 		option(session)
@@ -240,6 +254,7 @@ func (s *Session) Metrics() Metrics {
 		EmptyDistanceMeters:     state.EmptyDistanceMeters,
 		AverageWaitSeconds:      state.Wait.AverageSeconds,
 		MaximumWaitSeconds:      state.Wait.MaxSeconds,
+		Checkpoints:             len(s.checkpoints),
 	}
 	for _, vehicle := range state.Vehicles {
 		if vehicle.Request != nil || vehicle.RelocatingTo != "" {
@@ -286,10 +301,23 @@ func (s *Session) Project() ProjectState {
 // After Close, a command that passes the epoch and sequence checks gets ServerStopping.
 // An exact retry still gets its stored reply.
 func (s *Session) Apply(command Command) Reply {
-	command = cloneCommand(command)
+	reply, event := s.applyCommand(cloneCommand(command))
+	// Log after applyCommand releases the lock. A slow log sink must not stop
+	// the clock or the readers. Commands carry no request context, so use
+	// Info, which logs with context.Background.
+	if event != nil {
+		s.logger.Info(event.message, event.args()...)
+	}
+	return reply
+}
+
+// applyCommand holds the lock while it checks and applies command. It
+// returns the reply and an event to log, or nil when there is no event.
+func (s *Session) applyCommand(command Command) (Reply, *sessionEvent) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	reply := s.reply()
+	var event *sessionEvent
 	switch {
 	case command.Epoch != s.epoch:
 		reply.reject(SessionChanged, "The server session changed. Review the current state and try again.")
@@ -311,6 +339,7 @@ func (s *Session) Apply(command Command) Reply {
 		case !exists && len(s.receipts) >= 1024:
 			reply.reject(ClientLimit, "The session client limit was reached. Restart the server.")
 		default:
+			started := time.Now()
 			result, err := s.apply(command)
 			if err == nil {
 				s.revision++
@@ -321,9 +350,13 @@ func (s *Session) Apply(command Command) Reply {
 				reply.reject(CommandRejected, err.Error())
 			}
 			s.receipts[command.Client] = receipt{command: cloneCommand(command), reply: reply}
+			if result.event != nil {
+				event = result.event
+				event.client, event.duration = command.Client, time.Since(started)
+			}
 		}
 	}
-	return reply
+	return reply, event
 }
 
 func (s *Session) reply() Reply {
@@ -345,10 +378,31 @@ func cloneCommand(command Command) Command {
 	return command
 }
 
-// outcome holds the reply values of an accepted command.
+// outcome holds the reply values of an accepted command. event is nil when
+// the command has no event to log.
 type outcome struct {
 	orderID    int
 	checkpoint uint64
+	event      *sessionEvent
+}
+
+// sessionEvent is a log record for an accepted command. Apply writes it after
+// it releases the lock. details holds the slog.Attr values that describe the
+// command. duration is the time to apply the command under the lock.
+type sessionEvent struct {
+	message  string
+	client   string
+	details  []any
+	duration time.Duration
+}
+
+// args returns the client, the details, and the duration, in that order.
+func (e *sessionEvent) args() []any {
+	return slices.Concat(
+		[]any{slog.String("client", e.client)},
+		e.details,
+		[]any{slog.Duration("duration", e.duration)},
+	)
 }
 
 func (s *Session) apply(command Command) (outcome, error) {
@@ -416,9 +470,9 @@ func (s *Session) apply(command Command) (outcome, error) {
 	case "project":
 		return outcome{}, s.applyProject(command)
 	case "checkpoint":
-		return outcome{checkpoint: s.captureCheckpoint()}, nil
+		return s.captureCheckpoint(), nil
 	case "rewind":
-		return outcome{}, s.rewind(command.Checkpoint)
+		return s.rewind(command.Checkpoint)
 	default:
 		return outcome{}, errors.New("unknown command")
 	}

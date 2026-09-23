@@ -4,6 +4,11 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+
+	sdkmetric "go.opentelemetry.io/otel/sdk/metric"
+	"go.opentelemetry.io/otel/sdk/metric/metricdata"
+
+	"github.com/dotwaffle/podsim/internal/session"
 )
 
 func TestEnabledSignals(t *testing.T) {
@@ -42,4 +47,46 @@ func TestInstrumentRequestExcludesHighRateAndHealthPaths(t *testing.T) {
 			t.Fatalf("instrument %s = %t", test.path, got)
 		}
 	}
+}
+
+func TestSessionMetricsReportRetainedCheckpoints(t *testing.T) {
+	t.Parallel()
+	for _, test := range []struct {
+		name        string
+		checkpoints int
+	}{{name: "none"}, {name: "limit", checkpoints: 8}} {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			reader := sdkmetric.NewManualReader()
+			meter := sdkmetric.NewMeterProvider(sdkmetric.WithReader(reader)).Meter(instrumentationName)
+			snapshot := func() session.Metrics { return session.Metrics{Checkpoints: test.checkpoints} }
+			if _, err := registerSessionMetrics(meter, snapshot); err != nil {
+				t.Fatal(err)
+			}
+			var collected metricdata.ResourceMetrics
+			if err := reader.Collect(t.Context(), &collected); err != nil {
+				t.Fatal(err)
+			}
+			retained, ok := findMetric(collected, "podsim.checkpoint.retained")
+			if !ok {
+				t.Fatal("podsim.checkpoint.retained is missing")
+			}
+			gauge, ok := retained.Data.(metricdata.Gauge[int64])
+			if !ok || retained.Unit != "{checkpoint}" || len(gauge.DataPoints) != 1 ||
+				gauge.DataPoints[0].Value != int64(test.checkpoints) {
+				t.Fatalf("podsim.checkpoint.retained = %+v, want one %d {checkpoint} gauge point", retained, test.checkpoints)
+			}
+		})
+	}
+}
+
+func findMetric(collected metricdata.ResourceMetrics, name string) (metricdata.Metrics, bool) {
+	for _, scope := range collected.ScopeMetrics {
+		for _, data := range scope.Metrics {
+			if data.Name == name {
+				return data, true
+			}
+		}
+	}
+	return metricdata.Metrics{}, false
 }

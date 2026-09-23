@@ -82,11 +82,32 @@ HTTP telemetry excludes `/api/state` because each client polls it at 20 Hz.
 It also excludes `/healthz`.
 Other HTTP requests include route-based server traces and metrics.
 Runtime metrics report memory, allocations, goroutines, processor limits, and the Go memory limit.
-Session gauges report journeys, pods, stopped pods, distance, and passenger wait.
+Session gauges report journeys, pods, stopped pods, distance, passenger wait, and save points.
+`podsim.checkpoint.retained` is the number of save points in memory.
+Compare it with the runtime memory metrics to see the memory that save points use.
+A reset or a rewind can decrease `podsim.simulation.tick`, `podsim.journey.submitted`, `podsim.journey.completed`, `podsim.travel.passenger.distance`, and `podsim.travel.empty.distance`.
+These metrics are gauges, not counters, so do not use `rate()` on them.
 
 The server flushes both providers during graceful shutdown.
 Invalid endpoint syntax stops startup with an error.
 An unreachable collector reports export errors without stopping the simulation.
+
+## Save point logs
+
+The server writes one `INFO` log record for each save point and rewind that it applies.
+It does not log rejected commands, exact retries, or commands after shutdown starts.
+
+`Saved checkpoint` gives the `client`, the `checkpoint` ID, the `tick`, and the `projectRevision`.
+It also gives the number of `retained` save points.
+`evicted` is the ID of the save point that the server removed at the limit, or 0.
+
+`Rewound session` gives the `client`, the `checkpoint` ID, `fromTick`, and `toTick`.
+It also gives the `generation` and `projectRevision` after the rewind.
+All browsers share one session, so `client` identifies the browser page that rewound the session for all users.
+`projectRestored` is true when the save point holds a different project and the rewind restored it.
+With `-project`, the rewind also writes that project to the project file.
+
+Both records give `duration`, the time to apply the command under the session lock.
 
 ## Graceful shutdown
 

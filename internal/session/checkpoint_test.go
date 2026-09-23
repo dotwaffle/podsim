@@ -933,7 +933,8 @@ const (
 
 // sessionRewindRules gives a rule for each Session field.
 var sessionRewindRules = map[string]rewindRule{
-	"closed": rewindInfrastructure, "mu": rewindInfrastructure, "saveProject": rewindInfrastructure,
+	"closed": rewindInfrastructure, "mu": rewindInfrastructure,
+	"saveProject": rewindInfrastructure, "logger": rewindInfrastructure,
 	"simulation": rewindRestore, "demand": rewindRestore,
 	// A rewind restores the project of the save point. When it restores a
 	// different project, it increases projectRevision and does not restore

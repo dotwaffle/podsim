@@ -3,6 +3,7 @@ package session
 import (
 	"errors"
 	"fmt"
+	"log/slog"
 	"slices"
 
 	"github.com/dotwaffle/podsim/internal/project"
@@ -40,38 +41,48 @@ type checkpoint struct {
 }
 
 // captureCheckpoint saves the simulation, the demand stream, and the
-// project, and returns the new ID.
-func (s *Session) captureCheckpoint() uint64 {
+// project. It returns the new ID and the event to log.
+func (s *Session) captureCheckpoint() outcome {
 	s.lastCheckpoint++
+	var evicted uint64
 	if len(s.checkpoints) >= checkpointLimit {
+		evicted = s.checkpoints[0].id
 		// Delete clears the freed slot, so the garbage collector can free the
 		// removed simulation.
 		s.checkpoints = slices.Delete(s.checkpoints, 0, 1)
 	}
 	// Copy the demand stream. Do not make a new one from the project. After a
 	// demo or a disable, the stream settings can differ from the project.
-	s.checkpoints = append(s.checkpoints, checkpoint{
+	entry := checkpoint{
 		id:            s.lastCheckpoint,
 		tick:          s.simulation.Snapshot().Tick,
 		projectOrigin: s.projectOrigin,
 		project:       s.project,
 		simulation:    s.simulation.Clone(),
 		demand:        s.demand.clone(),
-	})
-	return s.lastCheckpoint
+	}
+	s.checkpoints = append(s.checkpoints, entry)
+	return outcome{checkpoint: entry.id, event: &sessionEvent{message: "Saved checkpoint", details: []any{
+		slog.Uint64("checkpoint", entry.id),
+		slog.Int64("tick", entry.tick),
+		slog.Uint64("projectRevision", s.projectRevision),
+		slog.Int("retained", len(s.checkpoints)),
+		slog.Uint64("evicted", evicted),
+	}}}
 }
 
 // rewind restores the simulation and the demand stream of a save point and
 // pauses the session. When the save point holds a different project, rewind
 // saves that project, restores it, and increases the project revision. It
-// keeps the epoch, the receipts, the speed, and the save points.
-func (s *Session) rewind(id uint64) error {
+// keeps the epoch, the receipts, the speed, and the save points. It returns
+// the event to log.
+func (s *Session) rewind(id uint64) (outcome, error) {
 	if id == 0 {
-		return errors.New("rewind requires a save point")
+		return outcome{}, errors.New("rewind requires a save point")
 	}
 	index := slices.IndexFunc(s.checkpoints, func(entry checkpoint) bool { return entry.id == id })
 	if index < 0 {
-		return fmt.Errorf("save point #%d is no longer available", id)
+		return outcome{}, fmt.Errorf("save point #%d is no longer available", id)
 	}
 	entry := s.checkpoints[index]
 	// Compare the origins, not the revisions. A restore increases the
@@ -81,9 +92,10 @@ func (s *Session) rewind(id uint64) error {
 	// project file do not change. Nothing after the save can fail.
 	if restore {
 		if err := s.save(entry.project); err != nil {
-			return err
+			return outcome{}, err
 		}
 	}
+	fromTick := s.simulation.Snapshot().Tick
 	// Install a new clone. Step, Reset, RequestTrip, and StartDemo change the
 	// simulation in place, and the save point must stay the same for the next
 	// rewind. The clone already has the redistribution settings of the save
@@ -100,7 +112,14 @@ func (s *Session) rewind(id uint64) error {
 		s.projectRevision++
 	}
 	s.generation++
-	return nil
+	return outcome{event: &sessionEvent{message: "Rewound session", details: []any{
+		slog.Uint64("checkpoint", id),
+		slog.Int64("fromTick", fromTick),
+		slog.Int64("toTick", entry.tick),
+		slog.Uint64("generation", s.generation),
+		slog.Uint64("projectRevision", s.projectRevision),
+		slog.Bool("projectRestored", restore),
+	}}}, nil
 }
 
 // checkpointList returns a new list of the retained save points, oldest

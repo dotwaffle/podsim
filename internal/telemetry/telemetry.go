@@ -142,6 +142,7 @@ func enabledSignals(getenv func(string) string) (bool, bool) {
 type sessionInstruments struct {
 	tick, submitted, completed, pending                        metric.Int64ObservableGauge
 	vehicles, activeVehicles, passengerVehicles, stoppedPods   metric.Int64ObservableGauge
+	checkpoints                                                metric.Int64ObservableGauge
 	passengerDistance, emptyDistance, averageWait, maximumWait metric.Float64ObservableGauge
 }
 
@@ -164,6 +165,7 @@ func registerSessionMetrics(meter metric.Meter, snapshot func() session.Metrics)
 		observer.ObserveFloat64(instruments.emptyDistance, state.EmptyDistanceMeters)
 		observer.ObserveFloat64(instruments.averageWait, state.AverageWaitSeconds)
 		observer.ObserveFloat64(instruments.maximumWait, state.MaximumWaitSeconds)
+		observer.ObserveInt64(instruments.checkpoints, int64(state.Checkpoints))
 		return nil
 	}, instruments.observables()...)
 }
@@ -207,6 +209,10 @@ func newSessionInstruments(meter metric.Meter) (sessionInstruments, error) {
 	if instruments.maximumWait, err = meter.Float64ObservableGauge("podsim.wait.maximum", metric.WithUnit("s")); err != nil {
 		return instruments, fmt.Errorf("create maximum wait metric: %w", err)
 	}
+	if instruments.checkpoints, err = meter.Int64ObservableGauge("podsim.checkpoint.retained", metric.WithUnit("{checkpoint}"),
+		metric.WithDescription("Save points that the session keeps in memory.")); err != nil {
+		return instruments, fmt.Errorf("create retained checkpoint metric: %w", err)
+	}
 	return instruments, nil
 }
 
@@ -215,5 +221,6 @@ func (i sessionInstruments) observables() []metric.Observable {
 		i.tick, i.submitted, i.completed, i.pending,
 		i.vehicles, i.activeVehicles, i.passengerVehicles, i.stoppedPods,
 		i.passengerDistance, i.emptyDistance, i.averageWait, i.maximumWait,
+		i.checkpoints,
 	}
 }

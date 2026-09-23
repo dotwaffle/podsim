@@ -54,7 +54,7 @@ func run() error {
 		return err
 	}
 	config := project.Default()
-	var options []session.Option
+	options := []session.Option{session.WithLogger(slog.Default())}
 	if *projectPath != "" {
 		loaded, loadErr := loadProject(*projectPath)
 		if loadErr != nil {
