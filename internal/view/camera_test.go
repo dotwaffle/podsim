@@ -17,11 +17,11 @@ func TestCollapsedStationLabelsPreferSelectedContext(t *testing.T) {
 		{stationID: "preferred", bounds: image.Rect(20, 0, 80, 20)},
 		{stationID: "separate", bounds: image.Rect(100, 0, 160, 20)},
 	}
-	visible := selectCollapsedStationLabels(labels, map[string]bool{"preferred": true}, true)
+	visible := selectCollapsedStationLabels(collapsedLabelSelection{labels: labels, preferred: map[string]bool{"preferred": true}, dense: true})
 	if visible[0] || !visible[1] || !visible[2] {
 		t.Fatalf("visible labels = %v, want [false true true]", visible)
 	}
-	if all := selectCollapsedStationLabels(labels, nil, false); !all[0] || !all[1] || !all[2] {
+	if all := selectCollapsedStationLabels(collapsedLabelSelection{labels: labels}); !all[0] || !all[1] || !all[2] {
 		t.Fatalf("small-network labels = %v, want all visible", all)
 	}
 }

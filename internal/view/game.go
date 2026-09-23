@@ -14,6 +14,7 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"unicode"
 
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/inpututil"
@@ -36,6 +37,9 @@ const (
 	track         = 0x354b5e
 	amber         = 0xf3c479
 	detailedLanes = 100
+	// markerOutlineWidth is the width in display units of the outline of a
+	// collapsed station marker.
+	markerOutlineWidth = 2
 
 	inspectionLeft       = 816.0
 	inspectionRight      = 1054.0
@@ -70,6 +74,8 @@ type Game struct {
 	anchorsKey           anchorCacheKey
 	lineLanes            map[string]bool
 	lineLanesKey         anchorCacheKey
+	labelRanks           map[string]int
+	labelRanksKey        anchorCacheKey
 	showOrders           bool
 	notice               string
 	noticeAction         string
@@ -536,7 +542,7 @@ func (g *Game) drawNetwork(screen *ebiten.Image, state sim.Snapshot) {
 	for _, station := range g.network.Stations {
 		if marker, ok := markers[station.ID]; ok {
 			vector.FillCircle(mapScreen, float32(marker.X), float32(marker.Y), float32(style.markerRadius), rgb(track), detailed)
-			vector.StrokeCircle(mapScreen, float32(marker.X), float32(marker.Y), float32(style.markerRadius), float32(2*g.layout.unit), rgb(muted), detailed)
+			vector.StrokeCircle(mapScreen, float32(marker.X), float32(marker.Y), float32(style.markerRadius), float32(markerOutlineWidth*g.layout.unit), rgb(muted), detailed)
 		}
 	}
 	selected := state.Vehicles[g.selected]
@@ -550,6 +556,7 @@ func (g *Game) drawNetwork(screen *ebiten.Image, state sim.Snapshot) {
 	}
 	collapsedStations := make(map[string]bool)
 	stationMonitor := observe.NewStationMonitor(g.network)
+	labelRanks := g.currentStationLabelRanks()
 	var collapsedLabels []collapsedStationLabel
 	for _, station := range g.network.Stations {
 		status := stationMonitor.Summarize(station, state)
@@ -608,18 +615,7 @@ func (g *Game) drawNetwork(screen *ebiten.Image, state sim.Snapshot) {
 		center.X /= float64(len(station.Berths))
 		center.Y /= float64(len(station.Berths))
 		if !showBerths {
-			x := marker.X + 16*g.layout.unit
-			y := marker.Y - 14*g.layout.unit
-			shortName := shortText(strings.TrimPrefix(station.Name, "Station "), 7)
-			collapsed := collapsedStationLabel{
-				stationID:      station.ID,
-				primary:        label{x: x, y: y, size: 10, value: fmt.Sprintf("%s  %d/%d", shortName, status.Occupied, len(station.Berths)), color: foreground},
-				collisionValue: fmt.Sprintf("%s  %d/%d", shortName, len(station.Berths), len(station.Berths)),
-			}
-			if status.EntranceStopped > 0 || status.ExitStopped > 0 {
-				collapsed.secondary = fmt.Sprintf("In %d · Out %d", status.EntranceStopped, status.ExitStopped)
-			}
-			collapsedLabels = append(collapsedLabels, collapsed)
+			collapsedLabels = append(collapsedLabels, g.collapsedStationLabel(collapsedStationLabelInput{station: station, status: status, marker: marker, rank: labelRanks[station.ID]}))
 		} else if station.ParkingOnly || len(station.Berths) > 1 {
 			x := center.X + 25*g.layout.unit
 			y := center.Y - 32*g.layout.unit
@@ -628,7 +624,12 @@ func (g *Game) drawNetwork(screen *ebiten.Image, state sim.Snapshot) {
 			g.label(mapScreen, label{x: x, y: y + 40*g.layout.unit, size: 9, value: fmt.Sprintf("In %d stopped / %d approaching · Out %d stopped", status.EntranceStopped, status.Approaching, status.ExitStopped), color: muted})
 		}
 	}
-	g.drawCollapsedStationLabels(mapScreen, collapsedLabels, selected)
+	podLabels := g.podMapLabels(state.Vehicles, collapsedStations)
+	shownLabels := g.drawCollapsedStationLabels(mapScreen, collapsedLabelsInput{
+		labels: collapsedLabels, selected: selected,
+		markers: markers, markerRadius: style.markerRadius, selectedPodLabel: podLabels[g.selected],
+	})
+	podLabels = g.clearPodLabels(podLabels, shownLabels)
 	for i, v := range state.Vehicles {
 		parkedInCluster := v.Pod.Activity == sim.Idle && collapsedStations[v.Pod.StationID]
 		if parkedInCluster && i != g.selected {
@@ -644,8 +645,9 @@ func (g *Game) drawNetwork(screen *ebiten.Image, state sim.Snapshot) {
 			vector.StrokeCircle(mapScreen, float32(p.X), float32(p.Y), float32(9*g.layout.unit), float32(1.5*g.layout.unit), rgb(foreground), detailed)
 		}
 		drawPodMark(mapScreen, podMark{center: p, purpose: purpose, antialias: detailed, unit: g.layout.unit})
-		if (!parkedInCluster || i == g.selected) && g.showPodMapLabel(i) {
-			g.label(mapScreen, label{x: p.X + 11*g.layout.unit, y: p.Y - 18*g.layout.unit, size: 11, value: fleetPodLabel(i), color: shade})
+		if podLabel := podLabels[i]; podLabel.value != "" {
+			podLabel.color = shade
+			g.label(mapScreen, podLabel)
 		}
 	}
 	vector.StrokeLine(screen, float32(g.layout.x(48)), float32(g.layout.bottom(540)), float32(g.layout.x(125)), float32(g.layout.bottom(540)), float32(2*g.layout.unit), rgb(muted), detailed)
@@ -673,80 +675,270 @@ func (g *Game) showStationBerths(station sim.Station) bool {
 	return minimum >= 34*g.layout.unit
 }
 
+// overviewNameRunes is the largest number of runes of a station name in an
+// overview label. A longer name ends with an ellipsis. The limit keeps the
+// names of the London Parking facilities complete.
+const overviewNameRunes = 20
+
+// collapsedStationLabel is the overview label of a collapsed station.
 type collapsedStationLabel struct {
-	stationID      string
-	primary        label
+	stationID string
+	// rank is the place of the station in the label order. See
+	// stationLabelRanks and selectCollapsedStationLabels.
+	rank    int
+	primary label
+	// collisionValue is the primary text with all berths occupied. The label
+	// bounds use it, so they do not change when a pod arrives or departs.
 	collisionValue string
-	secondary      string
+	// secondary is the queue line below the primary text. It is empty when
+	// the station has no queue.
+	secondary string
 }
 
+// collapsedStationLabelInput holds the station state of an overview label.
+type collapsedStationLabelInput struct {
+	station sim.Station
+	status  observe.StationMetrics
+	// marker is the screen position of the collapsed station marker.
+	marker sim.Point
+	rank   int
+}
+
+// collapsedStationLabel returns the overview label of a collapsed station.
+// The label starts to the right of the marker and above it.
+func (g *Game) collapsedStationLabel(input collapsedStationLabelInput) collapsedStationLabel {
+	name := shortText(strings.TrimPrefix(input.station.Name, "Station "), overviewNameRunes)
+	berths := len(input.station.Berths)
+	collapsed := collapsedStationLabel{
+		stationID: input.station.ID,
+		rank:      input.rank,
+		primary: label{
+			x: input.marker.X + 16*g.layout.unit, y: input.marker.Y - 14*g.layout.unit,
+			size: 10, value: fmt.Sprintf("%s  %d/%d", name, input.status.Occupied, berths), color: foreground,
+		},
+		collisionValue: fmt.Sprintf("%s  %d/%d", name, berths, berths),
+	}
+	if input.status.EntranceStopped > 0 || input.status.ExitStopped > 0 {
+		collapsed.secondary = fmt.Sprintf("In %d · Out %d", input.status.EntranceStopped, input.status.ExitStopped)
+	}
+	return collapsed
+}
+
+// secondaryLabel returns the queue line of the overview label. The unit is
+// the number of screen pixels in one display unit.
+func (candidate collapsedStationLabel) secondaryLabel(unit float64) label {
+	return label{x: candidate.primary.x, y: candidate.primary.y + 16*unit, size: 9, value: candidate.secondary, color: amber}
+}
+
+// boundedStationLabel holds the screen areas of an overview label and of its
+// station marker.
 type boundedStationLabel struct {
 	stationID string
-	bounds    image.Rectangle
+	rank      int
+	// queued is true when the label has a queue line.
+	queued bool
+	bounds image.Rectangle
+	// marker is the screen area of the station marker with its outline.
+	marker image.Rectangle
 }
 
-func (g *Game) drawCollapsedStationLabels(screen *ebiten.Image, labels []collapsedStationLabel, selected sim.Vehicle) {
+// collapsedLabelsInput holds the overview labels and the map items that the
+// labels must not cover.
+type collapsedLabelsInput struct {
+	labels   []collapsedStationLabel
+	selected sim.Vehicle
+	// markers holds the screen position of each collapsed station marker by
+	// station ID. markerRadius is the marker radius in screen pixels.
+	markers      map[string]sim.Point
+	markerRadius float64
+	// selectedPodLabel is the map label of the selected pod. Its value is
+	// empty when the pod has no map label.
+	selectedPodLabel label
+}
+
+// drawCollapsedStationLabels draws the overview labels that
+// visibleCollapsedStationLabels selects. It returns the screen areas of the
+// labels that it draws.
+func (g *Game) drawCollapsedStationLabels(screen *ebiten.Image, input collapsedLabelsInput) []image.Rectangle {
+	bounded, visible := g.visibleCollapsedStationLabels(input)
+	var shown []image.Rectangle
+	for index, candidate := range input.labels {
+		if !visible[index] {
+			continue
+		}
+		g.label(screen, candidate.primary)
+		if candidate.secondary != "" {
+			g.label(screen, candidate.secondaryLabel(g.layout.unit))
+		}
+		shown = append(shown, bounded[index].bounds)
+	}
+	return shown
+}
+
+// visibleCollapsedStationLabels returns the screen areas of the overview
+// labels and reports which labels show. The labels of the From and To
+// stations and of the stations of the selected pod always show. On a dense
+// map, the other labels do not cover the label of the selected pod. See
+// selectCollapsedStationLabels.
+func (g *Game) visibleCollapsedStationLabels(input collapsedLabelsInput) ([]boundedStationLabel, []bool) {
+	selected := input.selected
 	preferred := map[string]bool{g.origin: true, g.destination: true, selected.Pod.StationID: true, selected.RelocatingTo: true}
 	if selected.Request != nil {
 		preferred[selected.Request.From] = true
 		preferred[selected.Request.To] = true
 	}
 	delete(preferred, "")
-	bounded := make([]boundedStationLabel, len(labels))
-	for index, candidate := range labels {
-		bounded[index] = boundedStationLabel{stationID: candidate.stationID, bounds: g.collapsedStationLabelBounds(candidate)}
+	selection := collapsedLabelSelection{labels: g.boundedStationLabels(input), preferred: preferred, dense: len(g.network.Stations) > 30}
+	if selection.dense && input.selectedPodLabel.value != "" {
+		selection.occupied = append(selection.occupied, g.labelBounds(input.selectedPodLabel))
 	}
-	visible := selectCollapsedStationLabels(bounded, preferred, len(g.network.Stations) > 30)
-	for index, candidate := range labels {
-		if !visible[index] {
-			continue
-		}
-		g.label(screen, candidate.primary)
-		if candidate.secondary != "" {
-			g.label(screen, label{
-				x: candidate.primary.x, y: candidate.primary.y + 16*g.layout.unit,
-				size: 9, value: candidate.secondary, color: amber,
-			})
-		}
-	}
+	return selection.labels, selectCollapsedStationLabels(selection)
 }
 
-func (g *Game) collapsedStationLabelBounds(candidate collapsedStationLabel) image.Rectangle {
-	width, _ := text.Measure(candidate.collisionValue, g.textFace(candidate.primary.size), 0)
-	secondaryWidth, _ := text.Measure("In 000 · Out 000", g.textFace(9), 0)
-	width = max(width, secondaryWidth)
-	padding := 3 * g.layout.unit
+// boundedStationLabels returns the screen areas of the overview labels and of
+// their station markers.
+func (g *Game) boundedStationLabels(input collapsedLabelsInput) []boundedStationLabel {
+	// The outline is centered on the marker radius.
+	markerRadius := input.markerRadius + markerOutlineWidth*g.layout.unit/2
+	bounded := make([]boundedStationLabel, len(input.labels))
+	for index, candidate := range input.labels {
+		marker := input.markers[candidate.stationID]
+		bounded[index] = boundedStationLabel{
+			stationID: candidate.stationID,
+			rank:      candidate.rank,
+			queued:    candidate.secondary != "",
+			bounds:    g.collapsedStationLabelBounds(candidate),
+			marker: image.Rect(
+				int(math.Floor(marker.X-markerRadius)), int(math.Floor(marker.Y-markerRadius)),
+				int(math.Ceil(marker.X+markerRadius)), int(math.Ceil(marker.Y+markerRadius)),
+			),
+		}
+	}
+	return bounded
+}
+
+// labelBounds returns the screen area of the text of a map label.
+func (g *Game) labelBounds(value label) image.Rectangle {
+	width, height := text.Measure(value.value, g.textFace(value.size), 0)
 	return image.Rect(
-		int(math.Floor(candidate.primary.x-padding)),
-		int(math.Floor(candidate.primary.y-padding)),
-		int(math.Ceil(candidate.primary.x+width+padding)),
-		int(math.Ceil(candidate.primary.y+32*g.layout.unit+padding)),
+		int(math.Floor(value.x)), int(math.Floor(value.y)),
+		int(math.Ceil(value.x+width)), int(math.Ceil(value.y+height)),
 	)
 }
 
-func selectCollapsedStationLabels(labels []boundedStationLabel, preferred map[string]bool, dense bool) []bool {
+// collapsedStationLabelBounds returns the screen area of an overview label
+// with a padding of 3 units. The area holds only the lines that the map
+// draws. The primary line has the width of the text with all berths occupied.
+func (g *Game) collapsedStationLabelBounds(candidate collapsedStationLabel) image.Rectangle {
+	primary := candidate.primary
+	primary.value = candidate.collisionValue
+	bounds := g.labelBounds(primary)
+	if candidate.secondary != "" {
+		bounds = bounds.Union(g.labelBounds(candidate.secondaryLabel(g.layout.unit)))
+	}
+	return bounds.Inset(-int(math.Ceil(3 * g.layout.unit)))
+}
+
+// collapsedLabelSelection holds the overview labels for
+// selectCollapsedStationLabels.
+type collapsedLabelSelection struct {
+	labels []boundedStationLabel
+	// preferred holds the IDs of the stations whose labels always show.
+	preferred map[string]bool
+	// occupied holds the screen areas that no label other than a preferred
+	// label can cover, such as the label of the selected pod.
+	occupied []image.Rectangle
+	// dense is true on a map with more than 30 stations. On other maps, all
+	// labels show.
+	dense bool
+}
+
+// selectCollapsedStationLabels reports which overview labels show. On a
+// dense map, it places the preferred labels first and then the other labels.
+// In each of the two groups, the labels with a queue line come first, and
+// then the rank order applies. A label that is not preferred shows only when
+// it does not cover an occupied area, an earlier label or the marker of an
+// earlier station. Its own marker also must not be under an earlier label.
+//
+// Thus, when neither label has a queue line, the label of a large station
+// can cover the marker of a smaller station, but not the opposite. At Fit,
+// the markers of a dense map are too close for most labels to stay clear of
+// all of them. The queue line is an alert, and it makes the label taller.
+// Because the labels with a queue line come first, a label without a queue
+// line cannot hide them.
+func selectCollapsedStationLabels(selection collapsedLabelSelection) []bool {
+	labels := selection.labels
 	visible := make([]bool, len(labels))
-	if !dense {
+	if !selection.dense {
 		for index := range visible {
 			visible[index] = true
 		}
 		return visible
 	}
-	var occupied []image.Rectangle
+	order := make([]int, len(labels))
+	for index := range order {
+		order[index] = index
+	}
+	slices.SortStableFunc(order, func(a, b int) int {
+		return cmp.Or(trueFirst(labels[a].queued, labels[b].queued), cmp.Compare(labels[a].rank, labels[b].rank))
+	})
+	occupied := slices.Clone(selection.occupied)
+	var placed []image.Rectangle
 	for _, priority := range []bool{true, false} {
-		for index, candidate := range labels {
-			if preferred[candidate.stationID] != priority {
+		for _, index := range order {
+			candidate := labels[index]
+			if selection.preferred[candidate.stationID] != priority {
 				continue
 			}
-			blocked := slices.ContainsFunc(occupied, candidate.bounds.Overlaps)
+			blocked := slices.ContainsFunc(occupied, candidate.bounds.Overlaps) ||
+				slices.ContainsFunc(placed, candidate.marker.Overlaps)
+			occupied = append(occupied, candidate.marker)
 			if blocked && !priority {
 				continue
 			}
 			visible[index] = true
 			occupied = append(occupied, candidate.bounds)
+			placed = append(placed, candidate.bounds)
 		}
 	}
 	return visible
+}
+
+// podMapLabels returns the map label of each pod by fleet index, without a
+// color. The label of a pod without a map label has an empty value. Other
+// than the selected pod, a pod that is parked in a collapsed station has no
+// map label. collapsedStations is true for the ID of each collapsed station.
+// See showPodMapLabel for the zoom rule.
+func (g *Game) podMapLabels(vehicles []sim.Vehicle, collapsedStations map[string]bool) []label {
+	labels := make([]label, len(vehicles))
+	for index, vehicle := range vehicles {
+		parkedInCluster := vehicle.Pod.Activity == sim.Idle && collapsedStations[vehicle.Pod.StationID]
+		if (parkedInCluster && index != g.selected) || !g.showPodMapLabel(index) {
+			continue
+		}
+		p := g.mapPoint(vehicle.Pod.Position)
+		labels[index] = label{x: p.X + 11*g.layout.unit, y: p.Y - 18*g.layout.unit, size: 11, value: fleetPodLabel(index)}
+	}
+	return labels
+}
+
+// clearPodLabels returns the pod labels without the labels that overlap a
+// shown overview label on a dense map. The label of the selected pod stays.
+// stationLabels holds the screen areas of the shown overview labels.
+func (g *Game) clearPodLabels(podLabels []label, stationLabels []image.Rectangle) []label {
+	if len(g.network.Stations) <= 30 {
+		return podLabels
+	}
+	cleared := slices.Clone(podLabels)
+	for index, podLabel := range cleared {
+		if index == g.selected || podLabel.value == "" {
+			continue
+		}
+		if slices.ContainsFunc(stationLabels, g.labelBounds(podLabel).Overlaps) {
+			cleared[index] = label{}
+		}
+	}
+	return cleared
 }
 
 func (g *Game) showPodMapLabel(index int) bool {
@@ -1259,5 +1451,5 @@ func shortText(value string, limit int) string {
 	if len(letters) <= limit {
 		return value
 	}
-	return string(letters[:limit-1]) + "…"
+	return strings.TrimRightFunc(string(letters[:limit-1]), unicode.IsSpace) + "…"
 }

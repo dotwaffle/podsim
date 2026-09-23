@@ -211,9 +211,29 @@ Networks with 100 lanes or fewer, such as the example, keep each marker at the
 center of its berths.
 They keep fixed marker and lane sizes and show node dots at all zoom levels.
 A lane of any length can have a direction arrow.
-On a dense map, the view omits an overview label that overlaps another visible
-overview label.
-Labels for the `From` and `To` stations and the selected pod's stations stay
-visible.
+
+On a dense map, the overview labels for the `From` and `To` stations and the
+selected pod's stations always show.
+The view places the other overview labels in order of station size.
+Parking facilities come first.
+Their markers look like station markers, and the map does not show the pods
+that park in a collapsed station.
+Only the label tells that a marker is a Parking facility and how many pods it
+holds.
+Then come the stations with more approach lanes.
+Each link to a neighbor station has its own approach lane, so interchanges
+such as Baker Street and King's Cross St. Pancras come before stations on one
+line.
+Stations with the same number of approach lanes keep the network order.
+A label with a queue line comes before the labels without one.
+The queue line is an alert, so a label without a queue line cannot hide it.
+The view omits a label that covers an earlier label or the marker of an
+earlier station.
+It also omits a label when an earlier label covers the station marker.
+Thus, when neither station has a queue, the label of a large station can
+cover the marker of a smaller station, but not the opposite.
+The other overview labels do not cover the label of the selected pod.
+An overview label shows up to 20 characters of the station name.
 Only the selected pod has a map label until you zoom in to four times the `Fit`
 scale.
+The view omits the label of another pod where it overlaps an overview label.

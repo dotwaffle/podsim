@@ -1,10 +1,15 @@
 package view
 
-import "github.com/dotwaffle/podsim/internal/sim"
+import (
+	"cmp"
+	"slices"
 
-// anchorCacheKey identifies the network of the cached station anchors and
-// station line lanes. The session sends new network geometry only with a new
-// epoch or a new project revision.
+	"github.com/dotwaffle/podsim/internal/sim"
+)
+
+// anchorCacheKey identifies the network of the cached station anchors, station
+// line lanes and station label ranks. The session sends a new network only
+// with a new epoch or a new project revision.
 type anchorCacheKey struct {
 	epoch           string
 	projectRevision uint64
@@ -109,4 +114,62 @@ func (m *pointMean) mean() (sim.Point, bool) {
 		return sim.Point{}, false
 	}
 	return sim.Point{X: m.sum.X / float64(m.count), Y: m.sum.Y / float64(m.count)}, true
+}
+
+// currentStationLabelRanks returns the station label ranks of the current
+// network. It builds them again only when the epoch or the project revision
+// changes, not on each frame.
+func (g *Game) currentStationLabelRanks() map[string]int {
+	key := anchorCacheKey{epoch: g.state.Epoch, projectRevision: g.state.ProjectRevision}
+	if g.labelRanks == nil || g.labelRanksKey != key {
+		g.labelRanks = stationLabelRanks(g.network)
+		g.labelRanksKey = key
+	}
+	return g.labelRanks
+}
+
+// stationLabelRanks returns the rank of each station by station ID. On a
+// dense map, an overview label with a lower rank takes its place first, so a
+// larger station keeps its label where labels overlap. See
+// selectCollapsedStationLabels for the labels that come before the rank
+// order.
+//
+// Parking facilities come first. Their markers look like station markers,
+// and the pods parked in a collapsed station do not show on the map. Only the
+// label tells that the marker is a Parking facility and how many pods it
+// holds.
+//
+// Then stations with more approach lanes come first. In London, each link to
+// a neighbor station has its own approach lane, so an interchange ranks above
+// a station on one line. Stations with the same number of approach lanes keep
+// the network order.
+func stationLabelRanks(network sim.Network) map[string]int {
+	approaches := make(map[string]int, len(network.Stations))
+	for _, lane := range network.Lanes {
+		if lane.StationRole == sim.StationApproachRole {
+			approaches[lane.StationID]++
+		}
+	}
+	order := slices.Clone(network.Stations)
+	slices.SortStableFunc(order, func(a, b sim.Station) int {
+		return cmp.Or(trueFirst(a.ParkingOnly, b.ParkingOnly), cmp.Compare(approaches[b.ID], approaches[a.ID]))
+	})
+	ranks := make(map[string]int, len(order))
+	for rank, station := range order {
+		ranks[station.ID] = rank
+	}
+	return ranks
+}
+
+// trueFirst compares two values for a sort function that puts true before
+// false.
+func trueFirst(a, b bool) int {
+	switch {
+	case a == b:
+		return 0
+	case a:
+		return -1
+	default:
+		return 1
+	}
 }
