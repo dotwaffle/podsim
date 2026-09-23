@@ -635,14 +635,15 @@ func (g *Game) drawNetwork(screen *ebiten.Image, state sim.Snapshot) {
 			continue
 		}
 		p := g.mapPoint(v.Pod.Position)
-		shade := g.podPurpose(v, state).color()
+		purpose := g.podPurpose(v, state)
+		shade := purpose.color()
 		if v.Pod.WaitReason != sim.NoWait {
 			vector.StrokeCircle(mapScreen, float32(p.X), float32(p.Y), float32(11*g.layout.unit), float32(2*g.layout.unit), rgb(amber), detailed)
 		}
 		if i == g.selected {
 			vector.StrokeCircle(mapScreen, float32(p.X), float32(p.Y), float32(9*g.layout.unit), float32(1.5*g.layout.unit), rgb(foreground), detailed)
 		}
-		vector.FillCircle(mapScreen, float32(p.X), float32(p.Y), float32(4*g.layout.unit), rgb(shade), detailed)
+		drawPodMark(mapScreen, podMark{center: p, purpose: purpose, antialias: detailed, unit: g.layout.unit})
 		if (!parkedInCluster || i == g.selected) && g.showPodMapLabel(i) {
 			g.label(mapScreen, label{x: p.X + 11*g.layout.unit, y: p.Y - 18*g.layout.unit, size: 11, value: fleetPodLabel(i), color: shade})
 		}
@@ -1102,7 +1103,7 @@ func (g *Game) drawButton(screen *ebiten.Image, b button) {
 		fontSize = b.fontSize
 	}
 	if id, ok := strings.CutPrefix(b.action, "pod/"); ok {
-		ink = g.podButtonColor(id)
+		fill, ink = podButtonFill, g.podButtonColor(id)
 		selectedFill = ink
 		fontSize = 12
 		b.label = shortText(b.label, 3)

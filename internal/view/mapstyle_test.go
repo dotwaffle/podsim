@@ -716,14 +716,8 @@ func contrastRatio(a, b uint32) float64 {
 
 // relativeLuminance returns the WCAG relative luminance of a color.
 func relativeLuminance(color uint32) float64 {
-	channel := func(shift uint) float64 {
-		value := float64(color>>shift&0xff) / 255
-		if value <= 0.04045 {
-			return value / 12.92
-		}
-		return math.Pow((value+0.055)/1.055, 2.4)
-	}
-	return 0.2126*channel(16) + 0.7152*channel(8) + 0.0722*channel(0)
+	linear := linearRGB(color)
+	return 0.2126*linear[0] + 0.7152*linear[1] + 0.0722*linear[2]
 }
 
 // denseStyleNetwork returns a network with more than detailedLanes lanes and
