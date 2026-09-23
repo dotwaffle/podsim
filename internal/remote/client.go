@@ -47,6 +47,11 @@ type Client struct {
 	// an epoch in oldEpochs.
 	retiredEpoch string
 	retiredPolls int
+	// build is the first non-empty build ID that a state frame gave.
+	// buildChanged becomes true when a later frame gives a different
+	// non-empty build ID, and then it stays true.
+	build        string
+	buildChanged bool
 	commands     chan session.Command
 	results      chan Result
 }
@@ -64,6 +69,14 @@ func (c *Client) View() (session.State, bool, bool) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	return c.state, c.connected, c.pending
+}
+
+// BuildChanged reports whether a state frame gave a build that differs
+// from the first non-empty build this client saw.
+func (c *Client) BuildChanged() bool {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return c.buildChanged
 }
 
 // Results returns completed commands. Consume results before submitting more work.
@@ -120,12 +133,34 @@ func (c *Client) accept(state session.State) {
 	c.state = state
 }
 
+// noteBuild records the build ID of a state frame. The first non-empty ID
+// is the baseline. An empty ID does not set the baseline and is not a change.
+func (c *Client) noteBuild(build string) {
+	if build == "" {
+		return
+	}
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if c.build == "" {
+		c.build = build
+	} else if build != c.build {
+		c.buildChanged = true
+	}
+}
+
 func (c *Client) poll(ctx context.Context) {
 	ticker := time.NewTicker(50 * time.Millisecond)
 	defer ticker.Stop()
 	for {
 		var frame session.StateFrame
 		err := c.exchange(ctx, "GET", "/api/state", nil, &frame)
+		// Record the build before the error check and the topology read.
+		// A frame from a new server can have a member with a type that
+		// this client does not know. The decoder then returns an error,
+		// but it still fills the other members. The topology read can also
+		// fail on a new server. The build change must show in these cases.
+		// A failed request leaves the build empty, and noteBuild ignores it.
+		c.noteBuild(frame.Build)
 		if err == nil {
 			var state session.State
 			state, err = c.stateForFrame(ctx, frame)

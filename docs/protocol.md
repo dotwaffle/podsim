@@ -34,6 +34,13 @@ A state frame can contain a `build` string that identifies the server build.
 A server without a build ID omits the key. In all future versions of the frame
 format, `build` stays a top-level string.
 
+The Go client keeps the first non-empty build that it receives. When a later
+frame has a different non-empty build, a browser page reloads and gets the
+browser files of the new server. The desktop client shows a message that tells
+the user to restart it. The client reads the build even from a frame that it
+cannot use. For example, a member can have a type that the client does not
+expect, or the topology read for the frame can fail.
+
 Each command contains a `client` ID, a `sequence`, the session `epoch`, and an
 `action`. The actions are `trip`, `pause`, `speed`, `reset`, `demo`, `demand`,
 `project`, `checkpoint`, and `rewind`.

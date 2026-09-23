@@ -76,10 +76,25 @@ type Game struct {
 	savedEpoch    string
 	savedRevision uint64
 	layout        displayLayout
+	// reload loads the page again. It is nil in the desktop client.
+	// serverUpdated becomes true when the game sees a new server build, so
+	// the game reloads the page only once.
+	reload        func()
+	serverUpdated bool
+}
+
+// Option configures a Game.
+type Option func(*Game)
+
+// WithReload sets the func that loads the page again when the server build
+// changes. With a nil func, the game shows a message that tells the user to
+// restart the desktop client.
+func WithReload(reload func()) Option {
+	return func(g *Game) { g.reload = reload }
 }
 
 // New creates the first playable scenario.
-func New(ctx context.Context, serverURL string) (*Game, error) {
+func New(ctx context.Context, serverURL string, options ...Option) (*Game, error) {
 	network := sim.Example()
 	simulation, err := sim.NewFleet(network, []sim.Placement{{ID: "01", StationID: "harbor"}, {ID: "02", StationID: "garden"}})
 	if err != nil {
@@ -89,7 +104,11 @@ func New(ctx context.Context, serverURL string) (*Game, error) {
 	if err != nil {
 		return nil, fmt.Errorf("load font: %w", err)
 	}
-	return &Game{network: network, client: remote.New(ctx, serverURL), state: session.State{Simulation: simulation.Snapshot(), Speed: 1}, font: font, origin: "harbor", destination: "market", layout: newDisplayLayout(layoutInput{outsideWidth: minimumWidth, outsideHeight: minimumHeight, deviceScale: 1})}, nil
+	game := &Game{network: network, client: remote.New(ctx, serverURL), state: session.State{Simulation: simulation.Snapshot(), Speed: 1}, font: font, origin: "harbor", destination: "market", layout: newDisplayLayout(layoutInput{outsideWidth: minimumWidth, outsideHeight: minimumHeight, deviceScale: 1})}
+	for _, option := range options {
+		option(game)
+	}
+	return game, nil
 }
 
 // Update reads shared state and handles local input.

@@ -29,6 +29,32 @@ func (g *Game) readRemote() {
 		g.handleResult(result)
 	default:
 	}
+	// Check the build after the command result. handleResult clears the
+	// message, and the update message must then show again at once.
+	if g.client.BuildChanged() {
+		g.handleServerUpdate()
+	}
+}
+
+// serverUpdateMessage tells a desktop client user to restart the client
+// after a server upgrade.
+const serverUpdateMessage = "The server was updated. Restart the desktop client to load the new version."
+
+// handleServerUpdate runs on each update after the server build changes.
+// The browser reloads the page once, so it runs the files of the new server
+// build. The desktop client cannot reload. It shows a message each time the
+// message line is empty, so the message comes back after other messages
+// clear.
+func (g *Game) handleServerUpdate() {
+	switch {
+	case g.reload == nil:
+		if g.message == "" {
+			g.message = serverUpdateMessage
+		}
+	case !g.serverUpdated:
+		g.reload()
+	}
+	g.serverUpdated = true
 }
 
 // handleResult shows the outcome of one command. Errors go to the message

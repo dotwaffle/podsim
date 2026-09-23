@@ -226,6 +226,135 @@ func TestReturnedEpochUsesItsTopology(t *testing.T) {
 	}
 }
 
+func TestNoteBuild(t *testing.T) {
+	t.Parallel()
+	tests := []struct {
+		name   string
+		builds []string
+		want   bool
+	}{
+		{name: "no frames"},
+		{name: "empty builds", builds: []string{"", ""}},
+		{name: "empty build before the baseline", builds: []string{"", "a"}},
+		{name: "same build", builds: []string{"a", "", "a"}},
+		{name: "new build", builds: []string{"a", "b"}, want: true},
+		{name: "empty build after a change", builds: []string{"a", "b", ""}, want: true},
+		{name: "first build again", builds: []string{"a", "b", "a"}, want: true},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			c := &Client{}
+			for _, build := range test.builds {
+				c.noteBuild(build)
+			}
+			if got := c.BuildChanged(); got != test.want {
+				t.Fatalf("BuildChanged() = %t after builds %q, want %t", got, test.builds, test.want)
+			}
+		})
+	}
+}
+
+// TestPollReportsBuildChange gives the poll loop one frame for each state
+// request. The frames have the builds "", "a", "a" and "b". The client can
+// use the "b" frame, or it drops it. The build change must show in each
+// case.
+func TestPollReportsBuildChange(t *testing.T) {
+	t.Parallel()
+	shared, err := session.New()
+	if err != nil {
+		t.Fatal(err)
+	}
+	encode := func(build, epoch string) []byte {
+		t.Helper()
+		frame := shared.Frame()
+		frame.Build = build
+		if epoch != "" {
+			frame.Epoch = epoch
+		}
+		data, err := json.Marshal(frame)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return data
+	}
+	noBuild, buildA := encode("", ""), encode("a", "")
+	tests := []struct {
+		name string
+		// last is the frame with the build "b".
+		last          []byte
+		wantConnected bool
+	}{
+		{name: "valid frame", last: encode("b", ""), wantConnected: true},
+		// The topology endpoint does not serve this epoch, so the client
+		// drops the frame.
+		{name: "topology error", last: encode("b", "restarted")},
+		// A future frame format can change the type of a member. The
+		// client cannot decode the frame, but build stays a top-level
+		// string.
+		{name: "changed member type", last: []byte(`{"epoch":"new","revision":"v2","build":"b"}`)},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			frames := make(chan []byte)
+			polled := make(chan struct{})
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				if r.URL.Path == "/api/topology" {
+					_ = json.NewEncoder(w).Encode(shared.Topology())
+					return
+				}
+				select {
+				case polled <- struct{}{}:
+				case <-r.Context().Done():
+					return
+				}
+				select {
+				case frame := <-frames:
+					_, _ = w.Write(frame)
+				case <-r.Context().Done():
+				}
+			}))
+			t.Cleanup(server.Close)
+			// This cleanup runs first. It stops the client, so no request
+			// blocks server.Close.
+			ctx, cancel := context.WithCancel(t.Context())
+			t.Cleanup(cancel)
+			waitForPoll := func() {
+				t.Helper()
+				select {
+				case <-polled:
+				case <-time.After(5 * time.Second):
+					t.Fatal("the client did not request a state frame")
+				}
+			}
+			client := New(ctx, server.URL)
+			waitForPoll()
+			steps := []struct {
+				frame         []byte
+				wantChanged   bool
+				wantConnected bool
+			}{
+				{frame: noBuild, wantConnected: true},
+				{frame: buildA, wantConnected: true},
+				{frame: buildA, wantConnected: true},
+				{frame: test.last, wantChanged: true, wantConnected: test.wantConnected},
+			}
+			for index, step := range steps {
+				frames <- step.frame
+				// The next state request shows that the client handled this
+				// frame.
+				waitForPoll()
+				_, connected, _ := client.View()
+				if got := client.BuildChanged(); got != step.wantChanged || connected != step.wantConnected {
+					t.Fatalf("frame %d: BuildChanged() = %t and connected %t, want %t and %t",
+						index, got, connected, step.wantChanged, step.wantConnected)
+				}
+			}
+		})
+	}
+}
+
 func TestLostReplyRetryAndReconnect(t *testing.T) {
 	t.Parallel()
 	shared, err := session.New()

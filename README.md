@@ -371,6 +371,8 @@ If that artifact is missing or older than the WASM file, the server compresses t
 
 A lost connection disables commands.
 Reconnection restores the current shared state.
+When the server restarts with a new build, open browser pages reload by themselves.
+The desktop client shows a message instead. Restart it to load the new version.
 The server deduplicates command retries by client and sequence.
 Replay records support 1,024 browser page loads per server lifetime.
 Only a page that sends a command uses a record.

@@ -21,7 +21,7 @@ func main() {
 func run() error {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	game, err := view.New(ctx, serverURL())
+	game, err := view.New(ctx, serverURL(), view.WithReload(pageReloader()))
 	if err != nil {
 		return err
 	}

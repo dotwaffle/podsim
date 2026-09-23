@@ -9,3 +9,7 @@ func serverURL() string {
 	flag.Parse()
 	return *address
 }
+
+// pageReloader returns nil. The desktop client cannot load itself again, so
+// the game shows a message when the server build changes.
+func pageReloader() func() { return nil }
