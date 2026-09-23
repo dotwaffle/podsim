@@ -58,6 +58,7 @@ docker run --rm -p 8080:8080 ghcr.io/dotwaffle/podsim:latest -addr :8080
 The `-project` option needs an existing project file.
 Mount its directory with write access for UID 65532.
 Without write access, the server rejects project applies, demand changes, and rewinds that restore a project.
+For each of these changes, the server replaces the file with compact JSON of at most 4 MiB.
 
 The `-state` option needs a directory that UID 65532 can write.
 Make the directory on the host, then mount it in the container:

@@ -54,6 +54,8 @@ mise run serve -- -project scenario.json
 
 This file contains the `project` object from `/api/project`.
 Before the server applies a setting change, it saves the file with an atomic replacement.
+It writes compact JSON without indentation.
+Thus the file of each project that the server accepts is 4 MiB or less, and the server can read it at the next start.
 If the save fails, the server rejects the change.
 A rewind that restores the project of a save point also rewrites this file.
 The browser export wraps this object as `scenario` and can also contain a background image.

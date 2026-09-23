@@ -3,12 +3,15 @@ package main
 import (
 	"bytes"
 	"context"
+	"encoding/json"
+	jsonv2 "encoding/json/v2"
 	"errors"
 	"flag"
 	"fmt"
 	"io"
 	"io/fs"
 	"log/slog"
+	"math"
 	"net"
 	"net/http"
 	"net/http/httptest"
@@ -26,6 +29,7 @@ import (
 	"github.com/dotwaffle/podsim/internal/project"
 	"github.com/dotwaffle/podsim/internal/scenarios"
 	"github.com/dotwaffle/podsim/internal/session"
+	"github.com/dotwaffle/podsim/internal/sim"
 )
 
 func TestBrowserFilesUsesSelectedDirectory(t *testing.T) {
@@ -500,20 +504,188 @@ func TestProjectFileRoundTrip(t *testing.T) {
 	}
 }
 
-func TestLondonProjectFileRoundTrip(t *testing.T) {
+// TestProjectFileHoldsCanonicalEncoding checks that saveProject writes the
+// canonical encoding that project.Validate limits. Then loadProject reads
+// each valid project again, also a project at the size limit.
+func TestProjectFileHoldsCanonicalEncoding(t *testing.T) {
 	t.Parallel()
-	path := filepath.Join(t.TempDir(), "london.json")
-	want := scenarios.London()
-	if err := saveProject(path, want); err != nil {
+	// The canonical encoding omits an empty list of demand profiles, and
+	// loadProject decodes it as nil.
+	emptyProfiles := project.Default()
+	emptyProfiles.DemandProfiles = []project.DemandProfile{}
+	tests := []struct {
+		name   string
+		config project.Config
+	}{
+		{"empty demand profiles", emptyProfiles},
+		{"London", scenarios.London()},
+		{"default demand at the size limit", limitProject(t, project.Default().Demand)},
+		{"widest demand at the size limit", limitProject(t, widestDemand())},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			path := filepath.Join(t.TempDir(), "scenario.json")
+			if err := saveProject(path, test.config); err != nil {
+				t.Fatal(err)
+			}
+			file, err := os.ReadFile(path)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if len(file) > project.MaxFileBytes {
+				t.Fatalf("file has %d bytes, limit %d", len(file), project.MaxFileBytes)
+			}
+			want := canonicalJSON(t, test.config)
+			if !bytes.Equal(file, want) {
+				t.Fatalf("file has %d bytes and is not the canonical encoding of %d bytes", len(file), len(want))
+			}
+			got, err := loadProject(path)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if !bytes.Equal(canonicalJSON(t, got), want) {
+				t.Fatal("loaded project is different from the saved project")
+			}
+		})
+	}
+}
+
+// controlID is an ID of the largest valid length. JSON writes each of its
+// bytes as a 6-byte escape.
+var controlID = strings.Repeat("\x01", 64)
+
+// widestDemand returns the demand settings with the longest canonical
+// encoding that project.ValidateDemand accepts. They are the same as
+// widestDemand in internal/project. weightedProject has a station with the
+// ID controlID, so the destination is valid.
+func widestDemand() project.DemandConfig {
+	return project.DemandConfig{
+		PerMinute: 120, Pattern: "destination", Seed: math.MaxUint64,
+		Destination: controlID, Profile: controlID, Band: controlID,
+	}
+}
+
+// limitProject returns a valid project with the demand settings demand. Its
+// canonical encoding is as long as project.Validate allows. Validate
+// measures the project with the widest demand settings, and that encoding
+// has project.MaxFileBytes. limitProject also checks that Validate refuses
+// the same project with a canonical encoding of one more byte. Thus the
+// test fails if Validate measures a different encoding from the encoding
+// that saveProject writes. limitProject also checks that the indented
+// encoding of the project has more than project.MaxFileBytes. Thus an
+// indented project file fails the test.
+func limitProject(t *testing.T, demand project.DemandConfig) project.Config {
+	t.Helper()
+	size := project.MaxFileBytes - len(canonicalJSON(t, widestDemand())) + len(canonicalJSON(t, demand))
+	sized := func(length int) project.Config {
+		config := weightedProject()
+		config.Demand = demand
+		return withEncodedSize(t, config, length)
+	}
+	config := sized(size)
+	if err := project.Validate(config); err != nil {
 		t.Fatal(err)
 	}
-	got, err := loadProject(path)
+	if err := project.Validate(sized(size + 1)); err == nil {
+		t.Fatalf("Validate accepted a canonical encoding of %d bytes", size+1)
+	}
+	indented, err := json.MarshalIndent(config, "", "  ")
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !reflect.DeepEqual(got, want) {
-		t.Fatal("saved London project changed")
+	if len(indented) <= project.MaxFileBytes {
+		t.Fatalf("indented encoding has %d bytes, want more than %d", len(indented), project.MaxFileBytes)
 	}
+	return config
+}
+
+// weightedProject returns a valid project with a one-way loop of 34
+// passenger stations. The first station has the ID controlID. The project
+// has the largest number of demand profiles and bands. Each profile has a
+// flow for each ordered pair of stations, so the project has 215,424
+// weights. Each weight is 1.
+func weightedProject() project.Config {
+	const stations = 34
+	stationID := func(index int) string {
+		if index == 0 {
+			return controlID
+		}
+		return fmt.Sprintf("s%02d", index)
+	}
+	config := project.Default()
+	config.Network = sim.Network{}
+	for index := range stations {
+		id, prefix := stationID(index), fmt.Sprintf("n%02d", index)
+		entry, exit, berth := prefix+"-entry", prefix+"-exit", prefix+"-berth"
+		x := 200 * float64(index)
+		config.Network.Nodes = append(config.Network.Nodes,
+			sim.Node{ID: entry, Position: sim.Point{X: x}},
+			sim.Node{ID: exit, Position: sim.Point{X: x + 100}},
+			sim.Node{ID: berth, Position: sim.Point{X: x + 50, Y: 60}},
+		)
+		config.Network.Lanes = append(config.Network.Lanes,
+			sim.Lane{ID: prefix + "-through", From: entry, To: exit, SpeedLimit: 14, StationID: id, StationRole: sim.StationThroughRole},
+			sim.Lane{ID: prefix + "-in", From: entry, To: berth, SpeedLimit: 14, StationID: id, StationRole: sim.StationBerthAccessRole},
+			sim.Lane{ID: prefix + "-out", From: berth, To: exit, SpeedLimit: 14, StationID: id, StationRole: sim.StationDepartureRole},
+			sim.Lane{ID: prefix + "-next", From: exit, To: fmt.Sprintf("n%02d-entry", (index+1)%stations), SpeedLimit: 14},
+		)
+		config.Network.Stations = append(config.Network.Stations, sim.Station{
+			ID: id, Name: "Station", Entry: entry, Exit: exit, Berths: []sim.Berth{{ID: prefix + "-1", Node: berth}},
+		})
+	}
+	config.Fleet = []sim.Placement{{ID: "01", StationID: stationID(1), BerthID: "n01-1"}}
+	bands := make([]project.DemandBand, project.MaxBands)
+	for index := range bands {
+		bands[index] = project.DemandBand{ID: fmt.Sprintf("b%02d", index), Name: "Band", DurationMinutes: 60}
+	}
+	for index := range project.MaxProfiles {
+		profile := project.DemandProfile{ID: fmt.Sprintf("p%d", index), Name: "Profile", Bands: bands}
+		for from := range stations {
+			for to := range stations {
+				if from != to {
+					profile.Flows = append(profile.Flows, project.DemandFlow{
+						From: stationID(from), To: stationID(to), Weights: slices.Repeat([]float64{1}, project.MaxBands),
+					})
+				}
+			}
+		}
+		config.DemandProfiles = append(config.DemandProfiles, profile)
+	}
+	return config
+}
+
+// withEncodedSize raises the weights of config until its canonical encoding
+// has size bytes, as the size tests in internal/project do. Each weight
+// must be 1 at the start. The canonical form of 10^k has k+1 digits for k
+// from 0 to 20, so each weight can add 0 to 20 bytes.
+func withEncodedSize(t *testing.T, config project.Config, size int) project.Config {
+	t.Helper()
+	extra := size - len(canonicalJSON(t, config))
+	for _, profile := range config.DemandProfiles {
+		for _, flow := range profile.Flows {
+			for index := range flow.Weights {
+				digits := min(extra, 20)
+				flow.Weights[index] = math.Pow10(digits)
+				extra -= digits
+			}
+		}
+	}
+	if got := len(canonicalJSON(t, config)); got != size {
+		t.Fatalf("canonical encoding has %d bytes, want %d", got, size)
+	}
+	return config
+}
+
+// canonicalJSON returns the canonical encoding of value, as
+// project.Validate measures it.
+func canonicalJSON(t *testing.T, value any) []byte {
+	t.Helper()
+	data, err := jsonv2.Marshal(value, jsonv2.Deterministic(true))
+	if err != nil {
+		t.Fatal(err)
+	}
+	return data
 }
 
 func TestLoadProjectRejectsInvalidFiles(t *testing.T) {

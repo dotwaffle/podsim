@@ -4,6 +4,7 @@ import (
 	"cmp"
 	"context"
 	"encoding/json"
+	jsonv2 "encoding/json/v2"
 	"errors"
 	"flag"
 	"fmt"
@@ -379,6 +380,15 @@ func loadProject(path string) (project.Config, error) {
 	return config, nil
 }
 
+// saveProject replaces the file at path with the canonical encoding of
+// config. project.Validate measures the same encoding (see encodedSize in
+// internal/project), and the session state file holds it. Keep the options
+// the same. Validate limits this encoding to project.MaxFileBytes with the
+// widest demand settings, so a demand change cannot take it past the limit.
+// Thus loadProject reads each project that the session saves. The file has
+// no newline at the end. A project with the widest demand settings can
+// encode to exactly project.MaxFileBytes, and a newline would then take the
+// file past the limit.
 func saveProject(path string, config project.Config) error {
 	directory := filepath.Dir(path)
 	file, err := os.CreateTemp(directory, ".podsim-project-*.tmp")
@@ -396,9 +406,7 @@ func saveProject(path string, config project.Config) error {
 		_ = file.Close()
 		return fmt.Errorf("set project permissions: %w", err)
 	}
-	encoder := json.NewEncoder(file)
-	encoder.SetIndent("", "  ")
-	if err := encoder.Encode(config); err != nil {
+	if err := jsonv2.MarshalWrite(file, config, jsonv2.Deterministic(true)); err != nil {
 		_ = file.Close()
 		return fmt.Errorf("encode project: %w", err)
 	}
