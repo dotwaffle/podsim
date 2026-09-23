@@ -83,13 +83,21 @@ func (g *Game) handleResult(result remote.Result) {
 		g.notice, g.noticeAction, g.noticeTicks = "", "", 0
 		g.selected, g.podPage = 0, 0
 		g.normalizeSelection()
+		if result.Command.Action == "reset" {
+			g.showNotice("reset", resetNotice)
+		}
 	}
 }
 
-// showNotice shows text in the hint line for 180 ticks. action is the command
-// that caused the notice.
+// noticeDuration is the time in game ticks that a notice shows. The game
+// runs sim.TicksPerSecond ticks each second, so a notice shows for 3 s. The
+// reset confirmation text gives this time.
+const noticeDuration = 3 * sim.TicksPerSecond
+
+// showNotice shows text in the hint line for noticeDuration ticks. action
+// names the command or the prompt that caused the notice.
 func (g *Game) showNotice(action, text string) {
-	g.notice, g.noticeAction, g.noticeTicks = text, action, 180
+	g.notice, g.noticeAction, g.noticeTicks = text, action, noticeDuration
 }
 
 // rewindNotice describes an accepted rewind. It gives the time of the save

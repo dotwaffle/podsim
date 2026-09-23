@@ -125,12 +125,7 @@ func New(ctx context.Context, serverURL string, options ...Option) (*Game, error
 func (g *Game) Update() error {
 	g.readRemote()
 	g.fitNetwork()
-	if g.noticeTicks > 0 {
-		g.noticeTicks--
-		if g.noticeTicks == 0 {
-			g.notice, g.noticeAction = "", ""
-		}
-	}
+	g.tickNotice()
 	if inpututil.IsKeyJustPressed(ebiten.KeyTab) {
 		g.showOrders, g.showDemand = false, false
 		g.selected = (g.selected + 1) % len(g.state.Simulation.Vehicles)
@@ -140,7 +135,7 @@ func (g *Game) Update() error {
 	if inpututil.IsKeyJustPressed(ebiten.KeySpace) {
 		g.pause()
 	}
-	if inpututil.IsKeyJustPressed(ebiten.KeyR) {
+	if inpututil.IsKeyJustPressed(ebiten.KeyR) && ebiten.IsKeyPressed(ebiten.KeyShift) {
 		g.reset()
 		return nil
 	}
@@ -160,6 +155,18 @@ func (g *Game) Update() error {
 		return nil
 	}
 	return nil
+}
+
+// tickNotice counts down the notice time by one tick. It clears the notice
+// when the time ends.
+func (g *Game) tickNotice() {
+	if g.noticeTicks == 0 {
+		return
+	}
+	g.noticeTicks--
+	if g.noticeTicks == 0 {
+		g.notice, g.noticeAction = "", ""
+	}
 }
 
 func (g *Game) updateMapInput() bool {
@@ -195,7 +202,34 @@ func (g *Game) updateMapInput() bool {
 func (g *Game) pause() {
 	g.submit(session.Command{Action: "pause", Paused: !g.state.Simulation.Paused})
 }
-func (g *Game) reset() { g.submit(session.Command{Action: "reset"}) }
+
+// resetConfirmAction is the notice action of the reset confirmation.
+const resetConfirmAction = "reset-confirm"
+
+// resetConfirmNotice asks for a second Reset press. A reset affects every
+// browser, so one press does not reset the session.
+const resetConfirmNotice = "Select Reset again within 3 s to reset the shared session."
+
+// resetNotice tells the user that the server accepted the reset.
+const resetNotice = "Session reset."
+
+// reset sends the reset command only while the reset confirmation shows.
+// The first press shows the confirmation and sends nothing. The confirmation
+// shows for noticeDuration ticks, or until a different notice replaces it.
+// The first press also clears an old message, so that the message does not
+// show again when the confirmation ends. The second press removes the
+// confirmation before it sends. If the send fails, the error shows and the
+// next press asks again.
+func (g *Game) reset() {
+	if g.noticeAction == resetConfirmAction && g.noticeTicks > 0 {
+		g.notice, g.noticeAction, g.noticeTicks = "", "", 0
+		g.submit(session.Command{Action: "reset"})
+		return
+	}
+	g.message = ""
+	g.showNotice(resetConfirmAction, resetConfirmNotice)
+}
+
 func (g *Game) cycleSpeed() {
 	speed := g.state.Speed * 2
 	if speed > 8 {
@@ -293,7 +327,7 @@ func (g *Game) buttons() []button {
 		{x: 930, y: 644, w: 130, h: 42, label: requestLabel, selected: true, disabled: busy || g.destination == g.origin, action: "request"},
 		{x: 810, y: 440, w: 250, h: 36, label: pauseLabel, action: "pause"},
 		{x: 810, y: 486, w: 119, h: 36, label: fmt.Sprintf("Speed %dx [S]", g.state.Speed), action: "speed"},
-		{x: 941, y: 486, w: 119, h: 36, label: "Reset [R]", action: "reset"},
+		{x: 941, y: 486, w: 119, h: 36, label: "Reset [Shift+R]", action: "reset"},
 	}
 	for i, v := range state.Vehicles {
 		if i/6 != g.podPage {
@@ -332,8 +366,8 @@ func (g *Game) layoutButton(b button) button {
 	return b
 }
 
-// click reports a reset or a rewind so its new state can render before the
-// next tick.
+// click reports a press of Reset or Rewind, so that the new state can render
+// before the next tick.
 func (g *Game) click(point sim.Point) bool {
 	for _, b := range g.buttons() {
 		if b.disabled || point.X < b.x || point.X >= b.x+b.w || point.Y < b.y || point.Y >= b.y+b.h {
@@ -1287,17 +1321,28 @@ func (g *Game) drawControls(screen *ebiten.Image, state sim.Snapshot) {
 	g.label(screen, label{x: 816, y: 557, size: 10, value: fmt.Sprintf("Pickup wait: avg %.0f s / max %.0f s", state.Wait.AverageSeconds, state.Wait.MaxSeconds), color: muted})
 	use := summarizeFleet(state)
 	g.label(screen, label{x: 816, y: 576, size: 10, value: fmt.Sprintf("Fleet use: %d%% active / %d%% passenger", use.activePercent(), use.passengerPercent()), color: muted})
-	shade := uint32(muted)
-	if g.notice != "" {
-		hint, shade = g.notice, accent
+	g.label(screen, g.hintLine(state, hint))
+}
+
+// hintLine returns the line below the journey controls. It shows the first
+// text that is set, in this order: the reset confirmation, the message, the
+// demo error, the notice, and hint. A second Reset press resets the session
+// while the confirmation is set, so the confirmation shows in place of all
+// other text. The server update message of the desktop client and a demo
+// error can stay for a long time. They must not hide the confirmation.
+func (g *Game) hintLine(state sim.Snapshot, hint string) label {
+	value, shade := hint, uint32(muted)
+	switch {
+	case g.noticeAction == resetConfirmAction:
+		value, shade = g.notice, accent
+	case g.message != "":
+		value, shade = g.message, amber
+	case state.DemoError != "":
+		value, shade = state.DemoError, amber
+	case g.notice != "":
+		value, shade = g.notice, accent
 	}
-	if state.DemoError != "" {
-		hint, shade = state.DemoError, amber
-	}
-	if g.message != "" {
-		hint, shade = g.message, amber
-	}
-	g.label(screen, label{x: 44, y: 701, size: 13, value: hint, color: shade})
+	return label{x: 44, y: 701, size: 13, value: value, color: shade}
 }
 
 func (g *Game) drawButton(screen *ebiten.Image, b button) {

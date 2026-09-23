@@ -127,14 +127,17 @@ See [distribution and operations](docs/operations.md) for build and runtime sett
 - Fleet use shows the percentage of pods with assigned or active work and the percentage currently in passenger service.
 - Use **Pause**, **Resume**, **Reset**, and **Speed** to control playback. **Speed** cycles through 1x, 2x, 4x, and 8x.
 - Keyboard: **Enter** submits an order and **Tab** selects the next pod.
-- **Space** pauses or resumes, **R** resets, **S** changes speed, and **F** toggles pod following.
+- **Space** pauses or resumes, **Shift+R** resets, **S** changes speed, and **F** toggles pod following.
 - The simulation gets the keyboard focus when the page opens and after a click on **Download debug state**. After a click outside the simulation, click the simulation to use the keyboard shortcuts again.
   While the connection works and the simulation has no keyboard focus, the line below the panels shows **Click the simulation to use keyboard shortcuts** in amber.
 - Reset restores the saved scenario fleet and demand settings, clears requests and reservations, and returns to 1x playback.
+  The first press of **Reset** or **Shift+R** does not reset the session. It shows **Select Reset again within 3 s to reset the shared session.**
+  A second press within 3 s resets the session and shows **Session reset.**
 - Select **Save point** to keep an exact copy of the simulation, the demand stream, and the project settings in server memory.
 - Select **Rewind** to return to the latest save point. The button shows the simulated time of that save point.
   A rewind leaves the session paused and keeps the playback speed.
 - The session is shared, so a rewind affects every browser. For this reason, these two controls have no keyboard shortcuts.
+  A reset also affects every browser, so it needs a second press.
 - The server keeps at most 8 save points in memory. At the limit, a new save point removes the oldest one.
   A server restart clears all save points, also with `-state`. A reset, the traffic demo, and a project apply keep them.
 - Demand changes count as project changes. A rewind to a save point from before a demand change restores and saves the earlier demand settings.
