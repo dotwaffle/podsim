@@ -184,6 +184,7 @@ The pattern label shows that station, for example **Market-bound**.
 Projects can also include weighted origin-destination profiles with named time
 bands.
 The London preset includes eight TfL bands and selects AM peak by default.
+For a profile, the pattern label shows the band ID first and then the profile ID, for example **am-peak / tfl-numbat-2019-midweek**.
 The selected band remains active until the demand settings change.
 Arrivals have equal time intervals. The seed determines the station choices.
 The same seed, settings, initial state, and manual actions produce the same run.
@@ -191,6 +192,8 @@ Starting demand or changing enabled settings restarts the stream and its counter
 Pause stops both movement and arrivals. Reset restores configured demand. The traffic demo temporarily disables demand.
 The queue holds up to 200 pending orders. Full queues skip generated arrivals and reject new manual orders.
 Skipped arrivals appear in the Demand panel and do not accumulate for a later burst.
+If the simulation rejects a generated order, the Demand panel shows the last error in amber.
+The panel also shows if redistribution is on, the number of redistribution moves, and the distance that pods traveled with no passenger, for example **Redistribution: on / 3 moves / 15.3 km empty**.
 
 ## Scenario editor
 

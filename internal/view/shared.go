@@ -6,9 +6,11 @@ import (
 	"image/color"
 	"math"
 	"slices"
+	"strings"
 	"time"
 
 	"github.com/hajimehoshi/ebiten/v2"
+	"github.com/hajimehoshi/ebiten/v2/text/v2"
 	"github.com/hajimehoshi/ebiten/v2/vector"
 
 	"github.com/dotwaffle/podsim/internal/remote"
@@ -99,10 +101,10 @@ func (g *Game) handleResult(result remote.Result) {
 // reset confirmation text gives this time.
 const noticeDuration = 3 * sim.TicksPerSecond
 
-// showNotice shows text in the hint line for noticeDuration ticks. action
+// showNotice shows value in the hint line for noticeDuration ticks. action
 // names the command or the prompt that caused the notice.
-func (g *Game) showNotice(action, text string) {
-	g.notice, g.noticeAction, g.noticeTicks = text, action, noticeDuration
+func (g *Game) showNotice(action, value string) {
+	g.notice, g.noticeAction, g.noticeTicks = value, action, noticeDuration
 }
 
 // rewindNotice describes an accepted rewind. It gives the time of the save
@@ -203,28 +205,37 @@ func (g *Game) mapBannerLabel(value string) label {
 	return g.centerLabel(g.mapBanner(), label{size: 13, value: value, color: background})
 }
 
-func (g *Game) demandButtons() []button {
-	config := g.state.Demand.Config
+// demandPatternLabel returns the label of the Pattern button for config.
+// destination is the name of the destination station. Only the destination
+// pattern uses it. A profile label gives the band ID before the profile
+// ID. The button cuts the end of a long label, and the band then stays
+// visible.
+func demandPatternLabel(config session.DemandConfig, destination string) string {
 	pattern := "Balanced"
 	switch config.Pattern {
 	case "market":
 		pattern = "Market-bound"
 	case "destination":
-		station, _ := g.network.Station(config.Destination)
-		pattern = station.Name + "-bound"
+		pattern = destination + "-bound"
 	case "profile":
-		pattern = config.Profile + " / " + config.Band
+		pattern = config.Band + " / " + config.Profile
 	}
+	return "Pattern: " + pattern
+}
+
+func (g *Game) demandButtons() []button {
+	config := g.state.Demand.Config
+	destination, _ := g.network.Station(config.Destination)
 	toggle := "Start demand"
 	if config.Enabled {
 		toggle = "Stop demand"
 	}
 	disabled := !g.connected || g.pending || g.state.Simulation.Demo
 	return []button{
-		{x: 810, y: 180, w: 250, h: 32, label: fmt.Sprintf("Rate: %d orders/min", config.PerMinute), disabled: disabled, action: "demand-rate"},
-		{x: 810, y: 224, w: 250, h: 32, label: "Pattern: " + pattern, disabled: disabled, action: "demand-pattern"},
-		{x: 810, y: 268, w: 250, h: 32, label: fmt.Sprintf("Seed: %d", config.Seed), disabled: disabled, action: "demand-seed"},
-		{x: 810, y: 312, w: 250, h: 32, label: toggle, selected: config.Enabled, disabled: disabled, action: "demand-toggle"},
+		{x: 810, y: 176, w: 250, h: 30, label: fmt.Sprintf("Rate: %d orders/min", config.PerMinute), disabled: disabled, action: "demand-rate"},
+		{x: 810, y: 214, w: 250, h: 30, label: demandPatternLabel(config, destination.Name), disabled: disabled, action: "demand-pattern"},
+		{x: 810, y: 252, w: 250, h: 30, label: fmt.Sprintf("Seed: %d", config.Seed), disabled: disabled, action: "demand-seed"},
+		{x: 810, y: 290, w: 250, h: 30, label: toggle, selected: config.Enabled, disabled: disabled, action: "demand-toggle"},
 	}
 }
 
@@ -286,14 +297,88 @@ func (g *Game) drawDemand(screen *ebiten.Image) {
 	}
 }
 
-// demandLabels returns the text of the Demand panel.
+const (
+	// demandTextWidth is the width of the Demand panel text, from the
+	// left edge of the text to the right edge of the buttons.
+	demandTextWidth = 244
+	// demandErrorLines is the largest number of lines for the demand
+	// error.
+	demandErrorLines = 2
+)
+
+// demandLabels returns the text of the Demand panel. Below the counters,
+// the last demand error shows in amber on at most demandErrorLines lines.
 func (g *Game) demandLabels() []label {
 	demand := g.state.Demand
-	return []label{
+	labels := []label{
 		{x: 816, y: 115, size: 12, value: "PASSENGER DEMAND", color: muted},
 		{x: 816, y: 140, size: 11, value: "Per simulated minute / shared settings", color: foreground},
 		{x: 816, y: 158, size: 10, value: demandSavesNote, color: muted},
-		{x: 816, y: 352, size: 11, value: fmt.Sprintf("Generated %d / skipped %d", demand.Generated, demand.Skipped), color: foreground},
-		{x: 816, y: 371, size: 10, value: fmt.Sprintf("Reposition: %t / %d moves / %.0f m empty", g.state.Redistribution, g.state.Simulation.RebalanceMoves, g.state.Simulation.EmptyDistanceMeters), color: muted},
+		{x: 816, y: 328, size: 11, value: fmt.Sprintf("Generated %d / skipped %d", demand.Generated, demand.Skipped), color: foreground},
+		{x: 816, y: 346, size: 10, value: g.fitText(redistributionText(g.state), 10, demandTextWidth), color: muted},
 	}
+	errorFit := textFit{face: g.textFace(10), width: demandTextWidth * g.layout.unit}
+	for index, line := range wrapText(demand.Error, errorFit, demandErrorLines) {
+		labels = append(labels, label{x: 816, y: 363 + 13*float64(index), size: 10, value: line, color: amber})
+	}
+	return labels
+}
+
+// redistributionText returns the redistribution line of the Demand panel
+// for state. The line tells if redistribution is on. It gives the number of
+// redistribution moves and the distance that pods traveled with no
+// passenger.
+func redistributionText(state session.State) string {
+	setting := "off"
+	if state.Redistribution {
+		setting = "on"
+	}
+	moves := state.Simulation.RebalanceMoves
+	unit := "moves"
+	if moves == 1 {
+		unit = "move"
+	}
+	return fmt.Sprintf("Redistribution: %s / %d %s / %s empty", setting, moves, unit, travelDistanceText(state.Simulation.EmptyDistanceMeters))
+}
+
+// travelDistanceText returns meters as a distance to show. A distance
+// below 1 km shows in whole meters. A longer distance shows in km with one
+// decimal.
+func travelDistanceText(meters float64) string {
+	if math.Round(meters) < 1000 {
+		return fmt.Sprintf("%.0f m", meters)
+	}
+	return fmt.Sprintf("%.1f km", meters/1000)
+}
+
+// wrapText splits value at spaces into lines that fit the width of fit.
+// It returns at most limit lines, and no lines for a value with no words.
+// When value needs more lines, the last line ends with an ellipsis. A word
+// that does not fit on a line is cut.
+func wrapText(value string, fit textFit, limit int) []string {
+	words := strings.Fields(value)
+	var lines []string
+	for len(words) > 0 && len(lines) < limit {
+		count := len(words)
+		if len(lines) < limit-1 {
+			count = lineWordCount(words, fit)
+		}
+		lines = append(lines, fitText(strings.Join(words[:count], " "), fit))
+		words = words[count:]
+	}
+	return lines
+}
+
+// lineWordCount returns the number of words from the start of words that
+// fit on one line of fit. The count is 1 or more, so a word that does not
+// fit gets its own line.
+func lineWordCount(words []string, fit textFit) int {
+	count := 1
+	for count < len(words) {
+		if width, _ := text.Measure(strings.Join(words[:count+1], " "), fit.face, 0); width > fit.width {
+			break
+		}
+		count++
+	}
+	return count
 }

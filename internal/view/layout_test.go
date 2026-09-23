@@ -174,7 +174,7 @@ func TestInspectorAndButtonTextFitAvailableWidth(t *testing.T) {
 		{name: "pod heading", value: "POD 01 / london-waterloo-parking-pod-001", size: 12, width: 140},
 		{name: "status", value: "Waiting for destination access at Waterloo Underground Station", size: 13, width: inspectionRight - inspectionLeft},
 		{name: "journey", value: "Heathrow Terminal 5 > King's Cross St Pancras", size: 17, width: inspectionRight - inspectionLeft},
-		{name: "demand pattern", value: "Pattern: london-weekday / weekday-am-peak", size: 14, width: 250, button: true},
+		{name: "demand pattern", value: "Pattern: weekday-am-peak / london-weekday", size: 14, width: 250, button: true},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
