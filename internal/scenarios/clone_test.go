@@ -9,7 +9,7 @@ import (
 )
 
 const (
-	// The first London trip for this seed completes at 102 s. The 80 s
+	// The first London trip for this seed completes at 105 s. The 80 s
 	// warmup puts that completion inside the replay window, so the test also
 	// compares unloading and completion. Of seeds 1 to 64, only this seed
 	// completes a trip before 120 s. With the race detector, the test takes

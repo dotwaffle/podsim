@@ -57,6 +57,61 @@ portal.
 Each station has distinct diverge, entry, exit, and merge nodes.
 Berths use separate arrival and departure spines with a 75-meter pitch.
 This layout keeps access lanes away from occupied berths.
+A road lane goes from each arrival portal to the diverge node, and from the
+merge node to each departure portal.
+The core lanes of a station go from the diverge node, through the berths, to
+the merge node.
+The station axis goes from the TfL station position through the middle of the
+berth rows.
+The diverge and merge nodes are 80 meters out on this axis and 30 meters to
+each side of it.
+The portals are 60 meters from the station position, or nearer on a short
+link.
+Thus pods do not make a hairpin turn between a guideway and the station.
+
+Each station points its berth rows into the free space beside its own links.
+The generator starts each station at the middle of the widest free angle
+between its links.
+A through station then lies parallel to its line.
+A terminus extends past the end of its line.
+Then a search tries 72 headings at 5-degree steps for each station, in source
+order.
+It does a maximum of three passes and stops after a pass that changes no
+heading.
+The search adds a penalty for each of these:
+
+- A core lane that crosses a guideway or a movement lane.
+- A crossing or overlap with another station.
+- A core lane that is nearer than 36 meters to a core lane of another station.
+  This is the distance between the two directions of a guideway.
+- A different station whose TfL position is nearer to the berths than the TfL
+  position of the station.
+
+A heading that makes a road lane too short for project validation gets a much
+larger penalty.
+A small penalty increases with the angle from the middle of the free angle.
+A through station can also use the other side of its line for a slightly
+larger penalty.
+The Parking facilities use the same search.
+Their preferred headings are west, north, and east, and their gateway station
+is an obstacle.
+
+In the generated network, no core lane crosses a guideway or a movement lane.
+Near the junction, road lanes cross guideways at 25 stations.
+Each road lane has its own separation group, so the simulation treats such a
+crossing as grade-separated.
+The road lanes of each Parking facility and its gateway station cross once,
+because they start at the same portals.
+No other lanes of two different stations cross.
+The core lanes of two different stations are at least 42 meters apart.
+For the 48 through stations, the median angle between the berth rows and the
+line is 2.6 degrees.
+Two are more than 30 degrees off.
+Mansion House lies between Bank and Monument, Cannon Street, and St. Paul's.
+Each of its headings crosses a guideway or puts its berths nearer to one of
+these stations, so its berths are nearer to St. Paul's.
+The two links of Willesden Green go in almost the same direction.
+No road lane turns more than 135 degrees from its guideway.
 
 Each station lane has one maneuver role: approach, entry, berth access, through,
 departure, or exit.
@@ -125,8 +180,8 @@ OD matrix.
 
 A deterministic AM peak qualification submits 40 OD-weighted requests at
 five-second intervals.
-All 40 completed by 1,420.0 simulated seconds.
-Average pickup wait was 57.021 seconds, and maximum pickup wait was 394.217
+All 40 completed by 1,411.0 simulated seconds.
+Average pickup wait was 56.203 seconds, and maximum pickup wait was 389.950
 seconds.
 At the end of the run, the test also rejects any pod at a station without an
 assigned berth.
@@ -171,7 +226,7 @@ The `serve` and `compare` commands read a `-project` file of at most 4 MiB.
 The generated file is indented, so it is about 3.3 MiB.
 Project validation also limits the compact JSON form of a project to 4 MiB,
 with room for the widest demand settings.
-In that form, the London project is about 1.5 MiB (1,590,971 bytes).
+In that form, the London project is about 1.5 MiB (1,591,018 bytes).
 The server writes the `-project` file in this form when it saves it.
 The editor sends about 1.5 MiB when it applies the project, and the server
 accepts a command of at most 2 MiB.

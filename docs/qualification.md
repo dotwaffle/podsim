@@ -499,8 +499,8 @@ time bands.
 
 The fixed AM peak run submitted 40 OD-weighted requests at five-second
 intervals.
-All 40 completed by 1,420.0 simulated seconds.
-Average pickup wait was 57.021 seconds, and maximum pickup wait was 394.217
+All 40 completed by 1,411.0 simulated seconds.
+Average pickup wait was 56.203 seconds, and maximum pickup wait was 389.950
 seconds.
 The schedule SHA-256 is
 `02d3b6086d3ee5f58c9cbdb5bb574c042e0b8cd911656ed2c98099ea595aa024`.
