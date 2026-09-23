@@ -70,11 +70,7 @@ func runLookaheadExperiment(tb testing.TB, seconds float64) lookaheadResult {
 		}
 		simulation.Step()
 		state := simulation.SafetyObservation()
-		gap, err := scaleSafety(state)
-		if err != nil {
-			tb.Fatal(err)
-		}
-		result.minimumGap = min(result.minimumGap, gap)
+		result.minimumGap = min(result.minimumGap, checkScaleSafety(tb, state))
 		active, stopped := observeLookaheadTick(state, previous, berthUses, &result)
 		result.peakStopped = max(result.peakStopped, stopped)
 		if state.Completed != previousCompleted {

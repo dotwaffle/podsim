@@ -128,40 +128,7 @@ func TestArrivalReleasesRouteAndKeepsBerth(t *testing.T) {
 
 func checkIncrementalOwners(t *testing.T, s *Simulation) {
 	t.Helper()
-	want := make(map[resource]string)
-	for i := range s.vehicles {
-		v := &s.vehicles[i]
-		if v.Pod.Activity != Traveling {
-			station, _ := s.network.Station(v.Pod.StationID)
-			berth, _ := station.berth(v.Pod.BerthID)
-			want[resource{kind: berthResource, id: berth.ID}] = v.Pod.ID
-			want[resource{kind: nodeResource, id: berth.Node}] = v.Pod.ID
-		} else {
-			for blockIndex := 0; blockIndex <= v.reservedThrough; blockIndex++ {
-				b := v.blocks[blockIndex]
-				for _, r := range b.resources {
-					if resourceReleaseDistance(b, r) > v.distance {
-						want[r] = v.Pod.ID
-					}
-				}
-			}
-			if v.distance < Clearance {
-				want[resource{kind: berthResource, id: v.origin.ID}] = v.Pod.ID
-				want[resource{kind: nodeResource, id: v.origin.Node}] = v.Pod.ID
-			}
-		}
-		if v.RelocatingTo != "" {
-			for _, r := range []resource{
-				{kind: berthResource, id: v.destination.ID},
-				{kind: nodeResource, id: v.destination.Node},
-			} {
-				if s.owners[r] == v.Pod.ID {
-					want[r] = v.Pod.ID
-				}
-			}
-		}
-	}
-	if !maps.Equal(s.owners, want) {
+	if want := s.retainedOwners(); !maps.Equal(s.owners, want) {
 		t.Fatalf("incremental owners differ from retention scan at tick %d:\n got %v\nwant %v", s.tick, s.owners, want)
 	}
 }

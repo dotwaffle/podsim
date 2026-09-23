@@ -3,11 +3,11 @@ package scenarios
 import (
 	"crypto/sha256"
 	"encoding/hex"
+	"errors"
 	"fmt"
-	"math"
 	"math/rand/v2"
 	"reflect"
-	"strings"
+	"slices"
 	"testing"
 
 	"github.com/dotwaffle/podsim/internal/project"
@@ -269,117 +269,34 @@ func scheduleFingerprint(schedule []scheduledRequest) string {
 	return hex.EncodeToString(hash.Sum(nil))
 }
 
-func checkScaleSafety(t *testing.T, state sim.SafetyObservation) {
-	t.Helper()
-	if _, err := scaleSafety(state); err != nil {
-		t.Fatal(err)
-	}
-}
+// maxObservedSpeed is the lane speed limit of the scenario presets plus a
+// rounding tolerance. SafetyObservation.Check does not apply a speed limit,
+// because each lane has its own limit.
+const maxObservedSpeed = speedLimit + 1e-6
 
-func scaleSafetyError(state sim.SafetyObservation) error {
-	_, err := scaleSafety(state)
-	return err
-}
-
-func scaleSafety(state sim.SafetyObservation) (float64, error) {
-	const minimumGapSquared = (sim.Clearance - 1e-6) * (sim.Clearance - 1e-6)
-	minimumObservedSquared := math.Inf(1)
-	for index, first := range state.Pods {
-		if math.IsNaN(first.Position.X) || math.IsNaN(first.Position.Y) || first.Speed < 0 || first.Speed > 14.000001 {
-			return 0, fmt.Errorf("invalid pod at tick %d: %+v", state.Tick, first)
-		}
-		for _, second := range state.Pods[index+1:] {
-			if safetyLocationsSeparated(state.Locations[first.ID], state.Locations[second.ID]) {
-				continue
-			}
-			dx := first.Position.X - second.Position.X
-			dy := first.Position.Y - second.Position.Y
-			gapSquared := dx*dx + dy*dy
-			minimumObservedSquared = min(minimumObservedSquared, gapSquared)
-			if gapSquared < minimumGapSquared {
-				return 0, fmt.Errorf("tick %d: pods %s and %s are %.5f meters apart: %+v %+v", state.Tick, first.ID, second.ID, math.Sqrt(gapSquared), first, second)
-			}
-		}
-	}
-	type occupancy struct {
-		count int
-		podID string
-	}
-	occupants := make(map[string]occupancy, len(state.Pods))
+// checkScaleSafety fails the test when state is not safe or when a pod moves
+// faster than the preset speed limit. It returns the smallest gap between two
+// pods on one plane.
+func checkScaleSafety(tb testing.TB, state sim.SafetyObservation) float64 {
+	tb.Helper()
 	for _, pod := range state.Pods {
-		if pod.BerthID == "" {
-			continue
-		}
-		occupied := occupants[pod.BerthID]
-		occupied.count++
-		occupied.podID = pod.ID
-		occupants[pod.BerthID] = occupied
-	}
-	for _, berth := range state.Berths {
-		occupied := occupants[berth.ID]
-		if occupied.count > 1 {
-			return 0, fmt.Errorf("berth capacity exceeded at tick %d: %+v", state.Tick, berth)
-		}
-		if occupied.count == 1 && (berth.Occupant != occupied.podID || berth.ReservedBy != occupied.podID) {
-			return 0, fmt.Errorf("invalid berth state at tick %d: %+v", state.Tick, berth)
+		if pod.Speed > maxObservedSpeed {
+			tb.Fatalf("pod faster than the speed limit at tick %d: %+v", state.Tick, pod)
 		}
 	}
-	return math.Sqrt(minimumObservedSquared), nil
+	gap, err := state.Check()
+	if separation, ok := errors.AsType[*sim.SeparationError](err); ok {
+		tb.Fatalf("%v: %+v %+v", err, observedPod(state, separation.First), observedPod(state, separation.Second))
+	}
+	if err != nil {
+		tb.Fatal(err)
+	}
+	return gap
 }
 
-func safetyLocationsSeparated(first, second sim.SafetyLocation) bool {
-	if first.SeparationGroup == "" || second.SeparationGroup == "" || first.SeparationGroup == second.SeparationGroup {
-		return false
-	}
-	return !safetyLocationsShareNode(first, second)
-}
-
-func safetyLocationsShareNode(first, second sim.SafetyLocation) bool {
-	return first.From != "" && (first.From == second.From || first.From == second.To) ||
-		first.To != "" && (first.To == second.From || first.To == second.To)
-}
-
-func TestScaleSafetyOracle(t *testing.T) {
-	t.Parallel()
-	valid := sim.SafetyObservation{
-		Pods: []sim.Pod{
-			{ID: "one", Position: sim.Point{X: 0}, BerthID: "berth-one"},
-			{ID: "two", Position: sim.Point{X: sim.Clearance}},
-		},
-		Berths: []sim.BerthState{{ID: "berth-one", Occupant: "one", ReservedBy: "one"}},
-	}
-	if err := scaleSafetyError(valid); err != nil {
-		t.Fatalf("valid observation: %v", err)
-	}
-	tests := []struct {
-		name  string
-		state sim.SafetyObservation
-		want  string
-	}{
-		{name: "overlap", state: sim.SafetyObservation{Pods: []sim.Pod{{ID: "one"}, {ID: "two", Position: sim.Point{X: sim.Clearance - 1}}}}, want: "meters apart"},
-		{name: "separate groups sharing a node", state: sim.SafetyObservation{Pods: []sim.Pod{{ID: "one"}, {ID: "two"}}, Locations: map[string]sim.SafetyLocation{"one": {SeparationGroup: "upper", To: "junction"}, "two": {SeparationGroup: "lower", From: "junction"}}}, want: "meters apart"},
-		{name: "duplicate berth", state: sim.SafetyObservation{Pods: []sim.Pod{{ID: "one", BerthID: "berth-one"}, {ID: "two", Position: sim.Point{X: sim.Clearance}, BerthID: "berth-one"}}, Berths: []sim.BerthState{{ID: "berth-one", Occupant: "two", ReservedBy: "two"}}}, want: "capacity exceeded"},
-		{name: "mismatched berth", state: sim.SafetyObservation{Pods: []sim.Pod{{ID: "one", BerthID: "berth-one"}}, Berths: []sim.BerthState{{ID: "berth-one", Occupant: "other", ReservedBy: "other"}}}, want: "invalid berth state"},
-	}
-	separated := sim.SafetyObservation{
-		Pods: []sim.Pod{{ID: "one"}, {ID: "two"}},
-		Locations: map[string]sim.SafetyLocation{
-			"one": {SeparationGroup: "upper", From: "a", To: "b"},
-			"two": {SeparationGroup: "lower", From: "c", To: "d"},
-		},
-	}
-	if err := scaleSafetyError(separated); err != nil {
-		t.Fatalf("grade-separated observation: %v", err)
-	}
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			t.Parallel()
-			err := scaleSafetyError(test.state)
-			if err == nil || !strings.Contains(err.Error(), test.want) {
-				t.Fatalf("scaleSafetyError() = %v, want text %q", err, test.want)
-			}
-		})
-	}
+func observedPod(state sim.SafetyObservation, id string) sim.Pod {
+	index := slices.IndexFunc(state.Pods, func(pod sim.Pod) bool { return pod.ID == id })
+	return state.Pods[index]
 }
 
 // Check every tick, including the final empty moves after passenger delivery.
