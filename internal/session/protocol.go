@@ -3,6 +3,7 @@ package session
 import (
 	"errors"
 	"fmt"
+	"slices"
 
 	"github.com/dotwaffle/podsim/internal/project"
 	"github.com/dotwaffle/podsim/internal/sim"
@@ -16,6 +17,7 @@ type TopologySnapshot struct {
 }
 
 // StateFrame contains the recurring state without network geometry.
+// Checkpoints lists the retained save points, oldest first.
 type StateFrame struct {
 	Epoch           string          `json:"epoch"`
 	Revision        uint64          `json:"revision"`
@@ -25,6 +27,7 @@ type StateFrame struct {
 	Simulation      SimulationFrame `json:"simulation"`
 	Speed           int             `json:"speed"`
 	Demand          DemandState     `json:"demand"`
+	Checkpoints     []Checkpoint    `json:"checkpoints,omitempty"`
 }
 
 // SimulationFrame replaces repeated route lane objects with stable lane IDs.
@@ -96,7 +99,7 @@ func FrameState(topology TopologySnapshot, frame StateFrame) (State, error) {
 			SharedParties: snapshot.SharedParties, SharedRidePartyLimit: snapshot.SharedRidePartyLimit,
 			EmptyDistanceMeters: snapshot.EmptyDistanceMeters, RebalanceMoves: snapshot.RebalanceMoves,
 		},
-		Speed: frame.Speed, Demand: frame.Demand,
+		Speed: frame.Speed, Demand: frame.Demand, Checkpoints: slices.Clone(frame.Checkpoints),
 	}, nil
 }
 
@@ -127,6 +130,6 @@ func stateFrame(state State) StateFrame {
 			SharedParties: snapshot.SharedParties, SharedRidePartyLimit: snapshot.SharedRidePartyLimit,
 			EmptyDistanceMeters: snapshot.EmptyDistanceMeters, RebalanceMoves: snapshot.RebalanceMoves,
 		},
-		Speed: state.Speed, Demand: state.Demand,
+		Speed: state.Speed, Demand: state.Demand, Checkpoints: slices.Clone(state.Checkpoints),
 	}
 }

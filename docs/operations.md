@@ -40,6 +40,10 @@ The server sets the Go memory limit to 90 percent of the detected cgroup limit.
 Set `GOMEMLIMIT` to use an explicit Go memory limit.
 Set `AUTOMEMLIMIT` to change the ratio or disable automatic detection.
 
+Save points keep copies of the simulation in memory.
+A London save point uses about 6.2 MB after the live simulation continues from it.
+The server keeps at most 8 save points, so they use about 50 MB with one London project.
+
 ## pprof
 
 The pprof server is off by default.

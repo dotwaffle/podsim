@@ -19,6 +19,7 @@ import (
 const QueueLimit = 200
 
 // State is an authoritative, immutable copy sent to observers.
+// Checkpoints lists the retained save points, oldest first.
 type State struct {
 	Epoch           string       `json:"epoch"`
 	Revision        uint64       `json:"revision"`
@@ -29,6 +30,7 @@ type State struct {
 	Simulation      sim.Snapshot `json:"simulation"`
 	Speed           int          `json:"speed"`
 	Demand          DemandState  `json:"demand"`
+	Checkpoints     []Checkpoint `json:"checkpoints,omitempty"`
 }
 
 // ProjectState contains a copied project and its edit revision.
@@ -54,6 +56,7 @@ type Metrics struct {
 }
 
 // Command describes an explicit mutation with a per-client sequence for safe retries.
+// Checkpoint is the save point for a rewind. Other actions ignore it.
 type Command struct {
 	Client          string          `json:"client"`
 	Sequence        uint64          `json:"sequence"`
@@ -66,6 +69,7 @@ type Command struct {
 	Demand          DemandConfig    `json:"demand,omitzero"`
 	Project         *project.Config `json:"project,omitempty"`
 	ProjectRevision uint64          `json:"projectRevision,omitempty"`
+	Checkpoint      uint64          `json:"checkpoint,omitzero"`
 }
 
 // CommandErrorCode classifies a rejected command independently of its wording.
@@ -83,12 +87,14 @@ const (
 )
 
 // Reply acknowledges one command without repeating the current state frame.
+// Only a checkpoint command sets Checkpoint, the ID of the new save point.
 type Reply struct {
 	Epoch           string           `json:"epoch"`
 	Revision        uint64           `json:"revision"`
 	ProjectRevision uint64           `json:"projectRevision"`
 	Generation      uint64           `json:"generation"`
 	OrderID         int              `json:"orderID,omitempty"`
+	Checkpoint      uint64           `json:"checkpoint,omitzero"`
 	ErrorCode       CommandErrorCode `json:"errorCode,omitempty"`
 	Error           string           `json:"error,omitempty"`
 }
@@ -121,6 +127,10 @@ type Session struct {
 	demand          demandRun
 	receipts        map[string]receipt
 	saveProject     func(project.Config) error
+	// checkpoints holds the retained save points, oldest first. lastCheckpoint
+	// is the last issued ID. The session never uses an ID again in an epoch.
+	checkpoints    []checkpoint
+	lastCheckpoint uint64
 }
 
 // New creates the supplied example project with demand disabled.
@@ -257,6 +267,7 @@ func (s *Session) stateWithoutNetwork() State {
 		Simulation:      s.simulation.Snapshot(),
 		Speed:           s.speed,
 		Demand:          s.demand.state,
+		Checkpoints:     s.checkpointList(),
 	}
 }
 
@@ -296,12 +307,12 @@ func (s *Session) Apply(command Command) Reply {
 		case !exists && len(s.receipts) >= 1024:
 			reply.reject(ClientLimit, "The session client limit was reached. Restart the server.")
 		default:
-			orderID, err := s.apply(command)
+			result, err := s.apply(command)
 			if err == nil {
 				s.revision++
 			}
 			reply = s.reply()
-			reply.OrderID = orderID
+			reply.OrderID, reply.Checkpoint = result.orderID, result.checkpoint
 			if err != nil {
 				reply.reject(CommandRejected, err.Error())
 			}
@@ -330,25 +341,31 @@ func cloneCommand(command Command) Command {
 	return command
 }
 
-func (s *Session) apply(command Command) (int, error) {
+// outcome holds the reply values of an accepted command.
+type outcome struct {
+	orderID    int
+	checkpoint uint64
+}
+
+func (s *Session) apply(command Command) (outcome, error) {
 	switch command.Action {
 	case "trip":
 		state := s.simulation.Snapshot()
 		if state.Demo {
-			return 0, errors.New("wait for the demo to finish before requesting a journey")
+			return outcome{}, errors.New("wait for the demo to finish before requesting a journey")
 		}
 		if len(state.Pending) >= QueueLimit {
-			return 0, errors.New("the order queue is full; try again after a pickup")
+			return outcome{}, errors.New("the order queue is full; try again after a pickup")
 		}
 		if err := s.simulation.RequestTrip(command.Origin, command.Destination); err != nil {
-			return 0, err
+			return outcome{}, err
 		}
-		return s.simulation.Snapshot().Submitted, nil
+		return outcome{orderID: s.simulation.Snapshot().Submitted}, nil
 	case "pause":
 		s.simulation.SetPaused(command.Paused)
 	case "speed":
 		if command.Speed != 1 && command.Speed != 2 && command.Speed != 4 && command.Speed != 8 {
-			return 0, errors.New("speed must be 1, 2, 4, or 8")
+			return outcome{}, errors.New("speed must be 1, 2, 4, or 8")
 		}
 		s.speed = command.Speed
 	case "reset":
@@ -362,10 +379,10 @@ func (s *Session) apply(command Command) (int, error) {
 	case "demo":
 		defaults := project.Default()
 		if !reflect.DeepEqual(s.project.Network, defaults.Network) || !reflect.DeepEqual(s.project.Fleet, defaults.Fleet) {
-			return 0, errors.New("the supplied demo is available only for the example project")
+			return outcome{}, errors.New("the supplied demo is available only for the example project")
 		}
 		if err := s.simulation.StartDemo(); err != nil {
-			return 0, err
+			return outcome{}, err
 		}
 		s.speed = 1
 		disabled := s.project.Demand
@@ -374,29 +391,33 @@ func (s *Session) apply(command Command) (int, error) {
 		s.generation++
 	case "demand":
 		if s.simulation.Snapshot().Demo {
-			return 0, errors.New("wait for the demo to finish before changing demand")
+			return outcome{}, errors.New("wait for the demo to finish before changing demand")
 		}
 		demandContext := project.DemandContext{Network: s.project.Network, Profiles: s.project.DemandProfiles}
 		if err := project.ValidateDemand(command.Demand, demandContext); err != nil {
-			return 0, err
+			return outcome{}, err
 		}
 		updated := project.Clone(s.project)
 		updated.Demand = command.Demand
 		if err := s.save(updated); err != nil {
-			return 0, err
+			return outcome{}, err
 		}
 		if err := s.demand.configure(demandInput{config: command.Demand, network: s.project.Network, profiles: s.project.DemandProfiles}); err != nil {
-			return 0, err
+			return outcome{}, err
 		}
 		s.project = updated
 		s.configureRedistribution()
 		s.projectRevision++
 	case "project":
-		return 0, s.applyProject(command)
+		return outcome{}, s.applyProject(command)
+	case "checkpoint":
+		return outcome{checkpoint: s.captureCheckpoint()}, nil
+	case "rewind":
+		return outcome{}, s.rewind(command.Checkpoint)
 	default:
-		return 0, errors.New("unknown command")
+		return outcome{}, errors.New("unknown command")
 	}
-	return 0, nil
+	return outcome{}, nil
 }
 
 func (s *Session) applyProject(command Command) error {

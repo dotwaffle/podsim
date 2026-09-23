@@ -19,8 +19,13 @@ type DemandState struct {
 	Error     string       `json:"error,omitempty"`
 }
 
+// demandRun is the live demand stream. clone copies pcg and rng, because
+// each draw changes them. Clones share the other reference fields. newDemand
+// and its helpers fill them. After newDemand returns, code replaces them
+// whole and never writes to them in place.
 type demandRun struct {
 	state         DemandState
+	pcg           *rand.PCG
 	rng           *rand.Rand
 	budget        int
 	passenger     []string
@@ -55,9 +60,11 @@ func newDemand(input demandInput) demandRun {
 			break
 		}
 	}
+	pcg := rand.NewPCG(input.config.Seed, ^input.config.Seed)
 	run := demandRun{
 		state:         DemandState{Config: input.config},
-		rng:           rand.New(rand.NewPCG(input.config.Seed, ^input.config.Seed)),
+		pcg:           pcg,
+		rng:           rand.New(pcg),
 		passenger:     passenger,
 		destination:   destination,
 		pickupWeights: make(map[string]float64, len(passenger)),
@@ -78,6 +85,9 @@ func (d *demandRun) prepareLegacyWeights() {
 	}
 }
 
+// prepareProfile writes to pickupWeights and profileFlows in place. Only
+// newDemand calls it. After newDemand returns, code replaces these fields
+// whole, because clones share them.
 func (d *demandRun) prepareProfile(profiles []project.DemandProfile) {
 	var selected project.DemandProfile
 	for _, profile := range profiles {
@@ -103,6 +113,17 @@ func (d *demandRun) prepareProfile(profiles []project.DemandProfile) {
 		d.pickupWeights[flow.From] += weight
 		d.profileFlows = append(d.profileFlows, weightedDemandFlow{from: flow.From, to: flow.To, cumulative: d.profileTotal})
 	}
+}
+
+// clone returns an independent stream that draws the same sequence as d. It
+// shares the fields that code never writes to in place.
+func (d *demandRun) clone() demandRun {
+	c := *d
+	if d.pcg != nil {
+		c.pcg = new(*d.pcg)
+		c.rng = rand.New(c.pcg)
+	}
+	return c
 }
 
 func (d *demandRun) configure(input demandInput) error {

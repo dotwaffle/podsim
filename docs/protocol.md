@@ -29,9 +29,36 @@ epoch and project revision, then reconstructs the presentation state. It
 rejects a frame if matching topology is not available.
 
 Command acknowledgments contain the accepted state revision, project revision,
-generation, optional order ID, and a stable error code. They do not repeat a
-state frame. Exact retries return the original acknowledgment. Expired and
-conflicting sequences retain their previous behavior.
+generation, optional order ID, optional checkpoint ID, and a stable error code.
+They do not repeat a state frame. Exact retries return the original
+acknowledgment. Expired and conflicting sequences retain their previous
+behavior.
+
+## Save points
+
+The `checkpoint` action saves the simulation and the demand stream in server
+memory. Its acknowledgment gives the new save point ID in `checkpoint`. The
+first ID is 1. The server does not use an ID again in the same epoch. This is
+also true after a reset, a demo, or a rewind.
+
+The `rewind` action restores one save point. The command must give the ID in
+`checkpoint`. There is no default save point. Other actions ignore this field.
+A rewind keeps the epoch, the playback speed, and the save points. It
+increases the revision and the generation by one, and pauses the session.
+
+State frames list the retained save points in `checkpoints`, oldest first. Each
+item has an `id` and a `tick`. The server keeps at most 8 save points. At the
+limit, a new save point removes the oldest one. A frame without save points
+omits the `checkpoints` key, so the payload measurements below stay correct.
+
+A rewind does not roll back the command receipts. An exact retry of a rewind
+gets the stored acknowledgment and does not rewind again. This is also true
+after another client resumes the session.
+
+Save points are in memory only. A server restart clears them. A rewind to an
+unknown or removed ID gets `command_rejected`. In this version, a rewind to a
+save point from before a project or demand change also gets
+`command_rejected`.
 
 ## Payload measurements
 

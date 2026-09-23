@@ -52,3 +52,34 @@ func activeRequest(snapshot sim.Snapshot) (sim.Request, bool) {
 	}
 	return sim.Request{}, false
 }
+
+// londonRewindWarmupSeconds is short, because the queue grows and each
+// simulated second on London then costs more. With the race detector, each
+// 60 s window takes about 4 s and the test takes about 14 s.
+const londonRewindWarmupSeconds = 5
+
+func TestLondonRewindReplaysExactly(t *testing.T) {
+	t.Parallel()
+	config := scenarios.London()
+	config.Demand.Enabled = true
+	config.Redistribution = true
+	shared, err := NewWithProject(config)
+	if err != nil {
+		t.Fatal(err)
+	}
+	client := newTestClient(shared, "test")
+	client.mustApply(t, Command{Action: "speed", Speed: 8})
+	advanceTicks(shared, londonRewindWarmupSeconds*sim.TicksPerSecond/8)
+	result := checkReplays(t, replayCheck{client: client, seconds: 60})
+	start, end := result.start.state, result.end.state
+	if len(result.start.demand.profileFlows) == 0 || end.Demand.Generated <= start.Demand.Generated {
+		t.Fatalf("London profile demand did not generate in the replay window: %+v", end.Demand)
+	}
+	if end.Simulation.RebalanceMoves <= start.Simulation.RebalanceMoves {
+		t.Fatal("London redistribution did not move a pod in the replay window")
+	}
+	t.Logf("ticks=%d..%d generated=%d..%d submitted=%d..%d completed=%d..%d rebalance=%d..%d",
+		start.Simulation.Tick, end.Simulation.Tick, start.Demand.Generated, end.Demand.Generated,
+		start.Simulation.Submitted, end.Simulation.Submitted, start.Simulation.Completed, end.Simulation.Completed,
+		start.Simulation.RebalanceMoves, end.Simulation.RebalanceMoves)
+}

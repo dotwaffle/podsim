@@ -7,46 +7,84 @@ import (
 	"testing"
 )
 
-func TestStateFrameRoundTrip(t *testing.T) {
-	t.Parallel()
+// frameFixtures give sessions with an active journey, with and without save
+// points.
+var frameFixtures = []struct {
+	name        string
+	checkpoints int
+}{
+	{"no checkpoints", 0},
+	{"with checkpoints", 2},
+}
+
+// newFrameFixture starts a journey and saves the requested number of
+// checkpoints while the clock runs.
+func newFrameFixture(t *testing.T, checkpoints int) *Session {
+	t.Helper()
 	shared := newTestSession(t)
-	command := commandFor(shared, "trip")
-	command.Origin, command.Destination = "harbor", "market"
-	if reply := shared.Apply(command); reply.Error != "" {
-		t.Fatal(reply.Error)
+	client := newTestClient(shared, "fixture")
+	client.mustApply(t, Command{Action: "trip", Origin: "harbor", Destination: "market"})
+	for range checkpoints {
+		shared.advance()
+		client.mustApply(t, Command{Action: "checkpoint"})
 	}
 	for range 120 {
 		shared.advance()
 	}
-	want := shared.State()
-	got, err := FrameState(shared.Topology(), stateFrame(want))
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !reflect.DeepEqual(got, want) {
-		t.Fatalf("round trip changed state\n got: %#v\nwant: %#v", got, want)
+	return shared
+}
+
+func TestStateFrameRoundTrip(t *testing.T) {
+	t.Parallel()
+	for _, fixture := range frameFixtures {
+		t.Run(fixture.name, func(t *testing.T) {
+			t.Parallel()
+			shared := newFrameFixture(t, fixture.checkpoints)
+			want := shared.State()
+			if len(want.Checkpoints) != fixture.checkpoints {
+				t.Fatalf("state has %d checkpoints, want %d", len(want.Checkpoints), fixture.checkpoints)
+			}
+			frame := stateFrame(want)
+			got, err := FrameState(shared.Topology(), frame)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if !reflect.DeepEqual(got, want) {
+				t.Fatalf("round trip changed state\n got: %#v\nwant: %#v", got, want)
+			}
+			if fixture.checkpoints == 0 && (want.Checkpoints != nil || frame.Checkpoints != nil || got.Checkpoints != nil) {
+				t.Fatal("an empty checkpoint list is not nil")
+			}
+			if fixture.checkpoints > 0 && (&frame.Checkpoints[0] == &want.Checkpoints[0] || &got.Checkpoints[0] == &frame.Checkpoints[0]) {
+				t.Fatal("round trip shares the checkpoint list")
+			}
+		})
 	}
 }
 
 func TestStateFrameJSONOmitsTopologyAndLaneObjects(t *testing.T) {
 	t.Parallel()
-	shared := newTestSession(t)
-	command := commandFor(shared, "trip")
-	command.Origin, command.Destination = "harbor", "market"
-	if reply := shared.Apply(command); reply.Error != "" {
-		t.Fatal(reply.Error)
-	}
-	encoded, err := json.Marshal(shared.Frame())
-	if err != nil {
-		t.Fatal(err)
-	}
-	for _, repeated := range [][]byte{[]byte(`"network"`), []byte(`"Route"`), []byte(`"SpeedLimit"`)} {
-		if bytes.Contains(encoded, repeated) {
-			t.Fatalf("state frame contains repeated topology field %s", repeated)
-		}
-	}
-	if !bytes.Contains(encoded, []byte(`"RouteLaneIDs"`)) {
-		t.Fatal("state frame omits route lane IDs")
+	for _, fixture := range frameFixtures {
+		t.Run(fixture.name, func(t *testing.T) {
+			t.Parallel()
+			encoded := mustJSON(t, newFrameFixture(t, fixture.checkpoints).Frame())
+			for _, repeated := range [][]byte{[]byte(`"network"`), []byte(`"Route"`), []byte(`"SpeedLimit"`)} {
+				if bytes.Contains(encoded, repeated) {
+					t.Fatalf("state frame contains repeated topology field %s", repeated)
+				}
+			}
+			if !bytes.Contains(encoded, []byte(`"RouteLaneIDs"`)) {
+				t.Fatal("state frame omits route lane IDs")
+			}
+			// An empty list is omitted, so frames without save points keep their size.
+			list, listed := jsonKeys(t, encoded)["checkpoints"]
+			if listed != (fixture.checkpoints > 0) {
+				t.Fatalf("state frame checkpoints key present = %t, want %t", listed, fixture.checkpoints > 0)
+			}
+			if listed && !bytes.HasPrefix(list, []byte(`[{"id":1,"tick":1},`)) {
+				t.Fatalf("state frame checkpoints = %s", list)
+			}
+		})
 	}
 }
 
@@ -57,18 +95,34 @@ func TestCommandReplyIsCompactTypedAcknowledgement(t *testing.T) {
 	if reply.Error != "" || reply.Epoch == "" || reply.Revision != shared.State().Revision {
 		t.Fatalf("invalid acknowledgement: %+v", reply)
 	}
-	encoded, err := json.Marshal(reply)
-	if err != nil {
-		t.Fatal(err)
-	}
+	encoded := mustJSON(t, reply)
 	if bytes.Contains(encoded, []byte(`"state"`)) || bytes.Contains(encoded, []byte(`"simulation"`)) {
 		t.Fatalf("command acknowledgement repeats state: %s", encoded)
+	}
+	if _, ok := jsonKeys(t, encoded)["checkpoint"]; ok {
+		t.Fatalf("pause acknowledgement contains a checkpoint ID: %s", encoded)
+	}
+	save := commandFor(shared, "checkpoint")
+	save.Client = "saver"
+	encoded = mustJSON(t, shared.Apply(save))
+	if id := jsonKeys(t, encoded)["checkpoint"]; string(id) != "1" {
+		t.Fatalf("checkpoint acknowledgement has checkpoint ID %s, want 1: %s", id, encoded)
 	}
 	invalid := commandFor(shared, "unknown")
 	invalid.Sequence = 2
 	if rejected := shared.Apply(invalid); rejected.Error == "" || rejected.ErrorCode != CommandRejected {
 		t.Fatalf("untyped rejection: %+v", rejected)
 	}
+}
+
+// jsonKeys returns the top-level members of a JSON object.
+func jsonKeys(t *testing.T, encoded []byte) map[string]json.RawMessage {
+	t.Helper()
+	var keys map[string]json.RawMessage
+	if err := json.Unmarshal(encoded, &keys); err != nil {
+		t.Fatal(err)
+	}
+	return keys
 }
 
 func TestStateFrameRejectsMismatchedTopology(t *testing.T) {

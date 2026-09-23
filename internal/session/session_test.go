@@ -240,6 +240,7 @@ func TestHTTPValidationAndSharedObservers(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	rewind := string(mustJSON(t, Command{Client: "rewinder", Sequence: 1, Epoch: command.Epoch, Action: "rewind", Checkpoint: 99}))
 	cases := []struct {
 		name, method, body, origin, contentType string
 		status                                  int
@@ -252,6 +253,8 @@ func TestHTTPValidationAndSharedObservers(t *testing.T) {
 		{"trailing", "POST", string(body) + " {}", "", "application/json", 400},
 		{"unknown", "POST", `{"unknown":1}`, "", "application/json", 400},
 		{"oversize", "POST", `{"client":"` + strings.Repeat("a", (2<<20)+1) + `"}`, "", "application/json", 400},
+		{"unknown checkpoint", "POST", rewind, "", "application/json", 409},
+		{"checkpoint type", "POST", strings.Replace(rewind, `"checkpoint":99`, `"checkpoint":"x"`, 1), "", "application/json", 400},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -262,6 +265,13 @@ func TestHTTPValidationAndSharedObservers(t *testing.T) {
 			handler.ServeHTTP(response, request)
 			if response.Code != tc.status {
 				t.Fatalf("status=%d body=%s", response.Code, response.Body.String())
+			}
+			if tc.status != http.StatusConflict {
+				return
+			}
+			var reply Reply
+			if err := json.NewDecoder(response.Body).Decode(&reply); err != nil || reply.ErrorCode != CommandRejected {
+				t.Fatalf("reply=%+v err=%v, want %s", reply, err, CommandRejected)
 			}
 		})
 	}

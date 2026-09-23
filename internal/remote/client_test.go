@@ -128,6 +128,64 @@ func TestLostReplyRetryAndReconnect(t *testing.T) {
 	waitFor(t, func() bool { state, connected, _ := client.View(); return connected && state.Simulation.Submitted == 1 })
 }
 
+func TestLostReplyRewindAppliesOnce(t *testing.T) {
+	t.Parallel()
+	shared, err := session.New()
+	if err != nil {
+		t.Fatal(err)
+	}
+	var rewinds atomic.Int32
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case r.Method == http.MethodGet && r.URL.Path == "/api/topology":
+			_ = json.NewEncoder(w).Encode(shared.Topology())
+		case r.Method == http.MethodGet:
+			_ = json.NewEncoder(w).Encode(shared.Frame())
+		default:
+			var command session.Command
+			if err := json.NewDecoder(r.Body).Decode(&command); err != nil {
+				t.Error(err)
+				return
+			}
+			reply := shared.Apply(command)
+			// Lose the reply to the first rewind after the session applies it.
+			if command.Action == "rewind" && rewinds.Add(1) == 1 {
+				http.Error(w, "reply lost", http.StatusServiceUnavailable)
+				return
+			}
+			_ = json.NewEncoder(w).Encode(reply)
+		}
+	}))
+	defer server.Close()
+	client := New(t.Context(), server.URL)
+	submit := func(command session.Command) Result {
+		t.Helper()
+		waitFor(t, func() bool { _, connected, pending := client.View(); return connected && !pending })
+		if err := client.Submit(command); err != nil {
+			t.Fatal(err)
+		}
+		select {
+		case result := <-client.Results():
+			if result.Err != nil || result.Reply.Error != "" {
+				t.Fatalf("%s failed: %+v", command.Action, result)
+			}
+			return result
+		case <-time.After(5 * time.Second):
+			t.Fatalf("%s timed out", command.Action)
+			return Result{}
+		}
+	}
+	saved := submit(session.Command{Action: "checkpoint"})
+	before := shared.State().Generation
+	rewound := submit(session.Command{Action: "rewind", Checkpoint: saved.Reply.Checkpoint})
+	if rewinds.Load() != 2 {
+		t.Fatalf("rewind posts = %d, want 2", rewinds.Load())
+	}
+	if after := shared.State().Generation; after != before+1 || rewound.Reply.Generation != after {
+		t.Fatalf("generation went from %d to %d with reply %d, want one rewind", before, after, rewound.Reply.Generation)
+	}
+}
+
 func TestSubmitOwnsProjectPayload(t *testing.T) {
 	t.Parallel()
 	client := &Client{connected: true, commands: make(chan session.Command, 1)}
