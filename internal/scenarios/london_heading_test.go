@@ -335,8 +335,8 @@ func TestLondonStationsLieBesideTheirLines(t *testing.T) {
 		t.Parallel()
 		// A Parking facility and its gateway station connect to the same
 		// portals, so their road lanes can cross. Each road lane has its
-		// own separation group, so the simulation treats such a crossing
-		// as grade-separated.
+		// own separation group, so the separation oracle treats such a
+		// crossing as grade-separated.
 		gateways := map[string]string{"parking-west": "940GZZLUHSD", "parking-north": "940GZZLUFPK", "parking-east": "940GZZLUMED"}
 		shared := func(a, b sim.Station) bool {
 			return gateways[a.ID] == b.ID || gateways[b.ID] == a.ID

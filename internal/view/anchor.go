@@ -49,7 +49,7 @@ func (g *Game) collapsedStationMarkers() map[string]sim.Point {
 // On a network with more than detailedLanes lanes, a passenger station with
 // approach lanes uses the mean start of these lanes. In London, these are
 // the arrival portals at the junction of the station. The berths are about
-// 250 to 450 m away on the station siding.
+// 250 to 430 m away on the station siding.
 //
 // All other stations use the berth centroid. On a detailed network, such as
 // the example, an approach lane can start at a node far from the station.
