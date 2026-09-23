@@ -66,6 +66,8 @@ type Game struct {
 	networkBase          *ebiten.Image
 	networkBaseKey       networkCacheKey
 	networkBaseValid     bool
+	anchors              map[string]sim.Point
+	anchorsKey           anchorCacheKey
 	showOrders           bool
 	notice               string
 	noticeAction         string
@@ -525,6 +527,15 @@ func (g *Game) drawNetwork(screen *ebiten.Image, state sim.Snapshot) {
 	} else {
 		g.drawCachedNetworkBase(mapScreen)
 	}
+	// Draw the collapsed station markers before the route. A marker can sit
+	// on a line junction, and the route must stay visible through it.
+	markers := g.collapsedStationMarkers()
+	for _, station := range g.network.Stations {
+		if marker, ok := markers[station.ID]; ok {
+			vector.FillCircle(mapScreen, float32(marker.X), float32(marker.Y), float32(10*g.layout.unit), rgb(track), detailed)
+			vector.StrokeCircle(mapScreen, float32(marker.X), float32(marker.Y), float32(10*g.layout.unit), float32(2*g.layout.unit), rgb(muted), detailed)
+		}
+	}
 	selected := state.Vehicles[g.selected]
 	if selected.Pod.Activity != sim.Idle {
 		shade := g.podPurpose(selected, state).color()
@@ -540,7 +551,8 @@ func (g *Game) drawNetwork(screen *ebiten.Image, state sim.Snapshot) {
 	for _, station := range g.network.Stations {
 		status := stationMonitor.Summarize(station, state)
 		center := sim.Point{}
-		showBerths := g.showStationBerths(station)
+		marker, hasMarker := markers[station.ID]
+		showBerths := !hasMarker
 		collapsedStations[station.ID] = !showBerths
 		for j, berth := range station.Berths {
 			node, _ := g.network.Node(berth.Node)
@@ -593,10 +605,8 @@ func (g *Game) drawNetwork(screen *ebiten.Image, state sim.Snapshot) {
 		center.X /= float64(len(station.Berths))
 		center.Y /= float64(len(station.Berths))
 		if !showBerths {
-			vector.FillCircle(mapScreen, float32(center.X), float32(center.Y), float32(10*g.layout.unit), rgb(track), detailed)
-			vector.StrokeCircle(mapScreen, float32(center.X), float32(center.Y), float32(10*g.layout.unit), float32(2*g.layout.unit), rgb(muted), detailed)
-			x := center.X + 16*g.layout.unit
-			y := center.Y - 14*g.layout.unit
+			x := marker.X + 16*g.layout.unit
+			y := marker.Y - 14*g.layout.unit
 			shortName := shortText(strings.TrimPrefix(station.Name, "Station "), 7)
 			collapsed := collapsedStationLabel{
 				stationID:      station.ID,

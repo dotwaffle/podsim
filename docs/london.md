@@ -178,6 +178,17 @@ Change a limit only after measured editor validation.
 
 The view treats this project as a dense map because it has more than 30
 stations.
+Until the berths of a station separate on the screen, the station shows one
+marker.
+The marker of a passenger station is at its junction, at the mean position of
+its arrival portals.
+This point is within about 60 meters of the TfL station position.
+The berths are about 250 to 450 meters away, and their rings replace the
+marker when you zoom in.
+A Parking marker stays at the center of its berths, so it does not cover the
+marker of its gateway station.
+Networks with 100 lanes or fewer, such as the example, keep each marker at the
+center of its berths.
 On a dense map, the view omits an overview label that overlaps another visible
 overview label.
 Labels for the `From` and `To` stations and the selected pod's stations stay
