@@ -22,6 +22,20 @@ Embedded files have no modification time, so browsers download them again on eac
 The application serves `GET /healthz` without reading simulation state.
 The response is `200 OK` with the body `ok` and a newline.
 
+## Build ID
+
+At startup, the server makes a build ID from the browser files that it serves.
+It hashes the path, the size, and the content of each file with SHA-256.
+The build ID is the first 16 hex characters of the hash.
+An embedded build and a `-dir` directory with the same files get the same ID.
+Different browser files get a different ID.
+The startup record `Open Podsim in your browser` gives the ID in `build`.
+
+State frames carry the build ID.
+When the ID changes after a server restart, open browser pages reload and get the new browser files.
+If the server cannot read the browser files, it logs `Browser build ID unavailable` as a warning and uses a random ID.
+Then open pages reload after each server restart.
+
 ## Container image
 
 The container workflow publishes `ghcr.io/dotwaffle/podsim` from `main`,

@@ -53,8 +53,9 @@ func run() error {
 	if err != nil {
 		return err
 	}
+	build := buildIDOrRandom(slog.Default(), files)
 	config := project.Default()
-	options := []session.Option{session.WithLogger(slog.Default())}
+	options := []session.Option{session.WithLogger(slog.Default()), session.WithBuildID(build)}
 	if *projectPath != "" {
 		loaded, loadErr := loadProject(*projectPath)
 		if loadErr != nil {
@@ -95,7 +96,7 @@ func run() error {
 		WriteTimeout:      30 * time.Second,
 		IdleTimeout:       60 * time.Second,
 	}
-	slog.Info("Open Podsim in your browser", slog.String("url", "http://"+*address))
+	slog.Info("Open Podsim in your browser", slog.String("url", "http://"+*address), slog.String("build", build))
 	servers := []namedServer{{name: "application", server: application}}
 	if *pprofAddress != "" {
 		diagnostics := &http.Server{
