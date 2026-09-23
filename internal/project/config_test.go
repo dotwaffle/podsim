@@ -70,7 +70,7 @@ func TestValidateRejectsMalformedProjects(t *testing.T) {
 			config.Network.Stations[0].Berths[0].SeparationGroup = strings.Repeat("x", maxIDLength+1)
 		}},
 		{"long station name", func(config *Config) { config.Network.Stations[0].Name = strings.Repeat("x", maxNameLength+1) }},
-		{"berth bound", func(config *Config) { config.Network.Stations[3].Berths = make([]sim.Berth, maxBerths+1) }},
+		{"berth bound", func(config *Config) { config.Network.Stations[3].Berths = make([]sim.Berth, MaxBerths+1) }},
 		{"nan", func(config *Config) { config.Network.Nodes[0].Position.X = math.NaN() }},
 		{"duplicate node", func(config *Config) { config.Network.Nodes[1].ID = config.Network.Nodes[0].ID }},
 		{"duplicate lane", func(config *Config) { config.Network.Lanes[1].ID = config.Network.Lanes[0].ID }},
@@ -112,13 +112,13 @@ func TestValidateRejectsMalformedProjects(t *testing.T) {
 		}},
 		{"unreachable", func(config *Config) { config.Network.Lanes = config.Network.Lanes[:3] }},
 		{"pod bound", func(config *Config) {
-			config.Fleet = make([]sim.Placement, maxPods+1)
+			config.Fleet = make([]sim.Placement, MaxPods+1)
 		}},
 		{"station bound", func(config *Config) {
-			config.Network.Stations = make([]sim.Station, maxStations+1)
+			config.Network.Stations = make([]sim.Station, MaxStations+1)
 		}},
-		{"node bound", func(config *Config) { config.Network.Nodes = make([]sim.Node, maxNodes+1) }},
-		{"lane bound", func(config *Config) { config.Network.Lanes = make([]sim.Lane, maxLanes+1) }},
+		{"node bound", func(config *Config) { config.Network.Nodes = make([]sim.Node, MaxNodes+1) }},
+		{"lane bound", func(config *Config) { config.Network.Lanes = make([]sim.Lane, MaxLanes+1) }},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {

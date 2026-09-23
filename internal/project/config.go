@@ -14,14 +14,27 @@ const (
 	currentVersion = 1
 	maxIDLength    = 64
 	maxNameLength  = 80
-	maxPods        = 200
-	maxBerths      = 200
-	maxStations    = 100
-	maxNodes       = 2000
-	maxLanes       = 4000
-	maxProfiles    = 8
-	maxBands       = 24
-	maxFlows       = 20000
+)
+
+// These are the largest counts that Validate accepts. The saved session
+// decoder uses the same limits.
+const (
+	// MaxPods is the largest fleet.
+	MaxPods = 200
+	// MaxBerths is the largest number of berths in one station.
+	MaxBerths = 200
+	// MaxStations is the largest number of stations.
+	MaxStations = 100
+	// MaxNodes is the largest number of network nodes.
+	MaxNodes = 2000
+	// MaxLanes is the largest number of network lanes.
+	MaxLanes = 4000
+	// MaxProfiles is the largest number of demand profiles.
+	MaxProfiles = 8
+	// MaxBands is the largest number of bands in one demand profile.
+	MaxBands = 24
+	// MaxFlows is the largest number of flows in one demand profile.
+	MaxFlows = 20000
 )
 
 // MaxFileBytes is the largest encoded project accepted from local storage.
@@ -103,17 +116,17 @@ func Validate(config Config) error {
 	if strings.TrimSpace(config.Name) == "" || len(config.Name) > maxNameLength {
 		return fmt.Errorf("project name must contain 1 to %d characters", maxNameLength)
 	}
-	if len(config.Network.Nodes) == 0 || len(config.Network.Nodes) > maxNodes {
-		return fmt.Errorf("network must contain 1 to %d nodes", maxNodes)
+	if len(config.Network.Nodes) == 0 || len(config.Network.Nodes) > MaxNodes {
+		return fmt.Errorf("network must contain 1 to %d nodes", MaxNodes)
 	}
-	if len(config.Network.Lanes) == 0 || len(config.Network.Lanes) > maxLanes {
-		return fmt.Errorf("network must contain 1 to %d lanes", maxLanes)
+	if len(config.Network.Lanes) == 0 || len(config.Network.Lanes) > MaxLanes {
+		return fmt.Errorf("network must contain 1 to %d lanes", MaxLanes)
 	}
-	if len(config.Network.Stations) < 2 || len(config.Network.Stations) > maxStations {
-		return fmt.Errorf("network must contain 2 to %d stations", maxStations)
+	if len(config.Network.Stations) < 2 || len(config.Network.Stations) > MaxStations {
+		return fmt.Errorf("network must contain 2 to %d stations", MaxStations)
 	}
-	if len(config.Fleet) == 0 || len(config.Fleet) > maxPods {
-		return fmt.Errorf("fleet must contain 1 to %d pods", maxPods)
+	if len(config.Fleet) == 0 || len(config.Fleet) > MaxPods {
+		return fmt.Errorf("fleet must contain 1 to %d pods", MaxPods)
 	}
 	if config.SharedRidePartyLimit < 0 || config.SharedRidePartyLimit > sim.MaxSharedRideParties {
 		return fmt.Errorf("shared ride party limit must be 1 to %d", sim.MaxSharedRideParties)
@@ -202,8 +215,8 @@ func validateNames(config Config) error {
 		if strings.TrimSpace(station.Name) == "" || len(station.Name) > maxNameLength {
 			return fmt.Errorf("station name must contain 1 to %d characters", maxNameLength)
 		}
-		if len(station.Berths) == 0 || len(station.Berths) > maxBerths {
-			return fmt.Errorf("station %q must contain 1 to %d berths", station.ID, maxBerths)
+		if len(station.Berths) == 0 || len(station.Berths) > MaxBerths {
+			return fmt.Errorf("station %q must contain 1 to %d berths", station.ID, MaxBerths)
 		}
 		for _, berth := range station.Berths {
 			if !validID(berth.ID) || !validID(berth.Node) {
@@ -257,8 +270,8 @@ func ValidateDemand(config DemandConfig, context DemandContext) error {
 }
 
 func validateDemandProfiles(profiles []DemandProfile, network sim.Network) error {
-	if len(profiles) > maxProfiles {
-		return fmt.Errorf("project must contain at most %d demand profiles", maxProfiles)
+	if len(profiles) > MaxProfiles {
+		return fmt.Errorf("project must contain at most %d demand profiles", MaxProfiles)
 	}
 	passenger := make(map[string]bool)
 	for _, station := range PassengerStations(network) {
@@ -272,11 +285,11 @@ func validateDemandProfiles(profiles []DemandProfile, network sim.Network) error
 		if strings.TrimSpace(profile.Name) == "" || len(profile.Name) > maxNameLength {
 			return fmt.Errorf("demand profile name must contain 1 to %d characters", maxNameLength)
 		}
-		if len(profile.Bands) == 0 || len(profile.Bands) > maxBands {
-			return fmt.Errorf("demand profile %q must contain 1 to %d bands", profile.ID, maxBands)
+		if len(profile.Bands) == 0 || len(profile.Bands) > MaxBands {
+			return fmt.Errorf("demand profile %q must contain 1 to %d bands", profile.ID, MaxBands)
 		}
-		if len(profile.Flows) == 0 || len(profile.Flows) > maxFlows {
-			return fmt.Errorf("demand profile %q must contain 1 to %d flows", profile.ID, maxFlows)
+		if len(profile.Flows) == 0 || len(profile.Flows) > MaxFlows {
+			return fmt.Errorf("demand profile %q must contain 1 to %d flows", profile.ID, MaxFlows)
 		}
 		profileIDs[profile.ID] = true
 		if err := validateDemandProfile(profile, passenger); err != nil {
