@@ -68,35 +68,36 @@ func TestNetworkStyleOnDenseMaps(t *testing.T) {
 	stationLane, throughLane, roadLane := network.Lanes[0], network.Lanes[1], network.Lanes[len(network.Lanes)-1]
 	lineLanes := stationLineLanes(network)
 	tests := []struct {
-		name       string
-		scale      float64
-		unit       float64
-		collapsed  []string
-		marker     float64
-		lane       float64
-		station    laneStroke
-		nodeDots   bool
-		shortArrow float64
+		name         string
+		scale        float64
+		unit         float64
+		collapsed    []string
+		marker       float64
+		lane         float64
+		station      laneStroke
+		stationArrow uint32
+		nodeDots     bool
+		shortArrow   float64
 	}{
 		{
 			name: "overview", scale: 0.01, unit: 1, collapsed: []string{"a", "b"},
-			marker: 3, lane: 2, station: laneStroke{width: 1, color: collapsedStationTrack}, nodeDots: false, shortArrow: 24,
+			marker: 3, lane: 2, station: laneStroke{width: 1, color: collapsedStationTrack}, stationArrow: track, nodeDots: false, shortArrow: 24,
 		},
 		{
 			name: "overview in units", scale: 0.01, unit: 2, collapsed: []string{"a", "b"},
-			marker: 6, lane: 4, station: laneStroke{width: 2, color: collapsedStationTrack}, nodeDots: false, shortArrow: 48,
+			marker: 6, lane: 4, station: laneStroke{width: 2, color: collapsedStationTrack}, stationArrow: track, nodeDots: false, shortArrow: 48,
 		},
 		{
 			name: "lanes between limits", scale: 0.12, unit: 1, collapsed: []string{"a", "b"},
-			marker: 10, lane: 3.6, station: laneStroke{width: 1.8, color: collapsedStationTrack}, nodeDots: false, shortArrow: 24,
+			marker: 10, lane: 3.6, station: laneStroke{width: 1.8, color: collapsedStationTrack}, stationArrow: track, nodeDots: false, shortArrow: 24,
 		},
 		{
 			name: "one station expanded", scale: 0.2, unit: 1, collapsed: []string{"b"},
-			marker: 10, lane: 5, station: laneStroke{width: 5, color: track}, nodeDots: true, shortArrow: 24,
+			marker: 10, lane: 5, station: laneStroke{width: 5, color: track}, stationArrow: muted, nodeDots: true, shortArrow: 24,
 		},
 		{
 			name: "all stations expanded", scale: 1, unit: 1,
-			marker: 10, lane: 5, station: laneStroke{width: 5, color: track}, nodeDots: true, shortArrow: 24,
+			marker: 10, lane: 5, station: laneStroke{width: 5, color: track}, stationArrow: muted, nodeDots: true, shortArrow: 24,
 		},
 	}
 	for _, test := range tests {
@@ -119,9 +120,15 @@ func TestNetworkStyleOnDenseMaps(t *testing.T) {
 			if got := style.laneStroke(stationLane); !closeTo(float64(got.width), float64(test.station.width)) || got.color != test.station.color || got.antialias {
 				t.Errorf("station lane stroke = %+v, want %+v", got, test.station)
 			}
+			if got := style.laneArrowColor(stationLane); got != test.stationArrow {
+				t.Errorf("station lane arrow color = %#06x, want %#06x", got, test.stationArrow)
+			}
 			for _, lane := range []sim.Lane{throughLane, roadLane} {
 				if got := style.laneStroke(lane); !closeTo(float64(got.width), test.lane) || got.color != track || got.antialias {
 					t.Errorf("lane %s stroke = %+v, want width %v in track", lane.ID, got, test.lane)
+				}
+				if got := style.laneArrowColor(lane); got != muted {
+					t.Errorf("lane %s arrow color = %#06x, want muted %#06x", lane.ID, got, muted)
 				}
 			}
 			if style.showArrow(straightGeometry(test.shortArrow-0.01)) || !style.showArrow(straightGeometry(test.shortArrow)) {
@@ -134,21 +141,22 @@ func TestNetworkStyleOnDenseMaps(t *testing.T) {
 func TestNetworkStyleAtDetailedLimit(t *testing.T) {
 	t.Parallel()
 	tests := []struct {
-		name     string
-		lanes    int
-		detailed bool
-		marker   float64
-		station  laneStroke
-		nodeDots bool
-		arrow    bool
+		name         string
+		lanes        int
+		detailed     bool
+		marker       float64
+		station      laneStroke
+		stationArrow uint32
+		nodeDots     bool
+		arrow        bool
 	}{
 		{
 			name: "at the limit", lanes: detailedLanes, detailed: true,
-			marker: 10, station: laneStroke{width: 5, color: track, antialias: true}, nodeDots: true, arrow: true,
+			marker: 10, station: laneStroke{width: 5, color: track, antialias: true}, stationArrow: muted, nodeDots: true, arrow: true,
 		},
 		{
 			name: "above the limit", lanes: detailedLanes + 1, detailed: false,
-			marker: 3, station: laneStroke{width: 1, color: collapsedStationTrack}, nodeDots: false, arrow: false,
+			marker: 3, station: laneStroke{width: 1, color: collapsedStationTrack}, stationArrow: track, nodeDots: false, arrow: false,
 		},
 	}
 	for _, test := range tests {
@@ -166,6 +174,9 @@ func TestNetworkStyleAtDetailedLimit(t *testing.T) {
 			}
 			if got := style.laneStroke(network.Lanes[0]); got != test.station {
 				t.Errorf("station lane stroke = %+v, want %+v", got, test.station)
+			}
+			if got := style.laneArrowColor(network.Lanes[0]); got != test.stationArrow {
+				t.Errorf("station lane arrow color = %#06x, want %#06x", got, test.stationArrow)
 			}
 			if got := style.showArrow(straightGeometry(1)); got != test.arrow {
 				t.Errorf("arrow on a 1-pixel lane = %t, want %t", got, test.arrow)
@@ -298,7 +309,8 @@ func TestBerthsExpanded(t *testing.T) {
 
 // TestNetworkStyleKeepsExampleLook checks that the example network draws as
 // before at all zoom levels. Its markers, lanes, direction arrows, and node
-// dots do not scale with the zoom.
+// dots do not scale with the zoom. All its direction arrows are muted, and
+// no arrow crowds another.
 func TestNetworkStyleKeepsExampleLook(t *testing.T) {
 	t.Parallel()
 	layouts := []layoutInput{
@@ -323,6 +335,13 @@ func TestNetworkStyleKeepsExampleLook(t *testing.T) {
 					if !style.showArrow(game.laneGeometry(lane, true)) {
 						t.Errorf("lane %s has no direction arrow", lane.ID)
 					}
+					if got := style.laneArrowColor(lane); got != muted {
+						t.Errorf("lane %s arrow color = %#06x, want muted %#06x", lane.ID, got, muted)
+					}
+				}
+				arrows := baseLaneArrows(game, style)
+				if spaced := style.spacedArrows(arrows); len(spaced) != len(game.network.Lanes) {
+					t.Errorf("%d of %d direction arrows stay after spacing, want all", len(spaced), len(game.network.Lanes))
 				}
 				// A lane of any length keeps its direction arrow.
 				if !style.showArrow(straightGeometry(1)) {
@@ -370,6 +389,341 @@ func TestNetworkStyleOnLondon(t *testing.T) {
 	if style.markerRadius != 10 || style.laneWidth != 5 {
 		t.Fatalf("marker radius, lane width = %v, %v at maximum zoom, want 10, 5", style.markerRadius, style.laneWidth)
 	}
+}
+
+func TestArrowLegEnds(t *testing.T) {
+	t.Parallel()
+	tests := []struct {
+		name  string
+		arrow arrow
+		ends  [2]sim.Point
+		ok    bool
+	}{
+		{
+			name:  "lane arrow to the right",
+			arrow: arrow{tip: sim.Point{X: 6}, direction: sim.Point{X: 10}, size: laneArrowSize, unit: 1},
+			ends:  [2]sim.Point{{X: 2, Y: 2}, {X: 2, Y: -2}}, ok: true,
+		},
+		{
+			name:  "lane arrow down the screen",
+			arrow: arrow{tip: sim.Point{Y: 6}, direction: sim.Point{Y: 0.5}, size: laneArrowSize, unit: 1},
+			ends:  [2]sim.Point{{X: -2, Y: 2}, {X: 2, Y: 2}}, ok: true,
+		},
+		{
+			name:  "diagonal lane arrow",
+			arrow: arrow{tip: sim.Point{X: 1.8, Y: 2.4}, direction: sim.Point{X: 3, Y: 4}, size: laneArrowSize, unit: 1},
+			ends:  [2]sim.Point{{X: -2.2, Y: 0.4}, {X: 1, Y: -2}}, ok: true,
+		},
+		{
+			name:  "route arrow to the left in units",
+			arrow: arrow{tip: sim.Point{X: 4}, direction: sim.Point{X: -10}, size: routeArrowSize, unit: 2},
+			ends:  [2]sim.Point{{X: 18, Y: -8}, {X: 18, Y: 8}}, ok: true,
+		},
+		{
+			name:  "no direction",
+			arrow: arrow{tip: sim.Point{X: 5, Y: 5}, size: laneArrowSize, unit: 1},
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			ends, ok := test.arrow.legEnds()
+			if ok != test.ok {
+				t.Fatalf("legEnds ok = %t, want %t", ok, test.ok)
+			}
+			if ok && (!closeToPoint(ends[0], test.ends[0]) || !closeToPoint(ends[1], test.ends[1])) {
+				t.Fatalf("legEnds = %v, want %v", ends, test.ends)
+			}
+		})
+	}
+}
+
+func TestLaneGeometryAlong(t *testing.T) {
+	t.Parallel()
+	tests := []struct {
+		name      string
+		points    []sim.Point
+		fraction  float64
+		point     sim.Point
+		direction sim.Point
+	}{
+		{name: "straight lane", points: []sim.Point{{}, {X: 100}}, fraction: .61, point: sim.Point{X: 61}, direction: sim.Point{X: 100}},
+		{name: "second segment", points: []sim.Point{{}, {X: 10}, {X: 10, Y: 10}}, fraction: .75, point: sim.Point{X: 10, Y: 5}, direction: sim.Point{Y: 10}},
+		{name: "segment end", points: []sim.Point{{}, {X: 10}, {X: 10, Y: 10}}, fraction: .5, point: sim.Point{X: 10}, direction: sim.Point{X: 10}},
+		{name: "empty first segment", points: []sim.Point{{}, {}, {Y: 20}}, fraction: .5, point: sim.Point{Y: 10}, direction: sim.Point{Y: 20}},
+		{name: "no screen length", points: []sim.Point{{X: 5, Y: 5}, {X: 5, Y: 5}}, fraction: .61, point: sim.Point{X: 5, Y: 5}},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			geometry := laneGeometry{count: len(test.points)}
+			copy(geometry.points[:], test.points)
+			point, direction := geometry.along(test.fraction)
+			if !closeToPoint(point, test.point) || !closeToPoint(direction, test.direction) {
+				t.Fatalf("along(%v) = %v, %v, want %v, %v", test.fraction, point, direction, test.point, test.direction)
+			}
+		})
+	}
+}
+
+// TestLaneArrowColors checks that each direction arrow in the network base
+// layer is lighter than its lane. On a lane in the line style, the contrast
+// is at least 3:1.
+func TestLaneArrowColors(t *testing.T) {
+	t.Parallel()
+	example := sim.Example()
+	exampleStyle := newNetworkStyle(networkStyleInput{network: example, scale: 1, unit: 1})
+	dense := denseStyleNetwork()
+	markers := map[string]sim.Point{"a": {}, "b": {}}
+	denseStyle := newNetworkStyle(networkStyleInput{network: dense, markers: markers, lineLanes: stationLineLanes(dense), scale: 0.01, unit: 1})
+	tests := []struct {
+		name        string
+		style       networkStyle
+		lane        sim.Lane
+		want        uint32
+		minContrast float64
+	}{
+		{name: "example lane", style: exampleStyle, lane: example.Lanes[0], want: muted, minContrast: 3},
+		{name: "dense road lane", style: denseStyle, lane: dense.Lanes[len(dense.Lanes)-1], want: muted, minContrast: 3},
+		{name: "dense station lane in a line", style: denseStyle, lane: dense.Lanes[1], want: muted, minContrast: 3},
+		{name: "collapsed station lane", style: denseStyle, lane: dense.Lanes[0], want: track, minContrast: 1.3},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			lane := test.style.laneStroke(test.lane).color
+			a, ok := test.style.laneArrow(test.lane, straightGeometry(100))
+			if !ok {
+				t.Fatal("a 100-pixel lane has no direction arrow")
+			}
+			if a.size != laneArrowSize {
+				t.Fatalf("arrow size = %+v, want %+v", a.size, laneArrowSize)
+			}
+			got := a.color
+			if got != test.want {
+				t.Fatalf("arrow color = %#06x, want %#06x", got, test.want)
+			}
+			if relativeLuminance(got) <= relativeLuminance(lane) {
+				t.Fatalf("arrow %#06x is not lighter than lane %#06x", got, lane)
+			}
+			if ratio := contrastRatio(got, lane); ratio < test.minContrast {
+				t.Fatalf("contrast of arrow %#06x on lane %#06x = %.2f:1, want at least %v:1", got, lane, ratio, test.minContrast)
+			}
+		})
+	}
+}
+
+// TestLaneArrowsStayOnLanes checks that the tip and the leg ends of each
+// direction arrow are on its 5-unit lane at all zoom levels, also on a curved
+// lane.
+func TestLaneArrowsStayOnLanes(t *testing.T) {
+	t.Parallel()
+	network := sim.Example()
+	network.Lanes = append(network.Lanes, sim.Lane{ID: "curve", From: "harbor-exit", To: "branch", Control: &sim.Point{X: 250, Y: 200}})
+	layouts := []layoutInput{
+		{outsideWidth: minimumWidth, outsideHeight: minimumHeight, deviceScale: 1},
+		{outsideWidth: 1920, outsideHeight: 930, deviceScale: 1.5},
+	}
+	for _, input := range layouts {
+		for _, zoom := range []float64{1, 4, 12, mapMaxZoom} {
+			t.Run(fmt.Sprintf("%dx%d at %gx zoom", input.outsideWidth, input.outsideHeight, zoom), func(t *testing.T) {
+				t.Parallel()
+				game := zoomedGame(network, input, zoom)
+				unit := game.layout.unit
+				style := newNetworkStyle(networkStyleInput{network: network, markers: game.collapsedStationMarkers(), lineLanes: game.currentLineLanes(), scale: game.mapScale, unit: unit})
+				for _, lane := range network.Lanes {
+					geometry := game.laneGeometry(lane, style.detailed)
+					a, ok := style.laneArrow(lane, geometry)
+					if !ok {
+						t.Fatalf("lane %s has no direction arrow", lane.ID)
+					}
+					if a.color != muted || a.size != laneArrowSize || a.unit != unit || !a.antialias {
+						t.Errorf("lane %s arrow = %+v, want muted %#06x, size %+v, unit %v, and antialias", lane.ID, a, muted, laneArrowSize, unit)
+					}
+					// On a straight lane, the tip is at 61 percent of the lane.
+					if want := game.mapPoint(network.Position(lane, .61*network.Length(lane))); lane.Control == nil && !closeToPoint(a.tip, want) {
+						t.Errorf("lane %s arrow tip = %v, want %v", lane.ID, a.tip, want)
+					}
+					ends, ok := a.legEnds()
+					if !ok {
+						t.Fatalf("lane %s arrow has no direction", lane.ID)
+					}
+					halfWidth := float64(style.laneStroke(lane).width) / 2
+					for _, point := range []sim.Point{a.tip, ends[0], ends[1]} {
+						if distance := polylineDistance(point, geometry); distance > halfWidth {
+							t.Errorf("lane %s arrow point %v is %.2f pixels from the lane center, want at most %v", lane.ID, point, distance, halfWidth)
+						}
+					}
+				}
+			})
+		}
+	}
+}
+
+func TestSpacedArrows(t *testing.T) {
+	t.Parallel()
+	right, down := sim.Point{X: 1}, sim.Point{Y: 1}
+	at := func(x, y float64, direction sim.Point) arrow {
+		return arrow{tip: sim.Point{X: x, Y: y}, direction: direction}
+	}
+	tests := []struct {
+		name   string
+		unit   float64
+		arrows []arrow
+		want   []arrow
+	}{
+		{
+			name:   "parallel arrows closer than the gap",
+			unit:   1,
+			arrows: []arrow{at(0, 0, right), at(0, 5.9, right)},
+			want:   []arrow{at(0, 0, right)},
+		},
+		{
+			name:   "parallel arrows at the gap",
+			unit:   1,
+			arrows: []arrow{at(0, 0, right), at(0, 6, right)},
+			want:   []arrow{at(0, 0, right), at(0, 6, right)},
+		},
+		{
+			name:   "gap in units",
+			unit:   2,
+			arrows: []arrow{at(0, 0, right), at(11.9, 0, right), at(24, 0, right)},
+			want:   []arrow{at(0, 0, right), at(24, 0, right)},
+		},
+		{
+			name:   "opposite arrows",
+			unit:   1,
+			arrows: []arrow{at(0, 0, right), at(1, 0, sim.Point{X: -1})},
+			want:   []arrow{at(0, 0, right), at(1, 0, sim.Point{X: -1})},
+		},
+		{
+			name:   "crossing arrows",
+			unit:   1,
+			arrows: []arrow{at(0, 0, right), at(1, 1, down)},
+			want:   []arrow{at(0, 0, right), at(1, 1, down)},
+		},
+		{
+			name:   "arrows 40 degrees apart",
+			unit:   1,
+			arrows: []arrow{at(0, 0, right), at(1, 1, sim.Point{X: math.Cos(40 * math.Pi / 180), Y: math.Sin(40 * math.Pi / 180)})},
+			want:   []arrow{at(0, 0, right)},
+		},
+		{
+			name:   "arrows 50 degrees apart",
+			unit:   1,
+			arrows: []arrow{at(0, 0, right), at(1, 1, sim.Point{X: math.Cos(50 * math.Pi / 180), Y: math.Sin(50 * math.Pi / 180)})},
+			want:   []arrow{at(0, 0, right), at(1, 1, sim.Point{X: math.Cos(50 * math.Pi / 180), Y: math.Sin(50 * math.Pi / 180)})},
+		},
+		{
+			name:   "neighbor cells at negative coordinates",
+			unit:   1,
+			arrows: []arrow{at(-0.5, -0.5, down), at(0.5, 0.5, down), at(-6.4, -0.5, down), at(-0.5, 5.4, down)},
+			want:   []arrow{at(-0.5, -0.5, down)},
+		},
+		{
+			name:   "only kept arrows crowd",
+			unit:   1,
+			arrows: []arrow{at(0, 0, right), at(4, 0, right), at(8, 0, right)},
+			want:   []arrow{at(0, 0, right), at(8, 0, right)},
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			style := networkStyle{unit: test.unit}
+			got := style.spacedArrows(test.arrows)
+			if len(got) != len(test.want) {
+				t.Fatalf("spacedArrows = %v, want %v", got, test.want)
+			}
+			for i := range got {
+				if !closeToPoint(got[i].tip, test.want[i].tip) || !closeToPoint(got[i].direction, test.want[i].direction) {
+					t.Fatalf("spacedArrows = %v, want %v", got, test.want)
+				}
+			}
+		})
+	}
+}
+
+// TestSpacedArrowsOnPresets checks the spaced direction arrows of generated
+// networks at Fit. The berth lanes of a collapsed station lie side by side,
+// so some of their arrows go. No two arrows that stay crowd each other.
+func TestSpacedArrowsOnPresets(t *testing.T) {
+	t.Parallel()
+	tests := []struct {
+		name    string
+		network sim.Network
+	}{
+		{name: "small", network: scenarios.Small().Network},
+		{name: "parking-constrained", network: scenarios.ParkingConstrained().Network},
+		{name: "busy", network: scenarios.Busy().Network},
+	}
+	input := layoutInput{outsideWidth: minimumWidth, outsideHeight: minimumHeight, deviceScale: 1}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			game := zoomedGame(test.network, input, 1)
+			style := newNetworkStyle(networkStyleInput{network: test.network, markers: game.collapsedStationMarkers(), lineLanes: game.currentLineLanes(), scale: game.mapScale, unit: game.layout.unit})
+			arrows := baseLaneArrows(game, style)
+			spaced := style.spacedArrows(arrows)
+			if len(spaced) == len(arrows) {
+				t.Fatalf("all %d direction arrows stay at Fit, want fewer", len(arrows))
+			}
+			gap := laneArrowGap * style.unit
+			for i, a := range spaced {
+				for _, other := range spaced[i+1:] {
+					if a.crowds(other, gap) {
+						t.Fatalf("arrow at %v crowds arrow at %v", other.tip, a.tip)
+					}
+				}
+			}
+		})
+	}
+}
+
+// baseLaneArrows returns the direction arrows of the network base layer
+// before spacing, in lane order.
+func baseLaneArrows(game *Game, style networkStyle) []arrow {
+	var arrows []arrow
+	for _, lane := range game.network.Lanes {
+		if a, ok := style.laneArrow(lane, game.laneGeometry(lane, style.detailed)); ok {
+			arrows = append(arrows, a)
+		}
+	}
+	return arrows
+}
+
+// polylineDistance returns the distance from a point to the nearest segment
+// of the lane geometry.
+func polylineDistance(point sim.Point, geometry laneGeometry) float64 {
+	nearest := math.Inf(1)
+	for i := 1; i < geometry.count; i++ {
+		from, to := geometry.points[i-1], geometry.points[i]
+		dx, dy := to.X-from.X, to.Y-from.Y
+		t := 0.0
+		if squared := dx*dx + dy*dy; squared > 0 {
+			t = min(1, max(0, ((point.X-from.X)*dx+(point.Y-from.Y)*dy)/squared))
+		}
+		nearest = min(nearest, math.Hypot(point.X-from.X-t*dx, point.Y-from.Y-t*dy))
+	}
+	return nearest
+}
+
+// contrastRatio returns the WCAG contrast ratio of two colors.
+func contrastRatio(a, b uint32) float64 {
+	lighter, darker := max(relativeLuminance(a), relativeLuminance(b)), min(relativeLuminance(a), relativeLuminance(b))
+	return (lighter + 0.05) / (darker + 0.05)
+}
+
+// relativeLuminance returns the WCAG relative luminance of a color.
+func relativeLuminance(color uint32) float64 {
+	channel := func(shift uint) float64 {
+		value := float64(color>>shift&0xff) / 255
+		if value <= 0.04045 {
+			return value / 12.92
+		}
+		return math.Pow((value+0.055)/1.055, 2.4)
+	}
+	return 0.2126*channel(16) + 0.7152*channel(8) + 0.0722*channel(0)
 }
 
 // denseStyleNetwork returns a network with more than detailedLanes lanes and
@@ -420,4 +774,8 @@ func straightGeometry(length float64) laneGeometry {
 
 func closeTo(a, b float64) bool {
 	return math.Abs(a-b) < 1e-6
+}
+
+func closeToPoint(a, b sim.Point) bool {
+	return closeTo(a.X, b.X) && closeTo(a.Y, b.Y)
 }

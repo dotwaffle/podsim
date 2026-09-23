@@ -196,8 +196,11 @@ pixels.
 A lane shorter than 24 CSS pixels on the screen has no direction arrow.
 In a window smaller than 1100 by 760 CSS pixels, these sizes become smaller
 with the rest of the view.
+As on all maps, where two direction arrows in about the same direction
+overlap, the map shows only one of them.
 While a station shows one marker, its lanes are thinner and dimmer than the
 other lanes.
+The direction arrows on these lanes are also dimmer.
 A station lane that connects two lanes outside stations keeps the normal
 style.
 Because of this, the rings of the `busy` and `rail-hub` presets stay
@@ -206,8 +209,8 @@ Node dots show only when you zoom in far enough for the berths of a station to
 separate.
 Networks with 100 lanes or fewer, such as the example, keep each marker at the
 center of its berths.
-They keep fixed marker and lane sizes, and they show all direction arrows and
-node dots at all zoom levels.
+They keep fixed marker and lane sizes and show node dots at all zoom levels.
+A lane of any length can have a direction arrow.
 On a dense map, the view omits an overview label that overlaps another visible
 overview label.
 Labels for the `From` and `To` stations and the selected pod's stations stay

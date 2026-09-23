@@ -106,6 +106,7 @@ See [distribution and operations](docs/operations.md) for build and runtime sett
 - Compact fleet numbers match the pod buttons and map. Inspection also shows the full pod ID.
 - Pod colors show their purpose: idle, pickup, passenger service, parking, redistribution, or other empty travel.
 - The map legend explains the colors. An amber ring marks waiting pods, and a white ring marks the selected pod.
+- Light arrows on the lanes show the direction of travel. Where two arrows in about the same direction overlap, the map shows only one of them.
 - Scroll over the map to zoom at the pointer. Drag the map to pan. Use **+** and **−** to zoom at the map center. Use **Fit** to show the whole network.
 - Map navigation stays local to your browser. Zoom in to see individual berths in crowded stations.
   **Reset** and **Rewind** keep the map view when the network does not change.

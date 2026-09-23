@@ -545,7 +545,7 @@ func (g *Game) drawNetwork(screen *ebiten.Image, state sim.Snapshot) {
 		for _, lane := range selected.Route {
 			geometry := g.laneGeometry(lane, detailed)
 			geometry.draw(mapScreen, laneStroke{width: float32(2 * g.layout.unit), color: shade, antialias: detailed})
-			drawArrow(mapScreen, arrow{from: geometry.arrowFrom, to: geometry.arrowTo, color: shade, antialias: detailed, unit: g.layout.unit})
+			drawArrow(mapScreen, arrow{tip: geometry.arrowTip, direction: geometry.arrowDirection, size: routeArrowSize, color: shade, antialias: detailed, unit: g.layout.unit})
 		}
 	}
 	collapsedStations := make(map[string]bool)
@@ -769,9 +769,11 @@ type networkCacheKey struct {
 }
 
 type laneGeometry struct {
-	points             [33]sim.Point
-	count              int
-	arrowFrom, arrowTo sim.Point
+	points [33]sim.Point
+	count  int
+	// arrowTip is the point on the drawn lane at 61 percent of its screen
+	// length. arrowDirection points in the direction of travel at the tip.
+	arrowTip, arrowDirection sim.Point
 }
 
 type laneStroke struct {
@@ -827,24 +829,44 @@ func (g *Game) laneGeometry(lane sim.Lane, detailed bool) laneGeometry {
 		}
 		geometry.points[i] = g.mapPoint(point)
 	}
-	geometry.arrowFrom, geometry.arrowTo = g.mapPoint(position(.55)), g.mapPoint(position(.65))
-	if detailed {
-		geometry.arrowFrom = g.mapPoint(g.network.Position(lane, length*.55))
-		geometry.arrowTo = g.mapPoint(g.network.Position(lane, length*.65))
-	}
+	geometry.arrowTip, geometry.arrowDirection = geometry.along(.61)
 	return geometry
 }
 
+// along returns the point at a fraction of the screen length of the lane,
+// and the direction of the lane segment at that point. On a lane with no
+// screen length, the direction is zero.
+func (geometry laneGeometry) along(fraction float64) (point, direction sim.Point) {
+	remaining := fraction * geometry.screenLength()
+	point = geometry.points[0]
+	for i := 1; i < geometry.count; i++ {
+		from, to := geometry.points[i-1], geometry.points[i]
+		direction = sim.Point{X: to.X - from.X, Y: to.Y - from.Y}
+		length := math.Hypot(direction.X, direction.Y)
+		if length > 0 && remaining <= length {
+			t := remaining / length
+			return sim.Point{X: from.X + direction.X*t, Y: from.Y + direction.Y*t}, direction
+		}
+		remaining -= length
+		point = to
+	}
+	return point, direction
+}
+
 // drawBaseNetwork draws the lanes, their direction arrows, and the node dots
-// in the network style.
+// in the network style. It draws the arrows after all the lanes, so that no
+// lane covers an arrow.
 func (g *Game) drawBaseNetwork(screen *ebiten.Image, style networkStyle) {
+	var arrows []arrow
 	for _, lane := range g.network.Lanes {
 		geometry := g.laneGeometry(lane, style.detailed)
-		stroke := style.laneStroke(lane)
-		geometry.draw(screen, stroke)
-		if style.showArrow(geometry) {
-			drawArrow(screen, arrow{from: geometry.arrowFrom, to: geometry.arrowTo, color: stroke.color, antialias: style.detailed, unit: g.layout.unit})
+		geometry.draw(screen, style.laneStroke(lane))
+		if a, ok := style.laneArrow(lane, geometry); ok {
+			arrows = append(arrows, a)
 		}
+	}
+	for _, a := range style.spacedArrows(arrows) {
+		drawArrow(screen, a)
 	}
 	if !style.nodeDots {
 		return
@@ -889,23 +911,53 @@ func (g *Game) releaseNetworkBase() {
 	g.networkBaseValid = false
 }
 
+// arrowSize is the size of a direction arrow in display units. Each of the
+// two legs goes back from the tip by length and to one side by halfWidth.
+type arrowSize struct {
+	length, halfWidth float64
+}
+
+var (
+	// routeArrowSize is the arrow size on the route of the selected pod.
+	routeArrowSize = arrowSize{length: 7, halfWidth: 4}
+	// laneArrowSize is the arrow size on the lanes of the network base
+	// layer. The arrow stays on a lane that is 5 units wide.
+	laneArrowSize = arrowSize{length: 4, halfWidth: 2}
+)
+
 type arrow struct {
-	from, to  sim.Point
+	tip sim.Point
+	// direction is a vector in the direction of the arrow. Its length does
+	// not change the arrow.
+	direction sim.Point
+	size      arrowSize
 	color     uint32
 	antialias bool
 	unit      float64
 }
 
-func drawArrow(screen *ebiten.Image, a arrow) {
-	dx, dy := a.to.X-a.from.X, a.to.Y-a.from.Y
-	length := math.Hypot(dx, dy)
+// legEnds returns the free ends of the two arrow legs. The other end of each
+// leg is at the tip. ok is false if the arrow has no direction.
+func (a arrow) legEnds() (ends [2]sim.Point, ok bool) {
+	length := math.Hypot(a.direction.X, a.direction.Y)
 	if length < 0.001 {
+		return ends, false
+	}
+	ux, uy := a.direction.X/length, a.direction.Y/length
+	back, side := a.size.length*a.unit, a.size.halfWidth*a.unit
+	for i, sign := range []float64{-1, 1} {
+		ends[i] = sim.Point{X: a.tip.X - ux*back + uy*side*sign, Y: a.tip.Y - uy*back - ux*side*sign}
+	}
+	return ends, true
+}
+
+func drawArrow(screen *ebiten.Image, a arrow) {
+	ends, ok := a.legEnds()
+	if !ok {
 		return
 	}
-	ux, uy := dx/length, dy/length
-	x, y := a.from.X+dx*.6, a.from.Y+dy*.6
-	for _, side := range []float64{-1, 1} {
-		vector.StrokeLine(screen, float32(x), float32(y), float32(x-ux*7*a.unit+uy*4*a.unit*side), float32(y-uy*7*a.unit-ux*4*a.unit*side), float32(1.5*a.unit), rgb(a.color), a.antialias)
+	for _, end := range ends {
+		vector.StrokeLine(screen, float32(a.tip.X), float32(a.tip.Y), float32(end.X), float32(end.Y), float32(1.5*a.unit), rgb(a.color), a.antialias)
 	}
 }
 
