@@ -63,7 +63,8 @@ departure, or exit.
 At the end of each tick, the simulation sets each pod's station phase from its
 berth, its current lane, or its next lane.
 The pod inspector shows phases such as `Approaching station`, `Accessing berth`,
-and `Departing berth` with the station name.
+and `Departing berth`.
+The station name shows on the line below the phase.
 When a pod has no station phase, the inspector shows `Main network`.
 These roles describe the existing movement and reservation flow.
 They do not change route selection, admission priority, or resource ownership.

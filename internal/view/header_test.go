@@ -129,7 +129,9 @@ func TestInspectionRowsOmitRunStatus(t *testing.T) {
 	for _, row := range game.inspectionRows(game.state.Simulation.Vehicles[0]) {
 		names = append(names, row.name)
 	}
-	if want := []string{"Speed", "Station phase", "On board"}; !slices.Equal(names, want) {
+	// The pod is at a berth, so the last row is the station name, which has
+	// no row name.
+	if want := []string{"Speed", "On board", "Station phase", ""}; !slices.Equal(names, want) {
 		t.Errorf("inspection rows = %q, want %q", names, want)
 	}
 }

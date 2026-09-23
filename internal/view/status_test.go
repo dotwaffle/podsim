@@ -162,27 +162,6 @@ func TestPurposeEmptyMove(t *testing.T) {
 	}
 }
 
-func TestStationPhaseLabel(t *testing.T) {
-	t.Parallel()
-	network := sim.Example()
-	for _, test := range []struct {
-		name string
-		pod  sim.Pod
-		want string
-	}{
-		{name: "main network", want: "Main network"},
-		{name: "known station", pod: sim.Pod{StationPhase: sim.AccessingBerth, ManeuverStationID: "market"}, want: "Accessing berth / Market"},
-		{name: "missing station", pod: sim.Pod{StationPhase: sim.ExitingStation, ManeuverStationID: "missing"}, want: "Exiting station"},
-	} {
-		t.Run(test.name, func(t *testing.T) {
-			t.Parallel()
-			if got := stationPhaseLabel(test.pod, network); got != test.want {
-				t.Fatalf("label = %q, want %q", got, test.want)
-			}
-		})
-	}
-}
-
 // colorVision simulates one type of color vision. The matrix applies to
 // linear RGB. The matrices for the deficiencies are the full-severity
 // matrices of Machado, Oliveira and Fernandes (2009).

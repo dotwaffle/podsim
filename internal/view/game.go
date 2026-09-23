@@ -43,7 +43,7 @@ const (
 
 	inspectionLeft       = 816.0
 	inspectionRight      = 1054.0
-	inspectionValueLeft  = 924.0
+	inspectionValueLeft  = 916.0
 	inspectionRowsTop    = 258.0
 	inspectionRowSpacing = 27.0
 	podSelectorTop       = 393.0
@@ -1313,48 +1313,73 @@ func (g *Game) drawInspection(screen *ebiten.Image, state sim.Snapshot) {
 	g.label(screen, label{x: inspectionLeft, y: 224, size: 17, value: journey, color: foreground})
 	for i, row := range g.inspectionRows(state.Vehicles[g.selected]) {
 		y := inspectionRowsTop + float64(i)*inspectionRowSpacing
-		value := g.fitText(row.value, 14, inspectionRight-inspectionValueLeft)
-		g.label(screen, label{x: inspectionLeft, y: y, size: 14, value: row.name, color: muted})
-		g.label(screen, label{x: inspectionValueLeft, y: y, size: 14, value: value, color: foreground})
+		if row.name != "" {
+			g.label(screen, label{x: inspectionLeft, y: y, size: 14, value: row.name, color: muted})
+		}
+		g.label(screen, label{x: row.valueLeft(), y: y, size: 14, value: g.fitInspectionValue(row), color: foreground})
 	}
 }
 
-// inspectionRow is a name and a value in the pod inspector.
+// inspectionRow is a row in the pod inspector. A row with a name shows the
+// name and the value in two columns. A row without a name shows the value
+// across the full width of the inspector.
 type inspectionRow struct{ name, value string }
 
-// inspectionRows returns the name and value rows of the pod inspector for
-// vehicle. The rows show only values of the pod. The run status in the
-// header shows the simulated time and the completed journeys.
+// valueLeft returns the left edge of the value of row in the pod inspector.
+func (row inspectionRow) valueLeft() float64 {
+	if row.name == "" {
+		return inspectionLeft
+	}
+	return inspectionValueLeft
+}
+
+// fitInspectionValue returns the value of row. It cuts the value when the
+// value does not fit between its left edge and the right edge of the
+// inspector.
+func (g *Game) fitInspectionValue(row inspectionRow) string {
+	return g.fitText(row.value, 14, inspectionRight-row.valueLeft())
+}
+
+// inspectionRows returns the rows of the pod inspector for vehicle. The
+// rows show only values of the pod. The run status in the header shows the
+// simulated time and the completed journeys. The station phase rows are
+// last, because the station name row shows only during a station maneuver.
+// So the other rows do not move when the pod enters or leaves a station.
 func (g *Game) inspectionRows(vehicle sim.Vehicle) []inspectionRow {
 	passengers := "Empty"
 	if vehicle.Pod.Occupied && vehicle.Request != nil {
-		parties := max(1, vehicle.Parties)
-		passengers = fmt.Sprintf("%d %s / %d %s", parties, countNoun(parties, "party", "parties"),
-			vehicle.Request.PartySize, countNoun(vehicle.Request.PartySize, "passenger", "passengers"))
+		passengers = passengerCount(vehicle.Request.PartySize)
 	}
-	return []inspectionRow{
+	rows := []inspectionRow{
 		{"Speed", fmt.Sprintf("%.0f km/h", vehicle.Pod.Speed*3.6)},
-		{"Station phase", stationPhaseLabel(vehicle.Pod, g.network)},
 		{"On board", passengers},
 	}
+	return append(rows, stationPhaseRows(vehicle.Pod, g.network)...)
 }
 
-func stationPhaseLabel(pod sim.Pod, network sim.Network) string {
-	if pod.StationPhase == "" {
-		return "Main network"
-	}
-	value := string(pod.StationPhase)
-	if station, ok := network.Station(pod.ManeuverStationID); ok {
-		value += " / " + station.Name
-	}
-	return value
-}
-
-func countNoun(count int, singular, plural string) string {
+// passengerCount returns the On board value for count passengers, such as
+// "1 passenger". Each party has one passenger, so a party count would show
+// the same number.
+func passengerCount(count int) string {
 	if count == 1 {
-		return singular
+		return "1 passenger"
 	}
-	return plural
+	return fmt.Sprintf("%d passengers", count)
+}
+
+// stationPhaseRows returns the Station phase row of the pod inspector for
+// pod. During a station maneuver at a known station, a second row shows the
+// station name across the full width of the inspector, so that long names
+// such as "Edgware Road (Circle Line)" show in full.
+func stationPhaseRows(pod sim.Pod, network sim.Network) []inspectionRow {
+	if pod.StationPhase == "" {
+		return []inspectionRow{{"Station phase", "Main network"}}
+	}
+	rows := []inspectionRow{{"Station phase", string(pod.StationPhase)}}
+	if station, ok := network.Station(pod.ManeuverStationID); ok {
+		rows = append(rows, inspectionRow{value: station.Name})
+	}
+	return rows
 }
 
 func fleetPodLabel(index int) string {

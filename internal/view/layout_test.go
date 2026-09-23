@@ -144,7 +144,15 @@ func TestInspectionRowsClearPodSelector(t *testing.T) {
 		{outsideWidth: 1600, outsideHeight: 1000, deviceScale: 2},
 	} {
 		game.layoutFor(input)
-		last := len(game.inspectionRows(sim.Vehicle{})) - 1
+		// An occupied pod in a station maneuver has the most rows.
+		rows := game.inspectionRows(sim.Vehicle{
+			Pod:     sim.Pod{Occupied: true, StationPhase: sim.ApproachingStation, ManeuverStationID: "station-01"},
+			Request: &sim.Request{PartySize: 1},
+		})
+		if len(rows) != 4 {
+			t.Fatalf("inspection rows = %q, want 4 rows", rows)
+		}
+		last := len(rows) - 1
 		_, height := text.Measure("Station phase", game.textFace(14), 0)
 		lastRowBottom := (inspectionRowsTop+float64(last)*inspectionRowSpacing)*game.layout.unit + height
 		selectorTop := podSelectorTop * game.layout.unit
@@ -166,7 +174,6 @@ func TestInspectorAndButtonTextFitAvailableWidth(t *testing.T) {
 		{name: "pod heading", value: "POD 01 / london-waterloo-parking-pod-001", size: 12, width: 140},
 		{name: "status", value: "Waiting for destination access at Waterloo Underground Station", size: 13, width: inspectionRight - inspectionLeft},
 		{name: "journey", value: "Heathrow Terminal 5 > King's Cross St Pancras", size: 17, width: inspectionRight - inspectionLeft},
-		{name: "station phase", value: "Approaching station / Tottenham Court Road", size: 14, width: inspectionRight - inspectionValueLeft},
 		{name: "demand pattern", value: "Pattern: london-weekday / weekday-am-peak", size: 14, width: 250, button: true},
 	}
 	for _, test := range tests {

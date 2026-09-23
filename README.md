@@ -298,7 +298,7 @@ and topology, real station names, directed twin guideways, off-line berths, and
 three Parking facilities.
 Station lanes identify approach, entry, berth access, through, departure, and
 exit maneuvers.
-The pod inspector shows the current maneuver and station name in **Station phase**.
+The pod inspector shows the current maneuver in **Station phase** and the station name on the line below it.
 Projects without this optional lane metadata still load. The simulator infers
 through, berth access, and departure roles from the station paths.
 
