@@ -1,6 +1,7 @@
 package session
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
 	"net/http"
@@ -49,25 +50,36 @@ func applyCustomProject(t *testing.T, session *Session, config project.Config) R
 	return session.Apply(command)
 }
 
+// TestProjectMutationGuardsPreserveState checks that a rejected project
+// command changes nothing. Only a stale project revision to a paused session
+// gets StaleProject. An exact retry gets the stored rejection.
 func TestProjectMutationGuardsPreserveState(t *testing.T) {
 	t.Parallel()
 	tests := []struct {
 		name    string
 		prepare func(*Session, *Command)
+		want    CommandErrorCode
 	}{
-		{"running", func(_ *Session, _ *Command) {}},
+		{"running", func(_ *Session, _ *Command) {}, CommandRejected},
+		{"stale revision while running", func(_ *Session, command *Command) {
+			command.ProjectRevision++
+		}, CommandRejected},
 		{"stale revision", func(session *Session, command *Command) {
 			session.simulation.SetPaused(true)
 			command.ProjectRevision++
-		}},
+		}, StaleProject},
 		{"missing project", func(session *Session, command *Command) {
 			session.simulation.SetPaused(true)
 			command.Project = nil
-		}},
+		}, CommandRejected},
 		{"invalid project", func(session *Session, command *Command) {
 			session.simulation.SetPaused(true)
 			command.Project.Version = 2
-		}},
+		}, CommandRejected},
+		{"failed project save", func(session *Session, _ *Command) {
+			session.simulation.SetPaused(true)
+			session.saveProject = func(project.Config) error { return errors.New("disk full") }
+		}, CommandRejected},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -79,13 +91,46 @@ func TestProjectMutationGuardsPreserveState(t *testing.T) {
 			command.Project = &config
 			test.prepare(session, &command)
 			beforeState, beforeProject := session.State(), session.Project()
-			if reply := session.Apply(command); reply.Error == "" {
-				t.Fatal("accepted guarded mutation")
+			reply := session.Apply(command)
+			if reply.Error == "" || reply.ErrorCode != test.want {
+				t.Fatalf("reply = %+v, want error code %s", reply, test.want)
 			}
 			if !reflect.DeepEqual(beforeState, session.State()) || !reflect.DeepEqual(beforeProject, session.Project()) {
 				t.Fatal("rejected mutation changed session")
 			}
+			if retry := session.Apply(command); !reflect.DeepEqual(retry, reply) {
+				t.Fatalf("retry = %+v, want the stored rejection %+v", retry, reply)
+			}
 		})
+	}
+}
+
+// TestStaleProjectOverHTTP checks that a stale project command gets HTTP 409
+// and the stale_project error code in the JSON reply.
+func TestStaleProjectOverHTTP(t *testing.T) {
+	t.Parallel()
+	session := newTestSession(t)
+	session.simulation.SetPaused(true)
+	config := customProject()
+	command := commandFor(session, "project")
+	command.ProjectRevision = session.Project().Revision + 1
+	command.Project = &config
+	body, err := json.Marshal(command)
+	if err != nil {
+		t.Fatal(err)
+	}
+	request := httptest.NewRequestWithContext(t.Context(), http.MethodPost, "http://example.com/api/command", bytes.NewReader(body))
+	request.Header.Set("Content-Type", "application/json")
+	response := httptest.NewRecorder()
+	session.Handler(t.TempDir()).ServeHTTP(response, request)
+	var reply struct {
+		ErrorCode string `json:"errorCode"`
+	}
+	if err := json.NewDecoder(response.Body).Decode(&reply); err != nil {
+		t.Fatal(err)
+	}
+	if response.Code != http.StatusConflict || reply.ErrorCode != "stale_project" {
+		t.Fatalf("status %d, error code %q, want %d and stale_project", response.Code, reply.ErrorCode, http.StatusConflict)
 	}
 }
 

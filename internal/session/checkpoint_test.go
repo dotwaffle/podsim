@@ -672,7 +672,7 @@ func TestStaleEditorApplyRejectedAfterRewind(t *testing.T) {
 			for _, revision := range []uint64{loaded, stale} {
 				beforeState, beforeProject := s.State(), s.Project()
 				reply := s.Apply(client.next(Command{Action: "project", ProjectRevision: revision, Project: &draft}))
-				if reply.ErrorCode != CommandRejected || reply.Error != "the project changed; reload it before applying edits" {
+				if reply.ErrorCode != StaleProject || reply.Error != "the project changed; reload it before applying edits" {
 					t.Fatalf("draft at revision %d: reply = %+v, want the stale revision rejection", revision, reply)
 				}
 				if !reflect.DeepEqual(beforeState, s.State()) || !reflect.DeepEqual(beforeProject, s.Project()) {

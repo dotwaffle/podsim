@@ -74,7 +74,7 @@ The other members depend on the action:
 | `reset` | None | Restores the project fleet and demand settings, and clears the orders. It sets the speed to 1 and keeps the pause state. |
 | `demo` | None | Resets the run, starts the traffic demo, disables automatic demand, and sets the speed to 1. It needs the unchanged example network and fleet. |
 | `demand` | `demand`: the `demand` object of a project | Replaces the demand settings of the project and increases the project revision. The server rejects it during the demo. |
-| `project` | `project`: the `project` object from `GET /api/project`. `projectRevision`: integer | Replaces the project and increases the project revision. The new fleet starts paused at speed 1. The session must be paused, and `projectRevision` must be the current project revision. |
+| `project` | `project`: the `project` object from `GET /api/project`. `projectRevision`: integer | Replaces the project and increases the project revision. The new fleet starts paused at speed 1. The session must be paused, and `projectRevision` must be the current project revision. When the session is paused and `projectRevision` is not the current project revision, the command gets `stale_project`. |
 | `checkpoint` | None | Makes a save point. |
 | `rewind` | `checkpoint`: save point ID, an integer | Restores the save point and pauses the session. |
 
@@ -117,8 +117,11 @@ client ID that is longer than 100 bytes or is not valid UTF-8, or a zero
 sequence gets `invalid_command`.
 After the server records commands from 1,024 clients, a command from a new
 client gets `client_limit`. A command that the server cannot apply gets
-`command_rejected`. After a graceful shutdown starts, the server rejects new
-commands with `server_stopping`.
+`command_rejected`. The exception is a `project` command to a paused session
+with a `projectRevision` that is not the current project revision. It gets
+`stale_project`, so that an editor can tell a stale draft from other
+failures. After a graceful shutdown starts, the server rejects new commands
+with `server_stopping`.
 
 The request must have the `application/json` content type. The body must be
 at most 2 MiB and contain one JSON command with no unknown members. A request

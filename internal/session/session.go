@@ -112,6 +112,9 @@ type Command struct {
 type CommandErrorCode string
 
 // Command error codes are stable machine-readable rejection categories.
+// When the session cannot apply a command, the reply gets CommandRejected.
+// The exception is a project command to a paused session whose project
+// revision is not the current project revision. Its reply gets StaleProject.
 const (
 	SessionChanged   CommandErrorCode = "session_changed"
 	InvalidCommand   CommandErrorCode = "invalid_command"
@@ -119,6 +122,7 @@ const (
 	SequenceConflict CommandErrorCode = "sequence_conflict"
 	ClientLimit      CommandErrorCode = "client_limit"
 	CommandRejected  CommandErrorCode = "command_rejected"
+	StaleProject     CommandErrorCode = "stale_project"
 	ServerStopping   CommandErrorCode = "server_stopping"
 )
 
@@ -479,7 +483,11 @@ func (s *Session) applyCommand(command Command) commandResult {
 			reply = s.reply()
 			reply.OrderID, reply.Checkpoint, reply.ProjectRestored = result.orderID, result.checkpoint, result.projectRestored
 			if err != nil {
-				reply.reject(CommandRejected, err.Error())
+				code := CommandRejected
+				if errors.Is(err, errStaleProject) {
+					code = StaleProject
+				}
+				reply.reject(code, err.Error())
 			}
 			s.receipts[command.Client] = receipt{command: cloneCommand(command), reply: reply, saveState: result.saveState}
 			delete(s.restoredSequences, command.Client)
@@ -634,12 +642,17 @@ func (s *Session) applyDemand(config DemandConfig, save func(project.Config) err
 	return nil
 }
 
+// errStaleProject rejects a project command whose project revision is not
+// the current project revision. applyCommand gives it the StaleProject
+// error code.
+var errStaleProject = errors.New("the project changed; reload it before applying edits")
+
 func (s *Session) applyProject(command Command) error {
 	if !s.simulation.Snapshot().Paused {
 		return errors.New("pause the simulation before applying a project")
 	}
 	if command.ProjectRevision != s.projectRevision {
-		return errors.New("the project changed; reload it before applying edits")
+		return errStaleProject
 	}
 	if command.Project == nil {
 		return errors.New("project command requires a project")
