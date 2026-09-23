@@ -75,7 +75,8 @@ func (s *Session) captureCheckpoint() outcome {
 // pauses the session. When the save point holds a different project, rewind
 // saves that project, restores it, and increases the project revision. It
 // keeps the epoch, the receipts, the speed, and the save points. The outcome
-// tells whether it restored a project and gives the event to log.
+// tells whether it restored a project and gives the event to log. Apply
+// saves the state before it replies to a rewind that restored a project.
 func (s *Session) rewind(id uint64) (outcome, error) {
 	if id == 0 {
 		return outcome{}, errors.New("rewind requires a save point")
@@ -112,7 +113,7 @@ func (s *Session) rewind(id uint64) (outcome, error) {
 		s.projectRevision++
 	}
 	s.generation++
-	return outcome{projectRestored: restore, event: &sessionEvent{message: "Rewound session", details: []any{
+	return outcome{projectRestored: restore, saveState: restore, event: &sessionEvent{message: "Rewound session", details: []any{
 		slog.Uint64("checkpoint", id),
 		slog.Int64("fromTick", fromTick),
 		slog.Int64("toTick", entry.tick),

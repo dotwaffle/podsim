@@ -136,13 +136,19 @@ At startup, the server deletes the temporary files that an interrupted write lef
 The server saves the session state at these times:
 
 - At startup, after the restore.
-- Every 60 seconds, when the session changed after the last save. The first of these saves after the start always writes.
+- Every 60 seconds, when the session changed after the last save. The first periodic save after the start always writes.
+- Before the reply to a project apply, or to a rewind that restores a project. This is the command save. It counts as a periodic save, but it gets less time.
 - About 1 second after a demand change, a project apply, or a rewind that restores a project. This save counts as a periodic save.
 - At a graceful shutdown, and when startup fails after the startup save. This is the final save.
 
 A save copies the state while it holds the session lock.
 It encodes, compresses, and writes the copy after it releases the lock.
 Each startup or periodic save gets 30 seconds.
+A command save gets 2 seconds. This time includes the wait for an earlier save.
+The browser client sends an exact retry when it gets no reply in 3 seconds. The shorter save time lets the reply come before the retry.
+An exact retry of a project apply, or of a rewind that restored a project, also makes a command save before its reply.
+This save waits for the command save of the first request. It writes nothing when the session did not change after that save.
+If the command save fails or takes more time, the reply still reports success, and the save about 1 second later tries again.
 A failed write keeps the old file.
 After a stop without a final save, the next start restores the last saved state, which can be up to about 60 seconds old.
 
@@ -158,7 +164,9 @@ A file from a newer server version gets `unsupported_version`. Thus after a down
 With `-project`, the project file has priority, and a saved state with a different project gets `project_changed`.
 But when only the demand settings are different, the server restores the saved state.
 A demand change writes the project file at once and the session state about 1 second later. Thus a crash between the two writes can leave this difference.
-A project apply or a rewind that restores a project writes the project file in the same way. When that project has only other demand settings, a crash in that time keeps the simulation from before the command.
+A project apply or a rewind that restores a project also writes the project file at once, but the server makes the command save before it replies, also to an exact retry.
+Thus a crash can leave the difference only before the reply, or after a command save that failed or took more time.
+When the project has only other demand settings, the restore then keeps the simulation from before the command.
 After the restore, the server applies the demand settings of the project file as a demand change does, and the project revision increases by one.
 While the restored traffic demo runs, a demand change is not possible. Then the saved state gets `project_changed`.
 Without `-project`, the server restores the saved project.
@@ -345,10 +353,11 @@ With `-state`, the server writes these log records at startup:
 
 It writes these records for each save:
 
-- `Saved session state` (DEBUG) is a startup or periodic save. It gives the `kind`, the compressed size in `bytes`, the `revision`, and the `tick`.
+- `Saved session state` (DEBUG) is a startup, periodic, or command save. It gives the `kind`, the compressed size in `bytes`, the `revision`, and the `tick`.
   It also gives three durations: `lock` to copy the state under the session lock, `encode`, and `write`.
 - `Saved final session state` (INFO) is the final save, with the same attributes. A startup that fails after the startup save also makes a final save.
 - `Save session state` (WARN) is a failed save. It gives the `kind`, the `error`, the `cause` of a timeout, and `failures`, the number of failed saves in sequence.
+  The cause of a command save that took more than 2 seconds is `save of the session state before a command reply timed out`.
   A state that is too large gives ERROR, because each later save also fails.
 
 It writes these records at shutdown:

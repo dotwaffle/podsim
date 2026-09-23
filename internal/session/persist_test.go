@@ -24,9 +24,11 @@ import (
 // fakeStore keeps a saved state in memory and records its calls. An error
 // field makes each matching call fail. A call with a block channel waits
 // until the test closes the channel. It ignores ctx, as a file store does
-// during a read.
+// during a read. When checkContext is set, a write after the end of its
+// context fails, as a write of the file store does.
 type fakeStore struct {
 	blockRead, blockWrite chan struct{}
+	checkContext          bool
 
 	mu                                      sync.Mutex
 	readErr, writeErr, rejectErr, backupErr error
@@ -56,15 +58,18 @@ func (f *fakeStore) Read(context.Context) ([]byte, error) {
 	}
 }
 
-func (f *fakeStore) Write(_ context.Context, data []byte) error {
+func (f *fakeStore) Write(ctx context.Context, data []byte) error {
 	f.record("write")
 	if f.blockWrite != nil {
 		<-f.blockWrite
 	}
 	f.mu.Lock()
 	defer f.mu.Unlock()
-	if f.writeErr != nil {
+	switch {
+	case f.writeErr != nil:
 		return f.writeErr
+	case f.checkContext && ctx.Err() != nil:
+		return fmt.Errorf("write fake state: %w", context.Cause(ctx))
 	}
 	f.data = bytes.Clone(data)
 	f.writes = append(f.writes, f.data)
@@ -1307,6 +1312,7 @@ func TestSaveStateRules(t *testing.T) {
 	type step func(context.Context, *Session) error
 	periodic := func(ctx context.Context, s *Session) error { return s.SaveState(ctx, SavePeriodic) }
 	final := func(ctx context.Context, s *Session) error { return s.SaveState(ctx, SaveFinal) }
+	command := func(ctx context.Context, s *Session) error { return s.SaveState(ctx, saveCommand) }
 	unknown := func(ctx context.Context, s *Session) error { return s.SaveState(ctx, 0) }
 	closeSession := func(_ context.Context, s *Session) error { s.Close(); return nil }
 	advance := func(_ context.Context, s *Session) error { s.advance(); return nil }
@@ -1326,6 +1332,11 @@ func TestSaveStateRules(t *testing.T) {
 		{"final save of an open session", []step{final}, 0, false, true},
 		{"periodic save after Close", []step{closeSession, periodic}, 0, false, false},
 		{"final save without a change", []step{periodic, closeSession, final}, 2, true, false},
+		{"first command save", []step{command}, 1, false, false},
+		{"command save after a periodic save", []step{periodic, command}, 1, false, false},
+		{"periodic save after a command save", []step{command, periodic}, 1, false, false},
+		{"command save after a change", []step{command, advance, command}, 2, false, false},
+		{"command save after Close", []step{closeSession, command}, 0, false, false},
 		{"unknown kind", []step{unknown}, 0, false, true},
 	}
 	for _, test := range tests {
@@ -1788,6 +1799,423 @@ func TestStateSaverConcurrency(t *testing.T) {
 		}
 	}
 	t.Logf("restored %d saved states", len(writes))
+}
+
+// TestApplySavesBeforeReply checks which commands save the session state
+// before Apply returns. No saver runs, so each write after the startup save
+// comes from Apply.
+func TestApplySavesBeforeReply(t *testing.T) {
+	t.Parallel()
+	pause := Command{Action: "pause", Paused: true}
+	// send returns a command that needs no other change.
+	send := func(command Command) func(*testing.T, *testClient) Command {
+		return func(_ *testing.T, client *testClient) Command { return client.next(command) }
+	}
+	// runFrom makes a save point, runs 1 simulated second, and returns the
+	// ID of the save point.
+	runFrom := func(t *testing.T, client *testClient) uint64 {
+		t.Helper()
+		id := client.mustApply(t, Command{Action: "checkpoint"}).Checkpoint
+		advanceTicks(client.session, sim.TicksPerSecond)
+		return id
+	}
+	projectCommand := func(client *testClient) Command {
+		config := customProject()
+		return client.next(Command{Action: "project", ProjectRevision: client.session.Project().Revision, Project: &config})
+	}
+	// appliedProject pauses the session, applies a project, and returns the
+	// project apply. Its save writes.
+	appliedProject := func(t *testing.T, client *testClient) Command {
+		t.Helper()
+		client.mustApply(t, pause)
+		command := projectCommand(client)
+		if reply := client.session.Apply(command); reply.Error != "" {
+			t.Fatalf("project: %s", reply.Error)
+		}
+		return command
+	}
+	// changeOther changes the session with another client. A save after
+	// this change writes.
+	changeOther := func(t *testing.T, client *testClient) {
+		t.Helper()
+		newTestClient(client.session, "other").mustApply(t, Command{Action: "speed", Speed: 2})
+	}
+	tests := []struct {
+		name string
+		// command changes the session and returns the command to check.
+		command func(*testing.T, *testClient) Command
+		// writes tells whether Apply writes a state before it replies.
+		writes bool
+		// code is the error code of the reply, or empty.
+		code CommandErrorCode
+	}{
+		{"project apply", func(t *testing.T, client *testClient) Command {
+			t.Helper()
+			client.mustApply(t, pause)
+			return projectCommand(client)
+		}, true, ""},
+		{"rewind that restores a project", func(t *testing.T, client *testClient) Command {
+			t.Helper()
+			id := runFrom(t, client)
+			applyTestProject(t, client)
+			return client.next(Command{Action: "rewind", Checkpoint: id})
+		}, true, ""},
+		{"rewind without a project restore", func(t *testing.T, client *testClient) Command {
+			t.Helper()
+			return client.next(Command{Action: "rewind", Checkpoint: runFrom(t, client)})
+		}, false, ""},
+		{"second rewind to the same save point", func(t *testing.T, client *testClient) Command {
+			t.Helper()
+			id := runFrom(t, client)
+			applyTestProject(t, client)
+			client.mustApply(t, Command{Action: "rewind", Checkpoint: id})
+			advanceTicks(client.session, sim.TicksPerSecond)
+			return client.next(Command{Action: "rewind", Checkpoint: id})
+		}, false, ""},
+		{"exact retry of a project apply", func(t *testing.T, client *testClient) Command {
+			t.Helper()
+			command := appliedProject(t, client)
+			changeOther(t, client)
+			return command
+		}, true, ""},
+		// The save of the first request holds the current state, so the save
+		// of the retry writes nothing.
+		{"exact retry of a project apply without a later change", func(t *testing.T, client *testClient) Command {
+			t.Helper()
+			return appliedProject(t, client)
+		}, false, ""},
+		{"exact retry of a rewind that restores a project", func(t *testing.T, client *testClient) Command {
+			t.Helper()
+			id := runFrom(t, client)
+			applyTestProject(t, client)
+			command := client.next(Command{Action: "rewind", Checkpoint: id})
+			if reply := client.session.Apply(command); reply.Error != "" || !reply.ProjectRestored {
+				t.Fatalf("rewind = %+v, want a project restore", reply)
+			}
+			changeOther(t, client)
+			return command
+		}, true, ""},
+		{"sequence conflict with a project apply", func(t *testing.T, client *testClient) Command {
+			t.Helper()
+			command := appliedProject(t, client)
+			changeOther(t, client)
+			command.ProjectRevision++
+			return command
+		}, false, SequenceConflict},
+		// The receipt of the client is the second project apply, and its
+		// saveState is true.
+		{"expired project apply", func(t *testing.T, client *testClient) Command {
+			t.Helper()
+			command := appliedProject(t, client)
+			if reply := client.session.Apply(projectCommand(client)); reply.Error != "" {
+				t.Fatalf("second project: %s", reply.Error)
+			}
+			changeOther(t, client)
+			return command
+		}, false, ExpiredCommand},
+		{"project apply while the clock runs", func(_ *testing.T, client *testClient) Command {
+			return projectCommand(client)
+		}, false, CommandRejected},
+		{"rewind to an unknown save point", send(Command{Action: "rewind", Checkpoint: 99}), false, CommandRejected},
+		{"demand change", send(Command{Action: "demand", Demand: DemandConfig{
+			Enabled: true, PerMinute: 6, Pattern: "market", Seed: 3,
+		}}), false, ""},
+		{"trip", send(Command{Action: "trip", Origin: "harbor", Destination: "market"}), false, ""},
+		{"pause", send(pause), false, ""},
+		{"speed", send(Command{Action: "speed", Speed: 2}), false, ""},
+		{"reset", send(Command{Action: "reset"}), false, ""},
+		{"demo", send(Command{Action: "demo"}), false, ""},
+		{"checkpoint", send(Command{Action: "checkpoint"}), false, ""},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			store, handler := &fakeStore{}, &recordHandler{}
+			s := startFromStore(t, StoreInput{Store: store, Options: []Option{WithLogger(slog.New(handler))}})
+			client := newTestClient(s, "commands")
+			advanceTicks(s, sim.TicksPerSecond)
+			command := test.command(t, client)
+			writes := len(store.writeList())
+			handler.reset()
+			reply := s.Apply(command)
+			if reply.ErrorCode != test.code {
+				t.Fatalf("reply = %+v, want error code %q", reply, test.code)
+			}
+			saved := store.writeList()[writes:]
+			var kinds []any
+			for _, record := range handler.list() {
+				if record.message == "Saved session state" {
+					kinds = append(kinds, record.attrs["kind"])
+				}
+			}
+			if !test.writes {
+				if len(saved) != 0 || len(kinds) != 0 {
+					t.Fatalf("Apply wrote %d states and logged saves of kinds %v, want none", len(saved), kinds)
+				}
+				return
+			}
+			if len(saved) != 1 || !reflect.DeepEqual(kinds, []any{"command"}) {
+				t.Fatalf("Apply wrote %d states and logged saves of kinds %v, want 1 of kind command", len(saved), kinds)
+			}
+			// The saved state is the state after Apply. After an exact retry,
+			// it also holds the later change.
+			current := s.reply()
+			file := decodeTestState(t, saved[0])
+			if file.Final || file.Revision != current.Revision || file.ProjectRevision != current.ProjectRevision ||
+				file.Generation != current.Generation {
+				t.Fatalf("saved state is final %t with revisions %d, %d and generation %d, want state %+v",
+					file.Final, file.Revision, file.ProjectRevision, file.Generation, current)
+			}
+			if same, err := sameProject(file.Project, s.project); err != nil || !same {
+				t.Fatalf("saved project %q, want %q", file.Project.Name, s.project.Name)
+			}
+			if !reflect.DeepEqual(file.Simulation, s.simulation.ExportState()) {
+				t.Fatalf("saved simulation at tick %d is not the simulation after the command", file.Simulation.Tick)
+			}
+		})
+	}
+	t.Run("saving off", func(t *testing.T) {
+		t.Parallel()
+		store := &fakeStore{readErr: errors.New("disk failure")}
+		s := startFromStore(t, StoreInput{Store: store, Options: []Option{WithLogger(slog.New(&recordHandler{}))}})
+		applyTestProject(t, newTestClient(s, "off"))
+		if calls := store.callList(); !reflect.DeepEqual(calls, []string{"read"}) {
+			t.Fatalf("store calls = %q, want only the read", calls)
+		}
+	})
+}
+
+// TestApplySaveFailures applies a project while the store fails or blocks.
+// The reply reports success. The saver writes the state about 1 s after
+// the reply.
+func TestApplySaveFailures(t *testing.T) {
+	t.Parallel()
+	diskErr := errors.New("disk full")
+	isErr := func(target error) func(any) bool {
+		return func(value any) bool { err, _ := value.(error); return errors.Is(err, target) }
+	}
+	tests := []struct {
+		name     string
+		writeErr error
+		block    bool
+		// wait is the time that Apply takes.
+		wait time.Duration
+		// failed is the log record of the failed save.
+		failed wantRecord
+	}{
+		{"write error", diskErr, false, 0, wantRecord{slog.LevelWarn, "Save session state", map[string]any{
+			"kind": "command", "error": isErr(diskErr), "cause": nil, "failures": int64(1),
+		}}},
+		// The save continues after the reply with an ended context, so its
+		// write fails.
+		{"blocked write", nil, true, commandSaveTimeout, wantRecord{slog.LevelWarn, "Save session state", map[string]any{
+			"kind": "command", "error": isErr(errCommandSaveTimeout), "cause": errCommandSaveTimeout, "failures": int64(1),
+		}}},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			synctest.Test(t, func(t *testing.T) {
+				store, handler := &fakeStore{checkContext: true}, &recordHandler{}
+				s := startFromStore(t, StoreInput{Store: store, Options: []Option{WithLogger(slog.New(handler))}})
+				client := newTestClient(s, "failure")
+				client.mustApply(t, Command{Action: "pause", Paused: true})
+				handler.reset()
+				store.setWriteErr(test.writeErr)
+				release := make(chan struct{})
+				if test.block {
+					store.blockWrite = release
+				}
+				started := time.Now()
+				config := customProject()
+				reply := client.mustApply(t, Command{Action: "project", ProjectRevision: s.Project().Revision, Project: &config})
+				if elapsed := time.Since(started); elapsed != test.wait {
+					t.Fatalf("Apply took %v, want %v", elapsed, test.wait)
+				}
+				if writes := len(store.writeList()); writes != 1 {
+					t.Fatalf("the store has %d writes after the reply, want only the startup save", writes)
+				}
+				store.setWriteErr(nil)
+				close(release)
+				// Start the saver after the reply. A goroutine that waits for a
+				// mutex stops the clock of the bubble, and the saver would wait
+				// for the blocked save. The nudge of the command stays in its
+				// channel until the saver starts.
+				ctx, cancel := context.WithCancel(t.Context())
+				var saver sync.WaitGroup
+				saver.Go(func() { s.RunStateSaver(ctx, time.Minute) })
+				defer saver.Wait()
+				defer cancel()
+				time.Sleep(nudgeDelay)
+				synctest.Wait()
+				if last := store.lastWrite(t); last.Revision != reply.Revision || last.ProjectRevision != reply.ProjectRevision {
+					t.Fatalf("last save has revisions %d and %d, want reply %+v", last.Revision, last.ProjectRevision, reply)
+				}
+				checkRecords(t, handler, []wantRecord{
+					test.failed,
+					{slog.LevelDebug, "Saved session state", map[string]any{"kind": "periodic"}},
+				})
+			})
+		})
+	}
+}
+
+// TestApplySaveRetryWaits sends an exact retry of a project apply while the
+// save of the first request blocks in its write. The browser client sends
+// such a retry when it gets no reply in 3 s. The retry must reply only after
+// that write completes. A goroutine that waits for persist.mu does not block
+// durably, so the clock of a synctest bubble stops while the retry waits.
+// Thus the test uses real time.
+func TestApplySaveRetryWaits(t *testing.T) {
+	t.Parallel()
+	store := &fakeStore{}
+	s := startFromStore(t, StoreInput{Store: store, Options: []Option{WithLogger(slog.New(&recordHandler{}))}})
+	client := newTestClient(s, "retry")
+	client.mustApply(t, Command{Action: "pause", Paused: true})
+	release := make(chan struct{})
+	store.blockWrite = release
+	config := customProject()
+	command := client.next(Command{Action: "project", ProjectRevision: s.Project().Revision, Project: &config})
+	first := make(chan Reply, 1)
+	go func() { first <- s.Apply(command) }()
+	// Wait until the save of the first request holds persist.mu. It holds
+	// it until the test closes release.
+	for s.persist.mu.TryLock() {
+		s.persist.mu.Unlock()
+		time.Sleep(time.Millisecond)
+	}
+	type result struct {
+		reply Reply
+		// writes is the number of written states when the retry replied.
+		writes int
+	}
+	retried := make(chan result, 1)
+	go func() {
+		reply := s.Apply(command)
+		retried <- result{reply: reply, writes: len(store.writeList())}
+	}()
+	// A retry that does not wait for the save replies in this time. A retry
+	// that waits cannot reply before commandSaveTimeout.
+	select {
+	case early := <-retried:
+		close(release)
+		t.Fatalf("the retry replied with %d written states while the first save wrote", early.writes)
+	case <-time.After(100 * time.Millisecond):
+	}
+	close(release)
+	var retry result
+	select {
+	case retry = <-retried:
+	case <-time.After(10 * time.Second):
+		t.Fatal("the retry did not reply after the write")
+	}
+	reply := <-first
+	if reply.Error != "" || retry.reply != reply {
+		t.Fatalf("retry = %+v, first reply = %+v, want the same successful reply", retry.reply, reply)
+	}
+	// These are the startup save and the save of the first request. The
+	// save of the retry writes nothing, because the state did not change.
+	if writes := len(store.writeList()); retry.writes != 2 || writes != 2 {
+		t.Fatalf("the store had %d writes at the retry reply and %d after it, want 2", retry.writes, writes)
+	}
+}
+
+// TestApplySaveRestores restores the state that Apply saved before its
+// reply, with the project file that the command wrote. This is a crash
+// right after the reply. The command changes only the demand settings of
+// the project. A restore of the state from before the command would thus
+// keep the earlier simulation and apply the new demand settings. The
+// restore must give the session after the command.
+func TestApplySaveRestores(t *testing.T) {
+	t.Parallel()
+	config := project.Default()
+	config.Demand.Enabled = true
+	// The live session starts after one restore without a later save, so
+	// its startup save counts two restores. A command save that kept this
+	// count would make the next start reject the saved state.
+	first := &fakeStore{}
+	previous := startFromStore(t, StoreInput{Store: first, Project: &config})
+	advanceTicks(previous, sim.TicksPerSecond)
+	previous.Close()
+	if err := previous.SaveState(t.Context(), SaveFinal); err != nil {
+		t.Fatal(err)
+	}
+	restoredOnce := decodeTestState(t, first.writeList()[1])
+	restoredOnce.RestoreAttempts = 1
+	startData := encodeTestState(t, restoredOnce)
+	tests := []struct {
+		name string
+		// prepare changes the live session before the save of the earlier
+		// state. It can be nil.
+		prepare func(*testing.T, *testClient)
+		// command changes the live session after that save, and returns the
+		// command to check.
+		command func(*testing.T, *testClient) Command
+	}{
+		{"project apply", nil, func(t *testing.T, client *testClient) Command {
+			t.Helper()
+			client.mustApply(t, Command{Action: "pause", Paused: true})
+			current := client.session.Project()
+			changed := current.Project
+			changed.Demand = DemandConfig{Enabled: true, PerMinute: 30, Pattern: "balanced", Seed: 9}
+			return Command{Action: "project", ProjectRevision: current.Revision, Project: &changed}
+		}},
+		{"rewind that restores a project", func(t *testing.T, client *testClient) {
+			t.Helper()
+			client.mustApply(t, Command{Action: "checkpoint"})
+			changeTestDemand(t, client)
+			advanceTicks(client.session, 10*sim.TicksPerSecond)
+		}, func(_ *testing.T, client *testClient) Command {
+			return Command{Action: "rewind", Checkpoint: client.session.State().Checkpoints[0].ID}
+		}},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			store, file := &fakeStore{data: startData}, &projectFile{}
+			live := startFromStore(t, StoreInput{Store: store, Project: &config, Options: []Option{WithProjectSaver(file.save)}})
+			if restore := live.State().Restore; restore.Tier != "logical" || restore.Reason != reasonRestoreLoop {
+				t.Fatalf("live restore = %+v, want the logical tier with reason %s", restore, reasonRestoreLoop)
+			}
+			client := newTestClient(live, "live")
+			client.mustApply(t, Command{Action: "trip", Origin: "harbor", Destination: "market"})
+			advanceTicks(live, 10*sim.TicksPerSecond)
+			if test.prepare != nil {
+				test.prepare(t, client)
+			}
+			if err := live.SaveState(t.Context(), SavePeriodic); err != nil {
+				t.Fatal(err)
+			}
+			earlier := store.lastWrite(t)
+			reply := client.mustApply(t, test.command(t, client))
+			after := live.State()
+			written := file.saved[len(file.saved)-1]
+			if written.Demand == earlier.Project.Demand {
+				t.Fatal("the command did not change the demand settings of the project file")
+			}
+			if after.Simulation.Tick == earlier.Simulation.Tick {
+				t.Fatalf("the command kept tick %d", after.Simulation.Tick)
+			}
+
+			writes := store.writeList()
+			crash := startFromStore(t, StoreInput{Store: &fakeStore{data: writes[len(writes)-1]}, Project: &written})
+			state := crash.State()
+			if state.Restore.Tier != "physical" {
+				t.Fatalf("restore = %+v, want the physical tier", state.Restore)
+			}
+			if same, err := sameProject(crash.project, written); err != nil || !same {
+				t.Fatalf("restored project has demand %+v, want %+v", crash.project.Demand, written.Demand)
+			}
+			// The saved project is the project file, so the restore does not
+			// apply demand settings, and the project revision stays.
+			if state.ProjectRevision != reply.ProjectRevision || state.Generation != reply.Generation+1 ||
+				state.Simulation.Tick != after.Simulation.Tick || state.Simulation.Submitted != after.Simulation.Submitted {
+				t.Fatalf("restored project revision %d, generation %d, tick %d and %d orders, want %d, %d, %d and %d",
+					state.ProjectRevision, state.Generation, state.Simulation.Tick, state.Simulation.Submitted,
+					reply.ProjectRevision, reply.Generation+1, after.Simulation.Tick, after.Simulation.Submitted)
+			}
+		})
+	}
 }
 
 func TestRestoreInfoRules(t *testing.T) {

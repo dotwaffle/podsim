@@ -72,7 +72,7 @@ mise run serve -- -state file:///var/lib/podsim
 `-state` is off by default. Without it, the server does not save or read a session state.
 The server makes the directory if it does not exist. The server user needs write access to it.
 The server saves the session state at startup, every 60 seconds while the session changes, and a final time at a graceful shutdown.
-It also saves about 1 second after a demand change, a project apply, or a rewind that restores a project.
+It also saves before it replies to a project apply or to a rewind that restores a project, and about 1 second after a demand change.
 The saved state holds the project, the pods, the order queue, the demand stream, the statistics, the playback speed, the pause state, and the last command sequence of each client.
 It does not hold save points or command receipts.
 After a stop without the final save, the restored session can be up to about 60 seconds old.

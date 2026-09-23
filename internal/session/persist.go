@@ -29,6 +29,13 @@ const (
 	stateIOTimeout = 30 * time.Second
 	// nudgeDelay is the time from a project change to its save.
 	nudgeDelay = time.Second
+	// commandSaveTimeout bounds the save before the reply to a command. The
+	// HTTP server of cmd/serve has a write timeout of 30 s, which starts
+	// before the server reads the command. A shorter bound lets the reply
+	// get out when the store is slow. The browser client sends an exact
+	// retry when it gets no reply in 3 s. A bound of 2 s lets the reply come
+	// before that retry.
+	commandSaveTimeout = 2 * time.Second
 	// restoreLoopAttempts is the number of restores without a periodic or
 	// final save that stops the next restore.
 	restoreLoopAttempts = 2
@@ -50,9 +57,10 @@ var (
 	// ErrStateSavingOff means that the session does not save its state.
 	ErrStateSavingOff = errors.New("session state saving is off")
 
-	errReadTimeout = errors.New("read of the saved session state timed out")
-	errSaveTimeout = errors.New("save of the session state timed out")
-	errMoveTimeout = errors.New("move of the saved session state timed out")
+	errReadTimeout        = errors.New("read of the saved session state timed out")
+	errSaveTimeout        = errors.New("save of the session state timed out")
+	errMoveTimeout        = errors.New("move of the saved session state timed out")
+	errCommandSaveTimeout = errors.New("save of the session state before a command reply timed out")
 )
 
 // StateStore keeps one saved session state. The session calls it from
@@ -110,7 +118,7 @@ type SaveKind int
 
 const (
 	// SavePeriodic is a save while the session runs. It writes only when
-	// the revision changed since the last periodic or final save.
+	// the revision changed since the last periodic, command or final save.
 	SavePeriodic SaveKind = iota + 1
 	// SaveFinal is the last save after Close. The next start keeps the
 	// epoch of a final save.
@@ -118,6 +126,10 @@ const (
 	// saveStartup is the save of NewFromStore. It counts the restores of
 	// the saved state.
 	saveStartup
+	// saveCommand is the save of Apply before it replies to a project apply
+	// or to a rewind that restores a project. It follows the rules of a
+	// periodic save.
+	saveCommand
 )
 
 // String returns the name of the kind in logs.
@@ -129,6 +141,8 @@ func (k SaveKind) String() string {
 		return "final"
 	case saveStartup:
 		return "startup"
+	case saveCommand:
+		return "command"
 	default:
 		return "SaveKind(" + strconv.Itoa(int(k)) + ")"
 	}
@@ -144,9 +158,9 @@ type persistence struct {
 	// enabled is false after NewFromStore turned saving off. It does not
 	// change after NewFromStore returns.
 	enabled atomic.Bool
-	// lastRevision is the revision of the last periodic or final save.
-	// saved is true after the first one. The startup save sets neither, so
-	// the first periodic save always writes.
+	// lastRevision is the revision of the last periodic, command or final
+	// save. saved is true after the first one. The startup save sets
+	// neither, so the first periodic or command save always writes.
 	lastRevision uint64
 	saved        bool
 	// attempts is the restore count of the startup save.
@@ -313,8 +327,10 @@ func (s *Session) start(ctx context.Context, input startInput) (*loadedState, er
 	// The demand command writes the project file at once, but the state
 	// file about 1 s later. After a crash in that time, the project file has
 	// newer demand settings. Apply them as the command did. A project apply
-	// or a rewind that restores a project can leave the same difference. The
-	// project file has the settings already, so do not write it.
+	// or a rewind that restores a project saves the state before its reply,
+	// also before the reply to an exact retry. It can leave the same
+	// difference only after a crash before the reply, or after a failed
+	// save. The project file has the settings already, so do not write it.
 	if loaded.projectDemand != nil {
 		if err := s.applyDemand(*loaded.projectDemand, nil); err != nil {
 			return nil, fmt.Errorf("apply demand settings of the project file: %w", err)
@@ -644,16 +660,18 @@ func (s *Session) logRestored(input restoredInput) {
 // after it releases the lock. Saves run one at a time.
 //
 // A periodic save writes nothing when the revision did not change since the
-// last periodic or final save, and nothing after Close. The first periodic
-// save after the start always writes. SaveFinal needs a closed session and
-// always writes. SaveState returns ErrStateSavingOff when the session has
-// no store, or when NewFromStore turned saving off. It logs each failure.
+// last periodic, command or final save, and nothing after Close. Apply makes
+// a command save before it replies to some commands, with the same rules.
+// The first periodic or command save after the start always writes.
+// SaveFinal needs a closed session and always writes. SaveState returns
+// ErrStateSavingOff when the session has no store, or when NewFromStore
+// turned saving off. It logs each failure.
 func (s *Session) SaveState(ctx context.Context, kind SaveKind) error {
 	persist := s.persist
 	if persist == nil || !persist.enabled.Load() {
 		return ErrStateSavingOff
 	}
-	if kind != SavePeriodic && kind != SaveFinal && kind != saveStartup {
+	if kind != SavePeriodic && kind != SaveFinal && kind != saveStartup && kind != saveCommand {
 		return fmt.Errorf("save session state: unknown kind %d", kind)
 	}
 	persist.mu.Lock()
@@ -722,7 +740,7 @@ func (s *Session) captureState(kind SaveKind) (stateFile, bool, error) {
 		return stateFile{}, false, errors.New("save session state: a final save needs a closed session")
 	case kind != SaveFinal && closed:
 		return stateFile{}, false, nil
-	case kind == SavePeriodic && s.persist.saved && s.revision == s.persist.lastRevision:
+	case (kind == SavePeriodic || kind == saveCommand) && s.persist.saved && s.revision == s.persist.lastRevision:
 		return stateFile{}, false, nil
 	}
 	random, err := s.demand.pcg.MarshalBinary()
@@ -800,6 +818,29 @@ func (s *Session) savePeriodic(ctx context.Context) {
 	saveCtx, cancel := context.WithTimeoutCause(ctx, stateIOTimeout, errSaveTimeout)
 	defer cancel()
 	_ = s.SaveState(saveCtx, SavePeriodic)
+}
+
+// saveBeforeReply saves the session state before Apply replies to a
+// command. It waits at most commandSaveTimeout, also when an earlier save
+// still uses the store. After that time, Apply replies, and the save
+// continues with an ended context. SaveState logs a failure. The caller
+// does not hold the session lock.
+//
+// Commands carry no request context, and a canceled request must not stop
+// the save, so the save uses context.Background. contextcheck skips a
+// function with a directive in its doc comment. nolintlint does not see
+// that use, because contextcheck reports the callers of Apply.
+//
+//nolint:contextcheck,nolintlint // The save uses context.Background on purpose.
+func (s *Session) saveBeforeReply() {
+	if s.persist == nil || !s.persist.enabled.Load() {
+		return
+	}
+	ctx, cancel := context.WithTimeoutCause(context.Background(), commandSaveTimeout, errCommandSaveTimeout)
+	defer cancel()
+	_, _ = callStore(ctx, errCommandSaveTimeout, func(ctx context.Context) (struct{}, error) {
+		return struct{}{}, s.SaveState(ctx, saveCommand)
+	})
 }
 
 // nudgeSaver asks RunStateSaver for a save. It does not wait. The caller

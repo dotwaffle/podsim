@@ -140,6 +140,9 @@ type Reply struct {
 type receipt struct {
 	command Command
 	reply   Reply
+	// saveState is true when Apply saves the state before the reply. An
+	// exact retry of the command saves too.
+	saveState bool
 }
 
 // Option configures a session constructor.
@@ -373,31 +376,57 @@ func (s *Session) Project() ProjectState {
 // gets ExpiredCommand, because the session does not have its reply.
 // After Close, a command that passes the epoch and sequence checks gets ServerStopping.
 // An exact retry still gets its stored reply.
+//
+// When the session saves its state, Apply saves it before it replies to a
+// project apply or to a rewind that restores a project. It waits at most
+// 2 s for this save. A failed save does not change the reply, because the
+// session applied the command. An exact retry of such a command also saves
+// before it replies. This save waits for the save of the first request, and
+// it writes nothing when the state did not change after that save.
 func (s *Session) Apply(command Command) Reply {
-	reply, event, projectChanged := s.applyCommand(cloneCommand(command))
+	result := s.applyCommand(cloneCommand(command))
 	// Save a project change soon. A saved state with an earlier project
-	// does not match the project file after a crash.
-	if projectChanged {
+	// does not match the project file after a crash. When the save before
+	// the reply fails, this save tries again.
+	if result.projectChanged {
 		s.nudgeSaver()
 	}
 	// Log after applyCommand releases the lock. A slow log sink must not stop
 	// the clock or the readers. Commands carry no request context, so use
 	// Info, which logs with context.Background.
-	if event != nil {
-		s.logger.Info(event.message, event.args()...)
+	if result.event != nil {
+		s.logger.Info(result.event.message, result.event.args()...)
 	}
-	return reply
+	// A project apply and a rewind that restores a project write the project
+	// file at once. Save the state before the reply. Otherwise a crash after
+	// the reply can restore the state from before the command. An exact
+	// retry saves too, because the save of the first request can still run.
+	if result.saveState {
+		s.saveBeforeReply()
+	}
+	return result.reply
 }
 
-// applyCommand holds the lock while it checks and applies command. It
-// returns the reply, an event to log or nil when there is no event, and
-// whether the command changed the project revision.
-func (s *Session) applyCommand(command Command) (Reply, *sessionEvent, bool) {
+// commandResult is the result of applyCommand. event is the record to log,
+// or nil. projectChanged is true when the command changed the project
+// revision. saveState is true when Apply saves the state before it replies.
+// An exact retry that gets its stored reply has no event and no project
+// change. It gets saveState from its receipt.
+type commandResult struct {
+	reply          Reply
+	event          *sessionEvent
+	projectChanged bool
+	saveState      bool
+}
+
+// applyCommand holds the lock while it checks and applies command.
+func (s *Session) applyCommand(command Command) commandResult {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	projectRevision := s.projectRevision
 	reply := s.reply()
 	var event *sessionEvent
+	var saveState bool
 	switch {
 	case command.Epoch != s.epoch:
 		reply.reject(SessionChanged, "The server session changed. Review the current state and try again.")
@@ -416,7 +445,7 @@ func (s *Session) applyCommand(command Command) (Reply, *sessionEvent, bool) {
 			if !reflect.DeepEqual(previous.command, command) {
 				reply.reject(SequenceConflict, "This sequence was already used for another command.")
 			} else {
-				reply = previous.reply
+				reply, saveState = previous.reply, previous.saveState
 			}
 		case isRestored && command.Sequence <= restored:
 			// The session can have applied the command before the restart,
@@ -437,15 +466,16 @@ func (s *Session) applyCommand(command Command) (Reply, *sessionEvent, bool) {
 			if err != nil {
 				reply.reject(CommandRejected, err.Error())
 			}
-			s.receipts[command.Client] = receipt{command: cloneCommand(command), reply: reply}
+			s.receipts[command.Client] = receipt{command: cloneCommand(command), reply: reply, saveState: result.saveState}
 			delete(s.restoredSequences, command.Client)
 			if result.event != nil {
 				event = result.event
 				event.client, event.duration = command.Client, time.Since(started)
 			}
+			saveState = result.saveState
 		}
 	}
-	return reply, event, s.projectRevision != projectRevision
+	return commandResult{reply: reply, event: event, projectChanged: s.projectRevision != projectRevision, saveState: saveState}
 }
 
 func (s *Session) reply() Reply {
@@ -468,11 +498,13 @@ func cloneCommand(command Command) Command {
 }
 
 // outcome holds the reply values of an accepted command. event is nil when
-// the command has no event to log.
+// the command has no event to log. saveState is true when Apply saves the
+// state before it replies.
 type outcome struct {
 	orderID         int
 	checkpoint      uint64
 	projectRestored bool
+	saveState       bool
 	event           *sessionEvent
 }
 
@@ -545,7 +577,10 @@ func (s *Session) apply(command Command) (outcome, error) {
 		}
 		return outcome{}, s.applyDemand(command.Demand, s.save)
 	case "project":
-		return outcome{}, s.applyProject(command)
+		if err := s.applyProject(command); err != nil {
+			return outcome{}, err
+		}
+		return outcome{saveState: true}, nil
 	case "checkpoint":
 		return s.captureCheckpoint(), nil
 	case "rewind":

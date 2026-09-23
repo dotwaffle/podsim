@@ -152,6 +152,8 @@ func run(ctx context.Context, input runInput) error {
 		}
 	}()
 	handler := telemetryProvider.HTTPHandler(shared.HandlerFS(files))
+	// A command can wait up to 2 s for a state save before its reply. Keep
+	// WriteTimeout longer than ReadTimeout plus that wait.
 	application := &http.Server{
 		Addr:              *address,
 		Handler:           handler,
