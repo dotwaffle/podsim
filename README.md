@@ -183,6 +183,9 @@ Skipped arrivals appear in the Demand panel and do not accumulate for a later bu
 Select **Edit scenario** above the simulation to open the editor.
 The draft stays local until you select **Pause and apply**.
 Applying a valid draft resets the shared simulation and leaves it paused.
+If the apply fails after the editor paused the simulation, the editor resumes it.
+A simulation that was paused before the apply stays paused.
+The editor does not resume a simulation that restarted after the pause, for example after a project apply from another browser.
 If another browser changes the project, the server rejects stale edits. The editor keeps the draft.
 A rewind to a save point from before a project apply or a demand change restores that project.
 The rewind also rewrites the `-project` file.

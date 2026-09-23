@@ -672,11 +672,129 @@
     return label.scale >= NODE_LABEL_SCALE ? NODE_LABEL_SIZE : 0;
   }
 
+  // A connection holds the values that the editor uses with the session API.
+  // fetch sends one HTTP request, as window.fetch does. clientID and sequence
+  // identify each command, and epoch is the session epoch. postCommand
+  // increases sequence and keeps the epoch of the reply.
+
+  // getJSON gets one JSON document. It throws the server error or the HTTP
+  // status.
+  async function getJSON(connection, url) {
+    const response = await connection.fetch(url, { headers: { Accept: "application/json" } });
+    let body = null; try { body = await response.json(); } catch (_) {}
+    if (!response.ok || (body && (body.error || body.Error))) throw new Error((body && (body.error || body.Error)) || `HTTP ${response.status}`);
+    return body;
+  }
+
+  // postCommand sends one command. A rejected command throws an error with
+  // the HTTP status.
+  async function postCommand(connection, command) {
+    connection.sequence += 1;
+    const response = await connection.fetch("/api/command", { method: "POST", headers: { "Content-Type": "application/json", Accept: "application/json" }, body: JSON.stringify({ client: connection.clientID, sequence: connection.sequence, epoch: connection.epoch, ...command }) });
+    let body = null; try { body = await response.json(); } catch (_) {}
+    if (!response.ok || (body && (body.error || body.Error))) {
+      const error = new Error((body && (body.error || body.Error)) || `HTTP ${response.status}`); error.status = response.status; throw error;
+    }
+    const replyState = body && (body.state || body.State || body);
+    if (replyState && (replyState.epoch || replyState.Epoch)) connection.epoch = replyState.epoch || replyState.Epoch;
+    return body;
+  }
+
+  // simulationID identifies one simulation. A server restart gives a new
+  // epoch. A reset, a demo, a rewind and a project apply give a new
+  // generation.
+  function simulationID(frame) {
+    return `${frame.epoch || frame.Epoch || ""} ${frame.generation ?? frame.Generation ?? 0}`;
+  }
+
+  // applyToServer applies a project to the live session and gives the new
+  // project revision. The server applies a project only while the
+  // simulation is paused, so applyToServer pauses the simulation first.
+  // apply.revision is the live project revision that the draft started
+  // from. apply.onApplying runs after the pause, when it is set.
+  //
+  // A failure error has status, the HTTP status of a rejected command, and
+  // pause, the state of the simulation after the failure:
+  // - "not-paused": the editor did not pause the simulation.
+  // - "was-paused": the simulation was paused before the apply and stays paused.
+  // - "resumed": the editor paused the simulation, then resumed it.
+  // - "left-paused": the editor paused the simulation and could not resume it.
+  // - "restarted": the simulation restarted after the pause. The editor did
+  //   not resume it.
+  async function applyToServer(apply) {
+    const { connection } = apply;
+    let step = "check";
+    let wasPaused = false;
+    let simulation = "";
+    try {
+      const current = await getJSON(connection, "/api/project");
+      if (Number(current.revision ?? current.Revision ?? 0) !== apply.revision) {
+        const error = new Error("The live scenario changed."); error.status = 409; throw error;
+      }
+      const live = await getJSON(connection, "/api/state");
+      if (!connection.epoch) connection.epoch = live.epoch || live.Epoch || "";
+      wasPaused = Boolean(live.simulation && live.simulation.Paused);
+      simulation = simulationID(live);
+      step = "pause";
+      await postCommand(connection, { action: "pause", paused: true });
+      step = "project";
+      if (apply.onApplying) apply.onApplying();
+      const reply = await postCommand(connection, { action: "project", projectRevision: apply.revision, project: apply.project });
+      const replyState = reply && (reply.state || reply.State || reply);
+      return Number(reply?.projectRevision ?? reply?.ProjectRevision ?? (replyState && (replyState.projectRevision ?? replyState.ProjectRevision)) ?? apply.revision + 1);
+    } catch (error) {
+      error.pause = await pauseAfterFailure({ connection, error, step, wasPaused, simulation });
+      throw error;
+    }
+  }
+
+  // pauseAfterFailure gives the pause value of a failed apply. failure.step
+  // is the step that failed: "check" before the pause command, "pause" for
+  // the pause command, and "project" after it. The server did not apply a
+  // command that it rejected with a 4xx status. A pause command without a
+  // reply can be in effect, so the editor then resumes the simulation.
+  async function pauseAfterFailure(failure) {
+    if (failure.step === "check") return "not-paused";
+    if (failure.wasPaused) return "was-paused";
+    const rejected = failure.error.status >= 400 && failure.error.status < 500;
+    if (failure.step === "pause" && rejected) return "not-paused";
+    return resumeSimulation(failure.connection, failure.simulation);
+  }
+
+  // resumeSimulation resumes the simulation that the editor paused. It does
+  // not resume a simulation that restarted after the pause. For example, a
+  // project apply from another browser starts a new paused simulation. The
+  // same occurs when the server applied this project and its reply was lost.
+  async function resumeSimulation(connection, simulation) {
+    try {
+      const live = await getJSON(connection, "/api/state");
+      if (simulationID(live) !== simulation) return "restarted";
+      await postCommand(connection, { action: "pause", paused: false });
+      return "resumed";
+    } catch (_) { return "left-paused"; }
+  }
+
+  // APPLY_PAUSE_TEXT tells the state of the simulation after a failed apply.
+  const APPLY_PAUSE_TEXT = {
+    "not-paused": "The simulation was not paused.",
+    "was-paused": "The simulation remains paused.",
+    "resumed": "The editor resumed the simulation.",
+    "left-paused": "The apply attempt paused the simulation and could not resume it.",
+    "restarted": "The simulation restarted after the pause. The editor did not resume it.",
+  };
+
+  // applyFailureText gives the message for an error from applyToServer. A
+  // 409 status is a conflict with the live session.
+  function applyFailureText(error) {
+    const reason = error.status === 409 ? "The live scenario changed. Your draft is safe." : `Apply failed. ${String(error.message).replace(/\.?$/, ".")}`;
+    return [reason, APPLY_PAUSE_TEXT[error.pause]].filter(Boolean).join(" ");
+  }
+
   const API = {
     MIN_LANE_LENGTH, MIN_ZOOM, NODE_LABEL_SCALE, NODE_LABEL_SIZE, emptyConfig, normalizeConfig, addLane, addJunction, addStation, addBerth,
     removeBerth, moveStation, moveNode, deleteNode, deleteLane, deleteStation, setFleetCount,
     laneLength, reachable, stationNodeOwners, dragTargets, validateConfig, serializeDocument, parseDocument, createHistory,
-    networkBounds, fitView, zoomScale, nodeLabelSize,
+    networkBounds, fitView, zoomScale, nodeLabelSize, applyToServer, applyFailureText,
   };
   if (typeof module !== "undefined" && module.exports) module.exports = API;
   root.PodsimEditorModel = API;
@@ -690,9 +808,12 @@
     background: null,
     loaded: null,
     loadedRevision: 0,
-    epoch: "",
-    sequence: 0,
-    clientID: root.crypto && root.crypto.randomUUID ? root.crypto.randomUUID() : `editor-${Date.now()}-${Math.random()}`,
+    connection: {
+      fetch: (url, init) => root.fetch(url, init),
+      clientID: root.crypto && root.crypto.randomUUID ? root.crypto.randomUUID() : `editor-${Date.now()}-${Math.random()}`,
+      sequence: 0,
+      epoch: "",
+    },
     selection: null,
     tool: "select",
     linkFrom: "",
@@ -1017,32 +1138,14 @@
     return errors;
   }
 
-  async function getJSON(url) {
-    const response = await fetch(url, { headers: { Accept: "application/json" } });
-    let body = null; try { body = await response.json(); } catch (_) {}
-    if (!response.ok || (body && (body.error || body.Error))) throw new Error((body && (body.error || body.Error)) || `HTTP ${response.status}`);
-    return body;
-  }
-  async function postCommand(command) {
-    state.sequence += 1;
-    const response = await fetch("/api/command", { method: "POST", headers: { "Content-Type": "application/json", Accept: "application/json" }, body: JSON.stringify({ client: state.clientID, sequence: state.sequence, epoch: state.epoch, ...command }) });
-    let body = null; try { body = await response.json(); } catch (_) {}
-    if (!response.ok || (body && (body.error || body.Error))) {
-      const error = new Error((body && (body.error || body.Error)) || `HTTP ${response.status}`); error.status = response.status; throw error;
-    }
-    const replyState = body && (body.state || body.State || body);
-    if (replyState && (replyState.epoch || replyState.Epoch)) state.epoch = replyState.epoch || replyState.Epoch;
-    return body;
-  }
-
   async function loadServerProject() {
     updateStatus("Loading the live scenario…");
     try {
-      const [projectReply, liveState] = await Promise.all([getJSON("/api/project"), getJSON("/api/state")]);
+      const [projectReply, liveState] = await Promise.all([getJSON(state.connection, "/api/project"), getJSON(state.connection, "/api/state")]);
       if (!projectReply || !(projectReply.project || projectReply.Project)) throw new Error("The server returned no scenario.");
       const project = normalizeConfig(projectReply.project || projectReply.Project);
       state.loadedRevision = Number(projectReply.revision ?? projectReply.Revision ?? liveState.projectRevision ?? liveState.ProjectRevision ?? 0);
-      state.epoch = liveState.epoch || liveState.Epoch || "";
+      state.connection.epoch = liveState.epoch || liveState.Epoch || "";
       state.loaded = { scenario: clone(project), background: null };
       state.history.reset(state.loaded); state.background = null; state.selection = null;
       updateStatus(`Live revision ${state.loadedRevision}. Draft changes stay in this browser.`); render(); fitNetwork();
@@ -1061,7 +1164,7 @@
   async function runExampleSequence() {
     const button = $("#demoButton"); button.disabled = true;
     try {
-      await postCommand({ action: "demo" });
+      await postCommand(state.connection, { action: "demo" });
       toast("The example sequence started. Return to the simulation to view it.");
     } catch (error) {
       toast(`The example sequence could not start. ${error.message}`, true);
@@ -1071,28 +1174,14 @@
   async function applyProject() {
     const errors = runValidation(); if (errors.length) { toast("Fix the listed problems before you apply the scenario.", true); return; }
     const button = $("#applyButton"); button.disabled = true; button.textContent = "Pausing…";
-    let pausedForApply = false;
     try {
-      const current = await getJSON("/api/project");
-      const currentRevision = Number(current.revision ?? current.Revision ?? 0);
-      if (currentRevision !== state.loadedRevision) {
-        const error = new Error("The live scenario changed."); error.status = 409; throw error;
-      }
-      if (!state.epoch) { const live = await getJSON("/api/state"); state.epoch = live.epoch || live.Epoch || ""; }
-      await postCommand({ action: "pause", paused: true });
-      pausedForApply = true;
-      button.textContent = "Applying…";
-      const reply = await postCommand({ action: "project", projectRevision: state.loadedRevision, project: draft() });
-      const replyState = reply && (reply.state || reply.State || reply);
-      state.loadedRevision = Number(reply.projectRevision ?? reply.ProjectRevision ?? (replyState && (replyState.projectRevision ?? replyState.ProjectRevision)) ?? state.loadedRevision + 1);
-      state.loaded = { scenario: draft(), background: state.background ? clone(state.background) : null };
+      const project = draft();
+      state.loadedRevision = await applyToServer({ connection: state.connection, revision: state.loadedRevision, project, onApplying: () => { button.textContent = "Applying…"; } });
+      state.loaded = { scenario: project, background: state.background ? clone(state.background) : null };
       updateStatus(`Applied revision ${state.loadedRevision}. The simulation is paused.`); toast("The scenario was applied. The simulation remains paused.");
     } catch (error) {
       if (error.status === 409) updateStatus("Apply conflict. Reload the page to get the current live scenario.");
-      const conflict = pausedForApply
-        ? "The live scenario changed. Your draft is safe. The apply attempt paused the simulation."
-        : "The live scenario changed. Your draft is safe and the simulation was not paused.";
-      toast(error.status === 409 ? conflict : `Apply failed. ${error.message}`, true);
+      toast(applyFailureText(error), true);
     } finally { button.disabled = false; button.textContent = "Pause and apply"; }
   }
 

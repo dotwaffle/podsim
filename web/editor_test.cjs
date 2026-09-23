@@ -442,6 +442,144 @@ test("junction labels show only when zoomed in or selected", () => {
   }
 });
 
+// fakeSession gives a fetch function that answers as the session API does.
+// The live project has revision options.liveRevision, or 3, and
+// options.paused is the state of the simulation before the apply. As on the
+// server, a project command needs a paused simulation and the live project
+// revision. An applied project gets revision 7, so a test can tell the
+// revision of the reply from revision + 1. It also starts a new paused
+// simulation with a new generation.
+//
+// options.before(command, live) runs before the server gets a command. It
+// can change live, the values of the live session. It gives the HTTP status
+// that rejects the command, "network" for a command that the server does
+// not get, or "lost" for a reply that the editor does not get. commands
+// records each command that the editor sent.
+function fakeSession(options) {
+  const commands = [];
+  const live = { epoch: "epoch-1", revision: options.liveRevision ?? 3, generation: 5, paused: options.paused };
+  const reply = (status, body) => ({ ok: status < 300, status, json: async () => body });
+  const acknowledgment = (error) => ({
+    epoch: live.epoch, revision: commands.length, projectRevision: live.revision, generation: live.generation,
+    ...(error ? { errorCode: "command_rejected", error } : {}),
+  });
+  const handle = (command) => {
+    if (command.epoch !== live.epoch) return "The server session changed. Review the current state and try again.";
+    if (command.action === "pause") { live.paused = Boolean(command.paused); return ""; }
+    if (!live.paused) return "pause the simulation before applying a project";
+    if (command.projectRevision !== live.revision) return "the project changed; reload it before applying edits";
+    Object.assign(live, { revision: 7, generation: live.generation + 1, paused: true });
+    return "";
+  };
+  const fetch = async (url, init) => {
+    if (url === "/api/project") return reply(200, { revision: live.revision, project: connectedScenario() });
+    if (url === "/api/state") {
+      return reply(200, { epoch: live.epoch, projectRevision: live.revision, generation: live.generation, simulation: { Paused: live.paused } });
+    }
+    const command = JSON.parse(init.body);
+    commands.push(command);
+    const failure = options.before ? options.before(command, live) : false;
+    if (failure === "network") throw new TypeError("Failed to fetch");
+    if (typeof failure === "number") return reply(failure, acknowledgment("save project: permission denied"));
+    const error = handle(command);
+    if (failure === "lost") throw new TypeError("Failed to fetch");
+    return reply(error ? 409 : 200, acknowledgment(error));
+  };
+  return { fetch, commands, live };
+}
+
+test("a failed apply resumes only the simulation that the editor paused", async () => {
+  const on = (action, failure, paused) => (command) => command.action === action && (paused === undefined || command.paused === paused) && failure;
+  const conflict = "The live scenario changed. Your draft is safe.";
+  const cases = [
+    { name: "apply succeeds", paused: false, wantRevision: 7, wantCommands: ["pause true", "project"], wantPaused: true },
+    {
+      name: "apply fails after the editor paused the simulation", paused: false, before: on("project", 409),
+      wantCommands: ["pause true", "project", "pause false"], wantPaused: false,
+      wantPause: "resumed", wantText: `${conflict} The editor resumed the simulation.`,
+    },
+    {
+      name: "apply fails when the simulation was already paused", paused: true, before: on("project", 409),
+      wantCommands: ["pause true", "project"], wantPaused: true,
+      wantPause: "was-paused", wantText: `${conflict} The simulation remains paused.`,
+    },
+    {
+      name: "the editor cannot resume the simulation", paused: false,
+      before: (command) => (command.action === "project" || (command.action === "pause" && !command.paused)) && 409,
+      wantCommands: ["pause true", "project", "pause false"], wantPaused: true,
+      wantPause: "left-paused", wantText: `${conflict} The apply attempt paused the simulation and could not resume it.`,
+    },
+    {
+      name: "the server does not get the project command", paused: false, before: on("project", "network"),
+      wantCommands: ["pause true", "project", "pause false"], wantPaused: false,
+      wantPause: "resumed", wantText: "Apply failed. Failed to fetch. The editor resumed the simulation.",
+    },
+    {
+      name: "the server applies the project and the reply is lost", paused: false, before: on("project", "lost"),
+      wantCommands: ["pause true", "project"], wantPaused: true, wantRevision: 7,
+      wantPause: "restarted", wantText: "Apply failed. Failed to fetch. The simulation restarted after the pause. The editor did not resume it.",
+    },
+    {
+      name: "another browser applies a project after the pause", paused: false,
+      before: (command, live) => { if (command.action === "project") Object.assign(live, { revision: 4, generation: live.generation + 1 }); return false; },
+      wantCommands: ["pause true", "project"], wantPaused: true, wantRevision: 4,
+      wantPause: "restarted", wantText: `${conflict} The simulation restarted after the pause. The editor did not resume it.`,
+    },
+    {
+      name: "the server restarts after the pause", paused: false,
+      before: (command, live) => { if (command.action === "project") Object.assign(live, { epoch: "epoch-2", paused: false }); return false; },
+      wantCommands: ["pause true", "project"], wantPaused: false,
+      wantPause: "restarted", wantText: `${conflict} The simulation restarted after the pause. The editor did not resume it.`,
+    },
+    {
+      name: "a demand change after the pause keeps the simulation", paused: false,
+      before: (command, live) => { if (command.action === "project") live.revision = 4; return false; },
+      wantCommands: ["pause true", "project", "pause false"], wantPaused: false, wantRevision: 4,
+      wantPause: "resumed", wantText: `${conflict} The editor resumed the simulation.`,
+    },
+    {
+      name: "the server applies the pause and the reply is lost", paused: false, before: on("pause", "lost", true),
+      wantCommands: ["pause true", "pause false"], wantPaused: false,
+      wantPause: "resumed", wantText: "Apply failed. Failed to fetch. The editor resumed the simulation.",
+    },
+    {
+      name: "the server rejects the pause", paused: false, before: on("pause", 409, true),
+      wantCommands: ["pause true"], wantPaused: false,
+      wantPause: "not-paused", wantText: `${conflict} The simulation was not paused.`,
+    },
+    {
+      name: "the live project changed before the pause", paused: false, liveRevision: 5,
+      wantCommands: [], wantPaused: false, wantRevision: 5,
+      wantPause: "not-paused", wantText: `${conflict} The simulation was not paused.`,
+    },
+  ];
+  for (const item of cases) {
+    const server = fakeSession(item);
+    const connection = { fetch: server.fetch, clientID: "editor-test", sequence: 0, epoch: "" };
+    let revision = 0;
+    let error = null;
+    try {
+      revision = await editor.applyToServer({ connection, revision: 3, project: connectedScenario() });
+    } catch (caught) { error = caught; }
+
+    if (item.wantPause) {
+      assert.ok(error, item.name);
+      assert.equal(error.pause, item.wantPause, item.name);
+      assert.equal(editor.applyFailureText(error), item.wantText, item.name);
+    } else {
+      assert.equal(error, null, item.name);
+      assert.equal(revision, item.wantRevision, item.name);
+    }
+    const commands = server.commands.map((command) => (command.action === "pause" ? `pause ${command.paused}` : command.action));
+    assert.deepEqual(commands, item.wantCommands, item.name);
+    for (const [index, command] of server.commands.entries()) {
+      assert.deepEqual([command.client, command.sequence, command.epoch], ["editor-test", index + 1, "epoch-1"], item.name);
+    }
+    assert.equal(server.live.paused, item.wantPaused, item.name);
+    assert.equal(server.live.revision, item.wantRevision ?? 3, item.name);
+  }
+});
+
 test("station lane roles validate and round trip", () => {
   const config = connectedScenario();
   assert.deepEqual(editor.validateConfig(config), []);
