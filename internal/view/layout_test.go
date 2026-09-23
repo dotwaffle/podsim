@@ -287,9 +287,47 @@ func TestConnectionLabelFitsLayout(t *testing.T) {
 		t.Run(layout.name, func(t *testing.T) {
 			t.Parallel()
 			game := controlTestGame(t, layout.input)
-			got := game.labelArea(game.connectionFooter())
-			if got.right > float64(game.layout.width) || got.bottom > float64(game.layout.height) {
-				t.Fatalf("connection label %+v escapes layout %dx%d", got, game.layout.width, game.layout.height)
+			for _, focused := range []bool{true, false} {
+				footer := game.connectionFooter(focused)
+				got := game.labelArea(footer)
+				if got.right > float64(game.layout.width) || got.bottom > float64(game.layout.height) {
+					t.Errorf("connection label %q %+v escapes layout %dx%d", footer.value, got, game.layout.width, game.layout.height)
+				}
+			}
+		})
+	}
+}
+
+// TestConnectionFooter checks the text and color of the line below the
+// panels for each connection state, with and without the keyboard focus.
+func TestConnectionFooter(t *testing.T) {
+	t.Parallel()
+	const (
+		lost      = "Connection lost or connecting. Controls resume when the server is available."
+		pending   = "Shared session / waiting for command confirmation"
+		connected = "Shared session / connected. Playback, orders, demand, and save points are shared across all browsers. Pod inspection stays local."
+	)
+	tests := []struct {
+		name                        string
+		connected, pending, focused bool
+		wantValue                   string
+		wantColor                   uint32
+	}{
+		{name: "connected with focus", connected: true, focused: true, wantValue: connected, wantColor: muted},
+		{name: "connected without focus", connected: true, wantValue: focusHint, wantColor: amber},
+		{name: "pending with focus", connected: true, pending: true, focused: true, wantValue: pending, wantColor: muted},
+		{name: "pending without focus", connected: true, pending: true, wantValue: pending, wantColor: muted},
+		{name: "lost with focus", focused: true, wantValue: lost, wantColor: muted},
+		{name: "lost without focus", wantValue: lost, wantColor: muted},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			game := journeyTestGame(t, 2)
+			game.connected, game.pending = test.connected, test.pending
+			got := game.connectionFooter(test.focused)
+			if got.value != test.wantValue || got.color != test.wantColor {
+				t.Errorf("footer = %q color %#06x, want %q color %#06x", got.value, got.color, test.wantValue, test.wantColor)
 			}
 		})
 	}

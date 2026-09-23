@@ -129,6 +129,7 @@ See [distribution and operations](docs/operations.md) for build and runtime sett
 - Keyboard: **Enter** submits an order and **Tab** selects the next pod.
 - **Space** pauses or resumes, **R** resets, **S** changes speed, and **F** toggles pod following.
 - The simulation gets the keyboard focus when the page opens and after a click on **Download debug state**. After a click outside the simulation, click the simulation to use the keyboard shortcuts again.
+  While the connection works and the simulation has no keyboard focus, the line below the panels shows **Click the simulation to use keyboard shortcuts** in amber.
 - Reset restores the saved scenario fleet and demand settings, clears requests and reservations, and returns to 1x playback.
 - Select **Save point** to keep an exact copy of the simulation, the demand stream, and the project settings in server memory.
 - Select **Rewind** to return to the latest save point. The button shows the simulated time of that save point.

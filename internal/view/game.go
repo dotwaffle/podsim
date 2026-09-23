@@ -469,7 +469,7 @@ func (g *Game) Draw(screen *ebiten.Image) {
 	for _, b := range g.buttons() {
 		g.drawButton(screen, b)
 	}
-	g.label(screen, g.connectionFooter())
+	g.label(screen, g.connectionFooter(ebiten.IsFocused()))
 }
 
 // headerLabels returns the title and the header text above the panels.
@@ -481,9 +481,22 @@ func (g *Game) headerLabels() []label {
 	}
 }
 
+// focusHint tells the user how to give the keyboard focus to the simulation.
+const focusHint = "Click the simulation to use keyboard shortcuts"
+
 // connectionFooter returns the connection status line below the panels.
-func (g *Game) connectionFooter() label {
-	return label{x: 28, y: 740, size: 11, value: g.connectionLabel(), color: muted}
+// focused is true when the simulation has the keyboard focus. Without the
+// focus, the line shows the focus hint in amber.
+func (g *Game) connectionFooter(focused bool) label {
+	footer := label{x: 28, y: 740, size: 11, value: g.connectionLabel(), color: muted}
+	// A lost connection and a pending command win over the focus hint. In
+	// these states, the client rejects commands until the connection comes
+	// back or the server confirms the command. The focus hint shows after
+	// that.
+	if g.connected && !g.pending && !focused {
+		footer.value, footer.color = focusHint, amber
+	}
+	return footer
 }
 
 func (g *Game) mapPoint(p sim.Point) sim.Point {
