@@ -351,8 +351,8 @@ func (g *Game) click(point sim.Point) bool {
 				g.showOrders, g.showDemand = false, false
 			} else if origin, ok := strings.CutPrefix(b.action, "from/"); ok {
 				g.origin = origin
-			} else {
-				g.destination = b.action
+			} else if destination, ok := strings.CutPrefix(b.action, "to/"); ok {
+				g.destination = destination
 			}
 			g.message = ""
 		}

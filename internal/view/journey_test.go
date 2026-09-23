@@ -56,13 +56,43 @@ func TestStationPagingAndSelection(t *testing.T) {
 		t.Fatalf("station page = %d, want 1", game.stationPage)
 	}
 	want := pages[1][0].station.ID
-	game.click(centerOfButton(findButton(t, game.buttons(), want)))
+	game.click(centerOfButton(findButton(t, game.buttons(), "to/"+want)))
 	if game.destination != want {
 		t.Fatalf("destination = %q, want %q", game.destination, want)
 	}
 	game.click(centerOfButton(findButton(t, game.buttons(), "stations-prev")))
 	if game.stationPage != 0 {
 		t.Fatalf("station page = %d, want 0", game.stationPage)
+	}
+}
+
+// TestStationChipsDoNotTriggerControls uses station IDs that are also control
+// actions. A station chip must only select its station.
+func TestStationChipsDoNotTriggerControls(t *testing.T) {
+	t.Parallel()
+	game := journeyTestGame(t, 4)
+	ids := []string{"rewind", "checkpoint", "reset", "pause"}
+	for index, id := range ids {
+		game.network.Stations[index].ID = id
+	}
+	game.origin, game.destination = ids[3], ids[2]
+	for _, id := range ids {
+		for _, chip := range []struct {
+			action string
+			got    func() string
+		}{
+			{action: "from/" + id, got: func() string { return game.origin }},
+			{action: "to/" + id, got: func() string { return game.destination }},
+		} {
+			control := findButton(t, game.buttons(), chip.action)
+			if control.disabled {
+				t.Fatalf("chip %q is disabled", chip.action)
+			}
+			game.click(centerOfButton(control))
+			if chip.got() != id || game.pending {
+				t.Fatalf("chip %q selected %q with pending %t, want %q and no command", chip.action, chip.got(), game.pending, id)
+			}
+		}
 	}
 }
 
