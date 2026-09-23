@@ -129,10 +129,13 @@ const (
 // StateSaved is set only when Apply tried to save the session state before
 // the reply. This occurs for a project apply, for a rewind that restores a
 // project, and for exact retries of both, when the session saves its state.
-// StateSaved is true when a saved state holds the command. It is false when
-// the save failed or took more time, or when the session is closed and no
-// earlier save holds the command. Then a server crash can undo the command.
-// Each exact retry reports the result of its own save.
+// StateSaved is true when the last successful save holds the state at
+// Revision or at a later revision. A later state counts, because a restore
+// of it cannot go back to the state before the command. StateSaved is false
+// when no successful save holds such a state, for example after a failed
+// save, or after Close when no earlier save holds the command. Then a
+// server crash can undo the command. An exact retry keeps Revision, and it
+// reports StateSaved after its own save.
 type Reply struct {
 	Epoch           string           `json:"epoch"`
 	Revision        uint64           `json:"revision"`
@@ -390,8 +393,9 @@ func (s *Session) Project() ProjectState {
 // When the session saves its state, Apply saves it before it replies to a
 // project apply or to a rewind that restores a project. It waits at most
 // 2 s for this save. A failed save does not reject the command, because the
-// session applied the command. The reply reports the result of the save in
-// StateSaved. An exact retry of such a command also saves before it
+// session applied the command. After the save, StateSaved tells whether the
+// last successful save holds the state at the revision of the reply or at a
+// later revision. An exact retry of such a command also saves before it
 // replies. This save waits for the save of the first request, and it writes
 // nothing when the state did not change after that save.
 func (s *Session) Apply(command Command) Reply {
@@ -413,7 +417,7 @@ func (s *Session) Apply(command Command) Reply {
 	// the reply can restore the state from before the command. An exact
 	// retry saves too, because the save of the first request can still run.
 	if result.saveState {
-		result.reply.StateSaved = s.saveBeforeReply()
+		result.reply.StateSaved = s.saveBeforeReply(result.reply.Revision)
 	}
 	return result.reply
 }

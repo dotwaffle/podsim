@@ -89,18 +89,24 @@ state frame. A rejected command gets HTTP 409 and an acknowledgment with a
 stable `errorCode` and an `error` message.
 
 The server sets `stateSaved` only when it tried to save the session state
-before the acknowledgment. `true` means that the saved state holds the
-command. `false` means that the save failed or took more than 2 seconds, or
-that a graceful shutdown started and no earlier save holds the command. The
-server applied the command, but a server crash can undo it until a later save
-succeeds. Tell the user. The server omits `stateSaved` for other commands, for
-rejected commands, and when it does not save the session state. See
-[session state](operations.md#session-state).
+before the acknowledgment. `true` means that the last successful save holds
+the state at the `revision` of the acknowledgment or at a later revision. A
+later state counts, also with commands from other clients, because a restore
+of it cannot go back to the state before the command. `false` means that no
+successful save holds such a state. This occurs after a save that failed or
+took more than 2 seconds, or when a graceful shutdown started before a save
+held the command.
+
+When `stateSaved` is `false`, the server applied the command, but a server
+crash can undo it until a later save succeeds. Tell the user. The server omits
+`stateSaved` for other commands, for rejected commands, and when it does not
+save the session state. See [session state](operations.md#session-state).
 
 Exact retries return the original acknowledgment, except `stateSaved`. The
 server saves the state before each reply to an exact retry of a `project`
-command or of a `rewind` that restored a project, and `stateSaved` gives the
-result of that save. A sequence lower than the last sequence from the same
+command or of a `rewind` that restored a project. After that save, the server
+sets `stateSaved` with the rule above for the `revision` of the original
+acknowledgment. A sequence lower than the last sequence from the same
 client gets `expired_command`. The same sequence with a different command
 gets `sequence_conflict`. After a server restart, a sequence from before the
 restart can also get `expired_command`. See

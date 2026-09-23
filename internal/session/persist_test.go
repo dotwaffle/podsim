@@ -1310,71 +1310,67 @@ func TestClientLimitRestart(t *testing.T) {
 
 func TestSaveStateRules(t *testing.T) {
 	t.Parallel()
-	type step func(context.Context, *Session) (bool, error)
-	save := func(kind SaveKind) step {
-		return func(ctx context.Context, s *Session) (bool, error) { return s.saveState(ctx, kind) }
-	}
-	periodic, final, command, unknown := save(SavePeriodic), save(SaveFinal), save(saveCommand), save(0)
-	closeSession := func(_ context.Context, s *Session) (bool, error) { s.Close(); return false, nil }
-	advance := func(_ context.Context, s *Session) (bool, error) { s.advance(); return false, nil }
+	type step func(context.Context, *Session) error
+	periodic := func(ctx context.Context, s *Session) error { return s.SaveState(ctx, SavePeriodic) }
+	final := func(ctx context.Context, s *Session) error { return s.SaveState(ctx, SaveFinal) }
+	command := func(ctx context.Context, s *Session) error { return s.SaveState(ctx, saveCommand) }
+	unknown := func(ctx context.Context, s *Session) error { return s.SaveState(ctx, 0) }
+	closeSession := func(_ context.Context, s *Session) error { s.Close(); return nil }
+	advance := func(_ context.Context, s *Session) error { s.advance(); return nil }
 	tests := []struct {
 		name string
-		// steps change the session and save it. The test checks the result
-		// of the last step.
+		// steps change the session and save it. The test checks the error of
+		// the last step.
 		steps []step
 		// writes counts the writes after the startup save.
 		writes int
 		final  bool
 		failed bool
-		// saved is the value that the last save reports. It is true only when
-		// the last periodic, command or final save holds the current revision.
-		saved bool
 	}{
-		{"first periodic save", []step{periodic}, 1, false, false, true},
-		{"unchanged revision", []step{periodic, periodic}, 1, false, false, true},
-		{"changed revision", []step{periodic, advance, periodic}, 2, false, false, true},
-		{"final save of an open session", []step{final}, 0, false, true, false},
-		{"periodic save after Close", []step{closeSession, periodic}, 0, false, false, false},
-		{"final save without a change", []step{periodic, closeSession, final}, 2, true, false, true},
-		{"first command save", []step{command}, 1, false, false, true},
-		{"command save after a periodic save", []step{periodic, command}, 1, false, false, true},
-		{"periodic save after a command save", []step{command, periodic}, 1, false, false, true},
-		{"command save after a change", []step{command, advance, command}, 2, false, false, true},
-		{"command save after Close", []step{closeSession, command}, 0, false, false, false},
-		{"command save after Close and a change", []step{command, advance, closeSession, command}, 1, false, false, false},
-		{"command save after Close and a saved revision", []step{command, closeSession, command}, 1, false, false, true},
-		{"command save after a final save", []step{closeSession, final, command}, 1, true, false, true},
-		{"unknown kind", []step{unknown}, 0, false, true, false},
+		{"first periodic save", []step{periodic}, 1, false, false},
+		{"unchanged revision", []step{periodic, periodic}, 1, false, false},
+		{"changed revision", []step{periodic, advance, periodic}, 2, false, false},
+		{"final save of an open session", []step{final}, 0, false, true},
+		{"periodic save after Close", []step{closeSession, periodic}, 0, false, false},
+		{"final save without a change", []step{periodic, closeSession, final}, 2, true, false},
+		{"first command save", []step{command}, 1, false, false},
+		{"command save after a periodic save", []step{periodic, command}, 1, false, false},
+		{"periodic save after a command save", []step{command, periodic}, 1, false, false},
+		{"command save after a change", []step{command, advance, command}, 2, false, false},
+		{"command save after Close", []step{closeSession, command}, 0, false, false},
+		{"command save after a final save", []step{closeSession, final, command}, 1, true, false},
+		{"unknown kind", []step{unknown}, 0, false, true},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
 			store := &fakeStore{}
 			s := startFromStore(t, StoreInput{Store: store, Options: []Option{WithLogger(slog.New(&recordHandler{}))}})
-			var saved bool
 			var err error
 			for _, step := range test.steps {
-				saved, err = step(t.Context(), s)
+				err = step(t.Context(), s)
 			}
-			if (err != nil) != test.failed || saved != test.saved {
-				t.Fatalf("save = %t, %v, want saved %t and failure %t", saved, err, test.saved, test.failed)
+			if (err != nil) != test.failed {
+				t.Fatalf("save error = %v, want failure %t", err, test.failed)
 			}
 			if writes := len(store.writeList()) - 1; writes != test.writes {
 				t.Fatalf("saves wrote %d times, want %d", writes, test.writes)
 			}
-			// When the save reports true, the last write holds the current
-			// revision. The startup save does not count, so a later save
-			// can report false with the current revision in the store.
-			if last := store.lastWrite(t); last.Final != test.final || (test.saved && last.Revision != s.State().Revision) {
+			if last := store.lastWrite(t); last.Final != test.final || last.Revision != s.State().Revision {
 				t.Fatalf("last save is final %t at revision %d, want %t at %d",
 					last.Final, last.Revision, test.final, s.State().Revision)
+			}
+			// Apply compares savedRevision with the revision of a command to
+			// set StateSaved. It is the revision of the last write.
+			if saved, last := s.persist.savedRevision.Load(), store.lastWrite(t).Revision; saved != last {
+				t.Fatalf("savedRevision = %d, want %d, the revision of the last write", saved, last)
 			}
 		})
 	}
 	t.Run("no store", func(t *testing.T) {
 		t.Parallel()
-		if saved, err := newTestSession(t).saveState(t.Context(), SavePeriodic); saved || !errors.Is(err, ErrStateSavingOff) {
-			t.Fatalf("save = %t, %v, want false, %v", saved, err, ErrStateSavingOff)
+		if err := newTestSession(t).SaveState(t.Context(), SavePeriodic); !errors.Is(err, ErrStateSavingOff) {
+			t.Fatalf("save error = %v, want %v", err, ErrStateSavingOff)
 		}
 	})
 }
@@ -2156,54 +2152,101 @@ func TestApplySaveRetryWaits(t *testing.T) {
 	}
 }
 
-// TestApplyStateSavedRetry checks stateSaved in the reply to an exact retry
-// of a project apply. Each retry reports the result of its own save, not a
-// value from the receipt. After Close, a command save writes nothing, and
-// the final save can still fail. The retry then reports true only when the
-// last successful save holds the current revision.
+// TestApplyStateSavedRetry checks stateSaved in the replies to a project
+// apply and to its exact retry. Each retry reports the value after its own
+// save, not a value from the receipt. The value is true when the last
+// successful save holds the state at the revision of the command or at a
+// later revision. Before the command, a periodic save holds the revision
+// just before the command. That state does not hold the command.
 func TestApplyStateSavedRetry(t *testing.T) {
 	t.Parallel()
 	diskErr := errors.New("disk full")
+	// step changes the session after the first request and before the
+	// retry. other is a second client of the session. Writes succeed.
+	type step func(t *testing.T, store *fakeStore, other *testClient)
+	closeSession := func(_ *testing.T, _ *fakeStore, other *testClient) { other.session.Close() }
+	save := func(kind SaveKind) step {
+		return func(t *testing.T, _ *fakeStore, other *testClient) {
+			t.Helper()
+			if err := other.session.SaveState(t.Context(), kind); err != nil {
+				t.Fatal(err)
+			}
+		}
+	}
+	finalSave, periodicSave := save(SaveFinal), save(SavePeriodic)
+	// pauseOther changes the revision, and no save holds the change.
+	pauseOther := func(t *testing.T, _ *fakeStore, other *testClient) {
+		t.Helper()
+		other.mustApply(t, Command{Action: "pause", Paused: true})
+	}
+	// applyOther applies a second project with the other client. Its command
+	// save writes the state after this project apply.
+	applyOther := func(t *testing.T, store *fakeStore, other *testClient) {
+		t.Helper()
+		config := customProject()
+		config.Name = "Second project"
+		reply := other.mustApply(t, Command{Action: "project", ProjectRevision: other.session.Project().Revision, Project: &config})
+		last := store.lastWrite(t)
+		if !reflect.DeepEqual(reply.StateSaved, new(true)) || last.Revision != reply.Revision || last.Project.Name != config.Name {
+			t.Fatalf("second project: stateSaved %s, last save of %q at revision %d, want true and %q at %d",
+				savedText(reply.StateSaved), last.Project.Name, last.Revision, config.Name, reply.Revision)
+		}
+	}
 	tests := []struct {
 		name string
-		// firstErr is the write error of the save of the first request.
+		// firstErr and retryErr are the write errors of the saves of the
+		// first request and of the retry.
 		firstErr error
-		// closeSession closes the session before the retry. final makes a
-		// final save after Close.
-		closeSession, final bool
+		steps    []step
+		retryErr error
 		// first and retry are the stateSaved values of the two replies.
 		first, retry bool
 		// writes counts the writes of the retry.
 		writes int
 	}{
-		{"retry after a failed save", diskErr, false, false, false, true, 1},
-		{"retry after a successful save", nil, false, false, true, true, 0},
-		{"retry after Close and a failed save", diskErr, true, false, false, false, 0},
-		{"retry after Close and a successful save", nil, true, false, true, true, 0},
-		{"retry after a final save", diskErr, true, true, false, true, 0},
+		{"retry after a failed save", diskErr, nil, nil, false, true, 1},
+		{"retry after a successful save", nil, nil, nil, true, true, 0},
+		{"retry after Close and a failed save", diskErr, []step{closeSession}, nil, false, false, 0},
+		{"retry after Close and a successful save", nil, []step{closeSession}, nil, true, true, 0},
+		{"retry after a final save", diskErr, []step{closeSession, finalSave}, nil, false, true, 0},
+		// The save of the first request holds the command. The later change
+		// does not remove it.
+		{"retry after Close and a later unsaved change", nil, []step{pauseOther, closeSession}, nil, true, true, 0},
+		{"retry after Close, a failed save and a later unsaved change", diskErr, []step{pauseOther, closeSession}, nil,
+			false, false, 0},
+		{"failed retry save after a failed save", diskErr, []step{pauseOther}, diskErr, false, false, 0},
+		// A saved state from after the command holds the command. The save
+		// of the retry fails, and the reply still reports true.
+		{"failed retry save after a later periodic save", diskErr, []step{pauseOther, periodicSave, pauseOther}, diskErr,
+			false, true, 0},
+		{"failed retry save after a later project apply", diskErr, []step{applyOther, pauseOther}, diskErr, false, true, 0},
+		// The retry writes nothing, so the saved state stays the state after
+		// the second project apply.
+		{"retry after a later project apply", nil, []step{applyOther}, nil, true, true, 0},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
 			store := &fakeStore{}
 			s := startFromStore(t, StoreInput{Store: store, Options: []Option{WithLogger(slog.New(&recordHandler{}))}})
-			client := newTestClient(s, "retry")
+			client, other := newTestClient(s, "retry"), newTestClient(s, "other")
 			client.mustApply(t, Command{Action: "pause", Paused: true})
+			if err := s.SaveState(t.Context(), SavePeriodic); err != nil {
+				t.Fatal(err)
+			}
 			config := customProject()
 			command := client.next(Command{Action: "project", ProjectRevision: s.Project().Revision, Project: &config})
 			store.setWriteErr(test.firstErr)
 			first := s.Apply(command)
+			checkStored(t, store, first)
 			store.setWriteErr(nil)
-			if test.closeSession {
-				s.Close()
+			for _, step := range test.steps {
+				step(t, store, other)
 			}
-			if test.final {
-				if err := s.SaveState(t.Context(), SaveFinal); err != nil {
-					t.Fatal(err)
-				}
-			}
+			store.setWriteErr(test.retryErr)
 			writes := len(store.writeList())
 			retry := s.Apply(command)
+			checkStored(t, store, retry)
 			if first.Error != "" || retry.Error != "" {
 				t.Fatalf("first reply = %+v, retry = %+v, want success", first, retry)
 			}
@@ -2221,6 +2264,18 @@ func TestApplyStateSavedRetry(t *testing.T) {
 				t.Fatalf("the receipt has stateSaved %s, want nil", savedText(stored.StateSaved))
 			}
 		})
+	}
+}
+
+// checkStored checks the stateSaved value of reply against the store. The
+// value must be true exactly when the last write holds the state at the
+// revision of the reply or at a later revision.
+func checkStored(t *testing.T, store *fakeStore, reply Reply) {
+	t.Helper()
+	last := store.lastWrite(t)
+	if want := last.Revision >= reply.Revision; !reflect.DeepEqual(reply.StateSaved, new(want)) {
+		t.Fatalf("reply at revision %d has stateSaved %s, and the last save is at revision %d",
+			reply.Revision, savedText(reply.StateSaved), last.Revision)
 	}
 }
 

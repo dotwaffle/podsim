@@ -149,10 +149,12 @@ The browser client sends an exact retry when it gets no reply in 3 seconds. The 
 An exact retry of a project apply, or of a rewind that restored a project, also makes a command save before its reply.
 This save waits for the command save of the first request. It writes nothing when the session did not change after that save.
 If the command save fails or takes more time, the command still succeeds, and the save about 1 second later tries again.
-The reply shows the result of the command save in `stateSaved`.
-The value is `true` when the command save wrote the state, or when an earlier save holds the current state.
-The value is `false` after a failed save or a save that took more time.
-After a graceful shutdown starts, a command save writes nothing, and the final save can still fail. Thus a reply then has `true` only when an earlier save, for example the final save, holds the current state.
+After the command save, the reply shows in `stateSaved` whether a saved state holds the command.
+The value is `true` when the last successful save of any kind holds the state at the `revision` of the reply or at a later revision.
+An exact retry gets the `revision` of the first reply.
+A later state counts, also with changes from other clients, because a restore of it cannot go back to the state before the command.
+The value is `false` when no successful save holds such a state, for example after a failed save or a save that took more time.
+After a graceful shutdown starts, a command save writes nothing, and the final save can still fail. Thus a reply then has `true` only when an earlier save, for example the final save, holds such a state.
 When the value is `false`, the simulation view and the editor show a warning.
 A failed write keeps the old file.
 After a stop without a final save, the next start restores the last saved state, which can be up to about 60 seconds old.
