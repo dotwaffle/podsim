@@ -72,9 +72,11 @@ mise run serve -- -state file:///var/lib/podsim
 `-state` is off by default. Without it, the server does not save or read a session state.
 The server makes the directory if it does not exist. The server user needs write access to it.
 The server saves the session state at startup, every 60 seconds while the session changes, and a final time at a graceful shutdown.
-It also saves before it replies to a project apply or to a rewind that restores a project, and about 1 second after a demand change.
-If the save before the reply fails, the reply tells the client, and the simulation view or the editor shows a warning.
-The saved state holds the project, the pods, the order queue, the demand stream, the statistics, the playback speed, the pause state, and the last command sequence of each client.
+It also saves before it replies to a project apply or to a rewind that restores a project. It waits at most 2 seconds for this save.
+A demand change and these two commands also start a save about 1 second later.
+If the save before the reply fails or takes more than 2 seconds, the reply tells the client. The simulation view or the editor then shows a warning.
+The saved state holds the project, the pods, the order queue, the demand stream, and the statistics.
+It also holds the playback speed, the pause state, and the last command sequence of each client.
 It does not hold save points or command receipts.
 After a stop without the final save, the restored session can be up to about 60 seconds old.
 
@@ -85,7 +87,8 @@ At startup, the server restores the saved session with one of these tiers:
 - `empty`: The server does not use the saved state and starts a new session. Except after a read failure, it moves the file aside.
 
 With `-project`, the project file has priority. If the saved project is different, the server starts a new session with the project file.
-If only the demand settings are different, the server restores the saved session and applies the demand settings of the project file, except while the saved traffic demo runs.
+If only the demand settings are different, the server restores the saved session and applies the demand settings of the project file.
+While the saved traffic demo runs, the server cannot change the demand settings. Then it starts a new session with the project file.
 Without `-project`, the server restores the saved project.
 State frames give the result in `restore`.
 See [session state](docs/operations.md#session-state) for the file names and the recovery steps.
@@ -112,14 +115,19 @@ See [distribution and operations](docs/operations.md) for build and runtime sett
 - Light arrows on the lanes show the direction of travel. Where two arrows in about the same direction overlap, the map shows only one of them.
 - Scroll over the map to zoom at the pointer. Drag the map to pan. Use **+** and **−** to zoom at the map center. Use **Fit** to show the whole network.
 - Map navigation stays local to your browser. Zoom in to see individual berths in crowded stations.
+  Until then, such a station shows one marker. The map does not show the idle pods in the station, except the selected pod.
   **Reset** and **Rewind** keep the map view when the network does not change.
 - Select **Follow** or press **F** to keep the selected pod centered. Clicking or dragging the map, or selecting **Fit**, stops following.
 - Overview labels show occupied berths and nonzero entrance and exit queues.
+  On a network with more than 30 stations, the map can omit an overview label where it covers another label or a station marker.
+  On such a network, only the selected pod has a map label until you zoom in to four times the **Fit** scale.
+  See [the London qualification network](docs/london.md) for these rules.
 - Expanded labels show occupied, reserved-empty, and free berths. These counts sum to station capacity.
 - Expanded entrance labels show stopped and approaching pods. Exit labels show stopped departing pods.
   Queue counts include dedicated access spurs, but exclude general road traffic.
   A reserved-empty berth can still have a departing pod that holds its clearance resource.
 - Select **From** and **To**, then **Order**. Pod selection affects inspection only.
+  When the stations do not fit in one row, select **‹** or **›** to show the other stations.
   When **From** and **To** are the same station, **Order** is disabled, and the line below **From** and **To** shows **Choose a different destination.** in amber.
 - An idle local pod serves the request. Otherwise, the nearest available empty pod comes to collect the passenger.
 - Requests wait when no pod is available. Open **Orders** to see queued and active journeys and their status.
@@ -134,7 +142,7 @@ See [distribution and operations](docs/operations.md) for build and runtime sett
 - **Space** pauses or resumes, **Shift+R** resets, **S** changes speed, and **F** toggles pod following.
 - The simulation gets the keyboard focus when the page opens and after a click on **Download debug state**. After a click outside the simulation, click the simulation to use the keyboard shortcuts again.
   While the connection works and the simulation has no keyboard focus, the line below the panels shows **Click the simulation to use keyboard shortcuts** in amber.
-- Reset restores the saved scenario fleet and demand settings, clears requests and reservations, and returns to 1x playback.
+- Reset restores the saved scenario fleet and demand settings, clears requests and reservations, and returns to 1x playback. It keeps the pause state.
   The first press of **Reset** or **Shift+R** does not reset the session. It shows **Select Reset again within 3 s to reset the shared session.**
   A second press within 3 s resets the session and shows **Session reset.**
 - Select **Save point** to keep an exact copy of the simulation, the demand stream, and the project settings in server memory.
@@ -192,11 +200,13 @@ The selected band remains active until the demand settings change.
 Arrivals have equal time intervals. The seed determines the station choices.
 The same seed, settings, initial state, and manual actions produce the same run.
 Starting demand or changing enabled settings restarts the stream and its counters.
-Pause stops both movement and arrivals. Reset restores configured demand. The traffic demo temporarily disables demand.
+Pause stops both movement and arrivals. Reset restores configured demand. The traffic demo disables demand.
+Demand stays off after the demo until you select **Start demand**, or until a reset restores the configured demand.
 The queue holds up to 200 pending orders. Full queues skip generated arrivals and reject new manual orders.
 Skipped arrivals appear in the Demand panel and do not accumulate for a later burst.
 If the simulation rejects a generated order, the Demand panel shows the last error in amber.
-The panel also shows if redistribution is on, the number of redistribution moves, and the distance that pods traveled with no passenger, for example **Redistribution: on / 3 moves / 15.3 km empty**.
+The panel also shows if redistribution is on, the number of redistribution moves, and the distance that pods traveled with no passenger.
+For example, the panel shows **Redistribution: on / 3 moves / 15.3 km empty**.
 
 ## Scenario editor
 
@@ -206,7 +216,8 @@ Applying a valid draft resets the shared simulation and leaves it paused.
 If the apply fails after the editor paused the simulation, the editor resumes it.
 A simulation that was paused before the apply stays paused.
 The editor does not resume a simulation that restarted after the pause, for example after a project apply from another browser.
-If another browser changes the project, the server rejects stale edits. The editor keeps the draft.
+The editor applies a draft only to the project revision that it loaded.
+A project apply or a demand change from any other page makes a new revision. The apply then fails with a conflict, and the editor keeps the draft.
 A rewind to a save point from before a project apply or a demand change restores that project.
 The rewind also rewrites the `-project` file.
 An open draft then gets an apply conflict. Reload the page to get the restored project.
@@ -227,7 +238,7 @@ If the server restarted with a new session, the open editor cannot apply the dra
 
 Project files save the design and settings, not the exact running state.
 Save points are exact, but they are in server memory only. They end when the server stops, also with `-state`.
-Malformed or unsupported files do not replace the draft.
+An import does not replace the draft when the file is malformed, unsupported, or fails validation.
 Validation checks routes between passenger stations, berth routes, pod placement, resource IDs, and the 24-meter minimum lane length.
 A berth route goes from the station entry to the berth, or from the berth to the station exit.
 It can use a chain of lanes, as in the London stations. It cannot pass through the entry, exit, or berth node of a station.
@@ -271,6 +282,7 @@ Use `-burst-size` to group burst-pattern requests at the same simulated time.
 Use `-sharing-limits 1,4` to compare same-destination party limits.
 Use `-routing-policies free-flow,congestion` for the experimental route-cost A/B.
 Use `-redistribution-policies off` to hold redistribution fixed.
+Use `-queue-limit` to change the limit of 200 pending requests. At the limit, the comparison skips new arrivals.
 Pending requests contribute their elapsed wait at the end of the measurement window.
 
 ### Generated scenarios
@@ -402,7 +414,7 @@ An idle empty pod clears its berth when it blocks a passenger arrival, an assign
 It first reserves a free reachable parking berth and retains its origin until physical clearance.
 If parking is full or unreachable, it reserves reachable passenger space instead.
 It prefers local space that no request targets.
-The pod shows "No parking available" only when no reachable physical space exists.
+The pod shows **No parking available** only when no reachable physical space exists.
 
 A passenger or pickup pod can choose a free alternate berth before it reserves the next station branch.
 A route change preserves all admitted track.
@@ -444,7 +456,8 @@ Reconnection restores the current shared state.
 When the server restarts with different browser files, open browser pages reload by themselves.
 The desktop client shows a message instead. Restart it to load the new version.
 After a server restart with the same build, the line below **From** and **To** shows **Server restarted. Save points cleared.** for 3 s.
-When another browser resets or rewinds the session, starts the traffic demo, or applies a project, this line shows **Another browser reset or rewound the session.** for 3 s.
+When another browser resets or rewinds the session, starts the traffic demo, or applies a project, this line shows a notice for 3 s.
+The notice is **Another browser reset or rewound the session.**
 A reset or a rewind from this browser shows its own notice instead.
 The server deduplicates command retries by client and sequence.
 The server keeps command receipts for at most 1,024 browser page loads per session.
@@ -471,7 +484,7 @@ See [the project brief](PROJECT_BRIEF.md) for the wider scope and research.
 | `internal/sim` | Network, routing, requests, pod movement, state export and restore, and deterministic tests. |
 | `internal/observe` | Station berth and queue metrics for the view and comparison reports. |
 | `internal/project` | Versioned scenario settings, validation, and detached copies. |
-| `internal/scenarios` | Deterministic scale fixtures and qualification tests. |
+| `internal/scenarios` | Deterministic scenario presets, including `scale100` and `london`, and qualification tests. |
 | `internal/session` | Shared clock, command validation, save points, saved session state, HTTP API, and repeatable demand. |
 | `internal/statestore` | Saved session state in a `file://` blob bucket, for the server only. |
 | `internal/remote` | Snapshot polling, motion buffering, command retries, and connection state. |

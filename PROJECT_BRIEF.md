@@ -1,6 +1,6 @@
 # Podsim: Project Brief and Research
 
-**Status:** The initial usable 2D version was accepted on September 21, 2026.
+**Status:** The project accepted the initial usable 2D version on September 21, 2026.
 
 The browser supports local map backgrounds, scale calibration, network editing,
 and project persistence. It also supports manual and automatic demand, pod
@@ -138,6 +138,7 @@ Keep internal path lengths and movement conflicts possible in the model even whe
 - Report malformed or unsupported files without replacing the current project.
 - Include a small example network.
 - Save the scenario configuration in project files, rather than the exact running state.
+- With the `-project` server option, load the server project from an existing file. For each project apply, demand change, or rewind that restores a project, save the changed project to that file.
 - Keep at most eight exact save points of the running simulation in server memory only. A server restart clears them. At the limit, a new save point removes the oldest one.
 - With the `-state` server option, save the live shared session to disk and restore it on a best-effort basis after a server restart. The `physical` restore tier keeps the pod positions and moves a pod that cannot keep its position to a free berth. When the `physical` tier fails, the `logical` tier starts the pods again at their initial berths. Parties that were unloading count as completed, and the other parties in pods go back to the queue. The saved state does not hold save points or command receipts.
 
@@ -267,9 +268,10 @@ This brief does not estimate their effort, except where an optional stage appear
 exercised drawing and undo. It edited the network, exported and reloaded the
 project with its background, and then applied the network. It submitted a
 journey through the simulation UI and observed its completion. It also toggled
-pod following and reported no browser errors. Separate browser checks cover
-invalid input, reset, stale edit conflicts, and the 20-station, 100-pod
-scenario. The hardware and performance record is in
+pod following and reported no browser errors.
+
+Separate browser checks cover invalid input, reset, stale edit conflicts, and
+the 20-station, 100-pod scenario. The hardware and performance record is in
 [docs/qualification.md](docs/qualification.md).
 
 The project added the save point, rewind, and `-state` restart checks above
@@ -338,15 +340,17 @@ See [docs/london.md](docs/london.md) and
 [docs/qualification.md](docs/qualification.md#london-capacity-envelope).
 
 The network does not include a background map or stored tunnel depth.
+The general OSM-backed import workflow above also remains future work.
+
 Explicit separation groups distinguish unrelated grade-separated paths.
 Directional portals retain geometric checks at real diverges and merges.
+The London AM peak sample now runs the separation oracle once per simulated
+second.
+
 Each station lane also identifies its approach, entry, berth access, through,
 departure, or exit role.
 Snapshots and the pod inspector use these roles to report station maneuvers
 without changing the existing traffic controller.
-The London AM peak sample now runs the separation oracle once per simulated
-second.
-The general OSM-backed import workflow above also remains future work.
 
 ### Congestion-aware routing
 
@@ -453,12 +457,12 @@ seconds, added 45.2 km of empty travel, and reduced loaded distance from 45.96%
 to 42.15%.
 See [docs/qualification.md](docs/qualification.md#rail-hub-burst-experiment).
 
-The four-party sharing arm cut mean wait by 65%, queue clearance by 53%, and
-empty travel by 49% while serving every request.
+With redistribution off, the four-party sharing arm reduced mean wait by 65%,
+queue clearance by 53%, and empty travel by 49%. It served every request.
 
-A three-seed alternate-route experiment rejected the first occupied-track
-snapshot cost: it served 1.33 fewer requests on average, increased mean wait,
-and added empty travel.
+In a three-seed alternate-route experiment, the first occupied-track
+snapshot-cost policy served 1.33 fewer requests on average than free-flow
+routing. It also increased mean wait and added empty travel.
 Free-flow routing remains the default.
 
 ## 7. Research and reference tools
@@ -482,7 +486,7 @@ Its capacity results depend on historical model assumptions. Treat them as exper
 |---|---|---|
 | [Podaris](https://support.podaris.com/podarisplan-overview) | Map editing, transport layers, service planning, and scenario comparison | Useful interface and planning reference. Its documented demand simulations concern mode and route choices. |
 | [Homerick's PRT-Sim](https://www.inist.org/library/2010-12-00.Homerick.PRT-Sim%20MicroSimulator%20for%20PRT.UCSC.pdf) | Separation of simulation and controllers, scheduled shared services, and editor screenshots | Historical open-source project. The 2010 thesis describes both PRT and conventional scheduled-service controllers. |
-| [Andréasson's PRTsim](https://www.advancedtransit.org/wp-content/uploads/2011/08/Extending-PRT-capabilities.pdf) | Congestion avoidance, rail-transfer surges, shared rides, and coupled vehicles | Distinct from Homerick's PRT-Sim. Study published experiments. Current public access has not been established. |
+| [Andréasson's PRTsim](https://www.advancedtransit.org/wp-content/uploads/2011/08/Extending-PRT-capabilities.pdf) | Congestion avoidance, rail-transfer surges, shared rides, and coupled vehicles | Distinct from Homerick's PRT-Sim. Study published experiments. Research to date did not establish current public access. |
 | [SUMO](https://sumo.dlr.de/docs/Simulation/Taxi.html) | Dispatch, shared rides, capacity limits, travel-time estimates, and external control algorithms | Practical reference for operational behavior. Its broader road-traffic model is beyond Podsim's initial needs. |
 | [Plexe](https://plexe.car2x.org/) | Platoon formation, cooperative maneuvers, dynamics, and control | A framework extending SUMO and Veins. Relevant when studying platooning. |
 | [MATSim DRT](https://github.com/matsim-org/matsim-libs/blob/main/contribs/drt/README.md) | Shared taxis or minibuses, pooling, and additional pickups | Useful reference for shared-service policies. |

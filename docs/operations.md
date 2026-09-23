@@ -12,11 +12,12 @@ go build -trimpath -tags=embed_assets -o podsim-server ./cmd/serve
 The executable contains the HTML, CSS, JavaScript, raw WASM, and gzip WASM files.
 It does not need a `dist` directory at runtime.
 The `-dir` option overrides embedded files for development.
+Without the `embed_assets` build tag and without `-dir`, the server reads the `dist` directory in the working directory.
 Production builds keep Go and WASM debug information.
 
 The server sends browser files with `Cache-Control: no-cache` and API responses with `Cache-Control: no-store`.
 A browser must check a cached file with the server before it uses the file, so a reload after an upgrade loads the new files.
-Files from `-dir` have a modification time, and the server answers `304 Not Modified` when a file did not change.
+Files from `-dir` or `dist` have a modification time, and the server answers `304 Not Modified` when a file did not change.
 Embedded files have no modification time, so browsers download them again on each load.
 
 The application serves `GET /healthz` without reading simulation state.
@@ -32,9 +33,10 @@ Different browser files get a different ID.
 The startup record `Open Podsim in your browser` gives the ID in `build`.
 
 State frames carry the build ID.
-When the ID changes after a server restart, open browser pages reload and get the new browser files.
+When the ID changes after a server restart, the simulation view in each open browser page reloads the page and gets the new browser files.
+An open editor page does not reload.
 If the server cannot read the browser files, it logs `Browser build ID unavailable` as a warning and uses a random ID.
-Then open pages reload after each server restart.
+Then the simulation view reloads its page after each server restart.
 
 ## Container image
 
@@ -136,7 +138,7 @@ At startup, the server deletes the temporary files that an interrupted write lef
 The server saves the session state at these times:
 
 - At startup, after the restore.
-- Every 60 seconds, when the session changed after the last save. The first periodic save after the start always writes.
+- Every 60 seconds, when the session changed after the last save. The first periodic or command save after the start always writes.
 - Before the reply to a project apply, or to a rewind that restores a project. This is the command save. It counts as a periodic save, but it gets less time.
 - About 1 second after a demand change, a project apply, or a rewind that restores a project. This save counts as a periodic save.
 - At a graceful shutdown, and when startup fails after the startup save. This is the final save.
@@ -145,7 +147,7 @@ A save copies the state while it holds the session lock.
 It encodes, compresses, and writes the copy after it releases the lock.
 Each startup or periodic save gets 30 seconds.
 A command save gets 2 seconds. This time includes the wait for an earlier save.
-The browser client sends an exact retry when it gets no reply in 3 seconds. The shorter save time lets the reply come before the retry.
+The Go client of the simulation view sends an exact retry when it gets no reply in 3 seconds. The shorter save time lets the reply come before the retry.
 An exact retry of a project apply, or of a rewind that restored a project, also makes a command save before its reply.
 This save waits for the command save of the first request. It writes nothing when the session did not change after that save.
 If the command save fails or takes more time, the command still succeeds, and the save about 1 second later tries again.
@@ -157,23 +159,26 @@ The value is `false` when no successful save holds such a state, for example aft
 After a graceful shutdown starts, a command save writes nothing, and the final save can still fail. Thus a reply then has `true` only when an earlier save, for example the final save, holds such a state.
 When the value is `false`, the simulation view and the editor show a warning.
 A failed write keeps the old file.
+The exception is a failed sync of the directory. The new file is then in place, but a power loss can bring back the old file.
 After a stop without a final save, the next start restores the last saved state, which can be up to about 60 seconds old.
 
 At startup, the server reads `session.json.gz` and restores the session with one of these tiers:
 
 - `physical`: The pods keep their lane positions and start again at speed 0. The server makes the track reservations again. A pod that conflicts with another pod, or that has a route that the server cannot restore, goes to a free berth. Its parties board again at their origin station, or go back to the queue.
-- `logical`: The server uses this tier when the `physical` tier fails. It also uses it with reason `restore_loop`, as described below. The pods start again at their initial berths. Parties that were unloading count as completed. Other parties in pods go back to the queue.
+- `logical`: The server uses this tier with reason `physical_failed` when the `physical` tier fails. It also uses it with reason `restore_loop`, as described below. The pods start again at their initial berths. Parties that were unloading count as completed. Other parties in pods go back to the queue.
 - `empty`: The server does not use the saved state and starts a new session. Except after a read failure, it moves `session.json.gz` to a rejected file.
 
 The reason for an `empty` start is `project_changed`, `unsupported_version`, `invalid_state`, `too_large`, `restore_loop`, or `unreadable`.
 `too_large` means more than 16 MiB, compressed or decompressed.
-A file from a newer server version gets `unsupported_version`. Thus after a downgrade, the older server moves the file aside.
+A file with another format version gets `unsupported_version`. Each change to the members of the file gets a new format version.
+Thus after a downgrade past such a change, the older server moves the file aside.
 With `-project`, the project file has priority, and a saved state with a different project gets `project_changed`.
 But when only the demand settings are different, the server restores the saved state.
 A demand change writes the project file at once and the session state about 1 second later. Thus a crash between the two writes can leave this difference.
-A project apply or a rewind that restores a project also writes the project file at once, but the server makes the command save before it replies, also to an exact retry.
+A project apply or a rewind that restores a project also writes the project file at once.
+But the server makes the command save before it replies, also to an exact retry.
 Thus a crash can leave the difference only before the reply, or after a command save that failed or took more time. In the second case, the reply has `stateSaved` set to `false`.
-When the project has only other demand settings, the restore then keeps the simulation from before the command.
+When the new project differs from the saved project only in its demand settings, the restore keeps the simulation from before the command.
 After the restore, the server applies the demand settings of the project file as a demand change does, and the project revision increases by one.
 While the restored traffic demo runs, a demand change is not possible. Then the saved state gets `project_changed`.
 Without `-project`, the server restores the saved project.
@@ -194,7 +199,8 @@ A stop for another cause also counts, for example a `SIGKILL` before the first p
 When startup fails after the startup save, for example because a listen address is in use, the server makes a final save before it stops.
 Thus a failed startup does not count as a restore.
 
-The server keeps the saved epoch only after a final save and a `physical` or `logical` restore, and only when the saved state has fewer than 1,024 clients.
+The server keeps the saved epoch only after a final save and a `physical` or `logical` restore.
+The saved state must also have fewer than 1,024 clients.
 See [server restarts](protocol.md#server-restarts) for the effect on clients.
 
 Only one server can use a state location, which is one directory and prefix.
@@ -209,7 +215,7 @@ To use a rejected or previous file:
 3. Rename the rejected or previous file to `session.json.gz`.
 4. Start the server.
 
-A file from a newer version needs a server of that version or later.
+A file with another format version needs a server with that format version.
 A file that the server rejected with reason `restore_loop` gets the same reason again.
 
 A previous or copied file can come from a final save, and the server can then keep its epoch.
@@ -339,6 +345,9 @@ Both records give `duration`, the time to apply the command under the session lo
 
 ## Session state logs
 
+The server writes only log records at level INFO or higher.
+Thus it does not write the DEBUG records in this section.
+
 With `-state`, the server writes these log records at startup:
 
 - `Opened session state store` (INFO) gives the redacted `url` and the `location`, the path in front of each file name.
@@ -395,7 +404,7 @@ A periodic save in progress stops, and the old file stays.
 If the clock and the saver stopped, the server saves the session state a last time.
 This final save gets 5 seconds.
 The server waits up to 6 seconds for it, because a blocked file system call can continue after the timeout.
-A final save that fails or times out keeps the old file.
+A final save that fails or times out keeps the old file, except after a failed sync of the directory.
 If the clock did not stop, the state can still change. If the saver did not stop, its write can still use the store.
 In both cases, the server does not make a final save.
 Without a final save, the next start restores the last saved state with a new epoch.

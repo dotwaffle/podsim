@@ -30,7 +30,14 @@ rejects a frame if matching topology is not available. The client ignores a
 frame from an epoch that it left. If the server sends that epoch in all polls
 for 1 s, the client switches to that epoch again.
 
-A state frame can contain a `build` string that identifies the server build.
+Each state frame also has a `revision` and a `generation`. The revision
+increases by one at each clock tick while the session runs, and with each
+accepted command. The generation increases by one with a reset, a demo, a
+project apply, a rewind, and a restore of the saved state at a restart. A new
+generation makes the Go client clear its buffered motion.
+
+A state frame can contain a `build` string. It is the build ID of the browser
+files that the server sends. See [build ID](operations.md#build-id).
 A server without a build ID omits the key. In all future versions of the frame
 format, `build` stays a top-level string.
 
@@ -42,10 +49,10 @@ cannot use. For example, a member can have a type that the client does not
 expect, or the topology read for the frame can fail.
 
 A state frame can contain a `restore` object. It tells how a server with
-`-state` started the current simulation from its saved session state. A
-server without `-state` omits the key. A server that found no saved state
-also omits it. A reset, a demo, or a project apply removes the key. A rewind
-does not change it.
+`-state` started the current simulation and if it used its saved session
+state. A server without `-state` omits the key. A server that found no saved
+state also omits it. A reset, a demo, or a project apply removes the key. A
+rewind does not change it.
 
 | Member | Content |
 | --- | --- |
@@ -56,9 +63,10 @@ does not change it.
 | `dropped` | The number of orders that the restore removed because they were not valid. |
 
 The server omits an empty `reason` and each count of 0.
-`restore_loop` means that the server stopped before its first periodic or
-final save after a restore. After one such stop, the next start uses the
-`logical` tier. After two, the next start does not use the saved state.
+`restore_loop` means that the server stopped after a restore and before a
+periodic save, a final save, or a save before an acknowledgment. After one
+such stop, the next start uses the `logical` tier. After two, the next start
+does not use the saved state.
 
 Each command contains a `client` ID, a `sequence`, the session `epoch`, and an
 `action`. The actions are `trip`, `pause`, `speed`, `reset`, `demo`, `demand`,
@@ -74,7 +82,7 @@ The other members depend on the action:
 | `reset` | None | Restores the project fleet and demand settings, and clears the orders. It sets the speed to 1 and keeps the pause state. |
 | `demo` | None | Resets the run, starts the traffic demo, disables automatic demand, and sets the speed to 1. It needs the unchanged example network and fleet. |
 | `demand` | `demand`: the `demand` object of a project | Replaces the demand settings of the project and increases the project revision. The server rejects it during the demo. |
-| `project` | `project`: the `project` object from `GET /api/project`. `projectRevision`: integer | Replaces the project and increases the project revision. The new fleet starts paused at speed 1. The session must be paused, and `projectRevision` must be the current project revision. When the session is paused and `projectRevision` is not the current project revision, the command gets `stale_project`. |
+| `project` | `project`: the `project` object from `GET /api/project`. `projectRevision`: the `revision` from `GET /api/project`, an integer | Replaces the project and increases the project revision. The new fleet starts paused at speed 1. The session must be paused, and `projectRevision` must be the current project revision. When the session is paused and `projectRevision` is not the current project revision, the command gets `stale_project`. |
 | `checkpoint` | None | Makes a save point. |
 | `rewind` | `checkpoint`: save point ID, an integer | Restores the save point and pauses the session. |
 
@@ -102,8 +110,10 @@ crash can undo it until a later save succeeds. Tell the user. The server omits
 `stateSaved` for other commands, for rejected commands, and when it does not
 save the session state. See [session state](operations.md#session-state).
 
-Exact retries return the original acknowledgment, except `stateSaved`. The
-server saves the state before each reply to an exact retry of a `project`
+The Go client sends an exact retry when a command request fails, gets no
+reply in 3 s, or gets an HTTP 5xx status. It sends a command at most three
+times. Exact retries return the original acknowledgment, except `stateSaved`.
+The server saves the state before each reply to an exact retry of a `project`
 command or of a `rewind` that restored a project. After that save, the server
 sets `stateSaved` with the rule above for the `revision` of the original
 acknowledgment. A sequence lower than the last sequence from the same
@@ -310,7 +320,7 @@ come from these runs.
 Level 6 saves 3,014 bytes, or 17.2%, for each London frame. It takes about twice
 the compression CPU. At 20 Hz, it adds about 6.4 ms of CPU per wall second and
 saves about 60 KB/s for each client. The server uses level 1 because CPU is the
-tighter resource on the proposed shared-CPU deployment.
+tighter resource when the server gets only a part of a shared CPU.
 
 These measurements exclude frame construction, Protobuf conversion, HTTP work,
 decompression, rendering, and simulation work. They do not show the fraction
