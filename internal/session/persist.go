@@ -76,8 +76,12 @@ type StoreInput struct {
 	Store StateStore
 	// Project is the project of the -project file, or nil. The caller
 	// validates it, and NewFromStore does not validate it again. A saved
-	// state with a different project is not restored. With nil,
-	// NewFromStore restores the saved project.
+	// state with a different project is not restored. When only the demand
+	// settings are different, NewFromStore restores the saved state and
+	// then applies the demand settings of Project as the demand command
+	// does. When the restored traffic demo runs, NewFromStore does not
+	// restore the saved state, because the demand command refuses a change
+	// during the demo. With nil, NewFromStore restores the saved project.
 	Project *project.Config
 	// Options configure the session, as in NewWithProject.
 	Options []Option
@@ -306,6 +310,16 @@ func (s *Session) start(ctx context.Context, input startInput) (*loadedState, er
 		return nil, err
 	}
 	s.installRestored(loaded)
+	// The demand command writes the project file at once, but the state
+	// file about 1 s later. After a crash in that time, the project file has
+	// newer demand settings. Apply them as the command did. A project apply
+	// or a rewind that restores a project can leave the same difference. The
+	// project file has the settings already, so do not write it.
+	if loaded.projectDemand != nil {
+		if err := s.applyDemand(*loaded.projectDemand, nil); err != nil {
+			return nil, fmt.Errorf("apply demand settings of the project file: %w", err)
+		}
+	}
 	s.backUpDegraded(ctx, loaded.result)
 	return &loaded, nil
 }
@@ -410,6 +424,10 @@ type loadedState struct {
 	// validProject is the saved project after it passed validation. It can
 	// be set when loadState fails, so that the empty session can use it.
 	validProject *project.Config
+	// projectDemand holds the demand settings of the project of the caller
+	// when they are not the saved demand settings. It is nil when they are
+	// the same, and without a project of the caller.
+	projectDemand *DemandConfig
 }
 
 // loadState decodes a saved state and restores its simulation and demand.
@@ -442,8 +460,11 @@ func (s *Session) loadState(input loadInput) (loaded loadedState, err error) {
 	if loaded.config, err = restoreProject(input, file.Project); err != nil {
 		return loaded, err
 	}
-	if input.project == nil {
+	switch {
+	case input.project == nil:
 		loaded.validProject = new(file.Project)
+	case input.project.Demand != file.Project.Demand:
+		loaded.projectDemand = new(input.project.Demand)
 	}
 	if err = file.validate(); err != nil {
 		return loaded, invalidState(err)
@@ -454,6 +475,18 @@ func (s *Session) loadState(input loadInput) (loaded loadedState, err error) {
 	if err != nil {
 		return loaded, invalidState(err)
 	}
+	// The demand command refuses a change while the traffic demo runs, so
+	// a restored demo cannot apply other demand settings. The restore then
+	// rejects the saved state, as for a different project. The saved state
+	// can be older than the end of the demo, so this can lose the session.
+	// But that session started as a demo run, which the user can start
+	// again.
+	if loaded.projectDemand != nil && loaded.simulation.Snapshot().Demo {
+		return loaded, &stateError{
+			reason: reasonProjectChanged,
+			err:    errors.New("the demand settings of the project file are different, and the saved traffic demo runs"),
+		}
+	}
 	if loaded.demand, err = restoreDemand(file.Demand, loaded.config); err != nil {
 		return loaded, invalidState(err)
 	}
@@ -462,8 +495,10 @@ func (s *Session) loadState(input loadInput) (loaded loadedState, err error) {
 
 // restoreProject returns the project that a restore uses. saved is the
 // project of the saved state. With a project of the caller, the two projects
-// must be the same, and the restore uses a copy of the project of the
-// caller. Without one, saved must be valid. Each error is a *stateError.
+// must be the same, but their demand settings can be different. The restore
+// then uses a copy of the project of the caller with the saved demand
+// settings. Without a project of the caller, saved must be valid. Each
+// error is a *stateError.
 func restoreProject(input loadInput, saved project.Config) (project.Config, error) {
 	if input.project == nil {
 		if err := input.steps.validateProject(saved); err != nil {
@@ -471,14 +506,16 @@ func restoreProject(input loadInput, saved project.Config) (project.Config, erro
 		}
 		return saved, nil
 	}
-	same, err := sameProject(*input.project, saved)
+	config := project.Clone(*input.project)
+	config.Demand = saved.Demand
+	same, err := sameProject(config, saved)
 	switch {
 	case err != nil:
 		return project.Config{}, invalidState(err)
 	case !same:
 		return project.Config{}, &stateError{reason: reasonProjectChanged, err: errors.New("the saved project is not the project file")}
 	}
-	return project.Clone(*input.project), nil
+	return config, nil
 }
 
 // sameProject reports whether two projects have the same canonical JSON
@@ -596,6 +633,10 @@ func (s *Session) logRestored(input restoredInput) {
 		attrs = append(attrs, slog.Any("physicalError", result.PhysicalError))
 	}
 	s.logger.Info("Restored session", attrs...)
+	if demand := input.loaded.projectDemand; demand != nil {
+		s.logger.Info("Applied demand settings of the project file",
+			slog.Any("savedDemand", file.Project.Demand), slog.Any("demand", *demand))
+	}
 }
 
 // SaveState saves the session state in the store. It copies the state while

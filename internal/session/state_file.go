@@ -395,9 +395,12 @@ func (file *stateFile) validate() error {
 	case file.ProjectRevision == 0 || file.Generation == 0:
 		return fmt.Errorf("project revision %d and generation %d must be 1 or more",
 			file.ProjectRevision, file.Generation)
-	case file.Revision == math.MaxUint64 || file.Generation == math.MaxUint64:
-		// A restore adds 1 to both.
-		return fmt.Errorf("revision %d or generation %d is at the largest value", file.Revision, file.Generation)
+	case file.Revision == math.MaxUint64 || file.ProjectRevision == math.MaxUint64 || file.Generation == math.MaxUint64:
+		// A restore adds 1 to the revision and the generation. It also adds
+		// 1 to the project revision when it applies the demand settings of
+		// the project file.
+		return fmt.Errorf("revision %d, project revision %d or generation %d is at the largest value",
+			file.Revision, file.ProjectRevision, file.Generation)
 	case file.RestoreAttempts < 0:
 		return fmt.Errorf("restore attempts %d is negative", file.RestoreAttempts)
 	case !slices.Contains([]int{1, 2, 4, 8}, file.Speed):

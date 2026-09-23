@@ -83,6 +83,7 @@ At startup, the server restores the saved session with one of these tiers:
 - `empty`: The server does not use the saved state and starts a new session. Except after a read failure, it moves the file aside.
 
 With `-project`, the project file has priority. If the saved project is different, the server starts a new session with the project file.
+If only the demand settings are different, the server restores the saved session and applies the demand settings of the project file, except while the saved traffic demo runs.
 Without `-project`, the server restores the saved project.
 State frames give the result in `restore`.
 See [session state](docs/operations.md#session-state) for the file names and the recovery steps.

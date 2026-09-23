@@ -164,10 +164,12 @@ when it does not use the saved state.
 
 With a kept epoch, the revision and the generation are one more than in the
 saved state. The project revision does not change, so clients keep their
-topology cache. The generation change resets motion. Save point IDs and order
-IDs continue from the saved values. Thus a normal restart does not make the
-server use an ID again in the epoch. When an operator restores an older file
-from a final save, IDs can repeat. See
+topology cache. But when the `-project` file has different demand settings,
+the server applies them as a `demand` command does, and the project revision
+increases by one. The generation change resets motion. Save point IDs and
+order IDs continue from the saved values. Thus a normal restart does not make
+the server use an ID again in the epoch. When an operator restores an older
+file from a final save, IDs can repeat. See
 [session state](operations.md#session-state).
 
 A startup that fails after the startup save writes the increased revision and

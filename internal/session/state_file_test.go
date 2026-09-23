@@ -299,6 +299,7 @@ func TestDecodeStateFileRejects(t *testing.T) {
 		{"project revision 0", edit(func(file *stateFile) { file.ProjectRevision = 0 }), reasonInvalidState, nil},
 		{"generation 0", edit(func(file *stateFile) { file.Generation = 0 }), reasonInvalidState, nil},
 		{"largest revision", edit(func(file *stateFile) { file.Revision = math.MaxUint64 }), reasonInvalidState, nil},
+		{"largest project revision", edit(func(file *stateFile) { file.ProjectRevision = math.MaxUint64 }), reasonInvalidState, nil},
 		{"largest generation", edit(func(file *stateFile) { file.Generation = math.MaxUint64 }), reasonInvalidState, nil},
 		{"negative restore attempts", edit(func(file *stateFile) { file.RestoreAttempts = -1 }), reasonInvalidState, nil},
 		{"speed 3", edit(func(file *stateFile) { file.Speed = 3 }), reasonInvalidState, nil},
@@ -683,7 +684,7 @@ func TestStateFileWorstCaseSize(t *testing.T) {
 		Format: stateFormat, Version: stateVersion, Final: true,
 		SavedAt: time.Date(2026, time.September, 23, 9, 0, 0, 123456789, time.FixedZone("", -12*60*60)),
 		Build:   testBuildID, Epoch: strings.Repeat("E", maxEpochBytes),
-		Revision: math.MaxUint64 - 1, ProjectRevision: math.MaxUint64, Generation: math.MaxUint64 - 1,
+		Revision: math.MaxUint64 - 1, ProjectRevision: math.MaxUint64 - 1, Generation: math.MaxUint64 - 1,
 		LastCheckpoint: math.MaxUint64, Speed: 8, RestoreAttempts: math.MaxInt, Sequences: sequences,
 		Demand: savedDemand{
 			State:  DemandState{Config: demand, Generated: math.MaxInt, Skipped: math.MaxInt, Error: text},

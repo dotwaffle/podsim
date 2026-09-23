@@ -156,6 +156,11 @@ The reason for an `empty` start is `project_changed`, `unsupported_version`, `in
 `too_large` means more than 16 MiB, compressed or decompressed.
 A file from a newer server version gets `unsupported_version`. Thus after a downgrade, the older server moves the file aside.
 With `-project`, the project file has priority, and a saved state with a different project gets `project_changed`.
+But when only the demand settings are different, the server restores the saved state.
+A demand change writes the project file at once and the session state about 1 second later. Thus a crash between the two writes can leave this difference.
+A project apply or a rewind that restores a project writes the project file in the same way. When that project has only other demand settings, a crash in that time keeps the simulation from before the command.
+After the restore, the server applies the demand settings of the project file as a demand change does, and the project revision increases by one.
+While the restored traffic demo runs, a demand change is not possible. Then the saved state gets `project_changed`.
 Without `-project`, the server restores the saved project.
 When the server does not use the saved state, the new session uses the project file.
 Without `-project`, it uses the saved project if the server can decode the file and the project is valid. Otherwise it uses the example project.
@@ -328,6 +333,7 @@ With `-state`, the server writes these log records at startup:
   It also gives the saved `tick`, `epochKept`, `final`, `savedAt`, `savedBuild`, the current `build`, and `restoreAttempts`.
   `bytes` is the compressed size. `duration` is the time from the read to the end of the startup save.
   After a failed `physical` tier, `physicalError` tells why it failed.
+- `Applied demand settings of the project file` (INFO) means that the restore used the demand settings of the `-project` file in place of the saved settings. It gives the `savedDemand` and the `demand` settings.
 - `Demoted pod` (DEBUG) gives each `pod` that the `physical` tier moved to a berth.
 - `Rejected saved session state` (WARN) gives the `reason` and the `error`.
 - `Restore failed with a panic` (ERROR) gives the `panic` and the `stack`. The server then rejects the file with reason `invalid_state`.

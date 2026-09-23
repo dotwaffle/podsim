@@ -792,6 +792,244 @@ func TestNewFromStoreProject(t *testing.T) {
 	}
 }
 
+// TestNewFromStoreDemandChange restores the state that a session saved
+// before a demand command, with the project file that the command wrote.
+// This is a crash after the command wrote the project file and before the
+// state save. No tick runs between the save and the command, so the result
+// must be the session that a restore of a save after the command gives.
+func TestNewFromStoreDemandChange(t *testing.T) {
+	t.Parallel()
+	config := project.Default()
+	config.Demand.Enabled = true
+	store, file := &fakeStore{}, &projectFile{}
+	live := startFromStore(t, StoreInput{Store: store, Project: &config, Options: []Option{WithProjectSaver(file.save)}})
+	client := newTestClient(live, "live")
+	client.mustApply(t, Command{Action: "trip", Origin: "harbor", Destination: "market"})
+	// Run until the demand stream has made orders and has budget for the
+	// next one.
+	advanceTicks(live, 90*sim.TicksPerSecond+17)
+	periodicSave := func() []byte {
+		t.Helper()
+		if err := live.SaveState(t.Context(), SavePeriodic); err != nil {
+			t.Fatal(err)
+		}
+		writes := store.writeList()
+		return writes[len(writes)-1]
+	}
+	before := periodicSave()
+	changeTestDemand(t, client)
+	after := periodicSave()
+	if len(file.saved) != 1 {
+		t.Fatalf("the demand command wrote %d project files, want 1", len(file.saved))
+	}
+	written := file.saved[0]
+	beforeFile, afterFile := decodeTestState(t, before), decodeTestState(t, after)
+	if beforeFile.Demand.Budget == 0 || beforeFile.Demand.State.Generated == 0 {
+		t.Fatalf("saved demand stream %+v made no orders or has no budget", beforeFile.Demand)
+	}
+	// The command changes only the project and the demand stream.
+	if !reflect.DeepEqual(beforeFile.Simulation, afterFile.Simulation) {
+		t.Fatal("the demand command changed the saved simulation")
+	}
+
+	crashStore, crashFile, handler := &fakeStore{data: before}, &projectFile{}, &recordHandler{}
+	crash := startFromStore(t, StoreInput{Store: crashStore, Project: &written, Options: []Option{
+		WithLogger(slog.New(handler)), WithProjectSaver(crashFile.save),
+	}})
+	// The project file has the demand settings already.
+	if len(crashFile.saved) != 0 {
+		t.Fatalf("the restore wrote %d project files, want 0", len(crashFile.saved))
+	}
+	plain := startFromStore(t, StoreInput{Store: &fakeStore{data: after}, Project: &written})
+	unchanged := startFromStore(t, StoreInput{Store: &fakeStore{data: before}, Project: &config})
+	for _, restored := range []*Session{crash, plain, unchanged} {
+		if got := restored.State().Restore; got != (RestoreInfo{Tier: "physical"}) {
+			t.Fatalf("restore = %+v, want the physical tier", got)
+		}
+	}
+	// The demand change increases the project revision once more than a
+	// restore without it, as the command did.
+	if unchanged.projectRevision != beforeFile.ProjectRevision || crash.projectRevision != beforeFile.ProjectRevision+1 ||
+		crash.projectRevision != plain.projectRevision || crash.projectOrigin != crash.projectRevision {
+		t.Fatalf("project revisions: crash %d with origin %d, plain %d, unchanged %d; saved %d",
+			crash.projectRevision, crash.projectOrigin, plain.projectRevision, unchanged.projectRevision,
+			beforeFile.ProjectRevision)
+	}
+	if same, err := sameProject(crash.project, written); err != nil || !same {
+		t.Fatalf("restored project has demand %+v, want %+v", crash.project.Demand, written.Demand)
+	}
+	// The simulation is the saved one.
+	if exported := crash.simulation.ExportState(); !reflect.DeepEqual(exported, unchanged.simulation.ExportState()) ||
+		!reflect.DeepEqual(exported, plain.simulation.ExportState()) {
+		t.Fatal("the restored simulation is not the saved simulation")
+	}
+	// The demand stream is the stream of the live session after the
+	// command.
+	for _, other := range []*Session{live, plain} {
+		want, got := other.demand.clone(), crash.demand.clone()
+		wantRandom, err := want.pcg.MarshalBinary()
+		if err != nil {
+			t.Fatal(err)
+		}
+		gotRandom, err := got.pcg.MarshalBinary()
+		if err != nil {
+			t.Fatal(err)
+		}
+		if got.state != want.state || got.budget != want.budget || !bytes.Equal(gotRandom, wantRandom) ||
+			!reflect.DeepEqual(got.pickupWeights, want.pickupWeights) {
+			t.Fatalf("restored demand %+v with budget %d, want %+v with budget %d",
+				got.state, got.budget, want.state, want.budget)
+		}
+		for draw := range 200 {
+			wantFrom, wantTo := want.nextPair()
+			if from, to := got.nextPair(); from != wantFrom || to != wantTo {
+				t.Fatalf("draw %d = %s to %s, want %s to %s", draw, from, to, wantFrom, wantTo)
+			}
+		}
+	}
+	// The next orders are the same as after a restore of a save after the
+	// command.
+	advanceTicks(crash, 2*60*sim.TicksPerSecond)
+	advanceTicks(plain, 2*60*sim.TicksPerSecond)
+	crashState, plainState := crash.State(), plain.State()
+	if crashState.Demand != plainState.Demand || !reflect.DeepEqual(crashState.Simulation, plainState.Simulation) {
+		t.Fatalf("after 2 simulated minutes, demand %+v and %d orders, want %+v and %d",
+			crashState.Demand, crashState.Simulation.Submitted, plainState.Demand, plainState.Simulation.Submitted)
+	}
+	if crashState.Demand.Generated == 0 {
+		t.Fatal("the restored demand stream made no orders in 2 simulated minutes")
+	}
+	checkRecords(t, handler, []wantRecord{
+		startupSaved,
+		{slog.LevelInfo, "Restored session", map[string]any{"tier": "physical"}},
+		{slog.LevelInfo, "Applied demand settings of the project file", map[string]any{
+			"savedDemand": config.Demand, "demand": written.Demand,
+		}},
+	})
+	// The startup save has the project of the project file, so the next
+	// start does not change the demand settings again.
+	startup := crashStore.lastWrite(t)
+	if startup.ProjectRevision != beforeFile.ProjectRevision+1 || startup.Project.Demand != written.Demand {
+		t.Fatalf("startup save has project revision %d and demand %+v, want %d and %+v",
+			startup.ProjectRevision, startup.Project.Demand, beforeFile.ProjectRevision+1, written.Demand)
+	}
+	next := startFromStore(t, StoreInput{Store: crashStore, Project: &written})
+	if next.projectRevision != startup.ProjectRevision {
+		t.Fatalf("next restore has project revision %d, want %d", next.projectRevision, startup.ProjectRevision)
+	}
+}
+
+// newDemoRun runs the traffic demo of the example project for 1 simulated
+// second. Then it closes the session and saves its final state.
+func newDemoRun(t *testing.T) storedRun {
+	t.Helper()
+	config := project.Default()
+	store := &fakeStore{}
+	s := startFromStore(t, StoreInput{Store: store, Project: &config})
+	newTestClient(s, "demo").mustApply(t, Command{Action: "demo"})
+	advanceTicks(s, sim.TicksPerSecond)
+	if !s.State().Simulation.Demo {
+		t.Fatal("the traffic demo does not run")
+	}
+	s.Close()
+	if err := s.SaveState(t.Context(), SaveFinal); err != nil {
+		t.Fatal(err)
+	}
+	writes := store.writeList()
+	data := writes[len(writes)-1]
+	return storedRun{session: s, data: data, file: decodeTestState(t, data)}
+}
+
+// TestNewFromStoreProjectDifferences restores a saved state with project
+// files that differ from the saved project. Only a change of the demand
+// settings keeps the saved state, and not while the traffic demo runs.
+func TestNewFromStoreProjectDifferences(t *testing.T) {
+	t.Parallel()
+	run, demo := newStoredRun(t), newDemoRun(t)
+	otherDemand := DemandConfig{Enabled: true, PerMinute: 30, Pattern: "balanced", Seed: 9}
+	changeDemand := func(config *project.Config) { config.Demand = otherDemand }
+	disableDemand := func(config *project.Config) { config.Demand.Enabled = false }
+	renameStation := func(config *project.Config) { config.Network.Stations[0].Name = "Renamed station" }
+	addProfile := func(config *project.Config) { config.DemandProfiles = profileDemandProject().DemandProfiles }
+	tests := []struct {
+		name string
+		data []byte
+		// change makes the project file from the saved project.
+		change func(*project.Config)
+		// tier is the restore tier. An empty tier has the reason
+		// project_changed.
+		tier string
+		// changed tells whether the restore applies the demand settings of
+		// the project file.
+		changed bool
+	}{
+		{"same project", run.data, nil, "physical", false},
+		{"demand settings", run.data, changeDemand, "physical", true},
+		{"demand turned off", run.data, disableDemand, "physical", true},
+		{"logical tier and demand settings", run.edited(t, logicalOnly), changeDemand, "logical", true},
+		{"network", run.data, renameStation, "empty", false},
+		{"demand profiles", run.data, addProfile, "empty", false},
+		{"demand settings and network", run.data, func(config *project.Config) {
+			changeDemand(config)
+			renameStation(config)
+		}, "empty", false},
+		{"traffic demo and same project", demo.data, nil, "physical", false},
+		{"traffic demo and demand settings", demo.data, changeDemand, "empty", false},
+		// The logical tier stops the demo, so a demand command can run.
+		{"traffic demo ended by the logical tier", demo.edited(t, logicalOnly), changeDemand, "logical", true},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			saved := decodeTestState(t, test.data)
+			config := project.Clone(saved.Project)
+			if test.change != nil {
+				test.change(&config)
+			}
+			if err := project.Validate(config); err != nil {
+				t.Fatalf("test project file is not valid: %v", err)
+			}
+			store := &fakeStore{data: test.data}
+			s := startFromStore(t, StoreInput{Store: store, Project: &config})
+			restore := s.State().Restore
+			if restore.Tier != test.tier || test.tier == "empty" && restore.Reason != reasonProjectChanged {
+				t.Fatalf("restore = %+v, want tier %q", restore, test.tier)
+			}
+			// Each start uses the project file.
+			if same, err := sameProject(s.project, config); err != nil || !same {
+				t.Fatalf("session project has demand %+v, want %+v", s.project.Demand, config.Demand)
+			}
+			if startup := store.lastWrite(t); startup.Project.Demand != config.Demand {
+				t.Fatalf("startup save has demand %+v, want %+v", startup.Project.Demand, config.Demand)
+			}
+			if test.tier == "empty" {
+				return
+			}
+			wantRevision := saved.ProjectRevision
+			if test.changed {
+				wantRevision++
+			}
+			if s.projectRevision != wantRevision || s.projectOrigin != wantRevision {
+				t.Fatalf("project revision %d and origin %d, want %d", s.projectRevision, s.projectOrigin, wantRevision)
+			}
+			// The demand stream changes as the demand command changes it.
+			// Enabled settings start a new stream. Settings that turn demand
+			// off keep the stream and its counts.
+			want, wantBudget := saved.Demand.State, saved.Demand.Budget
+			switch {
+			case !test.changed:
+			case config.Demand.Enabled:
+				want, wantBudget = DemandState{Config: config.Demand}, 0
+			default:
+				want.Config = config.Demand
+			}
+			if s.demand.state != want || s.demand.budget != wantBudget {
+				t.Fatalf("demand %+v with budget %d, want %+v with budget %d", s.demand.state, s.demand.budget, want, wantBudget)
+			}
+		})
+	}
+}
+
 // TestNewFromStoreRedistribution checks that a restored project with
 // redistribution moves an idle pod, as the live session does. The saved
 // simulation does not hold the setting, so the restore sets it from the

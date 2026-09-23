@@ -96,6 +96,8 @@ func TestOpenSession(t *testing.T) {
 	t.Parallel()
 	changed := project.Default()
 	changed.Demand = project.DemandConfig{Enabled: true, PerMinute: 7, Pattern: "balanced", Seed: 3}
+	renamed := changed
+	renamed.Name = "Other project"
 	invalid := project.Default()
 	invalid.Fleet = nil
 	defaultRate := project.Default().Demand.PerMinute
@@ -125,8 +127,15 @@ func TestOpenSession(t *testing.T) {
 			wantRestore: session.RestoreInfo{Tier: "physical"}, wantPerMinute: 7,
 		},
 		{
-			name: "other -project", saved: &changed, config: project.Default(), projectSet: true,
-			wantRestore: session.RestoreInfo{Tier: "empty", Reason: "project_changed"}, wantPerMinute: defaultRate,
+			name: "other -project", saved: &changed, config: renamed, projectSet: true,
+			wantRestore: session.RestoreInfo{Tier: "empty", Reason: "project_changed"}, wantPerMinute: 7,
+		},
+		// A crash after a demand command can leave newer demand settings in
+		// the project file.
+		{
+			name: "-project with other demand settings", saved: &changed, config: project.Default(), projectSet: true,
+			wantRestore: session.RestoreInfo{Tier: "physical"}, wantPerMinute: defaultRate,
+			wantLog: "Applied demand settings of the project file",
 		},
 		{
 			name: "same -project", saved: &changed, config: changed, projectSet: true,
@@ -154,6 +163,7 @@ func TestOpenSession(t *testing.T) {
 			}
 			var logs logBuffer
 			input.logger = slog.New(slog.NewJSONHandler(&logs, nil))
+			input.options = []session.Option{session.WithLogger(input.logger)}
 			shared, closeStore, err := openSession(t.Context(), input)
 			if test.wantErr != "" {
 				if err == nil || !strings.Contains(err.Error(), test.wantErr) {

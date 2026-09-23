@@ -543,22 +543,7 @@ func (s *Session) apply(command Command) (outcome, error) {
 		if s.simulation.Snapshot().Demo {
 			return outcome{}, errors.New("wait for the demo to finish before changing demand")
 		}
-		demandContext := project.DemandContext{Network: s.project.Network, Profiles: s.project.DemandProfiles}
-		if err := project.ValidateDemand(command.Demand, demandContext); err != nil {
-			return outcome{}, err
-		}
-		updated := project.Clone(s.project)
-		updated.Demand = command.Demand
-		if err := s.save(updated); err != nil {
-			return outcome{}, err
-		}
-		if err := s.demand.configure(demandInput{config: command.Demand, network: s.project.Network, profiles: s.project.DemandProfiles}); err != nil {
-			return outcome{}, err
-		}
-		s.project = updated
-		s.configureRedistribution()
-		s.projectRevision++
-		s.projectOrigin = s.projectRevision
+		return outcome{}, s.applyDemand(command.Demand, s.save)
 	case "project":
 		return outcome{}, s.applyProject(command)
 	case "checkpoint":
@@ -569,6 +554,34 @@ func (s *Session) apply(command Command) (outcome, error) {
 		return outcome{}, errors.New("unknown command")
 	}
 	return outcome{}, nil
+}
+
+// applyDemand makes config the demand settings of the project and of the
+// demand stream. It checks config against the project. When save is not
+// nil, applyDemand calls it with the changed project before it changes the
+// session. The project revision increases, so clients load the project
+// again. The demand command and a restore both use applyDemand. The caller
+// holds s.mu, or no other goroutine uses the session yet.
+func (s *Session) applyDemand(config DemandConfig, save func(project.Config) error) error {
+	demandContext := project.DemandContext{Network: s.project.Network, Profiles: s.project.DemandProfiles}
+	if err := project.ValidateDemand(config, demandContext); err != nil {
+		return err
+	}
+	updated := project.Clone(s.project)
+	updated.Demand = config
+	if save != nil {
+		if err := save(updated); err != nil {
+			return err
+		}
+	}
+	if err := s.demand.configure(demandInput{config: config, network: s.project.Network, profiles: s.project.DemandProfiles}); err != nil {
+		return err
+	}
+	s.project = updated
+	s.configureRedistribution()
+	s.projectRevision++
+	s.projectOrigin = s.projectRevision
+	return nil
 }
 
 func (s *Session) applyProject(command Command) error {
