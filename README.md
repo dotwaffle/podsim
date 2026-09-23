@@ -32,7 +32,9 @@ The build creates static files in `dist/`, including the matching Go WebAssembly
 The first build downloads Go dependencies.
 Keep the server running while using the application.
 All browsers connected to this server share one in-memory session.
-Refreshing a browser retains the session. Restarting the server resets the running simulation.
+Refreshing a browser retains the session.
+Without `-state`, restarting the server resets the running simulation.
+With `-state`, the server saves the session and restores it after a restart, as described below.
 
 The native desktop client connects to the same server session.
 Run `mise exec -- go run ./cmd/podsim`, and use `-server` to select another server URL.
@@ -57,6 +59,31 @@ A rewind that restores the project of a save point also rewrites this file.
 The browser export wraps this object as `scenario` and can also contain a background image.
 `-project` does not accept the browser export, and **Import JSON** does not accept the server file.
 
+To keep the running session across server restarts, give a state directory as a `file://` URL with an absolute path:
+
+```sh
+mise run serve -- -state file:///var/lib/podsim
+```
+
+`-state` is off by default. Without it, the server does not save or read a session state.
+The server makes the directory if it does not exist. The server user needs write access to it.
+The server saves the session state at startup, every 60 seconds while the session changes, and at a graceful shutdown.
+It also saves about 1 second after a demand change, a project apply, or a rewind that restores a project.
+The saved state holds the project, the pods, the order queue, the demand stream, the statistics, the playback speed, and the pause state.
+It does not hold save points or command replay records.
+After a stop without a graceful shutdown, the restored session can be up to about 60 seconds old.
+
+At startup, the server restores the saved session with one of these tiers:
+
+- `physical`: The pods keep their positions and start again from rest. A pod that cannot keep its position goes to a free berth.
+- `logical`: The pods start again at their initial berths. Parties that were in a pod go back to the order queue.
+- `empty`: The server cannot use the saved state and starts a new session. Except after a read failure, it moves the file aside.
+
+With `-project`, the project file has priority. If the saved project is different, the server starts a new session with the project file.
+Without `-project`, the server restores the saved project.
+State frames give the result in `restore`.
+See [session state](docs/operations.md#session-state) for the file names, the recovery steps, and the logs.
+
 ## Production server
 
 `go generate ./...` builds the browser application and gzip WASM asset.
@@ -64,7 +91,7 @@ An `embed_assets` server build contains all browser files in one executable.
 The project also includes a non-root, multiarchitecture ko image and a GHCR publishing workflow.
 The server provides `/healthz`, opt-in pprof on a separate listener, and opt-in OTLP telemetry.
 The browser uses normalized gzip JSON frames.
-See [distribution and operations](docs/operations.md) for build and runtime settings, graceful shutdown, save point memory use, and save point logs.
+See [distribution and operations](docs/operations.md) for build and runtime settings, the saved session state, graceful shutdown, save point memory use, and save point logs.
 
 ## Controls
 
@@ -98,7 +125,7 @@ See [distribution and operations](docs/operations.md) for build and runtime sett
   A rewind leaves the session paused and keeps the playback speed.
 - The session is shared, so a rewind affects every browser. For this reason, these two controls have no keyboard shortcuts.
 - The server keeps at most 8 save points in memory. At the limit, a new save point removes the oldest one.
-  A server restart clears all save points. A reset, the traffic demo, and a project apply keep them.
+  A server restart clears all save points, also with `-state`. A reset, the traffic demo, and a project apply keep them.
 - Demand changes count as project changes. A rewind to a save point from before a demand change restores and saves the earlier demand settings.
   The button then reads **Rewind + project**. The notice after the rewind adds **Project settings restored.**
 
@@ -166,7 +193,7 @@ Export the draft before reloading a newer server project.
 - Export JSON to save the scenario and optional background. Import JSON to restore a draft.
 
 Project files save the design and settings, not the exact running state.
-Save points are exact, but they are in server memory only. They end when the server stops.
+Save points are exact, but they are in server memory only. They end when the server stops, also with `-state`.
 Malformed or unsupported files do not replace the draft.
 Validation checks routes between passenger stations, pod placement, resource IDs, and the 24-meter minimum lane length.
 
@@ -377,6 +404,11 @@ The server deduplicates command retries by client and sequence.
 Replay records support 1,024 browser page loads per server lifetime.
 Only a page that sends a command uses a record.
 If a new page reports the session client limit, restart the server.
+The server does not save replay records, so the limit of 1,024 page loads also starts again after a restart with `-state`.
+If the server saved the session at a graceful shutdown and restores it with the `physical` or `logical` tier, the session continues.
+Then an exact retry of a command from before the restart applies the command again.
+After other restarts, the retry gets the `session_changed` error.
+See [server restarts](docs/protocol.md#server-restarts).
 
 Pod selection, origin, destination, and the open inspection panel stay local to each browser.
 Background images stay in the editor and exported project file.
@@ -400,7 +432,7 @@ See [the project brief](PROJECT_BRIEF.md) for the wider scope and research.
 | `internal/telemetry` | Optional OTLP traces, HTTP metrics, runtime metrics, and session gauges. |
 | `internal/cmd/buildweb` | Generated browser files and gzip WASM artifact. |
 | `cmd/podsim` | Desktop and WASM entry point. |
-| `cmd/serve` | Shared session, browser assets, health checks, and diagnostics. |
+| `cmd/serve` | Shared session, saved session state, browser assets, health checks, and diagnostics. |
 | `cmd/compare` | Reproducible policy comparisons. |
 | `cmd/scenario` | Generated scenario files. |
 | `web` | Browser loader and scenario editor. |
@@ -431,7 +463,7 @@ Lint also lists every package that the WASM build links, and fails if the list h
 Validation has six main parts:
 
 - Core tests cover routing, journeys, invalid requests, pause and reset behavior, repeatability, and state isolation.
-- Session and server tests cover save points, exact rewind, project restore, command logs, and graceful shutdown.
+- Session and server tests cover save points, exact rewind, project restore, saved session state, command logs, and graceful shutdown.
 - Rendering tests cover buffered movement, lane corners, station movement, pause and reset behavior, and stale snapshots.
 - HTTP tests cover compression, topology and frame decoding, command
   acknowledgments, WASM responses, byte ranges, health, and diagnostics.

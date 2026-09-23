@@ -76,16 +76,21 @@ type runInput struct {
 
 // run parses the flags in input.args. Then it serves the browser files and
 // the session until ctx is done or a server fails. When ctx is done, run
-// stops the session, drains the servers and returns nil. A bad flag gives an
-// error that wraps errFlags. -h gives an error that wraps errFlags and
-// flag.ErrHelp. In both cases the flag set already printed the usage text to
-// standard error. run never exits the process.
+// stops the session, drains the servers and returns nil. With -state, run
+// restores the saved session at startup, saves it while it serves, and
+// saves it a last time after the clock stops, or when startup fails after
+// the restore. When ctx is done while run restores the saved session, run
+// returns nil and does not serve. A bad flag gives an error that wraps
+// errFlags. -h gives an error that wraps errFlags and flag.ErrHelp. In both
+// cases the flag set already printed the usage text to standard error. run
+// never exits the process.
 func run(ctx context.Context, input runInput) error {
 	flags := flag.NewFlagSet("serve", flag.ContinueOnError)
 	address := flags.String("addr", "127.0.0.1:8080", "HTTP listen address")
 	directory := flags.String("dir", "", "Browser build directory; overrides embedded assets")
 	pprofAddress := flags.String("pprof-addr", "", "Separate pprof listen address; disabled when empty")
 	projectPath := flags.String("project", "", "Project JSON file to load and save")
+	stateURL := flags.String("state", "", "Bucket URL for the saved session state, for example file:///var/lib/podsim. Off when empty.")
 	if err := flags.Parse(input.args); err != nil {
 		return fmt.Errorf("%w: %w", errFlags, err)
 	}
@@ -106,10 +111,34 @@ func run(ctx context.Context, input runInput) error {
 			return saveProject(*projectPath, config)
 		}))
 	}
-	shared, err := session.NewWithProject(config, options...)
+	shared, closeStore, err := openSession(ctx, openInput{
+		config: config, projectSet: *projectPath != "", stateURL: *stateURL, logger: slog.Default(), options: options,
+	})
 	if err != nil {
+		// NewFromStore stops when ctx ends during the read of the saved
+		// state. This is a clean stop, as it is in runServers.
+		if ctx.Err() != nil {
+			slog.Info("Stop during startup", slog.String("cause", "signal"), slog.Any("error", err))
+			return nil
+		}
 		return err
 	}
+	defer func() {
+		if closeErr := closeStore(); closeErr != nil {
+			slog.Warn("Close session state store", slog.Any("error", closeErr))
+		}
+	}()
+	// Until the clock starts, the session does not change and no client
+	// sees it. When run fails before that, it saves the state as final. The
+	// failed start then does not count as a restore, and repeated failed
+	// starts do not reject the saved state with reason restore_loop.
+	clockStarted := false
+	defer func() {
+		if !clockStarted && *stateURL != "" {
+			shared.Close()
+			saveFinal(ctx, shared, slog.Default())
+		}
+	}()
 	telemetryProvider, err := telemetry.New(ctx, buildVersion(), shared.Metrics)
 	if err != nil {
 		return err
@@ -155,25 +184,39 @@ func run(ctx context.Context, input runInput) error {
 	clockContext, stopClock := context.WithCancel(ctx)
 	defer stopClock()
 	var clock sync.WaitGroup
+	clockStarted = true
 	clock.Go(func() { shared.Run(clockContext) })
+	saverContext, stopSaver := context.WithCancel(ctx)
+	defer stopSaver()
+	var saver sync.WaitGroup
+	if *stateURL != "" {
+		saver.Go(func() { shared.RunStateSaver(saverContext, stateSaveInterval) })
+	}
 	serveErr := runServers(ctx, serveInput{servers: servers, stopping: func() {
 		shared.Close()
 		stopClock()
 	}})
-	waitFor(waitInput{group: &clock, name: "Simulation clock", timeout: 5 * time.Second})
+	clockStopped := waitFor(waitInput{group: &clock, name: "Simulation clock", timeout: 5 * time.Second, logger: slog.Default()})
+	if *stateURL != "" {
+		stopStateSaving(ctx, stopInput{
+			session: shared, clockStopped: clockStopped, saver: &saver, stopSaver: stopSaver, logger: slog.Default(),
+		})
+	}
 	return serveErr
 }
 
 // waitInput names a goroutine group for the log and limits the wait for it.
+// logger gets the warning when the wait stops.
 type waitInput struct {
 	group   *sync.WaitGroup
 	name    string
 	timeout time.Duration
+	logger  *slog.Logger
 }
 
 // waitFor waits for input.group. It stops waiting after input.timeout, so a
 // blocked goroutine cannot keep the process alive. Then it logs a warning
-// with input.name. It returns true if the group stopped.
+// with input.name to input.logger. It returns true if the group stopped.
 func waitFor(input waitInput) bool {
 	done := make(chan struct{})
 	go func() {
@@ -184,7 +227,7 @@ func waitFor(input waitInput) bool {
 	case <-done:
 		return true
 	case <-time.After(input.timeout):
-		slog.Warn(input.name+" did not stop", slog.Duration("timeout", input.timeout))
+		input.logger.Warn(input.name+" did not stop", slog.Duration("timeout", input.timeout))
 		return false
 	}
 }

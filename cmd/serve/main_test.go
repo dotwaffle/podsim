@@ -213,7 +213,7 @@ func TestRunServersDoesNotWaitForBusySession(t *testing.T) {
 	}
 	releaseSaver()
 	busy.Wait()
-	if !waitFor(waitInput{group: &clock, name: "Simulation clock", timeout: 5 * time.Second}) {
+	if !waitFor(waitInput{group: &clock, name: "Simulation clock", timeout: 5 * time.Second, logger: slog.Default()}) {
 		t.Fatal("clock did not stop after the command finished")
 	}
 	pause := session.Command{Client: "editor", Sequence: 2, Epoch: epoch, Action: "pause", Paused: true}
@@ -242,11 +242,17 @@ func TestWaitForIsBounded(t *testing.T) {
 						<-release
 					}
 				})
-				got := waitFor(waitInput{group: &group, name: "Test group", timeout: 5 * time.Second})
+				var logs logBuffer
+				got := waitFor(waitInput{
+					group: &group, name: "Test group", timeout: 5 * time.Second, logger: slog.New(slog.NewJSONHandler(&logs, nil)),
+				})
 				close(release)
 				group.Wait()
 				if got != test.want {
 					t.Fatalf("waitFor = %t, want %t", got, test.want)
+				}
+				if warned := slices.Contains(logs.messages(t, slog.LevelWarn), "Test group did not stop"); warned == test.want {
+					t.Fatalf("warning logged = %t after waitFor = %t", warned, got)
 				}
 			})
 		})
@@ -328,15 +334,32 @@ func TestRunServesUntilCanceled(t *testing.T) {
 func TestRunStopsAfterEarlyCancellation(t *testing.T) {
 	t.Parallel()
 	directory := browserDirectory(t)
-	// A host name needs a lookup, which a canceled context stops.
-	for _, address := range []string{"127.0.0.1:0", "localhost:0"} {
-		t.Run(address, func(t *testing.T) {
+	for _, test := range []struct {
+		name  string
+		args  []string
+		state bool
+	}{
+		{name: "address", args: []string{"-addr", "127.0.0.1:0"}},
+		// A host name needs a lookup, which a canceled context stops.
+		{name: "host name", args: []string{"-addr", "localhost:0"}},
+		// The read of the saved state stops, and run writes no state.
+		{name: "state", args: []string{"-addr", "127.0.0.1:0"}, state: true},
+	} {
+		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
+			stateDirectory := t.TempDir()
+			args := slices.Concat(test.args, []string{"-dir", directory})
+			if test.state {
+				args = append(args, "-state", fileURL(stateDirectory))
+			}
 			ctx, cancel := context.WithCancel(t.Context())
 			cancel()
 			// main gives no ready function.
-			if err := run(ctx, runInput{args: []string{"-addr", address, "-dir", directory}}); err != nil {
+			if err := run(ctx, runInput{args: args}); err != nil {
 				t.Fatalf("run with a canceled context = %v, want nil", err)
+			}
+			if entries, err := os.ReadDir(stateDirectory); err != nil || len(entries) != 0 {
+				t.Fatalf("state directory has %v, %v; want no files", entries, err)
 			}
 		})
 	}

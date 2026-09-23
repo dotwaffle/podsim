@@ -135,8 +135,9 @@ Keep internal path lengths and movement conflicts possible in the model even whe
 - Version the project format.
 - Report malformed or unsupported files without replacing the current project.
 - Include a small example network.
-- Save the scenario configuration rather than the exact running state.
+- Save the scenario configuration in project files, rather than the exact running state.
 - Keep at most eight exact save points of the running simulation in server memory only. A server restart clears them. At the limit, a new save point removes the oldest one.
+- With the `-state` server option, save the live shared session to disk and restore it on a best-effort basis after a server restart. The restore keeps the pod positions when it can. Otherwise it starts the pods again at their initial berths and puts their parties back in the queue. It does not restore save points or command replay records.
 
 ## 3. Architecture and future 3D
 
