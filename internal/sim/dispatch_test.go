@@ -3,6 +3,7 @@ package sim
 import (
 	"errors"
 	"reflect"
+	"slices"
 	"testing"
 )
 
@@ -413,5 +414,139 @@ func TestPickupArrivalOrderDoesNotReorderPassengers(t *testing.T) {
 	}
 	if s.completed != 2 || len(boarded) != 2 {
 		t.Fatalf("out-of-order pickups failed: %+v", s.Snapshot())
+	}
+}
+
+// boardingCounters holds the counters that change when a party boards.
+type boardingCounters struct {
+	boarded, sharedParties       int
+	totalWaitTicks, maxWaitTicks int64
+}
+
+func boardingCountersOf(s *Simulation) boardingCounters {
+	return boardingCounters{
+		boarded: s.boarded, sharedParties: s.sharedParties,
+		totalWaitTicks: s.totalWaitTicks, maxWaitTicks: s.maxWaitTicks,
+	}
+}
+
+// completeRequest steps s until the pod completes its request, for at most
+// 300 simulated seconds.
+func completeRequest(t *testing.T, s *Simulation, pod *vehicle) {
+	t.Helper()
+	for range 300 * TicksPerSecond {
+		s.Step()
+		if pod.Request.Completed {
+			return
+		}
+	}
+	t.Fatalf("pod %s did not complete request %d: %+v", pod.Pod.ID, pod.Request.ID, s.Snapshot())
+}
+
+func TestQueuedTripBoardsWithItsParties(t *testing.T) {
+	t.Parallel()
+	const wait = 30 * TicksPerSecond
+	// saved holds the counters of an earlier run, which a restore keeps.
+	saved := boardingCounters{boarded: 5, sharedParties: 2, totalWaitTicks: 40 * TicksPerSecond, maxWaitTicks: 20 * TicksPerSecond}
+	for _, tc := range []struct {
+		name        string
+		parties     int
+		wantParties int
+		want        boardingCounters
+	}{
+		{
+			name: "new order", parties: 0, wantParties: 1,
+			want: boardingCounters{boarded: 6, sharedParties: 2, totalWaitTicks: 70 * TicksPerSecond, maxWaitTicks: wait},
+		},
+		{name: "requeued party", parties: 1, wantParties: 1, want: saved},
+		{name: "requeued shared ride", parties: 3, wantParties: 3, want: saved},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			s := newSharingSimulation(t)
+			advance(s, wait)
+			s.boarded, s.sharedParties, s.totalWaitTicks, s.maxWaitTicks =
+				saved.boarded, saved.sharedParties, saved.totalWaitTicks, saved.maxWaitTicks
+			s.requestID = 1
+			s.waiting = append(s.waiting, waitingTrip{
+				request: Request{ID: 1, From: "harbor", To: "market", PartySize: tc.wantParties},
+				parties: tc.parties,
+			})
+			// The wait statistics must not change when the trip boards.
+			queued := s.waitStats()
+			s.dispatch()
+			if boarded := s.waitStats(); boarded != queued {
+				t.Fatalf("wait statistics are %+v while queued and %+v after boarding", queued, boarded)
+			}
+			pod := s.findVehicle("01")
+			if len(s.waiting) != 0 || pod.Pod.Activity != Boarding || pod.Parties != tc.wantParties ||
+				pod.Request == nil || pod.Request.PartySize != tc.wantParties {
+				t.Fatalf("pod %s did not board %d parties: %+v", pod.Pod.ID, tc.wantParties, s.Snapshot())
+			}
+			if got := boardingCountersOf(s); got != tc.want {
+				t.Fatalf("boarding counters are %+v, want %+v", got, tc.want)
+			}
+			completed := s.completed
+			completeRequest(t, s, pod)
+			if got := s.completed - completed; got != tc.wantParties || pod.Parties != 0 {
+				t.Fatalf("unloading completed %d parties and kept %d, want %d and 0", got, pod.Parties, tc.wantParties)
+			}
+		})
+	}
+}
+
+func TestSharedRideCountsQueuedParties(t *testing.T) {
+	t.Parallel()
+	const wait = TicksPerSecond
+	for _, tc := range []struct {
+		name        string
+		parties     int
+		joined      bool
+		wantParties int
+		want        boardingCounters
+	}{
+		{
+			name: "new order", parties: 0, joined: true, wantParties: 2,
+			want: boardingCounters{boarded: 2, sharedParties: 1, totalWaitTicks: wait, maxWaitTicks: wait},
+		},
+		{name: "requeued party", parties: 1, joined: true, wantParties: 2, want: boardingCounters{boarded: 1}},
+		{name: "requeued shared ride that fits", parties: 3, joined: true, wantParties: 4, want: boardingCounters{boarded: 1}},
+		{name: "requeued shared ride over the limit", parties: 4, wantParties: 1, want: boardingCounters{boarded: 1}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			s := newSharingSimulation(t)
+			if err := s.SetSharedRidePartyLimit(4); err != nil {
+				t.Fatal(err)
+			}
+			if err := s.RequestTrip("harbor", "market"); err != nil {
+				t.Fatal(err)
+			}
+			pod := s.findVehicle("01")
+			advance(s, wait)
+			if pod.Pod.Activity != Boarding || pod.Parties != 1 {
+				t.Fatalf("pod %s is not boarding one party: %+v", pod.Pod.ID, s.Snapshot())
+			}
+			s.requestID = 2
+			s.waiting = append(s.waiting, waitingTrip{
+				request: Request{ID: 2, From: "harbor", To: "market", PartySize: max(1, tc.parties)},
+				parties: tc.parties,
+			})
+			s.dispatch()
+			joined := !slices.ContainsFunc(s.waiting, func(trip waitingTrip) bool { return trip.request.ID == 2 })
+			if joined != tc.joined {
+				t.Fatalf("the trip joined the shared ride: %t, want %t", joined, tc.joined)
+			}
+			if pod.Parties != tc.wantParties || pod.Request.PartySize != tc.wantParties {
+				t.Fatalf("pod %s has %d parties of size %d, want %d", pod.Pod.ID, pod.Parties, pod.Request.PartySize, tc.wantParties)
+			}
+			if got := boardingCountersOf(s); got != tc.want {
+				t.Fatalf("boarding counters are %+v, want %+v", got, tc.want)
+			}
+			completeRequest(t, s, pod)
+			if s.completed != tc.wantParties {
+				t.Fatalf("completed %d parties, want %d", s.completed, tc.wantParties)
+			}
+		})
 	}
 }

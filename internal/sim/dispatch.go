@@ -14,7 +14,14 @@ type waitingTrip struct {
 	deferUntil  int64
 	deferCheck  int64
 	deferPodID  string
+	// parties is 0 for a new order. A trip that a restore queues again holds
+	// the party count of the pod that carried it. Its boarding is already
+	// recorded.
+	parties int
 }
+
+// partyCount returns the number of parties that the trip carries.
+func (trip waitingTrip) partyCount() int { return max(1, trip.parties) }
 
 // RequestTrip queues a passenger journey between stations and assigns an available pod when possible.
 func (s *Simulation) RequestTrip(origin, destination string) error {
@@ -50,7 +57,7 @@ func (s *Simulation) dispatch() {
 		s.promoteReadyPickup(i)
 		trip := &s.waiting[i]
 		trip.request.DispatchReason = ""
-		if trip.request.PodID == "" && s.joinSharedRide(trip.request) {
+		if trip.request.PodID == "" && s.joinSharedRide(*trip) {
 			s.waiting = slices.Delete(s.waiting, i, i+1)
 			continue
 		}
@@ -150,10 +157,12 @@ func (s *Simulation) board(v *vehicle, trip waitingTrip) error {
 	trip.route, trip.destination = route, Berth{}
 	request := trip.request
 	request.DispatchReason = ""
-	s.recordBoarding(request)
+	if trip.parties == 0 {
+		s.recordBoarding(request)
+	}
 	request.PodID = v.Pod.ID
 	v.Request = &request
-	v.Parties = 1
+	v.Parties = trip.partyCount()
 	v.origin, v.destination, v.destinationStation = origin, trip.destination, trip.request.To
 	s.setVehicleRoute(v, trip.route)
 	v.Pod.Activity, v.Pod.WaitReason, v.Pod.BlockedBy = Boarding, NoWait, ""
@@ -163,20 +172,25 @@ func (s *Simulation) board(v *vehicle, trip waitingTrip) error {
 	return nil
 }
 
-func (s *Simulation) joinSharedRide(request Request) bool {
+// joinSharedRide adds the parties of a trip to a boarding pod with the same
+// origin and destination. The pod must have room for all of them.
+func (s *Simulation) joinSharedRide(trip waitingTrip) bool {
 	if s.sharedRidePartyLimit <= 1 {
 		return false
 	}
+	request, parties := trip.request, trip.partyCount()
 	for index := range s.vehicles {
 		v := &s.vehicles[index]
 		if v.Pod.Activity != Boarding || v.Pod.StationID != request.From || v.destinationStation != request.To ||
-			v.Request == nil || v.Parties >= s.sharedRidePartyLimit {
+			v.Request == nil || v.Parties+parties > s.sharedRidePartyLimit {
 			continue
 		}
-		s.recordBoarding(request)
-		v.Parties++
+		if trip.parties == 0 {
+			s.recordBoarding(request)
+			s.sharedParties++
+		}
+		v.Parties += parties
 		v.Request.PartySize += request.PartySize
-		s.sharedParties++
 		return true
 	}
 	return false

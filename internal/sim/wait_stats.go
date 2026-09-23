@@ -7,13 +7,18 @@ type WaitStats struct {
 }
 
 func (s *Simulation) waitStats() WaitStats {
-	total, longest := s.totalWaitTicks, s.maxWaitTicks
+	total, longest, pending := s.totalWaitTicks, s.maxWaitTicks, 0
 	for _, trip := range s.waiting {
+		// The totals already hold the wait of a requeued trip.
+		if trip.parties > 0 {
+			continue
+		}
 		elapsed := s.tick - trip.request.RequestedTick
 		total += elapsed
 		longest = max(longest, elapsed)
+		pending++
 	}
-	count := s.boarded + len(s.waiting)
+	count := s.boarded + pending
 	if count == 0 {
 		return WaitStats{}
 	}

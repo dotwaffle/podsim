@@ -390,6 +390,35 @@ func cloneFixtures() []cloneFixture {
 			},
 		},
 		{
+			name: "requeued shared ride", placements: fleet,
+			setup: func(s *Simulation) error {
+				// A restore queues a shared ride of three orders again. The
+				// three orders boarded before the restore.
+				s.requestID, s.boarded, s.sharedParties = 3, 3, 2
+				s.waiting = append(s.waiting, waitingTrip{
+					request: Request{ID: 1, From: "market", To: "garden", PartySize: 3}, parties: 3,
+				})
+				return s.SetSharedRidePartyLimit(4)
+			},
+			warmup: cloneInputs{seconds: 20},
+			// The new order arrives while the pickup pod boards the requeued
+			// parties.
+			continuation: cloneInputs{seconds: 200, trips: []cloneTrip{{20, "market", "garden"}}},
+			exercised: func(clonePoint, end *Simulation) error {
+				if !slices.ContainsFunc(clonePoint.waiting, func(trip waitingTrip) bool { return trip.parties == 3 }) {
+					return errors.New("the clone point has no requeued trip")
+				}
+				// Only the new order boards for the first time.
+				if end.completed-clonePoint.completed != 4 || end.boarded-clonePoint.boarded != 1 ||
+					end.sharedParties-clonePoint.sharedParties != 1 {
+					return fmt.Errorf("continuation completed %d, boarded %d, and shared %d",
+						end.completed-clonePoint.completed, end.boarded-clonePoint.boarded,
+						end.sharedParties-clonePoint.sharedParties)
+				}
+				return nil
+			},
+		},
+		{
 			name: "congestion routing", placements: fleet,
 			setup: func(s *Simulation) error {
 				s.SetCongestionRouting(true)
