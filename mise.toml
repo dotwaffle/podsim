@@ -68,6 +68,10 @@ run = "go run ./cmd/serve"
 
 [tasks."test:web"]
 description = "Test editor model and project validation"
+# Without Go, the editor tests skip the tests that need a generated
+# fixture. PODSIM_REQUIRE_GO makes a missing Go a failure, so the check
+# task and CI stay strict.
+env = { PODSIM_REQUIRE_GO = "1" }
 run = "node --test web/editor_test.cjs"
 
 [tasks.check]

@@ -34,14 +34,37 @@ function chainScenario() {
   return { config, arrival, departure };
 }
 
+const repoRoot = path.join(__dirname, "..");
 const generatedFiles = new Map();
 
+// goOnPath reports if a go command is on PATH. The generated fixtures need
+// it. GOTOOLCHAIN=local stops a toolchain switch, so a Go that is too old
+// for go.mod counts as present and its fixture tests show the real error.
+function goOnPath() {
+  try {
+    execFileSync("go", ["version"], { env: { ...process.env, GOTOOLCHAIN: "local" }, stdio: "ignore" });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+// fixtureOptions gives the node:test options for a test that needs a
+// generated fixture. Without Go, the test skips with a reason. When
+// PODSIM_REQUIRE_GO is 1, a missing Go is a failure, so the test runs.
+function fixtureOptions(hasGo, env) {
+  return { skip: hasGo || env.PODSIM_REQUIRE_GO === "1" ? false : "needs Go on PATH, run mise run test:web" };
+}
+
+const needsGo = fixtureOptions(goOnPath(), process.env);
+
 // generatedFile runs the scenario command, so the fixture always matches the
-// server generator. It runs the command once for each preset.
+// server generator. It runs the command once for each preset. A test that
+// calls it must use the needsGo options.
 function generatedFile(preset) {
   if (!generatedFiles.has(preset)) {
     generatedFiles.set(preset, execFileSync("go", ["run", "./cmd/scenario", "-preset", preset], {
-      cwd: path.join(__dirname, ".."), encoding: "utf8", maxBuffer: 64 * 1024 * 1024,
+      cwd: repoRoot, encoding: "utf8", maxBuffer: 64 * 1024 * 1024,
     }));
   }
   return generatedFiles.get(preset);
@@ -432,8 +455,20 @@ test("berth routes can use chains but not station nodes", () => {
   }
 });
 
+test("a fixture test skips without Go unless PODSIM_REQUIRE_GO is 1", () => {
+  const reason = "needs Go on PATH, run mise run test:web";
+  const cases = [
+    { name: "Go", hasGo: true, env: {}, skip: false },
+    { name: "Go and PODSIM_REQUIRE_GO", hasGo: true, env: { PODSIM_REQUIRE_GO: "1" }, skip: false },
+    { name: "no Go", hasGo: false, env: {}, skip: reason },
+    { name: "no Go and PODSIM_REQUIRE_GO", hasGo: false, env: { PODSIM_REQUIRE_GO: "1" }, skip: false },
+    { name: "no Go and PODSIM_REQUIRE_GO 0", hasGo: false, env: { PODSIM_REQUIRE_GO: "0" }, skip: reason },
+  ];
+  for (const item of cases) assert.deepEqual(fixtureOptions(item.hasGo, item.env), { skip: item.skip }, item.name);
+});
+
 for (const preset of ["scale100", "london"]) {
-  test(`the generated ${preset} project passes the editor checks`, () => {
+  test(`the generated ${preset} project passes the editor checks`, needsGo, () => {
     const config = generatedProject(preset);
     assert.deepEqual(editor.validateConfig(config), []);
     assert.deepEqual(editor.configWarnings(config), []);
@@ -446,11 +481,11 @@ for (const preset of ["scale100", "london"]) {
     assert.deepEqual(editor.configWarnings(deleted), []);
   });
 
-  test(`import accepts the generated ${preset} project file`, () => {
+  test(`import accepts the generated ${preset} project file`, needsGo, () => {
     assert.deepEqual(editor.parseDocument(generatedFile(preset)), { scenario: generatedProject(preset), background: null });
   });
 
-  test(`a drag on the generated ${preset} project redraws only the moved items`, () => {
+  test(`a drag on the generated ${preset} project redraws only the moved items`, needsGo, () => {
     const config = generatedProject(preset);
     const station = config.network.Stations.find((item) => !item.ParkingOnly);
     const owners = editor.stationNodeOwners(config);
@@ -521,7 +556,7 @@ test("the network bounds hold the nodes and the background", () => {
   for (const item of cases) assert.deepEqual(editor.networkBounds(item.config, item.background), item.want, item.name);
 });
 
-test("a station delete on the generated london project removes the flows of the station", () => {
+test("a station delete on the generated london project removes the flows of the station", needsGo, () => {
   const config = generatedProject("london");
   const station = config.network.Stations.find((item) => !item.ParkingOnly);
   const flowCount = (project) => project.demandProfiles.reduce((count, profile) => count + profile.flows.length, 0);
@@ -534,7 +569,7 @@ test("a station delete on the generated london project removes the flows of the 
   assert.deepEqual(editor.validateConfig(deleted).filter((error) => error.includes("invalid flow")), []);
 });
 
-test("fit shows the whole London network below the 0.15 zoom floor", () => {
+test("fit shows the whole London network below the 0.15 zoom floor", needsGo, () => {
   const config = generatedProject("london");
   const size = { width: 940, height: 824 };
   const bounds = editor.networkBounds(config, null);

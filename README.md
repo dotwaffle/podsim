@@ -509,6 +509,10 @@ mise run check
 `mise.toml` tracks Go 1.27 and major versions for the other development tools.
 `mise.lock` records the resolved tool downloads.
 `mise run check` runs workflow validation, race tests, editor tests, vet, lint, vulnerability checks, the native and browser builds, and the embedded server tests.
+`mise run test:web` runs only the editor tests.
+Some editor tests use Go to generate the `scale100` and `london` projects.
+If Go is not on `PATH`, `node --test web/editor_test.cjs` skips these tests and gives the reason.
+The `test:web` task sets `PODSIM_REQUIRE_GO=1`, so a missing Go makes the task and `mise run check` fail.
 `mise run qualify` runs the `internal/scenarios` qualification tests for scale, safety, and repeatability.
 `mise run benchmark` measures 6,000 simulation steps on the 100-pod ring fixture, not on the current `scale100` mesh.
 
