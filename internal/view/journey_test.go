@@ -3,11 +3,14 @@ package view
 import (
 	"bytes"
 	"fmt"
+	"math"
+	"strings"
 	"testing"
 
 	"github.com/hajimehoshi/ebiten/v2/text/v2"
 	"golang.org/x/image/font/gofont/goregular"
 
+	"github.com/dotwaffle/podsim/internal/scenarios"
 	"github.com/dotwaffle/podsim/internal/sim"
 )
 
@@ -96,6 +99,79 @@ func TestStationChipsDoNotTriggerControls(t *testing.T) {
 	}
 }
 
+// TestStationChipLabelsFit checks the station chip labels at unit and
+// fractional scales. A chip shows the full station name. Only a name that is
+// wider than the station row gets a shorter label.
+func TestStationChipLabelsFit(t *testing.T) {
+	t.Parallel()
+	london := scenarios.London().Network
+	long := sim.Network{Stations: []sim.Station{
+		{ID: "bank", Name: "Bank"},
+		{ID: "long", Name: strings.Repeat("Very Long Station Name ", 20)},
+	}}
+	minimum := layoutInput{outsideWidth: minimumWidth, outsideHeight: minimumHeight, deviceScale: 1}
+	short := layoutInput{outsideWidth: 1366, outsideHeight: 617, deviceScale: 1}
+	dense := layoutInput{outsideWidth: 1920, outsideHeight: 930, deviceScale: 1.5}
+	tests := []struct {
+		name    string
+		network sim.Network
+		layout  layoutInput
+		unit    float64
+		cut     string
+	}{
+		{name: "London at unit 1", network: london, layout: minimum, unit: 1},
+		{name: "London at unit 0.8118", network: london, layout: short, unit: 0.8118},
+		{name: "London at unit 1.5", network: london, layout: dense, unit: 1.5},
+		{name: "long name at unit 0.8118", network: long, layout: short, unit: 0.8118, cut: "long"},
+		{name: "long name at unit 1.5", network: long, layout: dense, unit: 1.5, cut: "long"},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			game := journeyNetworkGame(t, test.network)
+			game.layoutFor(test.layout)
+			if math.Abs(game.layout.unit-test.unit) > 1e-4 {
+				t.Fatalf("unit = %g, want %g", game.layout.unit, test.unit)
+			}
+			face := game.textFace(stationFontSize)
+			chips := 0
+			for _, page := range game.stationPages() {
+				for _, chip := range page {
+					chips++
+					full := compactStationName(chip.station.Name)
+					if chip.station.ID != test.cut {
+						if chip.label != full {
+							t.Errorf("chip label = %q, want %q", chip.label, full)
+						}
+						continue
+					}
+					if chip.label == full || !strings.HasSuffix(chip.label, "…") {
+						t.Errorf("chip label = %q, want a cut label", chip.label)
+					}
+					limit := (chip.width - stationChipPadding) * game.layout.unit
+					if width, _ := text.Measure(chip.label, face, 0); width > limit {
+						t.Errorf("label %q width %g px exceeds chip text width %g px", chip.label, width, limit)
+					}
+				}
+			}
+			if want := len(game.passengerStations()); chips != want {
+				t.Fatalf("chips = %d, want %d", chips, want)
+			}
+			for page := range game.stationPages() {
+				game.stationPage = page
+				for _, control := range game.buttons() {
+					if control.fontSize != stationFontSize {
+						continue
+					}
+					if drawn := game.fitButtonText(control.label, control.fontSize, control.w); drawn != control.label {
+						t.Errorf("drawn label = %q, want %q", drawn, control.label)
+					}
+				}
+			}
+		})
+	}
+}
+
 func TestCompactStationName(t *testing.T) {
 	t.Parallel()
 	tests := map[string]string{
@@ -113,15 +189,22 @@ func TestCompactStationName(t *testing.T) {
 
 func journeyTestGame(t *testing.T, count int) *Game {
 	t.Helper()
-	font, err := text.NewGoTextFaceSource(bytes.NewReader(goregular.TTF))
-	if err != nil {
-		t.Fatalf("load font: %v", err)
-	}
 	stations := make([]sim.Station, count)
 	for index := range stations {
 		stations[index] = sim.Station{ID: fmt.Sprintf("station-%02d", index+1), Name: fmt.Sprintf("Station %02d", index+1)}
 	}
-	game := &Game{network: sim.Network{Stations: stations}, font: font, connected: true, origin: stations[0].ID, destination: stations[1].ID}
+	return journeyNetworkGame(t, sim.Network{Stations: stations})
+}
+
+// journeyNetworkGame returns a connected game on network. The journey goes
+// from the first station to the second station.
+func journeyNetworkGame(t *testing.T, network sim.Network) *Game {
+	t.Helper()
+	font, err := text.NewGoTextFaceSource(bytes.NewReader(goregular.TTF))
+	if err != nil {
+		t.Fatalf("load font: %v", err)
+	}
+	game := &Game{network: network, font: font, connected: true, origin: network.Stations[0].ID, destination: network.Stations[1].ID}
 	game.ensureLayout()
 	return game
 }

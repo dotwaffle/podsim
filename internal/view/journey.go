@@ -33,10 +33,16 @@ func (g *Game) stationPages() [][]stationChip {
 	used := 0.0
 	for _, station := range g.passengerStations() {
 		label := compactStationName(station.Name)
-		width, _ := text.Measure(label, face, 0)
-		width = max(44, width/g.layout.unit+stationChipPadding)
-		width = min(width, chipSpace)
-		label = fitText(label, textFit{face: face, width: (width - stationChipPadding) * g.layout.unit})
+		measured, _ := text.Measure(label, face, 0)
+		width := max(44, measured/g.layout.unit+stationChipPadding)
+		// The measured label fits its chip. At fractional scales, the
+		// conversion to units and back can make the width a little smaller
+		// than the label. Fit the label only when the station row caps the
+		// chip width.
+		if width > chipSpace {
+			width = chipSpace
+			label = fitText(label, textFit{face: face, width: (width - stationChipPadding) * g.layout.unit})
+		}
 		needed := width
 		if len(page) > 0 {
 			needed += stationChipGap
