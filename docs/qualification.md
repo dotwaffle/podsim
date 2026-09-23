@@ -52,6 +52,8 @@ Redistribution remains optional and off by default.
 The comparison covers ten seeds, four demand patterns, and request intervals of 30, 45, and 60 seconds.
 Each pair uses identical requests, initial state, and a 15-minute measurement window.
 The report contains 120 pairs and 240 runs.
+The code at commit `b61bdb9` gives the recorded values.
+The command below gives different values with the current code.
 
 Without `-project`, the compare command uses the example network with pod 01 in Parking and pod 02 in Garden.
 These policy experiments use two pods. The separate scale tests use 100 pods.
@@ -134,10 +136,10 @@ distance by 3.81 percentage points. This workload does not justify enabling
 redistribution by default.
 
 A ten-minute arrival window scheduled 119 requests in the same 30-minute run.
-Both policies served 69 and left 50 pending. That overload probe shows why the
-recorded experiment uses a finite five-minute arrival window. It also shows why
-the report gives drain time and does not count an undrained queue as completed
-capacity.
+With seed 1, both policies served 69 and left 50 pending. That overload probe
+shows why the recorded experiment uses a finite five-minute arrival window. It
+also shows why the report gives drain time and does not count an undrained
+queue as completed capacity.
 
 ### Same-destination sharing
 
@@ -252,7 +254,7 @@ Moving 100-pod runs at 1x and 8x sampled about 11 to 19 FPS.
 The server advanced at about 59 and 445 simulation ticks per wall second, respectively.
 These software-rendered results do not establish frame rates on a physical client GPU.
 
-The later navigation update adds pointer-centered zoom, drag pan, and Fit controls.
+The later navigation update adds pointer-centered zoom, drag pan, zoom buttons, and a Fit control.
 At overview scale, crowded stations use one marker and an occupancy count. Individual berths appear when their screen spacing permits.
 Map drawing stays inside the viewport. Camera changes invalidate cached tracks and do not change the shared session.
 Pod buttons and map labels use compact fleet numbers, and inspection also shows the full pod ID.
@@ -265,7 +267,7 @@ The [Ebitengine performance tips](https://ebitengine.org/en/documents/performanc
 The static cache follows that approach.
 It changes only when the simulation generation, the server epoch, the camera, or the map viewport changes.
 The renderer does not read pixels back from the GPU.
-For further diagnosis, use the `ebitenginedebug` build tag to inspect actual draw commands and batch boundaries.
+For further diagnosis, use the `ebitenginedebug` build tag to inspect draw commands and batch boundaries.
 That diagnostic was not part of these measurements.
 
 ## Shared-server traffic
@@ -278,7 +280,7 @@ These sizes included routes, queued requests, and the full network. They changed
 The optimized server reached about 414 simulation ticks per wall second during the 120-arrival-per-minute stress sample at 8x playback.
 The configured target was 480 ticks per second.
 A 20-arrival-per-minute sample reached about 461 ticks per second.
-These short loopback samples used software rendering experiments on the same host and do not establish a maximum supported load.
+These short loopback samples came from the software rendering experiments on the same host. They do not establish a maximum supported load.
 The fixed-step benchmark above provides the controlled core comparison.
 
 This change did not add snapshot deltas.
@@ -364,9 +366,9 @@ The same combined profile took 8.73 wall seconds and 16.04 CPU-seconds, 66% and
 53% lower respectively. Resource release fell to 6.4% of cumulative CPU. The
 complete non-race scenario package fell from 35.50 to 22.87 wall seconds.
 
-The 100-order Station 19 result remained exact. First delivery was at 258.4
-seconds, last delivery at 1582.9 seconds, all pods were idle at 2171.9 seconds,
-and the peak was 12 stopped pods.
+Incremental release did not change the 100-order Station 19 burst result.
+First delivery was at 258.4 seconds, last delivery at 1582.9 seconds, all pods
+were idle at 2171.9 seconds, and the peak was 12 stopped pods.
 
 ```sh
 mise exec -- go test -count=1 -run 'Station19QueueDrains|DenseSafety' -cpuprofile /tmp/podsim-scenarios-cpu.out -o /tmp/podsim-scenarios.test ./internal/scenarios
@@ -386,7 +388,7 @@ Road-only route lengths between the original road nodes remain unchanged.
 
 The layout requires station-local paths through intermediate nodes.
 Validation rejects paths through another station, another berth, or the wrong station entry or exit.
-Passenger routes end at the station entry until the pod enters the final access lane.
+Passenger routes end at the station entry until the pod asks for a track reservation on the final access lane.
 The controller then chooses the reachable berth with the least assigned demand.
 Late berth changes preserve admitted track.
 
@@ -422,7 +424,7 @@ One capture had 20 active trips for berth 1 while its departing pod still held t
 The resource wait was correct, but the early berth assignments created the queue.
 
 Passenger journeys now target the station entry instead of a berth.
-The controller assigns a berth when the pod gets access to the final station lane.
+The controller assigns a berth when the pod asks for a track reservation on the final access lane.
 Current occupants, reservations, and local assignments contribute to the berth load.
 Berth order breaks equal-load ties, so the result remains deterministic.
 An idle berth occupant still moves if an admitted passenger arrival needs its berth.
@@ -488,14 +490,14 @@ arms.
 Every arm kept at least 22.87 meters between pod centers and had the same
 12-pod peak stopped queue. The 0.25-second arm moved some blocking from the
 exit to the entrance and increased total stop events. The 0.5-second arm was
-effectively neutral. Longer buffers increased exit blocking. No arm provided a
+close to neutral. Longer buffers increased exit blocking. No arm provided a
 clear flow improvement, so the production default remains two ticks.
 
 ## London AM peak sample
 
 The London preset uses 2019 midweek NUMBAT OD weights for 94 of its 96 passenger stations.
-The test normalizes the 8,474 retained OD pairs within each of eight source
-time bands.
+`LondonDemand` normalizes the 8,474 retained OD pairs within each of eight
+source time bands.
 
 The fixed AM peak run submitted 40 OD-weighted requests at five-second
 intervals.
@@ -514,13 +516,14 @@ State frames do not repeat it.
 ### London CPU profile
 
 CPU profiles measured the same 40-request AM peak qualification before and
-after two indexing changes. The simulation now reuses its immutable route
-graph and lane geometry, indexes stations, and records each route lane's first
-resource block. These indexes do not change routing, arbitration, or movement
-ordering.
+after two indexing changes in commit `49bc70a`. The simulation now reuses its
+immutable route graph and lane geometry, indexes stations, and records each
+route lane's first resource block. These indexes do not change routing,
+arbitration, or movement ordering.
 
 Wall time fell from 4.50 to 2.13 seconds. CPU samples fell from 4.72 to 1.97
-seconds. The qualification retained the same completion and wait assertions.
+seconds. The qualification gave the same completion time and wait values
+before and after the changes.
 The final profile had no remaining avoidable hotspot above 15 percent
 cumulative CPU, so the project did not add a parallel simulation path.
 
@@ -531,9 +534,11 @@ Raw measurements are in
 mise exec -- go test -count=1 -run '^TestLondonAMPeakSampleCompletes$' -v ./internal/scenarios
 ```
 
-This run checks completion, queue accounting, terminal berth assignment, and
-pod separation once per simulated second.
-London links and station paths have explicit separation groups.
+This run checks pod separation and berth ownership once per simulated second.
+At the end, it checks completion, queue accounting, and terminal berth
+assignment.
+London guideways, movement lanes, and station paths have explicit separation
+groups.
 The oracle excludes only pairs in different groups that do not share a
 junction.
 Unlabeled projects retain the original two-dimensional all-pairs check.
@@ -550,13 +555,13 @@ This design serialized unrelated directions and corridors.
 The portal network gives each adjacency a separate arrival portal and departure
 portal.
 Local movement lanes connect the portals.
-The controller now reserves a shared portal only for a real diverge or merge.
+Pods now share a portal only where their paths diverge or merge.
 
 The comparison used one AM peak schedule with seed `20260922`.
 It submitted 199 requests during a 10-minute window at one request every three
 seconds.
 Both runs used the same schedule ID, `f13d587848b9176e`.
-Redistribution and ride sharing were off.
+Redistribution and same-destination sharing were off.
 The run stopped after the queue drained or after 60 simulated minutes.
 
 | Network | Served | Remaining | Peak stopped pods | Waterloo entrance stopped | Waterloo exit stopped | Average wait | Maximum wait | Recovery after arrivals |
@@ -577,8 +582,9 @@ directional-portal network at commit `3b02de8`, after the station heading
 change.
 It covers all eight demand bands, 15 offered rates, and seeds 1, 2, and 3.
 Each arm accepts requests for 30 simulated minutes, then has up to 30 minutes
-to finish them. Redistribution and ride sharing are off. Free-flow routing is
-on. The queue limit is high enough that the compare command skips no request.
+to finish them. Redistribution and same-destination sharing are off. Free-flow
+routing is on. The queue limit is high enough that the compare command skips no
+request.
 
 ```sh
 mise run scenario -- -preset london -output /tmp/podsim-london-capacity.json
@@ -589,10 +595,10 @@ The schedule starts after the first interval and excludes the arrival-window
 endpoint. The compare command also truncates each interval to a whole
 1/60-second tick. This makes the 8.571429 s, 5.454545 s, 4.615385 s, and
 4.285714 s intervals slightly shorter than their nominal values. The report
-therefore gives these exact offered rates: 0.967, 1.967, 2.967, 3.967, 4.967,
-5.967, 7.000, 7.967, 8.967, 9.967, 11.000, 11.967, 13.033, 14.000, and 14.967
-requests per minute. The table rounds these values to whole requests per
-minute.
+therefore gives these offered rates, rounded to three decimal places: 0.967,
+1.967, 2.967, 3.967, 4.967, 5.967, 7.000, 7.967, 8.967, 9.967, 11.000, 11.967,
+13.033, 14.000, and 14.967 requests per minute. The table rounds these values
+to whole requests per minute.
 
 The recovery limit is the highest tested rate at which all three seeds finish
 every accepted request before the 60-minute cap. All three seeds must also

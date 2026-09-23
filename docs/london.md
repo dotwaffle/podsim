@@ -41,7 +41,7 @@ This keeps the distance and density differences across the selected area.
 It adds no mapping dependency.
 
 Guideway links are straight between station areas.
-Their two directions are offset by 18 meters from the centerline.
+Their two directions are 18 meters from the centerline, one on each side.
 Each link has a separate arrival portal and departure portal at each end.
 The portals prevent opposite directions from sharing one station node.
 
@@ -65,8 +65,8 @@ The station axis goes from the TfL station position through the middle of the
 berth rows.
 The diverge and merge nodes are 80 meters out on this axis and 30 meters to
 each side of it.
-The portals are 60 meters from the station position, or nearer on a short
-link.
+The portals are 60 meters along the link from the station position, or nearer
+on a short link.
 Thus pods do not make a hairpin turn between a guideway and the station.
 
 Each station points its berth rows into the free space beside its own links.
@@ -97,17 +97,19 @@ Their preferred headings are west, north, and east, and their gateway station
 is an obstacle.
 
 In the generated network, no core lane crosses a guideway or a movement lane.
-Near the junction, road lanes cross guideways at 25 stations.
-Each road lane has its own separation group, so the simulation treats such a
-crossing as grade-separated.
+Near the junction, road lanes cross guideways at 25 stations and movement
+lanes at 80 stations.
+Each road lane has its own separation group, so the separation oracle treats
+such a crossing as grade-separated.
 The road lanes of each Parking facility and its gateway station cross once,
-because they start at the same portals.
+because they connect to the same portals.
 No other lanes of two different stations cross.
 The core lanes of two different stations are at least 42 meters apart.
 For the 48 through stations, the median angle between the berth rows and the
 line is 2.6 degrees.
 Two are more than 30 degrees off.
-Mansion House lies between Bank and Monument, Cannon Street, and St. Paul's.
+Mansion House lies between three stations: Bank and Monument, Cannon Street,
+and St. Paul's.
 Each of its headings crosses a guideway or puts its berths nearer to one of
 these stations, so its berths are nearer to St. Paul's.
 The two links of Willesden Green go in almost the same direction.
@@ -239,7 +241,7 @@ marker.
 The marker of a passenger station is at its junction, at the mean position of
 its arrival portals.
 This point is within about 60 meters of the TfL station position.
-The berths are about 250 to 450 meters away, and their rings replace the
+The berths are about 250 to 430 meters away, and their rings replace the
 marker when you zoom in.
 A Parking marker stays at the center of its berths, so it does not cover the
 marker of its gateway station.
@@ -272,8 +274,8 @@ On a dense map, the overview labels for the `From` and `To` stations and the
 selected pod's stations always show.
 The view places the other overview labels in order of station size.
 Parking facilities come first.
-Their markers look like station markers, and the map does not show the pods
-that park in a collapsed station.
+Their markers look like station markers, and the map does not show the idle
+pods in a collapsed station, except the selected pod.
 Only the label tells that a marker is a Parking facility and how many pods it
 holds.
 Then come the stations with more approach lanes.
@@ -289,7 +291,8 @@ It also omits a label when an earlier label covers the station marker.
 Thus, when neither station has a queue, the label of a large station can
 cover the marker of a smaller station, but not the opposite.
 The other overview labels do not cover the label of the selected pod.
-An overview label shows up to 20 characters of the station name.
+An overview label shows a station name of up to 20 characters in full.
+For a longer name, it shows the first 19 characters and an ellipsis.
 Only the selected pod has a map label until you zoom in to four times the `Fit`
 scale.
 The view omits the label of another pod where it overlaps an overview label.
