@@ -34,13 +34,23 @@ function chainScenario() {
   return { config, arrival, departure };
 }
 
-// generatedProject runs the scenario command, so the fixture always matches the
-// server generator.
+const generatedFiles = new Map();
+
+// generatedFile runs the scenario command, so the fixture always matches the
+// server generator. It runs the command once for each preset.
+function generatedFile(preset) {
+  if (!generatedFiles.has(preset)) {
+    generatedFiles.set(preset, execFileSync("go", ["run", "./cmd/scenario", "-preset", preset], {
+      cwd: path.join(__dirname, ".."), encoding: "utf8", maxBuffer: 64 * 1024 * 1024,
+    }));
+  }
+  return generatedFiles.get(preset);
+}
+
+// generatedProject loads a generated project as the editor loads the live
+// server project.
 function generatedProject(preset) {
-  const output = execFileSync("go", ["run", "./cmd/scenario", "-preset", preset], {
-    cwd: path.join(__dirname, ".."), encoding: "utf8", maxBuffer: 64 * 1024 * 1024,
-  });
-  return editor.normalizeConfig(JSON.parse(output));
+  return editor.normalizeConfig(JSON.parse(generatedFile(preset)));
 }
 
 test("station creation makes separate safe entry, exit, and berth geometry", () => {
@@ -182,8 +192,57 @@ test("portable documents round trip the scenario and local background", () => {
 
   assert.deepEqual(parsed.scenario, config);
   assert.deepEqual(parsed.background, background);
-  assert.throws(() => editor.parseDocument('{"format":"podsim","version":2}'), /version 1/);
+  assert.throws(() => editor.parseDocument('{"format":"podsim","version":2}'), /version field must be 1/);
   assert.throws(() => editor.parseDocument('{broken'), /not valid JSON/);
+});
+
+test("import accepts a server project file", () => {
+  // The server leaves out empty optional fields, such as the demand profiles.
+  const config = connectedScenario();
+  delete config.demandProfiles;
+  const parsed = editor.parseDocument(JSON.stringify(config));
+
+  assert.deepEqual(parsed, { scenario: editor.normalizeConfig(config), background: null });
+  assert.deepEqual(parsed.scenario.demandProfiles, []);
+  assert.equal(parsed.scenario.sharedRidePartyLimit, 1);
+  assert.deepEqual(editor.validateConfig(parsed.scenario), []);
+
+  config.fleet = [];
+  assert.throws(() => editor.parseDocument(JSON.stringify(config)), /The project has 1 error\. The fleet must contain/);
+
+  // The server accepts an empty pod berth and uses the first berth.
+  const shorthand = connectedScenario();
+  delete shorthand.demandProfiles;
+  shorthand.fleet[0].BerthID = "";
+  assert.equal(editor.parseDocument(JSON.stringify(shorthand)).scenario.fleet[0].BerthID, shorthand.network.Stations[0].Berths[0].ID);
+
+  // The checks run before the editor adds the missing fields, so the editor
+  // does not replace a demand rate that the server rejects.
+  const noDemand = connectedScenario();
+  delete noDemand.demandProfiles;
+  noDemand.demand.perMinute = 0;
+  assert.throws(() => editor.parseDocument(JSON.stringify(noDemand)), /Passenger demand must be 1 to 120/);
+});
+
+test("import names the missing or wrong field", () => {
+  const scenario = connectedScenario();
+  const cases = [
+    { name: "an array", file: [], message: "The file must contain a JSON object." },
+    { name: "null", file: null, message: "The file must contain a JSON object." },
+    { name: "a string", file: "podsim", message: "The file must contain a JSON object." },
+    { name: "a different format", file: { format: "other", version: 1, scenario }, message: 'The format field must be "podsim".' },
+    { name: "an export of a different version", file: { format: "podsim", version: 2, scenario }, message: "The version field must be 1." },
+    { name: "an export with no version", file: { format: "podsim", scenario }, message: "The version field must be 1." },
+    { name: "an export with no scenario", file: { format: "podsim", version: 1 }, message: "The scenario field must be an object." },
+    { name: "an export with a scenario list", file: { format: "podsim", version: 1, scenario: [scenario] }, message: "The scenario field must be an object." },
+    { name: "an API reply", file: { revision: 3, project: scenario }, message: "The file has no format field and no network field." },
+    { name: "a project with a network list", file: { ...scenario, network: [] }, message: "The network field must be an object." },
+    { name: "a project of a different version", file: { ...scenario, version: 2 }, message: "The version field must be 1." },
+    { name: "a project with no version", file: { ...scenario, version: undefined }, message: "The version field must be 1." },
+  ];
+  for (const item of cases) {
+    assert.throws(() => editor.parseDocument(JSON.stringify(item.file)), { message: item.message }, item.name);
+  }
 });
 
 test("portable OD profiles validate and round trip", () => {
@@ -248,6 +307,10 @@ for (const preset of ["scale100", "london"]) {
     const station = config.network.Stations.find((item) => !item.ParkingOnly);
     const errors = editor.validateConfig(editor.deleteStation(config, station.ID));
     assert.deepEqual(errors.filter((error) => !error.startsWith("Demand profile")), []);
+  });
+
+  test(`import accepts the generated ${preset} project file`, () => {
+    assert.deepEqual(editor.parseDocument(generatedFile(preset)), { scenario: generatedProject(preset), background: null });
   });
 }
 

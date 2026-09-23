@@ -525,17 +525,34 @@
     return JSON.stringify(document, null, 2);
   }
 
+  // unwrapDocument gets the scenario from an import file. A browser export has
+  // a format field and wraps the scenario. A server project file, such as the
+  // -project file or the scenario command output, is a bare scenario.
+  function unwrapDocument(document) {
+    const isObject = (value) => value !== null && typeof value === "object" && !Array.isArray(value);
+    if (!isObject(document)) throw new Error("The file must contain a JSON object.");
+    if ("format" in document) {
+      if (document.format !== "podsim") throw new Error('The format field must be "podsim".');
+      if (document.version !== 1) throw new Error("The version field must be 1.");
+      if (!isObject(document.scenario)) throw new Error("The scenario field must be an object.");
+      return { scenario: clone(document.scenario), background: document.background, serverProject: false };
+    }
+    if (!("network" in document)) throw new Error("The file has no format field and no network field.");
+    if (!isObject(document.network)) throw new Error("The network field must be an object.");
+    if (document.version !== 1) throw new Error("The version field must be 1.");
+    return { scenario: clone(document), background: null, serverProject: true };
+  }
+
   function parseDocument(text) {
     let document;
     try { document = JSON.parse(text); } catch (error) { throw new Error(`The file is not valid JSON. ${error.message}`); }
-    if (!document || document.format !== "podsim" || document.version !== 1 || !document.scenario) throw new Error("The file must be a Podsim version 1 project.");
-    if (document.background) {
-      const item = document.background;
+    const { scenario, background, serverProject } = unwrapDocument(document);
+    if (background) {
+      const item = background;
       if (typeof item.dataURL !== "string" || !/^data:image\/(png|jpeg);base64,/.test(item.dataURL)) throw new Error("The background must be a PNG or JPEG data URL.");
       for (const key of ["x", "y", "width", "height", "opacity"]) if (!Number.isFinite(item[key])) throw new Error(`The background ${key} value is invalid.`);
       if (item.width <= 0 || item.height <= 0 || item.opacity < 0 || item.opacity > 1) throw new Error("The background dimensions or opacity are invalid.");
     }
-    const scenario = clone(document.scenario);
     for (const pod of Array.isArray(scenario.fleet) ? scenario.fleet : []) {
       if (pod && !pod.BerthID) {
         const station = scenario.network?.Stations?.find((item) => item && item.ID === pod.StationID);
@@ -552,7 +569,9 @@
     }
     const errors = validateConfig(scenario);
     if (errors.length) throw new Error(`The project has ${errors.length} error${errors.length === 1 ? "" : "s"}. ${errors.slice(0, 3).join(" ")}`);
-    return { scenario, background: document.background ? clone(document.background) : null };
+    // A server project file leaves out empty optional fields. Add them as the
+    // live server project load does.
+    return { scenario: serverProject ? normalizeConfig(scenario) : scenario, background: background ? clone(background) : null };
   }
 
   function createHistory(initial) {

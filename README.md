@@ -60,7 +60,8 @@ Thus the server can read the file at the next start.
 If the save fails, the server rejects the change.
 A rewind that restores the project of a save point also rewrites this file.
 The browser export wraps this object as `scenario` and can also contain a background image.
-`-project` does not accept the browser export, and **Import JSON** does not accept the server file.
+**Import JSON** accepts the browser export and the server file, such as the output of `mise run scenario`.
+`-project` does not accept the browser export.
 
 To keep the running session across server restarts, give a state directory as a `file://` URL with an absolute path:
 
