@@ -18,9 +18,13 @@ The source has 127 unique station adjacencies.
 Shared Underground corridors produce one PRT connection, not duplicate
 overlapping guideways.
 Each connection has two offset, directed guideways.
+
 Each passenger station has two off-line berths.
 West, north, and east Parking facilities each have 12 berths.
-The initial fleet has 114 pods, including 18 pods in Parking.
+The Parking facilities connect at Hammersmith (west), Finsbury Park (north),
+and Mile End (east).
+The initial fleet has 114 pods: one at each passenger station and six at each
+Parking facility.
 
 Paddington's two Underground stop records are one PRT station.
 Bank and Monument are also one station because they form one interchange
@@ -33,8 +37,8 @@ A crossing on the two-dimensional drawing does not create a connection.
 
 The checked-in source keeps the TfL latitude and longitude for each station.
 The generator uses a local meter projection centered on Charing Cross.
-This preserves useful distance and density differences across the selected
-area without adding a mapping dependency.
+This keeps the distance and density differences across the selected area.
+It adds no mapping dependency.
 
 Guideway links are straight between station areas.
 Their two directions are offset by 18 meters from the centerline.
@@ -42,7 +46,8 @@ Each link has a separate arrival portal and departure portal at each end.
 The portals prevent opposite directions from sharing one station node.
 
 Short movement lanes connect each arrival portal to each departure portal.
-These lanes let pods continue through the station area or change corridors.
+These lanes let pods continue through the station area, change corridors, or
+reverse direction.
 Each movement has a separate separation group.
 Movements conflict when they share a portal.
 Unconnected movement crossings represent grade-separated paths.
@@ -52,11 +57,14 @@ portal.
 Each station has distinct diverge, entry, exit, and merge nodes.
 Berths use separate arrival and departure spines with a 75-meter pitch.
 This layout keeps access lanes away from occupied berths.
+
 Each station lane has one maneuver role: approach, entry, berth access, through,
 departure, or exit.
-The simulation snapshot derives each pod's station phase from its current lane.
+At the end of each tick, the simulation sets each pod's station phase from its
+berth, its current lane, or its next lane.
 The pod inspector shows phases such as `Approaching station`, `Accessing berth`,
 and `Departing berth` with the station name.
+When a pod has no station phase, the inspector shows `Main network`.
 These roles describe the existing movement and reservation flow.
 They do not change route selection, admission priority, or resource ownership.
 
@@ -64,8 +72,9 @@ The network does not store tunnel depth.
 Instead, each guideway and controlled movement has an explicit separation group.
 Different groups declare that unrelated paths can cross at different physical
 levels.
-Paths that share a junction remain subject to the separation check, even when
-their groups differ.
+Only the separation oracle in the qualification tests uses these groups.
+The oracle still checks paths that share a junction, even when their groups
+differ.
 Projects without separation groups keep the original two-dimensional check.
 
 ## Demand
@@ -96,22 +105,26 @@ The source defines eight bands:
 
 `LondonDemand` normalizes the retained OD weights separately for each band.
 The caller can apply one scale factor to choose the simulated request rate.
-This keeps the source station and OD ratios while avoiding a claim that the
-PRT system carries the complete Underground volume.
+This keeps the source station and OD ratios.
+It does not claim that the PRT system carries the complete Underground volume.
 
 The portable London project includes the raw OD weights and all eight bands.
-Its demand settings select the AM peak band by default.
+Its demand settings select the AM peak band at 20 requests per simulated
+minute by default.
+This rate is above the AM peak recovery limit of 12 requests per minute in the
+[London capacity envelope](qualification.md#london-capacity-envelope).
 The shared session samples those weights when automatic demand runs.
 The editor can select another band before it applies the project.
-The recurring simulation state contains only the selected profile and band
-IDs, not the complete OD matrix.
+State frames contain only the selected profile and band IDs, not the complete
+OD matrix.
 
-A deterministic AM peak qualification submits 40 source-weighted requests at
+A deterministic AM peak qualification submits 40 OD-weighted requests at
 five-second intervals.
 All 40 completed by 1,420.0 simulated seconds.
 Average pickup wait was 57.021 seconds, and maximum pickup wait was 394.217
 seconds.
-The test also rejects any stationary pod without an assigned berth.
+At the end of the run, the test also rejects any pod at a station without an
+assigned berth.
 It runs the geometric separation oracle once per simulated second.
 The oracle skips only pod pairs in distinct separation groups that do not
 share a junction.
@@ -145,7 +158,21 @@ mise run serve -- -project /tmp/podsim-london.json
 
 The generated project has 99 stations, 1,842 nodes, 3,101 lanes, and 114 pods.
 Project validation checks directed reachability between all passenger berths.
-The station-count limit permits one added station in the editor.
-The node, lane, and file-size limits also apply to that edit.
-Change a limit only after measured editor validation.
 The preset starts with automatic demand and redistribution disabled.
+
+The station-count limit of 100 permits one added station in the editor.
+The limits of 2,000 nodes and 4,000 lanes also apply to that edit.
+The `serve` and `compare` commands read a `-project` file of at most 4 MiB.
+The generated file is about 3.3 MiB.
+The editor sends about 1.5 MiB when it applies the project, and the server
+accepts a command of at most 2 MiB.
+Change a limit only after measured editor validation.
+
+The view treats this project as a dense map because it has more than 30
+stations.
+On a dense map, the view omits an overview label that overlaps another visible
+overview label.
+Labels for the `From` and `To` stations and the selected pod's stations stay
+visible.
+Only the selected pod has a map label until you zoom in to four times the `Fit`
+scale.

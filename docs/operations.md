@@ -9,22 +9,27 @@ go generate ./...
 go build -trimpath -tags=embed_assets -o podsim-server ./cmd/serve
 ```
 
-The executable contains the HTML, JavaScript, raw WASM, and gzip WASM files.
+The executable contains the HTML, CSS, JavaScript, raw WASM, and gzip WASM files.
 It does not need a `dist` directory at runtime.
 The `-dir` option overrides embedded files for development.
 Production builds keep Go and WASM debug information.
 
 The application serves `GET /healthz` without reading simulation state.
-The response is `200 OK` with the body `ok`.
+The response is `200 OK` with the body `ok` and a newline.
 
 ## Container image
 
 The container workflow publishes `ghcr.io/dotwaffle/podsim` from `main`,
 version tags, and manual workflow runs.
 It builds `linux/amd64` and `linux/arm64` images with ko.
+Each image gets the commit SHA as a tag.
+Images from `main` also get the `latest` tag.
+Images from a version tag also get the name of that tag.
 The image uses the Chainguard static base and runs as UID and GID 65532.
 Ko attaches an SPDX software bill of materials by default.
 
+The default `-addr` value is `127.0.0.1:8080`.
+A published container port cannot reach a loopback address.
 Run the image with the application port bound on all container interfaces:
 
 ```sh
@@ -32,7 +37,8 @@ docker run --rm -p 8080:8080 ghcr.io/dotwaffle/podsim:latest -addr :8080
 ```
 
 The `-project` option needs an existing project file.
-Mount its directory with write access for UID 65532 if the server must save changes.
+Mount its directory with write access for UID 65532.
+Without write access, the server rejects project applies, demand changes, and rewinds that restore a project.
 
 ## Memory limit
 
@@ -75,22 +81,29 @@ OTEL_EXPORTER_OTLP_ENDPOINT=http://127.0.0.1:4318 ./podsim-server
 ```
 
 Use `OTEL_TRACES_EXPORTER=none` or `OTEL_METRICS_EXPORTER=none` to disable one signal.
-Use the signal-specific endpoint variables when traces and metrics use different collectors.
-`OTEL_SERVICE_NAME` and `OTEL_RESOURCE_ATTRIBUTES` can add deployment identity.
+Set `OTEL_SDK_DISABLED=true` to disable both.
+Use `OTEL_EXPORTER_OTLP_TRACES_ENDPOINT` and `OTEL_EXPORTER_OTLP_METRICS_ENDPOINT` when traces and metrics use different collectors.
+Without `OTEL_EXPORTER_OTLP_ENDPOINT`, the server exports only the signals that have their own endpoint.
+The default service name is `podsim`.
+`OTEL_SERVICE_NAME` replaces it.
+`OTEL_RESOURCE_ATTRIBUTES` can add deployment identity.
 
 HTTP telemetry excludes `/api/state` because each client polls it at 20 Hz.
 It also excludes `/healthz`.
 Other HTTP requests include route-based server traces and metrics.
 
 Runtime metrics report memory, allocations, goroutines, processor limits, and the Go memory limit.
-Session gauges report the simulation tick, journeys, pods, stopped pods, distance, passenger wait, and save points.
+Session gauges report the simulation tick, journeys, pods, stopped pods, distance, pickup wait, and save points.
 `podsim.checkpoint.retained` is the number of save points in memory.
 Compare it with the runtime memory metrics to see the memory that save points use.
 A reset, a demo, a project apply, or a rewind can decrease `podsim.simulation.tick`, `podsim.journey.submitted`, `podsim.journey.completed`, `podsim.travel.passenger.distance`, and `podsim.travel.empty.distance`.
 These metrics are gauges, not counters, so do not use `rate()` on them.
 
 The server flushes both providers during graceful shutdown.
-Invalid endpoint syntax stops startup with an error.
+An endpoint that is not a valid URL does not stop startup.
+The exporter logs a `parse url` error and ignores that value.
+Without another valid endpoint, it sends to the default endpoint, `https://localhost:4318`.
+An `OTEL_RESOURCE_ATTRIBUTES` item without a value stops startup with an error.
 An unreachable collector reports export errors without stopping the simulation.
 
 ## Save point logs
@@ -105,7 +118,7 @@ It also gives the number of `retained` save points.
 `Rewound session` gives the `client`, the `checkpoint` ID, `fromTick`, and `toTick`.
 It also gives the `generation` and `projectRevision` after the rewind.
 All browsers share one session, so `client` identifies the browser page that rewound the session for all users.
-`projectRestored` is true when the save point holds a different project and the rewind restored it.
+`projectRestored` is true when the save point holds a different project or demand configuration and the rewind restored it.
 With `-project`, the rewind also writes that project to the project file.
 
 Both records give `duration`, the time to apply the command under the session lock.
@@ -120,4 +133,5 @@ An exact retry of the last command from a client still gets the stored reply.
 
 Then the server closes its listeners and does not accept new requests.
 Requests that are already in progress, including reads, get up to 5 seconds to complete.
-Last, the server waits up to 5 seconds for the clock goroutine to return, then flushes telemetry.
+Next, the server waits up to 5 seconds for the clock goroutine to return.
+Last, it flushes telemetry for up to 5 seconds.

@@ -5,8 +5,8 @@
 Use normalized gzip JSON for the browser client.
 
 The normalized protocol removes the network and complete lane objects from the
-20 Hz state response. The client fetches topology only when the project
-revision changes.
+20 Hz state response. The client fetches topology only when the session epoch
+or the project revision changes.
 
 The project evaluated ConnectRPC and binary Protocol Buffers, then removed the
 implementation. No application client used the service. The small remaining
@@ -28,12 +28,31 @@ lane objects or network geometry. The Go client caches topology by session
 epoch and project revision, then reconstructs the presentation state. It
 rejects a frame if matching topology is not available.
 
-Command acknowledgments contain the accepted state revision, project revision,
-generation, optional order ID, optional checkpoint ID, and a stable error code.
-They do not repeat a state frame. Exact retries return the original
-acknowledgment. Expired and conflicting sequences retain their previous
-behavior. After a graceful shutdown starts, the server rejects new commands
-with `server_stopping`.
+Each command contains a `client` ID, a `sequence`, the session `epoch`, and an
+`action`. The actions are `trip`, `pause`, `speed`, `reset`, `demo`, `demand`,
+`project`, `checkpoint`, and `rewind`.
+
+Command acknowledgments contain the session epoch, state revision, project
+revision, generation, optional order ID, and optional checkpoint ID. They do
+not repeat a state frame. A rejected command gets HTTP 409 and an
+acknowledgment with a stable `errorCode` and an `error` message.
+
+Exact retries return the original acknowledgment. A sequence lower than the
+last sequence from the same client gets `expired_command`. The same sequence
+with a different command gets `sequence_conflict`.
+
+A command from another epoch gets `session_changed`. A missing client ID, a
+client ID longer than 100 bytes, or a zero sequence gets `invalid_command`.
+After the server records commands from 1,024 clients, a command from a new
+client gets `client_limit`. A command that the server cannot apply gets
+`command_rejected`. After a graceful shutdown starts, the server rejects new
+commands with `server_stopping`.
+
+The request must have the `application/json` content type. The body must be
+at most 2 MiB and contain one JSON command with no unknown members. A request
+with an `Origin` header must come from the same host and scheme. A request
+that breaks these rules gets HTTP 400, 403, or 415 and a plain text body, not
+an acknowledgment.
 
 ## Save points
 
@@ -50,31 +69,32 @@ increases the revision and the generation by one, and pauses the session.
 State frames list the retained save points in `checkpoints`, oldest first. Each
 item has an `id`, a `tick`, and an optional `restoresProject`. The server keeps
 at most 8 save points. At the limit, a new save point removes the oldest one. A
-frame without save points omits the `checkpoints` key, so the payload
-measurements below stay correct.
+frame without save points omits the `checkpoints` key, so the key adds no
+bytes until a save point exists.
 
 `restoresProject` is `true` when the project or demand configuration of the
 save point is different from the current one. Each project apply and each
 demand change counts as a change, even if the values stay the same. The server
 omits the key when the value is `false`.
 
-A rewind to such a save point restores its project and saves it to the
-`-project` file. It also increases the project revision by one. The project
-revision never goes back to an earlier value, so clients fetch the topology
-again. The server also rejects project edits from before the rewind. A repeated
-rewind to the same save point does not save the project again. If the save
-fails, the server rejects the rewind with `command_rejected`, and nothing
-changes.
+A rewind to such a save point restores its project and increases the project
+revision by one. With `-project`, the server also saves the project to that
+file. The project revision never goes back to an earlier value, so clients
+fetch the topology again. The server also rejects project edits from before
+the rewind. A repeated rewind to the same save point does not save the project
+again. If the save fails, the server rejects the rewind with
+`command_rejected`, and nothing changes.
 
 A rewind does not roll back the command receipts. An exact retry of a rewind
 gets the stored acknowledgment and does not rewind again. This is also true
 after another client resumes the session.
 
-Commands and receipts do not name a generation. If a client sends a command
-before another client rewinds, the server applies the command to the restored
-state. An exact retry gets the stored acknowledgment, even if a later rewind
-removed the effect of the command. A reset, a demo, and a project apply work
-the same way.
+Commands do not name a generation, and the server does not use the generation
+to match a retry to its receipt. A command can arrive after another client
+rewinds, even if its sender has not seen the rewind. The server then applies
+the command to the restored state. An exact retry gets the stored
+acknowledgment, even if a later rewind removed the effect of the command. A
+reset, a demo, and a project apply work the same way.
 
 Save points are in memory only. A server restart clears them. A rewind to an
 unknown or removed ID gets `command_rejected`.
@@ -82,7 +102,10 @@ unknown or removed ID gets `command_rejected`.
 ## Payload measurements
 
 The comparison used equivalent states with 200 accepted requests. It used the
-Scale100 and London projects. Both formats used gzip level 1. These are
+Scale100 and London projects from commit `cf50eca`. Commit `ed5d782` later
+separated the London station portals by direction. The current London network
+has more than twice as many lanes. The London numbers in this document do not
+describe the current London project. Both formats used gzip level 1. These are
 deterministic codec samples, not network throughput limits.
 
 | Fixture | Format | Raw frame | Gzip frame | Traffic at 20 Hz |
@@ -98,7 +121,7 @@ For London, normalization reduces the gzip frame by 81.5%. Binary Protobuf
 reduces the normalized frame by another 10.3%. Its raw frame is 46.5% smaller,
 but gzip removes most of that difference.
 
-Topology is a one-time cost per project revision. London topology is 51,803
+Topology is a one-time cost per project revision. London topology was 51,803
 gzip bytes as JSON and 46,374 gzip bytes as Protobuf. The editor project is not
 part of the polling path.
 
@@ -148,6 +171,8 @@ of total application CPU.
 
 The codec data is in
 [`measurements/protocol-normalized-codec.csv`](measurements/protocol-normalized-codec.csv).
+The earlier codec samples for the previous JSON shape remain in
+[`measurements/protocol-codec.csv`](measurements/protocol-codec.csv).
 
 ## Removed ConnectRPC experiment
 
@@ -163,10 +188,11 @@ saving. Commit `cf50eca` preserves the implementation and benchmark source.
 
 Reconsider a typed RPC protocol when at least one condition is true:
 
-- Remote use makes a 10% to 16% gzip saving material.
+- Remote use makes a 10% to 16% gzip saving significant.
 - Multiple viewers make JSON codec CPU significant.
 - External clients need a generated schema.
 - The application needs streaming or gRPC compatibility.
 
-Measure browser decode and state-application time before a cutover. Add deltas
-or streaming only if normalized complete frames become a measured limit.
+Measure browser decode and state-application time before a protocol change.
+Add deltas or streaming only if normalized complete frames become a measured
+limit.

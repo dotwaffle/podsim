@@ -2,7 +2,7 @@
 
 A browser playground for personal rapid transit networks, built with Go and Ebitengine.
 
-The supplied scenario starts two pods on a network with three passenger stations and a two-space parking station.
+The supplied scenario starts two pods on a network with three passenger stations and a two-berth parking station.
 Use the scenario editor to change the network, fleet, berth capacity, and demand settings.
 
 Select **Download debug state** above the simulation to save a timestamped JSON capture of the current server state.
@@ -34,22 +34,28 @@ Keep the server running while using the application.
 All browsers connected to this server share one in-memory session.
 Refreshing a browser retains the session. Restarting the server resets the running simulation.
 
+The native desktop client connects to the same server session.
+Run `mise exec -- go run ./cmd/podsim`, and use `-server` to select another server URL.
+The desktop client does not include the scenario editor or the debug capture. Use a browser for them.
+
 To select a different listen address:
 
 ```sh
 mise run serve -- -addr 127.0.0.1:8081
 ```
 
-To load and save server settings, provide an existing scenario JSON file:
+To load and save server settings, provide an existing project JSON file:
 
 ```sh
 mise run serve -- -project scenario.json
 ```
 
 This file contains the `project` object from `/api/project`.
-The server saves accepted setting changes with an atomic file replacement.
+Before the server applies a setting change, it saves the file with an atomic replacement.
+If the save fails, the server rejects the change.
 A rewind that restores the project of a save point also rewrites this file.
 The browser export wraps this object as `scenario` and can also contain a background image.
+`-project` does not accept the browser export, and **Import JSON** does not accept the server file.
 
 ## Production server
 
@@ -58,19 +64,19 @@ An `embed_assets` server build contains all browser files in one executable.
 The project also includes a non-root, multiarchitecture ko image and a GHCR publishing workflow.
 The server provides `/healthz`, opt-in pprof on a separate listener, and opt-in OTLP telemetry.
 The browser uses normalized gzip JSON frames.
-See [distribution and operations](docs/operations.md) for build and runtime settings.
+See [distribution and operations](docs/operations.md) for build and runtime settings, graceful shutdown, save point memory use, and save point logs.
 
 ## Controls
 
 - Select **Edit scenario**, open **Example traffic sequence**, then select **Start example sequence**.
-- Select a **Pod** button, or click a pod on the map, to inspect it.
+- Select a pod number button, or click a pod on the map, to inspect it. With more than six pods, select **>** to show the next six.
 - Compact fleet numbers match the pod buttons and map. Inspection also shows the full pod ID.
 - Pod colors show their purpose: idle, pickup, passenger service, parking, redistribution, or other empty travel.
 - The map legend explains the colors. An amber ring marks waiting pods, and a white ring marks the selected pod.
-- Scroll over the map to zoom at the pointer. Drag the map to pan. Use **Fit** to show the whole network.
+- Scroll over the map to zoom at the pointer. Drag the map to pan. Use **+** and **−** to zoom at the map center. Use **Fit** to show the whole network.
 - Map navigation stays local to your browser. Zoom in to see individual berths in crowded stations.
   **Reset** and **Rewind** keep the map view when the network does not change.
-- Select **Follow** or press **F** to keep the selected pod centered. Dragging the map or selecting **Fit** stops following.
+- Select **Follow** or press **F** to keep the selected pod centered. Clicking or dragging the map, or selecting **Fit**, stops following.
 - Overview labels show occupied berths and nonzero entrance and exit queues.
 - Expanded labels show occupied, reserved-empty, and free berths. These counts sum to station capacity.
 - Expanded entrance labels show stopped and approaching pods. Exit labels show stopped departing pods.
@@ -79,20 +85,20 @@ See [distribution and operations](docs/operations.md) for build and runtime sett
 - Select **From** and **To**, then **Order**. Pod selection affects inspection only.
 - An idle local pod serves the request. Otherwise, the nearest available empty pod comes to collect the passenger.
 - Requests wait when no pod is available. Open **Orders** to see queued and active journeys and their status.
-- Each accepted request shows its order number and briefly changes the request button to **Order accepted**.
+- Each accepted request shows its order number, opens **Orders**, and briefly changes the request button to **Order accepted**.
 - Pickup wait statistics show average and maximum seconds since reset. Pending orders contribute their elapsed wait.
 - Wait ends when boarding starts, so it includes empty-pod travel to pickup.
 - Fleet use shows the percentage of pods with assigned or active work and the percentage currently in passenger service.
-- Use **Pause**, **Resume**, **Reset**, and **Speed** to control playback.
+- Use **Pause**, **Resume**, **Reset**, and **Speed** to control playback. **Speed** cycles through 1x, 2x, 4x, and 8x.
 - Keyboard: **Enter** submits an order and **Tab** selects the next pod.
-- **Space** pauses, **R** resets, **S** changes speed, and **F** toggles pod following.
+- **Space** pauses or resumes, **R** resets, **S** changes speed, and **F** toggles pod following.
 - Reset restores the saved scenario fleet and demand settings, clears requests and reservations, and returns to 1x playback.
 - Select **Save point** to keep an exact copy of the simulation, the demand stream, and the project settings in server memory.
 - Select **Rewind** to return to the latest save point. The button shows the simulated time of that save point.
   A rewind leaves the session paused and keeps the playback speed.
 - The session is shared, so a rewind affects every browser. For this reason, these two controls have no keyboard shortcuts.
 - The server keeps at most 8 save points in memory. At the limit, a new save point removes the oldest one.
-  A server restart clears all save points.
+  A server restart clears all save points. A reset, the traffic demo, and a project apply keep them.
 - Demand changes count as project changes. A rewind to a save point from before a demand change restores and saves the earlier demand settings.
   The button then reads **Rewind + project**. The notice after the rewind adds **Project settings restored.**
 
@@ -116,7 +122,7 @@ Normal dispatch and traffic rules handle these orders.
 The demo ends after eight passenger journeys and all empty moves finish.
 
 Use 8x speed to see the experiment in about 41 seconds, or slow playback to inspect a queue.
-Starting the demo resets the current run and disables automatic demand. Manual requests are disabled during the demo.
+Starting the demo resets the current run and disables automatic demand. The demo also disables manual requests until it ends.
 The four pods remain available after it ends. **Reset** restores the configured fleet.
 The supplied traffic demo requires the unchanged example network and fleet.
 
@@ -124,7 +130,10 @@ The supplied traffic demo requires the unchanged example network and fleet.
 
 Open **Demand** to select the rate, traffic pattern, and seed, then select **Start demand**.
 Rates use simulated minutes, so 8x playback generates orders eight times faster in wall time.
-Balanced traffic chooses among all passenger stations. Market-bound traffic sends Harbor and Garden passengers to Market.
+Balanced traffic chooses among all passenger stations.
+Destination traffic sends passengers from the other passenger stations to one station.
+When you select this pattern in the **Demand** panel, it uses the current **To** station.
+The pattern label shows that station, for example **Market-bound**.
 Projects can also include weighted origin-destination profiles with named time
 bands.
 The London preset includes eight TfL bands and selects AM peak by default.
@@ -141,7 +150,7 @@ Skipped arrivals appear in the Demand panel and do not accumulate for a later bu
 Select **Edit scenario** above the simulation to open the editor.
 The draft stays local until you select **Pause and apply**.
 Applying a valid draft resets the shared simulation and leaves it paused.
-If another browser changes the project, the server rejects stale edits and preserves the draft.
+If another browser changes the project, the server rejects stale edits. The editor keeps the draft.
 A rewind to a save point from before a project apply or a demand change restores that project.
 The rewind also rewrites the `-project` file.
 An open draft then gets an apply conflict. Reload the page to get the restored project.
@@ -151,9 +160,9 @@ Export the draft before reloading a newer server project.
 - Select paired lanes to add both directions. Crossing lines do not create a junction.
 - Select a guideway to adjust its curve and speed in km/h.
 - Set station berth capacity and place initial pods in free berths.
-- Set the passenger rate, pattern, OD profile, time band, seed, and redistribution option.
-- Use undo and redo for draft changes. Pan empty space and use the wheel to zoom.
-- Import a PNG or JPEG background. Calibrate two points with a known distance in meters.
+- Set the passenger generation option, rate, pattern, destination, OD profile, time band, same-destination party limit, seed, and redistribution option.
+- Use undo and redo for draft changes. Drag empty space to pan, and use the wheel to zoom.
+- Import a PNG or JPEG background. Select **Calibrate scale**, select two points on the image, enter their distance in meters, then select **Set scale**.
 - Export JSON to save the scenario and optional background. Import JSON to restore a draft.
 
 Project files save the design and settings, not the exact running state.
@@ -177,15 +186,18 @@ mise run compare -- -seed 7 -duration 10m -request-every 60s
 ```
 
 The report includes demand throughput, backlog, drain time, fleet use, pickup
-wait, completed and remaining journeys, passenger and empty travel,
+wait, completed and remaining journeys, and skipped requests. It also includes
+peak queues and berth use at the focus station, passenger and empty travel,
 loaded-distance percentage, and positioning moves.
 The default comparison uses a Market-heavy pickup forecast and identical initial fleets.
 Use `-patterns all -seeds 1,2,3 -loads 30s,45s,60s` for a paired matrix.
-Use `-format json` or `-format csv` to save results, and `-project scenario.json` to test another network.
+Use `-format json` or `-format csv` for machine-readable results, and `-output` to write the report to a file.
+Use `-project scenario.json` to test another network.
 Schedule IDs identify the identical requests used for each off/on pair.
 The synthetic patterns are balanced, destination, hotspot, bursty-hotspot, and
 hub-burst. Use `-pattern profile -bands all` with a project demand profile to
 run its origin-destination bands.
+Use `-focus` to select the station that the destination, hotspot, bursty-hotspot, and hub-burst patterns favor.
 Use `-arrivals-for` to stop new requests before the measurement ends.
 Use `-stop-when-drained` to stop an arm after all accepted requests complete.
 Use `-workers` to run independent arms concurrently. Reports retain their
@@ -229,9 +241,9 @@ and topology, real station names, directed twin guideways, off-line berths, and
 three Parking facilities.
 Station lanes identify approach, entry, berth access, through, departure, and
 exit maneuvers.
-The pod inspector reports the current maneuver and station name.
+The pod inspector shows the current maneuver and station name in **Station phase**.
 Projects without this optional lane metadata still load. The simulator infers
-berth access and departure roles from the station paths.
+through, berth access, and departure roles from the station paths.
 
 ## Scope and model
 
@@ -240,7 +252,8 @@ berth access and departure roles from the station paths.
 The Go core uses fixed 60 Hz steps and world coordinates in meters.
 Routing chooses the shortest free-flow travel time on directed lanes.
 Equal-cost routes use scenario order for deterministic results.
-Automatic demand is optional and starts disabled.
+Automatic demand is optional. It starts disabled unless the loaded project enables it.
+With `-project`, **Start demand** saves this setting in the file, so demand starts again after a server restart.
 
 Lanes can be straight or quadratic curves.
 The simulator and browser measure each curve along the same sampled path.
@@ -359,14 +372,15 @@ If that artifact is missing or older than the WASM file, the server compresses t
 A lost connection disables commands.
 Reconnection restores the current shared state.
 The server deduplicates command retries by client and sequence.
-Replay records support 1,024 browser loads per server lifetime.
-Restart the server if this prototype limit is reached.
+Replay records support 1,024 browser page loads per server lifetime.
+Only a page that sends a command uses a record.
+If a new page reports the session client limit, restart the server.
 
 Pod selection, origin, destination, and the open inspection panel stay local to each browser.
 Background images stay in the editor and exported project file.
 The shared simulation receives network geometry and settings.
 
-See [the client protocol](docs/protocol.md) for payload measurements and the Protobuf evaluation.
+See [the client protocol](docs/protocol.md) for the API, save point commands, payload measurements, and the Protobuf evaluation.
 See [the project brief](PROJECT_BRIEF.md) for the wider scope and research.
 
 ## Code and validation
@@ -374,10 +388,11 @@ See [the project brief](PROJECT_BRIEF.md) for the wider scope and research.
 | Path | Purpose |
 | --- | --- |
 | `internal/sim` | Network, routing, requests, pod movement, and deterministic tests. |
+| `internal/observe` | Station berth and queue metrics for the view and comparison reports. |
 | `internal/project` | Versioned scenario settings, validation, and detached copies. |
 | `internal/scenarios` | Deterministic scale fixtures and qualification tests. |
 | `internal/session` | Shared clock, command validation, save points, HTTP API, and repeatable demand. |
-| `internal/remote` | Snapshot polling, command retries, and connection state. |
+| `internal/remote` | Snapshot polling, motion buffering, command retries, and connection state. |
 | `internal/view` | Ebitengine rendering and input against copied snapshots. |
 | `internal/telemetry` | Optional OTLP traces, HTTP metrics, runtime metrics, and session gauges. |
 | `internal/cmd/buildweb` | Generated browser files and gzip WASM artifact. |
@@ -394,7 +409,9 @@ mise run check
 
 `mise.toml` tracks Go 1.27 and major versions for the other development tools.
 `mise.lock` records the resolved tool downloads.
-`mise run check` runs workflow validation, race tests, editor tests, vet, lint, vulnerability checks, and both builds.
+`mise run check` runs workflow validation, race tests, editor tests, vet, lint, vulnerability checks, the native and browser builds, and the embedded server tests.
+`mise run qualify` runs the `internal/scenarios` qualification tests for scale, safety, and repeatability.
+`mise run benchmark` measures 6,000 simulation steps on the 100-pod scenario.
 
 GitHub Actions runs the same check on pull requests and pushes to `main`.
 The workflow also supports a manual trigger.
@@ -402,11 +419,14 @@ New pull-request updates cancel older runs.
 Each `main` push keeps its own run.
 The workflow uses major-version action tags and installs tools from `mise.lock`.
 Go module, build, and lint analysis caches use job-specific keys and refresh after successful runs.
-The lint configuration follows Q but omits irrelevant database and protobuf rules.
+The lint configuration follows Q without its database and protobuf rules.
+It also checks package boundaries. `internal/sim` can import only the standard library.
+`internal/session`, `internal/project`, and `cmd/serve` cannot import the renderer or browser APIs.
 
-Validation has five main parts:
+Validation has six main parts:
 
 - Core tests cover routing, journeys, invalid requests, pause and reset behavior, repeatability, and state isolation.
+- Session and server tests cover save points, exact rewind, project restore, command logs, and graceful shutdown.
 - Rendering tests cover buffered movement, lane corners, station movement, pause and reset behavior, and stale snapshots.
 - HTTP tests cover compression, topology and frame decoding, command
   acknowledgments, WASM responses, byte ranges, health, and diagnostics.

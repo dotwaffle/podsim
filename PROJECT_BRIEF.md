@@ -3,14 +3,16 @@
 **Status:** The initial usable 2D version was accepted on September 21, 2026.
 
 The browser supports local map backgrounds, scale calibration, network editing,
-project persistence, manual and automatic demand, pod dispatch, local traffic
-control, inspection, pod following, and fleet-use statistics.
+and project persistence. It also supports manual and automatic demand, pod
+dispatch, local traffic control, inspection, pod following, and fleet-use
+statistics.
 The server owns one shared simulation session for all connected browsers.
 Any browser can keep an exact save point of the running simulation in server
 memory and rewind the session to the latest save point.
 Optional empty-pod redistribution is available but remains off by default.
-The railway-hub, London demand-capacity, and same-destination sharing
-experiments are complete.
+
+The rail-hub, London capacity envelope, same-destination sharing, and first
+congestion-aware routing experiments are complete.
 The first station-maneuver slice is complete: station lanes have explicit roles,
 pod snapshots expose the current phase, and the inspector names the maneuver.
 Configurable station geometry and the other experiments in Section 6 remain
@@ -18,7 +20,7 @@ later work.
 See [README.md](README.md) for controls, validation commands, and current model limits.
 
 This document records the project direction, initial feature scope, architecture, effort estimates, and research.
-The initial scope and policies are a starting point for implementation planning.
+The initial scope and policies were the starting point for implementation planning.
 Future experiments are separate possibilities, not initial delivery commitments.
 
 ## 1. Product vision
@@ -106,16 +108,16 @@ One party per pod and no intermediate stops are initial service policies, not pe
 - Select a pod to inspect its destination, route, and current activity.
 - Follow a pod with the map camera.
 - Inspect station queues and berth occupancy.
-- Show completed journeys, waiting times, and fleet utilization.
+- Show completed journeys, waiting times, and fleet use.
 - Explain why a selected pod is waiting.
 
-Network edits require a stopped run.
+Applying network edits requires a paused run.
 Applying edits resets simulation state while preserving the design.
-A rewind to a save point from before an applied edit restores the earlier design and settings.
+A rewind to a save point from before an applied edit or a demand change restores the earlier design and settings.
 
 ### Station modeling direction
 
-Physical station layouts are an intended capability, not merely a possible visual upgrade.
+Physical station layouts are an intended capability, not only a possible visual upgrade.
 Schematic station treatment is acceptable for the first milestone.
 The initial model must allow later entry-lane, berth-access, and exit movements without replacing the entire station abstraction.
 
@@ -133,7 +135,7 @@ Keep internal path lengths and movement conflicts possible in the model even whe
 - Version the project format.
 - Report malformed or unsupported files without replacing the current project.
 - Include a small example network.
-- Save the scenario configuration rather than an exact running simulation checkpoint.
+- Save the scenario configuration rather than the exact running state.
 - Keep at most eight exact save points of the running simulation in server memory only. A server restart clears them. At the limit, a new save point removes the oldest one.
 
 ## 3. Architecture and future 3D
@@ -155,8 +157,8 @@ Advance simulation through fixed time steps.
 Keep rendering independent of simulation speed.
 A saved scenario and random seed should produce repeatable results.
 
-Ebitengine owns drawing and interaction.
-A small browser adapter handles file selection and downloads.
+Ebitengine draws the simulation view and handles its controls.
+A separate HTML and JavaScript page provides the scenario editor, background images, and project import and export.
 
 Define a clear boundary between user commands, simulation updates, and state exposed for display.
 Avoid a general plugin system in the first version.
@@ -168,7 +170,8 @@ Preserve the authoritative server and retry-safe command identity.
 
 The September 22 evaluation normalized recurring JSON state, then compared it
 with ConnectRPC and binary Protocol Buffers. Protobuf reduced the London gzip
-frame by another 10.3%. Its codec saved about 0.7% of one CPU core per client.
+frame by another 10.3%. At 20 Hz, its encoding and compression would save about
+0.7% of one CPU core per client.
 
 No application client used the experimental service. The project removed it to
 avoid a second protocol implementation and an alpha runtime dependency. Review
@@ -228,9 +231,9 @@ Significant JavaScript learning may extend it.
 At eight hours per week, the usable 2D version represents roughly 10-20 weeks.
 The first experiment should provide something playable much earlier.
 
-Keep multiplayer, live map services, realistic scenery, legacy simulator file import, and advanced fleet optimization outside the first release.
+Keep multiplayer features beyond one shared session, live map services, realistic scenery, legacy simulator file import, and advanced fleet optimization outside the first release.
 The experiments in Section 6 also remain outside the initial scope.
-Their effort has not been estimated, except where an optional stage appears in the table above.
+This brief does not estimate their effort, except where an optional stage appears in the table above.
 
 ## 5. Acceptance and validation
 
@@ -257,18 +260,22 @@ Their effort has not been estimated, except where an optional stage appears in t
 
 **Acceptance status:** Complete for the initial usable version on September 21,
 2026. A combined browser run imported a PNG, calibrated 200 meters, and
-exercised drawing and undo. It edited and applied the network, then exported
-and reloaded the project with its background. It submitted a journey through
-the simulation UI and observed its completion. It also toggled pod following
-and reported no browser errors. Separate browser checks cover invalid input,
-reset, stale edit conflicts, and the 20-station, 100-pod scenario. The hardware
-and performance record is in [docs/qualification.md](docs/qualification.md).
+exercised drawing and undo. It edited the network, exported and reloaded the
+project with its background, and then applied the network. It submitted a
+journey through the simulation UI and observed its completion. It also toggled
+pod following and reported no browser errors. Separate browser checks cover
+invalid input, reset, stale edit conflicts, and the 20-station, 100-pod
+scenario. The hardware and performance record is in
+[docs/qualification.md](docs/qualification.md).
+
+The project added the save point and rewind checks above on September 23,
+2026, after this acceptance.
 
 ## 6. Future extensions and experiments
 
 The following ideas extend the map workflow and network simulation.
-They can all be explored in 2D.
-These are proposed experiments and design considerations, not verified Podsim capabilities.
+None of them needs 3D.
+These are proposed experiments and design considerations. Status notes record the parts that Podsim now implements.
 
 ### Geographic map import
 
@@ -304,14 +311,16 @@ real names and locations, and 127 unique adjacencies.
 The preset adds twin directed guideways, off-line berths, and three Parking
 facilities.
 The local projection uses meters.
+
 A separate normalized 2019 midweek NUMBAT profile provides 8,474 in-scope OD
 pairs across eight time bands.
 The portable London project includes these bands, and the live session can
 generate requests from a selected band.
 The fixed 40-request AM peak sample completed every request.
+
 Directional portals now keep opposite guideways and unrelated corridors on
 separate station resources.
-A high-load A/B run reduced the peak stopped fleet from 60 pods to three.
+A high-load A/B run reduced peak stopped pods from 60 to three.
 The portal network drained all 199 requests, while the old network left five
 requests after 60 simulated minutes.
 
@@ -341,12 +350,16 @@ Compare the initial shortest expected travel-time policy with a policy that acco
 An alternative route may be longer but faster under the current load.
 
 Use smoothed travel-time estimates and reconsider routes at suitable junctions.
-Investigate whether repeated route changes cause pods to switch between alternatives or simply move congestion elsewhere.
+Investigate whether repeated route changes cause pods to switch between alternatives or only move congestion elsewhere.
 Keep route choice separate from the movement rules that prevent conflicting access to track and junctions.
 
 Useful comparisons include completed journeys, journey-time distributions, queue lengths, and empty-pod travel.
 Repeat each policy comparison with the same demand and random seeds.
 SUMO's [taxi dispatch documentation](https://sumo.dlr.de/docs/Simulation/Taxi.html) provides examples of dispatch using current, smoothed travel times.
+
+**Status:** A first experimental policy added costs for owned track and stopped pods when it assigned a route.
+It served fewer requests than free-flow routing, which remains the default.
+See [docs/qualification.md](docs/qualification.md#congestion-aware-routing-experiment).
 
 ### Mixed vehicle capacities and shared rides
 
@@ -367,6 +380,11 @@ Account for vehicle length, capacity, acceleration, boarding time, and berth com
 Keep passenger capacity distinct from the number of parties aboard.
 Compare passenger throughput, waiting, occupancy, and empty running across fleet mixes.
 MATSim's [demand-responsive transport module](https://github.com/matsim-org/matsim-libs/blob/main/contribs/drt/README.md) supports shared taxis or minibuses and additional pickups during occupied journeys.
+
+**Status:** Step 1 is available as an option.
+A limit of two to eight parties lets a party join a pod that is still boarding at the same origin for the same destination.
+The default limit of one disables sharing.
+See [docs/qualification.md](docs/qualification.md#same-destination-sharing).
 
 ### Railway and park-and-ride hubs
 
@@ -423,22 +441,26 @@ Then add an alternative route to test congestion-aware routing.
 This provides a small, observable experiment before introducing mixed fleets or platoons.
 The sequence is a recommendation, not a committed roadmap.
 
-**Status:** The repeatable railway-hub preset, finite burst schedule, station
+**Status:** The repeatable `rail-hub` preset, finite burst schedule, station
 capacity measurements, and advance-positioning comparison are complete.
-The five-seed experiment served all demand with either policy. Advance
-positioning reduced mean pickup wait by about four seconds, added 45.2 km of
-empty travel, and reduced loaded distance from 45.96% to 42.15%.
+The five-seed experiment served all demand with either policy. Redistribution
+positions empty pods in advance. It reduced mean pickup wait by about four
+seconds, added 45.2 km of empty travel, and reduced loaded distance from 45.96%
+to 42.15%.
 See [docs/qualification.md](docs/qualification.md#rail-hub-burst-experiment).
+
 The four-party sharing arm cut mean wait by 65%, queue clearance by 53%, and
-empty travel by 49% while serving every request. A three-seed alternate-route
-experiment rejected the first occupied-track snapshot cost: it served 1.33
-fewer requests on average, increased mean wait, and added empty travel.
+empty travel by 49% while serving every request.
+
+A three-seed alternate-route experiment rejected the first occupied-track
+snapshot cost: it served 1.33 fewer requests on average, increased mean wait,
+and added empty travel.
 Free-flow routing remains the default.
 
 ## 7. Research and reference tools
 
 Research to date covers documentation, papers, and archive metadata.
-The referenced simulators have not been run as part of this investigation.
+This investigation did not run the referenced simulators.
 Historical descriptions do not establish current availability or compatibility.
 
 ### Closest research paper
@@ -448,7 +470,7 @@ It covers routing around overloaded links, shared rides after train arrivals, em
 It also discusses preparing pods before trains arrive and arranging transfer stations.
 
 The paper reports experiments using PRTsim, with train formation implemented as pairs of vehicles.
-Its capacity results depend on historical model assumptions and should be treated as experiment ideas, not general performance guarantees.
+Its capacity results depend on historical model assumptions. Treat them as experiment ideas, not general performance guarantees.
 
 ### Tools to study
 
@@ -469,15 +491,15 @@ Do not assume that its planning tools reproduce individual pod movement and traf
 ### Historical archives and further leads
 
 - The [University of Washington catalog](https://faculty.washington.edu/jbs/itrans/simu.htm) was last modified on September 27, 2013.
-  It lists Hermes, BeamEd, RUF, and other simulators worth investigating if further examples are needed.
+  It lists Hermes, BeamEd, RUF, and other simulators to investigate if the project needs further examples.
   Its availability claims need fresh verification.
 - The [Google Code PRT-Sim archive](https://code.google.com/archive/p/prt-sim/) did not render through the research browser.
   Its [project metadata](https://storage.googleapis.com/google-code-archive/v2/code.google.com/prt-sim/project.json) and [source index](https://storage.googleapis.com/google-code-archive/v2/code.google.com/prt-sim/source-page-1.json) remained accessible.
   Metadata describes an alpha-stage Python control-system testbed with GPLv3 source.
-  No legacy code has been installed or reused.
+  The project has not installed or reused any legacy code.
 - [SUMOPy documentation](https://sumo.dlr.de/docs/Contributed/SUMOPy.html), now describing hybridPY, lists support for PRT services.
   Schweizer and Rupi's 2017 paper, [Personal Rapid Transit simulations with SUMO](https://cris.unibo.it/handle/11585/631734), is a further reading lead.
-  The full proceedings PDF could not be retrieved through the research browser, so detailed results remain unreviewed.
+  The research browser could not retrieve the full proceedings PDF, so the detailed results remain unreviewed.
 
 ### Original simulator and browser technology
 
@@ -489,7 +511,7 @@ Do not assume that its planning tools reproduce individual pod movement and traf
 - [Slow Roads technical case study](https://web.dev/case-studies/slow-roads)
 
 The ATS/CityMobil ZIP downloaded successfully during the initial investigation.
-It contained a launcher, Java components, and bundled case studies. The program was not executed.
+It contained a launcher, Java components, and bundled case studies. The investigation did not run the program.
 
 ### Suggested study order
 
@@ -499,5 +521,5 @@ It contained a launcher, Java components, and bundled case studies. The program 
 4. Use Podaris for editor and planning ideas.
 5. Return to MATSim and Plexe when shared-service and platooning experiments become relevant.
 
-This brief is independent of any implementation framework.
-Its initial feature groups and acceptance scenarios can become a focused PRD or implementation tasks in the workflow selected later.
+The initial feature groups and acceptance scenarios defined the initial usable version.
+Section 5 records its acceptance.
