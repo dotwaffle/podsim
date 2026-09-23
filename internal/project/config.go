@@ -2,6 +2,7 @@
 package project
 
 import (
+	"encoding/json/v2"
 	"errors"
 	"fmt"
 	"math"
@@ -37,8 +38,30 @@ const (
 	MaxFlows = 20000
 )
 
-// MaxFileBytes is the largest encoded project accepted from local storage.
+// MaxFileBytes is the largest project file accepted from local storage. It
+// also limits the canonical encoding of a valid project. Validate measures
+// the project with the widest demand settings that ValidateDemand accepts.
+// Thus a session state file can hold each valid project, also after a
+// change to its demand settings.
 const MaxFileBytes = 4 << 20
+
+// errTooLarge means that the canonical encoding of a project, with the
+// widest demand settings, has more than MaxFileBytes.
+var errTooLarge = fmt.Errorf("encoded project must have at most %d bytes with any demand settings", MaxFileBytes)
+
+// widestDemand has the longest canonical encoding of all demand settings
+// that ValidateDemand accepts. Enabled is false, because false is longer
+// than true. Destination is the longest pattern name. Each reference has
+// the largest length, and each byte is a control character, which JSON
+// writes as a 6-byte escape. Keep this value in step with ValidateDemand.
+var widestDemand = DemandConfig{
+	PerMinute:   120,
+	Pattern:     "destination",
+	Seed:        math.MaxUint64,
+	Destination: strings.Repeat("\x01", maxIDLength),
+	Profile:     strings.Repeat("\x01", maxIDLength),
+	Band:        strings.Repeat("\x01", maxIDLength),
+}
 
 // DemandConfig controls deterministic arrivals per simulated minute.
 type DemandConfig struct {
@@ -108,7 +131,9 @@ func Default() Config {
 	}
 }
 
-// Validate checks format bounds and confirms that the scenario can start.
+// Validate checks format bounds and confirms that the scenario can start. It
+// also checks that the canonical encoding of config has at most MaxFileBytes
+// with any demand settings that ValidateDemand accepts.
 func Validate(config Config) error {
 	if config.Version != currentVersion {
 		return fmt.Errorf("project version must be %d", currentVersion)
@@ -166,7 +191,13 @@ func Validate(config Config) error {
 			}
 		}
 	}
-	return nil
+	// The size check runs last, because it encodes the full project. It
+	// measures the project with the widest demand settings, because the
+	// demand command checks new settings with ValidateDemand only.
+	measured := config
+	measured.Demand = widestDemand
+	_, err := encodedSize(measured)
+	return err
 }
 
 // EffectiveSharedRidePartyLimit returns one for legacy projects that omit the setting.
@@ -188,6 +219,38 @@ func directedReachable(adjacent map[string][]string, start string) map[string]bo
 		}
 	}
 	return reachable
+}
+
+// encodedSize returns the length of the canonical encoding of config. The
+// session state file writes its project member with the same options (see
+// stateEncoder.encodeProject in internal/session). Keep the options the
+// same. When the length passes MaxFileBytes, encodedSize stops and returns
+// errTooLarge. Thus a large project does not use memory for a full encoding.
+// A project that the session cannot encode, for example with a string that
+// is not valid UTF-8, also gets an error.
+func encodedSize(config Config) (int, error) {
+	counter := sizeCounter{limit: MaxFileBytes}
+	if err := json.MarshalWrite(&counter, config, json.Deterministic(true)); err != nil {
+		if errors.Is(err, errTooLarge) {
+			return 0, errTooLarge
+		}
+		return 0, fmt.Errorf("encode project: %w", err)
+	}
+	return counter.size, nil
+}
+
+// sizeCounter counts the bytes written to it and keeps no data. A write
+// that takes the count past limit fails with errTooLarge.
+type sizeCounter struct {
+	size, limit int
+}
+
+func (c *sizeCounter) Write(data []byte) (int, error) {
+	if len(data) > c.limit-c.size {
+		return 0, errTooLarge
+	}
+	c.size += len(data)
+	return len(data), nil
 }
 
 func validateNames(config Config) error {

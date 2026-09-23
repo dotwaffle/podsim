@@ -199,9 +199,9 @@ func (e *stateEncoder) encode(file stateFile) ([]byte, error) {
 }
 
 // encodeProject writes the project member of a state file. The member has
-// the size limit of decodeSavedProject. A project that came from a smaller
-// file can have a larger member, because the member writes each number in
-// full. For example, 1e20 has 21 digits.
+// the size limit of decodeSavedProject. project.Validate measures the same
+// encoding (see encodedSize in internal/project), so each valid project
+// fits. Keep the options of the two encodings the same.
 func (e *stateEncoder) encodeProject(encoder *jsontext.Encoder, config project.Config) error {
 	e.project.Reset()
 	limited := &limitedWriter{
