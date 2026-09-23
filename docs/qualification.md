@@ -573,7 +573,8 @@ network.
 ## London capacity envelope
 
 The sweep uses the London project's NUMBAT origin-destination profile on the
-directional-portal network at commit `af3f397`.
+directional-portal network at commit `3b02de8`, after the station heading
+change.
 It covers all eight demand bands, 15 offered rates, and seeds 1, 2, and 3.
 Each arm accepts requests for 30 simulated minutes, then has up to 30 minutes
 to finish them. Redistribution and ride sharing are off. Free-flow routing is
@@ -581,7 +582,7 @@ on. The queue limit is high enough that the compare command skips no request.
 
 ```sh
 mise run scenario -- -preset london -output /tmp/podsim-london-capacity.json
-mise run compare -- -project /tmp/podsim-london-capacity.json -pattern profile -bands all -duration 60m -arrivals-for 30m -loads 60s,30s,20s,15s,12s,10s,8.571429s,7.5s,6.666667s,6s,5.454545s,5s,4.615385s,4.285714s,4s -seeds 1,2,3 -redistribution-policies off -focus 940GZZLUEUS -queue-limit 1000000 -stop-when-drained -workers 6 -format csv -output docs/measurements/london-capacity.csv
+mise run compare -- -project /tmp/podsim-london-capacity.json -pattern profile -bands all -duration 60m -arrivals-for 30m -loads 60s,30s,20s,15s,12s,10s,8.571429s,7.5s,6.666667s,6s,5.454545s,5s,4.615385s,4.285714s,4s -seeds 1,2,3 -redistribution-policies off -focus 940GZZLUEUS -queue-limit 1000000 -stop-when-drained -workers 10 -format csv -output docs/measurements/london-capacity.csv
 ```
 
 The schedule starts after the first interval and excludes the arrival-window
@@ -595,9 +596,10 @@ minute.
 
 The recovery limit is the highest tested rate at which all three seeds finish
 every accepted request before the 60-minute cap. All three seeds must also
-finish at every lower tested rate. This rule changes only the PM peak limit.
-PM peak finishes two seeds at 12/min and all three seeds at 13/min, so its
-limit is 11/min.
+finish at every lower tested rate. This rule changes the Early and Morning
+limits. Early finishes two seeds at 8/min and all three seeds at 9/min, so its
+limit is 7/min. Morning finishes two seeds at 10/min and all three seeds at
+11/min, so its limit is 9/min.
 
 Each metric column gives the mean of the three seeds at the limit rate. Maximum
 wait is the mean of the three per-seed maxima. Late throughput measures
@@ -607,48 +609,49 @@ window.
 
 | NUMBAT band | Recovery limit | Late throughput | Late backlog change | Recovery after arrivals | Average wait | Maximum wait | Loaded distance | Next rate drained |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| Early | 7/min | 5.13/min | +28.0 | 1,582 s | 413.7 s | 989.4 s | 44.8% | 2/3 at 8/min |
-| Morning | 11/min | 8.89/min | +31.7 | 1,565 s | 288.2 s | 1,133.0 s | 52.7% | 1/3 at 12/min |
-| AM peak | 12/min | 9.27/min | +41.0 | 1,689 s | 308.3 s | 1,114.7 s | 52.3% | 0/3 at 13/min |
-| Interpeak | 12/min | 10.24/min | +26.3 | 1,598 s | 226.1 s | 962.9 s | 53.4% | 2/3 at 13/min |
-| PM peak | 11/min | 9.84/min | +17.3 | 1,025 s | 180.6 s | 762.0 s | 54.6% | 2/3 at 12/min |
-| Evening | 12/min | 9.07/min | +44.0 | 1,511 s | 310.5 s | 1,070.4 s | 51.8% | 1/3 at 13/min |
-| Late | 12/min | 8.78/min | +48.3 | 1,640 s | 389.5 s | 1,191.4 s | 50.5% | 2/3 at 13/min |
-| Night | 9/min | 7.38/min | +24.3 | 1,433 s | 203.6 s | 839.3 s | 47.9% | 2/3 at 10/min |
+| Early | 7/min | 5.24/min | +26.3 | 1,354 s | 370.2 s | 778.4 s | 45.0% | 2/3 at 8/min |
+| Morning | 9/min | 8.13/min | +13.0 | 1,253 s | 161.4 s | 677.4 s | 57.9% | 2/3 at 10/min |
+| AM peak | 11/min | 9.62/min | +20.7 | 1,467 s | 208.6 s | 892.4 s | 54.5% | 2/3 at 12/min |
+| Interpeak | 13/min | 10.11/min | +44.3 | 1,561 s | 310.3 s | 1,173.2 s | 51.7% | 0/3 at 14/min |
+| PM peak | 12/min | 9.78/min | +33.3 | 1,344 s | 259.9 s | 991.5 s | 51.0% | 2/3 at 13/min |
+| Evening | 12/min | 9.09/min | +43.7 | 1,462 s | 307.3 s | 1,117.1 s | 51.8% | 2/3 at 13/min |
+| Late | 12/min | 9.07/min | +44.0 | 1,627 s | 368.8 s | 1,107.9 s | 50.7% | 2/3 at 13/min |
+| Night | 9/min | 7.44/min | +23.3 | 1,584 s | 205.6 s | 944.0 s | 47.6% | 2/3 at 10/min |
 
 No band finishes all three seeds at 15/min. At the limit rate, at least one
 seed has all 114 pods with assigned work at the same time in every band except
-Early. In Early, the highest seed peak is 110 pods. The highest per-seed peak
-stopped pods at the limit rate is 15 in Early and 3 to 6 in the other bands.
-For the seven bands other than Early, these results suggest that the 114-pod
-fleet, not track congestion, sets the recovery limit. Early has more peak
-stopped pods, so congestion can also contribute to its limit.
+Early and Morning. The highest seed peak is 108 pods in Early and 113 pods in
+Morning. At 10/min, the Morning seed that does not finish has all 114 pods with
+assigned work and at most 3 stopped pods. The highest per-seed peak stopped
+pods at the limit rate is 11 in Early and 3 to 6 in the other bands. For the
+seven bands other than Early, these results suggest that the 114-pod fleet, not
+track congestion, sets the recovery limit. Early has more peak stopped pods, so
+congestion can also contribute to its limit.
 
-OD mix explains the lowest limits. At the lowest load, an Early journey uses
-6.32 km of passenger travel and 7.45 km of empty travel on average. A Night
-journey uses 5.27 km and 4.02 km. The other bands use 4.77 to 5.78 km of
-passenger travel and 2.32 to 3.15 km of empty travel. Early and Night need the
-most empty travel per journey, and they have the lowest limits.
+OD mix explains most of the lowest limits. At the lowest load, an Early
+journey uses 6.25 km of passenger travel and 7.44 km of empty travel on
+average. A Night journey uses 5.24 km and 4.04 km. The other bands use 4.71 to
+5.73 km of passenger travel and 2.31 to 2.73 km of empty travel. Early and
+Night need the most empty travel per journey. Early has the lowest limit, and
+Night shares the second-lowest limit with Morning. The Morning limit comes from
+one seed at 10/min that leaves one request at the cap.
 
 These limits describe a finite 30-minute demand pulse with up to 30 minutes of
 recovery. They are not continuous steady-state limits. Backlog still grows in
 the second half of every limit-rate arm, so an operating target needs headroom.
-Some limit-rate arms finish close to the cap. The closest arms finish 13
-seconds before the cap in Morning and 21 seconds before it in AM peak. The
+The closest limit-rate arm finishes 104 seconds before the cap in Night. The
 sweep does not prove that any tested rate can run indefinitely.
 
 The shared-junction network at commit `5e556e0` had recovery limits of 2/min in
 Early, 3/min in Night, and 6 to 7/min in the other bands. Across all arms, its
 peak stopped pods reached 44 to 91 per band. In the portal sweep, no arm has
-more than 29 peak stopped pods. Commit `ed5d782` also changed the berth layout,
-so this comparison does not isolate the portal change. At the lowest load, empty
-travel per journey is also higher on the portal network, for example 2.50 km
-against 1.75 km in Morning.
+more than 22 peak stopped pods. Commit `ed5d782` also changed the berth layout,
+and commit `3b02de8` changed the station headings, so this comparison does not
+isolate the portal change. At the lowest load, empty travel per journey is also
+higher on the portal network, for example 2.41 km against 1.75 km in Morning.
 
-The committed CSV combines two runs. The first run covers the eight lowest
-rates, and the second run adds the seven highest rates. Each arm is independent
-and deterministic, so the compare command above writes the same rows in one
-run. The second run took 2,052 wall seconds for 168 arms and reached 440,596 KB
-peak RSS on the qualification host with six workers. The first run did not
-record its wall time or memory. Raw results are in
+The compare command above wrote the committed CSV in one run. It took 2,282
+wall seconds for 360 arms and reached 735,432 KB peak RSS on the qualification
+host with ten workers. Each arm is independent and deterministic, so the
+number of workers does not change the rows. Raw results are in
 [`measurements/london-capacity.csv`](measurements/london-capacity.csv).

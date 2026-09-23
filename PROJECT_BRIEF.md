@@ -332,8 +332,8 @@ requests after 60 simulated minutes.
 
 A 360-arm sweep measured the portal network across all eight bands, 15 offered
 rates, and three seeds.
-Recovery limits range from 7 requests per minute in Early to 12 in AM peak,
-Interpeak, Evening, and Late.
+Recovery limits range from 7 requests per minute in Early to 13 in
+Interpeak.
 In every band except Early, the results suggest that the 114-pod fleet, not
 track congestion, sets the limit.
 See [docs/london.md](docs/london.md) and
