@@ -1,0 +1,496 @@
+{
+  "format": "podsim-session",
+  "version": 1,
+  "final": true,
+  "savedAt": "2026-09-23T09:00:00.123456789Z",
+  "build": "b9a50fb31ed44c66",
+  "epoch": "N4ZDMYDG2PQ6QJ5MIH3DTWMF7U",
+  "revision": 3,
+  "projectRevision": 1,
+  "generation": 1,
+  "lastCheckpoint": 1,
+  "speed": 2,
+  "restoreAttempts": 1,
+  "demand": {
+    "state": {
+      "config": {
+        "enabled": true,
+        "perMinute": 2,
+        "pattern": "balanced",
+        "seed": 1
+      },
+      "generated": 2,
+      "skipped": 0
+    },
+    "random": "cGNnOk1CAPyS28hTJvzN1Nld28I=",
+    "budget": 800
+  },
+  "simulation": {
+    "tick": 0,
+    "completed": 0,
+    "requestID": 3,
+    "boarded": 2,
+    "totalWaitTicks": 0,
+    "maxWaitTicks": 0,
+    "nextRedistributionTick": 0,
+    "passengerDistanceMeters": 0,
+    "emptyDistanceMeters": 0,
+    "rebalanceMoves": 0,
+    "sharedParties": 0,
+    "sharedRidePartyLimit": 1,
+    "pods": [
+      {
+        "id": "01",
+        "activity": "boarding",
+        "stationID": "harbor",
+        "berthID": "harbor-1",
+        "request": {
+          "id": 1,
+          "from": "harbor",
+          "to": "market",
+          "partySize": 1,
+          "podID": "01",
+          "requestedTick": 0
+        },
+        "parties": 1,
+        "phaseTicks": 180,
+        "origin": "harbor-1",
+        "destinationStation": "market",
+        "route": [
+          2,
+          3,
+          9,
+          10,
+          11
+        ]
+      },
+      {
+        "id": "02",
+        "activity": "boarding",
+        "stationID": "garden",
+        "berthID": "garden-1",
+        "request": {
+          "id": 2,
+          "from": "garden",
+          "to": "market",
+          "partySize": 1,
+          "podID": "02",
+          "requestedTick": 0
+        },
+        "parties": 1,
+        "phaseTicks": 180,
+        "origin": "garden-1",
+        "destinationStation": "market",
+        "route": [
+          7,
+          8,
+          11
+        ]
+      }
+    ],
+    "waiting": [
+      {
+        "request": {
+          "id": 3,
+          "from": "garden",
+          "to": "harbor",
+          "partySize": 1,
+          "requestedTick": 0,
+          "dispatchReason": "Waiting for an available pod"
+        }
+      }
+    ]
+  },
+  "project": {
+    "version": 1,
+    "name": "Podsim example",
+    "network": {
+      "Nodes": [
+        {
+          "ID": "harbor-entry",
+          "Position": {
+            "X": 80,
+            "Y": 260
+          }
+        },
+        {
+          "ID": "harbor-berth",
+          "Position": {
+            "X": 130,
+            "Y": 350
+          }
+        },
+        {
+          "ID": "harbor-exit",
+          "Position": {
+            "X": 200,
+            "Y": 260
+          }
+        },
+        {
+          "ID": "branch",
+          "Position": {
+            "X": 300,
+            "Y": 260
+          }
+        },
+        {
+          "ID": "garden-entry",
+          "Position": {
+            "X": 400,
+            "Y": 150
+          }
+        },
+        {
+          "ID": "garden-berth",
+          "Position": {
+            "X": 480,
+            "Y": 70
+          }
+        },
+        {
+          "ID": "garden-exit",
+          "Position": {
+            "X": 570,
+            "Y": 150
+          }
+        },
+        {
+          "ID": "bypass",
+          "Position": {
+            "X": 470,
+            "Y": 300
+          }
+        },
+        {
+          "ID": "merge",
+          "Position": {
+            "X": 670,
+            "Y": 260
+          }
+        },
+        {
+          "ID": "market-entry",
+          "Position": {
+            "X": 730,
+            "Y": 260
+          }
+        },
+        {
+          "ID": "market-berth",
+          "Position": {
+            "X": 800,
+            "Y": 350
+          }
+        },
+        {
+          "ID": "market-exit",
+          "Position": {
+            "X": 880,
+            "Y": 260
+          }
+        },
+        {
+          "ID": "return-east",
+          "Position": {
+            "X": 900,
+            "Y": 460
+          }
+        },
+        {
+          "ID": "parking-entry",
+          "Position": {
+            "X": 620,
+            "Y": 460
+          }
+        },
+        {
+          "ID": "parking-exit",
+          "Position": {
+            "X": 340,
+            "Y": 460
+          }
+        },
+        {
+          "ID": "parking-berth-1",
+          "Position": {
+            "X": 480,
+            "Y": 420
+          }
+        },
+        {
+          "ID": "parking-berth-2",
+          "Position": {
+            "X": 480,
+            "Y": 365
+          }
+        },
+        {
+          "ID": "return-west",
+          "Position": {
+            "X": 60,
+            "Y": 460
+          }
+        }
+      ],
+      "Lanes": [
+        {
+          "ID": "harbor-through",
+          "From": "harbor-entry",
+          "To": "harbor-exit",
+          "SpeedLimit": 14,
+          "StationID": "harbor",
+          "StationRole": "through"
+        },
+        {
+          "ID": "harbor-in",
+          "From": "harbor-entry",
+          "To": "harbor-berth",
+          "SpeedLimit": 14,
+          "StationID": "harbor",
+          "StationRole": "berth-access"
+        },
+        {
+          "ID": "harbor-out",
+          "From": "harbor-berth",
+          "To": "harbor-exit",
+          "SpeedLimit": 14,
+          "StationID": "harbor",
+          "StationRole": "departure"
+        },
+        {
+          "ID": "approach-branch",
+          "From": "harbor-exit",
+          "To": "branch",
+          "SpeedLimit": 14
+        },
+        {
+          "ID": "garden-approach",
+          "From": "branch",
+          "To": "garden-entry",
+          "SpeedLimit": 14,
+          "StationID": "garden",
+          "StationRole": "approach"
+        },
+        {
+          "ID": "garden-through",
+          "From": "garden-entry",
+          "To": "garden-exit",
+          "SpeedLimit": 14,
+          "StationID": "garden",
+          "StationRole": "through"
+        },
+        {
+          "ID": "garden-in",
+          "From": "garden-entry",
+          "To": "garden-berth",
+          "SpeedLimit": 14,
+          "StationID": "garden",
+          "StationRole": "berth-access"
+        },
+        {
+          "ID": "garden-out",
+          "From": "garden-berth",
+          "To": "garden-exit",
+          "SpeedLimit": 14,
+          "StationID": "garden",
+          "StationRole": "departure"
+        },
+        {
+          "ID": "garden-merge",
+          "From": "garden-exit",
+          "To": "merge",
+          "SpeedLimit": 14
+        },
+        {
+          "ID": "bypass-in",
+          "From": "branch",
+          "To": "bypass",
+          "SpeedLimit": 14
+        },
+        {
+          "ID": "bypass-merge",
+          "From": "bypass",
+          "To": "merge",
+          "SpeedLimit": 14
+        },
+        {
+          "ID": "market-approach",
+          "From": "merge",
+          "To": "market-entry",
+          "SpeedLimit": 14,
+          "StationID": "market",
+          "StationRole": "approach"
+        },
+        {
+          "ID": "market-through",
+          "From": "market-entry",
+          "To": "market-exit",
+          "SpeedLimit": 14,
+          "StationID": "market",
+          "StationRole": "through"
+        },
+        {
+          "ID": "market-in",
+          "From": "market-entry",
+          "To": "market-berth",
+          "SpeedLimit": 14,
+          "StationID": "market",
+          "StationRole": "berth-access"
+        },
+        {
+          "ID": "market-out",
+          "From": "market-berth",
+          "To": "market-exit",
+          "SpeedLimit": 14,
+          "StationID": "market",
+          "StationRole": "departure"
+        },
+        {
+          "ID": "return-start",
+          "From": "market-exit",
+          "To": "return-east",
+          "SpeedLimit": 14
+        },
+        {
+          "ID": "return-to-parking",
+          "From": "return-east",
+          "To": "parking-entry",
+          "SpeedLimit": 14
+        },
+        {
+          "ID": "parking-through",
+          "From": "parking-entry",
+          "To": "parking-exit",
+          "SpeedLimit": 14,
+          "StationID": "parking",
+          "StationRole": "through"
+        },
+        {
+          "ID": "parking-in-1",
+          "From": "parking-entry",
+          "To": "parking-berth-1",
+          "SpeedLimit": 14,
+          "StationID": "parking",
+          "StationRole": "berth-access"
+        },
+        {
+          "ID": "parking-out-1",
+          "From": "parking-berth-1",
+          "To": "parking-exit",
+          "SpeedLimit": 14,
+          "StationID": "parking",
+          "StationRole": "departure"
+        },
+        {
+          "ID": "parking-in-2",
+          "From": "parking-entry",
+          "To": "parking-berth-2",
+          "SpeedLimit": 14,
+          "StationID": "parking",
+          "StationRole": "berth-access"
+        },
+        {
+          "ID": "parking-out-2",
+          "From": "parking-berth-2",
+          "To": "parking-exit",
+          "SpeedLimit": 14,
+          "StationID": "parking",
+          "StationRole": "departure"
+        },
+        {
+          "ID": "return",
+          "From": "parking-exit",
+          "To": "return-west",
+          "SpeedLimit": 14
+        },
+        {
+          "ID": "harbor-approach",
+          "From": "return-west",
+          "To": "harbor-entry",
+          "SpeedLimit": 14,
+          "StationID": "harbor",
+          "StationRole": "approach"
+        }
+      ],
+      "Stations": [
+        {
+          "ID": "harbor",
+          "Name": "Harbor",
+          "Entry": "harbor-entry",
+          "Exit": "harbor-exit",
+          "Berths": [
+            {
+              "ID": "harbor-1",
+              "Node": "harbor-berth"
+            }
+          ],
+          "ParkingOnly": false
+        },
+        {
+          "ID": "garden",
+          "Name": "Garden",
+          "Entry": "garden-entry",
+          "Exit": "garden-exit",
+          "Berths": [
+            {
+              "ID": "garden-1",
+              "Node": "garden-berth"
+            }
+          ],
+          "ParkingOnly": false
+        },
+        {
+          "ID": "market",
+          "Name": "Market",
+          "Entry": "market-entry",
+          "Exit": "market-exit",
+          "Berths": [
+            {
+              "ID": "market-1",
+              "Node": "market-berth"
+            }
+          ],
+          "ParkingOnly": false
+        },
+        {
+          "ID": "parking",
+          "Name": "Parking",
+          "Entry": "parking-entry",
+          "Exit": "parking-exit",
+          "Berths": [
+            {
+              "ID": "parking-1",
+              "Node": "parking-berth-1"
+            },
+            {
+              "ID": "parking-2",
+              "Node": "parking-berth-2"
+            }
+          ],
+          "ParkingOnly": true
+        }
+      ]
+    },
+    "fleet": [
+      {
+        "ID": "01",
+        "StationID": "harbor",
+        "BerthID": "harbor-1"
+      },
+      {
+        "ID": "02",
+        "StationID": "garden",
+        "BerthID": "garden-1"
+      }
+    ],
+    "demand": {
+      "enabled": true,
+      "perMinute": 2,
+      "pattern": "balanced",
+      "seed": 1
+    },
+    "sharedRidePartyLimit": 1,
+    "redistribution": false
+  }
+}
