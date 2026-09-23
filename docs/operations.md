@@ -66,7 +66,7 @@ docker run --rm -p 8080:8080 -p 127.0.0.1:6060:6060 \
 
 ## OpenTelemetry
 
-OpenTelemetry is off until an OTLP endpoint is configured.
+OpenTelemetry stays off until you set an OTLP endpoint.
 The server uses OTLP over HTTP for traces and metrics.
 Use the standard OpenTelemetry environment variables:
 
@@ -81,11 +81,12 @@ Use the signal-specific endpoint variables when traces and metrics use different
 HTTP telemetry excludes `/api/state` because each client polls it at 20 Hz.
 It also excludes `/healthz`.
 Other HTTP requests include route-based server traces and metrics.
+
 Runtime metrics report memory, allocations, goroutines, processor limits, and the Go memory limit.
-Session gauges report journeys, pods, stopped pods, distance, passenger wait, and save points.
+Session gauges report the simulation tick, journeys, pods, stopped pods, distance, passenger wait, and save points.
 `podsim.checkpoint.retained` is the number of save points in memory.
 Compare it with the runtime memory metrics to see the memory that save points use.
-A reset or a rewind can decrease `podsim.simulation.tick`, `podsim.journey.submitted`, `podsim.journey.completed`, `podsim.travel.passenger.distance`, and `podsim.travel.empty.distance`.
+A reset, a demo, a project apply, or a rewind can decrease `podsim.simulation.tick`, `podsim.journey.submitted`, `podsim.journey.completed`, `podsim.travel.passenger.distance`, and `podsim.travel.empty.distance`.
 These metrics are gauges, not counters, so do not use `rate()` on them.
 
 The server flushes both providers during graceful shutdown.

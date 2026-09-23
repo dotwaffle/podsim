@@ -7,7 +7,7 @@ Use the scenario editor to change the network, fleet, berth capacity, and demand
 
 Select **Download debug state** above the simulation to save a timestamped JSON capture of the current server state.
 It includes the network, pod positions and routes, queues, berth reservations, and demand settings without pausing the run.
-Share this file when reporting congestion or other unexpected behavior. It is a diagnostic capture, not a reloadable project or checkpoint.
+Share this file when reporting congestion or other unexpected behavior. It is a diagnostic capture, not a reloadable project or save point.
 Request journeys or run the supplied four-pod traffic demo to inspect merge and station queues.
 The network includes a branch, a bypass, a merge, and station berths outside the through lanes.
 
@@ -48,6 +48,7 @@ mise run serve -- -project scenario.json
 
 This file contains the `project` object from `/api/project`.
 The server saves accepted setting changes with an atomic file replacement.
+A rewind that restores the project of a save point also rewrites this file.
 The browser export wraps this object as `scenario` and can also contain a background image.
 
 ## Production server
@@ -61,7 +62,7 @@ See [distribution and operations](docs/operations.md) for build and runtime sett
 
 ## Controls
 
-- Open **Scenario**, select **Example traffic sequence**, then select **Start example sequence**.
+- Select **Edit scenario**, open **Example traffic sequence**, then select **Start example sequence**.
 - Select a **Pod** button, or click a pod on the map, to inspect it.
 - Compact fleet numbers match the pod buttons and map. Inspection also shows the full pod ID.
 - Pod colors show their purpose: idle, pickup, passenger service, parking, redistribution, or other empty travel.
@@ -86,9 +87,9 @@ See [distribution and operations](docs/operations.md) for build and runtime sett
 - Keyboard: **Enter** submits an order and **Tab** selects the next pod.
 - **Space** pauses, **R** resets, **S** changes speed, and **F** toggles pod following.
 - Reset restores the saved scenario fleet and demand settings, clears requests and reservations, and returns to 1x playback.
-- Select **Save point** to keep an exact copy of the running session in server memory.
+- Select **Save point** to keep an exact copy of the simulation, the demand stream, and the project settings in server memory.
 - Select **Rewind** to return to the latest save point. The button shows the simulated time of that save point.
-  A rewind leaves the session paused.
+  A rewind leaves the session paused and keeps the playback speed.
 - The session is shared, so a rewind affects every browser. For this reason, these two controls have no keyboard shortcuts.
 - The server keeps at most 8 save points in memory. At the limit, a new save point removes the oldest one.
   A server restart clears all save points.
@@ -155,7 +156,7 @@ Export the draft before reloading a newer server project.
 - Import a PNG or JPEG background. Calibrate two points with a known distance in meters.
 - Export JSON to save the scenario and optional background. Import JSON to restore a draft.
 
-Project files save the design and settings, not an exact running checkpoint.
+Project files save the design and settings, not the exact running state.
 Save points are exact, but they are in server memory only. They end when the server stops.
 Malformed or unsupported files do not replace the draft.
 Validation checks routes between passenger stations, pod placement, resource IDs, and the 24-meter minimum lane length.
@@ -229,7 +230,7 @@ three Parking facilities.
 Station lanes identify approach, entry, berth access, through, departure, and
 exit maneuvers.
 The pod inspector reports the current maneuver and station name.
-Projects without this optional lane metadata still load; the simulator infers
+Projects without this optional lane metadata still load. The simulator infers
 berth access and departure roles from the station paths.
 
 ## Scope and model
@@ -347,7 +348,7 @@ Controls wait for server confirmation.
 
 The map buffers 150 ms of snapshots and interpolates movement along lanes between updates.
 Controls and order status use the latest server state.
-Pauses, resets, and long connection gaps clear buffered motion.
+Pauses, resets, rewinds, and long connection gaps clear buffered motion.
 Rendering never predicts movement beyond the latest received position.
 
 The server uses gzip for snapshots and browser assets when the client supports it.
@@ -375,7 +376,7 @@ See [the project brief](PROJECT_BRIEF.md) for the wider scope and research.
 | `internal/sim` | Network, routing, requests, pod movement, and deterministic tests. |
 | `internal/project` | Versioned scenario settings, validation, and detached copies. |
 | `internal/scenarios` | Deterministic scale fixtures and qualification tests. |
-| `internal/session` | Shared clock, command validation, HTTP API, and repeatable demand. |
+| `internal/session` | Shared clock, command validation, save points, HTTP API, and repeatable demand. |
 | `internal/remote` | Snapshot polling, command retries, and connection state. |
 | `internal/view` | Ebitengine rendering and input against copied snapshots. |
 | `internal/telemetry` | Optional OTLP traces, HTTP metrics, runtime metrics, and session gauges. |

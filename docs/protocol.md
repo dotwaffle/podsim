@@ -19,7 +19,7 @@ The JSON API uses four message boundaries:
 | Boundary | JSON endpoint | Purpose |
 | --- | --- | --- |
 | Topology | `GET /api/topology` | Network geometry for one project revision. |
-| State | `GET /api/state` | Controls, demand, queues, berths, metrics, and dynamic vehicle fields. |
+| State | `GET /api/state` | Controls, demand, queues, berths, metrics, save points, and dynamic vehicle fields. |
 | Project | `GET /api/project` | Complete editable scenario data. |
 | Command | `POST /api/command` | Retry-safe mutation and compact acknowledgment. |
 
@@ -32,7 +32,8 @@ Command acknowledgments contain the accepted state revision, project revision,
 generation, optional order ID, optional checkpoint ID, and a stable error code.
 They do not repeat a state frame. Exact retries return the original
 acknowledgment. Expired and conflicting sequences retain their previous
-behavior.
+behavior. After a graceful shutdown starts, the server rejects new commands
+with `server_stopping`.
 
 ## Save points
 
@@ -53,8 +54,9 @@ frame without save points omits the `checkpoints` key, so the payload
 measurements below stay correct.
 
 `restoresProject` is `true` when the project or demand configuration of the
-save point is different from the current one. A demand change counts as a
-project change. The server omits the key when the value is `false`.
+save point is different from the current one. Each project apply and each
+demand change counts as a change, even if the values stay the same. The server
+omits the key when the value is `false`.
 
 A rewind to such a save point restores its project and saves it to the
 `-project` file. It also increases the project revision by one. The project

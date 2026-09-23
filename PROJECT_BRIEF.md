@@ -6,13 +6,15 @@ The browser supports local map backgrounds, scale calibration, network editing,
 project persistence, manual and automatic demand, pod dispatch, local traffic
 control, inspection, pod following, and fleet-use statistics.
 The server owns one shared simulation session for all connected browsers.
+Any browser can keep an exact save point of the running simulation in server
+memory and rewind the session to the latest save point.
 Optional empty-pod redistribution is available but remains off by default.
 The railway-hub, London demand-capacity, and same-destination sharing
 experiments are complete.
 The first station-maneuver slice is complete: station lanes have explicit roles,
 pod snapshots expose the current phase, and the inspector names the maneuver.
-Configurable station geometry, protocol compaction, and the other experiments
-in Section 6 remain later work.
+Configurable station geometry and the other experiments in Section 6 remain
+later work.
 See [README.md](README.md) for controls, validation commands, and current model limits.
 
 This document records the project direction, initial feature scope, architecture, effort estimates, and research.
@@ -109,6 +111,7 @@ One party per pod and no intermediate stops are initial service policies, not pe
 
 Network edits require a stopped run.
 Applying edits resets simulation state while preserving the design.
+A rewind to a save point from before an applied edit restores the earlier design and settings.
 
 ### Station modeling direction
 
@@ -131,7 +134,7 @@ Keep internal path lengths and movement conflicts possible in the model even whe
 - Report malformed or unsupported files without replacing the current project.
 - Include a small example network.
 - Save the scenario configuration rather than an exact running simulation checkpoint.
-- Keep exact save points of the running simulation in server memory only. A server restart clears them.
+- Keep at most eight exact save points of the running simulation in server memory only. A server restart clears them. At the limit, a new save point removes the oldest one.
 
 ## 3. Architecture and future 3D
 
@@ -198,7 +201,7 @@ A future browser renderer could consume snapshots from the same Go simulation se
 **New work:** JavaScript or TypeScript presentation code, 3D track geometry, pod models, cameras, selection, and scenery.
 
 Ebitengine's drawing code would not automatically become Three.js code.
-A first-person ride would therefore be a substantial presentation extension, while retaining the simulation investment.
+A first-person ride would therefore be a substantial presentation extension, but it would reuse the simulation.
 
 Elevation and terrain are outside the initial model.
 Adding them later may require changes to geometry and saved projects.
@@ -253,13 +256,13 @@ Their effort has not been estimated, except where an optional stage appears in t
 - Record hardware, frame rate, and simulation update cost before establishing performance guarantees.
 
 **Acceptance status:** Complete for the initial usable version on September 21,
-2026. A combined browser run imported a PNG, calibrated 200 meters, exercised
-drawing and undo, edited and applied the network, exported and reloaded the
-project with its background, submitted a journey through the simulation UI,
-and observed its completion. It also toggled pod following and reported no
-browser errors. Separate browser checks cover invalid input, reset, stale edit
-conflicts, and the 20-station, 100-pod scenario. The hardware and performance
-record is in [docs/qualification.md](docs/qualification.md).
+2026. A combined browser run imported a PNG, calibrated 200 meters, and
+exercised drawing and undo. It edited and applied the network, then exported
+and reloaded the project with its background. It submitted a journey through
+the simulation UI and observed its completion. It also toggled pod following
+and reported no browser errors. Separate browser checks cover invalid input,
+reset, stale edit conflicts, and the 20-station, 100-pod scenario. The hardware
+and performance record is in [docs/qualification.md](docs/qualification.md).
 
 ## 6. Future extensions and experiments
 
@@ -296,9 +299,10 @@ Provider choice, export limits, and any hosting needs remain implementation deci
 
 **Status:** A generated London qualification preset now provides the first
 geographic network without implementing a general map importer.
-It uses a normalized TfL topology snapshot for 96 passenger stations, real
-station names and locations, 127 unique adjacencies, twin directed guideways,
-off-line berths, and three Parking facilities.
+It uses a normalized TfL topology snapshot for 96 passenger stations, their
+real names and locations, and 127 unique adjacencies.
+The preset adds twin directed guideways, off-line berths, and three Parking
+facilities.
 The local projection uses meters.
 A separate normalized 2019 midweek NUMBAT profile provides 8,474 in-scope OD
 pairs across eight time bands.
@@ -367,7 +371,7 @@ MATSim's [demand-responsive transport module](https://github.com/matsim-org/mats
 ### Railway and park-and-ride hubs
 
 Point-to-point pod journeys can already concentrate at a hub.
-The important extensions are time-dependent demand, transfer delays, and connections to scheduled services.
+The extensions to study are time-dependent demand, transfer delays, and connections to scheduled services.
 
 Compare these invented demand scenarios:
 

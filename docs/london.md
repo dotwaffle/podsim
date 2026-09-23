@@ -100,7 +100,7 @@ This keeps the source station and OD ratios while avoiding a claim that the
 PRT system carries the complete Underground volume.
 
 The portable London project includes the raw OD weights and all eight bands.
-Its demand settings select the AM peak profile by default.
+Its demand settings select the AM peak band by default.
 The shared session samples those weights when automatic demand runs.
 The editor can select another band before it applies the project.
 The recurring simulation state contains only the selected profile and band
@@ -132,7 +132,7 @@ Data provided by Transport for London.
 Use of the source data remains subject to the TfL transport data terms:
 <https://tfl.gov.uk/corporate/terms-and-conditions/transport-data-service>.
 
-No map tiles or background image are included.
+The preset includes no map tiles or background image.
 An optional background must use a permitted source, preserve attribution, and
 avoid dependence on public tile servers during tests.
 

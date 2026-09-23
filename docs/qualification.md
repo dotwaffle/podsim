@@ -78,6 +78,7 @@ These averages do not justify enabling the policy by default.
 
 Changes are enabled minus disabled. Means weight each paired run equally.
 Negative wait is better. Positive empty distance is additional travel.
+
 The hotspot forecast describes pickup demand. The destination pattern concentrates arrivals instead.
 No policy reads future requests from the generated schedule.
 
@@ -96,9 +97,9 @@ Its 30-pod fleet starts with three pods at each passenger station and 12 pods
 in parking. Each passenger station has six berths.
 
 The recorded experiment sends five train-like bursts from the Rail Hub during
-the first five minutes, then allows the network to drain for the rest of a
-30-minute run. The first four bursts contain 12 requests. The last contains 11,
-for 59 requests per run. Five seeds use identical off/on request schedules.
+the first five minutes. The network then drains for the rest of a 30-minute
+run. The first four bursts contain 12 requests. The last contains 11, for 59
+requests per run. Five seeds use identical off/on request schedules.
 
 ```sh
 mise run scenario -- -preset rail-hub -output /tmp/podsim-rail-hub.json
@@ -107,8 +108,8 @@ mise run compare -- -project /tmp/podsim-rail-hub.json -pattern hub-burst -durat
 
 [Recorded rail-hub runs](measurements/rail-hub.csv) include the station queue,
 berth, wait, clearance, passenger-distance, empty-distance, and positioning
-measurements for every arm. Station peaks are sampled once per simulated second
-and immediately after each request burst.
+measurements for every arm. The compare command samples station peaks once per
+simulated second and immediately after each request burst.
 
 | Five-seed mean | Redistribution off | Redistribution on | On minus off |
 | --- | ---: | ---: | ---: |
@@ -158,8 +159,8 @@ mise run compare -- -project /tmp/podsim-rail-hub.json -pattern hub-burst -durat
 
 With redistribution off, sharing reduced mean wait by 65%, queue-clearance
 time by 53%, and empty travel by 49%. All demand still completed. The lower
-occupied-pod distance records physical pod movement, not passenger-kilometers;
-several parties now use one movement. Redistribution again added empty travel
+occupied-pod distance records physical pod movement, not passenger-kilometers.
+Several parties now use one movement. Redistribution again added empty travel
 and slightly worsened wait and clearance, so it remains off by default.
 
 Raw results are in
@@ -242,6 +243,7 @@ Static-track caching increased that median to 18.9 FPS in fresh SwiftShader runs
 Moving 100-pod runs at 1x and 8x sampled about 11 to 19 FPS.
 The server advanced at about 59 and 445 simulation ticks per wall second, respectively.
 These software-rendered results do not establish frame rates on a physical client GPU.
+
 The later navigation update adds pointer-centered zoom, drag pan, and Fit controls.
 At overview scale, crowded stations use one marker and an occupancy count. Individual berths appear when their screen spacing permits.
 Map drawing stays inside the viewport. Camera changes invalidate cached tracks and do not change the shared session.
@@ -252,7 +254,8 @@ Disabling the cache-refresh call caused the comparison to fail. Restoring it pas
 Additional checks covered reset, server restart, moving pods at 1x and 8x, and the original small-network editor workflow.
 
 The [Ebitengine performance tips](https://ebitengine.org/en/documents/performancetips.html) describe draw batching and source-image reuse.
-The static cache follows that approach and changes only when the network generation or server epoch changes.
+The static cache follows that approach.
+It changes only when the simulation generation, the server epoch, the camera, or the map viewport changes.
 The renderer does not read pixels back from the GPU.
 For further diagnosis, use the `ebitenginedebug` build tag to inspect actual draw commands and batch boundaries.
 That diagnostic was not part of these measurements.
@@ -280,12 +283,12 @@ Browser acceptance also covers editing, undo and redo, background calibration, i
 A known stale save no longer pauses another browser's running simulation.
 Malformed imports preserve the current draft.
 
-On September 21, 2026, one combined acceptance run imported a PNG, calibrated
-two points to 200 meters, drew and undid a junction, changed a station, and
-passed editor validation. It exported and reloaded the project with the
-background intact, applied revision 2, resumed at 8x speed, submitted a journey
-through the canvas controls, and observed completion. The run also toggled pod
-following and reported no browser errors.
+On September 21, 2026, one combined acceptance run imported a PNG and
+calibrated two points to 200 meters. It drew and undid a junction, changed a
+station, and passed editor validation. It exported and reloaded the project
+with the background intact, applied revision 2, resumed at 8x speed, submitted
+a journey through the canvas controls, and observed completion. The run also
+toggled pod following and reported no browser errors.
 
 ## Mesh and navigation follow-up
 
@@ -335,10 +338,11 @@ Incremental release removed the full route-prefix and owner-map scans. Each pod
 now records only its active route resources and their final release distances.
 The same combined profile took 8.73 wall seconds and 16.04 CPU-seconds, 66% and
 53% lower respectively. Resource release fell to 6.4% of cumulative CPU. The
-complete non-race scenario package fell from 35.50 to 22.87 wall seconds. The
-100-order Station 19 result remained exact: first delivery at 258.4 seconds,
-last delivery at 1582.9 seconds, all pods idle at 2171.9 seconds, and a peak of
-12 stopped pods.
+complete non-race scenario package fell from 35.50 to 22.87 wall seconds.
+
+The 100-order Station 19 result remained exact. First delivery was at 258.4
+seconds, last delivery at 1582.9 seconds, all pods were idle at 2171.9 seconds,
+and the peak was 12 stopped pods.
 
 ```sh
 mise exec -- go test -count=1 -run 'Station19QueueDrains|DenseSafety' -cpuprofile /tmp/podsim-scenarios-cpu.out -o /tmp/podsim-scenarios.test ./internal/scenarios
@@ -361,6 +365,7 @@ Validation rejects paths through another station, another berth, or the wrong st
 Passenger routes end at the station entry until the pod enters the final access lane.
 The controller then chooses the reachable berth with the least assigned demand.
 Late berth changes preserve admitted track.
+
 Empty relocations yield unadmitted claims when local passenger traffic needs the same berth.
 An empty relocation can also clear an idle pod that later occupies its destination.
 Regression tests cover both claim orderings and eventual settlement.
@@ -419,6 +424,7 @@ The automated suite retains the 40-order regression and adds the 100-order burst
 Both preserve every-tick physical checks.
 The race task permits 30 minutes for the expanded suite.
 CI permits 40 minutes for tests and the remaining build checks.
+
 The final combined race run reached its earlier 20-minute limit after the 100-order burst and four other qualification tests passed.
 The remaining tests passed in a separate 374.85-second race run, without repeating completed qualification work.
 Together, the two runs cover every test in the suite.
@@ -547,7 +553,7 @@ directional-portal network at commit `af3f397`.
 It covers all eight demand bands, 15 offered rates, and seeds 1, 2, and 3.
 Each arm accepts requests for 30 simulated minutes, then has up to 30 minutes
 to finish them. Redistribution and ride sharing are off. Free-flow routing is
-on. The queue limit is high enough that no request is skipped.
+on. The queue limit is high enough that the compare command skips no request.
 
 ```sh
 mise run scenario -- -preset london -output /tmp/podsim-london-capacity.json
