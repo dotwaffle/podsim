@@ -147,6 +147,24 @@ linters:
               desc: Keep the server and project format independent of rendering.
             - pkg: syscall/js
               desc: Browser APIs belong in the browser entry point.
+        client-no-cloud-storage:
+          list-mode: lax
+          files:
+            - "**/internal/session/**"
+            - "**/internal/project/**"
+            - "**/internal/observe/**"
+            - "**/internal/remote/**"
+            - "**/internal/view/**"
+            - "**/cmd/podsim/**"
+          deny:
+            - pkg: gocloud.dev
+              desc: Cloud storage belongs in internal/statestore and cmd/serve.
+            - pkg: github.com/aws
+              desc: Cloud storage belongs in internal/statestore and cmd/serve.
+            - pkg: cloud.google.com
+              desc: Cloud storage belongs in internal/statestore and cmd/serve.
+            - pkg: github.com/dotwaffle/podsim/internal/statestore
+              desc: The browser build must not link the state store.
 
   exclusions:
     rules:

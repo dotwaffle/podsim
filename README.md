@@ -394,6 +394,7 @@ See [the project brief](PROJECT_BRIEF.md) for the wider scope and research.
 | `internal/project` | Versioned scenario settings, validation, and detached copies. |
 | `internal/scenarios` | Deterministic scale fixtures and qualification tests. |
 | `internal/session` | Shared clock, command validation, save points, HTTP API, and repeatable demand. |
+| `internal/statestore` | Saved session state in a `file://` blob bucket, for the server only. |
 | `internal/remote` | Snapshot polling, motion buffering, command retries, and connection state. |
 | `internal/view` | Ebitengine rendering and input against copied snapshots. |
 | `internal/telemetry` | Optional OTLP traces, HTTP metrics, runtime metrics, and session gauges. |
@@ -424,6 +425,8 @@ Go module, build, and lint analysis caches use job-specific keys and refresh aft
 The lint configuration follows Q without its database and protobuf rules.
 It also checks package boundaries. `internal/sim` can import only the standard library.
 `internal/session`, `internal/project`, and `cmd/serve` cannot import the renderer or browser APIs.
+Packages in the browser build cannot import cloud storage packages or `internal/statestore`.
+Lint also lists every package that the WASM build links, and fails if the list has one of these packages.
 
 Validation has six main parts:
 

@@ -19,11 +19,19 @@ run = "golangci-lint fmt"
 
 [tasks.lint]
 description = "Run static analysis"
-run = """
+# depguard sees only direct imports in native files. The go list check
+# fails when podsim.wasm links cloud storage through any path, and when
+# go list itself fails.
+run = '''
 actionlint
 go vet ./...
 golangci-lint run
-"""
+deps=$(GOOS=js GOARCH=wasm go list -deps ./cmd/podsim) || exit 1
+if printf '%s\n' "$deps" | grep -E '^(gocloud\.dev|github\.com/aws|cloud\.google\.com|google\.golang\.org/api|github\.com/dotwaffle/podsim/internal/statestore)(/|$)'; then
+  echo "podsim.wasm must not link cloud storage" >&2
+  exit 1
+fi
+'''
 
 [tasks.test]
 description = "Run the quick test suite"
