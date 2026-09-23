@@ -192,6 +192,7 @@ Export the draft before reloading a newer server project.
 - Select paired lanes to add both directions. Crossing lines do not create a junction.
 - Select a guideway to adjust its curve and speed in km/h.
 - Set station berth capacity and place initial pods in free berths.
+- Drag a station to move it. The drag also moves the nodes that only its station lanes use, such as a berth chain. **Delete station and connections** removes these nodes too.
 - Set the passenger generation option, rate, pattern, destination, OD profile, time band, same-destination party limit, seed, and redistribution option.
 - Use undo and redo for draft changes. Drag empty space to pan, and use the wheel to zoom.
 - Import a PNG or JPEG background. Select **Calibrate scale**, select two points on the image, enter their distance in meters, then select **Set scale**.
@@ -200,9 +201,12 @@ Export the draft before reloading a newer server project.
 Project files save the design and settings, not the exact running state.
 Save points are exact, but they are in server memory only. They end when the server stops, also with `-state`.
 Malformed or unsupported files do not replace the draft.
-Validation checks routes between passenger stations, pod placement, resource IDs, and the 24-meter minimum lane length.
-It also limits a project to 4 MiB of compact JSON.
+Validation checks routes between passenger stations, berth routes, pod placement, resource IDs, and the 24-meter minimum lane length.
+A berth route goes from the station entry to the berth, or from the berth to the station exit.
+It can use a chain of lanes, as in the London stations. It cannot pass through the entry, exit, or berth node of a station.
+Validation also limits a project to 4 MiB of compact JSON.
 The editor sends the project in one command, and the server accepts a command of at most 2 MiB.
+If the server project fails these checks, the editor still loads it as the draft. The **Checks** section lists the problems.
 
 ### Demand and policy comparisons
 

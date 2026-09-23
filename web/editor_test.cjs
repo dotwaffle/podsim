@@ -2,6 +2,8 @@
 
 const test = require("node:test");
 const assert = require("node:assert/strict");
+const { execFileSync } = require("node:child_process");
+const path = require("node:path");
 const editor = require("./editor.js");
 
 function connectedScenario() {
@@ -12,6 +14,33 @@ function connectedScenario() {
   config = editor.addLane(config, beta.Exit, alpha.Entry, false);
   config.demand.destination = beta.ID;
   return editor.setFleetCount(config, alpha.ID, 1);
+}
+
+// chainScenario gives Alpha a berth chain like the generated stations use:
+// entry, arrival node, berth, departure node, and exit.
+function chainScenario() {
+  let config = connectedScenario();
+  const alpha = config.network.Stations[0];
+  const berth = alpha.Berths[0].Node;
+  config.network.Lanes = config.network.Lanes.filter((lane) => !(lane.From === alpha.Entry && lane.To === berth) && !(lane.From === berth && lane.To === alpha.Exit));
+  config = editor.addJunction(config, 64, 160);
+  const arrival = config.network.Nodes.at(-1).ID;
+  config = editor.addJunction(config, 136, 160);
+  const departure = config.network.Nodes.at(-1).ID;
+  for (const [from, to, role] of [[alpha.Entry, arrival, "berth-access"], [arrival, berth, "berth-access"], [berth, departure, "departure"], [departure, alpha.Exit, "departure"]]) {
+    config = editor.addLane(config, from, to, false);
+    Object.assign(config.network.Lanes.at(-1), { StationID: alpha.ID, StationRole: role });
+  }
+  return { config, arrival, departure };
+}
+
+// generatedProject runs the scenario command, so the fixture always matches the
+// server generator.
+function generatedProject(preset) {
+  const output = execFileSync("go", ["run", "./cmd/scenario", "-preset", preset], {
+    cwd: path.join(__dirname, ".."), encoding: "utf8", maxBuffer: 64 * 1024 * 1024,
+  });
+  return editor.normalizeConfig(JSON.parse(output));
 }
 
 test("station creation makes separate safe entry, exit, and berth geometry", () => {
@@ -79,6 +108,49 @@ test("station drag moves its component nodes and internal curve as one group", (
   assert.deepEqual(config.network.Lanes.find((item) => item.ID === lane.ID).Control, { X: 220, Y: 90 });
 });
 
+function nodePosition(config, id) {
+  return config.network.Nodes.find((node) => node.ID === id).Position;
+}
+
+test("station drag moves its berth chain", () => {
+  let { config, arrival, departure } = chainScenario();
+  const [alpha, beta] = config.network.Stations;
+  config = editor.addJunction(config, 64, 40);
+  const approach = config.network.Nodes.at(-1).ID;
+  config = editor.addLane(config, approach, alpha.Entry, false);
+  Object.assign(config.network.Lanes.at(-1), { StationID: alpha.ID, StationRole: "approach" });
+  const moved = editor.moveStation(config, alpha.ID, 20, -10);
+  const owners = editor.stationNodeOwners(config);
+
+  for (const id of [alpha.Entry, alpha.Exit, alpha.Berths[0].Node, arrival, departure, approach]) {
+    assert.deepEqual(nodePosition(moved, id), { X: nodePosition(config, id).X + 20, Y: nodePosition(config, id).Y - 10 }, id);
+    assert.equal(owners.get(id), alpha.ID, id);
+  }
+  assert.deepEqual(nodePosition(moved, beta.Entry), nodePosition(config, beta.Entry));
+  assert.match(editor.deleteNode(config, arrival).error, /station or berth/);
+});
+
+test("a shared road node stays out of the station", () => {
+  let { config, arrival, departure } = chainScenario();
+  const [alpha, beta] = config.network.Stations;
+  config = editor.addJunction(config, 64, 40);
+  const road = config.network.Nodes.at(-1).ID;
+  config = editor.addLane(config, beta.Exit, road, false);
+  config = editor.addLane(config, road, alpha.Entry, false);
+  Object.assign(config.network.Lanes.at(-1), { StationID: alpha.ID, StationRole: "approach" });
+
+  assert.equal(editor.stationNodeOwners(config).has(road), false);
+  assert.deepEqual(nodePosition(editor.moveStation(config, alpha.ID, 20, -10), road), nodePosition(config, road));
+  assert.equal(editor.deleteNode(config, road).error, "");
+
+  const deleted = editor.deleteStation(config, alpha.ID);
+  const nodeIDs = new Set(deleted.network.Nodes.map((node) => node.ID));
+  assert.ok(nodeIDs.has(road));
+  assert.ok(deleted.network.Lanes.some((lane) => lane.From === beta.Exit && lane.To === road));
+  for (const id of [alpha.Entry, alpha.Exit, alpha.Berths[0].Node, arrival, departure]) assert.equal(nodeIDs.has(id), false, id);
+  assert.ok(deleted.network.Lanes.every((lane) => nodeIDs.has(lane.From) && nodeIDs.has(lane.To)));
+});
+
 test("fleet counts never duplicate occupied berths", () => {
   let config = editor.addStation(editor.emptyConfig(), 200, 140, { name: "Depot", parkingOnly: true });
   const stationID = config.network.Stations[0].ID;
@@ -137,6 +209,47 @@ test("portable projects preserve the shared ride party limit", () => {
   config.sharedRidePartyLimit = 9;
   assert.ok(editor.validateConfig(config).some((error) => error.includes("shared ride party limit")));
 });
+
+test("berth routes can use chains but not station nodes", () => {
+  const cases = [
+    { name: "a berth chain" },
+    { name: "an entry route through another station entry", side: "entry", via: (stations) => stations[1].Entry },
+    { name: "an entry route through another station berth", side: "entry", via: (stations) => stations[1].Berths[0].Node },
+    { name: "an entry route through its own exit", side: "entry", via: (stations) => stations[0].Exit },
+    { name: "an exit route through another station exit", side: "exit", via: (stations) => stations[1].Exit },
+    { name: "an entry route against the lane direction", side: "entry", reverse: true },
+  ];
+  for (const item of cases) {
+    let { config, arrival, departure } = chainScenario();
+    const berth = config.network.Stations[0].Berths[0];
+    const expected = [];
+    if (item.side) {
+      const [from, to] = item.side === "entry" ? [arrival, berth.Node] : [berth.Node, departure];
+      const lane = config.network.Lanes.find((candidate) => candidate.From === from && candidate.To === to);
+      if (item.reverse) {
+        [lane.From, lane.To] = [to, from];
+      } else {
+        const via = item.via(config.network.Stations);
+        config.network.Lanes = config.network.Lanes.filter((candidate) => candidate !== lane);
+        config = editor.addLane(editor.addLane(config, from, via, false), via, to, false);
+      }
+      expected.push(`Berth ${berth.ID} needs an ${item.side} lane.`);
+    }
+    assert.deepEqual(editor.validateConfig(config), expected, item.name);
+  }
+});
+
+for (const preset of ["scale100", "london"]) {
+  test(`the generated ${preset} project passes the editor checks`, () => {
+    const config = generatedProject(preset);
+    assert.deepEqual(editor.validateConfig(config), []);
+
+    // A delete removes the berth chains and keeps the road network whole.
+    const station = config.network.Stations.find((item) => !item.ParkingOnly);
+    const errors = editor.validateConfig(editor.deleteStation(config, station.ID));
+    assert.deepEqual(errors.filter((error) => !error.startsWith("Demand profile")), []);
+  });
+}
 
 test("station lane roles validate and round trip", () => {
   const config = connectedScenario();

@@ -175,15 +175,39 @@
     return out;
   }
 
-  function stationNodeIDs(station) {
+  function stationCoreNodeIDs(station) {
     return new Set([station.Entry, station.Exit, ...(station.Berths || []).map((berth) => berth.Node)]);
+  }
+
+  // stationNodeOwners maps each station node to its station ID. A station has
+  // its entry, exit, and berth nodes. It also has each node that only its
+  // station lanes use, such as a node of a berth chain. A node that a road lane
+  // or a lane of a different station also uses stays a junction.
+  function stationNodeOwners(config) {
+    const stationIDs = new Set(config.network.Stations.map((station) => station.ID));
+    const owners = new Map();
+    for (const lane of config.network.Lanes) {
+      const stationID = stationIDs.has(lane.StationID) ? lane.StationID : "";
+      for (const id of [lane.From, lane.To]) owners.set(id, owners.has(id) && owners.get(id) !== stationID ? "" : stationID);
+    }
+    for (const [id, stationID] of owners) if (!stationID) owners.delete(id);
+    for (const station of config.network.Stations) for (const id of stationCoreNodeIDs(station)) owners.set(id, station.ID);
+    return owners;
+  }
+
+  // stationNodeIDs gives the nodes of one station, as stationNodeOwners finds
+  // them. A station drag or delete then also includes its berth chains.
+  function stationNodeIDs(config, station) {
+    const ids = stationCoreNodeIDs(station);
+    for (const [id, stationID] of stationNodeOwners(config)) if (stationID === station.ID) ids.add(id);
+    return ids;
   }
 
   function moveStation(config, stationID, dx, dy) {
     const out = clone(config);
     const station = out.network.Stations.find((item) => item.ID === stationID);
     if (!station) return config;
-    const ids = stationNodeIDs(station);
+    const ids = stationNodeIDs(out, station);
     for (const node of out.network.Nodes) {
       if (ids.has(node.ID)) {
         node.Position.X += dx;
@@ -208,8 +232,7 @@
   }
 
   function deleteNode(config, nodeID) {
-    const station = config.network.Stations.find((item) => stationNodeIDs(item).has(nodeID));
-    if (station) return { config, error: "Delete the station or berth from its controls." };
+    if (stationNodeOwners(config).has(nodeID)) return { config, error: "Delete the station or berth from its controls." };
     const out = clone(config);
     if (!out.network.Nodes.some((node) => node.ID === nodeID)) return { config, error: "The node does not exist." };
     out.network.Nodes = out.network.Nodes.filter((node) => node.ID !== nodeID);
@@ -227,7 +250,7 @@
     const out = clone(config);
     const station = out.network.Stations.find((item) => item.ID === stationID);
     if (!station) return config;
-    const ids = stationNodeIDs(station);
+    const ids = stationNodeIDs(out, station);
     const berthIDs = new Set(station.Berths.map((berth) => berth.ID));
     out.network.Stations = out.network.Stations.filter((item) => item.ID !== stationID);
     out.network.Nodes = out.network.Nodes.filter((node) => !ids.has(node.ID));
@@ -293,6 +316,22 @@
       adjacency.get(lane.From).push(lane.To);
     }
     return reachableFrom(adjacency, from).has(to);
+  }
+
+  // reachableAvoiding reports whether a lane route goes from one node to another.
+  // The route cannot pass through a blocked node, but it can end at one.
+  function reachableAvoiding(adjacency, from, to, blocked) {
+    const seen = new Set([from]);
+    const queue = [from];
+    for (let index = 0; index < queue.length; index += 1) {
+      for (const next of adjacency.get(queue[index]) || []) {
+        if (next === to) return true;
+        if (seen.has(next) || blocked.has(next)) continue;
+        seen.add(next);
+        queue.push(next);
+      }
+    }
+    return false;
   }
 
   function reachableFrom(adjacency, from) {
@@ -389,10 +428,16 @@
         if (!nodeIDs.has(berth.Node) || berth.Node === station.Entry || berth.Node === station.Exit) errors.push(`Berth ${berth.ID} has an invalid node.`);
         if (berthNodes.has(berth.Node)) errors.push(`Berth node ${berth.Node} is used more than once.`);
         berthNodes.add(berth.Node);
-        if (!lanesByPair.has(`${station.Entry}\u0000${berth.Node}`)) errors.push(`Berth ${berth.ID} needs an entry lane.`);
-        if (!lanesByPair.has(`${berth.Node}\u0000${station.Exit}`)) errors.push(`Berth ${berth.ID} needs an exit lane.`);
       }
       if (!lanesByPair.has(`${station.Entry}\u0000${station.Exit}`)) errors.push(`Station ${station.ID} needs a through lane.`);
+    }
+    // As on the server, a berth route can use a chain of lanes. It cannot pass
+    // through the entry, exit, or berth node of a station.
+    for (const station of validStations) {
+      for (const berth of Array.isArray(station.Berths) ? station.Berths.filter(isRecord) : []) {
+        if (!reachableAvoiding(directed, station.Entry, berth.Node, componentNodes)) errors.push(`Berth ${berth.ID} needs an entry lane.`);
+        if (!reachableAvoiding(directed, berth.Node, station.Exit, componentNodes)) errors.push(`Berth ${berth.ID} needs an exit lane.`);
+      }
     }
     for (const lane of validLanes) {
       const hasStation = typeof lane.StationID === "string" && lane.StationID.length > 0;
@@ -539,7 +584,7 @@
   const API = {
     MIN_LANE_LENGTH, emptyConfig, normalizeConfig, addLane, addJunction, addStation, addBerth,
     removeBerth, moveStation, moveNode, deleteNode, deleteLane, deleteStation, setFleetCount,
-    laneLength, reachable, validateConfig, serializeDocument, parseDocument, createHistory,
+    laneLength, reachable, stationNodeOwners, validateConfig, serializeDocument, parseDocument, createHistory,
   };
   if (typeof module !== "undefined" && module.exports) module.exports = API;
   root.PodsimEditorModel = API;
@@ -573,7 +618,7 @@
     return element;
   }
   function nodeFor(config, id) { return config.network.Nodes.find((node) => node.ID === id); }
-  function stationForNode(config, id) { return config.network.Stations.find((station) => stationNodeIDs(station).has(id)); }
+  function stationForNode(config, id) { const stationID = stationNodeOwners(config).get(id); return config.network.Stations.find((station) => station.ID === stationID); }
   function stationCenter(config, station) {
     const entry = nodeFor(config, station.Entry); const exit = nodeFor(config, station.Exit);
     return entry && exit ? { X: (entry.Position.X + exit.Position.X) / 2, Y: (entry.Position.Y + exit.Position.Y) / 2 } : { X: 0, Y: 0 };
@@ -626,8 +671,7 @@
       stationLayer.append(shape);
       const label = svgElement("text", { class: "station-label", x: center.X, y: center.Y - 21 }); label.textContent = station.Name; stationLayer.append(label);
     }
-    const component = new Map();
-    for (const station of config.network.Stations) for (const id of stationNodeIDs(station)) component.set(id, station.ID);
+    const component = stationNodeOwners(config);
     for (const node of config.network.Nodes) {
       const stationID = component.get(node.ID);
       const circle = svgElement("circle", { class: stationID ? "station-node" : `junction${state.selection && state.selection.type === "node" && state.selection.id === node.ID ? " selected" : ""}`, cx: node.Position.X, cy: node.Position.Y, r: stationID ? 5 : 7, "data-type": stationID ? "station-node" : "node", "data-id": node.ID, "data-station": stationID || "" });
@@ -794,8 +838,9 @@
     state.view = { scale, x: rect.width / 2 - ((minX + maxX) / 2) * scale, y: rect.height / 2 - ((minY + maxY) / 2) * scale }; setView();
   }
 
-  function runValidation() {
-    const errors = validateConfig(draft()); const summary = $("#validationSummary"); const list = $("#validationList"); list.replaceChildren();
+  function runValidation() { return showValidation(validateConfig(draft())); }
+  function showValidation(errors) {
+    const summary = $("#validationSummary"); const list = $("#validationList"); list.replaceChildren();
     if (!errors.length) { summary.className = "validation good"; summary.textContent = "The scenario is ready to apply."; return errors; }
     summary.className = "validation bad"; summary.textContent = `${errors.length} problem${errors.length === 1 ? "" : "s"} must be fixed.`;
     for (const error of errors) { const item = document.createElement("li"); item.textContent = error; list.append(item); }
@@ -826,13 +871,14 @@
       const [projectReply, liveState] = await Promise.all([getJSON("/api/project"), getJSON("/api/state")]);
       if (!projectReply || !(projectReply.project || projectReply.Project)) throw new Error("The server returned no scenario.");
       const project = normalizeConfig(projectReply.project || projectReply.Project);
-      const errors = validateConfig(project);
-      if (errors.length) throw new Error(`The server scenario has ${errors.length} validation problem${errors.length === 1 ? "" : "s"}.`);
       state.loadedRevision = Number(projectReply.revision ?? projectReply.Revision ?? liveState.projectRevision ?? liveState.ProjectRevision ?? 0);
       state.epoch = liveState.epoch || liveState.Epoch || "";
       state.loaded = { scenario: clone(project), background: null };
       state.history.reset(state.loaded); state.background = null; state.selection = null;
       updateStatus(`Live revision ${state.loadedRevision}. Draft changes stay in this browser.`); render(); fitNetwork();
+      // Keep a server scenario that fails the editor checks, and list the problems.
+      const errors = validateConfig(project);
+      if (errors.length) { showValidation(errors); toast(`The server scenario has ${errors.length} validation problem${errors.length === 1 ? "" : "s"}. See Checks.`, true); }
     } catch (error) {
       let fallback = addStation(addStation(emptyConfig(), 100, 120, { name: "Origin" }), 340, 120, { name: "Destination" });
       fallback = addLane(fallback, fallback.network.Stations[0].Exit, fallback.network.Stations[1].Entry, false);
