@@ -45,20 +45,20 @@ A state frame can contain a `restore` object. It tells how a server with
 `-state` started the current simulation from its saved session state. A
 server without `-state` omits the key. A server that found no saved state
 also omits it. A reset, a demo, or a project apply removes the key. A rewind
-keeps it.
+does not change it.
 
 | Member | Content |
 | --- | --- |
 | `tier` | `physical`: the pods kept their positions. `logical`: the pods started again at their initial berths. `empty`: the server did not use the saved state. |
 | `reason` | Why the tier is not `physical`. For `logical`: `physical_failed` or `restore_loop`. For `empty`: `project_changed`, `unsupported_version`, `invalid_state`, `too_large`, `unreadable`, or `restore_loop`. |
-| `demoted` | The number of pods that the physical tier moved to a berth. |
+| `demoted` | The number of pods that the `physical` tier moved to a berth. |
 | `requeued` | The number of orders that went back to the queue. |
 | `dropped` | The number of orders that the restore removed because they were not valid. |
 
 The server omits an empty `reason` and each count of 0.
 `restore_loop` means that the server stopped before its first periodic or
 final save after a restore. After one such stop, the next start uses the
-logical tier. After two, the next start does not use the saved state.
+`logical` tier. After two, the next start does not use the saved state.
 
 Each command contains a `client` ID, a `sequence`, the session `epoch`, and an
 `action`. The actions are `trip`, `pause`, `speed`, `reset`, `demo`, `demand`,
@@ -91,8 +91,10 @@ an acknowledgment.
 
 The `checkpoint` action saves the simulation, the demand stream, and the
 project in server memory. Its acknowledgment gives the new save point ID in
-`checkpoint`. The first ID is 1. The server does not use an ID again in the
-same epoch. This is also true after a reset, a demo, or a rewind.
+`checkpoint`. The first ID of a new session is 1. After a `physical` or
+`logical` restore, the IDs continue from the saved session. The server does
+not use an ID again in the same epoch. This is also true after a reset, a
+demo, a project apply, or a rewind.
 
 The `rewind` action restores one save point. The command must give the ID in
 `checkpoint`. There is no default save point. Other actions ignore this field.
@@ -142,23 +144,36 @@ Without `-state`, a server restart starts a new session with a new epoch.
 With `-state`, the server saves the session state and restores it at the next
 start. The server keeps the saved epoch only when both of these are true:
 
-- The saved state came from a graceful shutdown.
+- The saved state came from a final save.
 - The restore tier is `physical` or `logical`.
 
-After a stop without a graceful shutdown, the saved state can be older than
-the frames that clients saw. A client drops each frame with a lower revision
-in its epoch, so the server uses a new epoch. The server also uses a new epoch
+The server makes a final save at a graceful shutdown. When startup fails after
+the startup save, for example because a listen address is in use, the server
+also makes a final save. See
+[graceful shutdown](operations.md#graceful-shutdown) for a shutdown without a
+final save.
+
+After a stop without a final save, the saved state can be older than the
+frames that clients saw. A client drops each frame with a lower revision in
+its epoch, so the server uses a new epoch. The server also uses a new epoch
 when it does not use the saved state.
 
-With a kept epoch, the revision and the generation increase by one. The
-project revision does not change, so clients keep their topology cache. The
-generation change resets motion. Save point IDs and order IDs continue from
-the saved values, so the server does not use an ID again in the epoch.
+With a kept epoch, the revision and the generation are one more than in the
+saved state. The project revision does not change, so clients keep their
+topology cache. The generation change resets motion. Save point IDs and order
+IDs continue from the saved values. Thus a normal restart does not make the
+server use an ID again in the epoch. When an operator restores an older file
+from a final save, IDs can repeat. See
+[session state](operations.md#session-state).
 
-The server does not save command receipts. After a restart with a kept epoch,
-the next command of each client is new. An exact retry of a command from
-before the restart applies the command again. For example, a retried `trip`
-makes a second order. The limit of 1,024 clients starts again.
+A startup that fails after the startup save writes the increased revision and
+generation in its final save. Thus after one or more failed startups, clients
+can see an increase of more than one.
+
+The `-state` option does not save command receipts. After a restart with a
+kept epoch, the next command of each client is new. An exact retry of a
+command from before the restart applies the command again. For example, a
+retried `trip` makes a second order. The limit of 1,024 clients starts again.
 
 With a new epoch, clients switch to the new session. A command from the old
 epoch gets `session_changed`.
@@ -222,6 +237,9 @@ CPU per wall second for JSON and 8.4 ms for Protobuf. The saving is about 0.7%
 of one full CPU core per connected client.
 
 The gzip-level comparison used five more one-second runs for the London frame.
+The `json_gzip_level_1` and `json_gzip_level_6` rows of
+[`measurements/protocol-normalized-codec.csv`](measurements/protocol-normalized-codec.csv)
+come from these runs.
 
 | Fixture | Gzip level | Frame size | Compression time |
 | --- | ---: | ---: | ---: |

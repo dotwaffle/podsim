@@ -69,10 +69,14 @@ These roles describe the existing movement and reservation flow.
 They do not change route selection, admission priority, or resource ownership.
 
 The network does not store tunnel depth.
-Instead, each guideway and controlled movement has an explicit separation group.
+Instead, each guideway, movement lane, and station path has an explicit
+separation group.
 Different groups declare that unrelated paths can cross at different physical
 levels.
-Only the separation oracle in the qualification tests uses these groups.
+Only the separation oracle uses these groups.
+The qualification tests run this oracle.
+With `-state`, a `physical` or `logical` restore also checks the restored pods
+with it.
 The oracle still checks paths that share a junction, even when their groups
 differ.
 Projects without separation groups keep the original two-dimensional check.
@@ -163,7 +167,11 @@ The preset starts with automatic demand and redistribution disabled.
 The station-count limit of 100 permits one added station in the editor.
 The limits of 2,000 nodes and 4,000 lanes also apply to that edit.
 The `serve` and `compare` commands read a `-project` file of at most 4 MiB.
-The generated file is about 3.3 MiB.
+The generated file is indented, so it is about 3.3 MiB.
+Project validation also limits the compact JSON form of a project to 4 MiB,
+with room for the widest demand settings.
+In that form, the London project is about 1.5 MiB (1,590,971 bytes).
+The server writes the `-project` file in this form when it saves it.
 The editor sends about 1.5 MiB when it applies the project, and the server
 accepts a command of at most 2 MiB.
 Change a limit only after measured editor validation.

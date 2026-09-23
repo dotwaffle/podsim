@@ -55,7 +55,8 @@ mise run serve -- -project scenario.json
 This file contains the `project` object from `/api/project`.
 Before the server applies a setting change, it saves the file with an atomic replacement.
 It writes compact JSON without indentation.
-Thus the file of each project that the server accepts is 4 MiB or less, and the server can read it at the next start.
+Validation limits each project to 4 MiB in this form, also after a demand change.
+Thus the server can read the file at the next start.
 If the save fails, the server rejects the change.
 A rewind that restores the project of a save point also rewrites this file.
 The browser export wraps this object as `scenario` and can also contain a background image.
@@ -69,22 +70,23 @@ mise run serve -- -state file:///var/lib/podsim
 
 `-state` is off by default. Without it, the server does not save or read a session state.
 The server makes the directory if it does not exist. The server user needs write access to it.
-The server saves the session state at startup, every 60 seconds while the session changes, and at a graceful shutdown.
+The server saves the session state at startup, every 60 seconds while the session changes, and a final time at a graceful shutdown.
 It also saves about 1 second after a demand change, a project apply, or a rewind that restores a project.
 The saved state holds the project, the pods, the order queue, the demand stream, the statistics, the playback speed, and the pause state.
-It does not hold save points or command replay records.
-After a stop without a graceful shutdown, the restored session can be up to about 60 seconds old.
+It does not hold save points or command receipts.
+After a stop without the final save, the restored session can be up to about 60 seconds old.
 
 At startup, the server restores the saved session with one of these tiers:
 
 - `physical`: The pods keep their positions and start again from rest. A pod that cannot keep its position goes to a free berth.
-- `logical`: The pods start again at their initial berths. Parties that were in a pod go back to the order queue.
-- `empty`: The server cannot use the saved state and starts a new session. Except after a read failure, it moves the file aside.
+- `logical`: The pods start again at their initial berths. Parties that were unloading count as completed. Other parties in pods go back to the order queue.
+- `empty`: The server does not use the saved state and starts a new session. Except after a read failure, it moves the file aside.
 
 With `-project`, the project file has priority. If the saved project is different, the server starts a new session with the project file.
 Without `-project`, the server restores the saved project.
 State frames give the result in `restore`.
-See [session state](docs/operations.md#session-state) for the file names, the recovery steps, and the logs.
+See [session state](docs/operations.md#session-state) for the file names and the recovery steps.
+See [session state logs](docs/operations.md#session-state-logs) for the logs.
 
 ## Production server
 
@@ -198,6 +200,8 @@ Project files save the design and settings, not the exact running state.
 Save points are exact, but they are in server memory only. They end when the server stops, also with `-state`.
 Malformed or unsupported files do not replace the draft.
 Validation checks routes between passenger stations, pod placement, resource IDs, and the 24-meter minimum lane length.
+It also limits a project to 4 MiB of compact JSON.
+The editor sends the project in one command, and the server accepts a command of at most 2 MiB.
 
 ### Demand and policy comparisons
 
@@ -400,14 +404,14 @@ If that artifact is missing or older than the WASM file, the server compresses t
 
 A lost connection disables commands.
 Reconnection restores the current shared state.
-When the server restarts with a new build, open browser pages reload by themselves.
+When the server restarts with different browser files, open browser pages reload by themselves.
 The desktop client shows a message instead. Restart it to load the new version.
 The server deduplicates command retries by client and sequence.
-Replay records support 1,024 browser page loads per server lifetime.
-Only a page that sends a command uses a record.
+The server keeps command receipts for at most 1,024 browser page loads per server lifetime.
+Only a page that sends a command uses a receipt.
 If a new page reports the session client limit, restart the server.
-The server does not save replay records, so the limit of 1,024 page loads also starts again after a restart with `-state`.
-If the server saved the session at a graceful shutdown and restores it with the `physical` or `logical` tier, the session continues.
+The saved session state does not hold command receipts, so the limit of 1,024 page loads also starts again after a restart with `-state`.
+If the server made its final save at a graceful shutdown and restores the session with the `physical` or `logical` tier, the session continues.
 Then an exact retry of a command from before the restart applies the command again.
 After other restarts, the retry gets the `session_changed` error.
 See [server restarts](docs/protocol.md#server-restarts).
@@ -423,15 +427,15 @@ See [the project brief](PROJECT_BRIEF.md) for the wider scope and research.
 
 | Path | Purpose |
 | --- | --- |
-| `internal/sim` | Network, routing, requests, pod movement, and deterministic tests. |
+| `internal/sim` | Network, routing, requests, pod movement, state export and restore, and deterministic tests. |
 | `internal/observe` | Station berth and queue metrics for the view and comparison reports. |
 | `internal/project` | Versioned scenario settings, validation, and detached copies. |
 | `internal/scenarios` | Deterministic scale fixtures and qualification tests. |
-| `internal/session` | Shared clock, command validation, save points, HTTP API, and repeatable demand. |
+| `internal/session` | Shared clock, command validation, save points, saved session state, HTTP API, and repeatable demand. |
 | `internal/statestore` | Saved session state in a `file://` blob bucket, for the server only. |
 | `internal/remote` | Snapshot polling, motion buffering, command retries, and connection state. |
 | `internal/view` | Ebitengine rendering and input against copied snapshots. |
-| `internal/telemetry` | Optional OTLP traces, HTTP metrics, runtime metrics, and session gauges. |
+| `internal/telemetry` | Optional OTLP traces, HTTP metrics, runtime metrics, session gauges, and session state metrics. |
 | `internal/cmd/buildweb` | Generated browser files and gzip WASM artifact. |
 | `cmd/podsim` | Desktop and WASM entry point. |
 | `cmd/serve` | Shared session, saved session state, browser assets, health checks, and diagnostics. |
@@ -448,7 +452,7 @@ mise run check
 `mise.lock` records the resolved tool downloads.
 `mise run check` runs workflow validation, race tests, editor tests, vet, lint, vulnerability checks, the native and browser builds, and the embedded server tests.
 `mise run qualify` runs the `internal/scenarios` qualification tests for scale, safety, and repeatability.
-`mise run benchmark` measures 6,000 simulation steps on the 100-pod scenario.
+`mise run benchmark` measures 6,000 simulation steps on the 100-pod ring fixture, not on the current `scale100` mesh.
 
 GitHub Actions runs the same check on pull requests and pushes to `main`.
 The workflow also supports a manual trigger.
@@ -465,7 +469,7 @@ Lint also lists every package that the WASM build links, and fails if the list h
 Validation has six main parts:
 
 - Core tests cover routing, journeys, invalid requests, pause and reset behavior, repeatability, and state isolation.
-- Session and server tests cover save points, exact rewind, project restore, saved session state, command logs, and graceful shutdown.
+- Session and server tests cover save points, exact rewind, project restore, saved session state, save point and session state logs, and graceful shutdown.
 - Rendering tests cover buffered movement, lane corners, station movement, pause and reset behavior, and stale snapshots.
 - HTTP tests cover compression, topology and frame decoding, command
   acknowledgments, WASM responses, byte ranges, health, and diagnostics.

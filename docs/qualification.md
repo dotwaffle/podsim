@@ -283,13 +283,13 @@ The fixed-step benchmark above provides the controlled core comparison.
 
 This change did not add snapshot deltas.
 The normalized protocol later removed the network and complete lane objects from each state response.
-See [the client protocol](protocol.md) for current frame sizes.
+See [the client protocol](protocol.md) for the normalized frame measurements.
 
 ## Validation limits
 
 The automated gate runs workflow validation, race tests, editor tests, vet, lint, vulnerability checks, native and WASM builds, and embedded server tests.
 Browser acceptance also covers editing, undo and redo, background calibration, import and export, apply, stale conflicts, and visible WASM rendering.
-A known stale save no longer pauses another browser's running simulation.
+A known stale apply no longer pauses another browser's running simulation.
 Malformed imports preserve the current draft.
 
 On September 21, 2026, one combined acceptance run imported a PNG and
@@ -303,6 +303,13 @@ Rewind tests make a save point, record a reference run, and then rewind twice.
 Each replay must match the reference state, safety observation, and demand stream at every simulated second.
 The cases cover balanced demand, profile demand, a demo that ends in the replay, and London with redistribution.
 A branch with one more journey must differ from the reference.
+
+The London restore test runs AM peak demand at 20 requests per minute with redistribution.
+From 70 simulated seconds, it saves and restores the simulation state five times at 5-second intervals.
+Each `physical` restore must keep each pod in place and keep the order queue.
+A `logical` restore of the last state must put each pod at its initial berth, with the expected queue and completion counts.
+The last `physical` copy then runs for 30 simulated seconds, and it must pass the separation oracle each second and complete an order.
+A session test also saves a London session and restores it with the `physical` tier.
 
 ## Mesh and navigation follow-up
 

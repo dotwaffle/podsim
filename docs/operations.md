@@ -59,6 +59,7 @@ The `-project` option needs an existing project file.
 Mount its directory with write access for UID 65532.
 Without write access, the server rejects project applies, demand changes, and rewinds that restore a project.
 For each of these changes, the server replaces the file with compact JSON of at most 4 MiB.
+The new file belongs to UID 65532 and has mode 0600.
 
 The `-state` option needs a directory that UID 65532 can write.
 Make the directory on the host, then mount it in the container:
@@ -69,7 +70,11 @@ docker run --rm -p 8080:8080 -v /srv/podsim-state:/var/lib/podsim --stop-timeout
   ghcr.io/dotwaffle/podsim:latest -addr :8080 -state file:///var/lib/podsim
 ```
 
-If the server cannot write to the directory, startup stops with a `write startup session state` error.
+If the server can open files in the directory but cannot write to it, startup stops with a `write startup session state` error.
+But if the server rejects the saved state, the move of the file fails first.
+The server then starts with saving off and logs a `Move rejected session state` error.
+If the server cannot read `session.json.gz`, it starts with saving off and logs a `Read saved session state` error.
+For example, this occurs when the server has no access to the directory.
 On Kubernetes, set `securityContext.fsGroup` to 65532, so that the server can write to the volume.
 Use one replica and the `Recreate` strategy, because only one server can use a state location:
 
@@ -101,12 +106,14 @@ spec:
 The `-state` option keeps the shared session across server restarts.
 Its value is a bucket URL. This server build has only the `file://` driver.
 Without `-state`, the server does not save or read a session state.
+The saved state does not hold save points or command receipts, so a restart clears them.
 
 A `file://` URL needs an empty host and an absolute path, for example `file:///var/lib/podsim`.
 `file://var/lib/podsim` is not valid, because `var` is then the host.
 The only query parameter is `prefix`. The server puts it in front of each file name.
 For example, `prefix=podsim/` puts the files in the `podsim` subdirectory, and `prefix=podsim-` gives `podsim-session.json.gz`.
-The prefix can contain only letters, digits, `.`, `_`, `-`, and `/`. It cannot contain `..` or `__`.
+The prefix can contain only ASCII letters, digits, `.`, `_`, `-`, and `/`. It cannot contain `..` or `__`.
+It must be a clean relative path. Thus it cannot start with `/`, contain `//`, or have a part that is only `.`.
 Do not put credentials in the URL.
 The server logs and errors show the URL without user information and query values.
 But the error text of a storage driver can contain the full URL.
@@ -114,7 +121,7 @@ But the error text of a storage driver can contain the full URL.
 The server makes a missing directory with mode 0700.
 Each file gets mode 0600.
 The server syncs each file and its directory before it continues.
-Startup stops with an error when the URL is not valid, when the server cannot open the location, or when the first save fails.
+Startup stops with an error when the URL is not valid, when the server cannot open the location, or when the startup save fails.
 
 | File | Content |
 | --- | --- |
@@ -128,19 +135,20 @@ At startup, the server deletes the temporary files that an interrupted write lef
 The server saves the session state at these times:
 
 - At startup, after the restore.
-- Every 60 seconds, when the session changed after the last save.
-- About 1 second after a demand change, a project apply, or a rewind that restores a project.
-- At a graceful shutdown. This is the final save.
+- Every 60 seconds, when the session changed after the last save. The first of these saves after the start always writes.
+- About 1 second after a demand change, a project apply, or a rewind that restores a project. This save counts as a periodic save.
+- At a graceful shutdown, and when startup fails after the startup save. This is the final save.
 
 A save copies the state while it holds the session lock.
 It encodes, compresses, and writes the copy after it releases the lock.
+Each startup or periodic save gets 30 seconds.
 A failed write keeps the old file.
 After a stop without a final save, the next start restores the last saved state, which can be up to about 60 seconds old.
 
 At startup, the server reads `session.json.gz` and restores the session with one of these tiers:
 
-- `physical`: The pods keep their lane positions and start again at speed 0. The server makes the track reservations again. A pod that conflicts with another pod, or that has a route that the server cannot restore, goes to a free berth. Its passengers board again at their origin, or go back to the queue.
-- `logical`: The server uses this tier when the physical tier fails. The pods start again at their initial berths. Parties in pods go back to the queue. Parties that were unloading count as completed.
+- `physical`: The pods keep their lane positions and start again at speed 0. The server makes the track reservations again. A pod that conflicts with another pod, or that has a route that the server cannot restore, goes to a free berth. Its parties board again at their origin station, or go back to the queue.
+- `logical`: The server uses this tier when the `physical` tier fails. It also uses it with reason `restore_loop`, as described below. The pods start again at their initial berths. Parties that were unloading count as completed. Other parties in pods go back to the queue.
 - `empty`: The server does not use the saved state and starts a new session. Except after a read failure, it moves `session.json.gz` to a rejected file.
 
 The reason for an `empty` start is `project_changed`, `unsupported_version`, `invalid_state`, `too_large`, `restore_loop`, or `unreadable`.
@@ -149,8 +157,8 @@ A file from a newer server version gets `unsupported_version`. Thus after a down
 With `-project`, the project file has priority, and a saved state with a different project gets `project_changed`.
 Without `-project`, the server restores the saved project.
 When the server does not use the saved state, the new session uses the project file.
-Without `-project`, it uses the saved project if that project is valid, and otherwise the example project.
-After `restore_loop`, a server without `-project` uses the example project.
+Without `-project`, it uses the saved project if the server can decode the file and the project is valid. Otherwise it uses the example project.
+After `restore_loop`, a server without `-project` uses the example project, also when the saved project is valid.
 
 If the read fails or takes more than 30 seconds, the server starts an empty session with reason `unreadable` and does not save.
 The file stays for the next start.
@@ -162,7 +170,7 @@ If the server stops without a periodic or final save after a restore, the next s
 After two such stops, the next start moves the file aside with reason `restore_loop`.
 This stops a crash loop that a saved state causes.
 A stop for another cause also counts, for example a `SIGKILL` before the first periodic save, about 60 seconds after the start.
-When startup fails after the restore, for example because a listen address is in use, the server makes a final save before it stops.
+When startup fails after the startup save, for example because a listen address is in use, the server makes a final save before it stops.
 Thus a failed startup does not count as a restore.
 
 The server keeps the saved epoch only after a final save and a `physical` or `logical` restore.
@@ -181,6 +189,12 @@ To use a rejected or previous file:
 4. Start the server.
 
 A file from a newer version needs a server of that version or later.
+A file that the server rejected with reason `restore_loop` gets the same reason again.
+
+A previous or copied file can come from a final save, and the server can then keep its epoch.
+If the server used that epoch after the save, clients ignore the state frames until the revision reaches the last one that they got.
+Save point IDs and order IDs can also repeat.
+Reload open browser pages and restart desktop clients after you use such a file.
 
 To start a new session:
 
@@ -202,7 +216,7 @@ If each of the 8 save points holds its own London project, they use about 85 MB.
 
 With `-state`, each save of the session state allocates memory for a short time.
 A London save with 20 orders per minute, after 15 simulated minutes, allocates about 8.5 MB.
-About 8 MB of this is JSON work on the 1.6 MB project.
+About 8 MB of this is JSON work on the 1.5 MiB project.
 The encoder checks and formats the project text again when it adds the project to the file.
 The compressed file is about 320 KB.
 A project near the 4 MiB file limit needs more memory.
@@ -307,26 +321,26 @@ Both records give `duration`, the time to apply the command under the session lo
 With `-state`, the server writes these log records at startup:
 
 - `Opened session state store` (INFO) gives the redacted `url` and the `location`, the path in front of each file name.
-- `Removed temporary state files` (INFO) gives the `count` of deleted temporary files. `Remove temporary state files` (WARN) gives the `error` when the list or a delete fails. Startup continues.
+- `Removed temporary state files` (INFO) gives the `count` of deleted temporary files. `Remove temporary state files` (WARN) gives the `error` when the list or a delete fails. The list skips a directory that the server cannot read, and gives no error for it. Startup continues.
 - `No saved session state` (INFO) means that the location has no `session.json.gz`. The server starts a new session.
 - `Restored session` (INFO) gives the `tier`, the `reason`, and the counts `demoted`, `requeued`, `dropped`, `droppedParties`, `overCap`, and `overBudget`.
   It also gives the saved `tick`, `epochKept`, `final`, `savedAt`, `savedBuild`, the current `build`, and `restoreAttempts`.
   `bytes` is the compressed size. `duration` is the time from the read to the end of the startup save.
-  After a failed physical tier, `physicalError` tells why it failed.
-- `Demoted pod` (DEBUG) gives each `pod` that the physical tier moved to a berth.
+  After a failed `physical` tier, `physicalError` tells why it failed.
+- `Demoted pod` (DEBUG) gives each `pod` that the `physical` tier moved to a berth.
 - `Rejected saved session state` (WARN) gives the `reason` and the `error`.
 - `Restore failed with a panic` (ERROR) gives the `panic` and the `stack`. The server then rejects the file with reason `invalid_state`.
 - `Read saved session state` (ERROR) means that the read failed or timed out. It gives the `error` and `saving=false`.
 - `Move rejected session state` (ERROR) means that the move of a rejected file failed. It gives the `error` and `saving=false`.
 - `Prune rejected session state` (WARN) gives the `error` when the server cannot delete an old rejected file. The next rejection tries again.
 - `Backed up saved session state` (INFO) and `Back up saved session state` (WARN, with the `error`) tell the result of the copy to `session.previous.json.gz`. A failed copy does not stop the restore.
-- `Stop during startup` (INFO) means that a signal came during the read of the saved state. It gives the `cause` and the `error`. The server stops without serving and without a save.
+- `Stop during startup` (INFO) means that a signal came while the server read or restored the saved state, or made the startup save. It gives the `cause` and the `error`. The server stops without serving and without a save.
 
 It writes these records for each save:
 
 - `Saved session state` (DEBUG) is a startup or periodic save. It gives the `kind`, the compressed size in `bytes`, the `revision`, and the `tick`.
   It also gives three durations: `lock` to copy the state under the session lock, `encode`, and `write`.
-- `Saved final session state` (INFO) is the final save, with the same attributes. A startup that fails after the restore also makes a final save.
+- `Saved final session state` (INFO) is the final save, with the same attributes. A startup that fails after the startup save also makes a final save.
 - `Save session state` (WARN) is a failed save. It gives the `kind`, the `error`, the `cause` of a timeout, and `failures`, the number of failed saves in sequence.
   A state that is too large gives ERROR, because each later save also fails.
 
@@ -345,11 +359,13 @@ The server starts a graceful shutdown when it gets `SIGINT` or `SIGTERM`, or whe
 It logs `Stop accepting commands` with the cause.
 Then it stops the simulation clock and rejects new commands with HTTP 409 and the `server_stopping` error code.
 A command that is already in progress completes.
-An exact retry of the last command from a client still gets the stored reply.
+An exact retry of the last command from a client still gets the stored acknowledgment.
+The server ignores a second `SIGINT` or `SIGTERM` during the shutdown.
 
 Then the server closes its listeners and does not accept new requests.
 Requests that are already in progress, including reads, get up to 5 seconds to complete.
 Next, the server waits up to 5 seconds for the clock goroutine to return.
+If it does not return, the server logs `Simulation clock did not stop` as a warning.
 
 With `-state`, the server then stops the state saver and waits up to 1 second for it.
 A periodic save in progress stops, and the old file stays.
@@ -359,7 +375,7 @@ The server waits up to 6 seconds for it, because a blocked file system call can 
 A final save that fails or times out keeps the old file.
 If the clock did not stop, the state can still change. If the saver did not stop, its write can still use the store.
 In both cases, the server does not make a final save.
-Without a final save, the next start restores the last periodic save with a new epoch.
+Without a final save, the next start restores the last saved state with a new epoch.
 
 Last, the server flushes telemetry for up to 5 seconds.
 

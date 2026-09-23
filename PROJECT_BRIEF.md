@@ -9,6 +9,8 @@ statistics.
 The server owns one shared simulation session for all connected browsers.
 Any browser can keep an exact save point of the running simulation in server
 memory and rewind the session to the latest save point.
+With the `-state` option, the server also saves the shared session to disk and
+restores it after a restart when it can.
 Optional empty-pod redistribution is available but remains off by default.
 
 The rail-hub, London capacity envelope, same-destination sharing, and first
@@ -137,7 +139,7 @@ Keep internal path lengths and movement conflicts possible in the model even whe
 - Include a small example network.
 - Save the scenario configuration in project files, rather than the exact running state.
 - Keep at most eight exact save points of the running simulation in server memory only. A server restart clears them. At the limit, a new save point removes the oldest one.
-- With the `-state` server option, save the live shared session to disk and restore it on a best-effort basis after a server restart. The restore keeps the pod positions when it can. Otherwise it starts the pods again at their initial berths and puts their parties back in the queue. It does not restore save points or command replay records.
+- With the `-state` server option, save the live shared session to disk and restore it on a best-effort basis after a server restart. The `physical` restore tier keeps the pod positions and moves a pod that cannot keep its position to a free berth. When the `physical` tier fails, the `logical` tier starts the pods again at their initial berths. Parties that were unloading count as completed, and the other parties in pods go back to the queue. The saved state does not hold save points or command receipts.
 
 ## 3. Architecture and future 3D
 
