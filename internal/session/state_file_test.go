@@ -144,6 +144,19 @@ func stateReason(err error) string {
 	return ""
 }
 
+// decodeCheckedState decodes a state file and checks its session members, as
+// a restore does before it restores the simulation.
+func decodeCheckedState(data []byte) (stateFile, error) {
+	file, err := decodeStateFile(data)
+	if err != nil {
+		return stateFile{}, err
+	}
+	if err := file.validate(); err != nil {
+		return stateFile{}, invalidState(err)
+	}
+	return file, nil
+}
+
 func TestStateFileRoundTrip(t *testing.T) {
 	t.Parallel()
 	// A new session has revision 0 until its first change.
@@ -274,6 +287,9 @@ func TestDecodeStateFileRejects(t *testing.T) {
 		{"epoch of 101 bytes", edit(func(file *stateFile) { file.Epoch = strings.Repeat("E", 101) }), reasonInvalidState, nil},
 		{"project revision 0", edit(func(file *stateFile) { file.ProjectRevision = 0 }), reasonInvalidState, nil},
 		{"generation 0", edit(func(file *stateFile) { file.Generation = 0 }), reasonInvalidState, nil},
+		{"largest revision", edit(func(file *stateFile) { file.Revision = math.MaxUint64 }), reasonInvalidState, nil},
+		{"largest generation", edit(func(file *stateFile) { file.Generation = math.MaxUint64 }), reasonInvalidState, nil},
+		{"negative restore attempts", edit(func(file *stateFile) { file.RestoreAttempts = -1 }), reasonInvalidState, nil},
 		{"speed 3", edit(func(file *stateFile) { file.Speed = 3 }), reasonInvalidState, nil},
 		{"demand rate 0", edit(func(file *stateFile) { file.Demand.State.Config.PerMinute = 0 }), reasonInvalidState, nil},
 		{"unknown demand destination", edit(func(file *stateFile) {
@@ -288,7 +304,7 @@ func TestDecodeStateFileRejects(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
-			_, err := decodeStateFile(tc.data)
+			_, err := decodeCheckedState(tc.data)
 			if reason := stateReason(err); reason != tc.reason {
 				t.Fatalf("reason %q, want %q: %v", reason, tc.reason, err)
 			}
@@ -330,7 +346,7 @@ func TestDecodeStateFileAcceptsLimits(t *testing.T) {
 			t.Parallel()
 			want := valid
 			tc.change(&want)
-			got, err := decodeStateFile(encodeTestState(t, want))
+			got, err := decodeCheckedState(encodeTestState(t, want))
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -621,7 +637,7 @@ func TestStateFileWorstCaseSize(t *testing.T) {
 		Format: stateFormat, Version: stateVersion, Final: true,
 		SavedAt: time.Date(2026, time.September, 23, 9, 0, 0, 123456789, time.FixedZone("", -12*60*60)),
 		Build:   testBuildID, Epoch: strings.Repeat("E", maxEpochBytes),
-		Revision: math.MaxUint64, ProjectRevision: math.MaxUint64, Generation: math.MaxUint64,
+		Revision: math.MaxUint64 - 1, ProjectRevision: math.MaxUint64, Generation: math.MaxUint64 - 1,
 		LastCheckpoint: math.MaxUint64, Speed: 8, RestoreAttempts: math.MaxInt,
 		Demand: savedDemand{
 			State:  DemandState{Config: demand, Generated: math.MaxInt, Skipped: math.MaxInt, Error: text},
@@ -645,7 +661,7 @@ func TestStateFileWorstCaseSize(t *testing.T) {
 	if size > MaxStateBytes {
 		t.Fatalf("the largest state has %d JSON bytes, more than %d", size, MaxStateBytes)
 	}
-	if _, err := decodeStateFile(encodeTestState(t, file)); err != nil {
+	if _, err := decodeCheckedState(encodeTestState(t, file)); err != nil {
 		t.Fatal(err)
 	}
 }

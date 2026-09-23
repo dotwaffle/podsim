@@ -21,13 +21,27 @@ type frameFixture struct {
 	// build is the build ID of the session. It is empty for a server
 	// without a build ID.
 	build string
+	// restore tells how the server started the session. It is zero for a
+	// session that did not start from a store.
+	restore RestoreInfo
+	// restoreJSON is the encoded restore member, or "" when the frame omits
+	// it.
+	restoreJSON string
 }
 
 var frameFixtures = []frameFixture{
-	{"no checkpoints", 0, 0, ""},
-	{"with checkpoints", 2, 0, ""},
-	{"with project-restoring checkpoints", 2, 1, ""},
-	{"with build ID", 0, 0, "b9a50fb31ed44c66"},
+	{name: "no checkpoints"},
+	{name: "with checkpoints", checkpoints: 2},
+	{name: "with project-restoring checkpoints", checkpoints: 2, restoring: 1},
+	{name: "with build ID", build: "b9a50fb31ed44c66"},
+	{
+		name: "restored", restore: RestoreInfo{Tier: "physical", Demoted: 1},
+		restoreJSON: `{"tier":"physical","demoted":1}`,
+	},
+	{
+		name: "logical restore", restore: RestoreInfo{Tier: "logical", Reason: "restore_loop", Requeued: 2, Dropped: 1},
+		restoreJSON: `{"tier":"logical","reason":"restore_loop","requeued":2,"dropped":1}`,
+	},
 }
 
 // newFrameFixture starts a journey and saves the checkpoints of fixture
@@ -38,6 +52,7 @@ func newFrameFixture(t *testing.T, fixture frameFixture) *Session {
 	if err != nil {
 		t.Fatal(err)
 	}
+	shared.restore = fixture.restore
 	client := newTestClient(shared, "fixture")
 	client.mustApply(t, Command{Action: "trip", Origin: "harbor", Destination: "market"})
 	save := func(count int) {
@@ -90,6 +105,9 @@ func TestStateFrameRoundTrip(t *testing.T) {
 			if want.Build != fixture.build || frame.Build != fixture.build {
 				t.Fatalf("state build = %q, frame build = %q, want %q", want.Build, frame.Build, fixture.build)
 			}
+			if want.Restore != fixture.restore || frame.Restore != fixture.restore {
+				t.Fatalf("state restore = %+v, frame restore = %+v, want %+v", want.Restore, frame.Restore, fixture.restore)
+			}
 			got, err := FrameState(shared.Topology(), frame)
 			if err != nil {
 				t.Fatal(err)
@@ -140,6 +158,15 @@ func TestStateFrameJSONOmitsTopologyAndLaneObjects(t *testing.T) {
 				}
 				if want := strconv.Quote(fixture.build); present && string(build) != want {
 					t.Fatalf("%s build = %s, want %s", name, build, want)
+				}
+				// They contain the restore key only when the server restored
+				// the session.
+				restore, present := jsonKeys(t, value)["restore"]
+				if present != (fixture.restoreJSON != "") {
+					t.Fatalf("%s restore key present = %t, want %t", name, present, fixture.restoreJSON != "")
+				}
+				if present && string(restore) != fixture.restoreJSON {
+					t.Fatalf("%s restore = %s, want %s", name, restore, fixture.restoreJSON)
 				}
 			}
 		})

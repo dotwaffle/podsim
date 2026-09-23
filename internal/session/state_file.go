@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"math"
 	"math/rand/v2"
 	"slices"
 	"strings"
@@ -230,9 +231,10 @@ func (w *limitedWriter) Write(data []byte) (int, error) {
 	return n, err
 }
 
-// decodeStateFile decodes a compressed state file and checks the session
-// members that do not need the simulation. The caller checks the project and
-// the simulation. Each error is a *stateError.
+// decodeStateFile decodes a compressed state file. It checks the sizes, the
+// version and the member names, but not the values. The caller checks the
+// project, then the session members with validate, and then the simulation.
+// Each error is a *stateError.
 func decodeStateFile(data []byte) (stateFile, error) {
 	if len(data) > MaxStateBytes {
 		return stateFile{}, &stateError{
@@ -272,9 +274,6 @@ func decodeStateFile(data []byte) (stateFile, error) {
 	var file stateFile
 	if err := json.Unmarshal(raw, &file, strict); err != nil {
 		return stateFile{}, invalidState(fmt.Errorf("decode session state: %w", err))
-	}
-	if err := file.validate(); err != nil {
-		return stateFile{}, invalidState(err)
 	}
 	return file, nil
 }
@@ -371,9 +370,9 @@ func decodeSavedProject(decoder *jsontext.Decoder, config *project.Config) error
 	return json.Unmarshal(value, config, json.RejectUnknownMembers(true))
 }
 
-// validate checks the session members. The restore checks the project and
-// the simulation. The revision can be 0, because a new session has revision
-// 0 until its first change.
+// validate checks the session members. The demand check uses the saved
+// project, so the caller checks the project first. The revision can be 0,
+// because a new session has revision 0 until its first change.
 func (file *stateFile) validate() error {
 	switch {
 	case file.Epoch == "" || len(file.Epoch) > maxEpochBytes:
@@ -383,6 +382,11 @@ func (file *stateFile) validate() error {
 	case file.ProjectRevision == 0 || file.Generation == 0:
 		return fmt.Errorf("project revision %d and generation %d must be 1 or more",
 			file.ProjectRevision, file.Generation)
+	case file.Revision == math.MaxUint64 || file.Generation == math.MaxUint64:
+		// A restore adds 1 to both.
+		return fmt.Errorf("revision %d or generation %d is at the largest value", file.Revision, file.Generation)
+	case file.RestoreAttempts < 0:
+		return fmt.Errorf("restore attempts %d is negative", file.RestoreAttempts)
 	case !slices.Contains([]int{1, 2, 4, 8}, file.Speed):
 		return fmt.Errorf("speed %d is not 1, 2, 4 or 8", file.Speed)
 	}

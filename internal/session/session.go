@@ -22,7 +22,11 @@ const QueueLimit = 200
 
 // State is an authoritative, immutable copy sent to observers.
 // Checkpoints lists the retained save points, oldest first. Build identifies
-// the server build. It is empty when the server has no build ID.
+// the server build. It is empty when the server has no build ID. Restore
+// tells how the server started the simulation when it had a state store.
+// Its tier is empty when the server rejected or could not read the saved
+// state. It is zero when no saved state existed, when the server has no
+// store, and after a reset, a demo or a project apply.
 type State struct {
 	Epoch           string       `json:"epoch"`
 	Revision        uint64       `json:"revision"`
@@ -35,6 +39,7 @@ type State struct {
 	Demand          DemandState  `json:"demand"`
 	Checkpoints     []Checkpoint `json:"checkpoints,omitempty"`
 	Build           string       `json:"build,omitempty"`
+	Restore         RestoreInfo  `json:"restore,omitzero"`
 }
 
 // ProjectState contains a copied project and its edit revision.
@@ -137,9 +142,12 @@ func WithBuildID(id string) Option {
 // Session contains one fleet and one simulation clock. Use Run once per session.
 type Session struct {
 	// Close sets closed without mu, so a slow command cannot block shutdown.
-	closed          atomic.Bool
-	mu              sync.Mutex
-	simulation      *sim.Simulation
+	closed     atomic.Bool
+	mu         sync.Mutex
+	simulation *sim.Simulation
+	// project is the current project. Code replaces it whole and never
+	// writes to it in place. Save points share it, and a state save encodes
+	// it after it releases mu.
 	project         project.Config
 	epoch           string
 	revision        uint64
@@ -159,6 +167,11 @@ type Session struct {
 	// projectOrigin is the projectRevision that installed the current project
 	// value. A save point with another origin holds another project.
 	projectOrigin uint64
+	// restore tells how NewFromStore started the simulation. A reset, a
+	// demo, and a project apply clear it. A rewind keeps it.
+	restore RestoreInfo
+	// persist saves the session state. It is nil without a state store.
+	persist *persistence
 }
 
 // New creates the supplied example project with demand disabled.
@@ -169,31 +182,39 @@ func NewWithProject(config project.Config, options ...Option) (*Session, error) 
 	if err := project.Validate(config); err != nil {
 		return nil, err
 	}
-	owned := project.Clone(config)
-	simulation, err := sim.NewFleet(owned.Network, owned.Fleet)
-	if err != nil {
-		return nil, fmt.Errorf("create shared fleet: %w", err)
+	session := newSession(nil, options)
+	if err := session.startProject(config); err != nil {
+		return nil, err
 	}
-	if err := simulation.SetSharedRidePartyLimit(project.EffectiveSharedRidePartyLimit(owned)); err != nil {
-		return nil, fmt.Errorf("configure shared rides: %w", err)
-	}
-	session := &Session{
-		simulation:      simulation,
-		project:         owned,
-		epoch:           rand.Text(),
-		projectRevision: 1,
-		projectOrigin:   1,
-		generation:      1,
-		speed:           1,
-		demand:          newDemand(demandInput{config: owned.Demand, network: owned.Network, profiles: owned.DemandProfiles}),
-		receipts:        make(map[string]receipt),
-		logger:          slog.Default(),
-	}
+	return session, nil
+}
+
+// newSession returns a session with persist and the options, and without a
+// simulation. persist is nil without a state store.
+func newSession(persist *persistence, options []Option) *Session {
+	session := &Session{receipts: make(map[string]receipt), logger: slog.Default(), persist: persist}
 	for _, option := range options {
 		option(session)
 	}
-	session.configureRedistribution()
-	return session, nil
+	return session
+}
+
+// startProject starts a new simulation of a copy of config in a new epoch.
+// config must be valid.
+func (s *Session) startProject(config project.Config) error {
+	owned := project.Clone(config)
+	simulation, err := sim.NewFleet(owned.Network, owned.Fleet)
+	if err != nil {
+		return fmt.Errorf("create shared fleet: %w", err)
+	}
+	if err := simulation.SetSharedRidePartyLimit(project.EffectiveSharedRidePartyLimit(owned)); err != nil {
+		return fmt.Errorf("configure shared rides: %w", err)
+	}
+	s.simulation, s.project, s.epoch = simulation, owned, rand.Text()
+	s.projectRevision, s.projectOrigin, s.generation, s.speed = 1, 1, 1, 1
+	s.demand = newDemand(demandInput{config: owned.Demand, network: owned.Network, profiles: owned.DemandProfiles})
+	s.configureRedistribution()
+	return nil
 }
 
 // Run advances the shared clock until cancellation. Browsers never advance it.
@@ -300,6 +321,7 @@ func (s *Session) stateWithoutNetwork() State {
 		Demand:          s.demand.state,
 		Checkpoints:     s.checkpointList(),
 		Build:           s.build,
+		Restore:         s.restore,
 	}
 }
 
@@ -314,7 +336,12 @@ func (s *Session) Project() ProjectState {
 // After Close, a command that passes the epoch and sequence checks gets ServerStopping.
 // An exact retry still gets its stored reply.
 func (s *Session) Apply(command Command) Reply {
-	reply, event := s.applyCommand(cloneCommand(command))
+	reply, event, projectChanged := s.applyCommand(cloneCommand(command))
+	// Save a project change soon. A saved state with an earlier project
+	// does not match the project file after a crash.
+	if projectChanged {
+		s.nudgeSaver()
+	}
 	// Log after applyCommand releases the lock. A slow log sink must not stop
 	// the clock or the readers. Commands carry no request context, so use
 	// Info, which logs with context.Background.
@@ -325,10 +352,12 @@ func (s *Session) Apply(command Command) Reply {
 }
 
 // applyCommand holds the lock while it checks and applies command. It
-// returns the reply and an event to log, or nil when there is no event.
-func (s *Session) applyCommand(command Command) (Reply, *sessionEvent) {
+// returns the reply, an event to log or nil when there is no event, and
+// whether the command changed the project revision.
+func (s *Session) applyCommand(command Command) (Reply, *sessionEvent, bool) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	projectRevision := s.projectRevision
 	reply := s.reply()
 	var event *sessionEvent
 	switch {
@@ -369,7 +398,7 @@ func (s *Session) applyCommand(command Command) (Reply, *sessionEvent) {
 			}
 		}
 	}
-	return reply, event
+	return reply, event, s.projectRevision != projectRevision
 }
 
 func (s *Session) reply() Reply {
@@ -448,6 +477,7 @@ func (s *Session) apply(command Command) (outcome, error) {
 		s.demand = newDemand(demandInput{config: s.project.Demand, network: s.project.Network, profiles: s.project.DemandProfiles})
 		s.configureRedistribution()
 		s.generation++
+		s.restore = RestoreInfo{}
 	case "demo":
 		defaults := project.Default()
 		if !reflect.DeepEqual(s.project.Network, defaults.Network) || !reflect.DeepEqual(s.project.Fleet, defaults.Fleet) {
@@ -461,6 +491,7 @@ func (s *Session) apply(command Command) (outcome, error) {
 		disabled.Enabled = false
 		s.demand = newDemand(demandInput{config: disabled, network: s.project.Network, profiles: s.project.DemandProfiles})
 		s.generation++
+		s.restore = RestoreInfo{}
 	case "demand":
 		if s.simulation.Snapshot().Demo {
 			return outcome{}, errors.New("wait for the demo to finish before changing demand")
@@ -526,6 +557,7 @@ func (s *Session) applyProject(command Command) error {
 	s.projectRevision++
 	s.projectOrigin = s.projectRevision
 	s.generation++
+	s.restore = RestoreInfo{}
 	return nil
 }
 

@@ -19,7 +19,7 @@ The JSON API uses four message boundaries:
 | Boundary | JSON endpoint | Purpose |
 | --- | --- | --- |
 | Topology | `GET /api/topology` | Network geometry for one project revision. |
-| State | `GET /api/state` | Controls, demand, queues, berths, metrics, save points, and dynamic vehicle fields. |
+| State | `GET /api/state` | Controls, demand, queues, berths, metrics, save points, the build, the restore result, and dynamic vehicle fields. |
 | Project | `GET /api/project` | Complete editable scenario data. |
 | Command | `POST /api/command` | Retry-safe mutation and compact acknowledgment. |
 
@@ -40,6 +40,25 @@ browser files of the new server. The desktop client shows a message that tells
 the user to restart it. The client reads the build even from a frame that it
 cannot use. For example, a member can have a type that the client does not
 expect, or the topology read for the frame can fail.
+
+A state frame can contain a `restore` object. It tells how a server with
+`-state` started the current simulation from its saved session state. A
+server without `-state` omits the key. A server that found no saved state
+also omits it. A reset, a demo, or a project apply removes the key. A rewind
+keeps it.
+
+| Member | Content |
+| --- | --- |
+| `tier` | `physical`: the pods kept their positions. `logical`: the pods started again at their initial berths. `empty`: the server did not use the saved state. |
+| `reason` | Why the tier is not `physical`. For `logical`: `physical_failed` or `restore_loop`. For `empty`: `project_changed`, `unsupported_version`, `invalid_state`, `too_large`, `unreadable`, or `restore_loop`. |
+| `demoted` | The number of pods that the physical tier moved to a berth. |
+| `requeued` | The number of orders that went back to the queue. |
+| `dropped` | The number of orders that the restore removed because they were not valid. |
+
+The server omits an empty `reason` and each count of 0.
+`restore_loop` means that the server stopped before its first periodic or
+final save after a restore. After one such stop, the next start uses the
+logical tier. After two, the next start does not use the saved state.
 
 Each command contains a `client` ID, a `sequence`, the session `epoch`, and an
 `action`. The actions are `trip`, `pause`, `speed`, `reset`, `demo`, `demand`,
@@ -112,8 +131,37 @@ the command to the restored state. An exact retry gets the stored
 acknowledgment, even if a later rewind removed the effect of the command. A
 reset, a demo, and a project apply work the same way.
 
-Save points are in memory only. A server restart clears them. A rewind to an
-unknown or removed ID gets `command_rejected`.
+Save points are in memory only. A server restart clears them. The `-state`
+option does not save them. A rewind to an unknown or removed ID gets
+`command_rejected`.
+
+## Server restarts
+
+Without `-state`, a server restart starts a new session with a new epoch.
+
+With `-state`, the server saves the session state and restores it at the next
+start. The server keeps the saved epoch only when both of these are true:
+
+- The saved state came from a graceful shutdown.
+- The restore tier is `physical` or `logical`.
+
+After a stop without a graceful shutdown, the saved state can be older than
+the frames that clients saw. A client drops each frame with a lower revision
+in its epoch, so the server uses a new epoch. The server also uses a new epoch
+when it does not use the saved state.
+
+With a kept epoch, the revision and the generation increase by one. The
+project revision does not change, so clients keep their topology cache. The
+generation change resets motion. Save point IDs and order IDs continue from
+the saved values, so the server does not use an ID again in the epoch.
+
+The server does not save command receipts. After a restart with a kept epoch,
+the next command of each client is new. An exact retry of a command from
+before the restart applies the command again. For example, a retried `trip`
+makes a second order. The limit of 1,024 clients starts again.
+
+With a new epoch, clients switch to the new session. A command from the old
+epoch gets `session_changed`.
 
 ## Payload measurements
 
