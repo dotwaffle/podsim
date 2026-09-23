@@ -1,6 +1,7 @@
 package session
 
 import (
+	"errors"
 	"reflect"
 	"strconv"
 	"strings"
@@ -112,12 +113,13 @@ type replayObservation struct {
 }
 
 // observeReplay reads the state that a rewind must restore exactly. It sets
-// Revision and Generation to zero, because a rewind changes them.
+// Revision, Generation, and ProjectRevision to zero, because a rewind can
+// change them.
 func observeReplay(s *Session) replayObservation {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	state := s.stateWithoutNetwork()
-	state.Revision, state.Generation = 0, 0
+	state.Revision, state.Generation, state.ProjectRevision = 0, 0, 0
 	return replayObservation{state: state, safety: s.simulation.SafetyObservation(), demand: s.demand.clone()}
 }
 
@@ -178,12 +180,8 @@ type replayResult struct {
 	reference  []replayObservation
 }
 
-// checkReplays saves a checkpoint and records the reference run from it.
-// Then it rewinds twice, and checks that each second of both replays is
-// equal to the reference. The second rewind restores a clone of a clone.
-// The reference runs first. If the save point shares state with the live
-// run, the replay starts from a changed state and the check fails.
-func checkReplays(t *testing.T, check replayCheck) replayResult {
+// recordReference saves a checkpoint and records the reference run from it.
+func recordReference(t *testing.T, check replayCheck) replayResult {
 	t.Helper()
 	s := check.client.session
 	result := replayResult{checkpoint: check.client.mustApply(t, Command{Action: "checkpoint"}).Checkpoint}
@@ -192,6 +190,17 @@ func checkReplays(t *testing.T, check replayCheck) replayResult {
 		result.reference = append(result.reference, observation)
 	}})
 	result.end = result.reference[len(result.reference)-1]
+	return result
+}
+
+// checkReplays records the reference run from a new checkpoint. Then it
+// rewinds twice, and checks that each second of both replays is equal to
+// the reference. The second rewind restores a clone of a clone. The
+// reference runs first. If the save point shares state with the live run,
+// the replay starts from a changed state and the check fails.
+func checkReplays(t *testing.T, check replayCheck) replayResult {
+	t.Helper()
+	result := recordReference(t, check)
 	for replay := 1; replay <= 2; replay++ {
 		if diff := replayFrom(t, replayInput{client: check.client, result: result}); diff != "" {
 			t.Fatalf("replay %d: %s", replay, diff)
@@ -237,11 +246,18 @@ func replayFrom(t *testing.T, input replayInput) string {
 	return diff
 }
 
+// balancedDemandProject returns the example project with balanced demand
+// and redistribution on.
+func balancedDemandProject() project.Config {
+	config := project.Default()
+	config.Demand = DemandConfig{Enabled: true, PerMinute: 12, Pattern: "balanced", Seed: 7}
+	config.Redistribution = true
+	return config
+}
+
 func TestRewindReplaysExactly(t *testing.T) {
 	t.Parallel()
-	balanced := project.Default()
-	balanced.Demand = DemandConfig{Enabled: true, PerMinute: 12, Pattern: "balanced", Seed: 7}
-	balanced.Redistribution = true
+	balanced := balancedDemandProject()
 	// The demo check compares only the network and the fleet, so the demo
 	// starts with redistribution in the project.
 	demo := project.Default()
@@ -363,20 +379,6 @@ func TestCheckpointRejectionsPreserveState(t *testing.T) {
 			}
 			return 1
 		}, "save point #1 is no longer available"},
-		{"demand change", func(t *testing.T, client *testClient) uint64 {
-			t.Helper()
-			save(t, client)
-			client.mustApply(t, Command{Action: "demand", Demand: DemandConfig{Enabled: true, PerMinute: 6, Pattern: "balanced", Seed: 3}})
-			return 1
-		}, "the project or demand settings changed after save point #1, so a rewind to it is not available"},
-		{"project change", func(t *testing.T, client *testClient) uint64 {
-			t.Helper()
-			save(t, client)
-			config := customProject()
-			client.mustApply(t, Command{Action: "pause", Paused: true})
-			client.mustApply(t, Command{Action: "project", ProjectRevision: client.session.Project().Revision, Project: &config})
-			return 1
-		}, "the project or demand settings changed after save point #1, so a rewind to it is not available"},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -399,6 +401,278 @@ func TestCheckpointRejectionsPreserveState(t *testing.T) {
 			if !reflect.DeepEqual(beforeState, s.State()) {
 				t.Fatal("the retried rejection changed the session")
 			}
+		})
+	}
+}
+
+// projectFile is a fake project saver. saved holds each project that it
+// saved, oldest first. When err is set, save returns it and saves nothing.
+type projectFile struct {
+	err   error
+	saved []project.Config
+}
+
+func (f *projectFile) save(config project.Config) error {
+	if f.err != nil {
+		return f.err
+	}
+	f.saved = append(f.saved, config)
+	return nil
+}
+
+// applyTestProject pauses the session and applies customProject.
+func applyTestProject(t *testing.T, client *testClient) {
+	t.Helper()
+	config := customProject()
+	client.mustApply(t, Command{Action: "pause", Paused: true})
+	client.mustApply(t, Command{Action: "project", ProjectRevision: client.session.Project().Revision, Project: &config})
+}
+
+// changeTestDemand applies demand settings that no test project uses.
+func changeTestDemand(t *testing.T, client *testClient) {
+	t.Helper()
+	client.mustApply(t, Command{Action: "demand", Demand: DemandConfig{Enabled: true, PerMinute: 6, Pattern: "market", Seed: 3}})
+}
+
+// projectChanges are the commands that give a new project revision.
+var projectChanges = []struct {
+	name   string
+	change func(*testing.T, *testClient)
+}{
+	{"project apply", applyTestProject},
+	{"demand change", changeTestDemand},
+}
+
+// restoreRun is the state of TestRewindRestoresEarlierProject after the
+// first rewind and its replay.
+type restoreRun struct {
+	client *testClient
+	file   *projectFile
+	result replayResult
+}
+
+func TestRewindRestoresEarlierProject(t *testing.T) {
+	t.Parallel()
+	warmUp := func(_ *testing.T, client *testClient) { advanceTicks(client.session, 10*sim.TicksPerSecond) }
+	tests := []struct {
+		name string
+		// prepare runs before the save point.
+		prepare func(*testing.T, *testClient)
+		seconds int
+		// change gives a new project after the reference run.
+		change func(*testing.T, *testClient)
+		// then runs after the first rewind and its replay. It can be nil.
+		then func(*testing.T, restoreRun)
+	}{
+		{name: "project apply", prepare: warmUp, seconds: 10, change: applyTestProject},
+		{name: "demand change", prepare: warmUp, seconds: 10, change: changeTestDemand},
+		{
+			name: "repeated rewind", prepare: warmUp, seconds: 10, change: applyTestProject,
+			then: func(t *testing.T, run restoreRun) {
+				t.Helper()
+				s := run.client.session
+				before, saves := s.State(), len(run.file.saved)
+				if diff := replayFrom(t, replayInput{client: run.client, result: run.result}); diff != "" {
+					t.Fatalf("second replay: %s", diff)
+				}
+				after := s.State()
+				if len(run.file.saved) != saves || after.ProjectRevision != before.ProjectRevision || after.Generation != before.Generation+1 {
+					t.Fatalf("second rewind: %d saves, project revision %d to %d, generation %d to %d; want no save and the same project revision",
+						len(run.file.saved)-saves, before.ProjectRevision, after.ProjectRevision, before.Generation, after.Generation)
+				}
+			},
+		},
+		{
+			name: "checkpoint after a restore", prepare: warmUp, seconds: 10, change: applyTestProject,
+			then: func(t *testing.T, run restoreRun) {
+				t.Helper()
+				s := run.client.session
+				id := run.client.mustApply(t, Command{Action: "checkpoint"}).Checkpoint
+				before, saves := s.State(), len(run.file.saved)
+				if list := before.Checkpoints; len(list) != 2 || list[1].ID != id || list[0].RestoresProject || list[1].RestoresProject {
+					t.Fatalf("checkpoints = %+v, want two that do not restore a project", list)
+				}
+				run.client.mustApply(t, Command{Action: "rewind", Checkpoint: id})
+				if len(run.file.saved) != saves || s.State().ProjectRevision != before.ProjectRevision {
+					t.Fatal("a rewind to the new save point saved or changed the project")
+				}
+			},
+		},
+		{
+			// A rewind to a save point from a later project restores that
+			// project. This recovers a project that an earlier rewind replaced.
+			name: "forward rewind", prepare: warmUp, seconds: 10, change: applyTestProject,
+			then: func(t *testing.T, run restoreRun) {
+				t.Helper()
+				s := run.client.session
+				applyTestProject(t, run.client)
+				run.client.mustApply(t, Command{Action: "pause", Paused: false})
+				later, network := s.Project().Project, s.Topology().Network
+				result := recordReference(t, replayCheck{client: run.client, seconds: 10})
+				run.client.mustApply(t, Command{Action: "rewind", Checkpoint: run.result.checkpoint})
+				before, saves := s.State(), len(run.file.saved)
+				if list := before.Checkpoints; len(list) != 2 || list[0].RestoresProject || !list[1].RestoresProject {
+					t.Fatalf("before the forward rewind, checkpoints = %+v, want only the later one to restore a project", list)
+				}
+				if diff := replayFrom(t, replayInput{client: run.client, result: result}); diff != "" {
+					t.Fatalf("replay from the later save point: %s", diff)
+				}
+				after := s.State()
+				if after.ProjectRevision != before.ProjectRevision+1 {
+					t.Errorf("project revision %d, want %d", after.ProjectRevision, before.ProjectRevision+1)
+				}
+				if got := run.file.saved[saves:]; !reflect.DeepEqual(got, []project.Config{later}) {
+					t.Errorf("the forward rewind saved %d projects, want the later project once", len(got))
+				}
+				if !reflect.DeepEqual(s.Project().Project, later) || !reflect.DeepEqual(s.Topology().Network, network) {
+					t.Error("the forward rewind did not restore the later project")
+				}
+				if list := after.Checkpoints; len(list) != 2 || !list[0].RestoresProject || list[1].RestoresProject {
+					t.Errorf("after the forward rewind, checkpoints = %+v, want only the earlier one to restore a project", list)
+				}
+			},
+		},
+		{
+			// The save point has redistribution off during the demo, and its
+			// project has it on. A rewind that configures redistribution from
+			// the restored project turns it on during the demo.
+			name: "save point during a demo", seconds: 40, change: applyTestProject,
+			prepare: func(t *testing.T, client *testClient) {
+				t.Helper()
+				client.mustApply(t, Command{Action: "demo"})
+				advanceTicks(client.session, 310*sim.TicksPerSecond)
+			},
+			then: func(t *testing.T, run restoreRun) {
+				t.Helper()
+				start, end := run.result.start.state, run.result.end.state
+				if !start.Simulation.Demo || end.Simulation.Demo || start.Redistribution || !end.Redistribution {
+					t.Fatal("the demo did not end and start redistribution in the continuation")
+				}
+			},
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			file := &projectFile{}
+			s, err := NewWithProject(balancedDemandProject(), WithProjectSaver(file.save))
+			if err != nil {
+				t.Fatal(err)
+			}
+			client := newTestClient(s, "test")
+			test.prepare(t, client)
+			original, network := s.Project().Project, s.Topology().Network
+			result := recordReference(t, replayCheck{client: client, seconds: test.seconds})
+			test.change(t, client)
+			changed, saves := s.State(), len(file.saved)
+			if reflect.DeepEqual(s.Project().Project, original) {
+				t.Fatal("the change did not change the project")
+			}
+			if list := changed.Checkpoints; len(list) != 1 || !list[0].RestoresProject {
+				t.Fatalf("before the rewind, checkpoints = %+v, want one that restores the project", list)
+			}
+			if diff := replayFrom(t, replayInput{client: client, result: result}); diff != "" {
+				t.Fatalf("replay after the restore: %s", diff)
+			}
+			rewound := s.State()
+			if rewound.ProjectRevision != changed.ProjectRevision+1 || rewound.Generation != changed.Generation+1 {
+				t.Errorf("project revision %d, generation %d; want %d, %d",
+					rewound.ProjectRevision, rewound.Generation, changed.ProjectRevision+1, changed.Generation+1)
+			}
+			if got := file.saved[saves:]; !reflect.DeepEqual(got, []project.Config{original}) {
+				t.Errorf("the rewind saved %d projects, want the original project once", len(got))
+			}
+			if !reflect.DeepEqual(s.Project().Project, original) {
+				t.Error("the rewind did not restore the project")
+			}
+			if !reflect.DeepEqual(rewound.Network, network) || !reflect.DeepEqual(s.Topology().Network, network) {
+				t.Error("the rewind did not restore the network")
+			}
+			if rewound.Demand.Config != result.start.state.Demand.Config {
+				t.Errorf("demand settings %+v, want %+v", rewound.Demand.Config, result.start.state.Demand.Config)
+			}
+			if list := rewound.Checkpoints; len(list) != 1 || list[0].RestoresProject {
+				t.Errorf("after the rewind, checkpoints = %+v, want one that does not restore a project", list)
+			}
+			if test.then != nil {
+				test.then(t, restoreRun{client: client, file: file, result: result})
+			}
+		})
+	}
+}
+
+func TestRewindSaveFailureChangesNothing(t *testing.T) {
+	t.Parallel()
+	for _, test := range projectChanges {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			file := &projectFile{}
+			s, err := NewWithProject(balancedDemandProject(), WithProjectSaver(file.save))
+			if err != nil {
+				t.Fatal(err)
+			}
+			client := newTestClient(s, "test")
+			advanceTicks(s, sim.TicksPerSecond)
+			original := s.Project().Project
+			id := client.mustApply(t, Command{Action: "checkpoint"}).Checkpoint
+			test.change(t, client)
+			file.err = errors.New("disk full")
+			beforeState, beforeProject, beforeTopology := s.State(), s.Project(), s.Topology()
+			saves := len(file.saved)
+			reply := s.Apply(client.next(Command{Action: "rewind", Checkpoint: id}))
+			if reply.ErrorCode != CommandRejected || reply.Error != "save project: disk full" {
+				t.Fatalf("reply = %+v, want %s: save project: disk full", reply, CommandRejected)
+			}
+			if !reflect.DeepEqual(beforeState, s.State()) || !reflect.DeepEqual(beforeProject, s.Project()) ||
+				!reflect.DeepEqual(beforeTopology, s.Topology()) || len(file.saved) != saves {
+				t.Fatal("the failed rewind changed the session or the project file")
+			}
+			if list := s.State().Checkpoints; len(list) != 1 || list[0].ID != id || !list[0].RestoresProject {
+				t.Fatalf("checkpoints = %+v, want save point #%d that restores the project", list, id)
+			}
+			file.err = nil
+			rewound := client.mustApply(t, Command{Action: "rewind", Checkpoint: id})
+			if rewound.ProjectRevision != beforeState.ProjectRevision+1 || !reflect.DeepEqual(s.Project().Project, original) {
+				t.Fatalf("rewind after the failure: project revision %d, want %d and the original project",
+					rewound.ProjectRevision, beforeState.ProjectRevision+1)
+			}
+			if got := file.saved[saves:]; !reflect.DeepEqual(got, []project.Config{original}) {
+				t.Fatalf("the rewind saved %d projects, want the original project once", len(got))
+			}
+		})
+	}
+}
+
+func TestStaleEditorApplyRejectedAfterRewind(t *testing.T) {
+	t.Parallel()
+	for _, test := range projectChanges {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			s := newTestSession(t)
+			client := newTestClient(s, "test")
+			id := client.mustApply(t, Command{Action: "checkpoint"}).Checkpoint
+			// An editor can hold the revision from before the change or from
+			// before the rewind. The rewind restores the project of the first.
+			loaded := s.Project().Revision
+			test.change(t, client)
+			stale := s.Project().Revision
+			rewound := client.mustApply(t, Command{Action: "rewind", Checkpoint: id})
+			if rewound.ProjectRevision != stale+1 {
+				t.Fatalf("project revision %d after the rewind, want %d", rewound.ProjectRevision, stale+1)
+			}
+			draft := customProject()
+			draft.Name = "Stale draft"
+			for _, revision := range []uint64{loaded, stale} {
+				beforeState, beforeProject := s.State(), s.Project()
+				reply := s.Apply(client.next(Command{Action: "project", ProjectRevision: revision, Project: &draft}))
+				if reply.ErrorCode != CommandRejected || reply.Error != "the project changed; reload it before applying edits" {
+					t.Fatalf("draft at revision %d: reply = %+v, want the stale revision rejection", revision, reply)
+				}
+				if !reflect.DeepEqual(beforeState, s.State()) || !reflect.DeepEqual(beforeProject, s.Project()) {
+					t.Fatalf("the rejected draft at revision %d changed the session", revision)
+				}
+			}
+			client.mustApply(t, Command{Action: "project", ProjectRevision: rewound.ProjectRevision, Project: &draft})
 		})
 	}
 }
@@ -649,7 +923,8 @@ const (
 	rewindRestore rewindRule = iota + 1
 	// rewindKeep marks state that a rewind does not change.
 	rewindKeep
-	// rewindBump marks a counter that goes up by one on a rewind.
+	// rewindBump marks a counter that a rewind increases by one. A rewind
+	// increases projectRevision only when it restores a project.
 	rewindBump
 	// rewindInfrastructure marks locks, shutdown, and I/O. They are not
 	// simulation state.
@@ -660,12 +935,13 @@ const (
 var sessionRewindRules = map[string]rewindRule{
 	"closed": rewindInfrastructure, "mu": rewindInfrastructure, "saveProject": rewindInfrastructure,
 	"simulation": rewindRestore, "demand": rewindRestore,
-	// A rewind across a project change is rejected, so the live project is
-	// also the project of the save point.
-	"project": rewindKeep, "projectRevision": rewindKeep,
+	// A rewind restores the project of the save point. When it restores a
+	// different project, it increases projectRevision and does not restore
+	// it, so topology caches and editor drafts always see a new revision.
+	"project": rewindRestore, "projectOrigin": rewindRestore,
 	"epoch": rewindKeep, "speed": rewindKeep, "receipts": rewindKeep,
 	"checkpoints": rewindKeep, "lastCheckpoint": rewindKeep,
-	"revision": rewindBump, "generation": rewindBump,
+	"revision": rewindBump, "generation": rewindBump, "projectRevision": rewindBump,
 }
 
 type demandCloneRule int

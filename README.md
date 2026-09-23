@@ -132,6 +132,9 @@ Select **Edit scenario** above the simulation to open the editor.
 The draft stays local until you select **Pause and apply**.
 Applying a valid draft resets the shared simulation and leaves it paused.
 If another browser changes the project, the server rejects stale edits and preserves the draft.
+A rewind to a save point from before a project apply or a demand change restores that project.
+The rewind also rewrites the `-project` file.
+An open draft then gets an apply conflict. Reload the page to get the restored project.
 Export the draft before reloading a newer server project.
 
 - Create stations and explicit junctions, then connect their nodes with directed guideways.

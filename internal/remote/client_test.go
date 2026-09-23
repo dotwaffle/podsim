@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"reflect"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -41,6 +42,65 @@ func TestStateForFrameCachesMatchingTopology(t *testing.T) {
 	}
 	if requests.Load() != 1 {
 		t.Fatalf("topology requests = %d", requests.Load())
+	}
+}
+
+func TestStateForFrameRefetchesTopologyAfterProjectRestore(t *testing.T) {
+	t.Parallel()
+	shared, err := session.New()
+	if err != nil {
+		t.Fatal(err)
+	}
+	var requests atomic.Int32
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/api/topology" {
+			t.Errorf("path = %q", r.URL.Path)
+		}
+		requests.Add(1)
+		_ = json.NewEncoder(w).Encode(shared.Topology())
+	}))
+	defer server.Close()
+	client := &Client{url: server.URL, http: server.Client(), topology: shared.Topology()}
+	epoch, sequence := shared.Frame().Epoch, uint64(0)
+	apply := func(command session.Command) session.Reply {
+		t.Helper()
+		sequence++
+		command.Client, command.Sequence, command.Epoch = "test", sequence, epoch
+		reply := shared.Apply(command)
+		if reply.Error != "" {
+			t.Fatalf("%s: %s", command.Action, reply.Error)
+		}
+		return reply
+	}
+	original, renamed := project.Default(), project.Default()
+	renamed.Network.Stations[0].Name = "Renamed station"
+	id := apply(session.Command{Action: "checkpoint"}).Checkpoint
+	apply(session.Command{Action: "pause", Paused: true})
+	// Each step runs in order. The client fetches the topology only when the
+	// project revision changes.
+	steps := []struct {
+		name     string
+		command  session.Command
+		want     project.Config
+		requests int32
+	}{
+		{"project apply", session.Command{Action: "project", ProjectRevision: 1, Project: &renamed}, renamed, 1},
+		{"project-restoring rewind", session.Command{Action: "rewind", Checkpoint: id}, original, 2},
+		{"repeated rewind", session.Command{Action: "rewind", Checkpoint: id}, original, 2},
+	}
+	for _, step := range steps {
+		reply := apply(step.command)
+		state, err := client.stateForFrame(t.Context(), shared.Frame())
+		if err != nil {
+			t.Fatalf("%s: %v", step.name, err)
+		}
+		if requests.Load() != step.requests || state.ProjectRevision != reply.ProjectRevision {
+			t.Fatalf("%s: %d topology requests at project revision %d, want %d at %d",
+				step.name, requests.Load(), state.ProjectRevision, step.requests, reply.ProjectRevision)
+		}
+		if !reflect.DeepEqual(state.Network, step.want.Network) {
+			t.Fatalf("%s: the state network is not the network of the active project", step.name)
+		}
 	}
 }
 

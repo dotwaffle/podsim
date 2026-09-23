@@ -43,6 +43,8 @@ Set `AUTOMEMLIMIT` to change the ratio or disable automatic detection.
 Save points keep copies of the simulation in memory.
 A London save point uses about 6.2 MB after the live simulation continues from it.
 The server keeps at most 8 save points, so they use about 50 MB with one London project.
+A save point that holds a replaced London project uses about 4.6 MB more.
+If each of the 8 save points holds its own London project, they use about 85 MB.
 
 ## pprof
 

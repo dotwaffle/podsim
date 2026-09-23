@@ -4,34 +4,62 @@ import (
 	"bytes"
 	"encoding/json"
 	"reflect"
+	"strconv"
+	"strings"
 	"testing"
 )
 
-// frameFixtures give sessions with an active journey, with and without save
-// points.
-var frameFixtures = []struct {
+// frameFixture describes a session with an active journey and save points.
+type frameFixture struct {
 	name        string
 	checkpoints int
-}{
-	{"no checkpoints", 0},
-	{"with checkpoints", 2},
+	// restoring is the number of save points, oldest first, from before a
+	// demand change. A rewind to one of them restores the project.
+	restoring int
 }
 
-// newFrameFixture starts a journey and saves the requested number of
-// checkpoints while the clock runs.
-func newFrameFixture(t *testing.T, checkpoints int) *Session {
+var frameFixtures = []frameFixture{
+	{"no checkpoints", 0, 0},
+	{"with checkpoints", 2, 0},
+	{"with project-restoring checkpoints", 2, 1},
+}
+
+// newFrameFixture starts a journey and saves the checkpoints of fixture
+// while the clock runs. Save point i has ID i+1 and tick i+1.
+func newFrameFixture(t *testing.T, fixture frameFixture) *Session {
 	t.Helper()
 	shared := newTestSession(t)
 	client := newTestClient(shared, "fixture")
 	client.mustApply(t, Command{Action: "trip", Origin: "harbor", Destination: "market"})
-	for range checkpoints {
-		shared.advance()
-		client.mustApply(t, Command{Action: "checkpoint"})
+	save := func(count int) {
+		for range count {
+			shared.advance()
+			client.mustApply(t, Command{Action: "checkpoint"})
+		}
 	}
+	save(fixture.restoring)
+	if fixture.restoring > 0 {
+		changeTestDemand(t, client)
+	}
+	save(fixture.checkpoints - fixture.restoring)
 	for range 120 {
 		shared.advance()
 	}
 	return shared
+}
+
+// checkpointsJSON returns the encoded checkpoint list of fixture.
+func checkpointsJSON(fixture frameFixture) string {
+	items := make([]string, fixture.checkpoints)
+	for i := range items {
+		number := strconv.Itoa(i + 1)
+		items[i] = `{"id":` + number + `,"tick":` + number
+		if i < fixture.restoring {
+			items[i] += `,"restoresProject":true`
+		}
+		items[i] += "}"
+	}
+	return "[" + strings.Join(items, ",") + "]"
 }
 
 func TestStateFrameRoundTrip(t *testing.T) {
@@ -39,10 +67,15 @@ func TestStateFrameRoundTrip(t *testing.T) {
 	for _, fixture := range frameFixtures {
 		t.Run(fixture.name, func(t *testing.T) {
 			t.Parallel()
-			shared := newFrameFixture(t, fixture.checkpoints)
+			shared := newFrameFixture(t, fixture)
 			want := shared.State()
 			if len(want.Checkpoints) != fixture.checkpoints {
 				t.Fatalf("state has %d checkpoints, want %d", len(want.Checkpoints), fixture.checkpoints)
+			}
+			for i, entry := range want.Checkpoints {
+				if entry.RestoresProject != (i < fixture.restoring) {
+					t.Fatalf("checkpoint %d restores the project = %t", entry.ID, entry.RestoresProject)
+				}
 			}
 			frame := stateFrame(want)
 			got, err := FrameState(shared.Topology(), frame)
@@ -67,7 +100,7 @@ func TestStateFrameJSONOmitsTopologyAndLaneObjects(t *testing.T) {
 	for _, fixture := range frameFixtures {
 		t.Run(fixture.name, func(t *testing.T) {
 			t.Parallel()
-			encoded := mustJSON(t, newFrameFixture(t, fixture.checkpoints).Frame())
+			encoded := mustJSON(t, newFrameFixture(t, fixture).Frame())
 			for _, repeated := range [][]byte{[]byte(`"network"`), []byte(`"Route"`), []byte(`"SpeedLimit"`)} {
 				if bytes.Contains(encoded, repeated) {
 					t.Fatalf("state frame contains repeated topology field %s", repeated)
@@ -76,13 +109,14 @@ func TestStateFrameJSONOmitsTopologyAndLaneObjects(t *testing.T) {
 			if !bytes.Contains(encoded, []byte(`"RouteLaneIDs"`)) {
 				t.Fatal("state frame omits route lane IDs")
 			}
-			// An empty list is omitted, so frames without save points keep their size.
+			// An empty list and a false restoresProject are omitted, so frames
+			// without save points or project restores keep their size.
 			list, listed := jsonKeys(t, encoded)["checkpoints"]
 			if listed != (fixture.checkpoints > 0) {
 				t.Fatalf("state frame checkpoints key present = %t, want %t", listed, fixture.checkpoints > 0)
 			}
-			if listed && !bytes.HasPrefix(list, []byte(`[{"id":1,"tick":1},`)) {
-				t.Fatalf("state frame checkpoints = %s", list)
+			if want := checkpointsJSON(fixture); listed && string(list) != want {
+				t.Fatalf("state frame checkpoints = %s, want %s", list, want)
 			}
 		})
 	}

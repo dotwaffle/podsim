@@ -131,6 +131,9 @@ type Session struct {
 	// is the last issued ID. The session never uses an ID again in an epoch.
 	checkpoints    []checkpoint
 	lastCheckpoint uint64
+	// projectOrigin is the projectRevision that installed the current project
+	// value. A save point with another origin holds another project.
+	projectOrigin uint64
 }
 
 // New creates the supplied example project with demand disabled.
@@ -154,6 +157,7 @@ func NewWithProject(config project.Config, options ...Option) (*Session, error) 
 		project:         owned,
 		epoch:           rand.Text(),
 		projectRevision: 1,
+		projectOrigin:   1,
 		generation:      1,
 		speed:           1,
 		demand:          newDemand(demandInput{config: owned.Demand, network: owned.Network, profiles: owned.DemandProfiles}),
@@ -408,6 +412,7 @@ func (s *Session) apply(command Command) (outcome, error) {
 		s.project = updated
 		s.configureRedistribution()
 		s.projectRevision++
+		s.projectOrigin = s.projectRevision
 	case "project":
 		return outcome{}, s.applyProject(command)
 	case "checkpoint":
@@ -451,6 +456,7 @@ func (s *Session) applyProject(command Command) error {
 	s.demand = newDemand(demandInput{config: config.Demand, network: config.Network, profiles: config.DemandProfiles})
 	s.configureRedistribution()
 	s.projectRevision++
+	s.projectOrigin = s.projectRevision
 	s.generation++
 	return nil
 }

@@ -36,10 +36,10 @@ behavior.
 
 ## Save points
 
-The `checkpoint` action saves the simulation and the demand stream in server
-memory. Its acknowledgment gives the new save point ID in `checkpoint`. The
-first ID is 1. The server does not use an ID again in the same epoch. This is
-also true after a reset, a demo, or a rewind.
+The `checkpoint` action saves the simulation, the demand stream, and the
+project in server memory. Its acknowledgment gives the new save point ID in
+`checkpoint`. The first ID is 1. The server does not use an ID again in the
+same epoch. This is also true after a reset, a demo, or a rewind.
 
 The `rewind` action restores one save point. The command must give the ID in
 `checkpoint`. There is no default save point. Other actions ignore this field.
@@ -47,18 +47,35 @@ A rewind keeps the epoch, the playback speed, and the save points. It
 increases the revision and the generation by one, and pauses the session.
 
 State frames list the retained save points in `checkpoints`, oldest first. Each
-item has an `id` and a `tick`. The server keeps at most 8 save points. At the
-limit, a new save point removes the oldest one. A frame without save points
-omits the `checkpoints` key, so the payload measurements below stay correct.
+item has an `id`, a `tick`, and an optional `restoresProject`. The server keeps
+at most 8 save points. At the limit, a new save point removes the oldest one. A
+frame without save points omits the `checkpoints` key, so the payload
+measurements below stay correct.
+
+`restoresProject` is `true` when the project or demand configuration of the
+save point is different from the current one. A demand change counts as a
+project change. The server omits the key when the value is `false`.
+
+A rewind to such a save point restores its project and saves it to the
+`-project` file. It also increases the project revision by one. The project
+revision never goes back to an earlier value, so clients fetch the topology
+again. The server also rejects project edits from before the rewind. A repeated
+rewind to the same save point does not save the project again. If the save
+fails, the server rejects the rewind with `command_rejected`, and nothing
+changes.
 
 A rewind does not roll back the command receipts. An exact retry of a rewind
 gets the stored acknowledgment and does not rewind again. This is also true
 after another client resumes the session.
 
+Commands and receipts do not name a generation. If a client sends a command
+before another client rewinds, the server applies the command to the restored
+state. An exact retry gets the stored acknowledgment, even if a later rewind
+removed the effect of the command. A reset, a demo, and a project apply work
+the same way.
+
 Save points are in memory only. A server restart clears them. A rewind to an
-unknown or removed ID gets `command_rejected`. In this version, a rewind to a
-save point from before a project or demand change also gets
-`command_rejected`.
+unknown or removed ID gets `command_rejected`.
 
 ## Payload measurements
 
