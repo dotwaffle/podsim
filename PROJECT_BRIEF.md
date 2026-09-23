@@ -100,6 +100,7 @@ One party per pod and no intermediate stops are initial service policies, not pe
 ### R4: Controls and inspection
 
 - Start, pause, resume, reset, and change simulation speed.
+- Save the running state and rewind to the latest save point.
 - Select a pod to inspect its destination, route, and current activity.
 - Follow a pod with the map camera.
 - Inspect station queues and berth occupancy.
@@ -130,6 +131,7 @@ Keep internal path lengths and movement conflicts possible in the model even whe
 - Report malformed or unsupported files without replacing the current project.
 - Include a small example network.
 - Save the scenario configuration rather than an exact running simulation checkpoint.
+- Keep exact save points of the running simulation in server memory only. A server restart clears them.
 
 ## 3. Architecture and future 3D
 
@@ -238,6 +240,7 @@ Their effort has not been estimated, except where an optional stage appears in t
 - A finite fleet leaves excess demand waiting.
 - Empty-pod dispatch eventually serves waiting parties in a feasible, uncongested test network.
 - Identical scenarios and seeds produce repeatable outcomes.
+- A rewind to a save point replays exactly. The same actions after each rewind produce the same outcomes.
 - Changing playback speed preserves simulation results at equal simulated times.
 
 ### Browser checks
@@ -245,6 +248,7 @@ Their effort has not been estimated, except where an optional stage appears in t
 - Import an image, calibrate scale, draw a network, and complete a journey.
 - Export and reload the project with its background intact.
 - Exercise undo, invalid input, pause, reset, and pod following.
+- Select Save point, run the simulation, then select Rewind. The session must pause at the saved time.
 - Run a proposed baseline of 20 stations and 100 pods.
 - Record hardware, frame rate, and simulation update cost before establishing performance guarantees.
 

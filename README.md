@@ -85,6 +85,14 @@ See [distribution and operations](docs/operations.md) for build and runtime sett
 - Keyboard: **Enter** submits an order and **Tab** selects the next pod.
 - **Space** pauses, **R** resets, **S** changes speed, and **F** toggles pod following.
 - Reset restores the saved scenario fleet and demand settings, clears requests and reservations, and returns to 1x playback.
+- Select **Save point** to keep an exact copy of the running session in server memory.
+- Select **Rewind** to return to the latest save point. The button shows the simulated time of that save point.
+  A rewind leaves the session paused.
+- The session is shared, so a rewind affects every browser. For this reason, these two controls have no keyboard shortcuts.
+- The server keeps at most 8 save points in memory. At the limit, a new save point removes the oldest one.
+  A server restart clears all save points.
+- Demand changes count as project changes. A rewind to a save point from before a demand change restores and saves the earlier demand settings.
+  The button then reads **Rewind + project**. The notice after the rewind adds **Project settings restored.**
 
 Boarding takes three simulated seconds. Unloading takes two.
 The selected pod shows its activity, speed in whole km/h, occupancy, route, and local waiting reason.
@@ -147,6 +155,7 @@ Export the draft before reloading a newer server project.
 - Export JSON to save the scenario and optional background. Import JSON to restore a draft.
 
 Project files save the design and settings, not an exact running checkpoint.
+Save points are exact, but they are in server memory only. They end when the server stops.
 Malformed or unsupported files do not replace the draft.
 Validation checks routes between passenger stations, pod placement, resource IDs, and the 24-meter minimum lane length.
 

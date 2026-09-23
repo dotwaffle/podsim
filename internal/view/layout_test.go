@@ -1,13 +1,70 @@
 package view
 
 import (
+	"cmp"
+	"fmt"
 	"image"
 	"testing"
 
 	"github.com/hajimehoshi/ebiten/v2/text/v2"
 
+	"github.com/dotwaffle/podsim/internal/session"
 	"github.com/dotwaffle/podsim/internal/sim"
 )
+
+// controlLayouts are the window sizes for the control overlap and text fit
+// tests. They include short laptop windows, fractional device scales, and a
+// window below the minimum size.
+var controlLayouts = []struct {
+	name  string
+	input layoutInput
+}{
+	{name: "minimum", input: layoutInput{outsideWidth: 1100, outsideHeight: 760, deviceScale: 1}},
+	{name: "below minimum", input: layoutInput{outsideWidth: 800, outsideHeight: 560, deviceScale: 1}},
+	{name: "short minimum width", input: layoutInput{outsideWidth: 1100, outsideHeight: 600, deviceScale: 1}},
+	{name: "laptop 1366", input: layoutInput{outsideWidth: 1366, outsideHeight: 728, deviceScale: 1}},
+	{name: "laptop 1280", input: layoutInput{outsideWidth: 1280, outsideHeight: 680, deviceScale: 1}},
+	{name: "laptop 1440 DPR2", input: layoutInput{outsideWidth: 1440, outsideHeight: 750, deviceScale: 2}},
+	{name: "tall half 4K DPR2", input: layoutInput{outsideWidth: 960, outsideHeight: 1040, deviceScale: 2}},
+	{name: "desktop 1600", input: layoutInput{outsideWidth: 1600, outsideHeight: 1000, deviceScale: 1}},
+	{name: "desktop 1600 DPR2", input: layoutInput{outsideWidth: 1600, outsideHeight: 1000, deviceScale: 2}},
+	{name: "desktop 1920 DPR1.25", input: layoutInput{outsideWidth: 1920, outsideHeight: 1000, deviceScale: 1.25}},
+	{name: "desktop 1920 DPR1.5", input: layoutInput{outsideWidth: 1920, outsideHeight: 1000, deviceScale: 1.5}},
+	{name: "fractional DPR", input: layoutInput{outsideWidth: 1100, outsideHeight: 760, deviceScale: 1.5}},
+	{name: "tall desktop", input: layoutInput{outsideWidth: 1920, outsideHeight: 2160, deviceScale: 1}},
+	{name: "full 4K", input: layoutInput{outsideWidth: 3840, outsideHeight: 2160, deviceScale: 1}},
+}
+
+// controlTestGame returns a connected game with enough stations and pods to
+// show the station and pod page arrows.
+func controlTestGame(t *testing.T, input layoutInput) *Game {
+	t.Helper()
+	game := journeyTestGame(t, 20)
+	game.state.Simulation.Vehicles = make([]sim.Vehicle, 8)
+	for i := range game.state.Simulation.Vehicles {
+		game.state.Simulation.Vehicles[i].Pod.ID = fleetPodLabel(i)
+	}
+	game.layoutFor(input)
+	return game
+}
+
+// area is a screen rectangle in physical pixels.
+type area struct{ left, top, right, bottom float64 }
+
+func buttonArea(control button) area {
+	return area{left: control.x, top: control.y, right: control.x + control.w, bottom: control.y + control.h}
+}
+
+// labelArea returns the measured text box of a label at its drawn position.
+func (g *Game) labelArea(value label) area {
+	x, y := g.layout.labelPosition(value.x, value.y)
+	width, height := text.Measure(value.value, g.textFace(value.size), 0)
+	return area{left: x, top: y, right: x + width, bottom: y + height}
+}
+
+func (a area) overlaps(b area) bool {
+	return a.left < b.right && b.left < a.right && a.top < b.bottom && b.top < a.bottom
+}
 
 func TestDisplayLayoutDimensionsAndAnchors(t *testing.T) {
 	t.Parallel()
@@ -126,6 +183,113 @@ func TestInspectorAndButtonTextFitAvailableWidth(t *testing.T) {
 			}
 			if got == test.value {
 				t.Fatalf("long text %q was not shortened", test.value)
+			}
+		})
+	}
+}
+
+func TestControlsDoNotOverlap(t *testing.T) {
+	t.Parallel()
+	savePoints := []session.Checkpoint{{ID: 1, Tick: 600}, {ID: 2, Tick: 1200, RestoresProject: true}}
+	for _, layout := range controlLayouts {
+		for _, showDemand := range []bool{false, true} {
+			for _, checkpoints := range [][]session.Checkpoint{nil, savePoints} {
+				name := fmt.Sprintf("%s demand %t save points %d", layout.name, showDemand, len(checkpoints))
+				t.Run(name, func(t *testing.T) {
+					t.Parallel()
+					game := controlTestGame(t, layout.input)
+					game.showDemand = showDemand
+					game.state.Checkpoints = checkpoints
+					controls := game.buttons()
+					findButton(t, controls, "checkpoint")
+					findButton(t, controls, "rewind")
+					bounds := area{right: float64(game.layout.width), bottom: float64(game.layout.height)}
+					for i, control := range controls {
+						got := buttonArea(control)
+						if got.left < bounds.left || got.top < bounds.top || got.right > bounds.right || got.bottom > bounds.bottom {
+							t.Errorf("control %q outside layout: %+v", control.action, control)
+						}
+						for _, other := range controls[i+1:] {
+							if got.overlaps(buttonArea(other)) {
+								t.Errorf("control %q %+v overlaps %q %+v", control.action, got, other.action, buttonArea(other))
+							}
+						}
+					}
+				})
+			}
+		}
+	}
+}
+
+func TestSavePointLabelsFit(t *testing.T) {
+	t.Parallel()
+	tests := []struct {
+		name, action string
+		checkpoint   session.Checkpoint
+		want         string
+	}{
+		{name: "save point", action: "checkpoint", want: "Save point"},
+		{name: "London AM peak end", action: "rewind", checkpoint: session.Checkpoint{ID: 1, Tick: 10800 * sim.TicksPerSecond}, want: "Rewind 10800.0 s"},
+		{name: "long run", action: "rewind", checkpoint: session.Checkpoint{ID: 1, Tick: 999999 * sim.TicksPerSecond / 10}, want: "Rewind 99999.9 s"},
+		{name: "project restore", action: "rewind", checkpoint: session.Checkpoint{ID: 1, Tick: 999999 * sim.TicksPerSecond / 10, RestoresProject: true}, want: "Rewind + project"},
+	}
+	for _, layout := range controlLayouts {
+		for _, test := range tests {
+			t.Run(layout.name+" "+test.name, func(t *testing.T) {
+				t.Parallel()
+				game := controlTestGame(t, layout.input)
+				game.state.Checkpoints = []session.Checkpoint{test.checkpoint}
+				control := findButton(t, game.buttons(), test.action)
+				if control.label != test.want {
+					t.Fatalf("label = %q, want %q", control.label, test.want)
+				}
+				if got := game.fitButtonText(control.label, cmp.Or(control.fontSize, 14), control.w); got != control.label {
+					t.Fatalf("label %q shortened to %q in width %g", control.label, got, control.w)
+				}
+			})
+		}
+	}
+}
+
+func TestHeaderTextClearsControls(t *testing.T) {
+	t.Parallel()
+	for _, layout := range controlLayouts {
+		t.Run(layout.name, func(t *testing.T) {
+			t.Parallel()
+			game := controlTestGame(t, layout.input)
+			game.state.Checkpoints = []session.Checkpoint{{ID: 1, Tick: 600}}
+			controls := game.buttons()
+			savePointRow := []button{findButton(t, controls, "checkpoint"), findButton(t, controls, "rewind")}
+			for _, header := range game.headerLabels() {
+				bounds := game.labelArea(header)
+				for _, control := range controls {
+					if bounds.overlaps(buttonArea(control)) {
+						t.Errorf("header %q %+v overlaps control %q %+v", header.value, bounds, control.action, buttonArea(control))
+					}
+				}
+				// The header stats sit in the right column above the save point row.
+				if header.x < 796 {
+					continue
+				}
+				for _, control := range savePointRow {
+					if bounds.bottom >= control.y {
+						t.Errorf("header %q ends at %g, control %q starts at %g", header.value, bounds.bottom, control.action, control.y)
+					}
+				}
+			}
+		})
+	}
+}
+
+func TestConnectionLabelFitsLayout(t *testing.T) {
+	t.Parallel()
+	for _, layout := range controlLayouts {
+		t.Run(layout.name, func(t *testing.T) {
+			t.Parallel()
+			game := controlTestGame(t, layout.input)
+			got := game.labelArea(game.connectionFooter())
+			if got.right > float64(game.layout.width) || got.bottom > float64(game.layout.height) {
+				t.Fatalf("connection label %+v escapes layout %dx%d", got, game.layout.width, game.layout.height)
 			}
 		})
 	}

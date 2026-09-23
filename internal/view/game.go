@@ -3,6 +3,7 @@ package view
 
 import (
 	"bytes"
+	"cmp"
 	"context"
 	"fmt"
 	"image"
@@ -67,8 +68,12 @@ type Game struct {
 	networkBaseValid     bool
 	showOrders           bool
 	notice               string
+	noticeAction         string
 	noticeTicks          int
-	layout               displayLayout
+	// rewindProjectRevision is the project revision at the last rewind click.
+	// A larger revision in the reply shows that the rewind restored a project.
+	rewindProjectRevision uint64
+	layout                displayLayout
 }
 
 // New creates the first playable scenario.
@@ -92,7 +97,7 @@ func (g *Game) Update() error {
 	if g.noticeTicks > 0 {
 		g.noticeTicks--
 		if g.noticeTicks == 0 {
-			g.notice = ""
+			g.notice, g.noticeAction = "", ""
 		}
 	}
 	if inpututil.IsKeyJustPressed(ebiten.KeyTab) {
@@ -174,6 +179,44 @@ func (g *Game) request() {
 	g.submit(session.Command{Action: "trip", Origin: g.origin, Destination: g.destination})
 }
 
+// checkpoint asks the server to save the shared session.
+func (g *Game) checkpoint() { g.submit(session.Command{Action: "checkpoint"}) }
+
+// rewind goes back to the newest save point. It sends an explicit ID, because
+// the server has no default save point.
+func (g *Game) rewind() {
+	target, ok := rewindTarget(g.state)
+	if !ok {
+		return
+	}
+	g.rewindProjectRevision = g.state.ProjectRevision
+	g.submit(session.Command{Action: "rewind", Checkpoint: target.ID})
+}
+
+// rewindTarget returns the save point with the highest ID. It does not
+// depend on the order of the list.
+func rewindTarget(state session.State) (session.Checkpoint, bool) {
+	if len(state.Checkpoints) == 0 {
+		return session.Checkpoint{}, false
+	}
+	return slices.MaxFunc(state.Checkpoints, func(a, b session.Checkpoint) int { return cmp.Compare(a.ID, b.ID) }), true
+}
+
+// rewindLabel names the rewind target by its simulated time. When the target
+// restores a project, the label says so in place of the time. The button is
+// too narrow for both.
+func rewindLabel(state session.State) string {
+	target, ok := rewindTarget(state)
+	switch {
+	case !ok:
+		return "Rewind"
+	case target.RestoresProject:
+		return "Rewind + project"
+	default:
+		return fmt.Sprintf("Rewind %.1f s", float64(target.Tick)/sim.TicksPerSecond)
+	}
+}
+
 type button struct {
 	x, y, w, h         float64
 	label              string
@@ -188,7 +231,7 @@ func (g *Game) buttons() []button {
 	state := g.state.Simulation
 	busy := state.Demo || !g.connected || g.pending
 	requestLabel := "Order"
-	if g.noticeTicks > 150 {
+	if g.noticeAction == "trip" && g.noticeTicks > 150 {
 		requestLabel = "Order accepted"
 	}
 	pauseLabel := "Pause [Space]"
@@ -199,7 +242,10 @@ func (g *Game) buttons() []button {
 	if g.followSelected {
 		followLabel = "Following [F]"
 	}
+	_, canRewind := rewindTarget(g.state)
 	buttons := []button{
+		{x: 810, y: 60, w: 90, h: 28, label: "Save point", action: "checkpoint"},
+		{x: 912, y: 60, w: 148, h: 28, label: rewindLabel(g.state), action: "rewind"},
 		{x: 617, y: 104, w: 28, h: 24, label: "−", action: "map-zoom-out"},
 		{x: 651, y: 104, w: 28, h: 24, label: "+", action: "map-zoom-in"},
 		{x: 685, y: 104, w: 66, h: 24, label: "Fit", action: "map-fit"},
@@ -226,8 +272,10 @@ func (g *Game) buttons() []button {
 	}
 	for i := range buttons {
 		switch buttons[i].action {
-		case "pause", "speed", "reset":
+		case "pause", "speed", "reset", "checkpoint":
 			buttons[i].disabled = !g.connected || g.pending
+		case "rewind":
+			buttons[i].disabled = !g.connected || g.pending || !canRewind
 		}
 		buttons[i] = g.layoutButton(buttons[i])
 	}
@@ -246,7 +294,8 @@ func (g *Game) layoutButton(b button) button {
 	return b
 }
 
-// click reports a reset so its zero-time state can render before the next tick.
+// click reports a reset or a rewind so its new state can render before the
+// next tick.
 func (g *Game) click(point sim.Point) bool {
 	for _, b := range g.buttons() {
 		if b.disabled || point.X < b.x || point.X >= b.x+b.w || point.Y < b.y || point.Y >= b.y+b.h {
@@ -285,6 +334,11 @@ func (g *Game) click(point sim.Point) bool {
 			g.cycleSpeed()
 		case "reset":
 			g.reset()
+			return true
+		case "checkpoint":
+			g.checkpoint()
+		case "rewind":
+			g.rewind()
 			return true
 		default:
 			if id, ok := strings.CutPrefix(b.action, "pod/"); ok {
@@ -357,9 +411,9 @@ func (g *Game) Draw(screen *ebiten.Image) {
 	g.ensureLayout()
 	g.fitNetwork()
 	screen.Fill(rgb(background))
-	g.label(screen, label{x: 28, y: 22, size: 30, value: "podsim", color: foreground})
-	g.label(screen, label{x: 157, y: 34, size: 14, value: "NETWORK PLAYGROUND / LOCAL TRAFFIC", color: muted})
-	g.label(screen, label{x: 815, y: 34, size: 14, value: fmt.Sprintf("%d STOPS     %d PODS", len(g.passengerStations()), len(g.state.Simulation.Vehicles)), color: accent})
+	for _, header := range g.headerLabels() {
+		g.label(screen, header)
+	}
 	vector.FillRect(screen, float32(g.layout.x(24)), float32(g.layout.y(96)), float32(g.layout.x(748)+g.layout.extraX), float32(g.layout.y(474)+g.layout.extraY), rgb(panel), false)
 	vector.FillRect(screen, float32(g.layout.right(796)), float32(g.layout.y(96)), float32(g.layout.x(280)), float32(g.layout.y(474)+g.layout.extraY), rgb(panel), false)
 	vector.FillRect(screen, float32(g.layout.x(24)), float32(g.layout.bottom(590)), float32(g.layout.x(1052)+g.layout.extraX), float32(g.layout.y(142)), rgb(panel), false)
@@ -377,7 +431,21 @@ func (g *Game) Draw(screen *ebiten.Image) {
 	for _, b := range g.buttons() {
 		g.drawButton(screen, b)
 	}
-	g.label(screen, label{x: 28, y: 740, size: 11, value: g.connectionLabel(), color: muted})
+	g.label(screen, g.connectionFooter())
+}
+
+// headerLabels returns the title and the header text above the panels.
+func (g *Game) headerLabels() []label {
+	return []label{
+		{x: 28, y: 22, size: 30, value: "podsim", color: foreground},
+		{x: 157, y: 34, size: 14, value: "NETWORK PLAYGROUND / LOCAL TRAFFIC", color: muted},
+		{x: 815, y: 34, size: 14, value: fmt.Sprintf("%d STOPS     %d PODS", len(g.passengerStations()), len(g.state.Simulation.Vehicles)), color: accent},
+	}
+}
+
+// connectionFooter returns the connection status line below the panels.
+func (g *Game) connectionFooter() label {
+	return label{x: 28, y: 740, size: 11, value: g.connectionLabel(), color: muted}
 }
 
 func (g *Game) mapPoint(p sim.Point) sim.Point {

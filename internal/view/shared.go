@@ -2,11 +2,14 @@ package view
 
 import (
 	"fmt"
+	"slices"
 	"time"
 
 	"github.com/hajimehoshi/ebiten/v2"
 
+	"github.com/dotwaffle/podsim/internal/remote"
 	"github.com/dotwaffle/podsim/internal/session"
+	"github.com/dotwaffle/podsim/internal/sim"
 )
 
 func (g *Game) readRemote() {
@@ -23,26 +26,61 @@ func (g *Game) readRemote() {
 	}
 	select {
 	case result := <-g.client.Results():
-		g.message = ""
-		switch {
-		case result.Err != nil:
-			g.message = result.Err.Error()
-		case result.Reply.Error != "":
-			g.message = result.Reply.Error
-		case result.Command.Action == "trip":
-			g.showOrders, g.showDemand = true, false
-			from, _ := g.network.Station(result.Command.Origin)
-			to, _ := g.network.Station(result.Command.Destination)
-			g.notice = fmt.Sprintf("Order #%d accepted: %s > %s. See Orders for status.", result.Reply.OrderID, from.Name, to.Name)
-			g.noticeTicks = 180
-		case result.Command.Action == "reset" || result.Command.Action == "demo":
-			g.showOrders, g.showDemand = false, false
-			g.notice, g.noticeTicks = "", 0
-			g.selected, g.podPage = 0, 0
-			g.normalizeSelection()
-		}
+		g.handleResult(result)
 	default:
 	}
+}
+
+// handleResult shows the outcome of one command. Errors go to the message
+// line. Some accepted commands show a notice.
+func (g *Game) handleResult(result remote.Result) {
+	g.message = ""
+	switch {
+	case result.Err != nil:
+		g.message = result.Err.Error()
+	case result.Reply.Error != "":
+		g.message = result.Reply.Error
+	case result.Command.Action == "trip":
+		g.showOrders, g.showDemand = true, false
+		from, _ := g.network.Station(result.Command.Origin)
+		to, _ := g.network.Station(result.Command.Destination)
+		g.showNotice("trip", fmt.Sprintf("Order #%d accepted: %s > %s. See Orders for status.", result.Reply.OrderID, from.Name, to.Name))
+	case result.Command.Action == "checkpoint":
+		g.showNotice("checkpoint", fmt.Sprintf("Save point #%d saved.", result.Reply.Checkpoint))
+	case result.Command.Action == "rewind":
+		// Panels and selection stay as they are. readRemote clamps the
+		// selection, so it stays valid after a project restore.
+		g.showNotice("rewind", g.rewindNotice(result))
+	case result.Command.Action == "reset" || result.Command.Action == "demo":
+		g.showOrders, g.showDemand = false, false
+		g.notice, g.noticeAction, g.noticeTicks = "", "", 0
+		g.selected, g.podPage = 0, 0
+		g.normalizeSelection()
+	}
+}
+
+// showNotice shows text in the hint line for 180 ticks. action is the command
+// that caused the notice.
+func (g *Game) showNotice(action, text string) {
+	g.notice, g.noticeAction, g.noticeTicks = text, action, 180
+}
+
+// rewindNotice describes an accepted rewind. It gives the time of the save
+// point when the state still lists it. A reply project revision above the one
+// at the click shows that the rewind restored a different project. The notice
+// then says so.
+func (g *Game) rewindNotice(result remote.Result) string {
+	id := result.Command.Checkpoint
+	notice := fmt.Sprintf("Rewound to save point #%d. Paused.", id)
+	index := slices.IndexFunc(g.state.Checkpoints, func(entry session.Checkpoint) bool { return entry.ID == id })
+	if index >= 0 {
+		seconds := float64(g.state.Checkpoints[index].Tick) / sim.TicksPerSecond
+		notice = fmt.Sprintf("Rewound to save point #%d (%.1f s). Paused.", id, seconds)
+	}
+	if result.Reply.ProjectRevision > g.rewindProjectRevision {
+		notice += " Project settings restored."
+	}
+	return notice
 }
 
 func (g *Game) submit(command session.Command) {
@@ -52,7 +90,7 @@ func (g *Game) submit(command session.Command) {
 	}
 	g.pending = true
 	g.message = "Sending command..."
-	g.notice, g.noticeTicks = "", 0
+	g.notice, g.noticeAction, g.noticeTicks = "", "", 0
 }
 
 func (g *Game) connectionLabel() string {
@@ -62,7 +100,7 @@ func (g *Game) connectionLabel() string {
 	if g.pending {
 		return "Shared session / waiting for command confirmation"
 	}
-	return "Shared session / connected. Playback, orders, and demand are shared across all browsers. Pod inspection stays local."
+	return "Shared session / connected. Playback, orders, demand, and save points are shared across all browsers. Pod inspection stays local."
 }
 
 func (g *Game) demandButtons() []button {
