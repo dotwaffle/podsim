@@ -67,6 +67,9 @@ func TestPrecompressedWASM(t *testing.T) {
 			if response.Code != wantStatus {
 				t.Fatalf("status %d", response.Code)
 			}
+			if got := response.Header().Get("Cache-Control"); got != "no-cache" {
+				t.Fatalf("Cache-Control %q", got)
+			}
 			if tc.method == http.MethodHead {
 				if response.Body.Len() != 0 || response.Header().Get("Content-Encoding") != "gzip" {
 					t.Fatal("invalid HEAD response")

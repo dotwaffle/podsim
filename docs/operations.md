@@ -14,6 +14,11 @@ It does not need a `dist` directory at runtime.
 The `-dir` option overrides embedded files for development.
 Production builds keep Go and WASM debug information.
 
+The server sends browser files with `Cache-Control: no-cache` and API responses with `Cache-Control: no-store`.
+A browser must check a cached file with the server before it uses the file, so a reload after an upgrade loads the new files.
+Files from `-dir` have a modification time, and the server answers `304 Not Modified` when a file did not change.
+Embedded files have no modification time, so browsers download them again on each load.
+
 The application serves `GET /healthz` without reading simulation state.
 The response is `200 OK` with the body `ok` and a newline.
 

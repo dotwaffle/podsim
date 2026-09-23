@@ -28,7 +28,7 @@ func (s *Session) HandlerFS(files fs.FS, routes ...func(*http.ServeMux)) http.Ha
 	application.HandleFunc("GET /api/state", func(w http.ResponseWriter, _ *http.Request) { writeJSON(w, s.Frame()) })
 	application.HandleFunc("GET /api/project", func(w http.ResponseWriter, _ *http.Request) { writeJSON(w, s.Project()) })
 	application.HandleFunc("POST /api/command", s.commandHTTP)
-	application.Handle("/", http.FileServerFS(files))
+	application.Handle("/", staticFiles(files))
 
 	root := http.NewServeMux()
 	for _, register := range routes {
