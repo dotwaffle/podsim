@@ -279,6 +279,26 @@
     return out;
   }
 
+  // flowNamesStation reports whether a demand profile flow starts or ends at
+  // the station.
+  function flowNamesStation(flow, stationID) {
+    return Boolean(flow) && (flow.from === stationID || flow.to === stationID);
+  }
+
+  // stationFlowCount gives the number of demand profile flows that start or
+  // end at the station, in all profiles. deleteStation removes these flows.
+  function stationFlowCount(config, stationID) {
+    let count = 0;
+    for (const profile of config.demandProfiles || []) {
+      if (profile && Array.isArray(profile.flows)) count += profile.flows.filter((flow) => flowNamesStation(flow, stationID)).length;
+    }
+    return count;
+  }
+
+  // deleteStation removes the station, its nodes and lanes, and the pods at
+  // the station. It clears the demand destination when it is the station. It
+  // also removes each demand profile flow that starts or ends at the station.
+  // A profile with no flows stays, and validation reports it.
   function deleteStation(config, stationID) {
     const out = clone(config);
     const station = out.network.Stations.find((item) => item.ID === stationID);
@@ -296,6 +316,9 @@
     }
     out.fleet = out.fleet.filter((pod) => pod.StationID !== stationID && !berthIDs.has(pod.BerthID));
     if (out.demand.destination === stationID) out.demand.destination = "";
+    for (const profile of out.demandProfiles || []) {
+      if (profile && Array.isArray(profile.flows)) profile.flows = profile.flows.filter((flow) => !flowNamesStation(flow, stationID));
+    }
     return out;
   }
 
@@ -840,7 +863,7 @@
 
   const API = {
     MIN_LANE_LENGTH, MIN_ZOOM, NODE_LABEL_SCALE, NODE_LABEL_SIZE, emptyConfig, normalizeConfig, addLane, addJunction, addStation, addBerth,
-    removeBerth, moveStation, moveNode, deleteNode, deleteLane, deleteStation, setFleetCount,
+    removeBerth, moveStation, moveNode, deleteNode, deleteLane, deleteStation, stationFlowCount, setFleetCount,
     laneLength, reachable, stationNodeOwners, dragTargets, validateConfig, serializeDocument, parseDocument, createHistory,
     networkBounds, fitView, zoomScale, nodeLabelSize, applyToServer, applyFailureText, applyFailureStatus, applyToast,
   };
@@ -895,6 +918,13 @@
     clearTimeout(state.toastTimer); state.toastTimer = setTimeout(() => { element.className = ""; }, 4000);
   }
   function updateStatus(message) { $("#serverStatus").textContent = message; }
+  // removeStation deletes the station from the draft. When the delete removes
+  // demand profile flows, a toast gives their number.
+  function removeStation(stationID) {
+    const flows = stationFlowCount(draft(), stationID);
+    setDraft(deleteStation(draft(), stationID));
+    if (flows > 0) toast(`Station deleted. ${flows} demand ${flows === 1 ? "flow" : "flows"} removed.`);
+  }
 
   function worldPoint(event) {
     const rect = $("#networkMap").getBoundingClientRect();
@@ -1325,7 +1355,7 @@
       const button = event.target.closest("button[data-action]"); if (!button || !state.selection) return; const action = button.dataset.action; const config = draft();
       if (action === "add-berth") setDraft(addBerth(config, state.selection.id));
       else if (action === "remove-berth") setDraft(removeBerth(config, state.selection.id, button.dataset.id));
-      else if (action === "delete-station") { setDraft(deleteStation(config, state.selection.id)); state.selection = null; render(); }
+      else if (action === "delete-station") { removeStation(state.selection.id); state.selection = null; render(); }
       else if (action === "delete-lane") { setDraft(deleteLane(config, state.selection.id)); state.selection = null; render(); }
       else if (action === "delete-node") { const result = deleteNode(config, state.selection.id); if (result.error) toast(result.error, true); else { setDraft(result.config); state.selection = null; render(); } }
       else if (action === "toggle-curve") mutate((next) => { const lane = next.network.Lanes.find((item) => item.ID === state.selection.id); if (lane.Control) delete lane.Control; else { const a = nodeFor(next, lane.From).Position; const b = nodeFor(next, lane.To).Position; lane.Control = { X: (a.X + b.X) / 2 - (b.Y - a.Y) * .25, Y: (a.Y + b.Y) / 2 + (b.X - a.X) * .25 }; } return next; });
@@ -1337,7 +1367,7 @@
       if (!editing && (event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "y") { event.preventDefault(); if (state.history.redo()) { state.selection = null; render(); } }
       if (!editing && (event.key === "Delete" || event.key === "Backspace") && state.selection) {
         if (state.selection.type === "lane") setDraft(deleteLane(draft(), state.selection.id));
-        else if (state.selection.type === "station") setDraft(deleteStation(draft(), state.selection.id));
+        else if (state.selection.type === "station") removeStation(state.selection.id);
         else { const result = deleteNode(draft(), state.selection.id); if (result.error) toast(result.error, true); else setDraft(result.config); }
         state.selection = null; render();
       }

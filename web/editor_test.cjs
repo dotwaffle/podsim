@@ -103,6 +103,74 @@ test("junction and station deletes remove only explicit dependent objects", () =
   assert.equal(config.fleet.some((pod) => pod.StationID === station.ID), false);
 });
 
+// profileScenario gives three connected passenger stations and two demand
+// profiles. The weekday profile has two flows that name Gamma. The weekend
+// profile names only Alpha and Beta.
+function profileScenario() {
+  let config = connectedScenario();
+  config = editor.addStation(config, 220, 300, { name: "Gamma" });
+  const [alpha, beta, gamma] = config.network.Stations;
+  config = editor.addLane(config, beta.Exit, gamma.Entry, false);
+  config = editor.addLane(config, gamma.Exit, alpha.Entry, false);
+  const band = (id) => ({ id, name: id, startMinute: 0, durationMinutes: 60 });
+  config.demandProfiles = [
+    { id: "weekday", name: "Weekday", bands: [band("am"), band("pm")], flows: [
+      { from: alpha.ID, to: beta.ID, weights: [3, 1] },
+      { from: alpha.ID, to: gamma.ID, weights: [2, 2] },
+      { from: gamma.ID, to: beta.ID, weights: [1, 4] },
+      { from: beta.ID, to: alpha.ID, weights: [1, 3] },
+    ] },
+    { id: "weekend", name: "Weekend", bands: [band("day")], flows: [{ from: beta.ID, to: alpha.ID, weights: [5] }] },
+  ];
+  Object.assign(config.demand, { pattern: "profile", profile: "weekday", band: "am" });
+  return { config, alpha, beta, gamma };
+}
+
+test("a station delete removes the demand flows that name the station", () => {
+  const { config, beta, gamma } = profileScenario();
+  assert.deepEqual(editor.validateConfig(config), []);
+  assert.equal(editor.stationFlowCount(config, gamma.ID), 2);
+
+  const deleted = editor.deleteStation(config, gamma.ID);
+  const [weekday, weekend] = config.demandProfiles;
+  assert.deepEqual(deleted.demandProfiles[0].flows, [weekday.flows[0], weekday.flows[3]]);
+  assert.deepEqual(deleted.demandProfiles[1], weekend);
+  assert.deepEqual(editor.validateConfig(deleted), []);
+
+  // A profile with no flows stays, and validation reports it.
+  assert.equal(editor.stationFlowCount(config, beta.ID), 4);
+  const empty = editor.deleteStation(config, beta.ID);
+  assert.deepEqual(empty.demandProfiles.map((profile) => profile.flows.length), [1, 0]);
+  assert.deepEqual(editor.validateConfig(empty).filter((error) => error.startsWith("Demand profile")), [
+    "Demand profile weekend must contain 1 to 20000 flows.",
+    "Demand profile weekend has an empty band.",
+  ]);
+});
+
+test("undo after a station delete restores the station and its demand flows", () => {
+  const { config, gamma } = profileScenario();
+  const original = { scenario: config, background: null };
+  const history = editor.createHistory(original);
+
+  assert.equal(history.replace({ scenario: editor.deleteStation(config, gamma.ID), background: null }), true);
+  assert.equal(history.value.scenario.demandProfiles[0].flows.length, 2);
+  assert.equal(history.undo(), true);
+  assert.deepEqual(history.value, original);
+});
+
+test("a station delete works on an imported export with no demand profiles", () => {
+  // An older browser export has no demandProfiles field, and the import
+  // keeps the scenario as it is.
+  const scenario = connectedScenario();
+  delete scenario.demandProfiles;
+  const { scenario: config } = editor.parseDocument(JSON.stringify({ format: "podsim", version: 1, scenario }));
+  const beta = config.network.Stations[1];
+
+  assert.equal(editor.stationFlowCount(config, beta.ID), 0);
+  const deleted = editor.deleteStation(config, beta.ID);
+  assert.deepEqual(deleted.network.Stations.map((station) => station.ID), [config.network.Stations[0].ID]);
+});
+
 test("station drag moves its component nodes and internal curve as one group", () => {
   let config = editor.addStation(editor.emptyConfig(), 200, 140, { name: "Central" });
   const station = config.network.Stations[0];
@@ -303,10 +371,10 @@ for (const preset of ["scale100", "london"]) {
     const config = generatedProject(preset);
     assert.deepEqual(editor.validateConfig(config), []);
 
-    // A delete removes the berth chains and keeps the road network whole.
+    // A delete removes the berth chains and the demand flows of the station,
+    // and keeps the road network whole.
     const station = config.network.Stations.find((item) => !item.ParkingOnly);
-    const errors = editor.validateConfig(editor.deleteStation(config, station.ID));
-    assert.deepEqual(errors.filter((error) => !error.startsWith("Demand profile")), []);
+    assert.deepEqual(editor.validateConfig(editor.deleteStation(config, station.ID)), []);
   });
 
   test(`import accepts the generated ${preset} project file`, () => {
@@ -382,6 +450,19 @@ test("the network bounds hold the nodes and the background", () => {
     { name: "nodes and a background", config: nodes, background, want: { minX: -50, minY: -30, maxX: 400, maxY: 110 } },
   ];
   for (const item of cases) assert.deepEqual(editor.networkBounds(item.config, item.background), item.want, item.name);
+});
+
+test("a station delete on the generated london project removes the flows of the station", () => {
+  const config = generatedProject("london");
+  const station = config.network.Stations.find((item) => !item.ParkingOnly);
+  const flowCount = (project) => project.demandProfiles.reduce((count, profile) => count + profile.flows.length, 0);
+  const naming = config.demandProfiles.flatMap((profile) => profile.flows).filter((flow) => flow.from === station.ID || flow.to === station.ID);
+  assert.ok(naming.length > 0);
+  assert.equal(editor.stationFlowCount(config, station.ID), naming.length);
+
+  const deleted = editor.deleteStation(config, station.ID);
+  assert.equal(flowCount(config) - flowCount(deleted), naming.length);
+  assert.deepEqual(editor.validateConfig(deleted).filter((error) => error.includes("invalid flow")), []);
 });
 
 test("fit shows the whole London network below the 0.15 zoom floor", () => {

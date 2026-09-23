@@ -229,7 +229,7 @@ If the server restarted with a new session, the open editor cannot apply the dra
 - Select paired lanes to add both directions. Crossing lines do not create a junction.
 - Select a guideway to adjust its curve and speed in km/h.
 - Set station berth capacity and place initial pods in free berths.
-- Drag a station to move it. The drag also moves the nodes that only its station lanes use, such as a berth chain. **Delete station and connections** removes these nodes too.
+- Drag a station to move it. The drag also moves the nodes that only its station lanes use, such as a berth chain. **Delete station and connections** removes these nodes too. It also removes each demand flow to or from the station in the OD profiles. When it removes flows, a notice gives their number, for example **Station deleted. 12 demand flows removed.** Undo restores the station and its demand flows.
 - Set the passenger generation option, rate, pattern, destination, OD profile, time band, same-destination party limit, seed, and redistribution option.
 - Use undo and redo for draft changes. Drag empty space to pan, and use the wheel to zoom. Press Escape to cancel drawing or moving an item.
 - Select **Fit network** to show the whole network, also a large network such as London. Junction ID labels show at 0.5 screen pixels per meter or more. The selected junction and the start node of a new guideway always show their ID label, at a font size of 9 screen pixels or more.
