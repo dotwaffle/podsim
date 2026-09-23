@@ -2,9 +2,9 @@ package view
 
 import "github.com/dotwaffle/podsim/internal/sim"
 
-// anchorCacheKey identifies the network of the cached station anchors. The
-// session sends new network geometry only with a new epoch or a new project
-// revision.
+// anchorCacheKey identifies the network of the cached station anchors and
+// station line lanes. The session sends new network geometry only with a new
+// epoch or a new project revision.
 type anchorCacheKey struct {
 	epoch           string
 	projectRevision uint64

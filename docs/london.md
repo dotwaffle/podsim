@@ -187,8 +187,27 @@ The berths are about 250 to 450 meters away, and their rings replace the
 marker when you zoom in.
 A Parking marker stays at the center of its berths, so it does not cover the
 marker of its gateway station.
+The project also has more than 100 lanes, so the map sizes change with the
+zoom.
+A marker has a radius of 150 meters on the map, but at least 3 and at most 10
+CSS pixels.
+A lane has a width of 30 meters on the map, but at least 2 and at most 5 CSS
+pixels.
+A lane shorter than 24 CSS pixels on the screen has no direction arrow.
+In a window smaller than 1100 by 760 CSS pixels, these sizes become smaller
+with the rest of the view.
+While a station shows one marker, its lanes are thinner and dimmer than the
+other lanes.
+A station lane that connects two lanes outside stations keeps the normal
+style.
+Because of this, the rings of the `busy` and `rail-hub` presets stay
+continuous at each station.
+Node dots show only when you zoom in far enough for the berths of a station to
+separate.
 Networks with 100 lanes or fewer, such as the example, keep each marker at the
 center of its berths.
+They keep fixed marker and lane sizes, and they show all direction arrows and
+node dots at all zoom levels.
 On a dense map, the view omits an overview label that overlaps another visible
 overview label.
 Labels for the `From` and `To` stations and the selected pod's stations stay

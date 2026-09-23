@@ -68,6 +68,8 @@ type Game struct {
 	networkBaseValid     bool
 	anchors              map[string]sim.Point
 	anchorsKey           anchorCacheKey
+	lineLanes            map[string]bool
+	lineLanesKey         anchorCacheKey
 	showOrders           bool
 	notice               string
 	noticeAction         string
@@ -520,20 +522,21 @@ func (g *Game) drawNetwork(screen *ebiten.Image, state sim.Snapshot) {
 	if !ok {
 		return
 	}
-	detailed := len(g.network.Lanes) <= detailedLanes
+	markers := g.collapsedStationMarkers()
+	style := newNetworkStyle(networkStyleInput{network: g.network, markers: markers, lineLanes: g.currentLineLanes(), scale: g.mapScale, unit: g.layout.unit})
+	detailed := style.detailed
 	if detailed {
 		g.releaseNetworkBase()
-		g.drawBaseNetwork(mapScreen, true)
+		g.drawBaseNetwork(mapScreen, style)
 	} else {
-		g.drawCachedNetworkBase(mapScreen)
+		g.drawCachedNetworkBase(mapScreen, style)
 	}
 	// Draw the collapsed station markers before the route. A marker can sit
 	// on a line junction, and the route must stay visible through it.
-	markers := g.collapsedStationMarkers()
 	for _, station := range g.network.Stations {
 		if marker, ok := markers[station.ID]; ok {
-			vector.FillCircle(mapScreen, float32(marker.X), float32(marker.Y), float32(10*g.layout.unit), rgb(track), detailed)
-			vector.StrokeCircle(mapScreen, float32(marker.X), float32(marker.Y), float32(10*g.layout.unit), float32(2*g.layout.unit), rgb(muted), detailed)
+			vector.FillCircle(mapScreen, float32(marker.X), float32(marker.Y), float32(style.markerRadius), rgb(track), detailed)
+			vector.StrokeCircle(mapScreen, float32(marker.X), float32(marker.Y), float32(style.markerRadius), float32(2*g.layout.unit), rgb(muted), detailed)
 		}
 	}
 	selected := state.Vehicles[g.selected]
@@ -777,6 +780,16 @@ type laneStroke struct {
 	antialias bool
 }
 
+// screenLength returns the length of the lane on the screen in pixels.
+func (geometry laneGeometry) screenLength() float64 {
+	length := 0.0
+	for i := 1; i < geometry.count; i++ {
+		from, to := geometry.points[i-1], geometry.points[i]
+		length += math.Hypot(to.X-from.X, to.Y-from.Y)
+	}
+	return length
+}
+
 func (geometry laneGeometry) draw(screen *ebiten.Image, stroke laneStroke) {
 	for i := 1; i < geometry.count; i++ {
 		from, to := geometry.points[i-1], geometry.points[i]
@@ -822,19 +835,27 @@ func (g *Game) laneGeometry(lane sim.Lane, detailed bool) laneGeometry {
 	return geometry
 }
 
-func (g *Game) drawBaseNetwork(screen *ebiten.Image, detailed bool) {
+// drawBaseNetwork draws the lanes, their direction arrows, and the node dots
+// in the network style.
+func (g *Game) drawBaseNetwork(screen *ebiten.Image, style networkStyle) {
 	for _, lane := range g.network.Lanes {
-		geometry := g.laneGeometry(lane, detailed)
-		geometry.draw(screen, laneStroke{width: float32(5 * g.layout.unit), color: track, antialias: detailed})
-		drawArrow(screen, arrow{from: geometry.arrowFrom, to: geometry.arrowTo, color: track, antialias: detailed, unit: g.layout.unit})
+		geometry := g.laneGeometry(lane, style.detailed)
+		stroke := style.laneStroke(lane)
+		geometry.draw(screen, stroke)
+		if style.showArrow(geometry) {
+			drawArrow(screen, arrow{from: geometry.arrowFrom, to: geometry.arrowTo, color: stroke.color, antialias: style.detailed, unit: g.layout.unit})
+		}
+	}
+	if !style.nodeDots {
+		return
 	}
 	for _, node := range g.network.Nodes {
 		point := g.mapPoint(node.Position)
-		vector.FillCircle(screen, float32(point.X), float32(point.Y), float32(3*g.layout.unit), rgb(muted), detailed)
+		vector.FillCircle(screen, float32(point.X), float32(point.Y), float32(3*g.layout.unit), rgb(muted), style.detailed)
 	}
 }
 
-func (g *Game) drawCachedNetworkBase(screen *ebiten.Image) {
+func (g *Game) drawCachedNetworkBase(screen *ebiten.Image, style networkStyle) {
 	key := g.currentNetworkCacheKey()
 	if g.networkBase == nil || g.networkBase.Bounds().Dx() != g.layout.width || g.networkBase.Bounds().Dy() != g.layout.height {
 		g.releaseNetworkBase()
@@ -842,7 +863,7 @@ func (g *Game) drawCachedNetworkBase(screen *ebiten.Image) {
 	}
 	if g.networkBaseNeedsRefresh() {
 		g.networkBase.Clear()
-		g.drawBaseNetwork(g.networkBase, false)
+		g.drawBaseNetwork(g.networkBase, style)
 		g.networkBaseKey = key
 		g.networkBaseValid = true
 	}
