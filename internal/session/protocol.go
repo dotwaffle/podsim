@@ -17,7 +17,8 @@ type TopologySnapshot struct {
 }
 
 // StateFrame contains the recurring state without network geometry.
-// Checkpoints lists the retained save points, oldest first.
+// Checkpoints lists the retained save points, oldest first. Build identifies
+// the server build. It is empty when the server has no build ID.
 type StateFrame struct {
 	Epoch           string          `json:"epoch"`
 	Revision        uint64          `json:"revision"`
@@ -28,6 +29,7 @@ type StateFrame struct {
 	Speed           int             `json:"speed"`
 	Demand          DemandState     `json:"demand"`
 	Checkpoints     []Checkpoint    `json:"checkpoints,omitempty"`
+	Build           string          `json:"build,omitempty"`
 }
 
 // SimulationFrame replaces repeated route lane objects with stable lane IDs.
@@ -100,6 +102,7 @@ func FrameState(topology TopologySnapshot, frame StateFrame) (State, error) {
 			EmptyDistanceMeters: snapshot.EmptyDistanceMeters, RebalanceMoves: snapshot.RebalanceMoves,
 		},
 		Speed: frame.Speed, Demand: frame.Demand, Checkpoints: slices.Clone(frame.Checkpoints),
+		Build: frame.Build,
 	}, nil
 }
 
@@ -131,5 +134,6 @@ func stateFrame(state State) StateFrame {
 			EmptyDistanceMeters: snapshot.EmptyDistanceMeters, RebalanceMoves: snapshot.RebalanceMoves,
 		},
 		Speed: state.Speed, Demand: state.Demand, Checkpoints: slices.Clone(state.Checkpoints),
+		Build: state.Build,
 	}
 }

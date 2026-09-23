@@ -7,6 +7,8 @@ import (
 	"strconv"
 	"strings"
 	"testing"
+
+	"github.com/dotwaffle/podsim/internal/project"
 )
 
 // frameFixture describes a session with an active journey and save points.
@@ -16,19 +18,26 @@ type frameFixture struct {
 	// restoring is the number of save points, oldest first, from before a
 	// demand change. A rewind to one of them restores the project.
 	restoring int
+	// build is the build ID of the session. It is empty for a server
+	// without a build ID.
+	build string
 }
 
 var frameFixtures = []frameFixture{
-	{"no checkpoints", 0, 0},
-	{"with checkpoints", 2, 0},
-	{"with project-restoring checkpoints", 2, 1},
+	{"no checkpoints", 0, 0, ""},
+	{"with checkpoints", 2, 0, ""},
+	{"with project-restoring checkpoints", 2, 1, ""},
+	{"with build ID", 0, 0, "b9a50fb31ed44c66"},
 }
 
 // newFrameFixture starts a journey and saves the checkpoints of fixture
 // while the clock runs. Save point i has ID i+1 and tick i+1.
 func newFrameFixture(t *testing.T, fixture frameFixture) *Session {
 	t.Helper()
-	shared := newTestSession(t)
+	shared, err := NewWithProject(project.Default(), WithBuildID(fixture.build))
+	if err != nil {
+		t.Fatal(err)
+	}
 	client := newTestClient(shared, "fixture")
 	client.mustApply(t, Command{Action: "trip", Origin: "harbor", Destination: "market"})
 	save := func(count int) {
@@ -78,6 +87,9 @@ func TestStateFrameRoundTrip(t *testing.T) {
 				}
 			}
 			frame := stateFrame(want)
+			if want.Build != fixture.build || frame.Build != fixture.build {
+				t.Fatalf("state build = %q, frame build = %q, want %q", want.Build, frame.Build, fixture.build)
+			}
 			got, err := FrameState(shared.Topology(), frame)
 			if err != nil {
 				t.Fatal(err)
@@ -100,7 +112,8 @@ func TestStateFrameJSONOmitsTopologyAndLaneObjects(t *testing.T) {
 	for _, fixture := range frameFixtures {
 		t.Run(fixture.name, func(t *testing.T) {
 			t.Parallel()
-			encoded := mustJSON(t, newFrameFixture(t, fixture).Frame())
+			shared := newFrameFixture(t, fixture)
+			encoded := mustJSON(t, shared.Frame())
 			for _, repeated := range [][]byte{[]byte(`"network"`), []byte(`"Route"`), []byte(`"SpeedLimit"`)} {
 				if bytes.Contains(encoded, repeated) {
 					t.Fatalf("state frame contains repeated topology field %s", repeated)
@@ -117,6 +130,17 @@ func TestStateFrameJSONOmitsTopologyAndLaneObjects(t *testing.T) {
 			}
 			if want := checkpointsJSON(fixture); listed && string(list) != want {
 				t.Fatalf("state frame checkpoints = %s, want %s", list, want)
+			}
+			// Frames and full states contain the build key only when the
+			// server has a build ID.
+			for name, value := range map[string][]byte{"state frame": encoded, "state": mustJSON(t, shared.State())} {
+				build, present := jsonKeys(t, value)["build"]
+				if present != (fixture.build != "") {
+					t.Fatalf("%s build key present = %t, want %t", name, present, fixture.build != "")
+				}
+				if want := strconv.Quote(fixture.build); present && string(build) != want {
+					t.Fatalf("%s build = %s, want %s", name, build, want)
+				}
 			}
 		})
 	}

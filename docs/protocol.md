@@ -28,6 +28,10 @@ lane objects or network geometry. The Go client caches topology by session
 epoch and project revision, then reconstructs the presentation state. It
 rejects a frame if matching topology is not available.
 
+A state frame can contain a `build` string that identifies the server build.
+A server without a build ID omits the key. In all future versions of the frame
+format, `build` stays a top-level string.
+
 Each command contains a `client` ID, a `sequence`, the session `epoch`, and an
 `action`. The actions are `trip`, `pause`, `speed`, `reset`, `demo`, `demand`,
 `project`, `checkpoint`, and `rewind`.
@@ -132,6 +136,12 @@ The payload data is in
 [`measurements/protocol-normalized.csv`](measurements/protocol-normalized.csv).
 The earlier live samples remain in
 [`measurements/protocol-payloads.csv`](measurements/protocol-payloads.csv).
+
+The `build` key adds 11 bytes plus the length of the build ID to each raw
+state frame, or 27 bytes for a 16-character ID. With gzip level 1, sampled
+frames of the example, Scale100, and London projects grew by about 20 bytes.
+The CSV files do not include these samples. Frames from a server without a
+build ID do not change.
 
 ## Codec measurements
 

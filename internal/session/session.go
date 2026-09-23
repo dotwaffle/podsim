@@ -21,7 +21,8 @@ import (
 const QueueLimit = 200
 
 // State is an authoritative, immutable copy sent to observers.
-// Checkpoints lists the retained save points, oldest first.
+// Checkpoints lists the retained save points, oldest first. Build identifies
+// the server build. It is empty when the server has no build ID.
 type State struct {
 	Epoch           string       `json:"epoch"`
 	Revision        uint64       `json:"revision"`
@@ -33,6 +34,7 @@ type State struct {
 	Speed           int          `json:"speed"`
 	Demand          DemandState  `json:"demand"`
 	Checkpoints     []Checkpoint `json:"checkpoints,omitempty"`
+	Build           string       `json:"build,omitempty"`
 }
 
 // ProjectState contains a copied project and its edit revision.
@@ -126,6 +128,12 @@ func WithLogger(logger *slog.Logger) Option {
 	}
 }
 
+// WithBuildID sets the build ID that state frames carry. Without this
+// option, the build ID is empty and frames omit it.
+func WithBuildID(id string) Option {
+	return func(session *Session) { session.build = id }
+}
+
 // Session contains one fleet and one simulation clock. Use Run once per session.
 type Session struct {
 	// Close sets closed without mu, so a slow command cannot block shutdown.
@@ -142,6 +150,8 @@ type Session struct {
 	receipts        map[string]receipt
 	saveProject     func(project.Config) error
 	logger          *slog.Logger
+	// build identifies the server build. A rewind does not change it.
+	build string
 	// checkpoints holds the retained save points, oldest first. lastCheckpoint
 	// is the last issued ID. The session never uses an ID again in an epoch.
 	checkpoints    []checkpoint
@@ -289,6 +299,7 @@ func (s *Session) stateWithoutNetwork() State {
 		Speed:           s.speed,
 		Demand:          s.demand.state,
 		Checkpoints:     s.checkpointList(),
+		Build:           s.build,
 	}
 }
 

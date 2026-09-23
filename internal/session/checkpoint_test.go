@@ -973,15 +973,16 @@ const (
 	// rewindBump marks a counter that a rewind increases by one. A rewind
 	// increases projectRevision only when it restores a project.
 	rewindBump
-	// rewindInfrastructure marks locks, shutdown, and I/O. They are not
-	// simulation state.
+	// rewindInfrastructure marks locks, shutdown, I/O, and the server
+	// build. They are not simulation state, and a rewind does not change
+	// them.
 	rewindInfrastructure
 )
 
 // sessionRewindRules gives a rule for each Session field.
 var sessionRewindRules = map[string]rewindRule{
 	"closed": rewindInfrastructure, "mu": rewindInfrastructure,
-	"saveProject": rewindInfrastructure, "logger": rewindInfrastructure,
+	"saveProject": rewindInfrastructure, "logger": rewindInfrastructure, "build": rewindInfrastructure,
 	"simulation": rewindRestore, "demand": rewindRestore,
 	// A rewind restores the project of the save point. When it restores a
 	// different project, it increases projectRevision and does not restore
