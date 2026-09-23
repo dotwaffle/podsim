@@ -1,9 +1,14 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"errors"
+	"flag"
+	"fmt"
+	"io"
 	"io/fs"
+	"log/slog"
 	"net"
 	"net/http"
 	"net/http/httptest"
@@ -68,9 +73,9 @@ func TestRunServersStopsAfterCancellation(t *testing.T) {
 	t.Parallel()
 	ctx, cancel := context.WithCancel(t.Context())
 	cancel()
-	server := &http.Server{Addr: "127.0.0.1:0", Handler: http.NotFoundHandler(), ReadHeaderTimeout: time.Second}
+	server := &http.Server{Handler: http.NotFoundHandler(), ReadHeaderTimeout: time.Second}
 	var stopping int
-	input := serveInput{servers: []namedServer{{name: "test", server: server}}, stopping: func() { stopping++ }}
+	input := serveInput{servers: []namedServer{{name: "test", server: server, listener: loopbackListener(t)}}, stopping: func() { stopping++ }}
 	if err := runServers(ctx, input); err != nil {
 		t.Fatal(err)
 	}
@@ -81,11 +86,6 @@ func TestRunServersStopsAfterCancellation(t *testing.T) {
 
 func TestRunServersStopsSessionBeforeDrain(t *testing.T) {
 	t.Parallel()
-	occupied, err := (&net.ListenConfig{}).Listen(t.Context(), "tcp", "127.0.0.1:0")
-	if err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(func() { _ = occupied.Close() })
 	for _, test := range []struct {
 		name    string
 		cancel  bool
@@ -93,7 +93,7 @@ func TestRunServersStopsSessionBeforeDrain(t *testing.T) {
 		wantErr error
 	}{
 		{name: "signal", cancel: true},
-		{name: "server failure", failing: true, wantErr: syscall.EADDRINUSE},
+		{name: "server failure", failing: true, wantErr: net.ErrClosed},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
@@ -107,15 +107,18 @@ func TestRunServersStopsSessionBeforeDrain(t *testing.T) {
 				events = append(events, event)
 			}
 			drained := make(chan struct{})
-			application := &http.Server{Addr: "127.0.0.1:0", Handler: http.NotFoundHandler(), ReadHeaderTimeout: time.Second}
+			application := &http.Server{Handler: http.NotFoundHandler(), ReadHeaderTimeout: time.Second}
 			application.RegisterOnShutdown(func() {
 				record("drain")
 				close(drained)
 			})
-			servers := []namedServer{{name: "application", server: application}}
+			servers := []namedServer{{name: "application", server: application, listener: loopbackListener(t)}}
 			if test.failing {
-				failing := &http.Server{Addr: occupied.Addr().String(), Handler: http.NotFoundHandler(), ReadHeaderTimeout: time.Second}
-				servers = append(servers, namedServer{name: "pprof", server: failing})
+				// Serve fails at once on a closed listener.
+				closed := loopbackListener(t)
+				_ = closed.Close()
+				failing := &http.Server{Handler: http.NotFoundHandler(), ReadHeaderTimeout: time.Second}
+				servers = append(servers, namedServer{name: "pprof", server: failing, listener: closed})
 			}
 			ctx, cancel := context.WithCancel(t.Context())
 			defer cancel()
@@ -191,10 +194,11 @@ func TestRunServersDoesNotWaitForBusySession(t *testing.T) {
 	clock.Go(func() { shared.Run(clockContext) })
 	ctx, cancel := context.WithCancel(t.Context())
 	cancel()
-	server := &http.Server{Addr: "127.0.0.1:0", Handler: http.NotFoundHandler(), ReadHeaderTimeout: time.Second}
+	server := &http.Server{Handler: http.NotFoundHandler(), ReadHeaderTimeout: time.Second}
+	listener := loopbackListener(t)
 	returned := make(chan error, 1)
 	go func() {
-		returned <- runServers(ctx, serveInput{servers: []namedServer{{name: "application", server: server}}, stopping: func() {
+		returned <- runServers(ctx, serveInput{servers: []namedServer{{name: "application", server: server, listener: listener}}, stopping: func() {
 			shared.Close()
 			stopClock()
 		}})
@@ -209,7 +213,7 @@ func TestRunServersDoesNotWaitForBusySession(t *testing.T) {
 	}
 	releaseSaver()
 	busy.Wait()
-	if !joinClock(&clock, 5*time.Second) {
+	if !waitFor(waitInput{group: &clock, name: "Simulation clock", timeout: 5 * time.Second}) {
 		t.Fatal("clock did not stop after the command finished")
 	}
 	pause := session.Command{Client: "editor", Sequence: 2, Epoch: epoch, Action: "pause", Paused: true}
@@ -218,7 +222,7 @@ func TestRunServersDoesNotWaitForBusySession(t *testing.T) {
 	}
 }
 
-func TestJoinClockIsBounded(t *testing.T) {
+func TestWaitForIsBounded(t *testing.T) {
 	t.Parallel()
 	for _, test := range []struct {
 		name    string
@@ -232,20 +236,219 @@ func TestJoinClockIsBounded(t *testing.T) {
 			t.Parallel()
 			synctest.Test(t, func(t *testing.T) {
 				release := make(chan struct{})
-				var clock sync.WaitGroup
-				clock.Go(func() {
+				var group sync.WaitGroup
+				group.Go(func() {
 					if test.blocked {
 						<-release
 					}
 				})
-				got := joinClock(&clock, 5*time.Second)
+				got := waitFor(waitInput{group: &group, name: "Test group", timeout: 5 * time.Second})
 				close(release)
-				clock.Wait()
+				group.Wait()
 				if got != test.want {
-					t.Fatalf("joinClock = %t, want %t", got, test.want)
+					t.Fatalf("waitFor = %t, want %t", got, test.want)
 				}
 			})
 		})
+	}
+}
+
+// loopbackListener opens a listener on a free loopback port. The test closes
+// it at the end.
+func loopbackListener(t *testing.T) net.Listener {
+	t.Helper()
+	listener, err := (&net.ListenConfig{}).Listen(t.Context(), "tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = listener.Close() })
+	return listener
+}
+
+// browserDirectory returns a directory that browserFiles accepts.
+func browserDirectory(t *testing.T) string {
+	t.Helper()
+	directory := t.TempDir()
+	for _, name := range []string{"index.html", "game.html", "podsim.wasm"} {
+		if err := os.WriteFile(filepath.Join(directory, name), []byte(name), 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	return directory
+}
+
+func TestRunServesUntilCanceled(t *testing.T) {
+	t.Parallel()
+	ctx, cancel := context.WithCancel(t.Context())
+	defer cancel()
+	addresses := make(chan string, 1)
+	returned := make(chan error, 1)
+	input := runInput{
+		args:  []string{"-addr", "127.0.0.1:0", "-dir", browserDirectory(t)},
+		ready: func(addr string) { addresses <- addr },
+	}
+	go func() { returned <- run(ctx, input) }()
+	var address string
+	select {
+	case address = <-addresses:
+	case err := <-returned:
+		t.Fatalf("run returned before ready: %v", err)
+	case <-time.After(10 * time.Second):
+		t.Fatal("run did not call ready")
+	}
+	request, err := http.NewRequestWithContext(t.Context(), http.MethodGet, "http://"+address+"/healthz", http.NoBody)
+	if err != nil {
+		t.Fatal(err)
+	}
+	client := &http.Client{Transport: &http.Transport{}}
+	defer client.CloseIdleConnections()
+	response, err := client.Do(request)
+	if err != nil {
+		t.Fatal(err)
+	}
+	body, err := io.ReadAll(response.Body)
+	_ = response.Body.Close()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if response.StatusCode != http.StatusOK || string(body) != "ok\n" {
+		t.Fatalf("GET /healthz = %d %q, want 200 \"ok\\n\"", response.StatusCode, body)
+	}
+	cancel()
+	select {
+	case err := <-returned:
+		if err != nil {
+			t.Fatalf("run after cancellation = %v, want nil", err)
+		}
+	case <-time.After(10 * time.Second):
+		t.Fatal("run did not return after cancellation")
+	}
+}
+
+func TestRunStopsAfterEarlyCancellation(t *testing.T) {
+	t.Parallel()
+	directory := browserDirectory(t)
+	// A host name needs a lookup, which a canceled context stops.
+	for _, address := range []string{"127.0.0.1:0", "localhost:0"} {
+		t.Run(address, func(t *testing.T) {
+			t.Parallel()
+			ctx, cancel := context.WithCancel(t.Context())
+			cancel()
+			// main gives no ready function.
+			if err := run(ctx, runInput{args: []string{"-addr", address, "-dir", directory}}); err != nil {
+				t.Fatalf("run with a canceled context = %v, want nil", err)
+			}
+		})
+	}
+}
+
+func TestRunFailsBeforeServing(t *testing.T) {
+	t.Parallel()
+	occupied := loopbackListener(t).Addr().String()
+	directory := browserDirectory(t)
+	for _, test := range []struct {
+		name    string
+		args    []string
+		wantErr error
+	}{
+		{name: "unknown flag", args: []string{"-unknown"}, wantErr: errFlags},
+		{name: "bad flag value", args: []string{"-addr"}, wantErr: errFlags},
+		{name: "help", args: []string{"-h"}, wantErr: flag.ErrHelp},
+		{name: "missing browser files", args: []string{"-dir", t.TempDir()}, wantErr: fs.ErrNotExist},
+		{name: "application address in use", args: []string{"-addr", occupied, "-dir", directory}, wantErr: syscall.EADDRINUSE},
+		{
+			name:    "pprof address in use",
+			args:    []string{"-addr", "127.0.0.1:0", "-pprof-addr", occupied, "-dir", directory},
+			wantErr: syscall.EADDRINUSE,
+		},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			var readyCalls int
+			err := run(t.Context(), runInput{args: test.args, ready: func(string) { readyCalls++ }})
+			if !errors.Is(err, test.wantErr) {
+				t.Fatalf("run error = %v, want %v", err, test.wantErr)
+			}
+			if readyCalls != 0 {
+				t.Fatalf("ready calls = %d, want 0", readyCalls)
+			}
+		})
+	}
+}
+
+func TestExitCode(t *testing.T) {
+	t.Parallel()
+	for _, test := range []struct {
+		name   string
+		err    error
+		want   int
+		logged bool
+	}{
+		{name: "success", want: 0},
+		{name: "help", err: fmt.Errorf("%w: %w", errFlags, flag.ErrHelp), want: 0},
+		{name: "bad flag", err: fmt.Errorf("%w: %w", errFlags, errors.New("flag provided but not defined: -x")), want: 2},
+		{name: "failure", err: errors.New("listen"), want: 1, logged: true},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			var output bytes.Buffer
+			got := exitCode(slog.New(slog.NewTextHandler(&output, nil)), test.err)
+			if got != test.want {
+				t.Fatalf("exitCode = %d, want %d", got, test.want)
+			}
+			if logged := strings.Contains(output.String(), `msg="Serve prototype"`); logged != test.logged {
+				t.Fatalf("logged = %t, want %t: %s", logged, test.logged, output.String())
+			}
+		})
+	}
+}
+
+// addressListener is a listener that reports a fixed address.
+type addressListener struct {
+	net.Listener
+	address net.Addr
+}
+
+func (l addressListener) Addr() net.Addr { return l.address }
+
+func TestLogAddressShowsBoundPortOnlyWhenPicked(t *testing.T) {
+	t.Parallel()
+	bound := addressListener{address: &net.TCPAddr{IP: net.IPv4(127, 0, 0, 1), Port: 43210}}
+	for _, test := range []struct {
+		configured string
+		want       string
+	}{
+		{configured: "127.0.0.1:8080", want: "127.0.0.1:8080"},
+		{configured: "localhost:8080", want: "localhost:8080"},
+		{configured: ":8080", want: ":8080"},
+		{configured: "", want: ""},
+		{configured: "127.0.0.1:0", want: "127.0.0.1:43210"},
+		{configured: "127.0.0.1:", want: "127.0.0.1:43210"},
+	} {
+		server := namedServer{name: "application", server: &http.Server{Addr: test.configured}, listener: bound}
+		if got := server.logAddress(); got != test.want {
+			t.Errorf("logAddress(%q) = %q, want %q", test.configured, got, test.want)
+		}
+	}
+}
+
+func TestOpenListenersClosesOpenedListenersOnFailure(t *testing.T) {
+	t.Parallel()
+	occupied := loopbackListener(t)
+	servers := []namedServer{
+		{name: "application", server: &http.Server{Addr: "127.0.0.1:0"}},
+		{name: "pprof", server: &http.Server{Addr: occupied.Addr().String()}},
+	}
+	err := openListeners(t.Context(), servers)
+	if !errors.Is(err, syscall.EADDRINUSE) || !strings.HasPrefix(err.Error(), "serve pprof HTTP: ") {
+		t.Fatalf("openListeners error = %v, want serve pprof HTTP: EADDRINUSE", err)
+	}
+	if servers[1].listener != nil {
+		t.Fatal("failed server has a listener")
+	}
+	// Close does not block. It gives ErrClosed if openListeners closed the listener.
+	if err := servers[0].listener.Close(); !errors.Is(err, net.ErrClosed) {
+		t.Fatalf("application listener Close error = %v, want %v", err, net.ErrClosed)
 	}
 }
 
