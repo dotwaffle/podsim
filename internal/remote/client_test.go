@@ -3,9 +3,11 @@ package remote
 import (
 	"context"
 	"encoding/json"
+	"maps"
 	"net/http"
 	"net/http/httptest"
 	"reflect"
+	"slices"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -125,6 +127,102 @@ func TestStateOrdering(t *testing.T) {
 	state, _, _ := c.View()
 	if state.Epoch != "second" || state.Revision != 5 {
 		t.Fatalf("state rolled back: %+v", state)
+	}
+}
+
+func TestAcceptRetiredEpoch(t *testing.T) {
+	t.Parallel()
+	frames := func(epoch string, revision uint64, count int) []session.State {
+		return slices.Repeat([]session.State{{Epoch: epoch, Revision: revision}}, count)
+	}
+	start := slices.Concat(frames("E", 1, 1), frames("E2", 1, 1))
+	tests := []struct {
+		name     string
+		frames   []session.State
+		epoch    string
+		revision uint64
+		retired  []string
+	}{
+		{"19 retired frames are dropped", slices.Concat(start, frames("E", 2, 19)), "E2", 1, []string{"E"}},
+		{"the 20th retired frame switches", slices.Concat(start, frames("E", 2, 20)), "E", 2, []string{"E2"}},
+		{"a current frame restarts the count", slices.Concat(start, frames("E", 2, 19), frames("E2", 2, 1), frames("E", 3, 19)), "E2", 2, []string{"E"}},
+		{"20 frames after a restart switch", slices.Concat(start, frames("E", 2, 19), frames("E2", 2, 1), frames("E", 3, 20)), "E", 3, []string{"E2"}},
+		{"a stale current frame restarts the count", slices.Concat(frames("E", 1, 1), frames("E2", 5, 1), frames("E", 2, 19), frames("E2", 3, 1), frames("E", 2, 1)), "E2", 5, []string{"E"}},
+		{"alternate retired epochs are dropped", slices.Concat(start, frames("E3", 1, 1), slices.Repeat(slices.Concat(frames("E", 2, 1), frames("E2", 2, 1)), 20)), "E3", 1, []string{"E", "E2"}},
+		{"a single late frame is dropped", slices.Concat(start, frames("E", 9, 1)), "E2", 1, []string{"E"}},
+		{"a lower revision is dropped", slices.Concat(frames("E", 5, 1), frames("E", 4, 1)), "E", 5, nil},
+		{"a lower revision after a switch is dropped", slices.Concat(start, frames("E", 2, 20), frames("E", 1, 1)), "E", 2, []string{"E2"}},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			c := &Client{oldEpochs: make(map[string]bool)}
+			for _, state := range test.frames {
+				c.accept(state)
+			}
+			state, _, _ := c.View()
+			retired := slices.Sorted(maps.Keys(c.oldEpochs))
+			if state.Epoch != test.epoch || state.Revision != test.revision || !slices.Equal(retired, test.retired) {
+				t.Fatalf("state %s at revision %d with retired epochs %v, want %s at %d with %v",
+					state.Epoch, state.Revision, retired, test.epoch, test.revision, test.retired)
+			}
+		})
+	}
+}
+
+func TestReturnedEpochUsesItsTopology(t *testing.T) {
+	t.Parallel()
+	first, err := session.New()
+	if err != nil {
+		t.Fatal(err)
+	}
+	second, err := session.New()
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Give the second epoch another network, so the check below shows which
+	// topology the state uses.
+	renamed := project.Default()
+	renamed.Network.Stations[0].Name = "Renamed station"
+	for sequence, command := range []session.Command{
+		{Action: "pause", Paused: true},
+		{Action: "project", ProjectRevision: 1, Project: &renamed},
+	} {
+		command.Client, command.Sequence, command.Epoch = "test", uint64(sequence+1), second.Frame().Epoch
+		if reply := second.Apply(command); reply.Error != "" {
+			t.Fatalf("%s: %s", command.Action, reply.Error)
+		}
+	}
+	var serving atomic.Pointer[session.Session]
+	var requests atomic.Int32
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		requests.Add(1)
+		_ = json.NewEncoder(w).Encode(serving.Load().Topology())
+	}))
+	defer server.Close()
+	client := &Client{url: server.URL, http: server.Client(), oldEpochs: make(map[string]bool)}
+	poll := func(shared *session.Session) {
+		t.Helper()
+		serving.Store(shared)
+		state, err := client.stateForFrame(t.Context(), shared.Frame())
+		if err != nil {
+			t.Fatal(err)
+		}
+		client.accept(state)
+	}
+	poll(first)
+	poll(second)
+	// The first frame of the retired epoch fetches its topology. The next
+	// frames use the cached topology, and the 20th frame switches back.
+	for range 20 {
+		poll(first)
+	}
+	state, _, _ := client.View()
+	if state.Epoch != first.Frame().Epoch || !reflect.DeepEqual(state.Network, project.Default().Network) {
+		t.Fatal("the client did not switch back to the first epoch and its network")
+	}
+	if requests.Load() != 3 {
+		t.Fatalf("topology requests = %d, want 3", requests.Load())
 	}
 }
 

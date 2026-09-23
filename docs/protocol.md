@@ -26,7 +26,9 @@ The JSON API uses four message boundaries:
 State frames contain ordered lane IDs for vehicle routes. They do not contain
 lane objects or network geometry. The Go client caches topology by session
 epoch and project revision, then reconstructs the presentation state. It
-rejects a frame if matching topology is not available.
+rejects a frame if matching topology is not available. The client ignores a
+frame from an epoch that it left. If the server sends that epoch in all polls
+for 1 s, the client switches to that epoch again.
 
 A state frame can contain a `build` string that identifies the server build.
 A server without a build ID omits the key. In all future versions of the frame

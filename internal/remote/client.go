@@ -25,6 +25,12 @@ type Result struct {
 	Err     error
 }
 
+// retiredEpochPolls is the number of polls in a row that must return the same
+// retired epoch before the client uses that epoch again. The client polls
+// every 50 ms, so this is 1 s. A server can send a retired epoch again after
+// a restart that restores an older state file.
+const retiredEpochPolls = 20
+
 // Client polls state and serializes commands. All returned state is immutable.
 type Client struct {
 	mu        sync.Mutex
@@ -37,8 +43,12 @@ type Client struct {
 	client    string
 	sequence  uint64
 	oldEpochs map[string]bool
-	commands  chan session.Command
-	results   chan Result
+	// retiredPolls counts the last frames in a row that carry retiredEpoch,
+	// an epoch in oldEpochs.
+	retiredEpoch string
+	retiredPolls int
+	commands     chan session.Command
+	results      chan Result
 }
 
 // New starts polling and command processing until ctx is canceled.
@@ -79,12 +89,27 @@ func (c *Client) Submit(command session.Command) error {
 	return nil
 }
 
+// accept keeps a state from a new epoch, or a state from the current epoch
+// with the same or a higher revision. It drops a state from a retired epoch
+// until retiredEpochPolls frames in a row carry that epoch. Then that epoch
+// becomes the current epoch again.
 func (c *Client) accept(state session.State) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	if state.Epoch == "" || c.oldEpochs[state.Epoch] {
+	if state.Epoch == "" {
 		return
 	}
+	if c.oldEpochs[state.Epoch] {
+		if state.Epoch != c.retiredEpoch {
+			c.retiredEpoch, c.retiredPolls = state.Epoch, 0
+		}
+		c.retiredPolls++
+		if c.retiredPolls < retiredEpochPolls {
+			return
+		}
+		delete(c.oldEpochs, state.Epoch)
+	}
+	c.retiredEpoch, c.retiredPolls = "", 0
 	if state.Epoch != c.state.Epoch {
 		if c.state.Epoch != "" {
 			c.oldEpochs[c.state.Epoch] = true
