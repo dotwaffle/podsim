@@ -707,11 +707,14 @@
     return `${frame.epoch || frame.Epoch || ""} ${frame.generation ?? frame.Generation ?? 0}`;
   }
 
-  // applyToServer applies a project to the live session and gives the new
-  // project revision. The server applies a project only while the
-  // simulation is paused, so applyToServer pauses the simulation first.
-  // apply.revision is the live project revision that the draft started
-  // from. apply.onApplying runs after the pause, when it is set.
+  // applyToServer applies a project to the live session. It gives revision,
+  // the new project revision, and stateSaved, the stateSaved member of the
+  // reply. stateSaved is false when the server could not save the session
+  // state before its reply, and undefined when the reply does not have the
+  // member. The server applies a project only while the simulation is
+  // paused, so applyToServer pauses the simulation first. apply.revision is
+  // the live project revision that the draft started from. apply.onApplying
+  // runs after the pause, when it is set.
   //
   // A failure error has status, the HTTP status of a rejected command, and
   // pause, the state of the simulation after the failure:
@@ -741,7 +744,8 @@
       if (apply.onApplying) apply.onApplying();
       const reply = await postCommand(connection, { action: "project", projectRevision: apply.revision, project: apply.project });
       const replyState = reply && (reply.state || reply.State || reply);
-      return Number(reply?.projectRevision ?? reply?.ProjectRevision ?? (replyState && (replyState.projectRevision ?? replyState.ProjectRevision)) ?? apply.revision + 1);
+      const revision = Number(reply?.projectRevision ?? reply?.ProjectRevision ?? (replyState && (replyState.projectRevision ?? replyState.ProjectRevision)) ?? apply.revision + 1);
+      return { revision, stateSaved: reply?.stateSaved };
     } catch (error) {
       error.pause = await pauseAfterFailure({ connection, error, step, wasPaused, simulation });
       throw error;
@@ -790,11 +794,21 @@
     return [reason, APPLY_PAUSE_TEXT[error.pause]].filter(Boolean).join(" ");
   }
 
+  // applyToast gives the arguments of toast for an applied project. applied
+  // is the result of applyToServer. When the server could not save the
+  // session state, the toast is a warning in the error style.
+  function applyToast(applied) {
+    if (applied.stateSaved === false) {
+      return ["The project is applied, but the server could not save the session state. A server crash can undo this change.", true];
+    }
+    return ["The scenario was applied. The simulation remains paused.", false];
+  }
+
   const API = {
     MIN_LANE_LENGTH, MIN_ZOOM, NODE_LABEL_SCALE, NODE_LABEL_SIZE, emptyConfig, normalizeConfig, addLane, addJunction, addStation, addBerth,
     removeBerth, moveStation, moveNode, deleteNode, deleteLane, deleteStation, setFleetCount,
     laneLength, reachable, stationNodeOwners, dragTargets, validateConfig, serializeDocument, parseDocument, createHistory,
-    networkBounds, fitView, zoomScale, nodeLabelSize, applyToServer, applyFailureText,
+    networkBounds, fitView, zoomScale, nodeLabelSize, applyToServer, applyFailureText, applyToast,
   };
   if (typeof module !== "undefined" && module.exports) module.exports = API;
   root.PodsimEditorModel = API;
@@ -1176,9 +1190,10 @@
     const button = $("#applyButton"); button.disabled = true; button.textContent = "Pausing…";
     try {
       const project = draft();
-      state.loadedRevision = await applyToServer({ connection: state.connection, revision: state.loadedRevision, project, onApplying: () => { button.textContent = "Applying…"; } });
+      const applied = await applyToServer({ connection: state.connection, revision: state.loadedRevision, project, onApplying: () => { button.textContent = "Applying…"; } });
+      state.loadedRevision = applied.revision;
       state.loaded = { scenario: project, background: state.background ? clone(state.background) : null };
-      updateStatus(`Applied revision ${state.loadedRevision}. The simulation is paused.`); toast("The scenario was applied. The simulation remains paused.");
+      updateStatus(`Applied revision ${state.loadedRevision}. The simulation is paused.`); toast(...applyToast(applied));
     } catch (error) {
       if (error.status === 409) updateStatus("Apply conflict. Reload the page to get the current live scenario.");
       toast(applyFailureText(error), true);

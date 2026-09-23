@@ -423,9 +423,16 @@ func (f *projectFile) save(config project.Config) error {
 // applyTestProject pauses the session and applies customProject.
 func applyTestProject(t *testing.T, client *testClient) {
 	t.Helper()
+	applyProjectReply(t, client)
+}
+
+// applyProjectReply is applyTestProject. It returns the reply of the project
+// apply.
+func applyProjectReply(t *testing.T, client *testClient) Reply {
+	t.Helper()
 	config := customProject()
 	client.mustApply(t, Command{Action: "pause", Paused: true})
-	client.mustApply(t, Command{Action: "project", ProjectRevision: client.session.Project().Revision, Project: &config})
+	return client.mustApply(t, Command{Action: "project", ProjectRevision: client.session.Project().Revision, Project: &config})
 }
 
 // changeTestDemand applies demand settings that no test project uses.

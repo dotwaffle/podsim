@@ -454,13 +454,16 @@ test("junction labels show only when zoomed in or selected", () => {
 // can change live, the values of the live session. It gives the HTTP status
 // that rejects the command, "network" for a command that the server does
 // not get, or "lost" for a reply that the editor does not get. commands
-// records each command that the editor sent.
+// records each command that the editor sent. options.stateSaved is the
+// stateSaved member of the acknowledgment of an applied project. The
+// acknowledgment omits the member when options.stateSaved is undefined.
 function fakeSession(options) {
   const commands = [];
   const live = { epoch: "epoch-1", revision: options.liveRevision ?? 3, generation: 5, paused: options.paused };
   const reply = (status, body) => ({ ok: status < 300, status, json: async () => body });
-  const acknowledgment = (error) => ({
+  const acknowledgment = (error, command) => ({
     epoch: live.epoch, revision: commands.length, projectRevision: live.revision, generation: live.generation,
+    ...(!error && command && command.action === "project" && options.stateSaved !== undefined ? { stateSaved: options.stateSaved } : {}),
     ...(error ? { errorCode: "command_rejected", error } : {}),
   });
   const handle = (command) => {
@@ -483,7 +486,7 @@ function fakeSession(options) {
     if (typeof failure === "number") return reply(failure, acknowledgment("save project: permission denied"));
     const error = handle(command);
     if (failure === "lost") throw new TypeError("Failed to fetch");
-    return reply(error ? 409 : 200, acknowledgment(error));
+    return reply(error ? 409 : 200, acknowledgment(error, command));
   };
   return { fetch, commands, live };
 }
@@ -556,10 +559,10 @@ test("a failed apply resumes only the simulation that the editor paused", async 
   for (const item of cases) {
     const server = fakeSession(item);
     const connection = { fetch: server.fetch, clientID: "editor-test", sequence: 0, epoch: "" };
-    let revision = 0;
+    let applied = null;
     let error = null;
     try {
-      revision = await editor.applyToServer({ connection, revision: 3, project: connectedScenario() });
+      applied = await editor.applyToServer({ connection, revision: 3, project: connectedScenario() });
     } catch (caught) { error = caught; }
 
     if (item.wantPause) {
@@ -568,7 +571,7 @@ test("a failed apply resumes only the simulation that the editor paused", async 
       assert.equal(editor.applyFailureText(error), item.wantText, item.name);
     } else {
       assert.equal(error, null, item.name);
-      assert.equal(revision, item.wantRevision, item.name);
+      assert.equal(applied.revision, item.wantRevision, item.name);
     }
     const commands = server.commands.map((command) => (command.action === "pause" ? `pause ${command.paused}` : command.action));
     assert.deepEqual(commands, item.wantCommands, item.name);
@@ -577,6 +580,23 @@ test("a failed apply resumes only the simulation that the editor paused", async 
     }
     assert.equal(server.live.paused, item.wantPaused, item.name);
     assert.equal(server.live.revision, item.wantRevision ?? 3, item.name);
+  }
+});
+
+test("an applied project warns when the server could not save the session state", async () => {
+  const applied = "The scenario was applied. The simulation remains paused.";
+  const unsaved = "The project is applied, but the server could not save the session state. A server crash can undo this change.";
+  const cases = [
+    { name: "the server saved the state", stateSaved: true, wantMessage: applied, wantWarning: false },
+    { name: "the server could not save the state", stateSaved: false, wantMessage: unsaved, wantWarning: true },
+    { name: "the reply has no stateSaved member", wantMessage: applied, wantWarning: false },
+  ];
+  for (const item of cases) {
+    const server = fakeSession({ paused: false, stateSaved: item.stateSaved });
+    const connection = { fetch: server.fetch, clientID: "editor-test", sequence: 0, epoch: "" };
+    const result = await editor.applyToServer({ connection, revision: 3, project: connectedScenario() });
+    assert.deepEqual(result, { revision: 7, stateSaved: item.stateSaved }, item.name);
+    assert.deepEqual(editor.applyToast(result), [item.wantMessage, item.wantWarning], item.name);
   }
 });
 

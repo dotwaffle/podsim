@@ -52,6 +52,10 @@ func (g *Game) readRemote() {
 // after a server upgrade.
 const serverUpdateMessage = "The server was updated. Restart the desktop client to load the new version."
 
+// rewindUnsavedMessage tells the user that the server applied a rewind but
+// could not save the session state before its reply.
+const rewindUnsavedMessage = "The server could not save the session state. A server crash can undo this rewind."
+
 // handleServerUpdate runs on each update after the server build changes.
 // The browser reloads the page once, so it runs the files of the new server
 // build. The desktop client cannot reload. It shows a message each time the
@@ -94,6 +98,10 @@ func (g *Game) handleResult(result remote.Result) {
 		// Panels and selection stay as they are. readRemote clamps the
 		// selection, so it stays valid after a project restore.
 		g.showNotice("rewind", g.rewindNotice(result))
+		// The amber message line shows the warning over the notice.
+		if saved := result.Reply.StateSaved; saved != nil && !*saved {
+			g.message = rewindUnsavedMessage
+		}
 	case result.Command.Action == "reset" || result.Command.Action == "demo":
 		g.showOrders, g.showDemand = false, false
 		g.notice, g.noticeAction, g.noticeTicks = "", "", 0

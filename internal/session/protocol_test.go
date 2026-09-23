@@ -173,6 +173,41 @@ func TestStateFrameJSONOmitsTopologyAndLaneObjects(t *testing.T) {
 	}
 }
 
+// TestReplyStateSavedJSON checks the stateSaved member of an
+// acknowledgment. The member is omitted when the reply has no value. A
+// decoded reply has the same value.
+func TestReplyStateSavedJSON(t *testing.T) {
+	t.Parallel()
+	tests := []struct {
+		name  string
+		saved *bool
+		// want is the encoded member, or "" when the member is omitted.
+		want string
+	}{
+		{"no save", nil, ""},
+		{"saved", new(true), "true"},
+		{"not saved", new(false), "false"},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			reply := Reply{Epoch: "epoch", Revision: 3, ProjectRevision: 2, Generation: 1, StateSaved: test.saved}
+			encoded := mustJSON(t, reply)
+			member, present := jsonKeys(t, encoded)["stateSaved"]
+			if present != (test.want != "") || string(member) != test.want {
+				t.Fatalf("stateSaved member = %q, present %t, want %q: %s", member, present, test.want, encoded)
+			}
+			var decoded Reply
+			if err := json.Unmarshal(encoded, &decoded); err != nil {
+				t.Fatal(err)
+			}
+			if !reflect.DeepEqual(decoded, reply) {
+				t.Fatalf("decoded reply = %+v, want %+v", decoded, reply)
+			}
+		})
+	}
+}
+
 func TestCommandReplyIsCompactTypedAcknowledgement(t *testing.T) {
 	t.Parallel()
 	shared := newTestSession(t)

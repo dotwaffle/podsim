@@ -146,6 +146,21 @@ func TestCommandResultNotices(t *testing.T) {
 			wantOrderLabel: "Order",
 		},
 		{
+			name:           "rewind with a saved state",
+			result:         remote.Result{Command: session.Command{Action: "rewind", Checkpoint: 2}, Reply: session.Reply{ProjectRevision: 2, Generation: 2, ProjectRestored: true, StateSaved: new(true)}},
+			wantNotice:     "Rewound to save point #2 (10.0 s). Paused. Project settings restored.",
+			wantOrderLabel: "Order",
+		},
+		{
+			// The server rewound, but a crash can undo the rewind. The amber
+			// message shows over the notice.
+			name:           "rewind without a saved state",
+			result:         remote.Result{Command: session.Command{Action: "rewind", Checkpoint: 2}, Reply: session.Reply{ProjectRevision: 2, Generation: 2, ProjectRestored: true, StateSaved: new(false)}},
+			wantNotice:     "Rewound to save point #2 (10.0 s). Paused. Project settings restored.",
+			wantMessage:    "The server could not save the session state. A server crash can undo this rewind.",
+			wantOrderLabel: "Order",
+		},
+		{
 			// Another browser restored the project of the save point before
 			// this rewind. The project revision went up, but this rewind
 			// restored nothing.

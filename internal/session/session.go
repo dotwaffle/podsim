@@ -125,6 +125,14 @@ const (
 // Reply acknowledges one command without repeating the current state frame.
 // Only a checkpoint command sets Checkpoint, the ID of the new save point.
 // Only a rewind that restores a different project sets ProjectRestored.
+//
+// StateSaved is set only when Apply tried to save the session state before
+// the reply. This occurs for a project apply, for a rewind that restores a
+// project, and for exact retries of both, when the session saves its state.
+// StateSaved is true when a saved state holds the command. It is false when
+// the save failed or took more time, or when the session is closed and no
+// earlier save holds the command. Then a server crash can undo the command.
+// Each exact retry reports the result of its own save.
 type Reply struct {
 	Epoch           string           `json:"epoch"`
 	Revision        uint64           `json:"revision"`
@@ -133,13 +141,15 @@ type Reply struct {
 	OrderID         int              `json:"orderID,omitempty"`
 	Checkpoint      uint64           `json:"checkpoint,omitzero"`
 	ProjectRestored bool             `json:"projectRestored,omitzero"`
+	StateSaved      *bool            `json:"stateSaved,omitzero"`
 	ErrorCode       CommandErrorCode `json:"errorCode,omitempty"`
 	Error           string           `json:"error,omitempty"`
 }
 
 type receipt struct {
 	command Command
-	reply   Reply
+	// reply has no StateSaved. Apply sets it for each call.
+	reply Reply
 	// saveState is true when Apply saves the state before the reply. An
 	// exact retry of the command saves too.
 	saveState bool
@@ -379,10 +389,11 @@ func (s *Session) Project() ProjectState {
 //
 // When the session saves its state, Apply saves it before it replies to a
 // project apply or to a rewind that restores a project. It waits at most
-// 2 s for this save. A failed save does not change the reply, because the
-// session applied the command. An exact retry of such a command also saves
-// before it replies. This save waits for the save of the first request, and
-// it writes nothing when the state did not change after that save.
+// 2 s for this save. A failed save does not reject the command, because the
+// session applied the command. The reply reports the result of the save in
+// StateSaved. An exact retry of such a command also saves before it
+// replies. This save waits for the save of the first request, and it writes
+// nothing when the state did not change after that save.
 func (s *Session) Apply(command Command) Reply {
 	result := s.applyCommand(cloneCommand(command))
 	// Save a project change soon. A saved state with an earlier project
@@ -402,7 +413,7 @@ func (s *Session) Apply(command Command) Reply {
 	// the reply can restore the state from before the command. An exact
 	// retry saves too, because the save of the first request can still run.
 	if result.saveState {
-		s.saveBeforeReply()
+		result.reply.StateSaved = s.saveBeforeReply()
 	}
 	return result.reply
 }

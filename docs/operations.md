@@ -148,7 +148,12 @@ A command save gets 2 seconds. This time includes the wait for an earlier save.
 The browser client sends an exact retry when it gets no reply in 3 seconds. The shorter save time lets the reply come before the retry.
 An exact retry of a project apply, or of a rewind that restored a project, also makes a command save before its reply.
 This save waits for the command save of the first request. It writes nothing when the session did not change after that save.
-If the command save fails or takes more time, the reply still reports success, and the save about 1 second later tries again.
+If the command save fails or takes more time, the command still succeeds, and the save about 1 second later tries again.
+The reply shows the result of the command save in `stateSaved`.
+The value is `true` when the command save wrote the state, or when an earlier save holds the current state.
+The value is `false` after a failed save or a save that took more time.
+After a graceful shutdown starts, a command save writes nothing, and the final save can still fail. Thus a reply then has `true` only when an earlier save, for example the final save, holds the current state.
+When the value is `false`, the simulation view and the editor show a warning.
 A failed write keeps the old file.
 After a stop without a final save, the next start restores the last saved state, which can be up to about 60 seconds old.
 
@@ -165,7 +170,7 @@ With `-project`, the project file has priority, and a saved state with a differe
 But when only the demand settings are different, the server restores the saved state.
 A demand change writes the project file at once and the session state about 1 second later. Thus a crash between the two writes can leave this difference.
 A project apply or a rewind that restores a project also writes the project file at once, but the server makes the command save before it replies, also to an exact retry.
-Thus a crash can leave the difference only before the reply, or after a command save that failed or took more time.
+Thus a crash can leave the difference only before the reply, or after a command save that failed or took more time. In the second case, the reply has `stateSaved` set to `false`.
 When the project has only other demand settings, the restore then keeps the simulation from before the command.
 After the restore, the server applies the demand settings of the project file as a demand change does, and the project revision increases by one.
 While the restored traffic demo runs, a demand change is not possible. Then the saved state gets `project_changed`.

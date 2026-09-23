@@ -79,18 +79,31 @@ The other members depend on the action:
 | `rewind` | `checkpoint`: save point ID, an integer | Restores the save point and pauses the session. |
 
 In the acknowledgment, `trip` sets `orderID`, `checkpoint` sets `checkpoint`,
-and a `rewind` that restores a project sets `projectRestored`.
+and a `rewind` that restores a project sets `projectRestored`. With `-state`,
+`project` and a `rewind` that restores a project also set `stateSaved`.
 
 Command acknowledgments contain the session epoch, state revision, project
-revision, generation, optional order ID, optional checkpoint ID, and optional
-`projectRestored` flag. They do not repeat a state frame. A rejected command
-gets HTTP 409 and an acknowledgment with a stable `errorCode` and an `error`
-message.
+revision, generation, optional order ID, optional checkpoint ID, optional
+`projectRestored` flag, and optional `stateSaved` flag. They do not repeat a
+state frame. A rejected command gets HTTP 409 and an acknowledgment with a
+stable `errorCode` and an `error` message.
 
-Exact retries return the original acknowledgment. A sequence lower than the
-last sequence from the same client gets `expired_command`. The same sequence
-with a different command gets `sequence_conflict`. After a server restart, a
-sequence from before the restart can also get `expired_command`. See
+The server sets `stateSaved` only when it tried to save the session state
+before the acknowledgment. `true` means that the saved state holds the
+command. `false` means that the save failed or took more than 2 seconds, or
+that a graceful shutdown started and no earlier save holds the command. The
+server applied the command, but a server crash can undo it until a later save
+succeeds. Tell the user. The server omits `stateSaved` for other commands, for
+rejected commands, and when it does not save the session state. See
+[session state](operations.md#session-state).
+
+Exact retries return the original acknowledgment, except `stateSaved`. The
+server saves the state before each reply to an exact retry of a `project`
+command or of a `rewind` that restored a project, and `stateSaved` gives the
+result of that save. A sequence lower than the last sequence from the same
+client gets `expired_command`. The same sequence with a different command
+gets `sequence_conflict`. After a server restart, a sequence from before the
+restart can also get `expired_command`. See
 [server restarts](#server-restarts).
 
 A command from another epoch gets `session_changed`. A missing client ID, a

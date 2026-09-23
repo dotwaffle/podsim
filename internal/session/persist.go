@@ -667,21 +667,32 @@ func (s *Session) logRestored(input restoredInput) {
 // ErrStateSavingOff when the session has no store, or when NewFromStore
 // turned saving off. It logs each failure.
 func (s *Session) SaveState(ctx context.Context, kind SaveKind) error {
+	_, err := s.saveState(ctx, kind)
+	return err
+}
+
+// saveState is SaveState. It also reports whether a periodic, command or
+// final save holds the state at the revision of the copy. This is true
+// after a write, and when the save writes nothing because the last
+// successful periodic, command or final save wrote that revision. It is
+// false after an error, and after a save that is not final and writes
+// nothing because the session is closed.
+func (s *Session) saveState(ctx context.Context, kind SaveKind) (bool, error) {
 	persist := s.persist
 	if persist == nil || !persist.enabled.Load() {
-		return ErrStateSavingOff
+		return false, ErrStateSavingOff
 	}
 	if kind != SavePeriodic && kind != SaveFinal && kind != saveStartup && kind != saveCommand {
-		return fmt.Errorf("save session state: unknown kind %d", kind)
+		return false, fmt.Errorf("save session state: unknown kind %d", kind)
 	}
 	persist.mu.Lock()
 	defer persist.mu.Unlock()
 	// lock is the time to lock the session, copy the state, and unlock it.
 	copyStarted := time.Now()
-	file, write, err := s.captureState(kind)
+	file, capture, err := s.captureState(kind)
 	lock := time.Since(copyStarted)
-	if err != nil || !write {
-		return err
+	if err != nil || capture != captureWrite {
+		return capture == captureSaved, err
 	}
 	file.SavedAt = persist.now()
 	if kind == saveStartup {
@@ -706,7 +717,7 @@ func (s *Session) SaveState(ctx context.Context, kind SaveKind) error {
 		}
 		s.logger.LogAttrs(ctx, level, "Save session state", slog.String("kind", kind.String()), slog.Any("error", err),
 			slog.Any("cause", context.Cause(ctx)), slog.Int("failures", persist.consecutiveFailures))
-		return fmt.Errorf("save %s session state: %w", kind, err)
+		return false, fmt.Errorf("save %s session state: %w", kind, err)
 	}
 	persist.bytes.Store(int64(len(data)))
 	persist.savedAt.Store(int64(file.SavedAt.Sub(persist.started)))
@@ -723,29 +734,45 @@ func (s *Session) SaveState(ctx context.Context, kind SaveKind) error {
 	s.logger.LogAttrs(ctx, level, message, slog.String("kind", kind.String()), slog.Int("bytes", len(data)),
 		slog.Uint64("revision", file.Revision), slog.Int64("tick", file.Simulation.Tick),
 		slog.Duration("lock", lock), slog.Duration("encode", encode), slog.Duration("write", writeTime))
-	return nil
+	return true, nil
 }
+
+// captureResult tells what a save does after captureState.
+type captureResult int
+
+const (
+	// captureSkip means that the save writes nothing, and that the store can
+	// hold an earlier state.
+	captureSkip captureResult = iota
+	// captureSaved means that the save writes nothing, because the last
+	// successful periodic, command or final save wrote the current revision.
+	captureSaved
+	// captureWrite means that the save writes the copy.
+	captureWrite
+)
 
 // captureState copies the state that a save of kind writes. It holds the
 // session lock only while it copies. The copy shares no storage that the
 // session changes, because the session replaces its project whole. It
-// reports false when the save has nothing to write. The caller holds
-// persist.mu.
-func (s *Session) captureState(kind SaveKind) (stateFile, bool, error) {
+// returns captureWrite with the copy, or tells why the save has nothing to
+// write. The caller holds persist.mu.
+func (s *Session) captureState(kind SaveKind) (stateFile, captureResult, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	closed := s.closed.Load()
 	switch {
 	case kind == SaveFinal && !closed:
-		return stateFile{}, false, errors.New("save session state: a final save needs a closed session")
-	case kind != SaveFinal && closed:
-		return stateFile{}, false, nil
+		return stateFile{}, captureSkip, errors.New("save session state: a final save needs a closed session")
+	// Check this rule before the rule for a closed session. After Close, it
+	// then also finds a final save that wrote the current revision.
 	case (kind == SavePeriodic || kind == saveCommand) && s.persist.saved && s.revision == s.persist.lastRevision:
-		return stateFile{}, false, nil
+		return stateFile{}, captureSaved, nil
+	case kind != SaveFinal && closed:
+		return stateFile{}, captureSkip, nil
 	}
 	random, err := s.demand.pcg.MarshalBinary()
 	if err != nil {
-		return stateFile{}, false, fmt.Errorf("save demand random source: %w", err)
+		return stateFile{}, captureSkip, fmt.Errorf("save demand random source: %w", err)
 	}
 	file := stateFile{
 		Format: stateFormat, Version: stateVersion, Final: kind == SaveFinal, Epoch: s.epoch,
@@ -759,7 +786,7 @@ func (s *Session) captureState(kind SaveKind) (stateFile, bool, error) {
 	if isBuildID(s.build) {
 		file.Build = s.build
 	}
-	return file, true, nil
+	return file, captureWrite, nil
 }
 
 // commandSequences returns the last command sequence of each client, in
@@ -826,21 +853,30 @@ func (s *Session) savePeriodic(ctx context.Context) {
 // continues with an ended context. SaveState logs a failure. The caller
 // does not hold the session lock.
 //
+// saveBeforeReply returns the StateSaved value of the reply. It returns nil
+// when the session does not save its state. The value is true when a saved
+// state holds the command: the save wrote the state, or the last successful
+// save holds the current revision. The value is false when the save failed
+// or took more time. After Close, a command save writes nothing, and the
+// final save can still fail. Thus the value is then true only when the last
+// successful save, for example the final save, holds the current revision.
+//
 // Commands carry no request context, and a canceled request must not stop
 // the save, so the save uses context.Background. contextcheck skips a
 // function with a directive in its doc comment. nolintlint does not see
 // that use, because contextcheck reports the callers of Apply.
 //
 //nolint:contextcheck,nolintlint // The save uses context.Background on purpose.
-func (s *Session) saveBeforeReply() {
+func (s *Session) saveBeforeReply() *bool {
 	if s.persist == nil || !s.persist.enabled.Load() {
-		return
+		return nil
 	}
 	ctx, cancel := context.WithTimeoutCause(context.Background(), commandSaveTimeout, errCommandSaveTimeout)
 	defer cancel()
-	_, _ = callStore(ctx, errCommandSaveTimeout, func(ctx context.Context) (struct{}, error) {
-		return struct{}{}, s.SaveState(ctx, saveCommand)
+	saved, err := callStore(ctx, errCommandSaveTimeout, func(ctx context.Context) (bool, error) {
+		return s.saveState(ctx, saveCommand)
 	})
+	return new(err == nil && saved)
 }
 
 // nudgeSaver asks RunStateSaver for a save. It does not wait. The caller
