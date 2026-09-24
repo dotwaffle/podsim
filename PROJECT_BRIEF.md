@@ -2,23 +2,16 @@
 
 **Status:** The project accepted the initial usable 2D version on September 21, 2026.
 
-The browser supports local map backgrounds, scale calibration, network editing,
-and project persistence. It also supports manual and automatic demand, pod
-dispatch, local traffic control, inspection, pod following, and fleet-use
-statistics.
+The browser supports local map backgrounds, scale calibration, network editing, and project persistence.
+It also supports manual and automatic demand, pod dispatch, local traffic control, inspection, pod following, and fleet-use statistics.
 The server owns one shared simulation session for all connected browsers.
-Any browser can keep an exact save point of the running simulation in server
-memory and rewind the session to the latest save point.
-With the `-state` option, the server also saves the shared session to disk and
-restores it after a restart when it can.
+Any browser can keep an exact save point of the running simulation in server memory and rewind the session to the latest save point.
+With the `-state` option, the server also saves the shared session to disk and restores it after a restart when it can.
 Optional empty-pod redistribution is available but remains off by default.
 
-The rail-hub, London capacity envelope, same-destination sharing, and first
-congestion-aware routing experiments are complete.
-The first station-maneuver slice is complete: station lanes have explicit roles,
-pod snapshots expose the current phase, and the inspector names the maneuver.
-Configurable station geometry and the other experiments in Section 6 remain
-later work.
+The rail-hub, London capacity envelope, same-destination sharing, and first congestion-aware routing experiments are complete.
+The first station-maneuver slice is complete: station lanes have explicit roles, pod snapshots expose the current phase, and the inspector names the maneuver.
+Configurable station geometry and the other experiments in Section 6 remain later work.
 See [README.md](README.md) for controls, validation commands, and current model limits.
 
 This document records the project direction, initial feature scope, architecture, effort estimates, and research.
@@ -76,7 +69,8 @@ Direct geographic area import is a later extension described in Section 6.
 
 - Create, name, move, and delete stations.
 - Draw and adjust curved guideways.
-- Create explicit junctions. Crossing lines do not connect automatically.
+- Create explicit junctions.
+  Crossing lines do not connect automatically.
 - Support one-way guideways and paired lanes for two-way travel.
 - Display direction arrows.
 - Support undo and redo.
@@ -138,9 +132,16 @@ Keep internal path lengths and movement conflicts possible in the model even whe
 - Report malformed or unsupported files without replacing the current project.
 - Include a small example network.
 - Save the scenario configuration in project files, rather than the exact running state.
-- With the `-project` server option, load the server project from an existing file. For each project apply, demand change, or rewind that restores a project, save the changed project to that file.
-- Keep at most eight exact save points of the running simulation in server memory only. A server restart clears them. At the limit, a new save point removes the oldest one.
-- With the `-state` server option, save the live shared session to disk and restore it on a best-effort basis after a server restart. The `physical` restore tier keeps the pod positions and moves a pod that cannot keep its position to a free berth. When the `physical` tier fails, the `logical` tier starts the pods again at their initial berths. Parties that were unloading count as completed, and the other parties in pods go back to the queue. The saved state does not hold save points or command receipts.
+- With the `-project` server option, load the server project from an existing file.
+  For each project apply, demand change, or rewind that restores a project, save the changed project to that file.
+- Keep at most eight exact save points of the running simulation in server memory only.
+  A server restart clears them.
+  At the limit, a new save point removes the oldest one.
+- With the `-state` server option, save the live shared session to disk and restore it on a best-effort basis after a server restart.
+  The `physical` restore tier keeps the pod positions and moves a pod that cannot keep its position to a free berth.
+  When the `physical` tier fails, the `logical` tier starts the pods again at their initial berths.
+  Parties that were unloading count as completed, and the other parties in pods go back to the queue.
+  The saved state does not hold save points or command receipts.
 
 ## 3. Architecture and future 3D
 
@@ -172,20 +173,20 @@ Avoid a general plugin system in the first version.
 Keep the HTTP and JSON protocol while its measured traffic remains manageable.
 Preserve the authoritative server and retry-safe command identity.
 
-The September 22 evaluation normalized recurring JSON state, then compared it
-with ConnectRPC and binary Protocol Buffers. Protobuf reduced the London gzip
-frame by another 10.3%. At 20 Hz, its encoding and compression would save about
-0.7% of one CPU core per client.
+The September 22 evaluation normalized recurring JSON state, then compared it with ConnectRPC and binary Protocol Buffers.
+Protobuf reduced the London gzip frame by another 10.3%.
+At 20 Hz, its encoding and compression would save about 0.7% of one CPU core per client.
 
-No application client used the experimental service. The project removed it to
-avoid a second protocol implementation and an alpha runtime dependency. Review
-this choice if remote traffic, multiple viewers, or external clients make a
-typed RPC protocol useful. See [the protocol evaluation](docs/protocol.md).
+No application client used the experimental service.
+The project removed it to avoid a second protocol implementation and an alpha runtime dependency.
+Review this choice if remote traffic, multiple viewers, or external clients make a typed RPC protocol useful.
+See [the protocol evaluation](docs/protocol.md).
 
 ### Separate passengers, vehicles, and service policies
 
 Keep passenger requests and party size separate from vehicles and assignments.
-A request describes a desired journey. A vehicle describes the pod available to serve it.
+A request describes a desired journey.
+A vehicle describes the pod available to serve it.
 The service policy determines how requests use vehicles.
 
 Keep demand generation, dispatch, route choice, and physical movement separate:
@@ -196,7 +197,8 @@ Keep demand generation, dispatch, route choice, and physical movement separate:
 - Physical movement enforces speed, spacing, junction access, and station capacity.
 
 These boundaries allow later experiments to change one policy while retaining the same network and movement model.
-Use explicit types and functions. Add interfaces when there is a concrete need for interchangeable policies.
+Use explicit types and functions.
+Add interfaces when there is a concrete need for interchangeable policies.
 Do not implement mixed fleets, transfers, or platooning to establish these boundaries.
 
 ### What a later Three.js version would involve
@@ -250,7 +252,8 @@ This brief does not estimate their effort, except where an optional stage appear
 - A finite fleet leaves excess demand waiting.
 - Empty-pod dispatch eventually serves waiting parties in a feasible, uncongested test network.
 - Identical scenarios and seeds produce repeatable outcomes.
-- A rewind to a save point replays exactly. The same actions after each rewind produce the same outcomes.
+- A rewind to a save point replays exactly.
+  The same actions after each rewind produce the same outcomes.
 - Changing playback speed preserves simulation results at equal simulated times.
 
 ### Browser checks
@@ -258,30 +261,32 @@ This brief does not estimate their effort, except where an optional stage appear
 - Import an image, calibrate scale, draw a network, and complete a journey.
 - Export and reload the project with its background intact.
 - Exercise undo, invalid input, pause, reset, and pod following.
-- Select Save point, run the simulation, then select Rewind. The session must pause at the saved time.
-- Start the server with `-state`, and run the simulation with pods and orders for at least 60 s. Stop the server with Ctrl-C, then start it again with the same command. The `Restored session` log record must give `tier=physical` and `epochKept=true`. The pods must continue from the same positions, and the open page must keep its session.
+- Select Save point, run the simulation, then select Rewind.
+  The session must pause at the saved time.
+- Start the server with `-state`, and run the simulation with pods and orders for at least 60 s.
+  Stop the server with Ctrl-C, then start it again with the same command.
+  The `Restored session` log record must give `tier=physical` and `epochKept=true`.
+  The pods must continue from the same positions, and the open page must keep its session.
 - Run a proposed baseline of 20 stations and 100 pods.
 - Record hardware, frame rate, and simulation update cost before establishing performance guarantees.
 
-**Acceptance status:** Complete for the initial usable version on September 21,
-2026. A combined browser run imported a PNG, calibrated 200 meters, and
-exercised drawing and undo. It edited the network, exported and reloaded the
-project with its background, and then applied the network. It submitted a
-journey through the simulation UI and observed its completion. It also toggled
-pod following and reported no browser errors.
+**Acceptance status:** Complete for the initial usable version on September 21, 2026.
+A combined browser run imported a PNG, calibrated 200 meters, and exercised drawing and undo.
+It edited the network, exported and reloaded the project with its background, and then applied the network.
+It submitted a journey through the simulation UI and observed its completion.
+It also toggled pod following and reported no browser errors.
 
-Separate browser checks cover invalid input, reset, stale edit conflicts, and
-the 20-station, 100-pod scenario. The hardware and performance record is in
-[docs/qualification.md](docs/qualification.md).
+Separate browser checks cover invalid input, reset, stale edit conflicts, and the 20-station, 100-pod scenario.
+The hardware and performance record is in [docs/qualification.md](docs/qualification.md).
 
-The project added the save point, rewind, and `-state` restart checks above
-on September 23, 2026, after this acceptance.
+The project added the save point, rewind, and `-state` restart checks above on September 23, 2026, after this acceptance.
 
 ## 6. Future extensions and experiments
 
 The following ideas extend the map workflow and network simulation.
 None of them needs 3D.
-These are proposed experiments and design considerations. Status notes record the parts that Podsim now implements.
+These are proposed experiments and design considerations.
+Status notes record the parts that Podsim now implements.
 
 ### Geographic map import
 
@@ -310,47 +315,33 @@ Choose a source that supports the intended area export and saved-project use, an
 The public OSM tile endpoint is not a bulk or offline export service, as its [tile usage policy](https://operations.osmfoundation.org/policies/tiles/) explains.
 Provider choice, export limits, and any hosting needs remain implementation decisions for this later feature.
 
-**Status:** A generated London qualification preset now provides the first
-geographic network without implementing a general map importer.
-It uses a normalized TfL topology snapshot for 96 passenger stations, their
-real names and locations, and 127 unique adjacencies.
-The preset adds twin directed guideways, off-line berths, and three Parking
-facilities.
+**Status:** A generated London qualification preset now provides the first geographic network without implementing a general map importer.
+It uses a normalized TfL topology snapshot for 96 passenger stations, their real names and locations, and 127 unique adjacencies.
+The preset adds twin directed guideways, off-line berths, and three Parking facilities.
 The local projection uses meters.
 
-A separate normalized 2019 midweek NUMBAT profile provides 8,474 in-scope OD
-pairs across eight time bands.
-The portable London project includes these bands, and the live session can
-generate requests from a selected band.
+A separate normalized 2019 midweek NUMBAT profile provides 8,474 in-scope OD pairs across eight time bands.
+The portable London project includes these bands, and the live session can generate requests from a selected band.
 The fixed 40-request AM peak sample completed every request.
 
-Directional portals now keep opposite guideways and unrelated corridors on
-separate station resources.
+Directional portals now keep opposite guideways and unrelated corridors on separate station resources.
 A high-load A/B run reduced peak stopped pods from 60 to three.
-The portal network drained all 199 requests, while the old network left five
-requests after 60 simulated minutes.
+The portal network drained all 199 requests, while the old network left five requests after 60 simulated minutes.
 
-A 360-arm sweep measured the portal network across all eight bands, 15 offered
-rates, and three seeds.
-Recovery limits range from 7 requests per minute in Early to 13 in
-Interpeak.
-In every band except Early, the results suggest that the 114-pod fleet, not
-track congestion, sets the limit.
-See [docs/london.md](docs/london.md) and
-[docs/qualification.md](docs/qualification.md#london-capacity-envelope).
+A 360-arm sweep measured the portal network across all eight bands, 15 offered rates, and three seeds.
+Recovery limits range from 7 requests per minute in Early to 13 in Interpeak.
+In every band except Early, the results suggest that the 114-pod fleet, not track congestion, sets the limit.
+See [docs/london.md](docs/london.md) and [docs/qualification.md](docs/qualification.md#london-capacity-envelope).
 
 The network does not include a background map or stored tunnel depth.
 The general OSM-backed import workflow above also remains future work.
 
 Explicit separation groups distinguish unrelated grade-separated paths.
 Directional portals retain geometric checks at real diverges and merges.
-The London AM peak sample now runs the separation oracle once per simulated
-second.
+The London AM peak sample now runs the separation oracle once per simulated second.
 
-Each station lane also identifies its approach, entry, berth access, through,
-departure, or exit role.
-Snapshots and the pod inspector use these roles to report station maneuvers
-without changing the existing traffic controller.
+Each station lane also identifies its approach, entry, berth access, through, departure, or exit role.
+Snapshots and the pod inspector use these roles to report station maneuvers without changing the existing traffic controller.
 
 ### Congestion-aware routing
 
@@ -449,20 +440,17 @@ Then add an alternative route to test congestion-aware routing.
 This provides a small, observable experiment before introducing mixed fleets or platoons.
 The sequence is a recommendation, not a committed roadmap.
 
-**Status:** The repeatable `rail-hub` preset, finite burst schedule, station
-capacity measurements, and advance-positioning comparison are complete.
-The five-seed experiment served all demand with either policy. Redistribution
-positions empty pods in advance. It reduced mean pickup wait by about four
-seconds, added 45.2 km of empty travel, and reduced loaded distance from 45.96%
-to 42.15%.
+**Status:** The repeatable `rail-hub` preset, finite burst schedule, station capacity measurements, and advance-positioning comparison are complete.
+The five-seed experiment served all demand with either policy.
+Redistribution positions empty pods in advance.
+It reduced mean pickup wait by about four seconds, added 45.2 km of empty travel, and reduced loaded distance from 45.96% to 42.15%.
 See [docs/qualification.md](docs/qualification.md#rail-hub-burst-experiment).
 
-With redistribution off, the four-party sharing arm reduced mean wait by 65%,
-queue clearance by 53%, and empty travel by 49%. It served every request.
+With redistribution off, the four-party sharing arm reduced mean wait by 65%, queue clearance by 53%, and empty travel by 49%.
+It served every request.
 
-In a three-seed alternate-route experiment, the first occupied-track
-snapshot-cost policy served 1.33 fewer requests on average than free-flow
-routing. It also increased mean wait and added empty travel.
+In a three-seed alternate-route experiment, the first occupied-track snapshot-cost policy served 1.33 fewer requests on average than free-flow routing.
+It also increased mean wait and added empty travel.
 Free-flow routing remains the default.
 
 ## 7. Research and reference tools
@@ -478,7 +466,8 @@ It covers routing around overloaded links, shared rides after train arrivals, em
 It also discusses preparing pods before trains arrive and arranging transfer stations.
 
 The paper reports experiments using PRTsim, with train formation implemented as pairs of vehicles.
-Its capacity results depend on historical model assumptions. Treat them as experiment ideas, not general performance guarantees.
+Its capacity results depend on historical model assumptions.
+Treat them as experiment ideas, not general performance guarantees.
 
 ### Tools to study
 
@@ -519,7 +508,8 @@ Do not assume that its planning tools reproduce individual pod movement and traf
 - [Slow Roads technical case study](https://web.dev/case-studies/slow-roads)
 
 The ATS/CityMobil ZIP downloaded successfully during the initial investigation.
-It contained a launcher, Java components, and bundled case studies. The investigation did not run the program.
+It contained a launcher, Java components, and bundled case studies.
+The investigation did not run the program.
 
 ### Suggested study order
 

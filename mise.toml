@@ -12,10 +12,14 @@ go = "1.27"
 golangci-lint = "2"
 govulncheck = "1"
 node = "24"
+rumdl = "0.2"
 
 [tasks.format]
-description = "Format Go sources"
-run = "golangci-lint fmt"
+description = "Format Go sources and Markdown"
+run = '''
+golangci-lint fmt
+rumdl fmt .
+'''
 
 [tasks.lint]
 description = "Run static analysis"
@@ -24,6 +28,7 @@ description = "Run static analysis"
 # go list itself fails.
 run = '''
 actionlint
+rumdl check .
 go vet ./...
 golangci-lint run
 deps=$(GOOS=js GOARCH=wasm go list -deps ./cmd/podsim) || exit 1

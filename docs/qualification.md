@@ -11,7 +11,8 @@ Code changes after a measurement can give different results.
 
 The measured ring fixture has 20 stations, including one parking station, and 100 pods in 138 berths.
 That network has 316 lanes, including 276 curves.
-The `scale100` preset now uses a directed mesh. The performance benchmark retains the ring fixture for comparison.
+The `scale100` preset now uses a directed mesh.
+The performance benchmark retains the ring fixture for comparison.
 
 | Check | Result |
 | --- | --- |
@@ -30,7 +31,8 @@ The first command below therefore does not repeat the table results.
 An initial fixture placed separate berth approaches too close before their modeled merge.
 The dense check detected an 11.953 m gap, below the required 12 m.
 The final fixture separates those approaches.
-Crossing or nearby lanes do not create shared conflict resources automatically. Add explicit junctions where lanes must conflict.
+Crossing or nearby lanes do not create shared conflict resources automatically.
+Add explicit junctions where lanes must conflict.
 
 ```sh
 mise exec -- go test ./internal/scenarios -run 'TestScale100|TestBusy|TestParking' -count=1 -v
@@ -44,7 +46,8 @@ These are native simulation measurements, not browser frame rates.
 
 Profiles identified repeated geometry allocation, route searches, and ownership-map scans.
 The changes reuse immutable routes and lane lengths, use stack storage for curve samples, and scan ownership once per tick.
-The route cache holds at most 4,096 entries. Snapshot copies remain detached from cached routes.
+The route cache holds at most 4,096 entries.
+Snapshot copies remain detached from cached routes.
 
 ## Redistribution
 
@@ -56,7 +59,8 @@ The code at commit `b61bdb9` gives the recorded values.
 The command below gives different values with the current code.
 
 Without `-project`, the compare command uses the example network with pod 01 in Parking and pod 02 in Garden.
-These policy experiments use two pods. The separate scale tests use 100 pods.
+These policy experiments use two pods.
+The separate scale tests use 100 pods.
 
 ```sh
 mise run compare -- -duration 15m -loads 30s,45s,60s -seeds 1,2,3,4,5,6,7,8,9,10 -patterns balanced,destination,hotspot,bursty-hotspot -format csv -output /tmp/redistribution.csv
@@ -71,9 +75,11 @@ A pickup pod could reach an inlet before the empty pod that reserved its berth, 
 Remote redistribution claims now yield to passenger traffic before final-block admission.
 Tests protect admitted resources, unrelated berths, and another pod's ownership.
 
-The original sweep had ten enabled runs with zero completed trips. The corrected sweep has none.
+The original sweep had ten enabled runs with zero completed trips.
+The corrected sweep has none.
 The corrected policy reduced average wait in 75 pairs and increased it in 45 pairs.
-Across all pairs, the mean wait change was -0.48 s. Enabled runs completed six more trips in total and averaged 936 m more empty travel.
+Across all pairs, the mean wait change was -0.48 s.
+Enabled runs completed six more trips in total and averaged 936 m more empty travel.
 These averages do not justify enabling the policy by default.
 
 | Pattern, 30 pairs each | Mean average-wait change | Total completed-trip change | Mean empty-distance change |
@@ -83,10 +89,13 @@ These averages do not justify enabling the policy by default.
 | Hotspot | +6.26 s | -1 | +1,551 m |
 | Bursty hotspot | +13.40 s | -13 | +1,253 m |
 
-Changes are enabled minus disabled. Means weight each paired run equally.
-Negative wait is better. Positive empty distance is additional travel.
+Changes are enabled minus disabled.
+Means weight each paired run equally.
+Negative wait is better.
+Positive empty distance is additional travel.
 
-The hotspot forecast describes pickup demand. The destination pattern concentrates arrivals instead.
+The hotspot forecast describes pickup demand.
+The destination pattern concentrates arrivals instead.
 No policy reads future requests from the generated schedule.
 
 The earlier seed-7, 10-minute, 60-second hotspot example still performs worse with redistribution:
@@ -100,23 +109,22 @@ The earlier seed-7, 10-minute, 60-second hotspot example still performs worse wi
 ## Rail-hub burst experiment
 
 The `rail-hub` preset has six passenger stations and one parking station.
-Its 30-pod fleet starts with three pods at each passenger station and 12 pods
-in parking. Each passenger station has six berths.
+Its 30-pod fleet starts with three pods at each passenger station and 12 pods in parking.
+Each passenger station has six berths.
 
-The recorded experiment sends five train-like bursts from the Rail Hub during
-the first five minutes. The network then drains for the rest of a 30-minute
-run. The first four bursts contain 12 requests. The last contains 11, for 59
-requests per run. Five seeds use identical off/on request schedules.
+The recorded experiment sends five train-like bursts from the Rail Hub during the first five minutes.
+The network then drains for the rest of a 30-minute run.
+The first four bursts contain 12 requests.
+The last contains 11, for 59 requests per run.
+Five seeds use identical off/on request schedules.
 
 ```sh
 mise run scenario -- -preset rail-hub -output /tmp/podsim-rail-hub.json
 mise run compare -- -project /tmp/podsim-rail-hub.json -pattern hub-burst -duration 30m -arrivals-for 5m -request-every 5s -burst-size 12 -seeds 1,2,3,4,5 -format csv -output docs/measurements/rail-hub.csv
 ```
 
-[Recorded rail-hub runs](measurements/rail-hub.csv) include the station queue,
-berth, wait, clearance, passenger-distance, empty-distance, and positioning
-measurements for every arm. The compare command samples station peaks once per
-simulated second and immediately after each request burst.
+[Recorded rail-hub runs](measurements/rail-hub.csv) include the station queue, berth, wait, clearance, passenger-distance, empty-distance, and positioning measurements for every arm.
+The compare command samples station peaks once per simulated second and immediately after each request burst.
 
 | Five-seed mean | Redistribution off | Redistribution on | On minus off |
 | --- | ---: | ---: | ---: |
@@ -129,24 +137,21 @@ simulated second and immediately after each request burst.
 | Loaded distance | 45.96% | 42.15% | -3.81 points |
 | Positioning moves | 0.0 | 16.2 | +16.2 |
 
-Both policies served every request. Redistribution reduced mean pickup wait by
-about four seconds, but it slightly increased mean maximum wait and queue-clearance
-time. It also added 45.2 km of empty travel and reduced the loaded share of
-distance by 3.81 percentage points. This workload does not justify enabling
-redistribution by default.
+Both policies served every request.
+Redistribution reduced mean pickup wait by about four seconds, but it slightly increased mean maximum wait and queue-clearance time.
+It also added 45.2 km of empty travel and reduced the loaded share of distance by 3.81 percentage points.
+This workload does not justify enabling redistribution by default.
 
 A ten-minute arrival window scheduled 119 requests in the same 30-minute run.
-With seed 1, both policies served 69 and left 50 pending. That overload probe
-shows why the recorded experiment uses a finite five-minute arrival window. It
-also shows why the report gives drain time and does not count an undrained
-queue as completed capacity.
+With seed 1, both policies served 69 and left 50 pending.
+That overload probe shows why the recorded experiment uses a finite five-minute arrival window.
+It also shows why the report gives drain time and does not count an undrained queue as completed capacity.
 
 ### Same-destination sharing
 
-The rail-hub schedule also compares the default one-party policy with a limit
-of four parties per pod. A party can join only while a pod is still boarding at
-the same origin for the same destination. It never diverts an assigned pickup
-pod, delays departure to wait for another party, or adds an intermediate stop.
+The rail-hub schedule also compares the default one-party policy with a limit of four parties per pod.
+A party can join only while a pod is still boarding at the same origin for the same destination.
+It never diverts an assigned pickup pod, delays departure to wait for another party, or adds an intermediate stop.
 The limit counts parties separately from passenger `PartySize`.
 
 ```sh
@@ -165,26 +170,23 @@ mise run compare -- -project /tmp/podsim-rail-hub.json -pattern hub-burst -durat
 | Empty distance | 271.0 km | 137.6 km | 212.2 km |
 | Loaded distance | 45.96% | 47.65% | 37.69% |
 
-With redistribution off, sharing reduced mean wait by 65%, queue-clearance
-time by 53%, and empty travel by 49%. All demand still completed. The lower
-occupied-pod distance records physical pod movement, not passenger-kilometers.
-Several parties now use one movement. Redistribution again added empty travel
-and slightly worsened wait and clearance, so it remains off by default.
+With redistribution off, sharing reduced mean wait by 65%, queue-clearance time by 53%, and empty travel by 49%.
+All demand still completed.
+The lower occupied-pod distance records physical pod movement, not passenger-kilometers.
+Several parties now use one movement.
+Redistribution again added empty travel and slightly worsened wait and clearance, so it remains off by default.
 
-Raw results are in
-[`measurements/rail-hub-sharing.csv`](measurements/rail-hub-sharing.csv).
+Raw results are in [`measurements/rail-hub-sharing.csv`](measurements/rail-hub-sharing.csv).
 
 ## Congestion-aware routing experiment
 
-The `scale100` mesh provides alternate paths between the Station 19 focus and
-the other passenger stations. The experimental policy adds six seconds per
-owned track cell and 20 seconds for a stopped pod when it assigns a new route.
-It holds one cost snapshot for five simulated seconds. It does not change a
-route after departure, and it does not change movement or safety arbitration.
+The `scale100` mesh provides alternate paths between the Station 19 focus and the other passenger stations.
+The experimental policy adds six seconds per owned track cell and 20 seconds for a stopped pod when it assigns a new route.
+It holds one cost snapshot for five simulated seconds.
+It does not change a route after departure, and it does not change movement or safety arbitration.
 
-The final comparison fixes redistribution off and uses the same 59-request
-hub-burst schedule for each routing policy. Three seeds run for 30 simulated
-minutes so free-flow traffic drains completely.
+The final comparison fixes redistribution off and uses the same 59-request hub-burst schedule for each routing policy.
+Three seeds run for 30 simulated minutes so free-flow traffic drains completely.
 
 ```sh
 mise run scenario -- -preset scale100 -output /tmp/podsim-scale100.json
@@ -200,14 +202,12 @@ mise run compare -- -project /tmp/podsim-scale100.json -pattern hub-burst -durat
 | Empty distance | 382.2 km | 388.2 km | +6.0 km |
 | Peak focus entrance stops | 1.00 | 1.33 | +0.33 |
 
-The snapshot policy performed worse. Its lower maximum wait and earlier
-pending-queue clearance are not benefits because fewer active journeys finish
-within the window. Free-flow remains the default. Keep the experimental arm
-for future work with measured lane travel times or junction-level delay, not
-as a user-facing routing mode.
+The snapshot policy performed worse.
+Its lower maximum wait and earlier pending-queue clearance are not benefits because fewer active journeys finish within the window.
+Free-flow remains the default.
+Keep the experimental arm for future work with measured lane travel times or junction-level delay, not as a user-facing routing mode.
 
-Raw results are in
-[`measurements/routing-policy.csv`](measurements/routing-policy.csv).
+Raw results are in [`measurements/routing-policy.csv`](measurements/routing-policy.csv).
 
 ## WASM loading
 
@@ -215,7 +215,8 @@ The build now creates `podsim.wasm.gz` with maximum gzip compression.
 The server serves this artifact directly when the browser accepts gzip.
 Later, the build stopped keeping the raw `podsim.wasm`.
 The server decompresses `podsim.wasm.gz` in memory for a client without gzip.
-Snapshot compression remains at the fast setting. Range responses remain uncompressed.
+Snapshot compression remains at the fast setting.
+Range responses remain uncompressed.
 
 | Baseline artifact variant | Raw bytes | Transferred bytes |
 | --- | ---: | ---: |
@@ -229,7 +230,8 @@ Each variant used three fresh Chromium processes in alternating order.
 Startup ends when the canvas exists and the loader status disappears.
 
 Debug stripping saved only 1.9% of transferred bytes at the same compression setting.
-The build retains debug data. The project did not adopt or qualify TinyGo.
+The build retains debug data.
+The project did not adopt or qualify TinyGo.
 Browser measurements used headless Chromium with SwiftShader software rendering, not a physical client GPU or a real Tailscale link.
 
 ```sh
@@ -257,12 +259,15 @@ The server advanced at about 59 and 445 simulation ticks per wall second, respec
 These software-rendered results do not establish frame rates on a physical client GPU.
 
 The later navigation update adds pointer-centered zoom, drag pan, zoom buttons, and a Fit control.
-At overview scale, crowded stations use one marker and an occupancy count. Individual berths appear when their screen spacing permits.
-Map drawing stays inside the viewport. Camera changes invalidate cached tracks and do not change the shared session.
+At overview scale, crowded stations use one marker and an occupancy count.
+Individual berths appear when their screen spacing permits.
+Map drawing stays inside the viewport.
+Camera changes invalidate cached tracks and do not change the shared session.
 Pod buttons and map labels use compact fleet numbers, and inspection also shows the full pod ID.
 
 Browser tests compared an applied project's cached image with a fresh render of that project.
-Disabling the cache-refresh call caused the comparison to fail. With the call restored, the comparison passed.
+Disabling the cache-refresh call caused the comparison to fail.
+With the call restored, the comparison passed.
 Additional checks covered reset, server restart, moving pods at 1x and 8x, and the original small-network editor workflow.
 
 The [Ebitengine performance tips](https://ebitengine.org/en/documents/performancetips.html) describe draw batching and source-image reuse.
@@ -277,12 +282,14 @@ That diagnostic was not part of these measurements.
 A busy 100-pod snapshot measured 182,933 raw bytes and 27,042 gzip bytes.
 At 20 snapshots per second, that was about 541 KB/s of compressed response bodies per browser.
 A lighter sample measured 143,251 raw bytes and 21,270 gzip bytes.
-These sizes included routes, queued requests, and the full network. They changed during a run.
+These sizes included routes, queued requests, and the full network.
+They changed during a run.
 
 The optimized server reached about 414 simulation ticks per wall second during the 120-arrival-per-minute stress sample at 8x playback.
 The configured target was 480 ticks per second.
 A 20-arrival-per-minute sample reached about 461 ticks per second.
-These short loopback samples came from the software rendering experiments on the same host. They do not establish a maximum supported load.
+These short loopback samples came from the software rendering experiments on the same host.
+They do not establish a maximum supported load.
 The fixed-step benchmark above provides the controlled core comparison.
 
 This change did not add snapshot deltas.
@@ -296,12 +303,11 @@ Browser acceptance also covers editing, undo and redo, background calibration, i
 A known stale apply no longer pauses another browser's running simulation.
 Malformed imports preserve the current draft.
 
-On September 21, 2026, one combined acceptance run imported a PNG and
-calibrated two points to 200 meters. It drew and undid a junction, changed a
-station, and passed editor validation. It exported and reloaded the project
-with the background intact and applied revision 2. It resumed at 8x speed,
-submitted a journey through the canvas controls, and observed completion. The
-run also toggled pod following and reported no browser errors.
+On September 21, 2026, one combined acceptance run imported a PNG and calibrated two points to 200 meters.
+It drew and undid a junction, changed a station, and passed editor validation.
+It exported and reloaded the project with the background intact and applied revision 2.
+It resumed at 8x speed, submitted a journey through the canvas controls, and observed completion.
+The run also toggled pod following and reported no browser errors.
 
 Rewind tests make a save point, record a reference run, and then rewind twice.
 Each replay must match the reference state, safety observation, and demand stream at every simulated second.
@@ -318,7 +324,8 @@ A session test also saves a London session and restores it with the `physical` t
 ## Mesh and navigation follow-up
 
 The revised scale preset has a four-row, five-column grid with directed streets and explicit junctions.
-Station spurs keep stopped pods outside through traffic. Interior junctions provide alternate routes.
+Station spurs keep stopped pods outside through traffic.
+Interior junctions provide alternate routes.
 Capacity remains 100 pods and 138 berths, including one parking station with 24 berths.
 
 Mesh qualification checks 20 scheduled journeys over a maximum of 20 simulated minutes.
@@ -342,7 +349,8 @@ Lifecycle tests compare observations with snapshots during pickup, boarding, tra
 An independent berth scan checks the shared berth-state builder.
 Mutating an observation does not change the simulation.
 Every-tick qualification still checks all 4,950 pod pairs and berth ownership.
-The checks generate pairs in memory. They do not store a pair corpus.
+The checks generate pairs in memory.
+They do not store a pair corpus.
 
 Active-traffic race benchmarks measured median observation cost at 73.3 microseconds, versus 1,043 microseconds for the previous snapshot implementation.
 The indexed snapshot implementation measured 169.4 microseconds in a separate sample set.
@@ -353,27 +361,24 @@ Its race run took 297.85 wall seconds, compared with 475.6 seconds in the earlie
 Those wall times came from separate runs and include scheduling differences.
 The complete scenario race suite passed in 394.32 seconds.
 
-A combined CPU profile of the current Station 19 queue-drain and dense-safety
-tests took 25.95 wall seconds and collected 33.81 CPU-seconds. Resource release
-used 32.0% of cumulative CPU. Its nested `retainResources` scan used 24.5%.
-Route construction and search used 12.9%. The test-only safety oracle used
-10.1%.
+A combined CPU profile of the current Station 19 queue-drain and dense-safety tests took 25.95 wall seconds and collected 33.81 CPU-seconds.
+Resource release used 32.0% of cumulative CPU.
+Its nested `retainResources` scan used 24.5%.
+Route construction and search used 12.9%.
+The test-only safety oracle used 10.1%.
 
-The profile supports incremental held-resource release as the next
-controller optimization. It does not support adding parallel sector workers.
+The profile supports incremental held-resource release as the next controller optimization.
+It does not support adding parallel sector workers.
 
-Incremental release removed the full route-prefix and owner-map scans. Each pod
-now records only its active route resources and their final release distances.
-The same combined profile took 8.73 wall seconds and 16.04 CPU-seconds, 66% and
-53% lower respectively. Resource release fell to 6.4% of cumulative CPU. The
-complete non-race scenario package fell from 35.50 to 22.87 wall seconds.
+Incremental release removed the full route-prefix and owner-map scans.
+Each pod now records only its active route resources and their final release distances.
+The same combined profile took 8.73 wall seconds and 16.04 CPU-seconds, 66% and 53% lower respectively.
+Resource release fell to 6.4% of cumulative CPU.
+The complete non-race scenario package fell from 35.50 to 22.87 wall seconds.
 
 Incremental release did not change the 100-order Station 19 burst result.
-First delivery was at 258.4 seconds, last delivery at 1582.9 seconds, all pods
-were idle at 2171.9 seconds, and the peak was 12 stopped pods. These values
-predate the release of pickup pods for new work and the zero pickup estimate
-for an idle pod at the pickup station, so the current run can give different
-values.
+First delivery was at 258.4 seconds, last delivery at 1582.9 seconds, all pods were idle at 2171.9 seconds, and the peak was 12 stopped pods.
+These values predate the release of pickup pods for new work and the zero pickup estimate for an idle pod at the pickup station, so the current run can give different values.
 
 ```sh
 mise exec -- go test -count=1 -run 'Station19QueueDrains|DenseSafety' -cpuprofile /tmp/podsim-scenarios-cpu.out -o /tmp/podsim-scenarios.test ./internal/scenarios
@@ -419,7 +424,8 @@ Times are simulated seconds from the start of each run.
 In the 100-order burst, last delivery improved by 33% and final settlement improved by 31%.
 Arrivals used all six Station 19 berths.
 First delivery took longer in all three cases because station access locations and travel paths changed.
-These results establish progress for the tested workloads. They do not establish capacity under unlimited demand.
+These results establish progress for the tested workloads.
+They do not establish capacity under unlimited demand.
 
 ### Deferred berth assignment
 
@@ -461,7 +467,8 @@ The remaining tests passed in a separate 374.85-second race run, without repeati
 Together, the two runs cover every test in the suite.
 
 A short ring benchmark measured median step cost at 192 microseconds, versus 173 microseconds before the controller changes.
-The three samples used 1,000 steps each. They show a possible controller cost and do not measure the new mesh workload.
+The three samples used 1,000 steps each.
+They show a possible controller cost and do not measure the new mesh workload.
 The observation savings above apply separately.
 
 ```sh
@@ -471,18 +478,16 @@ mise run check
 
 ### Reservation lookahead
 
-The Station 19 burst also compared the current two-tick reservation lookahead
-with 0.25, 0.5, 1, and 2-second buffers. Each arm submitted 100 orders at 12
-orders per minute. The run checked separation and berth ownership every tick.
+The Station 19 burst also compared the current two-tick reservation lookahead with 0.25, 0.5, 1, and 2-second buffers.
+Each arm submitted 100 orders at 12 orders per minute.
+The run checked separation and berth ownership every tick.
 It kept the 12-meter physical clearance unchanged.
 
 ```sh
 mise exec -- go test -run '^$' -bench '^BenchmarkReservationLookahead$' -benchtime=1x -count=1 ./internal/scenarios
 ```
 
-[Recorded lookahead results](measurements/reservation-lookahead.csv) contain the
-completion, station-boundary, safety, and berth-use measurements for all five
-arms.
+[Recorded lookahead results](measurements/reservation-lookahead.csv) contain the completion, station-boundary, safety, and berth-use measurements for all five arms.
 
 | Lookahead | Last delivery | All idle | Entry stops | Exit stops | Entry blocked | Exit blocked | Berth spread |
 | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
@@ -492,82 +497,65 @@ arms.
 | 1.000 s | 1593 s | 2171 s | 2 | 49 | 459.9 s | 1316.0 s | 34 |
 | 2.000 s | 1589 s | 2170 s | 1 | 117 | 478.3 s | 2435.0 s | 32 |
 
-Every arm kept at least 22.87 meters between pod centers and had the same
-12-pod peak stopped queue. The 0.25-second arm moved some blocking from the
-exit to the entrance and increased total stop events. The 0.5-second arm was
-close to neutral. Longer buffers increased exit blocking. No arm provided a
-clear flow improvement, so the production default remains two ticks.
+Every arm kept at least 22.87 meters between pod centers and had the same 12-pod peak stopped queue.
+The 0.25-second arm moved some blocking from the exit to the entrance and increased total stop events.
+The 0.5-second arm was close to neutral.
+Longer buffers increased exit blocking.
+No arm provided a clear flow improvement, so the production default remains two ticks.
 
 ## London AM peak sample
 
 The London preset uses 2019 midweek NUMBAT OD weights for 94 of its 96 passenger stations.
-`LondonDemand` normalizes the 8,474 retained OD pairs within each of eight
-source time bands.
+`LondonDemand` normalizes the 8,474 retained OD pairs within each of eight source time bands.
 
-The fixed AM peak run submitted 40 OD-weighted requests at five-second
-intervals.
+The fixed AM peak run submitted 40 OD-weighted requests at five-second intervals.
 All 40 completed by 1,411.0 simulated seconds.
-Average pickup wait was 56.203 seconds, and maximum pickup wait was 389.950
-seconds.
-These values predate the release of pickup pods for new work and the zero
-pickup estimate for an idle pod at the pickup station, so the current run can
-give different values.
-The schedule SHA-256 is
-`02d3b6086d3ee5f58c9cbdb5bb574c042e0b8cd911656ed2c98099ea595aa024`.
+Average pickup wait was 56.203 seconds, and maximum pickup wait was 389.950 seconds.
+These values predate the release of pickup pods for new work and the zero pickup estimate for an idle pod at the pickup station, so the current run can give different values.
+The schedule SHA-256 is `02d3b6086d3ee5f58c9cbdb5bb574c042e0b8cd911656ed2c98099ea595aa024`.
 
 The London project also carries all eight bands as a portable OD profile.
-A live-session test enables the project demand and verifies that the first
-generated request has a positive weight in the selected AM peak band.
+A live-session test enables the project demand and verifies that the first generated request has a positive weight in the selected AM peak band.
 The `/api/project` endpoint provides the profile.
 State frames do not repeat it.
 
 ### London CPU profile
 
-CPU profiles measured the same 40-request AM peak qualification before and
-after two indexing changes in commit `49bc70a`. The simulation now reuses its
-immutable route graph and lane geometry, indexes stations, and records each
-route lane's first resource block. These indexes do not change routing,
-arbitration, or movement ordering.
+CPU profiles measured the same 40-request AM peak qualification before and after two indexing changes in commit `49bc70a`.
+The simulation now reuses its immutable route graph and lane geometry, indexes stations, and records each route lane's first resource block.
+These indexes do not change routing, arbitration, or movement ordering.
 
-Wall time fell from 4.50 to 2.13 seconds. CPU samples fell from 4.72 to 1.97
-seconds. The qualification gave the same completion time and wait values
-before and after the changes.
-The final profile had no remaining avoidable hotspot above 15 percent
-cumulative CPU, so the project did not add a parallel simulation path.
+Wall time fell from 4.50 to 2.13 seconds.
+CPU samples fell from 4.72 to 1.97 seconds.
+The qualification gave the same completion time and wait values before and after the changes.
+The final profile had no remaining avoidable hotspot above 15 percent cumulative CPU, so the project did not add a parallel simulation path.
 
-Raw measurements are in
-[`measurements/london-profile.csv`](measurements/london-profile.csv).
+Raw measurements are in [`measurements/london-profile.csv`](measurements/london-profile.csv).
 
 ```sh
 mise exec -- go test -count=1 -run '^TestLondonAMPeakSampleCompletes$' -v ./internal/scenarios
 ```
 
 This run checks pod separation and berth ownership once per simulated second.
-At the end, it checks completion, queue accounting, and terminal berth
-assignment.
-London guideways, movement lanes, and station paths have explicit separation
-groups.
-The oracle excludes only pairs in different groups that do not share a
-junction.
+At the end, it checks completion, queue accounting, and terminal berth assignment.
+London guideways, movement lanes, and station paths have explicit separation groups.
+The oracle excludes only pairs in different groups that do not share a junction.
 Unlabeled projects retain the original two-dimensional all-pairs check.
 See [the London network notes](london.md) for the boundary and source details.
 
 ## London portal comparison
 
-The first London network joined all guideways and station access at one node per
-station.
+The first London network joined all guideways and station access at one node per station.
 Waterloo had 14 lanes on one junction resource.
 Embankment had 10 lanes on one junction resource.
 This design serialized unrelated directions and corridors.
 
-The portal network gives each adjacency a separate arrival portal and departure
-portal.
+The portal network gives each adjacency a separate arrival portal and departure portal.
 Local movement lanes connect the portals.
 Pods now share a portal only where their paths diverge or merge.
 
 The comparison used one AM peak schedule with seed `20260922`.
-It submitted 199 requests during a 10-minute window at one request every three
-seconds.
+It submitted 199 requests during a 10-minute window at one request every three seconds.
 Both runs used the same schedule ID, `f13d587848b9176e`.
 Redistribution and same-destination sharing were off.
 The run stopped after the queue drained or after 60 simulated minutes.
@@ -578,54 +566,42 @@ The run stopped after the queue drained or after 60 simulated minutes.
 | Directional portals | 199 | 0 | 3 | 0 | 1 | 298.8 s | 1,152.9 s | 1,719 s |
 
 This comparison tests one high-load demand pulse.
-It confirms that the shared station node caused most stopped traffic in this
-run.
-The multi-band sweep below measures the capacity envelope of the portal
-network.
+It confirms that the shared station node caused most stopped traffic in this run.
+The multi-band sweep below measures the capacity envelope of the portal network.
 
 ## London capacity envelope
 
-The sweep uses the London project's NUMBAT origin-destination profile on the
-directional-portal network at commit `3b02de8`, after the station heading
-change.
-The sweep predates the release of pickup pods for new work and the zero pickup
-estimate for an idle pod at the pickup station, so the current dispatch can
-give different results.
+The sweep uses the London project's NUMBAT origin-destination profile on the directional-portal network at commit `3b02de8`, after the station heading change.
+The sweep predates the release of pickup pods for new work and the zero pickup estimate for an idle pod at the pickup station, so the current dispatch can give different results.
 It covers all eight demand bands, 15 offered rates, and seeds 1, 2, and 3.
-Each arm accepts requests for 30 simulated minutes, then has up to 30 minutes
-to finish them. Redistribution and same-destination sharing are off. Free-flow
-routing is on. The queue limit is high enough that the compare command skips no
-request.
+Each arm accepts requests for 30 simulated minutes, then has up to 30 minutes to finish them.
+Redistribution and same-destination sharing are off.
+Free-flow routing is on.
+The queue limit is high enough that the compare command skips no request.
 
 ```sh
 mise run scenario -- -preset london -output /tmp/podsim-london-capacity.json
 mise run compare -- -project /tmp/podsim-london-capacity.json -pattern profile -bands all -duration 60m -arrivals-for 30m -loads 60s,30s,20s,15s,12s,10s,8.571429s,7.5s,6.666667s,6s,5.454545s,5s,4.615385s,4.285714s,4s -seeds 1,2,3 -redistribution-policies off -focus 940GZZLUEUS -queue-limit 1000000 -stop-when-drained -workers 10 -format csv -output docs/measurements/london-capacity.csv
 ```
 
-The schedule starts after the first interval and excludes the arrival-window
-endpoint. The compare command also truncates each interval to a whole
-1/60-second tick. This makes the 8.571429 s, 5.454545 s, 4.615385 s, and
-4.285714 s intervals slightly shorter than their nominal values. The report
-therefore gives these offered rates, rounded to three decimal places: 0.967,
-1.967, 2.967, 3.967, 4.967, 5.967, 7.000, 7.967, 8.967, 9.967, 11.000, 11.967,
-13.033, 14.000, and 14.967 requests per minute. The table rounds these values
-to whole requests per minute.
+The schedule starts after the first interval and excludes the arrival-window endpoint.
+The compare command also truncates each interval to a whole 1/60-second tick.
+This makes the 8.571429 s, 5.454545 s, 4.615385 s, and 4.285714 s intervals slightly shorter than their nominal values.
+The report therefore gives these offered rates, rounded to three decimal places: 0.967, 1.967, 2.967, 3.967, 4.967, 5.967, 7.000, 7.967, 8.967, 9.967, 11.000, 11.967, 13.033, 14.000, and 14.967 requests per minute.
+The table rounds these values to whole requests per minute.
 
-The recovery limit is the highest tested rate at which all three seeds finish
-every accepted request before the 60-minute cap. All three seeds must also
-finish at every lower tested rate. This rule changes the Early and Morning
-limits. Early finishes two seeds at 8/min and all three seeds at 9/min, so its
-limit is 7/min. Morning finishes two seeds at 10/min and all three seeds at
-11/min, so its limit is 9/min.
-To find only the limits, add `-adaptive-limit` to the command. Each band then
-stops one rate after its first rate that does not drain, and the report omits
-the higher rates.
+The recovery limit is the highest tested rate at which all three seeds finish every accepted request before the 60-minute cap.
+All three seeds must also finish at every lower tested rate.
+This rule changes the Early and Morning limits.
+Early finishes two seeds at 8/min and all three seeds at 9/min, so its limit is 7/min.
+Morning finishes two seeds at 10/min and all three seeds at 11/min, so its limit is 9/min.
+To find only the limits, add `-adaptive-limit` to the command.
+Each band then stops one rate after its first rate that does not drain, and the report omits the higher rates.
 
-Each metric column gives the mean of the three seeds at the limit rate. Maximum
-wait is the mean of the three per-seed maxima. Late throughput measures
-completions per minute during the second half of the arrival window. Late
-backlog change compares outstanding requests at the midpoint and end of that
-window.
+Each metric column gives the mean of the three seeds at the limit rate.
+Maximum wait is the mean of the three per-seed maxima.
+Late throughput measures completions per minute during the second half of the arrival window.
+Late backlog change compares outstanding requests at the midpoint and end of that window.
 
 | NUMBAT band | Recovery limit | Late throughput | Late backlog change | Recovery after arrivals | Average wait | Maximum wait | Loaded distance | Next rate drained |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
@@ -638,68 +614,58 @@ window.
 | Late | 12/min | 9.07/min | +44.0 | 1,627 s | 368.8 s | 1,107.9 s | 50.7% | 2/3 at 13/min |
 | Night | 9/min | 7.44/min | +23.3 | 1,584 s | 205.6 s | 944.0 s | 47.6% | 2/3 at 10/min |
 
-The `peak_active_vehicles` column counts the pods with assigned work. A pod
-has assigned work when it has a trip that is not complete, or when a pending
-request names it as the pickup pod. This includes boarding, travel with
-passengers, unloading, and travel to a pickup. An empty move to parking or for
-redistribution is not work. The `peak_passenger_vehicles` column counts only
-the pods with passengers aboard, so it is never more than
-`peak_active_vehicles`.
+The `peak_active_vehicles` column counts the pods with assigned work.
+A pod has assigned work when it has a trip that is not complete, or when a pending request names it as the pickup pod.
+This includes boarding, travel with passengers, unloading, and travel to a pickup.
+An empty move to parking or for redistribution is not work.
+The `peak_passenger_vehicles` column counts only the pods with passengers aboard, so it is never more than `peak_active_vehicles`.
 
-The pod counts in the next paragraph use an earlier definition of
-`peak_active_vehicles`. That definition also counted each pod that had
-finished a trip and each empty move. A pod that went idle after a trip stayed
-in the count. Thus these counts can be higher than the number of pods with
-assigned work.
+The pod counts in the next paragraph use an earlier definition of `peak_active_vehicles`.
+That definition also counted each pod that had finished a trip and each empty move.
+A pod that went idle after a trip stayed in the count.
+Thus these counts can be higher than the number of pods with assigned work.
 
-No band finishes all three seeds at 15/min. At the limit rate, at least one
-seed has all 114 pods active at the same time in every band except Early and
-Morning, measured with the earlier definition. The highest seed peak with the
-earlier definition is 108 pods in Early and 113 pods in Morning. At 10/min,
-the Morning seed that does not finish has all 114 pods active with the earlier
-definition and at most 3 stopped pods. The highest per-seed peak stopped pods
-at the limit rate is 11 in Early and 3 to 6 in the other bands. For the seven
-bands other than Early, these results suggest that the 114-pod fleet, not
-track congestion, sets the recovery limit. Early has more peak stopped pods, so
-congestion can also contribute to its limit.
+No band finishes all three seeds at 15/min.
+At the limit rate, at least one seed has all 114 pods active at the same time in every band except Early and Morning, measured with the earlier definition.
+The highest seed peak with the earlier definition is 108 pods in Early and 113 pods in Morning.
+At 10/min, the Morning seed that does not finish has all 114 pods active with the earlier definition and at most 3 stopped pods.
+The highest per-seed peak stopped pods at the limit rate is 11 in Early and 3 to 6 in the other bands.
+For the seven bands other than Early, these results suggest that the 114-pod fleet, not track congestion, sets the recovery limit.
+Early has more peak stopped pods, so congestion can also contribute to its limit.
 
-OD mix explains most of the lowest limits. At the lowest load, an Early
-journey uses 6.25 km of passenger travel and 7.44 km of empty travel on
-average. A Night journey uses 5.24 km and 4.04 km. The other bands use 4.71 to
-5.73 km of passenger travel and 2.31 to 2.73 km of empty travel. Early and
-Night need the most empty travel per journey. Early has the lowest limit, and
-Night shares the second-lowest limit with Morning. The Morning limit comes from
-one seed at 10/min that leaves one request at the cap.
+OD mix explains most of the lowest limits.
+At the lowest load, an Early journey uses 6.25 km of passenger travel and 7.44 km of empty travel on average.
+A Night journey uses 5.24 km and 4.04 km.
+The other bands use 4.71 to 5.73 km of passenger travel and 2.31 to 2.73 km of empty travel.
+Early and Night need the most empty travel per journey.
+Early has the lowest limit, and Night shares the second-lowest limit with Morning.
+The Morning limit comes from one seed at 10/min that leaves one request at the cap.
 
-These limits describe a finite 30-minute demand pulse with up to 30 minutes of
-recovery. They are not continuous steady-state limits. Backlog still grows in
-the second half of every limit-rate arm, so an operating target needs headroom.
-The closest limit-rate arm finishes 104 seconds before the cap in Night. The
-sweep does not prove that any tested rate can run indefinitely.
+These limits describe a finite 30-minute demand pulse with up to 30 minutes of recovery.
+They are not continuous steady-state limits.
+Backlog still grows in the second half of every limit-rate arm, so an operating target needs headroom.
+The closest limit-rate arm finishes 104 seconds before the cap in Night.
+The sweep does not prove that any tested rate can run indefinitely.
 
-The shared-junction network at commit `5e556e0` had recovery limits of 2/min in
-Early, 3/min in Night, and 6 to 7/min in the other bands. Across all arms, its
-peak stopped pods reached 44 to 91 per band. In the portal sweep, no arm has
-more than 22 peak stopped pods. Commit `ed5d782` also changed the berth layout,
-and commit `3b02de8` changed the station headings, so this comparison does not
-isolate the portal change. At the lowest load, empty travel per journey is also
-higher on the portal network, for example 2.41 km against 1.75 km in Morning.
+The shared-junction network at commit `5e556e0` had recovery limits of 2/min in Early, 3/min in Night, and 6 to 7/min in the other bands.
+Across all arms, its peak stopped pods reached 44 to 91 per band.
+In the portal sweep, no arm has more than 22 peak stopped pods.
+Commit `ed5d782` also changed the berth layout, and commit `3b02de8` changed the station headings, so this comparison does not isolate the portal change.
+At the lowest load, empty travel per journey is also higher on the portal network, for example 2.41 km against 1.75 km in Morning.
 
-The compare command above wrote the committed CSV in one run. It took 2,282
-wall seconds for 360 arms and reached 735,432 KB peak RSS on the qualification
-host with ten workers. Each arm is independent and deterministic, so the
-number of workers does not change the rows. Raw results are in
-[`measurements/london-capacity.csv`](measurements/london-capacity.csv).
+The compare command above wrote the committed CSV in one run.
+It took 2,282 wall seconds for 360 arms and reached 735,432 KB peak RSS on the qualification host with ten workers.
+Each arm is independent and deterministic, so the number of workers does not change the rows.
+Raw results are in [`measurements/london-capacity.csv`](measurements/london-capacity.csv).
 
 ### Finishing-pod wait rules
 
-Dispatch can hold a request for up to 30 seconds when a busy pod should reach
-the pickup at least two seconds before the available pod. The compare command
-runs three rules for this hold with `-wait-rules`:
+Dispatch can hold a request for up to 30 seconds when a busy pod should reach the pickup at least two seconds before the available pod.
+The compare command runs three rules for this hold with `-wait-rules`:
 
-- `current` holds for a busy pod whose estimated finish plus empty travel to
-  the pickup beats the available pod. The estimate can be longer than the
-  hold. The server always uses this rule, and it is the default.
+- `current` holds for a busy pod whose estimated finish plus empty travel to the pickup beats the available pod.
+  The estimate can be longer than the hold.
+  The server always uses this rule, and it is the default.
 - `strict` holds only when that estimate is not more than the hold time that
   remains, and still beats the available pod.
 - `none` never holds, and dispatch sends the available pod at once.
@@ -712,8 +678,7 @@ mise run compare -- -project /tmp/podsim-london-capacity.json -pattern profile -
 mise run compare -- -project /tmp/podsim-london-capacity.json -pattern profile -bands early -duration 60m -arrivals-for 30m -loads 5s,60s -seeds 1 -redistribution-policies off -focus 940GZZLUEUS -queue-limit 1000000 -stop-when-drained -wait-rules current,strict,none -format csv
 ```
 
-The table gives seed 1 at the commit "sim: add a choice of finishing-pod wait
-rule", which adds the option.
+The table gives seed 1 at the commit "sim: add a choice of finishing-pod wait rule", which adds the option.
 These three arms are a sample, not a new sweep.
 
 | Arm | Rule | Served | Left at cap | Recovery after arrivals | Average wait | Maximum wait | Empty distance |
@@ -728,7 +693,6 @@ These three arms are a sample, not a new sweep.
 | Early 60 s | strict | 29 | 0 | 788 s | 108.9 s | 274.3 s | 206.1 km |
 | Early 60 s | none | 29 | 0 | 788 s | 108.9 s | 274.3 s | 206.1 km |
 
-At 60 s intervals, the rules give almost the same result. In the two loaded
-arms, `strict` and `none` served more requests and gave shorter maximum waits
-than `current`, but they used more empty travel. One seed cannot show whether
-this difference is larger than the variation between seeds.
+At 60 s intervals, the rules give almost the same result.
+In the two loaded arms, `strict` and `none` served more requests and gave shorter maximum waits than `current`, but they used more empty travel.
+One seed cannot show whether this difference is larger than the variation between seeds.

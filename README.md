@@ -17,13 +17,14 @@ Install mise, then prepare the project tools:
 mise trust
 mise install
 ```
+
 From the project directory, run:
 
 ```sh
 mise run serve
 ```
 
-Open http://127.0.0.1:8080 in desktop Chrome.
+Open <http://127.0.0.1:8080> in desktop Chrome.
 Keep the server running while you use the application.
 
 The first build downloads Go dependencies.
@@ -356,7 +357,8 @@ The draft stays local until you select **Pause and apply**.
   The drag also moves the nodes that only its station lanes use, such as a berth chain.
 - **Delete station and connections** also removes these nodes.
   It also removes each demand flow to or from the station in the OD profiles.
-  When it removes flows, a notice gives their number, for example **Station deleted. 12 demand flows removed.**
+  When it removes flows, a notice gives their number, for example **Station deleted.
+  12 demand flows removed.**
   Undo restores the station and its demand flows.
 - Set the passenger generation option, rate, pattern, destination, OD profile, time band, same-destination party limit, seed, and redistribution option.
 - Use undo and redo for draft changes.
@@ -716,7 +718,8 @@ If a `-dir` directory has a `podsim.wasm` that is newer than `podsim.wasm.gz`, t
 
 Until the first state frame arrives, the map shows **Connecting to server...** and no network.
 A lost connection disables commands.
-While the connection is lost, the map is dimmed and an amber banner shows **Connection lost. Showing state from N s ago.**
+While the connection is lost, the map is dimmed and an amber banner shows **Connection lost.
+Showing state from N s ago.**
 N is the time in seconds since the last state frame.
 Reconnection restores the current shared state.
 
@@ -780,7 +783,8 @@ mise run check
 
 | Task | What it runs |
 | --- | --- |
-| `mise run check` | Workflow validation, race tests, editor tests, vet, lint, vulnerability checks, the native and browser builds, and the embedded server tests. |
+| `mise run check` | Workflow validation, Markdown checks, race tests, editor tests, vet, lint, vulnerability checks, the native and browser builds, and the embedded server tests. |
+| `mise run format` | Formats the Go sources and the Markdown files. |
 | `mise run test:web` | Only the editor tests. |
 | `mise run qualify` | The `internal/scenarios` qualification tests for scale, safety, and repeatability. |
 | `mise run benchmark` | 6,000 simulation steps on the 100-pod ring fixture, not on the current `scale100` mesh. |
@@ -810,6 +814,10 @@ It also checks these package boundaries:
 - `internal/session`, `internal/project`, and `cmd/serve` cannot import the renderer or browser APIs.
 - Packages in the browser build cannot import cloud storage packages or `internal/statestore`.
   Lint also lists every package that the WASM build links, and fails if the list has one of these packages.
+
+rumdl checks the Markdown files with the settings in `.rumdl.toml`.
+Each sentence has its own source line, so a prose change does not reflow the lines around it.
+Run `mise run format` to fix the layout.
 
 ### Test coverage
 

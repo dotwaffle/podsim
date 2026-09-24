@@ -10,7 +10,8 @@ go build -trimpath -tags=embed_assets -o podsim-server ./cmd/serve
 ```
 
 The executable contains the HTML, CSS, JavaScript, and gzip WASM files.
-It does not contain an uncompressed WASM module. This keeps the executable at about 35 MB, not 64 MB.
+It does not contain an uncompressed WASM module.
+This keeps the executable at about 35 MB, not 64 MB.
 The server decompresses the module in memory only for a client without gzip or for a Range request.
 It does not need a `dist` directory at runtime.
 The `-dir` option overrides embedded files for development.
@@ -44,8 +45,7 @@ Then the simulation view reloads its page after each server restart.
 
 ## Container image
 
-The container workflow publishes `ghcr.io/dotwaffle/podsim` from `main`,
-version tags, and manual workflow runs.
+The container workflow publishes `ghcr.io/dotwaffle/podsim` from `main`, version tags, and manual workflow runs.
 It builds `linux/amd64` and `linux/arm64` images with ko.
 Each image gets the commit SHA as a tag.
 Images from `main` also get the `latest` tag.
@@ -110,17 +110,21 @@ spec:
 ## Session state
 
 The `-state` option keeps the shared session across server restarts.
-Its value is a bucket URL. This server build has only the `file://` driver.
+Its value is a bucket URL.
+This server build has only the `file://` driver.
 Without `-state`, the server does not save or read a session state.
 The saved state holds the last command sequence of each client, but not the save points or the command receipts.
 A restart clears those.
 
 A `file://` URL needs an empty host and an absolute path, for example `file:///var/lib/podsim`.
 `file://var/lib/podsim` is not valid, because `var` is then the host.
-The only query parameter is `prefix`. The server puts it in front of each file name.
+The only query parameter is `prefix`.
+The server puts it in front of each file name.
 For example, `prefix=podsim/` puts the files in the `podsim` subdirectory, and `prefix=podsim-` gives `podsim-session.json.gz`.
-The prefix can contain only ASCII letters, digits, `.`, `_`, `-`, and `/`. It cannot contain `..` or `__`.
-It must be a clean relative path. Thus it cannot start with `/`, contain `//`, or have a part that is only `.`.
+The prefix can contain only ASCII letters, digits, `.`, `_`, `-`, and `/`.
+It cannot contain `..` or `__`.
+It must be a clean relative path.
+Thus it cannot start with `/`, contain `//`, or have a part that is only `.`.
 Do not put credentials in the URL.
 The server logs and errors show the URL without user information and query values.
 But the error text of a storage driver can contain the full URL.
@@ -142,60 +146,85 @@ At startup, the server deletes the temporary files that an interrupted write lef
 The server saves the session state at these times:
 
 - At startup, after the restore.
-- Every 60 seconds, when the session changed after the last save. The first periodic or command save after the start always writes.
-- Before the reply to a project apply, or to a rewind that restores a project. This is the command save. It counts as a periodic save, but it gets less time.
-- About 1 second after a demand change, a project apply, or a rewind that restores a project. This save counts as a periodic save.
-- At a graceful shutdown, and when startup fails after the startup save. This is the final save.
+- Every 60 seconds, when the session changed after the last save.
+  The first periodic or command save after the start always writes.
+- Before the reply to a project apply, or to a rewind that restores a project.
+  This is the command save.
+  It counts as a periodic save, but it gets less time.
+- About 1 second after a demand change, a project apply, or a rewind that restores a project.
+  This save counts as a periodic save.
+- At a graceful shutdown, and when startup fails after the startup save.
+  This is the final save.
 
 A save copies the state while it holds the session lock.
 It encodes, compresses, and writes the copy after it releases the lock.
 Each startup or periodic save gets 30 seconds.
-A command save gets 2 seconds. This time includes the wait for an earlier save.
-The Go client of the simulation view sends an exact retry when it gets no reply in 3 seconds. The shorter save time lets the reply come before the retry.
+A command save gets 2 seconds.
+This time includes the wait for an earlier save.
+The Go client of the simulation view sends an exact retry when it gets no reply in 3 seconds.
+The shorter save time lets the reply come before the retry.
 An exact retry of a project apply, or of a rewind that restored a project, also makes a command save before its reply.
-This save waits for the command save of the first request. It writes nothing when the session did not change after that save.
+This save waits for the command save of the first request.
+It writes nothing when the session did not change after that save.
 If the command save fails or takes more time, the command still succeeds, and the save about 1 second later tries again.
 After the command save, the reply shows in `stateSaved` whether a saved state holds the command.
 The value is `true` when the last successful save of any kind holds the state at the `revision` of the reply or at a later revision.
 An exact retry gets the `revision` of the first reply.
 A later state counts, also with changes from other clients, because a restore of it cannot go back to the state before the command.
 The value is `false` when no successful save holds such a state, for example after a failed save or a save that took more time.
-After a graceful shutdown starts, a command save writes nothing, and the final save can still fail. Thus a reply then has `true` only when an earlier save, for example the final save, holds such a state.
+After a graceful shutdown starts, a command save writes nothing, and the final save can still fail.
+Thus a reply then has `true` only when an earlier save, for example the final save, holds such a state.
 When the value is `false`, the simulation view and the editor show a warning.
 A failed write keeps the old file.
-The exception is a failed sync of the directory. The new file is then in place, but a power loss can bring back the old file.
+The exception is a failed sync of the directory.
+The new file is then in place, but a power loss can bring back the old file.
 After a stop without a final save, the next start restores the last saved state, which can be up to about 60 seconds old.
 
 At startup, the server reads `session.json.gz` and restores the session with one of these tiers:
 
-- `physical`: The pods keep their lane positions and start again at speed 0. The server makes the track reservations again. A pod that conflicts with another pod, or that has a route that the server cannot restore, goes to a free berth. Its parties board again at their origin station, or go back to the queue.
-- `logical`: The server uses this tier with reason `physical_failed` when the `physical` tier fails. It also uses it with reason `restore_loop`, as described below. The pods start again at their initial berths. Parties that were unloading count as completed. Other parties in pods go back to the queue.
-- `empty`: The server does not use the saved state and starts a new session. Except after a read failure, it moves `session.json.gz` to a rejected file.
+- `physical`: The pods keep their lane positions and start again at speed 0.
+  The server makes the track reservations again.
+  A pod that conflicts with another pod, or that has a route that the server cannot restore, goes to a free berth.
+  Its parties board again at their origin station, or go back to the queue.
+- `logical`: The server uses this tier with reason `physical_failed` when the `physical` tier fails.
+  It also uses it with reason `restore_loop`, as described below.
+  The pods start again at their initial berths.
+  Parties that were unloading count as completed.
+  Other parties in pods go back to the queue.
+- `empty`: The server does not use the saved state and starts a new session.
+  Except after a read failure, it moves `session.json.gz` to a rejected file.
 
 The reason for an `empty` start is `project_changed`, `unsupported_version`, `invalid_state`, `too_large`, `restore_loop`, or `unreadable`.
 `too_large` means more than 16 MiB, compressed or decompressed.
 A file with another format version gets `unsupported_version`.
-Until the first release, an added optional member with a safe zero value keeps the format version. The file leaves out the member when its value is zero. An older server restores a file without the member, but it gets `invalid_state` for a file with the member and moves that file aside.
+Until the first release, an added optional member with a safe zero value keeps the format version.
+The file leaves out the member when its value is zero.
+An older server restores a file without the member, but it gets `invalid_state` for a file with the member and moves that file aside.
 Each other change to the members of the file gets a new format version.
 Thus after a downgrade past such a change, the older server moves the file aside.
 With `-project`, the project file has priority, and a saved state with a different project gets `project_changed`.
 But when only the demand settings are different, the server restores the saved state.
-A demand change writes the project file at once and the session state about 1 second later. Thus a crash between the two writes can leave this difference.
+A demand change writes the project file at once and the session state about 1 second later.
+Thus a crash between the two writes can leave this difference.
 A project apply or a rewind that restores a project also writes the project file at once.
 But the server makes the command save before it replies, also to an exact retry.
-Thus a crash can leave the difference only before the reply, or after a command save that failed or took more time. In the second case, the reply has `stateSaved` set to `false`.
+Thus a crash can leave the difference only before the reply, or after a command save that failed or took more time.
+In the second case, the reply has `stateSaved` set to `false`.
 When the new project differs from the saved project only in its demand settings, the restore keeps the simulation from before the command.
 After the restore, the server applies the demand settings of the project file as a demand change does, and the project revision increases by one.
-While the restored traffic demo runs, a demand change is not possible. Then the saved state gets `project_changed`.
+While the restored traffic demo runs, a demand change is not possible.
+Then the saved state gets `project_changed`.
 Without `-project`, the server restores the saved project.
 When the server does not use the saved state, the new session uses the project file.
-Without `-project`, it uses the saved project if the server can decode the file and the project is valid. Otherwise it uses the example project.
+Without `-project`, it uses the saved project if the server can decode the file and the project is valid.
+Otherwise it uses the example project.
 After `restore_loop`, a server without `-project` uses the example project, also when the saved project is valid.
 
 If the read fails or takes more than 30 seconds, the server starts an empty session with reason `unreadable` and does not save.
 The file stays for the next start.
 If the move of a rejected file fails, the server also does not save.
-In both cases, the server logs an error. Correct the fault, then restart the server.
+In both cases, the server logs an error.
+Correct the fault, then restart the server.
 
 The startup save records the number of restores since the last periodic or final save.
 If the server stops without a periodic or final save after a restore, the next start uses only the `logical` tier, with reason `restore_loop`.
@@ -359,36 +388,55 @@ Thus it does not write the DEBUG records in this section.
 With `-state`, the server writes these log records at startup:
 
 - `Opened session state store` (INFO) gives the redacted `url` and the `location`, the path in front of each file name.
-- `Removed temporary state files` (INFO) gives the `count` of deleted temporary files. `Remove temporary state files` (WARN) gives the `error` when the list or a delete fails. The list skips a directory that the server cannot read, and gives no error for it. Startup continues.
-- `No saved session state` (INFO) means that the location has no `session.json.gz`. The server starts a new session.
+- `Removed temporary state files` (INFO) gives the `count` of deleted temporary files.
+  `Remove temporary state files` (WARN) gives the `error` when the list or a delete fails.
+  The list skips a directory that the server cannot read, and gives no error for it.
+  Startup continues.
+- `No saved session state` (INFO) means that the location has no `session.json.gz`.
+  The server starts a new session.
 - `Restored session` (INFO) gives the `tier`, the `reason`, and the counts `demoted`, `requeued`, `dropped`, `droppedParties`, `overCap`, and `overBudget`.
   It also gives the saved `tick`, `epochKept`, `final`, `savedAt`, `savedBuild`, the current `build`, and `restoreAttempts`.
-  `bytes` is the compressed size. `duration` is the time from the read to the end of the startup save.
+  `bytes` is the compressed size.
+  `duration` is the time from the read to the end of the startup save.
   After a failed `physical` tier, `physicalError` tells why it failed.
-- `Applied demand settings of the project file` (INFO) means that the restore used the demand settings of the `-project` file in place of the saved settings. It gives the `savedDemand` and the `demand` settings.
+- `Applied demand settings of the project file` (INFO) means that the restore used the demand settings of the `-project` file in place of the saved settings.
+  It gives the `savedDemand` and the `demand` settings.
 - `Demoted pod` (DEBUG) gives each `pod` that the `physical` tier moved to a berth.
 - `Rejected saved session state` (WARN) gives the `reason` and the `error`.
-- `Restore failed with a panic` (ERROR) gives the `panic` and the `stack`. The server then rejects the file with reason `invalid_state`.
-- `Read saved session state` (ERROR) means that the read failed or timed out. It gives the `error` and `saving=false`.
-- `Move rejected session state` (ERROR) means that the move of a rejected file failed. It gives the `error` and `saving=false`.
-- `Prune rejected session state` (WARN) gives the `error` when the server cannot delete an old rejected file. The next rejection tries again.
-- `Backed up saved session state` (INFO) and `Back up saved session state` (WARN, with the `error`) tell the result of the copy to `session.previous.json.gz`. A failed copy does not stop the restore.
-- `Stop during startup` (INFO) means that a signal came while the server read or restored the saved state, or made the startup save. It gives the `cause` and the `error`. The server stops without serving and without a save.
+- `Restore failed with a panic` (ERROR) gives the `panic` and the `stack`.
+  The server then rejects the file with reason `invalid_state`.
+- `Read saved session state` (ERROR) means that the read failed or timed out.
+  It gives the `error` and `saving=false`.
+- `Move rejected session state` (ERROR) means that the move of a rejected file failed.
+  It gives the `error` and `saving=false`.
+- `Prune rejected session state` (WARN) gives the `error` when the server cannot delete an old rejected file.
+  The next rejection tries again.
+- `Backed up saved session state` (INFO) and `Back up saved session state` (WARN, with the `error`) tell the result of the copy to `session.previous.json.gz`.
+  A failed copy does not stop the restore.
+- `Stop during startup` (INFO) means that a signal came while the server read or restored the saved state, or made the startup save.
+  It gives the `cause` and the `error`.
+  The server stops without serving and without a save.
 
 It writes these records for each save:
 
-- `Saved session state` (DEBUG) is a startup, periodic, or command save. It gives the `kind`, the compressed size in `bytes`, the `revision`, and the `tick`.
+- `Saved session state` (DEBUG) is a startup, periodic, or command save.
+  It gives the `kind`, the compressed size in `bytes`, the `revision`, and the `tick`.
   It also gives three durations: `lock` to copy the state under the session lock, `encode`, and `write`.
-- `Saved final session state` (INFO) is the final save, with the same attributes. A startup that fails after the startup save also makes a final save.
-- `Save session state` (WARN) is a failed save. It gives the `kind`, the `error`, the `cause` of a timeout, and `failures`, the number of failed saves in sequence.
+- `Saved final session state` (INFO) is the final save, with the same attributes.
+  A startup that fails after the startup save also makes a final save.
+- `Save session state` (WARN) is a failed save.
+  It gives the `kind`, the `error`, the `cause` of a timeout, and `failures`, the number of failed saves in sequence.
   The cause of a command save that took more than 2 seconds is `save of the session state before a command reply timed out`.
   A state that is too large gives ERROR, because each later save also fails.
 
 It writes these records at shutdown:
 
-- `State saver did not stop` (WARN) means that the saver did not stop in 1 second. It gives the `timeout`.
-- `Skipped final save` (WARN) gives the `reason`. `clock` means that the clock did not stop, `saver` means that the saver did not stop, and `off` means that saving is off.
-- `Final save failed` (WARN) means that the final save failed or did not return in 6 seconds. It gives the `error` and the `cause`.
+- `State saver did not stop` (WARN) means that the saver did not stop in 1 second.
+  It gives the `timeout`.
+- `Skipped final save` (WARN) gives the `reason`.
+  `clock` means that the clock did not stop, `saver` means that the saver did not stop, and `off` means that saving is off.
+- `Final save failed` (WARN) means that the final save failed or did not return in 6 seconds.
+  It gives the `error` and the `cause`.
   The cause of a timeout is `final save of the session state timed out`.
   When the store returned an error, the session also logs `Save session state`.
 - `Close session state store` (WARN) gives the `error` of the close of the store.
@@ -413,7 +461,8 @@ If the clock and the saver stopped, the server saves the session state a last ti
 This final save gets 5 seconds.
 The server waits up to 6 seconds for it, because a blocked file system call can continue after the timeout.
 A final save that fails or times out keeps the old file, except after a failed sync of the directory.
-If the clock did not stop, the state can still change. If the saver did not stop, its write can still use the store.
+If the clock did not stop, the state can still change.
+If the saver did not stop, its write can still use the store.
 In both cases, the server does not make a final save.
 Without a final save, the next start restores the last saved state with a new epoch.
 
