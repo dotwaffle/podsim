@@ -46,28 +46,67 @@ func outstandingOrderCount(state sim.Snapshot) int {
 	return count
 }
 
+const (
+	// orderRowsTop is the top of the first order row in design units.
+	orderRowsTop = 180.0
+	// orderRowSpacing is the distance between order rows in design units.
+	orderRowSpacing = 47.0
+	// orderMoreHeight is the height in design units that the "+N more
+	// orders" line needs below the last row. It includes the space above
+	// the pod selector.
+	orderMoreHeight = 15.0
+	// minimumOrderRows is the number of order rows in a window of the
+	// minimum size.
+	minimumOrderRows = 4
+)
+
+// orderRowLimit returns the number of order rows that fit above the pod
+// selector when the right panel is extra design units taller than in a
+// window of the minimum size.
+func orderRowLimit(extra float64) int {
+	fit := int((podSelectorTop + extra - orderRowsTop - orderMoreHeight) / orderRowSpacing)
+	return max(minimumOrderRows, fit)
+}
+
 func (g *Game) drawOrders(screen *ebiten.Image, state sim.Snapshot) {
+	for _, value := range g.orderLabels(state) {
+		g.label(screen, value)
+	}
+}
+
+// orderLabels returns the text of the Orders panel for state. A tall window
+// shows more rows. The labels use physical pixels. In design units, rows at
+// or below the top of the pod selector would move down with the pod selector.
+func (g *Game) orderLabels(state sim.Snapshot) []label {
+	panelLabel := func(y, size float64, value string, shade uint32) label {
+		return label{x: g.layout.right(816), y: g.layout.y(y), size: size, value: value, color: shade, physical: true}
+	}
 	rows := outstandingOrders(state)
-	g.label(screen, label{x: 816, y: 115, size: 12, value: "OUTSTANDING ORDERS", color: muted})
 	active := 0
 	for _, row := range rows {
 		if row.active {
 			active += row.parties
 		}
 	}
-	g.label(screen, label{x: 816, y: 140, size: 14, value: fmt.Sprintf("Queued %d / active %d", len(state.Pending), active), color: foreground})
-	if len(rows) == 0 {
-		g.label(screen, label{x: 816, y: 185, size: 13, value: "No outstanding orders.", color: muted})
-		return
+	labels := []label{
+		panelLabel(115, 12, "OUTSTANDING ORDERS", muted),
+		panelLabel(140, 14, fmt.Sprintf("Queued %d / active %d", len(state.Pending), active), foreground),
 	}
-	for i, row := range rows[:min(4, len(rows))] {
+	if len(rows) == 0 {
+		return append(labels, panelLabel(185, 13, "No outstanding orders.", muted))
+	}
+	limit := orderRowLimit(g.layout.extraY / g.layout.unit)
+	for i, row := range rows[:min(limit, len(rows))] {
 		from, _ := g.network.Station(row.request.From)
 		to, _ := g.network.Station(row.request.To)
-		y := 180 + float64(i*47)
-		g.label(screen, label{x: 816, y: y, size: 14, value: fmt.Sprintf("#%d  %s > %s", row.request.ID, from.Name, to.Name), color: foreground})
-		g.label(screen, label{x: 816, y: y + 21, size: 11, value: row.status, color: muted})
+		y := orderRowsTop + float64(i)*orderRowSpacing
+		labels = append(labels,
+			panelLabel(y, 14, fmt.Sprintf("#%d  %s > %s", row.request.ID, from.Name, to.Name), foreground),
+			panelLabel(y+21, 11, row.status, muted))
 	}
-	if len(rows) > 4 {
-		g.label(screen, label{x: 816, y: 365, size: 11, value: fmt.Sprintf("+%d more orders", len(rows)-4), color: muted})
+	if len(rows) > limit {
+		y := orderRowsTop + float64(limit)*orderRowSpacing - 3
+		labels = append(labels, panelLabel(y, 11, fmt.Sprintf("+%d more orders", len(rows)-limit), muted))
 	}
+	return labels
 }

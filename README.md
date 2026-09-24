@@ -218,6 +218,8 @@ See [the London qualification network](docs/london.md) for these rules.
 - Each accepted request shows its order number and opens **Orders**.
   For 3 s, the request button reads **Order accepted** while **From** and **To** show the stations of that order.
 - Open **Orders** to see queued and active journeys and their status.
+  **Orders** lists four orders in a window of the minimum size.
+  A taller window shows more orders.
 - Boarding takes three simulated seconds.
   Unloading takes two.
 

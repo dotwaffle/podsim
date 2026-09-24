@@ -4,6 +4,10 @@ import (
 	"cmp"
 	"fmt"
 	"image"
+	"maps"
+	"math"
+	"slices"
+	"strings"
 	"testing"
 
 	"github.com/hajimehoshi/ebiten/v2/text/v2"
@@ -57,7 +61,10 @@ func buttonArea(control button) area {
 
 // labelArea returns the measured text box of a label at its drawn position.
 func (g *Game) labelArea(value label) area {
-	x, y := g.layout.labelPosition(value.x, value.y)
+	x, y := value.x, value.y
+	if !value.physical {
+		x, y = g.layout.labelPosition(value.x, value.y)
+	}
 	width, height := text.Measure(value.value, g.textFace(value.size), 0)
 	return area{left: x, top: y, right: x + width, bottom: y + height}
 }
@@ -340,6 +347,134 @@ func TestConnectionFooter(t *testing.T) {
 				t.Errorf("footer = %q color %#06x, want %q color %#06x", got.value, got.color, test.wantValue, test.wantColor)
 			}
 		})
+	}
+}
+
+// rightPanelArea returns the right panel in physical pixels, as Draw fills
+// it.
+func (g *Game) rightPanelArea() area {
+	return area{left: g.layout.right(796), top: g.layout.y(96), right: g.layout.right(1076), bottom: g.layout.y(570) + g.layout.extraY}
+}
+
+// rightBottomGroup reports if the control with action is in the group at
+// the bottom of the right panel.
+func rightBottomGroup(action string) bool {
+	switch action {
+	case "pause", "speed", "reset", "orders", "demand", "pods-next":
+		return true
+	}
+	return strings.HasPrefix(action, "pod/")
+}
+
+// TestRightPanelContentStaysInside checks that the controls, the fleet
+// statistics and a full Orders panel stay inside the right panel, and that
+// the order rows end above the pod selector.
+func TestRightPanelContentStaysInside(t *testing.T) {
+	t.Parallel()
+	for _, layout := range controlLayouts {
+		t.Run(layout.name, func(t *testing.T) {
+			t.Parallel()
+			game := controlTestGame(t, layout.input)
+			game.showOrders = true
+			for i := range 40 {
+				game.state.Simulation.Pending = append(game.state.Simulation.Pending, sim.Request{ID: i + 1, From: "station-01", To: "station-02"})
+			}
+			panel := game.rightPanelArea()
+			inside := func(got area) bool {
+				return got.left >= panel.left && got.top >= panel.top && got.right <= panel.right && got.bottom <= panel.bottom
+			}
+			selectorTop := panel.bottom
+			for _, control := range game.buttons() {
+				if !rightBottomGroup(control.action) {
+					continue
+				}
+				if got := buttonArea(control); !inside(got) {
+					t.Errorf("control %q %+v escapes right panel %+v", control.action, got, panel)
+				}
+				selectorTop = min(selectorTop, control.y)
+			}
+			for _, value := range fleetStatLabels(game.state.Simulation) {
+				if got := game.labelArea(value); !inside(got) {
+					t.Errorf("label %q %+v escapes right panel %+v", value.value, got, panel)
+				}
+			}
+			for _, value := range game.orderLabels(game.state.Simulation) {
+				got := game.labelArea(value)
+				if got.top < panel.top || got.bottom >= selectorTop {
+					t.Errorf("order label %q %+v is not between panel top %g and pod selector %g", value.value, got, panel.top, selectorTop)
+				}
+			}
+		})
+	}
+}
+
+// TestRightBottomGroupMovesAsOneGroup checks that the pod selector, Pause,
+// Speed, Reset, Orders and Demand keep the same distance to the bottom of
+// the right panel in every window. So no gap opens between them on a tall
+// window.
+func TestRightBottomGroupMovesAsOneGroup(t *testing.T) {
+	t.Parallel()
+	offsets := func(game *Game) map[string]float64 {
+		got := map[string]float64{}
+		bottom := game.rightPanelArea().bottom
+		for _, control := range game.buttons() {
+			if rightBottomGroup(control.action) {
+				got[control.action] = (bottom - control.y) / game.layout.unit
+			}
+		}
+		return got
+	}
+	want := offsets(controlTestGame(t, controlLayouts[0].input))
+	for _, layout := range controlLayouts {
+		got := offsets(controlTestGame(t, layout.input))
+		for action, offset := range want {
+			if math.Abs(got[action]-offset) > 1e-9 {
+				t.Errorf("%s: control %q is %g units above the panel bottom, want %g", layout.name, action, got[action], offset)
+			}
+		}
+	}
+}
+
+// TestRightBottomGroupHasNoGap checks that each row of the bottom group
+// starts at most 6 units below the row above it. So no fixed gap opens
+// between the pod selector, Pause, Speed and Reset, and Orders and Demand.
+func TestRightBottomGroupHasNoGap(t *testing.T) {
+	t.Parallel()
+	game := controlTestGame(t, controlLayouts[0].input)
+	rows := map[float64]float64{}
+	for _, control := range game.buttons() {
+		if rightBottomGroup(control.action) {
+			rows[control.y] = max(rows[control.y], control.y+control.h)
+		}
+	}
+	tops := slices.Sorted(maps.Keys(rows))
+	if len(tops) != 4 {
+		t.Fatalf("bottom group has %d rows, want 4", len(tops))
+	}
+	for i := 1; i < len(tops); i++ {
+		if gap := (tops[i] - rows[tops[i-1]]) / game.layout.unit; gap > 6+1e-9 {
+			t.Errorf("row at y %g starts %g units below the row above it, want at most 6", tops[i], gap)
+		}
+	}
+}
+
+func TestOrderRowLimit(t *testing.T) {
+	t.Parallel()
+	tests := []struct {
+		name  string
+		extra float64
+		want  int
+	}{
+		{name: "minimum", extra: 0, want: 4},
+		{name: "negative", extra: -100, want: 4},
+		{name: "almost one more row", extra: 36, want: 4},
+		{name: "one more row", extra: 37, want: 5},
+		{name: "1080 high window", extra: 320, want: 11},
+	}
+	for _, test := range tests {
+		if got := orderRowLimit(test.extra); got != test.want {
+			t.Errorf("%s: orderRowLimit(%g) = %d, want %d", test.name, test.extra, got, test.want)
+		}
 	}
 }
 

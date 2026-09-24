@@ -54,13 +54,23 @@ func (layout displayLayout) y(value float64) float64      { return value * layou
 func (layout displayLayout) right(value float64) float64  { return value*layout.unit + layout.extraX }
 func (layout displayLayout) bottom(value float64) float64 { return value*layout.unit + layout.extraY }
 
+// movesDown reports if an item at x, y in design units moves down with the
+// bottom edge of a tall window. The bottom panel moves down. In the right
+// panel, the pod selector and all controls below it also move down as one
+// group. So the inspector and the Orders panel above them get the extra
+// height, and no gap opens between the controls.
+func movesDown(x, y float64) bool {
+	return y >= 529 || x >= 796 && y >= podSelectorTop
+}
+
 func (layout displayLayout) labelPosition(x, y float64) (float64, float64) {
+	moves := movesDown(x, y)
 	if x >= 796 {
 		x = layout.right(x)
 	} else {
 		x = layout.x(x)
 	}
-	if y >= 531 {
+	if moves {
 		y = layout.bottom(y)
 	} else {
 		y = layout.y(y)

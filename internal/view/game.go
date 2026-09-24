@@ -362,12 +362,12 @@ func (g *Game) buttons() []button {
 		{x: 651, y: 104, w: 28, h: 24, label: "+", action: "map-zoom-in"},
 		{x: 685, y: 104, w: 66, h: 24, label: "Fit", action: "map-fit"},
 		{x: 964, y: 104, w: 96, h: 24, label: followLabel, selected: g.followSelected, action: "map-follow", fontSize: 11},
-		{x: 810, y: 529, w: 120, h: 26, label: fmt.Sprintf("Orders %d", outstandingOrderCount(state)), selected: g.showOrders, action: "orders"},
-		{x: 940, y: 529, w: 120, h: 26, label: "Demand", selected: g.showDemand, action: "demand"},
+		{x: 810, y: 509, w: 120, h: 26, label: fmt.Sprintf("Orders %d", outstandingOrderCount(state)), selected: g.showOrders, action: "orders"},
+		{x: 940, y: 509, w: 120, h: 26, label: "Demand", selected: g.showDemand, action: "demand"},
 		{x: 930, y: 644, w: 130, h: 42, label: requestLabel, selected: true, disabled: busy || g.destination == g.origin, action: "request"},
-		{x: 810, y: 440, w: 250, h: 36, label: pauseLabel, action: "pause"},
-		{x: 810, y: 486, w: 119, h: 36, label: fmt.Sprintf("Speed %dx [S]", g.state.Speed), action: "speed"},
-		{x: 941, y: 486, w: 119, h: 36, label: "Reset [Shift+R]", action: "reset"},
+		{x: 810, y: 433, w: 250, h: 32, label: pauseLabel, action: "pause"},
+		{x: 810, y: 471, w: 119, h: 32, label: fmt.Sprintf("Speed %dx [S]", g.state.Speed), action: "speed"},
+		{x: 941, y: 471, w: 119, h: 32, label: "Reset [Shift+R]", action: "reset"},
 	}
 	for i, v := range state.Vehicles {
 		if i/6 != g.podPage {
@@ -401,7 +401,7 @@ func (g *Game) layoutButton(b button) button {
 	if b.x >= 796 && !b.expandsWithMap || strings.HasPrefix(b.action, "map-") || b.action == "request" {
 		x += g.layout.extraX
 	}
-	if b.y >= 529 {
+	if movesDown(b.x, b.y) {
 		y += g.layout.extraY
 	}
 	b.x, b.y, b.w, b.h = x, y, b.w*g.layout.unit, b.h*g.layout.unit
@@ -1443,10 +1443,20 @@ func (g *Game) drawControls(screen *ebiten.Image, state sim.Snapshot) {
 	if pages := g.stationPages(); len(pages) > 1 {
 		g.label(screen, label{x: 850, y: 609, size: 10, value: fmt.Sprintf("%d / %d", g.stationPage+1, len(pages)), color: muted})
 	}
-	g.label(screen, label{x: 816, y: 557, size: 10, value: fmt.Sprintf("Pickup wait: avg %.0f s / max %.0f s", state.Wait.AverageSeconds, state.Wait.MaxSeconds), color: muted})
-	use := summarizeFleet(state)
-	g.label(screen, label{x: 816, y: 576, size: 10, value: fmt.Sprintf("Fleet use: %d%% active / %d%% passenger", use.activePercent(), use.passengerPercent()), color: muted})
+	for _, value := range fleetStatLabels(state) {
+		g.label(screen, value)
+	}
 	g.label(screen, g.hintLine(state, hint))
+}
+
+// fleetStatLabels returns the Pickup wait and Fleet use lines for state.
+// They are the last lines of the right panel, below Orders and Demand.
+func fleetStatLabels(state sim.Snapshot) []label {
+	use := summarizeFleet(state)
+	return []label{
+		{x: 816, y: 539, size: 10, value: fmt.Sprintf("Pickup wait: avg %.0f s / max %.0f s", state.Wait.AverageSeconds, state.Wait.MaxSeconds), color: muted},
+		{x: 816, y: 553, size: 10, value: fmt.Sprintf("Fleet use: %d%% active / %d%% passenger", use.activePercent(), use.passengerPercent()), color: muted},
+	}
 }
 
 // sameStationHint tells the user why Order is disabled when From and To are
