@@ -550,3 +550,37 @@ func TestSharedRideCountsQueuedParties(t *testing.T) {
 		})
 	}
 }
+
+// TestOnePassDoesNotReuseAClaimedPickupPod checks that dispatch chooses the
+// pickup pod again after an assignment in the same pass. Two trips from one
+// station wait in the queue and two parked pods are available. Each trip must
+// get a different pod.
+func TestOnePassDoesNotReuseAClaimedPickupPod(t *testing.T) {
+	t.Parallel()
+	s, err := NewFleet(Example(), []Placement{
+		{ID: "01", StationID: "parking", BerthID: "parking-1"},
+		{ID: "02", StationID: "parking", BerthID: "parking-2"},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	s.requestID = 2
+	for id := 1; id <= 2; id++ {
+		s.waiting = append(s.waiting, waitingTrip{request: Request{ID: id, From: "harbor", To: "garden", PartySize: 1}})
+	}
+	s.dispatch()
+	if len(s.waiting) != 2 {
+		t.Fatalf("queue has %d trips, want 2", len(s.waiting))
+	}
+	pods := make(map[string]bool)
+	for _, trip := range s.waiting {
+		v := s.findVehicle(trip.request.PodID)
+		if v == nil || v.RelocatingTo != "harbor" {
+			t.Fatalf("trip %d has no pod on the way to harbor: %+v", trip.request.ID, s.Snapshot())
+		}
+		pods[v.Pod.ID] = true
+	}
+	if len(pods) != 2 {
+		t.Fatalf("the two trips share one pod: %+v", s.Snapshot().Pending)
+	}
+}

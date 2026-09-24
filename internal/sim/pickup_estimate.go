@@ -17,7 +17,7 @@ func (s *Simulation) waitForFinishingPod(trip *waitingTrip, idle *vehicle, assig
 		return true
 	}
 	station, _ := s.station(trip.request.From)
-	route, _, ok := s.pickupRouteWithAssignments(idle, trip.request.From, assigned)
+	route, _, ok := s.pickupRouteWithAssignments(pickupRouteInput{pod: idle, station: trip.request.From, assigned: assigned})
 	if !ok {
 		return false
 	}

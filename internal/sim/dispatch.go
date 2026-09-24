@@ -46,6 +46,15 @@ func (s *Simulation) RequestTrip(origin, destination string) error {
 }
 
 // dispatch considers requests in submission order. Unavailable pickups do not block other stations.
+//
+// Many waiting trips can start at the same station. pickups keeps the result
+// of pickupPod for each station, so these trips do not repeat the same work.
+// pickupPod reads the pods, the berth owners, the waiting trips, and
+// assigned. After a change to one of them, the loop clears pickups before it
+// reads pickups again. Thus each entry is equal to the result of a new
+// pickupPod call. A dispatch reason and a deferral do not change what
+// pickupPod reads. pickupPod also fills the route caches, but a cached route
+// is equal to a new route.
 func (s *Simulation) dispatch() {
 	assigned := make(map[string]bool, len(s.waiting))
 	for _, trip := range s.waiting {
@@ -53,17 +62,22 @@ func (s *Simulation) dispatch() {
 			assigned[trip.request.PodID] = true
 		}
 	}
+	pickups := make(map[string]*vehicle)
 	for i := 0; i < len(s.waiting); {
-		s.promoteReadyPickup(i)
+		if s.promoteReadyPickup(i) {
+			clear(pickups)
+		}
 		trip := &s.waiting[i]
 		trip.request.DispatchReason = ""
 		if trip.request.PodID == "" && s.joinSharedRide(*trip) {
+			clear(pickups)
 			s.waiting = slices.Delete(s.waiting, i, i+1)
 			continue
 		}
 		v := s.findVehicle(trip.request.PodID)
 		if v != nil && (v.Pod.Activity != Idle || v.Pod.StationID != trip.request.From) {
 			if local := s.localPickup(trip.request.From, assigned); local != nil {
+				clear(pickups)
 				delete(assigned, v.Pod.ID)
 				trip.request.PodID = local.Pod.ID
 				trip.route, trip.destination = nil, Berth{}
@@ -72,17 +86,23 @@ func (s *Simulation) dispatch() {
 			}
 		}
 		if v == nil {
-			v = s.pickupPod(trip.request.From, assigned)
+			var known bool
+			if v, known = pickups[trip.request.From]; !known {
+				v = s.pickupPod(trip.request.From, assigned)
+				pickups[trip.request.From] = v
+			}
 			if v == nil {
 				trip.request.DispatchReason = "Waiting for an available pod"
 				i++
 				continue
 			}
-			if v.Pod.StationID != trip.request.From || v.Pod.Activity != Idle {
-				if s.waitForFinishingPod(trip, v, assigned) {
-					i++
-					continue
-				}
+			away := v.Pod.StationID != trip.request.From || v.Pod.Activity != Idle
+			if away && s.waitForFinishingPod(trip, v, assigned) {
+				i++
+				continue
+			}
+			clear(pickups)
+			if away {
 				if err := s.sendPickup(v, trip.request.From); err != nil {
 					trip.request.DispatchReason = "Waiting for pickup access"
 					i++
@@ -95,6 +115,7 @@ func (s *Simulation) dispatch() {
 			assigned[v.Pod.ID] = true
 		}
 		if v.Pod.Activity == Idle && v.Pod.StationID == trip.request.From {
+			clear(pickups)
 			if err := s.board(v, *trip); err != nil {
 				trip.request.DispatchReason = "Waiting for destination access"
 				i++
@@ -130,12 +151,15 @@ func (s *Simulation) localPickup(stationID string, assigned map[string]bool) *ve
 }
 
 // pickupPod chooses the fastest available idle or divertible parking pod, with pod ID breaking ties.
+// It does not change the pods, the berth owners, or the waiting trips, so it
+// computes each berth load one time for all pods.
 func (s *Simulation) pickupPod(stationID string, assigned map[string]bool) *vehicle {
 	var best *vehicle
 	bestTime := math.Inf(1)
+	load := s.berthLoads()
 	for i := range s.vehicles {
 		v := &s.vehicles[i]
-		route, _, ok := s.pickupRouteWithAssignments(v, stationID, assigned)
+		route, _, ok := s.pickupRouteWithAssignments(pickupRouteInput{pod: v, station: stationID, assigned: assigned, load: load})
 		if !ok {
 			continue
 		}
@@ -205,11 +229,12 @@ func (s *Simulation) recordBoarding(request Request) {
 
 // promoteReadyPickup serves the oldest passenger first when pickup pods arrive out of order.
 // Both pods retain the same pickup station; only their unboarded passenger orders swap.
-func (s *Simulation) promoteReadyPickup(index int) {
+// It reports whether it swapped the pods of two trips.
+func (s *Simulation) promoteReadyPickup(index int) bool {
 	trip := &s.waiting[index]
 	current := s.findVehicle(trip.request.PodID)
 	if current != nil && current.Pod.Activity == Idle && current.Pod.StationID == trip.request.From {
-		return
+		return false
 	}
 	for j := index + 1; j < len(s.waiting); j++ {
 		later := &s.waiting[j]
@@ -221,7 +246,8 @@ func (s *Simulation) promoteReadyPickup(index int) {
 			trip.request.PodID, later.request.PodID = later.request.PodID, trip.request.PodID
 			trip.route, later.route = nil, nil
 			trip.destination, later.destination = Berth{}, Berth{}
-			return
+			return true
 		}
 	}
+	return false
 }
