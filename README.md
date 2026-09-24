@@ -445,6 +445,8 @@ They end when the server stops, also with `-state`.
 
 An import does not replace the draft when the file is malformed, unsupported, or fails validation.
 Validation checks routes between passenger stations, berth routes, pod placement, resource IDs, and the 24-meter minimum lane length.
+A route between passenger stations goes from each berth of one station to each berth of the other station.
+It can use all lanes.
 A berth route goes from the station entry to the berth, or from the berth to the station exit.
 It can use a chain of lanes, as in the London stations.
 It cannot pass through the entry, exit, or berth node of a station.

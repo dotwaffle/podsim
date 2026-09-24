@@ -460,6 +460,7 @@ test("berth routes can use chains but not station nodes", () => {
     { name: "an entry route through its own exit", side: "entry", via: (stations) => stations[0].Exit },
     { name: "an exit route through another station exit", side: "exit", via: (stations) => stations[1].Exit },
     { name: "an entry route against the lane direction", side: "entry", reverse: true },
+    { name: "an exit route against the lane direction", side: "exit", reverse: true },
   ];
   for (const item of cases) {
     let { config, arrival, departure } = chainScenario();
@@ -478,6 +479,27 @@ test("berth routes can use chains but not station nodes", () => {
       expected.push(`Berth ${berth.ID} needs an ${item.side} lane.`);
     }
     assert.deepEqual(editor.validateConfig(config), expected, item.name);
+  }
+});
+
+// The server checks passenger routes from each berth to each berth of the
+// other passenger stations. The route does not have to go through the exit
+// of the origin or the entry of the destination.
+test("passenger routes go from berth to berth as on the server", () => {
+  const cases = [
+    { name: "a lane from the berth that skips the exit", route: ([alpha, beta]) => [alpha.Berths[0].Node, beta.Entry], want: [] },
+    { name: "a lane to the berth that skips the entry", route: ([alpha, beta]) => [alpha.Exit, beta.Berths[0].Node], want: [] },
+    { name: "a lane from one of two berths", secondBerth: 0, route: ([alpha, beta]) => [alpha.Berths[0].Node, beta.Entry], want: ["Alpha cannot reach Beta."] },
+    { name: "a lane to one of two berths", secondBerth: 1, route: ([alpha, beta]) => [alpha.Exit, beta.Berths[0].Node], want: ["Alpha cannot reach Beta."] },
+  ];
+  for (const item of cases) {
+    let config = connectedScenario();
+    if (item.secondBerth !== undefined) config = editor.addBerth(config, config.network.Stations[item.secondBerth].ID);
+    const [alpha, beta] = config.network.Stations;
+    config.network.Lanes = config.network.Lanes.filter((lane) => !(lane.From === alpha.Exit && lane.To === beta.Entry));
+    const [from, to] = item.route(config.network.Stations);
+    config = editor.addLane(config, from, to, false);
+    assert.deepEqual(editor.validateConfig(config), item.want, item.name);
   }
 });
 

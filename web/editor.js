@@ -417,6 +417,42 @@
     return seen;
   }
 
+  // stationReach tells which stations can reach which other stations.
+  // berthNodes holds the berth node IDs of each station. reach[from][to] is
+  // true when a lane route goes from each berth of station from to each berth
+  // of station to. As on the server, the route can use all lanes. One search
+  // runs from each berth. The search uses node indexes, because the London
+  // project has about 200 passenger berths.
+  function stationReach(lanes, berthNodes) {
+    const indexes = new Map();
+    const indexOf = (node) => {
+      if (!indexes.has(node)) indexes.set(node, indexes.size);
+      return indexes.get(node);
+    };
+    const adjacency = [];
+    for (const lane of lanes) (adjacency[indexOf(lane.From)] ||= []).push(indexOf(lane.To));
+    const berths = berthNodes.map((nodes) => nodes.map(indexOf));
+    const seen = new Uint32Array(indexes.size);
+    let search = 0;
+    return berths.map((starts) => {
+      const reach = berths.map(() => true);
+      for (const start of starts) {
+        search += 1;
+        seen[start] = search;
+        const queue = [start];
+        for (let index = 0; index < queue.length; index += 1) {
+          for (const next of adjacency[queue[index]] || []) {
+            if (seen[next] === search) continue;
+            seen[next] = search;
+            queue.push(next);
+          }
+        }
+        berths.forEach((targets, to) => { if (!targets.every((node) => seen[node] === search)) reach[to] = false; });
+      }
+      return reach;
+    });
+  }
+
   // validateConfig gives the errors for a scenario. An error blocks an apply
   // or an import. configWarnings gives the checks that do not block.
   function validateConfig(value) {
@@ -497,10 +533,14 @@
     }
     // As on the server, a berth route can use a chain of lanes. It cannot pass
     // through the entry, exit, or berth node of a station.
+    const brokenBerths = new Set();
     for (const station of validStations) {
       for (const berth of Array.isArray(station.Berths) ? station.Berths.filter(isRecord) : []) {
-        if (!reachableAvoiding(directed, station.Entry, berth.Node, componentNodes)) errors.push(`Berth ${berth.ID} needs an entry lane.`);
-        if (!reachableAvoiding(directed, berth.Node, station.Exit, componentNodes)) errors.push(`Berth ${berth.ID} needs an exit lane.`);
+        const entry = reachableAvoiding(directed, station.Entry, berth.Node, componentNodes);
+        const exit = reachableAvoiding(directed, berth.Node, station.Exit, componentNodes);
+        if (!entry) errors.push(`Berth ${berth.ID} needs an entry lane.`);
+        if (!exit) errors.push(`Berth ${berth.ID} needs an exit lane.`);
+        if (!entry || !exit) brokenBerths.add(berth.Node);
       }
     }
     for (const lane of validLanes) {
@@ -525,13 +565,16 @@
     if (passenger.length < 2) errors.push("The network needs at least two passenger stations.");
     if (network.Stations.length > 100 || network.Nodes.length > 2000 || network.Lanes.length > 4000) errors.push("The network exceeds the supported size.");
     if (fleet.length < 1 || fleet.length > 200) errors.push("The fleet must contain 1 to 200 pods.");
-    const reachability = new Map();
-    for (const origin of passenger) reachability.set(origin.ID, reachableFrom(directed, origin.Exit));
-    for (const origin of passenger) {
-      for (const destination of passenger) {
-        if (origin.ID !== destination.ID && !reachability.get(origin.ID).has(destination.Entry)) errors.push(`${origin.Name} cannot reach ${destination.Name}.`);
-      }
-    }
+    // As on the server, each berth of a passenger station must reach each
+    // berth of the other passenger stations. The check skips a berth that has
+    // a berth route error. That error already blocks, and the server stops at
+    // it. Thus one broken berth gives one error, not one for each station pair.
+    const passengerBerths = passenger.map((station) => (Array.isArray(station.Berths) ? station.Berths.filter(isRecord) : [])
+      .map((berth) => berth.Node).filter((node) => !brokenBerths.has(node)));
+    const reach = stationReach(validLanes, passengerBerths);
+    passenger.forEach((origin, from) => passenger.forEach((destination, to) => {
+      if (origin.ID !== destination.ID && !reach[from][to]) errors.push(`${origin.Name} cannot reach ${destination.Name}.`);
+    }));
     const demand = value.demand;
     if (isRecord(demand) && "enabled" in demand && typeof demand.enabled !== "boolean") errors.push("The passenger demand enabled setting must be true or false.");
     if (!demand || !Number.isInteger(demand.perMinute) || demand.perMinute < 1 || demand.perMinute > 120) errors.push("Passenger demand must be 1 to 120 trips per minute.");
