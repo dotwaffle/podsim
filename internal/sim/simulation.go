@@ -181,10 +181,10 @@ type vehicle struct {
 // Simulation owns a fixed fleet and local track, junction, and berth resources.
 //
 // Clone shares some fields with its source. They are the network, the route
-// graph, and the station, geometry, junction, and safety indexes. They also
-// include the initial fleet, the demand weights, the congestion costs, the
-// routes of pods and waiting trips, and the block tables of pods. Code must
-// replace a shared field whole. It must not write into a shared field in
+// graph, and the station, pod, geometry, junction, and safety indexes. They
+// also include the initial fleet, the demand weights, the congestion costs,
+// the routes of pods and waiting trips, and the block tables of pods. Code
+// must replace a shared field whole. It must not write into a shared field in
 // place, because that change also changes the clones.
 type Simulation struct {
 	// NewFleet builds junctionConflicts from the network. No code writes to it
@@ -224,6 +224,11 @@ type Simulation struct {
 	reservationLookaheadSeconds  float64
 	laneSafety                   map[string]SafetyLocation
 	berthSafety                  map[string]SafetyLocation
+	// vehicleIndexes gives the position in vehicles of each pod ID. Reset
+	// and restorePhysical replace it whole after they replace vehicles. No
+	// code writes to it in place. findVehicle checks each entry, so an entry
+	// that is missing or stale makes the lookup slower but not wrong.
+	vehicleIndexes map[string]int
 }
 
 // New creates a one-pod scenario for focused experiments.
@@ -337,6 +342,17 @@ func (s *Simulation) Reset() {
 		s.owners[resource{kind: berthResource, id: berth.ID}] = p.ID
 		s.owners[resource{kind: nodeResource, id: berth.Node}] = p.ID
 	}
+	s.vehicleIndexes = indexVehicles(s.vehicles)
+}
+
+// indexVehicles returns the position of each pod ID in vehicles. Pod IDs are
+// unique, because fleet validation and restore validation reject duplicates.
+func indexVehicles(vehicles []vehicle) map[string]int {
+	indexes := make(map[string]int, len(vehicles))
+	for index := range vehicles {
+		indexes[vehicles[index].Pod.ID] = index
+	}
+	return indexes
 }
 
 // Snapshot does not expose mutable simulation storage.
@@ -438,7 +454,19 @@ func (s *Simulation) RequestJourney(podID, destination string) error {
 	return s.board(v, waitingTrip{request: Request{ID: s.requestID, From: from.ID, To: to.ID, PartySize: 1, RequestedTick: s.tick}, route: route})
 }
 
+// findVehicle returns the pod with the given ID, or nil when no pod has it.
+// It returns nil at once for an empty ID, because fleet validation and
+// restore validation reject an empty pod ID. It uses vehicleIndexes when the
+// entry names a pod with that ID. Pod IDs in vehicles are unique, so that
+// pod is the pod that a scan finds. When the entry is missing or stale,
+// findVehicle scans vehicles.
 func (s *Simulation) findVehicle(id string) *vehicle {
+	if id == "" {
+		return nil
+	}
+	if index, ok := s.vehicleIndexes[id]; ok && index < len(s.vehicles) && s.vehicles[index].Pod.ID == id {
+		return &s.vehicles[index]
+	}
 	for i := range s.vehicles {
 		if s.vehicles[i].Pod.ID == id {
 			return &s.vehicles[i]

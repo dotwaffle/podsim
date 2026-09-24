@@ -30,7 +30,7 @@ var cloneRules = map[reflect.Type]map[string]cloneRule{
 		"geometry": cloneShare, "network": cloneShare, "initial": cloneShare,
 		"vehicles": cloneCopy, "owners": cloneCopy, "demo": cloneCopy, "waiting": cloneCopy,
 		"demandWeights": cloneShare, "congestionRouteCosts": cloneShare, "congestionRoutes": cloneCopy,
-		"laneSafety": cloneShare, "berthSafety": cloneShare,
+		"laneSafety": cloneShare, "berthSafety": cloneShare, "vehicleIndexes": cloneShare,
 	},
 	reflect.TypeFor[vehicle](): {
 		"Vehicle": cloneCopy, "blocks": cloneShare, "blockStarts": cloneShare, "routeReleases": cloneCopy,
@@ -164,7 +164,7 @@ var persistRules = map[reflect.Type]map[string]persistRule{
 		"redistribution": persistSession, "demandWeights": persistSession, "nextRedistributionTick": persistSave,
 		"passengerDistanceMeters": persistSave, "emptyDistanceMeters": persistSave, "rebalanceMoves": persistSave,
 		"sharedRidePartyLimit": persistSave, "sharedParties": persistSave,
-		"laneSafety": persistDerive, "berthSafety": persistDerive,
+		"laneSafety": persistDerive, "berthSafety": persistDerive, "vehicleIndexes": persistDerive,
 		"congestionRouting": persistUnsupported, "congestionRouteCosts": persistUnsupported,
 		"congestionRoutes": persistUnsupported, "nextCongestionRouteRefresh": persistUnsupported,
 		"reservationLookaheadSeconds": persistUnsupported,

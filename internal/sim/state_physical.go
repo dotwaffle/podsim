@@ -80,6 +80,8 @@ func restorePhysical(input RestoreStateInput) (*Simulation, RestoreResult, error
 	if err := r.decodePods(); err != nil {
 		return nil, RestoreResult{}, err
 	}
+	// The saved pods can differ from the fleet that NewFleet indexed.
+	s.vehicleIndexes = indexVehicles(s.vehicles)
 	if err := r.checkRoutes(); err != nil {
 		return nil, RestoreResult{}, err
 	}

@@ -416,3 +416,65 @@ func TestUnreachableRequest(t *testing.T) {
 		t.Fatal("unreachable request changed state")
 	}
 }
+
+// checkVehicleIndex checks that vehicleIndexes gives the position of each pod
+// and has no other entry, so that findVehicle does not scan. It also checks
+// the lookups of an empty ID and of an unknown ID.
+func checkVehicleIndex(t *testing.T, name string, s *Simulation) {
+	t.Helper()
+	if len(s.vehicleIndexes) != len(s.vehicles) {
+		t.Errorf("%s: the index has %d entries for %d pods", name, len(s.vehicleIndexes), len(s.vehicles))
+	}
+	for index := range s.vehicles {
+		id := s.vehicles[index].Pod.ID
+		if got, ok := s.vehicleIndexes[id]; !ok || got != index {
+			t.Errorf("%s: pod %s has index %d (found %t), want %d", name, id, got, ok, index)
+		}
+		if s.findVehicle(id) != &s.vehicles[index] {
+			t.Errorf("%s: findVehicle(%q) is not the pod at %d", name, id, index)
+		}
+	}
+	if s.findVehicle("") != nil || s.findVehicle("unknown") != nil {
+		t.Errorf("%s: findVehicle found a pod for an empty or unknown ID", name)
+	}
+}
+
+func TestVehicleIndexFollowsFleetChanges(t *testing.T) {
+	t.Parallel()
+	s := newTraffic(t)
+	checkVehicleIndex(t, "new fleet", s)
+	if err := s.StartDemo(); err != nil {
+		t.Fatal(err)
+	}
+	checkVehicleIndex(t, "demo", s)
+	advance(s, 20*TicksPerSecond)
+	checkVehicleIndex(t, "clone", s.Clone())
+	// The saved state has the parked demo pods, which the fleet does not have.
+	state := roundTripState(t, s.ExportState())
+	for _, logicalOnly := range []bool{false, true} {
+		restored, result, err := RestoreState(RestoreStateInput{Network: Example(), Fleet: demoFleet(), State: state, LogicalOnly: logicalOnly})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !logicalOnly && (result.Tier != RestorePhysical || len(restored.vehicles) != 4) {
+			t.Fatalf("the restore has tier %s and %d pods, want the physical tier and 4 pods", result.Tier, len(restored.vehicles))
+		}
+		checkVehicleIndex(t, "restore tier "+string(result.Tier), restored)
+	}
+	s.Reset()
+	checkVehicleIndex(t, "reset", s)
+}
+
+func TestFindVehicleScansAStaleIndex(t *testing.T) {
+	t.Parallel()
+	s := newTraffic(t)
+	s.vehicles[0], s.vehicles[1] = s.vehicles[1], s.vehicles[0]
+	for _, indexes := range []map[string]int{s.vehicleIndexes, nil} {
+		s.vehicleIndexes = indexes
+		for index := range s.vehicles {
+			if id := s.vehicles[index].Pod.ID; s.findVehicle(id) != &s.vehicles[index] {
+				t.Errorf("findVehicle(%q) is not the pod at %d", id, index)
+			}
+		}
+	}
+}
