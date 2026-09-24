@@ -213,7 +213,8 @@ Raw results are in
 
 The build now creates `podsim.wasm.gz` with maximum gzip compression.
 The server serves this artifact directly when the browser accepts gzip.
-Missing or older artifacts fall back to compression during the request.
+Later, the build stopped keeping the raw `podsim.wasm`.
+The server decompresses `podsim.wasm.gz` in memory for a client without gzip.
 Snapshot compression remains at the fast setting. Range responses remain uncompressed.
 
 | Baseline artifact variant | Raw bytes | Transferred bytes |
@@ -233,7 +234,8 @@ Browser measurements used headless Chromium with SwiftShader software rendering,
 
 ```sh
 mise run web
-wc -c dist/podsim.wasm dist/podsim.wasm.gz
+wc -c dist/podsim.wasm.gz
+gzip -dc dist/podsim.wasm.gz | wc -c
 ```
 
 ## Browser rendering

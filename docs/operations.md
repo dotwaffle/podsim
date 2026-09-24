@@ -9,7 +9,9 @@ go generate ./...
 go build -trimpath -tags=embed_assets -o podsim-server ./cmd/serve
 ```
 
-The executable contains the HTML, CSS, JavaScript, raw WASM, and gzip WASM files.
+The executable contains the HTML, CSS, JavaScript, and gzip WASM files.
+It does not contain an uncompressed WASM module. This keeps the executable at about 35 MB, not 64 MB.
+The server decompresses the module in memory only for a client without gzip or for a Range request.
 It does not need a `dist` directory at runtime.
 The `-dir` option overrides embedded files for development.
 Without the `embed_assets` build tag and without `-dir`, the server reads the `dist` directory in the working directory.
@@ -18,6 +20,8 @@ Production builds keep Go and WASM debug information.
 The server sends browser files with `Cache-Control: no-cache` and API responses with `Cache-Control: no-store`.
 A browser must check a cached file with the server before it uses the file, so a reload after an upgrade loads the new files.
 Files from `-dir` or `dist` have a modification time, and the server answers `304 Not Modified` when a file did not change.
+The WASM module has only an ETag that comes from its content, and no `Last-Modified` header.
+Thus a new module with the same modification time gets a full response.
 Embedded files have no modification time, so browsers download them again on each load.
 
 The application serves `GET /healthz` without reading simulation state.

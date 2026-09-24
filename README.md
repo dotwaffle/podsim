@@ -28,7 +28,7 @@ mise run serve
 Open http://127.0.0.1:8080 in desktop Chrome.
 The network view fills the browser window and renders at the display pixel density.
 Resize the window to give the map more space. Map navigation and layout stay local to each browser.
-The build creates static files in `dist/`, including the matching Go WebAssembly runtime and a precompressed WASM file.
+The build creates static files in `dist/`, including the matching Go WebAssembly runtime and the gzip WASM file `podsim.wasm.gz`.
 The first build downloads Go dependencies.
 Keep the server running while using the application.
 All browsers connected to this server share one in-memory session.
@@ -96,8 +96,9 @@ See [session state logs](docs/operations.md#session-state-logs) for the logs.
 
 ## Production server
 
-`go generate ./...` builds the browser application and gzip WASM asset.
+`go generate ./...` builds the browser application and the gzip WASM file.
 An `embed_assets` server build contains all browser files in one executable.
+The executable holds only the gzip WASM file, so it is about 35 MB and not 64 MB.
 The project also includes a non-root, multiarchitecture ko image and a GHCR publishing workflow.
 The server provides `/healthz`, opt-in pprof on a separate listener, and opt-in OTLP telemetry.
 The browser uses normalized gzip JSON frames.
@@ -471,8 +472,13 @@ Rendering never predicts movement beyond the latest received position.
 
 The server uses gzip for snapshots and browser assets when the client supports it.
 Range responses remain uncompressed.
-WASM uses a build-time gzip artifact to reduce downloads without repeating compression for each browser.
-If that artifact is missing or older than the WASM file, the server compresses the current file during the request.
+The build keeps only `podsim.wasm.gz`, which it compresses at maximum level one time.
+The server sends these bytes to browsers that accept gzip.
+For a client without gzip or for a Range request, the server decompresses the module on the first request and keeps it in memory.
+Byte ranges then use the offsets of the uncompressed module.
+A `-dir` directory from an older build with only `podsim.wasm` still works. The server then compresses that file for each gzip request.
+If a `-dir` directory has a `podsim.wasm` that is newer than `podsim.wasm.gz`, the server uses `podsim.wasm`.
+The build writes `podsim.wasm.gz` to a temporary file and then renames it, so a running server never reads a partial module.
 
 Until the first state frame arrives, the map shows **Connecting to server...** and no network.
 A lost connection disables commands.
@@ -516,7 +522,7 @@ See [the project brief](PROJECT_BRIEF.md) for the wider scope and research.
 | `internal/remote` | Snapshot polling, motion buffering, command retries, and connection state. |
 | `internal/view` | Ebitengine rendering and input against copied snapshots. |
 | `internal/telemetry` | Optional OTLP traces, HTTP metrics, runtime metrics, session gauges, and session state metrics. |
-| `internal/cmd/buildweb` | Generated browser files and gzip WASM artifact. |
+| `internal/cmd/buildweb` | Generated browser files and gzip WASM file. |
 | `cmd/podsim` | Desktop and WASM entry point. |
 | `cmd/serve` | Shared session, saved session state, browser assets, health checks, and diagnostics. |
 | `cmd/compare` | Reproducible policy comparisons. |

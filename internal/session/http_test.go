@@ -43,7 +43,6 @@ func TestStaticCacheControl(t *testing.T) {
 		"game.html":      []byte("<!doctype html><title>game</title>"),
 		"editor.js":      []byte("console.log('editor');"),
 		"editor.css":     []byte("body { margin: 0; }"),
-		"podsim.wasm":    module,
 		"podsim.wasm.gz": artifact.Bytes(),
 	} {
 		path := filepath.Join(directory, name)
@@ -66,12 +65,10 @@ func TestStaticCacheControl(t *testing.T) {
 		{name: "game page", path: "/game.html", encoding: "gzip", wantStatus: http.StatusOK, wantCache: "no-cache", wantModified: stamp},
 		{name: "script", path: "/editor.js", encoding: "gzip", wantStatus: http.StatusOK, wantCache: "no-cache", wantModified: stamp},
 		{name: "style sheet", path: "/editor.css", encoding: "gzip", wantStatus: http.StatusOK, wantCache: "no-cache", wantModified: stamp},
-		{name: "precompressed module", path: "/podsim.wasm", encoding: "gzip", wantStatus: http.StatusOK, wantCache: "no-cache", wantModified: stamp},
-		{name: "uncompressed module", path: "/podsim.wasm", wantStatus: http.StatusOK, wantCache: "no-cache", wantModified: stamp},
+		{name: "precompressed module", path: "/podsim.wasm", encoding: "gzip", wantStatus: http.StatusOK, wantCache: "no-cache", wantModified: ""},
+		{name: "uncompressed module", path: "/podsim.wasm", wantStatus: http.StatusOK, wantCache: "no-cache", wantModified: ""},
 		{name: "revalidated index", path: "/", encoding: "gzip", revalidate: true, wantStatus: http.StatusNotModified, wantCache: "no-cache", wantModified: stamp},
 		{name: "revalidated game page", path: "/game.html", encoding: "gzip", revalidate: true, wantStatus: http.StatusNotModified, wantCache: "no-cache", wantModified: stamp},
-		{name: "revalidated precompressed module", path: "/podsim.wasm", encoding: "gzip", revalidate: true, wantStatus: http.StatusNotModified, wantCache: "no-cache", wantModified: stamp},
-		{name: "revalidated uncompressed module", path: "/podsim.wasm", revalidate: true, wantStatus: http.StatusNotModified, wantCache: "no-cache", wantModified: stamp},
 		{name: "state", path: "/api/state", encoding: "gzip", wantStatus: http.StatusOK, wantCache: "no-store"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
