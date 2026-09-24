@@ -7,6 +7,9 @@
   <style>
     html, body { margin: 0; width: 100%; height: 100%; overflow: hidden; background: #0b121a; color: #e5edf5; font: 16px system-ui, sans-serif; }
     #status { position: absolute; inset: 40% 10% auto; text-align: center; z-index: 1; }
+    /* The game reads touches as taps, pans, and pinch zooms. Do not let the
+       browser scroll or zoom the page. */
+    canvas { touch-action: none; }
   </style>
   <script src="wasm_exec.js"></script>
 </head>

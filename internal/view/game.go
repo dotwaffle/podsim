@@ -87,6 +87,7 @@ type Game struct {
 	mapScale             float64
 	mapOrigin            sim.Point
 	camera               mapCamera
+	touch                touchGestures
 	cameraKey            cameraFitKey
 	networkBase          *ebiten.Image
 	networkBaseKey       networkCacheKey
@@ -193,6 +194,7 @@ func (g *Game) Update() error {
 	if g.updateMapInput() {
 		return nil
 	}
+	g.updateTouchInput()
 	return nil
 }
 

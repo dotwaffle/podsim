@@ -184,9 +184,13 @@ See [distribution and operations](docs/operations.md) for build and runtime sett
 | Keep the selected pod centered | **Follow** or **F** |
 
 - The line above the map names the map input: **CLICK POD / CLICK FROM / SHIFT+CLICK TO / TAB POD / SCROLL ZOOM / DRAG PAN**.
+- On a touch screen, a tap acts as a click, also on the buttons and the stations in the station row.
+  Drag one finger on the map to pan.
+  Pinch with two fingers on the map to zoom at their midpoint, and move the two fingers to pan.
+  A drag that starts outside the map does nothing.
 - The scale bar in the lower-left corner of the map shows a round distance of 1, 2, or 5 times a power of ten, for example 500 m, 1 km, or 2 km.
 - Map navigation stays local to your browser.
-- Clicking or dragging the map, or selecting **Fit**, stops following.
+- A click, tap, or drag on the map, or **Fit**, stops following.
 - **Reset** and **Rewind** keep the map view when the network does not change.
 - Zoom in to see individual berths in crowded stations.
   Until then, such a station shows one marker.
