@@ -35,7 +35,8 @@ func TestSessionMetrics(t *testing.T) {
 	metrics := s.Metrics()
 	if metrics.Tick != state.Simulation.Tick || metrics.Submitted != state.Simulation.Submitted ||
 		metrics.Completed != state.Simulation.Completed || metrics.Pending != len(state.Simulation.Pending) ||
-		metrics.Vehicles != len(state.Simulation.Vehicles) {
+		metrics.Vehicles != len(state.Simulation.Vehicles) ||
+		metrics.ActiveVehicles != state.Simulation.WorkingVehicles() {
 		t.Fatalf("metrics do not match state: %+v", metrics)
 	}
 	client := newTestClient(s, "test")

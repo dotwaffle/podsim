@@ -355,47 +355,6 @@ func TestQueueLimitCountsSkippedArrivals(t *testing.T) {
 	}
 }
 
-func TestWorkingVehicles(t *testing.T) {
-	t.Parallel()
-	open := &sim.Request{ID: 1, From: "a", To: "b", PodID: "p1"}
-	done := &sim.Request{ID: 2, From: "a", To: "b", PodID: "p1", Completed: true}
-	pod := func(id string) sim.Pod { return sim.Pod{ID: id} }
-	for _, test := range []struct {
-		name  string
-		state sim.Snapshot
-		want  int
-	}{
-		{name: "empty fleet", want: 0},
-		{name: "idle pod without a trip", state: sim.Snapshot{Vehicles: []sim.Vehicle{{Pod: pod("p1")}}}, want: 0},
-		{name: "idle pod after a trip", state: sim.Snapshot{Vehicles: []sim.Vehicle{{Pod: pod("p1"), Request: done}}}, want: 0},
-		{name: "pod with a trip", state: sim.Snapshot{Vehicles: []sim.Vehicle{{Pod: pod("p1"), Request: open}}}, want: 1},
-		{name: "empty move", state: sim.Snapshot{Vehicles: []sim.Vehicle{{Pod: pod("p1"), Request: done, RelocatingTo: "b"}}}, want: 0},
-		{
-			name: "pod on its way to a pickup",
-			state: sim.Snapshot{
-				Vehicles: []sim.Vehicle{{Pod: pod("p1"), Request: done, RelocatingTo: "a"}, {Pod: pod("p2"), RelocatingTo: "b"}},
-				Pending:  []sim.Request{{ID: 3, From: "a", To: "b", PodID: "p1"}, {ID: 4, From: "b", To: "a"}},
-			},
-			want: 1,
-		},
-		{
-			name: "pod with a trip and a later pickup is one pod",
-			state: sim.Snapshot{
-				Vehicles: []sim.Vehicle{{Pod: pod("p1"), Request: open}},
-				Pending:  []sim.Request{{ID: 3, From: "b", To: "a", PodID: "p1"}},
-			},
-			want: 1,
-		},
-	} {
-		t.Run(test.name, func(t *testing.T) {
-			t.Parallel()
-			if got := workingVehicles(test.state); got != test.want {
-				t.Fatalf("workingVehicles() = %d, want %d", got, test.want)
-			}
-		})
-	}
-}
-
 // TestWorkingVehiclesAfterTrip runs one trip to completion. The pod keeps its
 // completed Request when it goes idle, and the working count must drop to zero.
 func TestWorkingVehiclesAfterTrip(t *testing.T) {
@@ -415,7 +374,7 @@ func TestWorkingVehiclesAfterTrip(t *testing.T) {
 	limit := int64(10 * time.Minute * sim.TicksPerSecond / time.Second)
 	state := simulation.Snapshot()
 	for state.Completed == 0 && state.Tick < limit {
-		working := workingVehicles(state)
+		working := state.WorkingVehicles()
 		passenger := 0
 		for _, vehicle := range state.Vehicles {
 			if vehicle.Pod.Occupied {
@@ -439,8 +398,8 @@ func TestWorkingVehiclesAfterTrip(t *testing.T) {
 	if !kept {
 		t.Fatal("no pod keeps its completed request, so the test does not cover that case")
 	}
-	if got := workingVehicles(state); got != 0 {
-		t.Fatalf("workingVehicles() after the trip = %d, want 0", got)
+	if got := state.WorkingVehicles(); got != 0 {
+		t.Fatalf("WorkingVehicles() after the trip = %d, want 0", got)
 	}
 }
 

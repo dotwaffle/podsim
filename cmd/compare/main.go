@@ -1193,38 +1193,11 @@ func newRunMetrics(caseStudy scenario, schedule []scheduledRequest) (runMetrics,
 	return metrics, nil
 }
 
-// workingVehicles counts the pods with assigned work in state. A pod has
-// assigned work when it holds a trip that is not complete, or when a pending
-// request names it as the pickup pod. The first case includes boarding,
-// travel with passengers, and unloading. The second case includes a pod on
-// its way to the pickup station and a pod that waits there to board.
-//
-// An empty move without a pending request, such as redistribution or a move
-// to parking, is not work. A pod keeps its last Request after the trip, so
-// the count also ignores a completed Request. Every pod with passengers
-// aboard has a trip that is not complete, so peak_passenger_vehicles is
-// never more than peak_active_vehicles.
-func workingVehicles(state sim.Snapshot) int {
-	pickups := make(map[string]bool, len(state.Pending))
-	for _, request := range state.Pending {
-		if request.PodID != "" {
-			pickups[request.PodID] = true
-		}
-	}
-	working := 0
-	for _, vehicle := range state.Vehicles {
-		if vehicle.Request != nil && !vehicle.Request.Completed || pickups[vehicle.Pod.ID] {
-			working++
-		}
-	}
-	return working
-}
-
 func (metrics *runMetrics) observe(state sim.Snapshot) {
 	station := metrics.monitor.Summarize(metrics.station, state)
 	metrics.peakPending = max(metrics.peakPending, len(state.Pending))
 	metrics.peakOutstanding = max(metrics.peakOutstanding, state.Submitted-state.Completed)
-	active, passenger, stopped := workingVehicles(state), 0, 0
+	active, passenger, stopped := state.WorkingVehicles(), 0, 0
 	for _, vehicle := range state.Vehicles {
 		if vehicle.Pod.Occupied {
 			passenger++

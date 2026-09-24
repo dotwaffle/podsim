@@ -58,6 +58,8 @@ type ProjectState struct {
 }
 
 // Metrics contains low-cardinality operational measurements for one session.
+// ActiveVehicles counts the pods with assigned work, as
+// sim.Snapshot.WorkingVehicles defines it.
 type Metrics struct {
 	Tick                    int64
 	Submitted               int
@@ -342,10 +344,8 @@ func (s *Session) Metrics() Metrics {
 		MaximumWaitSeconds:      state.Wait.MaxSeconds,
 		Checkpoints:             len(s.checkpoints),
 	}
+	metrics.ActiveVehicles = state.WorkingVehicles()
 	for _, vehicle := range state.Vehicles {
-		if vehicle.Request != nil || vehicle.RelocatingTo != "" {
-			metrics.ActiveVehicles++
-		}
 		if vehicle.Pod.Occupied {
 			metrics.PassengerVehicles++
 		}
