@@ -342,6 +342,237 @@ test("the checks summary gives errors, then warnings, then ready", () => {
   assert.deepEqual(editor.validationSummary([], []), { tone: "good", text: "The scenario is ready to apply." });
 });
 
+test("the problem count gives the number of errors", () => {
+  const cases = [
+    { name: "no errors", count: 0, want: "" },
+    { name: "one error", count: 1, want: "1 problem" },
+    { name: "two errors", count: 2, want: "2 problems" },
+    { name: "many errors", count: 150, want: "150 problems" },
+  ];
+  for (const item of cases) assert.equal(editor.problemCountText(item.count), item.want, item.name);
+});
+
+// checkClock gives a check timer on the mock clock of the test. runs counts
+// the check runs, and each run gives its number.
+function checkClock(t) {
+  t.mock.timers.enable({ apis: ["setTimeout"] });
+  const counter = { runs: 0 };
+  const checks = editor.createCheckTimer({ delay: editor.CHECK_DELAY, clock: globalThis, run: () => { counter.runs += 1; return counter.runs; } });
+  return { checks, counter };
+}
+
+test("the checks run once after a series of changes", async (t) => {
+  // Each step waits wait milliseconds, then calls schedule or run. The task
+  // of the call then takes render milliseconds, or 0, and ends. runs is the
+  // number of check runs after the step.
+  const cases = [
+    { name: "one change", steps: [{ call: "schedule", runs: 0 }, { wait: 149, runs: 0 }, { wait: 1, runs: 1 }, { wait: 1000, runs: 1 }] },
+    {
+      name: "changes closer than the delay",
+      steps: [{ call: "schedule", runs: 0 }, { wait: 100, call: "schedule", runs: 0 }, { wait: 149, call: "schedule", runs: 0 }, { wait: 149, runs: 0 }, { wait: 1, runs: 1 }, { wait: 1000, runs: 1 }],
+    },
+    { name: "changes farther apart than the delay", steps: [{ call: "schedule", runs: 0 }, { wait: 150, call: "schedule", runs: 1 }, { wait: 150, runs: 2 }] },
+    { name: "a change with a slow render", steps: [{ call: "schedule", render: 250, runs: 0 }, { wait: 149, runs: 0 }, { wait: 1, runs: 1 }] },
+    {
+      name: "a series of changes with slow renders",
+      steps: [{ call: "schedule", render: 250, runs: 0 }, { call: "schedule", render: 250, runs: 0 }, { wait: 100, call: "schedule", render: 250, runs: 0 }, { wait: 150, runs: 1 }],
+    },
+    { name: "a run now cancels the wait", steps: [{ call: "schedule", runs: 0 }, { wait: 50, call: "run", runs: 1 }, { wait: 1000, runs: 1 }] },
+    { name: "a run now with no wait", steps: [{ call: "run", runs: 1 }, { wait: 1000, runs: 1 }] },
+  ];
+  for (const item of cases) {
+    await t.test(item.name, (t) => {
+      const { checks, counter } = checkClock(t);
+      for (const [index, step] of item.steps.entries()) {
+        if (step.wait) t.mock.timers.tick(step.wait);
+        if (step.call === "run") assert.equal(checks.run(), counter.runs, `${item.name} step ${index}`);
+        else if (step.call) checks.schedule();
+        if (step.call) t.mock.timers.tick(step.render || 0);
+        assert.equal(counter.runs, step.runs, `${item.name} step ${index}`);
+        if (step.call) assert.equal(checks.waiting, step.call === "schedule", `${item.name} step ${index}`);
+      }
+      assert.equal(checks.waiting, false, item.name);
+    });
+  }
+});
+
+test("each draft change schedules the checks, also an undo and a redo", (t) => {
+  t.mock.timers.enable({ apis: ["setTimeout"] });
+  const named = (name) => ({ scenario: { ...connectedScenario(), name }, background: null });
+  const seen = [];
+  let history = null;
+  const checks = editor.createCheckTimer({ delay: editor.CHECK_DELAY, clock: globalThis, run: () => seen.push(history.value.scenario.name) });
+  history = editor.createHistory(named("A"), () => checks.schedule());
+  // want is the draft name that the checks see after the change, or null
+  // when the change does not change the draft and the checks do not run.
+  const cases = [
+    { name: "replace", change: () => history.replace(named("B")), want: "B" },
+    { name: "replace with the same draft", change: () => history.replace(named("B")), want: null },
+    { name: "undo", change: () => history.undo(), want: "A" },
+    { name: "undo with no past", change: () => history.undo(), want: null },
+    { name: "redo", change: () => history.redo(), want: "B" },
+    { name: "redo with no future", change: () => history.redo(), want: null },
+    { name: "replace without a record", change: () => history.replace(named("C"), false), want: "C" },
+    { name: "commit of a coalesced change", change: () => history.commitFrom(named("B"), named("D")), want: "D" },
+    { name: "reset", change: () => history.reset(named("E")), want: "E" },
+  ];
+  // settle ends the task of the change and waits for the checks.
+  const settle = () => { t.mock.timers.tick(0); t.mock.timers.tick(editor.CHECK_DELAY); };
+  for (const item of cases) {
+    const before = seen.length;
+    item.change();
+    settle();
+    assert.deepEqual(seen.slice(before), item.want === null ? [] : [item.want], item.name);
+  }
+
+  // Undo and redo in fast series give one run, for the last draft.
+  history.replace(named("F"));
+  history.undo(); history.redo(); history.undo();
+  settle();
+  assert.deepEqual(seen.slice(-1), ["E"]);
+  assert.equal(seen.length, 7);
+});
+
+test("each check result names the object that a click selects", () => {
+  const { config: chain, arrival } = chainScenario();
+  const [alpha, beta] = chain.network.Stations;
+  const berth = alpha.Berths[0].ID;
+  const lane = chain.network.Lanes.find((item) => item.From === alpha.Exit && item.To === beta.Entry);
+  // change makes an error or a warning. want is the result that it gives,
+  // and select is the editor selection for its target.
+  const cases = [
+    { name: "a short lane", change: (config) => { config.network.Nodes.find((node) => node.ID === beta.Entry).Position = { ...config.network.Nodes.find((node) => node.ID === alpha.Exit).Position, X: 150 }; },
+      want: { text: `Lane ${lane.ID} is shorter than 24 m.`, target: { type: "lane", id: lane.ID } }, select: { type: "lane", id: lane.ID } },
+    { name: "a lane with no speed", change: (config) => { config.network.Lanes.find((item) => item.ID === lane.ID).SpeedLimit = 0; },
+      want: { text: `Lane ${lane.ID} needs a positive speed limit.`, target: { type: "lane", id: lane.ID } }, select: { type: "lane", id: lane.ID } },
+    { name: "a berth with no entry route", change: (config) => { config.network.Lanes = config.network.Lanes.filter((item) => item.To !== arrival); },
+      want: { text: `Berth ${berth} needs an entry lane.`, target: { type: "berth", id: berth } }, select: { type: "station", id: alpha.ID, berth } },
+    { name: "a station with no through lane", change: (config) => { config.network.Lanes = config.network.Lanes.filter((item) => !(item.From === beta.Entry && item.To === beta.Exit)); },
+      want: { text: `Station ${beta.ID} needs a through lane.`, target: { type: "station", id: beta.ID } }, select: { type: "station", id: beta.ID } },
+    { name: "a station that cannot reach another", change: (config) => { config.network.Lanes = config.network.Lanes.filter((item) => item.ID !== lane.ID); },
+      want: { text: "Alpha cannot reach Beta.", target: { type: "station", id: alpha.ID } }, select: { type: "station", id: alpha.ID } },
+    { name: "a duplicate junction ID", change: (config) => { config.network.Nodes.push({ ID: arrival, Position: { X: 600, Y: 600 } }); },
+      want: { text: `ID ${arrival} is used more than once.`, target: { type: "node", id: arrival } }, select: { type: "station", id: alpha.ID } },
+    { name: "a pod in a missing station", change: (config) => { config.fleet[0].StationID = "gone"; },
+      want: { text: `Pod ${chain.fleet[0].ID} has an invalid station or berth.`, target: { type: "station", id: "gone" } }, select: null },
+    { name: "a demand setting", change: (config) => { config.demand.perMinute = 0; },
+      want: { text: "Passenger demand must be 1 to 120 trips per minute.", target: null }, select: null },
+  ];
+  for (const item of cases) {
+    const config = structuredClone(chain);
+    item.change(config);
+    const { errors, warnings } = editor.checkResults(config);
+    assert.deepEqual(errors.map((result) => result.text), editor.validateConfig(config), item.name);
+    assert.deepEqual(warnings, [], item.name);
+    assert.deepEqual(errors.find((result) => result.text === item.want.text), item.want, item.name);
+    assert.deepEqual(editor.checkSelection(config, item.want.target), item.select, item.name);
+  }
+
+  const config = editor.addJunction(chain, 600, 300);
+  const junction = config.network.Nodes.at(-1).ID;
+  assert.deepEqual(editor.checkResults(config), { errors: [], warnings: [{ text: `Junction ${junction} is disconnected.`, target: { type: "node", id: junction } }] });
+  assert.deepEqual(editor.checkSelection(config, { type: "node", id: junction }), { type: "node", id: junction });
+});
+
+test("each lane, station, and berth error targets the object that it names", () => {
+  const base = connectedScenario();
+  const [alpha] = base.network.Stations;
+  const berthNode = alpha.Berths[0].Node;
+  const road = base.network.Lanes.find((lane) => !lane.StationID).ID;
+  const roadLane = (config) => config.network.Lanes.find((lane) => lane.ID === road);
+  // Each change gives one or more errors that start with "Lane", "Station",
+  // or "Berth" and an ID. The target of each such error is that object.
+  const cases = [
+    { name: "a station with the same entry and exit", change: (config) => { config.network.Stations[0].Exit = config.network.Stations[0].Entry; } },
+    { name: "a station with no name", change: (config) => { config.network.Stations[0].Name = ""; } },
+    { name: "a station with an invalid parking setting", change: (config) => { config.network.Stations[0].ParkingOnly = "yes"; } },
+    { name: "a station with an invalid berth", change: (config) => { config.network.Stations[0].Berths.push(null); } },
+    { name: "a berth on the station entry", change: (config) => { config.network.Stations[0].Berths[0].Node = config.network.Stations[0].Entry; } },
+    { name: "a berth with no lane out", change: (config) => { config.network.Lanes = config.network.Lanes.filter((lane) => lane.From !== berthNode); } },
+    { name: "a berth with no lane in", change: (config) => { config.network.Lanes = config.network.Lanes.filter((lane) => lane.To !== berthNode); } },
+    { name: "a berth with a second pod", change: (config) => { config.fleet.push({ ...config.fleet[0], ID: "pod-extra" }); } },
+    { name: "a lane to a missing node", change: (config) => { roadLane(config).To = "missing"; } },
+    { name: "a lane with an invalid control point", change: (config) => { roadLane(config).Control = { X: "a", Y: 1 }; } },
+    { name: "a lane with an invalid station role", change: (config) => { Object.assign(roadLane(config), { StationID: alpha.ID, StationRole: "bogus" }); } },
+    { name: "a lane of a missing station", change: (config) => { Object.assign(roadLane(config), { StationID: "gone", StationRole: "departure" }); } },
+    { name: "a lane with no speed", change: (config) => { roadLane(config).SpeedLimit = 0; } },
+  ];
+  const named = /^(Lane|Station|Berth) (?!node )(\S+) /;
+  for (const item of cases) {
+    const config = structuredClone(base);
+    item.change(config);
+    const results = editor.checkResults(config).errors.filter((result) => named.test(result.text));
+    assert.ok(results.length > 0, item.name);
+    for (const result of results) {
+      const [, type, id] = result.text.match(named);
+      assert.deepEqual(result.target, { type: type.toLowerCase(), id }, `${item.name}: ${result.text}`);
+    }
+  }
+});
+
+test("a check selection finds only the objects of the draft", () => {
+  const { config, arrival } = chainScenario();
+  const [alpha, beta] = config.network.Stations;
+  const cases = [
+    { name: "no target", target: null, want: null },
+    { name: "a station", target: { type: "station", id: beta.ID }, want: { type: "station", id: beta.ID } },
+    { name: "a missing station", target: { type: "station", id: "station-9" }, want: null },
+    { name: "a lane", target: { type: "lane", id: "lane-1" }, want: { type: "lane", id: "lane-1" } },
+    { name: "a missing lane", target: { type: "lane", id: "lane-99" }, want: null },
+    { name: "a berth", target: { type: "berth", id: beta.Berths[0].ID }, want: { type: "station", id: beta.ID, berth: beta.Berths[0].ID } },
+    { name: "a missing berth", target: { type: "berth", id: "berth-9" }, want: null },
+    { name: "a station entry node", target: { type: "node", id: alpha.Entry }, want: { type: "station", id: alpha.ID } },
+    { name: "a berth chain node", target: { type: "node", id: arrival }, want: { type: "station", id: alpha.ID } },
+    { name: "a missing node", target: { type: "node", id: "node-99" }, want: null },
+    { name: "a type that the map does not show", target: { type: "pod", id: config.fleet[0].ID }, want: null },
+  ];
+  const select = editor.checkSelector(config);
+  for (const item of cases) {
+    assert.deepEqual(editor.checkSelection(config, item.target), item.want, item.name);
+    assert.deepEqual(select(item.target), item.want, item.name);
+  }
+});
+
+test("a check selection moves the view only when the map does not show the item well", () => {
+  let config = editor.addJunction(connectedScenario(), 400, 300);
+  const junction = config.network.Nodes.at(-1).ID;
+  const [alpha] = config.network.Stations;
+  config = editor.addLane(config, alpha.Exit, junction, false);
+  const lane = config.network.Lanes.at(-1);
+  const exit = config.network.Nodes.find((node) => node.ID === alpha.Exit).Position;
+  const points = [
+    { name: "a junction", selection: { type: "node", id: junction }, want: { X: 400, Y: 300 } },
+    { name: "a straight lane", selection: { type: "lane", id: lane.ID }, want: { X: (exit.X + 400) / 2, Y: (exit.Y + 300) / 2 } },
+    { name: "a curved lane", selection: { type: "lane", id: lane.ID }, control: { X: 300, Y: 400 }, want: { X: exit.X / 4 + 150 + 100, Y: exit.Y / 4 + 200 + 75 } },
+    { name: "a station", selection: { type: "station", id: alpha.ID, berth: alpha.Berths[0].ID }, want: { X: 100, Y: 100 } },
+    { name: "a missing lane", selection: { type: "lane", id: "lane-99" }, want: null },
+  ];
+  for (const item of points) {
+    const scenario = structuredClone(config);
+    if (item.control) scenario.network.Lanes.at(-1).Control = item.control;
+    assert.deepEqual(editor.selectionPoint(scenario, item.selection), item.want, item.name);
+  }
+
+  const size = { width: 900, height: 700 };
+  const views = [
+    { name: "an item on the map", view: { x: 0, y: 0, scale: 1 }, point: { X: 400, Y: 300 }, want: { x: 0, y: 0, scale: 1 } },
+    { name: "an item near the edge", view: { x: 0, y: 0, scale: 1 }, point: { X: 880, Y: 300 }, want: { x: -430, y: 50, scale: 1 } },
+    { name: "an item off the map", view: { x: 0, y: 0, scale: 2 }, point: { X: -100, Y: 2000 }, want: { x: 650, y: -3650, scale: 2 } },
+    { name: "an item on a map zoomed out below the label scale", view: { x: 10, y: 20, scale: 0.05 }, point: { X: 4000, Y: 3000 }, want: { x: -1550, y: -1150, scale: editor.NODE_LABEL_SCALE } },
+  ];
+  for (const item of views) assert.deepEqual(editor.focusView({ view: item.view, point: item.point, size }), item.want, item.name);
+});
+
+test("a check on the generated london project selects the lane that it names", needsGo, () => {
+  const config = generatedProject("london");
+  const lane = config.network.Lanes.find((item) => !item.StationID);
+  lane.SpeedLimit = 0;
+  const { errors, warnings } = editor.checkResults(config);
+  assert.deepEqual(errors, [{ text: `Lane ${lane.ID} needs a positive speed limit.`, target: { type: "lane", id: lane.ID } }]);
+  assert.deepEqual(warnings, []);
+  assert.deepEqual(editor.checkSelection(config, errors[0].target), { type: "lane", id: lane.ID });
+});
+
 test("portable documents round trip the scenario and local background", () => {
   const config = connectedScenario();
   const background = { dataURL: "data:image/png;base64,AA==", x: -10, y: 5, width: 800, height: 600, opacity: 0.4 };

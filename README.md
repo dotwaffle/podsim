@@ -461,6 +461,22 @@ If the server project fails these checks, the editor still loads it as the draft
 The **Checks** section lists the errors first, then the warnings.
 When the draft has only warnings, the summary tells you that the scenario is ready to apply and gives the number of warnings.
 
+The editor runs the checks 150 ms after the last draft change, also after an undo or a redo.
+**Run checks** runs them at once.
+The number of errors shows beside **Pause and apply**, for example **2 problems**.
+Warnings do not count.
+Select the number to show the **Checks** section.
+When the checks find errors, **Pause and apply** does not send the draft and shows the **Checks** section.
+The server checks the project again when you apply it.
+
+Select a message that names a station, berth, lane, or junction to select that item.
+A berth message selects the station of the berth and marks the berth.
+A pod message selects the station of the pod.
+When the item is off the map or near the edge of the map, the map moves so that the item is at the center of the map.
+The map also moves when the map scale is below 0.5 screen pixels per meter.
+The scale is then 0.5 screen pixels per meter or more.
+In a narrow window, the page also scrolls to the map.
+
 ## Command-line tools
 
 ### Demand and policy comparisons

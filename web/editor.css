@@ -87,6 +87,7 @@ output { float: right; color: var(--text); }
 .berth-list { display: grid; gap: 6px; }
 .berth-row, .fleet-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 7px; padding: 7px; border: 1px solid var(--line); border-radius: 6px; }
 .berth-row button { padding: 4px 7px; }
+.berth-row.selected { border-color: var(--orange); }
 .fleet-row input { width: 62px; }
 .validation { border-radius: 6px; padding: 8px; font-size: 12px; }
 .validation.neutral { background: #1a2832; color: #a9bbc7; }
@@ -95,6 +96,11 @@ output { float: right; color: var(--text); }
 .validation.warn { background: #352a17; color: var(--orange); }
 .validation-list { margin: 8px 0 0; padding-left: 18px; color: #ffaaa6; font-size: 12px; }
 .validation-list .warning { color: var(--orange); }
+.validation-list li + li { margin-top: 3px; }
+.check-link { padding: 0; border: 0; border-radius: 0; background: none; color: inherit; text-align: left; vertical-align: top; text-decoration: underline dotted; text-underline-offset: 2px; overflow-wrap: anywhere; }
+.check-link:hover { border-color: transparent; background: none; color: var(--text); }
+button.problem-count { border-color: #783b3b; background: #3b2022; color: #ffaaa6; font-weight: 700; }
+button.problem-count:hover { border-color: var(--danger); background: #4a2427; }
 #toast { position: fixed; z-index: 20; left: 50%; bottom: 24px; translate: -50% 20px; min-width: 240px; max-width: min(560px, 90vw); padding: 10px 14px; border: 1px solid var(--line); border-radius: 8px; background: #162632; color: var(--text); box-shadow: 0 8px 30px #0008; opacity: 0; pointer-events: none; transition: .18s ease; text-align: center; }
 #toast.show { opacity: 1; translate: -50% 0; }
 #toast.error { border-color: var(--danger); }

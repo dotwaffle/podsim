@@ -453,10 +453,26 @@
     });
   }
 
+  // A check target is the object that a check message names. type is
+  // "station", "berth", "lane" or "node", and id is the ID of the object.
+  // CHECK_TARGET_KINDS gives the target type for each kind of ID that
+  // validateConfig checks. A pod is not a target, because the map does not
+  // show pods.
+  const CHECK_TARGET_KINDS = { "A node": "node", "A lane": "lane", "A station": "station", "A berth": "berth" };
+
+  // checkTarget gives a check target, or null when the type or the ID is
+  // missing.
+  function checkTarget(type, id) {
+    return type && typeof id === "string" && id ? { type, id } : null;
+  }
+
   // validateConfig gives the errors for a scenario. An error blocks an apply
-  // or an import. configWarnings gives the checks that do not block.
-  function validateConfig(value) {
+  // or an import. configWarnings gives the checks that do not block. When
+  // targets is a Map, validateConfig adds the object that an error names to
+  // it, with the error text as the key. checkResults uses these targets.
+  function validateConfig(value, targets) {
     const errors = [];
+    const report = (text, target) => { errors.push(text); if (targets && target && !targets.has(text)) targets.set(text, target); };
     if (!value || typeof value !== "object" || Array.isArray(value)) return ["The scenario must be a JSON object."];
     if (value.version !== 1) errors.push("The scenario version must be 1.");
     if (typeof value.name !== "string" || !value.name.trim()) errors.push("The scenario needs a name.");
@@ -469,9 +485,10 @@
     function uniqueID(id, kind) {
       if (!namespaces.has(kind)) namespaces.set(kind, new Set());
       const idSet=namespaces.get(kind);
-      if (typeof id === "string" && new TextEncoder().encode(id).length > 64) errors.push(`${kind} ID exceeds 64 bytes.`);
+      const target = checkTarget(CHECK_TARGET_KINDS[kind], id);
+      if (typeof id === "string" && new TextEncoder().encode(id).length > 64) report(`${kind} ID exceeds 64 bytes.`, target);
       if (typeof id !== "string" || !id.trim()) errors.push(`${kind} has no ID.`);
-      else if (idSet.has(id)) errors.push(`ID ${id} is used more than once.`);
+      else if (idSet.has(id)) report(`ID ${id} is used more than once.`, target);
       else idSet.add(id);
     }
     const isRecord = (item) => item && typeof item === "object" && !Array.isArray(item);
@@ -488,10 +505,11 @@
     const directed = new Map();
     for (const lane of network.Lanes) {
       uniqueID(lane && lane.ID, "A lane");
-      if (!isRecord(lane) || !nodeIDs.has(lane.From) || !nodeIDs.has(lane.To) || lane.From === lane.To) errors.push(`Lane ${(lane && lane.ID) || "?"} has invalid endpoints.`);
-      if (!isRecord(lane) || !Number.isFinite(lane.SpeedLimit) || lane.SpeedLimit <= 0) errors.push(`Lane ${(lane && lane.ID) || "?"} needs a positive speed limit.`);
-      if (isRecord(lane) && lane.Control && (!isRecord(lane.Control) || !Number.isFinite(lane.Control.X) || !Number.isFinite(lane.Control.Y))) errors.push(`Lane ${lane.ID} has an invalid control point.`);
-      if (isRecord(lane) && nodeIDs.has(lane.From) && nodeIDs.has(lane.To) && laneLength(value, lane) < MIN_LANE_LENGTH) errors.push(`Lane ${lane.ID} is shorter than ${MIN_LANE_LENGTH} m.`);
+      const laneTarget = checkTarget("lane", lane && lane.ID);
+      if (!isRecord(lane) || !nodeIDs.has(lane.From) || !nodeIDs.has(lane.To) || lane.From === lane.To) report(`Lane ${(lane && lane.ID) || "?"} has invalid endpoints.`, laneTarget);
+      if (!isRecord(lane) || !Number.isFinite(lane.SpeedLimit) || lane.SpeedLimit <= 0) report(`Lane ${(lane && lane.ID) || "?"} needs a positive speed limit.`, laneTarget);
+      if (isRecord(lane) && lane.Control && (!isRecord(lane.Control) || !Number.isFinite(lane.Control.X) || !Number.isFinite(lane.Control.Y))) report(`Lane ${lane.ID} has an invalid control point.`, laneTarget);
+      if (isRecord(lane) && nodeIDs.has(lane.From) && nodeIDs.has(lane.To) && laneLength(value, lane) < MIN_LANE_LENGTH) report(`Lane ${lane.ID} is shorter than ${MIN_LANE_LENGTH} m.`, laneTarget);
       if (isRecord(lane)) {
         const pair = `${lane.From}\u0000${lane.To}`;
         lanesByPair.add(pair);
@@ -510,26 +528,27 @@
         continue;
       }
       stationIDs.add(station.ID);
-      if ("ParkingOnly" in station && typeof station.ParkingOnly !== "boolean") errors.push(`Station ${station.ID} has an invalid parking setting.`);
-      if (typeof station.Name === "string" && new TextEncoder().encode(station.Name).length>80) errors.push(`Station ${station.ID} name exceeds 80 bytes.`);
-      if (Array.isArray(station.Berths) && station.Berths.length>200) errors.push(`Station ${station.ID} exceeds 200 berths.`);
-      if (typeof station.Name !== "string" || !station.Name.trim()) errors.push(`Station ${station.ID} needs a name.`);
-      if (!nodeIDs.has(station.Entry) || !nodeIDs.has(station.Exit) || station.Entry === station.Exit) errors.push(`Station ${station.ID} has invalid entry or exit nodes.`);
+      const stationTarget = checkTarget("station", station.ID);
+      if ("ParkingOnly" in station && typeof station.ParkingOnly !== "boolean") report(`Station ${station.ID} has an invalid parking setting.`, stationTarget);
+      if (typeof station.Name === "string" && new TextEncoder().encode(station.Name).length>80) report(`Station ${station.ID} name exceeds 80 bytes.`, stationTarget);
+      if (Array.isArray(station.Berths) && station.Berths.length>200) report(`Station ${station.ID} exceeds 200 berths.`, stationTarget);
+      if (typeof station.Name !== "string" || !station.Name.trim()) report(`Station ${station.ID} needs a name.`, stationTarget);
+      if (!nodeIDs.has(station.Entry) || !nodeIDs.has(station.Exit) || station.Entry === station.Exit) report(`Station ${station.ID} has invalid entry or exit nodes.`, stationTarget);
       componentNodes.add(station.Entry); componentNodes.add(station.Exit);
-      if (!Array.isArray(station.Berths) || station.Berths.length === 0) errors.push(`Station ${station.ID} needs at least one berth.`);
+      if (!Array.isArray(station.Berths) || station.Berths.length === 0) report(`Station ${station.ID} needs at least one berth.`, stationTarget);
       for (const berth of Array.isArray(station.Berths) ? station.Berths : []) {
         uniqueID(berth && berth.ID, "A berth");
         if (!isRecord(berth)) {
-          errors.push(`Station ${station.ID} has an invalid berth.`);
+          report(`Station ${station.ID} has an invalid berth.`, stationTarget);
           continue;
         }
         berthIDs.add(berth.ID);
         componentNodes.add(berth.Node);
-        if (!nodeIDs.has(berth.Node) || berth.Node === station.Entry || berth.Node === station.Exit) errors.push(`Berth ${berth.ID} has an invalid node.`);
-        if (berthNodes.has(berth.Node)) errors.push(`Berth node ${berth.Node} is used more than once.`);
+        if (!nodeIDs.has(berth.Node) || berth.Node === station.Entry || berth.Node === station.Exit) report(`Berth ${berth.ID} has an invalid node.`, checkTarget("berth", berth.ID));
+        if (berthNodes.has(berth.Node)) report(`Berth node ${berth.Node} is used more than once.`, checkTarget("berth", berth.ID));
         berthNodes.add(berth.Node);
       }
-      if (!lanesByPair.has(`${station.Entry}\u0000${station.Exit}`)) errors.push(`Station ${station.ID} needs a through lane.`);
+      if (!lanesByPair.has(`${station.Entry}\u0000${station.Exit}`)) report(`Station ${station.ID} needs a through lane.`, stationTarget);
     }
     // As on the server, a berth route can use a chain of lanes. It cannot pass
     // through the entry, exit, or berth node of a station.
@@ -538,16 +557,16 @@
       for (const berth of Array.isArray(station.Berths) ? station.Berths.filter(isRecord) : []) {
         const entry = reachableAvoiding(directed, station.Entry, berth.Node, componentNodes);
         const exit = reachableAvoiding(directed, berth.Node, station.Exit, componentNodes);
-        if (!entry) errors.push(`Berth ${berth.ID} needs an entry lane.`);
-        if (!exit) errors.push(`Berth ${berth.ID} needs an exit lane.`);
+        if (!entry) report(`Berth ${berth.ID} needs an entry lane.`, checkTarget("berth", berth.ID));
+        if (!exit) report(`Berth ${berth.ID} needs an exit lane.`, checkTarget("berth", berth.ID));
         if (!entry || !exit) brokenBerths.add(berth.Node);
       }
     }
     for (const lane of validLanes) {
       const hasStation = typeof lane.StationID === "string" && lane.StationID.length > 0;
       const hasRole = typeof lane.StationRole === "string" && lane.StationRole.length > 0;
-      if (hasStation !== hasRole || hasRole && !STATION_LANE_ROLES.has(lane.StationRole)) errors.push(`Lane ${lane.ID} has an invalid station role.`);
-      else if (hasStation && !stationIDs.has(lane.StationID)) errors.push(`Lane ${lane.ID} refers to an unknown station.`);
+      if (hasStation !== hasRole || hasRole && !STATION_LANE_ROLES.has(lane.StationRole)) report(`Lane ${lane.ID} has an invalid station role.`, checkTarget("lane", lane.ID));
+      else if (hasStation && !stationIDs.has(lane.StationID)) report(`Lane ${lane.ID} refers to an unknown station.`, checkTarget("lane", lane.ID));
     }
     if (!Array.isArray(value.fleet)) errors.push("The scenario needs a fleet array.");
     if (typeof value.redistribution !== "boolean") errors.push("The redistribution setting must be true or false.");
@@ -557,8 +576,8 @@
       uniqueID(pod && pod.ID, "A pod");
       const podStation = isRecord(pod) && validStations.find((station) => station.ID === pod.StationID);
       const stationBerths = podStation && Array.isArray(podStation.Berths) ? podStation.Berths : [];
-      if (!isRecord(pod) || !podStation || !berthIDs.has(pod.BerthID) || !stationBerths.some((berth) => isRecord(berth) && berth.ID === pod.BerthID)) errors.push(`Pod ${(pod && pod.ID) || "?"} has an invalid station or berth.`);
-      if (isRecord(pod) && occupied.has(pod.BerthID)) errors.push(`Berth ${pod.BerthID} has more than one pod.`);
+      if (!isRecord(pod) || !podStation || !berthIDs.has(pod.BerthID) || !stationBerths.some((berth) => isRecord(berth) && berth.ID === pod.BerthID)) report(`Pod ${(pod && pod.ID) || "?"} has an invalid station or berth.`, checkTarget("station", pod && pod.StationID));
+      if (isRecord(pod) && occupied.has(pod.BerthID)) report(`Berth ${pod.BerthID} has more than one pod.`, checkTarget("berth", pod.BerthID));
       if (isRecord(pod)) occupied.add(pod.BerthID);
     }
     const passenger = validStations.filter((station) => station.ParkingOnly !== true);
@@ -573,7 +592,7 @@
       .map((berth) => berth.Node).filter((node) => !brokenBerths.has(node)));
     const reach = stationReach(validLanes, passengerBerths);
     passenger.forEach((origin, from) => passenger.forEach((destination, to) => {
-      if (origin.ID !== destination.ID && !reach[from][to]) errors.push(`${origin.Name} cannot reach ${destination.Name}.`);
+      if (origin.ID !== destination.ID && !reach[from][to]) report(`${origin.Name} cannot reach ${destination.Name}.`, checkTarget("station", origin.ID));
     }));
     const demand = value.demand;
     if (isRecord(demand) && "enabled" in demand && typeof demand.enabled !== "boolean") errors.push("The passenger demand enabled setting must be true or false.");
@@ -623,7 +642,8 @@
   // import. A junction with no lanes gives a warning. Two nodes that no chain
   // of lanes connects, in any lane direction, also give a warning. That check
   // skips a junction with no lanes, because the junction has its own warning.
-  function configWarnings(value) {
+  // targets works as in validateConfig.
+  function configWarnings(value, targets) {
     const network = value && value.network;
     if (!network || !Array.isArray(network.Nodes) || !Array.isArray(network.Lanes) || !Array.isArray(network.Stations)) return [];
     const isRecord = (item) => item && typeof item === "object" && !Array.isArray(item);
@@ -643,13 +663,116 @@
     const sectionNodes = [];
     for (const node of network.Nodes.filter(isRecord)) {
       if (stationNodes.has(node.ID) || undirected.has(node.ID)) sectionNodes.push(node);
-      else warnings.push(`Junction ${node.ID} is disconnected.`);
+      else {
+        const text = `Junction ${node.ID} is disconnected.`;
+        warnings.push(text); if (targets) targets.set(text, checkTarget("node", node.ID));
+      }
     }
     if (sectionNodes.length) {
       const visited = reachableFrom(undirected, sectionNodes[0].ID);
       if (sectionNodes.some((node) => !visited.has(node.ID))) warnings.push("The network has disconnected sections.");
     }
     return [...new Set(warnings)];
+  }
+
+  // checkResults gives the errors and the warnings of a scenario for the
+  // Checks list. Each result has text, the message, and target, the check
+  // target that the message names, or null.
+  function checkResults(value) {
+    const errorTargets = new Map(); const warningTargets = new Map();
+    const results = (texts, targets) => texts.map((text) => ({ text, target: targets.get(text) || null }));
+    return { errors: results(validateConfig(value, errorTargets), errorTargets), warnings: results(configWarnings(value, warningTargets), warningTargets) };
+  }
+
+  // checkSelector gives a function that gives the editor selection for a
+  // check target of the scenario. A berth selects its station, and berth
+  // marks the berth in the station panel. A node of a station selects the
+  // station, as a click on the map does. The function gives null when the
+  // scenario does not have the object. It finds the station nodes once, so
+  // a long Checks list does not find them again for each item.
+  function checkSelector(config) {
+    const { Nodes, Lanes, Stations } = config.network;
+    let owners = null;
+    return (target) => {
+      if (!target) return null;
+      const has = (items) => items.some((item) => item && item.ID === target.id);
+      if (target.type === "station" && has(Stations)) return { type: "station", id: target.id };
+      if (target.type === "lane" && has(Lanes)) return { type: "lane", id: target.id };
+      if (target.type === "berth") {
+        const station = Stations.find((item) => item && Array.isArray(item.Berths) && has(item.Berths));
+        return station ? { type: "station", id: station.ID, berth: target.id } : null;
+      }
+      if (target.type === "node" && has(Nodes)) {
+        owners ??= stationNodeOwners(config);
+        const stationID = owners.get(target.id);
+        return stationID ? { type: "station", id: stationID } : { type: "node", id: target.id };
+      }
+      return null;
+    };
+  }
+
+  // checkSelection gives the editor selection for one check target, as
+  // checkSelector tells.
+  function checkSelection(config, target) { return checkSelector(config)(target); }
+
+  // selectionPoint gives the map point of a selected item: the position of a
+  // junction, the middle of a lane, or the middle between the entry and
+  // the exit of a station. It gives null when a node is missing.
+  function selectionPoint(config, selection) {
+    const find = (items, id) => items.find((item) => item && item.ID === id);
+    const at = (id) => find(config.network.Nodes, id)?.Position || null;
+    if (selection.type === "node") return at(selection.id);
+    const lane = selection.type === "lane" ? find(config.network.Lanes, selection.id) : null;
+    const station = selection.type === "station" ? find(config.network.Stations, selection.id) : null;
+    const from = at(lane ? lane.From : station?.Entry); const to = at(lane ? lane.To : station?.Exit);
+    if (!from || !to) return null;
+    // The middle of a curved lane is the point of its curve at t = 0.5.
+    const control = lane && lane.Control ? lane.Control : { X: (from.X + to.X) / 2, Y: (from.Y + to.Y) / 2 };
+    return { X: (from.X + to.X) / 4 + control.X / 2, Y: (from.Y + to.Y) / 4 + control.Y / 2 };
+  }
+
+  // focusView gives the view that shows a point that a check selected. The
+  // view does not change when the point is on the map, at least FIT_MARGIN / 2
+  // pixels from its edge, and the scale shows junction labels. Otherwise
+  // the view puts the point in the center of the map, at NODE_LABEL_SCALE or
+  // at the current scale when it is larger.
+  function focusView(focus) {
+    const { view, point, size } = focus; const margin = FIT_MARGIN / 2;
+    const x = view.x + point.X * view.scale; const y = view.y + point.Y * view.scale;
+    const onMap = x >= margin && x <= size.width - margin && y >= margin && y <= size.height - margin;
+    if (onMap && view.scale >= NODE_LABEL_SCALE) return view;
+    const scale = Math.max(view.scale, NODE_LABEL_SCALE);
+    return { scale, x: size.width / 2 - point.X * scale, y: size.height / 2 - point.Y * scale };
+  }
+
+  // problemCountText gives the text of the problem count beside the apply
+  // button. Only errors are problems. The text is empty with no errors.
+  function problemCountText(errorCount) {
+    return errorCount ? `${errorCount} problem${errorCount === 1 ? "" : "s"}` : "";
+  }
+
+  // CHECK_DELAY is the time in milliseconds from the last draft change to the
+  // checks. The checks take about 130 ms on the London project, so they do
+  // not run after each change of a fast series.
+  const CHECK_DELAY = 150;
+
+  // createCheckTimer runs the checks after the draft changes. schedule
+  // starts a wait of timer.delay milliseconds when the current task ends,
+  // and the checks run when the wait ends. The wait thus starts after the
+  // render of the change, which takes about 250 ms on the London project. A
+  // schedule call during the wait starts the wait again, so a series of
+  // changes gives one run, and runs do not stack. run runs the checks now,
+  // cancels the wait, and gives the result of timer.run. timer.clock holds
+  // setTimeout and clearTimeout, so a test can use a mock clock.
+  function createCheckTimer(timer) {
+    let waiting = null;
+    const cancel = () => { if (waiting !== null) timer.clock.clearTimeout(waiting); waiting = null; };
+    const fire = () => { waiting = null; timer.run(); };
+    return {
+      get waiting() { return waiting !== null; },
+      schedule() { cancel(); waiting = timer.clock.setTimeout(() => { waiting = timer.clock.setTimeout(fire, timer.delay); }, 0); },
+      run() { cancel(); return timer.run(); },
+    };
   }
 
   // validationSummary gives the tone and the text of the Checks summary.
@@ -716,10 +839,14 @@
     return { scenario: serverProject ? normalizeConfig(scenario) : scenario, background: background ? clone(background) : null };
   }
 
-  function createHistory(initial) {
+  // createHistory keeps the draft with undo and redo. onChange runs after
+  // each change of the draft, also after an undo, a redo, and a reset. The
+  // editor uses it to schedule the checks.
+  function createHistory(initial, onChange) {
     let past = [];
     let present = clone(initial);
     let future = [];
+    const changed = () => { if (onChange) onChange(); return true; };
     return {
       get value() { return clone(present); },
       get canUndo() { return past.length > 0; },
@@ -730,15 +857,15 @@
         if (record !== false) past.push(clone(present));
         present = clone(next);
         future = [];
-        return true;
+        return changed();
       },
       commitFrom(before, next) {
         if (JSON.stringify(before) === JSON.stringify(next)) return false;
-        past.push(clone(before)); present = clone(next); future = []; return true;
+        past.push(clone(before)); present = clone(next); future = []; return changed();
       },
-      undo() { if (!past.length) return false; future.push(clone(present)); present = past.pop(); return true; },
-      redo() { if (!future.length) return false; past.push(clone(present)); present = future.pop(); return true; },
-      reset(next) { past = []; present = clone(next); future = []; },
+      undo() { if (!past.length) return false; future.push(clone(present)); present = past.pop(); return changed(); },
+      redo() { if (!future.length) return false; past.push(clone(present)); present = future.pop(); return changed(); },
+      reset(next) { past = []; present = clone(next); future = []; changed(); },
     };
   }
 
@@ -948,9 +1075,10 @@
   }
 
   const API = {
-    MIN_LANE_LENGTH, MIN_ZOOM, NODE_LABEL_SCALE, NODE_LABEL_SIZE, emptyConfig, normalizeConfig, addLane, addJunction, addStation, addBerth,
+    MIN_LANE_LENGTH, MIN_ZOOM, NODE_LABEL_SCALE, NODE_LABEL_SIZE, CHECK_DELAY, emptyConfig, normalizeConfig, addLane, addJunction, addStation, addBerth,
     removeBerth, moveStation, moveNode, deleteNode, deleteLane, deleteStation, stationFlowCount, setFleetCount, setDemandPattern,
-    laneLength, reachable, stationNodeOwners, dragTargets, validateConfig, configWarnings, validationSummary, serializeDocument, parseDocument, createHistory,
+    laneLength, reachable, stationNodeOwners, dragTargets, validateConfig, configWarnings, checkResults, checkSelector, checkSelection, selectionPoint, focusView,
+    problemCountText, createCheckTimer, validationSummary, serializeDocument, parseDocument, createHistory,
     networkBounds, fitView, zoomScale, nodeLabelSize, applyToServer, applyFailureText, applyFailureStatus, applyToast,
   };
   if (typeof module !== "undefined" && module.exports) module.exports = API;
@@ -960,8 +1088,11 @@
 
   const $ = (selector) => document.querySelector(selector);
   const svgNS = "http://www.w3.org/2000/svg";
+  // checks runs the checks CHECK_DELAY milliseconds after the last draft
+  // change. The history schedules it for each change.
+  const checks = createCheckTimer({ delay: CHECK_DELAY, run: runValidation, clock: root });
   const state = {
-    history: createHistory({ scenario: emptyConfig(), background: null }),
+    history: createHistory({ scenario: emptyConfig(), background: null }, () => checks.schedule()),
     background: null,
     loaded: null,
     loadedRevision: 0,
@@ -1148,7 +1279,7 @@
     if (state.selection.type === "station") {
       const station = config.network.Stations.find((item) => item.ID === state.selection.id);
       if (!station) { state.selection = null; renderSelection(); return; }
-      panel.innerHTML = `<label>Name<input data-edit="station-name" maxlength="80" value="${esc(station.Name)}"></label><p class="id">${esc(station.ID)}</p><label class="check"><input data-edit="parking-only" type="checkbox" ${station.ParkingOnly ? "checked" : ""}> Parking station</label><div class="berth-list"><strong>Physical berths</strong>${station.Berths.map((berth) => `<div class="berth-row"><span>${esc(berth.ID)}</span><button data-action="remove-berth" data-id="${esc(berth.ID)}" type="button" ${station.Berths.length <= 1 ? "disabled" : ""}>Remove</button></div>`).join("")}</div><button data-action="add-berth" type="button">Add physical berth</button><button data-action="delete-station" class="danger" type="button">Delete station and connections</button>`;
+      panel.innerHTML = `<label>Name<input data-edit="station-name" maxlength="80" value="${esc(station.Name)}"></label><p class="id">${esc(station.ID)}</p><label class="check"><input data-edit="parking-only" type="checkbox" ${station.ParkingOnly ? "checked" : ""}> Parking station</label><div class="berth-list"><strong>Physical berths</strong>${station.Berths.map((berth) => `<div class="berth-row${state.selection.berth === berth.ID ? " selected" : ""}"><span>${esc(berth.ID)}</span><button data-action="remove-berth" data-id="${esc(berth.ID)}" type="button" ${station.Berths.length <= 1 ? "disabled" : ""}>Remove</button></div>`).join("")}</div><button data-action="add-berth" type="button">Add physical berth</button><button data-action="delete-station" class="danger" type="button">Delete station and connections</button>`;
     } else if (state.selection.type === "lane") {
       const lane = config.network.Lanes.find((item) => item.ID === state.selection.id);
       if (!lane) { state.selection = null; renderSelection(); return; }
@@ -1293,15 +1424,45 @@
 
   function fitNetwork() { state.view = fitView(state.map.bounds, $("#networkMap").getBoundingClientRect()); setView(); }
 
-  function runValidation() { const config = draft(); return showValidation(validateConfig(config), configWarnings(config)); }
-  // showValidation shows the checks in the Checks section. It lists the
-  // errors first, then the warnings. It gives the errors.
-  function showValidation(errors, warnings) {
+  // runValidation checks the draft and shows the results. It gives the
+  // errors. Use checks.run to run it, so that a scheduled run is canceled.
+  function runValidation() { const config = draft(); const results = checkResults(config); showValidation(config, results); return results.errors; }
+  // showValidation shows the check results in the Checks section, and the
+  // problem count beside the apply button. It lists the errors first, then
+  // the warnings. A result that names an object of the scenario is a button
+  // that selects the object.
+  function showValidation(config, results) {
     const summary = $("#validationSummary"); const list = $("#validationList"); list.replaceChildren();
-    const { tone, text } = validationSummary(errors, warnings); summary.className = `validation ${tone}`; summary.textContent = text;
-    for (const error of errors) { const item = document.createElement("li"); item.textContent = error; list.append(item); }
-    for (const warning of warnings) { const item = document.createElement("li"); item.className = "warning"; item.textContent = `Warning: ${warning}`; list.append(item); }
-    return errors;
+    const { tone, text } = validationSummary(results.errors, results.warnings); summary.className = `validation ${tone}`; summary.textContent = text;
+    const count = $("#problemCount"); count.textContent = problemCountText(results.errors.length); count.hidden = !results.errors.length;
+    const rows = [...results.errors.map((result) => ({ result, text: result.text })), ...results.warnings.map((result) => ({ result, text: `Warning: ${result.text}`, warning: true }))];
+    const select = checkSelector(config);
+    for (const row of rows) {
+      const item = document.createElement("li"); if (row.warning) item.className = "warning";
+      if (select(row.result.target)) {
+        const button = document.createElement("button"); button.type = "button"; button.className = "check-link"; button.textContent = row.text;
+        button.dataset.type = row.result.target.type; button.dataset.id = row.result.target.id; item.append(button);
+      } else item.textContent = row.text;
+      list.append(item);
+    }
+  }
+  // showChecks scrolls the Checks section into view. It moves the keyboard
+  // focus to the first item that selects an object, or else to Run checks.
+  function showChecks() {
+    $("#checksPanel").scrollIntoView({ block: "start" });
+    ($("#validationList button") || $("#validateButton")).focus({ preventScroll: true });
+  }
+  // selectCheck selects the object that a check result names. When the map
+  // does not show the object well, the view moves to it, as focusView tells.
+  // In a narrow window the map is above the Checks section, so the page
+  // scrolls until the map is in view.
+  function selectCheck(target) {
+    const config = draft(); const selection = checkSelection(config, target);
+    if (!selection) return;
+    const point = selectionPoint(config, selection);
+    if (point) state.view = focusView({ view: state.view, point, size: $("#networkMap").getBoundingClientRect() });
+    state.selection = selection; render();
+    $(".map-panel").scrollIntoView({ block: "nearest" });
   }
 
   async function loadServerProject() {
@@ -1317,8 +1478,7 @@
       updateStatus(`Live revision ${state.loadedRevision}. Draft changes stay in this browser.`); render(); fitNetwork();
       // Keep a server scenario that fails the editor checks, and list the
       // problems. Only errors show the error toast.
-      const errors = validateConfig(project); const warnings = configWarnings(project);
-      if (errors.length || warnings.length) showValidation(errors, warnings);
+      const errors = checks.run();
       if (errors.length) toast(`The server scenario has ${errors.length} validation problem${errors.length === 1 ? "" : "s"}. See Checks.`, true);
     } catch (error) {
       let fallback = addStation(addStation(emptyConfig(), 100, 120, { name: "Origin" }), 340, 120, { name: "Destination" });
@@ -1340,7 +1500,7 @@
   }
 
   async function applyProject() {
-    const errors = runValidation(); if (errors.length) { toast("Fix the listed problems before you apply the scenario.", true); return; }
+    const errors = checks.run(); if (errors.length) { showChecks(); toast("Fix the listed problems before you apply the scenario.", true); return; }
     const button = $("#applyButton"); button.disabled = true; button.textContent = "Pausing…";
     try {
       const project = draft();
@@ -1362,7 +1522,7 @@
       try {
         const imported = parseDocument(String(reader.result));
         state.history.replace(imported); state.background = imported.background; state.loaded = clone(imported); state.selection = null;
-        render(); fitNetwork(); runValidation(); toast("The project was imported into the draft.");
+        render(); fitNetwork(); checks.run(); toast("The project was imported into the draft.");
       } catch (error) { toast(`${error.message} The draft is unchanged.`, true); }
     };
     reader.readAsText(file);
@@ -1409,7 +1569,9 @@
     $("#redoButton").addEventListener("click", () => { if (state.history.redo()) { state.selection = null; render(); } });
     $("#resetButton").addEventListener("click", () => { if (!state.loaded) return; state.history.replace(state.loaded); state.background = state.loaded.background ? clone(state.loaded.background) : null; state.selection = null; render(); fitNetwork(); toast("The draft matches the last loaded project."); });
     $("#demoButton").addEventListener("click", runExampleSequence);
-    $("#validateButton").addEventListener("click", runValidation); $("#applyButton").addEventListener("click", applyProject);
+    $("#validateButton").addEventListener("click", () => checks.run()); $("#applyButton").addEventListener("click", applyProject);
+    $("#problemCount").addEventListener("click", showChecks);
+    $("#validationList").addEventListener("click", (event) => { const button = event.target.closest("button[data-type]"); if (button) selectCheck({ type: button.dataset.type, id: button.dataset.id }); });
     $("#exportButton").addEventListener("click", exportProject); $("#projectImport").addEventListener("change", (event) => { importProject(event.target.files[0]); event.target.value = ""; });
     $("#backgroundImport").addEventListener("change", (event) => { importBackground(event.target.files[0]); event.target.value = ""; });
     let opacityBefore = null;

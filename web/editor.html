@@ -22,6 +22,7 @@
       <label class="button" for="projectImport">Import JSON</label>
       <input id="projectImport" class="visually-hidden" type="file" accept="application/json,.json">
       <button id="exportButton" type="button">Export JSON</button>
+      <button id="problemCount" class="problem-count" type="button" title="Show the checks" hidden></button>
       <button id="applyButton" class="primary" type="button">Pause and apply</button>
     </div>
   </header>
@@ -119,7 +120,7 @@
         <label>Seed<input id="demandSeed" type="number" min="0" step="1"></label>
         <label class="check"><input id="redistribution" type="checkbox"> Redistribute empty pods</label>
       </section>
-      <section>
+      <section id="checksPanel">
         <div class="section-title"><h2>Checks</h2><button id="validateButton" type="button">Run checks</button></div>
         <div id="validationSummary" class="validation neutral">Checks have not run.</div>
         <ul id="validationList" class="validation-list"></ul>
