@@ -226,14 +226,19 @@ With a new epoch, clients switch to the new session.
 A command from the old epoch gets `session_changed`.
 The server does not keep the saved sequences, and the limit of 1,024 clients starts again.
 
+Each restart gives a new `serverStart` ID, with a kept epoch or a new epoch.
+A command never changes this ID.
+
 The Go client tells the user about a restart.
+When two frames both have a `serverStart` ID and the IDs are different, the server restarted.
+This rule also finds a restart when the client did not get the first frames after the restart, for example in a hidden browser tab.
+The client does not show a notice for its first frame.
+
+When one of the two frames has no `serverStart` ID, the server is older, and the client uses the epoch and the restore tier.
 Only a restart makes a new epoch.
 With a kept epoch, the first frame after the restart has a new generation, a `restore` tier of `physical` or `logical`, and no save points.
 A reset, a demo, and a project apply remove the `restore` key, and a rewind keeps the save points.
 Thus a command never makes a frame with all three of these properties.
-
-Each restart also gives a new `serverStart` ID, with a kept epoch or a new epoch.
-A command never changes this ID.
 
 ## Payload measurements
 

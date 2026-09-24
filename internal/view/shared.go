@@ -156,9 +156,12 @@ type sessionChangeInput struct {
 // state to the current state that this game did not cause. It returns an
 // empty string when there is no such change, and for the first state frame.
 //
-// Only a server restart gives a new epoch. A restart with the -state option
-// can keep the epoch. Then the generation changes, and keptEpochRestart is
-// true for the current state.
+// Each server process sends its own start ID. A new start ID shows that the
+// server restarted, also when the epoch stays the same and the game did not
+// get the first frames after the restart. When one of the two states has no
+// start ID, the server is older. Then a new epoch shows a restart. A
+// restart with the -state option can keep the epoch. Then the generation
+// changes, and keptEpochRestart is true for the current state.
 //
 // Other changes of the generation come from a reset, a demo, a rewind, or a
 // project apply. They show otherBrowserNotice, but not while a command of
@@ -167,14 +170,17 @@ type sessionChangeInput struct {
 // epoch, and the current generation or a later one.
 func sessionChangeNotice(input sessionChangeInput) string {
 	previous, current := input.previous, input.current
+	startKnown := previous.ServerStart != "" && current.ServerStart != ""
 	switch {
 	case previous.Epoch == "":
 		return ""
+	case startKnown && current.ServerStart != previous.ServerStart:
+		return restartNotice
 	case current.Epoch != previous.Epoch:
 		return restartNotice
 	case current.Generation == previous.Generation:
 		return ""
-	case keptEpochRestart(current):
+	case !startKnown && keptEpochRestart(current):
 		return restartNotice
 	case input.inFlight:
 		return ""

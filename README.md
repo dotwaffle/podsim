@@ -765,6 +765,8 @@ The line below **From** and **To** shows these notices for 3 s:
 
 A reset or a rewind from this browser shows its own notice instead.
 
+Each server process sends its own start ID, so the simulation view finds a server restart also when a hidden tab did not get the first frames after it.
+
 #### Command receipts
 
 The server deduplicates command retries by client and sequence.
