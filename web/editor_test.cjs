@@ -417,6 +417,32 @@ test("portable OD profiles validate and round trip", () => {
   assert.ok(editor.validateConfig(config).some((error) => error.includes("invalid weight")));
 });
 
+test("the demand pattern change selects the first profile, or leaves a check error with no profiles", () => {
+  // An older browser export has no demandProfiles field, and the import
+  // keeps the scenario as it is.
+  const exported = connectedScenario();
+  delete exported.demandProfiles;
+  const noProfiles = "The project has no demand profiles. Select another pattern.";
+  const cases = [
+    { name: "profiles present", config: profileScenario().config, profile: "weekday", band: "am", errors: [] },
+    { name: "empty array", config: connectedScenario(), profile: "", band: "", errors: [noProfiles] },
+    { name: "member missing", config: editor.parseDocument(JSON.stringify({ format: "podsim", version: 1, scenario: exported })).scenario, profile: "", band: "", errors: [noProfiles] },
+    { name: "null value", config: { ...connectedScenario(), demandProfiles: null }, profile: "", band: "", errors: [noProfiles] },
+    { name: "non-array value", config: { ...connectedScenario(), demandProfiles: "weekday" }, profile: "", band: "", errors: ["Demand profiles must be an array.", noProfiles] },
+  ];
+  for (const item of cases) {
+    Object.assign(item.config.demand, { pattern: "balanced", profile: "", band: "" });
+    const next = editor.setDemandPattern(item.config, "profile");
+    assert.equal(item.config.demand.pattern, "balanced", item.name);
+    assert.deepEqual([next.demand.pattern, next.demand.profile, next.demand.band], ["profile", item.profile, item.band], item.name);
+    assert.deepEqual(editor.validateConfig(next), item.errors, item.name);
+  }
+  const { config } = profileScenario();
+  Object.assign(config.demand, { profile: "weekend", band: "day" });
+  const next = editor.setDemandPattern(config, "destination");
+  assert.deepEqual([next.demand.pattern, next.demand.profile, next.demand.band], ["destination", "weekend", "day"]);
+});
+
 test("portable projects preserve the shared ride party limit", () => {
   const config = connectedScenario();
   config.sharedRidePartyLimit = 4;

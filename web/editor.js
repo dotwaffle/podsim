@@ -345,6 +345,18 @@
     return out;
   }
 
+  // setDemandPattern sets the passenger demand pattern. The profile pattern
+  // selects the first demand profile and its first time band. A draft with no
+  // demand profiles, or with a demandProfiles value that is not an array, gets
+  // only the pattern. The checks then report the missing profile.
+  function setDemandPattern(config, pattern) {
+    const out = clone(config);
+    out.demand.pattern = pattern;
+    const [first] = Array.isArray(out.demandProfiles) ? out.demandProfiles : [];
+    if (pattern === "profile" && first) { out.demand.profile = first.id; out.demand.band = first.bands?.[0]?.id || ""; }
+    return out;
+  }
+
   function laneLength(config, lane) {
     const start = point(config, lane.From);
     const end = point(config, lane.To);
@@ -554,7 +566,8 @@
     if (demand && demand.pattern === "destination" && !passenger.some((station) => station.ID === demand.destination)) errors.push("Select a passenger destination.");
     if (demand && demand.pattern === "profile") {
       const profile = profiles.find((item) => isRecord(item) && item.id === demand.profile);
-      if (!profile) errors.push("Select a demand profile.");
+      if (!profiles.length) errors.push("The project has no demand profiles. Select another pattern.");
+      else if (!profile) errors.push("Select a demand profile.");
       else if (!profile.bands.some((band) => isRecord(band) && band.id === demand.band)) errors.push("Select a demand time band.");
     }
     if (!demand || !Number.isSafeInteger(demand.seed) || demand.seed < 0) errors.push("The demand seed must be a nonnegative whole number.");
@@ -893,7 +906,7 @@
 
   const API = {
     MIN_LANE_LENGTH, MIN_ZOOM, NODE_LABEL_SCALE, NODE_LABEL_SIZE, emptyConfig, normalizeConfig, addLane, addJunction, addStation, addBerth,
-    removeBerth, moveStation, moveNode, deleteNode, deleteLane, deleteStation, stationFlowCount, setFleetCount,
+    removeBerth, moveStation, moveNode, deleteNode, deleteLane, deleteStation, stationFlowCount, setFleetCount, setDemandPattern,
     laneLength, reachable, stationNodeOwners, dragTargets, validateConfig, configWarnings, validationSummary, serializeDocument, parseDocument, createHistory,
     networkBounds, fitView, zoomScale, nodeLabelSize, applyToServer, applyFailureText, applyFailureStatus, applyToast,
   };
@@ -1371,7 +1384,7 @@
     $("#scenarioName").addEventListener("change", (event) => mutate((config) => { config.name = event.target.value.trim(); return config; }));
     $("#demandEnabled").addEventListener("change", (event) => mutate((config) => { config.demand.enabled = event.target.checked; return config; }));
     $("#demandRate").addEventListener("change", (event) => mutate((config) => { config.demand.perMinute = Math.floor(Number(event.target.value)); return config; }));
-    $("#demandPattern").addEventListener("change", (event) => mutate((config) => { config.demand.pattern = event.target.value; if (event.target.value === "profile" && config.demandProfiles.length) { config.demand.profile = config.demandProfiles[0].id; config.demand.band = config.demandProfiles[0].bands?.[0]?.id || ""; } return config; }));
+    $("#demandPattern").addEventListener("change", (event) => setDraft(setDemandPattern(draft(), event.target.value)));
     $("#demandDestination").addEventListener("change", (event) => mutate((config) => { config.demand.destination = event.target.value; return config; }));
     $("#demandProfile").addEventListener("change", (event) => mutate((config) => { config.demand.profile = event.target.value; config.demand.band = config.demandProfiles.find((profile) => profile.id === event.target.value)?.bands?.[0]?.id || ""; return config; }));
     $("#demandBand").addEventListener("change", (event) => mutate((config) => { config.demand.band = event.target.value; return config; }));
