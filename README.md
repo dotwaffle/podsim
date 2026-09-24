@@ -281,6 +281,12 @@ run its origin-destination bands.
 Use `-focus` to select the station that the destination, hotspot, bursty-hotspot, and hub-burst patterns favor.
 Use `-arrivals-for` to stop new requests before the measurement ends.
 Use `-stop-when-drained` to stop an arm after all accepted requests complete.
+Use `-adaptive-limit` with `-stop-when-drained` to find capacity limits with
+fewer arms. Arms that differ only in offered rate and seed form a group. Each
+group runs its rates from the lowest offered rate, with all seeds of a rate
+together. After the first rate at which a seed does not drain, the group runs
+`-past-limit` more rates (default 1) and skips the rest. The report omits the
+skipped arms. The other rows are identical to the rows of a full run.
 Use `-workers` to run independent arms concurrently. Reports retain their
 deterministic order.
 Use `-burst-size` to group burst-pattern requests at the same simulated time.

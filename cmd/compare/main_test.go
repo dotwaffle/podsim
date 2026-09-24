@@ -48,6 +48,9 @@ func TestParseOptionsRejectsInvalidBounds(t *testing.T) {
 		{name: "unknown wait rule", args: []string{"-wait-rules", "lenient"}, want: "unknown wait rule"},
 		{name: "empty wait rule", args: []string{"-wait-rules", "current,"}, want: "unknown wait rule"},
 		{name: "duplicate wait rule", args: []string{"-wait-rules", "strict,strict"}, want: "more than once"},
+		{name: "adaptive limit without drain stop", args: []string{"-adaptive-limit"}, want: "adaptive-limit requires -stop-when-drained"},
+		{name: "negative past limit", args: []string{"-adaptive-limit", "-stop-when-drained", "-past-limit", "-1"}, want: "past-limit must be at least 0"},
+		{name: "past limit without adaptive limit", args: []string{"-stop-when-drained", "-past-limit", "2"}, want: "past-limit requires -adaptive-limit"},
 		{name: "positional argument", args: []string{"extra"}, want: "unexpected positional"},
 	}
 	for _, test := range tests {

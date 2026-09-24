@@ -76,6 +76,10 @@ type options struct {
 	// default rule and the report has no wait rule column.
 	waitRules       []string
 	stopWhenDrained bool
+	// adaptiveLimit skips the rates of a group more than pastLimit rates
+	// above the first rate at which a seed does not drain.
+	adaptiveLimit bool
+	pastLimit     int
 }
 
 type scheduledRequest struct {
@@ -227,14 +231,16 @@ func parseOptions(args []string, stderr io.Writer) (options, error) {
 	flags.IntVar(&opts.burstSize, "burst-size", 3, "requests in each burst for burst patterns")
 	flags.IntVar(&opts.workers, "workers", 1, "independent simulation arms to run concurrently")
 	flags.BoolVar(&opts.stopWhenDrained, "stop-when-drained", false, "stop after the arrival window when all accepted requests complete")
+	flags.BoolVar(&opts.adaptiveLimit, "adaptive-limit", false, "run each arm group from its lowest offered rate, and skip its rates more than -past-limit rates above the first rate at which a seed does not drain (requires -stop-when-drained)")
+	flags.IntVar(&opts.pastLimit, "past-limit", 1, "with -adaptive-limit, the number of rates to run after the first rate at which a seed does not drain")
 	if err := flags.Parse(args); err != nil {
 		return options{}, err
 	}
 	if flags.NArg() != 0 {
 		return options{}, errors.New("unexpected positional arguments")
 	}
-	waitRulesGiven := false
-	flags.Visit(func(given *flag.Flag) { waitRulesGiven = waitRulesGiven || given.Name == "wait-rules" })
+	given := make(map[string]bool)
+	flags.Visit(func(set *flag.Flag) { given[set.Name] = true })
 	if opts.duration <= 0 || opts.duration > maxDuration {
 		return options{}, fmt.Errorf("duration must be between one simulation tick and %s", maxDuration)
 	}
@@ -258,6 +264,9 @@ func parseOptions(args []string, stderr io.Writer) (options, error) {
 	}
 	if opts.format != "table" && opts.format != "json" && opts.format != "csv" {
 		return options{}, errors.New("format must be table, json, or csv")
+	}
+	if err := validateAdaptiveLimit(opts, given["past-limit"]); err != nil {
+		return options{}, err
 	}
 
 	var err error
@@ -285,7 +294,7 @@ func parseOptions(args []string, stderr io.Writer) (options, error) {
 	if err != nil {
 		return options{}, err
 	}
-	if waitRulesGiven {
+	if given["wait-rules"] {
 		opts.waitRules, err = parseWaitRules(opts.waitRulesText)
 		if err != nil {
 			return options{}, err
@@ -295,6 +304,21 @@ func parseOptions(args []string, stderr io.Writer) (options, error) {
 		return options{}, fmt.Errorf("the matrix must contain at most %d comparisons", maxComparisons)
 	}
 	return opts, nil
+}
+
+// validateAdaptiveLimit checks -adaptive-limit and -past-limit.
+// pastLimitGiven reports whether the command line sets -past-limit.
+func validateAdaptiveLimit(opts options, pastLimitGiven bool) error {
+	if opts.pastLimit < 0 {
+		return errors.New("past-limit must be at least 0")
+	}
+	if pastLimitGiven && !opts.adaptiveLimit {
+		return errors.New("past-limit requires -adaptive-limit")
+	}
+	if opts.adaptiveLimit && !opts.stopWhenDrained {
+		return errors.New("adaptive-limit requires -stop-when-drained")
+	}
+	return nil
 }
 
 func parseRedistributionPolicies(value string) ([]bool, error) {
@@ -595,6 +619,9 @@ func compare(opts options, scenario scenario) ([]result, error) {
 				}
 			}
 		}
+	}
+	if opts.adaptiveLimit {
+		return runAdaptive(adaptiveRun{inputs: inputs, workers: opts.workers, pastLimit: opts.pastLimit, run: run})
 	}
 	return runComparisons(inputs, opts.workers)
 }

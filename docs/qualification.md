@@ -617,6 +617,9 @@ finish at every lower tested rate. This rule changes the Early and Morning
 limits. Early finishes two seeds at 8/min and all three seeds at 9/min, so its
 limit is 7/min. Morning finishes two seeds at 10/min and all three seeds at
 11/min, so its limit is 9/min.
+To find only the limits, add `-adaptive-limit` to the command. Each band then
+stops one rate after its first rate that does not drain, and the report omits
+the higher rates.
 
 Each metric column gives the mean of the three seeds at the limit rate. Maximum
 wait is the mean of the three per-seed maxima. Late throughput measures
