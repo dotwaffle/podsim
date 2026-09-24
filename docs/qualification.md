@@ -685,3 +685,45 @@ wall seconds for 360 arms and reached 735,432 KB peak RSS on the qualification
 host with ten workers. Each arm is independent and deterministic, so the
 number of workers does not change the rows. Raw results are in
 [`measurements/london-capacity.csv`](measurements/london-capacity.csv).
+
+### Finishing-pod wait rules
+
+Dispatch can hold a request for up to 30 seconds when a busy pod should reach
+the pickup at least two seconds before the available pod. The compare command
+runs three rules for this hold with `-wait-rules`:
+
+- `current` holds for a busy pod whose estimated finish plus empty travel to
+  the pickup beats the available pod. The estimate can be longer than the
+  hold. The server always uses this rule, and it is the default.
+- `strict` holds only when that estimate is not more than the hold time that
+  remains, and still beats the available pod.
+- `none` never holds, and dispatch sends the available pod at once.
+
+The report has a `wait_rule` column only when the command gets `-wait-rules`.
+Without the flag, the CSV columns are the same as before the option.
+
+```sh
+mise run compare -- -project /tmp/podsim-london-capacity.json -pattern profile -bands morning -duration 60m -arrivals-for 30m -loads 6s -seeds 1 -redistribution-policies off -focus 940GZZLUEUS -queue-limit 1000000 -stop-when-drained -wait-rules current,strict,none -format csv
+mise run compare -- -project /tmp/podsim-london-capacity.json -pattern profile -bands early -duration 60m -arrivals-for 30m -loads 5s,60s -seeds 1 -redistribution-policies off -focus 940GZZLUEUS -queue-limit 1000000 -stop-when-drained -wait-rules current,strict,none -format csv
+```
+
+The table gives seed 1 at the commit "sim: add a choice of finishing-pod wait
+rule", which adds the option.
+These three arms are a sample, not a new sweep.
+
+| Arm | Rule | Served | Left at cap | Recovery after arrivals | Average wait | Maximum wait | Empty distance |
+| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| Morning 6 s | current | 298 | 1 | Did not drain | 195.7 s | 1,013.4 s | 1,058.2 km |
+| Morning 6 s | strict | 299 | 0 | 1,505 s | 190.4 s | 755.5 s | 1,103.7 km |
+| Morning 6 s | none | 299 | 0 | 1,612 s | 197.6 s | 783.1 s | 1,131.8 km |
+| Early 5 s | current | 317 | 42 | Did not drain | 849.5 s | 1,922.5 s | 2,266.5 km |
+| Early 5 s | strict | 319 | 40 | Did not drain | 832.8 s | 1,890.9 s | 2,300.9 km |
+| Early 5 s | none | 321 | 38 | Did not drain | 824.2 s | 1,805.0 s | 2,299.2 km |
+| Early 60 s | current | 29 | 0 | 788 s | 108.9 s | 274.3 s | 206.0 km |
+| Early 60 s | strict | 29 | 0 | 788 s | 108.9 s | 274.3 s | 206.1 km |
+| Early 60 s | none | 29 | 0 | 788 s | 108.9 s | 274.3 s | 206.1 km |
+
+At 60 s intervals, the rules give almost the same result. In the two loaded
+arms, `strict` and `none` served more requests and gave shorter maximum waits
+than `current`, but they used more empty travel. One seed cannot show whether
+this difference is larger than the variation between seeds.

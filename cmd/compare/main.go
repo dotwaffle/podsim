@@ -39,6 +39,13 @@ const (
 var syntheticPatterns = []string{"balanced", "destination", "hotspot", "bursty-hotspot", "hub-burst"}
 var knownPatterns = append(append([]string(nil), syntheticPatterns...), "profile")
 
+// waitRuleValues maps each -wait-rules name to its simulation rule.
+var waitRuleValues = map[string]sim.FinishingPodWait{
+	"current": sim.FinishingPodWaitCurrent,
+	"strict":  sim.FinishingPodWaitStrict,
+	"none":    sim.FinishingPodWaitNone,
+}
+
 type options struct {
 	duration, arrivalsFor  time.Duration
 	requestEvery           time.Duration
@@ -51,6 +58,7 @@ type options struct {
 	sharingLimitsText      string
 	routingPoliciesText    string
 	redistributionText     string
+	waitRulesText          string
 	focus                  string
 	format                 string
 	projectPath            string
@@ -64,7 +72,10 @@ type options struct {
 	sharingLimits          []int
 	routingPolicies        []string
 	redistributionPolicies []bool
-	stopWhenDrained        bool
+	// waitRules is nil when -wait-rules is not given. Then each arm uses the
+	// default rule and the report has no wait rule column.
+	waitRules       []string
+	stopWhenDrained bool
 }
 
 type scheduledRequest struct {
@@ -94,6 +105,7 @@ type result struct {
 	SharedRidePartyLimit           int     `json:"shared_ride_party_limit"`
 	SharedParties                  int     `json:"shared_parties"`
 	RoutingPolicy                  string  `json:"routing_policy"`
+	WaitRule                       string  `json:"wait_rule,omitempty"`
 	FocusStation                   string  `json:"focus_station"`
 	WindowStartSeconds             float64 `json:"window_start_seconds"`
 	WindowEndSeconds               float64 `json:"window_end_seconds"`
@@ -178,7 +190,7 @@ func runCLI(input cliInput) int {
 		output = file
 		closeOutput = file.Close
 	}
-	if err := writeReport(writeReportInput{output: output, format: opts.format, results: results}); err != nil {
+	if err := writeReport(writeReportInput{output: output, format: opts.format, results: results, waitRuleColumn: opts.waitRules != nil}); err != nil {
 		_ = closeOutput()
 		_, _ = fmt.Fprintln(input.stderr, err)
 		return 1
@@ -206,6 +218,7 @@ func parseOptions(args []string, stderr io.Writer) (options, error) {
 	flags.StringVar(&opts.sharingLimitsText, "sharing-limits", "1", "comma-separated same-destination party limits")
 	flags.StringVar(&opts.routingPoliciesText, "routing-policies", "free-flow", "comma-separated routing policies: free-flow, congestion")
 	flags.StringVar(&opts.redistributionText, "redistribution-policies", "off,on", "comma-separated redistribution policies: off, on")
+	flags.StringVar(&opts.waitRulesText, "wait-rules", "current", "comma-separated finishing-pod wait rules: current, strict, none (adds a wait_rule column)")
 	flags.StringVar(&opts.focus, "focus", "", "passenger station used by focused patterns")
 	flags.StringVar(&opts.format, "format", "table", "output format: table, json, or csv")
 	flags.StringVar(&opts.projectPath, "project", "", "raw project configuration path")
@@ -220,6 +233,8 @@ func parseOptions(args []string, stderr io.Writer) (options, error) {
 	if flags.NArg() != 0 {
 		return options{}, errors.New("unexpected positional arguments")
 	}
+	waitRulesGiven := false
+	flags.Visit(func(given *flag.Flag) { waitRulesGiven = waitRulesGiven || given.Name == "wait-rules" })
 	if opts.duration <= 0 || opts.duration > maxDuration {
 		return options{}, fmt.Errorf("duration must be between one simulation tick and %s", maxDuration)
 	}
@@ -270,7 +285,13 @@ func parseOptions(args []string, stderr io.Writer) (options, error) {
 	if err != nil {
 		return options{}, err
 	}
-	if len(opts.seeds)*len(opts.patterns)*len(opts.loads)*len(opts.sharingLimits)*len(opts.routingPolicies) > maxComparisons {
+	if waitRulesGiven {
+		opts.waitRules, err = parseWaitRules(opts.waitRulesText)
+		if err != nil {
+			return options{}, err
+		}
+	}
+	if len(opts.seeds)*len(opts.patterns)*len(opts.loads)*len(opts.sharingLimits)*len(opts.routingPolicies)*max(1, len(opts.waitRules)) > maxComparisons {
 		return options{}, fmt.Errorf("the matrix must contain at most %d comparisons", maxComparisons)
 	}
 	return opts, nil
@@ -293,6 +314,27 @@ func parseRedistributionPolicies(value string) ([]bool, error) {
 		policies = append(policies, enabled)
 	}
 	return policies, nil
+}
+
+// parseWaitRules reads the -wait-rules list. Each name must be a key of
+// waitRuleValues and can occur only once. The order of the list is the order
+// of the arms in the report.
+func parseWaitRules(value string) ([]string, error) {
+	parts := strings.Split(value, ",")
+	rules := make([]string, 0, len(parts))
+	seen := make(map[string]bool, len(parts))
+	for _, part := range parts {
+		rule := strings.TrimSpace(part)
+		if _, ok := waitRuleValues[rule]; !ok {
+			return nil, fmt.Errorf("unknown wait rule %q", rule)
+		}
+		if seen[rule] {
+			return nil, fmt.Errorf("wait rule %q appears more than once", rule)
+		}
+		seen[rule] = true
+		rules = append(rules, rule)
+	}
+	return rules, nil
 }
 
 func parseRoutingPolicies(value string) ([]string, error) {
@@ -517,10 +559,16 @@ func compare(opts options, scenario scenario) ([]result, error) {
 	if err != nil {
 		return nil, err
 	}
-	if len(opts.seeds)*len(arms)*len(opts.loads)*len(opts.sharingLimits)*len(opts.routingPolicies) > maxComparisons {
+	// An empty wait rule selects the default rule and leaves the result
+	// without a wait rule.
+	waitRules := opts.waitRules
+	if waitRules == nil {
+		waitRules = []string{""}
+	}
+	if len(opts.seeds)*len(arms)*len(opts.loads)*len(opts.sharingLimits)*len(opts.routingPolicies)*len(waitRules) > maxComparisons {
 		return nil, fmt.Errorf("the expanded matrix must contain at most %d comparisons", maxComparisons)
 	}
-	inputs := make([]runInput, 0, len(arms)*len(opts.loads)*len(opts.seeds)*len(opts.sharingLimits)*len(opts.routingPolicies)*2)
+	inputs := make([]runInput, 0, len(arms)*len(opts.loads)*len(opts.seeds)*len(opts.sharingLimits)*len(opts.routingPolicies)*len(waitRules)*2)
 	for _, arm := range arms {
 		for _, load := range opts.loads {
 			for _, seed := range opts.seeds {
@@ -532,14 +580,16 @@ func compare(opts options, scenario scenario) ([]result, error) {
 				id := scheduleID(schedule)
 				for _, sharingLimit := range opts.sharingLimits {
 					for _, routingPolicy := range opts.routingPolicies {
-						for _, enabled := range opts.redistributionPolicies {
-							inputs = append(inputs, runInput{
-								enabled: enabled, duration: opts.duration, requestEvery: load, seed: seed,
-								pattern: arm.pattern, profile: arm.profile, band: arm.band,
-								scheduleID: id, queueLimit: opts.queueLimit, arrivalsFor: opts.arrivalsFor,
-								burstSize: opts.burstSize, sharingLimit: sharingLimit, routingPolicy: routingPolicy,
-								schedule: schedule, scenario: scenario, stopWhenDrained: opts.stopWhenDrained,
-							})
+						for _, waitRule := range waitRules {
+							for _, enabled := range opts.redistributionPolicies {
+								inputs = append(inputs, runInput{
+									enabled: enabled, duration: opts.duration, requestEvery: load, seed: seed,
+									pattern: arm.pattern, profile: arm.profile, band: arm.band,
+									scheduleID: id, queueLimit: opts.queueLimit, arrivalsFor: opts.arrivalsFor,
+									burstSize: opts.burstSize, sharingLimit: sharingLimit, routingPolicy: routingPolicy,
+									waitRule: waitRule, schedule: schedule, scenario: scenario, stopWhenDrained: opts.stopWhenDrained,
+								})
+							}
 						}
 					}
 				}
@@ -775,9 +825,11 @@ type runInput struct {
 	burstSize                           int
 	sharingLimit                        int
 	routingPolicy                       string
-	schedule                            []scheduledRequest
-	scenario                            scenario
-	stopWhenDrained                     bool
+	// waitRule names a waitRuleValues key. Empty selects the default rule.
+	waitRule        string
+	schedule        []scheduledRequest
+	scenario        scenario
+	stopWhenDrained bool
 }
 
 func run(input runInput) (result, error) {
@@ -796,6 +848,15 @@ func run(input runInput) (result, error) {
 		return result{}, fmt.Errorf("set sharing limit: %w", sharingErr)
 	}
 	simulation.SetCongestionRouting(input.routingPolicy == "congestion")
+	if input.waitRule != "" {
+		rule, ok := waitRuleValues[input.waitRule]
+		if !ok {
+			return result{}, fmt.Errorf("unknown wait rule %q", input.waitRule)
+		}
+		if waitErr := simulation.SetFinishingPodWait(rule); waitErr != nil {
+			return result{}, fmt.Errorf("set wait rule: %w", waitErr)
+		}
+	}
 	simulation.SetRedistribution(input.enabled)
 	metrics, err := newRunMetrics(input.scenario, input.schedule)
 	if err != nil {
@@ -872,7 +933,7 @@ func run(input runInput) (result, error) {
 		Pattern: input.pattern, DemandProfile: input.profile, DemandBand: input.band,
 		RequestEverySeconds: input.requestEvery.Seconds(), OfferedPerMinute: float64(len(input.schedule)) / arrivalMinutes, Seed: input.seed,
 		BurstSize: burstSize, Policy: policy, SharedRidePartyLimit: input.sharingLimit,
-		SharedParties: state.SharedParties, RoutingPolicy: input.routingPolicy, FocusStation: input.scenario.focus,
+		SharedParties: state.SharedParties, RoutingPolicy: input.routingPolicy, WaitRule: input.waitRule, FocusStation: input.scenario.focus,
 		WindowStartSeconds: 0, WindowEndSeconds: input.duration.Seconds(), ActualEndSeconds: float64(state.Tick) / sim.TicksPerSecond,
 		ArrivalWindowSeconds: input.arrivalsFor.Seconds(), ArrivalEndSeconds: arrivalEnd, ScheduleID: input.scheduleID,
 		Scheduled: len(input.schedule), Served: state.Completed, Remaining: state.Submitted - state.Completed, Skipped: skipped,
@@ -942,6 +1003,9 @@ type writeReportInput struct {
 	output  io.Writer
 	format  string
 	results []result
+	// waitRuleColumn adds the wait rule to table and CSV output. JSON output
+	// has the wait_rule field only when a result has a wait rule.
+	waitRuleColumn bool
 }
 
 func writeReport(input writeReportInput) error {
@@ -954,13 +1018,16 @@ func writeReport(input writeReportInput) error {
 		}
 		return nil
 	case "csv":
-		return writeCSV(input.output, input.results)
+		return writeCSV(input)
 	default:
-		return writeTable(input.output, input.results)
+		return writeTable(input)
 	}
 }
 
-func writeTable(output io.Writer, results []result) error {
+// writeTable writes one aligned row for each result. When
+// input.waitRuleColumn is set, a WAIT RULE column follows POLICY.
+func writeTable(input writeReportInput) error {
+	output, results := input.output, input.results
 	if len(results) == 0 {
 		return nil
 	}
@@ -968,14 +1035,22 @@ func writeTable(output io.Writer, results []result) error {
 		return fmt.Errorf("write table window: %w", err)
 	}
 	w := tabwriter.NewWriter(output, 0, 4, 2, ' ', 0)
-	if _, err := fmt.Fprintln(w, "PATTERN\tBAND\tLOAD (S)\tOFFERED/M\tARRIVAL/M\tLATE/M\tBACKLOG\tLATE DELTA\tDRAIN (S)\tSEED\tPOLICY\tWAIT AVG\tWAIT MAX\tSERVED\tLEFT\tSKIPPED\tPEAK OUT\tPEAK ACTIVE\tPEAK PAX\tPEAK STOPPED\tHUB IN\tHUB OUT\tHUB OCC\tHUB RSV\tPASSENGER (M)\tEMPTY (M)\tLOADED %\tMOVES"); err != nil {
+	policyHeader := "POLICY"
+	if input.waitRuleColumn {
+		policyHeader += "\tWAIT RULE"
+	}
+	if _, err := fmt.Fprintln(w, "PATTERN\tBAND\tLOAD (S)\tOFFERED/M\tARRIVAL/M\tLATE/M\tBACKLOG\tLATE DELTA\tDRAIN (S)\tSEED\t"+policyHeader+"\tWAIT AVG\tWAIT MAX\tSERVED\tLEFT\tSKIPPED\tPEAK OUT\tPEAK ACTIVE\tPEAK PAX\tPEAK STOPPED\tHUB IN\tHUB OUT\tHUB OCC\tHUB RSV\tPASSENGER (M)\tEMPTY (M)\tLOADED %\tMOVES"); err != nil {
 		return fmt.Errorf("write table header: %w", err)
 	}
 	for _, outcome := range results {
+		policy := outcome.Policy
+		if input.waitRuleColumn {
+			policy += "\t" + outcome.WaitRule
+		}
 		if _, err := fmt.Fprintf(w, "%s\t%s\t%.2f\t%.2f\t%.2f\t%.2f\t%d\t%d\t%s\t%d\t%s\t%.2f\t%.2f\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%.1f\t%.1f\t%.2f\t%d\n",
 			outcome.Pattern, outcome.DemandBand, outcome.RequestEverySeconds, outcome.OfferedPerMinute,
 			outcome.ArrivalThroughputPerMinute, outcome.LateArrivalThroughputPerMinute,
-			outcome.BacklogAtArrivalEnd, outcome.LateBacklogChange, drainText(outcome), outcome.Seed, outcome.Policy,
+			outcome.BacklogAtArrivalEnd, outcome.LateBacklogChange, drainText(outcome), outcome.Seed, policy,
 			outcome.WaitAverageSeconds, outcome.WaitMaximumSeconds, outcome.Served, outcome.Remaining, outcome.Skipped,
 			outcome.PeakOutstanding, outcome.PeakActiveVehicles, outcome.PeakPassengerVehicles, outcome.PeakStoppedVehicles,
 			outcome.PeakFocusEntranceStopped, outcome.PeakFocusExitStopped,
@@ -991,22 +1066,36 @@ func writeTable(output io.Writer, results []result) error {
 	return nil
 }
 
-func writeCSV(output io.Writer, results []result) error {
-	w := csv.NewWriter(output)
+// writeCSV writes a header and one row for each result. When
+// input.waitRuleColumn is set, a wait_rule column follows routing_policy.
+// Without it, the columns are the same as before the wait rule option.
+func writeCSV(input writeReportInput) error {
+	w := csv.NewWriter(input.output)
 	header := []string{
-		"pattern", "demand_profile", "demand_band", "request_every_seconds", "offered_per_minute", "burst_size", "seed", "policy", "routing_policy", "shared_ride_party_limit", "shared_parties", "focus_station", "window_start_seconds", "window_end_seconds", "actual_end_seconds", "arrival_window_seconds", "arrival_end_seconds", "schedule_id",
+		"pattern", "demand_profile", "demand_band", "request_every_seconds", "offered_per_minute", "burst_size", "seed", "policy", "routing_policy",
+	}
+	if input.waitRuleColumn {
+		header = append(header, "wait_rule")
+	}
+	header = append(header,
+		"shared_ride_party_limit", "shared_parties", "focus_station", "window_start_seconds", "window_end_seconds", "actual_end_seconds", "arrival_window_seconds", "arrival_end_seconds", "schedule_id",
 		"scheduled", "served", "remaining", "skipped", "completed_at_arrival_end", "backlog_at_arrival_end", "arrival_throughput_per_minute",
 		"completed_at_arrival_midpoint", "backlog_at_arrival_midpoint", "late_arrival_throughput_per_minute", "late_backlog_change", "drained", "drain_seconds",
 		"peak_pending", "peak_outstanding", "peak_active_vehicles", "peak_passenger_vehicles", "peak_stopped_vehicles", "peak_focus_approaching", "peak_focus_entrance_stopped", "peak_focus_exit_stopped",
 		"peak_focus_occupied_berths", "peak_focus_reserved_empty_berths", "queue_cleared", "queue_clear_seconds",
 		"wait_average_seconds", "wait_maximum_seconds", "passenger_distance_meters", "empty_distance_meters", "loaded_distance_percent", "positioning_moves",
-	}
+	)
 	if err := w.Write(header); err != nil {
 		return fmt.Errorf("write CSV header: %w", err)
 	}
-	for _, outcome := range results {
+	for _, outcome := range input.results {
 		row := []string{
 			outcome.Pattern, outcome.DemandProfile, outcome.DemandBand, floatText(outcome.RequestEverySeconds), floatText(outcome.OfferedPerMinute), strconv.Itoa(outcome.BurstSize), strconv.FormatInt(outcome.Seed, 10), outcome.Policy, outcome.RoutingPolicy,
+		}
+		if input.waitRuleColumn {
+			row = append(row, outcome.WaitRule)
+		}
+		row = append(row,
 			strconv.Itoa(outcome.SharedRidePartyLimit), strconv.Itoa(outcome.SharedParties), outcome.FocusStation,
 			floatText(outcome.WindowStartSeconds), floatText(outcome.WindowEndSeconds), floatText(outcome.ActualEndSeconds), floatText(outcome.ArrivalWindowSeconds), floatText(outcome.ArrivalEndSeconds), outcome.ScheduleID,
 			strconv.Itoa(outcome.Scheduled), strconv.Itoa(outcome.Served), strconv.Itoa(outcome.Remaining), strconv.Itoa(outcome.Skipped),
@@ -1019,7 +1108,7 @@ func writeCSV(output io.Writer, results []result) error {
 			floatText(outcome.WaitAverageSeconds), floatText(outcome.WaitMaximumSeconds), floatText(outcome.PassengerDistanceMeters),
 			floatText(outcome.EmptyDistanceMeters), floatText(outcome.LoadedDistancePercent),
 			strconv.Itoa(outcome.PositioningMoveCount),
-		}
+		)
 		if err := w.Write(row); err != nil {
 			return fmt.Errorf("write CSV row: %w", err)
 		}

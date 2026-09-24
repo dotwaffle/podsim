@@ -222,6 +222,7 @@ type Simulation struct {
 	sharedRidePartyLimit         int
 	sharedParties                int
 	congestionRouting            bool
+	finishingPodWait             FinishingPodWait
 	congestionRouteCosts         []float64
 	congestionRoutes             map[routeKey]routeResult
 	nextCongestionRouteRefresh   int64

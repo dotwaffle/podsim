@@ -1,14 +1,58 @@
 package sim
 
-import "math"
+import (
+	"fmt"
+	"math"
+)
 
 const (
 	maxDispatchDeferral    = 30 * TicksPerSecond
 	pickupAdvantageSeconds = 2.0
 )
 
+// FinishingPodWait selects when dispatch holds a request for a busy pod that
+// will finish soon, instead of sending an available pod that is away from
+// the pickup station.
+type FinishingPodWait int
+
+const (
+	// FinishingPodWaitCurrent holds the request when a busy pod's estimated
+	// finish plus its empty travel to the pickup beats the idle pod by
+	// pickupAdvantageSeconds. The estimate can be longer than the hold time.
+	// The hold ends after maxDispatchDeferral, and then the idle pod goes.
+	FinishingPodWaitCurrent FinishingPodWait = iota
+	// FinishingPodWaitStrict holds the request only when the busy pod's
+	// estimated finish plus its empty travel to the pickup is not more than
+	// the hold time that remains from now, and still beats the idle pod by
+	// pickupAdvantageSeconds. The hold time is maxDispatchDeferral from the
+	// first hold for the request. Dispatch checks the hold again each second
+	// with the time that remains. When the forecast moves past the end of the
+	// hold, the idle pod goes at that check.
+	FinishingPodWaitStrict
+	// FinishingPodWaitNone never holds a request. Dispatch sends the idle pod
+	// at once.
+	FinishingPodWaitNone
+)
+
+// SetFinishingPodWait selects the rule that decides when dispatch holds a
+// request for a busy pod that will finish soon. The default is
+// FinishingPodWaitCurrent. Reset keeps the rule. The saved state does not
+// keep it, so RestoreState returns a simulation with the default rule. The
+// rule applies from the next dispatch pass.
+func (s *Simulation) SetFinishingPodWait(rule FinishingPodWait) error {
+	if rule < FinishingPodWaitCurrent || rule > FinishingPodWaitNone {
+		return fmt.Errorf("unknown finishing pod wait rule %d", rule)
+	}
+	s.finishingPodWait = rule
+	return nil
+}
+
 // waitForFinishingPod is advisory. It never assigns a busy pod or reserves a berth.
+// s.finishingPodWait selects when it holds the trip.
 func (s *Simulation) waitForFinishingPod(trip *waitingTrip, idle *vehicle, assigned map[string]bool) bool {
+	if s.finishingPodWait == FinishingPodWaitNone {
+		return false
+	}
 	if trip.deferUntil != 0 && s.tick >= trip.deferUntil {
 		return false
 	}
@@ -23,6 +67,14 @@ func (s *Simulation) waitForFinishingPod(trip *waitingTrip, idle *vehicle, assig
 	}
 	idleETA := s.pickupSeconds(idle, route)
 	bestETA := idleETA - pickupAdvantageSeconds
+	holdSeconds := math.Inf(1)
+	if s.finishingPodWait == FinishingPodWaitStrict {
+		holdUntil := trip.deferUntil
+		if holdUntil == 0 {
+			holdUntil = s.tick + maxDispatchDeferral
+		}
+		holdSeconds = float64(holdUntil-s.tick) / TicksPerSecond
+	}
 	var best *vehicle
 	for i := range s.vehicles {
 		v := &s.vehicles[i]
@@ -34,7 +86,7 @@ func (s *Simulation) waitForFinishingPod(trip *waitingTrip, idle *vehicle, assig
 			continue
 		}
 		eta := remaining + s.emptySeconds(node, station.Berths[0].Node)
-		if eta < bestETA {
+		if eta < bestETA && eta <= holdSeconds {
 			best, bestETA = v, eta
 		}
 	}

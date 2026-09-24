@@ -178,3 +178,113 @@ func TestFourOutstandingOrdersComplete(t *testing.T) {
 		t.Fatalf("four orders did not complete: %+v", s.Snapshot())
 	}
 }
+
+// finishingPodSetup places idle pod 01 at harbor and pod 02 unloading at
+// busyStation, then requests a trip from market to harbor.
+type finishingPodSetup struct {
+	rule          FinishingPodWait
+	busyStation   string
+	unloadSeconds int
+}
+
+func newFinishingPodTrip(t *testing.T, setup finishingPodSetup) (*Simulation, *vehicle) {
+	t.Helper()
+	s, err := NewFleet(Example(), []Placement{{ID: "01", StationID: "harbor"}, {ID: "02", StationID: setup.busyStation}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := s.SetFinishingPodWait(setup.rule); err != nil {
+		t.Fatal(err)
+	}
+	busy := s.findVehicle("02")
+	busy.Pod.Activity, busy.Pod.Occupied = Unloading, true
+	busy.phaseTicks = setup.unloadSeconds * TicksPerSecond
+	busy.Request = &Request{ID: 1, From: "harbor", To: setup.busyStation, PartySize: 1, PodID: "02"}
+	s.requestID = 1
+	if err := s.RequestTrip("market", "harbor"); err != nil {
+		t.Fatal(err)
+	}
+	return s, busy
+}
+
+func TestFinishingPodWaitRules(t *testing.T) {
+	t.Parallel()
+	// The idle pod at harbor needs about 62 s to reach market. A pod that
+	// unloads at garden needs about 39 s of empty travel after it finishes.
+	// A pod that unloads at market needs no travel.
+	for _, tc := range []struct {
+		name          string
+		rule          FinishingPodWait
+		busyStation   string
+		unloadSeconds int
+		hold          bool
+	}{
+		{"current holds for a pod inside the hold time", FinishingPodWaitCurrent, "market", 5, true},
+		{"strict holds for a pod inside the hold time", FinishingPodWaitStrict, "market", 5, true},
+		{"none never holds", FinishingPodWaitNone, "market", 5, false},
+		{"current holds past the hold time", FinishingPodWaitCurrent, "market", 45, true},
+		{"strict holds for a pod that arrives at the end of the hold time", FinishingPodWaitStrict, "market", 30, true},
+		{"strict ignores a pod that finishes after the hold time", FinishingPodWaitStrict, "market", 45, false},
+		{"current counts travel past the hold time", FinishingPodWaitCurrent, "garden", 5, true},
+		{"strict counts travel to the pickup", FinishingPodWaitStrict, "garden", 5, false},
+		{"current needs the advantage", FinishingPodWaitCurrent, "market", 70, false},
+		{"strict needs the advantage", FinishingPodWaitStrict, "market", 70, false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			s, _ := newFinishingPodTrip(t, finishingPodSetup{rule: tc.rule, busyStation: tc.busyStation, unloadSeconds: tc.unloadSeconds})
+			pending := s.Snapshot().Pending[0]
+			if tc.hold {
+				if pending.PodID != "" || !strings.Contains(pending.DispatchReason, "02") {
+					t.Fatalf("did not hold for the finishing pod: %+v", pending)
+				}
+				return
+			}
+			if pending.PodID != "01" {
+				t.Fatalf("did not send the idle pod: %+v", pending)
+			}
+		})
+	}
+}
+
+func TestStrictFinishingPodWaitUsesRemainingHold(t *testing.T) {
+	t.Parallel()
+	for _, tc := range []struct {
+		name string
+		rule FinishingPodWait
+		want string
+	}{
+		{"current keeps the hold", FinishingPodWaitCurrent, ""},
+		{"strict sends the idle pod", FinishingPodWaitStrict, "01"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			s, busy := newFinishingPodTrip(t, finishingPodSetup{rule: tc.rule, busyStation: "market", unloadSeconds: 5})
+			// The forecast stays at 5 s for 10 s, then moves to 25 s. Only
+			// 20 s of the hold remain, so the strict rule stops the hold.
+			for tick := range 12 * TicksPerSecond {
+				busy.phaseTicks = 5 * TicksPerSecond
+				if tick >= 10*TicksPerSecond {
+					busy.phaseTicks = 25 * TicksPerSecond
+				}
+				s.Step()
+			}
+			if got := s.Snapshot().Pending[0].PodID; got != tc.want {
+				t.Fatalf("pickup pod = %q, want %q", got, tc.want)
+			}
+		})
+	}
+}
+
+func TestSetFinishingPodWaitRejectsUnknownRule(t *testing.T) {
+	t.Parallel()
+	s, err := New(Example(), "harbor")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, rule := range []FinishingPodWait{-1, FinishingPodWaitNone + 1} {
+		if err := s.SetFinishingPodWait(rule); err == nil {
+			t.Fatalf("rule %d was accepted", rule)
+		}
+	}
+}

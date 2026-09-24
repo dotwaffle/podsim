@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"reflect"
 	"slices"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -44,6 +45,9 @@ func TestParseOptionsRejectsInvalidBounds(t *testing.T) {
 		{name: "duplicate routing policy", args: []string{"-routing-policies", "free-flow,free-flow"}, want: "more than once"},
 		{name: "unknown redistribution policy", args: []string{"-redistribution-policies", "maybe"}, want: "unknown redistribution policy"},
 		{name: "duplicate redistribution policy", args: []string{"-redistribution-policies", "off,off"}, want: "more than once"},
+		{name: "unknown wait rule", args: []string{"-wait-rules", "lenient"}, want: "unknown wait rule"},
+		{name: "empty wait rule", args: []string{"-wait-rules", "current,"}, want: "unknown wait rule"},
+		{name: "duplicate wait rule", args: []string{"-wait-rules", "strict,strict"}, want: "more than once"},
 		{name: "positional argument", args: []string{"extra"}, want: "unexpected positional"},
 	}
 	for _, test := range tests {
@@ -434,5 +438,207 @@ func TestWorkingVehiclesAfterTrip(t *testing.T) {
 	}
 	if got := workingVehicles(state); got != 0 {
 		t.Fatalf("workingVehicles() after the trip = %d, want 0", got)
+	}
+}
+
+func TestParseWaitRules(t *testing.T) {
+	t.Parallel()
+	for _, tc := range []struct {
+		name string
+		args []string
+		want []string
+	}{
+		{"flag not given", nil, nil},
+		{"default value given", []string{"-wait-rules", "current"}, []string{"current"}},
+		{"all rules in order", []string{"-wait-rules", "none, strict,current"}, []string{"none", "strict", "current"}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			opts, err := parseOptions(tc.args, &bytes.Buffer{})
+			if err != nil {
+				t.Fatal(err)
+			}
+			if !slices.Equal(opts.waitRules, tc.want) || (opts.waitRules == nil) != (tc.want == nil) {
+				t.Fatalf("wait rules = %#v, want %#v", opts.waitRules, tc.want)
+			}
+		})
+	}
+}
+
+func TestWaitRuleColumnOnlyWhenRequested(t *testing.T) {
+	t.Parallel()
+	results := []result{{Pattern: "balanced", Policy: "off", RoutingPolicy: "free-flow", WaitRule: "strict", WaitAverageSeconds: 12.34}}
+	for _, tc := range []struct {
+		name       string
+		format     string
+		column     bool
+		wantHeader string
+		wantValue  string
+	}{
+		{"csv without column", "csv", false, "shared_ride_party_limit", "0"},
+		{"csv with column", "csv", true, "wait_rule", "strict"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			var output bytes.Buffer
+			if err := writeReport(writeReportInput{output: &output, format: tc.format, results: results, waitRuleColumn: tc.column}); err != nil {
+				t.Fatal(err)
+			}
+			records, err := csv.NewReader(&output).ReadAll()
+			if err != nil {
+				t.Fatal(err)
+			}
+			routing := slices.Index(records[0], "routing_policy")
+			if routing < 0 || records[0][routing+1] != tc.wantHeader || records[1][routing+1] != tc.wantValue {
+				t.Fatalf("column after routing_policy = %q, %q", records[0][routing+1], records[1][routing+1])
+			}
+			if len(records[0]) != len(records[1]) {
+				t.Fatalf("header has %d columns, row has %d", len(records[0]), len(records[1]))
+			}
+		})
+	}
+	for _, tc := range []struct {
+		name       string
+		column     bool
+		wantHeader bool
+	}{
+		{"table without column", false, false},
+		{"table with column", true, true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			var table bytes.Buffer
+			if err := writeReport(writeReportInput{output: &table, format: "table", results: results, waitRuleColumn: tc.column}); err != nil {
+				t.Fatal(err)
+			}
+			lines := strings.Split(table.String(), "\n")
+			header, row := lines[1], lines[2]
+			if got := strings.Contains(header, "WAIT RULE"); got != tc.wantHeader {
+				t.Fatalf("header has WAIT RULE = %t, want %t:\n%s", got, tc.wantHeader, table.String())
+			}
+			// The table is aligned, so each value starts at the column of
+			// its header. A header column with no row value moves the
+			// later values out of line.
+			if strings.Index(header, "WAIT AVG") != strings.Index(row, "12.34") {
+				t.Fatalf("WAIT AVG column is not aligned with its value:\n%s", table.String())
+			}
+			if tc.column && strings.Index(header, "WAIT RULE") != strings.Index(row, "strict") {
+				t.Fatalf("WAIT RULE column is not aligned with its value:\n%s", table.String())
+			}
+		})
+	}
+}
+
+// TestWaitRulesAddArms runs two schedules on which the wait rules give
+// different results. With seed 5 the current rule differs from strict and
+// none. With seed 9 the none rule differs from current and strict. So each
+// rule must reach the simulation.
+func TestWaitRulesAddArms(t *testing.T) {
+	t.Parallel()
+	args := []string{
+		"-duration", "3m", "-arrivals-for", "2m", "-request-every", "20s", "-seeds", "5,9",
+		"-pattern", "balanced", "-redistribution-policies", "off",
+	}
+	caseStudy, err := loadScenario("", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defaults, err := parseOptions(args, &bytes.Buffer{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	withRules, err := parseOptions(append(slices.Clone(args), "-wait-rules", "current,strict,none"), &bytes.Buffer{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	base, err := compare(defaults, caseStudy)
+	if err != nil {
+		t.Fatal(err)
+	}
+	arms, err := compare(withRules, caseStudy)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(base) != 2 || len(arms) != 6 {
+		t.Fatalf("got %d default and %d wait rule results", len(base), len(arms))
+	}
+	rules := []string{"current", "strict", "none"}
+	for index, arm := range arms {
+		seedArm := base[index/len(rules)]
+		if arm.WaitRule != rules[index%len(rules)] || arm.ScheduleID != seedArm.ScheduleID {
+			t.Fatalf("arm %d = %q with schedule %s", index, arm.WaitRule, arm.ScheduleID)
+		}
+		arm.WaitRule = ""
+		arms[index] = arm
+	}
+	for _, tc := range []struct {
+		name  string
+		left  result
+		right result
+		equal bool
+	}{
+		{"seed 5 current equals the default", arms[0], base[0], true},
+		{"seed 5 strict differs from current", arms[1], arms[0], false},
+		{"seed 5 none equals strict", arms[2], arms[1], true},
+		{"seed 9 current equals the default", arms[3], base[1], true},
+		{"seed 9 strict equals current", arms[4], arms[3], true},
+		{"seed 9 none differs from strict", arms[5], arms[4], false},
+	} {
+		if got := reflect.DeepEqual(tc.left, tc.right); got != tc.equal {
+			t.Errorf("%s: equal = %t, want %t:\n%+v\n%+v", tc.name, got, tc.equal, tc.left, tc.right)
+		}
+	}
+}
+
+// TestWaitRulesCountInMatrixLimit checks that each wait rule counts as a
+// separate arm in the matrix limit.
+func TestWaitRulesCountInMatrixLimit(t *testing.T) {
+	t.Parallel()
+	seeds := func(count int) string {
+		values := make([]string, count)
+		for index := range values {
+			values[index] = strconv.Itoa(index + 1)
+		}
+		return strings.Join(values, ",")
+	}
+	// 100 seeds and 4 loads give 400 comparisons for each wait rule.
+	const loads = "10s,20s,30s,40s"
+	for _, tc := range []struct {
+		name string
+		args []string
+		want string
+	}{
+		{"one rule stays under the limit", []string{"-seeds", seeds(100), "-loads", loads, "-wait-rules", "current"}, ""},
+		{"three rules go over the limit", []string{"-seeds", seeds(100), "-loads", loads, "-wait-rules", "current,strict,none"}, "at most"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			_, err := parseOptions(tc.args, &bytes.Buffer{})
+			if (err == nil) != (tc.want == "") || err != nil && !strings.Contains(err.Error(), tc.want) {
+				t.Fatalf("parseOptions() error = %v, want text %q", err, tc.want)
+			}
+		})
+	}
+	// Two profile bands double the arms after parsing, so only compare()
+	// can find that the matrix is too large.
+	caseStudy, err := loadScenario("", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	caseStudy.demand = project.DemandConfig{Pattern: "profile", Profile: "test", Band: "peak"}
+	caseStudy.demandProfiles = []project.DemandProfile{{
+		ID: "test", Name: "Test profile",
+		Bands: []project.DemandBand{{ID: "peak", Name: "Peak"}, {ID: "quiet", Name: "Quiet"}},
+		Flows: []project.DemandFlow{{From: "harbor", To: "market", Weights: []float64{1, 1}}},
+	}}
+	opts, err := parseOptions([]string{
+		"-duration", "1m", "-request-every", "30s", "-pattern", "profile", "-bands", "all",
+		"-loads", "10s,20s", "-redistribution-policies", "off", "-seeds", seeds(100), "-wait-rules", "current,strict,none",
+	}, &bytes.Buffer{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := compare(opts, caseStudy); err == nil || !strings.Contains(err.Error(), "expanded matrix") {
+		t.Fatalf("compare() error = %v, want the expanded matrix limit", err)
 	}
 }

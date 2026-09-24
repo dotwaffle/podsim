@@ -167,7 +167,7 @@ var persistRules = map[reflect.Type]map[string]persistRule{
 		"laneSafety": persistDerive, "berthSafety": persistDerive, "vehicleIndexes": persistDerive,
 		"congestionRouting": persistUnsupported, "congestionRouteCosts": persistUnsupported,
 		"congestionRoutes": persistUnsupported, "nextCongestionRouteRefresh": persistUnsupported,
-		"reservationLookaheadSeconds": persistUnsupported,
+		"reservationLookaheadSeconds": persistUnsupported, "finishingPodWait": persistUnsupported,
 	},
 	reflect.TypeFor[vehicle](): {
 		"Vehicle": persistSave, "phaseTicks": persistSave, "blocks": persistDerive, "blockStarts": persistDerive,

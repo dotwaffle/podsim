@@ -286,6 +286,8 @@ Use `-burst-size` to group burst-pattern requests at the same simulated time.
 Use `-sharing-limits 1,4` to compare same-destination party limits.
 Use `-routing-policies free-flow,congestion` for the experimental route-cost A/B.
 Use `-redistribution-policies off` to hold redistribution fixed.
+Use `-wait-rules current,strict,none` to compare the finishing-pod wait rules in the dispatch section.
+The report has a `wait_rule` column or JSON field only when you give `-wait-rules`.
 Use `-queue-limit` to change the limit of 200 pending requests. At the limit, the comparison skips new arrivals.
 Pending requests contribute their elapsed wait at the end of the measurement window.
 
@@ -360,6 +362,9 @@ Dispatch can wait for a busy pod if it should reach pickup at least two seconds 
 The estimate includes travel, acceleration, braking, boarding, and unloading.
 It does not predict traffic delays.
 Dispatch waits for at most 30 simulated seconds before it uses an available pod.
+This is the `current` wait rule, and the server always uses it.
+The compare command can also run the `strict` rule, which waits only when the busy pod can finish and reach the pickup before the 30 seconds end.
+It can also run the `none` rule, which never waits for a busy pod.
 
 Assigned pickup pods can depart while the berth is occupied and queue on its approach.
 They claim the berth through local admission, not a remote reservation.
