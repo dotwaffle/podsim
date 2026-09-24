@@ -73,6 +73,12 @@ type SavedPod struct {
 	// ClaimsDestination is true when a relocating pod holds its destination
 	// berth.
 	ClaimsDestination bool `json:"claimsDestination,omitzero"`
+	// Released is true for an empty pod that dispatch released from a
+	// pickup order. Such a pod can divert at once. A restore ignores it for
+	// a pod that dispatch cannot release: an occupied pod, a pod with no
+	// station to relocate to, a rebalancing pod, or a pod that is not
+	// traveling or departing empty.
+	Released bool `json:"released,omitzero"`
 	// Route holds the lanes that the pod still needs. The route of a traveling
 	// pod starts at the first lane that can still hold a resource, and
 	// RouteIndex and Distance count from the start of that lane.
@@ -177,7 +183,8 @@ func RestoreState(input RestoreStateInput) (*Simulation, RestoreResult, error) {
 // A traveling pod saves only the part of its route that can still hold a
 // resource. A route that is longer than its limit is not saved. RestoreState
 // then moves the pod to a berth. A queued trip without its route also loses
-// its pod bindings.
+// its pod bindings, and an empty pod on its way to that pickup is saved as
+// released.
 func (s *Simulation) ExportState() SavedState {
 	state := SavedState{
 		Tick: s.tick, Paused: s.paused, Completed: s.completed, RequestID: s.requestID, Boarded: s.boarded,
@@ -203,7 +210,14 @@ func (s *Simulation) ExportState() SavedState {
 		}
 		if saved.Route == nil && len(trip.route) > 0 {
 			// A restore clears the pod bindings of a trip whose route is too
-			// long, so the saved trip does not keep them.
+			// long, so the saved trip does not keep them. The pod on its way
+			// to the pickup is saved as released, so that it can take new
+			// work after the restore.
+			for index := range s.vehicles {
+				if v := &s.vehicles[index]; v.Pod.ID == trip.request.PodID && releasable(v) {
+					state.Pods[index].Released = true
+				}
+			}
 			saved.Request.PodID, saved.DeferCheck, saved.DeferPodID = "", 0, ""
 		}
 		state.Waiting[index] = saved
@@ -219,7 +233,7 @@ func (s *Simulation) exportPod(v *vehicle, limits routeLimits) SavedPod {
 		Destination: v.destination.ID, DestinationStation: v.destinationStation,
 		ClaimsDestination: v.RelocatingTo != "" && v.destination.ID != "" &&
 			s.owners[resource{kind: berthResource, id: v.destination.ID}] == v.Pod.ID,
-		LaneID: v.Pod.LaneID, LaneDistance: v.Pod.LaneDistance, Waiting: v.pending >= 0,
+		LaneID: v.Pod.LaneID, LaneDistance: v.Pod.LaneDistance, Waiting: v.pending >= 0, Released: v.released,
 	}
 	if v.Request != nil {
 		pod.Request = new(SavedRequest(*v.Request))

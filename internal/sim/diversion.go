@@ -42,35 +42,48 @@ func (s *Simulation) pickupRouteWithAssignments(input pickupRouteInput) ([]Lane,
 		return route, destination, err == nil
 	}
 	destination, ok := s.station(v.RelocatingTo)
-	if !ok || (!destination.ParkingOnly && !v.Rebalancing) {
+	if !ok || (!destination.ParkingOnly && !v.Rebalancing && !v.released) {
 		return nil, Berth{}, false
 	}
-	if v.Pod.Activity != Traveling && v.Pod.Activity != DepartingEmpty {
+	prefix, from, ok := s.divertStart(v)
+	if !ok {
 		return nil, Berth{}, false
-	}
-	prefix := 0
-	from := v.origin.Node
-	if v.reservedThrough >= 0 {
-		committed := v.blocks[v.reservedThrough]
-		end := committed.laneStart + s.laneLength(committed.lane)
-		distance := 0.0
-		for i, lane := range v.Route {
-			// Finish a committed parking inlet before returning to service.
-			if lane.To == v.destination.Node {
-				return nil, Berth{}, false
-			}
-			distance += s.laneLength(lane)
-			prefix, from = i+1, lane.To
-			if distance >= end-1e-9 {
-				break
-			}
-		}
 	}
 	suffix, berth, err := s.stationRouteByLoad(stationRouteInput{from: from, station: stationID, load: input.load})
 	if err != nil {
 		return nil, Berth{}, false
 	}
 	return append(slices.Clone(v.Route[:prefix]), suffix...), berth, true
+}
+
+// divertStart returns the number of route lanes that a moving empty pod
+// must keep and the node where a new route can start. The pod keeps each
+// lane that its reserved blocks touch. It reports false when the pod is not
+// departing or traveling, or when its reserved blocks enter its destination
+// berth. Such a pod must finish its committed inlet.
+func (s *Simulation) divertStart(v *vehicle) (int, string, bool) {
+	if v.Pod.Activity != Traveling && v.Pod.Activity != DepartingEmpty {
+		return 0, "", false
+	}
+	prefix, from := 0, v.origin.Node
+	if v.reservedThrough < 0 {
+		return prefix, from, true
+	}
+	committed := v.blocks[v.reservedThrough]
+	end := committed.laneStart + s.laneLength(committed.lane)
+	distance := 0.0
+	for i, lane := range v.Route {
+		// Finish a committed inlet before returning to service.
+		if lane.To == v.destination.Node {
+			return 0, "", false
+		}
+		distance += s.laneLength(lane)
+		prefix, from = i+1, lane.To
+		if distance >= end-1e-9 {
+			break
+		}
+	}
+	return prefix, from, true
 }
 
 func (s *Simulation) pickupSeconds(v *vehicle, route []Lane) float64 {
@@ -96,21 +109,38 @@ func (s *Simulation) sendPickup(v *vehicle, stationID string) error {
 	if !ok {
 		return errors.New("pod cannot divert before its committed maneuver finishes")
 	}
-	// Only the unused parking claims are released. Admitted track stays owned.
-	for _, r := range []resource{{kind: berthResource, id: v.destination.ID}, {kind: nodeResource, id: v.destination.Node}} {
+	s.redirect(v, redirection{route: route, berth: berth, station: station.ID})
+	v.released = false
+	return nil
+}
+
+// redirection is the input of redirect.
+type redirection struct {
+	route   []Lane
+	berth   Berth
+	station string
+}
+
+// redirect gives an empty moving pod a new route to a berth of a station.
+// The route must start with the lanes that divertStart keeps. The pod
+// releases its unused destination claims. It keeps the track that it
+// already reserved. A pod with an empty route stops at its origin berth
+// and becomes idle.
+func (s *Simulation) redirect(v *vehicle, to redirection) {
+	for _, r := range berthResources(v.destination) {
 		if s.owners[r] == v.Pod.ID {
 			delete(s.owners, r)
 		}
 	}
-	s.setVehicleRoute(v, route)
-	v.destination, v.destinationStation = berth, station.ID
-	v.RelocatingTo = stationID
+	s.setVehicleRoute(v, to.route)
+	v.destination, v.destinationStation = to.berth, to.station
+	v.RelocatingTo = to.station
 	v.Rebalancing = false
-	if len(route) == 0 {
+	if len(to.route) == 0 {
 		v.Pod.Activity = Idle
 		v.RelocatingTo = ""
+		v.released = false
 	}
 	v.pending = -1
 	v.Pod.WaitReason, v.Pod.BlockedBy = NoWait, ""
-	return nil
 }

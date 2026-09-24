@@ -35,11 +35,7 @@ func (s *Simulation) route(from, to string) ([]Lane, error) {
 }
 
 func (s *Simulation) congestionRoute(from, to string) ([]Lane, error) {
-	if s.congestionRouteCosts == nil || s.tick >= s.nextCongestionRouteRefresh {
-		s.congestionRouteCosts = s.congestionCosts()
-		s.congestionRoutes = make(map[routeKey]routeResult)
-		s.nextCongestionRouteRefresh = s.tick + congestionRouteRefreshTicks
-	}
+	s.refreshCongestionCosts()
 	key := routeKey{from: from, to: to}
 	if cached, ok := s.congestionRoutes[key]; ok {
 		return cached.lanes, cached.err
@@ -47,6 +43,27 @@ func (s *Simulation) congestionRoute(from, to string) ([]Lane, error) {
 	lanes, err := s.network.routeIndexed(networkRouteInput{from: from, to: to, extraCost: s.congestionRouteCosts}, s.graph)
 	s.congestionRoutes[key] = routeResult{lanes: lanes, err: err}
 	return lanes, err
+}
+
+// refreshCongestionCosts computes the congestion costs again when they are
+// older than congestionRouteRefreshTicks. It then clears the congestion
+// routes.
+func (s *Simulation) refreshCongestionCosts() {
+	if s.congestionRouteCosts == nil || s.tick >= s.nextCongestionRouteRefresh {
+		s.congestionRouteCosts = s.congestionCosts()
+		s.congestionRoutes = make(map[routeKey]routeResult)
+		s.nextCongestionRouteRefresh = s.tick + congestionRouteRefreshTicks
+	}
+}
+
+// routeExtraCosts returns the lane costs that route adds to travel time.
+// It returns nil when congestion routing is off.
+func (s *Simulation) routeExtraCosts() []float64 {
+	if !s.congestionRouting {
+		return nil
+	}
+	s.refreshCongestionCosts()
+	return s.congestionRouteCosts
 }
 
 func (s *Simulation) congestionCosts() []float64 {

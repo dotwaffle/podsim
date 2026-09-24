@@ -19,8 +19,10 @@ import (
 )
 
 const (
-	// stateFormat and stateVersion identify the state file. Each change to
-	// the members of the file needs a new version.
+	// stateFormat and stateVersion identify the state file. Until the first
+	// release, an added optional member with a safe zero value keeps the
+	// version. Each other change to the members of the file needs a new
+	// version.
 	stateFormat  = "podsim-session"
 	stateVersion = 1
 	// maxEpochBytes is the largest saved epoch.
@@ -104,7 +106,9 @@ var stateJSONLimits = jsonLimits{
 
 // stateFile is version 1 of the saved session state. The file on disk is
 // the JSON form of stateFile, compressed with gzip. Each change to a member,
-// also in the simulation and in the project, needs a new version.
+// also in the simulation and in the project, needs a new version. Until the
+// first release, an added optional member with a safe zero value is an
+// exception. It keeps the version.
 // testdata/state_v1_members.txt lists the members.
 //
 // A saver can copy the values into a stateFile while it holds the session
@@ -244,6 +248,13 @@ func (w *limitedWriter) Write(data []byte) (int, error) {
 	return n, err
 }
 
+// strictStateOptions reject unknown members, and a project member that is
+// larger than a project file can be.
+var strictStateOptions = json.JoinOptions(
+	json.RejectUnknownMembers(true),
+	json.WithUnmarshalers(json.UnmarshalFromFunc(decodeSavedProject)),
+)
+
 // decodeStateFile decodes a compressed state file. It checks the sizes, the
 // version and the member names, but not the values. The caller checks the
 // project, then the session members with validate, and then the simulation.
@@ -278,14 +289,8 @@ func decodeStateFile(data []byte) (stateFile, error) {
 				header.Format, header.Version, stateFormat, stateVersion),
 		}
 	}
-	// The strict decode rejects unknown members, and a project member that
-	// is larger than a project file can be.
-	strict := json.JoinOptions(
-		json.RejectUnknownMembers(true),
-		json.WithUnmarshalers(json.UnmarshalFromFunc(decodeSavedProject)),
-	)
 	var file stateFile
-	if err := json.Unmarshal(raw, &file, strict); err != nil {
+	if err := json.Unmarshal(raw, &file, strictStateOptions); err != nil {
 		return stateFile{}, invalidState(fmt.Errorf("decode session state: %w", err))
 	}
 	return file, nil

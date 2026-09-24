@@ -170,7 +170,9 @@ At startup, the server reads `session.json.gz` and restores the session with one
 
 The reason for an `empty` start is `project_changed`, `unsupported_version`, `invalid_state`, `too_large`, `restore_loop`, or `unreadable`.
 `too_large` means more than 16 MiB, compressed or decompressed.
-A file with another format version gets `unsupported_version`. Each change to the members of the file gets a new format version.
+A file with another format version gets `unsupported_version`.
+Until the first release, an added optional member with a safe zero value keeps the format version. The file leaves out the member when its value is zero. An older server restores a file without the member, but it gets `invalid_state` for a file with the member and moves that file aside.
+Each other change to the members of the file gets a new format version.
 Thus after a downgrade past such a change, the older server moves the file aside.
 With `-project`, the project file has priority, and a saved state with a different project gets `project_changed`.
 But when only the demand settings are different, the server restores the saved state.

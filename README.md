@@ -351,7 +351,8 @@ Sharing does not wait for more parties or add stops.
 Passengers request travel between stations independently of pod selection.
 Dispatch considers requests in submission order.
 An idle local pod serves the oldest waiting passenger.
-Otherwise, dispatch compares idle pods and empty pods that can divert from parking.
+Otherwise, dispatch compares idle pods and empty pods that can divert.
+An empty pod can divert when it goes to parking, when it moves for redistribution, or when dispatch released it from a pickup.
 It uses estimated pickup time, then pod ID, as the tie-breaker.
 
 Dispatch can wait for a busy pod if it should reach pickup at least two seconds earlier.
@@ -366,9 +367,24 @@ Passengers board only at a berth.
 If pickup pods arrive out of order, the first available pod takes the oldest passenger at that station.
 The other pod retains a pickup at the same station for the later order.
 
+An idle local pod can take a trip from a pod that is still on its way to the pickup.
+Dispatch then releases the other pod, and the released pod can divert for a pickup at once.
+A later trip in the same dispatch pass or in a later pass can take it.
+If no trip takes it in the same pass, it goes to the nearest free berth.
+A free berth has no pod, no claim, and no other pod or waiting trip that goes to it.
+The pod keeps its destination when that berth is the nearest free berth.
+When two berths have the same route cost, the current destination berth wins, then the other berths of its station, then the berths of the other stations in network order.
+The pod reserves the chosen berth, as a pod on its way to parking does.
+A pod that has not left its berth can choose that berth and stays there.
+A moving pod cannot choose its origin berth until it is at clearance distance from it.
+A restore that removes the pod binding of a waiting trip also releases the pod on its way to that pickup.
+The next dispatch pass sends that pod to the nearest free berth if no trip takes it.
+When a released pod gives its berth claim to a passenger pod, it goes to the nearest free berth at once.
+
 An empty pod heading to parking can divert for a pickup.
 It preserves all committed track and releases its unused parking claim.
 A pod already committed to the parking inlet finishes that maneuver before returning to service.
+A released pod also keeps all committed track and finishes a committed inlet first.
 Empty pickup travel retains the original request ID and does not count as a passenger journey.
 The fixed demo can still submit journeys directly to specific pods.
 

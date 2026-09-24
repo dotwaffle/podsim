@@ -283,6 +283,7 @@ func (r *physicalRestore) decodePod(index int, saved SavedPod) error {
 		phaseTicks: saved.PhaseTicks, rebalanceAfter: saved.RebalanceAfter, destinationStation: saved.DestinationStation,
 		pending: -1, reservedThrough: -1,
 	}
+	v.released = saved.Released && releasable(v)
 	if saved.Request != nil {
 		v.Request = new(Request(*saved.Request))
 	}
@@ -770,7 +771,7 @@ func (r *physicalRestore) placeDemoted(index int) error {
 	station := r.berths[berth.ID].station
 	v.Pod.Activity, v.Pod.StationID = Idle, station
 	v.Route, v.blocks, v.blockStarts = nil, nil, nil
-	v.Parties, v.RelocatingTo, v.Rebalancing = 0, "", false
+	v.Parties, v.RelocatingTo, v.Rebalancing, v.released = 0, "", false, false
 	v.origin, v.destination, v.destinationStation = Berth{}, berth, station
 	return nil
 }
@@ -813,7 +814,7 @@ func (r *physicalRestore) boardAgain(v *vehicle, berth Berth) bool {
 	request.PodID, request.DispatchReason = v.Pod.ID, ""
 	v.Request = &request
 	v.Pod.Activity, v.Pod.StationID = Boarding, r.berths[berth.ID].station
-	v.RelocatingTo, v.Rebalancing = "", false
+	v.RelocatingTo, v.Rebalancing, v.released = "", false, false
 	v.origin, v.destination, v.destinationStation = berth, Berth{}, request.To
 	r.s.setVehicleRoute(v, route)
 	return true
@@ -852,7 +853,10 @@ func (r *physicalRestore) moveTo(v *vehicle, berth Berth) {
 // in before the first saved trip with a larger ID. The restore drops a saved
 // request that is not valid or that a pod already carries. It clears the pod
 // bindings of a trip when one of them is not valid, and keeps a deferral
-// deadline that is in range.
+// deadline that is in range. When the restore drops a trip or clears its
+// pod, and no kept trip names that pod, the empty pod on its way to the
+// pickup has no order. The restore releases it as dispatch does, so that it
+// can take new work at once.
 func (r *physicalRestore) restoreWaiting() {
 	s := r.s
 	carried := make(map[int]bool)
@@ -861,6 +865,7 @@ func (r *physicalRestore) restoreWaiting() {
 			carried[v.Request.ID] = true
 		}
 	}
+	var orphaned []string
 	requeued := slices.Clone(r.requeued)
 	slices.SortStableFunc(requeued, func(a, b waitingTrip) int { return cmp.Compare(a.request.ID, b.request.ID) })
 	for _, trip := range requeued {
@@ -876,12 +881,22 @@ func (r *physicalRestore) restoreWaiting() {
 			!s.passengerStation(request.From) || !s.passengerStation(request.To) {
 			r.result.Dropped = append(r.result.Dropped, request.ID)
 			r.result.DroppedParties += max(1, saved.Parties)
+			orphaned = append(orphaned, request.PodID)
 			continue
 		}
 		carried[request.ID] = true
-		s.waiting = append(s.waiting, r.restoreTrip(index, request))
+		trip := r.restoreTrip(index, request)
+		if trip.request.PodID != request.PodID {
+			orphaned = append(orphaned, request.PodID)
+		}
+		s.waiting = append(s.waiting, trip)
 	}
 	s.waiting = append(s.waiting, requeued...)
+	for _, id := range orphaned {
+		if v := s.findVehicle(id); v != nil && !s.assigned(id) {
+			s.releasePickup(v)
+		}
+	}
 }
 
 func (r *physicalRestore) restoreTrip(index int, request Request) waitingTrip {

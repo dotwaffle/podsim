@@ -116,8 +116,12 @@ func TestRemotePickupYieldsToNewLocalPod(t *testing.T) {
 	if local.Pod.Activity != Boarding || local.Request == nil || local.Request.ID != 1 || len(s.waiting) != 0 {
 		t.Fatalf("new local pod did not replace remote pickup: %+v", s.Snapshot())
 	}
-	if s.assigned(remote.Pod.ID) || remote.RelocatingTo != "market" {
+	if s.assigned(remote.Pod.ID) {
 		t.Fatal("remote pickup retained the passenger assignment")
+	}
+	// The released pod had not left its berth, so it stays there.
+	if remote.Pod.Activity != Idle || remote.Pod.BerthID != "parking-1" || remote.RelocatingTo != "" || remote.released {
+		t.Fatalf("released pod did not stay at its berth: %+v", remote.Vehicle)
 	}
 }
 

@@ -176,6 +176,10 @@ type vehicle struct {
 	rebalanceAfter              int64
 	origin, destination         Berth
 	destinationStation          string
+	// released is true for an empty pod that dispatch sent to a pickup and
+	// then released with no claim. Such a pod can divert at once, as a pod
+	// on its way to parking can.
+	released bool
 }
 
 // Simulation owns a fixed fleet and local track, junction, and berth resources.
@@ -529,7 +533,7 @@ func (s *Simulation) arrive(v *vehicle) {
 	v.phaseTicks = unloadingTicks
 	if v.RelocatingTo != "" {
 		v.Pod.Activity, v.Pod.Occupied = Idle, false
-		v.phaseTicks, v.RelocatingTo = 0, ""
+		v.phaseTicks, v.RelocatingTo, v.released = 0, "", false
 		if v.Rebalancing {
 			v.rebalanceAfter = s.tick + redistributionCooldownTicks
 			v.Rebalancing = false

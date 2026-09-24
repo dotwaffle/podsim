@@ -36,6 +36,8 @@ const (
 	// stateMembersHeader starts the member list.
 	stateMembersHeader = `# Members of the session state file, version 1.
 # A change here needs a version bump: change stateVersion in state_file.go.
+# Until the first release, an added optional member with a safe zero value
+# keeps the version.
 # Each line is a member path and its JSON kind. "[]" is an array element.
 # TestStateFileMembers compares this list with the Go types.
 `
@@ -656,7 +658,7 @@ func TestStateFileWorstCaseSize(t *testing.T) {
 		ID: id("p", 0), Activity: "departing", StationID: id("s", 0), BerthID: id("b", 0),
 		Occupied: true, Request: &request, Parties: widest, RelocatingTo: id("r", 0),
 		Rebalancing: true, RebalanceAfter: widest, PhaseTicks: widest, Origin: id("o", 0),
-		Destination: id("d", 0), DestinationStation: id("e", 0), ClaimsDestination: true,
+		Destination: id("d", 0), DestinationStation: id("e", 0), ClaimsDestination: true, Released: true,
 		Route: route(lanes + nodes), RouteIndex: widest, LaneID: id("l", 0),
 		LaneDistance: -math.MaxFloat64, Distance: -math.MaxFloat64, Waiting: true, WaitSince: widest,
 	}
@@ -772,8 +774,9 @@ func TestEncodeStateFileTooLarge(t *testing.T) {
 }
 
 // TestStateFileMembers makes sure that each change to the members of the
-// state file is seen. Such a change needs a new stateVersion. Run the test
-// with -update to write the member list again.
+// state file is seen. Such a change needs a new stateVersion. Until the
+// first release, an added optional member with a safe zero value keeps the
+// version. Run the test with -update to write the member list again.
 func TestStateFileMembers(t *testing.T) {
 	t.Parallel()
 	got := stateMembers(t, "", reflect.TypeFor[stateFile](), nil)
@@ -793,8 +796,65 @@ func TestStateFileMembers(t *testing.T) {
 		}
 	}
 	if !slices.Equal(got, want) {
-		t.Fatalf("the state file members changed. Change stateVersion, then run the test with -update.\ngot:\n%s", strings.Join(got, "\n"))
+		t.Fatalf("the state file members changed. Change stateVersion, unless the change adds an optional member with a safe zero value before the first release. Then run the test with -update.\ngot:\n%s", strings.Join(got, "\n"))
 	}
+}
+
+// TestReleasedMemberBreaksOlderReader checks the rule in the operations
+// guide for the pod member released, which keeps version 1. A reader from
+// before the member restores a file with a zero value. It rejects a file
+// with a nonzero value as an unknown member, and so gets invalid_state.
+func TestReleasedMemberBreaksOlderReader(t *testing.T) {
+	t.Parallel()
+	older := withoutMember(reflect.TypeFor[stateFile](), reflect.TypeFor[sim.SavedPod](), "released")
+	if older == reflect.TypeFor[stateFile]() {
+		t.Fatal("the state file has no pod member released")
+	}
+	for _, released := range []bool{false, true} {
+		file := newTestStateFile(t)
+		file.Simulation.Pods[0].Released = released
+		raw := decompressTestJSON(t, encodeTestState(t, file))
+		err := json.Unmarshal(raw, reflect.New(older).Interface(), strictStateOptions)
+		if released && !errors.Is(err, json.ErrUnknownName) || !released && err != nil {
+			t.Errorf("released %v: the older reader got %v", released, err)
+		}
+	}
+}
+
+// withoutMember returns typ with the JSON member name removed from each
+// struct of type owner. Types that do not contain owner stay the same, so
+// that they keep their methods.
+func withoutMember(typ, owner reflect.Type, name string) reflect.Type {
+	switch typ.Kind() {
+	case reflect.Pointer:
+		if elem := withoutMember(typ.Elem(), owner, name); elem != typ.Elem() {
+			return reflect.PointerTo(elem)
+		}
+	case reflect.Slice:
+		if elem := withoutMember(typ.Elem(), owner, name); elem != typ.Elem() {
+			return reflect.SliceOf(elem)
+		}
+	case reflect.Struct:
+		var fields []reflect.StructField
+		changed := false
+		for field := range typ.Fields() {
+			member, _, _ := strings.Cut(field.Tag.Get("json"), ",")
+			if typ == owner && member == name {
+				changed = true
+				continue
+			}
+			if fieldType := withoutMember(field.Type, owner, name); fieldType != field.Type {
+				field.Type, changed = fieldType, true
+			}
+			fields = append(fields, field)
+		}
+		if changed {
+			return reflect.StructOf(fields)
+		}
+	default:
+		// Other kinds cannot contain owner in the state file types.
+	}
+	return typ
 }
 
 // stateMembers returns a line for each JSON member below path, in field

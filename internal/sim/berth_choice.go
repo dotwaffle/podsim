@@ -106,10 +106,8 @@ func firstBlockForLane(blocks []block, laneID string) int {
 }
 
 func (s *Simulation) berthAvailableFor(v *vehicle, berth Berth) bool {
-	for _, r := range []resource{{kind: berthResource, id: berth.ID}, {kind: nodeResource, id: berth.Node}} {
-		if owner := s.owners[r]; owner != "" && owner != v.Pod.ID {
-			return false
-		}
+	if !s.berthAvailableTo(v, berth) {
+		return false
 	}
 	for i := range s.vehicles {
 		other := &s.vehicles[i]

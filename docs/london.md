@@ -185,6 +185,8 @@ five-second intervals.
 All 40 completed by 1,411.0 simulated seconds.
 Average pickup wait was 56.203 seconds, and maximum pickup wait was 389.950
 seconds.
+These values predate the release of pickup pods for new work, so the current
+run can give different values.
 At the end of the run, the test also rejects any pod at a station without an
 assigned berth.
 It runs the geometric separation oracle once per simulated second.

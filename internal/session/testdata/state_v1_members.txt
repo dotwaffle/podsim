@@ -1,5 +1,7 @@
 # Members of the session state file, version 1.
 # A change here needs a version bump: change stateVersion in state_file.go.
+# Until the first release, an added optional member with a safe zero value
+# keeps the version.
 # Each line is a member path and its JSON kind. "[]" is an array element.
 # TestStateFileMembers compares this list with the Go types.
 format string
@@ -76,6 +78,7 @@ simulation.pods[].origin string
 simulation.pods[].destination string
 simulation.pods[].destinationStation string
 simulation.pods[].claimsDestination boolean
+simulation.pods[].released boolean
 simulation.pods[].route array
 simulation.pods[].route[] number
 simulation.pods[].routeIndex number

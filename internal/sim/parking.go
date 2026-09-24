@@ -94,6 +94,7 @@ func (s *Simulation) startEmptyMove(v *vehicle, to emptyDestination) error {
 	s.setVehicleRoute(v, route)
 	v.RelocatingTo = to.station
 	v.Rebalancing = to.rebalance
+	v.released = false
 	v.Pod.Activity, v.Pod.WaitReason, v.Pod.BlockedBy = DepartingEmpty, NoWait, ""
 	v.phaseTicks, v.blockIndex, v.reservedThrough = 0, 0, -1
 	v.originReleased = false

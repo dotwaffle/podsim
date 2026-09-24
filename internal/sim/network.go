@@ -213,6 +213,62 @@ func (n Network) routeIndexed(input networkRouteInput, graph routeGraph) ([]Lane
 	return route, nil
 }
 
+// nearestInput is the input of nearestIndexed.
+type nearestInput struct {
+	from string
+	// rank holds a rank for each node index. It is -1 for a node that is not
+	// a goal. Between goals with the same route cost, the lower rank wins.
+	rank      []int
+	extraCost []float64
+}
+
+// nearestIndexed returns the index of the goal node with the lowest route
+// cost from input.from. The cost is the same as in routeIndexed without
+// forbidden nodes. It reports false when no goal is reachable.
+func (n Network) nearestIndexed(input nearestInput, graph routeGraph) (int, bool) {
+	from, ok := graph.nodes[input.from]
+	if !ok {
+		return 0, false
+	}
+	distance := make([]float64, len(n.Nodes))
+	visited := make([]bool, len(n.Nodes))
+	for i := range distance {
+		distance[i] = math.Inf(1)
+	}
+	distance[from] = 0
+	best, bestDistance := -1, math.Inf(1)
+	queue := routeQueue{{node: from}}
+	for len(queue) > 0 {
+		item := queue.pop()
+		if item.distance > bestDistance {
+			break
+		}
+		if visited[item.node] || item.distance != distance[item.node] {
+			continue
+		}
+		visited[item.node] = true
+		if rank := input.rank[item.node]; rank >= 0 {
+			if best < 0 || rank < input.rank[best] {
+				best, bestDistance = item.node, item.distance
+			}
+			continue
+		}
+		for _, laneIndex := range graph.outgoing[item.node] {
+			next := graph.nodes[n.Lanes[laneIndex].To]
+			extra := 0.0
+			if laneIndex < len(input.extraCost) {
+				extra = input.extraCost[laneIndex]
+			}
+			candidate := item.distance + graph.lengths[laneIndex]/n.Lanes[laneIndex].SpeedLimit + extra
+			if candidate < distance[next] {
+				distance[next] = candidate
+				queue.push(routeQueueItem{node: next, distance: candidate})
+			}
+		}
+	}
+	return best, best >= 0
+}
+
 type routeGraph struct {
 	nodes    map[string]int
 	lanes    map[string]int

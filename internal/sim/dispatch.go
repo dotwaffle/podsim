@@ -55,6 +55,13 @@ func (s *Simulation) RequestTrip(origin, destination string) error {
 // pickupPod call. A dispatch reason and a deferral do not change what
 // pickupPod reads. pickupPod also fills the route caches, but a cached route
 // is equal to a new route.
+//
+// When a local idle pod takes a trip from a pod on its way to the pickup,
+// dispatch releases the other pod. The released pod can divert at once, so
+// a later trip in the same pass can take it. After the pass, each released
+// pod that holds no claim on its destination berth goes to the nearest free
+// berth. This includes a pod that a restore released. See
+// parkUnclaimedReleased.
 func (s *Simulation) dispatch() {
 	assigned := make(map[string]bool, len(s.waiting))
 	for _, trip := range s.waiting {
@@ -79,6 +86,7 @@ func (s *Simulation) dispatch() {
 			if local := s.localPickup(trip.request.From, assigned); local != nil {
 				clear(pickups)
 				delete(assigned, v.Pod.ID)
+				s.releasePickup(v)
 				trip.request.PodID = local.Pod.ID
 				trip.route, trip.destination = nil, Berth{}
 				assigned[local.Pod.ID] = true
@@ -134,6 +142,7 @@ func (s *Simulation) dispatch() {
 		}
 		i++
 	}
+	s.parkUnclaimedReleased()
 }
 
 func (s *Simulation) assigned(podID string) bool {

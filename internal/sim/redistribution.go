@@ -79,19 +79,26 @@ func (s *Simulation) redistribute() {
 
 // yieldRelocationClaims lets passenger traffic arbitrate a remote berth locally.
 // An empty pod keeps the claim after admission to the destination block.
+// A released pod that yields a claim goes to the nearest free berth at once.
+// See parkReleased.
 func (s *Simulation) yieldRelocationClaims() {
 	for i := range s.vehicles {
 		relocating := &s.vehicles[i]
 		if relocating.RelocatingTo == "" || !s.relocationConflictsWithPassenger(relocating) || s.relocationDestinationAdmitted(relocating) {
 			continue
 		}
+		yielded := false
 		for _, claimed := range []resource{
 			{kind: berthResource, id: relocating.destination.ID},
 			{kind: nodeResource, id: relocating.destination.Node},
 		} {
 			if s.owners[claimed] == relocating.Pod.ID {
 				delete(s.owners, claimed)
+				yielded = true
 			}
+		}
+		if yielded && relocating.released {
+			s.parkReleased(relocating)
 		}
 	}
 }
