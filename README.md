@@ -225,8 +225,11 @@ See [the London qualification network](docs/london.md) for these rules.
 - Each accepted order shows its order number and opens **Orders**.
   For 3 s, the **Order [Enter]** button reads **Order accepted** while **From** and **To** show the stations of that order.
 - Open **Orders** to see queued and active journeys and their status.
-  **Orders** lists four orders in a window of the minimum size.
-  A taller window shows more orders.
+  **Orders** shows five orders on each page in a window of the minimum size.
+  A taller window shows more orders on each page.
+  When there are more orders, use the **‹** and **›** arrows to go to the previous or next page.
+  The text between the arrows gives the page number and the number of pages.
+  The order status names a pod by its fleet number, which is the label of its pod button.
 - Boarding takes three simulated seconds.
   Unloading takes two.
 

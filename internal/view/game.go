@@ -89,9 +89,12 @@ type Game struct {
 	labelRanks           map[string]int
 	labelRanksKey        anchorCacheKey
 	showOrders           bool
-	notice               string
-	noticeAction         string
-	noticeTicks          int
+	// orderPage is the zero-based page of the Orders panel. A page past
+	// the last page shows the last page.
+	orderPage    int
+	notice       string
+	noticeAction string
+	noticeTicks  int
 	// acceptedOrigin and acceptedDestination are the stations of the last
 	// accepted order. The request button reads Order accepted only while
 	// From and To are these stations.
@@ -385,6 +388,9 @@ func (g *Game) buttons() []button {
 	if g.showDemand {
 		buttons = append(buttons, g.demandButtons()...)
 	}
+	if g.showOrders {
+		buttons = append(buttons, g.orderPagerButtons(state)...)
+	}
 	for i := range buttons {
 		switch buttons[i].action {
 		case "pause", "speed", "reset", "checkpoint":
@@ -402,7 +408,9 @@ func (g *Game) layoutButton(b button) button {
 	if b.x >= 796 && !b.expandsWithMap || strings.HasPrefix(b.action, "map-") || b.action == "request" {
 		x += g.layout.extraX
 	}
-	if movesDown(b.x, b.y) {
+	// The Orders page controls are above the pod selector, but they move
+	// down with it.
+	if movesDown(b.x, b.y) || strings.HasPrefix(b.action, "orders-") {
 		y += g.layout.extraY
 	}
 	b.x, b.y, b.w, b.h = x, y, b.w*g.layout.unit, b.h*g.layout.unit
@@ -433,6 +441,10 @@ func (g *Game) click(point sim.Point) bool {
 			g.stationPage--
 		case "stations-next":
 			g.stationPage++
+		case "orders-prev":
+			g.turnOrderPage(-1)
+		case "orders-next":
+			g.turnOrderPage(1)
 		case "orders":
 			g.showOrders = !g.showOrders
 			g.showDemand = false

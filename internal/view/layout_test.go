@@ -465,11 +465,11 @@ func TestOrderRowLimit(t *testing.T) {
 		extra float64
 		want  int
 	}{
-		{name: "minimum", extra: 0, want: 4},
-		{name: "negative", extra: -100, want: 4},
-		{name: "almost one more row", extra: 36, want: 4},
-		{name: "one more row", extra: 37, want: 5},
-		{name: "1080 high window", extra: 320, want: 11},
+		{name: "minimum", extra: 0, want: 5},
+		{name: "negative", extra: -100, want: 5},
+		{name: "almost one more row", extra: 28, want: 5},
+		{name: "one more row", extra: 29, want: 6},
+		{name: "1080 high window", extra: 320, want: 13},
 	}
 	for _, test := range tests {
 		if got := orderRowLimit(test.extra); got != test.want {
