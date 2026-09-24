@@ -1277,9 +1277,9 @@
     const button = $("#demoButton"); button.disabled = true;
     try {
       await postCommand(state.connection, { action: "demo" });
-      toast("The example sequence started. Return to the simulation to view it.");
+      toast("The traffic demo started. Return to the simulation to view it.");
     } catch (error) {
-      toast(`The example sequence could not start. ${error.message}`, true);
+      toast(`The traffic demo could not start. ${error.message}`, true);
     } finally { button.disabled = false; }
   }
 

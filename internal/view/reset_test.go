@@ -112,7 +112,7 @@ func TestResetLabelFits(t *testing.T) {
 func TestHintLine(t *testing.T) {
 	t.Parallel()
 	const (
-		hint      = "Choose pickup and destination."
+		hint      = "Choose From and To."
 		notice    = "Save point #1 saved."
 		demoError = "Traffic demo stopped: no route"
 		message   = "waiting for the server connection"

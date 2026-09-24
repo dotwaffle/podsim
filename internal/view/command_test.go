@@ -30,9 +30,9 @@ func TestOrderAcceptedLabel(t *testing.T) {
 		{name: "at once", wantLabel: "Order accepted", wantNotice: notice},
 		{name: "after 0.5 s", ticks: sim.TicksPerSecond / 2, wantLabel: "Order accepted", wantNotice: notice},
 		{name: "last notice tick", ticks: noticeDuration - 1, wantLabel: "Order accepted", wantNotice: notice},
-		{name: "after the notice", ticks: noticeDuration, wantLabel: "Order"},
-		{name: "other destination", ticks: 1, clicks: []string{"to/station-03"}, wantLabel: "Order", wantNotice: notice},
-		{name: "same station", ticks: 1, clicks: []string{"to/station-01"}, wantLabel: "Order", wantNotice: notice},
+		{name: "after the notice", ticks: noticeDuration, wantLabel: "Order [Enter]"},
+		{name: "other destination", ticks: 1, clicks: []string{"to/station-03"}, wantLabel: "Order [Enter]", wantNotice: notice},
+		{name: "same station", ticks: 1, clicks: []string{"to/station-01"}, wantLabel: "Order [Enter]", wantNotice: notice},
 		{name: "stations of the order again", ticks: 1, clicks: []string{"to/station-03", "to/station-02"}, wantLabel: "Order accepted", wantNotice: notice},
 	}
 	for _, test := range tests {
@@ -64,7 +64,7 @@ func TestOrderAcceptedLabel(t *testing.T) {
 func TestCommandWaitShowsInFooter(t *testing.T) {
 	t.Parallel()
 	const (
-		hint    = "Choose pickup and destination."
+		hint    = "Choose From and To."
 		waiting = "Shared session / waiting for command confirmation"
 	)
 	for _, action := range []string{"pause", "speed", "checkpoint", "request"} {
@@ -83,8 +83,8 @@ func TestCommandWaitShowsInFooter(t *testing.T) {
 			if !game.pending || game.message != "" || game.notice != "" {
 				t.Fatalf("click sent no command or kept old text: pending %t message %q notice %q", game.pending, game.message, game.notice)
 			}
-			if label := findButton(t, game.buttons(), "request").label; label != "Order" {
-				t.Errorf("order button while the command waits = %q, want %q", label, "Order")
+			if label := findButton(t, game.buttons(), "request").label; label != "Order [Enter]" {
+				t.Errorf("order button while the command waits = %q, want %q", label, "Order [Enter]")
 			}
 			if got := game.hintLine(game.state.Simulation, hint); got.value != hint || got.color != muted {
 				t.Errorf("hint line = %q color %#06x, want %q color %#06x", got.value, got.color, hint, muted)
@@ -208,7 +208,7 @@ func TestStationChipsDuringOrder(t *testing.T) {
 // user why.
 func TestSameStationOrder(t *testing.T) {
 	t.Parallel()
-	const hint = "Choose pickup and destination."
+	const hint = "Choose From and To."
 	tests := []struct {
 		name, destination string
 		wantDisabled      bool

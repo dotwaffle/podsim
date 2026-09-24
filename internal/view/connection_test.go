@@ -144,7 +144,7 @@ func TestHeaderLabelsBeforeFirstFrame(t *testing.T) {
 			t.Parallel()
 			game := exampleTestGame(t)
 			game.state.Epoch = test.epoch
-			const count = "3 STOPS     2 PODS"
+			const count = "3 STATIONS     2 PODS"
 			got := slices.ContainsFunc(game.headerLabels(), func(header label) bool { return header.value == count })
 			if got != test.wantCount {
 				t.Errorf("header shows %q: %t, want %t", count, got, test.wantCount)

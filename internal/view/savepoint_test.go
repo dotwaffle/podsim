@@ -131,25 +131,25 @@ func TestCommandResultNotices(t *testing.T) {
 			name:           "checkpoint",
 			result:         remote.Result{Command: session.Command{Action: "checkpoint"}, Reply: session.Reply{ProjectRevision: 1, Checkpoint: 3}},
 			wantNotice:     "Save point #3 saved.",
-			wantOrderLabel: "Order",
+			wantOrderLabel: "Order [Enter]",
 		},
 		{
 			name:           "rewind",
 			result:         remote.Result{Command: session.Command{Action: "rewind", Checkpoint: 3}, Reply: session.Reply{ProjectRevision: 1, Generation: 2}},
 			wantNotice:     "Rewound to save point #3 (42.0 s). Paused.",
-			wantOrderLabel: "Order",
+			wantOrderLabel: "Order [Enter]",
 		},
 		{
 			name:           "rewind restores project",
 			result:         remote.Result{Command: session.Command{Action: "rewind", Checkpoint: 2}, Reply: session.Reply{ProjectRevision: 2, Generation: 2, ProjectRestored: true}},
 			wantNotice:     "Rewound to save point #2 (10.0 s). Paused. Project settings restored.",
-			wantOrderLabel: "Order",
+			wantOrderLabel: "Order [Enter]",
 		},
 		{
 			name:           "rewind with a saved state",
 			result:         remote.Result{Command: session.Command{Action: "rewind", Checkpoint: 2}, Reply: session.Reply{ProjectRevision: 2, Generation: 2, ProjectRestored: true, StateSaved: new(true)}},
 			wantNotice:     "Rewound to save point #2 (10.0 s). Paused. Project settings restored.",
-			wantOrderLabel: "Order",
+			wantOrderLabel: "Order [Enter]",
 		},
 		{
 			// The server rewound, but a crash can undo the rewind. The amber
@@ -158,7 +158,7 @@ func TestCommandResultNotices(t *testing.T) {
 			result:         remote.Result{Command: session.Command{Action: "rewind", Checkpoint: 2}, Reply: session.Reply{ProjectRevision: 2, Generation: 2, ProjectRestored: true, StateSaved: new(false)}},
 			wantNotice:     "Rewound to save point #2 (10.0 s). Paused. Project settings restored.",
 			wantMessage:    "The server could not save the session state. A server crash can undo this rewind.",
-			wantOrderLabel: "Order",
+			wantOrderLabel: "Order [Enter]",
 		},
 		{
 			// Another browser restored the project of the save point before
@@ -167,13 +167,13 @@ func TestCommandResultNotices(t *testing.T) {
 			name:           "rewind after another restore",
 			result:         remote.Result{Command: session.Command{Action: "rewind", Checkpoint: 2}, Reply: session.Reply{ProjectRevision: 3, Generation: 3}},
 			wantNotice:     "Rewound to save point #2 (10.0 s). Paused.",
-			wantOrderLabel: "Order",
+			wantOrderLabel: "Order [Enter]",
 		},
 		{
 			name:           "rewind to unlisted save point",
 			result:         remote.Result{Command: session.Command{Action: "rewind", Checkpoint: 9}, Reply: session.Reply{ProjectRevision: 1, Generation: 2}},
 			wantNotice:     "Rewound to save point #9. Paused.",
-			wantOrderLabel: "Order",
+			wantOrderLabel: "Order [Enter]",
 		},
 		{
 			name:           "trip",
@@ -186,13 +186,13 @@ func TestCommandResultNotices(t *testing.T) {
 			name:           "rejected rewind",
 			result:         remote.Result{Command: session.Command{Action: "rewind", Checkpoint: 1}, Reply: session.Reply{ErrorCode: session.CommandRejected, Error: "save point #1 is no longer available"}},
 			wantMessage:    "save point #1 is no longer available",
-			wantOrderLabel: "Order",
+			wantOrderLabel: "Order [Enter]",
 		},
 		{
 			name:           "transport error",
 			result:         remote.Result{Command: session.Command{Action: "checkpoint"}, Err: errors.New("send command: connection refused")},
 			wantMessage:    "send command: connection refused",
-			wantOrderLabel: "Order",
+			wantOrderLabel: "Order [Enter]",
 		},
 	}
 	for _, test := range tests {

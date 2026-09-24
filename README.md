@@ -182,6 +182,7 @@ See [distribution and operations](docs/operations.md) for build and runtime sett
 | Show the whole network | **Fit** |
 | Keep the selected pod centered | **Follow** or **F** |
 
+- The line above the map names the map input: **CLICK POD / TAB NEXT POD / SCROLL ZOOM / DRAG PAN**.
 - The scale bar in the lower-left corner of the map shows a round distance of 1, 2, or 5 times a power of ten, for example 500 m, 1 km, or 2 km.
 - Map navigation stays local to your browser.
 - Clicking or dragging the map, or selecting **Fit**, stops following.
@@ -207,16 +208,16 @@ See [the London qualification network](docs/london.md) for these rules.
 
 ### Order a journey
 
-- Select **From** and **To**, then **Order**.
+- Under **ORDER A JOURNEY**, select **From** and **To**, then **Order [Enter]**.
   Pod selection affects inspection only.
 - When the stations do not fit in one row, select **‹** or **›** to show the other stations.
-- When **From** and **To** are the same station, **Order** is disabled.
+- When **From** and **To** are the same station, **Order [Enter]** is disabled.
   The line below **From** and **To** then shows **Choose a different destination.** in amber.
-- An idle local pod serves the request.
+- An idle local pod serves the order.
   Otherwise, the nearest available empty pod comes to collect the passenger.
-- Requests wait when no pod is available.
-- Each accepted request shows its order number and opens **Orders**.
-  For 3 s, the request button reads **Order accepted** while **From** and **To** show the stations of that order.
+- Orders wait when no pod is available.
+- Each accepted order shows its order number and opens **Orders**.
+  For 3 s, the **Order [Enter]** button reads **Order accepted** while **From** and **To** show the stations of that order.
 - Open **Orders** to see queued and active journeys and their status.
   **Orders** lists four orders in a window of the minimum size.
   A taller window shows more orders.
@@ -289,7 +290,7 @@ It is a diagnostic capture, not a reloadable project or save point.
 
 ### Traffic demo
 
-To start the demo, select **Edit scenario**, open **Example traffic sequence**, then select **Start example sequence**.
+To start the demo, select **Edit scenario**, open **Traffic demo**, then select **Start traffic demo**.
 The supplied traffic demo requires the unchanged example network and fleet.
 
 The demo starts four pods: pod 01 at Harbor, pod 02 at Garden, and pods 03 and 04 in Parking.
@@ -308,7 +309,7 @@ Use 8x speed to see the experiment in about 41 seconds, or slow playback to insp
 Starting the demo resets the current run and disables automatic demand.
 The demo also disables manual requests until it ends.
 The four pods remain available after it ends.
-**Reset** restores the configured fleet.
+**Reset** stops the demo and restores the configured fleet.
 
 ### Passenger demand
 

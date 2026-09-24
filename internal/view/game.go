@@ -340,8 +340,9 @@ func (g *Game) buttons() []button {
 	// The request button reads Order accepted for as long as the notice of
 	// the accepted order shows. The user can change From and To during and
 	// after the order, so the label shows only while From and To are the
-	// stations of that order.
-	requestLabel := "Order"
+	// stations of that order. Enter also sends the order, so the label
+	// names the key.
+	requestLabel := "Order [Enter]"
 	if g.noticeAction == "trip" && g.origin == g.acceptedOrigin && g.destination == g.acceptedDestination {
 		requestLabel = "Order accepted"
 	}
@@ -562,7 +563,7 @@ func (g *Game) headerLabels() []label {
 	if g.state.Simulation.Paused {
 		status.color = amber
 	}
-	return append(labels, status, label{x: 815, y: 34, size: 14, value: fmt.Sprintf("%d STOPS     %d PODS", len(g.passengerStations()), len(g.state.Simulation.Vehicles)), color: accent})
+	return append(labels, status, label{x: 815, y: 34, size: 14, value: fmt.Sprintf("%d STATIONS     %d PODS", len(g.passengerStations()), len(g.state.Simulation.Vehicles)), color: accent})
 }
 
 // runStatus returns the run status of state for the header. The status
@@ -634,9 +635,14 @@ func (g *Game) followSelectedPod() {
 	}
 }
 
+// mapHintLabel names the map input above the map. A click selects a pod,
+// Tab selects the next pod, the wheel zooms, and a drag pans. It ends to the
+// left of the zoom buttons.
+var mapHintLabel = label{x: 290, y: 113, size: 11, value: "CLICK POD / TAB NEXT POD / SCROLL ZOOM / DRAG PAN", color: muted}
+
 func (g *Game) drawNetwork(screen *ebiten.Image, state sim.Snapshot) {
 	g.label(screen, label{x: 44, y: 113, size: 12, value: "NETWORK", color: muted})
-	g.label(screen, label{x: 410, y: 113, size: 11, value: "SCROLL ZOOM / DRAG PAN", color: muted})
+	g.label(screen, mapHintLabel)
 	mapScreen, ok := screen.SubImage(g.layout.mapViewport).(*ebiten.Image)
 	if !ok {
 		return
@@ -1304,7 +1310,7 @@ func (g *Game) drawInspection(screen *ebiten.Image, state sim.Snapshot) {
 	heading := g.fitText("POD "+podLabel, 12, 140)
 	g.label(screen, label{x: inspectionLeft, y: 115, size: 12, value: heading, color: muted})
 	g.label(screen, label{x: 816, y: 143, size: 26, value: activityLabel(state.Vehicles[g.selected].Pod, g.podPurpose(state.Vehicles[g.selected], state)), color: g.podPurpose(state.Vehicles[g.selected], state).color()})
-	status := "Available for passenger requests."
+	status := "Available for passenger orders."
 	station, _ := g.network.Station(state.Vehicles[g.selected].Pod.StationID)
 	if station.ParkingOnly {
 		status = "Available for pickup requests."
@@ -1425,12 +1431,7 @@ func fleetPodLabel(index int) string {
 }
 
 func (g *Game) drawControls(screen *ebiten.Image, state sim.Snapshot) {
-	title := "REQUEST A JOURNEY"
-	hint := "Choose pickup and destination. An available pod collects the passenger; requests wait when all pods are busy."
-	if state.Demo {
-		title = "TRAFFIC DEMO"
-		hint = "Four pods, eight journeys: Market arrivals, pickups from parking, and follow-up orders."
-	}
+	title, hint := journeyText(state.Demo)
 	g.label(screen, label{x: 44, y: 607, size: 13, value: title, color: foreground})
 	if from, fromOK := g.network.Station(g.origin); fromOK {
 		if to, toOK := g.network.Station(g.destination); toOK {
@@ -1447,6 +1448,16 @@ func (g *Game) drawControls(screen *ebiten.Image, state sim.Snapshot) {
 		g.label(screen, value)
 	}
 	g.label(screen, g.hintLine(state, hint))
+}
+
+// journeyText returns the title and the hint of the journey controls. The
+// title uses the verb of the Order button. While the traffic demo runs, they
+// describe the demo.
+func journeyText(demo bool) (title, hint string) {
+	if demo {
+		return "TRAFFIC DEMO", "Four pods, eight journeys: Market arrivals, pickups from parking, and follow-up orders. Reset stops the demo."
+	}
+	return "ORDER A JOURNEY", "Choose From and To. An available pod collects the passenger. Orders wait when all pods are busy."
 }
 
 // fleetStatLabels returns the Pickup wait and Fleet use lines for state.
