@@ -220,4 +220,4 @@ The other overview labels do not cover the label of the selected pod.
 An overview label shows a station name of up to 20 characters in full.
 For a longer name, it shows the first 19 characters and an ellipsis.
 Only the selected pod has a map label until you zoom in to four times the `Fit` scale.
-The view omits the label of another pod where it overlaps an overview label.
+The view omits the label of another pod where it overlaps an overview label or an expanded label.

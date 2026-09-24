@@ -196,6 +196,12 @@ See [distribution and operations](docs/operations.md) for build and runtime sett
 - Overview labels show occupied berths and nonzero entrance and exit queues.
 - Expanded labels show occupied, reserved-empty, and free berths.
   These counts sum to the station capacity.
+- Expanded labels and berth numbers go on the side of the berths away from the station siding.
+  They go on a different side when that side covers a much shorter length of lanes.
+  They stay inside the map, off the berth rings, and off other expanded labels and berth numbers.
+  A label without a free place does not show until you zoom or pan.
+  Each text line has a dark backing, so a lane under the text does not make it hard to read.
+  On a network with more than 30 stations, a pod label that covers an expanded label does not show, except the label of the selected pod.
 - Expanded entrance labels show stopped and approaching pods.
   Exit labels show stopped departing pods.
 - Queue counts include dedicated access spurs, but exclude general road traffic.

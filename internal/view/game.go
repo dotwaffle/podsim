@@ -11,7 +11,6 @@ import (
 	"math"
 	"runtime"
 	"slices"
-	"strconv"
 	"strings"
 	"time"
 	"unicode"
@@ -82,6 +81,7 @@ type Game struct {
 	networkBase          *ebiten.Image
 	networkBaseKey       networkCacheKey
 	networkBaseValid     bool
+	networkBaseLanes     []lanePath
 	anchors              map[string]sim.Point
 	anchorsKey           anchorCacheKey
 	lineLanes            map[string]bool
@@ -650,11 +650,12 @@ func (g *Game) drawNetwork(screen *ebiten.Image, state sim.Snapshot) {
 	markers := g.collapsedStationMarkers()
 	style := newNetworkStyle(networkStyleInput{network: g.network, markers: markers, lineLanes: g.currentLineLanes(), scale: g.mapScale, unit: g.layout.unit})
 	detailed := style.detailed
+	var lanes []lanePath
 	if detailed {
 		g.releaseNetworkBase()
-		g.drawBaseNetwork(mapScreen, style)
+		lanes = g.drawBaseNetwork(mapScreen, style)
 	} else {
-		g.drawCachedNetworkBase(mapScreen, style)
+		lanes = g.drawCachedNetworkBase(mapScreen, style)
 	}
 	for _, station := range g.network.Stations {
 		if marker, ok := markers[station.ID]; ok {
@@ -667,77 +668,26 @@ func (g *Game) drawNetwork(screen *ebiten.Image, state sim.Snapshot) {
 	stationMonitor := observe.NewStationMonitor(g.network)
 	labelRanks := g.currentStationLabelRanks()
 	var collapsedLabels []collapsedStationLabel
+	var expanded []expandedStationText
 	for _, station := range g.network.Stations {
 		status := stationMonitor.Summarize(station, state)
-		center := sim.Point{}
-		marker, hasMarker := markers[station.ID]
-		showBerths := !hasMarker
-		collapsedStations[station.ID] = !showBerths
-		for j, berth := range station.Berths {
-			node, _ := g.network.Node(berth.Node)
-			p := g.mapPoint(node.Position)
-			center.X += p.X
-			center.Y += p.Y
-			shade := uint32(muted)
-			for _, v := range state.Vehicles {
-				if v.Pod.BerthID != berth.ID {
-					continue
-				}
-				// An idle pod keeps the muted ring. A white ring marks the
-				// selected pod, and the white disc shows the idle pod.
-				if purpose := g.podPurpose(v, state); purpose != purposeIdle {
-					shade = purpose.color()
-				}
+		if marker, ok := markers[station.ID]; ok {
+			collapsedStations[station.ID] = true
+			if len(station.Berths) > 0 {
+				collapsedLabels = append(collapsedLabels, g.collapsedStationLabel(collapsedStationLabelInput{station: station, status: status, marker: marker, rank: labelRanks[station.ID]}))
 			}
-			if showBerths {
-				vector.StrokeCircle(mapScreen, float32(p.X), float32(p.Y), float32(berthRingRadius*g.layout.unit), float32(2*g.layout.unit), rgb(shade), detailed)
-			}
-			name := station.Name
-			labelX, labelY := p.X-26*g.layout.unit, p.Y+20*g.layout.unit
-			if station.ParkingOnly || len(station.Berths) > 1 {
-				name = strconv.Itoa(j + 1)
-				labelX, labelY = p.X-26*g.layout.unit, p.Y-9*g.layout.unit
-			}
-			if showBerths {
-				g.label(mapScreen, label{x: labelX, y: labelY, size: 16, value: name, color: foreground})
-			}
-			occupancy := "BERTH 0/1"
-			for _, b := range state.Berths {
-				if b.ID == berth.ID {
-					if b.Occupant != "" {
-						occupancy = "BERTH 1/1"
-					}
-					if b.ReservedBy != "" && b.Occupant == "" {
-						occupancy = "ARRIVING " + b.ReservedBy
-						for _, v := range state.Vehicles {
-							if v.Pod.ID == b.ReservedBy && len(v.Route) > 0 && v.Route[0].From == berth.Node {
-								occupancy = "DEPARTING " + b.ReservedBy
-							}
-						}
-					}
-				}
-			}
-			if showBerths && !station.ParkingOnly && len(station.Berths) == 1 {
-				g.label(mapScreen, label{x: labelX, y: labelY + 21*g.layout.unit, size: 10, value: occupancy, color: shade})
-				g.label(mapScreen, label{x: labelX, y: labelY + 37*g.layout.unit, size: 9, value: fmt.Sprintf("%d occupied · %d reserved empty · %d free", status.Occupied, status.ReservedEmpty, status.Free), color: muted})
-				g.label(mapScreen, label{x: labelX, y: labelY + 52*g.layout.unit, size: 9, value: fmt.Sprintf("In %d stopped / %d approaching · Out %d stopped", status.EntranceStopped, status.Approaching, status.ExitStopped), color: muted})
-			}
-		}
-		if len(station.Berths) == 0 {
 			continue
 		}
-		center.X /= float64(len(station.Berths))
-		center.Y /= float64(len(station.Berths))
-		if !showBerths {
-			collapsedLabels = append(collapsedLabels, g.collapsedStationLabel(collapsedStationLabelInput{station: station, status: status, marker: marker, rank: labelRanks[station.ID]}))
-		} else if station.ParkingOnly || len(station.Berths) > 1 {
-			x := center.X + 25*g.layout.unit
-			y := center.Y - 32*g.layout.unit
-			g.label(mapScreen, label{x: x, y: y, size: 16, value: station.Name, color: foreground})
-			g.label(mapScreen, label{x: x, y: y + 23*g.layout.unit, size: 10, value: fmt.Sprintf("%d/%d occupied · %d reserved empty · %d free", status.Occupied, len(station.Berths), status.ReservedEmpty, status.Free), color: muted})
-			g.label(mapScreen, label{x: x, y: y + 40*g.layout.unit, size: 9, value: fmt.Sprintf("In %d stopped / %d approaching · Out %d stopped", status.EntranceStopped, status.Approaching, status.ExitStopped), color: muted})
+		stationText := g.expandedStationText(expandedStationInput{station: station, status: status, state: state})
+		for _, berth := range stationText.berths {
+			vector.StrokeCircle(mapScreen, float32(berth.center.X), float32(berth.center.Y), float32(berthRingRadius*g.layout.unit), float32(2*g.layout.unit), rgb(berth.shade), detailed)
 		}
+		expanded = append(expanded, stationText)
 	}
+	// Draw the station text after all berth rings, so that no ring covers
+	// the text.
+	placedText := g.placeExpandedStationText(expanded, lanes)
+	g.drawStationText(mapScreen, placedText)
 	podLabels := g.podMapLabels(state.Vehicles, collapsedStations)
 	// The selected index can be past the pods of an empty or smaller state.
 	var selectedPodLabel label
@@ -748,6 +698,7 @@ func (g *Game) drawNetwork(screen *ebiten.Image, state sim.Snapshot) {
 		labels: collapsedLabels, selected: selected,
 		markers: markers, markerRadius: style.markerRadius, selectedPodLabel: selectedPodLabel,
 	})
+	shownLabels = appendStationTextAreas(shownLabels, placedText)
 	podLabels = g.clearPodLabels(podLabels, shownLabels)
 	// Draw the route after the station markers and labels, and before the
 	// pods. A marker can sit on a line junction, and a label can cover a
@@ -1066,9 +1017,10 @@ func (g *Game) podMapLabels(vehicles []sim.Vehicle, collapsedStations map[string
 	return labels
 }
 
-// clearPodLabels returns the pod labels without the labels that overlap a
-// shown overview label on a dense map. The label of the selected pod stays.
-// stationLabels holds the screen areas of the shown overview labels.
+// clearPodLabels returns the pod labels without the labels that overlap
+// shown station text on a dense map. The label of the selected pod stays.
+// stationLabels holds the screen areas of the shown overview labels and of
+// the text of expanded stations.
 func (g *Game) clearPodLabels(podLabels []label, stationLabels []image.Rectangle) []label {
 	if len(g.network.Stations) <= 30 {
 		return podLabels
@@ -1192,12 +1144,17 @@ func (geometry laneGeometry) along(fraction float64) (point, direction sim.Point
 
 // drawBaseNetwork draws the lanes, their direction arrows, and the node dots
 // in the network style. It draws the arrows after all the lanes, so that no
-// lane covers an arrow.
-func (g *Game) drawBaseNetwork(screen *ebiten.Image, style networkStyle) {
+// lane covers an arrow. It returns the screen paths of the lanes in the map
+// viewport.
+func (g *Game) drawBaseNetwork(screen *ebiten.Image, style networkStyle) []lanePath {
 	var arrows []arrow
+	var paths []lanePath
 	for _, lane := range g.network.Lanes {
 		geometry := g.laneGeometry(lane, style.detailed)
 		geometry.draw(screen, style.laneStroke(lane))
+		if path, ok := geometry.pathIn(g.layout.mapViewport); ok {
+			paths = append(paths, path)
+		}
 		if a, ok := style.laneArrow(lane, geometry); ok {
 			arrows = append(arrows, a)
 		}
@@ -1206,15 +1163,19 @@ func (g *Game) drawBaseNetwork(screen *ebiten.Image, style networkStyle) {
 		drawArrow(screen, a)
 	}
 	if !style.nodeDots {
-		return
+		return paths
 	}
 	for _, node := range g.network.Nodes {
 		point := g.mapPoint(node.Position)
 		vector.FillCircle(screen, float32(point.X), float32(point.Y), float32(3*g.layout.unit), rgb(muted), style.detailed)
 	}
+	return paths
 }
 
-func (g *Game) drawCachedNetworkBase(screen *ebiten.Image, style networkStyle) {
+// drawCachedNetworkBase draws the cached base network, and draws the cache
+// again when the camera, the layout, or the network changed. It returns the
+// screen paths of the lanes in the map viewport.
+func (g *Game) drawCachedNetworkBase(screen *ebiten.Image, style networkStyle) []lanePath {
 	key := g.currentNetworkCacheKey()
 	if g.networkBase == nil || g.networkBase.Bounds().Dx() != g.layout.width || g.networkBase.Bounds().Dy() != g.layout.height {
 		g.releaseNetworkBase()
@@ -1222,11 +1183,12 @@ func (g *Game) drawCachedNetworkBase(screen *ebiten.Image, style networkStyle) {
 	}
 	if g.networkBaseNeedsRefresh() {
 		g.networkBase.Clear()
-		g.drawBaseNetwork(g.networkBase, style)
+		g.networkBaseLanes = g.drawBaseNetwork(g.networkBase, style)
 		g.networkBaseKey = key
 		g.networkBaseValid = true
 	}
 	screen.DrawImage(g.networkBase, nil)
+	return g.networkBaseLanes
 }
 
 func (g *Game) networkBaseNeedsRefresh() bool {
@@ -1244,6 +1206,7 @@ func (g *Game) releaseNetworkBase() {
 	}
 	g.networkBase.Deallocate()
 	g.networkBase = nil
+	g.networkBaseLanes = nil
 	g.networkBaseKey = networkCacheKey{}
 	g.networkBaseValid = false
 }
