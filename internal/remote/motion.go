@@ -27,18 +27,22 @@ type Motion struct {
 }
 
 // Observe adds a new revision. Playback discontinuities discard old motion.
+// A state from a new server process starts a new stream, as a new epoch
+// does, because a restored older save can lower the revision.
 func (m *Motion) Observe(state session.State, at time.Time) {
+	restart := false
 	if len(m.frames) > 0 {
 		previous := m.frames[len(m.frames)-1]
-		if state.Epoch == previous.state.Epoch && state.Revision <= previous.state.Revision {
+		restart = newServerStart(previous.state, state)
+		if state.Epoch == previous.state.Epoch && state.Revision <= previous.state.Revision && !restart {
 			return
 		}
 		a, b := previous.state.Simulation, state.Simulation
-		if state.Epoch != previous.state.Epoch || state.Generation != previous.state.Generation || b.Tick < a.Tick || b.Submitted < a.Submitted || b.Paused != a.Paused || state.Speed != previous.state.Speed || b.Demo != a.Demo || at.Sub(previous.at) > motionGap {
+		if restart || state.Epoch != previous.state.Epoch || state.Generation != previous.state.Generation || b.Tick < a.Tick || b.Submitted < a.Submitted || b.Paused != a.Paused || state.Speed != previous.state.Speed || b.Demo != a.Demo || at.Sub(previous.at) > motionGap {
 			m.frames = nil
 		}
 	}
-	if m.geometry == nil || m.geometry.epoch != state.Epoch || m.geometry.generation != state.Generation {
+	if restart || m.geometry == nil || m.geometry.epoch != state.Epoch || m.geometry.generation != state.Generation {
 		m.geometry = newMotionGeometry(state)
 	}
 	m.frames = append(m.frames, newMotionFrame(state, at))

@@ -31,6 +31,7 @@ func TestNetworkCacheKeyCoversNetworkChanges(t *testing.T) {
 		{name: "new epoch", state: session.State{Epoch: "second", ProjectRevision: 1, Generation: 1}, newNetwork: true, indexChange: true, baseChange: true},
 		{name: "new generation with a different network", state: session.State{Epoch: "first", ProjectRevision: 1, Generation: 2}, newNetwork: true, indexChange: true, baseChange: true},
 		{name: "project apply", state: session.State{Epoch: "first", ProjectRevision: 2, Generation: 2}, newNetwork: true, indexChange: true, baseChange: true},
+		{name: "restored save from a new server process", state: session.State{Epoch: "first", ProjectRevision: 1, Generation: 1, ServerStart: "restarted"}, newNetwork: true, indexChange: true, baseChange: true},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {

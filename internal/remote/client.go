@@ -33,12 +33,16 @@ const retiredEpochPolls = 20
 
 // Client polls state and serializes commands. All returned state is immutable.
 type Client struct {
-	mu        sync.Mutex
-	url       string
-	http      *http.Client
-	state     session.State
-	topology  session.TopologySnapshot
-	connected bool
+	mu       sync.Mutex
+	url      string
+	http     *http.Client
+	state    session.State
+	topology session.TopologySnapshot
+	// topologyStart is the server start ID of the frame that fetched
+	// topology. A restored older save can reuse an epoch and a project
+	// revision with different geometry, so a new start ID refetches it.
+	topologyStart string
+	connected     bool
 	// lastFrame is the time of the last poll that read a state frame
 	// without an error.
 	lastFrame time.Time
@@ -115,7 +119,10 @@ func (c *Client) Submit(command session.Command) error {
 }
 
 // acceptLocked keeps a state from a new epoch, or a state from the current
-// epoch with the same or a higher revision. It drops a state from a retired
+// epoch with the same or a higher revision. A state with a new server start
+// ID starts a new revision stream: a restart that restores an older final
+// save keeps the epoch but can lower the revision, and the view must see
+// that state to tell the user about the restart. It drops a state from a retired
 // epoch until retiredEpochPolls frames in a row carry that epoch. Then that
 // epoch becomes the current epoch again. The caller must hold c.mu.
 func (c *Client) acceptLocked(state session.State) {
@@ -137,10 +144,16 @@ func (c *Client) acceptLocked(state session.State) {
 		if c.state.Epoch != "" {
 			c.oldEpochs[c.state.Epoch] = true
 		}
-	} else if state.Revision < c.state.Revision {
+	} else if state.Revision < c.state.Revision && !newServerStart(c.state, state) {
 		return
 	}
 	c.state = state
+}
+
+// newServerStart reports whether current comes from a different server
+// process than previous. An older server sends no start ID.
+func newServerStart(previous, current session.State) bool {
+	return current.ServerStart != "" && current.ServerStart != previous.ServerStart
 }
 
 // noteBuild records the build ID of a state frame. The first non-empty ID
@@ -195,9 +208,9 @@ func (c *Client) poll(ctx context.Context) {
 
 func (c *Client) stateForFrame(ctx context.Context, frame session.StateFrame) (session.State, error) {
 	c.mu.Lock()
-	topology := c.topology
+	topology, topologyStart := c.topology, c.topologyStart
 	c.mu.Unlock()
-	if topology.Epoch != frame.Epoch || topology.ProjectRevision != frame.ProjectRevision {
+	if topology.Epoch != frame.Epoch || topology.ProjectRevision != frame.ProjectRevision || topologyStart != frame.ServerStart {
 		if err := c.exchange(ctx, "GET", "/api/topology", nil, &topology); err != nil {
 			return session.State{}, err
 		}
@@ -205,7 +218,7 @@ func (c *Client) stateForFrame(ctx context.Context, frame session.StateFrame) (s
 			return session.State{}, errors.New("topology changed while reading state")
 		}
 		c.mu.Lock()
-		c.topology = topology
+		c.topology, c.topologyStart = topology, frame.ServerStart
 		c.mu.Unlock()
 	}
 	return session.FrameState(topology, frame)

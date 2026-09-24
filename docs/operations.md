@@ -254,7 +254,8 @@ A file with another format version needs a server with that format version.
 A file that the server rejected with reason `restore_loop` gets the same reason again.
 
 A previous or copied file can come from a final save, and the server can then keep its epoch.
-If the server used that epoch after the save, clients ignore the state frames until the revision reaches the last one that they got.
+If the server used that epoch after the save, the revision can be lower than the last revision that clients got.
+The Go client of the simulation view accepts these state frames because the server start ID changed.
 Save point IDs and order IDs can also repeat.
 Reload open browser pages and restart desktop clients after you use such a file.
 

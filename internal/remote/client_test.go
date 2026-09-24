@@ -31,7 +31,7 @@ func TestStateForFrameCachesMatchingTopology(t *testing.T) {
 		_ = json.NewEncoder(w).Encode(shared.Topology())
 	}))
 	defer server.Close()
-	client := &Client{url: server.URL, http: server.Client(), topology: shared.Topology()}
+	client := &Client{url: server.URL, http: server.Client(), topology: shared.Topology(), topologyStart: shared.Frame().ServerStart}
 	if _, err := client.stateForFrame(context.Background(), shared.Frame()); err != nil {
 		t.Fatal(err)
 	}
@@ -62,7 +62,7 @@ func TestStateForFrameRefetchesTopologyAfterProjectRestore(t *testing.T) {
 		_ = json.NewEncoder(w).Encode(shared.Topology())
 	}))
 	defer server.Close()
-	client := &Client{url: server.URL, http: server.Client(), topology: shared.Topology()}
+	client := &Client{url: server.URL, http: server.Client(), topology: shared.Topology(), topologyStart: shared.Frame().ServerStart}
 	epoch, sequence := shared.Frame().Epoch, uint64(0)
 	apply := func(command session.Command) session.Reply {
 		t.Helper()
@@ -545,5 +545,82 @@ func TestSubmitOwnsProjectPayload(t *testing.T) {
 	queued := <-client.commands
 	if queued.Project.Network.Nodes[0].ID == config.Network.Nodes[0].ID {
 		t.Fatal("queued command aliases caller project")
+	}
+}
+
+// TestStateOrderingServerRestart checks that a restart that restores an
+// older final save with the same epoch reaches the view, although its
+// revision is lower. A lower revision from the same process is still
+// dropped.
+func TestStateOrderingServerRestart(t *testing.T) {
+	t.Parallel()
+	tests := []struct {
+		name         string
+		states       []session.State
+		wantRevision uint64
+		wantStart    string
+	}{
+		{
+			name:         "rollback with a new start ID",
+			states:       []session.State{{Epoch: "e", Revision: 10, ServerStart: "a"}, {Epoch: "e", Revision: 4, ServerStart: "b"}},
+			wantRevision: 4, wantStart: "b",
+		},
+		{
+			name:         "older frame from the same process",
+			states:       []session.State{{Epoch: "e", Revision: 10, ServerStart: "a"}, {Epoch: "e", Revision: 4, ServerStart: "a"}},
+			wantRevision: 10, wantStart: "a",
+		},
+		{
+			name:         "older server without start IDs",
+			states:       []session.State{{Epoch: "e", Revision: 10}, {Epoch: "e", Revision: 4}},
+			wantRevision: 10,
+		},
+		{
+			name:         "new process then its later frames",
+			states:       []session.State{{Epoch: "e", Revision: 10, ServerStart: "a"}, {Epoch: "e", Revision: 4, ServerStart: "b"}, {Epoch: "e", Revision: 3, ServerStart: "b"}},
+			wantRevision: 4, wantStart: "b",
+		},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			c := &Client{oldEpochs: make(map[string]bool)}
+			for _, state := range tc.states {
+				accept(c, state)
+			}
+			state, _, _ := c.View()
+			if state.Revision != tc.wantRevision || state.ServerStart != tc.wantStart {
+				t.Fatalf("revision %d start %q, want %d %q", state.Revision, state.ServerStart, tc.wantRevision, tc.wantStart)
+			}
+		})
+	}
+}
+
+// TestStateForFrameRefetchesTopologyForNewServerStart checks that a frame
+// from a new server process fetches the topology again, although its epoch
+// and project revision match the cached topology.
+func TestStateForFrameRefetchesTopologyForNewServerStart(t *testing.T) {
+	t.Parallel()
+	shared, err := session.New()
+	if err != nil {
+		t.Fatal(err)
+	}
+	var requests atomic.Int32
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		requests.Add(1)
+		_ = json.NewEncoder(w).Encode(shared.Topology())
+	}))
+	defer server.Close()
+	frame := shared.Frame()
+	client := &Client{url: server.URL, http: server.Client(), topology: shared.Topology(), topologyStart: frame.ServerStart}
+	if _, err := client.stateForFrame(t.Context(), frame); err != nil || requests.Load() != 0 {
+		t.Fatalf("same process: %d topology requests, error %v, want 0", requests.Load(), err)
+	}
+	frame.ServerStart = "restarted"
+	if _, err := client.stateForFrame(t.Context(), frame); err != nil || requests.Load() != 1 {
+		t.Fatalf("new process: %d topology requests, error %v, want 1", requests.Load(), err)
+	}
+	if _, err := client.stateForFrame(t.Context(), frame); err != nil || requests.Load() != 1 {
+		t.Fatalf("new process again: %d topology requests, error %v, want 1", requests.Load(), err)
 	}
 }

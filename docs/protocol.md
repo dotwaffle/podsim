@@ -5,7 +5,7 @@
 Use normalized gzip JSON for the browser client.
 
 The normalized protocol removes the network and complete lane objects from the 20 Hz state response.
-The client fetches topology only when the session epoch or the project revision changes.
+The client fetches topology only when the session epoch, the project revision, or the server start ID changes.
 
 The project evaluated ConnectRPC and binary Protocol Buffers, then removed the implementation.
 No application client used the service.
@@ -24,7 +24,7 @@ The JSON API uses four message boundaries:
 
 State frames contain ordered lane IDs for vehicle routes.
 They do not contain lane objects or network geometry.
-The Go client caches topology by session epoch and project revision, then reconstructs the presentation state.
+The Go client caches topology by session epoch, project revision, and server start ID, then reconstructs the presentation state.
 It rejects a frame if matching topology is not available.
 The client ignores a frame from an epoch that it left.
 If the server sends that epoch in all polls for 1 s, the client switches to that epoch again.
@@ -198,16 +198,20 @@ When startup fails after the startup save, for example because a listen address 
 See [graceful shutdown](operations.md#graceful-shutdown) for a shutdown without a final save.
 
 After a stop without a final save, the saved state can be older than the frames that clients saw.
-A client drops each frame with a lower revision in its epoch, so the server uses a new epoch.
+In its epoch, a client drops each frame from the same server process with a lower revision.
+A kept epoch can repeat revisions and IDs that clients saw, so the server uses a new epoch.
 The server also uses a new epoch when it does not use the saved state.
 
 With a kept epoch, the revision and the generation are one more than in the saved state.
-The project revision does not change, so clients keep their topology cache.
+The project revision does not change, but the Go client fetches the topology again because the server start ID changed.
 But when the `-project` file has different demand settings, the server applies them as a `demand` command does, and the project revision increases by one.
 The generation change resets motion.
 Save point IDs and order IDs continue from the saved values.
 Thus a normal restart does not make the server use an ID again in the epoch.
-When an operator restores an older file from a final save, IDs can repeat.
+When an operator restores an older file from a final save, IDs can repeat, and the revision can be lower than the revision that clients saw.
+The Go client accepts a frame with a lower revision when its `serverStart` is not empty and is different from the `serverStart` of the last frame.
+It then also discards its buffered map motion and fetches the topology again, because a restored save can reuse an epoch and a project revision with other geometry.
+Thus it shows the restored state and the restart notice.
 See [session state](operations.md#session-state).
 
 A startup that fails after the startup save writes the increased revision and generation in its final save.

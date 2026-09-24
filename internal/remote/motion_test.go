@@ -155,3 +155,34 @@ func TestMotionFollowsCurvedLane(t *testing.T) {
 		t.Fatalf("cut across curve: %+v", got)
 	}
 }
+
+// TestMotionNewServerStartRestarts checks that a restored older save from a
+// new server process replaces the buffered motion, although it keeps the
+// epoch and has a lower revision.
+func TestMotionNewServerStartRestarts(t *testing.T) {
+	t.Parallel()
+	var motion Motion
+	start := time.Unix(100, 0)
+	for i := int64(10); i <= 12; i++ {
+		state := motionState(i, float64(i)*.1)
+		state.ServerStart = "a"
+		motion.Observe(state, start.Add(time.Duration(i)*50*time.Millisecond))
+	}
+	restored := motionState(2, .2)
+	restored.ServerStart = "b"
+	restored.Simulation.Paused = true
+	motion.Observe(restored, start.Add(time.Second))
+	if len(motion.frames) != 1 || motion.frames[0].state.ServerStart != "b" {
+		t.Fatalf("motion keeps %d frames after a restart, want only the restored one", len(motion.frames))
+	}
+	if got := motion.Sample(start.Add(2 * time.Second)).Tick; got != 2 {
+		t.Fatalf("map tick %d after a restart, want 2", got)
+	}
+	old := motionState(12, 1.2)
+	old.ServerStart = "b"
+	old.Revision = 1
+	motion.Observe(old, start.Add(2*time.Second))
+	if len(motion.frames) != 1 {
+		t.Fatal("an older revision from the new process was added")
+	}
+}

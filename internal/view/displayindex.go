@@ -9,12 +9,14 @@ import (
 // networkIndexKey identifies the network of the display index. The session
 // sends a new network only with a new epoch or a new project revision. A
 // project apply and a rewind that restores a project also start a new
-// generation. The key holds all three values, so the index cannot keep the
-// data of an earlier network.
+// generation. A restart that restores an older final save can repeat all
+// three values with a different network, so the key also holds the server
+// start ID. Thus the index cannot keep the data of an earlier network.
 type networkIndexKey struct {
 	epoch           string
 	generation      uint64
 	projectRevision uint64
+	serverStart     string
 }
 
 // networkIndex holds the display data of one network. The game builds it
@@ -83,12 +85,12 @@ func berthSpacings(stations []sim.Station, positions map[string]sim.Point) map[s
 // currentNetworkIndexKey returns the key of the network in the current
 // state.
 func (g *Game) currentNetworkIndexKey() networkIndexKey {
-	return networkIndexKey{epoch: g.state.Epoch, generation: g.state.Generation, projectRevision: g.state.ProjectRevision}
+	return networkIndexKey{epoch: g.state.Epoch, generation: g.state.Generation, projectRevision: g.state.ProjectRevision, serverStart: g.state.ServerStart}
 }
 
 // displayIndex returns the display index of the current network. It builds
-// the index again only when the epoch, the generation or the project
-// revision changes.
+// the index again only when the epoch, the generation, the project
+// revision or the server start ID changes.
 func (g *Game) displayIndex() *networkIndex {
 	key := g.currentNetworkIndexKey()
 	if g.index == nil || g.indexKey != key {

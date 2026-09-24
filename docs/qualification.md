@@ -282,12 +282,12 @@ Additional checks covered reset, server restart, moving pods at 1x and 8x, and t
 
 The [Ebitengine performance tips](https://ebitengine.org/en/documents/performancetips.html) describe draw batching and source-image reuse.
 The static cache follows that approach.
-It changes only when the server epoch, the simulation generation, the project revision, the map scale, the display unit, or the map viewport changes, or when a pan passes its margin.
+It changes only when the server epoch, the simulation generation, the project revision, the server start ID, the map scale, the display unit, or the map viewport changes, or when a pan passes its margin.
 The renderer does not read pixels back from the GPU.
 For further diagnosis, use the `ebitenginedebug` build tag to inspect draw commands and batch boundaries.
 That diagnostic was not part of these measurements.
 
-The view builds a display index once for each server epoch, simulation generation, and project revision.
+The view builds a display index once for each server epoch, simulation generation, project revision, and server start ID.
 It holds the node positions by node ID, the collapsed station anchors, the shortest berth spacing of each station, the station line lanes, and the label ranks.
 Lane drawing, station text, and map picks then do not scan the 1,842 London nodes for each node lookup.
 A SwiftShader check on London at 1100 by 760 CSS pixels compared the view before and after the moving image and the display index.
