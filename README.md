@@ -354,6 +354,7 @@ An idle local pod serves the oldest waiting passenger.
 Otherwise, dispatch compares idle pods and empty pods that can divert.
 An empty pod can divert when it goes to parking, when it moves for redistribution, or when dispatch released it from a pickup.
 It uses estimated pickup time, then pod ID, as the tie-breaker.
+An idle pod at the pickup station has an estimate of zero, because it boards at its own berth.
 
 Dispatch can wait for a busy pod if it should reach pickup at least two seconds earlier.
 The estimate includes travel, acceleration, braking, boarding, and unloading.
@@ -367,7 +368,7 @@ Passengers board only at a berth.
 If pickup pods arrive out of order, the first available pod takes the oldest passenger at that station.
 The other pod retains a pickup at the same station for the later order.
 
-An idle local pod can take a trip from a pod that is still on its way to the pickup.
+A pod that becomes idle at the pickup station can take a trip from a pod that is still on its way to the pickup.
 Dispatch then releases the other pod, and the released pod can divert for a pickup at once.
 A later trip in the same dispatch pass or in a later pass can take it.
 If no trip takes it in the same pass, it goes to the nearest free berth.

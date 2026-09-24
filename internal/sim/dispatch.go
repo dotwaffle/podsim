@@ -160,6 +160,8 @@ func (s *Simulation) localPickup(stationID string, assigned map[string]bool) *ve
 }
 
 // pickupPod chooses the fastest available idle or divertible parking pod, with pod ID breaking ties.
+// An idle pod at the pickup station has an estimate of zero, so it wins
+// over each pod that must travel.
 // It does not change the pods, the berth owners, or the waiting trips, so it
 // computes each berth load one time for all pods.
 func (s *Simulation) pickupPod(stationID string, assigned map[string]bool) *vehicle {

@@ -23,9 +23,11 @@ type pickupRouteInput struct {
 }
 
 // pickupRouteWithAssignments returns the route and the berth for a pickup
-// by the pod at the station. It reports false when the pod is occupied or
-// claimed, when it is not idle and cannot divert, when it must first finish
-// a committed parking inlet, or when it cannot reach the station.
+// by the pod at the station. For an idle pod at the pickup station, it
+// returns no lanes and the berth of the pod, so the pickup costs no travel.
+// It reports false when the pod is occupied or claimed, when it is not idle
+// and cannot divert, when it must first finish a committed parking inlet,
+// or when it cannot reach the station.
 func (s *Simulation) pickupRouteWithAssignments(input pickupRouteInput) ([]Lane, Berth, bool) {
 	v, stationID := input.pod, input.station
 	claimed := input.assigned[v.Pod.ID]
@@ -38,6 +40,12 @@ func (s *Simulation) pickupRouteWithAssignments(input pickupRouteInput) ([]Lane,
 	if v.Pod.Activity == Idle {
 		from, _ := s.station(v.Pod.StationID)
 		berth, _ := from.berth(v.Pod.BerthID)
+		if v.Pod.StationID == stationID {
+			// The pod can board where it is. Its own berth has a load of at
+			// least one because the pod holds it, so stationRouteByLoad
+			// would choose a free berth and a loop around the network.
+			return nil, berth, true
+		}
 		route, destination, err := s.stationRouteByLoad(stationRouteInput{from: berth.Node, station: stationID, load: input.load})
 		return route, destination, err == nil
 	}

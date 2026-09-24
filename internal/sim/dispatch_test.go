@@ -588,3 +588,47 @@ func TestOnePassDoesNotReuseAClaimedPickupPod(t *testing.T) {
 		t.Fatalf("the two trips share one pod: %+v", s.Snapshot().Pending)
 	}
 }
+
+// TestLocalIdlePodPricedAtItsBerth checks that dispatch prices an idle pod
+// at the pickup station as zero travel from its own berth. Market has two
+// berths. The local pod holds one of them, so its own berth has a load of
+// one and the other berth is free. The remote pod waits at Garden, a short
+// run upstream of Market. The local pod must board in the first pass, and
+// the remote pod must stay at its berth.
+func TestLocalIdlePodPricedAtItsBerth(t *testing.T) {
+	t.Parallel()
+	for _, tc := range []struct {
+		name, localBerth string
+	}{
+		{"first berth", "market-1"},
+		{"second berth", "market-2"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			s, err := NewFleet(ladderNetwork(), []Placement{
+				{ID: "01", StationID: "garden"},
+				{ID: "02", StationID: "market", BerthID: tc.localBerth},
+			})
+			if err != nil {
+				t.Fatal(err)
+			}
+			local, remote := s.findVehicle("02"), s.findVehicle("01")
+			route, berth, ok := s.pickupRoute(local, "market")
+			if !ok || len(route) != 0 || berth.ID != tc.localBerth {
+				t.Fatalf("local pickup route = %v to %q (%t), want no lanes to %s", route, berth.ID, ok, tc.localBerth)
+			}
+			if got := s.pickupPod("market", map[string]bool{}); got != local {
+				t.Fatalf("pickupPod chose %v, want the local pod", got)
+			}
+			if err := s.RequestTrip("market", "harbor"); err != nil {
+				t.Fatal(err)
+			}
+			if local.Pod.Activity != Boarding || len(s.waiting) != 0 {
+				t.Fatalf("local pod did not board in the first pass: %+v", s.Snapshot())
+			}
+			if remote.Pod.Activity != Idle || remote.RelocatingTo != "" {
+				t.Fatalf("remote pod left its berth: %+v", remote.Vehicle)
+			}
+		})
+	}
+}

@@ -369,8 +369,9 @@ complete non-race scenario package fell from 35.50 to 22.87 wall seconds.
 Incremental release did not change the 100-order Station 19 burst result.
 First delivery was at 258.4 seconds, last delivery at 1582.9 seconds, all pods
 were idle at 2171.9 seconds, and the peak was 12 stopped pods. These values
-predate the release of pickup pods for new work, so the current run can give
-different values.
+predate the release of pickup pods for new work and the zero pickup estimate
+for an idle pod at the pickup station, so the current run can give different
+values.
 
 ```sh
 mise exec -- go test -count=1 -run 'Station19QueueDrains|DenseSafety' -cpuprofile /tmp/podsim-scenarios-cpu.out -o /tmp/podsim-scenarios.test ./internal/scenarios
@@ -506,8 +507,9 @@ intervals.
 All 40 completed by 1,411.0 simulated seconds.
 Average pickup wait was 56.203 seconds, and maximum pickup wait was 389.950
 seconds.
-These values predate the release of pickup pods for new work, so the current
-run can give different values.
+These values predate the release of pickup pods for new work and the zero
+pickup estimate for an idle pod at the pickup station, so the current run can
+give different values.
 The schedule SHA-256 is
 `02d3b6086d3ee5f58c9cbdb5bb574c042e0b8cd911656ed2c98099ea595aa024`.
 
@@ -584,8 +586,9 @@ network.
 The sweep uses the London project's NUMBAT origin-destination profile on the
 directional-portal network at commit `3b02de8`, after the station heading
 change.
-The sweep predates the release of pickup pods for new work, so the current
-dispatch can give different results.
+The sweep predates the release of pickup pods for new work and the zero pickup
+estimate for an idle pod at the pickup station, so the current dispatch can
+give different results.
 It covers all eight demand bands, 15 offered rates, and seeds 1, 2, and 3.
 Each arm accepts requests for 30 simulated minutes, then has up to 30 minutes
 to finish them. Redistribution and same-destination sharing are off. Free-flow
