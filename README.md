@@ -163,6 +163,8 @@ See [distribution and operations](docs/operations.md) for build and runtime sett
 - An amber ring around a pod marks a waiting pod.
   A white ring marks the selected pod.
 - The map legend shows each color and shape.
+- While the selected pod is not idle, the map shows its route in the pod color.
+  The route shows above the stations and their labels, and below the pods.
 - Light arrows on the lanes show the direction of travel.
   Where two arrows in about the same direction overlap, the map shows only one of them.
 

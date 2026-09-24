@@ -40,6 +40,10 @@ const (
 	// markerOutlineWidth is the width in display units of the outline of a
 	// collapsed station marker.
 	markerOutlineWidth = 2
+	// routeWidth is the width in display units of the route of the selected
+	// pod. It is wider than the line lanes of a dense map at Fit
+	// (denseLaneWidth.minimum).
+	routeWidth = 3
 
 	inspectionLeft       = 816.0
 	inspectionRight      = 1054.0
@@ -638,8 +642,6 @@ func (g *Game) drawNetwork(screen *ebiten.Image, state sim.Snapshot) {
 	} else {
 		g.drawCachedNetworkBase(mapScreen, style)
 	}
-	// Draw the collapsed station markers before the route. A marker can sit
-	// on a line junction, and the route must stay visible through it.
 	for _, station := range g.network.Stations {
 		if marker, ok := markers[station.ID]; ok {
 			vector.FillCircle(mapScreen, float32(marker.X), float32(marker.Y), float32(style.markerRadius), rgb(track), detailed)
@@ -647,14 +649,6 @@ func (g *Game) drawNetwork(screen *ebiten.Image, state sim.Snapshot) {
 		}
 	}
 	selected, hasSelected := selectedVehicle(state, g.selected)
-	if hasSelected && selected.Pod.Activity != sim.Idle {
-		shade := g.podPurpose(selected, state).color()
-		for _, lane := range selected.Route {
-			geometry := g.laneGeometry(lane, detailed)
-			geometry.draw(mapScreen, laneStroke{width: float32(2 * g.layout.unit), color: shade, antialias: detailed})
-			drawArrow(mapScreen, arrow{tip: geometry.arrowTip, direction: geometry.arrowDirection, size: routeArrowSize, color: shade, antialias: detailed, unit: g.layout.unit})
-		}
-	}
 	collapsedStations := make(map[string]bool)
 	stationMonitor := observe.NewStationMonitor(g.network)
 	labelRanks := g.currentStationLabelRanks()
@@ -736,6 +730,18 @@ func (g *Game) drawNetwork(screen *ebiten.Image, state sim.Snapshot) {
 		markers: markers, markerRadius: style.markerRadius, selectedPodLabel: selectedPodLabel,
 	})
 	podLabels = g.clearPodLabels(podLabels, shownLabels)
+	// Draw the route after the station markers and labels, and before the
+	// pods. A marker can sit on a line junction, and a label can cover a
+	// line. The route must stay visible through them, and the pods stay on
+	// top of the route.
+	if hasSelected && selected.Pod.Activity != sim.Idle {
+		shade := g.podPurpose(selected, state).color()
+		for _, lane := range selected.Route {
+			geometry := g.laneGeometry(lane, detailed)
+			geometry.draw(mapScreen, laneStroke{width: float32(routeWidth * g.layout.unit), color: shade, antialias: detailed})
+			drawArrow(mapScreen, arrow{tip: geometry.arrowTip, direction: geometry.arrowDirection, size: routeArrowSize, color: shade, antialias: detailed, unit: g.layout.unit})
+		}
+	}
 	for i, v := range state.Vehicles {
 		parkedInCluster := v.Pod.Activity == sim.Idle && collapsedStations[v.Pod.StationID]
 		if parkedInCluster && i != g.selected {
