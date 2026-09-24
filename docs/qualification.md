@@ -633,13 +633,28 @@ window.
 | Late | 12/min | 9.07/min | +44.0 | 1,627 s | 368.8 s | 1,107.9 s | 50.7% | 2/3 at 13/min |
 | Night | 9/min | 7.44/min | +23.3 | 1,584 s | 205.6 s | 944.0 s | 47.6% | 2/3 at 10/min |
 
+The `peak_active_vehicles` column counts the pods with assigned work. A pod
+has assigned work when it has a trip that is not complete, or when a pending
+request names it as the pickup pod. This includes boarding, travel with
+passengers, unloading, and travel to a pickup. An empty move to parking or for
+redistribution is not work. The `peak_passenger_vehicles` column counts only
+the pods with passengers aboard, so it is never more than
+`peak_active_vehicles`.
+
+The pod counts in the next paragraph use an earlier definition of
+`peak_active_vehicles`. That definition also counted each pod that had
+finished a trip and each empty move. A pod that went idle after a trip stayed
+in the count. Thus these counts can be higher than the number of pods with
+assigned work.
+
 No band finishes all three seeds at 15/min. At the limit rate, at least one
-seed has all 114 pods with assigned work at the same time in every band except
-Early and Morning. The highest seed peak is 108 pods in Early and 113 pods in
-Morning. At 10/min, the Morning seed that does not finish has all 114 pods with
-assigned work and at most 3 stopped pods. The highest per-seed peak stopped
-pods at the limit rate is 11 in Early and 3 to 6 in the other bands. For the
-seven bands other than Early, these results suggest that the 114-pod fleet, not
+seed has all 114 pods active at the same time in every band except Early and
+Morning, measured with the earlier definition. The highest seed peak with the
+earlier definition is 108 pods in Early and 113 pods in Morning. At 10/min,
+the Morning seed that does not finish has all 114 pods active with the earlier
+definition and at most 3 stopped pods. The highest per-seed peak stopped pods
+at the limit rate is 11 in Early and 3 to 6 in the other bands. For the seven
+bands other than Early, these results suggest that the 114-pod fleet, not
 track congestion, sets the recovery limit. Early has more peak stopped pods, so
 congestion can also contribute to its limit.
 
