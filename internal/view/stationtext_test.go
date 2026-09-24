@@ -268,6 +268,7 @@ func TestShiftInside(t *testing.T) {
 func TestStationTextDirection(t *testing.T) {
 	t.Parallel()
 	network := sim.Example()
+	positions := newNetworkIndex(network).positions
 	tests := []struct {
 		station string
 		want    sim.Point
@@ -287,7 +288,7 @@ func TestStationTextDirection(t *testing.T) {
 			if !ok {
 				station = sim.Station{ID: test.station, Entry: "missing", Berths: []sim.Berth{{Node: "harbor-berth"}}}
 			}
-			if got := stationTextDirection(network, station); got != test.want {
+			if got := stationTextDirection(positions, station); got != test.want {
 				t.Fatalf("stationTextDirection(%s) = %v, want %v", test.station, got, test.want)
 			}
 		})

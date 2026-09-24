@@ -132,7 +132,7 @@ func TestStationLabelRanksBuildOncePerNetwork(t *testing.T) {
 		rebuild bool
 	}{
 		{name: "same network", state: first, rebuild: false},
-		{name: "new generation", state: session.State{Epoch: "first", ProjectRevision: 1, Generation: 2}, rebuild: false},
+		{name: "new generation", state: session.State{Epoch: "first", ProjectRevision: 1, Generation: 2}, rebuild: true},
 		{name: "new project revision", state: session.State{Epoch: "first", ProjectRevision: 2, Generation: 1}, rebuild: true},
 		{name: "new epoch", state: session.State{Epoch: "second", ProjectRevision: 1, Generation: 1}, rebuild: true},
 	}

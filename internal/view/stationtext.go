@@ -85,12 +85,12 @@ type expandedStationInput struct {
 func (g *Game) expandedStationText(input expandedStationInput) expandedStationText {
 	station, status, unit := input.station, input.status, g.layout.unit
 	single := !station.ParkingOnly && len(station.Berths) == 1
-	expanded := expandedStationText{away: stationTextDirection(g.network, station)}
+	positions := g.displayIndex().positions
+	expanded := expandedStationText{away: stationTextDirection(positions, station)}
 	// The stroke is centered on the ring radius.
 	radius := (berthRingRadius + 1) * unit
 	for index, berth := range station.Berths {
-		node, _ := g.network.Node(berth.Node)
-		center := g.mapPoint(node.Position)
+		center := g.mapPoint(positions[berth.Node])
 		shade := g.berthShade(berth, input.state)
 		number := stationTextBlock{lines: []label{{size: 16, value: strconv.Itoa(index + 1), color: foreground}}}
 		if single {
@@ -171,14 +171,15 @@ func berthOccupancy(berth sim.Berth, state sim.Snapshot) string {
 // stationTextDirection returns the direction from the siding of a station to
 // its berths: from the midpoint of the entry and exit nodes to the center of
 // the berth nodes. The lanes of the station come from the siding side, so
-// the station text goes the other way. The direction is zero when the
-// network does not have these nodes.
-func stationTextDirection(network sim.Network, station sim.Station) sim.Point {
+// the station text goes the other way. positions holds the node positions
+// by node ID. The direction is zero when positions does not have these
+// nodes.
+func stationTextDirection(positions map[string]sim.Point, station sim.Station) sim.Point {
 	var siding, berths pointMean
 	add := func(mean *pointMean, nodeID string) {
-		if node, ok := network.Node(nodeID); ok {
-			mean.sum.X += node.Position.X
-			mean.sum.Y += node.Position.Y
+		if position, ok := positions[nodeID]; ok {
+			mean.sum.X += position.X
+			mean.sum.Y += position.Y
 			mean.count++
 		}
 	}

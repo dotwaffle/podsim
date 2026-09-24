@@ -93,13 +93,11 @@ type Game struct {
 	networkBaseKey       networkCacheKey
 	networkBaseValid     bool
 	networkBaseLanes     []lanePath
-	anchors              map[string]sim.Point
-	anchorsKey           anchorCacheKey
-	lineLanes            map[string]bool
-	lineLanesKey         anchorCacheKey
-	labelRanks           map[string]int
-	labelRanksKey        anchorCacheKey
-	showOrders           bool
+	// networkBaseOrigin is the camera origin of the cached base layer.
+	networkBaseOrigin sim.Point
+	index             *networkIndex
+	indexKey          networkIndexKey
+	showOrders        bool
 	// orderPage is the zero-based page of the Orders panel. A page past
 	// the last page shows the last page.
 	orderPage    int
@@ -668,9 +666,10 @@ func (g *Game) zoomMap(factor float64) {
 	}
 }
 
+// syncCamera copies the camera scale and origin to the map. The cached base
+// layer stays. drawCachedNetworkBase draws it again when it cannot move it.
 func (g *Game) syncCamera() {
 	g.mapScale, g.mapOrigin = g.camera.scale, g.camera.origin
-	g.networkBaseValid = false
 }
 
 func (g *Game) toggleFollow() {
@@ -708,11 +707,12 @@ func (g *Game) drawNetwork(screen *ebiten.Image, state sim.Snapshot) {
 	style := newNetworkStyle(networkStyleInput{network: g.network, markers: markers, lineLanes: g.currentLineLanes(), scale: g.mapScale, unit: g.layout.unit})
 	detailed := style.detailed
 	var lanes []lanePath
+	var lanesShift sim.Point
 	if detailed {
 		g.releaseNetworkBase()
-		lanes = g.drawBaseNetwork(mapScreen, style)
+		lanes = g.drawBaseNetwork(mapScreen, baseNetworkInput{style: style, area: g.layout.mapViewport})
 	} else {
-		lanes = g.drawCachedNetworkBase(mapScreen, style)
+		lanes, lanesShift = g.drawCachedNetworkBase(mapScreen, style)
 	}
 	for _, station := range g.network.Stations {
 		if marker, ok := markers[station.ID]; ok {
@@ -740,6 +740,10 @@ func (g *Game) drawNetwork(screen *ebiten.Image, state sim.Snapshot) {
 			vector.StrokeCircle(mapScreen, float32(berth.center.X), float32(berth.center.Y), float32(berthRingRadius*g.layout.unit), float32(2*g.layout.unit), rgb(berth.shade), detailed)
 		}
 		expanded = append(expanded, stationText)
+	}
+	// The station text keeps off the lanes at their place on the screen.
+	if len(expanded) > 0 {
+		lanes = movedLanePaths(lanes, lanesShift)
 	}
 	// Draw the station text after all berth rings, so that no ring covers
 	// the text.
@@ -807,24 +811,12 @@ func selectedVehicle(state sim.Snapshot, index int) (sim.Vehicle, bool) {
 	return state.Vehicles[index], true
 }
 
+// showStationBerths reports whether the berths of a station separate on the
+// screen. A station with fewer than two berth nodes in the network always
+// shows its berths.
 func (g *Game) showStationBerths(station sim.Station) bool {
-	if len(station.Berths) < 2 {
-		return true
-	}
-	minimum := math.Inf(1)
-	for i, berth := range station.Berths {
-		node, ok := g.network.Node(berth.Node)
-		if !ok {
-			continue
-		}
-		for _, other := range station.Berths[i+1:] {
-			otherNode, found := g.network.Node(other.Node)
-			if found {
-				minimum = min(minimum, math.Hypot(node.Position.X-otherNode.Position.X, node.Position.Y-otherNode.Position.Y)*g.mapScale)
-			}
-		}
-	}
-	return minimum >= 34*g.layout.unit
+	spacing, ok := g.displayIndex().berthSpacing[station.ID]
+	return !ok || spacing*g.mapScale >= 34*g.layout.unit
 }
 
 // overviewNameRunes is the largest number of runes of a station name in an
@@ -1106,12 +1098,16 @@ func (g *Game) podHiddenInCluster(vehicle sim.Vehicle, index int) bool {
 	return ok && !g.showStationBerths(station)
 }
 
+// networkCacheKey identifies the content of the cached base layer. The
+// camera origin is not in the key. A pan moves the cached layer on the
+// screen. See baseLayerShift.
 type networkCacheKey struct {
-	epoch      string
-	generation uint64
-	scale      float64
-	origin     sim.Point
-	viewport   image.Rectangle
+	network networkIndexKey
+	scale   float64
+	unit    float64
+	// viewport is the map viewport. The cached layer covers it and a
+	// margin around it.
+	viewport image.Rectangle
 }
 
 type laneGeometry struct {
@@ -1146,20 +1142,19 @@ func (geometry laneGeometry) draw(screen *ebiten.Image, stroke laneStroke) {
 }
 
 func (g *Game) laneGeometry(lane sim.Lane, detailed bool) laneGeometry {
-	fromNode, _ := g.network.Node(lane.From)
-	toNode, _ := g.network.Node(lane.To)
+	from, to := g.nodePosition(lane.From), g.nodePosition(lane.To)
 	position := func(t float64) sim.Point {
 		if lane.Control == nil {
-			return sim.Point{X: fromNode.Position.X + (toNode.Position.X-fromNode.Position.X)*t, Y: fromNode.Position.Y + (toNode.Position.Y-fromNode.Position.Y)*t}
+			return sim.Point{X: from.X + (to.X-from.X)*t, Y: from.Y + (to.Y-from.Y)*t}
 		}
 		u := 1 - t
-		return sim.Point{X: u*u*fromNode.Position.X + 2*u*t*lane.Control.X + t*t*toNode.Position.X, Y: u*u*fromNode.Position.Y + 2*u*t*lane.Control.Y + t*t*toNode.Position.Y}
+		return sim.Point{X: u*u*from.X + 2*u*t*lane.Control.X + t*t*to.X, Y: u*u*from.Y + 2*u*t*lane.Control.Y + t*t*to.Y}
 	}
 	segments := 1
 	if lane.Control != nil {
 		segments = 32
 		if !detailed {
-			extent := math.Hypot(lane.Control.X-fromNode.Position.X, lane.Control.Y-fromNode.Position.Y) + math.Hypot(toNode.Position.X-lane.Control.X, toNode.Position.Y-lane.Control.Y)
+			extent := math.Hypot(lane.Control.X-from.X, lane.Control.Y-from.Y) + math.Hypot(to.X-lane.Control.X, to.Y-lane.Control.Y)
 			segments = min(32, max(4, int(math.Ceil(extent*g.mapScale/8))))
 		}
 	}
@@ -1199,19 +1194,32 @@ func (geometry laneGeometry) along(fraction float64) (point, direction sim.Point
 	return point, direction
 }
 
+// baseNetworkInput holds the style and the place of a network base layer.
+type baseNetworkInput struct {
+	style networkStyle
+	// area is the screen area of the layer. drawBaseNetwork returns the
+	// paths of the lanes in this area.
+	area image.Rectangle
+	// offset moves each screen point before drawBaseNetwork draws it. The
+	// cached layer uses it, because its image starts at the corner of area.
+	offset sim.Point
+}
+
 // drawBaseNetwork draws the lanes, their direction arrows, and the node dots
 // in the network style. It draws the arrows after all the lanes, so that no
-// lane covers an arrow. It returns the screen paths of the lanes in the map
-// viewport.
-func (g *Game) drawBaseNetwork(screen *ebiten.Image, style networkStyle) []lanePath {
+// lane covers an arrow. It returns the screen paths of the lanes in the
+// area of the layer, without the offset.
+func (g *Game) drawBaseNetwork(screen *ebiten.Image, input baseNetworkInput) []lanePath {
+	style := input.style
 	var arrows []arrow
 	var paths []lanePath
 	for _, lane := range g.network.Lanes {
-		geometry := g.laneGeometry(lane, style.detailed)
-		geometry.draw(screen, style.laneStroke(lane))
-		if path, ok := geometry.pathIn(g.layout.mapViewport); ok {
+		geometry, path, ok := g.baseLane(lane, style.detailed, input.area)
+		if ok {
 			paths = append(paths, path)
 		}
+		geometry = geometry.moved(input.offset)
+		geometry.draw(screen, style.laneStroke(lane))
 		if a, ok := style.laneArrow(lane, geometry); ok {
 			arrows = append(arrows, a)
 		}
@@ -1223,38 +1231,161 @@ func (g *Game) drawBaseNetwork(screen *ebiten.Image, style networkStyle) []laneP
 		return paths
 	}
 	for _, node := range g.network.Nodes {
-		point := g.mapPoint(node.Position)
+		point := movePoint(g.mapPoint(node.Position), input.offset)
 		vector.FillCircle(screen, float32(point.X), float32(point.Y), float32(3*g.layout.unit), rgb(muted), style.detailed)
 	}
 	return paths
 }
 
-// drawCachedNetworkBase draws the cached base network, and draws the cache
-// again when the camera, the layout, or the network changed. It returns the
-// screen paths of the lanes in the map viewport.
-func (g *Game) drawCachedNetworkBase(screen *ebiten.Image, style networkStyle) []lanePath {
-	key := g.currentNetworkCacheKey()
-	if g.networkBase == nil || g.networkBase.Bounds().Dx() != g.layout.width || g.networkBase.Bounds().Dy() != g.layout.height {
-		g.releaseNetworkBase()
-		g.networkBase = ebiten.NewImage(g.layout.width, g.layout.height)
-	}
-	if g.networkBaseNeedsRefresh() {
-		g.networkBase.Clear()
-		g.networkBaseLanes = g.drawBaseNetwork(g.networkBase, style)
-		g.networkBaseKey = key
-		g.networkBaseValid = true
-	}
-	screen.DrawImage(g.networkBase, nil)
-	return g.networkBaseLanes
+// baseLane returns the screen geometry of a lane and its screen path. ok is
+// false when no part of the lane is in area. It does not draw.
+func (g *Game) baseLane(lane sim.Lane, detailed bool, area image.Rectangle) (geometry laneGeometry, path lanePath, ok bool) {
+	geometry = g.laneGeometry(lane, detailed)
+	path, ok = geometry.pathIn(area)
+	return geometry, path, ok
 }
 
-func (g *Game) networkBaseNeedsRefresh() bool {
+// movePoint returns point moved by offset.
+func movePoint(point, offset sim.Point) sim.Point {
+	return sim.Point{X: point.X + offset.X, Y: point.Y + offset.Y}
+}
+
+// moved returns the lane geometry moved on the screen by offset.
+func (geometry laneGeometry) moved(offset sim.Point) laneGeometry {
+	if offset == (sim.Point{}) {
+		return geometry
+	}
+	for i := range geometry.count {
+		geometry.points[i] = movePoint(geometry.points[i], offset)
+	}
+	geometry.arrowTip = movePoint(geometry.arrowTip, offset)
+	return geometry
+}
+
+// movedLanePaths returns the lane paths moved on the screen by offset.
+func movedLanePaths(paths []lanePath, offset sim.Point) []lanePath {
+	if offset == (sim.Point{}) {
+		return paths
+	}
+	moved := make([]lanePath, len(paths))
+	for i, path := range paths {
+		moved[i] = make(lanePath, len(path))
+		for j, point := range path {
+			moved[i][j] = movePoint(point, offset)
+		}
+	}
+	return moved
+}
+
+// baseLayerMargin returns the margin in screen pixels of the cached base
+// layer around the map viewport. It is a quarter of the shorter side of the
+// viewport.
+func baseLayerMargin(viewport image.Rectangle) int {
+	return min(viewport.Dx(), viewport.Dy()) / 4
+}
+
+// baseLayerInput holds the cached base layer state and the current map
+// state for baseLayerShift.
+type baseLayerInput struct {
+	// valid is false when the cache has no layer.
+	valid           bool
+	cached, current networkCacheKey
+	// drawnOrigin is the camera origin of the cached layer. origin is the
+	// current camera origin.
+	drawnOrigin, origin sim.Point
+	// margin is the margin in screen pixels of the cached layer around the
+	// map viewport.
+	margin float64
+}
+
+// baseLayerShift returns the screen distance from the cached base layer to
+// its current place. ok is false when the cache must draw the layer again:
+// when it has no layer, when the network, the scale, the unit or the
+// viewport changed, or when a pan moved the viewport past the margin of the
+// layer.
+func baseLayerShift(input baseLayerInput) (shift sim.Point, ok bool) {
+	if !input.valid || input.cached != input.current {
+		return sim.Point{}, false
+	}
+	shift = sim.Point{X: input.origin.X - input.drawnOrigin.X, Y: input.origin.Y - input.drawnOrigin.Y}
+	if math.Abs(shift.X) > input.margin || math.Abs(shift.Y) > input.margin {
+		return sim.Point{}, false
+	}
+	return shift, true
+}
+
+// baseLayerArea returns the screen area of the cached base layer: the map
+// viewport and the margin around it.
+func baseLayerArea(viewport image.Rectangle) image.Rectangle {
+	return viewport.Inset(-baseLayerMargin(viewport))
+}
+
+// baseLayerPlan tells drawCachedNetworkBase how to show the cached base
+// layer in the current frame.
+type baseLayerPlan struct {
+	// area is the screen area of the layer when the cache drew it.
+	area image.Rectangle
+	// shift is the screen distance from the cached layer to its current
+	// place.
+	shift sim.Point
+	// redraw is true when the cache must draw the layer again.
+	redraw bool
+}
+
+// imageOffset returns the distance that moves a screen point to its point
+// in the layer image. The image starts at the corner of the layer area.
+func (plan baseLayerPlan) imageOffset() sim.Point {
+	return sim.Point{X: -float64(plan.area.Min.X), Y: -float64(plan.area.Min.Y)}
+}
+
+// planBaseLayer decides how to show the cached base layer in the current
+// frame. It does not draw. When the layer must be drawn again, it records
+// the new key and camera origin of the cache, so a later pan is measured
+// from the new layer.
+func (g *Game) planBaseLayer() baseLayerPlan {
+	viewport := g.layout.mapViewport
 	key := g.currentNetworkCacheKey()
-	return !g.networkBaseValid || g.networkBaseKey != key
+	shift, ok := baseLayerShift(baseLayerInput{
+		valid: g.networkBaseValid, cached: g.networkBaseKey, current: key,
+		drawnOrigin: g.networkBaseOrigin, origin: g.mapOrigin, margin: float64(baseLayerMargin(viewport)),
+	})
+	plan := baseLayerPlan{area: baseLayerArea(viewport), shift: shift, redraw: !ok}
+	if plan.redraw {
+		g.networkBaseKey = key
+		g.networkBaseOrigin = g.mapOrigin
+		g.networkBaseValid = true
+	}
+	return plan
+}
+
+// drawCachedNetworkBase draws the cached base network. The cached layer
+// covers the map viewport and a margin around it. See planBaseLayer. It
+// returns the screen paths of the lanes in the layer, as they were when it
+// drew the layer, and the distance to move them.
+func (g *Game) drawCachedNetworkBase(screen *ebiten.Image, style networkStyle) ([]lanePath, sim.Point) {
+	area := baseLayerArea(g.layout.mapViewport)
+	if g.networkBase == nil || g.networkBase.Bounds().Size() != area.Size() {
+		if g.networkBase != nil {
+			g.networkBase.Deallocate()
+		}
+		g.networkBase = ebiten.NewImage(area.Dx(), area.Dy())
+		g.networkBaseValid = false
+	}
+	plan := g.planBaseLayer()
+	if plan.redraw {
+		g.networkBase.Clear()
+		g.networkBaseLanes = g.drawBaseNetwork(g.networkBase, baseNetworkInput{
+			style: style, area: plan.area, offset: plan.imageOffset(),
+		})
+	}
+	options := &ebiten.DrawImageOptions{}
+	options.GeoM.Translate(float64(plan.area.Min.X)+plan.shift.X, float64(plan.area.Min.Y)+plan.shift.Y)
+	screen.DrawImage(g.networkBase, options)
+	return g.networkBaseLanes, plan.shift
 }
 
 func (g *Game) currentNetworkCacheKey() networkCacheKey {
-	return networkCacheKey{epoch: g.state.Epoch, generation: g.state.Generation, scale: g.mapScale, origin: g.mapOrigin, viewport: g.layout.mapViewport}
+	return networkCacheKey{network: g.currentNetworkIndexKey(), scale: g.mapScale, unit: g.layout.unit, viewport: g.layout.mapViewport}
 }
 
 func (g *Game) releaseNetworkBase() {
@@ -1265,6 +1396,7 @@ func (g *Game) releaseNetworkBase() {
 	g.networkBase = nil
 	g.networkBaseLanes = nil
 	g.networkBaseKey = networkCacheKey{}
+	g.networkBaseOrigin = sim.Point{}
 	g.networkBaseValid = false
 }
 

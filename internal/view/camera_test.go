@@ -144,16 +144,6 @@ func TestGameCameraWiring(t *testing.T) {
 		name string
 		run  func(*testing.T)
 	}{
-		{name: "camera change invalidates base cache", run: func(t *testing.T) {
-			t.Helper()
-			game := cameraTestGame()
-			game.networkBaseValid = true
-			game.camera.zoomAt(sim.Point{X: 300, Y: 300}, 2)
-			game.syncCamera()
-			if game.networkBaseValid {
-				t.Fatal("camera change kept stale base cache")
-			}
-		}},
 		{name: "outside map cannot select pod", run: func(t *testing.T) {
 			t.Helper()
 			game := cameraTestGame()
@@ -189,20 +179,19 @@ func TestGameCameraWiring(t *testing.T) {
 				t.Fatal("kept spaced berth details collapsed")
 			}
 		}},
-		{name: "follow centers selected pod and invalidates cache", run: func(t *testing.T) {
+		{name: "follow centers selected pod", run: func(t *testing.T) {
 			t.Helper()
 			game := cameraTestGame()
 			game.selected = 1
 			center := sim.Point{X: float64(game.camera.viewport.Min.X+game.camera.viewport.Max.X) / 2, Y: float64(game.camera.viewport.Min.Y+game.camera.viewport.Max.Y) / 2}
 			game.camera.zoomAt(center, 3)
 			game.syncCamera()
-			game.networkBaseValid = true
 			game.toggleFollow()
 			if got := game.mapPoint(game.state.Simulation.Vehicles[1].Pod.Position); !closePoint(got, center) {
 				t.Fatalf("followed pod screen point = %+v, want %+v", got, center)
 			}
-			if !game.followSelected || game.networkBaseValid {
-				t.Fatal("follow state or map cache not updated")
+			if !game.followSelected {
+				t.Fatal("follow state not updated")
 			}
 		}},
 		{name: "fit stops follow", run: func(t *testing.T) {

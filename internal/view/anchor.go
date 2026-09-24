@@ -7,24 +7,10 @@ import (
 	"github.com/dotwaffle/podsim/internal/sim"
 )
 
-// anchorCacheKey identifies the network of the cached station anchors, station
-// line lanes and station label ranks. The session sends a new network only
-// with a new epoch or a new project revision.
-type anchorCacheKey struct {
-	epoch           string
-	projectRevision uint64
-}
-
 // stationAnchors returns the collapsed station anchors of the current
-// network. It builds them again only when the epoch or the project revision
-// changes, not on each frame.
+// network from the display index.
 func (g *Game) stationAnchors() map[string]sim.Point {
-	key := anchorCacheKey{epoch: g.state.Epoch, projectRevision: g.state.ProjectRevision}
-	if g.anchors == nil || g.anchorsKey != key {
-		g.anchors = collapsedStationAnchors(g.network)
-		g.anchorsKey = key
-	}
-	return g.anchors
+	return g.displayIndex().anchors
 }
 
 // collapsedStationMarkers returns the screen position of each collapsed
@@ -117,15 +103,9 @@ func (m *pointMean) mean() (sim.Point, bool) {
 }
 
 // currentStationLabelRanks returns the station label ranks of the current
-// network. It builds them again only when the epoch or the project revision
-// changes, not on each frame.
+// network from the display index.
 func (g *Game) currentStationLabelRanks() map[string]int {
-	key := anchorCacheKey{epoch: g.state.Epoch, projectRevision: g.state.ProjectRevision}
-	if g.labelRanks == nil || g.labelRanksKey != key {
-		g.labelRanks = stationLabelRanks(g.network)
-		g.labelRanksKey = key
-	}
-	return g.labelRanks
+	return g.displayIndex().labelRanks
 }
 
 // stationLabelRanks returns the rank of each station by station ID. On a

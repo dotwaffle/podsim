@@ -247,10 +247,12 @@ Thousands of antialiased curve segments queued stencil data before rendering.
 
 Networks above 100 lanes now use fewer screen-space curve segments and disable map antialiasing.
 Small networks retain their original rendering detail.
-Networks above 100 lanes also store neutral tracks, arrows, and nodes in a reusable image at the window size in device pixels.
+Networks above 100 lanes also store neutral tracks, arrows, and nodes in a reusable image.
 The measured runs used a fixed 1100 by 760 image.
+The image now covers the map viewport and a margin around it, in device pixels.
+The margin is a quarter of the shorter side of the viewport.
 The selected route, berths, pods, and status remain dynamic.
-Server epoch or simulation generation changes rebuild the cached image.
+A new server epoch, simulation generation, or project revision draws the cached image again.
 
 On the paused scale fixture, the crash fix rendered at a median of about 14.9 FPS.
 Static-track caching increased that median to 18.9 FPS in fresh SwiftShader runs.
@@ -262,7 +264,10 @@ The later navigation update adds pointer-centered zoom, drag pan, zoom buttons, 
 At overview scale, crowded stations use one marker and an occupancy count.
 Individual berths appear when their screen spacing permits.
 Map drawing stays inside the viewport.
-Camera changes invalidate cached tracks and do not change the shared session.
+Camera changes do not change the shared session.
+A zoom draws the cached tracks again.
+A pan or Follow moves the cached image on the screen.
+The view draws the image again only when the pan passes the margin of the image.
 Pod buttons and map labels use compact fleet numbers, and inspection also shows the full pod ID.
 
 Browser tests compared an applied project's cached image with a fresh render of that project.
@@ -272,10 +277,28 @@ Additional checks covered reset, server restart, moving pods at 1x and 8x, and t
 
 The [Ebitengine performance tips](https://ebitengine.org/en/documents/performancetips.html) describe draw batching and source-image reuse.
 The static cache follows that approach.
-It changes only when the simulation generation, the server epoch, the camera, or the map viewport changes.
+It changes only when the server epoch, the simulation generation, the project revision, the map scale, the display unit, or the map viewport changes, or when a pan passes its margin.
 The renderer does not read pixels back from the GPU.
 For further diagnosis, use the `ebitenginedebug` build tag to inspect draw commands and batch boundaries.
 That diagnostic was not part of these measurements.
+
+The view builds a display index once for each server epoch, simulation generation, and project revision.
+It holds the node positions by node ID, the collapsed station anchors, the shortest berth spacing of each station, the station line lanes, and the label ranks.
+Lane drawing, station text, and map picks then do not scan the 1,842 London nodes for each node lookup.
+A SwiftShader check on London at 1100 by 760 CSS pixels compared the view before and after the moving image and the display index.
+Other jobs used the host at the same time, so only the difference between the two builds is useful.
+Three alternating runs of each build gave these mean frame rates, with the zoomed view at 3.8 times the `Fit` scale:
+
+| Map | Before | After |
+| --- | ---: | ---: |
+| `Fit`, no input | 9.5 FPS | 9.8 FPS |
+| `Fit`, drag | 9.5 FPS | 9.9 FPS |
+| `Fit`, Follow | 9.0 FPS | 10.0 FPS |
+| Zoomed, no input | 9.4 FPS | 8.7 FPS |
+| Zoomed, drag | 5.8 FPS | 8.6 FPS |
+| Zoomed, Follow of a moving pod | 5.8 FPS | 8.5 FPS |
+
+At `Fit`, the camera cannot pan, so a drag and Follow do not move the map.
 
 ## Shared-server traffic
 
@@ -333,7 +356,8 @@ A separate 180-second dense window checks pod separation every tick.
 Geometry checks reject crossings between unrelated sampled lane segments.
 These checks cover this fixture and demand schedule, not every possible traffic pattern.
 
-Camera tests cover zoom anchoring, limits, drag thresholds, selection, follow centering, and cache invalidation.
+Camera tests cover zoom anchoring, limits, drag thresholds, selection, and follow centering.
+Cache tests check when a pan moves the cached tracks and when the view draws them again.
 They also check that rewinds, resets, and demand edits on the same network keep the zoom, pan, and pod following.
 Browser checks cover wheel zoom, drag pan, Fit, clipping, and unchanged shared-session revision.
 The original ring performance measurements above do not measure the new mesh or camera implementation.

@@ -175,16 +175,10 @@ func berthsExpanded(stations []sim.Station, markers map[string]sim.Point) bool {
 	return !canCollapse
 }
 
-// currentLineLanes returns the station line lanes of the current network. It
-// builds them again only when the epoch or the project revision changes, not
-// on each frame.
+// currentLineLanes returns the station line lanes of the current network
+// from the display index.
 func (g *Game) currentLineLanes() map[string]bool {
-	key := anchorCacheKey{epoch: g.state.Epoch, projectRevision: g.state.ProjectRevision}
-	if g.lineLanes == nil || g.lineLanesKey != key {
-		g.lineLanes = stationLineLanes(g.network)
-		g.lineLanesKey = key
-	}
-	return g.lineLanes
+	return g.displayIndex().lineLanes
 }
 
 // stationLineLanes returns the IDs of the station lanes that continue a line.

@@ -83,8 +83,8 @@ func (g *Game) mapPickTargets(point sim.Point) mapPickInput {
 			continue
 		}
 		for _, berth := range station.Berths {
-			if node, ok := g.network.Node(berth.Node); ok {
-				input.stations = append(input.stations, mapCandidate{pod: -1, station: station.ID, center: g.mapPoint(node.Position)})
+			if position, ok := g.displayIndex().positions[berth.Node]; ok {
+				input.stations = append(input.stations, mapCandidate{pod: -1, station: station.ID, center: g.mapPoint(position)})
 			}
 		}
 	}
