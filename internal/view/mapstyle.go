@@ -2,6 +2,7 @@ package view
 
 import (
 	"math"
+	"strconv"
 
 	"github.com/dotwaffle/podsim/internal/sim"
 )
@@ -37,6 +38,56 @@ const (
 // each meter. The unit is the number of pixels in one display unit.
 func (size mapSize) pixels(scale, unit float64) float64 {
 	return min(size.maximum*unit, max(size.minimum*unit, size.meters*scale))
+}
+
+// scaleBarMaximum is the maximum length of the map scale bar in display
+// units.
+const scaleBarMaximum = 80
+
+// scaleBar is the map scale bar at one map scale.
+type scaleBar struct {
+	// meters is the distance that the bar shows.
+	meters float64
+	// length is the length of the bar in display units.
+	length float64
+	// label is the distance as text, for example "500 m" or "2 km".
+	label string
+}
+
+// newScaleBar returns the scale bar for the map scale in screen pixels for
+// each meter. The unit is the number of pixels in one display unit. The bar
+// shows the largest distance of 1, 2 or 5 times a power of ten that fits in
+// scaleBarMaximum units. The label uses m below 1000 m and km from 1000 m.
+// It returns false when the scale or the unit is not a positive finite
+// number, or when the distance that fits is too small or too large for a
+// float64.
+func newScaleBar(scale, unit float64) (scaleBar, bool) {
+	if !(scale > 0 && unit > 0) || math.IsInf(scale, 0) || math.IsInf(unit, 0) {
+		return scaleBar{}, false
+	}
+	fit := scaleBarMaximum * unit / scale
+	// A very small or large ratio of unit to scale gives a fit that is not
+	// a positive finite number.
+	if !(fit > 0) || math.IsInf(fit, 0) {
+		return scaleBar{}, false
+	}
+	// The tolerance keeps a distance that fits exactly, such as 1000 m, when
+	// the logarithm rounds down.
+	limit := fit * (1 + 1e-9)
+	power := math.Floor(math.Log10(fit))
+	meters := 0.0
+	for exponent := power - 1; exponent <= power+1; exponent++ {
+		for _, step := range []float64{1, 2, 5} {
+			if value := step * math.Pow(10, exponent); value <= limit {
+				meters = value
+			}
+		}
+	}
+	text := strconv.FormatFloat(meters, 'f', -1, 64) + " m"
+	if meters >= 1000 {
+		text = strconv.FormatFloat(meters/1000, 'f', -1, 64) + " km"
+	}
+	return scaleBar{meters: meters, length: meters * scale / unit, label: text}, true
 }
 
 // networkStyle holds the screen sizes of the network base layer and of the

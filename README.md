@@ -178,6 +178,7 @@ See [distribution and operations](docs/operations.md) for build and runtime sett
 | Show the whole network | **Fit** |
 | Keep the selected pod centered | **Follow** or **F** |
 
+- The scale bar in the lower-left corner of the map shows a round distance of 1, 2, or 5 times a power of ten, for example 500 m, 1 km, or 2 km.
 - Map navigation stays local to your browser.
 - Clicking or dragging the map, or selecting **Fit**, stops following.
 - **Reset** and **Rewind** keep the map view when the network does not change.

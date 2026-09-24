@@ -37,6 +37,96 @@ func TestMapSizePixels(t *testing.T) {
 	}
 }
 
+func TestNewScaleBar(t *testing.T) {
+	t.Parallel()
+	tests := []struct {
+		name   string
+		scale  float64
+		unit   float64
+		meters float64
+		label  string
+	}{
+		{name: "whole country", scale: 80.0 / 3_000_000, unit: 1, meters: 2_000_000, label: "2000 km"},
+		{name: "London at fit", scale: 0.0244, unit: 1, meters: 2000, label: "2 km"},
+		{name: "exactly 1 km", scale: 0.08, unit: 1, meters: 1000, label: "1 km"},
+		{name: "rounding below 1 km", scale: 0.14, unit: 1.75, meters: 1000, label: "1 km"},
+		{name: "rounding below 500 m", scale: 0.28, unit: 1.75, meters: 500, label: "500 m"},
+		{name: "just below 1 km", scale: 0.0801, unit: 1, meters: 500, label: "500 m"},
+		{name: "exactly 5 km", scale: 0.016, unit: 1, meters: 5000, label: "5 km"},
+		{name: "10 km", scale: 0.005, unit: 1, meters: 10000, label: "10 km"},
+		{name: "example network", scale: 0.29, unit: 1, meters: 200, label: "200 m"},
+		{name: "high density display", scale: 0.58, unit: 2, meters: 200, label: "200 m"},
+		{name: "zoomed in", scale: 3.2, unit: 1, meters: 20, label: "20 m"},
+		{name: "exactly 1 m", scale: 80, unit: 1, meters: 1, label: "1 m"},
+		{name: "below 1 m", scale: 150, unit: 1, meters: 0.5, label: "0.5 m"},
+		{name: "far below 1 m", scale: 5000, unit: 1, meters: 0.01, label: "0.01 m"},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			bar, ok := newScaleBar(test.scale, test.unit)
+			if !ok {
+				t.Fatalf("newScaleBar(%v, %v) returned false", test.scale, test.unit)
+			}
+			if bar.meters != test.meters || bar.label != test.label {
+				t.Fatalf("newScaleBar(%v, %v) = %v (%q), want %v (%q)", test.scale, test.unit, bar.meters, bar.label, test.meters, test.label)
+			}
+			if want := test.meters * test.scale / test.unit; math.Abs(bar.length-want) > 1e-9 {
+				t.Fatalf("length = %v, want %v", bar.length, want)
+			}
+			if bar.length > scaleBarMaximum+1e-6 || bar.length <= scaleBarMaximum/2.5 {
+				t.Fatalf("length = %v units, want more than %v and at most %v", bar.length, scaleBarMaximum/2.5, scaleBarMaximum)
+			}
+		})
+	}
+}
+
+func TestNewScaleBarSteps(t *testing.T) {
+	t.Parallel()
+	for exponent := -6; exponent <= 3; exponent++ {
+		for step := range 100 {
+			scale := math.Pow(10, float64(exponent)) * (1 + float64(step)/10)
+			bar, ok := newScaleBar(scale, 1.5)
+			if !ok {
+				t.Fatalf("newScaleBar(%v, 1.5) returned false", scale)
+			}
+			if bar.length > scaleBarMaximum+1e-6 || bar.length <= scaleBarMaximum/2.5 {
+				t.Fatalf("newScaleBar(%v, 1.5) length = %v units, want more than %v and at most %v", scale, bar.length, scaleBarMaximum/2.5, scaleBarMaximum)
+			}
+			power := math.Pow(10, math.Floor(math.Log10(bar.meters)+1e-9))
+			if lead := math.Round(bar.meters / power); lead != 1 && lead != 2 && lead != 5 || math.Abs(bar.meters/power-lead) > 1e-9 {
+				t.Fatalf("newScaleBar(%v, 1.5) meters = %v, want 1, 2 or 5 times a power of ten", scale, bar.meters)
+			}
+		}
+	}
+}
+
+func TestNewScaleBarInvalid(t *testing.T) {
+	t.Parallel()
+	tests := []struct {
+		name  string
+		scale float64
+		unit  float64
+	}{
+		{name: "zero scale", scale: 0, unit: 1},
+		{name: "negative scale", scale: -1, unit: 1},
+		{name: "infinite scale", scale: math.Inf(1), unit: 1},
+		{name: "NaN scale", scale: math.NaN(), unit: 1},
+		{name: "zero unit", scale: 1, unit: 0},
+		{name: "infinite unit", scale: 1, unit: math.Inf(1)},
+		{name: "distance underflow", scale: 1e300, unit: 1e-300},
+		{name: "distance overflow", scale: 1e-320, unit: 1},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			if bar, ok := newScaleBar(test.scale, test.unit); ok {
+				t.Fatalf("newScaleBar(%v, %v) = %+v, true, want false", test.scale, test.unit, bar)
+			}
+		})
+	}
+}
+
 func TestDenseMapSizes(t *testing.T) {
 	t.Parallel()
 	tests := []struct {

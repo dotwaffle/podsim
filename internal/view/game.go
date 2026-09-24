@@ -763,9 +763,9 @@ func (g *Game) drawNetwork(screen *ebiten.Image, state sim.Snapshot) {
 		}
 	}
 	// Without a network, the map has no scale.
-	if len(g.network.Nodes) > 0 {
-		vector.StrokeLine(screen, float32(g.layout.x(48)), float32(g.layout.bottom(540)), float32(g.layout.x(125)), float32(g.layout.bottom(540)), float32(2*g.layout.unit), rgb(muted), detailed)
-		g.label(screen, label{x: 141, y: 531, size: 12, value: fmt.Sprintf("%.0f m", 77*g.layout.unit/g.mapScale), color: muted})
+	if bar, ok := newScaleBar(g.mapScale, g.layout.unit); ok && len(g.network.Nodes) > 0 {
+		vector.StrokeLine(screen, float32(g.layout.x(48)), float32(g.layout.bottom(540)), float32(g.layout.x(48+bar.length)), float32(g.layout.bottom(540)), float32(2*g.layout.unit), rgb(muted), detailed)
+		g.label(screen, label{x: 64 + bar.length, y: 531, size: 12, value: bar.label, color: muted})
 	}
 	g.drawPodLegend(screen)
 }
