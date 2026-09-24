@@ -245,7 +245,7 @@ gzip -dc dist/podsim.wasm.gz | wc -c
 The original 100-pod map exhausted SwiftShader WebGL buffers before the first frame-rate sample.
 Thousands of antialiased curve segments queued stencil data before rendering.
 
-Networks above 100 lanes now use fewer screen-space curve segments and disable map antialiasing.
+Networks above 100 lanes now use fewer screen-space curve segments and disable antialiasing for tracks, lane arrows, nodes, the selected route line, and the scale bar.
 Small networks retain their original rendering detail.
 Networks above 100 lanes also store neutral tracks, arrows, and nodes in a reusable image.
 The measured runs used a fixed 1100 by 760 image.
@@ -253,6 +253,11 @@ The image now covers the map viewport and a margin around it, in device pixels.
 The margin is a quarter of the shorter side of the viewport.
 The selected route, berths, pods, and status remain dynamic.
 A new server epoch, simulation generation, or project revision draws the cached image again.
+Pods, pod rings, berth rings, station markers, and route arrows are antialiased on all networks.
+The view draws each of these shapes once into a small image for the current scale.
+In each frame, it copies these images to the map and does not fill or stroke the shapes again.
+It turns the route arrow image to the direction of each lane.
+A change of the display unit or of the station marker radius draws the images again.
 
 On the paused scale fixture, the crash fix rendered at a median of about 14.9 FPS.
 Static-track caching increased that median to 18.9 FPS in fresh SwiftShader runs.

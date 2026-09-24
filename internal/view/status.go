@@ -2,7 +2,6 @@ package view
 
 import (
 	"github.com/hajimehoshi/ebiten/v2"
-	"github.com/hajimehoshi/ebiten/v2/vector"
 
 	"github.com/dotwaffle/podsim/internal/sim"
 )
@@ -146,31 +145,26 @@ const (
 	podButtonFill = 0x243645
 )
 
-// podMark is a pod symbol on the screen.
-type podMark struct {
-	center    sim.Point
-	purpose   podPurpose
-	antialias bool
-	unit      float64
-}
-
-// drawPodMark draws a pod in its purpose color. A pod with passengers and an
-// idle pod are filled discs. A pod that moves empty is a ring, so the shape
-// also shows the purpose.
-func drawPodMark(screen *ebiten.Image, mark podMark) {
-	x, y := float32(mark.center.X), float32(mark.center.Y)
-	vector.FillCircle(screen, x, y, float32(podRadius*mark.unit), rgb(mark.purpose.color()), mark.antialias)
-	if mark.purpose.emptyMove() {
+// podMarkSprite returns the sprite of a pod in its purpose color. unit is
+// the display unit in device pixels. A pod with passengers and an idle pod
+// are filled discs. A pod that moves empty is a ring, so the shape also shows
+// the purpose.
+func podMarkSprite(purpose podPurpose, unit float64) spriteKey {
+	key := discSprite(podRadius*unit, purpose.color())
+	if purpose.emptyMove() {
 		// Fill the hole in the lane color. A node dot or a route line under
 		// the pod then cannot make the ring look like a disc.
-		vector.FillCircle(screen, x, y, float32((podRadius-podRingWidth)*mark.unit), rgb(track), mark.antialias)
+		key.layers[1] = circleLayer{radius: float32((podRadius - podRingWidth) * unit), color: track}
 	}
+	return key
 }
 
-func (g *Game) drawPodLegend(screen *ebiten.Image) {
+// drawPodLegend draws the pod purposes and the pod rings below the map. It
+// uses the sprites of the map at scale.
+func (g *Game) drawPodLegend(screen *ebiten.Image, scale spriteScale) {
 	for index, purpose := range []podPurpose{purposeIdle, purposePickup, purposePassengers, purposeParking, purposeRedistribution, purposeEmpty} {
 		x, y := 220+float64(index%4)*130, 530+float64(index/4)*18
-		drawPodMark(screen, podMark{center: sim.Point{X: g.layout.x(x), Y: g.layout.bottom(y + 6)}, purpose: purpose, unit: g.layout.unit})
+		g.sprites.draw(screen, spriteDraw{center: sim.Point{X: g.layout.x(x), Y: g.layout.bottom(y + 6)}, key: podMarkSprite(purpose, g.layout.unit), scale: scale})
 		g.label(screen, label{x: g.layout.x(x + 9), y: g.layout.bottom(y), size: 10, value: purpose.label(), color: purpose.color(), physical: true})
 	}
 	// The map draws the Waiting and Selected rings around a pod. The legend
@@ -182,8 +176,9 @@ func (g *Game) drawPodLegend(screen *ebiten.Image) {
 		color uint32
 	}{{x: 480, value: "Waiting", color: amber}, {x: 610, value: "Selected", color: foreground}} {
 		x, y := g.layout.x(marker.x-3), g.layout.bottom(554)
-		drawPodMark(screen, podMark{center: sim.Point{X: x, Y: y}, purpose: purposeIdle, unit: g.layout.unit})
-		vector.StrokeCircle(screen, float32(x), float32(y), float32(7*g.layout.unit), float32(1.5*g.layout.unit), rgb(marker.color), false)
+		center := sim.Point{X: x, Y: y}
+		g.sprites.draw(screen, spriteDraw{center: center, key: podMarkSprite(purposeIdle, g.layout.unit), scale: scale})
+		g.sprites.draw(screen, spriteDraw{center: center, key: ringSprite(7*g.layout.unit, 1.5*g.layout.unit, marker.color), scale: scale})
 		g.label(screen, label{x: g.layout.x(marker.x + 9), y: g.layout.bottom(548), size: 10, value: marker.value, color: marker.color, physical: true})
 	}
 }

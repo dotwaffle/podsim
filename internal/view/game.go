@@ -131,6 +131,9 @@ type Game struct {
 	// lastFrame is the time of the last state frame that the client read.
 	// While the connection is lost, the map banner gives its age.
 	lastFrame time.Time
+	// sprites keeps the antialiased pod, ring, marker and route arrow
+	// shapes of the map.
+	sprites spriteCache
 }
 
 // Option configures a Game.
@@ -714,10 +717,13 @@ func (g *Game) drawNetwork(screen *ebiten.Image, state sim.Snapshot) {
 	} else {
 		lanes, lanesShift = g.drawCachedNetworkBase(mapScreen, style)
 	}
+	// Pods, rings, markers and route arrows are antialiased sprites on all
+	// networks.
+	scale := spriteScale{unit: g.layout.unit, markerRadius: style.markerRadius}
+	markerKey := markerSprite(style.markerRadius, g.layout.unit)
 	for _, station := range g.network.Stations {
 		if marker, ok := markers[station.ID]; ok {
-			vector.FillCircle(mapScreen, float32(marker.X), float32(marker.Y), float32(style.markerRadius), rgb(track), detailed)
-			vector.StrokeCircle(mapScreen, float32(marker.X), float32(marker.Y), float32(style.markerRadius), float32(markerOutlineWidth*g.layout.unit), rgb(muted), detailed)
+			g.sprites.draw(mapScreen, spriteDraw{center: marker, key: markerKey, scale: scale})
 		}
 	}
 	selected, hasSelected := selectedVehicle(state, g.selected)
@@ -737,7 +743,7 @@ func (g *Game) drawNetwork(screen *ebiten.Image, state sim.Snapshot) {
 		}
 		stationText := g.expandedStationText(expandedStationInput{station: station, status: status, state: state})
 		for _, berth := range stationText.berths {
-			vector.StrokeCircle(mapScreen, float32(berth.center.X), float32(berth.center.Y), float32(berthRingRadius*g.layout.unit), float32(2*g.layout.unit), rgb(berth.shade), detailed)
+			g.sprites.draw(mapScreen, spriteDraw{center: berth.center, key: ringSprite(berthRingRadius*g.layout.unit, 2*g.layout.unit, berth.shade), scale: scale})
 		}
 		expanded = append(expanded, stationText)
 	}
@@ -767,10 +773,19 @@ func (g *Game) drawNetwork(screen *ebiten.Image, state sim.Snapshot) {
 	// top of the route.
 	if hasSelected && selected.Pod.Activity != sim.Idle {
 		shade := g.podPurpose(selected, state).color()
+		// The route lines and arrows have one color, so the arrows can go
+		// after all the lines. Ebiten can then draw the arrow sprites in one
+		// batch.
+		arrows := make([]arrow, 0, len(selected.Route))
 		for _, lane := range selected.Route {
 			geometry := g.laneGeometry(lane, detailed)
 			geometry.draw(mapScreen, laneStroke{width: float32(routeWidth * g.layout.unit), color: shade, antialias: detailed})
-			drawArrow(mapScreen, arrow{tip: geometry.arrowTip, direction: geometry.arrowDirection, size: routeArrowSize, color: shade, antialias: detailed, unit: g.layout.unit})
+			arrows = append(arrows, arrow{tip: geometry.arrowTip, direction: geometry.arrowDirection, size: routeArrowSize, color: shade, unit: g.layout.unit})
+		}
+		for _, routeArrow := range arrows {
+			if d, ok := routeArrow.spriteDraw(scale); ok {
+				g.sprites.draw(mapScreen, d)
+			}
 		}
 	}
 	for i, v := range state.Vehicles {
@@ -782,12 +797,12 @@ func (g *Game) drawNetwork(screen *ebiten.Image, state sim.Snapshot) {
 		purpose := g.podPurpose(v, state)
 		shade := purpose.color()
 		if v.Pod.WaitReason != sim.NoWait {
-			vector.StrokeCircle(mapScreen, float32(p.X), float32(p.Y), float32(11*g.layout.unit), float32(2*g.layout.unit), rgb(amber), detailed)
+			g.sprites.draw(mapScreen, spriteDraw{center: p, key: ringSprite(11*g.layout.unit, 2*g.layout.unit, amber), scale: scale})
 		}
 		if i == g.selected {
-			vector.StrokeCircle(mapScreen, float32(p.X), float32(p.Y), float32(9*g.layout.unit), float32(1.5*g.layout.unit), rgb(foreground), detailed)
+			g.sprites.draw(mapScreen, spriteDraw{center: p, key: ringSprite(9*g.layout.unit, 1.5*g.layout.unit, foreground), scale: scale})
 		}
-		drawPodMark(mapScreen, podMark{center: p, purpose: purpose, antialias: detailed, unit: g.layout.unit})
+		g.sprites.draw(mapScreen, spriteDraw{center: p, key: podMarkSprite(purpose, g.layout.unit), scale: scale})
 		if podLabel := podLabels[i]; podLabel.value != "" {
 			podLabel.color = shade
 			g.label(mapScreen, podLabel)
@@ -798,7 +813,7 @@ func (g *Game) drawNetwork(screen *ebiten.Image, state sim.Snapshot) {
 		vector.StrokeLine(screen, float32(g.layout.x(48)), float32(g.layout.bottom(540)), float32(g.layout.x(48+bar.length)), float32(g.layout.bottom(540)), float32(2*g.layout.unit), rgb(muted), detailed)
 		g.label(screen, label{x: 64 + bar.length, y: 531, size: 12, value: bar.label, color: muted})
 	}
-	g.drawPodLegend(screen)
+	g.drawPodLegend(screen, scale)
 }
 
 // selectedVehicle returns the vehicle at index in state. It returns false
@@ -1406,6 +1421,9 @@ type arrowSize struct {
 	length, halfWidth float64
 }
 
+// arrowLineWidth is the width in display units of the two arrow legs.
+const arrowLineWidth = 1.5
+
 var (
 	// routeArrowSize is the arrow size on the route of the selected pod.
 	routeArrowSize = arrowSize{length: 7, halfWidth: 4}
@@ -1446,8 +1464,17 @@ func drawArrow(screen *ebiten.Image, a arrow) {
 		return
 	}
 	for _, end := range ends {
-		vector.StrokeLine(screen, float32(a.tip.X), float32(a.tip.Y), float32(end.X), float32(end.Y), float32(1.5*a.unit), rgb(a.color), a.antialias)
+		vector.StrokeLine(screen, float32(a.tip.X), float32(a.tip.Y), float32(end.X), float32(end.Y), float32(arrowLineWidth*a.unit), rgb(a.color), a.antialias)
 	}
+}
+
+// spriteDraw returns the sprite of a at scale, turned to the direction of
+// a. ok is false if a has no direction.
+func (a arrow) spriteDraw(scale spriteScale) (d spriteDraw, ok bool) {
+	if _, hasDirection := a.legEnds(); !hasDirection {
+		return d, false
+	}
+	return spriteDraw{center: a.tip, key: arrowSprite(a), scale: scale, direction: a.direction}, true
 }
 
 func (g *Game) drawInspection(screen *ebiten.Image, state sim.Snapshot) {
