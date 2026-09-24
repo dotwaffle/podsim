@@ -39,7 +39,7 @@ func TestJourneyTextUsesOrderVerb(t *testing.T) {
 // overlap with a control.
 func TestNamedControlsFit(t *testing.T) {
 	t.Parallel()
-	if want := "CLICK POD / TAB NEXT POD / SCROLL ZOOM / DRAG PAN"; mapHintLabel.value != want {
+	if want := "CLICK POD / CLICK FROM / SHIFT+CLICK TO / TAB POD / SCROLL ZOOM / DRAG PAN"; mapHintLabel.value != want {
 		t.Errorf("map hint = %q, want %q", mapHintLabel.value, want)
 	}
 	for _, layout := range controlLayouts {

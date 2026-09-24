@@ -58,6 +58,16 @@ const (
 	inspectionRowsTop    = 258.0
 	inspectionRowSpacing = 27.0
 	podSelectorTop       = 393.0
+	// podsPerPage is the number of pod buttons on one page of the pod
+	// selector.
+	podsPerPage = 5
+	// podButtonStep is the distance in design units from one pod button to
+	// the next.
+	podButtonStep = 35.0
+	// podPagerLeft and podPagerArrowWidth set the page arrows of the pod
+	// selector in design units. The page count is between the arrows.
+	podPagerLeft       = 985.0
+	podPagerArrowWidth = 20.0
 )
 
 // Game owns presentation state and submits commands to the simulation.
@@ -155,7 +165,11 @@ func (g *Game) Update() error {
 	g.fitNetwork()
 	g.tickNotice()
 	if inpututil.IsKeyJustPressed(ebiten.KeyTab) {
-		g.selectNextPod()
+		step := 1
+		if ebiten.IsKeyPressed(ebiten.KeyShift) {
+			step = -1
+		}
+		g.selectAdjacentPod(step)
 	}
 	if inpututil.IsKeyJustPressed(ebiten.KeySpace) {
 		g.pause()
@@ -182,18 +196,52 @@ func (g *Game) Update() error {
 	return nil
 }
 
-// selectNextPod selects the next pod for inspection. After the last pod,
-// it selects the first pod. Before the first state frame, the game has no
-// pods, and it does nothing.
-func (g *Game) selectNextPod() {
+// selectAdjacentPod selects the pod step places after the selected pod for
+// inspection. Tab gives step 1 and Shift+Tab gives step -1. After the last
+// pod, it selects the first pod, and before the first pod, the last pod.
+// Before the first state frame, the game has no pods, and it does nothing.
+func (g *Game) selectAdjacentPod(step int) {
 	count := len(g.state.Simulation.Vehicles)
 	if count == 0 {
 		return
 	}
+	g.selectPod(((g.selected+step)%count + count) % count)
+}
+
+// selectPod selects the pod at index for inspection. The pod selector then
+// shows the page with the button of the pod. A new selection closes Orders
+// and Demand and clears the message.
+func (g *Game) selectPod(index int) {
+	g.selected, g.podPage = index, index/podsPerPage
 	g.showOrders, g.showDemand = false, false
-	g.selected = (g.selected + 1) % count
-	g.podPage = g.selected / 6
 	g.message = ""
+}
+
+// podPageCount returns the number of pages of the pod selector for count
+// pods. With no pods, there is one empty page.
+func podPageCount(count int) int {
+	return max(1, (count+podsPerPage-1)/podsPerPage)
+}
+
+// turnPodPage moves the pod selector by step pages. It stops at the first
+// and the last page.
+func (g *Game) turnPodPage(step int) {
+	g.podPage = min(max(0, g.podPage+step), podPageCount(len(g.state.Simulation.Vehicles))-1)
+}
+
+// podPagerLabel returns the page count of the pod selector, for example
+// "3 / 19". It shows between the page arrows. It returns false when all pods
+// fit on one page.
+func (g *Game) podPagerLabel() (label, bool) {
+	pages := podPageCount(len(g.state.Simulation.Vehicles))
+	if pages < 2 {
+		return label{}, false
+	}
+	left := g.layout.right(podPagerLeft + podPagerArrowWidth)
+	right := g.layout.right(1060 - podPagerArrowWidth)
+	top := g.layout.bottom(podSelectorTop)
+	area := image.Rect(int(math.Round(left)), int(math.Round(top)), int(math.Round(right)), int(math.Round(top+34*g.layout.unit)))
+	return g.centerLabel(area, label{size: 10, value: fmt.Sprintf("%d / %d", g.podPage+1, pages), color: muted}), true
 }
 
 // tickNotice counts down the notice time by one tick. It clears the notice
@@ -232,7 +280,7 @@ func (g *Game) updateMapInput() bool {
 	}
 	if inpututil.IsMouseButtonJustReleased(ebiten.MouseButtonLeft) && g.camera.dragging {
 		if g.camera.endDrag() {
-			return g.click(point)
+			g.pickOnMap(point, ebiten.IsKeyPressed(ebiten.KeyShift) || pointerShift())
 		}
 	}
 	return false
@@ -374,13 +422,16 @@ func (g *Game) buttons() []button {
 		{x: 941, y: 471, w: 119, h: 32, label: "Reset [Shift+R]", action: "reset"},
 	}
 	for i, v := range state.Vehicles {
-		if i/6 != g.podPage {
+		if i/podsPerPage != g.podPage {
 			continue
 		}
-		buttons = append(buttons, button{x: 810 + float64((i%6)*36), y: podSelectorTop, w: 32, h: 34, label: fleetPodLabel(i), selected: !g.showOrders && !g.showDemand && g.selected == i, action: "pod/" + v.Pod.ID})
+		buttons = append(buttons, button{x: 810 + float64(i%podsPerPage)*podButtonStep, y: podSelectorTop, w: 32, h: 34, label: fleetPodLabel(i), selected: !g.showOrders && !g.showDemand && g.selected == i, action: "pod/" + v.Pod.ID})
 	}
-	if len(state.Vehicles) > 6 {
-		buttons = append(buttons, button{x: 1026, y: podSelectorTop, w: 34, h: 34, label: ">", action: "pods-next"})
+	if pages := podPageCount(len(state.Vehicles)); pages > 1 {
+		buttons = append(buttons,
+			button{x: podPagerLeft, y: podSelectorTop, w: podPagerArrowWidth, h: 34, label: "‹", disabled: g.podPage == 0, action: "pods-prev"},
+			button{x: 1060 - podPagerArrowWidth, y: podSelectorTop, w: podPagerArrowWidth, h: 34, label: "›", disabled: g.podPage >= pages-1, action: "pods-next"},
+		)
 	}
 	// A station chip changes only the local selection and sends no command,
 	// so the chips stay enabled while a command waits for the server.
@@ -435,8 +486,10 @@ func (g *Game) click(point sim.Point) bool {
 			g.syncCamera()
 		case "map-follow":
 			g.toggleFollow()
+		case "pods-prev":
+			g.turnPodPage(-1)
 		case "pods-next":
-			g.podPage = (g.podPage + 1) % ((len(g.state.Simulation.Vehicles) + 5) / 6)
+			g.turnPodPage(1)
 		case "stations-prev":
 			g.stationPage--
 		case "stations-next":
@@ -485,19 +538,8 @@ func (g *Game) click(point sim.Point) bool {
 		}
 		return false
 	}
-	if !g.camera.contains(point) {
-		return false
-	}
-	for i, v := range g.mapSnapshot().Vehicles {
-		if g.podHiddenInCluster(v, i) {
-			continue
-		}
-		p := g.mapPoint(v.Pod.Position)
-		if math.Hypot(point.X-p.X, point.Y-p.Y) < 18*g.layout.unit {
-			g.selected, g.message = i, ""
-			g.showOrders, g.showDemand = false, false
-			break
-		}
+	if g.camera.contains(point) {
+		g.pickOnMap(point, false)
 	}
 	return false
 }
@@ -647,10 +689,11 @@ func (g *Game) followSelectedPod() {
 	}
 }
 
-// mapHintLabel names the map input above the map. A click selects a pod,
-// Tab selects the next pod, the wheel zooms, and a drag pans. It ends to the
-// left of the zoom buttons.
-var mapHintLabel = label{x: 290, y: 113, size: 11, value: "CLICK POD / TAB NEXT POD / SCROLL ZOOM / DRAG PAN", color: muted}
+// mapHintLabel names the map input above the map. A click selects a pod or
+// sets From, Shift+click sets To, Tab and Shift+Tab select the next and the
+// previous pod, the wheel zooms, and a drag pans. It ends to the left of the
+// zoom buttons.
+var mapHintLabel = label{x: 136, y: 113, size: 11, value: "CLICK POD / CLICK FROM / SHIFT+CLICK TO / TAB POD / SCROLL ZOOM / DRAG PAN", color: muted}
 
 func (g *Game) drawNetwork(screen *ebiten.Image, state sim.Snapshot) {
 	g.label(screen, label{x: 44, y: 113, size: 12, value: "NETWORK", color: muted})
@@ -1422,6 +1465,9 @@ func (g *Game) drawControls(screen *ebiten.Image, state sim.Snapshot) {
 	for _, value := range fleetStatLabels(state) {
 		g.label(screen, value)
 	}
+	if pager, ok := g.podPagerLabel(); ok {
+		g.label(screen, pager)
+	}
 	g.label(screen, g.hintLine(state, hint))
 }
 
@@ -1640,7 +1686,7 @@ func (g *Game) normalizeSelection() {
 		g.destination = stations[len(stations)-1].ID
 	}
 	g.stationPage = min(g.stationPage, len(g.stationPages())-1)
-	g.podPage = min(g.podPage, (len(g.state.Simulation.Vehicles)-1)/6)
+	g.podPage = min(g.podPage, podPageCount(len(g.state.Simulation.Vehicles))-1)
 }
 
 func shortText(value string, limit int) string {

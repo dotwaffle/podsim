@@ -148,7 +148,8 @@ See [distribution and operations](docs/operations.md) for build and runtime sett
 ### Inspect a pod
 
 - Select a pod number button, or click a pod on the map, to inspect it.
-- With more than six pods, select **>** to show the next six.
+- With more than five pods, select **‹** or **›** to show the previous or next five.
+  The text between the arrows gives the page number and the number of pages, for example **3 / 19**.
 - Compact fleet numbers match the pod buttons and the map.
   Inspection also shows the full pod ID.
 - The selected pod shows its activity, speed in whole km/h, occupancy, route, and local waiting reason.
@@ -182,7 +183,7 @@ See [distribution and operations](docs/operations.md) for build and runtime sett
 | Show the whole network | **Fit** |
 | Keep the selected pod centered | **Follow** or **F** |
 
-- The line above the map names the map input: **CLICK POD / TAB NEXT POD / SCROLL ZOOM / DRAG PAN**.
+- The line above the map names the map input: **CLICK POD / CLICK FROM / SHIFT+CLICK TO / TAB POD / SCROLL ZOOM / DRAG PAN**.
 - The scale bar in the lower-left corner of the map shows a round distance of 1, 2, or 5 times a power of ten, for example 500 m, 1 km, or 2 km.
 - Map navigation stays local to your browser.
 - Clicking or dragging the map, or selecting **Fit**, stops following.
@@ -216,7 +217,11 @@ See [the London qualification network](docs/london.md) for these rules.
 
 - Under **ORDER A JOURNEY**, select **From** and **To**, then **Order [Enter]**.
   Pod selection affects inspection only.
-- When the stations do not fit in one row, select **‹** or **›** to show the other stations.
+- Click a station on the map to make it **From**.
+  Shift+click a station to make it **To**.
+  The station row then shows the page with that station.
+  A click on a pod selects the pod, also when the pod is near a station.
+- When the stations do not fit in one row, select **‹** or **›** to show the other stations, or click the station on the map.
 - When **From** and **To** are the same station, **Order [Enter]** is disabled.
   The line below **From** and **To** then shows **Choose a different destination.** in amber.
 - An idle local pod serves the order.
@@ -280,6 +285,7 @@ See [the London qualification network](docs/london.md) for these rules.
 | --- | --- |
 | **Enter** | Submit an order |
 | **Tab** | Select the next pod |
+| **Shift+Tab** | Select the previous pod |
 | **Space** | Pause or resume |
 | **Shift+R** | Reset, with a second press within 3 s |
 | **S** | Change speed |

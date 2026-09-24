@@ -153,30 +153,34 @@ func TestHeaderLabelsBeforeFirstFrame(t *testing.T) {
 	}
 }
 
-// TestSelectNextPod checks the Tab selection, also for a game without pods.
-// A new selection closes Orders and Demand and clears the message. Without
-// pods, Tab changes nothing.
-func TestSelectNextPod(t *testing.T) {
+// TestSelectAdjacentPod checks the Tab and Shift+Tab selection, also for a
+// game without pods. A new selection closes Orders and Demand, clears the
+// message, and shows the page of the pod. Without pods, Tab changes nothing.
+func TestSelectAdjacentPod(t *testing.T) {
 	t.Parallel()
 	tests := []struct {
 		name               string
 		pods, selected     int
+		step               int
 		wantSelected       int
 		wantInspectionOpen bool
 	}{
-		{name: "no pods"},
-		{name: "next pod", pods: 3, wantSelected: 1, wantInspectionOpen: true},
-		{name: "after the last pod", pods: 3, selected: 2, wantInspectionOpen: true},
-		{name: "second page", pods: 8, selected: 5, wantSelected: 6, wantInspectionOpen: true},
+		{name: "no pods", step: 1},
+		{name: "no pods backward", step: -1},
+		{name: "next pod", pods: 3, step: 1, wantSelected: 1, wantInspectionOpen: true},
+		{name: "after the last pod", pods: 3, selected: 2, step: 1, wantInspectionOpen: true},
+		{name: "second page", pods: 8, selected: 4, step: 1, wantSelected: 5, wantInspectionOpen: true},
+		{name: "previous pod", pods: 8, selected: 5, step: -1, wantSelected: 4, wantInspectionOpen: true},
+		{name: "before the first pod", pods: 8, step: -1, wantSelected: 7, wantInspectionOpen: true},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
 			game := &Game{selected: test.selected, showOrders: true, showDemand: true, message: "x"}
 			game.state.Simulation.Vehicles = make([]sim.Vehicle, test.pods)
-			game.selectNextPod()
-			if game.selected != test.wantSelected || game.podPage != test.wantSelected/6 {
-				t.Errorf("selected %d on page %d, want %d on page %d", game.selected, game.podPage, test.wantSelected, test.wantSelected/6)
+			game.selectAdjacentPod(test.step)
+			if game.selected != test.wantSelected || game.podPage != test.wantSelected/podsPerPage {
+				t.Errorf("selected %d on page %d, want %d on page %d", game.selected, game.podPage, test.wantSelected, test.wantSelected/podsPerPage)
 			}
 			wantPanels, wantMessage := !test.wantInspectionOpen, "x"
 			if test.wantInspectionOpen {
@@ -231,7 +235,7 @@ func TestDrawEmptyState(t *testing.T) {
 			if game.followSelected {
 				game.followSelectedPod()
 			}
-			game.selectNextPod()
+			game.selectAdjacentPod(1)
 			game.Draw(screen)
 		})
 	}

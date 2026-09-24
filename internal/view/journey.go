@@ -122,3 +122,16 @@ func compactStationName(name string) string {
 	}
 	return "S" + number
 }
+
+// stationPageOf returns the index of the page in pages with the chip of the
+// station with id. It returns current when no page has the chip.
+func stationPageOf(pages [][]stationChip, id string, current int) int {
+	for index, page := range pages {
+		for _, chip := range page {
+			if chip.station.ID == id {
+				return index
+			}
+		}
+	}
+	return current
+}

@@ -22,6 +22,16 @@
     }
     window.addEventListener("focus", focusCanvas);
 
+    // Ebitengine reads Shift only from key events on its canvas. When the
+    // top page has the keyboard focus, the game does not see Shift. Keep the
+    // Shift state of the last pointer event, so that Shift+click on the map
+    // works without the focus.
+    function keepPointerShift(event) {
+      globalThis.podsimPointerShift = event.shiftKey;
+    }
+    window.addEventListener("pointerdown", keepPointerShift, true);
+    window.addEventListener("pointerup", keepPointerShift, true);
+
     async function start() {
       const status = document.getElementById("status");
       try {

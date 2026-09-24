@@ -360,7 +360,7 @@ func (g *Game) rightPanelArea() area {
 // the bottom of the right panel.
 func rightBottomGroup(action string) bool {
 	switch action {
-	case "pause", "speed", "reset", "orders", "demand", "pods-next":
+	case "pause", "speed", "reset", "orders", "demand", "pods-prev", "pods-next":
 		return true
 	}
 	return strings.HasPrefix(action, "pod/")
