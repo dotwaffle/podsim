@@ -44,6 +44,14 @@ const (
 	// pod. It is wider than the line lanes of a dense map at Fit
 	// (denseLaneWidth.minimum).
 	routeWidth = 3
+	// berthRingRadius is the radius in display units of the ring around a
+	// berth. The ring line is 2 units wide.
+	berthRingRadius = 13
+	// podLabelLeft and podLabelTop place the pod label in display units from
+	// the center of the pod. The label is up and to the right of the pod,
+	// outside the berth ring of a pod at a berth.
+	podLabelLeft = 16
+	podLabelTop  = -22
 
 	inspectionLeft       = 816.0
 	inspectionRight      = 1054.0
@@ -666,12 +674,17 @@ func (g *Game) drawNetwork(screen *ebiten.Image, state sim.Snapshot) {
 			center.Y += p.Y
 			shade := uint32(muted)
 			for _, v := range state.Vehicles {
-				if v.Pod.BerthID == berth.ID {
-					shade = g.podPurpose(v, state).color()
+				if v.Pod.BerthID != berth.ID {
+					continue
+				}
+				// An idle pod keeps the muted ring. A white ring marks the
+				// selected pod, and the white disc shows the idle pod.
+				if purpose := g.podPurpose(v, state); purpose != purposeIdle {
+					shade = purpose.color()
 				}
 			}
 			if showBerths {
-				vector.StrokeCircle(mapScreen, float32(p.X), float32(p.Y), float32(13*g.layout.unit), float32(2*g.layout.unit), rgb(shade), detailed)
+				vector.StrokeCircle(mapScreen, float32(p.X), float32(p.Y), float32(berthRingRadius*g.layout.unit), float32(2*g.layout.unit), rgb(shade), detailed)
 			}
 			name := station.Name
 			labelX, labelY := p.X-26*g.layout.unit, p.Y+20*g.layout.unit
@@ -1042,7 +1055,7 @@ func (g *Game) podMapLabels(vehicles []sim.Vehicle, collapsedStations map[string
 			continue
 		}
 		p := g.mapPoint(vehicle.Pod.Position)
-		labels[index] = label{x: p.X + 11*g.layout.unit, y: p.Y - 18*g.layout.unit, size: 11, value: fleetPodLabel(index)}
+		labels[index] = label{x: p.X + podLabelLeft*g.layout.unit, y: p.Y + podLabelTop*g.layout.unit, size: 11, value: fleetPodLabel(index)}
 	}
 	return labels
 }

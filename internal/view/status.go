@@ -54,7 +54,9 @@ func percent(count, total int) int {
 
 // color returns the purpose color. With protanopia, deuteranopia and
 // tritanopia, each pair of colors keeps a CIEDE2000 difference of 4.5 or
-// more. Each color has a contrast of 4.5:1 or more on the panel and on the
+// more. Each color also keeps that difference from muted, the color of the
+// node dots and the empty berth rings, so a pod cannot look like a node dot.
+// Each color has a contrast of 4.5:1 or more on the panel and on the
 // background.
 func (purpose podPurpose) color() uint32 {
 	switch purpose {
@@ -69,7 +71,7 @@ func (purpose podPurpose) color() uint32 {
 	case purposeEmpty:
 		return 0xf0e442
 	default:
-		return muted
+		return foreground
 	}
 }
 
@@ -172,15 +174,16 @@ func (g *Game) drawPodLegend(screen *ebiten.Image) {
 		g.label(screen, label{x: g.layout.x(x + 9), y: g.layout.bottom(y), size: 10, value: purpose.label(), color: purpose.color(), physical: true})
 	}
 	// The map draws the Waiting and Selected rings around a pod. The legend
-	// does the same, so a ring of pod size means only an empty move.
+	// draws them around an idle pod, so a ring of pod size means only an
+	// empty move.
 	for _, marker := range []struct {
 		x     float64
 		value string
 		color uint32
 	}{{x: 480, value: "Waiting", color: amber}, {x: 610, value: "Selected", color: foreground}} {
-		x, y := float32(g.layout.x(marker.x-3)), float32(g.layout.bottom(554))
-		vector.FillCircle(screen, x, y, float32(3*g.layout.unit), rgb(muted), false)
-		vector.StrokeCircle(screen, x, y, float32(7*g.layout.unit), float32(1.5*g.layout.unit), rgb(marker.color), false)
+		x, y := g.layout.x(marker.x-3), g.layout.bottom(554)
+		drawPodMark(screen, podMark{center: sim.Point{X: x, Y: y}, purpose: purposeIdle, unit: g.layout.unit})
+		vector.StrokeCircle(screen, float32(x), float32(y), float32(7*g.layout.unit), float32(1.5*g.layout.unit), rgb(marker.color), false)
 		g.label(screen, label{x: g.layout.x(marker.x + 9), y: g.layout.bottom(548), size: 10, value: marker.value, color: marker.color, physical: true})
 	}
 }

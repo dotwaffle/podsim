@@ -130,6 +130,14 @@ func TestPurposeColorsWithColorVisionDeficiency(t *testing.T) {
 					}
 				}
 			}
+			// Node dots and empty berth rings use muted. A pod must not
+			// look like them.
+			for _, purpose := range allPurposes {
+				difference := ciede2000(vision.lab(purpose.color()), vision.lab(muted))
+				if difference < minimumDifference {
+					t.Errorf("%s and the node dot color differ by %.1f, want %.1f or more", purpose.label(), difference, minimumDifference)
+				}
+			}
 		})
 	}
 }

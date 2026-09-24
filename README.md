@@ -160,6 +160,10 @@ See [distribution and operations](docs/operations.md) for build and runtime sett
 - The colors stay different with protanopia, deuteranopia, and tritanopia.
 - An idle pod and a pod in passenger service are filled discs.
   A pod that moves empty is a ring.
+  An idle pod is white, so it looks different from the gray node dots and berth rings.
+- A berth ring shows the color of a moving or busy pod in the berth.
+  A berth with an idle pod keeps the gray ring.
+  The pod number shows above and to the right of the pod, outside the berth ring.
 - An amber ring around a pod marks a waiting pod.
   A white ring marks the selected pod.
 - The map legend shows each color and shape.
