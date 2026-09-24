@@ -259,3 +259,69 @@ func TestStateFrameRejectsMismatchedTopology(t *testing.T) {
 		t.Fatal("accepted unknown route lane")
 	}
 }
+
+// TestServerStart checks that each session has its own server start ID and
+// that no command changes it. The state, the frame and the frame JSON carry
+// the ID.
+func TestServerStart(t *testing.T) {
+	t.Parallel()
+	first, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
+	second, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
+	id := first.State().ServerStart
+	if len(id) != 16 || strings.Trim(id, "0123456789abcdef") != "" {
+		t.Fatalf("server start = %q, want 16 hexadecimal characters", id)
+	}
+	if other := second.State().ServerStart; other == id {
+		t.Fatalf("two sessions have the same server start %q", id)
+	}
+	if frame := first.Frame(); frame.ServerStart != id {
+		t.Fatalf("frame server start = %q, want %q", frame.ServerStart, id)
+	}
+	if member := jsonKeys(t, mustJSON(t, first.Frame()))["serverStart"]; string(member) != strconv.Quote(id) {
+		t.Fatalf("frame serverStart member = %s, want %q", member, id)
+	}
+	tests := []struct {
+		name   string
+		change func(*testing.T, *testClient)
+	}{
+		{"reset", func(t *testing.T, client *testClient) {
+			t.Helper()
+			client.mustApply(t, Command{Action: "reset"})
+		}},
+		{"demo", func(t *testing.T, client *testClient) {
+			t.Helper()
+			client.mustApply(t, Command{Action: "demo"})
+		}},
+		{"project apply", applyTestProject},
+		{"rewind", func(t *testing.T, client *testClient) {
+			t.Helper()
+			id := client.mustApply(t, Command{Action: "checkpoint"}).Checkpoint
+			advanceTicks(client.session, 20)
+			client.mustApply(t, Command{Action: "rewind", Checkpoint: id})
+		}},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			s, err := New()
+			if err != nil {
+				t.Fatal(err)
+			}
+			before := s.State()
+			test.change(t, newTestClient(s, "change"))
+			after := s.State()
+			if after.Generation == before.Generation {
+				t.Fatalf("the %s did not change the generation", test.name)
+			}
+			if after.ServerStart != before.ServerStart {
+				t.Fatalf("the %s changed the server start from %q to %q", test.name, before.ServerStart, after.ServerStart)
+			}
+		})
+	}
+}

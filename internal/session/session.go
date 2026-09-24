@@ -4,6 +4,7 @@ package session
 import (
 	"context"
 	"crypto/rand"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -31,11 +32,12 @@ const (
 
 // State is an authoritative, immutable copy sent to observers.
 // Checkpoints lists the retained save points, oldest first. Build identifies
-// the server build. It is empty when the server has no build ID. Restore
-// tells how the server started the simulation when it had a state store.
-// Its tier is empty when the server rejected or could not read the saved
-// state. It is zero when no saved state existed, when the server has no
-// store, and after a reset, a demo or a project apply.
+// the server build. It is empty when the server has no build ID. ServerStart
+// identifies the server process. Restore tells how the server started the
+// simulation when it had a state store. Its tier is empty when the server
+// rejected or could not read the saved state. It is zero when no saved state
+// existed, when the server has no store, and after a reset, a demo or a
+// project apply.
 type State struct {
 	Epoch           string       `json:"epoch"`
 	Revision        uint64       `json:"revision"`
@@ -48,6 +50,7 @@ type State struct {
 	Demand          DemandState  `json:"demand"`
 	Checkpoints     []Checkpoint `json:"checkpoints,omitempty"`
 	Build           string       `json:"build,omitempty"`
+	ServerStart     string       `json:"serverStart,omitempty"`
 	Restore         RestoreInfo  `json:"restore,omitzero"`
 }
 
@@ -214,6 +217,10 @@ type Session struct {
 	logger            *slog.Logger
 	// build identifies the server build. A rewind does not change it.
 	build string
+	// serverStart is a random ID that the session gets when it is made.
+	// A server makes one session in each process, so a new process has a
+	// new ID. No command changes it, and the state file does not save it.
+	serverStart string
 	// checkpoints holds the retained save points, oldest first. lastCheckpoint
 	// is the last issued ID. The session never uses an ID again in an epoch.
 	checkpoints    []checkpoint
@@ -246,11 +253,21 @@ func NewWithProject(config project.Config, options ...Option) (*Session, error) 
 // newSession returns a session with persist and the options, and without a
 // simulation. persist is nil without a state store.
 func newSession(persist *persistence, options []Option) *Session {
-	session := &Session{receipts: make(map[string]receipt), logger: slog.Default(), persist: persist}
+	session := &Session{
+		receipts: make(map[string]receipt), logger: slog.Default(), persist: persist,
+		serverStart: newServerStart(),
+	}
 	for _, option := range options {
 		option(session)
 	}
 	return session
+}
+
+// newServerStart returns a random ID of 16 hexadecimal characters.
+func newServerStart() string {
+	var id [8]byte
+	_, _ = rand.Read(id[:])
+	return hex.EncodeToString(id[:])
 }
 
 // startProject starts a new simulation of a copy of config in a new epoch.
@@ -377,6 +394,7 @@ func (s *Session) stateWithoutNetwork() State {
 		Demand:          s.demand.state,
 		Checkpoints:     s.checkpointList(),
 		Build:           s.build,
+		ServerStart:     s.serverStart,
 		Restore:         s.restore,
 	}
 }

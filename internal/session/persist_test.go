@@ -471,6 +471,28 @@ func TestNewFromStoreEpoch(t *testing.T) {
 	}
 }
 
+// TestNewFromStoreServerStart checks that the state file does not save the
+// server start ID, and that a restored session gets a new ID.
+func TestNewFromStoreServerStart(t *testing.T) {
+	t.Parallel()
+	run := newStoredRun(t)
+	saved := run.session.State().ServerStart
+	raw, err := decompressState(run.data)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if bytes.Contains(raw, []byte(saved)) || bytes.Contains(raw, []byte("serverStart")) {
+		t.Fatal("the state file contains the server start")
+	}
+	restored := startFromStore(t, StoreInput{Store: &fakeStore{data: run.data}}).State()
+	if restored.Epoch != run.file.Epoch {
+		t.Fatalf("restore did not keep the epoch %q", run.file.Epoch)
+	}
+	if restored.ServerStart == "" || restored.ServerStart == saved {
+		t.Fatalf("restored server start = %q, want a new ID, not %q", restored.ServerStart, saved)
+	}
+}
+
 func TestNewFromStoreRejects(t *testing.T) {
 	t.Parallel()
 	run := newStoredRun(t)
@@ -2426,7 +2448,8 @@ const (
 	// persistReset marks state that starts empty after a restore.
 	persistReset
 	// persistInfrastructure marks locks, shutdown, I/O, logs, the server
-	// build, and the state saves. The options and NewFromStore set them.
+	// build, the server start ID, and the state saves. The options and
+	// NewFromStore set them.
 	persistInfrastructure
 )
 
@@ -2444,6 +2467,7 @@ var sessionPersistRules = map[string]persistRule{
 	"closed": persistInfrastructure, "mu": persistInfrastructure,
 	"saveProject": persistInfrastructure, "logger": persistInfrastructure,
 	"build": persistInfrastructure, "persist": persistInfrastructure,
+	"serverStart": persistInfrastructure,
 }
 
 func TestSessionFieldsHavePersistRules(t *testing.T) {

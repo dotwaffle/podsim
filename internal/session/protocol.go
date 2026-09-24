@@ -18,11 +18,12 @@ type TopologySnapshot struct {
 
 // StateFrame contains the recurring state without network geometry.
 // Checkpoints lists the retained save points, oldest first. Build identifies
-// the server build. It is empty when the server has no build ID. Restore
-// tells how the server started the simulation when it had a state store.
-// Its tier is empty when the server rejected or could not read the saved
-// state. It is zero when no saved state existed, when the server has no
-// store, and after a reset, a demo or a project apply.
+// the server build. It is empty when the server has no build ID. ServerStart
+// identifies the server process. Restore tells how the server started the
+// simulation when it had a state store. Its tier is empty when the server
+// rejected or could not read the saved state. It is zero when no saved state
+// existed, when the server has no store, and after a reset, a demo or a
+// project apply.
 type StateFrame struct {
 	Epoch           string          `json:"epoch"`
 	Revision        uint64          `json:"revision"`
@@ -34,6 +35,7 @@ type StateFrame struct {
 	Demand          DemandState     `json:"demand"`
 	Checkpoints     []Checkpoint    `json:"checkpoints,omitempty"`
 	Build           string          `json:"build,omitempty"`
+	ServerStart     string          `json:"serverStart,omitempty"`
 	Restore         RestoreInfo     `json:"restore,omitzero"`
 }
 
@@ -107,7 +109,7 @@ func FrameState(topology TopologySnapshot, frame StateFrame) (State, error) {
 			EmptyDistanceMeters: snapshot.EmptyDistanceMeters, RebalanceMoves: snapshot.RebalanceMoves,
 		},
 		Speed: frame.Speed, Demand: frame.Demand, Checkpoints: slices.Clone(frame.Checkpoints),
-		Build: frame.Build, Restore: frame.Restore,
+		Build: frame.Build, ServerStart: frame.ServerStart, Restore: frame.Restore,
 	}, nil
 }
 
@@ -139,6 +141,6 @@ func stateFrame(state State) StateFrame {
 			EmptyDistanceMeters: snapshot.EmptyDistanceMeters, RebalanceMoves: snapshot.RebalanceMoves,
 		},
 		Speed: state.Speed, Demand: state.Demand, Checkpoints: slices.Clone(state.Checkpoints),
-		Build: state.Build, Restore: state.Restore,
+		Build: state.Build, ServerStart: state.ServerStart, Restore: state.Restore,
 	}
 }

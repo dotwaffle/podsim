@@ -18,7 +18,7 @@ The JSON API uses four message boundaries:
 | Boundary | JSON endpoint | Purpose |
 | --- | --- | --- |
 | Topology | `GET /api/topology` | Network geometry for one project revision. |
-| State | `GET /api/state` | Controls, demand, queues, berths, metrics, save points, the build, the restore result, and dynamic vehicle fields. |
+| State | `GET /api/state` | Controls, demand, queues, berths, metrics, save points, the build, the server start ID, the restore result, and dynamic vehicle fields. |
 | Project | `GET /api/project` | Complete editable scenario data. |
 | Command | `POST /api/command` | Retry-safe mutation and compact acknowledgment. |
 
@@ -45,6 +45,15 @@ When a later frame has a different non-empty build, a browser page reloads and g
 The desktop client shows a message that tells the user to restart it.
 The client reads the build even from a frame that it cannot use.
 For example, a member can have a type that the client does not expect, or the topology read for the frame can fail.
+
+A state frame can contain a `serverStart` string.
+The server sets it to a random ID of 16 hexadecimal characters when the server process starts.
+The ID does not change until the process stops.
+A reset, a demo, a project apply, and a rewind do not change it.
+The `-state` option does not save it, so a restored session gets the ID of the new process.
+The ID does not change the epoch, the revision, or the generation.
+A client can compare the ID with the ID of an earlier frame to find a server restart, also when the epoch stays the same.
+A client that does not know the member ignores it.
 
 A state frame can contain a `restore` object.
 It tells how a server with `-state` started the current simulation and if it used its saved session state.
@@ -223,6 +232,9 @@ With a kept epoch, the first frame after the restart has a new generation, a `re
 A reset, a demo, and a project apply remove the `restore` key, and a rewind keeps the save points.
 Thus a command never makes a frame with all three of these properties.
 
+Each restart also gives a new `serverStart` ID, with a kept epoch or a new epoch.
+A command never changes this ID.
+
 ## Payload measurements
 
 The comparison used equivalent states with 200 accepted requests.
@@ -257,6 +269,9 @@ The `build` key adds 11 bytes plus the length of the build ID to each raw state 
 With gzip level 1, sampled frames of the example, Scale100, and London projects grew by about 20 bytes.
 The CSV files do not include these samples.
 Frames from a server without a build ID do not change.
+
+The `serverStart` key adds 33 bytes to each raw state frame.
+Every server sends it.
 
 ## Codec measurements
 
