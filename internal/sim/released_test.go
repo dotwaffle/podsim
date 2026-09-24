@@ -667,3 +667,56 @@ func TestNearestFreeBerthSkipsStartNode(t *testing.T) {
 		})
 	}
 }
+
+// TestReleasedPodPassesIdleBerthPod checks that an idle pod leaves its berth
+// when a released pod must pass through that berth. Market has two berths in
+// a line, as in ladderNetwork. Pods 02 and 03 unload at Market 2 and Market
+// 1, and pod 01 goes to a pickup at Market. When the reserved track of pod 01
+// ends in the arrival link, pod 02 becomes idle, takes the trip, and
+// releases pod 01. The new route of pod 01 goes to a free berth at another
+// station. It starts at the arrival node of Market 1, so it passes through
+// Market 1. Pod 03 then becomes idle at Market 1 with no work. Pod 03 must
+// go to parking, and pod 01 must reach its berth.
+func TestReleasedPodPassesIdleBerthPod(t *testing.T) {
+	t.Parallel()
+	s, err := NewFleet(ladderNetwork(), []Placement{
+		{ID: "01", StationID: "garden", BerthID: "garden-1"},
+		{ID: "02", StationID: "market", BerthID: "market-2"},
+		{ID: "03", StationID: "market", BerthID: "market-1"},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	remote, local, blocker := s.findVehicle("01"), s.findVehicle("02"), s.findVehicle("03")
+	for index, v := range []*vehicle{local, blocker} {
+		v.Pod.Activity, v.Pod.Occupied = Unloading, true
+		v.Request = &Request{ID: index + 1, From: "harbor", To: "market", PartySize: 1, PodID: v.Pod.ID}
+		v.phaseTicks = 600 * TicksPerSecond
+	}
+	s.requestID, s.boarded = 2, 2
+	if err := s.RequestTrip("market", "harbor"); err != nil {
+		t.Fatal(err)
+	}
+	if s.waiting[0].request.PodID != "01" {
+		t.Fatalf("pod 01 did not take the pickup: %+v", s.Snapshot().Pending)
+	}
+	// Release pod 01 when its reserved track ends in the arrival link, so
+	// its new route starts at the Market 1 arrival node.
+	stepUntil(t, s, "the reserved track of pod 01 ends in the Market arrival link", func() bool {
+		return remote.reservedThrough >= 0 && remote.blocks[remote.reservedThrough].lane.ID == "market-arrival-link"
+	})
+	local.phaseTicks = 1
+	s.Step()
+	if local.Pod.Activity != Boarding || !remote.released || remote.destinationStation == "market" ||
+		!slices.ContainsFunc(remote.Route, func(lane Lane) bool { return lane.ID == "market-in" }) {
+		t.Fatalf("pod 01 is not a released pod that passes through Market 1: %+v, destination %s", remote.Vehicle, remote.destination.ID)
+	}
+	destination := remote.destination.ID
+	blocker.phaseTicks = 1
+	stepUntil(t, s, "pod 01 reaches its berth", func() bool {
+		return remote.Pod.Activity == Idle && remote.Pod.BerthID == destination
+	})
+	if blocker.Pod.BerthID == "market-1" || blocker.destinationStation != "parking" {
+		t.Fatalf("pod 03 did not go from Market 1 to parking: %+v", blocker.Vehicle)
+	}
+}

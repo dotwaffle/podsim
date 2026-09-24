@@ -448,6 +448,7 @@ It first reserves a free reachable parking berth and retains its origin until ph
 If parking is full or unreachable, it reserves reachable passenger space instead.
 It prefers local space that no request targets.
 The pod shows **No parking available** only when no reachable physical space exists.
+An idle empty pod also clears its berth for a pod that must pass through that berth to leave the station.
 
 A passenger or pickup pod can choose a free alternate berth before it reserves the next station branch.
 A route change preserves all admitted track.

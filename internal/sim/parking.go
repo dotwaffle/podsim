@@ -3,12 +3,15 @@ package sim
 import (
 	"errors"
 	"fmt"
+	"slices"
 )
 
 // ErrBerthUnavailable means an empty move cannot claim its destination.
 var ErrBerthUnavailable = errors.New("destination berth is occupied or reserved")
 
 // clearBlockedBerths runs after admission. Empty departures compete for track on the next tick.
+// An idle empty pod leaves its berth when it blocks a pod that must stop at
+// that berth or pass through it.
 func (s *Simulation) clearBlockedBerths() {
 	for i := range s.vehicles {
 		arrival := &s.vehicles[i]
@@ -16,13 +19,29 @@ func (s *Simulation) clearBlockedBerths() {
 			continue
 		}
 		blocker := s.findVehicle(arrival.Pod.BlockedBy)
-		if blocker == nil || blocker.Pod.Activity != Idle || blocker.Pod.Occupied || s.assigned(blocker.Pod.ID) || blocker.Pod.BerthID != arrival.destination.ID {
+		if blocker == nil || blocker.Pod.Activity != Idle || blocker.Pod.Occupied || s.assigned(blocker.Pod.ID) || !arrival.entersBerth(blocker.Pod.BerthID) {
 			continue
 		}
 		if !s.park(blocker) && !s.clearToPassengerBerth(blocker) {
 			arrival.Pod.WaitReason = ParkingUnavailable
 		}
 	}
+}
+
+// entersBerth reports whether the part of the route of v that it has not
+// reserved enters the berth. The pod can stop at the berth, or it can pass
+// through the berth to leave the station. A pod passes through a berth when
+// dispatch releases or diverts it after its reserved track enters the berth
+// access lanes of a station. From there, each way out of the station goes
+// through a berth.
+func (v *vehicle) entersBerth(berthID string) bool {
+	claim := resource{kind: berthResource, id: berthID}
+	for _, b := range v.blocks[v.reservedThrough+1:] {
+		if slices.Contains(b.resources, claim) {
+			return true
+		}
+	}
+	return false
 }
 
 // clearToPassengerBerth reserves a free passenger berth when dedicated parking is full.
