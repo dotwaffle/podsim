@@ -274,7 +274,7 @@ func TestLondonHasDistributedParking(t *testing.T) {
 			parkingPods++
 		}
 	}
-	if parking != 3 || parkingPods != 18 {
+	if parking != len(londonParkingFacilities) || parkingPods != len(londonParkingFacilities)*londonParkingPods {
 		t.Fatalf("got %d Parking stations and %d parked pods", parking, parkingPods)
 	}
 }

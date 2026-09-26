@@ -2508,33 +2508,44 @@ func hasField(typ reflect.Type, name string) bool {
 
 // TestLondonStateSave saves and restores a London session with demand. It
 // reports the time that SaveState holds the session lock. It does not check
-// the time, because the time depends on the machine.
+// the time, because the time depends on the machine. The larger project has
+// 3,822 nodes, near the node limit of 4,000.
 func TestLondonStateSave(t *testing.T) {
 	t.Parallel()
-	config := scenarios.London()
-	config.Demand.Enabled = true
-	config.Demand.PerMinute = 20
-	config.Redistribution = true
-	store, handler := &fakeStore{}, &recordHandler{}
-	s := startFromStore(t, StoreInput{Store: store, Project: &config, Options: []Option{WithLogger(slog.New(handler))}})
-	client := newTestClient(s, "london")
-	client.mustApply(t, Command{Action: "speed", Speed: 8})
-	advanceTicks(s, 60*sim.TicksPerSecond/8)
-	handler.reset()
-	if err := s.SaveState(t.Context(), SavePeriodic); err != nil {
+	larger := scenarios.DefaultLondonOptions()
+	larger.StationBerths, larger.ParkingBerths, larger.BerthPitch = 3, 200, 40
+	largerConfig, err := scenarios.LondonWith(larger)
+	if err != nil {
 		t.Fatal(err)
 	}
-	records := handler.list()
-	if len(records) != 1 {
-		t.Fatalf("the save logged %d records, want 1", len(records))
+	for name, config := range map[string]project.Config{"preset": scenarios.London(), "larger": largerConfig} {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			config.Demand.Enabled = true
+			config.Demand.PerMinute = 20
+			config.Redistribution = true
+			store, handler := &fakeStore{}, &recordHandler{}
+			s := startFromStore(t, StoreInput{Store: store, Project: &config, Options: []Option{WithLogger(slog.New(handler))}})
+			client := newTestClient(s, "london")
+			client.mustApply(t, Command{Action: "speed", Speed: 8})
+			advanceTicks(s, 60*sim.TicksPerSecond/8)
+			handler.reset()
+			if err := s.SaveState(t.Context(), SavePeriodic); err != nil {
+				t.Fatal(err)
+			}
+			records := handler.list()
+			if len(records) != 1 {
+				t.Fatalf("the save logged %d records, want 1", len(records))
+			}
+			attrs := records[0].attrs
+			t.Logf("London save with %d nodes at tick %v: %v bytes, lock %v, encode %v, write %v",
+				len(config.Network.Nodes), attrs["tick"], attrs["bytes"], attrs["lock"], attrs["encode"], attrs["write"])
+			started := time.Now()
+			restored := startFromStore(t, StoreInput{Store: &fakeStore{data: store.writeList()[1]}, Project: &config})
+			if got := restored.State().Restore; got.Tier != "physical" {
+				t.Fatalf("London restore = %+v, want the physical tier", got)
+			}
+			t.Logf("London restore: %v, %d pods demoted", time.Since(started), restored.State().Restore.Demoted)
+		})
 	}
-	attrs := records[0].attrs
-	t.Logf("London save at tick %v: %v bytes, lock %v, encode %v, write %v",
-		attrs["tick"], attrs["bytes"], attrs["lock"], attrs["encode"], attrs["write"])
-	started := time.Now()
-	restored := startFromStore(t, StoreInput{Store: &fakeStore{data: store.writeList()[1]}, Project: &config})
-	if got := restored.State().Restore; got.Tier != "physical" {
-		t.Fatalf("London restore = %+v, want the physical tier", got)
-	}
-	t.Logf("London restore: %v, %d pods demoted", time.Since(started), restored.State().Restore.Demoted)
 }

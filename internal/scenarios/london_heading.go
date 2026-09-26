@@ -126,11 +126,13 @@ func countNear(first, second []londonSegment, limit float64) int {
 
 // londonStationShape sets the position of a station: the source position
 // of its junction, the direction of its berth rows from that position, and
-// its berth count.
+// its berth rows.
 type londonStationShape struct {
 	center    sim.Point
 	direction float64
 	berths    int
+	// pitch is the distance between two berth rows.
+	pitch float64
 }
 
 // londonStationNodes holds the node positions of one station.
@@ -153,14 +155,14 @@ func (shape londonStationShape) frame() stationFrame {
 
 // lastBerthDepth returns the distance from the center to the last berth row.
 func (shape londonStationShape) lastBerthDepth() float64 {
-	return 290 + 75*float64(shape.berths-1)
+	return 290 + shape.pitch*float64(shape.berths-1)
 }
 
 // nodes returns the node positions of the station. The diverge and merge
 // nodes are 80 meters out from the center, londonStationThroatOffset to each
 // side of the station axis. The entry and exit nodes are 200 meters out and
-// 100 meters to each side. The berth rows start 290 meters out, with a
-// 75-meter pitch.
+// 100 meters to each side. The berth rows start 290 meters out, with the
+// pitch of the shape.
 func (shape londonStationShape) nodes() londonStationNodes {
 	frame := shape.frame()
 	nodes := londonStationNodes{
@@ -170,7 +172,7 @@ func (shape londonStationShape) nodes() londonStationNodes {
 		exit:    frame.position(100, 200),
 	}
 	for index := range shape.berths {
-		depth := 290 + 75*float64(index)
+		depth := 290 + shape.pitch*float64(index)
 		nodes.berths = append(nodes.berths, londonBerthNodes{
 			arrival:   frame.position(-100, depth),
 			berth:     frame.position(0, depth),
@@ -244,6 +246,7 @@ type londonPreference struct {
 type londonSite struct {
 	center sim.Point
 	berths int
+	pitch  float64
 	// own is the index of the passenger station at center. For a Parking
 	// facility, it is the gateway station.
 	own                  int
@@ -253,7 +256,7 @@ type londonSite struct {
 
 // shape returns the station shape of the site with the heading.
 func (site londonSite) shape(direction float64) londonStationShape {
-	return londonStationShape{center: site.center, direction: direction, berths: site.berths}
+	return londonStationShape{center: site.center, direction: direction, berths: site.berths, pitch: site.pitch}
 }
 
 // footprint returns the lanes and the area of the station with the heading.

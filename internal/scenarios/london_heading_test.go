@@ -80,7 +80,7 @@ func TestLondonSegmentCrosses(t *testing.T) {
 
 func TestLondonInArea(t *testing.T) {
 	t.Parallel()
-	shape := londonStationShape{center: sim.Point{X: 100, Y: 100}, direction: math.Pi / 2, berths: 2}
+	shape := londonStationShape{center: sim.Point{X: 100, Y: 100}, direction: math.Pi / 2, berths: 2, pitch: londonBerthPitch}
 	area := shape.area()
 	tests := []struct {
 		name  string
@@ -110,7 +110,7 @@ func TestSearchLondonHeadings(t *testing.T) {
 	east := []londonPreference{{direction: 0}}
 	south := []londonPreference{{direction: math.Pi / 2}}
 	site := func(x, y float64, preferred []londonPreference) londonSite {
-		return londonSite{center: sim.Point{X: x, Y: y}, berths: 2, preferred: preferred}
+		return londonSite{center: sim.Point{X: x, Y: y}, berths: 2, pitch: londonBerthPitch, preferred: preferred}
 	}
 	// A heading of 0 points east. Its diverge node is at (80, -30).
 	shortRoad := site(0, 0, east)
@@ -214,9 +214,16 @@ func TestLondonStationsLieBesideTheirLines(t *testing.T) {
 	for _, station := range network.Stations {
 		berths += len(station.Berths)
 	}
-	if len(network.Nodes) != 1842 || len(network.Lanes) != 3101 || len(network.Stations) != 99 || berths != 228 || len(config.Fleet) != 114 {
-		t.Fatalf("got %d nodes, %d lanes, %d stations, %d berths, and %d pods, want 1842, 3101, 99, 228, and 114",
-			len(network.Nodes), len(network.Lanes), len(network.Stations), berths, len(config.Fleet))
+	// The default options give 96 passenger stations and 3 Parking
+	// facilities. Each of the 127 links has 6 nodes. Each station has 4
+	// nodes and 3 more for each berth.
+	passenger, parking := 96, len(londonParkingFacilities)
+	wantBerths := passenger*londonStationBerths + parking*londonParkingBerths
+	wantPods := passenger*londonStationPods + parking*londonParkingPods
+	wantNodes := 6*127 + 4*(passenger+parking) + 3*wantBerths
+	if len(network.Nodes) != wantNodes || len(network.Lanes) != 3101 || len(network.Stations) != passenger+parking || berths != wantBerths || len(config.Fleet) != wantPods {
+		t.Fatalf("got %d nodes, %d lanes, %d stations, %d berths, and %d pods, want %d, 3101, %d, %d, and %d",
+			len(network.Nodes), len(network.Lanes), len(network.Stations), berths, len(config.Fleet), wantNodes, passenger+parking, wantBerths, wantPods)
 	}
 	nodes := make(map[string]sim.Point, len(network.Nodes))
 	for _, node := range network.Nodes {

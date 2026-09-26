@@ -9,6 +9,22 @@ import (
 	"github.com/dotwaffle/podsim/internal/sim"
 )
 
+// minimumBerthPitch is the smallest distance between two berth rows. A berth
+// chain has links of this length, and project validation needs lanes of at
+// least 2*sim.Clearance. The extra meter keeps a link that the generator
+// turns to a station heading above that limit, because the turn can make it
+// a little shorter.
+const minimumBerthPitch = 2*sim.Clearance + 1
+
+// checkBerthPitch returns an error when the berth pitch is less than
+// minimumBerthPitch or is not finite.
+func checkBerthPitch(pitch float64) error {
+	if !(pitch >= minimumBerthPitch) || math.IsInf(pitch, 1) {
+		return fmt.Errorf("berth pitch must be a finite distance of at least %.0f meters", minimumBerthPitch)
+	}
+	return nil
+}
+
 // layoutConflict is one geometry problem in a generated network.
 type layoutConflict struct {
 	// station is the ID of the station that has the problem.
