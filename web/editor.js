@@ -26,16 +26,29 @@
     return JSON.parse(JSON.stringify(value));
   }
 
+  // emptyConfig gives a scenario with an empty network. Each setting has the
+  // value that normalizeConfig gives, so that each settings field shows a
+  // value.
   function emptyConfig() {
     return {
       version: 1,
       name: "Untitled scenario",
       network: { Nodes: [], Lanes: [], Stations: [] },
       fleet: [],
-      demand: { enabled: false, perMinute: 2, pattern: "balanced", destination: "", seed: 1 },
+      demand: { enabled: false, perMinute: 2, pattern: "balanced", destination: "", profile: "", band: "", seed: 1 },
       demandProfiles: [],
+      sharedRidePartyLimit: 1,
       redistribution: false,
     };
+  }
+
+  // fallbackConfig gives the local draft that the editor opens when the live
+  // scenario cannot load. It has two stations with one lane in each
+  // direction and no pods.
+  function fallbackConfig() {
+    let config = addStation(addStation(emptyConfig(), 100, 120, { name: "Origin" }), 340, 120, { name: "Destination" });
+    config = addLane(config, config.network.Stations[0].Exit, config.network.Stations[1].Entry, false);
+    return addLane(config, config.network.Stations[1].Exit, config.network.Stations[0].Entry, false);
   }
 
   function normalizeConfig(input) {
@@ -1231,7 +1244,7 @@
   }
 
   const API = {
-    MIN_LANE_LENGTH, MIN_ZOOM, NODE_LABEL_SCALE, NODE_LABEL_SIZE, LANE_PAIR_OFFSET, CHEVRON_LANE_LENGTH, CHECK_DELAY, emptyConfig, normalizeConfig, addLane, addJunction, addStation, addBerth,
+    MIN_LANE_LENGTH, MIN_ZOOM, NODE_LABEL_SCALE, NODE_LABEL_SIZE, LANE_PAIR_OFFSET, CHEVRON_LANE_LENGTH, CHECK_DELAY, emptyConfig, fallbackConfig, normalizeConfig, addLane, addJunction, addStation, addBerth,
     removeBerth, moveStation, moveNode, deleteNode, deleteLane, deleteStation, stationFlowCount, setFleetCount, fleetRows, selectionCard, setDemandPattern,
     laneLength, curveLength, reachable, cutOffStations, stationNodeOwners, dragTargets, validateConfig, configWarnings, checkResults, checkSelector, checkSelection, selectionPoint, focusView,
     problemCountText, createCheckTimer, validationSummary, serializeDocument, parseDocument, createHistory,
@@ -1710,10 +1723,7 @@
       const errors = checks.run();
       if (errors.length) toast(`The server scenario has ${errors.length} validation problem${errors.length === 1 ? "" : "s"}. See Checks.`, true);
     } catch (error) {
-      let fallback = addStation(addStation(emptyConfig(), 100, 120, { name: "Origin" }), 340, 120, { name: "Destination" });
-      fallback = addLane(fallback, fallback.network.Stations[0].Exit, fallback.network.Stations[1].Entry, false);
-      fallback = addLane(fallback, fallback.network.Stations[1].Exit, fallback.network.Stations[0].Entry, false);
-      state.loaded = { scenario: fallback, background: null }; state.history.reset(state.loaded);
+      state.loaded = { scenario: fallbackConfig(), background: null }; state.history.reset(state.loaded);
       updateStatus("The live scenario could not load. This draft is local."); render(); fitNetwork(); toast(`Load failed. ${error.message}`, true);
     }
   }

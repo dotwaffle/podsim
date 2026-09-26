@@ -1577,6 +1577,30 @@ test("legacy market pattern uses the last passenger station when absent", () => 
  assert.equal(editor.normalizeConfig(config).demand.destination,config.network.Stations.at(-1).ID);
 });
 
+test("an empty scenario and the fallback draft have the settings of a normalized scenario", () => {
+  const cases = [
+    { name: "empty scenario", config: editor.emptyConfig },
+    { name: "fallback draft", config: editor.fallbackConfig },
+  ];
+  for (const tc of cases) {
+    const config = tc.config();
+    const normalized = editor.normalizeConfig(config);
+    assert.equal(config.sharedRidePartyLimit, 1, tc.name);
+    assert.deepEqual(config, normalized, tc.name);
+    assert.deepEqual(editor.validateConfig(config), editor.validateConfig(normalized), tc.name);
+    assert.deepEqual(editor.configWarnings(config), editor.configWarnings(normalized), tc.name);
+  }
+});
+
+test("an exported fallback draft with a pod imports with its settings", () => {
+  const fallback = editor.fallbackConfig();
+  const config = editor.setFleetCount(fallback, fallback.network.Stations[0].ID, 1);
+  assert.deepEqual(editor.validateConfig(config), []);
+  const imported = editor.parseDocument(editor.serializeDocument(config)).scenario;
+  assert.equal(imported.sharedRidePartyLimit, 1);
+  assert.deepEqual(imported, config);
+});
+
 // cssRules gives the declarations of each rule in a style sheet, by
 // selector. A rule with a selector list adds its declarations to each
 // selector. A background-color declaration is stored as background, so
