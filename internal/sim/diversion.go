@@ -18,7 +18,8 @@ type pickupRouteInput struct {
 	// pickupRouteWithAssignments reads the waiting trips.
 	assigned map[string]bool
 	// load gives the same value as berthLoad. When it is nil,
-	// pickupRouteWithAssignments uses berthLoad.
+	// pickupRouteWithAssignments uses berthLoad. The load does not change
+	// ok, so a caller that uses only ok can give noBerthLoad instead.
 	load func(Berth) int
 }
 

@@ -252,3 +252,111 @@ func TestEmptySecondsIsNotNegative(t *testing.T) {
 		}
 	}
 }
+
+// localPickupFull is localPickup as it was before the free pods. It reads
+// each pod.
+func (s *Simulation) localPickupFull(stationID string, assigned map[string]bool) *vehicle {
+	for i := range s.vehicles {
+		v := &s.vehicles[i]
+		if v.Pod.Activity == Idle && v.Pod.StationID == stationID && !assigned[v.Pod.ID] {
+			return v
+		}
+	}
+	return nil
+}
+
+// pickupAvailableFull is pickupAvailable as it was before the free pods and
+// noBerthLoad. It returns the first pod that pickupRouteWithAssignments
+// accepts, or nil.
+func (s *Simulation) pickupAvailableFull(stationID string, assigned map[string]bool) *vehicle {
+	load := s.berthLoads()
+	for i := range s.vehicles {
+		if _, _, ok := s.pickupRouteWithAssignments(pickupRouteInput{pod: &s.vehicles[i], station: stationID, assigned: assigned, load: load}); ok {
+			return &s.vehicles[i]
+		}
+	}
+	return nil
+}
+
+// podID returns the ID of v, or "" when v is nil.
+func podID(v *vehicle) string {
+	if v == nil {
+		return ""
+	}
+	return v.Pod.ID
+}
+
+// TestHoldChecksMatchFullScan checks localPickup and pickupAvailable beside
+// copies of the old functions, which read each pod and compute the berth
+// loads. The results must be equal. The states must be equal, route caches
+// included, because the two make the same route queries in the same order.
+func TestHoldChecksMatchFullScan(t *testing.T) {
+	t.Parallel()
+	for _, congestion := range []bool{false, true} {
+		t.Run(fmt.Sprintf("congestion %v", congestion), func(t *testing.T) {
+			t.Parallel()
+			var locals, idle, moving, none int
+			holdScenario{rule: FinishingPodWaitCurrent, congestion: congestion}.run(t, func(s *Simulation) {
+				assigned := waitingAssignments(s)
+				fast, full := s.Clone(), s.Clone()
+				pass := dispatchPass{assigned: assigned}
+				for _, station := range s.network.Stations {
+					local, wantLocal := fast.localPickup(station.ID, &pass), full.localPickupFull(station.ID, assigned)
+					if podID(local) != podID(wantLocal) {
+						t.Fatalf("tick %d, %s: local pickup %q, want %q", s.tick, station.ID, podID(local), podID(wantLocal))
+					}
+					if local != nil {
+						locals++
+					}
+					if station.ParkingOnly {
+						continue
+					}
+					available, first := fast.pickupAvailable(station.ID, &pass), full.pickupAvailableFull(station.ID, assigned)
+					if available != (first != nil) {
+						t.Fatalf("tick %d, %s: pickup available %v, want pod %q", s.tick, station.ID, available, podID(first))
+					}
+					switch {
+					case first == nil:
+						none++
+					case first.Pod.Activity == Idle:
+						idle++
+					default:
+						moving++
+					}
+				}
+				if !reflect.DeepEqual(fast, full) { //nolint:govet // deepequalerrors: route errors compare by value on purpose.
+					t.Fatalf("tick %d: the states differ", s.tick)
+				}
+			})
+			if locals == 0 || idle == 0 || moving == 0 || none == 0 {
+				t.Fatalf("the scenario found %d local pickups, and %d idle, %d moving and %d missing first pickups, want each", locals, idle, moving, none)
+			}
+		})
+	}
+}
+
+// TestDispatchPassResetFindsNewFreePods checks that a reset of the pass
+// finds the free pods again. Pod 01 is idle at Harbor, but a trip holds it.
+// Pod 02 travels with a passenger, so it is not free. It then becomes idle
+// at Garden.
+func TestDispatchPassResetFindsNewFreePods(t *testing.T) {
+	t.Parallel()
+	s, err := NewFleet(Example(), []Placement{{ID: "01", StationID: "harbor"}, {ID: "02", StationID: "garden"}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	busy := s.findVehicle("02")
+	busy.Pod.Activity, busy.Pod.Occupied = Traveling, true
+	pass := dispatchPass{assigned: map[string]bool{"01": true}, pickups: map[string]*vehicle{"market": nil}}
+	if s.localPickup("harbor", &pass) != nil || s.localPickup("garden", &pass) != nil || s.pickupAvailable("market", &pass) {
+		t.Fatal("found a pickup pod before pod 02 became idle")
+	}
+	busy.Pod.Activity, busy.Pod.Occupied = Idle, false
+	pass.reset()
+	if _, known := pass.pickups["market"]; known {
+		t.Fatal("reset kept the pickup pod of Market")
+	}
+	if s.localPickup("garden", &pass) != busy || !s.pickupAvailable("market", &pass) {
+		t.Fatal("did not find pod 02 after the reset")
+	}
+}

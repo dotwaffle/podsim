@@ -47,12 +47,14 @@ func (s *Simulation) RequestTrip(origin, destination string) error {
 
 // dispatch considers requests in submission order. Unavailable pickups do not block other stations.
 //
-// Many waiting trips can start at the same station. pickups keeps the result
-// of pickupPod for each station, so these trips do not repeat the same work.
-// pickupPod reads the pods, the berth owners, the waiting trips, and
-// assigned. After a change to one of them, the loop clears pickups before it
-// reads pickups again. Thus each entry is equal to the result of a new
-// pickupPod call. A dispatch reason and a deferral do not change what
+// Many waiting trips can start at the same station. The pass keeps the
+// result of pickupPod for each station, so these trips do not repeat the
+// same work. The pass also keeps the free pods, so localPickup and
+// pickupAvailable do not read the full fleet for each trip. pickupPod reads
+// the pods, the berth owners, the waiting trips, and assigned. The free pods
+// depend only on the pods. After a change to one of them, the loop resets
+// the pass before it reads the pass again. Thus each result is equal to the
+// result of a new call. A dispatch reason and a deferral do not change what
 // pickupPod reads. pickupPod also fills the route caches, but a cached route
 // is equal to a new route. A trip that waitForFinishingPod holds until its
 // next check does not need pickupPod. See keepHold.
@@ -70,22 +72,22 @@ func (s *Simulation) dispatch() {
 			assigned[trip.request.PodID] = true
 		}
 	}
-	pickups := make(map[string]*vehicle)
+	pass := dispatchPass{assigned: assigned, pickups: make(map[string]*vehicle)}
 	for i := 0; i < len(s.waiting); {
 		if s.promoteReadyPickup(i) {
-			clear(pickups)
+			pass.reset()
 		}
 		trip := &s.waiting[i]
 		trip.request.DispatchReason = ""
 		if trip.request.PodID == "" && s.joinSharedRide(*trip) {
-			clear(pickups)
+			pass.reset()
 			s.waiting = slices.Delete(s.waiting, i, i+1)
 			continue
 		}
 		v := s.findVehicle(trip.request.PodID)
 		if v != nil && (v.Pod.Activity != Idle || v.Pod.StationID != trip.request.From) {
-			if local := s.localPickup(trip.request.From, assigned); local != nil {
-				clear(pickups)
+			if local := s.localPickup(trip.request.From, &pass); local != nil {
+				pass.reset()
 				delete(assigned, v.Pod.ID)
 				s.releasePickup(v)
 				trip.request.PodID = local.Pod.ID
@@ -94,15 +96,15 @@ func (s *Simulation) dispatch() {
 				v = local
 			}
 		}
-		if v == nil && s.keepHold(trip, assigned) {
+		if v == nil && s.keepHold(trip, &pass) {
 			i++
 			continue
 		}
 		if v == nil {
 			var known bool
-			if v, known = pickups[trip.request.From]; !known {
+			if v, known = pass.pickups[trip.request.From]; !known {
 				v = s.pickupPod(trip.request.From, assigned)
-				pickups[trip.request.From] = v
+				pass.pickups[trip.request.From] = v
 			}
 			if v == nil {
 				trip.request.DispatchReason = "Waiting for an available pod"
@@ -114,7 +116,7 @@ func (s *Simulation) dispatch() {
 				i++
 				continue
 			}
-			clear(pickups)
+			pass.reset()
 			if away {
 				if err := s.sendPickup(v, trip.request.From); err != nil {
 					trip.request.DispatchReason = "Waiting for pickup access"
@@ -128,7 +130,7 @@ func (s *Simulation) dispatch() {
 			assigned[v.Pod.ID] = true
 		}
 		if v.Pod.Activity == Idle && v.Pod.StationID == trip.request.From {
-			clear(pickups)
+			pass.reset()
 			if err := s.board(v, *trip); err != nil {
 				trip.request.DispatchReason = "Waiting for destination access"
 				i++
@@ -154,10 +156,50 @@ func (s *Simulation) assigned(podID string) bool {
 	return slices.ContainsFunc(s.waiting, func(trip waitingTrip) bool { return trip.request.PodID == podID })
 }
 
-func (s *Simulation) localPickup(stationID string, assigned map[string]bool) *vehicle {
-	for i := range s.vehicles {
-		v := &s.vehicles[i]
-		if v.Pod.Activity == Idle && v.Pod.StationID == stationID && !assigned[v.Pod.ID] {
+// dispatchPass keeps the results of reads that dispatch repeats for the
+// waiting trips of one pass. After dispatch changes the pods, the berth
+// owners, the waiting trips, or assigned, it calls reset before it reads
+// the pass again.
+type dispatchPass struct {
+	// assigned holds the pods of the waiting trips. dispatch changes it
+	// during the pass.
+	assigned map[string]bool
+	// pickups keeps the result of pickupPod for each station.
+	pickups map[string]*vehicle
+	// free holds the free pods in fleet order when freeKnown is true. See
+	// freePods.
+	free      []*vehicle
+	freeKnown bool
+}
+
+// reset removes the results of the pass.
+func (pass *dispatchPass) reset() {
+	clear(pass.pickups)
+	pass.free, pass.freeKnown = pass.free[:0], false
+}
+
+// freePods returns each pod that is idle or not occupied, in fleet order.
+// Each other pod is not a local pickup, and pickupRouteWithAssignments
+// rejects it. The free pods do not depend on assigned, so the callers read
+// assigned for each pod. freePods finds the pods at the first call after a
+// reset of the pass.
+func (s *Simulation) freePods(pass *dispatchPass) []*vehicle {
+	if !pass.freeKnown {
+		for i := range s.vehicles {
+			if v := &s.vehicles[i]; v.Pod.Activity == Idle || !v.Pod.Occupied {
+				pass.free = append(pass.free, v)
+			}
+		}
+		pass.freeKnown = true
+	}
+	return pass.free
+}
+
+// localPickup returns the first idle pod at the station that is not in
+// assigned.
+func (s *Simulation) localPickup(stationID string, pass *dispatchPass) *vehicle {
+	for _, v := range s.freePods(pass) {
+		if v.Pod.Activity == Idle && v.Pod.StationID == stationID && !pass.assigned[v.Pod.ID] {
 			return v
 		}
 	}

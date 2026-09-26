@@ -347,12 +347,12 @@ func TestKeepHoldWaitsForCongestionRefresh(t *testing.T) {
 	t.Parallel()
 	s, _ := newFinishingPodTrip(t, finishingPodSetup{rule: FinishingPodWaitCurrent, busyStation: "market", unloadSeconds: 5})
 	s.SetCongestionRouting(true)
-	assigned := map[string]bool{}
-	if s.keepHold(&s.waiting[0], assigned) {
+	pass := dispatchPass{assigned: map[string]bool{}}
+	if s.keepHold(&s.waiting[0], &pass) {
 		t.Fatal("keepHold kept the hold when a congestion refresh was due")
 	}
 	s.refreshCongestionCosts()
-	if !s.keepHold(&s.waiting[0], assigned) {
+	if !s.keepHold(&s.waiting[0], &pass) {
 		t.Fatal("keepHold did not keep the hold after the refresh")
 	}
 }
