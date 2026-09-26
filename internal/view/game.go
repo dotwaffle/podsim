@@ -873,7 +873,7 @@ func (g *Game) collapsedStationLabel(input collapsedStationLabelInput) collapsed
 		rank:      input.rank,
 		primary: label{
 			x: input.marker.X + 16*g.layout.unit, y: input.marker.Y - 14*g.layout.unit,
-			size: 10, value: fmt.Sprintf("%s  %d/%d", name, input.status.Occupied, berths), color: foreground,
+			size: 10, value: fmt.Sprintf("%s  %d/%d", name, input.status.Occupied, berths), color: foreground, mapLabel: true,
 		},
 		collisionValue: fmt.Sprintf("%s  %d/%d", name, berths, berths),
 	}
@@ -883,10 +883,11 @@ func (g *Game) collapsedStationLabel(input collapsedStationLabelInput) collapsed
 	return collapsed
 }
 
-// secondaryLabel returns the queue line of the overview label. The unit is
-// the number of screen pixels in one display unit.
-func (candidate collapsedStationLabel) secondaryLabel(unit float64) label {
-	return label{x: candidate.primary.x, y: candidate.primary.y + 16*unit, size: 9, value: candidate.secondary, color: amber}
+// secondaryLabel returns the queue line of the overview label. deviceScale
+// is the number of screen pixels in one CSS pixel. The line spacing is in
+// CSS pixels, as the label size is.
+func (candidate collapsedStationLabel) secondaryLabel(deviceScale float64) label {
+	return label{x: candidate.primary.x, y: candidate.primary.y + 16*deviceScale, size: 9, value: candidate.secondary, color: amber, mapLabel: true}
 }
 
 // boundedStationLabel holds the screen areas of an overview label and of its
@@ -927,7 +928,7 @@ func (g *Game) drawCollapsedStationLabels(screen *ebiten.Image, input collapsedL
 		}
 		g.label(screen, candidate.primary)
 		if candidate.secondary != "" {
-			g.label(screen, candidate.secondaryLabel(g.layout.unit))
+			g.label(screen, candidate.secondaryLabel(g.layout.deviceScale))
 		}
 		shown = append(shown, bounded[index].bounds)
 	}
@@ -978,7 +979,7 @@ func (g *Game) boundedStationLabels(input collapsedLabelsInput) []boundedStation
 
 // labelBounds returns the screen area of the text of a map label.
 func (g *Game) labelBounds(value label) image.Rectangle {
-	width, height := text.Measure(value.value, g.textFace(value.size), 0)
+	width, height := text.Measure(value.value, g.labelFace(value), 0)
 	return image.Rect(
 		int(math.Floor(value.x)), int(math.Floor(value.y)),
 		int(math.Ceil(value.x+width)), int(math.Ceil(value.y+height)),
@@ -993,7 +994,7 @@ func (g *Game) collapsedStationLabelBounds(candidate collapsedStationLabel) imag
 	primary.value = candidate.collisionValue
 	bounds := g.labelBounds(primary)
 	if candidate.secondary != "" {
-		bounds = bounds.Union(g.labelBounds(candidate.secondaryLabel(g.layout.unit)))
+		bounds = bounds.Union(g.labelBounds(candidate.secondaryLabel(g.layout.deviceScale)))
 	}
 	return bounds.Inset(-int(math.Ceil(3 * g.layout.unit)))
 }
@@ -1076,7 +1077,7 @@ func (g *Game) podMapLabels(vehicles []sim.Vehicle, collapsedStations map[string
 			continue
 		}
 		p := g.mapPoint(vehicle.Pod.Position)
-		labels[index] = label{x: p.X + podLabelLeft*g.layout.unit, y: p.Y + podLabelTop*g.layout.unit, size: 11, value: fleetPodLabel(index)}
+		labels[index] = label{x: p.X + podLabelLeft*g.layout.unit, y: p.Y + podLabelTop*g.layout.unit, size: 11, value: fleetPodLabel(index), mapLabel: true}
 	}
 	return labels
 }
@@ -1725,6 +1726,19 @@ type label struct {
 	value      string
 	color      uint32
 	physical   bool
+	// mapLabel is true for a map label, such as a station name, a station
+	// count or a pod label. Its size is in CSS pixels. See
+	// displayLayout.mapLabelSize.
+	mapLabel bool
+}
+
+// labelFace returns the font face of a label. The size of a map label does
+// not follow the display unit. See displayLayout.mapLabelSize.
+func (g *Game) labelFace(value label) *text.GoTextFace {
+	if value.mapLabel {
+		return &text.GoTextFace{Source: g.font, Size: g.layout.mapLabelSize(value.size)}
+	}
+	return g.textFace(value.size)
 }
 
 func (g *Game) label(screen *ebiten.Image, label label) {
@@ -1734,12 +1748,12 @@ func (g *Game) label(screen *ebiten.Image, label label) {
 	options := &text.DrawOptions{}
 	options.GeoM.Translate(label.x, label.y)
 	options.ColorScale.ScaleWithColor(rgb(label.color))
-	text.Draw(screen, label.value, &text.GoTextFace{Source: g.font, Size: label.size * g.layout.unit}, options)
+	text.Draw(screen, label.value, g.labelFace(label), options)
 }
 
 // centerLabel returns value as a physical label in the center of area.
 func (g *Game) centerLabel(area image.Rectangle, value label) label {
-	width, height := text.Measure(value.value, g.textFace(value.size), 0)
+	width, height := text.Measure(value.value, g.labelFace(value), 0)
 	value.x = float64(area.Min.X) + (float64(area.Dx())-width)/2
 	value.y = float64(area.Min.Y) + (float64(area.Dy())-height)/2
 	value.physical = true

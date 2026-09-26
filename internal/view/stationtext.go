@@ -35,7 +35,8 @@ const (
 
 // stationTextBlock holds the map text lines that name a berth or a station.
 // The x and y of each line are offsets in screen pixels from the top left
-// of the text.
+// of the text. The line spacing is in CSS pixels, as the label size is.
+// See displayLayout.mapLabelSize.
 type stationTextBlock struct {
 	lines []label
 }
@@ -83,7 +84,7 @@ type expandedStationInput struct {
 // expandedStationText returns the berth rings and the text of a station
 // whose berths show on the map.
 func (g *Game) expandedStationText(input expandedStationInput) expandedStationText {
-	station, status, unit := input.station, input.status, g.layout.unit
+	station, status, unit, deviceScale := input.station, input.status, g.layout.unit, g.layout.deviceScale
 	single := !station.ParkingOnly && len(station.Berths) == 1
 	positions := g.displayIndex().positions
 	expanded := expandedStationText{away: stationTextDirection(positions, station)}
@@ -92,13 +93,13 @@ func (g *Game) expandedStationText(input expandedStationInput) expandedStationTe
 	for index, berth := range station.Berths {
 		center := g.mapPoint(positions[berth.Node])
 		shade := g.berthShade(berth, input.state)
-		number := stationTextBlock{lines: []label{{size: 16, value: strconv.Itoa(index + 1), color: foreground}}}
+		number := stationTextBlock{lines: []label{{size: 16, value: strconv.Itoa(index + 1), color: foreground, mapLabel: true}}}
 		if single {
 			number = stationTextBlock{lines: []label{
-				{size: 16, value: station.Name, color: foreground},
-				{y: 21 * unit, size: 10, value: berthOccupancy(berth, input.state), color: shade},
-				{y: 37 * unit, size: 9, value: fmt.Sprintf("%d occupied · %d reserved empty · %d free", status.Occupied, status.ReservedEmpty, status.Free), color: muted},
-				{y: 52 * unit, size: 9, value: stationQueueText(status), color: muted},
+				{size: 16, value: station.Name, color: foreground, mapLabel: true},
+				{y: 21 * deviceScale, size: 10, value: berthOccupancy(berth, input.state), color: shade, mapLabel: true},
+				{y: 37 * deviceScale, size: 9, value: fmt.Sprintf("%d occupied · %d reserved empty · %d free", status.Occupied, status.ReservedEmpty, status.Free), color: muted, mapLabel: true},
+				{y: 52 * deviceScale, size: 9, value: stationQueueText(status), color: muted, mapLabel: true},
 			}}
 		}
 		expanded.berths = append(expanded.berths, berthText{
@@ -107,9 +108,9 @@ func (g *Game) expandedStationText(input expandedStationInput) expandedStationTe
 	}
 	if !single && len(station.Berths) > 0 {
 		expanded.station = stationTextBlock{lines: []label{
-			{size: 16, value: station.Name, color: foreground},
-			{y: 23 * unit, size: 10, value: fmt.Sprintf("%d/%d occupied · %d reserved empty · %d free", status.Occupied, len(station.Berths), status.ReservedEmpty, status.Free), color: muted},
-			{y: 40 * unit, size: 9, value: stationQueueText(status), color: muted},
+			{size: 16, value: station.Name, color: foreground, mapLabel: true},
+			{y: 23 * deviceScale, size: 10, value: fmt.Sprintf("%d/%d occupied · %d reserved empty · %d free", status.Occupied, len(station.Berths), status.ReservedEmpty, status.Free), color: muted, mapLabel: true},
+			{y: 40 * deviceScale, size: 9, value: stationQueueText(status), color: muted, mapLabel: true},
 		}}
 	}
 	return expanded
@@ -291,7 +292,7 @@ func appendStationTextAreas(areas []image.Rectangle, placed []placedStationText)
 func (g *Game) stationTextSize(block stationTextBlock) image.Point {
 	var width, height float64
 	for _, line := range block.lines {
-		lineWidth, lineHeight := text.Measure(line.value, g.textFace(line.size), 0)
+		lineWidth, lineHeight := text.Measure(line.value, g.labelFace(line), 0)
 		width = max(width, line.x+lineWidth)
 		height = max(height, line.y+lineHeight)
 	}
@@ -310,7 +311,7 @@ func (g *Game) drawStationText(screen *ebiten.Image, placed []placedStationText)
 		for _, line := range block.block.lines {
 			line.x += float64(block.area.Min.X) + padding
 			line.y += float64(block.area.Min.Y) + padding
-			width, height := text.Measure(line.value, g.textFace(line.size), 0)
+			width, height := text.Measure(line.value, g.labelFace(line), 0)
 			vector.FillRect(screen, float32(line.x-padding), float32(line.y), float32(width+2*padding), float32(height), backing, false)
 			g.label(screen, line)
 		}

@@ -212,6 +212,8 @@ See [distribution and operations](docs/operations.md) for build and runtime sett
 - Queue counts include dedicated access spurs, but exclude general road traffic.
 - A reserved-empty berth can still have a departing pod that holds its clearance resource.
 - Berth labels distinguish a parked pod from an admitted arrival.
+- Map labels, such as station names and pod labels, have a font size of 10 CSS pixels or more.
+  In a window smaller than 1100 by 760 CSS pixels, the rest of the view becomes smaller, but the map labels keep their size.
 
 On a network with more than 30 stations, the map can omit an overview label where it covers another label or a station marker.
 On such a network, only the selected pod has a map label until you zoom in to four times the **Fit** scale.

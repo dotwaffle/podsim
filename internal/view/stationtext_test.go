@@ -1,6 +1,7 @@
 package view
 
 import (
+	"fmt"
 	"image"
 	"math"
 	"testing"
@@ -357,15 +358,22 @@ func TestStationTextOnExample(t *testing.T) {
 		width, height int
 		scale         float64
 		// maxCover is the largest length of lanes in display units that a
-		// text block covers. In the 1100x760 window, each place of the
-		// Parking text covers a lane or other text.
+		// text block covers. Each limit is the largest cover measured in
+		// the window, rounded up to the next 10 units. In the 1100x760
+		// window, each place of the Parking text covers a lane or other
+		// text. Map labels keep their CSS size, so in the short 1366x610
+		// window the text takes a larger part of the map. There, the
+		// Parking text does not fit left of its berths, and the place above
+		// its berths crosses the bypass lanes. With the 10 pixel floor of
+		// map labels, the edge of the Harbor text covers a lane in the
+		// 1920x1080 window.
 		maxCover float64
 		// below is true when the Harbor and Market text is below the ring,
 		// away from the siding. The Garden text is never below the ring.
 		below bool
 	}{
-		{1100, 760, 1, 190, true}, {1366, 610, 1, 70, false}, {1366, 610, 2, 70, false},
-		{1920, 1080, 1, 20, true}, {1920, 1080, 2, 20, true}, {2560, 1440, 1, 20, true}, {2560, 1440, 2, 20, true},
+		{1100, 760, 1, 210, true}, {1366, 610, 1, 300, false}, {1366, 610, 2, 300, false},
+		{1920, 1080, 1, 50, true}, {1920, 1080, 2, 50, true}, {2560, 1440, 1, 20, true}, {2560, 1440, 2, 20, true},
 	} {
 		game := journeyNetworkGame(t, sim.Example())
 		game.layoutFor(layoutInput{outsideWidth: size.width, outsideHeight: size.height, deviceScale: size.scale})
@@ -390,6 +398,14 @@ func TestStationTextOnExample(t *testing.T) {
 		areas := make(map[string]image.Rectangle)
 		for _, text := range placed {
 			areas[text.block.lines[0].value] = text.area
+		}
+		// The Parking text is above its berths in each window.
+		var parkingRings image.Rectangle
+		for _, berth := range expanded[3].berths {
+			parkingRings = parkingRings.Union(berth.ring)
+		}
+		if area := areas["Parking"]; area.Max.Y > parkingRings.Min.Y {
+			t.Errorf("window %dx%d@%g: Parking text at %v is not above its berths at %v", size.width, size.height, size.scale, area, parkingRings)
 		}
 		for index, name := range []string{"Harbor", "Garden", "Market"} {
 			area, ring := areas[name], expanded[index].berths[0].ring
@@ -467,7 +483,7 @@ func checkBerthNumbers(t *testing.T, expanded []expandedStationText, placed []pl
 func checkPodLabelsCleared(t *testing.T, game *Game, placed []placedStationText) {
 	t.Helper()
 	area := placed[len(placed)-1].area
-	over := label{x: float64(area.Min.X), y: float64(area.Min.Y), size: 11, value: "P1", color: foreground}
+	over := label{x: float64(area.Min.X), y: float64(area.Min.Y), size: 11, value: "P1", color: foreground, mapLabel: true}
 	game.selected = 1
 	got := game.clearPodLabels([]label{over, over}, appendStationTextAreas(nil, placed))
 	if got[0].value != "" || got[1].value != "P1" {
@@ -475,15 +491,84 @@ func checkPodLabelsCleared(t *testing.T, game *Game, placed []placedStationText)
 	}
 }
 
+// TestStationTextSize checks the size of a text block in a window of normal
+// size and in a short window. The lines keep their CSS size in the short
+// window, and the 9 pixel queue line is 10 CSS pixels. The padding follows
+// the display unit.
 func TestStationTextSize(t *testing.T) {
 	t.Parallel()
-	game := journeyNetworkGame(t, sim.Example())
-	game.layoutFor(layoutInput{outsideWidth: 1920, outsideHeight: 1080, deviceScale: 2})
-	block := stationTextBlock{lines: []label{{size: 16, value: "Parking"}}}
-	width, height := text.Measure("Parking", game.textFace(16), 0)
-	padding := 2 * stationTextPadding * game.layout.unit
-	want := image.Pt(int(math.Ceil(width+padding)), int(math.Ceil(height+padding)))
-	if got := game.stationTextSize(block); got != want {
-		t.Fatalf("stationTextSize() = %v, want %v", got, want)
+	for _, input := range []layoutInput{
+		{outsideWidth: 1920, outsideHeight: 1080, deviceScale: 2},
+		{outsideWidth: 1366, outsideHeight: 610, deviceScale: 1},
+		{outsideWidth: 1366, outsideHeight: 610, deviceScale: 2},
+	} {
+		t.Run(fmt.Sprintf("%dx%d@%g", input.outsideWidth, input.outsideHeight, input.deviceScale), func(t *testing.T) {
+			t.Parallel()
+			game := journeyNetworkGame(t, sim.Example())
+			game.layoutFor(input)
+			scale := input.deviceScale
+			queue := "In 0 stopped / 0 approaching · Out 0 stopped"
+			block := stationTextBlock{lines: []label{
+				{size: 16, value: "Parking", mapLabel: true},
+				{y: 23 * scale, size: 9, value: queue, mapLabel: true},
+			}}
+			nameWidth, _ := text.Measure("Parking", &text.GoTextFace{Source: game.font, Size: 16 * scale}, 0)
+			queueWidth, queueHeight := text.Measure(queue, &text.GoTextFace{Source: game.font, Size: 10 * scale}, 0)
+			padding := 2 * stationTextPadding * game.layout.unit
+			want := image.Pt(int(math.Ceil(max(nameWidth, queueWidth)+padding)), int(math.Ceil(23*scale+queueHeight+padding)))
+			if got := game.stationTextSize(block); got != want {
+				t.Fatalf("stationTextSize() = %v, want %v", got, want)
+			}
+		})
+	}
+}
+
+// TestStationTextLinesDoNotOverlap checks that the lines of the station text
+// do not overlap in a short window and in a window with a high device scale.
+// The line spacing and the map label size are both in CSS pixels. It also
+// checks that each line has the map label size, at least 10 CSS pixels.
+func TestStationTextLinesDoNotOverlap(t *testing.T) {
+	t.Parallel()
+	for _, input := range []layoutInput{
+		{outsideWidth: 1100, outsideHeight: 760, deviceScale: 1},
+		{outsideWidth: 1366, outsideHeight: 610, deviceScale: 1},
+		{outsideWidth: 1366, outsideHeight: 610, deviceScale: 2},
+		{outsideWidth: 800, outsideHeight: 560, deviceScale: 1.5},
+	} {
+		t.Run(fmt.Sprintf("%dx%d@%g", input.outsideWidth, input.outsideHeight, input.deviceScale), func(t *testing.T) {
+			t.Parallel()
+			game := journeyNetworkGame(t, sim.Example())
+			game.layoutFor(input)
+			game.fitNetwork()
+			expanded, _, _ := placedTestText(game)
+			var blocks []stationTextBlock
+			for _, station := range expanded {
+				blocks = append(blocks, station.station)
+				for _, berth := range station.berths {
+					blocks = append(blocks, berth.text)
+				}
+			}
+			checked := 0
+			for _, block := range blocks {
+				for _, line := range block.lines {
+					if got, want := game.labelFace(line).Size, max(line.size, 10)*input.deviceScale; math.Abs(got-want) > 1e-9 {
+						t.Errorf("line %q has size %g, want %g", line.value, got, want)
+					}
+				}
+				for index := 1; index < len(block.lines); index++ {
+					above, line := block.lines[index-1], block.lines[index]
+					_, height := text.Measure(above.value, game.labelFace(above), 0)
+					if above.y+height > line.y {
+						t.Errorf("line %q ends at %g, below the top of line %q at %g", above.value, above.y+height, line.value, line.y)
+					}
+					checked++
+				}
+			}
+			// Three single-berth stations with four lines, and Parking
+			// with three lines.
+			if checked != 3*3+2 {
+				t.Fatalf("checked %d pairs of lines, want %d", checked, 3*3+2)
+			}
+		})
 	}
 }

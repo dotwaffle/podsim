@@ -184,7 +184,7 @@ func TestCollapsedStationLabelBounds(t *testing.T) {
 				t.Parallel()
 				game := journeyTestGame(t, 2)
 				game.layoutFor(layout)
-				unit := game.layout.unit
+				unit, deviceScale := game.layout.unit, game.layout.deviceScale
 				station := sim.Station{ID: "s", Name: test.stationName, Berths: make([]sim.Berth, 12)}
 				status := observe.StationMetrics{Occupied: 3}
 				if test.queue {
@@ -200,9 +200,11 @@ func TestCollapsedStationLabelBounds(t *testing.T) {
 				}
 				bounds := game.collapsedStationLabelBounds(candidate)
 
-				// The box holds each drawn line and the widest occupancy.
+				// The box holds each drawn line and the widest occupancy. The
+				// map label is at least 10 CSS pixels, and it does not become
+				// smaller with the display unit.
 				area := func(x, y, size float64, value string) image.Rectangle {
-					width, height := text.Measure(value, &text.GoTextFace{Source: game.font, Size: size * unit}, 0)
+					width, height := text.Measure(value, &text.GoTextFace{Source: game.font, Size: max(size, 10) * deviceScale}, 0)
 					return image.Rect(int(math.Floor(x)), int(math.Floor(y)), int(math.Ceil(x+width)), int(math.Ceil(y+height)))
 				}
 				x, y := input.marker.X+16*unit, input.marker.Y-14*unit
@@ -211,7 +213,7 @@ func TestCollapsedStationLabelBounds(t *testing.T) {
 					if want := "In 2 · Out 11"; candidate.secondary != want {
 						t.Fatalf("secondary = %q, want %q", candidate.secondary, want)
 					}
-					drawn = drawn.Union(area(x, y+16*unit, 9, candidate.secondary))
+					drawn = drawn.Union(area(x, y+16*deviceScale, 9, candidate.secondary))
 				} else if candidate.secondary != "" {
 					t.Fatalf("secondary = %q, want no queue line", candidate.secondary)
 				}
@@ -228,8 +230,8 @@ func TestCollapsedStationLabelBounds(t *testing.T) {
 					t.Fatalf("bounded label = %v with queue line %t, want %v with queue line %t", bounded.bounds, bounded.queued, bounds, test.queue)
 				}
 				// A label without a queue line does not keep room for it.
-				if !test.queue && float64(bounds.Dy()) >= 16*unit+float64(2*padding) {
-					t.Fatalf("one-line bounds are %d pixels high, want less than %g", bounds.Dy(), 16*unit+float64(2*padding))
+				if !test.queue && float64(bounds.Dy()) >= 16*deviceScale+float64(2*padding) {
+					t.Fatalf("one-line bounds are %d pixels high, want less than %g", bounds.Dy(), 16*deviceScale+float64(2*padding))
 				}
 
 				// The box does not change with the occupancy.
@@ -434,7 +436,7 @@ func TestPodMapLabels(t *testing.T) {
 					continue
 				}
 				p := game.mapPoint(vehicles[index].Pod.Position)
-				if want := (label{x: p.X + podLabelLeft*game.layout.unit, y: p.Y + podLabelTop*game.layout.unit, size: 11, value: podLabel.value}); podLabel != want {
+				if want := (label{x: p.X + podLabelLeft*game.layout.unit, y: p.Y + podLabelTop*game.layout.unit, size: 11, value: podLabel.value, mapLabel: true}); podLabel != want {
 					t.Fatalf("pod %d label = %+v, want %+v", index, podLabel, want)
 				}
 			}
@@ -533,7 +535,7 @@ func TestOverviewLabelsOnLondon(t *testing.T) {
 				labels = append(labels, game.collapsedStationLabel(collapsedStationLabelInput{station: station, marker: markers[station.ID], rank: ranks[station.ID]}))
 			}
 			// The label of the selected pod is in the middle of the map.
-			podLabel := label{x: center.X, y: center.Y, size: 11, value: "01"}
+			podLabel := label{x: center.X, y: center.Y, size: 11, value: "01", mapLabel: true}
 			input := collapsedLabelsInput{labels: labels, markers: markers, markerRadius: style.markerRadius, selectedPodLabel: podLabel}
 			bounded, visible := game.visibleCollapsedStationLabels(input)
 			preferred := map[string]bool{game.origin: true, game.destination: true}

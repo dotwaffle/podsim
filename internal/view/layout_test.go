@@ -65,7 +65,7 @@ func (g *Game) labelArea(value label) area {
 	if !value.physical {
 		x, y = g.layout.labelPosition(value.x, value.y)
 	}
-	width, height := text.Measure(value.value, g.textFace(value.size), 0)
+	width, height := text.Measure(value.value, g.labelFace(value), 0)
 	return area{left: x, top: y, right: x + width, bottom: y + height}
 }
 
@@ -110,9 +110,48 @@ func TestDisplayLayoutInvalidInputFallsBack(t *testing.T) {
 	}
 	for _, input := range tests {
 		got := newDisplayLayout(input)
-		if got.width != minimumWidth || got.height != minimumHeight || got.unit != 1 {
+		if got.width != minimumWidth || got.height != minimumHeight || got.unit != 1 || got.deviceScale != 1 {
 			t.Fatalf("fallback layout = %+v", got)
 		}
+	}
+}
+
+// TestMapLabelSize checks the font size of map labels and of other text in
+// physical pixels. A map label keeps its CSS size in a window smaller than
+// the minimum window, and it is at least 10 CSS pixels. Other text follows
+// the display unit.
+func TestMapLabelSize(t *testing.T) {
+	t.Parallel()
+	minimum := layoutInput{outsideWidth: 1100, outsideHeight: 760, deviceScale: 1}
+	laptop := layoutInput{outsideWidth: 1366, outsideHeight: 610, deviceScale: 1}
+	tests := []struct {
+		name  string
+		input layoutInput
+		size  float64
+		// want is the size of a map label. wantOther is the size of
+		// other text.
+		want, wantOther float64
+	}{
+		{name: "minimum window name", input: minimum, size: 16, want: 16, wantOther: 16},
+		{name: "minimum window queue line", input: minimum, size: 9, want: 10, wantOther: 9},
+		{name: "short laptop name", input: laptop, size: 16, want: 16, wantOther: 16 * 610.0 / 760},
+		{name: "short laptop queue line", input: laptop, size: 9, want: 10, wantOther: 9 * 610.0 / 760},
+		{name: "short laptop DPR2 pod label", input: layoutInput{outsideWidth: 1366, outsideHeight: 610, deviceScale: 2}, size: 11, want: 22, wantOther: 22 * 610.0 / 760},
+		{name: "fractional DPR queue line", input: layoutInput{outsideWidth: 1100, outsideHeight: 760, deviceScale: 1.5}, size: 9, want: 15, wantOther: 13.5},
+		{name: "below minimum", input: layoutInput{outsideWidth: 800, outsideHeight: 560, deviceScale: 1}, size: 10, want: 10, wantOther: 10 * 800.0 / 1100},
+		{name: "invalid device scale", input: layoutInput{outsideWidth: 1366, outsideHeight: 610, deviceScale: math.NaN()}, size: 9, want: 10, wantOther: 9 * 610.0 / 760},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			game := &Game{layout: newDisplayLayout(test.input)}
+			if got := game.labelFace(label{size: test.size, mapLabel: true}).Size; math.Abs(got-test.want) > 1e-9 {
+				t.Errorf("map label size = %g, want %g", got, test.want)
+			}
+			if got := game.labelFace(label{size: test.size}).Size; math.Abs(got-test.wantOther) > 1e-9 {
+				t.Errorf("other text size = %g, want %g", got, test.wantOther)
+			}
+		})
 	}
 }
 

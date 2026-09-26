@@ -8,11 +8,16 @@ import (
 const (
 	minimumWidth  = 1100
 	minimumHeight = 760
+	// mapLabelMinimum is the smallest size in CSS pixels of a map label.
+	mapLabelMinimum = 10
 )
 
 type displayLayout struct {
-	width, height  int
-	unit           float64
+	width, height int
+	unit          float64
+	// deviceScale is the number of physical pixels in one CSS pixel. Map
+	// labels use it in place of unit. See mapLabelSize.
+	deviceScale    float64
 	extraX, extraY float64
 	mapViewport    image.Rectangle
 }
@@ -40,13 +45,23 @@ func newDisplayLayout(input layoutInput) displayLayout {
 	extraX := float64(physicalWidth) - minimumWidth*unit
 	extraY := float64(physicalHeight) - minimumHeight*unit
 	return displayLayout{
-		width: physicalWidth, height: physicalHeight, unit: unit,
+		width: physicalWidth, height: physicalHeight, unit: unit, deviceScale: deviceScale,
 		extraX: extraX, extraY: extraY,
 		mapViewport: image.Rect(
 			int(math.Round(24*unit)), int(math.Round(136*unit)),
 			int(math.Round(772*unit+extraX)), int(math.Round(520*unit+extraY)),
 		),
 	}
+}
+
+// mapLabelSize returns the size in physical pixels of a map label of size CSS
+// pixels. In a window smaller than the minimum window, the rest of the view
+// becomes smaller, but a map label keeps its size. A map label is also never
+// smaller than mapLabelMinimum CSS pixels. Thus station names, station counts
+// and pod labels stay readable on a short laptop screen. Other text on the
+// map, such as the connection notice, follows unit.
+func (layout displayLayout) mapLabelSize(size float64) float64 {
+	return max(size, mapLabelMinimum) * layout.deviceScale
 }
 
 func (layout displayLayout) x(value float64) float64      { return value * layout.unit }
