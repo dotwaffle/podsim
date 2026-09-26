@@ -362,6 +362,32 @@
     }));
   }
 
+  // selectionCard gives the data of the Selection panel for the selected
+  // station, lane or junction. A station gives its name, the parking option,
+  // and its berths. The card marks the berth that the selection names. It
+  // lets you remove a berth only when the station has two or more berths. A
+  // lane gives its end nodes, its speed limit in whole km/h, its length in
+  // meters, and if it has a curve. A junction gives its position. The
+  // function gives null when there is no selection, or when the draft does
+  // not have the selected item.
+  function selectionCard(config, selection) {
+    if (!selection) return null;
+    const find = (items) => items.find((item) => item.ID === selection.id);
+    if (selection.type === "station") {
+      const station = find(config.network.Stations);
+      return station ? {
+        type: "station", id: station.ID, name: station.Name, parkingOnly: Boolean(station.ParkingOnly), canRemove: station.Berths.length > 1,
+        berths: station.Berths.map((berth) => ({ id: berth.ID, selected: berth.ID === selection.berth })),
+      } : null;
+    }
+    if (selection.type === "lane") {
+      const lane = find(config.network.Lanes);
+      return lane ? { type: "lane", id: lane.ID, from: lane.From, to: lane.To, speed: Math.round(lane.SpeedLimit * 3.6), length: laneLength(config, lane), curved: Boolean(lane.Control) } : null;
+    }
+    const node = find(config.network.Nodes);
+    return node ? { type: "node", id: node.ID, x: node.Position.X, y: node.Position.Y } : null;
+  }
+
   // setDemandPattern sets the passenger demand pattern. The profile pattern
   // selects the first demand profile and its first time band. A draft with no
   // demand profiles, or with a demandProfiles value that is not an array, gets
@@ -1206,7 +1232,7 @@
 
   const API = {
     MIN_LANE_LENGTH, MIN_ZOOM, NODE_LABEL_SCALE, NODE_LABEL_SIZE, LANE_PAIR_OFFSET, CHEVRON_LANE_LENGTH, CHECK_DELAY, emptyConfig, normalizeConfig, addLane, addJunction, addStation, addBerth,
-    removeBerth, moveStation, moveNode, deleteNode, deleteLane, deleteStation, stationFlowCount, setFleetCount, fleetRows, setDemandPattern,
+    removeBerth, moveStation, moveNode, deleteNode, deleteLane, deleteStation, stationFlowCount, setFleetCount, fleetRows, selectionCard, setDemandPattern,
     laneLength, curveLength, reachable, cutOffStations, stationNodeOwners, dragTargets, validateConfig, configWarnings, checkResults, checkSelector, checkSelection, selectionPoint, focusView,
     problemCountText, createCheckTimer, validationSummary, serializeDocument, parseDocument, createHistory,
     networkBounds, fitView, zoomScale, nodeLabelSize, pairedLaneIDs, showsChevron, laneOffset, laneCurve, lanePathData, applyToServer, applyFailureText, applyFailureStatus, applyToast,
@@ -1256,7 +1282,6 @@
     const entry = nodeFor(config, station.Entry); const exit = nodeFor(config, station.Exit);
     return entry && exit ? { X: (entry.Position.X + exit.Position.X) / 2, Y: (entry.Position.Y + exit.Position.Y) / 2 } : { X: 0, Y: 0 };
   }
-  function esc(value) { return String(value).replace(/[&<>"']/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[char])); }
   function setDraft(next, record = true) { if (state.history.replace({ scenario: next, background: state.background }, record)) render(); }
   function setBackground(next, record = true) { if (state.history.replace({ scenario: draft(), background: next }, record)) render(); }
   function mutate(change) { setDraft(change(draft())); }
@@ -1427,23 +1452,55 @@
     }
   }
 
+  // SELECTION_FORMS gives the Selection panel fields for each type of item.
+  // renderSelection puts the item data into the data-field elements and the
+  // inputs.
+  const SELECTION_FORMS = {
+    station: '<label>Name<input data-edit="station-name" maxlength="80"></label><p class="id" data-field="id"></p><label class="check"><input data-edit="parking-only" type="checkbox"> Parking station</label><div class="berth-list" data-field="berths"><strong>Physical berths</strong></div><button data-action="add-berth" type="button">Add physical berth</button><button data-action="delete-station" class="danger" type="button">Delete station and connections</button>',
+    lane: '<p class="id" data-field="id"></p><p data-field="route"></p><label>Speed limit (km/h)<input data-edit="lane-speed" type="number" min="1" step="1"></label><p class="hint" data-field="length"></p><button data-action="toggle-curve" type="button"></button><button data-action="delete-lane" class="danger" type="button">Delete guideway</button>',
+    node: '<p class="id" data-field="id"></p><p data-field="position"></p><button data-action="delete-node" class="danger" type="button">Delete junction and connections</button>',
+  };
+
+  // renderSelection shows the fields of the selected station, lane or
+  // junction. An arrow key in Speed limit or a name edit changes the draft,
+  // and each draft change renders the page. While the same item stays
+  // selected, renderSelection changes the fields in place. Then a field
+  // keeps the keyboard focus and its caret, and Tab after an edit goes to
+  // the next field.
   function renderSelection() {
-    const panel = $("#selectionContent"); const config = draft();
-    if (!state.selection) { panel.className = "empty"; panel.textContent = "No item selected."; return; }
-    panel.className = "selection-card";
-    if (state.selection.type === "station") {
-      const station = config.network.Stations.find((item) => item.ID === state.selection.id);
-      if (!station) { state.selection = null; renderSelection(); return; }
-      panel.innerHTML = `<label>Name<input data-edit="station-name" maxlength="80" value="${esc(station.Name)}"></label><p class="id">${esc(station.ID)}</p><label class="check"><input data-edit="parking-only" type="checkbox" ${station.ParkingOnly ? "checked" : ""}> Parking station</label><div class="berth-list"><strong>Physical berths</strong>${station.Berths.map((berth) => `<div class="berth-row${state.selection.berth === berth.ID ? " selected" : ""}"><span>${esc(berth.ID)}</span><button data-action="remove-berth" data-id="${esc(berth.ID)}" type="button" ${station.Berths.length <= 1 ? "disabled" : ""}>Remove</button></div>`).join("")}</div><button data-action="add-berth" type="button">Add physical berth</button><button data-action="delete-station" class="danger" type="button">Delete station and connections</button>`;
-    } else if (state.selection.type === "lane") {
-      const lane = config.network.Lanes.find((item) => item.ID === state.selection.id);
-      if (!lane) { state.selection = null; renderSelection(); return; }
-      panel.innerHTML = `<p class="id">${esc(lane.ID)}</p><p>${esc(lane.From)} → ${esc(lane.To)}</p><label>Speed limit (km/h)<input data-edit="lane-speed" type="number" min="1" step="1" value="${Math.round(lane.SpeedLimit*3.6)}"></label><p class="hint">Length: ${laneLength(config, lane).toFixed(1)} m</p><button data-action="toggle-curve" type="button">${lane.Control ? "Make straight" : "Add curve"}</button><button data-action="delete-lane" class="danger" type="button">Delete guideway</button>`;
-    } else {
-      const node = config.network.Nodes.find((item) => item.ID === state.selection.id);
-      if (!node) { state.selection = null; renderSelection(); return; }
-      panel.innerHTML = `<p class="id">${esc(node.ID)}</p><p>Junction at ${node.Position.X.toFixed(1)}, ${node.Position.Y.toFixed(1)} m</p><button data-action="delete-node" class="danger" type="button">Delete junction and connections</button>`;
+    const panel = $("#selectionContent"); const card = selectionCard(draft(), state.selection);
+    if (!card) { state.selection = null; delete panel.dataset.card; panel.className = "empty"; panel.textContent = "No item selected."; return; }
+    const key = `${card.type} ${card.id}`;
+    if (panel.dataset.card !== key) { panel.dataset.card = key; panel.className = "selection-card"; panel.innerHTML = SELECTION_FORMS[card.type]; }
+    const field = (name) => panel.querySelector(`[data-field="${name}"]`); const input = (name) => panel.querySelector(`[data-edit="${name}"]`);
+    // Set only a changed value. This keeps the caret in a focused field.
+    const setValue = (element, value) => { if (element.value !== value) element.value = value; };
+    field("id").textContent = card.id;
+    if (card.type === "station") {
+      setValue(input("station-name"), card.name); input("parking-only").checked = card.parkingOnly; renderBerths(field("berths"), card);
+    } else if (card.type === "lane") {
+      field("route").textContent = `${card.from} → ${card.to}`; setValue(input("lane-speed"), String(card.speed));
+      field("length").textContent = `Length: ${card.length.toFixed(1)} m`;
+      panel.querySelector('[data-action="toggle-curve"]').textContent = card.curved ? "Make straight" : "Add curve";
+    } else field("position").textContent = `Junction at ${card.x.toFixed(1)}, ${card.y.toFixed(1)} m`;
+  }
+
+  // renderBerths shows a row with a Remove button for each berth of the
+  // selected station, and marks the berth that the selection names. When the
+  // station has the same berths, it changes the rows in place.
+  function renderBerths(list, card) {
+    let rows = [...list.querySelectorAll(".berth-row")];
+    if (rows.length !== card.berths.length || card.berths.some((berth, index) => rows[index].dataset.berth !== berth.id)) {
+      rows.forEach((row) => row.remove());
+      rows = card.berths.map((berth) => {
+        const row = document.createElement("div"); row.className = "berth-row"; row.dataset.berth = berth.id;
+        const name = document.createElement("span"); name.textContent = berth.id;
+        const button = document.createElement("button"); button.type = "button"; button.dataset.action = "remove-berth"; button.dataset.id = berth.id; button.textContent = "Remove";
+        row.append(name, button); return row;
+      });
+      list.append(...rows);
     }
+    card.berths.forEach((berth, index) => { rows[index].classList.toggle("selected", berth.selected); rows[index].querySelector("button").disabled = !card.canRemove; });
   }
 
   // renderFleet shows a pod count field for each station. An arrow key in a

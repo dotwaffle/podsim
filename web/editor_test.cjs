@@ -283,6 +283,45 @@ test("fleet rows give each station its pod count and berth limit", () => {
   }
 });
 
+test("the selection card gives the fields of the selected item", () => {
+  let config = connectedScenario();
+  config = editor.addBerth(config, config.network.Stations[1].ID);
+  config = editor.addJunction(config, 64.25, 160);
+  const [alpha, beta] = config.network.Stations;
+  const lane = (from, to) => config.network.Lanes.find((item) => item.From === from && item.To === to);
+  const [straight, curved] = [lane(alpha.Exit, beta.Entry), lane(beta.Exit, alpha.Entry)];
+  const junction = config.network.Nodes.at(-1);
+  delete alpha.ParkingOnly;
+  beta.ParkingOnly = true;
+  straight.SpeedLimit = 12.5;
+  curved.SpeedLimit = 11.25;
+  curved.Control = { X: 220, Y: 40 };
+  const cases = [
+    { name: "no selection", selection: null, want: null },
+    {
+      name: "station with one berth and no ParkingOnly", selection: { type: "station", id: alpha.ID },
+      want: { type: "station", id: alpha.ID, name: "Alpha", parkingOnly: false, canRemove: false, berths: [{ id: alpha.Berths[0].ID, selected: false }] },
+    },
+    {
+      name: "parking station with a marked berth", selection: { type: "station", id: beta.ID, berth: beta.Berths[1].ID },
+      want: { type: "station", id: beta.ID, name: "Beta", parkingOnly: true, canRemove: true, berths: [{ id: beta.Berths[0].ID, selected: false }, { id: beta.Berths[1].ID, selected: true }] },
+    },
+    {
+      name: "straight lane", selection: { type: "lane", id: straight.ID },
+      want: { type: "lane", id: straight.ID, from: alpha.Exit, to: beta.Entry, speed: 45, length: editor.laneLength(config, straight), curved: false },
+    },
+    {
+      name: "curved lane rounds the speed", selection: { type: "lane", id: curved.ID },
+      want: { type: "lane", id: curved.ID, from: beta.Exit, to: alpha.Entry, speed: 41, length: editor.laneLength(config, curved), curved: true },
+    },
+    { name: "junction", selection: { type: "node", id: junction.ID }, want: { type: "node", id: junction.ID, x: 64.25, y: 160 } },
+    { name: "missing station", selection: { type: "station", id: "gone" }, want: null },
+    { name: "missing lane", selection: { type: "lane", id: "gone" }, want: null },
+    { name: "missing junction", selection: { type: "node", id: "gone" }, want: null },
+  ];
+  for (const tc of cases) assert.deepEqual(editor.selectionCard(config, tc.selection), tc.want, tc.name);
+});
+
 test("validation reports short lanes and unreachable passenger pairs", () => {
   let config = editor.addStation(editor.emptyConfig(), 100, 100, { name: "Alpha" });
   config = editor.addStation(config, 340, 100, { name: "Beta" });
