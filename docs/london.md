@@ -138,10 +138,10 @@ The shared session samples those weights when automatic demand runs.
 The editor can select another band before it applies the project.
 State frames contain only the selected profile and band IDs, not the complete OD matrix.
 
-A deterministic AM peak qualification submits 40 OD-weighted requests at five-second intervals.
-All 40 completed by 1,411.0 simulated seconds.
+A deterministic AM peak qualification, `TestLondonAMPeakSampleCompletes`, submits 40 OD-weighted requests at five-second intervals with seed 20260922.
+With the code at commit `3b02de8`, all 40 completed by 1,411.0 simulated seconds.
 Average pickup wait was 56.203 seconds, and maximum pickup wait was 389.950 seconds.
-These values predate the release of pickup pods for new work and the zero pickup estimate for an idle pod at the pickup station, so the current run can give different values.
+The current code gives different values, so do not compare these values with current runs.
 At the end of the run, the test also rejects any pod at a station without an assigned berth.
 It runs the geometric separation oracle once per simulated second.
 The oracle skips only pod pairs in distinct separation groups that do not share a junction.

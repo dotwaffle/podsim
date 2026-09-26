@@ -213,6 +213,8 @@ Free-flow remains the default.
 Keep the experimental arm for future work with measured lane travel times or junction-level delay, not as a user-facing routing mode.
 
 Raw results are in [`measurements/routing-policy.csv`](measurements/routing-policy.csv).
+The code at commit `b82b788` gives the recorded values, so the CSV has the columns of that commit.
+The current compare command adds more columns, and it can give different values.
 
 ## WASM loading
 
@@ -564,11 +566,16 @@ No arm provided a clear flow improvement, so the production default remains two 
 The London preset uses 2019 midweek NUMBAT OD weights for 94 of its 96 passenger stations.
 `LondonDemand` normalizes the 8,474 retained OD pairs within each of eight source time bands.
 
-The fixed AM peak run submitted 40 OD-weighted requests at five-second intervals.
-All 40 completed by 1,411.0 simulated seconds.
-Average pickup wait was 56.203 seconds, and maximum pickup wait was 389.950 seconds.
-These values predate the release of pickup pods for new work and the zero pickup estimate for an idle pod at the pickup station, so the current run can give different values.
+The fixed AM peak sample is the schedule of `TestLondonAMPeakSampleCompletes`.
+It submits 40 OD-weighted requests from the AM peak band at five-second intervals, with seed 20260922.
 The schedule SHA-256 is `02d3b6086d3ee5f58c9cbdb5bb574c042e0b8cd911656ed2c98099ea595aa024`.
+This sample is not an arm of the capacity sweep below.
+
+The code at commit `3b02de8` gives the recorded values.
+All 40 requests completed by 1,411.0 simulated seconds.
+Average pickup wait was 56.203 seconds, and maximum pickup wait was 389.950 seconds.
+Later dispatch changes release pickup pods for new work and give an idle pod at the pickup station a zero pickup estimate.
+Thus the current code gives different values, so do not compare these values with current runs.
 
 The London project also carries all eight bands as a portable OD profile.
 A live-session test enables the project demand and verifies that the first generated request has a positive weight in the selected AM peak band.
