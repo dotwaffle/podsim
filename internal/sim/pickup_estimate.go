@@ -49,6 +49,13 @@ func (s *Simulation) SetFinishingPodWait(rule FinishingPodWait) error {
 
 // waitForFinishingPod is advisory. It never assigns a busy pod or reserves a berth.
 // s.finishingPodWait selects when it holds the trip.
+//
+// Network validation keeps each lane speed positive, so emptySeconds is not
+// negative. Thus the ETA of a busy pod is not less than the time before the
+// pod is available. When that time cannot win, the loop does not compute
+// the empty route. But while the congestion costs are due for a refresh,
+// the loop computes each empty route, because the first route query
+// refreshes the costs.
 func (s *Simulation) waitForFinishingPod(trip *waitingTrip, idle *vehicle, assigned map[string]bool) bool {
 	if s.finishingPodWait == FinishingPodWaitNone {
 		return false
@@ -83,6 +90,9 @@ func (s *Simulation) waitForFinishingPod(trip *waitingTrip, idle *vehicle, assig
 		}
 		node, remaining, ok := s.availableAfter(v)
 		if !ok {
+			continue
+		}
+		if canWin := remaining < bestETA && remaining <= holdSeconds; !canWin && !s.congestionRefreshDue() {
 			continue
 		}
 		eta := remaining + s.emptySeconds(node, station.Berths[0].Node)
