@@ -139,7 +139,7 @@ Keep internal path lengths and movement conflicts possible in the model even whe
   A server restart clears them.
   At the limit, a new save point removes the oldest one.
 - With the `-state` server option, save the live shared session to disk and restore it on a best-effort basis after a server restart.
-  The `physical` restore tier keeps the pod positions and moves a pod that cannot keep its position to a free berth.
+  The `physical` restore tier keeps the pod positions and moves a traveling pod that cannot keep its position to a free berth.
   When the `physical` tier fails, the `logical` tier starts the pods again at their initial berths.
   Parties that were unloading count as completed, and the other parties in pods go back to the queue.
   The saved state does not hold save points or command receipts.

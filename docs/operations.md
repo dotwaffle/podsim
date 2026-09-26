@@ -24,6 +24,7 @@ Files from `-dir` or `dist` have a modification time, and the server answers `30
 The WASM module has only an ETag that comes from its content, and no `Last-Modified` header.
 Thus a new module with the same modification time gets a full response.
 Embedded files have no modification time, so browsers download them again on each load.
+The WASM module is an exception, because a browser can check its ETag.
 
 The application serves `GET /healthz` without reading simulation state.
 The response is `200 OK` with the body `ok` and a newline.
@@ -189,7 +190,8 @@ At startup, the server reads `session.json.gz` and restores the session with one
 
 - `physical`: The pods keep their lane positions and start again at speed 0.
   The server makes the track reservations again.
-  A pod that conflicts with another pod, or that has a route that the server cannot restore, goes to a free berth.
+  A traveling pod that conflicts with another pod, or that has a route that the server cannot restore, goes to a free berth.
+  The tier fails when two pods at berths conflict, or when a traveling pod finds no free berth.
   Its parties board again at their origin station, or go back to the queue.
 - `logical`: The server uses this tier with reason `physical_failed` when the `physical` tier fails.
   It also uses it with reason `restore_loop`, as described below.

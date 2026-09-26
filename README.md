@@ -121,7 +121,7 @@ At startup, the server restores the saved session with one of these tiers:
 
 | Tier | Behavior |
 | --- | --- |
-| `physical` | The pods keep their positions and start again from rest. A pod that cannot keep its position goes to a free berth. |
+| `physical` | The pods keep their positions and start again from rest. A traveling pod that cannot keep its position goes to a free berth. |
 | `logical` | The pods start again at their initial berths. Parties that were unloading count as completed. Other parties in pods go back to the order queue. |
 | `empty` | The server does not use the saved state and starts a new session. Except after a read failure, it moves the file aside. |
 
@@ -198,7 +198,7 @@ See [distribution and operations](docs/operations.md) for build and runtime sett
   Pinch with two fingers on the map to zoom at their midpoint, and move the two fingers to pan.
   A drag that starts outside the map does nothing.
   A touch that the browser cancels, for example when you switch to a different tab or app, is not a tap.
-- The scale bar in the lower-left corner of the map shows a round distance of 1, 2, or 5 times a power of ten, for example 500 m, 1 km, or 2 km.
+- The scale bar below the lower-left corner of the map shows a round distance of 1, 2, or 5 times a power of ten, for example 500 m, 1 km, or 2 km.
 - Map navigation stays local to your browser.
 - A click, tap, or drag on the map, or **Fit**, stops following.
 - **Reset** and **Rewind** keep the map view when the network does not change.
@@ -224,7 +224,7 @@ See [distribution and operations](docs/operations.md) for build and runtime sett
   They stay inside the map, off the berth rings, and off other expanded labels and berth numbers.
   A label without a free place does not show until you zoom or pan.
   Each text line has a dark backing, so a lane under the text does not make it hard to read.
-  On a network with more than 30 stations, a pod label that covers an expanded label does not show, except the label of the selected pod.
+  On a network with more than 30 stations, a pod label that covers an overview label or an expanded label does not show, except the label of the selected pod.
 - Expanded entrance labels show stopped and approaching pods.
   Exit labels show stopped departing pods.
 - Queue counts include dedicated access spurs, but exclude general road traffic.
@@ -270,7 +270,7 @@ See [the London qualification network](docs/london.md) for these rules.
 - Fleet use shows the percentage of pods with assigned or active work and the percentage currently in passenger service.
 - The run status beside the title shows the playback speed, the simulated time, and the number of completed journeys.
   While the run is paused, the run status is amber and starts with **PAUSED**.
-  The number of stations and pods shows below the run status.
+  The number of passenger stations and pods shows below the run status.
 
 ### Playback
 
@@ -326,7 +326,7 @@ To get to them, move the focus to the start of the page, for example from the br
 While the simulation starts, and after a server change to a simulation that uses other page messages, these controls show in the top left corner.
 After you select **Simulation** or **← Simulation** with the keyboard, **Edit scenario** gets the focus in its place.
 After a click outside the simulation, click the simulation to use the keyboard shortcuts again.
-While the connection works and the simulation has no keyboard focus, the line below the panels shows **Click the simulation to use keyboard shortcuts** in amber.
+While the connection works, no command waits for the server, and the simulation has no keyboard focus, the line below the panels shows **Click the simulation to use keyboard shortcuts** in amber.
 
 ### Debug capture
 
@@ -433,7 +433,7 @@ The draft stays local until you select **Pause and apply**.
 ### Edit the network
 
 - Create stations and explicit junctions, then connect their nodes with directed guideways.
-- Select paired lanes to add both directions.
+- Select **Add paired lanes** to add both directions.
   Crossing lines do not create a junction.
 - A small chevron at the middle of each guideway shows its direction.
   The chevron has the same size at each zoom.
@@ -913,7 +913,7 @@ The shared simulation receives the network geometry and settings.
 
 The map buffers 150 ms of snapshots and interpolates movement along lanes between updates.
 Controls and order status use the latest server state.
-Pauses, resets, rewinds, and long connection gaps clear buffered motion.
+Pauses, speed changes, resets, rewinds, the start and end of the traffic demo, and long connection gaps clear buffered motion.
 Rendering never predicts movement beyond the latest received position.
 
 #### Compression and the WASM module
@@ -967,13 +967,14 @@ Each server process sends its own start ID, so the simulation view finds a serve
 #### Command receipts
 
 The server deduplicates command retries by client and sequence.
-The server keeps command receipts for at most 1,024 browser page loads per session.
-Only a page that sends a command uses a receipt.
+The server keeps command receipts for at most 1,024 clients per session.
+Each simulation view, editor, and desktop client that sends a command is one client.
+A page reload makes new clients.
 If a new page reports the session client limit, restart the server.
 
 If the server made its final save at a graceful shutdown and restores the session with the `physical` or `logical` tier, the session continues.
 Then a retry of a command from before the restart gets the `expired_command` error, and the server does not apply the command again.
-The pages from before the restart also stay in the count of 1,024 page loads.
+The clients from before the restart also stay in the limit of 1,024 clients.
 
 The session does not continue after a restart at the client limit or after other restarts.
 Then the retry gets the `session_changed` error, and the count starts again.
@@ -1014,10 +1015,10 @@ mise run check
 | `mise run check` | Workflow validation, Markdown checks, race tests, the qualification tests without the race detector, the `test:web` tests, vet, lint, vulnerability checks, the native and browser builds, and the embedded server tests. |
 | `mise run format` | Formats the Go sources and the Markdown files. |
 | `mise run test:web` | Only the editor, loader, and page tests. |
-| `mise run qualify` | The `internal/scenarios` qualification tests for scale, safety, and repeatability, without the race detector. The two Station 19 drain tests skip under the race detector, so only this task runs them. |
+| `mise run qualify` | The `internal/scenarios` qualification tests for scale, safety, and repeatability, without the race detector. The two Station 19 drain tests skip under the race detector, so in `mise run check` only this task runs them. |
 | `mise run benchmark` | 6,000 simulation steps on the 100-pod ring fixture, not on the current `scale100` mesh. |
 
-`mise.toml` tracks Go 1.27 and major versions for the other development tools.
+`mise.toml` tracks Go 1.27, rumdl 0.2, and major versions for the other development tools.
 `mise.lock` records the resolved tool downloads.
 
 Some editor tests use Go to generate the `scale100` and `london` projects.
