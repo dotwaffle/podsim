@@ -1513,7 +1513,7 @@ func (g *Game) drawInspection(screen *ebiten.Image, state sim.Snapshot) {
 		}
 	}
 	if state.Vehicles[g.selected].Pod.WaitReason != sim.NoWait {
-		status = string(state.Vehicles[g.selected].Pod.WaitReason) + " / pod " + state.Vehicles[g.selected].Pod.BlockedBy
+		status = waitStatus(state.Vehicles[g.selected].Pod, state.Vehicles)
 	}
 	if state.Paused {
 		status = "Paused. Resume to advance."
@@ -1542,6 +1542,23 @@ func (g *Game) drawInspection(screen *ebiten.Image, state sim.Snapshot) {
 		}
 		g.label(screen, label{x: row.valueLeft(), y: y, size: 14, value: g.fitInspectionValue(row), color: foreground})
 	}
+}
+
+// waitStatus returns the inspector status of a pod that waits for a local
+// resource. The status gives the wait reason and the pod that holds the
+// resource. It names that pod by its fleet number, which is the label of its
+// pod button. A pod ID that is not in vehicles does not change. Without a
+// blocking pod, the status is the wait reason only.
+func waitStatus(pod sim.Pod, vehicles []sim.Vehicle) string {
+	status := string(pod.WaitReason)
+	if pod.BlockedBy == "" {
+		return status
+	}
+	blocker := pod.BlockedBy
+	if i := slices.IndexFunc(vehicles, func(v sim.Vehicle) bool { return v.Pod.ID == pod.BlockedBy }); i >= 0 {
+		blocker = fleetPodLabel(i)
+	}
+	return status + " / pod " + blocker
 }
 
 // inspectionRow is a row in the pod inspector. A row with a name shows the

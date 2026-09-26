@@ -37,6 +37,37 @@ func TestStationPhaseRows(t *testing.T) {
 	}
 }
 
+// TestWaitStatus checks that the inspector status of a waiting pod names the
+// blocking pod by its fleet number and not by its pod ID.
+func TestWaitStatus(t *testing.T) {
+	t.Parallel()
+	vehicles := []sim.Vehicle{
+		{Pod: sim.Pod{ID: "london-pod-001"}},
+		{Pod: sim.Pod{ID: "london-pod-008"}},
+		{Pod: sim.Pod{ID: "london-pod-003"}},
+	}
+	tests := []struct {
+		name string
+		pod  sim.Pod
+		want string
+	}{
+		{name: "pod ahead", pod: sim.Pod{WaitReason: sim.TrackOccupied, BlockedBy: "london-pod-008"}, want: "Pod ahead / pod 02"},
+		{name: "junction traffic", pod: sim.Pod{WaitReason: sim.JunctionOccupied, BlockedBy: "london-pod-001"}, want: "Junction traffic / pod 01"},
+		{name: "berth occupied", pod: sim.Pod{WaitReason: sim.BerthOccupied, BlockedBy: "london-pod-003"}, want: "Berth occupied / pod 03"},
+		{name: "no parking available", pod: sim.Pod{WaitReason: sim.ParkingUnavailable, BlockedBy: "london-pod-003"}, want: "No parking available / pod 03"},
+		{name: "unknown pod", pod: sim.Pod{WaitReason: sim.TrackOccupied, BlockedBy: "other"}, want: "Pod ahead / pod other"},
+		{name: "no blocking pod", pod: sim.Pod{WaitReason: sim.JunctionOccupied}, want: "Junction traffic"},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			if got := waitStatus(test.pod, vehicles); got != test.want {
+				t.Fatalf("waitStatus(%+v) = %q, want %q", test.pod, got, test.want)
+			}
+		})
+	}
+}
+
 // TestInspectionRows checks the rows of the pod inspector. The station
 // phase rows are last, so the other rows keep their position when the
 // station name row shows.

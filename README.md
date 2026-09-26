@@ -154,6 +154,7 @@ See [distribution and operations](docs/operations.md) for build and runtime sett
   Inspection also shows the full pod ID.
 - The selected pod shows its activity, speed in whole km/h, occupancy, route, and local waiting reason.
 - The display distinguishes a pod ahead, conflicting junction traffic, an occupied berth, and unavailable parking.
+  The waiting reason names the blocking pod by its fleet number, for example **Pod ahead / pod 02**.
 
 ### Pod colors and shapes
 
