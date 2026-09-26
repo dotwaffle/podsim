@@ -189,6 +189,9 @@ type vehicle struct {
 	// resource in routeReleases must call releaseOwned or clear
 	// routeReleases.
 	nextRelease float64
+	// terminal keeps the last result of terminalLane. Each write of the
+	// route resets it.
+	terminal terminalCheck
 }
 
 // Simulation owns a fixed fleet and local track, junction, and berth resources.

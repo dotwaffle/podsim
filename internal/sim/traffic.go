@@ -87,6 +87,7 @@ func (s *Simulation) setVehicleRoute(v *vehicle, route []Lane) {
 	v.Route = route
 	v.blocks = s.routeBlocks(route)
 	v.blockStarts = indexBlockStarts(v.blocks, len(route))
+	v.terminal = terminalCheck{}
 }
 
 func indexBlockStarts(blocks []block, capacity int) map[string]int {

@@ -174,7 +174,7 @@ var persistRules = map[reflect.Type]map[string]persistRule{
 		"routeReleases": persistDerive, "nextRelease": persistReset, "blockIndex": persistDerive, "reservedThrough": persistDerive,
 		"originReleased": persistDerive, "distance": persistSave, "pending": persistDerive, "waitSince": persistSave,
 		"rebalanceAfter": persistSave, "origin": persistSave, "destination": persistSave,
-		"destinationStation": persistSave, "released": persistSave,
+		"destinationStation": persistSave, "released": persistSave, "terminal": persistReset,
 	},
 	reflect.TypeFor[Vehicle](): {
 		"Pod": persistSave, "Request": persistSave, "Route": persistSave, "Parties": persistSave,
