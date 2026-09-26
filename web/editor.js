@@ -2303,16 +2303,6 @@
     offerDraft(await saved);
   }
 
-  async function runExampleSequence() {
-    const button = $("#demoButton"); button.disabled = true;
-    try {
-      await postCommand(state.connection, { action: "demo" });
-      toast("The traffic demo started. Return to the simulation to view it.");
-    } catch (error) {
-      toast(`The traffic demo could not start. ${error.message}`, true);
-    } finally { button.disabled = false; }
-  }
-
   // applyProject applies the draft to the live session. The keeper saves
   // the draft first, so a failed apply does not lose it. A successful apply
   // makes the draft the live baseline and deletes the saved draft. While
@@ -2391,7 +2381,6 @@
     $("#fitButton").addEventListener("click", fitNetwork); $("#cancelLinkButton").addEventListener("click", () => { state.linkFrom = ""; render(); });
     $("#undoButton").addEventListener("click", () => stepHistory(false)); $("#redoButton").addEventListener("click", () => stepHistory(true));
     $("#resetButton").addEventListener("click", () => { if (!state.loaded) return; state.draftBase = { revision: state.loadedRevision, epoch: state.connection.epoch }; state.history.replace(state.loaded); state.background = state.loaded.background ? clone(state.loaded.background) : null; state.selection = null; render(); fitNetwork(); toast("The draft matches the last loaded project."); });
-    $("#demoButton").addEventListener("click", runExampleSequence);
     $("#validateButton").addEventListener("click", () => checks.run()); $("#applyButton").addEventListener("click", applyProject);
     $("#restoreDraftButton").addEventListener("click", restoreDraft); $("#discardDraftButton").addEventListener("click", discardDraft);
     // In the shell page, the return link asks the shell to show the game.

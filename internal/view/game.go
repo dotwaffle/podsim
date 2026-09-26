@@ -104,6 +104,9 @@ type Game struct {
 	notice       string
 	noticeAction string
 	noticeTicks  int
+	// confirmDeadline is the wall-clock time at which the confirmation
+	// that shows ends. See confirmSubmit.
+	confirmDeadline time.Time
 	// acceptedOrigin and acceptedDestination are the stations of the last
 	// accepted order. The request button reads Order accepted only while
 	// From and To are these stations.
@@ -189,7 +192,7 @@ func (g *Game) Update() error {
 		g.pause()
 	}
 	if inpututil.IsKeyJustPressed(ebiten.KeyR) && ebiten.IsKeyPressed(ebiten.KeyShift) {
-		g.reset()
+		g.reset(time.Now())
 		return nil
 	}
 	if inpututil.IsKeyJustPressed(ebiten.KeyEnter) {
@@ -275,7 +278,7 @@ func (g *Game) tickNotice() {
 
 // updateMapInput applies the mouse input of this frame. pointer corrects
 // the cursor position. See pointerTransform. It returns true when a click
-// presses Reset or Rewind. See click.
+// presses Reset, Start traffic demo, or Rewind. See click.
 func (g *Game) updateMapInput(pointer pointerTransform) bool {
 	x, y := ebiten.CursorPosition()
 	point := pointer.apply(sim.Point{X: float64(x), Y: float64(y)})
@@ -320,21 +323,70 @@ const resetConfirmNotice = "Select Reset again within 3 s to reset the shared se
 // resetNotice tells the user that the server accepted the reset.
 const resetNotice = "Session reset."
 
-// reset sends the reset command only while the reset confirmation shows.
-// The first press shows the confirmation and sends nothing. The confirmation
-// shows for noticeDuration ticks, or until a different notice replaces it.
-// The first press also clears an old message, so that the message does not
-// show again when the confirmation ends. The second press removes the
-// confirmation before it sends. If the send fails, the error shows and the
-// next press asks again.
-func (g *Game) reset() {
-	if g.noticeAction == resetConfirmAction && g.noticeTicks > 0 {
+// demoConfirmAction is the notice action of the demo confirmation.
+const demoConfirmAction = "demo-confirm"
+
+// demoConfirmNotice asks for a second press of Start traffic demo. The demo
+// resets the session for every browser, so one press does not start it.
+const demoConfirmNotice = "Select Start traffic demo again within 3 s to reset the shared session and start the demo."
+
+// confirmation is a notice that asks for a second press of a control. It
+// guards a command that resets the shared session.
+type confirmation struct {
+	// action is the notice action of the confirmation, and notice is its
+	// text.
+	action, notice string
+}
+
+// isConfirmation reports whether action is the notice action of a
+// confirmation.
+func isConfirmation(action string) bool {
+	return action == resetConfirmAction || action == demoConfirmAction
+}
+
+// confirmWindow is the wall-clock time in which a second press sends the
+// command of a confirmation. It is the time of noticeDuration.
+const confirmWindow = 3 * time.Second
+
+// confirmSubmit sends command only while prompt shows and before the
+// confirmation window ends. now is the time of the press. The first press
+// shows prompt, starts the window, and sends nothing. prompt shows for
+// noticeDuration ticks, or until a different notice replaces it. The
+// confirmation of a different control also replaces it, so each command
+// needs two presses of its own control. The first press also clears an old
+// message, so that the message does not show again when prompt ends. The
+// second press removes prompt before it sends. If the send fails, the error
+// shows and the next press asks again.
+//
+// The window uses wall-clock time, because the browser stops Update in a
+// hidden tab and Ebitengine runs only some of the missed ticks later. The
+// notice ticks then stop, but the window ends after confirmWindow. A press
+// after the window is a new first press.
+func (g *Game) confirmSubmit(prompt confirmation, command session.Command, now time.Time) {
+	if g.noticeAction == prompt.action && g.noticeTicks > 0 && now.Before(g.confirmDeadline) {
 		g.notice, g.noticeAction, g.noticeTicks = "", "", 0
-		g.submit(session.Command{Action: "reset"})
+		g.confirmDeadline = time.Time{}
+		g.submit(command)
 		return
 	}
 	g.message = ""
-	g.showNotice(resetConfirmAction, resetConfirmNotice)
+	g.showNotice(prompt.action, prompt.notice)
+	g.confirmDeadline = now.Add(confirmWindow)
+}
+
+// reset sends the reset command on the second press of Reset or Shift+R.
+// now is the time of the press. See confirmSubmit.
+func (g *Game) reset(now time.Time) {
+	g.confirmSubmit(confirmation{action: resetConfirmAction, notice: resetConfirmNotice}, session.Command{Action: "reset"}, now)
+}
+
+// startDemo sends the demo command on the second press of Start traffic
+// demo. now is the time of the press. See confirmSubmit. The server accepts
+// the demo only for the supplied example scenario. The game cannot know the
+// scenario, so a rejection shows in the message line, as for other
+// commands.
+func (g *Game) startDemo(now time.Time) {
+	g.confirmSubmit(confirmation{action: demoConfirmAction, notice: demoConfirmNotice}, session.Command{Action: "demo"}, now)
 }
 
 func (g *Game) cycleSpeed() {
@@ -481,17 +533,17 @@ func (g *Game) layoutButton(b button) button {
 	if b.x >= 796 && !b.expandsWithMap || strings.HasPrefix(b.action, "map-") || b.action == "request" {
 		x += g.layout.extraX
 	}
-	// The Orders page controls are above the pod selector, but they move
-	// down with it.
-	if movesDown(b.x, b.y) || strings.HasPrefix(b.action, "orders-") {
+	// The Orders page controls and Start traffic demo are above the pod
+	// selector, but they move down with it.
+	if movesDown(b.x, b.y) || strings.HasPrefix(b.action, "orders-") || b.action == "demo" {
 		y += g.layout.extraY
 	}
 	b.x, b.y, b.w, b.h = x, y, b.w*g.layout.unit, b.h*g.layout.unit
 	return b
 }
 
-// click reports a press of Reset or Rewind, so that the new state can render
-// before the next tick.
+// click reports a press of Reset, Start traffic demo, or Rewind, so that the
+// new state can render before the next tick.
 func (g *Game) click(point sim.Point) bool {
 	for _, b := range g.buttons() {
 		if b.disabled || point.X < b.x || point.X >= b.x+b.w || point.Y < b.y || point.Y >= b.y+b.h {
@@ -528,6 +580,9 @@ func (g *Game) click(point sim.Point) bool {
 			g.showOrders = false
 		case "demand-rate", "demand-pattern", "demand-seed", "demand-toggle":
 			g.changeDemand(b.action)
+		case "demo":
+			g.startDemo(time.Now())
+			return true
 		case "request":
 			g.request()
 		case "pause":
@@ -535,7 +590,7 @@ func (g *Game) click(point sim.Point) bool {
 		case "speed":
 			g.cycleSpeed()
 		case "reset":
-			g.reset()
+			g.reset(time.Now())
 			return true
 		case "checkpoint":
 			g.checkpoint()
@@ -1705,18 +1760,18 @@ func fleetStatLabels(state sim.Snapshot) []label {
 const sameStationHint = "Choose a different destination."
 
 // hintLine returns the line below the journey controls. It shows the first
-// text that is set, in this order: the reset confirmation, the message, the
-// demo error, the notice, sameStationHint, and hint. A second Reset press
-// resets the session while the confirmation is set, so the confirmation
-// shows in place of all other text. The server update message of the
-// desktop client and a demo error can stay for a long time. They must not
-// hide the confirmation. sameStationHint shows while From and To are the
-// same station, but not in the traffic demo. It stays until the user
-// changes the selection, so a notice shows before it.
+// text that is set, in this order: a confirmation, the message, the demo
+// error, the notice, sameStationHint, and hint. A second press of Reset or
+// Start traffic demo resets the session while its confirmation is set, so
+// the confirmation shows in place of all other text. The server update
+// message of the desktop client and a demo error can stay for a long time.
+// They must not hide the confirmation. sameStationHint shows while From and
+// To are the same station, but not in the traffic demo. It stays until the
+// user changes the selection, so a notice shows before it.
 func (g *Game) hintLine(state sim.Snapshot, hint string) label {
 	value, shade := hint, uint32(muted)
 	switch {
-	case g.noticeAction == resetConfirmAction:
+	case isConfirmation(g.noticeAction):
 		value, shade = g.notice, accent
 	case g.message != "":
 		value, shade = g.message, amber

@@ -3,6 +3,7 @@ package view
 import (
 	"cmp"
 	"testing"
+	"time"
 
 	"github.com/dotwaffle/podsim/internal/remote"
 	"github.com/dotwaffle/podsim/internal/session"
@@ -139,6 +140,8 @@ func TestHintLine(t *testing.T) {
 		{name: "reset notice under demo error", noticeAction: "reset", notice: resetNotice, demoError: demoError, wantValue: demoError, wantColor: amber},
 		{name: "message over demo error", message: message, noticeAction: "checkpoint", notice: notice, demoError: demoError, wantValue: message, wantColor: amber},
 		{name: "reset confirmation over message", message: message, noticeAction: resetConfirmAction, notice: resetConfirmNotice, demoError: demoError, wantValue: resetConfirmNotice, wantColor: accent},
+		{name: "demo confirmation over demo error", noticeAction: demoConfirmAction, notice: demoConfirmNotice, demoError: demoError, wantValue: demoConfirmNotice, wantColor: accent},
+		{name: "demo confirmation over message", message: message, noticeAction: demoConfirmAction, notice: demoConfirmNotice, demoError: demoError, wantValue: demoConfirmNotice, wantColor: accent},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -160,18 +163,80 @@ func TestHintLine(t *testing.T) {
 	}
 }
 
+// TestConfirmUsesWallClock presses Reset and Start traffic demo twice with
+// no game ticks between the presses. The browser stops Update in a hidden
+// tab, so the notice ticks do not count down there. Only a second press
+// within 3 s of wall-clock time sends the command. A later second press
+// shows the confirmation again for a full window and sends nothing.
+func TestConfirmUsesWallClock(t *testing.T) {
+	t.Parallel()
+	if want := time.Duration(noticeDuration) * time.Second / sim.TicksPerSecond; confirmWindow != want {
+		t.Fatalf("confirmWindow = %v, want the notice time %v", confirmWindow, want)
+	}
+	start := time.Date(2026, 9, 26, 12, 0, 0, 0, time.UTC)
+	actions := []struct {
+		name, action, notice string
+		press                func(*Game, time.Time)
+	}{
+		{name: "reset", action: resetConfirmAction, notice: resetConfirmNotice, press: (*Game).reset},
+		{name: "demo", action: demoConfirmAction, notice: demoConfirmNotice, press: (*Game).startDemo},
+	}
+	tests := []struct {
+		name     string
+		delay    time.Duration
+		wantSend bool
+	}{
+		{name: "second press at once", wantSend: true},
+		{name: "second press within 3 s", delay: confirmWindow - time.Millisecond, wantSend: true},
+		{name: "second press at 3 s", delay: confirmWindow},
+		{name: "second press after minutes in a hidden tab", delay: 5 * time.Minute},
+	}
+	for _, action := range actions {
+		for _, test := range tests {
+			t.Run(action.name+"/"+test.name, func(t *testing.T) {
+				t.Parallel()
+				game := sharedTestGame(t)
+				syncGame(t, game, func() bool { return true })
+				action.press(game, start)
+				if game.pending || game.noticeAction != action.action {
+					t.Fatalf("first press: pending %t, notice action %q, want no command and %q", game.pending, game.noticeAction, action.action)
+				}
+				second := start.Add(test.delay)
+				action.press(game, second)
+				if !test.wantSend {
+					if _, _, pending := game.client.View(); pending || game.pending {
+						t.Fatalf("second press after %v sent a command", test.delay)
+					}
+					if game.notice != action.notice || game.noticeTicks != noticeDuration || !game.confirmDeadline.Equal(second.Add(confirmWindow)) {
+						t.Fatalf("second press after %v: notice %q for %d ticks until %v, want %q for %d ticks until %v",
+							test.delay, game.notice, game.noticeTicks, game.confirmDeadline, action.notice, noticeDuration, second.Add(confirmWindow))
+					}
+					syncGame(t, game, func() bool { return true })
+					return
+				}
+				if !game.pending || game.sentAction != action.name || game.noticeAction != "" {
+					t.Fatalf("second press after %v: pending %t action %q notice action %q, want %s sent", test.delay, game.pending, game.sentAction, game.noticeAction, action.name)
+				}
+				if result := commandResult(t, game); result.Command.Action != action.name || result.Err != nil || result.Reply.Error != "" {
+					t.Fatalf("result %+v, want an accepted %s", result, action.name)
+				}
+			})
+		}
+	}
+}
+
 // TestResetFailedSend presses Reset twice while another command is on the
 // way. The second press cannot send the reset command. It shows the error
 // and ends the confirmation, so the next press asks again.
 func TestResetFailedSend(t *testing.T) {
 	t.Parallel()
 	game := sharedTestGame(t)
-	game.reset()
+	game.reset(time.Now())
 	// Submit on the client directly, so the confirmation stays.
 	if err := game.client.Submit(session.Command{Action: "speed", Speed: 2}); err != nil {
 		t.Fatalf("submit speed: %v", err)
 	}
-	game.reset()
+	game.reset(time.Now())
 	const want = "waiting for the previous command"
 	if game.message != want || game.noticeAction != "" || game.noticeTicks != 0 {
 		t.Fatalf("after second press: message %q, notice action %q for %d ticks, want message %q and no notice", game.message, game.noticeAction, game.noticeTicks, want)
@@ -180,7 +245,7 @@ func TestResetFailedSend(t *testing.T) {
 		t.Fatalf("hint line = %q, want %q", got.value, want)
 	}
 	syncGame(t, game, func() bool { return game.state.Speed == 2 })
-	game.reset()
+	game.reset(time.Now())
 	if _, _, pending := game.client.View(); pending || game.pending || game.noticeAction != resetConfirmAction {
 		t.Fatalf("third press: pending %t, notice action %q, want no command and the confirmation", pending, game.noticeAction)
 	}

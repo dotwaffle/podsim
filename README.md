@@ -331,8 +331,14 @@ It is a diagnostic capture, not a reloadable project or save point.
 
 ### Traffic demo
 
-To start the demo, select **Edit scenario**, open **Traffic demo**, then select **Start traffic demo**.
+To start the demo, open **Demand**, then select **Start traffic demo** two times within 3 s.
+The demo resets the shared session, so the first press does not start it.
+The first press shows **Select Start traffic demo again within 3 s to reset the shared session and start the demo.**
+The button is not available while the connection is lost, while a command waits for the server, or while the demo runs.
+
 The supplied traffic demo requires the unchanged example network and fleet.
+The **Demand** panel shows **Example scenario only** beside the button.
+For a different scenario, the server rejects the demo, and the line below **From** and **To** shows the reason.
 
 The demo starts four pods: pod 01 at Harbor, pod 02 at Garden, and pods 03 and 04 in Parking.
 
@@ -356,6 +362,8 @@ The four pods remain available after it ends.
 
 Open **Demand** to select the rate, traffic pattern, and seed, then select **Start demand**.
 Each change in the **Demand** panel saves to the project at once, and the panel shows **Changes save to the project**.
+**Start traffic demo** at the bottom of the panel does not change the project.
+See [Traffic demo](#traffic-demo).
 
 **Rate** cycles through 1, 2, 4, 8, 12, 20, 30, and 60 orders per simulated minute, then starts again at 1.
 A project rate that is not in this list, for example 7, shows until the first click.

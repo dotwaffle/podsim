@@ -223,7 +223,7 @@ func TestSessionChangeReplacesConfirmation(t *testing.T) {
 	t.Parallel()
 	game := journeyTestGame(t, 2)
 	game.state = session.State{Epoch: "a", Generation: 4}
-	game.reset()
+	game.reset(time.Now())
 	game.message = "save point #1 is no longer available"
 	previous := game.state
 	game.state.Generation = 5
@@ -232,7 +232,7 @@ func TestSessionChangeReplacesConfirmation(t *testing.T) {
 		t.Fatalf("message %q, notice %q action %q for %d ticks, want no message and notice %q action %q for %d ticks",
 			game.message, game.notice, game.noticeAction, game.noticeTicks, otherBrowserNotice, sessionChangeAction, noticeDuration)
 	}
-	game.reset()
+	game.reset(time.Now())
 	if game.pending || game.notice != resetConfirmNotice {
 		t.Fatalf("press after the change: pending %t notice %q, want no command and notice %q", game.pending, game.notice, resetConfirmNotice)
 	}
@@ -309,8 +309,8 @@ func TestSessionChangeFromServer(t *testing.T) {
 			name: "own reset",
 			change: func(t *testing.T, env changeEnv) {
 				t.Helper()
-				env.game.reset()
-				env.game.reset()
+				env.game.reset(time.Now())
+				env.game.reset(time.Now())
 				if !env.game.pending {
 					t.Fatalf("second press sent no command: %q", env.game.message)
 				}
@@ -396,8 +396,8 @@ func TestOwnResetBeforeReply(t *testing.T) {
 	// server closes, also when the test stops early.
 	t.Cleanup(release)
 	before := game.state.Generation
-	game.reset()
-	game.reset()
+	game.reset(time.Now())
+	game.reset(time.Now())
 	if !game.pending {
 		t.Fatalf("second press sent no command: %q", game.message)
 	}
@@ -463,7 +463,7 @@ func TestGuardsAfterRollbackRestart(t *testing.T) {
 			replies := make(map[string]remote.Result)
 			for _, action := range order {
 				if action == "reset" {
-					game.reset()
+					game.reset(time.Now())
 				}
 				replies[action] = clickReply(t, game, action)
 				if action != delayed {

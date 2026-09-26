@@ -209,7 +209,7 @@ func keptEpochRestart(state session.State) bool {
 
 // announceSessionChange shows a notice when the state changed from previous
 // in a way that this game did not cause. The notice replaces the old
-// message and notice, also the reset confirmation, because they are about
+// message and notice, also a confirmation, because they are about
 // the session before the change.
 func (g *Game) announceSessionChange(previous session.State) {
 	notice := sessionChangeNotice(sessionChangeInput{
@@ -226,7 +226,7 @@ func (g *Game) announceSessionChange(previous session.State) {
 
 // noticeDuration is the time in game ticks that a notice shows. The game
 // runs sim.TicksPerSecond ticks each second, so a notice shows for 3 s. The
-// reset confirmation text gives this time.
+// text of each confirmation gives this time.
 const noticeDuration = 3 * sim.TicksPerSecond
 
 // showNotice shows value in the hint line for noticeDuration ticks. action
@@ -365,11 +365,46 @@ func (g *Game) demandButtons() []button {
 	}
 	disabled := !g.connected || g.pending || g.state.Simulation.Demo
 	return []button{
-		{x: 810, y: 176, w: 250, h: 30, label: fmt.Sprintf("Rate: %d orders/min", config.PerMinute), disabled: disabled, action: "demand-rate"},
-		{x: 810, y: 214, w: 250, h: 30, label: demandPatternLabel(config, destination.Name), disabled: disabled, action: "demand-pattern"},
-		{x: 810, y: 252, w: 250, h: 30, label: fmt.Sprintf("Seed: %d", config.Seed), disabled: disabled, action: "demand-seed"},
-		{x: 810, y: 290, w: 250, h: 30, label: toggle, selected: config.Enabled, disabled: disabled, action: "demand-toggle"},
+		{x: 810, y: 176, w: 250, h: 24, label: fmt.Sprintf("Rate: %d orders/min", config.PerMinute), disabled: disabled, action: "demand-rate"},
+		{x: 810, y: 206, w: 250, h: 24, label: demandPatternLabel(config, destination.Name), disabled: disabled, action: "demand-pattern"},
+		{x: 810, y: 236, w: 250, h: 24, label: fmt.Sprintf("Seed: %d", config.Seed), disabled: disabled, action: "demand-seed"},
+		{x: 810, y: 266, w: 250, h: 24, label: toggle, selected: config.Enabled, disabled: disabled, action: "demand-toggle"},
+		{x: demoButtonLeft, y: demoButtonTop, w: demoButtonWidth, h: demoButtonHeight, label: demoButtonLabel, disabled: disabled, action: "demo", fontSize: demoButtonFontSize},
 	}
+}
+
+const (
+	// demoButtonLabel is the label of the button that starts the traffic
+	// demo.
+	demoButtonLabel = "Start traffic demo"
+	// demoButtonTop is the top of Start traffic demo in design units. The
+	// button and demoHint move down with the pod selector below them, so
+	// they stay at the bottom of the Demand panel in a tall window.
+	demoButtonTop = podSelectorTop - 32
+	// demoButtonLeft, demoButtonWidth and demoButtonHeight set the other
+	// edges of Start traffic demo in design units. The button has the left
+	// edge and the width of the Demand button.
+	demoButtonLeft   = 940.0
+	demoButtonWidth  = 120.0
+	demoButtonHeight = 26.0
+	// demoButtonFontSize is the font size of Start traffic demo. The
+	// label and demoHint then fit side by side in small windows.
+	demoButtonFontSize = 12.0
+	// demoHint shows to the left of Start traffic demo. The server starts
+	// the demo only for the supplied example scenario.
+	demoHint = "Example scenario only"
+)
+
+// demoHintLabel returns demoHint as a label to the left of Start traffic
+// demo. The label starts at the left edge of the panel text and ends at
+// least 6 units before the button. It is at the vertical center of the
+// button, and it moves down with the button.
+func (g *Game) demoHintLabel() label {
+	value := label{size: 10, value: g.fitText(demoHint, 10, demoButtonLeft-6-816), color: muted, physical: true}
+	_, height := text.Measure(value.value, g.labelFace(value), 0)
+	value.x = g.layout.right(816)
+	value.y = g.layout.bottom(demoButtonTop) + (demoButtonHeight*g.layout.unit-height)/2
+	return value
 }
 
 func (g *Game) changeDemand(action string) {
@@ -441,20 +476,21 @@ const (
 
 // demandLabels returns the text of the Demand panel. Below the counters,
 // the last demand error shows in amber on at most demandErrorLines lines.
+// demoHint is the last label.
 func (g *Game) demandLabels() []label {
 	demand := g.state.Demand
 	labels := []label{
 		{x: 816, y: 115, size: 12, value: "PASSENGER DEMAND", color: muted},
 		{x: 816, y: 140, size: 11, value: "Per simulated minute / shared settings", color: foreground},
 		{x: 816, y: 158, size: 10, value: demandSavesNote, color: muted},
-		{x: 816, y: 328, size: 11, value: fmt.Sprintf("Generated %d / skipped %d", demand.Generated, demand.Skipped), color: foreground},
-		{x: 816, y: 346, size: 10, value: g.fitText(redistributionText(g.state), 10, demandTextWidth), color: muted},
+		{x: 816, y: 296, size: 11, value: fmt.Sprintf("Generated %d / skipped %d", demand.Generated, demand.Skipped), color: foreground},
+		{x: 816, y: 314, size: 10, value: g.fitText(redistributionText(g.state), 10, demandTextWidth), color: muted},
 	}
 	errorFit := textFit{face: g.textFace(10), width: demandTextWidth * g.layout.unit}
 	for index, line := range wrapText(demand.Error, errorFit, demandErrorLines) {
-		labels = append(labels, label{x: 816, y: 363 + 13*float64(index), size: 10, value: line, color: amber})
+		labels = append(labels, label{x: 816, y: 331 + 13*float64(index), size: 10, value: line, color: amber})
 	}
-	return labels
+	return append(labels, g.demoHintLabel())
 }
 
 // redistributionText returns the redistribution line of the Demand panel
