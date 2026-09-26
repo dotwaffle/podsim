@@ -298,3 +298,135 @@ func TestRoutesSearchMatchesOneRouteSearch(t *testing.T) {
 		}
 	}
 }
+
+func TestRouteGraphIncomingMatchesOutgoing(t *testing.T) {
+	t.Parallel()
+	for name, network := range routeSearchNetworks() {
+		graph := newRouteGraph(network)
+		if len(graph.incoming) != len(network.Nodes) {
+			t.Fatalf("%s: incoming lanes for %d nodes, want %d", name, len(graph.incoming), len(network.Nodes))
+		}
+		outgoing, incoming := 0, 0
+		for from, lanes := range graph.outgoing {
+			outgoing += len(lanes)
+			for _, index := range lanes {
+				if to := graph.edges[index].to; slices.Index(graph.incoming[to], index) < 0 {
+					t.Fatalf("%s: lane %d from node %d is not an incoming lane of node %d", name, index, from, to)
+				}
+			}
+		}
+		for to, lanes := range graph.incoming {
+			incoming += len(lanes)
+			for _, index := range lanes {
+				if graph.edges[index].to != to {
+					t.Fatalf("%s: incoming lane %d of node %d ends at node %d", name, index, to, graph.edges[index].to)
+				}
+			}
+		}
+		if incoming != outgoing {
+			t.Fatalf("%s: %d incoming lanes, %d outgoing lanes", name, incoming, outgoing)
+		}
+	}
+}
+
+// routeCost adds the lane costs of a route in route order, or in reverse
+// order. It adds each lane cost as the route search does.
+func routeCost(route []Lane, costs []float64, graph routeGraph, reverse bool) float64 {
+	total := 0.0
+	for index := range route {
+		if reverse {
+			index = len(route) - 1 - index
+		}
+		laneIndex := graph.lanes[route[index].ID]
+		extra := 0.0
+		if laneIndex < len(costs) {
+			extra = costs[laneIndex]
+		}
+		total = total + graph.edges[laneIndex].seconds + extra
+	}
+	return total
+}
+
+func TestNearestWithinForwardMatchesNearestIndexed(t *testing.T) {
+	t.Parallel()
+	for name, network := range routeSearchNetworks() {
+		graph := newRouteGraph(network)
+		for costName, costs := range routeSearchCosts(network) {
+			for step := 2; step <= 5; step++ {
+				rank := make([]int, len(network.Nodes))
+				for index := range rank {
+					rank[index] = -1
+					if index%step == 0 {
+						rank[index] = index % 3
+					}
+				}
+				for _, node := range append(slices.Clone(network.Nodes), Node{ID: "unknown"}) {
+					input := nearestInput{from: node.ID, rank: rank, extraCost: costs}
+					wantNode, wantOK := network.nearestIndexed(input, graph)
+					gotNode, _, gotOK := network.nearestWithin(nearestWithinInput{nearestInput: input, limit: math.Inf(1)}, graph)
+					if gotOK != wantOK || gotOK && gotNode != wantNode {
+						t.Fatalf("%s %s step %d: nearest within from %s = %d, %v, want %d, %v", name, costName, step, node.ID, gotNode, gotOK, wantNode, wantOK)
+					}
+				}
+			}
+		}
+	}
+}
+
+// TestNearestWithinCostsMatchRoutes checks the cost of one goal against the
+// route between the nodes. A forward search adds the lane costs in route
+// order, as the route search does, so the cost is equal. A reverse search
+// adds them in the opposite order, so the cost can differ by a rounding
+// error. The test also checks the limit at the cost and just below it.
+func TestNearestWithinCostsMatchRoutes(t *testing.T) {
+	t.Parallel()
+	for name, network := range routeSearchNetworks() {
+		graph := newRouteGraph(network)
+		for costName, costs := range routeSearchCosts(network) {
+			routes := 0
+			for _, from := range network.Nodes {
+				for _, to := range network.Nodes {
+					route, err := network.routeIndexed(networkRouteInput{from: from.ID, to: to.ID, extraCost: costs}, graph)
+					if err != nil || len(route) == 0 {
+						continue
+					}
+					routes++
+					forward, reverse := routeCost(route, costs, graph, false), routeCost(route, costs, graph, true)
+					for _, search := range []struct {
+						reverse    bool
+						start, end string
+						want       float64
+					}{
+						{start: from.ID, end: to.ID, want: forward},
+						{reverse: true, start: to.ID, end: from.ID, want: reverse},
+					} {
+						rank := make([]int, len(network.Nodes))
+						for index := range rank {
+							rank[index] = -1
+						}
+						rank[graph.nodes[search.end]] = 0
+						input := nearestWithinInput{from: search.start, rank: rank, extraCost: costs, reverse: search.reverse}
+						input.limit = math.Inf(1)
+						node, cost, ok := network.nearestWithin(input, graph)
+						if !ok || node != graph.nodes[search.end] || math.Abs(cost-search.want) > 1e-9*max(1, search.want) ||
+							!search.reverse && cost != search.want {
+							t.Fatalf("%s %s: reverse %v from %s to %s = %d, %v, %v, want node %d cost %v",
+								name, costName, search.reverse, search.start, search.end, node, cost, ok, graph.nodes[search.end], search.want)
+						}
+						input.limit = cost
+						if _, _, ok := network.nearestWithin(input, graph); !ok {
+							t.Fatalf("%s %s: reverse %v from %s to %s: no goal at a limit equal to cost %v", name, costName, search.reverse, search.start, search.end, cost)
+						}
+						input.limit = math.Nextafter(cost, 0)
+						if _, _, ok := network.nearestWithin(input, graph); ok {
+							t.Fatalf("%s %s: reverse %v from %s to %s: a goal past the limit %v", name, costName, search.reverse, search.start, search.end, input.limit)
+						}
+					}
+				}
+			}
+			if routes == 0 {
+				t.Fatalf("%s %s: no routes", name, costName)
+			}
+		}
+	}
+}

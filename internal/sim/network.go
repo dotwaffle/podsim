@@ -348,10 +348,84 @@ func (n Network) nearestIndexed(input nearestInput, graph routeGraph) (int, bool
 	return best, best >= 0
 }
 
+// nearestWithinInput is the input of nearestWithin.
+type nearestWithinInput struct {
+	nearestInput
+	// limit is the highest route cost that a goal can have.
+	limit float64
+	// reverse makes the search follow each lane from its end to its start.
+	// The cost of a goal is then the route cost from the goal to from.
+	reverse bool
+}
+
+// nearestWithin returns the index of the goal node with the lowest route
+// cost, and that cost. The cost is the same as in nearestIndexed. Without
+// reverse, it is the route cost from input.from to the goal. With reverse,
+// it is the route cost from the goal to input.from. The search does not go
+// past input.limit. It reports false when no goal has a cost of input.limit
+// or less. Between goals with the same cost, the lower rank wins.
+func (n Network) nearestWithin(input nearestWithinInput, graph routeGraph) (int, float64, bool) {
+	start, ok := graph.nodes[input.from]
+	if !ok {
+		return 0, 0, false
+	}
+	adjacent := graph.outgoing
+	if input.reverse {
+		adjacent = graph.incoming
+	}
+	distance := make([]float64, len(n.Nodes))
+	visited := make([]bool, len(n.Nodes))
+	for i := range distance {
+		distance[i] = math.Inf(1)
+	}
+	distance[start] = 0
+	best, bestDistance := -1, math.Inf(1)
+	queue := routeQueue{{node: start}}
+	for len(queue) > 0 {
+		item := queue.pop()
+		if item.distance > bestDistance {
+			break
+		}
+		if visited[item.node] || item.distance != distance[item.node] {
+			continue
+		}
+		visited[item.node] = true
+		if rank := input.rank[item.node]; rank >= 0 {
+			if best < 0 || rank < input.rank[best] {
+				best, bestDistance = item.node, item.distance
+			}
+			continue
+		}
+		for _, laneIndex := range adjacent[item.node] {
+			edge := graph.edges[laneIndex]
+			next := edge.to
+			if input.reverse {
+				next = edge.from
+			}
+			extra := 0.0
+			if laneIndex < len(input.extraCost) {
+				extra = input.extraCost[laneIndex]
+			}
+			candidate := item.distance + edge.seconds + extra
+			if candidate <= input.limit && candidate < distance[next] {
+				distance[next] = candidate
+				queue.push(routeQueueItem{node: next, distance: candidate})
+			}
+		}
+	}
+	if best < 0 {
+		return 0, 0, false
+	}
+	return best, bestDistance, true
+}
+
 type routeGraph struct {
 	nodes    map[string]int
 	lanes    map[string]int
 	outgoing [][]int
+	// incoming holds the index of each lane that ends at a node. Only
+	// nearestWithin reads it.
+	incoming [][]int
 	lengths  []float64
 	// edges holds the route search data of each lane, so that the search
 	// does not look up node IDs. Only a lane in outgoing has an edge.
@@ -368,7 +442,7 @@ type routeEdge struct {
 func newRouteGraph(network Network) routeGraph {
 	graph := routeGraph{
 		nodes: make(map[string]int, len(network.Nodes)), lanes: make(map[string]int, len(network.Lanes)), outgoing: make([][]int, len(network.Nodes)),
-		lengths: make([]float64, len(network.Lanes)), edges: make([]routeEdge, len(network.Lanes)),
+		incoming: make([][]int, len(network.Nodes)), lengths: make([]float64, len(network.Lanes)), edges: make([]routeEdge, len(network.Lanes)),
 	}
 	for index, node := range network.Nodes {
 		graph.nodes[node.ID] = index
@@ -381,6 +455,7 @@ func newRouteGraph(network Network) routeGraph {
 			continue
 		}
 		graph.outgoing[from] = append(graph.outgoing[from], index)
+		graph.incoming[to] = append(graph.incoming[to], index)
 		graph.lengths[index] = indexedLaneLength(lane, network.Nodes[from].Position, network.Nodes[to].Position)
 		graph.edges[index] = routeEdge{from: from, to: to, seconds: graph.lengths[index] / lane.SpeedLimit}
 	}
