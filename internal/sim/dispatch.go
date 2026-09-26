@@ -59,6 +59,15 @@ func (s *Simulation) RequestTrip(origin, destination string) error {
 // is equal to a new route. A trip that waitForFinishingPod holds until its
 // next check does not need pickupPod. See keepHold.
 //
+// Most waiting trips have a pod on its way to the pickup. For each such
+// trip, promoteReadyPickup looks for a later trip with a pod that is idle at
+// the pickup station, and localPickup looks for an idle pod at the pickup
+// station. At a station with no idle pod, both scans find nothing and
+// change nothing. The pass keeps a filter over the stations with an idle
+// pod, and the loop does not do the scans at a station that the filter
+// excludes. mayBeIdle computes the filter again at the first use after a
+// reset of the pass. Thus the filter includes each station with an idle pod.
+//
 // When a local idle pod takes a trip from a pod on its way to the pickup,
 // dispatch releases the other pod. The released pod can divert at once, so
 // a later trip in the same pass can take it. After the pass, each released
@@ -74,7 +83,7 @@ func (s *Simulation) dispatch() {
 	}
 	pass := dispatchPass{assigned: assigned, pickups: make(map[string]*vehicle)}
 	for i := 0; i < len(s.waiting); {
-		if s.promoteReadyPickup(i) {
+		if s.mayBeIdle(&pass, s.waiting[i].request.From) && s.promoteReadyPickup(i) {
 			pass.reset()
 		}
 		trip := &s.waiting[i]
@@ -85,7 +94,7 @@ func (s *Simulation) dispatch() {
 			continue
 		}
 		v := s.findVehicle(trip.request.PodID)
-		if v != nil && (v.Pod.Activity != Idle || v.Pod.StationID != trip.request.From) {
+		if v != nil && (v.Pod.Activity != Idle || v.Pod.StationID != trip.request.From) && s.mayBeIdle(&pass, trip.request.From) {
 			if local := s.localPickup(trip.request.From, &pass); local != nil {
 				pass.reset()
 				delete(assigned, v.Pod.ID)
@@ -152,6 +161,45 @@ func (s *Simulation) dispatch() {
 	s.parkUnclaimedReleased()
 }
 
+// stationFilterBits is the number of bits in a stationFilter.
+const stationFilterBits = 256
+
+// stationFilter is a Bloom filter with one hash over a set of stations.
+// mayHave reports true for each station in the set. It can also report true
+// for a station that is not in the set.
+type stationFilter [stationFilterBits / 64]uint64
+
+func (f *stationFilter) add(stationID string) {
+	bit := stationBit(stationID)
+	f[bit/64] |= 1 << (bit % 64)
+}
+
+func (f *stationFilter) mayHave(stationID string) bool {
+	bit := stationBit(stationID)
+	return f[bit/64]&(1<<(bit%64)) != 0
+}
+
+// stationBit folds the 32-bit FNV-1a hash of a station ID to a bit of
+// stationFilter.
+func stationBit(stationID string) uint {
+	hash := uint32(2166136261)
+	for i := range len(stationID) {
+		hash = (hash ^ uint32(stationID[i])) * 16777619
+	}
+	return uint(hash^hash>>8^hash>>16^hash>>24) % stationFilterBits
+}
+
+// idleStations returns a filter over the stations with an idle pod.
+func (s *Simulation) idleStations() stationFilter {
+	var idle stationFilter
+	for i := range s.vehicles {
+		if pod := &s.vehicles[i].Pod; pod.Activity == Idle {
+			idle.add(pod.StationID)
+		}
+	}
+	return idle
+}
+
 func (s *Simulation) assigned(podID string) bool {
 	return slices.ContainsFunc(s.waiting, func(trip waitingTrip) bool { return trip.request.PodID == podID })
 }
@@ -170,12 +218,26 @@ type dispatchPass struct {
 	// freePods.
 	free      []*vehicle
 	freeKnown bool
+	// idle is a filter over the stations with an idle pod when idleKnown is
+	// true. See mayBeIdle.
+	idle      stationFilter
+	idleKnown bool
 }
 
 // reset removes the results of the pass.
 func (pass *dispatchPass) reset() {
 	clear(pass.pickups)
 	pass.free, pass.freeKnown = pass.free[:0], false
+	pass.idleKnown = false
+}
+
+// mayBeIdle reports false only when no pod is idle at the station. It
+// computes the filter at the first call after a reset of the pass.
+func (s *Simulation) mayBeIdle(pass *dispatchPass, stationID string) bool {
+	if !pass.idleKnown {
+		pass.idle, pass.idleKnown = s.idleStations(), true
+	}
+	return pass.idle.mayHave(stationID)
 }
 
 // freePods returns each pod that is idle or not occupied, in fleet order.

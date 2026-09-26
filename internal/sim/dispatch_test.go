@@ -2,6 +2,7 @@ package sim
 
 import (
 	"errors"
+	"fmt"
 	"reflect"
 	"slices"
 	"testing"
@@ -628,6 +629,94 @@ func TestLocalIdlePodPricedAtItsBerth(t *testing.T) {
 			}
 			if remote.Pod.Activity != Idle || remote.RelocatingTo != "" {
 				t.Fatalf("remote pod left its berth: %+v", remote.Vehicle)
+			}
+		})
+	}
+}
+
+// TestStationFilterKeepsEachStation checks that stationFilter reports each
+// station that it holds, and that it can exclude other stations. The IDs
+// have the same length and a long common prefix, as the London IDs do.
+func TestStationFilterKeepsEachStation(t *testing.T) {
+	t.Parallel()
+	var filter stationFilter
+	for i := range 300 {
+		if id := fmt.Sprintf("940GZZLU%03d", i); filter.mayHave(id) {
+			t.Fatalf("an empty filter has %s", id)
+		}
+	}
+	for i := 0; i < 300; i += 7 {
+		filter.add(fmt.Sprintf("940GZZLU%03d", i))
+	}
+	excluded := 0
+	for i := range 300 {
+		id := fmt.Sprintf("940GZZLU%03d", i)
+		switch {
+		case i%7 == 0 && !filter.mayHave(id):
+			t.Fatalf("the filter lost %s", id)
+		case i%7 != 0 && !filter.mayHave(id):
+			excluded++
+		}
+	}
+	if excluded == 0 {
+		t.Fatal("the filter excludes no station")
+	}
+}
+
+// TestIdlePodScansAfterAChangeInThePass checks that dispatch finds an idle
+// pod at the pickup station after an earlier trip in the same pass changed
+// the pods. Trip 1 boards pod 01 at Harbor first, so the pass must compute
+// its filter of idle stations again. Pod 02 is idle at Market, and pod 03 is
+// on its way to Market for trip 2. Pod 02 must board trip 2 in the same
+// pass.
+func TestIdlePodScansAfterAChangeInThePass(t *testing.T) {
+	t.Parallel()
+	for _, tc := range []struct {
+		name string
+		// readyTrip gives pod 02 to trip 3, a later trip from Market. Then
+		// promoteReadyPickup gives pod 02 to trip 2. Otherwise localPickup
+		// gives it to trip 2.
+		readyTrip bool
+		wantQueue []Request
+	}{
+		{name: "local pickup", wantQueue: []Request{}},
+		{name: "ready pickup", readyTrip: true, wantQueue: []Request{{ID: 3, PodID: "03"}}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			s, err := NewFleet(Example(), []Placement{
+				{ID: "01", StationID: "harbor"},
+				{ID: "02", StationID: "market"},
+				{ID: "03", StationID: "parking", BerthID: "parking-1"},
+			})
+			if err != nil {
+				t.Fatal(err)
+			}
+			if err := s.sendPickup(s.findVehicle("03"), "market"); err != nil {
+				t.Fatal(err)
+			}
+			s.waiting = []waitingTrip{
+				{request: Request{ID: 1, From: "harbor", To: "garden", PartySize: 1}},
+				{request: Request{ID: 2, From: "market", To: "garden", PartySize: 1, PodID: "03"}},
+			}
+			if tc.readyTrip {
+				s.waiting = append(s.waiting, waitingTrip{request: Request{ID: 3, From: "market", To: "harbor", PartySize: 1, PodID: "02"}})
+			}
+			s.requestID = len(s.waiting)
+
+			s.dispatch()
+
+			for id, trip := range map[string]int{"01": 1, "02": 2} {
+				if v := s.findVehicle(id); v.Pod.Activity != Boarding || v.Request == nil || v.Request.ID != trip {
+					t.Fatalf("pod %s did not board trip %d: %+v", id, trip, s.Snapshot())
+				}
+			}
+			queue := []Request{}
+			for _, trip := range s.waiting {
+				queue = append(queue, Request{ID: trip.request.ID, PodID: trip.request.PodID})
+			}
+			if !reflect.DeepEqual(queue, tc.wantQueue) {
+				t.Fatalf("queue = %+v, want %+v", queue, tc.wantQueue)
 			}
 		})
 	}
