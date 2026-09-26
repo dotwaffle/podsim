@@ -54,7 +54,8 @@ func (s *Simulation) RequestTrip(origin, destination string) error {
 // reads pickups again. Thus each entry is equal to the result of a new
 // pickupPod call. A dispatch reason and a deferral do not change what
 // pickupPod reads. pickupPod also fills the route caches, but a cached route
-// is equal to a new route.
+// is equal to a new route. A trip that waitForFinishingPod holds until its
+// next check does not need pickupPod. See keepHold.
 //
 // When a local idle pod takes a trip from a pod on its way to the pickup,
 // dispatch releases the other pod. The released pod can divert at once, so
@@ -92,6 +93,10 @@ func (s *Simulation) dispatch() {
 				assigned[local.Pod.ID] = true
 				v = local
 			}
+		}
+		if v == nil && s.keepHold(trip, assigned) {
+			i++
+			continue
 		}
 		if v == nil {
 			var known bool

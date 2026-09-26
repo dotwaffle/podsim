@@ -276,6 +276,87 @@ func TestStrictFinishingPodWaitUsesRemainingHold(t *testing.T) {
 	}
 }
 
+// TestKeepHoldBetweenChecks checks that a trip on hold between two checks of
+// waitForFinishingPod gets the result of the full dispatch pass. Pod 02
+// unloads at Market and holds the trip from Market. The hold starts at tick
+// 0, and the next check is at 1 s.
+func TestKeepHoldBetweenChecks(t *testing.T) {
+	t.Parallel()
+	for _, tc := range []struct {
+		name string
+		// change changes the simulation at 0.5 s, before the next check.
+		change     func(s *Simulation, busy *vehicle)
+		wantPod    string
+		wantReason string
+	}{
+		{
+			name:       "hold continues",
+			change:     func(*Simulation, *vehicle) {},
+			wantReason: "Waiting for pod 02 to finish",
+		},
+		{
+			name:    "a pod becomes idle at the pickup station",
+			change:  func(_ *Simulation, busy *vehicle) { busy.phaseTicks = 1 },
+			wantPod: "02",
+		},
+		{
+			name: "no pod is available",
+			change: func(s *Simulation, _ *vehicle) {
+				s.waiting = append(s.waiting, waitingTrip{request: Request{ID: 3, From: "harbor", To: "garden", PartySize: 1, PodID: "01"}})
+			},
+			wantReason: "Waiting for an available pod",
+		},
+		{
+			name:    "the hold time ends before the next check",
+			change:  func(s *Simulation, _ *vehicle) { s.waiting[0].deferUntil = s.tick + 1 },
+			wantPod: "01",
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			s, busy := newFinishingPodTrip(t, finishingPodSetup{rule: FinishingPodWaitCurrent, busyStation: "market", unloadSeconds: 5})
+			if trip := s.waiting[0]; trip.request.PodID != "" || trip.deferCheck != s.tick+TicksPerSecond {
+				t.Fatalf("the trip is not on hold: %+v", trip)
+			}
+			advance(s, TicksPerSecond/2)
+			tc.change(s, busy)
+			s.Step()
+			var trip Request
+			for _, pending := range s.Snapshot().Pending {
+				if pending.ID == 2 {
+					trip = pending
+				}
+			}
+			if tc.wantPod == "02" {
+				if trip.ID != 0 || busy.Pod.Activity != Boarding || busy.Request == nil || busy.Request.ID != 2 {
+					t.Fatalf("pod 02 did not board the trip at once: %+v, %+v", trip, busy.Vehicle)
+				}
+				return
+			}
+			if trip.PodID != tc.wantPod || trip.DispatchReason != tc.wantReason && tc.wantReason != "" {
+				t.Fatalf("trip 2 has pod %q and reason %q, want pod %q and reason %q", trip.PodID, trip.DispatchReason, tc.wantPod, tc.wantReason)
+			}
+		})
+	}
+}
+
+// TestKeepHoldWaitsForCongestionRefresh checks that dispatch does the full
+// pass when the congestion costs are due for a refresh. The first route
+// query of the pass then refreshes them, as before.
+func TestKeepHoldWaitsForCongestionRefresh(t *testing.T) {
+	t.Parallel()
+	s, _ := newFinishingPodTrip(t, finishingPodSetup{rule: FinishingPodWaitCurrent, busyStation: "market", unloadSeconds: 5})
+	s.SetCongestionRouting(true)
+	assigned := map[string]bool{}
+	if s.keepHold(&s.waiting[0], assigned) {
+		t.Fatal("keepHold kept the hold when a congestion refresh was due")
+	}
+	s.refreshCongestionCosts()
+	if !s.keepHold(&s.waiting[0], assigned) {
+		t.Fatal("keepHold did not keep the hold after the refresh")
+	}
+}
+
 func TestSetFinishingPodWaitRejectsUnknownRule(t *testing.T) {
 	t.Parallel()
 	s, err := New(Example(), "harbor")

@@ -49,11 +49,17 @@ func (s *Simulation) congestionRoute(from, to string) ([]Lane, error) {
 // older than congestionRouteRefreshTicks. It then clears the congestion
 // routes.
 func (s *Simulation) refreshCongestionCosts() {
-	if s.congestionRouteCosts == nil || s.tick >= s.nextCongestionRouteRefresh {
+	if s.congestionRefreshDue() {
 		s.congestionRouteCosts = s.congestionCosts()
 		s.congestionRoutes = make(map[routeKey]routeResult)
 		s.nextCongestionRouteRefresh = s.tick + congestionRouteRefreshTicks
 	}
+}
+
+// congestionRefreshDue reports whether the next route query computes the
+// congestion costs again. It reports false when congestion routing is off.
+func (s *Simulation) congestionRefreshDue() bool {
+	return s.congestionRouting && (s.congestionRouteCosts == nil || s.tick >= s.nextCongestionRouteRefresh)
 }
 
 // routeExtraCosts returns the lane costs that route adds to travel time.

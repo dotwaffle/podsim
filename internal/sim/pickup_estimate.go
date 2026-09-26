@@ -102,6 +102,44 @@ func (s *Simulation) waitForFinishingPod(trip *waitingTrip, idle *vehicle, assig
 	return true
 }
 
+// keepHold keeps a trip on hold for a finishing pod until the next check of
+// waitForFinishingPod. Before that check, waitForFinishingPod holds the trip
+// for each pickup pod that is away from the pickup station. Thus the choice
+// of pickupPod does not change the result, and keepHold does not call
+// pickupPod. It sets the dispatch reason that the full pass sets.
+//
+// keepHold reports false, and dispatch does the full pass, when:
+//   - the trip is not on hold until a later check
+//   - a pod is idle at the pickup station, because that pod can board at once
+//   - the congestion costs are due for a refresh, because the first route
+//     query refreshes them, and pickupPod can make that query
+func (s *Simulation) keepHold(trip *waitingTrip, assigned map[string]bool) bool {
+	if s.finishingPodWait == FinishingPodWaitNone || trip.deferUntil != 0 && s.tick >= trip.deferUntil || trip.deferCheck <= s.tick {
+		return false
+	}
+	if s.localPickup(trip.request.From, assigned) != nil || s.congestionRefreshDue() {
+		return false
+	}
+	trip.request.DispatchReason = "Waiting for an available pod"
+	if s.pickupAvailable(trip.request.From, assigned) {
+		trip.request.DispatchReason = "Waiting for pod " + trip.deferPodID + " to finish"
+	}
+	return true
+}
+
+// pickupAvailable reports whether pickupPod finds a pod for the station.
+// Network validation keeps each route time finite, so pickupPod finds a pod
+// when pickupRouteWithAssignments accepts one.
+func (s *Simulation) pickupAvailable(stationID string, assigned map[string]bool) bool {
+	load := s.berthLoads()
+	for i := range s.vehicles {
+		if _, _, ok := s.pickupRouteWithAssignments(pickupRouteInput{pod: &s.vehicles[i], station: stationID, assigned: assigned, load: load}); ok {
+			return true
+		}
+	}
+	return false
+}
+
 // availableAfter includes every committed leg before a busy pod becomes available.
 func (s *Simulation) availableAfter(v *vehicle) (string, float64, bool) {
 	if v.Pod.Activity == Idle || (v.Pod.WaitReason != NoWait && v.Pod.Speed < 0.1) {
