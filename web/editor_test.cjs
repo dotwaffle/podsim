@@ -3,6 +3,7 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
 const { execFileSync } = require("node:child_process");
+const fs = require("node:fs");
 const path = require("node:path");
 const editor = require("./editor.js");
 
@@ -261,6 +262,25 @@ test("fleet counts never duplicate occupied berths", () => {
   assert.equal(config.fleet.length, 2);
   assert.equal(new Set(config.fleet.map((pod) => pod.BerthID)).size, 2);
   assert.equal(new Set(config.fleet.map((pod) => pod.ID)).size, 2);
+});
+
+test("fleet rows give each station its pod count and berth limit", () => {
+  const twoStations = () => {
+    let config = editor.addStation(editor.emptyConfig(), 100, 100, { name: "Alpha" });
+    config = editor.addStation(config, 340, 100, { name: "Beta" });
+    return editor.addBerth(config, config.network.Stations[1].ID);
+  };
+  const cases = [
+    { name: "no stations", config: () => editor.emptyConfig(), want: [] },
+    { name: "no pods", config: twoStations, want: [{ name: "Alpha", count: 0, max: 1 }, { name: "Beta", count: 0, max: 2 }] },
+    { name: "pods at both stations", config: () => { const config = twoStations(); const [alpha, beta] = config.network.Stations; return editor.setFleetCount(editor.setFleetCount(config, alpha.ID, 1), beta.ID, 2); }, want: [{ name: "Alpha", count: 1, max: 1 }, { name: "Beta", count: 2, max: 2 }] },
+    { name: "pod at an unknown station", config: () => { const config = twoStations(); config.fleet.push({ ID: "09", StationID: "gone", BerthID: "gone-berth" }); return config; }, want: [{ name: "Alpha", count: 0, max: 1 }, { name: "Beta", count: 0, max: 2 }] },
+  ];
+  for (const tc of cases) {
+    const config = tc.config();
+    const want = tc.want.map((row, index) => ({ id: config.network.Stations[index].ID, ...row }));
+    assert.deepEqual(editor.fleetRows(config), want, tc.name);
+  }
 });
 
 test("validation reports short lanes and unreachable passenger pairs", () => {
@@ -1285,4 +1305,48 @@ test("resource namespaces and parallel guideways match the server", () => {
 test("legacy market pattern uses the last passenger station when absent", () => {
  const config=connectedScenario();config.demand.pattern="market";config.demand.destination="";
  assert.equal(editor.normalizeConfig(config).demand.destination,config.network.Stations.at(-1).ID);
+});
+
+// cssRules gives the declarations of each rule in a style sheet, by
+// selector. A rule with a selector list adds its declarations to each
+// selector. A background-color declaration is stored as background, so
+// that the later rule in cascade order sets the background. The parse does
+// not know @media blocks, so use it only for selectors that no @media block
+// sets.
+function cssRules(css) {
+  const rules = new Map();
+  for (const [, selectors, body] of css.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
+    const declarations = Object.fromEntries([...body.matchAll(/([\w-]+)\s*:\s*([^;]+)/g)].map(([, name, value]) => [name === "background-color" ? "background" : name, value.trim()]));
+    for (const selector of selectors.split(",").map((item) => item.trim())) rules.set(selector, { ...rules.get(selector), ...declarations });
+  }
+  return rules;
+}
+
+// contrastRatio gives the WCAG 2 contrast ratio of two #rrggbb colors.
+function contrastRatio(first, second) {
+  const luminance = (hex) => {
+    const [r, g, b] = [1, 3, 5].map((start) => parseInt(hex.slice(start, start + 2), 16) / 255).map((c) => (c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4));
+    return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+  };
+  const [light, dark] = [luminance(first), luminance(second)].sort((a, b) => b - a);
+  return (light + 0.05) / (dark + 0.05);
+}
+
+test("the Pause and apply text has 4.5:1 contrast or more in each state", () => {
+  const rules = cssRules(fs.readFileSync(path.join(__dirname, "editor.css"), "utf8"));
+  const root = rules.get(":root");
+  const color = (value) => value.replace(/^var\((--[\w-]+)\)$/, (_, name) => root[name]);
+  // Each state gives the rules that set the button colors, in cascade order.
+  const states = [
+    { name: "ready", rules: ["button", "button.primary"] },
+    { name: "hover", rules: ["button", "button:hover", "button.primary", "button.primary:hover"] },
+    { name: "busy", rules: ["button", "button:disabled", "button.primary", "button.primary:disabled"] },
+  ];
+  for (const state of states) {
+    const style = Object.assign({}, ...state.rules.map((selector) => rules.get(selector)));
+    const [text, background] = [color(style.color), color(style.background)];
+    assert.equal(Number(style.opacity ?? 1), 1, `${state.name}: opacity lowers the contrast`);
+    const ratio = contrastRatio(text, background);
+    assert.ok(ratio >= 4.5, `${state.name}: ${text} on ${background} is ${ratio.toFixed(2)}:1`);
+  }
 });

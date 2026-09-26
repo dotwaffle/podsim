@@ -31,10 +31,10 @@
     <aside class="toolbox" aria-label="Drawing tools">
       <h2>Build</h2>
       <div class="tool-grid" role="toolbar" aria-label="Editor mode">
-        <button class="tool active" data-tool="select" type="button"><span>↖</span>Select</button>
-        <button class="tool" data-tool="junction" type="button"><span>＋</span>Junction</button>
-        <button class="tool" data-tool="station" type="button"><span>▣</span>Station</button>
-        <button class="tool" data-tool="lane" type="button"><span>⇢</span>Guideway</button>
+        <button class="tool" data-tool="select" type="button" aria-pressed="true"><span>↖</span>Select</button>
+        <button class="tool" data-tool="junction" type="button" aria-pressed="false"><span>＋</span>Junction</button>
+        <button class="tool" data-tool="station" type="button" aria-pressed="false"><span>▣</span>Station</button>
+        <button class="tool" data-tool="lane" type="button" aria-pressed="false"><span>⇢</span>Guideway</button>
       </div>
       <label class="check"><input id="pairedLanes" type="checkbox"> Add paired lanes</label>
       <button id="cancelLinkButton" class="wide quiet" type="button" hidden>Cancel guideway</button>

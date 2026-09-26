@@ -345,6 +345,16 @@
     return out;
   }
 
+  // fleetRows gives one Fleet row for each station, in station order: the
+  // station ID and name, the number of initial pods at the station, and the
+  // number of berths, which is the limit for the pod count.
+  function fleetRows(config) {
+    return config.network.Stations.map((station) => ({
+      id: station.ID, name: station.Name, max: station.Berths.length,
+      count: config.fleet.filter((pod) => pod.StationID === station.ID).length,
+    }));
+  }
+
   // setDemandPattern sets the passenger demand pattern. The profile pattern
   // selects the first demand profile and its first time band. A draft with no
   // demand profiles, or with a demandProfiles value that is not an array, gets
@@ -1076,7 +1086,7 @@
 
   const API = {
     MIN_LANE_LENGTH, MIN_ZOOM, NODE_LABEL_SCALE, NODE_LABEL_SIZE, CHECK_DELAY, emptyConfig, normalizeConfig, addLane, addJunction, addStation, addBerth,
-    removeBerth, moveStation, moveNode, deleteNode, deleteLane, deleteStation, stationFlowCount, setFleetCount, setDemandPattern,
+    removeBerth, moveStation, moveNode, deleteNode, deleteLane, deleteStation, stationFlowCount, setFleetCount, fleetRows, setDemandPattern,
     laneLength, reachable, stationNodeOwners, dragTargets, validateConfig, configWarnings, checkResults, checkSelector, checkSelection, selectionPoint, focusView,
     problemCountText, createCheckTimer, validationSummary, serializeDocument, parseDocument, createHistory,
     networkBounds, fitView, zoomScale, nodeLabelSize, applyToServer, applyFailureText, applyFailureStatus, applyToast,
@@ -1291,16 +1301,27 @@
     }
   }
 
+  // renderFleet shows a pod count field for each station. An arrow key in a
+  // field changes the draft, and each draft change renders the page. When
+  // the fields are for the same stations in the same order, renderFleet
+  // changes them in place, so that the field keeps the keyboard focus.
   function renderFleet() {
-    const config = draft(); const parent = $("#fleetControls"); parent.replaceChildren();
-    if (!config.network.Stations.length) { parent.innerHTML = '<p class="empty">Add a station to place pods.</p>'; return; }
-    for (const station of config.network.Stations) {
-      const count = config.fleet.filter((pod) => pod.StationID === station.ID).length;
-      const row = document.createElement("label"); row.className = "fleet-row";
-      const name = document.createElement("span"); name.textContent = station.Name;
-      const input = document.createElement("input"); input.type = "number"; input.min = "0"; input.max = String(station.Berths.length); input.value = String(count); input.dataset.station = station.ID; input.setAttribute("aria-label", `Initial pods at ${station.Name}`);
-      row.append(name, input); parent.append(row);
+    const rows = fleetRows(draft()); const parent = $("#fleetControls");
+    if (!rows.length) { parent.innerHTML = '<p class="empty">Add a station to place pods.</p>'; return; }
+    const current = [...parent.querySelectorAll(".fleet-row")];
+    if (current.length !== rows.length || rows.some((row, index) => current[index].dataset.station !== row.id)) {
+      parent.replaceChildren(...rows.map((row) => {
+        const element = document.createElement("label"); element.className = "fleet-row"; element.dataset.station = row.id;
+        const input = document.createElement("input"); input.type = "number"; input.min = "0"; input.dataset.station = row.id;
+        element.append(document.createElement("span"), input); return element;
+      }));
     }
+    rows.forEach((row, index) => {
+      const [name, input] = parent.children[index].children;
+      name.textContent = row.name; input.max = String(row.max); input.setAttribute("aria-label", `Initial pods at ${row.name}`);
+      // Set only a changed value. This keeps the caret in a focused field.
+      if (input.value !== String(row.count)) input.value = String(row.count);
+    });
   }
 
   function renderDemand() {
@@ -1331,7 +1352,14 @@
     const config = draft(); $("#scenarioName").value = config.name; $("#backgroundOpacity").value = state.background ? state.background.opacity : .45; $("#opacityValue").value = `${Math.round(Number($("#backgroundOpacity").value) * 100)}%`;
     $("#undoButton").disabled = !state.history.canUndo; $("#redoButton").disabled = !state.history.canRedo;
     $("#networkMap").dataset.tool = state.tool; $("#cancelLinkButton").hidden = !state.linkFrom;
-    renderMap(); renderSelection(); renderFleet(); renderDemand(); updatePrompt();
+    renderTools(); renderMap(); renderSelection(); renderFleet(); renderDemand(); updatePrompt();
+  }
+
+  // renderTools marks the button of the active tool as pressed. The
+  // aria-pressed value tells screen readers which tool is active, and the
+  // style sheet uses the same value.
+  function renderTools() {
+    document.querySelectorAll(".tool").forEach((button) => button.setAttribute("aria-pressed", String(button.dataset.tool === state.tool)));
   }
 
   function updatePrompt() {
@@ -1345,7 +1373,6 @@
 
   function setTool(tool) {
     state.tool = tool; state.linkFrom = "";
-    document.querySelectorAll(".tool").forEach((button) => button.classList.toggle("active", button.dataset.tool === tool));
     render();
   }
 

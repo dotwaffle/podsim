@@ -7,7 +7,7 @@
   --text: #e7f0f5;
   --muted: #8fa5b5;
   --cyan: #48c9d4;
-  --cyan-2: #1e8f9c;
+  --cyan-2: #156c76;
   --orange: #ffb457;
   --danger: #ff716c;
   --success: #71d19a;
@@ -23,8 +23,10 @@ button, .button {
 }
 button:hover, .button:hover { border-color: #557184; background: #203543; }
 button:focus-visible, input:focus-visible, select:focus-visible, svg:focus-visible { outline: 2px solid var(--cyan); outline-offset: 2px; }
+.button:has(+ input[type="file"]:focus-visible) { outline: 2px solid var(--cyan); outline-offset: 2px; }
 button:disabled { cursor: default; opacity: .42; }
 button.primary { background: var(--cyan-2); border-color: var(--cyan); font-weight: 700; }
+button.primary:disabled { opacity: 1; background: var(--panel-2); border-color: var(--line); color: var(--muted); }
 button.quiet { background: transparent; }
 button.danger { border-color: #783b3b; color: #ffaaa6; }
 .wide { width: 100%; display: block; }
@@ -50,7 +52,7 @@ aside h2 { margin: 0 0 10px; font-size: 12px; color: #afc0ca; text-transform: up
 .tool-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 7px; }
 .tool { min-height: 61px; display: grid; place-items: center; gap: 1px; }
 .tool span { color: var(--cyan); font-size: 22px; line-height: 1; }
-.tool.active { border-color: var(--cyan); background: #17313b; }
+.tool[aria-pressed="true"] { border-color: var(--cyan); background: #17313b; }
 .toolbox > .check { margin: 12px 0; }
 label { display: grid; gap: 5px; margin: 10px 0; color: #b7c7d1; font-size: 12px; }
 label.check { display: flex; align-items: center; gap: 8px; font-size: 13px; }
