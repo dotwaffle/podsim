@@ -212,7 +212,7 @@ type Simulation struct {
 	graph                        routeGraph
 	stationIndexes               map[string]int
 	stationForbidden             map[string]bool
-	geometry                     map[string]laneGeometry
+	geometry                     map[string]*laneGeometry
 	network                      Network
 	initial                      []Placement
 	vehicles                     []vehicle

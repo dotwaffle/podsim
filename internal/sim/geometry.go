@@ -13,9 +13,12 @@ type laneSegment struct {
 	end      float64
 }
 
-func buildLaneGeometry(network Network) map[string]laneGeometry {
-	geometry := make(map[string]laneGeometry, len(network.Lanes))
-	for _, lane := range network.Lanes {
+// buildLaneGeometry returns the geometry of each lane by lane ID. Route
+// blocks point to the values, so no code writes to them.
+func buildLaneGeometry(network Network) map[string]*laneGeometry {
+	storage := make([]laneGeometry, len(network.Lanes))
+	geometry := make(map[string]*laneGeometry, len(network.Lanes))
+	for laneIndex, lane := range network.Lanes {
 		points := network.lanePoints(lane, make([]Point, 0, 65))
 		indexed := laneGeometry{end: points[len(points)-1]}
 		for index := 1; index < len(points); index++ {
@@ -31,15 +34,29 @@ func buildLaneGeometry(network Network) map[string]laneGeometry {
 				from: points[index-1], to: points[index], start: start, end: start + length,
 			})
 		}
-		geometry[lane.ID] = indexed
+		storage[laneIndex] = indexed
+		geometry[lane.ID] = &storage[laneIndex]
 	}
 	return geometry
 }
 
 func (s *Simulation) position(lane Lane, distance float64) Point {
-	geometry, ok := s.geometry[lane.ID]
-	if !ok || len(geometry.segments) == 0 {
-		return s.network.Position(lane, distance)
+	return s.positionOn(s.geometry[lane.ID], &lane, distance)
+}
+
+// blockPosition returns the same point as position for the lane of b.
+func (s *Simulation) blockPosition(b *block, distance float64) Point {
+	if b.geometry == nil {
+		return s.position(b.lane, distance)
+	}
+	return s.positionOn(b.geometry, &b.lane, distance)
+}
+
+// positionOn returns the point at a distance along lane. geometry is the
+// geometry of lane, or nil.
+func (s *Simulation) positionOn(geometry *laneGeometry, lane *Lane, distance float64) Point {
+	if geometry == nil || len(geometry.segments) == 0 {
+		return s.network.Position(*lane, distance)
 	}
 	index := sort.Search(len(geometry.segments), func(index int) bool {
 		return geometry.segments[index].end >= distance

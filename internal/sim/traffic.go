@@ -27,6 +27,9 @@ type block struct {
 	laneStart  float64
 	resources  []resource
 	last       bool
+	// geometry is the geometry of lane, or nil when the geometry index did
+	// not have lane when routeBlocks made the block.
+	geometry *laneGeometry
 }
 
 type laneConflict struct {
@@ -46,9 +49,10 @@ func (s *Simulation) routeBlocks(route []Lane) []block {
 	distance := 0.0
 	for _, lane := range route {
 		length := s.laneLength(lane)
+		geometry := s.geometry[lane.ID]
 		count := laneBlockCount(length)
 		for cell := range count {
-			b := block{lane: lane, cell: cell, start: distance + float64(cell)*length/float64(count), end: distance + float64(cell+1)*length/float64(count), laneStart: distance, last: cell == count-1}
+			b := block{lane: lane, geometry: geometry, cell: cell, start: distance + float64(cell)*length/float64(count), end: distance + float64(cell+1)*length/float64(count), laneStart: distance, last: cell == count-1}
 			for _, station := range s.network.Stations {
 				for _, berth := range station.Berths {
 					if b.last && lane.To == berth.Node {
@@ -240,9 +244,9 @@ func (s *Simulation) move(v *vehicle) {
 		}
 		v.blockIndex++
 	}
-	b := v.blocks[v.blockIndex]
+	b := &v.blocks[v.blockIndex]
 	v.Pod.LaneID, v.Pod.LaneDistance = b.lane.ID, v.distance-b.laneStart
-	v.Pod.Position = s.position(b.lane, v.Pod.LaneDistance)
+	v.Pod.Position = s.blockPosition(b, v.Pod.LaneDistance)
 }
 
 func (s *Simulation) releaseCleared() {
