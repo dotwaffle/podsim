@@ -1322,6 +1322,21 @@
     throw new Error("The live scenario changed during each read.");
   }
 
+  // readLive gets the live project and the live state with readSnapshot. It
+  // gives project, the normalized live project, revision, the live project
+  // revision, epoch, the session epoch, and serverStart, the server start
+  // ID or an empty string. All four are of the same server state. It does
+  // not change the connection.
+  async function readLive(connection) {
+    const { project: projectReply, state: liveState } = await readSnapshot(connection);
+    return {
+      project: normalizeConfig(projectReply.project || projectReply.Project),
+      revision: Number(liveState.projectRevision ?? liveState.ProjectRevision),
+      epoch: liveState.epoch || liveState.Epoch || "",
+      serverStart: liveState.serverStart || liveState.ServerStart || "",
+    };
+  }
+
   // applyToServer applies a project to the live session. It gives revision,
   // the new project revision, stateSaved, the stateSaved member of the
   // reply, and serverStart, the server start ID that it read before the
@@ -1420,23 +1435,12 @@
   // APPLY_FAILURE gives the reason and the status line for the error codes
   // of a failed apply that need their own text. "stale_project" is a
   // conflict with the live project. "session_changed" is a server restart.
-  // The page keeps the epoch and the server start ID that it loaded, so
-  // each later apply also fails. A restored draft keeps the server start ID
-  // that it was saved with, so it also fails after a reload. An import sets
-  // the server start ID of the draft to the ID of the page, so the text
-  // tells the user to export the draft and import it after a reload. When
-  // the browser does not keep the draft, the editor uses the local text of
-  // the error code, or adds a note about the saved draft to the text.
+  // The page keeps the revision, the epoch and the server start ID that it
+  // loaded, so each later apply also fails. After such a failure, the page
+  // shows the apply conflict actions, as readConflict tells.
   const APPLY_FAILURE = new Map([
-    ["stale_project", { reason: "The live scenario changed. Your draft is safe.", status: "Apply conflict. Reload the page to get the current live scenario." }],
-    ["session_changed", {
-      reason: "The server session changed. Export the draft, reload the page, then import the draft.",
-      status: "The server session changed. Export the draft, reload the page, then import the draft.",
-      local: {
-        reason: "The server session changed. The draft stays on this page. Export the draft, reload the page, then import the draft.",
-        status: "The server session changed. Export the draft, reload the page, then import the draft.",
-      },
-    }],
+    ["stale_project", { reason: "The live scenario changed. Your draft is safe.", status: "Apply conflict. The live scenario changed." }],
+    ["session_changed", { reason: "The server session changed. Your draft is safe.", status: "Apply conflict. The server session changed." }],
   ]);
 
   // APPLY_FAILED_STATUS is the status line for an error code that is not in
@@ -1444,31 +1448,21 @@
   // status line stays.
   const APPLY_FAILED_STATUS = "Apply failed. The draft stays on this page.";
 
-  // applyFailureEntry gives the APPLY_FAILURE texts for error, and the note
-  // to add to them. note is empty when the browser keeps the draft. Else
-  // it tells the user that a reload loses the draft. An error code with a
-  // local text uses that text and no note.
-  function applyFailureEntry(error, note) {
-    const failure = APPLY_FAILURE.get(error.errorCode);
-    return note && failure?.local ? { failure: failure.local, note: "" } : { failure, note };
-  }
-
   // applyFailureText gives the message for an error from applyToServer. For
   // an error code that is not in APPLY_FAILURE, the reason is the error
   // text, for example the reason from the server or a network error. note
-  // is as applyFailureEntry uses it.
+  // is empty when the browser keeps the draft. Else it tells the user that
+  // the draft is lost when they leave the page.
   function applyFailureText(error, note = "") {
     const text = String(error.message).replace(/\.?$/, ".");
-    const entry = applyFailureEntry(error, note);
-    const reason = entry.failure?.reason ?? `Apply failed. ${text.charAt(0).toUpperCase()}${text.slice(1)}`;
-    return [reason, APPLY_PAUSE_TEXT[error.pause], entry.note].filter(Boolean).join(" ");
+    const reason = APPLY_FAILURE.get(error.errorCode)?.reason ?? `Apply failed. ${text.charAt(0).toUpperCase()}${text.slice(1)}`;
+    return [reason, APPLY_PAUSE_TEXT[error.pause], note].filter(Boolean).join(" ");
   }
 
   // applyFailureStatus gives the status line for an error from
-  // applyToServer. note is as applyFailureEntry uses it.
+  // applyToServer. note is as applyFailureText uses it.
   function applyFailureStatus(error, note = "") {
-    const entry = applyFailureEntry(error, note);
-    return [entry.failure?.status ?? APPLY_FAILED_STATUS, entry.note].filter(Boolean).join(" ");
+    return [APPLY_FAILURE.get(error.errorCode)?.status ?? APPLY_FAILED_STATUS, note].filter(Boolean).join(" ");
   }
 
   // applyToast gives the arguments of toast for an applied project. applied
@@ -1479,6 +1473,101 @@
       return ["The project is applied, but the server could not save the session state. A server crash can undo this change.", true];
     }
     return ["The scenario was applied. The simulation remains paused.", false];
+  }
+
+  // readConflict gives the apply conflict that the page shows after error,
+  // an error from applyToServer, or null. Only "stale_project" and
+  // "session_changed" give a conflict. Then readConflict reads the live
+  // state again. The conflict has code, the error code, revision, the live
+  // project revision, and serverStart, the server start ID of the same
+  // read. revision is null when the live state did not load. readConflict
+  // does not change the epoch of the connection. Only the conflict actions
+  // do, after the user agrees.
+  async function readConflict(connection, error) {
+    if (!APPLY_FAILURE.has(error.errorCode)) return null;
+    try {
+      const live = await readLive(connection);
+      return { code: error.errorCode, revision: live.revision, serverStart: live.serverStart };
+    } catch (_) { return { code: error.errorCode, revision: null, serverStart: "" }; }
+  }
+
+  // CONFLICT_UNLOADED_TEXT is the note of the status line when the live
+  // state did not load after an apply conflict.
+  const CONFLICT_UNLOADED_TEXT = "The live scenario did not load. Select Pause and apply to try again.";
+
+  // conflictView gives the texts of the apply conflict panel for conflict,
+  // as readConflict gives it with a revision: text, hint and applyLabel,
+  // the label of the Apply over button.
+  function conflictView(conflict) {
+    const applyLabel = `Apply over revision ${conflict.revision}`;
+    const reason = conflict.code === "session_changed" ? `The server session changed. The live scenario is now revision ${conflict.revision}.` : `The live scenario changed to revision ${conflict.revision}.`;
+    return {
+      text: `${reason} Your draft is not applied.`,
+      hint: `Load live scenario replaces the changes in your draft. ${applyLabel} replaces the live scenario with your draft.`,
+      applyLabel,
+    };
+  }
+
+  // LOAD_LIVE_QUESTION asks the user before Load live scenario replaces
+  // the changes in the draft.
+  const LOAD_LIVE_QUESTION = "Load the live scenario? It replaces the changes in your draft.";
+
+  // applyOverQuestion asks the user before the draft replaces live
+  // revision revision.
+  function applyOverQuestion(revision) {
+    return `Apply your draft over live revision ${revision}? Your draft replaces the live scenario, and the shared simulation restarts paused.`;
+  }
+
+  // takeLive reads the live state for a conflict action. take.question is
+  // the question for take.confirm, which asks the user as window.confirm
+  // does. An empty question does not ask. takeLive gives null when the user
+  // cancels. Else it gives the live state, as readLive gives it, and sets
+  // the epoch of take.connection to the live epoch. Thus the next command
+  // has the epoch of the current session, also after a server restart.
+  async function takeLive(take) {
+    if (take.question && !take.confirm(take.question)) return null;
+    const live = await readLive(take.connection);
+    take.connection.epoch = live.epoch;
+    return live;
+  }
+
+  // loadLive starts Load live scenario. load.changed tells if the draft has
+  // scenario changes. Only then loadLive asks the user, with load.confirm,
+  // because the live scenario replaces them. It gives the live state, as
+  // takeLive gives it, or null when the user cancels. The page then makes
+  // the live project the draft and its base, as liveDraft gives.
+  function loadLive(load) {
+    return takeLive({ connection: load.connection, question: load.changed ? LOAD_LIVE_QUESTION : "", confirm: load.confirm });
+  }
+
+  // liveDraft gives the page values after Load live scenario. live is the
+  // live state, as loadLive gives it. current has loaded, the loaded
+  // project or null, and background, the background of the draft. The live
+  // project becomes value, the new draft, and the scenario of loaded, the
+  // base of Reset draft. Both keep their background, because the server
+  // does not have it. loadedRevision, loadedStart and draftBase get the
+  // live revision, epoch and server start ID.
+  function liveDraft(live, current) {
+    return {
+      loadedRevision: live.revision, loadedStart: live.serverStart,
+      draftBase: { revision: live.revision, epoch: live.epoch, serverStart: live.serverStart },
+      loaded: { scenario: clone(live.project), background: current.loaded ? current.loaded.background : null },
+      value: { scenario: clone(live.project), background: current.background },
+    };
+  }
+
+  // applyOverBase starts Apply over revision N. over.revision is N and
+  // over.serverStart is the server start ID of the conflict. applyOverBase
+  // asks the user with over.confirm, then reads the live state. It gives
+  // the base of the apply, or null when the user cancels. The base has
+  // revision N and the server start ID of the conflict, and the epoch of
+  // the live state. The page keeps the draft and applies it with this
+  // base. When the live revision is not N any more, the apply fails with
+  // "stale_project". When the server restarted again, it fails with
+  // "session_changed". Then the page shows the new revision.
+  async function applyOverBase(over) {
+    const live = await takeLive({ connection: over.connection, question: applyOverQuestion(over.revision), confirm: over.confirm });
+    return live && { revision: over.revision, epoch: live.epoch, serverStart: over.serverStart };
   }
 
   // DRAFT_SAVE_DELAY is the time in milliseconds from the last draft change
@@ -1684,6 +1773,7 @@
     laneLength, curveLength, reachable, cutOffStations, stationNodeOwners, dragTargets, validateConfig, configWarnings, checkResults, checkSelector, checkSelection, selectionPoint, focusView,
     problemCountText, createCheckTimer, validationSummary, checkFocusKey, serializeDocument, parseDocument, createHistory,
     networkBounds, fitView, zoomScale, nodeLabelSize, pairedLaneIDs, showsChevron, laneOffset, laneCurve, lanePathData, SNAPSHOT_ATTEMPTS, snapshotConsistent, readSnapshot, applyToServer, applyFailureText, applyFailureStatus, applyToast,
+    readLive, readConflict, CONFLICT_UNLOADED_TEXT, conflictView, LOAD_LIVE_QUESTION, applyOverQuestion, loadLive, liveDraft, applyOverBase,
     DRAFT_SAVE_DELAY, DRAFT_STORE_TEXT, DRAFT_UNSAVED_TEXT, DRAFT_DISPLACED_TEXT, openDraftStore, createDraftKeeper, draftChanges, draftRecordFor, draftOffer, draftOfferText, restoreStatusText, shellPage,
   };
   if (typeof module !== "undefined" && module.exports) module.exports = API;
@@ -1723,9 +1813,16 @@
     // start ID that the draft started from. The load, a successful apply and
     // Reset draft set it to the loaded revision and loadedStart. Restore
     // draft sets it to the values of the saved draft. Import JSON sets its
-    // server start ID to loadedStart. Pause and apply always sends
-    // loadedRevision, and it sends the server start ID of draftBase.
+    // server start ID to loadedStart. Load live scenario sets it to the live
+    // revision, epoch and server start ID that it read. Pause and apply
+    // always sends loadedRevision, and it sends the server start ID of
+    // draftBase. Apply over revision N sends its own base.
     draftBase: { revision: 0, epoch: "", serverStart: "" },
+    // conflict is the apply conflict that the page shows, as readConflict
+    // gives it with a revision, or null. A successful apply, Load live
+    // scenario and Reset draft set it to null.
+    conflict: null,
+    // applying is true while an apply or a conflict action runs.
     applying: false,
     connection: {
       fetch: (url, init) => root.fetch(url, init),
@@ -2097,11 +2194,13 @@
   // not the live scenario and no apply runs. A change of only the
   // background does not enable it, because the server does not get the
   // background. renderDemand can change the draft, so render calls
-  // renderApply last.
+  // renderApply last. It also disables the apply conflict actions while an
+  // apply or a conflict action runs.
   function renderApply() {
     const changed = Boolean(state.live) && draftChanges({ scenario: draft() }, state.live).scenario;
     const button = $("#applyButton"); button.disabled = state.applying || !changed;
     button.title = changed || state.applying ? "" : "The draft has no changes to apply.";
+    $("#loadLiveButton").disabled = state.applying; $("#applyOverButton").disabled = state.applying;
   }
 
   // setLive keeps the scenario and the background of value as the live
@@ -2341,19 +2440,16 @@
   // first render, because renderDemand can set the demand destination.
   // When the live scenario cannot load, the local fallback draft is the
   // baseline. Then the editor offers a saved draft that is different.
-  // readSnapshot gives the live scenario with the revision, the epoch and
-  // the server start ID of the same server state.
+  // readLive gives the live scenario with the revision, the epoch and the
+  // server start ID of the same server state.
   async function loadServerProject() {
     updateStatus("Loading the live scenario…");
     const saved = keeper.load();
     try {
-      const { project: projectReply, state: liveState } = await readSnapshot(state.connection);
-      const project = normalizeConfig(projectReply.project || projectReply.Project);
-      state.loadedRevision = Number(liveState.projectRevision ?? liveState.ProjectRevision);
-      state.connection.epoch = liveState.epoch || liveState.Epoch || "";
-      state.loadedStart = liveState.serverStart || liveState.ServerStart || "";
-      state.draftBase = { revision: state.loadedRevision, epoch: state.connection.epoch, serverStart: state.loadedStart };
-      state.loaded = { scenario: clone(project), background: null };
+      const live = await readLive(state.connection);
+      state.loadedRevision = live.revision; state.connection.epoch = live.epoch; state.loadedStart = live.serverStart;
+      state.draftBase = { revision: live.revision, epoch: live.epoch, serverStart: live.serverStart };
+      state.loaded = { scenario: clone(live.project), background: null };
       state.history.reset(state.loaded); state.background = null; state.selection = null;
       render(); setLive(state.history.value, state.loadedRevision); fitNetwork();
       updateStatus(`Live revision ${state.loadedRevision}. ${DRAFT_STORE_TEXT[keeper.status]}`);
@@ -2373,26 +2469,98 @@
   // makes the draft the live baseline and deletes the saved draft. While
   // the saved draft offer shows, the keeper does not save. Then the apply
   // keeps the saved draft, and the offer names the new live revision.
-  async function applyProject() {
-    const errors = checks.run(); if (errors.length) { showChecks(); toast("Fix the listed problems before you apply the scenario.", true); return; }
+  // After a conflict, the page shows the apply conflict actions. base has
+  // the revision and the server start ID that the apply sends. Only a
+  // successful apply changes the loaded revision and the draft base.
+  async function applyProject(base = { revision: state.loadedRevision, serverStart: state.draftBase.serverStart }) {
+    if (!readyToApply()) return;
     const button = $("#applyButton"); state.applying = true; renderApply(); button.textContent = "Pausing…";
     keeper.flush();
     try {
       const project = draft();
-      const applied = await applyToServer({ connection: state.connection, revision: state.loadedRevision, serverStart: state.draftBase.serverStart, project, onApplying: () => { button.textContent = "Applying…"; } });
+      const applied = await applyToServer({ connection: state.connection, revision: base.revision, serverStart: base.serverStart, project, onApplying: () => { button.textContent = "Applying…"; } });
       // A restored draft from an older editor has no server start ID. The
       // applied state then gets the ID that the apply read.
-      const serverStart = applied.serverStart || state.draftBase.serverStart;
+      const serverStart = applied.serverStart || base.serverStart;
       state.loadedRevision = applied.revision; state.loadedStart = serverStart; state.draftBase = { revision: applied.revision, epoch: state.connection.epoch, serverStart };
       state.loaded = { scenario: project, background: state.background ? clone(state.background) : null };
-      setLive(state.loaded, applied.revision); renderOffer();
+      setLive(state.loaded, applied.revision); renderOffer(); showConflict(null);
       if (!state.offer) { keeper.clear(); keeper.arm(); }
       updateStatus(`Applied revision ${state.loadedRevision}. The simulation is paused.`); toast(...applyToast(applied));
     } catch (error) {
-      // note tells the user when a reload loses the draft.
+      // note tells the user when a reload loses the draft. Another failure
+      // keeps the conflict that the page shows.
       const note = keeper.status !== "ok" ? DRAFT_STORE_TEXT[keeper.status] : keeper.unsaved ? DRAFT_UNSAVED_TEXT : "";
-      updateStatus(applyFailureStatus(error, note)); toast(applyFailureText(error, note), true);
+      const conflict = await readConflict(state.connection, error);
+      if (conflict) showConflict(conflict.revision === null ? null : conflict);
+      const unloaded = conflict && conflict.revision === null ? CONFLICT_UNLOADED_TEXT : "";
+      updateStatus([applyFailureStatus(error, note), unloaded].filter(Boolean).join(" ")); toast(applyFailureText(error, note), true);
     } finally { state.applying = false; renderApply(); button.textContent = "Pause and apply"; }
+  }
+
+  // readyToApply runs the checks. When the draft has errors, it shows them
+  // and gives false.
+  function readyToApply() {
+    const errors = checks.run();
+    if (errors.length) { showChecks(); toast("Fix the listed problems before you apply the scenario.", true); }
+    return !errors.length;
+  }
+
+  // showConflict shows the apply conflict actions for conflict, or hides
+  // them when conflict is null.
+  function showConflict(conflict) { state.conflict = conflict; renderConflict(); }
+
+  // renderConflict shows the apply conflict panel while state.conflict is
+  // set. renderApply disables its buttons.
+  function renderConflict() {
+    $("#applyConflict").hidden = !state.conflict;
+    if (!state.conflict) return;
+    const view = conflictView(state.conflict);
+    $("#applyConflictText").textContent = view.text; $("#applyConflictHint").textContent = view.hint; $("#applyOverButton").textContent = view.applyLabel;
+  }
+
+  // runConflictAction runs action, a conflict action that reads the live
+  // state, for event, the click on its button. It blocks the other actions
+  // while it runs. A failed read shows the error toast and changes nothing.
+  // After a choice from the keyboard, the map gets the focus when the
+  // panel hides, as closeOffer does.
+  async function runConflictAction(event, action) {
+    if (!state.conflict || state.applying) return;
+    state.applying = true; renderApply();
+    let next = null;
+    try { next = await action(); } catch (error) { toast(`The live scenario could not load. ${error.message}`, true); }
+    state.applying = false; renderApply();
+    if (next) await next();
+    if (!state.conflict && event && event.detail === 0) focusMap();
+  }
+
+  // loadLiveScenario makes the live scenario the draft and the base of
+  // Reset draft, with the live revision, epoch and server start ID. It
+  // asks first when the draft has scenario changes. The draft keeps its
+  // background, because the server does not have it. Undo brings back the
+  // replaced draft.
+  function loadLiveScenario(event) {
+    return runConflictAction(event, async () => {
+      const live = await loadLive({ connection: state.connection, changed: draftChanges(state.history.value, state.live).scenario, confirm: (text) => root.confirm(text) });
+      return live && (() => {
+        const { value, ...page } = liveDraft(live, state); Object.assign(state, page);
+        state.history.replace(value); state.selection = null;
+        render(); setLive({ scenario: draft(), background: state.live ? state.live.background : null }, live.revision);
+        showConflict(null); renderOffer(); fitNetwork(); checks.run(); keeper.flush();
+        updateStatus(`Live revision ${live.revision}. The draft is the live scenario.`); toast("The live scenario replaced the draft.");
+      });
+    });
+  }
+
+  // applyOver applies the draft over the live revision of the conflict. It
+  // asks first. Pause and apply then runs as usual with the base that
+  // applyOverBase gives.
+  function applyOver(event) {
+    if (!state.conflict || state.applying || !readyToApply()) return Promise.resolve();
+    return runConflictAction(event, async () => {
+      const base = await applyOverBase({ connection: state.connection, revision: state.conflict.revision, serverStart: state.conflict.serverStart, confirm: (text) => root.confirm(text) });
+      return base && (() => applyProject(base));
+    });
   }
 
   // importProject replaces the draft with a project file and makes the file
@@ -2455,8 +2623,11 @@
     $("#fitButton").addEventListener("click", fitNetwork); $("#cancelLinkButton").addEventListener("click", () => { state.linkFrom = ""; render(); });
     $("#undoButton").addEventListener("click", () => stepHistory(false)); $("#redoButton").addEventListener("click", () => stepHistory(true));
     $("#resetButton").addEventListener("click", () => { if (!state.loaded) return; state.draftBase = { revision: state.loadedRevision, epoch: state.connection.epoch, serverStart: state.loadedStart }; state.history.replace(state.loaded); state.background = state.loaded.background ? clone(state.loaded.background) : null; state.selection = null; render(); fitNetwork(); toast("The draft matches the last loaded project."); });
-    $("#validateButton").addEventListener("click", () => checks.run()); $("#applyButton").addEventListener("click", applyProject);
+    $("#validateButton").addEventListener("click", () => checks.run()); $("#applyButton").addEventListener("click", () => applyProject());
     $("#restoreDraftButton").addEventListener("click", restoreDraft); $("#discardDraftButton").addEventListener("click", discardDraft);
+    $("#loadLiveButton").addEventListener("click", loadLiveScenario); $("#applyOverButton").addEventListener("click", applyOver);
+    // Reset draft also hides the apply conflict actions.
+    $("#resetButton").addEventListener("click", () => showConflict(null));
     // In the shell page, the return link asks the shell to show the game.
     // The game then keeps its map view and its selection. When the editor is
     // the top page, or a modifier key opens the link elsewhere, the link

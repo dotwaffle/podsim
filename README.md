@@ -518,21 +518,33 @@ The editor applies a draft only to the project revision that it loaded.
 A project apply from another page makes a new revision.
 A demand change in the simulation also makes a new revision.
 The apply then fails with a conflict, and the editor keeps the draft.
-
 A rewind to a save point from before a project apply or a demand change restores that project.
 The rewind also rewrites the `-project` file.
-An open draft then gets an apply conflict.
-Reload the page to get the restored project.
-If the browser saved the draft, the editor offers it after the reload.
+An open draft then also gets an apply conflict.
 
-For other failures, the editor shows the reason from the server, for example a project file that the server cannot save.
-If the server restarted after the draft started, the apply fails.
+If the server restarted after the draft started, the apply also fails with a conflict.
 This also applies to a restored draft from before the restart, because a restart can restore a different project with the same session epoch and project revision.
 To read the live project, the editor reads the live state before and after it.
 The editor uses the project only when both state reads show the same server start ID, session epoch and project revision.
 Else it reads the state and the project again, for a maximum of three attempts.
-To apply the draft, export the draft, reload the page, then import the draft.
-An imported draft gets the server start ID of the reloaded page, also after **Restore draft**.
+
+After a conflict, the editor reads the live project again.
+The **Apply conflict** bar then shows the live project revision N and two actions:
+
+- **Load live scenario** makes the live scenario the draft and the base of **Reset draft**.
+  When the draft has scenario changes, the editor asks first.
+  The draft keeps its background, and **Undo** brings back the replaced draft.
+- **Apply over revision N** applies the draft over revision N of the live scenario.
+  The editor asks first, because the draft replaces the live scenario.
+  If the live revision is not N any more, or the server restarted again, the apply fails with a conflict again, and the bar shows the new revision.
+
+Both actions read the live project again, with the session epoch and the server start ID.
+The next command of the page then uses the epoch of the running server.
+A successful apply, **Load live scenario** and **Reset draft** hide the bar.
+If the editor cannot read the live project after a conflict, the status line tells you, and the bar does not show.
+Select **Pause and apply** to try again.
+
+For other failures, the editor shows the reason from the server, for example a project file that the server cannot save.
 
 ### Project files and validation
 
