@@ -328,8 +328,8 @@ Directional portals now keep opposite guideways and unrelated corridors on separ
 A high-load A/B run reduced peak stopped pods from 60 to three.
 The portal network drained all 199 requests, while the old network left five requests after 60 simulated minutes.
 
-A 360-arm sweep measured the portal network across all eight bands, 15 offered rates, and three seeds.
-Recovery limits range from 7 requests per minute in Early to 13 in Interpeak.
+A capacity sweep measured the portal network across all eight bands, 15 offered rates, and three seeds.
+Recovery limits range from 7 requests per minute in Early to 14 in Interpeak and Evening.
 In every band except Early, the results suggest that the 114-pod fleet, not track congestion, sets the limit.
 See [docs/london.md](docs/london.md) and [docs/qualification.md](docs/qualification.md#london-capacity-envelope).
 

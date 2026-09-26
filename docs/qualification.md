@@ -571,17 +571,18 @@ The multi-band sweep below measures the capacity envelope of the portal network.
 
 ## London capacity envelope
 
-The sweep uses the London project's NUMBAT origin-destination profile on the directional-portal network at commit `3b02de8`, after the station heading change.
-The sweep predates the release of pickup pods for new work and the zero pickup estimate for an idle pod at the pickup station, so the current dispatch can give different results.
+The sweep uses the London project's NUMBAT origin-destination profile on the directional-portal network at commit `cee7863`.
 It covers all eight demand bands, 15 offered rates, and seeds 1, 2, and 3.
-Each arm accepts requests for 30 simulated minutes, then has up to 30 minutes to finish them.
+Each arm accepts requests for 30 simulated minutes, then runs until it finishes them or until 65 simulated minutes.
 Redistribution and same-destination sharing are off.
 Free-flow routing is on.
 The queue limit is high enough that the compare command skips no request.
+Two more sweeps use the same bands, rates, and seeds to compare the finishing-pod wait rules and redistribution.
+See the subsections below.
 
 ```sh
 mise run scenario -- -preset london -output /tmp/podsim-london-capacity.json
-mise run compare -- -project /tmp/podsim-london-capacity.json -pattern profile -bands all -duration 60m -arrivals-for 30m -loads 60s,30s,20s,15s,12s,10s,8.571429s,7.5s,6.666667s,6s,5.454545s,5s,4.615385s,4.285714s,4s -seeds 1,2,3 -redistribution-policies off -focus 940GZZLUEUS -queue-limit 1000000 -stop-when-drained -workers 10 -format csv -output docs/measurements/london-capacity.csv
+mise run compare -- -project /tmp/podsim-london-capacity.json -pattern profile -bands all -duration 65m -arrivals-for 30m -loads 60s,30s,20s,15s,12s,10s,8.571429s,7.5s,6.666667s,6s,5.454545s,5s,4.615385s,4.285714s,4s -seeds 1,2,3 -redistribution-policies off -focus 940GZZLUEUS -queue-limit 1000000 -stop-when-drained -adaptive-limit -past-limit 1 -workers 5 -format csv -output docs/measurements/london-capacity.csv
 ```
 
 The schedule starts after the first interval and excludes the arrival-window endpoint.
@@ -590,13 +591,17 @@ This makes the 8.571429 s, 5.454545 s, 4.615385 s, and 4.285714 s intervals slig
 The report therefore gives these offered rates, rounded to three decimal places: 0.967, 1.967, 2.967, 3.967, 4.967, 5.967, 7.000, 7.967, 8.967, 9.967, 11.000, 11.967, 13.033, 14.000, and 14.967 requests per minute.
 The table rounds these values to whole requests per minute.
 
-The recovery limit is the highest tested rate at which all three seeds finish every accepted request before the 60-minute cap.
+The recovery limit is the highest tested rate at which all three seeds finish every accepted request within 60 minutes.
 All three seeds must also finish at every lower tested rate.
-This rule changes the Early and Morning limits.
-Early finishes two seeds at 8/min and all three seeds at 9/min, so its limit is 7/min.
-Morning finishes two seeds at 10/min and all three seeds at 11/min, so its limit is 9/min.
-To find only the limits, add `-adaptive-limit` to the command.
-Each band then stops one rate after its first rate that does not drain, and the report omits the higher rates.
+In the CSV, `drained` is true when an arm finishes within the 65-minute run.
+The limit uses `actual_end_seconds` instead, and an arm finishes within 60 minutes when this value is 3,600 or less.
+With `-adaptive-limit`, each band stops one rate after its first rate at which a seed does not finish within 65 minutes.
+The report omits the higher rates.
+Because the adaptive stop uses the 65-minute run, each band also has rows above its 60-minute limit.
+
+The rule for lower rates changes the Morning and PM peak limits.
+Morning finishes all three seeds at 11/min and 12/min, but seed 1 at 10/min finishes at 3,642 seconds, so its limit is 9/min.
+PM peak finishes all three seeds at 15/min, but seed 2 at 14/min finishes at 3,621 seconds, so its limit is 13/min.
 
 Each metric column gives the mean of the three seeds at the limit rate.
 Maximum wait is the mean of the three per-seed maxima.
@@ -605,14 +610,14 @@ Late backlog change compares outstanding requests at the midpoint and end of tha
 
 | NUMBAT band | Recovery limit | Late throughput | Late backlog change | Recovery after arrivals | Average wait | Maximum wait | Loaded distance | Next rate drained |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| Early | 7/min | 5.24/min | +26.3 | 1,354 s | 370.2 s | 778.4 s | 45.0% | 2/3 at 8/min |
-| Morning | 9/min | 8.13/min | +13.0 | 1,253 s | 161.4 s | 677.4 s | 57.9% | 2/3 at 10/min |
-| AM peak | 11/min | 9.62/min | +20.7 | 1,467 s | 208.6 s | 892.4 s | 54.5% | 2/3 at 12/min |
-| Interpeak | 13/min | 10.11/min | +44.3 | 1,561 s | 310.3 s | 1,173.2 s | 51.7% | 0/3 at 14/min |
-| PM peak | 12/min | 9.78/min | +33.3 | 1,344 s | 259.9 s | 991.5 s | 51.0% | 2/3 at 13/min |
-| Evening | 12/min | 9.09/min | +43.7 | 1,462 s | 307.3 s | 1,117.1 s | 51.8% | 2/3 at 13/min |
-| Late | 12/min | 9.07/min | +44.0 | 1,627 s | 368.8 s | 1,107.9 s | 50.7% | 2/3 at 13/min |
-| Night | 9/min | 7.44/min | +23.3 | 1,584 s | 205.6 s | 944.0 s | 47.6% | 2/3 at 10/min |
+| Early | 7/min | 5.13/min | +28.0 | 1,347 s | 377.0 s | 814.8 s | 46.0% | 2/3 at 8/min |
+| Morning | 9/min | 8.02/min | +14.7 | 1,151 s | 173.5 s | 599.4 s | 64.1% | 2/3 at 10/min |
+| AM peak | 13/min | 10.33/min | +41.0 | 1,665 s | 317.1 s | 1,140.3 s | 57.8% | 2/3 at 14/min |
+| Interpeak | 14/min | 11.82/min | +32.7 | 1,555 s | 255.8 s | 938.1 s | 60.5% | 2/3 at 15/min |
+| PM peak | 13/min | 11.02/min | +30.7 | 1,529 s | 250.5 s | 917.5 s | 58.9% | 2/3 at 14/min |
+| Evening | 14/min | 10.33/min | +55.0 | 1,588 s | 356.3 s | 1,085.7 s | 59.2% | 2/3 at 15/min |
+| Late | 12/min | 9.82/min | +32.7 | 1,439 s | 300.6 s | 1,031.7 s | 58.1% | 2/3 at 13/min |
+| Night | 9/min | 7.40/min | +24.0 | 1,419 s | 213.3 s | 718.3 s | 53.4% | 2/3 at 10/min |
 
 The `peak_active_vehicles` column counts the pods with assigned work.
 A pod has assigned work when it has a trip that is not complete, or when a pending request names it as the pickup pod.
@@ -620,41 +625,62 @@ This includes boarding, travel with passengers, unloading, and travel to a picku
 An empty move to parking or for redistribution is not work.
 The `peak_passenger_vehicles` column counts only the pods with passengers aboard, so it is never more than `peak_active_vehicles`.
 
-The pod counts in the next paragraph use an earlier definition of `peak_active_vehicles`.
-That definition also counted each pod that had finished a trip and each empty move.
-A pod that went idle after a trip stayed in the count.
-Thus these counts can be higher than the number of pods with assigned work.
-
-No band finishes all three seeds at 15/min.
-At the limit rate, at least one seed has all 114 pods active at the same time in every band except Early and Morning, measured with the earlier definition.
-The highest seed peak with the earlier definition is 108 pods in Early and 113 pods in Morning.
-At 10/min, the Morning seed that does not finish has all 114 pods active with the earlier definition and at most 3 stopped pods.
-The highest per-seed peak stopped pods at the limit rate is 11 in Early and 3 to 6 in the other bands.
+At the limit rate, every seed has all 114 pods with work at the same time in AM peak, Interpeak, PM peak, Evening, and Late.
+The highest seed peak at the limit rate is 104 pods in Early, 99 pods in Morning, and 105 pods in Night.
+At the first rate above each limit, each seed that does not finish within 60 minutes has 112 to 114 pods with work.
+The highest per-seed peak stopped pods at the limit rate is 9 in Early and 3 to 4 in the other bands.
+Across all arms, peak stopped pods reach 19 in Early and 4 to 7 in the other bands.
 For the seven bands other than Early, these results suggest that the 114-pod fleet, not track congestion, sets the recovery limit.
-Early has more peak stopped pods, so congestion can also contribute to its limit.
+Early has more stopped pods, so congestion can also contribute to its limit.
 
 OD mix explains most of the lowest limits.
-At the lowest load, an Early journey uses 6.25 km of passenger travel and 7.44 km of empty travel on average.
-A Night journey uses 5.24 km and 4.04 km.
-The other bands use 4.71 to 5.73 km of passenger travel and 2.31 to 2.73 km of empty travel.
+At the lowest load, an Early journey uses 6.24 km of passenger travel and 7.06 km of empty travel on average.
+A Night journey uses 5.23 km and 3.51 km.
+The other bands use 4.71 to 5.73 km of passenger travel and 1.35 to 1.81 km of empty travel.
 Early and Night need the most empty travel per journey.
 Early has the lowest limit, and Night shares the second-lowest limit with Morning.
-The Morning limit comes from one seed at 10/min that leaves one request at the cap.
+The Morning limit comes from one seed at 10/min that finishes 42 seconds after the cap.
 
 These limits describe a finite 30-minute demand pulse with up to 30 minutes of recovery.
 They are not continuous steady-state limits.
 Backlog still grows in the second half of every limit-rate arm, so an operating target needs headroom.
-The closest limit-rate arm finishes 104 seconds before the cap in Night.
+The closest limit-rate arm finishes 5 seconds before the cap in AM peak.
 The sweep does not prove that any tested rate can run indefinitely.
+
+A cap a little after 60 minutes gives higher limits in some bands.
+This table gives the limit for four caps.
+The 65-minute column uses the full run.
+The highest tested rate is 15/min, so a limit of 15/min is a lower bound.
+
+| NUMBAT band | 60 min | 60 min 30 s | 61 min | 65 min |
+| --- | ---: | ---: | ---: | ---: |
+| Early | 7/min | 7/min | 7/min | 10/min |
+| Morning | 9/min | 9/min | 12/min | 13/min |
+| AM peak | 13/min | 13/min | 14/min | 14/min |
+| Interpeak | 14/min | 14/min | 14/min | 15/min |
+| PM peak | 13/min | 15/min | 15/min | 15/min |
+| Evening | 14/min | 15/min | 15/min | 15/min |
+| Late | 12/min | 13/min | 13/min | 14/min |
+| Night | 9/min | 9/min | 9/min | 11/min |
+
+Three limits rise when the cap is 30 seconds later, and five limits rise when it is 60 seconds later.
+Compare the limits of two sweeps only when they use the same cap.
+
+The previous sweep at commit `3b02de8` gave the same limits in Early, Morning, Late, and Night.
+It gave lower limits in AM peak (11/min), Interpeak (13/min), PM peak (12/min), and Evening (12/min).
+Later dispatch changes release pickup pods for new work.
+They also give an idle pod at the pickup station a zero pickup estimate.
 
 The shared-junction network at commit `5e556e0` had recovery limits of 2/min in Early, 3/min in Night, and 6 to 7/min in the other bands.
 Across all arms, its peak stopped pods reached 44 to 91 per band.
-In the portal sweep, no arm has more than 22 peak stopped pods.
-Commit `ed5d782` also changed the berth layout, and commit `3b02de8` changed the station headings, so this comparison does not isolate the portal change.
-At the lowest load, empty travel per journey is also higher on the portal network, for example 2.41 km against 1.75 km in Morning.
+In this sweep, no arm has more than 19 peak stopped pods.
+Commit `ed5d782` also changed the berth layout, commit `3b02de8` changed the station headings, and later commits changed dispatch.
+Thus this comparison does not isolate the portal change.
+In Morning at the lowest load, empty travel per journey is 1.81 km, against 1.75 km on the shared-junction network.
 
-The compare command above wrote the committed CSV in one run.
-It took 2,282 wall seconds for 360 arms and reached 735,432 KB peak RSS on the qualification host with ten workers.
+The three sweeps ran at the same time on the qualification host, each with five workers.
+The capacity sweep took 5,375 wall seconds for 345 arms.
+The wait-rule sweep took 6,243 seconds for 675 arms, and the redistribution sweep took 5,610 seconds for 342 arms.
 Each arm is independent and deterministic, so the number of workers does not change the rows.
 Raw results are in [`measurements/london-capacity.csv`](measurements/london-capacity.csv).
 
@@ -673,26 +699,78 @@ The compare command runs three rules for this hold with `-wait-rules`:
 The report has a `wait_rule` column only when the command gets `-wait-rules`.
 Without the flag, the CSV columns are the same as before the option.
 
+The wait-rule sweep uses the bands, rates, and seeds of the capacity sweep with the `strict` and `none` rules.
+Its CSV has no `current` rows, because the capacity CSV gives them.
+
 ```sh
-mise run compare -- -project /tmp/podsim-london-capacity.json -pattern profile -bands morning -duration 60m -arrivals-for 30m -loads 6s -seeds 1 -redistribution-policies off -focus 940GZZLUEUS -queue-limit 1000000 -stop-when-drained -wait-rules current,strict,none -format csv
-mise run compare -- -project /tmp/podsim-london-capacity.json -pattern profile -bands early -duration 60m -arrivals-for 30m -loads 5s,60s -seeds 1 -redistribution-policies off -focus 940GZZLUEUS -queue-limit 1000000 -stop-when-drained -wait-rules current,strict,none -format csv
+mise run compare -- -project /tmp/podsim-london-capacity.json -pattern profile -bands all -duration 65m -arrivals-for 30m -loads 60s,30s,20s,15s,12s,10s,8.571429s,7.5s,6.666667s,6s,5.454545s,5s,4.615385s,4.285714s,4s -seeds 1,2,3 -redistribution-policies off -wait-rules strict,none -focus 940GZZLUEUS -queue-limit 1000000 -stop-when-drained -adaptive-limit -past-limit 1 -workers 5 -format csv -output docs/measurements/london-wait-rules.csv
 ```
 
-The table gives seed 1 at the commit "sim: add a choice of finishing-pod wait rule", which adds the option.
-These three arms are a sample, not a new sweep.
+A new rule becomes the default only if it keeps or raises every band limit.
+It must also not raise the average wait or the empty distance at the `current` limit rates.
+The limits use the 60-minute rule from the capacity sweep.
 
-| Arm | Rule | Served | Left at cap | Recovery after arrivals | Average wait | Maximum wait | Empty distance |
-| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: |
-| Morning 6 s | current | 298 | 1 | Did not drain | 195.7 s | 1,013.4 s | 1,058.2 km |
-| Morning 6 s | strict | 299 | 0 | 1,505 s | 190.4 s | 755.5 s | 1,103.7 km |
-| Morning 6 s | none | 299 | 0 | 1,612 s | 197.6 s | 783.1 s | 1,131.8 km |
-| Early 5 s | current | 317 | 42 | Did not drain | 849.5 s | 1,922.5 s | 2,266.5 km |
-| Early 5 s | strict | 319 | 40 | Did not drain | 832.8 s | 1,890.9 s | 2,300.9 km |
-| Early 5 s | none | 321 | 38 | Did not drain | 824.2 s | 1,805.0 s | 2,299.2 km |
-| Early 60 s | current | 29 | 0 | 788 s | 108.9 s | 274.3 s | 206.0 km |
-| Early 60 s | strict | 29 | 0 | 788 s | 108.9 s | 274.3 s | 206.1 km |
-| Early 60 s | none | 29 | 0 | 788 s | 108.9 s | 274.3 s | 206.1 km |
+| NUMBAT band | `current` limit | `strict` limit | `none` limit |
+| --- | ---: | ---: | ---: |
+| Early | 7/min | 8/min | 8/min |
+| Morning | 9/min | 11/min | 11/min |
+| AM peak | 13/min | 10/min | 12/min |
+| Interpeak | 14/min | 14/min | 14/min |
+| PM peak | 13/min | 12/min | 13/min |
+| Evening | 14/min | 14/min | 10/min |
+| Late | 12/min | 12/min | 12/min |
+| Night | 9/min | 9/min | 9/min |
 
-At 60 s intervals, the rules give almost the same result.
-In the two loaded arms, `strict` and `none` served more requests and gave shorter maximum waits than `current`, but they used more empty travel.
-One seed cannot show whether this difference is larger than the variation between seeds.
+The next table gives the means of the three seeds at the `current` limit rate.
+
+| NUMBAT band | Rate | Average wait, `current` | Average wait, `strict` | Average wait, `none` | Empty distance, `current` | Empty distance, `strict` | Empty distance, `none` |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| Early | 7/min | 377.0 s | 365.9 s | 364.8 s | 1,558.4 km | 1,568.6 km | 1,568.7 km |
+| Morning | 9/min | 173.5 s | 173.6 s | 174.3 s | 863.7 km | 899.2 km | 918.2 km |
+| AM peak | 13/min | 317.1 s | 334.2 s | 345.9 s | 1,518.6 km | 1,578.3 km | 1,633.3 km |
+| Interpeak | 14/min | 255.8 s | 297.5 s | 312.4 s | 1,363.2 km | 1,514.6 km | 1,543.4 km |
+| PM peak | 13/min | 250.5 s | 280.0 s | 287.9 s | 1,362.3 km | 1,503.9 km | 1,533.3 km |
+| Evening | 14/min | 356.3 s | 377.0 s | Not run | 1,538.0 km | 1,657.8 km | Not run |
+| Late | 12/min | 300.6 s | 306.3 s | 307.9 s | 1,408.3 km | 1,474.1 km | 1,497.9 km |
+| Night | 9/min | 213.3 s | 210.7 s | 216.6 s | 1,354.5 km | 1,402.4 km | 1,440.0 km |
+
+Neither rule meets these conditions, so `current` stays the default.
+Both rules raise the Early and Morning limits.
+`strict` lowers the AM peak and PM peak limits, and `none` lowers the AM peak and Evening limits.
+The adaptive run stops the Evening `none` group at 12/min, so the table has no `none` values for Evening at 14/min.
+At the `current` limit rates, each rule adds empty distance in every band that has values.
+Each rule also adds average wait in six bands.
+Raw results are in [`measurements/london-wait-rules.csv`](measurements/london-wait-rules.csv).
+
+### Redistribution in the London sweep
+
+The redistribution sweep uses the bands, rates, and seeds of the capacity sweep with redistribution on.
+Redistribution uses the origin demand of the band as the station weights.
+The `positioning_moves` column counts the redistribution moves.
+
+```sh
+mise run compare -- -project /tmp/podsim-london-capacity.json -pattern profile -bands all -duration 65m -arrivals-for 30m -loads 60s,30s,20s,15s,12s,10s,8.571429s,7.5s,6.666667s,6s,5.454545s,5s,4.615385s,4.285714s,4s -seeds 1,2,3 -redistribution-policies on -focus 940GZZLUEUS -queue-limit 1000000 -stop-when-drained -adaptive-limit -past-limit 1 -workers 5 -format csv -output docs/measurements/london-redistribution.csv
+```
+
+The limits use the same 60-minute rule.
+The other columns give the means of the three seeds at 1/min.
+
+| NUMBAT band | Limit, off | Limit, on | Average wait, off | Average wait, on | Empty distance, off | Empty distance, on | Positioning moves |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| Early | 7/min | 7/min | 124.2 s | 58.6 s | 204.6 km | 467.6 km | 51.0 |
+| Morning | 9/min | 9/min | 38.2 s | 11.2 s | 52.6 km | 577.0 km | 73.0 |
+| AM peak | 13/min | 12/min | 30.6 s | 11.7 s | 52.4 km | 607.9 km | 78.7 |
+| Interpeak | 14/min | 14/min | 29.6 s | 10.4 s | 46.5 km | 606.4 km | 74.3 |
+| PM peak | 13/min | 15/min | 30.7 s | 18.2 s | 47.0 km | 599.1 km | 74.0 |
+| Evening | 14/min | 15/min | 32.1 s | 21.6 s | 39.2 km | 590.0 km | 76.7 |
+| Late | 12/min | 12/min | 45.4 s | 16.0 s | 49.7 km | 610.7 km | 76.0 |
+| Night | 9/min | 8/min | 49.2 s | 32.3 s | 101.7 km | 790.4 km | 96.7 |
+
+At 1/min, redistribution cuts the average wait by 33 to 71 percent.
+It also increases the empty distance by a factor of 2.3 to 15.0.
+At the limit rates without redistribution, it changes the average wait by -16.5 to +1.2 seconds.
+At these rates, it adds 8 to 29 percent to the empty distance.
+It raises the PM peak and Evening limits to 15/min, which is the highest tested rate.
+It lowers the AM peak and Night limits by one rate.
+Redistribution stays off by default, because it lowers two band limits and adds much empty travel.
+Raw results are in [`measurements/london-redistribution.csv`](measurements/london-redistribution.csv).
