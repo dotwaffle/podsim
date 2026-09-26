@@ -47,11 +47,11 @@ var waitRuleValues = map[string]sim.FinishingPodWait{
 }
 
 // redistributionPolicyValues maps each -redistribution-policies name to
-// its positioning mode.
+// its positioning mode. The on policy is guarded positioning, as for a
+// project with redistribution.
 var redistributionPolicyValues = map[string]sim.Positioning{
-	"off":     sim.PositioningOff,
-	"on":      sim.PositioningRedistribution,
-	"guarded": sim.PositioningGuarded,
+	"off": sim.PositioningOff,
+	"on":  sim.PositioningGuarded,
 }
 
 type options struct {
@@ -229,7 +229,7 @@ func parseOptions(args []string, stderr io.Writer) (options, error) {
 	flags.StringVar(&opts.loadsText, "loads", "", "comma-separated request intervals")
 	flags.StringVar(&opts.sharingLimitsText, "sharing-limits", "1", "comma-separated same-destination party limits")
 	flags.StringVar(&opts.routingPoliciesText, "routing-policies", "free-flow", "comma-separated routing policies: free-flow, congestion")
-	flags.StringVar(&opts.redistributionText, "redistribution-policies", "off,on", "comma-separated redistribution policies: off, on, guarded")
+	flags.StringVar(&opts.redistributionText, "redistribution-policies", "off,on", "comma-separated redistribution policies: off, on")
 	flags.StringVar(&opts.waitRulesText, "wait-rules", "current", "comma-separated finishing-pod wait rules: current, strict, none (adds a wait_rule column)")
 	flags.StringVar(&opts.focus, "focus", "", "passenger station used by focused patterns")
 	flags.StringVar(&opts.format, "format", "table", "output format: table, json, or csv")

@@ -48,7 +48,8 @@ func TestParseOptionsRejectsInvalidBounds(t *testing.T) {
 		{name: "duplicate routing policy", args: []string{"-routing-policies", "free-flow,free-flow"}, want: "more than once"},
 		{name: "unknown redistribution policy", args: []string{"-redistribution-policies", "maybe"}, want: "unknown redistribution policy"},
 		{name: "duplicate redistribution policy", args: []string{"-redistribution-policies", "off,off"}, want: "more than once"},
-		{name: "duplicate guarded policy", args: []string{"-redistribution-policies", "guarded, on,guarded"}, want: "more than once"},
+		{name: "duplicate on policy", args: []string{"-redistribution-policies", "on, off,on"}, want: "more than once"},
+		{name: "retired guarded policy", args: []string{"-redistribution-policies", "off,guarded"}, want: "unknown redistribution policy"},
 		{name: "unknown wait rule", args: []string{"-wait-rules", "lenient"}, want: "unknown wait rule"},
 		{name: "empty wait rule", args: []string{"-wait-rules", "current,"}, want: "unknown wait rule"},
 		{name: "duplicate wait rule", args: []string{"-wait-rules", "strict,strict"}, want: "more than once"},
@@ -415,8 +416,8 @@ func TestParseRedistributionPolicies(t *testing.T) {
 		want []string
 	}{
 		{"flag not given", nil, []string{"off", "on"}},
-		{"guarded only", []string{"-redistribution-policies", "guarded"}, []string{"guarded"}},
-		{"all policies in order", []string{"-redistribution-policies", "guarded, off,on"}, []string{"guarded", "off", "on"}},
+		{"on only", []string{"-redistribution-policies", "on"}, []string{"on"}},
+		{"all policies in order", []string{"-redistribution-policies", "on, off"}, []string{"on", "off"}},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
@@ -431,12 +432,11 @@ func TestParseRedistributionPolicies(t *testing.T) {
 	}
 }
 
-// policyArms runs the off, on and guarded policies with the given
-// arguments, as the command does. It returns the results with the policy
-// names cleared.
-func policyArms(t *testing.T, args []string) (off, on, guarded result) {
+// policyArms runs the off and on policies with the given arguments, as
+// the command does. It returns the results with the policy names cleared.
+func policyArms(t *testing.T, args []string) (off, on result) {
 	t.Helper()
-	opts, err := parseOptions(append(slices.Clone(args), "-redistribution-policies", "off,on,guarded"), &bytes.Buffer{})
+	opts, err := parseOptions(append(slices.Clone(args), "-redistribution-policies", "off,on"), &bytes.Buffer{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -448,42 +448,36 @@ func policyArms(t *testing.T, args []string) (off, on, guarded result) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(results) != 3 {
-		t.Fatalf("got %d results, want 3", len(results))
+	if len(results) != 2 {
+		t.Fatalf("got %d results, want 2", len(results))
 	}
-	for index, want := range []string{"off", "on", "guarded"} {
+	for index, want := range []string{"off", "on"} {
 		if results[index].Policy != want {
 			t.Fatalf("result %d policy = %q, want %q", index, results[index].Policy, want)
 		}
 		results[index].Policy = ""
 	}
-	return results[0], results[1], results[2]
+	return results[0], results[1]
 }
 
-// TestGuardedPolicyMatchesOffAtHighRate runs each policy on the example
-// fleet of two pods. A request each 20 s is above the guarded gate limit
-// of one request per minute for each 20 pods. Thus the guarded arm must
-// equal the off arm apart from its policy name. The on arm must differ,
-// so that the test finds a guarded arm that runs the on policy.
-func TestGuardedPolicyMatchesOffAtHighRate(t *testing.T) {
+// TestOnPolicyMatchesOffAtHighRate runs each policy on the example fleet
+// of two pods. A request each 20 s is above the guarded gate limit of one
+// request per minute for each 20 pods. Thus the on arm must equal the off
+// arm apart from its policy name.
+func TestOnPolicyMatchesOffAtHighRate(t *testing.T) {
 	t.Parallel()
-	off, on, guarded := policyArms(t, []string{
+	off, on := policyArms(t, []string{
 		"-duration", "4m", "-arrivals-for", "3m", "-request-every", "20s", "-seed", "7", "-pattern", "balanced",
 	})
-	if reflect.DeepEqual(on, off) {
-		t.Fatal("the on arm equals the off arm")
-	}
-	if !reflect.DeepEqual(guarded, off) {
-		t.Fatalf("guarded arm differs from the off arm:\n%+v\n%+v", guarded, off)
+	if !reflect.DeepEqual(on, off) {
+		t.Fatalf("on arm differs from the off arm:\n%+v\n%+v", on, off)
 	}
 }
 
-// TestGuardedPolicyMovesPodsAtLowRate runs each policy on the small
-// qualification ring. It has 12 pods and stations with four berths. A
-// request each 3 minutes is below the guarded gate limit, so the guarded
-// arm must make positioning moves and differ from the other arms.
-func TestGuardedPolicyMovesPodsAtLowRate(t *testing.T) {
-	t.Parallel()
+// smallProject writes the small qualification ring to a project file and
+// returns its path. The ring has 12 pods and stations with four berths.
+func smallProject(t *testing.T) string {
+	t.Helper()
 	data, err := json.Marshal(scenarios.Small())
 	if err != nil {
 		t.Fatal(err)
@@ -492,41 +486,42 @@ func TestGuardedPolicyMovesPodsAtLowRate(t *testing.T) {
 	if err = os.WriteFile(path, data, 0o600); err != nil {
 		t.Fatal(err)
 	}
-	off, on, guarded := policyArms(t, []string{
-		"-project", path, "-duration", "20m", "-request-every", "3m", "-seed", "1", "-pattern", "hotspot",
+	return path
+}
+
+// TestOnPolicyMovesPodsAtLowRate runs each policy on the small
+// qualification ring. A request each 3 minutes is below the guarded gate
+// limit, so the on arm must make positioning moves and differ from the off
+// arm.
+func TestOnPolicyMovesPodsAtLowRate(t *testing.T) {
+	t.Parallel()
+	off, on := policyArms(t, []string{
+		"-project", smallProject(t), "-duration", "20m", "-request-every", "3m", "-seed", "1", "-pattern", "hotspot",
 	})
-	if guarded.PositioningMoveCount == 0 {
-		t.Fatal("the guarded arm made no positioning moves")
+	if on.PositioningMoveCount == 0 {
+		t.Fatal("the on arm made no positioning moves")
 	}
-	if reflect.DeepEqual(guarded, off) || reflect.DeepEqual(guarded, on) {
-		t.Fatalf("guarded arm equals another arm:\noff %+v\non %+v\nguarded %+v", off, on, guarded)
+	if reflect.DeepEqual(on, off) {
+		t.Fatalf("on arm equals the off arm:\n%+v", on)
 	}
 }
 
-// TestGuardedPolicyStopsAtSkippedArrival runs each policy on the small
+// TestOnPolicyStopsAtSkippedArrival runs each policy on the small
 // qualification ring with a queue limit of one request. A request each 90 s
 // is above the guarded gate limit of 0.6 requests per minute for 12 pods,
 // but some arrivals are skipped, so the rate of the accepted requests is
-// below the limit. The guarded arm must still equal the off arm apart from
-// its policy name.
-func TestGuardedPolicyStopsAtSkippedArrival(t *testing.T) {
+// below the limit. The on arm must still equal the off arm apart from its
+// policy name.
+func TestOnPolicyStopsAtSkippedArrival(t *testing.T) {
 	t.Parallel()
-	data, err := json.Marshal(scenarios.Small())
-	if err != nil {
-		t.Fatal(err)
-	}
-	path := filepath.Join(t.TempDir(), "small.json")
-	if err = os.WriteFile(path, data, 0o600); err != nil {
-		t.Fatal(err)
-	}
-	off, _, guarded := policyArms(t, []string{
-		"-project", path, "-duration", "30m", "-arrivals-for", "20m", "-request-every", "90s", "-seed", "1", "-pattern", "hotspot", "-queue-limit", "1",
+	off, on := policyArms(t, []string{
+		"-project", smallProject(t), "-duration", "30m", "-arrivals-for", "20m", "-request-every", "90s", "-seed", "1", "-pattern", "hotspot", "-queue-limit", "1",
 	})
 	if off.Skipped == 0 {
 		t.Fatal("the off arm skipped no arrival")
 	}
-	if !reflect.DeepEqual(guarded, off) {
-		t.Fatalf("guarded arm differs from the off arm:\n%+v\n%+v", guarded, off)
+	if !reflect.DeepEqual(on, off) {
+		t.Fatalf("on arm differs from the off arm:\n%+v\n%+v", on, off)
 	}
 }
 

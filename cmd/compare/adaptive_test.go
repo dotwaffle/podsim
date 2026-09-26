@@ -192,11 +192,10 @@ func TestArmSchedulerRateOrder(t *testing.T) {
 
 // TestArmSchedulerSeparatesPolicies checks that each redistribution policy
 // is a separate group. The on arms fail at the lowest rate, so the rule
-// skips their higher rates, but it must run each rate of the other
-// policies.
+// skips their higher rates, but it must run each rate of the off policy.
 func TestArmSchedulerSeparatesPolicies(t *testing.T) {
 	t.Parallel()
-	policies := []string{"off", "on", "guarded"}
+	policies := []string{"off", "on"}
 	var inputs []runInput
 	for _, load := range []time.Duration{60 * time.Second, 30 * time.Second, 20 * time.Second} {
 		for _, policy := range policies {
@@ -213,7 +212,7 @@ func TestArmSchedulerSeparatesPolicies(t *testing.T) {
 		return scheduler.finish(index, inputs[index].policy != "on")
 	}
 	driveQueue(scheduler.start(), finish, false)
-	if want := map[string]int{"off": 3, "on": 1, "guarded": 3}; !maps.Equal(ran, want) {
+	if want := map[string]int{"off": 3, "on": 1}; !maps.Equal(ran, want) {
 		t.Fatalf("rates run by policy = %v, want %v", ran, want)
 	}
 }
