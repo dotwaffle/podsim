@@ -72,14 +72,14 @@ type rateGroupKey struct {
 	pattern, profile, band  string
 	sharingLimit            int
 	routingPolicy, waitRule string
-	enabled                 bool
+	policy                  string
 }
 
 func rateGroupKeyOf(input *runInput) rateGroupKey {
 	return rateGroupKey{
 		pattern: input.pattern, profile: input.profile, band: input.band,
 		sharingLimit: input.sharingLimit, routingPolicy: input.routingPolicy,
-		waitRule: input.waitRule, enabled: input.enabled,
+		waitRule: input.waitRule, policy: input.policy,
 	}
 }
 

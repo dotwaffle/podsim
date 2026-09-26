@@ -30,7 +30,7 @@ const (
 	maxDuration    = 24 * time.Hour
 	maxSeeds       = 100
 	maxLoads       = 20
-	maxComparisons = 1000
+	maxComparisons = 1000 // The cap does not count the redistribution policies.
 	maxQueueLimit  = 1_000_000
 	maxBurstSize   = 1_000
 	maxWorkers     = 64
@@ -44,6 +44,14 @@ var waitRuleValues = map[string]sim.FinishingPodWait{
 	"current": sim.FinishingPodWaitCurrent,
 	"strict":  sim.FinishingPodWaitStrict,
 	"none":    sim.FinishingPodWaitNone,
+}
+
+// redistributionPolicyValues maps each -redistribution-policies name to
+// its positioning mode.
+var redistributionPolicyValues = map[string]sim.Positioning{
+	"off":     sim.PositioningOff,
+	"on":      sim.PositioningRedistribution,
+	"guarded": sim.PositioningGuarded,
 }
 
 type options struct {
@@ -71,7 +79,7 @@ type options struct {
 	loads                  []time.Duration
 	sharingLimits          []int
 	routingPolicies        []string
-	redistributionPolicies []bool
+	redistributionPolicies []string
 	// waitRules is nil when -wait-rules is not given. Then each arm uses the
 	// default rule and the report has no wait rule column.
 	waitRules       []string
@@ -221,7 +229,7 @@ func parseOptions(args []string, stderr io.Writer) (options, error) {
 	flags.StringVar(&opts.loadsText, "loads", "", "comma-separated request intervals")
 	flags.StringVar(&opts.sharingLimitsText, "sharing-limits", "1", "comma-separated same-destination party limits")
 	flags.StringVar(&opts.routingPoliciesText, "routing-policies", "free-flow", "comma-separated routing policies: free-flow, congestion")
-	flags.StringVar(&opts.redistributionText, "redistribution-policies", "off,on", "comma-separated redistribution policies: off, on")
+	flags.StringVar(&opts.redistributionText, "redistribution-policies", "off,on", "comma-separated redistribution policies: off, on, guarded")
 	flags.StringVar(&opts.waitRulesText, "wait-rules", "current", "comma-separated finishing-pod wait rules: current, strict, none (adds a wait_rule column)")
 	flags.StringVar(&opts.focus, "focus", "", "passenger station used by focused patterns")
 	flags.StringVar(&opts.format, "format", "table", "output format: table, json, or csv")
@@ -321,21 +329,23 @@ func validateAdaptiveLimit(opts options, pastLimitGiven bool) error {
 	return nil
 }
 
-func parseRedistributionPolicies(value string) ([]bool, error) {
+// parseRedistributionPolicies reads the -redistribution-policies list.
+// Each name must be a key of redistributionPolicyValues and can occur only
+// once. The order of the list is the order of the arms in the report.
+func parseRedistributionPolicies(value string) ([]string, error) {
 	parts := strings.Split(value, ",")
-	policies := make([]bool, 0, len(parts))
-	seen := make(map[bool]bool, len(parts))
+	policies := make([]string, 0, len(parts))
+	seen := make(map[string]bool, len(parts))
 	for _, part := range parts {
 		name := strings.TrimSpace(part)
-		if name != "off" && name != "on" {
+		if _, ok := redistributionPolicyValues[name]; !ok {
 			return nil, fmt.Errorf("unknown redistribution policy %q", name)
 		}
-		enabled := name == "on"
-		if seen[enabled] {
+		if seen[name] {
 			return nil, fmt.Errorf("redistribution policy %q appears more than once", name)
 		}
-		seen[enabled] = true
-		policies = append(policies, enabled)
+		seen[name] = true
+		policies = append(policies, name)
 	}
 	return policies, nil
 }
@@ -605,9 +615,9 @@ func compare(opts options, scenario scenario) ([]result, error) {
 				for _, sharingLimit := range opts.sharingLimits {
 					for _, routingPolicy := range opts.routingPolicies {
 						for _, waitRule := range waitRules {
-							for _, enabled := range opts.redistributionPolicies {
+							for _, policy := range opts.redistributionPolicies {
 								inputs = append(inputs, runInput{
-									enabled: enabled, duration: opts.duration, requestEvery: load, seed: seed,
+									policy: policy, duration: opts.duration, requestEvery: load, seed: seed,
 									pattern: arm.pattern, profile: arm.profile, band: arm.band,
 									scheduleID: id, queueLimit: opts.queueLimit, arrivalsFor: opts.arrivalsFor,
 									burstSize: opts.burstSize, sharingLimit: sharingLimit, routingPolicy: routingPolicy,
@@ -844,7 +854,8 @@ func scheduleID(schedule []scheduledRequest) string {
 }
 
 type runInput struct {
-	enabled                             bool
+	// policy names a redistributionPolicyValues key.
+	policy                              string
 	duration, arrivalsFor, requestEvery time.Duration
 	seed                                int64
 	pattern, profile, band, scheduleID  string
@@ -884,7 +895,13 @@ func run(input runInput) (result, error) {
 			return result{}, fmt.Errorf("set wait rule: %w", waitErr)
 		}
 	}
-	simulation.SetRedistribution(input.enabled)
+	mode, ok := redistributionPolicyValues[input.policy]
+	if !ok {
+		return result{}, fmt.Errorf("unknown redistribution policy %q", input.policy)
+	}
+	if positioningErr := simulation.SetPositioning(mode); positioningErr != nil {
+		return result{}, fmt.Errorf("set redistribution policy: %w", positioningErr)
+	}
 	metrics, err := newRunMetrics(input.scenario, input.schedule)
 	if err != nil {
 		return result{}, err
@@ -899,6 +916,16 @@ func run(input runInput) (result, error) {
 		for next < len(input.schedule) && input.schedule[next].tick == tick {
 			request := input.schedule[next]
 			if len(simulation.Snapshot().Pending) >= input.queueLimit {
+				// The guarded gate reads the rate of the accepted requests.
+				// After a skipped arrival, that rate is lower than the
+				// offered rate, and the gate can open above its limit. The
+				// run is then over its queue limit, so the guarded policy
+				// stops for the rest of the run.
+				if skipped == 0 && mode == sim.PositioningGuarded {
+					if err := simulation.SetPositioning(sim.PositioningOff); err != nil {
+						return result{}, fmt.Errorf("stop the guarded policy: %w", err)
+					}
+				}
 				skipped++
 				next++
 				continue
@@ -935,10 +962,6 @@ func run(input runInput) (result, error) {
 		midpointState = arrivalState
 	}
 	metrics.observe(state)
-	policy := "off"
-	if input.enabled {
-		policy = "on"
-	}
 	burstSize := 1
 	if isBurstPattern(input.pattern) {
 		burstSize = input.burstSize
@@ -959,7 +982,7 @@ func run(input runInput) (result, error) {
 	return result{
 		Pattern: input.pattern, DemandProfile: input.profile, DemandBand: input.band,
 		RequestEverySeconds: input.requestEvery.Seconds(), OfferedPerMinute: float64(len(input.schedule)) / arrivalMinutes, Seed: input.seed,
-		BurstSize: burstSize, Policy: policy, SharedRidePartyLimit: input.sharingLimit,
+		BurstSize: burstSize, Policy: input.policy, SharedRidePartyLimit: input.sharingLimit,
 		SharedParties: state.SharedParties, RoutingPolicy: input.routingPolicy, WaitRule: input.waitRule, FocusStation: input.scenario.focus,
 		WindowStartSeconds: 0, WindowEndSeconds: input.duration.Seconds(), ActualEndSeconds: float64(state.Tick) / sim.TicksPerSecond,
 		ArrivalWindowSeconds: input.arrivalsFor.Seconds(), ArrivalEndSeconds: arrivalEnd, ScheduleID: input.scheduleID,

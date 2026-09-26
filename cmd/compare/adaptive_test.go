@@ -6,6 +6,7 @@ import (
 	"encoding/csv"
 	"errors"
 	"fmt"
+	"maps"
 	"math"
 	"reflect"
 	"slices"
@@ -93,8 +94,8 @@ func adaptiveFixture() []runInput {
 	for _, band := range []string{"early", "late"} {
 		for _, load := range []time.Duration{20 * time.Second, 60 * time.Second, 30 * time.Second, 10 * time.Second, 15 * time.Second} {
 			for _, seed := range []int64{1, 2} {
-				for _, enabled := range []bool{false, true} {
-					inputs = append(inputs, runInput{band: band, requestEvery: load, seed: seed, enabled: enabled})
+				for _, policy := range []string{"off", "on"} {
+					inputs = append(inputs, runInput{band: band, requestEvery: load, seed: seed, policy: policy})
 				}
 			}
 		}
@@ -104,7 +105,7 @@ func adaptiveFixture() []runInput {
 
 // fixtureRate names the group and the rate of a fixture arm.
 func fixtureRate(input runInput) string {
-	return fmt.Sprintf("%s/%t/%s", input.band, input.enabled, input.requestEvery)
+	return fmt.Sprintf("%s/%s/%s", input.band, input.policy, input.requestEvery)
 }
 
 // fixtureFailures lists the fixture arms that do not drain, by rate and
@@ -112,13 +113,13 @@ func fixtureRate(input runInput) string {
 // late band with redistribution on drains again at 20s after it fails at
 // 30s.
 var fixtureFailures = map[string][]int64{
-	"early/false/20s": {2},
-	"early/false/10s": {1, 2},
-	"late/false/1m0s": {1, 2},
-	"late/false/30s":  {1},
-	"late/true/30s":   {1},
-	"late/true/15s":   {1, 2},
-	"late/true/10s":   {2},
+	"early/off/20s": {2},
+	"early/off/10s": {1, 2},
+	"late/off/1m0s": {1, 2},
+	"late/off/30s":  {1},
+	"late/on/30s":   {1},
+	"late/on/15s":   {1, 2},
+	"late/on/10s":   {2},
 }
 
 func fixtureDrained(input runInput) bool {
@@ -128,11 +129,11 @@ func fixtureDrained(input runInput) bool {
 // fixtureSkipped lists the rates that each past limit skips.
 var fixtureSkipped = map[int][]string{
 	0: {
-		"early/false/15s", "early/false/10s",
-		"late/false/30s", "late/false/20s", "late/false/15s", "late/false/10s",
-		"late/true/20s", "late/true/15s", "late/true/10s",
+		"early/off/15s", "early/off/10s",
+		"late/off/30s", "late/off/20s", "late/off/15s", "late/off/10s",
+		"late/on/20s", "late/on/15s", "late/on/10s",
 	},
-	1: {"early/false/10s", "late/false/20s", "late/false/15s", "late/false/10s", "late/true/15s", "late/true/10s"},
+	1: {"early/off/10s", "late/off/20s", "late/off/15s", "late/off/10s", "late/on/15s", "late/on/10s"},
 }
 
 // TestArmSchedulerInterleavesGroups finishes the arms of four groups in two
@@ -189,6 +190,34 @@ func TestArmSchedulerRateOrder(t *testing.T) {
 	}
 }
 
+// TestArmSchedulerSeparatesPolicies checks that each redistribution policy
+// is a separate group. The on arms fail at the lowest rate, so the rule
+// skips their higher rates, but it must run each rate of the other
+// policies.
+func TestArmSchedulerSeparatesPolicies(t *testing.T) {
+	t.Parallel()
+	policies := []string{"off", "on", "guarded"}
+	var inputs []runInput
+	for _, load := range []time.Duration{60 * time.Second, 30 * time.Second, 20 * time.Second} {
+		for _, policy := range policies {
+			inputs = append(inputs, runInput{band: "early", requestEvery: load, seed: 1, policy: policy})
+		}
+	}
+	scheduler := newArmScheduler(inputs, 0)
+	if len(scheduler.groups) != len(policies) {
+		t.Fatalf("got %d groups, want %d", len(scheduler.groups), len(policies))
+	}
+	ran := make(map[string]int)
+	finish := func(index int) []int {
+		ran[inputs[index].policy]++
+		return scheduler.finish(index, inputs[index].policy != "on")
+	}
+	driveQueue(scheduler.start(), finish, false)
+	if want := map[string]int{"off": 3, "on": 1, "guarded": 3}; !maps.Equal(ran, want) {
+		t.Fatalf("rates run by policy = %v, want %v", ran, want)
+	}
+}
+
 // TestRunAdaptiveKeepsInputOrder runs the fixture on worker pools of
 // different sizes. The results must be the arms that the rule keeps, in
 // input order.
@@ -196,7 +225,7 @@ func TestRunAdaptiveKeepsInputOrder(t *testing.T) {
 	t.Parallel()
 	inputs := adaptiveFixture()
 	fakeRun := func(input runInput) (result, error) {
-		return result{DemandBand: input.band, RequestEverySeconds: input.requestEvery.Seconds(), Seed: input.seed, Policy: strconv.FormatBool(input.enabled), Drained: fixtureDrained(input)}, nil
+		return result{DemandBand: input.band, RequestEverySeconds: input.requestEvery.Seconds(), Seed: input.seed, Policy: input.policy, Drained: fixtureDrained(input)}, nil
 	}
 	for pastLimit, skipped := range fixtureSkipped {
 		var want []result
