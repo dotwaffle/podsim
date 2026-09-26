@@ -73,6 +73,17 @@ func layoutError(network sim.Network, conflicts []layoutConflict) error {
 	return fmt.Errorf("layout conflict at %s (%d hard conflicts)", first.describe(network), hard)
 }
 
+// countSoft returns the number of soft conflicts.
+func countSoft(conflicts []layoutConflict) int {
+	count := 0
+	for _, conflict := range conflicts {
+		if conflict.soft {
+			count++
+		}
+	}
+	return count
+}
+
 // auditLane is a lane as straight parts, with the box that holds them.
 type auditLane struct {
 	lane      sim.Lane
@@ -438,4 +449,14 @@ func newLondonAuditInput(source londonSource) londonAuditInput {
 		input.gateways[parking.ID] = parking.Gateway
 	}
 	return input
+}
+
+// LondonSoftConflicts returns the number of soft layout conflicts of a
+// London network.
+func LondonSoftConflicts(network sim.Network) (int, error) {
+	var source londonSource
+	if err := decodeLondonSource(&source); err != nil {
+		return 0, err
+	}
+	return countSoft(auditLondonLayout(network, newLondonAuditInput(source))), nil
 }

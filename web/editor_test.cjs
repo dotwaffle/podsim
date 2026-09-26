@@ -76,21 +76,24 @@ function fixtureOptions(hasGo, env) {
 const needsGo = fixtureOptions(goOnPath(), process.env);
 
 // generatedFile runs the scenario command, so the fixture always matches the
-// server generator. It runs the command once for each preset. A test that
-// calls it must use the needsGo options.
-function generatedFile(preset) {
-  if (!generatedFiles.has(preset)) {
-    generatedFiles.set(preset, execFileSync("go", ["run", "./cmd/scenario", "-preset", preset], {
-      cwd: repoRoot, encoding: "utf8", maxBuffer: 64 * 1024 * 1024,
+// server generator. The flags change the station capacity. It runs the
+// command once for each preset and flag list. The command writes a summary
+// line to standard error, and a failure shows it. A test that calls it must
+// use the needsGo options.
+function generatedFile(preset, ...flags) {
+  const key = [preset, ...flags].join(" ");
+  if (!generatedFiles.has(key)) {
+    generatedFiles.set(key, execFileSync("go", ["run", "./cmd/scenario", "-preset", preset, ...flags], {
+      cwd: repoRoot, encoding: "utf8", maxBuffer: 64 * 1024 * 1024, stdio: "pipe",
     }));
   }
-  return generatedFiles.get(preset);
+  return generatedFiles.get(key);
 }
 
 // generatedProject loads a generated project as the editor loads the live
 // server project.
-function generatedProject(preset) {
-  return editor.normalizeConfig(JSON.parse(generatedFile(preset)));
+function generatedProject(preset, ...flags) {
+  return editor.normalizeConfig(JSON.parse(generatedFile(preset, ...flags)));
 }
 
 test("station creation makes separate safe entry, exit, and berth geometry", () => {
@@ -1627,6 +1630,15 @@ for (const preset of ["scale100", "london"]) {
     assert.deepEqual(editor.dragTargets(config, { type: "node", id: berth }), movedItems(config, editor.moveNode(config, berth, at.X + 20, at.Y - 10)));
   });
 }
+
+test("the editor accepts a generated london project near the node limit", needsGo, () => {
+  // 3 berths at each passenger station, 200 berths at each Parking facility,
+  // and a 40 meter pitch.
+  const config = generatedProject("london", "-station-berths", "3", "-parking-berths", "200", "-berth-pitch", "40");
+  assert.equal(config.network.Nodes.length, 3822);
+  assert.ok(config.network.Nodes.length <= editor.MAX_NODES && config.network.Lanes.length <= editor.MAX_LANES);
+  assert.deepEqual(editor.validateConfig(config), []);
+});
 
 test("each station shape on the generated london project holds its station nodes", needsGo, () => {
   const config = generatedProject("london");
