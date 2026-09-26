@@ -1608,13 +1608,21 @@
     return draft.live === draft.revision ? text : `${text} It is based on revision ${draft.revision}. Pause and apply replaces the live changes after revision ${draft.revision}.`;
   }
 
+  // shellPage gives the parent window when the editor is a frame of the
+  // shell page index.html. Otherwise it gives null. The shell page sets
+  // podsimShell. The browser blocks a read from a parent on a different
+  // origin, so that parent is not the shell page.
+  function shellPage(win) {
+    try { return win.parent !== win && win.parent.podsimShell === true ? win.parent : null; } catch (_) { return null; }
+  }
+
   const API = {
     MIN_LANE_LENGTH, MIN_ZOOM, NODE_LABEL_SCALE, NODE_LABEL_SIZE, LANE_PAIR_OFFSET, CHEVRON_LANE_LENGTH, BERTH_PITCH, STATION_PADDING, CHECK_DELAY, emptyConfig, fallbackConfig, normalizeConfig, addLane, addJunction, addStation, addBerth,
     stationBearing, stationShape, rotateStation, setStationBearing, nextBerthPosition, removeBerth, moveStation, moveNode, deleteNode, deleteLane, deleteStation, stationFlowCount, setFleetCount, fleetRows, selectionCard, berthFocusID, undoFocus, setDemandPattern,
     laneLength, curveLength, reachable, cutOffStations, stationNodeOwners, dragTargets, validateConfig, configWarnings, checkResults, checkSelector, checkSelection, selectionPoint, focusView,
     problemCountText, createCheckTimer, validationSummary, checkFocusKey, serializeDocument, parseDocument, createHistory,
     networkBounds, fitView, zoomScale, nodeLabelSize, pairedLaneIDs, showsChevron, laneOffset, laneCurve, lanePathData, applyToServer, applyFailureText, applyFailureStatus, applyToast,
-    DRAFT_SAVE_DELAY, DRAFT_STORE_TEXT, DRAFT_UNSAVED_TEXT, DRAFT_DISPLACED_TEXT, openDraftStore, createDraftKeeper, draftChanges, draftOffer, draftOfferText, restoreStatusText,
+    DRAFT_SAVE_DELAY, DRAFT_STORE_TEXT, DRAFT_UNSAVED_TEXT, DRAFT_DISPLACED_TEXT, openDraftStore, createDraftKeeper, draftChanges, draftOffer, draftOfferText, restoreStatusText, shellPage,
   };
   if (typeof module !== "undefined" && module.exports) module.exports = API;
   root.PodsimEditorModel = API;
@@ -2386,6 +2394,15 @@
     $("#demoButton").addEventListener("click", runExampleSequence);
     $("#validateButton").addEventListener("click", () => checks.run()); $("#applyButton").addEventListener("click", applyProject);
     $("#restoreDraftButton").addEventListener("click", restoreDraft); $("#discardDraftButton").addEventListener("click", discardDraft);
+    // In the shell page, the return link asks the shell to show the game.
+    // The game then keeps its map view and its selection. When the editor is
+    // the top page, or a modifier key opens the link elsewhere, the link
+    // opens index.html. After Enter on the link, the click detail is 0, and
+    // the message tells the shell that the keyboard selected the link.
+    $("#simulationLink").addEventListener("click", (event) => {
+      const shell = shellPage(root); if (!shell || event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) return;
+      event.preventDefault(); shell.postMessage({ podsim: "show", view: "game", keyboard: event.detail === 0 }, root.location.origin);
+    });
     // The browser asks before you leave or reload the page only when the
     // draft has changes that are not in the draft store. A waiting save
     // starts now. It is not in the store yet, so the prompt still shows.

@@ -315,7 +315,9 @@ See [the London qualification network](docs/london.md) for these rules.
 | **S** | Change speed |
 | **F** | Toggle pod following |
 
-The simulation gets the keyboard focus when the page opens and after a click on **Download debug state**.
+While the simulation shows, it gets the keyboard focus when the page opens, when it shows again after the editor, and after a click on **Download debug state**.
+After you select **Simulation** or **← Simulation** with the keyboard, **Edit scenario** gets the focus in its place.
+The simulation uses Tab and Shift+Tab to select pods, so the keyboard cannot move the focus out of the simulation.
 After a click outside the simulation, click the simulation to use the keyboard shortcuts again.
 While the connection works and the simulation has no keyboard focus, the line below the panels shows **Click the simulation to use keyboard shortcuts** in amber.
 
@@ -393,6 +395,17 @@ For example, the panel shows **Redistribution: on / 3 moves / 15.3 km empty**.
 ## Scenario editor
 
 Select **Edit scenario** above the simulation to open the editor.
+The editor opens in the same page.
+The simulation stays loaded behind it and continues to run.
+To return to the simulation, select **Simulation** above the editor or **← Simulation** in the editor, or use the browser Back button.
+The simulation then shows the same map view and the same selected pod as before.
+The editor keeps its state while the simulation shows.
+The editor loads the live scenario only the first time that it opens in the page.
+If you change the demand in the simulation after that, **Pause and apply** fails with a conflict.
+Reload the page to load the new revision.
+To open the page with the editor, add `#editor` to the address, for example <http://127.0.0.1:8080/#editor>.
+You can also open `editor.html` as a separate page.
+There, **← Simulation** opens the simulation page.
 The draft stays local until you select **Pause and apply**.
 
 ### Edit the network
@@ -460,7 +473,7 @@ It also has the project revision that the draft is based on, and the session epo
 The browser keeps one saved draft for each server address.
 After a successful apply, the browser deletes the saved draft.
 
-When you open the editor, the browser compares the saved draft with the live scenario.
+When the editor loads, the browser compares the saved draft with the live scenario.
 If they are different, the **Saved draft** bar shows the revision that the draft is based on.
 If the live revision is different, the bar also shows it.
 Select **Restore draft** to put the saved draft back.
@@ -492,7 +505,8 @@ A simulation that was paused before the apply stays paused.
 The editor does not resume a simulation that restarted after the pause, for example after a project apply from another browser.
 
 The editor applies a draft only to the project revision that it loaded.
-A project apply or a demand change from any other page makes a new revision.
+A project apply from another page makes a new revision.
+A demand change in the simulation also makes a new revision.
 The apply then fails with a conflict, and the editor keeps the draft.
 
 A rewind to a save point from before a project apply or a demand change restores that project.
@@ -933,7 +947,7 @@ See [the project brief](PROJECT_BRIEF.md) for the wider scope and research.
 | `cmd/serve` | Shared session, saved session state, browser assets, health checks, and diagnostics. |
 | `cmd/compare` | Reproducible policy comparisons. |
 | `cmd/scenario` | Generated scenario files. |
-| `web` | Browser loader and scenario editor. |
+| `web` | Browser page, game loader, and scenario editor. |
 
 ### Tasks
 
@@ -944,9 +958,9 @@ mise run check
 
 | Task | What it runs |
 | --- | --- |
-| `mise run check` | Workflow validation, Markdown checks, race tests, the qualification tests without the race detector, editor and loader tests, vet, lint, vulnerability checks, the native and browser builds, and the embedded server tests. |
+| `mise run check` | Workflow validation, Markdown checks, race tests, the qualification tests without the race detector, the `test:web` tests, vet, lint, vulnerability checks, the native and browser builds, and the embedded server tests. |
 | `mise run format` | Formats the Go sources and the Markdown files. |
-| `mise run test:web` | Only the editor and loader tests. |
+| `mise run test:web` | Only the editor, loader, and page tests. |
 | `mise run qualify` | The `internal/scenarios` qualification tests for scale, safety, and repeatability, without the race detector. The two Station 19 drain tests skip under the race detector, so only this task runs them. |
 | `mise run benchmark` | 6,000 simulation steps on the 100-pod ring fixture, not on the current `scale100` mesh. |
 

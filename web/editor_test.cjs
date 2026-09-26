@@ -2562,3 +2562,18 @@ test("a tab knows when another tab replaced or deleted its saved draft", async (
   assert.deepEqual(b.displaced, ["b", "b"], "tab B heard both writes of tab A, also the first one before it had a draft");
   assert.equal(b.keeper.unsaved, false, "tab B has no draft after its apply, so it has nothing to lose");
 });
+
+test("shellPage finds only a same-origin shell page as the parent", () => {
+  const top = { podsimShell: true }; top.parent = top;
+  const shell = { podsimShell: true };
+  const blocked = Object.defineProperty({}, "podsimShell", { get() { throw new Error("SecurityError: Blocked a frame from accessing a cross-origin frame."); } });
+  for (const [name, win, want] of [
+    ["top page", top, null],
+    ["shell page", { parent: shell }, shell],
+    ["other page", { parent: {} }, null],
+    ["marker that is not true", { parent: { podsimShell: "yes" } }, null],
+    ["other origin", { parent: blocked }, null],
+  ]) {
+    assert.equal(editor.shellPage(win), want, name);
+  }
+});

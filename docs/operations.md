@@ -39,7 +39,9 @@ The startup record `Open Podsim in your browser` gives the ID in `build`.
 
 State frames carry the build ID.
 When the ID changes after a server restart, the simulation view in each open browser page reloads the page and gets the new browser files.
-An open editor page does not reload.
+This reload also reloads the editor in the same page.
+The browser keeps the saved draft for the next time that the editor opens.
+An editor that you opened as `editor.html` does not reload.
 If the server cannot read the browser files, it logs `Browser build ID unavailable` as a warning and uses a random ID.
 Then the simulation view reloads its page after each server restart.
 

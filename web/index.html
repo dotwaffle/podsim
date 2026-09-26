@@ -8,34 +8,51 @@
     html, body { margin: 0; width: 100%; height: 100%; overflow: hidden; background: #0b121a; }
     body { display: flex; flex-direction: column; }
     nav { height: 40px; flex: none; display: flex; align-items: center; justify-content: flex-end; gap: 8px; padding: 0 12px; }
-    iframe { border: 0; width: 100%; flex: 1; min-height: 0; }
+    /* The game and editor frames fill the area below the nav bar, one on top
+       of the other. The inactive frame has the inert attribute. It stays in
+       the layout with its size, so the game does not fit the map again when
+       it shows. */
+    main { position: relative; flex: 1; min-height: 0; }
+    iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; }
+    iframe[inert] { visibility: hidden; }
     a, button { flex: none; padding: 4px 10px; border: 1px solid #345064; border-radius: 7px; background: #101d28e8; color: #9fe4eb; font: 13px system-ui, sans-serif; text-decoration: none; cursor: pointer; }
     button:disabled { opacity: .6; cursor: wait; }
     #debugStatus { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #9fb4c5; font: 13px system-ui, sans-serif; }
   </style>
+  <script src="shell.js"></script>
 </head>
 <body>
   <nav aria-label="Scenario tools">
     <span id="debugStatus" role="status"></span>
     <button id="debugButton" type="button" title="Save the current run for debugging. This capture cannot be reloaded.">Download debug state</button>
-    <a href="editor.html">Edit scenario</a>
+    <a id="editorLink" href="#editor">Edit scenario</a>
+    <button id="gameButton" type="button" hidden>Simulation</button>
   </nav>
-  <iframe src="game.html" title="Podsim interactive network simulation"></iframe>
+  <main>
+    <iframe id="gameFrame" src="game.html" title="Podsim interactive network simulation"></iframe>
+  </main>
   <script>
-    const game = document.querySelector("iframe");
+    // frames has the game frame and the editor frame. The editor frame is
+    // null until the editor shows for the first time. view is the name of
+    // the frame that shows.
+    const frames = { game: document.getElementById("gameFrame"), editor: null };
+    let view = "game";
     const button = document.getElementById("debugButton");
+    const editorLink = document.getElementById("editorLink");
+    const gameButton = document.getElementById("gameButton");
     // Ebitengine does not focus its canvas inside an iframe. Give the game the
     // keyboard focus, so that its keyboard shortcuts work without a click. Do
-    // not take the focus from a different control that the user selected.
+    // not take the focus from a different control that the user selected,
+    // and do not take it from the editor.
     function focusGame() {
-      if (document.activeElement === document.body || document.activeElement === button) game.focus();
+      if (view === "game" && (document.activeElement === document.body || document.activeElement === button)) frames.game.focus();
     }
-    game.addEventListener("load", focusGame);
+    frames.game.addEventListener("load", focusGame);
     // When the browser restores this page from its back/forward cache, the
-    // iframe gets no load event, and the focus stays on the link that the user
-    // clicked. Give the game the focus, as after a new load.
+    // frames get no load event. Give the frame that shows the focus, as
+    // after a new load.
     window.addEventListener("pageshow", (event) => {
-      if (event.persisted) game.focus();
+      if (event.persisted) frames[view].focus();
     });
     button.addEventListener("click", async (event) => {
       const status = document.getElementById("debugStatus");
@@ -80,6 +97,49 @@
         if (event.detail > 0) focusGame();
       }
     });
+
+    // show shows the frame of next and makes the other frame inert. The
+    // editor frame loads the first time that the editor shows, so it does
+    // not slow the game load. The page title and the nav controls follow the
+    // frame that shows. After a switch, that frame gets the keyboard focus.
+    // When keyboard is true and next is the game, the Edit scenario link
+    // gets the focus. See PodsimShell.focusTarget.
+    function show(next, keyboard = false) {
+      if (next === view) return;
+      if (next === "editor" && !frames.editor) {
+        frames.editor = Object.assign(document.createElement("iframe"), { src: "editor.html", title: "Podsim scenario editor" });
+        frames.game.after(frames.editor);
+      }
+      view = next;
+      for (const [name, frame] of Object.entries(frames)) if (frame) frame.inert = name !== view;
+      editorLink.hidden = view === "editor";
+      gameButton.hidden = view === "game";
+      document.title = PodsimShell.VIEWS[view].title;
+      const target = PodsimShell.focusTarget(view, keyboard);
+      (target === "editorLink" ? editorLink : frames[target]).focus();
+    }
+    // select shows next and adds a history entry with the URL hash of next,
+    // so that the Back button shows the frame from before.
+    function select(next, keyboard) {
+      const url = new URL(location.href);
+      url.hash = PodsimShell.VIEWS[next].hash;
+      if (url.href !== location.href) history.pushState(null, "", url);
+      show(next, keyboard);
+    }
+    // The URL hash selects the frame. The Edit scenario link, the Back
+    // button and the Forward button change the hash.
+    window.addEventListener("hashchange", () => show(PodsimShell.viewForHash(location.hash)));
+    // After Enter or Space on the button, the click detail is 0.
+    gameButton.addEventListener("click", (event) => select("game", event.detail === 0));
+    // A frame asks for a different frame with a message. The editor uses it
+    // for its return link.
+    window.addEventListener("message", (event) => {
+      const request = PodsimShell.showRequest(event, location.origin);
+      if (request) select(request.view, request.keyboard);
+    });
+    // podsimShell tells the editor that this page can show the game.
+    window.podsimShell = true;
+    show(PodsimShell.viewForHash(location.hash));
   </script>
 </body>
 </html>
