@@ -11,7 +11,8 @@ var ErrBerthUnavailable = errors.New("destination berth is occupied or reserved"
 
 // clearBlockedBerths runs after admission. Empty departures compete for track on the next tick.
 // An idle empty pod leaves its berth when it blocks a pod that must stop at
-// that berth or pass through it.
+// that berth or pass through it. In guarded mode, guardedClear chooses the
+// berth first.
 func (s *Simulation) clearBlockedBerths() {
 	for i := range s.vehicles {
 		arrival := &s.vehicles[i]
@@ -20,6 +21,9 @@ func (s *Simulation) clearBlockedBerths() {
 		}
 		blocker := s.findVehicle(arrival.Pod.BlockedBy)
 		if blocker == nil || blocker.Pod.Activity != Idle || blocker.Pod.Occupied || s.assigned(blocker.Pod.ID) || !arrival.entersBerth(blocker.Pod.BerthID) {
+			continue
+		}
+		if s.positioning == PositioningGuarded && s.guardedClear(blocker) {
 			continue
 		}
 		if !s.park(blocker) && !s.clearToPassengerBerth(blocker) {

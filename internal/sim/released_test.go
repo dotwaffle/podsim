@@ -173,25 +173,28 @@ func TestPromotedPickupReleasesPod(t *testing.T) {
 	checkReleasedTo(t, s, remote, "harbor-1")
 }
 
+// releasedFallbackCase is a case of TestReleasedPodFallbackBerth.
+type releasedFallbackCase struct {
+	name string
+	// start is the berth where pod 01 starts.
+	start string
+	// destination is the berth that the pickup of pod 01 uses.
+	destination string
+	// lane is where pod 01 is at the release.
+	lane string
+	// busy holds the berths that pod 02 and pod 03 hold.
+	busy []string
+	// congestion turns on congestion routing.
+	congestion bool
+	// setup changes s just before the fallback choice. The returned
+	// function undoes the change.
+	setup func(s *Simulation) (undo func())
+	want  string
+}
+
 func TestReleasedPodFallbackBerth(t *testing.T) {
 	t.Parallel()
-	tests := []struct {
-		name string
-		// start is the berth where pod 01 starts.
-		start string
-		// destination is the berth that the pickup of pod 01 uses.
-		destination string
-		// lane is where pod 01 is at the release.
-		lane string
-		// busy holds the berths that pod 02 and pod 03 hold.
-		busy []string
-		// congestion turns on congestion routing.
-		congestion bool
-		// setup changes s just before the fallback choice. The returned
-		// function undoes the change.
-		setup func(s *Simulation) (undo func())
-		want  string
-	}{
+	tests := []releasedFallbackCase{
 		{name: "next station", start: "market-2", destination: "garden-1", lane: "return", busy: []string{"parking-1", "parking-2"}, want: "harbor-1"},
 		{name: "keeps nearest destination", start: "harbor-1", destination: "market-2", lane: "bypass-merge", busy: []string{"parking-1", "parking-2"}, want: "market-2"},
 		{name: "tie breaks by berth order", start: "harbor-1", destination: "parking-1", lane: "bypass-merge", busy: []string{"garden-1", "parking-2"}, want: "market-1"},
@@ -229,53 +232,89 @@ func TestReleasedPodFallbackBerth(t *testing.T) {
 			},
 		},
 	}
-	for _, tc := range tests {
-		t.Run(tc.name, func(t *testing.T) {
-			t.Parallel()
-			network := twoBerthMarket()
-			s, err := NewFleet(network, []Placement{
-				{ID: "01", StationID: stationOfBerth(t, network, tc.start), BerthID: tc.start},
-				{ID: "02", StationID: stationOfBerth(t, network, tc.busy[0]), BerthID: tc.busy[0]},
-				{ID: "03", StationID: stationOfBerth(t, network, tc.busy[1]), BerthID: tc.busy[1]},
+	// Guarded mode keeps the fallback rule of a released pod while the
+	// gate is open.
+	for name, mode := range map[string]Positioning{"off": PositioningOff, "guarded": PositioningGuarded} {
+		for _, tc := range tests {
+			t.Run(tc.name+" in "+name+" mode", func(t *testing.T) {
+				t.Parallel()
+				checkReleasedFallback(t, tc, mode)
 			})
-			if err != nil {
-				t.Fatal(err)
-			}
-			s.SetCongestionRouting(tc.congestion)
-			v := s.findVehicle("01")
-			berth := Berth{ID: tc.destination}
-			for _, station := range network.Stations {
-				if found, ok := station.berth(tc.destination); ok {
-					berth = found
-				}
-			}
-			if err := s.startEmptyMove(v, emptyDestination{station: stationOfBerth(t, network, tc.destination), berth: berth}); err != nil {
-				t.Fatal(err)
-			}
-			stepUntil(t, s, "pod 01 on lane "+tc.lane, func() bool {
-				return v.Pod.LaneID == tc.lane && v.Pod.LaneDistance > 10
-			})
-			if !s.releasePickup(v) {
-				t.Fatal("pod 01 was not released")
-			}
-			reserved := slices.Clone(v.blocks[:v.reservedThrough+1])
-			undo := func() {}
-			if tc.setup != nil {
-				undo = tc.setup(s)
-			}
-			s.parkReleased(v)
-			undo()
-			checkReleasedTo(t, s, v, tc.want)
-			if !slices.EqualFunc(reserved, v.blocks[:v.reservedThrough+1], func(a, b block) bool {
-				return a.lane.ID == b.lane.ID && a.laneStart == b.laneStart
-			}) {
-				t.Fatal("the release changed the reserved track")
-			}
-			stepUntil(t, s, "pod 01 arrives", func() bool { return v.Pod.Activity == Idle })
-			if v.Pod.BerthID != tc.want || v.released || v.RelocatingTo != "" {
-				t.Fatalf("pod 01 stopped at %s, released %v: %+v", v.Pod.BerthID, v.released, v.Vehicle)
-			}
-		})
+		}
+	}
+}
+
+// checkReleasedFallback runs one case of TestReleasedPodFallbackBerth in a
+// positioning mode.
+func checkReleasedFallback(t *testing.T, tc releasedFallbackCase, mode Positioning) {
+	t.Helper()
+	network := twoBerthMarket()
+	s, err := NewFleet(network, []Placement{
+		{ID: "01", StationID: stationOfBerth(t, network, tc.start), BerthID: tc.start},
+		{ID: "02", StationID: stationOfBerth(t, network, tc.busy[0]), BerthID: tc.busy[0]},
+		{ID: "03", StationID: stationOfBerth(t, network, tc.busy[1]), BerthID: tc.busy[1]},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := s.SetPositioning(mode); err != nil {
+		t.Fatal(err)
+	}
+	s.SetCongestionRouting(tc.congestion)
+	v := s.findVehicle("01")
+	berth := Berth{ID: tc.destination}
+	for _, station := range network.Stations {
+		if found, ok := station.berth(tc.destination); ok {
+			berth = found
+		}
+	}
+	if err := s.startEmptyMove(v, emptyDestination{station: stationOfBerth(t, network, tc.destination), berth: berth}); err != nil {
+		t.Fatal(err)
+	}
+	stepUntil(t, s, "pod 01 on lane "+tc.lane, func() bool {
+		return v.Pod.LaneID == tc.lane && v.Pod.LaneDistance > 10
+	})
+	openReleasedGate(t, s)
+	if !s.releasePickup(v) {
+		t.Fatal("pod 01 was not released")
+	}
+	reserved := slices.Clone(v.blocks[:v.reservedThrough+1])
+	undo := func() {}
+	if tc.setup != nil {
+		undo = tc.setup(s)
+	}
+	s.parkReleased(v)
+	undo()
+	checkReleasedTo(t, s, v, tc.want)
+	if !slices.EqualFunc(reserved, v.blocks[:v.reservedThrough+1], func(a, b block) bool {
+		return a.lane.ID == b.lane.ID && a.laneStart == b.laneStart
+	}) {
+		t.Fatal("the release changed the reserved track")
+	}
+	stepUntil(t, s, "pod 01 arrives", func() bool { return v.Pod.Activity == Idle })
+	if v.Pod.BerthID != tc.want || v.released || v.RelocatingTo != "" {
+		t.Fatalf("pod 01 stopped at %s, released %v: %+v", v.Pod.BerthID, v.released, v.Vehicle)
+	}
+}
+
+// openReleasedGate opens the guarded gate before pod 01 of
+// checkReleasedFallback is released. Pod 02 gets request 1, which is
+// complete and has the lowest request tick that makes the gate of the
+// fleet active. The tick moves to 1 s after the request, and a guarded
+// check becomes due. The gate does not depend on the mode, so the off
+// mode gets the same state.
+func openReleasedGate(t *testing.T, s *Simulation) {
+	t.Helper()
+	requested := ticksPerMinute*guardedFleetRateShare/int64(len(s.vehicles)) + 1
+	if s.tick >= requested {
+		t.Fatalf("tick %d is not before request tick %d", s.tick, requested)
+	}
+	s.findVehicle("02").Request = &Request{ID: 1, From: "market", To: "garden", PartySize: 1, PodID: "02", Completed: true, RequestedTick: requested}
+	s.requestID, s.boarded = 1, 1
+	s.tick = requested + TicksPerSecond
+	s.nextRedistributionTick = s.tick
+	if gate := s.guardedGate(); !gate.open {
+		t.Fatalf("gate %+v, want open", gate)
 	}
 }
 

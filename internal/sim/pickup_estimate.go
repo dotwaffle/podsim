@@ -158,10 +158,19 @@ func (s *Simulation) pickupAvailable(stationID string, pass *dispatchPass) bool 
 func noBerthLoad(Berth) int { return 0 }
 
 // availableAfter includes every committed leg before a busy pod becomes available.
+// It reports false for an idle pod and for a pod that waits at rest.
 func (s *Simulation) availableAfter(v *vehicle) (string, float64, bool) {
 	if v.Pod.Activity == Idle || (v.Pod.WaitReason != NoWait && v.Pod.Speed < 0.1) {
 		return "", 0, false
 	}
+	return s.finishEstimate(v)
+}
+
+// finishEstimate returns the node where a pod that is not idle becomes
+// available, and the estimated time in seconds until then. It includes
+// every committed leg of the pod. It reports false when it cannot make
+// the estimate.
+func (s *Simulation) finishEstimate(v *vehicle) (string, float64, bool) {
 	if v.Pod.Activity == Unloading {
 		station, _ := s.station(v.Pod.StationID)
 		berth, _ := station.berth(v.Pod.BerthID)

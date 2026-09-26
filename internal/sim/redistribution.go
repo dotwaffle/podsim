@@ -54,6 +54,10 @@ func (s *Simulation) SetDemandWeights(weights map[string]float64) error {
 
 func (s *Simulation) redistribute() {
 	s.yieldRelocationClaims()
+	if s.positioning == PositioningGuarded {
+		s.positionGuarded()
+		return
+	}
 	if s.positioning != PositioningRedistribution || s.tick < s.nextRedistributionTick || len(s.waiting) > 0 {
 		return
 	}
@@ -85,7 +89,9 @@ func (s *Simulation) redistribute() {
 // a passenger to that berth. See passengerArrivals.
 // An empty pod keeps the claim after admission to the destination block.
 // A released pod that yields a claim goes to the nearest free berth at once.
-// See parkReleased.
+// See parkReleased. In guarded mode, a rebalancing pod that yields a claim
+// becomes a released pod, and it also goes to the nearest free berth at
+// once.
 //
 // The loop makes the passenger arrivals at the first relocating pod. In the
 // loop, only parkReleased changes the pods and the waiting trips, so the
@@ -117,6 +123,10 @@ func (s *Simulation) yieldRelocationClaims() {
 			s.releaseOwned(relocating, claimed)
 		}
 		if relocating.released {
+			s.parkReleased(relocating)
+			arrivals = nil
+		} else if s.positioning == PositioningGuarded && relocating.Rebalancing {
+			relocating.Rebalancing, relocating.released = false, true
 			s.parkReleased(relocating)
 			arrivals = nil
 		}

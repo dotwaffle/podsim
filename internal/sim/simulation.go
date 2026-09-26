@@ -100,7 +100,8 @@ type Vehicle struct {
 	Parties int `json:"Parties,omitempty"`
 	// RelocatingTo identifies the destination station during an empty move.
 	RelocatingTo string `json:"RelocatingTo"`
-	// Rebalancing reports whether an empty move was started by redistribution.
+	// Rebalancing reports whether an empty move was started by redistribution
+	// or by guarded positioning.
 	Rebalancing bool `json:"Rebalancing"`
 }
 
@@ -177,8 +178,9 @@ type vehicle struct {
 	origin, destination         Berth
 	destinationStation          string
 	// released is true for an empty pod that dispatch sent to a pickup and
-	// then released with no claim. Such a pod can divert at once, as a pod
-	// on its way to parking can.
+	// then released with no claim. It is also true for a guarded
+	// rebalancing pod that yielded its claim. Such a pod can divert at once,
+	// as a pod on its way to parking can.
 	released bool
 	// nextRelease is 0, or it is at most each release distance in
 	// routeReleases and the pod owns each resource in routeReleases. In

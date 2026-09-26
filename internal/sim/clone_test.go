@@ -414,7 +414,9 @@ func (inputs cloneInputs) run(s *Simulation) error {
 }
 
 type cloneFixture struct {
-	name       string
+	name string
+	// network returns the network of the fixture. Nil selects Example.
+	network    func() Network
 	placements []Placement
 	setup      func(*Simulation) error
 	// warmup runs before the clone. continuation runs on the source and on
@@ -427,7 +429,11 @@ type cloneFixture struct {
 
 func (fixture cloneFixture) build(t *testing.T) *Simulation {
 	t.Helper()
-	s, err := NewFleet(Example(), fixture.placements)
+	network := Example()
+	if fixture.network != nil {
+		network = fixture.network()
+	}
+	s, err := NewFleet(network, fixture.placements)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -532,6 +538,22 @@ func cloneFixtures() []cloneFixture {
 				}
 				if end.completed <= clonePoint.completed || end.nextCongestionRouteRefresh <= clonePoint.nextCongestionRouteRefresh {
 					return fmt.Errorf("continuation completed %d and did not refresh congestion routes", end.completed-clonePoint.completed)
+				}
+				return nil
+			},
+		},
+		{
+			// Request k comes after 200k s, so the gate is active for the
+			// fleet of 6. The check after each boarding makes a refill.
+			name: "guarded positioning", placements: place("p-1", "p-2", "p-3", "p-4", "p-5", "p-6"),
+			network:      func() Network { return lineNetwork(lineStations(6, 2, 2, 2, 2, 2, 2)) },
+			setup:        func(s *Simulation) error { return s.SetPositioning(PositioningGuarded) },
+			warmup:       cloneInputs{seconds: 300, trips: []cloneTrip{{210, "s0", "s2"}}},
+			continuation: cloneInputs{seconds: 200, trips: []cloneTrip{{150, "s1", "s4"}}},
+			exercised: func(clonePoint, end *Simulation) error {
+				if clonePoint.rebalanceMoves == 0 || end.rebalanceMoves <= clonePoint.rebalanceMoves || end.boarded != 2 {
+					return fmt.Errorf("the run made %d refills before the clone point and %d after, with %d boardings",
+						clonePoint.rebalanceMoves, end.rebalanceMoves-clonePoint.rebalanceMoves, end.boarded)
 				}
 				return nil
 			},
