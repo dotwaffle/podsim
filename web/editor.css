@@ -89,6 +89,7 @@ output { float: right; color: var(--text); }
 .selection-card .id { margin: -5px 0 2px; color: var(--muted); font: 11px ui-monospace, monospace; overflow-wrap: anywhere; }
 .berth-list { display: grid; gap: 6px; }
 .berth-row, .fleet-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 7px; padding: 7px; border: 1px solid var(--line); border-radius: 6px; }
+.berth-row span { overflow-wrap: anywhere; }
 .berth-row button { padding: 4px 7px; }
 .berth-row.selected { border-color: var(--orange); }
 .fleet-row input { width: 62px; }
@@ -113,7 +114,8 @@ button.problem-count:hover { border-color: var(--danger); background: #4a2427; }
   .topbar { align-items: flex-start; }
   .workspace { grid-template-columns: 180px minmax(320px, 1fr); grid-template-rows: minmax(560px, 70vh) auto; }
   .tool-grid { grid-template-columns: 1fr; }
-  .inspector { grid-column: 1 / -1; border-left: 0; border-top: 1px solid var(--line); display: grid; grid-template-columns: repeat(4, minmax(170px, 1fr)); gap: 15px; }
+  /* Use at most 4 inspector columns. Use fewer columns when 4 columns of 170 px do not fit. */
+  .inspector { grid-column: 1 / -1; border-left: 0; border-top: 1px solid var(--line); display: grid; grid-template-columns: repeat(auto-fill, minmax(max(170px, (100% - 45px) / 4), 1fr)); gap: 15px; }
   .inspector section { margin: 0; border: 0; }
 }
 
