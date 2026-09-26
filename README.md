@@ -426,6 +426,12 @@ The draft stays local until you select **Pause and apply**.
 - Use undo and redo for draft changes.
 - Drag empty space to pan, and use the wheel to zoom.
   Press Escape to cancel drawing or moving an item.
+- When you use a button in the **Selection** section with the keyboard to delete an item, the keyboard focus goes to a control near the deleted item.
+  After **Remove** on a berth row, the focus goes to **Remove** on the next row, or on the previous row when you removed the last row.
+  When the station has one berth left, its **Remove** button is disabled, so the focus goes to **Add physical berth**.
+  After **Delete station and connections**, **Delete guideway**, or **Delete junction and connections**, the focus goes to the map.
+  The Delete key does the same when a button in the **Selection** section has the focus.
+  After a delete with the pointer, the editor does not move the focus.
 - Select **Fit network** to show the whole network, also a large network such as London.
 - Junction ID labels show at 0.5 screen pixels per meter or more.
   The selected junction and the start node of a new guideway always show their ID label.

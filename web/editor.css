@@ -66,6 +66,8 @@ output { float: right; color: var(--text); }
 
 .map-panel { position: relative; min-width: 0; min-height: 0; overflow: hidden; background-color: #09131c; background-image: radial-gradient(#243743 1px, transparent 1px); background-size: 24px 24px; }
 #networkMap { display: block; width: 100%; height: 100%; min-height: 420px; touch-action: none; user-select: none; cursor: grab; }
+/* The map panel clips the map, so the focus ring of the map goes inside the map. */
+#networkMap:focus-visible { outline-offset: -3px; }
 #networkMap[data-tool="junction"], #networkMap[data-tool="station"], #networkMap[data-tool="lane"] { cursor: crosshair; }
 .lane { fill: none; stroke: #658496; stroke-width: 4; marker-mid: url(#chevron); cursor: pointer; vector-effect: non-scaling-stroke; }
 .lane.short { marker-mid: none; }

@@ -525,6 +525,36 @@ test("the selection card gives the fields of the selected item", () => {
   for (const tc of cases) assert.deepEqual(editor.selectionCard(config, tc.selection), tc.want, tc.name);
 });
 
+test("a berth remove from the keyboard focuses the next, then the previous berth row", () => {
+  const cases = [
+    { name: "first row gives the new first row", berths: ["b1", "b2", "b3"], removed: "b1", want: "b2" },
+    { name: "middle row gives the next row", berths: ["b1", "b2", "b3"], removed: "b2", want: "b3" },
+    { name: "last row gives the previous row", berths: ["b1", "b2", "b3"], removed: "b3", want: "b2" },
+    { name: "one berth left gives Add physical berth", berths: ["b1", "b2"], removed: "b2", want: "" },
+    { name: "unknown berth gives Add physical berth", berths: ["b1", "b2", "b3"], removed: "gone", want: "" },
+  ];
+  for (const tc of cases) assert.equal(editor.berthFocusID(tc.berths, tc.removed), tc.want, tc.name);
+
+  // On a station of the draft, the focused row is a row of the station
+  // after the remove, and its Remove button is enabled. When the Remove
+  // buttons are disabled, the focus goes to Add physical berth.
+  let config = connectedScenario();
+  const stationID = config.network.Stations[0].ID;
+  for (let i = 0; i < 2; i += 1) config = editor.addBerth(config, stationID);
+  const selection = { type: "station", id: stationID };
+  for (const count of [3, 2]) {
+    const berthIDs = editor.selectionCard(config, selection).berths.map((berth) => berth.id);
+    assert.equal(berthIDs.length, count);
+    for (const removed of berthIDs) {
+      const after = editor.selectionCard(editor.removeBerth(config, stationID, removed), selection);
+      const focused = editor.berthFocusID(berthIDs, removed);
+      assert.equal(focused !== "", after.canRemove, `${count} berths, remove ${removed}`);
+      if (focused) assert.ok(after.berths.some((berth) => berth.id === focused), `${count} berths, remove ${removed}`);
+    }
+    config = editor.removeBerth(config, stationID, berthIDs[0]);
+  }
+});
+
 test("validation reports short lanes and unreachable passenger pairs", () => {
   let config = editor.addStation(editor.emptyConfig(), 100, 100, { name: "Alpha" });
   config = editor.addStation(config, 340, 100, { name: "Beta" });
@@ -1914,4 +1944,13 @@ test("the file input labels have the font and spacing of the other buttons", () 
     if (selector === "label" || selector === ".button" || !/(^|[\s>+~])(label\.button|\.button|label)$/.test(selector)) continue;
     for (const names of Object.values(sources)) assert.ok(names.every((name) => style[name] === undefined), `${selector} sets the font or spacing of the file labels`);
   }
+});
+
+test("the focus ring of the map shows inside the map panel", () => {
+  const rules = cssRules(fs.readFileSync(path.join(__dirname, "editor.css"), "utf8"));
+  // The map panel clips the map, so a ring outside the map does not show.
+  assert.equal(rules.get(".map-panel").overflow, "hidden");
+  const ring = { ...rules.get("svg:focus-visible"), ...rules.get("#networkMap:focus-visible") };
+  const width = parseFloat(ring.outline); const offset = parseFloat(ring["outline-offset"]);
+  assert.ok(width > 0 && offset + width <= 0, `a ring of ${width} px at an offset of ${offset} px goes outside the map`);
 });

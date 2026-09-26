@@ -505,6 +505,19 @@
     return node ? { type: "node", id: node.ID, x: node.Position.X, y: node.Position.Y } : null;
   }
 
+  // berthFocusID gives the berth row that gets the keyboard focus after a
+  // berth remove from the keyboard. berthIDs holds the berths of the station
+  // before the remove. The row is the next row after the removed berth, or
+  // the previous row when the removed berth was the last row. The focus goes
+  // to the Remove button of that row. With one berth left, the Remove button
+  // is disabled, because selectionCard gives canRemove false. Then, and for
+  // a berth that is not in berthIDs, the function gives an empty ID, and the
+  // focus goes to Add physical berth.
+  function berthFocusID(berthIDs, removedID) {
+    const index = berthIDs.indexOf(removedID); const rest = berthIDs.filter((id) => id !== removedID);
+    return index >= 0 && rest.length > 1 ? rest[Math.min(index, rest.length - 1)] : "";
+  }
+
   // setDemandPattern sets the passenger demand pattern. The profile pattern
   // selects the first demand profile and its first time band. A draft with no
   // demand profiles, or with a demandProfiles value that is not an array, gets
@@ -1349,7 +1362,7 @@
 
   const API = {
     MIN_LANE_LENGTH, MIN_ZOOM, NODE_LABEL_SCALE, NODE_LABEL_SIZE, LANE_PAIR_OFFSET, CHEVRON_LANE_LENGTH, BERTH_PITCH, STATION_PADDING, CHECK_DELAY, emptyConfig, fallbackConfig, normalizeConfig, addLane, addJunction, addStation, addBerth,
-    stationBearing, stationShape, rotateStation, setStationBearing, nextBerthPosition, removeBerth, moveStation, moveNode, deleteNode, deleteLane, deleteStation, stationFlowCount, setFleetCount, fleetRows, selectionCard, setDemandPattern,
+    stationBearing, stationShape, rotateStation, setStationBearing, nextBerthPosition, removeBerth, moveStation, moveNode, deleteNode, deleteLane, deleteStation, stationFlowCount, setFleetCount, fleetRows, selectionCard, berthFocusID, setDemandPattern,
     laneLength, curveLength, reachable, cutOffStations, stationNodeOwners, dragTargets, validateConfig, configWarnings, checkResults, checkSelector, checkSelection, selectionPoint, focusView,
     problemCountText, createCheckTimer, validationSummary, serializeDocument, parseDocument, createHistory,
     networkBounds, fitView, zoomScale, nodeLabelSize, pairedLaneIDs, showsChevron, laneOffset, laneCurve, lanePathData, applyToServer, applyFailureText, applyFailureStatus, applyToast,
@@ -1648,6 +1661,23 @@
       list.append(...rows);
     }
     card.berths.forEach((berth, index) => { rows[index].classList.toggle("selected", berth.selected); rows[index].querySelector("button").disabled = !card.canRemove; });
+  }
+
+  // focusBerthControl gives the keyboard focus to the Remove button of the
+  // berth row that berthFocusID gives. An empty ID gives the focus to Add
+  // physical berth.
+  function focusBerthControl(berthID) {
+    const panel = $("#selectionContent"); const row = [...panel.querySelectorAll(".berth-row")].find((item) => item.dataset.berth === berthID);
+    (row ? row.querySelector("button") : panel.querySelector('[data-action="add-berth"]'))?.focus();
+  }
+
+  // focusMap gives the keyboard focus to the map after the delete of a
+  // station, lane or junction. A render does not replace the map element,
+  // and the Delete, Escape and undo keys work there. In a narrow window the
+  // map is above the Selection panel, so the page scrolls until the map is
+  // in view.
+  function focusMap() {
+    $("#networkMap").focus({ preventScroll: true }); $(".map-panel").scrollIntoView({ block: "nearest" });
   }
 
   // renderFleet shows a pod count field for each station. An arrow key in a
@@ -1985,25 +2015,35 @@
       }
       if (event.target.dataset.edit === "lane-speed") mutate((config) => { config.network.Lanes.find((item) => item.ID === state.selection.id).SpeedLimit = Number(event.target.value)/3.6; return config; });
     });
+    // A delete removes the button that started it. Enter or Space on a
+    // button gives a click with detail 0. After such a delete from the
+    // keyboard, the focus goes to a nearby control. After a pointer click,
+    // the editor does not move the focus.
     $("#selectionContent").addEventListener("click", (event) => {
       const button = event.target.closest("button[data-action]"); if (!button || !state.selection) return; const action = button.dataset.action; const config = draft();
+      const berthIDs = action === "remove-berth" ? selectionCard(config, state.selection)?.berths.map((berth) => berth.id) || [] : [];
       if (action === "add-berth") setDraft(addBerth(config, state.selection.id));
       else if (action === "remove-berth") setDraft(removeBerth(config, state.selection.id, button.dataset.id));
       else if (action === "delete-station") { removeStation(state.selection.id); state.selection = null; render(); }
       else if (action === "delete-lane") { setDraft(deleteLane(config, state.selection.id)); state.selection = null; render(); }
       else if (action === "delete-node") { const result = deleteNode(config, state.selection.id); if (result.error) toast(result.error, true); else { setDraft(result.config); state.selection = null; render(); } }
       else if (action === "toggle-curve") mutate((next) => { const lane = next.network.Lanes.find((item) => item.ID === state.selection.id); if (lane.Control) delete lane.Control; else { const a = nodeFor(next, lane.From).Position; const b = nodeFor(next, lane.To).Position; lane.Control = { X: (a.X + b.X) / 2 - (b.Y - a.Y) * .25, Y: (a.Y + b.Y) / 2 + (b.X - a.X) * .25 }; } return next; });
+      if (event.detail === 0 && !button.isConnected) { if (action === "remove-berth") focusBerthControl(berthFocusID(berthIDs, button.dataset.id)); else focusMap(); }
     });
     document.addEventListener("keydown", (event) => {
       const editing = /INPUT|SELECT|TEXTAREA/.test(document.activeElement.tagName);
       if (event.key === "Escape") { state.linkFrom = ""; state.calibrating = false; state.calibrationPoints = []; $("#calibrationPanel").hidden = true; render(); }
       if (!editing && (event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "z") { event.preventDefault(); if (event.shiftKey ? state.history.redo() : state.history.undo()) { state.selection = null; render(); } }
       if (!editing && (event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "y") { event.preventDefault(); if (state.history.redo()) { state.selection = null; render(); } }
+      // A delete of the selected item clears the Selection panel. When a
+      // panel button had the focus, the map gets the focus.
       if (!editing && (event.key === "Delete" || event.key === "Backspace") && state.selection) {
+        const focused = document.activeElement;
         if (state.selection.type === "lane") setDraft(deleteLane(draft(), state.selection.id));
         else if (state.selection.type === "station") removeStation(state.selection.id);
         else { const result = deleteNode(draft(), state.selection.id); if (result.error) toast(result.error, true); else setDraft(result.config); }
         state.selection = null; render();
+        if (!focused.isConnected) focusMap();
       }
     });
   }
