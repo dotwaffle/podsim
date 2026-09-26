@@ -448,7 +448,7 @@ func (r *physicalRestore) demote(index int) {
 	r.demoted[index] = true
 	r.cost -= r.costs[index]
 	r.costs[index], r.routes[index] = 0, nil
-	v.Route, v.blocks, v.blockStarts, v.terminal = nil, nil, nil, terminalCheck{}
+	v.Route, v.blocks, v.routeLengths, v.blockStarts, v.terminal = nil, nil, nil, nil, terminalCheck{}
 	maps.DeleteFunc(r.s.owners, func(_ resource, owner string) bool { return owner == v.Pod.ID })
 	clear(v.routeReleases)
 }
@@ -770,7 +770,7 @@ func (r *physicalRestore) placeDemoted(index int) error {
 	r.moveTo(v, berth)
 	station := r.berths[berth.ID].station
 	v.Pod.Activity, v.Pod.StationID = Idle, station
-	v.Route, v.blocks, v.blockStarts, v.terminal = nil, nil, nil, terminalCheck{}
+	v.Route, v.blocks, v.routeLengths, v.blockStarts, v.terminal = nil, nil, nil, nil, terminalCheck{}
 	v.Parties, v.RelocatingTo, v.Rebalancing, v.released = 0, "", false, false
 	v.origin, v.destination, v.destinationStation = Berth{}, berth, station
 	return nil

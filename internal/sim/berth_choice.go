@@ -62,11 +62,11 @@ func (s *Simulation) reevaluateTerminalBerth(v *vehicle) {
 				continue
 			}
 			route := append(slices.Clone(v.Route[:routeIndex]), suffix...)
-			blocks := s.routeBlocks(route)
+			blocks, lengths := s.routeBlocks(route)
 			if first >= len(blocks) || blocks[first].lane.ID != suffix[0].ID {
 				continue
 			}
-			v.Route, v.blocks, v.destination = route, blocks, berth
+			v.Route, v.blocks, v.routeLengths, v.destination = route, blocks, lengths, berth
 			v.blockStarts = indexBlockStarts(blocks, len(route))
 			v.terminal = terminalCheck{}
 			v.pending = -1

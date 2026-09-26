@@ -16,6 +16,17 @@ type routeKey struct {
 type routeResult struct {
 	lanes []Lane
 	err   error
+	// seconds is the value of routeSeconds for lanes and a pod at rest. It
+	// is valid only when timed is true. withSeconds sets both.
+	seconds float64
+	timed   bool
+}
+
+// withSeconds returns the result with the value of routeSeconds for its
+// lanes and a pod at rest.
+func (s *Simulation) withSeconds(result routeResult) routeResult {
+	result.seconds, result.timed = s.routeSeconds(result.lanes, motionEstimate{}), true
+	return result
 }
 
 // route shares read-only paths within this simulation's immutable network.
@@ -23,28 +34,35 @@ type routeResult struct {
 // routes of pods and waiting trips, so code replaces a route whole and never
 // writes into it in place.
 func (s *Simulation) route(from, to string) ([]Lane, error) {
+	result := s.cachedRoute(from, to)
+	return result.lanes, result.err
+}
+
+// cachedRoute returns the result that route returns. The result can also
+// hold the travel time of the route.
+func (s *Simulation) cachedRoute(from, to string) routeResult {
 	s.ensureNetworkIndexes()
 	if s.congestionRouting {
 		return s.congestionRoute(from, to)
 	}
 	key := routeKey{from: from, to: to}
 	if cached, ok := s.routes[key]; ok {
-		return cached.lanes, cached.err
+		return cached
 	}
 	lanes, err := s.network.routeIndexed(networkRouteInput{from: from, to: to}, s.graph)
-	s.cacheRoute(key, routeResult{lanes: lanes, err: err})
-	return lanes, err
+	return s.cacheRoute(key, routeResult{lanes: lanes, err: err})
 }
 
-func (s *Simulation) congestionRoute(from, to string) ([]Lane, error) {
+func (s *Simulation) congestionRoute(from, to string) routeResult {
 	s.refreshCongestionCosts()
 	key := routeKey{from: from, to: to}
 	if cached, ok := s.congestionRoutes[key]; ok {
-		return cached.lanes, cached.err
+		return cached
 	}
 	lanes, err := s.network.routeIndexed(networkRouteInput{from: from, to: to, extraCost: s.congestionRouteCosts}, s.graph)
-	s.congestionRoutes[key] = routeResult{lanes: lanes, err: err}
-	return lanes, err
+	result := s.withSeconds(routeResult{lanes: lanes, err: err})
+	s.congestionRoutes[key] = result
+	return result
 }
 
 // refreshCongestionCosts computes the congestion costs again when they are
@@ -163,13 +181,16 @@ func (s *Simulation) station(id string) (Station, bool) {
 	return s.network.Stations[index], true
 }
 
-func (s *Simulation) cacheRoute(key routeKey, result routeResult) {
+// cacheRoute stores the result with its travel time and returns the stored
+// value.
+func (s *Simulation) cacheRoute(key routeKey, result routeResult) routeResult {
+	result = s.withSeconds(result)
 	if s.routes == nil {
 		s.routes = make(map[routeKey]routeResult)
 	}
 	if _, exists := s.routes[key]; exists {
 		s.routes[key] = result
-		return
+		return result
 	}
 	if len(s.routes) >= routeCacheLimit {
 		for len(s.routeOrder) > 0 {
@@ -187,6 +208,7 @@ func (s *Simulation) cacheRoute(key routeKey, result routeResult) {
 	}
 	s.routes[key] = result
 	s.routeOrder = append(s.routeOrder, key)
+	return result
 }
 
 // laneLength reuses geometry measurements for the fixed network.

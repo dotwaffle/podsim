@@ -150,7 +150,7 @@ func (s *Simulation) availableAfter(v *vehicle) (string, float64, bool) {
 		berth, _ := station.berth(v.Pod.BerthID)
 		return berth.Node, float64(v.phaseTicks) / TicksPerSecond, true
 	}
-	seconds := float64(v.phaseTicks)/TicksPerSecond + s.routeSeconds(v.Route, motionEstimate{distance: v.distance, speed: v.Pod.Speed})
+	seconds := float64(v.phaseTicks)/TicksPerSecond + s.routeSecondsWith(v.Route, v.routeLengths, motionEstimate{distance: v.distance, speed: v.Pod.Speed})
 	if v.RelocatingTo == "" {
 		destination := v.destination.Node
 		if destination == "" {
@@ -180,11 +180,14 @@ func (s *Simulation) availableAfter(v *vehicle) (string, float64, bool) {
 }
 
 func (s *Simulation) emptySeconds(from, to string) float64 {
-	route, err := s.route(from, to)
-	if err != nil {
+	result := s.cachedRoute(from, to)
+	if result.err != nil {
 		return math.Inf(1)
 	}
-	return s.routeSeconds(route, motionEstimate{})
+	if !result.timed {
+		return s.routeSeconds(result.lanes, motionEstimate{})
+	}
+	return result.seconds
 }
 
 type motionEstimate struct{ distance, speed float64 }
@@ -192,9 +195,22 @@ type motionEstimate struct{ distance, speed float64 }
 // routeSeconds estimates free-flow travel with acceleration and final braking allowances.
 // Traffic delays are unknown; the dispatch deferral limit bounds forecast error.
 func (s *Simulation) routeSeconds(route []Lane, motion motionEstimate) float64 {
+	return s.routeSecondsWith(route, nil, motion)
+}
+
+// routeSecondsWith returns the same value as routeSeconds. When lengths has
+// one entry for each lane of route, it must hold the value of laneLength for
+// each lane. Then the function does not look up the lane lengths.
+func (s *Simulation) routeSecondsWith(route []Lane, lengths []float64, motion motionEstimate) float64 {
 	seconds, firstSpeed, lastSpeed := 0.0, 0.0, 0.0
-	for _, lane := range route {
-		length := s.laneLength(lane)
+	for i := range route {
+		lane := &route[i]
+		var length float64
+		if len(lengths) == len(route) {
+			length = lengths[i]
+		} else {
+			length = s.laneLength(*lane)
+		}
 		if motion.distance >= length {
 			motion.distance -= length
 			continue

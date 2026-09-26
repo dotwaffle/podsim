@@ -44,11 +44,17 @@ func laneBlockCount(length float64) int {
 }
 
 // routeBlocks uses the same cell boundaries for every route through a lane.
-func (s *Simulation) routeBlocks(route []Lane) []block {
+// It also returns the value of laneLength for each route lane.
+func (s *Simulation) routeBlocks(route []Lane) ([]block, []float64) {
 	var blocks []block
+	var lengths []float64
+	if len(route) > 0 {
+		lengths = make([]float64, 0, len(route))
+	}
 	distance := 0.0
 	for _, lane := range route {
 		length := s.laneLength(lane)
+		lengths = append(lengths, length)
 		geometry := s.geometry[lane.ID]
 		count := laneBlockCount(length)
 		for cell := range count {
@@ -78,7 +84,7 @@ func (s *Simulation) routeBlocks(route []Lane) []block {
 		}
 		distance += length
 	}
-	return blocks
+	return blocks, lengths
 }
 
 type intent struct {
@@ -89,7 +95,7 @@ type intent struct {
 
 func (s *Simulation) setVehicleRoute(v *vehicle, route []Lane) {
 	v.Route = route
-	v.blocks = s.routeBlocks(route)
+	v.blocks, v.routeLengths = s.routeBlocks(route)
 	v.blockStarts = indexBlockStarts(v.blocks, len(route))
 	v.terminal = terminalCheck{}
 }

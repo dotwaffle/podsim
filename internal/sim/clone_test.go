@@ -34,6 +34,7 @@ var cloneRules = map[reflect.Type]map[string]cloneRule{
 	},
 	reflect.TypeFor[vehicle](): {
 		"Vehicle": cloneCopy, "blocks": cloneShare, "blockStarts": cloneShare, "routeReleases": cloneCopy,
+		"routeLengths": cloneShare,
 	},
 	reflect.TypeFor[Vehicle]():     {"Request": cloneCopy, "Route": cloneShare},
 	reflect.TypeFor[waitingTrip](): {"route": cloneShare},
@@ -175,6 +176,7 @@ var persistRules = map[reflect.Type]map[string]persistRule{
 		"originReleased": persistDerive, "distance": persistSave, "pending": persistDerive, "waitSince": persistSave,
 		"rebalanceAfter": persistSave, "origin": persistSave, "destination": persistSave,
 		"destinationStation": persistSave, "released": persistSave, "terminal": persistReset,
+		"routeLengths": persistDerive,
 	},
 	reflect.TypeFor[Vehicle](): {
 		"Pod": persistSave, "Request": persistSave, "Route": persistSave, "Parties": persistSave,

@@ -445,6 +445,7 @@ func TestRestoreDemotesTravelingPods(t *testing.T) {
 			if !maps.Equal(s.owners, s.retainedOwners()) {
 				t.Fatal("the owners differ from the retention rules")
 			}
+			checkRouteLengths(t, s)
 			tc.check(t, state, s, result)
 		})
 	}
@@ -541,7 +542,7 @@ func TestRestoreSnapsToBlockEnds(t *testing.T) {
 	for position, index := range base.Route {
 		route[position] = f.network.Lanes[index]
 	}
-	blocks := f.s.routeBlocks(route)
+	blocks, _ := f.s.routeBlocks(route)
 	first, _ := routeLaneBlocks(blocks, base.RouteIndex)
 	laneStart, interior := blocks[first].laneStart, blocks[first+1]
 	middle := (interior.start + interior.end) / 2

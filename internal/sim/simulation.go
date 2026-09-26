@@ -192,6 +192,9 @@ type vehicle struct {
 	// terminal keeps the last result of terminalLane. Each write of the
 	// route resets it.
 	terminal terminalCheck
+	// routeLengths holds the value of laneLength for each lane of Route.
+	// Each write of the route also writes it.
+	routeLengths []float64
 }
 
 // Simulation owns a fixed fleet and local track, junction, and berth resources.
@@ -199,9 +202,9 @@ type vehicle struct {
 // Clone shares some fields with its source. They are the network, the route
 // graph, and the station, pod, geometry, junction, and safety indexes. They
 // also include the initial fleet, the demand weights, the congestion costs,
-// the routes of pods and waiting trips, and the block tables of pods. Code
-// must replace a shared field whole. It must not write into a shared field in
-// place, because that change also changes the clones.
+// the routes of pods and waiting trips, and the block tables and route
+// lengths of pods. Code must replace a shared field whole. It must not write
+// into a shared field in place, because that change also changes the clones.
 type Simulation struct {
 	// NewFleet builds junctionConflicts from the network. No code writes to it
 	// in place. ensureNetworkIndexes replaces it only when the network changes.

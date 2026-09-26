@@ -89,7 +89,7 @@ func TestBlockPositionMatchesPosition(t *testing.T) {
 	}
 	for _, lane := range s.network.Lanes {
 		geometry := s.geometry[lane.ID]
-		blocks := s.routeBlocks([]Lane{lane})
+		blocks, _ := s.routeBlocks([]Lane{lane})
 		// A block without geometry uses the lookup by lane ID.
 		blocks = append(blocks, block{lane: lane})
 		for index := range blocks {
