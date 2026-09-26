@@ -78,44 +78,113 @@ func (s *Simulation) redistribute() {
 }
 
 // yieldRelocationClaims lets passenger traffic arbitrate a remote berth locally.
+// A relocating pod yields its destination claims when a different pod brings
+// a passenger to that berth. See passengerArrivals.
 // An empty pod keeps the claim after admission to the destination block.
 // A released pod that yields a claim goes to the nearest free berth at once.
 // See parkReleased.
+//
+// The loop makes the passenger arrivals at the first relocating pod. In the
+// loop, only parkReleased changes the pods and the waiting trips, so the
+// loop makes the passenger arrivals again after each call to parkReleased.
 func (s *Simulation) yieldRelocationClaims() {
+	var arrivals map[string]passengerArrival
 	for i := range s.vehicles {
 		relocating := &s.vehicles[i]
-		if relocating.RelocatingTo == "" || !s.relocationConflictsWithPassenger(relocating) || s.relocationDestinationAdmitted(relocating) {
+		if relocating.RelocatingTo == "" {
 			continue
 		}
-		yielded := false
-		for _, claimed := range []resource{
+		if arrivals == nil {
+			arrivals = s.passengerArrivals()
+		}
+		if !arrivals[relocating.destination.ID].conflictsWith(relocating) {
+			continue
+		}
+		claims := [...]resource{
 			{kind: berthResource, id: relocating.destination.ID},
 			{kind: nodeResource, id: relocating.destination.Node},
-		} {
-			if s.owners[claimed] == relocating.Pod.ID {
-				s.releaseOwned(relocating, claimed)
-				yielded = true
-			}
 		}
-		if yielded && relocating.released {
+		// A pod that holds no claim has nothing to yield. This check comes
+		// before the admission check, because it costs less.
+		holds := s.owners[claims[0]] == relocating.Pod.ID || s.owners[claims[1]] == relocating.Pod.ID
+		if !holds || s.relocationDestinationAdmitted(relocating) {
+			continue
+		}
+		for _, claimed := range claims {
+			s.releaseOwned(relocating, claimed)
+		}
+		if relocating.released {
 			s.parkReleased(relocating)
+			arrivals = nil
 		}
 	}
 }
 
-func (s *Simulation) relocationConflictsWithPassenger(relocating *vehicle) bool {
+// passengerArrival records one pod that brings a passenger to a berth, and
+// whether a different pod also does. first is that pod. more is true when a
+// different pod also brings a passenger.
+type passengerArrival struct {
+	first *vehicle
+	more  bool
+}
+
+// with returns the arrival after it records that v brings a passenger. A
+// second record of the same pod changes nothing.
+func (a passengerArrival) with(v *vehicle) passengerArrival {
+	switch {
+	case a.first == nil:
+		a.first = v
+	case a.first != v:
+		a.more = true
+	}
+	return a
+}
+
+// conflictsWith reports whether a pod other than v brings a passenger. A
+// pickup pod can be relocating and assigned. It does not conflict with
+// itself.
+func (a passengerArrival) conflictsWith(v *vehicle) bool {
+	return a.first != nil && (a.more || a.first != v)
+}
+
+// passengerArrivals returns the passenger arrivals at the destination berth
+// of each relocating pod, keyed by berth ID. A pod brings a passenger to its
+// destination berth when it has an active passenger that boards or travels,
+// or when a waiting trip names it. Pod IDs are unique, so findVehicle finds
+// the pod that a waiting trip names. The empty berth ID is also a key when a
+// relocating pod has no destination berth. The map has no key for a berth
+// that no relocating pod goes to. The map is correct only while the pods and
+// the waiting trips do not change.
+func (s *Simulation) passengerArrivals() map[string]passengerArrival {
+	relocating := 0
 	for i := range s.vehicles {
-		arrival := &s.vehicles[i]
-		if arrival == relocating || arrival.destination.ID != relocating.destination.ID {
-			continue
-		}
-		activePassenger := arrival.Request != nil && !arrival.Request.Completed &&
-			(arrival.Pod.Activity == Boarding || arrival.Pod.Activity == Traveling)
-		if activePassenger || s.assigned(arrival.Pod.ID) {
-			return true
+		if s.vehicles[i].RelocatingTo != "" {
+			relocating++
 		}
 	}
-	return false
+	arrivals := make(map[string]passengerArrival, relocating)
+	for i := range s.vehicles {
+		if v := &s.vehicles[i]; v.RelocatingTo != "" {
+			arrivals[v.destination.ID] = passengerArrival{}
+		}
+	}
+	add := func(v *vehicle) {
+		if arrival, ok := arrivals[v.destination.ID]; ok {
+			arrivals[v.destination.ID] = arrival.with(v)
+		}
+	}
+	for i := range s.vehicles {
+		v := &s.vehicles[i]
+		if (v.Pod.Activity == Boarding || v.Pod.Activity == Traveling) && v.Request != nil && !v.Request.Completed {
+			add(v)
+		}
+	}
+	for _, trip := range s.waiting {
+		if v := s.findVehicle(trip.request.PodID); v != nil {
+			add(v)
+		}
+	}
+	return arrivals
 }
 
 // relocationDestinationAdmitted reports whether the reserved track of v
