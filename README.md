@@ -835,10 +835,10 @@ mise run check
 
 | Task | What it runs |
 | --- | --- |
-| `mise run check` | Workflow validation, Markdown checks, race tests, editor and loader tests, vet, lint, vulnerability checks, the native and browser builds, and the embedded server tests. |
+| `mise run check` | Workflow validation, Markdown checks, race tests, the qualification tests without the race detector, editor and loader tests, vet, lint, vulnerability checks, the native and browser builds, and the embedded server tests. |
 | `mise run format` | Formats the Go sources and the Markdown files. |
 | `mise run test:web` | Only the editor and loader tests. |
-| `mise run qualify` | The `internal/scenarios` qualification tests for scale, safety, and repeatability. |
+| `mise run qualify` | The `internal/scenarios` qualification tests for scale, safety, and repeatability, without the race detector. The two Station 19 drain tests skip under the race detector, so only this task runs them. |
 | `mise run benchmark` | 6,000 simulation steps on the 100-pod ring fixture, not on the current `scale100` mesh. |
 
 `mise.toml` tracks Go 1.27 and major versions for the other development tools.

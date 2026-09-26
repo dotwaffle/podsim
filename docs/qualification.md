@@ -332,7 +332,7 @@ See [the client protocol](protocol.md) for the normalized frame measurements.
 
 ## Validation limits
 
-The automated gate runs workflow validation, race tests, editor and loader tests, vet, lint, vulnerability checks, native and WASM builds, and embedded server tests.
+The automated gate runs workflow validation, race tests, the qualification tests without the race detector, editor and loader tests, vet, lint, vulnerability checks, native and WASM builds, and embedded server tests.
 Browser acceptance also covers editing, undo and redo, background calibration, import and export, apply, stale conflicts, and visible WASM rendering.
 A known stale apply no longer pauses another browser's running simulation.
 Malformed imports preserve the current draft.
@@ -419,7 +419,7 @@ These values predate the release of pickup pods for new work and the zero pickup
 mise exec -- go test -count=1 -run 'Station19QueueDrains|DenseSafety' -cpuprofile /tmp/podsim-scenarios-cpu.out -o /tmp/podsim-scenarios.test ./internal/scenarios
 mise exec -- go tool pprof -top -nodecount=40 /tmp/podsim-scenarios-cpu.out
 mise exec -- go test -race ./internal/scenarios -run '^$' -bench BenchmarkScale100SafetyState -count=3 -benchmem
-mise exec -- go test -race ./internal/scenarios -count=1 -timeout=30m -v
+mise exec -- go test ./internal/scenarios -count=1 -timeout=30m -v
 ```
 
 ## Separate station access
@@ -507,7 +507,7 @@ They show a possible controller cost and do not measure the new mesh workload.
 The observation savings above apply separately.
 
 ```sh
-mise exec -- go test -race ./internal/scenarios -run 'TestScale100Station19' -count=1 -timeout=30m -v
+mise exec -- go test ./internal/scenarios -run 'TestScale100Station19' -count=1 -timeout=30m -v
 mise run check
 ```
 

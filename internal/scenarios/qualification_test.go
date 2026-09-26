@@ -301,6 +301,9 @@ func observedPod(state sim.SafetyObservation, id string) sim.Pod {
 
 // Check every tick, including the final empty moves after passenger delivery.
 func TestScale100Station19QueueDrainsSafely(t *testing.T) {
+	if raceEnabled {
+		t.Skip("one simulation on one goroutine, so the race detector finds nothing. mise run qualify runs this test without it.")
+	}
 	t.Parallel()
 	config := Scale100()
 	simulation := newSimulation(t, config)

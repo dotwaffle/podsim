@@ -9,6 +9,9 @@ import (
 
 // Include empty departures after a concentrated burst of passenger arrivals.
 func TestScale100Station19BurstDrainsSafely(t *testing.T) {
+	if raceEnabled {
+		t.Skip("one simulation on one goroutine, so the race detector finds nothing. mise run qualify runs this test without it.")
+	}
 	t.Parallel()
 	config := Scale100()
 	simulation := newSimulation(t, config)

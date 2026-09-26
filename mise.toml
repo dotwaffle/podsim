@@ -81,7 +81,7 @@ run = "node --test web/editor_test.cjs web/loader_test.cjs"
 
 [tasks.check]
 description = "Run tests, static analysis, and native and browser builds"
-depends = ["test:race", "test:web", "lint", "vulncheck", "build", "test:embedded"]
+depends = ["test:race", "qualify", "test:web", "lint", "vulncheck", "build", "test:embedded"]
 
 [tasks.scenario]
 description = "Write a generated scenario JSON file"
@@ -93,6 +93,10 @@ run = "go run ./cmd/compare"
 
 [tasks.qualify]
 description = "Check scale, safety, and repeatability"
+# A long test that runs one simulation on one goroutine skips under -race,
+# because the race detector finds nothing there and makes it 10 times
+# slower. The check task runs this task, so such a test must be in
+# internal/scenarios.
 run = "go test ./internal/scenarios -count=1 -v"
 
 [tasks.benchmark]
