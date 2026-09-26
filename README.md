@@ -191,6 +191,7 @@ See [distribution and operations](docs/operations.md) for build and runtime sett
   Drag one finger on the map to pan.
   Pinch with two fingers on the map to zoom at their midpoint, and move the two fingers to pan.
   A drag that starts outside the map does nothing.
+  A touch that the browser cancels, for example when you switch to a different tab or app, is not a tap.
 - The scale bar in the lower-left corner of the map shows a round distance of 1, 2, or 5 times a power of ten, for example 500 m, 1 km, or 2 km.
 - Map navigation stays local to your browser.
 - A click, tap, or drag on the map, or **Fit**, stops following.

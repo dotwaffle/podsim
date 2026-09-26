@@ -30,6 +30,10 @@ type touchFrame struct {
 	// tapSlop is the distance in screen pixels that a touch can move and
 	// still be a tap.
 	tapSlop float64
+	// canceled is true when the browser canceled the touches after the
+	// last frame. The gestures then forget all touches without a tap, and
+	// the touches of this frame become stale.
+	canceled bool
 }
 
 // touchActions are the results of one touch frame.
@@ -63,17 +67,32 @@ type touchTrack struct {
 // touchGestures turns touch frames into taps, pans, and zooms.
 //
 // A touch that stays near its start is a tap when it ends, if no other touch
-// was on the screen during its life. One touch that starts on the map and
-// moves pans the map. Two touches on the map zoom around their midpoint, and
-// a move of the midpoint pans the map. When one of two touches ends, the
-// other touch continues to pan the map. A touch that starts outside the map
-// does not pan or zoom.
+// was on the screen during its life and the browser did not cancel it. One
+// touch that starts on the map and moves pans the map. Two touches on the
+// map zoom around their midpoint, and a move of the midpoint pans the map.
+// When one of two touches ends, the other touch continues to pan the map. A
+// touch that starts outside the map does not pan or zoom.
+//
+// Ebitengine does not update a canceled touch. It reports the touch at its
+// last point until the next touch event on the canvas. The gestures ignore
+// such a stale touch while Ebitengine reports its ID at the same point. Some
+// browsers give the next touch the ID of the canceled touch. That touch
+// starts at a different point, and the gestures follow it as a new touch.
 type touchGestures struct {
 	tracks []touchTrack
+	// stale are the touches of the last cancel frame that Ebitengine still
+	// reports at the same point.
+	stale []touchPoint
 }
 
 // update reads the touches of one frame and returns the actions.
 func (g *touchGestures) update(frame touchFrame) touchActions {
+	if frame.canceled {
+		g.tracks = g.tracks[:0]
+		g.stale = append(g.stale[:0], frame.touches...)
+		return touchActions{}
+	}
+	frame.touches = g.live(frame.touches)
 	var actions touchActions
 	var moves []touchMove
 	kept := g.tracks[:0]
@@ -109,6 +128,16 @@ func (g *touchGestures) update(frame touchFrame) touchActions {
 		actions.pan = sim.Point{X: moves[0].to.X - moves[0].from.X, Y: moves[0].to.Y - moves[0].from.Y}
 	}
 	return actions
+}
+
+// live forgets each stale touch that is not in touches at the same point.
+// It returns touches without the stale touches.
+func (g *touchGestures) live(touches []touchPoint) []touchPoint {
+	if len(g.stale) == 0 {
+		return touches
+	}
+	g.stale = slices.DeleteFunc(g.stale, func(stale touchPoint) bool { return !slices.Contains(touches, stale) })
+	return slices.DeleteFunc(slices.Clone(touches), func(touch touchPoint) bool { return slices.Contains(g.stale, touch) })
 }
 
 // start adds a track for each new touch. It reports whether a new touch
@@ -156,7 +185,12 @@ func (g *Game) updateTouchInput() {
 		x, y := ebiten.TouchPosition(id)
 		touches = append(touches, touchPoint{id: id, point: sim.Point{X: float64(x), Y: float64(y)}})
 	}
-	actions := g.touch.update(touchFrame{touches: touches, mapArea: g.camera.viewport, tapSlop: touchTapSlop * g.layout.unit})
+	actions := g.touch.update(touchFrame{
+		touches:  touches,
+		mapArea:  g.camera.viewport,
+		tapSlop:  touchTapSlop * g.layout.unit,
+		canceled: touchCanceled(),
+	})
 	g.applyTouch(actions, ebiten.IsKeyPressed(ebiten.KeyShift) || pointerShift())
 }
 

@@ -20,8 +20,9 @@ func touchAt(id ebiten.TouchID, x, y float64) touchPoint {
 func TestTouchGestures(t *testing.T) {
 	t.Parallel()
 	type step struct {
-		touches []touchPoint
-		want    touchActions
+		touches  []touchPoint
+		canceled bool
+		want     touchActions
 	}
 	tests := []struct {
 		name  string
@@ -80,13 +81,53 @@ func TestTouchGestures(t *testing.T) {
 			{touches: []touchPoint{touchAt(1, 50, 50), touchAt(2, 150, 50)}, want: touchActions{mapPressed: true}},
 			{touches: []touchPoint{touchAt(1, 52, 50), touchAt(2, 150, 80)}, want: touchActions{pan: sim.Point{X: 2}}},
 		}},
+		// Ebitengine keeps a canceled touch until the next touch event. The
+		// next touch then replaces it in the same frame.
+		{name: "a canceled touch is not a tap", steps: []step{
+			{touches: []touchPoint{touchAt(1, 150, 50)}},
+			{touches: []touchPoint{touchAt(1, 150, 50)}, canceled: true},
+			{touches: []touchPoint{touchAt(1, 150, 50)}},
+			{touches: []touchPoint{touchAt(2, 50, 50)}, want: touchActions{mapPressed: true}},
+			{want: touchActions{tap: true, tapPoint: sim.Point{X: 50, Y: 50}}},
+		}},
+		{name: "a touch that ends with the cancel is not a tap", steps: []step{
+			{touches: []touchPoint{touchAt(1, 150, 50)}},
+			{canceled: true},
+			{},
+		}},
+		{name: "a touch that starts with the cancel is not a tap", steps: []step{
+			{touches: []touchPoint{touchAt(1, 150, 50)}, canceled: true},
+			{},
+		}},
+		{name: "a canceled touch at the same point is ignored", steps: []step{
+			{touches: []touchPoint{touchAt(0, 50, 50)}, want: touchActions{mapPressed: true}},
+			{touches: []touchPoint{touchAt(0, 50, 50)}, canceled: true},
+			{touches: []touchPoint{touchAt(0, 50, 50)}},
+			{touches: []touchPoint{touchAt(0, 50, 50)}},
+			{},
+		}},
+		// Android often gives each new first finger ID 0.
+		{name: "a new touch with the ID of a canceled touch is a tap", steps: []step{
+			{touches: []touchPoint{touchAt(0, 150, 50)}},
+			{touches: []touchPoint{touchAt(0, 150, 50)}, canceled: true},
+			{touches: []touchPoint{touchAt(0, 150, 50)}},
+			{touches: []touchPoint{touchAt(0, 50, 50)}, want: touchActions{mapPressed: true}},
+			{want: touchActions{tap: true, tapPoint: sim.Point{X: 50, Y: 50}}},
+		}},
+		{name: "a new touch at the point of an ended canceled touch is a tap", steps: []step{
+			{touches: []touchPoint{touchAt(0, 150, 50)}},
+			{touches: []touchPoint{touchAt(0, 150, 50)}, canceled: true},
+			{},
+			{touches: []touchPoint{touchAt(0, 150, 50)}},
+			{want: touchActions{tap: true, tapPoint: sim.Point{X: 150, Y: 50}}},
+		}},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
 			var gestures touchGestures
 			for index, step := range test.steps {
-				got := gestures.update(touchFrame{touches: step.touches, mapArea: image.Rect(0, 0, 100, 100), tapSlop: 10})
+				got := gestures.update(touchFrame{touches: step.touches, mapArea: image.Rect(0, 0, 100, 100), tapSlop: 10, canceled: step.canceled})
 				if got != step.want {
 					t.Errorf("step %d: actions = %+v, want %+v", index, got, step.want)
 				}
@@ -200,6 +241,49 @@ func TestTouchInput(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
 			test.run(t, londonPickGame(t))
+		})
+	}
+}
+
+// TestCanceledTouchOnRewind checks that a touch on Rewind that the browser
+// cancels does not rewind the shared session when the next touch starts.
+// Without the cancel, the same touches rewind.
+func TestCanceledTouchOnRewind(t *testing.T) {
+	t.Parallel()
+	tests := []struct {
+		name       string
+		canceled   bool
+		wantRewind bool
+	}{
+		{name: "canceled", canceled: true},
+		{name: "not canceled", wantRewind: true},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			game := sharedTestGame(t)
+			clickCommand(t, game, "checkpoint")
+			syncGame(t, game, func() bool { return len(game.state.Checkpoints) == 1 })
+			rewind := touchPoint{id: 1, point: centerOfButton(findButton(t, game.buttons(), "rewind"))}
+			center := game.camera.viewport.Min.Add(game.camera.viewport.Max).Div(2)
+			frames := []touchFrame{
+				{touches: []touchPoint{rewind}},
+				{touches: []touchPoint{rewind}, canceled: test.canceled},
+				{touches: []touchPoint{touchAt(2, float64(center.X), float64(center.Y))}},
+			}
+			for _, frame := range frames {
+				frame.mapArea, frame.tapSlop = game.camera.viewport, touchTapSlop*game.layout.unit
+				game.applyTouch(game.touch.update(frame), false)
+			}
+			if game.pending != test.wantRewind {
+				t.Fatalf("command sent = %t, want %t", game.pending, test.wantRewind)
+			}
+			if !test.wantRewind {
+				return
+			}
+			if result := commandResult(t, game); result.Command.Action != "rewind" {
+				t.Fatalf("sent command %q, want rewind", result.Command.Action)
+			}
 		})
 	}
 }
