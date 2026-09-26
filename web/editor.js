@@ -20,6 +20,12 @@
   // CHEVRON_LANE_LENGTH is the shortest length in screen pixels of a lane that
   // shows its direction chevron.
   const CHEVRON_LANE_LENGTH = 24;
+  // BERTH_PITCH is the distance in meters from a new station to its first
+  // berth, and from the last berth to the berth that addBerth adds.
+  // STATION_PADDING is the distance in meters from the outer station nodes
+  // to the edge of the drawn station shape.
+  const BERTH_PITCH = 30;
+  const STATION_PADDING = 12;
   const STATION_LANE_ROLES = new Set(["approach", "entry", "berth-access", "through", "departure", "exit"]);
 
   function clone(value) {
@@ -158,7 +164,7 @@
     out.network.Nodes.push({ ID: exitID, Position: { X: x + 36, Y: y } });
     const berthID = nextID(out, `${stationID}-berth`);
     const berthNodeID = nextID(out, `${stationID}-berth-node`);
-    out.network.Nodes.push({ ID: berthNodeID, Position: { X: x, Y: y + 30 } });
+    out.network.Nodes.push({ ID: berthNodeID, Position: { X: x, Y: y + BERTH_PITCH } });
     const station = {
       ID: stationID,
       Name: (options && options.name) || `Station ${out.network.Stations.length + 1}`,
@@ -173,6 +179,102 @@
     return addStationLane(withOutlet, entryID, exitID, stationID, "through");
   }
 
+  // stationAxes gives the axes of a station from the positions of its entry
+  // and exit. origin is the station center, the middle of the entry-exit
+  // line. along is the unit vector from the entry to the exit. across is the
+  // unit vector 90 degrees clockwise from along. The map Y axis points down,
+  // so across points to the right of the direction of travel. When the
+  // entry and the exit are at the same point, along points right.
+  function stationAxes(entry, exit) {
+    const dx = exit.X - entry.X; const dy = exit.Y - entry.Y; const length = Math.hypot(dx, dy);
+    const along = length ? { X: dx / length, Y: dy / length } : { X: 1, Y: 0 };
+    return { origin: { X: (entry.X + exit.X) / 2, Y: (entry.Y + exit.Y) / 2 }, along, across: { X: -along.Y, Y: along.X } };
+  }
+
+  // stationBearing gives the bearing of a station in degrees. The bearing is
+  // the direction from the entry to the exit, clockwise from up on the map.
+  // 0 is up, 90 is right, 180 is down, and 270 is left. The value is at
+  // least 0 and less than 360.
+  function stationBearing(entry, exit) {
+    const { along } = stationAxes(entry, exit);
+    return (Math.atan2(along.X, -along.Y) * 180 / Math.PI + 360) % 360;
+  }
+
+  // stationShape gives the drawn shape of a station. The shape is the
+  // smallest rectangle along the station axes that holds the entry, the
+  // exit, and shape.points, with STATION_PADDING meters on each side.
+  // shape.points holds the positions of the other station nodes. center is
+  // the center of the rectangle. width is its size along the entry-exit
+  // line, and height is its size across that line. angle is the rotation of
+  // the rectangle in degrees, clockwise from right, as SVG uses it. top is
+  // the Y value of the highest corner.
+  function stationShape(shape) {
+    const { origin, along, across } = stationAxes(shape.entry, shape.exit);
+    const low = { along: Infinity, across: Infinity }; const high = { along: -Infinity, across: -Infinity };
+    for (const at of [shape.entry, shape.exit, ...shape.points]) {
+      const x = at.X - origin.X; const y = at.Y - origin.Y;
+      const offset = { along: x * along.X + y * along.Y, across: x * across.X + y * across.Y };
+      for (const axis of ["along", "across"]) { low[axis] = Math.min(low[axis], offset[axis]); high[axis] = Math.max(high[axis], offset[axis]); }
+    }
+    const middle = { along: (low.along + high.along) / 2, across: (low.across + high.across) / 2 };
+    const width = high.along - low.along + 2 * STATION_PADDING; const height = high.across - low.across + 2 * STATION_PADDING;
+    const center = { X: origin.X + along.X * middle.along + across.X * middle.across, Y: origin.Y + along.Y * middle.along + across.Y * middle.across };
+    const top = center.Y - Math.abs(along.Y) * width / 2 - Math.abs(across.Y) * height / 2;
+    return { center, width, height, angle: Math.atan2(along.Y, along.X) * 180 / Math.PI, top };
+  }
+
+  // rotateStation turns the station nodes around the station center by the
+  // given number of degrees. A positive value turns them clockwise on the
+  // map. The station nodes are the nodes that stationNodeIDs gives. The
+  // curve control point of each lane between two station nodes turns too.
+  // Each lane keeps its end nodes, so a lane from a station node to a
+  // junction stays attached to both nodes.
+  function rotateStation(config, stationID, degrees) {
+    const out = clone(config);
+    const station = out.network.Stations.find((item) => item.ID === stationID);
+    const entry = station && point(out, station.Entry); const exit = station && point(out, station.Exit);
+    if (!entry || !exit) return config;
+    const center = stationAxes(entry, exit).origin; const ids = stationNodeIDs(out, station);
+    const cos = Math.cos(degrees * Math.PI / 180); const sin = Math.sin(degrees * Math.PI / 180);
+    const turn = (at) => { const x = at.X - center.X; const y = at.Y - center.Y; at.X = center.X + x * cos - y * sin; at.Y = center.Y + x * sin + y * cos; };
+    for (const node of out.network.Nodes) if (ids.has(node.ID)) turn(node.Position);
+    for (const lane of out.network.Lanes) if (lane.Control && ids.has(lane.From) && ids.has(lane.To)) turn(lane.Control);
+    return out;
+  }
+
+  // setStationBearing turns the station around its center until its
+  // bearing, as stationBearing gives it, is the given number of degrees. It
+  // turns the station by at most 180 degrees. When the station already has
+  // the bearing, the function gives the same config, so that the history
+  // does not record a change.
+  function setStationBearing(config, stationID, bearing) {
+    const station = config.network.Stations.find((item) => item.ID === stationID);
+    const entry = station && point(config, station.Entry); const exit = station && point(config, station.Exit);
+    if (!entry || !exit || !Number.isFinite(bearing)) return config;
+    const degrees = ((bearing - stationBearing(entry, exit)) % 360 + 540) % 360 - 180;
+    return degrees ? rotateStation(config, stationID, degrees) : config;
+  }
+
+  // nextBerthPosition gives the position of a new berth node. station has
+  // the positions of the entry, the exit, and the berth nodes. The station
+  // axis goes across the entry-exit line, to the side of the mean berth
+  // position. When the mean is on the line, or the station has no berths,
+  // the axis points to the right of the direction of travel, as addStation
+  // places the first berth. The last berth is the berth that is farthest
+  // along the axis. The new berth is BERTH_PITCH meters past the last berth
+  // along the axis. A station with no berths gets the new berth BERTH_PITCH
+  // meters from its center.
+  function nextBerthPosition(station) {
+    const { origin, across } = stationAxes(station.entry, station.exit);
+    const depth = (at) => (at.X - origin.X) * across.X + (at.Y - origin.Y) * across.Y;
+    const side = station.berths.reduce((sum, at) => sum + depth(at), 0) < 0 ? -1 : 1;
+    const start = station.berths.reduce((far, at) => (!far || depth(at) * side > depth(far) * side ? at : far), null) || origin;
+    return { X: start.X + across.X * side * BERTH_PITCH, Y: start.Y + across.Y * side * BERTH_PITCH };
+  }
+
+  // addBerth adds a berth to the station at the position that
+  // nextBerthPosition gives. The berth gets a lane from the station entry
+  // and a lane to the station exit.
   function addBerth(config, stationID) {
     const out = clone(config);
     const station = out.network.Stations.find((item) => item.ID === stationID);
@@ -182,12 +284,8 @@
     if (!entry || !exit) return config;
     const berthID = nextID(out, `${station.ID}-berth`);
     const nodeID = nextID(out, `${station.ID}-berth-node`);
-    const count = station.Berths.length;
-    const direction = count % 2 === 0 ? 1 : -1;
-    const row = Math.floor((count + 1) / 2) + 1;
-    const x = (entry.X + exit.X) / 2;
-    const y = (entry.Y + exit.Y) / 2 + direction * row * 30;
-    out.network.Nodes.push({ ID: nodeID, Position: { X: x, Y: y } });
+    const berths = station.Berths.map((berth) => point(out, berth.Node)).filter(Boolean);
+    out.network.Nodes.push({ ID: nodeID, Position: nextBerthPosition({ entry, exit, berths }) });
     station.Berths.push({ ID: berthID, Node: nodeID });
     return addStationLane(addStationLane(out, station.Entry, nodeID, stationID, "berth-access"), nodeID, station.Exit, stationID, "departure");
   }
@@ -259,20 +357,23 @@
   }
 
   // dragTargets gives the items that a drag moves. A station drag moves the
-  // station nodes, and a node drag moves one node. The targets are these
-  // nodes, the lanes that touch them, and the stations whose shape they move.
-  // A control drag moves the curve of one lane. The map redraws only the
-  // targets during a drag.
+  // station nodes, and a node drag moves one node, also a station node. The
+  // targets are these nodes, the lanes that touch them, and the stations
+  // that the nodes are part of, because the station shape holds all of its
+  // station nodes. A control drag moves the curve of one lane. The map
+  // redraws only the targets during a drag.
   function dragTargets(config, drag) {
     const moved = new Set();
     if (drag.type === "station") {
       const station = config.network.Stations.find((item) => item.ID === drag.id);
       if (station) for (const id of stationNodeIDs(config, station)) moved.add(id);
     } else if (drag.type === "node") moved.add(drag.id);
+    const owners = moved.size ? stationNodeOwners(config) : new Map();
+    const stations = new Set([...moved].map((id) => owners.get(id)));
     return {
       nodeIDs: config.network.Nodes.filter((node) => moved.has(node.ID)).map((node) => node.ID),
       laneIDs: config.network.Lanes.filter((lane) => (drag.type === "control" && lane.ID === drag.id) || moved.has(lane.From) || moved.has(lane.To)).map((lane) => lane.ID),
-      stationIDs: config.network.Stations.filter((station) => moved.has(station.Entry) || moved.has(station.Exit)).map((station) => station.ID),
+      stationIDs: config.network.Stations.filter((station) => stations.has(station.ID)).map((station) => station.ID),
     };
   }
 
@@ -376,20 +477,23 @@
   }
 
   // selectionCard gives the data of the Selection panel for the selected
-  // station, lane or junction. A station gives its name, the parking option,
-  // and its berths. The card marks the berth that the selection names. It
-  // lets you remove a berth only when the station has two or more berths. A
-  // lane gives its end nodes, its speed limit in whole km/h, its length in
-  // meters, and if it has a curve. A junction gives its position. The
-  // function gives null when there is no selection, or when the draft does
-  // not have the selected item.
+  // station, lane or junction. A station gives its name, its bearing in
+  // whole degrees, the parking option, and its berths. The bearing is 0
+  // when the entry or the exit node is missing. The card marks the berth
+  // that the selection names. It lets you remove a berth only when the
+  // station has two or more berths. A lane gives its end nodes, its speed
+  // limit in whole km/h, its length in meters, and if it has a curve. A
+  // junction gives its position. The function gives null when there is no
+  // selection, or when the draft does not have the selected item.
   function selectionCard(config, selection) {
     if (!selection) return null;
     const find = (items) => items.find((item) => item.ID === selection.id);
     if (selection.type === "station") {
       const station = find(config.network.Stations);
+      const entry = station && point(config, station.Entry); const exit = station && point(config, station.Exit);
       return station ? {
-        type: "station", id: station.ID, name: station.Name, parkingOnly: Boolean(station.ParkingOnly), canRemove: station.Berths.length > 1,
+        type: "station", id: station.ID, name: station.Name, bearing: entry && exit ? Math.round(stationBearing(entry, exit)) % 360 : 0,
+        parkingOnly: Boolean(station.ParkingOnly), canRemove: station.Berths.length > 1,
         berths: station.Berths.map((berth) => ({ id: berth.ID, selected: berth.ID === selection.berth })),
       } : null;
     }
@@ -1244,8 +1348,8 @@
   }
 
   const API = {
-    MIN_LANE_LENGTH, MIN_ZOOM, NODE_LABEL_SCALE, NODE_LABEL_SIZE, LANE_PAIR_OFFSET, CHEVRON_LANE_LENGTH, CHECK_DELAY, emptyConfig, fallbackConfig, normalizeConfig, addLane, addJunction, addStation, addBerth,
-    removeBerth, moveStation, moveNode, deleteNode, deleteLane, deleteStation, stationFlowCount, setFleetCount, fleetRows, selectionCard, setDemandPattern,
+    MIN_LANE_LENGTH, MIN_ZOOM, NODE_LABEL_SCALE, NODE_LABEL_SIZE, LANE_PAIR_OFFSET, CHEVRON_LANE_LENGTH, BERTH_PITCH, STATION_PADDING, CHECK_DELAY, emptyConfig, fallbackConfig, normalizeConfig, addLane, addJunction, addStation, addBerth,
+    stationBearing, stationShape, rotateStation, setStationBearing, nextBerthPosition, removeBerth, moveStation, moveNode, deleteNode, deleteLane, deleteStation, stationFlowCount, setFleetCount, fleetRows, selectionCard, setDemandPattern,
     laneLength, curveLength, reachable, cutOffStations, stationNodeOwners, dragTargets, validateConfig, configWarnings, checkResults, checkSelector, checkSelection, selectionPoint, focusView,
     problemCountText, createCheckTimer, validationSummary, serializeDocument, parseDocument, createHistory,
     networkBounds, fitView, zoomScale, nodeLabelSize, pairedLaneIDs, showsChevron, laneOffset, laneCurve, lanePathData, applyToServer, applyFailureText, applyFailureStatus, applyToast,
@@ -1291,10 +1395,6 @@
   function svgElement(name, attributes) { return setAttributes(document.createElementNS(svgNS, name), attributes); }
   function nodeFor(config, id) { return config.network.Nodes.find((node) => node.ID === id); }
   function stationForNode(config, id) { const stationID = stationNodeOwners(config).get(id); return config.network.Stations.find((station) => station.ID === stationID); }
-  function stationCenter(config, station) {
-    const entry = nodeFor(config, station.Entry); const exit = nodeFor(config, station.Exit);
-    return entry && exit ? { X: (entry.Position.X + exit.Position.X) / 2, Y: (entry.Position.Y + exit.Position.Y) / 2 } : { X: 0, Y: 0 };
-  }
   function setDraft(next, record = true) { if (state.history.replace({ scenario: next, background: state.background }, record)) render(); }
   function setBackground(next, record = true) { if (state.history.replace({ scenario: draft(), background: next }, record)) render(); }
   function mutate(change) { setDraft(change(draft())); }
@@ -1347,7 +1447,23 @@
   // position does not change when its font size changes.
   function placeNode(position) { return { cx: position.X, cy: position.Y }; }
   function placeNodeLabel(position) { return { x: position.X, y: position.Y }; }
-  function placeStation(center) { return { shape: { x: center.X - 34, y: center.Y - 16 }, label: { x: center.X, y: center.Y - 21 } }; }
+  // placeStation gives the position attributes of a station shape and its
+  // label, and the angle of the shape. stationShape gives the shape. at
+  // gives the position of a node, and nodeIDs holds the station nodes. The
+  // label is 5 m above the highest corner of the shape.
+  function placeStation(at, station, nodeIDs) {
+    const entry = at(station.Entry) || at(station.Exit) || { X: 0, Y: 0 }; const exit = at(station.Exit) || entry;
+    const place = stationShape({ entry, exit, points: nodeIDs.map(at).filter(Boolean) });
+    const { center, width, height, angle } = place;
+    return { angle, shape: { x: center.X - width / 2, y: center.Y - height / 2, width, height, transform: `rotate(${angle} ${center.X} ${center.Y})` }, label: { x: center.X, y: place.top - 5 } };
+  }
+  // STATION_MARKERS gives the path data of the entry and the exit markers,
+  // for a node at 0, 0 and travel along the X axis. The entry is a square.
+  // The exit is a triangle that points in the direction of travel.
+  const STATION_MARKERS = { entry: "M -5 -5 H 5 V 5 H -5 Z", exit: "M 7 0 L -5 6.5 L -5 -6.5 Z" };
+  // placeMarker gives the position attributes of an entry or exit marker.
+  // The marker turns to the angle of its station shape.
+  function placeMarker(position, angle) { return { transform: `translate(${position.X} ${position.Y}) rotate(${angle})` }; }
   function placeControl(config, lane) {
     const from = nodeFor(config, lane.From); const to = nodeFor(config, lane.To);
     return { line: { d: `M ${from.Position.X} ${from.Position.Y} L ${lane.Control.X} ${lane.Control.Y} L ${to.Position.X} ${to.Position.Y}` }, handle: { cx: lane.Control.X, cy: lane.Control.Y } };
@@ -1355,9 +1471,12 @@
 
   function renderMap() {
     const config = draft();
-    const backgroundLayer = $("#backgroundLayer"); const laneLayer = $("#laneLayer"); const stationLayer = $("#stationLayer"); const nodeLayer = $("#nodeLayer"); const handleLayer = $("#handleLayer");
-    backgroundLayer.replaceChildren(); laneLayer.replaceChildren(); stationLayer.replaceChildren(); nodeLayer.replaceChildren(); handleLayer.replaceChildren();
-    const map = { config, bounds: networkBounds(config, state.background), lanes: new Map(), lengths: new Map(), paired: pairedLaneIDs(config), laneScale: state.view.scale, stations: new Map(), nodes: new Map(), junctions: [], labels: new Map(), labelScale: null, handles: null };
+    const backgroundLayer = $("#backgroundLayer"); const laneLayer = $("#laneLayer"); const stationLayer = $("#stationLayer"); const stationLabelLayer = $("#stationLabelLayer"); const nodeLayer = $("#nodeLayer"); const handleLayer = $("#handleLayer");
+    backgroundLayer.replaceChildren(); laneLayer.replaceChildren(); stationLayer.replaceChildren(); stationLabelLayer.replaceChildren(); nodeLayer.replaceChildren(); handleLayer.replaceChildren();
+    // stationNodes holds the station nodes of each station, and markers holds
+    // the entry and exit nodes. A drag keeps them, because it moves nodes
+    // but does not change the lanes.
+    const map = { config, bounds: networkBounds(config, state.background), lanes: new Map(), lengths: new Map(), paired: pairedLaneIDs(config), laneScale: state.view.scale, stations: new Map(), stationNodes: new Map(), markers: new Map(), nodes: new Map(), junctions: [], labels: new Map(), labelScale: null, handles: null };
     if (state.background) {
       const image = svgElement("image", { class: "background-image", href: state.background.dataURL, x: state.background.x, y: state.background.y, width: state.background.width, height: state.background.height, opacity: state.background.opacity, preserveAspectRatio: "none" });
       backgroundLayer.append(image);
@@ -1366,17 +1485,25 @@
       const path = svgElement("path", { class: `lane${state.selection && state.selection.type === "lane" && state.selection.id === lane.ID ? " selected" : ""}`, "data-type": "lane", "data-id": lane.ID });
       drawLane(path, config, lane, map); laneLayer.append(path); map.lanes.set(lane.ID, path);
     }
-    for (const station of config.network.Stations) {
-      const place = placeStation(stationCenter(config, station));
-      const shape = svgElement("rect", { class: `station-shape${state.selection && state.selection.type === "station" && state.selection.id === station.ID ? " selected" : ""}`, ...place.shape, width: 68, height: 32, rx: 8, "data-type": "station", "data-id": station.ID });
-      const label = svgElement("text", { class: "station-label", ...place.label }); label.textContent = station.Name;
-      stationLayer.append(shape, label); map.stations.set(station.ID, { shape, label });
-    }
     const component = stationNodeOwners(config);
+    const positions = new Map(config.network.Nodes.map((node) => [node.ID, node.Position]));
+    for (const station of config.network.Stations) map.stationNodes.set(station.ID, []);
+    for (const [id, stationID] of component) map.stationNodes.get(stationID)?.push(id);
+    const angles = new Map();
+    for (const station of config.network.Stations) {
+      const place = placeStation((id) => positions.get(id), station, map.stationNodes.get(station.ID));
+      const shape = svgElement("rect", { class: `station-shape${state.selection && state.selection.type === "station" && state.selection.id === station.ID ? " selected" : ""}`, ...place.shape, rx: 8, "data-type": "station", "data-id": station.ID });
+      const label = svgElement("text", { class: "station-label", ...place.label }); label.textContent = station.Name;
+      stationLayer.append(shape); stationLabelLayer.append(label); map.stations.set(station.ID, { shape, label });
+      map.markers.set(station.Entry, "entry"); map.markers.set(station.Exit, "exit"); angles.set(station.Entry, place.angle); angles.set(station.Exit, place.angle);
+    }
     for (const node of config.network.Nodes) {
-      const stationID = component.get(node.ID);
-      const circle = svgElement("circle", { class: stationID ? "station-node" : `junction${state.selection && state.selection.type === "node" && state.selection.id === node.ID ? " selected" : ""}`, ...placeNode(node.Position), r: stationID ? 5 : 7, "data-type": stationID ? "station-node" : "node", "data-id": node.ID, "data-station": stationID || "" });
-      nodeLayer.append(circle); map.nodes.set(node.ID, circle);
+      const stationID = component.get(node.ID); const marker = map.markers.get(node.ID);
+      const data = { "data-type": stationID ? "station-node" : "node", "data-id": node.ID, "data-station": stationID || "" };
+      const element = marker
+        ? svgElement("path", { class: `station-node station-${marker}`, d: STATION_MARKERS[marker], ...placeMarker(node.Position, angles.get(node.ID)), ...data })
+        : svgElement("circle", { class: stationID ? "station-node" : `junction${state.selection && state.selection.type === "node" && state.selection.id === node.ID ? " selected" : ""}`, ...placeNode(node.Position), r: stationID ? 5 : 7, ...data });
+      nodeLayer.append(element); map.nodes.set(node.ID, element);
       if (!stationID) map.junctions.push(node);
     }
     if (state.selection && state.selection.type === "lane") {
@@ -1440,12 +1567,14 @@
   }
 
   // drawDragTargets moves the drawn targets of a drag to their positions in
-  // the working copy of the draft. The other map items stay as they are.
+  // the working copy of the draft. The other map items stay as they are. A
+  // station target also turns its entry and exit markers to the new angle
+  // of its shape.
   function drawDragTargets(config, targets) {
     const map = state.map;
     for (const id of targets.nodeIDs) {
       const node = nodeFor(config, id); const circle = map.nodes.get(id); const label = map.labels.get(id);
-      if (node && circle) setAttributes(circle, placeNode(node.Position));
+      if (node && circle && !map.markers.has(id)) setAttributes(circle, placeNode(node.Position));
       if (node && label) setAttributes(label, placeNodeLabel(node.Position));
     }
     for (const id of targets.laneIDs) {
@@ -1460,8 +1589,13 @@
     for (const id of targets.stationIDs) {
       const station = config.network.Stations.find((item) => item.ID === id); const drawn = map.stations.get(id);
       if (!station || !drawn) continue;
-      const place = placeStation(stationCenter(config, station));
+      const at = (nodeID) => nodeFor(config, nodeID)?.Position;
+      const place = placeStation(at, station, map.stationNodes.get(id) || []);
       setAttributes(drawn.shape, place.shape); setAttributes(drawn.label, place.label);
+      for (const nodeID of [station.Entry, station.Exit]) {
+        const position = at(nodeID); const marker = map.nodes.get(nodeID);
+        if (position && marker && map.markers.has(nodeID)) setAttributes(marker, placeMarker(position, place.angle));
+      }
     }
   }
 
@@ -1469,7 +1603,7 @@
   // renderSelection puts the item data into the data-field elements and the
   // inputs.
   const SELECTION_FORMS = {
-    station: '<label>Name<input data-edit="station-name" maxlength="80"></label><p class="id" data-field="id"></p><label class="check"><input data-edit="parking-only" type="checkbox"> Parking station</label><div class="berth-list" data-field="berths"><strong>Physical berths</strong></div><button data-action="add-berth" type="button">Add physical berth</button><button data-action="delete-station" class="danger" type="button">Delete station and connections</button>',
+    station: '<label>Name<input data-edit="station-name" maxlength="80"></label><p class="id" data-field="id"></p><label class="check"><input data-edit="parking-only" type="checkbox"> Parking station</label><label>Bearing (degrees)<input data-edit="station-bearing" type="number" step="1"></label><p class="hint">The bearing is the direction from the entry to the exit, clockwise from up. The square marks the entry, and the triangle marks the exit. Drag the shape to move the station, or drag a node to move only that node.</p><div class="berth-list" data-field="berths"><strong>Physical berths</strong></div><button data-action="add-berth" type="button">Add physical berth</button><button data-action="delete-station" class="danger" type="button">Delete station and connections</button>',
     lane: '<p class="id" data-field="id"></p><p data-field="route"></p><label>Speed limit (km/h)<input data-edit="lane-speed" type="number" min="1" step="1"></label><p class="hint" data-field="length"></p><button data-action="toggle-curve" type="button"></button><button data-action="delete-lane" class="danger" type="button">Delete guideway</button>',
     node: '<p class="id" data-field="id"></p><p data-field="position"></p><button data-action="delete-node" class="danger" type="button">Delete junction and connections</button>',
   };
@@ -1490,7 +1624,7 @@
     const setValue = (element, value) => { if (element.value !== value) element.value = value; };
     field("id").textContent = card.id;
     if (card.type === "station") {
-      setValue(input("station-name"), card.name); input("parking-only").checked = card.parkingOnly; renderBerths(field("berths"), card);
+      setValue(input("station-name"), card.name); setValue(input("station-bearing"), String(card.bearing)); input("parking-only").checked = card.parkingOnly; renderBerths(field("berths"), card);
     } else if (card.type === "lane") {
       field("route").textContent = `${card.from} → ${card.to}`; setValue(input("lane-speed"), String(card.speed));
       field("length").textContent = `Length: ${card.length.toFixed(1)} m`;
@@ -1626,7 +1760,9 @@
     if (type === "station" || type === "station-node") {
       const stationID = type === "station" ? id : target.dataset.station;
       selectItem("station", stationID);
-      if (state.tool === "select" && type === "station") beginDrag("station", stationID, event);
+      // A drag of the shape moves the station. A drag of a station node
+      // moves only that node, and the station stays selected.
+      if (state.tool === "select") beginDrag(type === "station" ? "station" : "node", type === "station" ? stationID : id, event);
       return;
     }
     if (type === "node") {
@@ -1840,6 +1976,13 @@
       if (!state.selection) return;
       if (event.target.dataset.edit === "station-name") mutate((config) => { config.network.Stations.find((item) => item.ID === state.selection.id).Name = event.target.value.trim(); return config; });
       if (event.target.dataset.edit === "parking-only") mutate((config) => { config.network.Stations.find((item) => item.ID === state.selection.id).ParkingOnly = event.target.checked; return config; });
+      // After a bearing change, the field shows the bearing from 0 to 359.
+      // A value that is not a number does not turn the station.
+      if (event.target.dataset.edit === "station-bearing") {
+        const bearing = event.target.value === "" ? NaN : Number(event.target.value);
+        if (Number.isFinite(bearing)) setDraft(setStationBearing(draft(), state.selection.id, bearing));
+        renderSelection();
+      }
       if (event.target.dataset.edit === "lane-speed") mutate((config) => { config.network.Lanes.find((item) => item.ID === state.selection.id).SpeedLimit = Number(event.target.value)/3.6; return config; });
     });
     $("#selectionContent").addEventListener("click", (event) => {

@@ -74,6 +74,8 @@ output { float: right; color: var(--text); }
 .junction { fill: #0d1922; stroke: var(--cyan); stroke-width: 3; cursor: pointer; vector-effect: non-scaling-stroke; }
 .junction.selected, .junction:hover { fill: var(--cyan); }
 .station-node { fill: #ffb457; stroke: #3d2e20; stroke-width: 2; cursor: pointer; vector-effect: non-scaling-stroke; }
+/* The entry is a hollow square. The exit is a filled triangle. */
+.station-node.station-entry { fill: #0d1922; stroke: var(--orange); stroke-width: 2.5; }
 .station-shape { fill: #162c37; stroke: var(--orange); stroke-width: 2; cursor: move; vector-effect: non-scaling-stroke; filter: url(#shadow); }
 .station-shape.selected { fill: #26424d; stroke-width: 4; }
 .station-label { fill: #eef4f7; font-size: 12px; font-weight: 700; text-anchor: middle; pointer-events: none; paint-order: stroke; stroke: #081018; stroke-width: 3px; }

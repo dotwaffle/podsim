@@ -401,13 +401,27 @@ The draft stays local until you select **Pause and apply**.
   The map draws each guideway of a pair 4 screen pixels to the right of its direction of travel, so you can see and select each one.
 - Select a guideway to adjust its curve and speed in km/h.
 - Set the station berth capacity and place initial pods in free berths.
-- Drag a station to move it.
+- **Add physical berth** puts the new berth 30 m past the last berth.
+  The berth goes on the station axis, across the entry-exit line, on the side of the other berths.
+- Drag the station shape to move the station.
   The drag also moves the nodes that only its station lanes use, such as a berth chain.
 - **Delete station and connections** also removes these nodes.
   It also removes each demand flow to or from the station in the OD profiles.
   When it removes flows, a notice gives their number, for example **Station deleted.
   12 demand flows removed.**
   Undo restores the station and its demand flows.
+- The station shape is a rectangle along the entry-exit line that holds all nodes of the station.
+  The entry is a hollow square.
+  The exit is a filled triangle that points in the direction of travel.
+- Drag an entry, exit, or berth node to move only that node.
+  The lanes of the node stay attached to it.
+- Select a station and set **Bearing (degrees)** to turn the station around the middle of its entry-exit line.
+  The bearing is the direction from the entry to the exit, clockwise from up.
+  Up is 0 degrees, and right is 90 degrees.
+  The turn also moves the nodes that only its station lanes use.
+  Each lane keeps its nodes.
+  The project file has no bearing field.
+  The editor gets the bearing from the entry and exit positions.
 - Set the passenger generation option, rate, pattern, destination, OD profile, time band, same-destination party limit, seed, and redistribution option.
 - Use undo and redo for draft changes.
 - Drag empty space to pan, and use the wheel to zoom.

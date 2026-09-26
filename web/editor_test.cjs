@@ -253,6 +253,197 @@ test("a shared road node stays out of the station", () => {
   assert.ok(deleted.network.Lanes.every((lane) => nodeIDs.has(lane.From) && nodeIDs.has(lane.To)));
 });
 
+// assertNear checks that two points are less than 1e-6 m apart.
+function assertNear(actual, want, name) {
+  assert.ok(Math.hypot(actual.X - want.X, actual.Y - want.Y) < 1e-6, `${name}: got ${JSON.stringify(actual)}, want ${JSON.stringify(want)}`);
+}
+
+// angleGap gives the difference in degrees between two bearings.
+function angleGap(a, b) {
+  return Math.abs((((a - b) % 360) + 540) % 360 - 180);
+}
+
+// assertLanesOnNodes checks that each lane in after has the same ID, From
+// node, and To node as in before, and that after has both end nodes.
+function assertLanesOnNodes(before, after, name) {
+  const ends = (config) => config.network.Lanes.map((lane) => [lane.ID, lane.From, lane.To]);
+  assert.deepEqual(ends(after), ends(before), name);
+  const ids = new Set(after.network.Nodes.map((node) => node.ID));
+  for (const lane of after.network.Lanes) assert.ok(ids.has(lane.From) && ids.has(lane.To), `${name} ${lane.ID}`);
+}
+
+// leftOf gives the unit vector to the left of the direction of travel from
+// entry to exit. The map Y axis points down.
+function leftOf(entry, exit) {
+  const length = Math.hypot(exit.X - entry.X, exit.Y - entry.Y);
+  return { X: (exit.Y - entry.Y) / length, Y: (entry.X - exit.X) / length };
+}
+
+// CLEARANCE is the clearance in meters that the simulation keeps between
+// pods, sim.Clearance in the Go code.
+const CLEARANCE = 12;
+
+// segmentDistance gives the distance in meters from at to the line segment
+// from a to b.
+function segmentDistance(at, a, b) {
+  const dx = b.X - a.X; const dy = b.Y - a.Y; const size = dx * dx + dy * dy;
+  const t = size ? Math.min(1, Math.max(0, ((at.X - a.X) * dx + (at.Y - a.Y) * dy) / size)) : 0;
+  return Math.hypot(at.X - a.X - t * dx, at.Y - a.Y - t * dy);
+}
+
+// Tottenham Court Road in the generated London project. The berths are 90 m
+// and 165 m to the left of the entry-exit line.
+const tottenhamCourtRoad = {
+  entry: { X: -186.74321535145924, Y: -1227.1687914758268 },
+  exit: { X: -5.481657944129211, Y: -1142.645139127687 },
+  berths: [{ X: -58.07679309113132, Y: -1266.4746661350553 }, { X: -26.380423460578925, Y: -1334.447750162804 }],
+};
+
+test("the station bearing is the direction from the entry to the exit", () => {
+  const cases = [
+    { name: "right", exit: { X: 10, Y: 0 }, want: 90 },
+    { name: "down", exit: { X: 0, Y: 10 }, want: 180 },
+    { name: "left", exit: { X: -10, Y: 0 }, want: 270 },
+    { name: "up", exit: { X: 0, Y: -10 }, want: 0 },
+    { name: "up and to the right", exit: { X: 10, Y: -10 }, want: 45 },
+    { name: "up and to the left", exit: { X: -10, Y: -10 }, want: 315 },
+    { name: "entry and exit at one point", exit: { X: 0, Y: 0 }, want: 90 },
+  ];
+  for (const tc of cases) assert.ok(angleGap(editor.stationBearing({ X: 0, Y: 0 }, tc.exit), tc.want) < 1e-9, tc.name);
+  assert.equal(Math.round(editor.stationBearing(tottenhamCourtRoad.entry, tottenhamCourtRoad.exit)), 115);
+  const config = editor.addStation(editor.emptyConfig(), 200, 140, {});
+  const [station] = config.network.Stations;
+  assert.equal(editor.stationBearing(nodePosition(config, station.Entry), nodePosition(config, station.Exit)), 90);
+});
+
+test("a station turns around its center and keeps its lanes on its nodes", () => {
+  let { config, arrival, departure } = chainScenario();
+  const [alpha, beta] = config.network.Stations;
+  config = editor.addJunction(config, 64, 40);
+  const road = config.network.Nodes.at(-1).ID;
+  config = editor.addLane(config, road, alpha.Entry, false);
+  const roadLane = config.network.Lanes.at(-1).ID;
+  const through = config.network.Lanes.find((lane) => lane.From === alpha.Entry && lane.To === alpha.Exit);
+  through.Control = { X: 100, Y: 70 };
+  // The center is the middle of the entry-exit line.
+  const center = { X: 100, Y: 100 };
+  const stationNodes = [alpha.Entry, alpha.Exit, alpha.Berths[0].Node, arrival, departure];
+  const cases = [
+    { name: "a quarter turn clockwise", degrees: 90, bearing: 180 },
+    { name: "a quarter turn counterclockwise", degrees: -90, bearing: 0 },
+    { name: "a small turn", degrees: 25, bearing: 115 },
+    { name: "a full turn", degrees: 360, bearing: 90 },
+  ];
+  for (const tc of cases) {
+    const turned = editor.rotateStation(config, alpha.ID, tc.degrees);
+    const cos = Math.cos(tc.degrees * Math.PI / 180); const sin = Math.sin(tc.degrees * Math.PI / 180);
+    const turn = (at) => ({ X: center.X + (at.X - center.X) * cos - (at.Y - center.Y) * sin, Y: center.Y + (at.X - center.X) * sin + (at.Y - center.Y) * cos });
+    for (const id of stationNodes) assertNear(nodePosition(turned, id), turn(nodePosition(config, id)), `${tc.name} ${id}`);
+    assertNear(turned.network.Lanes.find((lane) => lane.ID === through.ID).Control, turn(through.Control), `${tc.name} through curve`);
+    assert.ok(angleGap(editor.stationBearing(nodePosition(turned, alpha.Entry), nodePosition(turned, alpha.Exit)), tc.bearing) < 1e-9, tc.name);
+    for (const id of [beta.Entry, beta.Exit, beta.Berths[0].Node, road]) assert.deepEqual(nodePosition(turned, id), nodePosition(config, id), `${tc.name} ${id}`);
+    assertLanesOnNodes(config, turned, tc.name);
+    // Each lane between two station nodes keeps its length. The road lane
+    // follows the entry.
+    for (const lane of turned.network.Lanes.filter((item) => item.StationID === alpha.ID)) {
+      const before = config.network.Lanes.find((item) => item.ID === lane.ID);
+      assert.ok(Math.abs(editor.laneLength(turned, lane) - editor.laneLength(config, before)) < 1e-9, `${tc.name} ${lane.ID}`);
+    }
+    const entry = nodePosition(turned, alpha.Entry);
+    assert.equal(editor.laneLength(turned, turned.network.Lanes.find((lane) => lane.ID === roadLane)), Math.hypot(entry.X - 64, entry.Y - 40), tc.name);
+  }
+
+  const set = editor.setStationBearing(config, alpha.ID, 240);
+  assert.ok(angleGap(editor.stationBearing(nodePosition(set, alpha.Entry), nodePosition(set, alpha.Exit)), 240) < 1e-9);
+  assertNear(nodePosition(set, alpha.Berths[0].Node), nodePosition(editor.rotateStation(config, alpha.ID, 150), alpha.Berths[0].Node), "set bearing");
+  // A bearing of 450 is 90, the current bearing, so nothing changes.
+  for (const bearing of [90, 450, Number.NaN]) assert.equal(editor.setStationBearing(config, alpha.ID, bearing), config, String(bearing));
+  assert.equal(editor.setStationBearing(config, "gone", 180), config);
+});
+
+test("a station node drag keeps its lanes on the node", () => {
+  const { config, arrival } = chainScenario();
+  const [alpha] = config.network.Stations;
+  for (const id of [alpha.Entry, alpha.Exit, alpha.Berths[0].Node, arrival]) {
+    const moved = editor.moveNode(config, id, 80, 170);
+    assert.deepEqual(nodePosition(moved, id), { X: 80, Y: 170 }, id);
+    assertLanesOnNodes(config, moved, id);
+    assert.deepEqual(editor.dragTargets(config, { type: "node", id }).stationIDs, [alpha.ID], id);
+  }
+});
+
+test("a new berth goes one berth pitch past the last berth on the station axis", () => {
+  const along = (berths) => ({ entry: { X: -36, Y: 0 }, exit: { X: 36, Y: 0 }, berths });
+  const [first, second] = tottenhamCourtRoad.berths;
+  const left = leftOf(tottenhamCourtRoad.entry, tottenhamCourtRoad.exit);
+  const parking = { entry: { X: 620, Y: 460 }, exit: { X: 340, Y: 460 }, berths: [{ X: 480, Y: 420 }, { X: 480, Y: 365 }] };
+  const cases = [
+    { name: "one berth to the right, as a new station has it", station: along([{ X: 0, Y: 30 }]), want: { X: 0, Y: 60 } },
+    { name: "two berths use the farther berth", station: along([{ X: 0, Y: 30 }, { X: 0, Y: 55 }]), want: { X: 0, Y: 85 } },
+    { name: "the berth order does not matter", station: along([{ X: 0, Y: 55 }, { X: 0, Y: 30 }]), want: { X: 0, Y: 85 } },
+    { name: "a berth to the left", station: along([{ X: 0, Y: -30 }]), want: { X: 0, Y: -60 } },
+    { name: "a berth off the center keeps its offset", station: along([{ X: 20, Y: 30 }]), want: { X: 20, Y: 60 } },
+    { name: "berths on both sides use the side of the mean", station: along([{ X: 0, Y: 30 }, { X: 0, Y: -60 }, { X: 0, Y: 60 }]), want: { X: 0, Y: 90 } },
+    { name: "a farther berth on the other side moves the mean to that side", station: along([{ X: 0, Y: 30 }, { X: 0, Y: -60 }]), want: { X: 0, Y: -90 } },
+    { name: "no berths", station: along([]), want: { X: 0, Y: 30 } },
+    { name: "a station that points down", station: { entry: { X: 0, Y: -36 }, exit: { X: 0, Y: 36 }, berths: [{ X: -30, Y: 0 }] }, want: { X: -60, Y: 0 } },
+    { name: "Tottenham Court Road", station: tottenhamCourtRoad, want: { X: second.X + left.X * editor.BERTH_PITCH, Y: second.Y + left.Y * editor.BERTH_PITCH } },
+    { name: "the example Parking station, with berths 55 m apart", station: parking, want: { X: 480, Y: 335 } },
+  ];
+  for (const tc of cases) assertNear(editor.nextBerthPosition(tc.station), tc.want, tc.name);
+
+  // The Tottenham Court Road berth is on the side of the other berths.
+  const side = (at) => Math.sign((tottenhamCourtRoad.exit.X - tottenhamCourtRoad.entry.X) * (at.Y - tottenhamCourtRoad.entry.Y) - (tottenhamCourtRoad.exit.Y - tottenhamCourtRoad.entry.Y) * (at.X - tottenhamCourtRoad.entry.X));
+  assert.equal(side(editor.nextBerthPosition(tottenhamCourtRoad)), side(first));
+
+  // In the example network, the new Parking berth keeps the clearance from
+  // the bypass junction and its lanes.
+  const [branch, bypass, merge] = [{ X: 300, Y: 260 }, { X: 470, Y: 300 }, { X: 670, Y: 260 }];
+  const added = editor.nextBerthPosition(parking);
+  for (const [from, to] of [[branch, bypass], [bypass, merge]]) assert.ok(segmentDistance(added, from, to) >= CLEARANCE, JSON.stringify(to));
+
+  // addBerth places each berth on the axis of a turned station.
+  let config = editor.addStation(editor.emptyConfig(), 200, 140, {});
+  const stationID = config.network.Stations[0].ID;
+  config = editor.setStationBearing(config, stationID, 30);
+  for (let count = 2; count <= 4; count += 1) {
+    config = editor.addBerth(config, stationID);
+    const [previous, last] = config.network.Stations[0].Berths.slice(-2).map((berth) => nodePosition(config, berth.Node));
+    // At a bearing of 30 degrees, the right of the direction of travel is
+    // the direction 120 degrees clockwise from up.
+    const axis = { X: Math.cos(30 * Math.PI / 180), Y: Math.sin(30 * Math.PI / 180) };
+    assertNear(last, { X: previous.X + axis.X * editor.BERTH_PITCH, Y: previous.Y + axis.Y * editor.BERTH_PITCH }, `berth ${count}`);
+  }
+  for (const lane of config.network.Lanes) assert.ok(editor.laneLength(config, lane) >= editor.MIN_LANE_LENGTH, lane.ID);
+});
+
+test("the station shape holds the station nodes along the station axes", () => {
+  const pad = editor.STATION_PADDING;
+  const cases = [
+    { name: "a new station", entry: { X: 64, Y: 100 }, exit: { X: 136, Y: 100 }, points: [{ X: 100, Y: 130 }], want: { center: { X: 100, Y: 115 }, width: 72 + 2 * pad, height: 30 + 2 * pad, angle: 0, top: 100 - pad } },
+    { name: "a station that points down", entry: { X: 100, Y: 64 }, exit: { X: 100, Y: 136 }, points: [{ X: 70, Y: 100 }], want: { center: { X: 85, Y: 100 }, width: 72 + 2 * pad, height: 30 + 2 * pad, angle: 90, top: 64 - pad } },
+    { name: "a station that points left", entry: { X: 136, Y: 100 }, exit: { X: 64, Y: 100 }, points: [{ X: 100, Y: 60 }, { X: 80, Y: 80 }], want: { center: { X: 100, Y: 80 }, width: 72 + 2 * pad, height: 40 + 2 * pad, angle: 180, top: 60 - pad } },
+    { name: "entry and exit at one point", entry: { X: 5, Y: 5 }, exit: { X: 5, Y: 5 }, points: [], want: { center: { X: 5, Y: 5 }, width: 2 * pad, height: 2 * pad, angle: 0, top: 5 - pad } },
+  ];
+  for (const tc of cases) {
+    const shape = editor.stationShape(tc);
+    assertNear(shape.center, tc.want.center, tc.name);
+    for (const key of ["width", "height", "angle", "top"]) assert.ok(Math.abs(shape[key] - tc.want[key]) < 1e-9, `${tc.name} ${key}: ${shape[key]}`);
+  }
+
+  // A turned station has the same shape, turned with it.
+  const { config } = chainScenario();
+  const alpha = config.network.Stations[0];
+  const shapeOf = (item) => {
+    const ids = [...editor.stationNodeOwners(item)].filter(([, stationID]) => stationID === alpha.ID).map(([id]) => nodePosition(item, id));
+    return editor.stationShape({ entry: nodePosition(item, alpha.Entry), exit: nodePosition(item, alpha.Exit), points: ids });
+  };
+  const before = shapeOf(config); const after = shapeOf(editor.rotateStation(config, alpha.ID, 30));
+  assert.ok(Math.abs(after.width - before.width) < 1e-9 && Math.abs(after.height - before.height) < 1e-9);
+  assert.ok(Math.abs(after.angle - before.angle - 30) < 1e-9);
+  assertNear(after.center, { X: 100 + (before.center.Y - 100) * -Math.sin(Math.PI / 6), Y: 100 + (before.center.Y - 100) * Math.cos(Math.PI / 6) }, "turned center");
+});
+
 test("fleet counts never duplicate occupied berths", () => {
   let config = editor.addStation(editor.emptyConfig(), 200, 140, { name: "Depot", parkingOnly: true });
   const stationID = config.network.Stations[0].ID;
@@ -286,8 +477,12 @@ test("fleet rows give each station its pod count and berth limit", () => {
 test("the selection card gives the fields of the selected item", () => {
   let config = connectedScenario();
   config = editor.addBerth(config, config.network.Stations[1].ID);
+  config = editor.addStation(config, 600, 100, { name: "Gamma" });
+  config = editor.setStationBearing(config, config.network.Stations[2].ID, 359.6);
+  config = editor.addStation(config, 900, 100, { name: "Delta" });
+  config.network.Stations[3].Exit = "gone";
   config = editor.addJunction(config, 64.25, 160);
-  const [alpha, beta] = config.network.Stations;
+  const [alpha, beta, gamma, delta] = config.network.Stations;
   const lane = (from, to) => config.network.Lanes.find((item) => item.From === from && item.To === to);
   const [straight, curved] = [lane(alpha.Exit, beta.Entry), lane(beta.Exit, alpha.Entry)];
   const junction = config.network.Nodes.at(-1);
@@ -300,11 +495,19 @@ test("the selection card gives the fields of the selected item", () => {
     { name: "no selection", selection: null, want: null },
     {
       name: "station with one berth and no ParkingOnly", selection: { type: "station", id: alpha.ID },
-      want: { type: "station", id: alpha.ID, name: "Alpha", parkingOnly: false, canRemove: false, berths: [{ id: alpha.Berths[0].ID, selected: false }] },
+      want: { type: "station", id: alpha.ID, name: "Alpha", bearing: 90, parkingOnly: false, canRemove: false, berths: [{ id: alpha.Berths[0].ID, selected: false }] },
     },
     {
       name: "parking station with a marked berth", selection: { type: "station", id: beta.ID, berth: beta.Berths[1].ID },
-      want: { type: "station", id: beta.ID, name: "Beta", parkingOnly: true, canRemove: true, berths: [{ id: beta.Berths[0].ID, selected: false }, { id: beta.Berths[1].ID, selected: true }] },
+      want: { type: "station", id: beta.ID, name: "Beta", bearing: 90, parkingOnly: true, canRemove: true, berths: [{ id: beta.Berths[0].ID, selected: false }, { id: beta.Berths[1].ID, selected: true }] },
+    },
+    {
+      name: "turned station rounds the bearing", selection: { type: "station", id: gamma.ID },
+      want: { type: "station", id: gamma.ID, name: "Gamma", bearing: 0, parkingOnly: false, canRemove: false, berths: [{ id: gamma.Berths[0].ID, selected: false }] },
+    },
+    {
+      name: "station with no exit node", selection: { type: "station", id: delta.ID },
+      want: { type: "station", id: delta.ID, name: "Delta", bearing: 0, parkingOnly: false, canRemove: false, berths: [{ id: delta.Berths[0].ID, selected: false }] },
     },
     {
       name: "straight lane", selection: { type: "lane", id: straight.ID },
@@ -945,20 +1148,68 @@ for (const preset of ["scale100", "london"]) {
     const junction = config.network.Nodes.find((node) => !owners.has(node.ID));
     assert.deepEqual(editor.dragTargets(config, { type: "station", id: station.ID }), movedItems(config, editor.moveStation(config, station.ID, 20, -10)));
     assert.deepEqual(editor.dragTargets(config, { type: "node", id: junction.ID }), movedItems(config, editor.moveNode(config, junction.ID, junction.Position.X + 20, junction.Position.Y - 10)));
+    const berth = station.Berths[0].Node; const at = nodePosition(config, berth);
+    assert.deepEqual(editor.dragTargets(config, { type: "node", id: berth }), movedItems(config, editor.moveNode(config, berth, at.X + 20, at.Y - 10)));
   });
 }
 
+test("each station shape on the generated london project holds its station nodes", needsGo, () => {
+  const config = generatedProject("london");
+  const owners = editor.stationNodeOwners(config); const pad = editor.STATION_PADDING;
+  for (const station of config.network.Stations) {
+    const points = [...owners].filter(([, stationID]) => stationID === station.ID).map(([id]) => nodePosition(config, id));
+    const shape = editor.stationShape({ entry: nodePosition(config, station.Entry), exit: nodePosition(config, station.Exit), points });
+    const radians = shape.angle * Math.PI / 180; const cos = Math.cos(radians); const sin = Math.sin(radians);
+    for (const at of points) {
+      const x = at.X - shape.center.X; const y = at.Y - shape.center.Y;
+      assert.ok(Math.abs(x * cos + y * sin) <= shape.width / 2 - pad + 1e-6, station.ID);
+      assert.ok(Math.abs(-x * sin + y * cos) <= shape.height / 2 - pad + 1e-6, station.ID);
+    }
+  }
+});
+
+test("a new berth on the generated london project goes one pitch past the last berth", needsGo, () => {
+  const config = generatedProject("london");
+  const station = config.network.Stations.find((item) => item.Name === "Tottenham Court Road");
+  // The berths are to the left of the direction of travel.
+  for (const bearing of [null, 200]) {
+    const start = bearing === null ? config : editor.setStationBearing(config, station.ID, bearing);
+    const last = nodePosition(start, station.Berths.at(-1).Node);
+    const left = leftOf(nodePosition(start, station.Entry), nodePosition(start, station.Exit));
+    const added = editor.addBerth(start, station.ID);
+    const node = added.network.Stations.find((item) => item.ID === station.ID).Berths.at(-1).Node;
+    assertNear(nodePosition(added, node), { X: last.X + left.X * editor.BERTH_PITCH, Y: last.Y + left.Y * editor.BERTH_PITCH }, `bearing ${bearing}`);
+  }
+  assert.deepEqual(editor.validateConfig(editor.addBerth(config, station.ID)), []);
+});
+
+test("a new berth on the generated scale100 project keeps the clearance from other items", needsGo, () => {
+  const config = generatedProject("scale100");
+  const owners = editor.stationNodeOwners(config);
+  // The distance check uses straight lanes. Each node is the end of a lane,
+  // so the check also covers the nodes.
+  assert.ok(config.network.Lanes.every((lane) => !lane.Control));
+  for (const station of config.network.Stations) {
+    const added = editor.nextBerthPosition({ entry: nodePosition(config, station.Entry), exit: nodePosition(config, station.Exit), berths: station.Berths.map((berth) => nodePosition(config, berth.Node)) });
+    for (const lane of config.network.Lanes.filter((item) => owners.get(item.From) !== station.ID || owners.get(item.To) !== station.ID)) {
+      assert.ok(segmentDistance(added, nodePosition(config, lane.From), nodePosition(config, lane.To)) >= CLEARANCE, `${station.ID} ${lane.ID}`);
+    }
+  }
+});
+
 // movedItems gives the nodes, lanes, and stations whose drawn position
-// differs between two versions of a scenario.
+// differs between two versions of a scenario. A station shape holds all of
+// its station nodes, so a station moves when one of its nodes moves.
 function movedItems(before, after) {
   const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
   const positions = new Map(after.network.Nodes.map((node) => [node.ID, node.Position]));
   const controls = new Map(after.network.Lanes.map((lane) => [lane.ID, lane.Control]));
   const moved = new Set(before.network.Nodes.filter((node) => !same(node.Position, positions.get(node.ID))).map((node) => node.ID));
+  const owners = editor.stationNodeOwners(before);
   return {
     nodeIDs: [...moved],
     laneIDs: before.network.Lanes.filter((lane) => moved.has(lane.From) || moved.has(lane.To) || !same(lane.Control, controls.get(lane.ID))).map((lane) => lane.ID),
-    stationIDs: before.network.Stations.filter((station) => moved.has(station.Entry) || moved.has(station.Exit)).map((station) => station.ID),
+    stationIDs: before.network.Stations.filter((station) => [...moved].some((id) => owners.get(id) === station.ID)).map((station) => station.ID),
   };
 }
 
@@ -976,6 +1227,9 @@ test("a drag redraws only the items that it moves", () => {
     { name: "a station drag", drag: { type: "station", id: alpha.ID }, after: editor.moveStation(config, alpha.ID, 20, -10) },
     { name: "a junction drag", drag: { type: "node", id: junction }, after: editor.moveNode(config, junction, 300, 280) },
     { name: "a curve drag", drag: { type: "control", id: through.ID }, after: curved },
+    { name: "an entry drag", drag: { type: "node", id: alpha.Entry }, after: editor.moveNode(config, alpha.Entry, 40, 80) },
+    { name: "a berth drag", drag: { type: "node", id: alpha.Berths[0].Node }, after: editor.moveNode(config, alpha.Berths[0].Node, 100, 200) },
+    { name: "a berth chain drag", drag: { type: "node", id: arrival }, after: editor.moveNode(config, arrival, 50, 170) },
   ];
   for (const item of cases) assert.deepEqual(editor.dragTargets(config, item.drag), movedItems(config, item.after), item.name);
 
