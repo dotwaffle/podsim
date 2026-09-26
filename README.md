@@ -548,6 +548,15 @@ The map also moves when the map scale is below 0.5 screen pixels per meter.
 The scale is then 0.5 screen pixels per meter or more.
 In a narrow window, the page also scrolls to the map.
 
+When a message in the **Checks** section has the keyboard focus, the focus stays on that message after the checks run again.
+When the text of the message changes, for example the number of stations in a message about a cut-off station, the focus stays on the message for the same item.
+If the message is gone, the focus goes to a different message for the same item.
+If that item has no message, for example after you select it and press Delete to delete it, the focus goes to the nearest message that is still in the list.
+The next message comes first, then the previous message.
+If no message of the old list is left, the focus goes to the message at the same place in the list, or to the last message.
+When no message that selects an item is left, the focus goes to the **Checks** heading.
+When the focus is not on a message in the **Checks** section, the checks do not move it.
+
 ## Command-line tools
 
 ### Demand and policy comparisons

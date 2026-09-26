@@ -947,6 +947,112 @@ test("a check selection finds only the objects of the draft", () => {
   }
 });
 
+// checkLinks gives the links of the Checks list for a draft, as
+// showValidation makes them. The links are the errors, then the warnings,
+// that select an item of the draft.
+function checkLinks(config) {
+  const { errors, warnings } = editor.checkResults(config); const select = editor.checkSelector(config);
+  return [...errors, ...warnings.map((result) => ({ ...result, text: `Warning: ${result.text}` }))]
+    .filter((result) => select(result.target)).map((result) => ({ text: result.text, ...result.target }));
+}
+
+test("the focus stays on a Checks link when the checks run again", () => {
+  // link gives a link with its own target, so only its text matches.
+  // station gives a link for the station with the ID id.
+  const link = (text) => ({ text, type: "lane", id: text });
+  const station = (id, text) => ({ text, type: "station", id });
+  const [a, b, c, d, x, y, z] = ["a", "b", "c", "d", "x", "y", "z"].map(link);
+  const cases = [
+    { name: "same check at the same place", before: [a, b, c], focused: 1, after: [a, b, c], want: "b" },
+    { name: "same check at a new place", before: [a, b, c], focused: 1, after: [x, a, b, c], want: "b" },
+    { name: "a gone check gives the next link", before: [a, b, c], focused: 1, after: [a, c], want: "c" },
+    { name: "a gone first check gives the new first link", before: [a, b, c], focused: 0, after: [b, c], want: "b" },
+    { name: "a gone last check gives the previous link", before: [a, b, c], focused: 2, after: [a, b], want: "b" },
+    { name: "a gone last check gives the previous link, not a new link", before: [a, b, c], focused: 2, after: [a, b, x, y], want: "b" },
+    { name: "a gone check and a gone next link give the previous link", before: [a, b, c, d], focused: 1, after: [x, d, a], want: "a" },
+    { name: "a changed text gives the link for the same item",
+      before: [a, station("S", "S cannot reach 3 passenger stations.")], focused: 1,
+      after: [a, station("S", "S cannot reach 2 passenger stations.")], want: "S cannot reach 2 passenger stations." },
+    { name: "a changed text at a new place gives the link for the same item",
+      before: [station("S2", "S2 cannot reach 3 passenger stations."), station("S3", "S3 cannot reach 3 passenger stations.")], focused: 0,
+      after: [station("S1", "S1 cannot reach 4 passenger stations."), station("S2", "S2 cannot reach 4 passenger stations."), station("S3", "S3 cannot reach 4 passenger stations.")],
+      want: "S2 cannot reach 4 passenger stations." },
+    { name: "a changed text gives the new text, not an old text for the same item",
+      before: [station("S", "Station S needs a through lane."), station("S", "S cannot reach 3 passenger stations.")], focused: 1,
+      after: [station("S", "Station S needs a through lane."), station("S", "S cannot reach 2 passenger stations.")], want: "S cannot reach 2 passenger stations." },
+    { name: "a gone check gives another link for the same item before the next link",
+      before: [station("S", "Station S needs a through lane."), station("S", "S cannot reach 3 passenger stations."), a], focused: 1,
+      after: [station("S", "Station S needs a through lane."), a], want: "Station S needs a through lane." },
+    { name: "a gone check gives the next link when its text changed",
+      before: [station("S1", "S1 cannot reach 4 passenger stations."), station("S2", "S2 cannot reach 4 passenger stations.")], focused: 0,
+      after: [station("S2", "S2 cannot reach 3 passenger stations.")], want: "S2 cannot reach 3 passenger stations." },
+    { name: "no old link left gives the link at the same place", before: [a, b, c], focused: 1, after: [x, y, z], want: "y" },
+    { name: "no old link left in a shorter list gives the last link", before: [a, b, c, d], focused: 3, after: [x], want: "x" },
+    { name: "an empty list gives the heading", before: [a], focused: 0, after: [], want: "" },
+    { name: "focus outside the list does not move", before: [a, b], focused: null, after: [a], want: null },
+    { name: "focus outside an empty list does not move", before: [a], focused: null, after: [], want: null },
+  ];
+  for (const tc of cases) assert.equal(editor.checkFocusKey({ before: tc.before, focused: tc.focused, after: tc.after }), tc.want, tc.name);
+});
+
+// These cases use the check messages of real drafts. A fix or a delete of
+// the focused item gives the nearest link that is left, or the heading. A
+// station whose message text changes keeps the focus.
+test("the focus stays near its check when a draft change runs the checks again", () => {
+  const setSpeed = (scenario, id, speed) => { const next = structuredClone(scenario); next.network.Lanes.find((lane) => lane.ID === id).SpeedLimit = speed; return next; };
+  const texts = (links) => links.map((link) => link.text);
+  const focusAfter = (before, focused, config) => editor.checkFocusKey({ before, focused, after: checkLinks(config) });
+
+  // A fix of the first speed limit gives the next check, and a fix of the
+  // last speed limit gives the heading.
+  let config = connectedScenario();
+  const [first, second] = config.network.Lanes.filter((lane) => !lane.StationID).map((lane) => lane.ID);
+  config = setSpeed(setSpeed(config, first, 0), second, 0);
+  let before = checkLinks(config);
+  assert.deepEqual(texts(before), [`Lane ${first} needs a positive speed limit.`, `Lane ${second} needs a positive speed limit.`]);
+  config = setSpeed(config, first, 10);
+  assert.equal(focusAfter(before, 0, config), before[1].text);
+  assert.equal(focusAfter(checkLinks(config), 0, setSpeed(config, second, 10)), "");
+
+  // Three stations in a ring of lanes with no speed limit. A delete of the
+  // last lane adds cut-off messages at the end of the list, but the focus
+  // goes to the previous lane.
+  config = editor.addStation(editor.emptyConfig(), 100, 100, { name: "Alpha" });
+  config = editor.addStation(config, 340, 100, { name: "Beta" });
+  config = editor.addStation(config, 340, 340, { name: "Gamma" });
+  const ring = config.network.Stations;
+  for (const [from, to] of [[0, 1], [1, 2], [2, 0]]) config = editor.addLane(config, ring[from].Exit, ring[to].Entry, false);
+  config.demand.destination = ring[1].ID; config = editor.setFleetCount(config, ring[0].ID, 1);
+  const lanes = config.network.Lanes.filter((lane) => !lane.StationID).map((lane) => lane.ID);
+  for (const id of lanes) config = setSpeed(config, id, 0);
+  before = checkLinks(config);
+  assert.deepEqual(texts(before), lanes.map((id) => `Lane ${id} needs a positive speed limit.`));
+  const deleted = editor.deleteLane(config, lanes[2]);
+  assert.ok(checkLinks(deleted).length > 2, "the delete adds no cut-off messages");
+  assert.equal(focusAfter(before, 2, deleted), before[1].text);
+
+  // Alpha and Beta have lanes to each other. S1, S2, and S3 have no lanes,
+  // so each has a cut-off message with station counts. The focus is on S2
+  // while S1 is selected. Delete and then undo change the counts of S2,
+  // but the focus stays on S2.
+  config = connectedScenario();
+  for (const [index, name] of ["S1", "S2", "S3"].entries()) config = editor.addStation(config, 100 + index * 240, 400, { name });
+  const s1 = config.network.Stations.find((item) => item.Name === "S1").ID;
+  const cutOff = (name, count) => `${name} cannot reach ${count} passenger stations, and ${count} passenger stations cannot reach ${name}.`;
+  before = checkLinks(config);
+  assert.deepEqual(texts(before), ["S1", "S2", "S3"].map((name) => cutOff(name, 4)));
+  const deletedS1 = editor.deleteStation(config, s1);
+  assert.equal(focusAfter(before, 1, deletedS1), cutOff("S2", 3));
+  assert.equal(focusAfter(checkLinks(deletedS1), 0, config), cutOff("S2", 4));
+});
+
+test("the Checks heading can take the focus and shows a focus ring", () => {
+  const html = fs.readFileSync(path.join(__dirname, "editor.html"), "utf8");
+  assert.match(html, /<section id="checksPanel">\s*<div class="section-title"><h2 id="checksHeading" tabindex="-1">Checks<\/h2>/);
+  const ring = cssRules(fs.readFileSync(path.join(__dirname, "editor.css"), "utf8")).get("h2:focus-visible");
+  assert.ok(ring && parseFloat(ring.outline) > 0, "h2:focus-visible has no outline");
+});
+
 test("a check selection moves the view only when the map does not show the item well", () => {
   let config = editor.addJunction(connectedScenario(), 400, 300);
   const junction = config.network.Nodes.at(-1).ID;

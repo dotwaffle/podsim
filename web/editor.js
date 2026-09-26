@@ -1012,6 +1012,37 @@
     return { tone: "good", text: "The scenario is ready to apply." };
   }
 
+  // checkFocusKey gives the link of the Checks list that gets the keyboard
+  // focus after the checks run again. before and after hold the links
+  // before and after the run, in list order. A link has text, its message,
+  // and type and id, its check target. The key of a link is its text. The
+  // text is unique in the list, because validateConfig and configWarnings
+  // remove a repeated text. focused is the index in before of the link that
+  // had the focus, or null when the focus was not in the list. Then the
+  // function gives null, and the focus does not move.
+  // The new link of an old link is the link of after with the same text.
+  // Some texts change, for example the station counts of a cut-off station.
+  // Thus when after does not have the text, the new link is a link with the
+  // same target. A text that before does not have comes first. The
+  // function gives the key of the new link of the focused link. When there
+  // is none, it gives the new link of the nearest old link, the next old
+  // link first. When no old link has a new link, it gives the link at the
+  // same place, or the last link. With no links, it gives an empty key, and
+  // the focus goes to the Checks heading.
+  function checkFocusKey(focus) {
+    const { before, focused, after } = focus;
+    if (focused === null) return null;
+    if (!after.length) return "";
+    const oldTexts = new Set(before.map((link) => link.text));
+    const texts = new Map(after.map((link) => [link.text, link]));
+    const targets = new Map(); const target = (link) => `${link.type}\0${link.id}`;
+    for (const link of after) { if (!targets.has(target(link))) targets.set(target(link), []); targets.get(target(link)).push(link); }
+    const newLink = (link) => { const same = targets.get(target(link)) || []; return texts.get(link.text) || same.find((item) => !oldTexts.has(item.text)) || same[0]; };
+    const nearest = [...before.keys()].sort((a, b) => Math.abs(a - focused) - Math.abs(b - focused) || b - a);
+    for (const index of nearest) { const link = newLink(before[index]); if (link) return link.text; }
+    return after[Math.min(focused, after.length - 1)].text;
+  }
+
   function serializeDocument(config, background) {
     const document = { format: "podsim", version: 1, scenario: clone(config) };
     if (background && background.dataURL) document.background = clone(background);
@@ -1559,7 +1590,7 @@
     MIN_LANE_LENGTH, MIN_ZOOM, NODE_LABEL_SCALE, NODE_LABEL_SIZE, LANE_PAIR_OFFSET, CHEVRON_LANE_LENGTH, BERTH_PITCH, STATION_PADDING, CHECK_DELAY, emptyConfig, fallbackConfig, normalizeConfig, addLane, addJunction, addStation, addBerth,
     stationBearing, stationShape, rotateStation, setStationBearing, nextBerthPosition, removeBerth, moveStation, moveNode, deleteNode, deleteLane, deleteStation, stationFlowCount, setFleetCount, fleetRows, selectionCard, berthFocusID, setDemandPattern,
     laneLength, curveLength, reachable, cutOffStations, stationNodeOwners, dragTargets, validateConfig, configWarnings, checkResults, checkSelector, checkSelection, selectionPoint, focusView,
-    problemCountText, createCheckTimer, validationSummary, serializeDocument, parseDocument, createHistory,
+    problemCountText, createCheckTimer, validationSummary, checkFocusKey, serializeDocument, parseDocument, createHistory,
     networkBounds, fitView, zoomScale, nodeLabelSize, pairedLaneIDs, showsChevron, laneOffset, laneCurve, lanePathData, applyToServer, applyFailureText, applyFailureStatus, applyToast,
     DRAFT_SAVE_DELAY, DRAFT_STORE_TEXT, DRAFT_UNSAVED_TEXT, DRAFT_DISPLACED_TEXT, openDraftStore, createDraftKeeper, draftChanges, draftOffer, draftOfferText, restoreStatusText,
   };
@@ -2153,9 +2184,15 @@
   // showValidation shows the check results in the Checks section, and the
   // problem count beside the apply button. It lists the errors first, then
   // the warnings. A result that names an object of the scenario is a button
-  // that selects the object.
+  // that selects the object. The new list removes the focused button, so
+  // when a button of the list had the keyboard focus, the focus goes to the
+  // button or heading that checkFocusKey gives.
   function showValidation(config, results) {
-    const summary = $("#validationSummary"); const list = $("#validationList"); list.replaceChildren();
+    const summary = $("#validationSummary"); const list = $("#validationList");
+    const buttons = () => [...list.querySelectorAll(".check-link")];
+    const links = () => buttons().map((button) => ({ text: button.textContent, type: button.dataset.type, id: button.dataset.id }));
+    const index = buttons().indexOf(document.activeElement); const focused = index < 0 ? null : index; const before = links();
+    list.replaceChildren();
     const { tone, text } = validationSummary(results.errors, results.warnings); summary.className = `validation ${tone}`; summary.textContent = text;
     const count = $("#problemCount"); count.textContent = problemCountText(results.errors.length); count.hidden = !results.errors.length;
     const rows = [...results.errors.map((result) => ({ result, text: result.text })), ...results.warnings.map((result) => ({ result, text: `Warning: ${result.text}`, warning: true }))];
@@ -2168,6 +2205,8 @@
       } else item.textContent = row.text;
       list.append(item);
     }
+    const key = checkFocusKey({ before, focused, after: links() });
+    if (key !== null) (buttons().find((button) => button.textContent === key) || $("#checksHeading")).focus({ preventScroll: true });
   }
   // showChecks scrolls the Checks section into view. It moves the keyboard
   // focus to the first item that selects an object, or else to Run checks.

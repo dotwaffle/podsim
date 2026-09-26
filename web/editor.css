@@ -27,7 +27,7 @@ button, .button {
   padding: 8px 11px; cursor: pointer; text-decoration: none; text-align: center;
 }
 button:hover, .button:hover { border-color: #557184; background: #203543; }
-button:focus-visible, input:focus-visible, select:focus-visible, svg:focus-visible { outline: 2px solid var(--cyan); outline-offset: 2px; }
+button:focus-visible, input:focus-visible, select:focus-visible, svg:focus-visible, h2:focus-visible { outline: 2px solid var(--cyan); outline-offset: 2px; }
 .button:has(+ input[type="file"]:focus-visible) { outline: 2px solid var(--cyan); outline-offset: 2px; }
 button:disabled { cursor: default; opacity: .42; }
 button.primary { background: var(--cyan-2); border-color: var(--cyan); font-weight: 700; }
