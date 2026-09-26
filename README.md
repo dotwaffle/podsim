@@ -318,7 +318,9 @@ See [the London qualification network](docs/london.md) for these rules.
 
 While the simulation shows, it gets the keyboard focus when the page opens and when it shows again after the editor.
 The simulation uses Tab and Shift+Tab to select pods, so the keyboard cannot move the focus out of the simulation.
-For keyboard users, the page has the controls **Edit scenario**, **Download debug state**, and **Simulation** before the simulation and the editor.
+For keyboard users, the page has controls before the simulation and the editor.
+While the simulation shows, they are **Edit scenario** and **Download debug state**.
+While the editor shows, they are **Simulation** and **Download debug state**.
 These controls are hidden until they get the keyboard focus.
 To get to them, move the focus to the start of the page, for example from the browser address bar, and press Tab.
 While the simulation starts, and after a server change to a simulation that uses other page messages, these controls show in the top left corner.
@@ -421,7 +423,8 @@ The simulation then shows the same map view and the same selected pod as before.
 The editor keeps its state while the simulation shows.
 The editor loads the live scenario only the first time that it opens in the page.
 If you change the demand in the simulation after that, **Pause and apply** fails with a conflict.
-Reload the page to load the new revision.
+The **Apply conflict** bar then lets you load the live scenario.
+See [Apply a draft](#apply-a-draft).
 To open the page with the editor, add `#editor` to the address, for example <http://127.0.0.1:8080/#editor>.
 You can also open `editor.html` as a separate page.
 There, **← Simulation** opens the simulation page.
@@ -536,7 +539,7 @@ An open draft then also gets an apply conflict.
 If the server restarted after the draft started, the apply also fails with a conflict.
 This also applies to a restored draft from before the restart, because a restart can restore a different project with the same session epoch and project revision.
 To read the live project, the editor reads the live state before and after it.
-The editor uses the project only when both state reads show the same server start ID, session epoch and project revision.
+The editor uses the project only when both state reads show the same server start ID and session epoch, and the project has the project revision of the second state read.
 Else it reads the state and the project again, for a maximum of three attempts.
 
 After a conflict, the editor reads the live project again.
@@ -943,7 +946,9 @@ Showing state from N s ago.**
 N is the time in seconds since the last state frame.
 Reconnection restores the current shared state.
 
-When the server restarts with different browser files, open browser pages reload by themselves.
+When the server restarts with different browser files, the simulation view in each open browser page reloads by itself.
+After the editor has opened in the page, the editor keeps its state and its old files until you reload the page.
+See [build ID](docs/operations.md#build-id).
 The desktop client shows a message instead.
 Restart it to load the new version.
 

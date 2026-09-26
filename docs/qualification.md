@@ -156,7 +156,7 @@ The rail-hub schedule also compares the default one-party policy with a limit of
 A party can join only while a pod is still boarding at the same origin for the same destination.
 It never diverts an assigned pickup pod, delays departure to wait for another party, or adds an intermediate stop.
 The limit counts parties separately from passenger `PartySize`.
-The code at commit `ab4f7bc` gives the recorded values, and `on` is the weighted redistribution policy.
+The code at commit `ab4f7bc` gives the recorded values, and `on` is the weighted redistribution policy, which the current code replaces with guarded positioning.
 The command below gives different values with the current code.
 
 ```sh
@@ -278,7 +278,7 @@ The image now covers the map viewport and a margin around it, in device pixels.
 The margin is a quarter of the shorter side of the viewport.
 The margin becomes smaller when the image with the full margin would not fit in the GPU texture limit.
 The selected route, berths, pods, and status remain dynamic.
-A new server epoch, simulation generation, or project revision draws the cached image again.
+A new server epoch, simulation generation, project revision, or server start ID draws the cached image again.
 Pods, pod rings, berth rings, station markers, and route arrows are antialiased on all networks.
 The view draws each of these shapes once into a small image for the current scale.
 In each frame, it copies these images to the map and does not fill or stroke the shapes again.
@@ -352,7 +352,7 @@ See [the client protocol](protocol.md) for the normalized frame measurements.
 
 ## Validation limits
 
-The automated gate runs workflow validation, race tests, the qualification tests without the race detector, editor and loader tests, vet, lint, vulnerability checks, native and WASM builds, and embedded server tests.
+The automated gate runs workflow validation, race tests, the qualification tests without the race detector, the `test:web` tests, vet, lint, vulnerability checks, native and WASM builds, and embedded server tests.
 Browser acceptance also covers editing, undo and redo, background calibration, import and export, apply, stale conflicts, and visible WASM rendering.
 A known stale apply no longer pauses another browser's running simulation.
 Malformed imports preserve the current draft.
