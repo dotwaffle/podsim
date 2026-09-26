@@ -45,12 +45,17 @@ func (o SafetyObservation) Check() (float64, error) {
 }
 
 // checkSeparation returns the smallest gap between two pods on one plane.
+// It reads the location of each pod once, before it compares the pairs.
 func (o SafetyObservation) checkSeparation() (float64, error) {
 	const minimumGapSquared = (Clearance - separationTolerance) * (Clearance - separationTolerance)
+	locations := make([]SafetyLocation, len(o.Pods))
+	for index, pod := range o.Pods {
+		locations[index] = o.Locations[pod.ID]
+	}
 	smallestSquared := math.Inf(1)
 	for index, first := range o.Pods {
-		for _, second := range o.Pods[index+1:] {
-			if safetyLocationsSeparated(o.Locations[first.ID], o.Locations[second.ID]) {
+		for offset, second := range o.Pods[index+1:] {
+			if safetyLocationsSeparated(locations[index], locations[index+1+offset]) {
 				continue
 			}
 			dx := first.Position.X - second.Position.X
