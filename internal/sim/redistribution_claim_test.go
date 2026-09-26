@@ -139,6 +139,9 @@ func TestRedistributionDoesNotDeleteAnotherPodsClaim(t *testing.T) {
 	}
 }
 
+// newClaimConflictSimulation returns the example network with pod 01 in
+// parking and pod 02 idle at Garden. Pod 01 makes a rebalancing move to
+// Market-1, as a positioning move does, in off mode.
 func newClaimConflictSimulation(t *testing.T) *Simulation {
 	t.Helper()
 	s, err := NewFleet(Example(), []Placement{
@@ -148,9 +151,45 @@ func newClaimConflictSimulation(t *testing.T) *Simulation {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := s.SetDemandWeights(map[string]float64{"market": 6, "harbor": 2, "garden": 2}); err != nil {
-		t.Fatal(err)
+	if !rebalanceToMarket(s) {
+		t.Fatal("pod 01 did not start a rebalancing move to Market")
 	}
-	s.SetRedistribution(true)
 	return s
+}
+
+// rebalanceToMarket starts a rebalancing move to the first free berth of
+// Market, as a positioning move does. The pod is the first idle empty pod
+// in parking that no waiting trip names and that has no rebalance cooldown.
+// A berth is free when no pod holds the berth or its node. The move
+// reserves the berth. It reports whether a move started.
+func rebalanceToMarket(s *Simulation) bool {
+	station, ok := s.station("market")
+	if !ok {
+		return false
+	}
+	for _, berth := range station.Berths {
+		if s.owners[resource{kind: berthResource, id: berth.ID}] != "" || s.owners[resource{kind: nodeResource, id: berth.Node}] != "" {
+			continue
+		}
+		for index := range s.vehicles {
+			v := &s.vehicles[index]
+			from, _ := s.station(v.Pod.StationID)
+			if v.Pod.Activity != Idle || v.Pod.Occupied || !from.ParkingOnly || s.assigned(v.Pod.ID) || v.rebalanceAfter > s.tick {
+				continue
+			}
+			return s.startEmptyMove(v, emptyDestination{station: station.ID, berth: berth, reserveBerth: true, rebalance: true}) == nil
+		}
+		return false
+	}
+	return false
+}
+
+// rebalancing reports whether a pod makes a rebalancing move.
+func rebalancing(s *Simulation) bool {
+	for index := range s.vehicles {
+		if s.vehicles[index].Rebalancing {
+			return true
+		}
+	}
+	return false
 }

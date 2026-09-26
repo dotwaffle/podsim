@@ -36,29 +36,21 @@ func newLondonPositioning(tb testing.TB, band LondonDemandBand, set func(*sim.Si
 	return simulation
 }
 
-// TestLondonPositioningModesMatchLegacySettings checks that each pair of
-// settings gives the same London run. The runs request AM peak journeys at
-// 12 per minute.
-func TestLondonPositioningModesMatchLegacySettings(t *testing.T) {
+// TestLondonPositioningOffSettingsMatch checks that each pair of settings
+// gives the same London run in off mode. The runs request AM peak journeys
+// at 12 per minute.
+func TestLondonPositioningOffSettingsMatch(t *testing.T) {
 	t.Parallel()
 	band := LondonDemand()[2]
 	schedule := londonDemandSchedule(londonCloneSeed, band, (londonPositioningTicks-1)/(5*sim.TicksPerSecond))
 	for _, pair := range []struct {
 		name      string
 		want, got func(*sim.Simulation) error
-		// moves is true when the run must make positioning moves.
-		moves bool
 	}{
 		{
 			name: "no call and off",
 			want: func(*sim.Simulation) error { return nil },
 			got:  func(s *sim.Simulation) error { return s.SetPositioning(sim.PositioningOff) },
-		},
-		{
-			name:  "redistribution",
-			want:  func(s *sim.Simulation) error { s.SetRedistribution(true); return nil },
-			got:   func(s *sim.Simulation) error { return s.SetPositioning(sim.PositioningRedistribution) },
-			moves: true,
 		},
 		{
 			name: "guarded then off",
@@ -90,7 +82,7 @@ func TestLondonPositioningModesMatchLegacySettings(t *testing.T) {
 					t.Fatalf("the saved states differ at tick %d", tick+1)
 				}
 			}
-			if state := got.Snapshot(); state.Submitted == 0 || (state.RebalanceMoves > 0) != pair.moves {
+			if state := got.Snapshot(); state.Submitted == 0 || state.RebalanceMoves > 0 {
 				t.Fatalf("the run has %d requests and %d positioning moves", state.Submitted, state.RebalanceMoves)
 			}
 		})

@@ -141,9 +141,9 @@ func TestRouteLengthsFollowPodRoutes(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	s.SetRedistribution(true)
-	if err := s.SetDemandWeights(map[string]float64{"harbor": 2, "garden": 1, "market": 1}); err != nil {
-		t.Fatal(err)
+	// Pod 03 makes a rebalancing move from parking to Market.
+	if !rebalanceToMarket(s) || !rebalancing(s) {
+		t.Fatal("pod 03 did not start a rebalancing move")
 	}
 	trips := map[int64][2]string{
 		0: {"harbor", "market"}, 1: {"garden", "market"}, 40 * TicksPerSecond: {"market", "garden"},

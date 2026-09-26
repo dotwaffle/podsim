@@ -339,7 +339,9 @@ func activeCloneSimulation(t *testing.T) *Simulation {
 	if err := s.SetDemandWeights(map[string]float64{"harbor": 2, "garden": 1, "market": 1}); err != nil {
 		t.Fatal(err)
 	}
-	s.SetRedistribution(true)
+	if err := s.SetPositioning(PositioningGuarded); err != nil {
+		t.Fatal(err)
+	}
 	advance(s, 35*TicksPerSecond)
 	return s
 }
@@ -466,9 +468,13 @@ func cloneFixtures() []cloneFixture {
 			},
 		},
 		{
-			name: "sharing and redistribution", placements: fleet,
+			// The gate of the example fleet is not active at this rate, so
+			// the guarded positioning case covers the positioning moves.
+			name: "sharing in guarded mode", placements: fleet,
 			setup: func(s *Simulation) error {
-				s.SetRedistribution(true)
+				if err := s.SetPositioning(PositioningGuarded); err != nil {
+					return fmt.Errorf("set positioning: %w", err)
+				}
 				if err := s.SetDemandWeights(map[string]float64{"harbor": 2, "garden": 1, "market": 1}); err != nil {
 					return fmt.Errorf("set demand weights: %w", err)
 				}
@@ -482,11 +488,9 @@ func cloneFixtures() []cloneFixture {
 				{90, "harbor", "market"}, {91, "harbor", "market"},
 			}},
 			exercised: func(clonePoint, end *Simulation) error {
-				if end.completed <= clonePoint.completed || end.sharedParties <= clonePoint.sharedParties ||
-					end.rebalanceMoves <= clonePoint.rebalanceMoves {
-					return fmt.Errorf("continuation completed %d, shared %d, and rebalanced %d",
-						end.completed-clonePoint.completed, end.sharedParties-clonePoint.sharedParties,
-						end.rebalanceMoves-clonePoint.rebalanceMoves)
+				if end.completed <= clonePoint.completed || end.sharedParties <= clonePoint.sharedParties {
+					return fmt.Errorf("continuation completed %d and shared %d",
+						end.completed-clonePoint.completed, end.sharedParties-clonePoint.sharedParties)
 				}
 				return nil
 			},

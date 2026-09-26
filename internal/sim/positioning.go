@@ -14,9 +14,6 @@ type Positioning int
 const (
 	// PositioningOff moves no idle empty pod before a passenger asks for it.
 	PositioningOff Positioning = iota
-	// PositioningRedistribution moves idle empty pods toward the demand
-	// weight of each passenger station. See SetDemandWeights.
-	PositioningRedistribution
 	// PositioningGuarded moves an idle empty pod to a demand station that
 	// has no pod, and moves a bumped idle pod to a near berth. It moves pods
 	// only while the request rate is low. At a higher rate, the simulation
@@ -460,7 +457,7 @@ func (s *Simulation) guardedCandidates(view guardedView) ([]int, bool) {
 // guardedClear moves an idle empty pod that blocks a berth, when the gate
 // is active. It reports false when the gate is not active or when it finds
 // no berth. Then the pod does not move, and the caller uses the rules of
-// the other modes.
+// off mode.
 //
 // When the gate is open, the pod goes to the available berth of a deficit
 // station with the lowest route cost, up to guardedReachSeconds.

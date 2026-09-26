@@ -85,9 +85,14 @@ func (scenario holdScenario) run(t *testing.T, check func(s *Simulation)) {
 		t.Fatal(err)
 	}
 	s.SetCongestionRouting(scenario.congestion)
-	s.SetRedistribution(true)
 	stations := []string{"harbor", "garden", "market"}
+	moves := 0
 	for tick := range 400 * TicksPerSecond {
+		// A pod in parking makes a rebalancing move to Market each 10 s,
+		// when it can.
+		if tick%(10*TicksPerSecond) == 0 && rebalanceToMarket(s) {
+			moves++
+		}
 		if trip := tick / (5 * TicksPerSecond); tick%(5*TicksPerSecond) == 0 && trip < 48 {
 			from, to := stations[trip%3], stations[(trip+1+trip/3%2)%3]
 			if err := s.RequestTrip(from, to); err != nil {
@@ -98,6 +103,9 @@ func (scenario holdScenario) run(t *testing.T, check func(s *Simulation)) {
 			check(s)
 		}
 		s.Step()
+	}
+	if moves == 0 {
+		t.Fatal("no pod made a rebalancing move")
 	}
 }
 

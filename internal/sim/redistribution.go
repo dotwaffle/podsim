@@ -6,21 +6,9 @@ import (
 	"slices"
 )
 
-const (
-	redistributionIntervalTicks = 10 * TicksPerSecond
-	redistributionCooldownTicks = 30 * TicksPerSecond
-)
-
-// SetRedistribution controls proactive movement of idle empty pods. true
-// selects PositioningRedistribution and false selects PositioningOff. See
-// SetPositioning.
-func (s *Simulation) SetRedistribution(enabled bool) {
-	mode := PositioningOff
-	if enabled {
-		mode = PositioningRedistribution
-	}
-	s.setPositioning(mode)
-}
+// redistributionCooldownTicks is the time after a rebalancing move ends
+// before the pod can make another positioning move.
+const redistributionCooldownTicks = 30 * TicksPerSecond
 
 // SetDemandWeights sets relative passenger demand by origin station.
 // A nil or empty map selects equal weights for all passenger stations.
@@ -52,35 +40,12 @@ func (s *Simulation) SetDemandWeights(weights map[string]float64) error {
 	return nil
 }
 
+// redistribute lets relocating pods yield their claims to passenger
+// traffic. In guarded mode, it then makes the guarded check.
 func (s *Simulation) redistribute() {
 	s.yieldRelocationClaims()
 	if s.positioning == PositioningGuarded {
 		s.positionGuarded()
-		return
-	}
-	if s.positioning != PositioningRedistribution || s.tick < s.nextRedistributionTick || len(s.waiting) > 0 {
-		return
-	}
-	supply, eligible := s.redistributionSupply()
-	if eligible == 0 {
-		return
-	}
-	desired := s.redistributionTargets(eligible)
-	destination, berth, ok := s.redistributionDestination(supply, desired)
-	if !ok {
-		return
-	}
-	for i := range s.vehicles {
-		v := &s.vehicles[i]
-		if !s.redistributionCandidate(v, supply, desired) {
-			continue
-		}
-		if err := s.startEmptyMove(v, emptyDestination{station: destination, berth: berth, reserveBerth: true, rebalance: true}); err != nil {
-			continue
-		}
-		s.rebalanceMoves++
-		s.nextRedistributionTick = s.tick + redistributionIntervalTicks
-		return
 	}
 }
 
@@ -213,131 +178,6 @@ func (s *Simulation) relocationDestinationAdmitted(v *vehicle) bool {
 		}
 	}
 	return false
-}
-
-func (s *Simulation) redistributionSupply() (map[string]int, int) {
-	supply := make(map[string]int)
-	eligible := 0
-	for i := range s.vehicles {
-		v := &s.vehicles[i]
-		if v.Pod.Occupied || s.assigned(v.Pod.ID) {
-			continue
-		}
-		if v.Rebalancing {
-			supply[v.RelocatingTo]++
-			eligible++
-			continue
-		}
-		if v.Pod.Activity != Idle {
-			continue
-		}
-		eligible++
-		station, _ := s.station(v.Pod.StationID)
-		if !station.ParkingOnly {
-			supply[station.ID]++
-		}
-	}
-	return supply, eligible
-}
-
-type stationTarget struct {
-	id       string
-	weight   float64
-	capacity int
-	target   int
-	fraction float64
-}
-
-func (s *Simulation) redistributionTargets(eligible int) map[string]int {
-	var targets []stationTarget
-	totalWeight := 0.0
-	for _, station := range s.network.Stations {
-		if station.ParkingOnly {
-			continue
-		}
-		weight := 1.0
-		if s.demandWeights != nil {
-			weight = s.demandWeights[station.ID]
-		}
-		targets = append(targets, stationTarget{id: station.ID, weight: weight, capacity: len(station.Berths)})
-		totalWeight += weight
-	}
-	remaining := eligible
-	for i := range targets {
-		exact := float64(eligible) * targets[i].weight / totalWeight
-		targets[i].target = min(targets[i].capacity, int(math.Floor(exact)))
-		targets[i].fraction = exact - math.Floor(exact)
-		remaining -= targets[i].target
-	}
-	slices.SortFunc(targets, func(a, b stationTarget) int {
-		if a.fraction != b.fraction {
-			if a.fraction > b.fraction {
-				return -1
-			}
-			return 1
-		}
-		if a.weight != b.weight {
-			if a.weight > b.weight {
-				return -1
-			}
-			return 1
-		}
-		return compareString(a.id, b.id)
-	})
-	for remaining > 0 {
-		added := false
-		for i := range targets {
-			if targets[i].weight == 0 || targets[i].target >= targets[i].capacity {
-				continue
-			}
-			targets[i].target++
-			remaining--
-			added = true
-			if remaining == 0 {
-				break
-			}
-		}
-		if !added {
-			break
-		}
-	}
-	result := make(map[string]int, len(targets))
-	for _, target := range targets {
-		result[target.id] = target.target
-	}
-	return result
-}
-
-func (s *Simulation) redistributionDestination(supply, desired map[string]int) (string, Berth, bool) {
-	for _, station := range s.network.Stations {
-		if station.ParkingOnly || supply[station.ID] >= desired[station.ID] {
-			continue
-		}
-		for _, berth := range station.Berths {
-			if s.owners[resource{kind: berthResource, id: berth.ID}] == "" && s.owners[resource{kind: nodeResource, id: berth.Node}] == "" {
-				return station.ID, berth, true
-			}
-		}
-	}
-	return "", Berth{}, false
-}
-
-func (s *Simulation) redistributionCandidate(v *vehicle, supply, desired map[string]int) bool {
-	if v.Pod.Activity != Idle || v.Pod.Occupied || s.assigned(v.Pod.ID) || v.rebalanceAfter > s.tick {
-		return false
-	}
-	station, _ := s.station(v.Pod.StationID)
-	return station.ParkingOnly || supply[station.ID] > desired[station.ID]
-}
-
-func compareString(a, b string) int {
-	if a < b {
-		return -1
-	}
-	if a > b {
-		return 1
-	}
-	return 0
 }
 
 func (s *Simulation) moveAndMeasure(v *vehicle) {

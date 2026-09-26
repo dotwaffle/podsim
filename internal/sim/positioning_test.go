@@ -26,26 +26,12 @@ func TestSetPositioning(t *testing.T) {
 	if err := s.SetPositioning(PositioningOff); err != nil || s.nextRedistributionTick != 0 {
 		t.Fatalf("SetPositioning(off) = %v, next check %d", err, s.nextRedistributionTick)
 	}
-	for _, mode := range []Positioning{PositioningRedistribution, PositioningGuarded} {
-		s.nextRedistributionTick = 0
-		if err := s.SetPositioning(mode); err != nil || s.positioning != mode || s.nextRedistributionTick != s.tick {
-			t.Fatalf("SetPositioning(%d) = %v, mode %d, next check %d at tick %d", mode, err, s.positioning, s.nextRedistributionTick, s.tick)
-		}
-		s.nextRedistributionTick = s.tick + 50
-		if err := s.SetPositioning(mode); err != nil || s.nextRedistributionTick != s.tick+50 {
-			t.Fatalf("SetPositioning(%d) moved a later check to %d at tick %d: %v", mode, s.nextRedistributionTick, s.tick, err)
-		}
+	if err := s.SetPositioning(PositioningGuarded); err != nil || s.positioning != PositioningGuarded || s.nextRedistributionTick != s.tick {
+		t.Fatalf("SetPositioning(guarded) = %v, mode %d, next check %d at tick %d", err, s.positioning, s.nextRedistributionTick, s.tick)
 	}
-	s.SetRedistribution(false)
-	if s.positioning != PositioningOff {
-		t.Fatalf("SetRedistribution(false) gives mode %d", s.positioning)
-	}
-	s.SetRedistribution(true)
-	if s.positioning != PositioningRedistribution {
-		t.Fatalf("SetRedistribution(true) gives mode %d", s.positioning)
-	}
-	if err := s.SetPositioning(PositioningGuarded); err != nil {
-		t.Fatal(err)
+	s.nextRedistributionTick = s.tick + 50
+	if err := s.SetPositioning(PositioningGuarded); err != nil || s.nextRedistributionTick != s.tick+50 {
+		t.Fatalf("SetPositioning(guarded) moved a later check to %d at tick %d: %v", s.nextRedistributionTick, s.tick, err)
 	}
 	s.Reset()
 	if s.positioning != PositioningOff || s.nextRedistributionTick != 0 {

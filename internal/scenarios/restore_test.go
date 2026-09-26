@@ -173,7 +173,10 @@ func TestRestorePhysicalLondon(t *testing.T) {
 	end := last + londonRestoreContinuationTicks
 	schedule := londonRestoreSchedule(int(end))
 	live := newSimulation(t, config)
-	live.SetRedistribution(true)
+	// The guarded gate of the London fleet is not active at 20 requests per
+	// minute. TestGuardedRestoreKeepsDecisions covers a restore with a
+	// guarded move under way.
+	setGuarded(t, live)
 	var work restoreWork
 	var restored *sim.Simulation
 	for tick := range last {
@@ -188,7 +191,7 @@ func TestRestorePhysicalLondon(t *testing.T) {
 	}
 	work.check(t, config.Network)
 	checkLondonLogicalRestore(t, live, config)
-	restored.SetRedistribution(true)
+	setGuarded(t, restored)
 	start := restored.Snapshot()
 	runLondon(t, restored, londonRun{
 		schedule: schedule, start: last, end: end,
@@ -204,4 +207,16 @@ func TestRestorePhysicalLondon(t *testing.T) {
 	}
 	t.Logf("preset=london band=am_peak seed=%d restores=%d submitted=%d..%d completed=%d..%d",
 		londonCloneSeed, londonRestoreCount, start.Submitted, final.Submitted, start.Completed, final.Completed)
+}
+
+// setGuarded selects guarded positioning at 20 requests per minute, as the
+// session does for London with redistribution and demand.
+func setGuarded(t *testing.T, simulation *sim.Simulation) {
+	t.Helper()
+	if err := simulation.SetPositioning(sim.PositioningGuarded); err != nil {
+		t.Fatal(err)
+	}
+	if err := simulation.SetDemandRate(20); err != nil {
+		t.Fatal(err)
+	}
 }

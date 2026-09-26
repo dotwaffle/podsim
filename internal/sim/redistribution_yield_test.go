@@ -127,16 +127,17 @@ func TestYieldRelocationClaimsMatchesScanInTraffic(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			s.SetRedistribution(true)
-			if err := s.SetDemandWeights(map[string]float64{"market": 6, "harbor": 2, "garden": 2}); err != nil {
-				t.Fatal(err)
-			}
 			if err := s.SetSharedRidePartyLimit(2); err != nil {
 				t.Fatal(err)
 			}
 			trips := tc.trips
-			conflicts, changes := 0, 0
+			conflicts, changes, moves := 0, 0, 0
 			for tick := range tc.seconds * TicksPerSecond {
+				// A pod in parking makes a rebalancing move to Market each
+				// 10 s, when it can.
+				if tick%(10*TicksPerSecond) == 0 && rebalanceToMarket(s) {
+					moves++
+				}
 				for len(trips) > 0 && trips[0].second*TicksPerSecond == tick {
 					if err := s.RequestTrip(trips[0].from, trips[0].to); err != nil {
 						t.Fatal(err)
@@ -153,15 +154,15 @@ func TestYieldRelocationClaimsMatchesScanInTraffic(t *testing.T) {
 				}
 				s.Step()
 			}
-			if conflicts == 0 || tc.yields && changes == 0 {
-				t.Fatalf("the run did not test a yield: %d conflicts, %d changes", conflicts, changes)
+			if moves == 0 || conflicts == 0 || tc.yields && changes == 0 {
+				t.Fatalf("the run did not test a yield: %d moves, %d conflicts, %d changes", moves, conflicts, changes)
 			}
 		})
 	}
 }
 
 // yieldFixture is a claim conflict simulation after one step. Pod 01 is on
-// a redistribution move to Market. It holds the Market berth and its node.
+// a rebalancing move to Market. It holds the Market berth and its node.
 // Pod 02 is idle at Garden.
 func yieldFixture(t *testing.T) (s *Simulation, relocating, other *vehicle) {
 	t.Helper()
@@ -171,7 +172,7 @@ func yieldFixture(t *testing.T) (s *Simulation, relocating, other *vehicle) {
 	if !relocating.Rebalancing || relocating.destination.ID != "market-1" ||
 		s.owners[resource{kind: berthResource, id: "market-1"}] != "01" ||
 		s.owners[resource{kind: nodeResource, id: "market-berth"}] != "01" {
-		t.Fatalf("pod 01 did not start redistribution to Market: %+v", s.Snapshot())
+		t.Fatalf("pod 01 is not on a rebalancing move to Market: %+v", s.Snapshot())
 	}
 	return s, relocating, other
 }
