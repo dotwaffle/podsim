@@ -606,6 +606,32 @@ The oracle excludes only pairs in different groups that do not share a junction.
 Unlabeled projects retain the original two-dimensional all-pairs check.
 See [the London network notes](london.md) for the boundary and source details.
 
+#### Route search and dispatch scans
+
+Two later commits made London compare runs faster, and the output did not change.
+The heavy arm below is a London compare arm with the PM peak band, one request every 5 seconds, and seed 1.
+It accepts requests for 30 minutes and stops when all requests complete, or at 65 minutes.
+Redistribution is off.
+
+Commit `40fc98f` finds the missing routes to all berths of a station with one route search.
+It also raises the route cache limit from 4,096 to 8,192 routes.
+In a replay of the route requests of the heavy arm, the number of route searches fell from 24,446 to about 13,000.
+The user CPU time of the heavy arm fell by 2.7 to 3.3 percent.
+The cache of 8,192 London routes uses about 26 MB, against about 19 MB for 4,096 routes.
+The peak RSS of the heavy arm went from about 80 MB to about 106 MB.
+
+Commit `80c47dc` skips two dispatch scans at a station with no idle pod.
+Each dispatch pass makes a 256-bit Bloom filter of the stations of the idle pods, and the filter has no false negatives.
+The two scans fell from 10 percent to less than 1 percent of the CPU profile of the heavy arm.
+The filter uses about 1 percent.
+In three alternate runs of the heavy arm, the mean user CPU time fell from 13.3 to 11.4 seconds.
+
+The last A/B check compared commit `80c47dc` with commit `40fc98f`, so it includes the four commits between them.
+In all 11 compare arms of the check, the CSV rows and a snapshot hash at each simulated second were identical.
+The heavy arm took 7.1 seconds of wall time, against 10.1 seconds before.
+The two builds ran at the same time on a shared host.
+Thus these wall times do not compare with the profile times above.
+
 ## London portal comparison
 
 The first London network joined all guideways and station access at one node per station.

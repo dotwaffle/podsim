@@ -279,6 +279,10 @@ It also toggled pod following and reported no browser errors.
 
 Separate browser checks cover invalid input, reset, stale edit conflicts, and the 20-station, 100-pod scenario.
 The hardware and performance record is in [docs/qualification.md](docs/qualification.md).
+Two later commits made route search and dispatch faster, and the simulation output did not change.
+Commit `40fc98f` finds the routes to all berths of a station with one search, and commit `80c47dc` skips dispatch scans at stations with no idle pod.
+From commit `40fc98f` to commit `80c47dc`, a heavy London compare arm fell from 10.1 to 7.1 seconds of wall time.
+See [route search and dispatch scans](docs/qualification.md#route-search-and-dispatch-scans).
 
 The project added the save point, rewind, and `-state` restart checks above on September 23, 2026, after this acceptance.
 
