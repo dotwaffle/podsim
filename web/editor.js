@@ -1252,7 +1252,9 @@
   // A connection holds the values that the editor uses with the session API.
   // fetch sends one HTTP request, as window.fetch does. clientID and sequence
   // identify each command, and epoch is the session epoch. postCommand
-  // increases sequence and keeps the epoch of the reply.
+  // increases sequence and keeps the epoch of the reply. onServerStart is
+  // optional. readState gives it the server start ID of each live state
+  // that it reads.
 
   // getJSON gets one JSON document. It throws the server error or the HTTP
   // status.
@@ -1261,6 +1263,16 @@
     let body = null; try { body = await response.json(); } catch (_) {}
     if (!response.ok || (body && (body.error || body.Error))) throw new Error((body && (body.error || body.Error)) || `HTTP ${response.status}`);
     return body;
+  }
+
+  // readState gets the live state from /api/state. It gives the server
+  // start ID of the reply, or an empty string, to connection.onServerStart
+  // when it is set. Each read of the live state uses readState, so the page
+  // knows the server start ID of the latest read.
+  async function readState(connection) {
+    const live = await getJSON(connection, "/api/state");
+    if (connection.onServerStart) connection.onServerStart((live && (live.serverStart || live.ServerStart)) || "");
+    return live;
   }
 
   // postCommand sends one command. A rejected command throws an error with
@@ -1302,6 +1314,15 @@
     return start(before) === start(after) && epoch(before) === epoch(after) && revision !== undefined && Number(revision) === Number(after.projectRevision ?? after.ProjectRevision);
   }
 
+  // draftBeforeRestart tells if a draft is from before a server restart.
+  // draftStart is the server start ID of the state that the draft started
+  // from, and liveStart is the server start ID of the live state. An empty
+  // ID is not known, so then the function gives false. Pause and apply
+  // uses the same check.
+  function draftBeforeRestart(draftStart, liveStart) {
+    return Boolean(draftStart && liveStart && draftStart !== liveStart);
+  }
+
   // readSnapshot reads the live project and the live state as one
   // snapshot. It gives project, the project reply, and state, the state
   // that has the same server start ID, epoch and project revision. The
@@ -1313,9 +1334,9 @@
   // again, for a maximum of attempts passes, then throws an error.
   async function readSnapshot(connection, attempts = SNAPSHOT_ATTEMPTS) {
     for (let pass = 0; pass < attempts; pass += 1) {
-      const before = await getJSON(connection, "/api/state");
+      const before = await readState(connection);
       const project = await getJSON(connection, "/api/project");
-      const state = await getJSON(connection, "/api/state");
+      const state = await readState(connection);
       if (!project || !(project.project || project.Project)) throw new Error("The server returned no scenario.");
       if (before && state && snapshotConsistent(before, project, state)) return { project, state };
     }
@@ -1374,7 +1395,7 @@
     try {
       const { project: current, state: live } = await readSnapshot(connection);
       const liveStart = live.serverStart || live.ServerStart || "";
-      if (apply.serverStart && liveStart && liveStart !== apply.serverStart) {
+      if (draftBeforeRestart(apply.serverStart, liveStart)) {
         const error = new Error("The server session changed."); error.status = 409; error.errorCode = "session_changed"; throw error;
       }
       if (Number(current.revision ?? current.Revision ?? 0) !== apply.revision) {
@@ -1416,7 +1437,7 @@
   // same occurs when the server applied this project and its reply was lost.
   async function resumeSimulation(connection, simulation) {
     try {
-      const live = await getJSON(connection, "/api/state");
+      const live = await readState(connection);
       if (simulationID(live) !== simulation) return "restarted";
       await postCommand(connection, { action: "pause", paused: false });
       return "resumed";
@@ -1740,22 +1761,40 @@
     return { draft, revision: Math.max(0, Math.floor(Number(record.revision) || 0)), epoch: text(record.epoch), serverStart: text(record.serverStart) };
   }
 
+  // DRAFT_RESTART_TEXT tells the user that the saved draft is from before
+  // a server restart, and what Pause and apply then does.
+  const DRAFT_RESTART_TEXT = "The draft was saved before the server restarted. After you restore it, Pause and apply stops with a conflict and does not change the live scenario. Then you can load the live scenario or apply the draft over it.";
+
   // draftOfferText gives the text of the saved draft offer. offer.revision
   // is the revision that the draft started from. offer.live is the live
   // project revision, or null when the live scenario did not load.
+  // offer.serverStart is the server start ID of the draft, and
+  // offer.liveStart is the live server start ID. When draftBeforeRestart
+  // is true for them, the text also has DRAFT_RESTART_TEXT.
   function draftOfferText(offer) {
-    const text = `This browser has a saved draft that is not applied. The draft is based on revision ${offer.revision}.`;
-    return offer.live === null || offer.live === offer.revision ? text : `${text} The live scenario is now revision ${offer.live}.`;
+    const based = `This browser has a saved draft that is not applied. The draft is based on revision ${offer.revision}.`;
+    const text = offer.live === null || offer.live === offer.revision ? based : `${based} The live scenario is now revision ${offer.live}.`;
+    return draftBeforeRestart(offer.serverStart, offer.liveStart) ? `${text} ${DRAFT_RESTART_TEXT}` : text;
   }
+
+  // RESTORED_RESTART_TEXT tells the user that the restored draft is from
+  // before a server restart, and what Pause and apply then does.
+  const RESTORED_RESTART_TEXT = "It was saved before the server restarted. Pause and apply stops with a conflict and does not change the live scenario. After the conflict, the Apply over revision button replaces the live scenario with the draft.";
 
   // restoreStatusText gives the status line after a restore. draft.revision
   // is the revision that the restored draft started from. draft.live is the
   // live project revision, or null when the live scenario did not load.
-  // Pause and apply replaces the live scenario, so the text names the live
-  // changes that an older draft replaces.
+  // draft.serverStart is the server start ID of the draft, and
+  // draft.liveStart is the live server start ID. When draftBeforeRestart
+  // is true for them, Pause and apply stops with a conflict, so the text
+  // tells that first. The revisions of two server runs do not compare, so
+  // the text then does not name them. Else Pause and apply replaces the
+  // live scenario, so the text names the live changes that an older draft
+  // replaces.
   function restoreStatusText(draft) {
     if (draft.live === null) return "The restored draft is local.";
     const text = `Live revision ${draft.live}. The restored draft is not applied.`;
+    if (draftBeforeRestart(draft.serverStart, draft.liveStart)) return `${text} ${RESTORED_RESTART_TEXT}`;
     return draft.live === draft.revision ? text : `${text} It is based on revision ${draft.revision}. Pause and apply replaces the live changes after revision ${draft.revision}.`;
   }
 
@@ -1772,9 +1811,9 @@
     stationBearing, stationShape, rotateStation, setStationBearing, nextBerthPosition, removeBerth, moveStation, moveNode, deleteNode, deleteLane, deleteStation, stationFlowCount, setFleetCount, fleetRows, selectionCard, berthFocusID, undoFocus, setDemandPattern,
     laneLength, curveLength, reachable, cutOffStations, stationNodeOwners, dragTargets, validateConfig, configWarnings, checkResults, checkSelector, checkSelection, selectionPoint, focusView,
     problemCountText, createCheckTimer, validationSummary, checkFocusKey, serializeDocument, parseDocument, createHistory,
-    networkBounds, fitView, zoomScale, nodeLabelSize, pairedLaneIDs, showsChevron, laneOffset, laneCurve, lanePathData, SNAPSHOT_ATTEMPTS, snapshotConsistent, readSnapshot, applyToServer, applyFailureText, applyFailureStatus, applyToast,
+    networkBounds, fitView, zoomScale, nodeLabelSize, pairedLaneIDs, showsChevron, laneOffset, laneCurve, lanePathData, SNAPSHOT_ATTEMPTS, snapshotConsistent, draftBeforeRestart, readState, readSnapshot, applyToServer, applyFailureText, applyFailureStatus, applyToast,
     readLive, readConflict, CONFLICT_UNLOADED_TEXT, conflictView, LOAD_LIVE_QUESTION, applyOverQuestion, loadLive, liveDraft, applyOverBase,
-    DRAFT_SAVE_DELAY, DRAFT_STORE_TEXT, DRAFT_UNSAVED_TEXT, DRAFT_DISPLACED_TEXT, openDraftStore, createDraftKeeper, draftChanges, draftRecordFor, draftOffer, draftOfferText, restoreStatusText, shellPage,
+    DRAFT_SAVE_DELAY, DRAFT_STORE_TEXT, DRAFT_UNSAVED_TEXT, DRAFT_DISPLACED_TEXT, openDraftStore, createDraftKeeper, draftChanges, draftRecordFor, draftOffer, DRAFT_RESTART_TEXT, draftOfferText, RESTORED_RESTART_TEXT, restoreStatusText, shellPage,
   };
   if (typeof module !== "undefined" && module.exports) module.exports = API;
   root.PodsimEditorModel = API;
@@ -1801,6 +1840,14 @@
     // loadedStart is the server start ID of the state that the page loaded
     // or last applied, or an empty string when the server does not send it.
     loadedStart: "",
+    // liveStart is the server start ID of the latest live state that the
+    // page read, or an empty string. The onServerStart function of the
+    // connection sets it. It is not the draft base, and a read after a
+    // server restart changes it.
+    liveStart: "",
+    // refreshing is true while the page reads the live state for
+    // refreshLiveStart.
+    refreshing: false,
     // live is the live baseline for draftChanges. It has the scenario text
     // and the background after the load or the last apply, and revision,
     // the live project revision, or null when the live scenario did not
@@ -2250,10 +2297,33 @@
   }
 
   // renderOffer shows the saved draft offer while state.offer is set. The
-  // text names the revision of the saved draft and the live revision.
+  // text names the revision of the saved draft and the live revision. It
+  // also tells the user when the draft is from before a server restart.
+  // state.liveStart is the server start ID of the latest live read, or an
+  // empty string. Each live read renders the offer again.
   function renderOffer() {
     $("#draftOffer").hidden = !state.offer;
-    if (state.offer) $("#draftOfferText").textContent = draftOfferText({ revision: state.offer.revision, live: state.live.revision });
+    if (state.offer) $("#draftOfferText").textContent = draftOfferText({ revision: state.offer.revision, live: state.live.revision, serverStart: state.offer.serverStart, liveStart: state.liveStart });
+  }
+
+  // observeServerStart keeps start, the server start ID of a live read, in
+  // state.liveStart. While the saved draft offer shows, it renders the
+  // offer again, so the offer tells of a server restart.
+  function observeServerStart(start) {
+    state.liveStart = start;
+    if (state.offer) renderOffer();
+  }
+
+  // refreshLiveStart reads the live state once while the saved draft offer
+  // shows. The editor window gets the focus when the shell shows the
+  // editor, and when the user goes back to the browser tab or window. Thus
+  // the offer tells of a server restart after the page loaded. The read
+  // gives the server start ID to observeServerStart. A failed read changes
+  // nothing.
+  async function refreshLiveStart() {
+    if (!state.offer || state.refreshing) return;
+    state.refreshing = true;
+    try { await readState(state.connection); } catch (_) {} finally { state.refreshing = false; }
   }
 
   // closeOffer hides the saved draft offer. After a choice from the
@@ -2276,7 +2346,7 @@
     state.draftBase = { revision, epoch, serverStart };
     state.history.reset({ scenario: normalizeConfig(saved.scenario), background: saved.background ? clone(saved.background) : null });
     state.selection = null; render(); fitNetwork(); checks.run(); keeper.arm();
-    updateStatus(restoreStatusText({ revision, live: state.live.revision }));
+    updateStatus(restoreStatusText({ revision, live: state.live.revision, serverStart, liveStart: state.liveStart }));
     toast("The saved draft is restored.");
   }
 
@@ -2640,6 +2710,8 @@
     // The browser asks before you leave or reload the page only when the
     // draft has changes that are not in the draft store. A waiting save
     // starts now. It is not in the store yet, so the prompt still shows.
+    state.connection.onServerStart = observeServerStart;
+    root.addEventListener("focus", refreshLiveStart);
     root.addEventListener("beforeunload", (event) => { keeper.flush(); if (keeper.unsaved) { event.preventDefault(); event.returnValue = ""; } });
     $("#problemCount").addEventListener("click", showChecks);
     $("#validationList").addEventListener("click", (event) => { const button = event.target.closest("button[data-type]"); if (button) selectCheck({ type: button.dataset.type, id: button.dataset.id }); });

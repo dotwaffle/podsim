@@ -498,12 +498,17 @@ After a successful apply, the browser deletes the saved draft.
 When the editor loads, the browser compares the saved draft with the live scenario.
 If they are different, the **Saved draft** bar shows the revision that the draft is based on.
 If the live revision is different, the bar also shows it.
+If the draft was saved before the server restarted, the bar also tells you that **Pause and apply** then stops with a conflict.
+The editor compares the server start ID of the draft with the server start ID of the latest live state that it read.
+Each read of the live state updates the bar, for example the read of an apply.
+While the bar shows, the editor also reads the live state when its window gets the focus, for example when you go back to the editor.
+A draft from an older editor has no server start ID, so the bar does not show this warning.
 Select **Restore draft** to put the saved draft back.
 The undo history then starts from the restored draft.
 The restored draft is not applied, and it keeps the revision that it is based on and the server start ID of that state.
 **Pause and apply** then replaces the live scenario, also when the draft is based on an older revision.
 The status line tells you when it replaces newer live changes.
-If the server restarted after the draft started, the apply fails.
+If the server restarted after the draft started, the apply fails with a conflict, and the status line tells you that instead.
 See [Apply a draft](#apply-a-draft).
 Select **Discard draft** to delete the saved draft and keep the live scenario.
 Until you select one of the two buttons, the browser does not save new changes.

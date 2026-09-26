@@ -2499,8 +2499,39 @@ test("the page offers a saved draft only when it differs from the live scenario"
       want: "This browser has a saved draft that is not applied. The draft is based on revision 3. The live scenario is now revision 5.",
     },
     { name: "no live scenario", offer: { revision: 3, live: null }, want: "This browser has a saved draft that is not applied. The draft is based on revision 3." },
+    {
+      name: "the same server start", offer: { revision: 5, live: 5, serverStart: "start-1", liveStart: "start-1" },
+      want: "This browser has a saved draft that is not applied. The draft is based on revision 5.",
+    },
+    {
+      name: "a server restart", offer: { revision: 5, live: 5, serverStart: "start-1", liveStart: "start-2" },
+      want: "This browser has a saved draft that is not applied. The draft is based on revision 5. The draft was saved before the server restarted. After you restore it, Pause and apply stops with a conflict and does not change the live scenario. Then you can load the live scenario or apply the draft over it.",
+    },
+    {
+      name: "a server restart and an older revision", offer: { revision: 3, live: 5, serverStart: "start-1", liveStart: "start-2" },
+      want: `This browser has a saved draft that is not applied. The draft is based on revision 3. The live scenario is now revision 5. ${editor.DRAFT_RESTART_TEXT}`,
+    },
+    {
+      name: "a draft from an older editor", offer: { revision: 5, live: 5, serverStart: "", liveStart: "start-2" },
+      want: "This browser has a saved draft that is not applied. The draft is based on revision 5.",
+    },
+    {
+      name: "no live server start", offer: { revision: 3, live: null, serverStart: "start-1", liveStart: "" },
+      want: "This browser has a saved draft that is not applied. The draft is based on revision 3.",
+    },
   ];
   for (const item of texts) assert.equal(editor.draftOfferText(item.offer), item.want, item.name);
+});
+
+test("a draft is from before a server restart only when both server start IDs are known and differ", () => {
+  const cases = [
+    { name: "the same server start", draft: "start-1", live: "start-1", want: false },
+    { name: "a different server start", draft: "start-1", live: "start-2", want: true },
+    { name: "no draft server start", draft: "", live: "start-2", want: false },
+    { name: "no live server start", draft: "start-1", live: "", want: false },
+    { name: "no server start IDs", draft: "", live: "", want: false },
+  ];
+  for (const item of cases) assert.equal(editor.draftBeforeRestart(item.draft, item.live), item.want, item.name);
 });
 
 test("the saved draft record keeps the draft base through the draft store", async () => {
@@ -2524,8 +2555,53 @@ test("the status after a restore names the live changes that an older draft repl
       want: "Live revision 5. The restored draft is not applied. It is based on revision 3. Pause and apply replaces the live changes after revision 3.",
     },
     { name: "no live scenario", draft: { revision: 3, live: null }, want: "The restored draft is local." },
+    {
+      name: "the same server start and an older revision", draft: { revision: 3, live: 5, serverStart: "start-1", liveStart: "start-1" },
+      want: "Live revision 5. The restored draft is not applied. It is based on revision 3. Pause and apply replaces the live changes after revision 3.",
+    },
+    {
+      name: "a server restart and an older revision", draft: { revision: 3, live: 5, serverStart: "start-1", liveStart: "start-2" },
+      want: "Live revision 5. The restored draft is not applied. It was saved before the server restarted. Pause and apply stops with a conflict and does not change the live scenario. After the conflict, the Apply over revision button replaces the live scenario with the draft.",
+    },
+    {
+      name: "a server restart and the same revision", draft: { revision: 5, live: 5, serverStart: "start-1", liveStart: "start-2" },
+      want: `Live revision 5. The restored draft is not applied. ${editor.RESTORED_RESTART_TEXT}`,
+    },
+    {
+      name: "a draft from an older editor", draft: { revision: 3, live: 5, serverStart: "", liveStart: "start-2" },
+      want: "Live revision 5. The restored draft is not applied. It is based on revision 3. Pause and apply replaces the live changes after revision 3.",
+    },
   ];
   for (const item of cases) assert.equal(editor.restoreStatusText(item.draft), item.want, item.name);
+});
+
+test("each live state read gives the latest server start ID, so the saved draft offer tells of a later restart", async () => {
+  const offerText = (liveStart) => editor.draftOfferText({ revision: 3, live: 3, serverStart: "start-1", liveStart });
+  const server = snapshotServer();
+  const starts = [];
+  server.connection.onServerStart = (start) => starts.push(start);
+
+  const live = await editor.readLive(server.connection);
+  assert.equal(live.serverStart, "start-1");
+  assert.equal(offerText(starts.at(-1)).includes(editor.DRAFT_RESTART_TEXT), false, "the load before the restart");
+
+  // A restart while the offer shows. The page reads the state again when
+  // the editor window gets the focus.
+  server.live.serverStart = "start-2";
+  await editor.readState(server.connection);
+  assert.equal(starts.at(-1), "start-2", "the read after the restart");
+  assert.equal(offerText(starts.at(-1)).includes(editor.DRAFT_RESTART_TEXT), true, "the offer after the restart");
+
+  // A failed apply reads the conflict after a second restart.
+  server.live.serverStart = "start-3";
+  const failure = Object.assign(new Error("The server session changed."), { errorCode: "session_changed" });
+  assert.deepEqual(await editor.readConflict(server.connection, failure), { code: "session_changed", revision: 3, serverStart: "start-3" });
+  assert.equal(starts.at(-1), "start-3", "the conflict read");
+  assert.equal(offerText(starts.at(-1)).includes(editor.DRAFT_RESTART_TEXT), true, "the offer after the conflict");
+
+  // A connection without onServerStart reads as before.
+  delete server.connection.onServerStart;
+  assert.equal((await editor.readState(server.connection)).serverStart, "start-3");
 });
 
 test("a failed apply tells the user to export a draft that the browser does not keep", () => {
