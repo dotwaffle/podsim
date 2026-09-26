@@ -93,7 +93,7 @@ func (s *Simulation) yieldRelocationClaims() {
 			{kind: nodeResource, id: relocating.destination.Node},
 		} {
 			if s.owners[claimed] == relocating.Pod.ID {
-				delete(s.owners, claimed)
+				s.releaseOwned(relocating, claimed)
 				yielded = true
 			}
 		}

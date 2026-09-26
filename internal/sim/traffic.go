@@ -261,11 +261,16 @@ func resourceReleaseDistance(b block, r resource) float64 {
 	return b.end + Clearance
 }
 
+// retainRouteResource keeps r until the pod is at releaseAt. The pod must
+// own r.
 func (v *vehicle) retainRouteResource(r resource, releaseAt float64) {
 	if v.routeReleases == nil {
 		v.routeReleases = make(map[resource]float64)
 	}
 	v.routeReleases[r] = max(v.routeReleases[r], releaseAt)
+	if v.nextRelease != 0 {
+		v.nextRelease = min(v.nextRelease, releaseAt)
+	}
 }
 
 func (s *Simulation) releaseVehicleResources(v *vehicle) {
@@ -279,16 +284,7 @@ func (s *Simulation) releaseVehicleResources(v *vehicle) {
 		)
 		return
 	}
-	for r, releaseAt := range v.routeReleases {
-		if s.owners[r] != v.Pod.ID {
-			delete(v.routeReleases, r)
-			continue
-		}
-		if releaseAt <= v.distance {
-			s.releaseOwned(v, r)
-			delete(v.routeReleases, r)
-		}
-	}
+	s.releasePassedResources(v)
 	if !v.originReleased && v.distance >= Clearance {
 		for _, r := range []resource{
 			{kind: berthResource, id: v.origin.ID},
@@ -302,6 +298,35 @@ func (s *Simulation) releaseVehicleResources(v *vehicle) {
 	}
 }
 
+// releasePassedResources releases each resource in v.routeReleases that the
+// pod passed. It removes the entry of a resource that the pod does not own.
+// Then it sets v.nextRelease to the smallest release distance that stays, or
+// to +Inf when no entry stays. An owner check is necessary only when
+// v.nextRelease is 0. When v.nextRelease is not 0 and v.distance is less,
+// no entry changes, so the function returns at once.
+func (s *Simulation) releasePassedResources(v *vehicle) {
+	checkOwners := v.nextRelease == 0
+	if !checkOwners && v.distance < v.nextRelease {
+		return
+	}
+	next := math.Inf(1)
+	for r, releaseAt := range v.routeReleases {
+		if checkOwners && s.owners[r] != v.Pod.ID {
+			delete(v.routeReleases, r)
+			continue
+		}
+		if releaseAt <= v.distance {
+			if s.owners[r] == v.Pod.ID {
+				delete(s.owners, r)
+			}
+			delete(v.routeReleases, r)
+			continue
+		}
+		next = min(next, releaseAt)
+	}
+	v.nextRelease = next
+}
+
 func (s *Simulation) releaseRouteResourcesExcept(v *vehicle, retained ...resource) {
 	for r := range v.routeReleases {
 		if !slices.Contains(retained, r) {
@@ -311,9 +336,13 @@ func (s *Simulation) releaseRouteResourcesExcept(v *vehicle, retained ...resourc
 	clear(v.routeReleases)
 }
 
+// releaseOwned deletes the owner of r when the owner is v. An entry for r in
+// v.routeReleases then names a resource that v does not own, so
+// releaseOwned sets v.nextRelease to 0.
 func (s *Simulation) releaseOwned(v *vehicle, r resource) {
 	if s.owners[r] == v.Pod.ID {
 		delete(s.owners, r)
+		v.nextRelease = 0
 	}
 }
 

@@ -136,9 +136,7 @@ type redirection struct {
 // and becomes idle.
 func (s *Simulation) redirect(v *vehicle, to redirection) {
 	for _, r := range berthResources(v.destination) {
-		if s.owners[r] == v.Pod.ID {
-			delete(s.owners, r)
-		}
+		s.releaseOwned(v, r)
 	}
 	s.setVehicleRoute(v, to.route)
 	v.destination, v.destinationStation = to.berth, to.station

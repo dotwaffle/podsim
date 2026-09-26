@@ -180,6 +180,15 @@ type vehicle struct {
 	// then released with no claim. Such a pod can divert at once, as a pod
 	// on its way to parking can.
 	released bool
+	// nextRelease is 0, or it is at most each release distance in
+	// routeReleases and the pod owns each resource in routeReleases. In
+	// the second case, releaseVehicleResources has no entry to change
+	// while distance is less than nextRelease. With the value 0, an entry
+	// can name a resource that the pod does not own. releaseOwned sets 0,
+	// and retainRouteResource keeps 0. Code that removes the owner of a
+	// resource in routeReleases must call releaseOwned or clear
+	// routeReleases.
+	nextRelease float64
 }
 
 // Simulation owns a fixed fleet and local track, junction, and berth resources.

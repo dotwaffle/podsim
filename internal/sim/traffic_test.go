@@ -126,6 +126,180 @@ func TestArrivalReleasesRouteAndKeepsBerth(t *testing.T) {
 	}
 }
 
+// checkRouteReleaseBound checks the promise of vehicle.nextRelease. When it
+// is not 0, the pod owns each resource in routeReleases, and no release
+// distance is less than it.
+func checkRouteReleaseBound(t *testing.T, s *Simulation) {
+	t.Helper()
+	for i := range s.vehicles {
+		v := &s.vehicles[i]
+		if v.nextRelease == 0 {
+			continue
+		}
+		for r, releaseAt := range v.routeReleases {
+			if owner := s.owners[r]; owner != v.Pod.ID || releaseAt < v.nextRelease {
+				t.Fatalf("tick %d: pod %s has bound %v, but it keeps %+v to %v and the owner is %q",
+					s.tick, v.Pod.ID, v.nextRelease, r, releaseAt, owner)
+			}
+		}
+	}
+}
+
+// TestRouteReleaseBoundMatchesFullScan steps each clone fixture beside a
+// clone that has no release bounds. The clone checks each held resource at
+// each step, as the code did before the bounds. The two must stay equal
+// apart from the bounds.
+func TestRouteReleaseBoundMatchesFullScan(t *testing.T) {
+	t.Parallel()
+	for _, fixture := range cloneFixtures() {
+		t.Run(fixture.name, func(t *testing.T) {
+			t.Parallel()
+			s := fixture.build(t)
+			inputs := fixture.continuation
+			for tick := range inputs.seconds * TicksPerSecond {
+				full := s.Clone()
+				for i := range full.vehicles {
+					full.vehicles[i].nextRelease = 0
+				}
+				for _, sim := range []*Simulation{s, full} {
+					for _, trip := range inputs.trips {
+						if trip.second*TicksPerSecond != tick {
+							continue
+						}
+						if err := sim.RequestTrip(trip.from, trip.to); err != nil {
+							t.Fatal(err)
+						}
+					}
+					sim.Step()
+				}
+				checkRouteReleaseBound(t, s)
+				for i := range full.vehicles {
+					full.vehicles[i].nextRelease = s.vehicles[i].nextRelease
+				}
+				if !sameState(s, full) {
+					t.Fatalf("tick %d: the release bounds changed the state", s.tick)
+				}
+			}
+		})
+	}
+}
+
+func TestRouteReleaseBoundAtReleaseDistance(t *testing.T) {
+	t.Parallel()
+	track := resource{kind: trackResource, id: "lane", cell: 1}
+	s := &Simulation{
+		owners: map[resource]string{track: "01"},
+		vehicles: []vehicle{{
+			Pod:            Pod{ID: "01", Activity: Traveling},
+			distance:       60,
+			originReleased: true,
+			routeReleases:  map[resource]float64{track: 60},
+			nextRelease:    60,
+		}},
+	}
+	s.releaseCleared()
+	if s.owners[track] != "" || len(s.vehicles[0].routeReleases) != 0 {
+		t.Fatalf("pod at the release distance kept the track: owners %v, releases %v", s.owners, s.vehicles[0].routeReleases)
+	}
+	if s.vehicles[0].nextRelease != math.Inf(1) {
+		t.Fatalf("bound with no held resource = %v, want +Inf", s.vehicles[0].nextRelease)
+	}
+}
+
+// TestRouteReleaseBoundFollowsNewResource admits a resource with a release
+// distance before the bound. A junction in a short cell after the stopping
+// point has such a distance.
+func TestRouteReleaseBoundFollowsNewResource(t *testing.T) {
+	t.Parallel()
+	track := resource{kind: trackResource, id: "lane", cell: 1}
+	junction := resource{kind: junctionResource, id: "junction"}
+	s := &Simulation{
+		owners:   map[resource]string{track: "01", junction: "01"},
+		vehicles: []vehicle{{Pod: Pod{ID: "01", Activity: Traveling}, distance: 40, originReleased: true}},
+	}
+	v := &s.vehicles[0]
+	v.retainRouteResource(track, 100)
+	s.releaseCleared()
+	if v.nextRelease != 100 {
+		t.Fatalf("bound = %v, want 100", v.nextRelease)
+	}
+	v.retainRouteResource(junction, 50)
+	v.distance = 60
+	s.releaseCleared()
+	if s.owners[junction] != "" || s.owners[track] != "01" {
+		t.Fatalf("owners after the junction = %v, want only the track", s.owners)
+	}
+}
+
+// TestRouteReleaseBoundDroppedWithOwner gives a relocating pod its
+// destination claims as route resources. A yield or a redirect then deletes
+// the claims. The pod must check its entries again at the next release, as
+// the code did before the bounds, and remove the entries of the claims.
+func TestRouteReleaseBoundDroppedWithOwner(t *testing.T) {
+	t.Parallel()
+	for _, test := range []struct {
+		name string
+		drop func(s *Simulation, v *vehicle)
+	}{
+		{
+			name: "yield",
+			drop: func(s *Simulation, v *vehicle) {
+				pickup := s.findVehicle("02")
+				pickup.destination = v.destination
+				s.waiting = append(s.waiting, waitingTrip{request: Request{ID: 1, From: "market", To: "garden", PodID: "02"}})
+				s.yieldRelocationClaims()
+			},
+		},
+		{
+			name: "redirect",
+			drop: func(s *Simulation, v *vehicle) {
+				s.redirect(v, redirection{route: v.Route, berth: v.destination, station: v.destinationStation})
+			},
+		},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			s := newClaimConflictSimulation(t)
+			s.Step()
+			v := s.findVehicle("01")
+			claims := berthResources(v.destination)
+			track := resource{kind: trackResource, id: "held", cell: 0}
+			s.owners[track] = v.Pod.ID
+			for index, claimed := range append(claims[:], track) {
+				if s.owners[claimed] != v.Pod.ID {
+					t.Fatalf("pod 01 does not own %+v", claimed)
+				}
+				v.retainRouteResource(claimed, 1000+float64(index))
+			}
+			s.releasePassedResources(v)
+			if v.nextRelease == 0 || v.distance >= v.nextRelease {
+				t.Fatalf("pod 01 at %v has bound %v, so the next release does not skip", v.distance, v.nextRelease)
+			}
+			test.drop(s, v)
+			for _, claimed := range claims {
+				if s.owners[claimed] != "" {
+					t.Fatalf("claim %+v has owner %q", claimed, s.owners[claimed])
+				}
+			}
+			// A new resource must not end the check, also when its release
+			// distance is not a number.
+			extra := resource{kind: trackResource, id: "held", cell: 1}
+			s.owners[extra] = v.Pod.ID
+			v.retainRouteResource(extra, math.NaN())
+			checkRouteReleaseBound(t, s)
+			s.releasePassedResources(v)
+			for _, claimed := range claims {
+				if _, kept := v.routeReleases[claimed]; kept {
+					t.Fatalf("route releases keep claim %+v after its owner went: %v", claimed, v.routeReleases)
+				}
+			}
+			if _, kept := v.routeReleases[extra]; !kept || v.routeReleases[track] != 1002 {
+				t.Fatalf("route releases lost an owned track: %v", v.routeReleases)
+			}
+		})
+	}
+}
+
 func checkIncrementalOwners(t *testing.T, s *Simulation) {
 	t.Helper()
 	if want := s.retainedOwners(); !maps.Equal(s.owners, want) {
