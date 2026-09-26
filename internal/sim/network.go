@@ -180,36 +180,43 @@ func (n Network) routeIndexed(input networkRouteInput, graph routeGraph) ([]Lane
 		}
 		visited[item.node] = true
 		for _, laneIndex := range graph.outgoing[item.node] {
-			lane := n.Lanes[laneIndex]
-			if lane.To != input.from && lane.To != input.to && input.forbidden[lane.To] {
+			edge := graph.edges[laneIndex]
+			// The node indexes are equal only when the node IDs are equal.
+			if input.forbidden != nil && edge.to != from && edge.to != to && input.forbidden[n.Lanes[laneIndex].To] {
 				continue
 			}
-			next := graph.nodes[lane.To]
 			extra := 0.0
 			if laneIndex < len(input.extraCost) {
 				extra = input.extraCost[laneIndex]
 			}
-			candidate := item.distance + graph.lengths[laneIndex]/lane.SpeedLimit + extra
-			if candidate < distance[next] {
-				distance[next], previous[next] = candidate, laneIndex
-				queue.push(routeQueueItem{node: next, distance: candidate})
+			candidate := item.distance + edge.seconds + extra
+			if candidate < distance[edge.to] {
+				distance[edge.to], previous[edge.to] = candidate, laneIndex
+				queue.push(routeQueueItem{node: edge.to, distance: candidate})
 			}
 		}
 	}
 	if math.IsInf(distance[to], 1) {
 		return nil, ErrUnreachable
 	}
-	var route []Lane
-	for current := to; current != from; {
+	count := 0
+	for current := to; current != from; count++ {
 		laneIndex := previous[current]
 		if laneIndex < 0 {
 			return nil, ErrUnreachable
 		}
-		lane := n.Lanes[laneIndex]
-		route = append(route, lane)
-		current = graph.nodes[lane.From]
+		current = graph.edges[laneIndex].from
 	}
-	slices.Reverse(route)
+	if count == 0 {
+		return nil, nil
+	}
+	route := make([]Lane, count)
+	for current := to; current != from; {
+		laneIndex := previous[current]
+		count--
+		route[count] = n.Lanes[laneIndex]
+		current = graph.edges[laneIndex].from
+	}
 	return route, nil
 }
 
@@ -254,15 +261,15 @@ func (n Network) nearestIndexed(input nearestInput, graph routeGraph) (int, bool
 			continue
 		}
 		for _, laneIndex := range graph.outgoing[item.node] {
-			next := graph.nodes[n.Lanes[laneIndex].To]
+			edge := graph.edges[laneIndex]
 			extra := 0.0
 			if laneIndex < len(input.extraCost) {
 				extra = input.extraCost[laneIndex]
 			}
-			candidate := item.distance + graph.lengths[laneIndex]/n.Lanes[laneIndex].SpeedLimit + extra
-			if candidate < distance[next] {
-				distance[next] = candidate
-				queue.push(routeQueueItem{node: next, distance: candidate})
+			candidate := item.distance + edge.seconds + extra
+			if candidate < distance[edge.to] {
+				distance[edge.to] = candidate
+				queue.push(routeQueueItem{node: edge.to, distance: candidate})
 			}
 		}
 	}
@@ -274,12 +281,22 @@ type routeGraph struct {
 	lanes    map[string]int
 	outgoing [][]int
 	lengths  []float64
+	// edges holds the route search data of each lane, so that the search
+	// does not look up node IDs. Only a lane in outgoing has an edge.
+	edges []routeEdge
+}
+
+// routeEdge is a lane in the route search. from and to are the node indexes
+// of the lane ends. seconds is the free-flow travel time of the lane.
+type routeEdge struct {
+	from, to int
+	seconds  float64
 }
 
 func newRouteGraph(network Network) routeGraph {
 	graph := routeGraph{
 		nodes: make(map[string]int, len(network.Nodes)), lanes: make(map[string]int, len(network.Lanes)), outgoing: make([][]int, len(network.Nodes)),
-		lengths: make([]float64, len(network.Lanes)),
+		lengths: make([]float64, len(network.Lanes)), edges: make([]routeEdge, len(network.Lanes)),
 	}
 	for index, node := range network.Nodes {
 		graph.nodes[node.ID] = index
@@ -293,6 +310,7 @@ func newRouteGraph(network Network) routeGraph {
 		}
 		graph.outgoing[from] = append(graph.outgoing[from], index)
 		graph.lengths[index] = indexedLaneLength(lane, network.Nodes[from].Position, network.Nodes[to].Position)
+		graph.edges[index] = routeEdge{from: from, to: to, seconds: graph.lengths[index] / lane.SpeedLimit}
 	}
 	return graph
 }
