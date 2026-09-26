@@ -331,6 +331,53 @@ func TestReleasedPodSkipsHeldOrigin(t *testing.T) {
 	})
 }
 
+// TestReleasedPodYieldsItsOrigin checks that a released pod yields a claim
+// on its origin berth to a passenger pod. All berths other than Harbor 1
+// hold pods. Pod 01 leaves Harbor 1 for a pickup at Market. Dispatch
+// releases it after Clearance, so it goes back to Harbor 1. Pod 02 takes
+// the trip from Market to Harbor. The first cell of the route of pod 01
+// holds the Harbor 1 node, but pod 01 must yield Harbor 1 to pod 02 until
+// its reserved track reaches the berth.
+func TestReleasedPodYieldsItsOrigin(t *testing.T) {
+	t.Parallel()
+	s, err := NewFleet(Example(), []Placement{
+		{ID: "01", StationID: "harbor", BerthID: "harbor-1"},
+		{ID: "02", StationID: "market", BerthID: "market-1"},
+		{ID: "03", StationID: "garden", BerthID: "garden-1"},
+		{ID: "04", StationID: "parking", BerthID: "parking-1"},
+		{ID: "05", StationID: "parking", BerthID: "parking-2"},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	remote, local := s.findVehicle("01"), s.findVehicle("02")
+	if err := s.sendPickup(remote, "market"); err != nil {
+		t.Fatal(err)
+	}
+	stepUntil(t, s, "pod 01 passes Clearance", func() bool { return remote.originReleased })
+	s.requestID = 1
+	s.waiting = []waitingTrip{{request: Request{ID: 1, From: "market", To: "harbor", PartySize: 1, PodID: "01"}}}
+	s.dispatch()
+	if local.Request == nil || local.Request.ID != 1 {
+		t.Fatalf("pod 02 did not take request 1: %+v", local.Vehicle)
+	}
+	checkReleasedTo(t, s, remote, "harbor-1")
+	if !slices.Contains(remote.blocks[0].resources, resource{kind: nodeResource, id: remote.destination.Node}) {
+		t.Fatal("the first cell of the route of pod 01 does not hold the Harbor 1 node")
+	}
+	stepUntil(t, s, "pod 01 yields Harbor 1", func() bool { return berthOwner(s, "harbor-1") != "01" })
+	if local.destination.ID != "harbor-1" {
+		t.Fatalf("pod 01 yielded Harbor 1 before pod 02 went to it: %+v", local.Vehicle)
+	}
+	checkReleasedTo(t, s, remote, remote.destination.ID)
+	if remote.destination.ID == "harbor-1" {
+		t.Fatalf("pod 01 still goes to Harbor 1: %+v", remote.Vehicle)
+	}
+	stepUntil(t, s, "request 1 completes and pod 01 stops", func() bool {
+		return s.completed == 1 && remote.Pod.Activity == Idle
+	})
+}
+
 func TestReleasedPodFinishesCommittedInlet(t *testing.T) {
 	t.Parallel()
 	s, err := NewFleet(twoBerthMarket(), []Placement{

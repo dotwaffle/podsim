@@ -118,13 +118,16 @@ func (s *Simulation) relocationConflictsWithPassenger(relocating *vehicle) bool 
 	return false
 }
 
+// relocationDestinationAdmitted reports whether the reserved track of v
+// reaches its destination berth. routeBlocks adds a berth resource only to
+// the last cell of a lane that ends at the berth. The check does not use the
+// destination node: the first cell of a route holds its start node, and a
+// released pod can go back to its origin berth.
 func (s *Simulation) relocationDestinationAdmitted(v *vehicle) bool {
-	for i := 0; i <= v.reservedThrough && i < len(v.blocks); i++ {
-		for _, claimed := range v.blocks[i].resources {
-			if claimed.kind == berthResource && claimed.id == v.destination.ID ||
-				claimed.kind == nodeResource && claimed.id == v.destination.Node {
-				return true
-			}
+	claim := resource{kind: berthResource, id: v.destination.ID}
+	for _, b := range v.blocks[:min(v.reservedThrough+1, len(v.blocks))] {
+		if slices.Contains(b.resources, claim) {
+			return true
 		}
 	}
 	return false
