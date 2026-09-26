@@ -98,6 +98,9 @@ type Metrics struct {
 
 // Command describes an explicit mutation with a per-client sequence for safe retries.
 // Checkpoint is the save point for a rewind. Other actions ignore it.
+// ServerStart is the server start ID of the state that a project command
+// is based on. When it is not empty and it is not the ID of this session,
+// the project command gets SessionChanged. Other actions ignore it.
 type Command struct {
 	Client          string          `json:"client"`
 	Sequence        uint64          `json:"sequence"`
@@ -111,6 +114,7 @@ type Command struct {
 	Project         *project.Config `json:"project,omitempty"`
 	ProjectRevision uint64          `json:"projectRevision,omitempty"`
 	Checkpoint      uint64          `json:"checkpoint,omitzero"`
+	ServerStart     string          `json:"serverStart,omitempty"`
 }
 
 // CommandErrorCode classifies a rejected command independently of its wording.
@@ -467,6 +471,11 @@ func (s *Session) applyCommand(command Command) commandResult {
 	switch {
 	case command.Epoch != s.epoch:
 		reply.reject(SessionChanged, "The server session changed. Review the current state and try again.")
+	// A restore of an older final save can keep the epoch and the project
+	// revision with a different project. A project command from before the
+	// restart then has the ID of the earlier server process.
+	case command.Action == "project" && command.ServerStart != "" && command.ServerStart != s.serverStart:
+		reply.reject(SessionChanged, "The server restarted. Review the current state and try again.")
 	// A state save stores the client ID, and the JSON encoder accepts only
 	// valid UTF-8.
 	case command.Client == "" || len(command.Client) > maxClientBytes || !utf8.ValidString(command.Client) ||

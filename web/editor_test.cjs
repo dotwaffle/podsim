@@ -1671,15 +1671,16 @@ test("the length of a lane follows its curve", () => {
 // status, which gets command_rejected and a project save error, or an
 // object with the status and the errorCode and error members of the
 // acknowledgment. The server rejects commands with the error codes of the
-// session: session_changed for another epoch, stale_project for a project
-// command with another project revision, and command_rejected for a
-// project command to a running simulation. commands records each command
-// that the editor sent. options.stateSaved is the stateSaved member of the
-// acknowledgment of an applied project. The acknowledgment omits the member
-// when options.stateSaved is undefined.
+// session: session_changed for another epoch or for a project command with
+// another server start ID, stale_project for a project command with another
+// project revision, and command_rejected for a project command to a running
+// simulation. The server start ID starts as "start-1". commands records
+// each command that the editor sent. options.stateSaved is the stateSaved
+// member of the acknowledgment of an applied project. The acknowledgment
+// omits the member when options.stateSaved is undefined.
 function fakeSession(options) {
   const commands = [];
-  const live = { epoch: "epoch-1", revision: options.liveRevision ?? 3, generation: 5, paused: options.paused };
+  const live = { epoch: "epoch-1", serverStart: "start-1", revision: options.liveRevision ?? 3, generation: 5, paused: options.paused };
   const reply = (status, body) => ({ ok: status < 300, status, json: async () => body });
   const acknowledgment = (rejection, command) => ({
     epoch: live.epoch, revision: commands.length, projectRevision: live.revision, generation: live.generation,
@@ -1688,6 +1689,7 @@ function fakeSession(options) {
   });
   const handle = (command) => {
     if (command.epoch !== live.epoch) return { errorCode: "session_changed", error: "The server session changed. Review the current state and try again." };
+    if (command.action === "project" && command.serverStart && command.serverStart !== live.serverStart) return { errorCode: "session_changed", error: "The server restarted. Review the current state and try again." };
     if (command.action === "pause") { live.paused = Boolean(command.paused); return null; }
     if (!live.paused) return { errorCode: "command_rejected", error: "pause the simulation before applying a project" };
     if (command.projectRevision !== live.revision) return { errorCode: "stale_project", error: "the project changed; reload it before applying edits" };
@@ -1697,7 +1699,7 @@ function fakeSession(options) {
   const fetch = async (url, init) => {
     if (url === "/api/project") return reply(200, { revision: live.revision, project: connectedScenario() });
     if (url === "/api/state") {
-      return reply(200, { epoch: live.epoch, projectRevision: live.revision, generation: live.generation, simulation: { Paused: live.paused } });
+      return reply(200, { epoch: live.epoch, serverStart: live.serverStart, projectRevision: live.revision, generation: live.generation, simulation: { Paused: live.paused } });
     }
     const command = JSON.parse(init.body);
     commands.push(command);
@@ -1720,7 +1722,7 @@ const failOn = (action, failure, paused) => (command) => command.action === acti
 test("a failed apply resumes only the simulation that the editor paused", async () => {
   const conflict = "The live scenario changed. Your draft is safe.";
   const saveFailure = "Apply failed. Save project: permission denied.";
-  const sessionChanged = "The server session changed. Reload the page, then select Restore draft.";
+  const sessionChanged = "The server session changed. Export the draft, reload the page, then import the draft.";
   const stopping = { status: 409, errorCode: "server_stopping", error: "The server is stopping. Try again after it restarts." };
   const cases = [
     { name: "apply succeeds", paused: false, wantRevision: 7, wantCommands: ["pause true", "project"], wantPaused: true },
@@ -1814,8 +1816,8 @@ test("a failed apply resumes only the simulation that the editor paused", async 
 test("a failed apply shows the reason from the server", async () => {
   const conflict = "The live scenario changed. Your draft is safe.";
   const conflictStatus = "Apply conflict. Reload the page to get the current live scenario.";
-  const sessionChanged = "The server session changed. Reload the page, then select Restore draft.";
-  const sessionStatus = "The server session changed. Reload the page, then select Restore draft.";
+  const sessionChanged = "The server session changed. Export the draft, reload the page, then import the draft.";
+  const sessionStatus = "The server session changed. Export the draft, reload the page, then import the draft.";
   const failedStatus = "Apply failed. The draft stays on this page.";
   const saveError = "save project: create project file: open /srv/podsim/.podsim-project-1.tmp: permission denied";
   const cases = [
@@ -1874,9 +1876,124 @@ test("an applied project warns when the server could not save the session state"
     const server = fakeSession({ paused: false, stateSaved: item.stateSaved });
     const connection = { fetch: server.fetch, clientID: "editor-test", sequence: 0, epoch: "" };
     const result = await editor.applyToServer({ connection, revision: 3, project: connectedScenario() });
-    assert.deepEqual(result, { revision: 7, stateSaved: item.stateSaved }, item.name);
+    assert.deepEqual(result, { revision: 7, stateSaved: item.stateSaved, serverStart: "start-1" }, item.name);
     assert.deepEqual(editor.applyToast(result), [item.wantMessage, item.wantWarning], item.name);
   }
+});
+
+test("the project command sends the server start ID of the draft", async () => {
+  const sessionChanged = "The server session changed. Export the draft, reload the page, then import the draft.";
+  // want gives the server start ID in the project command, or null for a
+  // command without the member.
+  const cases = [
+    { name: "the draft and the server have the same server start ID", serverStart: "start-1", wantCommands: ["pause true", "project"], want: "start-1", wantRevision: 7 },
+    { name: "a draft without a server start ID", serverStart: "", wantCommands: ["pause true", "project"], want: null, wantRevision: 7 },
+    {
+      name: "the server restarted before the apply", serverStart: "start-0", wantCommands: [], wantPaused: false,
+      wantPause: "not-paused", wantText: `${sessionChanged} The simulation was not paused.`,
+    },
+    {
+      name: "the server restarted before the apply with another project revision", serverStart: "start-0", liveRevision: 4, wantCommands: [], wantPaused: false,
+      wantPause: "not-paused", wantText: `${sessionChanged} The simulation was not paused.`,
+    },
+    {
+      name: "the server restarted after the pause with the same epoch", serverStart: "start-1",
+      before: (command, live) => { if (command.action === "project") Object.assign(live, { serverStart: "start-2", generation: live.generation + 1 }); return false; },
+      wantCommands: ["pause true", "project"], want: "start-1", wantPaused: true,
+      wantPause: "restarted", wantText: `${sessionChanged} The simulation restarted after the pause. The editor did not resume it.`,
+    },
+  ];
+  for (const item of cases) {
+    const server = fakeSession({ paused: false, before: item.before, liveRevision: item.liveRevision });
+    const connection = { fetch: server.fetch, clientID: "editor-test", sequence: 0, epoch: "" };
+    let applied = null;
+    let error = null;
+    try {
+      applied = await editor.applyToServer({ connection, revision: 3, serverStart: item.serverStart, project: connectedScenario() });
+    } catch (caught) { error = caught; }
+
+    if (item.wantPause) {
+      assert.ok(error, item.name);
+      assert.equal(error.errorCode, "session_changed", item.name);
+      assert.equal(error.pause, item.wantPause, item.name);
+      assert.equal(editor.applyFailureText(error), item.wantText, item.name);
+      assert.equal(server.live.revision, item.liveRevision ?? 3, item.name);
+    } else {
+      assert.equal(error, null, item.name);
+      assert.equal(applied.revision, item.wantRevision, item.name);
+      assert.equal(applied.serverStart, "start-1", item.name);
+    }
+    assert.deepEqual(server.commands.map((command) => (command.action === "pause" ? `pause ${command.paused}` : command.action)), item.wantCommands, item.name);
+    const project = server.commands.find((command) => command.action === "project");
+    if (project) assert.equal("serverStart" in project ? project.serverStart : null, item.want, item.name);
+    if ("wantPaused" in item) assert.equal(server.live.paused, item.wantPaused, item.name);
+  }
+});
+
+// snapshotServer gives a fake server for the GET requests of readSnapshot.
+// Before each request, change gets the URL, the number of the request from
+// 1, and live, so it can restart the server between two reads. urls
+// records each request.
+function snapshotServer(change = () => {}) {
+  const live = { epoch: "epoch-1", serverStart: "start-1", revision: 3, name: "Old" };
+  const urls = [];
+  const reply = (body) => ({ ok: true, status: 200, json: async () => body });
+  const fetch = async (url) => {
+    urls.push(url); change(url, urls.length, live);
+    if (url === "/api/project") return reply({ revision: live.revision, project: { ...connectedScenario(), name: live.name } });
+    return reply({ epoch: live.epoch, serverStart: live.serverStart, projectRevision: live.revision, generation: 5, simulation: { Paused: true } });
+  };
+  return { live, urls, connection: { fetch, clientID: "editor-test", sequence: 0, epoch: "" } };
+}
+
+// restoreOn gives a change function for snapshotServer. Before request
+// number, the server restarts and restores a different project with the
+// same epoch and project revision.
+const restoreOn = (number) => (_, count, live) => { if (count === number) Object.assign(live, { serverStart: "start-2", name: "Restored" }); };
+
+test("readSnapshot gives the project and the server start ID of one server state", async () => {
+  const cases = [
+    { name: "a stable server", want: { name: "Old", serverStart: "start-1", revision: 3 }, wantReads: 3 },
+    { name: "a restart between the project read and the second state read", change: restoreOn(3), want: { name: "Restored", serverStart: "start-2", revision: 3 }, wantReads: 6 },
+    { name: "a restart between the first state read and the project read", change: restoreOn(2), want: { name: "Restored", serverStart: "start-2", revision: 3 }, wantReads: 6 },
+    {
+      name: "a project apply between the project read and the second state read",
+      change: (_, count, live) => { if (count === 3) Object.assign(live, { revision: 4, name: "Applied" }); }, want: { name: "Applied", serverStart: "start-1", revision: 4 }, wantReads: 6,
+    },
+    {
+      name: "a server that restarts before each state read", change: (url, count, live) => { if (url === "/api/state") live.serverStart = `start-${count}`; },
+      wantError: "The live scenario changed during each read.", wantReads: 3 * editor.SNAPSHOT_ATTEMPTS,
+    },
+  ];
+  for (const item of cases) {
+    const server = snapshotServer(item.change);
+    const got = await editor.readSnapshot(server.connection).then((snapshot) => snapshot, (error) => error);
+    assert.equal(server.urls.length, item.wantReads, `${item.name}: reads`);
+    assert.deepEqual(server.urls.slice(0, 3), ["/api/state", "/api/project", "/api/state"], item.name);
+    if (item.wantError) {
+      assert.ok(got instanceof Error, item.name);
+      assert.equal(got.message, item.wantError, item.name);
+      assert.equal(editor.applyFailureText({ message: got.message, pause: "not-paused" }), `Apply failed. ${item.wantError} The simulation was not paused.`, item.name);
+      continue;
+    }
+    const { project, state } = got;
+    assert.deepEqual({ name: project.project.name, serverStart: state.serverStart, revision: state.projectRevision }, item.want, item.name);
+    assert.equal(project.revision, state.projectRevision, item.name);
+  }
+});
+
+test("snapshotConsistent accepts only reads of one server state", () => {
+  const state = { epoch: "epoch-1", serverStart: "start-1", projectRevision: 3 };
+  const project = { revision: 3, project: {} };
+  const cases = [
+    { name: "the same state", before: state, project, want: true },
+    { name: "an older server without a server start ID", before: { ...state, serverStart: "" }, after: { ...state, serverStart: "" }, project, want: true },
+    { name: "another server start ID", before: { ...state, serverStart: "start-0" }, project, want: false },
+    { name: "another epoch", before: { ...state, epoch: "epoch-0" }, project, want: false },
+    { name: "another project revision", before: state, project: { ...project, revision: 2 }, want: false },
+    { name: "a project reply without a revision", before: state, project: { project: {} }, want: false },
+  ];
+  for (const item of cases) assert.equal(editor.snapshotConsistent(item.before, item.project, item.after ?? state), item.want, item.name);
 });
 
 // DRAFT_KEY is the record key of the keeper tests, a server origin.
@@ -1885,7 +2002,7 @@ const DRAFT_KEY = "http://podsim.test";
 // savedRecord gives a draft record, as the editor saves it, with a scenario
 // name that the tests can check.
 function savedRecord(name, revision = 3) {
-  return { scenario: { ...connectedScenario(), name }, background: null, revision, epoch: "epoch-1" };
+  return { scenario: { ...connectedScenario(), name }, background: null, revision, epoch: "epoch-1", serverStart: "start-1" };
 }
 
 // fakeDraftStore gives a draft store for createDraftKeeper that keeps the
@@ -2171,9 +2288,10 @@ test("Pause and apply needs a scenario change, and the saved draft also keeps th
 test("the page offers a saved draft only when it differs from the live scenario", () => {
   const background = { dataURL: "data:image/png;base64,AAAA", x: 0, y: 0, width: 400, height: 200, opacity: 0.45 };
   const live = { scenario: JSON.stringify(connectedScenario()), background: null, revision: 5 };
-  const liveRecord = { scenario: connectedScenario(), background: null, revision: 5, epoch: "epoch-1" };
-  // want gives the revision, the epoch, the scenario name, and the
-  // background of the offer, or null for no offer.
+  const liveRecord = { scenario: connectedScenario(), background: null, revision: 5, epoch: "epoch-1", serverStart: "start-1" };
+  const olderRecord = savedRecord("Changed"); delete olderRecord.serverStart;
+  // want gives the revision, the epoch, the server start ID, the scenario
+  // name, and the background of the offer, or null for no offer.
   const cases = [
     { name: "no saved draft", record: null, want: null },
     { name: "a record that is not an object", record: "draft", want: null },
@@ -2181,14 +2299,16 @@ test("the page offers a saved draft only when it differs from the live scenario"
     { name: "a scenario that is an array", record: { scenario: [], revision: 3 }, want: null },
     { name: "the live scenario", record: liveRecord, want: null },
     { name: "the live scenario and a background without a data URL", record: { ...liveRecord, background: { x: 1 } }, want: null },
-    { name: "a changed scenario", record: savedRecord("Changed"), want: { revision: 3, epoch: "epoch-1", name: "Changed", background: null } },
-    { name: "the live scenario and a background", record: { ...liveRecord, background }, want: { revision: 5, epoch: "epoch-1", name: liveRecord.scenario.name, background } },
-    { name: "a revision that is not a number", record: { ...savedRecord("Changed"), revision: "x" }, want: { revision: 0, epoch: "epoch-1", name: "Changed", background: null } },
-    { name: "an epoch that is not a string", record: { ...savedRecord("Changed"), epoch: 7 }, want: { revision: 3, epoch: "", name: "Changed", background: null } },
+    { name: "a changed scenario", record: savedRecord("Changed"), want: { revision: 3, epoch: "epoch-1", serverStart: "start-1", name: "Changed", background: null } },
+    { name: "the live scenario and a background", record: { ...liveRecord, background }, want: { revision: 5, epoch: "epoch-1", serverStart: "start-1", name: liveRecord.scenario.name, background } },
+    { name: "a revision that is not a number", record: { ...savedRecord("Changed"), revision: "x" }, want: { revision: 0, epoch: "epoch-1", serverStart: "start-1", name: "Changed", background: null } },
+    { name: "an epoch that is not a string", record: { ...savedRecord("Changed"), epoch: 7 }, want: { revision: 3, epoch: "", serverStart: "start-1", name: "Changed", background: null } },
+    { name: "a record from an older editor without a server start ID", record: olderRecord, want: { revision: 3, epoch: "epoch-1", serverStart: "", name: "Changed", background: null } },
+    { name: "a server start ID that is not a string", record: { ...savedRecord("Changed"), serverStart: 7 }, want: { revision: 3, epoch: "epoch-1", serverStart: "", name: "Changed", background: null } },
   ];
   for (const item of cases) {
     const offer = editor.draftOffer(item.record, live);
-    assert.deepEqual(offer && { revision: offer.revision, epoch: offer.epoch, name: offer.draft.scenario.name, background: offer.draft.background }, item.want, item.name);
+    assert.deepEqual(offer && { revision: offer.revision, epoch: offer.epoch, serverStart: offer.serverStart, name: offer.draft.scenario.name, background: offer.draft.background }, item.want, item.name);
   }
 
   const texts = [
@@ -2200,6 +2320,19 @@ test("the page offers a saved draft only when it differs from the live scenario"
     { name: "no live scenario", offer: { revision: 3, live: null }, want: "This browser has a saved draft that is not applied. The draft is based on revision 3." },
   ];
   for (const item of texts) assert.equal(editor.draftOfferText(item.offer), item.want, item.name);
+});
+
+test("the saved draft record keeps the draft base through the draft store", async () => {
+  const live = { scenario: JSON.stringify(connectedScenario()), background: null, revision: 5 };
+  const changed = { scenario: { ...connectedScenario(), name: "Changed" }, background: null };
+  const base = { revision: 3, epoch: "epoch-1", serverStart: "start-1" };
+  assert.equal(editor.draftRecordFor(changed, null, base), null, "no live baseline");
+  assert.equal(editor.draftRecordFor({ scenario: connectedScenario(), background: null }, live, base), null, "no changes");
+
+  const store = fakeDraftStore(null);
+  await store.put(DRAFT_KEY, editor.draftRecordFor(changed, live, base));
+  const offer = editor.draftOffer(await store.get(DRAFT_KEY), live);
+  assert.deepEqual({ revision: offer.revision, epoch: offer.epoch, serverStart: offer.serverStart, name: offer.draft.scenario.name }, { ...base, name: "Changed" });
 });
 
 test("the status after a restore names the live changes that an older draft replaces", () => {
@@ -2232,8 +2365,8 @@ test("a failed apply tells the user to export a draft that the browser does not 
     },
     {
       name: "a kept draft and a new session", error: session, note: "",
-      wantText: "The server session changed. Reload the page, then select Restore draft. The simulation was not paused.",
-      wantStatus: "The server session changed. Reload the page, then select Restore draft.",
+      wantText: "The server session changed. Export the draft, reload the page, then import the draft. The simulation was not paused.",
+      wantStatus: "The server session changed. Export the draft, reload the page, then import the draft.",
     },
     {
       name: "unsaved changes and a new session", error: session, note: unsaved,

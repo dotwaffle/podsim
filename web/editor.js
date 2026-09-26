@@ -1288,20 +1288,63 @@
     return `${frame.epoch || frame.Epoch || ""} ${frame.generation ?? frame.Generation ?? 0}`;
   }
 
+  // SNAPSHOT_ATTEMPTS is the maximum number of read passes of readSnapshot.
+  const SNAPSHOT_ATTEMPTS = 3;
+
+  // snapshotConsistent tells if before, the first state read, project, the
+  // project reply, and after, the second state read, show one server state.
+  // Both state reads must have the same server start ID and epoch, and the
+  // project revision must be the project revision of after.
+  function snapshotConsistent(before, project, after) {
+    const start = (state) => state.serverStart || state.ServerStart || "";
+    const epoch = (state) => state.epoch || state.Epoch || "";
+    const revision = project.revision ?? project.Revision;
+    return start(before) === start(after) && epoch(before) === epoch(after) && revision !== undefined && Number(revision) === Number(after.projectRevision ?? after.ProjectRevision);
+  }
+
+  // readSnapshot reads the live project and the live state as one
+  // snapshot. It gives project, the project reply, and state, the state
+  // that has the same server start ID, epoch and project revision. The
+  // server gives the project and the state in two requests. A server
+  // restart between them can restore a different project with the same
+  // revision, so the old project could get the new server start ID. Thus
+  // readSnapshot reads the state, the project, then the state again, and
+  // accepts the reads only when snapshotConsistent is true. Else it reads
+  // again, for a maximum of attempts passes, then throws an error.
+  async function readSnapshot(connection, attempts = SNAPSHOT_ATTEMPTS) {
+    for (let pass = 0; pass < attempts; pass += 1) {
+      const before = await getJSON(connection, "/api/state");
+      const project = await getJSON(connection, "/api/project");
+      const state = await getJSON(connection, "/api/state");
+      if (!project || !(project.project || project.Project)) throw new Error("The server returned no scenario.");
+      if (before && state && snapshotConsistent(before, project, state)) return { project, state };
+    }
+    throw new Error("The live scenario changed during each read.");
+  }
+
   // applyToServer applies a project to the live session. It gives revision,
-  // the new project revision, and stateSaved, the stateSaved member of the
-  // reply. stateSaved is false when the server could not save the session
-  // state before its reply, and undefined when the reply does not have the
-  // member. The server applies a project only while the simulation is
-  // paused, so applyToServer pauses the simulation first. apply.revision is
-  // the live project revision that the draft started from. apply.onApplying
-  // runs after the pause, when it is set.
+  // the new project revision, stateSaved, the stateSaved member of the
+  // reply, and serverStart, the server start ID that it read before the
+  // pause, or an empty string. stateSaved is false when the server could
+  // not save the session state before its reply, and undefined when the
+  // reply does not have the member. The server applies a project only while
+  // the simulation is paused, so applyToServer pauses the simulation first.
+  // apply.revision is the live project revision that the draft started
+  // from. apply.onApplying runs after the pause, when it is set.
+  // apply.serverStart is the server start ID of the state that the draft
+  // started from, or an empty string. The project command sends it when it
+  // is not empty, so the server rejects a draft from before a server
+  // restart.
   //
   // A failure error has status, the HTTP status of a rejected command,
   // errorCode, the error code of a rejected command, and pause, the state of
-  // the simulation after the failure. When the live project revision is not
-  // apply.revision before the pause, the error has status 409 and errorCode
-  // "stale_project", as the server gives. The pause values are:
+  // the simulation after the failure. Before the pause, the editor reads
+  // the live project and state with readSnapshot, and does the checks of
+  // the server in the same order. When the live server start ID
+  // is not apply.serverStart, the error has status 409 and errorCode
+  // "session_changed". Else, when the live project revision is not
+  // apply.revision, the error has status 409 and errorCode "stale_project".
+  // The pause values are:
   // - "not-paused": the editor did not pause the simulation.
   // - "was-paused": the simulation was paused before the apply and stays paused.
   // - "resumed": the editor paused the simulation, then resumed it.
@@ -1314,11 +1357,14 @@
     let wasPaused = false;
     let simulation = "";
     try {
-      const current = await getJSON(connection, "/api/project");
+      const { project: current, state: live } = await readSnapshot(connection);
+      const liveStart = live.serverStart || live.ServerStart || "";
+      if (apply.serverStart && liveStart && liveStart !== apply.serverStart) {
+        const error = new Error("The server session changed."); error.status = 409; error.errorCode = "session_changed"; throw error;
+      }
       if (Number(current.revision ?? current.Revision ?? 0) !== apply.revision) {
         const error = new Error("The live scenario changed."); error.status = 409; error.errorCode = "stale_project"; throw error;
       }
-      const live = await getJSON(connection, "/api/state");
       if (!connection.epoch) connection.epoch = live.epoch || live.Epoch || "";
       wasPaused = Boolean(live.simulation && live.simulation.Paused);
       simulation = simulationID(live);
@@ -1326,10 +1372,10 @@
       await postCommand(connection, { action: "pause", paused: true });
       step = "project";
       if (apply.onApplying) apply.onApplying();
-      const reply = await postCommand(connection, { action: "project", projectRevision: apply.revision, project: apply.project });
+      const reply = await postCommand(connection, { action: "project", projectRevision: apply.revision, project: apply.project, ...(apply.serverStart ? { serverStart: apply.serverStart } : {}) });
       const replyState = reply && (reply.state || reply.State || reply);
       const revision = Number(reply?.projectRevision ?? reply?.ProjectRevision ?? (replyState && (replyState.projectRevision ?? replyState.ProjectRevision)) ?? apply.revision + 1);
-      return { revision, stateSaved: reply?.stateSaved };
+      return { revision, stateSaved: reply?.stateSaved, serverStart: liveStart };
     } catch (error) {
       error.pause = await pauseAfterFailure({ connection, error, step, wasPaused, simulation });
       throw error;
@@ -1374,16 +1420,18 @@
   // APPLY_FAILURE gives the reason and the status line for the error codes
   // of a failed apply that need their own text. "stale_project" is a
   // conflict with the live project. "session_changed" is a server restart.
-  // The page keeps the epoch that it loaded, so each later apply also fails.
-  // The browser keeps the draft, so after a reload the editor offers it
-  // again. When the browser does not keep the draft, a reload loses it.
-  // Then the editor uses the local text of the error code, or adds a note
-  // about the saved draft to the text.
+  // The page keeps the epoch and the server start ID that it loaded, so
+  // each later apply also fails. A restored draft keeps the server start ID
+  // that it was saved with, so it also fails after a reload. An import sets
+  // the server start ID of the draft to the ID of the page, so the text
+  // tells the user to export the draft and import it after a reload. When
+  // the browser does not keep the draft, the editor uses the local text of
+  // the error code, or adds a note about the saved draft to the text.
   const APPLY_FAILURE = new Map([
     ["stale_project", { reason: "The live scenario changed. Your draft is safe.", status: "Apply conflict. Reload the page to get the current live scenario." }],
     ["session_changed", {
-      reason: "The server session changed. Reload the page, then select Restore draft.",
-      status: "The server session changed. Reload the page, then select Restore draft.",
+      reason: "The server session changed. Export the draft, reload the page, then import the draft.",
+      status: "The server session changed. Export the draft, reload the page, then import the draft.",
       local: {
         reason: "The server session changed. The draft stays on this page. Export the draft, reload the page, then import the draft.",
         status: "The server session changed. Export the draft, reload the page, then import the draft.",
@@ -1572,13 +1620,26 @@
     };
   }
 
+  // draftRecordFor gives the record that the keeper saves for draft: the
+  // scenario, the background with its calibration, and the revision, the
+  // epoch and the server start ID of base, the draft base. It gives null
+  // when live is null, which is before the load ends, and when the draft
+  // has no changes from the live baseline.
+  function draftRecordFor(draft, live, base) {
+    if (!live) return null;
+    const changes = draftChanges(draft, live);
+    return changes.scenario || changes.background ? { scenario: draft.scenario, background: draft.background, revision: base.revision, epoch: base.epoch, serverStart: base.serverStart } : null;
+  }
+
   // draftOffer gives the saved draft that the editor offers to restore, or
   // null. record is the record that createDraftKeeper saved, and live is
   // the live baseline, as draftChanges uses it. The editor offers a record
   // that has a scenario object and differs from the live baseline. A
   // background without a data URL does not count. revision is the project
-  // revision that the draft started from, and epoch is the session epoch
-  // of that revision.
+  // revision that the draft started from, epoch is the session epoch of
+  // that revision, and serverStart is the server start ID of that state.
+  // A record from an older editor has no serverStart, so it gets an empty
+  // string.
   function draftOffer(record, live) {
     const isObject = (value) => value !== null && typeof value === "object" && !Array.isArray(value);
     if (!isObject(record) || !isObject(record.scenario)) return null;
@@ -1586,7 +1647,8 @@
     const draft = { scenario: record.scenario, background };
     const changes = draftChanges(draft, live);
     if (!changes.scenario && !changes.background) return null;
-    return { draft, revision: Math.max(0, Math.floor(Number(record.revision) || 0)), epoch: typeof record.epoch === "string" ? record.epoch : "" };
+    const text = (value) => (typeof value === "string" ? value : "");
+    return { draft, revision: Math.max(0, Math.floor(Number(record.revision) || 0)), epoch: text(record.epoch), serverStart: text(record.serverStart) };
   }
 
   // draftOfferText gives the text of the saved draft offer. offer.revision
@@ -1621,8 +1683,8 @@
     stationBearing, stationShape, rotateStation, setStationBearing, nextBerthPosition, removeBerth, moveStation, moveNode, deleteNode, deleteLane, deleteStation, stationFlowCount, setFleetCount, fleetRows, selectionCard, berthFocusID, undoFocus, setDemandPattern,
     laneLength, curveLength, reachable, cutOffStations, stationNodeOwners, dragTargets, validateConfig, configWarnings, checkResults, checkSelector, checkSelection, selectionPoint, focusView,
     problemCountText, createCheckTimer, validationSummary, checkFocusKey, serializeDocument, parseDocument, createHistory,
-    networkBounds, fitView, zoomScale, nodeLabelSize, pairedLaneIDs, showsChevron, laneOffset, laneCurve, lanePathData, applyToServer, applyFailureText, applyFailureStatus, applyToast,
-    DRAFT_SAVE_DELAY, DRAFT_STORE_TEXT, DRAFT_UNSAVED_TEXT, DRAFT_DISPLACED_TEXT, openDraftStore, createDraftKeeper, draftChanges, draftOffer, draftOfferText, restoreStatusText, shellPage,
+    networkBounds, fitView, zoomScale, nodeLabelSize, pairedLaneIDs, showsChevron, laneOffset, laneCurve, lanePathData, SNAPSHOT_ATTEMPTS, snapshotConsistent, readSnapshot, applyToServer, applyFailureText, applyFailureStatus, applyToast,
+    DRAFT_SAVE_DELAY, DRAFT_STORE_TEXT, DRAFT_UNSAVED_TEXT, DRAFT_DISPLACED_TEXT, openDraftStore, createDraftKeeper, draftChanges, draftRecordFor, draftOffer, draftOfferText, restoreStatusText, shellPage,
   };
   if (typeof module !== "undefined" && module.exports) module.exports = API;
   root.PodsimEditorModel = API;
@@ -1646,6 +1708,9 @@
     background: null,
     loaded: null,
     loadedRevision: 0,
+    // loadedStart is the server start ID of the state that the page loaded
+    // or last applied, or an empty string when the server does not send it.
+    loadedStart: "",
     // live is the live baseline for draftChanges. It has the scenario text
     // and the background after the load or the last apply, and revision,
     // the live project revision, or null when the live scenario did not
@@ -1654,11 +1719,13 @@
     // offer is the saved draft that the page offers to restore, as
     // draftOffer gives it, or null.
     offer: null,
-    // draftBase is the project revision and the session epoch that the
-    // draft started from. The load, a successful apply and Reset draft set
-    // it to the loaded revision. Restore draft sets it to the revision of
-    // the saved draft. Pause and apply always sends loadedRevision.
-    draftBase: { revision: 0, epoch: "" },
+    // draftBase is the project revision, the session epoch and the server
+    // start ID that the draft started from. The load, a successful apply and
+    // Reset draft set it to the loaded revision and loadedStart. Restore
+    // draft sets it to the values of the saved draft. Import JSON sets its
+    // server start ID to loadedStart. Pause and apply always sends
+    // loadedRevision, and it sends the server start ID of draftBase.
+    draftBase: { revision: 0, epoch: "", serverStart: "" },
     applying: false,
     connection: {
       fetch: (url, init) => root.fetch(url, init),
@@ -2052,15 +2119,9 @@
   // draft save, or null when the browser has no BroadcastChannel.
   function draftChannel() { try { return typeof root.BroadcastChannel === "function" ? new root.BroadcastChannel("podsim-editor-drafts") : null; } catch (_) { return null; } }
 
-  // draftRecord gives the record that the keeper saves: the draft, the
-  // background with its calibration, and the revision and the epoch in
-  // state.draftBase. It gives null when the draft has no changes from the
-  // live baseline, or before the load ends.
-  function draftRecord() {
-    if (!state.live) return null;
-    const value = state.history.value; const changes = draftChanges(value, state.live);
-    return changes.scenario || changes.background ? { scenario: value.scenario, background: value.background, revision: state.draftBase.revision, epoch: state.draftBase.epoch } : null;
-  }
+  // draftRecord gives the record that the keeper saves for the draft of
+  // this page, as draftRecordFor gives it with state.draftBase.
+  function draftRecord() { return draftRecordFor(state.history.value, state.live, state.draftBase); }
 
   // showDraftStatus tells the user when the status of the saved draft
   // changes. A failure also shows the error toast.
@@ -2104,14 +2165,16 @@
   }
 
   // restoreDraft puts the saved draft back and starts a new undo history.
-  // The draft keeps the revision and the epoch that it started from, so a
-  // later offer names them. Pause and apply sends the live revision of this
-  // page, so it replaces the live scenario. The draft is not the live
-  // baseline, so it counts as changed.
+  // The draft keeps the revision, the epoch and the server start ID that it
+  // started from, so a later offer names them. Pause and apply sends the
+  // live revision of this page, so it replaces the live scenario. It also
+  // sends the server start ID of the draft, so the server rejects a draft
+  // from before a server restart. The draft is not the live baseline, so it
+  // counts as changed.
   function restoreDraft(event) {
     if (!state.offer) return;
-    const { draft: saved, revision, epoch } = state.offer; closeOffer(event);
-    state.draftBase = { revision, epoch };
+    const { draft: saved, revision, epoch, serverStart } = state.offer; closeOffer(event);
+    state.draftBase = { revision, epoch, serverStart };
     state.history.reset({ scenario: normalizeConfig(saved.scenario), background: saved.background ? clone(saved.background) : null });
     state.selection = null; render(); fitNetwork(); checks.run(); keeper.arm();
     updateStatus(restoreStatusText({ revision, live: state.live.revision }));
@@ -2278,16 +2341,18 @@
   // first render, because renderDemand can set the demand destination.
   // When the live scenario cannot load, the local fallback draft is the
   // baseline. Then the editor offers a saved draft that is different.
+  // readSnapshot gives the live scenario with the revision, the epoch and
+  // the server start ID of the same server state.
   async function loadServerProject() {
     updateStatus("Loading the live scenario…");
     const saved = keeper.load();
     try {
-      const [projectReply, liveState] = await Promise.all([getJSON(state.connection, "/api/project"), getJSON(state.connection, "/api/state")]);
-      if (!projectReply || !(projectReply.project || projectReply.Project)) throw new Error("The server returned no scenario.");
+      const { project: projectReply, state: liveState } = await readSnapshot(state.connection);
       const project = normalizeConfig(projectReply.project || projectReply.Project);
-      state.loadedRevision = Number(projectReply.revision ?? projectReply.Revision ?? liveState.projectRevision ?? liveState.ProjectRevision ?? 0);
+      state.loadedRevision = Number(liveState.projectRevision ?? liveState.ProjectRevision);
       state.connection.epoch = liveState.epoch || liveState.Epoch || "";
-      state.draftBase = { revision: state.loadedRevision, epoch: state.connection.epoch };
+      state.loadedStart = liveState.serverStart || liveState.ServerStart || "";
+      state.draftBase = { revision: state.loadedRevision, epoch: state.connection.epoch, serverStart: state.loadedStart };
       state.loaded = { scenario: clone(project), background: null };
       state.history.reset(state.loaded); state.background = null; state.selection = null;
       render(); setLive(state.history.value, state.loadedRevision); fitNetwork();
@@ -2314,8 +2379,11 @@
     keeper.flush();
     try {
       const project = draft();
-      const applied = await applyToServer({ connection: state.connection, revision: state.loadedRevision, project, onApplying: () => { button.textContent = "Applying…"; } });
-      state.loadedRevision = applied.revision; state.draftBase = { revision: applied.revision, epoch: state.connection.epoch };
+      const applied = await applyToServer({ connection: state.connection, revision: state.loadedRevision, serverStart: state.draftBase.serverStart, project, onApplying: () => { button.textContent = "Applying…"; } });
+      // A restored draft from an older editor has no server start ID. The
+      // applied state then gets the ID that the apply read.
+      const serverStart = applied.serverStart || state.draftBase.serverStart;
+      state.loadedRevision = applied.revision; state.loadedStart = serverStart; state.draftBase = { revision: applied.revision, epoch: state.connection.epoch, serverStart };
       state.loaded = { scenario: project, background: state.background ? clone(state.background) : null };
       setLive(state.loaded, applied.revision); renderOffer();
       if (!state.offer) { keeper.clear(); keeper.arm(); }
@@ -2327,6 +2395,11 @@
     } finally { state.applying = false; renderApply(); button.textContent = "Pause and apply"; }
   }
 
+  // importProject replaces the draft with a project file and makes the file
+  // the baseline of Reset draft. The file has no draft base, so the draft
+  // gets the server start ID of the loaded project. A file that the user
+  // exported before a server restart then applies after a reload, also
+  // after Restore draft.
   function importProject(file) {
     if (!file) return;
     if (file.size > 10 * 1024 * 1024) { toast("The project file must be 10 MB or smaller.", true); return; }
@@ -2336,6 +2409,7 @@
       try {
         const imported = parseDocument(String(reader.result));
         state.history.replace(imported); state.background = imported.background; state.loaded = clone(imported); state.selection = null;
+        state.draftBase = { ...state.draftBase, serverStart: state.loadedStart };
         render(); fitNetwork(); checks.run(); toast("The project was imported into the draft.");
       } catch (error) { toast(`${error.message} The draft is unchanged.`, true); }
     };
@@ -2380,7 +2454,7 @@
     $("#zoomOutButton").addEventListener("click", () => { const rect = $("#networkMap").getBoundingClientRect(); zoomAt(.8, rect.left + rect.width / 2, rect.top + rect.height / 2); });
     $("#fitButton").addEventListener("click", fitNetwork); $("#cancelLinkButton").addEventListener("click", () => { state.linkFrom = ""; render(); });
     $("#undoButton").addEventListener("click", () => stepHistory(false)); $("#redoButton").addEventListener("click", () => stepHistory(true));
-    $("#resetButton").addEventListener("click", () => { if (!state.loaded) return; state.draftBase = { revision: state.loadedRevision, epoch: state.connection.epoch }; state.history.replace(state.loaded); state.background = state.loaded.background ? clone(state.loaded.background) : null; state.selection = null; render(); fitNetwork(); toast("The draft matches the last loaded project."); });
+    $("#resetButton").addEventListener("click", () => { if (!state.loaded) return; state.draftBase = { revision: state.loadedRevision, epoch: state.connection.epoch, serverStart: state.loadedStart }; state.history.replace(state.loaded); state.background = state.loaded.background ? clone(state.loaded.background) : null; state.selection = null; render(); fitNetwork(); toast("The draft matches the last loaded project."); });
     $("#validateButton").addEventListener("click", () => checks.run()); $("#applyButton").addEventListener("click", applyProject);
     $("#restoreDraftButton").addEventListener("click", restoreDraft); $("#discardDraftButton").addEventListener("click", discardDraft);
     // In the shell page, the return link asks the shell to show the game.

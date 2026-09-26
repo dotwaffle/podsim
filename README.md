@@ -477,7 +477,7 @@ The draft stays local until you select **Pause and apply**.
 
 The browser saves the draft in IndexedDB 300 ms after the last change.
 The saved draft has the scenario and the background image with its calibration.
-It also has the project revision that the draft is based on, and the session epoch of that revision.
+It also has the project revision that the draft is based on, the session epoch of that revision, and the server start ID of that state.
 The browser keeps one saved draft for each server address.
 After a successful apply, the browser deletes the saved draft.
 
@@ -486,9 +486,11 @@ If they are different, the **Saved draft** bar shows the revision that the draft
 If the live revision is different, the bar also shows it.
 Select **Restore draft** to put the saved draft back.
 The undo history then starts from the restored draft.
-The restored draft is not applied, and it keeps the revision that it is based on.
+The restored draft is not applied, and it keeps the revision that it is based on and the server start ID of that state.
 **Pause and apply** then replaces the live scenario, also when the draft is based on an older revision.
 The status line tells you when it replaces newer live changes.
+If the server restarted after the draft started, the apply fails.
+See [Apply a draft](#apply-a-draft).
 Select **Discard draft** to delete the saved draft and keep the live scenario.
 Until you select one of the two buttons, the browser does not save new changes.
 If you apply while the **Saved draft** bar shows, the browser keeps the saved draft, and the bar stays.
@@ -524,9 +526,13 @@ Reload the page to get the restored project.
 If the browser saved the draft, the editor offers it after the reload.
 
 For other failures, the editor shows the reason from the server, for example a project file that the server cannot save.
-If the server restarted with a new session, the open editor cannot apply the draft.
-Reload the page, then select **Restore draft**.
-If the browser did not save the draft, the editor tells you to export the draft, reload the page, then import the draft.
+If the server restarted after the draft started, the apply fails.
+This also applies to a restored draft from before the restart, because a restart can restore a different project with the same session epoch and project revision.
+To read the live project, the editor reads the live state before and after it.
+The editor uses the project only when both state reads show the same server start ID, session epoch and project revision.
+Else it reads the state and the project again, for a maximum of three attempts.
+To apply the draft, export the draft, reload the page, then import the draft.
+An imported draft gets the server start ID of the reloaded page, also after **Restore draft**.
 
 ### Project files and validation
 

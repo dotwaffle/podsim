@@ -88,7 +88,7 @@ The other members depend on the action:
 | `reset` | None | Restores the project fleet and demand settings, and clears the orders. It sets the speed to 1 and keeps the pause state. |
 | `demo` | None | Resets the run, starts the traffic demo, disables automatic demand, and sets the speed to 1. It needs the unchanged example network and fleet. |
 | `demand` | `demand`: the `demand` object of a project | Replaces the demand settings of the project and increases the project revision. The server rejects it during the demo. |
-| `project` | `project`: the `project` object from `GET /api/project`. `projectRevision`: the `revision` from `GET /api/project`, an integer | Replaces the project and increases the project revision. The new fleet starts paused at speed 1. The session must be paused, and `projectRevision` must be the current project revision. When the session is paused and `projectRevision` is not the current project revision, the command gets `stale_project`. |
+| `project` | `project`: the `project` object from `GET /api/project`. `projectRevision`: the `revision` from `GET /api/project`, an integer. `serverStart`: optional, the `serverStart` from `GET /api/state` when the project loaded, a string | Replaces the project and increases the project revision. The new fleet starts paused at speed 1. The session must be paused, and `projectRevision` must be the current project revision. When the session is paused and `projectRevision` is not the current project revision, the command gets `stale_project`. When `serverStart` is set and is not the `serverStart` of the server process, the command gets `session_changed`. |
 | `checkpoint` | None | Makes a save point. |
 | `rewind` | `checkpoint`: save point ID, an integer | Restores the save point and pauses the session. |
 
@@ -121,6 +121,8 @@ After a server restart, a sequence from before the restart can also get `expired
 See [server restarts](#server-restarts).
 
 A command from another epoch gets `session_changed`.
+A `project` command with a `serverStart` that is not the `serverStart` of the server process also gets `session_changed`.
+Other actions ignore `serverStart`.
 A missing client ID, a client ID that is longer than 100 bytes or is not valid UTF-8, or a zero sequence gets `invalid_command`.
 After the server records commands from 1,024 clients, a command from a new client gets `client_limit`.
 A command that the server cannot apply gets `command_rejected`.
@@ -234,6 +236,8 @@ The server does not keep the saved sequences, and the limit of 1,024 clients sta
 
 Each restart gives a new `serverStart` ID, with a kept epoch or a new epoch.
 A command never changes this ID.
+A restored final save can have the same epoch and project revision as an earlier process, but a different project.
+Thus a `project` command with the `serverStart` of an earlier process gets `session_changed`, also with a kept epoch.
 
 The Go client tells the user about a restart.
 When two frames both have a `serverStart` ID and the IDs are different, the server restarted.

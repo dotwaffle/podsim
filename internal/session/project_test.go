@@ -134,6 +134,76 @@ func TestStaleProjectOverHTTP(t *testing.T) {
 	}
 }
 
+// TestProjectServerStart checks the serverStart member of a project command
+// over HTTP. A command with the server start ID of the session or with no
+// ID applies. A command with the ID of an earlier server process gets HTTP
+// 409 and session_changed, and the session keeps its state and project.
+// Other actions ignore the member.
+func TestProjectServerStart(t *testing.T) {
+	t.Parallel()
+	const start = "0123456789abcdef"
+	const earlier = "fedcba9876543210"
+	tests := []struct {
+		name        string
+		action      string
+		serverStart string
+		wantStatus  int
+		wantCode    CommandErrorCode
+	}{
+		{"same server start", "project", start, http.StatusOK, ""},
+		{"no server start", "project", "", http.StatusOK, ""},
+		{"earlier server start", "project", earlier, http.StatusConflict, SessionChanged},
+		{"pause with an earlier server start", "pause", earlier, http.StatusOK, ""},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			session := newTestSession(t)
+			session.serverStart = start
+			session.simulation.SetPaused(true)
+			config := customProject()
+			command := commandFor(session, test.action)
+			if test.action == "project" {
+				command.ProjectRevision = session.Project().Revision
+				command.Project = &config
+			} else {
+				command.Paused = true
+			}
+			command.ServerStart = test.serverStart
+			body, err := json.Marshal(command)
+			if err != nil {
+				t.Fatal(err)
+			}
+			beforeState, beforeProject := session.State(), session.Project()
+			request := httptest.NewRequestWithContext(t.Context(), http.MethodPost, "http://example.com/api/command", bytes.NewReader(body))
+			request.Header.Set("Content-Type", "application/json")
+			response := httptest.NewRecorder()
+			session.Handler(t.TempDir()).ServeHTTP(response, request)
+			var reply Reply
+			if err := json.NewDecoder(response.Body).Decode(&reply); err != nil {
+				t.Fatal(err)
+			}
+			if response.Code != test.wantStatus || reply.ErrorCode != test.wantCode {
+				t.Fatalf("status %d, reply %+v, want status %d and error code %q", response.Code, reply, test.wantStatus, test.wantCode)
+			}
+			afterState, afterProject := session.State(), session.Project()
+			switch {
+			case test.wantCode != "":
+				if !reflect.DeepEqual(beforeState, afterState) || !reflect.DeepEqual(beforeProject, afterProject) {
+					t.Fatal("rejected project command changed the session")
+				}
+			case test.action != "project":
+				if !reflect.DeepEqual(beforeProject, afterProject) {
+					t.Fatalf("%s command changed the project", test.action)
+				}
+			case afterProject.Revision != beforeProject.Revision+1 || afterProject.Project.Name != config.Name:
+				t.Fatalf("project revision %d, name %q, want revision %d and name %q",
+					afterProject.Revision, afterProject.Project.Name, beforeProject.Revision+1, config.Name)
+			}
+		})
+	}
+}
+
 func TestProjectApplyIsAtomicDetachedAndIdempotent(t *testing.T) {
 	t.Parallel()
 	session := newTestSession(t)

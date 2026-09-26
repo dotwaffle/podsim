@@ -258,6 +258,7 @@ A file that the server rejected with reason `restore_loop` gets the same reason 
 A previous or copied file can come from a final save, and the server can then keep its epoch.
 If the server used that epoch after the save, the revision can be lower than the last revision that clients got.
 The Go client of the simulation view accepts these state frames because the server start ID changed.
+The server rejects a project apply from an editor page that loaded the project before the restart, also when the epoch and the project revision are the same.
 Save point IDs and order IDs can also repeat.
 Reload open browser pages and restart desktop clients after you use such a file.
 
