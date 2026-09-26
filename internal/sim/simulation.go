@@ -231,6 +231,7 @@ type Simulation struct {
 	boarded                      int
 	totalWaitTicks, maxWaitTicks int64
 	positioning                  Positioning
+	demandRate                   int
 	demandWeights                map[string]float64
 	nextRedistributionTick       int64
 	passengerDistanceMeters      float64
@@ -345,7 +346,7 @@ func (s *Simulation) Reset() {
 	s.paused, s.demo, s.demoError = false, nil, ""
 	s.waiting = nil
 	s.boarded, s.totalWaitTicks, s.maxWaitTicks = 0, 0, 0
-	s.positioning, s.demandWeights = PositioningOff, nil
+	s.positioning, s.demandRate, s.demandWeights = PositioningOff, 0, nil
 	s.nextRedistributionTick = 0
 	s.nextCongestionRouteRefresh, s.congestionRouteCosts, s.congestionRoutes = 0, nil, nil
 	s.passengerDistanceMeters, s.emptyDistanceMeters, s.rebalanceMoves, s.sharedParties = 0, 0, 0, 0

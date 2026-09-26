@@ -53,6 +53,33 @@ func TestSetPositioning(t *testing.T) {
 	}
 }
 
+func TestSetDemandRate(t *testing.T) {
+	t.Parallel()
+	s := newExample(t)
+	if s.DemandRate() != 0 || s.Positioning() != PositioningOff {
+		t.Fatalf("new simulation has demand rate %d and mode %d", s.DemandRate(), s.Positioning())
+	}
+	if err := s.SetDemandRate(5); err != nil || s.DemandRate() != 5 {
+		t.Fatalf("SetDemandRate(5) = %v, rate %d", err, s.DemandRate())
+	}
+	if err := s.SetDemandRate(-1); err == nil || s.DemandRate() != 5 {
+		t.Fatalf("SetDemandRate(-1) = %v, rate %d", err, s.DemandRate())
+	}
+	if clone := s.Clone(); clone.DemandRate() != 5 {
+		t.Fatalf("clone has demand rate %d", clone.DemandRate())
+	}
+	if err := s.SetPositioning(PositioningGuarded); err != nil || s.Positioning() != PositioningGuarded {
+		t.Fatalf("SetPositioning(guarded) = %v, mode %d", err, s.Positioning())
+	}
+	s.Reset()
+	if s.DemandRate() != 0 || s.Positioning() != PositioningOff {
+		t.Fatalf("Reset gives demand rate %d and mode %d", s.DemandRate(), s.Positioning())
+	}
+	if err := s.SetDemandRate(0); err != nil || s.DemandRate() != 0 {
+		t.Fatalf("SetDemandRate(0) = %v, rate %d", err, s.DemandRate())
+	}
+}
+
 // lineStation describes a station of lineNetwork.
 type lineStation struct {
 	id      string
@@ -194,6 +221,14 @@ func TestGuardedGate(t *testing.T) {
 			s.vehicles[index].Request = &Request{ID: index, PartySize: 1, RequestedTick: 1}
 		}
 	}
+	// lateStart is request 100 at 20 per minute after 2 h with no request.
+	// The mean rate is then 0.8 per minute.
+	const lateStart = 2*60*ticksPerMinute + id*3*TicksPerSecond
+	late := func(s *Simulation) {
+		base(s)
+		newest(s, lateStart)
+		s.tick = lateStart + TicksPerSecond
+	}
 	tests := []struct {
 		name         string
 		setup        func(s *Simulation)
@@ -201,8 +236,12 @@ func TestGuardedGate(t *testing.T) {
 		// requested is the request tick that an active gate reads. 0 selects
 		// the tick of the 5 per minute case.
 		requested int64
+		// rate is the demand rate. A gate with a rate reads the rate and
+		// ticksPerMinute.
+		rate int
 	}{
 		{name: "no request", setup: func(*Simulation) {}},
+		{name: "demand rate with no request", setup: func(*Simulation) {}, rate: 5},
 		{name: "request at tick 0", setup: func(s *Simulation) { base(s); newest(s, 0) }},
 		{name: "6 per minute", setup: func(s *Simulation) { base(s); newest(s, id*10*TicksPerSecond) }},
 		// These ticks give 5.8 and 5.6 requests per minute. A rate share of
@@ -235,18 +274,36 @@ func TestGuardedGate(t *testing.T) {
 			working(s, workingLimit)
 			s.waiting = []waitingTrip{{request: Request{ID: id - 1, From: "s1", To: "s2", PartySize: 1, PodID: "100", RequestedTick: 1}}}
 		}},
+		// With a demand rate, the gate reads the rate and not the rate at
+		// the newest request. 5*20 is less than 114, and 6*20 is not.
+		{name: "demand rate 5 at a mean of 6", rate: 5, active: true, open: true, setup: func(s *Simulation) {
+			base(s)
+			newest(s, id*10*TicksPerSecond)
+			s.tick = id*10*TicksPerSecond + TicksPerSecond
+		}},
+		{name: "demand rate 6 at a mean of 5", setup: base, rate: 6},
+		{name: "demand rate liveness past", setup: func(s *Simulation) { base(s); s.tick = liveness + 1 }, rate: 5, active: true},
+		{name: "late start with the mean", setup: late, active: true, open: true, requested: lateStart},
+		{name: "late start with a demand rate", setup: late, rate: 20},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 			s := newLineSimulation(t, stations, fleet)
+			if err := s.SetDemandRate(tc.rate); err != nil {
+				t.Fatal(err)
+			}
 			tc.setup(s)
 			gate := s.guardedGate()
 			if gate.active != tc.active || gate.open != tc.open {
 				t.Fatalf("gate %+v, want active %v, open %v", gate, tc.active, tc.open)
 			}
-			if want := cmp.Or(tc.requested, requested); tc.active && (gate.id != id || gate.requested != want) {
-				t.Fatalf("gate %+v, want request %d at tick %d", gate, id, want)
+			count, ticks := id, cmp.Or(tc.requested, requested)
+			if tc.rate > 0 {
+				count, ticks = tc.rate, ticksPerMinute
+			}
+			if tc.active && (gate.count != count || gate.ticks != ticks) {
+				t.Fatalf("gate %+v, want %d requests in %d ticks", gate, count, ticks)
 			}
 		})
 	}
@@ -372,7 +429,7 @@ func TestGuardedNewestRequest(t *testing.T) {
 			t.Fatalf("request 2 did not join request 1: requests %d, shared %d", s.requestID, s.sharedParties)
 		}
 		s.tick = first + guardedLivenessTicks
-		if gate := s.guardedGate(); !gate.open || gate.id != 1 || gate.requested != first {
+		if gate := s.guardedGate(); !gate.open || gate.count != 1 || gate.ticks != first {
 			t.Fatalf("gate at the end of the liveness = %+v, want open at request 1", gate)
 		}
 		s.tick++
@@ -397,7 +454,7 @@ func TestGuardedDemandSet(t *testing.T) {
 	// station is a deficit station.
 	stations := lineStations(6, 2, 2, 1, 3, 2)
 	fleet := place("p-1", "p-2", "p-3", "p-4", "p-5", "p-6")
-	busy := guardedGate{id: 100, requested: 100 * 10 * TicksPerSecond}
+	busy := guardedGate{count: 100, ticks: 100 * 10 * TicksPerSecond}
 	// With these weights, W is 14. Four stations have a weight, so the mean
 	// weight is 3.5. Station s0 expects half a request in 15 minutes from
 	// request 1 at tick 38571 or before.
@@ -415,9 +472,9 @@ func TestGuardedDemandSet(t *testing.T) {
 		{name: "weight 0 keeps the mean", weights: map[string]float64{"s0": 4, "s1": 2, "s3": 3, "s4": 0}, gate: busy, want: []string{"s0", "s3"}},
 		{name: "weight order", weights: map[string]float64{"s0": 2, "s1": 3, "s2": 1, "s3": 3, "s4": 1}, gate: busy, want: []string{"s1", "s3", "s0"}},
 		{name: "one weighted station", weights: map[string]float64{"s4": 1}, gate: busy, want: []string{"s4"}},
-		{name: "horizon", weights: profile, gate: guardedGate{id: 1, requested: 30000}, want: []string{"s0"}},
-		{name: "horizon edge", weights: profile, gate: guardedGate{id: 1, requested: 38571}, want: []string{"s0"}},
-		{name: "horizon past", weights: profile, gate: guardedGate{id: 1, requested: 38572}, want: []string{}},
+		{name: "horizon", weights: profile, gate: guardedGate{count: 1, ticks: 30000}, want: []string{"s0"}},
+		{name: "horizon edge", weights: profile, gate: guardedGate{count: 1, ticks: 38571}, want: []string{"s0"}},
+		{name: "horizon past", weights: profile, gate: guardedGate{count: 1, ticks: 38572}, want: []string{}},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
@@ -466,7 +523,7 @@ func TestGuardedSupply(t *testing.T) {
 	if err := s.startEmptyMove(s.findVehicle("02"), emptyDestination{station: "s1", berth: s1.Berths[0], reserveBerth: true}); err != nil {
 		t.Fatal(err)
 	}
-	view := s.guardedView(guardedGate{id: 100, requested: 100 * 10 * TicksPerSecond})
+	view := s.guardedView(guardedGate{count: 100, ticks: 100 * 10 * TicksPerSecond})
 	if got, want := deficitIDs(view), []string{"s2", "s4", "s5"}; !slices.Equal(got, want) {
 		t.Fatalf("deficit stations %v, want %v", got, want)
 	}
@@ -992,13 +1049,55 @@ func newGuardedInputs(s *Simulation) guardedInputs {
 
 // TestGuardedRestoreKeepsDecisions saves a guarded run while the gate is
 // open and a guarded move and a passenger are under way. The gate reads
-// only saved state. The view uses the estimate of availableAfter, which
-// depends on pod speed as dispatch does. In this run, each restore gives
-// the inputs of the saved run. Two restores of the save then run the same.
+// only saved state and the demand rate. The view uses the estimate of
+// availableAfter, which depends on pod speed as dispatch does. In this run,
+// each restore gives the inputs of the saved run when the demand rate is
+// set again. Two restores of the save then run the same.
 func TestGuardedRestoreKeepsDecisions(t *testing.T) {
 	t.Parallel()
-	stations := lineStations(6, 1, 2, 1, 2, 1, 2, 1, 2, 1, 2, 1, 2)
-	fleet := place("p-1", "p-2", "p-3", "p-4", "p-5", "p-6", "s0-1", "s1-1", "s2-1", "s3-1", "s4-1", "s5-1", "s6-1", "s7-1", "s8-1", "s9-1")
+	for _, tc := range []struct {
+		name string
+		// parking is the number of parking berths, each with a pod.
+		parking int
+		// rate is the demand rate. The requests come each 80 s, which is 0.75
+		// per minute.
+		rate int
+	}{
+		// The rate of 0.75 per minute is active for a fleet of 16.
+		{name: "mean rate", parking: 6},
+		// A demand rate of 1 per minute is active for a fleet of 22.
+		{name: "demand rate", parking: 12, rate: 1},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			checkGuardedRestore(t, tc.parking, tc.rate)
+		})
+	}
+}
+
+// checkGuardedRestore runs TestGuardedRestoreKeepsDecisions with the given
+// parking berths and demand rate.
+func checkGuardedRestore(t *testing.T, parking, rate int) {
+	t.Helper()
+	stations := lineStations(parking, 1, 2, 1, 2, 1, 2, 1, 2, 1, 2, 1, 2)
+	var fleet []Placement
+	for index := range parking {
+		fleet = append(fleet, Placement{StationID: "p", BerthID: fmt.Sprintf("p-%d", index+1)})
+	}
+	for index := range 10 {
+		fleet = append(fleet, Placement{StationID: fmt.Sprintf("s%d", index), BerthID: fmt.Sprintf("s%d-1", index)})
+	}
+	for index := range fleet {
+		fleet[index].ID = fmt.Sprintf("%02d", index+1)
+	}
+	// Without a demand rate, the gate reads 3 requests in 4 minutes.
+	count, ticks := 3, int64(4*ticksPerMinute)
+	if rate > 0 {
+		count, ticks = rate, ticksPerMinute
+	}
+	if !guardedRateLow(count, ticks, len(fleet)) {
+		t.Fatalf("the gate of a fleet of %d pods is not active", len(fleet))
+	}
 	rng := rand.New(rand.NewPCG(3, 4))
 	var trips []timedTrip
 	for second := 80; second < 1200; second += 80 {
@@ -1017,6 +1116,9 @@ func TestGuardedRestoreKeepsDecisions(t *testing.T) {
 		s.Step()
 	}
 	live := newLineSimulation(t, stations, fleet)
+	if err := live.SetDemandRate(rate); err != nil {
+		t.Fatal(err)
+	}
 	underWay := func() bool {
 		rebalancing, carrying := false, false
 		for index := range live.vehicles {
@@ -1041,6 +1143,13 @@ func TestGuardedRestoreKeepsDecisions(t *testing.T) {
 			t.Fatalf("restore: %v, %+v", err, result)
 		}
 		if err := s.SetPositioning(PositioningGuarded); err != nil {
+			t.Fatal(err)
+		}
+		// The saved state does not keep the demand rate.
+		if got := newGuardedInputs(s); rate > 0 && reflect.DeepEqual(got, want) {
+			t.Fatal("the restore gives the inputs of the saved run with no demand rate")
+		}
+		if err := s.SetDemandRate(rate); err != nil {
 			t.Fatal(err)
 		}
 		if got := newGuardedInputs(s); !reflect.DeepEqual(got, want) {

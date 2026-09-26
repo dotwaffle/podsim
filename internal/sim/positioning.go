@@ -65,6 +65,25 @@ func (s *Simulation) SetPositioning(mode Positioning) error {
 	return nil
 }
 
+// Positioning returns the positioning mode.
+func (s *Simulation) Positioning() Positioning { return s.positioning }
+
+// SetDemandRate sets the demand rate that the guarded gate reads, in
+// requests per minute. It returns an error for a negative rate and then
+// changes nothing. A rate of 0 selects the rate at the newest request,
+// which is the mean rate since Reset. Reset selects 0. The saved state does
+// not keep the rate, so the session sets it again after a restore.
+func (s *Simulation) SetDemandRate(perMinute int) error {
+	if perMinute < 0 {
+		return fmt.Errorf("negative demand rate %d", perMinute)
+	}
+	s.demandRate = perMinute
+	return nil
+}
+
+// DemandRate returns the demand rate that SetDemandRate set.
+func (s *Simulation) DemandRate() int { return s.demandRate }
+
 // setPositioning selects a valid positioning mode. A mode other than
 // PositioningOff moves the next check up to the current tick.
 func (s *Simulation) setPositioning(mode Positioning) {
@@ -75,15 +94,18 @@ func (s *Simulation) setPositioning(mode Positioning) {
 }
 
 // guardedGate is the state of the guarded positioning gate at one tick.
-// The gate reads only saved state, so a restore gives the same gate.
+// The gate reads only saved state and the settings that the session sets,
+// so a restore gives the same gate.
 type guardedGate struct {
-	// id and requested are the ID and the request tick of the newest
-	// request. They are 0 when the gate is not active.
-	id        int
-	requested int64
-	// active is true when a request exists and the rate at the newest
-	// request is less than one request per minute for each
-	// guardedFleetRateShare pods. See guardedRateLow.
+	// count and ticks give the request rate that the gate reads, as count
+	// requests in ticks. With a demand rate, they are the demand rate and
+	// ticksPerMinute. Otherwise, they are the ID and the request tick of
+	// the newest request. They are 0 when the gate is not active.
+	count int
+	ticks int64
+	// active is true when a request exists and the rate is less than one
+	// request per minute for each guardedFleetRateShare pods. See
+	// guardedRateLow.
 	active bool
 	// open is true when active is true, the newest request is at most
 	// guardedLivenessTicks old, the positioning moves are fewer than the
@@ -94,32 +116,40 @@ type guardedGate struct {
 
 // guardedGate returns the gate at the current tick. It checks the
 // conditions in order of cost, and it stops at the first one that fails.
-// The rate at the newest request is ID/requested. In compare, request k
+// When the session sets a demand rate, the gate reads that rate. Otherwise,
+// the rate at the newest request is ID/requested. In compare, request k
 // comes at k times the interval, so this is the offered rate from the
-// first request.
+// first request. The liveness always reads the newest request.
 func (s *Simulation) guardedGate() guardedGate {
 	id, requested, ok := s.newestRequest()
-	if !ok || !guardedRateLow(id, requested, len(s.vehicles)) {
+	if !ok {
 		return guardedGate{}
 	}
-	gate := guardedGate{id: id, requested: requested, active: true}
+	count, ticks := id, requested
+	if s.demandRate > 0 {
+		count, ticks = s.demandRate, ticksPerMinute
+	}
+	if !guardedRateLow(count, ticks, len(s.vehicles)) {
+		return guardedGate{}
+	}
+	gate := guardedGate{count: count, ticks: ticks, active: true}
 	gate.open = s.tick-requested <= guardedLivenessTicks && s.rebalanceMoves < s.boarded &&
 		!slices.ContainsFunc(s.waiting, func(trip waitingTrip) bool { return trip.request.PodID == "" }) &&
 		s.guardedLoadLow()
 	return gate
 }
 
-// guardedRateLow reports whether id requests by the tick requested are fewer
-// than one request per minute for each guardedFleetRateShare pods of fleet.
-// A request tick of 0 or less gives no rate, so the result is then false.
-// A restore accepts large IDs and ticks, so the products use 128 bits and
-// cannot overflow.
-func guardedRateLow(id int, requested int64, fleet int) bool {
-	if id <= 0 || requested <= 0 || fleet <= 0 {
+// guardedRateLow reports whether count requests in ticks are fewer than one
+// request per minute for each guardedFleetRateShare pods of fleet. A tick
+// count of 0 or less gives no rate, so the result is then false. A restore
+// accepts large IDs and ticks, so the products use 128 bits and cannot
+// overflow.
+func guardedRateLow(count int, ticks int64, fleet int) bool {
+	if count <= 0 || ticks <= 0 || fleet <= 0 {
 		return false
 	}
-	offeredHigh, offeredLow := bits.Mul64(uint64(id), ticksPerMinute*guardedFleetRateShare)
-	limitHigh, limitLow := bits.Mul64(uint64(fleet), uint64(requested))
+	offeredHigh, offeredLow := bits.Mul64(uint64(count), ticksPerMinute*guardedFleetRateShare)
+	limitHigh, limitLow := bits.Mul64(uint64(fleet), uint64(ticks))
 	return offeredHigh < limitHigh || offeredHigh == limitHigh && offeredLow < limitLow
 }
 
@@ -203,7 +233,7 @@ type guardedDeficit struct {
 // passenger stations with a weight of more than 0. A station is a demand station when it is a passenger
 // station with at least two berths, its weight w is more than 0, w*N is at
 // least W, and it expects at least half a request in guardedHorizonMinutes
-// at the rate of the newest request.
+// at the rate of the gate.
 //
 // A demand station is a deficit station when it has no supply, no waiting
 // trip starts there, and it has at least two available berths. A berth is
@@ -232,7 +262,7 @@ func (s *Simulation) guardedView(gate guardedGate) guardedView {
 		weight := view.weights[index]
 		demand[index] = !station.ParkingOnly && len(station.Berths) >= 2 && weight > 0 &&
 			weight*float64(weighted) >= total &&
-			weight*2*guardedHorizonMinutes*float64(gate.id)*ticksPerMinute >= total*float64(gate.requested)
+			weight*2*guardedHorizonMinutes*float64(gate.count)*ticksPerMinute >= total*float64(gate.ticks)
 	}
 	supplied, busy := s.guardedSupply(guardedSupplyInput{view: &view, demand: demand})
 	for index, station := range stations {

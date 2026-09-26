@@ -147,3 +147,51 @@ func TestLondonGuardedIsInertAtSixPerMinute(t *testing.T) {
 		t.Fatalf("the run submitted %d of %d requests and completed %d", state.Submitted, len(schedule), state.Completed)
 	}
 }
+
+// londonThreePerMinuteInterval gives 3 requests per minute. The gate of the
+// London fleet is active at this rate.
+const londonThreePerMinuteInterval = 20 * sim.TicksPerSecond
+
+// TestLondonDemandRateMatchesMean runs London in guarded mode with AM peak
+// journeys each 20 s, with a demand rate of 3 per minute and with no demand
+// rate. Request k comes at k times 20 s, so the rate at the newest request
+// is also 3 per minute. The two runs must give the same snapshot and the
+// same saved state at each second, and they must make positioning moves.
+func TestLondonDemandRateMatchesMean(t *testing.T) {
+	t.Parallel()
+	band := LondonDemand()[2]
+	schedule := londonDemandSchedule(londonCloneSeed, band, (londonInertTicks-1)/londonThreePerMinuteInterval)
+	for index := range schedule {
+		schedule[index].tick = int64((index + 1) * londonThreePerMinuteInterval)
+	}
+	if fleet := len(London().Fleet); 3*20 >= fleet {
+		t.Fatalf("the gate of a fleet of %d pods is not active at 3 requests per minute", fleet)
+	}
+	guarded := func(s *sim.Simulation) error { return s.SetPositioning(sim.PositioningGuarded) }
+	mean := newLondonPositioning(t, band, guarded)
+	rate := newLondonPositioning(t, band, func(s *sim.Simulation) error {
+		if err := guarded(s); err != nil {
+			return err
+		}
+		return s.SetDemandRate(3)
+	})
+	for tick := range int64(londonInertTicks) {
+		for _, simulation := range []*sim.Simulation{mean, rate} {
+			if err := stepScheduled(simulation, scheduledStep{schedule: schedule, tick: tick}); err != nil {
+				t.Fatal(err)
+			}
+		}
+		if (tick+1)%sim.TicksPerSecond != 0 {
+			continue
+		}
+		if !reflect.DeepEqual(rate.Snapshot(), mean.Snapshot()) {
+			t.Fatalf("the snapshots differ at tick %d", tick+1)
+		}
+		if !reflect.DeepEqual(rate.ExportState(), mean.ExportState()) {
+			t.Fatalf("the saved states differ at tick %d", tick+1)
+		}
+	}
+	if state := rate.Snapshot(); state.Submitted != len(schedule) || state.RebalanceMoves == 0 {
+		t.Fatalf("the run submitted %d of %d requests and made %d positioning moves", state.Submitted, len(schedule), state.RebalanceMoves)
+	}
+}
