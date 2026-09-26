@@ -82,7 +82,7 @@ func outstandingOrderCount(state sim.Snapshot) int {
 
 const (
 	// orderRowsTop is the top of the first order row in design units.
-	orderRowsTop = 168.0
+	orderRowsTop = 136.0
 	// orderRowSpacing is the distance between order rows in design units.
 	orderRowSpacing = 37.0
 	// orderStatusOffset is the distance in design units from the top of an
@@ -190,11 +190,11 @@ func (g *Game) orderLabels(state sim.Snapshot) []label {
 		}
 	}
 	labels := []label{
-		panelLabel(115, 12, "OUTSTANDING ORDERS", muted),
-		panelLabel(140, 14, fmt.Sprintf("Queued %d / active %d", len(state.Pending), active), foreground),
+		panelLabel(83, 12, "OUTSTANDING ORDERS", muted),
+		panelLabel(108, 14, fmt.Sprintf("Queued %d / active %d", len(state.Pending), active), foreground),
 	}
 	if len(rows) == 0 {
-		return append(labels, panelLabel(185, 13, "No outstanding orders.", muted))
+		return append(labels, panelLabel(153, 13, "No outstanding orders.", muted))
 	}
 	page := g.currentOrderPage(rows)
 	for i, row := range rows[page.start:page.end] {

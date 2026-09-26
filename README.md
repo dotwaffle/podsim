@@ -231,7 +231,7 @@ See [distribution and operations](docs/operations.md) for build and runtime sett
 - A reserved-empty berth can still have a departing pod that holds its clearance resource.
 - Berth labels distinguish a parked pod from an admitted arrival.
 - Map labels, such as station names and pod labels, have a font size of 10 CSS pixels or more.
-  In a window smaller than 1100 by 760 CSS pixels, the rest of the view becomes smaller, but the map labels keep their size.
+  In a window smaller than 1100 by 728 CSS pixels, the rest of the view becomes smaller, but the map labels keep their size.
 
 On a network with more than 30 stations, the map can omit an overview label where it covers another label or a station marker.
 On such a network, only the selected pod has a map label until you zoom in to four times the **Fit** scale.
@@ -270,6 +270,7 @@ See [the London qualification network](docs/london.md) for these rules.
 - Fleet use shows the percentage of pods with assigned or active work and the percentage currently in passenger service.
 - The run status beside the title shows the playback speed, the simulated time, and the number of completed journeys.
   While the run is paused, the run status is amber and starts with **PAUSED**.
+  The number of stations and pods shows below the run status.
 
 ### Playback
 
@@ -315,15 +316,21 @@ See [the London qualification network](docs/london.md) for these rules.
 | **S** | Change speed |
 | **F** | Toggle pod following |
 
-While the simulation shows, it gets the keyboard focus when the page opens, when it shows again after the editor, and after a click on **Download debug state**.
-After you select **Simulation** or **← Simulation** with the keyboard, **Edit scenario** gets the focus in its place.
+While the simulation shows, it gets the keyboard focus when the page opens and when it shows again after the editor.
 The simulation uses Tab and Shift+Tab to select pods, so the keyboard cannot move the focus out of the simulation.
+For keyboard users, the page has the controls **Edit scenario**, **Download debug state**, and **Simulation** before the simulation and the editor.
+These controls are hidden until they get the keyboard focus.
+To get to them, move the focus to the start of the page, for example from the browser address bar, and press Tab.
+After you select **Simulation** or **← Simulation** with the keyboard, **Edit scenario** gets the focus in its place.
 After a click outside the simulation, click the simulation to use the keyboard shortcuts again.
 While the connection works and the simulation has no keyboard focus, the line below the panels shows **Click the simulation to use keyboard shortcuts** in amber.
 
 ### Debug capture
 
-Select **Download debug state** above the simulation to save a timestamped JSON capture of the current server state.
+Select **Download debug state** in the header of the simulation to save a timestamped JSON capture of the current server state.
+The line below the journey controls then shows the result.
+The header shows **Download debug state** and **Edit scenario** only in the browser page with the editor.
+The desktop client and `game.html` as a separate page do not show them.
 The capture includes the network, pod positions and routes, queues, berth reservations, and demand settings.
 The download does not pause the run.
 Share this file when you report congestion or other unexpected behavior.
@@ -402,10 +409,10 @@ For example, the panel shows **Redistribution: on / 3 moves / 15.3 km empty**.
 
 ## Scenario editor
 
-Select **Edit scenario** above the simulation to open the editor.
+Select **Edit scenario** in the header of the simulation to open the editor.
 The editor opens in the same page.
 The simulation stays loaded behind it and continues to run.
-To return to the simulation, select **Simulation** above the editor or **← Simulation** in the editor, or use the browser Back button.
+To return to the simulation, select **← Simulation** in the editor, or use the browser Back button.
 The simulation then shows the same map view and the same selected pod as before.
 The editor keeps its state while the simulation shows.
 The editor loads the live scenario only the first time that it opens in the page.

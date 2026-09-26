@@ -113,8 +113,8 @@ func TestHeaderStatusFitsHeader(t *testing.T) {
 			if status.overlaps(counts) {
 				t.Errorf("run status %+v overlaps counts %+v", status, counts)
 			}
-			if status.top < 0 || status.bottom > game.layout.y(96) {
-				t.Errorf("run status %+v is not above the panels at %g", status, game.layout.y(96))
+			if status.top < 0 || status.bottom > game.layout.y(headerHeight) {
+				t.Errorf("run status %+v is not above the panels at %g", status, game.layout.y(headerHeight))
 			}
 		})
 	}

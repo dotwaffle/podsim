@@ -55,9 +55,9 @@ const (
 	inspectionLeft       = 816.0
 	inspectionRight      = 1054.0
 	inspectionValueLeft  = 916.0
-	inspectionRowsTop    = 258.0
+	inspectionRowsTop    = 226.0
 	inspectionRowSpacing = 27.0
-	podSelectorTop       = 393.0
+	podSelectorTop       = 361.0
 	// podsPerPage is the number of pod buttons on one page of the pod
 	// selector.
 	podsPerPage = 5
@@ -138,6 +138,9 @@ type Game struct {
 	// imageLimit is the largest side in pixels of an image. Draw reads it
 	// from Ebiten in each frame. See imageSideLimit.
 	imageLimit int
+	// shell is the shell page that holds the game. It is nil in the
+	// desktop client and outside the shell page. See Shell.
+	shell Shell
 	// reload loads the page again. It is nil in the desktop client.
 	// serverUpdated becomes true when the game sees a new server build, so
 	// the game reloads the page only once.
@@ -179,6 +182,7 @@ func New(ctx context.Context, serverURL string, options ...Option) (*Game, error
 // Update reads shared state and handles local input.
 func (g *Game) Update() error {
 	g.readRemote()
+	g.readShell()
 	g.fitNetwork()
 	g.tickNotice()
 	if inpututil.IsKeyJustPressed(ebiten.KeyTab) {
@@ -482,19 +486,20 @@ func (g *Game) buttons() []button {
 	_, canRewind := rewindTarget(g.state)
 	canRewind = canRewind && g.rewindReady()
 	buttons := []button{
-		{x: 810, y: 60, w: 90, h: 28, label: "Save point", action: "checkpoint"},
-		{x: 912, y: 60, w: 148, h: 28, label: rewindLabel(g.state), action: "rewind"},
-		{x: 617, y: 104, w: 28, h: 24, label: "−", action: "map-zoom-out"},
-		{x: 651, y: 104, w: 28, h: 24, label: "+", action: "map-zoom-in"},
-		{x: 685, y: 104, w: 66, h: 24, label: "Fit", action: "map-fit"},
-		{x: 964, y: 104, w: 96, h: 24, label: followLabel, selected: g.followSelected, action: "map-follow", fontSize: 11},
-		{x: 810, y: 509, w: 120, h: 26, label: fmt.Sprintf("Orders %d", outstandingOrderCount(state)), selected: g.showOrders, action: "orders"},
-		{x: 940, y: 509, w: 120, h: 26, label: "Demand", selected: g.showDemand, action: "demand"},
-		{x: 930, y: 644, w: 130, h: 42, label: requestLabel, selected: true, disabled: busy || g.destination == g.origin, action: "request"},
-		{x: 810, y: 433, w: 250, h: 32, label: pauseLabel, action: "pause"},
-		{x: 810, y: 471, w: 119, h: 32, label: fmt.Sprintf("Speed %dx [S]", g.state.Speed), action: "speed"},
-		{x: 941, y: 471, w: 119, h: 32, label: "Reset [Shift+R]", action: "reset"},
+		{x: 810, y: headerButtonTop, w: 90, h: headerButtonHeight, label: "Save point", action: "checkpoint"},
+		{x: 912, y: headerButtonTop, w: 148, h: headerButtonHeight, label: rewindLabel(g.state), action: "rewind"},
+		{x: 617, y: 72, w: 28, h: 24, label: "−", action: "map-zoom-out"},
+		{x: 651, y: 72, w: 28, h: 24, label: "+", action: "map-zoom-in"},
+		{x: 685, y: 72, w: 66, h: 24, label: "Fit", action: "map-fit"},
+		{x: 964, y: 72, w: 96, h: 24, label: followLabel, selected: g.followSelected, action: "map-follow", fontSize: 11},
+		{x: 810, y: 477, w: 120, h: 26, label: fmt.Sprintf("Orders %d", outstandingOrderCount(state)), selected: g.showOrders, action: "orders"},
+		{x: 940, y: 477, w: 120, h: 26, label: "Demand", selected: g.showDemand, action: "demand"},
+		{x: 930, y: 612, w: 130, h: 42, label: requestLabel, selected: true, disabled: busy || g.destination == g.origin, action: "request"},
+		{x: 810, y: 401, w: 250, h: 32, label: pauseLabel, action: "pause"},
+		{x: 810, y: 439, w: 119, h: 32, label: fmt.Sprintf("Speed %dx [S]", g.state.Speed), action: "speed"},
+		{x: 941, y: 439, w: 119, h: 32, label: "Reset [Shift+R]", action: "reset"},
 	}
+	buttons = append(buttons, g.shellButtons()...)
 	for i, v := range state.Vehicles {
 		if i/podsPerPage != g.podPage {
 			continue
@@ -530,7 +535,7 @@ func (g *Game) buttons() []button {
 
 func (g *Game) layoutButton(b button) button {
 	x, y := b.x*g.layout.unit, b.y*g.layout.unit
-	if b.x >= 796 && !b.expandsWithMap || strings.HasPrefix(b.action, "map-") || b.action == "request" {
+	if b.x >= 796 && !b.expandsWithMap || strings.HasPrefix(b.action, "map-") || strings.HasPrefix(b.action, "shell-") || b.action == "request" {
 		x += g.layout.extraX
 	}
 	// The Orders page controls and Start traffic demo are above the pod
@@ -597,6 +602,10 @@ func (g *Game) click(point sim.Point) bool {
 		case "rewind":
 			g.rewind()
 			return true
+		case shellEditorAction:
+			g.shell.Send(ShowEditor)
+		case shellDebugAction:
+			g.shell.Send(CaptureDebugState)
 		default:
 			if id, ok := strings.CutPrefix(b.action, "pod/"); ok {
 				for i, v := range g.state.Simulation.Vehicles {
@@ -663,9 +672,9 @@ func (g *Game) Draw(screen *ebiten.Image) {
 	for _, header := range g.headerLabels() {
 		g.label(screen, header)
 	}
-	vector.FillRect(screen, float32(g.layout.x(24)), float32(g.layout.y(96)), float32(g.layout.x(748)+g.layout.extraX), float32(g.layout.y(474)+g.layout.extraY), rgb(panel), false)
-	vector.FillRect(screen, float32(g.layout.right(796)), float32(g.layout.y(96)), float32(g.layout.x(280)), float32(g.layout.y(474)+g.layout.extraY), rgb(panel), false)
-	vector.FillRect(screen, float32(g.layout.x(24)), float32(g.layout.bottom(590)), float32(g.layout.x(1052)+g.layout.extraX), float32(g.layout.y(142)), rgb(panel), false)
+	vector.FillRect(screen, float32(g.layout.x(24)), float32(g.layout.y(headerHeight)), float32(g.layout.x(748)+g.layout.extraX), float32(g.layout.y(474)+g.layout.extraY), rgb(panel), false)
+	vector.FillRect(screen, float32(g.layout.right(796)), float32(g.layout.y(headerHeight)), float32(g.layout.x(280)), float32(g.layout.y(474)+g.layout.extraY), rgb(panel), false)
+	vector.FillRect(screen, float32(g.layout.x(24)), float32(g.layout.bottom(558)), float32(g.layout.x(1052)+g.layout.extraX), float32(g.layout.y(142)), rgb(panel), false)
 	state := g.state.Simulation
 	g.drawNetwork(screen, g.mapSnapshot())
 	g.drawConnectionState(screen, time.Now())
@@ -684,20 +693,30 @@ func (g *Game) Draw(screen *ebiten.Image) {
 	g.label(screen, g.connectionFooter(ebiten.IsFocused()))
 }
 
+// headerHeight is the height of the header above the panels in design
+// units. headerButtonTop and headerButtonHeight set the row of header
+// buttons, at the vertical center of the header.
+const (
+	headerHeight       = 64.0
+	headerButtonTop    = 18.0
+	headerButtonHeight = 28.0
+)
+
 // headerLabels returns the title and the header text above the panels.
 // Beside the title, the run status shows in muted text, or in amber while
-// the run is paused. Before the first state frame, the game has no run
-// state, no network, and no pods, so the header shows only the title.
+// the run is paused. The station and pod counts show below the run status.
+// Before the first state frame, the game has no run state, no network, and
+// no pods, so the header shows only the title.
 func (g *Game) headerLabels() []label {
-	labels := []label{{x: 28, y: 22, size: 30, value: "podsim", color: foreground}}
+	labels := []label{{x: 28, y: 14, size: 30, value: "podsim", color: foreground}}
 	if g.state.Epoch == "" {
 		return labels
 	}
-	status := label{x: 157, y: 34, size: 14, value: runStatus(g.state), color: muted}
+	status := label{x: 157, y: 12, size: 14, value: runStatus(g.state), color: muted}
 	if g.state.Simulation.Paused {
 		status.color = amber
 	}
-	return append(labels, status, label{x: 815, y: 34, size: 14, value: fmt.Sprintf("%d STATIONS     %d PODS", len(g.passengerStations()), len(g.state.Simulation.Vehicles)), color: accent})
+	return append(labels, status, label{x: 157, y: 34, size: 14, value: fmt.Sprintf("%d STATIONS     %d PODS", len(g.passengerStations()), len(g.state.Simulation.Vehicles)), color: accent})
 }
 
 // runStatus returns the run status of state for the header. The status
@@ -723,7 +742,7 @@ const focusHint = "Click the simulation to use keyboard shortcuts"
 // focused is true when the simulation has the keyboard focus. Without the
 // focus, the line shows the focus hint in amber.
 func (g *Game) connectionFooter(focused bool) label {
-	footer := label{x: 28, y: 740, size: 11, value: g.connectionLabel(), color: muted}
+	footer := label{x: 28, y: 708, size: 11, value: g.connectionLabel(), color: muted}
 	// A lost connection and a pending command win over the focus hint. In
 	// these states, the client rejects commands until the connection comes
 	// back or the server confirms the command. The focus hint shows after
@@ -774,10 +793,10 @@ func (g *Game) followSelectedPod() {
 // sets From, Shift+click sets To, Tab and Shift+Tab select the next and the
 // previous pod, the wheel zooms, and a drag pans. It ends to the left of the
 // zoom buttons.
-var mapHintLabel = label{x: 136, y: 113, size: 11, value: "CLICK POD / CLICK FROM / SHIFT+CLICK TO / TAB POD / SCROLL ZOOM / DRAG PAN", color: muted}
+var mapHintLabel = label{x: 136, y: 81, size: 11, value: "CLICK POD / CLICK FROM / SHIFT+CLICK TO / TAB POD / SCROLL ZOOM / DRAG PAN", color: muted}
 
 func (g *Game) drawNetwork(screen *ebiten.Image, state sim.Snapshot) {
-	g.label(screen, label{x: 44, y: 113, size: 12, value: "NETWORK", color: muted})
+	g.label(screen, label{x: 44, y: 81, size: 12, value: "NETWORK", color: muted})
 	g.label(screen, mapHintLabel)
 	mapScreen, ok := screen.SubImage(g.layout.mapViewport).(*ebiten.Image)
 	if !ok {
@@ -887,8 +906,8 @@ func (g *Game) drawNetwork(screen *ebiten.Image, state sim.Snapshot) {
 	}
 	// Without a network, the map has no scale.
 	if bar, ok := newScaleBar(g.mapScale, g.layout.unit); ok && len(g.network.Nodes) > 0 {
-		vector.StrokeLine(screen, float32(g.layout.x(48)), float32(g.layout.bottom(540)), float32(g.layout.x(48+bar.length)), float32(g.layout.bottom(540)), float32(2*g.layout.unit), rgb(muted), style.antialias)
-		g.label(screen, label{x: 64 + bar.length, y: 531, size: 12, value: bar.label, color: muted})
+		vector.StrokeLine(screen, float32(g.layout.x(48)), float32(g.layout.bottom(508)), float32(g.layout.x(48+bar.length)), float32(g.layout.bottom(508)), float32(2*g.layout.unit), rgb(muted), style.antialias)
+		g.label(screen, label{x: 64 + bar.length, y: 499, size: 12, value: bar.label, color: muted})
 	}
 	g.drawPodLegend(screen, scale)
 }
@@ -1573,8 +1592,8 @@ func (g *Game) drawInspection(screen *ebiten.Image, state sim.Snapshot) {
 		podLabel += " / " + podID
 	}
 	heading := g.fitText("POD "+podLabel, 12, 140)
-	g.label(screen, label{x: inspectionLeft, y: 115, size: 12, value: heading, color: muted})
-	g.label(screen, label{x: 816, y: 143, size: 26, value: activityLabel(state.Vehicles[g.selected].Pod, g.podPurpose(state.Vehicles[g.selected], state)), color: g.podPurpose(state.Vehicles[g.selected], state).color()})
+	g.label(screen, label{x: inspectionLeft, y: 83, size: 12, value: heading, color: muted})
+	g.label(screen, label{x: 816, y: 111, size: 26, value: activityLabel(state.Vehicles[g.selected].Pod, g.podPurpose(state.Vehicles[g.selected], state)), color: g.podPurpose(state.Vehicles[g.selected], state).color()})
 	status := "Available for passenger orders."
 	station, _ := g.network.Station(state.Vehicles[g.selected].Pod.StationID)
 	if station.ParkingOnly {
@@ -1604,7 +1623,7 @@ func (g *Game) drawInspection(screen *ebiten.Image, state sim.Snapshot) {
 		status = "Paused. Resume to advance."
 	}
 	status = g.fitText(status, 13, inspectionRight-inspectionLeft)
-	g.label(screen, label{x: inspectionLeft, y: 183, size: 13, value: status, color: muted})
+	g.label(screen, label{x: inspectionLeft, y: 151, size: 13, value: status, color: muted})
 	journey := "No active journey"
 	if state.Vehicles[g.selected].Request != nil {
 		from, _ := g.network.Station(state.Vehicles[g.selected].Request.From)
@@ -1619,7 +1638,7 @@ func (g *Game) drawInspection(screen *ebiten.Image, state sim.Snapshot) {
 		journey = "Empty > " + station.Name
 	}
 	journey = g.fitText(journey, 17, inspectionRight-inspectionLeft)
-	g.label(screen, label{x: inspectionLeft, y: 224, size: 17, value: journey, color: foreground})
+	g.label(screen, label{x: inspectionLeft, y: 192, size: 17, value: journey, color: foreground})
 	for i, row := range g.inspectionRows(state.Vehicles[g.selected]) {
 		y := inspectionRowsTop + float64(i)*inspectionRowSpacing
 		if row.name != "" {
@@ -1714,17 +1733,17 @@ func fleetPodLabel(index int) string {
 
 func (g *Game) drawControls(screen *ebiten.Image, state sim.Snapshot) {
 	title, hint := journeyText(state.Demo)
-	g.label(screen, label{x: 44, y: 607, size: 13, value: title, color: foreground})
+	g.label(screen, label{x: 44, y: 575, size: 13, value: title, color: foreground})
 	if from, fromOK := g.network.Station(g.origin); fromOK {
 		if to, toOK := g.network.Station(g.destination); toOK {
 			value := fitText(from.Name+" > "+to.Name, textFit{face: g.textFace(11), width: 560 * g.layout.unit})
-			g.label(screen, label{x: 230, y: 609, size: 11, value: value, color: muted})
+			g.label(screen, label{x: 230, y: 577, size: 11, value: value, color: muted})
 		}
 	}
-	g.label(screen, label{x: 44, y: 638, size: 11, value: "FROM", color: muted})
-	g.label(screen, label{x: 44, y: 674, size: 11, value: "TO", color: muted})
+	g.label(screen, label{x: 44, y: 606, size: 11, value: "FROM", color: muted})
+	g.label(screen, label{x: 44, y: 642, size: 11, value: "TO", color: muted})
 	if pages := g.stationPages(); len(pages) > 1 {
-		g.label(screen, label{x: 850, y: 609, size: 10, value: fmt.Sprintf("%d / %d", g.stationPage+1, len(pages)), color: muted})
+		g.label(screen, label{x: 850, y: 577, size: 10, value: fmt.Sprintf("%d / %d", g.stationPage+1, len(pages)), color: muted})
 	}
 	for _, value := range fleetStatLabels(state) {
 		g.label(screen, value)
@@ -1750,8 +1769,8 @@ func journeyText(demo bool) (title, hint string) {
 func fleetStatLabels(state sim.Snapshot) []label {
 	use := summarizeFleet(state)
 	return []label{
-		{x: 816, y: 539, size: 10, value: fmt.Sprintf("Pickup wait: avg %.0f s / max %.0f s", state.Wait.AverageSeconds, state.Wait.MaxSeconds), color: muted},
-		{x: 816, y: 553, size: 10, value: fmt.Sprintf("Fleet use: %d%% active / %d%% passenger", use.activePercent(), use.passengerPercent()), color: muted},
+		{x: 816, y: 507, size: 10, value: fmt.Sprintf("Pickup wait: avg %.0f s / max %.0f s", state.Wait.AverageSeconds, state.Wait.MaxSeconds), color: muted},
+		{x: 816, y: 521, size: 10, value: fmt.Sprintf("Fleet use: %d%% active / %d%% passenger", use.activePercent(), use.passengerPercent()), color: muted},
 	}
 }
 
@@ -1782,7 +1801,7 @@ func (g *Game) hintLine(state sim.Snapshot, hint string) label {
 	case !state.Demo && g.origin != "" && g.origin == g.destination:
 		value, shade = sameStationHint, amber
 	}
-	return label{x: 44, y: 701, size: 13, value: value, color: shade}
+	return label{x: 44, y: 669, size: 13, value: value, color: shade}
 }
 
 func (g *Game) drawButton(screen *ebiten.Image, b button) {

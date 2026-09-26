@@ -43,7 +43,7 @@ func TestVectorAntialias(t *testing.T) {
 		stencil   int
 		antialias bool
 	}{
-		{name: "minimum window", size: image.Pt(1100, 760), limit: headlessImageLimit, stencil: vectorStencilMinimum, antialias: true},
+		{name: "minimum window", size: image.Pt(1100, 728), limit: headlessImageLimit, stencil: vectorStencilMinimum, antialias: true},
 		{name: "laptop", size: image.Pt(1366, 768), limit: headlessImageLimit, stencil: vectorStencilMinimum, antialias: true},
 		{name: "1920 by 930 at 1.5", size: image.Pt(2880, 1395), limit: headlessImageLimit, stencil: 5760, antialias: true},
 		{name: "widest", size: image.Pt(4095, 2304), limit: headlessImageLimit, stencil: 8190, antialias: true},

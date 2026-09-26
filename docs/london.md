@@ -192,7 +192,7 @@ The project also has more than 100 lanes, so the map sizes change with the zoom.
 A marker has a radius of 150 meters on the map, but at least 3 and at most 10 CSS pixels.
 A lane has a width of 30 meters on the map, but at least 2 and at most 5 CSS pixels.
 A lane shorter than 24 CSS pixels on the screen has no direction arrow.
-In a window smaller than 1100 by 760 CSS pixels, these sizes become smaller with the rest of the view.
+In a window smaller than 1100 by 728 CSS pixels, these sizes become smaller with the rest of the view.
 The overview labels, expanded labels, and pod labels keep their size.
 An expanded label that covers a lane can show as a short label, as on all maps.
 The short label does not show the reserved-empty and free berths or the approaching pods.

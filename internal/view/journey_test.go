@@ -120,9 +120,9 @@ func TestStationChipLabelsFit(t *testing.T) {
 		cut     string
 	}{
 		{name: "London at unit 1", network: london, layout: minimum, unit: 1},
-		{name: "London at unit 0.8118", network: london, layout: short, unit: 0.8118},
+		{name: "London at unit 0.8475", network: london, layout: short, unit: 0.8475},
 		{name: "London at unit 1.5", network: london, layout: dense, unit: 1.5},
-		{name: "long name at unit 0.8118", network: long, layout: short, unit: 0.8118, cut: "long"},
+		{name: "long name at unit 0.8475", network: long, layout: short, unit: 0.8475, cut: "long"},
 		{name: "long name at unit 1.5", network: long, layout: dense, unit: 1.5, cut: "long"},
 	}
 	for _, test := range tests {

@@ -7,7 +7,7 @@ import (
 
 const (
 	minimumWidth  = 1100
-	minimumHeight = 760
+	minimumHeight = 728
 	// mapLabelMinimum is the smallest size in CSS pixels of a map label.
 	mapLabelMinimum = 10
 )
@@ -52,8 +52,8 @@ func newDisplayLayout(input layoutInput) displayLayout {
 		width: physicalWidth, height: physicalHeight, unit: unit, deviceScale: deviceScale,
 		extraX: extraX, extraY: extraY,
 		mapViewport: image.Rect(
-			int(math.Round(24*unit)), int(math.Round(136*unit)),
-			int(math.Round(772*unit+extraX)), int(math.Round(520*unit+extraY)),
+			int(math.Round(24*unit)), int(math.Round(104*unit)),
+			int(math.Round(772*unit+extraX)), int(math.Round(488*unit+extraY)),
 		),
 	}
 }
@@ -111,7 +111,7 @@ func (layout displayLayout) bottom(value float64) float64 { return value*layout.
 // group. So the inspector and the Orders panel above them get the extra
 // height, and no gap opens between the controls.
 func movesDown(x, y float64) bool {
-	return y >= 529 || x >= 796 && y >= podSelectorTop
+	return y >= 497 || x >= 796 && y >= podSelectorTop
 }
 
 func (layout displayLayout) labelPosition(x, y float64) (float64, float64) {

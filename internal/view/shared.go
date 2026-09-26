@@ -365,10 +365,10 @@ func (g *Game) demandButtons() []button {
 	}
 	disabled := !g.connected || g.pending || g.state.Simulation.Demo
 	return []button{
-		{x: 810, y: 176, w: 250, h: 24, label: fmt.Sprintf("Rate: %d orders/min", config.PerMinute), disabled: disabled, action: "demand-rate"},
-		{x: 810, y: 206, w: 250, h: 24, label: demandPatternLabel(config, destination.Name), disabled: disabled, action: "demand-pattern"},
-		{x: 810, y: 236, w: 250, h: 24, label: fmt.Sprintf("Seed: %d", config.Seed), disabled: disabled, action: "demand-seed"},
-		{x: 810, y: 266, w: 250, h: 24, label: toggle, selected: config.Enabled, disabled: disabled, action: "demand-toggle"},
+		{x: 810, y: 144, w: 250, h: 24, label: fmt.Sprintf("Rate: %d orders/min", config.PerMinute), disabled: disabled, action: "demand-rate"},
+		{x: 810, y: 174, w: 250, h: 24, label: demandPatternLabel(config, destination.Name), disabled: disabled, action: "demand-pattern"},
+		{x: 810, y: 204, w: 250, h: 24, label: fmt.Sprintf("Seed: %d", config.Seed), disabled: disabled, action: "demand-seed"},
+		{x: 810, y: 234, w: 250, h: 24, label: toggle, selected: config.Enabled, disabled: disabled, action: "demand-toggle"},
 		{x: demoButtonLeft, y: demoButtonTop, w: demoButtonWidth, h: demoButtonHeight, label: demoButtonLabel, disabled: disabled, action: "demo", fontSize: demoButtonFontSize},
 	}
 }
@@ -480,15 +480,15 @@ const (
 func (g *Game) demandLabels() []label {
 	demand := g.state.Demand
 	labels := []label{
-		{x: 816, y: 115, size: 12, value: "PASSENGER DEMAND", color: muted},
-		{x: 816, y: 140, size: 11, value: "Per simulated minute / shared settings", color: foreground},
-		{x: 816, y: 158, size: 10, value: demandSavesNote, color: muted},
-		{x: 816, y: 296, size: 11, value: fmt.Sprintf("Generated %d / skipped %d", demand.Generated, demand.Skipped), color: foreground},
-		{x: 816, y: 314, size: 10, value: g.fitText(redistributionText(g.state), 10, demandTextWidth), color: muted},
+		{x: 816, y: 83, size: 12, value: "PASSENGER DEMAND", color: muted},
+		{x: 816, y: 108, size: 11, value: "Per simulated minute / shared settings", color: foreground},
+		{x: 816, y: 126, size: 10, value: demandSavesNote, color: muted},
+		{x: 816, y: 264, size: 11, value: fmt.Sprintf("Generated %d / skipped %d", demand.Generated, demand.Skipped), color: foreground},
+		{x: 816, y: 282, size: 10, value: g.fitText(redistributionText(g.state), 10, demandTextWidth), color: muted},
 	}
 	errorFit := textFit{face: g.textFace(10), width: demandTextWidth * g.layout.unit}
 	for index, line := range wrapText(demand.Error, errorFit, demandErrorLines) {
-		labels = append(labels, label{x: 816, y: 331 + 13*float64(index), size: 10, value: line, color: amber})
+		labels = append(labels, label{x: 816, y: 299 + 13*float64(index), size: 10, value: line, color: amber})
 	}
 	return append(labels, g.demoHintLabel())
 }

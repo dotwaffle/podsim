@@ -159,7 +159,7 @@ func TestOrderLabelsFitThePanel(t *testing.T) {
 // stop at the first and last page, and hide when all rows fit on one page.
 func TestOrderPageArrows(t *testing.T) {
 	t.Parallel()
-	game := ordersTestGame(t, layoutInput{outsideWidth: 1100, outsideHeight: 760, deviceScale: 1}, 12)
+	game := ordersTestGame(t, layoutInput{outsideWidth: 1100, outsideHeight: 728, deviceScale: 1}, 12)
 	firstRow := func() string { return game.orderLabels(game.state.Simulation)[2].value }
 	pageCount := func() string {
 		labels := game.orderLabels(game.state.Simulation)

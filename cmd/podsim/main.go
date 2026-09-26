@@ -21,11 +21,11 @@ func main() {
 func run() error {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	game, err := view.New(ctx, serverURL(), view.WithReload(pageReloader()))
+	game, err := view.New(ctx, serverURL(), view.WithReload(pageReloader()), view.WithShell(shellLink()))
 	if err != nil {
 		return err
 	}
-	ebiten.SetWindowSize(1100, 760)
+	ebiten.SetWindowSize(1100, 728)
 	ebiten.SetWindowTitle("Podsim")
 	ebiten.SetWindowResizingMode(ebiten.WindowResizingModeEnabled)
 	ebiten.SetTPS(sim.TicksPerSecond)

@@ -23,7 +23,7 @@ var controlLayouts = []struct {
 	name  string
 	input layoutInput
 }{
-	{name: "minimum", input: layoutInput{outsideWidth: 1100, outsideHeight: 760, deviceScale: 1}},
+	{name: "minimum", input: layoutInput{outsideWidth: 1100, outsideHeight: 728, deviceScale: 1}},
 	{name: "below minimum", input: layoutInput{outsideWidth: 800, outsideHeight: 560, deviceScale: 1}},
 	{name: "short minimum width", input: layoutInput{outsideWidth: 1100, outsideHeight: 600, deviceScale: 1}},
 	{name: "laptop 1366", input: layoutInput{outsideWidth: 1366, outsideHeight: 728, deviceScale: 1}},
@@ -34,16 +34,17 @@ var controlLayouts = []struct {
 	{name: "desktop 1600 DPR2", input: layoutInput{outsideWidth: 1600, outsideHeight: 1000, deviceScale: 2}},
 	{name: "desktop 1920 DPR1.25", input: layoutInput{outsideWidth: 1920, outsideHeight: 1000, deviceScale: 1.25}},
 	{name: "desktop 1920 DPR1.5", input: layoutInput{outsideWidth: 1920, outsideHeight: 1000, deviceScale: 1.5}},
-	{name: "fractional DPR", input: layoutInput{outsideWidth: 1100, outsideHeight: 760, deviceScale: 1.5}},
+	{name: "fractional DPR", input: layoutInput{outsideWidth: 1100, outsideHeight: 728, deviceScale: 1.5}},
 	{name: "tall desktop", input: layoutInput{outsideWidth: 1920, outsideHeight: 2160, deviceScale: 1}},
 	{name: "full 4K", input: layoutInput{outsideWidth: 3840, outsideHeight: 2160, deviceScale: 1}},
 }
 
-// controlTestGame returns a connected game with enough stations and pods to
-// show the station and pod page arrows.
+// controlTestGame returns a connected game in the shell page with enough
+// stations and pods to show the station and pod page arrows.
 func controlTestGame(t *testing.T, input layoutInput) *Game {
 	t.Helper()
 	game := journeyTestGame(t, 20)
+	game.shell = newFakeShell()
 	game.state.Simulation.Vehicles = make([]sim.Vehicle, 8)
 	for i := range game.state.Simulation.Vehicles {
 		game.state.Simulation.Vehicles[i].Pod.ID = fleetPodLabel(i)
@@ -82,11 +83,11 @@ func TestDisplayLayoutDimensionsAndAnchors(t *testing.T) {
 		wantUnit              float64
 		wantMap               image.Rectangle
 	}{
-		{name: "baseline", input: layoutInput{outsideWidth: 1100, outsideHeight: 760, deviceScale: 1}, wantWidth: 1100, wantHeight: 760, wantUnit: 1, wantMap: image.Rect(24, 136, 772, 520)},
-		{name: "tall half 4K DPR2", input: layoutInput{outsideWidth: 960, outsideHeight: 1040, deviceScale: 2}, wantWidth: 1920, wantHeight: 2080, wantUnit: 1920.0 / 1100, wantMap: image.Rect(42, 237, 1347, 1661)},
-		{name: "tall desktop", input: layoutInput{outsideWidth: 1920, outsideHeight: 2160, deviceScale: 1}, wantWidth: 1920, wantHeight: 2160, wantUnit: 1, wantMap: image.Rect(24, 136, 1592, 1920)},
-		{name: "full 4K", input: layoutInput{outsideWidth: 3840, outsideHeight: 2160, deviceScale: 1}, wantWidth: 3840, wantHeight: 2160, wantUnit: 1, wantMap: image.Rect(24, 136, 3512, 1920)},
-		{name: "fractional DPR", input: layoutInput{outsideWidth: 1100, outsideHeight: 760, deviceScale: 1.5}, wantWidth: 1650, wantHeight: 1140, wantUnit: 1.5, wantMap: image.Rect(36, 204, 1158, 780)},
+		{name: "baseline", input: layoutInput{outsideWidth: 1100, outsideHeight: 728, deviceScale: 1}, wantWidth: 1100, wantHeight: 728, wantUnit: 1, wantMap: image.Rect(24, 104, 772, 488)},
+		{name: "tall half 4K DPR2", input: layoutInput{outsideWidth: 960, outsideHeight: 1040, deviceScale: 2}, wantWidth: 1920, wantHeight: 2080, wantUnit: 1920.0 / 1100, wantMap: image.Rect(42, 182, 1347, 1661)},
+		{name: "tall desktop", input: layoutInput{outsideWidth: 1920, outsideHeight: 2160, deviceScale: 1}, wantWidth: 1920, wantHeight: 2160, wantUnit: 1, wantMap: image.Rect(24, 104, 1592, 1920)},
+		{name: "full 4K", input: layoutInput{outsideWidth: 3840, outsideHeight: 2160, deviceScale: 1}, wantWidth: 3840, wantHeight: 2160, wantUnit: 1, wantMap: image.Rect(24, 104, 3512, 1920)},
+		{name: "fractional DPR", input: layoutInput{outsideWidth: 1100, outsideHeight: 728, deviceScale: 1.5}, wantWidth: 1650, wantHeight: 1092, wantUnit: 1.5, wantMap: image.Rect(36, 156, 1158, 732)},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -95,8 +96,8 @@ func TestDisplayLayoutDimensionsAndAnchors(t *testing.T) {
 			if got.width != test.wantWidth || got.height != test.wantHeight || got.unit != test.wantUnit || got.mapViewport != test.wantMap {
 				t.Fatalf("layout = %dx%d unit %g map %v, want %dx%d unit %g map %v", got.width, got.height, got.unit, got.mapViewport, test.wantWidth, test.wantHeight, test.wantUnit, test.wantMap)
 			}
-			if got.right(1076) > float64(got.width) || got.bottom(732) > float64(got.height) {
-				t.Fatalf("anchored panel escaped layout: right=%g bottom=%g", got.right(1076), got.bottom(732))
+			if got.right(1076) > float64(got.width) || got.bottom(700) > float64(got.height) {
+				t.Fatalf("anchored panel escaped layout: right=%g bottom=%g", got.right(1076), got.bottom(700))
 			}
 		})
 	}
@@ -205,8 +206,8 @@ func TestDisplayLayoutFitsImageLimit(t *testing.T) {
 				t.Fatalf("layout = %dx%d scale %g unit %g, want %dx%d scale %g unit %g", got.width, got.height, got.deviceScale, got.unit, test.wantWidth, test.wantHeight, test.wantScale, test.wantUnit)
 			}
 			screen := image.Rect(0, 0, got.width, got.height)
-			if got.right(1076) > float64(got.width) || got.bottom(732) > float64(got.height) {
-				t.Errorf("anchored panel escaped layout: right=%g bottom=%g", got.right(1076), got.bottom(732))
+			if got.right(1076) > float64(got.width) || got.bottom(700) > float64(got.height) {
+				t.Errorf("anchored panel escaped layout: right=%g bottom=%g", got.right(1076), got.bottom(700))
 			}
 			if !got.mapViewport.In(screen) {
 				t.Errorf("map viewport %v is not inside the screen %v", got.mapViewport, screen)
@@ -221,7 +222,7 @@ func TestDisplayLayoutFitsImageLimit(t *testing.T) {
 // the display unit.
 func TestMapLabelSize(t *testing.T) {
 	t.Parallel()
-	minimum := layoutInput{outsideWidth: 1100, outsideHeight: 760, deviceScale: 1}
+	minimum := layoutInput{outsideWidth: 1100, outsideHeight: 728, deviceScale: 1}
 	laptop := layoutInput{outsideWidth: 1366, outsideHeight: 610, deviceScale: 1}
 	tests := []struct {
 		name  string
@@ -233,12 +234,12 @@ func TestMapLabelSize(t *testing.T) {
 	}{
 		{name: "minimum window name", input: minimum, size: 16, want: 16, wantOther: 16},
 		{name: "minimum window queue line", input: minimum, size: 9, want: 10, wantOther: 9},
-		{name: "short laptop name", input: laptop, size: 16, want: 16, wantOther: 16 * 610.0 / 760},
-		{name: "short laptop queue line", input: laptop, size: 9, want: 10, wantOther: 9 * 610.0 / 760},
-		{name: "short laptop DPR2 pod label", input: layoutInput{outsideWidth: 1366, outsideHeight: 610, deviceScale: 2}, size: 11, want: 22, wantOther: 22 * 610.0 / 760},
-		{name: "fractional DPR queue line", input: layoutInput{outsideWidth: 1100, outsideHeight: 760, deviceScale: 1.5}, size: 9, want: 15, wantOther: 13.5},
+		{name: "short laptop name", input: laptop, size: 16, want: 16, wantOther: 16 * 610.0 / 728},
+		{name: "short laptop queue line", input: laptop, size: 9, want: 10, wantOther: 9 * 610.0 / 728},
+		{name: "short laptop DPR2 pod label", input: layoutInput{outsideWidth: 1366, outsideHeight: 610, deviceScale: 2}, size: 11, want: 22, wantOther: 22 * 610.0 / 728},
+		{name: "fractional DPR queue line", input: layoutInput{outsideWidth: 1100, outsideHeight: 728, deviceScale: 1.5}, size: 9, want: 15, wantOther: 13.5},
 		{name: "below minimum", input: layoutInput{outsideWidth: 800, outsideHeight: 560, deviceScale: 1}, size: 10, want: 10, wantOther: 10 * 800.0 / 1100},
-		{name: "invalid device scale", input: layoutInput{outsideWidth: 1366, outsideHeight: 610, deviceScale: math.NaN()}, size: 9, want: 10, wantOther: 9 * 610.0 / 760},
+		{name: "invalid device scale", input: layoutInput{outsideWidth: 1366, outsideHeight: 610, deviceScale: math.NaN()}, size: 9, want: 10, wantOther: 9 * 610.0 / 728},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -265,7 +266,7 @@ func TestGameLayoutMovesControlsAndInvalidatesCamera(t *testing.T) {
 	if game.camera.viewport != game.layout.mapViewport {
 		t.Fatalf("camera viewport = %v, want %v", game.camera.viewport, game.layout.mapViewport)
 	}
-	oldEdge := image.Pt(771, 519)
+	oldEdge := image.Pt(771, 487)
 	newArea := image.Pt(1200, 900)
 	if !oldEdge.In(game.camera.viewport) || !newArea.In(game.camera.viewport) {
 		t.Fatalf("resized map does not contain old edge %v and expanded area %v: %v", oldEdge, newArea, game.camera.viewport)
@@ -414,7 +415,8 @@ func TestHeaderTextClearsControls(t *testing.T) {
 			game.state.Epoch = "test"
 			game.state.Checkpoints = []session.Checkpoint{{ID: 1, Tick: 600}}
 			controls := game.buttons()
-			savePointRow := []button{findButton(t, controls, "checkpoint"), findButton(t, controls, "rewind")}
+			findButton(t, controls, "checkpoint")
+			findButton(t, controls, "rewind")
 			for _, header := range game.headerLabels() {
 				bounds := game.labelArea(header)
 				for _, control := range controls {
@@ -422,14 +424,8 @@ func TestHeaderTextClearsControls(t *testing.T) {
 						t.Errorf("header %q %+v overlaps control %q %+v", header.value, bounds, control.action, buttonArea(control))
 					}
 				}
-				// The header stats sit in the right column above the save point row.
-				if header.x < 796 {
-					continue
-				}
-				for _, control := range savePointRow {
-					if bounds.bottom >= control.y {
-						t.Errorf("header %q ends at %g, control %q starts at %g", header.value, bounds.bottom, control.action, control.y)
-					}
+				if limit := game.layout.y(headerHeight); bounds.bottom > limit {
+					t.Errorf("header %q ends at %g, the panels start at %g", header.value, bounds.bottom, limit)
 				}
 			}
 		})
@@ -491,7 +487,7 @@ func TestConnectionFooter(t *testing.T) {
 // rightPanelArea returns the right panel in physical pixels, as Draw fills
 // it.
 func (g *Game) rightPanelArea() area {
-	return area{left: g.layout.right(796), top: g.layout.y(96), right: g.layout.right(1076), bottom: g.layout.y(570) + g.layout.extraY}
+	return area{left: g.layout.right(796), top: g.layout.y(headerHeight), right: g.layout.right(1076), bottom: g.layout.y(538) + g.layout.extraY}
 }
 
 // rightBottomGroup reports if the control with action is in the group at
@@ -607,7 +603,7 @@ func TestOrderRowLimit(t *testing.T) {
 		{name: "negative", extra: -100, want: 5},
 		{name: "almost one more row", extra: 28, want: 5},
 		{name: "one more row", extra: 29, want: 6},
-		{name: "1080 high window", extra: 320, want: 13},
+		{name: "1080 high window", extra: 352, want: 14},
 	}
 	for _, test := range tests {
 		if got := orderRowLimit(test.extra); got != test.want {

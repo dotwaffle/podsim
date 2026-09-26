@@ -78,7 +78,7 @@ func TestNetworkCacheKeyCoversNetworkChanges(t *testing.T) {
 // cache draws it again.
 func TestBaseLayerShift(t *testing.T) {
 	t.Parallel()
-	key := networkCacheKey{network: networkIndexKey{epoch: "first", generation: 1, projectRevision: 1}, scale: 0.1, unit: 1, viewport: image.Rect(24, 136, 772, 520)}
+	key := networkCacheKey{network: networkIndexKey{epoch: "first", generation: 1, projectRevision: 1}, scale: 0.1, unit: 1, viewport: image.Rect(24, 104, 772, 488)}
 	changed := func(change func(*networkCacheKey)) networkCacheKey {
 		next := key
 		change(&next)
@@ -123,10 +123,10 @@ func TestBaseLayerMargin(t *testing.T) {
 		limit    int
 		want     int
 	}{
-		{viewport: image.Rect(24, 136, 772, 520), limit: headlessImageLimit, want: 96},
+		{viewport: image.Rect(24, 104, 772, 488), limit: headlessImageLimit, want: 96},
 		{viewport: image.Rect(0, 0, 400, 1000), limit: headlessImageLimit, want: 100},
 		{viewport: image.Rect(0, 0, 0, 0), limit: headlessImageLimit, want: 0},
-		{viewport: image.Rect(24, 136, 772, 520), want: 96},
+		{viewport: image.Rect(24, 104, 772, 488), want: 96},
 		// A layer image of 8000 + 2 * 1000 pixels is too wide. The margin
 		// leaves (8191 - 8000) / 2 pixels on each side.
 		{viewport: image.Rect(0, 0, 8000, 4000), limit: headlessImageLimit, want: 95},

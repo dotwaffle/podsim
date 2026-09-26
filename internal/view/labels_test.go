@@ -160,9 +160,9 @@ func TestStationLabelRanksBuildOncePerNetwork(t *testing.T) {
 func TestCollapsedStationLabelBounds(t *testing.T) {
 	t.Parallel()
 	layouts := []layoutInput{
-		{outsideWidth: 1100, outsideHeight: 760, deviceScale: 1},
+		{outsideWidth: 1100, outsideHeight: 728, deviceScale: 1},
 		{outsideWidth: 1366, outsideHeight: 617, deviceScale: 1},
-		{outsideWidth: 1100, outsideHeight: 760, deviceScale: 1.5},
+		{outsideWidth: 1100, outsideHeight: 728, deviceScale: 1.5},
 	}
 	tests := []struct {
 		name        string
@@ -251,10 +251,10 @@ func TestBoundedStationLabelMarkers(t *testing.T) {
 		layout layoutInput
 		radius float64
 	}{
-		{name: "fit", layout: layoutInput{outsideWidth: 1100, outsideHeight: 760, deviceScale: 1}, radius: 3},
-		{name: "largest", layout: layoutInput{outsideWidth: 1100, outsideHeight: 760, deviceScale: 1}, radius: 10},
+		{name: "fit", layout: layoutInput{outsideWidth: 1100, outsideHeight: 728, deviceScale: 1}, radius: 3},
+		{name: "largest", layout: layoutInput{outsideWidth: 1100, outsideHeight: 728, deviceScale: 1}, radius: 10},
 		{name: "small window", layout: layoutInput{outsideWidth: 1366, outsideHeight: 617, deviceScale: 1}, radius: 7.5},
-		{name: "fractional scale", layout: layoutInput{outsideWidth: 1100, outsideHeight: 760, deviceScale: 1.5}, radius: 10},
+		{name: "fractional scale", layout: layoutInput{outsideWidth: 1100, outsideHeight: 728, deviceScale: 1.5}, radius: 10},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -423,7 +423,7 @@ func TestPodMapLabels(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
 			game := journeyTestGame(t, test.stations)
-			game.layoutFor(layoutInput{outsideWidth: 1100, outsideHeight: 760, deviceScale: 1.5})
+			game.layoutFor(layoutInput{outsideWidth: 1100, outsideHeight: 728, deviceScale: 1.5})
 			game.selected = 2
 			game.camera = mapCamera{scale: 0.5 * test.zoom, minScale: 0.5, origin: sim.Point{X: 100, Y: 200}}
 			game.syncCamera()
@@ -449,7 +449,7 @@ func TestPodMapLabels(t *testing.T) {
 func TestPodLabelClearsBerthRing(t *testing.T) {
 	t.Parallel()
 	for _, deviceScale := range []float64{1, 1.5, 2} {
-		for _, size := range []struct{ width, height int }{{1100, 760}, {1920, 1080}, {800, 600}} {
+		for _, size := range []struct{ width, height int }{{1100, 728}, {1920, 1080}, {800, 600}} {
 			game := journeyTestGame(t, 3)
 			game.layoutFor(layoutInput{outsideWidth: size.width, outsideHeight: size.height, deviceScale: deviceScale})
 			game.camera = mapCamera{scale: 1, minScale: 0.5}
@@ -518,7 +518,7 @@ func TestOverviewLabelsOnLondon(t *testing.T) {
 			t.Parallel()
 			game := journeyNetworkGame(t, network)
 			game.state = session.State{Epoch: "london"}
-			game.layoutFor(layoutInput{outsideWidth: 1100, outsideHeight: 760, deviceScale: 1})
+			game.layoutFor(layoutInput{outsideWidth: 1100, outsideHeight: 728, deviceScale: 1})
 			game.fitNetwork()
 			viewport := game.layout.mapViewport
 			center := sim.Point{X: float64(viewport.Min.X+viewport.Max.X) / 2, Y: float64(viewport.Min.Y+viewport.Max.Y) / 2}

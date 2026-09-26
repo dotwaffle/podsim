@@ -412,7 +412,7 @@ func TestStationTextKeepsItsPlace(t *testing.T) {
 		}},
 	}
 	for _, input := range []layoutInput{
-		{outsideWidth: 1100, outsideHeight: 760, deviceScale: 1},
+		{outsideWidth: 1100, outsideHeight: 728, deviceScale: 1},
 		{outsideWidth: 1366, outsideHeight: 610, deviceScale: 1},
 	} {
 		t.Run(fmt.Sprintf("%dx%d", input.outsideWidth, input.outsideHeight), func(t *testing.T) {
@@ -456,7 +456,7 @@ func TestStationTextKeepsItsPlace(t *testing.T) {
 func TestStationTextFormFollowsZoom(t *testing.T) {
 	t.Parallel()
 	for _, input := range []layoutInput{
-		{outsideWidth: 1100, outsideHeight: 760, deviceScale: 1},
+		{outsideWidth: 1100, outsideHeight: 728, deviceScale: 1},
 		{outsideWidth: 1366, outsideHeight: 610, deviceScale: 1},
 	} {
 		t.Run(fmt.Sprintf("%dx%d", input.outsideWidth, input.outsideHeight), func(t *testing.T) {
@@ -493,7 +493,7 @@ func TestStationTextFormOnLondon(t *testing.T) {
 	t.Parallel()
 	network := scenarios.London().Network
 	for _, input := range []layoutInput{
-		{outsideWidth: 1100, outsideHeight: 760, deviceScale: 1},
+		{outsideWidth: 1100, outsideHeight: 728, deviceScale: 1},
 		{outsideWidth: 1366, outsideHeight: 610, deviceScale: 1},
 	} {
 		t.Run(fmt.Sprintf("%dx%d", input.outsideWidth, input.outsideHeight), func(t *testing.T) {
@@ -708,7 +708,7 @@ func TestStationTextOnExample(t *testing.T) {
 		scale         float64
 		// maxCover is the largest length of lanes in display units that a
 		// text block covers. Each limit is the largest cover measured in
-		// the window, rounded up to the next 10 units. In the 1100x760
+		// the window, rounded up to the next 10 units. In the 1100x728
 		// window, each place of the Parking text covers a lane or other
 		// text, also in the short form. Map labels keep their CSS size, so
 		// in the short 1366x610 window the text takes a larger part of the
@@ -721,7 +721,7 @@ func TestStationTextOnExample(t *testing.T) {
 		// away from the siding. The Garden text is never below the ring.
 		below bool
 	}{
-		{1100, 760, 1, 70, true}, {1366, 610, 1, 90, false}, {1366, 610, 2, 90, false},
+		{1100, 728, 1, 70, true}, {1366, 610, 1, 90, false}, {1366, 610, 2, 90, false},
 		{1920, 1080, 1, 20, true}, {1920, 1080, 2, 20, true}, {2560, 1440, 1, 20, true}, {2560, 1440, 2, 20, true},
 	} {
 		game := journeyNetworkGame(t, sim.Example())
@@ -777,7 +777,7 @@ func TestStationTextOnLondon(t *testing.T) {
 			t.Parallel()
 			game := journeyNetworkGame(t, network)
 			game.state = session.State{Epoch: "london"}
-			game.layoutFor(layoutInput{outsideWidth: 1100, outsideHeight: 760, deviceScale: 1})
+			game.layoutFor(layoutInput{outsideWidth: 1100, outsideHeight: 728, deviceScale: 1})
 			game.fitNetwork()
 			anchor, ok := game.stationAnchors()[stationID]
 			if !ok {
@@ -881,7 +881,7 @@ func TestStationTextSize(t *testing.T) {
 func TestStationTextLinesDoNotOverlap(t *testing.T) {
 	t.Parallel()
 	for _, input := range []layoutInput{
-		{outsideWidth: 1100, outsideHeight: 760, deviceScale: 1},
+		{outsideWidth: 1100, outsideHeight: 728, deviceScale: 1},
 		{outsideWidth: 1366, outsideHeight: 610, deviceScale: 1},
 		{outsideWidth: 1366, outsideHeight: 610, deviceScale: 2},
 		{outsideWidth: 800, outsideHeight: 560, deviceScale: 1.5},

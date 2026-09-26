@@ -142,7 +142,7 @@ func TestDemandLabelsFitPanel(t *testing.T) {
 			game.state.Redistribution = true
 			game.state.Simulation.RebalanceMoves, game.state.Simulation.EmptyDistanceMeters = 12345, 12345600
 			controls := game.buttons()
-			panel := area{left: game.layout.right(796), top: game.layout.y(96), right: game.layout.right(1076), bottom: game.layout.bottom(570)}
+			panel := area{left: game.layout.right(796), top: game.layout.y(headerHeight), right: game.layout.right(1076), bottom: game.layout.bottom(538)}
 			labels := game.demandLabels()
 			if !slices.ContainsFunc(labels, func(value label) bool { return value.value == demandSavesNote && value.color == muted }) {
 				t.Fatalf("Demand panel does not show %q in the muted color", demandSavesNote)

@@ -78,14 +78,14 @@ func (g *Game) journeyButtons(disabled bool) []button {
 	buttons := make([]button, 0, len(pages[g.stationPage])*2+2)
 	if hasPages {
 		buttons = append(buttons,
-			button{x: stationControlLeft, y: 632, w: stationArrowWidth, h: 64, label: "‹", disabled: g.stationPage == 0, action: "stations-prev", expandsWithMap: true},
-			button{x: stationControlRight + g.layout.extraX/g.layout.unit - stationArrowWidth, y: 632, w: stationArrowWidth, h: 64, label: "›", disabled: g.stationPage == len(pages)-1, action: "stations-next", expandsWithMap: true},
+			button{x: stationControlLeft, y: 600, w: stationArrowWidth, h: 64, label: "‹", disabled: g.stationPage == 0, action: "stations-prev", expandsWithMap: true},
+			button{x: stationControlRight + g.layout.extraX/g.layout.unit - stationArrowWidth, y: 600, w: stationArrowWidth, h: 64, label: "›", disabled: g.stationPage == len(pages)-1, action: "stations-next", expandsWithMap: true},
 		)
 	}
 	for _, chip := range pages[g.stationPage] {
 		buttons = append(buttons,
-			button{x: left, y: 632, w: chip.width, h: 28, label: chip.label, selected: g.origin == chip.station.ID, disabled: disabled, action: "from/" + chip.station.ID, expandsWithMap: true, fontSize: stationFontSize},
-			button{x: left, y: 668, w: chip.width, h: 28, label: chip.label, selected: g.destination == chip.station.ID, disabled: disabled, action: "to/" + chip.station.ID, expandsWithMap: true, fontSize: stationFontSize},
+			button{x: left, y: 600, w: chip.width, h: 28, label: chip.label, selected: g.origin == chip.station.ID, disabled: disabled, action: "from/" + chip.station.ID, expandsWithMap: true, fontSize: stationFontSize},
+			button{x: left, y: 636, w: chip.width, h: 28, label: chip.label, selected: g.destination == chip.station.ID, disabled: disabled, action: "to/" + chip.station.ID, expandsWithMap: true, fontSize: stationFontSize},
 		)
 		left += chip.width + stationChipGap
 	}

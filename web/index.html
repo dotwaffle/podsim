@@ -6,27 +6,27 @@
   <title>Podsim: Network playground</title>
   <style>
     html, body { margin: 0; width: 100%; height: 100%; overflow: hidden; background: #0b121a; }
-    body { display: flex; flex-direction: column; }
-    nav { height: 40px; flex: none; display: flex; align-items: center; justify-content: flex-end; gap: 8px; padding: 0 12px; }
-    /* The game and editor frames fill the area below the nav bar, one on top
-       of the other. The inactive frame has the inert attribute. It stays in
-       the layout with its size, so the game does not fit the map again when
-       it shows. */
-    main { position: relative; flex: 1; min-height: 0; }
+    /* The game and editor frames fill the page, one on top of the other.
+       The inactive frame has the inert attribute. It stays in the layout
+       with its size, so the game does not fit the map again when it shows. */
     iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; }
     iframe[inert] { visibility: hidden; }
-    a, button { flex: none; padding: 4px 10px; border: 1px solid #345064; border-radius: 7px; background: #101d28e8; color: #9fe4eb; font: 13px system-ui, sans-serif; text-decoration: none; cursor: pointer; }
+    /* The shell controls are for keyboard users. The game draws its own
+       Edit scenario and Download debug state buttons, and the editor has its
+       own return link. As with a skip link, a control is hidden until it
+       gets the keyboard focus. Then it shows in the top left corner. */
+    nav a, nav button { position: absolute; top: 8px; left: 8px; z-index: 1; padding: 6px 12px; border: 1px solid #345064; border-radius: 7px; background: #101d28; color: #9fe4eb; font: 14px system-ui, sans-serif; text-decoration: none; cursor: pointer; }
+    nav a:not(:focus), nav button:not(:focus), #debugStatus { width: 1px; height: 1px; padding: 0; border: 0; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
     button:disabled { opacity: .6; cursor: wait; }
-    #debugStatus { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #9fb4c5; font: 13px system-ui, sans-serif; }
   </style>
   <script src="shell.js"></script>
 </head>
 <body>
   <nav aria-label="Scenario tools">
-    <span id="debugStatus" role="status"></span>
-    <button id="debugButton" type="button" title="Save the current run for debugging. This capture cannot be reloaded.">Download debug state</button>
     <a id="editorLink" href="#editor">Edit scenario</a>
     <button id="gameButton" type="button" hidden>Simulation</button>
+    <button id="debugButton" type="button" title="Save the current run for debugging. This capture cannot be reloaded.">Download debug state</button>
+    <span id="debugStatus" role="status"></span>
   </nav>
   <main>
     <iframe id="gameFrame" src="game.html" title="Podsim interactive network simulation"></iframe>
@@ -38,8 +38,7 @@
     const frames = { game: document.getElementById("gameFrame"), editor: null };
     let view = "game";
     const button = document.getElementById("debugButton");
-    const editorLink = document.getElementById("editorLink");
-    const gameButton = document.getElementById("gameButton");
+    const status = document.getElementById("debugStatus");
     // Ebitengine does not focus its canvas inside an iframe. Give the game the
     // keyboard focus, so that its keyboard shortcuts work without a click. Do
     // not take the focus from a different control that the user selected,
@@ -54,11 +53,24 @@
     window.addEventListener("pageshow", (event) => {
       if (event.persisted) frames[view].focus();
     });
-    button.addEventListener("click", async (event) => {
-      const status = document.getElementById("debugStatus");
+
+    // showStatus sets the text of the debug status. The status is a live
+    // region, so a screen reader reads it. When result is true, the game
+    // also shows the text. error is true when the text tells of a failure.
+    function showStatus(text, result, error = false) {
+      status.textContent = text;
+      if (result) frames.game.contentWindow?.postMessage(PodsimShell.noticeMessage(text, error), location.origin);
+    }
+    // captureDebugState downloads a debug capture of the server state. The
+    // Download debug state control and the button of the same name in the
+    // game start it. While a capture runs, a new request does nothing.
+    let capturing = false;
+    async function captureDebugState() {
+      if (capturing) return;
+      capturing = true;
       const requestedAt = new Date().toISOString();
       button.disabled = true;
-      status.textContent = "Capturing…";
+      showStatus("Capturing…", false);
       try {
         const signal = AbortSignal.timeout(15000);
         const [stateResponse, topologyResponse] = await Promise.all([
@@ -85,25 +97,28 @@
         link.click();
         link.remove();
         setTimeout(() => URL.revokeObjectURL(url), 1000);
-        status.textContent = `Debug state downloaded: tick ${state.simulation.Tick}.`;
+        showStatus(`Debug state downloaded: tick ${state.simulation.Tick}.`, true);
       } catch (error) {
-        status.textContent = `Capture failed. ${error.message}. Try again.`;
+        showStatus(`Capture failed. ${error.message}. Try again.`, true, true);
       } finally {
         button.disabled = false;
-        status.title = status.textContent;
-        // Give the game the focus only after a mouse or touch click. After
-        // Enter or Space on the button, the click detail is 0. The game keeps
-        // the Tab key, so do not move a keyboard user into the game.
-        if (event.detail > 0) focusGame();
+        capturing = false;
       }
+    }
+    button.addEventListener("click", async (event) => {
+      await captureDebugState();
+      // Give the game the focus only after a mouse or touch click. After
+      // Enter or Space on the button, the click detail is 0. The game keeps
+      // the Tab key, so do not move a keyboard user into the game.
+      if (event.detail > 0) focusGame();
     });
 
     // show shows the frame of next and makes the other frame inert. The
     // editor frame loads the first time that the editor shows, so it does
-    // not slow the game load. The page title and the nav controls follow the
-    // frame that shows. After a switch, that frame gets the keyboard focus.
-    // When keyboard is true and next is the game, the Edit scenario link
-    // gets the focus. See PodsimShell.focusTarget.
+    // not slow the game load. The page title and the shell controls follow
+    // the frame that shows. After a switch, that frame gets the keyboard
+    // focus. When keyboard is true and next is the game, the Edit scenario
+    // control gets the focus. See PodsimShell.focusTarget.
     function show(next, keyboard = false) {
       if (next === view) return;
       if (next === "editor" && !frames.editor) {
@@ -112,11 +127,10 @@
       }
       view = next;
       for (const [name, frame] of Object.entries(frames)) if (frame) frame.inert = name !== view;
-      editorLink.hidden = view === "editor";
-      gameButton.hidden = view === "game";
+      for (const id of PodsimShell.CONTROLS) document.getElementById(id).hidden = !PodsimShell.VIEWS[view].controls.includes(id);
       document.title = PodsimShell.VIEWS[view].title;
       const target = PodsimShell.focusTarget(view, keyboard);
-      (target === "editorLink" ? editorLink : frames[target]).focus();
+      (frames[target] ?? document.getElementById(target)).focus();
     }
     // select shows next and adds a history entry with the URL hash of next,
     // so that the Back button shows the frame from before.
@@ -126,18 +140,21 @@
       if (url.href !== location.href) history.pushState(null, "", url);
       show(next, keyboard);
     }
-    // The URL hash selects the frame. The Edit scenario link, the Back
+    // The URL hash selects the frame. The Edit scenario control, the Back
     // button and the Forward button change the hash.
     window.addEventListener("hashchange", () => show(PodsimShell.viewForHash(location.hash)));
     // After Enter or Space on the button, the click detail is 0.
-    gameButton.addEventListener("click", (event) => select("game", event.detail === 0));
-    // A frame asks for a different frame with a message. The editor uses it
-    // for its return link.
+    document.getElementById("gameButton").addEventListener("click", (event) => select("game", event.detail === 0));
+    // A frame sends a request with a message. The editor asks for the game
+    // with its return link. The game asks for the editor and for a debug
+    // capture with its header buttons.
     window.addEventListener("message", (event) => {
-      const request = PodsimShell.showRequest(event, location.origin);
-      if (request) select(request.view, request.keyboard);
+      const request = PodsimShell.pageRequest(event, location.origin);
+      if (request?.action === "show") select(request.view, request.keyboard);
+      if (request?.action === "debug") captureDebugState();
     });
-    // podsimShell tells the editor that this page can show the game.
+    // podsimShell tells the editor and the game that this page can show
+    // them.
     window.podsimShell = true;
     show(PodsimShell.viewForHash(location.hash));
   </script>
