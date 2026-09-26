@@ -341,10 +341,120 @@ test("the section check follows lanes in both directions", () => {
 
 test("a passenger station in a separate section is an error", () => {
   const config = editor.addStation(connectedScenario(), 600, 300, { name: "Gamma" });
-  const errors = editor.validateConfig(config);
-  assert.ok(errors.includes("Alpha cannot reach Gamma."));
-  assert.ok(errors.includes("Gamma cannot reach Beta."));
+  assert.deepEqual(editor.validateConfig(config), ["Gamma cannot reach 2 passenger stations, and 2 passenger stations cannot reach Gamma."]);
   assert.deepEqual(editor.configWarnings(config), ["The network has disconnected sections."]);
+});
+
+// cutOffScenario gives Alpha, Beta, and Delta in a ring of one-way lanes,
+// and Gamma with no lanes to the other stations. lanes adds lanes between
+// Gamma and the ring. Each item of lanes is a pair of station names, from
+// the exit of the first station to the entry of the second station.
+function cutOffScenario(lanes) {
+  let config = connectedScenario();
+  const [alpha, beta] = config.network.Stations;
+  config.network.Lanes = config.network.Lanes.filter((lane) => !(lane.From === beta.Exit && lane.To === alpha.Entry));
+  config = editor.addStation(config, 340, 340, { name: "Delta" });
+  config = editor.addStation(config, 600, 340, { name: "Gamma" });
+  const station = (name) => config.network.Stations.find((item) => item.Name === name);
+  for (const [from, to] of [["Beta", "Delta"], ["Delta", "Alpha"], ...lanes]) config = editor.addLane(config, station(from).Exit, station(to).Entry, false);
+  return config;
+}
+
+// splitScenario gives two groups of passenger stations with no lanes between
+// them. Alpha, Beta, and Delta are in a ring of one-way lanes. Gamma and
+// Epsilon have lanes to each other.
+function splitScenario() {
+  let config = cutOffScenario([]);
+  config = editor.addStation(config, 840, 340, { name: "Epsilon" });
+  const [gamma, epsilon] = config.network.Stations.slice(-2);
+  config = editor.addLane(config, gamma.Exit, epsilon.Entry, false);
+  return editor.addLane(config, epsilon.Exit, gamma.Entry, false);
+}
+
+// isolateStation removes the lanes to the entry and from the exit of the
+// station with the name.
+function isolateStation(config, name) {
+  const station = config.network.Stations.find((item) => item.Name === name);
+  config.network.Lanes = config.network.Lanes.filter((lane) => lane.To !== station.Entry && lane.From !== station.Exit);
+  return config;
+}
+
+// A station that is cut off from the other passenger stations gives one
+// error, not one for each station pair. The error names the station, and a
+// click on it selects the station.
+test("a cut-off station gives one error that selects it", () => {
+  const cases = [
+    { name: "a station with no lanes", config: cutOffScenario([]),
+      want: { Gamma: "Gamma cannot reach 3 passenger stations, and 3 passenger stations cannot reach Gamma." }, warnings: ["The network has disconnected sections."] },
+    { name: "a station that pods can only leave", config: cutOffScenario([["Gamma", "Alpha"]]),
+      want: { Gamma: "3 passenger stations cannot reach Gamma." }, warnings: [] },
+    { name: "a station that pods can only enter", config: cutOffScenario([["Delta", "Gamma"]]),
+      want: { Gamma: "Gamma cannot reach 3 passenger stations." }, warnings: [] },
+    { name: "a network in two groups", config: splitScenario(),
+      want: {
+        Gamma: "Gamma cannot reach 3 passenger stations, and 3 passenger stations cannot reach Gamma.",
+        Epsilon: "Epsilon cannot reach 3 passenger stations, and 3 passenger stations cannot reach Epsilon.",
+      }, warnings: ["The network has disconnected sections."] },
+    // Beta, Delta, and Gamma are in a chain of one-way lanes, so each group
+    // has one station. Alpha is the first station, but it has no lanes, so
+    // its group is not the main group.
+    { name: "a first station with no lanes", config: isolateStation(cutOffScenario([["Delta", "Gamma"]]), "Alpha"),
+      want: {
+        Alpha: "Alpha cannot reach 3 passenger stations, and 3 passenger stations cannot reach Alpha.",
+        Delta: "Delta cannot reach 2 passenger stations, and 2 passenger stations cannot reach Delta.",
+        Gamma: "Gamma cannot reach 3 passenger stations, and Alpha cannot reach Gamma.",
+      }, warnings: ["The network has disconnected sections."] },
+  ];
+  for (const item of cases) {
+    const station = (name) => item.config.network.Stations.find((value) => value.Name === name);
+    const want = Object.entries(item.want).map(([name, text]) => ({ text, target: { type: "station", id: station(name).ID } }));
+    assert.deepEqual(editor.checkResults(item.config), { errors: want, warnings: item.warnings.map((text) => ({ text, target: null })) }, item.name);
+    for (const result of want) assert.deepEqual(editor.checkSelection(item.config, result.target), result.target, item.name);
+  }
+});
+
+// A station whose berths all have berth route errors is not in a group. Its
+// row and column of reach are all true, so it would join the two groups.
+test("a station with only broken berths does not join two groups", () => {
+  const config = splitScenario();
+  const alpha = config.network.Stations[0];
+  const berth = alpha.Berths[0];
+  config.network.Lanes = config.network.Lanes.filter((lane) => !(lane.From === alpha.Entry && lane.To === berth.Node));
+  const station = (name) => config.network.Stations.find((item) => item.Name === name);
+  const cutOff = (name) => ({ text: `${name} cannot reach 2 passenger stations, and 2 passenger stations cannot reach ${name}.`, target: { type: "station", id: station(name).ID } });
+  assert.deepEqual(editor.checkResults(config), {
+    errors: [{ text: `Berth ${berth.ID} needs an entry lane.`, target: { type: "berth", id: berth.ID } }, cutOff("Gamma"), cutOff("Epsilon")],
+    warnings: [{ text: "The network has disconnected sections.", target: null }],
+  });
+});
+
+// cutOffStations works on the reach table of stationReach. The main group
+// is the largest group of stations that can all reach each other.
+test("the cut-off stations are the stations outside the main group", () => {
+  const table = (rows) => rows.map((row) => [...row].map((cell) => cell === "1"));
+  const cases = [
+    { name: "one group", reach: table(["111", "111", "111"]), checked: [true, true, true], want: [] },
+    { name: "a larger group after a smaller group", reach: table(["1000", "0111", "0111", "0111"]), checked: [true, true, true, true],
+      want: [{ index: 0, out: [1, 2, 3], in: [1, 2, 3] }] },
+    { name: "two groups of the same size", reach: table(["1100", "1100", "0011", "0011"]), checked: [true, true, true, true],
+      want: [{ index: 2, out: [0, 1], in: [0, 1] }, { index: 3, out: [0, 1], in: [0, 1] }] },
+    { name: "a chain of one-way routes", reach: table(["111", "011", "001"]), checked: [true, true, true],
+      want: [{ index: 1, out: [0], in: [2] }, { index: 2, out: [0, 1], in: [] }] },
+    // All groups have one station. Station 0 has no routes, so it has the
+    // most missing routes and is not the main group.
+    { name: "a station with no routes first", reach: table(["1000", "0111", "0011", "0001"]), checked: [true, true, true, true],
+      want: [{ index: 0, out: [1, 2, 3], in: [1, 2, 3] }, { index: 2, out: [0, 1], in: [0, 3] }, { index: 3, out: [0, 1, 2], in: [0] }] },
+    // Station 0 has two berths that cannot reach each other, so it cannot
+    // reach itself. It is still in its own group.
+    { name: "a station whose berths cannot reach each other", reach: table(["01", "01"]), checked: [true, true],
+      want: [{ index: 1, out: [0], in: [] }] },
+    // A station with no berths to check has a row and a column of true. It
+    // does not join the two groups.
+    { name: "a station with no berths first", reach: table(["1111", "1110", "1110", "1001"]), checked: [false, true, true, true],
+      want: [{ index: 3, out: [1, 2], in: [1, 2] }] },
+    { name: "no stations to check", reach: table(["11", "11"]), checked: [false, false], want: [] },
+  ];
+  for (const item of cases) assert.deepEqual(editor.cutOffStations(item.reach, item.checked), item.want, item.name);
 });
 
 test("import accepts a project with only warnings", () => {
@@ -469,8 +579,13 @@ test("each check result names the object that a click selects", () => {
       want: { text: `Berth ${berth} needs an entry lane.`, target: { type: "berth", id: berth } }, select: { type: "station", id: alpha.ID, berth } },
     { name: "a station with no through lane", change: (config) => { config.network.Lanes = config.network.Lanes.filter((item) => !(item.From === beta.Entry && item.To === beta.Exit)); },
       want: { text: `Station ${beta.ID} needs a through lane.`, target: { type: "station", id: beta.ID } }, select: { type: "station", id: beta.ID } },
-    { name: "a station that cannot reach another", change: (config) => { config.network.Lanes = config.network.Lanes.filter((item) => item.ID !== lane.ID); },
-      want: { text: "Alpha cannot reach Beta.", target: { type: "station", id: alpha.ID } }, select: { type: "station", id: alpha.ID } },
+    // Alpha and Beta are two groups of the same size with the same number of
+    // missing routes. Alpha is the first station in the project, so its
+    // group is the main group, and the error selects Beta.
+    { name: "a station that another station cannot reach", change: (config) => { config.network.Lanes = config.network.Lanes.filter((item) => item.ID !== lane.ID); },
+      want: { text: "Alpha cannot reach Beta.", target: { type: "station", id: beta.ID } }, select: { type: "station", id: beta.ID } },
+    { name: "a station that cannot reach another station", change: (config) => { config.network.Lanes = config.network.Lanes.filter((item) => !(item.From === beta.Exit && item.To === alpha.Entry)); },
+      want: { text: "Beta cannot reach Alpha.", target: { type: "station", id: beta.ID } }, select: { type: "station", id: beta.ID } },
     { name: "a duplicate junction ID", change: (config) => { config.network.Nodes.push({ ID: arrival, Position: { X: 600, Y: 600 } }); },
       want: { text: `ID ${arrival} is used more than once.`, target: { type: "node", id: arrival } }, select: { type: "station", id: alpha.ID } },
     { name: "a pod in a missing station", change: (config) => { config.fleet[0].StationID = "gone"; },

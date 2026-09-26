@@ -461,6 +461,15 @@ The editor sends the project in one command, and the server accepts a command of
 Two editor checks give warnings: a junction with no lanes, and a network section that no lane connects to the other nodes.
 The server accepts a project with these warnings, so a warning does not block an apply or an import.
 A passenger station in a separate section still gives an error, because the other passenger stations cannot reach it.
+The editor puts the passenger stations in groups.
+In a group, each station can reach each other station.
+The largest group is the main group.
+When two or more groups have the largest size, the main group is the group with the fewest missing routes to and from the other passenger stations.
+If these groups also have the same number of missing routes, the main group is the group with the first station in the project.
+Each station outside the main group is cut off.
+It gives one error, not one error for each station pair.
+The error tells if the station cannot reach some passenger stations, if some passenger stations cannot reach it, or both.
+It gives the number of these stations, or the station name when there is only one.
 
 If the server project fails these checks, the editor still loads it as the draft.
 The **Checks** section lists the errors first, then the warnings.
@@ -477,6 +486,7 @@ The server checks the project again when you apply it.
 Select a message that names a station, berth, lane, or junction to select that item.
 A berth message selects the station of the berth and marks the berth.
 A pod message selects the station of the pod.
+A message about a cut-off station selects that station.
 When the item is off the map or near the edge of the map, the map moves so that the item is at the center of the map.
 The map also moves when the map scale is below 0.5 screen pixels per meter.
 The scale is then 0.5 screen pixels per meter or more.

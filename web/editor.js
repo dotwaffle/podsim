@@ -478,6 +478,50 @@
     });
   }
 
+  // cutOffStations gives the stations that are cut off from the main group.
+  // reach is the table from stationReach, and checked tells which stations
+  // have berths to check. A group is a set of stations that can all reach
+  // each other. All stations of a group have the same missing routes to and
+  // from the other stations. The main group is the largest group. When two
+  // or more groups have the largest size, the main group is the group with
+  // the fewest missing routes, and then the group with the first station in
+  // the project. Thus a station with no routes is not the main group when
+  // another station has a route. Each station that is not in the main group
+  // gives one item. out holds the indexes of the stations that it cannot
+  // reach, and in holds the indexes of the stations that cannot reach it. A
+  // station with no berths to check is not in a group, because its row and
+  // column of reach are all true.
+  function cutOffStations(reach, checked) {
+    const stations = [...reach.keys()].filter((index) => checked[index]);
+    const links = (index) => ({
+      out: stations.filter((other) => other !== index && !reach[index][other]),
+      in: stations.filter((other) => other !== index && !reach[other][index]),
+    });
+    const group = []; const groups = [];
+    for (const seed of stations) {
+      if (group[seed] !== undefined) continue;
+      const members = stations.filter((index) => index === seed || (reach[seed][index] && reach[index][seed]));
+      for (const index of members) group[index] = groups.length;
+      const missing = links(seed);
+      groups.push({ size: members.length, misses: missing.out.length + missing.in.length });
+    }
+    const better = (item, best) => item.size > best.size || (item.size === best.size && item.misses < best.misses);
+    const main = groups.reduce((best, item, index) => (best < 0 || better(item, groups[best]) ? index : best), -1);
+    return stations.filter((index) => group[index] !== main).map((index) => ({ index, ...links(index) }));
+  }
+
+  // cutOffText gives the error for a cut-off station. item has name, the
+  // name of the station, out, the names of the stations that it cannot
+  // reach, and in, the names of the stations that cannot reach it. A list of
+  // one station gives its name. A longer list gives the number of stations.
+  function cutOffText(item) {
+    const list = (names) => names.length === 1 ? names[0] : `${names.length} passenger stations`;
+    const parts = [];
+    if (item.out.length) parts.push(`${item.name} cannot reach ${list(item.out)}`);
+    if (item.in.length) parts.push(`${list(item.in)} cannot reach ${item.name}`);
+    return `${parts.join(", and ")}.`;
+  }
+
   // A check target is the object that a check message names. type is
   // "station", "berth", "lane" or "node", and id is the ID of the object.
   // CHECK_TARGET_KINDS gives the target type for each kind of ID that
@@ -613,12 +657,15 @@
     // berth of the other passenger stations. The check skips a berth that has
     // a berth route error. That error already blocks, and the server stops at
     // it. Thus one broken berth gives one error, not one for each station pair.
+    // A cut-off station also gives one error. See cutOffStations.
     const passengerBerths = passenger.map((station) => (Array.isArray(station.Berths) ? station.Berths.filter(isRecord) : [])
       .map((berth) => berth.Node).filter((node) => !brokenBerths.has(node)));
     const reach = stationReach(validLanes, passengerBerths);
-    passenger.forEach((origin, from) => passenger.forEach((destination, to) => {
-      if (origin.ID !== destination.ID && !reach[from][to]) report(`${origin.Name} cannot reach ${destination.Name}.`, checkTarget("station", origin.ID));
-    }));
+    const names = (indexes) => indexes.map((index) => passenger[index].Name);
+    for (const item of cutOffStations(reach, passengerBerths.map((nodes) => nodes.length > 0))) {
+      const station = passenger[item.index];
+      report(cutOffText({ name: station.Name, out: names(item.out), in: names(item.in) }), checkTarget("station", station.ID));
+    }
     const demand = value.demand;
     if (isRecord(demand) && "enabled" in demand && typeof demand.enabled !== "boolean") errors.push("The passenger demand enabled setting must be true or false.");
     if (!demand || !Number.isInteger(demand.perMinute) || demand.perMinute < 1 || demand.perMinute > 120) errors.push("Passenger demand must be 1 to 120 trips per minute.");
@@ -1160,7 +1207,7 @@
   const API = {
     MIN_LANE_LENGTH, MIN_ZOOM, NODE_LABEL_SCALE, NODE_LABEL_SIZE, LANE_PAIR_OFFSET, CHEVRON_LANE_LENGTH, CHECK_DELAY, emptyConfig, normalizeConfig, addLane, addJunction, addStation, addBerth,
     removeBerth, moveStation, moveNode, deleteNode, deleteLane, deleteStation, stationFlowCount, setFleetCount, fleetRows, setDemandPattern,
-    laneLength, curveLength, reachable, stationNodeOwners, dragTargets, validateConfig, configWarnings, checkResults, checkSelector, checkSelection, selectionPoint, focusView,
+    laneLength, curveLength, reachable, cutOffStations, stationNodeOwners, dragTargets, validateConfig, configWarnings, checkResults, checkSelector, checkSelection, selectionPoint, focusView,
     problemCountText, createCheckTimer, validationSummary, serializeDocument, parseDocument, createHistory,
     networkBounds, fitView, zoomScale, nodeLabelSize, pairedLaneIDs, showsChevron, laneOffset, laneCurve, lanePathData, applyToServer, applyFailureText, applyFailureStatus, applyToast,
   };
