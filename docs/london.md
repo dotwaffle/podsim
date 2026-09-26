@@ -194,6 +194,9 @@ A lane has a width of 30 meters on the map, but at least 2 and at most 5 CSS pix
 A lane shorter than 24 CSS pixels on the screen has no direction arrow.
 In a window smaller than 1100 by 760 CSS pixels, these sizes become smaller with the rest of the view.
 The overview labels, expanded labels, and pod labels keep their size.
+An expanded label that covers a lane can show as a short label, as on all maps.
+The short label does not show the reserved-empty and free berths or the approaching pods.
+At the largest zoom, the map shows only the full label.
 As on all maps, where two direction arrows in about the same direction overlap, the map shows only one of them.
 While a station shows one marker, its lanes are thinner and dimmer than the other lanes.
 The direction arrows on these lanes are also dimmer.

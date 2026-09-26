@@ -356,3 +356,34 @@ func TestWheelZoomFactor(t *testing.T) {
 		})
 	}
 }
+
+func TestMapCameraAtMaxZoom(t *testing.T) {
+	t.Parallel()
+	center := sim.Point{X: 400, Y: 300}
+	tests := []struct {
+		name string
+		// zoom is the zoom factor from Fit. Zero keeps a camera that has
+		// no fit.
+		zoom float64
+		want bool
+	}{
+		{name: "no fit"},
+		{name: "fit", zoom: 1},
+		{name: "below the largest zoom", zoom: mapMaxZoom / mapZoomStep},
+		{name: "largest zoom", zoom: mapMaxZoom, want: true},
+		{name: "past the largest zoom", zoom: 2 * mapMaxZoom, want: true},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			var camera mapCamera
+			if test.zoom > 0 {
+				camera = fittedTestCamera()
+				camera.zoomAt(center, test.zoom)
+			}
+			if got := camera.atMaxZoom(); got != test.want {
+				t.Fatalf("atMaxZoom() = %t, want %t", got, test.want)
+			}
+		})
+	}
+}

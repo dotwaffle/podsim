@@ -55,6 +55,12 @@ func (c *mapCamera) fit(input cameraFit) {
 	c.initialized = true
 }
 
+// atMaxZoom reports whether the map is at its largest zoom. A camera that
+// has no scale limits yet is not at its largest zoom.
+func (c *mapCamera) atMaxZoom() bool {
+	return c.initialized && c.scale >= c.maxScale
+}
+
 func (c *mapCamera) screenPoint(world sim.Point) sim.Point {
 	return sim.Point{X: c.origin.X + world.X*c.scale, Y: c.origin.Y + world.Y*c.scale}
 }

@@ -868,7 +868,7 @@ type collapsedStationLabelInput struct {
 func (g *Game) collapsedStationLabel(input collapsedStationLabelInput) collapsedStationLabel {
 	name := shortText(strings.TrimPrefix(input.station.Name, "Station "), overviewNameRunes)
 	berths := len(input.station.Berths)
-	collapsed := collapsedStationLabel{
+	return collapsedStationLabel{
 		stationID: input.station.ID,
 		rank:      input.rank,
 		primary: label{
@@ -876,11 +876,8 @@ func (g *Game) collapsedStationLabel(input collapsedStationLabelInput) collapsed
 			size: 10, value: fmt.Sprintf("%s  %d/%d", name, input.status.Occupied, berths), color: foreground, mapLabel: true,
 		},
 		collisionValue: fmt.Sprintf("%s  %d/%d", name, berths, berths),
+		secondary:      stationQueueAlert(input.status),
 	}
-	if input.status.EntranceStopped > 0 || input.status.ExitStopped > 0 {
-		collapsed.secondary = fmt.Sprintf("In %d · Out %d", input.status.EntranceStopped, input.status.ExitStopped)
-	}
-	return collapsed
 }
 
 // secondaryLabel returns the queue line of the overview label. deviceScale

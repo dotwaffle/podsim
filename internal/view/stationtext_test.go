@@ -3,7 +3,10 @@ package view
 import (
 	"fmt"
 	"image"
+	"maps"
 	"math"
+	"slices"
+	"strings"
 	"testing"
 
 	"github.com/hajimehoshi/ebiten/v2/text/v2"
@@ -190,6 +193,344 @@ func TestPlaceStationText(t *testing.T) {
 	}
 }
 
+// TestPlaceStationTextForm checks the rule that picks the long or the short
+// form of station text. The long form is 80x20 pixels and the short form is
+// 40x10 pixels. A form can go below the ring or left of it. A high away cost
+// keeps a form below the ring when that place is free.
+func TestPlaceStationTextForm(t *testing.T) {
+	t.Parallel()
+	viewport := image.Rect(0, 0, 200, 100)
+	ring := image.Rect(90, 40, 110, 60)
+	long, short := image.Pt(80, 20), image.Pt(40, 10)
+	// wide is a horizontal lane at y across the viewport, and tall is a
+	// vertical lane at x.
+	wide := func(y float64) lanePath { return lanePath{{X: 0, Y: y}, {X: 200, Y: y}} }
+	tall := func(x float64) lanePath { return lanePath{{X: x, Y: 0}, {X: x, Y: 100}} }
+	// below blocks the place of the long form below the ring.
+	below := image.Rect(125, 62, 130, 82)
+	tests := []struct {
+		name     string
+		sizes    []image.Point
+		lanes    []lanePath
+		padding  int
+		slack    float64
+		occupied []image.Rectangle
+		want     textFormPlace
+		wantOK   bool
+	}{
+		{
+			name:  "long form without lanes",
+			sizes: []image.Point{long, short},
+			want:  textFormPlace{form: 0, area: image.Rect(60, 62, 140, 82)}, wantOK: true,
+		},
+		{
+			name:  "long form clear of a lane beside it",
+			sizes: []image.Point{long, short}, lanes: []lanePath{wide(95)},
+			want: textFormPlace{form: 0, area: image.Rect(60, 62, 140, 82)}, wantOK: true,
+		},
+		{
+			name:  "long form crosses a lane and the short form does not",
+			sizes: []image.Point{long, short}, lanes: []lanePath{wide(78)},
+			want: textFormPlace{form: 1, area: image.Rect(80, 62, 120, 72)}, wantOK: true,
+		},
+		{
+			name:  "both forms cross a lane",
+			sizes: []image.Point{long, short}, lanes: []lanePath{wide(66)},
+			want: textFormPlace{form: 1, area: image.Rect(80, 62, 120, 72), cost: 40}, wantOK: true,
+		},
+		{
+			name:  "a lane in the padding does not count",
+			sizes: []image.Point{long, short}, lanes: []lanePath{wide(81)}, padding: 2,
+			want: textFormPlace{form: 0, area: image.Rect(60, 62, 140, 82)}, wantOK: true,
+		},
+		{
+			name:  "long form without a free place",
+			sizes: []image.Point{long, short}, occupied: []image.Rectangle{below, image.Rect(0, 40, 10, 60)},
+			want: textFormPlace{form: 1, area: image.Rect(80, 62, 120, 72)}, wantOK: true,
+		},
+		{
+			name:  "long form covers less of the lanes than the short form",
+			sizes: []image.Point{long, short}, lanes: []lanePath{wide(66), tall(20)}, occupied: []image.Rectangle{below},
+			want: textFormPlace{form: 0, area: image.Rect(8, 40, 88, 60), cost: 1020}, wantOK: true,
+		},
+		{
+			name:  "long form crosses a lane within the slack",
+			sizes: []image.Point{long, short}, lanes: []lanePath{tall(130)}, slack: 25,
+			want: textFormPlace{form: 0, area: image.Rect(60, 62, 140, 82), cost: 20}, wantOK: true,
+		},
+		{
+			name:  "long form crosses a lane past the slack",
+			sizes: []image.Point{long, short}, lanes: []lanePath{tall(130)}, slack: 15,
+			want: textFormPlace{form: 1, area: image.Rect(80, 62, 120, 72)}, wantOK: true,
+		},
+		{
+			name:  "one form crosses a lane",
+			sizes: []image.Point{short}, lanes: []lanePath{wide(66)},
+			want: textFormPlace{form: 0, area: image.Rect(80, 62, 120, 72), cost: 40}, wantOK: true,
+		},
+		{
+			name:  "no form has a free place",
+			sizes: []image.Point{long, short}, occupied: []image.Rectangle{viewport},
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			got, ok := placeStationTextForm(textFormPlacement{
+				placement: stationTextPlacement{
+					item: ring, sides: []textSide{{0, 1}, {-1, 0}}, away: sim.Point{Y: 1}, gap: 2, padding: test.padding,
+					viewport: viewport, occupied: test.occupied, lanes: test.lanes, awayCost: 1000,
+				},
+				sizes: test.sizes, slack: test.slack,
+			})
+			want := test.want
+			if got.form != want.form || got.area != want.area || math.Abs(got.cost-want.cost) > 1e-9 || ok != test.wantOK {
+				t.Fatalf("placeStationTextForm() = %+v, %t, want %+v, %t", got, ok, want, test.wantOK)
+			}
+		})
+	}
+}
+
+// TestExpandedStationTextForms checks the lines of the long and the short
+// form of the text of a single-berth station and of a station with two
+// berths. The short form has a queue line only when pods stop at the
+// entrance or the exit. Its size always holds a queue line and the widest
+// occupancy line.
+func TestExpandedStationTextForms(t *testing.T) {
+	t.Parallel()
+	// The longest pod ID gives the widest occupancy line of a berth.
+	state := sim.Snapshot{Vehicles: []sim.Vehicle{{Pod: sim.Pod{ID: "01"}}, {Pod: sim.Pod{ID: "pod-003"}}}}
+	tests := []struct {
+		name      string
+		station   string
+		status    observe.StationMetrics
+		wantLong  []string
+		wantShort []string
+		// wantWidest is the widest occupancy line of the short form.
+		wantWidest string
+	}{
+		{
+			name: "single berth", station: "harbor", status: observe.StationMetrics{Free: 1},
+			wantLong:  []string{"Harbor", "BERTH 0/1", "0 occupied · 0 reserved empty · 1 free", "In 0 stopped / 0 approaching · Out 0 stopped"},
+			wantShort: []string{"Harbor", "BERTH 0/1"}, wantWidest: "DEPARTING pod-003",
+		},
+		{
+			name: "single berth with a queue", station: "harbor", status: observe.StationMetrics{ReservedEmpty: 1, EntranceStopped: 2, ExitStopped: 1},
+			wantLong:  []string{"Harbor", "BERTH 0/1", "0 occupied · 1 reserved empty · 0 free", "In 2 stopped / 0 approaching · Out 1 stopped"},
+			wantShort: []string{"Harbor", "BERTH 0/1", "In 2 · Out 1"}, wantWidest: "DEPARTING pod-003",
+		},
+		{
+			name: "single berth with an entrance queue", station: "harbor", status: observe.StationMetrics{Free: 1, EntranceStopped: 1},
+			wantLong:  []string{"Harbor", "BERTH 0/1", "0 occupied · 0 reserved empty · 1 free", "In 1 stopped / 0 approaching · Out 0 stopped"},
+			wantShort: []string{"Harbor", "BERTH 0/1", "In 1 · Out 0"}, wantWidest: "DEPARTING pod-003",
+		},
+		{
+			name: "two berths", station: "parking", status: observe.StationMetrics{Occupied: 1, ReservedEmpty: 1},
+			wantLong:  []string{"Parking", "1/2 occupied · 1 reserved empty · 0 free", "In 0 stopped / 0 approaching · Out 0 stopped"},
+			wantShort: []string{"Parking", "1/2 occupied"}, wantWidest: "2/2 occupied",
+		},
+		{
+			name: "two berths with a queue", station: "parking", status: observe.StationMetrics{Occupied: 1, Free: 1, EntranceStopped: 2, Approaching: 3, ExitStopped: 1},
+			wantLong:  []string{"Parking", "1/2 occupied · 0 reserved empty · 1 free", "In 2 stopped / 3 approaching · Out 1 stopped"},
+			wantShort: []string{"Parking", "1/2 occupied", "In 2 · Out 1"}, wantWidest: "2/2 occupied",
+		},
+		{
+			name: "two berths with an exit queue", station: "parking", status: observe.StationMetrics{Free: 2, ExitStopped: 1},
+			wantLong:  []string{"Parking", "0/2 occupied · 0 reserved empty · 2 free", "In 0 stopped / 0 approaching · Out 1 stopped"},
+			wantShort: []string{"Parking", "0/2 occupied", "In 0 · Out 1"}, wantWidest: "2/2 occupied",
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			game := journeyNetworkGame(t, sim.Example())
+			station, ok := game.network.Station(test.station)
+			if !ok {
+				t.Fatalf("station %s is not in the example", test.station)
+			}
+			expanded := game.expandedStationText(expandedStationInput{station: station, status: test.status, state: state})
+			block := expanded.station
+			if len(station.Berths) == 1 {
+				block = expanded.berths[0].text
+			}
+			if got := lineValues(block.lines); !slices.Equal(got, test.wantLong) {
+				t.Errorf("long form = %q, want %q", got, test.wantLong)
+			}
+			short := block.short
+			if got := lineValues(short.lines); !slices.Equal(got, test.wantShort) {
+				t.Errorf("short form = %q, want %q", got, test.wantShort)
+			}
+			if len(short.lines) == 3 && short.lines[2].color != amber {
+				t.Errorf("queue line color = %06x, want amber %06x", short.lines[2].color, amber)
+			}
+			wantSizing := append(slices.Clone(test.wantShort), test.wantWidest, "In 99 · Out 99")
+			if got := lineValues(short.sizing); !slices.Equal(got, wantSizing) {
+				t.Errorf("short form sizing = %q, want %q", got, wantSizing)
+			}
+		})
+	}
+}
+
+// lineValues returns the text of each line.
+func lineValues(lines []label) []string {
+	var values []string
+	for _, line := range lines {
+		values = append(values, line.value)
+	}
+	return values
+}
+
+// isShortForm reports whether lines are the short form of station text.
+// Each long form has a line with the reserved-empty berths, and a berth
+// number has one line.
+func isShortForm(lines []label) bool {
+	return len(lines) > 1 && !slices.ContainsFunc(lines, func(line label) bool {
+		return strings.Contains(line.value, "reserved empty")
+	})
+}
+
+// TestStationTextKeepsItsPlace checks that the station text of the example
+// at Fit keeps its place when pods stop at the entrance or the exit, and
+// when a pod arrives at a berth or occupies it. Some text shows its short
+// form, whose drawn lines change with these states.
+func TestStationTextKeepsItsPlace(t *testing.T) {
+	t.Parallel()
+	vehicles := []sim.Vehicle{{Pod: sim.Pod{ID: "01"}}, {Pod: sim.Pod{ID: "02"}}}
+	states := []struct {
+		name   string
+		status observe.StationMetrics
+		berths []sim.BerthState
+	}{
+		{name: "no queue"},
+		{name: "entrance queue", status: observe.StationMetrics{EntranceStopped: 1}},
+		{name: "exit queue", status: observe.StationMetrics{ExitStopped: 1}},
+		{name: "arriving pods", status: observe.StationMetrics{ReservedEmpty: 1}, berths: []sim.BerthState{
+			{ID: "harbor-1", ReservedBy: "01"}, {ID: "garden-1", ReservedBy: "02"}, {ID: "market-1", ReservedBy: "01"}, {ID: "parking-1", ReservedBy: "02"},
+		}},
+		{name: "occupied berths", status: observe.StationMetrics{Occupied: 1}, berths: []sim.BerthState{
+			{ID: "harbor-1", Occupant: "01"}, {ID: "garden-1", Occupant: "02"}, {ID: "market-1", Occupant: "01"}, {ID: "parking-1", Occupant: "02"},
+		}},
+	}
+	for _, input := range []layoutInput{
+		{outsideWidth: 1100, outsideHeight: 760, deviceScale: 1},
+		{outsideWidth: 1366, outsideHeight: 610, deviceScale: 1},
+	} {
+		t.Run(fmt.Sprintf("%dx%d", input.outsideWidth, input.outsideHeight), func(t *testing.T) {
+			t.Parallel()
+			game := journeyNetworkGame(t, sim.Example())
+			game.layoutFor(input)
+			game.fitNetwork()
+			var want map[string]image.Rectangle
+			for _, state := range states {
+				_, placed, _ := placedTestTextWith(game, func(station sim.Station) expandedStationInput {
+					status := state.status
+					status.Free = len(station.Berths) - status.Occupied - status.ReservedEmpty
+					return expandedStationInput{station: station, status: status, state: sim.Snapshot{Vehicles: vehicles, Berths: state.berths}}
+				})
+				areas := make(map[string]image.Rectangle)
+				short := 0
+				for _, text := range placed {
+					areas[text.block.lines[0].value] = text.area
+					if isShortForm(text.block.lines) {
+						short++
+					}
+				}
+				if short == 0 {
+					t.Errorf("%s: no text shows its short form", state.name)
+				}
+				if want == nil {
+					want = areas
+					continue
+				}
+				if !maps.Equal(areas, want) {
+					t.Errorf("%s: text areas %v, want %v", state.name, areas, want)
+				}
+			}
+		})
+	}
+}
+
+// TestStationTextFormFollowsZoom checks that the Parking text of the example
+// shows its short form at Fit, where the long form covers the bypass lanes,
+// and its long form after a zoom in on Parking.
+func TestStationTextFormFollowsZoom(t *testing.T) {
+	t.Parallel()
+	for _, input := range []layoutInput{
+		{outsideWidth: 1100, outsideHeight: 760, deviceScale: 1},
+		{outsideWidth: 1366, outsideHeight: 610, deviceScale: 1},
+	} {
+		t.Run(fmt.Sprintf("%dx%d", input.outsideWidth, input.outsideHeight), func(t *testing.T) {
+			t.Parallel()
+			for _, zoom := range []struct {
+				factor float64
+				lines  int
+			}{{1, 2}, {3, 3}} {
+				game := journeyNetworkGame(t, sim.Example())
+				game.layoutFor(input)
+				game.fitNetwork()
+				game.camera.zoomAt(game.mapPoint(game.stationAnchors()["parking"]), zoom.factor)
+				game.syncCamera()
+				_, placed, _ := placedTestText(game)
+				lines := 0
+				for _, text := range placed {
+					if text.block.lines[0].value == "Parking" {
+						lines = len(text.block.lines)
+					}
+				}
+				if lines != zoom.lines {
+					t.Errorf("zoom %g: Parking text has %d lines, want %d", zoom.factor, lines, zoom.lines)
+				}
+			}
+		})
+	}
+}
+
+// TestStationTextFormOnLondon checks London zoomed in on three stations. At
+// 20 times the Fit scale, the long form of most station text covers lanes,
+// so the short form shows. At the largest zoom, the long form shows, so the
+// full counts of each station stay available.
+func TestStationTextFormOnLondon(t *testing.T) {
+	t.Parallel()
+	network := scenarios.London().Network
+	for _, input := range []layoutInput{
+		{outsideWidth: 1100, outsideHeight: 760, deviceScale: 1},
+		{outsideWidth: 1366, outsideHeight: 610, deviceScale: 1},
+	} {
+		t.Run(fmt.Sprintf("%dx%d", input.outsideWidth, input.outsideHeight), func(t *testing.T) {
+			t.Parallel()
+			for _, zoom := range []float64{20, mapMaxZoom} {
+				long, short := 0, 0
+				for _, stationID := range []string{"parking-west", "940GZZLUGDG", "940GZZLUALD"} {
+					game := journeyNetworkGame(t, network)
+					game.state = session.State{Epoch: "london"}
+					game.layoutFor(input)
+					game.fitNetwork()
+					game.camera.zoomAt(game.mapPoint(game.stationAnchors()[stationID]), zoom)
+					game.syncCamera()
+					_, placed, _ := placedTestText(game)
+					for _, text := range placed {
+						// The station text has three or four lines in the
+						// long form and two in the short form. A berth
+						// number has one line.
+						switch lines := len(text.block.lines); {
+						case lines >= 3:
+							long++
+						case lines == 2:
+							short++
+						}
+					}
+				}
+				if zoom < mapMaxZoom && short == 0 {
+					t.Errorf("zoom %g: %d long and %d short station text blocks, want short blocks", zoom, long, short)
+				}
+				if zoom == mapMaxZoom && (long == 0 || short > 0) {
+					t.Errorf("zoom %g: %d long and %d short station text blocks, want only long blocks", zoom, long, short)
+				}
+			}
+		})
+	}
+}
+
 func TestLanePathCovered(t *testing.T) {
 	t.Parallel()
 	area := image.Rect(10, 10, 20, 20)
@@ -313,13 +654,21 @@ func testLanePaths(game *Game) []lanePath {
 // game network that show their berths, the text at its place, and the lanes
 // in the map viewport.
 func placedTestText(game *Game) ([]expandedStationText, []placedStationText, []lanePath) {
+	return placedTestTextWith(game, func(station sim.Station) expandedStationInput {
+		return expandedStationInput{station: station, status: observe.StationMetrics{Free: len(station.Berths)}}
+	})
+}
+
+// placedTestTextWith is placedTestText with the station state that input
+// returns for each station.
+func placedTestTextWith(game *Game, input func(station sim.Station) expandedStationInput) ([]expandedStationText, []placedStationText, []lanePath) {
 	var expanded []expandedStationText
 	markers := game.collapsedStationMarkers()
 	for _, station := range game.network.Stations {
 		if _, ok := markers[station.ID]; ok {
 			continue
 		}
-		expanded = append(expanded, game.expandedStationText(expandedStationInput{station: station, status: observe.StationMetrics{Free: len(station.Berths)}}))
+		expanded = append(expanded, game.expandedStationText(input(station)))
 	}
 	lanes := testLanePaths(game)
 	return expanded, game.placeExpandedStationText(expanded, lanes), lanes
@@ -361,19 +710,19 @@ func TestStationTextOnExample(t *testing.T) {
 		// text block covers. Each limit is the largest cover measured in
 		// the window, rounded up to the next 10 units. In the 1100x760
 		// window, each place of the Parking text covers a lane or other
-		// text. Map labels keep their CSS size, so in the short 1366x610
-		// window the text takes a larger part of the map. There, the
-		// Parking text does not fit left of its berths, and the place above
-		// its berths crosses the bypass lanes. With the 10 pixel floor of
-		// map labels, the edge of the Harbor text covers a lane in the
-		// 1920x1080 window.
+		// text, also in the short form. Map labels keep their CSS size, so
+		// in the short 1366x610 window the text takes a larger part of the
+		// map. There, the short form of the Parking text goes above its
+		// berths and crosses the bypass lanes. In the larger windows, a
+		// lane crosses a corner of the long form of the Garden text. This
+		// length is in the slack of placeStationTextForm.
 		maxCover float64
 		// below is true when the Harbor and Market text is below the ring,
 		// away from the siding. The Garden text is never below the ring.
 		below bool
 	}{
-		{1100, 760, 1, 210, true}, {1366, 610, 1, 300, false}, {1366, 610, 2, 300, false},
-		{1920, 1080, 1, 50, true}, {1920, 1080, 2, 50, true}, {2560, 1440, 1, 20, true}, {2560, 1440, 2, 20, true},
+		{1100, 760, 1, 70, true}, {1366, 610, 1, 90, false}, {1366, 610, 2, 90, false},
+		{1920, 1080, 1, 20, true}, {1920, 1080, 2, 20, true}, {2560, 1440, 1, 20, true}, {2560, 1440, 2, 20, true},
 	} {
 		game := journeyNetworkGame(t, sim.Example())
 		game.layoutFor(layoutInput{outsideWidth: size.width, outsideHeight: size.height, deviceScale: size.scale})
@@ -516,17 +865,19 @@ func TestStationTextSize(t *testing.T) {
 			queueWidth, queueHeight := text.Measure(queue, &text.GoTextFace{Source: game.font, Size: 10 * scale}, 0)
 			padding := 2 * stationTextPadding * game.layout.unit
 			want := image.Pt(int(math.Ceil(max(nameWidth, queueWidth)+padding)), int(math.Ceil(23*scale+queueHeight+padding)))
-			if got := game.stationTextSize(block); got != want {
+			if got := game.stationTextSize(block.lines); got != want {
 				t.Fatalf("stationTextSize() = %v, want %v", got, want)
 			}
 		})
 	}
 }
 
-// TestStationTextLinesDoNotOverlap checks that the lines of the station text
-// do not overlap in a short window and in a window with a high device scale.
-// The line spacing and the map label size are both in CSS pixels. It also
-// checks that each line has the map label size, at least 10 CSS pixels.
+// TestStationTextLinesDoNotOverlap checks that the lines of the long and the
+// short form of the station text do not overlap in a short window and in a
+// window with a high device scale. The line spacing and the map label size
+// are both in CSS pixels. It also checks that each line has the map label
+// size, at least 10 CSS pixels. Pods stop at each entrance and exit, so the
+// short form has its queue line.
 func TestStationTextLinesDoNotOverlap(t *testing.T) {
 	t.Parallel()
 	for _, input := range []layoutInput{
@@ -540,23 +891,26 @@ func TestStationTextLinesDoNotOverlap(t *testing.T) {
 			game := journeyNetworkGame(t, sim.Example())
 			game.layoutFor(input)
 			game.fitNetwork()
-			expanded, _, _ := placedTestText(game)
-			var blocks []stationTextBlock
-			for _, station := range expanded {
-				blocks = append(blocks, station.station)
-				for _, berth := range station.berths {
-					blocks = append(blocks, berth.text)
+			var forms []textForm
+			for _, station := range game.network.Stations {
+				expanded := game.expandedStationText(expandedStationInput{
+					station: station, status: observe.StationMetrics{Free: len(station.Berths), EntranceStopped: 2, ExitStopped: 1},
+				})
+				forms = append(forms, expanded.station.forms()...)
+				for _, berth := range expanded.berths {
+					forms = append(forms, berth.text.forms()...)
 				}
 			}
 			checked := 0
-			for _, block := range blocks {
-				for _, line := range block.lines {
+			for _, form := range forms {
+				lines := form.lines
+				for _, line := range lines {
 					if got, want := game.labelFace(line).Size, max(line.size, 10)*input.deviceScale; math.Abs(got-want) > 1e-9 {
 						t.Errorf("line %q has size %g, want %g", line.value, got, want)
 					}
 				}
-				for index := 1; index < len(block.lines); index++ {
-					above, line := block.lines[index-1], block.lines[index]
+				for index := 1; index < len(lines); index++ {
+					above, line := lines[index-1], lines[index]
 					_, height := text.Measure(above.value, game.labelFace(above), 0)
 					if above.y+height > line.y {
 						t.Errorf("line %q ends at %g, below the top of line %q at %g", above.value, above.y+height, line.value, line.y)
@@ -564,10 +918,11 @@ func TestStationTextLinesDoNotOverlap(t *testing.T) {
 					checked++
 				}
 			}
-			// Three single-berth stations with four lines, and Parking
-			// with three lines.
-			if checked != 3*3+2 {
-				t.Fatalf("checked %d pairs of lines, want %d", checked, 3*3+2)
+			// Three single-berth stations with four lines in the long
+			// form, and Parking with three lines. Each short form has
+			// three lines.
+			if want := 3*3 + 2 + 4*2; checked != want {
+				t.Fatalf("checked %d pairs of lines, want %d", checked, want)
 			}
 		})
 	}

@@ -8,6 +8,7 @@ import (
 	"math"
 	"slices"
 	"strconv"
+	"unicode/utf8"
 
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/text/v2"
@@ -31,6 +32,11 @@ const (
 	// stationTextBackingAlpha is the alpha of the panel-colored backing
 	// behind station text, about 80%.
 	stationTextBackingAlpha = 204
+	// stationTextLaneSlack is the length of lanes in display units that a
+	// form of station text can cover and still show before a shorter form.
+	// A lane that crosses only the edge of the text does not make the text
+	// short. See placeStationTextForm.
+	stationTextLaneSlack = 24
 )
 
 // stationTextBlock holds the map text lines that name a berth or a station.
@@ -39,6 +45,33 @@ const (
 // See displayLayout.mapLabelSize.
 type stationTextBlock struct {
 	lines []label
+	// short is the short form of station text. The map shows the short
+	// form where the long form in lines covers a lane and the short form
+	// covers less of the lanes, except at the largest zoom. It has no lines
+	// for a block with one form, such as a berth number. See
+	// placeStationTextForm.
+	short textForm
+}
+
+// textForm is one form of a text block.
+type textForm struct {
+	// lines holds the lines that show.
+	lines []label
+	// sizing holds the lines that give the size of the form: the lines,
+	// and lines with the widest values that the lines can have. Thus the
+	// form keeps its size and place when a pod arrives, departs or stops.
+	// See collapsedStationLabel.collisionValue.
+	sizing []label
+}
+
+// forms returns each form of the block, from the long form to the short
+// form. The long form has a fixed size, so it gives its size with its lines.
+func (block stationTextBlock) forms() []textForm {
+	long := textForm{lines: block.lines, sizing: block.lines}
+	if len(block.short.lines) == 0 {
+		return []textForm{long}
+	}
+	return []textForm{long, block.short}
 }
 
 // berthText holds the berth ring and the text of one berth of an expanded
@@ -90,28 +123,42 @@ func (g *Game) expandedStationText(input expandedStationInput) expandedStationTe
 	expanded := expandedStationText{away: stationTextDirection(positions, station)}
 	// The stroke is centered on the ring radius.
 	radius := (berthRingRadius + 1) * unit
+	name := label{size: 16, value: station.Name, color: foreground, mapLabel: true}
 	for index, berth := range station.Berths {
 		center := g.mapPoint(positions[berth.Node])
 		shade := g.berthShade(berth, input.state)
 		number := stationTextBlock{lines: []label{{size: 16, value: strconv.Itoa(index + 1), color: foreground, mapLabel: true}}}
 		if single {
-			number = stationTextBlock{lines: []label{
-				{size: 16, value: station.Name, color: foreground, mapLabel: true},
-				{y: 21 * deviceScale, size: 10, value: berthOccupancy(berth, input.state), color: shade, mapLabel: true},
-				{y: 37 * deviceScale, size: 9, value: fmt.Sprintf("%d occupied · %d reserved empty · %d free", status.Occupied, status.ReservedEmpty, status.Free), color: muted, mapLabel: true},
-				{y: 52 * deviceScale, size: 9, value: stationQueueText(status), color: muted, mapLabel: true},
-			}}
+			occupancy := label{y: 21 * deviceScale, size: 10, value: berthOccupancy(berth, input.state), color: shade, mapLabel: true}
+			number = stationTextBlock{
+				lines: []label{
+					name, occupancy,
+					{y: 37 * deviceScale, size: 9, value: fmt.Sprintf("%d occupied · %d reserved empty · %d free", status.Occupied, status.ReservedEmpty, status.Free), color: muted, mapLabel: true},
+					{y: 52 * deviceScale, size: 9, value: stationQueueText(status), color: muted, mapLabel: true},
+				},
+				short: shortStationText(shortStationInput{
+					name: name, occupancy: occupancy, widest: widestBerthOccupancy(input.state),
+					status: status, queueY: 37 * deviceScale,
+				}),
+			}
 		}
 		expanded.berths = append(expanded.berths, berthText{
 			center: center, ring: squareAround(center, radius), shade: shade, text: number,
 		})
 	}
-	if !single && len(station.Berths) > 0 {
-		expanded.station = stationTextBlock{lines: []label{
-			{size: 16, value: station.Name, color: foreground, mapLabel: true},
-			{y: 23 * deviceScale, size: 10, value: fmt.Sprintf("%d/%d occupied · %d reserved empty · %d free", status.Occupied, len(station.Berths), status.ReservedEmpty, status.Free), color: muted, mapLabel: true},
-			{y: 40 * deviceScale, size: 9, value: stationQueueText(status), color: muted, mapLabel: true},
-		}}
+	if berths := len(station.Berths); !single && berths > 0 {
+		occupancy := label{y: 23 * deviceScale, size: 10, value: fmt.Sprintf("%d/%d occupied", status.Occupied, berths), color: muted, mapLabel: true}
+		expanded.station = stationTextBlock{
+			lines: []label{
+				name,
+				{y: 23 * deviceScale, size: 10, value: fmt.Sprintf("%d/%d occupied · %d reserved empty · %d free", status.Occupied, berths, status.ReservedEmpty, status.Free), color: muted, mapLabel: true},
+				{y: 40 * deviceScale, size: 9, value: stationQueueText(status), color: muted, mapLabel: true},
+			},
+			short: shortStationText(shortStationInput{
+				name: name, occupancy: occupancy, widest: fmt.Sprintf("%d/%d occupied", berths, berths),
+				status: status, queueY: 40 * deviceScale,
+			}),
+		}
 	}
 	return expanded
 }
@@ -119,6 +166,57 @@ func (g *Game) expandedStationText(input expandedStationInput) expandedStationTe
 // stationQueueText returns the queue line of expanded station text.
 func stationQueueText(status observe.StationMetrics) string {
 	return fmt.Sprintf("In %d stopped / %d approaching · Out %d stopped", status.EntranceStopped, status.Approaching, status.ExitStopped)
+}
+
+// stationQueueAlert returns the short queue line of a station: the number of
+// pods stopped at the entrance and at the exit. It is empty when no pod is
+// stopped there. The overview label and the short form of expanded station
+// text show this line.
+func stationQueueAlert(status observe.StationMetrics) string {
+	if status.EntranceStopped <= 0 && status.ExitStopped <= 0 {
+		return ""
+	}
+	return fmt.Sprintf("In %d · Out %d", status.EntranceStopped, status.ExitStopped)
+}
+
+// shortStationInput holds the lines and the counts of shortStationText.
+type shortStationInput struct {
+	name, occupancy label
+	// widest is about the widest value that the occupancy line can have.
+	widest string
+	status observe.StationMetrics
+	// queueY is the offset of the queue line from the top of the text.
+	queueY float64
+}
+
+// shortStationText returns the short form of expanded station text: the
+// station name, the occupancy line and, when pods are stopped at the
+// entrance or the exit, the queue line of stationQueueAlert. The short form
+// does not show the reserved-empty and free berths, or the approaching
+// pods. Its size always holds the queue line with two-digit counts and the
+// widest occupancy line.
+func shortStationText(input shortStationInput) textForm {
+	queue := label{y: input.queueY, size: 9, value: stationQueueAlert(input.status), color: amber, mapLabel: true}
+	lines := []label{input.name, input.occupancy}
+	if queue.value != "" {
+		lines = append(lines, queue)
+	}
+	widest := input.occupancy
+	widest.value = input.widest
+	queue.value = stationQueueAlert(observe.StationMetrics{EntranceStopped: 99, ExitStopped: 99})
+	return textForm{lines: lines, sizing: append(slices.Clone(lines), widest, queue)}
+}
+
+// widestBerthOccupancy returns about the widest value of the occupancy line
+// of a berth: DEPARTING and the longest pod ID in state. See berthOccupancy.
+func widestBerthOccupancy(state sim.Snapshot) string {
+	longest := ""
+	for _, v := range state.Vehicles {
+		if utf8.RuneCountInString(v.Pod.ID) > utf8.RuneCountInString(longest) {
+			longest = v.Pod.ID
+		}
+	}
+	return "DEPARTING " + longest
 }
 
 // squareAround returns the screen area of a circle.
@@ -203,6 +301,8 @@ func stationTextDirection(positions map[string]sim.Point, station sim.Station) s
 // No block covers a berth ring or an earlier block, and each block covers
 // as little of the lanes as possible. A block that has no free place does not
 // show, and a station with no berth ring in the map viewport has no text.
+// Where the long form of the station text covers a lane, its short form can
+// show, except at the largest zoom. See placeStationTextForm.
 //
 // It places the stations in network order, and again with the stations with
 // the most berths first, because a large station can need the room that a
@@ -238,20 +338,34 @@ func (g *Game) placeStationTextInOrder(stations []expandedStationText, lanes []l
 	}
 	gap := int(math.Ceil(stationTextGap * g.layout.unit))
 	padding := int(stationTextPadding * g.layout.unit)
+	// The short form shows where a zoom in can make room for the long
+	// form. At the largest zoom, it cannot, so only the long form shows.
+	longOnly := g.camera.atMaxZoom()
 	var placed []placedStationText
 	total := 0.0
 	place := func(item image.Rectangle, block stationTextBlock, sides []textSide, away sim.Point) (image.Rectangle, bool) {
-		area, cost, ok := placeStationText(stationTextPlacement{
-			item: item, size: g.stationTextSize(block), sides: sides, away: away,
-			gap: gap, padding: padding, viewport: viewport, occupied: occupied,
-			lanes: lanes, awayCost: stationTextAwayCost * g.layout.unit,
+		forms := block.forms()
+		if longOnly {
+			forms = forms[:1]
+		}
+		sizes := make([]image.Point, len(forms))
+		for index, form := range forms {
+			sizes[index] = g.stationTextSize(form.sizing)
+		}
+		found, ok := placeStationTextForm(textFormPlacement{
+			placement: stationTextPlacement{
+				item: item, sides: sides, away: away,
+				gap: gap, padding: padding, viewport: viewport, occupied: occupied,
+				lanes: lanes, awayCost: stationTextAwayCost * g.layout.unit,
+			},
+			sizes: sizes, slack: stationTextLaneSlack * g.layout.unit,
 		})
 		if ok {
-			occupied = append(occupied, area)
-			placed = append(placed, placedStationText{area: area, block: block})
-			total += cost
+			occupied = append(occupied, found.area)
+			placed = append(placed, placedStationText{area: found.area, block: stationTextBlock{lines: forms[found.form].lines}})
+			total += found.cost
 		}
-		return area, ok
+		return found.area, ok
 	}
 	for _, station := range stations {
 		var item image.Rectangle
@@ -287,11 +401,11 @@ func appendStationTextAreas(areas []image.Rectangle, placed []placedStationText)
 	return areas
 }
 
-// stationTextSize returns the size in screen pixels of a text block with a
-// padding on each side.
-func (g *Game) stationTextSize(block stationTextBlock) image.Point {
+// stationTextSize returns the size in screen pixels of the lines of a text
+// block with a padding on each side.
+func (g *Game) stationTextSize(lines []label) image.Point {
 	var width, height float64
-	for _, line := range block.lines {
+	for _, line := range lines {
 		lineWidth, lineHeight := text.Measure(line.value, g.labelFace(line), 0)
 		width = max(width, line.x+lineWidth)
 		height = max(height, line.y+lineHeight)
@@ -413,11 +527,74 @@ func placeStationText(placement stationTextPlacement) (image.Rectangle, float64,
 	return placement.best(moved)
 }
 
+// textFormPlacement holds the input of placeStationTextForm.
+type textFormPlacement struct {
+	// placement is the placement of the text block without its size.
+	placement stationTextPlacement
+	// sizes holds the size of each form, from the long form to the short
+	// form.
+	sizes []image.Point
+	// slack is the length of lanes in screen pixels that a form can cover
+	// and still show before a shorter form.
+	slack float64
+}
+
+// textFormPlace is the place of one form of a text block.
+type textFormPlace struct {
+	// form is the index of the form in the sizes of textFormPlacement.
+	form int
+	area image.Rectangle
+	// cost is the cost of the place. See placeStationText.
+	cost float64
+}
+
+// placeStationTextForm returns the form of a text block that shows and the
+// place of that form. placeStationText gives the place of each form. The
+// first form whose place covers at most the slack length of lanes shows.
+// When the place of each form covers more, the form whose place covers the
+// least length of lanes shows. A shorter form must cover at least half a
+// pixel less, so that rounding errors do not decide between the forms. Thus
+// the long form shows when it has room at the current zoom, and a shorter
+// form shows when it covers less of the lanes. It reports false when no
+// form has a free place.
+func placeStationTextForm(input textFormPlacement) (textFormPlace, bool) {
+	placement := input.placement
+	var found textFormPlace
+	lowest := math.Inf(1)
+	for form, size := range input.sizes {
+		placement.size = size
+		area, cost, placed := placeStationText(placement)
+		if !placed {
+			continue
+		}
+		place := textFormPlace{form: form, area: area, cost: cost}
+		covered := placement.coveredLanes(area)
+		if covered <= input.slack {
+			return place, true
+		}
+		if covered < lowest-0.5 {
+			found, lowest = place, covered
+		}
+	}
+	return found, !math.IsInf(lowest, 1)
+}
+
 // textPlace is a place of a text block. turn tells how far the place turns
 // from the away direction.
 type textPlace struct {
 	area image.Rectangle
 	turn float64
+}
+
+// coveredLanes returns the length of the lanes that a text block at area
+// covers. The padding at the edges of the area does not count.
+func (placement stationTextPlacement) coveredLanes(area image.Rectangle) float64 {
+	inside := area.Inset(placement.padding)
+	length := 0.0
+	for _, lane := range placement.lanes {
+		length += lane.covered(inside)
+	}
+	return length
 }
 
 // best returns the first of the places that covers no occupied area and has
@@ -430,11 +607,7 @@ func (placement stationTextPlacement) best(places []textPlace) (image.Rectangle,
 		if slices.ContainsFunc(placement.occupied, place.area.Overlaps) {
 			continue
 		}
-		cost := placement.awayCost * place.turn
-		inside := place.area.Inset(placement.padding)
-		for _, lane := range placement.lanes {
-			cost += lane.covered(inside)
-		}
+		cost := placement.awayCost*place.turn + placement.coveredLanes(place.area)
 		// A later place must cost at least half a pixel less, so that
 		// rounding errors do not decide between equal places.
 		if cost < lowest-0.5 {
