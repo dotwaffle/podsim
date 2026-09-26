@@ -495,8 +495,9 @@ func (g *Game) demandLabels() []label {
 
 // redistributionText returns the redistribution line of the Demand panel
 // for state. The line tells if redistribution is on. It gives the number of
-// redistribution moves and the distance that pods traveled with no
-// passenger.
+// guarded positioning moves and the distance that pods traveled with no
+// passenger. A guarded positioning move sends an idle empty pod to a busy
+// station that has no pod.
 func redistributionText(state session.State) string {
 	setting := "off"
 	if state.Redistribution {

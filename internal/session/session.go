@@ -721,12 +721,32 @@ func (s *Session) save(config project.Config) error {
 	return nil
 }
 
-// Expected pickup weights follow the configured arrival pattern.
+// configureRedistribution sets the demand weights, the positioning mode and
+// the demand rate of the simulation. Expected pickup weights follow the
+// configured arrival pattern. Redistribution selects guarded positioning.
+// The demand rate is the rate of the live demand stream while it runs, and
+// 0 otherwise, so that the gate then reads the mean rate. It reads the
+// stream and not the project, because after the demo the stream is off
+// while the project can keep demand on.
 func (s *Session) configureRedistribution() {
 	demand := newDemand(demandInput{config: s.project.Demand, network: s.project.Network, profiles: s.project.DemandProfiles})
 	// Project validation guarantees at least two passenger stations and valid settings.
 	if err := s.simulation.SetDemandWeights(demand.pickupWeights); err != nil {
 		panic(err)
 	}
-	s.simulation.SetRedistribution(s.project.Redistribution)
+	mode := sim.PositioningOff
+	if s.project.Redistribution {
+		mode = sim.PositioningGuarded
+	}
+	rate := 0
+	if live := s.demand.state.Config; live.Enabled {
+		rate = live.PerMinute
+	}
+	// The mode is valid, and demand validation rejects a negative rate.
+	if err := s.simulation.SetPositioning(mode); err != nil {
+		panic(err)
+	}
+	if err := s.simulation.SetDemandRate(rate); err != nil {
+		panic(err)
+	}
 }

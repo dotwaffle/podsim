@@ -1059,38 +1059,45 @@ func TestNewFromStoreProjectDifferences(t *testing.T) {
 }
 
 // TestNewFromStoreRedistribution checks that a restored project with
-// redistribution moves an idle pod, as the live session does. The saved
-// simulation does not hold the setting, so the restore sets it from the
-// project.
+// demand runs the positioning mode of the project at the demand rate, as
+// the live session does. The saved simulation does not hold these
+// settings, so the restore sets them from the project and the stream.
 func TestNewFromStoreRedistribution(t *testing.T) {
 	t.Parallel()
-	config := project.Default()
-	config.Redistribution = true
-	store := &fakeStore{}
-	live := startFromStore(t, StoreInput{Store: store, Project: &config})
-	// The trip frees a pickup station, so redistribution has a station to
-	// send an empty pod to.
-	newTestClient(live, "trip").mustApply(t, Command{Action: "trip", Origin: "harbor", Destination: "market"})
-	if err := live.SaveState(t.Context(), SavePeriodic); err != nil {
-		t.Fatal(err)
-	}
-	restored := startFromStore(t, StoreInput{Store: &fakeStore{data: store.writeList()[1]}})
-	if tier := restored.State().Restore.Tier; tier != "physical" {
-		t.Fatalf("restore tier = %q, want physical", tier)
-	}
-	sessions := []struct {
-		name    string
-		session *Session
-	}{{"live", live}, {"restored", restored}}
-	for _, run := range sessions {
-		moves := 0
-		for second := 0; moves == 0 && second < 300; second++ {
-			advanceTicks(run.session, sim.TicksPerSecond)
-			moves = run.session.State().Simulation.RebalanceMoves
-		}
-		if moves == 0 {
-			t.Fatalf("the %s session moved no idle pod in 300 simulated seconds", run.name)
-		}
+	for _, test := range []struct {
+		name           string
+		redistribution bool
+		mode           sim.Positioning
+	}{
+		{"redistribution", true, sim.PositioningGuarded},
+		{"no redistribution", false, sim.PositioningOff},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			config := project.Default()
+			config.Redistribution = test.redistribution
+			config.Demand.Enabled = true
+			store := &fakeStore{}
+			live := startFromStore(t, StoreInput{Store: store, Project: &config})
+			advanceTicks(live, 30*sim.TicksPerSecond)
+			if err := live.SaveState(t.Context(), SavePeriodic); err != nil {
+				t.Fatal(err)
+			}
+			restored := startFromStore(t, StoreInput{Store: &fakeStore{data: store.writeList()[1]}})
+			if tier := restored.State().Restore.Tier; tier != "physical" {
+				t.Fatalf("restore tier = %q, want physical", tier)
+			}
+			for _, run := range []struct {
+				name    string
+				session *Session
+			}{{"live", live}, {"restored", restored}} {
+				mode, rate := run.session.simulation.Positioning(), run.session.simulation.DemandRate()
+				if mode != test.mode || rate != config.Demand.PerMinute {
+					t.Fatalf("the %s session has mode %d and demand rate %d, want %d and %d",
+						run.name, mode, rate, test.mode, config.Demand.PerMinute)
+				}
+			}
+		})
 	}
 }
 

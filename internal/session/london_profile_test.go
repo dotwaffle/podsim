@@ -53,15 +53,21 @@ func activeRequest(snapshot sim.Snapshot) (sim.Request, bool) {
 	return sim.Request{}, false
 }
 
-// londonRewindWarmupSeconds is short, because the queue grows and each
-// simulated second on London then costs more. With the race detector, each
-// 60 s window takes about 4 s and the test takes about 14 s.
-const londonRewindWarmupSeconds = 5
+// londonRewindWarmupSeconds puts the replay window where London makes
+// guarded moves. At 5 orders per minute, the moves start after about 200 s,
+// and a burst of moves comes between 520 s and 560 s. The queue stays short,
+// so each simulated second costs little.
+const londonRewindWarmupSeconds = 500
+
+// londonRewindPerMinute is the demand rate of the London rewind test. The
+// guarded gate of the London fleet is active below 5.7 orders per minute.
+const londonRewindPerMinute = 5
 
 func TestLondonRewindReplaysExactly(t *testing.T) {
 	t.Parallel()
 	config := scenarios.London()
 	config.Demand.Enabled = true
+	config.Demand.PerMinute = londonRewindPerMinute
 	config.Redistribution = true
 	shared, err := NewWithProject(config)
 	if err != nil {

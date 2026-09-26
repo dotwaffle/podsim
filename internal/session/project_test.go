@@ -343,45 +343,77 @@ func TestProjectEndpointSupportsConcurrentDetachedObservers(t *testing.T) {
 	}
 }
 
+// TestRedistributionRestoredAfterDemoAndReset checks the positioning
+// settings of the simulation through the demo and a reset. The project
+// keeps demand on, but the stream is off after the demo, so the gate then
+// reads the mean rate. A reset starts the stream again at its rate. A
+// demand command sets the rate, and a project command sets the mode.
 func TestRedistributionRestoredAfterDemoAndReset(t *testing.T) {
 	t.Parallel()
 	config := project.Default()
 	config.Redistribution = true
+	config.Demand.Enabled = true
 	shared, err := NewWithProject(config)
 	if err != nil {
 		t.Fatal(err)
 	}
+	checkPositioning := func(name string, mode sim.Positioning, rate int) {
+		t.Helper()
+		if got, gotRate := shared.simulation.Positioning(), shared.simulation.DemandRate(); got != mode || gotRate != rate {
+			t.Fatalf("%s: mode %d and demand rate %d, want %d and %d", name, got, gotRate, mode, rate)
+		}
+	}
+	checkPositioning("start", sim.PositioningGuarded, config.Demand.PerMinute)
 	if reply := shared.Apply(commandFor(shared, "demo")); reply.Error != "" || shared.State().Redistribution {
 		t.Fatalf("demo policy: %+v", reply)
 	}
+	checkPositioning("demo", sim.PositioningOff, 0)
 	for range 600 * sim.TicksPerSecond {
 		shared.advance()
 		if state := shared.State(); !state.Simulation.Demo {
 			break
 		}
 	}
-	// Free a pickup station so a restored policy has somewhere to send an empty pod.
-	trip := commandFor(shared, "trip")
-	trip.Sequence = 2
-	trip.Origin = "harbor"
-	trip.Destination = "market"
-	if reply := shared.Apply(trip); reply.Error != "" {
-		t.Fatal(reply.Error)
-	}
-	for range 300 * sim.TicksPerSecond {
-		shared.advance()
-		if shared.State().Simulation.RebalanceMoves > 0 {
-			break
-		}
-	}
-	if state := shared.State(); state.Simulation.Demo || !state.Redistribution || state.Simulation.RebalanceMoves == 0 {
+	if state := shared.State(); state.Simulation.Demo || !state.Redistribution {
 		t.Fatalf("policy not restored: %+v", state.Simulation)
 	}
+	checkPositioning("demo end", sim.PositioningGuarded, 0)
 	reset := commandFor(shared, "reset")
-	reset.Sequence = 3
+	reset.Sequence = 2
 	reply := shared.Apply(reset)
 	state := shared.State()
 	if reply.Error != "" || !state.Redistribution || state.Simulation.RebalanceMoves != 0 {
 		t.Fatalf("reset policy: %+v", reply)
 	}
+	checkPositioning("reset", sim.PositioningGuarded, config.Demand.PerMinute)
+	send := func(command Command) {
+		t.Helper()
+		if reply := shared.Apply(command); reply.Error != "" {
+			t.Fatalf("%s: %s", command.Action, reply.Error)
+		}
+	}
+	demand := commandFor(shared, "demand")
+	demand.Sequence = 3
+	demand.Demand = config.Demand
+	demand.Demand.PerMinute = config.Demand.PerMinute + 2
+	send(demand)
+	checkPositioning("demand rate", sim.PositioningGuarded, demand.Demand.PerMinute)
+	demand.Sequence = 4
+	demand.Demand.Enabled = false
+	send(demand)
+	checkPositioning("demand off", sim.PositioningGuarded, 0)
+	shared.simulation.SetPaused(true)
+	changed := shared.Project().Project
+	changed.Redistribution = false
+	changed.Demand.Enabled = true
+	apply := commandFor(shared, "project")
+	apply.Sequence = 5
+	apply.ProjectRevision = shared.Project().Revision
+	apply.Project = &changed
+	send(apply)
+	checkPositioning("project", sim.PositioningOff, changed.Demand.PerMinute)
+	reset = commandFor(shared, "reset")
+	reset.Sequence = 6
+	send(reset)
+	checkPositioning("reset without redistribution", sim.PositioningOff, changed.Demand.PerMinute)
 }
