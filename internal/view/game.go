@@ -204,10 +204,12 @@ func (g *Game) Update() error {
 	if g.followSelected {
 		g.followSelectedPod()
 	}
-	if g.updateMapInput() {
+	buffer, canvas := readDrawingBuffer()
+	pointer := newPointerTransform(pointerTransformInput{buffer: buffer, canvas: canvas, screen: image.Pt(g.layout.width, g.layout.height)})
+	if g.updateMapInput(pointer) {
 		return nil
 	}
-	g.updateTouchInput()
+	g.updateTouchInput(pointer)
 	return nil
 }
 
@@ -271,9 +273,12 @@ func (g *Game) tickNotice() {
 	}
 }
 
-func (g *Game) updateMapInput() bool {
+// updateMapInput applies the mouse input of this frame. pointer corrects
+// the cursor position. See pointerTransform. It returns true when a click
+// presses Reset or Rewind. See click.
+func (g *Game) updateMapInput(pointer pointerTransform) bool {
 	x, y := ebiten.CursorPosition()
-	point := sim.Point{X: float64(x), Y: float64(y)}
+	point := pointer.apply(sim.Point{X: float64(x), Y: float64(y)})
 	if _, wheelY := ebiten.Wheel(); wheelY != 0 && g.camera.contains(point) {
 		factor := wheelZoomFactor(wheelY, runtime.GOOS == "js")
 		if g.camera.zoomAt(point, factor) {

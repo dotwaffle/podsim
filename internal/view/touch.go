@@ -177,13 +177,14 @@ func pinch(a, b touchMove) (pan sim.Point, factor float64, center sim.Point) {
 }
 
 // updateTouchInput reads the touches of this frame from Ebitengine and
-// applies the gestures.
-func (g *Game) updateTouchInput() {
+// applies the gestures. pointer corrects the touch positions. See
+// pointerTransform.
+func (g *Game) updateTouchInput(pointer pointerTransform) {
 	ids := ebiten.AppendTouchIDs(nil)
 	touches := make([]touchPoint, 0, len(ids))
 	for _, id := range ids {
 		x, y := ebiten.TouchPosition(id)
-		touches = append(touches, touchPoint{id: id, point: sim.Point{X: float64(x), Y: float64(y)}})
+		touches = append(touches, touchPoint{id: id, point: pointer.apply(sim.Point{X: float64(x), Y: float64(y)})})
 	}
 	actions := g.touch.update(touchFrame{
 		touches:  touches,

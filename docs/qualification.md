@@ -255,6 +255,16 @@ Small networks now draw without antialiasing when that image would not fit in th
 A screen wider or taller than the GPU texture limit stopped Ebitengine before the view drew, for example a 4200 by 2400 window at a device pixel ratio of 2.
 The view now lowers the pixel ratio of the screen so that its longer side is one pixel smaller than the limit.
 Ebitengine then scales the screen to the window.
+Chrome can also make the WebGL drawing buffer smaller than the canvas.
+It keeps each side within the GPU limit and the area at about 33.2 million pixels or less.
+A 4000 by 2400 window at a device pixel ratio of 2 has an 8000 by 4800 canvas and gets a 7436 by 4461 drawing buffer.
+Ebitengine 2.10 draws into the smaller drawing buffer, but it maps the cursor and touch positions with the full canvas size.
+In that window, clicks and taps missed the controls, but the keyboard worked.
+The browser build now multiplies each cursor and touch position by the drawing buffer size divided by the canvas size, on each axis.
+When Chrome limits a side and then the area, the drawing buffer does not have the proportions of the screen, and Ebitengine adds a letterbox offset.
+The browser build also corrects the positions for that offset.
+For example, a 5000 by 2400 window at a device pixel ratio of 2 gets a 7524 by 4409 drawing buffer.
+Without the offset correction, clicks in that window landed about 22 CSS pixels too low, and a click on Speed missed.
 Networks above 100 lanes also store neutral tracks, arrows, and nodes in a reusable image.
 The measured runs used a fixed 1100 by 760 image.
 The image now covers the map viewport and a margin around it, in device pixels.
