@@ -96,6 +96,9 @@ func TestMapImagesFitImageLimit(t *testing.T) {
 		{layout: layoutInput{outsideWidth: 2560, outsideHeight: 1440, deviceScale: 2}, limit: headlessImageLimit},
 		{layout: layoutInput{outsideWidth: 2560, outsideHeight: 1440, deviceScale: 2}, limit: 16383, antialias: true},
 		{layout: layoutInput{outsideWidth: 3840, outsideHeight: 2160, deviceScale: 2}, limit: headlessImageLimit},
+		// The 8400 pixel screen is too wide for the limit. The layout makes
+		// it 8191 pixels wide. See screenScale.
+		{layout: layoutInput{outsideWidth: 4200, outsideHeight: 2400, deviceScale: 2, imageLimit: headlessImageLimit}, limit: headlessImageLimit},
 	}
 	for _, network := range networks {
 		for _, test := range tests {

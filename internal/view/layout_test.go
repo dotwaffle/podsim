@@ -116,6 +116,105 @@ func TestDisplayLayoutInvalidInputFallsBack(t *testing.T) {
 	}
 }
 
+// TestScreenScale checks the device scale that keeps the screen image within
+// the image limit. The side is the longer side of the window in CSS pixels.
+// A screen image that fits keeps the device scale. A larger one gets a scale
+// that makes its longer side exactly the limit. The rows with a scale of 1000
+// have sides where the division rounds up.
+func TestScreenScale(t *testing.T) {
+	t.Parallel()
+	tests := []struct {
+		name  string
+		input screenScaleInput
+		// wantSide is the longer side of the screen image in pixels.
+		wantSide int
+		clamped  bool
+	}{
+		{name: "2560 at 2", input: screenScaleInput{side: 2560, deviceScale: 2, limit: headlessImageLimit}, wantSide: 5120},
+		{name: "widest at 2", input: screenScaleInput{side: 4095, deviceScale: 2, limit: headlessImageLimit}, wantSide: 8190},
+		{name: "8192 pixels at 2", input: screenScaleInput{side: 4096, deviceScale: 2, limit: headlessImageLimit}, wantSide: 8191, clamped: true},
+		{name: "4200 at 2", input: screenScaleInput{side: 4200, deviceScale: 2, limit: headlessImageLimit}, wantSide: 8191, clamped: true},
+		{name: "4200 at 2 on a larger GPU", input: screenScaleInput{side: 4200, deviceScale: 2, limit: 16383}, wantSide: 8400},
+		{name: "4200 at 2 unknown limit", input: screenScaleInput{side: 4200, deviceScale: 2}, wantSide: 8400},
+		{name: "9000 at 1", input: screenScaleInput{side: 9000, deviceScale: 1, limit: headlessImageLimit}, wantSide: 8191, clamped: true},
+		{name: "fractional scale", input: screenScaleInput{side: 3000, deviceScale: 2.75, limit: headlessImageLimit}, wantSide: 8191, clamped: true},
+		{name: "rounding 25", input: screenScaleInput{side: 25, deviceScale: 1000, limit: 4095}, wantSide: 4095, clamped: true},
+		{name: "rounding 50", input: screenScaleInput{side: 50, deviceScale: 1000, limit: 4095}, wantSide: 4095, clamped: true},
+		{name: "rounding 53", input: screenScaleInput{side: 53, deviceScale: 1000, limit: 4095}, wantSide: 4095, clamped: true},
+		{name: "rounding 59", input: screenScaleInput{side: 59, deviceScale: 1000, limit: 4095}, wantSide: 4095, clamped: true},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			got := screenScale(test.input)
+			side := int(math.Ceil(float64(test.input.side) * got))
+			if side != test.wantSide {
+				t.Errorf("screenScale(%+v) = %g, screen side %d, want %d", test.input, got, side, test.wantSide)
+			}
+			if !test.clamped && got != test.input.deviceScale {
+				t.Errorf("screenScale(%+v) = %g, want the device scale", test.input, got)
+			}
+			if want := float64(test.input.limit) / float64(test.input.side); test.clamped && !closeTo(got, want) {
+				t.Errorf("screenScale(%+v) = %g, want about %g", test.input, got, want)
+			}
+		})
+	}
+}
+
+// TestScreenScaleFitsEverySide checks that the screen image fits the limit,
+// and that a clamped screen image uses the full limit, for each window side
+// up to 20000 CSS pixels.
+func TestScreenScaleFitsEverySide(t *testing.T) {
+	t.Parallel()
+	for _, limit := range []int{4095, headlessImageLimit, 16383} {
+		for side := 1; side <= 20000; side++ {
+			input := screenScaleInput{side: side, deviceScale: 3, limit: limit}
+			got := int(math.Ceil(float64(side) * screenScale(input)))
+			if got > limit || side*3 > limit && got != limit {
+				t.Fatalf("screenScale(%+v) gives a screen side of %d pixels, want %d", input, got, min(side*3, limit))
+			}
+		}
+	}
+}
+
+// TestDisplayLayoutFitsImageLimit checks the layout of windows that are too
+// large for the image limit at their device scale. The screen gets a lower
+// device scale, and the panels and the map stay inside the screen. The
+// window below the minimum window also shrinks its unit with the window.
+func TestDisplayLayoutFitsImageLimit(t *testing.T) {
+	t.Parallel()
+	tests := []struct {
+		name                  string
+		input                 layoutInput
+		wantWidth, wantHeight int
+		wantScale, wantUnit   float64
+	}{
+		{name: "4200 by 2400 at 2", input: layoutInput{outsideWidth: 4200, outsideHeight: 2400, deviceScale: 2, imageLimit: headlessImageLimit}, wantWidth: 8191, wantHeight: 4681, wantScale: 8191.0 / 4200, wantUnit: 8191.0 / 4200},
+		{name: "tall 1200 by 4500 at 2", input: layoutInput{outsideWidth: 1200, outsideHeight: 4500, deviceScale: 2, imageLimit: headlessImageLimit}, wantWidth: 2185, wantHeight: 8191, wantScale: 8191.0 / 4500, wantUnit: 8191.0 / 4500},
+		{name: "9000 by 3000 at 1", input: layoutInput{outsideWidth: 9000, outsideHeight: 3000, deviceScale: 1, imageLimit: headlessImageLimit}, wantWidth: 8191, wantHeight: 2731, wantScale: 8191.0 / 9000, wantUnit: 8191.0 / 9000},
+		{name: "below minimum at 12", input: layoutInput{outsideWidth: 800, outsideHeight: 560, deviceScale: 12, imageLimit: headlessImageLimit}, wantWidth: 8191, wantHeight: 5734, wantScale: 8191.0 / 800, wantUnit: 8191.0 / 1100},
+		{name: "3840 by 2160 at 2 fits", input: layoutInput{outsideWidth: 3840, outsideHeight: 2160, deviceScale: 2, imageLimit: headlessImageLimit}, wantWidth: 7680, wantHeight: 4320, wantScale: 2, wantUnit: 2},
+		{name: "4200 by 2400 at 2 on a larger GPU", input: layoutInput{outsideWidth: 4200, outsideHeight: 2400, deviceScale: 2, imageLimit: 16383}, wantWidth: 8400, wantHeight: 4800, wantScale: 2, wantUnit: 2},
+		{name: "4200 by 2400 at 2 unknown limit", input: layoutInput{outsideWidth: 4200, outsideHeight: 2400, deviceScale: 2}, wantWidth: 8400, wantHeight: 4800, wantScale: 2, wantUnit: 2},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			got := newDisplayLayout(test.input)
+			if got.width != test.wantWidth || got.height != test.wantHeight || !closeTo(got.deviceScale, test.wantScale) || !closeTo(got.unit, test.wantUnit) {
+				t.Fatalf("layout = %dx%d scale %g unit %g, want %dx%d scale %g unit %g", got.width, got.height, got.deviceScale, got.unit, test.wantWidth, test.wantHeight, test.wantScale, test.wantUnit)
+			}
+			screen := image.Rect(0, 0, got.width, got.height)
+			if got.right(1076) > float64(got.width) || got.bottom(732) > float64(got.height) {
+				t.Errorf("anchored panel escaped layout: right=%g bottom=%g", got.right(1076), got.bottom(732))
+			}
+			if !got.mapViewport.In(screen) {
+				t.Errorf("map viewport %v is not inside the screen %v", got.mapViewport, screen)
+			}
+		})
+	}
+}
+
 // TestMapLabelSize checks the font size of map labels and of other text in
 // physical pixels. A map label keeps its CSS size in a window smaller than
 // the minimum window, and it is at least 10 CSS pixels. Other text follows

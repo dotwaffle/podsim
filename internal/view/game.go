@@ -563,16 +563,18 @@ func (g *Game) click(point sim.Point) bool {
 
 // Layout is the integer fallback for platforms that do not use LayoutF.
 func (g *Game) Layout(outsideWidth, outsideHeight int) (int, int) {
-	return g.layoutFor(layoutInput{outsideWidth: outsideWidth, outsideHeight: outsideHeight, deviceScale: 1})
+	return g.layoutFor(layoutInput{outsideWidth: outsideWidth, outsideHeight: outsideHeight, deviceScale: 1, imageLimit: imageSideLimit(ebiten.MaxImageSize())})
 }
 
-// LayoutF renders at the monitor's native pixel density while retaining CSS-sized controls.
+// LayoutF renders at the monitor's native pixel density while retaining
+// CSS-sized controls. When the screen image at that density would be larger
+// than the image limit, it renders at a lower density. See screenScale.
 func (g *Game) LayoutF(outsideWidth, outsideHeight float64) (float64, float64) {
 	scale := 1.0
 	if monitor := ebiten.Monitor(); monitor != nil {
 		scale = monitor.DeviceScaleFactor()
 	}
-	w, h := g.layoutFor(layoutInput{outsideWidth: int(math.Round(outsideWidth)), outsideHeight: int(math.Round(outsideHeight)), deviceScale: scale})
+	w, h := g.layoutFor(layoutInput{outsideWidth: int(math.Round(outsideWidth)), outsideHeight: int(math.Round(outsideHeight)), deviceScale: scale, imageLimit: imageSideLimit(ebiten.MaxImageSize())})
 	return float64(w), float64(h)
 }
 
@@ -1308,11 +1310,11 @@ func movedLanePaths(paths []lanePath, offset sim.Point) []lanePath {
 // baseLayerMargin returns the margin in screen pixels of the cached base
 // layer around the map viewport. It is a quarter of the shorter side of the
 // viewport. When the layer image with that margin is larger than limit on a
-// side, the margin is smaller, so that the image fits. A screen wider than
-// ebiten.MaxImageSize stops Ebiten before the view draws. The panels make
-// the viewport narrower and shorter than the screen, so the viewport fits
-// the limit. A limit of 0 is not known and does not change the margin. See
-// imageSideLimit.
+// side, the margin is smaller, so that the image fits. The layout keeps the
+// screen within the limit, and the panels make the viewport narrower and
+// shorter than the screen, so the viewport fits the limit. A limit of 0 is
+// not known and does not change the margin. See imageSideLimit and
+// screenScale.
 func baseLayerMargin(viewport image.Rectangle, limit int) int {
 	margin := min(viewport.Dx(), viewport.Dy()) / 4
 	if limit <= 0 {

@@ -252,6 +252,9 @@ It does not keep that image within the GPU texture limit.
 A 2560 by 1440 window at a device pixel ratio of 2 has a 5120 by 2880 screen.
 There, the image was 10240 pixels wide, and the game stopped in SwiftShader, which has an 8192 pixel limit.
 Small networks now draw without antialiasing when that image would not fit in the GPU texture limit.
+A screen wider or taller than the GPU texture limit stopped Ebitengine before the view drew, for example a 4200 by 2400 window at a device pixel ratio of 2.
+The view now lowers the pixel ratio of the screen so that its longer side is one pixel smaller than the limit.
+Ebitengine then scales the screen to the window.
 Networks above 100 lanes also store neutral tracks, arrows, and nodes in a reusable image.
 The measured runs used a fixed 1100 by 760 image.
 The image now covers the map viewport and a margin around it, in device pixels.
