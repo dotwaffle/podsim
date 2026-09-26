@@ -542,6 +542,31 @@ mise exec -- go test ./internal/scenarios -run 'TestScale100Station19' -count=1 
 mise run check
 ```
 
+### More Station 19 berths
+
+The `-berths` and `-berth-pitch` options of the scenario command can give Station 19 more berths.
+At the 75-meter pitch, a 7th berth row at Station 19 comes within the 12-meter clearance of the Station 13 arrival chain.
+With 8 berths, 68 meters is the largest pitch, in steps of 0.5 meters, that passes the layout audit.
+The pitch is one value for all stations of the preset.
+
+A scratch copy of `TestScale100Station19BurstDrainsSafely` ran the 100-order burst at 12 orders per minute on three layouts.
+It checked separation and berth ownership at each tick, and all orders completed.
+These runs use the current code, so the 6-berth row is different from the rows above.
+Times are simulated seconds from the start of each run.
+
+| Station 19 berths | Pitch | First delivery | Last delivery | All idle | Peak stopped pods |
+| ---: | ---: | ---: | ---: | ---: | ---: |
+| 6 | 75 m | 285.2 | 1540.4 | 1995.9 | 16 |
+| 6 | 68 m | 282.7 | 1553.4 | 2017.1 | 15 |
+| 8 | 68 m | 282.7 | 1563.1 | 2017.1 | 16 |
+
+With 8 berths, berths 6, 7, and 8 took 6 of the 100 arrivals.
+The berth count of Station 19 does not limit this burst.
+
+```sh
+mise run scenario -- -preset scale100 -berths station-19=8 -berth-pitch 68 -output /tmp/podsim-station19-8.json
+```
+
 ### Reservation lookahead
 
 The Station 19 burst also compared the current two-tick reservation lookahead with 0.25, 0.5, 1, and 2-second buffers.
@@ -950,3 +975,24 @@ mise run compare -- -project /tmp/podsim-london-capacity.json -pattern profile -
 
 A project with `redistribution: true` now runs guarded positioning.
 Raw results are in [`measurements/london-guarded.csv`](measurements/london-guarded.csv).
+
+### More London berths
+
+The scenario command can give London more berths.
+A third berth fits at 95 of the 96 passenger stations.
+At Embankment, a third berth row crosses a guideway.
+This project also has 24 berths at each Parking facility, 2,235 nodes, and the same 114 pods.
+The AM peak band ran with seeds 1, 2, and 3, in 30-minute arrival windows, with redistribution off.
+
+| Offered rate | Average wait, preset | Average wait, 3 berths | Seeds that finish in 65 minutes, preset | Seeds that finish in 65 minutes, 3 berths |
+| ---: | ---: | ---: | ---: | ---: |
+| 12/min | 236.3 s | 241.4 s | 3 | 3 |
+| 13/min | 317.1 s | 315.9 s | 3 | 3 |
+| 15/min | 456.8 s | 463.7 s | 2 | 2 |
+
+The added berths do not change the result, so the berths do not limit the AM peak with this fleet.
+
+```sh
+mise run scenario -- -preset london -station-berths 3 -berths 940GZZLUEMB=2 -parking-berths 24 -output /tmp/podsim-london-3.json
+mise run compare -- -project /tmp/podsim-london-3.json -pattern profile -bands am-peak -loads 5s,4.615385s,4s -seeds 1,2,3 -duration 65m -arrivals-for 30m -stop-when-drained -redistribution-policies off -focus 940GZZLUEUS -queue-limit 1000000 -workers 4
+```
