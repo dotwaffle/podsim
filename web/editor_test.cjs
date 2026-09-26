@@ -562,6 +562,44 @@ test("a berth remove from the keyboard focuses the next, then the previous berth
   }
 });
 
+test("undo and redo keep the selection and the Selection panel focus, or focus the map when the item is gone", () => {
+  // step gives the drafts before and after an undo or a redo of one change
+  // from first to second, as the editor history restores them.
+  const step = (first, second, redo) => {
+    const history = editor.createHistory(first); history.replace(second);
+    if (redo) history.undo();
+    const before = history.value; assert.equal(redo ? history.redo() : history.undo(), true);
+    return { before, after: history.value };
+  };
+  const one = connectedScenario(); const [alpha, beta] = one.network.Stations; const lane = one.network.Lanes[0];
+  const two = editor.addBerth(one, alpha.ID); const three = editor.addBerth(two, alpha.ID);
+  const [b1, b2, b3] = three.network.Stations[0].Berths.map((berth) => berth.ID);
+  const withoutB2 = editor.removeBerth(three, alpha.ID, b2);
+  const curved = structuredClone(one); curved.network.Lanes[0].Control = { X: 220, Y: 40 };
+  const added = editor.addStation(one, 600, 300, { name: "Gamma" }); const gamma = added.network.Stations.at(-1);
+  const station = { type: "station", id: alpha.ID }; const button = (action, id = "") => ({ action, id });
+  const cases = [
+    { name: "undo of Add physical berth keeps its button", drafts: step(two, three), selection: station, control: button("add-berth"), want: { selection: station, focus: button("add-berth") } },
+    { name: "redo of a curve keeps the curve button", drafts: step(one, curved, true), selection: { type: "lane", id: lane.ID }, control: button("toggle-curve"), want: { selection: { type: "lane", id: lane.ID }, focus: button("toggle-curve") } },
+    { name: "undo of a berth remove keeps Remove of the same row", drafts: step(three, withoutB2), selection: station, control: button("remove-berth", b3), want: { selection: station, focus: button("remove-berth", b3) } },
+    { name: "undo of a new berth moves Remove to the previous row", drafts: step(two, three), selection: station, control: button("remove-berth", b3), want: { selection: station, focus: button("remove-berth", b2) } },
+    { name: "redo of a berth remove moves Remove to the next row", drafts: step(three, withoutB2, true), selection: station, control: button("remove-berth", b2), want: { selection: station, focus: button("remove-berth", b3) } },
+    { name: "one berth left gives Add physical berth", drafts: step(one, two), selection: station, control: button("remove-berth", b1), want: { selection: station, focus: button("add-berth") } },
+    { name: "a station selection with a gone berth stays", drafts: step(two, three), selection: { ...station, berth: b3 }, control: null, want: { selection: { ...station, berth: b3 }, focus: null } },
+    { name: "undo of a new station clears the selection and focuses the map", drafts: step(one, added), selection: { type: "station", id: gamma.ID }, control: button("delete-station"), want: { selection: null, focus: "map" } },
+    { name: "redo of a station delete clears the selection and focuses the map", drafts: step(one, editor.deleteStation(one, beta.ID), true), selection: { type: "station", id: beta.ID }, control: button("add-berth"), want: { selection: null, focus: "map" } },
+    { name: "focus outside the panel stays with the item kept", drafts: step(two, three), selection: station, control: null, want: { selection: station, focus: null } },
+    { name: "focus outside the panel stays with the item removed", drafts: step(one, added), selection: { type: "station", id: gamma.ID }, control: null, want: { selection: null, focus: null } },
+    { name: "no selection", drafts: step(two, three), selection: null, control: null, want: { selection: null, focus: null } },
+  ];
+  for (const tc of cases) {
+    const after = structuredClone(tc.drafts.after);
+    assert.deepEqual(editor.undoFocus({ ...tc.drafts, selection: tc.selection, control: tc.control }), tc.want, tc.name);
+    // The choice does not change the draft that the history restores.
+    assert.deepEqual(tc.drafts.after, after, tc.name);
+  }
+});
+
 test("validation reports short lanes and unreachable passenger pairs", () => {
   let config = editor.addStation(editor.emptyConfig(), 100, 100, { name: "Alpha" });
   config = editor.addStation(config, 340, 100, { name: "Beta" });

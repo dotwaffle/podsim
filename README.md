@@ -435,6 +435,11 @@ The draft stays local until you select **Pause and apply**.
   After **Delete station and connections**, **Delete guideway**, or **Delete junction and connections**, the focus goes to the map.
   The Delete key does the same when a button in the **Selection** section has the focus.
   After a delete with the pointer, the editor does not move the focus.
+- Undo and redo keep the selection when the draft still has the selected item.
+  When a button in the **Selection** section has the keyboard focus, the focus stays on that button.
+  When the button is **Remove** on a berth row, and the berth is gone or the station has one berth left, the focus moves as after **Remove** on that row.
+  When the draft no longer has the selected item, the editor clears the selection, and the focus goes from the **Selection** section to the map.
+  Undo and redo do not move the focus when it is not in the **Selection** section.
 - Select **Fit network** to show the whole network, also a large network such as London.
 - Junction ID labels show at 0.5 screen pixels per meter or more.
   The selected junction and the start node of a new guideway always show their ID label.

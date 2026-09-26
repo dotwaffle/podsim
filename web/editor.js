@@ -518,6 +518,28 @@
     return index >= 0 && rest.length > 1 ? rest[Math.min(index, rest.length - 1)] : "";
   }
 
+  // undoFocus gives the selection and the keyboard focus after an undo or a
+  // redo. before and after are the drafts before and after the step, and
+  // selection is the selection before the step. control is the Selection
+  // panel button that had the focus, as its action and berth ID, or null
+  // when the focus was not in the Selection panel. When after has the
+  // selected item, the selection stays, and the focus is the same button.
+  // When that button is Remove on a berth row, and the berth is gone or the
+  // button is disabled, the focus moves as after a berth remove. It is the
+  // Remove button of the row that berthFocusID gives, or Add physical berth.
+  // When after does not have the item, the selection clears. When control
+  // is not null, the focus is then "map", as after a delete. A null focus
+  // does not move the focus.
+  function undoFocus(step) {
+    const { before, after, selection, control } = step; const card = selectionCard(after, selection);
+    if (!card) return { selection: null, focus: control ? "map" : null };
+    if (!control || control.action !== "remove-berth") return { selection, focus: control };
+    const usable = (id) => card.canRemove && card.berths.some((berth) => berth.id === id);
+    const berthIDs = selectionCard(before, selection)?.berths.map((berth) => berth.id) || [];
+    const id = usable(control.id) ? control.id : berthFocusID(berthIDs, control.id);
+    return { selection, focus: usable(id) ? { action: "remove-berth", id } : { action: "add-berth", id: "" } };
+  }
+
   // setDemandPattern sets the passenger demand pattern. The profile pattern
   // selects the first demand profile and its first time band. A draft with no
   // demand profiles, or with a demandProfiles value that is not an array, gets
@@ -1588,7 +1610,7 @@
 
   const API = {
     MIN_LANE_LENGTH, MIN_ZOOM, NODE_LABEL_SCALE, NODE_LABEL_SIZE, LANE_PAIR_OFFSET, CHEVRON_LANE_LENGTH, BERTH_PITCH, STATION_PADDING, CHECK_DELAY, emptyConfig, fallbackConfig, normalizeConfig, addLane, addJunction, addStation, addBerth,
-    stationBearing, stationShape, rotateStation, setStationBearing, nextBerthPosition, removeBerth, moveStation, moveNode, deleteNode, deleteLane, deleteStation, stationFlowCount, setFleetCount, fleetRows, selectionCard, berthFocusID, setDemandPattern,
+    stationBearing, stationShape, rotateStation, setStationBearing, nextBerthPosition, removeBerth, moveStation, moveNode, deleteNode, deleteLane, deleteStation, stationFlowCount, setFleetCount, fleetRows, selectionCard, berthFocusID, undoFocus, setDemandPattern,
     laneLength, curveLength, reachable, cutOffStations, stationNodeOwners, dragTargets, validateConfig, configWarnings, checkResults, checkSelector, checkSelection, selectionPoint, focusView,
     problemCountText, createCheckTimer, validationSummary, checkFocusKey, serializeDocument, parseDocument, createHistory,
     networkBounds, fitView, zoomScale, nodeLabelSize, pairedLaneIDs, showsChevron, laneOffset, laneCurve, lanePathData, applyToServer, applyFailureText, applyFailureStatus, applyToast,
@@ -1920,12 +1942,26 @@
   }
 
   // focusMap gives the keyboard focus to the map after the delete of a
-  // station, lane or junction. A render does not replace the map element,
-  // and the Delete, Escape and undo keys work there. In a narrow window the
-  // map is above the Selection panel, so the page scrolls until the map is
-  // in view.
+  // station, lane or junction, and after an undo or a redo that removes the
+  // selected item. A render does not replace the map element, and the
+  // Delete, Escape and undo keys work there. In a narrow window the map is
+  // above the Selection panel, so the page scrolls until the map is in view.
   function focusMap() {
     $("#networkMap").focus({ preventScroll: true }); $(".map-panel").scrollIntoView({ block: "nearest" });
+  }
+
+  // stepHistory does an undo, or a redo when redo is true. The selection
+  // and the keyboard focus then change as undoFocus gives. A Selection panel
+  // button that stays after the render keeps the focus. A button that the
+  // render made again gets the focus back.
+  function stepHistory(redo) {
+    const panel = $("#selectionContent"); const focused = document.activeElement; const before = draft();
+    const control = panel.contains(focused) ? { action: focused.dataset.action || "", id: focused.dataset.id || "" } : null;
+    if (!(redo ? state.history.redo() : state.history.undo())) return;
+    const next = undoFocus({ before, after: draft(), selection: state.selection, control });
+    state.selection = next.selection; render();
+    if (next.focus === "map") focusMap();
+    else if (next.focus) [...panel.querySelectorAll("button[data-action]")].find((button) => button.dataset.action === next.focus.action && (button.dataset.id || "") === next.focus.id)?.focus();
   }
 
   // renderFleet shows a pod count field for each station. An arrow key in a
@@ -2345,8 +2381,7 @@
     $("#zoomInButton").addEventListener("click", () => { const rect = $("#networkMap").getBoundingClientRect(); zoomAt(1.25, rect.left + rect.width / 2, rect.top + rect.height / 2); });
     $("#zoomOutButton").addEventListener("click", () => { const rect = $("#networkMap").getBoundingClientRect(); zoomAt(.8, rect.left + rect.width / 2, rect.top + rect.height / 2); });
     $("#fitButton").addEventListener("click", fitNetwork); $("#cancelLinkButton").addEventListener("click", () => { state.linkFrom = ""; render(); });
-    $("#undoButton").addEventListener("click", () => { if (state.history.undo()) { state.selection = null; render(); } });
-    $("#redoButton").addEventListener("click", () => { if (state.history.redo()) { state.selection = null; render(); } });
+    $("#undoButton").addEventListener("click", () => stepHistory(false)); $("#redoButton").addEventListener("click", () => stepHistory(true));
     $("#resetButton").addEventListener("click", () => { if (!state.loaded) return; state.draftBase = { revision: state.loadedRevision, epoch: state.connection.epoch }; state.history.replace(state.loaded); state.background = state.loaded.background ? clone(state.loaded.background) : null; state.selection = null; render(); fitNetwork(); toast("The draft matches the last loaded project."); });
     $("#demoButton").addEventListener("click", runExampleSequence);
     $("#validateButton").addEventListener("click", () => checks.run()); $("#applyButton").addEventListener("click", applyProject);
@@ -2413,8 +2448,8 @@
     document.addEventListener("keydown", (event) => {
       const editing = /INPUT|SELECT|TEXTAREA/.test(document.activeElement.tagName);
       if (event.key === "Escape") { state.linkFrom = ""; state.calibrating = false; state.calibrationPoints = []; $("#calibrationPanel").hidden = true; render(); }
-      if (!editing && (event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "z") { event.preventDefault(); if (event.shiftKey ? state.history.redo() : state.history.undo()) { state.selection = null; render(); } }
-      if (!editing && (event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "y") { event.preventDefault(); if (state.history.redo()) { state.selection = null; render(); } }
+      if (!editing && (event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "z") { event.preventDefault(); stepHistory(event.shiftKey); }
+      if (!editing && (event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "y") { event.preventDefault(); stepHistory(true); }
       // A delete of the selected item clears the Selection panel. When a
       // panel button had the focus, the map gets the focus.
       if (!editing && (event.key === "Delete" || event.key === "Backspace") && state.selection) {
