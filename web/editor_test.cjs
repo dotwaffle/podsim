@@ -926,6 +926,122 @@ test("junction labels show only when zoomed in or selected", () => {
   }
 });
 
+test("a lane with a reverse lane is one lane of a pair", () => {
+  let config = editor.addJunction(editor.addJunction(editor.addJunction(editor.emptyConfig(), 0, 0), 100, 0), 100, 100);
+  const [a, b, c] = config.network.Nodes.map((node) => node.ID);
+  config = editor.addLane(config, a, b, true);
+  config = editor.addLane(config, b, c, false);
+  config.network.Lanes.push({ ...config.network.Lanes.at(-1), ID: "parallel" });
+  const [forward, reverse, oneWay] = config.network.Lanes.map((lane) => lane.ID);
+  const withStationLane = structuredClone(config);
+  Object.assign(withStationLane.network.Lanes[1], { StationID: "station-1", StationRole: "through" });
+  const cases = [
+    { name: "a new paired guideway", config, want: [forward, reverse] },
+    { name: "a pair with a station lane", config: withStationLane, want: [forward, reverse] },
+    { name: "a pair after a delete of one lane", config: editor.deleteLane(config, reverse), want: [] },
+    { name: "one-way lanes between the same nodes", config: { network: { Lanes: config.network.Lanes.filter((lane) => lane.ID === oneWay || lane.ID === "parallel") } }, want: [] },
+    { name: "a lane from a node to the same node", config: { network: { Lanes: [{ ID: "loop", From: a, To: a }] } }, want: [] },
+    { name: "the connected scenario", config: connectedScenario(), want: [] },
+  ];
+  for (const item of cases) assert.deepEqual([...editor.pairedLaneIDs(item.config)].sort(), item.want.sort(), item.name);
+});
+
+// curvePoint gives the point of a quadratic curve at t. A curve with no
+// control point is a straight line.
+function curvePoint(curve, t) {
+  const control = curve.control || { X: (curve.from.X + curve.to.X) / 2, Y: (curve.from.Y + curve.to.Y) / 2 };
+  const u = 1 - t;
+  return { X: u * u * curve.from.X + 2 * u * t * control.X + t * t * curve.to.X, Y: u * u * curve.from.Y + 2 * u * t * control.Y + t * t * curve.to.Y };
+}
+
+function assertNear(actual, want, name) {
+  assert.ok(Math.abs(actual.X - want.X) < 1e-9 && Math.abs(actual.Y - want.Y) < 1e-9, `${name}: got ${JSON.stringify(actual)}, want ${JSON.stringify(want)}`);
+}
+
+test("a lane of a pair moves to the right of its direction of travel", () => {
+  const r = Math.SQRT1_2;
+  const cases = [
+    { name: "no offset", lane: { from: { X: 0, Y: 0 }, to: { X: 100, Y: 0 } }, want: { from: { X: 0, Y: 0 }, to: { X: 100, Y: 0 }, middle: { X: 50, Y: 0 } } },
+    // The map Y axis points down, so the right of a lane to the east is +Y.
+    { name: "a lane to the east", lane: { from: { X: 0, Y: 0 }, to: { X: 100, Y: 0 }, offset: 4 }, want: { from: { X: 0, Y: 4 }, to: { X: 100, Y: 4 }, middle: { X: 50, Y: 4 } } },
+    { name: "the reverse lane to the west", lane: { from: { X: 100, Y: 0 }, to: { X: 0, Y: 0 }, offset: 4 }, want: { from: { X: 100, Y: -4 }, to: { X: 0, Y: -4 }, middle: { X: 50, Y: -4 } } },
+    { name: "a lane to the south", lane: { from: { X: 0, Y: 0 }, to: { X: 0, Y: 30 }, offset: 2 }, want: { from: { X: -2, Y: 0 }, to: { X: -2, Y: 30 }, middle: { X: -2, Y: 15 } } },
+    { name: "a curve with no offset", lane: { from: { X: 0, Y: 0 }, to: { X: 100, Y: 0 }, control: { X: 50, Y: 50 } }, want: { from: { X: 0, Y: 0 }, to: { X: 100, Y: 0 }, control: { X: 50, Y: 50 }, middle: { X: 50, Y: 25 } } },
+    // Each end moves along the normal of the curve at that end, and the
+    // middle point moves along the normal of the line from end to end.
+    { name: "a curve", lane: { from: { X: 0, Y: 0 }, to: { X: 100, Y: 0 }, control: { X: 50, Y: 50 }, offset: 2 }, want: { from: { X: -2 * r, Y: 2 * r }, to: { X: 100 + 2 * r, Y: 2 * r }, control: { X: 50, Y: 54 - 2 * r }, middle: { X: 50, Y: 27 } } },
+    { name: "the reverse curve", lane: { from: { X: 100, Y: 0 }, to: { X: 0, Y: 0 }, control: { X: 50, Y: 50 }, offset: 2 }, want: { from: { X: 100 - 2 * r, Y: -2 * r }, to: { X: 2 * r, Y: -2 * r }, control: { X: 50, Y: 46 + 2 * r }, middle: { X: 50, Y: 23 } } },
+    { name: "a control point on the start node", lane: { from: { X: 0, Y: 0 }, to: { X: 100, Y: 0 }, control: { X: 0, Y: 0 }, offset: 4 }, want: { from: { X: 0, Y: 4 }, to: { X: 100, Y: 4 }, control: { X: 0, Y: 4 }, middle: { X: 25, Y: 4 } } },
+    { name: "two nodes at the same point", lane: { from: { X: 5, Y: 5 }, to: { X: 5, Y: 5 }, offset: 4 }, want: { from: { X: 5, Y: 5 }, to: { X: 5, Y: 5 }, middle: { X: 5, Y: 5 } } },
+  ];
+  for (const item of cases) {
+    const curve = editor.laneCurve(item.lane);
+    assert.deepEqual(Object.keys(curve).sort(), Object.keys(item.want).sort(), item.name);
+    for (const key of Object.keys(item.want)) assertNear(curve[key], item.want[key], `${item.name} ${key}`);
+    // The chevron shows at the middle point, so it is on the drawn curve.
+    assertNear(curvePoint(curve, 0.5), curve.middle, `${item.name} middle on the curve`);
+  }
+});
+
+test("both lanes of a pair show at the same distance at each scale", () => {
+  let config = editor.addJunction(editor.addJunction(editor.emptyConfig(), 10, 20), 130, 70);
+  const [a, b] = config.network.Nodes.map((node) => node.ID);
+  config = editor.addLane(config, a, b, true, { X: 90, Y: -10 });
+  const at = (id) => config.network.Nodes.find((node) => node.ID === id).Position;
+  for (const scale of [0.055, 0.5, 1, 5]) {
+    const offset = editor.laneOffset({ paired: true, scale });
+    const [forward, reverse] = config.network.Lanes.map((lane) => editor.laneCurve({ from: at(lane.From), to: at(lane.To), control: lane.Control, offset }));
+    const gap = Math.hypot(forward.middle.X - reverse.middle.X, forward.middle.Y - reverse.middle.Y) * scale;
+    assert.ok(Math.abs(gap - 2 * editor.LANE_PAIR_OFFSET) < 1e-9, `scale ${scale}: the middle points are ${gap} screen pixels apart`);
+    assert.equal(editor.laneOffset({ paired: false, scale }), 0, `scale ${scale}: a lane that is not in a pair`);
+  }
+});
+
+test("the lane path has a vertex at the middle point for the chevron", () => {
+  const straight = editor.laneCurve({ from: { X: 0, Y: 0 }, to: { X: 100, Y: 0 }, offset: 4 });
+  assert.equal(editor.lanePathData(straight), "M 0 4 L 50 4 L 100 4");
+  const curve = editor.laneCurve({ from: { X: 0, Y: 0 }, to: { X: 100, Y: 0 }, control: { X: 40, Y: 60 }, offset: 3 });
+  const path = editor.lanePathData(curve);
+  assert.match(path, /^M \S+ \S+ Q \S+ \S+ \S+ \S+ Q \S+ \S+ \S+ \S+$/);
+  // The two halves of the path draw the same curve as the lane curve.
+  const numbers = path.match(/-?[\d.e+-]+/g).map(Number);
+  const point = (index) => ({ X: numbers[index], Y: numbers[index + 1] });
+  const halves = [{ from: point(0), control: point(2), to: point(4) }, { from: point(4), control: point(6), to: point(8) }];
+  assertNear(halves[0].to, curve.middle, "the middle vertex");
+  for (const t of [0, 0.1, 0.25, 0.4, 0.5, 0.6, 0.8, 1]) {
+    const half = t < 0.5 ? halves[0] : halves[1];
+    assertNear(curvePoint(half, t < 0.5 ? t * 2 : t * 2 - 1), curvePoint(curve, t), `t ${t}`);
+  }
+});
+
+test("a lane shows its chevron only when it is long enough on the screen", () => {
+  const cases = [
+    { name: "a lane at the limit", length: editor.CHEVRON_LANE_LENGTH, scale: 1, want: true },
+    { name: "a lane just below the limit", length: editor.CHEVRON_LANE_LENGTH - 0.1, scale: 1, want: false },
+    { name: "a 30 m lane at the London fit scale", length: 30, scale: 0.055, want: false },
+    { name: "a 500 m lane at the London fit scale", length: 500, scale: 0.055, want: true },
+    { name: "a 30 m lane zoomed in", length: 30, scale: 1, want: true },
+    { name: "a lane with nodes at the same point", length: 0, scale: 5, want: false },
+    // The length is the length of the curve. Nodes 1 m apart with a 60 m
+    // curve show a chevron at scale 1.
+    { name: "a curve with nodes close together", length: editor.curveLength({ from: { X: 0, Y: 0 }, to: { X: 1, Y: 0 }, control: { X: 0.5, Y: 60 } }), scale: 1, want: true },
+  ];
+  for (const item of cases) assert.equal(editor.showsChevron({ length: item.length, scale: item.scale }), item.want, item.name);
+});
+
+test("the length of a lane follows its curve", () => {
+  // The curve from (0, 0) to (1, 0) with its control point at (0.5, 60) goes
+  // 30 m up and back down. Its length is 60.03 m.
+  const config = { network: { Nodes: [{ ID: "a", Position: { X: 0, Y: 0 } }, { ID: "b", Position: { X: 1, Y: 0 } }] } };
+  const cases = [
+    { name: "a straight lane", got: editor.curveLength({ from: { X: 0, Y: 0 }, to: { X: 30, Y: 40 } }), want: 50 },
+    { name: "a curve on the line between its nodes", got: editor.curveLength({ from: { X: 0, Y: 0 }, to: { X: 100, Y: 0 }, control: { X: 50, Y: 0 } }), want: 100 },
+    { name: "a curve with nodes close together", got: editor.curveLength({ from: { X: 0, Y: 0 }, to: { X: 1, Y: 0 }, control: { X: 0.5, Y: 60 } }), want: 60.03 },
+    { name: "the same curve as a lane", got: editor.laneLength(config, { From: "a", To: "b", Control: { X: 0.5, Y: 60 } }), want: 60.03 },
+  ];
+  for (const item of cases) assert.ok(Math.abs(item.got - item.want) < 0.05, `${item.name}: got ${item.got}, want ${item.want}`);
+});
+
 // fakeSession gives a fetch function that answers as the session API does.
 // The live project has revision options.liveRevision, or 3, and
 // options.paused is the state of the simulation before the apply. As on the

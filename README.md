@@ -394,6 +394,11 @@ The draft stays local until you select **Pause and apply**.
 - Create stations and explicit junctions, then connect their nodes with directed guideways.
 - Select paired lanes to add both directions.
   Crossing lines do not create a junction.
+- A small chevron at the middle of each guideway shows its direction.
+  The chevron has the same size at each zoom.
+  A guideway shorter than 24 screen pixels shows its chevron only when you select it or put the pointer on it.
+- Two guideways between the same nodes in opposite directions are a pair.
+  The map draws each guideway of a pair 4 screen pixels to the right of its direction of travel, so you can see and select each one.
 - Select a guideway to adjust its curve and speed in km/h.
 - Set the station berth capacity and place initial pods in free berths.
 - Drag a station to move it.

@@ -68,8 +68,11 @@
     <section class="map-panel" aria-label="Network drawing area">
       <svg id="networkMap" tabindex="0" role="application" aria-label="Scenario network editor">
         <defs>
-          <marker id="arrow" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto" markerUnits="strokeWidth">
-            <path d="M0,0 L0,6 L8,3 z"></path>
+          <marker id="chevron" class="chevron" viewBox="0 0 10 8" refX="5" refY="4" markerWidth="2.5" markerHeight="2" orient="auto" markerUnits="strokeWidth">
+            <path d="M0.5,0.5 L9.5,4 L0.5,7.5 L3.5,4 z"></path>
+          </marker>
+          <marker id="chevronSelected" class="chevron" viewBox="0 0 10 8" refX="5" refY="4" markerWidth="1.6667" markerHeight="1.3333" orient="auto" markerUnits="strokeWidth">
+            <path d="M0.5,0.5 L9.5,4 L0.5,7.5 L3.5,4 z"></path>
           </marker>
           <filter id="shadow"><feDropShadow dx="0" dy="2" stdDeviation="3" flood-opacity=".35"></feDropShadow></filter>
         </defs>

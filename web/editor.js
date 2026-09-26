@@ -13,6 +13,13 @@
   // NODE_LABEL_SIZE is the font size of a junction ID label in meters.
   const NODE_LABEL_SCALE = 0.5;
   const NODE_LABEL_SIZE = 9;
+  // LANE_PAIR_OFFSET is the distance in screen pixels that each lane of a pair
+  // moves to the right of its direction of travel. A pair is two lanes between
+  // the same two nodes in opposite directions.
+  const LANE_PAIR_OFFSET = 4;
+  // CHEVRON_LANE_LENGTH is the shortest length in screen pixels of a lane that
+  // shows its direction chevron.
+  const CHEVRON_LANE_LENGTH = 24;
   const STATION_LANE_ROLES = new Set(["approach", "entry", "berth-access", "through", "departure", "exit"]);
 
   function clone(value) {
@@ -371,15 +378,23 @@
     const start = point(config, lane.From);
     const end = point(config, lane.To);
     if (!start || !end) return 0;
-    if (!lane.Control) return Math.hypot(end.X - start.X, end.Y - start.Y);
+    return curveLength({ from: start, to: end, control: lane.Control });
+  }
+
+  // curveLength gives the length of a lane from the positions of its nodes and
+  // its optional control point. For a curve, it adds the lengths of 16 straight
+  // parts of the curve.
+  function curveLength(curve) {
+    const { from, to, control } = curve;
+    if (!control) return Math.hypot(to.X - from.X, to.Y - from.Y);
     let length = 0;
-    let previous = start;
+    let previous = from;
     for (let i = 1; i <= 16; i += 1) {
       const t = i / 16;
       const u = 1 - t;
       const current = {
-        X: u * u * start.X + 2 * u * t * lane.Control.X + t * t * end.X,
-        Y: u * u * start.Y + 2 * u * t * lane.Control.Y + t * t * end.Y,
+        X: u * u * from.X + 2 * u * t * control.X + t * t * to.X,
+        Y: u * u * from.Y + 2 * u * t * control.Y + t * t * to.Y,
       };
       length += Math.hypot(current.X - previous.X, current.Y - previous.Y);
       previous = current;
@@ -918,6 +933,64 @@
     return label.scale >= NODE_LABEL_SCALE ? NODE_LABEL_SIZE : 0;
   }
 
+  // pairedLaneIDs gives the IDs of the lanes that have a reverse lane, that is
+  // a lane from the To node to the From node. The map draws these lanes with
+  // an offset, so that both lanes of a pair show and each one can be selected.
+  function pairedLaneIDs(config) {
+    const key = (from, to) => `${from}\u0000${to}`;
+    const directed = new Set(config.network.Lanes.map((lane) => key(lane.From, lane.To)));
+    return new Set(config.network.Lanes.filter((lane) => lane.From !== lane.To && directed.has(key(lane.To, lane.From))).map((lane) => lane.ID));
+  }
+
+  // showsChevron reports whether a lane shows its direction chevron at a view
+  // scale. The length is the length of the lane in meters, as curveLength
+  // gives it. A lane that is shorter than CHEVRON_LANE_LENGTH screen pixels has
+  // no chevron, so that the chevrons do not cover a dense map.
+  function showsChevron(lane) {
+    return lane.length * lane.scale >= CHEVRON_LANE_LENGTH;
+  }
+
+  // laneOffset gives the offset in meters of a drawn lane at a view scale. A
+  // lane of a pair moves LANE_PAIR_OFFSET screen pixels at each scale. Other
+  // lanes do not move.
+  function laneOffset(lane) {
+    return lane.paired ? LANE_PAIR_OFFSET / lane.scale : 0;
+  }
+
+  // laneCurve gives the drawn curve of a lane from the positions of its
+  // nodes and its optional control point. The offset moves the curve that
+  // number of meters to the right of the direction of travel, so the reverse
+  // lane moves to the other side. Each end moves along the normal of the curve
+  // at that end. The middle point, the point of the curve at t = 0.5, moves
+  // along the normal of the line from end to end. The result has a control
+  // point only for a curved lane.
+  function laneCurve(lane) {
+    const { from, to, control, offset = 0 } = lane;
+    // normal gives the unit vector to the right of the direction from a to b.
+    // The map Y axis points down. It gives null when a and b are at the same
+    // point.
+    const normal = (a, b) => { const dx = b.X - a.X; const dy = b.Y - a.Y; const length = Math.hypot(dx, dy); return length ? { X: -dy / length, Y: dx / length } : null; };
+    const move = (at, by) => ({ X: at.X + by.X * offset, Y: at.Y + by.Y * offset });
+    const chord = normal(from, to) || { X: 0, Y: 0 };
+    const bend = control || { X: (from.X + to.X) / 2, Y: (from.Y + to.Y) / 2 };
+    const middle = move({ X: (from.X + 2 * bend.X + to.X) / 4, Y: (from.Y + 2 * bend.Y + to.Y) / 4 }, chord);
+    if (!control) return { from: move(from, chord), to: move(to, chord), middle };
+    const start = move(from, normal(from, control) || chord); const end = move(to, normal(control, to) || chord);
+    // This control point puts the moved curve through the moved middle point.
+    return { from: start, control: { X: 2 * middle.X - (start.X + end.X) / 2, Y: 2 * middle.Y - (start.Y + end.Y) / 2 }, to: end, middle };
+  }
+
+  // lanePathData gives the SVG path data of a lane curve. The path has a
+  // vertex at the middle point, where the direction chevron shows. A curved
+  // lane is two quadratic curves that meet at the middle point.
+  function lanePathData(curve) {
+    const { from, to, control, middle } = curve;
+    const at = (item) => `${item.X} ${item.Y}`;
+    if (!control) return `M ${at(from)} L ${at(middle)} L ${at(to)}`;
+    const half = (a, b) => ({ X: (a.X + b.X) / 2, Y: (a.Y + b.Y) / 2 });
+    return `M ${at(from)} Q ${at(half(from, control))} ${at(middle)} Q ${at(half(control, to))} ${at(to)}`;
+  }
+
   // A connection holds the values that the editor uses with the session API.
   // fetch sends one HTTP request, as window.fetch does. clientID and sequence
   // identify each command, and epoch is the session epoch. postCommand
@@ -1085,11 +1158,11 @@
   }
 
   const API = {
-    MIN_LANE_LENGTH, MIN_ZOOM, NODE_LABEL_SCALE, NODE_LABEL_SIZE, CHECK_DELAY, emptyConfig, normalizeConfig, addLane, addJunction, addStation, addBerth,
+    MIN_LANE_LENGTH, MIN_ZOOM, NODE_LABEL_SCALE, NODE_LABEL_SIZE, LANE_PAIR_OFFSET, CHEVRON_LANE_LENGTH, CHECK_DELAY, emptyConfig, normalizeConfig, addLane, addJunction, addStation, addBerth,
     removeBerth, moveStation, moveNode, deleteNode, deleteLane, deleteStation, stationFlowCount, setFleetCount, fleetRows, setDemandPattern,
-    laneLength, reachable, stationNodeOwners, dragTargets, validateConfig, configWarnings, checkResults, checkSelector, checkSelection, selectionPoint, focusView,
+    laneLength, curveLength, reachable, stationNodeOwners, dragTargets, validateConfig, configWarnings, checkResults, checkSelector, checkSelection, selectionPoint, focusView,
     problemCountText, createCheckTimer, validationSummary, serializeDocument, parseDocument, createHistory,
-    networkBounds, fitView, zoomScale, nodeLabelSize, applyToServer, applyFailureText, applyFailureStatus, applyToast,
+    networkBounds, fitView, zoomScale, nodeLabelSize, pairedLaneIDs, showsChevron, laneOffset, laneCurve, lanePathData, applyToServer, applyFailureText, applyFailureStatus, applyToast,
   };
   if (typeof module !== "undefined" && module.exports) module.exports = API;
   root.PodsimEditorModel = API;
@@ -1159,6 +1232,7 @@
   }
   function setView() {
     $("#viewport").setAttribute("transform", `translate(${state.view.x} ${state.view.y}) scale(${state.view.scale})`);
+    if (state.map && state.map.laneScale !== state.view.scale) scaleLanes();
     if (state.map && state.map.labelScale !== state.view.scale) renderNodeLabels();
   }
   function zoomAt(factor, clientX, clientY) {
@@ -1169,11 +1243,17 @@
     state.view.scale = next; state.view.x = sx - wx * next; state.view.y = sy - wy * next; setView();
   }
 
-  function lanePath(config, lane) {
-    const from = nodeFor(config, lane.From); const to = nodeFor(config, lane.To);
-    if (!from || !to) return "";
-    if (lane.Control) return `M ${from.Position.X} ${from.Position.Y} Q ${lane.Control.X} ${lane.Control.Y} ${to.Position.X} ${to.Position.Y}`;
-    return `M ${from.Position.X} ${from.Position.Y} L ${to.Position.X} ${to.Position.Y}`;
+  // drawLane sets the path of a drawn lane at the lane scale of the map. A
+  // lane of a pair has an offset of LANE_PAIR_OFFSET screen pixels. A lane
+  // that is short on the screen hides its chevron. The map keeps the length
+  // for the next scale change.
+  function drawLane(path, config, lane, map) {
+    const from = nodeFor(config, lane.From)?.Position; const to = nodeFor(config, lane.To)?.Position;
+    const length = from && to ? curveLength({ from, to, control: lane.Control }) : 0;
+    const offset = laneOffset({ paired: map.paired.has(lane.ID), scale: map.laneScale });
+    path.setAttribute("d", from && to ? lanePathData(laneCurve({ from, to, control: lane.Control, offset })) : "");
+    path.classList.toggle("short", !showsChevron({ length, scale: map.laneScale }));
+    map.lengths.set(lane.ID, length);
   }
 
   // The place functions give the position attributes of the drawn items.
@@ -1192,14 +1272,14 @@
     const config = draft();
     const backgroundLayer = $("#backgroundLayer"); const laneLayer = $("#laneLayer"); const stationLayer = $("#stationLayer"); const nodeLayer = $("#nodeLayer"); const handleLayer = $("#handleLayer");
     backgroundLayer.replaceChildren(); laneLayer.replaceChildren(); stationLayer.replaceChildren(); nodeLayer.replaceChildren(); handleLayer.replaceChildren();
-    const map = { bounds: networkBounds(config, state.background), lanes: new Map(), stations: new Map(), nodes: new Map(), junctions: [], labels: new Map(), labelScale: null, handles: null };
+    const map = { config, bounds: networkBounds(config, state.background), lanes: new Map(), lengths: new Map(), paired: pairedLaneIDs(config), laneScale: state.view.scale, stations: new Map(), nodes: new Map(), junctions: [], labels: new Map(), labelScale: null, handles: null };
     if (state.background) {
       const image = svgElement("image", { class: "background-image", href: state.background.dataURL, x: state.background.x, y: state.background.y, width: state.background.width, height: state.background.height, opacity: state.background.opacity, preserveAspectRatio: "none" });
       backgroundLayer.append(image);
     }
     for (const lane of config.network.Lanes) {
-      const path = svgElement("path", { class: `lane${state.selection && state.selection.type === "lane" && state.selection.id === lane.ID ? " selected" : ""}`, d: lanePath(config, lane), "data-type": "lane", "data-id": lane.ID });
-      laneLayer.append(path); map.lanes.set(lane.ID, path);
+      const path = svgElement("path", { class: `lane${state.selection && state.selection.type === "lane" && state.selection.id === lane.ID ? " selected" : ""}`, "data-type": "lane", "data-id": lane.ID });
+      drawLane(path, config, lane, map); laneLayer.append(path); map.lanes.set(lane.ID, path);
     }
     for (const station of config.network.Stations) {
       const place = placeStation(stationCenter(config, station));
@@ -1229,6 +1309,24 @@
     }
     for (const calibration of state.calibrationPoints) handleLayer.append(svgElement("circle", { class: "calibration-point", cx: calibration.X, cy: calibration.Y, r: 7 }));
     state.map = map; renderNodeLabels(); setView();
+  }
+
+  // scaleLanes changes the drawn lanes for the current scale. setView calls
+  // it when the scale changes. A lane that is short on the screen hides its
+  // chevron, and each lane of a pair moves to the offset for the scale.
+  // During a drag, the lanes take their positions from the working copy of
+  // the draft.
+  function scaleLanes() {
+    const map = state.map; const before = map.laneScale; map.laneScale = state.view.scale;
+    for (const [id, path] of map.lanes) {
+      const length = map.lengths.get(id); const shows = showsChevron({ length, scale: map.laneScale });
+      // Only a lane that crosses the limit changes. This keeps a zoom step
+      // fast on a large network.
+      if (shows !== showsChevron({ length, scale: before })) path.classList.toggle("short", !shows);
+    }
+    if (!map.paired.size) return;
+    const config = state.drag && state.drag.working ? state.drag.working : map.config;
+    for (const lane of config.network.Lanes) if (map.paired.has(lane.ID) && map.lanes.has(lane.ID)) drawLane(map.lanes.get(lane.ID), config, lane, map);
   }
 
   // renderNodeLabels draws the junction ID labels that nodeLabelSize allows at
@@ -1268,7 +1366,7 @@
     for (const id of targets.laneIDs) {
       const lane = config.network.Lanes.find((item) => item.ID === id); const path = map.lanes.get(id);
       if (!lane) continue;
-      if (path) path.setAttribute("d", lanePath(config, lane));
+      if (path) drawLane(path, config, lane, map);
       if (map.handles && map.handles.laneID === id && lane.Control) {
         const place = placeControl(config, lane);
         setAttributes(map.handles.line, place.line); setAttributes(map.handles.handle, place.handle);
