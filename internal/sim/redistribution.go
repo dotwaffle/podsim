@@ -11,12 +11,15 @@ const (
 	redistributionCooldownTicks = 30 * TicksPerSecond
 )
 
-// SetRedistribution controls proactive movement of idle empty pods.
+// SetRedistribution controls proactive movement of idle empty pods. true
+// selects PositioningRedistribution and false selects PositioningOff. See
+// SetPositioning.
 func (s *Simulation) SetRedistribution(enabled bool) {
-	s.redistribution = enabled
-	if enabled && s.nextRedistributionTick < s.tick {
-		s.nextRedistributionTick = s.tick
+	mode := PositioningOff
+	if enabled {
+		mode = PositioningRedistribution
 	}
+	s.setPositioning(mode)
 }
 
 // SetDemandWeights sets relative passenger demand by origin station.
@@ -51,7 +54,7 @@ func (s *Simulation) SetDemandWeights(weights map[string]float64) error {
 
 func (s *Simulation) redistribute() {
 	s.yieldRelocationClaims()
-	if !s.redistribution || s.tick < s.nextRedistributionTick || len(s.waiting) > 0 {
+	if s.positioning != PositioningRedistribution || s.tick < s.nextRedistributionTick || len(s.waiting) > 0 {
 		return
 	}
 	supply, eligible := s.redistributionSupply()
