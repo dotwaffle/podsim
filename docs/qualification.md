@@ -46,7 +46,7 @@ These are native simulation measurements, not browser frame rates.
 
 Profiles identified repeated geometry allocation, route searches, and ownership-map scans.
 The changes reuse immutable routes and lane lengths, use stack storage for curve samples, and scan ownership once per tick.
-The route cache holds at most 4,096 entries.
+The route cache holds at most 8,192 entries.
 Snapshot copies remain detached from cached routes.
 
 ## Redistribution

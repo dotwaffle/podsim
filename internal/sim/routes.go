@@ -1,7 +1,9 @@
 package sim
 
+import "slices"
+
 const (
-	routeCacheLimit                 = 4096
+	routeCacheLimit                 = 8192
 	ownedTrackCongestionSeconds     = 6.0
 	stoppedVehicleCongestionSeconds = 20.0
 	congestionRouteRefreshTicks     = 5 * TicksPerSecond
@@ -92,6 +94,30 @@ func (s *Simulation) congestionCosts() []float64 {
 		}
 	}
 	return costs
+}
+
+// cacheStationRoutes puts the routes from a node to each berth of a station
+// in the route cache. One route search gives all the routes, so the
+// route calls that follow do not search again. The cache holds only routes
+// that route returns, so this changes no result. It does nothing when
+// congestion routing is on, because congestionRoute uses its own cache.
+func (s *Simulation) cacheStationRoutes(from string, berths []Berth) {
+	if s.congestionRouting || len(berths) < 2 {
+		return
+	}
+	s.ensureNetworkIndexes()
+	var targets []string
+	for _, berth := range berths {
+		if _, cached := s.routes[routeKey{from: from, to: berth.Node}]; !cached && !slices.Contains(targets, berth.Node) {
+			targets = append(targets, berth.Node)
+		}
+	}
+	if len(targets) < 2 {
+		return
+	}
+	for index, result := range s.network.routesIndexed(from, targets, s.graph) {
+		s.cacheRoute(routeKey{from: from, to: targets[index]}, result)
+	}
 }
 
 func (s *Simulation) stationPath(from, to string) ([]Lane, error) {

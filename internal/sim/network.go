@@ -196,6 +196,78 @@ func (n Network) routeIndexed(input networkRouteInput, graph routeGraph) ([]Lane
 			}
 		}
 	}
+	return n.routeLanes(graph, from, to, distance, previous)
+}
+
+// routesIndexed returns the routes from node from to each node in to. Each
+// route and error is the same as from routeIndexed with no forbidden nodes
+// and no extra cost. One search gives all the routes. The lane costs must
+// not be negative, as in a valid network.
+//
+// The search takes nodes from the queue in the same order as routeIndexed.
+// It continues past each destination until it takes the last one. A lane
+// cost that is not negative cannot make the route to a node shorter after
+// the search takes the node. Thus the route to a destination does not
+// change after the search takes the destination.
+func (n Network) routesIndexed(from string, to []string, graph routeGraph) []routeResult {
+	results := make([]routeResult, len(to))
+	start, ok := graph.nodes[from]
+	if !ok {
+		for index := range results {
+			results[index].err = fmt.Errorf("unknown origin %q", from)
+		}
+		return results
+	}
+	var goals []int
+	for index, id := range to {
+		goal, ok := graph.nodes[id]
+		if !ok {
+			results[index].err = fmt.Errorf("unknown destination %q", id)
+		} else if !slices.Contains(goals, goal) {
+			goals = append(goals, goal)
+		}
+	}
+	distance := make([]float64, len(n.Nodes))
+	previous := make([]int, len(n.Nodes))
+	visited := make([]bool, len(n.Nodes))
+	for i := range distance {
+		distance[i], previous[i] = math.Inf(1), -1
+	}
+	distance[start] = 0
+	queue := routeQueue{{node: start}}
+	for remaining := len(goals); remaining > 0 && len(queue) > 0; {
+		item := queue.pop()
+		if visited[item.node] || item.distance != distance[item.node] {
+			continue
+		}
+		if slices.Contains(goals, item.node) {
+			remaining--
+			if remaining == 0 {
+				break
+			}
+		}
+		visited[item.node] = true
+		for _, laneIndex := range graph.outgoing[item.node] {
+			edge := graph.edges[laneIndex]
+			candidate := item.distance + edge.seconds
+			if candidate < distance[edge.to] {
+				distance[edge.to], previous[edge.to] = candidate, laneIndex
+				queue.push(routeQueueItem{node: edge.to, distance: candidate})
+			}
+		}
+	}
+	for index, id := range to {
+		if results[index].err == nil {
+			results[index].lanes, results[index].err = n.routeLanes(graph, start, graph.nodes[id], distance, previous)
+		}
+	}
+	return results
+}
+
+// routeLanes returns the route from node from to node to that a route
+// search found. previous holds the index of the last lane of the route to
+// each node.
+func (n Network) routeLanes(graph routeGraph, from, to int, distance []float64, previous []int) ([]Lane, error) {
 	if math.IsInf(distance[to], 1) {
 		return nil, ErrUnreachable
 	}

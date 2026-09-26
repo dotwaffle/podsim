@@ -260,3 +260,41 @@ func TestNearestSearchMatchesNodeIDLookups(t *testing.T) {
 		}
 	}
 }
+
+func TestRoutesSearchMatchesOneRouteSearch(t *testing.T) {
+	t.Parallel()
+	for name, network := range routeSearchNetworks() {
+		graph := newRouteGraph(network)
+		ids := []string{"unknown"}
+		for _, node := range network.Nodes {
+			ids = append(ids, node.ID)
+		}
+		// The lists take the node IDs with different steps. Thus they have
+		// destinations in different orders, the origin, an unknown ID, and
+		// the same ID two times.
+		lists := [][]string{ids}
+		for size := 1; size <= 4; size++ {
+			for start := range ids {
+				list := make([]string, size)
+				for i := range list {
+					list[i] = ids[(start+i*(start+1))%len(ids)]
+				}
+				lists = append(lists, list)
+			}
+		}
+		for _, from := range ids {
+			for _, to := range lists {
+				got := network.routesIndexed(from, to, graph)
+				if len(got) != len(to) {
+					t.Fatalf("%s: %d routes for %d destinations", name, len(got), len(to))
+				}
+				for index, target := range to {
+					want, wantErr := network.routeIndexed(networkRouteInput{from: from, to: target}, graph)
+					if !reflect.DeepEqual(got[index].lanes, want) || fmt.Sprint(got[index].err) != fmt.Sprint(wantErr) {
+						t.Fatalf("%s: route %s to %s in %v = %v, %v, want %v, %v", name, from, target, to, got[index].lanes, got[index].err, want, wantErr)
+					}
+				}
+			}
+		}
+	}
+}

@@ -80,3 +80,37 @@ func TestRouteCacheEvictsOldestEntry(t *testing.T) {
 		t.Fatalf("route cache size = %d, want %d", len(simulation.routes), routeCacheLimit)
 	}
 }
+
+func TestStationRoutesFillRouteCache(t *testing.T) {
+	t.Parallel()
+	for _, congestion := range []bool{false, true} {
+		simulation, err := New(ladderNetwork(), "harbor")
+		if err != nil {
+			t.Fatal(err)
+		}
+		simulation.SetCongestionRouting(congestion)
+		filled := 0
+		for _, node := range simulation.network.Nodes {
+			for _, station := range simulation.network.Stations {
+				simulation.cacheStationRoutes(node.ID, station.Berths)
+				for _, berth := range station.Berths {
+					cached, ok := simulation.routes[routeKey{from: node.ID, to: berth.Node}]
+					if !ok {
+						continue
+					}
+					want, wantErr := simulation.network.Route(node.ID, berth.Node)
+					if !reflect.DeepEqual(cached.lanes, want) || fmt.Sprint(cached.err) != fmt.Sprint(wantErr) {
+						t.Fatalf("cached route %s to %s = %v, %v, want %v, %v", node.ID, berth.Node, cached.lanes, cached.err, want, wantErr)
+					}
+					filled++
+				}
+			}
+		}
+		if congestion && (filled > 0 || simulation.congestionRouteCosts != nil) {
+			t.Fatalf("congestion routing filled %d routes or refreshed its costs", filled)
+		}
+		if !congestion && filled == 0 {
+			t.Fatal("no station route in the cache")
+		}
+	}
+}

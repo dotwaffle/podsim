@@ -41,6 +41,7 @@ func (s *Simulation) stationRouteByLoad(input stationRouteInput) ([]Lane, Berth,
 	if input.load != nil {
 		loadOf = input.load
 	}
+	s.cacheStationRoutes(input.from, station.Berths)
 	var bestRoute []Lane
 	var bestBerth Berth
 	bestLoad, found := 0, false
