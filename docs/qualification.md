@@ -326,7 +326,7 @@ See [the client protocol](protocol.md) for the normalized frame measurements.
 
 ## Validation limits
 
-The automated gate runs workflow validation, race tests, editor tests, vet, lint, vulnerability checks, native and WASM builds, and embedded server tests.
+The automated gate runs workflow validation, race tests, editor and loader tests, vet, lint, vulnerability checks, native and WASM builds, and embedded server tests.
 Browser acceptance also covers editing, undo and redo, background calibration, import and export, apply, stale conflicts, and visible WASM rendering.
 A known stale apply no longer pauses another browser's running simulation.
 Malformed imports preserve the current draft.

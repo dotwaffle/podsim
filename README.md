@@ -743,6 +743,12 @@ A `-dir` directory from an older build with only `podsim.wasm` still works.
 The server then compresses that file for each gzip request.
 If a `-dir` directory has a `podsim.wasm` that is newer than `podsim.wasm.gz`, the server uses `podsim.wasm`.
 
+While the page downloads the WASM file, it shows the received size in megabytes.
+With gzip, the page counts the bytes after decompression, so the count goes up to the WASM size and not to the smaller gzip size.
+Without gzip, it shows a percent of the file size instead.
+If the download or the start fails, the page shows **Podsim could not start.** and the reason.
+If the program stops after it started, the page shows **Podsim stopped.** and asks you to reload the page.
+
 #### Connection status
 
 Until the first state frame arrives, the map shows **Connecting to server...** and no network.
@@ -814,9 +820,9 @@ mise run check
 
 | Task | What it runs |
 | --- | --- |
-| `mise run check` | Workflow validation, Markdown checks, race tests, editor tests, vet, lint, vulnerability checks, the native and browser builds, and the embedded server tests. |
+| `mise run check` | Workflow validation, Markdown checks, race tests, editor and loader tests, vet, lint, vulnerability checks, the native and browser builds, and the embedded server tests. |
 | `mise run format` | Formats the Go sources and the Markdown files. |
-| `mise run test:web` | Only the editor tests. |
+| `mise run test:web` | Only the editor and loader tests. |
 | `mise run qualify` | The `internal/scenarios` qualification tests for scale, safety, and repeatability. |
 | `mise run benchmark` | 6,000 simulation steps on the 100-pod ring fixture, not on the current `scale100` mesh. |
 
