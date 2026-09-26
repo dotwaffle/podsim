@@ -4,7 +4,10 @@ package scenarios
 import (
 	"errors"
 	"fmt"
+	"maps"
 	"math"
+	"reflect"
+	"slices"
 
 	"github.com/dotwaffle/podsim/internal/project"
 	"github.com/dotwaffle/podsim/internal/sim"
@@ -23,7 +26,8 @@ const (
 	berthSpacing         = 30.0
 )
 
-// Parameters controls a ring scenario with one parking station.
+// Parameters controls a ring scenario with one parking station. The
+// Scale100 mesh uses the same parameters with 20 stations.
 type Parameters struct {
 	Name               string
 	Stations           int
@@ -34,36 +38,100 @@ type Parameters struct {
 	DemandPerMinute    int
 	DemandSeed         uint64
 	Redistribution     bool
+	// StationBerths holds the berth count of single stations by station ID:
+	// station-01 and on, or parking.
+	StationBerths map[string]int
+	// BerthPitch is the distance in meters between two berths of a station.
+	// Zero keeps the pitch of the layout: berthSpacing for a ring station and
+	// meshBerthPitch for a mesh station.
+	BerthPitch float64
+}
+
+// stationID returns the ID of the station at index. The last station is
+// the Parking station.
+func (parameters Parameters) stationID(index int) string {
+	if index == parameters.Stations-1 {
+		return "parking"
+	}
+	return fmt.Sprintf("station-%02d", index+1)
+}
+
+// berths returns the berth count of the station at index.
+func (parameters Parameters) berths(index int) int {
+	if count, ok := parameters.StationBerths[parameters.stationID(index)]; ok {
+		return count
+	}
+	if index == parameters.Stations-1 {
+		return parameters.ParkingBerths
+	}
+	return parameters.PassengerBerths
+}
+
+// pitch returns BerthPitch, or layout when BerthPitch is zero.
+func (parameters Parameters) pitch(layout float64) float64 {
+	if parameters.BerthPitch == 0 {
+		return layout
+	}
+	return parameters.BerthPitch
+}
+
+// checkParameters checks the station, berth, and pod counts, the station
+// IDs of StationBerths, and the berth pitch. It returns the number of
+// berths.
+func checkParameters(parameters Parameters) (int, error) {
+	if parameters.Stations < minimumStations {
+		return 0, fmt.Errorf("stations must be at least %d", minimumStations)
+	}
+	if parameters.Stations > maximumStations {
+		return 0, fmt.Errorf("stations must be at most %d", maximumStations)
+	}
+	if parameters.BerthPitch != 0 {
+		if err := checkBerthPitch(parameters.BerthPitch); err != nil {
+			return 0, err
+		}
+	}
+	ids := make([]string, 0, parameters.Stations)
+	for index := range parameters.Stations {
+		ids = append(ids, parameters.stationID(index))
+	}
+	for _, id := range slices.Sorted(maps.Keys(parameters.StationBerths)) {
+		if !slices.Contains(ids, id) {
+			return 0, fmt.Errorf("unknown station ID %q", id)
+		}
+	}
+	passengerBerths, berthCount := 0, 0
+	for index, id := range ids {
+		berths := parameters.berths(index)
+		if berths < 1 || berths > maximumStationBerths {
+			return 0, fmt.Errorf("station %s has %d berths, want 1 to %d", id, berths, maximumStationBerths)
+		}
+		berthCount += berths
+		if index < parameters.Stations-1 {
+			passengerBerths += berths
+		}
+	}
+	if parameters.Pods > maximumPods {
+		return 0, fmt.Errorf("pods must be at most %d", maximumPods)
+	}
+	passengerPods := parameters.Pods - parameters.InitialParkingPods
+	if parameters.Pods < 1 || parameters.InitialParkingPods < 0 || passengerPods < 0 {
+		return 0, errors.New("pod counts must be positive and internally consistent")
+	}
+	if passengerPods > passengerBerths || parameters.InitialParkingPods > parameters.berths(parameters.Stations-1) {
+		return 0, errors.New("initial pods exceed berth capacity")
+	}
+	return berthCount, nil
 }
 
 // Config builds and validates a deterministic directed-ring scenario.
 func Config(parameters Parameters) (project.Config, error) {
-	if parameters.Stations < minimumStations {
-		return project.Config{}, fmt.Errorf("stations must be at least %d", minimumStations)
+	berthCount, err := checkParameters(parameters)
+	if err != nil {
+		return project.Config{}, err
 	}
-	if parameters.Stations > maximumStations {
-		return project.Config{}, fmt.Errorf("stations must be at most %d", maximumStations)
-	}
-	if parameters.PassengerBerths < 1 || parameters.ParkingBerths < 1 {
-		return project.Config{}, errors.New("passenger and parking berth counts must be positive")
-	}
-	if parameters.PassengerBerths > maximumStationBerths || parameters.ParkingBerths > maximumStationBerths {
-		return project.Config{}, fmt.Errorf("station berth counts must be at most %d", maximumStationBerths)
-	}
-	if parameters.Pods > maximumPods {
-		return project.Config{}, fmt.Errorf("pods must be at most %d", maximumPods)
-	}
-	passengerStations := parameters.Stations - 1
-	passengerPods := parameters.Pods - parameters.InitialParkingPods
-	if parameters.Pods < 1 || parameters.InitialParkingPods < 0 || passengerPods < 0 {
-		return project.Config{}, errors.New("pod counts must be positive and internally consistent")
-	}
-	if passengerPods > passengerStations*parameters.PassengerBerths || parameters.InitialParkingPods > parameters.ParkingBerths {
-		return project.Config{}, errors.New("initial pods exceed berth capacity")
-	}
-	berthCount := passengerStations*parameters.PassengerBerths + parameters.ParkingBerths
-	if 2*parameters.Stations+berthCount > maximumNodes || 2*(parameters.Stations+berthCount) > maximumLanes {
-		return project.Config{}, errors.New("generated network exceeds project node or lane limits")
+	nodes, lanes := 2*parameters.Stations+berthCount, 2*(parameters.Stations+berthCount)
+	if nodes > maximumNodes || lanes > maximumLanes {
+		return project.Config{}, fmt.Errorf("generated network needs %d nodes and %d lanes, more than the limits of %d and %d", nodes, lanes, maximumNodes, maximumLanes)
 	}
 	config := project.Config{
 		Version: 1,
@@ -76,46 +144,142 @@ func Config(parameters Parameters) (project.Config, error) {
 		},
 		Redistribution: parameters.Redistribution,
 	}
-	config.Fleet = placements(parameters, passengerPods)
+	config.Fleet = placements(parameters)
 	if err := project.Validate(config); err != nil {
 		return project.Config{}, fmt.Errorf("validate generated scenario: %w", err)
 	}
 	return config, nil
 }
 
-// Small returns a compact scenario for smoke tests and visual checks.
-func Small() project.Config {
-	return mustConfig(Parameters{
+// ringPreset is a ring or mesh preset. build makes the preset from its
+// parameters, and pitch is the berth pitch of its layout.
+type ringPreset struct {
+	parameters func() Parameters
+	build      func(Parameters) (project.Config, error)
+	pitch      float64
+}
+
+// ringPresets holds the ring and mesh presets by their cmd/scenario name.
+var ringPresets = map[string]ringPreset{
+	"small":               {parameters: smallParameters, build: Config, pitch: berthSpacing},
+	"busy":                {parameters: busyParameters, build: Config, pitch: berthSpacing},
+	"parking-constrained": {parameters: parkingConstrainedParameters, build: Config, pitch: berthSpacing},
+	"rail-hub":            {parameters: railHubParameters, build: railHubConfig, pitch: berthSpacing},
+	"scale100":            {parameters: scale100Parameters, build: scale100Config, pitch: meshBerthPitch},
+}
+
+// PresetWith returns the ring or mesh preset with the given name, after
+// change changes its parameters. When the parameters give a layout other
+// than that of the preset, the project name ends with " (custom
+// capacity)", and a layout audit checks the network. The error names the
+// station of the first hard conflict.
+func PresetWith(name string, change func(*Parameters)) (project.Config, error) {
+	preset, ok := ringPresets[name]
+	if !ok {
+		return project.Config{}, fmt.Errorf("unknown ring or mesh preset %q", name)
+	}
+	parameters := preset.parameters()
+	change(&parameters)
+	if _, err := checkParameters(parameters); err != nil {
+		return project.Config{}, err
+	}
+	custom := !sameParameters(preset.parameters(), parameters, preset.pitch)
+	if custom {
+		parameters.Name += customCapacitySuffix
+	}
+	config, err := preset.build(parameters)
+	if err != nil {
+		return project.Config{}, err
+	}
+	if custom {
+		if err := layoutError(config.Network, auditPlanarLayout(config.Network)); err != nil {
+			return project.Config{}, err
+		}
+	}
+	return config, nil
+}
+
+// sameParameters reports whether a and b give the same project. A station
+// override with the uniform count, and a zero pitch or the pitch of the
+// layout, do not change the project.
+func sameParameters(a, b Parameters, layout float64) bool {
+	if a.Stations != b.Stations || a.pitch(layout) != b.pitch(layout) {
+		return false
+	}
+	for index := range a.Stations {
+		if a.berths(index) != b.berths(index) {
+			return false
+		}
+	}
+	for _, parameters := range []*Parameters{&a, &b} {
+		parameters.PassengerBerths, parameters.ParkingBerths = 0, 0
+		parameters.StationBerths, parameters.BerthPitch = nil, 0
+	}
+	return reflect.DeepEqual(a, b)
+}
+
+func smallParameters() Parameters {
+	return Parameters{
 		Name: "Small qualification ring", Stations: 5, Pods: 12,
 		PassengerBerths: 4, ParkingBerths: 4, DemandPerMinute: 8, DemandSeed: 11,
-	})
+	}
+}
+
+// Small returns a compact scenario for smoke tests and visual checks.
+func Small() project.Config {
+	return mustConfig(smallParameters())
+}
+
+func busyParameters() Parameters {
+	return Parameters{
+		Name: "Busy qualification ring", Stations: 8, Pods: 32,
+		PassengerBerths: 5, ParkingBerths: 10, InitialParkingPods: 4,
+		DemandPerMinute: 30, DemandSeed: 23,
+	}
 }
 
 // Busy returns a scenario with sustained feasible demand and merge contention.
 func Busy() project.Config {
-	return mustConfig(Parameters{
-		Name: "Busy qualification ring", Stations: 8, Pods: 32,
-		PassengerBerths: 5, ParkingBerths: 10, InitialParkingPods: 4,
-		DemandPerMinute: 30, DemandSeed: 23,
-	})
+	return mustConfig(busyParameters())
+}
+
+func parkingConstrainedParameters() Parameters {
+	return Parameters{
+		Name: "Parking-constrained qualification ring", Stations: 6, Pods: 20,
+		PassengerBerths: 4, ParkingBerths: 1, InitialParkingPods: 1,
+		DemandPerMinute: 30, DemandSeed: 37,
+	}
 }
 
 // ParkingConstrained returns a saturated case with no free parking berth.
 func ParkingConstrained() project.Config {
-	return mustConfig(Parameters{
-		Name: "Parking-constrained qualification ring", Stations: 6, Pods: 20,
-		PassengerBerths: 4, ParkingBerths: 1, InitialParkingPods: 1,
-		DemandPerMinute: 30, DemandSeed: 37,
-	})
+	return mustConfig(parkingConstrainedParameters())
+}
+
+func railHubParameters() Parameters {
+	return Parameters{
+		Name: "Rail-hub burst experiment", Stations: 7, Pods: 30,
+		PassengerBerths: 6, ParkingBerths: 12, InitialParkingPods: 12,
+		DemandPerMinute: 12, DemandSeed: 41,
+	}
 }
 
 // RailHub returns a station-capacity experiment with a large parked reserve.
 func RailHub() project.Config {
-	config := mustConfig(Parameters{
-		Name: "Rail-hub burst experiment", Stations: 7, Pods: 30,
-		PassengerBerths: 6, ParkingBerths: 12, InitialParkingPods: 12,
-		DemandPerMinute: 12, DemandSeed: 41,
-	})
+	config, err := railHubConfig(railHubParameters())
+	if err != nil {
+		panic(err)
+	}
+	return config
+}
+
+// railHubConfig builds the rail-hub ring. Station 01 is the Rail Hub and
+// the demand destination.
+func railHubConfig(parameters Parameters) (project.Config, error) {
+	config, err := Config(parameters)
+	if err != nil {
+		return project.Config{}, err
+	}
 	for index := range config.Network.Stations {
 		station := &config.Network.Stations[index]
 		switch {
@@ -127,14 +291,28 @@ func RailHub() project.Config {
 	}
 	config.Demand.Destination = "station-01"
 	if err := project.Validate(config); err != nil {
-		panic(fmt.Errorf("validate rail-hub scenario: %w", err))
+		return project.Config{}, fmt.Errorf("validate rail-hub scenario: %w", err)
 	}
-	return config
+	return config, nil
 }
 
 // Scale100 returns the 20-station, 100-pod browser qualification scenario.
 func Scale100() project.Config {
-	parameters := scale100Parameters()
+	config, err := scale100Config(scale100Parameters())
+	if err != nil {
+		panic(err)
+	}
+	return config
+}
+
+// scale100Config builds the Scale100 mesh. The mesh has 20 stations.
+func scale100Config(parameters Parameters) (project.Config, error) {
+	if parameters.Stations != meshStations {
+		return project.Config{}, fmt.Errorf("the mesh has %d stations, not %d", meshStations, parameters.Stations)
+	}
+	if _, err := checkParameters(parameters); err != nil {
+		return project.Config{}, err
+	}
 	config := project.Config{
 		Version: 1,
 		Name:    parameters.Name,
@@ -145,16 +323,19 @@ func Scale100() project.Config {
 			Seed:      parameters.DemandSeed,
 		},
 	}
-	config.Fleet = placements(parameters, parameters.Pods-parameters.InitialParkingPods)
-	if err := project.Validate(config); err != nil {
-		panic(fmt.Errorf("validate scale scenario: %w", err))
+	if nodes, lanes := len(config.Network.Nodes), len(config.Network.Lanes); nodes > maximumNodes || lanes > maximumLanes {
+		return project.Config{}, fmt.Errorf("generated network needs %d nodes and %d lanes, more than the limits of %d and %d", nodes, lanes, maximumNodes, maximumLanes)
 	}
-	return config
+	config.Fleet = placements(parameters)
+	if err := project.Validate(config); err != nil {
+		return project.Config{}, fmt.Errorf("validate scale scenario: %w", err)
+	}
+	return config, nil
 }
 
 func scale100Parameters() Parameters {
 	return Parameters{
-		Name: "Scale qualification: 20 stations and 100 pods", Stations: 20, Pods: 100,
+		Name: "Scale qualification: 20 stations and 100 pods", Stations: meshStations, Pods: 100,
 		PassengerBerths: 6, ParkingBerths: 24, InitialParkingPods: 5,
 		DemandPerMinute: 20, DemandSeed: 100,
 	}
@@ -167,7 +348,7 @@ func scale100Ring() project.Config {
 func scaleMesh(parameters Parameters) sim.Network {
 	const (
 		columns = 5
-		rows    = 4
+		rows    = meshStations / columns
 		spacing = 1200.0
 	)
 	network := sim.Network{}
@@ -197,12 +378,10 @@ func scaleMesh(parameters Parameters) sim.Network {
 	for row := range rows {
 		for column := range columns {
 			index := row*columns + column
-			parking := index == parameters.Stations-1
-			berths := parameters.PassengerBerths
-			if parking {
-				berths = parameters.ParkingBerths
-			}
-			addMeshStation(&network, meshStationParameters{index: index, row: row, column: column, berths: berths, parking: parking})
+			addMeshStation(&network, meshStationParameters{
+				index: index, row: row, column: column, berths: parameters.berths(index),
+				parking: index == parameters.Stations-1, pitch: parameters.pitch(meshBerthPitch),
+			})
 		}
 	}
 	return network
@@ -211,6 +390,7 @@ func scaleMesh(parameters Parameters) sim.Network {
 type meshStationParameters struct {
 	index, row, column, berths int
 	parking                    bool
+	pitch                      float64
 }
 
 type meshEdge struct {
@@ -262,12 +442,10 @@ func ring(parameters Parameters) sim.Network {
 	var nodes []sim.Node
 	var lanes []sim.Lane
 	for index := range parameters.Stations {
-		parking := index == parameters.Stations-1
-		berthCount := parameters.PassengerBerths
-		if parking {
-			berthCount = parameters.ParkingBerths
-		}
-		station, stationNodes, stationLanes := stationGeometry(stationParameters{index: index, count: parameters.Stations, berths: berthCount, parking: parking})
+		station, stationNodes, stationLanes := stationGeometry(stationParameters{
+			index: index, count: parameters.Stations, berths: parameters.berths(index),
+			parking: index == parameters.Stations-1, pitch: parameters.pitch(berthSpacing),
+		})
 		stations = append(stations, station)
 		nodes = append(nodes, stationNodes...)
 		lanes = append(lanes, stationLanes...)
@@ -285,6 +463,7 @@ func ring(parameters Parameters) sim.Network {
 type stationParameters struct {
 	index, count, berths int
 	parking              bool
+	pitch                float64
 }
 
 func stationGeometry(parameters stationParameters) (sim.Station, []sim.Node, []sim.Lane) {
@@ -310,7 +489,7 @@ func stationGeometry(parameters stationParameters) (sim.Station, []sim.Node, []s
 	station := sim.Station{ID: stationID, Name: name, Entry: entryID, Exit: exitID, ParkingOnly: parameters.parking}
 	for berthIndex := range parameters.berths {
 		berthNodeID := fmt.Sprintf("s%02d-berth-%02d", parameters.index+1, berthIndex+1)
-		depth := berthOffset + berthSpacing*float64(berthIndex)
+		depth := berthOffset + parameters.pitch*float64(berthIndex)
 		approach := stationHalf + 80 + 60*float64(berthIndex)
 		berthID := fmt.Sprintf("%s-%02d", stationID, berthIndex+1)
 		nodes = append(nodes, sim.Node{ID: berthNodeID, Position: add(center, scale(radial, depth))})
@@ -331,17 +510,26 @@ func stationGeometry(parameters stationParameters) (sim.Station, []sim.Node, []s
 	return station, nodes, lanes
 }
 
-func placements(parameters Parameters, passengerPods int) []sim.Placement {
+// placements puts the passenger pods round robin on the passenger
+// stations, and a full station gets no more pods. Each station fills its
+// berths in order. The other pods go to the Parking station.
+func placements(parameters Parameters) []sim.Placement {
+	passengerPods := parameters.Pods - parameters.InitialParkingPods
 	placements := make([]sim.Placement, 0, parameters.Pods)
-	passengerStations := parameters.Stations - 1
-	for podIndex := range passengerPods {
-		stationIndex := podIndex % passengerStations
-		berthIndex := podIndex/passengerStations + 1
-		stationID := fmt.Sprintf("station-%02d", stationIndex+1)
-		placements = append(placements, sim.Placement{
-			ID: fmt.Sprintf("pod-%03d", podIndex+1), StationID: stationID,
-			BerthID: fmt.Sprintf("%s-%02d", stationID, berthIndex),
-		})
+	for round := 0; len(placements) < passengerPods && round < maximumStationBerths; round++ {
+		for index := range parameters.Stations - 1 {
+			if len(placements) == passengerPods {
+				break
+			}
+			if round >= parameters.berths(index) {
+				continue
+			}
+			stationID := parameters.stationID(index)
+			placements = append(placements, sim.Placement{
+				ID: fmt.Sprintf("pod-%03d", len(placements)+1), StationID: stationID,
+				BerthID: fmt.Sprintf("%s-%02d", stationID, round+1),
+			})
+		}
 	}
 	for parkingIndex := range parameters.InitialParkingPods {
 		placements = append(placements, sim.Placement{

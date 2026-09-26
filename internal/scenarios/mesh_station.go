@@ -7,6 +7,14 @@ import (
 	"github.com/dotwaffle/podsim/internal/sim"
 )
 
+const (
+	// meshStations is the number of stations of the mesh.
+	meshStations = 20
+	// meshBerthPitch is the default distance between two berth rows of a
+	// mesh station. It leaves a free block between adjacent junction zones.
+	meshBerthPitch = 75.0
+)
+
 type stationFrame struct {
 	origin, along, outward sim.Point
 }
@@ -42,8 +50,7 @@ func addMeshStation(network *sim.Network, parameters meshStationParameters) {
 		arrival := stationNodeID(parameters.index, fmt.Sprintf("arrival-%02d", index+1))
 		departure := stationNodeID(parameters.index, fmt.Sprintf("departure-%02d", index+1))
 		berth := sim.Berth{ID: fmt.Sprintf("%s-%02d", station.ID, index+1), Node: stationNodeID(parameters.index, fmt.Sprintf("berth-%02d", index+1))}
-		// A 75-meter pitch leaves a free block between adjacent junction zones.
-		depth := 185 + 75*float64(index)
+		depth := 185 + parameters.pitch*float64(index)
 		network.Nodes = append(network.Nodes,
 			sim.Node{ID: arrival, Position: frame.position(400, depth)},
 			sim.Node{ID: berth.Node, Position: frame.position(600, depth)},

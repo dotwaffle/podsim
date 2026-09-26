@@ -186,7 +186,12 @@ func sharesNode(a, b sim.Lane) bool {
 // auditPlanarLayout returns the hard conflicts of a ring or mesh network.
 // Two lanes that have no common node must not cross, and must be at least
 // sim.Clearance apart.
+// A conflict between lanes of two stations names the second station too.
 func auditPlanarLayout(network sim.Network) []layoutConflict {
+	names := make(map[string]string, len(network.Stations))
+	for _, station := range network.Stations {
+		names[station.ID] = station.Name
+	}
 	lanes := newAuditLanes(network)
 	var conflicts []layoutConflict
 	for index, first := range lanes {
@@ -198,12 +203,16 @@ func auditPlanarLayout(network sim.Network) []layoutConflict {
 			if station == "" {
 				station = second.lane.StationID
 			}
-			reason := fmt.Sprintf("is nearer than %.0f meters to lane", sim.Clearance)
+			other := fmt.Sprintf("lane %q", second.lane.ID)
+			if second.lane.StationID != "" && second.lane.StationID != station {
+				other = fmt.Sprintf("%s lane %q", names[second.lane.StationID], second.lane.ID)
+			}
+			reason := fmt.Sprintf("is nearer than %.0f meters to", sim.Clearance)
 			if first.crosses(second) {
-				reason = "crosses lane"
+				reason = "crosses"
 			}
 			conflicts = append(conflicts, layoutConflict{
-				station: station, first: fmt.Sprintf("lane %q", first.lane.ID), second: fmt.Sprintf("%q", second.lane.ID), reason: reason,
+				station: station, first: fmt.Sprintf("lane %q", first.lane.ID), second: other, reason: reason,
 			})
 		}
 	}
