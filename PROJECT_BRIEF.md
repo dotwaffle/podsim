@@ -12,7 +12,8 @@ It remains off by default.
 
 The rail-hub, London capacity envelope, same-destination sharing, and first congestion-aware routing experiments are complete.
 The first station-maneuver slice is complete: station lanes have explicit roles, pod snapshots expose the current phase, and the inspector names the maneuver.
-Configurable station geometry and the other experiments in Section 6 remain later work.
+The scenario command sets the berths, initial pods, and berth pitch of the generated presets, and a layout check rejects lanes that come too near.
+Other station geometry options and the other experiments in Section 6 remain later work.
 See [README.md](README.md) for controls, validation commands, and current model limits.
 
 This document records the project direction, initial feature scope, architecture, effort estimates, and research.

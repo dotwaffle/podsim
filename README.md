@@ -765,6 +765,39 @@ Generated files contain raw server settings.
 The editor can export the loaded scenario with optional local background data.
 See [qualification results](docs/qualification.md) for safety checks, performance measurements, and redistribution limits.
 
+The capacity flags change the berths, the initial pods, and the berth pitch of a preset.
+A flag that is not on the command line keeps the preset value, so the output without flags does not change.
+
+| Flag | Effect |
+| --- | --- |
+| `-station-berths N` | Set the berths of each passenger station. |
+| `-parking-berths N` | Set the berths of each Parking station. |
+| `-berths ID=N,ID=N` | Set the berths of single stations by station ID, such as `station-19` or the ID of a TfL station. |
+| `-station-pods N` | London only. Set the initial pods of each passenger station. |
+| `-parking-pods N` | London only. Set the initial pods of each Parking facility. |
+| `-berth-pitch M` | Set the distance in meters between two berths of a station. The minimum is 25. |
+
+A ring station has a 30-meter pitch, and a `scale100` or `london` station has a 75-meter pitch.
+The ring and `scale100` presets put the initial pods round robin on the passenger stations, and a full station gets no more pods.
+With changed capacity, the project name ends with "(custom capacity)".
+A layout check then examines the generated network.
+If two lanes are too near each other, the command writes no project and gives an error that names the station and the lanes.
+In a ring or `scale100` network, two lanes without a common node must be at least 12 meters apart on the paths that the pods follow.
+For the `london` rules, see [London capacity options](docs/london.md#capacity-options).
+An unknown station ID, a berth count out of range, more pods than berths, or a network over the project limits also gives an error.
+A London station can have 1 to 200 berths.
+A ring or mesh station can have 1 to 62 berths, because its entry and exit nodes have a lane for each berth and can have at most 64 lanes.
+
+The command writes one summary line to standard error.
+The line gives the preset, the passenger and Parking berths, the pods, the nodes and lanes with their limits, the output bytes, the SHA-256 of the network, and the number of soft layout conflicts.
+A soft conflict does not stop the command.
+Only `london` has soft conflicts, for example berths that are nearer to the TfL position of another station.
+
+```sh
+mise run scenario -- -preset scale100 -berths station-19=8 -berth-pitch 68 -output /tmp/podsim-station19-8.json
+mise run scenario -- -preset london -station-berths 3 -berths 940GZZLUEMB=2 -parking-berths 24 -output /tmp/podsim-london-3.json
+```
+
 #### rail-hub
 
 The rail-hub preset has six passenger stations, 30 pods, six berths per passenger station, and 12 parking berths with 12 initial reserve pods.

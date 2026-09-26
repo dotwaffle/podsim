@@ -18,6 +18,8 @@ Each passenger station has two off-line berths.
 West, north, and east Parking facilities each have 12 berths.
 The Parking facilities connect at Hammersmith (west), Finsbury Park (north), and Mile End (east).
 The initial fleet has 114 pods: one at each passenger station and six at each Parking facility.
+The scenario command can change these counts.
+See [capacity options](#capacity-options).
 
 Paddington's two Underground stop records are one PRT station.
 Bank and Monument are also one station because they form one interchange complex.
@@ -44,7 +46,7 @@ Unconnected movement crossings represent grade-separated paths.
 
 Station access branches from every arrival portal and rejoins every departure portal.
 Each station has distinct diverge, entry, exit, and merge nodes.
-Berths use separate arrival and departure spines with a 75-meter pitch.
+Berths use separate arrival and departure spines with a 75-meter pitch by default.
 This layout keeps access lanes away from occupied berths.
 A road lane goes from each arrival portal to the diverge node, and from the merge node to each departure portal.
 The core lanes of a station go from the diverge node, through the berths, to the merge node.
@@ -225,3 +227,41 @@ An overview label shows a station name of up to 20 characters in full.
 For a longer name, it shows the first 19 characters and an ellipsis.
 Only the selected pod has a map label until you zoom in to four times the `Fit` scale.
 The view omits the label of another pod where it overlaps an overview label or an expanded label.
+
+## Capacity options
+
+The capacity flags of the scenario command change the berths and the initial pods of the London stations, and the berth pitch.
+A `-berths` item names a station by its TfL ID, or by `parking-west`, `parking-north`, or `parking-east`.
+The heading search uses the new berth counts.
+Thus a change at one station can also change the heading of a nearby station.
+
+After the build, a layout check finds the conflicts that the geometry rules above forbid:
+
+- A core lane that crosses a guideway or a movement lane.
+- A lane that crosses a lane of another station.
+  The road lanes of a Parking facility and its gateway station can cross.
+- A core lane that is nearer than 36 meters to a core lane of another station.
+- A core node inside the area of another station.
+- A road lane that is shorter than 25 meters.
+
+For the check, a lane crosses another lane also when an end of one lane is on the other lane, or when the two lanes overlap along a line.
+Two lanes that touch only at a common node do not cross.
+
+Each of these conflicts stops the command.
+The error names the station and the lanes.
+The check also counts soft conflicts.
+A soft conflict is a station whose berths are nearer to the TfL position of another station, or a TfL position inside the area of a station.
+The preset has one soft conflict, at Mansion House.
+
+With 3 berths at each passenger station, a core lane at Embankment crosses a guideway.
+All other passenger stations take a third berth.
+With a 40-meter pitch, all 96 passenger stations take 3 berths.
+A third berth at 95 stations and 24 berths at each Parking facility give 2,235 nodes and 3,625 lanes, with 4 soft conflicts.
+The generated file has 3,643,251 bytes.
+With a 40-meter pitch, 3 berths at each passenger station and 200 berths at each Parking facility give 3,822 nodes and 5,741 lanes, with 1 soft conflict.
+This generated file has 4,610,584 bytes, and the editor sends about 2.3 MiB when it applies this project.
+The node limit of 4,000 stops larger projects, for example 4 berths at each passenger station and 200 berths at each Parking facility (4,110 nodes).
+The capacity tests in the [qualification results](qualification.md#more-london-berths) did not find a change with the same 114 pods.
+
+The editor **Add berth** button adds a separate berth with its own lanes from the station entry and to the station exit.
+It does not extend the berth chain of a London station.
