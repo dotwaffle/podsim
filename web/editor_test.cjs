@@ -1580,12 +1580,12 @@ test("legacy market pattern uses the last passenger station when absent", () => 
 // cssRules gives the declarations of each rule in a style sheet, by
 // selector. A rule with a selector list adds its declarations to each
 // selector. A background-color declaration is stored as background, so
-// that the later rule in cascade order sets the background. The parse does
-// not know @media blocks, so use it only for selectors that no @media block
-// sets.
+// that the later rule in cascade order sets the background. The parse
+// removes comments first. It does not know @media blocks, so use it only
+// for selectors that no @media block sets.
 function cssRules(css) {
   const rules = new Map();
-  for (const [, selectors, body] of css.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
+  for (const [, selectors, body] of css.replace(/\/\*[\s\S]*?\*\//g, "").matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
     const declarations = Object.fromEntries([...body.matchAll(/([\w-]+)\s*:\s*([^;]+)/g)].map(([, name, value]) => [name === "background-color" ? "background" : name, value.trim()]));
     for (const selector of selectors.split(",").map((item) => item.trim())) rules.set(selector, { ...rules.get(selector), ...declarations });
   }
@@ -1618,5 +1618,22 @@ test("the Pause and apply text has 4.5:1 contrast or more in each state", () => 
     assert.equal(Number(style.opacity ?? 1), 1, `${state.name}: opacity lowers the contrast`);
     const ratio = contrastRatio(text, background);
     assert.ok(ratio >= 4.5, `${state.name}: ${text} on ${background} is ${ratio.toFixed(2)}:1`);
+  }
+});
+
+test("the file input labels have the font and spacing of the other buttons", () => {
+  const rules = cssRules(fs.readFileSync(path.join(__dirname, "editor.css"), "utf8"));
+  const [label, fileButton, button] = ["label", ".button", "button"].map((selector) => rules.get(selector));
+  // Each property gives the declarations that can set it: its own name or a shorthand.
+  const sources = { "font-size": ["font-size", "font"], "line-height": ["line-height", "font"], "font-weight": ["font-weight", "font"], margin: ["margin"], padding: ["padding"] };
+  for (const [property, names] of Object.entries(sources)) {
+    const value = (style) => names.map((name) => style[name]).find((item) => item !== undefined);
+    if (value(label) !== undefined) assert.notEqual(value(fileButton), undefined, `.button keeps the ${property} of the label rule`);
+    assert.equal(value(fileButton), value(button), `${property} of .button is not the same as for button`);
+  }
+  // cssRules does not apply specificity, so no other rule for the labels can set these values again.
+  for (const [selector, style] of rules) {
+    if (selector === "label" || selector === ".button" || !/(^|[\s>+~])(label\.button|\.button|label)$/.test(selector)) continue;
+    for (const names of Object.values(sources)) assert.ok(names.every((name) => style[name] === undefined), `${selector} sets the font or spacing of the file labels`);
   }
 });

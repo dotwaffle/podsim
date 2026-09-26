@@ -16,9 +16,10 @@
 * { box-sizing: border-box; }
 html, body { margin: 0; min-width: 320px; height: 100%; background: var(--bg); color: var(--text); font: 14px/1.4 Inter, ui-sans-serif, system-ui, sans-serif; }
 body { display: grid; grid-template-rows: auto minmax(0, 1fr); }
-button, input, select { font: inherit; }
+/* A label with the button class opens a file input. These rules replace the font size and margin of the label rule, so that the label looks like the other buttons. */
+button, input, select, .button { font: inherit; }
 button, .button {
-  border: 1px solid var(--line); border-radius: 7px; background: #1a2a37; color: var(--text);
+  margin: 0; border: 1px solid var(--line); border-radius: 7px; background: #1a2a37; color: var(--text);
   padding: 8px 11px; cursor: pointer; text-decoration: none; text-align: center;
 }
 button:hover, .button:hover { border-color: #557184; background: #203543; }
