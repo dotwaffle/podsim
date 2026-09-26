@@ -1322,13 +1322,19 @@
   // of a failed apply that need their own text. "stale_project" is a
   // conflict with the live project. "session_changed" is a server restart.
   // The page keeps the epoch that it loaded, so each later apply also fails.
-  // The text tells the user to export the draft before the reload, because
-  // a reload loses the draft.
+  // The browser keeps the draft, so after a reload the editor offers it
+  // again. When the browser does not keep the draft, a reload loses it.
+  // Then the editor uses the local text of the error code, or adds a note
+  // about the saved draft to the text.
   const APPLY_FAILURE = new Map([
     ["stale_project", { reason: "The live scenario changed. Your draft is safe.", status: "Apply conflict. Reload the page to get the current live scenario." }],
     ["session_changed", {
-      reason: "The server session changed. The draft stays on this page. Export the draft, reload the page, then import the draft.",
-      status: "The server session changed. Export the draft, reload the page, then import the draft.",
+      reason: "The server session changed. Reload the page, then select Restore draft.",
+      status: "The server session changed. Reload the page, then select Restore draft.",
+      local: {
+        reason: "The server session changed. The draft stays on this page. Export the draft, reload the page, then import the draft.",
+        status: "The server session changed. Export the draft, reload the page, then import the draft.",
+      },
     }],
   ]);
 
@@ -1337,19 +1343,31 @@
   // status line stays.
   const APPLY_FAILED_STATUS = "Apply failed. The draft stays on this page.";
 
+  // applyFailureEntry gives the APPLY_FAILURE texts for error, and the note
+  // to add to them. note is empty when the browser keeps the draft. Else
+  // it tells the user that a reload loses the draft. An error code with a
+  // local text uses that text and no note.
+  function applyFailureEntry(error, note) {
+    const failure = APPLY_FAILURE.get(error.errorCode);
+    return note && failure?.local ? { failure: failure.local, note: "" } : { failure, note };
+  }
+
   // applyFailureText gives the message for an error from applyToServer. For
   // an error code that is not in APPLY_FAILURE, the reason is the error
-  // text, for example the reason from the server or a network error.
-  function applyFailureText(error) {
+  // text, for example the reason from the server or a network error. note
+  // is as applyFailureEntry uses it.
+  function applyFailureText(error, note = "") {
     const text = String(error.message).replace(/\.?$/, ".");
-    const reason = APPLY_FAILURE.get(error.errorCode)?.reason ?? `Apply failed. ${text.charAt(0).toUpperCase()}${text.slice(1)}`;
-    return [reason, APPLY_PAUSE_TEXT[error.pause]].filter(Boolean).join(" ");
+    const entry = applyFailureEntry(error, note);
+    const reason = entry.failure?.reason ?? `Apply failed. ${text.charAt(0).toUpperCase()}${text.slice(1)}`;
+    return [reason, APPLY_PAUSE_TEXT[error.pause], entry.note].filter(Boolean).join(" ");
   }
 
   // applyFailureStatus gives the status line for an error from
-  // applyToServer.
-  function applyFailureStatus(error) {
-    return APPLY_FAILURE.get(error.errorCode)?.status ?? APPLY_FAILED_STATUS;
+  // applyToServer. note is as applyFailureEntry uses it.
+  function applyFailureStatus(error, note = "") {
+    const entry = applyFailureEntry(error, note);
+    return [entry.failure?.status ?? APPLY_FAILED_STATUS, entry.note].filter(Boolean).join(" ");
   }
 
   // applyToast gives the arguments of toast for an applied project. applied
@@ -1362,12 +1380,188 @@
     return ["The scenario was applied. The simulation remains paused.", false];
   }
 
+  // DRAFT_SAVE_DELAY is the time in milliseconds from the last draft change
+  // to the save of the draft in the browser.
+  const DRAFT_SAVE_DELAY = 300;
+
+  // DRAFT_STORE_TEXT tells the user if the browser keeps the draft, for each
+  // status of createDraftKeeper.
+  const DRAFT_STORE_TEXT = {
+    ok: "This browser keeps the draft changes until you apply them.",
+    off: "This browser cannot keep the draft. Export the draft before you leave the page.",
+    failed: "This browser could not save the draft. Export the draft before you leave the page.",
+    full: "The browser storage is full, so the draft is not saved. Export the draft before you leave the page.",
+  };
+
+  // DRAFT_UNSAVED_TEXT tells the user that the browser did not save the
+  // last draft changes, for example while the saved draft offer shows.
+  const DRAFT_UNSAVED_TEXT = "This browser did not save the last draft changes. Export the draft before you leave the page.";
+
+  // DRAFT_DISPLACED_TEXT tells the user that another editor tab replaced
+  // or deleted the saved draft, so the browser does not keep the draft of
+  // this tab.
+  const DRAFT_DISPLACED_TEXT = "Another editor tab replaced the saved draft. This browser saves the draft of this tab again after your next change.";
+
+  // openDraftStore gives a draft store that keeps records in IndexedDB.
+  // factory is the indexedDB object of the browser. get, put and delete
+  // give promises. A write ends when its transaction completes, so a quota
+  // error at the commit rejects the write. Without factory, the function
+  // gives null. When the database cannot open, each call rejects.
+  function openDraftStore(factory) {
+    if (!factory) return null;
+    let database = null;
+    const open = () => database ??= new Promise((resolve, reject) => {
+      const request = factory.open("podsim-editor", 1);
+      request.onupgradeneeded = () => request.result.createObjectStore("drafts");
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => reject(request.error);
+    });
+    const run = async (mode, action) => {
+      const db = await open();
+      return new Promise((resolve, reject) => {
+        const transaction = db.transaction("drafts", mode); const request = action(transaction.objectStore("drafts"));
+        transaction.oncomplete = () => resolve(request.result);
+        transaction.onabort = () => reject(transaction.error || request.error || new Error("The draft transaction stopped."));
+      });
+    };
+    return {
+      get: (key) => run("readonly", (drafts) => drafts.get(key)),
+      put: (key, record) => run("readwrite", (drafts) => drafts.put(record, key)),
+      delete: (key) => run("readwrite", (drafts) => drafts.delete(key)),
+    };
+  }
+
+  // createDraftKeeper saves the draft in a draft store, so that a reload or
+  // a closed tab does not lose it. keeper.store has get, put and delete, as
+  // openDraftStore gives, or is null. keeper.key names the one record.
+  // keeper.snapshot gives the record to keep, or null when the draft has no
+  // changes. Then the keeper deletes the record. schedule saves the draft
+  // keeper.delay milliseconds after the last call, and keeper.clock holds
+  // setTimeout and clearTimeout. The writes end in the order of the calls.
+  //
+  // The keeper does not write before arm. Thus load can read the saved
+  // record, and the editor can offer it before a new draft replaces it.
+  // clear deletes the record also before arm. unsaved tells if the draft
+  // has changes that are not in the store. status is "ok", "off" without a
+  // store or after a failed load, "failed" after a failed write, or "full"
+  // after a write that the storage quota stopped. keeper.onStatus runs when
+  // the status changes. After a failed load, the keeper does not write.
+  //
+  // Each editor tab of one server writes the same record. keeper.channel,
+  // when given, tells the other tabs of each write. It is a BroadcastChannel,
+  // which does not give a message to the channel that sent it. When another
+  // tab writes or deletes the record, the draft of this tab is not in the
+  // store. Then unsaved tells so, keeper.onDisplaced runs, and the next
+  // flush writes again. The keeper does not write again at once, because
+  // two tabs would then replace the record of each other without end.
+  function createDraftKeeper(keeper) {
+    let store = keeper.store || null; let status = store ? "ok" : "off";
+    let armed = false; let waiting = null; let writes = Promise.resolve();
+    // stored is the JSON text of the record in the store, and queued is the
+    // text of the last queued write. An empty text is no record. A failed
+    // write sets queued to null, so the next flush writes again. A write of
+    // another tab sets stored and queued to null.
+    let stored = ""; let queued = "";
+    const channel = keeper.channel || null;
+    const setStatus = (next) => { if (next === status) return; status = next; if (keeper.onStatus) keeper.onStatus(next); };
+    const cancel = () => { if (waiting !== null) keeper.clock.clearTimeout(waiting); waiting = null; };
+    const write = (text, action) => {
+      queued = text;
+      writes = writes.then(action).then(
+        () => { stored = text; setStatus("ok"); if (channel) channel.postMessage({ key: keeper.key }); },
+        (error) => { queued = null; setStatus(error && error.name === "QuotaExceededError" ? "full" : "failed"); },
+      );
+      return writes;
+    };
+    if (channel) {
+      channel.addEventListener("message", (event) => {
+        const message = event.data;
+        if (!message || message.key !== keeper.key) return;
+        stored = null; queued = null;
+        if (keeper.onDisplaced) keeper.onDisplaced();
+      });
+    }
+    const flush = () => {
+      cancel();
+      if (!armed || !store) return writes;
+      const record = keeper.snapshot(); const text = record ? JSON.stringify(record) : "";
+      return text === queued ? writes : write(text, () => (record ? store.put(keeper.key, record) : store.delete(keeper.key)));
+    };
+    return {
+      get status() { return status; },
+      get unsaved() { const record = keeper.snapshot(); return Boolean(record) && (!store || JSON.stringify(record) !== stored); },
+      async load() {
+        if (!store) return null;
+        try {
+          const record = await store.get(keeper.key);
+          stored = record ? JSON.stringify(record) : ""; queued = stored; return record || null;
+        } catch (_) { store = null; setStatus("off"); return null; }
+      },
+      arm() { armed = true; return flush(); },
+      schedule() { cancel(); if (armed && store) waiting = keeper.clock.setTimeout(flush, keeper.delay); },
+      flush,
+      clear() { cancel(); return store ? write("", () => store.delete(keeper.key)) : writes; },
+    };
+  }
+
+  // draftChanges tells which parts of a draft differ from the live
+  // baseline. draft has scenario and background. live.scenario is the JSON
+  // text of the live scenario, and live.background is the background of the
+  // page at the load or the apply. Pause and apply sends only the scenario,
+  // so it needs a scenario change. The saved draft also keeps the
+  // background, with its calibration.
+  function draftChanges(draft, live) {
+    const place = (item) => (item ? [item.dataURL, item.x, item.y, item.width, item.height, item.opacity] : []);
+    const background = place(draft.background); const liveBackground = place(live.background);
+    return {
+      scenario: JSON.stringify(draft.scenario) !== live.scenario,
+      background: background.length !== liveBackground.length || background.some((value, index) => value !== liveBackground[index]),
+    };
+  }
+
+  // draftOffer gives the saved draft that the editor offers to restore, or
+  // null. record is the record that createDraftKeeper saved, and live is
+  // the live baseline, as draftChanges uses it. The editor offers a record
+  // that has a scenario object and differs from the live baseline. A
+  // background without a data URL does not count. revision is the project
+  // revision that the draft started from, and epoch is the session epoch
+  // of that revision.
+  function draftOffer(record, live) {
+    const isObject = (value) => value !== null && typeof value === "object" && !Array.isArray(value);
+    if (!isObject(record) || !isObject(record.scenario)) return null;
+    const background = isObject(record.background) && typeof record.background.dataURL === "string" ? record.background : null;
+    const draft = { scenario: record.scenario, background };
+    const changes = draftChanges(draft, live);
+    if (!changes.scenario && !changes.background) return null;
+    return { draft, revision: Math.max(0, Math.floor(Number(record.revision) || 0)), epoch: typeof record.epoch === "string" ? record.epoch : "" };
+  }
+
+  // draftOfferText gives the text of the saved draft offer. offer.revision
+  // is the revision that the draft started from. offer.live is the live
+  // project revision, or null when the live scenario did not load.
+  function draftOfferText(offer) {
+    const text = `This browser has a saved draft that is not applied. The draft is based on revision ${offer.revision}.`;
+    return offer.live === null || offer.live === offer.revision ? text : `${text} The live scenario is now revision ${offer.live}.`;
+  }
+
+  // restoreStatusText gives the status line after a restore. draft.revision
+  // is the revision that the restored draft started from. draft.live is the
+  // live project revision, or null when the live scenario did not load.
+  // Pause and apply replaces the live scenario, so the text names the live
+  // changes that an older draft replaces.
+  function restoreStatusText(draft) {
+    if (draft.live === null) return "The restored draft is local.";
+    const text = `Live revision ${draft.live}. The restored draft is not applied.`;
+    return draft.live === draft.revision ? text : `${text} It is based on revision ${draft.revision}. Pause and apply replaces the live changes after revision ${draft.revision}.`;
+  }
+
   const API = {
     MIN_LANE_LENGTH, MIN_ZOOM, NODE_LABEL_SCALE, NODE_LABEL_SIZE, LANE_PAIR_OFFSET, CHEVRON_LANE_LENGTH, BERTH_PITCH, STATION_PADDING, CHECK_DELAY, emptyConfig, fallbackConfig, normalizeConfig, addLane, addJunction, addStation, addBerth,
     stationBearing, stationShape, rotateStation, setStationBearing, nextBerthPosition, removeBerth, moveStation, moveNode, deleteNode, deleteLane, deleteStation, stationFlowCount, setFleetCount, fleetRows, selectionCard, berthFocusID, setDemandPattern,
     laneLength, curveLength, reachable, cutOffStations, stationNodeOwners, dragTargets, validateConfig, configWarnings, checkResults, checkSelector, checkSelection, selectionPoint, focusView,
     problemCountText, createCheckTimer, validationSummary, serializeDocument, parseDocument, createHistory,
     networkBounds, fitView, zoomScale, nodeLabelSize, pairedLaneIDs, showsChevron, laneOffset, laneCurve, lanePathData, applyToServer, applyFailureText, applyFailureStatus, applyToast,
+    DRAFT_SAVE_DELAY, DRAFT_STORE_TEXT, DRAFT_UNSAVED_TEXT, DRAFT_DISPLACED_TEXT, openDraftStore, createDraftKeeper, draftChanges, draftOffer, draftOfferText, restoreStatusText,
   };
   if (typeof module !== "undefined" && module.exports) module.exports = API;
   root.PodsimEditorModel = API;
@@ -1379,11 +1573,32 @@
   // checks runs the checks CHECK_DELAY milliseconds after the last draft
   // change. The history schedules it for each change.
   const checks = createCheckTimer({ delay: CHECK_DELAY, run: runValidation, clock: root });
+  // keeper saves the draft in this browser DRAFT_SAVE_DELAY milliseconds
+  // after the last draft change. It keeps one record for each server origin,
+  // and tells the other editor tabs of each write.
+  const keeper = createDraftKeeper({
+    store: openDraftStore(draftDatabase()), key: root.location.origin, delay: DRAFT_SAVE_DELAY, clock: root, snapshot: draftRecord,
+    channel: draftChannel(), onStatus: showDraftStatus, onDisplaced: showDraftDisplaced,
+  });
   const state = {
-    history: createHistory({ scenario: emptyConfig(), background: null }, () => checks.schedule()),
+    history: createHistory({ scenario: emptyConfig(), background: null }, () => { checks.schedule(); keeper.schedule(); }),
     background: null,
     loaded: null,
     loadedRevision: 0,
+    // live is the live baseline for draftChanges. It has the scenario text
+    // and the background after the load or the last apply, and revision,
+    // the live project revision, or null when the live scenario did not
+    // load. It is null until the load ends.
+    live: null,
+    // offer is the saved draft that the page offers to restore, as
+    // draftOffer gives it, or null.
+    offer: null,
+    // draftBase is the project revision and the session epoch that the
+    // draft started from. The load, a successful apply and Reset draft set
+    // it to the loaded revision. Restore draft sets it to the revision of
+    // the saved draft. Pause and apply always sends loadedRevision.
+    draftBase: { revision: 0, epoch: "" },
+    applying: false,
     connection: {
       fetch: (url, init) => root.fetch(url, init),
       clientID: root.crypto && root.crypto.randomUUID ? root.crypto.randomUUID() : `editor-${Date.now()}-${Math.random()}`,
@@ -1733,7 +1948,105 @@
     const config = draft(); $("#scenarioName").value = config.name; $("#backgroundOpacity").value = state.background ? state.background.opacity : .45; $("#opacityValue").value = `${Math.round(Number($("#backgroundOpacity").value) * 100)}%`;
     $("#undoButton").disabled = !state.history.canUndo; $("#redoButton").disabled = !state.history.canRedo;
     $("#networkMap").dataset.tool = state.tool; $("#cancelLinkButton").hidden = !state.linkFrom;
-    renderTools(); renderMap(); renderSelection(); renderFleet(); renderDemand(); updatePrompt();
+    renderTools(); renderMap(); renderSelection(); renderFleet(); renderDemand(); updatePrompt(); renderApply();
+  }
+
+  // renderApply enables Pause and apply only when the draft scenario is
+  // not the live scenario and no apply runs. A change of only the
+  // background does not enable it, because the server does not get the
+  // background. renderDemand can change the draft, so render calls
+  // renderApply last.
+  function renderApply() {
+    const changed = Boolean(state.live) && draftChanges({ scenario: draft() }, state.live).scenario;
+    const button = $("#applyButton"); button.disabled = state.applying || !changed;
+    button.title = changed || state.applying ? "" : "The draft has no changes to apply.";
+  }
+
+  // setLive keeps the scenario and the background of value as the live
+  // baseline, with the live project revision.
+  function setLive(value, revision) {
+    state.live = { scenario: JSON.stringify(value.scenario), background: value.background ? clone(value.background) : null, revision };
+    renderApply();
+  }
+
+  // draftDatabase gives the indexedDB object of the browser, or null. The
+  // browser can block the access, for example on a sandboxed page.
+  function draftDatabase() { try { return root.indexedDB || null; } catch (_) { return null; } }
+
+  // draftChannel gives the channel that tells the other editor tabs of each
+  // draft save, or null when the browser has no BroadcastChannel.
+  function draftChannel() { try { return typeof root.BroadcastChannel === "function" ? new root.BroadcastChannel("podsim-editor-drafts") : null; } catch (_) { return null; } }
+
+  // draftRecord gives the record that the keeper saves: the draft, the
+  // background with its calibration, and the revision and the epoch in
+  // state.draftBase. It gives null when the draft has no changes from the
+  // live baseline, or before the load ends.
+  function draftRecord() {
+    if (!state.live) return null;
+    const value = state.history.value; const changes = draftChanges(value, state.live);
+    return changes.scenario || changes.background ? { scenario: value.scenario, background: value.background, revision: state.draftBase.revision, epoch: state.draftBase.epoch } : null;
+  }
+
+  // showDraftStatus tells the user when the status of the saved draft
+  // changes. A failure also shows the error toast.
+  function showDraftStatus(status) {
+    const live = state.live && state.live.revision !== null ? `Live revision ${state.live.revision}. ` : "";
+    updateStatus(`${live}${DRAFT_STORE_TEXT[status]}`);
+    if (status !== "ok") toast(DRAFT_STORE_TEXT[status], true);
+  }
+
+  // showDraftDisplaced tells the user that another editor tab replaced the
+  // saved draft, when the draft of this tab has changes. Then the browser
+  // also asks before you leave the page.
+  function showDraftDisplaced() {
+    if (!keeper.unsaved) return;
+    const live = state.live && state.live.revision !== null ? `Live revision ${state.live.revision}. ` : "";
+    updateStatus(`${live}${DRAFT_DISPLACED_TEXT}`); toast(DRAFT_DISPLACED_TEXT, true);
+  }
+
+  // offerDraft shows the Restore draft and Discard draft offer when the
+  // saved record differs from the live baseline. The keeper does not save
+  // the draft until the user selects one. With no offer, the keeper starts
+  // to save the draft, and deletes a record with no changes.
+  function offerDraft(record) {
+    state.offer = draftOffer(record, state.live);
+    if (!state.offer) { keeper.arm(); return; }
+    renderOffer();
+  }
+
+  // renderOffer shows the saved draft offer while state.offer is set. The
+  // text names the revision of the saved draft and the live revision.
+  function renderOffer() {
+    $("#draftOffer").hidden = !state.offer;
+    if (state.offer) $("#draftOfferText").textContent = draftOfferText({ revision: state.offer.revision, live: state.live.revision });
+  }
+
+  // closeOffer hides the saved draft offer. After a choice from the
+  // keyboard, the map gets the focus, because the focused button hides.
+  function closeOffer(event) {
+    state.offer = null; renderOffer();
+    if (event && event.detail === 0) focusMap();
+  }
+
+  // restoreDraft puts the saved draft back and starts a new undo history.
+  // The draft keeps the revision and the epoch that it started from, so a
+  // later offer names them. Pause and apply sends the live revision of this
+  // page, so it replaces the live scenario. The draft is not the live
+  // baseline, so it counts as changed.
+  function restoreDraft(event) {
+    if (!state.offer) return;
+    const { draft: saved, revision, epoch } = state.offer; closeOffer(event);
+    state.draftBase = { revision, epoch };
+    state.history.reset({ scenario: normalizeConfig(saved.scenario), background: saved.background ? clone(saved.background) : null });
+    state.selection = null; render(); fitNetwork(); checks.run(); keeper.arm();
+    updateStatus(restoreStatusText({ revision, live: state.live.revision }));
+    toast("The saved draft is restored.");
+  }
+
+  // discardDraft deletes the saved draft. The keeper then saves the
+  // current draft when it has changes.
+  function discardDraft(event) {
+    closeOffer(event); keeper.clear(); keeper.arm(); toast("The saved draft is discarded.");
   }
 
   // renderTools marks the button of the active tool as pressed. The
@@ -1875,25 +2188,36 @@
     $(".map-panel").scrollIntoView({ block: "nearest" });
   }
 
+  // loadServerProject loads the live scenario as the draft, and reads the
+  // saved draft of this browser at the same time. The live scenario does
+  // not wait for the saved draft, so a draft store that does not answer
+  // does not stop the editor. The live baseline is the draft after the
+  // first render, because renderDemand can set the demand destination.
+  // When the live scenario cannot load, the local fallback draft is the
+  // baseline. Then the editor offers a saved draft that is different.
   async function loadServerProject() {
     updateStatus("Loading the live scenario…");
+    const saved = keeper.load();
     try {
       const [projectReply, liveState] = await Promise.all([getJSON(state.connection, "/api/project"), getJSON(state.connection, "/api/state")]);
       if (!projectReply || !(projectReply.project || projectReply.Project)) throw new Error("The server returned no scenario.");
       const project = normalizeConfig(projectReply.project || projectReply.Project);
       state.loadedRevision = Number(projectReply.revision ?? projectReply.Revision ?? liveState.projectRevision ?? liveState.ProjectRevision ?? 0);
       state.connection.epoch = liveState.epoch || liveState.Epoch || "";
+      state.draftBase = { revision: state.loadedRevision, epoch: state.connection.epoch };
       state.loaded = { scenario: clone(project), background: null };
       state.history.reset(state.loaded); state.background = null; state.selection = null;
-      updateStatus(`Live revision ${state.loadedRevision}. Draft changes stay in this browser.`); render(); fitNetwork();
+      render(); setLive(state.history.value, state.loadedRevision); fitNetwork();
+      updateStatus(`Live revision ${state.loadedRevision}. ${DRAFT_STORE_TEXT[keeper.status]}`);
       // Keep a server scenario that fails the editor checks, and list the
       // problems. Only errors show the error toast.
       const errors = checks.run();
       if (errors.length) toast(`The server scenario has ${errors.length} validation problem${errors.length === 1 ? "" : "s"}. See Checks.`, true);
     } catch (error) {
       state.loaded = { scenario: fallbackConfig(), background: null }; state.history.reset(state.loaded);
-      updateStatus("The live scenario could not load. This draft is local."); render(); fitNetwork(); toast(`Load failed. ${error.message}`, true);
+      updateStatus("The live scenario could not load. This draft is local."); render(); setLive(state.history.value, null); fitNetwork(); toast(`Load failed. ${error.message}`, true);
     }
+    offerDraft(await saved);
   }
 
   async function runExampleSequence() {
@@ -1906,18 +2230,28 @@
     } finally { button.disabled = false; }
   }
 
+  // applyProject applies the draft to the live session. The keeper saves
+  // the draft first, so a failed apply does not lose it. A successful apply
+  // makes the draft the live baseline and deletes the saved draft. While
+  // the saved draft offer shows, the keeper does not save. Then the apply
+  // keeps the saved draft, and the offer names the new live revision.
   async function applyProject() {
     const errors = checks.run(); if (errors.length) { showChecks(); toast("Fix the listed problems before you apply the scenario.", true); return; }
-    const button = $("#applyButton"); button.disabled = true; button.textContent = "Pausing…";
+    const button = $("#applyButton"); state.applying = true; renderApply(); button.textContent = "Pausing…";
+    keeper.flush();
     try {
       const project = draft();
       const applied = await applyToServer({ connection: state.connection, revision: state.loadedRevision, project, onApplying: () => { button.textContent = "Applying…"; } });
-      state.loadedRevision = applied.revision;
+      state.loadedRevision = applied.revision; state.draftBase = { revision: applied.revision, epoch: state.connection.epoch };
       state.loaded = { scenario: project, background: state.background ? clone(state.background) : null };
+      setLive(state.loaded, applied.revision); renderOffer();
+      if (!state.offer) { keeper.clear(); keeper.arm(); }
       updateStatus(`Applied revision ${state.loadedRevision}. The simulation is paused.`); toast(...applyToast(applied));
     } catch (error) {
-      updateStatus(applyFailureStatus(error)); toast(applyFailureText(error), true);
-    } finally { button.disabled = false; button.textContent = "Pause and apply"; }
+      // note tells the user when a reload loses the draft.
+      const note = keeper.status !== "ok" ? DRAFT_STORE_TEXT[keeper.status] : keeper.unsaved ? DRAFT_UNSAVED_TEXT : "";
+      updateStatus(applyFailureStatus(error, note)); toast(applyFailureText(error, note), true);
+    } finally { state.applying = false; renderApply(); button.textContent = "Pause and apply"; }
   }
 
   function importProject(file) {
@@ -1974,9 +2308,14 @@
     $("#fitButton").addEventListener("click", fitNetwork); $("#cancelLinkButton").addEventListener("click", () => { state.linkFrom = ""; render(); });
     $("#undoButton").addEventListener("click", () => { if (state.history.undo()) { state.selection = null; render(); } });
     $("#redoButton").addEventListener("click", () => { if (state.history.redo()) { state.selection = null; render(); } });
-    $("#resetButton").addEventListener("click", () => { if (!state.loaded) return; state.history.replace(state.loaded); state.background = state.loaded.background ? clone(state.loaded.background) : null; state.selection = null; render(); fitNetwork(); toast("The draft matches the last loaded project."); });
+    $("#resetButton").addEventListener("click", () => { if (!state.loaded) return; state.draftBase = { revision: state.loadedRevision, epoch: state.connection.epoch }; state.history.replace(state.loaded); state.background = state.loaded.background ? clone(state.loaded.background) : null; state.selection = null; render(); fitNetwork(); toast("The draft matches the last loaded project."); });
     $("#demoButton").addEventListener("click", runExampleSequence);
     $("#validateButton").addEventListener("click", () => checks.run()); $("#applyButton").addEventListener("click", applyProject);
+    $("#restoreDraftButton").addEventListener("click", restoreDraft); $("#discardDraftButton").addEventListener("click", discardDraft);
+    // The browser asks before you leave or reload the page only when the
+    // draft has changes that are not in the draft store. A waiting save
+    // starts now. It is not in the store yet, so the prompt still shows.
+    root.addEventListener("beforeunload", (event) => { keeper.flush(); if (keeper.unsaved) { event.preventDefault(); event.returnValue = ""; } });
     $("#problemCount").addEventListener("click", showChecks);
     $("#validationList").addEventListener("click", (event) => { const button = event.target.closest("button[data-type]"); if (button) selectCheck({ type: button.dataset.type, id: button.dataset.id }); });
     $("#exportButton").addEventListener("click", exportProject); $("#projectImport").addEventListener("change", (event) => { importProject(event.target.files[0]); event.target.value = ""; });

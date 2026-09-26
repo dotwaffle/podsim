@@ -1576,7 +1576,7 @@ const failOn = (action, failure, paused) => (command) => command.action === acti
 test("a failed apply resumes only the simulation that the editor paused", async () => {
   const conflict = "The live scenario changed. Your draft is safe.";
   const saveFailure = "Apply failed. Save project: permission denied.";
-  const sessionChanged = "The server session changed. The draft stays on this page. Export the draft, reload the page, then import the draft.";
+  const sessionChanged = "The server session changed. Reload the page, then select Restore draft.";
   const stopping = { status: 409, errorCode: "server_stopping", error: "The server is stopping. Try again after it restarts." };
   const cases = [
     { name: "apply succeeds", paused: false, wantRevision: 7, wantCommands: ["pause true", "project"], wantPaused: true },
@@ -1670,8 +1670,8 @@ test("a failed apply resumes only the simulation that the editor paused", async 
 test("a failed apply shows the reason from the server", async () => {
   const conflict = "The live scenario changed. Your draft is safe.";
   const conflictStatus = "Apply conflict. Reload the page to get the current live scenario.";
-  const sessionChanged = "The server session changed. The draft stays on this page. Export the draft, reload the page, then import the draft.";
-  const sessionStatus = "The server session changed. Export the draft, reload the page, then import the draft.";
+  const sessionChanged = "The server session changed. Reload the page, then select Restore draft.";
+  const sessionStatus = "The server session changed. Reload the page, then select Restore draft.";
   const failedStatus = "Apply failed. The draft stays on this page.";
   const saveError = "save project: create project file: open /srv/podsim/.podsim-project-1.tmp: permission denied";
   const cases = [
@@ -1732,6 +1732,379 @@ test("an applied project warns when the server could not save the session state"
     const result = await editor.applyToServer({ connection, revision: 3, project: connectedScenario() });
     assert.deepEqual(result, { revision: 7, stateSaved: item.stateSaved }, item.name);
     assert.deepEqual(editor.applyToast(result), [item.wantMessage, item.wantWarning], item.name);
+  }
+});
+
+// DRAFT_KEY is the record key of the keeper tests, a server origin.
+const DRAFT_KEY = "http://podsim.test";
+
+// savedRecord gives a draft record, as the editor saves it, with a scenario
+// name that the tests can check.
+function savedRecord(name, revision = 3) {
+  return { scenario: { ...connectedScenario(), name }, background: null, revision, epoch: "epoch-1" };
+}
+
+// fakeDraftStore gives a draft store for createDraftKeeper that keeps the
+// records in a Map. calls lists the get, put and delete calls. fail gives
+// the error for a call name, or null.
+function fakeDraftStore(fail) {
+  const records = new Map(); const calls = [];
+  const call = (name, action) => {
+    calls.push(name); const error = fail ? fail(name) : null;
+    return error ? Promise.reject(error) : Promise.resolve().then(action);
+  };
+  return {
+    records, calls,
+    get: (key) => call("get", () => structuredClone(records.get(key))),
+    put: (key, record) => call("put", () => { records.set(key, structuredClone(record)); }),
+    delete: (key) => call("delete", () => { records.delete(key); }),
+  };
+}
+
+// draftKeeper gives a keeper with a mock clock. draft.record is the record
+// that the snapshot gives. statuses lists the status changes.
+function draftKeeper(t, store) {
+  t.mock.timers.enable({ apis: ["setTimeout"] });
+  const draft = { record: null }; const statuses = [];
+  const keeper = editor.createDraftKeeper({
+    store, key: DRAFT_KEY, delay: editor.DRAFT_SAVE_DELAY, clock: globalThis,
+    snapshot: () => (draft.record ? structuredClone(draft.record) : null), onStatus: (status) => statuses.push(status),
+  });
+  return { keeper, draft, statuses };
+}
+
+// runKeeperSteps runs the steps of a keeper test. Each step can set the
+// draft record, make one call to the keeper, and wait wait milliseconds.
+// Then the queued writes end. calls gives the store calls of the step,
+// saved gives the name of the saved draft or null, and unsaved and status
+// give the keeper values after the step.
+async function runKeeperSteps(t, test, steps) {
+  const { store, keeper, draft } = test;
+  for (const step of steps) {
+    const name = `${test.name}: ${step.name}`; const before = store ? store.calls.length : 0;
+    if ("record" in step) draft.record = step.record;
+    if (step.call) await keeper[step.call]();
+    if (step.wait) t.mock.timers.tick(step.wait);
+    await new Promise((resolve) => setImmediate(resolve));
+    if (store) assert.deepEqual(store.calls.slice(before), step.calls ?? [], name);
+    if (store && "saved" in step) assert.equal(store.records.get(DRAFT_KEY)?.scenario.name ?? null, step.saved, name);
+    if ("unsaved" in step) assert.equal(keeper.unsaved, step.unsaved, name);
+    if ("status" in step) assert.equal(keeper.status, step.status, name);
+  }
+}
+
+test("the keeper saves the draft after the last change and deletes a draft with no changes", async (t) => {
+  const delay = editor.DRAFT_SAVE_DELAY;
+  const store = fakeDraftStore(); const { keeper, draft, statuses } = draftKeeper(t, store);
+  await runKeeperSteps(t, { name: "keeper", store, keeper, draft }, [
+    { name: "load with no saved draft", call: "load", calls: ["get"], saved: null, unsaved: false },
+    { name: "a change before arm", record: savedRecord("A"), call: "schedule", wait: delay, saved: null, unsaved: true },
+    { name: "arm saves the change", call: "arm", calls: ["put"], saved: "A", unsaved: false },
+    { name: "a change waits for the delay", record: savedRecord("B"), call: "schedule", wait: delay - 1, saved: "A", unsaved: true },
+    { name: "the delay ends", wait: 1, calls: ["put"], saved: "B", unsaved: false },
+    { name: "a change", record: savedRecord("C"), call: "schedule", wait: delay - 1, saved: "B", unsaved: true },
+    { name: "a second change starts the wait again", record: savedRecord("D"), call: "schedule", wait: delay - 1, saved: "B", unsaved: true },
+    { name: "one save gives the last change", wait: 1, calls: ["put"], saved: "D", unsaved: false },
+    { name: "a draft with no changes deletes the record", record: null, call: "schedule", wait: delay, calls: ["delete"], saved: null, unsaved: false },
+    { name: "no change gives no write", call: "schedule", wait: delay, saved: null, unsaved: false },
+    { name: "flush saves now", record: savedRecord("E"), call: "flush", calls: ["put"], saved: "E", unsaved: false },
+    { name: "the same draft gives no write", call: "flush", saved: "E", unsaved: false },
+    { name: "a new epoch is a change", record: { ...savedRecord("E"), epoch: "epoch-2" }, call: "flush", calls: ["put"], saved: "E", unsaved: false, status: "ok" },
+  ]);
+  assert.deepEqual(statuses, []);
+});
+
+test("the keeper keeps the saved draft until a restore or a discard, and clears it after an apply", async (t) => {
+  const delay = editor.DRAFT_SAVE_DELAY;
+  // Each case starts with the saved draft "Saved" and loads it. Until arm,
+  // an edit does not replace the saved draft.
+  const hold = [
+    { name: "load gives the saved draft", call: "load", calls: ["get"], saved: "Saved", unsaved: false },
+    { name: "a flush before a choice, as at a reload", record: null, call: "flush", saved: "Saved", unsaved: false },
+    { name: "an edit before a choice", record: savedRecord("Edit"), call: "schedule", wait: delay, saved: "Saved", unsaved: true },
+  ];
+  const cases = [
+    {
+      name: "restore",
+      steps: [...hold, { name: "restore saves the restored draft", record: { ...savedRecord("Saved", 5), epoch: "epoch-2" }, call: "arm", calls: ["put"], saved: "Saved", unsaved: false }],
+    },
+    {
+      name: "discard with no edits",
+      steps: [
+        { name: "load", call: "load", calls: ["get"], saved: "Saved", unsaved: false },
+        { name: "discard deletes the saved draft", call: "clear", calls: ["delete"], saved: null, unsaved: false },
+        { name: "arm with no changes", call: "arm", saved: null, unsaved: false },
+      ],
+    },
+    {
+      name: "discard after an edit",
+      steps: [
+        ...hold,
+        { name: "discard deletes the saved draft", call: "clear", calls: ["delete"], saved: null, unsaved: true },
+        { name: "arm saves the edit", call: "arm", calls: ["put"], saved: "Edit", unsaved: false },
+      ],
+    },
+    {
+      name: "apply",
+      steps: [
+        { name: "load", call: "load", calls: ["get"], saved: "Saved" },
+        { name: "restore", call: "arm", record: savedRecord("Saved"), saved: "Saved", unsaved: false },
+        { name: "an edit", record: savedRecord("Edit"), call: "schedule", wait: delay, calls: ["put"], saved: "Edit" },
+        { name: "an apply clears the saved draft", record: null, call: "clear", calls: ["delete"], saved: null, unsaved: false },
+        { name: "arm after the apply", call: "arm", saved: null, unsaved: false },
+        { name: "an edit after the apply", record: savedRecord("Next"), call: "schedule", wait: delay, calls: ["put"], saved: "Next", unsaved: false },
+      ],
+    },
+    {
+      name: "an apply with a pending save",
+      steps: [
+        { name: "load", call: "load", calls: ["get"], saved: "Saved" },
+        { name: "arm with the saved draft", record: savedRecord("Saved"), call: "arm", saved: "Saved" },
+        { name: "an edit waits for the delay", record: savedRecord("Edit"), call: "schedule", wait: delay - 1, saved: "Saved", unsaved: true },
+        { name: "clear cancels the wait and deletes the saved draft", call: "clear", wait: delay, calls: ["delete"], saved: null, unsaved: true },
+      ],
+    },
+  ];
+  for (const item of cases) {
+    await t.test(item.name, async (t) => {
+      const store = fakeDraftStore(); store.records.set(DRAFT_KEY, savedRecord("Saved"));
+      const { keeper, draft } = draftKeeper(t, store);
+      await runKeeperSteps(t, { name: item.name, store, keeper, draft }, item.steps);
+    });
+  }
+});
+
+test("a failed draft save gives a status and does not throw", async (t) => {
+  const quota = new DOMException("The quota is used.", "QuotaExceededError");
+  const broken = new Error("The disk failed.");
+  const cases = [
+    {
+      name: "no draft store", store: null, wantStatuses: [],
+      steps: [
+        { name: "load", call: "load", status: "off", unsaved: false },
+        { name: "arm with a change", record: savedRecord("A"), call: "arm", wait: 1000, status: "off", unsaved: true },
+        { name: "clear", call: "clear", status: "off", unsaved: true },
+        { name: "no changes", record: null, call: "flush", status: "off", unsaved: false },
+      ],
+    },
+    {
+      name: "a failed load", fail: (call) => (call === "get" ? broken : null), wantStatuses: ["off"],
+      steps: [
+        { name: "load", call: "load", calls: ["get"], status: "off", unsaved: false },
+        { name: "no write after the failed load", record: savedRecord("A"), call: "arm", wait: 1000, status: "off", unsaved: true },
+      ],
+    },
+    {
+      name: "a full storage", fail: (call) => (call === "put" ? quota : null), wantStatuses: ["full", "ok"],
+      steps: [
+        { name: "load", call: "load", calls: ["get"], status: "ok" },
+        { name: "a save that the quota stops", record: savedRecord("A"), call: "arm", calls: ["put"], saved: null, status: "full", unsaved: true },
+        { name: "the next flush tries again", call: "flush", calls: ["put"], saved: null, status: "full", unsaved: true },
+        { name: "a delete still works", record: null, call: "flush", calls: ["delete"], status: "ok", unsaved: false },
+      ],
+    },
+    {
+      name: "a failed write", fail: (call) => (call === "delete" ? broken : null), wantStatuses: ["failed", "ok"],
+      steps: [
+        { name: "load", call: "load", calls: ["get"], status: "ok" },
+        { name: "a save", record: savedRecord("A"), call: "arm", calls: ["put"], saved: "A", status: "ok", unsaved: false },
+        { name: "a failed delete", call: "clear", calls: ["delete"], saved: "A", status: "failed", unsaved: false },
+        { name: "a new change saves again", record: savedRecord("B"), call: "flush", calls: ["put"], saved: "B", status: "ok", unsaved: false },
+      ],
+    },
+  ];
+  for (const item of cases) {
+    await t.test(item.name, async (t) => {
+      const store = item.store === null ? null : fakeDraftStore(item.fail);
+      const { keeper, draft, statuses } = draftKeeper(t, store);
+      await runKeeperSteps(t, { name: item.name, store, keeper, draft }, item.steps);
+      assert.deepEqual(statuses, item.wantStatuses, item.name);
+    });
+  }
+});
+
+// fakeIndexedDB gives an indexedDB object with the calls that
+// openDraftStore uses. Each request and each transaction ends in a later
+// task, as in a browser. options.openError fails the open, and
+// options.commitError aborts each readwrite transaction.
+function fakeIndexedDB(options = {}) {
+  const stores = new Map(); const log = [];
+  const later = (callback) => setImmediate(callback);
+  const database = {
+    createObjectStore(name) { log.push(`create ${name}`); stores.set(name, new Map()); },
+    transaction(name, mode) {
+      const data = stores.get(name); const transaction = { error: null };
+      const request = (action) => {
+        const item = {};
+        later(() => {
+          item.result = action(); if (item.onsuccess) item.onsuccess();
+          later(() => {
+            if (mode === "readwrite" && options.commitError) { transaction.error = options.commitError; transaction.onabort(); } else transaction.oncomplete();
+          });
+        });
+        return item;
+      };
+      transaction.objectStore = () => ({
+        get: (key) => request(() => structuredClone(data.get(key))),
+        put: (value, key) => request(() => { if (!options.commitError) data.set(key, structuredClone(value)); return key; }),
+        delete: (key) => request(() => { if (!options.commitError) data.delete(key); }),
+      });
+      return transaction;
+    },
+  };
+  return {
+    log, stores,
+    open(name, version) {
+      log.push(`open ${name} ${version}`); const request = {};
+      later(() => {
+        if (options.openError) { request.error = options.openError; request.onerror(); return; }
+        request.result = database;
+        if (!stores.size) request.onupgradeneeded();
+        request.onsuccess();
+      });
+      return request;
+    },
+  };
+}
+
+test("the IndexedDB draft store saves, reads and deletes one record, and rejects a failed commit", async (t) => {
+  assert.equal(editor.openDraftStore(null), null);
+  assert.equal(editor.openDraftStore(undefined), null);
+
+  await t.test("a record round trips", async () => {
+    const factory = fakeIndexedDB(); const store = editor.openDraftStore(factory);
+    assert.equal(await store.get(DRAFT_KEY), undefined);
+    await store.put(DRAFT_KEY, savedRecord("A"));
+    assert.deepEqual(await store.get(DRAFT_KEY), savedRecord("A"));
+    await store.delete(DRAFT_KEY);
+    assert.equal(await store.get(DRAFT_KEY), undefined);
+    assert.deepEqual(factory.log, ["open podsim-editor 1", "create drafts"]);
+  });
+
+  const quota = new DOMException("The quota is used.", "QuotaExceededError");
+  await t.test("a quota error at the commit rejects the write", async () => {
+    const factory = fakeIndexedDB({ commitError: quota }); const store = editor.openDraftStore(factory);
+    await assert.rejects(store.put(DRAFT_KEY, savedRecord("A")), (error) => error === quota);
+    assert.equal(await store.get(DRAFT_KEY), undefined);
+  });
+
+  await t.test("a failed open rejects each call", async () => {
+    const failure = new DOMException("The database is closed.", "UnknownError");
+    const store = editor.openDraftStore(fakeIndexedDB({ openError: failure }));
+    for (const call of [() => store.get(DRAFT_KEY), () => store.put(DRAFT_KEY, savedRecord("A")), () => store.delete(DRAFT_KEY)]) {
+      await assert.rejects(call(), (error) => error === failure);
+    }
+  });
+
+  await t.test("the keeper reports the full storage of IndexedDB", async () => {
+    const statuses = [];
+    const keeper = editor.createDraftKeeper({
+      store: editor.openDraftStore(fakeIndexedDB({ commitError: quota })), key: DRAFT_KEY, delay: editor.DRAFT_SAVE_DELAY, clock: globalThis,
+      snapshot: () => savedRecord("A"), onStatus: (status) => statuses.push(status),
+    });
+    assert.equal(await keeper.load(), null);
+    await keeper.arm();
+    assert.deepEqual([keeper.status, keeper.unsaved, statuses], ["full", true, ["full"]]);
+  });
+});
+
+test("Pause and apply needs a scenario change, and the saved draft also keeps the background", () => {
+  const background = { dataURL: "data:image/png;base64,AAAA", x: 0, y: 0, width: 400, height: 200, opacity: 0.45 };
+  const scenario = connectedScenario();
+  const live = { scenario: JSON.stringify(scenario), background: null };
+  const cases = [
+    { name: "the live scenario", draft: { scenario: connectedScenario(), background: null }, live, want: { scenario: false, background: false } },
+    { name: "a changed scenario", draft: { scenario: { ...scenario, name: "Changed" }, background: null }, live, want: { scenario: true, background: false } },
+    { name: "a new background", draft: { scenario, background }, live, want: { scenario: false, background: true } },
+    { name: "the same background", draft: { scenario, background: { ...background } }, live: { ...live, background }, want: { scenario: false, background: false } },
+    { name: "a calibrated background", draft: { scenario, background: { ...background, width: 800, height: 400 } }, live: { ...live, background }, want: { scenario: false, background: true } },
+    { name: "a new opacity", draft: { scenario, background: { ...background, opacity: 0.8 } }, live: { ...live, background }, want: { scenario: false, background: true } },
+    { name: "a removed background", draft: { scenario, background: null }, live: { ...live, background }, want: { scenario: false, background: true } },
+  ];
+  for (const item of cases) assert.deepEqual(editor.draftChanges(item.draft, item.live), item.want, item.name);
+});
+
+test("the page offers a saved draft only when it differs from the live scenario", () => {
+  const background = { dataURL: "data:image/png;base64,AAAA", x: 0, y: 0, width: 400, height: 200, opacity: 0.45 };
+  const live = { scenario: JSON.stringify(connectedScenario()), background: null, revision: 5 };
+  const liveRecord = { scenario: connectedScenario(), background: null, revision: 5, epoch: "epoch-1" };
+  // want gives the revision, the epoch, the scenario name, and the
+  // background of the offer, or null for no offer.
+  const cases = [
+    { name: "no saved draft", record: null, want: null },
+    { name: "a record that is not an object", record: "draft", want: null },
+    { name: "a record without a scenario", record: { revision: 3 }, want: null },
+    { name: "a scenario that is an array", record: { scenario: [], revision: 3 }, want: null },
+    { name: "the live scenario", record: liveRecord, want: null },
+    { name: "the live scenario and a background without a data URL", record: { ...liveRecord, background: { x: 1 } }, want: null },
+    { name: "a changed scenario", record: savedRecord("Changed"), want: { revision: 3, epoch: "epoch-1", name: "Changed", background: null } },
+    { name: "the live scenario and a background", record: { ...liveRecord, background }, want: { revision: 5, epoch: "epoch-1", name: liveRecord.scenario.name, background } },
+    { name: "a revision that is not a number", record: { ...savedRecord("Changed"), revision: "x" }, want: { revision: 0, epoch: "epoch-1", name: "Changed", background: null } },
+    { name: "an epoch that is not a string", record: { ...savedRecord("Changed"), epoch: 7 }, want: { revision: 3, epoch: "", name: "Changed", background: null } },
+  ];
+  for (const item of cases) {
+    const offer = editor.draftOffer(item.record, live);
+    assert.deepEqual(offer && { revision: offer.revision, epoch: offer.epoch, name: offer.draft.scenario.name, background: offer.draft.background }, item.want, item.name);
+  }
+
+  const texts = [
+    { name: "the live revision", offer: { revision: 5, live: 5 }, want: "This browser has a saved draft that is not applied. The draft is based on revision 5." },
+    {
+      name: "an older revision", offer: { revision: 3, live: 5 },
+      want: "This browser has a saved draft that is not applied. The draft is based on revision 3. The live scenario is now revision 5.",
+    },
+    { name: "no live scenario", offer: { revision: 3, live: null }, want: "This browser has a saved draft that is not applied. The draft is based on revision 3." },
+  ];
+  for (const item of texts) assert.equal(editor.draftOfferText(item.offer), item.want, item.name);
+});
+
+test("the status after a restore names the live changes that an older draft replaces", () => {
+  const cases = [
+    { name: "the live revision", draft: { revision: 5, live: 5 }, want: "Live revision 5. The restored draft is not applied." },
+    {
+      name: "an older revision", draft: { revision: 3, live: 5 },
+      want: "Live revision 5. The restored draft is not applied. It is based on revision 3. Pause and apply replaces the live changes after revision 3.",
+    },
+    { name: "no live scenario", draft: { revision: 3, live: null }, want: "The restored draft is local." },
+  ];
+  for (const item of cases) assert.equal(editor.restoreStatusText(item.draft), item.want, item.name);
+});
+
+test("a failed apply tells the user to export a draft that the browser does not keep", () => {
+  const off = editor.DRAFT_STORE_TEXT.off; const unsaved = editor.DRAFT_UNSAVED_TEXT;
+  const stale = { errorCode: "stale_project", pause: "resumed", message: "stale" };
+  const session = { errorCode: "session_changed", pause: "not-paused", message: "session" };
+  const network = { errorCode: "", pause: "resumed", message: "Failed to fetch" };
+  const cases = [
+    {
+      name: "a kept draft and a conflict", error: stale, note: "",
+      wantText: "The live scenario changed. Your draft is safe. The editor resumed the simulation.",
+      wantStatus: "Apply conflict. Reload the page to get the current live scenario.",
+    },
+    {
+      name: "no draft store and a conflict", error: stale, note: off,
+      wantText: `The live scenario changed. Your draft is safe. The editor resumed the simulation. ${off}`,
+      wantStatus: `Apply conflict. Reload the page to get the current live scenario. ${off}`,
+    },
+    {
+      name: "a kept draft and a new session", error: session, note: "",
+      wantText: "The server session changed. Reload the page, then select Restore draft. The simulation was not paused.",
+      wantStatus: "The server session changed. Reload the page, then select Restore draft.",
+    },
+    {
+      name: "unsaved changes and a new session", error: session, note: unsaved,
+      wantText: "The server session changed. The draft stays on this page. Export the draft, reload the page, then import the draft. The simulation was not paused.",
+      wantStatus: "The server session changed. Export the draft, reload the page, then import the draft.",
+    },
+    {
+      name: "unsaved changes and a network error", error: network, note: unsaved,
+      wantText: `Apply failed. Failed to fetch. The editor resumed the simulation. ${unsaved}`,
+      wantStatus: `Apply failed. The draft stays on this page. ${unsaved}`,
+    },
+  ];
+  for (const item of cases) {
+    assert.equal(editor.applyFailureText(item.error, item.note), item.wantText, item.name);
+    assert.equal(editor.applyFailureStatus(item.error, item.note), item.wantStatus, item.name);
   }
 });
 
@@ -1985,4 +2358,63 @@ test("the focus ring of the map shows inside the map panel", () => {
   const ring = { ...rules.get("svg:focus-visible"), ...rules.get("#networkMap:focus-visible") };
   const width = parseFloat(ring.outline); const offset = parseFloat(ring["outline-offset"]);
   assert.ok(width > 0 && offset + width <= 0, `a ring of ${width} px at an offset of ${offset} px goes outside the map`);
+});
+
+// draftChannelHub gives channels that deliver each message to the other
+// channels of the hub, as a BroadcastChannel with one name does.
+function draftChannelHub() {
+  const listeners = [];
+  return () => {
+    const channel = {
+      postMessage: (data) => {
+        for (const entry of listeners) if (entry.channel !== channel) queueMicrotask(() => entry.listener({ data: structuredClone(data) }));
+      },
+      addEventListener: (type, listener) => { if (type === "message") listeners.push({ channel, listener }); },
+    };
+    return channel;
+  };
+}
+
+test("a tab knows when another tab replaced or deleted its saved draft", async (t) => {
+  t.mock.timers.enable({ apis: ["setTimeout"] });
+  const store = fakeDraftStore(); const channel = draftChannelHub();
+  const tab = (name, key = DRAFT_KEY) => {
+    const draft = { record: null }; const displaced = [];
+    const keeper = editor.createDraftKeeper({
+      store, key, delay: editor.DRAFT_SAVE_DELAY, clock: globalThis, channel: channel(),
+      snapshot: () => (draft.record ? structuredClone(draft.record) : null), onDisplaced: () => displaced.push(name),
+    });
+    return { keeper, draft, displaced };
+  };
+  const settle = () => new Promise((resolve) => setImmediate(resolve));
+  const saved = () => store.records.get(DRAFT_KEY)?.scenario.name ?? null;
+  const a = tab("a"); const b = tab("b"); const other = tab("other", "http://other.test");
+  await a.keeper.load(); await b.keeper.load(); await other.keeper.load();
+
+  a.draft.record = savedRecord("tab A"); await a.keeper.arm(); await settle();
+  assert.equal(saved(), "tab A");
+  assert.equal(a.keeper.unsaved, false, "a tab does not hear its own write");
+  assert.deepEqual(a.displaced, []);
+
+  b.draft.record = savedRecord("tab B"); await b.keeper.arm(); await settle();
+  assert.equal(saved(), "tab B");
+  assert.equal(a.keeper.unsaved, true, "the write of tab B replaced the draft of tab A");
+  assert.deepEqual(a.displaced, ["a"]);
+  assert.equal(b.keeper.unsaved, false);
+
+  await a.keeper.flush(); await settle();
+  assert.equal(saved(), "tab A", "the next flush of tab A writes its draft again");
+  assert.equal(a.keeper.unsaved, false);
+  assert.equal(b.keeper.unsaved, true, "then tab B knows that its draft is not saved");
+
+  // An apply makes the draft of tab B equal to the live scenario, then clears the record.
+  b.draft.record = null; await b.keeper.clear(); await settle();
+  assert.equal(saved(), null, "an apply in tab B deletes the record");
+  assert.equal(a.keeper.unsaved, true, "tab A knows that the delete removed its draft");
+  assert.deepEqual(a.displaced, ["a", "a"]);
+
+  other.draft.record = savedRecord("other server"); await other.keeper.arm(); await settle();
+  assert.deepEqual(a.displaced, ["a", "a"], "a write for another server does not change tab A");
+  assert.deepEqual(b.displaced, ["b", "b"], "tab B heard both writes of tab A, also the first one before it had a draft");
+  assert.equal(b.keeper.unsaved, false, "tab B has no draft after its apply, so it has nothing to lose");
 });

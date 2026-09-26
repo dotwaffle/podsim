@@ -442,8 +442,40 @@ The draft stays local until you select **Pause and apply**.
 - Export JSON to save the scenario and optional background.
   Import JSON to restore a draft.
 
+### Saved draft
+
+The browser saves the draft in IndexedDB 300 ms after the last change.
+The saved draft has the scenario and the background image with its calibration.
+It also has the project revision that the draft is based on, and the session epoch of that revision.
+The browser keeps one saved draft for each server address.
+After a successful apply, the browser deletes the saved draft.
+
+When you open the editor, the browser compares the saved draft with the live scenario.
+If they are different, the **Saved draft** bar shows the revision that the draft is based on.
+If the live revision is different, the bar also shows it.
+Select **Restore draft** to put the saved draft back.
+The undo history then starts from the restored draft.
+The restored draft is not applied, and it keeps the revision that it is based on.
+**Pause and apply** then replaces the live scenario, also when the draft is based on an older revision.
+The status line tells you when it replaces newer live changes.
+Select **Discard draft** to delete the saved draft and keep the live scenario.
+Until you select one of the two buttons, the browser does not save new changes.
+If you apply while the **Saved draft** bar shows, the browser keeps the saved draft, and the bar stays.
+
+If the browser cannot save the draft, for example because IndexedDB is not available, the status line tells you.
+A failed save or a full storage also shows an error notice.
+Then export the draft to keep it.
+When the draft has changes that are not saved in the browser, the browser asks before you leave or reload the page.
+
+All editor tabs of one server share the saved draft.
+When a different tab saves its draft or applies, the saved draft of this tab is gone.
+This tab then shows a notice, and the browser asks before you leave or reload the page.
+Your next change in this tab saves its draft again, and the other tab then shows the notice.
+
 ### Apply a draft
 
+**Pause and apply** is disabled when the draft scenario is the same as the live scenario.
+A background change does not enable it, because the server does not get the background.
 Applying a valid draft resets the shared simulation and leaves it paused.
 If the apply fails after the editor paused the simulation, the editor resumes it.
 A simulation that was paused before the apply stays paused.
@@ -457,11 +489,12 @@ A rewind to a save point from before a project apply or a demand change restores
 The rewind also rewrites the `-project` file.
 An open draft then gets an apply conflict.
 Reload the page to get the restored project.
-Export the draft before you reload a newer server project.
+If the browser saved the draft, the editor offers it after the reload.
 
 For other failures, the editor shows the reason from the server, for example a project file that the server cannot save.
 If the server restarted with a new session, the open editor cannot apply the draft.
-Export the draft, reload the page, then import the draft.
+Reload the page, then select **Restore draft**.
+If the browser did not save the draft, the editor tells you to export the draft, reload the page, then import the draft.
 
 ### Project files and validation
 
@@ -786,7 +819,7 @@ During the wait, the line below the panels shows **Shared session / waiting for 
 **From** and **To** send no command, so you can change them during the wait.
 
 Pod selection, origin, destination, and the open inspection panel stay local to each browser.
-Background images stay in the editor and the exported project file.
+Background images stay in the editor, in the draft that the browser saves, and in the exported project file.
 The shared simulation receives the network geometry and settings.
 
 #### Motion
