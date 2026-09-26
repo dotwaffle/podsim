@@ -307,6 +307,15 @@ func sharedHandlerGame(t *testing.T, config project.Config, wrap func(http.Handl
 // gives the reply to handleResult, as readRemote does, and returns it.
 func clickCommand(t *testing.T, game *Game, action string) remote.Result {
 	t.Helper()
+	result := clickReply(t, game, action)
+	game.handleResult(result)
+	return result
+}
+
+// clickReply clicks the button for action and waits for the reply. It does
+// not give the reply to handleResult.
+func clickReply(t *testing.T, game *Game, action string) remote.Result {
+	t.Helper()
 	game.click(centerOfButton(findButton(t, game.buttons(), action)))
 	if !game.pending {
 		t.Fatalf("%s click sent no command: %q", action, game.message)
@@ -316,7 +325,6 @@ func clickCommand(t *testing.T, game *Game, action string) remote.Result {
 		if result.Err != nil || result.Reply.Error != "" {
 			t.Fatalf("%s command failed: %+v", action, result)
 		}
-		game.handleResult(result)
 		return result
 	case <-time.After(5 * time.Second):
 		t.Fatalf("%s command timed out", action)

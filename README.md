@@ -783,6 +783,7 @@ The line below **From** and **To** shows these notices for 3 s:
 | Another browser resets or rewinds the session, starts the traffic demo, or applies a project | **Another browser reset or rewound the session.** |
 
 A reset or a rewind from this browser shows its own notice instead.
+If the server restarts before it applies a reset or a rewind from this browser, this browser can incorrectly show that another browser reset or rewound the session.
 
 Each server process sends its own start ID, so the simulation view finds a server restart also when a hidden tab did not get the first frames after it.
 

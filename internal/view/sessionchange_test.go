@@ -126,6 +126,16 @@ func TestSessionChangeNotice(t *testing.T) {
 			previous: session.State{Epoch: "a", Generation: 4, ServerStart: "s1"},
 			current:  session.State{Epoch: "a", Generation: 5, ServerStart: "s1", Restore: physical},
 		}, want: otherBrowserNotice},
+		{name: "reply from an earlier server process", input: sessionChangeInput{
+			previous: session.State{Epoch: "a", Generation: 4, ServerStart: "s2"},
+			current:  session.State{Epoch: "a", Generation: 5, ServerStart: "s2"},
+			ownEpoch: "a", ownGeneration: 6, ownStart: "s1",
+		}, want: otherBrowserNotice},
+		{name: "reply from the same server process", input: sessionChangeInput{
+			previous: session.State{Epoch: "a", Generation: 4, ServerStart: "s2"},
+			current:  session.State{Epoch: "a", Generation: 5, ServerStart: "s2"},
+			ownEpoch: "a", ownGeneration: 6, ownStart: "s2",
+		}},
 		{name: "no previous start ID with a kept epoch", input: sessionChangeInput{
 			previous: session.State{Epoch: "a", Generation: 4},
 			current:  session.State{Epoch: "a", Generation: 5, ServerStart: "s2", Restore: physical},
@@ -403,6 +413,114 @@ func TestOwnResetBeforeReply(t *testing.T) {
 	syncGame(t, game, func() bool { return true })
 	if game.notice != resetNotice || game.noticeAction != "reset" {
 		t.Fatalf("after the reply: notice %q action %q, want %q action %q", game.notice, game.noticeAction, resetNotice, "reset")
+	}
+}
+
+// TestGuardsAfterRollbackRestart restarts the server from an older final
+// save. The new server process keeps the epoch, but its revision and its
+// generation are lower than in the replies that the game got from the
+// earlier process. The session clock does not run, so the revision stays
+// low, as in a paused session. Another browser then makes a save point and
+// resets the session. Rewind must be available for that save point, and the
+// reset must show the other browser notice. delayed names a command of the
+// earlier process whose reply the game reads only after the restart, as a
+// hidden browser tab can do.
+func TestGuardsAfterRollbackRestart(t *testing.T) {
+	t.Parallel()
+	for _, delayed := range []string{"", "checkpoint", "reset"} {
+		name := "replies before the restart"
+		if delayed != "" {
+			name = delayed + " reply after the restart"
+		}
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			store := &memoryStore{}
+			initial := storedSession(t, store)
+			initial.Close()
+			if err := initial.SaveState(t.Context(), session.SaveFinal); err != nil {
+				t.Fatalf("final save: %v", err)
+			}
+			older := &memoryStore{data: bytes.Clone(store.data)}
+			server := &switchServer{}
+			server.use(storedSession(t, store))
+			test := httptest.NewServer(server)
+			t.Cleanup(test.Close)
+			game := journeyTestGame(t, 2)
+			game.client = remote.New(t.Context(), test.URL)
+			syncGame(t, game, func() bool { return game.state.Epoch != "" })
+			first := game.state
+
+			// Raise the revision, then reset and make a save point. The
+			// command with the delayed reply goes last.
+			for range 2 {
+				clickCommand(t, game, "speed")
+				syncGame(t, game, func() bool { return true })
+			}
+			order := []string{"reset", "checkpoint"}
+			if delayed == "reset" {
+				order = []string{"checkpoint", "reset"}
+			}
+			replies := make(map[string]remote.Result)
+			for _, action := range order {
+				if action == "reset" {
+					game.reset()
+				}
+				replies[action] = clickReply(t, game, action)
+				if action != delayed {
+					game.handleResult(replies[action])
+				}
+				syncGame(t, game, func() bool { return true })
+			}
+
+			server.use(storedSession(t, older))
+			syncGame(t, game, func() bool { return game.state.ServerStart != first.ServerStart })
+			restored := game.state
+			if restored.Epoch != first.Epoch || restored.Revision >= replies["checkpoint"].Reply.Revision || restored.Generation >= replies["reset"].Reply.Generation {
+				t.Fatalf("restored state %s revision %d generation %d, want epoch %s, a revision below %d and a generation below %d",
+					restored.Epoch, restored.Revision, restored.Generation, first.Epoch, replies["checkpoint"].Reply.Revision, replies["reset"].Reply.Generation)
+			}
+			if game.notice != restartNotice {
+				t.Fatalf("notice %q after the restart, want %q", game.notice, restartNotice)
+			}
+			if delayed != "" {
+				game.handleResult(replies[delayed])
+			}
+
+			other := remote.New(t.Context(), test.URL)
+			submitAndWait(t, other, session.Command{Action: "checkpoint"})
+			syncGame(t, game, func() bool { return len(game.state.Checkpoints) == 1 })
+			if rewind := findButton(t, game.buttons(), "rewind"); rewind.disabled {
+				t.Errorf("rewind button disabled at revision %d with save points %+v", game.state.Revision, game.state.Checkpoints)
+			}
+			game.notice, game.noticeAction, game.noticeTicks = "", "", 0
+			generation := game.state.Generation
+			submitAndWait(t, other, session.Command{Action: "reset"})
+			syncGame(t, game, func() bool { return game.state.Generation != generation })
+			if game.notice != otherBrowserNotice {
+				t.Errorf("notice %q after a reset from another browser at generation %d, want %q", game.notice, game.state.Generation, otherBrowserNotice)
+			}
+		})
+	}
+}
+
+// submitAndWait sends command from client when client is connected and has
+// no pending command. It waits for an accepted reply.
+func submitAndWait(t *testing.T, client *remote.Client, command session.Command) {
+	t.Helper()
+	waitFor(t, func() bool {
+		_, connected, pending := client.View()
+		return connected && !pending
+	})
+	if err := client.Submit(command); err != nil {
+		t.Fatalf("submit %s: %v", command.Action, err)
+	}
+	select {
+	case result := <-client.Results():
+		if result.Err != nil || result.Reply.Error != "" {
+			t.Fatalf("%s command failed: %+v", command.Action, result)
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatalf("%s command timed out", command.Action)
 	}
 }
 

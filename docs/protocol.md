@@ -212,6 +212,8 @@ When an operator restores an older file from a final save, IDs can repeat, and t
 The Go client accepts a frame with a lower revision when its `serverStart` is not empty and is different from the `serverStart` of the last frame.
 It then also discards its buffered map motion and fetches the topology again, because a restored save can reuse an epoch and a project revision with other geometry.
 Thus it shows the restored state and the restart notice.
+The client does not compare the frames of the new process with the revision and the generation in the reply to a command that it sent while it showed a frame of the earlier process.
+Thus Rewind becomes available when the state lists a new save point, and a reset from another browser shows its notice.
 See [session state](operations.md#session-state).
 
 A startup that fails after the startup save writes the increased revision and generation in its final save.

@@ -78,7 +78,7 @@ func (g *Game) handleServerUpdate() {
 func (g *Game) handleResult(result remote.Result) {
 	g.message = ""
 	if result.Err == nil && result.Reply.Error == "" && startsGeneration(result.Command.Action) {
-		g.ownEpoch, g.ownGeneration = result.Reply.Epoch, result.Reply.Generation
+		g.ownEpoch, g.ownGeneration, g.ownStart = result.Reply.Epoch, result.Reply.Generation, g.sentStart
 	}
 	switch {
 	case result.Err != nil:
@@ -92,7 +92,7 @@ func (g *Game) handleResult(result remote.Result) {
 		to, _ := g.network.Station(result.Command.Destination)
 		g.showNotice("trip", fmt.Sprintf("Order #%d accepted: %s > %s. See Orders for status.", result.Reply.OrderID, from.Name, to.Name))
 	case result.Command.Action == "checkpoint":
-		g.savedEpoch, g.savedRevision = result.Reply.Epoch, result.Reply.Revision
+		g.savedEpoch, g.savedRevision, g.savedStart = result.Reply.Epoch, result.Reply.Revision, g.sentStart
 		g.showNotice("checkpoint", fmt.Sprintf("Save point #%d saved.", result.Reply.Checkpoint))
 	case result.Command.Action == "rewind":
 		// Panels and selection stay as they are. readRemote clamps the
@@ -147,9 +147,11 @@ type sessionChangeInput struct {
 	// generation waits for its reply.
 	inFlight bool
 	// ownEpoch and ownGeneration come from the last accepted reply to such
-	// a command.
+	// a command. ownStart is the server start ID of the state when the game
+	// sent that command.
 	ownEpoch      string
 	ownGeneration uint64
+	ownStart      string
 }
 
 // sessionChangeNotice returns the notice for a change from the previous
@@ -167,7 +169,10 @@ type sessionChangeInput struct {
 // project apply. They show otherBrowserNotice, but not while a command of
 // this game that starts a new generation waits for its reply. They also
 // show no notice when the last reply to such a command gave the current
-// epoch, and the current generation or a later one.
+// epoch, and the current generation or a later one, and the state had the
+// current server start ID when the game sent that command. A restart can
+// keep the epoch and lower the generation, so a reply from an earlier server
+// process does not apply.
 func sessionChangeNotice(input sessionChangeInput) string {
 	previous, current := input.previous, input.current
 	startKnown := previous.ServerStart != "" && current.ServerStart != ""
@@ -184,7 +189,7 @@ func sessionChangeNotice(input sessionChangeInput) string {
 		return restartNotice
 	case input.inFlight:
 		return ""
-	case current.Epoch == input.ownEpoch && current.Generation <= input.ownGeneration:
+	case current.Epoch == input.ownEpoch && current.ServerStart == input.ownStart && current.Generation <= input.ownGeneration:
 		return ""
 	default:
 		return otherBrowserNotice
@@ -210,7 +215,7 @@ func (g *Game) announceSessionChange(previous session.State) {
 	notice := sessionChangeNotice(sessionChangeInput{
 		previous: previous, current: g.state,
 		inFlight: g.pending && startsGeneration(g.sentAction),
-		ownEpoch: g.ownEpoch, ownGeneration: g.ownGeneration,
+		ownEpoch: g.ownEpoch, ownGeneration: g.ownGeneration, ownStart: g.ownStart,
 	})
 	if notice == "" {
 		return
@@ -257,7 +262,7 @@ func (g *Game) submit(command session.Command) {
 		g.message = err.Error()
 		return
 	}
-	g.pending, g.sentAction = true, command.Action
+	g.pending, g.sentAction, g.sentStart = true, command.Action, g.state.ServerStart
 	g.message = ""
 	g.notice, g.noticeAction, g.noticeTicks = "", "", 0
 }

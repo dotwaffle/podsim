@@ -111,17 +111,26 @@ type Game struct {
 	// savedEpoch and savedRevision come from the last accepted save point.
 	// The command reply can arrive before the state that lists the save point,
 	// so Rewind waits for that state and does not target an older save point.
+	// savedStart is the sentStart of that command. The revision applies
+	// only to states with this server start ID.
 	savedEpoch    string
 	savedRevision uint64
+	savedStart    string
 	// sentAction is the action of the last command that the client
 	// accepted. While pending is true, this command waits for its reply.
 	sentAction string
+	// sentStart is the server start ID of the state when the game sent
+	// the last command. A reply has no start ID. It comes from this server
+	// process or from a later one, but never from an earlier one.
+	sentStart string
 	// ownEpoch and ownGeneration come from the last accepted reply to a
 	// command of this game that starts a new generation. A change in the
-	// same epoch to this generation or to an earlier one shows no session
-	// change notice.
+	// same epoch and with the server start ID ownStart to this generation
+	// or to an earlier one shows no session change notice. ownStart is the
+	// sentStart of that command.
 	ownEpoch      string
 	ownGeneration uint64
+	ownStart      string
 	layout        displayLayout
 	// imageLimit is the largest side in pixels of an image. Draw reads it
 	// from Ebiten in each frame. See imageSideLimit.
@@ -351,10 +360,12 @@ func (g *Game) rewind() {
 }
 
 // rewindReady reports whether the state includes the last accepted save
-// point. A state from a new epoch does not wait, because a restart clears the
-// save points.
+// point. A state from a new epoch or with a different server start ID does
+// not wait, because a restart clears the save points. A restart can also
+// keep the epoch and lower the revision. The revision of a save point from
+// an earlier server process thus does not apply.
 func (g *Game) rewindReady() bool {
-	return g.state.Epoch != g.savedEpoch || g.state.Revision >= g.savedRevision
+	return g.state.Epoch != g.savedEpoch || g.state.ServerStart != g.savedStart || g.state.Revision >= g.savedRevision
 }
 
 // rewindTarget returns the save point with the highest ID. It does not
