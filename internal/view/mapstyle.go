@@ -1,6 +1,7 @@
 package view
 
 import (
+	"image"
 	"math"
 	"strconv"
 
@@ -95,6 +96,14 @@ func newScaleBar(scale, unit float64) (scaleBar, bool) {
 type networkStyle struct {
 	// detailed is true for a network with detailedLanes lanes or fewer.
 	detailed bool
+	// antialias is true when the lanes, the lane arrows, the node dots, the
+	// selected route line and the scale bar are antialiased. Only a detailed
+	// network is antialiased, and only on a screen that is narrow enough for
+	// antialiased vector drawing. See vectorAntialias.
+	antialias bool
+	// imageLimit is the largest side in pixels of an image. See
+	// imageSideLimit.
+	imageLimit int
 	// unit is the number of screen pixels in one display unit.
 	unit         float64
 	markerRadius float64
@@ -124,19 +133,28 @@ type networkStyleInput struct {
 	scale float64
 	// unit is the number of screen pixels in one display unit.
 	unit float64
+	// screen is the size of the screen image in pixels.
+	screen image.Point
+	// imageLimit is the largest side in pixels of an image. See
+	// imageSideLimit.
+	imageLimit int
 }
 
 // newNetworkStyle returns the network style for the map state.
 //
-// A detailed network keeps fixed sizes at all zoom levels. A dense network
-// scales its markers and lanes with the zoom. It draws no direction arrow on
-// a lane shorter than 24 units on the screen. It draws the lanes of a
-// collapsed station thinner and dimmer, but not the lanes that continue a
-// line. It draws node dots only from the berth expansion scale.
+// A detailed network keeps fixed sizes at all zoom levels. It is
+// antialiased, but not on a screen so wide that the antialiased stencil
+// image of the Ebiten vector package is larger than the image limit. A dense
+// network is not antialiased. It scales its markers and lanes with the zoom.
+// It draws no direction arrow on a lane shorter than 24 units on the screen.
+// It draws the lanes of a collapsed station thinner and dimmer, but not the
+// lanes that continue a line. It draws node dots only from the berth
+// expansion scale.
 func newNetworkStyle(input networkStyleInput) networkStyle {
 	unit := input.unit
 	style := networkStyle{
 		detailed:           len(input.network.Lanes) <= detailedLanes,
+		imageLimit:         input.imageLimit,
 		unit:               unit,
 		markerRadius:       10 * unit,
 		laneWidth:          5 * unit,
@@ -144,6 +162,7 @@ func newNetworkStyle(input networkStyleInput) networkStyle {
 		nodeDots:           true,
 	}
 	if style.detailed {
+		style.antialias = vectorAntialias(input.screen, input.imageLimit)
 		return style
 	}
 	style.markerRadius = denseMarkerRadius.pixels(input.scale, unit)
@@ -181,6 +200,18 @@ func (g *Game) currentLineLanes() map[string]bool {
 	return g.displayIndex().lineLanes
 }
 
+// currentNetworkStyle returns the network style for the current map state
+// and the collapsed station markers. For a sub-image, the Ebiten vector
+// package sizes its stencil image from the full image. Thus the style uses
+// the layout size, which is the size of the full screen, and not the size of
+// the map viewport.
+func (g *Game) currentNetworkStyle(markers map[string]sim.Point) networkStyle {
+	return newNetworkStyle(networkStyleInput{
+		network: g.network, markers: markers, lineLanes: g.currentLineLanes(), scale: g.mapScale, unit: g.layout.unit,
+		screen: image.Pt(g.layout.width, g.layout.height), imageLimit: g.imageLimit,
+	})
+}
+
 // stationLineLanes returns the IDs of the station lanes that continue a line.
 // Such a lane starts where a lane without a station ends, and it ends where
 // a lane without a station starts. In a generated ring, the through lane of
@@ -206,9 +237,14 @@ func stationLineLanes(network sim.Network) map[string]bool {
 // laneStroke returns the stroke of a lane in the network base layer.
 func (style networkStyle) laneStroke(lane sim.Lane) laneStroke {
 	if style.dimLane(lane) {
-		return laneStroke{width: float32(style.collapsedLaneWidth), color: collapsedStationTrack, antialias: style.detailed}
+		return laneStroke{width: float32(style.collapsedLaneWidth), color: collapsedStationTrack, antialias: style.antialias}
 	}
-	return laneStroke{width: float32(style.laneWidth), color: track, antialias: style.detailed}
+	return laneStroke{width: float32(style.laneWidth), color: track, antialias: style.antialias}
+}
+
+// routeStroke returns the stroke of a lane on the route of the selected pod.
+func (style networkStyle) routeStroke(color uint32) laneStroke {
+	return laneStroke{width: float32(routeWidth * style.unit), color: color, antialias: style.antialias}
 }
 
 // laneArrow returns the direction arrow of a lane in the network base layer.
@@ -222,7 +258,7 @@ func (style networkStyle) laneArrow(lane sim.Lane, geometry laneGeometry) (a arr
 		direction: geometry.arrowDirection,
 		size:      laneArrowSize,
 		color:     style.laneArrowColor(lane),
-		antialias: style.detailed,
+		antialias: style.antialias,
 		unit:      style.unit,
 	}, true
 }

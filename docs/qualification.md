@@ -247,10 +247,16 @@ Thousands of antialiased curve segments queued stencil data before rendering.
 
 Networks above 100 lanes now use fewer screen-space curve segments and disable antialiasing for tracks, lane arrows, nodes, the selected route line, and the scale bar.
 Small networks retain their original rendering detail.
+Ebitengine 2.10 keeps the stencil data of antialiased vector drawing in an image that can be twice as wide as the screen.
+It does not keep that image within the GPU texture limit.
+A 2560 by 1440 window at a device pixel ratio of 2 has a 5120 by 2880 screen.
+There, the image was 10240 pixels wide, and the game stopped in SwiftShader, which has an 8192 pixel limit.
+Small networks now draw without antialiasing when that image would not fit in the GPU texture limit.
 Networks above 100 lanes also store neutral tracks, arrows, and nodes in a reusable image.
 The measured runs used a fixed 1100 by 760 image.
 The image now covers the map viewport and a margin around it, in device pixels.
 The margin is a quarter of the shorter side of the viewport.
+The margin becomes smaller when the image with the full margin would not fit in the GPU texture limit.
 The selected route, berths, pods, and status remain dynamic.
 A new server epoch, simulation generation, or project revision draws the cached image again.
 Pods, pod rings, berth rings, station markers, and route arrows are antialiased on all networks.

@@ -120,15 +120,23 @@ func TestBaseLayerMargin(t *testing.T) {
 	t.Parallel()
 	tests := []struct {
 		viewport image.Rectangle
+		limit    int
 		want     int
 	}{
+		{viewport: image.Rect(24, 136, 772, 520), limit: headlessImageLimit, want: 96},
+		{viewport: image.Rect(0, 0, 400, 1000), limit: headlessImageLimit, want: 100},
+		{viewport: image.Rect(0, 0, 0, 0), limit: headlessImageLimit, want: 0},
 		{viewport: image.Rect(24, 136, 772, 520), want: 96},
-		{viewport: image.Rect(0, 0, 400, 1000), want: 100},
-		{viewport: image.Rect(0, 0, 0, 0), want: 0},
+		// A layer image of 8000 + 2 * 1000 pixels is too wide. The margin
+		// leaves (8191 - 8000) / 2 pixels on each side.
+		{viewport: image.Rect(0, 0, 8000, 4000), limit: headlessImageLimit, want: 95},
+		{viewport: image.Rect(0, 0, 4000, 8000), limit: headlessImageLimit, want: 95},
+		{viewport: image.Rect(0, 0, 8000, 4000), limit: 16383, want: 1000},
+		{viewport: image.Rect(0, 0, 8191, 4000), limit: headlessImageLimit, want: 0},
 	}
 	for _, test := range tests {
-		if got := baseLayerMargin(test.viewport); got != test.want {
-			t.Errorf("baseLayerMargin(%v) = %d, want %d", test.viewport, got, test.want)
+		if got := baseLayerMargin(test.viewport, test.limit); got != test.want {
+			t.Errorf("baseLayerMargin(%v, %d) = %d, want %d", test.viewport, test.limit, got, test.want)
 		}
 	}
 }
@@ -190,7 +198,7 @@ func TestPlanBaseLayer(t *testing.T) {
 	game.ensureLayout()
 	game.fitNetwork()
 	viewport := game.layout.mapViewport
-	margin := float64(baseLayerMargin(viewport))
+	margin := float64(baseLayerMargin(viewport, headlessImageLimit))
 	pan := func(dx float64) func() {
 		return func() {
 			game.camera.origin.X += dx
@@ -215,11 +223,11 @@ func TestPlanBaseLayer(t *testing.T) {
 	for _, step := range steps {
 		step.change()
 		drawnOrigin := game.networkBaseOrigin
-		plan := game.planBaseLayer()
+		plan := game.planBaseLayer(headlessImageLimit)
 		if plan.redraw != step.redraw || plan.shift != step.shift {
 			t.Fatalf("%s: plan redraw %t shift %v, want %t %v", step.name, plan.redraw, plan.shift, step.redraw, step.shift)
 		}
-		if want := baseLayerArea(game.layout.mapViewport); plan.area != want {
+		if want := baseLayerArea(game.layout.mapViewport, headlessImageLimit); plan.area != want {
 			t.Fatalf("%s: plan area %v, want %v", step.name, plan.area, want)
 		}
 		if want := (sim.Point{X: -float64(plan.area.Min.X), Y: -float64(plan.area.Min.Y)}); plan.imageOffset() != want {
@@ -250,12 +258,12 @@ func TestMovedBaseLanesMatchPan(t *testing.T) {
 		}
 		return list
 	}
-	first := game.planBaseLayer()
+	first := game.planBaseLayer(headlessImageLimit)
 	cached := paths(first.area)
 	game.camera.origin.X += 7
 	game.camera.origin.Y -= 5
 	game.syncCamera()
-	plan := game.planBaseLayer()
+	plan := game.planBaseLayer(headlessImageLimit)
 	if plan.redraw {
 		t.Fatal("small pan draws the layer again")
 	}

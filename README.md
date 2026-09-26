@@ -31,6 +31,8 @@ The first build downloads Go dependencies.
 The build creates static files in `dist/`, including the matching Go WebAssembly runtime and the gzip WASM file `podsim.wasm.gz`.
 
 The network view fills the browser window and renders at the display pixel density.
+On a very wide screen at a high pixel density, the lines of a small network can show without antialiasing.
+This occurs when the antialiasing image of the map would not fit in the largest GPU texture, for example in a 2560 by 1440 window at a device pixel ratio of 2 on a GPU with an 8192 pixel limit.
 Resize the window to give the map more space.
 Map navigation and layout stay local to each browser.
 

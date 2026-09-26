@@ -123,6 +123,9 @@ type Game struct {
 	ownEpoch      string
 	ownGeneration uint64
 	layout        displayLayout
+	// imageLimit is the largest side in pixels of an image. Draw reads it
+	// from Ebiten in each frame. See imageSideLimit.
+	imageLimit int
 	// reload loads the page again. It is nil in the desktop client.
 	// serverUpdated becomes true when the game sees a new server build, so
 	// the game reloads the page only once.
@@ -582,6 +585,7 @@ func (g *Game) ensureLayout() {
 func (g *Game) Draw(screen *ebiten.Image) {
 	g.ensureLayout()
 	g.fitNetwork()
+	g.imageLimit = imageSideLimit(ebiten.MaxImageSize())
 	screen.Fill(rgb(background))
 	for _, header := range g.headerLabels() {
 		g.label(screen, header)
@@ -707,7 +711,7 @@ func (g *Game) drawNetwork(screen *ebiten.Image, state sim.Snapshot) {
 		return
 	}
 	markers := g.collapsedStationMarkers()
-	style := newNetworkStyle(networkStyleInput{network: g.network, markers: markers, lineLanes: g.currentLineLanes(), scale: g.mapScale, unit: g.layout.unit})
+	style := g.currentNetworkStyle(markers)
 	detailed := style.detailed
 	var lanes []lanePath
 	var lanesShift sim.Point
@@ -779,7 +783,7 @@ func (g *Game) drawNetwork(screen *ebiten.Image, state sim.Snapshot) {
 		arrows := make([]arrow, 0, len(selected.Route))
 		for _, lane := range selected.Route {
 			geometry := g.laneGeometry(lane, detailed)
-			geometry.draw(mapScreen, laneStroke{width: float32(routeWidth * g.layout.unit), color: shade, antialias: detailed})
+			geometry.draw(mapScreen, style.routeStroke(shade))
 			arrows = append(arrows, arrow{tip: geometry.arrowTip, direction: geometry.arrowDirection, size: routeArrowSize, color: shade, unit: g.layout.unit})
 		}
 		for _, routeArrow := range arrows {
@@ -810,7 +814,7 @@ func (g *Game) drawNetwork(screen *ebiten.Image, state sim.Snapshot) {
 	}
 	// Without a network, the map has no scale.
 	if bar, ok := newScaleBar(g.mapScale, g.layout.unit); ok && len(g.network.Nodes) > 0 {
-		vector.StrokeLine(screen, float32(g.layout.x(48)), float32(g.layout.bottom(540)), float32(g.layout.x(48+bar.length)), float32(g.layout.bottom(540)), float32(2*g.layout.unit), rgb(muted), detailed)
+		vector.StrokeLine(screen, float32(g.layout.x(48)), float32(g.layout.bottom(540)), float32(g.layout.x(48+bar.length)), float32(g.layout.bottom(540)), float32(2*g.layout.unit), rgb(muted), style.antialias)
 		g.label(screen, label{x: 64 + bar.length, y: 531, size: 12, value: bar.label, color: muted})
 	}
 	g.drawPodLegend(screen, scale)
@@ -1245,7 +1249,7 @@ func (g *Game) drawBaseNetwork(screen *ebiten.Image, input baseNetworkInput) []l
 	}
 	for _, node := range g.network.Nodes {
 		point := movePoint(g.mapPoint(node.Position), input.offset)
-		vector.FillCircle(screen, float32(point.X), float32(point.Y), float32(3*g.layout.unit), rgb(muted), style.detailed)
+		vector.FillCircle(screen, float32(point.X), float32(point.Y), float32(3*g.layout.unit), rgb(muted), style.antialias)
 	}
 	return paths
 }
@@ -1292,9 +1296,19 @@ func movedLanePaths(paths []lanePath, offset sim.Point) []lanePath {
 
 // baseLayerMargin returns the margin in screen pixels of the cached base
 // layer around the map viewport. It is a quarter of the shorter side of the
-// viewport.
-func baseLayerMargin(viewport image.Rectangle) int {
-	return min(viewport.Dx(), viewport.Dy()) / 4
+// viewport. When the layer image with that margin is larger than limit on a
+// side, the margin is smaller, so that the image fits. A screen wider than
+// ebiten.MaxImageSize stops Ebiten before the view draws. The panels make
+// the viewport narrower and shorter than the screen, so the viewport fits
+// the limit. A limit of 0 is not known and does not change the margin. See
+// imageSideLimit.
+func baseLayerMargin(viewport image.Rectangle, limit int) int {
+	margin := min(viewport.Dx(), viewport.Dy()) / 4
+	if limit <= 0 {
+		return margin
+	}
+	fit := (limit - max(viewport.Dx(), viewport.Dy())) / 2
+	return max(0, min(margin, fit))
 }
 
 // baseLayerInput holds the cached base layer state and the current map
@@ -1328,9 +1342,10 @@ func baseLayerShift(input baseLayerInput) (shift sim.Point, ok bool) {
 }
 
 // baseLayerArea returns the screen area of the cached base layer: the map
-// viewport and the margin around it.
-func baseLayerArea(viewport image.Rectangle) image.Rectangle {
-	return viewport.Inset(-baseLayerMargin(viewport))
+// viewport and the margin around it. limit is the largest side in pixels of
+// the layer image. See baseLayerMargin.
+func baseLayerArea(viewport image.Rectangle, limit int) image.Rectangle {
+	return viewport.Inset(-baseLayerMargin(viewport, limit))
 }
 
 // baseLayerPlan tells drawCachedNetworkBase how to show the cached base
@@ -1352,17 +1367,17 @@ func (plan baseLayerPlan) imageOffset() sim.Point {
 }
 
 // planBaseLayer decides how to show the cached base layer in the current
-// frame. It does not draw. When the layer must be drawn again, it records
-// the new key and camera origin of the cache, so a later pan is measured
-// from the new layer.
-func (g *Game) planBaseLayer() baseLayerPlan {
+// frame. limit is the largest side in pixels of the layer image. It does
+// not draw. When the layer must be drawn again, it records the new key and
+// camera origin of the cache, so a later pan is measured from the new layer.
+func (g *Game) planBaseLayer(limit int) baseLayerPlan {
 	viewport := g.layout.mapViewport
 	key := g.currentNetworkCacheKey()
 	shift, ok := baseLayerShift(baseLayerInput{
 		valid: g.networkBaseValid, cached: g.networkBaseKey, current: key,
-		drawnOrigin: g.networkBaseOrigin, origin: g.mapOrigin, margin: float64(baseLayerMargin(viewport)),
+		drawnOrigin: g.networkBaseOrigin, origin: g.mapOrigin, margin: float64(baseLayerMargin(viewport, limit)),
 	})
-	plan := baseLayerPlan{area: baseLayerArea(viewport), shift: shift, redraw: !ok}
+	plan := baseLayerPlan{area: baseLayerArea(viewport, limit), shift: shift, redraw: !ok}
 	if plan.redraw {
 		g.networkBaseKey = key
 		g.networkBaseOrigin = g.mapOrigin
@@ -1376,7 +1391,7 @@ func (g *Game) planBaseLayer() baseLayerPlan {
 // returns the screen paths of the lanes in the layer, as they were when it
 // drew the layer, and the distance to move them.
 func (g *Game) drawCachedNetworkBase(screen *ebiten.Image, style networkStyle) ([]lanePath, sim.Point) {
-	area := baseLayerArea(g.layout.mapViewport)
+	area := baseLayerArea(g.layout.mapViewport, style.imageLimit)
 	if g.networkBase == nil || g.networkBase.Bounds().Size() != area.Size() {
 		if g.networkBase != nil {
 			g.networkBase.Deallocate()
@@ -1384,7 +1399,7 @@ func (g *Game) drawCachedNetworkBase(screen *ebiten.Image, style networkStyle) (
 		g.networkBase = ebiten.NewImage(area.Dx(), area.Dy())
 		g.networkBaseValid = false
 	}
-	plan := g.planBaseLayer()
+	plan := g.planBaseLayer(style.imageLimit)
 	if plan.redraw {
 		g.networkBase.Clear()
 		g.networkBaseLanes = g.drawBaseNetwork(g.networkBase, baseNetworkInput{
