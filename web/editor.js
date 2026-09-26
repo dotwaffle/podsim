@@ -1028,18 +1028,18 @@
       if (document.format !== "podsim") throw new Error('The format field must be "podsim".');
       if (document.version !== 1) throw new Error("The version field must be 1.");
       if (!isObject(document.scenario)) throw new Error("The scenario field must be an object.");
-      return { scenario: clone(document.scenario), background: document.background, serverProject: false };
+      return { scenario: clone(document.scenario), background: document.background };
     }
     if (!("network" in document)) throw new Error("The file has no format field and no network field.");
     if (!isObject(document.network)) throw new Error("The network field must be an object.");
     if (document.version !== 1) throw new Error("The version field must be 1.");
-    return { scenario: clone(document), background: null, serverProject: true };
+    return { scenario: clone(document), background: null };
   }
 
   function parseDocument(text) {
     let document;
     try { document = JSON.parse(text); } catch (error) { throw new Error(`The file is not valid JSON. ${error.message}`); }
-    const { scenario, background, serverProject } = unwrapDocument(document);
+    const { scenario, background } = unwrapDocument(document);
     if (background) {
       const item = background;
       if (typeof item.dataURL !== "string" || !/^data:image\/(png|jpeg);base64,/.test(item.dataURL)) throw new Error("The background must be a PNG or JPEG data URL.");
@@ -1062,9 +1062,11 @@
     }
     const errors = validateConfig(scenario);
     if (errors.length) throw new Error(`The project has ${errors.length} error${errors.length === 1 ? "" : "s"}. ${errors.slice(0, 3).join(" ")}`);
-    // A server project file leaves out empty optional fields. Add them as the
-    // live server project load does.
-    return { scenario: serverProject ? normalizeConfig(scenario) : scenario, background: background ? clone(background) : null };
+    // A server project file leaves out empty optional fields. An older or
+    // edited browser export can also leave out a field. Add them as the live
+    // server project load does. The checks run first, so the default values
+    // do not replace an invalid value.
+    return { scenario: normalizeConfig(scenario), background: background ? clone(background) : null };
   }
 
   // createHistory keeps the draft with undo and redo. onChange runs after

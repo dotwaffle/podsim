@@ -79,6 +79,7 @@ This limit lets the server read the file at the next start.
 
 The browser export wraps the `project` object as `scenario` and can also contain a background image.
 **Import JSON** accepts the browser export and the server file, such as the output of `mise run scenario`.
+When the file leaves out an optional setting, such as the same-destination party limit, the import uses the default value.
 `-project` does not accept the browser export.
 
 ### Session state

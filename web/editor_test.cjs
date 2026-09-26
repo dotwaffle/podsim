@@ -182,17 +182,24 @@ test("undo after a station delete restores the station and its demand flows", ()
   assert.deepEqual(history.value, original);
 });
 
-test("a station delete works on an imported export with no demand profiles", () => {
-  // An older browser export has no demandProfiles field, and the import
-  // keeps the scenario as it is.
+test("a station delete works on a draft with no demand profiles", () => {
+  // An older browser export has no demandProfiles field. The import adds an
+  // empty list. The helpers also accept a draft with no such field.
   const scenario = connectedScenario();
   delete scenario.demandProfiles;
-  const { scenario: config } = editor.parseDocument(JSON.stringify({ format: "podsim", version: 1, scenario }));
-  const beta = config.network.Stations[1];
+  const { scenario: imported } = editor.parseDocument(JSON.stringify({ format: "podsim", version: 1, scenario }));
+  assert.deepEqual(imported.demandProfiles, []);
 
-  assert.equal(editor.stationFlowCount(config, beta.ID), 0);
-  const deleted = editor.deleteStation(config, beta.ID);
-  assert.deepEqual(deleted.network.Stations.map((station) => station.ID), [config.network.Stations[0].ID]);
+  const cases = [
+    { name: "field missing", config: scenario },
+    { name: "imported export", config: imported },
+  ];
+  for (const { name, config } of cases) {
+    const beta = config.network.Stations[1];
+    assert.equal(editor.stationFlowCount(config, beta.ID), 0, name);
+    const deleted = editor.deleteStation(config, beta.ID);
+    assert.deepEqual(deleted.network.Stations.map((station) => station.ID), [config.network.Stations[0].ID], name);
+  }
 });
 
 test("station drag moves its component nodes and internal curve as one group", () => {
@@ -1047,7 +1054,7 @@ test("portable OD profiles validate and round trip", () => {
     id: "weekday", name: "Weekday", bands: [{ id: "am", name: "AM peak", startMinute: 420, durationMinutes: 180 }],
     flows: [{ from: alpha.ID, to: beta.ID, weights: [3] }],
   }];
-  config.demand = { enabled: true, perMinute: 12, pattern: "profile", profile: "weekday", band: "am", seed: 9 };
+  config.demand = { enabled: true, perMinute: 12, pattern: "profile", destination: "", profile: "weekday", band: "am", seed: 9 };
 
   assert.deepEqual(editor.validateConfig(config), []);
   assert.deepEqual(editor.parseDocument(editor.serializeDocument(config)).scenario, config);
@@ -1056,15 +1063,13 @@ test("portable OD profiles validate and round trip", () => {
 });
 
 test("the demand pattern change selects the first profile, or leaves a check error with no profiles", () => {
-  // An older browser export has no demandProfiles field, and the import
-  // keeps the scenario as it is.
-  const exported = connectedScenario();
-  delete exported.demandProfiles;
+  const missing = connectedScenario();
+  delete missing.demandProfiles;
   const noProfiles = "The project has no demand profiles. Select another pattern.";
   const cases = [
     { name: "profiles present", config: profileScenario().config, profile: "weekday", band: "am", errors: [] },
     { name: "empty array", config: connectedScenario(), profile: "", band: "", errors: [noProfiles] },
-    { name: "member missing", config: editor.parseDocument(JSON.stringify({ format: "podsim", version: 1, scenario: exported })).scenario, profile: "", band: "", errors: [noProfiles] },
+    { name: "member missing", config: missing, profile: "", band: "", errors: [noProfiles] },
     { name: "null value", config: { ...connectedScenario(), demandProfiles: null }, profile: "", band: "", errors: [noProfiles] },
     { name: "non-array value", config: { ...connectedScenario(), demandProfiles: "weekday" }, profile: "", band: "", errors: ["Demand profiles must be an array.", noProfiles] },
   ];
@@ -1088,6 +1093,33 @@ test("portable projects preserve the shared ride party limit", () => {
   assert.equal(editor.parseDocument(editor.serializeDocument(config)).scenario.sharedRidePartyLimit, 4);
   config.sharedRidePartyLimit = 9;
   assert.ok(editor.validateConfig(config).some((error) => error.includes("shared ride party limit")));
+});
+
+test("import gives the default settings to a browser export that leaves them out", () => {
+  // An older or edited browser export can leave out a setting. The import
+  // adds the default value, as for a server project file. A party limit from
+  // 1 to 8 stays, and a zero limit loads as 1, as on the server. The checks
+  // run first, so an invalid value gives the same error as before.
+  const limitError = "The project has 1 error. The shared ride party limit must be 1 to 8.";
+  const cases = [
+    { name: "no party limit", edit: (config) => { delete config.sharedRidePartyLimit; }, want: (config) => ({ ...config, sharedRidePartyLimit: 1 }) },
+    { name: "a valid party limit", edit: (config) => { config.sharedRidePartyLimit = 4; }, want: (config) => config },
+    { name: "a zero party limit, which the server loads as one", edit: (config) => { config.sharedRidePartyLimit = 0; }, want: (config) => ({ ...config, sharedRidePartyLimit: 1 }) },
+    { name: "no demand profiles", edit: (config) => { delete config.demandProfiles; }, want: (config) => ({ ...config, demandProfiles: [] }) },
+    { name: "a valid band that is not the first", edit: (config) => { Object.assign(config.demand, { profile: "weekday", band: "pm" }); }, want: (config) => config },
+    { name: "a party limit above 8", edit: (config) => { config.sharedRidePartyLimit = 9; }, error: limitError },
+    { name: "a party limit as text", edit: (config) => { config.sharedRidePartyLimit = "4"; }, error: limitError },
+  ];
+  for (const item of cases) {
+    // The demand uses the second profile. The import keeps a valid profile
+    // and band.
+    const { config } = profileScenario();
+    Object.assign(config.demand, { pattern: "balanced", profile: "weekend", band: "day" });
+    item.edit(config);
+    const file = JSON.stringify({ format: "podsim", version: 1, scenario: config });
+    if (item.error) assert.throws(() => editor.parseDocument(file), { message: item.error }, item.name);
+    else assert.deepEqual(editor.parseDocument(file), { scenario: item.want(config), background: null }, item.name);
+  }
 });
 
 test("berth routes can use chains but not station nodes", () => {
