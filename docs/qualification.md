@@ -272,6 +272,14 @@ When Chrome limits a side and then the area, the drawing buffer does not have th
 The browser build also corrects the positions for that offset.
 For example, a 5000 by 2400 window at a device pixel ratio of 2 gets a 7524 by 4409 drawing buffer.
 Without the offset correction, clicks in that window landed about 22 CSS pixels too low, and a click on Speed missed.
+The screen still had the proportions of the window, so Ebitengine showed black bars above and below it.
+For example, a 4200 by 2400 window at a device pixel ratio of 2 also gets a 7524 by 4409 drawing buffer.
+The screen was 8191 by 4681 pixels, and each bar was about 30 CSS pixels high.
+When the drawing buffer is smaller than the canvas, the view now gives the screen the size of the drawing buffer.
+When a side is then larger than the GPU texture limit, both sides become smaller by the same factor.
+Thus the screen fills the window and there are no black bars.
+The browser stretches the drawing buffer to the window as before.
+In that window, the horizontal scale is about 2.5 percent larger than the vertical scale.
 Networks above 100 lanes also store neutral tracks, arrows, and nodes in a reusable image.
 The measured runs used a fixed 1100 by 760 image.
 The image now covers the map viewport and a margin around it, in device pixels.

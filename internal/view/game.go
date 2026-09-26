@@ -643,13 +643,19 @@ func (g *Game) Layout(outsideWidth, outsideHeight int) (int, int) {
 
 // LayoutF renders at the monitor's native pixel density while retaining
 // CSS-sized controls. When the screen image at that density would be larger
-// than the image limit, it renders at a lower density. See screenScale.
+// than the image limit, it renders at a lower density. See screenScale. When
+// the browser makes the drawing buffer smaller than the canvas, the screen
+// image gets the size of the drawing buffer. See screenSize.
 func (g *Game) LayoutF(outsideWidth, outsideHeight float64) (float64, float64) {
 	scale := 1.0
 	if monitor := ebiten.Monitor(); monitor != nil {
 		scale = monitor.DeviceScaleFactor()
 	}
-	w, h := g.layoutFor(layoutInput{outsideWidth: int(math.Round(outsideWidth)), outsideHeight: int(math.Round(outsideHeight)), deviceScale: scale, imageLimit: imageSideLimit(ebiten.MaxImageSize())})
+	buffer, canvas := readDrawingBuffer()
+	w, h := g.layoutFor(layoutInput{
+		outsideWidth: int(math.Round(outsideWidth)), outsideHeight: int(math.Round(outsideHeight)), deviceScale: scale,
+		imageLimit: imageSideLimit(ebiten.MaxImageSize()), buffer: buffer, canvas: canvas,
+	})
 	return float64(w), float64(h)
 }
 

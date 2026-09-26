@@ -15,11 +15,13 @@ import (
 // full canvas size. The positions then go past the controls.
 //
 // Ebitengine draws the screen image at the center of the drawing buffer, at
-// the largest scale that fits. When the browser limits one side and then the
-// area, the drawing buffer does not have the proportions of the screen
-// image, and Ebitengine adds a letterbox offset. The transform multiplies
-// each position by the drawing buffer size divided by the canvas size on
-// each axis. Then it adds the correction for the letterbox offset. See
+// the largest scale that fits. When the drawing buffer does not have the
+// proportions of the screen image, Ebitengine adds a letterbox offset.
+// LayoutF gives the screen image the proportions of a smaller drawing
+// buffer, so this offset is less than one pixel. See screenSize. The
+// transform multiplies each position by the drawing buffer size divided by
+// the canvas size on each axis. Then it adds the correction for the
+// letterbox offset. See
 // newPointerTransform. The result is less than one pixel from the true
 // position, because Ebitengine truncates the positions to whole pixels.
 //

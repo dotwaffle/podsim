@@ -34,10 +34,13 @@ The network view fills the browser window and renders at the display pixel densi
 On a very wide screen at a high pixel density, the lines of a small network can show without antialiasing.
 This occurs when the antialiasing image of the map would not fit in the largest GPU texture, for example in a 2560 by 1440 window at a device pixel ratio of 2 on a GPU with an 8192 pixel limit.
 When the full window at the display pixel density would not fit in the largest GPU texture, the view renders at a lower pixel density and scales the image to the window.
-For example, a 4200 by 2400 window at a device pixel ratio of 2 renders at a ratio of about 1.95 on a GPU with an 8192 pixel limit.
 The browser can also make the WebGL drawing buffer smaller than the window at the display pixel density.
 For example, Chrome gives a 7436 by 4461 drawing buffer to a 4000 by 2400 window at a device pixel ratio of 2, because it keeps the drawing buffer at about 33.2 million pixels or less.
-The view then corrects the cursor and touch positions for the smaller drawing buffer, so that clicks and taps hit the controls.
+Chrome keeps each side within the GPU limit before it applies the area limit.
+Thus, on a GPU with an 8192 pixel limit, a 4200 by 2400 window at a device pixel ratio of 2 gets a 7524 by 4409 drawing buffer.
+That drawing buffer does not have the proportions of the window.
+The view then renders at the size of the drawing buffer, so that it fills the window without black bars.
+The view also corrects the cursor and touch positions for the smaller drawing buffer, so that clicks and taps hit the controls.
 Resize the window to give the map more space.
 Map navigation and layout stay local to each browser.
 

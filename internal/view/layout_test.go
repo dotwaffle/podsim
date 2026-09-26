@@ -197,6 +197,7 @@ func TestDisplayLayoutFitsImageLimit(t *testing.T) {
 		{name: "3840 by 2160 at 2 fits", input: layoutInput{outsideWidth: 3840, outsideHeight: 2160, deviceScale: 2, imageLimit: headlessImageLimit}, wantWidth: 7680, wantHeight: 4320, wantScale: 2, wantUnit: 2},
 		{name: "4200 by 2400 at 2 on a larger GPU", input: layoutInput{outsideWidth: 4200, outsideHeight: 2400, deviceScale: 2, imageLimit: 16383}, wantWidth: 8400, wantHeight: 4800, wantScale: 2, wantUnit: 2},
 		{name: "4200 by 2400 at 2 unknown limit", input: layoutInput{outsideWidth: 4200, outsideHeight: 2400, deviceScale: 2}, wantWidth: 8400, wantHeight: 4800, wantScale: 2, wantUnit: 2},
+		{name: "4200 by 2400 at 2 capped buffer", input: layoutInput{outsideWidth: 4200, outsideHeight: 2400, deviceScale: 2, imageLimit: headlessImageLimit, buffer: image.Pt(7524, 4409), canvas: image.Pt(8400, 4800)}, wantWidth: 7524, wantHeight: 4409, wantScale: 7524.0 / 4200, wantUnit: 7524.0 / 4200},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -211,6 +212,71 @@ func TestDisplayLayoutFitsImageLimit(t *testing.T) {
 			}
 			if !got.mapViewport.In(screen) {
 				t.Errorf("map viewport %v is not inside the screen %v", got.mapViewport, screen)
+			}
+		})
+	}
+}
+
+// TestScreenSize checks the size of the screen image. When Chrome makes the
+// drawing buffer smaller than the canvas, the screen image gets the size of
+// the drawing buffer within the image limit, so that Ebitengine adds no
+// letterbox. The drawing buffer sizes are from headless Chrome with
+// SwiftShader, which has an 8192 pixel limit.
+func TestScreenSize(t *testing.T) {
+	t.Parallel()
+	tests := []struct {
+		name      string
+		input     screenSizeInput
+		want      image.Point
+		wantScale float64
+	}{
+		{
+			name:  "uncapped",
+			input: screenSizeInput{outside: image.Pt(3840, 2160), deviceScale: 2, limit: headlessImageLimit, buffer: image.Pt(7680, 4320), canvas: image.Pt(7680, 4320)},
+			want:  image.Pt(7680, 4320), wantScale: 2,
+		},
+		{
+			name:  "uncapped fractional scale",
+			input: screenSizeInput{outside: image.Pt(1367, 769), deviceScale: 1.25, limit: headlessImageLimit, buffer: image.Pt(1708, 961), canvas: image.Pt(1708, 961)},
+			want:  image.Pt(1709, 962), wantScale: 1.25,
+		},
+		{
+			name:  "desktop above limit",
+			input: screenSizeInput{outside: image.Pt(4200, 2400), deviceScale: 2, limit: headlessImageLimit},
+			want:  image.Pt(8191, 4681), wantScale: 8191.0 / 4200,
+		},
+		{
+			name:  "width capped only",
+			input: screenSizeInput{outside: image.Pt(4200, 1000), deviceScale: 2, limit: headlessImageLimit, buffer: image.Pt(8192, 2000), canvas: image.Pt(8400, 2000)},
+			want:  image.Pt(8191, 2000), wantScale: 8191.0 / 4200,
+		},
+		{
+			name:  "height capped only",
+			input: screenSizeInput{outside: image.Pt(1500, 4200), deviceScale: 2, limit: headlessImageLimit, buffer: image.Pt(3000, 8192), canvas: image.Pt(3000, 8400)},
+			want:  image.Pt(3000, 8191), wantScale: 8191.0 / 4200,
+		},
+		{
+			name:  "area capped only",
+			input: screenSizeInput{outside: image.Pt(4000, 2400), deviceScale: 2, limit: headlessImageLimit, buffer: image.Pt(7436, 4461), canvas: image.Pt(8000, 4800)},
+			want:  image.Pt(7436, 4461), wantScale: 4461.0 / 2400,
+		},
+		{
+			name:  "width and area capped",
+			input: screenSizeInput{outside: image.Pt(4200, 2400), deviceScale: 2, limit: headlessImageLimit, buffer: image.Pt(7524, 4409), canvas: image.Pt(8400, 4800)},
+			want:  image.Pt(7524, 4409), wantScale: 7524.0 / 4200,
+		},
+		{
+			name:  "unknown limit",
+			input: screenSizeInput{outside: image.Pt(4200, 2400), deviceScale: 2, buffer: image.Pt(7524, 4409), canvas: image.Pt(8400, 4800)},
+			want:  image.Pt(8400, 4800), wantScale: 2,
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			got, scale := screenSize(test.input)
+			if got != test.want || !closeTo(scale, test.wantScale) {
+				t.Fatalf("screenSize(%+v) = %v, %g, want %v, %g", test.input, got, scale, test.want, test.wantScale)
 			}
 		})
 	}
