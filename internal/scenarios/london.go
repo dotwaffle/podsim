@@ -67,6 +67,13 @@ type londonStationPortals struct {
 	arrivals, departures []londonPortal
 }
 
+// londonParkingFacilities lists the Parking facilities in network order.
+var londonParkingFacilities = []londonParkingSource{
+	{ID: "parking-west", Name: "West London Parking", Gateway: "940GZZLUHSD", Direction: math.Pi},
+	{ID: "parking-north", Name: "North London Parking", Gateway: "940GZZLUFPK", Direction: -math.Pi / 2},
+	{ID: "parking-east", Name: "East London Parking", Gateway: "940GZZLUMED", Direction: 0},
+}
+
 var (
 	londonOnce   sync.Once
 	londonPreset project.Config
@@ -134,11 +141,7 @@ func londonNetwork(source londonSource) sim.Network {
 		neighbors[link.A] = append(neighbors[link.A], b)
 		neighbors[link.B] = append(neighbors[link.B], a)
 	}
-	facilities := []londonParkingSource{
-		{ID: "parking-west", Name: "West London Parking", Gateway: "940GZZLUHSD", Direction: math.Pi},
-		{ID: "parking-north", Name: "North London Parking", Gateway: "940GZZLUFPK", Direction: -math.Pi / 2},
-		{ID: "parking-east", Name: "East London Parking", Gateway: "940GZZLUMED", Direction: 0},
-	}
+	facilities := londonParkingFacilities
 	input := londonHeadingInput{links: londonLaneSegments(network)}
 	indexes := make(map[string]int, len(source.Stations))
 	for index, station := range source.Stations {

@@ -119,6 +119,13 @@ func (n Network) Position(lane Lane, distance float64) Point {
 	return points[len(points)-1]
 }
 
+// Polyline returns the points of the path that a pod follows along the
+// lane. A straight lane has 2 points, and a curved lane has 65 points.
+// Length, Position and the junction conflicts use the same path.
+func (n Network) Polyline(lane Lane) []Point {
+	return n.lanePoints(lane, make([]Point, 0, 65))
+}
+
 // Use the same polyline for length, movement, and browser interpolation.
 func (n Network) lanePoints(lane Lane, points []Point) []Point {
 	a, _ := n.Node(lane.From)

@@ -3,7 +3,6 @@ package scenarios
 import (
 	"math"
 	"slices"
-	"strings"
 	"testing"
 
 	"github.com/dotwaffle/podsim/internal/sim"
@@ -200,29 +199,6 @@ func TestSearchLondonHeadings(t *testing.T) {
 			}
 		})
 	}
-}
-
-// londonLaneKind sorts the London lanes for the geometry checks.
-type londonLaneKind int
-
-const (
-	londonMovementLane londonLaneKind = iota
-	londonLinkLane
-	londonRoadLane
-	londonCoreLane
-)
-
-// londonKind returns the kind of a lane in the London preset.
-func londonKind(lane sim.Lane) londonLaneKind {
-	switch {
-	case strings.HasPrefix(lane.ID, "london-link-"):
-		return londonLinkLane
-	case lane.StationID == "":
-		return londonMovementLane
-	case strings.Contains(lane.ID, "-road-in-"), strings.Contains(lane.ID, "-road-out-"):
-		return londonRoadLane
-	}
-	return londonCoreLane
 }
 
 // TestLondonStationsLieBesideTheirLines checks the station headings that

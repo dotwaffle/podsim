@@ -28,6 +28,30 @@ func TestCurvedLaneGeometry(t *testing.T) {
 	}
 }
 
+func TestPolylineIsTheMovementPath(t *testing.T) {
+	t.Parallel()
+	n := Network{Nodes: []Node{{ID: "a", Position: Point{}}, {ID: "b", Position: Point{X: 100}}}}
+	for _, lane := range []Lane{
+		{ID: "straight", From: "a", To: "b", SpeedLimit: 14},
+		{ID: "curve", From: "a", To: "b", SpeedLimit: 14, Control: &Point{X: 50, Y: 100}},
+	} {
+		points := n.Polyline(lane)
+		if points[0] != (Point{}) || points[len(points)-1] != (Point{X: 100}) {
+			t.Fatalf("lane %s: polyline ends %+v and %+v", lane.ID, points[0], points[len(points)-1])
+		}
+		distance := 0.0
+		for i := 1; i < len(points); i++ {
+			distance += pointDistance(points[i-1], points[i])
+			if got := n.Position(lane, distance); pointDistance(got, points[i]) > 1e-9 {
+				t.Fatalf("lane %s point %d: Position gives %+v, want %+v", lane.ID, i, got, points[i])
+			}
+		}
+		if math.Abs(distance-n.Length(lane)) > 1e-9 {
+			t.Fatalf("lane %s: polyline length %v, Length %v", lane.ID, distance, n.Length(lane))
+		}
+	}
+}
+
 func TestCachedLaneGeometryMatchesNetwork(t *testing.T) {
 	t.Parallel()
 	network := Example()
