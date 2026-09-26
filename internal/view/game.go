@@ -139,8 +139,14 @@ type Game struct {
 	// from Ebiten in each frame. See imageSideLimit.
 	imageLimit int
 	// shell is the shell page that holds the game. It is nil in the
-	// desktop client and outside the shell page. See Shell.
-	shell Shell
+	// desktop client and outside the shell page. See Shell. shellReadySent
+	// is true after the game sent ShellReady.
+	shell          Shell
+	shellReadySent bool
+	// hidden is true while the shell page hides the game. Then Draw does
+	// not draw. drawnFrames counts the frames that Draw drew.
+	hidden      bool
+	drawnFrames int
 	// reload loads the page again. It is nil in the desktop client.
 	// serverUpdated becomes true when the game sees a new server build, so
 	// the game reloads the page only once.
@@ -664,7 +670,15 @@ func (g *Game) ensureLayout() {
 }
 
 // Draw renders an independent snapshot without changing simulation state.
+// While the shell page hides the game, Draw does nothing. Update still reads
+// the shared state, so the first frame after the game shows again is
+// current. The screen is not cleared between frames, so it keeps the last
+// frame until then. See ebiten.SetScreenClearedEveryFrame in cmd/podsim.
 func (g *Game) Draw(screen *ebiten.Image) {
+	if g.hidden {
+		return
+	}
+	g.drawnFrames++
 	g.ensureLayout()
 	g.fitNetwork()
 	g.imageLimit = imageSideLimit(ebiten.MaxImageSize())

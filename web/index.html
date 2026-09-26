@@ -14,15 +14,19 @@
     /* The shell controls are for keyboard users. The game draws its own
        Edit scenario and Download debug state buttons, and the editor has its
        own return link. As with a skip link, a control is hidden until it
-       gets the keyboard focus. Then it shows in the top left corner. */
-    nav a, nav button { position: absolute; top: 8px; left: 8px; z-index: 1; padding: 6px 12px; border: 1px solid #345064; border-radius: 7px; background: #101d28; color: #9fe4eb; font: 14px system-ui, sans-serif; text-decoration: none; cursor: pointer; }
-    nav a:not(:focus), nav button:not(:focus), #debugStatus { width: 1px; height: 1px; padding: 0; border: 0; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+       gets the keyboard focus. Then it shows in the top left corner.
+       Until the game in the frame tells the shell that it is ready, the nav
+       has the fallback class. Then the controls of the game show in a row in
+       the top left corner. See PodsimShell.controlsShow. */
+    nav { position: absolute; top: 8px; left: 8px; z-index: 1; display: flex; gap: 8px; }
+    nav a, nav button { padding: 6px 12px; border: 1px solid #345064; border-radius: 7px; background: #101d28; color: #9fe4eb; font: 14px system-ui, sans-serif; text-decoration: none; cursor: pointer; }
+    nav:not(.fallback) a:not(:focus), nav:not(.fallback) button:not(:focus), #debugStatus { position: absolute; width: 1px; height: 1px; padding: 0; border: 0; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
     button:disabled { opacity: .6; cursor: wait; }
   </style>
   <script src="shell.js"></script>
 </head>
 <body>
-  <nav aria-label="Scenario tools">
+  <nav aria-label="Scenario tools" class="fallback">
     <a id="editorLink" href="#editor">Edit scenario</a>
     <button id="gameButton" type="button" hidden>Simulation</button>
     <button id="debugButton" type="button" title="Save the current run for debugging. This capture cannot be reloaded.">Download debug state</button>
@@ -39,6 +43,17 @@
     let view = "game";
     const button = document.getElementById("debugButton");
     const status = document.getElementById("debugStatus");
+    // gameReady is true after the game frame load sent a ready message with
+    // the message version of this page. See PodsimShell.gameReady.
+    // updateControls shows the shell controls without the focus when
+    // PodsimShell.controlsShow tells it to.
+    const nav = document.querySelector("nav");
+    let gameReady = false;
+    function updateControls(change) {
+      gameReady = PodsimShell.gameReady(gameReady, change);
+      nav.classList.toggle("fallback", PodsimShell.controlsShow(view, gameReady));
+    }
+    frames.game.addEventListener("load", () => updateControls("load"));
     // Ebitengine does not focus its canvas inside an iframe. Give the game the
     // keyboard focus, so that its keyboard shortcuts work without a click. Do
     // not take the focus from a different control that the user selected,
@@ -128,6 +143,7 @@
       view = next;
       for (const [name, frame] of Object.entries(frames)) if (frame) frame.inert = name !== view;
       for (const id of PodsimShell.CONTROLS) document.getElementById(id).hidden = !PodsimShell.VIEWS[view].controls.includes(id);
+      updateControls();
       document.title = PodsimShell.VIEWS[view].title;
       const target = PodsimShell.focusTarget(view, keyboard);
       (frames[target] ?? document.getElementById(target)).focus();
@@ -147,11 +163,31 @@
     document.getElementById("gameButton").addEventListener("click", (event) => select("game", event.detail === 0));
     // A frame sends a request with a message. The editor asks for the game
     // with its return link. The game asks for the editor and for a debug
-    // capture with its header buttons.
+    // capture with its header buttons. The game also asks for a reload when
+    // the server build changes, and it tells the shell when it is ready.
     window.addEventListener("message", (event) => {
-      const request = PodsimShell.pageRequest(event, location.origin);
-      if (request?.action === "show") select(request.view, request.keyboard);
-      if (request?.action === "debug") captureDebugState();
+      const request = PodsimShell.pageRequest(event, location.origin, frames.game.contentWindow);
+      switch (request?.action) {
+        case "show":
+          select(request.view, request.keyboard);
+          break;
+        case "debug":
+          captureDebugState();
+          break;
+        case "reload":
+          if (PodsimShell.reloadTarget(frames.editor !== null) === "page") {
+            location.reload();
+            break;
+          }
+          // The new game can be of a different build. Show the controls
+          // until it is ready.
+          updateControls("load");
+          frames.game.contentWindow.location.reload();
+          break;
+        case "ready":
+          updateControls(request);
+          break;
+      }
     });
     // podsimShell tells the editor and the game that this page can show
     // them.

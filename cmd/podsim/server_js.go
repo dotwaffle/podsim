@@ -10,11 +10,15 @@ import (
 
 func serverURL() string { return js.Global().Get("location").Get("origin").String() }
 
-// pageReloader returns a func that loads the page again. game.html runs in an
-// iframe of index.html, so the func reloads the top page. When the top page
+// pageReloader returns a func that loads the page again. In a frame of the
+// shell page, the func asks the shell page to reload. See shellPage.reload.
+// Outside the shell page, the func reloads the top page. When the top page
 // has a different origin, the browser blocks this with a SecurityError. Then
 // the func reloads this frame only.
-func pageReloader() func() {
+func pageReloader(shell view.Shell) func() {
+	if page, ok := shell.(*shellPage); ok {
+		return page.reload
+	}
 	return func() {
 		window := js.Global()
 		defer func() {
@@ -44,10 +48,11 @@ func readProperty(object js.Value, name string) js.Value {
 // shellPage links the game to the shell page index.html. See view.Shell.
 type shellPage struct {
 	// parent is the window of the shell page, and origin is the origin of
-	// this page and of the shell page.
-	parent  js.Value
-	origin  string
-	notices chan view.ShellNotice
+	// this page and of the shell page. frame is the iframe element of the
+	// game in the shell page.
+	parent, frame js.Value
+	origin        string
+	notices       chan view.ShellNotice
 }
 
 // shellLink returns the link to the shell page when game.html runs in a
@@ -73,7 +78,7 @@ func shellLink() (link view.Shell) {
 	if flag := readProperty(parent, "podsimShell"); flag.Type() != js.TypeBoolean || !flag.Bool() {
 		return nil
 	}
-	shell := &shellPage{parent: parent, origin: window.Get("location").Get("origin").String(), notices: make(chan view.ShellNotice, 4)}
+	shell := &shellPage{parent: parent, frame: window.Get("frameElement"), origin: window.Get("location").Get("origin").String(), notices: make(chan view.ShellNotice, 4)}
 	// The func stays for the life of the page, so it is never released.
 	window.Call("addEventListener", "message", js.FuncOf(func(_ js.Value, args []js.Value) any {
 		if notice, ok := shell.notice(args[0]); ok {
@@ -106,8 +111,7 @@ func (s *shellPage) notice(event js.Value) (view.ShellNotice, bool) {
 	return view.ShellNotice{Text: text.String(), Error: failed.Bool()}, true
 }
 
-// Send posts request to the shell page. See showRequest and debugRequest in
-// web/shell.js.
+// Send posts request to the shell page. See pageRequest in web/shell.js.
 func (s *shellPage) Send(request view.ShellRequest) {
 	var message map[string]any
 	switch request {
@@ -115,6 +119,8 @@ func (s *shellPage) Send(request view.ShellRequest) {
 		message = map[string]any{"podsim": "show", "view": "editor", "keyboard": false}
 	case view.CaptureDebugState:
 		message = map[string]any{"podsim": "debug"}
+	case view.ShellReady:
+		message = map[string]any{"podsim": "ready", "version": view.ShellVersion}
 	default:
 		return
 	}
@@ -123,3 +129,16 @@ func (s *shellPage) Send(request view.ShellRequest) {
 
 // Notices gives the status texts from the shell page.
 func (s *shellPage) Notices() <-chan view.ShellNotice { return s.notices }
+
+// Hidden reports if the shell page hides the game frame. The shell page
+// makes the frame of the view that does not show inert.
+func (s *shellPage) Hidden() bool {
+	return s.frame.Type() == js.TypeObject && s.frame.Get("inert").Bool()
+}
+
+// reload asks the shell page to reload after a change of the server build.
+// The shell page reloads the full page, or only the game frame when the
+// editor frame has loaded. See reloadTarget in web/shell.js.
+func (s *shellPage) reload() {
+	s.parent.Call("postMessage", map[string]any{"podsim": "reload"}, s.origin)
+}

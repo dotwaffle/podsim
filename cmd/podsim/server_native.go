@@ -16,7 +16,7 @@ func serverURL() string {
 
 // pageReloader returns nil. The desktop client cannot load itself again, so
 // the game shows a message when the server build changes.
-func pageReloader() func() { return nil }
+func pageReloader(view.Shell) func() { return nil }
 
 // shellLink returns nil. The desktop client has no shell page, so the header
 // does not show Edit scenario and Download debug state.

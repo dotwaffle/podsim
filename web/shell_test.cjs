@@ -29,7 +29,7 @@ test("each view has the hash that selects it", () => {
   }
 });
 
-test("pageRequest accepts only a show or debug message from the same origin", () => {
+test("pageRequest accepts only a show, debug or reload message from the same origin", () => {
   const game = { action: "show", view: "game", keyboard: false };
   const debug = { action: "debug" };
   for (const [name, event, want] of [
@@ -56,6 +56,9 @@ test("pageRequest accepts only a show or debug message from the same origin", ()
     ["debug as text", { origin: ORIGIN, data: "debug" }, null],
     ["debug in an array", { origin: ORIGIN, data: { podsim: ["debug"] } }, null],
     ["debug with other case", { origin: ORIGIN, data: { podsim: "Debug" } }, null],
+    ["reload", { origin: ORIGIN, data: { podsim: "reload" } }, { action: "reload" }],
+    ["reload from other origin", { origin: "http://example.com", data: { podsim: "reload" } }, null],
+    ["reload as text", { origin: ORIGIN, data: "reload" }, null],
     ["notice to the game", { origin: ORIGIN, data: { podsim: "notice", text: "Debug state downloaded: tick 1.", error: false } }, null],
     ["other action", { origin: ORIGIN, data: { podsim: "hide", view: "game" } }, null],
     ["inherited action", { origin: ORIGIN, data: { podsim: "toString" } }, null],
@@ -66,6 +69,85 @@ test("pageRequest accepts only a show or debug message from the same origin", ()
   ]) {
     assert.deepEqual(shell.pageRequest(event, ORIGIN), want, name);
   }
+});
+
+test("pageRequest accepts a ready message only from the game frame with a number version", () => {
+  const game = { name: "game frame" };
+  const editor = { name: "editor frame" };
+  for (const [name, event, want] of [
+    ["ready", { origin: ORIGIN, source: game, data: { podsim: "ready", version: 1 } }, { action: "ready", version: 1 }],
+    ["other version", { origin: ORIGIN, source: game, data: { podsim: "ready", version: 2 } }, { action: "ready", version: 2 }],
+    ["other origin", { origin: "http://example.com", source: game, data: { podsim: "ready", version: 1 } }, null],
+    ["opaque origin", { origin: "null", source: game, data: { podsim: "ready", version: 1 } }, null],
+    ["from the editor", { origin: ORIGIN, source: editor, data: { podsim: "ready", version: 1 } }, null],
+    ["no source", { origin: ORIGIN, data: { podsim: "ready", version: 1 } }, null],
+    ["version as text", { origin: ORIGIN, source: game, data: { podsim: "ready", version: "1" } }, null],
+    ["version in an array", { origin: ORIGIN, source: game, data: { podsim: "ready", version: [1] } }, null],
+    ["no version", { origin: ORIGIN, source: game, data: { podsim: "ready" } }, null],
+    ["ready as text", { origin: ORIGIN, source: game, data: "ready" }, null],
+  ]) {
+    assert.deepEqual(shell.pageRequest(event, ORIGIN, game), want, name);
+  }
+  // Without the game window, the shell cannot check the source.
+  assert.equal(shell.pageRequest({ origin: ORIGIN, data: { podsim: "ready", version: 1 } }, ORIGIN), null, "no game window");
+  assert.equal(shell.pageRequest({ origin: ORIGIN, source: null, data: { podsim: "ready", version: 1 } }, ORIGIN, null), null, "null game window");
+});
+
+test("the game is ready only after the frame load sent the shell version", () => {
+  const game = {};
+  const ready = (version) => shell.pageRequest({ origin: ORIGIN, source: game, data: { podsim: "ready", version } }, ORIGIN, game);
+  const cases = [
+    ["first load", [], false],
+    ["matching ready", [ready(shell.SHELL_VERSION)], true],
+    ["other version", [ready(shell.SHELL_VERSION + 1)], false],
+    ["older version", [ready(0)], false],
+    ["NaN version", [ready(Number.NaN)], false],
+    ["ignored message", [null], false],
+    ["other request after ready", [ready(shell.SHELL_VERSION), { action: "debug" }, null, undefined], true],
+    ["frame load after ready", [ready(shell.SHELL_VERSION), "load"], false],
+    ["new ready after a frame load", [ready(shell.SHELL_VERSION), "load", ready(shell.SHELL_VERSION)], true],
+    ["other version after a frame load", [ready(shell.SHELL_VERSION), "load", ready(shell.SHELL_VERSION + 1)], false],
+  ];
+  for (const [name, changes, want] of cases) {
+    let state = false;
+    for (const change of changes) state = shell.gameReady(state, change);
+    assert.equal(state, want, name);
+  }
+});
+
+test("the shell controls show without the focus only while the game shows and is not ready", () => {
+  for (const [view, ready, want] of [
+    ["game", false, true],
+    ["game", true, false],
+    ["editor", false, false],
+    ["editor", true, false],
+  ]) {
+    assert.equal(shell.controlsShow(view, ready), want, `${view} ready ${ready}`);
+  }
+});
+
+test("the shell and the game use the same message version", () => {
+  const source = fs.readFileSync(path.join(__dirname, "..", "internal", "view", "shell.go"), "utf8");
+  const match = source.match(/^const ShellVersion = (\d+)$/m);
+  assert.ok(match, "internal/view/shell.go has no ShellVersion");
+  assert.equal(Number(match[1]), shell.SHELL_VERSION);
+});
+
+test("the shell page shows its controls until the game frame is ready", () => {
+  const html = fs.readFileSync(path.join(__dirname, "index.html"), "utf8");
+  // The controls show before the first ready message.
+  assert.match(html, /<nav aria-label="Scenario tools" class="fallback">/);
+  assert.match(html, /nav\.classList\.toggle\("fallback", PodsimShell\.controlsShow\(view, gameReady\)\)/);
+  assert.match(html, /PodsimShell\.pageRequest\(event, location\.origin, frames\.game\.contentWindow\)/);
+  assert.match(html, /frames\.game\.addEventListener\("load", \(\) => updateControls\("load"\)\)/);
+  // A frame reload shows the controls before the new game loads.
+  assert.match(html, /updateControls\("load"\);\s*frames\.game\.contentWindow\.location\.reload\(\);/);
+  assert.match(html, /case "ready":\s*updateControls\(request\);/);
+});
+
+test("reloadTarget keeps a loaded editor", () => {
+  assert.equal(shell.reloadTarget(false), "page");
+  assert.equal(shell.reloadTarget(true), "game");
 });
 
 test("noticeMessage gives the notice shape that the game accepts", () => {
@@ -123,7 +205,7 @@ test("the shell controls come first in the page, in the order of CONTROLS", () =
 
 test("the shell controls are hidden until they get the focus", () => {
   const html = fs.readFileSync(path.join(__dirname, "index.html"), "utf8");
-  assert.match(html, /nav a:not\(:focus\), nav button:not\(:focus\), #debugStatus \{[^}]*clip-path: inset\(50%\)/);
+  assert.match(html, /nav:not\(\.fallback\) a:not\(:focus\), nav:not\(\.fallback\) button:not\(:focus\), #debugStatus \{[^}]*clip-path: inset\(50%\)/);
   assert.match(html, /<span id="debugStatus" role="status"><\/span>/);
   assert.doesNotMatch(html, /<nav[^>]*\bhidden\b/, "a hidden nav removes the controls from the Tab order");
 });

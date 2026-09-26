@@ -21,7 +21,8 @@ func main() {
 func run() error {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	game, err := view.New(ctx, serverURL(), view.WithReload(pageReloader()), view.WithShell(shellLink()))
+	shell := shellLink()
+	game, err := view.New(ctx, serverURL(), view.WithReload(pageReloader(shell)), view.WithShell(shell))
 	if err != nil {
 		return err
 	}
@@ -29,5 +30,9 @@ func run() error {
 	ebiten.SetWindowTitle("Podsim")
 	ebiten.SetWindowResizingMode(ebiten.WindowResizingModeEnabled)
 	ebiten.SetTPS(sim.TicksPerSecond)
+	// Draw fills the full screen in each frame. While the shell page hides
+	// the game, Draw does not draw, and the screen keeps the last frame.
+	// Thus the game shows no empty frame when it shows again.
+	ebiten.SetScreenClearedEveryFrame(false)
 	return ebiten.RunGame(game)
 }

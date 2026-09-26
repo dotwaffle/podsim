@@ -321,6 +321,7 @@ The simulation uses Tab and Shift+Tab to select pods, so the keyboard cannot mov
 For keyboard users, the page has the controls **Edit scenario**, **Download debug state**, and **Simulation** before the simulation and the editor.
 These controls are hidden until they get the keyboard focus.
 To get to them, move the focus to the start of the page, for example from the browser address bar, and press Tab.
+While the simulation starts, and after a server change to a simulation that uses other page messages, these controls show in the top left corner.
 After you select **Simulation** or **← Simulation** with the keyboard, **Edit scenario** gets the focus in its place.
 After a click outside the simulation, click the simulation to use the keyboard shortcuts again.
 While the connection works and the simulation has no keyboard focus, the line below the panels shows **Click the simulation to use keyboard shortcuts** in amber.
@@ -411,7 +412,8 @@ For example, the panel shows **Redistribution: on / 3 moves / 15.3 km empty**.
 
 Select **Edit scenario** in the header of the simulation to open the editor.
 The editor opens in the same page.
-The simulation stays loaded behind it and continues to run.
+The simulation stays loaded behind it and continues to read the shared state.
+It does not draw while the editor shows, so it does not slow the editor.
 To return to the simulation, select **← Simulation** in the editor, or use the browser Back button.
 The simulation then shows the same map view and the same selected pod as before.
 The editor keeps its state while the simulation shows.

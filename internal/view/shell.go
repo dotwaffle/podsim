@@ -9,7 +9,19 @@ const (
 	// CaptureDebugState asks the shell page to download a debug capture of
 	// the server state.
 	CaptureDebugState ShellRequest = "debug"
+	// ShellReady tells the shell page that the game runs and that it uses
+	// the shell messages of ShellVersion. The game sends it once, in its
+	// first update.
+	ShellReady ShellRequest = "ready"
 )
+
+// ShellVersion is the version of the messages between the game and the
+// shell page. The shell page shows its own Edit scenario and Download debug
+// state controls until the game in its frame sends ShellReady with the
+// version that the shell page uses. Change it when a message changes, so a
+// shell page and a game of different builds do not rely on each other. See
+// SHELL_VERSION in web/shell.js.
+const ShellVersion = 1
 
 // ShellNotice is a status text that the shell page sends to the game, such
 // as the result of a debug capture. Error is true when the text tells of a
@@ -26,6 +38,9 @@ type ShellNotice struct {
 type Shell interface {
 	// Send asks the shell page to do request.
 	Send(request ShellRequest)
+	// Hidden reports if the shell page hides the game frame. While the
+	// frame is hidden, the game does not draw.
+	Hidden() bool
 	// Notices gives the status texts that the shell page sends to the game.
 	Notices() <-chan ShellNotice
 }
@@ -57,15 +72,21 @@ func (g *Game) shellButtons() []button {
 	}
 }
 
-// readShell reads a status text from the shell page. A text that tells of
-// a failure shows in the message line, so it stays until the next action.
-// Other text shows as a notice. A notice does not replace a confirmation
-// of Reset or Start traffic demo, because a second press then sends the
-// command.
+// readShell tells the shell page that the game is ready, the first time
+// only. Then it reads if the shell page hides the game, and a status text
+// from the shell page. A text that tells of a failure shows in the message line,
+// so it stays until the next action. Other text shows as a notice. A notice
+// does not replace a confirmation of Reset or Start traffic demo, because a
+// second press then sends the command.
 func (g *Game) readShell() {
 	if g.shell == nil {
 		return
 	}
+	if !g.shellReadySent {
+		g.shell.Send(ShellReady)
+		g.shellReadySent = true
+	}
+	g.hidden = g.shell.Hidden()
 	select {
 	case notice := <-g.shell.Notices():
 		switch {

@@ -1,24 +1,31 @@
 package view
 
 import (
+	"net/http/httptest"
 	"slices"
 	"strings"
 	"testing"
+	"time"
+
+	"github.com/hajimehoshi/ebiten/v2"
 
 	"github.com/dotwaffle/podsim/internal/session"
 	"github.com/dotwaffle/podsim/internal/sim"
 )
 
-// fakeShell records the requests of the game and gives it notices.
+// fakeShell records the requests of the game and gives it notices. hidden
+// is true while the fake shell page hides the game.
 type fakeShell struct {
 	requests []ShellRequest
 	notices  chan ShellNotice
+	hidden   bool
 }
 
 func newFakeShell() *fakeShell { return &fakeShell{notices: make(chan ShellNotice, 4)} }
 
 func (s *fakeShell) Send(request ShellRequest)   { s.requests = append(s.requests, request) }
 func (s *fakeShell) Notices() <-chan ShellNotice { return s.notices }
+func (s *fakeShell) Hidden() bool                { return s.hidden }
 
 // shellActions returns the actions of the header buttons that send a request
 // to the shell page.
@@ -186,5 +193,91 @@ func TestHeaderFitsShellButtons(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+// TestDrawSkipsWhileHidden checks that Draw does not draw while the shell
+// page hides the game, and that it draws again in the first frame after the
+// game shows. The test calls Draw one time in each state.
+func TestDrawSkipsWhileHidden(t *testing.T) {
+	t.Parallel()
+	game := exampleTestGame(t)
+	shell := newFakeShell()
+	game.shell = shell
+	screen := ebiten.NewImage(game.layout.width, game.layout.height)
+	defer screen.Deallocate()
+	for _, step := range []struct {
+		name       string
+		hidden     bool
+		wantFrames int
+	}{
+		{name: "hidden", hidden: true, wantFrames: 0},
+		{name: "shown", wantFrames: 1},
+	} {
+		shell.hidden = step.hidden
+		game.readShell()
+		game.Draw(screen)
+		if game.drawnFrames != step.wantFrames {
+			t.Fatalf("%s: Draw drew %d frames, want %d", step.name, game.drawnFrames, step.wantFrames)
+		}
+	}
+}
+
+// TestHiddenGameReadsState checks that a hidden game still reads the shared
+// state and the shell notices in Update, so that it is current when it
+// shows again. The game also tells the shell page once that it is ready.
+func TestHiddenGameReadsState(t *testing.T) {
+	t.Parallel()
+	server := httptest.NewServer(buildTestHandler(t, "build-a"))
+	t.Cleanup(server.Close)
+	shell := newFakeShell()
+	shell.hidden = true
+	game, err := New(t.Context(), server.URL, WithShell(shell))
+	if err != nil {
+		t.Fatalf("create game: %v", err)
+	}
+	shell.notices <- ShellNotice{Text: "Debug state downloaded: tick 1."}
+	deadline := time.Now().Add(5 * time.Second)
+	for game.state.Epoch == "" && time.Now().Before(deadline) {
+		if err := game.Update(); err != nil {
+			t.Fatalf("update: %v", err)
+		}
+		time.Sleep(5 * time.Millisecond)
+	}
+	if game.state.Epoch == "" || !game.hidden {
+		t.Fatalf("hidden game has epoch %q and hidden %t, want a state and true", game.state.Epoch, game.hidden)
+	}
+	if game.notice != "Debug state downloaded: tick 1." {
+		t.Errorf("notice = %q, want the shell notice", game.notice)
+	}
+	if want := []ShellRequest{ShellReady}; !slices.Equal(shell.requests, want) {
+		t.Errorf("requests = %q, want %q", shell.requests, want)
+	}
+}
+
+// TestShellReady checks that the game sends ShellReady to the shell page
+// once, in its first update, also while the shell page hides the game.
+// Without a shell, the game sends nothing.
+func TestShellReady(t *testing.T) {
+	t.Parallel()
+	if ShellVersion != 1 {
+		t.Errorf("ShellVersion = %d, want 1", ShellVersion)
+	}
+	for _, hidden := range []bool{false, true} {
+		game := exampleTestGame(t)
+		shell := newFakeShell()
+		shell.hidden = hidden
+		game.shell = shell
+		for range 3 {
+			game.readShell()
+		}
+		if want := []ShellRequest{ShellReady}; !slices.Equal(shell.requests, want) {
+			t.Errorf("hidden %t: requests = %q, want %q", hidden, shell.requests, want)
+		}
+	}
+	game := exampleTestGame(t)
+	game.readShell()
+	if game.shellReadySent {
+		t.Error("the game without a shell sent ShellReady")
 	}
 }
