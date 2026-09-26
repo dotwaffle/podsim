@@ -407,6 +407,8 @@ If the simulation rejects a generated order, the Demand panel shows the last err
 
 The panel also shows if redistribution is on, the number of redistribution moves, and the distance that pods traveled with no passenger.
 For example, the panel shows **Redistribution: on / 3 moves / 15.3 km empty**.
+Redistribution moves pods only at a low demand rate, so the panel can show 0 moves while it is on.
+See [Demand and policy comparisons](#demand-and-policy-comparisons).
 
 ## Scenario editor
 
@@ -619,18 +621,28 @@ When the focus is not on a message in the **Checks** section, the checks do not 
 ### Demand and policy comparisons
 
 Redistribution is off by default.
+When it is on, the simulation runs guarded positioning.
+Guarded positioning moves an idle empty pod to a busy station that has no pod.
+The demand weights of the stations select the busy stations.
+The policy moves pods only while the demand rate is below one request per minute for each 20 pods of the fleet.
+While generated demand runs, the server uses the configured rate of the demand.
+Otherwise, it uses the mean rate of the requests since the last reset.
+Thus a fleet of 20 pods or fewer makes no move while generated demand runs.
+The policy stops moves to busy stations when the newest request is more than 180 seconds old, or when a waiting request has no pod.
+It also stops these moves when more than two fifths of the fleet works, or when the positioning moves reach the boardings.
+While the demand rate is low, the policy also moves an idle pod that blocks a berth to a near free berth.
 Passenger assignments take priority over empty positioning.
-Before a pod moves, redistribution reserves a free destination berth.
+Before a pod moves, the policy reserves a free destination berth, and it leaves another free berth at the station.
 A cooldown limits repeated moves.
 A remote reservation yields to passenger traffic until the empty pod enters the final admitted block.
 Admitted track and physical berth ownership remain protected.
-Demand weights forecast pickup locations.
-This policy can increase waiting or empty travel when demand differs from the forecast.
 
-Run the same seeded demand schedule with redistribution off and on:
+Run the same seeded demand schedule with redistribution off and on.
+This example runs the London preset at 3 requests per minute, where the policy is active:
 
 ```sh
-mise run compare -- -seed 7 -duration 10m -request-every 60s
+mise run scenario -- -preset london -output /tmp/podsim-london.json
+mise run compare -- -project /tmp/podsim-london.json -pattern profile -bands am-peak -focus 940GZZLUEUS -loads 20s -duration 30m
 ```
 
 The report includes:
@@ -642,8 +654,9 @@ The report includes:
 
 The default comparison uses a Market-heavy pickup forecast and identical initial fleets.
 Schedule IDs identify the identical requests used for each off/on pair.
-The compare command also has the experimental `guarded` policy, which moves an idle pod to a demand station with no pod only while the request rate is low.
-The server does not use it.
+The `on` policy is guarded positioning, as in the server.
+The compare command gives the policy no configured rate, so the gate reads the mean rate of the accepted requests.
+At the first skipped arrival, the compare command turns the policy off for the rest of the arm.
 See [qualification results](docs/qualification.md#guarded-positioning-in-the-london-sweep).
 Pending requests contribute their elapsed wait at the end of the measurement window.
 The synthetic patterns are balanced, destination, hotspot, bursty-hotspot, and hub-burst.
@@ -664,7 +677,7 @@ The synthetic patterns are balanced, destination, hotspot, bursty-hotspot, and h
 | `-burst-size` | Group burst-pattern requests at the same simulated time. |
 | `-sharing-limits 1,4` | Compare same-destination party limits. |
 | `-routing-policies free-flow,congestion` | The experimental route-cost A/B. |
-| `-redistribution-policies off,on,guarded` | Select the positioning policies. `on` is redistribution. `guarded` moves pods only at a low request rate. |
+| `-redistribution-policies off,on` | Select the positioning policies. `on` is guarded positioning. |
 | `-wait-rules current,strict,none` | Compare the finishing-pod wait rules from the dispatch section. |
 | `-queue-limit` | Change the limit of 200 pending requests. At the limit, the comparison skips new arrivals. |
 
@@ -870,7 +883,7 @@ The pod shows **No parking available** only when no reachable physical space exi
 Empty relocations yield unadmitted destination claims when a local passenger or pickup needs the same berth.
 Physical ownership and admitted destination resources remain protected.
 Empty moves have no boarding or unloading delay and do not count as passenger journeys.
-Optional redistribution moves idle empty pods toward configured demand before requests arrive.
+Optional redistribution moves an idle empty pod to a busy station that has no pod.
 
 Parking serves no passengers.
 Parked pods return to service automatically when assigned to a pickup request.

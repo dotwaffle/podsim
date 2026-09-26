@@ -34,6 +34,9 @@ The revision increases by one at each clock tick while the session runs, and wit
 The generation increases by one with a reset, a demo, a project apply, a rewind, and a restore of the saved state at a restart.
 A new generation makes the Go client clear its buffered motion.
 
+The `redistribution` member of a state frame is true when the project turns on redistribution and the demo does not run.
+The simulation then runs guarded positioning.
+
 A state frame can contain a `build` string.
 It is the build ID of the browser files that the server sends.
 See [build ID](operations.md#build-id).

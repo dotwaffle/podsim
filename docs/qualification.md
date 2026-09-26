@@ -56,6 +56,7 @@ The comparison covers ten seeds, four demand patterns, and request intervals of 
 Each pair uses identical requests, initial state, and a 15-minute measurement window.
 The report contains 120 pairs and 240 runs.
 The code at commit `b61bdb9` gives the recorded values.
+In these results, `on` is the weighted redistribution policy, which the current code replaces with guarded positioning.
 The command below gives different values with the current code.
 
 Without `-project`, the compare command uses the example network with pod 01 in Parking and pod 02 in Garden.
@@ -117,6 +118,8 @@ The network then drains for the rest of a 30-minute run.
 The first four bursts contain 12 requests.
 The last contains 11, for 59 requests per run.
 Five seeds use identical off/on request schedules.
+The code at commit `51a8105` gives the recorded values, and `on` is the weighted redistribution policy, which the current code replaces with guarded positioning.
+The command below gives different values with the current code.
 
 ```sh
 mise run scenario -- -preset rail-hub -output /tmp/podsim-rail-hub.json
@@ -153,6 +156,8 @@ The rail-hub schedule also compares the default one-party policy with a limit of
 A party can join only while a pod is still boarding at the same origin for the same destination.
 It never diverts an assigned pickup pod, delays departure to wait for another party, or adds an intermediate stop.
 The limit counts parties separately from passenger `PartySize`.
+The code at commit `ab4f7bc` gives the recorded values, and `on` is the weighted redistribution policy.
+The command below gives different values with the current code.
 
 ```sh
 mise run compare -- -project /tmp/podsim-rail-hub.json -pattern hub-burst -duration 30m -arrivals-for 5m -request-every 5s -burst-size 12 -seeds 1,2,3,4,5 -sharing-limits 1,4 -format csv -output docs/measurements/rail-hub-sharing.csv
@@ -359,9 +364,12 @@ The run also toggled pod following and reported no browser errors.
 Rewind tests make a save point, record a reference run, and then rewind twice.
 Each replay must match the reference state, safety observation, and demand stream at every simulated second.
 The cases cover balanced demand, profile demand, a demo that ends in the replay, and London with redistribution.
+The London case runs at 5 requests per minute, so that the replay window holds guarded moves.
 A branch with one more journey must differ from the reference.
 
-The London restore test runs AM peak demand at 20 requests per minute with redistribution.
+The London restore test runs AM peak demand at 20 requests per minute with guarded positioning.
+At this rate, the gate is not active, so the test makes no guarded move.
+A simulation test restores a guarded run while a guarded move is under way.
 From 70 simulated seconds, it saves and restores the simulation state five times at 5-second intervals.
 Each `physical` restore must keep each pod in place and keep the order queue.
 A `logical` restore of the last state must put each pod at its initial berth, with the expected queue and completion counts.
@@ -793,8 +801,10 @@ Raw results are in [`measurements/london-wait-rules.csv`](measurements/london-wa
 ### Redistribution in the London sweep
 
 The redistribution sweep uses the bands, rates, and seeds of the capacity sweep with redistribution on.
+The code at commit `ab59228` gives the recorded values, and `on` is the weighted redistribution policy, which the current code replaces with guarded positioning.
 Redistribution uses the origin demand of the band as the station weights.
 The `positioning_moves` column counts the redistribution moves.
+The command below gives different values with the current code.
 
 ```sh
 mise run compare -- -project /tmp/podsim-london-capacity.json -pattern profile -bands all -duration 65m -arrivals-for 30m -loads 60s,30s,20s,15s,12s,10s,8.571429s,7.5s,6.666667s,6s,5.454545s,5s,4.615385s,4.285714s,4s -seeds 1,2,3 -redistribution-policies on -focus 940GZZLUEUS -queue-limit 1000000 -stop-when-drained -adaptive-limit -past-limit 1 -workers 5 -format csv -output docs/measurements/london-redistribution.csv
@@ -837,20 +847,25 @@ The policy does not claim a berth that the route of a moving pod crosses after i
 A pickup diversion can start inside the berth access of a station, and a claim on that berth would make the two pods wait for each other.
 An earlier version of the policy had this deadlock, and one arm with seed 6 did not drain.
 
-Only the compare command has the policy, as `-redistribution-policies guarded`.
-The server and the saved state do not use it.
-In guarded arms, `positioning_moves` counts the moves to demand stations.
+The server runs the policy for a project with `redistribution: true`.
+While generated demand runs, the server gives the gate the configured rate of the demand.
+Otherwise, the gate reads the mean rate of the requests since the last reset.
+The compare command runs the policy as `-redistribution-policies on`.
+In `on` arms, `positioning_moves` counts the moves to demand stations.
 It does not count the moves of an idle pod that blocks a berth.
-The gate reads the rate of the accepted requests.
+In compare, the gate reads the mean rate of the accepted requests.
 So compare turns the policy off for the rest of an arm at the first skipped arrival.
 
 The guarded sweep uses the bands, rates, and seeds of the capacity sweep.
 
 ```sh
-mise run compare -- -project /tmp/podsim-london-capacity.json -pattern profile -bands all -duration 65m -arrivals-for 30m -loads 60s,30s,20s,15s,12s,10s,8.571429s,7.5s,6.666667s,6s,5.454545s,5s,4.615385s,4.285714s,4s -seeds 1,2,3 -redistribution-policies guarded -focus 940GZZLUEUS -queue-limit 1000000 -stop-when-drained -adaptive-limit -past-limit 1 -workers 4 -format csv -output docs/measurements/london-guarded.csv
+mise run compare -- -project /tmp/podsim-london-capacity.json -pattern profile -bands all -duration 65m -arrivals-for 30m -loads 60s,30s,20s,15s,12s,10s,8.571429s,7.5s,6.666667s,6s,5.454545s,5s,4.615385s,4.285714s,4s -seeds 1,2,3 -redistribution-policies on -focus 940GZZLUEUS -queue-limit 1000000 -stop-when-drained -adaptive-limit -past-limit 1 -workers 4 -format csv -output docs/measurements/london-guarded.csv
 ```
 
-The policy can become a project setting only if it meets these rules against the capacity sweep:
+The code at commit `461b1c1` gives the recorded values.
+At that commit, the policy had the name `guarded`, so the recorded `policy` column says `guarded`.
+
+The policy had to meet these rules against the capacity sweep before it became a project setting:
 
 1. Each guarded row at 6/min or more is equal to the off row in each column except `policy`.
 2. Each band limit is not lower than the limit without the policy.
@@ -889,8 +904,8 @@ All arms drain.
 The mean wait falls from 82.20 seconds to 73.99 seconds, and the empty distance falls by 7.0 percent.
 
 ```sh
-mise run compare -- -project /tmp/podsim-london-capacity.json -pattern profile -bands all -duration 65m -arrivals-for 30m -loads 60s,30s,20s,15s,12s -seeds 4,5,6,7,8,9,10 -redistribution-policies off,guarded -focus 940GZZLUEUS -queue-limit 1000000 -stop-when-drained -workers 4 -format csv -output /tmp/podsim-london-guarded-seeds.csv
+mise run compare -- -project /tmp/podsim-london-capacity.json -pattern profile -bands all -duration 65m -arrivals-for 30m -loads 60s,30s,20s,15s,12s -seeds 4,5,6,7,8,9,10 -redistribution-policies off,on -focus 940GZZLUEUS -queue-limit 1000000 -stop-when-drained -workers 4 -format csv -output /tmp/podsim-london-guarded-seeds.csv
 ```
 
-Guarded positioning is not a project setting yet.
+A project with `redistribution: true` now runs guarded positioning.
 Raw results are in [`measurements/london-guarded.csv`](measurements/london-guarded.csv).

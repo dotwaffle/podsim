@@ -7,7 +7,8 @@ It also supports manual and automatic demand, pod dispatch, local traffic contro
 The server owns one shared simulation session for all connected browsers.
 Any browser can keep an exact save point of the running simulation in server memory and rewind the session to the latest save point.
 With the `-state` option, the server also saves the shared session to disk and restores it after a restart when it can.
-Optional empty-pod redistribution is available but remains off by default.
+Optional redistribution runs guarded positioning, which moves idle empty pods only at a low demand rate.
+It remains off by default.
 
 The rail-hub, London capacity envelope, same-destination sharing, and first congestion-aware routing experiments are complete.
 The first station-maneuver slice is complete: station lanes have explicit roles, pod snapshots expose the current phase, and the inspector names the maneuver.
@@ -442,8 +443,9 @@ The sequence is a recommendation, not a committed roadmap.
 
 **Status:** The repeatable `rail-hub` preset, finite burst schedule, station capacity measurements, and advance-positioning comparison are complete.
 The five-seed experiment served all demand with either policy.
-Redistribution positions empty pods in advance.
-It reduced mean pickup wait by about four seconds, added 45.2 km of empty travel, and reduced loaded distance from 45.96% to 42.15%.
+The experiment used the weighted redistribution policy, which moved empty pods toward the demand weights at any load.
+Guarded positioning later replaced that policy.
+The weighted policy reduced mean pickup wait by about four seconds, added 45.2 km of empty travel, and reduced loaded distance from 45.96% to 42.15%.
 See [docs/qualification.md](docs/qualification.md#rail-hub-burst-experiment).
 
 With redistribution off, the four-party sharing arm reduced mean wait by 65%, queue clearance by 53%, and empty travel by 49%.
