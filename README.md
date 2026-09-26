@@ -590,6 +590,9 @@ The report includes:
 
 The default comparison uses a Market-heavy pickup forecast and identical initial fleets.
 Schedule IDs identify the identical requests used for each off/on pair.
+The compare command also has the experimental `guarded` policy, which moves an idle pod to a demand station with no pod only while the request rate is low.
+The server does not use it.
+See [qualification results](docs/qualification.md#guarded-positioning-in-the-london-sweep).
 Pending requests contribute their elapsed wait at the end of the measurement window.
 The synthetic patterns are balanced, destination, hotspot, bursty-hotspot, and hub-burst.
 
@@ -609,7 +612,7 @@ The synthetic patterns are balanced, destination, hotspot, bursty-hotspot, and h
 | `-burst-size` | Group burst-pattern requests at the same simulated time. |
 | `-sharing-limits 1,4` | Compare same-destination party limits. |
 | `-routing-policies free-flow,congestion` | The experimental route-cost A/B. |
-| `-redistribution-policies off` | Hold redistribution fixed. |
+| `-redistribution-policies off,on,guarded` | Select the positioning policies. `on` is redistribution. `guarded` moves pods only at a low request rate. |
 | `-wait-rules current,strict,none` | Compare the finishing-pod wait rules from the dispatch section. |
 | `-queue-limit` | Change the limit of 200 pending requests. At the limit, the comparison skips new arrivals. |
 

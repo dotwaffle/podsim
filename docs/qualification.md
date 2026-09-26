@@ -812,3 +812,75 @@ It raises the PM peak and Evening limits to 15/min, which is the highest tested 
 It lowers the AM peak and Night limits by one rate.
 Redistribution stays off by default, because it lowers two band limits and adds much empty travel.
 Raw results are in [`measurements/london-redistribution.csv`](measurements/london-redistribution.csv).
+
+### Guarded positioning in the London sweep
+
+Guarded positioning moves an idle empty pod to a demand station that has no pod.
+It moves pods only while the request rate is low.
+Its gate is active below one request per minute for each 20 pods of the fleet.
+The London fleet has 114 pods, so the gate is active below 5.7/min.
+At 6/min and more, a guarded arm runs as an off arm.
+
+The gate also closes when the newest request is more than 180 seconds old, or when the positioning moves reach the boardings.
+It closes when a waiting trip has no pod, or when more than two fifths of the fleet works.
+The policy does not claim a berth that the route of a moving pod crosses after its claims.
+A pickup diversion can start inside the berth access of a station, and a claim on that berth would make the two pods wait for each other.
+An earlier version of the policy had this deadlock, and one arm with seed 6 did not drain.
+
+Only the compare command has the policy, as `-redistribution-policies guarded`.
+The server and the saved state do not use it.
+In guarded arms, `positioning_moves` counts the moves to demand stations.
+It does not count the moves of an idle pod that blocks a berth.
+The gate reads the rate of the accepted requests.
+So compare turns the policy off for the rest of an arm at the first skipped arrival.
+
+The guarded sweep uses the bands, rates, and seeds of the capacity sweep.
+
+```sh
+mise run compare -- -project /tmp/podsim-london-capacity.json -pattern profile -bands all -duration 65m -arrivals-for 30m -loads 60s,30s,20s,15s,12s,10s,8.571429s,7.5s,6.666667s,6s,5.454545s,5s,4.615385s,4.285714s,4s -seeds 1,2,3 -redistribution-policies guarded -focus 940GZZLUEUS -queue-limit 1000000 -stop-when-drained -adaptive-limit -past-limit 1 -workers 4 -format csv -output docs/measurements/london-guarded.csv
+```
+
+The policy can become a project setting only if it meets these rules against the capacity sweep:
+
+1. Each guarded row at 6/min or more is equal to the off row in each column except `policy`.
+2. Each band limit is not lower than the limit without the policy.
+   The limits use the 60-minute rule.
+3. No arm ends after 3,600 seconds when the off arm ends by 3,600 seconds.
+4. At 1/min to 5/min, the mean wait of all arms is lower than off.
+   No band mean is more than 2 seconds above off.
+5. At 1/min to 5/min, the empty distance of each band is not more than 1.25 times off.
+   No mean of a band and rate is more than 1.5 times off.
+6. Each arm at 1/min to 5/min drains within 65 minutes.
+
+The policy meets all six rules.
+The 225 rows at 6/min or more are equal to the off rows, and no band limit changes.
+The next table gives the means of the 15 arms of each band at 1/min to 5/min.
+
+| NUMBAT band | Limit | Average wait, off | Average wait, guarded | Empty distance, off | Empty distance, guarded | Positioning moves |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| Early | 7/min | 202.4 s | 196.5 s | 620.5 km | 621.7 km | 11.3 |
+| Morning | 9/min | 85.7 s | 76.2 s | 243.9 km | 207.7 km | 11.5 |
+| AM peak | 13/min | 65.1 s | 59.5 s | 233.3 km | 200.2 km | 13.2 |
+| Interpeak | 14/min | 46.6 s | 36.1 s | 148.9 km | 140.8 km | 19.4 |
+| PM peak | 13/min | 50.8 s | 39.6 s | 176.7 km | 145.1 km | 19.1 |
+| Evening | 14/min | 62.4 s | 58.5 s | 193.8 km | 178.0 km | 10.2 |
+| Late | 12/min | 81.9 s | 76.8 s | 215.6 km | 197.5 km | 8.3 |
+| Night | 9/min | 92.9 s | 74.1 s | 397.3 km | 386.8 km | 24.0 |
+
+Over the 120 arms at 1/min to 5/min, the mean wait falls from 85.96 seconds to 77.17 seconds.
+The wait falls in each band, by 3.9 seconds in Evening to 18.8 seconds in Night.
+The empty distance falls in seven bands and increases by 0.2 percent in Early.
+The highest ratio for a band and rate is 1.039, at Interpeak 1/min.
+Redistribution cuts the wait at 1/min more, but it multiplies the empty distance by 2.3 to 15.0.
+The arm nearest to 3,600 seconds is Night 5/min with seed 3, which ends at 3,358 seconds, and at 3,384 seconds without the policy.
+
+A second run compares off and guarded with seeds 4 to 10 at 1/min to 5/min, in 280 pairs.
+All arms drain.
+The mean wait falls from 82.20 seconds to 73.99 seconds, and the empty distance falls by 7.0 percent.
+
+```sh
+mise run compare -- -project /tmp/podsim-london-capacity.json -pattern profile -bands all -duration 65m -arrivals-for 30m -loads 60s,30s,20s,15s,12s -seeds 4,5,6,7,8,9,10 -redistribution-policies off,guarded -focus 940GZZLUEUS -queue-limit 1000000 -stop-when-drained -workers 4 -format csv -output /tmp/podsim-london-guarded-seeds.csv
+```
+
+Guarded positioning is not a project setting yet.
+Raw results are in [`measurements/london-guarded.csv`](measurements/london-guarded.csv).
