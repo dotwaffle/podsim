@@ -5,6 +5,7 @@ const assert = require("node:assert/strict");
 const { execFileSync } = require("node:child_process");
 const fs = require("node:fs");
 const path = require("node:path");
+const zlib = require("node:zlib");
 const editor = require("./editor.js");
 
 function connectedScenario() {
@@ -1992,6 +1993,13 @@ test("the length of a lane follows its curve", () => {
 // each command that the editor sent. options.stateSaved is the stateSaved
 // member of the acknowledgment of an applied project. The acknowledgment
 // omits the member when options.stateSaved is undefined.
+// requestCommand gives the command of a request that postCommand sends. It
+// decompresses a gzip body.
+function requestCommand(init) {
+  if (init.headers["Content-Encoding"] === "gzip") return JSON.parse(zlib.gunzipSync(Buffer.from(init.body)).toString());
+  return JSON.parse(init.body);
+}
+
 function fakeSession(options) {
   const commands = [];
   const live = { epoch: "epoch-1", serverStart: "start-1", revision: options.liveRevision ?? 3, generation: 5, paused: options.paused };
@@ -2015,7 +2023,7 @@ function fakeSession(options) {
     if (url === "/api/state") {
       return reply(200, { epoch: live.epoch, serverStart: live.serverStart, projectRevision: live.revision, generation: live.generation, simulation: { Paused: live.paused } });
     }
-    const command = JSON.parse(init.body);
+    const command = requestCommand(init);
     commands.push(command);
     const failure = options.before ? options.before(command, live) : false;
     if (failure === "network") throw new TypeError("Failed to fetch");
@@ -2176,6 +2184,81 @@ test("a failed apply shows the reason from the server", async () => {
       return true;
     }, item.name);
   }
+});
+
+// paddedScenario gives connectedScenario with a long name, so that its JSON
+// has bytes bytes. The fake session does not check the name.
+function paddedScenario(bytes) {
+  const config = connectedScenario();
+  config.name += "n".repeat(bytes - Buffer.byteLength(JSON.stringify(config)));
+  assert.equal(Buffer.byteLength(JSON.stringify(config)), bytes);
+  return config;
+}
+
+test("postCommand compresses a large command with gzip and sends a small command as plain JSON", async () => {
+  const requests = [];
+  const connection = {
+    clientID: "editor-test", sequence: 0, epoch: "epoch-1",
+    fetch: async (url, init) => { requests.push(init); return { ok: true, status: 200, json: async () => ({ epoch: "epoch-1" }) }; },
+  };
+  const project = paddedScenario(editor.SERVER_PROJECT_BYTES);
+  await editor.postCommand(connection, { action: "pause", paused: true });
+  await editor.postCommand(connection, { action: "project", projectRevision: 3, project });
+  const [pause, apply] = requests;
+  assert.equal(typeof pause.body, "string");
+  assert.equal(pause.headers["Content-Encoding"], undefined);
+  assert.ok(Buffer.byteLength(pause.body) <= editor.GZIP_COMMAND_BYTES);
+  assert.ok(apply.body instanceof ArrayBuffer, "the project command body is an ArrayBuffer");
+  assert.equal(apply.headers["Content-Encoding"], "gzip");
+  assert.equal(apply.headers["Content-Type"], "application/json");
+  assert.ok(apply.body.byteLength <= editor.SERVER_COMMAND_BYTES, `the compressed body has ${apply.body.byteLength} bytes`);
+  assert.deepEqual(requestCommand(apply), { client: "editor-test", sequence: 2, epoch: "epoch-1", action: "project", projectRevision: 3, project });
+});
+
+test("the editor does not send a command that is larger than the server accepts", async () => {
+  let requests = 0;
+  const connection = { clientID: "editor-test", sequence: 0, epoch: "epoch-1", fetch: async () => { requests += 1; throw new Error("sent"); } };
+  const envelope = Buffer.byteLength(JSON.stringify({ client: "editor-test", sequence: 1, epoch: "epoch-1", action: "pause", origin: "" }));
+  const json = "x".repeat(editor.SERVER_COMMAND_JSON_BYTES + 1 - envelope);
+  await assert.rejects(editor.postCommand(connection, { action: "pause", origin: json }), (error) => {
+    assert.equal(error.status, 413);
+    assert.equal(error.message, "The command has 8.07 MiB of JSON. The server accepts at most 8.06 MiB.");
+    return true;
+  });
+  // Random base64 text compresses to about three quarters of its size.
+  const random = require("node:crypto").randomBytes(4 * 1024 * 1024).toString("base64");
+  await assert.rejects(editor.postCommand(connection, { action: "pause", origin: random }), (error) => {
+    assert.equal(error.status, 413);
+    assert.match(error.message, /^The compressed command has 4\.\d+ MiB\. The server accepts at most 4 MiB\.$/);
+    return true;
+  });
+  assert.equal(requests, 0);
+});
+
+test("an apply that is too large fails before the pause, and a 413 reply gives the server limits", async () => {
+  const server = fakeSession({ paused: false });
+  const connection = { fetch: server.fetch, clientID: "editor-test", sequence: 0, epoch: "" };
+  await assert.rejects(editor.applyToServer({ connection, revision: 3, project: paddedScenario(editor.SERVER_PROJECT_BYTES + 1) }), (error) => {
+    assert.equal(error.status, 413);
+    assert.equal(editor.applyFailureText(error), "Apply failed. The scenario has 8.01 MiB of JSON. The server accepts at most 8 MiB. The simulation was not paused.");
+    assert.equal(editor.applyFailureStatus(error), "Apply failed. The draft stays on this page.");
+    return true;
+  });
+  assert.deepEqual(server.commands, []);
+
+  const refusing = fakeSession({ paused: false });
+  const fetch = async (url, init) => {
+    if (init && init.method && requestCommand(init).action === "project") return { ok: false, status: 413, json: async () => { throw new SyntaxError("not JSON"); } };
+    return refusing.fetch(url, init);
+  };
+  const refused = { fetch, clientID: "editor-test", sequence: 0, epoch: "" };
+  await assert.rejects(editor.applyToServer({ connection: refused, revision: 3, project: paddedScenario(editor.SERVER_PROJECT_BYTES) }), (error) => {
+    assert.equal(error.status, 413);
+    assert.equal(error.message, editor.SERVER_TOO_LARGE_TEXT);
+    assert.equal(editor.applyFailureText(error), "Apply failed. The command is too large for the server. The server accepts at most 8.06 MiB of JSON and 4 MiB after compression. The editor resumed the simulation.");
+    return true;
+  });
+  assert.deepEqual(commandList(refusing), ["pause true", "pause false"]);
 });
 
 test("an applied project warns when the server could not save the session state", async () => {

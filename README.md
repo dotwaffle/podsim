@@ -628,7 +628,9 @@ A berth route goes from the station entry to the berth, or from the berth to the
 It can use a chain of lanes, as in the London stations.
 It cannot pass through the entry, exit, or berth node of a station.
 Validation also limits the compact JSON form of a project to 8 MiB or less.
-The editor sends the project in one command, and the server accepts a command of 4 MiB or less.
+The editor sends the project in one command, and it compresses a command of more than 64 KiB with gzip.
+The server accepts a command body of 4 MiB or less, and 8 MiB plus 64 KiB of command JSON after decompression.
+Before the editor pauses the simulation for an apply, it checks the size of the project and shows the limit.
 A project can have at most 200 stations, 4,000 nodes, 8,000 lanes, and 200 pods.
 Each station can have at most 200 berths.
 A node can have at most 64 lanes, counted at the start node and at the end node of each lane.

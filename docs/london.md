@@ -185,7 +185,8 @@ The generated file is indented, so it is about 3.3 MiB.
 Project validation also limits the compact JSON form of a project to 8 MiB, with room for the widest demand settings.
 In that form, the London project is about 1.5 MiB (1,591,018 bytes).
 The server writes the `-project` file in this form when it saves it.
-The editor sends about 1.5 MiB when it applies the project, and the server accepts a command of 4 MiB or less.
+When the editor applies the project, it compresses the command with gzip, so it sends about 0.3 MiB.
+The server accepts a compressed command of 4 MiB or less, with 8 MiB plus 64 KiB of JSON or less after decompression.
 Change a limit only after measured editor validation.
 
 The view treats this project as a dense map because it has more than 30 stations.
@@ -263,7 +264,8 @@ With a 40-meter pitch, all 96 passenger stations take 3 berths.
 A third berth at 95 stations and 24 berths at each Parking facility give 2,235 nodes and 3,625 lanes, with 4 soft conflicts.
 The generated file has 3,643,251 bytes.
 With a 40-meter pitch, 3 berths at each passenger station and 200 berths at each Parking facility give 3,822 nodes and 5,741 lanes, with 1 soft conflict.
-This generated file has 4,610,584 bytes, and the editor sends about 2.3 MiB when it applies this project.
+This generated file has 4,610,584 bytes.
+When the editor applies this project, the command has about 2.3 MiB of JSON, and the editor sends about 0.3 MiB with gzip.
 The node limit of 4,000 stops larger projects, for example 4 berths at each passenger station and 200 berths at each Parking facility (4,110 nodes).
 The capacity tests in the [qualification results](qualification.md#more-london-berths) did not find a change with the same 114 pods.
 

@@ -51,6 +51,17 @@
   const SERVER_PROJECT_BYTES = 8 * 1024 * 1024;
   const EXPORT_ALLOWANCE = 1024;
   const PROJECT_FILE_BYTES = Math.ceil((dataURLBytes(IMAGE_FILE_BYTES) + SERVER_PROJECT_BYTES + EXPORT_ALLOWANCE) / MIB) * MIB;
+  // SERVER_COMMAND_BYTES mirrors session.MaxCommandBytes, the largest body
+  // of a command request. SERVER_COMMAND_JSON_BYTES mirrors
+  // session.MaxInflatedCommandBytes, the largest command JSON in a gzip
+  // body. A Go test in internal/session checks the mirrors. postCommand
+  // compresses command JSON of more than GZIP_COMMAND_BYTES. A small
+  // command, such as a pause, stays plain JSON, because the server applies
+  // one gzip command at a time. The compression makes a project command
+  // about 6 times smaller, so a slow link sends it in less time.
+  const SERVER_COMMAND_BYTES = 4 * MIB;
+  const SERVER_COMMAND_JSON_BYTES = SERVER_PROJECT_BYTES + 64 * 1024;
+  const GZIP_COMMAND_BYTES = 64 * 1024;
 
   function clone(value) {
     return JSON.parse(JSON.stringify(value));
@@ -1551,14 +1562,60 @@
     return live;
   }
 
+  // mebibytes gives a size in MiB with at most two decimals. round is
+  // Math.floor for a limit and Math.ceil for a size over a limit, so that
+  // the two numbers are never equal.
+  function mebibytes(bytes, round = Math.floor) {
+    return `${round(bytes / MIB * 100) / 100} MiB`;
+  }
+
+  // jsonBytes gives the size of the JSON text of value in UTF-8 bytes.
+  function jsonBytes(value) {
+    return new TextEncoder().encode(JSON.stringify(value)).length;
+  }
+
+  // tooLargeError gives the error of a command that is larger than the
+  // server accepts. It has status 413 and no errorCode, as the reply of
+  // the server.
+  function tooLargeError(message) {
+    const error = new Error(message);
+    error.status = 413; error.errorCode = ""; return error;
+  }
+
+  // SERVER_TOO_LARGE_TEXT is the message for a command that the server
+  // refuses with HTTP 413.
+  const SERVER_TOO_LARGE_TEXT = `The command is too large for the server. The server accepts at most ${mebibytes(SERVER_COMMAND_JSON_BYTES)} of JSON and ${mebibytes(SERVER_COMMAND_BYTES)} after compression.`;
+
+  // commandRequest gives the body and the headers of a command request
+  // for the JSON text. It compresses text of more than GZIP_COMMAND_BYTES
+  // with gzip. It throws a tooLargeError before the request when the JSON
+  // or the compressed body is larger than the server accepts.
+  async function commandRequest(text) {
+    const headers = { "Content-Type": "application/json", Accept: "application/json" };
+    const json = new TextEncoder().encode(text);
+    if (json.length <= GZIP_COMMAND_BYTES) return { body: text, headers };
+    if (json.length > SERVER_COMMAND_JSON_BYTES) {
+      throw tooLargeError(`The command has ${mebibytes(json.length, Math.ceil)} of JSON. The server accepts at most ${mebibytes(SERVER_COMMAND_JSON_BYTES)}.`);
+    }
+    const body = await new Response(new Blob([json]).stream().pipeThrough(new CompressionStream("gzip"))).arrayBuffer();
+    if (body.byteLength > SERVER_COMMAND_BYTES) {
+      throw tooLargeError(`The compressed command has ${mebibytes(body.byteLength, Math.ceil)}. The server accepts at most ${mebibytes(SERVER_COMMAND_BYTES)}.`);
+    }
+    return { body, headers: { ...headers, "Content-Encoding": "gzip" } };
+  }
+
   // postCommand sends one command. A rejected command throws an error with
   // status, the HTTP status, and errorCode, the error code of the
   // acknowledgment. The message of the error is the error text of the
   // acknowledgment. A reply without an acknowledgment gives an empty
-  // errorCode and the HTTP status as the message.
+  // errorCode and the HTTP status as the message. HTTP 413 gives
+  // SERVER_TOO_LARGE_TEXT. A command that is too large for the server
+  // throws a tooLargeError, and the editor does not send it.
   async function postCommand(connection, command) {
     connection.sequence += 1;
-    const response = await connection.fetch("/api/command", { method: "POST", headers: { "Content-Type": "application/json", Accept: "application/json" }, body: JSON.stringify({ client: connection.clientID, sequence: connection.sequence, epoch: connection.epoch, ...command }) });
+    const { body: requestBody, headers } = await commandRequest(JSON.stringify({ client: connection.clientID, sequence: connection.sequence, epoch: connection.epoch, ...command }));
+    const response = await connection.fetch("/api/command", { method: "POST", headers, body: requestBody });
+    if (response.status === 413) throw tooLargeError(SERVER_TOO_LARGE_TEXT);
     let body = null; try { body = await response.json(); } catch (_) {}
     if (!response.ok || (body && (body.error || body.Error))) {
       const error = new Error((body && (body.error || body.Error)) || `HTTP ${response.status}`);
@@ -1650,9 +1707,11 @@
   //
   // A failure error has status, the HTTP status of a rejected command,
   // errorCode, the error code of a rejected command, and pause, the state of
-  // the simulation after the failure. Before the pause, the editor reads
-  // the live project and state with readSnapshot, and does the checks of
-  // the server in the same order. When the live server start ID
+  // the simulation after the failure. Before the pause, the editor checks
+  // that the JSON of the project has at most SERVER_PROJECT_BYTES. Else the
+  // error is a tooLargeError. Then the editor reads the live project and
+  // state with readSnapshot, and does the checks of the server in the same
+  // order. When the live server start ID
   // is not apply.serverStart, the error has status 409 and errorCode
   // "session_changed". Else, when the live project revision is not
   // apply.revision, the error has status 409 and errorCode "stale_project".
@@ -1669,6 +1728,10 @@
     let wasPaused = false;
     let simulation = "";
     try {
+      const projectBytes = jsonBytes(apply.project);
+      if (projectBytes > SERVER_PROJECT_BYTES) {
+        throw tooLargeError(`The scenario has ${mebibytes(projectBytes, Math.ceil)} of JSON. The server accepts at most ${mebibytes(SERVER_PROJECT_BYTES)}.`);
+      }
       const { project: current, state: live } = await readSnapshot(connection);
       const liveStart = live.serverStart || live.ServerStart || "";
       if (draftBeforeRestart(apply.serverStart, liveStart)) {
@@ -2086,7 +2149,7 @@
     MIN_LANE_LENGTH, MAX_STATIONS, MAX_NODES, MAX_LANES, MAX_NODE_LANES, MAX_FLOWS, MIN_ZOOM, NODE_LABEL_SCALE, NODE_LABEL_SIZE, LANE_PAIR_OFFSET, CHEVRON_LANE_LENGTH, BERTH_PITCH, STATION_PADDING, CLEARANCE, CHECK_DELAY, emptyConfig, fallbackConfig, normalizeConfig, addLane, addJunction, addStation, addBerth,
     stationBearing, stationShape, rotateStation, setStationBearing, nextBerthPosition, berthChain, nextChainRow, lanePolyline, laneConflict, removeBerth, moveStation, moveNode, deleteNode, deleteLane, deleteStation, stationFlowCount, setFleetCount, fleetRows, selectionCard, berthFocusID, undoFocus, setDemandPattern,
     laneLength, curveLength, reachable, cutOffStations, stationNodeOwners, dragTargets, validateConfig, configWarnings, checkResults, checkSelector, checkSelection, selectionPoint, focusView,
-    problemCountText, createCheckTimer, validationSummary, checkFocusKey, IMAGE_FILE_BYTES, SERVER_PROJECT_BYTES, PROJECT_FILE_BYTES, dataURLBytes, serializeDocument, parseDocument, createHistory,
+    problemCountText, createCheckTimer, validationSummary, checkFocusKey, IMAGE_FILE_BYTES, SERVER_PROJECT_BYTES, PROJECT_FILE_BYTES, SERVER_COMMAND_BYTES, SERVER_COMMAND_JSON_BYTES, GZIP_COMMAND_BYTES, SERVER_TOO_LARGE_TEXT, postCommand, dataURLBytes, serializeDocument, parseDocument, createHistory,
     networkBounds, fitView, zoomScale, nodeLabelSize, pairedLaneIDs, showsChevron, laneOffset, laneCurve, lanePathData, SNAPSHOT_ATTEMPTS, snapshotConsistent, draftBeforeRestart, readState, readSnapshot, applyToServer, applyFailureText, applyFailureStatus, applyToast,
     readLive, readConflict, CONFLICT_UNLOADED_TEXT, conflictView, LOAD_LIVE_QUESTION, applyOverQuestion, loadLive, liveDraft, applyOverBase,
     DRAFT_SAVE_DELAY, DRAFT_STORE_TEXT, DRAFT_UNSAVED_TEXT, DRAFT_DISPLACED_TEXT, openDraftStore, createDraftKeeper, draftChanges, draftRecordFor, draftOffer, DRAFT_RESTART_TEXT, draftOfferText, RESTORED_RESTART_TEXT, restoreStatusText, shellPage,
