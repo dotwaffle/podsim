@@ -32,7 +32,7 @@ The build creates static files in `dist/`, including the matching Go WebAssembly
 
 The network view fills the browser window and renders at the display pixel density.
 On a very wide screen at a high pixel density, the lines of a small network can show without antialiasing.
-This occurs when the antialiasing image of the map would not fit in the largest GPU texture, for example in a 2560 by 1440 window at a device pixel ratio of 2 on a GPU with an 8192 pixel limit.
+This occurs when the antialiasing image, which is twice as wide as the screen, would not fit in the largest GPU texture, for example in a 2560 by 1440 window at a device pixel ratio of 2 on a GPU with an 8192 pixel limit.
 When the full window at the display pixel density would not fit in the largest GPU texture, the view renders at a lower pixel density and scales the image to the window.
 The browser can also make the WebGL drawing buffer smaller than the window at the display pixel density.
 For example, Chrome gives a 7436 by 4461 drawing buffer to a 4000 by 2400 window at a device pixel ratio of 2, because it keeps the drawing buffer at about 33.2 million pixels or less.
@@ -337,7 +337,9 @@ Select **Download debug state** in the header of the simulation to save a timest
 The line below the journey controls then shows the result.
 While the page shows its own **Download debug state** control in the top left corner, the result shows next to that control.
 The result of a successful download goes after 3 s.
-A failure shows in amber and stays until the next capture.
+A failure shows in amber.
+In the line below the journey controls, it stays until your next action.
+Next to the control in the top left corner, it stays until the next capture.
 The header shows **Download debug state** and **Edit scenario** only in the browser page with the editor.
 The desktop client and `game.html` as a separate page do not show them.
 The capture includes the network, pod positions and routes, queues, berth reservations, and demand settings.
@@ -1018,7 +1020,7 @@ The tests establish progress for feasible supplied scenarios, not for every satu
 
 One server owns the simulation clock, commands, and demand settings.
 Browsers poll dynamic state frames and show the connection status.
-They fetch the network topology on connection and after a project revision changes.
+They fetch the network topology on connection, and after the session epoch, the project revision, or the server start ID changes.
 Controls wait for server confirmation.
 During the wait, the line below the panels shows **Shared session / waiting for command confirmation**.
 **From** and **To** send no command, so you can change them during the wait.
