@@ -269,5 +269,6 @@ When the editor applies this project, the command has about 2.3 MiB of JSON, and
 The node limit of 4,000 stops larger projects, for example 4 berths at each passenger station and 200 berths at each Parking facility (4,110 nodes).
 The capacity tests in the [qualification results](qualification.md#more-london-berths) did not find a change with the same 114 pods.
 
-The editor **Add berth** button adds a separate berth with its own lanes from the station entry and to the station exit.
-It does not extend the berth chain of a London station.
+On a London station, the editor **Add physical berth** button adds one more row at the end of the berth chain.
+The row gets the IDs that the scenario command gives to one more berth.
+See [Edit the network](../README.md#edit-the-network).
