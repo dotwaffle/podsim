@@ -7,7 +7,9 @@ import (
 	"fmt"
 	"math"
 	"slices"
+	"strconv"
 	"strings"
+	"unicode/utf8"
 
 	"github.com/dotwaffle/podsim/internal/sim"
 )
@@ -233,7 +235,7 @@ func validatePassengerRoutes(lanes []sim.Lane, passenger []sim.Station) error {
 				}
 				for destinationIndex, destination := range to.Berths {
 					if !reached[berthNodes[toIndex][destinationIndex]] {
-						return fmt.Errorf("passenger route %q berth %q to %q berth %q: %w", from.ID, origin.ID, to.ID, destination.ID, sim.ErrUnreachable)
+						return fmt.Errorf("passenger route %s berth %s to %s berth %s: %w", quoteID(from.ID), quoteID(origin.ID), quoteID(to.ID), quoteID(destination.ID), sim.ErrUnreachable)
 					}
 				}
 			}
@@ -322,6 +324,23 @@ func (c *sizeCounter) Write(data []byte) (int, error) {
 	return len(data), nil
 }
 
+// quoteID returns id as a quoted Go string for an error message. It keeps
+// at most maxIDLength bytes of id and adds "..." after the quotes when it
+// removes bytes. Thus an error message does not grow with an ID that is not
+// valid, for example an ID of some megabytes in a command.
+func quoteID(id string) string {
+	if len(id) <= maxIDLength {
+		return strconv.Quote(id)
+	}
+	// The cut goes back to the start of a rune, but by less than one rune,
+	// so that invalid UTF-8 cannot remove all of the bytes.
+	end := maxIDLength
+	for end > maxIDLength-utf8.UTFMax+1 && !utf8.RuneStart(id[end]) {
+		end--
+	}
+	return strconv.Quote(id[:end]) + "..."
+}
+
 func validateNames(config Config) error {
 	validID := func(id string) bool { return id != "" && len(id) <= maxIDLength }
 	for _, node := range config.Network.Nodes {
@@ -348,7 +367,7 @@ func validateNames(config Config) error {
 			return fmt.Errorf("station name must contain 1 to %d characters", maxNameLength)
 		}
 		if len(station.Berths) == 0 || len(station.Berths) > MaxBerths {
-			return fmt.Errorf("station %q must contain 1 to %d berths", station.ID, MaxBerths)
+			return fmt.Errorf("station %s must contain 1 to %d berths", quoteID(station.ID), MaxBerths)
 		}
 		for _, berth := range station.Berths {
 			if !validID(berth.ID) || !validID(berth.Node) {
@@ -381,10 +400,10 @@ func ValidateDemand(config DemandConfig, context DemandContext) error {
 	if config.Pattern == "profile" {
 		profile, ok := demandProfile(context.Profiles, config.Profile)
 		if !ok {
-			return fmt.Errorf("unknown demand profile %q", config.Profile)
+			return fmt.Errorf("unknown demand profile %s", quoteID(config.Profile))
 		}
 		if _, ok := demandBand(profile, config.Band); !ok {
-			return fmt.Errorf("unknown demand band %q", config.Band)
+			return fmt.Errorf("unknown demand band %s", quoteID(config.Band))
 		}
 		return nil
 	}
@@ -393,7 +412,7 @@ func ValidateDemand(config DemandConfig, context DemandContext) error {
 	}
 	station, ok := context.Network.Station(config.Destination)
 	if !ok {
-		return fmt.Errorf("unknown demand destination %q", config.Destination)
+		return fmt.Errorf("unknown demand destination %s", quoteID(config.Destination))
 	}
 	if station.ParkingOnly {
 		return errors.New("demand destination must be a passenger station")
@@ -412,16 +431,16 @@ func validateDemandProfiles(profiles []DemandProfile, network sim.Network) error
 	profileIDs := make(map[string]bool, len(profiles))
 	for _, profile := range profiles {
 		if profile.ID == "" || len(profile.ID) > maxIDLength || profileIDs[profile.ID] {
-			return fmt.Errorf("invalid or duplicate demand profile %q", profile.ID)
+			return fmt.Errorf("invalid or duplicate demand profile %s", quoteID(profile.ID))
 		}
 		if strings.TrimSpace(profile.Name) == "" || len(profile.Name) > maxNameLength {
 			return fmt.Errorf("demand profile name must contain 1 to %d characters", maxNameLength)
 		}
 		if len(profile.Bands) == 0 || len(profile.Bands) > MaxBands {
-			return fmt.Errorf("demand profile %q must contain 1 to %d bands", profile.ID, MaxBands)
+			return fmt.Errorf("demand profile %s must contain 1 to %d bands", quoteID(profile.ID), MaxBands)
 		}
 		if len(profile.Flows) == 0 || len(profile.Flows) > MaxFlows {
-			return fmt.Errorf("demand profile %q must contain 1 to %d flows", profile.ID, MaxFlows)
+			return fmt.Errorf("demand profile %s must contain 1 to %d flows", quoteID(profile.ID), MaxFlows)
 		}
 		profileIDs[profile.ID] = true
 		if err := validateDemandProfile(profile, passenger); err != nil {
@@ -435,10 +454,10 @@ func validateDemandProfile(profile DemandProfile, passenger map[string]bool) err
 	bandIDs := make(map[string]bool, len(profile.Bands))
 	for _, band := range profile.Bands {
 		if band.ID == "" || len(band.ID) > maxIDLength || bandIDs[band.ID] {
-			return fmt.Errorf("demand profile %q has an invalid or duplicate band", profile.ID)
+			return fmt.Errorf("demand profile %s has an invalid or duplicate band", quoteID(profile.ID))
 		}
 		if strings.TrimSpace(band.Name) == "" || len(band.Name) > maxNameLength || band.StartMinute < 0 || band.StartMinute >= 24*60 || band.DurationMinutes < 1 || band.DurationMinutes > 24*60 {
-			return fmt.Errorf("demand profile %q has an invalid band %q", profile.ID, band.ID)
+			return fmt.Errorf("demand profile %s has an invalid band %s", quoteID(profile.ID), quoteID(band.ID))
 		}
 		bandIDs[band.ID] = true
 	}
@@ -447,19 +466,19 @@ func validateDemandProfile(profile DemandProfile, passenger map[string]bool) err
 	for _, flow := range profile.Flows {
 		pair := [2]string{flow.From, flow.To}
 		if !passenger[flow.From] || !passenger[flow.To] || flow.From == flow.To || pairs[pair] || len(flow.Weights) != len(profile.Bands) {
-			return fmt.Errorf("demand profile %q has an invalid flow from %q to %q", profile.ID, flow.From, flow.To)
+			return fmt.Errorf("demand profile %s has an invalid flow from %s to %s", quoteID(profile.ID), quoteID(flow.From), quoteID(flow.To))
 		}
 		pairs[pair] = true
 		for index, weight := range flow.Weights {
 			if math.IsNaN(weight) || math.IsInf(weight, 0) || weight < 0 {
-				return fmt.Errorf("demand profile %q has an invalid weight", profile.ID)
+				return fmt.Errorf("demand profile %s has an invalid weight", quoteID(profile.ID))
 			}
 			totals[index] += weight
 		}
 	}
 	for index, total := range totals {
 		if total <= 0 || math.IsInf(total, 0) {
-			return fmt.Errorf("demand profile %q band %q needs a finite positive weight total", profile.ID, profile.Bands[index].ID)
+			return fmt.Errorf("demand profile %s band %s needs a finite positive weight total", quoteID(profile.ID), quoteID(profile.Bands[index].ID))
 		}
 	}
 	return nil

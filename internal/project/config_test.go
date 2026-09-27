@@ -434,3 +434,77 @@ func mustJSON(t *testing.T, value any) []byte {
 	}
 	return data
 }
+
+// TestValidateErrorsStayShort sets each string of a valid project to a
+// very long value in turn. The session keeps the error of a rejected
+// command, so each error must stay short.
+func TestValidateErrorsStayShort(t *testing.T) {
+	t.Parallel()
+	const maxErrorBytes = 1024
+	long := strings.Repeat("x", 1<<20)
+	base := Default()
+	base.DemandProfiles = []DemandProfile{testDemandProfile()}
+	base.Demand = DemandConfig{Enabled: true, PerMinute: 12, Pattern: "profile", Seed: 7, Profile: "weekday", Band: "am"}
+	if err := Validate(base); err != nil {
+		t.Fatal(err)
+	}
+	var paths []string
+	var walk func(value reflect.Value, path string)
+	walk = func(value reflect.Value, path string) {
+		switch value.Kind() {
+		case reflect.String:
+			paths = append(paths, path)
+			config := Clone(base)
+			field := reflect.ValueOf(&config).Elem()
+			for name := range strings.SplitSeq(path[1:], ".") {
+				if field.Kind() == reflect.Slice {
+					field = field.Index(0)
+				}
+				field = field.FieldByName(name)
+			}
+			field.SetString(long)
+			err := Validate(config)
+			if err == nil {
+				t.Errorf("%s: a value of %d bytes is valid", path, len(long))
+			} else if len(err.Error()) > maxErrorBytes {
+				t.Errorf("%s: the error has %d bytes, more than %d", path, len(err.Error()), maxErrorBytes)
+			}
+		case reflect.Struct:
+			for field, fieldValue := range value.Fields() {
+				walk(fieldValue, path+"."+field.Name)
+			}
+		case reflect.Slice:
+			if value.Len() > 0 {
+				walk(value.Index(0), path)
+			}
+		default:
+			// A project has no strings in maps or behind pointers.
+		}
+	}
+	walk(reflect.ValueOf(base), "")
+	t.Logf("checked %d strings", len(paths))
+	if len(paths) < 20 {
+		t.Fatalf("checked only %d strings: %v", len(paths), paths)
+	}
+}
+
+func TestQuoteID(t *testing.T) {
+	t.Parallel()
+	id := strings.Repeat("x", maxIDLength)
+	if got, want := quoteID(id), `"`+id+`"`; got != want {
+		t.Fatalf("quoteID(%d bytes) = %s, want %s", len(id), got, want)
+	}
+	if got, want := quoteID(id+"y"), `"`+id+`"...`; got != want {
+		t.Fatalf("quoteID(%d bytes) = %s, want %s", len(id)+1, got, want)
+	}
+	// A rune that crosses the limit is removed whole.
+	cut := strings.Repeat("x", maxIDLength-1) + "é"
+	if got, want := quoteID(cut), `"`+strings.Repeat("x", maxIDLength-1)+`"...`; got != want {
+		t.Fatalf("quoteID(%q) = %s, want %s", cut, got, want)
+	}
+	// Invalid UTF-8 does not remove more than one rune of bytes.
+	invalid := strings.Repeat("\x80", 2*maxIDLength)
+	if got := quoteID(invalid); len(got) < 4*(maxIDLength-utf8.UTFMax) {
+		t.Fatalf("quoteID(invalid) = %s, too short", got)
+	}
+}
