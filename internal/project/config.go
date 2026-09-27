@@ -21,13 +21,14 @@ const (
 )
 
 // These are the largest counts that Validate accepts. The saved session
-// decoder uses the same limits, and web/editor.js has a copy of the network
-// and flow limits. The largest session state file grows by about 3,000
-// bytes for each node and 1,000 bytes for each lane of these limits,
-// because each saved route can have one index for each node or lane. With
-// these limits and a project member of MaxFileBytes, it is 30,164,660
-// bytes, below session.MaxStateBytes. Thus a larger node or lane limit also
-// needs a larger session.MaxStateBytes.
+// decoder uses the same limits, and web/editor.js has a copy of
+// MaxStations, MaxNodes, MaxLanes, MaxNodeLanes, and MaxFlows. The largest
+// session state file grows by about 3,000 bytes for each node and 1,000
+// bytes for each lane of these limits, because each saved route can have
+// one index for each node or lane. With these limits and a project member
+// of MaxFileBytes, it is 30,164,660 bytes, below session.MaxStateBytes.
+// Thus a larger node or lane limit also needs a larger
+// session.MaxStateBytes.
 const (
 	// MaxPods is the largest fleet.
 	MaxPods = 200
@@ -40,10 +41,16 @@ const (
 	// MaxLanes is the largest number of network lanes.
 	MaxLanes = 8000
 	// MaxNodeLanes is the largest number of lanes at one node. A lane
-	// counts at its From node and at its To node. The simulator compares
-	// each pair of lanes at a node when it starts, so the limit keeps
-	// that work below 2 * MaxLanes * MaxNodeLanes pairs.
+	// counts at its From node and at its To node.
 	MaxNodeLanes = 64
+	// MaxJunctionPairs is the largest total of the lane pairs that
+	// sim.Network.JunctionPairs counts at the nodes. The simulator compares
+	// each of these pairs when it starts, so the limit bounds the start
+	// time. The largest total of a generated project in the tests is
+	// 32,752, in a ring of 4 stations with 62 berths each. A network with
+	// MaxNodes nodes and MaxLanes lanes has at least 48,000 pairs, so the
+	// limit also leaves space for a network with the most lanes.
+	MaxJunctionPairs = 100_000
 	// MaxProfiles is the largest number of demand profiles.
 	MaxProfiles = 8
 	// MaxBands is the largest number of bands in one demand profile.
@@ -400,8 +407,9 @@ func validateNames(config Config) error {
 	return nil
 }
 
-// validateLanes checks that each node has at most MaxNodeLanes lanes, and
-// that no two lanes have the same nodes and the same path.
+// validateLanes checks that each node has at most MaxNodeLanes lanes, that
+// the nodes have at most MaxJunctionPairs lane pairs, and that no two lanes
+// have the same nodes and the same path.
 func validateLanes(network sim.Network) error {
 	counts := make(map[string]int, len(network.Nodes))
 	for _, lane := range network.Lanes {
@@ -412,6 +420,17 @@ func validateLanes(network sim.Network) error {
 		if counts[node.ID] > MaxNodeLanes {
 			return fmt.Errorf("node %s has %d lanes, more than %d", quoteID(node.ID), counts[node.ID], MaxNodeLanes)
 		}
+	}
+	pairs := network.JunctionPairs()
+	total, most := 0, 0
+	for index, count := range pairs {
+		total += count
+		if count > pairs[most] {
+			most = index
+		}
+	}
+	if total > MaxJunctionPairs {
+		return fmt.Errorf("network has %d lane pairs at nodes, more than %d, and node %s has the most, %d", total, MaxJunctionPairs, quoteID(network.Nodes[most].ID), pairs[most])
 	}
 	type path struct {
 		from, to string

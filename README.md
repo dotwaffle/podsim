@@ -632,6 +632,8 @@ The editor sends the project in one command, and the server accepts a command of
 A project can have at most 200 stations, 4,000 nodes, 8,000 lanes, and 200 pods.
 Each station can have at most 200 berths.
 A node can have at most 64 lanes, counted at the start node and at the end node of each lane.
+At each node, the simulator compares each ordered pair of two different lanes at the node when it starts.
+The total of these pairs over all nodes can be at most 100,000, for example about 24 nodes with 64 lanes each.
 Two lanes cannot have the same start node, end node, and path.
 A demand profile can have at most 40,000 flows, so it can hold a flow for each ordered pair of 200 stations.
 

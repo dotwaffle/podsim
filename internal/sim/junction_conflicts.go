@@ -29,26 +29,68 @@ const (
 func buildJunctionConflicts(network Network) map[string][]laneConflict {
 	conflicts := make(map[string][]laneConflict)
 	polylines := make(map[string]*conflictPolyline, len(network.Lanes))
-	incident := make(map[string][]Lane)
 	for _, lane := range network.Lanes {
 		polylines[lane.ID] = newConflictPolyline(network.lanePoints(lane, make([]Point, 0, 65)))
-		incident[lane.From] = append(incident[lane.From], lane)
-		incident[lane.To] = append(incident[lane.To], lane)
 	}
+	forEachJunctionPair(network, func(node string, lane, other Lane) {
+		start, end := conflictExtent(polylines[lane.ID], polylines[other.ID])
+		if !math.IsInf(start, 1) {
+			conflicts[lane.ID] = append(conflicts[lane.ID], laneConflict{junction: node, start: start, end: end})
+		}
+	})
+	return conflicts
+}
+
+// JunctionPairs returns, for each node in node order, the number of lane
+// pairs that the simulation compares at the node when it builds the
+// junction conflicts. Each comparison measures the paths of two lanes, so
+// the total sets most of the time that NewFleet uses on a large network.
+// It counts the lanes and does not compare them.
+func (n Network) JunctionPairs() []int {
+	incident := incidentLanes(n)
+	pairs := make([]int, len(n.Nodes))
+	for index, node := range n.Nodes {
+		lanes := incident[node.ID]
+		// forEachJunctionPair gives each ordered pair of entries, less the
+		// pairs of an entry with an entry of the same lane. Only a loop
+		// lane has two entries, and each of them has one entry of the same
+		// lane.
+		pairs[index] = len(lanes) * (len(lanes) - 1)
+		for _, lane := range lanes {
+			if lane.From == lane.To {
+				pairs[index]--
+			}
+		}
+	}
+	return pairs
+}
+
+// forEachJunctionPair calls compare for each ordered pair of lanes at each
+// node, in node order. A lane is at its From node and at its To node, so a
+// loop lane has two entries at its node. compare does not get a lane
+// paired with the same lane.
+func forEachJunctionPair(network Network, compare func(node string, lane, other Lane)) {
+	incident := incidentLanes(network)
 	for _, node := range network.Nodes {
 		for _, lane := range incident[node.ID] {
 			for _, other := range incident[node.ID] {
-				if lane.ID == other.ID {
-					continue
-				}
-				start, end := conflictExtent(polylines[lane.ID], polylines[other.ID])
-				if !math.IsInf(start, 1) {
-					conflicts[lane.ID] = append(conflicts[lane.ID], laneConflict{junction: node.ID, start: start, end: end})
+				if lane.ID != other.ID {
+					compare(node.ID, lane, other)
 				}
 			}
 		}
 	}
-	return conflicts
+}
+
+// incidentLanes returns the lanes at each node, in lane order. A loop lane
+// is two times in the lanes of its node.
+func incidentLanes(network Network) map[string][]Lane {
+	incident := make(map[string][]Lane)
+	for _, lane := range network.Lanes {
+		incident[lane.From] = append(incident[lane.From], lane)
+		incident[lane.To] = append(incident[lane.To], lane)
+	}
+	return incident
 }
 
 func conflictExtent(lane, other *conflictPolyline) (float64, float64) {

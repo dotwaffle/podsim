@@ -226,3 +226,38 @@ func TestJunctionAdmissionWaitsForWholeConflictZone(t *testing.T) {
 		t.Fatalf("pod did not acquire cleared conflict atomically: reserved=%d owners=%v", v.reservedThrough, s.owners)
 	}
 }
+
+// TestJunctionPairsCountsBuildPairs checks that JunctionPairs gives the
+// number of pairs that buildJunctionConflicts compares at each node. A loop
+// lane has two entries at its node, and the build does not compare them.
+func TestJunctionPairsCountsBuildPairs(t *testing.T) {
+	t.Parallel()
+	networks := scenarioNetworks(t)
+	networks["example"] = Example()
+	loop := Example().clone()
+	node := loop.Nodes[0]
+	loop.Lanes = append(loop.Lanes, Lane{ID: "loop", From: node.ID, To: node.ID, SpeedLimit: 12, Control: &Point{X: node.Position.X, Y: node.Position.Y + 100}})
+	networks["loop"] = loop
+	for name, network := range networks {
+		index := make(map[string]int, len(network.Nodes))
+		for position, node := range network.Nodes {
+			index[node.ID] = position
+		}
+		compared := make([]int, len(network.Nodes))
+		forEachJunctionPair(network, func(node string, _, _ Lane) { compared[index[node]]++ })
+		if got := network.JunctionPairs(); !reflect.DeepEqual(got, compared) {
+			t.Errorf("%s: JunctionPairs = %v, want %v", name, got, compared)
+		}
+	}
+	// Each of the k lanes at the node pairs with each of the two loop
+	// entries, in both orders.
+	k := 0
+	for _, lane := range Example().Lanes {
+		if lane.From == node.ID || lane.To == node.ID {
+			k++
+		}
+	}
+	if got, want := loop.JunctionPairs()[0], k*(k-1)+4*k; got != want {
+		t.Errorf("pairs at the loop node = %d, want %d", got, want)
+	}
+}

@@ -175,6 +175,8 @@ Project validation checks directed reachability between all passenger berths.
 The preset starts with automatic demand and redistribution disabled.
 
 A project can have at most 200 stations, 4,000 nodes, and 8,000 lanes.
+The lane pairs at the nodes can be at most 100,000 in total.
+The London preset has 20,096 and the largest London capacity options in the tests have 29,336.
 These limits also apply to an edit of the London project in the editor.
 The `serve` and `compare` commands read a `-project` file of 8 MiB or less.
 The generated file is indented, so it is about 3.3 MiB.

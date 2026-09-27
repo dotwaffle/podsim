@@ -10,37 +10,19 @@ import (
 	"github.com/dotwaffle/podsim/internal/sim"
 )
 
-// ringOfHubs returns the example project with a ring of added nodes. Each
-// added node has a straight lane to each of the next MaxNodeLanes/2 nodes,
-// so it has MaxNodeLanes lanes. The ring fills the lane limit.
-func ringOfHubs() Config {
-	config := Default()
-	reach := MaxNodeLanes / 2
-	count := (MaxLanes - len(config.Network.Lanes)) / reach
-	radius := 40 * float64(count) / (2 * math.Pi)
-	for index := range count {
-		angle := 2 * math.Pi * float64(index) / float64(count)
-		config.Network.Nodes = append(config.Network.Nodes, sim.Node{
-			ID: fmt.Sprintf("hub-%d", index), Position: sim.Point{X: 20_000 + radius*math.Cos(angle), Y: 20_000 + radius*math.Sin(angle)},
-		})
-	}
-	for index := range count {
-		for step := 1; step <= reach; step++ {
-			config.Network.Lanes = append(config.Network.Lanes, sim.Lane{
-				ID: fmt.Sprintf("hub-%d-%d", index, step), From: fmt.Sprintf("hub-%d", index), To: fmt.Sprintf("hub-%d", (index+step)%count), SpeedLimit: 12,
-			})
-		}
-	}
-	return config
-}
-
 // bundles returns the example project with added pairs of nodes 30 meters
 // apart. Each pair has MaxNodeLanes lanes, with a different curve for each
-// lane. Lanes that stay near each other make each comparison slow, so this
-// is a slow layout for the lane limits.
+// lane. The project has as many pairs as MaxJunctionPairs allows. Lanes that
+// stay near each other make each comparison slow, so this is a slow layout
+// for the lane limits.
 func bundles() Config {
 	config := Default()
-	for bundle := 0; len(config.Network.Lanes)+MaxNodeLanes <= MaxLanes && len(config.Network.Nodes)+2 <= MaxNodes; bundle++ {
+	total := 0
+	for _, count := range config.Network.JunctionPairs() {
+		total += count
+	}
+	for bundle := 0; total+2*MaxNodeLanes*(MaxNodeLanes-1) <= MaxJunctionPairs; bundle++ {
+		total += 2 * MaxNodeLanes * (MaxNodeLanes - 1)
 		x, y := 20_000+float64(bundle%30)*500, 20_000+float64(bundle/30)*1_000
 		from, to := fmt.Sprintf("bundle-%d-a", bundle), fmt.Sprintf("bundle-%d-b", bundle)
 		config.Network.Nodes = append(config.Network.Nodes,
@@ -74,6 +56,16 @@ func TestValidateNodeLanes(t *testing.T) {
 	loop.Network.Lanes[len(loop.Network.Lanes)-1] = sim.Lane{ID: "loop", From: "hub", To: "hub", SpeedLimit: 12, Control: &sim.Point{X: 20_000, Y: 20_100}}
 	duplicate := Clone(base)
 	duplicate.Network.Lanes[len(duplicate.Network.Lanes)-1].To = "spoke-0"
+	// extraBundle has one bundle more than MaxJunctionPairs allows.
+	extraBundle := bundles()
+	extraBundle.Network.Nodes = append(extraBundle.Network.Nodes,
+		sim.Node{ID: "extra-a", Position: sim.Point{X: 10_000, Y: 10_000}}, sim.Node{ID: "extra-b", Position: sim.Point{X: 10_030, Y: 10_000}})
+	for index := range MaxNodeLanes {
+		extraBundle.Network.Lanes = append(extraBundle.Network.Lanes, sim.Lane{
+			ID: fmt.Sprintf("extra-%d", index), From: "extra-a", To: "extra-b", SpeedLimit: 12,
+			Control: &sim.Point{X: 10_015, Y: 10_000 + 5*float64(index)},
+		})
+	}
 	tests := []struct {
 		name   string
 		config Config
@@ -82,6 +74,7 @@ func TestValidateNodeLanes(t *testing.T) {
 		{"one lane more", curved, fmt.Sprintf(`node "hub" has %d lanes, more than %d`, MaxNodeLanes+1, MaxNodeLanes)},
 		{"a loop counts twice", loop, fmt.Sprintf(`node "hub" has %d lanes, more than %d`, MaxNodeLanes+1, MaxNodeLanes)},
 		{"a lane with the path of another lane", duplicate, fmt.Sprintf(`lanes "spoke-0" and "spoke-%d" have the same nodes and path`, MaxNodeLanes-1)},
+		{"one bundle more", extraBundle, fmt.Sprintf(`node "bundle-0-a" has the most, %d`, MaxNodeLanes*(MaxNodeLanes-1))},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -93,13 +86,13 @@ func TestValidateNodeLanes(t *testing.T) {
 	}
 }
 
-// TestNodeLaneLimitBoundsFleetMemory starts a fleet on a network in which
-// each added node has MaxNodeLanes lanes, and the network has MaxLanes
-// lanes. The simulator keeps an entry for each pair of lanes at a node, so
-// the lane limits bound the memory that the fleet keeps. It does not run in
-// parallel, because it measures the heap.
+// TestNodeLaneLimitBoundsFleetMemory starts a fleet on the bundles layout,
+// which has as many lane pairs at nodes as MaxJunctionPairs allows. The
+// simulator keeps an entry for each pair of lanes at a node that come near
+// each other, so the limit bounds the memory that the fleet keeps. It does
+// not run in parallel, because it measures the heap.
 func TestNodeLaneLimitBoundsFleetMemory(t *testing.T) {
-	config := ringOfHubs()
+	config := bundles()
 	if err := Validate(config); err != nil {
 		t.Fatal(err)
 	}
@@ -114,8 +107,8 @@ func TestNodeLaneLimitBoundsFleetMemory(t *testing.T) {
 	runtime.ReadMemStats(&after)
 	retained := int64(after.HeapAlloc) - int64(before.HeapAlloc)
 	// Each entry has about 32 bytes. The bound doubles that for the slices
-	// and the maps.
-	bound := int64(2*MaxLanes*MaxNodeLanes) * 64
+	// and the maps, and adds 4,096 bytes for the geometry of each lane.
+	bound := int64(MaxJunctionPairs)*64 + int64(len(config.Network.Lanes))*4096
 	t.Logf("a fleet on %d lanes with %d lanes at each added node retains %d bytes, bound %d", len(config.Network.Lanes), MaxNodeLanes, retained, bound)
 	if retained > bound {
 		t.Fatalf("the fleet retains %d bytes, more than %d", retained, bound)
