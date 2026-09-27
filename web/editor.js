@@ -424,11 +424,16 @@
   // last row to the last berth node. With one row, it is the distance from
   // the middle of the entry-exit line to the berth node. Thus the station
   // keeps the pitch and the direction of its chain. The copy keeps all
-  // other values of the nodes, lanes and berth, such as the speed limit, the
-  // station role and the separation group. A lane curve moves with the
-  // lane. The row has three nodes, arrival, berth and departure, and four
-  // lanes, the arrival link, the departure link, the lane in and the lane
-  // out, in the order that the scenario generators use. A new ID adds one
+  // other values of the nodes, lanes and berth, such as the speed limit and
+  // the separation group. A lane curve moves with the lane. The row has
+  // three nodes, arrival, berth and departure, and four lanes, the arrival
+  // link, the departure link, the lane in and the lane out, in the order
+  // that the scenario generators use. Each new lane gets the station ID in
+  // StationID. The arrival link and the lane in get the berth-access role,
+  // and the departure link and the lane out get the departure role, as the
+  // scenario generators give them. Thus removeBerth accepts the lanes of
+  // the new row, also when an import gave the chain lanes without these
+  // fields. A new ID adds one
   // to the last number in the ID of the copied item, with the same number
   // of digits. Thus a generated station gets the IDs that the generator
   // gives to one more berth. When that ID is in use, or has no number, the
@@ -446,10 +451,10 @@
     });
     const [arrival, berthNode, departure] = nodes.map((node) => node.ID);
     const lanes = [
-      [last.arrivalLink, last.arrival, arrival], [last.departureLink, departure, last.departure],
-      [last.inLane, arrival, berthNode], [last.outLane, berthNode, departure],
-    ].map(([lane, from, to]) => {
-      const copy = { ...clone(lane), ID: chainID(ids, lane.ID, "lane"), From: from, To: to };
+      [last.arrivalLink, last.arrival, arrival, "berth-access"], [last.departureLink, departure, last.departure, "departure"],
+      [last.inLane, arrival, berthNode, "berth-access"], [last.outLane, berthNode, departure, "departure"],
+    ].map(([lane, from, to, role]) => {
+      const copy = { ...clone(lane), ID: chainID(ids, lane.ID, "lane"), From: from, To: to, StationID: station.ID, StationRole: role };
       if (lane.Control) copy.Control = moved(lane.Control);
       return copy;
     });
@@ -544,16 +549,26 @@
   // removeBerth removes a berth, its node, the lanes of its node, and its
   // pods. It gives the new config and an empty error, or the same config
   // and an error that names the station. It does not remove the last berth
-  // of a station. When the berth is the last row of a berth chain, it also
-  // removes the arrival link, the departure link, the arrival node and the
-  // departure node of the row. Thus it removes the row that addBerth adds.
-  // When a lane that is not one of the four lanes of the row uses the
-  // arrival or the departure node, the editor does not remove the berth,
-  // because the removal would also cut that lane off.
+  // of a station. Each lane of the berth node must be a station lane, with
+  // the station ID in StationID. addStation, addBerth and the scenario
+  // generators make such lanes for each berth. When a road lane or a lane
+  // of a different station uses the berth node, the editor does not remove
+  // the berth, and the error tells the user to delete these lanes first.
+  // When the berth is the last row of a berth chain, it also removes the
+  // arrival link, the departure link, the arrival node and the departure
+  // node of the row. Thus it removes the row that addBerth adds. When a
+  // lane that is not one of the four lanes of the row uses the arrival or
+  // the departure node, the editor does not remove the berth, because the
+  // removal would also cut that lane off.
   function removeBerth(config, stationID, berthID) {
     const station = config.network.Stations.find((item) => item.ID === stationID);
     const berth = station && station.Berths.length > 1 && station.Berths.find((item) => item.ID === berthID);
     if (!berth) return { config, error: "" };
+    const foreign = config.network.Lanes.filter((lane) => (lane.From === berth.Node || lane.To === berth.Node) && lane.StationID !== stationID).map((lane) => lane.ID);
+    if (foreign.length) {
+      const lanes = foreign.length === 1 ? `lane ${foreign[0]} also uses` : `lanes ${foreign.join(", ")} also use`;
+      return { config, error: `Berth ${berthID} at ${station.Name || station.ID} stays, because ${lanes} its node ${berth.Node}. Delete ${foreign.length === 1 ? "this lane" : "these lanes"} first.` };
+    }
     const last = berthChain(config, station)?.at(-1);
     const row = last && last.berth.ID === berthID ? last : null;
     const rowLanes = new Set(row ? [row.arrivalLink.ID, row.departureLink.ID, row.inLane.ID, row.outLane.ID] : []);

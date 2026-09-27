@@ -658,6 +658,48 @@ test("remove berth on the last chain row keeps a node that another lane uses", (
   }
 });
 
+test("add berth on an imported chain without station lane fields makes station lanes", () => {
+  const { config, arrival, departure } = chainScenario();
+  const [alpha] = config.network.Stations;
+  // An import can give chain lanes without StationID and StationRole. The
+  // lanes of the new row get them, so Remove on the new berth gives the
+  // import again.
+  const plain = JSON.parse(JSON.stringify(config));
+  const chain = (lane) => [arrival, departure].includes(lane.From) || [arrival, departure].includes(lane.To);
+  for (const lane of plain.network.Lanes.filter(chain)) { delete lane.StationID; delete lane.StationRole; }
+  const imported = editor.normalizeConfig(JSON.parse(JSON.stringify(plain)));
+  assert.equal(imported.network.Lanes.filter((lane) => chain(lane) && !lane.StationID).length, 4);
+  assert.deepEqual(editor.validateConfig(imported), []);
+  assertChainRow({ before: imported, after: addedBerth(imported, alpha.ID), stationID: alpha.ID, pitch: { X: 0, Y: 30 } }, "imported chain");
+});
+
+test("remove berth keeps a berth when a lane that is not a station lane uses its node", () => {
+  const config = connectedScenario();
+  const [alpha, beta] = config.network.Stations;
+  const two = addedBerth(config, alpha.ID);
+  const berth = two.network.Stations[0].Berths.at(-1);
+  // With only its station lanes on the berth node, the removal gives the
+  // config before the add.
+  assert.deepEqual(removedBerth(two, alpha.ID, berth.ID), config);
+  const road = editor.addLane(two, berth.Node, beta.Entry, false);
+  let other = editor.addJunction(two, 100, 220);
+  other = editor.addLane(other, other.network.Nodes.at(-1).ID, berth.Node, false);
+  other = editor.addLane(other, berth.Node, beta.Exit, false);
+  Object.assign(other.network.Lanes.at(-1), { StationID: beta.ID, StationRole: "departure" });
+  const [first, second] = other.network.Lanes.slice(-2).map((lane) => lane.ID);
+  const cases = [
+    { name: "a road lane", config: road, want: `lane ${road.network.Lanes.at(-1).ID} also uses its node ${berth.Node}. Delete this lane first.` },
+    { name: "a road lane and a lane of a different station", config: other, want: `lanes ${first}, ${second} also use its node ${berth.Node}. Delete these lanes first.` },
+  ];
+  for (const tc of cases) {
+    const before = JSON.parse(JSON.stringify(tc.config));
+    const result = editor.removeBerth(tc.config, alpha.ID, berth.ID);
+    assert.equal(result.config, tc.config, tc.name);
+    assert.deepEqual(tc.config, before, tc.name);
+    assert.equal(result.error, `Berth ${berth.ID} at Alpha stays, because ${tc.want}`, tc.name);
+  }
+});
+
 test("add berth on a berth chain station names the station when a new lane has no clearance", () => {
   const { config } = chainScenario();
   const [alpha] = config.network.Stations;

@@ -455,6 +455,11 @@ The draft stays local until you select **Pause and apply**.
 - On a station that the editor made, **Add physical berth** puts the new berth 30 m past the last berth.
   The berth goes on the station axis, across the entry-exit line, on the side of the other berths.
   The berth gets a lane from the station entry and a lane to the station exit.
+- On each station, **Remove** on a berth row removes the berth, its node, and the lanes of its node.
+  Each lane of the berth node must be a station lane of that station, such as the lanes that **Add physical berth** makes.
+  If a road lane or a lane of a different station uses the berth node, the editor does not remove the berth.
+  A message then gives the station name, the lanes, and the node.
+  Delete these lanes first, then remove the berth.
 - A generated London or scale100 station is a berth chain.
   Each berth row has an arrival node, a berth node, and a departure node.
   On a berth chain station, **Add physical berth** adds one more row at the end of the chain.
@@ -462,6 +467,7 @@ The draft stays local until you select **Pause and apply**.
   The distance and direction from the last row to the new row are the same as from the row before it to the last row.
   With one row, the distance is from the middle of the entry-exit line to the berth node.
   The new items get the IDs that the scenario generator gives to one more berth.
+  The four new lanes are station lanes of that station, also when the lanes of the other rows are not.
   If a new lane crosses another lane or comes nearer than 12 m to it, the editor does not add the berth.
   The check also compares the new lanes with each other, but not two lanes that share a node.
   A message then gives the station name and the two lanes.
