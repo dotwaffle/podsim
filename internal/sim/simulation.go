@@ -242,7 +242,7 @@ type Simulation struct {
 	rebalanceMoves               int
 	sharedRidePartyLimit         int
 	sharedParties                int
-	congestionRouting            bool
+	routingPolicy                RoutingPolicy
 	finishingPodWait             FinishingPodWait
 	congestionRouteCosts         []float64
 	congestionRoutes             map[routeKey]routeResult

@@ -168,8 +168,8 @@ var persistRules = map[reflect.Type]map[string]persistRule{
 		"passengerDistanceMeters": persistSave, "emptyDistanceMeters": persistSave, "rebalanceMoves": persistSave,
 		"sharedRidePartyLimit": persistSave, "sharedParties": persistSave,
 		"laneSafety": persistDerive, "berthSafety": persistDerive, "vehicleIndexes": persistDerive, "berthResources": persistDerive,
-		"laneCells":         persistDerive,
-		"congestionRouting": persistUnsupported, "congestionRouteCosts": persistUnsupported,
+		"laneCells":     persistDerive,
+		"routingPolicy": persistUnsupported, "congestionRouteCosts": persistUnsupported,
 		"congestionRoutes": persistUnsupported, "nextCongestionRouteRefresh": persistUnsupported,
 		"reservationLookaheadSeconds": persistUnsupported, "finishingPodWait": persistUnsupported,
 		"requestBoardings": persistReset, "requestCompletions": persistReset, "nodePasses": persistReset,
@@ -455,7 +455,27 @@ func (fixture cloneFixture) build(t *testing.T) *Simulation {
 	return s
 }
 
+// queueFixtureNetwork has a parking station with 8 berths and five passenger
+// stations. Station s1 has one berth.
+func queueFixtureNetwork() Network { return lineNetwork(lineStations(8, 2, 1, 2, 2, 2)) }
+
+// queueTrips returns one trip each second from second first to second
+// last, with most trips to station s1.
+func queueTrips(first, last int) []cloneTrip {
+	var trips []cloneTrip
+	for second := first; second < last; second++ {
+		trips = append(trips, cloneTrip{second: second, from: []string{"s0", "s4", "s3", "s0"}[second%4], to: []string{"s1", "s1", "s1", "s3"}[second%4]})
+	}
+	return trips
+}
+
 func cloneFixtures() []cloneFixture {
+	var queueFleet []Placement
+	for _, station := range queueFixtureNetwork().Stations {
+		for _, berth := range station.Berths {
+			queueFleet = append(queueFleet, Placement{ID: berth.ID, StationID: station.ID, BerthID: berth.ID})
+		}
+	}
 	demoFleet := []Placement{{ID: "01", StationID: "harbor"}, {ID: "02", StationID: "garden"}}
 	fleet := append(slices.Clone(demoFleet), Placement{ID: "03", StationID: "parking", BerthID: "parking-1"})
 	return []cloneFixture{
@@ -549,6 +569,21 @@ func cloneFixtures() []cloneFixture {
 				}
 				if end.completed <= clonePoint.completed || end.nextCongestionRouteRefresh <= clonePoint.nextCongestionRouteRefresh {
 					return fmt.Errorf("continuation completed %d and did not refresh congestion routes", end.completed-clonePoint.completed)
+				}
+				return nil
+			},
+		},
+		{
+			// Pods leave parking in a queue at the clone point, so the
+			// assignments after it search with queue delays.
+			name: "queue routing", placements: queueFleet,
+			network:      queueFixtureNetwork,
+			setup:        func(s *Simulation) error { return s.SetRoutingPolicy(QueueRouting) },
+			warmup:       cloneInputs{seconds: 20, trips: queueTrips(0, 20)},
+			continuation: cloneInputs{seconds: 150, trips: queueTrips(0, 60)},
+			exercised: func(clonePoint, end *Simulation) error {
+				if clonePoint.queueDischarge(nil) == nil || end.completed <= clonePoint.completed {
+					return fmt.Errorf("the clone point has no queue, or the continuation completed %d", end.completed-clonePoint.completed)
 				}
 				return nil
 			},

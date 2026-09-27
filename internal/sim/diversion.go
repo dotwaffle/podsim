@@ -122,7 +122,7 @@ func (s *Simulation) sendPickup(v *vehicle, stationID string) error {
 	// The pod keeps that berth. Only the route from the divert node to the
 	// berth can change. Inside the station, the route has no alternative.
 	if prefix, from, _ := s.divertStart(v); s.costedRouting() && from != station.Entry {
-		if suffix, err := s.assignedRoute(from, berth.Node); err == nil {
+		if suffix, err := s.assignedRoute(v, from, berth.Node); err == nil {
 			route = append(slices.Clone(v.Route[:prefix]), suffix...)
 		}
 	}

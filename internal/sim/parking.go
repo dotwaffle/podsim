@@ -106,7 +106,7 @@ func (s *Simulation) startEmptyMove(v *vehicle, to emptyDestination) error {
 	}
 	from, _ := s.station(v.Pod.StationID)
 	origin, _ := from.berth(v.Pod.BerthID)
-	route, err := s.assignedRoute(origin.Node, to.berth.Node)
+	route, err := s.assignedRoute(v, origin.Node, to.berth.Node)
 	if err != nil {
 		return fmt.Errorf("empty route %s to %s: %w", from.ID, to.station, err)
 	}

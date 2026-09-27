@@ -47,7 +47,7 @@ func (s *Simulation) parkReleased(v *vehicle) {
 		return
 	}
 	if berth.ID != v.destination.ID {
-		suffix, err := s.assignedRoute(from, berth.Node)
+		suffix, err := s.assignedRoute(v, from, berth.Node)
 		if err != nil {
 			return
 		}

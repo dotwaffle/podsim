@@ -57,20 +57,24 @@ func (s *Simulation) cachedRoute(from, to string) routeResult {
 // costedRouting reports whether assignedRoute can give a route that is not
 // the free-flow route.
 func (s *Simulation) costedRouting() bool {
-	return s.congestionRouting
+	return s.routingPolicy != FreeFlowRouting
 }
 
-// assignedRoute returns the route for a pod that starts a new route from
+// assignedRoute returns the route for pod v when it starts a new route from
 // node from to node to. It is the free-flow route of route, or the route of
 // the routing policy. The callers are board, startEmptyMove, sendPickup
 // and parkReleased.
-func (s *Simulation) assignedRoute(from, to string) ([]Lane, error) {
-	if !s.costedRouting() {
+func (s *Simulation) assignedRoute(v *vehicle, from, to string) ([]Lane, error) {
+	switch s.routingPolicy {
+	case CongestionRouting:
+		s.ensureNetworkIndexes()
+		result := s.congestionRoute(from, to)
+		return result.lanes, result.err
+	case QueueRouting:
+		return s.queueRoute(v, from, to)
+	default:
 		return s.route(from, to)
 	}
-	s.ensureNetworkIndexes()
-	result := s.congestionRoute(from, to)
-	return result.lanes, result.err
 }
 
 // congestionRoute returns the route with the lowest travel time plus

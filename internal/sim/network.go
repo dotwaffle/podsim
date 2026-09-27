@@ -153,6 +153,10 @@ type networkRouteInput struct {
 	from, to  string
 	forbidden map[string]bool
 	extraCost []float64
+	// discharge holds, by lane index, the time from the route start at
+	// which the queue on the lane clears. A lane adds queueDelay of this
+	// time and the route cost at its start. See queueRoute.
+	discharge []float64
 	// ownBerthsOnly stops the search at each berth node of a station that
 	// has no berth at from or at to. Thus the route cannot go through the
 	// berths of a third station.
@@ -202,6 +206,9 @@ func (n Network) routeIndexed(input networkRouteInput, graph routeGraph) ([]Lane
 			extra := 0.0
 			if laneIndex < len(input.extraCost) {
 				extra = input.extraCost[laneIndex]
+			}
+			if laneIndex < len(input.discharge) {
+				extra += queueDelay(input.discharge[laneIndex], item.distance)
 			}
 			candidate := item.distance + edge.seconds + extra
 			if candidate < distance[edge.to] {
