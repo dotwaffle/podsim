@@ -663,11 +663,14 @@ func routeLaneBlocks(blocks []block, routeIndex int) (first, last int) {
 // reserved blocks 0 to through and is at a route distance. These are the
 // resources of those blocks that the pod has not passed by their release
 // distance. Before the pod is Clearance from its origin, it also holds the
-// origin berth and node.
+// origin berth and node. A set finds the repeated resources, because a
+// saved route can reserve many blocks.
 func (v *vehicle) footprint(through int, distance float64) []resource {
 	var held []resource
+	seen := make(map[resource]bool)
 	add := func(claimed resource) {
-		if !slices.Contains(held, claimed) {
+		if !seen[claimed] {
+			seen[claimed] = true
 			held = append(held, claimed)
 		}
 	}
