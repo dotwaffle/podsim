@@ -334,15 +334,14 @@ func (l *blockList) cellEnd(lane, cell int) float64 {
 	return entry.start + cellOffset(cell+1, l.lanes[lane+1].first-entry.first, entry.length)
 }
 
-// resources returns the resources of a block.
-func (l *blockList) resources(index int) []resource {
-	lane, cell := l.cell(index)
-	return l.lanes[lane].cells.cell(cell)
-}
-
-// last reports whether a block is the last block of its lane.
-func (l *blockList) last(index int) bool {
-	return index+1 == l.lanes[l.routeLane(index)+1].first
+// next returns the route index of the lane of the block at index. lane is
+// the route index of the lane of the block or of an earlier block. A walk
+// in index order uses next, so it does not search for each block.
+func (l *blockList) next(lane, index int) int {
+	for index >= l.lanes[lane+1].first {
+		lane++
+	}
+	return lane
 }
 
 // at returns the block at an index.
@@ -355,11 +354,19 @@ func (l *blockList) at(index int) block {
 func (l *blockList) block(lane, cell int) block {
 	entry := &l.lanes[lane]
 	count := l.lanes[lane+1].first - entry.first
+	start, end := l.cellBounds(lane, cell)
 	return block{
-		lane: l.route[lane], geometry: entry.geometry, cell: cell,
-		start: entry.start + cellOffset(cell, count, entry.length), end: entry.start + cellOffset(cell+1, count, entry.length),
+		lane: l.route[lane], geometry: entry.geometry, cell: cell, start: start, end: end,
 		laneStart: entry.start, resources: entry.cells.cell(cell), last: cell == count-1,
 	}
+}
+
+// cellBounds returns the route distances at the start and at the end of a
+// cell of the lane at a route index.
+func (l *blockList) cellBounds(lane, cell int) (start, end float64) {
+	entry := &l.lanes[lane]
+	count := l.lanes[lane+1].first - entry.first
+	return entry.start + cellOffset(cell, count, entry.length), entry.start + cellOffset(cell+1, count, entry.length)
 }
 
 // span returns the blocks from index from up to but not including index to,
@@ -542,10 +549,17 @@ func (s *Simulation) grant(in intent) {
 			}
 		}
 	}
-	for _, b := range v.blocks.span(in.block, through+1) {
-		for _, r := range b.resources {
+	// This walk does not make the blocks, because a block holds a copy of
+	// its lane. It uses the same values as span.
+	blocks := &v.blocks
+	lane := blocks.routeLane(in.block)
+	for index := in.block; index <= through; index++ {
+		lane = blocks.next(lane, index)
+		cell := index - blocks.lanes[lane].first
+		start, end := blocks.cellBounds(lane, cell)
+		for _, r := range blocks.lanes[lane].cells.cell(cell) {
 			s.owners[r] = v.Pod.ID
-			v.retainRouteResource(r, resourceReleaseDistance(b, r))
+			v.retainRouteResource(r, releaseDistance(r, releaseInput{from: blocks.route[lane].From, start: start, end: end}))
 		}
 	}
 	v.reservedThrough = through
@@ -570,12 +584,16 @@ func reservationEnd(blocks *blockList, start int) int {
 	var storage [4]junctionRun
 	runs := storage[:0]
 	through := start
+	lane := blocks.routeLane(start)
 	for i := start; i <= through; i++ {
-		if blocks.last(i) && i+1 < blocks.len() {
+		lane = blocks.next(lane, i)
+		entry := &blocks.lanes[lane]
+		// Block i is the last block of its lane.
+		if i+1 == blocks.lanes[lane+1].first && i+1 < blocks.len() {
 			through = max(through, i+1)
 		}
 		runs = slices.DeleteFunc(runs, func(run junctionRun) bool { return run.end < i })
-		for _, r := range blocks.resources(i) {
+		for _, r := range entry.cells.cell(i - entry.first) {
 			if r.kind != junctionResource {
 				continue
 			}
@@ -583,8 +601,12 @@ func reservationEnd(blocks *blockList, start int) int {
 				through = max(through, runs[k].end)
 				continue
 			}
-			end := i
-			for end+1 < blocks.len() && slices.Contains(blocks.resources(end+1), r) {
+			end, endLane := i, lane
+			for end+1 < blocks.len() {
+				endLane = blocks.next(endLane, end+1)
+				if !slices.Contains(blocks.lanes[endLane].cells.cell(end+1-blocks.lanes[endLane].first), r) {
+					break
+				}
 				end++
 			}
 			runs = append(runs, junctionRun{junction: r, end: end})
@@ -632,11 +654,25 @@ func (s *Simulation) releaseCleared() {
 }
 
 func resourceReleaseDistance(b block, r resource) float64 {
+	return releaseDistance(r, releaseInput{from: b.lane.From, start: b.start, end: b.end})
+}
+
+// releaseInput holds the block values that releaseDistance uses. from is
+// the From node of the lane of the block. start and end are route
+// distances.
+type releaseInput struct {
+	from       string
+	start, end float64
+}
+
+// releaseDistance returns the route distance at which a pod releases r of
+// a block.
+func releaseDistance(r resource, b releaseInput) float64 {
 	if r.kind == junctionResource {
 		return b.end
 	}
 	// A departure clears the node before it clears the first downstream cell.
-	if r.kind == nodeResource && r.id == b.lane.From {
+	if r.kind == nodeResource && r.id == b.from {
 		return b.start + Clearance
 	}
 	return b.end + Clearance
