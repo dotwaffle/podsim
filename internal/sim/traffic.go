@@ -43,6 +43,18 @@ func laneBlockCount(length float64) int {
 	return max(2, int(math.Ceil(length/30)))
 }
 
+// indexBerthResources returns the berth resources at each node, in station
+// order and then in berth order.
+func indexBerthResources(network Network) map[string][]resource {
+	resources := make(map[string][]resource)
+	for _, station := range network.Stations {
+		for _, berth := range station.Berths {
+			resources[berth.Node] = append(resources[berth.Node], resource{kind: berthResource, id: berth.ID})
+		}
+	}
+	return resources
+}
+
 // routeBlocks uses the same cell boundaries for every route through a lane.
 // It also returns the value of laneLength for each route lane.
 func (s *Simulation) routeBlocks(route []Lane) ([]block, []float64) {
@@ -59,12 +71,8 @@ func (s *Simulation) routeBlocks(route []Lane) ([]block, []float64) {
 		count := laneBlockCount(length)
 		for cell := range count {
 			b := block{lane: lane, geometry: geometry, cell: cell, start: distance + float64(cell)*length/float64(count), end: distance + float64(cell+1)*length/float64(count), laneStart: distance, last: cell == count-1}
-			for _, station := range s.network.Stations {
-				for _, berth := range station.Berths {
-					if b.last && lane.To == berth.Node {
-						b.resources = append(b.resources, resource{kind: berthResource, id: berth.ID})
-					}
-				}
+			if b.last {
+				b.resources = append(b.resources, s.berthResources[lane.To]...)
 			}
 			if cell == 0 {
 				b.resources = append(b.resources, resource{kind: nodeResource, id: lane.From})

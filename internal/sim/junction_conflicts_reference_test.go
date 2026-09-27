@@ -156,6 +156,20 @@ func TestJunctionConflictsMatchReference(t *testing.T) {
 // networks.
 func TestScenarioJunctionConflictsMatchReference(t *testing.T) {
 	t.Parallel()
+	networks := scenarioNetworks(t)
+	networks["far London"] = translateNetwork(networks["London"], Point{X: 3e7, Y: -2e7})
+	for _, name := range slices.Sorted(maps.Keys(networks)) {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			checkJunctionConflictsMatchReference(t, networks[name])
+		})
+	}
+}
+
+// scenarioNetworks returns the networks in
+// testdata/scenario_networks.json.gz by name.
+func scenarioNetworks(t *testing.T) map[string]Network {
+	t.Helper()
 	data, err := os.ReadFile("testdata/scenario_networks.json.gz")
 	if err != nil {
 		t.Fatal(err)
@@ -168,13 +182,7 @@ func TestScenarioJunctionConflictsMatchReference(t *testing.T) {
 	if err := json.NewDecoder(reader).Decode(&networks); err != nil {
 		t.Fatal(err)
 	}
-	networks["far London"] = translateNetwork(networks["London"], Point{X: 3e7, Y: -2e7})
-	for _, name := range slices.Sorted(maps.Keys(networks)) {
-		t.Run(name, func(t *testing.T) {
-			t.Parallel()
-			checkJunctionConflictsMatchReference(t, networks[name])
-		})
-	}
+	return networks
 }
 
 func TestConflictSeparationKeepsCloseValues(t *testing.T) {

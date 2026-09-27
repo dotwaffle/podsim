@@ -202,11 +202,12 @@ type vehicle struct {
 // Simulation owns a fixed fleet and local track, junction, and berth resources.
 //
 // Clone shares some fields with its source. They are the network, the route
-// graph, and the station, pod, geometry, junction, and safety indexes. They
-// also include the initial fleet, the demand weights, the congestion costs,
-// the routes of pods and waiting trips, and the block tables and route
-// lengths of pods. Code must replace a shared field whole. It must not write
-// into a shared field in place, because that change also changes the clones.
+// graph, and the station, berth, pod, geometry, junction, and safety
+// indexes. They also include the initial fleet, the demand weights, the
+// congestion costs, the routes of pods and waiting trips, and the block
+// tables and route lengths of pods. Code must replace a shared field whole.
+// It must not write into a shared field in place, because that change also
+// changes the clones.
 type Simulation struct {
 	// NewFleet builds junctionConflicts from the network. No code writes to it
 	// in place. ensureNetworkIndexes replaces it only when the network changes.
@@ -247,6 +248,9 @@ type Simulation struct {
 	reservationLookaheadSeconds  float64
 	laneSafety                   map[string]SafetyLocation
 	berthSafety                  map[string]SafetyLocation
+	// berthResources holds the berth resources at each node. NewFleet and
+	// ensureNetworkIndexes build it. No code writes to it in place.
+	berthResources map[string][]resource
 	// vehicleIndexes gives the position in vehicles of each pod ID. Reset
 	// and restorePhysical replace it whole after they replace vehicles. No
 	// code writes to it in place. findVehicle checks each entry, so an entry
@@ -281,6 +285,7 @@ func NewFleet(network Network, placements []Placement) (*Simulation, error) {
 		stationForbidden:            owned.stationForbidden(),
 		geometry:                    buildLaneGeometry(owned),
 		junctionConflicts:           buildJunctionConflicts(owned),
+		berthResources:              indexBerthResources(owned),
 		sharedRidePartyLimit:        1,
 		reservationLookaheadSeconds: defaultReservationLookaheadSeconds,
 		laneSafety:                  make(map[string]SafetyLocation, len(network.Lanes)),
