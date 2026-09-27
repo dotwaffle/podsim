@@ -182,6 +182,7 @@ Several parties now use one movement.
 Redistribution again added empty travel and slightly worsened wait and clearance, so it remains off by default.
 
 Raw results are in [`measurements/rail-hub-sharing.csv`](measurements/rail-hub-sharing.csv).
+For the London result, see [same-destination sharing in the London sweep](#same-destination-sharing-in-the-london-sweep).
 
 ## Congestion-aware routing experiment
 
@@ -839,6 +840,7 @@ Free-flow routing is on.
 The queue limit is high enough that the compare command skips no request.
 Two more sweeps use the same bands, rates, and seeds to compare the finishing-pod wait rules and redistribution.
 See the subsections below.
+The code at commit `d64c3e0` gives each row of the capacity CSV again.
 
 ```sh
 mise run scenario -- -preset london -output /tmp/podsim-london-capacity.json
@@ -1117,6 +1119,81 @@ mise run compare -- -project /tmp/podsim-london-capacity.json -pattern profile -
 
 A project with `redistribution: true` now runs guarded positioning.
 Raw results are in [`measurements/london-guarded.csv`](measurements/london-guarded.csv).
+
+### Same-destination sharing in the London sweep
+
+This sweep uses the bands, rates, and seeds of the capacity sweep with the party limits 4 and 8.
+The code at commit `d64c3e0` gives the recorded values.
+At that commit, the compare command writes report `schema_version` 5.
+Thus the CSV does not have the columns that version 6 adds.
+
+```sh
+mise run compare -- -project /tmp/podsim-london-capacity.json -pattern profile -bands all -duration 65m -arrivals-for 30m -loads 60s,30s,20s,15s,12s,10s,8.571429s,7.5s,6.666667s,6s,5.454545s,5s,4.615385s,4.285714s,4s -seeds 1,2,3 -redistribution-policies off -focus 940GZZLUEUS -queue-limit 1000000 -stop-when-drained -adaptive-limit -past-limit 1 -sharing-limits 4 -workers 6 -format csv -output /tmp/podsim-london-sharing-4.csv
+mise run compare -- -project /tmp/podsim-london-capacity.json -pattern profile -bands all -duration 65m -arrivals-for 30m -loads 60s,30s,20s,15s,12s,10s,8.571429s,7.5s,6.666667s,6s,5.454545s,5s,4.615385s,4.285714s,4s -seeds 1,2,3 -redistribution-policies off -focus 940GZZLUEUS -queue-limit 1000000 -stop-when-drained -adaptive-limit -past-limit 1 -sharing-limits 8 -workers 6 -format csv -output /tmp/podsim-london-sharing-8.csv
+```
+
+The compare command accepts at most 1,000 arms in one run.
+One run with the limits 1, 4, and 8 has 1,080 arms, so each limit has its own run.
+The rate groups of `-adaptive-limit` include the party limit, so this split does not change the arms that run.
+A run with limit 1 gives each row of the capacity CSV again.
+
+The limits use the 60-minute rule of the capacity sweep.
+The 65-minute columns use the full run.
+The highest tested rate is 15/min, so a limit of 15/min is a lower bound.
+
+| NUMBAT band | Limit 1, 60 min | Limit 4, 60 min | Limit 8, 60 min | Limit 1, 65 min | Limit 4, 65 min | Limit 8, 65 min |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| Early | 7/min | 9/min | 9/min | 10/min | 15/min | 15/min |
+| Morning | 9/min | 9/min | 9/min | 13/min | 14/min | 14/min |
+| AM peak | 13/min | 13/min | 13/min | 14/min | 15/min | 15/min |
+| Interpeak | 14/min | 14/min | 14/min | 15/min | 15/min | 15/min |
+| PM peak | 13/min | 13/min | 13/min | 15/min | 15/min | 15/min |
+| Evening | 14/min | 15/min | 15/min | 15/min | 15/min | 15/min |
+| Late | 12/min | 12/min | 12/min | 14/min | 13/min | 13/min |
+| Night | 9/min | 11/min | 11/min | 11/min | 15/min | 15/min |
+
+Sharing raises three 60-minute limits.
+Early goes from 7/min to 9/min, Evening from 14/min to 15/min, and Night from 9/min to 11/min.
+No 60-minute limit falls.
+Limit 8 gives the same limits as limit 4 in all bands.
+The 65-minute Late limit falls from 14/min to 13/min, because seed 2 at 14/min does not finish within 65 minutes with limit 4 or 8.
+
+In Early with limit 4, all seeds finish within 60 minutes at 12/min to 15/min.
+Seed 1 finishes at 3,700 seconds at 10/min and at 3,614 seconds at 11/min.
+The rule for lower rates thus stops the Early limit at 9/min.
+Morning stays at 9/min, because seed 1 at 10/min still finishes at 3,642 seconds.
+
+The next table gives the means of the three seeds at the rate of the limit 1 envelope.
+All arms in this table finish every request.
+Maximum wait is the mean of the three per-seed maxima.
+Shared parties is `shared_parties`, the parties that joined a boarding pod.
+
+| NUMBAT band | Rate | Average wait, limit 1 / 4 / 8 | Maximum wait, limit 1 / 4 / 8 | Empty distance, limit 1 / 4 / 8 | Shared parties, limit 4 / 8 |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| Early | 7/min | 377.0 / 302.0 / 302.0 s | 814.8 / 634.5 / 634.5 s | 1,558.4 / 1,336.0 / 1,336.0 km | 20.0 / 20.0 |
+| Morning | 9/min | 173.5 / 173.2 / 173.2 s | 599.4 / 599.4 / 599.4 s | 863.7 / 852.1 / 852.1 km | 1.0 / 1.0 |
+| AM peak | 13/min | 317.1 / 297.0 / 297.0 s | 1,140.3 / 1,077.4 / 1,077.4 s | 1,518.6 / 1,449.6 / 1,449.6 km | 9.0 / 9.0 |
+| Interpeak | 14/min | 255.8 / 250.7 / 250.7 s | 938.1 / 975.7 / 975.7 s | 1,363.2 / 1,352.1 / 1,352.1 km | 4.0 / 4.0 |
+| PM peak | 13/min | 250.5 / 235.8 / 235.8 s | 917.5 / 951.8 / 951.8 s | 1,362.3 / 1,293.9 / 1,293.9 km | 6.3 / 6.3 |
+| Evening | 14/min | 356.3 / 333.1 / 333.1 s | 1,085.7 / 1,184.1 / 1,184.1 s | 1,538.0 / 1,512.0 / 1,512.0 km | 11.0 / 11.0 |
+| Late | 12/min | 300.6 / 286.9 / 286.9 s | 1,031.7 / 949.7 / 949.7 s | 1,408.3 / 1,372.3 / 1,372.3 km | 4.7 / 4.7 |
+| Night | 9/min | 213.3 / 158.7 / 154.9 s | 718.3 / 554.9 / 536.9 s | 1,354.5 / 1,165.4 / 1,150.6 km | 23.0 / 24.0 |
+
+The average wait falls in each band.
+The maximum wait increases in Interpeak, PM peak, and Evening.
+Over the 345 arms that run at all three limits, limit 4 lowers the mean wait from 196.7 seconds to 171.1 seconds and the empty distance by 6.8 percent.
+About 5 percent of the served parties share a pod at limit 4 or 8.
+From 1/min to the limit rate, 5.2 percent of Early parties and 5.9 percent of Night parties share.
+In the other six bands, 0.2 to 0.9 percent of the parties share.
+In 331 of 360 arms, limit 8 gives the same row as limit 4, because no pod takes a fifth party.
+
+Four arms at limit 4 end after 3,600 seconds when the limit 1 arm ends by 3,600 seconds.
+They are Morning at 13/min with seeds 2 and 3, AM peak at 14/min with seed 2, and Late at 15/min with seed 3.
+All four arms run above the band limit.
+
+Sharing stays off by default.
+Raw results are in [`measurements/london-sharing.csv`](measurements/london-sharing.csv), with the limit 4 and limit 8 rows.
+The capacity CSV gives the limit 1 rows.
 
 ### More London berths
 
