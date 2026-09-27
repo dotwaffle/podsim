@@ -49,6 +49,8 @@ simulation.emptyDistanceMeters number
 simulation.rebalanceMoves number
 simulation.sharedParties number
 simulation.sharedRidePartyLimit number
+simulation.sharedRideMode string
+simulation.sharedRideMaxStops number
 simulation.journeys number
 simulation.totalJourneyTicks number
 simulation.maxJourneyTicks number
@@ -179,4 +181,6 @@ project.demandProfiles[].flows[].to string
 project.demandProfiles[].flows[].weights array
 project.demandProfiles[].flows[].weights[] number
 project.sharedRidePartyLimit number
+project.sharedRideMode string
+project.sharedRideMaxStops number
 project.redistribution boolean

@@ -302,7 +302,7 @@ func (s *Session) startProject(config project.Config) error {
 	if err != nil {
 		return fmt.Errorf("create shared fleet: %w", err)
 	}
-	if err := simulation.SetSharedRidePartyLimit(project.EffectiveSharedRidePartyLimit(owned)); err != nil {
+	if err := project.ConfigureSharedRides(simulation, owned); err != nil {
 		return fmt.Errorf("configure shared rides: %w", err)
 	}
 	s.simulation, s.project, s.epoch = simulation, owned, rand.Text()
@@ -733,7 +733,7 @@ func (s *Session) applyProject(command Command) error {
 	if err != nil {
 		return fmt.Errorf("create project fleet: %w", err)
 	}
-	if err := candidate.SetSharedRidePartyLimit(project.EffectiveSharedRidePartyLimit(config)); err != nil {
+	if err := project.ConfigureSharedRides(candidate, config); err != nil {
 		return fmt.Errorf("configure shared rides: %w", err)
 	}
 	candidate.SetPaused(true)

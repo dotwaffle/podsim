@@ -271,6 +271,8 @@ type Simulation struct {
 	emptyDistanceMeters                       float64
 	rebalanceMoves                            int
 	sharedRidePartyLimit                      int
+	sharedRideMode                            SharedRideMode
+	sharedRideMaxStops                        int
 	sharedParties                             int
 	routingPolicy                             RoutingPolicy
 	finishingPodWait                          FinishingPodWait
@@ -334,6 +336,8 @@ func NewFleet(network Network, placements []Placement) (*Simulation, error) {
 		junctionConflicts:           buildJunctionConflicts(owned),
 		berthResources:              indexBerthResources(owned),
 		sharedRidePartyLimit:        1,
+		sharedRideMode:              SharedRideDestination,
+		sharedRideMaxStops:          DefaultSharedRideMaxStops,
 		reservationLookaheadSeconds: defaultReservationLookaheadSeconds,
 		laneSafety:                  make(map[string]SafetyLocation, len(network.Lanes)),
 		berthSafety:                 make(map[string]SafetyLocation),

@@ -44,6 +44,8 @@
     "rebalanceMoves": 0,
     "sharedParties": 0,
     "sharedRidePartyLimit": 1,
+    "sharedRideMode": "destination",
+    "sharedRideMaxStops": 3,
     "pods": [
       {
         "id": "01",
@@ -505,6 +507,7 @@
       "seed": 1
     },
     "sharedRidePartyLimit": 1,
+    "sharedRideMaxStops": 0,
     "redistribution": false
   }
 }

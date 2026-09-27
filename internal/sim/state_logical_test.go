@@ -50,6 +50,7 @@ func logicalState(t *testing.T, f restoreFixture) SavedState {
 	}
 	state.RequestID, state.Completed, state.Boarded = 10, 2, 8
 	state.SharedRidePartyLimit, state.SharedParties = 4, 3
+	state.SharedRideMode, state.SharedRideMaxStops = SharedRideDropOffs, 2
 	state.TotalWaitTicks, state.MaxWaitTicks, state.NextRedistributionTick = 2400, 700, restoreTick+60
 	state.PassengerDistanceMeters, state.EmptyDistanceMeters, state.RebalanceMoves = 3200, 1400, 1
 	return state

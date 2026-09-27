@@ -711,6 +711,7 @@ func TestStateFileWorstCaseSize(t *testing.T) {
 			TotalWaitTicks: widest, MaxWaitTicks: widest, NextRedistributionTick: widest,
 			PassengerDistanceMeters: -math.MaxFloat64, EmptyDistanceMeters: -math.MaxFloat64,
 			RebalanceMoves: widest, SharedParties: widest, SharedRidePartyLimit: widest,
+			SharedRideMode: sim.SharedRideMode(text), SharedRideMaxStops: widest,
 			Journeys: widest, TotalJourneyTicks: widest, MaxJourneyTicks: widest,
 			RiderDistanceMeters: -math.MaxFloat64, DirectDistanceMeters: -math.MaxFloat64, MaxDetourRatio: -math.MaxFloat64,
 			Demo: &sim.SavedDemo{SecondSent: true, FollowupsSent: true}, DemoError: text,

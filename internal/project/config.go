@@ -153,9 +153,16 @@ type Config struct {
 	Fleet          []sim.Placement `json:"fleet"`
 	Demand         DemandConfig    `json:"demand"`
 	DemandProfiles []DemandProfile `json:"demandProfiles,omitempty"`
-	// SharedRidePartyLimit caps same-destination parties per pod. Zero loads as one.
-	SharedRidePartyLimit int  `json:"sharedRidePartyLimit,omitempty"`
-	Redistribution       bool `json:"redistribution"`
+	// SharedRidePartyLimit caps the parties per pod. Zero loads as one.
+	SharedRidePartyLimit int `json:"sharedRidePartyLimit,omitempty"`
+	// SharedRideMode selects the parties that can join a pod: "destination"
+	// or "drop-offs". An empty mode loads as "destination".
+	SharedRideMode sim.SharedRideMode `json:"sharedRideMode,omitempty"`
+	// SharedRideMaxStops caps the intermediate stops of a pod in drop-offs
+	// mode, from 1 to sim.MaxSharedRideStops. Zero loads as
+	// sim.DefaultSharedRideMaxStops.
+	SharedRideMaxStops int  `json:"sharedRideMaxStops,omitempty"`
+	Redistribution     bool `json:"redistribution"`
 }
 
 // Default returns the supplied example project.
@@ -198,6 +205,12 @@ func Validate(config Config) error {
 	if config.SharedRidePartyLimit < 0 || config.SharedRidePartyLimit > sim.MaxSharedRideParties {
 		return fmt.Errorf("shared ride party limit must be 1 to %d", sim.MaxSharedRideParties)
 	}
+	if mode := config.SharedRideMode; mode != "" && mode != sim.SharedRideDestination && mode != sim.SharedRideDropOffs {
+		return fmt.Errorf("shared ride mode must be %q or %q", sim.SharedRideDestination, sim.SharedRideDropOffs)
+	}
+	if config.SharedRideMaxStops < 0 || config.SharedRideMaxStops > sim.MaxSharedRideStops {
+		return fmt.Errorf("shared ride stop limit must be 1 to %d", sim.MaxSharedRideStops)
+	}
 	if err := validateNames(config); err != nil {
 		return err
 	}
@@ -235,6 +248,33 @@ func Validate(config Config) error {
 // EffectiveSharedRidePartyLimit returns one for legacy projects that omit the setting.
 func EffectiveSharedRidePartyLimit(config Config) int {
 	return max(1, config.SharedRidePartyLimit)
+}
+
+// EffectiveSharedRideMode returns the shared ride mode, with
+// sim.SharedRideDestination for an empty mode.
+func EffectiveSharedRideMode(config Config) sim.SharedRideMode {
+	if config.SharedRideMode == "" {
+		return sim.SharedRideDestination
+	}
+	return config.SharedRideMode
+}
+
+// EffectiveSharedRideMaxStops returns the stop limit, with
+// sim.DefaultSharedRideMaxStops for zero.
+func EffectiveSharedRideMaxStops(config Config) int {
+	if config.SharedRideMaxStops == 0 {
+		return sim.DefaultSharedRideMaxStops
+	}
+	return config.SharedRideMaxStops
+}
+
+// ConfigureSharedRides applies the shared ride settings of a project to a
+// simulation.
+func ConfigureSharedRides(simulation *sim.Simulation, config Config) error {
+	if err := simulation.SetSharedRidePartyLimit(EffectiveSharedRidePartyLimit(config)); err != nil {
+		return err
+	}
+	return simulation.SetSharedRideMode(EffectiveSharedRideMode(config), EffectiveSharedRideMaxStops(config))
 }
 
 // validatePassengerRoutes returns an error for the first pair of passenger

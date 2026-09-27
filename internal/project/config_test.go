@@ -88,6 +88,9 @@ func TestValidateRejectsMalformedProjects(t *testing.T) {
 		{"rate low", func(config *Config) { config.Demand.PerMinute = 0 }},
 		{"rate high", func(config *Config) { config.Demand.PerMinute = 121 }},
 		{"sharing limit", func(config *Config) { config.SharedRidePartyLimit = sim.MaxSharedRideParties + 1 }},
+		{"sharing mode", func(config *Config) { config.SharedRideMode = "pickups" }},
+		{"sharing stops", func(config *Config) { config.SharedRideMaxStops = sim.MaxSharedRideStops + 1 }},
+		{"negative sharing stops", func(config *Config) { config.SharedRideMaxStops = -1 }},
 		{"pattern", func(config *Config) { config.Demand.Pattern = "rush" }},
 		{"missing profile", func(config *Config) {
 			config.Demand.Pattern, config.Demand.Profile, config.Demand.Band = "profile", "missing", "am"
@@ -249,6 +252,21 @@ func TestLegacySharedRideLimitDefaultsToOne(t *testing.T) {
 	}
 	if got := EffectiveSharedRidePartyLimit(config); got != 1 {
 		t.Fatalf("effective shared ride party limit = %d", got)
+	}
+}
+
+func TestSharedRideModeDefaults(t *testing.T) {
+	t.Parallel()
+	config := Default()
+	if mode, stops := EffectiveSharedRideMode(config), EffectiveSharedRideMaxStops(config); mode != sim.SharedRideDestination || stops != sim.DefaultSharedRideMaxStops {
+		t.Fatalf("effective mode %q with %d stops", mode, stops)
+	}
+	config.SharedRideMode, config.SharedRideMaxStops = sim.SharedRideDropOffs, sim.MaxSharedRideStops
+	if err := Validate(config); err != nil {
+		t.Fatal(err)
+	}
+	if mode, stops := EffectiveSharedRideMode(config), EffectiveSharedRideMaxStops(config); mode != sim.SharedRideDropOffs || stops != sim.MaxSharedRideStops {
+		t.Fatalf("effective mode %q with %d stops", mode, stops)
 	}
 }
 

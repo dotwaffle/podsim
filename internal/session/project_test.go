@@ -209,6 +209,7 @@ func TestProjectApplyIsAtomicDetachedAndIdempotent(t *testing.T) {
 	session := newTestSession(t)
 	config := customProject()
 	config.SharedRidePartyLimit = 3
+	config.SharedRideMode, config.SharedRideMaxStops = sim.SharedRideDropOffs, 2
 	original := project.Clone(config)
 	reply := applyCustomProject(t, session, config)
 	if reply.Error != "" {
@@ -220,6 +221,12 @@ func TestProjectApplyIsAtomicDetachedAndIdempotent(t *testing.T) {
 	}
 	if state.Simulation.SharedRidePartyLimit != 3 {
 		t.Fatalf("shared ride party limit = %d", state.Simulation.SharedRidePartyLimit)
+	}
+	session.mu.Lock()
+	saved := session.simulation.ExportState()
+	session.mu.Unlock()
+	if saved.SharedRideMode != sim.SharedRideDropOffs || saved.SharedRideMaxStops != 2 {
+		t.Fatalf("shared ride mode %q with %d stops", saved.SharedRideMode, saved.SharedRideMaxStops)
 	}
 	config.Name = "caller mutation"
 	config.Network.Nodes[0].ID = "caller mutation"

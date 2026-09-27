@@ -169,6 +169,8 @@ func (state SavedState) validateCounters() error {
 		return errors.New("the saved state completed or boarded more orders than it submitted")
 	case state.SharedRidePartyLimit < 1 || state.SharedRidePartyLimit > MaxSharedRideParties:
 		return fmt.Errorf("shared ride party limit %d is out of range", state.SharedRidePartyLimit)
+	case validateSharedRideMode(savedSharedRideMode(state)) != nil:
+		return errors.New("the saved shared ride mode or stop limit is not valid")
 	case len(state.DemoError) > maxSavedText:
 		return errors.New("the saved demo error is too long")
 	default:
@@ -289,8 +291,21 @@ func (r *physicalRestore) restoreCounters() {
 	s.vehicles = make([]vehicle, len(state.Pods))
 }
 
+// savedSharedRideMode returns the shared ride mode and the stop limit of a
+// saved state, with the defaults for the zero values.
+func savedSharedRideMode(state SavedState) (SharedRideMode, int) {
+	mode, maxStops := state.SharedRideMode, state.SharedRideMaxStops
+	if mode == "" {
+		mode = SharedRideDestination
+	}
+	if maxStops == 0 {
+		maxStops = DefaultSharedRideMaxStops
+	}
+	return mode, maxStops
+}
+
 // setSavedCounters sets the clock, the paused flag, the counters and the
-// shared ride party limit of a saved state. Both restore tiers keep them.
+// shared ride settings of a saved state. Both restore tiers keep them.
 func (s *Simulation) setSavedCounters(state SavedState) {
 	s.tick, s.paused, s.completed, s.requestID = state.Tick, state.Paused, state.Completed, state.RequestID
 	s.boarded, s.totalWaitTicks, s.maxWaitTicks = state.Boarded, state.TotalWaitTicks, state.MaxWaitTicks
@@ -301,6 +316,7 @@ func (s *Simulation) setSavedCounters(state SavedState) {
 	s.riderDistanceMeters, s.directDistanceMeters = state.RiderDistanceMeters, state.DirectDistanceMeters
 	s.maxDetourRatio = state.MaxDetourRatio
 	s.sharedRidePartyLimit = state.SharedRidePartyLimit
+	s.sharedRideMode, s.sharedRideMaxStops = savedSharedRideMode(state)
 }
 
 // decodePods fills a vehicle for each saved pod. It fails for a pod that Step

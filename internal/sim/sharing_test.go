@@ -85,3 +85,24 @@ func newSharingSimulation(t *testing.T) *Simulation {
 	}
 	return s
 }
+
+func TestSetSharedRideModeRejectsInvalidSettings(t *testing.T) {
+	t.Parallel()
+	s := newSharingSimulation(t)
+	for _, test := range []struct {
+		mode  SharedRideMode
+		stops int
+	}{
+		{"pickups", 1}, {"", 1}, {SharedRideDropOffs, 0}, {SharedRideDropOffs, MaxSharedRideStops + 1},
+	} {
+		if err := s.SetSharedRideMode(test.mode, test.stops); err == nil {
+			t.Errorf("mode %q with %d stops was accepted", test.mode, test.stops)
+		}
+	}
+	if s.sharedRideMode != SharedRideDestination || s.sharedRideMaxStops != DefaultSharedRideMaxStops {
+		t.Fatalf("rejected settings changed the mode to %q with %d stops", s.sharedRideMode, s.sharedRideMaxStops)
+	}
+	if err := s.SetSharedRideMode(SharedRideDropOffs, MaxSharedRideStops); err != nil {
+		t.Fatal(err)
+	}
+}
