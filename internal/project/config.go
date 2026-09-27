@@ -21,18 +21,24 @@ const (
 )
 
 // These are the largest counts that Validate accepts. The saved session
-// decoder uses the same limits, and web/editor.js has a copy of MaxFlows.
+// decoder uses the same limits, and web/editor.js has a copy of the network
+// and flow limits. The largest session state file grows by about 3,000
+// bytes for each node and 1,000 bytes for each lane of these limits,
+// because each saved route can have one index for each node or lane. With
+// these limits and a project member of MaxFileBytes, it is 30,164,660
+// bytes, below session.MaxStateBytes. Thus a larger node or lane limit also
+// needs a larger session.MaxStateBytes.
 const (
 	// MaxPods is the largest fleet.
 	MaxPods = 200
 	// MaxBerths is the largest number of berths in one station.
 	MaxBerths = 200
 	// MaxStations is the largest number of stations.
-	MaxStations = 100
+	MaxStations = 200
 	// MaxNodes is the largest number of network nodes.
-	MaxNodes = 2000
+	MaxNodes = 4000
 	// MaxLanes is the largest number of network lanes.
-	MaxLanes = 4000
+	MaxLanes = 8000
 	// MaxNodeLanes is the largest number of lanes at one node. A lane
 	// counts at its From node and at its To node. The simulator compares
 	// each pair of lanes at a node when it starts, so the limit keeps

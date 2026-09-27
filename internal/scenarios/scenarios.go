@@ -12,11 +12,11 @@ import (
 
 const (
 	minimumStations      = 3
-	maximumStations      = 100
-	maximumPods          = 200
+	maximumStations      = project.MaxStations
+	maximumPods          = project.MaxPods
 	maximumStationBerths = project.MaxNodeLanes - 2 // A ring entry or exit node has a lane for each berth and 2 more.
-	maximumNodes         = 2000
-	maximumLanes         = 4000
+	maximumNodes         = project.MaxNodes
+	maximumLanes         = project.MaxLanes
 	speedLimit           = 14.0
 	stationHalf          = 80.0
 	berthOffset          = 120.0

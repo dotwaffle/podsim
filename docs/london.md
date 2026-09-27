@@ -172,8 +172,8 @@ The generated project has 99 stations, 1,842 nodes, 3,101 lanes, and 114 pods.
 Project validation checks directed reachability between all passenger berths.
 The preset starts with automatic demand and redistribution disabled.
 
-The station-count limit of 100 permits one added station in the editor.
-The limits of 2,000 nodes and 4,000 lanes also apply to that edit.
+A project can have at most 200 stations, 4,000 nodes, and 8,000 lanes.
+These limits also apply to an edit of the London project in the editor.
 The `serve` and `compare` commands read a `-project` file of 8 MiB or less.
 The generated file is indented, so it is about 3.3 MiB.
 Project validation also limits the compact JSON form of a project to 8 MiB, with room for the widest demand settings.

@@ -311,7 +311,7 @@ func TestConfigRejectsInvalidCapacity(t *testing.T) {
 	t.Parallel()
 	tests := []Parameters{
 		{Name: "too few stations", Stations: 2, Pods: 1, PassengerBerths: 1, ParkingBerths: 1, DemandPerMinute: 1},
-		{Name: "too many stations", Stations: 101, Pods: 1, PassengerBerths: 1, ParkingBerths: 1, DemandPerMinute: 1},
+		{Name: "too many stations", Stations: project.MaxStations + 1, Pods: 1, PassengerBerths: 1, ParkingBerths: 1, DemandPerMinute: 1},
 		{Name: "no passenger berths", Stations: 3, Pods: 1, ParkingBerths: 1, DemandPerMinute: 1},
 		{Name: "too many passenger berths", Stations: 3, Pods: 1, PassengerBerths: 201, ParkingBerths: 1, DemandPerMinute: 1},
 		{Name: "too many parking berths", Stations: 3, Pods: 1, PassengerBerths: 1, ParkingBerths: 201, DemandPerMinute: 1},
@@ -319,13 +319,17 @@ func TestConfigRejectsInvalidCapacity(t *testing.T) {
 		{Name: "too many pods", Stations: 3, Pods: 201, PassengerBerths: 200, ParkingBerths: 1, DemandPerMinute: 1},
 		{Name: "passenger overflow", Stations: 3, Pods: 4, PassengerBerths: 1, ParkingBerths: 1, DemandPerMinute: 1},
 		{Name: "parking overflow", Stations: 3, Pods: 2, PassengerBerths: 1, ParkingBerths: 1, InitialParkingPods: 2, DemandPerMinute: 1},
-		{Name: "network resource overflow", Stations: 100, Pods: 1, PassengerBerths: 20, ParkingBerths: 200, DemandPerMinute: 1},
+		{Name: "network resource overflow", Stations: project.MaxStations, Pods: 1, PassengerBerths: 20, ParkingBerths: 200, DemandPerMinute: 1},
 		{Name: "invalid demand", Stations: 3, Pods: 1, PassengerBerths: 1, ParkingBerths: 1},
 	}
 	for _, parameters := range tests {
 		if _, err := Config(parameters); err == nil {
 			t.Fatalf("accepted invalid parameters: %+v", parameters)
 		}
+	}
+	largest := Parameters{Name: "most stations", Stations: project.MaxStations, Pods: 1, PassengerBerths: 1, ParkingBerths: 1, DemandPerMinute: 1}
+	if _, err := Config(largest); err != nil {
+		t.Fatalf("rejected %d stations: %v", project.MaxStations, err)
 	}
 }
 

@@ -30,8 +30,13 @@
   // CLEARANCE is the clearance in meters around a pod, sim.Clearance in the
   // Go code. A new berth chain row must keep this distance from other lanes.
   const CLEARANCE = 12;
-  // MAX_FLOWS is the flow limit of a demand profile on the server
-  // (internal/project/config.go). Keep it the same.
+  // MAX_STATIONS, MAX_NODES, MAX_LANES, MAX_NODE_LANES, and MAX_FLOWS are
+  // limits of the server (internal/project/config.go). Keep them the same.
+  // MAX_NODE_LANES counts each lane at its From node and at its To node.
+  const MAX_STATIONS = 200;
+  const MAX_NODES = 4000;
+  const MAX_LANES = 8000;
+  const MAX_NODE_LANES = 64;
   const MAX_FLOWS = 40000;
   const STATION_LANE_ROLES = new Set(["approach", "entry", "berth-access", "through", "departure", "exit"]);
   // IMAGE_FILE_BYTES is the largest background image file that the editor
@@ -299,11 +304,41 @@
   // berth. On another station, the new berth goes to the position that
   // nextBerthPosition gives. It gets a lane from the station entry and a
   // lane to the station exit.
+  //
+  // Each new lane has a new node at one end, so the berth adds no lane
+  // with the nodes and the path of another lane. When a
+  // node of the new lanes would have more than MAX_NODE_LANES lanes, the
+  // editor does not add the berth. On a station that is not a chain, the
+  // entry and the exit have a lane for each berth, so this limits the
+  // berths of such a station.
   function addBerth(config, stationID) {
     const station = config.network.Stations.find((item) => item.ID === stationID);
     const rows = station && berthChain(config, station);
     if (rows) return addChainBerth(config, station, rows);
-    return { config: addStarBerth(config, stationID), error: "" };
+    const out = addStarBerth(config, stationID);
+    const busy = out === config ? null : busyNode(config, out);
+    return busy ? { config, error: busyText(station, busy) } : { config: out, error: "" };
+  }
+
+  function busyText(station, busy) {
+    return `No space for another berth at ${station.Name || station.ID}. Node ${busy.node} would have ${busy.count} lanes, more than ${MAX_NODE_LANES}.`;
+  }
+
+  // busyNode gives the first node that has more than MAX_NODE_LANES lanes
+  // in after, and more lanes than in before, with its lane count. It gives
+  // null when there is no such node. A lane counts at its From node and at
+  // its To node.
+  function busyNode(before, after) {
+    const counts = (config) => {
+      const count = new Map();
+      for (const lane of config.network.Lanes) for (const node of [lane.From, lane.To]) count.set(node, (count.get(node) || 0) + 1);
+      return count;
+    };
+    const old = counts(before);
+    for (const [node, count] of counts(after)) {
+      if (count > MAX_NODE_LANES && count > (old.get(node) || 0)) return { node, count };
+    }
+    return null;
   }
 
   function addStarBerth(config, stationID) {
@@ -327,6 +362,8 @@
     out.network.Nodes.push(...row.nodes);
     out.network.Lanes.push(...row.lanes);
     out.network.Stations.find((item) => item.ID === station.ID).Berths.push(row.berth);
+    const busy = busyNode(config, out);
+    if (busy) return { config, error: busyText(station, busy) };
     const conflict = laneConflict(out, row.lanes.map((lane) => lane.ID));
     if (!conflict) return { config: out, error: "" };
     const problem = conflict.gap === 0 ? "cross" : `be nearer than ${CLEARANCE} m to`;
@@ -972,6 +1009,8 @@
     }
     const lanesByPair = new Set();
     const directed = new Map();
+    const nodeLanes = new Map();
+    const lanePaths = new Map();
     for (const lane of network.Lanes) {
       uniqueID(lane && lane.ID, "A lane");
       const laneTarget = checkTarget("lane", lane && lane.ID);
@@ -981,10 +1020,17 @@
       if (isRecord(lane) && nodeIDs.has(lane.From) && nodeIDs.has(lane.To) && laneLength(value, lane) < MIN_LANE_LENGTH) report(`Lane ${lane.ID} is shorter than ${MIN_LANE_LENGTH} m.`, laneTarget);
       if (isRecord(lane)) {
         const pair = `${lane.From}\u0000${lane.To}`;
+        for (const node of [lane.From, lane.To]) nodeLanes.set(node, (nodeLanes.get(node) || 0) + 1);
+        const path = isRecord(lane.Control) ? `${pair}\u0000${lane.Control.X}\u0000${lane.Control.Y}` : pair;
+        if (lanePaths.has(path)) report(`Lanes ${lanePaths.get(path)} and ${lane.ID} have the same nodes and path.`, laneTarget);
+        else lanePaths.set(path, lane.ID);
         lanesByPair.add(pair);
         if (!directed.has(lane.From)) directed.set(lane.From, []);
         directed.get(lane.From).push(lane.To);
       }
+    }
+    for (const [node, count] of nodeLanes) {
+      if (nodeIDs.has(node) && count > MAX_NODE_LANES) report(`Node ${node} has ${count} lanes, more than ${MAX_NODE_LANES}.`, checkTarget("node", node));
     }
     const stationIDs = new Set();
     const berthIDs = new Set();
@@ -1051,7 +1097,7 @@
     }
     const passenger = validStations.filter((station) => station.ParkingOnly !== true);
     if (passenger.length < 2) errors.push("The network needs at least two passenger stations.");
-    if (network.Stations.length > 100 || network.Nodes.length > 2000 || network.Lanes.length > 4000) errors.push("The network exceeds the supported size.");
+    if (network.Stations.length > MAX_STATIONS || network.Nodes.length > MAX_NODES || network.Lanes.length > MAX_LANES) errors.push("The network exceeds the supported size.");
     if (fleet.length < 1 || fleet.length > 200) errors.push("The fleet must contain 1 to 200 pods.");
     // As on the server, each berth of a passenger station must reach each
     // berth of the other passenger stations. The check skips a berth that has
@@ -2037,7 +2083,7 @@
   }
 
   const API = {
-    MIN_LANE_LENGTH, MAX_FLOWS, MIN_ZOOM, NODE_LABEL_SCALE, NODE_LABEL_SIZE, LANE_PAIR_OFFSET, CHEVRON_LANE_LENGTH, BERTH_PITCH, STATION_PADDING, CLEARANCE, CHECK_DELAY, emptyConfig, fallbackConfig, normalizeConfig, addLane, addJunction, addStation, addBerth,
+    MIN_LANE_LENGTH, MAX_STATIONS, MAX_NODES, MAX_LANES, MAX_NODE_LANES, MAX_FLOWS, MIN_ZOOM, NODE_LABEL_SCALE, NODE_LABEL_SIZE, LANE_PAIR_OFFSET, CHEVRON_LANE_LENGTH, BERTH_PITCH, STATION_PADDING, CLEARANCE, CHECK_DELAY, emptyConfig, fallbackConfig, normalizeConfig, addLane, addJunction, addStation, addBerth,
     stationBearing, stationShape, rotateStation, setStationBearing, nextBerthPosition, berthChain, nextChainRow, lanePolyline, laneConflict, removeBerth, moveStation, moveNode, deleteNode, deleteLane, deleteStation, stationFlowCount, setFleetCount, fleetRows, selectionCard, berthFocusID, undoFocus, setDemandPattern,
     laneLength, curveLength, reachable, cutOffStations, stationNodeOwners, dragTargets, validateConfig, configWarnings, checkResults, checkSelector, checkSelection, selectionPoint, focusView,
     problemCountText, createCheckTimer, validationSummary, checkFocusKey, IMAGE_FILE_BYTES, SERVER_PROJECT_BYTES, PROJECT_FILE_BYTES, dataURLBytes, serializeDocument, parseDocument, createHistory,

@@ -166,6 +166,79 @@ function profileScenario() {
   return { config, alpha, beta, gamma };
 }
 
+test("the size check uses the network limits of the server", () => {
+  const sizeError = "The network exceeds the supported size.";
+  const base = connectedScenario();
+  assert.ok(!editor.validateConfig(base).includes(sizeError));
+  const [station] = base.network.Stations;
+  const [lane] = base.network.Lanes;
+  const cases = [
+    { field: "Nodes", limit: editor.MAX_NODES, item: (index) => ({ ID: `pad-${index}`, Position: { X: 1000 + index, Y: 1000 } }) },
+    { field: "Lanes", limit: editor.MAX_LANES, item: (index) => ({ ...lane, ID: `pad-${index}` }) },
+    { field: "Stations", limit: editor.MAX_STATIONS, item: (index) => ({ ...station, ID: `pad-${index}`, Name: `Pad ${index}` }) },
+  ];
+  for (const { field, limit, item } of cases) {
+    const padded = (count) => {
+      const config = structuredClone(base);
+      const items = config.network[field];
+      while (items.length < count) items.push(item(items.length));
+      return config;
+    };
+    assert.ok(!editor.validateConfig(padded(limit)).includes(sizeError), `${field} at the limit`);
+    assert.ok(editor.validateConfig(padded(limit + 1)).includes(sizeError), `${field} past the limit`);
+  }
+});
+
+test("add berth keeps the lanes at each node within the limit", () => {
+  // A station that is not a chain has a lane from its entry to each berth.
+  let config = connectedScenario();
+  const beta = config.network.Stations[1];
+  const count = (item, node) => item.network.Lanes.filter((lane) => lane.From === node).length + item.network.Lanes.filter((lane) => lane.To === node).length;
+  while (count(config, beta.Entry) < editor.MAX_NODE_LANES) config = addedBerth(config, beta.ID);
+  const full = editor.addBerth(config, beta.ID);
+  assert.equal(full.config, config);
+  assert.equal(full.error, `No space for another berth at ${beta.Name}. Node ${beta.Entry} would have ${editor.MAX_NODE_LANES + 1} lanes, more than ${editor.MAX_NODE_LANES}.`);
+  assert.ok(!editor.validateConfig(config).some((error) => error.includes("lanes, more than")));
+
+  // A chain row adds a lane at the arrival and the departure node of the
+  // last row.
+  const chain = chainScenario();
+  let crowded = chain.config;
+  for (let index = 0; count(crowded, chain.arrival) < editor.MAX_NODE_LANES; index++) {
+    crowded = editor.addJunction(crowded, 2000 + 50 * index, 2000);
+    crowded = editor.addLane(crowded, crowded.network.Nodes.at(-1).ID, chain.arrival, false);
+  }
+  const alpha = crowded.network.Stations[0];
+  const blocked = editor.addBerth(crowded, alpha.ID);
+  assert.equal(blocked.config, crowded);
+  assert.equal(blocked.error, `No space for another berth at ${alpha.Name}. Node ${chain.arrival} would have ${editor.MAX_NODE_LANES + 1} lanes, more than ${editor.MAX_NODE_LANES}.`);
+});
+
+test("the check limits the lanes at a node and finds lanes with the same path", () => {
+  const base = connectedScenario();
+  const [lane] = base.network.Lanes;
+  const hub = lane.From;
+  const atHub = base.network.Lanes.filter((item) => item.From === hub).length + base.network.Lanes.filter((item) => item.To === hub).length;
+  const withSpokes = (count) => {
+    const config = structuredClone(base);
+    for (let index = 0; index < count; index++) {
+      config.network.Nodes.push({ ID: `spoke-${index}`, Position: { X: 5000 + 100 * index, Y: 5000 } });
+      config.network.Lanes.push({ ID: `spoke-${index}`, From: hub, To: `spoke-${index}`, SpeedLimit: 10 });
+    }
+    return config;
+  };
+  const limitError = `Node ${hub} has ${editor.MAX_NODE_LANES + 1} lanes, more than ${editor.MAX_NODE_LANES}.`;
+  assert.ok(!editor.validateConfig(withSpokes(editor.MAX_NODE_LANES - atHub)).some((error) => error.includes("lanes, more than")));
+  assert.ok(editor.validateConfig(withSpokes(editor.MAX_NODE_LANES - atHub + 1)).includes(limitError));
+
+  const copy = structuredClone(base);
+  copy.network.Lanes.push({ ...lane, ID: "copy" });
+  assert.ok(editor.validateConfig(copy).includes(`Lanes ${lane.ID} and copy have the same nodes and path.`));
+  const curved = structuredClone(base);
+  curved.network.Lanes.push({ ...lane, ID: "curved", Control: { X: 1, Y: 2 } });
+  assert.ok(!editor.validateConfig(curved).some((error) => error.includes("same nodes and path")));
+});
+
 test("a station delete removes the demand flows that name the station", () => {
   const { config, beta, gamma } = profileScenario();
   assert.deepEqual(editor.validateConfig(config), []);
@@ -3022,7 +3095,11 @@ test("validation stays responsive at the supported station limit", () => {
 test("resource namespaces and parallel guideways match the server", () => {
  const config=connectedScenario();
  config.network.Lanes[0].ID=config.network.Stations[0].ID;
- config.network.Lanes.push({...config.network.Lanes[0],ID:"parallel"});
+ // A parallel lane needs its own path, as on the server.
+ const copy={...config.network.Lanes[0],ID:"parallel"};
+ config.network.Lanes.push(copy);
+ assert.deepEqual(editor.validateConfig(config),[`Lanes ${config.network.Stations[0].ID} and parallel have the same nodes and path.`]);
+ copy.Control={X:0,Y:0};
  assert.deepEqual(editor.validateConfig(config),[]);
 });
 test("legacy market pattern uses the last passenger station when absent", () => {

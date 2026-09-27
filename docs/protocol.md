@@ -145,11 +145,16 @@ After a graceful shutdown starts, the server rejects new commands with `server_s
 The request must have the `application/json` content type.
 The body must be at most 4 MiB and contain one JSON command with no unknown members.
 Each array in the body must have no more items than the project limits permit, also for an action that does not use the project.
-For example, `project.network.Lanes` can have at most 4,000 items.
+For example, `project.network.Lanes` can have at most 8,000 items.
 Each string and each member name in the body must have at most 1,024 bytes, including the quotes and the escapes.
 A request with an `Origin` header must come from the same host and scheme.
 A request that breaks these rules gets HTTP 400, 403, or 415 and a plain text body, not an acknowledgment.
 These responses also have `Cache-Control: no-store`.
+
+A `project` command gets `command_rejected` when the project has more than 200 stations, 4,000 nodes, 8,000 lanes, or 200 pods.
+It also gets `command_rejected` when a station has more than 200 berths, or a node has more than 64 lanes.
+A lane counts at its start node and at its end node.
+Two lanes with the same start node, end node, and path also give `command_rejected`.
 
 ## Save points
 

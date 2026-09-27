@@ -468,6 +468,9 @@ The draft stays local until you select **Pause and apply**.
   **Remove** on the last row of a chain removes all of the row.
   If another lane uses the arrival or departure node of that row, the editor does not remove the berth.
   A message then gives the station name, the lane, and the node.
+- On each station, **Add physical berth** does not add the berth when a node would get more than 64 lanes.
+  A message then gives the station name and the node.
+  On a station that the editor made, the entry and the exit have a lane for each berth, so this limit applies to the number of berths.
 - Drag the station shape to move the station.
   The drag also moves the nodes that only its station lanes use, such as a berth chain.
 - **Delete station and connections** also removes these nodes.
@@ -626,9 +629,11 @@ It can use a chain of lanes, as in the London stations.
 It cannot pass through the entry, exit, or berth node of a station.
 Validation also limits the compact JSON form of a project to 8 MiB or less.
 The editor sends the project in one command, and the server accepts a command of 4 MiB or less.
-A demand profile can have at most 40,000 flows.
+A project can have at most 200 stations, 4,000 nodes, 8,000 lanes, and 200 pods.
+Each station can have at most 200 berths.
 A node can have at most 64 lanes, counted at the start node and at the end node of each lane.
 Two lanes cannot have the same start node, end node, and path.
+A demand profile can have at most 40,000 flows, so it can hold a flow for each ordered pair of 200 stations.
 
 Two editor checks give warnings: a junction with no lanes, and a network section that no lane connects to the other nodes.
 The server accepts a project with these warnings, so a warning does not block an apply or an import.

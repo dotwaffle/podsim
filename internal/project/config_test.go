@@ -140,6 +140,31 @@ func TestValidateRejectsMalformedProjects(t *testing.T) {
 	}
 }
 
+// TestValidateAcceptsNetworkLimits checks a project with the most nodes and
+// lanes that Validate allows. The added nodes and lanes are not near the
+// stations.
+func TestValidateAcceptsNetworkLimits(t *testing.T) {
+	t.Parallel()
+	config := Default()
+	for index := len(config.Network.Nodes); index < MaxNodes; index++ {
+		config.Network.Nodes = append(config.Network.Nodes, sim.Node{
+			ID: fmt.Sprintf("far-%d", index), Position: sim.Point{X: 10_000 + 100*float64(index), Y: 10_000},
+		})
+	}
+	// Each added lane goes from an added node to one of the next added
+	// nodes, so that no node has many lanes and no two lanes are the same.
+	far := config.Network.Nodes[len(Default().Network.Nodes):]
+	for index := range MaxLanes - len(config.Network.Lanes) {
+		from, step := index%len(far), 1+index/len(far)
+		config.Network.Lanes = append(config.Network.Lanes, sim.Lane{
+			ID: fmt.Sprintf("far-%d", index), From: far[from].ID, To: far[(from+step)%len(far)].ID, SpeedLimit: 12,
+		})
+	}
+	if err := Validate(config); err != nil {
+		t.Fatal(err)
+	}
+}
+
 // TestEditorMirrorsLimits checks that the editor uses the limits of
 // Validate.
 func TestEditorMirrorsLimits(t *testing.T) {
@@ -148,7 +173,7 @@ func TestEditorMirrorsLimits(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for name, want := range map[string]int{"MAX_FLOWS": MaxFlows} {
+	for name, want := range map[string]int{"MAX_STATIONS": MaxStations, "MAX_NODES": MaxNodes, "MAX_LANES": MaxLanes, "MAX_NODE_LANES": MaxNodeLanes, "MAX_FLOWS": MaxFlows} {
 		if !strings.Contains(string(source), fmt.Sprintf("const %s = %d;", name, want)) {
 			t.Errorf("web/editor.js does not set %s to %d", name, want)
 		}
