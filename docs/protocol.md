@@ -165,10 +165,13 @@ These responses also have `Cache-Control: no-store`.
 A 403, 415, or 503 reply comes before the server reads the body, and a 413 reply for a body over the 4 MiB limit comes before the end of the body.
 The server closes the connection after these replies, so it does not wait for the rest of the body.
 
-A `project` command gets `command_rejected` when the project has more than 200 stations, 4,000 nodes, 8,000 lanes, or 200 pods.
-It also gets `command_rejected` when a station has more than 200 berths, or a node has more than 64 lanes.
+A `project` command with more than 200 stations, 4,000 nodes, 8,000 lanes, or 200 pods gets HTTP 400, because these arrays are larger than the limits above.
+A station with more than 200 berths also gets HTTP 400.
+A `project` command gets `command_rejected` when the project fails validation, for example when a node has more than 64 lanes.
 A lane counts at its start node and at its end node.
+The total of the lane pairs at the nodes, the node coordinates, and the total of the track cells of the lanes also have limits.
 Two lanes with the same start node, end node, and path also give `command_rejected`.
+See [project files and validation](../README.md#project-files-and-validation) for all limits.
 
 ## Save points
 
