@@ -452,7 +452,7 @@ The draft stays local until you select **Pause and apply**.
   A parking station serves no passengers, and idle pods can park in its berths.
   A journey cannot start or end at a parking station, and the demand **Destination** list shows only passenger stations.
   The network needs at least two passenger stations.
-- On a station that the editor made, **Add physical berth** puts the new berth 30 m past the last berth.
+- On a station that is not a berth chain, such as a station that the editor made, **Add physical berth** puts the new berth 30 m past the last berth.
   The berth goes on the station axis, across the entry-exit line, on the side of the other berths.
   The berth gets a lane from the station entry and a lane to the station exit.
 - On each station, **Remove** on a berth row removes the berth, its node, and the lanes of its node.
@@ -480,7 +480,7 @@ The draft stays local until you select **Pause and apply**.
   A message then gives the station name, the lane, and the node.
 - On each station, **Add physical berth** does not add the berth when a node would get more than 64 lanes.
   A message then gives the station name and the node.
-  On a station that the editor made, the entry and the exit have a lane for each berth, so this limit applies to the number of berths.
+  On a station that is not a berth chain, the entry and the exit have a lane for each berth, so this limit applies to the number of berths.
 - Drag the station shape to move the station.
   The drag also moves the nodes that only its station lanes use, such as a berth chain.
 - **Delete station and connections** also removes these nodes.
@@ -623,6 +623,8 @@ If the editor cannot read the live project after a conflict, the status line tel
 Select **Pause and apply** to try again.
 
 For other failures, the editor shows the reason from the server, for example a project file that the server cannot save.
+When the server is busy with other large commands, it rejects the apply with HTTP 503.
+The editor then shows the reason from the server and tells you how many seconds to wait before you apply again.
 
 ### Project files and validation
 
@@ -651,6 +653,8 @@ The simulator divides each lane into track cells of about 30 meters, with at lea
 All lanes together can have at most 64,000 cells, for example about 1,900 km of lanes.
 Two lanes cannot have the same start node, end node, and path.
 A demand profile can have at most 40,000 flows, so it can hold a flow for each ordered pair of 200 stations.
+The editor checks do not include the limits of the lane pairs, the coordinates, and the track cells.
+The server checks these limits when you apply the project.
 
 Two editor checks give warnings: a junction with no lanes, and a network section that no lane connects to the other nodes.
 The server accepts a project with these warnings, so a warning does not block an apply or an import.
