@@ -25,6 +25,9 @@ func (s *Simulation) Clone() *Simulation {
 		c.demo = new(*s.demo)
 	}
 	c.waiting = slices.Clone(s.waiting)
+	c.requestBoardings = slices.Clone(s.requestBoardings)
+	c.requestCompletions = slices.Clone(s.requestCompletions)
+	c.nodePasses = slices.Clone(s.nodePasses)
 	// congestionRoute writes to this map while congestionRouteCosts is set.
 	// maps.Clone keeps a non-nil map non-nil.
 	c.congestionRoutes = maps.Clone(s.congestionRoutes)

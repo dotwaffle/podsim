@@ -262,6 +262,17 @@ type Simulation struct {
 	// code writes to it in place. findVehicle checks each entry, so an entry
 	// that is missing or stale makes the lookup slower but not wrong.
 	vehicleIndexes map[string]int
+	// recordExperiments turns on the experiment records.
+	// requestBoardings has one entry for each boarding, and
+	// requestCompletions has one entry for each pod journey with
+	// passengers that ends. RequestTimings reads them. nodePasses has one
+	// entry for each lane that a pod enters, and NodePasses reads it. Only
+	// append writes to them. Reset clears them, and a restore starts
+	// without them.
+	recordExperiments  bool
+	requestBoardings   []RequestTiming
+	requestCompletions []requestCompletion
+	nodePasses         []NodePass
 }
 
 // New creates a one-pod scenario for focused experiments.
@@ -362,6 +373,7 @@ func (s *Simulation) Reset() {
 	s.nextRedistributionTick = 0
 	s.nextCongestionRouteRefresh, s.congestionRouteCosts, s.congestionRoutes = 0, nil, nil
 	s.passengerDistanceMeters, s.emptyDistanceMeters, s.rebalanceMoves, s.sharedParties = 0, 0, 0, 0
+	s.requestBoardings, s.requestCompletions, s.nodePasses = nil, nil, nil
 	s.owners = make(map[resource]string)
 	s.vehicles = nil
 	for _, p := range s.initial {
@@ -526,6 +538,9 @@ func (s *Simulation) Step() {
 			v.Pod.Activity, v.Pod.Occupied = Idle, false
 			v.Request.Completed = true
 			s.completed += max(1, v.Parties)
+			if s.recordExperiments {
+				s.requestCompletions = append(s.requestCompletions, requestCompletion{requestID: v.Request.ID, tick: s.tick, riddenMeters: v.distance})
+			}
 			v.Parties = 0
 		}
 	}

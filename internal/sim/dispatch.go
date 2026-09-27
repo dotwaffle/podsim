@@ -302,7 +302,7 @@ func (s *Simulation) board(v *vehicle, trip waitingTrip) error {
 	request := trip.request
 	request.DispatchReason = ""
 	if trip.parties == 0 {
-		s.recordBoarding(request)
+		s.recordBoarding(request, 0)
 	}
 	request.PodID = v.Pod.ID
 	v.Request = &request
@@ -330,7 +330,7 @@ func (s *Simulation) joinSharedRide(trip waitingTrip) bool {
 			continue
 		}
 		if trip.parties == 0 {
-			s.recordBoarding(request)
+			s.recordBoarding(request, v.Request.ID)
 			s.sharedParties++
 		}
 		v.Parties += parties
@@ -340,11 +340,19 @@ func (s *Simulation) joinSharedRide(trip waitingTrip) bool {
 	return false
 }
 
-func (s *Simulation) recordBoarding(request Request) {
+// recordBoarding counts the wait of a request that boards now. sharedWith is
+// 0, or the ID of the first request of the shared ride that it joins.
+func (s *Simulation) recordBoarding(request Request, sharedWith int) {
 	wait := s.tick - request.RequestedTick
 	s.boarded++
 	s.totalWaitTicks += wait
 	s.maxWaitTicks = max(s.maxWaitTicks, wait)
+	if !s.recordExperiments {
+		return
+	}
+	s.requestBoardings = append(s.requestBoardings, RequestTiming{
+		RequestID: request.ID, RequestedTick: request.RequestedTick, BoardedTick: s.tick, SharedWith: sharedWith,
+	})
 }
 
 // promoteReadyPickup serves the oldest passenger first when pickup pods arrive out of order.

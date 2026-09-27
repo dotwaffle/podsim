@@ -32,6 +32,7 @@ var cloneRules = map[reflect.Type]map[string]cloneRule{
 		"demandWeights": cloneShare, "congestionRouteCosts": cloneShare, "congestionRoutes": cloneCopy,
 		"laneSafety": cloneShare, "berthSafety": cloneShare, "vehicleIndexes": cloneShare,
 		"berthResources": cloneShare, "laneCells": cloneShare,
+		"requestBoardings": cloneCopy, "requestCompletions": cloneCopy, "nodePasses": cloneCopy,
 	},
 	reflect.TypeFor[vehicle](): {
 		"Vehicle": cloneCopy, "blocks": cloneShare, "blockStarts": cloneShare, "routeReleases": cloneCopy,
@@ -171,6 +172,8 @@ var persistRules = map[reflect.Type]map[string]persistRule{
 		"congestionRouting": persistUnsupported, "congestionRouteCosts": persistUnsupported,
 		"congestionRoutes": persistUnsupported, "nextCongestionRouteRefresh": persistUnsupported,
 		"reservationLookaheadSeconds": persistUnsupported, "finishingPodWait": persistUnsupported,
+		"requestBoardings": persistReset, "requestCompletions": persistReset, "nodePasses": persistReset,
+		"recordExperiments": persistUnsupported,
 	},
 	reflect.TypeFor[vehicle](): {
 		"Vehicle": persistSave, "phaseTicks": persistSave, "blocks": persistDerive, "blockStarts": persistDerive,
@@ -335,6 +338,7 @@ func activeCloneSimulation(t *testing.T) *Simulation {
 		t.Fatal(err)
 	}
 	s.SetCongestionRouting(true)
+	s.SetExperimentRecords(true)
 	if err := s.SetSharedRidePartyLimit(2); err != nil {
 		t.Fatal(err)
 	}
@@ -360,8 +364,9 @@ func TestCloneFollowsRules(t *testing.T) {
 		{name: "new fleet", build: newTraffic},
 		{
 			name: "active", build: activeCloneSimulation, covered: true,
-			// No congestion route fails in the example network.
-			uncovered: []string{"routeResult.err"},
+			// No congestion route fails in the example network, and no
+			// journey ends in the first 35 seconds.
+			uncovered: []string{"routeResult.err", "Simulation.requestCompletions"},
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {

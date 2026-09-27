@@ -624,6 +624,12 @@ func (s *Simulation) move(v *vehicle) {
 	safe := math.Sqrt(acceleration*acceleration*dt*dt+2*acceleration*available) - acceleration*dt
 	blocks := &v.blocks
 	current := blocks.find(v.blockIndex, &blocks.cursors[podCursor])
+	// A pod with no lane has left its berth, so it enters its current lane
+	// in this tick.
+	entered := current.lane + 1
+	if v.Pod.LaneID == "" {
+		entered = current.lane
+	}
 	v.Pod.Speed = math.Min(v.Pod.Speed+acceleration*dt, math.Min(blocks.route[current.lane].SpeedLimit, math.Max(0, safe)))
 	travel := math.Min(available, v.Pod.Speed*dt)
 	v.distance += travel
@@ -633,6 +639,7 @@ func (s *Simulation) move(v *vehicle) {
 	}
 	for v.distance >= current.end {
 		if v.blockIndex+1 == blocks.len() {
+			s.recordLaneEntries(v, entered, current.lane)
 			s.arrive(v)
 			return
 		}
@@ -643,6 +650,7 @@ func (s *Simulation) move(v *vehicle) {
 		current = blocks.find(v.blockIndex, current)
 	}
 	lane := current.lane
+	s.recordLaneEntries(v, entered, lane)
 	v.Pod.LaneID, v.Pod.LaneDistance = blocks.route[lane].ID, v.distance-blocks.lanes[lane].start
 	v.Pod.Position = s.lanePosition(blocks.lanes[lane].geometry, &blocks.route[lane], v.Pod.LaneDistance)
 }
