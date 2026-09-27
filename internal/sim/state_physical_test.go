@@ -57,9 +57,8 @@ func (f restoreFixture) state(pods ...SavedPod) SavedState {
 		state.Pods[slices.IndexFunc(state.Pods, func(saved SavedPod) bool { return saved.ID == pod.ID })] = pod
 	}
 	for _, pod := range state.Pods {
-		if pod.carriesPassengers() {
-			state.RequestID += pod.ridersAboard()
-		}
+		active, _ := savedRiders(pod)
+		state.RequestID += len(active)
 	}
 	state.Boarded = state.RequestID
 	return state
@@ -282,8 +281,8 @@ func TestRestoreDemotesTravelingPods(t *testing.T) {
 				}
 				for range 10 * TicksPerSecond {
 					s.Step()
-					if gap := s.ordersGap(); gap != 0 {
-						t.Fatalf("tick %d: order gap %d", s.tick, gap)
+					if n := countUnaccounted(t, s); n != 0 {
+						t.Fatalf("tick %d: %d unaccounted orders", s.tick, n)
 					}
 					if v := findVehicle(t, s, "04"); len(v.Riders) > 0 && v.Riders[0].ID == 3 {
 						// Only the new orders that left the queue add to the
@@ -737,8 +736,8 @@ func TestRestoreDropsInvalidTrips(t *testing.T) {
 			kept := SavedTrip{Request: SavedRequest{ID: state.RequestID + tc.parties + 1, From: "garden", To: "harbor", PartySize: 1, RequestedTick: 20}}
 			state.RequestID = kept.Request.ID
 			state.Waiting = []SavedTrip{kept, tc.trip}
-			if gap := state.ordersGap(); gap != 0 {
-				t.Fatalf("the saved order gap is %d", gap)
+			if n := countSavedUnaccounted(t, state); n != 0 {
+				t.Fatalf("the saved state has %d unaccounted orders", n)
 			}
 			for _, tier := range restoreTiers {
 				s, result, err := f.restoreTier(state, tier)
@@ -750,8 +749,8 @@ func TestRestoreDropsInvalidTrips(t *testing.T) {
 					len(result.Requeued) > 0 {
 					t.Fatalf("%s tier: result %+v", tier, result)
 				}
-				if gap := s.ordersGap(); gap != tc.parties {
-					t.Fatalf("%s tier: the order gap is %d, want %d", tier, gap, tc.parties)
+				if n := countUnaccounted(t, s); n != tc.parties || s.unaccountedOrders != n || result.Unaccounted != 0 {
+					t.Fatalf("%s tier: %d unaccounted orders, want %d, counted %d", tier, n, tc.parties, s.unaccountedOrders)
 				}
 				if got := s.ExportState().Waiting; !reflect.DeepEqual(got, want) {
 					t.Fatalf("%s tier: queue %+v", tier, got)
@@ -1244,7 +1243,7 @@ func TestRestoreBudgetHasALimit(t *testing.T) {
 			for _, count := range tc.network.LaneBlocks() {
 				blocks += count
 			}
-			if got, want := newPhysicalRestore(f.s, f.s.ExportState(), 0).budget, tc.want(t, blocks); got != want {
+			if got, want := newPhysicalRestore(f.s, f.s.ExportState()).budget, tc.want(t, blocks); got != want {
 				t.Fatalf("budget = %d, want %d for %d network blocks", got, want, blocks)
 			}
 		})

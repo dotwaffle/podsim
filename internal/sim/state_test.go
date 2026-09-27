@@ -101,8 +101,8 @@ func checkRestoredMatches(t *testing.T, live, restored *Simulation) {
 			t.Fatalf("tick %d: saved pod\n got %+v\nwant %+v", live.tick, gotPod, wantPod)
 		}
 	}
-	if gap := restored.ordersGap(); gap != 0 {
-		t.Fatalf("tick %d: order gap %d", live.tick, gap)
+	if n := countUnaccounted(t, restored); n != 0 {
+		t.Fatalf("tick %d: %d unaccounted orders", live.tick, n)
 	}
 }
 
@@ -353,7 +353,7 @@ func TestSavedStateGolden(t *testing.T) {
 	}
 }
 
-func TestOrdersGapCountsPartiesInSharedRides(t *testing.T) {
+func TestSharedRidesAccountForEachOrder(t *testing.T) {
 	t.Parallel()
 	s := newTraffic(t)
 	if err := s.StartDemo(); err != nil {
@@ -372,8 +372,8 @@ func TestOrdersGapCountsPartiesInSharedRides(t *testing.T) {
 		}
 		advance(s, TicksPerSecond)
 		state := s.ExportState()
-		if gap, savedGap := s.ordersGap(), state.ordersGap(); gap != 0 || savedGap != 0 {
-			t.Fatalf("second %d: order gap %d, saved order gap %d", second, gap, savedGap)
+		if n, saved := countUnaccounted(t, s), countSavedUnaccounted(t, state); n != 0 || saved != 0 {
+			t.Fatalf("second %d: %d unaccounted orders, %d saved", second, n, saved)
 		}
 		if second%30 != 0 {
 			continue
@@ -382,8 +382,8 @@ func TestOrdersGapCountsPartiesInSharedRides(t *testing.T) {
 		if err != nil || result.Tier != RestorePhysical {
 			t.Fatalf("second %d: %v, %+v", second, err, result)
 		}
-		if gap := restored.ordersGap(); gap != 0 {
-			t.Fatalf("second %d: restored order gap %d", second, gap)
+		if n := countUnaccounted(t, restored); n != 0 {
+			t.Fatalf("second %d: %d unaccounted orders after the restore", second, n)
 		}
 	}
 	if s.sharedParties == 0 {

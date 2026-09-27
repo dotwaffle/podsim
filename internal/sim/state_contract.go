@@ -4,6 +4,7 @@ import (
 	"cmp"
 	"errors"
 	"fmt"
+	"maps"
 	"slices"
 )
 
@@ -344,6 +345,87 @@ func checkPodStops(pod SavedPod, rule phaseRule, active, history []SavedRequest)
 		if rule.stops == routeStops && pod.Stops[0] != pod.DestinationStation {
 			return errors.New("the first stop is not the destination")
 		}
+	}
+	return nil
+}
+
+// checkContract checks the saved form of a simulation against the contract.
+// The saved form must have the unaccounted orders that the simulation
+// counts.
+func (s *Simulation) checkContract() error {
+	unaccounted, err := s.ExportState().checkContract()
+	if err != nil {
+		return err
+	}
+	if unaccounted != s.unaccountedOrders {
+		return fmt.Errorf("the state has %d unaccounted orders, want %d", unaccounted, s.unaccountedOrders)
+	}
+	return nil
+}
+
+// reconcileOrders checks the orders of a restored simulation against its
+// saved state, by order ID. Each order that the saved state queues or that a
+// saved pod carries is in one place after the restore: in the queue, aboard
+// a pod, in completed or in dropped. A requeued order is in the queue. The
+// restore adds no order, keeps the submitted count, and adds completed to
+// the completed count.
+func (s *Simulation) reconcileOrders(state SavedState, completed, dropped []int) error {
+	saved := make(map[int]bool, len(state.Waiting))
+	for _, pod := range state.Pods {
+		active, _ := savedRiders(pod)
+		for _, rider := range active {
+			saved[rider.ID] = true
+		}
+	}
+	for _, trip := range state.Waiting {
+		saved[trip.Request.ID] = true
+	}
+	// found holds the place of each order after the restore.
+	found := make(map[int]string, len(saved))
+	place := func(id int, where string) error {
+		if !saved[id] {
+			return fmt.Errorf("order %d is %s, but the saved state does not hold it", id, where)
+		}
+		if other, ok := found[id]; ok {
+			return fmt.Errorf("order %d is %s and %s", id, other, where)
+		}
+		found[id] = where
+		return nil
+	}
+	for _, trip := range s.waiting {
+		if err := place(trip.request.ID, "in the queue"); err != nil {
+			return err
+		}
+	}
+	for index := range s.vehicles {
+		v := &s.vehicles[index]
+		for _, rider := range v.Riders {
+			if rider.Completed {
+				continue
+			}
+			if err := place(rider.ID, "in pod "+v.Pod.ID); err != nil {
+				return err
+			}
+		}
+	}
+	for _, id := range completed {
+		if err := place(id, "complete"); err != nil {
+			return err
+		}
+	}
+	for _, id := range dropped {
+		if err := place(id, "dropped"); err != nil {
+			return err
+		}
+	}
+	for _, id := range slices.Sorted(maps.Keys(saved)) {
+		if _, ok := found[id]; !ok {
+			return fmt.Errorf("the restore lost order %d", id)
+		}
+	}
+	if s.requestID != state.RequestID || s.completed != state.Completed+len(completed) {
+		return fmt.Errorf("the restore has %d submitted and %d completed orders, want %d and %d",
+			s.requestID, s.completed, state.RequestID, state.Completed+len(completed))
 	}
 	return nil
 }

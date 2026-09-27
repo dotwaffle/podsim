@@ -46,10 +46,8 @@ type berthRef struct {
 // indexed by pod follows the saved pod order, which is also the order of
 // s.vehicles.
 type physicalRestore struct {
-	s     *Simulation
-	state SavedState
-	// gap is the order gap of the saved state.
-	gap    int
+	s      *Simulation
+	state  SavedState
 	result RestoreResult
 	berths map[string]berthRef
 	// demoted marks the pods that go to a berth when the traveling pods are
@@ -77,7 +75,7 @@ type physicalRestore struct {
 // valid, when two pods at berths conflict, or when a demoted pod finds no
 // free berth.
 func restorePhysical(input RestoreStateInput) (*Simulation, RestoreResult, error) {
-	gap, err := validateSavedState(input.State)
+	unaccounted, err := validateSavedState(input.State)
 	if err != nil {
 		return nil, RestoreResult{}, err
 	}
@@ -91,7 +89,7 @@ func restorePhysical(input RestoreStateInput) (*Simulation, RestoreResult, error
 	if err := checkFleetSaved(s.initial, input.State); err != nil {
 		return nil, RestoreResult{}, err
 	}
-	r := newPhysicalRestore(s, input.State, gap)
+	r := newPhysicalRestore(s, input.State)
 	r.restoreCounters()
 	if err := r.decodePods(); err != nil {
 		return nil, RestoreResult{}, err
@@ -123,10 +121,10 @@ func restorePhysical(input RestoreStateInput) (*Simulation, RestoreResult, error
 		r.result.Demoted = append(r.result.Demoted, s.vehicles[index].Pod.ID)
 	}
 	r.restoreWaiting()
-	if err := s.verifyRestore(r.gap + r.result.DroppedParties); err != nil {
+	if err := s.verifyRestore(input.State, nil, r.result.Dropped, unaccounted); err != nil {
 		return nil, RestoreResult{}, err
 	}
-	r.result.Tier = RestorePhysical
+	r.result.Tier, r.result.Unaccounted = RestorePhysical, unaccounted
 	return s, r.result, nil
 }
 
@@ -207,9 +205,9 @@ func checkFleetSaved(fleet []Placement, state SavedState) error {
 	return nil
 }
 
-func newPhysicalRestore(s *Simulation, state SavedState, gap int) *physicalRestore {
+func newPhysicalRestore(s *Simulation, state SavedState) *physicalRestore {
 	r := &physicalRestore{
-		s: s, state: state, gap: gap, berths: make(map[string]berthRef),
+		s: s, state: state, berths: make(map[string]berthRef),
 		demoted: make([]bool, len(state.Pods)), routes: make([][]int, len(state.Pods)), costs: make([]int, len(state.Pods)),
 		tripRoutes: make([][]int, len(state.Waiting)), unbound: make([]bool, len(state.Waiting)),
 		laneBlocks: make([]int, len(s.network.Lanes)),
@@ -295,7 +293,7 @@ func (r *physicalRestore) decodePod(index int, saved SavedPod) error {
 	for _, rider := range saved.Riders {
 		v.Riders = append(v.Riders, Request(rider))
 	}
-	if v.carriesPassengers() {
+	if v.RidersAboard() > 0 {
 		v.riddenBase = saved.RiddenMeters
 	}
 	if !r.passengerRiders(v) {
@@ -759,7 +757,7 @@ func (r *physicalRestore) separate() error {
 // of its destination station, then any berth.
 func (r *physicalRestore) placeDemoted(index int) error {
 	v := &r.s.vehicles[index]
-	if v.carriesPassengers() {
+	if v.RidersAboard() > 0 {
 		from, _ := r.s.station(v.boardingStation())
 		if berth, ok := r.freeBerth(v, from.Berths); ok && r.boardAgain(v, berth) {
 			return nil
@@ -872,7 +870,7 @@ func (r *physicalRestore) moveTo(v *vehicle, berth Berth) {
 
 // restoreWaiting rebuilds the queue in saved order. A requeued request goes
 // in before the first saved trip with a larger ID. The restore drops a saved
-// request that is not valid or that a pod already carries. It clears the pod
+// request that is not valid. It clears the pod
 // bindings of a trip when one of them is not valid, and keeps a deferral
 // deadline that is in range. When the restore drops a trip or clears its
 // pod, and no kept trip names that pod, the empty pod on its way to the
@@ -880,36 +878,22 @@ func (r *physicalRestore) moveTo(v *vehicle, berth Berth) {
 // can take new work at once.
 func (r *physicalRestore) restoreWaiting() {
 	s := r.s
-	carried := make(map[int]bool)
-	for index := range s.vehicles {
-		if v := &s.vehicles[index]; v.carriesPassengers() {
-			for _, rider := range v.Riders {
-				if !rider.Completed {
-					carried[rider.ID] = true
-				}
-			}
-		}
-	}
 	var orphaned []string
 	requeued := slices.Clone(r.requeued)
 	slices.SortStableFunc(requeued, func(a, b waitingTrip) int { return cmp.Compare(a.request.ID, b.request.ID) })
-	for _, trip := range requeued {
-		carried[trip.request.ID] = true
-	}
 	for index, saved := range r.state.Waiting {
 		for len(requeued) > 0 && requeued[0].request.ID < saved.Request.ID {
 			s.waiting = append(s.waiting, requeued[0])
 			requeued = requeued[1:]
 		}
 		request := Request(saved.Request)
-		if !r.state.validTrip(saved.Request, saved.Boarded) || carried[request.ID] ||
+		if !r.state.validTrip(saved.Request, saved.Boarded) ||
 			!s.passengerStation(request.From) || !s.passengerStation(request.To) {
 			r.result.Dropped = append(r.result.Dropped, request.ID)
 			r.result.DroppedParties++
 			orphaned = append(orphaned, request.PodID)
 			continue
 		}
-		carried[request.ID] = true
 		trip := r.restoreTrip(index, request)
 		if trip.request.PodID != request.PodID {
 			orphaned = append(orphaned, request.PodID)
@@ -964,8 +948,11 @@ func (r *physicalRestore) activePod(id string) bool {
 
 // verifyRestore derives the station phases of a restored simulation and
 // checks the result: pod separation and berth use, the retention rules for
-// each resource owner, and the order gap, which must be gap.
-func (s *Simulation) verifyRestore(gap int) error {
+// each resource owner, the orders of state, and the contract. completed and
+// dropped list the orders that the restore completed and dropped.
+// unaccounted counts the unaccounted orders of state. The dropped orders add
+// to them.
+func (s *Simulation) verifyRestore(state SavedState, completed, dropped []int, unaccounted int) error {
 	for index := range s.vehicles {
 		s.updateStationPhase(&s.vehicles[index])
 	}
@@ -975,8 +962,12 @@ func (s *Simulation) verifyRestore(gap int) error {
 	if !maps.Equal(s.owners, s.retainedOwners()) {
 		return errors.New("the resource owners differ from the retention rules")
 	}
-	if got := s.ordersGap(); got != gap {
-		return fmt.Errorf("the restore changed the order gap to %d, want %d", got, gap)
+	if err := s.reconcileOrders(state, completed, dropped); err != nil {
+		return fmt.Errorf("check the restored orders: %w", err)
+	}
+	s.unaccountedOrders = unaccounted + len(dropped)
+	if err := s.checkContract(); err != nil {
+		return fmt.Errorf("check the restored state: %w", err)
 	}
 	return nil
 }

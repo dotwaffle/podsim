@@ -391,3 +391,153 @@ func TestRestoreRejectsBrokenOrders(t *testing.T) {
 		})
 	}
 }
+
+// countUnaccounted is a test oracle for the orders of a simulation. It
+// returns the submitted orders that are not complete, not in the queue and
+// not aboard a pod. It fails the test when an order is in two places.
+func countUnaccounted(t *testing.T, s *Simulation) int {
+	t.Helper()
+	var ids []int
+	for _, trip := range s.waiting {
+		ids = append(ids, trip.request.ID)
+	}
+	for index := range s.vehicles {
+		for _, rider := range s.vehicles[index].Riders {
+			if !rider.Completed {
+				ids = append(ids, rider.ID)
+			}
+		}
+	}
+	return s.requestID - s.completed - countHeld(t, ids)
+}
+
+// countSavedUnaccounted is countUnaccounted for a saved state.
+func countSavedUnaccounted(t *testing.T, state SavedState) int {
+	t.Helper()
+	var ids []int
+	for _, trip := range state.Waiting {
+		ids = append(ids, trip.Request.ID)
+	}
+	for _, pod := range state.Pods {
+		for _, rider := range pod.Riders {
+			if !rider.Completed {
+				ids = append(ids, rider.ID)
+			}
+		}
+	}
+	return state.RequestID - state.Completed - countHeld(t, ids)
+}
+
+func countHeld(t *testing.T, ids []int) int {
+	t.Helper()
+	seen := make(map[int]bool, len(ids))
+	for _, id := range ids {
+		if seen[id] {
+			t.Fatalf("order %d is in two places", id)
+		}
+		seen[id] = true
+	}
+	return len(ids)
+}
+
+// TestRestoreReportsUnaccountedOrders restores a state that lost orders 11
+// and 12. Each tier restores it and reports the two orders. The report stays
+// when the restored simulation saves and restores again. The restore does
+// not make up the lost orders.
+func TestRestoreReportsUnaccountedOrders(t *testing.T) {
+	t.Parallel()
+	f := newRestoreFleetFixture(t, Example(), demoFleet())
+	base := logicalState(t, f)
+	base.RequestID += 2
+	for _, tier := range restoreTiers {
+		state := roundTripState(t, base)
+		// The first restore drops order 10 from the parking station, which
+		// adds to the report of each later restore.
+		for round, want := range []int{2, 3, 3} {
+			s, result, err := f.restoreTier(state, tier)
+			if err != nil || result.Tier != tier || result.Unaccounted != want {
+				t.Fatalf("%s tier, round %d: %v, %+v, want %d unaccounted orders", tier, round, err, result, want)
+			}
+			if n := countUnaccounted(t, s); n != 3 || s.unaccountedOrders != n {
+				t.Fatalf("%s tier, round %d: %d unaccounted orders, counted %d", tier, round, n, s.unaccountedOrders)
+			}
+			state = roundTripState(t, s.ExportState())
+		}
+		s, _, err := f.restoreTier(state, tier)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := s.RequestTrip("harbor", "market"); err != nil {
+			t.Fatal(err)
+		}
+		if s.requestID != base.RequestID+1 || countUnaccounted(t, s) != 3 {
+			t.Fatalf("%s tier: %d orders, %d unaccounted", tier, s.requestID, countUnaccounted(t, s))
+		}
+	}
+}
+
+// TestReconcileOrdersFindsEachMismatch breaks the result of a physical
+// restore of logicalState, which drops order 10.
+func TestReconcileOrdersFindsEachMismatch(t *testing.T) {
+	t.Parallel()
+	f := newRestoreFleetFixture(t, Example(), demoFleet())
+	state := roundTripState(t, logicalState(t, f))
+	for _, tc := range []struct {
+		name string
+		// edit breaks the restored simulation and returns the completed and
+		// the dropped orders.
+		edit func(s *Simulation) (completed, dropped []int)
+		want string
+	}{
+		{
+			name: "no change",
+			edit: func(*Simulation) ([]int, []int) { return nil, []int{10} },
+		},
+		{
+			name: "lost order", want: "the restore lost order 9",
+			edit: func(s *Simulation) ([]int, []int) {
+				s.waiting = nil
+				return nil, []int{10}
+			},
+		},
+		{
+			name: "queued order that is also dropped", want: "order 9 is in the queue and dropped",
+			edit: func(*Simulation) ([]int, []int) { return nil, []int{9, 10} },
+		},
+		{
+			name: "order that the state does not hold", want: "order 11 is in the queue, but the saved state does not hold it",
+			edit: func(s *Simulation) ([]int, []int) {
+				s.waiting = append(s.waiting, waitingTrip{request: Request{ID: 11, From: "harbor", To: "market", PartySize: 1}})
+				return nil, []int{10}
+			},
+		},
+		{
+			name: "rider aboard and complete", want: "order 2 is in pod 03 and complete",
+			edit: func(*Simulation) ([]int, []int) { return []int{2}, []int{10} },
+		},
+		{
+			name: "completed order of the history", want: "order 1 is complete, but the saved state does not hold it",
+			edit: func(*Simulation) ([]int, []int) { return []int{1}, []int{10} },
+		},
+		{
+			name: "completed count", want: "the restore has 10 submitted and 3 completed orders, want 10 and 2",
+			edit: func(s *Simulation) ([]int, []int) {
+				s.completed++
+				return nil, []int{10}
+			},
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			s, result, err := f.restore(state)
+			if err != nil || result.Tier != RestorePhysical {
+				t.Fatalf("%v, %+v", err, result)
+			}
+			completed, dropped := tc.edit(s)
+			err = s.reconcileOrders(state, completed, dropped)
+			if tc.want == "" && err != nil || tc.want != "" && (err == nil || err.Error() != tc.want) {
+				t.Fatalf("error %v, want %q", err, tc.want)
+			}
+		})
+	}
+}

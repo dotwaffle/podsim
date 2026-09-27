@@ -164,6 +164,11 @@ type RestoreResult struct {
 	// DroppedParties counts the dropped requests. Each request is one
 	// party.
 	DroppedParties int
+	// Unaccounted counts the orders that the saved state submitted but that
+	// are not complete, not in the queue and not aboard a pod. The restore
+	// does not make up these orders. A state that the simulation saves after
+	// the restore has them again, with the dropped orders.
+	Unaccounted int
 	// OverCap counts the routes that were longer than their limit.
 	OverCap int
 	// OverBudget counts the routes that did not fit in the block budget of the
@@ -374,44 +379,4 @@ func activityOfCode(code string) (Activity, bool) {
 		}
 	}
 	return "", false
-}
-
-// carriesPassengers is the rule of vehicle.carriesPassengers for a saved
-// pod.
-func (pod SavedPod) carriesPassengers() bool {
-	return (pod.Activity == activityCode(Boarding) || pod.Occupied) && pod.ridersAboard() > 0
-}
-
-// ridersAboard returns the number of saved riders that did not leave the pod.
-func (pod SavedPod) ridersAboard() int {
-	aboard := 0
-	for _, rider := range pod.Riders {
-		if !rider.Completed {
-			aboard++
-		}
-	}
-	return aboard
-}
-
-// ordersGap returns the orders that are submitted but not completed, queued
-// or in a pod. It is 0 in a live simulation.
-func (s *Simulation) ordersGap() int {
-	gap := s.requestID - s.completed - len(s.waiting)
-	for index := range s.vehicles {
-		if v := &s.vehicles[index]; v.carriesPassengers() {
-			gap -= v.RidersAboard()
-		}
-	}
-	return gap
-}
-
-// ordersGap is the same count for a saved state.
-func (state SavedState) ordersGap() int {
-	gap := state.RequestID - state.Completed - len(state.Waiting)
-	for _, pod := range state.Pods {
-		if pod.carriesPassengers() {
-			gap -= pod.ridersAboard()
-		}
-	}
-	return gap
 }

@@ -62,8 +62,8 @@ func TestRestoreLogical(t *testing.T) {
 	// The fixture caches routes, so build the state before the parallel
 	// subtests.
 	base := logicalState(t, f)
-	if gap := base.ordersGap(); gap != 0 {
-		t.Fatalf("the saved order gap is %d", gap)
+	if n := countSavedUnaccounted(t, base); n != 0 {
+		t.Fatalf("the saved state has %d unaccounted orders", n)
 	}
 	if _, result, err := f.restore(roundTripState(t, base)); err != nil || result.Tier != RestorePhysical ||
 		len(result.Demoted)+len(result.Requeued) > 0 || !slices.Equal(result.Dropped, []int{10}) {
@@ -153,19 +153,20 @@ func TestRestoreLogical(t *testing.T) {
 			if !maps.Equal(s.owners, s.retainedOwners()) {
 				t.Fatal("the owners differ from the retention rules")
 			}
-			gap := s.ordersGap()
-			if want := state.ordersGap() + tc.droppedParties; gap != want {
-				t.Fatalf("the order gap is %d, want %d", gap, want)
+			gap := countUnaccounted(t, s)
+			if want := countSavedUnaccounted(t, state) + tc.droppedParties; gap != want || s.unaccountedOrders != gap ||
+				result.Unaccounted != 0 {
+				t.Fatalf("%d unaccounted orders, want %d, counted %d, reported %d", gap, want, s.unaccountedOrders, result.Unaccounted)
 			}
 			// In 10 minutes, the pods take each queued party to its
 			// destination.
 			for second := range 600 {
 				advance(s, TicksPerSecond)
-				if got := s.ordersGap(); got != gap {
-					t.Fatalf("second %d: the order gap is %d, want %d", second, got, gap)
+				if got := countUnaccounted(t, s); got != gap {
+					t.Fatalf("second %d: %d unaccounted orders, want %d", second, got, gap)
 				}
 			}
-			if len(s.waiting) > 0 || slices.ContainsFunc(s.vehicles, func(v vehicle) bool { return v.carriesPassengers() }) ||
+			if len(s.waiting) > 0 || slices.ContainsFunc(s.vehicles, func(v vehicle) bool { return v.RidersAboard() > 0 }) ||
 				s.completed != s.requestID-gap || s.boarded != state.Boarded+1 {
 				t.Fatalf("after 10 minutes: %d queued, completed %d of %d, boarded %d", len(s.waiting), s.completed, s.requestID, s.boarded)
 			}
@@ -181,10 +182,9 @@ func checkLogicalQueue(t *testing.T, state SavedState, s *Simulation, requeued [
 	t.Helper()
 	boarded := make(map[int]int64)
 	for _, pod := range state.Pods {
-		if pod.carriesPassengers() {
-			for _, rider := range pod.Riders {
-				boarded[rider.ID] = rider.BoardedTick
-			}
+		active, _ := savedRiders(pod)
+		for _, rider := range active {
+			boarded[rider.ID] = rider.BoardedTick
 		}
 	}
 	ids := make([]int, len(s.waiting))
@@ -234,7 +234,7 @@ func TestRestoreLogicalKeepsSharedRides(t *testing.T) {
 				}
 			}
 			for !slices.ContainsFunc(live.vehicles, func(v vehicle) bool {
-				return v.carriesPassengers() && v.Pod.Activity == tc.activity && v.RidersAboard() == tc.parties
+				return v.Pod.Activity == tc.activity && v.RidersAboard() == tc.parties
 			}) {
 				if live.tick >= 5*60*TicksPerSecond {
 					t.Fatalf("no pod is %q with %d parties", tc.activity, tc.parties)
@@ -282,6 +282,58 @@ func TestRestoreStateReportsEachFailedTier(t *testing.T) {
 			physical := strings.Contains(err.Error(), "physical tier: the saved state completed or boarded more orders")
 			if !strings.Contains(err.Error(), cause) || physical == tc.logicalOnly || (result.PhysicalError != nil) == tc.logicalOnly {
 				t.Fatalf("error %q with %+v", err, result)
+			}
+		})
+	}
+}
+
+// TestRestoreLogicalCompletesOnlyAtAStation moves the unloading pod 03 of
+// logicalState to a place where its riders cannot leave the pod. The
+// logical tier must not count the riders as complete. It queues them again,
+// or it drops them with a report when their trip is not valid.
+func TestRestoreLogicalCompletesOnlyAtAStation(t *testing.T) {
+	t.Parallel()
+	f := newRestoreFleetFixture(t, Example(), demoFleet())
+	base := logicalState(t, f)
+	for _, tc := range []struct {
+		name             string
+		station, berth   string
+		requeued         []int
+		dropped          []int
+		unaccountedAfter int
+	}{
+		{
+			name: "parking station", station: "parking", berth: "parking-1",
+			requeued: []int{4, 5, 6, 8}, dropped: []int{2, 3, 10}, unaccountedAfter: 3,
+		},
+		{
+			name: "berth not in the network", station: "market", berth: "market-9",
+			requeued: []int{2, 3, 4, 5, 6, 8}, dropped: []int{10}, unaccountedAfter: 1,
+		},
+		{
+			name: "berth of another station", station: "market", berth: "harbor-1",
+			requeued: []int{2, 3, 4, 5, 6, 8}, dropped: []int{10}, unaccountedAfter: 1,
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			state := roundTripState(t, base)
+			pod := &state.Pods[2]
+			pod.StationID, pod.BerthID, pod.DestinationStation, pod.Destination = tc.station, tc.berth, tc.station, tc.berth
+			for index := range pod.Riders {
+				pod.Riders[index].To = tc.station
+			}
+			s, result, err := RestoreState(RestoreStateInput{Network: f.network, Fleet: f.fleet, State: state})
+			if err != nil {
+				t.Fatal(err)
+			}
+			if result.Tier != RestoreLogical || !slices.Equal(result.Requeued, tc.requeued) ||
+				!slices.Equal(result.Dropped, tc.dropped) {
+				t.Fatalf("result %+v", result)
+			}
+			if s.completed != state.Completed || s.unaccountedOrders != tc.unaccountedAfter ||
+				countUnaccounted(t, s) != tc.unaccountedAfter {
+				t.Fatalf("completed %d, want %d, %d unaccounted orders", s.completed, state.Completed, s.unaccountedOrders)
 			}
 		})
 	}

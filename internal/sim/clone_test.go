@@ -166,7 +166,7 @@ var persistRules = map[reflect.Type]map[string]persistRule{
 		"waiting": persistSave, "boarded": persistSave, "totalWaitTicks": persistSave, "maxWaitTicks": persistSave,
 		"positioning": persistSession, "demandRate": persistSession, "demandWeights": persistSession, "nextRedistributionTick": persistSave,
 		"passengerDistanceMeters": persistSave, "emptyDistanceMeters": persistSave, "rebalanceMoves": persistSave,
-		"sharedRidePartyLimit": persistSave, "sharedParties": persistSave,
+		"sharedRidePartyLimit": persistSave, "sharedParties": persistSave, "unaccountedOrders": persistDerive,
 		"sharedRideMode": persistSave, "sharedRideMaxStops": persistSave,
 		"approachStations": persistDerive, "routeStations": persistReset,
 		"journeys": persistSave, "totalJourneyTicks": persistSave, "maxJourneyTicks": persistSave,

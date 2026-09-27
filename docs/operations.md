@@ -198,6 +198,12 @@ Each order ID must be in one place only: in the queue, or with one pod.
 A file that fails these checks gets `invalid_state`.
 A queued order that is not valid does not stop the restore.
 The tier removes it and counts it as dropped.
+After each tier, the server checks each saved order by its ID.
+The order must be complete, in the queue, aboard a pod, or dropped, and in one place only.
+A tier that loses an order or adds an order fails.
+A file can hold fewer orders than it submitted.
+The server restores such a file, but it does not make up the missing orders.
+It reports them as unaccounted orders at each restore, together with the orders that an earlier restore dropped.
 
 - `physical`: The pods keep their lane positions and start again at speed 0.
   The server makes the track reservations again.
@@ -210,7 +216,7 @@ The tier removes it and counts it as dropped.
 - `logical`: The server uses this tier with reason `physical_failed` when the `physical` tier fails.
   It also uses it with reason `restore_loop`, as described below.
   The pods start again at their initial berths.
-  Parties that were unloading at their stop count as completed.
+  Parties that were unloading at their stop count as completed, if the pod is at a berth of a passenger station in the network.
   Each other party in a pod goes back to the queue as one order.
 - `empty`: The server does not use the saved state and starts a new session.
   Except after a read failure, it moves `session.json.gz` to a rejected file.

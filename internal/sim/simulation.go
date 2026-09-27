@@ -292,6 +292,10 @@ type Simulation struct {
 	reservationLookaheadSeconds float64
 	laneSafety                  map[string]SafetyLocation
 	berthSafety                 map[string]SafetyLocation
+	// unaccountedOrders counts the orders that the simulation submitted but
+	// that are not complete, not queued and not aboard a pod. It is 0 until
+	// a restore finds such orders in a saved state or drops orders.
+	unaccountedOrders int
 	// berthResources holds the berth resources at each node. NewFleet and
 	// ensureNetworkIndexes build it. No code writes to it in place.
 	berthResources map[string][]resource
@@ -409,7 +413,7 @@ func prepareFleet(network Network, placements []Placement) (Network, routeGraph,
 
 // Reset restores the initial fleet, clock, and resources. It clears supplied demo requests.
 func (s *Simulation) Reset() {
-	s.tick, s.completed, s.requestID = 0, 0, 0
+	s.tick, s.completed, s.requestID, s.unaccountedOrders = 0, 0, 0, 0
 	s.paused, s.demo, s.demoError = false, nil, ""
 	s.waiting = nil
 	s.boarded, s.totalWaitTicks, s.maxWaitTicks = 0, 0, 0
