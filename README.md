@@ -87,7 +87,7 @@ This limit lets the server read the file at the next start.
 
 The browser export wraps the `project` object as `scenario` and can also contain a background image.
 **Import JSON** accepts the browser export and the server file, such as the output of `mise run scenario`.
-When the file leaves out an optional setting, such as the same-destination party limit, the import uses the default value.
+When the file leaves out an optional setting, such as the party limit or the shared ride mode, the import uses the default value.
 `-project` does not accept the browser export.
 
 ### Session state
@@ -125,7 +125,7 @@ At startup, the server restores the saved session with one of these tiers:
 | Tier | Behavior |
 | --- | --- |
 | `physical` | The pods keep their positions and start again from rest. A traveling pod that cannot keep its position goes to a free berth. |
-| `logical` | The pods start again at their initial berths. Parties that were unloading count as completed. Each other party in a pod goes back to the order queue as one order. |
+| `logical` | The pods start again at their initial berths. Parties that were unloading at their stop count as completed. Each other party in a pod goes back to the order queue as one order. |
 | `empty` | The server does not use the saved state and starts a new session. Except after a read failure, it moves the file aside. |
 
 State frames give the result in `restore`.

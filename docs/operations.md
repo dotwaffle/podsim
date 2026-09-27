@@ -203,7 +203,7 @@ At startup, the server reads `session.json.gz` and restores the session with one
 - `logical`: The server uses this tier with reason `physical_failed` when the `physical` tier fails.
   It also uses it with reason `restore_loop`, as described below.
   The pods start again at their initial berths.
-  Parties that were unloading count as completed.
+  Parties that were unloading at their stop count as completed.
   Each other party in a pod goes back to the queue as one order.
 - `empty`: The server does not use the saved state and starts a new session.
   Except after a read failure, it moves `session.json.gz` to a rejected file.
