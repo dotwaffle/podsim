@@ -215,6 +215,144 @@ Keep the experimental arm for future work with measured lane travel times or jun
 Raw results are in [`measurements/routing-policy.csv`](measurements/routing-policy.csv).
 The code at commit `b82b788` gives the recorded values, so the CSV has the columns of that commit.
 The current compare command adds more columns, and it can give different values.
+The current `congestion` arm also has the two guards of the [queue routing screen](#queue-routing-screen).
+
+## Queue routing screen
+
+This screen compares free-flow routing, the `congestion` policy, and the `queue` policy.
+The code at commit `3d7d41d` gives the recorded values.
+
+Both costed policies now have two guards.
+A costed route does not go through the berths of a station other than the stations at its ends.
+Costs apply only to the route that a pod gets when it boards, starts an empty move, diverts to a pickup, or parks after a release.
+Estimates and the choices of dispatch, positioning, and parking use free-flow times.
+Thus the `congestion` arm is different from the arm in the section above.
+
+The `queue` policy counts the stopped pods with a wait reason on each lane when it assigns a route.
+Each stopped pod adds 3 s to the time that the queue on its lane needs to clear.
+The route search adds only the part of that time that remains when the pod gets to the start of the lane.
+The policy changes the free-flow route only when the saving is at least 15 s and at least 5%.
+The new route must also take at most 1.2 times the free-flow time of the free-flow route.
+A screen with 5 s for each stopped pod ran on rail-hub, scale100, and the London sets with seeds 1 and 3.
+Each of its rows was equal to the row with 3 s, so the full sweeps use 3 s.
+
+The London-192 project has 192 pods, two at each passenger station, and no pods in parking at the start.
+It is the first London arm in which track congestion limits service.
+
+```sh
+mise run scenario -- -preset rail-hub -output /tmp/podsim-rail-hub.json
+mise run scenario -- -preset scale100 -output /tmp/podsim-scale100.json
+mise run scenario -- -preset london -output /tmp/podsim-london.json
+mise run scenario -- -preset london -station-berths 3 -berths 940GZZLUEMB=2 -parking-berths 24 -station-pods 2 -parking-pods 0 -output /tmp/podsim-london-192.json
+mise run compare -- -project /tmp/podsim-rail-hub.json -pattern hub-burst -duration 30m -arrivals-for 5m -request-every 5s -burst-size 12 -seeds 1,2,3,4,5 -redistribution-policies off -routing-policies free-flow,congestion,queue -stop-when-drained -format csv -output docs/measurements/routing-queue-rail-hub.csv
+mise run compare -- -project /tmp/podsim-scale100.json -pattern hub-burst -duration 30m -arrivals-for 5m -request-every 5s -burst-size 12 -seeds 1,2,3 -redistribution-policies off -routing-policies free-flow,congestion,queue -stop-when-drained -format csv -output docs/measurements/routing-queue-scale100.csv
+mise run compare -- -project /tmp/podsim-london-192.json -pattern profile -bands early,am-peak -duration 65m -arrivals-for 30m -loads 6s,5s,4s,3s -seeds 1,2,3,4,5,6,7,8,9,10 -redistribution-policies off -routing-policies free-flow,congestion,queue -focus 940GZZLUEUS -queue-limit 1000000 -stop-when-drained -workers 5 -format csv -output docs/measurements/routing-queue-london-192.csv
+mise run compare -- -project /tmp/podsim-london.json -pattern profile -bands all -duration 65m -arrivals-for 30m -loads 60s,30s,20s,15s,12s,10s,8.571429s,7.5s,6.666667s,6s,5.454545s,5s,4.615385s,4.285714s,4s -seeds 1,2,3 -redistribution-policies off -routing-policies free-flow,congestion,queue -focus 940GZZLUEUS -queue-limit 1000000 -stop-when-drained -adaptive-limit -past-limit 1 -workers 5 -format csv -output docs/measurements/routing-queue-london-envelope.csv
+```
+
+The two London files join the output of one run for each policy, so their row order is different from the order of one run.
+Each `queue` row of these runs was equal to its free-flow row apart from the `routing_policy` column.
+Thus the two London files keep only the free-flow and `congestion` rows.
+The full raw files, with the `queue` rows, are kept outside the repository.
+
+### Rail-hub and scale100
+
+In each rail-hub row, the `congestion` and `queue` arms are equal to free-flow.
+At commit `d64c3e0`, before the guards, the `congestion` arm served a mean of 57.4 requests and drained 1 of 5 seeds, because its routes went through the berths of other stations.
+In each scale100 row, the `queue` arm is equal to free-flow.
+
+| Mean | Rail-hub, each arm | Scale100 free-flow and queue | Scale100 congestion |
+| --- | ---: | ---: | ---: |
+| Served requests | 59.00 | 59.00 | 59.00 |
+| Mean wait | 539.0 s | 330.9 s | 332.2 s |
+| 95th percentile wait | 1,025.0 s | 547.3 s | 554.1 s |
+| Mean journey | 838.0 s | 766.9 s | 770.2 s |
+| Empty distance | 249.5 km | 322.1 km | 323.8 km |
+| Total distance | 480.3 km | 668.1 km | 671.4 km |
+| End of the last journey | 1,698 s | 1,408 s | 1,414 s |
+| Seeds that drain within 30 minutes | 5 of 5 | 3 of 3 | 3 of 3 |
+
+### London-192
+
+Each of the 80 `queue` rows is equal to the free-flow row.
+The table gives the ten-seed means.
+Distance is the total of passenger and empty distance, as a multiple of free-flow.
+
+| Band and rate | Served, free-flow and queue | Served, congestion | Mean journey, free-flow and queue | Mean journey, congestion | Distance, congestion |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| Early 10/min | 299.0 | 299.0 | 881.0 s | 874.6 s | 1.048 |
+| Early 12/min | 358.9 | 359.0 | 1,041.1 s | 985.7 s | 1.062 |
+| Early 15/min | 406.9 | 431.5 | 1,197.0 s | 1,141.1 s | 1.121 |
+| Early 20/min | 441.3 | 495.3 | 1,403.7 s | 1,362.3 s | 1.216 |
+| AM peak 10/min | 299.0 | 299.0 | 485.8 s | 491.0 s | 1.018 |
+| AM peak 12/min | 359.0 | 359.0 | 501.4 s | 506.3 s | 1.011 |
+| AM peak 15/min | 449.0 | 449.0 | 520.8 s | 527.3 s | 1.012 |
+| AM peak 20/min | 599.0 | 599.0 | 572.4 s | 589.8 s | 1.026 |
+
+With free-flow, 9 of 10 Early seeds drain at 12/min, and no seed drains at 15 or 20/min.
+With `congestion`, 10 of 10 Early seeds drain at 12/min.
+
+### London envelope
+
+Each of the 345 `queue` rows is equal to the free-flow row, so each band keeps its limit.
+
+| NUMBAT band | Free-flow and queue limit | Congestion limit |
+| --- | ---: | ---: |
+| Early | 7/min | 7/min |
+| Morning | 9/min | 9/min |
+| AM peak | 13/min | 13/min |
+| Interpeak | 14/min | 14/min |
+| PM peak | 13/min | 13/min |
+| Evening | 14/min | 13/min |
+| Late | 12/min | 12/min |
+| Night | 9/min | 8/min |
+
+At rates at or below the free-flow limits, the `congestion` arm has band mean waits up to 18.6 s above free-flow.
+Its 95th percentile waits are up to 13.2% above free-flow.
+
+### Adoption
+
+The adoption rule for a routing policy has these conditions:
+
+1. Each free-flow result is equal to the result before the change.
+2. Each London band keeps its limit.
+3. No arm ends after 3,600 s when free-flow ends by 3,600 s, and each rail-hub and scale100 seed drains within 30 minutes.
+4. No arm serves fewer requests than free-flow.
+5. The policy shows a gain: in London-192, the mean journey time falls by at least 2%, or the served requests increase.
+   A higher London band limit also counts.
+6. At rates at or below each band limit, no band mean wait is more than 2 s above free-flow, and no 95th percentile wait or journey time is more than 5% above free-flow.
+7. Where both policies drain, the total distance is at most 1.05 times free-flow.
+   Where free-flow does not drain, the total distance is at most 1.20 times free-flow and the served requests increase.
+8. The wall time of the London envelope sweep is at most 1.15 times free-flow.
+
+The `queue` policy is not adopted, because it shows no gain (condition 5).
+It meets each other condition.
+A replay of ten free-flow comparison groups, with a snapshot hash at each simulated second, gives identical results against commit `4f2ad0a`.
+The two replay groups with `congestion` change, as the guards expect.
+The envelope sweep with `queue` used 1.0% more user CPU time and 1.10 times the wall time of the free-flow sweep.
+The London-192 sweep with `queue` used 2.1% less user CPU time.
+Other jobs shared the host, so the wall times are approximate.
+
+The `congestion` control arm serves more requests in London-192 Early.
+At 20/min, its distance is 1.22 times free-flow, which is more than condition 7 permits.
+It also fails conditions 2, 3, 4, and 6 in the London envelope.
+It lowers the Evening and Night limits, some arms end after 3,600 s where free-flow does not, and Night at 9/min serves 1.67 fewer requests.
+Free-flow remains the default.
+
+### Why the queue policy changes no route
+
+A probe counted the decisions of the policy in London-192 Early at 20/min with seed 1.
+The policy assigned 1,087 routes.
+For 75 routes, no pod was in a queue.
+For 935 routes, each queue cleared in the model before the pod got to it.
+For the other 77 routes, the only delay was on the first lane of the route, which is the departure lane of the pod in 75 cases.
+Each alternative starts on that lane, so each search gave the free-flow route.
+
+The model clears a queue of n pods in 3n s, but a queue in the simulation stays because more pods join it.
+Scratch probes with 15 s and 30 s for each stopped pod in Early at 15 and 20/min changed the served requests by at most one.
+A cost that comes from the planned routes of the pods can predict these queues, and it is the next candidate policy.
+
+Raw results are in [`measurements/routing-queue-rail-hub.csv`](measurements/routing-queue-rail-hub.csv), [`measurements/routing-queue-scale100.csv`](measurements/routing-queue-scale100.csv), [`measurements/routing-queue-london-192.csv`](measurements/routing-queue-london-192.csv), and [`measurements/routing-queue-london-envelope.csv`](measurements/routing-queue-london-envelope.csv).
 
 ## WASM loading
 

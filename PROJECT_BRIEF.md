@@ -11,6 +11,7 @@ Optional redistribution runs guarded positioning, which moves idle empty pods on
 It remains off by default.
 
 The rail-hub, London capacity envelope, same-destination sharing, and first congestion-aware routing experiments are complete.
+The screen of the queue routing policy is also complete.
 The first station-maneuver slice is complete: station lanes have explicit roles, pod snapshots expose the current phase, and the inspector names the maneuver.
 The scenario command sets the berths and berth pitch of the generated presets and the initial pods of the London preset.
 A layout check rejects lanes that come too near.
@@ -366,6 +367,16 @@ SUMO's [taxi dispatch documentation](https://sumo.dlr.de/docs/Simulation/Taxi.ht
 **Status:** A first experimental policy added costs for owned track and stopped pods when it assigned a route.
 It served fewer requests than free-flow routing, which remains the default.
 See [docs/qualification.md](docs/qualification.md#congestion-aware-routing-experiment).
+
+Both costed policies now apply costs only to the route that a pod gets, and their routes do not go through the berths of a third station.
+A second policy, `queue`, adds the part of each queue that remains when the pod gets to it.
+In rail-hub, scale100, London-192, and the London envelope, each `queue` result is equal to free-flow, so the policy is not adopted.
+Most delays that it sees are on the departure lane of the pod, which no route can avoid.
+The guarded `congestion` arm serves more requests in the congested London-192 Early band, but it lowers two London band limits.
+Congestion-aware routing is parked.
+Free-flow routing stays the default, and the `congestion` arm keeps its two guards.
+A cost from the planned routes of the pods is the next candidate, but only if platoons or shared rides do not relieve the congested Early band.
+See [docs/qualification.md](docs/qualification.md#queue-routing-screen).
 
 ### Mixed vehicle capacities and shared rides
 
