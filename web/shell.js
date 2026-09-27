@@ -104,6 +104,43 @@
     return { podsim: "notice", text: String(text), error: error === true };
   }
 
+  // NOTICE_MS is the time in milliseconds that the shell shows the result of
+  // a debug capture that did not fail. The game shows its notices for the
+  // same time. See noticeDuration in internal/view/shared.go.
+  const NOTICE_MS = 3000;
+
+  // debugResult gives the active result of a debug capture that the shell
+  // got at the time now in milliseconds. error is true when text tells of a
+  // failure. As in the game, a failure stays until the next capture, so its
+  // expiresAt is null. Other text goes at expiresAt, after NOTICE_MS. sent
+  // is true after the shell sent the result to the game. See
+  // reconcileResult.
+  function debugResult(text, error, now) {
+    const failure = error === true;
+    return { text: String(text), error: failure, expiresAt: failure ? null : now + NOTICE_MS, sent: false };
+  }
+
+  // reconcileResult gives the active result after a change of the result or
+  // of the game, and the notice that the shell sends to the game. The notice
+  // is null when the shell sends nothing. result is from debugResult, or null
+  // when there is no result. ready is true when the game is ready. See
+  // gameReady. now is the time in milliseconds.
+  //
+  // A result that expired goes. While the game is not ready, it can be of a
+  // different build that cannot show a notice. Then the debug status shows
+  // the result next to the shell controls, and the result is not sent. When
+  // the game is ready, the shell sends a result that it did not send to this
+  // game. The game shows a notice for NOTICE_MS and cannot show it for a
+  // shorter time, so a result can show for longer in the game than in the
+  // shell. A frame load makes the game not ready, so the shell sends the
+  // result again to the new game when it is ready.
+  function reconcileResult(result, ready, now) {
+    if (result == null || (result.expiresAt !== null && now >= result.expiresAt)) return { result: null, notice: null };
+    if (!ready) return { result: { ...result, sent: false }, notice: null };
+    if (result.sent) return { result, notice: null };
+    return { result: { ...result, sent: true }, notice: noticeMessage(result.text, result.error) };
+  }
+
   // focusTarget gives the element that gets the keyboard focus after the
   // shell shows view. It gives "editorLink" for the Edit scenario control,
   // or the name of the frame. The game keeps the Tab key, so a switch to the
@@ -114,7 +151,7 @@
     return view === "game" && keyboard ? "editorLink" : view;
   }
 
-  const API = { VIEWS, CONTROLS, SHELL_VERSION, viewForHash, pageRequest, gameReady, controlsShow, reloadTarget, noticeMessage, focusTarget };
+  const API = { VIEWS, CONTROLS, SHELL_VERSION, NOTICE_MS, viewForHash, pageRequest, gameReady, controlsShow, reloadTarget, noticeMessage, debugResult, reconcileResult, focusTarget };
   if (typeof module !== "undefined" && module.exports) module.exports = API;
   root.PodsimShell = API;
 })(typeof window !== "undefined" ? window : globalThis);

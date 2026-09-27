@@ -335,6 +335,9 @@ While the connection works, no command waits for the server, and the simulation 
 
 Select **Download debug state** in the header of the simulation to save a timestamped JSON capture of the current server state.
 The line below the journey controls then shows the result.
+While the page shows its own **Download debug state** control in the top left corner, the result shows next to that control.
+The result of a successful download goes after 3 s.
+A failure shows in amber and stays until the next capture.
 The header shows **Download debug state** and **Edit scenario** only in the browser page with the editor.
 The desktop client and `game.html` as a separate page do not show them.
 The capture includes the network, pod positions and routes, queues, berth reservations, and demand settings.

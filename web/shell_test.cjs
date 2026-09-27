@@ -167,6 +167,84 @@ test("noticeMessage gives the notice shape that the game accepts", () => {
   }
 });
 
+test("debugResult keeps a failure and gives other text the notice time of the game", () => {
+  const source = fs.readFileSync(path.join(__dirname, "..", "internal", "view", "shared.go"), "utf8");
+  const match = source.match(/^const noticeDuration = (\d+) \* sim\.TicksPerSecond$/m);
+  assert.ok(match, "internal/view/shared.go has no noticeDuration in seconds");
+  assert.equal(shell.NOTICE_MS, Number(match[1]) * 1000);
+  for (const [name, text, error, want] of [
+    ["result", "Debug state downloaded: tick 42.", false, { text: "Debug state downloaded: tick 42.", error: false, expiresAt: 1000 + shell.NOTICE_MS, sent: false }],
+    ["no error value", "Done.", undefined, { text: "Done.", error: false, expiresAt: 1000 + shell.NOTICE_MS, sent: false }],
+    ["error as text", "Done.", "true", { text: "Done.", error: false, expiresAt: 1000 + shell.NOTICE_MS, sent: false }],
+    ["failure", "Capture failed. State HTTP 503. Try again.", true, { text: "Capture failed. State HTTP 503. Try again.", error: true, expiresAt: null, sent: false }],
+  ]) {
+    assert.deepEqual(shell.debugResult(text, error, 1000), want, name);
+  }
+});
+
+test("reconcileResult sends an active result once to each ready game", () => {
+  const success = shell.debugResult("Debug state downloaded: tick 42.", false, 0);
+  const failure = shell.debugResult("Capture failed. State HTTP 503. Try again.", true, 0);
+  const late = 60 * 60 * 1000;
+  // steps has [ready, now] for each change. want has the sent notices, in
+  // order, and if a result stays at the end.
+  for (const [name, start, steps, want] of [
+    ["no result", null, [[true, 0], [false, 1], [true, 2]], { notices: [], stays: false }],
+    ["success while ready", success, [[true, 0]], { notices: [success], stays: true }],
+    ["failure while ready", failure, [[true, 0]], { notices: [failure], stays: true }],
+    ["success while not ready", success, [[false, 0]], { notices: [], stays: true }],
+    ["failure stays while not ready", failure, [[false, 0], [false, late]], { notices: [], stays: true }],
+    ["failure then ready", failure, [[false, 0], [true, late]], { notices: [failure], stays: true }],
+    ["success then ready before it expires", success, [[false, 0], [true, shell.NOTICE_MS - 1]], { notices: [success], stays: true }],
+    ["success then ready after it expires", success, [[false, 0], [true, shell.NOTICE_MS]], { notices: [], stays: false }],
+    ["success expires while not ready", success, [[false, 0], [false, shell.NOTICE_MS]], { notices: [], stays: false }],
+    ["repeated ready", failure, [[false, 0], [true, 1], [true, 2], [true, 3]], { notices: [failure], stays: true }],
+    ["repeated ready with a success", success, [[true, 0], [true, 1], [true, 2]], { notices: [success], stays: true }],
+    ["ready then reload", failure, [[true, 0], [false, 1]], { notices: [failure], stays: true }],
+    ["ready, reload and ready", failure, [[true, 0], [false, 1], [true, 2]], { notices: [failure, failure], stays: true }],
+    ["success sent then expires", success, [[true, 0], [false, shell.NOTICE_MS], [true, shell.NOTICE_MS + 1]], { notices: [success], stays: false }],
+  ]) {
+    let result = start;
+    const notices = [];
+    for (const [ready, now] of steps) {
+      const change = shell.reconcileResult(result, ready, now);
+      result = change.result;
+      if (change.notice) notices.push(change.notice);
+      if (!ready) assert.equal(change.notice, null, `${name}: a notice to a game that is not ready`);
+    }
+    assert.deepEqual(notices, want.notices.map((entry) => shell.noticeMessage(entry.text, entry.error)), name);
+    assert.equal(result !== null, want.stays, name);
+    if (result !== null) assert.equal(result.text, start.text, name);
+  }
+});
+
+test("the shell page shows the debug result next to its controls", () => {
+  const html = fs.readFileSync(path.join(__dirname, "index.html"), "utf8");
+  // The status is hidden only while the nav has no fallback class or the
+  // status has no text.
+  assert.match(html, /#debugStatus \{[^}]*padding: 6px 12px;[^}]*color: #9fe4eb;/);
+  assert.doesNotMatch(html, /[{}]\s*#debugStatus \{[^}]*clip-path/, "the status is always hidden");
+  // A failure shows in the amber of the game.
+  assert.match(html, /#debugStatus\.error \{ color: #f3c479; \}/);
+  const game = fs.readFileSync(path.join(__dirname, "..", "internal", "view", "game.go"), "utf8");
+  assert.match(game, /^\s*amber\s*= 0xf3c479$/m, "the amber of the game changed");
+  // A new status stops the timer of the status before it. A result without
+  // a failure goes at its expiresAt.
+  assert.match(html, /status\.classList\.toggle\("error", error\);/);
+  assert.match(html, /function showStatus\(text, result, error = false\) \{\s*clearTimeout\(statusTimer\);/);
+  assert.match(html, /debugResult = result \? PodsimShell\.debugResult\(text, error, Date\.now\(\)\) : null;/);
+  assert.match(html, /if \(debugResult\?\.expiresAt != null\) \{\s*statusTimer = setTimeout\(/);
+  // The shell sends the result only after reconcileResult, and it
+  // reconciles after each change of the result or of the game.
+  assert.match(html, /const \{ result, notice \} = PodsimShell\.reconcileResult\(debugResult, gameReady, Date\.now\(\)\);\s*debugResult = result;\s*if \(notice\) frames\.game\.contentWindow\?\.postMessage\(notice, location\.origin\);/);
+  assert.match(html, /nav\.classList\.toggle\("fallback", PodsimShell\.controlsShow\(view, gameReady\)\);\s*reconcileStatus\(\);/);
+  assert.match(html, /\}, debugResult\.expiresAt - Date\.now\(\)\);\s*\}\s*reconcileStatus\(\);/);
+  assert.equal(html.match(/postMessage\(/g).length, 1, "the shell sends a notice only from reconcileStatus");
+  // The success and failure texts that the status shows.
+  assert.match(html, /showStatus\(`Debug state downloaded: tick \$\{state\.simulation\.Tick\}\.`, true\);/);
+  assert.match(html, /showStatus\(`Capture failed\. \$\{error\.message\}\. Try again\.`, true, true\);/);
+});
+
 test("each view shows the shell controls that lead away from it", () => {
   assert.deepEqual(shell.VIEWS.game.controls, ["editorLink", "debugButton"]);
   assert.deepEqual(shell.VIEWS.editor.controls, ["gameButton", "debugButton"]);
@@ -205,7 +283,7 @@ test("the shell controls come first in the page, in the order of CONTROLS", () =
 
 test("the shell controls are hidden until they get the focus", () => {
   const html = fs.readFileSync(path.join(__dirname, "index.html"), "utf8");
-  assert.match(html, /nav:not\(\.fallback\) a:not\(:focus\), nav:not\(\.fallback\) button:not\(:focus\), #debugStatus \{[^}]*clip-path: inset\(50%\)/);
+  assert.match(html, /nav:not\(\.fallback\) a:not\(:focus\), nav:not\(\.fallback\) button:not\(:focus\), nav:not\(\.fallback\) #debugStatus, #debugStatus:empty \{[^}]*clip-path: inset\(50%\)/);
   assert.match(html, /<span id="debugStatus" role="status"><\/span>/);
   assert.doesNotMatch(html, /<nav[^>]*\bhidden\b/, "a hidden nav removes the controls from the Tab order");
 });

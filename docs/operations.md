@@ -45,6 +45,8 @@ If the editor has opened in the page, only the simulation reloads.
 The editor keeps its state, and the page and the editor keep the old browser files until you reload the page.
 The simulation tells the page which version of the page messages it uses.
 If the new simulation does not use the version of the page, the page shows its own **Edit scenario** and **Download debug state** controls in the top left corner.
+Then the result of a debug capture shows next to these controls.
+When a simulation that uses the version of the page then starts, it shows the last failure, or a download result that is less than 3 s old.
 An editor that you opened as `editor.html` does not reload.
 If the server cannot read the browser files, it logs `Browser build ID unavailable` as a warning and uses a random ID.
 Then the simulation view reloads after each server restart.

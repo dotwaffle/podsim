@@ -17,10 +17,15 @@
        gets the keyboard focus. Then it shows in the top left corner.
        Until the game in the frame tells the shell that it is ready, the nav
        has the fallback class. Then the controls of the game show in a row in
-       the top left corner. See PodsimShell.controlsShow. */
+       the top left corner. See PodsimShell.controlsShow.
+       The debug status is for screen readers. While the nav has the
+       fallback class, the debug status also shows next to the controls.
+       A failure shows in amber. See PodsimShell.reconcileResult. */
     nav { position: absolute; top: 8px; left: 8px; z-index: 1; display: flex; gap: 8px; }
     nav a, nav button { padding: 6px 12px; border: 1px solid #345064; border-radius: 7px; background: #101d28; color: #9fe4eb; font: 14px system-ui, sans-serif; text-decoration: none; cursor: pointer; }
-    nav:not(.fallback) a:not(:focus), nav:not(.fallback) button:not(:focus), #debugStatus { position: absolute; width: 1px; height: 1px; padding: 0; border: 0; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+    #debugStatus { align-self: center; padding: 6px 12px; border-radius: 7px; background: #101d28; color: #9fe4eb; font: 14px system-ui, sans-serif; }
+    #debugStatus.error { color: #f3c479; }
+    nav:not(.fallback) a:not(:focus), nav:not(.fallback) button:not(:focus), nav:not(.fallback) #debugStatus, #debugStatus:empty { position: absolute; width: 1px; height: 1px; padding: 0; border: 0; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
     button:disabled { opacity: .6; cursor: wait; }
   </style>
   <script src="shell.js"></script>
@@ -52,6 +57,7 @@
     function updateControls(change) {
       gameReady = PodsimShell.gameReady(gameReady, change);
       nav.classList.toggle("fallback", PodsimShell.controlsShow(view, gameReady));
+      reconcileStatus();
     }
     frames.game.addEventListener("load", () => updateControls("load"));
     // Ebitengine does not focus its canvas inside an iframe. Give the game the
@@ -69,12 +75,34 @@
       if (event.persisted) frames[view].focus();
     });
 
+    // debugResult is the active result of a debug capture, or null. See
+    // PodsimShell.debugResult. reconcileStatus sends the result to the game
+    // when the game is ready and did not get it. While the game is not
+    // ready, the debug status shows the result next to the shell controls.
+    // See PodsimShell.reconcileResult.
+    let debugResult = null;
+    function reconcileStatus() {
+      const { result, notice } = PodsimShell.reconcileResult(debugResult, gameReady, Date.now());
+      debugResult = result;
+      if (notice) frames.game.contentWindow?.postMessage(notice, location.origin);
+    }
     // showStatus sets the text of the debug status. The status is a live
-    // region, so a screen reader reads it. When result is true, the game
-    // also shows the text. error is true when the text tells of a failure.
+    // region, so a screen reader reads it. result is true for the result of
+    // a capture. error is true when the text tells of a failure. A result
+    // without a failure goes after a short time.
+    let statusTimer;
     function showStatus(text, result, error = false) {
+      clearTimeout(statusTimer);
       status.textContent = text;
-      if (result) frames.game.contentWindow?.postMessage(PodsimShell.noticeMessage(text, error), location.origin);
+      status.classList.toggle("error", error);
+      debugResult = result ? PodsimShell.debugResult(text, error, Date.now()) : null;
+      if (debugResult?.expiresAt != null) {
+        statusTimer = setTimeout(() => {
+          status.textContent = "";
+          debugResult = null;
+        }, debugResult.expiresAt - Date.now());
+      }
+      reconcileStatus();
     }
     // captureDebugState downloads a debug capture of the server state. The
     // Download debug state control and the button of the same name in the
