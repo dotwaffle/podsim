@@ -296,6 +296,13 @@ The encoder checks and formats the project text again when it adds the project t
 The compressed file is about 320 KB.
 A project near the 8 MiB file limit needs more memory.
 
+Each project apply also allocates memory for a short time.
+The server decompresses, checks, and decodes the command, then validates and starts the project.
+An apply of a project with 7.2 MiB of JSON allocated about 190 MB and took about 0.55 s.
+The server applies one gzip command or one plain command of more than 1 MiB at a time, and other such commands wait.
+At most 4 such command bodies of 4 MiB or less are in memory, so they use at most 16 MiB, and the server replies 503 to more.
+Thus two editors that apply large projects at the same time do not double this memory.
+
 ## pprof
 
 The pprof server is off by default.
