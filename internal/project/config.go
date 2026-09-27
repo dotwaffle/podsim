@@ -59,6 +59,25 @@ const (
 	MaxFlows = 40000
 )
 
+// These limits bound the network geometry. The coordinate limit keeps each
+// lane length finite, so the block count of each lane is exact.
+const (
+	// MaxCoordinate is the largest absolute value in meters of each
+	// coordinate of a node position or a lane control point. The largest
+	// of a generated project in the tests is 36,120, in a ring of 200
+	// stations.
+	MaxCoordinate = 100_000
+	// MaxNetworkBlocks is the largest total of the blocks that
+	// sim.Network.LaneBlocks counts. A block is a track cell of about 30
+	// meters. The route of a pod has a block for each cell of its lanes.
+	// The restore of a saved state builds at most 32 times the blocks of
+	// the network, plus 4 blocks for each lane. The simulator compares
+	// lane pairs over their full length when it starts, so this limit also
+	// bounds the start time. The largest total of a generated project in
+	// the tests is 38,404, in a ring of 4 stations with 62 berths each.
+	MaxNetworkBlocks = 64_000
+)
+
 // MaxFileBytes is the largest project file accepted from local storage. It
 // also limits the canonical encoding of a valid project. Validate measures
 // the project with the widest demand settings that ValidateDemand accepts.
@@ -181,6 +200,9 @@ func Validate(config Config) error {
 		return err
 	}
 	if err := validateLanes(config.Network); err != nil {
+		return err
+	}
+	if err := validateGeometry(config.Network); err != nil {
 		return err
 	}
 	if err := validateDemandProfiles(config.DemandProfiles, config.Network); err != nil {
@@ -447,6 +469,39 @@ func validateLanes(network sim.Network) error {
 			return fmt.Errorf("lanes %s and %s have the same nodes and path", quoteID(other), quoteID(lane.ID))
 		}
 		paths[key] = lane.ID
+	}
+	return nil
+}
+
+// validateGeometry checks that each node position and lane control point
+// is in the square of MaxCoordinate meters about the origin, and that the
+// lanes have at most MaxNetworkBlocks blocks. It checks the coordinates
+// first, because a lane with a coordinate outside the square can have a
+// length that is too large for a block count.
+func validateGeometry(network sim.Network) error {
+	inside := func(point sim.Point) bool {
+		return math.Abs(point.X) <= MaxCoordinate && math.Abs(point.Y) <= MaxCoordinate
+	}
+	for _, node := range network.Nodes {
+		if !inside(node.Position) {
+			return fmt.Errorf("node %s must have coordinates from -%d to %d meters", quoteID(node.ID), MaxCoordinate, MaxCoordinate)
+		}
+	}
+	for _, lane := range network.Lanes {
+		if lane.Control != nil && !inside(*lane.Control) {
+			return fmt.Errorf("lane %s must have a control point with coordinates from -%d to %d meters", quoteID(lane.ID), MaxCoordinate, MaxCoordinate)
+		}
+	}
+	blocks := network.LaneBlocks()
+	total, most := 0, 0
+	for index, count := range blocks {
+		total += count
+		if count > blocks[most] {
+			most = index
+		}
+	}
+	if total > MaxNetworkBlocks {
+		return fmt.Errorf("network lanes have %d blocks, more than %d, and lane %s has the most, %d", total, MaxNetworkBlocks, quoteID(network.Lanes[most].ID), blocks[most])
 	}
 	return nil
 }

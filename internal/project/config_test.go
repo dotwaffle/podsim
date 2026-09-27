@@ -141,14 +141,19 @@ func TestValidateRejectsMalformedProjects(t *testing.T) {
 }
 
 // TestValidateAcceptsNetworkLimits checks a project with the most nodes and
-// lanes that Validate allows. The added nodes and lanes are not near the
-// stations.
+// lanes that Validate allows. The added nodes are on a circle 40 meters
+// apart, away from the stations. With 2 lanes to and 2 lanes from almost
+// each added node, the network has the fewest lane pairs at nodes that
+// MaxNodes and MaxLanes allow.
 func TestValidateAcceptsNetworkLimits(t *testing.T) {
 	t.Parallel()
 	config := Default()
-	for index := len(config.Network.Nodes); index < MaxNodes; index++ {
+	count := MaxNodes - len(config.Network.Nodes)
+	radius := 40 * float64(count) / (2 * math.Pi)
+	for index := range count {
+		angle := 2 * math.Pi * float64(index) / float64(count)
 		config.Network.Nodes = append(config.Network.Nodes, sim.Node{
-			ID: fmt.Sprintf("far-%d", index), Position: sim.Point{X: 10_000 + 100*float64(index), Y: 10_000},
+			ID: fmt.Sprintf("far-%d", index), Position: sim.Point{X: 40_000 + radius*math.Cos(angle), Y: radius * math.Sin(angle)},
 		})
 	}
 	// Each added lane goes from an added node to one of the next added
@@ -162,6 +167,61 @@ func TestValidateAcceptsNetworkLimits(t *testing.T) {
 	}
 	if err := Validate(config); err != nil {
 		t.Fatal(err)
+	}
+}
+
+// TestValidateLimitsGeometry checks the coordinate and block limits. The
+// errors name the node or lane.
+func TestValidateLimitsGeometry(t *testing.T) {
+	t.Parallel()
+	edge := Default()
+	edge.Network.Nodes = append(edge.Network.Nodes,
+		sim.Node{ID: "corner-a", Position: sim.Point{X: -MaxCoordinate, Y: MaxCoordinate}},
+		sim.Node{ID: "corner-b", Position: sim.Point{X: MaxCoordinate, Y: -MaxCoordinate}})
+	edge.Network.Lanes = append(edge.Network.Lanes, sim.Lane{
+		ID: "corner", From: "corner-a", To: "corner-b", SpeedLimit: 12, Control: &sim.Point{X: MaxCoordinate, Y: MaxCoordinate},
+	})
+	if err := Validate(edge); err != nil {
+		t.Fatalf("coordinates at the limit: %v", err)
+	}
+	// long adds count straight lanes of 180 km, each 6,000 blocks.
+	long := func(count int) Config {
+		config := Default()
+		for index := range count {
+			from, to := fmt.Sprintf("west-%d", index), fmt.Sprintf("east-%d", index)
+			y := 20_000 + 1_000*float64(index)
+			config.Network.Nodes = append(config.Network.Nodes,
+				sim.Node{ID: from, Position: sim.Point{X: -90_000, Y: y}}, sim.Node{ID: to, Position: sim.Point{X: 90_000, Y: y}})
+			config.Network.Lanes = append(config.Network.Lanes, sim.Lane{ID: fmt.Sprintf("long-%d", index), From: from, To: to, SpeedLimit: 12})
+		}
+		return config
+	}
+	if err := Validate(long(MaxNetworkBlocks / 6_000)); err != nil {
+		t.Fatalf("lanes below the block limit: %v", err)
+	}
+	outside := Clone(edge)
+	outside.Network.Nodes[len(outside.Network.Nodes)-1].Position.X = math.Nextafter(MaxCoordinate, math.Inf(1))
+	notNumber := Clone(edge)
+	notNumber.Network.Nodes[len(notNumber.Network.Nodes)-1].Position.Y = math.NaN()
+	control := Clone(edge)
+	control.Network.Lanes[len(control.Network.Lanes)-1].Control.Y = -MaxCoordinate - 1
+	tests := []struct {
+		name   string
+		config Config
+		want   string
+	}{
+		{"node outside", outside, fmt.Sprintf(`node "corner-b" must have coordinates from -%d to %d meters`, MaxCoordinate, MaxCoordinate)},
+		{"node not a number", notNumber, `node "corner-b" must have coordinates`},
+		{"control point outside", control, fmt.Sprintf(`lane "corner" must have a control point with coordinates from -%d to %d meters`, MaxCoordinate, MaxCoordinate)},
+		{"too many blocks", long(MaxNetworkBlocks/6_000 + 1), fmt.Sprintf(`blocks, more than %d, and lane "long-0" has the most, 6000`, MaxNetworkBlocks)},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			if err := Validate(test.config); err == nil || !strings.Contains(err.Error(), test.want) {
+				t.Fatalf("Validate = %v, want %q", err, test.want)
+			}
+		})
 	}
 }
 

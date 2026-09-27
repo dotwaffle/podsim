@@ -198,3 +198,25 @@ func BenchmarkRouteBlocks(b *testing.B) {
 		})
 	}
 }
+
+// TestLaneBlocksMatchRouteBlocks checks that Network.LaneBlocks gives the
+// blocks that routeBlocks and the restore budget use for each lane of a
+// fleet.
+func TestLaneBlocksMatchRouteBlocks(t *testing.T) {
+	t.Parallel()
+	networks := scenarioNetworks(t)
+	networks["example"] = Example()
+	for name, network := range networks {
+		s, err := NewFleet(network, []Placement{{ID: "01", StationID: network.Stations[0].ID}})
+		if err != nil {
+			t.Fatalf("%s: %v", name, err)
+		}
+		got := network.LaneBlocks()
+		for index, lane := range s.network.Lanes {
+			blocks, _ := s.routeBlocks([]Lane{lane})
+			if want := laneBlockCount(s.laneLength(lane)); got[index] != want || len(blocks) != want {
+				t.Errorf("%s: lane %q has %d blocks, want %d and routeBlocks gives %d", name, lane.ID, got[index], want, len(blocks))
+			}
+		}
+	}
+}

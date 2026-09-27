@@ -634,6 +634,9 @@ Each station can have at most 200 berths.
 A node can have at most 64 lanes, counted at the start node and at the end node of each lane.
 At each node, the simulator compares each ordered pair of two different lanes at the node when it starts.
 The total of these pairs over all nodes can be at most 100,000, for example about 24 nodes with 64 lanes each.
+Each coordinate of a node position or a lane control point must be from -100,000 to 100,000 meters.
+The simulator divides each lane into track cells of about 30 meters, with at least 2 cells in each lane.
+All lanes together can have at most 64,000 cells, for example about 1,900 km of lanes.
 Two lanes cannot have the same start node, end node, and path.
 A demand profile can have at most 40,000 flows, so it can hold a flow for each ordered pair of 200 stations.
 

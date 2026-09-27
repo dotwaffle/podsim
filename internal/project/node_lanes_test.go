@@ -10,12 +10,15 @@ import (
 	"github.com/dotwaffle/podsim/internal/sim"
 )
 
-// bundles returns the example project with added pairs of nodes 30 meters
-// apart. Each pair has MaxNodeLanes lanes, with a different curve for each
-// lane. The project has as many pairs as MaxJunctionPairs allows. Lanes that
-// stay near each other make each comparison slow, so this is a slow layout
-// for the lane limits.
+// bundles returns the example project with added pairs of nodes. Each pair
+// has MaxNodeLanes curved lanes. The control points are on a circle of 26
+// meters about the middle of the pair, so that many lanes stay just outside
+// the clearance of each other. The project has as many pairs as
+// MaxJunctionPairs allows, and the lanes are long enough to use most of
+// MaxNetworkBlocks. The simulator compares each lane pair over the full
+// length, so this is a slow layout for the lane limits.
 func bundles() Config {
+	const span = 2_450.0
 	config := Default()
 	total := 0
 	for _, count := range config.Network.JunctionPairs() {
@@ -23,14 +26,19 @@ func bundles() Config {
 	}
 	for bundle := 0; total+2*MaxNodeLanes*(MaxNodeLanes-1) <= MaxJunctionPairs; bundle++ {
 		total += 2 * MaxNodeLanes * (MaxNodeLanes - 1)
-		x, y := 20_000+float64(bundle%30)*500, 20_000+float64(bundle/30)*1_000
+		x, y := 20_000.0, 20_000+float64(bundle)*1_000
 		from, to := fmt.Sprintf("bundle-%d-a", bundle), fmt.Sprintf("bundle-%d-b", bundle)
 		config.Network.Nodes = append(config.Network.Nodes,
-			sim.Node{ID: from, Position: sim.Point{X: x, Y: y}}, sim.Node{ID: to, Position: sim.Point{X: x + 30, Y: y}})
+			sim.Node{ID: from, Position: sim.Point{X: x, Y: y}}, sim.Node{ID: to, Position: sim.Point{X: x + span, Y: y}})
 		for index := range MaxNodeLanes {
+			control := sim.Point{X: x + span/2, Y: y}
+			if index > 0 {
+				angle := 2 * math.Pi * float64(index) / (MaxNodeLanes - 1)
+				control.X += 26 * math.Cos(angle)
+				control.Y += 26 * math.Sin(angle)
+			}
 			config.Network.Lanes = append(config.Network.Lanes, sim.Lane{
-				ID: fmt.Sprintf("bundle-%d-%d", bundle, index), From: from, To: to, SpeedLimit: 12,
-				Control: &sim.Point{X: x + 15, Y: y + 5*float64(index)},
+				ID: fmt.Sprintf("bundle-%d-%d", bundle, index), From: from, To: to, SpeedLimit: 12, Control: &control,
 			})
 		}
 	}

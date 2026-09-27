@@ -16,6 +16,10 @@ const (
 	// The block budget of a restore is budgetNetworkMultiple times the blocks
 	// of the whole network plus budgetLaneBlocks for each lane. Each block of
 	// a route counts, and each lane of a waiting-trip route counts as one.
+	// Project validation limits the total of Network.LaneBlocks to
+	// project.MaxNetworkBlocks. Thus the budget of a valid project is at
+	// most budgetNetworkMultiple * project.MaxNetworkBlocks +
+	// budgetLaneBlocks * project.MaxLanes.
 	budgetNetworkMultiple = 32
 	budgetLaneBlocks      = 4
 )

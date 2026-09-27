@@ -43,6 +43,25 @@ func laneBlockCount(length float64) int {
 	return max(2, int(math.Ceil(length/30)))
 }
 
+// LaneBlocks returns the number of track cells (blocks) of each lane, in
+// lane order. A route through a lane has these blocks, and the restore of a
+// saved state sets its budget from their total. For an unknown node, it
+// uses the origin.
+func (n Network) LaneBlocks() []int {
+	positions := make(map[string]Point, len(n.Nodes))
+	for _, node := range n.Nodes {
+		// Network.Node gives the first node with an ID.
+		if _, ok := positions[node.ID]; !ok {
+			positions[node.ID] = node.Position
+		}
+	}
+	blocks := make([]int, len(n.Lanes))
+	for index, lane := range n.Lanes {
+		blocks[index] = laneBlockCount(indexedLaneLength(lane, positions[lane.From], positions[lane.To]))
+	}
+	return blocks
+}
+
 // indexBerthResources returns the berth resources at each node, in station
 // order and then in berth order.
 func indexBerthResources(network Network) map[string][]resource {
