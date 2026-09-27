@@ -104,13 +104,17 @@ type StoreInput struct {
 // unreadable or restore_loop for empty. Demoted counts the pods that the
 // physical tier moved to a berth. Requeued counts the orders that went back
 // to the queue. Dropped counts the orders that the restore removed because
-// they were not valid.
+// they were not valid. Unaccounted counts the orders that the saved state
+// submitted but did not hold: they were not complete, not in the queue and
+// not aboard a pod. The orders that an earlier restore dropped are in this
+// count.
 type RestoreInfo struct {
-	Tier     string `json:"tier"`
-	Reason   string `json:"reason,omitempty"`
-	Demoted  int    `json:"demoted,omitzero"`
-	Requeued int    `json:"requeued,omitzero"`
-	Dropped  int    `json:"dropped,omitzero"`
+	Tier        string `json:"tier"`
+	Reason      string `json:"reason,omitempty"`
+	Demoted     int    `json:"demoted,omitzero"`
+	Requeued    int    `json:"requeued,omitzero"`
+	Dropped     int    `json:"dropped,omitzero"`
+	Unaccounted int    `json:"unaccounted,omitzero"`
 }
 
 // SaveKind tells why the session saves its state.
@@ -590,6 +594,7 @@ func (s *Session) installRestored(loaded loadedState) {
 	s.speed, s.lastCheckpoint = file.Speed, file.LastCheckpoint
 	s.restore = RestoreInfo{
 		Tier: string(result.Tier), Demoted: len(result.Demoted), Requeued: len(result.Requeued), Dropped: len(result.Dropped),
+		Unaccounted: result.Unaccounted,
 	}
 	switch {
 	case result.Tier != sim.RestoreLogical:
@@ -638,7 +643,7 @@ func (s *Session) logRestored(input restoredInput) {
 	attrs := []any{
 		slog.String("tier", info.Tier), slog.String("reason", info.Reason),
 		slog.Int("demoted", info.Demoted), slog.Int("requeued", info.Requeued), slog.Int("dropped", info.Dropped),
-		slog.Int("droppedParties", result.DroppedParties), slog.Int("overCap", result.OverCap),
+		slog.Int("unaccounted", info.Unaccounted), slog.Int("droppedParties", result.DroppedParties), slog.Int("overCap", result.OverCap),
 		slog.Int("overBudget", result.OverBudget), slog.Int64("tick", file.Simulation.Tick),
 		slog.Bool("epochKept", s.epoch == file.Epoch), slog.Bool("final", file.Final),
 		slog.Time("savedAt", file.SavedAt), slog.String("savedBuild", file.Build), slog.String("build", s.build),
@@ -649,6 +654,9 @@ func (s *Session) logRestored(input restoredInput) {
 		attrs = append(attrs, slog.Any("physicalError", result.PhysicalError))
 	}
 	s.logger.Info("Restored session", attrs...)
+	if info.Unaccounted > 0 {
+		s.logger.Warn("Saved session state has unaccounted orders", slog.Int("unaccounted", info.Unaccounted))
+	}
 	if demand := input.loaded.projectDemand; demand != nil {
 		s.logger.Info("Applied demand settings of the project file",
 			slog.Any("savedDemand", file.Project.Demand), slog.Any("demand", *demand))

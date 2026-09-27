@@ -430,13 +430,16 @@ With `-state`, the server writes these log records at startup:
   Startup continues.
 - `No saved session state` (INFO) means that the location has no `session.json.gz`.
   The server starts a new session.
-- `Restored session` (INFO) gives the `tier`, the `reason`, and the counts `demoted`, `requeued`, `dropped`, `droppedParties`, `overCap`, and `overBudget`.
+- `Restored session` (INFO) gives the `tier`, the `reason`, and the counts `demoted`, `requeued`, `dropped`, `unaccounted`, `droppedParties`, `overCap`, and `overBudget`.
   It also gives the saved `tick`, `epochKept`, `final`, `savedAt`, `savedBuild`, the current `build`, and `restoreAttempts`.
   `overCap` counts the saved routes that were longer than their limit.
   `overBudget` counts the routes that did not fit in the budget of track cells.
   `bytes` is the compressed size.
   `duration` is the time from the read to the end of the startup save.
   After a failed `physical` tier, `physicalError` tells why it failed.
+- `Saved session state has unaccounted orders` (WARN) follows `Restored session` when the saved state submitted orders that it did not hold.
+  It gives their number in `unaccounted`.
+  The server does not make up these orders, so each later restore gives this record again.
 - `Applied demand settings of the project file` (INFO) means that the restore used the demand settings of the `-project` file in place of the saved settings.
   It gives the `savedDemand` and the `demand` settings.
 - `Demoted pod` (DEBUG) gives each `pod` that the `physical` tier moved to a berth.

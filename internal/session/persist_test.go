@@ -255,11 +255,18 @@ var (
 	newerVersion   = func(file *stateFile) { file.Version = stateVersion + 1 }
 	pausedAtSpeed4 = func(file *stateFile) { file.Simulation.Paused, file.Speed = true, 4 }
 	// sharedBerth puts the first two pods at one berth. The physical tier
-	// then fails.
+	// then fails. The active riders of the two pods go to the queue, so the
+	// state still holds each order.
 	sharedBerth = func(file *stateFile) {
 		placement := file.Project.Fleet[0]
 		for index := range 2 {
 			pod := &file.Simulation.Pods[index]
+			for _, rider := range pod.Riders {
+				if !rider.Completed {
+					rider.PodID = ""
+					file.Simulation.Waiting = append(file.Simulation.Waiting, sim.SavedTrip{Request: rider, Boarded: true})
+				}
+			}
 			*pod = sim.SavedPod{ID: pod.ID, Activity: "idle", StationID: placement.StationID, BerthID: placement.BerthID}
 		}
 	}
@@ -1686,7 +1693,7 @@ func TestNewFromStoreLogs(t *testing.T) {
 		{"no saved state", nil, []wantRecord{noSavedState, startupSaved}},
 		{"physical restore", run.data, []wantRecord{startupSaved, {slog.LevelInfo, "Restored session", map[string]any{
 			"tier": "physical", "reason": "", "demoted": int64(0), "requeued": int64(0), "dropped": int64(0),
-			"droppedParties": int64(0), "overCap": int64(0), "overBudget": int64(0), "tick": run.file.Simulation.Tick,
+			"unaccounted": int64(0), "droppedParties": int64(0), "overCap": int64(0), "overBudget": int64(0), "tick": run.file.Simulation.Tick,
 			"epochKept": true, "final": true, "savedAt": savedAt, "savedBuild": testBuildID, "build": "",
 			"restoreAttempts": int64(0), "bytes": int64(len(run.data)), "duration": nonEmpty,
 		}}}},
@@ -1703,6 +1710,11 @@ func TestNewFromStoreLogs(t *testing.T) {
 				"tier": "logical", "reason": reasonRestoreLoop, "requeued": int64(1),
 				"epochKept": false, "final": false, "restoreAttempts": int64(1),
 			}},
+		}},
+		{"unaccounted orders", run.edited(t, lostOrders), []wantRecord{
+			startupSaved,
+			{slog.LevelInfo, "Restored session", map[string]any{"tier": "physical", "unaccounted": int64(2)}},
+			{slog.LevelWarn, "Saved session state has unaccounted orders", map[string]any{"unaccounted": int64(2)}},
 		}},
 		{"physical tier fails", run.edited(t, sharedBerth), []wantRecord{
 			{slog.LevelInfo, "Backed up saved session state", nil},
@@ -2548,5 +2560,33 @@ func TestLondonStateSave(t *testing.T) {
 			}
 			t.Logf("London restore: %v, %d pods demoted", time.Since(started), restored.State().Restore.Demoted)
 		})
+	}
+}
+
+// lostOrders makes the saved state submit two orders that it does not hold.
+func lostOrders(file *stateFile) { file.Simulation.RequestID += 2 }
+
+// TestNewFromStoreReportsUnaccountedOrders restores a state that lost two
+// orders, saves it, and restores it again. Each restore reports the two
+// orders, and the server does not make up IDs for them.
+func TestNewFromStoreReportsUnaccountedOrders(t *testing.T) {
+	t.Parallel()
+	run := newStoredRun(t)
+	data := run.edited(t, lostOrders)
+	for round := range 2 {
+		store := &fakeStore{data: data}
+		s := startFromStore(t, StoreInput{Store: store})
+		if got := s.State().Restore; got.Tier != "physical" || got.Unaccounted != 2 {
+			t.Fatalf("round %d: restore = %+v, want 2 unaccounted orders", round, got)
+		}
+		s.Close()
+		if err := s.SaveState(t.Context(), SaveFinal); err != nil {
+			t.Fatal(err)
+		}
+		writes := store.writeList()
+		data = writes[len(writes)-1]
+		if file := decodeTestState(t, data); file.Simulation.RequestID != run.file.Simulation.RequestID+2 {
+			t.Fatalf("round %d: %d orders submitted, want %d", round, file.Simulation.RequestID, run.file.Simulation.RequestID+2)
+		}
 	}
 }

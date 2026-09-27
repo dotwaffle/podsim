@@ -78,6 +78,7 @@ A rewind does not change it.
 | `demoted` | The number of pods that the `physical` tier moved to a berth. |
 | `requeued` | The number of orders that went back to the queue. |
 | `dropped` | The number of orders that the restore removed because they were not valid. |
+| `unaccounted` | The number of orders that the saved state submitted but did not hold: they were not complete, not in the queue, and not aboard a pod. It includes the orders that an earlier restore dropped. |
 
 The server omits an empty `reason` and each count of 0.
 `restore_loop` means that the server stopped after a restore and before a periodic save, a final save, or a save before an acknowledgment.

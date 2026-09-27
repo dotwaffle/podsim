@@ -45,6 +45,10 @@ var frameFixtures = []frameFixture{
 		name: "logical restore", restore: RestoreInfo{Tier: "logical", Reason: "restore_loop", Requeued: 2, Dropped: 1},
 		restoreJSON: `{"tier":"logical","reason":"restore_loop","requeued":2,"dropped":1}`,
 	},
+	{
+		name: "unaccounted orders", restore: RestoreInfo{Tier: "physical", Unaccounted: 2},
+		restoreJSON: `{"tier":"physical","unaccounted":2}`,
+	},
 }
 
 // newFrameFixture starts a journey and saves the checkpoints of fixture
