@@ -151,6 +151,8 @@ type result struct {
 	StoppedPodSeconds              float64 `json:"stopped_pod_seconds"`
 	JunctionWaitSeconds            float64 `json:"junction_wait_seconds"`
 	TrackWaitSeconds               float64 `json:"track_wait_seconds"`
+	PeakNodeThroughputPerMinute    int     `json:"peak_node_throughput_per_minute"`
+	PeakNode                       string  `json:"peak_node"`
 	QueueCleared                   bool    `json:"queue_cleared"`
 	QueueClearSeconds              float64 `json:"queue_clear_seconds"`
 	WaitAverageSeconds             float64 `json:"wait_average_seconds"`
@@ -974,6 +976,7 @@ func run(input runInput) (result, error) {
 	}
 	metrics.observe(state)
 	requests := requestTimeStats(simulation.RequestTimings(), state)
+	peakNodePasses, peakNode := peakNodeFlow(simulation.NodePasses())
 	burstSize := 1
 	if isBurstPattern(input.pattern) {
 		burstSize = input.burstSize
@@ -1011,6 +1014,7 @@ func run(input runInput) (result, error) {
 		PeakFocusEntranceStopped: metrics.peakEntranceStopped, PeakFocusExitStopped: metrics.peakExitStopped,
 		PeakFocusOccupiedBerths: metrics.peakOccupiedBerths, PeakFocusReservedEmptyBerths: metrics.peakReservedEmptyBerths,
 		StoppedPodSeconds: float64(metrics.waits.stopped), JunctionWaitSeconds: float64(metrics.waits.junction), TrackWaitSeconds: float64(metrics.waits.track),
+		PeakNodeThroughputPerMinute: peakNodePasses, PeakNode: peakNode,
 		QueueCleared: metrics.queueCleared, QueueClearSeconds: metrics.queueClearSeconds,
 		WaitAverageSeconds: state.Wait.AverageSeconds, WaitMaximumSeconds: state.Wait.MaxSeconds,
 		WaitP95Seconds: requests.waitP95, JourneyAverageSeconds: requests.journeyAverage,
@@ -1149,6 +1153,7 @@ func writeCSV(input writeReportInput) error {
 		"completed_at_arrival_midpoint", "backlog_at_arrival_midpoint", "late_arrival_throughput_per_minute", "late_backlog_change", "drained", "drain_seconds",
 		"peak_pending", "peak_outstanding", "peak_active_vehicles", "peak_passenger_vehicles", "peak_stopped_vehicles", "peak_focus_approaching", "peak_focus_entrance_stopped", "peak_focus_exit_stopped",
 		"peak_focus_occupied_berths", "peak_focus_reserved_empty_berths", "stopped_pod_seconds", "junction_wait_seconds", "track_wait_seconds",
+		"peak_node_throughput_per_minute", "peak_node",
 		"queue_cleared", "queue_clear_seconds",
 		"wait_average_seconds", "wait_maximum_seconds", "wait_p95_seconds",
 		"journey_average_seconds", "journey_p95_seconds", "journey_maximum_seconds", "passenger_distance_meters", "empty_distance_meters", "loaded_distance_percent", "positioning_moves",
@@ -1174,6 +1179,7 @@ func writeCSV(input writeReportInput) error {
 			strconv.Itoa(outcome.PeakFocusApproaching), strconv.Itoa(outcome.PeakFocusEntranceStopped), strconv.Itoa(outcome.PeakFocusExitStopped),
 			strconv.Itoa(outcome.PeakFocusOccupiedBerths), strconv.Itoa(outcome.PeakFocusReservedEmptyBerths),
 			floatText(outcome.StoppedPodSeconds), floatText(outcome.JunctionWaitSeconds), floatText(outcome.TrackWaitSeconds),
+			strconv.Itoa(outcome.PeakNodeThroughputPerMinute), outcome.PeakNode,
 			strconv.FormatBool(outcome.QueueCleared), floatText(outcome.QueueClearSeconds),
 			floatText(outcome.WaitAverageSeconds), floatText(outcome.WaitMaximumSeconds), floatText(outcome.WaitP95Seconds),
 			floatText(outcome.JourneyAverageSeconds), floatText(outcome.JourneyP95Seconds), floatText(outcome.JourneyMaximumSeconds),

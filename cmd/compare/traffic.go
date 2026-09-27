@@ -33,3 +33,42 @@ func (waits *trafficWaits) sampleWaits(vehicles []sim.Vehicle) {
 		}
 	}
 }
+
+// nodeFlowWindowTicks is the length of the node flow window, 60 s.
+const nodeFlowWindowTicks = 60 * sim.TicksPerSecond
+
+// nodeFlow finds the node that the most pods pass in 60 s.
+type nodeFlow struct {
+	// passes holds, for each node, the ticks of its passes in the window
+	// that ends at the last pass, in time order.
+	passes   map[string][]int64
+	peak     int
+	peakNode string
+}
+
+// peakNodeFlow gives the most passes of one node in 60 s, and that node.
+// The passes must be in tick order, as NodePasses gives them.
+func peakNodeFlow(passes []sim.NodePass) (int, string) {
+	flow := nodeFlow{passes: make(map[string][]int64)}
+	for _, pass := range passes {
+		flow.pass(pass.Node, pass.Tick)
+	}
+	return flow.peak, flow.peakNode
+}
+
+// pass records a pass of node at tick. The window of a pass holds the
+// passes of the node in the 60 s that end at the pass. A tie goes to the
+// lower node ID.
+func (flow *nodeFlow) pass(node string, tick int64) {
+	passes := flow.passes[node]
+	passes = append(passes, tick)
+	first := 0
+	for passes[first] <= tick-nodeFlowWindowTicks {
+		first++
+	}
+	passes = passes[first:]
+	flow.passes[node] = passes
+	if count := len(passes); count > flow.peak || (count == flow.peak && node < flow.peakNode) {
+		flow.peak, flow.peakNode = count, node
+	}
+}

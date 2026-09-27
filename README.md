@@ -821,6 +821,16 @@ The compare command examines the pods at each whole simulated second, and each s
 The other stopped pods wait for a berth or for parking, so `stopped_pod_seconds` is at least the sum of the other two columns.
 The `peak_stopped_vehicles` column counts only the pods with a speed of less than 0.01 m/s, so it can count fewer pods.
 
+These columns give the busiest node.
+A pod passes a node when it enters a lane that starts at the node.
+Thus a pod that leaves a berth passes the berth node, and a pod that stops at the end of its route does not pass that node.
+The simulation records each pass at the tick at which the pod enters the lane, and the compare command reads these records.
+
+| Column | Definition |
+| --- | --- |
+| `peak_node_throughput_per_minute` | The most passes of one node in 60 seconds. For each pass at time t, the window holds the passes of the same node after t - 60 s and at or before t. |
+| `peak_node` | The ID of the node with that count. When two nodes have the same count, it is the lower node ID in byte order. It is empty when no pod passes a node. |
+
 ### Generated scenarios
 
 Create a repeatable server scenario:

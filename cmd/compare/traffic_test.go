@@ -115,3 +115,73 @@ func boolCount(value bool) int {
 	}
 	return 0
 }
+
+// TestNodeFlowWindow checks the 60 s window and the tie rule. Node x has
+// passes at 1 s, 2 s and 61 s, so the most in one window is 2. Node z has
+// passes at 0 s and 60 s, which are not in the same window. Node y and
+// node w each have 3 passes in one window, and w has the lower ID.
+func TestNodeFlowWindow(t *testing.T) {
+	t.Parallel()
+	pass := func(node string, second int64) sim.NodePass {
+		return sim.NodePass{Tick: second * sim.TicksPerSecond, Node: node}
+	}
+	passes := []sim.NodePass{pass("z", 0), pass("x", 1), pass("x", 2), pass("z", 60), pass("x", 61)}
+	if peak, node := peakNodeFlow(passes); peak != 2 || node != "x" {
+		t.Fatalf("peak = %d at %q, want 2 at x", peak, node)
+	}
+	passes = append(passes, pass("y", 100), pass("y", 100), pass("y", 159), pass("w", 300), pass("w", 310), pass("w", 320))
+	if peak, node := peakNodeFlow(passes); peak != 3 || node != "w" {
+		t.Fatalf("peak = %d at %q, want 3 at w", peak, node)
+	}
+	if peak, node := peakNodeFlow(nil); peak != 0 || node != "" {
+		t.Fatalf("peak without passes = %d at %q", peak, node)
+	}
+}
+
+// TestNodeFlowInRun checks the columns of run against a replay that
+// examines the lane of each pod at each tick. A lane is at least 24 m long,
+// so at each tick a pod can enter at most one lane. The replay counts the
+// passes in each window directly.
+func TestNodeFlowInRun(t *testing.T) {
+	t.Parallel()
+	input := smallBurstInput(t)
+	outcome, err := run(input)
+	if err != nil {
+		t.Fatal(err)
+	}
+	laneFrom := make(map[string]string)
+	for _, lane := range input.scenario.network.Lanes {
+		laneFrom[lane.ID] = lane.From
+	}
+	type pass struct {
+		node string
+		tick int64
+	}
+	var passes []pass
+	last := make(map[string]string)
+	replayEachTick(t, input, func(state sim.Snapshot) {
+		for _, vehicle := range state.Vehicles {
+			lane := vehicle.Pod.LaneID
+			if lane != "" && lane != last[vehicle.Pod.ID] {
+				passes = append(passes, pass{node: laneFrom[lane], tick: state.Tick})
+			}
+			last[vehicle.Pod.ID] = lane
+		}
+	})
+	peak, peakNode := 0, ""
+	for _, end := range passes {
+		count := 0
+		for _, other := range passes {
+			if other.node == end.node && other.tick <= end.tick && other.tick > end.tick-60*sim.TicksPerSecond {
+				count++
+			}
+		}
+		if count > peak || (count == peak && end.node < peakNode) {
+			peak, peakNode = count, end.node
+		}
+	}
+	if outcome.PeakNodeThroughputPerMinute != peak || outcome.PeakNode != peakNode || peak < 2 {
+		t.Fatalf("peak node = %d at %q, replay = %d at %q", outcome.PeakNodeThroughputPerMinute, outcome.PeakNode, peak, peakNode)
+	}
+	t.Logf("peak node = %d at %q", peak, peakNode)
+}
