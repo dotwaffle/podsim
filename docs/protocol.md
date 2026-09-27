@@ -148,7 +148,8 @@ Each array in the body must have no more items than the project limits permit, a
 For example, `project.network.Lanes` can have at most 8,000 items.
 Each string and each member name in the body must have at most 1,024 bytes, including the quotes and the escapes.
 A request with an `Origin` header must come from the same host and scheme.
-A request that breaks these rules gets HTTP 400, 403, or 415 and a plain text body, not an acknowledgment.
+A request that breaks these rules gets HTTP 400, 403, 413, or 415 and a plain text body, not an acknowledgment.
+A body that is larger than the size limit gets HTTP 413, and the text gives the limit in bytes.
 These responses also have `Cache-Control: no-store`.
 
 A `project` command gets `command_rejected` when the project has more than 200 stations, 4,000 nodes, 8,000 lanes, or 200 pods.

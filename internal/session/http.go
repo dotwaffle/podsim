@@ -122,6 +122,10 @@ func (s *Session) commandHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	body, err := io.ReadAll(http.MaxBytesReader(w, r.Body, MaxCommandBytes))
+	if tooLarge := new(http.MaxBytesError); errors.As(err, &tooLarge) {
+		writeError(w, fmt.Sprintf("the command body must have at most %d bytes", tooLarge.Limit), http.StatusRequestEntityTooLarge)
+		return
+	}
 	if err != nil || errors.Is(prescanCommand(body), errCommandShape) {
 		writeError(w, "invalid command JSON", http.StatusBadRequest)
 		return
