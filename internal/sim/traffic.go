@@ -242,19 +242,41 @@ func (s *Simulation) grant(in intent) {
 
 // reservationEnd reserves each contiguous conflict zone as one movement.
 // A lane endpoint also needs its downstream cell before admission.
+//
+// For each junction resource of a block, the zone goes to the last block of
+// the run of blocks after it that have the resource. The blocks of that run
+// give the same last block, so reservationEnd keeps the run and does not
+// scan it again. A kept run holds block i when it ends at i or later, and
+// then block i has its resource. Thus runs has at most one entry for each
+// junction resource of a block, and each block is scanned at most once for
+// each of its junction resources.
 func reservationEnd(blocks []block, start int) int {
+	type junctionRun struct {
+		junction resource
+		end      int
+	}
+	var storage [4]junctionRun
+	runs := storage[:0]
 	through := start
 	for i := start; i <= through; i++ {
 		if blocks[i].last && i+1 < len(blocks) {
 			through = max(through, i+1)
 		}
+		runs = slices.DeleteFunc(runs, func(run junctionRun) bool { return run.end < i })
 		for _, r := range blocks[i].resources {
 			if r.kind != junctionResource {
 				continue
 			}
-			for j := i + 1; j < len(blocks) && slices.Contains(blocks[j].resources, r); j++ {
-				through = max(through, j)
+			if k := slices.IndexFunc(runs, func(run junctionRun) bool { return run.junction == r }); k >= 0 {
+				through = max(through, runs[k].end)
+				continue
 			}
+			end := i
+			for end+1 < len(blocks) && slices.Contains(blocks[end+1].resources, r) {
+				end++
+			}
+			runs = append(runs, junctionRun{junction: r, end: end})
+			through = max(through, end)
 		}
 	}
 	return through

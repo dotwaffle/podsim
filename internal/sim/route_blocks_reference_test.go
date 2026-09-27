@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"maps"
 	"math"
+	"math/rand/v2"
 	"reflect"
 	"slices"
 	"testing"
@@ -218,6 +219,53 @@ func TestLaneBlocksMatchRouteBlocks(t *testing.T) {
 			blocks, _ := s.routeBlocks([]Lane{lane})
 			if want := laneBlockCount(s.laneLength(lane)); got[index] != want || len(blocks) != want {
 				t.Errorf("%s: lane %q has %d blocks, want %d and routeBlocks gives %d", name, lane.ID, got[index], want, len(blocks))
+			}
+		}
+	}
+}
+
+// referenceReservationEnd is reservationEnd before it kept the junction
+// runs. It scans the run of each junction resource from each block.
+func referenceReservationEnd(blocks []block, start int) int {
+	through := start
+	for i := start; i <= through; i++ {
+		if blocks[i].last && i+1 < len(blocks) {
+			through = max(through, i+1)
+		}
+		for _, r := range blocks[i].resources {
+			if r.kind != junctionResource {
+				continue
+			}
+			for j := i + 1; j < len(blocks) && slices.Contains(blocks[j].resources, r); j++ {
+				through = max(through, j)
+			}
+		}
+	}
+	return through
+}
+
+// TestReservationEndMatchesReference compares reservationEnd with the
+// reference from each block of random block lists. The lists have few
+// junctions, so that the runs of a junction are long, overlap other runs,
+// and start again after a gap.
+func TestReservationEndMatchesReference(t *testing.T) {
+	t.Parallel()
+	rng := rand.New(rand.NewPCG(5, 8))
+	for range 500 {
+		blocks := make([]block, 1+rng.IntN(60))
+		for index := range blocks {
+			b := &blocks[index]
+			b.last = rng.IntN(4) == 0
+			for junction := range 3 {
+				if rng.IntN(3) > 0 {
+					b.resources = append(b.resources, resource{kind: junctionResource, id: fmt.Sprintf("j%d", junction)})
+				}
+			}
+			b.resources = append(b.resources, resource{kind: trackResource, id: "lane", cell: index})
+		}
+		for start := range blocks {
+			if got, want := reservationEnd(blocks, start), referenceReservationEnd(blocks, start); got != want {
+				t.Fatalf("reservationEnd from block %d = %d, want %d", start, got, want)
 			}
 		}
 	}
