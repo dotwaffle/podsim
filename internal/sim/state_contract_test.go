@@ -461,16 +461,19 @@ func TestRestoreReportsUnaccountedOrders(t *testing.T) {
 			if n := countUnaccounted(t, s); n != 3 || s.unaccountedOrders != n {
 				t.Fatalf("%s tier, round %d: %d unaccounted orders, counted %d", tier, round, n, s.unaccountedOrders)
 			}
+			monitorContract(t, s)
+			advance(s, 30*TicksPerSecond)
 			state = roundTripState(t, s.ExportState())
 		}
 		s, _, err := f.restoreTier(state, tier)
 		if err != nil {
 			t.Fatal(err)
 		}
+		submitted := s.requestID
 		if err := s.RequestTrip("harbor", "market"); err != nil {
 			t.Fatal(err)
 		}
-		if s.requestID != base.RequestID+1 || countUnaccounted(t, s) != 3 {
+		if s.requestID != submitted+1 || countUnaccounted(t, s) != 3 {
 			t.Fatalf("%s tier: %d orders, %d unaccounted", tier, s.requestID, countUnaccounted(t, s))
 		}
 	}
@@ -540,4 +543,19 @@ func TestReconcileOrdersFindsEachMismatch(t *testing.T) {
 			}
 		})
 	}
+}
+
+// monitorContract makes a simulation check the contract after each tick and
+// each command that changes its pods, its orders or its sharing settings.
+// The test fails at the first break. The monitor proves that the contract is
+// not stricter than the live code.
+func monitorContract(tb testing.TB, s *Simulation) {
+	tb.Helper()
+	s.monitor = func(s *Simulation) {
+		tb.Helper()
+		if err := s.CheckContract(); err != nil {
+			tb.Fatalf("tick %d: the live state breaks the contract: %v", s.tick, err)
+		}
+	}
+	s.observe()
 }

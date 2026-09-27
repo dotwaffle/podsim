@@ -966,7 +966,7 @@ func (s *Simulation) verifyRestore(state SavedState, completed, dropped []int, u
 		return fmt.Errorf("check the restored orders: %w", err)
 	}
 	s.unaccountedOrders = unaccounted + len(dropped)
-	if err := s.checkContract(); err != nil {
+	if err := s.CheckContract(); err != nil {
 		return fmt.Errorf("check the restored state: %w", err)
 	}
 	return nil

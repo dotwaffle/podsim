@@ -27,6 +27,7 @@ const (
 // SetSharedRidePartyLimit controls same-origin parties that may join a pod
 // before it departs. One disables sharing.
 func (s *Simulation) SetSharedRidePartyLimit(limit int) error {
+	defer s.observe()
 	if limit < 1 || limit > MaxSharedRideParties {
 		return fmt.Errorf("shared ride party limit must be 1 to %d", MaxSharedRideParties)
 	}
@@ -37,6 +38,7 @@ func (s *Simulation) SetSharedRidePartyLimit(limit int) error {
 // SetSharedRideMode sets the sharing mode and the limit of the intermediate
 // stops of a pod. A pod stops before its last stop only in drop-offs mode.
 func (s *Simulation) SetSharedRideMode(mode SharedRideMode, maxStops int) error {
+	defer s.observe()
 	if err := validateSharedRideMode(mode, maxStops); err != nil {
 		return err
 	}

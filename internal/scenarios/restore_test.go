@@ -221,3 +221,60 @@ func setGuarded(t *testing.T, simulation *sim.Simulation) {
 		t.Fatal(err)
 	}
 }
+
+// TestLondonSharingMeetsContract runs London with drop-offs sharing and a
+// limit of 4 parties. It requests 120 AM peak journeys, four each second,
+// and checks the restore contract after each request and each tick. The
+// run lasts until pods with shared rides unload at intermediate stops.
+func TestLondonSharingMeetsContract(t *testing.T) {
+	if testing.Short() {
+		t.Skip("the London contract test checks the saved state of each tick")
+	}
+	t.Parallel()
+	const (
+		requests = 120
+		end      = int64(180 * sim.TicksPerSecond)
+	)
+	live := newSimulation(t, London())
+	if err := live.SetSharedRidePartyLimit(4); err != nil {
+		t.Fatal(err)
+	}
+	if err := live.SetSharedRideMode(sim.SharedRideDropOffs, sim.DefaultSharedRideMaxStops); err != nil {
+		t.Fatal(err)
+	}
+	schedule := londonDemandSchedule(londonCloneSeed, LondonDemand()[2], requests)
+	for index := range schedule {
+		schedule[index].tick = int64(index * sim.TicksPerSecond / 4)
+	}
+	check := func(tick int64, event string) {
+		t.Helper()
+		if err := live.CheckContract(); err != nil {
+			t.Fatalf("tick %d, %s: %v", tick, event, err)
+		}
+	}
+	check(0, "start")
+	// intermediate tells whether a pod unloaded at a stop before its last
+	// stop.
+	intermediate := false
+	for tick := range end {
+		for _, request := range schedule {
+			if request.tick != tick {
+				continue
+			}
+			if err := live.RequestTrip(request.origin, request.destination); err != nil {
+				t.Fatal(err)
+			}
+			check(tick, "request")
+		}
+		live.Step()
+		check(tick, "step")
+		for _, v := range live.Snapshot().Vehicles {
+			intermediate = intermediate || v.Pod.Activity == sim.Unloading && len(v.Stops) > 0
+		}
+	}
+	final := live.Snapshot()
+	if final.SharedParties == 0 || !intermediate {
+		t.Fatalf("%d parties shared a ride, and a pod unloaded at an intermediate stop: %t", final.SharedParties, intermediate)
+	}
+	t.Logf("submitted=%d completed=%d shared=%d", final.Submitted, final.Completed, final.SharedParties)
+}

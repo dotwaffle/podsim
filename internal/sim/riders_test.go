@@ -156,6 +156,7 @@ func TestIntermediateStopSurvivesRestore(t *testing.T) {
 		if err != nil || result.Tier != RestorePhysical || len(result.Demoted) != 0 || len(result.Requeued) != 0 {
 			t.Fatalf("restore: %v, %+v", err, result)
 		}
+		monitorContract(t, restored)
 		return restored
 	}
 	continueNow := func(s *Simulation) {

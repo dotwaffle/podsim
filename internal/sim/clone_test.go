@@ -32,7 +32,7 @@ var cloneRules = map[reflect.Type]map[string]cloneRule{
 		"demandWeights": cloneShare, "congestionRouteCosts": cloneShare, "congestionRoutes": cloneCopy,
 		"laneSafety": cloneShare, "berthSafety": cloneShare, "vehicleIndexes": cloneShare,
 		"berthResources": cloneShare, "laneCells": cloneShare, "approachStations": cloneShare, "routeStations": cloneDrop,
-		"requestBoardings": cloneCopy, "requestCompletions": cloneCopy, "nodePasses": cloneCopy,
+		"requestBoardings": cloneCopy, "requestCompletions": cloneCopy, "nodePasses": cloneCopy, "monitor": cloneShare,
 	},
 	reflect.TypeFor[vehicle](): {
 		"Vehicle": cloneCopy, "blocks": cloneShare, "blockStarts": cloneShare, "routeReleases": cloneCopy,
@@ -166,7 +166,7 @@ var persistRules = map[reflect.Type]map[string]persistRule{
 		"waiting": persistSave, "boarded": persistSave, "totalWaitTicks": persistSave, "maxWaitTicks": persistSave,
 		"positioning": persistSession, "demandRate": persistSession, "demandWeights": persistSession, "nextRedistributionTick": persistSave,
 		"passengerDistanceMeters": persistSave, "emptyDistanceMeters": persistSave, "rebalanceMoves": persistSave,
-		"sharedRidePartyLimit": persistSave, "sharedParties": persistSave, "unaccountedOrders": persistDerive,
+		"sharedRidePartyLimit": persistSave, "sharedParties": persistSave, "unaccountedOrders": persistDerive, "monitor": persistReset,
 		"sharedRideMode": persistSave, "sharedRideMaxStops": persistSave,
 		"approachStations": persistDerive, "routeStations": persistReset,
 		"journeys": persistSave, "totalJourneyTicks": persistSave, "maxJourneyTicks": persistSave,
@@ -372,9 +372,10 @@ func TestCloneFollowsRules(t *testing.T) {
 		{name: "new fleet", build: newTraffic},
 		{
 			name: "active", build: activeCloneSimulation, covered: true,
-			// No congestion route fails in the example network, and no
-			// journey ends in the first 35 seconds.
-			uncovered: []string{"routeResult.err", "Simulation.requestCompletions"},
+			// No congestion route fails in the example network, no
+			// journey ends in the first 35 seconds, and no test monitor
+			// runs.
+			uncovered: []string{"routeResult.err", "Simulation.requestCompletions", "Simulation.monitor"},
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {

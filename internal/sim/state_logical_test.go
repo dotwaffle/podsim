@@ -158,6 +158,7 @@ func TestRestoreLogical(t *testing.T) {
 				result.Unaccounted != 0 {
 				t.Fatalf("%d unaccounted orders, want %d, counted %d, reported %d", gap, want, s.unaccountedOrders, result.Unaccounted)
 			}
+			monitorContract(t, s)
 			// In 10 minutes, the pods take each queued party to its
 			// destination.
 			for second := range 600 {
@@ -225,6 +226,7 @@ func TestRestoreLogicalKeepsSharedRides(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
+			monitorContract(t, live)
 			if err = live.SetSharedRidePartyLimit(4); err != nil {
 				t.Fatal(err)
 			}
@@ -246,6 +248,7 @@ func TestRestoreLogicalKeepsSharedRides(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
+			monitorContract(t, s)
 			queued := len(s.waiting)
 			if len(result.Requeued) != tc.parties || len(result.Dropped) > 0 || queued+s.completed != 6 {
 				t.Fatalf("result %+v, %d parties queued, %d completed", result, queued, s.completed)
@@ -335,6 +338,8 @@ func TestRestoreLogicalCompletesOnlyAtAStation(t *testing.T) {
 				countUnaccounted(t, s) != tc.unaccountedAfter {
 				t.Fatalf("completed %d, want %d, %d unaccounted orders", s.completed, state.Completed, s.unaccountedOrders)
 			}
+			monitorContract(t, s)
+			advance(s, 60*TicksPerSecond)
 		})
 	}
 }

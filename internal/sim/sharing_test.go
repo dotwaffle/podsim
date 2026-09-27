@@ -83,6 +83,7 @@ func newSharingSimulation(t *testing.T) *Simulation {
 	if err != nil {
 		t.Fatal(err)
 	}
+	monitorContract(t, s)
 	return s
 }
 

@@ -22,6 +22,7 @@ type waitingTrip struct {
 
 // RequestTrip queues a passenger journey between stations and assigns an available pod when possible.
 func (s *Simulation) RequestTrip(origin, destination string) error {
+	defer s.observe()
 	from, ok := s.station(origin)
 	if !ok || from.ParkingOnly {
 		return errors.New("choose a passenger pickup station")

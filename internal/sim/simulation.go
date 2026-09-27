@@ -296,6 +296,10 @@ type Simulation struct {
 	// that are not complete, not queued and not aboard a pod. It is 0 until
 	// a restore finds such orders in a saved state or drops orders.
 	unaccountedOrders int
+	// monitor runs after each tick and after each public command that
+	// changes the pods, the orders or the sharing settings. Tests use it to
+	// check the contract. See observe.
+	monitor func(*Simulation)
 	// berthResources holds the berth resources at each node. NewFleet and
 	// ensureNetworkIndexes build it. No code writes to it in place.
 	berthResources map[string][]resource
@@ -413,6 +417,7 @@ func prepareFleet(network Network, placements []Placement) (Network, routeGraph,
 
 // Reset restores the initial fleet, clock, and resources. It clears supplied demo requests.
 func (s *Simulation) Reset() {
+	defer s.observe()
 	s.tick, s.completed, s.requestID, s.unaccountedOrders = 0, 0, 0, 0
 	s.paused, s.demo, s.demoError = false, nil, ""
 	s.waiting = nil
@@ -523,6 +528,7 @@ func (s *Simulation) SetPaused(paused bool) { s.paused = paused }
 
 // RequestJourney assigns a party at the selected pod's station.
 func (s *Simulation) RequestJourney(podID, destination string) error {
+	defer s.observe()
 	v := s.findVehicle(podID)
 	if v == nil {
 		return fmt.Errorf("unknown pod %q", podID)
@@ -573,6 +579,7 @@ func (s *Simulation) findVehicle(id string) *vehicle {
 
 // Step plans admission from pre-movement state, arbitrates, then moves every pod.
 func (s *Simulation) Step() {
+	defer s.observe()
 	if s.paused {
 		return
 	}

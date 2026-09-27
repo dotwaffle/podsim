@@ -438,6 +438,7 @@ func TestRestoreDemotesTravelingPods(t *testing.T) {
 				t.Fatal("the owners differ from the retention rules")
 			}
 			checkRouteLengths(t, s)
+			monitorContract(t, s)
 			tc.check(t, state, s, result)
 		})
 	}

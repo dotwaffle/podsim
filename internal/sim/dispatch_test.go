@@ -466,6 +466,8 @@ func TestQueuedTripBoardsWithItsParties(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 			s := newSharingSimulation(t)
+			// The test sets counters that no live run has.
+			s.monitor = nil
 			advance(s, wait)
 			s.boarded, s.sharedParties, s.totalWaitTicks, s.maxWaitTicks =
 				saved.boarded, saved.sharedParties, saved.totalWaitTicks, saved.maxWaitTicks

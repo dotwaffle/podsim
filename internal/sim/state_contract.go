@@ -349,10 +349,12 @@ func checkPodStops(pod SavedPod, rule phaseRule, active, history []SavedRequest)
 	return nil
 }
 
-// checkContract checks the saved form of a simulation against the contract.
-// The saved form must have the unaccounted orders that the simulation
-// counts.
-func (s *Simulation) checkContract() error {
+// CheckContract checks the saved form of a simulation against the phase
+// contract and the order count that a restore checks. The saved form must
+// have the unaccounted orders that the simulation counts. A live
+// simulation meets the contract after each tick and each command. Tests
+// call CheckContract to check a run.
+func (s *Simulation) CheckContract() error {
 	unaccounted, err := s.ExportState().checkContract()
 	if err != nil {
 		return err
@@ -361,6 +363,13 @@ func (s *Simulation) checkContract() error {
 		return fmt.Errorf("the state has %d unaccounted orders, want %d", unaccounted, s.unaccountedOrders)
 	}
 	return nil
+}
+
+// observe runs the monitor of a simulation.
+func (s *Simulation) observe() {
+	if s.monitor != nil {
+		s.monitor(s)
+	}
 }
 
 // reconcileOrders checks the orders of a restored simulation against its

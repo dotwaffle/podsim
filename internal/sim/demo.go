@@ -16,6 +16,7 @@ var demoParkedPods = [...]string{"03", "04"}
 
 // StartDemo adds two parked pods for a fixed eight-journey experiment. Reset restores the original fleet.
 func (s *Simulation) StartDemo() error {
+	defer s.observe()
 	if !isDemoFleet(s.initial) {
 		return errors.New("the traffic demo needs pod 01 at Harbor and pod 02 at Garden")
 	}
@@ -37,7 +38,7 @@ func (s *Simulation) StartDemo() error {
 	if err := candidate.RequestJourney("01", "market"); err != nil {
 		return err
 	}
-	candidate.initial = s.initial
+	candidate.initial, candidate.monitor = s.initial, s.monitor
 	*s = *candidate
 	s.demo = &demoRun{}
 	return nil
