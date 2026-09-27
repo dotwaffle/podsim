@@ -164,7 +164,7 @@ func openGate(s *Simulation) {
 	const id = 10
 	requested := int64(id)*ticksPerMinute*guardedFleetRateShare/int64(len(s.vehicles)) + 1
 	v := &s.vehicles[0]
-	v.Request = &Request{ID: id, From: "s0", To: "s1", PartySize: 1, PodID: v.Pod.ID, Completed: true, RequestedTick: requested}
+	v.Riders = []Request{{ID: id, From: "s0", To: "s1", PartySize: 1, PodID: v.Pod.ID, Completed: true, RequestedTick: requested}}
 	s.requestID, s.boarded = id, id
 	s.tick = requested + TicksPerSecond
 	s.nextRedistributionTick = s.tick
@@ -196,7 +196,7 @@ func TestGuardedGate(t *testing.T) {
 		}
 	}
 	newest := func(s *Simulation, tick int64) {
-		s.vehicles[0].Request = &Request{ID: id, PartySize: 1, Completed: true, RequestedTick: tick}
+		s.vehicles[0].Riders = []Request{{ID: id, PartySize: 1, Completed: true, RequestedTick: tick}}
 	}
 	base := func(s *Simulation) {
 		newest(s, requested)
@@ -204,7 +204,7 @@ func TestGuardedGate(t *testing.T) {
 	}
 	working := func(s *Simulation, count int) {
 		for index := 1; index <= count; index++ {
-			s.vehicles[index].Request = &Request{ID: index, PartySize: 1, RequestedTick: 1}
+			s.vehicles[index].Riders = []Request{{ID: index, PartySize: 1, RequestedTick: 1}}
 		}
 	}
 	// lateStart is request 100 at 20 per minute after 2 h with no request.
@@ -238,7 +238,7 @@ func TestGuardedGate(t *testing.T) {
 		{name: "5 per minute", setup: base, active: true, open: true},
 		{name: "newest in a waiting trip", active: true, open: true, setup: func(s *Simulation) {
 			base(s)
-			s.vehicles[0].Request = nil
+			s.vehicles[0].Riders = nil
 			s.waiting = []waitingTrip{{request: Request{ID: id, From: "s1", To: "s2", PartySize: 1, PodID: "005", RequestedTick: requested}}}
 		}},
 		{name: "liveness edge", setup: func(s *Simulation) { base(s); s.tick = liveness }, active: true, open: true},
@@ -347,7 +347,7 @@ func TestGuardedGateLoadEdge(t *testing.T) {
 			s := newLineSimulation(t, lineStations(0, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2), place(berths...))
 			openGate(s)
 			for index := 1; index <= tc.working; index++ {
-				s.vehicles[index].Request = &Request{ID: index, PartySize: 1, RequestedTick: 1}
+				s.vehicles[index].Riders = []Request{{ID: index, PartySize: 1, RequestedTick: 1}}
 			}
 			if gate := s.guardedGate(); !gate.active || gate.open != tc.open {
 				t.Fatalf("gate %+v, want active and open %v", gate, tc.open)
@@ -363,8 +363,8 @@ func TestGuardedNewestRequest(t *testing.T) {
 		t.Parallel()
 		s := newLineSimulation(t, stations, place("s0-1", "s1-1"))
 		s.waiting = []waitingTrip{{request: Request{ID: 7, From: "s1", To: "s2", PartySize: 1, RequestedTick: 700}}}
-		s.vehicles[0].Request = &Request{ID: 9, PartySize: 1, Completed: true, RequestedTick: 900}
-		s.vehicles[1].Request = &Request{ID: 3, PartySize: 1, RequestedTick: 300}
+		s.vehicles[0].Riders = []Request{{ID: 9, PartySize: 1, Completed: true, RequestedTick: 900}}
+		s.vehicles[1].Riders = []Request{{ID: 3, PartySize: 1, RequestedTick: 300}}
 		for _, want := range []struct {
 			id        int
 			requested int64
@@ -374,12 +374,12 @@ func TestGuardedNewestRequest(t *testing.T) {
 				t.Fatalf("newest request %d at %d, %v, want %d at %d", id, requested, ok, want.id, want.requested)
 			}
 			switch {
-			case s.vehicles[0].Request != nil:
-				s.vehicles[0].Request = nil
+			case len(s.vehicles[0].Riders) > 0:
+				s.vehicles[0].Riders = nil
 			case len(s.waiting) > 0:
 				s.waiting = nil
 			default:
-				s.vehicles[1].Request = nil
+				s.vehicles[1].Riders = nil
 			}
 		}
 	})
@@ -387,10 +387,10 @@ func TestGuardedNewestRequest(t *testing.T) {
 		t.Parallel()
 		s := newLineSimulation(t, stations, place("s0-1", "s1-1"))
 		s.tick, s.requestID = 2000, 2
-		s.vehicles[0].Request = &Request{ID: 2, From: "s1", To: "s0", PartySize: 1, PodID: "01", Completed: true, RequestedTick: 1500}
+		s.vehicles[0].Riders = []Request{{ID: 2, From: "s1", To: "s0", PartySize: 1, PodID: "01", Completed: true, RequestedTick: 1500}}
 		s.waiting = []waitingTrip{{request: Request{ID: 1, From: "s0", To: "s1", PartySize: 1, RequestedTick: 1000}}}
 		s.dispatch()
-		if v := s.findVehicle("01"); v.Pod.Activity != Boarding || v.Request.ID != 1 {
+		if v := s.findVehicle("01"); v.Pod.Activity != Boarding || v.Riders[0].ID != 1 {
 			t.Fatalf("pod 01 does not board request 1: %+v", v.Vehicle)
 		}
 		if id, requested, ok := s.newestRequest(); id != 1 || requested != 1000 || !ok {
@@ -504,7 +504,7 @@ func TestGuardedSupply(t *testing.T) {
 	}
 	unloading := s.findVehicle("01")
 	unloading.Pod.Activity, unloading.Pod.Occupied, unloading.phaseTicks = Unloading, true, unloadingTicks
-	unloading.Request = &Request{ID: 1, From: "s5", To: "s0", PartySize: 1, PodID: "01", RequestedTick: 1}
+	unloading.Riders = []Request{{ID: 1, From: "s5", To: "s0", PartySize: 1, PodID: "01", RequestedTick: 1}}
 	s1, _ := s.station("s1")
 	if err := s.startEmptyMove(s.findVehicle("02"), emptyDestination{station: "s1", berth: s1.Berths[0], reserveBerth: true}); err != nil {
 		t.Fatal(err)
@@ -716,7 +716,7 @@ func TestGuardedClear(t *testing.T) {
 		{name: "closed gate", fleet: place("s1-1", "s0-1", "s2-1", "s3-1", "s4-1", "s5-1")},
 		{
 			name: "inert gate", fleet: place("s1-1", "s0-1", "s2-1", "s3-1", "s4-1", "s5-1"),
-			gate: func(s *Simulation) { openGate(s); s.vehicles[0].Request.RequestedTick-- },
+			gate: func(s *Simulation) { openGate(s); s.vehicles[0].Riders[0].RequestedTick-- },
 		},
 	}
 	for _, tc := range tests {

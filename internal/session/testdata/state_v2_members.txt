@@ -1,4 +1,4 @@
-# Members of the session state file, version 1.
+# Members of the session state file, version 2.
 # A change here needs a version bump: change stateVersion in state_file.go.
 # Until the first release, an added optional member with a safe zero value
 # keeps the version.
@@ -60,16 +60,6 @@ simulation.pods[].activity string
 simulation.pods[].stationID string
 simulation.pods[].berthID string
 simulation.pods[].occupied boolean
-simulation.pods[].request object
-simulation.pods[].request.id number
-simulation.pods[].request.from string
-simulation.pods[].request.to string
-simulation.pods[].request.partySize number
-simulation.pods[].request.podID string
-simulation.pods[].request.completed boolean
-simulation.pods[].request.requestedTick number
-simulation.pods[].request.dispatchReason string
-simulation.pods[].parties number
 simulation.pods[].relocatingTo string
 simulation.pods[].rebalancing boolean
 simulation.pods[].rebalanceAfter number
@@ -77,6 +67,19 @@ simulation.pods[].phaseTicks number
 simulation.pods[].origin string
 simulation.pods[].destination string
 simulation.pods[].destinationStation string
+simulation.pods[].riders array
+simulation.pods[].riders[] object
+simulation.pods[].riders[].id number
+simulation.pods[].riders[].from string
+simulation.pods[].riders[].to string
+simulation.pods[].riders[].partySize number
+simulation.pods[].riders[].podID string
+simulation.pods[].riders[].completed boolean
+simulation.pods[].riders[].requestedTick number
+simulation.pods[].riders[].boardedTick number
+simulation.pods[].riders[].dispatchReason string
+simulation.pods[].stops array
+simulation.pods[].stops[] string
 simulation.pods[].claimsDestination boolean
 simulation.pods[].released boolean
 simulation.pods[].route array
@@ -97,10 +100,11 @@ simulation.waiting[].request.partySize number
 simulation.waiting[].request.podID string
 simulation.waiting[].request.completed boolean
 simulation.waiting[].request.requestedTick number
+simulation.waiting[].request.boardedTick number
 simulation.waiting[].request.dispatchReason string
 simulation.waiting[].route array
 simulation.waiting[].route[] number
-simulation.waiting[].parties number
+simulation.waiting[].boarded boolean
 simulation.waiting[].deferUntil number
 simulation.waiting[].deferCheck number
 simulation.waiting[].deferPodID string

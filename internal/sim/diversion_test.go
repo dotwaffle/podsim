@@ -116,7 +116,7 @@ func TestParkingDepartureCanceledForLocalOrder(t *testing.T) {
 	if err := s.RequestTrip("market", "garden"); err != nil {
 		t.Fatal(err)
 	}
-	if v.Pod.Activity != Boarding || v.RelocatingTo != "" || v.Request == nil || v.Request.From != "market" || len(s.waiting) != 0 {
+	if v.Pod.Activity != Boarding || v.RelocatingTo != "" || len(v.Riders) == 0 || v.Riders[0].From != "market" || len(s.waiting) != 0 {
 		t.Fatalf("local order did not cancel unstarted parking move: %+v", s.Snapshot())
 	}
 	if s.owners[resource{kind: berthResource, id: "parking-1"}] != "" {

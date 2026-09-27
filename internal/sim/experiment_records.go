@@ -3,8 +3,7 @@ package sim
 import "slices"
 
 // RequestTiming gives the boarding and completion of one passenger request.
-// A shared ride merges the parties of a pod into the Request of its first
-// party, but each party keeps its own timing.
+// Each party of a shared ride has its own timing.
 type RequestTiming struct {
 	RequestID     int   `json:"RequestID"`
 	RequestedTick int64 `json:"RequestedTick"`
@@ -14,8 +13,8 @@ type RequestTiming struct {
 	// CompletedTick is the tick at which the party left the pod at its
 	// destination, or -1 before that.
 	CompletedTick int64 `json:"CompletedTick"`
-	// RiddenMeters is the distance of the pod journey that carried the
-	// party, from the origin berth to the destination berth. It is 0 before
+	// RiddenMeters is the distance that the party rode, from the berth
+	// where it boarded to the berth where it left the pod. It is 0 before
 	// completion.
 	RiddenMeters float64 `json:"RiddenMeters"`
 	// SharedWith is 0 for a party that boarded its own pod. For a party that
@@ -23,7 +22,7 @@ type RequestTiming struct {
 	SharedWith int `json:"SharedWith"`
 }
 
-// requestCompletion records the end of one pod journey with passengers.
+// requestCompletion records that one party left a pod at its destination.
 type requestCompletion struct {
 	requestID    int
 	tick         int64
@@ -84,12 +83,8 @@ func (s *Simulation) RequestTimings() []RequestTiming {
 	}
 	timings := make([]RequestTiming, len(s.requestBoardings))
 	for index, timing := range s.requestBoardings {
-		lead := timing.RequestID
-		if timing.SharedWith != 0 {
-			lead = timing.SharedWith
-		}
 		timing.CompletedTick = -1
-		if end, ok := ends[lead]; ok && end.tick >= timing.BoardedTick {
+		if end, ok := ends[timing.RequestID]; ok {
 			timing.CompletedTick, timing.RiddenMeters = end.tick, end.riddenMeters
 		}
 		timings[index] = timing

@@ -60,12 +60,12 @@ type SimulationFrame struct {
 
 // VehicleFrame contains dynamic vehicle data and its ordered route IDs.
 type VehicleFrame struct {
-	Pod          sim.Pod      `json:"Pod"`
-	Request      *sim.Request `json:"Request"`
-	RouteLaneIDs []string     `json:"RouteLaneIDs"`
-	Parties      int          `json:"Parties,omitempty"`
-	RelocatingTo string       `json:"RelocatingTo"`
-	Rebalancing  bool         `json:"Rebalancing"`
+	Pod          sim.Pod       `json:"Pod"`
+	Riders       []sim.Request `json:"Riders,omitempty"`
+	Stops        []string      `json:"Stops,omitempty"`
+	RouteLaneIDs []string      `json:"RouteLaneIDs"`
+	RelocatingTo string        `json:"RelocatingTo"`
+	Rebalancing  bool          `json:"Rebalancing"`
 }
 
 // FrameState combines one matching topology snapshot and state frame.
@@ -91,8 +91,8 @@ func FrameState(topology TopologySnapshot, frame StateFrame) (State, error) {
 			route[routeIndex] = lane
 		}
 		vehicles[index] = sim.Vehicle{
-			Pod: vehicle.Pod, Request: vehicle.Request, Route: route,
-			Parties: vehicle.Parties, RelocatingTo: vehicle.RelocatingTo, Rebalancing: vehicle.Rebalancing,
+			Pod: vehicle.Pod, Riders: vehicle.Riders, Stops: vehicle.Stops, Route: route,
+			RelocatingTo: vehicle.RelocatingTo, Rebalancing: vehicle.Rebalancing,
 		}
 	}
 	snapshot := frame.Simulation
@@ -124,8 +124,8 @@ func stateFrame(state State) StateFrame {
 			routeIDs[routeIndex] = lane.ID
 		}
 		vehicles[index] = VehicleFrame{
-			Pod: vehicle.Pod, Request: vehicle.Request, RouteLaneIDs: routeIDs,
-			Parties: vehicle.Parties, RelocatingTo: vehicle.RelocatingTo, Rebalancing: vehicle.Rebalancing,
+			Pod: vehicle.Pod, Riders: vehicle.Riders, Stops: vehicle.Stops, RouteLaneIDs: routeIDs,
+			RelocatingTo: vehicle.RelocatingTo, Rebalancing: vehicle.Rebalancing,
 		}
 	}
 	snapshot := state.Simulation

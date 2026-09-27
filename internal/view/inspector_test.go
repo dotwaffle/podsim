@@ -86,21 +86,21 @@ func TestInspectionRows(t *testing.T) {
 		},
 		{
 			name:    "one party at a berth",
-			vehicle: sim.Vehicle{Pod: sim.Pod{Occupied: true, StationPhase: sim.AtBerth, ManeuverStationID: "harbor"}, Request: &sim.Request{PartySize: 1}, Parties: 1},
+			vehicle: sim.Vehicle{Pod: sim.Pod{Occupied: true, StationPhase: sim.AtBerth, ManeuverStationID: "harbor"}, Riders: []sim.Request{{PartySize: 1}}},
 			want:    []inspectionRow{{"Speed", "0 km/h"}, {"On board", "1 passenger"}, {"Station phase", "At berth"}, {"", "Harbor"}},
 		},
 		{
 			name:    "shared ride leaves a station",
-			vehicle: sim.Vehicle{Pod: sim.Pod{Occupied: true, Speed: 5, StationPhase: sim.ExitingStation, ManeuverStationID: "garden"}, Request: &sim.Request{PartySize: 3}, Parties: 3},
+			vehicle: sim.Vehicle{Pod: sim.Pod{Occupied: true, Speed: 5, StationPhase: sim.ExitingStation, ManeuverStationID: "garden"}, Riders: []sim.Request{{PartySize: 1}, {PartySize: 2}}},
 			want:    []inspectionRow{{"Speed", "18 km/h"}, {"On board", "3 passengers"}, {"Station phase", "Exiting station"}, {"", "Garden"}},
 		},
 		{
-			name:    "passenger count comes from the request",
-			vehicle: sim.Vehicle{Pod: sim.Pod{Occupied: true}, Request: &sim.Request{PartySize: 2}},
+			name:    "passenger count leaves out riders that left the pod",
+			vehicle: sim.Vehicle{Pod: sim.Pod{Occupied: true}, Riders: []sim.Request{{PartySize: 2}, {PartySize: 4, Completed: true}}},
 			want:    []inspectionRow{{"Speed", "0 km/h"}, {"On board", "2 passengers"}, {"Station phase", "Main network"}},
 		},
 		{
-			name:    "occupied pod without a request",
+			name:    "occupied pod without riders",
 			vehicle: sim.Vehicle{Pod: sim.Pod{Occupied: true}},
 			want:    []inspectionRow{{"Speed", "0 km/h"}, {"On board", "Empty"}, {"Station phase", "Main network"}},
 		},
@@ -176,7 +176,11 @@ func TestInspectionRowsFitLondonNames(t *testing.T) {
 		}
 	}
 	for count := range sim.MaxSharedRideParties {
-		vehicles = append(vehicles, sim.Vehicle{Pod: sim.Pod{Occupied: true}, Request: &sim.Request{PartySize: count + 1}, Parties: count + 1})
+		riders := make([]sim.Request, count+1)
+		for index := range riders {
+			riders[index].PartySize = 1
+		}
+		vehicles = append(vehicles, sim.Vehicle{Pod: sim.Pod{Occupied: true}, Riders: riders})
 	}
 	inputs := map[string]layoutInput{"laptop 1366x617": {outsideWidth: 1366, outsideHeight: 617, deviceScale: 1}}
 	for _, layout := range controlLayouts {

@@ -136,12 +136,12 @@ func TestLondonAMPeakSampleCompletes(t *testing.T) {
 			t.Logf("pending request: %+v", request)
 		}
 		for _, vehicle := range result.state.Vehicles {
-			if vehicle.Request != nil && !vehicle.Request.Completed {
+			if vehicle.RidersAboard() > 0 {
 				lanes := make([]string, len(vehicle.Route))
 				for index, lane := range vehicle.Route {
 					lanes[index] = lane.ID
 				}
-				t.Logf("active vehicle: pod=%+v request=%+v route=%v", vehicle.Pod, *vehicle.Request, lanes)
+				t.Logf("active vehicle: pod=%+v riders=%+v route=%v", vehicle.Pod, vehicle.Riders, lanes)
 			}
 		}
 		t.Fatalf("London sample did not finish: completed=%d remaining=%d", result.state.Completed, result.state.Submitted-result.state.Completed)

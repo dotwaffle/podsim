@@ -8,7 +8,7 @@ func (s *Simulation) assignTerminalBerth(v *vehicle) bool {
 	if v.destination.ID != "" || len(v.Route) == 0 {
 		return true
 	}
-	passenger := v.Pod.Occupied || v.Pod.Activity == Boarding && v.Request != nil || s.assigned(v.Pod.ID)
+	passenger := v.Pod.Occupied || v.Pod.Activity == Boarding && len(v.Riders) > 0 || s.assigned(v.Pod.ID)
 	if !passenger {
 		return true
 	}
@@ -41,7 +41,7 @@ func (s *Simulation) reevaluateTerminalBerth(v *vehicle) {
 	if !ok {
 		return
 	}
-	passenger := v.Pod.Occupied || v.Pod.Activity == Boarding && v.Request != nil || s.assigned(v.Pod.ID)
+	passenger := v.Pod.Occupied || v.Pod.Activity == Boarding && len(v.Riders) > 0 || s.assigned(v.Pod.ID)
 	if !passenger || s.berthAvailableFor(v, v.destination) {
 		return
 	}

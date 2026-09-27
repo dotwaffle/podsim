@@ -54,8 +54,8 @@ func newReleaseFixture(t *testing.T) releaseFixture {
 		t.Fatal(err)
 	}
 	f := releaseFixture{s: s, remote: s.findVehicle("01"), local: s.findVehicle("02"), parked: s.findVehicle("03")}
-	f.local.Pod.Activity, f.local.Pod.Occupied = Unloading, true
-	f.local.Request = &Request{ID: 1, From: "garden", To: "market", PartySize: 1, PodID: f.local.Pod.ID}
+	f.local.Pod.Activity, f.local.Pod.Occupied, f.local.destinationStation = Unloading, true, "market"
+	f.local.Riders = []Request{{ID: 1, From: "garden", To: "market", PartySize: 1, PodID: f.local.Pod.ID}}
 	f.local.phaseTicks = 180 * TicksPerSecond
 	s.requestID, s.boarded = 1, 1
 	if err := s.RequestTrip("market", "garden"); err != nil {
@@ -111,7 +111,7 @@ func TestReleasedPickupPodTakesNextTrip(t *testing.T) {
 				}})
 			}
 			f.s.Step()
-			if f.local.Pod.Activity != Boarding || f.local.Request.ID != f.pickup {
+			if f.local.Pod.Activity != Boarding || f.local.Riders[0].ID != f.pickup {
 				t.Fatalf("the local pod did not take the pickup request: %+v", f.local.Vehicle)
 			}
 			if !tc.samePass {
@@ -129,7 +129,7 @@ func TestReleasedPickupPodTakesNextTrip(t *testing.T) {
 				t.Fatal("the diverted pod kept its unused berth claim")
 			}
 			stepUntil(t, f.s, "the next trip boards", func() bool {
-				return f.remote.Request != nil && f.remote.Request.ID == trip.request.ID
+				return len(f.remote.Riders) > 0 && f.remote.Riders[0].ID == trip.request.ID
 			})
 			completeRequest(t, f.s, f.remote)
 		})
@@ -166,7 +166,7 @@ func TestPromotedPickupReleasesPod(t *testing.T) {
 		t.Fatalf("trips still wait: %+v", s.Snapshot().Pending)
 	}
 	for id, request := range map[string]int{"02": 1, "03": 2} {
-		if v := s.findVehicle(id); v.Pod.Activity != Boarding || v.Request.ID != request {
+		if v := s.findVehicle(id); v.Pod.Activity != Boarding || v.Riders[0].ID != request {
 			t.Fatalf("pod %s does not board request %d: %+v", id, request, v.Vehicle)
 		}
 	}
@@ -310,7 +310,7 @@ func openReleasedGate(t *testing.T, s *Simulation) {
 	if s.tick >= requested {
 		t.Fatalf("tick %d is not before request tick %d", s.tick, requested)
 	}
-	s.findVehicle("02").Request = &Request{ID: 1, From: "market", To: "garden", PartySize: 1, PodID: "02", Completed: true, RequestedTick: requested}
+	s.findVehicle("02").Riders = []Request{{ID: 1, From: "market", To: "garden", PartySize: 1, PodID: "02", Completed: true, RequestedTick: requested}}
 	s.requestID, s.boarded = 1, 1
 	s.tick = requested + TicksPerSecond
 	s.nextRedistributionTick = s.tick
@@ -398,7 +398,7 @@ func TestReleasedPodYieldsItsOrigin(t *testing.T) {
 	s.requestID = 1
 	s.waiting = []waitingTrip{{request: Request{ID: 1, From: "market", To: "harbor", PartySize: 1, PodID: "01"}}}
 	s.dispatch()
-	if local.Request == nil || local.Request.ID != 1 {
+	if len(local.Riders) == 0 || local.Riders[0].ID != 1 {
 		t.Fatalf("pod 02 did not take request 1: %+v", local.Vehicle)
 	}
 	checkReleasedTo(t, s, remote, "harbor-1")
@@ -441,7 +441,7 @@ func TestReleasedPodFinishesCommittedInlet(t *testing.T) {
 	s.waiting = []waitingTrip{{request: Request{ID: 1, From: "market", To: "garden", PartySize: 1, PodID: "01"}}}
 	s.dispatch()
 	local := s.findVehicle("02")
-	if local.Pod.Activity != Boarding || local.Request.ID != 1 {
+	if local.Pod.Activity != Boarding || local.Riders[0].ID != 1 {
 		t.Fatalf("the local pod did not take request 1: %+v", local.Vehicle)
 	}
 	if !remote.released || remote.destination.ID != "market-1" || !slices.Equal(remote.Route, route) {
@@ -573,7 +573,6 @@ func TestRestoreReleasesUnboundPickupPod(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 			f := newReleaseFixture(t)
-			f.local.Parties = 1
 			if tc.live != nil {
 				tc.live(f)
 			}
@@ -594,7 +593,7 @@ func TestRestoreReleasesUnboundPickupPod(t *testing.T) {
 			// not keep its route to Market, where pod 02 boards.
 			restored.Step()
 			local := restored.findVehicle("02")
-			if local.Pod.Activity != Boarding || local.Request.ID != f.pickup {
+			if local.Pod.Activity != Boarding || local.Riders[0].ID != f.pickup {
 				t.Fatalf("the local pod did not take the pickup request: %+v", local.Vehicle)
 			}
 			checkReleasedTo(t, restored, v, "harbor-1")
@@ -656,7 +655,6 @@ func TestRestoreReleasesDroppedPickupPod(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 			f := newReleaseFixture(t)
-			f.local.Parties = 1
 			state := roundTripState(t, f.s.ExportState())
 			tc.saved(&state)
 			restored, result, err := RestoreState(RestoreStateInput{Network: f.s.network, Fleet: f.s.initial, State: state})
@@ -777,7 +775,7 @@ func TestReleasedPodPassesIdleBerthPod(t *testing.T) {
 	remote, local, blocker := s.findVehicle("01"), s.findVehicle("02"), s.findVehicle("03")
 	for index, v := range []*vehicle{local, blocker} {
 		v.Pod.Activity, v.Pod.Occupied = Unloading, true
-		v.Request = &Request{ID: index + 1, From: "harbor", To: "market", PartySize: 1, PodID: v.Pod.ID}
+		v.Riders = []Request{{ID: index + 1, From: "harbor", To: "market", PartySize: 1, PodID: v.Pod.ID}}
 		v.phaseTicks = 600 * TicksPerSecond
 	}
 	s.requestID, s.boarded = 2, 2

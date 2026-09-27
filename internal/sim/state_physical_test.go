@@ -58,7 +58,7 @@ func (f restoreFixture) state(pods ...SavedPod) SavedState {
 	}
 	for _, pod := range state.Pods {
 		if pod.carriesPassengers() {
-			state.RequestID += max(1, pod.Parties)
+			state.RequestID += pod.ridersAboard()
 		}
 	}
 	state.Boarded = state.RequestID
@@ -110,8 +110,8 @@ func (f restoreFixture) boarding(t *testing.T, id, berthID string) SavedPod {
 	}
 	return SavedPod{
 		ID: id, Activity: activityCode(Boarding), StationID: berth.station, BerthID: berthID,
-		Request: &SavedRequest{ID: 1, From: berth.station, To: "market", PartySize: 1, PodID: id, RequestedTick: 10},
-		Parties: 1, PhaseTicks: boardingTicks / 2, Origin: berthID, DestinationStation: "market",
+		Riders: []SavedRequest{{ID: 1, From: berth.station, To: "market", PartySize: 1, PodID: id, RequestedTick: 10, BoardedTick: 20}},
+		Stops:  []string{"market"}, PhaseTicks: boardingTicks / 2, Origin: berthID, DestinationStation: "market",
 		Route: f.s.laneIndexes(route, len(route)),
 	}
 }
@@ -150,14 +150,17 @@ func (f restoreFixture) traveling(t *testing.T, input travelInput) SavedPod {
 	}
 }
 
-// carrying puts parties of the request with an ID in a traveling pod. The
-// request joins the stations at the ends of the pod route.
+// carrying puts riders in a traveling pod, one for each party. The first
+// rider has the request ID requestID, and the other riders have the next
+// IDs. Each rider joins the stations at the ends of the pod route.
 func (f restoreFixture) carrying(t *testing.T, pod SavedPod, requestID, parties int) SavedPod {
 	t.Helper()
-	pod.Occupied, pod.Parties = true, parties
-	pod.Request = &SavedRequest{
-		ID: requestID, From: f.berth(t, pod.Origin).station, To: pod.DestinationStation, PartySize: parties,
-		PodID: pod.ID, RequestedTick: 10,
+	pod.Occupied, pod.Stops = true, []string{pod.DestinationStation}
+	for index := range parties {
+		pod.Riders = append(pod.Riders, SavedRequest{
+			ID: requestID + index, From: f.berth(t, pod.Origin).station, To: pod.DestinationStation, PartySize: 1,
+			PodID: pod.ID, RequestedTick: 10, BoardedTick: 20,
+		})
 	}
 	return pod
 }
@@ -254,9 +257,9 @@ func TestRestoreDemotesTravelingPods(t *testing.T) {
 				if err != nil {
 					t.Fatal(err)
 				}
-				if v.Parties != 3 || v.Request.PodID != "02" || v.destinationStation != "market" || !reflect.DeepEqual(v.Route, route) ||
-					v.pending != -1 || v.Pod.Occupied {
-					t.Fatalf("pod 02 boards %d parties of %+v to %s on %v", v.Parties, v.Request, v.destinationStation, v.Route)
+				if v.RidersAboard() != 3 || v.Riders[2].PodID != "02" || v.Riders[2].BoardedTick != 20 || v.destinationStation != "market" ||
+					!reflect.DeepEqual(v.Route, route) || v.pending != -1 || v.Pod.Occupied || !slices.Equal(v.Stops, []string{"market"}) {
+					t.Fatalf("pod 02 boards %+v to %s on %v", v.Riders, v.destinationStation, v.Route)
 				}
 				if findVehicle(t, s, "01").Pod.Activity != Traveling || len(result.Requeued) > 0 || s.boarded != state.Boarded {
 					t.Fatalf("pod 01 stopped, or the restore queued %v", result.Requeued)
@@ -275,8 +278,8 @@ func TestRestoreDemotesTravelingPods(t *testing.T) {
 				for index, trip := range s.waiting {
 					ids[index] = trip.request.ID
 				}
-				if !slices.Equal(result.Requeued, []int{3}) || !slices.Equal(ids, []int{2, 3, 6}) || s.waiting[1].parties != 3 ||
-					s.waiting[1].request.PodID != "" || s.boarded != state.Boarded {
+				if !slices.Equal(result.Requeued, []int{3, 4, 5}) || !slices.Equal(ids, []int{2, 3, 4, 5, 6}) || !s.waiting[1].boarded ||
+					s.waiting[1].request.PodID != "" || s.waiting[1].request.BoardedTick != 20 || s.boarded != state.Boarded {
 					t.Fatalf("requeued %v, queue %+v, boarded %d", result.Requeued, s.waiting, s.boarded)
 				}
 				for range 10 * TicksPerSecond {
@@ -284,17 +287,17 @@ func TestRestoreDemotesTravelingPods(t *testing.T) {
 					if gap := s.ordersGap(); gap != 0 {
 						t.Fatalf("tick %d: order gap %d", s.tick, gap)
 					}
-					if v := findVehicle(t, s, "04"); v.Request != nil && v.Request.ID == 3 {
+					if v := findVehicle(t, s, "04"); len(v.Riders) > 0 && v.Riders[0].ID == 3 {
 						// Only the new orders that left the queue add to the
 						// boarded count.
 						boarded := state.Boarded + len(state.Waiting)
 						for _, trip := range s.waiting {
-							if trip.parties == 0 {
+							if !trip.boarded {
 								boarded--
 							}
 						}
-						if v.Parties != 3 || s.boarded != boarded {
-							t.Fatalf("pod 04 took %d parties, boarded %d, want %d", v.Parties, s.boarded, boarded)
+						if v.RidersAboard() != 1 || s.boarded != boarded {
+							t.Fatalf("pod 04 took %d parties, boarded %d, want %d", v.RidersAboard(), s.boarded, boarded)
 						}
 						return
 					}
@@ -431,9 +434,9 @@ func TestRestoreDemotesTravelingPods(t *testing.T) {
 			t.Parallel()
 			state := f.state(tc.pods...)
 			state.Waiting = tc.waiting
-			for _, trip := range tc.waiting {
-				state.RequestID += max(1, trip.Parties)
-			}
+			// Without order 2 in the queue, the riders of pod 02 have IDs
+			// above the count of the orders.
+			state.RequestID = max(state.RequestID+len(tc.waiting), 5)
 			state = roundTripState(t, state)
 			s, result, err := f.restore(state)
 			if err != nil {
@@ -707,8 +710,8 @@ func TestRestoreDropsInvalidTrips(t *testing.T) {
 	f := newRestoreFixture(t, Example())
 	unloading := SavedPod{
 		ID: "05", Activity: activityCode(Unloading), StationID: "market", BerthID: "market-1", Occupied: true,
-		Request: &SavedRequest{ID: 1, From: "harbor", To: "market", PartySize: 1, PodID: "05", RequestedTick: 10},
-		Parties: 1, PhaseTicks: unloadingTicks / 2, Origin: "harbor-1", Destination: "market-1", DestinationStation: "market",
+		Riders:     []SavedRequest{{ID: 1, From: "harbor", To: "market", PartySize: 1, PodID: "05", RequestedTick: 10, BoardedTick: 20}},
+		PhaseTicks: unloadingTicks / 2, Origin: "harbor-1", Destination: "market-1", DestinationStation: "market",
 	}
 	for _, tc := range []struct {
 		name string
@@ -723,8 +726,8 @@ func TestRestoreDropsInvalidTrips(t *testing.T) {
 		requeued bool
 	}{
 		{
-			name: "three parties from a parking station", parties: 3,
-			trip: SavedTrip{Request: SavedRequest{ID: 1, From: "parking", To: "market", PartySize: 3, RequestedTick: 10}, Parties: 3},
+			name: "party from a parking station", parties: 1,
+			trip: SavedTrip{Request: SavedRequest{ID: 1, From: "parking", To: "market", PartySize: 3, RequestedTick: 10}},
 		},
 		{
 			name: "request that a pod carries", parties: 1, pods: []SavedPod{f.boarding(t, "01", "harbor-1")}, requeued: true,
@@ -765,7 +768,7 @@ func TestRestoreDropsInvalidTrips(t *testing.T) {
 				var requeued []int
 				want := []SavedTrip{kept}
 				if tier == RestoreLogical && tc.requeued {
-					trip := SavedTrip{Request: *tc.pods[0].Request, Parties: tc.pods[0].Parties}
+					trip := SavedTrip{Request: tc.pods[0].Riders[0], Boarded: true}
 					trip.Request.PodID = ""
 					requeued, want = []int{trip.Request.ID}, []SavedTrip{trip, kept}
 				}
@@ -803,7 +806,7 @@ func TestRestoreFailsForInvalidState(t *testing.T) {
 	withBoarding := func(edit func(*SavedPod)) func(*SavedState) {
 		return func(state *SavedState) {
 			pod := boarding
-			pod.Request = new(*boarding.Request)
+			pod.Riders = slices.Clone(boarding.Riders)
 			edit(&pod)
 			state.Pods[1] = pod
 			state.RequestID, state.Boarded = 1, 1
@@ -830,6 +833,22 @@ func TestRestoreFailsForInvalidState(t *testing.T) {
 		{
 			name: "unloading without a request", fixture: example, want: "no active request", logical: true,
 			edit: func(state *SavedState) { state.Pods[4].Activity = activityCode(Unloading) },
+		},
+		{
+			// Pod 05 unloads at Market. Rider 2 goes to Garden, but the pod has
+			// no stop at Garden, so neither tier can complete its journey.
+			name: "unloading rider with no stop", fixture: example, want: "pod 05: rider 2 has no stop",
+			edit: func(state *SavedState) {
+				state.Pods[4] = SavedPod{
+					ID: "05", Activity: activityCode(Unloading), StationID: "market", BerthID: "market-1", Occupied: true,
+					Riders: []SavedRequest{
+						{ID: 1, From: "harbor", To: "market", PartySize: 1, PodID: "05", RequestedTick: 10, BoardedTick: 20},
+						{ID: 2, From: "harbor", To: "garden", PartySize: 1, PodID: "05", RequestedTick: 12, BoardedTick: 20},
+					},
+					PhaseTicks: unloadingTicks / 2, Origin: "harbor-1", Destination: "market-1", DestinationStation: "market",
+				}
+				state.RequestID, state.Boarded = 2, 2
+			},
 		},
 		{
 			name: "missing fleet pod", fixture: example, want: "not in the saved state", logical: true,
@@ -862,9 +881,9 @@ func TestRestoreFailsForInvalidState(t *testing.T) {
 			name: "boarding route to another station", fixture: example, want: "does not connect", logical: true,
 			edit: withBoarding(func(pod *SavedPod) { pod.Route = pod.Route[:len(pod.Route)-1] }),
 		},
-		{name: "request with no party", fixture: example, edit: withBoarding(func(pod *SavedPod) { pod.Request.PartySize = 0 }), want: "not valid"},
+		{name: "request with no party", fixture: example, edit: withBoarding(func(pod *SavedPod) { pod.Riders[0].PartySize = 0 }), want: "not valid"},
 		{
-			name: "two pods carry one request", fixture: example, want: "pod 02 carries request 1",
+			name: "two pods carry one request", fixture: example, want: "pod 02: rider 1 is in two pods",
 			edit: func(state *SavedState) {
 				state.Pods[0], state.Pods[1] = example.boarding(t, "01", "harbor-1"), boarding
 				state.RequestID, state.Boarded = 2, 2
@@ -878,7 +897,13 @@ func TestRestoreFailsForInvalidState(t *testing.T) {
 			name: "wait after the saved tick", fixture: example, want: "out of range", logical: true,
 			edit: withBoarding(func(pod *SavedPod) { pod.Waiting, pod.WaitSince = true, restoreTick+1 }),
 		},
-		{name: "more parties than orders", fixture: example, edit: withBoarding(func(pod *SavedPod) { pod.Parties = 2 }), want: "more parties"},
+		{
+			name: "more parties than orders", fixture: example, want: "more parties",
+			edit: func(state *SavedState) {
+				withBoarding(func(*SavedPod) {})(state)
+				state.Completed = 1
+			},
+		},
 		{
 			name: "more completed than submitted", fixture: example, want: "completed or boarded more orders",
 			edit: func(state *SavedState) { state.Completed = state.RequestID + 1 },

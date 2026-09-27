@@ -107,7 +107,7 @@ func (g *Game) podPurpose(vehicle sim.Vehicle, state sim.Snapshot) podPurpose {
 	if vehicle.Pod.Occupied || vehicle.Pod.Activity == sim.Boarding || vehicle.Pod.Activity == sim.Unloading {
 		return purposePassengers
 	}
-	// Pickup assignments live in Pending. Vehicle.Request can retain a completed trip.
+	// Pickup assignments live in Pending. Vehicle.Riders can retain a completed trip.
 	for _, request := range state.Pending {
 		if request.PodID == vehicle.Pod.ID && !request.Completed {
 			return purposePickup

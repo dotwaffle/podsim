@@ -138,13 +138,13 @@ func checkLondonLogicalRestore(t *testing.T, live *sim.Simulation, config projec
 	want, got := live.Snapshot(), restored.Snapshot()
 	requeued, completed := 0, want.Completed
 	for _, v := range want.Vehicles {
-		if v.Request == nil || v.Request.Completed || (v.Pod.Activity != sim.Boarding && !v.Pod.Occupied) {
+		if v.RidersAboard() == 0 || (v.Pod.Activity != sim.Boarding && !v.Pod.Occupied) {
 			continue
 		}
 		if v.Pod.Activity == sim.Unloading {
-			completed += max(1, v.Parties)
+			completed += v.RidersAboard()
 		} else {
-			requeued++
+			requeued += v.RidersAboard()
 		}
 	}
 	if result.Tier != sim.RestoreLogical || result.PhysicalError != nil || len(result.Dropped) > 0 ||
@@ -157,7 +157,7 @@ func checkLondonLogicalRestore(t *testing.T, live *sim.Simulation, config projec
 	}
 	for index, v := range got.Vehicles {
 		placement := config.Fleet[index]
-		if v.Pod.ID != placement.ID || v.Pod.Activity != sim.Idle || v.Pod.BerthID != placement.BerthID || v.Request != nil {
+		if v.Pod.ID != placement.ID || v.Pod.Activity != sim.Idle || v.Pod.BerthID != placement.BerthID || len(v.Riders) > 0 {
 			t.Fatalf("tick %d: pod %+v, want pod %s idle at berth %s", state.Tick, v.Pod, placement.ID, placement.BerthID)
 		}
 	}

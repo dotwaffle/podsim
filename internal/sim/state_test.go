@@ -18,7 +18,7 @@ var update = flag.Bool("update", false, "write the golden files in testdata agai
 const (
 	// goldenStatePath holds the saved state of the traffic demo at
 	// goldenStateTick.
-	goldenStatePath = "testdata/saved_state_v1.json"
+	goldenStatePath = "testdata/saved_state_v2.json"
 	goldenStateTick = 1500
 	// demoTickLimit is more ticks than the traffic demo needs.
 	demoTickLimit = 30000

@@ -38,7 +38,7 @@ var cloneRules = map[reflect.Type]map[string]cloneRule{
 		"Vehicle": cloneCopy, "blocks": cloneShare, "blockStarts": cloneShare, "routeReleases": cloneCopy,
 		"routeLengths": cloneShare,
 	},
-	reflect.TypeFor[Vehicle]():     {"Request": cloneCopy, "Route": cloneShare},
+	reflect.TypeFor[Vehicle]():     {"Riders": cloneCopy, "Stops": cloneCopy, "Route": cloneShare},
 	reflect.TypeFor[waitingTrip](): {"route": cloneShare},
 	reflect.TypeFor[routeResult](): {"lanes": cloneShare, "err": cloneShare},
 }
@@ -178,13 +178,14 @@ var persistRules = map[reflect.Type]map[string]persistRule{
 	reflect.TypeFor[vehicle](): {
 		"Vehicle": persistSave, "phaseTicks": persistSave, "blocks": persistDerive, "blockStarts": persistDerive,
 		"routeReleases": persistDerive, "nextRelease": persistReset, "blockIndex": persistDerive, "reservedThrough": persistDerive,
-		"originReleased": persistDerive, "distance": persistSave, "pending": persistDerive, "waitSince": persistSave,
+		"originReleased": persistDerive, "distance": persistSave, "pending": persistDerive,
+		"waitSince":      persistSave,
 		"rebalanceAfter": persistSave, "origin": persistSave, "destination": persistSave,
 		"destinationStation": persistSave, "released": persistSave, "terminal": persistReset,
 		"routeLengths": persistDerive,
 	},
 	reflect.TypeFor[Vehicle](): {
-		"Pod": persistSave, "Request": persistSave, "Route": persistSave, "Parties": persistSave,
+		"Pod": persistSave, "Riders": persistSave, "Stops": persistSave, "Route": persistSave,
 		"RelocatingTo": persistSave, "Rebalancing": persistSave,
 	},
 	reflect.TypeFor[Pod](): {
@@ -195,11 +196,11 @@ var persistRules = map[reflect.Type]map[string]persistRule{
 	},
 	reflect.TypeFor[Request](): {
 		"ID": persistSave, "From": persistSave, "To": persistSave, "PartySize": persistSave, "PodID": persistSave,
-		"Completed": persistSave, "RequestedTick": persistSave, "DispatchReason": persistSave,
+		"Completed": persistSave, "RequestedTick": persistSave, "BoardedTick": persistSave, "DispatchReason": persistSave,
 	},
 	reflect.TypeFor[waitingTrip](): {
 		"request": persistSave, "route": persistSave, "destination": persistReset, "deferUntil": persistSave,
-		"deferCheck": persistSave, "deferPodID": persistSave, "parties": persistSave,
+		"deferCheck": persistSave, "deferPodID": persistSave, "boarded": persistSave,
 	},
 	reflect.TypeFor[demoRun](): {"secondSent": persistSave, "followupsSent": persistSave},
 }
@@ -525,20 +526,22 @@ func cloneFixtures() []cloneFixture {
 		{
 			name: "requeued shared ride", placements: fleet,
 			setup: func(s *Simulation) error {
-				// A restore queues a shared ride of three orders again. The
-				// three orders boarded before the restore.
+				// A restore queues the three riders of a shared ride again.
+				// The three orders boarded before the restore.
 				s.requestID, s.boarded, s.sharedParties = 3, 3, 2
-				s.waiting = append(s.waiting, waitingTrip{
-					request: Request{ID: 1, From: "market", To: "garden", PartySize: 3}, parties: 3,
-				})
+				for id := 1; id <= 3; id++ {
+					s.waiting = append(s.waiting, waitingTrip{
+						request: Request{ID: id, From: "market", To: "garden", PartySize: 1}, boarded: true,
+					})
+				}
 				return s.SetSharedRidePartyLimit(4)
 			},
 			warmup: cloneInputs{seconds: 20},
 			// The new order arrives while the pickup pod boards the requeued
 			// parties.
-			continuation: cloneInputs{seconds: 200, trips: []cloneTrip{{20, "market", "garden"}}},
+			continuation: cloneInputs{seconds: 400, trips: []cloneTrip{{20, "market", "garden"}}},
 			exercised: func(clonePoint, end *Simulation) error {
-				if !slices.ContainsFunc(clonePoint.waiting, func(trip waitingTrip) bool { return trip.parties == 3 }) {
+				if !slices.ContainsFunc(clonePoint.waiting, func(trip waitingTrip) bool { return trip.boarded }) {
 					return errors.New("the clone point has no requeued trip")
 				}
 				// Only the new order boards for the first time.

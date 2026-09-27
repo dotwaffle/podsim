@@ -30,11 +30,11 @@ var update = flag.Bool("update", false, "write the golden files in testdata agai
 
 const (
 	// goldenStatePath holds the JSON form of newTestStateFile, indented.
-	goldenStatePath = "testdata/state_v1.json"
+	goldenStatePath = "testdata/state_v2.json"
 	// stateMembersPath lists the members of the state file.
-	stateMembersPath = "testdata/state_v1_members.txt"
+	stateMembersPath = "testdata/state_v2_members.txt"
 	// stateMembersHeader starts the member list.
-	stateMembersHeader = `# Members of the session state file, version 1.
+	stateMembersHeader = `# Members of the session state file, version 2.
 # A change here needs a version bump: change stateVersion in state_file.go.
 # Until the first release, an added optional member with a safe zero value
 # keeps the version.
@@ -277,7 +277,7 @@ func TestDecodeStateFileRejects(t *testing.T) {
 		{"bad checksum", badChecksum, reasonInvalidState, gzip.ErrChecksum},
 		{"not gzip", raw, reasonInvalidState, gzip.ErrHeader},
 		{"empty", nil, reasonInvalidState, io.EOF},
-		{"version 2", edit(func(file *stateFile) { file.Version = 2 }), reasonUnsupportedVersion, nil},
+		{"version 1", edit(func(file *stateFile) { file.Version = 1 }), reasonUnsupportedVersion, nil},
 		{"format x", edit(func(file *stateFile) { file.Format = "x" }), reasonUnsupportedVersion, nil},
 		{"unknown member at the top", insert(`{`, `"extra":1,`), reasonInvalidState, json.ErrUnknownName},
 		{"unknown member in the project", insert(`"project":{`, `"extra":1,`), reasonInvalidState, json.ErrUnknownName},
@@ -662,18 +662,22 @@ func TestStateFileWorstCaseSize(t *testing.T) {
 	}
 	request := sim.SavedRequest{
 		ID: widest, From: id("f", 0), To: id("t", 0), PartySize: widest, PodID: id("p", 0),
-		Completed: true, RequestedTick: widest, DispatchReason: text,
+		Completed: true, RequestedTick: widest, BoardedTick: widest, DispatchReason: text,
+	}
+	riders, stops := make([]sim.SavedRequest, sim.MaxSharedRideParties), make([]string, sim.MaxSharedRideParties)
+	for index := range riders {
+		riders[index], stops[index] = request, id("t", index)
 	}
 	pod := sim.SavedPod{
 		ID: id("p", 0), Activity: "departing", StationID: id("s", 0), BerthID: id("b", 0),
-		Occupied: true, Request: &request, Parties: widest, RelocatingTo: id("r", 0),
+		Occupied: true, Riders: riders, Stops: stops, RelocatingTo: id("r", 0),
 		Rebalancing: true, RebalanceAfter: widest, PhaseTicks: widest, Origin: id("o", 0),
 		Destination: id("d", 0), DestinationStation: id("e", 0), ClaimsDestination: true, Released: true,
 		Route: route(lanes + nodes), RouteIndex: widest, LaneID: id("l", 0),
 		LaneDistance: -math.MaxFloat64, Distance: -math.MaxFloat64, Waiting: true, WaitSince: widest,
 	}
 	trip := sim.SavedTrip{
-		Request: request, Route: route(nodes), Parties: widest,
+		Request: request, Route: route(nodes), Boarded: true,
 		DeferUntil: widest, DeferCheck: widest, DeferPodID: id("p", 0),
 	}
 	// A client ID of control characters has the longest JSON form, 6 bytes
@@ -811,7 +815,7 @@ func TestStateFileMembers(t *testing.T) {
 }
 
 // TestReleasedMemberBreaksOlderReader checks the rule in the operations
-// guide for the pod member released, which keeps version 1. A reader from
+// guide for the pod member released, which kept the version. A reader from
 // before the member restores a file with a zero value. It rejects a file
 // with a nonzero value as an unknown member, and so gets invalid_state.
 func TestReleasedMemberBreaksOlderReader(t *testing.T) {

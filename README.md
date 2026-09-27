@@ -125,7 +125,7 @@ At startup, the server restores the saved session with one of these tiers:
 | Tier | Behavior |
 | --- | --- |
 | `physical` | The pods keep their positions and start again from rest. A traveling pod that cannot keep its position goes to a free berth. |
-| `logical` | The pods start again at their initial berths. Parties that were unloading count as completed. Other parties in pods go back to the order queue. |
+| `logical` | The pods start again at their initial berths. Parties that were unloading count as completed. Each other party in a pod goes back to the order queue as one order. |
 | `empty` | The server does not use the saved state and starts a new session. Except after a read failure, it moves the file aside. |
 
 State frames give the result in `restore`.
@@ -262,6 +262,7 @@ See [the London qualification network](docs/london.md) for these rules.
   When there are more orders, use the **‹** and **›** arrows to go to the previous or next page.
   The text between the arrows gives the page number and the number of pages.
   The order status names a pod by its fleet number, which is the label of its pod button.
+  Each party aboard a pod is one active order, also in a shared ride.
 - Boarding takes three simulated seconds.
   Unloading takes two.
 
@@ -801,8 +802,6 @@ A column with no values is 0.
 The journey set does not have the parties that are pending or aboard at the end of the arm.
 Thus, for an arm that does not drain, the journey columns do not include the longest journeys.
 
-A shared ride merges the parties of a pod into the request of the first party.
-The snapshot keeps only the ID and request time of that party, so it cannot give the wait or journey of the other parties.
 The compare command reads a separate record for each party from the simulation.
 Each party that joins a shared ride has its own wait and journey.
 Its boarding time is the time of the join, and its journey ends when the pod completes unloading.

@@ -24,7 +24,7 @@ const (
 	// version. Each other change to the members of the file needs a new
 	// version.
 	stateFormat  = "podsim-session"
-	stateVersion = 1
+	stateVersion = 2
 	// maxEpochBytes is the largest saved epoch.
 	maxEpochBytes = 100
 	// buildIDLength is the number of lowercase hex digits in a build ID.
@@ -107,7 +107,10 @@ var stateJSONLimits = jsonLimits{
 		// A saved pod route has at most as many lanes as the network has
 		// lanes and nodes.
 		"/simulation/pods/*/route": project.MaxLanes + project.MaxNodes,
-		"/simulation/waiting":      maxSavedTrips,
+		// A pod has at most one rider and one stop for each party.
+		"/simulation/pods/*/riders": sim.MaxSharedRideParties,
+		"/simulation/pods/*/stops":  sim.MaxSharedRideParties,
+		"/simulation/waiting":       maxSavedTrips,
 		// A saved trip route has at most as many lanes as the network has
 		// nodes.
 		"/simulation/waiting/*/route": project.MaxNodes,
@@ -116,12 +119,12 @@ var stateJSONLimits = jsonLimits{
 	},
 }
 
-// stateFile is version 1 of the saved session state. The file on disk is
+// stateFile is version 2 of the saved session state. The file on disk is
 // the JSON form of stateFile, compressed with gzip. Each change to a member,
 // also in the simulation and in the project, needs a new version. Until the
 // first release, an added optional member with a safe zero value is an
 // exception. It keeps the version.
-// testdata/state_v1_members.txt lists the members.
+// testdata/state_v2_members.txt lists the members.
 //
 // A saver can copy the values into a stateFile while it holds the session
 // lock, and encode the stateFile after it releases the lock. ExportState

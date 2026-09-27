@@ -11,8 +11,8 @@ import (
 // logicalState returns a saved state of the traffic demo that the physical
 // tier accepts:
 //   - Pod 01 boards request 8 at Garden.
-//   - Pod 02 travels with a shared ride of three parties, request 4.
-//   - The demo pod 03 unloads the two parties of request 2 at Market.
+//   - Pod 02 travels with a shared ride of requests 4, 5 and 6.
+//   - The demo pod 03 unloads the parties of requests 2 and 3 at Market.
 //   - The demo pod 04 travels empty to a pickup at Harbor with its completed
 //     request 1.
 //   - The queue holds request 9, which pod 04 picks up, and request 10 from
@@ -22,15 +22,18 @@ import (
 func logicalState(t *testing.T, f restoreFixture) SavedState {
 	t.Helper()
 	boarding := f.boarding(t, "01", "garden-1")
-	boarding.Request.ID, boarding.Request.RequestedTick = 8, 400
+	boarding.Riders[0].ID, boarding.Riders[0].RequestedTick = 8, 400
 	shared := f.carrying(t, f.traveling(t, travelInput{id: "02", from: "garden-1", to: "market-1", lane: "garden-merge", distance: 60}), 4, 3)
 	unloading := SavedPod{
 		ID: "03", Activity: activityCode(Unloading), StationID: "market", BerthID: "market-1", Occupied: true,
-		Request: &SavedRequest{ID: 2, From: "harbor", To: "market", PartySize: 2, PodID: "03", RequestedTick: 100},
-		Parties: 2, PhaseTicks: unloadingTicks / 2, Origin: "harbor-1", Destination: "market-1", DestinationStation: "market",
+		Riders: []SavedRequest{
+			{ID: 2, From: "harbor", To: "market", PartySize: 1, PodID: "03", RequestedTick: 100, BoardedTick: 150},
+			{ID: 3, From: "harbor", To: "market", PartySize: 1, PodID: "03", RequestedTick: 110, BoardedTick: 150},
+		},
+		PhaseTicks: unloadingTicks / 2, Origin: "harbor-1", Destination: "market-1", DestinationStation: "market",
 	}
 	pickup := relocating(f.traveling(t, travelInput{id: "04", from: "garden-1", to: "harbor-1", lane: "return-to-parking", distance: 100}))
-	pickup.Request = &SavedRequest{ID: 1, From: "harbor", To: "garden", PartySize: 1, PodID: "04", Completed: true, RequestedTick: 10}
+	pickup.Riders = []SavedRequest{{ID: 1, From: "harbor", To: "garden", PartySize: 1, PodID: "04", Completed: true, RequestedTick: 10, BoardedTick: 30}}
 	route, err := f.s.stationApproachRoute("harbor-berth", "market")
 	if err != nil {
 		t.Fatal(err)
@@ -83,29 +86,33 @@ func TestRestoreLogical(t *testing.T) {
 	}{
 		{
 			name: "logical only", edit: func(*SavedState) {}, logicalOnly: true,
-			completed: 2, requeued: []int{4, 8}, dropped: []int{10}, droppedParties: 1,
+			completed: 2, requeued: []int{4, 5, 6, 8}, dropped: []int{10}, droppedParties: 1,
 		},
 		{
 			name: "two pods at one berth", physical: "pods 01 and 03 are at berth garden-1",
 			edit:      func(state *SavedState) { state.Pods[2].StationID, state.Pods[2].BerthID = "garden", "garden-1" },
-			completed: 2, requeued: []int{4, 8}, dropped: []int{10}, droppedParties: 1,
+			completed: 2, requeued: []int{4, 5, 6, 8}, dropped: []int{10}, droppedParties: 1,
 		},
 		{
-			// The requeued shared ride is not valid. The restore drops it with
-			// its three parties.
-			name: "shared ride from a parking station", physical: "does not join two passenger stations",
-			edit:      func(state *SavedState) { state.Pods[1].Request.From = "parking" },
-			completed: 2, requeued: []int{8}, dropped: []int{4, 10}, droppedParties: 4,
+			// The riders of the shared ride are not valid. The restore drops
+			// each of them.
+			name: "shared ride from a parking station", physical: "not at a passenger station",
+			edit: func(state *SavedState) {
+				for index := range state.Pods[1].Riders {
+					state.Pods[1].Riders[index].From = "parking"
+				}
+			},
+			completed: 2, requeued: []int{8}, dropped: []int{4, 5, 6, 10}, droppedParties: 4,
 		},
 		{
 			name: "unloading pod without a request", physical: "no active request",
-			edit:     func(state *SavedState) { state.Pods[2].Request = nil },
-			requeued: []int{4, 8}, dropped: []int{10}, droppedParties: 1,
+			edit:     func(state *SavedState) { state.Pods[2].Riders = nil },
+			requeued: []int{4, 5, 6, 8}, dropped: []int{10}, droppedParties: 1,
 		},
 		{
 			name: "demo stopped with an error", logicalOnly: true,
 			edit:      func(state *SavedState) { state.Demo, state.DemoError = nil, "Traffic demo stopped: test" },
-			completed: 2, requeued: []int{4, 8}, dropped: []int{10}, droppedParties: 1,
+			completed: 2, requeued: []int{4, 5, 6, 8}, dropped: []int{10}, droppedParties: 1,
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
@@ -165,21 +172,24 @@ func TestRestoreLogical(t *testing.T) {
 
 // checkLogicalQueue checks the queue after a logical restore. The queue holds
 // the requeued requests and the saved request 9 in ID order. No trip keeps a
-// pod binding. A requeued request keeps the party count of its pod, and
-// request 9 keeps its deferral deadline.
+// pod binding. A requeued rider keeps its boarding, and request 9 keeps its
+// deferral deadline.
 func checkLogicalQueue(t *testing.T, state SavedState, s *Simulation, requeued []int) {
 	t.Helper()
-	parties := make(map[int]int)
+	boarded := make(map[int]int64)
 	for _, pod := range state.Pods {
 		if pod.carriesPassengers() {
-			parties[pod.Request.ID] = max(1, pod.Parties)
+			for _, rider := range pod.Riders {
+				boarded[rider.ID] = rider.BoardedTick
+			}
 		}
 	}
 	ids := make([]int, len(s.waiting))
 	for index, trip := range s.waiting {
 		ids[index] = trip.request.ID
+		tick, requeuedRider := boarded[trip.request.ID]
 		if trip.request.PodID != "" || trip.route != nil || trip.deferCheck != 0 || trip.deferPodID != "" ||
-			trip.parties != parties[trip.request.ID] {
+			trip.boarded != requeuedRider || trip.request.BoardedTick != tick {
 			t.Fatalf("queued trip %+v", trip)
 		}
 	}
@@ -221,7 +231,7 @@ func TestRestoreLogicalKeepsSharedRides(t *testing.T) {
 				}
 			}
 			for !slices.ContainsFunc(live.vehicles, func(v vehicle) bool {
-				return v.carriesPassengers() && v.Pod.Activity == tc.activity && v.Parties == tc.parties
+				return v.carriesPassengers() && v.Pod.Activity == tc.activity && v.RidersAboard() == tc.parties
 			}) {
 				if live.tick >= 5*60*TicksPerSecond {
 					t.Fatalf("no pod is %q with %d parties", tc.activity, tc.parties)
@@ -233,11 +243,8 @@ func TestRestoreLogicalKeepsSharedRides(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			queued := 0
-			for _, trip := range s.waiting {
-				queued += trip.partyCount()
-			}
-			if len(result.Requeued) != 1 || len(result.Dropped) > 0 || queued+s.completed != 6 {
+			queued := len(s.waiting)
+			if len(result.Requeued) != tc.parties || len(result.Dropped) > 0 || queued+s.completed != 6 {
 				t.Fatalf("result %+v, %d parties queued, %d completed", result, queued, s.completed)
 			}
 			advance(s, 30*60*TicksPerSecond)

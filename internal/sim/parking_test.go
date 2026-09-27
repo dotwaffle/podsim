@@ -20,7 +20,7 @@ func TestAutomaticBerthClearing(t *testing.T) {
 			if occupied {
 				blocker.Pod.Activity, blocker.Pod.Occupied = Unloading, true
 				blocker.phaseTicks = 90 * TicksPerSecond
-				blocker.Request = &Request{ID: 1, From: "garden", To: "market", PartySize: 1}
+				blocker.Riders = []Request{{ID: 1, From: "garden", To: "market", PartySize: 1}}
 				s.requestID = 1
 			}
 			if err := s.RequestJourney("01", "market"); err != nil {
@@ -36,7 +36,7 @@ func TestAutomaticBerthClearing(t *testing.T) {
 					if blocker.Pod.Occupied {
 						t.Fatal("relocation carried a passenger")
 					}
-					if occupied && !blocker.Request.Completed {
+					if occupied && !blocker.Riders[0].Completed {
 						t.Fatal("relocation interrupted unloading")
 					}
 					if s.owners[resource{kind: berthResource, id: blocker.destination.ID}] != "02" {

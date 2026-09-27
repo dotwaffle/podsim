@@ -15,9 +15,7 @@ func (s *Simulation) Clone() *Simulation {
 	c.vehicles = slices.Clone(s.vehicles)
 	for i := range c.vehicles {
 		v := &c.vehicles[i]
-		if v.Request != nil {
-			v.Request = new(*v.Request)
-		}
+		v.Riders, v.Stops = slices.Clone(v.Riders), slices.Clone(v.Stops)
 		v.routeReleases = maps.Clone(v.routeReleases)
 	}
 	c.owners = maps.Clone(s.owners)

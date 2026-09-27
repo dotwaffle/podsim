@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
-	"slices"
 	"testing"
 )
 
@@ -59,7 +58,7 @@ func TestStationRequestDispatch(t *testing.T) {
 			if tc.name != "local" && !pickupSeen {
 				t.Fatal("missing empty pickup")
 			}
-			if s.completed != 1 || s.requestID != expectedID || pod.Request == nil || pod.Request.ID != expectedID || !pod.Request.Completed || pod.Pod.StationID != tc.destination || len(s.waiting) != 0 {
+			if s.completed != 1 || s.requestID != expectedID || len(pod.Riders) == 0 || pod.Riders[0].ID != expectedID || !pod.Riders[0].Completed || pod.Pod.StationID != tc.destination || len(s.waiting) != 0 {
 				t.Fatalf("pickup did not preserve original passenger journey: %+v", s.Snapshot())
 			}
 		})
@@ -101,7 +100,7 @@ func TestRemotePickupYieldsToNewLocalPod(t *testing.T) {
 	}
 	local := s.findVehicle("02")
 	local.Pod.Activity, local.Pod.Occupied = Unloading, true
-	local.Request = &Request{ID: 99, From: "garden", To: "market", PodID: local.Pod.ID}
+	local.Riders = []Request{{ID: 99, From: "garden", To: "market", PodID: local.Pod.ID}}
 	local.phaseTicks = 180 * TicksPerSecond
 	if err := s.RequestTrip("market", "garden"); err != nil {
 		t.Fatal(err)
@@ -114,7 +113,7 @@ func TestRemotePickupYieldsToNewLocalPod(t *testing.T) {
 	local.phaseTicks = 1
 	s.Step()
 
-	if local.Pod.Activity != Boarding || local.Request == nil || local.Request.ID != 1 || len(s.waiting) != 0 {
+	if local.Pod.Activity != Boarding || len(local.Riders) == 0 || local.Riders[0].ID != 1 || len(s.waiting) != 0 {
 		t.Fatalf("new local pod did not replace remote pickup: %+v", s.Snapshot())
 	}
 	if s.assigned(remote.Pod.ID) {
@@ -159,7 +158,7 @@ func TestQueuedRequestsReusePod(t *testing.T) {
 			break
 		}
 	}
-	if s.completed != 2 || len(s.waiting) != 0 || s.requestID != 2 || s.vehicles[0].Request.ID != 2 {
+	if s.completed != 2 || len(s.waiting) != 0 || s.requestID != 2 || s.vehicles[0].Riders[0].ID != 2 {
 		t.Fatalf("queued request did not reuse pod: %+v", s.Snapshot())
 	}
 	s.Reset()
@@ -204,7 +203,7 @@ func TestLocalDemandPrecedesParking(t *testing.T) {
 	local := s.findVehicle("02")
 	local.Pod.Activity, local.Pod.Occupied = Unloading, true
 	local.phaseTicks = 180 * TicksPerSecond
-	local.Request = &Request{ID: 1, From: "garden", To: "market", PartySize: 1, PodID: "02"}
+	local.Riders = []Request{{ID: 1, From: "garden", To: "market", PartySize: 1, PodID: "02"}}
 	s.requestID = 1
 	if err := s.RequestJourney("01", "market"); err != nil {
 		t.Fatal(err)
@@ -220,7 +219,7 @@ func TestLocalDemandPrecedesParking(t *testing.T) {
 	}
 	local.phaseTicks = 1
 	s.Step()
-	if local.Pod.Activity != Boarding || local.RelocatingTo != "" || local.Request.ID != 3 || len(s.waiting) != 0 {
+	if local.Pod.Activity != Boarding || local.RelocatingTo != "" || local.Riders[0].ID != 3 || len(s.waiting) != 0 {
 		t.Fatalf("local request lost pod to parking: %+v", s.Snapshot())
 	}
 }
@@ -317,7 +316,7 @@ func TestPassengerAndPickupShareBerthAdmission(t *testing.T) {
 	local := s.findVehicle("01")
 	local.Pod.Activity, local.Pod.Occupied = Unloading, true
 	local.phaseTicks = 120 * TicksPerSecond
-	local.Request = &Request{ID: 1, From: "garden", To: "harbor", PartySize: 1, PodID: "01"}
+	local.Riders = []Request{{ID: 1, From: "garden", To: "harbor", PartySize: 1, PodID: "01"}}
 	s.requestID = 1
 	if err := s.RequestTrip("market", "garden"); err != nil {
 		t.Fatal(err)
@@ -402,16 +401,16 @@ func TestPickupArrivalOrderDoesNotReorderPassengers(t *testing.T) {
 		s.Step()
 		checkTraffic(t, s.Snapshot())
 		for _, v := range s.vehicles {
-			if v.Pod.Activity != Boarding || v.Request == nil {
+			if v.Pod.Activity != Boarding || len(v.Riders) == 0 {
 				continue
 			}
-			if v.Request.ID == 2 && !boarded[1] {
+			if v.Riders[0].ID == 2 && !boarded[1] {
 				t.Fatal("later passenger boarded first")
 			}
-			if v.Request.ID == 1 && v.Pod.ID != "02" {
+			if v.Riders[0].ID == 1 && v.Pod.ID != "02" {
 				t.Fatal("oldest passenger did not take first arriving pod")
 			}
-			boarded[v.Request.ID] = true
+			boarded[v.Riders[0].ID] = true
 		}
 		if s.completed == 2 {
 			break
@@ -441,11 +440,11 @@ func completeRequest(t *testing.T, s *Simulation, pod *vehicle) {
 	t.Helper()
 	for range 300 * TicksPerSecond {
 		s.Step()
-		if pod.Request.Completed {
+		if pod.Riders[0].Completed {
 			return
 		}
 	}
-	t.Fatalf("pod %s did not complete request %d: %+v", pod.Pod.ID, pod.Request.ID, s.Snapshot())
+	t.Fatalf("pod %s did not complete request %d: %+v", pod.Pod.ID, pod.Riders[0].ID, s.Snapshot())
 }
 
 func TestQueuedTripBoardsWithItsParties(t *testing.T) {
@@ -454,17 +453,15 @@ func TestQueuedTripBoardsWithItsParties(t *testing.T) {
 	// saved holds the counters of an earlier run, which a restore keeps.
 	saved := boardingCounters{boarded: 5, sharedParties: 2, totalWaitTicks: 40 * TicksPerSecond, maxWaitTicks: 20 * TicksPerSecond}
 	for _, tc := range []struct {
-		name        string
-		parties     int
-		wantParties int
-		want        boardingCounters
+		name    string
+		boarded bool
+		want    boardingCounters
 	}{
 		{
-			name: "new order", parties: 0, wantParties: 1,
+			name: "new order",
 			want: boardingCounters{boarded: 6, sharedParties: 2, totalWaitTicks: 70 * TicksPerSecond, maxWaitTicks: wait},
 		},
-		{name: "requeued party", parties: 1, wantParties: 1, want: saved},
-		{name: "requeued shared ride", parties: 3, wantParties: 3, want: saved},
+		{name: "requeued rider", boarded: true, want: saved},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
@@ -474,8 +471,7 @@ func TestQueuedTripBoardsWithItsParties(t *testing.T) {
 				saved.boarded, saved.sharedParties, saved.totalWaitTicks, saved.maxWaitTicks
 			s.requestID = 1
 			s.waiting = append(s.waiting, waitingTrip{
-				request: Request{ID: 1, From: "harbor", To: "market", PartySize: tc.wantParties},
-				parties: tc.parties,
+				request: Request{ID: 1, From: "harbor", To: "market", PartySize: 1, BoardedTick: 7}, boarded: tc.boarded,
 			})
 			// The wait statistics must not change when the trip boards.
 			queued := s.waitStats()
@@ -484,17 +480,21 @@ func TestQueuedTripBoardsWithItsParties(t *testing.T) {
 				t.Fatalf("wait statistics are %+v while queued and %+v after boarding", queued, boarded)
 			}
 			pod := s.findVehicle("01")
-			if len(s.waiting) != 0 || pod.Pod.Activity != Boarding || pod.Parties != tc.wantParties ||
-				pod.Request == nil || pod.Request.PartySize != tc.wantParties {
-				t.Fatalf("pod %s did not board %d parties: %+v", pod.Pod.ID, tc.wantParties, s.Snapshot())
+			wantBoarded := s.tick
+			if tc.boarded {
+				wantBoarded = 7
+			}
+			if len(s.waiting) != 0 || pod.Pod.Activity != Boarding || len(pod.Riders) != 1 ||
+				pod.Riders[0].PartySize != 1 || pod.Riders[0].BoardedTick != wantBoarded || pod.Riders[0].PodID != "01" {
+				t.Fatalf("pod %s did not board the rider: %+v", pod.Pod.ID, s.Snapshot())
 			}
 			if got := boardingCountersOf(s); got != tc.want {
 				t.Fatalf("boarding counters are %+v, want %+v", got, tc.want)
 			}
 			completed := s.completed
 			completeRequest(t, s, pod)
-			if got := s.completed - completed; got != tc.wantParties || pod.Parties != 0 {
-				t.Fatalf("unloading completed %d parties and kept %d, want %d and 0", got, pod.Parties, tc.wantParties)
+			if got := s.completed - completed; got != 1 || pod.RidersAboard() != 0 {
+				t.Fatalf("unloading completed %d parties and kept %d, want 1 and 0", got, pod.RidersAboard())
 			}
 		})
 	}
@@ -505,18 +505,19 @@ func TestSharedRideCountsQueuedParties(t *testing.T) {
 	const wait = TicksPerSecond
 	for _, tc := range []struct {
 		name        string
-		parties     int
-		joined      bool
-		wantParties int
+		trips       int
+		boarded     bool
+		wantRiders  int
+		wantWaiting int
 		want        boardingCounters
 	}{
 		{
-			name: "new order", parties: 0, joined: true, wantParties: 2,
+			name: "new order", trips: 1, wantRiders: 2,
 			want: boardingCounters{boarded: 2, sharedParties: 1, totalWaitTicks: wait, maxWaitTicks: wait},
 		},
-		{name: "requeued party", parties: 1, joined: true, wantParties: 2, want: boardingCounters{boarded: 1}},
-		{name: "requeued shared ride that fits", parties: 3, joined: true, wantParties: 4, want: boardingCounters{boarded: 1}},
-		{name: "requeued shared ride over the limit", parties: 4, wantParties: 1, want: boardingCounters{boarded: 1}},
+		{name: "requeued rider", trips: 1, boarded: true, wantRiders: 2, want: boardingCounters{boarded: 1}},
+		{name: "requeued riders that fit", trips: 3, boarded: true, wantRiders: 4, want: boardingCounters{boarded: 1}},
+		{name: "requeued riders over the limit", trips: 4, boarded: true, wantRiders: 4, wantWaiting: 1, want: boardingCounters{boarded: 1}},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
@@ -529,28 +530,30 @@ func TestSharedRideCountsQueuedParties(t *testing.T) {
 			}
 			pod := s.findVehicle("01")
 			advance(s, wait)
-			if pod.Pod.Activity != Boarding || pod.Parties != 1 {
+			if pod.Pod.Activity != Boarding || len(pod.Riders) != 1 {
 				t.Fatalf("pod %s is not boarding one party: %+v", pod.Pod.ID, s.Snapshot())
 			}
-			s.requestID = 2
-			s.waiting = append(s.waiting, waitingTrip{
-				request: Request{ID: 2, From: "harbor", To: "market", PartySize: max(1, tc.parties)},
-				parties: tc.parties,
-			})
-			s.dispatch()
-			joined := !slices.ContainsFunc(s.waiting, func(trip waitingTrip) bool { return trip.request.ID == 2 })
-			if joined != tc.joined {
-				t.Fatalf("the trip joined the shared ride: %t, want %t", joined, tc.joined)
+			for range tc.trips {
+				s.requestID++
+				s.waiting = append(s.waiting, waitingTrip{
+					request: Request{ID: s.requestID, From: "harbor", To: "market", PartySize: 1}, boarded: tc.boarded,
+				})
 			}
-			if pod.Parties != tc.wantParties || pod.Request.PartySize != tc.wantParties {
-				t.Fatalf("pod %s has %d parties of size %d, want %d", pod.Pod.ID, pod.Parties, pod.Request.PartySize, tc.wantParties)
+			s.dispatch()
+			if len(pod.Riders) != tc.wantRiders || len(s.waiting) != tc.wantWaiting {
+				t.Fatalf("pod %s has %d riders and %d trips wait, want %d and %d", pod.Pod.ID, len(pod.Riders), len(s.waiting), tc.wantRiders, tc.wantWaiting)
+			}
+			for index, rider := range pod.Riders {
+				if rider.ID != index+1 || rider.PodID != "01" {
+					t.Fatalf("rider %d is %+v", index, rider)
+				}
 			}
 			if got := boardingCountersOf(s); got != tc.want {
 				t.Fatalf("boarding counters are %+v, want %+v", got, tc.want)
 			}
 			completeRequest(t, s, pod)
-			if s.completed != tc.wantParties {
-				t.Fatalf("completed %d parties, want %d", s.completed, tc.wantParties)
+			if s.completed != tc.wantRiders {
+				t.Fatalf("completed %d parties, want %d", s.completed, tc.wantRiders)
 			}
 		})
 	}
@@ -707,7 +710,7 @@ func TestIdlePodScansAfterAChangeInThePass(t *testing.T) {
 			s.dispatch()
 
 			for id, trip := range map[string]int{"01": 1, "02": 2} {
-				if v := s.findVehicle(id); v.Pod.Activity != Boarding || v.Request == nil || v.Request.ID != trip {
+				if v := s.findVehicle(id); v.Pod.Activity != Boarding || len(v.Riders) == 0 || v.Riders[0].ID != trip {
 					t.Fatalf("pod %s did not board trip %d: %+v", id, trip, s.Snapshot())
 				}
 			}

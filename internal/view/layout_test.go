@@ -358,8 +358,8 @@ func TestInspectionRowsClearPodSelector(t *testing.T) {
 		game.layoutFor(input)
 		// An occupied pod in a station maneuver has the most rows.
 		rows := game.inspectionRows(sim.Vehicle{
-			Pod:     sim.Pod{Occupied: true, StationPhase: sim.ApproachingStation, ManeuverStationID: "station-01"},
-			Request: &sim.Request{PartySize: 1},
+			Pod:    sim.Pod{Occupied: true, StationPhase: sim.ApproachingStation, ManeuverStationID: "station-01"},
+			Riders: []sim.Request{{PartySize: 1}},
 		})
 		if len(rows) != 4 {
 			t.Fatalf("inspection rows = %q, want 4 rows", rows)

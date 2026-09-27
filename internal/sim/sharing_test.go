@@ -1,6 +1,9 @@
 package sim
 
-import "testing"
+import (
+	"slices"
+	"testing"
+)
 
 func TestSameDestinationPartiesShareBoardingPod(t *testing.T) {
 	t.Parallel()
@@ -17,11 +20,13 @@ func TestSameDestinationPartiesShareBoardingPod(t *testing.T) {
 	state := s.Snapshot()
 	vehicle := state.Vehicles[0]
 	if state.Submitted != 2 || len(state.Pending) != 0 || state.SharedParties != 1 ||
-		vehicle.Pod.Activity != Boarding || vehicle.Parties != 2 || vehicle.Request == nil || vehicle.Request.PartySize != 2 {
+		vehicle.Pod.Activity != Boarding || len(vehicle.Riders) != 2 || vehicle.Riders[0].ID != 1 || vehicle.Riders[1].ID != 2 ||
+		vehicle.Riders[1].PodID != vehicle.Pod.ID || vehicle.PassengersAboard() != 2 || !slices.Equal(vehicle.Stops, []string{"market"}) {
 		t.Fatalf("same-destination parties did not share: %+v", state)
 	}
 	advance(s, 300*TicksPerSecond)
-	if state = s.Snapshot(); state.Completed != 2 || !state.Vehicles[0].Request.Completed || state.Vehicles[0].Parties != 0 {
+	if state = s.Snapshot(); state.Completed != 2 || !state.Vehicles[0].Riders[1].Completed || state.Vehicles[0].RidersAboard() != 0 ||
+		len(state.Vehicles[0].Stops) != 0 {
 		t.Fatalf("shared parties did not complete: %+v", state)
 	}
 }
@@ -52,7 +57,7 @@ func TestSameDestinationSharingHonorsPolicyAndDestination(t *testing.T) {
 				}
 			}
 			state := s.Snapshot()
-			if state.Vehicles[0].Parties != test.wantParties || state.SharedParties != test.wantShared || len(state.Pending) != test.wantPending {
+			if len(state.Vehicles[0].Riders) != test.wantParties || state.SharedParties != test.wantShared || len(state.Pending) != test.wantPending {
 				t.Fatalf("sharing policy mismatch: %+v", state)
 			}
 		})

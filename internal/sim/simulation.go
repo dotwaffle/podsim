@@ -70,6 +70,9 @@ type Request struct {
 	Completed bool   `json:"Completed"`
 	// RequestedTick marks submission, before any pickup travel.
 	RequestedTick int64 `json:"RequestedTick"`
+	// BoardedTick is the tick at which the party boarded a pod. It is 0 for
+	// a party that has not boarded.
+	BoardedTick int64 `json:"BoardedTick,omitzero"`
 	// DispatchReason explains why a pending order has not started boarding.
 	DispatchReason string `json:"DispatchReason"`
 }
@@ -93,11 +96,18 @@ type Pod struct {
 
 // Vehicle is an independent display copy of a pod and its assigned journey.
 type Vehicle struct {
-	Pod     Pod      `json:"Pod"`
-	Request *Request `json:"Request"`
-	Route   []Lane   `json:"Route"`
-	// Parties counts separately submitted passenger groups aboard this pod.
-	Parties int `json:"Parties,omitempty"`
+	Pod Pod `json:"Pod"`
+	// Riders has one request for each party of the current or last
+	// passenger journey of the pod, in boarding order. The first rider
+	// boarded the pod, and the other riders joined it. A rider with
+	// Completed true has left the pod. Riders is empty for a pod that did
+	// not carry passengers since the last reset.
+	Riders []Request `json:"Riders,omitempty"`
+	// Stops holds the station IDs of the stops that the pod still makes
+	// with its riders, in route order. The first stop is the destination of
+	// the current route.
+	Stops []string `json:"Stops,omitempty"`
+	Route []Lane   `json:"Route"`
 	// RelocatingTo identifies the destination station during an empty move.
 	RelocatingTo string `json:"RelocatingTo"`
 	// Rebalancing reports whether an empty move was started by guarded
@@ -417,9 +427,7 @@ func (s *Simulation) Snapshot() Snapshot {
 	for _, v := range s.vehicles {
 		cloned := v.Vehicle
 		cloned.Route = cloneLanes(cloned.Route)
-		if cloned.Request != nil {
-			cloned.Request = new(*cloned.Request)
-		}
+		cloned.Riders, cloned.Stops = slices.Clone(cloned.Riders), slices.Clone(cloned.Stops)
 		state.Vehicles = append(state.Vehicles, cloned)
 	}
 	state.Berths = s.berthStates()
@@ -536,12 +544,7 @@ func (s *Simulation) Step() {
 		}
 		if v.Pod.Activity == Unloading && v.phaseTicks == 0 {
 			v.Pod.Activity, v.Pod.Occupied = Idle, false
-			v.Request.Completed = true
-			s.completed += max(1, v.Parties)
-			if s.recordExperiments {
-				s.requestCompletions = append(s.requestCompletions, requestCompletion{requestID: v.Request.ID, tick: s.tick, riddenMeters: v.distance})
-			}
-			v.Parties = 0
+			s.alight(v)
 		}
 	}
 	s.dispatch()
@@ -577,6 +580,12 @@ func (s *Simulation) arrive(v *vehicle) {
 		StationPhase: AtBerth, ManeuverStationID: station.ID,
 	}
 	v.phaseTicks = unloadingTicks
+	if len(v.Stops) > 0 && v.Stops[0] == station.ID {
+		v.Stops = slices.Clip(v.Stops[1:])
+		if len(v.Stops) == 0 {
+			v.Stops = nil
+		}
+	}
 	if v.RelocatingTo != "" {
 		v.Pod.Activity, v.Pod.Occupied = Idle, false
 		v.phaseTicks, v.RelocatingTo, v.released = 0, "", false

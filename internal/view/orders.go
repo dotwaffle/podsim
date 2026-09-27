@@ -15,28 +15,30 @@ import (
 type orderRow struct {
 	request sim.Request
 	status  string
-	parties int
 	active  bool
 }
 
 // outstandingOrders returns the queued and active orders of state in order
-// ID order. The status text names each pod by its fleet number.
+// ID order. Each rider aboard a pod is one active order. The status text
+// names each pod by its fleet number.
 func outstandingOrders(state sim.Snapshot) []orderRow {
 	fleet := fleetNumbers(state.Vehicles)
 	rows := make([]orderRow, 0, len(state.Pending)+len(state.Vehicles))
 	for _, request := range state.Pending {
-		rows = append(rows, orderRow{request: request, status: fleetDispatchReason(request.DispatchReason, fleet), parties: 1})
+		rows = append(rows, orderRow{request: request, status: fleetDispatchReason(request.DispatchReason, fleet)})
 	}
-	for i, v := range state.Vehicles {
-		if v.Request == nil || v.Request.Completed {
-			continue
-		}
-		parties := max(1, v.Parties)
+	for i := range state.Vehicles {
+		v := &state.Vehicles[i]
+		parties := v.RidersAboard()
 		status := fmt.Sprintf("Pod %s / %s", fleetPodLabel(i), v.Pod.Activity)
 		if parties > 1 {
 			status += fmt.Sprintf(" / %d parties", parties)
 		}
-		rows = append(rows, orderRow{request: *v.Request, status: status, parties: parties, active: true})
+		for _, rider := range v.Riders {
+			if !rider.Completed {
+				rows = append(rows, orderRow{request: rider, status: status, active: true})
+			}
+		}
 	}
 	slices.SortFunc(rows, func(a, b orderRow) int { return a.request.ID - b.request.ID })
 	return rows
@@ -72,10 +74,8 @@ func fleetDispatchReason(reason string, fleet map[string]string) string {
 
 func outstandingOrderCount(state sim.Snapshot) int {
 	count := len(state.Pending)
-	for _, vehicle := range state.Vehicles {
-		if vehicle.Request != nil && !vehicle.Request.Completed {
-			count += max(1, vehicle.Parties)
-		}
+	for index := range state.Vehicles {
+		count += state.Vehicles[index].RidersAboard()
 	}
 	return count
 }
@@ -186,7 +186,7 @@ func (g *Game) orderLabels(state sim.Snapshot) []label {
 	active := 0
 	for _, row := range rows {
 		if row.active {
-			active += row.parties
+			active++
 		}
 	}
 	labels := []label{

@@ -403,7 +403,7 @@ func TestWorkingVehiclesAfterTrip(t *testing.T) {
 	if peakWorking != 1 || peakPassenger != 1 {
 		t.Fatalf("peak working = %d, peak passenger = %d, want 1 and 1", peakWorking, peakPassenger)
 	}
-	kept := slices.ContainsFunc(state.Vehicles, func(vehicle sim.Vehicle) bool { return vehicle.Request != nil })
+	kept := slices.ContainsFunc(state.Vehicles, func(vehicle sim.Vehicle) bool { return len(vehicle.Riders) > 0 })
 	if !kept {
 		t.Fatal("no pod keeps its completed request, so the test does not cover that case")
 	}

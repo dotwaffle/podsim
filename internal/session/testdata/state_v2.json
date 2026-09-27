@@ -1,6 +1,6 @@
 {
   "format": "podsim-session",
-  "version": 1,
+  "version": 2,
   "final": true,
   "savedAt": "2026-09-23T09:00:00.123456789Z",
   "build": "b9a50fb31ed44c66",
@@ -50,18 +50,22 @@
         "activity": "boarding",
         "stationID": "harbor",
         "berthID": "harbor-1",
-        "request": {
-          "id": 1,
-          "from": "harbor",
-          "to": "market",
-          "partySize": 1,
-          "podID": "01",
-          "requestedTick": 0
-        },
-        "parties": 1,
         "phaseTicks": 180,
         "origin": "harbor-1",
         "destinationStation": "market",
+        "riders": [
+          {
+            "id": 1,
+            "from": "harbor",
+            "to": "market",
+            "partySize": 1,
+            "podID": "01",
+            "requestedTick": 0
+          }
+        ],
+        "stops": [
+          "market"
+        ],
         "route": [
           2,
           3,
@@ -75,18 +79,22 @@
         "activity": "boarding",
         "stationID": "garden",
         "berthID": "garden-1",
-        "request": {
-          "id": 2,
-          "from": "garden",
-          "to": "market",
-          "partySize": 1,
-          "podID": "02",
-          "requestedTick": 0
-        },
-        "parties": 1,
         "phaseTicks": 180,
         "origin": "garden-1",
         "destinationStation": "market",
+        "riders": [
+          {
+            "id": 2,
+            "from": "garden",
+            "to": "market",
+            "partySize": 1,
+            "podID": "02",
+            "requestedTick": 0
+          }
+        ],
+        "stops": [
+          "market"
+        ],
         "route": [
           7,
           8,

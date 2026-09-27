@@ -260,8 +260,10 @@ func TestCustomDemandAndResetUseActiveProject(t *testing.T) {
 		}
 	}
 	for _, vehicle := range snapshot.Vehicles {
-		if vehicle.Request != nil && vehicle.Request.To != "gamma" {
-			t.Fatalf("active demand target = %q", vehicle.Request.To)
+		for _, rider := range vehicle.Riders {
+			if rider.To != "gamma" {
+				t.Fatalf("active demand target = %q", rider.To)
+			}
 		}
 	}
 	reset := commandFor(session, "reset")

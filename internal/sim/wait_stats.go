@@ -10,7 +10,7 @@ func (s *Simulation) waitStats() WaitStats {
 	total, longest, pending := s.totalWaitTicks, s.maxWaitTicks, 0
 	for _, trip := range s.waiting {
 		// The totals already hold the wait of a requeued trip.
-		if trip.parties > 0 {
+		if trip.boarded {
 			continue
 		}
 		elapsed := s.tick - trip.request.RequestedTick

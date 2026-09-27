@@ -16,14 +16,14 @@ func TestPodPurpose(t *testing.T) {
 		want    podPurpose
 	}{
 		{name: "idle", vehicle: sim.Vehicle{Pod: sim.Pod{ID: "01", Activity: sim.Idle}}, want: purposeIdle},
-		{name: "old completed trip", vehicle: sim.Vehicle{Pod: sim.Pod{ID: "01", Activity: sim.Idle}, Request: &sim.Request{Completed: true}}, want: purposeIdle},
+		{name: "old completed trip", vehicle: sim.Vehicle{Pod: sim.Pod{ID: "01", Activity: sim.Idle}, Riders: []sim.Request{{Completed: true}}}, want: purposeIdle},
 		{name: "pickup pending", vehicle: sim.Vehicle{Pod: sim.Pod{ID: "01", Activity: sim.Traveling}, RelocatingTo: "garden"}, pending: []sim.Request{{PodID: "01"}}, want: purposePickup},
 		{name: "pickup blocked", vehicle: sim.Vehicle{Pod: sim.Pod{ID: "01", Activity: sim.Traveling, WaitReason: sim.JunctionOccupied}, RelocatingTo: "garden"}, pending: []sim.Request{{PodID: "01"}}, want: purposePickup},
 		{name: "assigned at station", vehicle: sim.Vehicle{Pod: sim.Pod{ID: "01", Activity: sim.Idle}}, pending: []sim.Request{{PodID: "01"}}, want: purposePickup},
 		{name: "passenger before next pickup", vehicle: sim.Vehicle{Pod: sim.Pod{ID: "01", Activity: sim.Traveling, Occupied: true}}, pending: []sim.Request{{PodID: "01"}}, want: purposePassengers},
 		{name: "boarding before occupancy", vehicle: sim.Vehicle{Pod: sim.Pod{ID: "01", Activity: sim.Boarding}}, want: purposePassengers},
 		{name: "unloading", vehicle: sim.Vehicle{Pod: sim.Pod{ID: "01", Activity: sim.Unloading, Occupied: true}}, want: purposePassengers},
-		{name: "parking with previous trip", vehicle: sim.Vehicle{Pod: sim.Pod{ID: "01", Activity: sim.DepartingEmpty}, RelocatingTo: "parking", Request: &sim.Request{Completed: true}}, want: purposeParking},
+		{name: "parking with previous trip", vehicle: sim.Vehicle{Pod: sim.Pod{ID: "01", Activity: sim.DepartingEmpty}, RelocatingTo: "parking", Riders: []sim.Request{{Completed: true}}}, want: purposeParking},
 		{name: "redistribution", vehicle: sim.Vehicle{Pod: sim.Pod{ID: "01", Activity: sim.Traveling}, RelocatingTo: "garden", Rebalancing: true}, want: purposeRedistribution},
 		{name: "diverted pickup wins", vehicle: sim.Vehicle{Pod: sim.Pod{ID: "01", Activity: sim.Traveling}, RelocatingTo: "parking", Rebalancing: true}, pending: []sim.Request{{PodID: "01"}}, want: purposePickup},
 		{name: "unassigned empty", vehicle: sim.Vehicle{Pod: sim.Pod{ID: "01", Activity: sim.Traveling}}, pending: []sim.Request{{PodID: "02"}}, want: purposeEmpty},

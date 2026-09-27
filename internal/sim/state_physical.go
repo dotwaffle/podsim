@@ -144,23 +144,8 @@ func validateSavedState(state SavedState) (int, error) {
 		if pod.ID == "" || index > 0 && pod.ID <= state.Pods[index-1].ID {
 			return 0, fmt.Errorf("saved pod %q is empty or out of order", pod.ID)
 		}
-		if pod.Parties < 0 || pod.Parties > MaxSharedRideParties {
-			return 0, fmt.Errorf("pod %s has %d parties", pod.ID, pod.Parties)
-		}
-		if pod.Request != nil && !state.validRequest(*pod.Request) {
-			return 0, fmt.Errorf("pod %s has a request that is not valid", pod.ID)
-		}
-		if !pod.carriesPassengers() {
-			continue
-		}
-		if pod.Parties < 1 || active[pod.Request.ID] {
-			return 0, fmt.Errorf("pod %s carries request %d with %d parties", pod.ID, pod.Request.ID, pod.Parties)
-		}
-		active[pod.Request.ID] = true
-	}
-	for _, trip := range state.Waiting {
-		if trip.Parties < 0 || trip.Parties > MaxSharedRideParties {
-			return 0, fmt.Errorf("queued request %d has %d parties", trip.Request.ID, trip.Parties)
+		if err := state.validateRiders(pod, active); err != nil {
+			return 0, fmt.Errorf("pod %s: %w", pod.ID, err)
 		}
 	}
 	gap := state.ordersGap()
@@ -193,7 +178,47 @@ func (state SavedState) validateCounters() error {
 
 func (state SavedState) validRequest(request SavedRequest) bool {
 	return request.ID >= 1 && request.ID <= state.RequestID && request.PartySize >= 1 &&
-		request.RequestedTick >= 0 && request.RequestedTick <= state.Tick && len(request.DispatchReason) <= maxSavedText
+		request.RequestedTick >= 0 && request.RequestedTick <= state.Tick && len(request.DispatchReason) <= maxSavedText &&
+		request.BoardedTick >= 0 && request.BoardedTick <= state.Tick
+}
+
+// validateRiders checks the riders and the stops of a saved pod. A rider
+// that did not leave the pod must have a request ID that no other such rider
+// has, and active holds the IDs that the pods before it use. In a pod that
+// boards or travels, each such rider must leave the pod at a stop, and the
+// pod goes to its first stop. In an unloading pod, a rider with no later stop
+// must go to the destination station of the pod, where the pod unloads.
+// Otherwise the restore would complete the journey of that rider at the
+// wrong station.
+func (state SavedState) validateRiders(pod SavedPod, active map[int]bool) error {
+	if len(pod.Riders) > MaxSharedRideParties || len(pod.Stops) > MaxSharedRideParties {
+		return fmt.Errorf("the pod has %d riders and %d stops", len(pod.Riders), len(pod.Stops))
+	}
+	for _, rider := range pod.Riders {
+		if !state.validRequest(rider) {
+			return fmt.Errorf("rider %d is not valid", rider.ID)
+		}
+	}
+	if !pod.carriesPassengers() {
+		return nil
+	}
+	unloading := pod.Activity == activityCode(Unloading)
+	for _, rider := range pod.Riders {
+		if rider.Completed {
+			continue
+		}
+		if active[rider.ID] {
+			return fmt.Errorf("rider %d is in two pods", rider.ID)
+		}
+		active[rider.ID] = true
+		if !slices.Contains(pod.Stops, rider.To) && (!unloading || rider.To != pod.DestinationStation) {
+			return fmt.Errorf("rider %d has no stop", rider.ID)
+		}
+	}
+	if !unloading && (len(pod.Stops) == 0 || pod.Stops[0] != pod.DestinationStation) {
+		return errors.New("the first stop is not the destination")
+	}
+	return nil
 }
 
 // checkSavedPodIDs checks that each saved pod is a fleet pod. A demo fleet
@@ -294,14 +319,14 @@ func (r *physicalRestore) decodePod(index int, saved SavedPod) error {
 	}
 	v := &r.s.vehicles[index]
 	*v = vehicle{
-		Pod:     Pod{ID: saved.ID, Activity: activity, Occupied: saved.Occupied},
-		Parties: saved.Parties, RelocatingTo: saved.RelocatingTo, Rebalancing: saved.Rebalancing,
+		Pod:   Pod{ID: saved.ID, Activity: activity, Occupied: saved.Occupied},
+		Stops: slices.Clone(saved.Stops), RelocatingTo: saved.RelocatingTo, Rebalancing: saved.Rebalancing,
 		phaseTicks: saved.PhaseTicks, rebalanceAfter: saved.RebalanceAfter, destinationStation: saved.DestinationStation,
 		pending: -1, reservedThrough: -1,
 	}
 	v.released = saved.Released && releasable(v)
-	if saved.Request != nil {
-		v.Request = new(Request(*saved.Request))
+	for _, rider := range saved.Riders {
+		v.Riders = append(v.Riders, Request(rider))
 	}
 	if err := r.checkPassengers(v); err != nil {
 		return err
@@ -352,11 +377,22 @@ func (r *physicalRestore) checkPassengers(v *vehicle) error {
 		return errors.New("an empty pod is occupied")
 	case activity == DepartingEmpty && v.RelocatingTo == "":
 		return errors.New("an empty departure has no station to relocate to")
-	case v.carriesPassengers() && (!r.s.passengerStation(v.Request.From) || !r.s.passengerStation(v.Request.To)):
-		return errors.New("the request does not join two passenger stations")
+	case v.carriesPassengers() && !r.passengerRiders(v):
+		return errors.New("a rider or a stop is not at a passenger station")
 	default:
 		return nil
 	}
+}
+
+// passengerRiders reports whether each rider aboard a pod and each stop of
+// the pod use passenger stations.
+func (r *physicalRestore) passengerRiders(v *vehicle) bool {
+	for _, rider := range v.Riders {
+		if !rider.Completed && (!r.s.passengerStation(rider.From) || !r.s.passengerStation(rider.To)) {
+			return false
+		}
+	}
+	return !slices.ContainsFunc(v.Stops, func(stop string) bool { return !r.s.passengerStation(stop) })
 }
 
 func (s *Simulation) passengerStation(id string) bool {
@@ -765,7 +801,7 @@ func (r *physicalRestore) separate() error {
 func (r *physicalRestore) placeDemoted(index int) error {
 	v := &r.s.vehicles[index]
 	if v.carriesPassengers() {
-		from, _ := r.s.station(v.Request.From)
+		from, _ := r.s.station(v.boardingStation())
 		if berth, ok := r.freeBerth(v, from.Berths); ok && r.boardAgain(v, berth) {
 			return nil
 		}
@@ -788,7 +824,7 @@ func (r *physicalRestore) placeDemoted(index int) error {
 	station := r.berths[berth.ID].station
 	v.Pod.Activity, v.Pod.StationID = Idle, station
 	v.Route, v.blocks, v.routeLengths, v.blockStarts, v.terminal = nil, blockList{}, nil, nil, terminalCheck{}
-	v.Parties, v.RelocatingTo, v.Rebalancing, v.released = 0, "", false, false
+	v.RelocatingTo, v.Rebalancing, v.released = "", false, false
 	v.origin, v.destination, v.destinationStation = Berth{}, berth, station
 	return nil
 }
@@ -813,7 +849,7 @@ func (r *physicalRestore) freeBerth(v *vehicle, candidates []Berth) (Berth, bool
 // depart. It returns false when the route does not exist or does not fit in
 // the block budget.
 func (r *physicalRestore) boardAgain(v *vehicle, berth Berth) bool {
-	route, err := r.s.stationApproachRoute(berth.Node, v.Request.To)
+	route, err := r.s.stationApproachRoute(berth.Node, v.Stops[0])
 	if err != nil {
 		return false
 	}
@@ -827,30 +863,38 @@ func (r *physicalRestore) boardAgain(v *vehicle, berth Berth) bool {
 	}
 	r.cost += cost
 	r.moveTo(v, berth)
-	request := *v.Request
-	request.PodID, request.DispatchReason = v.Pod.ID, ""
-	v.Request = &request
+	riders := make([]Request, 0, len(v.Riders))
+	for _, rider := range v.Riders {
+		if !rider.Completed {
+			rider.PodID, rider.DispatchReason = v.Pod.ID, ""
+			riders = append(riders, rider)
+		}
+	}
+	v.Riders = riders
 	v.Pod.Activity, v.Pod.StationID = Boarding, r.berths[berth.ID].station
 	v.RelocatingTo, v.Rebalancing, v.released = "", false, false
-	v.origin, v.destination, v.destinationStation = berth, Berth{}, request.To
+	v.origin, v.destination, v.destinationStation = berth, Berth{}, v.Stops[0]
 	r.s.setVehicleRoute(v, route)
 	return true
 }
 
-// requeue returns the request of a pod to the queue with its party count. The
-// boarding of the parties stays recorded.
+// requeue returns each rider aboard a pod to the queue as one trip. The
+// boarding of the riders stays recorded.
 func (r *physicalRestore) requeue(v *vehicle) {
-	r.requeued = append(r.requeued, requeuedTrip(*v.Request, v.Parties))
-	r.result.Requeued = append(r.result.Requeued, v.Request.ID)
-	v.Request = nil
+	for _, rider := range v.Riders {
+		if !rider.Completed {
+			r.requeued = append(r.requeued, requeuedTrip(rider))
+			r.result.Requeued = append(r.result.Requeued, rider.ID)
+		}
+	}
+	v.Riders, v.Stops = nil, nil
 }
 
-// requeuedTrip returns the queued trip for the request of a pod that carried
-// parties. The trip keeps the party count, so board and joinSharedRide do not
-// record the boarding again.
-func requeuedTrip(request Request, parties int) waitingTrip {
-	request.PodID, request.DispatchReason = "", ""
-	return waitingTrip{request: request, parties: max(1, parties)}
+// requeuedTrip returns the queued trip for a rider of a pod. The trip is
+// boarded, so board and joinSharedRide do not record the boarding again.
+func requeuedTrip(rider Request) waitingTrip {
+	rider.PodID, rider.DispatchReason = "", ""
+	return waitingTrip{request: rider, boarded: true}
 }
 
 // moveTo puts a pod at rest at a berth. The pod releases each other resource.
@@ -879,7 +923,11 @@ func (r *physicalRestore) restoreWaiting() {
 	carried := make(map[int]bool)
 	for index := range s.vehicles {
 		if v := &s.vehicles[index]; v.carriesPassengers() {
-			carried[v.Request.ID] = true
+			for _, rider := range v.Riders {
+				if !rider.Completed {
+					carried[rider.ID] = true
+				}
+			}
 		}
 	}
 	var orphaned []string
@@ -897,7 +945,7 @@ func (r *physicalRestore) restoreWaiting() {
 		if !r.state.validRequest(saved.Request) || carried[request.ID] ||
 			!s.passengerStation(request.From) || !s.passengerStation(request.To) {
 			r.result.Dropped = append(r.result.Dropped, request.ID)
-			r.result.DroppedParties += max(1, saved.Parties)
+			r.result.DroppedParties++
 			orphaned = append(orphaned, request.PodID)
 			continue
 		}
@@ -919,7 +967,7 @@ func (r *physicalRestore) restoreWaiting() {
 func (r *physicalRestore) restoreTrip(index int, request Request) waitingTrip {
 	saved := r.state.Waiting[index]
 	trip := waitingTrip{
-		request: request, parties: saved.Parties,
+		request: request, boarded: saved.Boarded,
 		deferUntil: saved.DeferUntil, deferCheck: saved.DeferCheck, deferPodID: saved.DeferPodID,
 	}
 	unbound := r.unbound[index] || !r.activePod(request.PodID) || !r.activePod(trip.deferPodID) ||

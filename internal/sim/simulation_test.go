@@ -87,7 +87,7 @@ func TestJourneyLifecycle(t *testing.T) {
 			if arrived.Vehicles[0].Pod.Activity != Unloading || arrived.Vehicles[0].Pod.Position != node.Position || arrived.Vehicles[0].Pod.BerthID != station.Berths[0].ID || arrived.Vehicles[0].Pod.Speed != 0 {
 				t.Fatalf("arrival state: %+v", arrived.Vehicles[0].Pod)
 			}
-			if arrived.Completed != 0 || arrived.Vehicles[0].Request.Completed {
+			if arrived.Completed != 0 || arrived.Vehicles[0].Riders[0].Completed {
 				t.Fatal("journey completed before unloading")
 			}
 			advance(s, unloadingTicks-1)
@@ -96,7 +96,7 @@ func TestJourneyLifecycle(t *testing.T) {
 			}
 			s.Step()
 			completed := s.Snapshot()
-			if completed.Vehicles[0].Pod.Activity != Idle || completed.Vehicles[0].Pod.Occupied || completed.Completed != 1 || !completed.Vehicles[0].Request.Completed {
+			if completed.Vehicles[0].Pod.Activity != Idle || completed.Vehicles[0].Pod.Occupied || completed.Completed != 1 || !completed.Vehicles[0].Riders[0].Completed {
 				t.Fatalf("completion state: %+v", completed)
 			}
 			if err := s.RequestJourney("01", "harbor"); err != nil {
@@ -276,7 +276,7 @@ func TestScenarioAndSnapshotIsolation(t *testing.T) {
 		t.Fatal(err)
 	}
 	snapshot := s.Snapshot()
-	snapshot.Vehicles[0].Request.To = "missing"
+	snapshot.Vehicles[0].Riders[0].To = "missing"
 	snapshot.Vehicles[0].Route[0].To = "missing"
 	advance(s, 300*TicksPerSecond)
 	if got := s.Snapshot(); got.Completed != 1 || got.Vehicles[0].Pod.StationID != "market" {

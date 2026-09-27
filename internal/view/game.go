@@ -1060,9 +1060,9 @@ func (g *Game) drawCollapsedStationLabels(screen *ebiten.Image, input collapsedL
 func (g *Game) visibleCollapsedStationLabels(input collapsedLabelsInput) ([]boundedStationLabel, []bool) {
 	selected := input.selected
 	preferred := map[string]bool{g.origin: true, g.destination: true, selected.Pod.StationID: true, selected.RelocatingTo: true}
-	if selected.Request != nil {
-		preferred[selected.Request.From] = true
-		preferred[selected.Request.To] = true
+	for _, rider := range selected.Riders {
+		preferred[rider.From] = true
+		preferred[rider.To] = true
 	}
 	delete(preferred, "")
 	selection := collapsedLabelSelection{labels: g.boundedStationLabels(input), preferred: preferred, dense: len(g.network.Stations) > 30}
@@ -1649,10 +1649,13 @@ func (g *Game) drawInspection(screen *ebiten.Image, state sim.Snapshot) {
 	status = g.fitText(status, 13, inspectionRight-inspectionLeft)
 	g.label(screen, label{x: inspectionLeft, y: 151, size: 13, value: status, color: muted})
 	journey := "No active journey"
-	if state.Vehicles[g.selected].Request != nil {
-		from, _ := g.network.Station(state.Vehicles[g.selected].Request.From)
-		to, _ := g.network.Station(state.Vehicles[g.selected].Request.To)
-		journey = from.Name + " > " + to.Name
+	if stations := journeyStations(state.Vehicles[g.selected]); len(stations) > 0 {
+		names := make([]string, len(stations))
+		for index, id := range stations {
+			stop, _ := g.network.Station(id)
+			names[index] = stop.Name
+		}
+		journey = strings.Join(names, " > ")
 	}
 	if station.ParkingOnly {
 		journey = "Parked at " + station.Name
@@ -1716,14 +1719,34 @@ func (g *Game) fitInspectionValue(row inspectionRow) string {
 // So the other rows do not move when the pod enters or leaves a station.
 func (g *Game) inspectionRows(vehicle sim.Vehicle) []inspectionRow {
 	passengers := "Empty"
-	if vehicle.Pod.Occupied && vehicle.Request != nil {
-		passengers = passengerCount(vehicle.Request.PartySize)
+	if vehicle.Pod.Occupied && vehicle.RidersAboard() > 0 {
+		passengers = passengerCount(vehicle.PassengersAboard())
 	}
 	rows := []inspectionRow{
 		{"Speed", fmt.Sprintf("%.0f km/h", vehicle.Pod.Speed*3.6)},
 		{"On board", passengers},
 	}
 	return append(rows, stationPhaseRows(vehicle.Pod, g.network)...)
+}
+
+// journeyStations returns the stations of the current or last passenger
+// journey of a pod: the origin of its first rider, then the stops that the
+// pod still makes. When no stop remains, it gives the destinations of the
+// riders in rider order. It returns nil for a pod with no riders.
+func journeyStations(vehicle sim.Vehicle) []string {
+	if len(vehicle.Riders) == 0 {
+		return nil
+	}
+	stations := []string{vehicle.Riders[0].From}
+	if len(vehicle.Stops) > 0 {
+		return append(stations, vehicle.Stops...)
+	}
+	for _, rider := range vehicle.Riders {
+		if !slices.Contains(stations[1:], rider.To) {
+			stations = append(stations, rider.To)
+		}
+	}
+	return stations
 }
 
 // passengerCount returns the On board value for count passengers, such as

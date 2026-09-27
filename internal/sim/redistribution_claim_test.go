@@ -111,7 +111,7 @@ func TestRedistributionKeepsClaimForCompletedPassenger(t *testing.T) {
 	claimed := resource{kind: berthResource, id: rebalancing.destination.ID}
 	completed := s.findVehicle("02")
 	completed.destination = rebalancing.destination
-	completed.Request = &Request{ID: 1, From: "garden", To: "market", Completed: true}
+	completed.Riders = []Request{{ID: 1, From: "garden", To: "market", Completed: true}}
 	s.yieldRelocationClaims()
 	if s.owners[claimed] != "01" {
 		t.Fatal("completed passenger caused a remote redistribution claim to yield")

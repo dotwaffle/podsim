@@ -1,6 +1,9 @@
 package sim
 
-import "fmt"
+import (
+	"fmt"
+	"slices"
+)
 
 const (
 	// maxSavedPods is the largest fleet that a saved state can hold. It is the
@@ -50,6 +53,7 @@ type SavedRequest struct {
 	PodID          string `json:"podID,omitempty"`
 	Completed      bool   `json:"completed,omitzero"`
 	RequestedTick  int64  `json:"requestedTick"`
+	BoardedTick    int64  `json:"boardedTick,omitzero"`
 	DispatchReason string `json:"dispatchReason,omitempty"`
 }
 
@@ -57,19 +61,21 @@ type SavedRequest struct {
 type SavedPod struct {
 	ID string `json:"id"`
 	// Activity is idle, departing, boarding, traveling or unloading.
-	Activity           string        `json:"activity"`
-	StationID          string        `json:"stationID,omitempty"`
-	BerthID            string        `json:"berthID,omitempty"`
-	Occupied           bool          `json:"occupied,omitzero"`
-	Request            *SavedRequest `json:"request,omitzero"`
-	Parties            int           `json:"parties,omitzero"`
-	RelocatingTo       string        `json:"relocatingTo,omitempty"`
-	Rebalancing        bool          `json:"rebalancing,omitzero"`
-	RebalanceAfter     int64         `json:"rebalanceAfter,omitzero"`
-	PhaseTicks         int           `json:"phaseTicks,omitzero"`
-	Origin             string        `json:"origin,omitempty"`
-	Destination        string        `json:"destination,omitempty"`
-	DestinationStation string        `json:"destinationStation,omitempty"`
+	Activity           string `json:"activity"`
+	StationID          string `json:"stationID,omitempty"`
+	BerthID            string `json:"berthID,omitempty"`
+	Occupied           bool   `json:"occupied,omitzero"`
+	RelocatingTo       string `json:"relocatingTo,omitempty"`
+	Rebalancing        bool   `json:"rebalancing,omitzero"`
+	RebalanceAfter     int64  `json:"rebalanceAfter,omitzero"`
+	PhaseTicks         int    `json:"phaseTicks,omitzero"`
+	Origin             string `json:"origin,omitempty"`
+	Destination        string `json:"destination,omitempty"`
+	DestinationStation string `json:"destinationStation,omitempty"`
+	// Riders and Stops are the riders and the stops of the pod. See
+	// Vehicle.
+	Riders []SavedRequest `json:"riders,omitempty"`
+	Stops  []string       `json:"stops,omitempty"`
 	// ClaimsDestination is true when a relocating pod holds its destination
 	// berth.
 	ClaimsDestination bool `json:"claimsDestination,omitzero"`
@@ -97,8 +103,9 @@ type SavedPod struct {
 type SavedTrip struct {
 	Request SavedRequest `json:"request"`
 	Route   []int        `json:"route,omitempty"`
-	// Parties is 0 for a new order, or the party count of a requeued trip.
-	Parties    int    `json:"parties,omitzero"`
+	// Boarded is true for a rider that a restore queued again. Its wait is
+	// already recorded.
+	Boarded    bool   `json:"boarded,omitzero"`
 	DeferUntil int64  `json:"deferUntil,omitzero"`
 	DeferCheck int64  `json:"deferCheck,omitzero"`
 	DeferPodID string `json:"deferPodID,omitempty"`
@@ -110,7 +117,7 @@ type RestoreTier string
 const (
 	// RestorePhysical keeps each pod where the saved state puts it.
 	RestorePhysical RestoreTier = "physical"
-	// RestoreLogical puts each fleet pod at its initial berth. The parties
+	// RestoreLogical puts each fleet pod at its initial berth. The riders
 	// that were on their way go back to the queue.
 	RestoreLogical RestoreTier = "logical"
 )
@@ -135,7 +142,8 @@ type RestoreResult struct {
 	// Dropped lists the requests that the restore removed because they were
 	// not valid.
 	Dropped []int
-	// DroppedParties counts the parties of the dropped requests.
+	// DroppedParties counts the dropped requests. Each request is one
+	// party.
 	DroppedParties int
 	// OverCap counts the routes that were longer than their limit.
 	OverCap int
@@ -205,7 +213,7 @@ func (s *Simulation) ExportState() SavedState {
 	}
 	for index, trip := range s.waiting {
 		saved := SavedTrip{
-			Request: SavedRequest(trip.request), Route: s.laneIndexes(trip.route, limits.trip), Parties: trip.parties,
+			Request: SavedRequest(trip.request), Route: s.laneIndexes(trip.route, limits.trip), Boarded: trip.boarded,
 			DeferUntil: trip.deferUntil, DeferCheck: trip.deferCheck, DeferPodID: trip.deferPodID,
 		}
 		if saved.Route == nil && len(trip.route) > 0 {
@@ -228,16 +236,17 @@ func (s *Simulation) ExportState() SavedState {
 func (s *Simulation) exportPod(v *vehicle, limits routeLimits) SavedPod {
 	pod := SavedPod{
 		ID: v.Pod.ID, Activity: activityCode(v.Pod.Activity), StationID: v.Pod.StationID, BerthID: v.Pod.BerthID,
-		Occupied: v.Pod.Occupied, Parties: v.Parties, RelocatingTo: v.RelocatingTo, Rebalancing: v.Rebalancing,
+		Occupied: v.Pod.Occupied, RelocatingTo: v.RelocatingTo, Rebalancing: v.Rebalancing,
 		RebalanceAfter: v.rebalanceAfter, PhaseTicks: v.phaseTicks, Origin: v.origin.ID,
 		Destination: v.destination.ID, DestinationStation: v.destinationStation,
 		ClaimsDestination: v.RelocatingTo != "" && v.destination.ID != "" &&
 			s.owners[resource{kind: berthResource, id: v.destination.ID}] == v.Pod.ID,
 		LaneID: v.Pod.LaneID, LaneDistance: v.Pod.LaneDistance, Waiting: v.pending >= 0, Released: v.released,
 	}
-	if v.Request != nil {
-		pod.Request = new(SavedRequest(*v.Request))
+	for _, rider := range v.Riders {
+		pod.Riders = append(pod.Riders, SavedRequest(rider))
 	}
+	pod.Stops = slices.Clone(v.Stops)
 	if pod.Waiting {
 		pod.WaitSince = v.waitSince
 	}
@@ -334,29 +343,30 @@ func activityOfCode(code string) (Activity, bool) {
 	return "", false
 }
 
-// carriesPassengers reports whether a pod carries parties that have not
-// arrived. After a journey, a pod keeps its completed request, so the request
-// alone does not tell.
-func (v *vehicle) carriesPassengers() bool {
-	return v.Request != nil && !v.Request.Completed && (v.Pod.Activity == Boarding || v.Pod.Occupied)
-}
-
-// carriesPassengers is the same rule for a saved pod.
+// carriesPassengers is the rule of vehicle.carriesPassengers for a saved
+// pod.
 func (pod SavedPod) carriesPassengers() bool {
-	return pod.Request != nil && !pod.Request.Completed && (pod.Activity == activityCode(Boarding) || pod.Occupied)
+	return (pod.Activity == activityCode(Boarding) || pod.Occupied) && pod.ridersAboard() > 0
 }
 
-// ordersGap returns the parties that are submitted but not completed, queued
-// or in a pod. It counts parties, because a shared ride puts several orders
-// into one request. It is 0 in a live simulation.
-func (s *Simulation) ordersGap() int {
-	gap := s.requestID - s.completed
-	for _, trip := range s.waiting {
-		gap -= trip.partyCount()
+// ridersAboard returns the number of saved riders that did not leave the pod.
+func (pod SavedPod) ridersAboard() int {
+	aboard := 0
+	for _, rider := range pod.Riders {
+		if !rider.Completed {
+			aboard++
+		}
 	}
+	return aboard
+}
+
+// ordersGap returns the orders that are submitted but not completed, queued
+// or in a pod. It is 0 in a live simulation.
+func (s *Simulation) ordersGap() int {
+	gap := s.requestID - s.completed - len(s.waiting)
 	for index := range s.vehicles {
 		if v := &s.vehicles[index]; v.carriesPassengers() {
-			gap -= max(1, v.Parties)
+			gap -= v.RidersAboard()
 		}
 	}
 	return gap
@@ -364,13 +374,10 @@ func (s *Simulation) ordersGap() int {
 
 // ordersGap is the same count for a saved state.
 func (state SavedState) ordersGap() int {
-	gap := state.RequestID - state.Completed
-	for _, trip := range state.Waiting {
-		gap -= max(1, trip.Parties)
-	}
+	gap := state.RequestID - state.Completed - len(state.Waiting)
 	for _, pod := range state.Pods {
 		if pod.carriesPassengers() {
-			gap -= max(1, pod.Parties)
+			gap -= pod.ridersAboard()
 		}
 	}
 	return gap

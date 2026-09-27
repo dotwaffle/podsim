@@ -24,7 +24,7 @@ func TestWaitForFinishingPod(t *testing.T) {
 			busy := s.findVehicle("02")
 			busy.Pod.Activity, busy.Pod.Occupied = Unloading, true
 			busy.phaseTicks = tc.unloadSeconds * TicksPerSecond
-			busy.Request = &Request{ID: 1, From: "harbor", To: "garden", PartySize: 1, PodID: "02"}
+			busy.Riders = []Request{{ID: 1, From: "harbor", To: "garden", PartySize: 1, PodID: "02"}}
 			s.requestID = 1
 			if err := s.RequestTrip("market", "harbor"); err != nil {
 				t.Fatal(err)
@@ -54,7 +54,7 @@ func TestForecastWaitIsBounded(t *testing.T) {
 	busy := s.findVehicle("02")
 	busy.Pod.Activity, busy.Pod.Occupied = Unloading, true
 	busy.phaseTicks = 5 * TicksPerSecond
-	busy.Request = &Request{ID: 1, From: "harbor", To: "garden", PartySize: 1, PodID: "02"}
+	busy.Riders = []Request{{ID: 1, From: "harbor", To: "garden", PartySize: 1, PodID: "02"}}
 	s.requestID = 1
 	if err := s.RequestTrip("market", "harbor"); err != nil {
 		t.Fatal(err)
@@ -80,7 +80,7 @@ func TestPickupForecastIncludesCommittedPassengerTrip(t *testing.T) {
 	}
 	v := s.findVehicle("01")
 	// A previous trip must not replace the committed pickup's destination.
-	v.Request = &Request{ID: 99, From: "market", To: "garden", Completed: true}
+	v.Riders = []Request{{ID: 99, From: "market", To: "garden", Completed: true}}
 	node, seconds, ok := s.availableAfter(v)
 	if !ok || node != "market-berth" {
 		t.Fatalf("forecast ignored committed passenger trip: node=%s ok=%v", node, ok)
@@ -199,7 +199,7 @@ func newFinishingPodTrip(t *testing.T, setup finishingPodSetup) (*Simulation, *v
 	busy := s.findVehicle("02")
 	busy.Pod.Activity, busy.Pod.Occupied = Unloading, true
 	busy.phaseTicks = setup.unloadSeconds * TicksPerSecond
-	busy.Request = &Request{ID: 1, From: "harbor", To: setup.busyStation, PartySize: 1, PodID: "02"}
+	busy.Riders = []Request{{ID: 1, From: "harbor", To: setup.busyStation, PartySize: 1, PodID: "02"}}
 	s.requestID = 1
 	if err := s.RequestTrip("market", "harbor"); err != nil {
 		t.Fatal(err)
@@ -328,7 +328,7 @@ func TestKeepHoldBetweenChecks(t *testing.T) {
 				}
 			}
 			if tc.wantPod == "02" {
-				if trip.ID != 0 || busy.Pod.Activity != Boarding || busy.Request == nil || busy.Request.ID != 2 {
+				if trip.ID != 0 || busy.Pod.Activity != Boarding || len(busy.Riders) == 0 || busy.Riders[0].ID != 2 {
 					t.Fatalf("pod 02 did not board the trip at once: %+v, %+v", trip, busy.Vehicle)
 				}
 				return

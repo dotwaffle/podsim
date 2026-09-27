@@ -151,8 +151,10 @@ func guardedRateLow(count int, ticks int64, fleet int) bool {
 }
 
 // newestRequest returns the ID and the request tick of the request with the
-// highest ID in the waiting trips and in the pod requests. A pod keeps its
-// last request after the trip. The newest request can be missing, for
+// highest ID in the waiting trips and in the first riders of the pods. A pod
+// keeps its riders after the trip. Only the first rider of a pod counts, so
+// a party that joined a shared ride does not change the result. The newest
+// request can be missing, for
 // example after a shared ride takes it, or when a pod boards an older trip.
 // Then the result is the newest request that remains. It reports false
 // when no request remains.
@@ -164,8 +166,8 @@ func (s *Simulation) newestRequest() (int, int64, bool) {
 		}
 	}
 	for index := range s.vehicles {
-		if request := s.vehicles[index].Request; request != nil && request.ID > id {
-			id, requested = request.ID, request.RequestedTick
+		if riders := s.vehicles[index].Riders; len(riders) > 0 && riders[0].ID > id {
+			id, requested = riders[0].ID, riders[0].RequestedTick
 		}
 	}
 	return id, requested, id > 0
@@ -179,7 +181,7 @@ func (s *Simulation) guardedLoadLow() bool {
 	working := 0
 	for index := range s.vehicles {
 		v := &s.vehicles[index]
-		if v.Request != nil && !v.Request.Completed || assigned[v.Pod.ID] {
+		if v.RidersAboard() > 0 || assigned[v.Pod.ID] {
 			working++
 		}
 	}

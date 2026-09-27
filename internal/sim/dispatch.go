@@ -14,14 +14,11 @@ type waitingTrip struct {
 	deferUntil  int64
 	deferCheck  int64
 	deferPodID  string
-	// parties is 0 for a new order. A trip that a restore queues again holds
-	// the party count of the pod that carried it. Its boarding is already
-	// recorded.
-	parties int
+	// boarded is false for a new order. It is true for a rider that a
+	// restore queues again. The wait of such a trip is already recorded,
+	// and its request keeps its BoardedTick.
+	boarded bool
 }
-
-// partyCount returns the number of parties that the trip carries.
-func (trip waitingTrip) partyCount() int { return max(1, trip.parties) }
 
 // RequestTrip queues a passenger journey between stations and assigns an available pod when possible.
 func (s *Simulation) RequestTrip(origin, destination string) error {
@@ -299,14 +296,8 @@ func (s *Simulation) board(v *vehicle, trip waitingTrip) error {
 		return err
 	}
 	trip.route, trip.destination = route, Berth{}
-	request := trip.request
-	request.DispatchReason = ""
-	if trip.parties == 0 {
-		s.recordBoarding(request, 0)
-	}
-	request.PodID = v.Pod.ID
-	v.Request = &request
-	v.Parties = trip.partyCount()
+	v.Riders = []Request{s.boardingRider(trip, v, 0)}
+	v.Stops = []string{trip.request.To}
 	v.origin, v.destination, v.destinationStation = origin, trip.destination, trip.request.To
 	s.setVehicleRoute(v, trip.route)
 	v.Pod.Activity, v.Pod.WaitReason, v.Pod.BlockedBy = Boarding, NoWait, ""
@@ -316,25 +307,37 @@ func (s *Simulation) board(v *vehicle, trip waitingTrip) error {
 	return nil
 }
 
-// joinSharedRide adds the parties of a trip to a boarding pod with the same
-// origin and destination. The pod must have room for all of them.
+// boardingRider returns the rider of a trip that boards pod v now, and
+// records the boarding of a new order. sharedWith is 0, or the ID of the
+// first rider of the shared ride that the trip joins. A trip that a restore
+// queued again keeps its recorded boarding.
+func (s *Simulation) boardingRider(trip waitingTrip, v *vehicle, sharedWith int) Request {
+	rider := trip.request
+	rider.DispatchReason, rider.PodID = "", v.Pod.ID
+	if !trip.boarded {
+		rider.BoardedTick = s.tick
+		s.recordBoarding(trip.request, sharedWith)
+	}
+	return rider
+}
+
+// joinSharedRide adds the party of a trip to a boarding pod with the same
+// origin and destination. The pod must have room for one more party.
 func (s *Simulation) joinSharedRide(trip waitingTrip) bool {
 	if s.sharedRidePartyLimit <= 1 {
 		return false
 	}
-	request, parties := trip.request, trip.partyCount()
+	request := trip.request
 	for index := range s.vehicles {
 		v := &s.vehicles[index]
 		if v.Pod.Activity != Boarding || v.Pod.StationID != request.From || v.destinationStation != request.To ||
-			v.Request == nil || v.Parties+parties > s.sharedRidePartyLimit {
+			len(v.Riders) == 0 || len(v.Riders) >= s.sharedRidePartyLimit {
 			continue
 		}
-		if trip.parties == 0 {
-			s.recordBoarding(request, v.Request.ID)
+		if !trip.boarded {
 			s.sharedParties++
 		}
-		v.Parties += parties
-		v.Request.PartySize += request.PartySize
+		v.Riders = append(v.Riders, s.boardingRider(trip, v, v.Riders[0].ID))
 		return true
 	}
 	return false

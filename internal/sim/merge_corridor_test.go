@@ -120,9 +120,10 @@ func runMergeCorridor(t *testing.T, test corridorCase) corridorResult {
 			state.Boarded++
 			distance := test.queueHead - corridorQueueGap*float64(position)
 			state.Pods = append(state.Pods, SavedPod{
-				ID: id, Activity: "traveling", Occupied: true, Parties: 1, DestinationStation: "dest",
-				Request: &SavedRequest{ID: state.RequestID, From: "origin", To: "dest", PartySize: 1, PodID: id},
-				Route:   []int{laneIndex[feed], laneIndex["exit"], laneIndex["approach"]}, LaneID: feed, LaneDistance: distance, Distance: distance,
+				ID: id, Activity: "traveling", Occupied: true, DestinationStation: "dest",
+				Riders: []SavedRequest{{ID: state.RequestID, From: "origin", To: "dest", PartySize: 1, PodID: id}},
+				Stops:  []string{"dest"},
+				Route:  []int{laneIndex[feed], laneIndex["exit"], laneIndex["approach"]}, LaneID: feed, LaneDistance: distance, Distance: distance,
 			})
 			stream[id] = feed
 		}

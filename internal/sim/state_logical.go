@@ -18,19 +18,22 @@ type tripSource int
 const (
 	// fromQueue is a trip of the saved queue.
 	fromQueue tripSource = iota
-	// fromPod is the request of a pod that boards or carries parties. The
+	// fromPod is a rider of a pod that boards or carries parties. The
 	// restore puts it back in the queue.
 	fromPod
-	// fromUnloadingPod is the request of an unloading pod. The restore
-	// counts its parties as completed and does not queue it.
+	// fromUnloadingPod is a rider that leaves an unloading pod at its
+	// station, because the pod has no later stop for it. The restore counts
+	// it as completed and does not queue it.
 	fromUnloadingPod
 )
 
 // restoreLogical rebuilds a running simulation with each fleet pod idle at
 // its initial berth. It keeps the clock and the counters of the saved state.
-// The parties in an unloading pod count as completed. The parties in each
-// other pod go back to the queue with their party count, and their boarding
-// stays recorded. The queued trips lose their pod bindings. As after Reset,
+// The riders that leave an unloading pod at its station count as completed.
+// These are the riders with no stop in the pod.
+// Their journeys do not count in the journey totals. Each other rider of a
+// pod goes back to the queue as one trip, and its boarding stays recorded.
+// The queued trips lose their pod bindings. As after Reset,
 // the traffic demo stops and its parked pods are gone. restoreLogical fails
 // when the saved state is not valid or when the result fails a check.
 func restoreLogical(input RestoreStateInput) (*Simulation, RestoreResult, error) {
@@ -52,12 +55,17 @@ func restoreLogical(input RestoreStateInput) (*Simulation, RestoreResult, error)
 		if !pod.carriesPassengers() {
 			continue
 		}
-		entry := logicalTrip{trip: requeuedTrip(Request(*pod.Request), pod.Parties), source: fromPod}
-		if pod.Activity == activityCode(Unloading) {
-			s.completed += entry.trip.partyCount()
-			entry.source = fromUnloadingPod
+		for _, rider := range pod.Riders {
+			if rider.Completed {
+				continue
+			}
+			entry := logicalTrip{trip: requeuedTrip(Request(rider)), source: fromPod}
+			if pod.Activity == activityCode(Unloading) && !slices.Contains(pod.Stops, rider.To) {
+				s.completed++
+				entry.source = fromUnloadingPod
+			}
+			trips = append(trips, entry)
 		}
-		trips = append(trips, entry)
 	}
 	for _, saved := range state.Waiting {
 		trips = append(trips, logicalTrip{trip: s.unboundTrip(saved), source: fromQueue})
@@ -74,7 +82,7 @@ func restoreLogical(input RestoreStateInput) (*Simulation, RestoreResult, error)
 // route and the deferral check. It keeps the deferral deadline when the
 // deadline is in range.
 func (s *Simulation) unboundTrip(saved SavedTrip) waitingTrip {
-	trip := waitingTrip{request: Request(saved.Request), parties: saved.Parties}
+	trip := waitingTrip{request: Request(saved.Request), boarded: saved.Boarded}
 	trip.request.PodID = ""
 	if s.deferralInRange(saved.DeferUntil) {
 		trip.deferUntil = saved.DeferUntil
@@ -86,7 +94,8 @@ func (s *Simulation) unboundTrip(saved SavedTrip) waitingTrip {
 // order. The trips from the pods come before the saved trips, so of two trips
 // with one ID, the saved trip is the duplicate. queueTrips drops a trip with
 // a duplicate ID or with a request that is not valid. The request of an
-// unloading pod does not go in the queue, but it keeps its ID in use. It
+// unloading pod that leaves at its station does not go in the queue, but it
+// keeps its ID in use. It
 // returns the requeued and the dropped requests.
 func (s *Simulation) queueTrips(state SavedState, trips []logicalTrip) RestoreResult {
 	slices.SortStableFunc(trips, func(a, b logicalTrip) int { return cmp.Compare(a.trip.request.ID, b.trip.request.ID) })
@@ -96,11 +105,11 @@ func (s *Simulation) queueTrips(state SavedState, trips []logicalTrip) RestoreRe
 		request := entry.trip.request
 		switch {
 		case entry.source == fromUnloadingPod:
-			// restoreLogical counted the parties as completed.
+			// restoreLogical counted the rider as completed.
 		case used[request.ID] || !state.validRequest(SavedRequest(request)) ||
 			!s.passengerStation(request.From) || !s.passengerStation(request.To):
 			result.Dropped = append(result.Dropped, request.ID)
-			result.DroppedParties += entry.trip.partyCount()
+			result.DroppedParties++
 			continue
 		default:
 			s.waiting = append(s.waiting, entry.trip)

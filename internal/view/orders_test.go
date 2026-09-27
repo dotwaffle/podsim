@@ -13,14 +13,18 @@ func TestOutstandingOrderCountIncludesSharedParties(t *testing.T) {
 	state := sim.Snapshot{
 		Pending: []sim.Request{{ID: 3}},
 		Vehicles: []sim.Vehicle{{
-			Pod: sim.Pod{ID: "01"}, Request: &sim.Request{ID: 1}, Parties: 3,
+			Pod: sim.Pod{ID: "01"}, Riders: []sim.Request{{ID: 1}, {ID: 2}, {ID: 4}, {ID: 5, Completed: true}},
 		}},
 	}
 	if got := outstandingOrderCount(state); got != 4 {
 		t.Fatalf("outstanding order count = %d", got)
 	}
 	rows := outstandingOrders(state)
-	if len(rows) != 2 || rows[0].parties != 3 || !rows[0].active {
+	var ids []int
+	for _, row := range rows {
+		ids = append(ids, row.request.ID)
+	}
+	if !slices.Equal(ids, []int{1, 2, 3, 4}) || !rows[0].active || rows[2].active {
 		t.Fatalf("outstanding rows = %+v", rows)
 	}
 }
@@ -60,7 +64,7 @@ func TestOutstandingOrdersUseFleetNumbers(t *testing.T) {
 			{ID: 4, DispatchReason: "Waiting for pod london-pod-003 to finish"},
 		},
 		Vehicles: []sim.Vehicle{
-			{Pod: sim.Pod{ID: "london-pod-003", Activity: sim.Traveling}, Request: &sim.Request{ID: 1}, Parties: 2},
+			{Pod: sim.Pod{ID: "london-pod-003", Activity: sim.Traveling}, Riders: []sim.Request{{ID: 1}, {ID: 3}}},
 			{Pod: sim.Pod{ID: "london-pod-008", Activity: sim.Idle}},
 		},
 	}
@@ -68,7 +72,8 @@ func TestOutstandingOrdersUseFleetNumbers(t *testing.T) {
 	for _, row := range outstandingOrders(state) {
 		got = append(got, row.status)
 	}
-	want := []string{"Pod 01 / " + string(sim.Traveling) + " / 2 parties", "Pod 02 traveling to pickup", "Waiting for pod 01 to finish"}
+	shared := "Pod 01 / " + string(sim.Traveling) + " / 2 parties"
+	want := []string{shared, "Pod 02 traveling to pickup", shared, "Waiting for pod 01 to finish"}
 	if !slices.Equal(got, want) {
 		t.Fatalf("statuses = %q, want %q", got, want)
 	}

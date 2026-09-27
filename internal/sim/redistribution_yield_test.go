@@ -11,7 +11,7 @@ func scanRelocationConflict(s *Simulation, relocating *vehicle) bool {
 		if arrival == relocating || arrival.destination.ID != relocating.destination.ID {
 			continue
 		}
-		activePassenger := arrival.Request != nil && !arrival.Request.Completed &&
+		activePassenger := len(arrival.Riders) > 0 && !arrival.Riders[0].Completed &&
 			(arrival.Pod.Activity == Boarding || arrival.Pod.Activity == Traveling)
 		if activePassenger || s.assigned(arrival.Pod.ID) {
 			return true
@@ -227,7 +227,7 @@ func TestPassengerArrivalsMatchScan(t *testing.T) {
 			setup: func(_ *Simulation, relocating, other *vehicle) {
 				other.destination = relocating.destination
 				other.Pod.Activity = Traveling
-				other.Request = &Request{ID: 1, From: "garden", To: "market"}
+				other.Riders = []Request{{ID: 1, From: "garden", To: "market"}}
 			},
 		},
 		{
@@ -235,7 +235,7 @@ func TestPassengerArrivalsMatchScan(t *testing.T) {
 			setup: func(_ *Simulation, relocating, other *vehicle) {
 				other.destination = relocating.destination
 				other.Pod.Activity = Boarding
-				other.Request = &Request{ID: 1, From: "garden", To: "market"}
+				other.Riders = []Request{{ID: 1, From: "garden", To: "market"}}
 			},
 		},
 		{
@@ -243,14 +243,14 @@ func TestPassengerArrivalsMatchScan(t *testing.T) {
 			setup: func(_ *Simulation, relocating, other *vehicle) {
 				other.destination = relocating.destination
 				other.Pod.Activity = Traveling
-				other.Request = &Request{ID: 1, From: "garden", To: "market", Completed: true}
+				other.Riders = []Request{{ID: 1, From: "garden", To: "market", Completed: true}}
 			},
 		},
 		{
 			name: "idle pod with a passenger", want: false,
 			setup: func(_ *Simulation, relocating, other *vehicle) {
 				other.destination = relocating.destination
-				other.Request = &Request{ID: 1, From: "garden", To: "market"}
+				other.Riders = []Request{{ID: 1, From: "garden", To: "market"}}
 			},
 		},
 		{
@@ -258,7 +258,7 @@ func TestPassengerArrivalsMatchScan(t *testing.T) {
 			setup: func(s *Simulation, relocating, other *vehicle) {
 				other.destination = relocating.destination
 				other.Pod.Activity = Traveling
-				other.Request = &Request{ID: 1, From: "garden", To: "market"}
+				other.Riders = []Request{{ID: 1, From: "garden", To: "market"}}
 				assign(s, other)
 			},
 		},

@@ -205,8 +205,10 @@ func TestProfileDemandIsDeterministicAndLive(t *testing.T) {
 	}
 	requests := append([]sim.Request(nil), firstState.Simulation.Pending...)
 	for _, vehicle := range firstState.Simulation.Vehicles {
-		if vehicle.Request != nil && !vehicle.Request.Completed {
-			requests = append(requests, *vehicle.Request)
+		for _, rider := range vehicle.Riders {
+			if !rider.Completed {
+				requests = append(requests, rider)
+			}
 		}
 	}
 	if len(requests) != 1 {

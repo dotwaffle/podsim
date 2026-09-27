@@ -17,17 +17,21 @@
       "id": "01",
       "activity": "traveling",
       "occupied": true,
-      "request": {
-        "id": 1,
-        "from": "harbor",
-        "to": "market",
-        "partySize": 1,
-        "podID": "01",
-        "requestedTick": 0
-      },
-      "parties": 1,
       "origin": "harbor-1",
       "destinationStation": "market",
+      "riders": [
+        {
+          "id": 1,
+          "from": "harbor",
+          "to": "market",
+          "partySize": 1,
+          "podID": "01",
+          "requestedTick": 0
+        }
+      ],
+      "stops": [
+        "market"
+      ],
       "route": [
         9,
         10,

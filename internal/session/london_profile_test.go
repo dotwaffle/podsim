@@ -46,8 +46,10 @@ func activeRequest(snapshot sim.Snapshot) (sim.Request, bool) {
 		return snapshot.Pending[0], true
 	}
 	for _, vehicle := range snapshot.Vehicles {
-		if vehicle.Request != nil && !vehicle.Request.Completed {
-			return *vehicle.Request, true
+		for _, rider := range vehicle.Riders {
+			if !rider.Completed {
+				return rider, true
+			}
 		}
 	}
 	return sim.Request{}, false
