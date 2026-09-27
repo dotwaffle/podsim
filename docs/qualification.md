@@ -887,7 +887,8 @@ This includes boarding, travel with passengers, unloading, and travel to a picku
 An empty move to parking or for redistribution is not work.
 The `peak_passenger_vehicles` column counts only the pods with passengers aboard, so it is never more than `peak_active_vehicles`.
 
-The CSV files in `docs/measurements` come from reports before `schema_version` 6, except [`london-platoon-screening.csv`](measurements/london-platoon-screening.csv).
+Most compare CSV files in `docs/measurements` come from reports before `schema_version` 6.
+The platoon screening and queue routing files come from version 6, and the drop-offs files come from version 8.
 Thus the older files do not have the columns that version 6 adds, such as `wait_p95_seconds`, `journey_average_seconds`, `occupancy`, `stopped_pod_seconds`, and `peak_node`.
 See [report columns](../README.md#report-columns) for the definitions.
 
@@ -1194,6 +1195,121 @@ All four arms run above the band limit.
 Sharing stays off by default.
 Raw results are in [`measurements/london-sharing.csv`](measurements/london-sharing.csv), with the limit 4 and limit 8 rows.
 The capacity CSV gives the limit 1 rows.
+
+### Drop-offs sharing in London
+
+In the `drop-offs` mode, a party can join a boarding pod that passes its destination or that can add it as a stop.
+See [parties](../README.md#parties).
+This measurement compares the mode with same-destination sharing at a party limit of 4, with the default stop limit of 3.
+The code at commit `a06afef` gives the recorded values.
+The compare command writes report `schema_version` 8.
+
+```sh
+mise run compare -- -project /tmp/podsim-london-capacity.json -pattern profile -bands all -duration 65m -arrivals-for 30m -loads 60s,30s,20s,15s,12s,10s,8.571429s,7.5s,6.666667s,6s,5.454545s,5s,4.615385s,4.285714s,4s -seeds 1,2,3 -redistribution-policies off -focus 940GZZLUEUS -queue-limit 1000000 -stop-when-drained -adaptive-limit -past-limit 1 -sharing-limits 4 -sharing-modes destination,drop-offs -workers 4 -format csv -output docs/measurements/london-drop-offs.csv
+```
+
+A run with `-sharing-limits 1` at the same commit gives each row of the capacity CSV again.
+The destination rows give each row of the limit 4 rows of `london-sharing.csv` again, and they add the columns of the later schema versions.
+Thus the CSV of this measurement has only the limit 4 rows.
+
+The measurement plan also has seeds 4 to 10 at the limit rates.
+These seeds did not run.
+After the sweep of seeds 1 to 3, the scope went down to the bands where sharing has the largest effect: Early, AM peak, Evening, and Night.
+The confirmation with guarded positioning runs only these bands with seeds 1 to 3.
+It uses the limit 1 recovery limit of each band, the two rates below it, and the two rates above it, up to 15/min.
+
+The limits use the 60-minute rule of the capacity sweep.
+The 65-minute columns use the full run.
+
+| NUMBAT band | Limit 1, 60 min | Destination 4, 60 min | Drop-offs 4, 60 min | Limit 1, 65 min | Destination 4, 65 min | Drop-offs 4, 65 min |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| Early | 7/min | 9/min | 15/min | 10/min | 15/min | 15/min |
+| Morning | 9/min | 9/min | 14/min | 13/min | 14/min | 15/min |
+| AM peak | 13/min | 13/min | 14/min | 14/min | 15/min | 15/min |
+| Interpeak | 14/min | 14/min | 15/min | 15/min | 15/min | 15/min |
+| PM peak | 13/min | 13/min | 14/min | 15/min | 15/min | 15/min |
+| Evening | 14/min | 15/min | 15/min | 15/min | 15/min | 15/min |
+| Late | 12/min | 12/min | 12/min | 14/min | 13/min | 13/min |
+| Night | 9/min | 11/min | 11/min | 11/min | 15/min | 15/min |
+
+The drop-offs mode raises five 60-minute limits and lowers none.
+Early goes from 9/min to 15/min, and Morning from 9/min to 14/min.
+It also raises the 65-minute Morning limit from 14/min to 15/min, and it lowers no 65-minute limit.
+
+The next table gives the mean over the arms from 1/min to the 60-minute limit of the destination mode, with all three seeds.
+All arms in this table finish every request.
+Each cell gives the destination value, then the drop-offs value.
+The empty distance is for each served request.
+The detour ratios and the intermediate stops are for the drop-offs mode.
+The destination mode has a detour ratio of 1 and no intermediate stop.
+The pod journeys are the served parties less the shared parties.
+
+| NUMBAT band | Rates | Average journey | Average wait | Maximum wait | Empty distance | Occupancy | Detour ratio, mean / maximum | Intermediate stops per pod journey |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| Early | 1 to 9/min | 711.6 / 678.5 s | 246.4 / 208.1 s | 539.4 / 492.1 s | 6,547 / 5,881 m | 1.069 / 1.144 | 1.008 / 1.294 | 0.106 |
+| Morning | 1 to 9/min | 531.9 / 529.8 s | 116.3 / 113.6 s | 471.9 / 468.3 s | 2,971 / 2,903 m | 1.002 / 1.008 | 1.001 / 1.289 | 0.014 |
+| AM peak | 1 to 13/min | 526.8 / 520.8 s | 129.3 / 122.4 s | 572.0 / 553.3 s | 2,953 / 2,862 m | 1.002 / 1.011 | 1.002 / 1.509 | 0.021 |
+| Interpeak | 1 to 14/min | 465.2 / 462.1 s | 96.6 / 92.9 s | 474.6 / 464.1 s | 2,209 / 2,153 m | 1.002 / 1.007 | 1.001 / 1.448 | 0.013 |
+| PM peak | 1 to 13/min | 471.8 / 468.9 s | 106.1 / 102.8 s | 413.4 / 394.6 s | 2,477 / 2,431 m | 1.003 / 1.007 | 1.001 / 1.390 | 0.011 |
+| Evening | 1 to 15/min | 552.1 / 544.3 s | 162.1 / 153.2 s | 553.9 / 534.3 s | 3,037 / 2,976 m | 1.006 / 1.017 | 1.002 / 1.390 | 0.027 |
+| Late | 1 to 12/min | 555.4 / 552.2 s | 149.7 / 145.9 s | 468.5 / 456.1 s | 3,235 / 3,204 m | 1.002 / 1.008 | 1.001 / 1.411 | 0.015 |
+| Night | 1 to 11/min | 547.8 / 547.3 s | 123.7 / 123.1 s | 478.2 / 477.4 s | 4,229 / 4,202 m | 1.068 / 1.072 | 1.001 / 1.237 | 0.009 |
+
+Over these 288 arms, 1.8 percent of the served parties share a pod in the destination mode, and 3.6 percent in the drop-offs mode.
+The journey, the wait, and the empty distance fall in each band.
+The mean of the peak occupied berths at Euston changes by 0.07 or less in each band.
+
+Five arms in the drop-offs mode end after 3,600 seconds when the destination arm ends by 3,600 seconds.
+They are PM peak at 15/min with seeds 1 and 2, Late at 13/min with seed 1, and Night at 12/min and 15/min with seed 1.
+All five arms run above the 60-minute limit of the drop-offs mode.
+In 20 other arms, the drop-offs arm ends by 3,600 seconds and the destination arm does not.
+
+The largest detour ratio in the sweep is 1.561, in Interpeak at 15/min with seed 3.
+In the rates of the table, the largest is 1.509, in AM peak at 12/min with seed 2.
+
+The guarded positioning confirmation gives the same result.
+
+```sh
+mise run compare -- -project /tmp/podsim-london-capacity.json -pattern profile -bands early -loads 12s,10s,8.571429s,7.5s,6.666667s -duration 65m -arrivals-for 30m -seeds 1,2,3 -redistribution-policies on -focus 940GZZLUEUS -queue-limit 1000000 -stop-when-drained -sharing-limits 4 -sharing-modes destination,drop-offs -workers 4 -format csv
+```
+
+The other bands use the same command with `-bands am-peak -loads 5.454545s,5s,4.615385s,4.285714s,4s`, `-bands evening -loads 5s,4.615385s,4.285714s,4s`, and `-bands night -loads 8.571429s,7.5s,6.666667s,6s,5.454545s`.
+The guarded CSV holds the rows of the four reports.
+In the four bands, the drop-offs mode lowers the average journey and the average wait.
+No drop-offs arm ends after 3,600 seconds when the destination arm ends by 3,600 seconds.
+The largest detour ratio is 1.509 again.
+
+The rail-hub schedule and a Scale100 check give no difference between the modes.
+
+```sh
+mise run compare -- -project /tmp/podsim-rail-hub.json -pattern hub-burst -duration 30m -arrivals-for 5m -request-every 5s -burst-size 12 -seeds 1,2,3,4,5 -sharing-limits 1,4 -sharing-modes destination,drop-offs -redistribution-policies off -workers 4 -format csv -output docs/measurements/rail-hub-drop-offs.csv
+mise run compare -- -project /tmp/podsim-scale100.json -pattern destination -focus station-19 -duration 30m -arrivals-for 5m -request-every 5s -seeds 1,2,3 -sharing-limits 1,4 -sharing-modes destination,drop-offs -redistribution-policies off -workers 4 -format csv -output docs/measurements/scale100-drop-offs.csv
+```
+
+In the rail-hub schedule, the drop-offs rows are equal to the destination rows, and no pod adds a stop.
+Limit 4 lowers the five-seed mean wait from 539.0 seconds to 227.6 seconds in both modes.
+In the Scale100 check, no party joins a pod in either mode, because each request finds an idle pod.
+
+The heavy arm is PM peak at 12/min with seed 1.
+In three runs of each arm with one worker, the median user time is 8.08 seconds with limit 1, 8.61 seconds in the destination mode, and 8.20 seconds in the drop-offs mode.
+The drop-offs arm ends at 2,695 seconds and the destination arm at 3,018 seconds.
+For each simulated second, the drop-offs mode uses 6.7 percent more CPU time than the destination mode.
+
+The design sets seven rules for the drop-offs mode against the destination mode with the same limit:
+
+| Rule | Result |
+| --- | --- |
+| 1. With limit 1, each row and each snapshot hash is equal to the earlier code. | Met. The limit 1 and destination rows are equal to the recorded rows, and a snapshot hash check at each simulated second finds no difference. |
+| 2. No London band limit is lower. | Met. No 60-minute or 65-minute limit is lower. |
+| 3. No arm ends after 3,600 seconds when the destination arm ends by 3,600 seconds. | Not met. Five of 360 arms end after 3,600 seconds. |
+| 4. The mean journey from 1/min to the limit rate is lower, and no band mean is more than 2 percent higher. | Met. The mean falls from 538.1 seconds to 531.5 seconds, and each band mean falls. |
+| 5. The mean detour ratio is at most 1.15 in each band, and the maximum is at most 1.5. | Not met. The means are at most 1.008, but the maximum is 1.509 in AM peak. |
+| 6. The empty distance for each served request is at most 1.05 times the destination value in each band. | Met. The ratio is 0.90 to 0.99. |
+| 7. The CPU time of the heavy arm grows by less than 10 percent. | Met. The total falls by 4.8 percent. |
+
+The drop-offs mode does not meet rules 3 and 5, so it does not become the mode that the editor offers first.
+Sharing stays off by default, and the default mode stays `destination`.
+Raw results are in [`measurements/london-drop-offs.csv`](measurements/london-drop-offs.csv), [`measurements/london-drop-offs-guarded.csv`](measurements/london-drop-offs-guarded.csv), [`measurements/rail-hub-drop-offs.csv`](measurements/rail-hub-drop-offs.csv), and [`measurements/scale100-drop-offs.csv`](measurements/scale100-drop-offs.csv).
 
 ### More London berths
 

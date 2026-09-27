@@ -10,7 +10,7 @@ With the `-state` option, the server also saves the shared session to disk and r
 Optional redistribution runs guarded positioning, which moves idle empty pods only at a low demand rate.
 It remains off by default.
 
-The rail-hub, London capacity envelope, same-destination sharing, and first congestion-aware routing experiments are complete.
+The rail-hub, London capacity envelope, same-destination sharing, drop-offs sharing, and first congestion-aware routing experiments are complete.
 The screen of the queue routing policy is also complete.
 The first station-maneuver slice is complete: station lanes have explicit roles, pod snapshots expose the current phase, and the inspector names the maneuver.
 The scenario command sets the berths and berth pitch of the generated presets and the initial pods of the London preset.
@@ -402,6 +402,15 @@ MATSim's [demand-responsive transport module](https://github.com/matsim-org/mats
 A limit of two to eight parties lets a party join a pod that is still boarding at the same origin for the same destination.
 The default limit of one disables sharing.
 See [docs/qualification.md](docs/qualification.md#same-destination-sharing).
+
+The drop-offs mode, a part of step 3, is also available as an option.
+A party can join a boarding pod that passes its destination, and the pod stops there on its way.
+The stops do not change after the pod departs, and a pod with passengers does not pick up parties.
+In London at a limit of 4, the mode raises five 60-minute band limits and lowers the journey time, the wait, and the empty distance in each band.
+It does not meet two of the seven adoption rules.
+Five arms end after 60 minutes when the same-destination arm ends within 60 minutes, and the largest detour ratio is 1.509.
+Thus the default mode stays same-destination sharing.
+See [docs/qualification.md](docs/qualification.md#drop-offs-sharing-in-london).
 
 ### Railway and park-and-ride hubs
 
