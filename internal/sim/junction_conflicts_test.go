@@ -189,7 +189,7 @@ func TestConflictExtentIncludesShortSegmentsAndCurves(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
-			start, end := conflictExtent(tc.points, tc.other)
+			start, end := conflictExtent(newConflictPolyline(tc.points), newConflictPolyline(tc.other))
 			if tc.name == "separated" {
 				if !math.IsInf(start, 1) {
 					t.Fatalf("unexpected conflict: %g to %g", start, end)
