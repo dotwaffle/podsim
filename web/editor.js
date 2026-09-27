@@ -1619,22 +1619,58 @@
     return { body, headers: { ...headers, "Content-Encoding": "gzip" } };
   }
 
+  // REPLY_TEXT_CHARS is the maximum number of characters of a plain text
+  // error reply that the editor shows. REPLY_SCAN_CHARS is the maximum
+  // number of UTF-16 units of the reply that replyText reads, so a large
+  // reply does not use much memory.
+  const REPLY_TEXT_CHARS = 200;
+  const REPLY_SCAN_CHARS = 4096;
+
+  // replyText gives the text of a plain text error reply on one line, with
+  // at most REPLY_TEXT_CHARS characters and "..." when it is shorter than
+  // the reply. When the text is empty, it gives the HTTP status, and for
+  // HTTP 503 it also tells that the server is busy.
+  function replyText(text, status) {
+    const start = text.trimStart();
+    const scan = start.slice(0, REPLY_SCAN_CHARS).replace(/\s+/g, " ").trimEnd();
+    let out = ""; let count = 0;
+    for (const char of scan) {
+      if (count === REPLY_TEXT_CHARS) return `${out.trimEnd()}...`;
+      out += char; count += 1;
+    }
+    if (start.length > REPLY_SCAN_CHARS) return `${out}...`;
+    if (out) return out;
+    return status === 503 ? "the server is busy (HTTP 503)" : `HTTP ${status}`;
+  }
+
+  // retryAfterSeconds gives the number of seconds in the Retry-After header
+  // of a reply, or null when the header is not a number of seconds.
+  function retryAfterSeconds(response) {
+    const value = (response.headers && response.headers.get("Retry-After")) || "";
+    return /^\d+$/.test(value.trim()) ? Number(value.trim()) : null;
+  }
+
   // postCommand sends one command. A rejected command throws an error with
   // status, the HTTP status, and errorCode, the error code of the
   // acknowledgment. The message of the error is the error text of the
   // acknowledgment. A reply without an acknowledgment gives an empty
-  // errorCode and the HTTP status as the message. HTTP 413 gives
-  // SERVER_TOO_LARGE_TEXT. A command that is too large for the server
-  // throws a tooLargeError, and the editor does not send it.
+  // errorCode and the text of the reply as the message, as replyText
+  // gives it. The error also has retryAfter, the seconds of the
+  // Retry-After header or null. For example, the server replies with HTTP
+  // 503, Retry-After and plain text when it is busy with other large
+  // commands. HTTP 413 gives SERVER_TOO_LARGE_TEXT. A command that is too
+  // large for the server throws a tooLargeError, and the editor does not
+  // send it.
   async function postCommand(connection, command) {
     connection.sequence += 1;
     const { body: requestBody, headers } = await commandRequest(JSON.stringify({ client: connection.clientID, sequence: connection.sequence, epoch: connection.epoch, ...command }));
     const response = await connection.fetch("/api/command", { method: "POST", headers, body: requestBody });
     if (response.status === 413) throw tooLargeError(SERVER_TOO_LARGE_TEXT);
-    let body = null; try { body = await response.json(); } catch (_) {}
+    let text = ""; try { text = await response.text(); } catch (_) {}
+    let body = null; try { body = JSON.parse(text); } catch (_) {}
     if (!response.ok || (body && (body.error || body.Error))) {
-      const error = new Error((body && (body.error || body.Error)) || `HTTP ${response.status}`);
-      error.status = response.status; error.errorCode = (body && body.errorCode) || ""; throw error;
+      const error = new Error((body && (body.error || body.Error)) || replyText(text, response.status));
+      error.status = response.status; error.errorCode = (body && body.errorCode) || ""; error.retryAfter = retryAfterSeconds(response); throw error;
     }
     const replyState = body && (body.state || body.State || body);
     if (replyState && (replyState.epoch || replyState.Epoch)) connection.epoch = replyState.epoch || replyState.Epoch;
@@ -1823,15 +1859,25 @@
   // status line stays.
   const APPLY_FAILED_STATUS = "Apply failed. The draft stays on this page.";
 
+  // retryText tells the user when to apply again after an HTTP 503 reply.
+  // seconds is the Retry-After value of the reply, or null. The reason
+  // before it tells that the server is busy.
+  function retryText(seconds) {
+    if (!seconds) return "Apply again later.";
+    return `Wait ${seconds} ${seconds === 1 ? "second" : "seconds"}, then apply again.`;
+  }
+
   // applyFailureText gives the message for an error from applyToServer. For
   // an error code that is not in APPLY_FAILURE, the reason is the error
-  // text, for example the reason from the server or a network error. note
-  // is empty when the browser keeps the draft. Else it tells the user that
-  // the draft is lost when they leave the page.
+  // text, for example the reason from the server or a network error. After
+  // an HTTP 503 reply without an error code, retryText follows the
+  // reason. note is empty when the browser keeps the draft. Else it tells
+  // the user that the draft is lost when they leave the page.
   function applyFailureText(error, note = "") {
     const text = String(error.message).replace(/\.?$/, ".");
     const reason = APPLY_FAILURE.get(error.errorCode)?.reason ?? `Apply failed. ${text.charAt(0).toUpperCase()}${text.slice(1)}`;
-    return [reason, APPLY_PAUSE_TEXT[error.pause], note].filter(Boolean).join(" ");
+    const retry = error.status === 503 && !error.errorCode ? retryText(error.retryAfter) : "";
+    return [reason, retry, APPLY_PAUSE_TEXT[error.pause], note].filter(Boolean).join(" ");
   }
 
   // applyFailureStatus gives the status line for an error from

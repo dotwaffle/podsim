@@ -2045,7 +2045,7 @@ function requestCommand(init) {
 function fakeSession(options) {
   const commands = [];
   const live = { epoch: "epoch-1", serverStart: "start-1", revision: options.liveRevision ?? 3, generation: 5, paused: options.paused };
-  const reply = (status, body) => ({ ok: status < 300, status, json: async () => body });
+  const reply = (status, body) => new Response(JSON.stringify(body), { status });
   const acknowledgment = (rejection, command) => ({
     epoch: live.epoch, revision: commands.length, projectRevision: live.revision, generation: live.generation,
     ...(!rejection && command && command.action === "project" && options.stateSaved !== undefined ? { stateSaved: options.stateSaved } : {}),
@@ -2241,7 +2241,7 @@ test("postCommand compresses a large command with gzip and sends a small command
   const requests = [];
   const connection = {
     clientID: "editor-test", sequence: 0, epoch: "epoch-1",
-    fetch: async (url, init) => { requests.push(init); return { ok: true, status: 200, json: async () => ({ epoch: "epoch-1" }) }; },
+    fetch: async (url, init) => { requests.push(init); return new Response(JSON.stringify({ epoch: "epoch-1" })); },
   };
   const project = paddedScenario(editor.SERVER_PROJECT_BYTES);
   await editor.postCommand(connection, { action: "pause", paused: true });
@@ -2301,6 +2301,90 @@ test("an apply that is too large fails before the pause, and a 413 reply gives t
     return true;
   });
   assert.deepEqual(commandList(refusing), ["pause true", "pause false"]);
+});
+
+test("an apply that the server refuses with plain text shows the text of the reply", async () => {
+  const long = `the request origin ${"x".repeat(300)} is not permitted`;
+  const cases = [
+    {
+      name: "503 with Retry-After", status: 503, headers: { "Retry-After": "1" }, text: "the server is busy with other large commands, try again\n",
+      wantMessage: "the server is busy with other large commands, try again", wantRetryAfter: 1,
+      wantText: "Apply failed. The server is busy with other large commands, try again. Wait 1 second, then apply again. The editor resumed the simulation.",
+    },
+    {
+      name: "503 with Retry-After of more than one second", status: 503, headers: { "Retry-After": " 5 " }, text: "the server is busy with other large commands, try again",
+      wantMessage: "the server is busy with other large commands, try again", wantRetryAfter: 5,
+      wantText: "Apply failed. The server is busy with other large commands, try again. Wait 5 seconds, then apply again. The editor resumed the simulation.",
+    },
+    {
+      name: "503 without Retry-After", status: 503, text: "the request ended while it waited for another large command",
+      wantMessage: "the request ended while it waited for another large command", wantRetryAfter: null,
+      wantText: "Apply failed. The request ended while it waited for another large command. Apply again later. The editor resumed the simulation.",
+    },
+    {
+      name: "503 with a Retry-After date and no text", status: 503, headers: { "Retry-After": "Wed, 21 Oct 2026 07:28:00 GMT" }, text: "",
+      wantMessage: "the server is busy (HTTP 503)", wantRetryAfter: null,
+      wantText: "Apply failed. The server is busy (HTTP 503). Apply again later. The editor resumed the simulation.",
+    },
+    {
+      name: "503 with Retry-After and only white space", status: 503, headers: { "Retry-After": "2" }, text: " \r\n\t ",
+      wantMessage: "the server is busy (HTTP 503)", wantRetryAfter: 2,
+      wantText: "Apply failed. The server is busy (HTTP 503). Wait 2 seconds, then apply again. The editor resumed the simulation.",
+    },
+    {
+      name: "415 plain text", status: 415, headers: { "Accept-Encoding": "gzip" }, text: "unsupported content encoding \"br\"",
+      wantMessage: "unsupported content encoding \"br\"", wantRetryAfter: null,
+      wantText: "Apply failed. Unsupported content encoding \"br\". The editor resumed the simulation.",
+    },
+    {
+      name: "a long 403 text is on one line and shorter", status: 403, text: `\n  ${long.replace("origin ", "origin\n\t")}  \n`,
+      wantMessage: `${long.slice(0, 200)}...`, wantRetryAfter: null,
+      wantText: `Apply failed. T${long.slice(1, 200)}... The editor resumed the simulation.`,
+    },
+    {
+      name: "a 16 MiB 503 text gives only its start", status: 503, headers: { "Retry-After": "1" }, text: `${" ".repeat(1 << 20)}${"busy ".repeat(16 << 18)}`,
+      wantMessage: `${"busy ".repeat(40).trimEnd()}...`, wantRetryAfter: 1,
+      wantText: `Apply failed. B${"busy ".repeat(40).trimEnd().slice(1)}... Wait 1 second, then apply again. The editor resumed the simulation.`,
+    },
+    {
+      name: "a text with much white space in the part that replyText reads", status: 503, text: `${"a".padEnd(4096)}b`,
+      wantMessage: "a...", wantRetryAfter: null,
+      wantText: "Apply failed. A... Apply again later. The editor resumed the simulation.",
+    },
+  ];
+  for (const item of cases) {
+    const server = fakeSession({ paused: false });
+    const fetch = async (url, init) => {
+      if (init && init.method && requestCommand(init).action === "project") {
+        return new Response(item.text, { status: item.status, headers: { "Content-Type": "text/plain; charset=utf-8", ...item.headers } });
+      }
+      return server.fetch(url, init);
+    };
+    const connection = { fetch, clientID: "editor-test", sequence: 0, epoch: "" };
+    await assert.rejects(editor.applyToServer({ connection, revision: 3, project: connectedScenario() }), (error) => {
+      assert.equal(error.status, item.status, item.name);
+      assert.equal(error.errorCode, "", item.name);
+      assert.equal(error.message, item.wantMessage, item.name);
+      assert.equal(error.retryAfter, item.wantRetryAfter, item.name);
+      assert.equal(editor.applyFailureText(error), item.wantText, item.name);
+      assert.equal(editor.applyFailureStatus(error), "Apply failed. The draft stays on this page.", item.name);
+      return true;
+    });
+    assert.deepEqual(commandList(server), ["pause true", "pause false"], item.name);
+  }
+});
+
+test("a JSON error reply gives its error text and no busy text, also with HTTP 503", async () => {
+  const server = fakeSession({ paused: false, before: failOn("project", { status: 503, errorCode: "server_stopping", error: "The server is stopping. Try again after it restarts." }) });
+  const connection = { fetch: server.fetch, clientID: "editor-test", sequence: 0, epoch: "" };
+  await assert.rejects(editor.applyToServer({ connection, revision: 3, project: connectedScenario() }), (error) => {
+    assert.equal(error.status, 503);
+    assert.equal(error.errorCode, "server_stopping");
+    assert.equal(error.message, "The server is stopping. Try again after it restarts.");
+    assert.equal(error.retryAfter, null);
+    assert.equal(editor.applyFailureText(error), "Apply failed. The server is stopping. Try again after it restarts. The editor resumed the simulation.");
+    return true;
+  });
 });
 
 test("an applied project warns when the server could not save the session state", async () => {
