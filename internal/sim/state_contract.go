@@ -1,0 +1,349 @@
+package sim
+
+import (
+	"cmp"
+	"errors"
+	"fmt"
+	"slices"
+)
+
+// podPhase is a case of the phase contract of a saved pod. The contract has
+// more cases than the activity codes. A traveling pod can be empty or carry
+// riders, and an unloading pod can be at its last stop or at an
+// intermediate stop.
+type podPhase int
+
+const (
+	phaseIdle podPhase = iota
+	phaseDepartingEmpty
+	phaseBoarding
+	phaseTravelingEmpty
+	phaseTravelingOccupied
+	phaseUnloadingFinal
+	phaseUnloadingIntermediate
+	phaseContinuing
+)
+
+// stopRule tells which stops a phase needs.
+type stopRule int
+
+const (
+	// noStops forbids stops.
+	noStops stopRule = iota
+	// routeStops needs one stop for each destination of the active riders,
+	// with the destination station of the pod first.
+	routeStops
+	// finalStop forbids stops, and each active rider goes to the station of
+	// the pod.
+	finalStop
+	// laterStops needs one stop for each destination of the active riders
+	// other than the station of the pod. Each active rider goes to the
+	// station of the pod or to a stop.
+	laterStops
+)
+
+// phaseRule holds the fields that a phase needs and the fields that it
+// forbids. The zero value of each flag forbids the field or the value.
+type phaseRule struct {
+	// active needs at least one active rider. Otherwise the phase forbids
+	// active riders.
+	active bool
+	// history allows completed riders.
+	history bool
+	// occupied needs Occupied. Otherwise the phase forbids it.
+	occupied bool
+	// atBerth needs a station and a berth. Otherwise the phase forbids them.
+	atBerth bool
+	// relocating needs RelocatingTo, equal to DestinationStation. It allows
+	// the rebalancing flag and the destination claim. Otherwise the phase
+	// forbids each of them.
+	relocating bool
+	// minPhase and maxPhase bound PhaseTicks.
+	minPhase, maxPhase int
+	stops              stopRule
+	// startsAtBerth needs Origin equal to BerthID.
+	startsAtBerth bool
+	// hasOrigin needs Origin.
+	hasOrigin bool
+	// boardsHere needs each rider to board at the station of the pod, with
+	// the journey origin at the berth of the pod.
+	boardsHere bool
+	// atDestination needs Destination equal to BerthID, and
+	// DestinationStation equal to StationID.
+	atDestination bool
+	// hasDestination needs Destination.
+	hasDestination bool
+}
+
+// phaseRules is the phase contract. Both restore tiers check each saved pod
+// against the rule of its phase before they use the pod. A live simulation
+// must meet the contract after each tick and each command.
+var phaseRules = [...]phaseRule{
+	phaseIdle:           {history: true, atBerth: true},
+	phaseDepartingEmpty: {history: true, atBerth: true, relocating: true, startsAtBerth: true, hasDestination: true},
+	phaseBoarding: {
+		active: true, atBerth: true, maxPhase: boardingTicks, stops: routeStops, startsAtBerth: true, boardsHere: true,
+	},
+	phaseTravelingEmpty:    {history: true, relocating: true, hasOrigin: true},
+	phaseTravelingOccupied: {active: true, history: true, occupied: true, stops: routeStops, hasOrigin: true},
+	phaseUnloadingFinal: {
+		active: true, history: true, occupied: true, atBerth: true, minPhase: 1, maxPhase: unloadingTicks,
+		stops: finalStop, atDestination: true,
+	},
+	// A pod that finished unloading at an intermediate stop and has no route
+	// to its next stop stays unloading with a zero phase, and tries again.
+	phaseUnloadingIntermediate: {
+		active: true, history: true, occupied: true, atBerth: true, maxPhase: unloadingTicks, stops: laterStops,
+		atDestination: true,
+	},
+	phaseContinuing: {active: true, history: true, occupied: true, atBerth: true, stops: routeStops, startsAtBerth: true},
+}
+
+// phaseOf returns the phase of a saved pod. It uses the activity, the
+// Occupied flag of a traveling pod, and the stops of an unloading pod. The
+// rule of the phase then checks the other fields.
+func phaseOf(pod SavedPod) (podPhase, error) {
+	activity, ok := activityOfCode(pod.Activity)
+	if !ok {
+		return 0, fmt.Errorf("unknown activity %q", pod.Activity)
+	}
+	switch activity {
+	case DepartingEmpty:
+		return phaseDepartingEmpty, nil
+	case Boarding:
+		return phaseBoarding, nil
+	case Traveling:
+		if pod.Occupied {
+			return phaseTravelingOccupied, nil
+		}
+		return phaseTravelingEmpty, nil
+	case Unloading:
+		if len(pod.Stops) > 0 {
+			return phaseUnloadingIntermediate, nil
+		}
+		return phaseUnloadingFinal, nil
+	case Continuing:
+		return phaseContinuing, nil
+	default:
+		return phaseIdle, nil
+	}
+}
+
+// savedRiders splits the riders of a saved pod into the active riders,
+// which did not leave the pod, and the completed history. It does not read
+// the activity or the flags of the pod.
+func savedRiders(pod SavedPod) (active, history []SavedRequest) {
+	for _, rider := range pod.Riders {
+		if rider.Completed {
+			history = append(history, rider)
+		} else {
+			active = append(active, rider)
+		}
+	}
+	return active, history
+}
+
+// checkContract checks the rules of a saved state that do not need the
+// network: the counters, the phase contract of each pod, and the identity
+// of each order. It returns the unaccounted orders: the orders that the
+// state submitted but that are not complete, not in the queue and not
+// aboard a pod. A live simulation has none.
+func (state SavedState) checkContract() (int, error) {
+	if len(state.Pods) == 0 || len(state.Pods) > maxSavedPods {
+		return 0, fmt.Errorf("the saved state has %d pods, want 1 to %d", len(state.Pods), maxSavedPods)
+	}
+	if err := state.validateCounters(); err != nil {
+		return 0, err
+	}
+	// orders holds where each order ID is: in the queue, or with a pod.
+	orders := make(map[int]string)
+	use := func(id int, where string) error {
+		if other, ok := orders[id]; ok {
+			return fmt.Errorf("order %d is %s and %s", id, other, where)
+		}
+		orders[id] = where
+		return nil
+	}
+	held := 0
+	for index, pod := range state.Pods {
+		if pod.ID == "" || index > 0 && pod.ID <= state.Pods[index-1].ID {
+			return 0, fmt.Errorf("saved pod %q is empty or out of order", pod.ID)
+		}
+		if err := state.checkPod(pod); err != nil {
+			return 0, fmt.Errorf("pod %s: %w", pod.ID, err)
+		}
+		for _, rider := range pod.Riders {
+			if err := use(rider.ID, "in pod "+pod.ID); err != nil {
+				return 0, err
+			}
+			if !rider.Completed {
+				held++
+			}
+		}
+	}
+	// A queued order that is not valid does not stop the restore. Each tier
+	// drops it and reports it. See validTrip.
+	for _, trip := range state.Waiting {
+		if err := use(trip.Request.ID, "in the queue"); err != nil {
+			return 0, err
+		}
+		held++
+	}
+	unaccounted := state.RequestID - state.Completed - held
+	if unaccounted < 0 {
+		return 0, fmt.Errorf("the saved state holds %d more orders than it submitted", -unaccounted)
+	}
+	return unaccounted, nil
+}
+
+// validTrip reports whether a queued order is valid. A queued order is not
+// complete, and its two stations differ. It has a boarding time only when a
+// restore queued it again after it boarded, and then the boarding time is
+// not before the request time.
+func (state SavedState) validTrip(request SavedRequest, boarded bool) bool {
+	return state.validRequest(request) && request.From != request.To && !request.Completed &&
+		(boarded && request.BoardedTick >= request.RequestedTick || !boarded && request.BoardedTick == 0)
+}
+
+// checkPod checks a saved pod against the rule of its phase.
+func (state SavedState) checkPod(pod SavedPod) error {
+	phase, err := phaseOf(pod)
+	if err != nil {
+		return err
+	}
+	rule := phaseRules[phase]
+	active, history := savedRiders(pod)
+	if err := state.checkPodRiders(pod, rule, active, history); err != nil {
+		return err
+	}
+	if err := checkPodFlags(pod, rule); err != nil {
+		return err
+	}
+	if err := checkPodPlace(pod, rule); err != nil {
+		return err
+	}
+	return checkPodStops(pod, rule, active, history)
+}
+
+// checkPodRiders checks the riders of a pod. The riders of a pod boarded at
+// one station, and each names the pod.
+func (state SavedState) checkPodRiders(pod SavedPod, rule phaseRule, active, history []SavedRequest) error {
+	switch {
+	case len(pod.Riders) > MaxSharedRideParties || len(pod.Stops) > MaxSharedRideParties:
+		return fmt.Errorf("the pod has %d riders and %d stops", len(pod.Riders), len(pod.Stops))
+	case rule.active && len(active) == 0:
+		return errors.New("the pod has no active rider")
+	case !rule.active && len(active) > 0:
+		return fmt.Errorf("the pod has active rider %d", active[0].ID)
+	case !rule.history && len(history) > 0:
+		return fmt.Errorf("the pod has completed rider %d", history[0].ID)
+	}
+	for _, rider := range pod.Riders {
+		if !state.validRequest(rider) || rider.From == rider.To || rider.BoardedTick < rider.RequestedTick {
+			return fmt.Errorf("rider %d is not valid", rider.ID)
+		}
+		if rider.PodID != pod.ID || rider.From != pod.Riders[0].From {
+			return fmt.Errorf("rider %d is not a rider of this journey", rider.ID)
+		}
+		if rule.boardsHere && rider.From != pod.StationID {
+			return fmt.Errorf("rider %d does not board at the station of the pod", rider.ID)
+		}
+	}
+	return nil
+}
+
+// checkPodFlags checks the occupancy, the phase count, the relocation and
+// the numbers of a pod.
+func checkPodFlags(pod SavedPod, rule phaseRule) error {
+	// A restore ignores the released flag of a pod that dispatch cannot
+	// release, so the contract does not check it.
+	relocation := pod.RelocatingTo != "" || pod.Rebalancing || pod.ClaimsDestination
+	switch {
+	case pod.Occupied != rule.occupied:
+		return fmt.Errorf("occupied is %t", pod.Occupied)
+	case pod.PhaseTicks < rule.minPhase || pod.PhaseTicks > rule.maxPhase:
+		return fmt.Errorf("phase %d is out of range", pod.PhaseTicks)
+	case !rule.relocating && relocation:
+		return errors.New("the pod has an empty move")
+	case rule.relocating && (pod.RelocatingTo == "" || pod.RelocatingTo != pod.DestinationStation):
+		return errors.New("the empty move does not go to the destination station")
+	case pod.ClaimsDestination && pod.Destination == "":
+		return errors.New("the empty move flags do not agree")
+	case pod.RebalanceAfter < 0 || !finite(pod.RiddenMeters) || pod.RiddenMeters < 0:
+		return errors.New("a value is negative or not finite")
+	default:
+		return nil
+	}
+}
+
+// checkPodPlace checks the station, the berth, the origin and the
+// destination of a pod. checkPodRiders checks the station of the riders.
+func checkPodPlace(pod SavedPod, rule phaseRule) error {
+	journeyOrigin := cmp.Or(pod.JourneyOrigin, pod.Origin)
+	switch {
+	case rule.atBerth && (pod.StationID == "" || pod.BerthID == ""):
+		return errors.New("the pod is not at a berth")
+	case !rule.atBerth && (pod.StationID != "" || pod.BerthID != ""):
+		return errors.New("a moving pod is at a berth")
+	case rule.startsAtBerth && pod.Origin != pod.BerthID:
+		return errors.New("the route does not start at the berth of the pod")
+	case rule.hasOrigin && pod.Origin == "":
+		return errors.New("the pod has no origin")
+	case rule.boardsHere && journeyOrigin != pod.BerthID:
+		return errors.New("the journey does not start at the berth of the pod")
+	case rule.active && journeyOrigin == "":
+		return errors.New("the journey has no origin")
+	case rule.atDestination && (pod.Destination != pod.BerthID || pod.DestinationStation != pod.StationID):
+		return errors.New("the unloading pod is not at its destination")
+	case rule.hasDestination && pod.Destination == "":
+		return errors.New("the pod has no destination berth")
+	default:
+		return nil
+	}
+}
+
+// checkPodStops checks the stops of a pod against the destinations of its
+// active riders. A completed rider left the pod at a stop that the pod
+// does not make again.
+func checkPodStops(pod SavedPod, rule phaseRule, active, history []SavedRequest) error {
+	for index, stop := range pod.Stops {
+		if stop == "" || slices.Contains(pod.Stops[:index], stop) {
+			return fmt.Errorf("stop %q is not valid", stop)
+		}
+	}
+	for _, rider := range history {
+		if slices.Contains(pod.Stops, rider.To) {
+			return fmt.Errorf("completed rider %d has a stop", rider.ID)
+		}
+	}
+	// wanted holds the stops that the active riders need.
+	var wanted []string
+	for _, rider := range active {
+		if rule.stops == laterStops && rider.To == pod.StationID {
+			continue
+		}
+		if rule.stops == finalStop && rider.To != pod.StationID {
+			return fmt.Errorf("rider %d does not leave the pod at its station", rider.ID)
+		}
+		if !slices.Contains(wanted, rider.To) {
+			wanted = append(wanted, rider.To)
+		}
+	}
+	switch rule.stops {
+	case noStops, finalStop:
+		if len(pod.Stops) > 0 {
+			return errors.New("the pod has stops")
+		}
+	case routeStops, laterStops:
+		if len(pod.Stops) != len(wanted) || slices.ContainsFunc(wanted, func(to string) bool { return !slices.Contains(pod.Stops, to) }) {
+			return errors.New("the stops are not the destinations of the riders")
+		}
+		if rule.stops == laterStops && slices.Contains(pod.Stops, pod.StationID) {
+			return errors.New("the pod stops again at its station")
+		}
+		if rule.stops == routeStops && pod.Stops[0] != pod.DestinationStation {
+			return errors.New("the first stop is not the destination")
+		}
+	}
+	return nil
+}

@@ -56,7 +56,9 @@ func newReleaseFixture(t *testing.T) releaseFixture {
 	f := releaseFixture{s: s, remote: s.findVehicle("01"), local: s.findVehicle("02"), parked: s.findVehicle("03")}
 	f.local.Pod.Activity, f.local.Pod.Occupied, f.local.destinationStation = Unloading, true, "market"
 	market, _ := s.station("market")
+	garden, _ := s.station("garden")
 	f.local.destination, _ = market.berth(f.local.Pod.BerthID)
+	f.local.origin, f.local.journeyOrigin = garden.Berths[0], garden.Berths[0]
 	f.local.Riders = []Request{{ID: 1, From: "garden", To: "market", PartySize: 1, PodID: f.local.Pod.ID}}
 	f.local.phaseTicks = 180 * TicksPerSecond
 	s.requestID, s.boarded = 1, 1
@@ -621,26 +623,9 @@ func TestRestoreReleasesDroppedPickupPod(t *testing.T) {
 			released: true,
 		},
 		{
-			name:     "trip for a carried request",
-			saved:    func(state *SavedState) { state.Waiting[0].Request.ID = 1 },
+			name:     "completed trip",
+			saved:    func(state *SavedState) { state.Waiting[0].Request.Completed = true },
 			released: true,
-		},
-		{
-			name: "duplicate of an unbound trip",
-			saved: func(state *SavedState) {
-				first := state.Waiting[0]
-				first.Route, first.Request.PodID = nil, ""
-				state.Waiting = slices.Insert(state.Waiting, 0, first)
-				state.RequestID++
-			},
-			released: true,
-		},
-		{
-			name: "duplicate of a trip that keeps the pod",
-			saved: func(state *SavedState) {
-				state.Waiting = append(state.Waiting, state.Waiting[0])
-				state.RequestID++
-			},
 		},
 		{
 			name: "invalid trip before a trip that keeps the pod",

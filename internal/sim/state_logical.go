@@ -106,7 +106,7 @@ func (s *Simulation) queueTrips(state SavedState, trips []logicalTrip) RestoreRe
 		switch {
 		case entry.source == fromUnloadingPod:
 			// restoreLogical counted the rider as completed.
-		case used[request.ID] || !state.validRequest(SavedRequest(request)) ||
+		case used[request.ID] || !state.validTrip(SavedRequest(request), entry.trip.boarded) ||
 			!s.passengerStation(request.From) || !s.passengerStation(request.To):
 			result.Dropped = append(result.Dropped, request.ID)
 			result.DroppedParties++

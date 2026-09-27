@@ -22,7 +22,7 @@ import (
 func logicalState(t *testing.T, f restoreFixture) SavedState {
 	t.Helper()
 	boarding := f.boarding(t, "01", "garden-1")
-	boarding.Riders[0].ID, boarding.Riders[0].RequestedTick = 8, 400
+	boarding.Riders[0].ID, boarding.Riders[0].RequestedTick, boarding.Riders[0].BoardedTick = 8, 400, 450
 	shared := f.carrying(t, f.traveling(t, travelInput{id: "02", from: "garden-1", to: "market-1", lane: "garden-merge", distance: 60}), 4, 3)
 	unloading := SavedPod{
 		ID: "03", Activity: activityCode(Unloading), StationID: "market", BerthID: "market-1", Occupied: true,
@@ -111,11 +111,6 @@ func TestRestoreLogical(t *testing.T) {
 				}
 			},
 			completed: 2, requeued: []int{8}, dropped: []int{4, 5, 6, 10}, droppedParties: 4,
-		},
-		{
-			name: "unloading pod without a request", physical: "no active request",
-			edit:     func(state *SavedState) { state.Pods[2].Riders = nil },
-			requeued: []int{4, 5, 6, 8}, dropped: []int{10}, droppedParties: 1,
 		},
 		{
 			name: "demo stopped with an error", logicalOnly: true,

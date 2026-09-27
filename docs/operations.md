@@ -190,7 +190,14 @@ The exception is a failed sync of the directory.
 The new file is then in place, but a power loss can bring back the old file.
 After a stop without a final save, the next start restores the last saved state, which can be up to about 60 seconds old.
 
-At startup, the server reads `session.json.gz` and restores the session with one of these tiers:
+At startup, the server reads `session.json.gz` and restores the session with one of these tiers.
+Before each tier, the server checks each saved pod against the rule of its phase.
+The rule tells which fields the phase needs and which fields it forbids.
+For example, only a boarding, traveling, unloading, or continuing pod can have a party aboard, and its stops must be the stations ahead where its parties leave the pod.
+Each order ID must be in one place only: in the queue, or with one pod.
+A file that fails these checks gets `invalid_state`.
+A queued order that is not valid does not stop the restore.
+The tier removes it and counts it as dropped.
 
 - `physical`: The pods keep their lane positions and start again at speed 0.
   The server makes the track reservations again.
