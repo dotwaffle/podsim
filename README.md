@@ -511,7 +511,10 @@ The draft stays local until you select **Pause and apply**.
   Select **Calibrate scale**, select two points on the image, enter their distance in meters, then select **Set scale**.
 - Export JSON to save the scenario and optional background.
   Import JSON to restore a draft.
-  The project file must be 10 MiB or smaller.
+  The export is compact JSON.
+  The project file must be 15 MiB or smaller.
+  This limit is the image limit in base64 form plus the 4 MiB project limit of the server and a small allowance, rounded up to a whole MiB.
+  Thus the editor can import an export with the largest project and the largest background image.
 
 ### Editor keyboard shortcuts
 

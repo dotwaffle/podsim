@@ -1319,6 +1319,25 @@ test("portable documents round trip the scenario and local background", () => {
   assert.throws(() => editor.parseDocument('{broken'), /not valid JSON/);
 });
 
+test("the project import limit holds an export at the project and image limits", () => {
+  // The name pads the compact project to the server limit. Only the size
+  // matters here, so the long name does not have to be valid.
+  const config = connectedScenario();
+  config.name += "n".repeat(editor.SERVER_PROJECT_BYTES - Buffer.byteLength(JSON.stringify(config)));
+  assert.equal(Buffer.byteLength(JSON.stringify(config)), editor.SERVER_PROJECT_BYTES);
+  // An image of IMAGE_FILE_BYTES has this base64 form. Each number has the
+  // longest JSON form of a JavaScript number.
+  const base64 = "A".repeat(Math.ceil(editor.IMAGE_FILE_BYTES / 3) * 4 - 1) + "=";
+  assert.equal(Buffer.from(base64, "base64").length, editor.IMAGE_FILE_BYTES);
+  const wide = -1.2345678901234567e-300;
+  const background = { dataURL: `data:image/jpeg;base64,${base64}`, x: wide, y: wide, width: wide, height: wide, opacity: wide };
+  assert.equal(background.dataURL.length, editor.dataURLBytes(editor.IMAGE_FILE_BYTES));
+  const exported = editor.serializeDocument(config, background);
+  assert.ok(!exported.includes("\n"), "the export is not compact JSON");
+  assert.ok(Buffer.byteLength(exported) <= editor.PROJECT_FILE_BYTES, `the export has ${Buffer.byteLength(exported)} bytes, more than ${editor.PROJECT_FILE_BYTES}`);
+  assert.equal(editor.PROJECT_FILE_BYTES % (1024 * 1024), 0);
+});
+
 test("import accepts a server project file", () => {
   // The server leaves out empty optional fields, such as the demand profiles.
   const config = connectedScenario();

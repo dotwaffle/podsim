@@ -31,6 +31,18 @@
   // Go code. A new berth chain row must keep this distance from other lanes.
   const CLEARANCE = 12;
   const STATION_LANE_ROLES = new Set(["approach", "entry", "berth-access", "through", "departure", "exit"]);
+  // IMAGE_FILE_BYTES is the largest background image file that the editor
+  // imports. SERVER_PROJECT_BYTES mirrors project.MaxFileBytes on the server,
+  // the largest compact project. A Go test in internal/project checks the
+  // mirror. PROJECT_FILE_BYTES is the largest project file that the editor
+  // imports. It holds an export of the largest project with the largest
+  // background: the image as a base64 data URL, the project, and
+  // EXPORT_ALLOWANCE bytes for the other fields, rounded up to a whole MiB.
+  const MIB = 1024 * 1024;
+  const IMAGE_FILE_BYTES = 8 * MIB;
+  const SERVER_PROJECT_BYTES = 4 * 1024 * 1024;
+  const EXPORT_ALLOWANCE = 1024;
+  const PROJECT_FILE_BYTES = Math.ceil((dataURLBytes(IMAGE_FILE_BYTES) + SERVER_PROJECT_BYTES + EXPORT_ALLOWANCE) / MIB) * MIB;
 
   function clone(value) {
     return JSON.parse(JSON.stringify(value));
@@ -1272,10 +1284,18 @@
     return after[Math.min(focused, after.length - 1)].text;
   }
 
+  // dataURLBytes gives the length of the longest data URL for a PNG or JPEG
+  // image file of the given size.
+  function dataURLBytes(bytes) {
+    return "data:image/jpeg;base64,".length + Math.ceil(bytes / 3) * 4;
+  }
+
+  // serializeDocument gives the export file. It is compact JSON, as the
+  // server project file is, so PROJECT_FILE_BYTES holds each export.
   function serializeDocument(config, background) {
     const document = { format: "podsim", version: 1, scenario: clone(config) };
     if (background && background.dataURL) document.background = clone(background);
-    return JSON.stringify(document, null, 2);
+    return JSON.stringify(document);
   }
 
   // unwrapDocument gets the scenario from an import file. A browser export has
@@ -2017,7 +2037,7 @@
     MIN_LANE_LENGTH, MIN_ZOOM, NODE_LABEL_SCALE, NODE_LABEL_SIZE, LANE_PAIR_OFFSET, CHEVRON_LANE_LENGTH, BERTH_PITCH, STATION_PADDING, CLEARANCE, CHECK_DELAY, emptyConfig, fallbackConfig, normalizeConfig, addLane, addJunction, addStation, addBerth,
     stationBearing, stationShape, rotateStation, setStationBearing, nextBerthPosition, berthChain, nextChainRow, lanePolyline, laneConflict, removeBerth, moveStation, moveNode, deleteNode, deleteLane, deleteStation, stationFlowCount, setFleetCount, fleetRows, selectionCard, berthFocusID, undoFocus, setDemandPattern,
     laneLength, curveLength, reachable, cutOffStations, stationNodeOwners, dragTargets, validateConfig, configWarnings, checkResults, checkSelector, checkSelection, selectionPoint, focusView,
-    problemCountText, createCheckTimer, validationSummary, checkFocusKey, serializeDocument, parseDocument, createHistory,
+    problemCountText, createCheckTimer, validationSummary, checkFocusKey, IMAGE_FILE_BYTES, SERVER_PROJECT_BYTES, PROJECT_FILE_BYTES, dataURLBytes, serializeDocument, parseDocument, createHistory,
     networkBounds, fitView, zoomScale, nodeLabelSize, pairedLaneIDs, showsChevron, laneOffset, laneCurve, lanePathData, SNAPSHOT_ATTEMPTS, snapshotConsistent, draftBeforeRestart, readState, readSnapshot, applyToServer, applyFailureText, applyFailureStatus, applyToast,
     readLive, readConflict, CONFLICT_UNLOADED_TEXT, conflictView, LOAD_LIVE_QUESTION, applyOverQuestion, loadLive, liveDraft, applyOverBase,
     DRAFT_SAVE_DELAY, DRAFT_STORE_TEXT, DRAFT_UNSAVED_TEXT, DRAFT_DISPLACED_TEXT, openDraftStore, createDraftKeeper, draftChanges, draftRecordFor, draftOffer, DRAFT_RESTART_TEXT, draftOfferText, RESTORED_RESTART_TEXT, restoreStatusText, shellPage,
@@ -2847,7 +2867,7 @@
   // after Restore draft.
   function importProject(file) {
     if (!file) return;
-    if (file.size > 10 * 1024 * 1024) { toast("The project file must be 10 MB or smaller.", true); return; }
+    if (file.size > PROJECT_FILE_BYTES) { toast(`The project file must be ${PROJECT_FILE_BYTES / MIB} MiB or smaller.`, true); return; }
     const reader = new FileReader();
     reader.onerror = () => toast("The project file could not be read. The draft is unchanged.", true);
     reader.onload = () => {
@@ -2871,7 +2891,7 @@
   function importBackground(file) {
     if (!file) return;
     if (!/^image\/(png|jpeg)$/.test(file.type)) { toast("Choose a PNG or JPEG image.", true); return; }
-    if (file.size > 8 * 1024 * 1024) { toast("The background image must be 8 MB or smaller.", true); return; }
+    if (file.size > IMAGE_FILE_BYTES) { toast(`The background image must be ${IMAGE_FILE_BYTES / MIB} MiB or smaller.`, true); return; }
     const reader = new FileReader(); reader.onerror = () => toast("The image could not be read.", true);
     reader.onload = () => {
       const image = new Image(); image.onerror = () => toast("The image is not a valid PNG or JPEG.", true);
