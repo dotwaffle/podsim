@@ -57,6 +57,8 @@ func TestParseOptionsRejectsInvalidBounds(t *testing.T) {
 		{name: "unknown wait rule", args: []string{"-wait-rules", "lenient"}, want: "unknown wait rule"},
 		{name: "empty wait rule", args: []string{"-wait-rules", "current,"}, want: "unknown wait rule"},
 		{name: "duplicate wait rule", args: []string{"-wait-rules", "strict,strict"}, want: "more than once"},
+		{name: "unknown platoon policy", args: []string{"-platoon-policies", "coupled"}, want: "unknown platoon policy"},
+		{name: "duplicate platoon policy", args: []string{"-platoon-policies", "virtual,virtual"}, want: "more than once"},
 		{name: "adaptive limit without drain stop", args: []string{"-adaptive-limit"}, want: "adaptive-limit requires -stop-when-drained"},
 		{name: "negative past limit", args: []string{"-adaptive-limit", "-stop-when-drained", "-past-limit", "-1"}, want: "past-limit must be at least 0"},
 		{name: "past limit without adaptive limit", args: []string{"-stop-when-drained", "-past-limit", "2"}, want: "past-limit requires -adaptive-limit"},
@@ -311,7 +313,7 @@ func TestReportFormatsAreMachineReadable(t *testing.T) {
 	if err := json.Unmarshal(jsonOutput.Bytes(), &decoded); err != nil {
 		t.Fatal(err)
 	}
-	if decoded.SchemaVersion != 8 || !reflect.DeepEqual(decoded.Results, results) {
+	if decoded.SchemaVersion != 9 || !reflect.DeepEqual(decoded.Results, results) {
 		t.Fatalf("JSON report changed values: %+v", decoded)
 	}
 
@@ -767,5 +769,160 @@ func TestWaitRulesCountInMatrixLimit(t *testing.T) {
 	}
 	if _, err := compare(opts, caseStudy); err == nil || !strings.Contains(err.Error(), "expanded matrix") {
 		t.Fatalf("compare() error = %v, want the expanded matrix limit", err)
+	}
+}
+
+func TestParsePlatoonPolicies(t *testing.T) {
+	t.Parallel()
+	for _, tc := range []struct {
+		name string
+		args []string
+		want []string
+	}{
+		{"flag not given", nil, nil},
+		{"default value given", []string{"-platoon-policies", "off"}, []string{"off"}},
+		{"both policies in order", []string{"-platoon-policies", "virtual, off"}, []string{"virtual", "off"}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			opts, err := parseOptions(tc.args, &bytes.Buffer{})
+			if err != nil {
+				t.Fatal(err)
+			}
+			if !slices.Equal(opts.platoonPolicies, tc.want) || (opts.platoonPolicies == nil) != (tc.want == nil) {
+				t.Fatalf("platoon policies = %#v, want %#v", opts.platoonPolicies, tc.want)
+			}
+		})
+	}
+}
+
+// TestPlatoonColumnOnlyWhenRequested checks that the platoon policy column
+// follows routing_policy and wait_rule only with -platoon-policies, and that
+// coupled_time_percent is always the last CSV column.
+func TestPlatoonColumnOnlyWhenRequested(t *testing.T) {
+	t.Parallel()
+	results := []result{{
+		Pattern: "balanced", Policy: "off", RoutingPolicy: "free-flow", WaitRule: "strict", PlatoonPolicy: "virtual",
+		WaitAverageSeconds: 12.34, CoupledTimePercent: 5.5,
+	}}
+	for _, tc := range []struct {
+		name               string
+		waitRule, platoon  bool
+		wantHeader, wantAt string
+		offset             int
+	}{
+		{"csv without columns", false, false, "shared_ride_party_limit", "0", 1},
+		{"csv with the platoon column", false, true, "platoon_policy", "virtual", 1},
+		{"csv with both columns", true, true, "platoon_policy", "virtual", 2},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			var output bytes.Buffer
+			if err := writeReport(writeReportInput{output: &output, format: "csv", results: results, waitRuleColumn: tc.waitRule, platoonColumn: tc.platoon}); err != nil {
+				t.Fatal(err)
+			}
+			records, err := csv.NewReader(&output).ReadAll()
+			if err != nil {
+				t.Fatal(err)
+			}
+			header, row := records[0], records[1]
+			routing := slices.Index(header, "routing_policy")
+			if routing < 0 || header[routing+tc.offset] != tc.wantHeader || row[routing+tc.offset] != tc.wantAt {
+				t.Fatalf("column %d after routing_policy = %q, %q", tc.offset, header[routing+tc.offset], row[routing+tc.offset])
+			}
+			if len(header) != len(row) || header[len(header)-1] != "coupled_time_percent" || row[len(row)-1] != "5.5" {
+				t.Fatalf("last column = %q, %q with %d and %d columns", header[len(header)-1], row[len(row)-1], len(header), len(row))
+			}
+		})
+	}
+	var table bytes.Buffer
+	if err := writeReport(writeReportInput{output: &table, format: "table", results: results, waitRuleColumn: true, platoonColumn: true}); err != nil {
+		t.Fatal(err)
+	}
+	lines := strings.Split(table.String(), "\n")
+	header, row := lines[1], lines[2]
+	if strings.Index(header, "PLATOON") != strings.Index(row, "virtual") || strings.Index(header, "WAIT AVG") != strings.Index(row, "12.34") {
+		t.Fatalf("PLATOON or WAIT AVG column is not aligned with its value:\n%s", table.String())
+	}
+}
+
+// TestPlatoonPoliciesAddArms runs the busy ring at a load at which pods
+// queue. The off arm must equal the arm without the option, and the
+// virtual arm must couple pods.
+func TestPlatoonPoliciesAddArms(t *testing.T) {
+	t.Parallel()
+	data, err := json.Marshal(scenarios.Busy())
+	if err != nil {
+		t.Fatal(err)
+	}
+	path := filepath.Join(t.TempDir(), "busy.json")
+	if err = os.WriteFile(path, data, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	args := []string{
+		"-project", path, "-duration", "10m", "-request-every", "4s", "-seed", "1",
+		"-pattern", "balanced", "-redistribution-policies", "off",
+	}
+	caseStudy, err := loadScenario(path, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defaults, err := parseOptions(args, &bytes.Buffer{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	withPolicies, err := parseOptions(append(slices.Clone(args), "-platoon-policies", "off,virtual"), &bytes.Buffer{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	base, err := compare(defaults, caseStudy)
+	if err != nil {
+		t.Fatal(err)
+	}
+	arms, err := compare(withPolicies, caseStudy)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(base) != 1 || len(arms) != 2 {
+		t.Fatalf("got %d default and %d platoon results", len(base), len(arms))
+	}
+	off, virtual := arms[0], arms[1]
+	if off.PlatoonPolicy != "off" || virtual.PlatoonPolicy != "virtual" || virtual.ScheduleID != off.ScheduleID {
+		t.Fatalf("arms %q and %q with schedules %s and %s", off.PlatoonPolicy, virtual.PlatoonPolicy, off.ScheduleID, virtual.ScheduleID)
+	}
+	off.PlatoonPolicy = ""
+	if !reflect.DeepEqual(off, base[0]) {
+		t.Fatalf("the off arm differs from the default arm:\n%+v\n%+v", off, base[0])
+	}
+	if base[0].CoupledTimePercent != 0 || virtual.CoupledTimePercent <= 0 {
+		t.Fatalf("coupled time %v without platoons and %v with them", base[0].CoupledTimePercent, virtual.CoupledTimePercent)
+	}
+}
+
+// TestPlatoonPoliciesCountInMatrixLimit checks that each platoon policy
+// counts as a separate arm in the matrix limit.
+func TestPlatoonPoliciesCountInMatrixLimit(t *testing.T) {
+	t.Parallel()
+	values := make([]string, 100)
+	for index := range values {
+		values[index] = strconv.Itoa(index + 1)
+	}
+	seeds := strings.Join(values, ",")
+	// 100 seeds and 6 loads give 600 comparisons for each platoon policy.
+	for _, tc := range []struct {
+		name string
+		args []string
+		want string
+	}{
+		{"one policy stays under the limit", []string{"-platoon-policies", "virtual"}, ""},
+		{"two policies go over the limit", []string{"-platoon-policies", "off,virtual"}, "at most"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			_, err := parseOptions(append([]string{"-seeds", seeds, "-loads", "10s,20s,30s,40s,50s,60s"}, tc.args...), &bytes.Buffer{})
+			if (err == nil) != (tc.want == "") || err != nil && !strings.Contains(err.Error(), tc.want) {
+				t.Fatalf("parseOptions() error = %v, want text %q", err, tc.want)
+			}
+		})
 	}
 }

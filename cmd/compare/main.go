@@ -47,6 +47,14 @@ var waitRuleValues = map[string]sim.FinishingPodWait{
 	"none":    sim.FinishingPodWaitNone,
 }
 
+// platoonPolicyValues maps each -platoon-policies name to its platooning
+// mode. The virtual policy couples pods in queues with the simulation
+// default platoon limit.
+var platoonPolicyValues = map[string]sim.Platooning{
+	"off":     sim.PlatooningOff,
+	"virtual": sim.PlatooningVirtual,
+}
+
 // redistributionPolicyValues maps each -redistribution-policies name to
 // its positioning mode. The on policy is guarded positioning, as for a
 // project with redistribution.
@@ -77,6 +85,7 @@ type options struct {
 	routingPoliciesText    string
 	redistributionText     string
 	waitRulesText          string
+	platoonPoliciesText    string
 	focus                  string
 	format                 string
 	projectPath            string
@@ -94,7 +103,11 @@ type options struct {
 	redistributionPolicies []string
 	// waitRules is nil when -wait-rules is not given. Then each arm uses the
 	// default rule and the report has no wait rule column.
-	waitRules       []string
+	waitRules []string
+	// platoonPolicies is nil when -platoon-policies is not given. Then
+	// each arm runs without platoons and the report has no platoon policy
+	// column.
+	platoonPolicies []string
 	stopWhenDrained bool
 	// adaptiveLimit skips the rates of a group more than pastLimit rates
 	// above the first rate at which a seed does not drain.
@@ -131,6 +144,7 @@ type result struct {
 	SharedParties                  int     `json:"shared_parties"`
 	RoutingPolicy                  string  `json:"routing_policy"`
 	WaitRule                       string  `json:"wait_rule,omitempty"`
+	PlatoonPolicy                  string  `json:"platoon_policy,omitempty"`
 	FocusStation                   string  `json:"focus_station"`
 	WindowStartSeconds             float64 `json:"window_start_seconds"`
 	WindowEndSeconds               float64 `json:"window_end_seconds"`
@@ -184,6 +198,7 @@ type result struct {
 	DetourRatioMax                 float64 `json:"detour_ratio_max"`
 	IntermediateStops              int     `json:"intermediate_stops"`
 	PositioningMoveCount           int     `json:"positioning_moves"`
+	CoupledTimePercent             float64 `json:"coupled_time_percent"`
 }
 
 type report struct {
@@ -240,7 +255,10 @@ func runCLI(input cliInput) int {
 		output = file
 		closeOutput = file.Close
 	}
-	if err := writeReport(writeReportInput{output: output, format: opts.format, results: results, waitRuleColumn: opts.waitRules != nil}); err != nil {
+	if err := writeReport(writeReportInput{
+		output: output, format: opts.format, results: results,
+		waitRuleColumn: opts.waitRules != nil, platoonColumn: opts.platoonPolicies != nil,
+	}); err != nil {
 		_ = closeOutput()
 		_, _ = fmt.Fprintln(input.stderr, err)
 		return 1
@@ -271,6 +289,7 @@ func parseOptions(args []string, stderr io.Writer) (options, error) {
 	flags.StringVar(&opts.routingPoliciesText, "routing-policies", "free-flow", "comma-separated routing policies: free-flow, congestion, queue")
 	flags.StringVar(&opts.redistributionText, "redistribution-policies", "off,on", "comma-separated redistribution policies: off, on")
 	flags.StringVar(&opts.waitRulesText, "wait-rules", "current", "comma-separated finishing-pod wait rules: current, strict, none (adds a wait_rule column)")
+	flags.StringVar(&opts.platoonPoliciesText, "platoon-policies", "off", "comma-separated platoon policies: off, virtual (adds a platoon_policy column)")
 	flags.StringVar(&opts.focus, "focus", "", "passenger station used by focused patterns")
 	flags.StringVar(&opts.format, "format", "table", "output format: table, json, or csv")
 	flags.StringVar(&opts.projectPath, "project", "", "raw project configuration path")
@@ -355,7 +374,13 @@ func parseOptions(args []string, stderr io.Writer) (options, error) {
 			return options{}, err
 		}
 	}
-	if len(opts.seeds)*len(opts.patterns)*len(opts.loads)*len(sharingArms(opts))*len(opts.routingPolicies)*max(1, len(opts.waitRules)) > maxComparisons {
+	if given["platoon-policies"] {
+		opts.platoonPolicies, err = parsePlatoonPolicies(opts.platoonPoliciesText)
+		if err != nil {
+			return options{}, err
+		}
+	}
+	if len(opts.seeds)*len(opts.patterns)*len(opts.loads)*len(sharingArms(opts))*len(opts.routingPolicies)*max(1, len(opts.waitRules))*max(1, len(opts.platoonPolicies)) > maxComparisons {
 		return options{}, fmt.Errorf("the matrix must contain at most %d comparisons", maxComparisons)
 	}
 	return opts, nil
@@ -416,6 +441,27 @@ func parseWaitRules(value string) ([]string, error) {
 		rules = append(rules, rule)
 	}
 	return rules, nil
+}
+
+// parsePlatoonPolicies reads the -platoon-policies list. Each name must be
+// a key of platoonPolicyValues and can occur only once. The order of the
+// list is the order of the arms in the report.
+func parsePlatoonPolicies(value string) ([]string, error) {
+	parts := strings.Split(value, ",")
+	policies := make([]string, 0, len(parts))
+	seen := make(map[string]bool, len(parts))
+	for _, part := range parts {
+		policy := strings.TrimSpace(part)
+		if _, ok := platoonPolicyValues[policy]; !ok {
+			return nil, fmt.Errorf("unknown platoon policy %q", policy)
+		}
+		if seen[policy] {
+			return nil, fmt.Errorf("platoon policy %q appears more than once", policy)
+		}
+		seen[policy] = true
+		policies = append(policies, policy)
+	}
+	return policies, nil
 }
 
 func parseRoutingPolicies(value string) ([]string, error) {
@@ -687,10 +733,16 @@ func compare(opts options, scenario scenario) ([]result, error) {
 		waitRules = []string{""}
 	}
 	sharing := sharingArms(opts)
-	if len(opts.seeds)*len(arms)*len(opts.loads)*len(sharing)*len(opts.routingPolicies)*len(waitRules) > maxComparisons {
+	// An empty platoon policy runs without platoons and leaves the result
+	// without a platoon policy.
+	platoonPolicies := opts.platoonPolicies
+	if platoonPolicies == nil {
+		platoonPolicies = []string{""}
+	}
+	if len(opts.seeds)*len(arms)*len(opts.loads)*len(sharing)*len(opts.routingPolicies)*len(waitRules)*len(platoonPolicies) > maxComparisons {
 		return nil, fmt.Errorf("the expanded matrix must contain at most %d comparisons", maxComparisons)
 	}
-	inputs := make([]runInput, 0, len(arms)*len(opts.loads)*len(opts.seeds)*len(sharing)*len(opts.routingPolicies)*len(waitRules)*2)
+	inputs := make([]runInput, 0, len(arms)*len(opts.loads)*len(opts.seeds)*len(sharing)*len(opts.routingPolicies)*len(waitRules)*len(platoonPolicies)*2)
 	for _, arm := range arms {
 		for _, load := range opts.loads {
 			for _, seed := range opts.seeds {
@@ -703,15 +755,18 @@ func compare(opts options, scenario scenario) ([]result, error) {
 				for _, sharingArm := range sharing {
 					for _, routingPolicy := range opts.routingPolicies {
 						for _, waitRule := range waitRules {
-							for _, policy := range opts.redistributionPolicies {
-								inputs = append(inputs, runInput{
-									policy: policy, duration: opts.duration, requestEvery: load, seed: seed,
-									pattern: arm.pattern, profile: arm.profile, band: arm.band,
-									scheduleID: id, queueLimit: opts.queueLimit, arrivalsFor: opts.arrivalsFor,
-									burstSize: opts.burstSize, sharingLimit: sharingArm.limit, sharingMode: sharingArm.mode,
-									sharingMaxStops: opts.sharingMaxStops, routingPolicy: routingPolicy,
-									waitRule: waitRule, schedule: schedule, scenario: scenario, stopWhenDrained: opts.stopWhenDrained,
-								})
+							for _, platoonPolicy := range platoonPolicies {
+								for _, policy := range opts.redistributionPolicies {
+									inputs = append(inputs, runInput{
+										policy: policy, duration: opts.duration, requestEvery: load, seed: seed,
+										pattern: arm.pattern, profile: arm.profile, band: arm.band,
+										scheduleID: id, queueLimit: opts.queueLimit, arrivalsFor: opts.arrivalsFor,
+										burstSize: opts.burstSize, sharingLimit: sharingArm.limit, sharingMode: sharingArm.mode,
+										sharingMaxStops: opts.sharingMaxStops, routingPolicy: routingPolicy,
+										waitRule: waitRule, platoonPolicy: platoonPolicy, schedule: schedule, scenario: scenario,
+										stopWhenDrained: opts.stopWhenDrained,
+									})
+								}
 							}
 						}
 					}
@@ -958,7 +1013,10 @@ type runInput struct {
 	sharingMaxStops int
 	routingPolicy   string
 	// waitRule names a waitRuleValues key. Empty selects the default rule.
-	waitRule        string
+	waitRule string
+	// platoonPolicy names a platoonPolicyValues key. Empty runs without
+	// platoons.
+	platoonPolicy   string
 	schedule        []scheduledRequest
 	scenario        scenario
 	stopWhenDrained bool
@@ -1007,6 +1065,15 @@ func run(input runInput) (result, error) {
 		}
 		if waitErr := simulation.SetFinishingPodWait(rule); waitErr != nil {
 			return result{}, fmt.Errorf("set wait rule: %w", waitErr)
+		}
+	}
+	if input.platoonPolicy != "" {
+		platooning, ok := platoonPolicyValues[input.platoonPolicy]
+		if !ok {
+			return result{}, fmt.Errorf("unknown platoon policy %q", input.platoonPolicy)
+		}
+		if platoonErr := simulation.SetPlatooning(platooning); platoonErr != nil {
+			return result{}, fmt.Errorf("set platoon policy: %w", platoonErr)
 		}
 	}
 	mode, ok := redistributionPolicyValues[input.policy]
@@ -1065,6 +1132,7 @@ func run(input runInput) (result, error) {
 			metrics.observe(state)
 			if (tick+1)%sim.TicksPerSecond == 0 {
 				metrics.waits.sampleWaits(state.Vehicles)
+				metrics.coupling.sample(state.Vehicles, simulation.CoupledPods())
 			}
 			if input.stopWhenDrained && state.Tick >= arrivalWindowTicks && next == len(input.schedule) && state.Completed == state.Submitted {
 				break
@@ -1102,7 +1170,8 @@ func run(input runInput) (result, error) {
 		Pattern: input.pattern, DemandProfile: input.profile, DemandBand: input.band,
 		RequestEverySeconds: input.requestEvery.Seconds(), OfferedPerMinute: float64(len(input.schedule)) / arrivalMinutes, Seed: input.seed,
 		BurstSize: burstSize, Policy: input.policy, SharedRidePartyLimit: input.sharingLimit, SharingMode: string(sharingMode),
-		SharedParties: state.SharedParties, RoutingPolicy: input.routingPolicy, WaitRule: input.waitRule, FocusStation: input.scenario.focus,
+		SharedParties: state.SharedParties, RoutingPolicy: input.routingPolicy, WaitRule: input.waitRule, PlatoonPolicy: input.platoonPolicy,
+		FocusStation:       input.scenario.focus,
 		WindowStartSeconds: 0, WindowEndSeconds: input.duration.Seconds(), ActualEndSeconds: float64(state.Tick) / sim.TicksPerSecond,
 		ArrivalWindowSeconds: input.arrivalsFor.Seconds(), ArrivalEndSeconds: arrivalEnd, ScheduleID: input.scheduleID,
 		Scheduled: len(input.schedule), Served: state.Completed, Remaining: state.Submitted - state.Completed, Skipped: skipped,
@@ -1129,6 +1198,7 @@ func run(input runInput) (result, error) {
 		RiderDistanceMeters:   state.RiderDistanceMeters, DirectDistanceMeters: state.DirectDistanceMeters,
 		DetourRatioMean: requests.detourMean, DetourRatioMax: state.MaxDetourRatio, IntermediateStops: requests.intermediateStops,
 		PositioningMoveCount: state.RebalanceMoves,
+		CoupledTimePercent:   metrics.coupling.percent(),
 	}, nil
 }
 
@@ -1182,6 +1252,10 @@ type writeReportInput struct {
 	// waitRuleColumn adds the wait rule to table and CSV output. JSON output
 	// has the wait_rule field only when a result has a wait rule.
 	waitRuleColumn bool
+	// platoonColumn adds the platoon policy to table and CSV output. JSON
+	// output has the platoon_policy field only when a result has a platoon
+	// policy.
+	platoonColumn bool
 }
 
 func writeReport(input writeReportInput) error {
@@ -1189,7 +1263,7 @@ func writeReport(input writeReportInput) error {
 	case "json":
 		encoder := json.NewEncoder(input.output)
 		encoder.SetIndent("", "  ")
-		if err := encoder.Encode(report{SchemaVersion: 8, Results: input.results}); err != nil {
+		if err := encoder.Encode(report{SchemaVersion: 9, Results: input.results}); err != nil {
 			return fmt.Errorf("write JSON report: %w", err)
 		}
 		return nil
@@ -1201,7 +1275,8 @@ func writeReport(input writeReportInput) error {
 }
 
 // writeTable writes one aligned row for each result. When
-// input.waitRuleColumn is set, a WAIT RULE column follows POLICY.
+// input.waitRuleColumn is set, a WAIT RULE column follows POLICY. When
+// input.platoonColumn is set, a PLATOON column follows them.
 func writeTable(input writeReportInput) error {
 	output, results := input.output, input.results
 	if len(results) == 0 {
@@ -1215,6 +1290,9 @@ func writeTable(input writeReportInput) error {
 	if input.waitRuleColumn {
 		policyHeader += "\tWAIT RULE"
 	}
+	if input.platoonColumn {
+		policyHeader += "\tPLATOON"
+	}
 	if _, err := fmt.Fprintln(w, "PATTERN\tBAND\tLOAD (S)\tOFFERED/M\tARRIVAL/M\tLATE/M\tBACKLOG\tLATE DELTA\tDRAIN (S)\tSEED\t"+policyHeader+"\tWAIT AVG\tWAIT MAX\tWAIT P95\tJOURNEY AVG\tJOURNEY P95\tSERVED\tLEFT\tSKIPPED\tPEAK OUT\tPEAK ACTIVE\tPEAK PAX\tPEAK STOPPED\tHUB IN\tHUB OUT\tHUB OCC\tHUB RSV\tPASSENGER (M)\tEMPTY (M)\tLOADED %\tMOVES"); err != nil {
 		return fmt.Errorf("write table header: %w", err)
 	}
@@ -1222,6 +1300,9 @@ func writeTable(input writeReportInput) error {
 		policy := outcome.Policy
 		if input.waitRuleColumn {
 			policy += "\t" + outcome.WaitRule
+		}
+		if input.platoonColumn {
+			policy += "\t" + outcome.PlatoonPolicy
 		}
 		if _, err := fmt.Fprintf(w, "%s\t%s\t%.2f\t%.2f\t%.2f\t%.2f\t%d\t%d\t%s\t%d\t%s\t%.2f\t%.2f\t%.2f\t%.2f\t%.2f\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%.1f\t%.1f\t%.2f\t%d\n",
 			outcome.Pattern, outcome.DemandBand, outcome.RequestEverySeconds, outcome.OfferedPerMinute,
@@ -1245,7 +1326,8 @@ func writeTable(input writeReportInput) error {
 
 // writeCSV writes a header and one row for each result. When
 // input.waitRuleColumn is set, a wait_rule column follows routing_policy.
-// Without it, the columns are the same as before the wait rule option.
+// When input.platoonColumn is set, a platoon_policy column follows them.
+// Without these options, the columns are the same as before them.
 func writeCSV(input writeReportInput) error {
 	w := csv.NewWriter(input.output)
 	header := []string{
@@ -1253,6 +1335,9 @@ func writeCSV(input writeReportInput) error {
 	}
 	if input.waitRuleColumn {
 		header = append(header, "wait_rule")
+	}
+	if input.platoonColumn {
+		header = append(header, "platoon_policy")
 	}
 	header = append(header,
 		"shared_ride_party_limit", "sharing_mode", "shared_parties", "focus_station", "window_start_seconds", "window_end_seconds", "actual_end_seconds", "arrival_window_seconds", "arrival_end_seconds", "schedule_id",
@@ -1265,6 +1350,7 @@ func writeCSV(input writeReportInput) error {
 		"wait_average_seconds", "wait_maximum_seconds", "wait_p95_seconds",
 		"journey_average_seconds", "journey_p95_seconds", "journey_maximum_seconds", "passenger_distance_meters", "empty_distance_meters", "loaded_distance_percent", "occupancy",
 		"rider_distance_meters", "direct_distance_meters", "detour_ratio_mean", "detour_ratio_max", "intermediate_stops", "positioning_moves",
+		"coupled_time_percent",
 	)
 	if err := w.Write(header); err != nil {
 		return fmt.Errorf("write CSV header: %w", err)
@@ -1275,6 +1361,9 @@ func writeCSV(input writeReportInput) error {
 		}
 		if input.waitRuleColumn {
 			row = append(row, outcome.WaitRule)
+		}
+		if input.platoonColumn {
+			row = append(row, outcome.PlatoonPolicy)
 		}
 		row = append(row,
 			strconv.Itoa(outcome.SharedRidePartyLimit), outcome.SharingMode, strconv.Itoa(outcome.SharedParties), outcome.FocusStation,
@@ -1295,7 +1384,7 @@ func writeCSV(input writeReportInput) error {
 			floatText(outcome.EmptyDistanceMeters), floatText(outcome.LoadedDistancePercent), floatText(outcome.Occupancy),
 			floatText(outcome.RiderDistanceMeters), floatText(outcome.DirectDistanceMeters),
 			floatText(outcome.DetourRatioMean), floatText(outcome.DetourRatioMax), strconv.Itoa(outcome.IntermediateStops),
-			strconv.Itoa(outcome.PositioningMoveCount),
+			strconv.Itoa(outcome.PositioningMoveCount), floatText(outcome.CoupledTimePercent),
 		)
 		if err := w.Write(row); err != nil {
 			return fmt.Errorf("write CSV row: %w", err)
@@ -1337,9 +1426,11 @@ type runMetrics struct {
 	peakReservedEmptyBerths int
 	queueCleared            bool
 	queueClearSeconds       float64
-	// waits holds the stopped pod-seconds. run samples it once per
+	// waits holds the stopped pod-seconds, and coupling holds the
+	// traveling and coupled pod-seconds. run samples them once per
 	// simulated second.
-	waits trafficWaits
+	waits    trafficWaits
+	coupling couplingTime
 }
 
 func newRunMetrics(caseStudy scenario, schedule []scheduledRequest) (runMetrics, error) {

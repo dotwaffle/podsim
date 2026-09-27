@@ -379,3 +379,18 @@ func TestParseAdaptiveLimit(t *testing.T) {
 		})
 	}
 }
+
+// TestArmSchedulerSeparatesPlatoonPolicies checks that each platoon policy
+// is a separate group.
+func TestArmSchedulerSeparatesPlatoonPolicies(t *testing.T) {
+	t.Parallel()
+	var inputs []runInput
+	for _, load := range []time.Duration{60 * time.Second, 30 * time.Second} {
+		for _, policy := range []string{"off", "virtual"} {
+			inputs = append(inputs, runInput{band: "early", requestEvery: load, seed: 1, policy: "off", platoonPolicy: policy})
+		}
+	}
+	if groups := len(newArmScheduler(inputs, 0).groups); groups != 2 {
+		t.Fatalf("got %d groups, want 2", groups)
+	}
+}

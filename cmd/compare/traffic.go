@@ -34,6 +34,32 @@ func (waits *trafficWaits) sampleWaits(vehicles []sim.Vehicle) {
 	}
 }
 
+// couplingTime holds the pod-seconds that pods spent traveling, and the
+// part of that time in a platoon.
+type couplingTime struct {
+	traveling, coupled int
+}
+
+// sample adds the traveling pods of a snapshot and the coupled pods, as one
+// second each. coupled is the value of CoupledPods at the snapshot.
+func (coupling *couplingTime) sample(vehicles []sim.Vehicle, coupled int) {
+	for _, vehicle := range vehicles {
+		if vehicle.Pod.Activity == sim.Traveling {
+			coupling.traveling++
+		}
+	}
+	coupling.coupled += coupled
+}
+
+// percent returns the coupled time as a percentage of the traveling time,
+// or 0 when no pod traveled.
+func (coupling *couplingTime) percent() float64 {
+	if coupling.traveling == 0 {
+		return 0
+	}
+	return 100 * float64(coupling.coupled) / float64(coupling.traveling)
+}
+
 // nodeFlowWindowTicks is the length of the node flow window, 60 s.
 const nodeFlowWindowTicks = 60 * sim.TicksPerSecond
 

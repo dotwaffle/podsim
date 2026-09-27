@@ -774,9 +774,11 @@ The synthetic patterns are balanced, destination, hotspot, bursty-hotspot, and h
 | `-routing-policies free-flow,congestion,queue` | Compare the experimental routing policies. See [routing](#time-geometry-and-routing). |
 | `-redistribution-policies off,on` | Select the positioning policies. `on` is guarded positioning. |
 | `-wait-rules current,strict,none` | Compare the finishing-pod wait rules from the dispatch section. |
+| `-platoon-policies off,virtual` | The experimental platoon A/B. `virtual` lets queued pods follow the pod ahead at a short gap. |
 | `-queue-limit` | Change the limit of 200 pending requests. At the limit, the comparison skips new arrivals. |
 
 The report has a `wait_rule` column or JSON field only when you give `-wait-rules`.
+The report has a `platoon_policy` column or JSON field only when you give `-platoon-policies`.
 
 The `sharing_mode` column gives the sharing mode of each arm.
 
@@ -788,7 +790,7 @@ The other rows are identical to the rows of a full run.
 
 #### Report columns
 
-The JSON report has `schema_version` 8.
+The JSON report has `schema_version` 9.
 These columns give the waits and journeys of the passengers.
 
 | Column | Definition |
@@ -858,6 +860,13 @@ The simulation records each pass at the tick at which the pod enters the lane, a
 | --- | --- |
 | `peak_node_throughput_per_minute` | The most passes of one node in 60 seconds. For each pass at time t, the window holds the passes of the same node after t - 60 s and at or before t. |
 | `peak_node` | The ID of the node with that count. When two nodes have the same count, it is the lower node ID in byte order. It is empty when no pod passes a node. |
+
+The `coupled_time_percent` column gives the time that pods travel in a platoon.
+The compare command examines the pods at each whole simulated second.
+Each traveling pod adds 1 second to the travel time.
+Each traveling pod that has a pod ahead or a pod behind in its platoon also adds 1 second to the coupled time.
+The value is the coupled time divided by the travel time, as a percentage.
+It is 0 when no pod travels, and always 0 without the `virtual` platoon policy.
 
 ### Generated scenarios
 
@@ -1085,6 +1094,43 @@ Admission follows these rules:
 The block model is conservative.
 It does not model continuous car-following or optimized junction capacity.
 The traffic model requires lanes at least 24 meters long.
+
+#### Virtual platoons
+
+Virtual platoons are an experimental option of the simulation API and the compare command.
+They are off by default, and the server does not use them.
+With the `virtual` policy, a slow pod in a queue can link to the pod ahead on the same lane.
+The two routes must share the next lanes, and each route must have one speed limit.
+A platoon has at most 4 pods.
+
+Each link certifies a run of lanes that both routes share, from the lane of the follower.
+The total turn along the run must be at most 120 degrees.
+This total counts each turn in a curved lane and at each lane join one time, with its size and not its sign.
+The link clearance is 12 m divided by the cosine of half of the turn, plus 0.01 m.
+On such a run, two pods that are at least the clearance apart along the path are at least 12 m apart.
+All links of one platoon have the same turn and clearance, and a link keeps them until it ends.
+A link forms only when the two pods and their stop points are at least the clearance apart.
+
+A linked pod can reserve the blocks and junction sections that the pods ahead of it in its platoon hold.
+It shares only the blocks whose resources each pod releases at least 1 m before the end of the run.
+Thus each pod that holds a shared resource is on the run.
+It stops at least the clearance behind the stop point of the pod ahead, less the distance of 0.5 s of travel at its speed.
+When a pod ahead releases a shared resource, the next pod in the platoon owns it.
+Berths are not shared.
+A link can add the next shared lane to its run while the total turn from the lane of the follower stays within the turn of the platoon.
+After the last block that it can share, the link drains: the follower waits until the pods ahead pass the shared resources and hand them to it.
+Then the link ends.
+A link also drains when platooning stops, when one of its pods stops traveling, or when a different pod comes between the two pods.
+While a linked pod holds a cell of a pod ahead, it reserves only the cells that its predecessor reserved.
+A pod ahead in a platoon does not reserve a resource again while a pod behind it holds that resource.
+A linked empty pod cannot divert.
+The 12 m separation check does not change.
+
+A saved state keeps each link in the `platoon` field of the follower.
+The field gives the predecessor, the run as indexes into the two saved routes, the turn, and whether the link drains.
+The restore checks the run, the turn, the speed limits, and the clearance against the network and the pods, and it does not plan the link again.
+A link that is not valid fails the physical tier.
+A link that drains before the save also drains after the restore.
 
 ### Stations and parking
 
