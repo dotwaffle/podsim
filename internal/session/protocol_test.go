@@ -3,12 +3,15 @@ package session
 import (
 	"bytes"
 	"encoding/json"
+	"maps"
 	"reflect"
+	"slices"
 	"strconv"
 	"strings"
 	"testing"
 
 	"github.com/dotwaffle/podsim/internal/project"
+	"github.com/dotwaffle/podsim/internal/sim"
 )
 
 // frameFixture describes a session with an active journey and save points.
@@ -323,5 +326,50 @@ func TestServerStart(t *testing.T) {
 				t.Fatalf("the %s changed the server start from %q to %q", test.name, before.ServerStart, after.ServerStart)
 			}
 		})
+	}
+}
+
+// TestVehicleFrameRidersJSON checks the riders and the stops of a pod in a
+// state frame against the protocol. The first rider boarded the pod, and the
+// second rider joined it. Each rider has the members of an order and no
+// member that refers to the first rider. A pod without riders or stops omits
+// both keys.
+func TestVehicleFrameRidersJSON(t *testing.T) {
+	t.Parallel()
+	riders := []sim.Request{
+		{ID: 1, From: "harbor", To: "market", PartySize: 2, PodID: "01", RequestedTick: 10, BoardedTick: 20},
+		{ID: 2, From: "harbor", To: "garden", PartySize: 1, PodID: "01", RequestedTick: 15, BoardedTick: 20},
+	}
+	frame := stateFrame(State{Simulation: sim.Snapshot{Vehicles: []sim.Vehicle{
+		{Pod: sim.Pod{ID: "01"}, Riders: riders, Stops: []string{"garden", "market"}},
+		{Pod: sim.Pod{ID: "02"}},
+	}}})
+	var vehicles []map[string]json.RawMessage
+	if err := json.Unmarshal(mustJSON(t, frame.Simulation.Vehicles), &vehicles); err != nil {
+		t.Fatal(err)
+	}
+	var encoded []map[string]json.RawMessage
+	if err := json.Unmarshal(vehicles[0]["Riders"], &encoded); err != nil {
+		t.Fatal(err)
+	}
+	members := []string{"BoardedTick", "Completed", "DispatchReason", "From", "ID", "PartySize", "PodID", "RequestedTick", "To"}
+	if len(encoded) != len(riders) {
+		t.Fatalf("riders = %d, want %d", len(encoded), len(riders))
+	}
+	for index, rider := range encoded {
+		if got := slices.Sorted(maps.Keys(rider)); !slices.Equal(got, members) {
+			t.Fatalf("rider %d members = %v, want %v", index, got, members)
+		}
+		if id := string(rider["ID"]); id != strconv.Itoa(riders[index].ID) {
+			t.Fatalf("rider %d has ID %s, want %d", index, id, riders[index].ID)
+		}
+	}
+	if stops := string(vehicles[0]["Stops"]); stops != `["garden","market"]` {
+		t.Fatalf("stops = %s", stops)
+	}
+	for _, key := range []string{"Riders", "Stops"} {
+		if _, ok := vehicles[1][key]; ok {
+			t.Fatalf("a pod without riders has the %s key", key)
+		}
 	}
 }

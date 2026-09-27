@@ -84,6 +84,32 @@ The server omits an empty `reason` and each count of 0.
 After one such stop, the next start uses the `logical` tier.
 After two, the next start does not use the saved state.
 
+Each item of `simulation.Vehicles` can contain a `Riders` array and a `Stops` array.
+`Riders` has one order for each party that boarded the pod or joined it.
+It has at most 8 orders.
+The first order is the party that boarded the pod.
+The orders after it are the parties that joined the pod.
+Each order has the members `ID`, `From`, `To`, `PartySize`, `PodID`, `Completed`, `RequestedTick`, `BoardedTick`, and `DispatchReason`.
+`BoardedTick` is the simulation tick when the party boarded the pod or joined it.
+An order stays in `Riders` with `Completed` set to `true` after the party leaves the pod, until the pod gets a new order.
+`Stops` has the IDs of the stations where the pod must stop and that it did not reach, in the sequence of the stops.
+A pod omits each key when its array is empty.
+
+The `simulation` object has these ride metrics:
+
+| Member | Content |
+| --- | --- |
+| `Journey` | `AverageSeconds` and `MaxSeconds` of the time from request to alighting, for the parties that alighted at their destination. |
+| `RiderDistanceMeters` | The sum of the distances that the same parties rode, from the berth where they boarded to the berth where they alighted. |
+| `DirectDistanceMeters` | The sum of the free-flow distances of the same parties between the same two berths. |
+| `MaxDetourRatio` | The largest ratio of the ridden distance to the free-flow distance for one party. |
+| `SharedParties` | The number of parties that joined the pod of another party. |
+| `SharedRidePartyLimit` | The maximum number of parties in one pod. |
+
+A reset, a demo, and a project apply set the metrics to 0.
+A rewind restores the metrics of the save point.
+A restore at a restart keeps them.
+
 Each command contains a `client` ID, a `sequence`, the session `epoch`, and an `action`.
 The actions are `trip`, `pause`, `speed`, `reset`, `demo`, `demand`, `project`, `checkpoint`, and `rewind`.
 
@@ -325,6 +351,24 @@ Frames from a server without a build ID do not change.
 
 The `serverStart` key adds 33 bytes to each raw state frame.
 Every server sends it.
+
+Commit `1fe7b07` replaced the `Request` and `Parties` members of each vehicle with `Riders` and `Stops`.
+Commit `65ce323` added the ride metrics.
+The measurement used the same 200 accepted requests with the current Scale100 and London projects.
+It encoded the frame at 0 s, 60 s, and 120 s of simulation time, at commit `4f2ad0a` and at commit `adc7e1c`.
+The table gives the frames at 120 s.
+
+| Fixture | Party limit | Gzip frame at `4f2ad0a` | Gzip frame at `adc7e1c` | Increase |
+| --- | ---: | ---: | ---: | ---: |
+| Scale100 | 1 | 13,440 B | 13,854 B | 3.1% |
+| Scale100 | 4 | 8,688 B | 10,308 B | 18.6% |
+| London | 1 | 21,484 B | 22,076 B | 2.8% |
+| London | 4 | 18,301 B | 19,837 B | 8.4% |
+
+With a party limit above 1, each party that joined a pod adds a full order to the frame.
+Before, it added only to the `Parties` count.
+At 20 Hz, the largest London frame is 0.40 MB/s.
+The data is in [`measurements/protocol-riders.csv`](measurements/protocol-riders.csv).
 
 ## Codec measurements
 
