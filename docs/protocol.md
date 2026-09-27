@@ -22,6 +22,11 @@ The JSON API uses four message boundaries:
 | Project | `GET /api/project` | Complete editable scenario data. |
 | Command | `POST /api/command` | Retry-safe mutation and compact acknowledgment. |
 
+A request for a different `/api` path gets HTTP 404.
+A request with a different method gets HTTP 405 and an `Allow` header with the methods of the endpoint.
+A `GET` endpoint also accepts `HEAD`.
+All `/api` responses have `Cache-Control: no-store`, also the error responses.
+
 State frames contain ordered lane IDs for vehicle routes.
 They do not contain lane objects or network geometry.
 The Go client caches topology by session epoch, project revision, and server start ID, then reconstructs the presentation state.
@@ -138,6 +143,7 @@ The request must have the `application/json` content type.
 The body must be at most 2 MiB and contain one JSON command with no unknown members.
 A request with an `Origin` header must come from the same host and scheme.
 A request that breaks these rules gets HTTP 400, 403, or 415 and a plain text body, not an acknowledgment.
+These responses also have `Cache-Control: no-store`.
 
 ## Save points
 

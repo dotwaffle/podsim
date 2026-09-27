@@ -90,7 +90,7 @@ func precompressedWASM(files fs.FS, fallback http.Handler) http.Handler {
 
 func serveWASMError(w http.ResponseWriter, err error) {
 	slog.Error("Serve WASM module", slog.Any("error", err))
-	http.Error(w, "WASM module unavailable", http.StatusInternalServerError)
+	writeError(w, "WASM module unavailable", http.StatusInternalServerError)
 }
 
 // rawIsNewer reports whether files has a podsim.wasm that is newer than the

@@ -19,6 +19,8 @@ Without the `embed_assets` build tag and without `-dir`, the server reads the `d
 Production builds keep Go and WASM debug information.
 
 The server sends browser files with `Cache-Control: no-cache` and API responses with `Cache-Control: no-store`.
+The API error responses, for example HTTP 404 for an unknown `/api` path, also have `Cache-Control: no-store`.
+An error response for the WASM module also has `Cache-Control: no-store`.
 A browser must check a cached file with the server before it uses the file, so a reload after an upgrade loads the new files.
 Files from `-dir` or `dist` have a modification time, and the server answers `304 Not Modified` when a file did not change.
 The WASM module has only an ETag that comes from its content, and no `Last-Modified` header.
