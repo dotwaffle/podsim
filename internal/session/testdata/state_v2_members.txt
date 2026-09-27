@@ -49,6 +49,12 @@ simulation.emptyDistanceMeters number
 simulation.rebalanceMoves number
 simulation.sharedParties number
 simulation.sharedRidePartyLimit number
+simulation.journeys number
+simulation.totalJourneyTicks number
+simulation.maxJourneyTicks number
+simulation.riderDistanceMeters number
+simulation.directDistanceMeters number
+simulation.maxDetourRatio number
 simulation.demo object
 simulation.demo.secondSent boolean
 simulation.demo.followupsSent boolean
@@ -80,6 +86,7 @@ simulation.pods[].riders[].boardedTick number
 simulation.pods[].riders[].dispatchReason string
 simulation.pods[].stops array
 simulation.pods[].stops[] string
+simulation.pods[].riddenMeters number
 simulation.pods[].claimsDestination boolean
 simulation.pods[].released boolean
 simulation.pods[].route array

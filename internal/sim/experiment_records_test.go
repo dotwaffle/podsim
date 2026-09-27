@@ -52,8 +52,8 @@ func TestRequestTimingsFollowBoardingAndCompletion(t *testing.T) {
 	}
 	ridden := state.PassengerDistanceMeters
 	want := []RequestTiming{
-		{RequestID: 1, RequestedTick: 0, BoardedTick: 0, CompletedTick: completedTick, RiddenMeters: ridden},
-		{RequestID: 2, RequestedTick: 60, BoardedTick: 60, CompletedTick: completedTick, RiddenMeters: ridden, SharedWith: 1},
+		{RequestID: 1, RequestedTick: 0, BoardedTick: 0, CompletedTick: completedTick, RiddenMeters: ridden, DirectMeters: ridden},
+		{RequestID: 2, RequestedTick: 60, BoardedTick: 60, CompletedTick: completedTick, RiddenMeters: ridden, DirectMeters: ridden, SharedWith: 1},
 	}
 	if got := s.RequestTimings(); !reflect.DeepEqual(got, want) {
 		t.Fatalf("timings after completion = %+v, want %+v", got, want)

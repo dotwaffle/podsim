@@ -30,6 +30,14 @@ type SavedState struct {
 	RebalanceMoves          int     `json:"rebalanceMoves"`
 	SharedParties           int     `json:"sharedParties"`
 	SharedRidePartyLimit    int     `json:"sharedRidePartyLimit"`
+	// Journeys counts the parties that left a pod at their destination.
+	// The journey and distance totals count the same parties.
+	Journeys             int     `json:"journeys,omitzero"`
+	TotalJourneyTicks    int64   `json:"totalJourneyTicks,omitzero"`
+	MaxJourneyTicks      int64   `json:"maxJourneyTicks,omitzero"`
+	RiderDistanceMeters  float64 `json:"riderDistanceMeters,omitzero"`
+	DirectDistanceMeters float64 `json:"directDistanceMeters,omitzero"`
+	MaxDetourRatio       float64 `json:"maxDetourRatio,omitzero"`
 	// Demo is nil when the traffic demo does not run.
 	Demo      *SavedDemo `json:"demo,omitzero"`
 	DemoError string     `json:"demoError,omitempty"`
@@ -76,6 +84,8 @@ type SavedPod struct {
 	// Vehicle.
 	Riders []SavedRequest `json:"riders,omitempty"`
 	Stops  []string       `json:"stops,omitempty"`
+	// RiddenMeters is the distance that the riders rode before Distance.
+	RiddenMeters float64 `json:"riddenMeters,omitzero"`
 	// ClaimsDestination is true when a relocating pod holds its destination
 	// berth.
 	ClaimsDestination bool `json:"claimsDestination,omitzero"`
@@ -199,6 +209,8 @@ func (s *Simulation) ExportState() SavedState {
 		TotalWaitTicks: s.totalWaitTicks, MaxWaitTicks: s.maxWaitTicks, NextRedistributionTick: s.nextRedistributionTick,
 		PassengerDistanceMeters: s.passengerDistanceMeters, EmptyDistanceMeters: s.emptyDistanceMeters,
 		RebalanceMoves: s.rebalanceMoves, SharedParties: s.sharedParties, SharedRidePartyLimit: s.sharedRidePartyLimit,
+		Journeys: s.journeys, TotalJourneyTicks: s.totalJourneyTicks, MaxJourneyTicks: s.maxJourneyTicks,
+		RiderDistanceMeters: s.riderDistanceMeters, DirectDistanceMeters: s.directDistanceMeters, MaxDetourRatio: s.maxDetourRatio,
 		DemoError: s.demoError, Pods: make([]SavedPod, len(s.vehicles)),
 	}
 	if s.demo != nil {
@@ -247,6 +259,9 @@ func (s *Simulation) exportPod(v *vehicle, limits routeLimits) SavedPod {
 		pod.Riders = append(pod.Riders, SavedRequest(rider))
 	}
 	pod.Stops = slices.Clone(v.Stops)
+	if v.carriesPassengers() {
+		pod.RiddenMeters = v.riddenMeters()
+	}
 	if pod.Waiting {
 		pod.WaitSince = v.waitSince
 	}
@@ -261,6 +276,9 @@ func (s *Simulation) exportPod(v *vehicle, limits routeLimits) SavedPod {
 		if pod.Route = s.laneIndexes(v.Route[start:], limits.pod); pod.Route != nil {
 			pod.RouteIndex = current - start
 			pod.Distance = v.distance - offset
+			if v.carriesPassengers() {
+				pod.RiddenMeters = v.riddenBase + offset
+			}
 		}
 	default:
 		// An idle or unloading pod keeps the route of its last journey only

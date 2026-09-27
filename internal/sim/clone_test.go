@@ -167,6 +167,8 @@ var persistRules = map[reflect.Type]map[string]persistRule{
 		"positioning": persistSession, "demandRate": persistSession, "demandWeights": persistSession, "nextRedistributionTick": persistSave,
 		"passengerDistanceMeters": persistSave, "emptyDistanceMeters": persistSave, "rebalanceMoves": persistSave,
 		"sharedRidePartyLimit": persistSave, "sharedParties": persistSave,
+		"journeys": persistSave, "totalJourneyTicks": persistSave, "maxJourneyTicks": persistSave,
+		"riderDistanceMeters": persistSave, "directDistanceMeters": persistSave, "maxDetourRatio": persistSave,
 		"laneSafety": persistDerive, "berthSafety": persistDerive, "vehicleIndexes": persistDerive, "berthResources": persistDerive,
 		"laneCells":     persistDerive,
 		"routingPolicy": persistUnsupported, "congestionRouteCosts": persistUnsupported,
@@ -178,7 +180,7 @@ var persistRules = map[reflect.Type]map[string]persistRule{
 	reflect.TypeFor[vehicle](): {
 		"Vehicle": persistSave, "phaseTicks": persistSave, "blocks": persistDerive, "blockStarts": persistDerive,
 		"routeReleases": persistDerive, "nextRelease": persistReset, "blockIndex": persistDerive, "reservedThrough": persistDerive,
-		"originReleased": persistDerive, "distance": persistSave, "pending": persistDerive,
+		"originReleased": persistDerive, "distance": persistSave, "riddenBase": persistSave, "pending": persistDerive,
 		"waitSince":      persistSave,
 		"rebalanceAfter": persistSave, "origin": persistSave, "destination": persistSave,
 		"destinationStation": persistSave, "released": persistSave, "terminal": persistReset,

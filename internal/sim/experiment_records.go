@@ -17,6 +17,9 @@ type RequestTiming struct {
 	// where it boarded to the berth where it left the pod. It is 0 before
 	// completion.
 	RiddenMeters float64 `json:"RiddenMeters"`
+	// DirectMeters is the free-flow distance between the same two berths.
+	// It is 0 before completion, and when no free-flow route exists.
+	DirectMeters float64 `json:"DirectMeters"`
 	// SharedWith is 0 for a party that boarded its own pod. For a party that
 	// joined a shared ride, it is the ID of the first request of the pod.
 	SharedWith int `json:"SharedWith"`
@@ -24,9 +27,9 @@ type RequestTiming struct {
 
 // requestCompletion records that one party left a pod at its destination.
 type requestCompletion struct {
-	requestID    int
-	tick         int64
-	riddenMeters float64
+	requestID                  int
+	tick                       int64
+	riddenMeters, directMeters float64
 }
 
 // NodePass records that a pod entered a lane at the start node of the lane.
@@ -85,7 +88,7 @@ func (s *Simulation) RequestTimings() []RequestTiming {
 	for index, timing := range s.requestBoardings {
 		timing.CompletedTick = -1
 		if end, ok := ends[timing.RequestID]; ok {
-			timing.CompletedTick, timing.RiddenMeters = end.tick, end.riddenMeters
+			timing.CompletedTick, timing.RiddenMeters, timing.DirectMeters = end.tick, end.riddenMeters, end.directMeters
 		}
 		timings[index] = timing
 	}

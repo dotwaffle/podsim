@@ -297,6 +297,9 @@ func (s *Simulation) setSavedCounters(state SavedState) {
 	s.nextRedistributionTick = state.NextRedistributionTick
 	s.passengerDistanceMeters, s.emptyDistanceMeters = state.PassengerDistanceMeters, state.EmptyDistanceMeters
 	s.rebalanceMoves, s.sharedParties = state.RebalanceMoves, state.SharedParties
+	s.journeys, s.totalJourneyTicks, s.maxJourneyTicks = state.Journeys, state.TotalJourneyTicks, state.MaxJourneyTicks
+	s.riderDistanceMeters, s.directDistanceMeters = state.RiderDistanceMeters, state.DirectDistanceMeters
+	s.maxDetourRatio = state.MaxDetourRatio
 	s.sharedRidePartyLimit = state.SharedRidePartyLimit
 }
 
@@ -327,6 +330,9 @@ func (r *physicalRestore) decodePod(index int, saved SavedPod) error {
 	v.released = saved.Released && releasable(v)
 	for _, rider := range saved.Riders {
 		v.Riders = append(v.Riders, Request(rider))
+	}
+	if v.carriesPassengers() {
+		v.riddenBase = saved.RiddenMeters
 	}
 	if err := r.checkPassengers(v); err != nil {
 		return err
@@ -870,7 +876,7 @@ func (r *physicalRestore) boardAgain(v *vehicle, berth Berth) bool {
 			riders = append(riders, rider)
 		}
 	}
-	v.Riders = riders
+	v.Riders, v.riddenBase = riders, 0
 	v.Pod.Activity, v.Pod.StationID = Boarding, r.berths[berth.ID].station
 	v.RelocatingTo, v.Rebalancing, v.released = "", false, false
 	v.origin, v.destination, v.destinationStation = berth, Berth{}, v.Stops[0]

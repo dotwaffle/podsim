@@ -670,7 +670,7 @@ func TestStateFileWorstCaseSize(t *testing.T) {
 	}
 	pod := sim.SavedPod{
 		ID: id("p", 0), Activity: "departing", StationID: id("s", 0), BerthID: id("b", 0),
-		Occupied: true, Riders: riders, Stops: stops, RelocatingTo: id("r", 0),
+		Occupied: true, Riders: riders, Stops: stops, RiddenMeters: -math.MaxFloat64, RelocatingTo: id("r", 0),
 		Rebalancing: true, RebalanceAfter: widest, PhaseTicks: widest, Origin: id("o", 0),
 		Destination: id("d", 0), DestinationStation: id("e", 0), ClaimsDestination: true, Released: true,
 		Route: route(lanes + nodes), RouteIndex: widest, LaneID: id("l", 0),
@@ -711,6 +711,8 @@ func TestStateFileWorstCaseSize(t *testing.T) {
 			TotalWaitTicks: widest, MaxWaitTicks: widest, NextRedistributionTick: widest,
 			PassengerDistanceMeters: -math.MaxFloat64, EmptyDistanceMeters: -math.MaxFloat64,
 			RebalanceMoves: widest, SharedParties: widest, SharedRidePartyLimit: widest,
+			Journeys: widest, TotalJourneyTicks: widest, MaxJourneyTicks: widest,
+			RiderDistanceMeters: -math.MaxFloat64, DirectDistanceMeters: -math.MaxFloat64, MaxDetourRatio: -math.MaxFloat64,
 			Demo: &sim.SavedDemo{SecondSent: true, FollowupsSent: true}, DemoError: text,
 			Pods: []sim.SavedPod{pod}, Waiting: []sim.SavedTrip{trip},
 		},

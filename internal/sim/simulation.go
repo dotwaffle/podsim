@@ -138,8 +138,19 @@ type Snapshot struct {
 	Pending []Request `json:"Pending"`
 	// Wait summarizes request-to-boarding delay, including elapsed pending waits.
 	Wait WaitStats `json:"Wait"`
+	// Journey summarizes the time from request to alighting of the parties
+	// that left a pod at their destination.
+	Journey JourneyStats `json:"Journey"`
 	// PassengerDistanceMeters is the distance traveled with a passenger.
 	PassengerDistanceMeters float64 `json:"PassengerDistanceMeters"`
+	// RiderDistanceMeters is the sum of the distances that the parties of
+	// Journey rode. DirectDistanceMeters is the sum of the free-flow
+	// distances of the same parties from their boarding berth to their
+	// alighting berth. MaxDetourRatio is the largest ratio of the two
+	// distances for one party.
+	RiderDistanceMeters  float64 `json:"RiderDistanceMeters"`
+	DirectDistanceMeters float64 `json:"DirectDistanceMeters"`
+	MaxDetourRatio       float64 `json:"MaxDetourRatio"`
 	// SharedParties counts parties that joined another party's boarding pod.
 	SharedParties        int `json:"SharedParties"`
 	SharedRidePartyLimit int `json:"SharedRidePartyLimit"`
@@ -181,11 +192,14 @@ type vehicle struct {
 	blockIndex, reservedThrough int
 	originReleased              bool
 	distance                    float64
-	pending                     int
-	waitSince                   int64
-	rebalanceAfter              int64
-	origin, destination         Berth
-	destinationStation          string
+	// riddenBase is the distance that the riders rode before the start of
+	// distance. It is 0 unless a restore cut the start of the route.
+	riddenBase          float64
+	pending             int
+	waitSince           int64
+	rebalanceAfter      int64
+	origin, destination Berth
+	destinationStation  string
 	// released is true for an empty pod that dispatch sent to a pickup and
 	// then released with no claim. It is also true for a guarded
 	// rebalancing pod that yielded its claim. Such a pod can divert at once,
@@ -243,23 +257,29 @@ type Simulation struct {
 	waiting                      []waitingTrip
 	boarded                      int
 	totalWaitTicks, maxWaitTicks int64
-	positioning                  Positioning
-	demandRate                   int
-	demandWeights                map[string]float64
-	nextRedistributionTick       int64
-	passengerDistanceMeters      float64
-	emptyDistanceMeters          float64
-	rebalanceMoves               int
-	sharedRidePartyLimit         int
-	sharedParties                int
-	routingPolicy                RoutingPolicy
-	finishingPodWait             FinishingPodWait
-	congestionRouteCosts         []float64
-	congestionRoutes             map[routeKey]routeResult
-	nextCongestionRouteRefresh   int64
-	reservationLookaheadSeconds  float64
-	laneSafety                   map[string]SafetyLocation
-	berthSafety                  map[string]SafetyLocation
+	// journeys counts the parties that left a pod at their destination.
+	// The journey and distance totals below count the same parties.
+	journeys                                  int
+	totalJourneyTicks, maxJourneyTicks        int64
+	riderDistanceMeters, directDistanceMeters float64
+	maxDetourRatio                            float64
+	positioning                               Positioning
+	demandRate                                int
+	demandWeights                             map[string]float64
+	nextRedistributionTick                    int64
+	passengerDistanceMeters                   float64
+	emptyDistanceMeters                       float64
+	rebalanceMoves                            int
+	sharedRidePartyLimit                      int
+	sharedParties                             int
+	routingPolicy                             RoutingPolicy
+	finishingPodWait                          FinishingPodWait
+	congestionRouteCosts                      []float64
+	congestionRoutes                          map[routeKey]routeResult
+	nextCongestionRouteRefresh                int64
+	reservationLookaheadSeconds               float64
+	laneSafety                                map[string]SafetyLocation
+	berthSafety                               map[string]SafetyLocation
 	// berthResources holds the berth resources at each node. NewFleet and
 	// ensureNetworkIndexes build it. No code writes to it in place.
 	berthResources map[string][]resource
@@ -379,6 +399,8 @@ func (s *Simulation) Reset() {
 	s.paused, s.demo, s.demoError = false, nil, ""
 	s.waiting = nil
 	s.boarded, s.totalWaitTicks, s.maxWaitTicks = 0, 0, 0
+	s.journeys, s.totalJourneyTicks, s.maxJourneyTicks = 0, 0, 0
+	s.riderDistanceMeters, s.directDistanceMeters, s.maxDetourRatio = 0, 0, 0
 	s.positioning, s.demandRate, s.demandWeights = PositioningOff, 0, nil
 	s.nextRedistributionTick = 0
 	s.nextCongestionRouteRefresh, s.congestionRouteCosts, s.congestionRoutes = 0, nil, nil
@@ -417,8 +439,9 @@ func (s *Simulation) Snapshot() Snapshot {
 	state := Snapshot{
 		Submitted: s.requestID, Tick: s.tick, Paused: s.paused,
 		Completed: s.completed, Demo: s.demo != nil, DemoError: s.demoError,
-		Wait: s.waitStats(), PassengerDistanceMeters: s.passengerDistanceMeters,
-		EmptyDistanceMeters: s.emptyDistanceMeters, RebalanceMoves: s.rebalanceMoves,
+		Wait: s.waitStats(), Journey: s.journeyStats(), PassengerDistanceMeters: s.passengerDistanceMeters,
+		RiderDistanceMeters: s.riderDistanceMeters, DirectDistanceMeters: s.directDistanceMeters,
+		MaxDetourRatio: s.maxDetourRatio, EmptyDistanceMeters: s.emptyDistanceMeters, RebalanceMoves: s.rebalanceMoves,
 		SharedParties: s.sharedParties, SharedRidePartyLimit: s.sharedRidePartyLimit,
 	}
 	for _, trip := range s.waiting {

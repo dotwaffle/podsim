@@ -51,7 +51,11 @@ type SimulationFrame struct {
 	DemoError               string           `json:"DemoError"`
 	Pending                 []sim.Request    `json:"Pending"`
 	Wait                    sim.WaitStats    `json:"Wait"`
+	Journey                 sim.JourneyStats `json:"Journey"`
 	PassengerDistanceMeters float64          `json:"PassengerDistanceMeters"`
+	RiderDistanceMeters     float64          `json:"RiderDistanceMeters"`
+	DirectDistanceMeters    float64          `json:"DirectDistanceMeters"`
+	MaxDetourRatio          float64          `json:"MaxDetourRatio"`
 	SharedParties           int              `json:"SharedParties"`
 	SharedRidePartyLimit    int              `json:"SharedRidePartyLimit"`
 	EmptyDistanceMeters     float64          `json:"EmptyDistanceMeters"`
@@ -104,8 +108,10 @@ func FrameState(topology TopologySnapshot, frame StateFrame) (State, error) {
 			Submitted: snapshot.Submitted, Tick: snapshot.Tick, Paused: snapshot.Paused,
 			Vehicles: vehicles, Berths: snapshot.Berths, Completed: snapshot.Completed,
 			Demo: snapshot.Demo, DemoError: snapshot.DemoError, Pending: snapshot.Pending,
-			Wait: snapshot.Wait, PassengerDistanceMeters: snapshot.PassengerDistanceMeters,
-			SharedParties: snapshot.SharedParties, SharedRidePartyLimit: snapshot.SharedRidePartyLimit,
+			Wait: snapshot.Wait, Journey: snapshot.Journey, PassengerDistanceMeters: snapshot.PassengerDistanceMeters,
+			RiderDistanceMeters: snapshot.RiderDistanceMeters, DirectDistanceMeters: snapshot.DirectDistanceMeters,
+			MaxDetourRatio: snapshot.MaxDetourRatio,
+			SharedParties:  snapshot.SharedParties, SharedRidePartyLimit: snapshot.SharedRidePartyLimit,
 			EmptyDistanceMeters: snapshot.EmptyDistanceMeters, RebalanceMoves: snapshot.RebalanceMoves,
 		},
 		Speed: frame.Speed, Demand: frame.Demand, Checkpoints: slices.Clone(frame.Checkpoints),
@@ -136,8 +142,10 @@ func stateFrame(state State) StateFrame {
 			Submitted: snapshot.Submitted, Tick: snapshot.Tick, Paused: snapshot.Paused,
 			Vehicles: vehicles, Berths: snapshot.Berths, Completed: snapshot.Completed,
 			Demo: snapshot.Demo, DemoError: snapshot.DemoError, Pending: snapshot.Pending,
-			Wait: snapshot.Wait, PassengerDistanceMeters: snapshot.PassengerDistanceMeters,
-			SharedParties: snapshot.SharedParties, SharedRidePartyLimit: snapshot.SharedRidePartyLimit,
+			Wait: snapshot.Wait, Journey: snapshot.Journey, PassengerDistanceMeters: snapshot.PassengerDistanceMeters,
+			RiderDistanceMeters: snapshot.RiderDistanceMeters, DirectDistanceMeters: snapshot.DirectDistanceMeters,
+			MaxDetourRatio: snapshot.MaxDetourRatio,
+			SharedParties:  snapshot.SharedParties, SharedRidePartyLimit: snapshot.SharedRidePartyLimit,
 			EmptyDistanceMeters: snapshot.EmptyDistanceMeters, RebalanceMoves: snapshot.RebalanceMoves,
 		},
 		Speed: state.Speed, Demand: state.Demand, Checkpoints: slices.Clone(state.Checkpoints),

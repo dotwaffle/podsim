@@ -26,7 +26,7 @@ func TestSameDestinationPartiesShareBoardingPod(t *testing.T) {
 	}
 	advance(s, 300*TicksPerSecond)
 	if state = s.Snapshot(); state.Completed != 2 || !state.Vehicles[0].Riders[1].Completed || state.Vehicles[0].RidersAboard() != 0 ||
-		len(state.Vehicles[0].Stops) != 0 {
+		state.Journey.MaxSeconds == 0 || len(state.Vehicles[0].Stops) != 0 {
 		t.Fatalf("shared parties did not complete: %+v", state)
 	}
 }

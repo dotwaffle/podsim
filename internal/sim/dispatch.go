@@ -303,7 +303,7 @@ func (s *Simulation) board(v *vehicle, trip waitingTrip) error {
 	v.Pod.Activity, v.Pod.WaitReason, v.Pod.BlockedBy = Boarding, NoWait, ""
 	v.phaseTicks, v.blockIndex, v.reservedThrough = boardingTicks, 0, -1
 	v.originReleased = false
-	v.distance, v.pending = 0, -1
+	v.distance, v.riddenBase, v.pending = 0, 0, -1
 	return nil
 }
 
