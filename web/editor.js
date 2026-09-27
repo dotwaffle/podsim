@@ -21,11 +21,15 @@
   // shows its direction chevron.
   const CHEVRON_LANE_LENGTH = 24;
   // BERTH_PITCH is the distance in meters from a new station to its first
-  // berth, and from the last berth to the berth that addBerth adds.
-  // STATION_PADDING is the distance in meters from the outer station nodes
-  // to the edge of the drawn station shape.
+  // berth, and from the last berth to the berth that addBerth adds to a
+  // station that is not a berth chain. A berth chain uses its own pitch. See
+  // nextChainRow. STATION_PADDING is the distance in meters from the outer
+  // station nodes to the edge of the drawn station shape.
   const BERTH_PITCH = 30;
   const STATION_PADDING = 12;
+  // CLEARANCE is the clearance in meters around a pod, sim.Clearance in the
+  // Go code. A new berth chain row must keep this distance from other lanes.
+  const CLEARANCE = 12;
   const STATION_LANE_ROLES = new Set(["approach", "entry", "berth-access", "through", "departure", "exit"]);
 
   function clone(value) {
@@ -272,10 +276,22 @@
     return { X: start.X + across.X * side * BERTH_PITCH, Y: start.Y + across.Y * side * BERTH_PITCH };
   }
 
-  // addBerth adds a berth to the station at the position that
-  // nextBerthPosition gives. The berth gets a lane from the station entry
-  // and a lane to the station exit.
+  // addBerth adds a berth to the station. It gives the new config and an
+  // empty error, or the same config and an error that names the station.
+  // On a berth chain station, as berthChain finds it, the new berth is the
+  // row that nextChainRow gives. When a lane of that row crosses another
+  // lane, or comes nearer than CLEARANCE to it, the editor does not add the
+  // berth. On another station, the new berth goes to the position that
+  // nextBerthPosition gives. It gets a lane from the station entry and a
+  // lane to the station exit.
   function addBerth(config, stationID) {
+    const station = config.network.Stations.find((item) => item.ID === stationID);
+    const rows = station && berthChain(config, station);
+    if (rows) return addChainBerth(config, station, rows);
+    return { config: addStarBerth(config, stationID), error: "" };
+  }
+
+  function addStarBerth(config, stationID) {
     const out = clone(config);
     const station = out.network.Stations.find((item) => item.ID === stationID);
     if (!station) return config;
@@ -290,17 +306,208 @@
     return addStationLane(addStationLane(out, station.Entry, nodeID, stationID, "berth-access"), nodeID, station.Exit, stationID, "departure");
   }
 
-  function removeBerth(config, stationID, berthID) {
+  function addChainBerth(config, station, rows) {
+    const row = nextChainRow(config, station, rows);
     const out = clone(config);
-    const station = out.network.Stations.find((item) => item.ID === stationID);
-    if (!station || station.Berths.length <= 1) return config;
-    const berth = station.Berths.find((item) => item.ID === berthID);
-    if (!berth) return config;
-    station.Berths = station.Berths.filter((item) => item.ID !== berthID);
-    out.network.Nodes = out.network.Nodes.filter((node) => node.ID !== berth.Node);
-    out.network.Lanes = out.network.Lanes.filter((lane) => lane.From !== berth.Node && lane.To !== berth.Node);
+    out.network.Nodes.push(...row.nodes);
+    out.network.Lanes.push(...row.lanes);
+    out.network.Stations.find((item) => item.ID === station.ID).Berths.push(row.berth);
+    const conflict = laneConflict(out, row.lanes.map((lane) => lane.ID));
+    if (!conflict) return { config: out, error: "" };
+    const problem = conflict.gap === 0 ? "cross" : `be nearer than ${CLEARANCE} m to`;
+    return { config, error: `No space for another berth at ${station.Name || station.ID}. New lane ${conflict.lane} would ${problem} lane ${conflict.other}.` };
+  }
+
+  // berthChain gives the berth rows of a berth chain station, in berth
+  // order, or null when the station is not a berth chain. The generated
+  // London and scale100 stations are berth chains. In a chain, each berth
+  // node has one lane in, from its arrival node, and one lane out, to its
+  // departure node. An arrival link goes from the arrival node of the
+  // previous row, or from the station entry for the first row, to the
+  // arrival node. A departure link goes from the departure node to the
+  // departure node of the previous row, or to the station exit. The arrival
+  // and departure nodes are not entry, exit or berth nodes. A station that
+  // addStation makes is not a chain, because its berth lanes go directly to
+  // the entry and the exit. Each row has berth, the berth, arrival and
+  // departure, the node IDs, and arrivalLink, departureLink, inLane and
+  // outLane, the lanes.
+  function berthChain(config, station) {
+    const core = stationCoreNodeIDs(station);
+    const byFrom = new Map(); const byTo = new Map();
+    for (const lane of config.network.Lanes) {
+      if (!byFrom.has(lane.From)) byFrom.set(lane.From, []);
+      if (!byTo.has(lane.To)) byTo.set(lane.To, []);
+      byFrom.get(lane.From).push(lane); byTo.get(lane.To).push(lane);
+    }
+    const link = (from, to) => (byFrom.get(from) || []).find((lane) => lane.To === to);
+    const rows = [];
+    let arrival = station.Entry; let departure = station.Exit;
+    for (const berth of station.Berths || []) {
+      const ins = byTo.get(berth.Node) || []; const outs = byFrom.get(berth.Node) || [];
+      if (ins.length !== 1 || outs.length !== 1) return null;
+      const row = { berth, arrival: ins[0].From, departure: outs[0].To, inLane: ins[0], outLane: outs[0] };
+      if (row.arrival === row.departure || core.has(row.arrival) || core.has(row.departure)) return null;
+      row.arrivalLink = link(arrival, row.arrival); row.departureLink = link(row.departure, departure);
+      if (!row.arrivalLink || !row.departureLink) return null;
+      rows.push(row);
+      arrival = row.arrival; departure = row.departure;
+    }
+    return rows.length ? rows : null;
+  }
+
+  // nextChainRow gives the next row of a berth chain. rows is the chain that
+  // berthChain gives. The row is a copy of the last row, moved by one pitch.
+  // The pitch is the distance from the berth node of the row before the
+  // last row to the last berth node. With one row, it is the distance from
+  // the middle of the entry-exit line to the berth node. Thus the station
+  // keeps the pitch and the direction of its chain. The copy keeps all
+  // other values of the nodes, lanes and berth, such as the speed limit, the
+  // station role and the separation group. A lane curve moves with the
+  // lane. The row has three nodes, arrival, berth and departure, and four
+  // lanes, the arrival link, the departure link, the lane in and the lane
+  // out, in the order that the scenario generators use. A new ID adds one
+  // to the last number in the ID of the copied item, with the same number
+  // of digits. Thus a generated station gets the IDs that the generator
+  // gives to one more berth. When that ID is in use, or has no number, the
+  // item gets an editor ID. The function gives berth, nodes and lanes.
+  function nextChainRow(config, station, rows) {
+    const at = (id) => point(config, id);
+    const last = rows.at(-1); const end = at(last.berth.Node);
+    const start = rows.length > 1 ? at(rows.at(-2).berth.Node) : stationAxes(at(station.Entry), at(station.Exit)).origin;
+    const shift = { X: end.X - start.X, Y: end.Y - start.Y };
+    const moved = (from) => ({ X: from.X + shift.X, Y: from.Y + shift.Y });
+    const ids = allIDs(config);
+    const nodes = [last.arrival, last.berth.Node, last.departure].map((id, index) => {
+      const node = clone(config.network.Nodes.find((item) => item.ID === id));
+      return { ...node, ID: chainID(ids, id, index === 1 ? `${station.ID}-berth-node` : "node"), Position: moved(node.Position) };
+    });
+    const [arrival, berthNode, departure] = nodes.map((node) => node.ID);
+    const lanes = [
+      [last.arrivalLink, last.arrival, arrival], [last.departureLink, departure, last.departure],
+      [last.inLane, arrival, berthNode], [last.outLane, berthNode, departure],
+    ].map(([lane, from, to]) => {
+      const copy = { ...clone(lane), ID: chainID(ids, lane.ID, "lane"), From: from, To: to };
+      if (lane.Control) copy.Control = moved(lane.Control);
+      return copy;
+    });
+    const berth = { ...clone(last.berth), ID: chainID(ids, last.berth.ID, `${station.ID}-berth`), Node: berthNode };
+    return { berth, nodes, lanes };
+  }
+
+  // chainID gives a new ID for a copy of the item with the ID old. It adds
+  // one to the last number in old and keeps the number of digits, so that
+  // 940GZZLUKSX-02-node gives 940GZZLUKSX-03-node. When that ID is in ids,
+  // or old has no number, it gives the first free editor ID with the prefix.
+  // It adds the new ID to ids.
+  function chainID(ids, old, prefix) {
+    const match = /(\d+)(\D*)$/.exec(old);
+    let id = match ? `${old.slice(0, match.index)}${String(Number(match[1]) + 1).padStart(match[1].length, "0")}${match[2]}` : "";
+    for (let i = 1; !id || ids.has(id); i += 1) id = `${prefix}-${i}`;
+    ids.add(id);
+    return id;
+  }
+
+  // lanePolyline gives the path of a lane that a pod follows in the
+  // simulation, as sim.Network.lanePoints gives it. A straight lane gives its
+  // two end positions. A curved lane is a quadratic curve through its
+  // control point, and gives 65 points, so that the path has 64 straight
+  // parts.
+  function lanePolyline(from, to, control) {
+    if (!control) return [from, to];
+    const points = [];
+    for (let i = 0; i <= 64; i += 1) {
+      const t = i / 64; const u = 1 - t;
+      points.push({ X: u * u * from.X + 2 * u * t * control.X + t * t * to.X, Y: u * u * from.Y + 2 * u * t * control.Y + t * t * to.Y });
+    }
+    return points;
+  }
+
+  // pointGap gives the distance from at to the segment from a to b.
+  function pointGap(at, a, b) {
+    const dx = b.X - a.X; const dy = b.Y - a.Y; const size = dx * dx + dy * dy;
+    const t = size ? Math.min(1, Math.max(0, ((at.X - a.X) * dx + (at.Y - a.Y) * dy) / size)) : 0;
+    return Math.hypot(at.X - a.X - t * dx, at.Y - a.Y - t * dy);
+  }
+
+  // segmentGap gives the distance between the segments a-b and c-d. It is
+  // 0 when the segments cross or touch.
+  function segmentGap(a, b, c, d) {
+    const side = (p, q, r) => Math.sign((q.X - p.X) * (r.Y - p.Y) - (q.Y - p.Y) * (r.X - p.X));
+    if (side(a, b, c) * side(a, b, d) < 0 && side(c, d, a) * side(c, d, b) < 0) return 0;
+    return Math.min(pointGap(a, c, d), pointGap(b, c, d), pointGap(c, a, b), pointGap(d, a, b));
+  }
+
+  // pathGap gives the distance between two lane paths from lanePolyline.
+  function pathGap(first, second) {
+    let gap = Infinity;
+    for (let i = 1; i < first.length; i += 1) {
+      for (let j = 1; j < second.length; j += 1) gap = Math.min(gap, segmentGap(first[i - 1], first[i], second[j - 1], second[j]));
+    }
+    return gap;
+  }
+
+  // laneConflict finds a lane that crosses one of the lanes in ids, or
+  // comes nearer than CLEARANCE to it. It compares the lane paths that
+  // lanePolyline gives. It compares each lane in ids with all other lanes,
+  // also with the other lanes in ids. It does not compare two lanes that
+  // share a node, because junction control holds the pods of such lanes
+  // apart. It gives the first conflict as lane, the ID from ids, other, the
+  // ID of the other lane, and gap, the distance in meters, which is 0 for a
+  // crossing. It gives null when there is no conflict.
+  function laneConflict(config, ids) {
+    const paths = new Map();
+    for (const lane of config.network.Lanes) {
+      const from = point(config, lane.From); const to = point(config, lane.To);
+      if (!from || !to) continue;
+      const path = lanePolyline(from, to, lane.Control);
+      const xs = path.map((at) => at.X); const ys = path.map((at) => at.Y);
+      paths.set(lane.ID, { lane, path, low: { X: Math.min(...xs), Y: Math.min(...ys) }, high: { X: Math.max(...xs), Y: Math.max(...ys) } });
+    }
+    const apart = (a, b) => a.low.X - b.high.X >= CLEARANCE || b.low.X - a.high.X >= CLEARANCE || a.low.Y - b.high.Y >= CLEARANCE || b.low.Y - a.high.Y >= CLEARANCE;
+    for (const id of ids) {
+      const item = paths.get(id);
+      if (!item) continue;
+      for (const other of paths.values()) {
+        if (other.lane.ID === id || apart(item, other)) continue;
+        const ends = [other.lane.From, other.lane.To];
+        if (ends.includes(item.lane.From) || ends.includes(item.lane.To)) continue;
+        const gap = pathGap(item.path, other.path);
+        if (gap < CLEARANCE) return { lane: id, other: other.lane.ID, gap };
+      }
+    }
+    return null;
+  }
+
+  // removeBerth removes a berth, its node, the lanes of its node, and its
+  // pods. It gives the new config and an empty error, or the same config
+  // and an error that names the station. It does not remove the last berth
+  // of a station. When the berth is the last row of a berth chain, it also
+  // removes the arrival link, the departure link, the arrival node and the
+  // departure node of the row. Thus it removes the row that addBerth adds.
+  // When a lane that is not one of the four lanes of the row uses the
+  // arrival or the departure node, the editor does not remove the berth,
+  // because the removal would also cut that lane off.
+  function removeBerth(config, stationID, berthID) {
+    const station = config.network.Stations.find((item) => item.ID === stationID);
+    const berth = station && station.Berths.length > 1 && station.Berths.find((item) => item.ID === berthID);
+    if (!berth) return { config, error: "" };
+    const last = berthChain(config, station)?.at(-1);
+    const row = last && last.berth.ID === berthID ? last : null;
+    const rowLanes = new Set(row ? [row.arrivalLink.ID, row.departureLink.ID, row.inLane.ID, row.outLane.ID] : []);
+    const rowNodes = new Set(row ? [row.arrival, row.departure] : []);
+    const shared = config.network.Lanes.find((lane) => !rowLanes.has(lane.ID) && (rowNodes.has(lane.From) || rowNodes.has(lane.To)));
+    if (shared) {
+      const node = rowNodes.has(shared.From) ? shared.From : shared.To;
+      return { config, error: `Berth ${berthID} at ${station.Name || station.ID} stays, because lane ${shared.ID} also uses node ${node}.` };
+    }
+    const out = clone(config);
+    const target = out.network.Stations.find((item) => item.ID === stationID);
+    target.Berths = target.Berths.filter((item) => item.ID !== berthID);
+    out.network.Lanes = out.network.Lanes.filter((lane) => lane.From !== berth.Node && lane.To !== berth.Node && !rowLanes.has(lane.ID));
+    const gone = new Set([berth.Node, ...rowNodes]);
+    out.network.Nodes = out.network.Nodes.filter((node) => !gone.has(node.ID));
     out.fleet = out.fleet.filter((pod) => pod.BerthID !== berthID);
-    return out;
+    return { config: out, error: "" };
   }
 
   function stationCoreNodeIDs(station) {
@@ -1807,8 +2014,8 @@
   }
 
   const API = {
-    MIN_LANE_LENGTH, MIN_ZOOM, NODE_LABEL_SCALE, NODE_LABEL_SIZE, LANE_PAIR_OFFSET, CHEVRON_LANE_LENGTH, BERTH_PITCH, STATION_PADDING, CHECK_DELAY, emptyConfig, fallbackConfig, normalizeConfig, addLane, addJunction, addStation, addBerth,
-    stationBearing, stationShape, rotateStation, setStationBearing, nextBerthPosition, removeBerth, moveStation, moveNode, deleteNode, deleteLane, deleteStation, stationFlowCount, setFleetCount, fleetRows, selectionCard, berthFocusID, undoFocus, setDemandPattern,
+    MIN_LANE_LENGTH, MIN_ZOOM, NODE_LABEL_SCALE, NODE_LABEL_SIZE, LANE_PAIR_OFFSET, CHEVRON_LANE_LENGTH, BERTH_PITCH, STATION_PADDING, CLEARANCE, CHECK_DELAY, emptyConfig, fallbackConfig, normalizeConfig, addLane, addJunction, addStation, addBerth,
+    stationBearing, stationShape, rotateStation, setStationBearing, nextBerthPosition, berthChain, nextChainRow, lanePolyline, laneConflict, removeBerth, moveStation, moveNode, deleteNode, deleteLane, deleteStation, stationFlowCount, setFleetCount, fleetRows, selectionCard, berthFocusID, undoFocus, setDemandPattern,
     laneLength, curveLength, reachable, cutOffStations, stationNodeOwners, dragTargets, validateConfig, configWarnings, checkResults, checkSelector, checkSelection, selectionPoint, focusView,
     problemCountText, createCheckTimer, validationSummary, checkFocusKey, serializeDocument, parseDocument, createHistory,
     networkBounds, fitView, zoomScale, nodeLabelSize, pairedLaneIDs, showsChevron, laneOffset, laneCurve, lanePathData, SNAPSHOT_ATTEMPTS, snapshotConsistent, draftBeforeRestart, readState, readSnapshot, applyToServer, applyFailureText, applyFailureStatus, applyToast,
@@ -2760,8 +2967,8 @@
     $("#selectionContent").addEventListener("click", (event) => {
       const button = event.target.closest("button[data-action]"); if (!button || !state.selection) return; const action = button.dataset.action; const config = draft();
       const berthIDs = action === "remove-berth" ? selectionCard(config, state.selection)?.berths.map((berth) => berth.id) || [] : [];
-      if (action === "add-berth") setDraft(addBerth(config, state.selection.id));
-      else if (action === "remove-berth") setDraft(removeBerth(config, state.selection.id, button.dataset.id));
+      if (action === "add-berth") { const result = addBerth(config, state.selection.id); if (result.error) toast(result.error, true); else setDraft(result.config); }
+      else if (action === "remove-berth") { const result = removeBerth(config, state.selection.id, button.dataset.id); if (result.error) toast(result.error, true); else setDraft(result.config); }
       else if (action === "delete-station") { removeStation(state.selection.id); state.selection = null; render(); }
       else if (action === "delete-lane") { setDraft(deleteLane(config, state.selection.id)); state.selection = null; render(); }
       else if (action === "delete-node") { const result = deleteNode(config, state.selection.id); if (result.error) toast(result.error, true); else { setDraft(result.config); state.selection = null; render(); } }

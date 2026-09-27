@@ -448,8 +448,22 @@ The draft stays local until you select **Pause and apply**.
   The map draws each guideway of a pair 4 screen pixels to the right of its direction of travel, so you can see and select each one.
 - Select a guideway to adjust its curve and speed in km/h.
 - Set the station berth capacity and place initial pods in free berths.
-- **Add physical berth** puts the new berth 30 m past the last berth.
+- On a station that the editor made, **Add physical berth** puts the new berth 30 m past the last berth.
   The berth goes on the station axis, across the entry-exit line, on the side of the other berths.
+  The berth gets a lane from the station entry and a lane to the station exit.
+- A generated London or scale100 station is a berth chain.
+  Each berth row has an arrival node, a berth node, and a departure node.
+  On a berth chain station, **Add physical berth** adds one more row at the end of the chain.
+  The row has three nodes and four lanes: the arrival link, the lane in, the lane out, and the departure link.
+  The distance and direction from the last row to the new row are the same as from the row before it to the last row.
+  With one row, the distance is from the middle of the entry-exit line to the berth node.
+  The new items get the IDs that the scenario generator gives to one more berth.
+  If a new lane crosses another lane or comes nearer than 12 m to it, the editor does not add the berth.
+  The check also compares the new lanes with each other, but not two lanes that share a node.
+  A message then gives the station name and the two lanes.
+  **Remove** on the last row of a chain removes all of the row.
+  If another lane uses the arrival or departure node of that row, the editor does not remove the berth.
+  A message then gives the station name, the lane, and the node.
 - Drag the station shape to move the station.
   The drag also moves the nodes that only its station lanes use, such as a berth chain.
 - **Delete station and connections** also removes these nodes.

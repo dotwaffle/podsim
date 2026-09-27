@@ -35,6 +35,22 @@ function chainScenario() {
   return { config, arrival, departure };
 }
 
+// addedBerth gives the config after addBerth. The test fails when addBerth
+// does not add the berth.
+function addedBerth(config, stationID) {
+  const result = editor.addBerth(config, stationID);
+  assert.equal(result.error, "", result.error);
+  return result.config;
+}
+
+// removedBerth gives the config after removeBerth. The test fails when
+// removeBerth does not remove the berth.
+function removedBerth(config, stationID, berthID) {
+  const result = editor.removeBerth(config, stationID, berthID);
+  assert.equal(result.error, "", result.error);
+  return result.config;
+}
+
 const repoRoot = path.join(__dirname, "..");
 const generatedFiles = new Map();
 
@@ -93,7 +109,7 @@ test("station creation makes separate safe entry, exit, and berth geometry", () 
 test("capacity changes create physical lanes and clean placements on removal", () => {
   let config = editor.addStation(editor.emptyConfig(), 200, 140, { name: "Depot", parkingOnly: true });
   const stationID = config.network.Stations[0].ID;
-  config = editor.addBerth(config, stationID);
+  config = addedBerth(config, stationID);
   const station = config.network.Stations[0];
   const removed = station.Berths[1];
   assert.equal(station.Berths.length, 2);
@@ -101,7 +117,7 @@ test("capacity changes create physical lanes and clean placements on removal", (
 
   config = editor.setFleetCount(config, stationID, 2);
   assert.equal(config.fleet.length, 2);
-  config = editor.removeBerth(config, stationID, removed.ID);
+  config = removedBerth(config, stationID, removed.ID);
 
   assert.equal(config.network.Stations[0].Berths.length, 1);
   assert.equal(config.network.Nodes.some((node) => node.ID === removed.Node), false);
@@ -298,6 +314,74 @@ function segmentDistance(at, a, b) {
   return Math.hypot(at.X - a.X - t * dx, at.Y - a.Y - t * dy);
 }
 
+// lanePoints gives points along a lane, at most 1 m apart.
+function lanePoints(config, lane) {
+  const from = nodePosition(config, lane.From); const to = nodePosition(config, lane.To);
+  const control = lane.Control || { X: (from.X + to.X) / 2, Y: (from.Y + to.Y) / 2 };
+  const count = Math.max(1, Math.ceil(editor.laneLength(config, lane)));
+  return Array.from({ length: count + 1 }, (_, index) => {
+    const t = index / count; const u = 1 - t;
+    return { X: u * u * from.X + 2 * u * t * control.X + t * t * to.X, Y: u * u * from.Y + 2 * u * t * control.Y + t * t * to.Y };
+  });
+}
+
+// laneGap gives the distance in meters between two lanes, from the points
+// of one lane to the parts of the other. A crossing gives a gap below 1 m.
+// Two lanes whose end and control points are at least CLEARANCE apart on
+// the X or the Y axis give Infinity.
+function laneGap(config, first, second) {
+  const box = (lane) => {
+    const points = [nodePosition(config, lane.From), nodePosition(config, lane.To), ...(lane.Control ? [lane.Control] : [])];
+    return { low: { X: Math.min(...points.map((at) => at.X)), Y: Math.min(...points.map((at) => at.Y)) }, high: { X: Math.max(...points.map((at) => at.X)), Y: Math.max(...points.map((at) => at.Y)) } };
+  };
+  const a = box(first); const b = box(second);
+  if (["X", "Y"].some((axis) => a.low[axis] - b.high[axis] >= CLEARANCE || b.low[axis] - a.high[axis] >= CLEARANCE)) return Infinity;
+  const path = lanePoints(config, second); let gap = Infinity;
+  for (const at of lanePoints(config, first)) for (let index = 1; index < path.length; index += 1) gap = Math.min(gap, segmentDistance(at, path[index - 1], path[index]));
+  return gap;
+}
+
+// assertChainRow checks a berth that addBerth added to a berth chain
+// station. before and after are the configs before and after the add. The
+// chain gets one row: one berth, three nodes and four lanes. The new row is
+// the last row moved by pitch. Each new lane is at least CLEARANCE from each
+// lane that shares no node with it. The add gives no new check error, and
+// Remove on the new berth gives before again.
+function assertChainRow(change, name) {
+  const { before, after, stationID, pitch } = change;
+  const find = (config) => config.network.Stations.find((item) => item.ID === stationID);
+  const rows = editor.berthChain(after, find(after));
+  assert.equal(rows.length, find(before).Berths.length + 1, name);
+  assert.equal(after.network.Nodes.length - before.network.Nodes.length, 3, name);
+  assert.equal(after.network.Lanes.length - before.network.Lanes.length, 4, name);
+  const [last, added] = rows.slice(-2);
+  for (const part of ["arrival", "departure"]) {
+    const at = nodePosition(after, last[part]);
+    assertNear(nodePosition(after, added[part]), { X: at.X + pitch.X, Y: at.Y + pitch.Y }, `${name} ${part}`);
+  }
+  const at = nodePosition(after, last.berth.Node);
+  assertNear(nodePosition(after, added.berth.Node), { X: at.X + pitch.X, Y: at.Y + pitch.Y }, `${name} berth`);
+  const kept = new Set(before.network.Lanes.map((lane) => lane.ID));
+  const lanes = after.network.Lanes.filter((lane) => !kept.has(lane.ID));
+  assert.deepEqual(lanes.map((lane) => lane.StationRole), ["berth-access", "departure", "berth-access", "departure"], name);
+  assert.ok(lanes.every((lane) => lane.StationID === stationID), name);
+  for (const lane of lanes) {
+    for (const other of before.network.Lanes) {
+      if ([other.From, other.To].some((id) => id === lane.From || id === lane.To)) continue;
+      assert.ok(laneGap(after, lane, other) >= CLEARANCE, `${name} ${lane.ID} ${other.ID}`);
+    }
+  }
+  assert.deepEqual(editor.validateConfig(after), editor.validateConfig(before), name);
+  assert.deepEqual(removedBerth(after, stationID, added.berth.ID), before, name);
+}
+
+// berthPitch gives the distance from the berth node before the last berth
+// node of the station to the last berth node.
+function berthPitch(config, station) {
+  const [previous, last] = station.Berths.slice(-2).map((berth) => nodePosition(config, berth.Node));
+  return { X: last.X - previous.X, Y: last.Y - previous.Y };
+}
+
 // Tottenham Court Road in the generated London project. The berths are 90 m
 // and 165 m to the left of the entry-exit line.
 const tottenhamCourtRoad = {
@@ -414,7 +498,7 @@ test("a new berth goes one berth pitch past the last berth on the station axis",
   const stationID = config.network.Stations[0].ID;
   config = editor.setStationBearing(config, stationID, 30);
   for (let count = 2; count <= 4; count += 1) {
-    config = editor.addBerth(config, stationID);
+    config = addedBerth(config, stationID);
     const [previous, last] = config.network.Stations[0].Berths.slice(-2).map((berth) => nodePosition(config, berth.Node));
     // At a bearing of 30 degrees, the right of the direction of travel is
     // the direction 120 degrees clockwise from up.
@@ -422,6 +506,99 @@ test("a new berth goes one berth pitch past the last berth on the station axis",
     assertNear(last, { X: previous.X + axis.X * editor.BERTH_PITCH, Y: previous.Y + axis.Y * editor.BERTH_PITCH }, `berth ${count}`);
   }
   for (const lane of config.network.Lanes) assert.ok(editor.laneLength(config, lane) >= editor.MIN_LANE_LENGTH, lane.ID);
+});
+
+test("add berth on a berth chain station adds a chain row", () => {
+  const { config, arrival, departure } = chainScenario();
+  const [alpha, beta] = config.network.Stations;
+  // A station that addStation makes is not a chain, so addBerth adds a
+  // berth with a lane from the entry and a lane to the exit.
+  assert.equal(editor.berthChain(config, beta), null);
+  const star = addedBerth(config, beta.ID);
+  const berth = star.network.Stations[1].Berths.at(-1);
+  assert.deepEqual(star.network.Nodes.slice(config.network.Nodes.length).map((node) => node.ID), [berth.Node]);
+  assert.deepEqual(star.network.Lanes.slice(config.network.Lanes.length).map((lane) => [lane.From, lane.To]), [[beta.Entry, berth.Node], [berth.Node, beta.Exit]]);
+
+  assert.deepEqual(editor.berthChain(config, alpha).map((row) => [row.arrival, row.berth.ID, row.departure]), [[arrival, alpha.Berths[0].ID, departure]]);
+  // With one row, the pitch goes from the middle of the entry-exit line at
+  // (100, 100) to the berth node at (100, 130).
+  const two = addedBerth(config, alpha.ID);
+  assertChainRow({ before: config, after: two, stationID: alpha.ID, pitch: { X: 0, Y: 30 } }, "one row");
+  assertChainRow({ before: two, after: addedBerth(two, alpha.ID), stationID: alpha.ID, pitch: { X: 0, Y: 30 } }, "two rows");
+  // Remove on a berth that is not the last row keeps its arrival and
+  // departure nodes, because the next row uses them.
+  const removed = removedBerth(two, alpha.ID, alpha.Berths[0].ID);
+  assert.deepEqual(removed.network.Nodes.map((node) => node.ID), two.network.Nodes.map((node) => node.ID).filter((id) => id !== alpha.Berths[0].Node));
+});
+
+test("a lane polyline is the path of the lane in the simulation", () => {
+  // TestLanePolylineGolden in internal/sim writes the file from
+  // sim.Network.lanePoints.
+  const file = JSON.parse(fs.readFileSync(path.join(repoRoot, "internal", "sim", "testdata", "lane_polylines.json"), "utf8"));
+  const config = editor.normalizeConfig({ network: file.network });
+  assert.ok(file.network.Lanes.filter((lane) => lane.Control).length >= 3);
+  file.network.Lanes.forEach((lane, index) => {
+    const got = editor.lanePolyline(nodePosition(config, lane.From), nodePosition(config, lane.To), lane.Control);
+    assert.equal(got.length, file.points[index].length, lane.ID);
+    got.forEach((at, point) => assertNear(at, file.points[index][point], `${lane.ID} point ${point}`));
+  });
+});
+
+test("add berth on a berth chain station compares the new lanes with each other", () => {
+  const { config } = chainScenario();
+  const [alpha] = config.network.Stations;
+  // With the berth at (80, 140), the new arrival link and the new lane out
+  // of the berth are 5.4 m apart. They share no node.
+  const moved = editor.moveNode(config, alpha.Berths[0].Node, 80, 140);
+  assert.deepEqual(editor.validateConfig(moved), []);
+  const result = editor.addBerth(moved, alpha.ID);
+  assert.equal(result.config, moved);
+  const [, lane, other] = /^No space for another berth at Alpha\. New lane (\S+) would be nearer than 12 m to lane (\S+)\.$/.exec(result.error) || [];
+  const kept = new Set(moved.network.Lanes.map((item) => item.ID));
+  assert.ok(lane && other && !kept.has(lane) && !kept.has(other), result.error);
+});
+
+test("remove berth on the last chain row keeps a node that another lane uses", () => {
+  const { config } = chainScenario();
+  const [alpha, beta] = config.network.Stations;
+  const two = addedBerth(config, alpha.ID);
+  const last = editor.berthChain(two, two.network.Stations[0]).at(-1);
+  // Without other lanes on the row nodes, the removal gives a valid config.
+  assert.deepEqual(editor.validateConfig(two), []);
+  assert.deepEqual(editor.validateConfig(removedBerth(two, alpha.ID, last.berth.ID)), []);
+  const departure = JSON.parse(JSON.stringify(two));
+  departure.network.Lanes.find((lane) => lane.From === beta.Exit && lane.To === alpha.Entry).To = last.departure;
+  const cases = [
+    { name: "a shared departure node", config: editor.addLane(departure, alpha.Exit, alpha.Entry, false), node: last.departure },
+    { name: "a shared arrival node", config: editor.addLane(two, last.arrival, beta.Entry, false), node: last.arrival },
+  ];
+  for (const tc of cases) {
+    assert.deepEqual(editor.validateConfig(tc.config), [], tc.name);
+    const lane = tc.config.network.Lanes.find((item) => (item.From === tc.node || item.To === tc.node) && item.StationID !== alpha.ID);
+    const result = editor.removeBerth(tc.config, alpha.ID, last.berth.ID);
+    assert.equal(result.config, tc.config, tc.name);
+    assert.equal(result.error, `Berth ${last.berth.ID} at Alpha stays, because lane ${lane.ID} also uses node ${tc.node}.`, tc.name);
+  }
+});
+
+test("add berth on a berth chain station names the station when a new lane has no clearance", () => {
+  const { config } = chainScenario();
+  const [alpha] = config.network.Stations;
+  // The next arrival link goes from (64, 160) to (64, 190).
+  const cases = [
+    { name: "a lane across the arrival link", from: { X: 40, Y: 175 }, to: { X: 90, Y: 175 }, problem: "cross" },
+    { name: "a lane 8 m from the arrival link", from: { X: 56, Y: 170 }, to: { X: 56, Y: 260 }, problem: "be nearer than 12 m to" },
+  ];
+  for (const tc of cases) {
+    let blocked = editor.addJunction(editor.addJunction(config, tc.from.X, tc.from.Y), tc.to.X, tc.to.Y);
+    const [from, to] = blocked.network.Nodes.slice(-2).map((node) => node.ID);
+    blocked = editor.addLane(blocked, from, to, false);
+    const road = blocked.network.Lanes.at(-1).ID;
+    const link = editor.berthChain(blocked, alpha)[0].arrivalLink.ID;
+    const result = editor.addBerth(blocked, alpha.ID);
+    assert.equal(result.config, blocked, tc.name);
+    assert.match(result.error, new RegExp(`^No space for another berth at Alpha\\. New lane (?!${link}\\b)\\S+ would ${tc.problem} lane ${road}\\.$`), tc.name);
+  }
 });
 
 test("the station shape holds the station nodes along the station axes", () => {
@@ -454,7 +631,7 @@ test("the station shape holds the station nodes along the station axes", () => {
 test("fleet counts never duplicate occupied berths", () => {
   let config = editor.addStation(editor.emptyConfig(), 200, 140, { name: "Depot", parkingOnly: true });
   const stationID = config.network.Stations[0].ID;
-  config = editor.addBerth(config, stationID);
+  config = addedBerth(config, stationID);
   config = editor.setFleetCount(config, stationID, 20);
 
   assert.equal(config.fleet.length, 2);
@@ -466,7 +643,7 @@ test("fleet rows give each station its pod count and berth limit", () => {
   const twoStations = () => {
     let config = editor.addStation(editor.emptyConfig(), 100, 100, { name: "Alpha" });
     config = editor.addStation(config, 340, 100, { name: "Beta" });
-    return editor.addBerth(config, config.network.Stations[1].ID);
+    return addedBerth(config, config.network.Stations[1].ID);
   };
   const cases = [
     { name: "no stations", config: () => editor.emptyConfig(), want: [] },
@@ -483,7 +660,7 @@ test("fleet rows give each station its pod count and berth limit", () => {
 
 test("the selection card gives the fields of the selected item", () => {
   let config = connectedScenario();
-  config = editor.addBerth(config, config.network.Stations[1].ID);
+  config = addedBerth(config, config.network.Stations[1].ID);
   config = editor.addStation(config, 600, 100, { name: "Gamma" });
   config = editor.setStationBearing(config, config.network.Stations[2].ID, 359.6);
   config = editor.addStation(config, 900, 100, { name: "Delta" });
@@ -547,18 +724,18 @@ test("a berth remove from the keyboard focuses the next, then the previous berth
   // buttons are disabled, the focus goes to Add physical berth.
   let config = connectedScenario();
   const stationID = config.network.Stations[0].ID;
-  for (let i = 0; i < 2; i += 1) config = editor.addBerth(config, stationID);
+  for (let i = 0; i < 2; i += 1) config = addedBerth(config, stationID);
   const selection = { type: "station", id: stationID };
   for (const count of [3, 2]) {
     const berthIDs = editor.selectionCard(config, selection).berths.map((berth) => berth.id);
     assert.equal(berthIDs.length, count);
     for (const removed of berthIDs) {
-      const after = editor.selectionCard(editor.removeBerth(config, stationID, removed), selection);
+      const after = editor.selectionCard(removedBerth(config, stationID, removed), selection);
       const focused = editor.berthFocusID(berthIDs, removed);
       assert.equal(focused !== "", after.canRemove, `${count} berths, remove ${removed}`);
       if (focused) assert.ok(after.berths.some((berth) => berth.id === focused), `${count} berths, remove ${removed}`);
     }
-    config = editor.removeBerth(config, stationID, berthIDs[0]);
+    config = removedBerth(config, stationID, berthIDs[0]);
   }
 });
 
@@ -572,9 +749,9 @@ test("undo and redo keep the selection and the Selection panel focus, or focus t
     return { before, after: history.value };
   };
   const one = connectedScenario(); const [alpha, beta] = one.network.Stations; const lane = one.network.Lanes[0];
-  const two = editor.addBerth(one, alpha.ID); const three = editor.addBerth(two, alpha.ID);
+  const two = addedBerth(one, alpha.ID); const three = addedBerth(two, alpha.ID);
   const [b1, b2, b3] = three.network.Stations[0].Berths.map((berth) => berth.ID);
-  const withoutB2 = editor.removeBerth(three, alpha.ID, b2);
+  const withoutB2 = removedBerth(three, alpha.ID, b2);
   const curved = structuredClone(one); curved.network.Lanes[0].Control = { X: 220, Y: 40 };
   const added = editor.addStation(one, 600, 300, { name: "Gamma" }); const gamma = added.network.Stations.at(-1);
   const station = { type: "station", id: alpha.ID }; const button = (action, id = "") => ({ action, id });
@@ -1308,7 +1485,7 @@ test("passenger routes go from berth to berth as on the server", () => {
   ];
   for (const item of cases) {
     let config = connectedScenario();
-    if (item.secondBerth !== undefined) config = editor.addBerth(config, config.network.Stations[item.secondBerth].ID);
+    if (item.secondBerth !== undefined) config = addedBerth(config, config.network.Stations[item.secondBerth].ID);
     const [alpha, beta] = config.network.Stations;
     config.network.Lanes = config.network.Lanes.filter((lane) => !(lane.From === alpha.Exit && lane.To === beta.Entry));
     const [from, to] = item.route(config.network.Stations);
@@ -1374,33 +1551,66 @@ test("each station shape on the generated london project holds its station nodes
   }
 });
 
-test("a new berth on the generated london project goes one pitch past the last berth", needsGo, () => {
+test("add berth on a generated london station extends its berth chain", needsGo, () => {
   const config = generatedProject("london");
   const station = config.network.Stations.find((item) => item.Name === "Tottenham Court Road");
-  // The berths are to the left of the direction of travel.
-  for (const bearing of [null, 200]) {
+  // At a bearing of 135 degrees, the chain turns with the station.
+  for (const bearing of [null, 135]) {
     const start = bearing === null ? config : editor.setStationBearing(config, station.ID, bearing);
-    const last = nodePosition(start, station.Berths.at(-1).Node);
-    const left = leftOf(nodePosition(start, station.Entry), nodePosition(start, station.Exit));
-    const added = editor.addBerth(start, station.ID);
-    const node = added.network.Stations.find((item) => item.ID === station.ID).Berths.at(-1).Node;
-    assertNear(nodePosition(added, node), { X: last.X + left.X * editor.BERTH_PITCH, Y: last.Y + left.Y * editor.BERTH_PITCH }, `bearing ${bearing}`);
+    const pitch = berthPitch(start, station);
+    assert.ok(Math.abs(Math.hypot(pitch.X, pitch.Y) - 75) < 1e-9, `bearing ${bearing}`);
+    assertChainRow({ before: start, after: addedBerth(start, station.ID), stationID: station.ID, pitch }, `bearing ${bearing}`);
   }
-  assert.deepEqual(editor.validateConfig(editor.addBerth(config, station.ID)), []);
+  // The row crosses a guideway at Blackfriars, so the editor does not add it.
+  const result = editor.addBerth(config, "940GZZLUBKF");
+  assert.equal(result.config, config);
+  assert.equal(result.error, "No space for another berth at Blackfriars. New lane 940GZZLUBKF-03-arrival-link would cross lane london-link-027-ab-2.");
 });
 
-test("a new berth on the generated scale100 project keeps the clearance from other items", needsGo, () => {
+// kingsCrossRow is the third berth row of King's Cross St. Pancras in the
+// output of scenario -preset london -berths 940GZZLUKSX=3. With three
+// berths, the generator does not move a node of the london preset.
+const kingsCrossRow = {
+  nodes: [
+    { ID: "940GZZLUKSX-03-arrival", Position: { X: -82.56060486235629, Y: -2792.949682482553 } },
+    { ID: "940GZZLUKSX-03-node", Position: { X: -18.281843893702387, Y: -2869.554126794451 } },
+    { ID: "940GZZLUKSX-03-departure", Position: { X: 45.99691707495151, Y: -2946.1585711063485 } },
+  ],
+  lanes: [
+    ["arrival-link", "940GZZLUKSX-02-arrival", "940GZZLUKSX-03-arrival", "berth-access"],
+    ["departure-link", "940GZZLUKSX-03-departure", "940GZZLUKSX-02-departure", "departure"],
+    ["in", "940GZZLUKSX-03-arrival", "940GZZLUKSX-03-node", "berth-access"],
+    ["out", "940GZZLUKSX-03-node", "940GZZLUKSX-03-departure", "departure"],
+  ].map(([part, from, to, role]) => ({ ID: `940GZZLUKSX-03-${part}`, From: from, To: to, SpeedLimit: 14, SeparationGroup: "940GZZLUKSX-station", StationID: "940GZZLUKSX", StationRole: role })),
+  berth: { ID: "940GZZLUKSX-03", Node: "940GZZLUKSX-03-node", SeparationGroup: "940GZZLUKSX-station" },
+};
+
+test("add berth on a generated london station gives the row of the london generator", needsGo, () => {
+  const config = generatedProject("london");
+  const added = addedBerth(config, "940GZZLUKSX");
+  const nodes = added.network.Nodes.slice(config.network.Nodes.length);
+  assert.deepEqual(nodes.map((node) => node.ID), kingsCrossRow.nodes.map((node) => node.ID));
+  nodes.forEach((node, index) => assertNear(node.Position, kingsCrossRow.nodes[index].Position, node.ID));
+  assert.deepEqual(added.network.Lanes.slice(config.network.Lanes.length), kingsCrossRow.lanes);
+  assert.deepEqual(added.network.Stations.find((item) => item.ID === "940GZZLUKSX").Berths.at(-1), kingsCrossRow.berth);
+});
+
+test("add berth on the generated scale100 project extends the chain or names the station", needsGo, () => {
   const config = generatedProject("scale100");
-  const owners = editor.stationNodeOwners(config);
-  // The distance check uses straight lanes. Each node is the end of a lane,
-  // so the check also covers the nodes.
-  assert.ok(config.network.Lanes.every((lane) => !lane.Control));
+  const refused = [];
   for (const station of config.network.Stations) {
-    const added = editor.nextBerthPosition({ entry: nodePosition(config, station.Entry), exit: nodePosition(config, station.Exit), berths: station.Berths.map((berth) => nodePosition(config, berth.Node)) });
-    for (const lane of config.network.Lanes.filter((item) => owners.get(item.From) !== station.ID || owners.get(item.To) !== station.ID)) {
-      assert.ok(segmentDistance(added, nodePosition(config, lane.From), nodePosition(config, lane.To)) >= CLEARANCE, `${station.ID} ${lane.ID}`);
-    }
+    const result = editor.addBerth(config, station.ID);
+    if (result.error) {
+      assert.equal(result.config, config, station.ID);
+      assert.ok(result.error.startsWith(`No space for another berth at ${station.Name}. `), result.error);
+      refused.push(station.Name);
+    } else assertChainRow({ before: config, after: result.config, stationID: station.ID, pitch: berthPitch(config, station) }, station.ID);
   }
+  // At these stations, a seventh row puts the arrival chain nearer than
+  // CLEARANCE to the departure chain of another station. The scenario
+  // generator finds the same problem at Station 01 and Station 19 with
+  // seven berths.
+  assert.deepEqual(refused, ["01", "02", "03", "04", "07", "08", "09", "10", "11", "12", "13", "17", "18", "19"].map((number) => `Station ${number}`));
 });
 
 // movedItems gives the nodes, lanes, and stations whose drawn position
@@ -2702,14 +2912,14 @@ test("berth edits preserve pods in unchanged berths", () => {
   const station = config.network.Stations[0];
   const originalPod = { ...config.fleet[0] };
 
-  config = editor.addBerth(config, station.ID);
+  config = addedBerth(config, station.ID);
   assert.deepEqual(config.fleet[0], originalPod);
-  const addedBerth = config.network.Stations[0].Berths[1];
+  const newBerth = config.network.Stations[0].Berths[1];
   config = editor.setFleetCount(config, station.ID, 2);
   assert.deepEqual(config.fleet[0], originalPod);
-  assert.equal(config.fleet[1].BerthID, addedBerth.ID);
+  assert.equal(config.fleet[1].BerthID, newBerth.ID);
 
-  config = editor.removeBerth(config, station.ID, addedBerth.ID);
+  config = removedBerth(config, station.ID, newBerth.ID);
   assert.deepEqual(config.fleet, [originalPod]);
 });
 
@@ -2750,7 +2960,7 @@ test("legacy import normalization defers malformed stations to validation", () =
 
 test("validation matches server guards for duplicate berth nodes and demand fields", () => {
   let config = connectedScenario();
-  config = editor.addBerth(config, config.network.Stations[0].ID);
+  config = addedBerth(config, config.network.Stations[0].ID);
   config.network.Stations[0].Berths[1].Node = config.network.Stations[0].Berths[0].Node;
   config.demand.enabled = "yes";
   config.demand.destination = "x".repeat(65);
