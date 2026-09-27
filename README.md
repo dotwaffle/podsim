@@ -339,6 +339,7 @@ While the page shows its own **Download debug state** control in the top left co
 The result of a successful download goes after 3 s.
 A failure shows in amber.
 In the line below the journey controls, it stays until your next action.
+The result of the next capture also replaces it.
 Next to the control in the top left corner, it stays until the next capture.
 The header shows **Download debug state** and **Edit scenario** only in the browser page with the editor.
 The desktop client and `game.html` as a separate page do not show them.

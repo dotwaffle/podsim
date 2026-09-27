@@ -74,10 +74,13 @@ func (g *Game) shellButtons() []button {
 
 // readShell tells the shell page that the game is ready, the first time
 // only. Then it reads if the shell page hides the game, and a status text
-// from the shell page. A text that tells of a failure shows in the message line,
-// so it stays until the next action. Other text shows as a notice. A notice
-// does not replace a confirmation of Reset or Start traffic demo, because a
-// second press then sends the command.
+// from the shell page. A text that tells of a failure shows in the message
+// line, so it stays until the next action or the next capture result. Other
+// text shows as a notice and clears the message only while the message is
+// the last failure from the shell page. Thus a capture result does not hide
+// a command error or a warning. A notice does not replace a confirmation of
+// Reset or Start traffic demo, because a second press then sends the
+// command.
 func (g *Game) readShell() {
 	if g.shell == nil {
 		return
@@ -89,10 +92,15 @@ func (g *Game) readShell() {
 	g.hidden = g.shell.Hidden()
 	select {
 	case notice := <-g.shell.Notices():
-		switch {
-		case notice.Error:
-			g.message = notice.Text
-		case !isConfirmation(g.noticeAction):
+		if notice.Error {
+			g.message, g.shellFailure = notice.Text, notice.Text
+			return
+		}
+		if g.message == g.shellFailure {
+			g.message = ""
+		}
+		g.shellFailure = ""
+		if !isConfirmation(g.noticeAction) {
 			g.showNotice(shellNoticeAction, notice.Text)
 		}
 	default:

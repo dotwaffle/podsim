@@ -9,6 +9,7 @@ import (
 
 	"github.com/hajimehoshi/ebiten/v2"
 
+	"github.com/dotwaffle/podsim/internal/remote"
 	"github.com/dotwaffle/podsim/internal/session"
 	"github.com/dotwaffle/podsim/internal/sim"
 )
@@ -147,6 +148,129 @@ func TestShellNotices(t *testing.T) {
 			}
 			if got := game.hintLine(game.state.Simulation, "hint").value; got != test.wantHintValue {
 				t.Errorf("hint line = %q, want %q", got, test.wantHintValue)
+			}
+		})
+	}
+}
+
+// TestShellFailureClears checks that a debug capture failure in the message
+// line goes when a later capture succeeds, and when the Download debug state
+// button starts a new capture. The button clears all messages, as other
+// actions do. The hint line then shows the new result.
+func TestShellFailureClears(t *testing.T) {
+	t.Parallel()
+	const done = "Debug state downloaded: tick 1200."
+	const failed = "Capture failed. State HTTP 503. Try again."
+	fail := func(t *testing.T, game *Game, shell *fakeShell) {
+		t.Helper()
+		shell.notices <- ShellNotice{Text: failed, Error: true}
+		game.readShell()
+		if got := game.hintLine(game.state.Simulation, "hint").value; got != failed {
+			t.Fatalf("hint line after a failure = %q, want %q", got, failed)
+		}
+	}
+
+	t.Run("capture succeeds", func(t *testing.T) {
+		t.Parallel()
+		game := exampleTestGame(t)
+		shell := newFakeShell()
+		game.shell = shell
+		fail(t, game, shell)
+		shell.notices <- ShellNotice{Text: done}
+		game.readShell()
+		if game.message != "" || game.notice != done {
+			t.Errorf("message %q and notice %q, want no message and %q", game.message, game.notice, done)
+		}
+		if got := game.hintLine(game.state.Simulation, "hint").value; got != done {
+			t.Errorf("hint line = %q, want %q", got, done)
+		}
+	})
+
+	for _, test := range []struct {
+		name    string
+		message string
+	}{
+		{name: "new capture after a failure", message: failed},
+		{name: "new capture after a command error", message: "command rejected"},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			game := exampleTestGame(t)
+			shell := newFakeShell()
+			game.shell = shell
+			if test.message == failed {
+				fail(t, game, shell)
+			} else {
+				game.message = test.message
+			}
+			shell.requests = nil
+			game.click(centerOfButton(findButton(t, game.buttons(), shellDebugAction)))
+			if want := []ShellRequest{CaptureDebugState}; !slices.Equal(shell.requests, want) {
+				t.Errorf("click sends %q, want %q", shell.requests, want)
+			}
+			if game.message != "" {
+				t.Errorf("message after the click = %q, want none", game.message)
+			}
+			shell.notices <- ShellNotice{Text: done}
+			game.readShell()
+			if got := game.hintLine(game.state.Simulation, "hint").value; got != done {
+				t.Errorf("hint line after the new capture = %q, want %q", got, done)
+			}
+		})
+	}
+}
+
+// TestShellResultKeepsOtherMessages checks that a capture result clears
+// only a capture failure. A command error or the unsaved rewind warning stays
+// in the message line. The tests call handleResult and then readShell, in
+// the order of Update, so each result arrives in the same update as the
+// capture result. A capture failure before the command result does not
+// change this.
+func TestShellResultKeepsOtherMessages(t *testing.T) {
+	t.Parallel()
+	const done = "Debug state downloaded: tick 1200."
+	const failed = "Capture failed. State HTTP 503. Try again."
+	tests := []struct {
+		name        string
+		failure     bool
+		result      remote.Result
+		wantMessage string
+	}{
+		{
+			name:        "command error",
+			result:      remote.Result{Command: session.Command{Action: "pause"}, Reply: session.Reply{Error: "command rejected"}},
+			wantMessage: "command rejected",
+		},
+		{
+			name:        "command error after a capture failure",
+			failure:     true,
+			result:      remote.Result{Command: session.Command{Action: "pause"}, Reply: session.Reply{Error: "command rejected"}},
+			wantMessage: "command rejected",
+		},
+		{
+			name:        "unsaved rewind",
+			result:      remote.Result{Command: session.Command{Action: "rewind", Checkpoint: 2}, Reply: session.Reply{Generation: 2, StateSaved: new(false)}},
+			wantMessage: rewindUnsavedMessage,
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			game := exampleTestGame(t)
+			shell := newFakeShell()
+			game.shell = shell
+			if test.failure {
+				shell.notices <- ShellNotice{Text: failed, Error: true}
+				game.readShell()
+			}
+			game.handleResult(test.result)
+			shell.notices <- ShellNotice{Text: done}
+			game.readShell()
+			if game.message != test.wantMessage {
+				t.Errorf("message = %q, want %q", game.message, test.wantMessage)
+			}
+			if got := game.hintLine(game.state.Simulation, "hint").value; got != test.wantMessage {
+				t.Errorf("hint line = %q, want %q", got, test.wantMessage)
 			}
 		})
 	}

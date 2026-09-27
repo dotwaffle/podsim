@@ -99,7 +99,8 @@
 
   // noticeMessage gives the message that sends a status text to the game.
   // The game shows the text below its journey controls. error is true when
-  // the text tells of a failure. Then the text stays until the next action.
+  // the text tells of a failure. Then the text stays until the next action
+  // in the game or the next capture result.
   function noticeMessage(text, error) {
     return { podsim: "notice", text: String(text), error: error === true };
   }
@@ -111,10 +112,9 @@
 
   // debugResult gives the active result of a debug capture that the shell
   // got at the time now in milliseconds. error is true when text tells of a
-  // failure. As in the game, a failure stays until the next capture, so its
-  // expiresAt is null. Other text goes at expiresAt, after NOTICE_MS. sent
-  // is true after the shell sent the result to the game. See
-  // reconcileResult.
+  // failure. A failure stays until the next capture, so its expiresAt is
+  // null. Other text goes at expiresAt, after NOTICE_MS. sent is true after
+  // the shell sent the result to the game. See reconcileResult.
   function debugResult(text, error, now) {
     const failure = error === true;
     return { text: String(text), error: failure, expiresAt: failure ? null : now + NOTICE_MS, sent: false };

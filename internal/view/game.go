@@ -140,9 +140,12 @@ type Game struct {
 	imageLimit int
 	// shell is the shell page that holds the game. It is nil in the
 	// desktop client and outside the shell page. See Shell. shellReadySent
-	// is true after the game sent ShellReady.
+	// is true after the game sent ShellReady. shellFailure is the text of
+	// the last capture failure that readShell put in the message line. When
+	// the message is still this text, a capture result clears it.
 	shell          Shell
 	shellReadySent bool
+	shellFailure   string
 	// hidden is true while the shell page hides the game. Then Draw does
 	// not draw. drawnFrames counts the frames that Draw drew.
 	hidden      bool
@@ -612,6 +615,7 @@ func (g *Game) click(point sim.Point) bool {
 			g.shell.Send(ShowEditor)
 		case shellDebugAction:
 			g.shell.Send(CaptureDebugState)
+			g.message = ""
 		default:
 			if id, ok := strings.CutPrefix(b.action, "pod/"); ok {
 				for i, v := range g.state.Simulation.Vehicles {
