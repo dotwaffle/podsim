@@ -448,6 +448,10 @@ The draft stays local until you select **Pause and apply**.
   The map draws each guideway of a pair 4 screen pixels to the right of its direction of travel, so you can see and select each one.
 - Select a guideway to adjust its curve and speed in km/h.
 - Set the station berth capacity and place initial pods in free berths.
+- Select a station and select **Parking station** to make it a parking station.
+  A parking station serves no passengers, and idle pods can park in its berths.
+  A journey cannot start or end at a parking station, and the demand **Destination** list shows only passenger stations.
+  The network needs at least two passenger stations.
 - On a station that the editor made, **Add physical berth** puts the new berth 30 m past the last berth.
   The berth goes on the station axis, across the entry-exit line, on the side of the other berths.
   The berth gets a lane from the station entry and a lane to the station exit.
@@ -485,8 +489,8 @@ The draft stays local until you select **Pause and apply**.
   The editor gets the bearing from the entry and exit positions.
 - Set the passenger generation option, rate, pattern, destination, OD profile, time band, same-destination party limit, seed, and redistribution option.
 - Use undo and redo for draft changes.
+  See [Editor keyboard shortcuts](#editor-keyboard-shortcuts).
 - Drag empty space to pan, and use the wheel to zoom.
-  Press Escape to cancel drawing or moving an item.
 - When you use a button in the **Selection** section with the keyboard to delete an item, the keyboard focus goes to a control near the deleted item.
   After **Remove** on a berth row, the focus goes to **Remove** on the next row, or on the previous row when you removed the last row.
   When the station has one berth left, its **Remove** button is disabled, so the focus goes to **Add physical berth**.
@@ -503,9 +507,28 @@ The draft stays local until you select **Pause and apply**.
   The selected junction and the start node of a new guideway always show their ID label.
   That label has a font size of 9 screen pixels or more.
 - Import a PNG or JPEG background.
+  The image file must be 8 MiB or smaller.
   Select **Calibrate scale**, select two points on the image, enter their distance in meters, then select **Set scale**.
 - Export JSON to save the scenario and optional background.
   Import JSON to restore a draft.
+  The project file must be 10 MiB or smaller.
+
+### Editor keyboard shortcuts
+
+| Key or action | Result |
+| --- | --- |
+| **Ctrl+Z** | Undo |
+| **Ctrl+Shift+Z** or **Ctrl+Y** | Redo |
+| **Delete** or **Backspace** | Delete the selected station, guideway, or junction |
+| **Escape** | Cancel a new guideway, the move of an item, or a scale calibration |
+| Right-click on the map | Cancel a new guideway |
+
+On macOS, use Command in place of Ctrl.
+The editor ignores the undo, redo, and delete keys when the keyboard focus is in an input field or a drop-down list.
+Delete and Backspace do the same as the delete buttons in the **Selection** section.
+For an entry, exit, or berth node, these keys show a notice and do not delete the node.
+Use the station controls to delete these nodes.
+After Escape during a move, the item goes back to its position before the move.
 
 ### Saved draft
 
