@@ -2,6 +2,8 @@ package session
 
 import (
 	"bytes"
+	"compress/gzip"
+	"encoding/binary"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -18,10 +20,23 @@ import (
 	"github.com/dotwaffle/podsim/internal/project"
 )
 
-// MaxCommandBytes is the largest body of a command request. A project
-// command holds the compact JSON form of a project, so a project that the
-// editor applies must be smaller than this limit.
-const MaxCommandBytes = 4 << 20
+const (
+	// MaxCommandBytes is the largest body of a command request, as it
+	// comes from the network. For a body with the gzip content encoding,
+	// this is the compressed size.
+	MaxCommandBytes = 4 << 20
+	// MaxInflatedCommandBytes is the largest command JSON in a body with
+	// the gzip content encoding. A project command holds the compact JSON
+	// form of a project, and project.Validate limits this form to
+	// project.MaxFileBytes. The other members of the command use much less
+	// than the 64 KiB that remain. A project that is larger than
+	// MaxCommandBytes must come in a gzip body.
+	MaxInflatedCommandBytes = project.MaxFileBytes + 64<<10
+)
+
+// errContentEncoding means that a command request has a content encoding
+// other than gzip.
+var errContentEncoding = errors.New("use the gzip content encoding or no content encoding")
 
 // commandJSONLimits bound a command body before it is decoded. Without them,
 // a body with an array of empty objects decodes to about 37 times its size,
@@ -121,13 +136,12 @@ func (s *Session) commandHTTP(w http.ResponseWriter, r *http.Request) {
 		writeError(w, "use application/json", http.StatusUnsupportedMediaType)
 		return
 	}
-	body, err := io.ReadAll(http.MaxBytesReader(w, r.Body, MaxCommandBytes))
-	if tooLarge := new(http.MaxBytesError); errors.As(err, &tooLarge) {
-		writeError(w, fmt.Sprintf("the command body must have at most %d bytes", tooLarge.Limit), http.StatusRequestEntityTooLarge)
-		return
+	body, failure := readCommandBody(w, r)
+	if failure == nil && errors.Is(prescanCommand(body), errCommandShape) {
+		failure = &errorReply{"invalid command JSON", http.StatusBadRequest}
 	}
-	if err != nil || errors.Is(prescanCommand(body), errCommandShape) {
-		writeError(w, "invalid command JSON", http.StatusBadRequest)
+	if failure != nil {
+		writeError(w, failure.message, failure.status)
 		return
 	}
 	decoder := json.NewDecoder(bytes.NewReader(body))
@@ -149,6 +163,87 @@ func (s *Session) commandHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 	if err := json.NewEncoder(w).Encode(reply); err != nil {
 		slog.Error("Encode command reply", slog.Any("error", err))
+	}
+}
+
+// readCommandBody reads the command JSON of r. It decompresses a body with
+// the gzip content encoding. For a body with a content encoding that it
+// does not know, it sets the Accept-Encoding header of w.
+func readCommandBody(w http.ResponseWriter, r *http.Request) ([]byte, *errorReply) {
+	gzipped, err := gzipEncoded(r.Header)
+	if err != nil {
+		w.Header().Set("Accept-Encoding", "gzip")
+		return nil, &errorReply{err.Error(), http.StatusUnsupportedMediaType}
+	}
+	body, err := io.ReadAll(http.MaxBytesReader(w, r.Body, MaxCommandBytes))
+	if tooLarge := new(http.MaxBytesError); errors.As(err, &tooLarge) {
+		return nil, &errorReply{fmt.Sprintf("the command body must have at most %d bytes", tooLarge.Limit), http.StatusRequestEntityTooLarge}
+	}
+	if err != nil {
+		return nil, &errorReply{"invalid command JSON", http.StatusBadRequest}
+	}
+	if gzipped {
+		return inflateCommand(body)
+	}
+	return body, nil
+}
+
+// gzipEncoded reports whether a command request with header has the gzip
+// content encoding. A request with no content encoding, or with identity,
+// gives false. Another encoding, or a list of more than one encoding,
+// gives errContentEncoding.
+func gzipEncoded(header http.Header) (bool, error) {
+	values := header.Values("Content-Encoding")
+	if len(values) == 0 {
+		return false, nil
+	}
+	if len(values) == 1 {
+		switch strings.ToLower(strings.TrimSpace(values[0])) {
+		case "", "identity":
+			return false, nil
+		case "gzip", "x-gzip":
+			return true, nil
+		default:
+		}
+	}
+	return false, errContentEncoding
+}
+
+// errorReply is the status and the text of an error reply.
+type errorReply struct {
+	message string
+	status  int
+}
+
+// inflateCommand decompresses compressed, the gzip body of a command. The
+// command JSON must have at most MaxInflatedCommandBytes. The limit reader
+// stops the decompression one byte after the limit, so a small body that
+// decompresses to a very large size cannot use more memory. The body must
+// have one gzip member and no data after it. The gzip reader uses the
+// ReadByte method of bytes.Reader, so it does not read past the member, and
+// the bytes that remain are the data after it.
+func inflateCommand(compressed []byte) ([]byte, *errorReply) {
+	source := bytes.NewReader(compressed)
+	reader, err := gzip.NewReader(source)
+	if err != nil {
+		return nil, &errorReply{"invalid gzip body", http.StatusBadRequest}
+	}
+	reader.Multistream(false)
+	// The gzip trailer gives the decompressed size modulo 2^32. The client
+	// sets this value, so it is only a capacity hint, and it is at most the
+	// limit. With the correct size, the buffer does not grow.
+	hint := int(min(binary.LittleEndian.Uint32(compressed[len(compressed)-4:]), MaxInflatedCommandBytes+1))
+	buffer := bytes.NewBuffer(make([]byte, 0, hint+bytes.MinRead))
+	_, err = buffer.ReadFrom(io.LimitReader(reader, MaxInflatedCommandBytes+1))
+	switch {
+	case buffer.Len() > MaxInflatedCommandBytes:
+		return nil, &errorReply{fmt.Sprintf("the decompressed command body must have at most %d bytes", MaxInflatedCommandBytes), http.StatusRequestEntityTooLarge}
+	case err != nil:
+		return nil, &errorReply{"invalid gzip body", http.StatusBadRequest}
+	case source.Len() > 0:
+		return nil, &errorReply{"send one gzip member only", http.StatusBadRequest}
+	default:
+		return buffer.Bytes(), nil
 	}
 }
 

@@ -213,8 +213,9 @@ func TestLondonWithCapacity(t *testing.T) {
 // TestLargestLondonFitsTheFileLimits checks the largest London project of
 // the tests against the file limits. cmd/scenario writes indented JSON, and
 // the serve and compare commands read a -project file of at most
-// project.MaxFileBytes. The editor sends the compact form in one command,
-// and the server accepts a command of at most session.MaxCommandBytes.
+// project.MaxFileBytes. The editor sends the compact form in one gzip
+// command, and the server accepts at most session.MaxInflatedCommandBytes
+// of command JSON after decompression.
 func TestLargestLondonFitsTheFileLimits(t *testing.T) {
 	t.Parallel()
 	config, err := LondonWith(largestLondonOptions())
@@ -230,7 +231,7 @@ func TestLargestLondonFitsTheFileLimits(t *testing.T) {
 		t.Fatal(err)
 	}
 	t.Logf("largest London: %d nodes, %d lanes, %d indented bytes, %d compact bytes", len(config.Network.Nodes), len(config.Network.Lanes), len(indented), len(compact))
-	if len(indented) >= project.MaxFileBytes || len(compact) >= session.MaxCommandBytes {
-		t.Fatalf("largest London has %d indented and %d compact bytes, want less than %d and %d", len(indented), len(compact), project.MaxFileBytes, session.MaxCommandBytes)
+	if len(indented) >= project.MaxFileBytes || len(compact) >= session.MaxInflatedCommandBytes {
+		t.Fatalf("largest London has %d indented and %d compact bytes, want less than %d and %d", len(indented), len(compact), project.MaxFileBytes, session.MaxInflatedCommandBytes)
 	}
 }

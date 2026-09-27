@@ -144,12 +144,17 @@ After a graceful shutdown starts, the server rejects new commands with `server_s
 
 The request must have the `application/json` content type.
 The body must be at most 4 MiB and contain one JSON command with no unknown members.
+The request can send the body with `Content-Encoding: gzip`.
+Then the 4 MiB limit applies to the compressed body, and the command JSON must be at most 8 MiB plus 64 KiB (8,454,144 bytes) after decompression.
+A project command that is larger than 4 MiB must use gzip.
+A gzip body must have one gzip member and no data after it.
+A request with another content encoding gets HTTP 415 with `Accept-Encoding: gzip`.
 Each array in the body must have no more items than the project limits permit, also for an action that does not use the project.
 For example, `project.network.Lanes` can have at most 8,000 items.
 Each string and each member name in the body must have at most 1,024 bytes, including the quotes and the escapes.
 A request with an `Origin` header must come from the same host and scheme.
 A request that breaks these rules gets HTTP 400, 403, 413, or 415 and a plain text body, not an acknowledgment.
-A body that is larger than the size limit gets HTTP 413, and the text gives the limit in bytes.
+A body that is larger than a size limit, before or after decompression, gets HTTP 413, and the text gives the limit in bytes.
 These responses also have `Cache-Control: no-store`.
 
 A `project` command gets `command_rejected` when the project has more than 200 stations, 4,000 nodes, 8,000 lanes, or 200 pods.
