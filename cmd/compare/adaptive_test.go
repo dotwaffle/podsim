@@ -305,7 +305,7 @@ func keptRows(t *testing.T, records [][]string, pastLimit int) [][]string {
 	}
 	rateOf := func(row []string) rate {
 		var group []string
-		for _, name := range []string{"pattern", "demand_profile", "demand_band", "policy", "routing_policy", "shared_ride_party_limit"} {
+		for _, name := range []string{"pattern", "demand_profile", "demand_band", "policy", "routing_policy", "shared_ride_party_limit", "sharing_mode"} {
 			group = append(group, row[csvColumn(t, records[0], name)])
 		}
 		load, err := strconv.ParseFloat(row[csvColumn(t, records[0], "request_every_seconds")], 64)

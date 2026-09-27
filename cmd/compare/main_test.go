@@ -44,6 +44,10 @@ func TestParseOptionsRejectsInvalidBounds(t *testing.T) {
 		{name: "zero workers", args: []string{"-workers", "0"}, want: "workers"},
 		{name: "zero sharing limit", args: []string{"-sharing-limits", "0"}, want: "sharing limits"},
 		{name: "duplicate sharing limit", args: []string{"-sharing-limits", "2,2"}, want: "more than once"},
+		{name: "unknown sharing mode", args: []string{"-sharing-modes", "pickups"}, want: "unknown sharing mode"},
+		{name: "duplicate sharing mode", args: []string{"-sharing-modes", "drop-offs,drop-offs"}, want: "more than once"},
+		{name: "zero sharing stops", args: []string{"-sharing-max-stops", "0"}, want: "sharing-max-stops"},
+		{name: "too many sharing stops", args: []string{"-sharing-max-stops", "8"}, want: "sharing-max-stops"},
 		{name: "unknown routing policy", args: []string{"-routing-policies", "fast"}, want: "unknown routing policy"},
 		{name: "duplicate routing policy", args: []string{"-routing-policies", "free-flow,free-flow"}, want: "more than once"},
 		{name: "unknown redistribution policy", args: []string{"-redistribution-policies", "maybe"}, want: "unknown redistribution policy"},
@@ -127,6 +131,41 @@ func TestComparePairsSharedRideLimits(t *testing.T) {
 	}
 	if results[2].SharedParties == 0 || results[3].SharedParties == 0 {
 		t.Fatalf("sharing comparison did not combine parties: %+v", results)
+	}
+}
+
+// TestComparePairsSharingModes checks that a limit of 1 runs one time and
+// that each other limit runs in each mode. In the example, the route from
+// harbor to market passes garden, so drop-offs makes intermediate stops.
+func TestComparePairsSharingModes(t *testing.T) {
+	t.Parallel()
+	opts, err := parseOptions([]string{
+		"-duration", "20m", "-arrivals-for", "2m", "-request-every", "10s", "-pattern", "balanced", "-sharing-limits", "1,4",
+		"-sharing-modes", "destination,drop-offs", "-sharing-max-stops", "2", "-redistribution-policies", "off",
+	}, &bytes.Buffer{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	caseStudy, err := loadScenario("", "market")
+	if err != nil {
+		t.Fatal(err)
+	}
+	results, err := compare(opts, caseStudy)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var arms []string
+	for _, outcome := range results {
+		arms = append(arms, strconv.Itoa(outcome.SharedRidePartyLimit)+" "+outcome.SharingMode)
+		if outcome.SharingMode == string(sim.SharedRideDestination) && (outcome.IntermediateStops != 0 || outcome.DetourRatioMax > 1+1e-9) {
+			t.Fatalf("destination mode made stops: %+v", outcome)
+		}
+	}
+	if want := []string{"1 destination", "4 destination", "4 drop-offs"}; !slices.Equal(arms, want) {
+		t.Fatalf("arms %v, want %v", arms, want)
+	}
+	if results[2].IntermediateStops == 0 || results[2].DetourRatioMax <= 1 {
+		t.Fatalf("drop-offs made no intermediate stop: %+v", results[2])
 	}
 }
 
@@ -272,7 +311,7 @@ func TestReportFormatsAreMachineReadable(t *testing.T) {
 	if err := json.Unmarshal(jsonOutput.Bytes(), &decoded); err != nil {
 		t.Fatal(err)
 	}
-	if decoded.SchemaVersion != 7 || !reflect.DeepEqual(decoded.Results, results) {
+	if decoded.SchemaVersion != 8 || !reflect.DeepEqual(decoded.Results, results) {
 		t.Fatalf("JSON report changed values: %+v", decoded)
 	}
 

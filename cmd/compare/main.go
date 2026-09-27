@@ -72,6 +72,7 @@ type options struct {
 	bandsText              string
 	loadsText              string
 	sharingLimitsText      string
+	sharingModesText       string
 	routingPoliciesText    string
 	redistributionText     string
 	waitRulesText          string
@@ -86,6 +87,8 @@ type options struct {
 	patterns               []string
 	loads                  []time.Duration
 	sharingLimits          []int
+	sharingModes           []sim.SharedRideMode
+	sharingMaxStops        int
 	routingPolicies        []string
 	redistributionPolicies []string
 	// waitRules is nil when -wait-rules is not given. Then each arm uses the
@@ -123,6 +126,7 @@ type result struct {
 	Seed                           int64   `json:"seed"`
 	Policy                         string  `json:"policy"`
 	SharedRidePartyLimit           int     `json:"shared_ride_party_limit"`
+	SharingMode                    string  `json:"sharing_mode"`
 	SharedParties                  int     `json:"shared_parties"`
 	RoutingPolicy                  string  `json:"routing_policy"`
 	WaitRule                       string  `json:"wait_rule,omitempty"`
@@ -177,6 +181,7 @@ type result struct {
 	DirectDistanceMeters           float64 `json:"direct_distance_meters"`
 	DetourRatioMean                float64 `json:"detour_ratio_mean"`
 	DetourRatioMax                 float64 `json:"detour_ratio_max"`
+	IntermediateStops              int     `json:"intermediate_stops"`
 	PositioningMoveCount           int     `json:"positioning_moves"`
 }
 
@@ -249,7 +254,9 @@ func parseOptions(args []string, stderr io.Writer) (options, error) {
 	flags.StringVar(&opts.patternsText, "patterns", "", "comma-separated demand patterns or all")
 	flags.StringVar(&opts.bandsText, "bands", "", "comma-separated profile bands or all")
 	flags.StringVar(&opts.loadsText, "loads", "", "comma-separated request intervals")
-	flags.StringVar(&opts.sharingLimitsText, "sharing-limits", "1", "comma-separated same-destination party limits")
+	flags.StringVar(&opts.sharingLimitsText, "sharing-limits", "1", "comma-separated shared ride party limits")
+	flags.StringVar(&opts.sharingModesText, "sharing-modes", "destination", "comma-separated shared ride modes: destination, drop-offs")
+	flags.IntVar(&opts.sharingMaxStops, "sharing-max-stops", sim.DefaultSharedRideMaxStops, "intermediate stops of a pod in drop-offs mode")
 	flags.StringVar(&opts.routingPoliciesText, "routing-policies", "free-flow", "comma-separated routing policies: free-flow, congestion, queue")
 	flags.StringVar(&opts.redistributionText, "redistribution-policies", "off,on", "comma-separated redistribution policies: off, on")
 	flags.StringVar(&opts.waitRulesText, "wait-rules", "current", "comma-separated finishing-pod wait rules: current, strict, none (adds a wait_rule column)")
@@ -316,6 +323,13 @@ func parseOptions(args []string, stderr io.Writer) (options, error) {
 	if err != nil {
 		return options{}, err
 	}
+	opts.sharingModes, err = parseSharingModes(opts.sharingModesText)
+	if err != nil {
+		return options{}, err
+	}
+	if opts.sharingMaxStops < 1 || opts.sharingMaxStops > sim.MaxSharedRideStops {
+		return options{}, fmt.Errorf("sharing-max-stops must be between 1 and %d", sim.MaxSharedRideStops)
+	}
 	opts.routingPolicies, err = parseRoutingPolicies(opts.routingPoliciesText)
 	if err != nil {
 		return options{}, err
@@ -330,7 +344,7 @@ func parseOptions(args []string, stderr io.Writer) (options, error) {
 			return options{}, err
 		}
 	}
-	if len(opts.seeds)*len(opts.patterns)*len(opts.loads)*len(opts.sharingLimits)*len(opts.routingPolicies)*max(1, len(opts.waitRules)) > maxComparisons {
+	if len(opts.seeds)*len(opts.patterns)*len(opts.loads)*len(sharingArms(opts))*len(opts.routingPolicies)*max(1, len(opts.waitRules)) > maxComparisons {
 		return options{}, fmt.Errorf("the matrix must contain at most %d comparisons", maxComparisons)
 	}
 	return opts, nil
@@ -409,6 +423,46 @@ func parseRoutingPolicies(value string) ([]string, error) {
 		policies = append(policies, policy)
 	}
 	return policies, nil
+}
+
+// parseSharingModes parses -sharing-modes.
+func parseSharingModes(value string) ([]sim.SharedRideMode, error) {
+	parts := strings.Split(value, ",")
+	modes := make([]sim.SharedRideMode, 0, len(parts))
+	for _, part := range parts {
+		mode := sim.SharedRideMode(strings.TrimSpace(part))
+		if mode != sim.SharedRideDestination && mode != sim.SharedRideDropOffs {
+			return nil, fmt.Errorf("unknown sharing mode %q", mode)
+		}
+		if slices.Contains(modes, mode) {
+			return nil, fmt.Errorf("sharing mode %q appears more than once", mode)
+		}
+		modes = append(modes, mode)
+	}
+	return modes, nil
+}
+
+// sharingArm is one combination of a party limit and a sharing mode.
+type sharingArm struct {
+	limit int
+	mode  sim.SharedRideMode
+}
+
+// sharingArms returns the party limits and the sharing modes that compare
+// runs. With a limit of 1, no party joins a pod, so each mode gives the same
+// run. The limit then runs one time, in destination mode.
+func sharingArms(opts options) []sharingArm {
+	var arms []sharingArm
+	for _, limit := range opts.sharingLimits {
+		if limit == 1 {
+			arms = append(arms, sharingArm{limit: 1, mode: sim.SharedRideDestination})
+			continue
+		}
+		for _, mode := range opts.sharingModes {
+			arms = append(arms, sharingArm{limit: limit, mode: mode})
+		}
+	}
+	return arms
 }
 
 func parseSharingLimits(value string) ([]int, error) {
@@ -621,10 +675,11 @@ func compare(opts options, scenario scenario) ([]result, error) {
 	if waitRules == nil {
 		waitRules = []string{""}
 	}
-	if len(opts.seeds)*len(arms)*len(opts.loads)*len(opts.sharingLimits)*len(opts.routingPolicies)*len(waitRules) > maxComparisons {
+	sharing := sharingArms(opts)
+	if len(opts.seeds)*len(arms)*len(opts.loads)*len(sharing)*len(opts.routingPolicies)*len(waitRules) > maxComparisons {
 		return nil, fmt.Errorf("the expanded matrix must contain at most %d comparisons", maxComparisons)
 	}
-	inputs := make([]runInput, 0, len(arms)*len(opts.loads)*len(opts.seeds)*len(opts.sharingLimits)*len(opts.routingPolicies)*len(waitRules)*2)
+	inputs := make([]runInput, 0, len(arms)*len(opts.loads)*len(opts.seeds)*len(sharing)*len(opts.routingPolicies)*len(waitRules)*2)
 	for _, arm := range arms {
 		for _, load := range opts.loads {
 			for _, seed := range opts.seeds {
@@ -634,7 +689,7 @@ func compare(opts options, scenario scenario) ([]result, error) {
 					passengers: scenario.passengers, focus: scenario.focus, profileFlows: arm.flows,
 				})
 				id := scheduleID(schedule)
-				for _, sharingLimit := range opts.sharingLimits {
+				for _, sharingArm := range sharing {
 					for _, routingPolicy := range opts.routingPolicies {
 						for _, waitRule := range waitRules {
 							for _, policy := range opts.redistributionPolicies {
@@ -642,7 +697,8 @@ func compare(opts options, scenario scenario) ([]result, error) {
 									policy: policy, duration: opts.duration, requestEvery: load, seed: seed,
 									pattern: arm.pattern, profile: arm.profile, band: arm.band,
 									scheduleID: id, queueLimit: opts.queueLimit, arrivalsFor: opts.arrivalsFor,
-									burstSize: opts.burstSize, sharingLimit: sharingLimit, routingPolicy: routingPolicy,
+									burstSize: opts.burstSize, sharingLimit: sharingArm.limit, sharingMode: sharingArm.mode,
+									sharingMaxStops: opts.sharingMaxStops, routingPolicy: routingPolicy,
 									waitRule: waitRule, schedule: schedule, scenario: scenario, stopWhenDrained: opts.stopWhenDrained,
 								})
 							}
@@ -884,12 +940,30 @@ type runInput struct {
 	queueLimit                          int
 	burstSize                           int
 	sharingLimit                        int
-	routingPolicy                       string
+	// sharingMode is the sharing mode. Empty selects the destination
+	// mode. sharingMaxStops is the stop limit of the drop-offs mode. Zero
+	// selects the default limit.
+	sharingMode     sim.SharedRideMode
+	sharingMaxStops int
+	routingPolicy   string
 	// waitRule names a waitRuleValues key. Empty selects the default rule.
 	waitRule        string
 	schedule        []scheduledRequest
 	scenario        scenario
 	stopWhenDrained bool
+}
+
+// sharingSettings returns the sharing mode and the stop limit of an arm,
+// with the defaults for the zero values.
+func (input *runInput) sharingSettings() (sim.SharedRideMode, int) {
+	mode, maxStops := input.sharingMode, input.sharingMaxStops
+	if mode == "" {
+		mode = sim.SharedRideDestination
+	}
+	if maxStops == 0 {
+		maxStops = sim.DefaultSharedRideMaxStops
+	}
+	return mode, maxStops
 }
 
 func run(input runInput) (result, error) {
@@ -906,6 +980,10 @@ func run(input runInput) (result, error) {
 	}
 	if sharingErr := simulation.SetSharedRidePartyLimit(input.sharingLimit); sharingErr != nil {
 		return result{}, fmt.Errorf("set sharing limit: %w", sharingErr)
+	}
+	sharingMode, sharingStops := input.sharingSettings()
+	if sharingErr := simulation.SetSharedRideMode(sharingMode, sharingStops); sharingErr != nil {
+		return result{}, fmt.Errorf("set sharing mode: %w", sharingErr)
 	}
 	if routingErr := simulation.SetRoutingPolicy(routingPolicyValues[input.routingPolicy]); routingErr != nil {
 		return result{}, fmt.Errorf("set routing policy: %w", routingErr)
@@ -1012,7 +1090,7 @@ func run(input runInput) (result, error) {
 	return result{
 		Pattern: input.pattern, DemandProfile: input.profile, DemandBand: input.band,
 		RequestEverySeconds: input.requestEvery.Seconds(), OfferedPerMinute: float64(len(input.schedule)) / arrivalMinutes, Seed: input.seed,
-		BurstSize: burstSize, Policy: input.policy, SharedRidePartyLimit: input.sharingLimit,
+		BurstSize: burstSize, Policy: input.policy, SharedRidePartyLimit: input.sharingLimit, SharingMode: string(sharingMode),
 		SharedParties: state.SharedParties, RoutingPolicy: input.routingPolicy, WaitRule: input.waitRule, FocusStation: input.scenario.focus,
 		WindowStartSeconds: 0, WindowEndSeconds: input.duration.Seconds(), ActualEndSeconds: float64(state.Tick) / sim.TicksPerSecond,
 		ArrivalWindowSeconds: input.arrivalsFor.Seconds(), ArrivalEndSeconds: arrivalEnd, ScheduleID: input.scheduleID,
@@ -1038,7 +1116,7 @@ func run(input runInput) (result, error) {
 		LoadedDistancePercent: loadedDistancePercent(state.PassengerDistanceMeters, state.EmptyDistanceMeters),
 		Occupancy:             requests.occupancy,
 		RiderDistanceMeters:   state.RiderDistanceMeters, DirectDistanceMeters: state.DirectDistanceMeters,
-		DetourRatioMean: requests.detourMean, DetourRatioMax: state.MaxDetourRatio,
+		DetourRatioMean: requests.detourMean, DetourRatioMax: state.MaxDetourRatio, IntermediateStops: requests.intermediateStops,
 		PositioningMoveCount: state.RebalanceMoves,
 	}, nil
 }
@@ -1100,7 +1178,7 @@ func writeReport(input writeReportInput) error {
 	case "json":
 		encoder := json.NewEncoder(input.output)
 		encoder.SetIndent("", "  ")
-		if err := encoder.Encode(report{SchemaVersion: 7, Results: input.results}); err != nil {
+		if err := encoder.Encode(report{SchemaVersion: 8, Results: input.results}); err != nil {
 			return fmt.Errorf("write JSON report: %w", err)
 		}
 		return nil
@@ -1166,7 +1244,7 @@ func writeCSV(input writeReportInput) error {
 		header = append(header, "wait_rule")
 	}
 	header = append(header,
-		"shared_ride_party_limit", "shared_parties", "focus_station", "window_start_seconds", "window_end_seconds", "actual_end_seconds", "arrival_window_seconds", "arrival_end_seconds", "schedule_id",
+		"shared_ride_party_limit", "sharing_mode", "shared_parties", "focus_station", "window_start_seconds", "window_end_seconds", "actual_end_seconds", "arrival_window_seconds", "arrival_end_seconds", "schedule_id",
 		"scheduled", "served", "remaining", "skipped", "completed_at_arrival_end", "backlog_at_arrival_end", "arrival_throughput_per_minute",
 		"completed_at_arrival_midpoint", "backlog_at_arrival_midpoint", "late_arrival_throughput_per_minute", "late_backlog_change", "drained", "drain_seconds",
 		"peak_pending", "peak_outstanding", "peak_active_vehicles", "peak_passenger_vehicles", "peak_stopped_vehicles", "peak_focus_approaching", "peak_focus_entrance_stopped", "peak_focus_exit_stopped",
@@ -1175,7 +1253,7 @@ func writeCSV(input writeReportInput) error {
 		"queue_cleared", "queue_clear_seconds",
 		"wait_average_seconds", "wait_maximum_seconds", "wait_p95_seconds",
 		"journey_average_seconds", "journey_p95_seconds", "journey_maximum_seconds", "passenger_distance_meters", "empty_distance_meters", "loaded_distance_percent", "occupancy",
-		"rider_distance_meters", "direct_distance_meters", "detour_ratio_mean", "detour_ratio_max", "positioning_moves",
+		"rider_distance_meters", "direct_distance_meters", "detour_ratio_mean", "detour_ratio_max", "intermediate_stops", "positioning_moves",
 	)
 	if err := w.Write(header); err != nil {
 		return fmt.Errorf("write CSV header: %w", err)
@@ -1188,7 +1266,7 @@ func writeCSV(input writeReportInput) error {
 			row = append(row, outcome.WaitRule)
 		}
 		row = append(row,
-			strconv.Itoa(outcome.SharedRidePartyLimit), strconv.Itoa(outcome.SharedParties), outcome.FocusStation,
+			strconv.Itoa(outcome.SharedRidePartyLimit), outcome.SharingMode, strconv.Itoa(outcome.SharedParties), outcome.FocusStation,
 			floatText(outcome.WindowStartSeconds), floatText(outcome.WindowEndSeconds), floatText(outcome.ActualEndSeconds), floatText(outcome.ArrivalWindowSeconds), floatText(outcome.ArrivalEndSeconds), outcome.ScheduleID,
 			strconv.Itoa(outcome.Scheduled), strconv.Itoa(outcome.Served), strconv.Itoa(outcome.Remaining), strconv.Itoa(outcome.Skipped),
 			strconv.Itoa(outcome.CompletedAtArrivalEnd), strconv.Itoa(outcome.BacklogAtArrivalEnd), floatText(outcome.ArrivalThroughputPerMinute),
@@ -1205,7 +1283,7 @@ func writeCSV(input writeReportInput) error {
 			floatText(outcome.PassengerDistanceMeters),
 			floatText(outcome.EmptyDistanceMeters), floatText(outcome.LoadedDistancePercent), floatText(outcome.Occupancy),
 			floatText(outcome.RiderDistanceMeters), floatText(outcome.DirectDistanceMeters),
-			floatText(outcome.DetourRatioMean), floatText(outcome.DetourRatioMax),
+			floatText(outcome.DetourRatioMean), floatText(outcome.DetourRatioMax), strconv.Itoa(outcome.IntermediateStops),
 			strconv.Itoa(outcome.PositioningMoveCount),
 		)
 		if err := w.Write(row); err != nil {

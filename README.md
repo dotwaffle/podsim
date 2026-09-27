@@ -768,13 +768,17 @@ The synthetic patterns are balanced, destination, hotspot, bursty-hotspot, and h
 | `-past-limit` | The number of rates that an adaptive group runs after its limit. Default 1. |
 | `-workers` | Run independent arms concurrently. Reports keep their deterministic order. |
 | `-burst-size` | Group burst-pattern requests at the same simulated time. |
-| `-sharing-limits 1,4` | Compare same-destination party limits. |
+| `-sharing-limits 1,4` | Compare shared ride party limits. |
+| `-sharing-modes destination,drop-offs` | Compare the shared ride modes. Default `destination`. A limit of 1 runs one time, in destination mode, because no party joins a pod. |
+| `-sharing-max-stops` | The stop limit of the drop-offs mode, from 1 to 7. Default 3. |
 | `-routing-policies free-flow,congestion,queue` | Compare the experimental routing policies. See [routing](#time-geometry-and-routing). |
 | `-redistribution-policies off,on` | Select the positioning policies. `on` is guarded positioning. |
 | `-wait-rules current,strict,none` | Compare the finishing-pod wait rules from the dispatch section. |
 | `-queue-limit` | Change the limit of 200 pending requests. At the limit, the comparison skips new arrivals. |
 
 The report has a `wait_rule` column or JSON field only when you give `-wait-rules`.
+
+The `sharing_mode` column gives the sharing mode of each arm.
 
 With `-adaptive-limit`, arms that differ only in offered rate and seed form a group.
 Each group runs its rates from the lowest offered rate, with all seeds of a rate together.
@@ -784,7 +788,7 @@ The other rows are identical to the rows of a full run.
 
 #### Report columns
 
-The JSON report has `schema_version` 7.
+The JSON report has `schema_version` 8.
 These columns give the waits and journeys of the passengers.
 
 | Column | Definition |
@@ -816,6 +820,7 @@ These columns give the distances of the parties that alighted.
 | `direct_distance_meters` | The sum of the free-flow distances of the same parties between the same two berths. |
 | `detour_ratio_mean` | The mean, over the same parties, of the ratio of the rider distance to the free-flow distance. |
 | `detour_ratio_max` | The largest ratio for one party. |
+| `intermediate_stops` | The number of stops where parties alighted and the pod continued with other parties. |
 
 A pod journey starts when the first party boards the pod.
 All parties of a pod journey board at the same berth.
@@ -828,7 +833,7 @@ The occupancy does not include the parts of pod journeys after the last party th
 The free-flow distance is the length of the shortest route from the berth where the party boarded to the entry of its destination station, and then along the station path to the berth where it alighted.
 The routing policy does not change it.
 A detour ratio of 1 means that the pod took this route.
-A route around a full station, or a route of the routing policy, makes the ratio larger than 1.
+A route around a full station, a route of the routing policy, or a stop for another party makes the ratio larger than 1.
 
 These columns give the time that pods spend stopped, in pod-seconds.
 A pod is stopped when it has a wait reason and its speed is less than 0.1 m/s.

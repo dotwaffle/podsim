@@ -4,6 +4,8 @@ import (
 	"cmp"
 	"slices"
 	"sync"
+
+	"github.com/dotwaffle/podsim/internal/sim"
 )
 
 // rateGroup holds the arms that differ only in offered rate and seed. It
@@ -71,6 +73,8 @@ func (group *rateGroup) finish(rate int, drained bool) {
 type rateGroupKey struct {
 	pattern, profile, band  string
 	sharingLimit            int
+	sharingMode             sim.SharedRideMode
+	sharingMaxStops         int
 	routingPolicy, waitRule string
 	policy                  string
 }
@@ -78,8 +82,9 @@ type rateGroupKey struct {
 func rateGroupKeyOf(input *runInput) rateGroupKey {
 	return rateGroupKey{
 		pattern: input.pattern, profile: input.profile, band: input.band,
-		sharingLimit: input.sharingLimit, routingPolicy: input.routingPolicy,
-		waitRule: input.waitRule, policy: input.policy,
+		sharingLimit: input.sharingLimit, sharingMode: input.sharingMode, sharingMaxStops: input.sharingMaxStops,
+		routingPolicy: input.routingPolicy,
+		waitRule:      input.waitRule, policy: input.policy,
 	}
 }
 

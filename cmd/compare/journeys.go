@@ -11,6 +11,7 @@ import (
 type requestStats struct {
 	waitP95, journeyAverage, journeyP95, journeyMaximum float64
 	occupancy, detourMean                               float64
+	intermediateStops                                   int
 }
 
 // requestTimeStats gives the wait and journey columns from the request
@@ -30,24 +31,37 @@ type requestStats struct {
 //
 // The mean detour ratio is the mean, over the completed parties with a
 // free-flow route, of the rider distance divided by the free-flow distance.
+//
+// The intermediate stops are the stops where parties alighted and the pod
+// continued with other parties. The parties of a pod journey that alight
+// at one stop complete at the same tick. Thus each pod journey has one
+// stop for each completion tick of its parties. The last of these stops
+// is not intermediate when each party of the journey completed.
 func requestTimeStats(timings []sim.RequestTiming, state sim.Snapshot) requestStats {
 	waits := make([]int64, 0, len(timings)+len(state.Pending))
 	journeys := make([]int64, 0, len(timings))
 	// farthest holds the longest rider distance of each pod journey, by the
-	// request ID of the party that boarded the pod.
+	// request ID of the party that boarded the pod. stops holds the
+	// completion ticks of each pod journey, and open holds the journeys
+	// with a party that did not complete.
 	farthest := make(map[int]float64)
+	stops, open := make(map[int][]int64), make(map[int]bool)
 	riderMeters, podMeters, detourTotal, detours := 0.0, 0.0, 0.0, 0
 	for _, timing := range timings {
 		waits = append(waits, timing.BoardedTick-timing.RequestedTick)
-		if timing.CompletedTick < 0 {
-			continue
-		}
-		journeys = append(journeys, timing.CompletedTick-timing.RequestedTick)
-		riderMeters += timing.RiddenMeters
 		lead := timing.RequestID
 		if timing.SharedWith != 0 {
 			lead = timing.SharedWith
 		}
+		if timing.CompletedTick < 0 {
+			open[lead] = true
+			continue
+		}
+		if !slices.Contains(stops[lead], timing.CompletedTick) {
+			stops[lead] = append(stops[lead], timing.CompletedTick)
+		}
+		journeys = append(journeys, timing.CompletedTick-timing.RequestedTick)
+		riderMeters += timing.RiddenMeters
 		farthest[lead] = max(farthest[lead], timing.RiddenMeters)
 		if timing.DirectMeters > 0 {
 			detourTotal += timing.RiddenMeters / timing.DirectMeters
@@ -81,6 +95,12 @@ func requestTimeStats(timings []sim.RequestTiming, state sim.Snapshot) requestSt
 	}
 	if detours > 0 {
 		stats.detourMean = detourTotal / float64(detours)
+	}
+	for lead, ticks := range stops {
+		stats.intermediateStops += len(ticks)
+		if !open[lead] {
+			stats.intermediateStops--
+		}
 	}
 	return stats
 }

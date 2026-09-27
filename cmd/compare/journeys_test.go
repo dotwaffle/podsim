@@ -162,3 +162,23 @@ func TestOccupancyInRun(t *testing.T) {
 	}
 	t.Logf("occupancy with sharing = %v", shared.Occupancy)
 }
+
+// TestIntermediateStops checks the count of the stops before the last stop
+// of each pod journey.
+func TestIntermediateStops(t *testing.T) {
+	t.Parallel()
+	timings := []sim.RequestTiming{
+		// A pod journey with stops at ticks 100 and 200 that ended.
+		{RequestID: 1, CompletedTick: 200, RiddenMeters: 20},
+		{RequestID: 2, SharedWith: 1, CompletedTick: 100, RiddenMeters: 10},
+		{RequestID: 3, SharedWith: 1, CompletedTick: 200, RiddenMeters: 20},
+		// A pod journey with one stop and a party still aboard.
+		{RequestID: 4, CompletedTick: -1},
+		{RequestID: 5, SharedWith: 4, CompletedTick: 150, RiddenMeters: 5},
+		// A pod journey without sharing.
+		{RequestID: 6, CompletedTick: 300, RiddenMeters: 30},
+	}
+	if got := requestTimeStats(timings, sim.Snapshot{}).intermediateStops; got != 2 {
+		t.Fatalf("intermediate stops = %d, want 2", got)
+	}
+}
