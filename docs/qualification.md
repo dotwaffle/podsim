@@ -747,8 +747,8 @@ This includes boarding, travel with passengers, unloading, and travel to a picku
 An empty move to parking or for redistribution is not work.
 The `peak_passenger_vehicles` column counts only the pods with passengers aboard, so it is never more than `peak_active_vehicles`.
 
-The CSV files in `docs/measurements` come from reports before `schema_version` 6.
-Thus they do not have the columns that version 6 adds, such as `wait_p95_seconds`, `journey_average_seconds`, `occupancy`, `stopped_pod_seconds`, and `peak_node`.
+The CSV files in `docs/measurements` come from reports before `schema_version` 6, except [`london-platoon-screening.csv`](measurements/london-platoon-screening.csv).
+Thus the older files do not have the columns that version 6 adds, such as `wait_p95_seconds`, `journey_average_seconds`, `occupancy`, `stopped_pod_seconds`, and `peak_node`.
 See [report columns](../README.md#report-columns) for the definitions.
 
 At the limit rate, every seed has all 114 pods with work at the same time in AM peak, Interpeak, PM peak, Evening, and Late.
@@ -1000,3 +1000,118 @@ The added berths do not change the result, so the berths do not limit the AM pea
 mise run scenario -- -preset london -station-berths 3 -berths 940GZZLUEMB=2 -parking-berths 24 -output /tmp/podsim-london-3.json
 mise run compare -- -project /tmp/podsim-london-3.json -pattern profile -bands am-peak -loads 5s,4.615385s,4s -seeds 1,2,3 -duration 65m -arrivals-for 30m -stop-when-drained -redistribution-policies off -focus 940GZZLUEUS -queue-limit 1000000 -workers 4
 ```
+
+### Platoon screening
+
+A platoon lets pods run closer together, so it can add capacity only where track or junction flow limits the service.
+This screening looks for such a load before any platoon code is built.
+It has two parts: a synthetic corridor that gives the line capacity of the current rules, and a London sweep with more pods.
+No platoon code exists.
+
+#### Corridor headway
+
+`TestMergeCorridorHeadway` in `internal/sim` restores a stopped queue of 20 pods on each feed lane of a synthetic corridor.
+All lanes have a 14 m/s limit and cells of up to 30 m.
+The test gives the mean interval between pods from the sixth pod to the last.
+It measures the merge cases with the node pass records that give `peak_node_throughput_per_minute`.
+
+| Case | Headway | Pods per hour | Pods per minute |
+| --- | ---: | ---: | ---: |
+| Straight lane | 6.011 s | 599 | 9.98 |
+| One stream through a lane boundary, or through a 30 degree merge | 7.217 s | 499 | 8.31 |
+| Two streams, 90 or 30 degree merge | 8.650 s | 416 | 6.94 |
+| Two streams, 15 degree merge | 10.783 s | 334 | 5.56 |
+
+A pod reserves the last cell of a lane and the first cell of the next lane in one step.
+Thus one stream through a lane boundary has a longer headway than a straight lane, also without a second stream.
+The test pins these values.
+A platoon or cell change must give its headway against them.
+
+#### London with 198 pods
+
+The sweep gives each London passenger station and each Parking facility two initial pods, 198 pods in total.
+It uses the Early, AM peak, and PM peak bands with seeds 1, 2, and 3, and the settings of the capacity sweep.
+The load list adds 17, 20, 24, 30, and 40 requests per minute, because the larger fleet finishes more rates.
+The compare command at commit `4f2ad0a` gives the recorded values.
+The sweep took 540 wall seconds with four workers.
+
+```sh
+mise run scenario -- -preset london -station-pods 2 -parking-pods 2 -output /tmp/podsim-london-198.json
+mise run compare -- -project /tmp/podsim-london-198.json -pattern profile -bands early,am-peak,pm-peak -duration 65m -arrivals-for 30m -loads 60s,30s,20s,15s,12s,10s,8.571429s,7.5s,6.666667s,6s,5.454545s,5s,4.615385s,4.285714s,4s,3.5s,3s,2.5s,2s,1.5s -seeds 1,2,3 -redistribution-policies off -focus 940GZZLUEUS -queue-limit 1000000 -stop-when-drained -adaptive-limit -past-limit 1 -workers 4 -format csv -output docs/measurements/london-platoon-screening.csv
+```
+
+The design gives this rule for a load that track flow limits.
+The off arms have peak stopped pods of at least 10, or junction wait of at least 10% of travel time.
+The report has no travel time of the pods.
+The table therefore divides each wait by the sum of the junction wait, the track wait, and the moving time at 14 m/s for the passenger and empty distance.
+That moving time is a lower bound, so each share is an upper bound.
+
+The limits use the 60-minute rule of the capacity sweep.
+With 198 pods, the limit is 10/min in Early, 20/min in AM peak, and 24/min in PM peak.
+With 114 pods, the limits are 7/min, 13/min, and 13/min.
+Each value in the table is the mean of the three seeds, except the maxima of peak stopped pods, peak active pods, and peak node throughput.
+
+| NUMBAT band | Rate | Served | Seeds that finish in 60 minutes | Peak stopped pods | Peak active pods | Junction wait share | Track wait share | Peak node throughput | Average wait | Average journey |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| Early | 6/min | 179.0 | 3 | 4 | 74 | 0.2% | 0.1% | 8/min | 207.3 s | 677.9 s |
+| Early | 7/min | 210.0 | 3 | 8 | 92 | 0.5% | 0.4% | 8/min | 231.8 s | 710.9 s |
+| Early | 8/min | 239.0 | 3 | 11 | 113 | 0.6% | 1.1% | 8/min | 258.2 s | 751.9 s |
+| Early | 9/min | 269.0 | 3 | 17 | 127 | 0.9% | 2.2% | 9/min | 290.0 s | 804.4 s |
+| Early | 10/min | 299.0 | 3 | 24 | 143 | 1.1% | 4.4% | 8/min | 340.3 s | 879.3 s |
+| Early | 11/min | 330.0 | 2 | 36 | 162 | 1.2% | 6.9% | 8/min | 393.5 s | 954.3 s |
+| Early | 12/min | 359.0 | 0 | 49 | 184 | 1.3% | 9.9% | 9/min | 459.8 s | 1,034.1 s |
+| AM peak | 15/min | 449.0 | 3 | 4 | 136 | 0.2% | 0.1% | 6/min | 102.0 s | 495.6 s |
+| AM peak | 17/min | 514.0 | 3 | 5 | 159 | 0.2% | 0.1% | 7/min | 121.4 s | 517.3 s |
+| AM peak | 20/min | 599.0 | 3 | 5 | 195 | 0.3% | 0.1% | 7/min | 143.7 s | 543.5 s |
+| AM peak | 24/min | 719.0 | 2 | 7 | 198 | 0.4% | 0.2% | 7/min | 278.9 s | 678.7 s |
+| AM peak | 30/min | 894.0 | 0 | 9 | 198 | 0.4% | 0.1% | 8/min | 583.0 s | 977.5 s |
+| PM peak | 17/min | 514.0 | 3 | 5 | 146 | 0.3% | 0.1% | 5/min | 84.9 s | 458.6 s |
+| PM peak | 20/min | 599.0 | 3 | 6 | 178 | 0.3% | 0.1% | 6/min | 110.6 s | 486.3 s |
+| PM peak | 24/min | 719.0 | 3 | 10 | 198 | 0.4% | 0.1% | 7/min | 195.3 s | 573.8 s |
+| PM peak | 30/min | 899.0 | 0 | 11 | 198 | 0.4% | 0.2% | 8/min | 423.2 s | 802.5 s |
+
+The rule applies to each arm, so the next table gives each seed of the arms near the limit.
+The junction wait share uses the same upper bound.
+
+| NUMBAT band | Rate | Peak stopped pods, seeds 1, 2, 3 | Junction wait share, seeds 1, 2, 3 | Seeds that meet the rule |
+| --- | ---: | ---: | ---: | ---: |
+| Early | 7/min | 8, 7, 6 | 0.56%, 0.47%, 0.35% | 0 |
+| Early | 8/min | 11, 6, 8 | 0.80%, 0.54%, 0.56% | 1 |
+| Early | 9/min | 17, 13, 15 | 1.05%, 0.85%, 0.85% | 3 |
+| Early | 10/min | 23, 21, 24 | 1.33%, 1.05%, 0.98% | 3 |
+| Early | 11/min | 34, 33, 36 | 1.38%, 1.05%, 1.04% | 3 |
+| Early | 12/min | 47, 44, 49 | 1.41%, 1.14%, 1.21% | 3 |
+| PM peak | 24/min | 10, 7, 7 | 0.36%, 0.38%, 0.49% | 1 |
+| PM peak | 30/min | 11, 7, 7 | 0.52%, 0.44%, 0.38% | 1 |
+
+Early meets the rule for all three seeds at 9/min to 12/min.
+At 8/min, only seed 1 meets it.
+At 9/min and 10/min, all seeds finish within 60 minutes with 13 to 24 peak stopped pods.
+No arm meets the junction wait part of the rule, because the junction wait share is 1.41% or less.
+
+In Early, track and junction flow, not the fleet, sets the limit.
+At 11/min, seed 3 finishes at 3,609 seconds with a peak of 162 active pods.
+At 12/min, no seed finishes within 60 minutes, and no seed has more than 184 active pods.
+In AM peak and PM peak, every seed at the first rate that does not finish has all 198 pods with work.
+The capacity sweep with 114 pods also found that congestion can contribute to the Early limit.
+
+In PM peak, only seed 1 meets the rule, at 24/min and 30/min.
+All 198 pods have work at these rates, so the fleet explains the stopped pods, and PM peak is not a second regime.
+
+In each arm, junction and track wait make up more than 99% of `stopped_pod_seconds`.
+Thus this ratio does not separate the bands.
+Peak node throughput does not separate them either.
+Early reaches 8 or 9 passes a minute, which is near the 8.31/min of one stream in the corridor test, and more than the 6.94/min of two streams.
+AM peak and PM peak also reach 7 or 8 passes a minute at 24/min and 30/min, with fewer stopped pods.
+
+The report does not give the location of a wait.
+A scratch build of the compare command counted the stopped pods on each lane and followed `BlockedBy` to the pod at the head of each queue.
+The repository has no command for this count.
+In Early at 10/min with seed 1, most stopped pod-seconds are on the line lanes into Baker Street and King's Cross St. Pancras, and on the departure lanes at Paddington.
+The pod at the head of most of these queues waits for junction traffic.
+Berth waits are less than 1% of the stopped time.
+
+Thus Early with 198 pods at 9/min to 12/min is a load that track flow limits.
+The next step is a platoon A/B on this load, as the design gives in its second measurement step.
+That step is not built.
+Raw results are in [`measurements/london-platoon-screening.csv`](measurements/london-platoon-screening.csv).

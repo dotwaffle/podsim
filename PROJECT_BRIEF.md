@@ -438,6 +438,11 @@ Do not infer energy savings from shorter spacing alone.
 [Plexe](https://plexe.car2x.org/) provides examples of cooperative maneuvers, vehicle dynamics, and platoon control.
 It is a research reference, not a proposed dependency for Podsim.
 
+**Status:** No platoon model exists.
+A corridor test pins the saturation headway of the current rules, and a London sweep with 198 pods found that track and junction flow limit the Early band at 9 to 12 requests per minute.
+A virtual platoon A/B on that load is the next step, and it is not built.
+See [docs/qualification.md](docs/qualification.md#platoon-screening).
+
 ### Suggested first extension experiment
 
 After the initial simulator works, build a railway-hub scenario with a burst of arriving passengers.
