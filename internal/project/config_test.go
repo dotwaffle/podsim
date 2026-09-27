@@ -233,7 +233,7 @@ func TestEditorMirrorsLimits(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for name, want := range map[string]int{"MAX_STATIONS": MaxStations, "MAX_NODES": MaxNodes, "MAX_LANES": MaxLanes, "MAX_NODE_LANES": MaxNodeLanes, "MAX_FLOWS": MaxFlows} {
+	for name, want := range map[string]int{"MAX_STATIONS": MaxStations, "MAX_BERTHS": MaxBerths, "MAX_NODES": MaxNodes, "MAX_LANES": MaxLanes, "MAX_NODE_LANES": MaxNodeLanes, "MAX_FLOWS": MaxFlows} {
 		if !strings.Contains(string(source), fmt.Sprintf("const %s = %d;", name, want)) {
 			t.Errorf("web/editor.js does not set %s to %d", name, want)
 		}

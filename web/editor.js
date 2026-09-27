@@ -30,10 +30,12 @@
   // CLEARANCE is the clearance in meters around a pod, sim.Clearance in the
   // Go code. A new berth chain row must keep this distance from other lanes.
   const CLEARANCE = 12;
-  // MAX_STATIONS, MAX_NODES, MAX_LANES, MAX_NODE_LANES, and MAX_FLOWS are
-  // limits of the server (internal/project/config.go). Keep them the same.
-  // MAX_NODE_LANES counts each lane at its From node and at its To node.
+  // MAX_STATIONS, MAX_BERTHS, MAX_NODES, MAX_LANES, MAX_NODE_LANES, and
+  // MAX_FLOWS are limits of the server (internal/project/config.go). Keep
+  // them the same. MAX_BERTHS applies to each station. MAX_NODE_LANES
+  // counts each lane at its From node and at its To node.
   const MAX_STATIONS = 200;
+  const MAX_BERTHS = 200;
   const MAX_NODES = 4000;
   const MAX_LANES = 8000;
   const MAX_NODE_LANES = 64;
@@ -129,7 +131,223 @@
     config.demand.seed = Math.max(0, Math.floor(Number(config.demand.seed) || 0));
     config.sharedRidePartyLimit = Math.max(1, Math.min(8, Math.floor(Number(config.sharedRidePartyLimit) || 1)));
     config.redistribution = Boolean(config.redistribution);
+    inferStationLanes(config.network);
     return config;
+  }
+
+  // inferStationLanes gives station lanes without StationID and StationRole
+  // the values that sim.inferStationLaneRoles gives them. A legacy or a
+  // hand-written project can have such lanes, and removeBerth accepts only
+  // station lanes on a berth node. For each station, in station order, a
+  // lane from the entry to the exit gets the through role. Then, for each
+  // berth, the lanes of the route from the entry to the berth get the
+  // berth-access role, and the lanes of the route from the berth to the
+  // exit get the departure role. The first station and route that finds a
+  // lane gives its values. A lane with one of the two fields keeps its
+  // values. The simulation checks only StationRole, but in a valid network
+  // a lane has both fields or neither. The function changes network in
+  // place. It gives the number of lane roles that it kept for all stations.
+  // Each station keeps at most one role for each lane.
+  //
+  // The simulation infers the roles only after it validates the network. A
+  // restored draft can hold an unfinished network, so the function does
+  // nothing when inferableStations or stationRouteGraph rejects the
+  // network. Then the route costs are positive and finite, and the size of
+  // the network is in the project limits. When a route search still gives
+  // a broken route, the station gets no values.
+  // TestStationLaneRolesGolden in internal/sim writes the roles that the
+  // editor test compares with.
+  function inferStationLanes(network) {
+    const { Nodes, Lanes, Stations } = network;
+    if (!inferableStations(network)) return 0;
+    const graph = stationRouteGraph(network);
+    if (!graph) return 0;
+    const forbidden = new Set(Stations.flatMap((station) => [station.Entry, station.Exit, ...station.Berths.map((berth) => berth.Node)]));
+    let kept = 0;
+    for (const station of Stations) {
+      const roles = new Map();
+      const keep = (index, role) => { if (!roles.has(index)) roles.set(index, role); };
+      Lanes.forEach((lane, index) => { if (lane.From === station.Entry && lane.To === station.Exit) keep(index, "through"); });
+      let broken = false;
+      for (const berth of station.Berths) {
+        for (const [from, to, role] of [[station.Entry, berth.Node, "berth-access"], [berth.Node, station.Exit, "departure"]]) {
+          const route = stationRoute(graph, from, to, forbidden);
+          if (route === false) broken = true;
+          for (const index of route || []) keep(index, role);
+        }
+      }
+      kept += roles.size;
+      if (broken) continue;
+      for (const [index, role] of roles) {
+        const lane = Lanes[index];
+        if (lane.StationID || lane.StationRole) continue;
+        lane.StationID = station.ID;
+        lane.StationRole = role;
+      }
+    }
+    return kept;
+  }
+
+  // inferableStations reports whether the network is in the project size
+  // limits and has the station structure that sim.Network.validate needs.
+  // Each item of the network is an object, and each node has a position
+  // object. Each station has a unique ID that is not empty, an entry and
+  // an exit that are different known nodes, and 1 to MAX_BERTHS berths.
+  // Each berth has a unique ID that is not empty and a known node that no
+  // other berth uses and that is not the entry or the exit. Thus the
+  // inference runs at most one route search in each direction for each
+  // berth node.
+  function inferableStations(network) {
+    const { Nodes, Lanes, Stations } = network;
+    const record = (item) => item !== null && typeof item === "object";
+    if (Nodes.length > MAX_NODES || Lanes.length > MAX_LANES || Stations.length > MAX_STATIONS) return false;
+    if (![...Nodes, ...Lanes, ...Stations].every(record) || !Nodes.every((node) => record(node.Position))) return false;
+    const nodeIDs = new Set(Nodes.map((node) => node.ID));
+    const stationIDs = new Set(); const berthIDs = new Set(); const berthNodes = new Set();
+    const validID = (id, ids) => typeof id === "string" && id !== "" && !ids.has(id) && Boolean(ids.add(id));
+    for (const station of Stations) {
+      if (!validID(station.ID, stationIDs) || !nodeIDs.has(station.Entry) || !nodeIDs.has(station.Exit) || station.Entry === station.Exit) return false;
+      if (!Array.isArray(station.Berths) || station.Berths.length === 0 || station.Berths.length > MAX_BERTHS) return false;
+      for (const berth of station.Berths) {
+        if (!record(berth) || !validID(berth.ID, berthIDs) || !nodeIDs.has(berth.Node) || berthNodes.has(berth.Node)) return false;
+        if (berth.Node === station.Entry || berth.Node === station.Exit) return false;
+        berthNodes.add(berth.Node);
+      }
+    }
+    return true;
+  }
+
+  // stationRouteGraph gives the route graph of sim.newRouteGraph, or null
+  // when sim.Network.validate would not accept the nodes and the lanes. A
+  // node must have a unique ID that is not empty and a finite position. A
+  // lane must have a unique ID that is not empty, known end nodes, a finite
+  // speed limit above 0, and a finite length above 0. nodes maps each node
+  // ID to its index. outgoing holds the lane indexes out of each node.
+  // edges holds, for each lane index, the node indexes of the lane ends and
+  // the free-flow travel time. to holds the node ID at the end of each
+  // lane.
+  function stationRouteGraph(network) {
+    const nodes = new Map(); const laneIDs = new Set();
+    const finiteNumber = (value) => typeof value === "number" && Number.isFinite(value);
+    for (const [index, node] of network.Nodes.entries()) {
+      if (typeof node.ID !== "string" || !node.ID || nodes.has(node.ID) || !finiteNumber(node.Position.X) || !finiteNumber(node.Position.Y)) return null;
+      nodes.set(node.ID, index);
+    }
+    const outgoing = network.Nodes.map(() => []);
+    const edges = [];
+    for (const [index, lane] of network.Lanes.entries()) {
+      const from = nodes.get(lane.From); const to = nodes.get(lane.To);
+      if (typeof lane.ID !== "string" || !lane.ID || laneIDs.has(lane.ID) || from === undefined || to === undefined) return null;
+      const length = simLaneLength(network.Nodes[from].Position, network.Nodes[to].Position, lane.Control);
+      if (!finiteNumber(lane.SpeedLimit) || lane.SpeedLimit <= 0 || !Number.isFinite(length) || length <= 0) return null;
+      laneIDs.add(lane.ID);
+      outgoing[from].push(index);
+      edges.push({ from, to, seconds: length / lane.SpeedLimit });
+    }
+    return { nodes, outgoing, edges, to: network.Lanes.map((lane) => lane.To) };
+  }
+
+  // simLaneLength gives the length of a lane as sim.indexedLaneLength gives
+  // it. A curve has 64 straight parts. curveLength uses 16 parts, so its
+  // length is a little different, and a route search with it could choose
+  // a different route.
+  function simLaneLength(from, to, control) {
+    if (!control) return goHypot(to.X - from.X, to.Y - from.Y);
+    let length = 0;
+    const points = lanePolyline(from, to, control);
+    for (let i = 1; i < points.length; i += 1) length += goHypot(points[i].X - points[i - 1].X, points[i].Y - points[i - 1].Y);
+    return length;
+  }
+
+  // goHypot gives the length of the vector (dx, dy) with the operations of
+  // math.Hypot in Go. Math.hypot can give a different last bit, and then two
+  // routes with the same cost in Go could have different costs here.
+  function goHypot(dx, dy) {
+    let p = Math.abs(dx); let q = Math.abs(dy);
+    if (p < q) [p, q] = [q, p];
+    if (p === 0) return 0;
+    q /= p;
+    return p * Math.sqrt(1 + q * q);
+  }
+
+  // stationRoute gives the lane indexes of the route from node fromID to node
+  // to, as sim.Network.routeIndexed gives them with the forbidden set of
+  // station nodes. fromID and toID are the node IDs. It gives null when
+  // there is no route. It gives false when the route back from the end
+  // node has more lanes than the graph has nodes, because then the route
+  // goes around a loop. With the costs that stationRouteGraph accepts, this
+  // does not occur. The route has the
+  // lowest total travel time. The route cannot pass through a node in
+  // forbidden, but it can start or end at one. The search takes the node
+  // with the lowest cost from the queue, and the lowest node index between
+  // equal costs. A lane replaces the route to its end node only when it
+  // makes the cost lower, so between equal routes the first lane found
+  // stays. Thus the route is the same as in Go.
+  function stationRoute(graph, fromID, toID, forbidden) {
+    const from = graph.nodes.get(fromID); const to = graph.nodes.get(toID);
+    if (from === undefined || to === undefined) return null;
+    const count = graph.outgoing.length;
+    const distance = new Float64Array(count).fill(Infinity);
+    const previous = new Int32Array(count).fill(-1);
+    const visited = new Uint8Array(count);
+    distance[from] = 0;
+    const queue = createRouteQueue();
+    queue.push(0, from);
+    while (queue.size()) {
+      const [cost, node] = queue.pop();
+      if (visited[node] || cost !== distance[node]) continue;
+      if (node === to) break;
+      visited[node] = 1;
+      for (const index of graph.outgoing[node]) {
+        const edge = graph.edges[index];
+        if (edge.to !== from && edge.to !== to && forbidden.has(graph.to[index])) continue;
+        const candidate = cost + edge.seconds;
+        if (candidate < distance[edge.to]) {
+          distance[edge.to] = candidate; previous[edge.to] = index;
+          queue.push(candidate, edge.to);
+        }
+      }
+    }
+    if (distance[to] === Infinity) return null;
+    const route = [];
+    for (let current = to; current !== from; current = graph.edges[route.at(-1)].from) {
+      if (previous[current] < 0) return null;
+      if (route.length >= count) return false;
+      route.push(previous[current]);
+    }
+    return route.reverse();
+  }
+
+  // createRouteQueue gives a binary heap of [cost, node] items. pop gives
+  // the item with the lowest cost, and the lowest node between equal costs.
+  function createRouteQueue() {
+    const items = [];
+    const less = (a, b) => (a[0] === b[0] ? a[1] < b[1] : a[0] < b[0]);
+    const swap = (i, j) => { [items[i], items[j]] = [items[j], items[i]]; };
+    return {
+      size: () => items.length,
+      push(cost, node) {
+        items.push([cost, node]);
+        for (let child = items.length - 1; child > 0;) {
+          const parent = (child - 1) >> 1;
+          if (!less(items[child], items[parent])) break;
+          swap(child, parent); child = parent;
+        }
+      },
+      pop() {
+        const root = items[0]; const last = items.pop();
+        if (!items.length) return root;
+        items[0] = last;
+        for (let parent = 0; ;) {
+          const left = parent * 2 + 1; const right = left + 1;
+          if (left >= items.length) break;
+          const child = right < items.length && less(items[right], items[left]) ? right : left;
+          if (!less(items[child], items[parent])) break;
+          swap(child, parent); parent = child;
+        }
+        return root;
+      },
+    };
   }
 
   function allIDs(config) {
@@ -432,10 +650,9 @@
   // StationID. The arrival link and the lane in get the berth-access role,
   // and the departure link and the lane out get the departure role, as the
   // scenario generators give them. Thus removeBerth accepts the lanes of
-  // the new row, also when an import gave the chain lanes without these
-  // fields. A new ID adds one
-  // to the last number in the ID of the copied item, with the same number
-  // of digits. Thus a generated station gets the IDs that the generator
+  // the new row, also when the other chain lanes do not have these fields.
+  // A new ID adds one to the last number in the ID of the copied item, with
+  // the same number of digits. Thus a generated station gets the IDs that the generator
   // gives to one more berth. When that ID is in use, or has no number, the
   // item gets an editor ID. The function gives berth, nodes and lanes.
   function nextChainRow(config, station, rows) {
@@ -551,7 +768,9 @@
   // and an error that names the station. It does not remove the last berth
   // of a station. Each lane of the berth node must be a station lane, with
   // the station ID in StationID. addStation, addBerth and the scenario
-  // generators make such lanes for each berth. When a road lane or a lane
+  // generators make such lanes for each berth. normalizeConfig gives these
+  // fields to the station lanes of a project without them, as the
+  // simulation infers them. When a road lane or a lane
   // of a different station uses the berth node, the editor does not remove
   // the berth, and the error tells the user to delete these lanes first.
   // When the berth is the last row of a berth chain, it also removes the
@@ -2207,7 +2426,7 @@
   }
 
   const API = {
-    MIN_LANE_LENGTH, MAX_STATIONS, MAX_NODES, MAX_LANES, MAX_NODE_LANES, MAX_FLOWS, MIN_ZOOM, NODE_LABEL_SCALE, NODE_LABEL_SIZE, LANE_PAIR_OFFSET, CHEVRON_LANE_LENGTH, BERTH_PITCH, STATION_PADDING, CLEARANCE, CHECK_DELAY, emptyConfig, fallbackConfig, normalizeConfig, addLane, addJunction, addStation, addBerth,
+    MIN_LANE_LENGTH, MAX_STATIONS, MAX_NODES, MAX_LANES, MAX_NODE_LANES, MAX_FLOWS, MIN_ZOOM, NODE_LABEL_SCALE, NODE_LABEL_SIZE, LANE_PAIR_OFFSET, CHEVRON_LANE_LENGTH, BERTH_PITCH, STATION_PADDING, CLEARANCE, CHECK_DELAY, emptyConfig, fallbackConfig, normalizeConfig, inferStationLanes, addLane, addJunction, addStation, addBerth,
     stationBearing, stationShape, rotateStation, setStationBearing, nextBerthPosition, berthChain, nextChainRow, lanePolyline, laneConflict, removeBerth, moveStation, moveNode, deleteNode, deleteLane, deleteStation, stationFlowCount, setFleetCount, fleetRows, selectionCard, berthFocusID, undoFocus, setDemandPattern,
     laneLength, curveLength, reachable, cutOffStations, stationNodeOwners, dragTargets, validateConfig, configWarnings, checkResults, checkSelector, checkSelection, selectionPoint, focusView,
     problemCountText, createCheckTimer, validationSummary, checkFocusKey, IMAGE_FILE_BYTES, SERVER_PROJECT_BYTES, PROJECT_FILE_BYTES, SERVER_COMMAND_BYTES, SERVER_COMMAND_JSON_BYTES, GZIP_COMMAND_BYTES, SERVER_TOO_LARGE_TEXT, postCommand, dataURLBytes, serializeDocument, parseDocument, createHistory,

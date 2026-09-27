@@ -658,18 +658,124 @@ test("remove berth on the last chain row keeps a node that another lane uses", (
   }
 });
 
-test("add berth on an imported chain without station lane fields makes station lanes", () => {
-  const { config, arrival, departure } = chainScenario();
-  const [alpha] = config.network.Stations;
-  // An import can give chain lanes without StationID and StationRole. The
-  // lanes of the new row get them, so Remove on the new berth gives the
-  // import again.
+// withoutStationFields gives a copy of config without StationID and
+// StationRole on the lanes of the station, as a legacy import gives them.
+function withoutStationFields(config, stationID) {
   const plain = JSON.parse(JSON.stringify(config));
-  const chain = (lane) => [arrival, departure].includes(lane.From) || [arrival, departure].includes(lane.To);
-  for (const lane of plain.network.Lanes.filter(chain)) { delete lane.StationID; delete lane.StationRole; }
-  const imported = editor.normalizeConfig(JSON.parse(JSON.stringify(plain)));
-  assert.equal(imported.network.Lanes.filter((lane) => chain(lane) && !lane.StationID).length, 4);
-  assert.deepEqual(editor.validateConfig(imported), []);
+  for (const lane of plain.network.Lanes.filter((item) => item.StationID === stationID)) { delete lane.StationID; delete lane.StationRole; }
+  return plain;
+}
+
+test("import infers the station lanes that the simulation infers", () => {
+  // TestStationLaneRolesGolden in internal/sim writes the file from
+  // sim.inferStationLaneRoles.
+  const file = JSON.parse(fs.readFileSync(path.join(repoRoot, "internal", "sim", "testdata", "station_lane_roles.json"), "utf8"));
+  assert.ok(file.cases.some((tc) => tc.name === "chain") && file.cases.some((tc) => tc.name === "star") && file.cases.some((tc) => tc.name === "ring"));
+  for (const tc of file.cases) {
+    const input = JSON.parse(JSON.stringify(tc.network));
+    const config = editor.normalizeConfig({ network: tc.network });
+    assert.deepEqual(tc.network, input, `${tc.name}: the input stays the same`);
+    assert.deepEqual(config.network.Lanes.map((lane) => ({ ID: lane.ID, StationID: lane.StationID || "", StationRole: lane.StationRole || "" })), tc.lanes, tc.name);
+    // The inferred fields do not change the checks.
+    const plain = { ...config, network: { ...config.network, Lanes: JSON.parse(JSON.stringify(tc.network.Lanes)) } };
+    assert.deepEqual(editor.validateConfig(config), editor.validateConfig(plain), tc.name);
+    // An explicit field stays.
+    for (const [index, lane] of tc.network.Lanes.entries()) if (lane.StationRole) assert.deepEqual(config.network.Lanes[index], lane, `${tc.name} ${lane.ID}`);
+  }
+});
+
+test("import infers no station lanes on a draft with a lane speed that the simulation rejects", () => {
+  // The route search runs before the checks, on a restored draft too. With
+  // the speed of -0.5 on lane b-a, the search found a route back from the
+  // berth that went around a and b without end. A child process with a
+  // time limit runs each case, so such a loop fails the test and does not
+  // stop the test run.
+  const nodes = ["e", "a", "b", "t", "x"].map((id, index) => ({ ID: id, Position: { X: 30 * index, Y: 0 } }));
+  const lanes = [["e", "a"], ["a", "b"], ["b", "t"], ["t", "x"], ["e", "x"], ["b", "a"]].map(([from, to]) => ({ ID: `${from}-${to}`, From: from, To: to, SpeedLimit: 1 }));
+  const stations = [{ ID: "s", Name: "S", Entry: "e", Exit: "x", Berths: [{ ID: "s-1", Node: "t" }], ParkingOnly: false }];
+  const script = `const editor = require(${JSON.stringify(path.join(__dirname, "editor.js"))});
+    const config = editor.normalizeConfig(JSON.parse(process.argv[1]));
+    process.stdout.write(JSON.stringify(config.network.Lanes.filter((lane) => lane.StationID).map((lane) => lane.ID)));`;
+  for (const speed of [1, -0.5, 0, null, "fast"]) {
+    const network = { Nodes: nodes, Lanes: lanes.map((lane) => (lane.ID === "b-a" ? { ...lane, SpeedLimit: speed } : lane)), Stations: stations };
+    const output = execFileSync(process.execPath, ["-e", script, JSON.stringify({ network })], { encoding: "utf8", timeout: 10000 });
+    assert.deepEqual(JSON.parse(output), speed === 1 ? ["e-a", "a-b", "b-t", "t-x", "e-x"] : [], `speed ${speed}`);
+  }
+});
+
+// longRouteNetwork gives a station whose berths are at the end of one
+// chain of 1,000 lanes. berthNodes gives the node of each berth, and nodes
+// b-0 to b-(berths - 1) exist.
+function longRouteNetwork(berths, berthNodes) {
+  const nodes = [{ ID: "e", Position: { X: 0, Y: -30 } }, { ID: "x", Position: { X: 60, Y: -30 } }];
+  const lanes = [{ ID: "through", From: "e", To: "x", SpeedLimit: 14 }];
+  let previous = "e";
+  for (let index = 0; index < 1000; index += 1) {
+    nodes.push({ ID: `c-${index}`, Position: { X: 0, Y: 30 * index } });
+    lanes.push({ ID: `chain-${index}`, From: previous, To: `c-${index}`, SpeedLimit: 14 });
+    previous = `c-${index}`;
+  }
+  for (let index = 0; index < berths; index += 1) {
+    nodes.push({ ID: `b-${index}`, Position: { X: 30 + index, Y: 30000 } });
+    lanes.push({ ID: `in-${index}`, From: previous, To: `b-${index}`, SpeedLimit: 14 }, { ID: `out-${index}`, From: `b-${index}`, To: "x", SpeedLimit: 14 });
+  }
+  const station = { ID: "s", Name: "S", Entry: "e", Exit: "x", Berths: berthNodes.map((node, index) => ({ ID: `s-${index}`, Node: node })), ParkingOnly: false };
+  return { Nodes: nodes, Lanes: lanes, Stations: [station] };
+}
+
+test("import keeps one role for each lane and infers nothing on a station that the checks reject", () => {
+  // Each of the 200 berths has the chain in its route. The inference keeps
+  // one role for each lane of the station, not one for each lane of each
+  // route.
+  const berths = [...Array(200).keys()].map((index) => `b-${index}`);
+  const valid = longRouteNetwork(200, berths);
+  assert.equal(editor.inferStationLanes(valid), valid.Lanes.length);
+  assert.ok(valid.Lanes.every((lane) => lane.StationID === "s"));
+  assert.ok(valid.Lanes.filter((lane) => lane.ID.startsWith("chain-")).every((lane) => lane.StationRole === "berth-access"));
+  // The simulation rejects 201 berths in a station, and a berth node that
+  // two berths use.
+  const cases = [
+    { name: "201 berths", network: longRouteNetwork(201, [...berths, "b-200"]) },
+    { name: "a shared berth node", network: longRouteNetwork(2, ["b-0", "b-1", "b-0"]) },
+  ];
+  for (const tc of cases) {
+    assert.equal(editor.inferStationLanes(tc.network), 0, tc.name);
+    assert.ok(tc.network.Lanes.every((lane) => !lane.StationID && !lane.StationRole), tc.name);
+  }
+  // A restored draft with 1,000 berths on the same node at the end of the
+  // chain made the editor keep one role for each lane of each route. A
+  // child process with a time limit runs the case.
+  const draft = { network: longRouteNetwork(1, Array(1000).fill("b-0")) };
+  const script = `const editor = require(${JSON.stringify(path.join(__dirname, "editor.js"))});
+    const config = editor.normalizeConfig(JSON.parse(require("node:fs").readFileSync(0, "utf8")));
+    process.stdout.write(String(config.network.Lanes.filter((lane) => lane.StationID || lane.StationRole).length));`;
+  assert.equal(execFileSync(process.execPath, ["-e", script], { input: JSON.stringify(draft), encoding: "utf8", timeout: 10000 }), "0");
+});
+
+test("remove berth on an import without station lane fields gives the config before the add", () => {
+  const star = connectedScenario();
+  const chain = chainScenario().config;
+  for (const [name, config] of [["star", star], ["chain", chain]]) {
+    const [alpha] = config.network.Stations;
+    const two = addedBerth(config, alpha.ID);
+    const plain = withoutStationFields(two, alpha.ID);
+    assert.ok(plain.network.Lanes.every((lane) => lane.StationID !== alpha.ID), name);
+    // The import gives each station lane the values that addStation,
+    // addBerth and the generators give. Thus Remove accepts the new berth.
+    const { scenario: imported } = editor.parseDocument(editor.serializeDocument(plain, null));
+    assert.deepEqual(imported, two, name);
+    const berth = imported.network.Stations[0].Berths.at(-1);
+    assert.deepEqual(removedBerth(imported, alpha.ID, berth.ID), config, name);
+  }
+});
+
+test("add berth on an imported chain without station lane fields makes station lanes", () => {
+  const { config } = chainScenario();
+  const [alpha] = config.network.Stations;
+  // The import infers the chain lanes, so the new row and Remove on the
+  // new berth give the import again.
+  const imported = editor.normalizeConfig(withoutStationFields(config, alpha.ID));
+  assert.deepEqual(imported, config);
   assertChainRow({ before: imported, after: addedBerth(imported, alpha.ID), stationID: alpha.ID, pitch: { X: 0, Y: 30 } }, "imported chain");
 });
 

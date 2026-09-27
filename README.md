@@ -460,6 +460,10 @@ The draft stays local until you select **Pause and apply**.
   If a road lane or a lane of a different station uses the berth node, the editor does not remove the berth.
   A message then gives the station name, the lanes, and the node.
   Delete these lanes first, then remove the berth.
+- An older or hand-written project can have station lanes without a station ID and a role.
+  When the editor loads such a project, it gives each of these lanes the station ID and the role that the simulation gives it.
+  Thus **Remove** accepts these lanes.
+  An export and **Pause and apply** keep the new values.
 - A generated London or scale100 station is a berth chain.
   Each berth row has an arrival node, a berth node, and a departure node.
   On a berth chain station, **Add physical berth** adds one more row at the end of the chain.
