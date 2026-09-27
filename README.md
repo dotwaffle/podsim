@@ -713,7 +713,8 @@ Otherwise, it uses the mean rate of the requests since the last reset.
 Thus a fleet of 20 pods or fewer makes no move while generated demand runs.
 The policy stops moves to busy stations when the newest request is more than 180 seconds old, or when a waiting request has no pod.
 It also stops these moves when more than two fifths of the fleet works, or when the positioning moves reach the boardings.
-While the demand rate is low, the policy also moves an idle pod that blocks a berth to a near free berth.
+While the demand rate is low, the policy also moves an idle pod that blocks a berth.
+The pod goes to a free berth of a busy station within 180 seconds of travel, or else to the nearest free Parking berth.
 Passenger assignments take priority over empty positioning.
 Before a pod moves, the policy reserves a free destination berth, and it leaves another free berth at the station.
 A cooldown limits repeated moves.
@@ -751,7 +752,10 @@ The synthetic patterns are balanced, destination, hotspot, bursty-hotspot, and h
 | `-format json` or `-format csv` | Machine-readable results. |
 | `-output` | Write the report to a file. |
 | `-pattern profile -bands all` | Run the origin-destination bands of a project demand profile. |
-| `-focus` | Select the station that the destination, hotspot, bursty-hotspot, and hub-burst patterns favor. |
+| `-focus` | Select the station of the focus metrics in the report, and the station that the destination, hotspot, bursty-hotspot, and hub-burst patterns favor. |
+| `-duration` | The length of the measurement window. Default 30m. |
+| `-request-every` | The interval between requests without `-loads`. Default 45s. |
+| `-seed` | The seed without `-seeds`. Default 1. |
 | `-arrivals-for` | Stop new requests before the measurement ends. |
 | `-stop-when-drained` | Stop an arm after all accepted requests complete. |
 | `-adaptive-limit` | With `-stop-when-drained`, find capacity limits with fewer arms. |
@@ -807,7 +811,8 @@ In a ring or `scale100` network, two lanes without a common node must be at leas
 For the `london` rules, see [London capacity options](docs/london.md#capacity-options).
 An unknown station ID, a berth count out of range, more pods than berths, or a network over the project limits also gives an error.
 A London station can have 1 to 200 berths.
-A ring or mesh station can have 1 to 62 berths, because its entry and exit nodes have a lane for each berth and can have at most 64 lanes.
+A ring or mesh station can have 1 to 62 berths.
+The entry and exit nodes of a ring station have a lane for each berth, and a node can have at most 64 lanes.
 
 The command writes one summary line to standard error.
 The line gives the preset, the passenger and Parking berths, the pods, the nodes and lanes with their limits, the output bytes, the SHA-256 of the network, and the number of soft layout conflicts.
@@ -886,7 +891,7 @@ An idle pod at the pickup station has an estimate of zero, because it boards at 
 
 #### Wait rules
 
-Dispatch can wait for a busy pod if it should reach the pickup at least two seconds earlier.
+Dispatch can wait for a busy pod if it should reach the pickup more than two seconds earlier.
 The estimate includes travel, acceleration, braking, boarding, and unloading.
 It does not predict traffic delays.
 Dispatch waits for at most 30 simulated seconds before it uses an available pod.
