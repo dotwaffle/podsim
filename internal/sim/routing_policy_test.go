@@ -45,3 +45,75 @@ func TestCongestionCostsTrackClaimsAndStoppedPods(t *testing.T) {
 		t.Fatalf("congestion cost = %v", got)
 	}
 }
+
+// berthGuardNetwork has three stations in a line. Station b is between a
+// and c, and a route from a to c can go through b's through lane or
+// through b's berth.
+func berthGuardNetwork() Network {
+	return Network{
+		Nodes: []Node{
+			{ID: "a-berth", Position: Point{}},
+			{ID: "b-entry", Position: Point{X: 100}},
+			{ID: "b-berth", Position: Point{X: 150, Y: 20}},
+			{ID: "b-exit", Position: Point{X: 200}},
+			{ID: "c-berth", Position: Point{X: 300}},
+		},
+		Lanes: []Lane{
+			{ID: "a-out", From: "a-berth", To: "b-entry", SpeedLimit: 10},
+			{ID: "b-through", From: "b-entry", To: "b-exit", SpeedLimit: 10},
+			{ID: "b-in", From: "b-entry", To: "b-berth", SpeedLimit: 10},
+			{ID: "b-out", From: "b-berth", To: "b-exit", SpeedLimit: 10},
+			{ID: "c-in", From: "b-exit", To: "c-berth", SpeedLimit: 10},
+		},
+		Stations: []Station{
+			{ID: "a", Berths: []Berth{{ID: "a-1", Node: "a-berth"}}},
+			{ID: "b", Entry: "b-entry", Exit: "b-exit", Berths: []Berth{{ID: "b-1", Node: "b-berth"}}},
+			{ID: "c", Berths: []Berth{{ID: "c-1", Node: "c-berth"}}},
+		},
+	}
+}
+
+func TestOwnBerthsOnlyAvoidsThirdStationBerths(t *testing.T) {
+	t.Parallel()
+	network := berthGuardNetwork()
+	graph := newRouteGraph(network)
+	costs := make([]float64, len(network.Lanes))
+	costs[graph.lanes["b-through"]] = 100
+	unguarded, err := network.routeIndexed(networkRouteInput{from: "a-berth", to: "c-berth", extraCost: costs}, graph)
+	if err != nil {
+		t.Fatal(err)
+	}
+	guarded, err := network.routeIndexed(networkRouteInput{from: "a-berth", to: "c-berth", extraCost: costs, ownBerthsOnly: true}, graph)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if unguarded[1].ID != "b-in" || guarded[1].ID != "b-through" {
+		t.Fatalf("unguarded route = %+v, guarded route = %+v", unguarded, guarded)
+	}
+	// The berths of the stations at the route ends stay open.
+	for _, input := range []networkRouteInput{
+		{from: "a-berth", to: "b-berth", ownBerthsOnly: true},
+		{from: "b-berth", to: "c-berth", ownBerthsOnly: true},
+	} {
+		if _, err := network.routeIndexed(input, graph); err != nil {
+			t.Fatalf("route %s to %s: %v", input.from, input.to, err)
+		}
+	}
+}
+
+func TestCongestionRouteAvoidsThirdStationBerths(t *testing.T) {
+	t.Parallel()
+	s := &Simulation{network: berthGuardNetwork()}
+	s.SetCongestionRouting(true)
+	s.ensureNetworkIndexes()
+	s.owners = map[resource]string{{kind: trackResource, id: "b-through"}: "01"}
+	route, err := s.route("a-berth", "c-berth")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, lane := range route {
+		if lane.To == "b-berth" {
+			t.Fatalf("congestion route %+v goes through the berth of station b", route)
+		}
+	}
+}

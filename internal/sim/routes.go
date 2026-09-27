@@ -53,13 +53,22 @@ func (s *Simulation) cachedRoute(from, to string) routeResult {
 	return s.cacheRoute(key, routeResult{lanes: lanes, err: err})
 }
 
+// congestionRoute returns the route with the lowest travel time plus
+// congestion cost. The route does not go through the berths of a station
+// other than the stations at from and to. A pod at a berth costs nothing, so
+// without this rule a route could go through the berths of a station to
+// avoid its through lane. When no such route exists, congestionRoute
+// returns the free-flow route.
 func (s *Simulation) congestionRoute(from, to string) routeResult {
 	s.refreshCongestionCosts()
 	key := routeKey{from: from, to: to}
 	if cached, ok := s.congestionRoutes[key]; ok {
 		return cached
 	}
-	lanes, err := s.network.routeIndexed(networkRouteInput{from: from, to: to, extraCost: s.congestionRouteCosts}, s.graph)
+	lanes, err := s.network.routeIndexed(networkRouteInput{from: from, to: to, extraCost: s.congestionRouteCosts, ownBerthsOnly: true}, s.graph)
+	if err != nil {
+		lanes, err = s.network.routeIndexed(networkRouteInput{from: from, to: to}, s.graph)
+	}
 	result := s.withSeconds(routeResult{lanes: lanes, err: err})
 	s.congestionRoutes[key] = result
 	return result

@@ -153,6 +153,10 @@ type networkRouteInput struct {
 	from, to  string
 	forbidden map[string]bool
 	extraCost []float64
+	// ownBerthsOnly stops the search at each berth node of a station that
+	// has no berth at from or at to. Thus the route cannot go through the
+	// berths of a third station.
+	ownBerthsOnly bool
 }
 
 func (n Network) route(input networkRouteInput) ([]Lane, error) {
@@ -190,6 +194,9 @@ func (n Network) routeIndexed(input networkRouteInput, graph routeGraph) ([]Lane
 			edge := graph.edges[laneIndex]
 			// The node indexes are equal only when the node IDs are equal.
 			if input.forbidden != nil && edge.to != from && edge.to != to && input.forbidden[n.Lanes[laneIndex].To] {
+				continue
+			}
+			if input.ownBerthsOnly && !graph.berthAllowed(edge.to, from, to) {
 				continue
 			}
 			extra := 0.0
@@ -437,6 +444,17 @@ type routeGraph struct {
 	// edges holds the route search data of each lane, so that the search
 	// does not look up node IDs. Only a lane in outgoing has an edge.
 	edges []routeEdge
+	// berthStations holds, for each node, the index of the station that has
+	// a berth at the node, or -1.
+	berthStations []int
+}
+
+// berthAllowed reports whether a route search from node from to node to can
+// enter node. It reports false only for a berth node of a station that has
+// no berth at from or at to.
+func (g routeGraph) berthAllowed(node, from, to int) bool {
+	station := g.berthStations[node]
+	return station < 0 || station == g.berthStations[from] || station == g.berthStations[to]
 }
 
 // routeEdge is a lane in the route search. from and to are the node indexes
@@ -450,9 +468,18 @@ func newRouteGraph(network Network) routeGraph {
 	graph := routeGraph{
 		nodes: make(map[string]int, len(network.Nodes)), lanes: make(map[string]int, len(network.Lanes)), outgoing: make([][]int, len(network.Nodes)),
 		incoming: make([][]int, len(network.Nodes)), lengths: make([]float64, len(network.Lanes)), edges: make([]routeEdge, len(network.Lanes)),
+		berthStations: make([]int, len(network.Nodes)),
 	}
 	for index, node := range network.Nodes {
 		graph.nodes[node.ID] = index
+		graph.berthStations[index] = -1
+	}
+	for stationIndex, station := range network.Stations {
+		for _, berth := range station.Berths {
+			if node, ok := graph.nodes[berth.Node]; ok {
+				graph.berthStations[node] = stationIndex
+			}
+		}
 	}
 	for index, lane := range network.Lanes {
 		graph.lanes[lane.ID] = index
