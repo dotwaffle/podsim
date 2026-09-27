@@ -195,6 +195,9 @@ At startup, the server reads `session.json.gz` and restores the session with one
 - `physical`: The pods keep their lane positions and start again at speed 0.
   The server makes the track reservations again.
   A traveling pod that conflicts with another pod, or that has a route that the server cannot restore, goes to a free berth.
+  The routes of the restore must fit in a budget of track cells.
+  The budget is 32 times the cells of the network plus 4 cells for each lane, but at most 256,000 cells.
+  When the saved routes do not fit, the pods with the longest routes go to a free berth first.
   The tier fails when two pods at berths conflict, or when a traveling pod finds no free berth.
   Its parties board again at their origin station, or go back to the queue.
 - `logical`: The server uses this tier with reason `physical_failed` when the `physical` tier fails.
@@ -416,6 +419,8 @@ With `-state`, the server writes these log records at startup:
   The server starts a new session.
 - `Restored session` (INFO) gives the `tier`, the `reason`, and the counts `demoted`, `requeued`, `dropped`, `droppedParties`, `overCap`, and `overBudget`.
   It also gives the saved `tick`, `epochKept`, `final`, `savedAt`, `savedBuild`, the current `build`, and `restoreAttempts`.
+  `overCap` counts the saved routes that were longer than their limit.
+  `overBudget` counts the routes that did not fit in the budget of track cells.
   `bytes` is the compressed size.
   `duration` is the time from the read to the end of the startup save.
   After a failed `physical` tier, `physicalError` tells why it failed.
