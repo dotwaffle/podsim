@@ -21,7 +21,7 @@ const (
 )
 
 // These are the largest counts that Validate accepts. The saved session
-// decoder uses the same limits.
+// decoder uses the same limits, and web/editor.js has a copy of MaxFlows.
 const (
 	// MaxPods is the largest fleet.
 	MaxPods = 200
@@ -43,7 +43,7 @@ const (
 	// MaxBands is the largest number of bands in one demand profile.
 	MaxBands = 24
 	// MaxFlows is the largest number of flows in one demand profile.
-	MaxFlows = 20000
+	MaxFlows = 40000
 )
 
 // MaxFileBytes is the largest project file accepted from local storage. It
@@ -51,7 +51,7 @@ const (
 // the project with the widest demand settings that ValidateDemand accepts.
 // Thus a session state file can hold each valid project, also after a
 // change to its demand settings.
-const MaxFileBytes = 4 << 20
+const MaxFileBytes = 8 << 20
 
 // errTooLarge means that the canonical encoding of a project, with the
 // widest demand settings, has more than MaxFileBytes.

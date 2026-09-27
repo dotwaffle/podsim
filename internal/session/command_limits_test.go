@@ -100,7 +100,7 @@ func pauseWithOrigin(t *testing.T, s *Session, client string, length int) []byte
 func TestCommandShapeLimits(t *testing.T) {
 	s := newTestSession(t)
 	handler := s.Handler(t.TempDir())
-	fill := (maxCommandBytes - len(pauseWithLanes(t, s, "fill", "Lanes", 0))) / 3
+	fill := (MaxCommandBytes - len(pauseWithLanes(t, s, "fill", "Lanes", 0))) / 3
 	tests := []struct {
 		name  string
 		body  []byte
@@ -132,12 +132,12 @@ func TestCommandShapeLimits(t *testing.T) {
 			if recorder.Code != tc.code || (tc.reply != "" && recorder.Body.String() != tc.reply) {
 				t.Fatalf("status %d, reply %q, want %d and %q", recorder.Code, recorder.Body.String(), tc.code, tc.reply)
 			}
-			// The body is at most maxCommandBytes. Reading it, and the
+			// The body is at most MaxCommandBytes. Reading it, and the
 			// buffer of the scan, allocate a few times that. The decoded
 			// lanes of the largest body need more than 70 MB.
 			allocated := after.TotalAlloc - before.TotalAlloc
 			t.Logf("%d bytes, allocated %d bytes", len(tc.body), allocated)
-			if allocated >= 8*maxCommandBytes {
+			if allocated >= 8*MaxCommandBytes {
 				t.Fatalf("the request allocated %d bytes", allocated)
 			}
 		})
@@ -177,8 +177,8 @@ func TestReceiptsKeepNoProject(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if len(body) > maxCommandBytes {
-			t.Fatalf("the body has %d bytes, more than %d", len(body), maxCommandBytes)
+		if len(body) > MaxCommandBytes {
+			t.Fatalf("the body has %d bytes, more than %d", len(body), MaxCommandBytes)
 		}
 		bodies[index] = body
 	}

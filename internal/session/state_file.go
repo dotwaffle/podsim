@@ -92,7 +92,7 @@ type jsonLimits struct {
 // valid object has only a few tens of members. The member limit also bounds
 // the memory that the decoder uses to find duplicate names.
 var stateJSONLimits = jsonLimits{
-	depth: 64, elements: 32_768, members: 256,
+	depth: 64, elements: 65_536, members: 256,
 	arrays: map[string]int64{
 		"/project/network/Nodes":                    project.MaxNodes,
 		"/project/network/Lanes":                    project.MaxLanes,

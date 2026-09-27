@@ -143,7 +143,7 @@ It gets `stale_project`, so that an editor can tell a stale draft from other fai
 After a graceful shutdown starts, the server rejects new commands with `server_stopping`.
 
 The request must have the `application/json` content type.
-The body must be at most 2 MiB and contain one JSON command with no unknown members.
+The body must be at most 4 MiB and contain one JSON command with no unknown members.
 Each array in the body must have no more items than the project limits permit, also for an action that does not use the project.
 For example, `project.network.Lanes` can have at most 4,000 items.
 Each string and each member name in the body must have at most 1,024 bytes, including the quotes and the escapes.

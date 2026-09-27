@@ -285,7 +285,7 @@ func TestDecodeStateFileRejects(t *testing.T) {
 		{"duplicate member", insert(`{`, `"speed":1,`), reasonInvalidState, jsontext.ErrDuplicateName},
 		{"trailing data", compressTestJSON(t, append(slices.Clone(raw), "{}"...)), reasonInvalidState, nil},
 		{"depth 65", insert(`{`, `"extra":`+nested+`,`), reasonInvalidState, errJSONTooDeep},
-		{"array of 32,769 elements", insert(`{`, `"extra":`+zeros(32_769)+`,`), reasonInvalidState, errJSONArrayTooLong},
+		{"array of 65,537 elements", insert(`{`, `"extra":`+zeros(65_537)+`,`), reasonInvalidState, errJSONArrayTooLong},
 		{"201 pods", edit(func(file *stateFile) {
 			file.Simulation.Pods = make([]sim.SavedPod, 201)
 		}), reasonInvalidState, errJSONArrayTooLong},
@@ -580,16 +580,16 @@ func TestDecodeStateFileBombs(t *testing.T) {
 		{"pods to twice the size limit", past, reasonTooLarge, ErrStateTooLarge},
 		{"members up to the size limit", members, reasonInvalidState, errJSONObjectTooLong},
 		{"stations with many berths", arrayBomb(
-			`,"project":{"network":{"Stations":[`, `{"Berths":[`+repeated("{}", 32_768)+"]}", "]}}}",
+			`,"project":{"network":{"Stations":[`, `{"Berths":[`+repeated("{}", 65_536)+"]}", "]}}}",
 		), reasonInvalidState, errJSONArrayTooLong},
 		{"profiles with many flows", arrayBomb(
-			`,"project":{"demandProfiles":[`, `{"flows":[`+repeated("{}", 32_768)+"]}", "]}}",
+			`,"project":{"demandProfiles":[`, `{"flows":[`+repeated("{}", 65_536)+"]}", "]}}",
 		), reasonInvalidState, errJSONArrayTooLong},
 		{"pods with long routes", arrayBomb(
-			`,"simulation":{"pods":[`, `{"route":[`+repeated("0", 32_768)+"]}", "]}}",
+			`,"simulation":{"pods":[`, `{"route":[`+repeated("0", 65_536)+"]}", "]}}",
 		), reasonInvalidState, errJSONArrayTooLong},
 		{"trips with long routes", arrayBomb(
-			`,"simulation":{"waiting":[`, `{"route":[`+repeated("0", 32_768)+"]}", "]}}",
+			`,"simulation":{"waiting":[`, `{"route":[`+repeated("0", 65_536)+"]}", "]}}",
 		), reasonInvalidState, errJSONArrayTooLong},
 	}
 	for _, tc := range tests {
@@ -608,7 +608,11 @@ func TestDecodeStateFileBombs(t *testing.T) {
 			}
 			growth := int64(after.HeapAlloc) - int64(before.HeapAlloc)
 			t.Logf("%d compressed bytes, heap growth %d bytes", len(data), growth)
-			if growth >= 64<<20 {
+			// The decoder reads the decompressed text into one buffer, and
+			// the buffer can grow to twice MaxStateBytes. With the race
+			// detector, the largest measured growth is about 3.3 times
+			// MaxStateBytes.
+			if growth >= 4*MaxStateBytes {
 				t.Fatalf("the heap grew by %d bytes", growth)
 			}
 		})
@@ -736,7 +740,7 @@ func TestEncodeStateFileTooLarge(t *testing.T) {
 	file := newTestStateFile(t)
 	// A project file can hold 1e20, and the project member holds its 21
 	// digits. The project is not valid, but the encoder does not check it.
-	const weights = 200_000
+	const weights = 400_000
 	var profile project.DemandProfile
 	text := `{"id":"p","name":"P","flows":[{"from":"harbor","to":"market","weights":[` +
 		strings.Repeat("1e20,", weights-1) + `1e20]}]}`

@@ -288,7 +288,7 @@ func TestHTTPValidationAndSharedObservers(t *testing.T) {
 		{"type", "POST", string(body), "", "text/plain", 415},
 		{"trailing", "POST", string(body) + " {}", "", "application/json", 400},
 		{"unknown", "POST", `{"unknown":1}`, "", "application/json", 400},
-		{"oversize", "POST", `{"client":"` + strings.Repeat("a", (2<<20)+1) + `"}`, "", "application/json", 400},
+		{"oversize", "POST", `{"client":"` + strings.Repeat("a", MaxCommandBytes+1) + `"}`, "", "application/json", 400},
 		{"unknown checkpoint", "POST", rewind, "", "application/json", 409},
 		{"checkpoint type", "POST", strings.Replace(rewind, `"checkpoint":99`, `"checkpoint":"x"`, 1), "", "application/json", 400},
 	}

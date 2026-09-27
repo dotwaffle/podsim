@@ -30,6 +30,9 @@
   // CLEARANCE is the clearance in meters around a pod, sim.Clearance in the
   // Go code. A new berth chain row must keep this distance from other lanes.
   const CLEARANCE = 12;
+  // MAX_FLOWS is the flow limit of a demand profile on the server
+  // (internal/project/config.go). Keep it the same.
+  const MAX_FLOWS = 40000;
   const STATION_LANE_ROLES = new Set(["approach", "entry", "berth-access", "through", "departure", "exit"]);
   // IMAGE_FILE_BYTES is the largest background image file that the editor
   // imports. SERVER_PROJECT_BYTES mirrors project.MaxFileBytes on the server,
@@ -40,7 +43,7 @@
   // EXPORT_ALLOWANCE bytes for the other fields, rounded up to a whole MiB.
   const MIB = 1024 * 1024;
   const IMAGE_FILE_BYTES = 8 * MIB;
-  const SERVER_PROJECT_BYTES = 4 * 1024 * 1024;
+  const SERVER_PROJECT_BYTES = 8 * 1024 * 1024;
   const EXPORT_ALLOWANCE = 1024;
   const PROJECT_FILE_BYTES = Math.ceil((dataURLBytes(IMAGE_FILE_BYTES) + SERVER_PROJECT_BYTES + EXPORT_ALLOWANCE) / MIB) * MIB;
 
@@ -1078,7 +1081,7 @@
       const bands = Array.isArray(profile.bands) ? profile.bands : [];
       const flows = Array.isArray(profile.flows) ? profile.flows : [];
       if (bands.length < 1 || bands.length > 24) errors.push(`Demand profile ${profile.id} must contain 1 to 24 bands.`);
-      if (flows.length < 1 || flows.length > 20000) errors.push(`Demand profile ${profile.id} must contain 1 to 20000 flows.`);
+      if (flows.length < 1 || flows.length > MAX_FLOWS) errors.push(`Demand profile ${profile.id} must contain 1 to ${MAX_FLOWS} flows.`);
       const bandIDs = new Set(); const totals = new Array(bands.length).fill(0); const pairs = new Set();
       for (const band of bands) {
         if (!isRecord(band) || !validID(band.id) || bandIDs.has(band.id) || typeof band.name !== "string" || !band.name.trim() || !Number.isInteger(band.startMinute) || band.startMinute < 0 || band.startMinute >= 1440 || !Number.isInteger(band.durationMinutes) || band.durationMinutes < 1 || band.durationMinutes > 1440) errors.push(`Demand profile ${profile.id} has an invalid band.`);
@@ -2034,7 +2037,7 @@
   }
 
   const API = {
-    MIN_LANE_LENGTH, MIN_ZOOM, NODE_LABEL_SCALE, NODE_LABEL_SIZE, LANE_PAIR_OFFSET, CHEVRON_LANE_LENGTH, BERTH_PITCH, STATION_PADDING, CLEARANCE, CHECK_DELAY, emptyConfig, fallbackConfig, normalizeConfig, addLane, addJunction, addStation, addBerth,
+    MIN_LANE_LENGTH, MAX_FLOWS, MIN_ZOOM, NODE_LABEL_SCALE, NODE_LABEL_SIZE, LANE_PAIR_OFFSET, CHEVRON_LANE_LENGTH, BERTH_PITCH, STATION_PADDING, CLEARANCE, CHECK_DELAY, emptyConfig, fallbackConfig, normalizeConfig, addLane, addJunction, addStation, addBerth,
     stationBearing, stationShape, rotateStation, setStationBearing, nextBerthPosition, berthChain, nextChainRow, lanePolyline, laneConflict, removeBerth, moveStation, moveNode, deleteNode, deleteLane, deleteStation, stationFlowCount, setFleetCount, fleetRows, selectionCard, berthFocusID, undoFocus, setDemandPattern,
     laneLength, curveLength, reachable, cutOffStations, stationNodeOwners, dragTargets, validateConfig, configWarnings, checkResults, checkSelector, checkSelection, selectionPoint, focusView,
     problemCountText, createCheckTimer, validationSummary, checkFocusKey, IMAGE_FILE_BYTES, SERVER_PROJECT_BYTES, PROJECT_FILE_BYTES, dataURLBytes, serializeDocument, parseDocument, createHistory,

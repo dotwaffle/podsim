@@ -22,7 +22,7 @@ import (
 )
 
 // MaxStateBytes limits the compressed and the decompressed saved state.
-const MaxStateBytes = 16 << 20
+const MaxStateBytes = 32 << 20
 
 const (
 	// stateIOTimeout bounds each call to the state store.

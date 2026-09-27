@@ -561,7 +561,7 @@ func readProject(path string) (project.Config, error) {
 		return project.Config{}, fmt.Errorf("stat project %s: %w", path, err)
 	}
 	if info.Size() > project.MaxFileBytes {
-		return project.Config{}, fmt.Errorf("read project %s: file exceeds 4 MiB", path)
+		return project.Config{}, fmt.Errorf("read project %s: file exceeds %d MiB", path, project.MaxFileBytes>>20)
 	}
 	decoder := json.NewDecoder(io.LimitReader(file, project.MaxFileBytes))
 	decoder.DisallowUnknownFields()

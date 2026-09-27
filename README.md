@@ -82,7 +82,7 @@ Before the server applies a setting change, it saves the file with an atomic rep
 If the save fails, the server rejects the change.
 A rewind that restores the project of a save point also rewrites this file.
 
-Validation limits each project to 4 MiB in this compact form, also after a demand change.
+Validation limits each project to 8 MiB in this compact form, also after a demand change.
 This limit lets the server read the file at the next start.
 
 The browser export wraps the `project` object as `scenario` and can also contain a background image.
@@ -512,8 +512,8 @@ The draft stays local until you select **Pause and apply**.
 - Export JSON to save the scenario and optional background.
   Import JSON to restore a draft.
   The export is compact JSON.
-  The project file must be 15 MiB or smaller.
-  This limit is the image limit in base64 form plus the 4 MiB project limit of the server and a small allowance, rounded up to a whole MiB.
+  The project file must be 19 MiB or smaller.
+  This limit is the image limit in base64 form plus the 8 MiB project limit of the server and a small allowance, rounded up to a whole MiB.
   Thus the editor can import an export with the largest project and the largest background image.
 
 ### Editor keyboard shortcuts
@@ -624,10 +624,11 @@ It can use all lanes.
 A berth route goes from the station entry to the berth, or from the berth to the station exit.
 It can use a chain of lanes, as in the London stations.
 It cannot pass through the entry, exit, or berth node of a station.
-Validation also limits a project to 4 MiB of compact JSON.
+Validation also limits the compact JSON form of a project to 8 MiB or less.
+The editor sends the project in one command, and the server accepts a command of 4 MiB or less.
+A demand profile can have at most 40,000 flows.
 A node can have at most 64 lanes, counted at the start node and at the end node of each lane.
 Two lanes cannot have the same start node, end node, and path.
-The editor sends the project in one command, and the server accepts a command of at most 2 MiB.
 
 Two editor checks give warnings: a junction with no lanes, and a network section that no lane connects to the other nodes.
 The server accepts a project with these warnings, so a warning does not block an apply or an import.

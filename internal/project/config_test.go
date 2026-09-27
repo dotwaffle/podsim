@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"math"
+	"os"
 	"reflect"
 	"slices"
 	"strings"
@@ -136,6 +137,21 @@ func TestValidateRejectsMalformedProjects(t *testing.T) {
 				t.Fatal("accepted malformed project")
 			}
 		})
+	}
+}
+
+// TestEditorMirrorsLimits checks that the editor uses the limits of
+// Validate.
+func TestEditorMirrorsLimits(t *testing.T) {
+	t.Parallel()
+	source, err := os.ReadFile("../../web/editor.js")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for name, want := range map[string]int{"MAX_FLOWS": MaxFlows} {
+		if !strings.Contains(string(source), fmt.Sprintf("const %s = %d;", name, want)) {
+			t.Errorf("web/editor.js does not set %s to %d", name, want)
+		}
 	}
 }
 
@@ -311,12 +327,12 @@ func demandReserve(t *testing.T) int {
 	return len(canonicalJSON(t, widestDemand)) - len(canonicalJSON(t, Default().Demand))
 }
 
-// weightedProject returns a valid project with 34 passenger stations and the
+// weightedProject returns a valid project with 48 passenger stations and the
 // largest number of demand profiles and bands. Each profile has a flow for
 // each ordered pair of stations, so the project has 215,424 weights. Each
 // weight is 1.
 func weightedProject() Config {
-	const stations = 34
+	const stations = 48
 	config := Default()
 	config.Network = loopNetwork(stations)
 	config.Fleet = []sim.Placement{{ID: "01", StationID: "s00", BerthID: "s00-1"}}

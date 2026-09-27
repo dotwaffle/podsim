@@ -18,8 +18,10 @@ import (
 	"github.com/dotwaffle/podsim/internal/project"
 )
 
-// maxCommandBytes is the largest body of a command request.
-const maxCommandBytes = 2 << 20
+// MaxCommandBytes is the largest body of a command request. A project
+// command holds the compact JSON form of a project, so a project that the
+// editor applies must be smaller than this limit.
+const MaxCommandBytes = 4 << 20
 
 // commandJSONLimits bound a command body before it is decoded. Without them,
 // a body with an array of empty objects decodes to about 37 times its size,
@@ -119,7 +121,7 @@ func (s *Session) commandHTTP(w http.ResponseWriter, r *http.Request) {
 		writeError(w, "use application/json", http.StatusUnsupportedMediaType)
 		return
 	}
-	body, err := io.ReadAll(http.MaxBytesReader(w, r.Body, maxCommandBytes))
+	body, err := io.ReadAll(http.MaxBytesReader(w, r.Body, MaxCommandBytes))
 	if err != nil || errors.Is(prescanCommand(body), errCommandShape) {
 		writeError(w, "invalid command JSON", http.StatusBadRequest)
 		return

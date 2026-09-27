@@ -600,13 +600,13 @@ func limitProject(t *testing.T, demand project.DemandConfig) project.Config {
 	return config
 }
 
-// weightedProject returns a valid project with a one-way loop of 34
+// weightedProject returns a valid project with a one-way loop of 48
 // passenger stations. The first station has the ID controlID. The project
 // has the largest number of demand profiles and bands. Each profile has a
 // flow for each ordered pair of stations, so the project has 215,424
 // weights. Each weight is 1.
 func weightedProject() project.Config {
-	const stations = 34
+	const stations = 48
 	stationID := func(index int) string {
 		if index == 0 {
 			return controlID

@@ -182,7 +182,7 @@ test("a station delete removes the demand flows that name the station", () => {
   const empty = editor.deleteStation(config, beta.ID);
   assert.deepEqual(empty.demandProfiles.map((profile) => profile.flows.length), [1, 0]);
   assert.deepEqual(editor.validateConfig(empty).filter((error) => error.startsWith("Demand profile")), [
-    "Demand profile weekend must contain 1 to 20000 flows.",
+    `Demand profile weekend must contain 1 to ${editor.MAX_FLOWS} flows.`,
     "Demand profile weekend has an empty band.",
   ]);
 });

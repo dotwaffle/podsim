@@ -174,12 +174,12 @@ The preset starts with automatic demand and redistribution disabled.
 
 The station-count limit of 100 permits one added station in the editor.
 The limits of 2,000 nodes and 4,000 lanes also apply to that edit.
-The `serve` and `compare` commands read a `-project` file of at most 4 MiB.
+The `serve` and `compare` commands read a `-project` file of 8 MiB or less.
 The generated file is indented, so it is about 3.3 MiB.
-Project validation also limits the compact JSON form of a project to 4 MiB, with room for the widest demand settings.
+Project validation also limits the compact JSON form of a project to 8 MiB, with room for the widest demand settings.
 In that form, the London project is about 1.5 MiB (1,591,018 bytes).
 The server writes the `-project` file in this form when it saves it.
-The editor sends about 1.5 MiB when it applies the project, and the server accepts a command of at most 2 MiB.
+The editor sends about 1.5 MiB when it applies the project, and the server accepts a command of 4 MiB or less.
 Change a limit only after measured editor validation.
 
 The view treats this project as a dense map because it has more than 30 stations.
