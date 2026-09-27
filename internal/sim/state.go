@@ -73,7 +73,8 @@ type SavedRequest struct {
 // SavedPod is a saved pod. A route holds indexes into Network.Lanes.
 type SavedPod struct {
 	ID string `json:"id"`
-	// Activity is idle, departing, boarding, traveling or unloading.
+	// Activity is idle, departing, boarding, traveling, unloading or
+	// continuing.
 	Activity           string `json:"activity"`
 	StationID          string `json:"stationID,omitempty"`
 	BerthID            string `json:"berthID,omitempty"`
@@ -91,6 +92,9 @@ type SavedPod struct {
 	Stops  []string       `json:"stops,omitempty"`
 	// RiddenMeters is the distance that the riders rode before Distance.
 	RiddenMeters float64 `json:"riddenMeters,omitzero"`
+	// JourneyOrigin is the berth where the riders boarded. It is empty when
+	// the riders boarded at Origin.
+	JourneyOrigin string `json:"journeyOrigin,omitempty"`
 	// ClaimsDestination is true when a relocating pod holds its destination
 	// berth.
 	ClaimsDestination bool `json:"claimsDestination,omitzero"`
@@ -267,12 +271,15 @@ func (s *Simulation) exportPod(v *vehicle, limits routeLimits) SavedPod {
 	pod.Stops = slices.Clone(v.Stops)
 	if v.carriesPassengers() {
 		pod.RiddenMeters = v.riddenMeters()
+		if v.journeyOrigin.ID != v.origin.ID {
+			pod.JourneyOrigin = v.journeyOrigin.ID
+		}
 	}
 	if pod.Waiting {
 		pod.WaitSince = v.waitSince
 	}
 	switch v.Pod.Activity {
-	case Boarding, DepartingEmpty:
+	case Boarding, DepartingEmpty, Continuing:
 		pod.Route = s.laneIndexes(v.Route, limits.pod)
 	case Traveling:
 		if v.blocks.len() == 0 {
@@ -337,7 +344,7 @@ func (s *Simulation) laneIndexes(route []Lane, limit int) []int {
 }
 
 // savedActivities lists the activities that a saved state can hold.
-var savedActivities = [...]Activity{Idle, DepartingEmpty, Boarding, Traveling, Unloading}
+var savedActivities = [...]Activity{Idle, DepartingEmpty, Boarding, Traveling, Unloading, Continuing}
 
 // activityCode returns the stable code of an activity in a saved state. The
 // code does not change when the display text of the activity changes.
@@ -353,6 +360,8 @@ func activityCode(activity Activity) string {
 		return "traveling"
 	case Unloading:
 		return "unloading"
+	case Continuing:
+		return "continuing"
 	default:
 		return ""
 	}

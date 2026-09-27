@@ -299,6 +299,7 @@ func (s *Simulation) board(v *vehicle, trip waitingTrip) error {
 	v.Riders = []Request{s.boardingRider(trip, v, 0)}
 	v.Stops = []string{trip.request.To}
 	v.origin, v.destination, v.destinationStation = origin, trip.destination, trip.request.To
+	v.journeyOrigin = origin
 	s.setVehicleRoute(v, trip.route)
 	v.Pod.Activity, v.Pod.WaitReason, v.Pod.BlockedBy = Boarding, NoWait, ""
 	v.phaseTicks, v.blockIndex, v.reservedThrough = boardingTicks, 0, -1

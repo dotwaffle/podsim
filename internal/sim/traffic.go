@@ -483,7 +483,7 @@ func (s *Simulation) admit() {
 	var intents []intent
 	for i := range s.vehicles {
 		v := &s.vehicles[i]
-		ready := (v.Pod.Activity == Boarding || v.Pod.Activity == DepartingEmpty) && v.phaseTicks == 0
+		ready := departs(v.Pod.Activity) && v.phaseTicks == 0
 		if !ready && v.Pod.Activity != Traveling {
 			continue
 		}

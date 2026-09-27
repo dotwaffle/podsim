@@ -55,6 +55,8 @@ func newReleaseFixture(t *testing.T) releaseFixture {
 	}
 	f := releaseFixture{s: s, remote: s.findVehicle("01"), local: s.findVehicle("02"), parked: s.findVehicle("03")}
 	f.local.Pod.Activity, f.local.Pod.Occupied, f.local.destinationStation = Unloading, true, "market"
+	market, _ := s.station("market")
+	f.local.destination, _ = market.berth(f.local.Pod.BerthID)
 	f.local.Riders = []Request{{ID: 1, From: "garden", To: "market", PartySize: 1, PodID: f.local.Pod.ID}}
 	f.local.phaseTicks = 180 * TicksPerSecond
 	s.requestID, s.boarded = 1, 1

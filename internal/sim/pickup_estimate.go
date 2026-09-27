@@ -170,7 +170,7 @@ func (s *Simulation) finishEstimate(v *vehicle) (string, float64, bool) {
 	if v.Pod.Activity == Unloading {
 		station, _ := s.station(v.Pod.StationID)
 		berth, _ := station.berth(v.Pod.BerthID)
-		return berth.Node, float64(v.phaseTicks) / TicksPerSecond, true
+		return s.laterStops(berth.Node, float64(v.phaseTicks)/TicksPerSecond, v.Stops)
 	}
 	seconds := float64(v.phaseTicks)/TicksPerSecond + s.routeSecondsWith(v.Route, v.routeLengths, motionEstimate{distance: v.distance, speed: v.Pod.Speed})
 	if v.RelocatingTo == "" {
@@ -188,7 +188,11 @@ func (s *Simulation) finishEstimate(v *vehicle) (string, float64, bool) {
 			seconds += s.routeSeconds(suffix, motionEstimate{})
 			destination = berth.Node
 		}
-		return destination, seconds + float64(unloadingTicks)/TicksPerSecond, true
+		seconds += float64(unloadingTicks) / TicksPerSecond
+		if len(v.Stops) > 1 {
+			return s.laterStops(destination, seconds, v.Stops[1:])
+		}
+		return destination, seconds, true
 	}
 	for _, trip := range s.waiting {
 		if trip.request.PodID != v.Pod.ID {
@@ -199,6 +203,30 @@ func (s *Simulation) finishEstimate(v *vehicle) (string, float64, bool) {
 		return destination.Berths[0].Node, seconds, true
 	}
 	return v.destination.Node, seconds, true
+}
+
+// laterStops adds the legs to the later stops of a pod to an estimate. The
+// pod is at the node after the given seconds. Each leg goes to the first
+// berth of the stop and includes the unloading time. laterStops returns the
+// node of the last stop and the total seconds. It reports false when a leg
+// has no route.
+func (s *Simulation) laterStops(node string, seconds float64, stops []string) (string, float64, bool) {
+	for _, stop := range stops {
+		route, err := s.stationApproachRoute(node, stop)
+		if err != nil {
+			return "", 0, false
+		}
+		station, _ := s.station(stop)
+		berth := station.Berths[0]
+		suffix, err := s.stationPath(station.Entry, berth.Node)
+		if err != nil {
+			return "", 0, false
+		}
+		seconds += s.routeSeconds(route, motionEstimate{}) + s.routeSeconds(suffix, motionEstimate{}) +
+			float64(unloadingTicks)/TicksPerSecond
+		node = berth.Node
+	}
+	return node, seconds, true
 }
 
 func (s *Simulation) emptySeconds(from, to string) float64 {

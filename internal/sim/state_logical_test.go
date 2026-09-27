@@ -91,7 +91,14 @@ func TestRestoreLogical(t *testing.T) {
 		},
 		{
 			name: "two pods at one berth", physical: "pods 01 and 03 are at berth garden-1",
-			edit:      func(state *SavedState) { state.Pods[2].StationID, state.Pods[2].BerthID = "garden", "garden-1" },
+			// Pod 03 unloads at Garden in place of Market.
+			edit: func(state *SavedState) {
+				pod := &state.Pods[2]
+				pod.StationID, pod.BerthID, pod.DestinationStation, pod.Destination = "garden", "garden-1", "garden", "garden-1"
+				for index := range pod.Riders {
+					pod.Riders[index].To = "garden"
+				}
+			},
 			completed: 2, requeued: []int{4, 5, 6, 8}, dropped: []int{10}, droppedParties: 1,
 		},
 		{

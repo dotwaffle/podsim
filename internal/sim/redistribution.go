@@ -153,7 +153,7 @@ func (s *Simulation) passengerArrivals() map[string]passengerArrival {
 	}
 	for i := range s.vehicles {
 		v := &s.vehicles[i]
-		if (v.Pod.Activity == Boarding || v.Pod.Activity == Traveling) && v.RidersAboard() > 0 {
+		if (v.Pod.Activity == Boarding || v.Pod.Activity == Continuing || v.Pod.Activity == Traveling) && v.RidersAboard() > 0 {
 			add(v)
 		}
 	}

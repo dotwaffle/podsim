@@ -35,6 +35,9 @@ const (
 	Traveling Activity = "Traveling"
 	// Unloading means a party is leaving the pod.
 	Unloading Activity = "Unloading"
+	// Continuing waits for track admission after an intermediate stop, with
+	// parties aboard for a later stop.
+	Continuing Activity = "Continuing"
 )
 
 // WaitReason identifies the local resource that prevents movement.
@@ -193,8 +196,12 @@ type vehicle struct {
 	originReleased              bool
 	distance                    float64
 	// riddenBase is the distance that the riders rode before the start of
-	// distance. It is 0 unless a restore cut the start of the route.
-	riddenBase          float64
+	// distance: the earlier legs of the journey, and the start of the route
+	// that a restore cut.
+	riddenBase float64
+	// journeyOrigin is the berth where the riders boarded. origin is the
+	// berth where the current leg of the journey started.
+	journeyOrigin       Berth
 	pending             int
 	waitSince           int64
 	rebalanceAfter      int64
@@ -570,8 +577,12 @@ func (s *Simulation) Step() {
 			v.phaseTicks--
 		}
 		if v.Pod.Activity == Unloading && v.phaseTicks == 0 {
-			v.Pod.Activity, v.Pod.Occupied = Idle, false
 			s.alight(v)
+			if len(v.Stops) > 0 && v.RidersAboard() > 0 {
+				s.continueJourney(v)
+			} else {
+				v.Pod.Activity, v.Pod.Occupied, v.Stops = Idle, false, nil
+			}
 		}
 	}
 	s.dispatch()
@@ -580,8 +591,8 @@ func (s *Simulation) Step() {
 	s.clearBlockedBerths()
 	for i := range s.vehicles {
 		v := &s.vehicles[i]
-		if (v.Pod.Activity == Boarding || v.Pod.Activity == DepartingEmpty) && v.phaseTicks == 0 && v.reservedThrough >= 0 {
-			v.Pod.Occupied = v.Pod.Activity == Boarding
+		if departs(v.Pod.Activity) && v.phaseTicks == 0 && v.reservedThrough >= 0 {
+			v.Pod.Occupied = v.Pod.Activity == Boarding || v.Pod.Activity == Continuing
 			v.Pod.Activity = Traveling
 			v.Pod.StationID, v.Pod.BerthID = "", ""
 			continue

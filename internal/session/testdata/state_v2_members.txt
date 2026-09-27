@@ -89,6 +89,7 @@ simulation.pods[].riders[].dispatchReason string
 simulation.pods[].stops array
 simulation.pods[].stops[] string
 simulation.pods[].riddenMeters number
+simulation.pods[].journeyOrigin string
 simulation.pods[].claimsDestination boolean
 simulation.pods[].released boolean
 simulation.pods[].route array

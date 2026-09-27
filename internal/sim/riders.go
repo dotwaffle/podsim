@@ -77,7 +77,7 @@ func (s *Simulation) alight(v *vehicle) {
 			continue
 		}
 		if !directKnown {
-			direct, directKnown = s.directDistance(v.origin.Node, rider.To, v.destination), true
+			direct, directKnown = s.directDistance(v.journeyOrigin.Node, rider.To, v.destination), true
 		}
 		rider.Completed = true
 		s.completed++
@@ -126,4 +126,41 @@ func (s *Simulation) directDistance(from, stationID string, berth Berth) float64
 		distance += s.laneLength(lane)
 	}
 	return distance
+}
+
+// departs reports whether a pod at a berth with the activity leaves when
+// its phase ends and it has track.
+func departs(activity Activity) bool {
+	return activity == Boarding || activity == DepartingEmpty || activity == Continuing
+}
+
+// lastStop returns the station where the riders of a pod leave the last
+// time. It is the destination station of a pod without stops.
+func (v *vehicle) lastStop() string {
+	if len(v.Stops) > 0 {
+		return v.Stops[len(v.Stops)-1]
+	}
+	return v.destinationStation
+}
+
+// continueJourney starts the next leg of a pod that unloaded at an
+// intermediate stop. The leg goes from the berth of the pod to the next
+// stop, on the route of the routing policy, as for board. The riders keep
+// their distance, and the pod waits for track as a boarding pod does. When
+// no route to the next stop exists, the pod stays unloading, and the next
+// step tries again. Project validation connects each pair of passenger
+// stations, so this does not occur in a valid project.
+func (s *Simulation) continueJourney(v *vehicle) {
+	berth := v.destination
+	route, err := s.assignedApproachRoute(v, berth.Node, v.Stops[0])
+	if err != nil {
+		return
+	}
+	v.riddenBase += v.distance
+	v.origin, v.destination, v.destinationStation = berth, Berth{}, v.Stops[0]
+	s.setVehicleRoute(v, route)
+	v.Pod.Activity, v.Pod.Occupied, v.Pod.WaitReason, v.Pod.BlockedBy = Continuing, true, NoWait, ""
+	v.phaseTicks, v.blockIndex, v.reservedThrough = 0, 0, -1
+	v.originReleased = false
+	v.distance, v.pending = 0, -1
 }

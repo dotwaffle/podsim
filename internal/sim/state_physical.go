@@ -191,7 +191,8 @@ func (state SavedState) validRequest(request SavedRequest) bool {
 // pod goes to its first stop. In an unloading pod, a rider with no later stop
 // must go to the destination station of the pod, where the pod unloads.
 // Otherwise the restore would complete the journey of that rider at the
-// wrong station.
+// wrong station. An unloading pod must also be at its destination berth,
+// because the next leg of the pod starts there.
 func (state SavedState) validateRiders(pod SavedPod, active map[int]bool) error {
 	if len(pod.Riders) > MaxSharedRideParties || len(pod.Stops) > MaxSharedRideParties {
 		return fmt.Errorf("the pod has %d riders and %d stops", len(pod.Riders), len(pod.Stops))
@@ -205,6 +206,9 @@ func (state SavedState) validateRiders(pod SavedPod, active map[int]bool) error 
 		return nil
 	}
 	unloading := pod.Activity == activityCode(Unloading)
+	if unloading && (pod.Destination != pod.BerthID || pod.DestinationStation != pod.StationID) {
+		return errors.New("the unloading pod is not at its destination")
+	}
 	for _, rider := range pod.Riders {
 		if rider.Completed {
 			continue
@@ -355,8 +359,13 @@ func (r *physicalRestore) decodePod(index int, saved SavedPod) error {
 	}
 	origin, originOK := r.berths[saved.Origin]
 	destination, destinationOK := r.berths[saved.Destination]
-	v.origin, v.destination = origin.berth, destination.berth
+	v.origin, v.destination, v.journeyOrigin = origin.berth, destination.berth, origin.berth
+	journeyOrigin, journeyOriginOK := r.berths[saved.JourneyOrigin]
+	if journeyOriginOK {
+		v.journeyOrigin = journeyOrigin.berth
+	}
 	valid := (originOK || saved.Origin == "") && (destinationOK || saved.Destination == "") &&
+		(journeyOriginOK || saved.JourneyOrigin == "") &&
 		saved.WaitSince >= 0 && saved.WaitSince <= r.state.Tick
 	if activity == Traveling {
 		if !valid || saved.PhaseTicks != 0 || !finite(saved.LaneDistance) || !finite(saved.Distance) || saved.Distance < 0 {
@@ -393,7 +402,8 @@ func maxPhaseTicks(activity Activity) int {
 func (r *physicalRestore) checkPassengers(v *vehicle) error {
 	activity := v.Pod.Activity
 	switch {
-	case (activity == Boarding || activity == Unloading || activity == Traveling && v.RelocatingTo == "") && !v.carriesPassengers():
+	case (activity == Boarding || activity == Unloading || activity == Continuing || activity == Traveling && v.RelocatingTo == "") &&
+		!v.carriesPassengers():
 		return errors.New("the pod has no active request")
 	case (activity == Idle || activity == DepartingEmpty || v.RelocatingTo != "") && v.Pod.Occupied:
 		return errors.New("an empty pod is occupied")
@@ -424,7 +434,7 @@ func (s *Simulation) passengerStation(id string) bool {
 
 // routed reports whether a pod at an activity uses its route.
 func routed(activity Activity) bool {
-	return activity == Boarding || activity == DepartingEmpty || activity == Traveling
+	return departs(activity) || activity == Traveling
 }
 
 // checkRoutes checks the length and the lane indexes of each saved route before
@@ -605,7 +615,7 @@ func (r *physicalRestore) claimBerths() error {
 		}
 		node, _ := r.s.network.Node(berth.Node)
 		v.Pod.Position = node.Position
-		ready := (v.Pod.Activity == Boarding || v.Pod.Activity == DepartingEmpty) && v.phaseTicks == 0
+		ready := departs(v.Pod.Activity) && v.phaseTicks == 0
 		if saved.Waiting && ready && !r.demoted[index] {
 			v.pending, v.waitSince = 0, saved.WaitSince
 		}
@@ -896,6 +906,7 @@ func (r *physicalRestore) boardAgain(v *vehicle, berth Berth) bool {
 	v.Pod.Activity, v.Pod.StationID = Boarding, r.berths[berth.ID].station
 	v.RelocatingTo, v.Rebalancing, v.released = "", false, false
 	v.origin, v.destination, v.destinationStation = berth, Berth{}, v.Stops[0]
+	v.journeyOrigin = berth
 	r.s.setVehicleRoute(v, route)
 	return true
 }

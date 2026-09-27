@@ -669,8 +669,8 @@ func TestStateFileWorstCaseSize(t *testing.T) {
 		riders[index], stops[index] = request, id("t", index)
 	}
 	pod := sim.SavedPod{
-		ID: id("p", 0), Activity: "departing", StationID: id("s", 0), BerthID: id("b", 0),
-		Occupied: true, Riders: riders, Stops: stops, RiddenMeters: -math.MaxFloat64, RelocatingTo: id("r", 0),
+		ID: id("p", 0), Activity: "continuing", StationID: id("s", 0), BerthID: id("b", 0),
+		Occupied: true, Riders: riders, Stops: stops, RiddenMeters: -math.MaxFloat64, JourneyOrigin: id("j", 0), RelocatingTo: id("r", 0),
 		Rebalancing: true, RebalanceAfter: widest, PhaseTicks: widest, Origin: id("o", 0),
 		Destination: id("d", 0), DestinationStation: id("e", 0), ClaimsDestination: true, Released: true,
 		Route: route(lanes + nodes), RouteIndex: widest, LaneID: id("l", 0),

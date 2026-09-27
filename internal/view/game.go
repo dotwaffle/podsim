@@ -1634,6 +1634,8 @@ func (g *Game) drawInspection(screen *ebiten.Image, state sim.Snapshot) {
 		status = "Follows the highlighted route."
 	case sim.Unloading:
 		status = "Party leaves at its destination."
+	case sim.Continuing:
+		status = "Waits to leave for its next stop."
 	}
 	for _, request := range state.Pending {
 		if request.PodID == state.Vehicles[g.selected].Pod.ID && state.Vehicles[g.selected].Pod.Activity == sim.Idle {

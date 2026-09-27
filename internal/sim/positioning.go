@@ -299,9 +299,9 @@ type guardedSupplyInput struct {
 // that a pod that is not idle or a waiting trip goes to, and the berths
 // that the route of a pod that is not idle enters after its claims. It
 // counts the idle pods in the view. A station has supply when it has an idle pod or
-// an unloading pod, when an empty pod that no waiting trip names goes to
-// it, or when a pod with passengers goes to it and becomes available in
-// guardedReachSeconds or less. The estimate is the one of availableAfter,
+// a pod that unloads at its last stop, when an empty pod that no waiting
+// trip names goes to it, or when it is the last stop of a pod with
+// passengers that becomes available in guardedReachSeconds or less. The estimate is the one of availableAfter,
 // but it also counts a stopped pod.
 func (s *Simulation) guardedSupply(input guardedSupplyInput) ([]bool, map[string]bool) {
 	supplied := make([]bool, len(input.demand))
@@ -340,11 +340,11 @@ func (s *Simulation) guardedSupply(input guardedSupplyInput) ([]bool, map[string
 			if index, ok := s.stationIndex(station); ok {
 				input.view.idle[index]++
 			}
-		case v.Pod.Activity == Unloading:
+		case v.Pod.Activity == Unloading && len(v.Stops) == 0:
 			station = v.Pod.StationID
 		case !v.Pod.Occupied && v.RelocatingTo != "" && !input.view.assigned[v.Pod.ID]:
 			station = v.RelocatingTo
-		case v.Pod.Occupied && v.Pod.Activity == Traveling:
+		case v.Pod.Occupied && (v.Pod.Activity == Traveling || v.Pod.Activity == Continuing || v.Pod.Activity == Unloading):
 			inbound = append(inbound, v)
 		}
 		if index, ok := s.stationIndex(station); ok {
@@ -352,7 +352,7 @@ func (s *Simulation) guardedSupply(input guardedSupplyInput) ([]bool, map[string
 		}
 	}
 	for _, v := range inbound {
-		index, ok := s.stationIndex(v.destinationStation)
+		index, ok := s.stationIndex(v.lastStop())
 		if !ok || !input.demand[index] || supplied[index] {
 			continue
 		}
