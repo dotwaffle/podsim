@@ -37,10 +37,12 @@ const (
 	// maxSavedPods is the project fleet limit.
 	maxSavedPods = project.MaxPods
 	// maxSavedTrips is the largest saved queue. The session adds an order
-	// only to a queue of fewer than QueueLimit orders. A restore can put the
-	// order of each pod back in the queue. The traffic demo adds orders to a
-	// full queue, but its fleet has only 4 pods.
-	maxSavedTrips = QueueLimit + maxSavedPods
+	// only to a queue of fewer than QueueLimit orders, and a pod carries at
+	// most sim.MaxSharedRideParties orders. A restore can put each order of
+	// each pod back in the queue. Thus the queue and the pods hold at most
+	// maxSavedTrips orders, also after repeated restores. The traffic demo
+	// adds orders to a full queue, but its fleet has only 4 pods.
+	maxSavedTrips = QueueLimit + sim.MaxSharedRideParties*maxSavedPods
 )
 
 // Reason codes tell why the session cannot use a saved state.

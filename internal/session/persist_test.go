@@ -2590,3 +2590,89 @@ func TestNewFromStoreReportsUnaccountedOrders(t *testing.T) {
 		}
 	}
 }
+
+// TestMaximalRequeueRoundTrip saves a London state with maxSavedPods pods,
+// each boarding sim.MaxSharedRideParties parties, and a queue of QueueLimit
+// orders. The logical tier puts each party back in the queue, so the queue
+// holds maxSavedTrips orders. The session saves that state, restores it,
+// and saves it again through the state file encoding.
+func TestMaximalRequeueRoundTrip(t *testing.T) {
+	t.Parallel()
+	var parking string
+	for _, station := range scenarios.London().Network.Stations {
+		if station.ParkingOnly {
+			parking = station.ID
+			break
+		}
+	}
+	options := scenarios.DefaultLondonOptions()
+	options.StationPods, options.ParkingPods = 2, 2
+	options.Pods = map[string]int{parking: 4}
+	config, err := scenarios.LondonWith(options)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(config.Fleet) != maxSavedPods {
+		t.Fatalf("the fleet has %d pods, want %d", len(config.Fleet), maxSavedPods)
+	}
+	var passenger []string
+	for _, station := range config.Network.Stations {
+		if !station.ParkingOnly {
+			passenger = append(passenger, station.ID)
+		}
+	}
+	store := &fakeStore{}
+	startFromStore(t, StoreInput{Store: store, Project: &config})
+	file := decodeTestState(t, store.writeList()[0])
+	state := &file.Simulation
+	order := func(from, to, podID string) sim.SavedRequest {
+		state.RequestID++
+		return sim.SavedRequest{ID: state.RequestID, From: from, To: to, PartySize: 1, PodID: podID}
+	}
+	for index := range state.Pods {
+		pod := &state.Pods[index]
+		// The logical tier does not check that a boarding pod is at a berth
+		// of its station, so a pod at a parking berth boards at a
+		// passenger station.
+		from := passenger[index%len(passenger)]
+		to := passenger[(index+1)%len(passenger)]
+		*pod = sim.SavedPod{
+			ID: pod.ID, Activity: "boarding", StationID: from, BerthID: pod.BerthID, Origin: pod.BerthID,
+			Stops: []string{to}, DestinationStation: to,
+		}
+		for range sim.MaxSharedRideParties {
+			pod.Riders = append(pod.Riders, order(from, to, pod.ID))
+		}
+		state.Boarded += sim.MaxSharedRideParties
+	}
+	for index := range QueueLimit {
+		state.Waiting = append(state.Waiting, sim.SavedTrip{
+			Request: order(passenger[index%len(passenger)], passenger[(index+2)%len(passenger)], ""),
+		})
+	}
+	logicalOnly(&file)
+	data := encodeTestState(t, file)
+	for round, want := range []RestoreInfo{
+		{Tier: "logical", Reason: reasonRestoreLoop, Requeued: maxSavedPods * sim.MaxSharedRideParties},
+		{Tier: "physical"},
+	} {
+		store := &fakeStore{data: data}
+		s := startFromStore(t, StoreInput{Store: store, Project: &config})
+		if got := s.State().Restore; got != want {
+			t.Fatalf("round %d: restore = %+v, want %+v", round, got, want)
+		}
+		s.Close()
+		if err := s.SaveState(t.Context(), SaveFinal); err != nil {
+			t.Fatal(err)
+		}
+		writes := store.writeList()
+		data = writes[len(writes)-1]
+		file, err := decodeCheckedState(data)
+		if err != nil {
+			t.Fatalf("round %d: %v", round, err)
+		}
+		if queued := len(file.Simulation.Waiting); queued != maxSavedTrips {
+			t.Fatalf("round %d: the saved queue has %d orders, want %d", round, queued, maxSavedTrips)
+		}
+	}
+}

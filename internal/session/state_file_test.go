@@ -624,7 +624,9 @@ func TestDecodeStateFileBombs(t *testing.T) {
 // project.Validate allows, and its JSON form has project.MaxFileBytes, the
 // largest project member that the encoder writes. There are maxSavedPods
 // pods, each with a route of the largest saved length. There are
-// maxSavedTrips queued trips, each with a route of the largest saved length.
+// maxSavedTrips queued trips. Only a trip that a pod picks up has a route,
+// and a pod picks up one trip at a time, so maxSavedPods of the trips have
+// a route of the largest saved length.
 // There are clientLimit client sequences, and each client ID has the
 // longest JSON form. Each other value has its largest length. The size must
 // be accepted, so that a save fails only when its project member is too
@@ -722,7 +724,10 @@ func TestStateFileWorstCaseSize(t *testing.T) {
 	// A file with all pods and trips takes too long to encode with the race
 	// detector. The file has one of each. A comma separates the elements of
 	// an array, so each other pod or trip adds its size and 1.
-	size := jsonSize(t, file) + (maxSavedPods-1)*(jsonSize(t, pod)+1) + (maxSavedTrips-1)*(jsonSize(t, trip)+1)
+	unrouted := trip
+	unrouted.Route = nil
+	size := jsonSize(t, file) + (maxSavedPods-1)*(jsonSize(t, pod)+1) + (maxSavedPods-1)*(jsonSize(t, trip)+1) +
+		(maxSavedTrips-maxSavedPods)*(jsonSize(t, unrouted)+1)
 	t.Logf("worst case: %d JSON bytes, limit %d", size, MaxStateBytes)
 	if size > MaxStateBytes {
 		t.Fatalf("the largest state has %d JSON bytes, more than %d", size, MaxStateBytes)
