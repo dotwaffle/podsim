@@ -7,10 +7,10 @@ import (
 )
 
 // requestStats holds the wait and journey columns of one arm, in seconds,
-// and the occupancy.
+// the occupancy, and the mean detour ratio.
 type requestStats struct {
 	waitP95, journeyAverage, journeyP95, journeyMaximum float64
-	occupancy                                           float64
+	occupancy, detourMean                               float64
 }
 
 // requestTimeStats gives the wait and journey columns from the request
@@ -23,12 +23,20 @@ type requestStats struct {
 // wait and journey.
 //
 // The occupancy is the rider distance of the completed parties divided by
-// the distance of their pod journeys. Each pod journey has one party that
-// boarded the pod, and the other parties joined it.
+// the occupied distance of their pod journeys. Each pod journey has one
+// party that boarded the pod, and the other parties joined it at the same
+// berth. Thus the party that rode the farthest rode the occupied distance
+// of the journey up to its last completed stop.
+//
+// The mean detour ratio is the mean, over the completed parties with a
+// free-flow route, of the rider distance divided by the free-flow distance.
 func requestTimeStats(timings []sim.RequestTiming, state sim.Snapshot) requestStats {
 	waits := make([]int64, 0, len(timings)+len(state.Pending))
 	journeys := make([]int64, 0, len(timings))
-	riderMeters, podMeters := 0.0, 0.0
+	// farthest holds the longest rider distance of each pod journey, by the
+	// request ID of the party that boarded the pod.
+	farthest := make(map[int]float64)
+	riderMeters, podMeters, detourTotal, detours := 0.0, 0.0, 0.0, 0
 	for _, timing := range timings {
 		waits = append(waits, timing.BoardedTick-timing.RequestedTick)
 		if timing.CompletedTick < 0 {
@@ -36,8 +44,22 @@ func requestTimeStats(timings []sim.RequestTiming, state sim.Snapshot) requestSt
 		}
 		journeys = append(journeys, timing.CompletedTick-timing.RequestedTick)
 		riderMeters += timing.RiddenMeters
-		if timing.SharedWith == 0 {
-			podMeters += timing.RiddenMeters
+		lead := timing.RequestID
+		if timing.SharedWith != 0 {
+			lead = timing.SharedWith
+		}
+		farthest[lead] = max(farthest[lead], timing.RiddenMeters)
+		if timing.DirectMeters > 0 {
+			detourTotal += timing.RiddenMeters / timing.DirectMeters
+			detours++
+		}
+	}
+	// The sum follows the order of the timings, so that the result does not
+	// depend on map order.
+	for _, timing := range timings {
+		if meters, ok := farthest[timing.RequestID]; ok && timing.SharedWith == 0 {
+			podMeters += meters
+			delete(farthest, timing.RequestID)
 		}
 	}
 	for _, request := range state.Pending {
@@ -56,6 +78,9 @@ func requestTimeStats(timings []sim.RequestTiming, state sim.Snapshot) requestSt
 	}
 	if podMeters > 0 {
 		stats.occupancy = riderMeters / podMeters
+	}
+	if detours > 0 {
+		stats.detourMean = detourTotal / float64(detours)
 	}
 	return stats
 }

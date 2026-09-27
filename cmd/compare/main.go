@@ -173,6 +173,10 @@ type result struct {
 	EmptyDistanceMeters            float64 `json:"empty_distance_meters"`
 	LoadedDistancePercent          float64 `json:"loaded_distance_percent"`
 	Occupancy                      float64 `json:"occupancy"`
+	RiderDistanceMeters            float64 `json:"rider_distance_meters"`
+	DirectDistanceMeters           float64 `json:"direct_distance_meters"`
+	DetourRatioMean                float64 `json:"detour_ratio_mean"`
+	DetourRatioMax                 float64 `json:"detour_ratio_max"`
 	PositioningMoveCount           int     `json:"positioning_moves"`
 }
 
@@ -1033,7 +1037,9 @@ func run(input runInput) (result, error) {
 		PassengerDistanceMeters: state.PassengerDistanceMeters, EmptyDistanceMeters: state.EmptyDistanceMeters,
 		LoadedDistancePercent: loadedDistancePercent(state.PassengerDistanceMeters, state.EmptyDistanceMeters),
 		Occupancy:             requests.occupancy,
-		PositioningMoveCount:  state.RebalanceMoves,
+		RiderDistanceMeters:   state.RiderDistanceMeters, DirectDistanceMeters: state.DirectDistanceMeters,
+		DetourRatioMean: requests.detourMean, DetourRatioMax: state.MaxDetourRatio,
+		PositioningMoveCount: state.RebalanceMoves,
 	}, nil
 }
 
@@ -1094,7 +1100,7 @@ func writeReport(input writeReportInput) error {
 	case "json":
 		encoder := json.NewEncoder(input.output)
 		encoder.SetIndent("", "  ")
-		if err := encoder.Encode(report{SchemaVersion: 6, Results: input.results}); err != nil {
+		if err := encoder.Encode(report{SchemaVersion: 7, Results: input.results}); err != nil {
 			return fmt.Errorf("write JSON report: %w", err)
 		}
 		return nil
@@ -1168,7 +1174,8 @@ func writeCSV(input writeReportInput) error {
 		"peak_node_throughput_per_minute", "peak_node",
 		"queue_cleared", "queue_clear_seconds",
 		"wait_average_seconds", "wait_maximum_seconds", "wait_p95_seconds",
-		"journey_average_seconds", "journey_p95_seconds", "journey_maximum_seconds", "passenger_distance_meters", "empty_distance_meters", "loaded_distance_percent", "occupancy", "positioning_moves",
+		"journey_average_seconds", "journey_p95_seconds", "journey_maximum_seconds", "passenger_distance_meters", "empty_distance_meters", "loaded_distance_percent", "occupancy",
+		"rider_distance_meters", "direct_distance_meters", "detour_ratio_mean", "detour_ratio_max", "positioning_moves",
 	)
 	if err := w.Write(header); err != nil {
 		return fmt.Errorf("write CSV header: %w", err)
@@ -1197,6 +1204,8 @@ func writeCSV(input writeReportInput) error {
 			floatText(outcome.JourneyAverageSeconds), floatText(outcome.JourneyP95Seconds), floatText(outcome.JourneyMaximumSeconds),
 			floatText(outcome.PassengerDistanceMeters),
 			floatText(outcome.EmptyDistanceMeters), floatText(outcome.LoadedDistancePercent), floatText(outcome.Occupancy),
+			floatText(outcome.RiderDistanceMeters), floatText(outcome.DirectDistanceMeters),
+			floatText(outcome.DetourRatioMean), floatText(outcome.DetourRatioMax),
 			strconv.Itoa(outcome.PositioningMoveCount),
 		)
 		if err := w.Write(row); err != nil {

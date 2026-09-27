@@ -783,7 +783,7 @@ The other rows are identical to the rows of a full run.
 
 #### Report columns
 
-The JSON report has `schema_version` 6.
+The JSON report has `schema_version` 7.
 These columns give the waits and journeys of the passengers.
 
 | Column | Definition |
@@ -804,16 +804,30 @@ Thus, for an arm that does not drain, the journey columns do not include the lon
 
 The compare command reads a separate record for each party from the simulation.
 Each party that joins a shared ride has its own wait and journey.
-Its boarding time is the time of the join, and its journey ends when the pod completes unloading.
+Its boarding time is the time of the join, and its journey ends when the pod completes unloading at its stop.
 
-The `occupancy` column is the rider distance divided by the pod distance.
-A pod journey goes from the origin berth to the destination berth.
-The pod distance adds the distance of each pod journey that ended before the end of the arm.
-The rider distance adds the distance of the pod journey of each party that alighted.
-With same-destination sharing, each party rides the full pod journey.
-Thus the value is 1 without sharing, and with sharing it is the mean number of parties aboard, weighted by distance.
-The value is 0 when no pod journey ended.
-The pod distance does not include the journeys in progress at the end of the arm, so it can be less than `passenger_distance_meters`.
+These columns give the distances of the parties that alighted.
+
+| Column | Definition |
+| --- | --- |
+| `occupancy` | The rider distance of the parties that alighted, divided by the occupied distance of their pod journeys. |
+| `rider_distance_meters` | The sum of the distances that the parties that alighted rode, from the berth where they boarded to the berth where they alighted. |
+| `direct_distance_meters` | The sum of the free-flow distances of the same parties between the same two berths. |
+| `detour_ratio_mean` | The mean, over the same parties, of the ratio of the rider distance to the free-flow distance. |
+| `detour_ratio_max` | The largest ratio for one party. |
+
+A pod journey starts when the first party boards the pod.
+All parties of a pod journey board at the same berth.
+The occupied distance of a pod journey is the longest rider distance of its parties.
+Without sharing, the occupancy is 1.
+With sharing, it is the mean number of parties aboard, weighted by distance.
+The value is 0 when no party alighted.
+The occupancy does not include the parts of pod journeys after the last party that alighted before the end of the arm.
+
+The free-flow distance is the length of the shortest route from the berth where the party boarded to the entry of its destination station, and then along the station path to the berth where it alighted.
+The routing policy does not change it.
+A detour ratio of 1 means that the pod took this route.
+A route around a full station, or a route of the routing policy, makes the ratio larger than 1.
 
 These columns give the time that pods spend stopped, in pod-seconds.
 A pod is stopped when it has a wait reason and its speed is less than 0.1 m/s.
