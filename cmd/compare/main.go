@@ -13,6 +13,7 @@ import (
 	"math/rand"
 	randv2 "math/rand/v2"
 	"os"
+	"runtime/debug"
 	"slices"
 	"sort"
 	"strconv"
@@ -195,7 +196,17 @@ type cliInput struct {
 	stdout, stderr io.Writer
 }
 
+// compareGCPercent is the GC percent of compare runs when GOGC is not
+// set. A London arm has a live heap of about 60 MB, and GC at the default
+// 100 uses about 16 percent of its CPU. At 400, an arm uses about 14
+// percent less CPU and about 120 MB more memory. The reports do not
+// change.
+const compareGCPercent = 400
+
 func main() {
+	if os.Getenv("GOGC") == "" {
+		debug.SetGCPercent(compareGCPercent)
+	}
 	os.Exit(runCLI(cliInput{args: os.Args[1:], stdout: os.Stdout, stderr: os.Stderr}))
 }
 
