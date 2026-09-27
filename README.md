@@ -504,7 +504,8 @@ The draft stays local until you select **Pause and apply**.
   Each lane keeps its nodes.
   The project file has no bearing field.
   The editor gets the bearing from the entry and exit positions.
-- Set the passenger generation option, rate, pattern, destination, OD profile, time band, same-destination party limit, seed, and redistribution option.
+- Set the passenger generation option, rate, pattern, destination, OD profile, time band, party limit, shared ride mode, stop limit, seed, and redistribution option.
+  The stop limit shows only for the drop-offs mode.
 - Use undo and redo for draft changes.
   See [Editor keyboard shortcuts](#editor-keyboard-shortcuts).
 - Drag empty space to pan, and use the wheel to zoom.

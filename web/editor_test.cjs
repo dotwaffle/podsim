@@ -1660,6 +1660,23 @@ test("portable projects preserve the shared ride party limit", () => {
   assert.ok(editor.validateConfig(config).some((error) => error.includes("shared ride party limit")));
 });
 
+test("portable projects preserve the shared ride mode and stop limit", () => {
+  const config = connectedScenario();
+  Object.assign(config, { sharedRidePartyLimit: 4, sharedRideMode: "drop-offs", sharedRideMaxStops: 5 });
+  assert.deepEqual(editor.validateConfig(config), []);
+  const imported = editor.parseDocument(editor.serializeDocument(config)).scenario;
+  assert.deepEqual([imported.sharedRideMode, imported.sharedRideMaxStops], ["drop-offs", 5]);
+  const cases = [
+    { name: "an unknown mode", edit: { sharedRideMode: "pickups" }, error: "The shared ride mode must be destination or drop-offs." },
+    { name: "a mode that is not text", edit: { sharedRideMode: 1 }, error: "The shared ride mode must be destination or drop-offs." },
+    { name: "a stop limit above 7", edit: { sharedRideMaxStops: 8 }, error: "The shared ride stop limit must be 1 to 7." },
+    { name: "a stop limit as text", edit: { sharedRideMaxStops: "3" }, error: "The shared ride stop limit must be 1 to 7." },
+  ];
+  for (const item of cases) {
+    assert.deepEqual(editor.validateConfig({ ...config, ...item.edit }), [item.error], item.name);
+  }
+});
+
 test("import gives the default settings to a browser export that leaves them out", () => {
   // An older or edited browser export can leave out a setting. The import
   // adds the default value, as for a server project file. A party limit from
@@ -1670,6 +1687,8 @@ test("import gives the default settings to a browser export that leaves them out
     { name: "no party limit", edit: (config) => { delete config.sharedRidePartyLimit; }, want: (config) => ({ ...config, sharedRidePartyLimit: 1 }) },
     { name: "a valid party limit", edit: (config) => { config.sharedRidePartyLimit = 4; }, want: (config) => config },
     { name: "a zero party limit, which the server loads as one", edit: (config) => { config.sharedRidePartyLimit = 0; }, want: (config) => ({ ...config, sharedRidePartyLimit: 1 }) },
+    { name: "no shared ride mode", edit: (config) => { delete config.sharedRideMode; delete config.sharedRideMaxStops; }, want: (config) => ({ ...config, sharedRideMode: "destination", sharedRideMaxStops: 3 }) },
+    { name: "an empty mode and a zero stop limit, which the server loads as the defaults", edit: (config) => { Object.assign(config, { sharedRideMode: "", sharedRideMaxStops: 0 }); }, want: (config) => ({ ...config, sharedRideMode: "destination", sharedRideMaxStops: 3 }) },
     { name: "no demand profiles", edit: (config) => { delete config.demandProfiles; }, want: (config) => ({ ...config, demandProfiles: [] }) },
     { name: "a valid band that is not the first", edit: (config) => { Object.assign(config.demand, { profile: "weekday", band: "pm" }); }, want: (config) => config },
     { name: "a party limit above 8", edit: (config) => { config.sharedRidePartyLimit = 9; }, error: limitError },
@@ -3443,6 +3462,7 @@ test("an empty scenario and the fallback draft have the settings of a normalized
     const config = tc.config();
     const normalized = editor.normalizeConfig(config);
     assert.equal(config.sharedRidePartyLimit, 1, tc.name);
+    assert.deepEqual([config.sharedRideMode, config.sharedRideMaxStops], ["destination", 3], tc.name);
     assert.deepEqual(config, normalized, tc.name);
     assert.deepEqual(editor.validateConfig(config), editor.validateConfig(normalized), tc.name);
     assert.deepEqual(editor.configWarnings(config), editor.configWarnings(normalized), tc.name);

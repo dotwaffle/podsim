@@ -41,6 +41,8 @@
   const MAX_NODE_LANES = 64;
   const MAX_FLOWS = 40000;
   const STATION_LANE_ROLES = new Set(["approach", "entry", "berth-access", "through", "departure", "exit"]);
+  // sharedRideModes mirrors the modes of sim.SharedRideMode.
+  const sharedRideModes = ["destination", "drop-offs"];
   // IMAGE_FILE_BYTES is the largest background image file that the editor
   // imports. SERVER_PROJECT_BYTES mirrors project.MaxFileBytes on the server,
   // the largest compact project. A Go test in internal/project checks the
@@ -81,6 +83,8 @@
       demand: { enabled: false, perMinute: 2, pattern: "balanced", destination: "", profile: "", band: "", seed: 1 },
       demandProfiles: [],
       sharedRidePartyLimit: 1,
+      sharedRideMode: "destination",
+      sharedRideMaxStops: 3,
       redistribution: false,
     };
   }
@@ -130,6 +134,8 @@
     if (demandProfile && Array.isArray(demandProfile.bands) && !demandProfile.bands.some((band) => band && band.id === config.demand.band)) config.demand.band = demandProfile.bands[0]?.id || "";
     config.demand.seed = Math.max(0, Math.floor(Number(config.demand.seed) || 0));
     config.sharedRidePartyLimit = Math.max(1, Math.min(8, Math.floor(Number(config.sharedRidePartyLimit) || 1)));
+    config.sharedRideMode = sharedRideModes.includes(config.sharedRideMode) ? config.sharedRideMode : "destination";
+    config.sharedRideMaxStops = Math.max(1, Math.min(7, Math.floor(Number(config.sharedRideMaxStops) || 3)));
     config.redistribution = Boolean(config.redistribution);
     inferStationLanes(config.network);
     return config;
@@ -1397,6 +1403,8 @@
     }
     if (!demand || !Number.isSafeInteger(demand.seed) || demand.seed < 0) errors.push("The demand seed must be a nonnegative whole number.");
     if ("sharedRidePartyLimit" in value && (!Number.isInteger(value.sharedRidePartyLimit) || value.sharedRidePartyLimit < 0 || value.sharedRidePartyLimit > 8)) errors.push("The shared ride party limit must be 1 to 8.");
+    if ("sharedRideMode" in value && value.sharedRideMode !== "" && !sharedRideModes.includes(value.sharedRideMode)) errors.push("The shared ride mode must be destination or drop-offs.");
+    if ("sharedRideMaxStops" in value && (!Number.isInteger(value.sharedRideMaxStops) || value.sharedRideMaxStops < 0 || value.sharedRideMaxStops > 7)) errors.push("The shared ride stop limit must be 1 to 7.");
     return [...new Set(errors)];
   }
 
@@ -2843,6 +2851,9 @@
     bandSelect.value = demand.band; $("#profileLabel").hidden = demand.pattern !== "profile"; $("#bandLabel").hidden = demand.pattern !== "profile";
     $("#demandPattern").querySelector('option[value="profile"]').disabled = profiles.length === 0;
     $("#sharedRidePartyLimit").value = config.sharedRidePartyLimit;
+    $("#sharedRideMode").value = config.sharedRideMode;
+    $("#sharedRideMaxStops").value = config.sharedRideMaxStops;
+    $("#sharedRideMaxStopsLabel").hidden = config.sharedRideMode !== "drop-offs";
   }
 
   function render() {
@@ -3356,6 +3367,8 @@
     $("#demandProfile").addEventListener("change", (event) => mutate((config) => { config.demand.profile = event.target.value; config.demand.band = config.demandProfiles.find((profile) => profile.id === event.target.value)?.bands?.[0]?.id || ""; return config; }));
     $("#demandBand").addEventListener("change", (event) => mutate((config) => { config.demand.band = event.target.value; return config; }));
     $("#sharedRidePartyLimit").addEventListener("change", (event) => mutate((config) => { config.sharedRidePartyLimit = Math.max(1, Math.min(8, Math.floor(Number(event.target.value) || 1))); return config; }));
+    $("#sharedRideMode").addEventListener("change", (event) => mutate((config) => { config.sharedRideMode = sharedRideModes.includes(event.target.value) ? event.target.value : "destination"; return config; }));
+    $("#sharedRideMaxStops").addEventListener("change", (event) => mutate((config) => { config.sharedRideMaxStops = Math.max(1, Math.min(7, Math.floor(Number(event.target.value) || 3))); return config; }));
     $("#demandSeed").addEventListener("change", (event) => mutate((config) => { config.demand.seed = Math.max(0, Math.floor(Number(event.target.value))); return config; }));
     $("#redistribution").addEventListener("change", (event) => mutate((config) => { config.redistribution = event.target.checked; return config; }));
     $("#fleetControls").addEventListener("change", (event) => { if (event.target.dataset.station) setDraft(setFleetCount(draft(), event.target.dataset.station, event.target.value)); });
