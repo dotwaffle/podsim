@@ -31,7 +31,7 @@ var cloneRules = map[reflect.Type]map[string]cloneRule{
 		"vehicles": cloneCopy, "owners": cloneCopy, "demo": cloneCopy, "waiting": cloneCopy,
 		"demandWeights": cloneShare, "congestionRouteCosts": cloneShare, "congestionRoutes": cloneCopy,
 		"laneSafety": cloneShare, "berthSafety": cloneShare, "vehicleIndexes": cloneShare,
-		"berthResources": cloneShare, "laneCells": cloneShare,
+		"berthResources": cloneShare, "laneCells": cloneShare, "approachStations": cloneShare, "routeStations": cloneDrop,
 		"requestBoardings": cloneCopy, "requestCompletions": cloneCopy, "nodePasses": cloneCopy,
 	},
 	reflect.TypeFor[vehicle](): {
@@ -168,6 +168,7 @@ var persistRules = map[reflect.Type]map[string]persistRule{
 		"passengerDistanceMeters": persistSave, "emptyDistanceMeters": persistSave, "rebalanceMoves": persistSave,
 		"sharedRidePartyLimit": persistSave, "sharedParties": persistSave,
 		"sharedRideMode": persistSave, "sharedRideMaxStops": persistSave,
+		"approachStations": persistDerive, "routeStations": persistReset,
 		"journeys": persistSave, "totalJourneyTicks": persistSave, "maxJourneyTicks": persistSave,
 		"riderDistanceMeters": persistSave, "directDistanceMeters": persistSave, "maxDetourRatio": persistSave,
 		"laneSafety": persistDerive, "berthSafety": persistDerive, "vehicleIndexes": persistDerive, "berthResources": persistDerive,
@@ -353,6 +354,9 @@ func activeCloneSimulation(t *testing.T) *Simulation {
 		t.Fatal(err)
 	}
 	advance(s, 35*TicksPerSecond)
+	// The demo does not use drop-offs, so the fixture fills the station
+	// caches of drop-offs.
+	s.stationsOnRoute("harbor-berth", "market")
 	return s
 }
 

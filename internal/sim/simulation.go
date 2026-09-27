@@ -280,15 +280,18 @@ type Simulation struct {
 	sharedRidePartyLimit                      int
 	sharedRideMode                            SharedRideMode
 	sharedRideMaxStops                        int
-	sharedParties                             int
-	routingPolicy                             RoutingPolicy
-	finishingPodWait                          FinishingPodWait
-	congestionRouteCosts                      []float64
-	congestionRoutes                          map[routeKey]routeResult
-	nextCongestionRouteRefresh                int64
-	reservationLookaheadSeconds               float64
-	laneSafety                                map[string]SafetyLocation
-	berthSafety                               map[string]SafetyLocation
+	// approachStations and routeStations belong to stationsOnRoute.
+	approachStations            map[string][]string
+	routeStations               map[stopKey][]string
+	sharedParties               int
+	routingPolicy               RoutingPolicy
+	finishingPodWait            FinishingPodWait
+	congestionRouteCosts        []float64
+	congestionRoutes            map[routeKey]routeResult
+	nextCongestionRouteRefresh  int64
+	reservationLookaheadSeconds float64
+	laneSafety                  map[string]SafetyLocation
+	berthSafety                 map[string]SafetyLocation
 	// berthResources holds the berth resources at each node. NewFleet and
 	// ensureNetworkIndexes build it. No code writes to it in place.
 	berthResources map[string][]resource

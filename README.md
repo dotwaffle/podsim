@@ -963,8 +963,30 @@ With `-project`, **Start demand** saves this setting in the file, so demand star
 
 One party contains one passenger.
 By default, each party uses one pod.
-An optional limit of two to eight lets unassigned parties join a pod that is still boarding at the same origin for the same destination.
-Sharing does not wait for more parties or add stops.
+An optional limit of two to eight lets unassigned parties join a pod that is still boarding at their origin.
+The project setting `sharedRideMode` selects the parties that can join:
+
+| Mode | Parties that can join |
+| --- | --- |
+| `destination` | The default. Parties for the destination of the pod. |
+| `drop-offs` | Parties for a stop of the pod, or for a station that the pod can add as a stop. |
+
+In `drop-offs` mode, a boarding pod adds a stop for a new party in one of these conditions:
+
+- The free-flow route from the boarding berth to the last stop passes the start of an approach lane of the station.
+  The new stop goes between the other stops in route order.
+- The free-flow route from the boarding berth to the station passes each stop in the same order.
+  The station becomes the last stop.
+
+The conditions use the free-flow routes with each routing policy.
+Each leg of the pod takes the route of the routing policy.
+A new stop before the first stop changes the route of the pod, so the pod adds a stop only before it gets track.
+The project setting `sharedRideMaxStops` sets the maximum number of stops before the last stop, from 1 to 7.
+The default is 3.
+The stops do not change after the pod departs.
+At each stop, the parties for that stop alight, and the pod continues to its next stop with the other parties.
+While it waits for track at such a stop, its activity is **Continuing**.
+Sharing does not wait for more parties, and a pod with passengers does not pick up parties on its way.
 
 #### Dispatch order
 

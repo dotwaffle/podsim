@@ -11,7 +11,7 @@ import (
 func (s *Simulation) Clone() *Simulation {
 	c := *s
 	// Lookups refill these caches with identical results.
-	c.lengths, c.routes, c.routeOrder = nil, nil, nil
+	c.lengths, c.routes, c.routeOrder, c.routeStations = nil, nil, nil, nil
 	c.vehicles = slices.Clone(s.vehicles)
 	for i := range c.vehicles {
 		v := &c.vehicles[i]

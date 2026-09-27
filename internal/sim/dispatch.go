@@ -85,7 +85,7 @@ func (s *Simulation) dispatch() {
 		}
 		trip := &s.waiting[i]
 		trip.request.DispatchReason = ""
-		if trip.request.PodID == "" && s.joinSharedRide(*trip) {
+		if trip.request.PodID == "" && s.joinSharedRide(*trip, &pass) {
 			pass.reset()
 			s.waiting = slices.Delete(s.waiting, i, i+1)
 			continue
@@ -219,6 +219,10 @@ type dispatchPass struct {
 	// true. See mayBeIdle.
 	idle      stationFilter
 	idleKnown bool
+	// boarding holds the boarding pods by station when boardingKnown is
+	// true. See boardingPods.
+	boarding      map[string][]*vehicle
+	boardingKnown bool
 }
 
 // reset removes the results of the pass.
@@ -226,6 +230,7 @@ func (pass *dispatchPass) reset() {
 	clear(pass.pickups)
 	pass.free, pass.freeKnown = pass.free[:0], false
 	pass.idleKnown = false
+	pass.boardingKnown = false
 }
 
 // mayBeIdle reports false only when no pod is idle at the station. It
@@ -322,17 +327,25 @@ func (s *Simulation) boardingRider(trip waitingTrip, v *vehicle, sharedWith int)
 	return rider
 }
 
-// joinSharedRide adds the party of a trip to a boarding pod with the same
-// origin and destination. The pod must have room for one more party.
-func (s *Simulation) joinSharedRide(trip waitingTrip) bool {
+// joinSharedRide adds the party of a trip to the first pod in fleet order
+// that boards at the origin of the trip and has room for one more party. In
+// destination mode, the pod must go to the destination of the trip. In
+// drop-offs mode, the pod must stop at the destination or be able to add
+// it as a stop. See dropOffStops.
+func (s *Simulation) joinSharedRide(trip waitingTrip, pass *dispatchPass) bool {
 	if s.sharedRidePartyLimit <= 1 {
 		return false
 	}
 	request := trip.request
-	for index := range s.vehicles {
-		v := &s.vehicles[index]
-		if v.Pod.Activity != Boarding || v.Pod.StationID != request.From || v.destinationStation != request.To ||
-			len(v.Riders) == 0 || len(v.Riders) >= s.sharedRidePartyLimit {
+	for _, v := range s.boardingPods(pass)[request.From] {
+		if len(v.Riders) >= s.sharedRidePartyLimit {
+			continue
+		}
+		if s.sharedRideMode != SharedRideDropOffs {
+			if v.destinationStation != request.To {
+				continue
+			}
+		} else if stops, ok := s.dropOffStops(v, request.To); !ok || !s.setBoardingStops(v, stops) {
 			continue
 		}
 		if !trip.boarded {
@@ -342,6 +355,26 @@ func (s *Simulation) joinSharedRide(trip waitingTrip) bool {
 		return true
 	}
 	return false
+}
+
+// boardingPods returns the pods that board a party, by station, in fleet
+// order. It finds the pods at the first call after a reset of the pass.
+// Only board makes a boarding pod during dispatch, and dispatch resets the
+// pass after it.
+func (s *Simulation) boardingPods(pass *dispatchPass) map[string][]*vehicle {
+	if !pass.boardingKnown {
+		clear(pass.boarding)
+		if pass.boarding == nil {
+			pass.boarding = make(map[string][]*vehicle)
+		}
+		for i := range s.vehicles {
+			if v := &s.vehicles[i]; v.Pod.Activity == Boarding && len(v.Riders) > 0 {
+				pass.boarding[v.Pod.StationID] = append(pass.boarding[v.Pod.StationID], v)
+			}
+		}
+		pass.boardingKnown = true
+	}
+	return pass.boarding
 }
 
 // recordBoarding counts the wait of a request that boards now. sharedWith is
