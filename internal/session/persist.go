@@ -773,7 +773,7 @@ func (s *Session) commandSequences() []savedSequence {
 	}
 	sequences := make([]savedSequence, 0, count)
 	for client, stored := range s.receipts {
-		sequences = append(sequences, savedSequence{Client: client, Sequence: stored.command.Sequence})
+		sequences = append(sequences, savedSequence{Client: client, Sequence: stored.sequence})
 	}
 	for client, sequence := range s.restoredSequences {
 		sequences = append(sequences, savedSequence{Client: client, Sequence: sequence})

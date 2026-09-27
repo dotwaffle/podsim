@@ -28,6 +28,10 @@ const (
 	clientLimit = 1024
 	// maxClientBytes is the largest size of a client ID, in bytes.
 	maxClientBytes = 100
+	// maxErrorBytes is the largest size of the error text of a reply, in
+	// bytes. The session keeps the last reply of each client, so a long
+	// error for each of clientLimit clients would use much memory.
+	maxErrorBytes = 1024
 )
 
 // State is an authoritative, immutable copy sent to observers.
@@ -162,8 +166,13 @@ type Reply struct {
 	Error           string           `json:"error,omitempty"`
 }
 
+// receipt is the result of the last command of a client. It keeps the
+// sequence and the digest of the command, not the command, so that each
+// receipt has a fixed size. A command can hold a project of some megabytes,
+// and the session keeps a receipt for each of clientLimit clients.
 type receipt struct {
-	command Command
+	sequence uint64
+	digest   commandDigest
 	// reply has no StateSaved. Apply sets it for each call.
 	reply Reply
 	// saveState is true when Apply saves the state before the reply. An
@@ -425,7 +434,15 @@ func (s *Session) Project() ProjectState {
 // replies. This save waits for the save of the first request, and it writes
 // nothing when the state did not change after that save.
 func (s *Session) Apply(command Command) Reply {
-	result := s.applyCommand(cloneCommand(command))
+	// The digest includes the project of each action, so a retry with
+	// another project gets SequenceConflict, also for an action that does
+	// not use the project. Only a project action keeps the project, and
+	// applyProject copies it.
+	digest := digestCommand(command)
+	if command.Action != "project" {
+		command.Project = nil
+	}
+	result := s.applyCommand(command, digest)
 	// Save a project change soon. A saved state with an earlier project
 	// does not match the project file after a crash. When the save before
 	// the reply fails, this save tries again.
@@ -460,8 +477,9 @@ type commandResult struct {
 	saveState      bool
 }
 
-// applyCommand holds the lock while it checks and applies command.
-func (s *Session) applyCommand(command Command) commandResult {
+// applyCommand holds the lock while it checks and applies command. digest
+// is the digest of the command that the client sent.
+func (s *Session) applyCommand(command Command, digest commandDigest) commandResult {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	projectRevision := s.projectRevision
@@ -485,10 +503,10 @@ func (s *Session) applyCommand(command Command) commandResult {
 		previous, exists := s.receipts[command.Client]
 		restored, isRestored := s.restoredSequences[command.Client]
 		switch {
-		case exists && command.Sequence < previous.command.Sequence:
+		case exists && command.Sequence < previous.sequence:
 			reply.reject(ExpiredCommand, "This command has expired. Review the current state.")
-		case exists && command.Sequence == previous.command.Sequence:
-			if !reflect.DeepEqual(previous.command, command) {
+		case exists && command.Sequence == previous.sequence:
+			if !previous.digest.matches(digest) {
 				reply.reject(SequenceConflict, "This sequence was already used for another command.")
 			} else {
 				reply, saveState = previous.reply, previous.saveState
@@ -516,7 +534,7 @@ func (s *Session) applyCommand(command Command) commandResult {
 				}
 				reply.reject(code, err.Error())
 			}
-			s.receipts[command.Client] = receipt{command: cloneCommand(command), reply: reply, saveState: result.saveState}
+			s.receipts[command.Client] = receipt{sequence: command.Sequence, digest: digest, reply: reply, saveState: result.saveState}
 			delete(s.restoredSequences, command.Client)
 			if result.event != nil {
 				event = result.event
@@ -535,16 +553,28 @@ func (s *Session) reply() Reply {
 	}
 }
 
+// reject sets the error of r. When message has more than maxErrorBytes
+// bytes, reject keeps the start of message and adds "...", to a total of at
+// most maxErrorBytes bytes.
 func (r *Reply) reject(code CommandErrorCode, message string) {
 	r.ErrorCode = code
-	r.Error = message
+	r.Error = truncateError(message)
 }
 
-func cloneCommand(command Command) Command {
-	if command.Project != nil {
-		command.Project = new(project.Clone(*command.Project))
+func truncateError(message string) string {
+	const marker = "..."
+	if len(message) <= maxErrorBytes {
+		return message
 	}
-	return command
+	// The cut goes back to the start of a rune, but by less than one rune.
+	// The concatenation copies the bytes, so the reply does not keep
+	// message.
+	limit := maxErrorBytes - len(marker)
+	end := limit
+	for end > limit-utf8.UTFMax+1 && !utf8.RuneStart(message[end]) {
+		end--
+	}
+	return message[:end] + marker
 }
 
 // outcome holds the reply values of an accepted command. event is nil when

@@ -397,7 +397,7 @@ func TestDecodeStateFileAcceptsLimits(t *testing.T) {
 
 func TestPrescanJSON(t *testing.T) {
 	t.Parallel()
-	limits := jsonLimits{depth: 3, elements: 4, members: 2}
+	limits := jsonLimits{depth: 3, elements: 4, members: 2, stringBytes: 5}
 	tests := []struct {
 		name string
 		data string
@@ -416,6 +416,12 @@ func TestPrescanJSON(t *testing.T) {
 		{"duplicate names", `{"a":1,"a":2}`, nil},
 		{"two values", `{} {}`, nil},
 		{"cut short", `{"a":`, io.ErrUnexpectedEOF},
+		// The string limit counts the quotes and the escapes.
+		{"strings of 5 bytes", `{"abc":"abc"}`, nil},
+		{"string of 6 bytes", `["abcd"]`, errJSONStringTooLong},
+		{"name of 6 bytes", `{"abcd":1}`, errJSONStringTooLong},
+		{"escaped string of 8 bytes", `["\u0061"]`, errJSONStringTooLong},
+		{"array of 5 strings", `["a","b","c","d","e"]`, errJSONArrayTooLong},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {

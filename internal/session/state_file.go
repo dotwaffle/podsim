@@ -54,6 +54,7 @@ var (
 	errJSONTooDeep       = errors.New("JSON nesting is too deep")
 	errJSONArrayTooLong  = errors.New("JSON array has too many elements")
 	errJSONObjectTooLong = errors.New("JSON object has too many members")
+	errJSONStringTooLong = errors.New("JSON string is too long")
 	errProjectTooLarge   = errors.New("saved project is too large")
 )
 
@@ -63,11 +64,22 @@ var (
 // arrays holds the element limit of the arrays at some paths, in place of
 // elements. A path is a JSON Pointer in which "*" stands for each array
 // index.
+//
+// stringBytes is the largest size of a string or a name in the input,
+// with its quotes and escapes. When it is 0, strings have no limit.
+//
+// foldNames matches the names of a path without case, as encoding/json
+// matches the member names of a struct. allowInvalidUTF8 lets the scan go
+// on past a string that is not valid UTF-8, so that the scan checks the
+// whole input.
 type jsonLimits struct {
-	depth    int
-	elements int64
-	members  int64
-	arrays   map[string]int64
+	depth            int
+	elements         int64
+	members          int64
+	arrays           map[string]int64
+	stringBytes      int
+	foldNames        bool
+	allowInvalidUTF8 bool
 }
 
 // stateJSONLimits bound a state file before it is decoded, so that a small
@@ -271,7 +283,7 @@ func decodeStateFile(data []byte) (stateFile, error) {
 		return stateFile{}, err
 	}
 	if err := prescanJSON(raw, stateJSONLimits); err != nil {
-		return stateFile{}, invalidState(err)
+		return stateFile{}, invalidState(fmt.Errorf("scan session state: %w", err))
 	}
 	// The header decode ignores the other members, so that a file from a
 	// later version gets the right reason.
@@ -321,16 +333,17 @@ func decompressState(data []byte) ([]byte, error) {
 // makes no values. It does not look for duplicate names, because that needs
 // memory for each name.
 func prescanJSON(data []byte, limits jsonLimits) error {
-	decoder := jsontext.NewDecoder(bytes.NewBuffer(data), jsontext.AllowDuplicateNames(true))
+	decoder := jsontext.NewDecoder(bytes.NewBuffer(data),
+		jsontext.AllowDuplicateNames(true), jsontext.AllowInvalidUTF8(limits.allowInvalidUTF8))
 	// arrayLimits holds the element limit of the array at each depth.
 	arrayLimits := make([]int64, limits.depth+1)
 	for {
-		token, err := decoder.ReadToken()
+		kind, err := limits.readToken(decoder)
 		if err != nil {
 			if errors.Is(err, io.EOF) {
 				return nil
 			}
-			return fmt.Errorf("scan session state: %w", err)
+			return err
 		}
 		// Only the innermost object or array grows with a token. Each array
 		// and object is innermost when its last value ends.
@@ -338,7 +351,7 @@ func prescanJSON(data []byte, limits jsonLimits) error {
 		if depth > limits.depth {
 			return fmt.Errorf("%w: more than %d levels at byte %d", errJSONTooDeep, limits.depth, decoder.InputOffset())
 		}
-		if token.Kind() == jsontext.KindBeginArray {
+		if kind == jsontext.KindBeginArray {
 			arrayLimits[depth] = limits.arrayLimit(decoder)
 		}
 		switch kind, length := decoder.StackIndex(depth); {
@@ -349,6 +362,21 @@ func prescanJSON(data []byte, limits jsonLimits) error {
 			return fmt.Errorf("%w: more than %d at byte %d", errJSONObjectTooLong, limits.members, decoder.InputOffset())
 		}
 	}
+}
+
+// readToken reads the next token of decoder and returns its kind. It
+// checks the size of a string or a name against limits.stringBytes.
+func (limits jsonLimits) readToken(decoder *jsontext.Decoder) (jsontext.Kind, error) {
+	if limits.stringBytes == 0 || decoder.PeekKind() != jsontext.KindString {
+		token, err := decoder.ReadToken()
+		return token.Kind(), err
+	}
+	// ReadValue gives the input bytes of the string and makes no copy.
+	value, err := decoder.ReadValue()
+	if err == nil && len(value) > limits.stringBytes {
+		err = fmt.Errorf("%w: more than %d bytes at byte %d", errJSONStringTooLong, limits.stringBytes, decoder.InputOffset())
+	}
+	return jsontext.KindString, err
 }
 
 // arrayLimit returns the element limit of the array that the last token of
@@ -368,8 +396,16 @@ func (limits jsonLimits) arrayLimit(decoder *jsontext.Decoder) int64 {
 			tokens[level] = "*"
 		}
 	}
-	if limit, ok := limits.arrays[strings.Join(tokens, "/")]; ok {
+	path := strings.Join(tokens, "/")
+	if limit, ok := limits.arrays[path]; ok {
 		return limit
+	}
+	if limits.foldNames {
+		for name, limit := range limits.arrays {
+			if strings.EqualFold(name, path) {
+				return limit
+			}
+		}
 	}
 	return limits.elements
 }

@@ -391,7 +391,7 @@ func TestNewFromStoreRoundTrip(t *testing.T) {
 	}
 	wantSequences := make(map[string]uint64)
 	for client, stored := range run.session.receipts {
-		wantSequences[client] = stored.command.Sequence
+		wantSequences[client] = stored.sequence
 	}
 	if len(wantSequences) == 0 || !reflect.DeepEqual(restored.restoredSequences, wantSequences) {
 		t.Fatalf("restored command sequences %v, want %v", restored.restoredSequences, wantSequences)

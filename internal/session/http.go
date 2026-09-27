@@ -1,7 +1,10 @@
 package session
 
 import (
+	"bytes"
 	"encoding/json"
+	"errors"
+	"fmt"
 	"io"
 	"io/fs"
 	"log/slog"
@@ -11,7 +14,59 @@ import (
 	"os"
 	"path"
 	"strings"
+
+	"github.com/dotwaffle/podsim/internal/project"
 )
+
+// maxCommandBytes is the largest body of a command request.
+const maxCommandBytes = 2 << 20
+
+// commandJSONLimits bound a command body before it is decoded. Without them,
+// a body with an array of empty objects decodes to about 37 times its size,
+// also for an action that does not use the project. Each array of a
+// command has the limit that project.Validate applies to it. A project
+// action with a larger array is not valid, and the other actions do not
+// use the project. The decoder rejects an array at another path, so its
+// limit is 0. encoding/json matches member names without case, so the
+// limits do too. The scan goes on past invalid UTF-8, and the decoder then
+// rejects the body.
+//
+// The string limit keeps a long string out of the error of a reply. The
+// longest valid string of a command is a client ID of maxClientBytes bytes.
+// A name in a project has at most 80 bytes. JSON escapes can make each
+// byte 6 bytes, which gives at most 602 bytes with the quotes. The longest
+// string of a preset has 47 bytes with the quotes.
+var commandJSONLimits = jsonLimits{
+	depth: 64, elements: 0, members: 256, stringBytes: 1024, foldNames: true, allowInvalidUTF8: true,
+	arrays: map[string]int64{
+		"/project/network/Nodes":                    project.MaxNodes,
+		"/project/network/Lanes":                    project.MaxLanes,
+		"/project/network/Stations":                 project.MaxStations,
+		"/project/network/Stations/*/Berths":        project.MaxBerths,
+		"/project/fleet":                            project.MaxPods,
+		"/project/demandProfiles":                   project.MaxProfiles,
+		"/project/demandProfiles/*/bands":           project.MaxBands,
+		"/project/demandProfiles/*/flows":           project.MaxFlows,
+		"/project/demandProfiles/*/flows/*/weights": project.MaxBands,
+	},
+}
+
+// errCommandShape means that a command body is larger than a limit of
+// commandJSONLimits.
+var errCommandShape = errors.New("command JSON is larger than a shape limit")
+
+// prescanCommand checks body against commandJSONLimits. It returns an error
+// that wraps errCommandShape when the body is larger than a limit. For other
+// errors, such as a syntax error, the decoder gives the reply, so that the
+// reply is the same as without the scan.
+func prescanCommand(body []byte) error {
+	err := prescanJSON(body, commandJSONLimits)
+	if errors.Is(err, errJSONTooDeep) || errors.Is(err, errJSONArrayTooLong) || errors.Is(err, errJSONObjectTooLong) ||
+		errors.Is(err, errJSONStringTooLong) {
+		return fmt.Errorf("%w: %w", errCommandShape, err)
+	}
+	return err
+}
 
 // Handler serves the session API and supplied static application files.
 func (s *Session) Handler(directory string, routes ...func(*http.ServeMux)) http.Handler {
@@ -64,7 +119,12 @@ func (s *Session) commandHTTP(w http.ResponseWriter, r *http.Request) {
 		writeError(w, "use application/json", http.StatusUnsupportedMediaType)
 		return
 	}
-	decoder := json.NewDecoder(http.MaxBytesReader(w, r.Body, 2<<20))
+	body, err := io.ReadAll(http.MaxBytesReader(w, r.Body, maxCommandBytes))
+	if err != nil || errors.Is(prescanCommand(body), errCommandShape) {
+		writeError(w, "invalid command JSON", http.StatusBadRequest)
+		return
+	}
+	decoder := json.NewDecoder(bytes.NewReader(body))
 	decoder.DisallowUnknownFields()
 	var command Command
 	if err := decoder.Decode(&command); err != nil {

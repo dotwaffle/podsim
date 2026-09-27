@@ -107,6 +107,8 @@ With `-state`, `project` and a `rewind` that restores a project also set `stateS
 Command acknowledgments contain the session epoch, state revision, project revision, generation, optional order ID, optional checkpoint ID, optional `projectRestored` flag, and optional `stateSaved` flag.
 They do not repeat a state frame.
 A rejected command gets HTTP 409 and an acknowledgment with a stable `errorCode` and an `error` message.
+The `error` message has at most 1,024 bytes.
+The server cuts a longer message and adds `...` at the end.
 
 The server sets `stateSaved` only when it tried to save the session state before the acknowledgment.
 `true` means that the last successful save holds the state at the `revision` of the acknowledgment or at a later revision.
@@ -126,6 +128,7 @@ The server saves the state before each reply to an exact retry of a `project` co
 After that save, the server sets `stateSaved` with the rule above for the `revision` of the original acknowledgment.
 A sequence lower than the last sequence from the same client gets `expired_command`.
 The same sequence with a different command gets `sequence_conflict`.
+The server compares a SHA-256 digest of the command, so a receipt does not keep the command or its project.
 After a server restart, a sequence from before the restart can also get `expired_command`.
 See [server restarts](#server-restarts).
 
@@ -141,6 +144,9 @@ After a graceful shutdown starts, the server rejects new commands with `server_s
 
 The request must have the `application/json` content type.
 The body must be at most 2 MiB and contain one JSON command with no unknown members.
+Each array in the body must have no more items than the project limits permit, also for an action that does not use the project.
+For example, `project.network.Lanes` can have at most 4,000 items.
+Each string and each member name in the body must have at most 1,024 bytes, including the quotes and the escapes.
 A request with an `Origin` header must come from the same host and scheme.
 A request that breaks these rules gets HTTP 400, 403, or 415 and a plain text body, not an acknowledgment.
 These responses also have `Cache-Control: no-store`.

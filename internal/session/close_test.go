@@ -62,7 +62,7 @@ func TestCloseStopsClockAndRejectsNewCommands(t *testing.T) {
 	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	if want := map[string]receipt{"test": {command: first, reply: accepted}}; !reflect.DeepEqual(s.receipts, want) {
+	if want := map[string]receipt{"test": {sequence: first.Sequence, digest: digestCommand(first), reply: accepted}}; !reflect.DeepEqual(s.receipts, want) {
 		t.Fatalf("receipts = %+v, want %+v", s.receipts, want)
 	}
 }
