@@ -249,6 +249,11 @@ type Session struct {
 	// of more than largeCommandBytes, and removes the value after it
 	// applies the command.
 	largeCommands chan struct{}
+	// largeBodies holds the admission places of command bodies. It has
+	// space for maxLargeBodies values. A request puts a value in it before
+	// it reads a body that needs a place, and removes the value after it
+	// applies the command.
+	largeBodies chan struct{}
 	// persist saves the session state. It is nil without a state store.
 	persist *persistence
 }
@@ -274,6 +279,7 @@ func newSession(persist *persistence, options []Option) *Session {
 	session := &Session{
 		receipts: make(map[string]receipt), logger: slog.Default(), persist: persist,
 		serverStart: newServerStart(), largeCommands: make(chan struct{}, 1),
+		largeBodies: make(chan struct{}, maxLargeBodies),
 	}
 	for _, option := range options {
 		option(session)

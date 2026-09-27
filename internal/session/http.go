@@ -42,6 +42,22 @@ const (
 // limits the memory of concurrent large commands.
 const largeCommandBytes = 1 << 20
 
+const (
+	// smallBodyBytes is the largest Content-Length of a plain command body
+	// that the server reads without an admission place. net/http reads no
+	// more than the Content-Length, so the limit holds. The editor sends a
+	// command of this size or less as plain JSON.
+	smallBodyBytes = 64 << 10
+	// maxLargeBodies is the number of admission places. A gzip body, and a
+	// plain body with a larger Content-Length or no Content-Length, needs a
+	// place before the server reads it. The place stays in use until the
+	// server applies the command. Thus the bodies that wait for the large
+	// command guard use at most maxLargeBodies times MaxCommandBytes, 16
+	// MiB. One place is for the command in the guard, and the others let a
+	// few commands wait for it.
+	maxLargeBodies = 4
+)
+
 // errContentEncoding means that a command request has a content encoding
 // other than gzip.
 var errContentEncoding = errors.New("use the gzip content encoding or no content encoding")
@@ -135,12 +151,14 @@ func (s *Session) commandHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 		parsed, err := url.Parse(origin)
 		if err != nil || parsed.Host != r.Host || parsed.Scheme != scheme {
+			closeUnread(w)
 			writeError(w, "cross-origin commands are not allowed", http.StatusForbidden)
 			return
 		}
 	}
 	mediaType, _, err := mime.ParseMediaType(r.Header.Get("Content-Type"))
 	if err != nil || mediaType != "application/json" {
+		closeUnread(w)
 		writeError(w, "use application/json", http.StatusUnsupportedMediaType)
 		return
 	}
@@ -179,34 +197,73 @@ func (s *Session) commandHTTP(w http.ResponseWriter, r *http.Request) {
 // the gzip content encoding. For a body with a content encoding that it
 // does not know, it sets the Accept-Encoding header of w.
 //
+// A gzip body, and a plain body that can be larger than smallBodyBytes,
+// must get an admission place before readCommandBody reads it. When all
+// places are in use, readCommandBody gives HTTP 503 with Retry-After at
+// once, and it does not read the body.
+//
 // For a gzip body, and for a plain body of more than largeCommandBytes,
-// readCommandBody waits for the large command guard. It reads the body
-// from the network before it waits, so a slow client does not keep the
-// guard. It decompresses a gzip body only after it has the guard. A small
-// gzip body can decompress to a large size, so a waiting request keeps
-// only the bytes that it received. The caller must call release after it
-// applies the command. release is never nil.
+// readCommandBody then waits for the large command guard. It reads the
+// body from the network before it waits, so a slow client does not keep
+// the guard. It decompresses a gzip body only after it has the guard. A
+// small gzip body can decompress to a large size, so a waiting request
+// keeps only the bytes that it received. The caller must call release
+// after it applies the command, also after a failure. release gives back
+// the admission place and the guard. It is never nil.
 func (s *Session) readCommandBody(w http.ResponseWriter, r *http.Request) (body []byte, release func(), failure *errorReply) {
 	gzipped, err := gzipEncoded(r.Header)
 	if err != nil {
 		w.Header().Set("Accept-Encoding", "gzip")
+		closeUnread(w)
 		return nil, noRelease, &errorReply{err.Error(), http.StatusUnsupportedMediaType}
 	}
+	release = noRelease
+	if gzipped || r.ContentLength < 0 || r.ContentLength > smallBodyBytes {
+		select {
+		case s.largeBodies <- struct{}{}:
+			release = func() { <-s.largeBodies }
+		default:
+			w.Header().Set("Retry-After", "1")
+			closeUnread(w)
+			return nil, noRelease, &errorReply{"the server is busy with other large commands, try again", http.StatusServiceUnavailable}
+		}
+	}
 	body, err = io.ReadAll(http.MaxBytesReader(w, r.Body, MaxCommandBytes))
+	if err != nil {
+		// The read stopped before the end of the body.
+		closeUnread(w)
+	}
 	if tooLarge := new(http.MaxBytesError); errors.As(err, &tooLarge) {
-		return nil, noRelease, &errorReply{fmt.Sprintf("the command body must have at most %d bytes", tooLarge.Limit), http.StatusRequestEntityTooLarge}
+		return nil, release, &errorReply{fmt.Sprintf("the command body must have at most %d bytes", tooLarge.Limit), http.StatusRequestEntityTooLarge}
 	}
 	if err != nil {
-		return nil, noRelease, &errorReply{"invalid command JSON", http.StatusBadRequest}
+		return nil, release, &errorReply{"invalid command JSON", http.StatusBadRequest}
 	}
 	if !gzipped && len(body) <= largeCommandBytes {
-		return body, noRelease, nil
+		return body, release, nil
 	}
-	release, failure = s.waitLargeCommand(r.Context())
+	admitted := release
+	unguard, failure := s.waitLargeCommand(r.Context())
+	release = func() {
+		unguard()
+		admitted()
+	}
 	if failure == nil && gzipped {
 		body, failure = inflateCommand(body)
 	}
 	return body, release, failure
+}
+
+// closeUnread tells net/http to close the connection after an error reply
+// to a request with a body that the handler did not read. Without it, an
+// HTTP/1 server reads a chunked body, or a body of less than 256 KiB, to
+// its end before it sends the reply. A client that stops its upload would
+// then delay the reply until the read timeout. http.MaxBytesReader also
+// closes the connection, but only when w is the ResponseWriter of net/http.
+// A wrapper, such as compressResponse, hides that ResponseWriter, so a read
+// that stops at the limit also uses closeUnread.
+func closeUnread(w http.ResponseWriter) {
+	w.Header().Set("Connection", "close")
 }
 
 // noRelease is the release function of a command that does not have the

@@ -151,13 +151,19 @@ A gzip body must have one gzip member and no data after it.
 A request with another content encoding gets HTTP 415 with `Accept-Encoding: gzip`.
 The server decompresses, decodes, and applies one gzip command or one plain command of more than 1 MiB at a time.
 Other such commands wait, and the server decompresses a gzip body only after the wait.
+A gzip command, and a plain command with a `Content-Length` of more than 64 KiB or with no `Content-Length`, needs one of 4 admission places before the server reads the body.
+The command keeps its place until the server applies it.
+When all places are in use, the server replies at once with HTTP 503, `Retry-After: 1`, and a plain text body.
+A smaller plain command, such as a pause, does not need a place.
 Each array in the body must have no more items than the project limits permit, also for an action that does not use the project.
 For example, `project.network.Lanes` can have at most 8,000 items.
 Each string and each member name in the body must have at most 1,024 bytes, including the quotes and the escapes.
 A request with an `Origin` header must come from the same host and scheme.
-A request that breaks these rules gets HTTP 400, 403, 413, or 415 and a plain text body, not an acknowledgment.
+A request that breaks these rules gets HTTP 400, 403, 413, 415, or 503 and a plain text body, not an acknowledgment.
 A body that is larger than a size limit, before or after decompression, gets HTTP 413, and the text gives the limit in bytes.
 These responses also have `Cache-Control: no-store`.
+A 403, 415, or 503 reply comes before the server reads the body, and a 413 reply for a body over the 4 MiB limit comes before the end of the body.
+The server closes the connection after these replies, so it does not wait for the rest of the body.
 
 A `project` command gets `command_rejected` when the project has more than 200 stations, 4,000 nodes, 8,000 lanes, or 200 pods.
 It also gets `command_rejected` when a station has more than 200 berths, or a node has more than 64 lanes.
