@@ -807,6 +807,15 @@ The compare command reads a separate record for each party from the simulation.
 Each party that joins a shared ride has its own wait and journey.
 Its boarding time is the time of the join, and its journey ends when the pod completes unloading.
 
+The `occupancy` column is the rider distance divided by the pod distance.
+A pod journey goes from the origin berth to the destination berth.
+The pod distance adds the distance of each pod journey that ended before the end of the arm.
+The rider distance adds the distance of the pod journey of each party that alighted.
+With same-destination sharing, each party rides the full pod journey.
+Thus the value is 1 without sharing, and with sharing it is the mean number of parties aboard, weighted by distance.
+The value is 0 when no pod journey ended.
+The pod distance does not include the journeys in progress at the end of the arm, so it can be less than `passenger_distance_meters`.
+
 These columns give the time that pods spend stopped, in pod-seconds.
 A pod is stopped when it has a wait reason and its speed is less than 0.1 m/s.
 A pod at a berth that waits for track admission also has a wait reason.

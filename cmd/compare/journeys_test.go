@@ -48,17 +48,19 @@ func TestPercentile95(t *testing.T) {
 //
 // The five waits sorted are 1, 1, 2, 5 and 10 s, and ceil(0.95 * 5) = 5.
 // The journeys sorted are 10, 19 and 20 s, and ceil(0.95 * 3) = 3.
+// The pod journeys of requests 1 and 2 are 500 m and 1,000 m, and three
+// parties rode them, so the occupancy is (500 + 1,000 + 1,000) / 1,500.
 func TestRequestTimeStats(t *testing.T) {
 	t.Parallel()
 	timings := []sim.RequestTiming{
-		{RequestID: 1, RequestedTick: 0, BoardedTick: 60, CompletedTick: 600},
-		{RequestID: 2, RequestedTick: 120, BoardedTick: 240, CompletedTick: 1320},
-		{RequestID: 3, RequestedTick: 180, BoardedTick: 240, CompletedTick: 1320, SharedWith: 2},
+		{RequestID: 1, RequestedTick: 0, BoardedTick: 60, CompletedTick: 600, RiddenMeters: 500},
+		{RequestID: 2, RequestedTick: 120, BoardedTick: 240, CompletedTick: 1320, RiddenMeters: 1000},
+		{RequestID: 3, RequestedTick: 180, BoardedTick: 240, CompletedTick: 1320, RiddenMeters: 1000, SharedWith: 2},
 		{RequestID: 4, RequestedTick: 600, BoardedTick: 900, CompletedTick: -1},
 	}
 	state := sim.Snapshot{Tick: 1800, Pending: []sim.Request{{ID: 5, RequestedTick: 1200}}}
 	got := requestTimeStats(timings, state)
-	want := requestStats{waitP95: 10, journeyAverage: 49.0 / 3, journeyP95: 20, journeyMaximum: 20}
+	want := requestStats{waitP95: 10, journeyAverage: 49.0 / 3, journeyP95: 20, journeyMaximum: 20, occupancy: 2500.0 / 1500}
 	if got != want {
 		t.Fatalf("requestTimeStats = %+v, want %+v", got, want)
 	}
@@ -138,4 +140,25 @@ func TestWaitSetMatchesSimulation(t *testing.T) {
 	if math.Abs(average-state.Wait.AverageSeconds) > 1e-9 {
 		t.Fatalf("wait average from the timings = %v, simulation = %v", average, state.Wait.AverageSeconds)
 	}
+}
+
+// TestOccupancyInRun checks the occupancy of a hub burst on the small ring.
+// Without sharing, each pod journey has one party. With a limit of 4, the
+// parties that join a pod raise the occupancy above 1, but not above 4.
+func TestOccupancyInRun(t *testing.T) {
+	t.Parallel()
+	input := smallBurstInput(t)
+	single, err := run(input)
+	if err != nil {
+		t.Fatal(err)
+	}
+	input.sharingLimit = 4
+	shared, err := run(input)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if single.Occupancy != 1 || shared.SharedParties == 0 || shared.Occupancy <= 1 || shared.Occupancy > 4 {
+		t.Fatalf("occupancy without sharing = %v, with sharing = %v and %d shared parties", single.Occupancy, shared.Occupancy, shared.SharedParties)
+	}
+	t.Logf("occupancy with sharing = %v", shared.Occupancy)
 }

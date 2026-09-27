@@ -6,9 +6,11 @@ import (
 	"github.com/dotwaffle/podsim/internal/sim"
 )
 
-// requestStats holds the wait and journey columns of one arm, in seconds.
+// requestStats holds the wait and journey columns of one arm, in seconds,
+// and the occupancy.
 type requestStats struct {
 	waitP95, journeyAverage, journeyP95, journeyMaximum float64
+	occupancy                                           float64
 }
 
 // requestTimeStats gives the wait and journey columns from the request
@@ -19,13 +21,23 @@ type requestStats struct {
 // simulation. The journeys are the times from request to alight of the
 // parties that completed. A party that joined a shared ride has its own
 // wait and journey.
+//
+// The occupancy is the rider distance of the completed parties divided by
+// the distance of their pod journeys. Each pod journey has one party that
+// boarded the pod, and the other parties joined it.
 func requestTimeStats(timings []sim.RequestTiming, state sim.Snapshot) requestStats {
 	waits := make([]int64, 0, len(timings)+len(state.Pending))
 	journeys := make([]int64, 0, len(timings))
+	riderMeters, podMeters := 0.0, 0.0
 	for _, timing := range timings {
 		waits = append(waits, timing.BoardedTick-timing.RequestedTick)
-		if timing.CompletedTick >= 0 {
-			journeys = append(journeys, timing.CompletedTick-timing.RequestedTick)
+		if timing.CompletedTick < 0 {
+			continue
+		}
+		journeys = append(journeys, timing.CompletedTick-timing.RequestedTick)
+		riderMeters += timing.RiddenMeters
+		if timing.SharedWith == 0 {
+			podMeters += timing.RiddenMeters
 		}
 	}
 	for _, request := range state.Pending {
@@ -41,6 +53,9 @@ func requestTimeStats(timings []sim.RequestTiming, state sim.Snapshot) requestSt
 		}
 		stats.journeyAverage = tickSeconds(total) / float64(len(journeys))
 		stats.journeyMaximum = tickSeconds(journeys[len(journeys)-1])
+	}
+	if podMeters > 0 {
+		stats.occupancy = riderMeters / podMeters
 	}
 	return stats
 }

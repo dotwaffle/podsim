@@ -164,6 +164,7 @@ type result struct {
 	PassengerDistanceMeters        float64 `json:"passenger_distance_meters"`
 	EmptyDistanceMeters            float64 `json:"empty_distance_meters"`
 	LoadedDistancePercent          float64 `json:"loaded_distance_percent"`
+	Occupancy                      float64 `json:"occupancy"`
 	PositioningMoveCount           int     `json:"positioning_moves"`
 }
 
@@ -1021,6 +1022,7 @@ func run(input runInput) (result, error) {
 		JourneyP95Seconds: requests.journeyP95, JourneyMaximumSeconds: requests.journeyMaximum,
 		PassengerDistanceMeters: state.PassengerDistanceMeters, EmptyDistanceMeters: state.EmptyDistanceMeters,
 		LoadedDistancePercent: loadedDistancePercent(state.PassengerDistanceMeters, state.EmptyDistanceMeters),
+		Occupancy:             requests.occupancy,
 		PositioningMoveCount:  state.RebalanceMoves,
 	}, nil
 }
@@ -1156,7 +1158,7 @@ func writeCSV(input writeReportInput) error {
 		"peak_node_throughput_per_minute", "peak_node",
 		"queue_cleared", "queue_clear_seconds",
 		"wait_average_seconds", "wait_maximum_seconds", "wait_p95_seconds",
-		"journey_average_seconds", "journey_p95_seconds", "journey_maximum_seconds", "passenger_distance_meters", "empty_distance_meters", "loaded_distance_percent", "positioning_moves",
+		"journey_average_seconds", "journey_p95_seconds", "journey_maximum_seconds", "passenger_distance_meters", "empty_distance_meters", "loaded_distance_percent", "occupancy", "positioning_moves",
 	)
 	if err := w.Write(header); err != nil {
 		return fmt.Errorf("write CSV header: %w", err)
@@ -1184,7 +1186,7 @@ func writeCSV(input writeReportInput) error {
 			floatText(outcome.WaitAverageSeconds), floatText(outcome.WaitMaximumSeconds), floatText(outcome.WaitP95Seconds),
 			floatText(outcome.JourneyAverageSeconds), floatText(outcome.JourneyP95Seconds), floatText(outcome.JourneyMaximumSeconds),
 			floatText(outcome.PassengerDistanceMeters),
-			floatText(outcome.EmptyDistanceMeters), floatText(outcome.LoadedDistancePercent),
+			floatText(outcome.EmptyDistanceMeters), floatText(outcome.LoadedDistancePercent), floatText(outcome.Occupancy),
 			strconv.Itoa(outcome.PositioningMoveCount),
 		)
 		if err := w.Write(row); err != nil {
