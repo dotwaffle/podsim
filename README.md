@@ -735,6 +735,7 @@ mise run compare -- -project /tmp/podsim-london.json -pattern profile -bands am-
 The report includes:
 
 - Demand throughput, backlog, drain time, fleet use, and pickup wait.
+- Journey time from request to alight, and the 95th percentile wait and journey time.
 - Completed and remaining journeys, and skipped requests.
 - Peak queues and berth use at the focus station.
 - Passenger and empty travel, loaded-distance percentage, and positioning moves.
@@ -778,6 +779,33 @@ Each group runs its rates from the lowest offered rate, with all seeds of a rate
 After the first rate at which a seed does not drain, the group runs `-past-limit` more rates and skips the rest.
 The report omits the skipped arms.
 The other rows are identical to the rows of a full run.
+
+#### Report columns
+
+The JSON report has `schema_version` 6.
+These columns give the waits and journeys of the passengers.
+
+| Column | Definition |
+| --- | --- |
+| `wait_average_seconds` | The mean wait from request to boarding. The set has each party that boarded, and each request that is pending at the end of the arm with its elapsed wait. |
+| `wait_maximum_seconds` | The longest wait in the wait set. |
+| `wait_p95_seconds` | The 95th percentile of the wait set. |
+| `journey_average_seconds` | The mean journey time from request to alight. The set has each party that alighted at its destination before the end of the arm. |
+| `journey_p95_seconds` | The 95th percentile of the journey set. |
+| `journey_maximum_seconds` | The longest journey time in the journey set. |
+
+A party alights when its pod completes unloading at the destination berth.
+At that tick, `served` counts the party.
+Each percentile is the nearest-rank value: sort the n values, and use the value at position ceil(0.95 n).
+A column with no values is 0.
+The journey set does not have the parties that are pending or aboard at the end of the arm.
+Thus, for an arm that does not drain, the journey columns do not include the longest journeys.
+
+A shared ride merges the parties of a pod into the request of the first party.
+The snapshot keeps only the ID and request time of that party, so it cannot give the wait or journey of the other parties.
+The compare command reads a separate record for each party from the simulation.
+Each party that joins a shared ride has its own wait and journey.
+Its boarding time is the time of the join, and its journey ends when the pod completes unloading.
 
 ### Generated scenarios
 

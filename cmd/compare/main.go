@@ -152,6 +152,10 @@ type result struct {
 	QueueClearSeconds              float64 `json:"queue_clear_seconds"`
 	WaitAverageSeconds             float64 `json:"wait_average_seconds"`
 	WaitMaximumSeconds             float64 `json:"wait_maximum_seconds"`
+	WaitP95Seconds                 float64 `json:"wait_p95_seconds"`
+	JourneyAverageSeconds          float64 `json:"journey_average_seconds"`
+	JourneyP95Seconds              float64 `json:"journey_p95_seconds"`
+	JourneyMaximumSeconds          float64 `json:"journey_maximum_seconds"`
 	PassengerDistanceMeters        float64 `json:"passenger_distance_meters"`
 	EmptyDistanceMeters            float64 `json:"empty_distance_meters"`
 	LoadedDistancePercent          float64 `json:"loaded_distance_percent"`
@@ -886,6 +890,7 @@ func run(input runInput) (result, error) {
 		return result{}, fmt.Errorf("set sharing limit: %w", sharingErr)
 	}
 	simulation.SetCongestionRouting(input.routingPolicy == "congestion")
+	simulation.SetExperimentRecords(true)
 	if input.waitRule != "" {
 		rule, ok := waitRuleValues[input.waitRule]
 		if !ok {
@@ -962,6 +967,7 @@ func run(input runInput) (result, error) {
 		midpointState = arrivalState
 	}
 	metrics.observe(state)
+	requests := requestTimeStats(simulation.RequestTimings(), state)
 	burstSize := 1
 	if isBurstPattern(input.pattern) {
 		burstSize = input.burstSize
@@ -1000,6 +1006,8 @@ func run(input runInput) (result, error) {
 		PeakFocusOccupiedBerths: metrics.peakOccupiedBerths, PeakFocusReservedEmptyBerths: metrics.peakReservedEmptyBerths,
 		QueueCleared: metrics.queueCleared, QueueClearSeconds: metrics.queueClearSeconds,
 		WaitAverageSeconds: state.Wait.AverageSeconds, WaitMaximumSeconds: state.Wait.MaxSeconds,
+		WaitP95Seconds: requests.waitP95, JourneyAverageSeconds: requests.journeyAverage,
+		JourneyP95Seconds: requests.journeyP95, JourneyMaximumSeconds: requests.journeyMaximum,
 		PassengerDistanceMeters: state.PassengerDistanceMeters, EmptyDistanceMeters: state.EmptyDistanceMeters,
 		LoadedDistancePercent: loadedDistancePercent(state.PassengerDistanceMeters, state.EmptyDistanceMeters),
 		PositioningMoveCount:  state.RebalanceMoves,
@@ -1063,7 +1071,7 @@ func writeReport(input writeReportInput) error {
 	case "json":
 		encoder := json.NewEncoder(input.output)
 		encoder.SetIndent("", "  ")
-		if err := encoder.Encode(report{SchemaVersion: 5, Results: input.results}); err != nil {
+		if err := encoder.Encode(report{SchemaVersion: 6, Results: input.results}); err != nil {
 			return fmt.Errorf("write JSON report: %w", err)
 		}
 		return nil
@@ -1089,7 +1097,7 @@ func writeTable(input writeReportInput) error {
 	if input.waitRuleColumn {
 		policyHeader += "\tWAIT RULE"
 	}
-	if _, err := fmt.Fprintln(w, "PATTERN\tBAND\tLOAD (S)\tOFFERED/M\tARRIVAL/M\tLATE/M\tBACKLOG\tLATE DELTA\tDRAIN (S)\tSEED\t"+policyHeader+"\tWAIT AVG\tWAIT MAX\tSERVED\tLEFT\tSKIPPED\tPEAK OUT\tPEAK ACTIVE\tPEAK PAX\tPEAK STOPPED\tHUB IN\tHUB OUT\tHUB OCC\tHUB RSV\tPASSENGER (M)\tEMPTY (M)\tLOADED %\tMOVES"); err != nil {
+	if _, err := fmt.Fprintln(w, "PATTERN\tBAND\tLOAD (S)\tOFFERED/M\tARRIVAL/M\tLATE/M\tBACKLOG\tLATE DELTA\tDRAIN (S)\tSEED\t"+policyHeader+"\tWAIT AVG\tWAIT MAX\tWAIT P95\tJOURNEY AVG\tJOURNEY P95\tSERVED\tLEFT\tSKIPPED\tPEAK OUT\tPEAK ACTIVE\tPEAK PAX\tPEAK STOPPED\tHUB IN\tHUB OUT\tHUB OCC\tHUB RSV\tPASSENGER (M)\tEMPTY (M)\tLOADED %\tMOVES"); err != nil {
 		return fmt.Errorf("write table header: %w", err)
 	}
 	for _, outcome := range results {
@@ -1097,11 +1105,12 @@ func writeTable(input writeReportInput) error {
 		if input.waitRuleColumn {
 			policy += "\t" + outcome.WaitRule
 		}
-		if _, err := fmt.Fprintf(w, "%s\t%s\t%.2f\t%.2f\t%.2f\t%.2f\t%d\t%d\t%s\t%d\t%s\t%.2f\t%.2f\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%.1f\t%.1f\t%.2f\t%d\n",
+		if _, err := fmt.Fprintf(w, "%s\t%s\t%.2f\t%.2f\t%.2f\t%.2f\t%d\t%d\t%s\t%d\t%s\t%.2f\t%.2f\t%.2f\t%.2f\t%.2f\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%.1f\t%.1f\t%.2f\t%d\n",
 			outcome.Pattern, outcome.DemandBand, outcome.RequestEverySeconds, outcome.OfferedPerMinute,
 			outcome.ArrivalThroughputPerMinute, outcome.LateArrivalThroughputPerMinute,
 			outcome.BacklogAtArrivalEnd, outcome.LateBacklogChange, drainText(outcome), outcome.Seed, policy,
-			outcome.WaitAverageSeconds, outcome.WaitMaximumSeconds, outcome.Served, outcome.Remaining, outcome.Skipped,
+			outcome.WaitAverageSeconds, outcome.WaitMaximumSeconds, outcome.WaitP95Seconds,
+			outcome.JourneyAverageSeconds, outcome.JourneyP95Seconds, outcome.Served, outcome.Remaining, outcome.Skipped,
 			outcome.PeakOutstanding, outcome.PeakActiveVehicles, outcome.PeakPassengerVehicles, outcome.PeakStoppedVehicles,
 			outcome.PeakFocusEntranceStopped, outcome.PeakFocusExitStopped,
 			outcome.PeakFocusOccupiedBerths, outcome.PeakFocusReservedEmptyBerths,
@@ -1133,7 +1142,8 @@ func writeCSV(input writeReportInput) error {
 		"completed_at_arrival_midpoint", "backlog_at_arrival_midpoint", "late_arrival_throughput_per_minute", "late_backlog_change", "drained", "drain_seconds",
 		"peak_pending", "peak_outstanding", "peak_active_vehicles", "peak_passenger_vehicles", "peak_stopped_vehicles", "peak_focus_approaching", "peak_focus_entrance_stopped", "peak_focus_exit_stopped",
 		"peak_focus_occupied_berths", "peak_focus_reserved_empty_berths", "queue_cleared", "queue_clear_seconds",
-		"wait_average_seconds", "wait_maximum_seconds", "passenger_distance_meters", "empty_distance_meters", "loaded_distance_percent", "positioning_moves",
+		"wait_average_seconds", "wait_maximum_seconds", "wait_p95_seconds",
+		"journey_average_seconds", "journey_p95_seconds", "journey_maximum_seconds", "passenger_distance_meters", "empty_distance_meters", "loaded_distance_percent", "positioning_moves",
 	)
 	if err := w.Write(header); err != nil {
 		return fmt.Errorf("write CSV header: %w", err)
@@ -1155,7 +1165,9 @@ func writeCSV(input writeReportInput) error {
 			strconv.Itoa(outcome.PeakPending), strconv.Itoa(outcome.PeakOutstanding), strconv.Itoa(outcome.PeakActiveVehicles), strconv.Itoa(outcome.PeakPassengerVehicles), strconv.Itoa(outcome.PeakStoppedVehicles),
 			strconv.Itoa(outcome.PeakFocusApproaching), strconv.Itoa(outcome.PeakFocusEntranceStopped), strconv.Itoa(outcome.PeakFocusExitStopped),
 			strconv.Itoa(outcome.PeakFocusOccupiedBerths), strconv.Itoa(outcome.PeakFocusReservedEmptyBerths), strconv.FormatBool(outcome.QueueCleared), floatText(outcome.QueueClearSeconds),
-			floatText(outcome.WaitAverageSeconds), floatText(outcome.WaitMaximumSeconds), floatText(outcome.PassengerDistanceMeters),
+			floatText(outcome.WaitAverageSeconds), floatText(outcome.WaitMaximumSeconds), floatText(outcome.WaitP95Seconds),
+			floatText(outcome.JourneyAverageSeconds), floatText(outcome.JourneyP95Seconds), floatText(outcome.JourneyMaximumSeconds),
+			floatText(outcome.PassengerDistanceMeters),
 			floatText(outcome.EmptyDistanceMeters), floatText(outcome.LoadedDistancePercent),
 			strconv.Itoa(outcome.PositioningMoveCount),
 		)

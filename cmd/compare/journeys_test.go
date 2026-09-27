@@ -1,0 +1,141 @@
+package main
+
+import (
+	"bytes"
+	"math"
+	"testing"
+
+	"github.com/dotwaffle/podsim/internal/sim"
+)
+
+func TestPercentile95(t *testing.T) {
+	t.Parallel()
+	sequence := func(n int) []int64 {
+		values := make([]int64, n)
+		for index := range values {
+			values[index] = int64(index + 1)
+		}
+		return values
+	}
+	for _, test := range []struct {
+		name   string
+		values []int64
+		want   int64
+	}{
+		{name: "empty", want: 0},
+		{name: "one value", values: []int64{7}, want: 7},
+		// The nearest rank of 20 values is 19.
+		{name: "twenty values", values: sequence(20), want: 19},
+		// The nearest rank of 21 values is 20, because 0.95 * 21 is 19.95.
+		{name: "twenty-one values", values: sequence(21), want: 20},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			if got := percentile95(test.values); got != test.want {
+				t.Fatalf("percentile95 = %d, want %d", got, test.want)
+			}
+		})
+	}
+}
+
+// TestRequestTimeStats uses these parties, with ticks at 60 each second:
+//
+//	request 1: wait 1 s, journey 10 s.
+//	request 2: wait 2 s, journey 20 s.
+//	request 3 joins the pod of request 2: wait 1 s, journey 19 s.
+//	request 4: wait 5 s, not complete.
+//	request 5: pending at 30 s since 20 s, so its wait is 10 s.
+//
+// The five waits sorted are 1, 1, 2, 5 and 10 s, and ceil(0.95 * 5) = 5.
+// The journeys sorted are 10, 19 and 20 s, and ceil(0.95 * 3) = 3.
+func TestRequestTimeStats(t *testing.T) {
+	t.Parallel()
+	timings := []sim.RequestTiming{
+		{RequestID: 1, RequestedTick: 0, BoardedTick: 60, CompletedTick: 600},
+		{RequestID: 2, RequestedTick: 120, BoardedTick: 240, CompletedTick: 1320},
+		{RequestID: 3, RequestedTick: 180, BoardedTick: 240, CompletedTick: 1320, SharedWith: 2},
+		{RequestID: 4, RequestedTick: 600, BoardedTick: 900, CompletedTick: -1},
+	}
+	state := sim.Snapshot{Tick: 1800, Pending: []sim.Request{{ID: 5, RequestedTick: 1200}}}
+	got := requestTimeStats(timings, state)
+	want := requestStats{waitP95: 10, journeyAverage: 49.0 / 3, journeyP95: 20, journeyMaximum: 20}
+	if got != want {
+		t.Fatalf("requestTimeStats = %+v, want %+v", got, want)
+	}
+	if empty := requestTimeStats(nil, sim.Snapshot{}); empty != (requestStats{}) {
+		t.Fatalf("stats without requests = %+v", empty)
+	}
+}
+
+func TestJourneyColumnsInRun(t *testing.T) {
+	t.Parallel()
+	opts, err := parseOptions([]string{
+		"-duration", "4m", "-arrivals-for", "1m", "-request-every", "5s", "-burst-size", "6", "-pattern", "hub-burst",
+		"-sharing-limits", "1,2", "-redistribution-policies", "off",
+	}, &bytes.Buffer{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	caseStudy, err := loadScenario("", "market")
+	if err != nil {
+		t.Fatal(err)
+	}
+	results, err := compare(opts, caseStudy)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, outcome := range results {
+		if outcome.Served == 0 || outcome.JourneyAverageSeconds <= 0 || outcome.JourneyP95Seconds > outcome.JourneyMaximumSeconds ||
+			outcome.JourneyAverageSeconds > outcome.JourneyMaximumSeconds {
+			t.Fatalf("journey columns = %+v", outcome)
+		}
+		if outcome.WaitP95Seconds > outcome.WaitMaximumSeconds || outcome.WaitP95Seconds < 0 {
+			t.Fatalf("wait columns = %+v", outcome)
+		}
+	}
+}
+
+// TestWaitSetMatchesSimulation checks that the p95 wait uses the set of
+// waits of the simulation average: each boarded party and each pending
+// request.
+func TestWaitSetMatchesSimulation(t *testing.T) {
+	t.Parallel()
+	caseStudy, err := loadScenario("", "market")
+	if err != nil {
+		t.Fatal(err)
+	}
+	simulation, err := sim.NewFleet(caseStudy.network, caseStudy.fleet)
+	if err != nil {
+		t.Fatal(err)
+	}
+	simulation.SetExperimentRecords(true)
+	if err := simulation.SetSharedRidePartyLimit(2); err != nil {
+		t.Fatal(err)
+	}
+	for second := range 90 {
+		if second%5 == 0 {
+			if err := simulation.RequestTrip("market", caseStudy.passengers[second/5%2]); err != nil {
+				t.Fatal(err)
+			}
+		}
+		for range sim.TicksPerSecond {
+			simulation.Step()
+		}
+	}
+	state := simulation.Snapshot()
+	timings := simulation.RequestTimings()
+	if len(state.Pending) == 0 || len(timings) == 0 || state.SharedParties == 0 {
+		t.Fatalf("the fixture needs boarded, shared and pending requests: timings=%d %+v", len(timings), state)
+	}
+	total := int64(0)
+	for _, timing := range timings {
+		total += timing.BoardedTick - timing.RequestedTick
+	}
+	for _, request := range state.Pending {
+		total += state.Tick - request.RequestedTick
+	}
+	average := tickSeconds(total) / float64(len(timings)+len(state.Pending))
+	if math.Abs(average-state.Wait.AverageSeconds) > 1e-9 {
+		t.Fatalf("wait average from the timings = %v, simulation = %v", average, state.Wait.AverageSeconds)
+	}
+}

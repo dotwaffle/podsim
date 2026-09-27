@@ -747,6 +747,10 @@ This includes boarding, travel with passengers, unloading, and travel to a picku
 An empty move to parking or for redistribution is not work.
 The `peak_passenger_vehicles` column counts only the pods with passengers aboard, so it is never more than `peak_active_vehicles`.
 
+The CSV files in `docs/measurements` come from reports before `schema_version` 6.
+Thus they do not have the columns that version 6 adds, such as `wait_p95_seconds` and `journey_average_seconds`.
+See [report columns](../README.md#report-columns) for the definitions.
+
 At the limit rate, every seed has all 114 pods with work at the same time in AM peak, Interpeak, PM peak, Evening, and Late.
 The highest seed peak at the limit rate is 104 pods in Early, 99 pods in Morning, and 105 pods in Night.
 At the first rate above each limit, each seed that does not finish within 60 minutes has 112 to 114 pods with work.
