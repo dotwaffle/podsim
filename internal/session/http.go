@@ -3,6 +3,7 @@ package session
 import (
 	"bytes"
 	"compress/gzip"
+	"context"
 	"encoding/binary"
 	"encoding/json"
 	"errors"
@@ -33,6 +34,13 @@ const (
 	// MaxCommandBytes must come in a gzip body.
 	MaxInflatedCommandBytes = project.MaxFileBytes + 64<<10
 )
+
+// largeCommandBytes is the largest plain command body that the server
+// decodes without the large command guard of the session. The guard lets
+// one gzip body, or one larger plain body, decompress, decode and apply at
+// a time. At 8 MiB, one request allocates about 200 MB, so the guard
+// limits the memory of concurrent large commands.
+const largeCommandBytes = 1 << 20
 
 // errContentEncoding means that a command request has a content encoding
 // other than gzip.
@@ -136,7 +144,8 @@ func (s *Session) commandHTTP(w http.ResponseWriter, r *http.Request) {
 		writeError(w, "use application/json", http.StatusUnsupportedMediaType)
 		return
 	}
-	body, failure := readCommandBody(w, r)
+	body, release, failure := s.readCommandBody(w, r)
+	defer release()
 	if failure == nil && errors.Is(prescanCommand(body), errCommandShape) {
 		failure = &errorReply{"invalid command JSON", http.StatusBadRequest}
 	}
@@ -169,23 +178,50 @@ func (s *Session) commandHTTP(w http.ResponseWriter, r *http.Request) {
 // readCommandBody reads the command JSON of r. It decompresses a body with
 // the gzip content encoding. For a body with a content encoding that it
 // does not know, it sets the Accept-Encoding header of w.
-func readCommandBody(w http.ResponseWriter, r *http.Request) ([]byte, *errorReply) {
+//
+// For a gzip body, and for a plain body of more than largeCommandBytes,
+// readCommandBody waits for the large command guard. It reads the body
+// from the network before it waits, so a slow client does not keep the
+// guard. It decompresses a gzip body only after it has the guard. A small
+// gzip body can decompress to a large size, so a waiting request keeps
+// only the bytes that it received. The caller must call release after it
+// applies the command. release is never nil.
+func (s *Session) readCommandBody(w http.ResponseWriter, r *http.Request) (body []byte, release func(), failure *errorReply) {
 	gzipped, err := gzipEncoded(r.Header)
 	if err != nil {
 		w.Header().Set("Accept-Encoding", "gzip")
-		return nil, &errorReply{err.Error(), http.StatusUnsupportedMediaType}
+		return nil, noRelease, &errorReply{err.Error(), http.StatusUnsupportedMediaType}
 	}
-	body, err := io.ReadAll(http.MaxBytesReader(w, r.Body, MaxCommandBytes))
+	body, err = io.ReadAll(http.MaxBytesReader(w, r.Body, MaxCommandBytes))
 	if tooLarge := new(http.MaxBytesError); errors.As(err, &tooLarge) {
-		return nil, &errorReply{fmt.Sprintf("the command body must have at most %d bytes", tooLarge.Limit), http.StatusRequestEntityTooLarge}
+		return nil, noRelease, &errorReply{fmt.Sprintf("the command body must have at most %d bytes", tooLarge.Limit), http.StatusRequestEntityTooLarge}
 	}
 	if err != nil {
-		return nil, &errorReply{"invalid command JSON", http.StatusBadRequest}
+		return nil, noRelease, &errorReply{"invalid command JSON", http.StatusBadRequest}
 	}
-	if gzipped {
-		return inflateCommand(body)
+	if !gzipped && len(body) <= largeCommandBytes {
+		return body, noRelease, nil
 	}
-	return body, nil
+	release, failure = s.waitLargeCommand(r.Context())
+	if failure == nil && gzipped {
+		body, failure = inflateCommand(body)
+	}
+	return body, release, failure
+}
+
+// noRelease is the release function of a command that does not have the
+// large command guard.
+func noRelease() {}
+
+// waitLargeCommand waits for the large command guard of the session. It
+// gives a failure when ctx ends first.
+func (s *Session) waitLargeCommand(ctx context.Context) (func(), *errorReply) {
+	select {
+	case s.largeCommands <- struct{}{}:
+		return func() { <-s.largeCommands }, nil
+	case <-ctx.Done():
+		return noRelease, &errorReply{"the request ended while it waited for another large command", http.StatusServiceUnavailable}
+	}
 }
 
 // gzipEncoded reports whether a command request with header has the gzip

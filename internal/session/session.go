@@ -244,6 +244,11 @@ type Session struct {
 	// restore tells how NewFromStore started the simulation. A reset, a
 	// demo, and a project apply clear it. A rewind keeps it.
 	restore RestoreInfo
+	// largeCommands is the large command guard. It has space for one
+	// value. A request puts a value in it before it decodes command JSON
+	// of more than largeCommandBytes, and removes the value after it
+	// applies the command.
+	largeCommands chan struct{}
 	// persist saves the session state. It is nil without a state store.
 	persist *persistence
 }
@@ -268,7 +273,7 @@ func NewWithProject(config project.Config, options ...Option) (*Session, error) 
 func newSession(persist *persistence, options []Option) *Session {
 	session := &Session{
 		receipts: make(map[string]receipt), logger: slog.Default(), persist: persist,
-		serverStart: newServerStart(),
+		serverStart: newServerStart(), largeCommands: make(chan struct{}, 1),
 	}
 	for _, option := range options {
 		option(session)

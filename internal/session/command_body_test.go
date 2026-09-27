@@ -3,12 +3,17 @@ package session
 import (
 	"bytes"
 	"compress/gzip"
+	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
 	"runtime"
 	"testing"
+	"testing/synctest"
+
+	"github.com/dotwaffle/podsim/internal/project"
 )
 
 // gzipBody compresses data as one gzip member at level.
@@ -170,3 +175,180 @@ func TestCommandBodyReadError(t *testing.T) {
 type errorReader struct{}
 
 func (errorReader) Read([]byte) (int, error) { return 0, io.ErrUnexpectedEOF }
+
+// httpResult is the reply to a command that a goroutine sends.
+type httpResult struct {
+	code  int
+	reply string
+}
+
+// sendCommand sends body in a new goroutine with ctx and the Content-Encoding
+// values encodings. The channel gives the result.
+func sendCommand(ctx context.Context, handler http.Handler, body []byte, encodings ...string) <-chan httpResult {
+	done := make(chan httpResult, 1)
+	go func() {
+		request := httptest.NewRequestWithContext(ctx, http.MethodPost, "/api/command", bytes.NewReader(body))
+		request.Header.Set("Content-Type", "application/json")
+		for _, encoding := range encodings {
+			request.Header.Add("Content-Encoding", encoding)
+		}
+		recorder := httptest.NewRecorder()
+		handler.ServeHTTP(recorder, request)
+		done <- httpResult{recorder.Code, recorder.Body.String()}
+	}()
+	return done
+}
+
+// finished tells if done has a result, and gives it.
+func finished(done <-chan httpResult) (httpResult, bool) {
+	select {
+	case result := <-done:
+		return result, true
+	default:
+		return httpResult{}, false
+	}
+}
+
+// TestLargeCommandGuard checks that one large command at a time decodes and
+// applies. The project saver stops a large project command while it has
+// the guard. Then two large commands wait, and a canceled request stops
+// its wait.
+func TestLargeCommandGuard(t *testing.T) {
+	t.Parallel()
+	synctest.Test(t, func(t *testing.T) {
+		saving, proceed := make(chan struct{}), make(chan struct{})
+		s, err := NewWithProject(project.Default(), WithProjectSaver(func(project.Config) error {
+			saving <- struct{}{}
+			<-proceed
+			return nil
+		}))
+		if err != nil {
+			t.Fatal(err)
+		}
+		handler := s.Handler(t.TempDir())
+		if recorder := postEncoded(t, handler, pauseWithLanes(t, s, "pause", "Lanes", 0)); recorder.Code != http.StatusOK {
+			t.Fatalf("pause: status %d, reply %q", recorder.Code, recorder.Body.String())
+		}
+		config := project.Default()
+		command, err := json.Marshal(Command{Client: "project", Sequence: 1, Epoch: s.State().Epoch, Action: "project", Project: &config, ProjectRevision: s.State().ProjectRevision})
+		if err != nil {
+			t.Fatal(err)
+		}
+		command = append(command, bytes.Repeat([]byte(" "), largeCommandBytes+1-len(command))...)
+		// The project command keeps the session lock while it saves, so
+		// make the other bodies first.
+		plainBody := paddedPause(t, s, "plain", largeCommandBytes+1)
+		largeGzip := gzipBody(t, paddedPause(t, s, "gzip", largeCommandBytes+1), gzip.BestSpeed)
+		applying := sendCommand(t.Context(), handler, gzipBody(t, command, gzip.BestSpeed), "gzip")
+		<-saving
+		if len(s.largeCommands) != 1 {
+			t.Fatal("the project command does not have the guard")
+		}
+
+		canceled, cancel := context.WithCancel(t.Context())
+		plain := sendCommand(canceled, handler, plainBody)
+		compressed := sendCommand(t.Context(), handler, largeGzip, "gzip")
+		synctest.Wait()
+		for name, done := range map[string]<-chan httpResult{"plain": plain, "gzip": compressed} {
+			if result, ok := finished(done); ok {
+				t.Fatalf("the large %s command did not wait: %+v", name, result)
+			}
+		}
+		cancel()
+		synctest.Wait()
+		if result, ok := finished(plain); !ok || result.code != http.StatusServiceUnavailable {
+			t.Fatalf("the canceled command gave %+v, %t, want 503", result, ok)
+		}
+		if _, ok := finished(compressed); ok {
+			t.Fatal("the large gzip command did not wait")
+		}
+
+		close(proceed)
+		synctest.Wait()
+		for name, done := range map[string]<-chan httpResult{"project": applying, "gzip": compressed} {
+			if result, ok := finished(done); !ok || result.code != http.StatusOK {
+				t.Fatalf("the %s command gave %+v, %t, want 200", name, result, ok)
+			}
+		}
+		if len(s.largeCommands) != 0 {
+			t.Fatal("a command did not release the guard")
+		}
+	})
+}
+
+// TestSmallPlainCommandsSkipGuard checks that a plain body of at most
+// largeCommandBytes does not wait for the guard.
+func TestSmallPlainCommandsSkipGuard(t *testing.T) {
+	t.Parallel()
+	s := newTestSession(t)
+	handler := s.Handler(t.TempDir())
+	s.largeCommands <- struct{}{}
+	defer func() { <-s.largeCommands }()
+	if recorder := postEncoded(t, handler, paddedPause(t, s, "plain", largeCommandBytes)); recorder.Code != http.StatusOK {
+		t.Fatalf("status %d, reply %q", recorder.Code, recorder.Body.String())
+	}
+}
+
+// TestGzipCommandsWaitBeforeDecompression sends many small gzip bodies
+// while the guard is held. Each body decompresses to more than
+// largeCommandBytes. The waiting requests must keep only the compressed
+// bytes, and a canceled request must stop its wait and leave the guard.
+// A small gzip command also waits. The test does not run in parallel,
+// because it measures the heap.
+func TestGzipCommandsWaitBeforeDecompression(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		const waiters = 64
+		s := newTestSession(t)
+		handler := s.Handler(t.TempDir())
+		spaces := gzipBody(t, bytes.Repeat([]byte(" "), largeCommandBytes+1), gzip.BestCompression)
+		pause := gzipBody(t, pauseWithLanes(t, s, "pause", "Lanes", 0), gzip.DefaultCompression)
+		s.largeCommands <- struct{}{}
+
+		var before, after runtime.MemStats
+		runtime.GC()
+		runtime.ReadMemStats(&before)
+		canceled, cancel := context.WithCancel(t.Context())
+		results := make([]<-chan httpResult, 0, waiters)
+		for range waiters {
+			results = append(results, sendCommand(canceled, handler, spaces, "gzip"))
+		}
+		small := sendCommand(t.Context(), handler, pause, "gzip")
+		synctest.Wait()
+		runtime.GC()
+		runtime.ReadMemStats(&after)
+		growth := int64(after.HeapAlloc) - int64(before.HeapAlloc)
+		t.Logf("%d waiting requests of %d compressed bytes, heap growth %d bytes", waiters, len(spaces), growth)
+		// A request that decompressed its body before the wait would keep
+		// more than largeCommandBytes.
+		if growth >= 8*largeCommandBytes {
+			t.Fatalf("the heap grew by %d bytes", growth)
+		}
+		for _, done := range results {
+			if result, ok := finished(done); ok {
+				t.Fatalf("a large gzip command did not wait: %+v", result)
+			}
+		}
+		if result, ok := finished(small); ok {
+			t.Fatalf("the small gzip command did not wait: %+v", result)
+		}
+
+		cancel()
+		synctest.Wait()
+		for _, done := range results {
+			if result, ok := finished(done); !ok || result.code != http.StatusServiceUnavailable {
+				t.Fatalf("a canceled command gave %+v, %t, want 503", result, ok)
+			}
+		}
+		if len(s.largeCommands) != 1 {
+			t.Fatal("a canceled command changed the guard")
+		}
+		<-s.largeCommands
+		synctest.Wait()
+		if result, ok := finished(small); !ok || result.code != http.StatusOK {
+			t.Fatalf("the small gzip command gave %+v, %t, want 200", result, ok)
+		}
+		if len(s.largeCommands) != 0 {
+			t.Fatal("the small gzip command did not release the guard")
+		}
+	})
+}

@@ -2471,7 +2471,7 @@ var sessionPersistRules = map[string]persistRule{
 	// A receipt can hold a large project, so the state file keeps only its
 	// sequence. Save points stay in memory only.
 	"receipts": persistReset, "checkpoints": persistReset,
-	"closed": persistInfrastructure, "mu": persistInfrastructure,
+	"closed": persistInfrastructure, "mu": persistInfrastructure, "largeCommands": persistInfrastructure,
 	"saveProject": persistInfrastructure, "logger": persistInfrastructure,
 	"build": persistInfrastructure, "persist": persistInfrastructure,
 	"serverStart": persistInfrastructure,

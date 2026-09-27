@@ -149,6 +149,8 @@ Then the 4 MiB limit applies to the compressed body, and the command JSON must b
 A project command that is larger than 4 MiB must use gzip.
 A gzip body must have one gzip member and no data after it.
 A request with another content encoding gets HTTP 415 with `Accept-Encoding: gzip`.
+The server decompresses, decodes, and applies one gzip command or one plain command of more than 1 MiB at a time.
+Other such commands wait, and the server decompresses a gzip body only after the wait.
 Each array in the body must have no more items than the project limits permit, also for an action that does not use the project.
 For example, `project.network.Lanes` can have at most 8,000 items.
 Each string and each member name in the body must have at most 1,024 bytes, including the quotes and the escapes.
