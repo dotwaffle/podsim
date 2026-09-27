@@ -54,6 +54,14 @@ var redistributionPolicyValues = map[string]sim.Positioning{
 	"on":  sim.PositioningGuarded,
 }
 
+// routingPolicyValues maps each -routing-policies name to its simulation
+// policy.
+var routingPolicyValues = map[string]sim.RoutingPolicy{
+	"free-flow":  sim.FreeFlowRouting,
+	"congestion": sim.CongestionRouting,
+	"queue":      sim.QueueRouting,
+}
+
 type options struct {
 	duration, arrivalsFor  time.Duration
 	requestEvery           time.Duration
@@ -238,7 +246,7 @@ func parseOptions(args []string, stderr io.Writer) (options, error) {
 	flags.StringVar(&opts.bandsText, "bands", "", "comma-separated profile bands or all")
 	flags.StringVar(&opts.loadsText, "loads", "", "comma-separated request intervals")
 	flags.StringVar(&opts.sharingLimitsText, "sharing-limits", "1", "comma-separated same-destination party limits")
-	flags.StringVar(&opts.routingPoliciesText, "routing-policies", "free-flow", "comma-separated routing policies: free-flow, congestion")
+	flags.StringVar(&opts.routingPoliciesText, "routing-policies", "free-flow", "comma-separated routing policies: free-flow, congestion, queue")
 	flags.StringVar(&opts.redistributionText, "redistribution-policies", "off,on", "comma-separated redistribution policies: off, on")
 	flags.StringVar(&opts.waitRulesText, "wait-rules", "current", "comma-separated finishing-pod wait rules: current, strict, none (adds a wait_rule column)")
 	flags.StringVar(&opts.focus, "focus", "", "passenger station used by focused patterns")
@@ -387,7 +395,7 @@ func parseRoutingPolicies(value string) ([]string, error) {
 	seen := make(map[string]bool, len(parts))
 	for _, part := range parts {
 		policy := strings.TrimSpace(part)
-		if policy != "free-flow" && policy != "congestion" {
+		if _, ok := routingPolicyValues[policy]; !ok {
 			return nil, fmt.Errorf("unknown routing policy %q", policy)
 		}
 		if seen[policy] {
@@ -895,7 +903,9 @@ func run(input runInput) (result, error) {
 	if sharingErr := simulation.SetSharedRidePartyLimit(input.sharingLimit); sharingErr != nil {
 		return result{}, fmt.Errorf("set sharing limit: %w", sharingErr)
 	}
-	simulation.SetCongestionRouting(input.routingPolicy == "congestion")
+	if routingErr := simulation.SetRoutingPolicy(routingPolicyValues[input.routingPolicy]); routingErr != nil {
+		return result{}, fmt.Errorf("set routing policy: %w", routingErr)
+	}
 	simulation.SetExperimentRecords(true)
 	if input.waitRule != "" {
 		rule, ok := waitRuleValues[input.waitRule]
