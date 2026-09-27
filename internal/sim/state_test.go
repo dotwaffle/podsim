@@ -162,7 +162,7 @@ func blockBudget(network Network) int {
 	for _, lane := range network.Lanes {
 		blocks += laneBlockCount(network.Length(lane))
 	}
-	return budgetNetworkMultiple*blocks + budgetLaneBlocks*len(network.Lanes)
+	return min(budgetNetworkMultiple*blocks+budgetLaneBlocks*len(network.Lanes), budgetMaxBlocks)
 }
 
 func TestRestorePhysicalDemo(t *testing.T) {

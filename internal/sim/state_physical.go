@@ -14,15 +14,24 @@ const (
 	// takes two saved positions as one.
 	restoreTolerance = 1e-6
 	// The block budget of a restore is budgetNetworkMultiple times the blocks
-	// of the whole network plus budgetLaneBlocks for each lane. Each block of
-	// a route counts, and each lane of a waiting-trip route counts as one.
-	// Project validation limits the total of Network.LaneBlocks to
-	// project.MaxNetworkBlocks. Thus the budget of a valid project is at
-	// most budgetNetworkMultiple * project.MaxNetworkBlocks +
-	// budgetLaneBlocks * project.MaxLanes. Each block has at most six
-	// resources (see routeBlocks), so the budget also bounds the resources.
+	// of the whole network plus budgetLaneBlocks for each lane, but at most
+	// budgetMaxBlocks. Each block of a route counts, and each lane of a
+	// waiting-trip route counts as one. Each block has at most six resources
+	// (see routeBlocks), so the budget also bounds the resources.
+	//
+	// In runs of one hour at 30 and 120 orders per minute, with the most
+	// pods of each preset, the saved routes had at most 5.5 times the
+	// blocks of the network (Scale100) and at most 46,246 blocks (London
+	// with 200 pods). When each of 200 pods holds the longest route
+	// between two stations, the routes have 19 times the blocks of
+	// Scale100 and about 113,000 blocks in London. The multiple keeps room
+	// for these cases in a small network. With budgetMaxBlocks, the work
+	// and the memory of a restore do not grow with the network. A restore
+	// of a crafted route at this budget, with 122 junction conflicts on
+	// each lane, takes about 1.5 seconds and allocates less than 400 MB.
 	budgetNetworkMultiple = 32
 	budgetLaneBlocks      = 4
+	budgetMaxBlocks       = 256_000
 )
 
 // berthRef is a berth and the ID of its station.
@@ -233,7 +242,7 @@ func newPhysicalRestore(s *Simulation, state SavedState, gap int) *physicalResto
 		r.laneBlocks[index] = laneBlockCount(s.laneLength(lane))
 		networkBlocks += r.laneBlocks[index]
 	}
-	r.budget = budgetNetworkMultiple*networkBlocks + budgetLaneBlocks*len(s.network.Lanes)
+	r.budget = min(budgetNetworkMultiple*networkBlocks+budgetLaneBlocks*len(s.network.Lanes), budgetMaxBlocks)
 	for _, station := range s.network.Stations {
 		for _, berth := range station.Berths {
 			r.berths[berth.ID] = berthRef{station: station.ID, berth: berth}

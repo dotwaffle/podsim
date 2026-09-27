@@ -71,10 +71,11 @@ const (
 	// sim.Network.LaneBlocks counts. A block is a track cell of about 30
 	// meters. The route of a pod has a block for each cell of its lanes.
 	// The restore of a saved state builds at most 32 times the blocks of
-	// the network, plus 4 blocks for each lane. The simulator compares
-	// lane pairs over their full length when it starts, so this limit also
-	// bounds the start time. The largest total of a generated project in
-	// the tests is 38,404, in a ring of 4 stations with 62 berths each.
+	// the network, plus 4 blocks for each lane, and at most 256,000
+	// blocks. The simulator compares lane pairs over their full length
+	// when it starts, so this limit also bounds the start time. The largest
+	// total of a generated project in the tests is 38,404, in a ring of 4
+	// stations with 62 berths each.
 	MaxNetworkBlocks = 64_000
 )
 

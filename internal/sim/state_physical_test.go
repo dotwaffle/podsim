@@ -1208,3 +1208,46 @@ func TestRestoreKeepsOneJunctionResourceCopy(t *testing.T) {
 		t.Fatal("the route has no junction resources")
 	}
 }
+
+// TestRestoreBudgetHasALimit checks that the block budget of a network
+// with long lanes is budgetMaxBlocks, and that a small network keeps the
+// budget of its blocks.
+func TestRestoreBudgetHasALimit(t *testing.T) {
+	t.Parallel()
+	long := cycleNetwork(1)
+	for index := range long.Nodes {
+		if node := &long.Nodes[index]; node.ID[0] == 't' {
+			node.Position.X += 300_000
+		}
+	}
+	inbound := slices.IndexFunc(long.Lanes, func(lane Lane) bool { return lane.ID == "inbound" })
+	long.Lanes[inbound].Control = &Point{X: long.Lanes[inbound].Control.X + 150_000, Y: long.Lanes[inbound].Control.Y}
+	for _, tc := range []struct {
+		name    string
+		network Network
+		want    func(t *testing.T, blocks int) int
+	}{
+		{name: "small network", network: cycleNetwork(1), want: func(_ *testing.T, blocks int) int {
+			return budgetNetworkMultiple*blocks + budgetLaneBlocks*len(cycleNetwork(1).Lanes)
+		}},
+		{name: "long lanes", network: long, want: func(t *testing.T, blocks int) int {
+			t.Helper()
+			if budgetNetworkMultiple*blocks <= budgetMaxBlocks {
+				t.Fatalf("the long lanes have only %d blocks", blocks)
+			}
+			return budgetMaxBlocks
+		}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			f := newRestoreFleetFixture(t, tc.network, []Placement{{ID: "01", StationID: "s", BerthID: "s-0"}})
+			blocks := 0
+			for _, count := range tc.network.LaneBlocks() {
+				blocks += count
+			}
+			if got, want := newPhysicalRestore(f.s, f.s.ExportState(), 0).budget, tc.want(t, blocks); got != want {
+				t.Fatalf("budget = %d, want %d for %d network blocks", got, want, blocks)
+			}
+		})
+	}
+}

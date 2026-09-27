@@ -69,7 +69,8 @@ func (w *restoreWork) check(t *testing.T, network sim.Network) {
 	for _, lane := range network.Lanes {
 		blocks += laneBlocks(network, lane)
 	}
-	budget := 32*blocks + 4*len(network.Lanes)
+	// This is the block budget of the physical restore in package sim.
+	budget := min(32*blocks+4*len(network.Lanes), 256_000)
 	podLimit, tripLimit := len(network.Lanes)+len(network.Nodes), len(network.Nodes)
 	t.Logf("largest pod route %d of %d, largest trip route %d of %d, largest cost %d of %d",
 		w.podRoute, podLimit, w.tripRoute, tripLimit, w.cost, budget)
