@@ -748,7 +748,7 @@ An empty move to parking or for redistribution is not work.
 The `peak_passenger_vehicles` column counts only the pods with passengers aboard, so it is never more than `peak_active_vehicles`.
 
 The CSV files in `docs/measurements` come from reports before `schema_version` 6.
-Thus they do not have the columns that version 6 adds, such as `wait_p95_seconds` and `journey_average_seconds`.
+Thus they do not have the columns that version 6 adds, such as `wait_p95_seconds`, `journey_average_seconds`, and `stopped_pod_seconds`.
 See [report columns](../README.md#report-columns) for the definitions.
 
 At the limit rate, every seed has all 114 pods with work at the same time in AM peak, Interpeak, PM peak, Evening, and Late.

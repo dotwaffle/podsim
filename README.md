@@ -807,6 +807,20 @@ The compare command reads a separate record for each party from the simulation.
 Each party that joins a shared ride has its own wait and journey.
 Its boarding time is the time of the join, and its journey ends when the pod completes unloading.
 
+These columns give the time that pods spend stopped, in pod-seconds.
+A pod is stopped when it has a wait reason and its speed is less than 0.1 m/s.
+A pod at a berth that waits for track admission also has a wait reason.
+The compare command examines the pods at each whole simulated second, and each stopped pod adds 1 second.
+
+| Column | Definition |
+| --- | --- |
+| `stopped_pod_seconds` | The time of all stopped pods, for each wait reason. |
+| `junction_wait_seconds` | The time of the stopped pods with the wait reason "Junction traffic". |
+| `track_wait_seconds` | The time of the stopped pods with the wait reason "Pod ahead". |
+
+The other stopped pods wait for a berth or for parking, so `stopped_pod_seconds` is at least the sum of the other two columns.
+The `peak_stopped_vehicles` column counts only the pods with a speed of less than 0.01 m/s, so it can count fewer pods.
+
 ### Generated scenarios
 
 Create a repeatable server scenario:
