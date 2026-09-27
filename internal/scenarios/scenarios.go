@@ -14,7 +14,7 @@ const (
 	minimumStations      = 3
 	maximumStations      = 100
 	maximumPods          = 200
-	maximumStationBerths = 200
+	maximumStationBerths = project.MaxNodeLanes - 2 // A ring entry or exit node has a lane for each berth and 2 more.
 	maximumNodes         = 2000
 	maximumLanes         = 4000
 	speedLimit           = 14.0

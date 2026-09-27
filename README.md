@@ -625,6 +625,8 @@ A berth route goes from the station entry to the berth, or from the berth to the
 It can use a chain of lanes, as in the London stations.
 It cannot pass through the entry, exit, or berth node of a station.
 Validation also limits a project to 4 MiB of compact JSON.
+A node can have at most 64 lanes, counted at the start node and at the end node of each lane.
+Two lanes cannot have the same start node, end node, and path.
 The editor sends the project in one command, and the server accepts a command of at most 2 MiB.
 
 Two editor checks give warnings: a junction with no lanes, and a network section that no lane connects to the other nodes.

@@ -33,6 +33,11 @@ const (
 	MaxNodes = 2000
 	// MaxLanes is the largest number of network lanes.
 	MaxLanes = 4000
+	// MaxNodeLanes is the largest number of lanes at one node. A lane
+	// counts at its From node and at its To node. The simulator compares
+	// each pair of lanes at a node when it starts, so the limit keeps
+	// that work below 2 * MaxLanes * MaxNodeLanes pairs.
+	MaxNodeLanes = 64
 	// MaxProfiles is the largest number of demand profiles.
 	MaxProfiles = 8
 	// MaxBands is the largest number of bands in one demand profile.
@@ -160,6 +165,9 @@ func Validate(config Config) error {
 		return fmt.Errorf("shared ride party limit must be 1 to %d", sim.MaxSharedRideParties)
 	}
 	if err := validateNames(config); err != nil {
+		return err
+	}
+	if err := validateLanes(config.Network); err != nil {
 		return err
 	}
 	if err := validateDemandProfiles(config.DemandProfiles, config.Network); err != nil {
@@ -382,6 +390,38 @@ func validateNames(config Config) error {
 		if !validID(placement.ID) || !validID(placement.StationID) || placement.BerthID != "" && !validID(placement.BerthID) {
 			return fmt.Errorf("fleet IDs must contain 1 to %d characters", maxIDLength)
 		}
+	}
+	return nil
+}
+
+// validateLanes checks that each node has at most MaxNodeLanes lanes, and
+// that no two lanes have the same nodes and the same path.
+func validateLanes(network sim.Network) error {
+	counts := make(map[string]int, len(network.Nodes))
+	for _, lane := range network.Lanes {
+		counts[lane.From]++
+		counts[lane.To]++
+	}
+	for _, node := range network.Nodes {
+		if counts[node.ID] > MaxNodeLanes {
+			return fmt.Errorf("node %s has %d lanes, more than %d", quoteID(node.ID), counts[node.ID], MaxNodeLanes)
+		}
+	}
+	type path struct {
+		from, to string
+		curved   bool
+		control  sim.Point
+	}
+	paths := make(map[path]string, len(network.Lanes))
+	for _, lane := range network.Lanes {
+		key := path{from: lane.From, to: lane.To}
+		if lane.Control != nil {
+			key.curved, key.control = true, *lane.Control
+		}
+		if other, ok := paths[key]; ok {
+			return fmt.Errorf("lanes %s and %s have the same nodes and path", quoteID(other), quoteID(lane.ID))
+		}
+		paths[key] = lane.ID
 	}
 	return nil
 }

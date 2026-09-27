@@ -357,3 +357,48 @@ func TestRejectCutsLongErrors(t *testing.T) {
 		}
 	}
 }
+
+// TestProjectWithManyLanesAtOneNode sends a project in which all added lanes
+// join the same two nodes. Without the lane limit of a node, the fleet
+// would compare each pair of these lanes at each node, and keep an entry for
+// each pair. Validation rejects the project first, so the request allocates
+// little memory. It does not run in parallel, because it measures the heap.
+func TestProjectWithManyLanesAtOneNode(t *testing.T) {
+	s := newTestSession(t)
+	handler := s.Handler(t.TempDir())
+	pause := commandFor(s, "pause")
+	pause.Paused = true
+	if reply := s.Apply(pause); reply.Error != "" {
+		t.Fatal(reply.Error)
+	}
+	config := project.Default()
+	config.Network.Nodes = append(config.Network.Nodes,
+		sim.Node{ID: "a", Position: sim.Point{X: 20_000, Y: 20_000}}, sim.Node{ID: "b", Position: sim.Point{X: 20_030, Y: 20_000}})
+	for index := len(config.Network.Lanes); index < project.MaxLanes; index++ {
+		config.Network.Lanes = append(config.Network.Lanes, sim.Lane{ID: fmt.Sprintf("parallel-%d", index), From: "a", To: "b", SpeedLimit: 12})
+	}
+	body, err := json.Marshal(Command{
+		Client: "lanes", Sequence: 1, Epoch: s.State().Epoch, Action: "project", Project: &config, ProjectRevision: s.State().ProjectRevision,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var before, after runtime.MemStats
+	runtime.GC()
+	runtime.ReadMemStats(&before)
+	recorder := postCommand(t, handler, body)
+	runtime.ReadMemStats(&after)
+	var reply Reply
+	if err := json.Unmarshal(recorder.Body.Bytes(), &reply); err != nil {
+		t.Fatalf("status %d, reply %q: %v", recorder.Code, recorder.Body.String(), err)
+	}
+	if recorder.Code != http.StatusConflict || reply.ErrorCode != CommandRejected || !strings.Contains(reply.Error, `node "a" has`) {
+		t.Fatalf("status %d, reply %+v, want a rejection for node a", recorder.Code, reply)
+	}
+	// The fleet would allocate more than 1 GiB for the pairs of lanes.
+	allocated := after.TotalAlloc - before.TotalAlloc
+	t.Logf("a project of %d bytes with %d lanes at one node allocated %d bytes", len(body), len(config.Network.Lanes), allocated)
+	if allocated >= 64<<20 {
+		t.Fatalf("the request allocated %d bytes", allocated)
+	}
+}
