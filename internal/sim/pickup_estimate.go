@@ -53,9 +53,7 @@ func (s *Simulation) SetFinishingPodWait(rule FinishingPodWait) error {
 // Network validation keeps each lane speed positive, so emptySeconds is not
 // negative. Thus the ETA of a busy pod is not less than the time before the
 // pod is available. When that time cannot win, the loop does not compute
-// the empty route. But while the congestion costs are due for a refresh,
-// the loop computes each empty route, because the first route query
-// refreshes the costs.
+// the empty route.
 func (s *Simulation) waitForFinishingPod(trip *waitingTrip, idle *vehicle, assigned map[string]bool) bool {
 	if s.finishingPodWait == FinishingPodWaitNone {
 		return false
@@ -92,7 +90,7 @@ func (s *Simulation) waitForFinishingPod(trip *waitingTrip, idle *vehicle, assig
 		if !ok {
 			continue
 		}
-		if canWin := remaining < bestETA && remaining <= holdSeconds; !canWin && !s.congestionRefreshDue() {
+		if canWin := remaining < bestETA && remaining <= holdSeconds; !canWin {
 			continue
 		}
 		eta := remaining + s.emptySeconds(node, station.Berths[0].Node)
@@ -121,13 +119,11 @@ func (s *Simulation) waitForFinishingPod(trip *waitingTrip, idle *vehicle, assig
 // keepHold reports false, and dispatch does the full pass, when:
 //   - the trip is not on hold until a later check
 //   - a pod is idle at the pickup station, because that pod can board at once
-//   - the congestion costs are due for a refresh, because the first route
-//     query refreshes them, and pickupPod can make that query
 func (s *Simulation) keepHold(trip *waitingTrip, pass *dispatchPass) bool {
 	if s.finishingPodWait == FinishingPodWaitNone || trip.deferUntil != 0 && s.tick >= trip.deferUntil || trip.deferCheck <= s.tick {
 		return false
 	}
-	if s.localPickup(trip.request.From, pass) != nil || s.congestionRefreshDue() {
+	if s.localPickup(trip.request.From, pass) != nil {
 		return false
 	}
 	trip.request.DispatchReason = "Waiting for an available pod"

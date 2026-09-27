@@ -222,8 +222,9 @@ func TestReleasedPodFallbackBerth(t *testing.T) {
 			},
 		},
 		{
-			name: "congestion changes the nearest berth", start: "harbor-1", destination: "parking-1", lane: "bypass-merge",
-			busy: []string{"garden-1", "parking-2"}, congestion: true, want: "market-2",
+			// The berth choice uses free-flow costs with each routing policy.
+			name: "congestion keeps the free-flow nearest berth", start: "harbor-1", destination: "parking-1", lane: "bypass-merge",
+			busy: []string{"garden-1", "parking-2"}, congestion: true, want: "market-1",
 			setup: func(s *Simulation) func() {
 				// Pod 02 seems to hold the inlet of Market 1.
 				track := resource{kind: trackResource, id: "market-in"}

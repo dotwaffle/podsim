@@ -15,6 +15,20 @@ func (s *Simulation) stationApproachRoute(fromNode, stationID string) ([]Lane, e
 	return route, nil
 }
 
+// assignedApproachRoute is stationApproachRoute for a pod that starts the
+// route. It uses assignedRoute.
+func (s *Simulation) assignedApproachRoute(fromNode, stationID string) ([]Lane, error) {
+	station, ok := s.station(stationID)
+	if !ok {
+		return nil, fmt.Errorf("unknown station %q", stationID)
+	}
+	route, err := s.assignedRoute(fromNode, station.Entry)
+	if err != nil {
+		return nil, fmt.Errorf("route to %s: %w", stationID, err)
+	}
+	return route, nil
+}
+
 // stationRoute selects a reachable berth with the least assigned demand.
 // Berth order breaks equal-load ties.
 func (s *Simulation) stationRoute(fromNode, stationID string) ([]Lane, Berth, error) {

@@ -340,23 +340,6 @@ func TestKeepHoldBetweenChecks(t *testing.T) {
 	}
 }
 
-// TestKeepHoldWaitsForCongestionRefresh checks that dispatch does the full
-// pass when the congestion costs are due for a refresh. The first route
-// query of the pass then refreshes them, as before.
-func TestKeepHoldWaitsForCongestionRefresh(t *testing.T) {
-	t.Parallel()
-	s, _ := newFinishingPodTrip(t, finishingPodSetup{rule: FinishingPodWaitCurrent, busyStation: "market", unloadSeconds: 5})
-	s.SetCongestionRouting(true)
-	pass := dispatchPass{assigned: map[string]bool{}}
-	if s.keepHold(&s.waiting[0], &pass) {
-		t.Fatal("keepHold kept the hold when a congestion refresh was due")
-	}
-	s.refreshCongestionCosts()
-	if !s.keepHold(&s.waiting[0], &pass) {
-		t.Fatal("keepHold did not keep the hold after the refresh")
-	}
-}
-
 func TestSetFinishingPodWaitRejectsUnknownRule(t *testing.T) {
 	t.Parallel()
 	s, err := New(Example(), "harbor")

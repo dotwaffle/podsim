@@ -24,8 +24,9 @@ func releasable(v *vehicle) bool {
 // parkReleased sends a released pod that no trip took to the nearest free
 // berth. A berth is free when no other pod holds it, is at it, or goes to
 // it, and no waiting trip goes to it. The pod keeps the track that it
-// reserved and starts the new route where divertStart says. Route cost is
-// the same as in route. Between berths with the same cost, the current
+// reserved and starts the new route where divertStart says. The berth
+// choice uses the route cost of route, and the new route comes from
+// assignedRoute. Between berths with the same cost, the current
 // destination berth wins, then the other berths of the current destination
 // station, then the berths of the other stations in network order. The pod
 // reserves the chosen berth, as a pod on its way to parking does. A
@@ -46,7 +47,7 @@ func (s *Simulation) parkReleased(v *vehicle) {
 		return
 	}
 	if berth.ID != v.destination.ID {
-		suffix, err := s.route(from, berth.Node)
+		suffix, err := s.assignedRoute(from, berth.Node)
 		if err != nil {
 			return
 		}
@@ -138,7 +139,7 @@ func (s *Simulation) nearestFreeBerth(v *vehicle, from string) (Berth, string, b
 	if len(candidates) == 0 {
 		return Berth{}, "", false
 	}
-	node, ok := s.network.nearestIndexed(nearestInput{from: from, rank: rank, extraCost: s.routeExtraCosts()}, s.graph)
+	node, ok := s.network.nearestIndexed(nearestInput{from: from, rank: rank}, s.graph)
 	if !ok {
 		return Berth{}, "", false
 	}

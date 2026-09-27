@@ -118,6 +118,14 @@ func (s *Simulation) sendPickup(v *vehicle, stationID string) error {
 	if !ok {
 		return errors.New("pod cannot divert before its committed maneuver finishes")
 	}
+	// pickupRoute chose the berth with free-flow routes, as pickupPod did.
+	// The pod keeps that berth. Only the route from the divert node to the
+	// berth can change. Inside the station, the route has no alternative.
+	if prefix, from, _ := s.divertStart(v); s.costedRouting() && from != station.Entry {
+		if suffix, err := s.assignedRoute(from, berth.Node); err == nil {
+			route = append(slices.Clone(v.Route[:prefix]), suffix...)
+		}
+	}
 	s.redirect(v, redirection{route: route, berth: berth, station: station.ID})
 	v.released = false
 	return nil

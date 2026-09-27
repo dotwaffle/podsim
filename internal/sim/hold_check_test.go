@@ -213,34 +213,6 @@ func TestFinishingPodWaitAtBoundary(t *testing.T) {
 	}
 }
 
-// TestFinishingPodWaitKeepsCongestionRefresh checks that the loop does not
-// skip the route query that refreshes the congestion costs. Pod 01 is idle
-// at the pickup station, so its pickup makes no route query, and no busy
-// pod can win.
-func TestFinishingPodWaitKeepsCongestionRefresh(t *testing.T) {
-	t.Parallel()
-	s, err := NewFleet(Example(), []Placement{{ID: "01", StationID: "market"}, {ID: "02", StationID: "garden"}})
-	if err != nil {
-		t.Fatal(err)
-	}
-	busy := s.findVehicle("02")
-	busy.Pod.Activity, busy.Pod.Occupied = Unloading, true
-	busy.phaseTicks = 5 * TicksPerSecond
-	s.SetCongestionRouting(true)
-	s.waiting = append(s.waiting, waitingTrip{request: Request{ID: 1, From: "market", To: "harbor", PartySize: 1}})
-	full := s.Clone()
-	if s.waitForFinishingPod(&s.waiting[0], s.findVehicle("01"), map[string]bool{}) ||
-		full.waitForFinishingPodFull(&full.waiting[0], full.findVehicle("01"), map[string]bool{}) {
-		t.Fatal("the trip waits for a pod that cannot win")
-	}
-	if full.congestionRefreshDue() {
-		t.Fatal("the full loop did not refresh the congestion costs")
-	}
-	if !sameHoldState(s, full) {
-		t.Fatalf("the congestion refresh moved: next refresh at tick %d, want %d", s.nextCongestionRouteRefresh, full.nextCongestionRouteRefresh)
-	}
-}
-
 // TestEmptySecondsIsNotNegative checks the fact that the skip in
 // waitForFinishingPod uses. Each empty route to a pickup berth takes zero
 // or more seconds.

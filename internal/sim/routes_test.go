@@ -107,11 +107,9 @@ func TestStationRoutesFillRouteCache(t *testing.T) {
 				}
 			}
 		}
-		if congestion && (filled > 0 || simulation.congestionRouteCosts != nil) {
-			t.Fatalf("congestion routing filled %d routes or refreshed its costs", filled)
-		}
-		if !congestion && filled == 0 {
-			t.Fatal("no station route in the cache")
+		// The route cache holds free-flow routes with each routing policy.
+		if filled == 0 || simulation.congestionRouteCosts != nil {
+			t.Fatalf("congestion routing %v filled %d routes, costs %v", congestion, filled, simulation.congestionRouteCosts)
 		}
 	}
 }

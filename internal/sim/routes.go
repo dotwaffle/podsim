@@ -29,10 +29,14 @@ func (s *Simulation) withSeconds(result routeResult) routeResult {
 	return result
 }
 
-// route shares read-only paths within this simulation's immutable network.
-// Snapshots copy routes before they leave the simulation. Clones share the
-// routes of pods and waiting trips, so code replaces a route whole and never
-// writes into it in place.
+// route returns the free-flow route. It shares read-only paths within this
+// simulation's immutable network. Snapshots copy routes before they leave
+// the simulation. Clones share the routes of pods and waiting trips, so code
+// replaces a route whole and never writes into it in place.
+//
+// Estimates, candidate searches and the choices of dispatch, positioning
+// and parking use route with each routing policy. Only a pod that starts
+// a new route gets it from assignedRoute.
 func (s *Simulation) route(from, to string) ([]Lane, error) {
 	result := s.cachedRoute(from, to)
 	return result.lanes, result.err
@@ -42,15 +46,31 @@ func (s *Simulation) route(from, to string) ([]Lane, error) {
 // hold the travel time of the route.
 func (s *Simulation) cachedRoute(from, to string) routeResult {
 	s.ensureNetworkIndexes()
-	if s.congestionRouting {
-		return s.congestionRoute(from, to)
-	}
 	key := routeKey{from: from, to: to}
 	if cached, ok := s.routes[key]; ok {
 		return cached
 	}
 	lanes, err := s.network.routeIndexed(networkRouteInput{from: from, to: to}, s.graph)
 	return s.cacheRoute(key, routeResult{lanes: lanes, err: err})
+}
+
+// costedRouting reports whether assignedRoute can give a route that is not
+// the free-flow route.
+func (s *Simulation) costedRouting() bool {
+	return s.congestionRouting
+}
+
+// assignedRoute returns the route for a pod that starts a new route from
+// node from to node to. It is the free-flow route of route, or the route of
+// the routing policy. The callers are board, startEmptyMove, sendPickup
+// and parkReleased.
+func (s *Simulation) assignedRoute(from, to string) ([]Lane, error) {
+	if !s.costedRouting() {
+		return s.route(from, to)
+	}
+	s.ensureNetworkIndexes()
+	result := s.congestionRoute(from, to)
+	return result.lanes, result.err
 }
 
 // congestionRoute returns the route with the lowest travel time plus
@@ -78,27 +98,11 @@ func (s *Simulation) congestionRoute(from, to string) routeResult {
 // older than congestionRouteRefreshTicks. It then clears the congestion
 // routes.
 func (s *Simulation) refreshCongestionCosts() {
-	if s.congestionRefreshDue() {
+	if s.congestionRouteCosts == nil || s.tick >= s.nextCongestionRouteRefresh {
 		s.congestionRouteCosts = s.congestionCosts()
 		s.congestionRoutes = make(map[routeKey]routeResult)
 		s.nextCongestionRouteRefresh = s.tick + congestionRouteRefreshTicks
 	}
-}
-
-// congestionRefreshDue reports whether the next route query computes the
-// congestion costs again. It reports false when congestion routing is off.
-func (s *Simulation) congestionRefreshDue() bool {
-	return s.congestionRouting && (s.congestionRouteCosts == nil || s.tick >= s.nextCongestionRouteRefresh)
-}
-
-// routeExtraCosts returns the lane costs that route adds to travel time.
-// It returns nil when congestion routing is off.
-func (s *Simulation) routeExtraCosts() []float64 {
-	if !s.congestionRouting {
-		return nil
-	}
-	s.refreshCongestionCosts()
-	return s.congestionRouteCosts
 }
 
 func (s *Simulation) congestionCosts() []float64 {
@@ -126,10 +130,9 @@ func (s *Simulation) congestionCosts() []float64 {
 // cacheStationRoutes puts the routes from a node to each berth of a station
 // in the route cache. One route search gives all the routes, so the
 // route calls that follow do not search again. The cache holds only routes
-// that route returns, so this changes no result. It does nothing when
-// congestion routing is on, because congestionRoute uses its own cache.
+// that route returns, so this changes no result.
 func (s *Simulation) cacheStationRoutes(from string, berths []Berth) {
-	if s.congestionRouting || len(berths) < 2 {
+	if len(berths) < 2 {
 		return
 	}
 	s.ensureNetworkIndexes()
