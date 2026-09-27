@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"math"
+	"slices"
 	"strings"
 
 	"github.com/dotwaffle/podsim/internal/sim"
@@ -172,24 +173,8 @@ func Validate(config Config) error {
 	if len(passenger) < 2 {
 		return errors.New("network needs at least two passenger stations")
 	}
-	adjacent := make(map[string][]string, len(config.Network.Nodes))
-	for _, lane := range config.Network.Lanes {
-		adjacent[lane.From] = append(adjacent[lane.From], lane.To)
-	}
-	for _, from := range passenger {
-		for _, origin := range from.Berths {
-			reachable := directedReachable(adjacent, origin.Node)
-			for _, to := range passenger {
-				if from.ID == to.ID {
-					continue
-				}
-				for _, destination := range to.Berths {
-					if !reachable[destination.Node] {
-						return fmt.Errorf("passenger route %q berth %q to %q berth %q: %w", from.ID, origin.ID, to.ID, destination.ID, sim.ErrUnreachable)
-					}
-				}
-			}
-		}
+	if err := validatePassengerRoutes(config.Network.Lanes, passenger); err != nil {
+		return err
 	}
 	// The size check runs last, because it encodes the full project. It
 	// measures the project with the widest demand settings, because the
@@ -205,20 +190,104 @@ func EffectiveSharedRidePartyLimit(config Config) int {
 	return max(1, config.SharedRidePartyLimit)
 }
 
-func directedReachable(adjacent map[string][]string, start string) map[string]bool {
-	reachable := map[string]bool{start: true}
-	queue := []string{start}
+// validatePassengerRoutes returns an error for the first pair of passenger
+// berths at different stations where no lane path goes from the origin berth
+// to the destination berth. The order is the station order of passenger, then
+// the berth order, first for the origin and then for the destination.
+//
+// When each passenger berth can reach the first berth and the first berth can
+// reach each passenger berth, all the pairs have a path. Two searches from the
+// first berth find this case in O(nodes + lanes). In the other case, the
+// function checks each origin in order to find the first pair without a path.
+// An origin that reaches the first berth, and that the first berth reaches,
+// reaches the same nodes as the first berth, so it uses the first search.
+func validatePassengerRoutes(lanes []sim.Lane, passenger []sim.Station) error {
+	graph := newLaneGraph(lanes)
+	// berthNodes has the node index of each berth of each station.
+	berthNodes := make([][]int, len(passenger))
+	var all []int
+	for index, station := range passenger {
+		for _, berth := range station.Berths {
+			berthNodes[index] = append(berthNodes[index], graph.node(berth.Node))
+		}
+		all = append(all, berthNodes[index]...)
+	}
+	if len(all) == 0 {
+		return nil
+	}
+	fromRoot := reachable(graph.forward, all[0])
+	toRoot := reachable(graph.reverse, all[0])
+	withRoot := func(node int) bool { return fromRoot[node] && toRoot[node] }
+	if !slices.ContainsFunc(all, func(node int) bool { return !withRoot(node) }) {
+		return nil
+	}
+	for fromIndex, from := range passenger {
+		for originIndex, origin := range from.Berths {
+			reached := fromRoot
+			if node := berthNodes[fromIndex][originIndex]; !withRoot(node) {
+				reached = reachable(graph.forward, node)
+			}
+			for toIndex, to := range passenger {
+				if from.ID == to.ID {
+					continue
+				}
+				for destinationIndex, destination := range to.Berths {
+					if !reached[berthNodes[toIndex][destinationIndex]] {
+						return fmt.Errorf("passenger route %q berth %q to %q berth %q: %w", from.ID, origin.ID, to.ID, destination.ID, sim.ErrUnreachable)
+					}
+				}
+			}
+		}
+	}
+	return nil
+}
+
+// laneGraph gives each node ID an index and holds the lanes as adjacency
+// lists in both directions.
+type laneGraph struct {
+	indexes          map[string]int
+	forward, reverse [][]int
+}
+
+func newLaneGraph(lanes []sim.Lane) *laneGraph {
+	graph := &laneGraph{indexes: make(map[string]int, len(lanes))}
+	for _, lane := range lanes {
+		from, to := graph.node(lane.From), graph.node(lane.To)
+		graph.forward[from] = append(graph.forward[from], to)
+		graph.reverse[to] = append(graph.reverse[to], from)
+	}
+	return graph
+}
+
+// node returns the index of id. It adds id when the graph does not have it.
+func (g *laneGraph) node(id string) int {
+	index, ok := g.indexes[id]
+	if !ok {
+		index = len(g.indexes)
+		g.indexes[id] = index
+		g.forward = append(g.forward, nil)
+		g.reverse = append(g.reverse, nil)
+	}
+	return index
+}
+
+// reachable returns the nodes that a breadth-first search over adjacent
+// finds from start, start included.
+func reachable(adjacent [][]int, start int) []bool {
+	reached := make([]bool, len(adjacent))
+	reached[start] = true
+	queue := []int{start}
 	for len(queue) > 0 {
 		current := queue[0]
 		queue = queue[1:]
 		for _, next := range adjacent[current] {
-			if !reachable[next] {
-				reachable[next] = true
+			if !reached[next] {
+				reached[next] = true
 				queue = append(queue, next)
 			}
 		}
 	}
-	return reachable
+	return reached
 }
 
 // encodedSize returns the length of the canonical encoding of config. The
