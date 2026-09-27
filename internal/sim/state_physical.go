@@ -19,7 +19,8 @@ const (
 	// Project validation limits the total of Network.LaneBlocks to
 	// project.MaxNetworkBlocks. Thus the budget of a valid project is at
 	// most budgetNetworkMultiple * project.MaxNetworkBlocks +
-	// budgetLaneBlocks * project.MaxLanes.
+	// budgetLaneBlocks * project.MaxLanes. Each block has at most six
+	// resources (see routeBlocks), so the budget also bounds the resources.
 	budgetNetworkMultiple = 32
 	budgetLaneBlocks      = 4
 )

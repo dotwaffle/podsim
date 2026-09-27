@@ -99,11 +99,17 @@ func (s *Simulation) routeBlocks(route []Lane) ([]block, []float64) {
 			if b.last {
 				b.resources = append(b.resources, resource{kind: nodeResource, id: lane.To})
 			}
+			// A lane has conflicts only at its From and To nodes, so a block
+			// gets at most two junction resources. Many lanes can conflict
+			// with the lane at one node, but a second copy of a resource does
+			// not change a reservation, so the block keeps only the first.
+			// Thus a block has at most six resources.
 			for _, conflict := range s.junctionConflicts[lane.ID] {
 				laneEnd := b.end - b.laneStart
 				laneStart := b.start - b.laneStart
-				if laneStart < conflict.end && conflict.start < laneEnd {
-					b.resources = append(b.resources, resource{kind: junctionResource, id: conflict.junction})
+				junction := resource{kind: junctionResource, id: conflict.junction}
+				if laneStart < conflict.end && conflict.start < laneEnd && !slices.Contains(b.resources, junction) {
+					b.resources = append(b.resources, junction)
 				}
 			}
 			b.resources = append(b.resources, resource{kind: trackResource, id: lane.ID, cell: cell})

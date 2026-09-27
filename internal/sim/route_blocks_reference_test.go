@@ -10,7 +10,8 @@ import (
 )
 
 // referenceRouteBlocks is routeBlocks before the berth resource index. For
-// each block, it scans each berth of each station.
+// each block, it scans each berth of each station. It keeps one copy of
+// each junction resource of a block, as routeBlocks does.
 func (s *Simulation) referenceRouteBlocks(route []Lane) ([]block, []float64) {
 	var blocks []block
 	var lengths []float64
@@ -41,8 +42,9 @@ func (s *Simulation) referenceRouteBlocks(route []Lane) ([]block, []float64) {
 			for _, conflict := range s.junctionConflicts[lane.ID] {
 				laneEnd := b.end - b.laneStart
 				laneStart := b.start - b.laneStart
-				if laneStart < conflict.end && conflict.start < laneEnd {
-					b.resources = append(b.resources, resource{kind: junctionResource, id: conflict.junction})
+				junction := resource{kind: junctionResource, id: conflict.junction}
+				if laneStart < conflict.end && conflict.start < laneEnd && !slices.Contains(b.resources, junction) {
+					b.resources = append(b.resources, junction)
 				}
 			}
 			b.resources = append(b.resources, resource{kind: trackResource, id: lane.ID, cell: cell})

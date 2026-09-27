@@ -1153,3 +1153,58 @@ func TestRestoreLimitsTripRoutes(t *testing.T) {
 		t.Fatalf("the restore cleared trip %d, but the cost fits without that", shortest)
 	}
 }
+
+// TestRestoreKeepsOneJunctionResourceCopy restores a pod whose route goes
+// round the cycle of cycleNetwork up to the route limit. Many lanes run
+// next to the outbound lane, so each outbound block conflicts with each of
+// them at both nodes. Each block must keep one copy of each resource, so
+// that the blocks of the route, and not the conflicts, set the memory that
+// the restore uses.
+func TestRestoreKeepsOneJunctionResourceCopy(t *testing.T) {
+	t.Parallel()
+	network := cycleNetwork(1)
+	for index := range 30 {
+		network.Lanes = append(network.Lanes, Lane{
+			ID: fmt.Sprintf("outbound-%d", index), From: "s-exit", To: "t-entry", SpeedLimit: 14,
+			Control: &Point{X: 1900, Y: 0.2 * float64(index+1)},
+		})
+	}
+	f := newRestoreFleetFixture(t, network, []Placement{{ID: "01", StationID: "s", BerthID: "s-0"}})
+	route := cycleRoute(f.s, newRouteLimits(network).pod)
+	routeIndex := slices.Index(route, f.s.graph.lanes["outbound"])
+	distance := 100.0
+	for _, lane := range route[:routeIndex] {
+		distance += f.s.laneLength(network.Lanes[lane])
+	}
+	pod := relocating(SavedPod{
+		ID: "01", Activity: activityCode(Traveling), Origin: "s-0", Destination: "t-1", DestinationStation: "t",
+		Route: route, RouteIndex: routeIndex, LaneID: "outbound", LaneDistance: 100, Distance: distance,
+	})
+	s, result, err := f.restore(roundTripState(t, f.state(pod)))
+	if err != nil {
+		t.Fatal(err)
+	}
+	v := findVehicle(t, s, "01")
+	if !cleanRestore(result) || v.Pod.Activity != Traveling {
+		t.Fatalf("pod 01 is %q, result %+v", v.Pod.Activity, result)
+	}
+	junctions := 0
+	for index, b := range v.blocks {
+		seen := make(map[resource]bool, len(b.resources))
+		for _, r := range b.resources {
+			if seen[r] {
+				t.Fatalf("block %d of lane %q has resource %+v two times", index, b.lane.ID, r)
+			}
+			seen[r] = true
+			if r.kind == junctionResource {
+				junctions++
+			}
+		}
+		if len(b.resources) > 6 {
+			t.Fatalf("block %d of lane %q has %d resources, more than 6", index, b.lane.ID, len(b.resources))
+		}
+	}
+	if junctions == 0 {
+		t.Fatal("the route has no junction resources")
+	}
+}
