@@ -168,7 +168,8 @@ func TestReservationEnd(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
-			if got := reservationEnd(tc.blocks, 0); got != tc.want {
+			list := blockListOf(tc.blocks)
+			if got := reservationEnd(&list, 0); got != tc.want {
 				t.Fatalf("reservation ends at %d, want %d", got, tc.want)
 			}
 		})
@@ -212,7 +213,7 @@ func TestJunctionAdmissionWaitsForWholeConflictZone(t *testing.T) {
 		vehicles: []vehicle{{
 			Pod:             Pod{ID: "follower", Activity: Traveling},
 			reservedThrough: -1,
-			blocks:          []block{{resources: []resource{junction}}, {resources: []resource{junction, exit}}, {}},
+			blocks:          blockListOf([]block{{resources: []resource{junction}}, {resources: []resource{junction, exit}}, {}}),
 		}},
 	}
 	s.grant(intent{index: 0, block: 0})

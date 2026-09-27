@@ -420,7 +420,7 @@ func TestRestoreDemotesTravelingPods(t *testing.T) {
 			check: func(t *testing.T, _ SavedState, s *Simulation, _ RestoreResult) {
 				t.Helper()
 				v := findVehicle(t, s, "04")
-				if owner := berthOwner(s, "parking-2"); owner != "04" || !v.blocks[v.reservedThrough].last ||
+				if owner := berthOwner(s, "parking-2"); owner != "04" || !v.blocks.at(v.reservedThrough).last ||
 					!s.ExportState().Pods[3].ClaimsDestination {
 					t.Fatalf("parking-2 belongs to %q", owner)
 				}
@@ -516,7 +516,7 @@ func TestRestorePicksTheSavedLaneAtABoundary(t *testing.T) {
 				t.Fatalf("%v, %+v", err, result)
 			}
 			v := findVehicle(t, s, "01")
-			b := v.blocks[v.blockIndex]
+			b := v.blocks.at(v.blockIndex)
 			if b.lane.ID != tc.pod.LaneID || b.last != tc.last || b.cell != 0 && !tc.last {
 				t.Fatalf("pod 01 is in cell %d of %s", b.cell, b.lane.ID)
 			}
@@ -543,8 +543,8 @@ func TestRestoreSnapsToBlockEnds(t *testing.T) {
 		route[position] = f.network.Lanes[index]
 	}
 	blocks, _ := f.s.routeBlocks(route)
-	first, _ := routeLaneBlocks(blocks, base.RouteIndex)
-	laneStart, interior := blocks[first].laneStart, blocks[first+1]
+	first, _ := routeLaneBlocks(&blocks, base.RouteIndex)
+	laneStart, interior := blocks.at(first).laneStart, blocks.at(first+1)
 	middle := (interior.start + interior.end) / 2
 	for _, tc := range []struct {
 		name string
@@ -563,7 +563,7 @@ func TestRestoreSnapsToBlockEnds(t *testing.T) {
 			name: "just after a block end", laneDistance: interior.end - laneStart + 1e-9, distance: interior.end + 1e-9,
 			want: interior.end, index: first + 1,
 		},
-		{name: "just after the lane start", laneDistance: 1e-9, distance: laneStart + 1e-9, want: blocks[first-1].end, index: first},
+		{name: "just after the lane start", laneDistance: 1e-9, distance: laneStart + 1e-9, want: blocks.at(first - 1).end, index: first},
 		{
 			name: "lane distance off the saved distance", laneDistance: middle - laneStart + restoreTolerance/2, distance: middle,
 			want: middle, index: first + 1,
@@ -578,7 +578,7 @@ func TestRestoreSnapsToBlockEnds(t *testing.T) {
 				t.Fatalf("%v, %+v", err, result)
 			}
 			v := findVehicle(t, s, "01")
-			if v.distance != tc.want || v.blockIndex != tc.index || v.reservedThrough != reservationEnd(v.blocks, tc.index) {
+			if v.distance != tc.want || v.blockIndex != tc.index || v.reservedThrough != reservationEnd(&v.blocks, tc.index) {
 				t.Fatalf("pod 01 at %v in block %d through %d, want %v in block %d", v.distance, v.blockIndex, v.reservedThrough, tc.want, tc.index)
 			}
 			held := make(map[resource]string)
@@ -1000,7 +1000,7 @@ func TestRestoreLimitsRouteBlocks(t *testing.T) {
 	var kept []string
 	for index := range s.vehicles {
 		v := &s.vehicles[index]
-		blocks += len(v.blocks)
+		blocks += v.blocks.len()
 		if v.Pod.Activity == Traveling {
 			kept = append(kept, v.Pod.ID)
 		}
@@ -1189,7 +1189,7 @@ func TestRestoreKeepsOneJunctionResourceCopy(t *testing.T) {
 		t.Fatalf("pod 01 is %q, result %+v", v.Pod.Activity, result)
 	}
 	junctions := 0
-	for index, b := range v.blocks {
+	for index, b := range v.blocks.all() {
 		seen := make(map[resource]bool, len(b.resources))
 		for _, r := range b.resources {
 			if seen[r] {

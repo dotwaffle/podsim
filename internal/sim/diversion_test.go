@@ -31,7 +31,7 @@ func TestParkingDiversionPreservesMotion(t *testing.T) {
 			}
 			before := v.Pod
 			oldDestination := v.destination
-			reserved := append([]block(nil), v.blocks[:v.reservedThrough+1]...)
+			reserved := append([]block(nil), v.blocks.all()[:v.reservedThrough+1]...)
 			if err := s.RequestTrip("harbor", "garden"); err != nil {
 				t.Fatal(err)
 			}
@@ -41,7 +41,7 @@ func TestParkingDiversionPreservesMotion(t *testing.T) {
 			if v.Pod.Position != before.Position || v.Pod.Speed != before.Speed || v.Pod.LaneDistance != before.LaneDistance || v.Pod.LaneID != before.LaneID {
 				t.Fatal("diversion teleported or changed current motion")
 			}
-			if len(reserved) > 0 && !reflect.DeepEqual(reserved, v.blocks[:v.reservedThrough+1]) {
+			if len(reserved) > 0 && !reflect.DeepEqual(reserved, v.blocks.all()[:v.reservedThrough+1]) {
 				t.Fatal("diversion changed committed track")
 			}
 			if s.owners[resource{kind: berthResource, id: oldDestination.ID}] != "" || s.owners[resource{kind: nodeResource, id: oldDestination.Node}] != "" {

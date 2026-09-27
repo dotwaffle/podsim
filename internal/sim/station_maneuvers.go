@@ -57,8 +57,8 @@ func (s *Simulation) updateStationPhase(v *vehicle) {
 		v.Pod.ManeuverStationID = v.Pod.StationID
 		return
 	}
-	lane, ok := currentManeuverLane(v)
-	if !ok {
+	lane := currentManeuverLane(v)
+	if lane == nil {
 		v.Pod.StationPhase = ""
 		v.Pod.ManeuverStationID = ""
 		return
@@ -84,11 +84,12 @@ func (s *Simulation) updateStationPhase(v *vehicle) {
 	v.Pod.ManeuverStationID = ""
 }
 
-func currentManeuverLane(v *vehicle) (Lane, bool) {
-	if v.blockIndex < 0 || v.blockIndex >= len(v.blocks) {
-		return Lane{}, false
+// currentManeuverLane returns the lane of the block that v is in, or nil.
+func currentManeuverLane(v *vehicle) *Lane {
+	if v.blockIndex < 0 || v.blockIndex >= v.blocks.len() {
+		return nil
 	}
-	return v.blocks[v.blockIndex].lane, true
+	return v.blocks.currentLane(v.blockIndex)
 }
 
 func phaseForStationRole(role StationLaneRole) StationPhase {

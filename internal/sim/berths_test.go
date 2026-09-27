@@ -25,7 +25,7 @@ func TestPassengerBerthAssignedAtStationAccess(t *testing.T) {
 		if vehicle.destination.ID == "" {
 			continue
 		}
-		firstAccessBlock := firstBlockForLane(vehicle.blocks, accessLane)
+		firstAccessBlock := firstBlockForLane(&vehicle.blocks, accessLane)
 		if firstAccessBlock > vehicle.reservedThrough {
 			t.Fatalf("berth assigned before access admission: block=%d reserved_through=%d", firstAccessBlock, vehicle.reservedThrough)
 		}

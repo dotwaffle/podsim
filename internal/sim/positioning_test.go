@@ -624,7 +624,7 @@ func TestGuardedRefill(t *testing.T) {
 			setup: func(s *Simulation) {
 				v := s.findVehicle("01")
 				v.Pod.Activity = Traveling
-				v.blocks = append(v.blocks[:v.reservedThrough+1], block{resources: []resource{{kind: berthResource, id: "s7-1"}}})
+				v.blocks = blockListOf(append(v.blocks.all()[:v.reservedThrough+1], block{resources: []resource{{kind: berthResource, id: "s7-1"}}}))
 			},
 		},
 		{

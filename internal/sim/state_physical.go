@@ -16,8 +16,10 @@ const (
 	// The block budget of a restore is budgetNetworkMultiple times the blocks
 	// of the whole network plus budgetLaneBlocks for each lane, but at most
 	// budgetMaxBlocks. Each block of a route counts, and each lane of a
-	// waiting-trip route counts as one. Each block has at most six resources
-	// (see routeBlocks), so the budget also bounds the resources.
+	// waiting-trip route counts as one. The routes share the cells of each
+	// lane (see laneCells), so the memory of a route grows with its lanes.
+	// The restore walks each block of each route, so the budget bounds the
+	// work.
 	//
 	// In runs of one hour at 30 and 120 orders per minute, with the most
 	// pods of each preset, the saved routes had at most 5.5 times the
@@ -25,10 +27,10 @@ const (
 	// with 200 pods). When each of 200 pods holds the longest route
 	// between two stations, the routes have 19 times the blocks of
 	// Scale100 and about 113,000 blocks in London. The multiple keeps room
-	// for these cases in a small network. With budgetMaxBlocks, the work
-	// and the memory of a restore do not grow with the network. A restore
-	// of a crafted route at this budget, with 122 junction conflicts on
-	// each lane, takes about 1.5 seconds and allocates less than 400 MB.
+	// for these cases in a small network. With budgetMaxBlocks, the work of
+	// a restore does not grow with the network. A restore of 200 pods, each
+	// on a route of about 33,000 blocks, keeps the pods that fit in this
+	// budget. It takes less than 0.1 seconds and allocates less than 25 MB.
 	budgetNetworkMultiple = 32
 	budgetLaneBlocks      = 4
 	budgetMaxBlocks       = 256_000
@@ -462,7 +464,7 @@ func (r *physicalRestore) demote(index int) {
 	r.demoted[index] = true
 	r.cost -= r.costs[index]
 	r.costs[index], r.routes[index] = 0, nil
-	v.Route, v.blocks, v.routeLengths, v.blockStarts, v.terminal = nil, nil, nil, nil, terminalCheck{}
+	v.Route, v.blocks, v.routeLengths, v.blockStarts, v.terminal = nil, blockList{}, nil, nil, terminalCheck{}
 	maps.DeleteFunc(r.s.owners, func(_ resource, owner string) bool { return owner == v.Pod.ID })
 	clear(v.routeReleases)
 }
@@ -576,24 +578,25 @@ func (r *physicalRestore) placeTravelingPod(v *vehicle, saved SavedPod) bool {
 	if saved.LaneID != "" && saved.LaneID != lane.ID {
 		return false
 	}
-	first, last := routeLaneBlocks(v.blocks, saved.RouteIndex)
+	first, last := routeLaneBlocks(&v.blocks, saved.RouteIndex)
 	laneDistance := min(max(saved.LaneDistance, -restoreTolerance), r.s.laneLength(lane)+restoreTolerance)
 	distance := restoredDistance(restoredDistanceInput{
-		blocks: v.blocks, first: first, last: last, laneDistance: laneDistance, saved: saved.Distance,
+		blocks: &v.blocks, first: first, last: last, laneDistance: laneDistance, saved: saved.Distance,
 	})
 	// The saved route index picks the lane, also at an exact lane boundary.
-	index := slices.IndexFunc(v.blocks[first:last+1], func(b block) bool { return b.end >= distance })
-	if index < 0 {
-		index = last
-	} else {
-		index += first
+	index := last
+	for candidate, b := range v.blocks.span(first, last+1) {
+		if b.end >= distance {
+			index = candidate
+			break
+		}
 	}
-	through := reservationEnd(v.blocks, index)
+	through := reservationEnd(&v.blocks, index)
 	if distance < Clearance && (v.origin.ID == "" || v.Route[0].From != v.origin.Node) {
 		return false
 	}
 	// A pod that has no berth yet chooses one before it reserves the last lane.
-	if lastLane, _ := routeLaneBlocks(v.blocks, len(v.Route)-1); v.destination.ID == "" && through >= lastLane {
+	if lastLane, _ := routeLaneBlocks(&v.blocks, len(v.Route)-1); v.destination.ID == "" && through >= lastLane {
 		return false
 	}
 	footprint := v.footprint(through, distance)
@@ -603,7 +606,7 @@ func (r *physicalRestore) placeTravelingPod(v *vehicle, saved SavedPod) bool {
 	for _, claimed := range footprint {
 		r.s.owners[claimed] = v.Pod.ID
 	}
-	for _, b := range v.blocks[:through+1] {
+	for _, b := range v.blocks.span(0, through+1) {
 		for _, claimed := range b.resources {
 			if release := resourceReleaseDistance(b, claimed); release > distance {
 				v.retainRouteResource(claimed, release)
@@ -617,14 +620,14 @@ func (r *physicalRestore) placeTravelingPod(v *vehicle, saved SavedPod) bool {
 	if saved.LaneID != "" {
 		v.Pod.LaneID = lane.ID
 	}
-	if saved.Waiting && through+1 < len(v.blocks) {
+	if saved.Waiting && through+1 < v.blocks.len() {
 		v.pending, v.waitSince = through+1, saved.WaitSince
 	}
 	return true
 }
 
 type restoredDistanceInput struct {
-	blocks       []block
+	blocks       *blockList
 	first, last  int
 	laneDistance float64
 	saved        float64
@@ -637,11 +640,11 @@ type restoredDistanceInput struct {
 // win. A pod that stopped at a block end then releases the same resources as
 // the live pod.
 func restoredDistance(input restoredDistanceInput) float64 {
-	distance := input.blocks[input.first].laneStart + input.laneDistance
+	distance := input.blocks.at(input.first).laneStart + input.laneDistance
 	if math.Abs(distance-input.saved) <= restoreTolerance {
 		distance = input.saved
 	}
-	for _, b := range input.blocks[max(0, input.first-1) : input.last+1] {
+	for _, b := range input.blocks.span(max(0, input.first-1), input.last+1) {
 		if math.Abs(b.end-distance) <= restoreTolerance {
 			return b.end
 		}
@@ -652,20 +655,17 @@ func restoredDistance(input restoredDistanceInput) float64 {
 // routeLaneBlocks returns the first and the last block of the lane at a route
 // index. It counts lane starts, because a route can hold a lane more than
 // once.
-func routeLaneBlocks(blocks []block, routeIndex int) (first, last int) {
-	lane, first := 0, -1
-	for index, b := range blocks {
-		if index > 0 && b.cell == 0 {
-			lane++
-		}
-		if lane > routeIndex {
-			return first, index - 1
-		}
-		if lane == routeIndex && first < 0 {
-			first = index
-		}
+func routeLaneBlocks(blocks *blockList, routeIndex int) (first, last int) {
+	switch {
+	case blocks.len() == 0:
+		return -1, -1
+	case routeIndex < 0:
+		return -1, -1
+	case routeIndex >= len(blocks.route):
+		return -1, blocks.len() - 1
+	default:
+		return blocks.laneFirst(routeIndex), blocks.laneFirst(routeIndex+1) - 1
 	}
-	return first, len(blocks) - 1
 }
 
 // footprint returns the resources that a traveling pod holds when it has
@@ -683,7 +683,7 @@ func (v *vehicle) footprint(through int, distance float64) []resource {
 			held = append(held, claimed)
 		}
 	}
-	for _, b := range v.blocks[:through+1] {
+	for _, b := range v.blocks.span(0, through+1) {
 		for _, claimed := range b.resources {
 			if resourceReleaseDistance(b, claimed) > distance {
 				add(claimed)
@@ -787,7 +787,7 @@ func (r *physicalRestore) placeDemoted(index int) error {
 	r.moveTo(v, berth)
 	station := r.berths[berth.ID].station
 	v.Pod.Activity, v.Pod.StationID = Idle, station
-	v.Route, v.blocks, v.routeLengths, v.blockStarts, v.terminal = nil, nil, nil, nil, terminalCheck{}
+	v.Route, v.blocks, v.routeLengths, v.blockStarts, v.terminal = nil, blockList{}, nil, nil, terminalCheck{}
 	v.Parties, v.RelocatingTo, v.Rebalancing, v.released = 0, "", false, false
 	v.origin, v.destination, v.destinationStation = Berth{}, berth, station
 	return nil

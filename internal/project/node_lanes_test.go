@@ -97,8 +97,9 @@ func TestValidateNodeLanes(t *testing.T) {
 // TestNodeLaneLimitBoundsFleetMemory starts a fleet on the bundles layout,
 // which has as many lane pairs at nodes as MaxJunctionPairs allows. The
 // simulator keeps an entry for each pair of lanes at a node that come near
-// each other, so the limit bounds the memory that the fleet keeps. It does
-// not run in parallel, because it measures the heap.
+// each other, so the limit bounds the memory that the fleet keeps. The
+// fleet also keeps the resources of each block, which MaxNetworkBlocks
+// bounds. The test does not run in parallel, because it measures the heap.
 func TestNodeLaneLimitBoundsFleetMemory(t *testing.T) {
 	config := bundles()
 	if err := Validate(config); err != nil {
@@ -114,9 +115,15 @@ func TestNodeLaneLimitBoundsFleetMemory(t *testing.T) {
 	runtime.GC()
 	runtime.ReadMemStats(&after)
 	retained := int64(after.HeapAlloc) - int64(before.HeapAlloc)
+	blocks := 0
+	for _, count := range config.Network.LaneBlocks() {
+		blocks += count
+	}
 	// Each entry has about 32 bytes. The bound doubles that for the slices
-	// and the maps, and adds 4,096 bytes for the geometry of each lane.
-	bound := int64(MaxJunctionPairs)*64 + int64(len(config.Network.Lanes))*4096
+	// and the maps, and adds 4,096 bytes for the geometry of each lane. It
+	// also adds 200 bytes for each block: a block has at most six resources
+	// of 32 bytes and an index of 8 bytes.
+	bound := int64(MaxJunctionPairs)*64 + int64(len(config.Network.Lanes))*4096 + int64(blocks)*200
 	t.Logf("a fleet on %d lanes with %d lanes at each added node retains %d bytes, bound %d", len(config.Network.Lanes), MaxNodeLanes, retained, bound)
 	if retained > bound {
 		t.Fatalf("the fleet retains %d bytes, more than %d", retained, bound)

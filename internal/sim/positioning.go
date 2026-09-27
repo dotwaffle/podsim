@@ -323,8 +323,8 @@ func (s *Simulation) guardedSupply(input guardedSupplyInput) ([]bool, map[string
 			// that the new route crosses a berth that the pod does not claim.
 			// A guarded move that claims that berth would stop the pod
 			// before the berth, and each pod would wait for the other.
-			for _, b := range v.blocks[v.reservedThrough+1:] {
-				for _, r := range b.resources {
+			for resources := range v.blocks.spanResources(v.reservedThrough+1, v.blocks.len()) {
+				for _, r := range resources {
 					if r.kind == berthResource {
 						busy[r.id] = true
 					}

@@ -40,8 +40,8 @@ func (s *Simulation) clearBlockedBerths() {
 // through a berth.
 func (v *vehicle) entersBerth(berthID string) bool {
 	claim := resource{kind: berthResource, id: berthID}
-	for _, b := range v.blocks[v.reservedThrough+1:] {
-		if slices.Contains(b.resources, claim) {
+	for resources := range v.blocks.spanResources(v.reservedThrough+1, v.blocks.len()) {
+		if slices.Contains(resources, claim) {
 			return true
 		}
 	}

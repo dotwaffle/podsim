@@ -38,8 +38,7 @@ func (s *Simulation) retainedOwners() map[resource]string {
 
 // addRouteOwners adds the resources that a traveling pod holds to owners.
 func addRouteOwners(owners map[resource]string, v *vehicle) {
-	for blockIndex := range v.reservedThrough + 1 {
-		b := v.blocks[blockIndex]
+	for _, b := range v.blocks.span(0, v.reservedThrough+1) {
 		for _, r := range b.resources {
 			if resourceReleaseDistance(b, r) > v.distance {
 				owners[r] = v.Pod.ID

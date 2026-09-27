@@ -13,7 +13,7 @@ func (s *Simulation) assignTerminalBerth(v *vehicle) bool {
 		return true
 	}
 	next := v.reservedThrough + 1
-	if next < 0 || next >= len(v.blocks) || v.blocks[next].lane.ID != v.Route[len(v.Route)-1].ID {
+	if next < 0 || next >= v.blocks.len() || v.blocks.lane(next).ID != v.Route[len(v.Route)-1].ID {
 		return true
 	}
 	station, ok := s.station(v.destinationStation)
@@ -34,7 +34,7 @@ func (s *Simulation) assignTerminalBerth(v *vehicle) bool {
 // final branch. Existing track ownership and movement state remain unchanged.
 func (s *Simulation) reevaluateTerminalBerth(v *vehicle) {
 	next := v.reservedThrough + 1
-	if next < 0 || next >= len(v.blocks) || len(v.Route) == 0 {
+	if next < 0 || next >= v.blocks.len() || len(v.Route) == 0 {
 		return
 	}
 	eligible, through, ok := s.terminalLane(v)
@@ -63,11 +63,11 @@ func (s *Simulation) reevaluateTerminalBerth(v *vehicle) {
 			}
 			route := append(slices.Clone(v.Route[:routeIndex]), suffix...)
 			blocks, lengths := s.routeBlocks(route)
-			if first >= len(blocks) || blocks[first].lane.ID != suffix[0].ID {
+			if first >= blocks.len() || blocks.at(first).lane.ID != suffix[0].ID {
 				continue
 			}
 			v.Route, v.blocks, v.routeLengths, v.destination = route, blocks, lengths, berth
-			v.blockStarts = indexBlockStarts(blocks, len(route))
+			v.blockStarts = indexBlockStarts(&blocks, len(route))
 			v.terminal = terminalCheck{}
 			v.pending = -1
 			return
@@ -119,7 +119,7 @@ func (s *Simulation) findTerminalLane(v *vehicle) (eligible, through int) {
 		return -1, 0
 	}
 	stationStart := stationRouteStart(v.Route, station.Entry)
-	through = reservationEnd(v.blocks, v.reservedThrough+1)
+	through = reservationEnd(&v.blocks, v.reservedThrough+1)
 	for routeIndex := stationStart; routeIndex < len(v.Route); routeIndex++ {
 		first := v.firstBlockForLane(v.Route[routeIndex].ID)
 		if first <= v.reservedThrough {
@@ -142,13 +142,13 @@ func stationRouteStart(route []Lane, entry string) int {
 	return len(route) - 1
 }
 
-func firstBlockForLane(blocks []block, laneID string) int {
-	for i, block := range blocks {
-		if block.lane.ID == laneID {
-			return i
+func firstBlockForLane(blocks *blockList, laneID string) int {
+	for index, lane := range blocks.route {
+		if lane.ID == laneID {
+			return blocks.laneFirst(index)
 		}
 	}
-	return len(blocks)
+	return blocks.len()
 }
 
 func (s *Simulation) berthAvailableFor(v *vehicle, berth Berth) bool {

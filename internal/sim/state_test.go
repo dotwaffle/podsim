@@ -259,9 +259,9 @@ func TestExportStateLimitsRoutes(t *testing.T) {
 				v.RelocatingTo, v.destinationStation = "t", "t"
 				v.origin, v.destination = network.Stations[0].Berths[0], network.Stations[1].Berths[0]
 				s.setVehicleRoute(v, route)
-				first, _ := routeLaneBlocks(v.blocks, tc.routeIndex)
-				v.distance = v.blocks[first].laneStart + 50
-				v.blockIndex = first + slices.IndexFunc(v.blocks[first:], func(b block) bool { return b.end >= v.distance })
+				first, _ := routeLaneBlocks(&v.blocks, tc.routeIndex)
+				v.distance = v.blocks.at(first).laneStart + 50
+				v.blockIndex = first + slices.IndexFunc(v.blocks.all()[first:], func(b block) bool { return b.end >= v.distance })
 				v.reservedThrough = v.blockIndex
 			}
 			state := s.ExportState()

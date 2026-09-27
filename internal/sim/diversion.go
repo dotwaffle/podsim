@@ -78,7 +78,7 @@ func (s *Simulation) divertStart(v *vehicle) (int, string, bool) {
 	if v.reservedThrough < 0 {
 		return prefix, from, true
 	}
-	committed := v.blocks[v.reservedThrough]
+	committed := v.blocks.at(v.reservedThrough)
 	end := committed.laneStart + s.laneLength(committed.lane)
 	distance := 0.0
 	for i, lane := range v.Route {

@@ -87,7 +87,7 @@ func TestRedistributionNeverYieldsAdmittedDestination(t *testing.T) {
 		t.Fatal("pod 01 did not start redistribution")
 	}
 	before := maps.Clone(s.owners)
-	rebalancing.reservedThrough = len(rebalancing.blocks) - 1
+	rebalancing.reservedThrough = rebalancing.blocks.len() - 1
 	if !s.relocationDestinationAdmitted(rebalancing) {
 		t.Fatal("test did not admit the destination block")
 	}

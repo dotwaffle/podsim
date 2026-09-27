@@ -46,7 +46,7 @@ func TestCommittedTerminalBranchDoesNotReroute(t *testing.T) {
 	s.owners[resource{kind: berthResource, id: "market-1"}] = "02"
 	s.owners[resource{kind: nodeResource, id: "market-berth"}] = "02"
 	positionBeforeTerminalInlet(t, terminalInletPosition{simulation: s, vehicle: v, committed: true})
-	route, blocks := slices.Clone(v.Route), slices.Clone(v.blocks)
+	route, blocks := slices.Clone(v.Route), v.blocks.all()
 	owners := maps.Clone(s.owners)
 	destination := v.destination
 	blockIndex, reservedThrough := v.blockIndex, v.reservedThrough
@@ -54,7 +54,7 @@ func TestCommittedTerminalBranchDoesNotReroute(t *testing.T) {
 
 	s.reevaluateTerminalBerth(v)
 
-	if !reflect.DeepEqual(v.Route, route) || !reflect.DeepEqual(v.blocks, blocks) || v.destination != destination ||
+	if !reflect.DeepEqual(v.Route, route) || !reflect.DeepEqual(v.blocks.all(), blocks) || v.destination != destination ||
 		v.blockIndex != blockIndex || v.reservedThrough != reservedThrough || v.distance != distance || v.pending != pending ||
 		!maps.Equal(s.owners, owners) {
 		t.Fatal("committed terminal branch state changed")
@@ -75,14 +75,14 @@ func TestBerthChoiceAtMultiLaneBranch(t *testing.T) {
 	s.owners[resource{kind: berthResource, id: "market-1"}] = "02"
 	s.owners[resource{kind: nodeResource, id: "market-berth"}] = "02"
 	positionBeforeTerminalInlet(t, terminalInletPosition{simulation: s, vehicle: v})
-	granted := slices.Clone(v.blocks[:v.reservedThrough+1])
+	granted := slices.Clone(v.blocks.all()[:v.reservedThrough+1])
 
 	s.reevaluateTerminalBerth(v)
 
 	if v.destination.ID != "market-2" || v.Route[len(v.Route)-1].ID != "market-in-2" {
 		t.Fatalf("destination = %q via %q, want market-2 via market-in-2", v.destination.ID, v.Route[len(v.Route)-1].ID)
 	}
-	if !reflect.DeepEqual(v.blocks[:v.reservedThrough+1], granted) {
+	if !reflect.DeepEqual(v.blocks.all()[:v.reservedThrough+1], granted) {
 		t.Fatal("reroute changed granted blocks")
 	}
 }
@@ -101,11 +101,11 @@ func TestCommittedMultiLaneBranchDoesNotReroute(t *testing.T) {
 	s.owners[resource{kind: berthResource, id: "market-1"}] = "02"
 	s.owners[resource{kind: nodeResource, id: "market-berth"}] = "02"
 	positionBeforeTerminalInlet(t, terminalInletPosition{simulation: s, vehicle: v, committed: true})
-	route, blocks := slices.Clone(v.Route), slices.Clone(v.blocks)
+	route, blocks := slices.Clone(v.Route), v.blocks.all()
 
 	s.reevaluateTerminalBerth(v)
 
-	if !reflect.DeepEqual(v.Route, route) || !reflect.DeepEqual(v.blocks, blocks) || v.destination.ID != "market-1" {
+	if !reflect.DeepEqual(v.Route, route) || !reflect.DeepEqual(v.blocks.all(), blocks) || v.destination.ID != "market-1" {
 		t.Fatal("committed multi-lane branch state changed")
 	}
 }
@@ -181,7 +181,7 @@ func positionBeforeTerminalInlet(t *testing.T, position terminalInletPosition) {
 	s, v := position.simulation, position.vehicle
 	inlet := v.Route[len(v.Route)-1].ID
 	first := -1
-	for i, b := range v.blocks {
+	for i, b := range v.blocks.all() {
 		if b.lane.ID == inlet {
 			first = i
 			break
@@ -193,12 +193,12 @@ func positionBeforeTerminalInlet(t *testing.T, position terminalInletPosition) {
 	v.Pod.Activity, v.Pod.Occupied = Traveling, true
 	v.phaseTicks, v.blockIndex = 0, first-2
 	v.reservedThrough = first - 2
-	v.distance = v.blocks[v.blockIndex].start
+	v.distance = v.blocks.at(v.blockIndex).start
 	if position.committed {
 		v.blockIndex, v.reservedThrough = first, first
-		v.distance = v.blocks[first].start
+		v.distance = v.blocks.at(first).start
 	}
-	for _, b := range v.blocks[:v.reservedThrough+1] {
+	for _, b := range v.blocks.all()[:v.reservedThrough+1] {
 		for _, r := range b.resources {
 			s.owners[r] = v.Pod.ID
 		}
@@ -214,14 +214,14 @@ func TestTerminalLaneFollowsReservation(t *testing.T) {
 	s.owners[resource{kind: nodeResource, id: "market-berth"}] = "02"
 	positionBeforeTerminalInlet(t, terminalInletPosition{simulation: s, vehicle: v})
 	near := v.reservedThrough
-	v.blockIndex, v.reservedThrough, v.distance = 0, 0, v.blocks[0].start
+	v.blockIndex, v.reservedThrough, v.distance = 0, 0, v.blocks.at(0).start
 
 	s.reevaluateTerminalBerth(v)
 	if v.destination.ID != "market-1" || !v.terminal.known || v.terminal.eligible >= 0 {
 		t.Fatalf("far from the branch: destination %q, check %+v", v.destination.ID, v.terminal)
 	}
 	// A grant moves the reservation to the branch without a route change.
-	v.blockIndex, v.reservedThrough, v.distance = near, near, v.blocks[near].start
+	v.blockIndex, v.reservedThrough, v.distance = near, near, v.blocks.at(near).start
 	s.reevaluateTerminalBerth(v)
 
 	if v.destination.ID != "market-2" || v.Route[len(v.Route)-1].ID != "market-in-2" {
@@ -312,7 +312,7 @@ func TestTerminalLaneCacheMatchesFullCheck(t *testing.T) {
 			next := v.reservedThrough + 1
 			c := v.terminal
 			if !c.known || c.reservedThrough != v.reservedThrough || c.station != v.destinationStation ||
-				next < 0 || next >= len(v.blocks) || len(v.Route) == 0 {
+				next < 0 || next >= v.blocks.len() || len(v.Route) == 0 {
 				continue
 			}
 			checked++

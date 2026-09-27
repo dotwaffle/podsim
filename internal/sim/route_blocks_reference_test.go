@@ -13,6 +13,13 @@ import (
 // referenceRouteBlocks is routeBlocks before the berth resource index. For
 // each block, it scans each berth of each station. It keeps one copy of
 // each junction resource of a block, as routeBlocks does.
+//
+// The reference compares the conflicts of a lane with the cell offsets
+// from the lane start, as newLaneCells does. Before the routes shared the
+// cells, the offset was (d+x)-d for a lane start at route distance d, and
+// the result could differ from x in the last bit. At an exact conflict
+// boundary, a cell then got a junction resource only on some routes (see
+// TestJunctionOverlapUsesLaneOffsets).
 func (s *Simulation) referenceRouteBlocks(route []Lane) ([]block, []float64) {
 	var blocks []block
 	var lengths []float64
@@ -41,8 +48,8 @@ func (s *Simulation) referenceRouteBlocks(route []Lane) ([]block, []float64) {
 				b.resources = append(b.resources, resource{kind: nodeResource, id: lane.To})
 			}
 			for _, conflict := range s.junctionConflicts[lane.ID] {
-				laneEnd := b.end - b.laneStart
-				laneStart := b.start - b.laneStart
+				laneStart := float64(cell) * length / float64(count)
+				laneEnd := float64(cell+1) * length / float64(count)
 				junction := resource{kind: junctionResource, id: conflict.junction}
 				if laneStart < conflict.end && conflict.start < laneEnd && !slices.Contains(b.resources, junction) {
 					b.resources = append(b.resources, junction)
@@ -56,6 +63,44 @@ func (s *Simulation) referenceRouteBlocks(route []Lane) ([]block, []float64) {
 	return blocks, lengths
 }
 
+// all returns the blocks of the list.
+func (l *blockList) all() []block {
+	var blocks []block
+	for _, b := range l.span(0, l.len()) {
+		blocks = append(blocks, b)
+	}
+	return blocks
+}
+
+// blockListOf returns a list of the given blocks. A lane of the list ends
+// at each block that has last set, before a block of another lane ID, and
+// at the end of the blocks. The lane, the geometry and the lane start of a
+// lane come from its first block, and its length from its last block. The
+// list divides each lane into cells of equal length, so the start and the
+// end of a block can differ from the given block.
+func blockListOf(blocks []block) blockList {
+	var list blockList
+	for from := 0; from < len(blocks); {
+		to := from + 1
+		for to < len(blocks) && !blocks[to-1].last && blocks[to].lane.ID == blocks[from].lane.ID {
+			to++
+		}
+		head := blocks[from]
+		cells := &laneCells{geometry: head.geometry}
+		for _, b := range blocks[from:to] {
+			cells.add(b.resources)
+		}
+		list.route = append(list.route, head.lane)
+		list.lanes = append(list.lanes, routeLaneCells{
+			first: from, start: head.laneStart, length: blocks[to-1].end - head.laneStart, cells: cells, geometry: cells.geometry,
+		})
+		from = to
+	}
+	list.lanes = append(list.lanes, routeLaneCells{first: len(blocks)})
+	list.blocks = len(blocks)
+	return list
+}
+
 // checkRouteBlocks fails t when routeBlocks and the reference give
 // different blocks or lengths. It checks a route of each lane. It also
 // checks the routes from the first berth of each station to the first berth
@@ -67,7 +112,7 @@ func checkRouteBlocks(t *testing.T, s *Simulation) {
 		t.Helper()
 		gotBlocks, gotLengths := s.routeBlocks(route)
 		wantBlocks, wantLengths := s.referenceRouteBlocks(route)
-		if !reflect.DeepEqual(gotBlocks, wantBlocks) || !reflect.DeepEqual(gotLengths, wantLengths) {
+		if !reflect.DeepEqual(gotBlocks.all(), wantBlocks) || !reflect.DeepEqual(gotLengths, wantLengths) {
 			t.Fatalf("routeBlocks differs from the reference for route %v", route)
 		}
 	}
@@ -188,10 +233,10 @@ func BenchmarkRouteBlocks(b *testing.B) {
 	}
 	for _, bench := range []struct {
 		name  string
-		build func([]Lane) ([]block, []float64)
+		build func([]Lane)
 	}{
-		{name: "new", build: s.routeBlocks},
-		{name: "reference", build: s.referenceRouteBlocks},
+		{name: "new", build: func(route []Lane) { s.routeBlocks(route) }},
+		{name: "reference", build: func(route []Lane) { s.referenceRouteBlocks(route) }},
 	} {
 		b.Run(bench.name, func(b *testing.B) {
 			b.ReportAllocs()
@@ -217,8 +262,8 @@ func TestLaneBlocksMatchRouteBlocks(t *testing.T) {
 		got := network.LaneBlocks()
 		for index, lane := range s.network.Lanes {
 			blocks, _ := s.routeBlocks([]Lane{lane})
-			if want := laneBlockCount(s.laneLength(lane)); got[index] != want || len(blocks) != want {
-				t.Errorf("%s: lane %q has %d blocks, want %d and routeBlocks gives %d", name, lane.ID, got[index], want, len(blocks))
+			if want := laneBlockCount(s.laneLength(lane)); got[index] != want || blocks.len() != want {
+				t.Errorf("%s: lane %q has %d blocks, want %d and routeBlocks gives %d", name, lane.ID, got[index], want, blocks.len())
 			}
 		}
 	}
@@ -263,10 +308,103 @@ func TestReservationEndMatchesReference(t *testing.T) {
 			}
 			b.resources = append(b.resources, resource{kind: trackResource, id: "lane", cell: index})
 		}
+		list := blockListOf(blocks)
+		blocks = list.all()
 		for start := range blocks {
-			if got, want := reservationEnd(blocks, start), referenceReservationEnd(blocks, start); got != want {
+			if got, want := reservationEnd(&list, start), referenceReservationEnd(blocks, start); got != want {
 				t.Fatalf("reservationEnd from block %d = %d, want %d", start, got, want)
 			}
 		}
+	}
+}
+
+// checkSharedCells fails t when the route of a pod does not use the shared
+// cells of each of its lanes.
+func checkSharedCells(t *testing.T, s *Simulation) {
+	t.Helper()
+	for _, v := range s.vehicles {
+		if !slices.Equal(v.blocks.route, v.Route) {
+			t.Fatalf("tick %d: the blocks of pod %s are not for its route", s.tick, v.Pod.ID)
+		}
+		for index, lane := range v.blocks.route {
+			if cells := s.laneCells[lane.ID]; cells == nil || v.blocks.lanes[index].cells != cells {
+				t.Fatalf("tick %d: pod %s does not use the shared cells of lane %s", s.tick, v.Pod.ID, lane.ID)
+			}
+		}
+	}
+}
+
+// TestRoutesShareLaneCells runs the demo with guarded positioning, so that
+// pods board, relocate and change their routes. At each tick, each pod
+// route must use the shared cells of its lanes. A restore of the state at
+// each 100 ticks must also use them.
+func TestRoutesShareLaneCells(t *testing.T) {
+	t.Parallel()
+	s := newTraffic(t)
+	if err := s.SetPositioning(PositioningGuarded); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.StartDemo(); err != nil {
+		t.Fatal(err)
+	}
+	for s.demo != nil {
+		if s.tick >= demoTickLimit {
+			t.Fatalf("the demo did not end in %d ticks", demoTickLimit)
+		}
+		s.Step()
+		checkSharedCells(t, s)
+		if s.tick%100 != 0 {
+			continue
+		}
+		restored, result, err := RestoreState(RestoreStateInput{Network: Example(), Fleet: demoFleet(), State: s.ExportState()})
+		if err != nil || !cleanRestore(result) {
+			t.Fatalf("tick %d: %v, %+v", s.tick, err, result)
+		}
+		checkSharedCells(t, restored)
+	}
+}
+
+// TestJunctionOverlapUsesLaneOffsets checks a conflict that ends at the
+// exact start of a cell. The lanes go straight from (-24.3, 0) to (0, 0)
+// and then to (26, 0). The out lane has two cells of 13 m, and its conflict
+// with the in lane ends at 13 m. The second cell of the out lane starts at
+// 13 m, so it does not hold the junction resource. The reservation from the
+// first block then ends at the first cell of the out lane. Before the routes
+// shared the cells, the second cell started at (24.3+13)-24.3, which is
+// less than 13, so it held the resource and the reservation went one cell
+// further.
+func TestJunctionOverlapUsesLaneOffsets(t *testing.T) {
+	t.Parallel()
+	s := &Simulation{network: Network{
+		Nodes: []Node{{ID: "a", Position: Point{X: -24.3}}, {ID: "b"}, {ID: "c", Position: Point{X: 26}}},
+		Lanes: []Lane{{ID: "in", From: "a", To: "b", SpeedLimit: 14}, {ID: "out", From: "b", To: "c", SpeedLimit: 14}},
+	}}
+	s.ensureNetworkIndexes()
+	conflicts := s.junctionConflicts["out"]
+	if len(conflicts) != 1 || conflicts[0].end != 13 {
+		t.Fatalf("conflicts of the out lane = %+v, want one that ends at 13", conflicts)
+	}
+	junction := resource{kind: junctionResource, id: conflicts[0].junction}
+	blocks, _ := s.routeBlocks(s.network.Lanes)
+	if start := blocks.at(3).start; start-blocks.at(3).laneStart >= 13 {
+		t.Fatalf("the second cell of the out lane starts at %v, which does not test the old offset", start)
+	}
+	want := [][]resource{
+		{{kind: nodeResource, id: "a"}, junction, {kind: trackResource, id: "in", cell: 0}},
+		{{kind: nodeResource, id: "b"}, junction, {kind: trackResource, id: "in", cell: 1}},
+		{{kind: nodeResource, id: "b"}, junction, {kind: trackResource, id: "out", cell: 0}},
+		{{kind: nodeResource, id: "c"}, {kind: trackResource, id: "out", cell: 1}},
+	}
+	all := blocks.all()
+	if len(all) != len(want) {
+		t.Fatalf("the route has %d blocks, want %d", len(all), len(want))
+	}
+	for index, b := range all {
+		if !slices.Equal(b.resources, want[index]) {
+			t.Errorf("block %d has %v, want %v", index, b.resources, want[index])
+		}
+	}
+	if got := reservationEnd(&blocks, 0); got != 2 {
+		t.Errorf("the reservation from block 0 ends at block %d, want 2", got)
 	}
 }

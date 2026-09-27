@@ -1,7 +1,9 @@
 package sim
 
 import (
+	"cmp"
 	"fmt"
+	"iter"
 	"math"
 	"slices"
 )
@@ -20,15 +22,19 @@ type resource struct {
 	id   string
 	cell int
 }
+
+// block is one cell of a route lane. blockList makes it from the shared
+// cells of the lane. start, end and laneStart are route distances.
 type block struct {
 	lane       Lane
 	cell       int
 	start, end float64
 	laneStart  float64
-	resources  []resource
-	last       bool
+	// resources is the shared slice of the cell. No code writes to it.
+	resources []resource
+	last      bool
 	// geometry is the geometry of lane, or nil when the geometry index did
-	// not have lane when routeBlocks made the block.
+	// not have lane when newLaneCells made the cells of lane.
 	geometry *laneGeometry
 }
 
@@ -74,49 +80,355 @@ func indexBerthResources(network Network) map[string][]resource {
 	return resources
 }
 
-// routeBlocks uses the same cell boundaries for every route through a lane.
-// It also returns the value of laneLength for each route lane.
-func (s *Simulation) routeBlocks(route []Lane) ([]block, []float64) {
-	var blocks []block
-	var lengths []float64
-	if len(route) > 0 {
-		lengths = make([]float64, 0, len(route))
+// laneCells holds the resources of the blocks of one lane in the form that
+// each route through the lane shares. NewFleet and ensureNetworkIndexes
+// build the cells of each network lane, and no code writes to them.
+type laneCells struct {
+	// geometry is the geometry of the lane, or nil when the geometry index
+	// does not have the lane.
+	geometry *laneGeometry
+	// resources holds the resources of all cells in cell order. ends holds
+	// the index in resources after the last resource of each cell.
+	resources []resource
+	ends      []int
+}
+
+// count returns the number of cells.
+func (c *laneCells) count() int {
+	return len(c.ends)
+}
+
+// cell returns the resources of a cell.
+func (c *laneCells) cell(cell int) []resource {
+	start, end := 0, c.ends[cell]
+	if cell > 0 {
+		start = c.ends[cell-1]
 	}
+	return c.resources[start:end:end]
+}
+
+// add adds a cell with the given resources.
+func (c *laneCells) add(resources []resource) {
+	c.resources = append(c.resources, resources...)
+	c.ends = append(c.ends, len(c.resources))
+}
+
+// cellOffset returns the distance from the start of a lane to the start of
+// a cell, when count cells of equal length divide the lane.
+func cellOffset(cell, count int, length float64) float64 {
+	return float64(cell) * length / float64(count)
+}
+
+// laneCellsInput holds the lane data that newLaneCells uses. berths holds
+// the berth resources at the To node of the lane.
+type laneCellsInput struct {
+	lane      Lane
+	length    float64
+	geometry  *laneGeometry
+	berths    []resource
+	conflicts []laneConflict
+}
+
+// newLaneCells divides a lane into laneBlockCount cells of equal length.
+func newLaneCells(input laneCellsInput) *laneCells {
+	lane, length := input.lane, input.length
+	count := laneBlockCount(length)
+	var cells laneCells
+	var resources []resource
+	for cell := range count {
+		last := cell == count-1
+		resources = resources[:0]
+		if last {
+			resources = append(resources, input.berths...)
+		}
+		if cell == 0 {
+			resources = append(resources, resource{kind: nodeResource, id: lane.From})
+		}
+		if last {
+			resources = append(resources, resource{kind: nodeResource, id: lane.To})
+		}
+		// A lane has conflicts only at its From and To nodes, so a cell gets
+		// at most two junction resources. Many lanes can conflict with the
+		// lane at one node, but a second copy of a resource does not change
+		// a reservation, so the cell keeps only the first. Thus a cell has
+		// at most six resources.
+		start, end := cellOffset(cell, count, length), cellOffset(cell+1, count, length)
+		for _, conflict := range input.conflicts {
+			junction := resource{kind: junctionResource, id: conflict.junction}
+			if start < conflict.end && conflict.start < end && !slices.Contains(resources, junction) {
+				resources = append(resources, junction)
+			}
+		}
+		cells.add(append(resources, resource{kind: trackResource, id: lane.ID, cell: cell}))
+	}
+	// The cells keep only the memory that they use.
+	return &laneCells{geometry: input.geometry, resources: slices.Clone(cells.resources), ends: slices.Clone(cells.ends)}
+}
+
+// indexLaneCells returns the cells of each network lane. The cells of all
+// lanes hold one block for each block that Network.LaneBlocks counts, so
+// project validation bounds them.
+func indexLaneCells(input laneCellsIndexInput) map[string]*laneCells {
+	network := input.network
+	positions := make(map[string]Point, len(network.Nodes))
+	for _, node := range network.Nodes {
+		if _, ok := positions[node.ID]; !ok {
+			positions[node.ID] = node.Position
+		}
+	}
+	cells := make(map[string]*laneCells, len(network.Lanes))
+	for _, lane := range network.Lanes {
+		if _, ok := cells[lane.ID]; ok {
+			continue
+		}
+		cells[lane.ID] = newLaneCells(laneCellsInput{
+			lane: lane, length: indexedLaneLength(lane, positions[lane.From], positions[lane.To]), geometry: input.geometry[lane.ID],
+			berths: input.berths[lane.To], conflicts: input.conflicts[lane.ID],
+		})
+	}
+	return cells
+}
+
+// laneCellsIndexInput holds the network and the indexes that
+// indexLaneCells uses.
+type laneCellsIndexInput struct {
+	network   Network
+	geometry  map[string]*laneGeometry
+	conflicts map[string][]laneConflict
+	berths    map[string][]resource
+}
+
+// routeLaneCells holds the blocks of one lane of a route.
+type routeLaneCells struct {
+	// first is the index of the first block of the lane.
+	first int
+	// start is the route distance at the start of the lane. length is the
+	// lane length that the cells divide.
+	start, length float64
+	cells         *laneCells
+	// geometry is cells.geometry. A moving pod reads it at each tick, and
+	// this copy saves a memory read.
+	geometry *laneGeometry
+}
+
+// blockCursor keeps the result of a lookup of a block.
+type blockCursor struct {
+	// index is the index of the block plus one, or 0 when the cursor is
+	// empty.
+	index int
+	// lane is the route index of the lane of the block. After a lookup of
+	// another block, it is the lane to try first.
+	lane int
+	// end is the route distance at the end of the block.
+	end float64
+}
+
+// blockList holds the blocks of a route. For each route lane, it holds the
+// shared cells of the lane and the route distance at the lane start. Thus
+// its size grows with the route lanes, and not with the blocks.
+type blockList struct {
+	route []Lane
+	// lanes holds the blocks of each route lane, and then an entry whose
+	// first is the number of blocks.
+	lanes []routeLaneCells
+	// blocks is the number of blocks.
+	blocks int
+	// At each tick, a pod looks up the block that it is in with
+	// cursors[podCursor] (see currentLane), and the last block that it
+	// reserved with cursors[endCursor] (see end). Most of these lookups
+	// find the same block as the last lookup. scan is the route index of
+	// the lane that another lookup found last. Most other lookups find a
+	// block in the same lane or in the next lane. The cursors and scan do
+	// not change a result, but a lookup writes them, so two goroutines
+	// must not use one list at the same time.
+	cursors [2]blockCursor
+	scan    int
+}
+
+// The cursors of a blockList.
+const (
+	podCursor = iota
+	endCursor
+)
+
+// len returns the number of blocks.
+func (l *blockList) len() int {
+	return l.blocks
+}
+
+// laneFirst returns the index of the first block of the lane at a route
+// index.
+func (l *blockList) laneFirst(lane int) int {
+	return l.lanes[lane].first
+}
+
+// find returns cursor after a lookup of the block at index.
+func (l *blockList) find(index int, cursor *blockCursor) *blockCursor {
+	if cursor.index != index+1 {
+		l.seek(index, cursor)
+	}
+	return cursor
+}
+
+// seek moves cursor to the block at index.
+func (l *blockList) seek(index int, cursor *blockCursor) {
+	lane := l.locate(index, cursor.lane)
+	*cursor = blockCursor{index: index + 1, lane: lane, end: l.cellEnd(lane, index-l.lanes[lane].first)}
+}
+
+// holds reports whether the lane at a route index holds the block at index.
+func (l *blockList) holds(lane, index int) bool {
+	return lane >= 0 && lane+1 < len(l.lanes) && l.lanes[lane].first <= index && index < l.lanes[lane+1].first
+}
+
+// locate returns the route index of the lane of a block. It tries the lane
+// at route index hint and the next lane before it searches all lanes.
+func (l *blockList) locate(index, hint int) int {
+	switch {
+	case l.holds(hint, index):
+		return hint
+	case l.holds(hint+1, index):
+		return hint + 1
+	}
+	found, _ := slices.BinarySearchFunc(l.lanes[:len(l.lanes)-1], index+1, func(entry routeLaneCells, target int) int {
+		return cmp.Compare(entry.first, target)
+	})
+	return found - 1
+}
+
+// routeLane returns the route index of the lane of a block.
+func (l *blockList) routeLane(index int) int {
+	if !l.holds(l.scan, index) {
+		l.scan = l.locate(index, l.scan)
+	}
+	return l.scan
+}
+
+// cell returns the route index of the lane of a block, and the cell of the
+// block in that lane.
+func (l *blockList) cell(index int) (lane, cell int) {
+	lane = l.routeLane(index)
+	return lane, index - l.lanes[lane].first
+}
+
+// lane returns the lane of a block.
+func (l *blockList) lane(index int) *Lane {
+	return &l.route[l.routeLane(index)]
+}
+
+// currentLane returns the lane of the block that the pod is in, at index.
+func (l *blockList) currentLane(index int) *Lane {
+	return &l.route[l.find(index, &l.cursors[podCursor]).lane]
+}
+
+// end returns the route distance at the end of the last block that the pod
+// reserved, at index.
+func (l *blockList) end(index int) float64 {
+	return l.find(index, &l.cursors[endCursor]).end
+}
+
+// cellEnd returns the route distance at the end of a cell of the lane at a
+// route index.
+func (l *blockList) cellEnd(lane, cell int) float64 {
+	entry := &l.lanes[lane]
+	return entry.start + cellOffset(cell+1, l.lanes[lane+1].first-entry.first, entry.length)
+}
+
+// resources returns the resources of a block.
+func (l *blockList) resources(index int) []resource {
+	lane, cell := l.cell(index)
+	return l.lanes[lane].cells.cell(cell)
+}
+
+// last reports whether a block is the last block of its lane.
+func (l *blockList) last(index int) bool {
+	return index+1 == l.lanes[l.routeLane(index)+1].first
+}
+
+// at returns the block at an index.
+func (l *blockList) at(index int) block {
+	lane, cell := l.cell(index)
+	return l.block(lane, cell)
+}
+
+// block returns a cell of the lane at a route index.
+func (l *blockList) block(lane, cell int) block {
+	entry := &l.lanes[lane]
+	count := l.lanes[lane+1].first - entry.first
+	return block{
+		lane: l.route[lane], geometry: entry.geometry, cell: cell,
+		start: entry.start + cellOffset(cell, count, entry.length), end: entry.start + cellOffset(cell+1, count, entry.length),
+		laneStart: entry.start, resources: entry.cells.cell(cell), last: cell == count-1,
+	}
+}
+
+// span returns the blocks from index from up to but not including index to,
+// with their indexes.
+func (l *blockList) span(from, to int) iter.Seq2[int, block] {
+	return func(yield func(int, block) bool) {
+		if from >= to {
+			return
+		}
+		lane := l.routeLane(from)
+		for index := from; index < to; index++ {
+			for index >= l.lanes[lane+1].first {
+				lane++
+			}
+			if !yield(index, l.block(lane, index-l.lanes[lane].first)) {
+				return
+			}
+		}
+	}
+}
+
+// spanResources returns the resources of the blocks from index from up to
+// but not including index to. It does not make the blocks.
+func (l *blockList) spanResources(from, to int) iter.Seq[[]resource] {
+	return func(yield func([]resource) bool) {
+		if from >= to {
+			return
+		}
+		lane := l.routeLane(from)
+		for index := from; index < to; index++ {
+			for index >= l.lanes[lane+1].first {
+				lane++
+			}
+			if !yield(l.lanes[lane].cells.cell(index - l.lanes[lane].first)) {
+				return
+			}
+		}
+	}
+}
+
+// routeBlocks returns the blocks of a route. The route uses the shared cells
+// of each lane, so all routes through a lane have the same cell boundaries.
+// A lane that has no cells, as in a Simulation literal of a test, gets new
+// cells. routeBlocks also returns the value of laneLength for each route
+// lane.
+func (s *Simulation) routeBlocks(route []Lane) (blockList, []float64) {
+	var lengths []float64
+	if len(route) == 0 {
+		return blockList{}, lengths
+	}
+	blocks := blockList{route: route, lanes: make([]routeLaneCells, len(route)+1)}
+	lengths = make([]float64, 0, len(route))
 	distance := 0.0
-	for _, lane := range route {
+	for index, lane := range route {
 		length := s.laneLength(lane)
 		lengths = append(lengths, length)
-		geometry := s.geometry[lane.ID]
-		count := laneBlockCount(length)
-		for cell := range count {
-			b := block{lane: lane, geometry: geometry, cell: cell, start: distance + float64(cell)*length/float64(count), end: distance + float64(cell+1)*length/float64(count), laneStart: distance, last: cell == count-1}
-			if b.last {
-				b.resources = append(b.resources, s.berthResources[lane.To]...)
-			}
-			if cell == 0 {
-				b.resources = append(b.resources, resource{kind: nodeResource, id: lane.From})
-			}
-			if b.last {
-				b.resources = append(b.resources, resource{kind: nodeResource, id: lane.To})
-			}
-			// A lane has conflicts only at its From and To nodes, so a block
-			// gets at most two junction resources. Many lanes can conflict
-			// with the lane at one node, but a second copy of a resource does
-			// not change a reservation, so the block keeps only the first.
-			// Thus a block has at most six resources.
-			for _, conflict := range s.junctionConflicts[lane.ID] {
-				laneEnd := b.end - b.laneStart
-				laneStart := b.start - b.laneStart
-				junction := resource{kind: junctionResource, id: conflict.junction}
-				if laneStart < conflict.end && conflict.start < laneEnd && !slices.Contains(b.resources, junction) {
-					b.resources = append(b.resources, junction)
-				}
-			}
-			b.resources = append(b.resources, resource{kind: trackResource, id: lane.ID, cell: cell})
-			blocks = append(blocks, b)
+		cells := s.laneCells[lane.ID]
+		if cells == nil {
+			cells = newLaneCells(laneCellsInput{
+				lane: lane, length: length, geometry: s.geometry[lane.ID],
+				berths: s.berthResources[lane.To], conflicts: s.junctionConflicts[lane.ID],
+			})
 		}
+		entry := &blocks.lanes[index]
+		entry.start, entry.length, entry.cells, entry.geometry = distance, length, cells, cells.geometry
+		blocks.lanes[index+1].first = entry.first + cells.count()
 		distance += length
 	}
+	blocks.blocks = blocks.lanes[len(route)].first
 	return blocks, lengths
 }
 
@@ -129,15 +441,15 @@ type intent struct {
 func (s *Simulation) setVehicleRoute(v *vehicle, route []Lane) {
 	v.Route = route
 	v.blocks, v.routeLengths = s.routeBlocks(route)
-	v.blockStarts = indexBlockStarts(v.blocks, len(route))
+	v.blockStarts = indexBlockStarts(&v.blocks, len(route))
 	v.terminal = terminalCheck{}
 }
 
-func indexBlockStarts(blocks []block, capacity int) map[string]int {
+func indexBlockStarts(blocks *blockList, capacity int) map[string]int {
 	starts := make(map[string]int, capacity)
-	for index, block := range blocks {
-		if _, exists := starts[block.lane.ID]; !exists {
-			starts[block.lane.ID] = index
+	for index, lane := range blocks.route {
+		if _, exists := starts[lane.ID]; !exists {
+			starts[lane.ID] = blocks.laneFirst(index)
 		}
 	}
 	return starts
@@ -147,7 +459,7 @@ func (v *vehicle) firstBlockForLane(laneID string) int {
 	if first, ok := v.blockStarts[laneID]; ok {
 		return first
 	}
-	return firstBlockForLane(v.blocks, laneID)
+	return firstBlockForLane(&v.blocks, laneID)
 }
 
 // SetReservationLookahead controls how early pods request track beyond their
@@ -174,14 +486,14 @@ func (s *Simulation) admit() {
 		s.reevaluateTerminalBerth(v)
 		v.Pod.WaitReason, v.Pod.BlockedBy = NoWait, ""
 		next := v.reservedThrough + 1
-		if next >= len(v.blocks) {
+		if next >= v.blocks.len() {
 			continue
 		}
 		// Reserve enough track for cruising speed plus the configured lookahead.
 		// A denied extension leaves the existing stopping boundary intact.
-		speed := math.Max(v.Pod.Speed, v.blocks[v.blockIndex].lane.SpeedLimit)
+		speed := math.Max(v.Pod.Speed, v.blocks.currentLane(v.blockIndex).SpeedLimit)
 		horizon := speed*speed/(2*acceleration) + speed*s.reservationLookaheadSeconds
-		if v.reservedThrough >= 0 && v.blocks[v.reservedThrough].end-v.distance >= horizon {
+		if v.reservedThrough >= 0 && v.blocks.end(v.reservedThrough)-v.distance >= horizon {
 			continue
 		}
 		if v.pending != next {
@@ -211,9 +523,9 @@ func (s *Simulation) admit() {
 
 func (s *Simulation) grant(in intent) {
 	v := &s.vehicles[in.index]
-	through := reservationEnd(v.blocks, in.block)
-	for _, b := range v.blocks[in.block : through+1] {
-		for _, r := range b.resources {
+	through := reservationEnd(&v.blocks, in.block)
+	for resources := range v.blocks.spanResources(in.block, through+1) {
+		for _, r := range resources {
 			if owner := s.owners[r]; owner != "" && owner != v.Pod.ID {
 				v.Pod.BlockedBy = owner
 				switch r.kind {
@@ -230,7 +542,7 @@ func (s *Simulation) grant(in intent) {
 			}
 		}
 	}
-	for _, b := range v.blocks[in.block : through+1] {
+	for _, b := range v.blocks.span(in.block, through+1) {
 		for _, r := range b.resources {
 			s.owners[r] = v.Pod.ID
 			v.retainRouteResource(r, resourceReleaseDistance(b, r))
@@ -250,7 +562,7 @@ func (s *Simulation) grant(in intent) {
 // then block i has its resource. Thus runs has at most one entry for each
 // junction resource of a block, and each block is scanned at most once for
 // each of its junction resources.
-func reservationEnd(blocks []block, start int) int {
+func reservationEnd(blocks *blockList, start int) int {
 	type junctionRun struct {
 		junction resource
 		end      int
@@ -259,11 +571,11 @@ func reservationEnd(blocks []block, start int) int {
 	runs := storage[:0]
 	through := start
 	for i := start; i <= through; i++ {
-		if blocks[i].last && i+1 < len(blocks) {
+		if blocks.last(i) && i+1 < blocks.len() {
 			through = max(through, i+1)
 		}
 		runs = slices.DeleteFunc(runs, func(run junctionRun) bool { return run.end < i })
-		for _, r := range blocks[i].resources {
+		for _, r := range blocks.resources(i) {
 			if r.kind != junctionResource {
 				continue
 			}
@@ -272,7 +584,7 @@ func reservationEnd(blocks []block, start int) int {
 				continue
 			}
 			end := i
-			for end+1 < len(blocks) && slices.Contains(blocks[end+1].resources, r) {
+			for end+1 < blocks.len() && slices.Contains(blocks.resources(end+1), r) {
 				end++
 			}
 			runs = append(runs, junctionRun{junction: r, end: end})
@@ -283,20 +595,22 @@ func reservationEnd(blocks []block, start int) int {
 }
 
 func (s *Simulation) move(v *vehicle) {
-	limit := v.blocks[v.reservedThrough].end
+	limit := v.blocks.end(v.reservedThrough)
 	available := math.Max(0, limit-v.distance)
 	dt := 1.0 / TicksPerSecond
 	// Semi-implicit integration preserves enough owned track to stop on the next tick.
 	safe := math.Sqrt(acceleration*acceleration*dt*dt+2*acceleration*available) - acceleration*dt
-	v.Pod.Speed = math.Min(v.Pod.Speed+acceleration*dt, math.Min(v.blocks[v.blockIndex].lane.SpeedLimit, math.Max(0, safe)))
+	blocks := &v.blocks
+	current := blocks.find(v.blockIndex, &blocks.cursors[podCursor])
+	v.Pod.Speed = math.Min(v.Pod.Speed+acceleration*dt, math.Min(blocks.route[current.lane].SpeedLimit, math.Max(0, safe)))
 	travel := math.Min(available, v.Pod.Speed*dt)
 	v.distance += travel
 	if limit-v.distance < 1e-5 {
 		v.distance = limit
 		v.Pod.Speed = 0
 	}
-	for v.distance >= v.blocks[v.blockIndex].end {
-		if v.blockIndex+1 == len(v.blocks) {
+	for v.distance >= current.end {
+		if v.blockIndex+1 == blocks.len() {
 			s.arrive(v)
 			return
 		}
@@ -304,10 +618,11 @@ func (s *Simulation) move(v *vehicle) {
 			break
 		}
 		v.blockIndex++
+		current = blocks.find(v.blockIndex, current)
 	}
-	b := &v.blocks[v.blockIndex]
-	v.Pod.LaneID, v.Pod.LaneDistance = b.lane.ID, v.distance-b.laneStart
-	v.Pod.Position = s.blockPosition(b, v.Pod.LaneDistance)
+	lane := current.lane
+	v.Pod.LaneID, v.Pod.LaneDistance = blocks.route[lane].ID, v.distance-blocks.lanes[lane].start
+	v.Pod.Position = s.lanePosition(blocks.lanes[lane].geometry, &blocks.route[lane], v.Pod.LaneDistance)
 }
 
 func (s *Simulation) releaseCleared() {

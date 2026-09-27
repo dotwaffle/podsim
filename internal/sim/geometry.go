@@ -13,8 +13,8 @@ type laneSegment struct {
 	end      float64
 }
 
-// buildLaneGeometry returns the geometry of each lane by lane ID. Route
-// blocks point to the values, so no code writes to them.
+// buildLaneGeometry returns the geometry of each lane by lane ID. The lane
+// cells and the route blocks point to the values, so no code writes to them.
 func buildLaneGeometry(network Network) map[string]*laneGeometry {
 	storage := make([]laneGeometry, len(network.Lanes))
 	geometry := make(map[string]*laneGeometry, len(network.Lanes))
@@ -46,10 +46,16 @@ func (s *Simulation) position(lane Lane, distance float64) Point {
 
 // blockPosition returns the same point as position for the lane of b.
 func (s *Simulation) blockPosition(b *block, distance float64) Point {
-	if b.geometry == nil {
-		return s.position(b.lane, distance)
+	return s.lanePosition(b.geometry, &b.lane, distance)
+}
+
+// lanePosition returns the point at a distance along lane. geometry is the
+// geometry of lane, or nil to look it up by lane ID.
+func (s *Simulation) lanePosition(geometry *laneGeometry, lane *Lane, distance float64) Point {
+	if geometry == nil {
+		return s.position(*lane, distance)
 	}
-	return s.positionOn(b.geometry, &b.lane, distance)
+	return s.positionOn(geometry, lane, distance)
 }
 
 // positionOn returns the point at a distance along lane. geometry is the

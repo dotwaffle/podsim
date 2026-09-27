@@ -278,7 +278,7 @@ func checkReleasedFallback(t *testing.T, tc releasedFallbackCase, mode Positioni
 	if !s.releasePickup(v) {
 		t.Fatal("pod 01 was not released")
 	}
-	reserved := slices.Clone(v.blocks[:v.reservedThrough+1])
+	reserved := slices.Clone(v.blocks.all()[:v.reservedThrough+1])
 	undo := func() {}
 	if tc.setup != nil {
 		undo = tc.setup(s)
@@ -286,7 +286,7 @@ func checkReleasedFallback(t *testing.T, tc releasedFallbackCase, mode Positioni
 	s.parkReleased(v)
 	undo()
 	checkReleasedTo(t, s, v, tc.want)
-	if !slices.EqualFunc(reserved, v.blocks[:v.reservedThrough+1], func(a, b block) bool {
+	if !slices.EqualFunc(reserved, v.blocks.all()[:v.reservedThrough+1], func(a, b block) bool {
 		return a.lane.ID == b.lane.ID && a.laneStart == b.laneStart
 	}) {
 		t.Fatal("the release changed the reserved track")
@@ -401,7 +401,7 @@ func TestReleasedPodYieldsItsOrigin(t *testing.T) {
 		t.Fatalf("pod 02 did not take request 1: %+v", local.Vehicle)
 	}
 	checkReleasedTo(t, s, remote, "harbor-1")
-	if !slices.Contains(remote.blocks[0].resources, resource{kind: nodeResource, id: remote.destination.Node}) {
+	if !slices.Contains(remote.blocks.at(0).resources, resource{kind: nodeResource, id: remote.destination.Node}) {
 		t.Fatal("the first cell of the route of pod 01 does not hold the Harbor 1 node")
 	}
 	stepUntil(t, s, "pod 01 yields Harbor 1", func() bool { return berthOwner(s, "harbor-1") != "01" })
@@ -789,7 +789,7 @@ func TestReleasedPodPassesIdleBerthPod(t *testing.T) {
 	// Release pod 01 when its reserved track ends in the arrival link, so
 	// its new route starts at the Market 1 arrival node.
 	stepUntil(t, s, "the reserved track of pod 01 ends in the Market arrival link", func() bool {
-		return remote.reservedThrough >= 0 && remote.blocks[remote.reservedThrough].lane.ID == "market-arrival-link"
+		return remote.reservedThrough >= 0 && remote.blocks.at(remote.reservedThrough).lane.ID == "market-arrival-link"
 	})
 	local.phaseTicks = 1
 	s.Step()

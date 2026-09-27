@@ -245,7 +245,7 @@ func (s *Simulation) exportPod(v *vehicle, limits routeLimits) SavedPod {
 	case Boarding, DepartingEmpty:
 		pod.Route = s.laneIndexes(v.Route, limits.pod)
 	case Traveling:
-		if len(v.blocks) == 0 {
+		if v.blocks.len() == 0 {
 			break
 		}
 		start, offset, current := v.savedRouteStart()
@@ -266,7 +266,7 @@ func (s *Simulation) exportPod(v *vehicle, limits routeLimits) SavedPod {
 // Clearance past the lane end, so an earlier lane holds no resource.
 func (v *vehicle) savedRouteStart() (start int, offset float64, current int) {
 	start = -1
-	for index, b := range v.blocks[:v.blockIndex+1] {
+	for index, b := range v.blocks.span(0, v.blockIndex+1) {
 		if index > 0 && b.cell == 0 {
 			current++
 		}
@@ -275,7 +275,7 @@ func (v *vehicle) savedRouteStart() (start int, offset float64, current int) {
 		}
 	}
 	if start < 0 {
-		start, offset = current, v.blocks[v.blockIndex].laneStart
+		start, offset = current, v.blocks.at(v.blockIndex).laneStart
 	}
 	return start, offset, current
 }

@@ -31,7 +31,7 @@ var cloneRules = map[reflect.Type]map[string]cloneRule{
 		"vehicles": cloneCopy, "owners": cloneCopy, "demo": cloneCopy, "waiting": cloneCopy,
 		"demandWeights": cloneShare, "congestionRouteCosts": cloneShare, "congestionRoutes": cloneCopy,
 		"laneSafety": cloneShare, "berthSafety": cloneShare, "vehicleIndexes": cloneShare,
-		"berthResources": cloneShare,
+		"berthResources": cloneShare, "laneCells": cloneShare,
 	},
 	reflect.TypeFor[vehicle](): {
 		"Vehicle": cloneCopy, "blocks": cloneShare, "blockStarts": cloneShare, "routeReleases": cloneCopy,
@@ -167,6 +167,7 @@ var persistRules = map[reflect.Type]map[string]persistRule{
 		"passengerDistanceMeters": persistSave, "emptyDistanceMeters": persistSave, "rebalanceMoves": persistSave,
 		"sharedRidePartyLimit": persistSave, "sharedParties": persistSave,
 		"laneSafety": persistDerive, "berthSafety": persistDerive, "vehicleIndexes": persistDerive, "berthResources": persistDerive,
+		"laneCells":         persistDerive,
 		"congestionRouting": persistUnsupported, "congestionRouteCosts": persistUnsupported,
 		"congestionRoutes": persistUnsupported, "nextCongestionRouteRefresh": persistUnsupported,
 		"reservationLookaheadSeconds": persistUnsupported, "finishingPodWait": persistUnsupported,
@@ -571,6 +572,11 @@ func cloneFixtures() []cloneFixture {
 func stripCaches(s *Simulation) *Simulation {
 	c := *s
 	c.lengths, c.routes, c.routeOrder = nil, nil, nil
+	// The cursors of a block list depend on the order of the lookups.
+	c.vehicles = slices.Clone(s.vehicles)
+	for index := range c.vehicles {
+		c.vehicles[index].blocks.cursors, c.vehicles[index].blocks.scan = [2]blockCursor{}, 0
+	}
 	return &c
 }
 

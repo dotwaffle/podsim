@@ -113,9 +113,9 @@ func TestBlockPositionMatchesPosition(t *testing.T) {
 	}
 	for _, lane := range s.network.Lanes {
 		geometry := s.geometry[lane.ID]
-		blocks, _ := s.routeBlocks([]Lane{lane})
+		list, _ := s.routeBlocks([]Lane{lane})
 		// A block without geometry uses the lookup by lane ID.
-		blocks = append(blocks, block{lane: lane})
+		blocks := append(list.all(), block{lane: lane})
 		for index := range blocks {
 			b := &blocks[index]
 			if b.geometry != nil && b.geometry != geometry {
@@ -152,8 +152,8 @@ func TestMovingPodPositionMatchesLaneGeometry(t *testing.T) {
 	for range 300 * TicksPerSecond {
 		s.Step()
 		v := &s.vehicles[0]
-		for index := range v.blocks {
-			if b := &v.blocks[index]; b.geometry != s.geometry[b.lane.ID] {
+		for index, b := range v.blocks.all() {
+			if b.geometry != s.geometry[b.lane.ID] {
 				t.Fatalf("tick %d: block %d of lane %s has the wrong geometry", s.tick, index, b.lane.ID)
 			}
 		}

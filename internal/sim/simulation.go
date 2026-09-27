@@ -166,7 +166,6 @@ type Placement struct {
 type vehicle struct {
 	Vehicle
 	phaseTicks                  int
-	blocks                      []block
 	blockStarts                 map[string]int
 	routeReleases               map[resource]float64
 	blockIndex, reservedThrough int
@@ -197,6 +196,9 @@ type vehicle struct {
 	// routeLengths holds the value of laneLength for each lane of Route.
 	// Each write of the route also writes it.
 	routeLengths []float64
+	// blocks holds the blocks of Route. Each write of the route also writes
+	// it.
+	blocks blockList
 }
 
 // Simulation owns a fixed fleet and local track, junction, and berth resources.
@@ -204,10 +206,10 @@ type vehicle struct {
 // Clone shares some fields with its source. They are the network, the route
 // graph, and the station, berth, pod, geometry, junction, and safety
 // indexes. They also include the initial fleet, the demand weights, the
-// congestion costs, the routes of pods and waiting trips, and the block
-// tables and route lengths of pods. Code must replace a shared field whole.
-// It must not write into a shared field in place, because that change also
-// changes the clones.
+// congestion costs, the routes of pods and waiting trips, the lane cells,
+// and the block tables and route lengths of pods. Code must replace a
+// shared field whole. It must not write into a shared field in place,
+// because that change also changes the clones.
 type Simulation struct {
 	// NewFleet builds junctionConflicts from the network. No code writes to it
 	// in place. ensureNetworkIndexes replaces it only when the network changes.
@@ -251,6 +253,10 @@ type Simulation struct {
 	// berthResources holds the berth resources at each node. NewFleet and
 	// ensureNetworkIndexes build it. No code writes to it in place.
 	berthResources map[string][]resource
+	// laneCells holds the cells of each network lane, which the blocks of
+	// each route share. NewFleet and ensureNetworkIndexes build it from the
+	// geometry, junction and berth indexes. No code writes to it in place.
+	laneCells map[string]*laneCells
 	// vehicleIndexes gives the position in vehicles of each pod ID. Reset
 	// and restorePhysical replace it whole after they replace vehicles. No
 	// code writes to it in place. findVehicle checks each entry, so an entry
@@ -299,6 +305,7 @@ func NewFleet(network Network, placements []Placement) (*Simulation, error) {
 			s.berthSafety[berth.ID] = SafetyLocation{SeparationGroup: berth.SeparationGroup, From: berth.Node, To: berth.Node}
 		}
 	}
+	s.laneCells = indexLaneCells(laneCellsIndexInput{network: owned, geometry: s.geometry, conflicts: s.junctionConflicts, berths: s.berthResources})
 	s.Reset()
 	return s, nil
 }
