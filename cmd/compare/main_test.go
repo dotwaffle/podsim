@@ -57,6 +57,9 @@ func TestParseOptionsRejectsInvalidBounds(t *testing.T) {
 		{name: "unknown wait rule", args: []string{"-wait-rules", "lenient"}, want: "unknown wait rule"},
 		{name: "empty wait rule", args: []string{"-wait-rules", "current,"}, want: "unknown wait rule"},
 		{name: "duplicate wait rule", args: []string{"-wait-rules", "strict,strict"}, want: "more than once"},
+		{name: "unknown sharing join policy", args: []string{"-sharing-joins", "reassign"}, want: "unknown sharing join policy"},
+		{name: "empty sharing join policy", args: []string{"-sharing-joins", "unassigned,"}, want: "unknown sharing join policy"},
+		{name: "duplicate sharing join policy", args: []string{"-sharing-joins", "reassign-existing, reassign-existing"}, want: "more than once"},
 		{name: "unknown platoon policy", args: []string{"-platoon-policies", "coupled"}, want: "unknown platoon policy"},
 		{name: "duplicate platoon policy", args: []string{"-platoon-policies", "virtual,virtual"}, want: "more than once"},
 		{name: "adaptive limit without drain stop", args: []string{"-adaptive-limit"}, want: "adaptive-limit requires -stop-when-drained"},
@@ -313,7 +316,7 @@ func TestReportFormatsAreMachineReadable(t *testing.T) {
 	if err := json.Unmarshal(jsonOutput.Bytes(), &decoded); err != nil {
 		t.Fatal(err)
 	}
-	if decoded.SchemaVersion != 11 || !reflect.DeepEqual(decoded.Results, results) {
+	if decoded.SchemaVersion != 12 || !reflect.DeepEqual(decoded.Results, results) {
 		t.Fatalf("JSON report changed values: %+v", decoded)
 	}
 
@@ -964,7 +967,7 @@ func TestSeatColumnsOnlyWithSharing(t *testing.T) {
 				return
 			}
 			if header[refusals-1] != "shared_parties" || header[refusals+4] != "departures_over_four_aboard" ||
-				header[refusals+7] != "join_eligible_added_stop_only" {
+				header[refusals+7] != "join_eligible_added_stop_only" || header[refusals+8] != "reassigned_parties" {
 				t.Fatalf("seat columns are not after shared_parties: %v", header)
 			}
 			for _, row := range records[1:] {
@@ -988,5 +991,194 @@ func TestSeatScreenStats(t *testing.T) {
 	stats := seatScreenStats(screen)
 	if stats.FullPodRefusals != 3 || stats.overFourAboard != 3 || stats.demandOverFour != 5 || stats.addedStopOnly != 2 {
 		t.Fatalf("seat screen stats = %+v", stats)
+	}
+}
+
+func TestParseSharingJoins(t *testing.T) {
+	t.Parallel()
+	for _, tc := range []struct {
+		name string
+		args []string
+		want []string
+	}{
+		{"flag not given", nil, nil},
+		{"default value given", []string{"-sharing-joins", "unassigned"}, []string{"unassigned"}},
+		{"both policies in order", []string{"-sharing-joins", "reassign-existing, unassigned"}, []string{"reassign-existing", "unassigned"}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			opts, err := parseOptions(tc.args, &bytes.Buffer{})
+			if err != nil {
+				t.Fatal(err)
+			}
+			if !slices.Equal(opts.sharingJoins, tc.want) || (opts.sharingJoins == nil) != (tc.want == nil) {
+				t.Fatalf("sharing joins = %#v, want %#v", opts.sharingJoins, tc.want)
+			}
+		})
+	}
+}
+
+// TestSharingJoinColumnOnlyWhenRequested checks that the sharing_join
+// column follows sharing_mode only with -sharing-joins, that the table has
+// a JOIN column only then, and that the JSON report has the field only for
+// a result with a join policy.
+func TestSharingJoinColumnOnlyWhenRequested(t *testing.T) {
+	t.Parallel()
+	results := []result{{
+		Pattern: "balanced", Policy: "off", RoutingPolicy: "free-flow", SharingMode: "drop-offs", SharingJoin: "reassign-existing",
+		SharedParties: 7, WaitAverageSeconds: 12.34,
+	}}
+	for _, tc := range []struct {
+		name                  string
+		column                bool
+		wantHeader, wantValue string
+	}{
+		{"csv without column", false, "shared_parties", "7"},
+		{"csv with column", true, "sharing_join", "reassign-existing"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			var output bytes.Buffer
+			if err := writeReport(writeReportInput{output: &output, format: "csv", results: results, sharingJoinColumn: tc.column}); err != nil {
+				t.Fatal(err)
+			}
+			records, err := csv.NewReader(&output).ReadAll()
+			if err != nil {
+				t.Fatal(err)
+			}
+			mode := slices.Index(records[0], "sharing_mode")
+			if mode < 0 || records[0][mode+1] != tc.wantHeader || records[1][mode+1] != tc.wantValue {
+				t.Fatalf("column after sharing_mode = %q, %q", records[0][mode+1], records[1][mode+1])
+			}
+			if len(records[0]) != len(records[1]) {
+				t.Fatalf("header has %d columns, row has %d", len(records[0]), len(records[1]))
+			}
+		})
+	}
+	for _, column := range []bool{false, true} {
+		var table bytes.Buffer
+		if err := writeReport(writeReportInput{output: &table, format: "table", results: results, sharingJoinColumn: column}); err != nil {
+			t.Fatal(err)
+		}
+		lines := strings.Split(table.String(), "\n")
+		header, row := lines[1], lines[2]
+		if got := strings.Contains(header, "\tJOIN") || strings.Contains(header, " JOIN "); got != column {
+			t.Fatalf("header has JOIN = %t, want %t:\n%s", got, column, table.String())
+		}
+		if strings.Index(header, "WAIT AVG") != strings.Index(row, "12.34") ||
+			column && strings.Index(header, " JOIN ")+1 != strings.Index(row, "reassign-existing") {
+			t.Fatalf("the columns are not aligned with their values:\n%s", table.String())
+		}
+	}
+	for _, tc := range []struct {
+		join string
+		want bool
+	}{{"", false}, {"unassigned", true}} {
+		withJoin := slices.Clone(results)
+		withJoin[0].SharingJoin = tc.join
+		var output bytes.Buffer
+		if err := writeReport(writeReportInput{output: &output, format: "json", results: withJoin}); err != nil {
+			t.Fatal(err)
+		}
+		if got := strings.Contains(output.String(), `"sharing_join"`); got != tc.want {
+			t.Fatalf("join policy %q: JSON has sharing_join = %t, want %t", tc.join, got, tc.want)
+		}
+	}
+}
+
+// TestSharingJoinsAddArms runs hub bursts on the example network with a
+// party limit of 4. The unassigned arm must equal the arm without the
+// option, and the reassign-existing arm must reassign parties.
+func TestSharingJoinsAddArms(t *testing.T) {
+	t.Parallel()
+	args := []string{
+		"-duration", "10m", "-arrivals-for", "2m", "-request-every", "5s", "-burst-size", "6", "-pattern", "hub-burst",
+		"-focus", "market", "-redistribution-policies", "off", "-sharing-limits", "4",
+	}
+	caseStudy, err := loadScenario("", "market")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defaults, err := parseOptions(args, &bytes.Buffer{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	withJoins, err := parseOptions(append(slices.Clone(args), "-sharing-joins", "unassigned,reassign-existing"), &bytes.Buffer{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	base, err := compare(defaults, caseStudy)
+	if err != nil {
+		t.Fatal(err)
+	}
+	arms, err := compare(withJoins, caseStudy)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(base) != 1 || len(arms) != 2 {
+		t.Fatalf("got %d default and %d join results", len(base), len(arms))
+	}
+	unassigned, reassign := arms[0], arms[1]
+	if unassigned.SharingJoin != "unassigned" || reassign.SharingJoin != "reassign-existing" || reassign.ScheduleID != unassigned.ScheduleID {
+		t.Fatalf("arms %q and %q with schedules %s and %s", unassigned.SharingJoin, reassign.SharingJoin, unassigned.ScheduleID, reassign.ScheduleID)
+	}
+	unassigned.SharingJoin = ""
+	if !reflect.DeepEqual(unassigned, base[0]) {
+		t.Fatalf("the unassigned arm differs from the default arm:\n%+v\n%+v", unassigned, base[0])
+	}
+	if base[0].ReassignedParties != 0 || reassign.ReassignedParties == 0 || reassign.ReassignedParties > reassign.JoinEligibleExistingStop {
+		t.Fatalf("reassigned %d parties by default and %d with reassign-existing, with %d existing-stop parties",
+			base[0].ReassignedParties, reassign.ReassignedParties, reassign.JoinEligibleExistingStop)
+	}
+}
+
+// TestSharingJoinsCountInMatrixLimit checks that each join policy counts
+// as a separate arm in both matrix limits.
+func TestSharingJoinsCountInMatrixLimit(t *testing.T) {
+	t.Parallel()
+	values := make([]string, 100)
+	for index := range values {
+		values[index] = strconv.Itoa(index + 1)
+	}
+	seeds := strings.Join(values, ",")
+	// 100 seeds and 6 loads give 600 comparisons for each join policy.
+	for _, tc := range []struct {
+		name string
+		args []string
+		want string
+	}{
+		{"one policy stays under the limit", []string{"-sharing-joins", "reassign-existing"}, ""},
+		{"two policies go over the limit", []string{"-sharing-joins", "unassigned,reassign-existing"}, "at most"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			_, err := parseOptions(append([]string{"-seeds", seeds, "-loads", "10s,20s,30s,40s,50s,60s"}, tc.args...), &bytes.Buffer{})
+			if (err == nil) != (tc.want == "") || err != nil && !strings.Contains(err.Error(), tc.want) {
+				t.Fatalf("parseOptions() error = %v, want text %q", err, tc.want)
+			}
+		})
+	}
+	// Two profile bands double the arms after parsing, so only compare()
+	// can find that the matrix is too large. 100 seeds, 3 loads and 2
+	// policies give 600 comparisons before the bands.
+	caseStudy, err := loadScenario("", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	caseStudy.demand = project.DemandConfig{Pattern: "profile", Profile: "test", Band: "peak"}
+	caseStudy.demandProfiles = []project.DemandProfile{{
+		ID: "test", Name: "Test profile",
+		Bands: []project.DemandBand{{ID: "peak", Name: "Peak"}, {ID: "quiet", Name: "Quiet"}},
+		Flows: []project.DemandFlow{{From: "harbor", To: "market", Weights: []float64{1, 1}}},
+	}}
+	opts, err := parseOptions([]string{
+		"-duration", "1m", "-request-every", "30s", "-pattern", "profile", "-bands", "all",
+		"-loads", "10s,20s,30s", "-redistribution-policies", "off", "-seeds", seeds, "-sharing-joins", "unassigned,reassign-existing",
+	}, &bytes.Buffer{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := compare(opts, caseStudy); err == nil || !strings.Contains(err.Error(), "expanded matrix") {
+		t.Fatalf("compare() error = %v, want the expanded matrix limit", err)
 	}
 }

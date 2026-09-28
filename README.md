@@ -809,6 +809,7 @@ The synthetic patterns are balanced, destination, hotspot, bursty-hotspot, and h
 | `-sharing-limits 1,4` | Compare shared ride party limits. |
 | `-sharing-modes drop-offs,destination` | Compare the shared ride modes. Default `drop-offs`. A limit of 1 runs one time and shows the destination mode, because no party joins a pod. |
 | `-sharing-max-stops` | The stop limit of the drop-offs mode, from 1 to 7. Default 3. |
+| `-sharing-joins unassigned,reassign-existing` | Compare the shared ride join policies. See [parties](#parties). A limit of 1 shows the given policy, but no party joins a pod. |
 | `-routing-policies free-flow,congestion,queue` | Compare the experimental routing policies. See [routing](#time-geometry-and-routing). |
 | `-redistribution-policies off,on` | Select the positioning policies. `on` is guarded positioning. |
 | `-wait-rules current,strict,none` | Compare the finishing-pod wait rules from the dispatch section. |
@@ -817,6 +818,8 @@ The synthetic patterns are balanced, destination, hotspot, bursty-hotspot, and h
 
 The report has a `wait_rule` column or JSON field only when you give `-wait-rules`.
 The report has a `platoon_policy` column or JSON field only when you give `-platoon-policies`.
+The report has a `sharing_join` column or JSON field only when you give `-sharing-joins`.
+Without the option, each arm uses the `unassigned` policy.
 The CSV report has the seat screen columns only when a `-sharing-limits` value is above 1.
 The JSON report always has them.
 
@@ -835,7 +838,7 @@ Set `GOGC` to use another value.
 
 #### Report columns
 
-The JSON report has `schema_version` 11.
+The JSON report has `schema_version` 12.
 These columns give the waits and journeys of the passengers.
 
 | Column | Definition |
@@ -930,6 +933,7 @@ The census does not check that a new first stop has a route, so it can count a p
 | `join_eligible_assigned` | The parties with a pod on its way that a boarding pod at their origin could take. Each party counts one time. |
 | `join_eligible_existing_stop` | The parties of `join_eligible_assigned` that a boarding pod could take with no new stop, because the pod already stops at their destination. In destination mode, it is equal to `join_eligible_assigned`. |
 | `join_eligible_added_stop_only` | `join_eligible_assigned` minus `join_eligible_existing_stop`. A boarding pod could take each of these parties only with a new stop. |
+| `reassigned_parties` | The parties that joined a boarding pod while they had a pod on its way. Dispatch released that pod. It is 0 with the `unassigned` policy. The census also counts each of these parties in `join_eligible_existing_stop`. |
 
 The columns are 0 when the party limit is 1.
 

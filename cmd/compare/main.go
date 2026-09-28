@@ -47,6 +47,13 @@ var waitRuleValues = map[string]sim.FinishingPodWait{
 	"none":    sim.FinishingPodWaitNone,
 }
 
+// sharingJoinValues maps each -sharing-joins name to its shared ride join
+// policy.
+var sharingJoinValues = map[string]sim.SharedRideJoin{
+	string(sim.SharedRideJoinUnassigned):       sim.SharedRideJoinUnassigned,
+	string(sim.SharedRideJoinReassignExisting): sim.SharedRideJoinReassignExisting,
+}
+
 // platoonPolicyValues maps each -platoon-policies name to its platooning
 // mode. The virtual policy couples pods in queues with the simulation
 // default platoon limit.
@@ -86,6 +93,7 @@ type options struct {
 	redistributionText     string
 	waitRulesText          string
 	platoonPoliciesText    string
+	sharingJoinsText       string
 	focus                  string
 	format                 string
 	projectPath            string
@@ -108,6 +116,10 @@ type options struct {
 	// each arm runs without platoons and the report has no platoon policy
 	// column.
 	platoonPolicies []string
+	// sharingJoins is nil when -sharing-joins is not given. Then each arm
+	// uses the default join policy and the report has no join policy
+	// column.
+	sharingJoins    []string
 	stopWhenDrained bool
 	// adaptiveLimit skips the rates of a group more than pastLimit rates
 	// above the first rate at which a seed does not drain.
@@ -141,6 +153,7 @@ type result struct {
 	Policy                         string  `json:"policy"`
 	SharedRidePartyLimit           int     `json:"shared_ride_party_limit"`
 	SharingMode                    string  `json:"sharing_mode"`
+	SharingJoin                    string  `json:"sharing_join,omitempty"`
 	SharedParties                  int     `json:"shared_parties"`
 	FullPodRefusals                int     `json:"full_pod_refusals"`
 	FullDepartures                 int     `json:"full_departures"`
@@ -150,6 +163,7 @@ type result struct {
 	JoinEligibleAssigned           int     `json:"join_eligible_assigned"`
 	JoinEligibleExistingStop       int     `json:"join_eligible_existing_stop"`
 	JoinEligibleAddedStopOnly      int     `json:"join_eligible_added_stop_only"`
+	ReassignedParties              int     `json:"reassigned_parties"`
 	RoutingPolicy                  string  `json:"routing_policy"`
 	WaitRule                       string  `json:"wait_rule,omitempty"`
 	PlatoonPolicy                  string  `json:"platoon_policy,omitempty"`
@@ -265,7 +279,7 @@ func runCLI(input cliInput) int {
 	}
 	if err := writeReport(writeReportInput{
 		output: output, format: opts.format, results: results,
-		waitRuleColumn: opts.waitRules != nil, platoonColumn: opts.platoonPolicies != nil,
+		waitRuleColumn: opts.waitRules != nil, platoonColumn: opts.platoonPolicies != nil, sharingJoinColumn: opts.sharingJoins != nil,
 		seatColumns: slices.ContainsFunc(opts.sharingLimits, func(limit int) bool { return limit > 1 }),
 	}); err != nil {
 		_ = closeOutput()
@@ -295,6 +309,7 @@ func parseOptions(args []string, stderr io.Writer) (options, error) {
 	flags.StringVar(&opts.sharingLimitsText, "sharing-limits", "1", "comma-separated shared ride party limits")
 	flags.StringVar(&opts.sharingModesText, "sharing-modes", string(sim.DefaultSharedRideMode), "comma-separated shared ride modes: drop-offs, destination")
 	flags.IntVar(&opts.sharingMaxStops, "sharing-max-stops", sim.DefaultSharedRideMaxStops, "intermediate stops of a pod in drop-offs mode")
+	flags.StringVar(&opts.sharingJoinsText, "sharing-joins", string(sim.DefaultSharedRideJoin), "comma-separated shared ride join policies: unassigned, reassign-existing (adds a sharing_join column)")
 	flags.StringVar(&opts.routingPoliciesText, "routing-policies", "free-flow", "comma-separated routing policies: free-flow, congestion, queue")
 	flags.StringVar(&opts.redistributionText, "redistribution-policies", "off,on", "comma-separated redistribution policies: off, on")
 	flags.StringVar(&opts.waitRulesText, "wait-rules", "current", "comma-separated finishing-pod wait rules: current, strict, none (adds a wait_rule column)")
@@ -389,7 +404,14 @@ func parseOptions(args []string, stderr io.Writer) (options, error) {
 			return options{}, err
 		}
 	}
-	if len(opts.seeds)*len(opts.patterns)*len(opts.loads)*len(sharingArms(opts))*len(opts.routingPolicies)*max(1, len(opts.waitRules))*max(1, len(opts.platoonPolicies)) > maxComparisons {
+	if given["sharing-joins"] {
+		opts.sharingJoins, err = parseSharingJoins(opts.sharingJoinsText)
+		if err != nil {
+			return options{}, err
+		}
+	}
+	if len(opts.seeds)*len(opts.patterns)*len(opts.loads)*len(sharingArms(opts))*max(1, len(opts.sharingJoins))*len(opts.routingPolicies)*
+		max(1, len(opts.waitRules))*max(1, len(opts.platoonPolicies)) > maxComparisons {
 		return options{}, fmt.Errorf("the matrix must contain at most %d comparisons", maxComparisons)
 	}
 	return opts, nil
@@ -450,6 +472,27 @@ func parseWaitRules(value string) ([]string, error) {
 		rules = append(rules, rule)
 	}
 	return rules, nil
+}
+
+// parseSharingJoins reads the -sharing-joins list. Each name must be a key
+// of sharingJoinValues and can occur only once. The order of the list is
+// the order of the arms in the report.
+func parseSharingJoins(value string) ([]string, error) {
+	parts := strings.Split(value, ",")
+	joins := make([]string, 0, len(parts))
+	seen := make(map[string]bool, len(parts))
+	for _, part := range parts {
+		join := strings.TrimSpace(part)
+		if _, ok := sharingJoinValues[join]; !ok {
+			return nil, fmt.Errorf("unknown sharing join policy %q", join)
+		}
+		if seen[join] {
+			return nil, fmt.Errorf("sharing join policy %q appears more than once", join)
+		}
+		seen[join] = true
+		joins = append(joins, join)
+	}
+	return joins, nil
 }
 
 // parsePlatoonPolicies reads the -platoon-policies list. Each name must be
@@ -742,16 +785,24 @@ func compare(opts options, scenario scenario) ([]result, error) {
 		waitRules = []string{""}
 	}
 	sharing := sharingArms(opts)
+	// An empty join policy selects the default policy and leaves the
+	// result without a join policy. With a limit of 1, the arm keeps the
+	// given policy, which has no effect.
+	sharingJoins := opts.sharingJoins
+	if sharingJoins == nil {
+		sharingJoins = []string{""}
+	}
 	// An empty platoon policy runs without platoons and leaves the result
 	// without a platoon policy.
 	platoonPolicies := opts.platoonPolicies
 	if platoonPolicies == nil {
 		platoonPolicies = []string{""}
 	}
-	if len(opts.seeds)*len(arms)*len(opts.loads)*len(sharing)*len(opts.routingPolicies)*len(waitRules)*len(platoonPolicies) > maxComparisons {
+	armsPerSchedule := len(sharing) * len(sharingJoins) * len(opts.routingPolicies) * len(waitRules) * len(platoonPolicies)
+	if len(opts.seeds)*len(arms)*len(opts.loads)*armsPerSchedule > maxComparisons {
 		return nil, fmt.Errorf("the expanded matrix must contain at most %d comparisons", maxComparisons)
 	}
-	inputs := make([]runInput, 0, len(arms)*len(opts.loads)*len(opts.seeds)*len(sharing)*len(opts.routingPolicies)*len(waitRules)*len(platoonPolicies)*2)
+	inputs := make([]runInput, 0, len(arms)*len(opts.loads)*len(opts.seeds)*armsPerSchedule*2)
 	for _, arm := range arms {
 		for _, load := range opts.loads {
 			for _, seed := range opts.seeds {
@@ -762,19 +813,21 @@ func compare(opts options, scenario scenario) ([]result, error) {
 				})
 				id := scheduleID(schedule)
 				for _, sharingArm := range sharing {
-					for _, routingPolicy := range opts.routingPolicies {
-						for _, waitRule := range waitRules {
-							for _, platoonPolicy := range platoonPolicies {
-								for _, policy := range opts.redistributionPolicies {
-									inputs = append(inputs, runInput{
-										policy: policy, duration: opts.duration, requestEvery: load, seed: seed,
-										pattern: arm.pattern, profile: arm.profile, band: arm.band,
-										scheduleID: id, queueLimit: opts.queueLimit, arrivalsFor: opts.arrivalsFor,
-										burstSize: opts.burstSize, sharingLimit: sharingArm.limit, sharingMode: sharingArm.mode,
-										sharingMaxStops: opts.sharingMaxStops, routingPolicy: routingPolicy,
-										waitRule: waitRule, platoonPolicy: platoonPolicy, schedule: schedule, scenario: scenario,
-										stopWhenDrained: opts.stopWhenDrained,
-									})
+					for _, sharingJoin := range sharingJoins {
+						for _, routingPolicy := range opts.routingPolicies {
+							for _, waitRule := range waitRules {
+								for _, platoonPolicy := range platoonPolicies {
+									for _, policy := range opts.redistributionPolicies {
+										inputs = append(inputs, runInput{
+											policy: policy, duration: opts.duration, requestEvery: load, seed: seed,
+											pattern: arm.pattern, profile: arm.profile, band: arm.band,
+											scheduleID: id, queueLimit: opts.queueLimit, arrivalsFor: opts.arrivalsFor,
+											burstSize: opts.burstSize, sharingLimit: sharingArm.limit, sharingMode: sharingArm.mode,
+											sharingMaxStops: opts.sharingMaxStops, sharingJoin: sharingJoin, routingPolicy: routingPolicy,
+											waitRule: waitRule, platoonPolicy: platoonPolicy, schedule: schedule, scenario: scenario,
+											stopWhenDrained: opts.stopWhenDrained,
+										})
+									}
 								}
 							}
 						}
@@ -1020,7 +1073,10 @@ type runInput struct {
 	// selects the default limit.
 	sharingMode     sim.SharedRideMode
 	sharingMaxStops int
-	routingPolicy   string
+	// sharingJoin names a sharingJoinValues key. Empty selects the default
+	// join policy.
+	sharingJoin   string
+	routingPolicy string
 	// waitRule names a waitRuleValues key. Empty selects the default rule.
 	waitRule string
 	// platoonPolicy names a platoonPolicyValues key. Empty runs without
@@ -1067,6 +1123,15 @@ func run(input runInput) (result, error) {
 	sharingMode, sharingStops := input.sharingSettings()
 	if sharingErr := simulation.SetSharedRideMode(sharingMode, sharingStops); sharingErr != nil {
 		return result{}, fmt.Errorf("set sharing mode: %w", sharingErr)
+	}
+	if input.sharingJoin != "" {
+		join, ok := sharingJoinValues[input.sharingJoin]
+		if !ok {
+			return result{}, fmt.Errorf("unknown sharing join policy %q", input.sharingJoin)
+		}
+		if joinErr := simulation.SetSharedRideJoin(join); joinErr != nil {
+			return result{}, fmt.Errorf("set sharing join policy: %w", joinErr)
+		}
 	}
 	if routingErr := simulation.SetRoutingPolicy(routingPolicyValues[input.routingPolicy]); routingErr != nil {
 		return result{}, fmt.Errorf("set routing policy: %w", routingErr)
@@ -1185,10 +1250,12 @@ func run(input runInput) (result, error) {
 		Pattern: input.pattern, DemandProfile: input.profile, DemandBand: input.band,
 		RequestEverySeconds: input.requestEvery.Seconds(), OfferedPerMinute: float64(len(input.schedule)) / arrivalMinutes, Seed: input.seed,
 		BurstSize: burstSize, Policy: input.policy, SharedRidePartyLimit: input.sharingLimit, SharingMode: string(sharingMode),
+		SharingJoin:   input.sharingJoin,
 		SharedParties: state.SharedParties, FullPodRefusals: seats.FullPodRefusals, FullDepartures: seats.FullDepartures,
 		DepartureBacklog: seats.DepartureBacklog, DeparturesDemandOverFour: seats.demandOverFour, DeparturesOverFourAboard: seats.overFourAboard,
 		JoinEligibleAssigned: seats.JoinEligibleAssigned, JoinEligibleExistingStop: seats.JoinEligibleExistingStop, JoinEligibleAddedStopOnly: seats.addedStopOnly,
-		RoutingPolicy: input.routingPolicy, WaitRule: input.waitRule, PlatoonPolicy: input.platoonPolicy,
+		ReassignedParties: seats.ReassignedParties,
+		RoutingPolicy:     input.routingPolicy, WaitRule: input.waitRule, PlatoonPolicy: input.platoonPolicy,
 		FocusStation:       input.scenario.focus,
 		WindowStartSeconds: 0, WindowEndSeconds: input.duration.Seconds(), ActualEndSeconds: float64(state.Tick) / sim.TicksPerSecond,
 		ArrivalWindowSeconds: input.arrivalsFor.Seconds(), ArrivalEndSeconds: arrivalEnd, ScheduleID: input.scheduleID,
@@ -1303,6 +1370,10 @@ type writeReportInput struct {
 	// output has the platoon_policy field only when a result has a platoon
 	// policy.
 	platoonColumn bool
+	// sharingJoinColumn adds the join policy to table and CSV output. JSON
+	// output has the sharing_join field only when a result has a join
+	// policy.
+	sharingJoinColumn bool
 	// seatColumns adds the seat screen columns to CSV output. JSON output
 	// always has them.
 	seatColumns bool
@@ -1313,7 +1384,7 @@ func writeReport(input writeReportInput) error {
 	case "json":
 		encoder := json.NewEncoder(input.output)
 		encoder.SetIndent("", "  ")
-		if err := encoder.Encode(report{SchemaVersion: 11, Results: input.results}); err != nil {
+		if err := encoder.Encode(report{SchemaVersion: 12, Results: input.results}); err != nil {
 			return fmt.Errorf("write JSON report: %w", err)
 		}
 		return nil
@@ -1326,7 +1397,8 @@ func writeReport(input writeReportInput) error {
 
 // writeTable writes one aligned row for each result. When
 // input.waitRuleColumn is set, a WAIT RULE column follows POLICY. When
-// input.platoonColumn is set, a PLATOON column follows them.
+// input.platoonColumn is set, a PLATOON column follows them. When
+// input.sharingJoinColumn is set, a JOIN column follows them.
 func writeTable(input writeReportInput) error {
 	output, results := input.output, input.results
 	if len(results) == 0 {
@@ -1343,6 +1415,9 @@ func writeTable(input writeReportInput) error {
 	if input.platoonColumn {
 		policyHeader += "\tPLATOON"
 	}
+	if input.sharingJoinColumn {
+		policyHeader += "\tJOIN"
+	}
 	if _, err := fmt.Fprintln(w, "PATTERN\tBAND\tLOAD (S)\tOFFERED/M\tARRIVAL/M\tLATE/M\tBACKLOG\tLATE DELTA\tDRAIN (S)\tSEED\t"+policyHeader+"\tWAIT AVG\tWAIT MAX\tWAIT P95\tJOURNEY AVG\tJOURNEY P95\tSERVED\tLEFT\tSKIPPED\tPEAK OUT\tPEAK ACTIVE\tPEAK PAX\tPEAK STOPPED\tHUB IN\tHUB OUT\tHUB OCC\tHUB RSV\tPASSENGER (M)\tEMPTY (M)\tLOADED %\tMOVES"); err != nil {
 		return fmt.Errorf("write table header: %w", err)
 	}
@@ -1353,6 +1428,9 @@ func writeTable(input writeReportInput) error {
 		}
 		if input.platoonColumn {
 			policy += "\t" + outcome.PlatoonPolicy
+		}
+		if input.sharingJoinColumn {
+			policy += "\t" + outcome.SharingJoin
 		}
 		if _, err := fmt.Fprintf(w, "%s\t%s\t%.2f\t%.2f\t%.2f\t%.2f\t%d\t%d\t%s\t%d\t%s\t%.2f\t%.2f\t%.2f\t%.2f\t%.2f\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%.1f\t%.1f\t%.2f\t%d\n",
 			outcome.Pattern, outcome.DemandBand, outcome.RequestEverySeconds, outcome.OfferedPerMinute,
@@ -1377,9 +1455,10 @@ func writeTable(input writeReportInput) error {
 // writeCSV writes a header and one row for each result. When
 // input.waitRuleColumn is set, a wait_rule column follows routing_policy.
 // When input.platoonColumn is set, a platoon_policy column follows them.
-// When input.seatColumns is set, the seat screen columns follow
-// shared_parties. Without these options, the columns are the same as
-// before them.
+// When input.sharingJoinColumn is set, a sharing_join column follows
+// sharing_mode. When input.seatColumns is set, the seat screen columns
+// follow shared_parties. Without these options, the columns are the same
+// as before them.
 func writeCSV(input writeReportInput) error {
 	w := csv.NewWriter(input.output)
 	header := []string{
@@ -1391,10 +1470,14 @@ func writeCSV(input writeReportInput) error {
 	if input.platoonColumn {
 		header = append(header, "platoon_policy")
 	}
-	header = append(header, "shared_ride_party_limit", "sharing_mode", "shared_parties")
+	header = append(header, "shared_ride_party_limit", "sharing_mode")
+	if input.sharingJoinColumn {
+		header = append(header, "sharing_join")
+	}
+	header = append(header, "shared_parties")
 	if input.seatColumns {
 		header = append(header, "full_pod_refusals", "full_departures", "departure_backlog", "departures_demand_over_four", "departures_over_four_aboard",
-			"join_eligible_assigned", "join_eligible_existing_stop", "join_eligible_added_stop_only")
+			"join_eligible_assigned", "join_eligible_existing_stop", "join_eligible_added_stop_only", "reassigned_parties")
 	}
 	header = append(header,
 		"focus_station", "window_start_seconds", "window_end_seconds", "actual_end_seconds", "arrival_window_seconds", "arrival_end_seconds", "schedule_id",
@@ -1422,11 +1505,16 @@ func writeCSV(input writeReportInput) error {
 		if input.platoonColumn {
 			row = append(row, outcome.PlatoonPolicy)
 		}
-		row = append(row, strconv.Itoa(outcome.SharedRidePartyLimit), outcome.SharingMode, strconv.Itoa(outcome.SharedParties))
+		row = append(row, strconv.Itoa(outcome.SharedRidePartyLimit), outcome.SharingMode)
+		if input.sharingJoinColumn {
+			row = append(row, outcome.SharingJoin)
+		}
+		row = append(row, strconv.Itoa(outcome.SharedParties))
 		if input.seatColumns {
 			row = append(row, strconv.Itoa(outcome.FullPodRefusals), strconv.Itoa(outcome.FullDepartures), strconv.Itoa(outcome.DepartureBacklog),
 				strconv.Itoa(outcome.DeparturesDemandOverFour), strconv.Itoa(outcome.DeparturesOverFourAboard),
-				strconv.Itoa(outcome.JoinEligibleAssigned), strconv.Itoa(outcome.JoinEligibleExistingStop), strconv.Itoa(outcome.JoinEligibleAddedStopOnly))
+				strconv.Itoa(outcome.JoinEligibleAssigned), strconv.Itoa(outcome.JoinEligibleExistingStop), strconv.Itoa(outcome.JoinEligibleAddedStopOnly),
+				strconv.Itoa(outcome.ReassignedParties))
 		}
 		row = append(row,
 			outcome.FocusStation,

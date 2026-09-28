@@ -394,3 +394,18 @@ func TestArmSchedulerSeparatesPlatoonPolicies(t *testing.T) {
 		t.Fatalf("got %d groups, want 2", groups)
 	}
 }
+
+// TestArmSchedulerSeparatesSharingJoins checks that each join policy is a
+// separate group.
+func TestArmSchedulerSeparatesSharingJoins(t *testing.T) {
+	t.Parallel()
+	var inputs []runInput
+	for _, load := range []time.Duration{60 * time.Second, 30 * time.Second} {
+		for _, join := range []string{"unassigned", "reassign-existing"} {
+			inputs = append(inputs, runInput{band: "early", requestEvery: load, seed: 1, policy: "off", sharingJoin: join})
+		}
+	}
+	if groups := len(newArmScheduler(inputs, 0).groups); groups != 2 {
+		t.Fatalf("got %d groups, want 2", groups)
+	}
+}
