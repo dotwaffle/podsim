@@ -30,14 +30,37 @@ type pickupRouteInput struct {
 // and cannot divert, when it must first finish a committed parking inlet,
 // or when it cannot reach the station.
 func (s *Simulation) pickupRouteWithAssignments(input pickupRouteInput) ([]Lane, Berth, bool) {
-	v, stationID := input.pod, input.station
-	claimed := input.assigned[v.Pod.ID]
-	if input.assigned == nil {
-		claimed = s.assigned(v.Pod.ID)
-	}
-	if v.Pod.Occupied || claimed {
+	if !s.pickupCandidate(input.pod, input.assigned) {
 		return nil, Berth{}, false
 	}
+	return s.candidateRoute(input.pod, input.station, input.load)
+}
+
+// pickupCandidate holds the tests of pickupRouteWithAssignments that do not
+// depend on the pickup station. It reports false when the pod is occupied
+// or claimed, or when it is not idle and cannot divert. assigned is as in
+// pickupRouteInput. pickupCandidate only reads the simulation.
+func (s *Simulation) pickupCandidate(v *vehicle, assigned map[string]bool) bool {
+	if v.Pod.Occupied {
+		return false
+	}
+	claimed := assigned[v.Pod.ID]
+	if assigned == nil {
+		claimed = s.assigned(v.Pod.ID)
+	}
+	if claimed {
+		return false
+	}
+	if v.Pod.Activity == Idle {
+		return true
+	}
+	destination, ok := s.station(v.RelocatingTo)
+	return ok && (destination.ParkingOnly || v.Rebalancing || v.released)
+}
+
+// candidateRoute is pickupRouteWithAssignments for a pod that
+// pickupCandidate accepts. load is as in pickupRouteInput.
+func (s *Simulation) candidateRoute(v *vehicle, stationID string, load func(Berth) int) ([]Lane, Berth, bool) {
 	if v.Pod.Activity == Idle {
 		from, _ := s.station(v.Pod.StationID)
 		berth, _ := from.berth(v.Pod.BerthID)
@@ -47,18 +70,14 @@ func (s *Simulation) pickupRouteWithAssignments(input pickupRouteInput) ([]Lane,
 			// would choose a free berth and a loop around the network.
 			return nil, berth, true
 		}
-		route, destination, err := s.stationRouteByLoad(stationRouteInput{from: berth.Node, station: stationID, load: input.load})
+		route, destination, err := s.stationRouteByLoad(stationRouteInput{from: berth.Node, station: stationID, load: load})
 		return route, destination, err == nil
-	}
-	destination, ok := s.station(v.RelocatingTo)
-	if !ok || (!destination.ParkingOnly && !v.Rebalancing && !v.released) {
-		return nil, Berth{}, false
 	}
 	prefix, from, ok := s.divertStart(v)
 	if !ok {
 		return nil, Berth{}, false
 	}
-	suffix, berth, err := s.stationRouteByLoad(stationRouteInput{from: from, station: stationID, load: input.load})
+	suffix, berth, err := s.stationRouteByLoad(stationRouteInput{from: from, station: stationID, load: load})
 	if err != nil {
 		return nil, Berth{}, false
 	}

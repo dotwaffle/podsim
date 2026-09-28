@@ -315,6 +315,67 @@ func TestHoldChecksMatchFullScan(t *testing.T) {
 	}
 }
 
+// pickupPodFull is pickupPod as it was before the pickup candidates. It
+// reads each pod.
+func (s *Simulation) pickupPodFull(stationID string, assigned map[string]bool) *vehicle {
+	var best *vehicle
+	bestTime := math.Inf(1)
+	load := s.berthLoads()
+	for i := range s.vehicles {
+		v := &s.vehicles[i]
+		route, _, ok := s.pickupRouteWithAssignments(pickupRouteInput{pod: v, station: stationID, assigned: assigned, load: load})
+		if !ok {
+			continue
+		}
+		if travelTime := s.pickupSeconds(v, route); travelTime < bestTime {
+			best, bestTime = v, travelTime
+		}
+	}
+	return best
+}
+
+// TestPickupPodMatchesFullScan checks pickupPod beside pickupPodFull for
+// each station. The pods must be equal. The states must be equal, route
+// caches included, because the two make the same route queries in the same
+// order.
+func TestPickupPodMatchesFullScan(t *testing.T) {
+	t.Parallel()
+	for _, congestion := range []bool{false, true} {
+		t.Run(fmt.Sprintf("congestion %v", congestion), func(t *testing.T) {
+			t.Parallel()
+			var idle, moving, none int
+			holdScenario{rule: FinishingPodWaitCurrent, congestion: congestion}.run(t, func(s *Simulation) {
+				assigned := waitingAssignments(s)
+				fast, full := s.Clone(), s.Clone()
+				pass := dispatchPass{assigned: assigned}
+				for _, station := range s.network.Stations {
+					if station.ParkingOnly {
+						continue
+					}
+					got, want := fast.pickupPod(station.ID, &pass), full.pickupPodFull(station.ID, assigned)
+					if podID(got) != podID(want) {
+						t.Fatalf("tick %d, %s: pickup pod %q, want %q", s.tick, station.ID, podID(got), podID(want))
+					}
+					switch {
+					case want == nil:
+						none++
+					case want.Pod.Activity == Idle:
+						idle++
+					default:
+						moving++
+					}
+				}
+				if !reflect.DeepEqual(fast, full) { //nolint:govet // deepequalerrors: route errors compare by value on purpose.
+					t.Fatalf("tick %d: the states differ", s.tick)
+				}
+			})
+			if idle == 0 || moving == 0 || none == 0 {
+				t.Fatalf("the scenario found %d idle, %d moving and %d missing pickup pods, want each", idle, moving, none)
+			}
+		})
+	}
+}
+
 // TestDispatchPassResetFindsNewFreePods checks that a reset of the pass
 // finds the free pods again. Pod 01 is idle at Harbor, but a trip holds it.
 // Pod 02 travels with a passenger, so it is not free. It then becomes idle

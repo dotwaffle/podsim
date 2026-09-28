@@ -136,14 +136,14 @@ func (s *Simulation) keepHold(trip *waitingTrip, pass *dispatchPass) bool {
 // pickupAvailable reports whether pickupPod finds a pod for the station.
 // Network validation keeps each route time finite, so pickupPod finds a pod
 // when pickupRouteWithAssignments accepts one. pickupRouteWithAssignments
-// rejects each pod that is not free, and it does not change the simulation
-// when it rejects a pod for that reason. Thus pickupAvailable reads only the
-// free pods. A berth load changes only the berth that stationRouteByLoad
+// rejects each pod that pickupCandidate rejects, and it does not change the
+// simulation when it does so. Thus pickupAvailable reads only the pickup
+// candidates of the pass, in fleet order. A berth load changes only the berth that stationRouteByLoad
 // chooses. It does not change whether the station has a berth that the pod
 // can reach. Thus pickupAvailable does not compute the berth loads.
 func (s *Simulation) pickupAvailable(stationID string, pass *dispatchPass) bool {
-	for _, v := range s.freePods(pass) {
-		if _, _, ok := s.pickupRouteWithAssignments(pickupRouteInput{pod: v, station: stationID, assigned: pass.assigned, load: noBerthLoad}); ok {
+	for _, v := range s.pickupCandidates(pass) {
+		if _, _, ok := s.candidateRoute(v, stationID, noBerthLoad); ok {
 			return true
 		}
 	}

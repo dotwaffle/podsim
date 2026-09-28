@@ -623,7 +623,7 @@ func TestLocalIdlePodPricedAtItsBerth(t *testing.T) {
 			if !ok || len(route) != 0 || berth.ID != tc.localBerth {
 				t.Fatalf("local pickup route = %v to %q (%t), want no lanes to %s", route, berth.ID, ok, tc.localBerth)
 			}
-			if got := s.pickupPod("market", map[string]bool{}); got != local {
+			if got := s.pickupPod("market", &dispatchPass{assigned: map[string]bool{}}); got != local {
 				t.Fatalf("pickupPod chose %v, want the local pod", got)
 			}
 			if err := s.RequestTrip("market", "harbor"); err != nil {

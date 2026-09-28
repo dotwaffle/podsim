@@ -47,14 +47,15 @@ func (s *Simulation) RequestTrip(origin, destination string) error {
 //
 // Many waiting trips can start at the same station. The pass keeps the
 // result of pickupPod for each station, so these trips do not repeat the
-// same work. The pass also keeps the free pods, so localPickup and
-// pickupAvailable do not read the full fleet for each trip. pickupPod reads
-// the pods, the berth owners, the waiting trips, and assigned. The free pods
-// depend only on the pods. After a change to one of them, the loop resets
-// the pass before it reads the pass again. Thus each result is equal to the
-// result of a new call. A dispatch reason and a deferral do not change what
-// pickupPod reads. pickupPod also fills the route caches, but a cached route
-// is equal to a new route. A trip that waitForFinishingPod holds until its
+// same work. The pass also keeps the free pods and the pickup candidates,
+// so localPickup, pickupAvailable and pickupPod do not read the full fleet
+// for each trip. pickupPod reads the pods, the berth owners, the waiting
+// trips, and assigned. The free pods depend only on the pods, and the
+// pickup candidates depend only on the pods and assigned. After a change to
+// one of them, the loop resets the pass before it reads the pass again.
+// Thus each result is equal to the result of a new call. A dispatch reason
+// and a deferral do not change what pickupPod reads. pickupPod also fills
+// the route caches, but a cached route is equal to a new route. A trip that waitForFinishingPod holds until its
 // next check does not need pickupPod. See keepHold.
 //
 // Most waiting trips have a pod on its way to the pickup. For each such
@@ -110,7 +111,7 @@ func (s *Simulation) dispatch() {
 		if v == nil {
 			var known bool
 			if v, known = pass.pickups[trip.request.From]; !known {
-				v = s.pickupPod(trip.request.From, assigned)
+				v = s.pickupPod(trip.request.From, &pass)
 				pass.pickups[trip.request.From] = v
 			}
 			if v == nil {
@@ -216,6 +217,10 @@ type dispatchPass struct {
 	// freePods.
 	free      []*vehicle
 	freeKnown bool
+	// candidates holds the pods that pickupCandidate accepts, in fleet
+	// order, when candidatesKnown is true. See pickupCandidates.
+	candidates      []*vehicle
+	candidatesKnown bool
 	// idle is a filter over the stations with an idle pod when idleKnown is
 	// true. See mayBeIdle.
 	idle      stationFilter
@@ -230,6 +235,7 @@ type dispatchPass struct {
 func (pass *dispatchPass) reset() {
 	clear(pass.pickups)
 	pass.free, pass.freeKnown = pass.free[:0], false
+	pass.candidates, pass.candidatesKnown = pass.candidates[:0], false
 	pass.idleKnown = false
 	pass.boardingKnown = false
 }
@@ -260,6 +266,24 @@ func (s *Simulation) freePods(pass *dispatchPass) []*vehicle {
 	return pass.free
 }
 
+// pickupCandidates returns each pod that pickupCandidate accepts with the
+// assigned pods of the pass, in fleet order. Only these pods can be a
+// pickup pod for a station. pickupCandidate reads only the pods, assigned
+// and the fixed stations, so the result does not depend on the station.
+// pickupCandidates finds the pods at the first call after a reset of the
+// pass.
+func (s *Simulation) pickupCandidates(pass *dispatchPass) []*vehicle {
+	if !pass.candidatesKnown {
+		for i := range s.vehicles {
+			if v := &s.vehicles[i]; s.pickupCandidate(v, pass.assigned) {
+				pass.candidates = append(pass.candidates, v)
+			}
+		}
+		pass.candidatesKnown = true
+	}
+	return pass.candidates
+}
+
 // localPickup returns the first idle pod at the station that is not in
 // assigned.
 func (s *Simulation) localPickup(stationID string, pass *dispatchPass) *vehicle {
@@ -276,13 +300,23 @@ func (s *Simulation) localPickup(stationID string, pass *dispatchPass) *vehicle 
 // over each pod that must travel.
 // It does not change the pods, the berth owners, or the waiting trips, so it
 // computes each berth load one time for all pods.
-func (s *Simulation) pickupPod(stationID string, assigned map[string]bool) *vehicle {
+//
+// pickupRouteWithAssignments rejects each pod that pickupCandidate rejects,
+// and it does not change the simulation when it does so. Thus pickupPod
+// reads only the pickup candidates of the pass. They are in fleet order, so
+// candidateRoute runs for the same pods in the same order as a read of
+// each pod, and it fills the route caches in the same order. With no
+// candidate, pickupPod does not compute the berth loads.
+func (s *Simulation) pickupPod(stationID string, pass *dispatchPass) *vehicle {
+	candidates := s.pickupCandidates(pass)
+	if len(candidates) == 0 {
+		return nil
+	}
 	var best *vehicle
 	bestTime := math.Inf(1)
 	load := s.berthLoads()
-	for i := range s.vehicles {
-		v := &s.vehicles[i]
-		route, _, ok := s.pickupRouteWithAssignments(pickupRouteInput{pod: v, station: stationID, assigned: assigned, load: load})
+	for _, v := range candidates {
+		route, _, ok := s.candidateRoute(v, stationID, load)
 		if !ok {
 			continue
 		}
