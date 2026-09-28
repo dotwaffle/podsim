@@ -661,6 +661,9 @@ func (s *Session) apply(command Command) (outcome, error) {
 		}
 		// The demo makes a new fleet with the default settings. A reset
 		// after the demo keeps them, so apply the project settings again.
+		if err := project.ConfigureSharedRides(s.simulation, s.project); err != nil {
+			return outcome{}, fmt.Errorf("configure shared rides: %w", err)
+		}
 		if err := project.ConfigurePlatoons(s.simulation, s.project); err != nil {
 			return outcome{}, fmt.Errorf("configure platoons: %w", err)
 		}

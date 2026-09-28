@@ -375,6 +375,7 @@ The demo starts four pods: pod 01 at Harbor, pod 02 at Garden, and pods 03 and 0
 Use 8x speed to see the experiment in about 41 seconds, or slow playback to inspect a queue.
 
 Starting the demo resets the current run and disables automatic demand.
+The demo uses the shared ride and platoon settings of the project, so with sharing on, a party can join a pod in the demo.
 The demo also disables manual requests until it ends.
 The four pods remain available after it ends.
 **Reset** stops the demo and restores the configured fleet.

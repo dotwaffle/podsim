@@ -976,17 +976,23 @@ func newDemoRun(t *testing.T) storedRun {
 }
 
 // TestDemoKeepsProjectSettings runs the traffic demo of the example
-// project with platoons of up to 3 pods. The demo makes a new fleet, and
-// the settings of the project must apply to it, after a reset, and after a
-// save and a restore during the demo and after it.
+// project with platoons of up to 3 pods and drop-offs sharing of up to 4
+// parties. The demo makes a new fleet, and the settings of the project
+// must apply to it, after a reset, and after a save and a restore during
+// the demo and after it.
 func TestDemoKeepsProjectSettings(t *testing.T) {
 	t.Parallel()
 	config := project.Default()
 	config.PlatoonLimit = 3
+	config.SharedRidePartyLimit, config.SharedRideMode, config.SharedRideMaxStops = 4, sim.SharedRideDropOffs, 2
 	check := func(s *Session, when string) {
 		t.Helper()
 		s.mu.Lock()
 		defer s.mu.Unlock()
+		if saved := s.simulation.ExportState(); saved.SharedRidePartyLimit != 4 || saved.SharedRideMode != sim.SharedRideDropOffs || saved.SharedRideMaxStops != 2 {
+			t.Fatalf("%s: %d parties in %q mode with %d stops, want 4 parties in drop-offs mode with 2 stops",
+				when, saved.SharedRidePartyLimit, saved.SharedRideMode, saved.SharedRideMaxStops)
+		}
 		if mode, limit := s.simulation.Platooning(), s.simulation.PlatoonLimit(); mode != sim.PlatooningVirtual || limit != 3 {
 			t.Fatalf("%s: platooning mode %d with limit %d, want virtual platoons of at most 3 pods", when, mode, limit)
 		}
