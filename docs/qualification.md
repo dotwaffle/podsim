@@ -1671,8 +1671,10 @@ In 41 other pairs, the drop-offs arm ends by 3,600 seconds and the destination a
 | 7. The CPU time of the heavy arm grows by less than 10 percent. | Met. The targeted sweep measured a growth of 1.2 percent. Later changes to the cap add checks only at a change to another berth and at a restore. |
 
 With the cap, the drop-offs mode meets the seven rules on the full envelope with seeds 1 to 3 and on 10 seeds near the limits.
-A change of the default mode changes the project contract, so this record does not change it.
-Sharing stays off by default, and the default mode stays `destination`.
+A change of the default mode changes the project contract, so the user decided it.
+On 2026-09-28, the user adopted `drop-offs` as the default mode, on the rule table above.
+Commit `14e4ed7` makes the change.
+Sharing stays off by default, because the default party limit stays 1.
 Raw results are in [`measurements/london-drop-offs-cap-envelope.csv`](measurements/london-drop-offs-cap-envelope.csv) and [`measurements/london-drop-offs-evening.csv`](measurements/london-drop-offs-evening.csv).
 
 ### More London berths

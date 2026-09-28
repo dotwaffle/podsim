@@ -407,7 +407,7 @@ A limit of two to eight parties lets a party join a pod that is still boarding a
 The default limit of one disables sharing.
 See [docs/qualification.md](docs/qualification.md#same-destination-sharing).
 
-The drop-offs mode, a part of step 3, is also available as an option.
+The drop-offs mode, a part of step 3, is the default mode when sharing is on.
 A party can join a boarding pod that passes its destination, or a pod that can add that destination as its last stop.
 The pod stops at each destination on its way.
 The stops do not change after the pod departs, and a pod with passengers does not pick up parties.
@@ -415,7 +415,7 @@ A pod adds a stop only when the planned detour ratio of each party, new or aboar
 In London at a limit of 4, the mode raises five 60-minute band limits and lowers the journey time, the wait, and the empty distance in each band.
 The first measurement did not meet two of the seven adoption rules, because five arms ended late and the largest detour ratio was 1.509.
 With the detour cap, the mode meets the seven rules on the full envelope with seeds 1 to 3 and with 10 seeds at the rates near the band limits.
-A change of the default mode changes the project contract, so the default mode stays same-destination sharing.
+On 2026-09-28, the user made drop-offs the default mode, and same-destination sharing stays available as an option.
 See [docs/qualification.md](docs/qualification.md#drop-offs-sharing-in-london).
 
 ### Railway and park-and-ride hubs
