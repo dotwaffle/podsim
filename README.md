@@ -781,6 +781,8 @@ The synthetic patterns are balanced, destination, hotspot, bursty-hotspot, and h
 
 The report has a `wait_rule` column or JSON field only when you give `-wait-rules`.
 The report has a `platoon_policy` column or JSON field only when you give `-platoon-policies`.
+The CSV report has the seat screen columns only when a `-sharing-limits` value is above 1.
+The JSON report always has them.
 
 The `sharing_mode` column gives the sharing mode of each arm.
 
@@ -797,7 +799,7 @@ Set `GOGC` to use another value.
 
 #### Report columns
 
-The JSON report has `schema_version` 9.
+The JSON report has `schema_version` 10.
 These columns give the waits and journeys of the passengers.
 
 | Column | Definition |
@@ -874,6 +876,20 @@ Each traveling pod adds 1 second to the travel time.
 Each traveling pod that has a pod ahead or a pod behind in its platoon also adds 1 second to the coupled time.
 The value is the coupled time divided by the travel time, as a percentage.
 It is 0 when no pod travels, and always 0 without the `virtual` platoon policy.
+
+The seat screen columns follow `shared_parties`.
+They show whether the parties that a boarding pod could take are more than its seats.
+A party can take a pod when the pod could add it with the rules of the sharing mode: the destination, the stop limit, and the detour cap.
+
+| Column | Definition |
+| --- | --- |
+| `full_pod_refusals` | The parties that found a full boarding pod at their origin that could take them, and that joined no pod. Each party counts one time. |
+| `full_departures` | The boarding pods that departed with as many parties as the limit. |
+| `departure_backlog` | For each departure of a boarding pod, the waiting parties at its origin that the pod could take with a free seat. The column gives the sum over all departures. It also counts a party that has another pod on its way. |
+| `departures_demand_over_four` | The departures with more than four parties aboard plus backlog. |
+| `departures_over_four_aboard` | The departures with more than four parties aboard. It is 0 at a limit of 4 or less. |
+
+The columns are 0 when the party limit is 1.
 
 ### Generated scenarios
 

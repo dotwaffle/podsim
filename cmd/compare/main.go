@@ -142,6 +142,11 @@ type result struct {
 	SharedRidePartyLimit           int     `json:"shared_ride_party_limit"`
 	SharingMode                    string  `json:"sharing_mode"`
 	SharedParties                  int     `json:"shared_parties"`
+	FullPodRefusals                int     `json:"full_pod_refusals"`
+	FullDepartures                 int     `json:"full_departures"`
+	DepartureBacklog               int     `json:"departure_backlog"`
+	DeparturesDemandOverFour       int     `json:"departures_demand_over_four"`
+	DeparturesOverFourAboard       int     `json:"departures_over_four_aboard"`
 	RoutingPolicy                  string  `json:"routing_policy"`
 	WaitRule                       string  `json:"wait_rule,omitempty"`
 	PlatoonPolicy                  string  `json:"platoon_policy,omitempty"`
@@ -258,6 +263,7 @@ func runCLI(input cliInput) int {
 	if err := writeReport(writeReportInput{
 		output: output, format: opts.format, results: results,
 		waitRuleColumn: opts.waitRules != nil, platoonColumn: opts.platoonPolicies != nil,
+		seatColumns: slices.ContainsFunc(opts.sharingLimits, func(limit int) bool { return limit > 1 }),
 	}); err != nil {
 		_ = closeOutput()
 		_, _ = fmt.Fprintln(input.stderr, err)
@@ -1153,6 +1159,7 @@ func run(input runInput) (result, error) {
 	}
 	metrics.observe(state)
 	requests := requestTimeStats(simulation.RequestTimings(), state)
+	seats := seatScreenStats(simulation.SeatScreen())
 	peakNodePasses, peakNode := peakNodeFlow(simulation.NodePasses())
 	burstSize := 1
 	if isBurstPattern(input.pattern) {
@@ -1175,7 +1182,9 @@ func run(input runInput) (result, error) {
 		Pattern: input.pattern, DemandProfile: input.profile, DemandBand: input.band,
 		RequestEverySeconds: input.requestEvery.Seconds(), OfferedPerMinute: float64(len(input.schedule)) / arrivalMinutes, Seed: input.seed,
 		BurstSize: burstSize, Policy: input.policy, SharedRidePartyLimit: input.sharingLimit, SharingMode: string(sharingMode),
-		SharedParties: state.SharedParties, RoutingPolicy: input.routingPolicy, WaitRule: input.waitRule, PlatoonPolicy: input.platoonPolicy,
+		SharedParties: state.SharedParties, FullPodRefusals: seats.FullPodRefusals, FullDepartures: seats.FullDepartures,
+		DepartureBacklog: seats.DepartureBacklog, DeparturesDemandOverFour: seats.demandOverFour, DeparturesOverFourAboard: seats.overFourAboard,
+		RoutingPolicy: input.routingPolicy, WaitRule: input.waitRule, PlatoonPolicy: input.platoonPolicy,
 		FocusStation:       input.scenario.focus,
 		WindowStartSeconds: 0, WindowEndSeconds: input.duration.Seconds(), ActualEndSeconds: float64(state.Tick) / sim.TicksPerSecond,
 		ArrivalWindowSeconds: input.arrivalsFor.Seconds(), ArrivalEndSeconds: arrivalEnd, ScheduleID: input.scheduleID,
@@ -1205,6 +1214,31 @@ func run(input runInput) (result, error) {
 		PositioningMoveCount: state.RebalanceMoves,
 		CoupledTimePercent:   metrics.coupling.percent(),
 	}, nil
+}
+
+// screenSeats is the seat count that the seat screen columns compare with.
+// The screen asks whether demand exceeds the four seats of the London
+// sharing measurements.
+const screenSeats = 4
+
+// seatStats holds the seat screen counters of one arm, and the departures
+// above screenSeats.
+type seatStats struct {
+	sim.SeatScreen
+	// demandOverFour counts the departures with more than screenSeats
+	// parties aboard plus backlog, and overFourAboard the departures with
+	// more than screenSeats parties aboard.
+	demandOverFour, overFourAboard int
+}
+
+// seatScreenStats gives the seat screen columns of an arm.
+func seatScreenStats(screen sim.SeatScreen) seatStats {
+	stats := seatStats{SeatScreen: screen}
+	for parties := screenSeats + 1; parties < len(screen.Demand); parties++ {
+		stats.demandOverFour += screen.Demand[parties]
+		stats.overFourAboard += screen.Aboard[parties]
+	}
+	return stats
 }
 
 func loadedDistancePercent(passenger, empty float64) float64 {
@@ -1261,6 +1295,9 @@ type writeReportInput struct {
 	// output has the platoon_policy field only when a result has a platoon
 	// policy.
 	platoonColumn bool
+	// seatColumns adds the seat screen columns to CSV output. JSON output
+	// always has them.
+	seatColumns bool
 }
 
 func writeReport(input writeReportInput) error {
@@ -1268,7 +1305,7 @@ func writeReport(input writeReportInput) error {
 	case "json":
 		encoder := json.NewEncoder(input.output)
 		encoder.SetIndent("", "  ")
-		if err := encoder.Encode(report{SchemaVersion: 9, Results: input.results}); err != nil {
+		if err := encoder.Encode(report{SchemaVersion: 10, Results: input.results}); err != nil {
 			return fmt.Errorf("write JSON report: %w", err)
 		}
 		return nil
@@ -1332,7 +1369,9 @@ func writeTable(input writeReportInput) error {
 // writeCSV writes a header and one row for each result. When
 // input.waitRuleColumn is set, a wait_rule column follows routing_policy.
 // When input.platoonColumn is set, a platoon_policy column follows them.
-// Without these options, the columns are the same as before them.
+// When input.seatColumns is set, the seat screen columns follow
+// shared_parties. Without these options, the columns are the same as
+// before them.
 func writeCSV(input writeReportInput) error {
 	w := csv.NewWriter(input.output)
 	header := []string{
@@ -1344,8 +1383,12 @@ func writeCSV(input writeReportInput) error {
 	if input.platoonColumn {
 		header = append(header, "platoon_policy")
 	}
+	header = append(header, "shared_ride_party_limit", "sharing_mode", "shared_parties")
+	if input.seatColumns {
+		header = append(header, "full_pod_refusals", "full_departures", "departure_backlog", "departures_demand_over_four", "departures_over_four_aboard")
+	}
 	header = append(header,
-		"shared_ride_party_limit", "sharing_mode", "shared_parties", "focus_station", "window_start_seconds", "window_end_seconds", "actual_end_seconds", "arrival_window_seconds", "arrival_end_seconds", "schedule_id",
+		"focus_station", "window_start_seconds", "window_end_seconds", "actual_end_seconds", "arrival_window_seconds", "arrival_end_seconds", "schedule_id",
 		"scheduled", "served", "remaining", "skipped", "completed_at_arrival_end", "backlog_at_arrival_end", "arrival_throughput_per_minute",
 		"completed_at_arrival_midpoint", "backlog_at_arrival_midpoint", "late_arrival_throughput_per_minute", "late_backlog_change", "drained", "drain_seconds",
 		"peak_pending", "peak_outstanding", "peak_active_vehicles", "peak_passenger_vehicles", "peak_stopped_vehicles", "peak_focus_approaching", "peak_focus_entrance_stopped", "peak_focus_exit_stopped",
@@ -1370,8 +1413,13 @@ func writeCSV(input writeReportInput) error {
 		if input.platoonColumn {
 			row = append(row, outcome.PlatoonPolicy)
 		}
+		row = append(row, strconv.Itoa(outcome.SharedRidePartyLimit), outcome.SharingMode, strconv.Itoa(outcome.SharedParties))
+		if input.seatColumns {
+			row = append(row, strconv.Itoa(outcome.FullPodRefusals), strconv.Itoa(outcome.FullDepartures), strconv.Itoa(outcome.DepartureBacklog),
+				strconv.Itoa(outcome.DeparturesDemandOverFour), strconv.Itoa(outcome.DeparturesOverFourAboard))
+		}
 		row = append(row,
-			strconv.Itoa(outcome.SharedRidePartyLimit), outcome.SharingMode, strconv.Itoa(outcome.SharedParties), outcome.FocusStation,
+			outcome.FocusStation,
 			floatText(outcome.WindowStartSeconds), floatText(outcome.WindowEndSeconds), floatText(outcome.ActualEndSeconds), floatText(outcome.ArrivalWindowSeconds), floatText(outcome.ArrivalEndSeconds), outcome.ScheduleID,
 			strconv.Itoa(outcome.Scheduled), strconv.Itoa(outcome.Served), strconv.Itoa(outcome.Remaining), strconv.Itoa(outcome.Skipped),
 			strconv.Itoa(outcome.CompletedAtArrivalEnd), strconv.Itoa(outcome.BacklogAtArrivalEnd), floatText(outcome.ArrivalThroughputPerMinute),
