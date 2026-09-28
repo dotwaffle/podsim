@@ -70,6 +70,10 @@ type VehicleFrame struct {
 	RouteLaneIDs []string      `json:"RouteLaneIDs"`
 	RelocatingTo string        `json:"RelocatingTo"`
 	Rebalancing  bool          `json:"Rebalancing"`
+	// PlatoonID and PlatoonIndex are the platoon of a coupled pod. See
+	// sim.Vehicle.
+	PlatoonID    string `json:"PlatoonID,omitempty"`
+	PlatoonIndex int    `json:"PlatoonIndex,omitzero"`
 }
 
 // FrameState combines one matching topology snapshot and state frame.
@@ -97,6 +101,7 @@ func FrameState(topology TopologySnapshot, frame StateFrame) (State, error) {
 		vehicles[index] = sim.Vehicle{
 			Pod: vehicle.Pod, Riders: vehicle.Riders, Stops: vehicle.Stops, Route: route,
 			RelocatingTo: vehicle.RelocatingTo, Rebalancing: vehicle.Rebalancing,
+			PlatoonID: vehicle.PlatoonID, PlatoonIndex: vehicle.PlatoonIndex,
 		}
 	}
 	snapshot := frame.Simulation
@@ -132,6 +137,7 @@ func stateFrame(state State) StateFrame {
 		vehicles[index] = VehicleFrame{
 			Pod: vehicle.Pod, Riders: vehicle.Riders, Stops: vehicle.Stops, RouteLaneIDs: routeIDs,
 			RelocatingTo: vehicle.RelocatingTo, Rebalancing: vehicle.Rebalancing,
+			PlatoonID: vehicle.PlatoonID, PlatoonIndex: vehicle.PlatoonIndex,
 		}
 	}
 	snapshot := state.Simulation

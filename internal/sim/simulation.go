@@ -116,6 +116,12 @@ type Vehicle struct {
 	// Rebalancing reports whether an empty move was started by guarded
 	// positioning.
 	Rebalancing bool `json:"Rebalancing"`
+	// PlatoonID is the ID of the first pod of the platoon of the pod.
+	// PlatoonIndex is the position of the pod in that platoon, 1 for the
+	// first pod. Snapshot sets both for a pod with a link to a pod ahead or
+	// behind. They are empty for a pod that is not coupled.
+	PlatoonID    string `json:"PlatoonID,omitempty"`
+	PlatoonIndex int    `json:"PlatoonIndex,omitzero"`
 }
 
 // BerthState separates physical occupancy from local arrival admission.
@@ -502,6 +508,14 @@ func (s *Simulation) Snapshot() Snapshot {
 		cloned.Route = cloneLanes(cloned.Route)
 		cloned.Riders, cloned.Stops = slices.Clone(cloned.Riders), slices.Clone(cloned.Stops)
 		state.Vehicles = append(state.Vehicles, cloned)
+	}
+	if s.platoonLinks > 0 {
+		for index := range s.vehicles {
+			if s.vehicles[index].coupled() {
+				first, position := s.platoonPosition(index)
+				state.Vehicles[index].PlatoonID, state.Vehicles[index].PlatoonIndex = s.vehicles[first].Pod.ID, position
+			}
+		}
 	}
 	state.Berths = s.berthStates()
 	return state

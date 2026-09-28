@@ -2662,6 +2662,16 @@ func TestLondonPlatoonRestore(t *testing.T) {
 			t.Fatalf("pod %s has link %+v after the restore, want %+v", pod.ID, pod.Platoon, want)
 		}
 	}
+	// The state frame shows each follower behind a pod of its platoon.
+	followers := 0
+	for _, vehicle := range restored.State().Simulation.Vehicles {
+		if vehicle.PlatoonIndex > 1 {
+			followers++
+		}
+	}
+	if followers != links {
+		t.Fatalf("the restored state shows %d followers, want %d", followers, links)
+	}
 	t.Logf("restored %d links at tick %d", links, file.Simulation.Tick)
 }
 

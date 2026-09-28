@@ -1,6 +1,7 @@
 package sim
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"maps"
@@ -625,6 +626,51 @@ func TestPlatoonRestore(t *testing.T) {
 	}
 	if len(result.Demoted) == 0 {
 		t.Fatal("no pod lost its place without the links")
+	}
+}
+
+// TestPlatoonSnapshotMembers checks PlatoonID and PlatoonIndex at each
+// tick on the merge corridor. The first pod of a platoon has index 1 and
+// its own ID. Each follower has the ID of its predecessor's platoon and the
+// next index. A pod that is not coupled has neither member in its JSON
+// form.
+func TestPlatoonSnapshotMembers(t *testing.T) {
+	t.Parallel()
+	s := restoreCorridor(t, mergeCorridor(true, 30), corridorQueues(corridorFeedLength-150))
+	if err := s.SetPlatooning(PlatooningVirtual); err != nil {
+		t.Fatal(err)
+	}
+	largest := 0
+	for range 40 * TicksPerSecond {
+		s.Step()
+		snapshot := s.Snapshot()
+		for index, got := range snapshot.Vehicles {
+			v := &s.vehicles[index]
+			wantID, wantIndex := "", 0
+			switch {
+			case v.link.leader != 0:
+				ahead := snapshot.Vehicles[v.link.leader-1]
+				wantID, wantIndex = ahead.PlatoonID, ahead.PlatoonIndex+1
+			case v.follower != 0:
+				wantID, wantIndex = got.Pod.ID, 1
+			}
+			if got.PlatoonID != wantID || got.PlatoonIndex != wantIndex {
+				t.Fatalf("tick %d: pod %s has platoon %q at %d, want %q at %d", s.tick, got.Pod.ID, got.PlatoonID, got.PlatoonIndex, wantID, wantIndex)
+			}
+			if wantID == "" {
+				data, err := json.Marshal(got)
+				if err != nil {
+					t.Fatal(err)
+				}
+				if bytes.Contains(data, []byte("Platoon")) {
+					t.Fatalf("tick %d: pod %s is not coupled, but its JSON form is %s", s.tick, got.Pod.ID, data)
+				}
+			}
+			largest = max(largest, got.PlatoonIndex)
+		}
+	}
+	if largest != MaxPlatoonLimit {
+		t.Fatalf("the largest platoon index is %d, want %d", largest, MaxPlatoonLimit)
 	}
 }
 

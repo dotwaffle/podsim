@@ -333,6 +333,37 @@ func TestServerStart(t *testing.T) {
 	}
 }
 
+// TestVehicleFramePlatoonJSON checks the platoon members of a pod in a state
+// frame against the protocol. A coupled pod has both members, and a pod that
+// is not coupled has neither. The frame gives the members back to the state.
+func TestVehicleFramePlatoonJSON(t *testing.T) {
+	t.Parallel()
+	state := State{Simulation: sim.Snapshot{Vehicles: []sim.Vehicle{
+		{Pod: sim.Pod{ID: "01"}, PlatoonID: "01", PlatoonIndex: 1},
+		{Pod: sim.Pod{ID: "02"}, PlatoonID: "01", PlatoonIndex: 2},
+		{Pod: sim.Pod{ID: "03"}},
+	}}}
+	frame := stateFrame(state)
+	var vehicles []map[string]json.RawMessage
+	if err := json.Unmarshal(mustJSON(t, frame.Simulation.Vehicles), &vehicles); err != nil {
+		t.Fatal(err)
+	}
+	for index, want := range []string{`"01" 1`, `"01" 2`, " "} {
+		if got := string(vehicles[index]["PlatoonID"]) + " " + string(vehicles[index]["PlatoonIndex"]); got != want {
+			t.Fatalf("pod %d has platoon members %s, want %s", index+1, got, want)
+		}
+	}
+	got, err := FrameState(TopologySnapshot{}, frame)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for index, vehicle := range got.Simulation.Vehicles {
+		if want := state.Simulation.Vehicles[index]; vehicle.PlatoonID != want.PlatoonID || vehicle.PlatoonIndex != want.PlatoonIndex {
+			t.Fatalf("pod %s has platoon %q at %d after the frame, want %q at %d", want.Pod.ID, vehicle.PlatoonID, vehicle.PlatoonIndex, want.PlatoonID, want.PlatoonIndex)
+		}
+	}
+}
+
 // TestVehicleFrameRidersJSON checks the riders and the stops of a pod in a
 // state frame against the protocol. The first rider boarded the pod, and the
 // second rider joined it. Each rider has the members of an order and no

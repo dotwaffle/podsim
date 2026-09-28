@@ -209,6 +209,17 @@ func (v *vehicle) coupled() bool {
 	return v.link.leader != 0 || v.follower != 0
 }
 
+// platoonPosition returns the index in s.vehicles of the first pod of the
+// platoon of the pod at index, and the position of the pod in the platoon,
+// 1 for the first pod. A platoon has no loop, so the walk ends.
+func (s *Simulation) platoonPosition(index int) (first, position int) {
+	first, position = index, 1
+	for leader := s.vehicles[index].link.leader; leader != 0; leader = s.vehicles[leader-1].link.leader {
+		first, position = leader-1, position+1
+	}
+	return first, position
+}
+
 // aheadInPlatoon reports whether the pod with the given ID is ahead of v in
 // its platoon.
 func (s *Simulation) aheadInPlatoon(v *vehicle, id string) bool {

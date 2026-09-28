@@ -908,6 +908,12 @@ func (g *Game) drawNetwork(screen *ebiten.Image, state sim.Snapshot) {
 			}
 		}
 	}
+	// A line joins each coupled pod to the pod ahead of it in its platoon.
+	// The pods go on top of the lines.
+	for _, link := range platoonLinks(state.Vehicles) {
+		from, to := g.mapPoint(state.Vehicles[link.follower].Pod.Position), g.mapPoint(state.Vehicles[link.ahead].Pod.Position)
+		vector.StrokeLine(mapScreen, float32(from.X), float32(from.Y), float32(to.X), float32(to.Y), float32(platoonLinkWidth*g.layout.unit), rgb(foreground), style.antialias)
+	}
 	for i, v := range state.Vehicles {
 		parkedInCluster := v.Pod.Activity == sim.Idle && collapsedStations[v.Pod.StationID]
 		if parkedInCluster && i != g.selected {

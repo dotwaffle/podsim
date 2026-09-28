@@ -195,7 +195,7 @@ var persistRules = map[reflect.Type]map[string]persistRule{
 	},
 	reflect.TypeFor[Vehicle](): {
 		"Pod": persistSave, "Riders": persistSave, "Stops": persistSave, "Route": persistSave,
-		"RelocatingTo": persistSave, "Rebalancing": persistSave,
+		"RelocatingTo": persistSave, "Rebalancing": persistSave, "PlatoonID": persistDerive, "PlatoonIndex": persistDerive,
 	},
 	reflect.TypeFor[Pod](): {
 		"ID": persistSave, "Position": persistDerive, "Activity": persistSave, "StationID": persistSave,
