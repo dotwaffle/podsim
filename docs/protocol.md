@@ -96,6 +96,13 @@ An order stays in `Riders` with `Completed` set to `true` after the party leaves
 `Stops` has the IDs of the stations where the pod must stop and that it did not reach, in the sequence of the stops.
 A pod omits each key when its array is empty.
 
+A pod in a [virtual platoon](../README.md#virtual-platoons) also has `PlatoonID` and `PlatoonIndex`.
+`PlatoonID` is the ID of the first pod of the platoon.
+`PlatoonIndex` is the position of the pod in the platoon, from 1 for the first pod.
+Thus the pod ahead of a pod with index 3 has the same `PlatoonID` and index 2.
+A pod that is not in a platoon omits both keys.
+With platoons off, no pod has these keys, so the frame does not change.
+
 The `simulation` object has these ride metrics:
 
 | Member | Content |

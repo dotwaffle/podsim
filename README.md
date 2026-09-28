@@ -87,7 +87,7 @@ This limit lets the server read the file at the next start.
 
 The browser export wraps the `project` object as `scenario` and can also contain a background image.
 **Import JSON** accepts the browser export and the server file, such as the output of `mise run scenario`.
-When the file leaves out an optional setting, such as the party limit or the shared ride mode, the import uses the default value.
+When the file leaves out an optional setting, such as the party limit, the shared ride mode, or the platoon limit, the import uses the default value.
 `-project` does not accept the browser export.
 
 ### Session state
@@ -179,6 +179,7 @@ See [distribution and operations](docs/operations.md) for build and runtime sett
   The pod number shows above and to the right of the pod, outside the berth ring.
 - An amber ring around a pod marks a waiting pod.
   A white ring marks the selected pod.
+- A white line joins each pod in a [virtual platoon](#virtual-platoons) to the pod ahead of it.
 - The map legend shows each color and shape.
 - While the selected pod is not idle, the map shows its route in the pod color.
   The route shows above the stations and their labels, and below the pods.
@@ -504,7 +505,7 @@ The draft stays local until you select **Pause and apply**.
   Each lane keeps its nodes.
   The project file has no bearing field.
   The editor gets the bearing from the entry and exit positions.
-- Set the passenger generation option, rate, pattern, destination, OD profile, time band, party limit, shared ride mode, stop limit, seed, and redistribution option.
+- Set the passenger generation option, rate, pattern, destination, OD profile, time band, party limit, shared ride mode, stop limit, platoon limit, seed, and redistribution option.
   The stop limit shows only for the drop-offs mode.
 - Use undo and redo for draft changes.
   See [Editor keyboard shortcuts](#editor-keyboard-shortcuts).
@@ -1097,11 +1098,15 @@ The traffic model requires lanes at least 24 meters long.
 
 #### Virtual platoons
 
-Virtual platoons are an experimental option of the simulation API and the compare command.
-They are off by default, and the server does not use them.
-With the `virtual` policy, a slow pod in a queue can link to the pod ahead on the same lane.
+The project setting `platoonLimit` turns on virtual platoons.
+Its value is the maximum number of pods in one platoon, from 2 to 4.
+A value of 0, or no value, turns platoons off.
+The **Platoons** field of the editor sets the limit.
+The compare command does not read this setting.
+It uses `-platoon-policies`, and the `virtual` policy has a limit of 4 pods.
+
+With platoons on, a slow pod in a queue can link to the pod ahead on the same lane.
 The two routes must share the next lanes, and each route must have one speed limit.
-A platoon has at most 4 pods.
 
 Each link certifies a run of lanes that both routes share, from the lane of the follower.
 The total turn along the run must be at most 120 degrees.
@@ -1131,6 +1136,8 @@ The field gives the predecessor, the run as indexes into the two saved routes, t
 The restore checks the run, the turn, the speed limits, and the clearance against the network and the pods, and it does not plan the link again.
 A link that is not valid fails the physical tier.
 A link that drains before the save also drains after the restore.
+The saved state does not keep the platoon limit.
+The restore uses the `platoonLimit` of the project.
 
 ### Stations and parking
 

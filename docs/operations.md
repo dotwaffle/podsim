@@ -214,6 +214,9 @@ It reports them as unaccounted orders at each restore, together with the orders 
   The tier fails when two pods at berths conflict, or when a traveling pod finds no free berth.
   Its parties board again at their origin station, or go back to the queue.
   In the `drop-offs` mode, the parties go back to the queue when the stops from the free berth take a party over the detour cap of 1.5.
+  A pod in a [virtual platoon](../README.md#virtual-platoons) keeps its link to the pod ahead, with the same run of lanes, turn, and clearance.
+  The tier checks each saved link against the network and the other pods, and a link that is not valid fails the tier.
+  The file does not keep the platoon limit, so the restore uses the `platoonLimit` of the project.
 - `logical`: The server uses this tier with reason `physical_failed` when the `physical` tier fails.
   It also uses it with reason `restore_loop`, as described below.
   The pods start again at their initial berths.
