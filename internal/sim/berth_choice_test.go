@@ -1,6 +1,7 @@
 package sim
 
 import (
+	"fmt"
 	"maps"
 	"reflect"
 	"slices"
@@ -323,5 +324,36 @@ func TestTerminalLaneCacheMatchesFullCheck(t *testing.T) {
 	}
 	if checked < 1000 || s.Snapshot().Completed < 10 {
 		t.Fatalf("checked %d cached results for %d trips", checked, s.Snapshot().Completed)
+	}
+}
+
+// TestBerthChoiceOnShortFinalLane gives each pod a final road lane so
+// short that the junction zone of the station entry covers all of it. The
+// reservation that starts on the last block of the lane before it then
+// reaches the end of the road route. The pod must choose its berth before
+// that reservation. If it does not, it arrives with no berth at the
+// position of an unknown node, and the owners differ from the retention
+// scan. The lane of 30 m is a control that has a later reservation on the
+// final lane.
+func TestBerthChoiceOnShortFinalLane(t *testing.T) {
+	t.Parallel()
+	for _, length := range []float64{24, 25, 30} {
+		t.Run(fmt.Sprint(length), func(t *testing.T) {
+			t.Parallel()
+			lanes := []geometryLane{{to: Point{}}, {to: Point{X: length}}}
+			s := restoreGeometry(t, geometryNetwork(Point{X: -500}, lanes, 2), len(lanes), 2, 450, corridorQueueGap)
+			v := &s.vehicles[0]
+			for range 60 * TicksPerSecond {
+				s.Step()
+				checkTraffic(t, s.Snapshot())
+				checkIncrementalOwners(t, s)
+				if v.Pod.Activity != Traveling {
+					break
+				}
+			}
+			if v.Pod.Activity != Unloading || v.Pod.BerthID != "dest-1" || s.owners[resource{kind: berthResource, id: "dest-1"}] != v.Pod.ID {
+				t.Fatalf("pod %s did not arrive at berth dest-1: %+v", v.Pod.ID, v.Pod)
+			}
+		})
 	}
 }

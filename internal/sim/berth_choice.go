@@ -2,8 +2,9 @@ package sim
 
 import "slices"
 
-// assignTerminalBerth chooses a berth when the next reservation enters the
-// final station-access lane. The road route remains berth-independent.
+// assignTerminalBerth chooses a berth when the next reservation starts on
+// the final lane of the road route, or when it reaches the last block of
+// that route. The road route remains berth-independent.
 func (s *Simulation) assignTerminalBerth(v *vehicle) bool {
 	if v.destination.ID != "" || len(v.Route) == 0 {
 		return true
@@ -13,8 +14,18 @@ func (s *Simulation) assignTerminalBerth(v *vehicle) bool {
 		return true
 	}
 	next := v.reservedThrough + 1
-	if next < 0 || next >= v.blocks.len() || v.blocks.lane(next).ID != v.Route[len(v.Route)-1].ID {
+	if next < 0 || next >= v.blocks.len() {
 		return true
+	}
+	if v.blocks.lane(next).ID != v.Route[len(v.Route)-1].ID {
+		// A reservation that starts before the final lane can reach the
+		// last block of the route. For example, the junction zone of the
+		// station entry can cover all of a short final lane. After that
+		// reservation, the pod reserves no more blocks of the road route.
+		// Thus it must choose its berth now, or it arrives with no berth.
+		if _, through, _ := s.terminalLane(v); through < v.blocks.len()-1 {
+			return true
+		}
 	}
 	station, ok := s.station(v.destinationStation)
 	if !ok {
@@ -96,7 +107,8 @@ type terminalCheck struct {
 // and the last block of the next reservation. It returns false if the
 // station is not known, if the pod has reserved the first block of each of
 // these lanes, or if the next reservation stops before that lane. Then the
-// pod keeps its berth.
+// pod keeps its berth. When the station is known, through is the last block
+// of the next reservation also when ok is false.
 //
 // The result depends only on the route, the blocks, the destination
 // station, reservedThrough, and the station entry in the network. The
@@ -117,8 +129,9 @@ func (s *Simulation) terminalLane(v *vehicle) (eligible, through int, ok bool) {
 }
 
 // findTerminalLane does the work of terminalLane without the cache. It
-// returns -1 in place of false. When eligible is -1, through has no
-// meaning.
+// returns -1 in place of false. through is the last block of the next
+// reservation, also when eligible is -1. It is 0 when the station is not
+// known.
 func (s *Simulation) findTerminalLane(v *vehicle) (eligible, through int) {
 	station, ok := s.station(v.destinationStation)
 	if !ok {
