@@ -536,12 +536,17 @@ The draft stays local until you select **Pause and apply**.
   The editor does the same checks for a background in an imported project file and for the stored background.
   If an image fails a check, the editor shows an error notice and does not use the image.
   Select **Calibrate scale**, select two points on the image, enter their distance in meters, then select **Set scale**.
+- Select **Import a georeferenced image** to use an image with known bounds.
+  See [Georeferenced background](#georeferenced-background).
 - Export JSON to save the scenario and optional background.
   Import JSON to restore a draft.
   The export is compact JSON.
   The project file must be 19 MiB or smaller.
-  This limit is the image limit in base64 form plus the 8 MiB project limit of the server and a small allowance, rounded up to a whole MiB.
+  This limit is the image limit in base64 form plus the 8 MiB project limit of the server, a small allowance for the other fields, and 128 KiB for the frame and the license of the image, rounded up to a whole MiB.
   Thus the editor can import an export with the largest project and the largest background image.
+- The editor keeps the images of the undo history in the memory of the tab, up to 128 MiB.
+  When a new image makes the images larger than 128 MiB, the editor removes the oldest undo steps and says how many.
+  It never removes the present image or the image of **Reset draft**.
 
 ### Editor keyboard shortcuts
 
@@ -622,7 +627,7 @@ A tab writes the stored background only after a background change in that tab.
 Thus a tab that shows an older background does not replace a newer background from another tab, also at a scenario edit or when you leave the page.
 If the stored background is not valid, the editor shows an error notice and does not delete it.
 The browser keeps it until a new background in the page replaces it.
-The browser keeps the image in the IndexedDB database `podsim-editor-backgrounds-2`, with a random image key, the placement, and the opacity.
+The browser keeps the image in the IndexedDB database `podsim-editor-backgrounds-2`, with a random image key, the placement, the opacity, the frame state, and the frame and the license of the image.
 The editor does not read the background of an older editor, which is in the `podsim-editor-backgrounds` database.
 If the browser cannot keep the background, the editor shows an error notice.
 Then export the project to keep the background.
@@ -630,6 +635,44 @@ When the background has changes that are not saved in the browser, the browser a
 This includes a removed background that the browser has not yet deleted.
 The editor puts the stored background on the page before it accepts input.
 The editor ignores the background in a saved draft of an older editor.
+The **Background** section shows the image memory of the tab, the size of the stored image, and a notice that the exported project file is the only durable copy.
+
+### Georeferenced background
+
+A georeferenced image is a PNG or JPEG, north up, with known bounds in degrees.
+The editor makes no network request for it.
+
+1. Select **Import a georeferenced image**.
+2. Choose the image, and type the south, north, west, and east bounds of its outer pixel edges.
+3. Choose the projection of the image: **Equirectangular** or **Web Mercator**.
+   The editor resamples a Web Mercator image into rows that are linear in latitude, at the meters for each pixel that you type.
+   The resampled image can be at most 4,096 pixels on each side.
+4. Type the source, the attribution, the license, the license URL, the copyright URL, and a notice.
+   Links must be HTTPS URLs.
+5. Select **Import**.
+
+The image goes on its frame in the `geo` reference of the project.
+A project with no nodes and no `geo` gets a reference at the center of the image.
+A project with nodes and no `geo` needs a choice first:
+
+- **Anchor two nodes**: type the IDs of two nodes at least 100 m apart, and the latitude and longitude of each.
+  The reference puts the first node at its place.
+  The editor rejects the anchor when the second node is more than 2% of the node distance from its place.
+- **Adopt the image center**: the center of the image becomes the reference, and the network does not move.
+  The network and the image can then fail to align.
+
+The editor rejects bounds that cross the antimeridian, a latitude past 80 degrees, a frame that is not in the 100,000 m square, and a frame with an east-west scale error of more than 0.5%.
+The image, its placement, its frame state, and the `geo` reference change in one undo step.
+An edit, a drag, or an opacity change during the import stops the import, and the editor says why.
+
+The frame is **attached** when the placement follows the frame.
+When an attached frame is not on its place in the `geo` reference, for example after **Load live scenario** with a different `geo`, the **Background** section shows a warning.
+Then select **Place from frame** to move the image onto its frame, or **Detach frame** to keep the placement.
+**Calibrate scale** is disabled for an attached frame.
+The export keeps the frame state, the frame, and the license in `background.asset`, and an import accepts a frame that is not on its place, with the warning.
+
+When the image has an attribution, the map shows it in a line at the lower right corner, with a link to the copyright URL and to the license URL.
+The **Background** section shows the source, the license, the time of the import, the method, and the notice.
 
 ### Apply a draft
 

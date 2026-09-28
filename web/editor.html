@@ -70,6 +70,69 @@
         <label>Opacity <output id="opacityValue">45%</output>
           <input id="backgroundOpacity" type="range" min="0" max="1" step="0.05" value="0.45">
         </label>
+        <button id="geoImportButton" class="wide" type="button">Import a georeferenced image</button>
+        <div id="geoPanel" class="subpanel" hidden>
+          <p>Choose an image with known bounds in degrees, north up. The editor makes no network request.</p>
+          <label class="button wide" for="geoFile">Choose PNG or JPEG</label>
+          <input id="geoFile" class="visually-hidden" type="file" accept="image/png,image/jpeg">
+          <p id="geoFileName">No image chosen.</p>
+          <div class="row">
+            <label>South<input id="geoSouth" type="number" step="any"></label>
+            <label>North<input id="geoNorth" type="number" step="any"></label>
+          </div>
+          <div class="row">
+            <label>West<input id="geoWest" type="number" step="any"></label>
+            <label>East<input id="geoEast" type="number" step="any"></label>
+          </div>
+          <label>Projection
+            <select id="geoSource">
+              <option value="equirectangular">Equirectangular</option>
+              <option value="web-mercator">Web Mercator</option>
+            </select>
+          </label>
+          <label>Meters for each pixel<input id="geoMeters" type="number" min="0.1" step="any" value="2"></label>
+          <label>Source<input id="geoLicenseSource" maxlength="200"></label>
+          <label>Attribution<input id="geoAttribution" maxlength="500"></label>
+          <label>License<input id="geoLicense" maxlength="64"></label>
+          <label>License URL<input id="geoLicenseURL" type="url" maxlength="2048"></label>
+          <label>Copyright URL<input id="geoCopyrightURL" type="url" maxlength="2048"></label>
+          <label>Notice<input id="geoNotice" maxlength="2000"></label>
+          <div class="row">
+            <button id="geoImportRunButton" type="button">Import</button>
+            <button id="geoImportCloseButton" type="button">Close</button>
+          </div>
+        </div>
+        <div id="frameControls" class="subpanel" hidden>
+          <p id="frameStateText"></p>
+          <p id="frameWarning" class="warning" hidden></p>
+          <div class="row">
+            <button id="placeFrameButton" type="button">Place from frame</button>
+            <button id="detachFrameButton" type="button">Detach frame</button>
+          </div>
+        </div>
+        <div id="referencePanel" class="subpanel" hidden>
+          <p>The project has nodes and no geographic reference. Choose how the image gets its place.</p>
+          <label>Reference
+            <select id="referenceMode">
+              <option value="">Choose</option>
+              <option value="anchor">Anchor two nodes</option>
+              <option value="adopt">Adopt the image center</option>
+            </select>
+          </label>
+          <div id="anchorFields" hidden>
+            <label>Node A<input id="anchorANode"></label>
+            <div class="row">
+              <label>Latitude<input id="anchorALatitude" type="number" step="any"></label>
+              <label>Longitude<input id="anchorALongitude" type="number" step="any"></label>
+            </div>
+            <label>Node B<input id="anchorBNode"></label>
+            <div class="row">
+              <label>Latitude<input id="anchorBLatitude" type="number" step="any"></label>
+              <label>Longitude<input id="anchorBLongitude" type="number" step="any"></label>
+            </div>
+          </div>
+          <label id="adoptField" class="check" hidden><input id="adoptConfirm" type="checkbox"> The image center becomes the reference, and the network does not move. The network and the image can then fail to align.</label>
+        </div>
         <button id="calibrateButton" class="wide" type="button">Calibrate scale</button>
         <button id="removeBackgroundButton" class="wide quiet" type="button">Remove background</button>
         <div id="calibrationPanel" class="subpanel" hidden>
@@ -80,6 +143,7 @@
             <button id="cancelCalibrationButton" type="button">Cancel</button>
           </div>
         </div>
+        <ul id="backgroundInfo" class="background-info"></ul>
       </section>
 
       <section>
@@ -111,6 +175,7 @@
         </g>
       </svg>
       <div id="mapPrompt" class="map-prompt">Select an item to edit it.</div>
+      <div id="mapAttribution" class="map-attribution" hidden></div>
       <div class="zoom-controls" aria-label="Zoom controls">
         <button id="zoomInButton" type="button" aria-label="Zoom in">＋</button>
         <button id="zoomOutButton" type="button" aria-label="Zoom out">−</button>

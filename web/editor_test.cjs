@@ -1641,18 +1641,24 @@ test("a project import and a stored background reject image data that is not val
   }
 });
 
-test("the decode check needs a decoded image with the size of its header", async () => {
-  const url = dataURL(pngBytes(4, 2));
-  const decoded = (size) => async () => size;
-  assert.deepEqual(await editor.checkDecodedImage(url, decoded({ width: 4, height: 2 })), { width: 4, height: 2 });
-  assert.deepEqual(await editor.checkDecodedImage(url, decoded({ width: 2, height: 4 })), { width: 2, height: 4 }, "a turned JPEG");
+test("the decode check needs a decoded image with the size of its header, and closes each bitmap", async () => {
+  const bytes = editor.dataURLToBytes(dataURL(pngBytes(4, 2)));
+  let closes = 0; const types = [];
+  const decoded = (size) => ({ decode: async (blob) => { types.push(blob.type); return { ...size, close() { closes += 1; } }; } });
+  const facts = await editor.checkImageBytes(bytes, decoded({ width: 4, height: 2 }));
+  assert.deepEqual([facts.width, facts.height, facts.mime, types], [4, 2, "image/png", ["image/png"]]);
+  assert.equal((await editor.checkImageBytes(bytes, decoded({ width: 2, height: 4 }))).width, 4, "a turned JPEG");
   let decodes = 0;
-  const count = async () => { decodes += 1; return { width: 1, height: 1 }; };
-  await assert.rejects(editor.checkDecodedImage(dataURL(pngBytes(30000, 30000, true)), count), /is 30000 by 30000 pixels/);
+  const count = { decode: async () => { decodes += 1; return { width: 1, height: 1, close() {} }; } };
+  await assert.rejects(editor.checkImageBytes(editor.dataURLToBytes(dataURL(pngBytes(30000, 30000, true))), count), /is 30000 by 30000 pixels/);
   assert.equal(decodes, 0, "the header check comes before the decode");
-  await assert.rejects(editor.checkDecodedImage(url, async () => { throw new Error("EncodingError"); }), { message: "The browser cannot decode the background image." });
-  await assert.rejects(editor.checkDecodedImage(url, decoded({ width: 4, height: 3 })), /does not have the size in its header/);
-  await assert.rejects(editor.checkDecodedImage(url, decoded({ width: 0, height: 0 })), /has no pixels/);
+  await assert.rejects(editor.checkImageBytes(bytes, { decode: async () => { throw new Error("EncodingError"); } }), { message: "The browser cannot decode the background image." });
+  await assert.rejects(editor.checkImageBytes(bytes, decoded({ width: 4, height: 3 })), /does not have the size in its header/);
+  await assert.rejects(editor.checkImageBytes(bytes, decoded({ width: 0, height: 0 })), /has no pixels/);
+  assert.equal(closes, 4, "each decoded bitmap closes once, also after a failed check");
+  const aborted = new AbortController(); aborted.abort();
+  await assert.rejects(editor.checkImageBytes(bytes, decoded({ width: 4, height: 2 }), aborted.signal), { name: "AbortError" });
+  assert.equal(closes, 5, "an aborted check closes its bitmap");
 });
 
 test("a stored background restore decodes the image, and an edit during the decode is stopped", async () => {
@@ -1700,7 +1706,13 @@ test("the project import limit holds an export at the project and image limits",
   const wide = -1.2345678901234567e-300;
   const background = { dataURL: `data:image/jpeg;base64,${base64}`, x: wide, y: wide, width: wide, height: wide, opacity: wide };
   assert.equal(background.dataURL.length, editor.dataURLBytes(editor.IMAGE_FILE_BYTES));
-  const exported = editor.serializeDocument(config, background);
+  // The asset has a frame of wide numbers and each license member at its
+  // limit, with characters that JSON writes as six bytes.
+  const escaped = (limit) => "\u0001".repeat(limit);
+  const license = Object.fromEntries(Object.entries(editor.LICENSE_LIMITS).map(([key, limit]) => [key, escaped(limit)]));
+  const frame = { south: wide, north: wide, west: wide, east: wide, source: "web-mercator" };
+  const exported = editor.serializeDocument(config, { ...background, asset: { frameState: "detached", frame, license } });
+  assert.ok(exported.includes(`"method":"${"\\u0001".repeat(editor.LICENSE_LIMITS.method)}"`), "the asset is in the export");
   assert.ok(!exported.includes("\n"), "the export is not compact JSON");
   assert.ok(Buffer.byteLength(exported) <= editor.PROJECT_FILE_BYTES, `the export has ${Buffer.byteLength(exported)} bytes, more than ${editor.PROJECT_FILE_BYTES}`);
   assert.equal(editor.PROJECT_FILE_BYTES % (1024 * 1024), 0);
@@ -3624,22 +3636,22 @@ function heldStore() {
 // record name. pins gives the count of each name, and live gives the
 // number of writes that did not settle.
 function pinKeeper(store, page) {
-  const pins = new Map(); const log = []; const channel = { messages: 0, postMessage() { channel.messages += 1; }, addEventListener() {} };
+  const pins = new Map(); const log = []; const commits = []; const channel = { messages: 0, postMessage() { channel.messages += 1; }, addEventListener() {} };
   const count = (record, step) => { const name = record ? record.name : "delete"; pins.set(name, (pins.get(name) || 0) + step); log.push(`${step > 0 ? "queued" : "settled"} ${name}`); };
   const keeper = editor.createDraftKeeper({
     store, key: DRAFT_KEY, delay: editor.DRAFT_SAVE_DELAY, clock: globalThis, channel,
     snapshot: () => (page.record ? { ...page.record } : null), onStatus: (status) => log.push(`status ${status}`),
-    onQueued: (record) => count(record, 1), onSettled: (record) => count(record, -1),
+    onQueued: (record) => count(record, 1), onSettled: (record, committed) => { count(record, -1); commits.push(committed); },
   });
   const live = () => [...pins.values()].reduce((sum, value) => sum + value, 0);
-  return { keeper, pins, log, channel, live };
+  return { keeper, pins, log, commits, channel, live };
 }
 
 const tick = () => new Promise((resolve) => setImmediate(resolve));
 
 test("a newer write replaces the waiting write, and the replaced write settles with no store call", async () => {
   const store = heldStore(); const page = { record: { name: "X" } };
-  const { keeper, pins, log, channel, live } = pinKeeper(store, page);
+  const { keeper, pins, log, commits, channel, live } = pinKeeper(store, page);
   await keeper.load();
   const first = keeper.arm(); await tick();
   assert.deepEqual([store.calls, live(), pins.get("X")], [["put X"], 1, 1], "X runs");
@@ -3654,6 +3666,7 @@ test("a newer write replaces the waiting write, and the replaced write settles w
   store.next(); await last;
   assert.deepEqual([live(), pins.get("X"), keeper.unsaved, channel.messages], [0, 0, false, 2]);
   assert.deepEqual(log, ["queued X", "queued Y", "queued X", "settled Y", "settled X", "settled X"], "the hooks run once for each write");
+  assert.deepEqual(commits, [false, true, true], "only the writes that the store committed settle as committed");
   assert.deepEqual(store.records.get(DRAFT_KEY), { name: "X" });
 });
 
@@ -3702,7 +3715,7 @@ test("a blocked keeper releases replaced records and image buffers before storag
 
 test("a failed running write settles once, and the waiting write then commits", async () => {
   const store = heldStore(); const page = { record: { name: "X" } };
-  const { keeper, pins, log, live } = pinKeeper(store, page);
+  const { keeper, pins, log, commits, live } = pinKeeper(store, page);
   await keeper.load();
   const first = keeper.arm(); await tick();
   page.record = { name: "Y" }; const second = keeper.flush();
@@ -3713,6 +3726,7 @@ test("a failed running write settles once, and the waiting write then commits", 
   store.next(); await second;
   assert.deepEqual([keeper.status, live(), keeper.unsaved, store.records.get(DRAFT_KEY)], ["ok", 0, false, { name: "Y" }]);
   assert.deepEqual(log, ["queued X", "queued Y", "status failed", "settled X", "status ok", "settled Y"]);
+  assert.deepEqual(commits, [false, true]);
   await keeper.flush();
   assert.equal(store.calls.length, 2, "Y is in the store, so a flush does not write");
 });
@@ -3855,8 +3869,8 @@ function fakeStartupDocument() {
 // background in factory, as the editor does. history is the undo history
 // of the page, and gate is its startup gate. options.readLive is a promise
 // that the live load waits for. options.decode, when given, decodes the
-// stored image for checkDecodedImage. writes counts the writes that the
-// background keeper queues.
+// stored image for checkImageBytes, and gives its size. writes counts the
+// writes that the background keeper queues.
 function startupPage(factory, options = {}) {
   const document = fakeStartupDocument(); const gate = editor.createStartupGate();
   const history = editor.createHistory({ scenario: editor.emptyConfig(), background: null });
@@ -3864,7 +3878,7 @@ function startupPage(factory, options = {}) {
   const keeper = backgroundKeeper(editor.openRecordStore(factory, editor.BACKGROUND_STORE), page, { onQueued: () => { counts.writes += 1; } });
   const warnings = [];
   const cleared = editor.blockInput(document, gate, editor.startupExempt);
-  const decode = options.decode && ((restored) => editor.checkDecodedImage(pageOf(restored).dataURL, options.decode));
+  const decode = options.decode && ((restored) => editor.checkImageBytes(restored.image.bytes, { decode: async (blob) => ({ ...(await options.decode(blob)), close() {} }) }));
   const started = editor.startEditor({
     readDraft: async () => null, readBackground: () => keeper.load(),
     loadLive: async () => { await options.readLive; history.reset({ scenario: connectedScenario(), background: null }); },
@@ -4521,5 +4535,580 @@ test("shellPage finds only a same-origin shell page as the parent", () => {
     ["other origin", { parent: blocked }, null],
   ]) {
     assert.equal(editor.shellPage(win), want, name);
+  }
+});
+
+// OSM_LICENSE is the license facts of a test image.
+const OSM_LICENSE = {
+  source: "OpenStreetMap", attribution: "© OpenStreetMap contributors", license: "ODbL-1.0", licenseURL: "https://opendatacommons.org/licenses/odbl/1-0/",
+  copyrightURL: "https://www.openstreetmap.org/copyright", retrieved: "2026-09-28T12:00:00.000Z", method: "user supplied", notice: "Keep this notice.",
+};
+
+// LONDON_FRAME is a frame of about 1.4 by 1.1 km near the reference of
+// LONDON_GEO.
+const LONDON_FRAME = { south: 51.5, north: 51.51, west: -0.13, east: -0.11, source: "equirectangular" };
+
+// imageSeed makes the image keys of testImage.
+let imageSeed = 0;
+
+// testImage gives a frozen image descriptor with a new key. options can
+// give bytes, size, the byte count of the zero bytes, frame and license.
+function testImage(options = {}) {
+  imageSeed += 1;
+  const bytes = options.bytes ?? new ArrayBuffer(options.size ?? 16);
+  return editor.freezeImage({ key: imageSeed.toString(16).padStart(32, "0"), bytes, mime: "image/png", pixelWidth: 4, pixelHeight: 2, frame: options.frame ?? null, license: options.license ?? null });
+}
+
+// placed gives a history background of image.
+function placed(image, options = {}) {
+  return { imageKey: image.key, x: 0, y: 0, width: 40, height: 20, opacity: 0.45, frameState: image.frame ? "attached" : "none", ...options };
+}
+
+// farNodes gives the two nodes of config that are the farthest apart.
+function farNodes(config) {
+  const nodes = config.network.Nodes; let best = [nodes[0], nodes[1]]; let far = -1;
+  for (const a of nodes) for (const b of nodes) { const distance = Math.hypot(a.Position.X - b.Position.X, a.Position.Y - b.Position.Y); if (distance > far) { far = distance; best = [a, b]; } }
+  return best;
+}
+
+// testModel gives a background model with the scenario config, or the
+// connected scenario, and no background.
+function testModel(options = {}) {
+  return editor.createBackgroundModel({ initial: { scenario: options.config ?? connectedScenario(), background: null }, cap: options.cap });
+}
+
+// publishImage publishes image with the scenario of model, as an
+// acquisition does. options can set baseline and value.
+function publishImage(model, image, options = {}) {
+  const ticket = model.start();
+  return model.publish({ ticket, image, value: options.value ?? { scenario: model.history.value.scenario, background: placed(image) }, baseline: options.baseline });
+}
+
+// historyValues gives the values of all history entries of model, from
+// the oldest undo step to the newest redo step. It walks the history with
+// undo and redo, and leaves it as it was.
+function historyValues(model) {
+  const history = model.history; let back = 0;
+  while (history.undo()) back += 1;
+  const values = [history.value];
+  let forward = 0;
+  while (history.redo()) { values.push(history.value); forward += 1; }
+  for (let step = forward; step > back; step -= 1) history.undo();
+  return values;
+}
+
+// assertTable checks the image table invariants of model after step:
+// each key of the history, the baseline and pinned resolves to a
+// descriptor, the table holds no other key, each key keeps its first
+// descriptor, seen maps each key to that descriptor, and no history entry
+// or baseline holds binary data or a data URL.
+function assertTable(model, step, seen, pinned = []) {
+  const keys = model.history.keys(); const base = model.loaded.background;
+  if (base) keys.add(base.imageKey);
+  for (const key of pinned) keys.add(key);
+  assert.deepEqual(new Set(model.keys()), keys, `${step}: the table holds each referenced key and no other key`);
+  for (const key of keys) {
+    const image = model.image(key);
+    assert.ok(image && Object.isFrozen(image), `${step}: key ${key} resolves to a frozen descriptor`);
+    if (!seen.has(key)) seen.set(key, image);
+    assert.equal(image, seen.get(key), `${step}: the descriptor of ${key} does not change`);
+  }
+  for (const value of [...historyValues(model), model.loaded]) {
+    const text = JSON.stringify(value.background);
+    assert.ok(!/bytes|dataURL|"image"/.test(text ?? ""), `${step}: the entry holds only the image key: ${text}`);
+  }
+}
+
+test("the image table keeps each referenced image through imports, undo, redo, reset, loads, restores and removes", () => {
+  const model = testModel(); const seen = new Map(); const scenario = () => model.history.value.scenario;
+  const background = () => model.history.background;
+  const steps = [
+    ["import X", () => publishImage(model, testImage())],
+    ["move X", () => model.history.replace({ scenario: scenario(), background: { ...background(), x: 25 } })],
+    ["import framed Y", () => publishImage(model, testImage({ frame: LONDON_FRAME, license: OSM_LICENSE }))],
+    ["detach Y", () => model.history.replace(editor.detachFrame(model.history.value))],
+    ["undo", () => model.history.undo()],
+    ["undo", () => model.history.undo()],
+    ["redo", () => model.history.redo()],
+    ["project import Z", () => publishImage(model, testImage(), { baseline: true })],
+    ["remove Z", () => model.history.replace({ scenario: scenario(), background: null })],
+    ["Reset draft", () => model.history.replace(model.loaded)],
+    ["import W", () => publishImage(model, testImage())],
+    ["Load live", () => {
+      const live = { ...scenario(), name: "Live" };
+      const { value, loaded } = editor.liveDraft({ revision: 4, epoch: "e", serverStart: "s", project: live }, { loaded: model.loaded, background: background() });
+      model.setLoaded(loaded); model.history.replace(value);
+    }],
+    ["Restore draft", () => model.history.reset({ scenario: { ...scenario(), name: "Saved" }, background: background() })],
+    ["project import with no background", () => publishImage(model, null, { baseline: true, value: { scenario: connectedScenario(), background: null } })],
+    ["undo", () => model.history.undo()],
+  ];
+  for (const [name, run] of steps) { run(); assertTable(model, name, seen); }
+  assert.ok(seen.size >= 4, "the sequence made four images");
+  // Restore draft started a new history, so only the present image and
+  // the baseline image stay.
+  model.history.reset({ scenario: scenario(), background: null });
+  assertTable(model, "a new history", seen);
+  assert.equal(model.keys().length, 0, "the Load live baseline had no background after the project import");
+});
+
+test("the image limit drops the oldest undo steps, keeps the present and the baseline images, and the admission check takes the cap", () => {
+  const eight = 8 * 1024 * 1024;
+  const model = testModel();
+  const base = testImage({ size: eight });
+  assert.equal(publishImage(model, base, { baseline: true }).dropped, 0);
+  const counts = [];
+  for (let index = 0; index < 18; index += 1) counts.push(publishImage(model, testImage({ size: eight })).dropped);
+  // The baseline and the 15 images after it fill 128 MiB. The 16th image
+  // drops the first step with no image, the step with the baseline image,
+  // which the baseline keeps, and the step with the first image after it.
+  // Then each new image drops one step.
+  assert.deepEqual(counts, [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 3, 1, 1]);
+  assert.ok(model.bytes <= editor.IMAGE_TABLE_BYTES, `${model.bytes} bytes`);
+  assert.ok(model.image(base.key), "the baseline image stays");
+  assert.ok(model.image(model.history.background.imageKey), "the present image stays");
+  assert.equal(model.bytes, 16 * eight);
+
+  // With a cap of 20 MiB, the present image, the baseline image and a
+  // new image of 8 MiB do not fit, so the publish fails and keeps the
+  // background.
+  const small = testModel({ cap: 20 * 1024 * 1024 });
+  const first = testImage({ size: eight });
+  publishImage(small, first, { baseline: true });
+  const second = testImage({ size: eight });
+  assert.equal(publishImage(small, second).error, "");
+  assert.equal(small.history.canUndo, true);
+  // The next publish drops the undo steps, but the admission check
+  // counts the present and the baseline images, and the pinned image.
+  small.pin(second.key);
+  const result = publishImage(small, testImage({ size: eight }));
+  assert.match(result.error, /does not fit in the 20\.0 MiB image limit of this tab\. The images that the tab must keep use 16\.0 MiB, with 8\.0 MiB for writes to the browser store\./);
+  assert.equal(small.history.background.imageKey, second.key, "the background does not change");
+});
+
+test("a keeper write and an export that start before a prune keep their bytes", async () => {
+  const store = heldStore(); const model = testModel(); const commits = [];
+  const keeper = editor.createDraftKeeper({
+    store, key: DRAFT_KEY, delay: editor.DRAFT_SAVE_DELAY, clock: globalThis, deletes: true, holdUntilChange: true, text: editor.backgroundRecordText,
+    snapshot: () => { const background = model.history.background; return background ? editor.backgroundRecordFor(background, model.image(background.imageKey)) : null; },
+    onQueued: (record) => { if (record) model.pin(record.background.imageKey); },
+    onSettled: (record, committed) => { if (record) model.unpin(record.background.imageKey); commits.push(committed); },
+  });
+  await keeper.load(); await keeper.arm();
+  const bytes = editor.dataURLToBytes(dataURL(pngBytes(4, 2)));
+  const image = testImage({ bytes });
+  publishImage(model, image);
+  const exported = editor.serializeDocument(model.history.value.scenario, editor.exportBackground(model.history.background, model.image(image.key)));
+  const write = keeper.flush(); await tick();
+  assert.equal(model.pinCount(image.key), 1, "the queued write pins the image");
+  // Load live with no background drops each history and baseline
+  // reference to the image.
+  model.setLoaded({ scenario: connectedScenario(), background: null }); model.history.reset({ scenario: connectedScenario(), background: null });
+  assert.ok(model.image(image.key), "the pinned image stays in the table");
+  store.next(); await write;
+  assert.deepEqual([model.pinCount(image.key), model.image(image.key), commits], [0, null, [true]], "the settled write releases the image");
+  assert.deepEqual(new Uint8Array(store.records.get(DRAFT_KEY).background.image.bytes), new Uint8Array(bytes), "the store has the bytes");
+  assert.equal(editor.parseDocument(exported).background.dataURL, dataURL(pngBytes(4, 2)), "the export has the bytes");
+});
+
+test("an abort, a newer acquisition or an edit drops the result of an acquisition", () => {
+  const model = testModel();
+  let ticket = model.start(); model.abort();
+  assert.equal(ticket.signal.aborted, true);
+  assert.deepEqual(model.publish({ ticket, image: testImage(), value: { scenario: connectedScenario(), background: null } }), { error: "A newer action stopped the import.", dropped: 0 }, "an abort event");
+  const older = model.start(); ticket = model.start();
+  assert.equal(older.signal.aborted, true, "a new acquisition aborts the old one");
+  assert.match(model.publish({ ticket: older, image: testImage(), value: model.history.value }).error, /newer action/);
+  // A node move after the anchor validation drops the result.
+  const config = model.history.value.scenario; const [a, b] = farNodes(config);
+  const at = (node) => ({ id: node.ID, ...editor.unprojectPoint(LONDON_GEO, node.Position) });
+  ticket = model.start();
+  const reference = editor.referenceFor({ config, frame: LONDON_FRAME, choice: { mode: "anchor", a: at(a), b: at(b) } });
+  assert.equal(reference.error, undefined);
+  const moved = model.history.value.scenario; moved.network.Nodes[0].Position = { X: a.Position.X + 5, Y: a.Position.Y };
+  model.history.replace({ scenario: moved, background: null });
+  const image = testImage({ frame: LONDON_FRAME });
+  assert.equal(model.publish({ ticket, image, value: editor.framedValue(model.history.value, image, reference.geo) }).error, "The draft changed during the import.");
+  assert.equal(model.image(image.key), null, "the dropped image is not in the table");
+});
+
+test("a scenario edit during the decode of a project import fails the import and keeps the draft", async () => {
+  const model = testModel(); const slot = editor.createDecoderSlot();
+  const baseline = model.loaded;
+  let finish;
+  const deps = { decode: () => new Promise((resolve) => { finish = () => resolve({ width: 4, height: 2, close() {} }); }) };
+  const ticket = model.start();
+  const bytes = editor.dataURLToBytes(dataURL(pngBytes(4, 2)));
+  const decoded = slot.run((signal) => editor.checkImageBytes(bytes, deps, signal), ticket.signal);
+  await tick();
+  const edited = model.history.value.scenario; edited.name = "Edited"; model.history.replace({ scenario: edited, background: null });
+  finish(); const facts = await decoded;
+  const image = editor.freezeImage({ key: TEST_KEY, bytes, mime: facts.mime, pixelWidth: facts.width, pixelHeight: facts.height, frame: null, license: null });
+  const result = model.publish({ ticket, image, value: { scenario: connectedScenario(), background: placed(image) }, baseline: true });
+  assert.equal(result.error, "The draft changed during the import.");
+  assert.deepEqual([model.history.value.scenario.name, model.loaded, model.keys()], ["Edited", baseline, []]);
+});
+
+test("a drag that moved blocks a publish until its pointer up, and a drag with no move does not", () => {
+  const model = testModel();
+  // An acquisition starts, then a drag begins and moves.
+  let ticket = model.start();
+  model.moveDrag();
+  assert.match(model.publish({ ticket, image: testImage(), value: model.history.value }).error, /changed during the import/);
+  // An acquisition and an Import JSON that start and end while the moved
+  // drag is open fail with the reason.
+  for (const baseline of [false, true]) {
+    ticket = model.start();
+    assert.match(model.publish({ ticket, image: testImage(), value: model.history.value, baseline }).error, /A drag or an opacity change was open/);
+  }
+  // The pointer up records the move.
+  const moved = model.history.value.scenario; moved.network.Nodes[0].Position = { X: 1, Y: 2 };
+  model.endDrag(); model.history.replace({ scenario: moved, background: null });
+  assert.deepEqual(model.history.value.scenario.network.Nodes[0].Position, { X: 1, Y: 2 });
+  // A drag with no move does not block a publish.
+  ticket = model.start();
+  assert.equal(model.publish({ ticket, image: testImage(), value: { scenario: moved, background: placed(testImage()) } }).error, "");
+});
+
+test("an opacity gesture starts again after a history change that it did not make", () => {
+  const model = testModel();
+  const w = testImage(); const x = testImage();
+  publishImage(model, w); publishImage(model, x);
+  model.pressOpacity();
+  model.history.undo();
+  const edited = model.history.value.scenario; edited.name = "Edited";
+  model.history.replace({ scenario: edited, background: model.history.background });
+  assert.equal(model.setOpacity(0.8), true);
+  assert.equal(model.endOpacity(), true);
+  assert.equal(model.history.keys().has(x.key), false, "no history entry holds X");
+  assert.equal(model.image(x.key), null, "the table has no X");
+  assert.deepEqual([model.history.background.imageKey, model.history.background.opacity], [w.key, 0.8]);
+  model.history.undo();
+  assert.deepEqual([model.history.background.opacity, model.history.value.scenario.name], [0.45, "Edited"], "one undo step changes the opacity of W");
+  assert.equal(model.endOpacity(), false, "a second pointer up with no press changes nothing");
+
+  // With no image before X, the slider move and the pointer up change
+  // nothing.
+  const lone = testModel(); publishImage(lone, testImage());
+  lone.pressOpacity(); lone.history.undo();
+  const renamed = lone.history.value.scenario; renamed.name = "Renamed";
+  lone.history.replace({ scenario: renamed, background: null });
+  const before = JSON.stringify(lone.history.value);
+  assert.deepEqual([lone.setOpacity(0.8), lone.endOpacity(), JSON.stringify(lone.history.value)], [false, false, before]);
+  assert.equal(lone.keys().length, 0);
+});
+
+test("pointercancel and a lost pointer capture end the opacity gesture as a pointer up does", () => {
+  for (const end of ["pointercancel", "lostpointercapture"]) {
+    const model = testModel(); publishImage(model, testImage());
+    model.pressOpacity(); model.setOpacity(0.7);
+    assert.equal(model.gestureChanged, true, `${end}: the gesture changed`);
+    assert.match(publishImage(model, testImage()).error, /opacity change was open/, `${end}: an open gesture blocks a publish`);
+    assert.equal(model.endOpacity(), true, `${end}: the change is one undo step`);
+    assert.deepEqual([model.gestureOpen, model.gestureChanged], [false, false], `${end}: the gesture clears`);
+    assert.equal(publishImage(model, testImage()).error, "", `${end}: an import at once succeeds`);
+    assert.equal(model.endOpacity(), false, `${end}: a later pointer up changes nothing`);
+    model.history.undo(); model.history.undo();
+    assert.equal(model.history.background.opacity, 0.45, `${end}: the opacity step is one undo step`);
+  }
+  // The page ends the gesture at each of the three events.
+  const source = fs.readFileSync(path.join(__dirname, "editor.js"), "utf8");
+  assert.match(source, /for \(const name of \["pointerup", "pointercancel", "lostpointercapture"\]\) \$\("#backgroundOpacity"\)\.addEventListener\(name, endOpacity\);/);
+});
+
+// fakeDecoder gives decoder functions for the decoder slot that wait for
+// the test and record each call in log. finish ends the oldest waiting
+// decode with a bitmap of width by height pixels, and encoded ends the
+// waiting encode with the bytes of a PNG. draws lists the drawImage calls.
+function fakeDecoder() {
+  const log = []; const decodes = []; const encodes = []; const draws = []; let bitmaps = 0;
+  return {
+    log, draws,
+    decoding: () => decodes.length,
+    finish: (width, height) => { const item = decodes.shift(); item.resolve({ width, height, close() { log.push(`close ${item.id}`); } }); },
+    encoded: (bytes) => encodes.shift()(new Blob([bytes])),
+    deps: {
+      decode: (blob) => {
+        bitmaps += 1; const id = bitmaps;
+        assert.ok(blob instanceof Blob, "the decode gets a Blob");
+        log.push(`decode ${id}`);
+        return new Promise((resolve) => decodes.push({ id, resolve }));
+      },
+      canvas: (width, height) => {
+        log.push(`canvas ${width}x${height}`);
+        let size = { width, height };
+        return {
+          get width() { return size.width; }, set width(value) { if (value === 0 && size.width) log.push("release"); size = { ...size, width: value }; },
+          get height() { return size.height; }, set height(value) { size = { ...size, height: value }; },
+          getContext: () => ({ drawImage: (...args) => draws.push(args) }),
+        };
+      },
+      encode: () => { log.push("encode"); return new Promise((resolve) => encodes.push(resolve)); },
+    },
+  };
+}
+
+test("the decoder slot runs one operation, replaces the waiting request, and releases each bitmap and canvas", async () => {
+  const slot = editor.createDecoderSlot(); const fake = fakeDecoder();
+  const frame = { ...LONDON_FRAME, source: "web-mercator" };
+  const size = editor.resampleSize(frame, LONDON_GEO, 200);
+  const request = { bytes: editor.dataURLToBytes(dataURL(pngBytes(8, 8))), frame, geo: LONDON_GEO, metersPerPixel: 200 };
+  const resample = (controller) => slot.run((signal) => editor.resampleImage(request, fake.deps, signal), controller.signal);
+  const first = new AbortController(); const firstRun = resample(first); await tick();
+  assert.deepEqual(fake.log, ["decode 1"]);
+  first.abort();
+  const second = resample(new AbortController()); await tick();
+  assert.deepEqual([fake.log, slot.busy, slot.waiting], [["decode 1"], true, true], "the second request waits for the aborted decode");
+  const third = resample(new AbortController());
+  await assert.rejects(second, { name: "AbortError" }, "the third request replaces the second one");
+  assert.deepEqual(fake.log, ["decode 1"], "the replaced request has no decode");
+  fake.finish(8, 8);
+  await assert.rejects(firstRun, { name: "AbortError" });
+  await tick();
+  assert.deepEqual(fake.log, ["decode 1", "close 1", "decode 2"], "the third decode starts after the first bitmap closes");
+  fake.finish(8, 8); await tick();
+  assert.deepEqual(fake.log.slice(3), [`canvas ${size.width}x${size.height}`, "close 2", "encode"], "the source closes before the encode");
+  assert.equal(fake.draws.length, size.height, "one draw for each output row");
+  for (const [row, args] of fake.draws.entries()) {
+    assert.equal(args[6], row);
+    assert.ok(args[2] >= 0 && args[2] <= 7, `the source row ${args[2]} is in the image`);
+  }
+  assert.ok(fake.draws[0][2] < fake.draws.at(-1)[2], "the rows go from north to south");
+  fake.encoded(pngBytes(size.width, size.height)); await tick(); await tick();
+  assert.deepEqual(fake.log.slice(6), ["release", "decode 3"], "the canvas release comes before the decode of the new image");
+  fake.finish(size.width, size.height);
+  const result = await third;
+  assert.deepEqual([result.facts.width, result.facts.height, result.facts.mime], [size.width, size.height, "image/png"]);
+  assert.deepEqual(fake.log.slice(8), ["close 3"]);
+  // A failed size check closes its bitmap.
+  const failed = slot.run((signal) => editor.checkImageBytes(request.bytes, fake.deps, signal)); await tick();
+  fake.finish(9, 8);
+  await assert.rejects(failed, /does not have the size in its header/);
+  const closes = fake.log.filter((item) => item.startsWith("close"));
+  assert.deepEqual(closes, ["close 1", "close 2", "close 3", "close 4"], "each bitmap closes once");
+  assert.equal(fake.log.filter((item) => item.startsWith("decode")).length, 4, "at most one decode ran at a time");
+  // A request that is aborted when it gets the slot gives it back.
+  const stopped = new AbortController(); stopped.abort();
+  await assert.rejects(slot.run(() => assert.fail("no work runs"), stopped.signal), { name: "AbortError" });
+  assert.equal(slot.busy, false);
+});
+
+test("an already-aborted decoder request preserves the newer waiting request", async () => {
+  const slot = editor.createDecoderSlot(); const held = Promise.withResolvers(); const calls = [];
+  const running = slot.run(() => held.promise); await tick();
+  const waiting = slot.run(() => { calls.push("newer"); return "newer"; }).catch((error) => error);
+  const old = new AbortController(); old.abort();
+  let rejected;
+  slot.run(() => calls.push("old"), old.signal).catch((error) => { rejected = error; });
+  await tick();
+  assert.equal(rejected?.name, "AbortError", "the aborted request rejects before the running operation ends");
+  assert.equal(slot.waiting, true);
+  assert.deepEqual(calls, [], "the running operation still owns the slot");
+  held.resolve(); await running;
+  assert.equal(await waiting, "newer");
+  assert.deepEqual(calls, ["newer"]);
+});
+
+// pageImports runs the page import functions with the real model and decoder
+// slot. UI stubs record messages without a browser DOM.
+function pageImports() {
+  const source = fs.readFileSync(path.join(__dirname, "editor.js"), "utf8");
+  const names = ["importProject", "importBackground", "importFramedImage", "takeBackgroundBytes", "publishBackground"];
+  const functions = names.map((name) => {
+    const match = new RegExp(`\\n  (?:async )?function ${name}\\(`).exec(source);
+    assert.ok(match, `the page has ${name}`);
+    return source.slice(match.index, source.indexOf("\n  }\n", match.index) + 5);
+  }).join("\n");
+  const model = testModel({ config: { ...connectedScenario(), geo: LONDON_GEO } });
+  const slot = editor.createDecoderSlot(); const fake = fakeDecoder(); const messages = []; let queued = 0;
+  const controls = Object.fromEntries(Object.entries({
+    geoSouth: LONDON_FRAME.south, geoNorth: LONDON_FRAME.north, geoWest: LONDON_FRAME.west, geoEast: LONDON_FRAME.east,
+    geoSource: LONDON_FRAME.source, geoLicenseSource: "", geoAttribution: "", geoLicense: "", geoLicenseURL: "", geoCopyrightURL: "", geoNotice: "",
+  }).map(([name, value]) => [`#${name}`, { value: String(value) }]));
+  controls["#geoFile"] = { files: [] };
+  const noop = () => {};
+  const deps = {
+    ...editor, model, decoder: fake.deps, root: globalThis, MIB: 1024 * 1024,
+    slot: { get busy() { return slot.busy; }, run(...args) { queued += 1; return slot.run(...args); } },
+    state: { get background() { return model.history.background; }, draftBase: {}, loadedStart: "test" },
+    $: (selector) => { assert.ok(controls[selector], selector); return controls[selector]; },
+    draft: () => model.history.value.scenario, referenceChoice: () => null,
+    toast: (message) => messages.push(message), updateStatus: (message) => messages.push(message),
+    render: noop, fitNetwork: noop, checks: { run: noop }, reportPublish: noop, keptToast: () => ["saved"],
+  };
+  const imports = new Function(...Object.keys(deps), `${functions}\nreturn { ${names.join(", ")} };`)(...Object.values(deps));
+  return { ...imports, model, slot, fake, controls, messages, queued: () => queued };
+}
+
+test("out-of-order file reads cannot queue an older import behind a blocked decoder", async (t) => {
+  for (const kind of ["importProject", "importBackground", "importFramedImage"]) {
+    await t.test(kind, async () => {
+      const page = pageImports(); const held = Promise.withResolvers(); const read = Promise.withResolvers();
+      const running = page.slot.run(() => held.promise); await tick();
+      const bytes = editor.dataURLToBytes(dataURL(pngBytes(4, 2)));
+      let reads = 0;
+      const readFile = () => { reads += 1; return read.promise; };
+      const file = { type: "image/png", size: bytes.byteLength, text: readFile, arrayBuffer: readFile };
+      page.controls["#geoFile"].files = [file];
+      const older = page[kind](file);
+      assert.equal(reads, 1, "the older import has started its read");
+      const newer = page.importBackground({ ...file, arrayBuffer: async () => bytes }); await tick();
+      assert.equal(page.queued(), 1, "the newer import waits for the decoder");
+      read.resolve(kind === "importProject"
+        ? editor.serializeDocument(connectedScenario(), { ...TEST_BACKGROUND, dataURL: dataURL(pngBytes(4, 2)) }) : bytes);
+      await older;
+      assert.equal(page.queued(), 1, "the older read never reaches the slot");
+      held.resolve(); await running; await tick();
+      assert.deepEqual(page.fake.log, ["decode 1"]);
+      page.fake.finish(4, 2); await newer;
+      assert.ok(page.model.history.background, "the newer image publishes");
+      assert.deepEqual(page.fake.log, ["decode 1", "close 1"]);
+    });
+  }
+});
+
+test("invalid frame or license input cancels an older import without reading the new file", async (t) => {
+  for (const [selector, value, error] of [["#geoNorth", "-90", /latitudes/], ["#geoLicenseURL", "http://example.com", /HTTPS/]]) {
+    await t.test(selector, async () => {
+      const page = pageImports(); const bytes = editor.dataURLToBytes(dataURL(pngBytes(4, 2)));
+      const older = page.importBackground({ type: "image/png", size: bytes.byteLength, arrayBuffer: async () => bytes });
+      await tick(); assert.deepEqual(page.fake.log, ["decode 1"]);
+      page.controls[selector].value = value;
+      page.controls["#geoFile"].files = [{ type: "image/png", size: bytes.byteLength, arrayBuffer: () => assert.fail("invalid input must not read the file") }];
+      await page.importFramedImage();
+      assert.match(page.messages.at(-1), error);
+      page.fake.finish(4, 2); await older;
+      assert.equal(page.model.history.background, null, "the older import cannot publish");
+      assert.equal(page.model.bytes, 0);
+      assert.deepEqual(page.fake.log, ["decode 1", "close 1"]);
+    });
+  }
+});
+
+test("the frame lifecycle keeps the image, the placement, the frame state and the geo reference in one history step", () => {
+  const config = { ...connectedScenario(), geo: LONDON_GEO };
+  const model = testModel({ config });
+  const image = testImage({ frame: LONDON_FRAME, license: OSM_LICENSE });
+  publishImage(model, image, { value: editor.framedValue(model.history.value, image, LONDON_GEO) });
+  const view = () => editor.frameView(model.history.value, model.image(image.key));
+  assert.deepEqual(view(), { framed: true, state: "attached", warning: "", placeReason: "", calibrateReason: "Detach the frame before you calibrate the scale." });
+  // Load live with a different reference keeps the placement and shows
+  // the warning.
+  const placement = model.history.background;
+  const other = editor.makeGeo(51.52, -0.12);
+  model.history.replace({ scenario: { ...config, geo: other }, background: placement });
+  assert.equal(view().warning, editor.FRAME_WARNING_TEXT);
+  // Load live with no reference also shows it, and Place from frame needs
+  // a reference choice.
+  const bare = connectedScenario();
+  model.history.replace({ scenario: bare, background: placement });
+  assert.deepEqual([view().warning, view().placeReason.length > 0], [editor.FRAME_WARNING_TEXT, true]);
+  assert.match(editor.referenceFor({ config: bare, frame: LONDON_FRAME, choice: null }).error, /no geographic reference/);
+  assert.match(editor.referenceFor({ config: bare, frame: LONDON_FRAME, choice: { mode: "adopt", confirmed: false } }).error, /Confirm/);
+  const adopted = editor.referenceFor({ config: bare, frame: LONDON_FRAME, choice: { mode: "adopt", confirmed: true } });
+  assert.deepEqual(adopted.geo, editor.frameCenterGeo(LONDON_FRAME));
+  // Place from frame with a reference is one step with the new geo.
+  model.history.replace({ scenario: { ...config, geo: other }, background: placement });
+  model.history.replace(editor.framedValue(model.history.value, image, other));
+  assert.deepEqual([view().warning, model.history.value.scenario.geo], ["", other]);
+  model.history.undo();
+  assert.deepEqual([view().warning, model.history.background], [editor.FRAME_WARNING_TEXT, placement], "one undo step brings back the placement");
+  // Detach frame keeps the frame and the license of the image.
+  model.history.redo(); model.history.replace(editor.detachFrame(model.history.value));
+  assert.deepEqual(view(), { framed: true, state: "detached", warning: "", placeReason: "", calibrateReason: "" });
+  assert.deepEqual([model.image(image.key).frame, model.image(image.key).license], [LONDON_FRAME, OSM_LICENSE]);
+  // Remove background keeps the image while an undo step refers to it.
+  model.history.replace({ scenario: model.history.value.scenario, background: null });
+  assert.equal(editor.frameView(model.history.value, null).framed, false);
+  assert.ok(model.image(image.key));
+  // A project with no nodes adopts the image center with no question.
+  assert.deepEqual(editor.referenceFor({ config: editor.emptyConfig(), frame: LONDON_FRAME, choice: null }).geo, editor.frameCenterGeo(LONDON_FRAME));
+});
+
+test("an anchor reference maps its nodes, and each anchor needs a node and a place", () => {
+  const config = connectedScenario(); const [a, b] = farNodes(config);
+  const at = (node) => ({ id: node.ID, ...editor.unprojectPoint(LONDON_GEO, node.Position) });
+  const result = editor.referenceFor({ config, frame: LONDON_FRAME, choice: { mode: "anchor", a: at(a), b: at(b) } });
+  assert.ok(Math.abs(result.geo.latitude - LONDON_GEO.latitude) < 1e-9 && Math.abs(result.geo.longitude - LONDON_GEO.longitude) < 1e-9, JSON.stringify(result));
+  assert.match(result.note, /^The second anchor is 0\.0 m from its node\.$/);
+  assert.match(editor.referenceFor({ config, frame: LONDON_FRAME, choice: { mode: "anchor", a: { ...at(a), id: "none" }, b: at(b) } }).error, /The anchor node "none" is not in the project/);
+  assert.match(editor.referenceFor({ config, frame: LONDON_FRAME, choice: { mode: "anchor", a: { ...at(a), latitude: NaN }, b: at(b) } }).error, /needs a latitude and a longitude/);
+  // A frame far from the reference fails the accuracy budget.
+  assert.match(editor.referenceFor({ config: { ...config, geo: LONDON_GEO }, frame: { ...LONDON_FRAME, south: 52.5, north: 52.6 }, choice: null }).error, /too far north or south/);
+});
+
+test("the export writes the asset of each frame state, and the import checks it", () => {
+  const config = connectedScenario();
+  const bytes = editor.dataURLToBytes(dataURL(pngBytes(4, 2)));
+  const cases = [
+    { frameState: "none", frame: null, license: null },
+    { frameState: "none", frame: null, license: OSM_LICENSE },
+    { frameState: "attached", frame: LONDON_FRAME, license: OSM_LICENSE },
+    { frameState: "detached", frame: LONDON_FRAME, license: null },
+  ];
+  for (const item of cases) {
+    const image = editor.freezeImage({ key: TEST_KEY, bytes, mime: "image/png", pixelWidth: 4, pixelHeight: 2, frame: item.frame, license: item.license });
+    // An attached frame that is not aligned exports and imports.
+    const background = { imageKey: TEST_KEY, x: 1, y: 2, width: 3, height: 4, opacity: 0.5, frameState: item.frameState };
+    const text = editor.serializeDocument(config, editor.exportBackground(background, image));
+    assert.ok(!text.includes(TEST_KEY), "the export has no image key");
+    const parsed = editor.parseDocument(text);
+    assert.deepEqual(parsed.background, { dataURL: dataURL(pngBytes(4, 2)), x: 1, y: 2, width: 3, height: 4, opacity: 0.5 });
+    // A background with no frame and no license has no asset member, and
+    // imports with the frame state "none".
+    assert.equal(text.includes('"asset"'), item.frameState !== "none" || item.license !== null);
+    assert.deepEqual(parsed.asset, item);
+    assert.equal(editor.frameView({ scenario: { ...config, geo: LONDON_GEO }, background }, image).warning, item.frameState === "attached" ? editor.FRAME_WARNING_TEXT : "");
+  }
+  const documentWith = (asset) => JSON.stringify({ format: "podsim", version: 1, scenario: config, background: { dataURL: dataURL(pngBytes(4, 2)), x: 0, y: 0, width: 1, height: 1, opacity: 1, asset } });
+  const rejected = [
+    { name: "a list", asset: [], want: /asset must be an object/ },
+    { name: "another member", asset: { frameState: "none", tiles: 1 }, want: /unknown member/ },
+    { name: "an unknown state", asset: { frameState: "pinned" }, want: /frame state must be/ },
+    { name: "none with a frame", asset: { frameState: "none", frame: LONDON_FRAME }, want: /"none" cannot have a frame/ },
+    { name: "attached with no frame", asset: { frameState: "attached" }, want: /"attached" needs a frame/ },
+    { name: "detached with no frame", asset: { frameState: "detached", frame: null }, want: /"detached" needs a frame/ },
+    { name: "a frame across the antimeridian", asset: { frameState: "attached", frame: { ...LONDON_FRAME, west: 179, east: -179 } }, want: /antimeridian/ },
+    { name: "an HTTP license link", asset: { frameState: "none", license: { ...OSM_LICENSE, licenseURL: "http://example.com" } }, want: /HTTPS/ },
+  ];
+  for (const item of rejected) assert.throws(() => editor.parseDocument(documentWith(item.asset)), item.want, item.name);
+  assert.equal(editor.exportBackground(null, null), null);
+});
+
+test("the attribution line links only HTTPS URLs, and the Background panel lists the license facts and the image bytes", () => {
+  assert.deepEqual(editor.attributionParts(null), []);
+  assert.deepEqual(editor.attributionParts(OSM_LICENSE), [
+    { text: "© OpenStreetMap contributors", href: "" },
+    { text: "Copyright", href: "https://www.openstreetmap.org/copyright" },
+    { text: "ODbL-1.0", href: "https://opendatacommons.org/licenses/odbl/1-0/" },
+  ]);
+  assert.deepEqual(editor.attributionParts({ ...OSM_LICENSE, attribution: "", licenseURL: OSM_LICENSE.copyrightURL }), [
+    { text: "OpenStreetMap", href: "" }, { text: "Copyright", href: "https://www.openstreetmap.org/copyright" },
+  ], "one link for the same URL, and the source when there is no attribution");
+  assert.deepEqual(editor.attributionParts({ ...OSM_LICENSE, copyrightURL: "javascript:alert(1)", licenseURL: "http://example.com" }), [{ text: "© OpenStreetMap contributors", href: "" }]);
+  const image = testImage({ frame: LONDON_FRAME, license: OSM_LICENSE });
+  const mib = 1024 * 1024;
+  assert.deepEqual(editor.backgroundFacts({ image, held: 3 * mib, keeperBytes: mib, cap: editor.IMAGE_TABLE_BYTES, storedBytes: 2 * mib, restoreFailed: false }), [
+    "Source: OpenStreetMap", "License: ODbL-1.0", "Retrieved: 2026-09-28T12:00:00.000Z", "Method: user supplied", "Notice: Keep this notice.",
+    "This tab holds 3.0 MiB of images of its 128.0 MiB limit, with 1.0 MiB for writes to the browser store.",
+    "The stored image has 2.0 MiB.", editor.BACKGROUND_DURABLE_TEXT,
+  ]);
+  assert.deepEqual(editor.backgroundFacts({ image: null, held: 0, keeperBytes: 0, cap: editor.IMAGE_TABLE_BYTES, storedBytes: 0, restoreFailed: true }), [
+    "This tab holds 0.0 MiB of images of its 128.0 MiB limit, with 0.0 MiB for writes to the browser store.", editor.STORED_BACKGROUND_KEPT_TEXT,
+  ]);
+});
+
+test("each abort event of the page aborts the open acquisition, and each import starts a new one", () => {
+  const source = fs.readFileSync(path.join(__dirname, "editor.js"), "utf8");
+  // body gives the source of the page function name.
+  const body = (name) => {
+    const match = new RegExp(`\\n  (?:async )?function ${name}\\(`).exec(source);
+    assert.ok(match, `the page has ${name}`);
+    return source.slice(match.index, source.indexOf("\n  }\n", match.index));
+  };
+  for (const name of ["stepHistory", "restoreDraft", "loadLiveScenario", "closeGeoPanel"]) assert.match(body(name), /model\.abort\(\)/, `${name} aborts`);
+  for (const name of ["importProject", "importBackground", "importFramedImage"]) assert.match(body(name), /model\.start\(\)/, `${name} starts a new acquisition`);
+  for (const event of ['\\$\\("#resetButton"\\)\\.addEventListener\\("click", \\(\\) => \\{ model\\.abort\\(\\);', '\\$\\("#removeBackgroundButton"\\)\\.addEventListener\\("click", \\(\\) => \\{ model\\.abort\\(\\);', 'root\\.addEventListener\\("beforeunload", \\(event\\) => \\{ model\\.abort\\(\\);']) {
+    assert.match(source, new RegExp(event));
   }
 });

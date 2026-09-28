@@ -98,6 +98,11 @@ output { float: right; color: var(--text); }
 .calibration-point { fill: var(--danger); stroke: white; stroke-width: 2; vector-effect: non-scaling-stroke; }
 .background-image { pointer-events: none; }
 .map-prompt { position: absolute; left: 14px; bottom: 14px; max-width: 430px; border: 1px solid var(--line); border-radius: 7px; background: rgba(9,19,28,.92); color: #b6c7d1; padding: 7px 10px; font-size: 12px; pointer-events: none; }
+/* The attribution line stays at the lower right corner of the map panel, outside the transform of the map, so pan, zoom and opacity do not change it. */
+.map-attribution { position: absolute; right: 14px; bottom: 14px; max-width: 45%; border: 1px solid var(--line); border-radius: 7px; background: rgba(9,19,28,.92); color: #b6c7d1; padding: 5px 9px; font-size: 11px; overflow-wrap: anywhere; }
+.map-attribution a { color: var(--cyan); }
+.subpanel p.warning { color: var(--orange); }
+.background-info { margin: 10px 0 0; padding-left: 16px; color: var(--muted); font-size: 12px; overflow-wrap: anywhere; }
 .zoom-controls { position: absolute; top: 12px; right: 12px; display: grid; gap: 5px; }
 .zoom-controls button { width: 34px; height: 34px; padding: 0; font-size: 20px; }
 

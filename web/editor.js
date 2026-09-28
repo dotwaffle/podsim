@@ -52,8 +52,11 @@
   // the largest compact project. A Go test in internal/project checks the
   // mirror. PROJECT_FILE_BYTES is the largest project file that the editor
   // imports. It holds an export of the largest project with the largest
-  // background: the image as a base64 data URL, the project, and
-  // EXPORT_ALLOWANCE bytes for the other fields, rounded up to a whole MiB.
+  // background: the image as a base64 data URL, the project,
+  // EXPORT_ALLOWANCE bytes for the other fields, and ASSET_ALLOWANCE bytes
+  // for the frame and the license of the image, rounded up to a whole MiB.
+  // The license has at most 16,900 characters, and JSON writes each one in
+  // at most 6 bytes.
   const MIB = 1024 * 1024;
   const IMAGE_FILE_BYTES = 8 * MIB;
   // IMAGE_MAX_SIDE and IMAGE_MAX_PIXELS limit the pixel size of a
@@ -65,7 +68,8 @@
   const IMAGE_MAX_PIXELS = 64 * 1024 * 1024;
   const SERVER_PROJECT_BYTES = 8 * 1024 * 1024;
   const EXPORT_ALLOWANCE = 1024;
-  const PROJECT_FILE_BYTES = Math.ceil((dataURLBytes(IMAGE_FILE_BYTES) + SERVER_PROJECT_BYTES + EXPORT_ALLOWANCE) / MIB) * MIB;
+  const ASSET_ALLOWANCE = 128 * 1024;
+  const PROJECT_FILE_BYTES = Math.ceil((dataURLBytes(IMAGE_FILE_BYTES) + SERVER_PROJECT_BYTES + EXPORT_ALLOWANCE + ASSET_ALLOWANCE) / MIB) * MIB;
   // SERVER_COMMAND_BYTES mirrors session.MaxCommandBytes, the largest body
   // of a command request. SERVER_COMMAND_JSON_BYTES mirrors
   // session.MaxInflatedCommandBytes, the largest command JSON in a gzip
@@ -1620,11 +1624,44 @@
   // serializeDocument gives the export file. It is compact JSON, as the
   // server project file is, so PROJECT_FILE_BYTES holds each export.
   // The file has the members of backgroundFields, so the image key of the
-  // page does not go into the file.
+  // page does not go into the file. A background with an asset member, as
+  // exportBackground gives it, also writes the frame state, the frame and
+  // the license of the image in background.asset.
   function serializeDocument(config, background) {
     const document = { format: "podsim", version: 1, scenario: clone(config) };
-    if (background && background.dataURL) document.background = backgroundFields(background);
+    if (background && background.dataURL) {
+      document.background = backgroundFields(background);
+      if (background.asset) document.background.asset = { frameState: background.asset.frameState, frame: clone(background.asset.frame), license: clone(background.asset.license) };
+    }
     return JSON.stringify(document);
+  }
+
+  // exportBackground gives the background of the export file for
+  // background, a history entry, and image, its image descriptor. It makes
+  // the data URL from the bytes in the same task, with no wait, so a later
+  // change of the history cannot drop the image first. The asset member is
+  // there when the image has a frame or a license. It gives null with no
+  // background.
+  function exportBackground(background, image) {
+    if (!background || !image) return null;
+    const { x, y, width, height, opacity } = background;
+    const out = { dataURL: bytesToDataURL(image.bytes, image.mime), x, y, width, height, opacity };
+    if (background.frameState !== "none" || image.license) out.asset = { frameState: background.frameState, frame: image.frame, license: image.license };
+    return out;
+  }
+
+  // documentAsset gives the frame state, the frame and the license of the
+  // asset member of an imported background. An absent asset is the state
+  // "none" with no frame and no license. It throws an error for an asset
+  // that assetError rejects. A missing alignment is not an error.
+  function documentAsset(asset) {
+    if (asset === undefined) return { frameState: "none", frame: null, license: null };
+    if (asset === null || typeof asset !== "object" || Array.isArray(asset)) throw new Error("The background asset must be an object.");
+    for (const key of Object.keys(asset)) if (!["frameState", "frame", "license"].includes(key)) throw new Error("The background asset has an unknown member.");
+    const out = { frameState: asset.frameState, frame: asset.frame ?? null, license: asset.license ?? null };
+    const error = assetError(out);
+    if (error) throw new Error(error);
+    return clone(out);
   }
 
   // unwrapDocument gets the scenario from an import file. A browser export has
@@ -1645,11 +1682,16 @@
     return { scenario: clone(document), background: null };
   }
 
+  // parseDocument checks the text of an import file and gives the scenario
+  // and the background fields. For a background, it also gives asset, the
+  // frame state, the frame and the license of its asset member, as
+  // documentAsset checks them.
   function parseDocument(text) {
     let document;
     try { document = JSON.parse(text); } catch (error) { throw new Error(`The file is not valid JSON. ${error.message}`); }
     const { scenario, background } = unwrapDocument(document);
     if (background) checkBackground(background);
+    const asset = background ? documentAsset(background.asset) : null;
     for (const pod of Array.isArray(scenario.fleet) ? scenario.fleet : []) {
       if (pod && !pod.BerthID) {
         const station = scenario.network?.Stations?.find((item) => item && item.ID === pod.StationID);
@@ -1670,7 +1712,9 @@
     // edited browser export can also leave out a field. Add them as the live
     // server project load does. The checks run first, so the default values
     // do not replace an invalid value.
-    return { scenario: normalizeConfig(scenario), background: background ? backgroundFields(background) : null };
+    const out = { scenario: normalizeConfig(scenario), background: background ? backgroundFields(background) : null };
+    if (asset) out.asset = asset;
+    return out;
   }
 
   // checkBackground throws an error when item is not a valid background: a
@@ -1761,7 +1805,7 @@
   // or a JPEG for either media type, because the browser reads the data.
   // A header can be valid for data that the browser cannot decode. The
   // import and the restore therefore also decode the image, as
-  // checkDecodedImage does.
+  // checkImageBytes does.
   function imageFacts(dataURL) {
     const base64 = dataURL.slice(dataURL.indexOf(",") + 1);
     if (base64.length % 4 !== 0 || !/^[A-Za-z0-9+/]*={0,2}$/.test(base64)) throw new Error("The background image data is not valid base64.");
@@ -1853,21 +1897,14 @@
     return null;
   }
 
-  // checkDecodedImage checks the image of dataURL as imageFacts does, then
-  // decodes it. decode gives a promise of the decoded width and height, as
-  // the browser gives them, and rejects when the browser cannot decode the
-  // image. The browser can turn a JPEG, as its orientation tag tells, so
-  // the decoded size can have the width and the height of the header in
-  // the other order. checkDecodedImage gives the decoded size, or rejects
-  // with an error for the user.
-  async function checkDecodedImage(dataURL, decode) {
-    const facts = imageFacts(dataURL);
-    let size;
-    try { size = await decode(dataURL); } catch (_) { throw new Error("The browser cannot decode the background image."); }
+  // checkDecodedSize throws an error when the decoded size of an image is
+  // not the size of its header facts. The browser can turn a JPEG, as its
+  // orientation tag tells, so the decoded size can have the width and the
+  // height of the header in the other order.
+  function checkDecodedSize(size, facts) {
     checkImageSize(size.width, size.height);
     const same = (size.width === facts.width && size.height === facts.height) || (size.width === facts.height && size.height === facts.width);
     if (!same) throw new Error("The decoded background image does not have the size in its header.");
-    return size;
   }
 
   // backgroundFields gives a copy of the background fields of item, without
@@ -2054,7 +2091,9 @@
   // createHistory keeps the draft with undo and redo. onChange runs after
   // each change of the draft, also after an undo, a redo, and a reset. The
   // editor uses it to schedule the checks. background gives a copy of the
-  // background of the draft only, with no copy of the scenario.
+  // background of the draft only, with no copy of the scenario. The
+  // background of an entry holds an image key, and no image data, so the
+  // JSON copy of an entry copies only numbers and strings.
   function createHistory(initial, onChange) {
     let past = [];
     let present = clone(initial);
@@ -2078,6 +2117,16 @@
         past.push(clone(before)); present = clone(next); future = []; return changed();
       },
       undo() { if (!past.length) return false; future.push(clone(present)); present = past.pop(); return changed(); },
+      // keys gives the image keys of the backgrounds of all entries: the
+      // undo steps, the draft and the redo steps.
+      keys() {
+        const keys = new Set();
+        for (const entry of [...past, present, ...future]) if (entry.background && entry.background.imageKey) keys.add(entry.background.imageKey);
+        return keys;
+      },
+      // dropOldest removes the oldest undo step. It gives false when there
+      // is no undo step. It is not a draft change, so onChange does not run.
+      dropOldest() { if (!past.length) return false; past.shift(); return true; },
       redo() { if (!future.length) return false; past.push(clone(present)); present = future.pop(); return changed(); },
       reset(next) { past = []; present = clone(next); future = []; changed(); },
     };
@@ -2699,9 +2748,10 @@
   // at once with no store call: it does not set the stored text, change
   // the status or tell the other tabs. keeper.onQueued runs with the record
   // of each write when the keeper queues it, and keeper.onSettled runs once
-  // with the same record when the write commits, fails or is replaced. The
+  // with the same record when the write commits, fails or is replaced. Its
+  // second argument is true only when the store committed the write. The
   // record of a delete is null. Thus the page can count the writes that
-  // hold an image.
+  // hold an image, and tell the size of the stored image.
   //
   // The keeper does not write before arm. Thus load can read the saved
   // record, and the editor can offer it before a new draft replaces it.
@@ -2755,7 +2805,7 @@
     let changed = !keeper.holdUntilChange; let baseline = "";
     const channel = keeper.channel || null;
     const textOf = (record) => (record ? (keeper.text ? keeper.text(record) : JSON.stringify(record)) : "");
-    const hook = (name, record) => { if (keeper[name]) keeper[name](record); };
+    const hook = (name, record, committed) => { if (keeper[name]) keeper[name](record, committed); };
     const setStatus = (value) => { if (value === status) return; status = value; if (keeper.onStatus) keeper.onStatus(value); };
     const cancel = () => { if (waiting !== null) keeper.clock.clearTimeout(waiting); waiting = null; };
     // noteChange tells if the keeper can write a snapshot with the text.
@@ -2763,21 +2813,22 @@
       if (!changed && armed && text !== baseline) changed = true;
       return changed;
     };
-    const settle = (item) => {
-      pending -= 1; hook("onSettled", item.record);
+    const settle = (item, committed = false) => {
+      pending -= 1; hook("onSettled", item.record, committed);
       item.record = null; item.resolve(); item.resolve = null;
     };
     const drain = async () => {
       while (next) {
         const item = next; next = null;
+        let committed = false;
         try {
           await (item.record ? store.put(keeper.key, item.record) : store.delete(keeper.key));
-          stored = item.text; setStatus("ok"); if (channel) channel.postMessage({ key: keeper.key });
+          stored = item.text; committed = true; setStatus("ok"); if (channel) channel.postMessage({ key: keeper.key });
         } catch (error) {
           if (!next) queued = null;
           setStatus(error && error.name === "QuotaExceededError" ? "full" : "failed");
         }
-        settle(item);
+        settle(item, committed);
       }
       draining = false;
     };
@@ -2953,6 +3004,398 @@
     return true;
   }
 
+  // IMAGE_TABLE_BYTES is the largest sum of the encoded bytes of the
+  // distinct images that one editor tab holds. One image has at most
+  // IMAGE_FILE_BYTES, so the table holds 16 images.
+  const IMAGE_TABLE_BYTES = 128 * MIB;
+
+  // DEFAULT_OPACITY is the opacity of a new background with no background
+  // before it.
+  const DEFAULT_OPACITY = 0.45;
+
+  // freezeImage gives the frozen image descriptor of parts: key, bytes, an
+  // ArrayBuffer, mime, pixelWidth, pixelHeight, frame and license. The
+  // frame and the license are frozen copies, and no code writes to the
+  // bytes, so no image changes under its key.
+  function freezeImage(parts) {
+    const frame = parts.frame ? Object.freeze({ ...parts.frame }) : null;
+    const license = parts.license ? Object.freeze({ ...parts.license }) : null;
+    return Object.freeze({ key: parts.key, bytes: parts.bytes, mime: parts.mime, pixelWidth: parts.pixelWidth, pixelHeight: parts.pixelHeight, frame, license });
+  }
+
+  // mibText gives a byte count in MiB with one decimal.
+  function mibText(bytes) { return (bytes / MIB).toFixed(1); }
+
+  // createBackgroundModel keeps the draft history of an editor tab with the
+  // images of its backgrounds. options.initial is the first history value
+  // and the Reset draft baseline, options.onChange runs after each change
+  // of the draft, and options.cap is the byte limit of the image table,
+  // IMAGE_TABLE_BYTES when not given.
+  //
+  // A history entry and the baseline hold the image key of a background,
+  // and the table maps each key to its frozen descriptor. A key stays in
+  // the table while an entry of the history, the baseline or a pin refers
+  // to it. The background keeper pins the key of each queued write, so a
+  // write keeps its image until it settles. Each history change and each
+  // unpin removes the images with no reference.
+  //
+  // The model also keeps the edit counter, which each history change and
+  // each move of a drag increments, the open drag and opacity gestures,
+  // and the ticket of the one open acquisition or import. publish adds an
+  // image only after the final check of publishError, in the same task.
+  function createBackgroundModel(options) {
+    const cap = options.cap ?? IMAGE_TABLE_BYTES;
+    const images = new Map(); const pins = new Map();
+    let loaded = clone(options.initial);
+    // edits counts the draft changes, also the moves of a drag that the
+    // history does not have yet. dragChanged tells if an open drag moved.
+    let edits = 0; let dragChanged = false;
+    // gesture is the open opacity gesture, with entry, the history value
+    // at its start, and changed, set at its first opacity step. own is true
+    // while the gesture changes the history.
+    let gesture = null; let own = false;
+    // ticket is the open acquisition or import, or null.
+    let ticket = null;
+    const history = createHistory(options.initial, () => {
+      edits += 1;
+      // A history change that the gesture did not make starts the gesture
+      // again from the new value, so its pointer up cannot record an old
+      // entry.
+      if (gesture && !own) gesture = { entry: history.value, changed: false };
+      prune();
+      if (options.onChange) options.onChange();
+    });
+    const keyOf = (background) => (background && background.imageKey) || "";
+    const sizeOf = (keys) => { let total = 0; for (const key of keys) { const image = images.get(key); if (image) total += image.bytes.byteLength; } return total; };
+    // pinnedKeys gives the keys that the table must keep for a publish: the
+    // present image, the baseline image and the pinned images.
+    const pinnedKeys = () => new Set([...pins.keys(), keyOf(history.background), keyOf(loaded.background)].filter(Boolean));
+    function prune() {
+      const keys = history.keys();
+      for (const key of pinnedKeys()) keys.add(key);
+      for (const key of [...images.keys()]) if (!keys.has(key)) images.delete(key);
+    }
+    // bound drops the oldest undo steps until the table holds at most cap
+    // bytes. It never drops the present image, the baseline image or a
+    // pinned image. It gives the number of dropped steps.
+    function bound() {
+      let dropped = 0;
+      while (sizeOf(images.keys()) > cap && history.dropOldest()) { dropped += 1; prune(); }
+      return dropped;
+    }
+    // publishError gives the reason why a publish of image, or of no
+    // image, for the ticket request cannot go on, or an empty text.
+    // abort aborts the open acquisition or import.
+    function abort() { if (ticket) { const { controller } = ticket; ticket = null; controller.abort(); } }
+    function publishError(request, image) {
+      if (!request || request !== ticket || request.signal.aborted) return "A newer action stopped the import.";
+      if (edits !== request.edits) return "The draft changed during the import.";
+      if (dragChanged || (gesture && gesture.changed)) return "A drag or an opacity change was open at the end of the import. Finish it and import again.";
+      if (image) {
+        const keys = pinnedKeys(); const held = sizeOf(keys);
+        if (held + image.bytes.byteLength > cap) return `The image does not fit in the ${mibText(cap)} MiB image limit of this tab. The images that the tab must keep use ${mibText(held)} MiB, with ${mibText(sizeOf(pins.keys()))} MiB for writes to the browser store.`;
+      }
+      return "";
+    }
+    return {
+      history,
+      cap,
+      get loaded() { return clone(loaded); },
+      // setLoaded makes value the Reset draft baseline.
+      setLoaded(value) { loaded = clone(value); prune(); },
+      image(key) { return images.get(key) || null; },
+      keys() { return [...images.keys()]; },
+      get bytes() { return sizeOf(images.keys()); },
+      get keeperBytes() { return sizeOf(pins.keys()); },
+      pinCount(key) { return pins.get(key) || 0; },
+      pin(key) { pins.set(key, (pins.get(key) || 0) + 1); },
+      unpin(key) {
+        const count = (pins.get(key) || 0) - 1;
+        if (count > 0) pins.set(key, count); else pins.delete(key);
+        prune();
+      },
+      get edits() { return edits; },
+      // moveDrag tells the model that an open drag changed its working
+      // copy, and endDrag that the drag ended.
+      moveDrag() { edits += 1; dragChanged = true; },
+      endDrag() { dragChanged = false; },
+      get gestureOpen() { return Boolean(gesture); },
+      get gestureChanged() { return Boolean(gesture && gesture.changed); },
+      // pressOpacity starts an opacity gesture at the present value.
+      pressOpacity() { gesture = { entry: history.value, changed: false }; },
+      // setOpacity sets the opacity of the present background with no undo
+      // step. It gives false when there is no background or no change.
+      setOpacity(opacity) {
+        const background = history.background;
+        if (!background) return false;
+        background.opacity = opacity;
+        own = true;
+        let changed = false;
+        try { changed = history.replace({ scenario: history.value.scenario, background }, false); } finally { own = false; }
+        if (changed && gesture) gesture.changed = true;
+        return changed;
+      },
+      // endOpacity ends the opacity gesture at a pointer up, a
+      // pointercancel or a lost pointer capture. A change since the start
+      // of the gesture becomes one undo step. With no open gesture it does
+      // nothing, so a second end event changes nothing.
+      endOpacity() {
+        if (!gesture) return false;
+        const { entry } = gesture; gesture = null;
+        return history.commitFrom(entry, history.value);
+      },
+      // start opens a new acquisition or import, and aborts the open one.
+      // The ticket has signal, an AbortSignal, and the edit counter.
+      start() {
+        abort();
+        const controller = new AbortController();
+        ticket = { signal: controller.signal, controller, edits };
+        return ticket;
+      },
+      abort,
+      current(request) { return request === ticket && !request.signal.aborted; },
+      publishError,
+      // publish runs the final check of publishError, and then, with no
+      // wait, adds image to the table and makes value the draft in one
+      // history step. With baseline set, value also becomes the Reset draft
+      // baseline. Then it drops the oldest undo steps past the cap. It
+      // gives error, the reason of a failed check, and dropped, the number
+      // of dropped undo steps. The ticket closes in both cases.
+      publish(request) {
+        const error = publishError(request.ticket, request.image);
+        if (request.ticket === ticket) ticket = null;
+        if (error) return { error, dropped: 0 };
+        if (request.image) images.set(request.image.key, request.image);
+        if (request.baseline) loaded = clone(request.value);
+        history.replace(request.value);
+        prune();
+        return { error: "", dropped: bound() };
+      },
+      // restore installs the image and the background of the stored
+      // record, with no undo step, and makes the background part of the
+      // baseline.
+      restore(image, background) {
+        images.set(image.key, image);
+        loaded = { scenario: loaded.scenario, background: clone(background) };
+        history.reset({ scenario: history.value.scenario, background });
+      },
+    };
+  }
+
+  // abortError gives the error of an aborted request.
+  function abortError() { return new DOMException("The request was aborted.", "AbortError"); }
+
+  // throwIfAborted throws abortError when signal is aborted.
+  function throwIfAborted(signal) { if (signal && signal.aborted) throw abortError(); }
+
+  // createDecoderSlot gives the decoder slot of an editor tab. A decode or
+  // an encode of the browser has no abort, and a dropped promise still
+  // uses its memory, so the tab runs one decoder operation at a time. The
+  // slot has one running operation and at most one waiting request. run
+  // queues work, a function of an AbortSignal that gives a promise, and
+  // gives the promise of its result. A newer request replaces the waiting
+  // request, which rejects at once with an AbortError, with no call of its
+  // work. A request that is aborted when it gets the slot rejects, and
+  // gives the slot back. A running operation keeps the slot until its
+  // promise settles, also after an abort, so it can release its bitmaps
+  // and its canvas first.
+  function createDecoderSlot() {
+    let running = false; let waiting = null;
+    function next() {
+      const request = waiting; waiting = null;
+      if (!request) return;
+      if (request.signal && request.signal.aborted) { request.reject(abortError()); next(); return; }
+      running = true;
+      Promise.resolve().then(() => request.work(request.signal)).then(request.resolve, request.reject).finally(() => { running = false; next(); });
+    }
+    return {
+      get busy() { return running; },
+      get waiting() { return waiting !== null; },
+      run(work, signal) {
+        return new Promise((resolve, reject) => {
+          if (signal && signal.aborted) { reject(abortError()); return; }
+          if (waiting) waiting.reject(abortError());
+          waiting = { work, signal, resolve, reject };
+          if (!running) next();
+        });
+      },
+    };
+  }
+
+  // decodeBytes decodes image bytes with the facts of imageBytesFacts, and
+  // checks the decoded size as checkDecodedSize does. deps.decode is
+  // createImageBitmap or a test fake. The Blob of the decode lives only
+  // until the decode settles. It gives the bitmap, and closes it when a
+  // check fails.
+  async function decodeBytes(bytes, facts, deps) {
+    let blob = new Blob([bytes], { type: facts.mime });
+    let bitmap;
+    try { bitmap = await deps.decode(blob); } catch (_) { throw new Error("The browser cannot decode the background image."); } finally { blob = null; }
+    try { checkDecodedSize({ width: bitmap.width, height: bitmap.height }, facts); } catch (error) { bitmap.close(); throw error; }
+    return bitmap;
+  }
+
+  // checkImageBytes checks image bytes, an ArrayBuffer, with
+  // imageBytesFacts, then decodes them and checks the decoded size. It
+  // runs in the decoder slot, and closes the bitmap before it ends. It
+  // gives the facts of imageBytesFacts.
+  async function checkImageBytes(bytes, deps, signal) {
+    const facts = imageBytesFacts(bytes);
+    const bitmap = await decodeBytes(bytes, facts, deps);
+    bitmap.close();
+    throwIfAborted(signal);
+    return facts;
+  }
+
+  // resampleImage makes a latitude and longitude grid image from a Web
+  // Mercator image. request has bytes, the source image, frame, geo and
+  // metersPerPixel, the output meters for each pixel in geo. It runs in
+  // the decoder slot, in the steps of the design: decode and check the
+  // source, draw each output row from its source row, close the source,
+  // encode the canvas as a PNG, release the canvas, then check the PNG as
+  // checkImageBytes does. deps has decode, canvas(width, height) and
+  // encode(canvas), which gives a promise of a Blob. It gives bytes and
+  // facts of the PNG.
+  async function resampleImage(request, deps, signal) {
+    const facts = imageBytesFacts(request.bytes);
+    const size = resampleSize(request.frame, request.geo, request.metersPerPixel);
+    if (size.error) throw new Error(size.error);
+    let source = null; let canvas = null; let blob = null;
+    try {
+      source = await decodeBytes(request.bytes, facts, deps);
+      throwIfAborted(signal);
+      canvas = deps.canvas(size.width, size.height);
+      const context = canvas.getContext("2d");
+      context.imageSmoothingEnabled = true; context.imageSmoothingQuality = "high";
+      const last = source.height - 1;
+      for (const [row, item] of resampleRows(request.frame, size.height, source.height).entries()) {
+        context.drawImage(source, 0, Math.min(Math.max(item.source - 0.5, 0), last), source.width, 1, 0, row, size.width, 1);
+      }
+      source.close(); source = null;
+      blob = await deps.encode(canvas);
+    } finally {
+      if (source) source.close();
+      if (canvas) { canvas.width = 0; canvas.height = 0; }
+    }
+    throwIfAborted(signal);
+    if (!blob) throw new Error("The browser cannot encode the resampled image.");
+    let bytes;
+    try { bytes = await blob.arrayBuffer(); } finally { blob = null; }
+    throwIfAborted(signal);
+    return { bytes, facts: await checkImageBytes(bytes, deps, signal) };
+  }
+
+  // frameCenterGeo gives the geo reference at the center of frame.
+  function frameCenterGeo(frame) {
+    return makeGeo((frame.south + frame.north) / 2, (frame.west + frame.east) / 2);
+  }
+
+  // referenceFor gives the geo reference for the placement of an image
+  // with frame in config. A project with a reference keeps it, and a
+  // project with no nodes adopts the center of the frame. A project with
+  // nodes and no reference needs choice: mode "anchor" with a and b, each
+  // with id, the node ID, and latitude and longitude, or mode "adopt" with
+  // confirmed set. The result has geo and note, a text for the user, or
+  // error. The frame must pass placementError in the reference.
+  function referenceFor(request) {
+    const { config, frame, choice } = request;
+    let geo = config.geo || null; let note = "";
+    if (!geo) {
+      const mode = choice ? choice.mode : "";
+      if (!config.network.Nodes.length || (mode === "adopt" && choice.confirmed)) geo = frameCenterGeo(frame);
+      else if (mode === "adopt") return { error: "Confirm that the image center becomes the reference, and that the network does not move." };
+      else if (mode === "anchor") {
+        const point = (item) => {
+          const node = config.network.Nodes.find((entry) => entry.ID === item.id);
+          if (!node) throw new Error(`The anchor node "${String(item.id).slice(0, 40)}" is not in the project.`);
+          if (![item.latitude, item.longitude].every((value) => typeof value === "number" && Number.isFinite(value))) throw new Error("Each anchor needs a latitude and a longitude in degrees.");
+          return { X: node.Position.X, Y: node.Position.Y, latitude: item.latitude, longitude: item.longitude };
+        };
+        let anchor;
+        try { anchor = anchorGeo({ a: point(choice.a), b: point(choice.b) }); } catch (error) { return { error: error.message }; }
+        if (anchor.error) return { error: anchor.error };
+        geo = anchor.geo; note = `The second anchor is ${anchor.residual.toFixed(1)} m from its node.`;
+      } else return { error: "The project has nodes and no geographic reference. Anchor two nodes, or adopt the image center." };
+    }
+    const error = placementError(frame, geo);
+    return error ? { error } : { geo: clone(geo), note };
+  }
+
+  // framedValue gives the history value with image placed from its frame
+  // in geo, with the frame state "attached", and the scenario of value
+  // with geo. The background keeps the opacity of the background of
+  // value.
+  function framedValue(value, image, geo) {
+    const opacity = value.background ? value.background.opacity : DEFAULT_OPACITY;
+    return { scenario: { ...value.scenario, geo: clone(geo) }, background: { imageKey: image.key, ...framePlacement(image.frame, geo), opacity, frameState: "attached" } };
+  }
+
+  // detachFrame gives the history value with the frame state "detached"
+  // for an attached background. The image keeps its frame and its
+  // license.
+  function detachFrame(value) {
+    if (!value.background || value.background.frameState !== "attached") return value;
+    return { scenario: value.scenario, background: { ...value.background, frameState: "detached" } };
+  }
+
+  // FRAME_WARNING_TEXT tells the user that an attached background is not
+  // on its frame.
+  const FRAME_WARNING_TEXT = "The background is not on its frame in the geographic reference of the project. Place it from the frame, or detach the frame.";
+
+  // frameView gives the frame controls of the Background panel for value,
+  // a history value, and image, its image descriptor or null. framed is
+  // true for an image with a frame. warning is FRAME_WARNING_TEXT for an
+  // attached background that is not aligned, computed at each render.
+  // placeReason and calibrateReason are the reasons why Place from frame
+  // and Calibrate scale are disabled, or empty texts.
+  function frameView(value, image) {
+    const background = value.background;
+    const framed = Boolean(background && image && image.frame && background.frameState !== "none");
+    if (!framed) return { framed, state: "none", warning: "", placeReason: "", calibrateReason: "" };
+    const geo = value.scenario.geo || null;
+    const attached = background.frameState === "attached";
+    const warning = attached && !frameAligned(background, image.frame, geo) ? FRAME_WARNING_TEXT : "";
+    const placeReason = !geo && value.scenario.network.Nodes.length ? "The project has nodes and no geographic reference. Choose an anchor or adopt the image center below." : "";
+    const calibrateReason = attached ? "Detach the frame before you calibrate the scale." : "";
+    return { framed, state: background.frameState, warning, placeReason, calibrateReason };
+  }
+
+  // attributionParts gives the parts of the attribution line of license:
+  // the attribution text, then links to the copyright URL, and to the
+  // license URL when it differs. A part has text and href, which is set
+  // only for an HTTPS URL. It gives an empty list with no license.
+  function attributionParts(license) {
+    if (!license) return [];
+    const parts = [];
+    const text = license.attribution || license.source;
+    if (text) parts.push({ text, href: "" });
+    if (license.copyrightURL && httpsURL(license.copyrightURL)) parts.push({ text: "Copyright", href: license.copyrightURL });
+    if (license.licenseURL && httpsURL(license.licenseURL) && license.licenseURL !== license.copyrightURL) parts.push({ text: license.license || "License", href: license.licenseURL });
+    return parts;
+  }
+
+  // BACKGROUND_DURABLE_TEXT tells the user that the browser store is not
+  // a durable copy of the background.
+  const BACKGROUND_DURABLE_TEXT = "The browser can delete its stored background. The exported project file is the only durable copy.";
+
+  // backgroundFacts gives the lines of the Background panel: the license
+  // facts of image, the image bytes that the tab holds against the cap
+  // with the share of the keeper writes, the size of the stored image,
+  // and the notes. facts has image, held, keeperBytes, cap, storedBytes
+  // and restoreFailed.
+  function backgroundFacts(facts) {
+    const lines = [];
+    const license = facts.image && facts.image.license;
+    if (license) {
+      for (const [key, label] of [["source", "Source"], ["license", "License"], ["retrieved", "Retrieved"], ["method", "Method"], ["notice", "Notice"]]) if (license[key]) lines.push(`${label}: ${license[key]}`);
+    }
+    lines.push(`This tab holds ${mibText(facts.held)} MiB of images of its ${mibText(facts.cap)} MiB limit, with ${mibText(facts.keeperBytes)} MiB for writes to the browser store.`);
+    if (facts.storedBytes > 0) lines.push(`The stored image has ${mibText(facts.storedBytes)} MiB.`);
+    if (facts.image) lines.push(BACKGROUND_DURABLE_TEXT);
+    if (facts.restoreFailed) lines.push(STORED_BACKGROUND_KEPT_TEXT);
+    return lines;
+  }
+
   // STARTUP_EVENTS are the input events that blockInput stops while the
   // editor starts.
   const STARTUP_EVENTS = ["click", "change", "input", "keydown", "pointerdown", "pointerup", "wheel", "contextmenu"];
@@ -3090,11 +3533,12 @@
     stationBearing, stationShape, rotateStation, setStationBearing, nextBerthPosition, berthChain, nextChainRow, lanePolyline, laneConflict, removeBerth, moveStation, moveNode, deleteNode, deleteLane, deleteStation, stationFlowCount, setFleetCount, fleetRows, selectionCard, berthFocusID, undoFocus, setDemandPattern,
     laneLength, curveLength, reachable, cutOffStations, stationNodeOwners, dragTargets, validateConfig, configWarnings, checkResults, checkSelector, checkSelection, selectionPoint, focusView,
     GEO_PROJECTION, GEO_RADIUS, GEO_MAX_LATITUDE, MAX_COORDINATE, FRAME_SOURCES, SCALE_TOLERANCE, ALIGN_TOLERANCE, RESAMPLE_MAX_SIDE, makeGeo, geoError, projectPoint, unprojectPoint, frameError, scaleError, framePlacement, placementError, frameAligned, anchorGeo, resampleSize, mercatorY, resampleRows,
-    problemCountText, createCheckTimer, validationSummary, checkFocusKey, IMAGE_FILE_BYTES, IMAGE_MAX_SIDE, IMAGE_MAX_PIXELS, imageFacts, imageBytesFacts, dataURLToBytes, bytesToDataURL, checkImageSize, checkDecodedImage,
+    problemCountText, createCheckTimer, validationSummary, checkFocusKey, IMAGE_FILE_BYTES, IMAGE_MAX_SIDE, IMAGE_MAX_PIXELS, imageFacts, imageBytesFacts, dataURLToBytes, bytesToDataURL, checkImageSize,
     IMAGE_KEY_PATTERN, newImageKey, FRAME_STATES, LICENSE_LIMITS, licenseError, assetError, backgroundRecordText, STORED_BACKGROUND_KEPT_TEXT, SERVER_PROJECT_BYTES, PROJECT_FILE_BYTES, SERVER_COMMAND_BYTES, SERVER_COMMAND_JSON_BYTES, GZIP_COMMAND_BYTES, SERVER_TOO_LARGE_TEXT, postCommand, dataURLBytes, serializeDocument, parseDocument, createHistory,
     networkBounds, fitView, zoomScale, nodeLabelSize, pairedLaneIDs, showsChevron, laneOffset, laneCurve, lanePathData, SNAPSHOT_ATTEMPTS, snapshotConsistent, draftBeforeRestart, readState, readSnapshot, applyToServer, applyFailureText, applyFailureStatus, applyToast,
     readLive, readConflict, CONFLICT_UNLOADED_TEXT, conflictView, LOAD_LIVE_QUESTION, applyOverQuestion, loadLive, liveDraft, applyOverBase,
-    DRAFT_SAVE_DELAY, DRAFT_STORE_TEXT, DRAFT_UNSAVED_TEXT, DRAFT_DISPLACED_TEXT, DRAFT_STORE, BACKGROUND_STORE, openRecordStore, createDraftKeeper, draftChanged, draftRecordFor, draftOffer, backgroundRecordFor, storedBackground, restoreStoredBackground, STARTUP_EVENTS, createStartupGate, blockInput, startupExempt, startEditor, BACKGROUND_STORE_TEXT, checkBackground, DRAFT_RESTART_TEXT, draftOfferText, RESTORED_RESTART_TEXT, restoreStatusText, shellPage,
+    DRAFT_SAVE_DELAY, DRAFT_STORE_TEXT, DRAFT_UNSAVED_TEXT, DRAFT_DISPLACED_TEXT, DRAFT_STORE, BACKGROUND_STORE, openRecordStore, createDraftKeeper, draftChanged, draftRecordFor, draftOffer, backgroundRecordFor, storedBackground, restoreStoredBackground,
+    IMAGE_TABLE_BYTES, DEFAULT_OPACITY, freezeImage, createBackgroundModel, createDecoderSlot, checkImageBytes, resampleImage, frameCenterGeo, referenceFor, framedValue, detachFrame, FRAME_WARNING_TEXT, frameView, attributionParts, BACKGROUND_DURABLE_TEXT, backgroundFacts, exportBackground, documentAsset, STARTUP_EVENTS, createStartupGate, blockInput, startupExempt, startEditor, BACKGROUND_STORE_TEXT, checkBackground, DRAFT_RESTART_TEXT, draftOfferText, RESTORED_RESTART_TEXT, restoreStatusText, shellPage,
   };
   if (typeof module !== "undefined" && module.exports) module.exports = API;
   root.PodsimEditorModel = API;
@@ -3106,6 +3550,28 @@
   // checks runs the checks CHECK_DELAY milliseconds after the last draft
   // change. The history schedules it for each change.
   const checks = createCheckTimer({ delay: CHECK_DELAY, run: runValidation, clock: root });
+  // model keeps the draft history with the images of its backgrounds, the
+  // Reset draft baseline, the edit counter, the open gestures and the open
+  // acquisition. Each draft change schedules the checks and both keepers.
+  const model = createBackgroundModel({
+    initial: { scenario: emptyConfig(), background: null },
+    onChange: () => { checks.schedule(); keeper.schedule(); backgroundKeeper.schedule(); },
+  });
+  // slot is the decoder slot of the tab. Each check decode, the restore and
+  // each resample run in it. decoder gives the browser functions to the
+  // slot operations.
+  const slot = createDecoderSlot();
+  const decoder = {
+    decode: (blob) => root.createImageBitmap(blob),
+    canvas: (width, height) => Object.assign(document.createElement("canvas"), { width, height }),
+    encode: (canvas) => new Promise((resolve) => canvas.toBlob(resolve, "image/png")),
+  };
+  // display is the object URL of the image that the map shows, with its
+  // image key. The page makes it from the bytes of the present image only.
+  let display = { key: "", url: "" };
+  // storedBytes is the size of the image in the browser store, after the
+  // restore or the last committed write of this tab, or 0.
+  let storedBytes = 0;
   // keeper saves the draft in this browser DRAFT_SAVE_DELAY milliseconds
   // after the last draft change. It keeps one record for each server origin,
   // and tells the other editor tabs of each write.
@@ -3113,10 +3579,6 @@
     store: openRecordStore(draftDatabase(), DRAFT_STORE), key: root.location.origin, delay: DRAFT_SAVE_DELAY, clock: root, snapshot: draftRecord,
     channel: draftChannel(), onStatus: showDraftStatus, onDisplaced: showDraftDisplaced,
   });
-  // pageImage holds the bytes of the image of the page background, for the
-  // record of the background keeper. The page holds the image as a data
-  // URL, and key is the image key of the bytes.
-  let pageImage = { key: "", bytes: null };
   // backgroundKeeper keeps the background of the page in this browser,
   // apart from the draft, so a reload after an apply still shows it. It
   // keeps one record for each server origin, as the draft keeper does. It
@@ -3127,15 +3589,26 @@
   // change of a tab replaces it. It has no channel. It writes nothing
   // until the background of this page changes after the restore, so a tab
   // does not replace the record of another tab, or a record that did not
-  // restore, when the user did not change the background.
+  // restore, when the user did not change the background. Each queued
+  // write pins its image in the model until it settles.
   const backgroundKeeper = createDraftKeeper({
     store: openRecordStore(draftDatabase(), BACKGROUND_STORE), key: root.location.origin, delay: DRAFT_SAVE_DELAY, clock: root,
     snapshot: backgroundRecord, text: backgroundRecordText, onStatus: showBackgroundStatus, deletes: true, holdUntilChange: true,
+    onQueued: (record) => { if (record) model.pin(record.background.imageKey); },
+    onSettled: (record, committed) => {
+      if (record) model.unpin(record.background.imageKey);
+      if (committed) { storedBytes = record ? record.background.image.bytes.byteLength : 0; state.restoreFailed = false; }
+      renderBackgroundInfo();
+    },
   });
   const state = {
-    history: createHistory({ scenario: emptyConfig(), background: null }, () => { checks.schedule(); keeper.schedule(); backgroundKeeper.schedule(); }),
+    history: model.history,
     background: null,
-    loaded: null,
+    // restoreFailed is true after a stored background did not restore,
+    // until a write of this tab replaces it.
+    restoreFailed: false,
+    // geoOpen is true while the georeferenced image panel shows.
+    geoOpen: false,
     loadedRevision: 0,
     // loadedStart is the server start ID of the state that the page loaded
     // or last applied, or an empty string when the server does not send it.
@@ -3279,10 +3752,12 @@
     // the entry and exit nodes. A drag keeps them, because it moves nodes
     // but does not change the lanes.
     const map = { config, bounds: networkBounds(config, state.background), lanes: new Map(), lengths: new Map(), paired: pairedLaneIDs(config), laneScale: state.view.scale, stations: new Map(), stationNodes: new Map(), markers: new Map(), nodes: new Map(), junctions: [], labels: new Map(), labelScale: null, handles: null };
+    const shown = display.url; const url = displayURL(state.background);
     if (state.background) {
-      const image = svgElement("image", { class: "background-image", href: state.background.dataURL, x: state.background.x, y: state.background.y, width: state.background.width, height: state.background.height, opacity: state.background.opacity, preserveAspectRatio: "none" });
+      const image = svgElement("image", { class: "background-image", href: url, x: state.background.x, y: state.background.y, width: state.background.width, height: state.background.height, opacity: state.background.opacity, preserveAspectRatio: "none" });
       backgroundLayer.append(image);
     }
+    if (shown && shown !== url) URL.revokeObjectURL(shown);
     for (const lane of config.network.Lanes) {
       const path = svgElement("path", { class: `lane${state.selection && state.selection.type === "lane" && state.selection.id === lane.ID ? " selected" : ""}`, "data-type": "lane", "data-id": lane.ID });
       drawLane(path, config, lane, map); laneLayer.append(path); map.lanes.set(lane.ID, path);
@@ -3474,6 +3949,7 @@
   // button that stays after the render keeps the focus. A button that the
   // render made again gets the focus back.
   function stepHistory(redo) {
+    model.abort();
     const panel = $("#selectionContent"); const focused = document.activeElement; const before = draft();
     const control = panel.contains(focused) ? { action: focused.dataset.action || "", id: focused.dataset.id || "" } : null;
     if (!(redo ? state.history.redo() : state.history.undo())) return;
@@ -3533,12 +4009,61 @@
   function render() {
     // A render draws the draft from the history. It ends a drag of a working
     // copy, so that a pointer up cannot record that copy over a newer draft.
-    if (state.drag && state.drag.working) state.drag = null;
-    state.background = state.history.value.background;
+    if (state.drag && state.drag.working) { state.drag = null; model.endDrag(); }
+    state.background = state.history.background;
     const config = draft(); $("#scenarioName").value = config.name; $("#backgroundOpacity").value = state.background ? state.background.opacity : .45; $("#opacityValue").value = `${Math.round(Number($("#backgroundOpacity").value) * 100)}%`;
     $("#undoButton").disabled = !state.history.canUndo; $("#redoButton").disabled = !state.history.canRedo;
     $("#networkMap").dataset.tool = state.tool; $("#cancelLinkButton").hidden = !state.linkFrom;
-    renderTools(); renderMap(); renderSelection(); renderFleet(); renderDemand(); updatePrompt(); renderApply();
+    renderTools(); renderMap(); renderSelection(); renderFleet(); renderDemand(); updatePrompt(); renderBackground(); renderApply();
+  }
+
+  // displayURL gives the object URL of the image of background for the
+  // map, or an empty text with no background. It makes a new Blob and URL
+  // only when the image key changes. renderMap revokes the old URL after
+  // the image element changes.
+  function displayURL(background) {
+    const key = background ? background.imageKey : "";
+    if (key === display.key) return display.url;
+    const image = key ? model.image(key) : null;
+    display = { key, url: image ? URL.createObjectURL(new Blob([image.bytes], { type: image.mime })) : "" };
+    return display.url;
+  }
+
+  // renderBackground shows the frame controls, the mismatch warning, the
+  // reference choice, the calibration state, the attribution line and the
+  // facts of the Background panel for the present background. The
+  // warning is computed at each render, so no event sets or clears it.
+  function renderBackground() {
+    const value = { scenario: draft(), background: state.background };
+    const image = state.background ? model.image(state.background.imageKey) : null;
+    const view = frameView(value, image);
+    $("#frameControls").hidden = !view.framed;
+    $("#frameStateText").textContent = view.framed ? `The image has a frame from ${image.frame.south} to ${image.frame.north} degrees north and from ${image.frame.west} to ${image.frame.east} degrees east. The frame is ${view.state}.` : "";
+    $("#frameWarning").hidden = !view.warning; $("#frameWarning").textContent = view.warning;
+    const place = $("#placeFrameButton");
+    place.disabled = Boolean(view.placeReason) && !$("#referenceMode").value; place.title = place.disabled ? view.placeReason : "";
+    $("#detachFrameButton").disabled = view.state !== "attached";
+    const calibrate = $("#calibrateButton"); calibrate.disabled = Boolean(view.calibrateReason); calibrate.title = view.calibrateReason;
+    const unreferenced = !value.scenario.geo && value.scenario.network.Nodes.length > 0;
+    $("#referencePanel").hidden = !(unreferenced && (state.geoOpen || view.framed));
+    const mode = $("#referenceMode").value; $("#anchorFields").hidden = mode !== "anchor"; $("#adoptField").hidden = mode !== "adopt";
+    $("#geoPanel").hidden = !state.geoOpen;
+    const line = $("#mapAttribution"); const parts = attributionParts(image && image.license);
+    line.replaceChildren(...parts.flatMap((part, index) => {
+      const node = part.href ? Object.assign(document.createElement("a"), { href: part.href, target: "_blank", rel: "noopener noreferrer" }) : document.createElement("span");
+      node.textContent = part.text;
+      return index ? [document.createTextNode(" | "), node] : [node];
+    }));
+    line.hidden = !parts.length;
+    renderBackgroundInfo();
+  }
+
+  // renderBackgroundInfo shows the facts of backgroundFacts in the
+  // Background panel.
+  function renderBackgroundInfo() {
+    const image = state.background ? model.image(state.background.imageKey) : null;
+    const lines = backgroundFacts({ image, held: model.bytes, keeperBytes: model.keeperBytes, cap: model.cap, storedBytes, restoreFailed: state.restoreFailed });
+    $("#backgroundInfo").replaceChildren(...lines.map((text) => Object.assign(document.createElement("li"), { textContent: text })));
   }
 
   // renderApply enables Pause and apply only when the draft scenario is
@@ -3574,13 +4099,12 @@
   function draftRecord() { return draftRecordFor(state.history.value, state.live, state.draftBase); }
 
   // backgroundRecord gives the record that the background keeper saves for
-  // the background of this page, as backgroundRecordFor gives it. It
-  // converts the data URL of a new image to bytes one time.
+  // the background of this page, as backgroundRecordFor gives it with the
+  // image descriptor of the model. The record holds the bytes, so a later
+  // prune of the model does not take them from a queued write.
   function backgroundRecord() {
-    const background = state.history.background;
-    if (!background) return null;
-    if (pageImage.key !== background.imageKey) pageImage = { key: background.imageKey, bytes: dataURLToBytes(background.dataURL) };
-    return backgroundRecordFor(background, { bytes: pageImage.bytes, frame: null, license: null });
+    const background = model.history.background;
+    return background ? backgroundRecordFor(background, model.image(background.imageKey)) : null;
   }
 
   // showDraftStatus tells the user when the status of the saved draft
@@ -3597,32 +4121,23 @@
     if (status !== "ok") toast(BACKGROUND_STORE_TEXT[status], true);
   }
 
-  // decodeImage decodes the image of dataURL in the browser. It gives a
-  // promise of the decoded width and height, for checkDecodedImage.
-  function decodeImage(dataURL) {
-    const image = new Image(); image.src = dataURL;
-    return image.decode().then(() => ({ width: image.naturalWidth, height: image.naturalHeight }));
-  }
-
   // restoreBackground puts the stored background of record on the page, as
-  // restoreStoredBackground does. The page makes the data URL from the
-  // bytes that the store gave, and the browser decodes it first, as
-  // checkDecodedImage does. The background keeps its stored image key. The
-  // background is part of the loaded project, so Reset draft keeps it. The
-  // undo history starts again from the draft with the background, so no
-  // undo step removes it. A record that is not valid shows the error
-  // toast, and stays in the store until a background change of the page.
+  // restoreStoredBackground does. The decoder slot decodes the bytes that
+  // the store gave, as checkImageBytes does. The image keeps its stored
+  // key. The background is part of the loaded project, so Reset draft
+  // keeps it. The undo history starts again from the draft with the
+  // background, so no undo step removes it. A record that is not valid
+  // shows the error toast, and stays in the store until a background
+  // change of the page. The Background panel then says so.
   function restoreBackground(record) {
-    let dataURL = "";
     return restoreStoredBackground(record, {
-      warn: (message) => toast(message, true),
-      decode: (restored) => { dataURL = bytesToDataURL(restored.image.bytes, restored.image.mime); return checkDecodedImage(dataURL, decodeImage); },
+      warn: (message) => { state.restoreFailed = true; toast(message, true); renderBackgroundInfo(); },
+      decode: (restored) => slot.run((signal) => checkImageBytes(restored.image.bytes, decoder, signal)),
       install: (restored) => {
-        const { imageKey, x, y, width, height, opacity } = restored.background;
-        const background = { dataURL, imageKey, x, y, width, height, opacity };
-        pageImage = { key: imageKey, bytes: restored.image.bytes };
-        state.loaded.background = clone(background);
-        state.history.reset({ scenario: draft(), background }); render(); fitNetwork();
+        const image = freezeImage({ key: restored.background.imageKey, ...restored.image });
+        model.restore(image, restored.background); storedBytes = image.bytes.byteLength;
+        render(); fitNetwork();
+        console.info("podsim editor: restored background", { key: image.key, bytes: image.bytes.byteLength, width: image.pixelWidth, height: image.pixelHeight, frameState: restored.background.frameState });
       },
     });
   }
@@ -3693,6 +4208,7 @@
   // counts as changed.
   function restoreDraft(event) {
     if (!state.offer) return;
+    model.abort();
     const { draft: saved, revision, epoch, serverStart } = state.offer; closeOffer(event);
     state.draftBase = { revision, epoch, serverStart };
     state.history.reset({ scenario: normalizeConfig(saved.scenario), background: state.background });
@@ -3787,6 +4303,9 @@
       state.view.x = drag.originalView.x + event.clientX - drag.startClient.x; state.view.y = drag.originalView.y + event.clientY - drag.startClient.y; setView(); return;
     }
     const location = worldPoint(event); const config = drag.working;
+    // A move of the working copy is an edit, so an acquisition that ends
+    // during the drag does not publish over it.
+    model.moveDrag();
     if (drag.type === "station") { shiftNodes(config, { ids: drag.moved, dx: location.X - drag.last.X, dy: location.Y - drag.last.Y }); drag.last = location; }
     else if (drag.type === "node") { const node = nodeFor(config, drag.id); if (node) node.Position = { X: location.X, Y: location.Y }; }
     else if (drag.type === "control") { const lane = config.network.Lanes.find((item) => item.ID === drag.id); if (lane) lane.Control = location; }
@@ -3798,7 +4317,7 @@
   function onPointerUp(event) {
     const drag = state.drag;
     if (!drag) return;
-    state.drag = null;
+    state.drag = null; model.endDrag();
     try { $("#networkMap").releasePointerCapture(event.pointerId); } catch (_) {}
     if (drag.type !== "pan") setDraft(drag.working);
   }
@@ -3868,8 +4387,8 @@
       const live = await readLive(state.connection);
       state.loadedRevision = live.revision; state.connection.epoch = live.epoch; state.loadedStart = live.serverStart;
       state.draftBase = { revision: live.revision, epoch: live.epoch, serverStart: live.serverStart };
-      state.loaded = { scenario: clone(live.project), background: null };
-      state.history.reset(state.loaded); state.background = null; state.selection = null;
+      model.setLoaded({ scenario: clone(live.project), background: null });
+      state.history.reset(model.loaded); state.background = null; state.selection = null;
       render(); setLive(state.history.value, state.loadedRevision); fitNetwork();
       updateStatus(`Live revision ${state.loadedRevision}. ${DRAFT_STORE_TEXT[keeper.status]}`);
       // Keep a server scenario that fails the editor checks, and list the
@@ -3877,7 +4396,7 @@
       const errors = checks.run();
       if (errors.length) toast(`The server scenario has ${errors.length} validation problem${errors.length === 1 ? "" : "s"}. See Checks.`, true);
     } catch (error) {
-      state.loaded = { scenario: fallbackConfig(), background: null }; state.history.reset(state.loaded);
+      model.setLoaded({ scenario: fallbackConfig(), background: null }); state.history.reset(model.loaded);
       updateStatus("The live scenario could not load. This draft is local."); render(); setLive(state.history.value, null); fitNetwork(); toast(`Load failed. ${error.message}`, true);
     }
   }
@@ -3902,8 +4421,8 @@
       // applied state then gets the ID that the apply read.
       const serverStart = applied.serverStart || base.serverStart;
       state.loadedRevision = applied.revision; state.loadedStart = serverStart; state.draftBase = { revision: applied.revision, epoch: state.connection.epoch, serverStart };
-      state.loaded = { scenario: project, background: state.background ? clone(state.background) : null };
-      setLive(state.loaded, applied.revision); renderOffer(); showConflict(null);
+      model.setLoaded({ scenario: project, background: state.background ? clone(state.background) : null });
+      setLive(model.loaded, applied.revision); renderOffer(); showConflict(null);
       if (!state.offer) keeper.replace();
       updateStatus(`Applied revision ${state.loadedRevision}. The simulation is paused.`); toast(...applyToast(applied));
     } catch (error) {
@@ -3962,7 +4481,8 @@
     return runConflictAction(event, async () => {
       const live = await loadLive({ connection: state.connection, changed: draftChanged(state.history.value, state.live), confirm: (text) => root.confirm(text) });
       return live && (() => {
-        const { value, ...page } = liveDraft(live, state); Object.assign(state, page);
+        model.abort();
+        const { value, loaded, ...page } = liveDraft(live, { loaded: model.loaded, background: state.background }); Object.assign(state, page); model.setLoaded(loaded);
         state.history.replace(value); state.selection = null;
         render(); setLive({ scenario: draft() }, live.revision);
         showConflict(null); renderOffer(); fitNetwork(); checks.run(); keeper.flush();
@@ -3983,62 +4503,197 @@
   }
 
   // importProject replaces the draft with a project file and makes the file
-  // the baseline of Reset draft. parseDocument checks the file, also the
-  // size and the header of the background image. Then the browser decodes
-  // the image, as checkDecodedImage does, before the draft changes. The
-  // file has no draft base, so the draft gets the server start ID of the
-  // loaded project. A file that the user exported before a server restart
-  // then applies after a reload, also after Restore draft.
-  function importProject(file) {
+  // the baseline of Reset draft. It is an import of the model, so it aborts
+  // the open acquisition, and a newer action aborts it. parseDocument
+  // checks the file, also the size and the header of the background image
+  // and its asset. The page converts the data URL to bytes and drops the
+  // file text, then the decoder slot decodes the bytes, as checkImageBytes
+  // does. The publish fails when the draft changed or a changed gesture is
+  // open, and then the draft does not change. The file has no draft base,
+  // so the draft gets the server start ID of the loaded project. A file
+  // that the user exported before a server restart then applies after a
+  // reload, also after Restore draft.
+  async function importProject(file) {
     if (!file) return;
     if (file.size > PROJECT_FILE_BYTES) { toast(`The project file must be ${PROJECT_FILE_BYTES / MIB} MiB or smaller.`, true); return; }
-    const reader = new FileReader();
-    reader.onerror = () => toast("The project file could not be read. The draft is unchanged.", true);
-    reader.onload = async () => {
-      try {
-        const imported = parseDocument(String(reader.result));
-        if (imported.background) {
-          await checkDecodedImage(imported.background.dataURL, decodeImage);
-          imported.background.imageKey = newImageKey(root.crypto);
-        }
-        state.history.replace(imported); state.background = imported.background; state.loaded = clone(imported); state.selection = null;
-        state.draftBase = { ...state.draftBase, serverStart: state.loadedStart };
-        render(); fitNetwork(); checks.run(); toast("The project was imported into the draft.");
-      } catch (error) { toast(`${error.message} The draft is unchanged.`, true); }
-    };
-    reader.readAsText(file);
+    const ticket = model.start();
+    try {
+      let text = await file.text();
+      if (!model.current(ticket)) return;
+      const imported = parseDocument(text); text = "";
+      let image = null; let background = null;
+      if (imported.background) {
+        const { bytes, placement } = takeBackgroundBytes(imported);
+        if (slot.busy) updateStatus("The project image waits for the decoder.");
+        const facts = await slot.run((signal) => checkImageBytes(bytes, decoder, signal), ticket.signal);
+        const asset = imported.asset || { frameState: "none", frame: null, license: null };
+        image = freezeImage({ key: newImageKey(root.crypto), bytes, mime: facts.mime, pixelWidth: facts.width, pixelHeight: facts.height, frame: asset.frame, license: asset.license });
+        background = { imageKey: image.key, ...placement, frameState: asset.frameState };
+      }
+      if (!model.current(ticket)) return;
+      const result = model.publish({ ticket, image, value: { scenario: imported.scenario, background }, baseline: true });
+      if (result.error) { toast(`${result.error} The draft is unchanged.`, true); return; }
+      state.selection = null; state.draftBase = { ...state.draftBase, serverStart: state.loadedStart };
+      render(); fitNetwork(); checks.run(); toast("The project was imported into the draft.");
+      reportPublish("project import", image, result.dropped);
+    } catch (error) {
+      if (error.name === "AbortError" || !model.current(ticket)) return;
+      model.abort(); toast(`${error.message} The draft is unchanged.`, true);
+    }
   }
 
+  // takeBackgroundBytes gives the bytes of the data URL of the background
+  // of imported, a result of parseDocument, and its placement fields. It
+  // removes the background from imported, so the import holds only the
+  // bytes while it waits for the decode.
+  function takeBackgroundBytes(imported) {
+    const { dataURL, ...placement } = imported.background; imported.background = null;
+    return { bytes: dataURLToBytes(dataURL), placement };
+  }
+
+  // exportProject writes the draft and its background to a project file.
+  // It takes the image descriptor and makes the data URL in the same task,
+  // with no wait, so no later change drops the image first.
   function exportProject() {
-    const blob = new Blob([serializeDocument(draft(), state.background)], { type: "application/json" });
+    const background = state.background ? exportBackground(state.background, model.image(state.background.imageKey)) : null;
+    const blob = new Blob([serializeDocument(draft(), background)], { type: "application/json" });
     const url = URL.createObjectURL(blob); const link = document.createElement("a");
     const safe = (draft().name || "scenario").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "scenario";
     link.href = url; link.download = `${safe}.podsim.json`; document.body.append(link); link.click(); link.remove(); URL.revokeObjectURL(url);
   }
 
+  // reportPublish tells the user of a published image, and of the undo
+  // steps that the image limit dropped. It writes one console line with
+  // the same values.
+  function reportPublish(kind, image, dropped) {
+    if (dropped) {
+      const text = `The image limit of ${mibText(model.cap)} MiB removed the ${dropped} oldest undo step${dropped === 1 ? "" : "s"}.`;
+      updateStatus(text); toast(text);
+    }
+    console.info(`podsim editor: ${kind}`, { key: image ? image.key : "", bytes: image ? image.bytes.byteLength : 0, width: image ? image.pixelWidth : 0, height: image ? image.pixelHeight : 0, held: model.bytes, dropped });
+  }
+
+  // keptToast gives the toast after a new background: the browser keeps
+  // it, or the status of the background keeper.
+  function keptToast() {
+    return backgroundKeeper.status === "ok" ? ["This browser keeps the background for this server. Export the project to use it in another browser.", false] : [BACKGROUND_STORE_TEXT[backgroundKeeper.status], true];
+  }
+
   // importBackground makes an image file the background. The file must be
-  // a PNG or JPEG of at most IMAGE_FILE_BYTES. checkDecodedImage checks the
-  // header size of the image before the browser decodes it, and then the
-  // decoded size. Before a calibration, one image pixel is one meter.
-  function importBackground(file) {
+  // a PNG or JPEG of at most IMAGE_FILE_BYTES. It is an acquisition of the
+  // model, so it aborts the open one. checkImageBytes checks the header
+  // size of the image before the decoder slot decodes it, and then the
+  // decoded size. Before a calibration, one image pixel is one meter. The
+  // image has no frame and no license.
+  async function importBackground(file) {
     if (!file) return;
     if (!/^image\/(png|jpeg)$/.test(file.type)) { toast("Choose a PNG or JPEG image.", true); return; }
     if (file.size > IMAGE_FILE_BYTES) { toast(`The background image must be ${IMAGE_FILE_BYTES / MIB} MiB or smaller.`, true); return; }
-    const reader = new FileReader(); reader.onerror = () => toast("The image could not be read.", true);
-    reader.onload = async () => {
-      const dataURL = String(reader.result);
-      let size;
-      try { size = await checkDecodedImage(dataURL, decodeImage); } catch (error) { toast(`${error.message} The background is unchanged.`, true); return; }
-      setBackground({ dataURL, imageKey: newImageKey(root.crypto), x: 0, y: 0, width: size.width, height: size.height, opacity: .45 }); fitNetwork();
-      toast(backgroundKeeper.status === "ok" ? "This browser keeps the background for this server. Export the project to use it in another browser." : BACKGROUND_STORE_TEXT[backgroundKeeper.status], backgroundKeeper.status !== "ok");
+    const ticket = model.start();
+    try {
+      const bytes = await file.arrayBuffer();
+      if (!model.current(ticket)) return;
+      if (slot.busy) updateStatus("The image waits for the decoder.");
+      const facts = await slot.run((signal) => checkImageBytes(bytes, decoder, signal), ticket.signal);
+      const image = freezeImage({ key: newImageKey(root.crypto), bytes, mime: facts.mime, pixelWidth: facts.width, pixelHeight: facts.height, frame: null, license: null });
+      const opacity = state.background ? state.background.opacity : DEFAULT_OPACITY;
+      publishBackground(ticket, image, { scenario: draft(), background: { imageKey: image.key, x: 0, y: 0, width: facts.width, height: facts.height, opacity, frameState: "none" } }, "image import");
+    } catch (error) {
+      if (error.name === "AbortError" || !model.current(ticket)) return;
+      model.abort(); toast(`${error.message} The background is unchanged.`, true);
+    }
+  }
+
+  // publishBackground publishes image with value for the ticket of an
+  // acquisition, and tells the user of the result.
+  function publishBackground(ticket, image, value, kind) {
+    if (!model.current(ticket)) return;
+    const result = model.publish({ ticket, image, value });
+    if (result.error) { toast(`${result.error} The background is unchanged.`, true); return; }
+    render(); fitNetwork(); toast(...keptToast());
+    reportPublish(kind, image, result.dropped);
+  }
+
+  // referenceChoice gives the reference choice of the reference panel for
+  // referenceFor, or null when the user did not choose.
+  function referenceChoice() {
+    const mode = $("#referenceMode").value;
+    const number = (selector) => { const text = $(selector).value.trim(); return text === "" ? NaN : Number(text); };
+    if (mode === "adopt") return { mode, confirmed: $("#adoptConfirm").checked };
+    if (mode === "anchor") {
+      return {
+        mode,
+        a: { id: $("#anchorANode").value.trim(), latitude: number("#anchorALatitude"), longitude: number("#anchorALongitude") },
+        b: { id: $("#anchorBNode").value.trim(), latitude: number("#anchorBLatitude"), longitude: number("#anchorBLongitude") },
+      };
+    }
+    return null;
+  }
+
+  // closeGeoPanel hides the georeferenced image panel. It aborts the open
+  // acquisition.
+  function closeGeoPanel() { model.abort(); state.geoOpen = false; renderBackground(); }
+
+  // importFramedImage imports the image of the georeferenced image panel
+  // with its frame and license. The frame and the reference are checked
+  // before any work. A Web Mercator image is resampled into a latitude and
+  // longitude grid in the decoder slot. The publish puts the image, its
+  // placement from the frame, the frame state "attached" and the geo
+  // reference into one history step.
+  async function importFramedImage() {
+    model.abort();
+    const file = $("#geoFile").files[0];
+    if (!file) { toast("Choose a PNG or JPEG image.", true); return; }
+    if (!/^image\/(png|jpeg)$/.test(file.type)) { toast("Choose a PNG or JPEG image.", true); return; }
+    if (file.size > IMAGE_FILE_BYTES) { toast(`The background image must be ${IMAGE_FILE_BYTES / MIB} MiB or smaller.`, true); return; }
+    const bound = (selector) => { const text = $(selector).value.trim(); return text === "" ? NaN : Number(text); };
+    const frame = { south: bound("#geoSouth"), north: bound("#geoNorth"), west: bound("#geoWest"), east: bound("#geoEast"), source: $("#geoSource").value };
+    const license = {
+      source: $("#geoLicenseSource").value.trim(), attribution: $("#geoAttribution").value.trim(), license: $("#geoLicense").value.trim(),
+      licenseURL: $("#geoLicenseURL").value.trim(), copyrightURL: $("#geoCopyrightURL").value.trim(), retrieved: new Date().toISOString(), method: "user supplied", notice: $("#geoNotice").value.trim(),
     };
-    reader.readAsDataURL(file);
+    // A frame or a license that is not valid stops the new import before
+    // any file read. The previous acquisition stays canceled.
+    const checked = frameError(frame) || licenseError(license);
+    if (checked) { toast(`${checked} The background is unchanged.`, true); return; }
+    const ticket = model.start();
+    const reference = referenceFor({ config: draft(), frame, choice: referenceChoice() });
+    if (reference.error) { model.abort(); toast(`${reference.error} The background is unchanged.`, true); return; }
+    try {
+      const bytes = await file.arrayBuffer();
+      if (!model.current(ticket)) return;
+      if (slot.busy) updateStatus("The image waits for the decoder.");
+      const result = frame.source === "web-mercator"
+        ? await slot.run((signal) => resampleImage({ bytes, frame, geo: reference.geo, metersPerPixel: Number($("#geoMeters").value) }, decoder, signal), ticket.signal)
+        : { bytes, facts: await slot.run((signal) => checkImageBytes(bytes, decoder, signal), ticket.signal) };
+      const image = freezeImage({ key: newImageKey(root.crypto), bytes: result.bytes, mime: result.facts.mime, pixelWidth: result.facts.width, pixelHeight: result.facts.height, frame, license });
+      publishBackground(ticket, image, framedValue({ scenario: draft(), background: state.background }, image, reference.geo), "georeferenced image import");
+      if (reference.note) updateStatus(reference.note);
+    } catch (error) {
+      if (error.name === "AbortError" || !model.current(ticket)) return;
+      model.abort();
+      const hint = frame.source === "web-mercator" && /MiB or smaller/.test(error.message) ? " Choose more meters for each pixel." : "";
+      toast(`${error.message}${hint} The background is unchanged.`, true);
+    }
+  }
+
+  // placeFromFrame places the background on its frame in the geo
+  // reference of the draft, or in the reference of the reference choice,
+  // and attaches the frame, in one history step.
+  function placeFromFrame() {
+    const image = state.background ? model.image(state.background.imageKey) : null;
+    if (!image || !image.frame) return;
+    const reference = referenceFor({ config: draft(), frame: image.frame, choice: referenceChoice() });
+    if (reference.error) { toast(reference.error, true); return; }
+    state.history.replace(framedValue({ scenario: draft(), background: state.background }, image, reference.geo)); render(); fitNetwork();
+    if (reference.note) updateStatus(reference.note);
   }
 
   function finishCalibration() {
     if (!state.background || state.calibrationPoints.length !== 2) return;
     const meters = Number($("#calibrationDistance").value); const [a, b] = state.calibrationPoints; const current = Math.hypot(b.X - a.X, b.Y - a.Y);
     if (!Number.isFinite(meters) || meters <= 0 || current <= 0) { toast("Enter a positive distance and select two different points.", true); return; }
+    if (state.background.frameState === "attached") { toast("Detach the frame before you calibrate the scale.", true); return; }
     const factor = meters / current; const background = clone(state.background);
     background.x = a.X + (background.x - a.X) * factor; background.y = a.Y + (background.y - a.Y) * factor; background.width *= factor; background.height *= factor;
     state.calibrating = false; state.calibrationPoints = []; $("#calibrationPanel").hidden = true; setBackground(background); fitNetwork(); toast("The background scale is set. New network geometry uses meters.");
@@ -4053,7 +4708,7 @@
     $("#zoomOutButton").addEventListener("click", () => { const rect = $("#networkMap").getBoundingClientRect(); zoomAt(.8, rect.left + rect.width / 2, rect.top + rect.height / 2); });
     $("#fitButton").addEventListener("click", fitNetwork); $("#cancelLinkButton").addEventListener("click", () => { state.linkFrom = ""; render(); });
     $("#undoButton").addEventListener("click", () => stepHistory(false)); $("#redoButton").addEventListener("click", () => stepHistory(true));
-    $("#resetButton").addEventListener("click", () => { if (!state.loaded) return; state.draftBase = { revision: state.loadedRevision, epoch: state.connection.epoch, serverStart: state.loadedStart }; state.history.replace(state.loaded); state.background = state.loaded.background ? clone(state.loaded.background) : null; state.selection = null; render(); fitNetwork(); toast("The draft matches the last loaded project."); });
+    $("#resetButton").addEventListener("click", () => { model.abort(); state.draftBase = { revision: state.loadedRevision, epoch: state.connection.epoch, serverStart: state.loadedStart }; state.history.replace(model.loaded); state.selection = null; render(); fitNetwork(); toast("The draft matches the last loaded project."); });
     $("#validateButton").addEventListener("click", () => checks.run()); $("#applyButton").addEventListener("click", () => applyProject());
     $("#restoreDraftButton").addEventListener("click", restoreDraft); $("#discardDraftButton").addEventListener("click", discardDraft);
     $("#loadLiveButton").addEventListener("click", loadLiveScenario); $("#applyOverButton").addEventListener("click", applyOver);
@@ -4073,20 +4728,29 @@
     // waiting save starts now. It is not in the store yet, so the prompt still shows.
     state.connection.onServerStart = observeServerStart;
     root.addEventListener("focus", refreshLiveStart);
-    root.addEventListener("beforeunload", (event) => { keeper.flush(); backgroundKeeper.flush(); if (keeper.unsaved || backgroundKeeper.unsaved) { event.preventDefault(); event.returnValue = ""; } });
+    root.addEventListener("beforeunload", (event) => { model.abort(); keeper.flush(); backgroundKeeper.flush(); if (keeper.unsaved || backgroundKeeper.unsaved) { event.preventDefault(); event.returnValue = ""; } });
     $("#problemCount").addEventListener("click", showChecks);
     $("#validationList").addEventListener("click", (event) => { const button = event.target.closest("button[data-type]"); if (button) selectCheck({ type: button.dataset.type, id: button.dataset.id }); });
     $("#exportButton").addEventListener("click", exportProject); $("#projectImport").addEventListener("change", (event) => { importProject(event.target.files[0]); event.target.value = ""; });
     $("#backgroundImport").addEventListener("change", (event) => { importBackground(event.target.files[0]); event.target.value = ""; });
-    let opacityBefore = null;
-    $("#backgroundOpacity").addEventListener("pointerdown", () => { opacityBefore = state.history.value; });
-    $("#backgroundOpacity").addEventListener("input", (event) => { const value = Number(event.target.value); $("#opacityValue").value = `${Math.round(value * 100)}%`; if (state.background) { const background = clone(state.background); background.opacity = value; state.history.replace({ scenario: draft(), background }, false); state.background = background; renderMap(); } });
-    $("#backgroundOpacity").addEventListener("pointerup", () => { if (opacityBefore) state.history.commitFrom(opacityBefore, state.history.value); opacityBefore = null; render(); });
-    $("#backgroundOpacity").addEventListener("change", (event) => { if (opacityBefore || !state.background) return; const background = clone(state.background); background.opacity = Number(event.target.value); setBackground(background); });
-    $("#removeBackgroundButton").addEventListener("click", () => { setBackground(null); state.calibrating = false; state.calibrationPoints = []; $("#calibrationPanel").hidden = true; render(); });
+    // The opacity gesture of the model runs from pointer down to pointer
+    // up, pointercancel or a lost pointer capture. Each of the three ends
+    // it in the same way, and records a change as one undo step.
+    const endOpacity = () => { model.endOpacity(); render(); };
+    $("#backgroundOpacity").addEventListener("pointerdown", () => model.pressOpacity());
+    $("#backgroundOpacity").addEventListener("input", (event) => { const value = Number(event.target.value); $("#opacityValue").value = `${Math.round(value * 100)}%`; if (model.setOpacity(value)) { state.background = state.history.background; renderMap(); } });
+    for (const name of ["pointerup", "pointercancel", "lostpointercapture"]) $("#backgroundOpacity").addEventListener(name, endOpacity);
+    $("#backgroundOpacity").addEventListener("change", (event) => { if (model.gestureOpen || !state.background) return; const background = clone(state.background); background.opacity = Number(event.target.value); setBackground(background); });
+    $("#removeBackgroundButton").addEventListener("click", () => { model.abort(); setBackground(null); state.calibrating = false; state.calibrationPoints = []; $("#calibrationPanel").hidden = true; render(); });
+    $("#geoImportButton").addEventListener("click", () => { state.geoOpen = true; renderBackground(); });
+    $("#geoImportCloseButton").addEventListener("click", closeGeoPanel); $("#geoImportRunButton").addEventListener("click", importFramedImage);
+    $("#geoFile").addEventListener("change", (event) => { const file = event.target.files[0]; $("#geoFileName").textContent = file ? file.name : "No image chosen."; });
+    $("#referencePanel").addEventListener("change", renderBackground);
+    $("#placeFrameButton").addEventListener("click", placeFromFrame);
+    $("#detachFrameButton").addEventListener("click", () => { state.history.replace(detachFrame({ scenario: draft(), background: state.background })); render(); });
     $("#calibrateButton").addEventListener("click", () => {
       if (!state.background) { toast("Choose a background image first.", true); return; }
-      
+      if (state.background.frameState === "attached") { toast("Detach the frame before you calibrate the scale.", true); return; }
       state.calibrating = true; state.calibrationPoints = []; $("#calibrationPanel").hidden = false; $("#finishCalibrationButton").disabled = true; updatePrompt(); renderMap();
     });
     $("#finishCalibrationButton").addEventListener("click", finishCalibration); $("#cancelCalibrationButton").addEventListener("click", () => { state.calibrating = false; state.calibrationPoints = []; $("#calibrationPanel").hidden = true; render(); });
