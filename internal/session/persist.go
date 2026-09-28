@@ -495,6 +495,12 @@ func (s *Session) loadState(input loadInput) (loaded loadedState, err error) {
 	if err != nil {
 		return loaded, invalidState(err)
 	}
+	// The saved state does not keep the platooning mode. The project gives
+	// it. A saved link to a pod ahead stays also when the project has no
+	// platoons, and it then drains.
+	if err = project.ConfigurePlatoons(loaded.simulation, loaded.config); err != nil {
+		return loaded, invalidState(err)
+	}
 	// The demand command refuses a change while the traffic demo runs, so
 	// a restored demo cannot apply other demand settings. The restore then
 	// rejects the saved state, as for a different project. The saved state

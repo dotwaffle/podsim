@@ -210,6 +210,7 @@ func TestProjectApplyIsAtomicDetachedAndIdempotent(t *testing.T) {
 	config := customProject()
 	config.SharedRidePartyLimit = 3
 	config.SharedRideMode, config.SharedRideMaxStops = sim.SharedRideDropOffs, 2
+	config.PlatoonLimit = 3
 	original := project.Clone(config)
 	reply := applyCustomProject(t, session, config)
 	if reply.Error != "" {
@@ -227,6 +228,9 @@ func TestProjectApplyIsAtomicDetachedAndIdempotent(t *testing.T) {
 	session.mu.Unlock()
 	if saved.SharedRideMode != sim.SharedRideDropOffs || saved.SharedRideMaxStops != 2 {
 		t.Fatalf("shared ride mode %q with %d stops", saved.SharedRideMode, saved.SharedRideMaxStops)
+	}
+	if mode, limit := session.simulation.Platooning(), session.simulation.PlatoonLimit(); mode != sim.PlatooningVirtual || limit != 3 {
+		t.Fatalf("platooning mode %d with limit %d, want virtual platoons of at most 3 pods", mode, limit)
 	}
 	config.Name = "caller mutation"
 	config.Network.Nodes[0].ID = "caller mutation"

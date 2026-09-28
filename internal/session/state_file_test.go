@@ -76,6 +76,20 @@ func newTestStateFile(t *testing.T) stateFile {
 	return file
 }
 
+// platoonStateFile returns the test state with a platoon limit in the
+// project and a saved link on the second pod. The session decode does not
+// check the link against the network. The restore does that.
+func platoonStateFile(t *testing.T) stateFile {
+	t.Helper()
+	file := newTestStateFile(t)
+	file.Project.PlatoonLimit = 4
+	file.Simulation.Pods = slices.Clone(file.Simulation.Pods)
+	file.Simulation.Pods[1].Platoon = &sim.SavedPlatoonLink{
+		Leader: file.Simulation.Pods[0].ID, Lane: 1, LeaderLane: 2, Lanes: 3, Turn: 0.25, Draining: true,
+	}
+	return file
+}
+
 // sessionStateFile copies the state of shared into a state file, as a save
 // does. The file has a fixed epoch and time.
 func sessionStateFile(t *testing.T, shared *Session) stateFile {
@@ -183,6 +197,7 @@ func TestStateFileRoundTrip(t *testing.T) {
 	}{
 		{"example with demand", newTestStateFile(t)},
 		{"new session", sessionStateFile(t, fresh)},
+		{"platoon link", platoonStateFile(t)},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
@@ -677,6 +692,9 @@ func TestStateFileWorstCaseSize(t *testing.T) {
 		Destination: id("d", 0), DestinationStation: id("e", 0), ClaimsDestination: true, Released: true,
 		Route: route(lanes + nodes), RouteIndex: widest, LaneID: id("l", 0),
 		LaneDistance: -math.MaxFloat64, Distance: -math.MaxFloat64, Waiting: true, WaitSince: widest,
+		Platoon: &sim.SavedPlatoonLink{
+			Leader: id("p", 1), Lane: widest, LeaderLane: widest, Lanes: widest, Turn: -math.MaxFloat64, Draining: true,
+		},
 	}
 	trip := sim.SavedTrip{
 		Request: request, Route: route(nodes), Boarded: true,

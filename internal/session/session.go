@@ -305,6 +305,9 @@ func (s *Session) startProject(config project.Config) error {
 	if err := project.ConfigureSharedRides(simulation, owned); err != nil {
 		return fmt.Errorf("configure shared rides: %w", err)
 	}
+	if err := project.ConfigurePlatoons(simulation, owned); err != nil {
+		return fmt.Errorf("configure platoons: %w", err)
+	}
 	s.simulation, s.project, s.epoch = simulation, owned, rand.Text()
 	s.projectRevision, s.projectOrigin, s.generation, s.speed = 1, 1, 1, 1
 	s.demand = newDemand(demandInput{config: owned.Demand, network: owned.Network, profiles: owned.DemandProfiles})
@@ -656,6 +659,11 @@ func (s *Session) apply(command Command) (outcome, error) {
 		if err := s.simulation.StartDemo(); err != nil {
 			return outcome{}, err
 		}
+		// The demo makes a new fleet with the default settings. A reset
+		// after the demo keeps them, so apply the project settings again.
+		if err := project.ConfigurePlatoons(s.simulation, s.project); err != nil {
+			return outcome{}, fmt.Errorf("configure platoons: %w", err)
+		}
 		s.speed = 1
 		disabled := s.project.Demand
 		disabled.Enabled = false
@@ -735,6 +743,9 @@ func (s *Session) applyProject(command Command) error {
 	}
 	if err := project.ConfigureSharedRides(candidate, config); err != nil {
 		return fmt.Errorf("configure shared rides: %w", err)
+	}
+	if err := project.ConfigurePlatoons(candidate, config); err != nil {
+		return fmt.Errorf("configure platoons: %w", err)
 	}
 	candidate.SetPaused(true)
 	if err := s.save(config); err != nil {

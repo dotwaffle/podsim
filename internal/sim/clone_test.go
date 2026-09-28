@@ -180,7 +180,7 @@ var persistRules = map[reflect.Type]map[string]persistRule{
 		"reservationLookaheadSeconds": persistUnsupported, "finishingPodWait": persistUnsupported,
 		"requestBoardings": persistReset, "requestCompletions": persistReset, "nodePasses": persistReset,
 		"recordExperiments": persistUnsupported, "pass": persistReset,
-		"platooning": persistUnsupported, "platoonLimit": persistUnsupported, "platoonLinks": persistDerive,
+		"platooning": persistSession, "platoonLimit": persistSession, "platoonLinks": persistDerive,
 		"platoonData": persistDerive, "platoonOrder": persistReset, "platoonAhead": persistReset,
 		"platoonLanes": persistReset,
 	},

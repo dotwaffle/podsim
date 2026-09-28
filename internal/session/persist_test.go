@@ -975,6 +975,57 @@ func newDemoRun(t *testing.T) storedRun {
 	return storedRun{session: s, data: data, file: decodeTestState(t, data)}
 }
 
+// TestDemoKeepsProjectSettings runs the traffic demo of the example
+// project with platoons of up to 3 pods. The demo makes a new fleet, and
+// the settings of the project must apply to it, after a reset, and after a
+// save and a restore during the demo and after it.
+func TestDemoKeepsProjectSettings(t *testing.T) {
+	t.Parallel()
+	config := project.Default()
+	config.PlatoonLimit = 3
+	check := func(s *Session, when string) {
+		t.Helper()
+		s.mu.Lock()
+		defer s.mu.Unlock()
+		if mode, limit := s.simulation.Platooning(), s.simulation.PlatoonLimit(); mode != sim.PlatooningVirtual || limit != 3 {
+			t.Fatalf("%s: platooning mode %d with limit %d, want virtual platoons of at most 3 pods", when, mode, limit)
+		}
+	}
+	store := &fakeStore{}
+	// restore saves s and returns a new session from the saved state.
+	restore := func(s *Session, when string) *Session {
+		t.Helper()
+		if err := s.SaveState(t.Context(), SavePeriodic); err != nil {
+			t.Fatal(err)
+		}
+		writes := store.writeList()
+		restored := startFromStore(t, StoreInput{Store: &fakeStore{data: writes[len(writes)-1]}, Project: &config})
+		if got := restored.State().Restore; got.Tier != "physical" {
+			t.Fatalf("%s: restore = %+v, want the physical tier", when, got)
+		}
+		return restored
+	}
+	s := startFromStore(t, StoreInput{Store: store, Project: &config})
+	client := newTestClient(s, "demo")
+	client.mustApply(t, Command{Action: "demo"})
+	check(s, "demo")
+	advanceTicks(s, 10*sim.TicksPerSecond)
+	check(restore(s, "demo"), "restore during the demo")
+	for ticks := 0; s.State().Simulation.Demo; ticks++ {
+		if ticks == 600*sim.TicksPerSecond {
+			t.Fatal("the demo did not end in 600 simulated seconds")
+		}
+		s.advance()
+	}
+	if got := s.State().Simulation.DemoError; got != "" {
+		t.Fatalf("the demo failed: %s", got)
+	}
+	check(s, "after the demo")
+	check(restore(s, "after the demo"), "restore after the demo")
+	client.mustApply(t, Command{Action: "reset"})
+	check(s, "reset")
+}
+
 // TestNewFromStoreProjectDifferences restores a saved state with project
 // files that differ from the saved project. Only a change of the demand
 // settings keeps the saved state, and not while the traffic demo runs.
@@ -2561,6 +2612,57 @@ func TestLondonStateSave(t *testing.T) {
 			t.Logf("London restore: %v, %d pods demoted", time.Since(started), restored.State().Restore.Demoted)
 		})
 	}
+}
+
+// TestLondonPlatoonRestore saves a London session with platoons while a
+// link exists. The restore must use the physical tier, keep each saved
+// link, and set the platooning mode and limit of the project again,
+// because the saved state does not keep them.
+func TestLondonPlatoonRestore(t *testing.T) {
+	t.Parallel()
+	config := scenarios.London()
+	config.PlatoonLimit = 3
+	config.Demand.Enabled = true
+	config.Demand.Band, config.Demand.PerMinute = "early", 120
+	store := &fakeStore{}
+	s := startFromStore(t, StoreInput{Store: store, Project: &config})
+	client := newTestClient(s, "london")
+	client.mustApply(t, Command{Action: "speed", Speed: 8})
+	// Links form after about 70 simulated seconds.
+	for advances := 0; s.simulation.CoupledPods() == 0; advances++ {
+		if advances == 3000 {
+			t.Fatal("no platoon formed in 400 simulated seconds")
+		}
+		s.advance()
+	}
+	if err := s.SaveState(t.Context(), SavePeriodic); err != nil {
+		t.Fatal(err)
+	}
+	writes := store.writeList()
+	file := decodeTestState(t, writes[len(writes)-1])
+	links := 0
+	for _, pod := range file.Simulation.Pods {
+		if pod.Platoon != nil {
+			links++
+		}
+	}
+	if links == 0 {
+		t.Fatal("the saved state has no platoon link")
+	}
+	restored := startFromStore(t, StoreInput{Store: &fakeStore{data: writes[len(writes)-1]}, Project: &config})
+	if got := restored.State().Restore; got.Tier != "physical" || got.Demoted != 0 {
+		t.Fatalf("restore = %+v, want the physical tier with no demoted pod", got)
+	}
+	simulation := restored.simulation
+	if simulation.Platooning() != sim.PlatooningVirtual || simulation.PlatoonLimit() != 3 {
+		t.Fatalf("restored mode %d with limit %d, want virtual platoons of at most 3 pods", simulation.Platooning(), simulation.PlatoonLimit())
+	}
+	for index, pod := range simulation.ExportState().Pods {
+		if want := file.Simulation.Pods[index].Platoon; !reflect.DeepEqual(pod.Platoon, want) {
+			t.Fatalf("pod %s has link %+v after the restore, want %+v", pod.ID, pod.Platoon, want)
+		}
+	}
+	t.Logf("restored %d links at tick %d", links, file.Simulation.Tick)
 }
 
 // lostOrders makes the saved state submit two orders that it does not hold.

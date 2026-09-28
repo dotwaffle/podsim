@@ -91,6 +91,9 @@ func TestValidateRejectsMalformedProjects(t *testing.T) {
 		{"sharing mode", func(config *Config) { config.SharedRideMode = "pickups" }},
 		{"sharing stops", func(config *Config) { config.SharedRideMaxStops = sim.MaxSharedRideStops + 1 }},
 		{"negative sharing stops", func(config *Config) { config.SharedRideMaxStops = -1 }},
+		{"platoon limit of one pod", func(config *Config) { config.PlatoonLimit = 1 }},
+		{"platoon limit", func(config *Config) { config.PlatoonLimit = sim.MaxPlatoonLimit + 1 }},
+		{"negative platoon limit", func(config *Config) { config.PlatoonLimit = -1 }},
 		{"pattern", func(config *Config) { config.Demand.Pattern = "rush" }},
 		{"missing profile", func(config *Config) {
 			config.Demand.Pattern, config.Demand.Profile, config.Demand.Band = "profile", "missing", "am"
@@ -267,6 +270,42 @@ func TestSharedRideModeDefaults(t *testing.T) {
 	}
 	if mode, stops := EffectiveSharedRideMode(config), EffectiveSharedRideMaxStops(config); mode != sim.SharedRideDropOffs || stops != sim.MaxSharedRideStops {
 		t.Fatalf("effective mode %q with %d stops", mode, stops)
+	}
+}
+
+// TestConfigurePlatoons checks each valid platoon limit. A limit of 0
+// turns platoons off and keeps the limit of the simulation.
+func TestConfigurePlatoons(t *testing.T) {
+	t.Parallel()
+	tests := []struct {
+		limit, wantLimit int
+		want             sim.Platooning
+	}{
+		{0, sim.MaxPlatoonLimit, sim.PlatooningOff},
+		{2, 2, sim.PlatooningVirtual},
+		{3, 3, sim.PlatooningVirtual},
+		{4, 4, sim.PlatooningVirtual},
+	}
+	for _, test := range tests {
+		config := Default()
+		config.PlatoonLimit = test.limit
+		if err := Validate(config); err != nil {
+			t.Fatalf("limit %d: %v", test.limit, err)
+		}
+		simulation, err := sim.NewFleet(config.Network, config.Fleet)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := simulation.SetPlatooning(sim.PlatooningVirtual); err != nil {
+			t.Fatal(err)
+		}
+		if err := ConfigurePlatoons(simulation, config); err != nil {
+			t.Fatalf("limit %d: %v", test.limit, err)
+		}
+		if simulation.Platooning() != test.want || simulation.PlatoonLimit() != test.wantLimit {
+			t.Fatalf("limit %d: mode %d with limit %d, want mode %d with limit %d",
+				test.limit, simulation.Platooning(), simulation.PlatoonLimit(), test.want, test.wantLimit)
+		}
 	}
 }
 

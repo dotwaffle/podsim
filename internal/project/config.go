@@ -161,8 +161,12 @@ type Config struct {
 	// SharedRideMaxStops caps the intermediate stops of a pod in drop-offs
 	// mode, from 1 to sim.MaxSharedRideStops. Zero loads as
 	// sim.DefaultSharedRideMaxStops.
-	SharedRideMaxStops int  `json:"sharedRideMaxStops,omitempty"`
-	Redistribution     bool `json:"redistribution"`
+	SharedRideMaxStops int `json:"sharedRideMaxStops,omitempty"`
+	// PlatoonLimit is the largest number of pods in one virtual platoon,
+	// from sim.MinPlatoonLimit to sim.MaxPlatoonLimit. Zero turns platoons
+	// off.
+	PlatoonLimit   int  `json:"platoonLimit,omitzero"`
+	Redistribution bool `json:"redistribution"`
 }
 
 // Default returns the supplied example project.
@@ -210,6 +214,9 @@ func Validate(config Config) error {
 	}
 	if config.SharedRideMaxStops < 0 || config.SharedRideMaxStops > sim.MaxSharedRideStops {
 		return fmt.Errorf("shared ride stop limit must be 1 to %d", sim.MaxSharedRideStops)
+	}
+	if limit := config.PlatoonLimit; limit != 0 && (limit < sim.MinPlatoonLimit || limit > sim.MaxPlatoonLimit) {
+		return fmt.Errorf("platoon limit must be %d to %d, or 0 for no platoons", sim.MinPlatoonLimit, sim.MaxPlatoonLimit)
 	}
 	if err := validateNames(config); err != nil {
 		return err
@@ -275,6 +282,20 @@ func ConfigureSharedRides(simulation *sim.Simulation, config Config) error {
 		return err
 	}
 	return simulation.SetSharedRideMode(EffectiveSharedRideMode(config), EffectiveSharedRideMaxStops(config))
+}
+
+// ConfigurePlatoons applies the platoon limit of a project to a
+// simulation. A limit of 0 turns platoons off and keeps the limit of the
+// simulation. The saved state does not keep the platooning mode, so the
+// session also calls this function after a restore.
+func ConfigurePlatoons(simulation *sim.Simulation, config Config) error {
+	if config.PlatoonLimit == 0 {
+		return simulation.SetPlatooning(sim.PlatooningOff)
+	}
+	if err := simulation.SetPlatoonLimit(config.PlatoonLimit); err != nil {
+		return err
+	}
+	return simulation.SetPlatooning(sim.PlatooningVirtual)
 }
 
 // validatePassengerRoutes returns an error for the first pair of passenger

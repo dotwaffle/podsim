@@ -191,4 +191,5 @@ project.demandProfiles[].flows[].weights[] number
 project.sharedRidePartyLimit number
 project.sharedRideMode string
 project.sharedRideMaxStops number
+project.platoonLimit number
 project.redistribution boolean
