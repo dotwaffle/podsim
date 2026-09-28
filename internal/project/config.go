@@ -163,6 +163,10 @@ type Config struct {
 	// mode, from 1 to sim.MaxSharedRideStops. Zero loads as
 	// sim.DefaultSharedRideMaxStops.
 	SharedRideMaxStops int `json:"sharedRideMaxStops,omitempty"`
+	// SharedRideJoin selects the parties that can join a boarding pod by
+	// their pickup state: "unassigned" or "reassign-existing". An empty
+	// policy loads as sim.DefaultSharedRideJoin, which is "unassigned".
+	SharedRideJoin sim.SharedRideJoin `json:"sharedRideJoin,omitempty"`
 	// PlatoonLimit is the largest number of pods in one virtual platoon,
 	// from sim.MinPlatoonLimit to sim.MaxPlatoonLimit. Zero turns platoons
 	// off.
@@ -215,6 +219,9 @@ func Validate(config Config) error {
 	}
 	if config.SharedRideMaxStops < 0 || config.SharedRideMaxStops > sim.MaxSharedRideStops {
 		return fmt.Errorf("shared ride stop limit must be 1 to %d", sim.MaxSharedRideStops)
+	}
+	if join := config.SharedRideJoin; join != "" && join != sim.SharedRideJoinUnassigned && join != sim.SharedRideJoinReassignExisting {
+		return fmt.Errorf("shared ride join policy must be %q or %q", sim.SharedRideJoinUnassigned, sim.SharedRideJoinReassignExisting)
 	}
 	if limit := config.PlatoonLimit; limit != 0 && (limit < sim.MinPlatoonLimit || limit > sim.MaxPlatoonLimit) {
 		return fmt.Errorf("platoon limit must be %d to %d, or 0 for no platoons", sim.MinPlatoonLimit, sim.MaxPlatoonLimit)
@@ -276,13 +283,25 @@ func EffectiveSharedRideMaxStops(config Config) int {
 	return config.SharedRideMaxStops
 }
 
+// EffectiveSharedRideJoin returns the join policy, with
+// sim.DefaultSharedRideJoin for an empty policy.
+func EffectiveSharedRideJoin(config Config) sim.SharedRideJoin {
+	if config.SharedRideJoin == "" {
+		return sim.DefaultSharedRideJoin
+	}
+	return config.SharedRideJoin
+}
+
 // ConfigureSharedRides applies the shared ride settings of a project to a
 // simulation.
 func ConfigureSharedRides(simulation *sim.Simulation, config Config) error {
 	if err := simulation.SetSharedRidePartyLimit(EffectiveSharedRidePartyLimit(config)); err != nil {
 		return err
 	}
-	return simulation.SetSharedRideMode(EffectiveSharedRideMode(config), EffectiveSharedRideMaxStops(config))
+	if err := simulation.SetSharedRideMode(EffectiveSharedRideMode(config), EffectiveSharedRideMaxStops(config)); err != nil {
+		return err
+	}
+	return simulation.SetSharedRideJoin(EffectiveSharedRideJoin(config))
 }
 
 // ConfigurePlatoons applies the platoon limit of a project to a

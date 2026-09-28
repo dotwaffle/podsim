@@ -1045,7 +1045,7 @@ With `-project`, **Start demand** saves this setting in the file, so demand star
 
 One party contains one passenger.
 By default, each party uses one pod.
-An optional limit of two to eight lets unassigned parties join a pod that is still boarding at their origin.
+An optional limit of two to eight lets waiting parties join a pod that is still boarding at their origin.
 The project setting `sharedRideMode` selects the parties that can join:
 
 | Mode | Parties that can join |
@@ -1076,6 +1076,17 @@ The stops do not change after the pod departs.
 At each stop, the parties for that stop alight, and the pod continues to its next stop with the other parties.
 While it waits for track at such a stop, its activity is **Continuing**.
 Sharing does not wait for more parties, and a pod with passengers does not pick up parties on its way.
+
+The project setting `sharedRideJoin` selects the waiting parties that can join by their pickup state:
+
+| Policy | Parties that can join |
+| --- | --- |
+| `unassigned` | The default. Parties that have no pod. |
+| `reassign-existing` | Also parties that have an empty pod on its way, when the boarding pod already stops at their destination. |
+
+With `reassign-existing`, dispatch releases the pod of a party that joins, as it does when an idle local pod takes a trip.
+The stops of the boarding pod do not change, so the parties aboard get no new stop.
+A party whose pod is idle at the origin boards that pod.
 
 #### Dispatch order
 
