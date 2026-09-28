@@ -1677,6 +1677,37 @@ test("portable projects preserve the shared ride mode and stop limit", () => {
   }
 });
 
+test("portable projects preserve the platoon limit", () => {
+  // The server accepts 0 for no platoons, and 2 to 4 pods. A platoon of one
+  // pod is not a platoon, so 1 is an error.
+  const error = "The platoon limit must be 2 to 4, or 0 for no platoons.";
+  for (const limit of [0, 2, 3, 4]) {
+    const config = connectedScenario();
+    config.platoonLimit = limit;
+    assert.deepEqual(editor.validateConfig(config), [], `limit ${limit}`);
+    assert.equal(editor.parseDocument(editor.serializeDocument(config)).scenario.platoonLimit, limit, `limit ${limit}`);
+  }
+  for (const limit of [1, 5, -1, 2.5, "4", null]) {
+    const config = connectedScenario();
+    config.platoonLimit = limit;
+    assert.deepEqual(editor.validateConfig(config), [error], `limit ${limit}`);
+    assert.throws(() => editor.parseDocument(editor.serializeDocument(config)), { message: `The project has 1 error. ${error}` }, `limit ${limit}`);
+  }
+});
+
+test("the platoon field offers the limits that the server accepts", () => {
+  const html = fs.readFileSync(path.join(__dirname, "editor.html"), "utf8");
+  const select = html.match(/<select id="platoonLimit">(.*?)<\/select>/);
+  assert.ok(select, "the editor has no platoon field");
+  const values = [...select[1].matchAll(/<option value="(\d+)">/g)].map((match) => Number(match[1]));
+  assert.deepEqual(values, [0, 2, 3, 4]);
+  for (const limit of values) {
+    const config = connectedScenario();
+    config.platoonLimit = limit;
+    assert.deepEqual(editor.validateConfig(config), [], `limit ${limit}`);
+  }
+});
+
 test("import gives the default settings to a browser export that leaves them out", () => {
   // An older or edited browser export can leave out a setting. The import
   // adds the default value, as for a server project file. A party limit from
@@ -1689,6 +1720,8 @@ test("import gives the default settings to a browser export that leaves them out
     { name: "a zero party limit, which the server loads as one", edit: (config) => { config.sharedRidePartyLimit = 0; }, want: (config) => ({ ...config, sharedRidePartyLimit: 1 }) },
     { name: "no shared ride mode", edit: (config) => { delete config.sharedRideMode; delete config.sharedRideMaxStops; }, want: (config) => ({ ...config, sharedRideMode: "destination", sharedRideMaxStops: 3 }) },
     { name: "an empty mode and a zero stop limit, which the server loads as the defaults", edit: (config) => { Object.assign(config, { sharedRideMode: "", sharedRideMaxStops: 0 }); }, want: (config) => ({ ...config, sharedRideMode: "destination", sharedRideMaxStops: 3 }) },
+    { name: "no platoon limit", edit: (config) => { delete config.platoonLimit; }, want: (config) => ({ ...config, platoonLimit: 0 }) },
+    { name: "a platoon limit", edit: (config) => { config.platoonLimit = 3; }, want: (config) => config },
     { name: "no demand profiles", edit: (config) => { delete config.demandProfiles; }, want: (config) => ({ ...config, demandProfiles: [] }) },
     { name: "a valid band that is not the first", edit: (config) => { Object.assign(config.demand, { profile: "weekday", band: "pm" }); }, want: (config) => config },
     { name: "a party limit above 8", edit: (config) => { config.sharedRidePartyLimit = 9; }, error: limitError },
@@ -3463,6 +3496,7 @@ test("an empty scenario and the fallback draft have the settings of a normalized
     const normalized = editor.normalizeConfig(config);
     assert.equal(config.sharedRidePartyLimit, 1, tc.name);
     assert.deepEqual([config.sharedRideMode, config.sharedRideMaxStops], ["destination", 3], tc.name);
+    assert.equal(config.platoonLimit, 0, tc.name);
     assert.deepEqual(config, normalized, tc.name);
     assert.deepEqual(editor.validateConfig(config), editor.validateConfig(normalized), tc.name);
     assert.deepEqual(editor.configWarnings(config), editor.configWarnings(normalized), tc.name);

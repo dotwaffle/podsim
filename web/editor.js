@@ -43,6 +43,9 @@
   const STATION_LANE_ROLES = new Set(["approach", "entry", "berth-access", "through", "departure", "exit"]);
   // sharedRideModes mirrors the modes of sim.SharedRideMode.
   const sharedRideModes = ["destination", "drop-offs"];
+  // platoonLimits holds the platoon limits that project.Validate accepts. 0
+  // turns platoons off.
+  const platoonLimits = [0, 2, 3, 4];
   // IMAGE_FILE_BYTES is the largest background image file that the editor
   // imports. SERVER_PROJECT_BYTES mirrors project.MaxFileBytes on the server,
   // the largest compact project. A Go test in internal/project checks the
@@ -85,6 +88,7 @@
       sharedRidePartyLimit: 1,
       sharedRideMode: "destination",
       sharedRideMaxStops: 3,
+      platoonLimit: 0,
       redistribution: false,
     };
   }
@@ -136,6 +140,7 @@
     config.sharedRidePartyLimit = Math.max(1, Math.min(8, Math.floor(Number(config.sharedRidePartyLimit) || 1)));
     config.sharedRideMode = sharedRideModes.includes(config.sharedRideMode) ? config.sharedRideMode : "destination";
     config.sharedRideMaxStops = Math.max(1, Math.min(7, Math.floor(Number(config.sharedRideMaxStops) || 3)));
+    config.platoonLimit = platoonLimits.includes(config.platoonLimit) ? config.platoonLimit : 0;
     config.redistribution = Boolean(config.redistribution);
     inferStationLanes(config.network);
     return config;
@@ -1405,6 +1410,7 @@
     if ("sharedRidePartyLimit" in value && (!Number.isInteger(value.sharedRidePartyLimit) || value.sharedRidePartyLimit < 0 || value.sharedRidePartyLimit > 8)) errors.push("The shared ride party limit must be 1 to 8.");
     if ("sharedRideMode" in value && value.sharedRideMode !== "" && !sharedRideModes.includes(value.sharedRideMode)) errors.push("The shared ride mode must be destination or drop-offs.");
     if ("sharedRideMaxStops" in value && (!Number.isInteger(value.sharedRideMaxStops) || value.sharedRideMaxStops < 0 || value.sharedRideMaxStops > 7)) errors.push("The shared ride stop limit must be 1 to 7.");
+    if ("platoonLimit" in value && !platoonLimits.includes(value.platoonLimit)) errors.push("The platoon limit must be 2 to 4, or 0 for no platoons.");
     return [...new Set(errors)];
   }
 
@@ -2854,6 +2860,7 @@
     $("#sharedRideMode").value = config.sharedRideMode;
     $("#sharedRideMaxStops").value = config.sharedRideMaxStops;
     $("#sharedRideMaxStopsLabel").hidden = config.sharedRideMode !== "drop-offs";
+    $("#platoonLimit").value = String(config.platoonLimit);
   }
 
   function render() {
@@ -3369,6 +3376,7 @@
     $("#sharedRidePartyLimit").addEventListener("change", (event) => mutate((config) => { config.sharedRidePartyLimit = Math.max(1, Math.min(8, Math.floor(Number(event.target.value) || 1))); return config; }));
     $("#sharedRideMode").addEventListener("change", (event) => mutate((config) => { config.sharedRideMode = sharedRideModes.includes(event.target.value) ? event.target.value : "destination"; return config; }));
     $("#sharedRideMaxStops").addEventListener("change", (event) => mutate((config) => { config.sharedRideMaxStops = Math.max(1, Math.min(7, Math.floor(Number(event.target.value) || 3))); return config; }));
+    $("#platoonLimit").addEventListener("change", (event) => mutate((config) => { const limit = Number(event.target.value); config.platoonLimit = platoonLimits.includes(limit) ? limit : 0; return config; }));
     $("#demandSeed").addEventListener("change", (event) => mutate((config) => { config.demand.seed = Math.max(0, Math.floor(Number(event.target.value))); return config; }));
     $("#redistribution").addEventListener("change", (event) => mutate((config) => { config.redistribution = event.target.checked; return config; }));
     $("#fleetControls").addEventListener("change", (event) => { if (event.target.dataset.station) setDraft(setFleetCount(draft(), event.target.dataset.station, event.target.value)); });

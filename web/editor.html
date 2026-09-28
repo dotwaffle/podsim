@@ -142,6 +142,7 @@
         <label>Parties per pod<input id="sharedRidePartyLimit" type="number" min="1" max="8" step="1"></label>
         <label>Shared rides<select id="sharedRideMode"><option value="destination">Same destination</option><option value="drop-offs">Drop-offs on the route</option></select></label>
         <label id="sharedRideMaxStopsLabel">Stops before the last stop<input id="sharedRideMaxStops" type="number" min="1" max="7" step="1"></label>
+        <label>Platoons<select id="platoonLimit"><option value="0">Off</option><option value="2">Up to 2 pods</option><option value="3">Up to 3 pods</option><option value="4">Up to 4 pods</option></select></label>
         <label>Seed<input id="demandSeed" type="number" min="0" step="1"></label>
         <label class="check"><input id="redistribution" type="checkbox"> Redistribute empty pods</label>
         <p class="hint">Moves an idle empty pod to a busy station that has no pod, only while demand is below one trip per minute for each 20 pods.</p>
