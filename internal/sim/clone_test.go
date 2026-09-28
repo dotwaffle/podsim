@@ -33,6 +33,7 @@ var cloneRules = map[reflect.Type]map[string]cloneRule{
 		"laneSafety": cloneShare, "berthSafety": cloneShare, "vehicleIndexes": cloneShare,
 		"berthResources": cloneShare, "laneCells": cloneShare, "approachStations": cloneShare, "routeStations": cloneDrop,
 		"requestBoardings": cloneCopy, "requestCompletions": cloneCopy, "nodePasses": cloneCopy, "monitor": cloneShare,
+		"pass": cloneDrop,
 	},
 	reflect.TypeFor[vehicle](): {
 		"Vehicle": cloneCopy, "blocks": cloneShare, "blockStarts": cloneShare, "routeReleases": cloneCopy,
@@ -177,7 +178,7 @@ var persistRules = map[reflect.Type]map[string]persistRule{
 		"congestionRoutes": persistUnsupported, "nextCongestionRouteRefresh": persistUnsupported,
 		"reservationLookaheadSeconds": persistUnsupported, "finishingPodWait": persistUnsupported,
 		"requestBoardings": persistReset, "requestCompletions": persistReset, "nodePasses": persistReset,
-		"recordExperiments": persistUnsupported,
+		"recordExperiments": persistUnsupported, "pass": persistReset,
 	},
 	reflect.TypeFor[vehicle](): {
 		"Vehicle": persistSave, "phaseTicks": persistSave, "blocks": persistDerive, "blockStarts": persistDerive,
@@ -623,6 +624,8 @@ func cloneFixtures() []cloneFixture {
 func stripCaches(s *Simulation) *Simulation {
 	c := *s
 	c.lengths, c.routes, c.routeOrder = nil, nil, nil
+	// The dispatch pass holds only buffers of the last dispatch.
+	c.pass = nil
 	// The cursors of a block list depend on the order of the lookups.
 	c.vehicles = slices.Clone(s.vehicles)
 	for index := range c.vehicles {

@@ -74,27 +74,26 @@ func (s *Simulation) RequestTrip(origin, destination string) error {
 // berth. This includes a pod that a restore released. See
 // parkUnclaimedReleased.
 func (s *Simulation) dispatch() {
-	assigned := make(map[string]bool, len(s.waiting))
-	for _, trip := range s.waiting {
-		if trip.request.PodID != "" {
-			assigned[trip.request.PodID] = true
-		}
+	if s.pass == nil {
+		s.pass = new(dispatchPass)
 	}
-	pass := dispatchPass{assigned: assigned, pickups: make(map[string]*vehicle)}
+	pass := s.pass
+	pass.begin(s.waiting)
+	assigned := pass.assigned
 	for i := 0; i < len(s.waiting); {
-		if s.mayBeIdle(&pass, s.waiting[i].request.From) && s.promoteReadyPickup(i) {
+		if s.mayBeIdle(pass, s.waiting[i].request.From) && s.promoteReadyPickup(i) {
 			pass.reset()
 		}
 		trip := &s.waiting[i]
 		trip.request.DispatchReason = ""
-		if trip.request.PodID == "" && s.joinSharedRide(*trip, &pass) {
+		if trip.request.PodID == "" && s.joinSharedRide(*trip, pass) {
 			pass.reset()
 			s.waiting = slices.Delete(s.waiting, i, i+1)
 			continue
 		}
 		v := s.findVehicle(trip.request.PodID)
-		if v != nil && (v.Pod.Activity != Idle || v.Pod.StationID != trip.request.From) && s.mayBeIdle(&pass, trip.request.From) {
-			if local := s.localPickup(trip.request.From, &pass); local != nil {
+		if v != nil && (v.Pod.Activity != Idle || v.Pod.StationID != trip.request.From) && s.mayBeIdle(pass, trip.request.From) {
+			if local := s.localPickup(trip.request.From, pass); local != nil {
 				pass.reset()
 				delete(assigned, v.Pod.ID)
 				s.releasePickup(v)
@@ -104,14 +103,14 @@ func (s *Simulation) dispatch() {
 				v = local
 			}
 		}
-		if v == nil && s.keepHold(trip, &pass) {
+		if v == nil && s.keepHold(trip, pass) {
 			i++
 			continue
 		}
 		if v == nil {
 			var known bool
 			if v, known = pass.pickups[trip.request.From]; !known {
-				v = s.pickupPod(trip.request.From, &pass)
+				v = s.pickupPod(trip.request.From, pass)
 				pass.pickups[trip.request.From] = v
 			}
 			if v == nil {
@@ -229,6 +228,26 @@ type dispatchPass struct {
 	// true. See boardingPods.
 	boarding      map[string][]*vehicle
 	boardingKnown bool
+}
+
+// begin starts a pass for the waiting trips. It reuses the buffers of the
+// last pass. Only map lookups read assigned and pickups, and the slices
+// are filled again after each reset, so a reused buffer gives the same
+// results as a new one.
+func (pass *dispatchPass) begin(waiting []waitingTrip) {
+	if pass.assigned == nil {
+		pass.assigned = make(map[string]bool, len(waiting))
+	}
+	if pass.pickups == nil {
+		pass.pickups = make(map[string]*vehicle)
+	}
+	clear(pass.assigned)
+	for _, trip := range waiting {
+		if trip.request.PodID != "" {
+			pass.assigned[trip.request.PodID] = true
+		}
+	}
+	pass.reset()
 }
 
 // reset removes the results of the pass.

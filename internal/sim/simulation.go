@@ -323,6 +323,10 @@ type Simulation struct {
 	requestBoardings   []RequestTiming
 	requestCompletions []requestCompletion
 	nodePasses         []NodePass
+	// pass holds the buffers of dispatch, which makes it at the first call
+	// and reuses it at each later call. It is not part of the state. Clone
+	// drops it, so two simulations never share the buffers.
+	pass *dispatchPass
 }
 
 // New creates a one-pod scenario for focused experiments.

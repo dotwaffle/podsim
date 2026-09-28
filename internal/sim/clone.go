@@ -10,8 +10,9 @@ import (
 // state, and drops pure route and length caches.
 func (s *Simulation) Clone() *Simulation {
 	c := *s
-	// Lookups refill these caches with identical results.
-	c.lengths, c.routes, c.routeOrder, c.routeStations = nil, nil, nil, nil
+	// Lookups refill these caches with identical results, and dispatch
+	// makes a new pass.
+	c.lengths, c.routes, c.routeOrder, c.routeStations, c.pass = nil, nil, nil, nil, nil
 	c.vehicles = slices.Clone(s.vehicles)
 	for i := range c.vehicles {
 		v := &c.vehicles[i]
