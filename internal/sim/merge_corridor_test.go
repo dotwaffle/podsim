@@ -18,6 +18,10 @@ const (
 	// corridorSkip is the number of pods that pass the measure point before
 	// the measured headways start. It excludes the start of the queue.
 	corridorSkip = 5
+	// corridorPlatoonGap is the distance between two stopped pods of one
+	// platoon. It is more than the largest link clearance of the corridor,
+	// 16.98 m at the 90 degree merge.
+	corridorPlatoonGap = 18.0
 )
 
 // mergeCorridor returns a main lane, an exit lane and an approach lane in a
@@ -90,6 +94,10 @@ type corridorCase struct {
 	// platoonLimit turns on virtual platoons with this limit. 0 keeps
 	// platooning off.
 	platoonLimit int
+	// platoonQueue restores each queue as platoons of platoonLimit pods,
+	// corridorPlatoonGap apart in a platoon and corridorQueueGap apart
+	// between two platoons. Otherwise all pods are corridorQueueGap apart.
+	platoonQueue bool
 }
 
 type corridorResult struct {
@@ -119,18 +127,30 @@ func runMergeCorridor(t *testing.T, test corridorCase) corridorResult {
 	state := SavedState{SharedRidePartyLimit: 1}
 	stream := make(map[string]string)
 	for streamIndex, feed := range test.streams {
+		distance := test.queueHead
 		for position := range corridorStreamPods {
 			id := fmt.Sprintf("p%02d", streamIndex*corridorStreamPods+position+1)
 			fleet = append(fleet, Placement{ID: id, StationID: "dest", BerthID: fmt.Sprintf("dest-%02d", len(fleet)+1)})
 			state.RequestID++
 			state.Boarded++
-			distance := test.queueHead - corridorQueueGap*float64(position)
+			leader := ""
+			if position > 0 {
+				gap := corridorQueueGap
+				if test.platoonQueue && position%test.platoonLimit != 0 {
+					gap, leader = corridorPlatoonGap, state.Pods[len(state.Pods)-1].ID
+				}
+				distance -= gap
+			}
 			state.Pods = append(state.Pods, SavedPod{
 				ID: id, Activity: "traveling", Occupied: true, Origin: "origin-1", DestinationStation: "dest",
 				Riders: []SavedRequest{{ID: state.RequestID, From: "origin", To: "dest", PartySize: 1, PodID: id}},
 				Stops:  []string{"dest"},
 				Route:  []int{laneIndex[feed], laneIndex["exit"], laneIndex["approach"]}, LaneID: feed, LaneDistance: distance, Distance: distance,
 			})
+			if leader != "" {
+				route := []string{feed, "exit", "approach"}
+				state.Pods[len(state.Pods)-1].Platoon = savedRunLink(network, route, route, leader, 0)
+			}
 			stream[id] = feed
 		}
 	}
@@ -230,5 +250,42 @@ func TestMergeCorridorHeadway(t *testing.T) {
 				t.Errorf("headway %.3f s, want %.3f s", got.headway, test.want)
 			}
 		})
+	}
+}
+
+// TestMergeCorridorPlatoonHeadway pins the saturation headway of the merge
+// corridor with virtual platoons of 2 and 4 pods. Each queue starts as
+// platoons that are coupled and close, as a queue with platoons is. The
+// design estimates the gain of platoons of 4 as 2.4 times the flow of
+// single pods on a lane and 2.7 times at a 30 degree merge. See the
+// platoon screening in docs/qualification.md.
+func TestMergeCorridorPlatoonHeadway(t *testing.T) {
+	t.Parallel()
+	feedHead := corridorFeedLength - 100
+	// Each case holds the pinned headways for platoons of 2 and of 4.
+	cases := []struct {
+		corridorCase
+		want [2]float64
+	}{
+		{corridorCase{name: "straight lane", streams: []string{"main"}, queueHead: 1000, onMain: true}, [2]float64{3.758, 2.415}},
+		{corridorCase{name: "one stream through a lane boundary", streams: []string{"main"}, queueHead: feedHead}, [2]float64{4.120, 2.517}},
+		{corridorCase{name: "two streams, 90 degree merge", side: true, sideDegrees: 90, streams: []string{"main", "side"}, queueHead: feedHead}, [2]float64{5.014, 3.131}},
+		{corridorCase{name: "two streams, 30 degree merge", side: true, sideDegrees: 30, streams: []string{"main", "side"}, queueHead: feedHead}, [2]float64{4.925, 2.991}},
+		{corridorCase{name: "two streams, 15 degree merge", side: true, sideDegrees: 15, streams: []string{"main", "side"}, queueHead: feedHead}, [2]float64{6.017, 3.511}},
+	}
+	for _, platoonCase := range cases {
+		for index, limit := range []int{2, 4} {
+			test := platoonCase.corridorCase
+			test.name = fmt.Sprintf("%s, platoons of %d", test.name, limit)
+			test.platoonLimit, test.platoonQueue, test.want = limit, true, platoonCase.want[index]
+			t.Run(test.name, func(t *testing.T) {
+				t.Parallel()
+				got := runMergeCorridor(t, test)
+				t.Logf("headway %.3f s (%.0f pods/h), largest platoon %d", got.headway, 3600/got.headway, got.largest)
+				if got.largest != limit || math.Abs(got.headway-test.want) > 0.01 {
+					t.Errorf("headway %.3f s with platoons of up to %d, want %.3f s with platoons of %d", got.headway, got.largest, test.want, limit)
+				}
+			})
+		}
 	}
 }
