@@ -221,7 +221,7 @@ The current `congestion` arm also has the two guards of the [queue routing scree
 ## Queue routing screen
 
 This screen compares free-flow routing, the `congestion` policy, and the `queue` policy.
-The code at commit `3d7d41d` gives the recorded values.
+The code at commit `d8393c1` gives the recorded values.
 
 Both costed policies now have two guards.
 A costed route does not go through the berths of a station other than the stations at its ends.
@@ -524,6 +524,8 @@ Each `physical` restore must keep each pod in place and keep the order queue.
 A `logical` restore of the last state must put each pod at its initial berth, with the expected queue and completion counts.
 The last `physical` copy then runs for 30 simulated seconds, and it must pass the separation oracle each second and complete an order.
 A session test also saves a London session and restores it with the `physical` tier.
+A London test with `drop-offs` sharing and a limit of 4 parties requests 120 AM peak journeys, four each second.
+It checks the restore contract after each request and each tick, and it runs until pods unload at intermediate stops.
 
 ## Mesh and navigation follow-up
 
@@ -960,8 +962,7 @@ The compare command runs three rules for this hold with `-wait-rules`:
 - `current` holds for a busy pod whose estimated finish plus empty travel to the pickup beats the available pod.
   The estimate can be longer than the hold.
   The server always uses this rule, and it is the default.
-- `strict` holds only when that estimate is not more than the hold time that
-  remains, and still beats the available pod.
+- `strict` holds only when that estimate is not more than the hold time that remains, and still beats the available pod.
 - `none` never holds, and dispatch sends the available pod at once.
 
 The report has a `wait_rule` column only when the command gets `-wait-rules`.
@@ -1461,6 +1462,8 @@ In 35 other pairs, the drop-offs arm ends by 3,600 seconds and the destination a
 
 The heavy arm is PM peak at 12/min with seed 1.
 Another job used some of the host during the three runs of each arm with one worker.
+These runs used a later build than the first measurement.
+Do not compare their times with the times of the first measurement.
 The median user time is 5.78 seconds with limit 1, 5.94 seconds in the destination mode, 6.01 seconds in the drop-offs mode with the cap, and 5.90 seconds without the cap.
 The drop-offs arm ends at 2,695 seconds with and without the cap, and the destination arm at 3,018 seconds.
 Thus the total grows by 1.2 percent, and the time for each simulated second grows by 2.8 percent.
@@ -1706,4 +1709,5 @@ The screening thus meets all seven rules.
 The design also gives seeds 4 to 10 and the rail-hub hub-burst schedule as further measurements before adoption.
 This A/B does not run them.
 Thus the results support a project option for virtual platoons, off by default, and the defaults do not change.
+The `platoonLimit` project setting now gives this option.
 Raw results are in [`measurements/london-platoon-ab.csv`](measurements/london-platoon-ab.csv).
