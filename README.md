@@ -984,8 +984,15 @@ In `drop-offs` mode, a boarding pod adds a stop for a new party in one of these 
 - The free-flow route from the boarding berth to the station passes each stop in the same order.
   The station becomes the last stop.
 
-The conditions use the free-flow routes with each routing policy.
-Each leg of the pod takes the route of the routing policy.
+The pod adds the stop only when the planned detour ratio of each party, new or aboard, is at most 1.5.
+The ratio of a party is the planned distance from the boarding berth to the berth where the party alights, over the free-flow distance to that berth.
+The compare column `detour_ratio_max` measures the same ratio.
+The pod does not know its berth at each stop before it arrives, so the plan uses the berth that gives the largest ratio.
+The conditions and the plan use the free-flow routes with each routing policy.
+Each leg of the pod takes the route of the routing policy when that route keeps each party aboard within 1.5.
+Otherwise, the leg takes the free-flow route, which the plan used.
+The pod changes to another berth at its next stop only when the new route keeps each party aboard within 1.5.
+Thus, the measured ratio of each party that boards with a limit of two or more in the `drop-offs` mode is at most 1.5, while these settings do not change.
 A new stop before the first stop changes the route of the pod, so the pod adds a stop only before it gets track.
 The project setting `sharedRideMaxStops` sets the maximum number of stops before the last stop, from 1 to 7.
 The default is 3.

@@ -750,8 +750,9 @@ func (r *physicalRestore) separate() error {
 
 // placeDemoted moves a demoted pod to a free berth. A berth that the pod
 // holds counts as free. A pod with passengers boards again at a berth of
-// their origin with a route as in board. When no such berth is free, or when
-// the route does not fit in the block budget, the request goes back to the
+// their origin with a route as in board. When no such berth is free, when
+// the route does not fit in the block budget, or when the stops from that
+// berth take a rider over maxSharedRideDetour, the request goes back to the
 // queue with its party count and the pod waits empty. An empty pod goes to
 // the first free berth in this order: its destination, its origin, a berth
 // of its destination station, then any berth.
@@ -804,10 +805,16 @@ func (r *physicalRestore) freeBerth(v *vehicle, candidates []Berth) (Berth, bool
 
 // boardAgain puts a pod with passengers at a berth of their origin, ready to
 // depart. It returns false when the route does not exist or does not fit in
-// the block budget.
+// the block budget. The berth becomes the journey origin of the riders, so
+// their direct distances change. Thus, when cappedDetours is true, it also
+// returns false when the plan of the stops from the berth takes a rider
+// over maxSharedRideDetour.
 func (r *physicalRestore) boardAgain(v *vehicle, berth Berth) bool {
 	route, err := r.s.stationApproachRoute(berth.Node, v.Stops[0])
 	if err != nil {
+		return false
+	}
+	if r.s.cappedDetours() && r.s.plannedDetour(berth.Node, v.Stops, detourStart{ridden: r.s.lanesMeters(route)}) > maxSharedRideDetour {
 		return false
 	}
 	cost := 0

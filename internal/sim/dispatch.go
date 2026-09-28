@@ -367,7 +367,7 @@ func (s *Simulation) pickupPod(stationID string, pass *dispatchPass) *vehicle {
 func (s *Simulation) board(v *vehicle, trip waitingTrip) error {
 	from, _ := s.station(trip.request.From)
 	origin, _ := from.berth(v.Pod.BerthID)
-	route, err := s.assignedApproachRoute(v, origin.Node, trip.request.To)
+	route, err := s.legRoute(v, leg{origin: origin.Node, from: origin.Node, stops: []string{trip.request.To}})
 	if err != nil {
 		return err
 	}

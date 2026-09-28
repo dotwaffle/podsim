@@ -32,6 +32,9 @@ func (s *Simulation) assignTerminalBerth(v *vehicle) bool {
 
 // reevaluateTerminalBerth chooses a free inlet before the pod commits to its
 // final branch. Existing track ownership and movement state remain unchanged.
+// The new route keeps the lanes before the inlet, so it can be longer than
+// the station path to the berth. The pod does not take a berth that takes a
+// rider over maxSharedRideDetour. See rerouteKeepsDetours.
 func (s *Simulation) reevaluateTerminalBerth(v *vehicle) {
 	next := v.reservedThrough + 1
 	if next < 0 || next >= v.blocks.len() || len(v.Route) == 0 {
@@ -62,6 +65,9 @@ func (s *Simulation) reevaluateTerminalBerth(v *vehicle) {
 				continue
 			}
 			route := append(slices.Clone(v.Route[:routeIndex]), suffix...)
+			if !s.rerouteKeepsDetours(v, route, berth) {
+				continue
+			}
 			blocks, lengths := s.routeBlocks(route)
 			if first >= blocks.len() || blocks.at(first).lane.ID != suffix[0].ID {
 				continue

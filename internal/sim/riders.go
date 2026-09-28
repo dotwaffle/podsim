@@ -145,14 +145,14 @@ func (v *vehicle) lastStop() string {
 
 // continueJourney starts the next leg of a pod that unloaded at an
 // intermediate stop. The leg goes from the berth of the pod to the next
-// stop, on the route of the routing policy, as for board. The riders keep
+// stop, on the route of legRoute, as for board. The riders keep
 // their distance, and the pod waits for track as a boarding pod does. When
 // no route to the next stop exists, the pod stays unloading, and the next
 // step tries again. Project validation connects each pair of passenger
 // stations, so this does not occur in a valid project.
 func (s *Simulation) continueJourney(v *vehicle) {
 	berth := v.destination
-	route, err := s.assignedApproachRoute(v, berth.Node, v.Stops[0])
+	route, err := s.legRoute(v, leg{origin: v.journeyOrigin.Node, from: berth.Node, stops: v.Stops, ridden: v.riddenMeters()})
 	if err != nil {
 		return
 	}

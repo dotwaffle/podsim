@@ -213,6 +213,7 @@ It reports them as unaccounted orders at each restore, together with the orders 
   When the saved routes do not fit, the pods with the longest routes go to a free berth first.
   The tier fails when two pods at berths conflict, or when a traveling pod finds no free berth.
   Its parties board again at their origin station, or go back to the queue.
+  In the `drop-offs` mode, the parties go back to the queue when the stops from the free berth take a party over the detour cap of 1.5.
 - `logical`: The server uses this tier with reason `physical_failed` when the `physical` tier fails.
   It also uses it with reason `restore_loop`, as described below.
   The pods start again at their initial berths.

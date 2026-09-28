@@ -22,6 +22,11 @@ const (
 	// MaxSharedRideStops bounds the intermediate stops of a pod. With the
 	// last stop, a pod has at most one stop for each party.
 	MaxSharedRideStops = MaxSharedRideParties - 1
+	// maxSharedRideDetour bounds the detour ratio of each rider of a pod
+	// in drop-offs mode. The ratio is the distance that the rider rides
+	// over the free-flow distance to its destination, as alight measures
+	// it. See cappedStops, legRoute and rerouteKeepsDetours.
+	maxSharedRideDetour = 1.5
 )
 
 // SetSharedRidePartyLimit controls same-origin parties that may join a pod

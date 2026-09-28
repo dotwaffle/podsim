@@ -1,6 +1,9 @@
 package sim
 
-import "slices"
+import (
+	"math"
+	"slices"
+)
 
 // stopKey identifies the free-flow route from a node to the entry of a
 // station.
@@ -72,6 +75,8 @@ func indexApproachStations(network Network) map[string][]string {
 //     to. Then to goes between the stops in route order.
 //   - Or the free-flow route from the boarding berth to to passes each stop
 //     in the same order. Then to becomes the last stop.
+//   - With the new stops, the planned detour ratio of each rider, new or
+//     aboard, must be at most maxSharedRideDetour. See cappedStops.
 func (s *Simulation) dropOffStops(v *vehicle, to string) ([]string, bool) {
 	if slices.Contains(v.Stops, to) {
 		return v.Stops, true
@@ -89,12 +94,158 @@ func (s *Simulation) dropOffStops(v *vehicle, to string) ([]string, bool) {
 		if insert < 0 {
 			insert = len(v.Stops)
 		}
-		return slices.Insert(slices.Clone(v.Stops), insert, to), true
+		return s.cappedStops(v, slices.Insert(slices.Clone(v.Stops), insert, to))
 	}
 	if isSubsequence(v.Stops, s.stationsOnRoute(from, to)) {
-		return append(slices.Clone(v.Stops), to), true
+		return s.cappedStops(v, append(slices.Clone(v.Stops), to))
 	}
 	return nil, false
+}
+
+// cappedStops returns stops and true when no rider of pod v goes over
+// maxSharedRideDetour with these stops. When the first stop does not
+// change, the pod keeps its route, so the plan uses the length of that
+// route. Otherwise the plan uses the free-flow route to the new first stop,
+// and legRoute gives the pod a route that keeps each rider within the cap.
+func (s *Simulation) cappedStops(v *vehicle, stops []string) ([]string, bool) {
+	ridden, ok := s.lanesMeters(v.Route), true
+	if stops[0] != v.Stops[0] {
+		ridden, ok = s.routeMeters(v.origin.Node, stops[0])
+	}
+	if !ok || s.plannedDetour(v.journeyOrigin.Node, stops, detourStart{ridden: ridden}) > maxSharedRideDetour {
+		return nil, false
+	}
+	return stops, true
+}
+
+// cappedDetours reports whether the routes of the pods with riders must
+// keep each rider within maxSharedRideDetour. This is so only in drop-offs
+// mode with sharing on.
+func (s *Simulation) cappedDetours() bool {
+	return s.sharedRideMode == SharedRideDropOffs && s.sharedRidePartyLimit > 1
+}
+
+// leg is the input of legRoute. The riders of a pod boarded at the berth
+// node origin, and they rode the distance ridden to the node from. stops
+// holds the stops that remain.
+type leg struct {
+	origin, from string
+	stops        []string
+	ridden       float64
+}
+
+// legRoute returns the route of a pod with riders from leg.from to the
+// entry of its next stop. It is the route of assignedApproachRoute. When
+// cappedDetours is true and that route takes a rider over
+// maxSharedRideDetour, legRoute returns the free-flow route. Each earlier
+// check planned the free-flow route from leg.from, so the free-flow route
+// keeps each rider within the cap. See the checks of cappedStops,
+// continueJourney and reevaluateTerminalBerth.
+func (s *Simulation) legRoute(v *vehicle, next leg) ([]Lane, error) {
+	route, err := s.assignedApproachRoute(v, next.from, next.stops[0])
+	if err != nil || !s.cappedDetours() || !s.costedRouting() {
+		return route, err
+	}
+	start := detourStart{ridden: next.ridden + s.lanesMeters(route)}
+	if s.plannedDetour(next.origin, next.stops, start) <= maxSharedRideDetour {
+		return route, nil
+	}
+	return s.stationApproachRoute(next.from, next.stops[0])
+}
+
+// rerouteKeepsDetours reports whether pod v can take a new route to a
+// berth at its next stop. The route starts where the current leg starts.
+// When cappedDetours is true and the pod has riders, each rider must stay
+// within maxSharedRideDetour with the new route and free-flow routes after
+// it. When the pod refuses the berth, it keeps its route, which an earlier
+// check planned.
+func (s *Simulation) rerouteKeepsDetours(v *vehicle, route []Lane, berth Berth) bool {
+	if !s.cappedDetours() || v.RidersAboard() == 0 {
+		return true
+	}
+	start := detourStart{ridden: v.riddenBase + s.lanesMeters(route), berth: berth}
+	return s.plannedDetour(v.journeyOrigin.Node, v.Stops, start) <= maxSharedRideDetour
+}
+
+// detourStart is the start of a plan of plannedDetour. ridden is the
+// distance that the riders ride to the entry of the first stop. When berth
+// is set, the pod goes to that berth at the first stop, and ridden is the
+// distance to that berth.
+type detourStart struct {
+	ridden float64
+	berth  Berth
+}
+
+// plannedDetour returns the largest planned detour ratio of the riders of
+// a pod that boarded at the berth node origin, with the stops that remain.
+// Each stop is the destination of a rider. The ratio of a rider is the
+// distance from origin to the berth where the rider leaves the pod, over
+// the direct distance of directDistance to that berth. After the first
+// stop, the plan uses free-flow routes, as directDistance does.
+//
+// The berth at a stop is not known before the pod arrives. Thus the plan
+// takes the berth that gives the largest ratio for the riders of the stop,
+// and the berth with the longest distance to the next stop for the other
+// riders. The distance from the station entry to a berth is the station
+// path, as for a route of assignTerminalBerth. It returns +Inf when a route
+// that the plan needs does not exist.
+func (s *Simulation) plannedDetour(origin string, stops []string, start detourStart) float64 {
+	largest, ridden := 1.0, start.ridden
+	for index, stop := range stops {
+		station, _ := s.station(stop)
+		direct, ok := s.routeMeters(origin, stop)
+		if !ok {
+			return math.Inf(1)
+		}
+		berths, known := station.Berths, index == 0 && start.berth.ID != ""
+		if known {
+			berths = []Berth{start.berth}
+		}
+		// next is the largest planned distance to the entry of the next
+		// stop.
+		next, found := math.Inf(-1), false
+		for _, berth := range berths {
+			path, err := s.stationPath(station.Entry, berth.Node)
+			if err != nil {
+				continue
+			}
+			meters := s.lanesMeters(path)
+			arrival := ridden + meters
+			if known {
+				arrival = ridden
+			}
+			largest, found = max(largest, arrival/(direct+meters)), true
+			if index+1 < len(stops) {
+				if onward, ok := s.routeMeters(berth.Node, stops[index+1]); ok {
+					next = max(next, arrival+onward)
+				}
+			}
+		}
+		if !found || index+1 < len(stops) && math.IsInf(next, -1) {
+			return math.Inf(1)
+		}
+		ridden = next
+	}
+	return largest
+}
+
+// routeMeters returns the length of the free-flow route from a node to the
+// entry of a station. It reports false when the route does not exist.
+func (s *Simulation) routeMeters(from, stationID string) (float64, bool) {
+	route, err := s.stationApproachRoute(from, stationID)
+	if err != nil {
+		return 0, false
+	}
+	return s.lanesMeters(route), true
+}
+
+// lanesMeters returns the length of a list of lanes.
+func (s *Simulation) lanesMeters(lanes []Lane) float64 {
+	meters := 0.0
+	for _, lane := range lanes {
+		meters += s.laneLength(lane)
+	}
+	return meters
 }
 
 // isSubsequence reports whether each item of part is in whole, in the same
@@ -110,12 +261,11 @@ func isSubsequence(part, whole []string) bool {
 }
 
 // setBoardingStops gives a boarding pod new stops. When the first stop
-// changes, the pod gets the route of assignedApproachRoute to the new first
-// stop. It reports false and does not change the pod when that route does
-// not exist.
+// changes, the pod gets the route of legRoute to the new first stop. It
+// reports false and does not change the pod when that route does not exist.
 func (s *Simulation) setBoardingStops(v *vehicle, stops []string) bool {
 	if stops[0] != v.Stops[0] {
-		route, err := s.assignedApproachRoute(v, v.origin.Node, stops[0])
+		route, err := s.legRoute(v, leg{origin: v.journeyOrigin.Node, from: v.origin.Node, stops: stops})
 		if err != nil {
 			return false
 		}
