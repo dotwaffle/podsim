@@ -375,7 +375,11 @@ Most delays that it sees are on the departure lane of the pod, which no route ca
 The guarded `congestion` arm serves more requests in the congested London-192 Early band, but it lowers two London band limits.
 Congestion-aware routing is parked.
 Free-flow routing stays the default, and the `congestion` arm keeps its two guards.
-A cost from the planned routes of the pods is the next candidate, but only if platoons or shared rides do not relieve the congested Early band.
+The plan made a cost from the planned routes of the pods the next candidate, but only if platoons or shared rides do not relieve the congested Early band.
+Platoons relieve it.
+The platoon A/B with 198 pods raises the Early limit from 10 to at least 12 requests per minute.
+The London preset with `platoonLimit` 4 raises it from 7 to 10 requests per minute.
+Thus the condition of that candidate is not met, and the planned-route cost stays parked with the other routing work.
 See [docs/qualification.md](docs/qualification.md#queue-routing-screen).
 
 ### Mixed vehicle capacities and shared rides
