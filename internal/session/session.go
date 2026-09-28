@@ -336,13 +336,13 @@ func (s *Session) Close() { s.closed.Store(true) }
 func (s *Session) advance() {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	if s.closed.Load() || s.simulation.Snapshot().Paused {
+	if s.closed.Load() || s.simulation.Paused() {
 		return
 	}
 	for range s.speed {
-		wasDemo := s.simulation.Snapshot().Demo
+		wasDemo := s.simulation.DemoRunning()
 		s.simulation.Step()
-		if wasDemo && !s.simulation.Snapshot().Demo {
+		if wasDemo && !s.simulation.DemoRunning() {
 			s.configureRedistribution()
 		}
 		s.demand.step(s.simulation)
