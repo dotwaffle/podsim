@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
+	"strconv"
 	"testing"
 )
 
@@ -724,5 +725,32 @@ func TestIdlePodScansAfterAChangeInThePass(t *testing.T) {
 				t.Fatalf("queue = %+v, want %+v", queue, tc.wantQueue)
 			}
 		})
+	}
+}
+
+// TestPodReason checks that podReason gives the concatenated reason.
+func TestPodReason(t *testing.T) {
+	t.Parallel()
+	for _, tc := range []struct{ previous, podID, suffix string }{
+		{"", "01", " traveling to pickup"},
+		{"Pod 01 traveling to pickup", "01", " traveling to pickup"},
+		{"Pod 01 traveling to pickup", "01", " waiting in traffic"},
+		{"Pod 01 traveling to pickup", "011", " traveling to pickup"},
+		{"Pod 011 traveling to pickup", "01", " traveling to pickup"},
+		{"Pod 01", "01", " traveling to pickup"},
+		{"Waiting for an available pod", "01", " traveling to pickup"},
+	} {
+		if got, want := podReason(tc.previous, tc.podID, tc.suffix), "Pod "+tc.podID+tc.suffix; got != want {
+			t.Errorf("podReason(%q, %q, %q) = %q, want %q", tc.previous, tc.podID, tc.suffix, got, want)
+		}
+	}
+}
+
+// TestPodReasonKeepsEqualReason checks that podReason makes no new string
+// for an equal previous reason. AllocsPerRun cannot run in a parallel test.
+func TestPodReasonKeepsEqualReason(t *testing.T) {
+	previous := "Pod " + strconv.Itoa(1) + " waiting in traffic"
+	if allocs := testing.AllocsPerRun(10, func() { _ = podReason(previous, "1", " waiting in traffic") }); allocs != 0 {
+		t.Errorf("podReason made %v allocations for an equal reason, want 0", allocs)
 	}
 }

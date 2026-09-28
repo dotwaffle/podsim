@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"math"
 	"slices"
+	"strings"
 )
 
 type waitingTrip struct {
@@ -85,6 +86,7 @@ func (s *Simulation) dispatch() {
 			pass.reset()
 		}
 		trip := &s.waiting[i]
+		previousReason := trip.request.DispatchReason
 		trip.request.DispatchReason = ""
 		if trip.request.PodID == "" && s.joinSharedRide(*trip, pass) {
 			pass.reset()
@@ -147,16 +149,31 @@ func (s *Simulation) dispatch() {
 			continue
 		}
 		if v.RelocatingTo != "" {
-			trip.request.DispatchReason = "Pod " + v.Pod.ID + " traveling to pickup"
+			suffix := " traveling to pickup"
 			if v.Pod.WaitReason != NoWait && v.Pod.Speed < 0.1 {
-				trip.request.DispatchReason = "Pod " + v.Pod.ID + " waiting in traffic"
+				suffix = " waiting in traffic"
 			}
+			trip.request.DispatchReason = podReason(previousReason, v.Pod.ID, suffix)
 		} else {
 			trip.request.DispatchReason = "Waiting for destination access"
 		}
 		i++
 	}
 	s.parkUnclaimedReleased()
+}
+
+// podReason returns "Pod " + podID + suffix. When previous has the same
+// bytes, it returns previous and makes no new string. Most trips keep their
+// reason from one pass to the next.
+func podReason(previous, podID, suffix string) string {
+	rest, ok := strings.CutPrefix(previous, "Pod ")
+	if ok {
+		rest, ok = strings.CutPrefix(rest, podID)
+	}
+	if ok && rest == suffix {
+		return previous
+	}
+	return "Pod " + podID + suffix
 }
 
 // stationFilterBits is the number of bits in a stationFilter.
