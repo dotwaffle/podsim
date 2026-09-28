@@ -890,6 +890,7 @@ The `peak_passenger_vehicles` column counts only the pods with passengers aboard
 Most compare CSV files in `docs/measurements` come from reports before `schema_version` 6.
 The platoon screening and queue routing files come from version 6, and the drop-offs files come from version 8.
 Thus the older files do not have the columns that version 6 adds, such as `wait_p95_seconds`, `journey_average_seconds`, `occupancy`, `stopped_pod_seconds`, and `peak_node`.
+The platoon A/B file has the columns of version 6, and the `platoon_policy` and `coupled_time_percent` columns that version 9 adds.
 See [report columns](../README.md#report-columns) for the definitions.
 
 At the limit rate, every seed has all 114 pods with work at the same time in AM peak, Interpeak, PM peak, Evening, and Late.
@@ -1506,9 +1507,9 @@ mise run compare -- -project /tmp/podsim-london-3.json -pattern profile -bands a
 ### Platoon screening
 
 A platoon lets pods run closer together, so it can add capacity only where track or junction flow limits the service.
-This screening looks for such a load before any platoon code is built.
-It has two parts: a synthetic corridor that gives the line capacity of the current rules, and a London sweep with more pods.
-No platoon code exists.
+The first two parts of this screening looked for such a load before the platoon code existed.
+They are a synthetic corridor that gives the line capacity of the current rules, and a London sweep with more pods.
+The third part is an A/B of virtual platoons on that load.
 
 #### Corridor headway
 
@@ -1528,6 +1529,22 @@ A pod reserves the last cell of a lane and the first cell of the next lane in on
 Thus one stream through a lane boundary has a longer headway than a straight lane, also without a second stream.
 The test pins these values.
 A platoon or cell change must give its headway against them.
+
+`TestMergeCorridorPlatoonHeadway` pins the same cases with virtual platoons of 2 and of 4 pods.
+Each queue starts as coupled platoons: the pods of a platoon are 18 m apart, and two platoons are 45 m apart.
+The test checks the separation, the berths, the owners, the certificate, and the control rule of each link at each tick.
+
+| Case | Off | Platoons of 2 | Platoons of 4 | Gain with platoons of 4 |
+| --- | ---: | ---: | ---: | ---: |
+| Straight lane | 6.011 s | 3.758 s | 2.415 s | 2.49 times |
+| One stream through a lane boundary | 7.217 s | 4.120 s | 2.517 s | 2.87 times |
+| Two streams, 90 degree merge | 8.650 s | 5.014 s | 3.131 s | 2.76 times |
+| Two streams, 30 degree merge | 8.650 s | 4.925 s | 2.991 s | 2.89 times |
+| Two streams, 15 degree merge | 10.783 s | 6.017 s | 3.511 s | 3.07 times |
+
+The design estimated 2.4 times on a lane and 2.7 times at a 30 degree merge for platoons of 4.
+The measured gains are 4% to 7% larger than these estimates.
+Platoons of 2 give 1.60 to 1.79 times.
 
 #### London with 198 pods
 
@@ -1614,6 +1631,79 @@ The pod at the head of most of these queues waits for junction traffic.
 Berth waits are less than 1% of the stopped time.
 
 Thus Early with 198 pods at 9/min to 12/min is a load that track flow limits.
-The next step is a platoon A/B on this load, as the design gives in its second measurement step.
-That step is not built.
 Raw results are in [`measurements/london-platoon-screening.csv`](measurements/london-platoon-screening.csv).
+
+#### Platoon A/B
+
+The A/B runs Early at 9/min to 12/min, the load that the sweep found.
+It also runs AM peak at 20/min and 24/min and PM peak at 24/min as controls, because the fleet limits these bands.
+Each band uses seeds 1, 2, and 3, and the other settings of the sweep.
+The platoon limit is 4 pods.
+The off rows come from an earlier run of the same arms.
+With platooning off, the simulation gives the same results as the base build, so these rows stay valid.
+The virtual rows come from the platoon build on base `ab9b847`.
+After the rebase onto `6b47a34`, the compare command at commit `6d21c72` gives the same off rows and virtual rows for Early at 12/min.
+The three commands took 107 wall seconds with ten workers.
+Each seed drains within 65 minutes at each rate, so `-adaptive-limit` skips no rate.
+
+```sh
+mise run scenario -- -preset london -station-pods 2 -parking-pods 2 -output /tmp/podsim-london-198.json
+mise run compare -- -project /tmp/podsim-london-198.json -pattern profile -bands early -loads 6.666667s,6s,5.454545s,5s -seeds 1,2,3 -redistribution-policies off -platoon-policies virtual -focus 940GZZLUEUS -queue-limit 1000000 -duration 65m -arrivals-for 30m -stop-when-drained -adaptive-limit -workers 10 -format csv
+mise run compare -- -project /tmp/podsim-london-198.json -pattern profile -bands am-peak -loads 3s,2.5s -seeds 1,2,3 -redistribution-policies off -platoon-policies virtual -focus 940GZZLUEUS -queue-limit 1000000 -duration 65m -arrivals-for 30m -stop-when-drained -adaptive-limit -workers 10 -format csv
+mise run compare -- -project /tmp/podsim-london-198.json -pattern profile -bands pm-peak -loads 2.5s -seeds 1,2,3 -redistribution-policies off -platoon-policies virtual -focus 940GZZLUEUS -queue-limit 1000000 -duration 65m -arrivals-for 30m -stop-when-drained -adaptive-limit -workers 10 -format csv
+```
+
+Each value is the mean of the three seeds, except the maxima of peak stopped pods.
+Each cell gives the off value and then the virtual value.
+The junction wait and the track wait are in pod-seconds.
+
+| NUMBAT band | Rate | Seeds that finish in 60 minutes | Average wait | Average journey | Junction wait | Track wait | Peak stopped pods | Coupled time |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| Early | 9/min | 3, 3 | 290.0 s, 285.0 s | 804.4 s, 763.8 s | 2,537, 1,899 | 6,101, 1,687 | 17, 12 | 9.6% |
+| Early | 10/min | 3, 3 | 340.3 s, 328.5 s | 879.3 s, 812.7 s | 3,541, 2,745 | 13,878, 5,011 | 24, 24 | 12.9% |
+| Early | 11/min | 2, 3 | 393.5 s, 371.0 s | 954.3 s, 853.3 s | 4,120, 3,572 | 24,368, 9,873 | 36, 32 | 15.4% |
+| Early | 12/min | 0, 3 | 459.8 s, 418.0 s | 1,034.1 s, 904.3 s | 5,065, 4,496 | 39,893, 16,613 | 49, 39 | 18.3% |
+| AM peak | 20/min | 3, 3 | 143.7 s, 144.0 s | 543.5 s, 543.9 s | 977, 1,063 | 353, 225 | 5, 6 | 0.6% |
+| AM peak | 24/min | 2, 2 | 278.9 s, 277.6 s | 678.7 s, 677.2 s | 1,764, 1,867 | 754, 489 | 7, 9 | 1.5% |
+| PM peak | 24/min | 3, 3 | 195.3 s, 194.2 s | 573.8 s, 572.2 s | 1,699, 1,523 | 577, 360 | 10, 7 | 1.4% |
+
+In Early, the pods spend 10% to 18% of their travel time in a platoon.
+The track wait falls by 58% to 72%, and the average journey falls by 5% to 13%.
+Each seed at 12/min now finishes within 60 minutes, at 3,295 s to 3,539 s.
+The sweep did not run rates above 12/min, so the Early limit with platoons is 12/min or more.
+In AM peak and PM peak, the pods spend about 1% of their travel time in a platoon, because the fleet and not the track limits these bands.
+At AM peak 24/min, seed 2 ends at 3,681 s without platoons and at 3,696 s with them, so the AM peak limit stays at 20/min.
+
+The design gives seven adoption rules.
+
+1. With platooning off, the A/B harness gives the same rows and the same snapshot hash at each simulated second as the base build `ab9b847`.
+   All 12 arms are identical, apart from the new column `coupled_time_percent`, which is 0 in each row.
+   After the rebase, the 6 arms that were run are also identical to `6b47a34`.
+2. The corridor tests and the platoon tests check the separation, the berths, and the owners at each tick.
+   The platoon tests also check the certificate of each link and the speed change of each linked pod at each tick.
+   Their paths include a hairpin, two opposite turns, a curved lane, a platoon of 4 pods that folds back past its own lane, a sharp turn after the run, a long merge, and a leader that brakes at its limit.
+   In a close fold, the return lane ends 5 m from the first lane, so pods come within 12 m of each other also without platoons.
+   That test checks the distance from each follower to each pod ahead that it shares with.
+   A scratch run of London with 198 pods and random trips at 30/min for 30 minutes, with seeds 1 and 2, ran the safety observation check at each tick with virtual platoons.
+   It found no failure, and a physical restore of its state each 60 s kept all pods in place.
+   A restore test forms links on a path that turns 120 degrees and on a path that turns a little more, where the run ends before the bend.
+   Each link restores in place.
+   Another restore test saves a link that drains, and the restored link grows to the same run as the live link.
+3. At the 30 degree merge, platoons of 4 give 2.89 times the flow of single pods, more than the 50% that the rule requires.
+4. No band limit falls.
+   The Early limit rises from 10/min to at least 12/min.
+   The AM peak limit stays at 20/min, and at PM peak 24/min, the off limit, each seed finishes in both arms.
+   At the off limit rate, the mean wait falls by 3.5% in Early, rises by 0.3% in AM peak, and falls by 0.6% in PM peak.
+   Thus the rule holds because the Early limit rises, not because the wait falls by 10%.
+5. No virtual arm ends after 3,600 s when its off arm ends by 3,600 s.
+6. At the control rates within the off limits, each virtual arm serves the same requests.
+   The mean wait rises by 0.4 s or less, and the empty distance rises by 0.3% or less.
+7. The heavy London arm, 114 pods in PM peak at 12/min with seed 1, used 7.76 s of user CPU without platoons and 7.90 s with them.
+   That is 1.8% more, as the mean of three runs of each arm.
+   Its pods spend 0.3% of their travel time in a platoon, and its served requests and end time do not change.
+
+The screening thus meets all seven rules.
+The design also gives seeds 4 to 10 and the rail-hub hub-burst schedule as further measurements before adoption.
+This A/B does not run them.
+Thus the results support a project option for virtual platoons, off by default, and the defaults do not change.
+Raw results are in [`measurements/london-platoon-ab.csv`](measurements/london-platoon-ab.csv).

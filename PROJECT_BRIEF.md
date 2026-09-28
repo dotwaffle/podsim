@@ -458,9 +458,16 @@ Do not infer energy savings from shorter spacing alone.
 [Plexe](https://plexe.car2x.org/) provides examples of cooperative maneuvers, vehicle dynamics, and platoon control.
 It is a research reference, not a proposed dependency for Podsim.
 
-**Status:** No platoon model exists.
-A corridor test pins the saturation headway of the current rules, and a London sweep with 198 pods found that track and junction flow limit the Early band at 9 to 12 requests per minute.
-A virtual platoon A/B on that load is the next step, and it is not built.
+**Status:** Virtual platoons are an experimental option of the simulation API and the compare command, and they are off by default.
+A slow pod in a queue can follow the pod ahead at a short gap and share its track cells, in platoons of up to 4 pods.
+Each link keeps a fixed certificate of a run of lanes that turns 120 degrees or less, and its clearance follows from that turn.
+On the synthetic corridor, platoons of 4 give 2.5 to 3.1 times the flow of single pods.
+A London sweep with 198 pods found that track and junction flow limit the Early band at 9 to 12 requests per minute.
+On that load, platoons raise the Early limit from 10 to at least 12 requests per minute.
+The AM peak and PM peak limits do not change.
+The A/B meets the seven adoption rules of the design.
+Seeds 4 to 10 and the rail-hub checks of the design are not run.
+The project file, the protocol, and the view do not have the option yet.
 See [docs/qualification.md](docs/qualification.md#platoon-screening).
 
 ### Suggested first extension experiment
