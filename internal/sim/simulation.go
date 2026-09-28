@@ -298,6 +298,7 @@ type Simulation struct {
 	approachStations            map[string][]string
 	routeStations               map[stopKey][]string
 	sharedParties               int
+	seatScreen                  SeatScreen
 	routingPolicy               RoutingPolicy
 	finishingPodWait            FinishingPodWait
 	congestionRouteCosts        []float64
@@ -460,6 +461,7 @@ func (s *Simulation) Reset() {
 	s.nextRedistributionTick = 0
 	s.nextCongestionRouteRefresh, s.congestionRouteCosts, s.congestionRoutes = 0, nil, nil
 	s.passengerDistanceMeters, s.emptyDistanceMeters, s.rebalanceMoves, s.sharedParties = 0, 0, 0, 0
+	s.seatScreen = SeatScreen{}
 	s.requestBoardings, s.requestCompletions, s.nodePasses = nil, nil, nil
 	s.platoonLinks = 0
 	s.owners = make(map[resource]string)
@@ -649,6 +651,9 @@ func (s *Simulation) Step() {
 	for i := range s.vehicles {
 		v := &s.vehicles[i]
 		if departs(v.Pod.Activity) && v.phaseTicks == 0 && v.reservedThrough >= 0 {
+			if v.Pod.Activity == Boarding && s.screensSeats() {
+				s.recordDeparture(v)
+			}
 			v.Pod.Occupied = v.Pod.Activity == Boarding || v.Pod.Activity == Continuing
 			v.Pod.Activity = Traveling
 			v.Pod.StationID, v.Pod.BerthID = "", ""

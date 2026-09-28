@@ -178,7 +178,7 @@ var persistRules = map[reflect.Type]map[string]persistRule{
 		"routingPolicy": persistUnsupported, "congestionRouteCosts": persistUnsupported,
 		"congestionRoutes": persistUnsupported, "nextCongestionRouteRefresh": persistUnsupported,
 		"reservationLookaheadSeconds": persistUnsupported, "finishingPodWait": persistUnsupported,
-		"requestBoardings": persistReset, "requestCompletions": persistReset, "nodePasses": persistReset,
+		"requestBoardings": persistReset, "requestCompletions": persistReset, "nodePasses": persistReset, "seatScreen": persistReset,
 		"recordExperiments": persistUnsupported, "pass": persistReset,
 		"platooning": persistSession, "platoonLimit": persistSession, "platoonLinks": persistDerive,
 		"platoonData": persistDerive, "platoonOrder": persistReset, "platoonAhead": persistReset,
@@ -209,7 +209,7 @@ var persistRules = map[reflect.Type]map[string]persistRule{
 	},
 	reflect.TypeFor[waitingTrip](): {
 		"request": persistSave, "route": persistSave, "destination": persistReset, "deferUntil": persistSave,
-		"deferCheck": persistSave, "deferPodID": persistSave, "boarded": persistSave,
+		"deferCheck": persistSave, "deferPodID": persistSave, "boarded": persistSave, "fullPodRefused": persistReset,
 	},
 	reflect.TypeFor[demoRun](): {"secondSent": persistSave, "followupsSent": persistSave},
 }

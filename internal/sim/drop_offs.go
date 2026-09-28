@@ -77,11 +77,24 @@ func indexApproachStations(network Network) map[string][]string {
 //     in the same order. Then to becomes the last stop.
 //   - With the new stops, the planned detour ratio of each rider, new or
 //     aboard, must be at most maxSharedRideDetour. See cappedStops.
+//
+// addedStops gives the last three rules.
 func (s *Simulation) dropOffStops(v *vehicle, to string) ([]string, bool) {
 	if slices.Contains(v.Stops, to) {
 		return v.Stops, true
 	}
-	if v.reservedThrough >= 0 || v.destination.ID != "" || len(v.Stops) == 0 || len(v.Stops) > s.sharedRideMaxStops {
+	if v.reservedThrough >= 0 || v.destination.ID != "" {
+		return nil, false
+	}
+	return s.addedStops(v, to)
+}
+
+// addedStops returns the stops of pod v with to added as a stop, with the
+// stop limit, the route rules and the detour cap of dropOffStops. It
+// reports false when these rules refuse the stop. It does not read the
+// track or the berth of the pod, and it does not change the pod.
+func (s *Simulation) addedStops(v *vehicle, to string) ([]string, bool) {
+	if len(v.Stops) == 0 || len(v.Stops) > s.sharedRideMaxStops {
 		return nil, false
 	}
 	from := v.journeyOrigin.Node

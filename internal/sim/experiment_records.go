@@ -38,14 +38,15 @@ type NodePass struct {
 	Node string `json:"Node"`
 }
 
-// SetExperimentRecords turns the records of RequestTimings and NodePasses on
-// or off. They are off by default, so a long server session does not keep a
-// record for each request and each lane. The records do not change the
-// simulation. Turning them off clears them.
+// SetExperimentRecords turns the records of RequestTimings, NodePasses and
+// SeatScreen on or off. They are off by default, so a long server session
+// does not keep a record for each request and each lane. The records do not
+// change the simulation. Turning them off clears them.
 func (s *Simulation) SetExperimentRecords(enabled bool) {
 	s.recordExperiments = enabled
 	if !enabled {
 		s.requestBoardings, s.requestCompletions, s.nodePasses = nil, nil, nil
+		s.seatScreen = SeatScreen{}
 	}
 }
 

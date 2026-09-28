@@ -19,6 +19,9 @@ type waitingTrip struct {
 	// restore queues again. The wait of such a trip is already recorded,
 	// and its request keeps its BoardedTick.
 	boarded bool
+	// fullPodRefused is true after the seat screen counted a refusal of
+	// the trip. See refusedByFullPod.
+	fullPodRefused bool
 }
 
 // RequestTrip queues a passenger journey between stations and assigns an available pod when possible.
@@ -88,7 +91,7 @@ func (s *Simulation) dispatch() {
 		trip := &s.waiting[i]
 		previousReason := trip.request.DispatchReason
 		trip.request.DispatchReason = ""
-		if trip.request.PodID == "" && s.joinSharedRide(*trip, pass) {
+		if trip.request.PodID == "" && s.joinSharedRide(trip, pass) {
 			pass.reset()
 			s.waiting = slices.Delete(s.waiting, i, i+1)
 			continue
@@ -403,13 +406,18 @@ func (s *Simulation) boardingRider(trip waitingTrip, v *vehicle, sharedWith int)
 // destination mode, the pod must go to the destination of the trip. In
 // drop-offs mode, the pod must stop at the destination or be able to add
 // it as a stop. See dropOffStops.
-func (s *Simulation) joinSharedRide(trip waitingTrip, pass *dispatchPass) bool {
+//
+// When a full pod could take the party and no pod takes it, the seat
+// screen counts a refusal. See refusedByFullPod.
+func (s *Simulation) joinSharedRide(trip *waitingTrip, pass *dispatchPass) bool {
 	if s.sharedRidePartyLimit <= 1 {
 		return false
 	}
 	request := trip.request
+	refused := false
 	for _, v := range s.boardingPods(pass)[request.From] {
 		if len(v.Riders) >= s.sharedRidePartyLimit {
+			refused = refused || s.refusedByFullPod(trip, v)
 			continue
 		}
 		if s.sharedRideMode != SharedRideDropOffs {
@@ -422,8 +430,12 @@ func (s *Simulation) joinSharedRide(trip waitingTrip, pass *dispatchPass) bool {
 		if !trip.boarded {
 			s.sharedParties++
 		}
-		v.Riders = append(v.Riders, s.boardingRider(trip, v, v.Riders[0].ID))
+		v.Riders = append(v.Riders, s.boardingRider(*trip, v, v.Riders[0].ID))
 		return true
+	}
+	if refused {
+		trip.fullPodRefused = true
+		s.seatScreen.FullPodRefusals++
 	}
 	return false
 }
