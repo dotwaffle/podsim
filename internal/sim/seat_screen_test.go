@@ -224,8 +224,8 @@ func TestSeatScreenChangesNoDecision(t *testing.T) {
 // runRecordsOnAndOff runs a burst of trips every 30 s for 300 s in the
 // example network in drop-offs mode with the join policy, with the
 // experiment records on and off, and steps to 450 s. It fails the test when
-// the snapshots differ at a simulated second. It returns the seat screen of
-// the run with the records.
+// the snapshots differ at a simulated second or ownership differs from the
+// independent retention scan at any tick. It returns the recorded seat screen.
 func runRecordsOnAndOff(t *testing.T, placements []Placement, limit int, join SharedRideJoin, burst [][2]string) SeatScreen {
 	t.Helper()
 	on := newScreenSimulation(t, Example(), placements, limit, SharedRideDropOffs)
@@ -248,6 +248,8 @@ func runRecordsOnAndOff(t *testing.T, placements []Placement, limit int, join Sh
 		}
 		on.Step()
 		off.Step()
+		checkIncrementalOwners(t, on)
+		checkIncrementalOwners(t, off)
 		if (tick+1)%TicksPerSecond != 0 {
 			continue
 		}
