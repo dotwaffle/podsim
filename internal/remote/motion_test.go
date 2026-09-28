@@ -186,3 +186,44 @@ func TestMotionNewServerStartRestarts(t *testing.T) {
 		t.Fatal("an older revision from the new process was added")
 	}
 }
+
+func TestMotionBoundedRouteWindows(t *testing.T) {
+	for _, name := range []string{"corner", "replacement", "gap", "repeated occurrence", "shift"} {
+		t.Run(name, func(t *testing.T) {
+			a, b := motionState(0, 9), motionState(12, 9)
+			before, after := &a.Simulation.Vehicles[0], &b.Simulation.Vehicles[0]
+			after.Pod.LaneID = "bc"
+			after.Pod.LaneDistance = 1
+			after.Pod.Position = sim.Point{X: 10, Y: 1}
+			before.Presentation = &sim.RoutePresentation{Identity: 1, Current: 0, Motion: before.Route}
+			after.Presentation = &sim.RoutePresentation{Identity: 1, Current: 1, Motion: after.Route}
+			want := sim.Point{X: 10}
+			switch name {
+			case "replacement":
+				after.Presentation.Identity = 2
+				want = before.Pod.Position
+			case "gap":
+				before.Presentation.Motion = before.Route[:1]
+				before.Presentation.After = true
+				after.Presentation.Start = 1
+				after.Presentation.Motion = after.Route[1:]
+				want = before.Pod.Position
+			case "repeated occurrence":
+				route := append(append([]sim.Lane{}, before.Route...), before.Route...)
+				before.Presentation.Motion = route
+				after.Presentation.Motion = route
+				before.Presentation.Current = 2
+				after.Presentation.Current = 3
+			case "shift":
+				before.Presentation.Start = 100
+				before.Presentation.Current = 100
+				after.Presentation.Start = 101
+				after.Presentation.Current = 101
+				after.Presentation.Motion = after.Route[1:]
+			}
+			if got := interpolate(a, b, .5).Vehicles[0].Pod.Position; got != want {
+				t.Fatalf("position=%v want=%v", got, want)
+			}
+		})
+	}
+}

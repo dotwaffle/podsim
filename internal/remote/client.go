@@ -14,6 +14,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/coder/websocket"
+
 	"github.com/dotwaffle/podsim/internal/project"
 	"github.com/dotwaffle/podsim/internal/session"
 )
@@ -25,35 +27,20 @@ type Result struct {
 	Err     error
 }
 
-// retiredEpochPolls is the number of polls in a row that must return the same
-// retired epoch before the client uses that epoch again. The client polls
-// every 50 ms, so this is 1 s. A server can send a retired epoch again after
-// a restart that restores an older state file.
-const retiredEpochPolls = 20
-
-// Client polls state and serializes commands. All returned state is immutable.
+// Client streams state and serializes commands. All returned state is immutable.
 type Client struct {
-	mu       sync.Mutex
-	url      string
-	http     *http.Client
-	state    session.State
-	topology session.TopologySnapshot
-	// topologyStart is the server start ID of the frame that fetched
-	// topology. A restored older save can reuse an epoch and a project
-	// revision with different geometry, so a new start ID refetches it.
-	topologyStart string
-	connected     bool
-	// lastFrame is the time of the last poll that read a state frame
-	// without an error.
+	mu              sync.Mutex
+	url             string
+	http            *http.Client
+	state           session.State
+	connected       bool
+	connectionError string
+	socket          *websocket.Conn
+	// lastFrame is the time of the last verified state or heartbeat.
 	lastFrame time.Time
 	pending   bool
 	client    string
 	sequence  uint64
-	oldEpochs map[string]bool
-	// retiredPolls counts the last frames in a row that carry retiredEpoch,
-	// an epoch in oldEpochs.
-	retiredEpoch string
-	retiredPolls int
 	// build is the first non-empty build ID that a state frame gave.
 	// buildChanged becomes true when a later frame gives a different
 	// non-empty build ID, and then it stays true.
@@ -63,10 +50,10 @@ type Client struct {
 	results      chan Result
 }
 
-// New starts polling and command processing until ctx is canceled.
+// New starts the state stream and command processing until ctx is canceled.
 func New(ctx context.Context, serverURL string) *Client {
-	c := &Client{url: strings.TrimRight(serverURL, "/"), http: &http.Client{Timeout: 3 * time.Second}, client: rand.Text(), oldEpochs: make(map[string]bool), commands: make(chan session.Command, 1), results: make(chan Result, 1)}
-	go c.poll(ctx)
+	c := &Client{url: strings.TrimRight(serverURL, "/"), http: &http.Client{Timeout: 3 * time.Second}, client: rand.Text(), commands: make(chan session.Command, 1), results: make(chan Result, 1)}
+	go c.stream(ctx)
 	go c.runCommands(ctx)
 	return c
 }
@@ -78,8 +65,8 @@ func (c *Client) View() (session.State, bool, bool) {
 	return c.state, c.connected, c.pending
 }
 
-// LastFrame returns the time of the last poll that read a state frame
-// without an error. A game uses it to give the age of the shown state while
+// LastFrame returns the time of the last verified state or heartbeat.
+// A game uses it to give the age of the shown state while
 // the connection is lost. Before the first frame, it returns the zero time.
 func (c *Client) LastFrame() time.Time {
 	c.mu.Lock()
@@ -87,7 +74,7 @@ func (c *Client) LastFrame() time.Time {
 	return c.lastFrame
 }
 
-// BuildChanged reports whether a state frame gave a build that differs
+// BuildChanged reports whether a stream hello or frame gave a build that differs
 // from the first non-empty build this client saw.
 func (c *Client) BuildChanged() bool {
 	c.mu.Lock()
@@ -118,44 +105,6 @@ func (c *Client) Submit(command session.Command) error {
 	return nil
 }
 
-// acceptLocked keeps a state from a new epoch, or a state from the current
-// epoch with the same or a higher revision. A state with a new server start
-// ID starts a new revision stream: a restart that restores an older final
-// save keeps the epoch but can lower the revision, and the view must see
-// that state to tell the user about the restart. It drops a state from a retired
-// epoch until retiredEpochPolls frames in a row carry that epoch. Then that
-// epoch becomes the current epoch again. The caller must hold c.mu.
-func (c *Client) acceptLocked(state session.State) {
-	if state.Epoch == "" {
-		return
-	}
-	if c.oldEpochs[state.Epoch] {
-		if state.Epoch != c.retiredEpoch {
-			c.retiredEpoch, c.retiredPolls = state.Epoch, 0
-		}
-		c.retiredPolls++
-		if c.retiredPolls < retiredEpochPolls {
-			return
-		}
-		delete(c.oldEpochs, state.Epoch)
-	}
-	c.retiredEpoch, c.retiredPolls = "", 0
-	if state.Epoch != c.state.Epoch {
-		if c.state.Epoch != "" {
-			c.oldEpochs[c.state.Epoch] = true
-		}
-	} else if state.Revision < c.state.Revision && !newServerStart(c.state, state) {
-		return
-	}
-	c.state = state
-}
-
-// newServerStart reports whether current comes from a different server
-// process than previous. An older server sends no start ID.
-func newServerStart(previous, current session.State) bool {
-	return current.ServerStart != "" && current.ServerStart != previous.ServerStart
-}
-
 // noteBuild records the build ID of a state frame. The first non-empty ID
 // is the baseline. An empty ID does not set the baseline and is not a change.
 func (c *Client) noteBuild(build string) {
@@ -169,59 +118,6 @@ func (c *Client) noteBuild(build string) {
 	} else if build != c.build {
 		c.buildChanged = true
 	}
-}
-
-func (c *Client) poll(ctx context.Context) {
-	ticker := time.NewTicker(50 * time.Millisecond)
-	defer ticker.Stop()
-	for {
-		var frame session.StateFrame
-		err := c.exchange(ctx, "GET", "/api/state", nil, &frame)
-		// Record the build before the error check and the topology read.
-		// A frame from a new server can have a member with a type that
-		// this client does not know. The decoder then returns an error,
-		// but it still fills the other members. The topology read can also
-		// fail on a new server. The build change must show in these cases.
-		// A failed request leaves the build empty, and noteBuild ignores it.
-		c.noteBuild(frame.Build)
-		var state session.State
-		if err == nil {
-			state, err = c.stateForFrame(ctx, frame)
-		}
-		// Change the state, the connection state, and the frame time in one
-		// step. A reader then does not see a new state together with the
-		// connection state of an earlier poll.
-		c.mu.Lock()
-		c.connected = err == nil
-		if c.connected {
-			c.acceptLocked(state)
-			c.lastFrame = time.Now()
-		}
-		c.mu.Unlock()
-		select {
-		case <-ctx.Done():
-			return
-		case <-ticker.C:
-		}
-	}
-}
-
-func (c *Client) stateForFrame(ctx context.Context, frame session.StateFrame) (session.State, error) {
-	c.mu.Lock()
-	topology, topologyStart := c.topology, c.topologyStart
-	c.mu.Unlock()
-	if topology.Epoch != frame.Epoch || topology.ProjectRevision != frame.ProjectRevision || topologyStart != frame.ServerStart {
-		if err := c.exchange(ctx, "GET", "/api/topology", nil, &topology); err != nil {
-			return session.State{}, err
-		}
-		if topology.Epoch != frame.Epoch || topology.ProjectRevision != frame.ProjectRevision {
-			return session.State{}, errors.New("topology changed while reading state")
-		}
-		c.mu.Lock()
-		c.topology, c.topologyStart = topology, frame.ServerStart
-		c.mu.Unlock()
-	}
-	return session.FrameState(topology, frame)
 }
 
 func (c *Client) runCommands(ctx context.Context) {

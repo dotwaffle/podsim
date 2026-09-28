@@ -199,6 +199,11 @@ func run(ctx context.Context, input runInput) error {
 		shared.Close()
 		stopClock()
 	}})
+	streamShutdown, stopStreams := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Second)
+	if err := shared.WaitStreams(streamShutdown); err != nil {
+		serveErr = errors.Join(serveErr, err)
+	}
+	stopStreams()
 	clockStopped := waitFor(waitInput{group: &clock, name: "Simulation clock", timeout: 5 * time.Second, logger: slog.Default()})
 	if *stateURL != "" {
 		stopStateSaving(ctx, stopInput{

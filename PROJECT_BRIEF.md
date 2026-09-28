@@ -32,7 +32,7 @@ The main interest is network behavior: routing, demand, dispatch, congestion, an
 Use **Go and Ebitengine, compiled to WebAssembly**.
 Target desktop Chrome with mouse and keyboard.
 The browser renders the application and sends commands to a Go server.
-The server owns the simulation clock and sends snapshots to connected browsers.
+The server owns the simulation clock and sends shared gzip JSON state updates over WebSocket.
 
 This is a hobby simulator.
 Engineering certification, construction planning, and accurate predictions for real transport systems are outside its purpose.
@@ -174,7 +174,9 @@ Avoid a general plugin system in the first version.
 
 ### Typed client protocol
 
-Keep the HTTP and JSON protocol while its measured traffic remains manageable.
+Use shared gzip JSON full baselines and deltas over WebSocket for the simulation view.
+Keep commands, topology, and editor data on HTTP.
+Require native browser gzip decompression, with no HTTP polling fallback.
 Preserve the authoritative server and retry-safe command identity.
 
 The September 22 evaluation normalized recurring JSON state, then compared it with ConnectRPC and binary Protocol Buffers.

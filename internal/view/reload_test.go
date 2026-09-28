@@ -32,11 +32,7 @@ func TestServerUpdate(t *testing.T) {
 			t.Parallel()
 			before, after := buildTestHandler(t, "build-a"), buildTestHandler(t, "build-b")
 			var upgraded atomic.Bool
-			var polls atomic.Int32
 			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-				if r.URL.Path == "/api/state" {
-					polls.Add(1)
-				}
 				if upgraded.Load() {
 					after.ServeHTTP(w, r)
 					return
@@ -59,6 +55,7 @@ func TestServerUpdate(t *testing.T) {
 			}
 			oldEpoch := game.state.Epoch
 			upgraded.Store(true)
+			before.shared.Close()
 			// Wait for the state of the new server too, so that the command
 			// below has the epoch of the new server.
 			syncGame(t, game, func() bool { return game.serverUpdated && game.state.Epoch != oldEpoch })
@@ -73,8 +70,10 @@ func TestServerUpdate(t *testing.T) {
 			syncGame(t, game, func() bool { return true })
 			check("after a command result")
 			game.message = ""
-			seen := polls.Load()
-			syncGame(t, game, func() bool { return polls.Load() >= seen+3 })
+			for range 3 {
+				game.pause()
+				syncGame(t, game, func() bool { return true })
+			}
 			check("after a user action and more frames")
 		})
 	}
@@ -82,11 +81,17 @@ func TestServerUpdate(t *testing.T) {
 
 // buildTestHandler returns the HTTP handler of a new session with the build
 // ID build. The session clock does not run.
-func buildTestHandler(t *testing.T, build string) http.Handler {
+type buildHandler struct {
+	http.Handler
+	shared *session.Session
+}
+
+func buildTestHandler(t *testing.T, build string) *buildHandler {
 	t.Helper()
 	shared, err := session.NewWithProject(project.Default(), session.WithLogger(slog.New(slog.DiscardHandler)), session.WithBuildID(build))
 	if err != nil {
 		t.Fatalf("create session: %v", err)
 	}
-	return shared.HandlerFS(fstest.MapFS{})
+	t.Cleanup(shared.Close)
+	return &buildHandler{Handler: shared.HandlerFS(fstest.MapFS{}), shared: shared}
 }

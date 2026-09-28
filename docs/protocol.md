@@ -2,9 +2,11 @@
 
 ## Decision
 
-Use normalized gzip JSON for the browser client.
+Use shared gzip JSON publications over WebSocket for the simulation view.
 
-The normalized protocol removes the network and complete lane objects from the 20 Hz state response.
+The server publishes at most 20 state updates per second.
+It computes and compresses each delta once for all clients.
+An unchanged paused state needs no publication.
 The client fetches topology only when the session epoch, the project revision, or the server start ID changes.
 
 The project evaluated ConnectRPC and binary Protocol Buffers, then removed the implementation.
@@ -13,26 +15,84 @@ The small remaining bandwidth and CPU savings did not justify a second protocol 
 
 ## Message boundaries
 
-The JSON API uses four message boundaries:
+The client uses these message boundaries:
 
 | Boundary | JSON endpoint | Purpose |
 | --- | --- | --- |
 | Topology | `GET /api/topology` | Network geometry for one project revision. |
+| Stream | `GET /api/state/stream` | WebSocket state publications and application acknowledgments. |
 | State | `GET /api/state` | Controls, demand, queues, berths, metrics, save points, the build, the server start ID, the restore result, and dynamic vehicle fields. |
 | Project | `GET /api/project` | Complete editable scenario data. |
 | Command | `POST /api/command` | Retry-safe mutation and compact acknowledgment. |
 
 A request for a different `/api` path gets HTTP 404.
 A request with a different method gets HTTP 405 and an `Allow` header with the methods of the endpoint.
-A `GET` endpoint also accepts `HEAD`.
+A `GET` endpoint also accepts `HEAD`, except the WebSocket upgrade.
 All `/api` responses have `Cache-Control: no-store`, also the error responses.
 
-State frames contain ordered lane IDs for vehicle routes.
+HTTP state frames contain ordered lane IDs for vehicle routes.
 They do not contain lane objects or network geometry.
 The Go client caches topology by session epoch, project revision, and server start ID, then reconstructs the presentation state.
 It rejects a frame if matching topology is not available.
-The client ignores a frame from an epoch that it left.
-If the server sends that epoch in all polls for 1 s, the client switches to that epoch again.
+Topology must match the frame server start ID, epoch, and project revision.
+A verified full stream baseline can establish a restored older epoch immediately.
+Frames from a closed connection cannot replace the current view.
+
+## Shared state stream
+
+The server sends a text hello with `version`, `build`, and `serverStart` before any binary state message.
+The current stream version is 1.
+Each binary message contains one gzip member and one JSON envelope.
+The envelope contains `kind`, `stream`, `sequence`, `base`, `build`, and `source`.
+Sequence and base use decimal strings.
+A full message omits base and carries a `full` object with `state` and `routes`.
+A delta carries replacement `groups`, vehicle changes by pod ID, and changed berths by ID.
+A replacement wrapper has a `value` member, so null, zero, and an empty list differ from an absent group.
+
+The groups are controls, demand, restore, checkpoints, pending requests, global simulation state, and statistics.
+Vehicle groups are pod fields, presentation route, riders, stops, and relocation or platoon metadata.
+Membership, order, source, project, or generation changes start a new full baseline.
+A delta must name the exact preceding stream and sequence.
+Invalid data closes the socket and retains the last valid view until reconnection.
+
+Stream routes replace complete ordered routes with sorted unique display lane indexes and a bounded ordered motion window.
+Display indexes cover every lane of the complete route, including traveled lanes.
+The motion window holds at most 2,048 lane occurrences around the current occurrence.
+It carries an ephemeral route identity, absolute start and current occurrences, truncation flags, and the original origin node index.
+A route replacement changes identity, while a window shift preserves it.
+Motion holds the earlier position when identity changes or neither window contains the connecting path.
+The 150 ms motion buffer is unchanged.
+Simulator routes, saved states, and HTTP diagnostic frames keep their existing representation.
+
+The connection allows 64 outstanding state messages or 8 MiB, whichever limit it reaches first.
+A larger legal message uses that window alone.
+Acknowledgments are cumulative and follow validated state publication.
+They release credit across full baselines and stream boundaries.
+The client does not wait for an acknowledgment before it receives the next delta.
+Shared history holds at most 256 deltas or 32 MiB.
+Eviction sends a new shared full baseline when a client next has credit.
+The global payload budget includes ring ownership and in-progress socket writes.
+It allows 32 MiB of history plus two 65 MiB full-payload slots.
+The current detached frame and active encoding buffers are separate bounded allocations.
+Only one compressed encoding can wait for admission at a time.
+Under pressure, the publisher first releases history and cached full ownership, then cancels writers holding the oldest remaining payload.
+It admits the waiting encoding only after those writes stop and release their leases.
+Unrelated subscribers remain connected.
+
+The server admits at most 64 sockets.
+Idle connections receive one application heartbeat per second, with at most one heartbeat outstanding.
+State acknowledgments and heartbeat replies have separate 30-second progress deadlines.
+An old acknowledgment does not extend the state deadline.
+Socket writes have a 30-second outer deadline.
+An independent watchdog applies the acknowledgment progress deadline during blocked writes.
+Shutdown closes upgraded sockets and waits for stream workers before the final state-save sequence.
+
+State JSON has a 64 MiB limit and compressed messages have a 65 MiB limit.
+The browser counts native decompression output before allocating the joined result.
+It requires WebSocket, DecompressionStream, and AbortController.
+Unsupported browsers show an error, and connection failures use bounded exponential reconnect delays.
+There is no HTTP polling fallback.
+Commands and editor or diagnostic reads keep HTTP.
 
 Each state frame also has a `revision` and a `generation`.
 The revision increases by one at each clock tick while the session runs, and with each accepted command.
@@ -348,7 +408,7 @@ Its raw frame is 46.5% smaller, but gzip removes most of that difference.
 
 Topology is a one-time cost per project revision.
 London topology was 51,803 gzip bytes as JSON and 46,374 gzip bytes as Protobuf.
-The editor project is not part of the polling path.
+The editor project is not part of the state stream.
 
 The payload data is in [`measurements/protocol-normalized.csv`](measurements/protocol-normalized.csv).
 The earlier live samples remain in [`measurements/protocol-payloads.csv`](measurements/protocol-payloads.csv).
@@ -440,4 +500,4 @@ Reconsider a typed RPC protocol when at least one condition is true:
 - The application needs streaming or gRPC compatibility.
 
 Measure browser decode and state-application time before a protocol change.
-Add deltas or streaming only if normalized complete frames become a measured limit.
+That historical recommendation is superseded by the shared gzip delta stream described above.

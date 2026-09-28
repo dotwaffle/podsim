@@ -258,7 +258,7 @@ func berthOccupancy(berth sim.Berth, state sim.Snapshot) string {
 		if b.ReservedBy != "" && b.Occupant == "" {
 			occupancy = "ARRIVING " + b.ReservedBy
 			for _, v := range state.Vehicles {
-				if v.Pod.ID == b.ReservedBy && len(v.Route) > 0 && v.Route[0].From == berth.Node {
+				if v.Pod.ID == b.ReservedBy && vehicleRouteOrigin(v) == berth.Node {
 					occupancy = "DEPARTING " + b.ReservedBy
 				}
 			}
@@ -727,4 +727,15 @@ func shiftInside(start, end, low, high int) int {
 		shift = low - start
 	}
 	return shift
+}
+
+// vehicleRouteOrigin retains the original endpoint of a bounded stream route.
+func vehicleRouteOrigin(v sim.Vehicle) string {
+	if v.Presentation != nil {
+		return v.Presentation.OriginNode
+	}
+	if len(v.Route) > 0 {
+		return v.Route[0].From
+	}
+	return ""
 }

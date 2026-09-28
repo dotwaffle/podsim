@@ -148,6 +148,7 @@ var (
 )
 
 type sessionInstruments struct {
+	stream                                                     map[string]metric.Int64ObservableGauge
 	tick, submitted, completed, pending                        metric.Int64ObservableGauge
 	vehicles, activeVehicles, passengerVehicles, stoppedPods   metric.Int64ObservableGauge
 	checkpoints                                                metric.Int64ObservableGauge
@@ -169,6 +170,9 @@ func registerSessionMetrics(meter metric.Meter, snapshot func() session.Metrics)
 	}
 	return meter.RegisterCallback(func(_ context.Context, observer metric.Observer) error {
 		state := snapshot()
+		for name, value := range streamMetricValues(state.Stream) {
+			observer.ObserveInt64(instruments.stream[name], value)
+		}
 		observer.ObserveInt64(instruments.tick, state.Tick)
 		observer.ObserveInt64(instruments.submitted, int64(state.Submitted))
 		observer.ObserveInt64(instruments.completed, int64(state.Completed))
@@ -217,6 +221,14 @@ func counterValue(count uint64) int64 {
 func newSessionInstruments(meter metric.Meter) (sessionInstruments, error) {
 	var instruments sessionInstruments
 	var err error
+	instruments.stream = map[string]metric.Int64ObservableGauge{}
+	for name := range streamMetricValues(session.StreamMetrics{}) {
+		instrument, e := meter.Int64ObservableGauge("podsim.stream." + name)
+		if e != nil {
+			return instruments, fmt.Errorf("create stream metric: %w", e)
+		}
+		instruments.stream[name] = instrument
+	}
 	if instruments.tick, err = meter.Int64ObservableGauge("podsim.simulation.tick", metric.WithUnit("{tick}")); err != nil {
 		return instruments, fmt.Errorf("create simulation tick metric: %w", err)
 	}
@@ -286,11 +298,19 @@ func newStateInstruments(meter metric.Meter) (stateInstruments, error) {
 }
 
 func (i sessionInstruments) observables() []metric.Observable {
-	return []metric.Observable{
+	all := []metric.Observable{
 		i.tick, i.submitted, i.completed, i.pending,
 		i.vehicles, i.activeVehicles, i.passengerVehicles, i.stoppedPods,
 		i.passengerDistance, i.emptyDistance, i.averageWait, i.maximumWait,
 		i.checkpoints,
 		i.state.saves, i.state.size, i.state.unsaved, i.state.enabled,
 	}
+	for _, instrument := range i.stream {
+		all = append(all, instrument)
+	}
+	return all
+}
+
+func streamMetricValues(s session.StreamMetrics) map[string]int64 {
+	return map[string]int64{"connections": int64(s.Connections), "full": counterValue(s.Full), "delta": counterValue(s.Delta), "bytes": counterValue(s.Bytes), "retained_bytes": int64(s.RetainedBytes), "encoding_bytes": int64(s.EncodingBytes), "pressure_sheds": counterValue(s.PressureSheds), "history_messages": int64(s.HistoryMessages), "history_first": counterValue(s.HistoryFirst), "history_last": counterValue(s.HistoryLast), "outstanding_messages": int64(s.OutstandingMessages), "outstanding_bytes": int64(s.OutstandingBytes), "ack_age_ms": s.OldestACKMilliseconds, "resync_history": counterValue(s.ResyncHistory), "resync_source": counterValue(s.ResyncSource)}
 }

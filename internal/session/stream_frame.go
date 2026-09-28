@@ -1,0 +1,207 @@
+package session
+
+import (
+	"errors"
+	"fmt"
+	"reflect"
+	"slices"
+
+	"github.com/dotwaffle/podsim/internal/project"
+	"github.com/dotwaffle/podsim/internal/sim"
+)
+
+func (s *Session) presentationFrame() (StreamFrame, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	snapshot, routes, err := s.simulation.PresentationSnapshot()
+	if err != nil {
+		return StreamFrame{}, err
+	}
+	if len(s.build) > 64 {
+		return StreamFrame{}, errors.New("stream build ID exceeds 64 bytes")
+	}
+	state := State{Epoch: s.epoch, Revision: s.revision, ProjectRevision: s.projectRevision, Generation: s.generation,
+		Redistribution: s.project.Redistribution && !snapshot.Demo, Simulation: snapshot, Speed: s.speed, Demand: s.demand.state,
+		Checkpoints: s.checkpointList(), Build: s.build, ServerStart: s.serverStart, Restore: s.restore}
+	return StreamFrame{State: stateFrame(state), Routes: routes}, nil
+}
+
+// StreamAssembler caches verified topology and immutable expanded route data.
+type StreamAssembler struct {
+	topology TopologySnapshot
+	lanes    map[string]bool
+	stations map[string]bool
+	berths   map[string]bool
+	previous StreamFrame
+	state    State
+}
+
+// NewStreamAssembler takes ownership of a detached topology snapshot.
+func NewStreamAssembler(topology TopologySnapshot) (*StreamAssembler, error) {
+	if len(topology.Network.Lanes) > project.MaxLanes || len(topology.Network.Nodes) > project.MaxNodes {
+		return nil, errors.New("topology exceeds supported limits")
+	}
+	a := &StreamAssembler{topology: topology, lanes: make(map[string]bool, len(topology.Network.Lanes)), stations: map[string]bool{}, berths: map[string]bool{}}
+	nodes := map[string]bool{}
+	for _, node := range topology.Network.Nodes {
+		if node.ID == "" || nodes[node.ID] {
+			return nil, errors.New("invalid topology node")
+		}
+		nodes[node.ID] = true
+	}
+	for _, station := range topology.Network.Stations {
+		if station.ID == "" || a.stations[station.ID] {
+			return nil, errors.New("invalid topology station")
+		}
+		a.stations[station.ID] = true
+		for _, berth := range station.Berths {
+			if berth.ID == "" || a.berths[berth.ID] || !nodes[berth.Node] {
+				return nil, errors.New("invalid topology berth")
+			}
+			a.berths[berth.ID] = true
+		}
+	}
+	for _, l := range topology.Network.Lanes {
+		if l.ID == "" || a.lanes[l.ID] || !nodes[l.From] || !nodes[l.To] {
+			return nil, errors.New("duplicate topology lane")
+		}
+		a.lanes[l.ID] = true
+	}
+	return a, nil
+}
+
+// State reconstructs a candidate without mutating earlier views.
+func (a *StreamAssembler) State(f StreamFrame) (State, error) {
+	if len(f.Routes) != len(f.State.Simulation.Vehicles) {
+		return State{}, errors.New("missing route presentation")
+	}
+	state, err := frameState(a.topology, f.State, true)
+	if err != nil {
+		return State{}, err
+	}
+	if err := a.references(f); err != nil {
+		return State{}, err
+	}
+	seen := map[string]bool{}
+	for i := range state.Simulation.Vehicles {
+		v := &state.Simulation.Vehicles[i]
+		r := f.Routes[i]
+		if seen[v.Pod.ID] || v.Pod.ID == "" || v.Pod.LaneID != "" && !a.lanes[v.Pod.LaneID] {
+			return State{}, errors.New("invalid vehicle identity or lane")
+		}
+		seen[v.Pod.ID] = true
+		if err := a.motionPod(r, v.Pod); err != nil {
+			return State{}, err
+		}
+		if i < len(a.previous.Routes) && reflect.DeepEqual(r, a.previous.Routes[i]) {
+			v.Route = a.state.Simulation.Vehicles[i].Route
+			v.Presentation = a.state.Simulation.Vehicles[i].Presentation
+			continue
+		}
+		if len(r.Display) > project.MaxLanes || len(r.Lanes) > sim.MotionRouteLimit || r.Current < r.Start || r.Current-r.Start > uint64(len(r.Lanes)) || r.Before != (r.Start > 0) {
+			return State{}, errors.New("invalid motion window")
+		}
+		if len(r.Lanes) == 0 {
+			if len(r.Display) != 0 || r.Origin != -1 || r.Current != 0 || r.Start != 0 || r.After {
+				return State{}, errors.New("invalid empty route")
+			}
+		} else if r.Origin < 0 || r.Origin >= len(a.topology.Network.Nodes) {
+			return State{}, errors.New("invalid route origin")
+		}
+		display := make(map[int]bool, len(r.Display))
+		last := -1
+		for _, index := range r.Display {
+			if index <= last || index >= len(a.topology.Network.Lanes) {
+				return State{}, fmt.Errorf("invalid display lane index %d", index)
+			}
+			last = index
+			display[index] = true
+			v.Route = append(v.Route, a.topology.Network.Lanes[index])
+		}
+		for motionIndex, index := range r.Lanes {
+			if !display[index] {
+				return State{}, errors.New("motion lane missing from display")
+			}
+			lane := a.topology.Network.Lanes[index]
+			if motionIndex > 0 && r.Motion[motionIndex-1].To != lane.From {
+				return State{}, errors.New("disconnected motion path")
+			}
+			r.Motion = append(r.Motion, lane)
+		}
+		if v.Pod.LaneID != "" && (r.Current-r.Start >= uint64(len(r.Motion)) || r.Motion[r.Current-r.Start].ID != v.Pod.LaneID) {
+			return State{}, errors.New("motion occurrence does not match pod lane")
+		}
+		if r.Origin >= 0 {
+			r.OriginNode = a.topology.Network.Nodes[r.Origin].ID
+		}
+		v.Presentation = &r
+	}
+	a.previous = f
+	a.state = state
+	// Only private containers are retained. The geometry and routes are immutable.
+	a.previous.Routes = slices.Clone(f.Routes)
+	return state, nil
+}
+
+func (a *StreamAssembler) motionPod(r sim.RoutePresentation, p sim.Pod) error {
+	if p.LaneID == "" {
+		return nil
+	}
+	if r.Current < r.Start || r.Current-r.Start >= uint64(len(r.Lanes)) {
+		return errors.New("pod occurrence outside motion window")
+	}
+	index := r.Lanes[r.Current-r.Start]
+	if index < 0 || index >= len(a.topology.Network.Lanes) || a.topology.Network.Lanes[index].ID != p.LaneID {
+		return errors.New("motion occurrence does not match pod lane")
+	}
+	return nil
+}
+func optionalReference(index map[string]bool, id string) bool { return id == "" || index[id] }
+func (a *StreamAssembler) references(f StreamFrame) error {
+	snapshot := f.State.Simulation
+	pods := map[string]bool{}
+	if len(snapshot.Pending) > maxSavedTrips {
+		return errors.New("too many pending requests")
+	}
+	for _, v := range snapshot.Vehicles {
+		if v.Pod.ID == "" || pods[v.Pod.ID] {
+			return errors.New("duplicate pod")
+		}
+		pods[v.Pod.ID] = true
+	}
+	request := func(r sim.Request) bool {
+		return a.stations[r.From] && a.stations[r.To] && optionalReference(pods, r.PodID)
+	}
+	for _, v := range snapshot.Vehicles {
+		p := v.Pod
+		if !optionalReference(a.stations, p.StationID) || !optionalReference(a.stations, p.ManeuverStationID) || !optionalReference(a.stations, v.RelocatingTo) || !optionalReference(a.berths, p.BerthID) || !optionalReference(pods, p.BlockedBy) || !optionalReference(pods, v.PlatoonID) {
+			return errors.New("invalid pod reference")
+		}
+		if len(v.Riders) > 8 || len(v.Stops) > 8 {
+			return errors.New("too many riders or stops")
+		}
+		for _, r := range v.Riders {
+			if !request(r) {
+				return errors.New("invalid rider reference")
+			}
+		}
+		for _, stop := range v.Stops {
+			if !a.stations[stop] {
+				return errors.New("invalid stop reference")
+			}
+		}
+	}
+	for _, r := range snapshot.Pending {
+		if !request(r) {
+			return errors.New("invalid pending reference")
+		}
+	}
+	seen := map[string]bool{}
+	for _, b := range snapshot.Berths {
+		if !a.berths[b.ID] || seen[b.ID] || !optionalReference(pods, b.Occupant) || !optionalReference(pods, b.ReservedBy) {
+			return errors.New("invalid berth reference")
+		}
+		seen[b.ID] = true
+	}
+	return nil
+}

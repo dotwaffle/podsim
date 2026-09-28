@@ -206,3 +206,27 @@ func findMetric(collected metricdata.ResourceMetrics, name string) (metricdata.M
 	}
 	return metricdata.Metrics{}, false
 }
+
+func TestStreamMetricsHaveNoClientLabels(t *testing.T) {
+	reader := sdkmetric.NewManualReader()
+	provider := sdkmetric.NewMeterProvider(sdkmetric.WithReader(reader))
+	t.Cleanup(func() { _ = provider.Shutdown(t.Context()) })
+	s := session.StreamMetrics{Connections: 2, Full: 1, Delta: 20, RetainedBytes: 4096, OutstandingMessages: 12, OldestACKMilliseconds: 600}
+	if _, err := registerSessionMetrics(provider.Meter(instrumentationName), func() session.Metrics { return session.Metrics{Stream: s} }); err != nil {
+		t.Fatal(err)
+	}
+	var result metricdata.ResourceMetrics
+	if err := reader.Collect(t.Context(), &result); err != nil {
+		t.Fatal(err)
+	}
+	for name, want := range streamMetricValues(s) {
+		m, ok := findMetric(result, "podsim.stream."+name)
+		if !ok {
+			t.Fatal("missing stream metric", name)
+		}
+		g, ok := m.Data.(metricdata.Gauge[int64])
+		if !ok || len(g.DataPoints) != 1 || g.DataPoints[0].Value != want || g.DataPoints[0].Attributes.Len() != 0 {
+			t.Fatal("invalid or labeled stream metric", name)
+		}
+	}
+}

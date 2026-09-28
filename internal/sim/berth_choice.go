@@ -83,7 +83,8 @@ func (s *Simulation) reevaluateTerminalBerth(v *vehicle) {
 			if first >= blocks.len() || blocks.at(first).lane.ID != suffix[0].ID {
 				continue
 			}
-			v.Route, v.blocks, v.routeLengths, v.destination = route, blocks, lengths, berth
+			v.replaceRoute(route)
+			v.blocks, v.routeLengths, v.destination = blocks, lengths, berth
 			v.blockStarts = indexBlockStarts(&blocks, len(route))
 			v.terminal = terminalCheck{}
 			v.pending = -1

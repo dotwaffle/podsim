@@ -4,6 +4,7 @@ go 1.27.1
 
 require (
 	github.com/KimMachineGun/automemlimit v1.0.0
+	github.com/coder/websocket v1.8.15
 	github.com/hajimehoshi/ebiten/v2 v2.10.2
 	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.71.0
 	go.opentelemetry.io/contrib/instrumentation/runtime v0.71.0

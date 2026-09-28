@@ -40,7 +40,7 @@ var cloneRules = map[reflect.Type]map[string]cloneRule{
 		"Vehicle": cloneCopy, "blocks": cloneShare, "blockStarts": cloneShare, "routeReleases": cloneCopy,
 		"routeLengths": cloneShare,
 	},
-	reflect.TypeFor[Vehicle]():     {"Riders": cloneCopy, "Stops": cloneCopy, "Route": cloneShare},
+	reflect.TypeFor[Vehicle]():     {"Riders": cloneCopy, "Stops": cloneCopy, "Route": cloneShare, "Presentation": cloneShare},
 	reflect.TypeFor[waitingTrip](): {"route": cloneShare},
 	reflect.TypeFor[routeResult](): {"lanes": cloneShare, "err": cloneShare},
 }
@@ -191,10 +191,10 @@ var persistRules = map[reflect.Type]map[string]persistRule{
 		"waitSince":      persistSave,
 		"rebalanceAfter": persistSave, "origin": persistSave, "destination": persistSave,
 		"destinationStation": persistSave, "released": persistSave, "terminal": persistReset,
-		"routeLengths": persistDerive, "link": persistSave, "follower": persistDerive, "platoonCap": persistReset,
+		"routeVersion": persistReset, "routeLengths": persistDerive, "link": persistSave, "follower": persistDerive, "platoonCap": persistReset,
 	},
 	reflect.TypeFor[Vehicle](): {
-		"Pod": persistSave, "Riders": persistSave, "Stops": persistSave, "Route": persistSave,
+		"Pod": persistSave, "Riders": persistSave, "Stops": persistSave, "Route": persistSave, "Presentation": persistReset,
 		"RelocatingTo": persistSave, "Rebalancing": persistSave, "PlatoonID": persistDerive, "PlatoonIndex": persistDerive,
 	},
 	reflect.TypeFor[Pod](): {
@@ -391,8 +391,8 @@ func TestCloneFollowsRules(t *testing.T) {
 			name: "active", build: activeCloneSimulation, covered: true,
 			// No congestion route fails in the example network, no
 			// journey ends in the first 35 seconds, and no test monitor
-			// runs.
-			uncovered: []string{"routeResult.err", "Simulation.requestCompletions", "Simulation.monitor"},
+			// runs. Presentation exists only in remote snapshots.
+			uncovered: []string{"routeResult.err", "Simulation.requestCompletions", "Simulation.monitor", "Vehicle.Presentation"},
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {

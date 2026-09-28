@@ -99,7 +99,9 @@ type Pod struct {
 
 // Vehicle is an independent display copy of a pod and its assigned journey.
 type Vehicle struct {
-	Pod Pod `json:"Pod"`
+	// Presentation is set only for bounded stream views.
+	Presentation *RoutePresentation `json:"-"`
+	Pod          Pod                `json:"Pod"`
 	// Riders has one request for each party of the current or last
 	// passenger journey of the pod, in boarding order. The first rider
 	// boarded the pod, and the other riders joined it. A rider with
@@ -194,6 +196,7 @@ type Placement struct {
 }
 
 type vehicle struct {
+	routeVersion uint64
 	Vehicle
 	phaseTicks                  int
 	blockStarts                 map[string]int
@@ -495,7 +498,9 @@ func indexVehicles(vehicles []vehicle) map[string]int {
 }
 
 // Snapshot does not expose mutable simulation storage.
-func (s *Simulation) Snapshot() Snapshot {
+func (s *Simulation) Snapshot() Snapshot { return s.snapshot(true) }
+
+func (s *Simulation) snapshot(routes bool) Snapshot {
 	state := Snapshot{
 		Submitted: s.requestID, Tick: s.tick, Paused: s.paused,
 		Completed: s.completed, Demo: s.demo != nil, DemoError: s.demoError,
@@ -509,7 +514,10 @@ func (s *Simulation) Snapshot() Snapshot {
 	}
 	for _, v := range s.vehicles {
 		cloned := v.Vehicle
-		cloned.Route = cloneLanes(cloned.Route)
+		cloned.Route = nil
+		if routes {
+			cloned.Route = cloneLanes(v.Route)
+		}
 		cloned.Riders, cloned.Stops = slices.Clone(cloned.Riders), slices.Clone(cloned.Stops)
 		state.Vehicles = append(state.Vehicles, cloned)
 	}

@@ -150,7 +150,7 @@ The executable holds only the gzip WASM file, so it is about 35 MB and not 64 MB
 
 The project also includes a non-root, multiarchitecture ko image and a GHCR publishing workflow.
 The server provides `/healthz`, opt-in pprof on a separate listener, and opt-in OTLP telemetry.
-The browser uses normalized gzip JSON frames.
+The browser receives shared gzip JSON state deltas over WebSocket.
 
 See [distribution and operations](docs/operations.md) for build and runtime settings, the saved session state, graceful shutdown, save point memory use, and save point logs.
 
@@ -1330,7 +1330,8 @@ The tests establish progress for feasible supplied scenarios, not for every satu
 #### Shared state
 
 One server owns the simulation clock, commands, and demand settings.
-Browsers poll dynamic state frames and show the connection status.
+Browsers receive shared gzip state deltas over WebSocket and show the connection status.
+The simulation view requires WebSocket and native gzip decompression, with no HTTP polling fallback.
 They fetch the network topology on connection, and after the session epoch, the project revision, or the server start ID changes.
 Controls wait for server confirmation.
 During the wait, the line below the panels shows **Shared session / waiting for command confirmation**.
@@ -1349,7 +1350,8 @@ Rendering never predicts movement beyond the latest received position.
 
 #### Compression and the WASM module
 
-The server uses gzip for snapshots and browser assets when the client supports it.
+State stream messages always use gzip.
+HTTP snapshots and browser assets use gzip when the client supports it.
 Range responses remain uncompressed.
 
 The build keeps only `podsim.wasm.gz`, which it compresses at the maximum level one time.
@@ -1424,7 +1426,7 @@ See [the project brief](PROJECT_BRIEF.md) for the wider scope and research.
 | `internal/scenarios` | Deterministic scenario presets, including `scale100` and `london`, and qualification tests. |
 | `internal/session` | Shared clock, command validation, save points, saved session state, HTTP API, and repeatable demand. |
 | `internal/statestore` | Saved session state in a `file://` blob bucket, for the server only. |
-| `internal/remote` | Snapshot polling, motion buffering, command retries, and connection state. |
+| `internal/remote` | Shared state streaming, motion buffering, command retries, and connection state. |
 | `internal/view` | Ebitengine rendering and input against copied snapshots. |
 | `internal/telemetry` | Optional OTLP traces, HTTP metrics, runtime metrics, session gauges, and session state metrics. |
 | `internal/cmd/buildweb` | Generated browser files and gzip WASM file. |

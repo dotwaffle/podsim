@@ -567,11 +567,15 @@ func storedSession(t *testing.T, store *memoryStore) *session.Session {
 // session, as a server restart at the same address does.
 type switchServer struct {
 	handler atomic.Pointer[http.Handler]
+	shared  atomic.Pointer[session.Session]
 }
 
 func (s *switchServer) use(shared *session.Session) {
 	handler := shared.HandlerFS(fstest.MapFS{})
 	s.handler.Store(&handler)
+	if previous := s.shared.Swap(shared); previous != nil {
+		previous.Close()
+	}
 }
 
 func (s *switchServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {

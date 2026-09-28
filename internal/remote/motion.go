@@ -124,6 +124,9 @@ func (g *motionGeometry) interpolatePosition(before, after sim.Vehicle, fraction
 	if before.Pod.Position == after.Pod.Position {
 		return before.Pod.Position, true
 	}
+	if before.Presentation != nil || after.Presentation != nil {
+		return g.interpolateWindow(before, after, fraction, maxTravel)
+	}
 	for _, route := range [][]sim.Lane{before.Route, after.Route} {
 		start, startOK := g.routeOffset(route, before.Pod)
 		end, endOK := g.routeOffset(route, after.Pod)
@@ -218,4 +221,78 @@ func (l motionLane) position(distance float64) sim.Point {
 		distance -= length
 	}
 	return l.points[len(l.points)-1]
+}
+
+// interpolateWindow uses absolute occurrences, including repeated lane IDs.
+func (g *motionGeometry) interpolateWindow(before, after sim.Vehicle, fraction, maxTravel float64) (sim.Point, bool) {
+	a, b := before.Presentation, after.Presentation
+	if a == nil || b == nil || a.Identity != b.Identity || b.Current < a.Current {
+		return sim.Point{}, false
+	}
+	for _, window := range []*sim.RoutePresentation{a, b} {
+		start, ok := g.windowOffset(window, a.Current, before.Pod)
+		if !ok {
+			continue
+		}
+		end, ok := g.windowOffset(window, b.Current, after.Pod)
+		if !ok || end < start || end-start > maxTravel {
+			continue
+		}
+		distance := start + (end-start)*fraction
+		for _, lane := range window.Motion {
+			geometry, ok := g.lanes[lane.ID]
+			if !ok {
+				break
+			}
+			if distance <= geometry.length && geometry.length > 0 {
+				return geometry.position(distance), true
+			}
+			distance -= geometry.length
+		}
+	}
+	return sim.Point{}, false
+}
+func (g *motionGeometry) windowOffset(route *sim.RoutePresentation, current uint64, pod sim.Pod) (float64, bool) {
+	if current < route.Start || current-route.Start > uint64(len(route.Motion)) {
+		return 0, false
+	}
+	// The check above bounds the difference by a slice length.
+	index := int(current - route.Start) // #nosec G115 -- At most len(route.Motion), which fits int.
+	distance := 0.0
+	for _, lane := range route.Motion[:index] {
+		geometry, ok := g.lanes[lane.ID]
+		if !ok {
+			return 0, false
+		}
+		distance += geometry.length
+	}
+	if index == len(route.Motion) {
+		if route.After || pod.LaneID != "" || index == 0 {
+			return 0, false
+		}
+		last, ok := g.lanes[route.Motion[index-1].ID]
+		if !ok {
+			return 0, false
+		}
+		point := last.points[len(last.points)-1]
+		return distance, math.Hypot(point.X-pod.Position.X, point.Y-pod.Position.Y) < 0.001
+	}
+	lane := route.Motion[index]
+	geometry, ok := g.lanes[lane.ID]
+	if !ok {
+		return 0, false
+	}
+	if pod.LaneID == lane.ID {
+		return distance + pod.LaneDistance, pod.LaneDistance >= 0 && pod.LaneDistance <= geometry.length
+	}
+	if pod.LaneID == "" && current == 0 {
+		point := geometry.points[0]
+		return distance, math.Hypot(point.X-pod.Position.X, point.Y-pod.Position.Y) < 0.001
+	}
+	return 0, false
+}
+
+// newServerStart reports whether current comes from a different process.
+func newServerStart(previous, current session.State) bool {
+	return current.ServerStart != "" && current.ServerStart != previous.ServerStart
 }

@@ -112,6 +112,7 @@ func TestConnectionStateFromServer(t *testing.T) {
 	syncGame(t, game, func() bool { return game.state.Epoch != "" })
 	check("with a connection", time.Now(), "", false)
 	offline.Store(true)
+	handler.shared.Close()
 	deadline := time.Now().Add(5 * time.Second)
 	for game.connected {
 		if time.Now().After(deadline) {

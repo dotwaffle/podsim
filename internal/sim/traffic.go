@@ -446,7 +446,7 @@ type intent struct {
 }
 
 func (s *Simulation) setVehicleRoute(v *vehicle, route []Lane) {
-	v.Route = route
+	v.replaceRoute(route)
 	v.blocks, v.routeLengths = s.routeBlocks(route)
 	v.blockStarts = indexBlockStarts(&v.blocks, len(route))
 	v.terminal = terminalCheck{}
@@ -805,4 +805,12 @@ func (s *Simulation) podBerthNode(v *vehicle) string {
 	station, _ := s.station(v.Pod.StationID)
 	berth, _ := station.berth(v.Pod.BerthID)
 	return berth.Node
+}
+
+// replaceRoute updates presentation identity without changing movement storage.
+func (v *vehicle) replaceRoute(route []Lane) {
+	if v.routeVersion < ^uint64(0) {
+		v.routeVersion++
+	}
+	v.Route = route
 }

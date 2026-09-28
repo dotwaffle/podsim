@@ -68,6 +68,7 @@ type ProjectState struct {
 // ActiveVehicles counts the pods with assigned work, as
 // sim.Snapshot.WorkingVehicles defines it.
 type Metrics struct {
+	Stream                  StreamMetrics
 	Tick                    int64
 	Submitted               int
 	Completed               int
@@ -205,6 +206,8 @@ func WithBuildID(id string) Option {
 
 // Session contains one fleet and one simulation clock. Use Run once per session.
 type Session struct {
+	streamMu sync.Mutex
+	stream   *statePublisher
 	// Close sets closed without mu, so a slow command cannot block shutdown.
 	closed     atomic.Bool
 	mu         sync.Mutex
@@ -331,7 +334,7 @@ func (s *Session) Run(ctx context.Context) {
 
 // Close stops the clock and rejects new commands. Reads continue. Close does not
 // wait for a tick or a command that is already in progress. Close is idempotent.
-func (s *Session) Close() { s.closed.Store(true) }
+func (s *Session) Close() { s.closed.Store(true); s.stopStreams() }
 
 func (s *Session) advance() {
 	s.mu.Lock()
@@ -358,7 +361,7 @@ func (s *Session) Topology() TopologySnapshot {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	return TopologySnapshot{
-		Epoch: s.epoch, ProjectRevision: s.projectRevision,
+		ServerStart: s.serverStart, Epoch: s.epoch, ProjectRevision: s.projectRevision,
 		Network: project.CloneNetwork(s.project.Network),
 	}
 }
@@ -377,6 +380,7 @@ func (s *Session) Metrics() Metrics {
 	defer s.mu.Unlock()
 	state := s.simulation.Snapshot()
 	metrics := Metrics{
+		Stream:                  s.StreamStats(),
 		Tick:                    state.Tick,
 		Submitted:               state.Submitted,
 		Completed:               state.Completed,

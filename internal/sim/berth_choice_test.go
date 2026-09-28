@@ -77,11 +77,15 @@ func TestBerthChoiceAtMultiLaneBranch(t *testing.T) {
 	s.owners[resource{kind: nodeResource, id: "market-berth"}] = "02"
 	positionBeforeTerminalInlet(t, terminalInletPosition{simulation: s, vehicle: v})
 	granted := slices.Clone(v.blocks.all()[:v.reservedThrough+1])
+	version := v.routeVersion
 
 	s.reevaluateTerminalBerth(v)
 
 	if v.destination.ID != "market-2" || v.Route[len(v.Route)-1].ID != "market-in-2" {
 		t.Fatalf("destination = %q via %q, want market-2 via market-in-2", v.destination.ID, v.Route[len(v.Route)-1].ID)
+	}
+	if v.routeVersion == version {
+		t.Fatal("terminal reroute retained presentation identity")
 	}
 	if !reflect.DeepEqual(v.blocks.all()[:v.reservedThrough+1], granted) {
 		t.Fatal("reroute changed granted blocks")

@@ -268,6 +268,11 @@ func (g *Game) submit(command session.Command) {
 }
 
 func (g *Game) connectionLabel() string {
+	if !g.connected && g.client != nil {
+		if message := g.client.ConnectionError(); message != "" {
+			return message
+		}
+	}
 	if !g.connected {
 		return "Connection lost or connecting. Controls resume when the server is available."
 	}

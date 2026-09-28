@@ -11,6 +11,7 @@ import (
 
 // TopologySnapshot contains geometry that changes only with the project.
 type TopologySnapshot struct {
+	ServerStart     string      `json:"serverStart"`
 	Epoch           string      `json:"epoch"`
 	ProjectRevision uint64      `json:"projectRevision"`
 	Network         sim.Network `json:"network"`
@@ -78,12 +79,18 @@ type VehicleFrame struct {
 
 // FrameState combines one matching topology snapshot and state frame.
 func FrameState(topology TopologySnapshot, frame StateFrame) (State, error) {
-	if topology.Epoch != frame.Epoch || topology.ProjectRevision != frame.ProjectRevision {
+	return frameState(topology, frame, false)
+}
+
+func frameState(topology TopologySnapshot, frame StateFrame, immutable bool) (State, error) {
+	if topology.ServerStart != frame.ServerStart || topology.Epoch != frame.Epoch || topology.ProjectRevision != frame.ProjectRevision {
 		return State{}, errors.New("topology revision does not match state frame")
 	}
 	lanes := make(map[string]sim.Lane, len(topology.Network.Lanes))
-	for _, lane := range topology.Network.Lanes {
-		lanes[lane.ID] = lane
+	if !immutable {
+		for _, lane := range topology.Network.Lanes {
+			lanes[lane.ID] = lane
+		}
 	}
 	vehicles := make([]sim.Vehicle, len(frame.Simulation.Vehicles))
 	for index, vehicle := range frame.Simulation.Vehicles {
@@ -105,10 +112,14 @@ func FrameState(topology TopologySnapshot, frame StateFrame) (State, error) {
 		}
 	}
 	snapshot := frame.Simulation
+	network := topology.Network
+	if !immutable {
+		network = project.CloneNetwork(network)
+	}
 	return State{
 		Epoch: frame.Epoch, Revision: frame.Revision, ProjectRevision: frame.ProjectRevision,
 		Generation: frame.Generation, Redistribution: frame.Redistribution,
-		Network: project.CloneNetwork(topology.Network),
+		Network: network,
 		Simulation: sim.Snapshot{
 			Submitted: snapshot.Submitted, Tick: snapshot.Tick, Paused: snapshot.Paused,
 			Vehicles: vehicles, Berths: snapshot.Berths, Completed: snapshot.Completed,

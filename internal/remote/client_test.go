@@ -1,19 +1,18 @@
 package remote
 
 import (
-	"context"
+	"bytes"
 	"encoding/json"
-	"maps"
 	"net/http"
 	"net/http/httptest"
 	"reflect"
-	"slices"
 	"sync/atomic"
 	"testing"
 	"time"
 
 	"github.com/dotwaffle/podsim/internal/project"
 	"github.com/dotwaffle/podsim/internal/session"
+	"github.com/dotwaffle/podsim/internal/sim"
 )
 
 func TestStateForFrameCachesMatchingTopology(t *testing.T) {
@@ -31,15 +30,16 @@ func TestStateForFrameCachesMatchingTopology(t *testing.T) {
 		_ = json.NewEncoder(w).Encode(shared.Topology())
 	}))
 	defer server.Close()
-	client := &Client{url: server.URL, http: server.Client(), topology: shared.Topology(), topologyStart: shared.Frame().ServerStart}
-	if _, err := client.stateForFrame(context.Background(), shared.Frame()); err != nil {
+	client := &Client{url: server.URL, http: server.Client()}
+	cache := testStreamCache(t, shared.Topology())
+	if _, err := testStreamState(t, &cache, client, shared.Frame()); err != nil {
 		t.Fatal(err)
 	}
 	if requests.Load() != 0 {
 		t.Fatal("fetched unchanged topology")
 	}
-	client.topology = session.TopologySnapshot{}
-	if _, err := client.stateForFrame(context.Background(), shared.Frame()); err != nil {
+	cache = streamTopology{}
+	if _, err := testStreamState(t, &cache, client, shared.Frame()); err != nil {
 		t.Fatal(err)
 	}
 	if requests.Load() != 1 {
@@ -62,7 +62,8 @@ func TestStateForFrameRefetchesTopologyAfterProjectRestore(t *testing.T) {
 		_ = json.NewEncoder(w).Encode(shared.Topology())
 	}))
 	defer server.Close()
-	client := &Client{url: server.URL, http: server.Client(), topology: shared.Topology(), topologyStart: shared.Frame().ServerStart}
+	client := &Client{url: server.URL, http: server.Client()}
+	cache := testStreamCache(t, shared.Topology())
 	epoch, sequence := shared.Frame().Epoch, uint64(0)
 	apply := func(command session.Command) session.Reply {
 		t.Helper()
@@ -92,7 +93,7 @@ func TestStateForFrameRefetchesTopologyAfterProjectRestore(t *testing.T) {
 	}
 	for _, step := range steps {
 		reply := apply(step.command)
-		state, err := client.stateForFrame(t.Context(), shared.Frame())
+		state, err := testStreamState(t, &cache, client, shared.Frame())
 		if err != nil {
 			t.Fatalf("%s: %v", step.name, err)
 		}
@@ -116,65 +117,6 @@ func waitFor(t *testing.T, condition func() bool) {
 		time.Sleep(5 * time.Millisecond)
 	}
 	t.Fatal("condition timed out")
-}
-
-// accept runs acceptLocked with the client lock, as poll does.
-func accept(c *Client, state session.State) {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	c.acceptLocked(state)
-}
-
-func TestStateOrdering(t *testing.T) {
-	t.Parallel()
-	c := &Client{oldEpochs: make(map[string]bool)}
-	for _, state := range []session.State{{Epoch: "first", Revision: 10}, {Epoch: "first", Revision: 9}, {Epoch: "second", Revision: 0}, {Epoch: "first", Revision: 11}, {Epoch: "second", Revision: 5}, {Epoch: "second", Revision: 3}} {
-		accept(c, state)
-	}
-	state, _, _ := c.View()
-	if state.Epoch != "second" || state.Revision != 5 {
-		t.Fatalf("state rolled back: %+v", state)
-	}
-}
-
-func TestAcceptRetiredEpoch(t *testing.T) {
-	t.Parallel()
-	frames := func(epoch string, revision uint64, count int) []session.State {
-		return slices.Repeat([]session.State{{Epoch: epoch, Revision: revision}}, count)
-	}
-	start := slices.Concat(frames("E", 1, 1), frames("E2", 1, 1))
-	tests := []struct {
-		name     string
-		frames   []session.State
-		epoch    string
-		revision uint64
-		retired  []string
-	}{
-		{"19 retired frames are dropped", slices.Concat(start, frames("E", 2, 19)), "E2", 1, []string{"E"}},
-		{"the 20th retired frame switches", slices.Concat(start, frames("E", 2, 20)), "E", 2, []string{"E2"}},
-		{"a current frame restarts the count", slices.Concat(start, frames("E", 2, 19), frames("E2", 2, 1), frames("E", 3, 19)), "E2", 2, []string{"E"}},
-		{"20 frames after a restart switch", slices.Concat(start, frames("E", 2, 19), frames("E2", 2, 1), frames("E", 3, 20)), "E", 3, []string{"E2"}},
-		{"a stale current frame restarts the count", slices.Concat(frames("E", 1, 1), frames("E2", 5, 1), frames("E", 2, 19), frames("E2", 3, 1), frames("E", 2, 1)), "E2", 5, []string{"E"}},
-		{"alternate retired epochs are dropped", slices.Concat(start, frames("E3", 1, 1), slices.Repeat(slices.Concat(frames("E", 2, 1), frames("E2", 2, 1)), 20)), "E3", 1, []string{"E", "E2"}},
-		{"a single late frame is dropped", slices.Concat(start, frames("E", 9, 1)), "E2", 1, []string{"E"}},
-		{"a lower revision is dropped", slices.Concat(frames("E", 5, 1), frames("E", 4, 1)), "E", 5, nil},
-		{"a lower revision after a switch is dropped", slices.Concat(start, frames("E", 2, 20), frames("E", 1, 1)), "E", 2, []string{"E2"}},
-	}
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			t.Parallel()
-			c := &Client{oldEpochs: make(map[string]bool)}
-			for _, state := range test.frames {
-				accept(c, state)
-			}
-			state, _, _ := c.View()
-			retired := slices.Sorted(maps.Keys(c.oldEpochs))
-			if state.Epoch != test.epoch || state.Revision != test.revision || !slices.Equal(retired, test.retired) {
-				t.Fatalf("state %s at revision %d with retired epochs %v, want %s at %d with %v",
-					state.Epoch, state.Revision, retired, test.epoch, test.revision, test.retired)
-			}
-		})
-	}
 }
 
 func TestReturnedEpochUsesItsTopology(t *testing.T) {
@@ -207,22 +149,22 @@ func TestReturnedEpochUsesItsTopology(t *testing.T) {
 		_ = json.NewEncoder(w).Encode(serving.Load().Topology())
 	}))
 	defer server.Close()
-	client := &Client{url: server.URL, http: server.Client(), oldEpochs: make(map[string]bool)}
-	poll := func(shared *session.Session) {
+	client := &Client{url: server.URL, http: server.Client()}
+	cache := streamTopology{}
+	read := func(shared *session.Session) {
 		t.Helper()
 		serving.Store(shared)
-		state, err := client.stateForFrame(t.Context(), shared.Frame())
+		state, err := testStreamState(t, &cache, client, shared.Frame())
 		if err != nil {
 			t.Fatal(err)
 		}
-		accept(client, state)
+		client.state = state
 	}
-	poll(first)
-	poll(second)
-	// The first frame of the retired epoch fetches its topology. The next
-	// frames use the cached topology, and the 20th frame switches back.
+	read(first)
+	read(second)
+	// The returned epoch fetches its topology once, then reuses the cache.
 	for range 20 {
-		poll(first)
+		read(first)
 	}
 	state, _, _ := client.View()
 	if state.Epoch != first.Frame().Epoch || !reflect.DeepEqual(state.Network, project.Default().Network) {
@@ -262,125 +204,23 @@ func TestNoteBuild(t *testing.T) {
 	}
 }
 
-// TestPollReportsBuildChange gives the poll loop one frame for each state
-// request. The frames have the builds "", "a", "a" and "b". The client can
-// use the "b" frame, or it drops it. The build change must show in each
-// case.
-func TestPollReportsBuildChange(t *testing.T) {
-	t.Parallel()
-	shared, err := session.New()
-	if err != nil {
-		t.Fatal(err)
-	}
-	encode := func(build, epoch string) []byte {
-		t.Helper()
-		frame := shared.Frame()
-		frame.Build = build
-		if epoch != "" {
-			frame.Epoch = epoch
-		}
-		data, err := json.Marshal(frame)
-		if err != nil {
-			t.Fatal(err)
-		}
-		return data
-	}
-	noBuild, buildA := encode("", ""), encode("a", "")
-	tests := []struct {
-		name string
-		// last is the frame with the build "b".
-		last          []byte
-		wantConnected bool
-	}{
-		{name: "valid frame", last: encode("b", ""), wantConnected: true},
-		// The topology endpoint does not serve this epoch, so the client
-		// drops the frame.
-		{name: "topology error", last: encode("b", "restarted")},
-		// A future frame format can change the type of a member. The
-		// client cannot decode the frame, but build stays a top-level
-		// string.
-		{name: "changed member type", last: []byte(`{"epoch":"new","revision":"v2","build":"b"}`)},
-	}
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			t.Parallel()
-			frames := make(chan []byte)
-			polled := make(chan struct{})
-			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-				if r.URL.Path == "/api/topology" {
-					_ = json.NewEncoder(w).Encode(shared.Topology())
-					return
-				}
-				select {
-				case polled <- struct{}{}:
-				case <-r.Context().Done():
-					return
-				}
-				select {
-				case frame := <-frames:
-					_, _ = w.Write(frame)
-				case <-r.Context().Done():
-				}
-			}))
-			t.Cleanup(server.Close)
-			// This cleanup runs first. It stops the client, so no request
-			// blocks server.Close.
-			ctx, cancel := context.WithCancel(t.Context())
-			t.Cleanup(cancel)
-			waitForPoll := func() {
-				t.Helper()
-				select {
-				case <-polled:
-				case <-time.After(5 * time.Second):
-					t.Fatal("the client did not request a state frame")
-				}
-			}
-			client := New(ctx, server.URL)
-			waitForPoll()
-			steps := []struct {
-				frame         []byte
-				wantChanged   bool
-				wantConnected bool
-			}{
-				{frame: noBuild, wantConnected: true},
-				{frame: buildA, wantConnected: true},
-				{frame: buildA, wantConnected: true},
-				{frame: test.last, wantChanged: true, wantConnected: test.wantConnected},
-			}
-			for index, step := range steps {
-				frames <- step.frame
-				// The next state request shows that the client handled this
-				// frame.
-				waitForPoll()
-				_, connected, _ := client.View()
-				if got := client.BuildChanged(); got != step.wantChanged || connected != step.wantConnected {
-					t.Fatalf("frame %d: BuildChanged() = %t and connected %t, want %t and %t",
-						index, got, connected, step.wantChanged, step.wantConnected)
-				}
-			}
-		})
-	}
-}
-
 func TestLostReplyRetryAndReconnect(t *testing.T) {
 	t.Parallel()
 	shared, err := session.New()
 	if err != nil {
 		t.Fatal(err)
 	}
-	var failPoll atomic.Bool
+	var failConnect atomic.Bool
 	var posts atomic.Int32
+	handler := shared.HandlerFS(nil)
+	t.Cleanup(shared.Close)
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == http.MethodGet {
-			if failPoll.Load() {
+			if failConnect.Load() {
 				http.Error(w, "offline", http.StatusServiceUnavailable)
 				return
 			}
-			if r.URL.Path == "/api/topology" {
-				_ = json.NewEncoder(w).Encode(shared.Topology())
-			} else {
-				_ = json.NewEncoder(w).Encode(shared.Frame())
-			}
+			handler.ServeHTTP(w, r)
 			return
 		}
 		var command session.Command
@@ -413,17 +253,23 @@ func TestLostReplyRetryAndReconnect(t *testing.T) {
 	if posts.Load() != 2 || shared.State().Simulation.Submitted != 1 {
 		t.Fatal("retry duplicated order")
 	}
-	failPoll.Store(true)
+	failConnect.Store(true)
+	client.mu.Lock()
+	socket := client.socket
+	client.mu.Unlock()
+	if socket != nil {
+		_ = socket.CloseNow()
+	}
 	waitFor(t, func() bool { _, connected, _ := client.View(); return !connected })
 	if err := client.Submit(session.Command{Action: "reset"}); err == nil {
 		t.Fatal("accepted disconnected command")
 	}
-	failPoll.Store(false)
+	failConnect.Store(false)
 	waitFor(t, func() bool { state, connected, _ := client.View(); return connected && state.Simulation.Submitted == 1 })
 }
 
 // TestLastFrame checks the time of the last good state frame. The time is
-// zero before the first frame. While polls fail, it stays at the time of the
+// zero before the first frame. While reconnects fail, it stays at the time of the
 // last good frame.
 func TestLastFrame(t *testing.T) {
 	t.Parallel()
@@ -431,48 +277,51 @@ func TestLastFrame(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	var failPoll atomic.Bool
-	var polls atomic.Int32
-	failPoll.Store(true)
+	var failConnect atomic.Bool
+	var attempts atomic.Int32
+	handler := shared.HandlerFS(nil)
+	t.Cleanup(shared.Close)
+	failConnect.Store(true)
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path == "/api/state" {
-			polls.Add(1)
+		if r.URL.Path == "/api/state/stream" {
+			attempts.Add(1)
 		}
-		if failPoll.Load() {
+		if failConnect.Load() {
 			http.Error(w, "offline", http.StatusServiceUnavailable)
 			return
 		}
-		if r.URL.Path == "/api/topology" {
-			_ = json.NewEncoder(w).Encode(shared.Topology())
-			return
-		}
-		_ = json.NewEncoder(w).Encode(shared.Frame())
+		handler.ServeHTTP(w, r)
 	}))
 	defer server.Close()
 	client := New(t.Context(), server.URL)
-	// The client polls in one goroutine. When the client sends a poll, it
-	// has handled the previous poll.
-	waitForPoll := func() {
+	// Count failed connection attempts after the socket closes.
+	waitForConnect := func() {
 		t.Helper()
-		seen := polls.Load()
-		waitFor(t, func() bool { return polls.Load() >= seen+2 })
+		seen := attempts.Load()
+		waitFor(t, func() bool { return attempts.Load() > seen })
 	}
-	waitForPoll()
+	waitForConnect()
 	if got := client.LastFrame(); !got.IsZero() {
 		t.Fatalf("LastFrame() = %v before the first frame, want the zero time", got)
 	}
 	before := time.Now()
-	failPoll.Store(false)
+	failConnect.Store(false)
 	waitFor(t, func() bool { _, connected, _ := client.View(); return connected })
 	if got, now := client.LastFrame(), time.Now(); got.Before(before) || got.After(now) {
 		t.Fatalf("LastFrame() = %v after the first frame, want a time from %v to %v", got, before, now)
 	}
-	failPoll.Store(true)
+	failConnect.Store(true)
+	client.mu.Lock()
+	socket := client.socket
+	client.mu.Unlock()
+	if socket != nil {
+		_ = socket.CloseNow()
+	}
 	waitFor(t, func() bool { _, connected, _ := client.View(); return !connected })
 	lost := client.LastFrame()
-	waitForPoll()
+	waitForConnect()
 	if got := client.LastFrame(); !got.Equal(lost) {
-		t.Fatalf("LastFrame() = %v after failed polls, want %v", got, lost)
+		t.Fatalf("LastFrame() = %v after failed reconnects, want %v", got, lost)
 	}
 }
 
@@ -483,12 +332,12 @@ func TestLostReplyRewindAppliesOnce(t *testing.T) {
 		t.Fatal(err)
 	}
 	var rewinds atomic.Int32
+	handler := shared.HandlerFS(nil)
+	t.Cleanup(shared.Close)
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		switch {
-		case r.Method == http.MethodGet && r.URL.Path == "/api/topology":
-			_ = json.NewEncoder(w).Encode(shared.Topology())
-		case r.Method == http.MethodGet:
-			_ = json.NewEncoder(w).Encode(shared.Frame())
+		switch r.Method {
+		case http.MethodGet:
+			handler.ServeHTTP(w, r)
 		default:
 			var command session.Command
 			if err := json.NewDecoder(r.Body).Decode(&command); err != nil {
@@ -548,54 +397,6 @@ func TestSubmitOwnsProjectPayload(t *testing.T) {
 	}
 }
 
-// TestStateOrderingServerRestart checks that a restart that restores an
-// older final save with the same epoch reaches the view, although its
-// revision is lower. A lower revision from the same process is still
-// dropped.
-func TestStateOrderingServerRestart(t *testing.T) {
-	t.Parallel()
-	tests := []struct {
-		name         string
-		states       []session.State
-		wantRevision uint64
-		wantStart    string
-	}{
-		{
-			name:         "rollback with a new start ID",
-			states:       []session.State{{Epoch: "e", Revision: 10, ServerStart: "a"}, {Epoch: "e", Revision: 4, ServerStart: "b"}},
-			wantRevision: 4, wantStart: "b",
-		},
-		{
-			name:         "older frame from the same process",
-			states:       []session.State{{Epoch: "e", Revision: 10, ServerStart: "a"}, {Epoch: "e", Revision: 4, ServerStart: "a"}},
-			wantRevision: 10, wantStart: "a",
-		},
-		{
-			name:         "older server without start IDs",
-			states:       []session.State{{Epoch: "e", Revision: 10}, {Epoch: "e", Revision: 4}},
-			wantRevision: 10,
-		},
-		{
-			name:         "new process then its later frames",
-			states:       []session.State{{Epoch: "e", Revision: 10, ServerStart: "a"}, {Epoch: "e", Revision: 4, ServerStart: "b"}, {Epoch: "e", Revision: 3, ServerStart: "b"}},
-			wantRevision: 4, wantStart: "b",
-		},
-	}
-	for _, tc := range tests {
-		t.Run(tc.name, func(t *testing.T) {
-			t.Parallel()
-			c := &Client{oldEpochs: make(map[string]bool)}
-			for _, state := range tc.states {
-				accept(c, state)
-			}
-			state, _, _ := c.View()
-			if state.Revision != tc.wantRevision || state.ServerStart != tc.wantStart {
-				t.Fatalf("revision %d start %q, want %d %q", state.Revision, state.ServerStart, tc.wantRevision, tc.wantStart)
-			}
-		})
-	}
-}
-
 // TestStateForFrameRefetchesTopologyForNewServerStart checks that a frame
 // from a new server process fetches the topology again, although its epoch
 // and project revision match the cached topology.
@@ -606,21 +407,98 @@ func TestStateForFrameRefetchesTopologyForNewServerStart(t *testing.T) {
 		t.Fatal(err)
 	}
 	var requests atomic.Int32
+	var currentStart atomic.Value
+	currentStart.Store(shared.Frame().ServerStart)
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		requests.Add(1)
-		_ = json.NewEncoder(w).Encode(shared.Topology())
+		topology := shared.Topology()
+		topology.ServerStart, _ = currentStart.Load().(string)
+		_ = json.NewEncoder(w).Encode(topology)
 	}))
 	defer server.Close()
 	frame := shared.Frame()
-	client := &Client{url: server.URL, http: server.Client(), topology: shared.Topology(), topologyStart: frame.ServerStart}
-	if _, err := client.stateForFrame(t.Context(), frame); err != nil || requests.Load() != 0 {
+	client := &Client{url: server.URL, http: server.Client()}
+	cache := testStreamCache(t, shared.Topology())
+	if _, err := testStreamState(t, &cache, client, frame); err != nil || requests.Load() != 0 {
 		t.Fatalf("same process: %d topology requests, error %v, want 0", requests.Load(), err)
 	}
 	frame.ServerStart = "restarted"
-	if _, err := client.stateForFrame(t.Context(), frame); err != nil || requests.Load() != 1 {
+	currentStart.Store(frame.ServerStart)
+	if _, err := testStreamState(t, &cache, client, frame); err != nil || requests.Load() != 1 {
 		t.Fatalf("new process: %d topology requests, error %v, want 1", requests.Load(), err)
 	}
-	if _, err := client.stateForFrame(t.Context(), frame); err != nil || requests.Load() != 1 {
+	if _, err := testStreamState(t, &cache, client, frame); err != nil || requests.Load() != 1 {
 		t.Fatalf("new process again: %d topology requests, error %v, want 1", requests.Load(), err)
+	}
+}
+
+func testStreamCache(t *testing.T, topology session.TopologySnapshot) streamTopology {
+	t.Helper()
+	assembler, err := session.NewStreamAssembler(topology)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return streamTopology{topology: topology, assembler: assembler}
+}
+func testStreamState(t *testing.T, cache *streamTopology, client *Client, frame session.StateFrame) (session.State, error) {
+	t.Helper()
+	routes := make([]sim.RoutePresentation, len(frame.Simulation.Vehicles))
+	for i := range routes {
+		routes[i].Origin = -1
+	}
+	return cache.state(t.Context(), client, session.StreamFrame{State: frame, Routes: routes})
+}
+
+func TestStreamTopologyRefreshPreservesPublishedState(t *testing.T) {
+	t.Parallel()
+	for _, failure := range []string{"", "identity", "trailing JSON"} {
+		name := failure
+		if name == "" {
+			name = "accepted"
+		}
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			shared, err := session.New()
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer shared.Close()
+			cache := testStreamCache(t, shared.Topology())
+			frame := shared.Frame()
+			old, err := testStreamState(t, &cache, &Client{}, frame)
+			if err != nil {
+				t.Fatal(err)
+			}
+			before := streamJSON(t, old)
+			next := shared.Topology()
+			next.ProjectRevision++
+			next.Network.Nodes[0].Position.X += 123
+			next.Network.Lanes[0].SpeedLimit++
+			next.Network.Stations[0].Name = "Refreshed station"
+			frame.ProjectRevision = next.ProjectRevision
+			if failure == "identity" {
+				next.ServerStart = "wrong process"
+			}
+			body := streamJSON(t, next)
+			if failure == "trailing JSON" {
+				body = append(body, []byte("{}")...)
+			}
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) { _, _ = w.Write(body) }))
+			defer server.Close()
+			client := &Client{url: server.URL, http: server.Client()}
+			current, err := testStreamState(t, &cache, client, frame)
+			if failure == "" && err != nil || failure != "" && err == nil {
+				t.Fatal("unexpected refresh result", err)
+			}
+			if got := streamJSON(t, old); !bytes.Equal(got, before) {
+				t.Fatal("topology refresh changed previously published state")
+			}
+			if failure == "" && !reflect.DeepEqual(current.Network, next.Network) {
+				t.Fatal("refresh did not publish new topology")
+			}
+			if failure != "" && cache.topology.ProjectRevision != old.ProjectRevision {
+				t.Fatal("rejected topology replaced cache")
+			}
+		})
 	}
 }

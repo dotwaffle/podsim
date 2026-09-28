@@ -361,7 +361,8 @@ The default service name is `podsim`.
 `OTEL_SERVICE_NAME` replaces it.
 `OTEL_RESOURCE_ATTRIBUTES` can add deployment identity.
 
-HTTP telemetry excludes `/api/state` because each client polls it at 20 Hz.
+HTTP telemetry excludes the diagnostic `/api/state` endpoint.
+The simulation view receives shared WebSocket publications from `/api/state/stream`.
 It also excludes `/healthz`.
 Other HTTP requests include route-based server traces and metrics.
 
@@ -369,6 +370,14 @@ Runtime metrics report memory, allocations, goroutines, processor limits, and th
 Session gauges report the simulation tick, journeys, pods, stopped pods, distance, pickup wait, and save points.
 `podsim.pod.active` counts the pods with assigned work: a trip that is not complete, or a pickup that a pending request names.
 An empty move to parking or for redistribution is not work, and a pod that finished its trip is not active.
+The `podsim.stream.*` gauges expose connections, full and delta publication counts, compressed bytes, retained bytes, and history messages.
+`history_first` and `history_last` report the retained sequence span.
+`outstanding_messages`, `outstanding_bytes`, and `ack_age_ms` report aggregate delivery credit and the oldest pending acknowledgment age.
+`resync_history` and `resync_source` count the fixed resynchronization reasons.
+These metrics have no client labels.
+A stream admission failure returns HTTP 503 with `Retry-After`.
+Clients reconnect with backoff and do not switch to polling.
+
 `podsim.checkpoint.retained` is the number of save points in memory.
 Compare it with the runtime memory metrics to see the memory that save points use.
 A reset, a demo, a project apply, or a rewind can decrease `podsim.simulation.tick`, `podsim.journey.submitted`, `podsim.journey.completed`, `podsim.travel.passenger.distance`, and `podsim.travel.empty.distance`.
@@ -520,3 +529,7 @@ This is 5 seconds for the requests, 5 for the clock, 1 for the saver, 6 for the 
 `docker stop` waits only 10 seconds by default, then it kills the process.
 Use `docker stop -t 30`, or `--stop-timeout 30` with `docker run`.
 On Kubernetes, keep `terminationGracePeriodSeconds` at 30 or more.
+
+Stream pressure recovery reports aggregate `podsim.stream.pressure_sheds` and `podsim.stream.encoding_bytes` metrics.
+The first counts canceled writer leases.
+The second reports the single compressed encoding waiting for admission.
