@@ -117,6 +117,15 @@ spec:
             claimName: podsim-state
 ```
 
+## TLS-terminating reverse proxies
+
+The server compares a browser Origin with the request Host and the backend connection scheme.
+It rejects an HTTPS Origin when a proxy forwards the request over plaintext HTTP.
+This affects commands and the WebSocket state stream.
+Forwarded scheme headers do not change this check.
+The server does not yet have a public-origin setting.
+A default Fly.io HTTPS deployment therefore cannot use the viewer or commands until this origin policy supports TLS termination.
+
 ## Session state
 
 The `-state` option keeps the shared session across server restarts.
