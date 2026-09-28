@@ -835,7 +835,7 @@ Set `GOGC` to use another value.
 
 #### Report columns
 
-The JSON report has `schema_version` 10.
+The JSON report has `schema_version` 11.
 These columns give the waits and journeys of the passengers.
 
 | Column | Definition |
@@ -916,6 +916,9 @@ It is 0 when no pod travels, and always 0 without the `virtual` platoon policy.
 The seat screen columns follow `shared_parties`.
 They show whether the parties that a boarding pod could take are more than its seats.
 A party can take a pod when the pod could add it with the rules of the sharing mode: the destination, the stop limit, and the detour cap.
+The join census columns count the parties that have a pod on its way to their origin.
+A party counts when a boarding pod at its origin could take it with a free seat at one or more dispatch passes.
+The census does not check that a new first stop has a route, so it can count a party that a pod could not take.
 
 | Column | Definition |
 | --- | --- |
@@ -924,6 +927,9 @@ A party can take a pod when the pod could add it with the rules of the sharing m
 | `departure_backlog` | For each departure of a boarding pod, the waiting parties at its origin that the pod could take with a free seat. The column gives the sum over all departures. It also counts a party that has another pod on its way. |
 | `departures_demand_over_four` | The departures with more than four parties aboard plus backlog. |
 | `departures_over_four_aboard` | The departures with more than four parties aboard. It is 0 at a limit of 4 or less. |
+| `join_eligible_assigned` | The parties with a pod on its way that a boarding pod at their origin could take. Each party counts one time. |
+| `join_eligible_existing_stop` | The parties of `join_eligible_assigned` that a boarding pod could take with no new stop, because the pod already stops at their destination. In destination mode, it is equal to `join_eligible_assigned`. |
+| `join_eligible_added_stop_only` | `join_eligible_assigned` minus `join_eligible_existing_stop`. A boarding pod could take each of these parties only with a new stop. |
 
 The columns are 0 when the party limit is 1.
 

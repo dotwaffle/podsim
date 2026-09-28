@@ -147,6 +147,9 @@ type result struct {
 	DepartureBacklog               int     `json:"departure_backlog"`
 	DeparturesDemandOverFour       int     `json:"departures_demand_over_four"`
 	DeparturesOverFourAboard       int     `json:"departures_over_four_aboard"`
+	JoinEligibleAssigned           int     `json:"join_eligible_assigned"`
+	JoinEligibleExistingStop       int     `json:"join_eligible_existing_stop"`
+	JoinEligibleAddedStopOnly      int     `json:"join_eligible_added_stop_only"`
 	RoutingPolicy                  string  `json:"routing_policy"`
 	WaitRule                       string  `json:"wait_rule,omitempty"`
 	PlatoonPolicy                  string  `json:"platoon_policy,omitempty"`
@@ -1184,6 +1187,7 @@ func run(input runInput) (result, error) {
 		BurstSize: burstSize, Policy: input.policy, SharedRidePartyLimit: input.sharingLimit, SharingMode: string(sharingMode),
 		SharedParties: state.SharedParties, FullPodRefusals: seats.FullPodRefusals, FullDepartures: seats.FullDepartures,
 		DepartureBacklog: seats.DepartureBacklog, DeparturesDemandOverFour: seats.demandOverFour, DeparturesOverFourAboard: seats.overFourAboard,
+		JoinEligibleAssigned: seats.JoinEligibleAssigned, JoinEligibleExistingStop: seats.JoinEligibleExistingStop, JoinEligibleAddedStopOnly: seats.addedStopOnly,
 		RoutingPolicy: input.routingPolicy, WaitRule: input.waitRule, PlatoonPolicy: input.platoonPolicy,
 		FocusStation:       input.scenario.focus,
 		WindowStartSeconds: 0, WindowEndSeconds: input.duration.Seconds(), ActualEndSeconds: float64(state.Tick) / sim.TicksPerSecond,
@@ -1221,19 +1225,23 @@ func run(input runInput) (result, error) {
 // sharing measurements.
 const screenSeats = 4
 
-// seatStats holds the seat screen counters of one arm, and the departures
-// above screenSeats.
+// seatStats holds the seat screen counters of one arm, the departures
+// above screenSeats, and the join census parties that need a new stop.
 type seatStats struct {
 	sim.SeatScreen
 	// demandOverFour counts the departures with more than screenSeats
 	// parties aboard plus backlog, and overFourAboard the departures with
 	// more than screenSeats parties aboard.
 	demandOverFour, overFourAboard int
+	// addedStopOnly counts the parties of JoinEligibleAssigned that are
+	// not in JoinEligibleExistingStop. A boarding pod could take each of
+	// them only with a new stop.
+	addedStopOnly int
 }
 
 // seatScreenStats gives the seat screen columns of an arm.
 func seatScreenStats(screen sim.SeatScreen) seatStats {
-	stats := seatStats{SeatScreen: screen}
+	stats := seatStats{SeatScreen: screen, addedStopOnly: screen.JoinEligibleAssigned - screen.JoinEligibleExistingStop}
 	for parties := screenSeats + 1; parties < len(screen.Demand); parties++ {
 		stats.demandOverFour += screen.Demand[parties]
 		stats.overFourAboard += screen.Aboard[parties]
@@ -1305,7 +1313,7 @@ func writeReport(input writeReportInput) error {
 	case "json":
 		encoder := json.NewEncoder(input.output)
 		encoder.SetIndent("", "  ")
-		if err := encoder.Encode(report{SchemaVersion: 10, Results: input.results}); err != nil {
+		if err := encoder.Encode(report{SchemaVersion: 11, Results: input.results}); err != nil {
 			return fmt.Errorf("write JSON report: %w", err)
 		}
 		return nil
@@ -1385,7 +1393,8 @@ func writeCSV(input writeReportInput) error {
 	}
 	header = append(header, "shared_ride_party_limit", "sharing_mode", "shared_parties")
 	if input.seatColumns {
-		header = append(header, "full_pod_refusals", "full_departures", "departure_backlog", "departures_demand_over_four", "departures_over_four_aboard")
+		header = append(header, "full_pod_refusals", "full_departures", "departure_backlog", "departures_demand_over_four", "departures_over_four_aboard",
+			"join_eligible_assigned", "join_eligible_existing_stop", "join_eligible_added_stop_only")
 	}
 	header = append(header,
 		"focus_station", "window_start_seconds", "window_end_seconds", "actual_end_seconds", "arrival_window_seconds", "arrival_end_seconds", "schedule_id",
@@ -1416,7 +1425,8 @@ func writeCSV(input writeReportInput) error {
 		row = append(row, strconv.Itoa(outcome.SharedRidePartyLimit), outcome.SharingMode, strconv.Itoa(outcome.SharedParties))
 		if input.seatColumns {
 			row = append(row, strconv.Itoa(outcome.FullPodRefusals), strconv.Itoa(outcome.FullDepartures), strconv.Itoa(outcome.DepartureBacklog),
-				strconv.Itoa(outcome.DeparturesDemandOverFour), strconv.Itoa(outcome.DeparturesOverFourAboard))
+				strconv.Itoa(outcome.DeparturesDemandOverFour), strconv.Itoa(outcome.DeparturesOverFourAboard),
+				strconv.Itoa(outcome.JoinEligibleAssigned), strconv.Itoa(outcome.JoinEligibleExistingStop), strconv.Itoa(outcome.JoinEligibleAddedStopOnly))
 		}
 		row = append(row,
 			outcome.FocusStation,

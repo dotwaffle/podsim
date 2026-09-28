@@ -313,7 +313,7 @@ func TestReportFormatsAreMachineReadable(t *testing.T) {
 	if err := json.Unmarshal(jsonOutput.Bytes(), &decoded); err != nil {
 		t.Fatal(err)
 	}
-	if decoded.SchemaVersion != 10 || !reflect.DeepEqual(decoded.Results, results) {
+	if decoded.SchemaVersion != 11 || !reflect.DeepEqual(decoded.Results, results) {
 		t.Fatalf("JSON report changed values: %+v", decoded)
 	}
 
@@ -963,12 +963,13 @@ func TestSeatColumnsOnlyWithSharing(t *testing.T) {
 			if !tc.columns {
 				return
 			}
-			if header[refusals-1] != "shared_parties" || header[refusals+4] != "departures_over_four_aboard" {
+			if header[refusals-1] != "shared_parties" || header[refusals+4] != "departures_over_four_aboard" ||
+				header[refusals+7] != "join_eligible_added_stop_only" {
 				t.Fatalf("seat columns are not after shared_parties: %v", header)
 			}
 			for _, row := range records[1:] {
 				limit, departures := row[slices.Index(header, "shared_ride_party_limit")], row[slices.Index(header, "full_departures")]
-				if limit == "1" && (row[refusals] != "0" || departures != "0") {
+				if limit == "1" && (row[refusals] != "0" || departures != "0" || row[refusals+5] != "0") {
 					t.Fatalf("limit 1 row has seat counts: %v", row)
 				}
 				if limit == "2" && (row[refusals] == "0" || departures == "0") {
@@ -981,11 +982,11 @@ func TestSeatColumnsOnlyWithSharing(t *testing.T) {
 
 func TestSeatScreenStats(t *testing.T) {
 	t.Parallel()
-	screen := sim.SeatScreen{FullPodRefusals: 3}
+	screen := sim.SeatScreen{FullPodRefusals: 3, JoinEligibleAssigned: 9, JoinEligibleExistingStop: 7}
 	screen.Aboard[4], screen.Aboard[5], screen.Aboard[sim.MaxSharedRideParties] = 7, 1, 2
 	screen.Demand[4], screen.Demand[5], screen.Demand[sim.MaxSharedRideParties] = 5, 2, 3
 	stats := seatScreenStats(screen)
-	if stats.FullPodRefusals != 3 || stats.overFourAboard != 3 || stats.demandOverFour != 5 {
+	if stats.FullPodRefusals != 3 || stats.overFourAboard != 3 || stats.demandOverFour != 5 || stats.addedStopOnly != 2 {
 		t.Fatalf("seat screen stats = %+v", stats)
 	}
 }
