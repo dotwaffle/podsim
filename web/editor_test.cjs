@@ -8,6 +8,36 @@ const path = require("node:path");
 const zlib = require("node:zlib");
 const editor = require("./editor.js");
 
+// pngBytes gives a grayscale PNG file of width by height pixels. With
+// header set, it gives only the signature and the IHDR chunk, which is
+// enough for the header checks of an image that is too large to make.
+function pngBytes(width, height, header = false) {
+  const chunk = (type, data) => {
+    const length = Buffer.alloc(4); length.writeUInt32BE(data.length);
+    const body = Buffer.concat([Buffer.from(type, "latin1"), data]);
+    const crc = Buffer.alloc(4); crc.writeUInt32BE(zlib.crc32(body));
+    return Buffer.concat([length, body, crc]);
+  };
+  const ihdr = Buffer.alloc(13); ihdr.writeUInt32BE(width, 0); ihdr.writeUInt32BE(height, 4); ihdr[8] = 8;
+  const start = [Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]), chunk("IHDR", ihdr)];
+  if (header) return Buffer.concat(start);
+  const rows = Buffer.alloc((width + 1) * height);
+  return Buffer.concat([...start, chunk("IDAT", zlib.deflateSync(rows)), chunk("IEND", Buffer.alloc(0))]);
+}
+
+// jpegBytes gives the start of a JPEG file: the start marker, an APP0
+// segment, and a baseline frame header of width by height pixels.
+function jpegBytes(width, height) {
+  const app0 = Buffer.from([0xff, 0xe0, 0x00, 0x10, 0x4a, 0x46, 0x49, 0x46, 0x00, 0x01, 0x01, 0x00, 0x00, 0x01, 0x00, 0x01, 0x00, 0x00]);
+  const sof = Buffer.from([0xff, 0xc0, 0x00, 0x0b, 0x08, height >> 8, height & 0xff, width >> 8, width & 0xff, 0x01, 0x01, 0x11, 0x00]);
+  return Buffer.concat([Buffer.from([0xff, 0xd8]), app0, sof, Buffer.from([0xff, 0xd9])]);
+}
+
+// dataURL gives the data URL of bytes with the media type type.
+function dataURL(bytes, type = "png") {
+  return `data:image/${type};base64,${Buffer.from(bytes).toString("base64")}`;
+}
+
 function connectedScenario() {
   let config = editor.addStation(editor.emptyConfig(), 100, 100, { name: "Alpha" });
   config = editor.addStation(config, 340, 100, { name: "Beta" });
@@ -1535,13 +1565,111 @@ test("a check on the generated london project selects the lane that it names", n
 
 test("portable documents round trip the scenario and local background", () => {
   const config = connectedScenario();
-  const background = { dataURL: "data:image/png;base64,AA==", x: -10, y: 5, width: 800, height: 600, opacity: 0.4 };
+  const background = { dataURL: dataURL(pngBytes(2, 1)), x: -10, y: 5, width: 800, height: 600, opacity: 0.4 };
   const parsed = editor.parseDocument(editor.serializeDocument(config, background));
 
   assert.deepEqual(parsed.scenario, config);
   assert.deepEqual(parsed.background, background);
   assert.throws(() => editor.parseDocument('{"format":"podsim","version":2}'), /version field must be 1/);
   assert.throws(() => editor.parseDocument('{broken'), /not valid JSON/);
+});
+
+test("the image checks read the size and the header of the image data before a decode", () => {
+  const limit = editor.IMAGE_FILE_BYTES;
+  // padded gives a JPEG of exactly bytes bytes: a frame header and zeros.
+  const padded = (bytes) => { const head = jpegBytes(640, 480); return Buffer.concat([head, Buffer.alloc(bytes - head.length)]); };
+  const accepted = [
+    { name: "a PNG", url: dataURL(pngBytes(3, 2)), want: { width: 3, height: 2 } },
+    { name: "a JPEG", url: dataURL(jpegBytes(640, 480), "jpeg"), want: { width: 640, height: 480 } },
+    { name: "a JPEG with the PNG media type", url: dataURL(jpegBytes(640, 480), "png"), want: { width: 640, height: 480 } },
+    { name: "a JPEG at the byte limit", url: dataURL(padded(limit), "jpeg"), want: { width: 640, height: 480 } },
+    { name: "a PNG at the side limit", url: dataURL(pngBytes(editor.IMAGE_MAX_SIDE, 1, true)), want: { width: editor.IMAGE_MAX_SIDE, height: 1 } },
+    { name: "a PNG at the pixel limit", url: dataURL(pngBytes(8192, 8192, true)), want: { width: 8192, height: 8192 } },
+    { name: "a 48 megapixel photo", url: dataURL(jpegBytes(8064, 6048), "jpeg"), want: { width: 8064, height: 6048 } },
+  ];
+  for (const item of accepted) {
+    const facts = editor.imageFacts(item.url);
+    assert.deepEqual({ width: facts.width, height: facts.height }, item.want, item.name);
+  }
+  assert.equal(editor.imageFacts(dataURL(padded(limit), "jpeg")).bytes, limit);
+
+  const rejected = [
+    { name: "bytes that are not an image", url: "data:image/png;base64,AAAA", want: /not a valid PNG or JPEG/ },
+    { name: "a PNG signature with no IHDR chunk", url: dataURL(pngBytes(3, 2).subarray(0, 12)), want: /not a valid PNG or JPEG/ },
+    { name: "a JPEG with no frame header", url: dataURL(Buffer.from([0xff, 0xd8, 0xff, 0xd9]), "jpeg"), want: /not a valid PNG or JPEG/ },
+    { name: "a JPEG with a scan before the frame header", url: dataURL(Buffer.from([0xff, 0xd8, 0xff, 0xda, 0x00, 0x02, 0xff, 0xd9]), "jpeg"), want: /not a valid PNG or JPEG/ },
+    { name: "text that is not base64", url: "data:image/png;base64,AA!A", want: /not valid base64/ },
+    { name: "base64 with a wrong length", url: "data:image/png;base64,AAA", want: /not valid base64/ },
+    { name: "a JPEG one byte over the limit", url: dataURL(padded(limit + 1), "jpeg"), want: /must be 8 MiB or smaller/ },
+    { name: "a PNG with no width", url: dataURL(pngBytes(0, 5, true)), want: /has no pixels/ },
+    { name: "a JPEG with no height", url: dataURL(jpegBytes(640, 0), "jpeg"), want: /has no pixels/ },
+    { name: "a PNG over the side limit", url: dataURL(pngBytes(editor.IMAGE_MAX_SIDE + 1, 1, true)), want: /is 16385 by 1 pixels/ },
+    { name: "a PNG over the pixel limit", url: dataURL(pngBytes(8193, 8192, true)), want: /is 8193 by 8192 pixels. The limit is 16384 pixels on each side and 67108864 pixels in total/ },
+    { name: "a small PNG of 30000 by 30000 pixels", url: dataURL(pngBytes(30000, 30000, true)), want: /is 30000 by 30000 pixels/ },
+    { name: "a JPEG of 65535 by 65535 pixels", url: dataURL(jpegBytes(65535, 65535), "jpeg"), want: /is 65535 by 65535 pixels/ },
+  ];
+  for (const item of rejected) assert.throws(() => editor.imageFacts(item.url), item.want, item.name);
+});
+
+test("a project import and a stored background reject image data that is not valid", () => {
+  const config = connectedScenario();
+  const background = { dataURL: dataURL(pngBytes(4, 2)), x: 0, y: 0, width: 400, height: 200, opacity: 0.5 };
+  assert.deepEqual(editor.parseDocument(editor.serializeDocument(config, background)).background, background);
+  const cases = [
+    { name: "PNG bytes that are not an image", dataURL: "data:image/png;base64,iVBORw0KGgoAAAAAAAAAAA==", want: /not a valid PNG or JPEG/ },
+    { name: "a large image in a small file", dataURL: dataURL(pngBytes(40000, 40000, true)), want: /is 40000 by 40000 pixels/ },
+  ];
+  for (const item of cases) {
+    const bad = { ...background, dataURL: item.dataURL };
+    assert.throws(() => editor.parseDocument(editor.serializeDocument(config, bad)), item.want, `${item.name}: import`);
+    assert.throws(() => editor.storedBackground({ background: bad }), item.want, `${item.name}: restore`);
+  }
+});
+
+test("the decode check needs a decoded image with the size of its header", async () => {
+  const url = dataURL(pngBytes(4, 2));
+  const decoded = (size) => async () => size;
+  assert.deepEqual(await editor.checkDecodedImage(url, decoded({ width: 4, height: 2 })), { width: 4, height: 2 });
+  assert.deepEqual(await editor.checkDecodedImage(url, decoded({ width: 2, height: 4 })), { width: 2, height: 4 }, "a turned JPEG");
+  let decodes = 0;
+  const count = async () => { decodes += 1; return { width: 1, height: 1 }; };
+  await assert.rejects(editor.checkDecodedImage(dataURL(pngBytes(30000, 30000, true)), count), /is 30000 by 30000 pixels/);
+  assert.equal(decodes, 0, "the header check comes before the decode");
+  await assert.rejects(editor.checkDecodedImage(url, async () => { throw new Error("EncodingError"); }), { message: "The browser cannot decode the background image." });
+  await assert.rejects(editor.checkDecodedImage(url, decoded({ width: 4, height: 3 })), /does not have the size in its header/);
+  await assert.rejects(editor.checkDecodedImage(url, decoded({ width: 0, height: 0 })), /has no pixels/);
+});
+
+test("a stored background restore decodes the image, and an edit during the decode is stopped", async () => {
+  const record = editor.backgroundRecordFor(TEST_BACKGROUND);
+  const cases = [
+    { name: "an image that decodes", decoded: { width: 4, height: 2 }, want: TEST_BACKGROUND, warnings: [] },
+    { name: "an image that does not decode", decoded: null, want: null, warnings: ["The browser cannot decode the background image. The browser deletes the stored background."] },
+  ];
+  for (const item of cases) {
+    const factory = fakeIndexedDB(); const store = editor.openRecordStore(factory, editor.BACKGROUND_STORE);
+    await store.put(DRAFT_KEY, record);
+    let finish; let started;
+    const decoding = new Promise((resolve) => { started = resolve; });
+    const decode = () => new Promise((resolve, reject) => {
+      finish = () => (item.decoded ? resolve(item.decoded) : reject(new Error("EncodingError"))); started();
+    });
+    const page = startupPage(factory, { decode });
+    await decoding;
+    // Without the gate, a scenario edit during the decode leaves an undo
+    // step with no background.
+    let edits = 0;
+    const edit = () => { edits += 1; page.history.replace({ scenario: { ...page.history.value.scenario, name: "Edited" }, background: page.history.value.background }); };
+    const event = page.document.dispatch("change", fakeElement("scenarioName"), edit);
+    assert.deepEqual([edits, event.prevented], [0, true], item.name);
+    finish(); await page.started;
+    assert.deepEqual([page.history.value.background, page.history.canUndo, page.warnings], [item.want, false, item.warnings], item.name);
+    assert.deepEqual(await store.get(DRAFT_KEY), item.want ? record : undefined, `${item.name}: the keeper keeps only a valid record`);
+    // An edit after the startup keeps the background in its undo step.
+    page.document.dispatch("change", fakeElement("scenarioName"), edit);
+    assert.equal(page.history.undo(), true);
+    assert.deepEqual([edits, page.history.value.background], [1, item.want], item.name);
+  }
 });
 
 test("the project import limit holds an export at the project and image limits", () => {
@@ -2863,7 +2991,7 @@ test("after session_changed, the next command uses the new epoch", async () => {
 const DRAFT_KEY = "http://podsim.test";
 
 // TEST_BACKGROUND is a background with a calibration and an opacity.
-const TEST_BACKGROUND = { dataURL: "data:image/png;base64,AAAA", x: -10, y: 5, width: 400, height: 200, opacity: 0.45 };
+const TEST_BACKGROUND = { dataURL: dataURL(pngBytes(4, 2)), x: -10, y: 5, width: 400, height: 200, opacity: 0.45 };
 
 // savedRecord gives a draft record, as the editor saves it, with a scenario
 // name that the tests can check.
@@ -3310,7 +3438,8 @@ function fakeStartupDocument() {
 // startupPage starts an editor page with startEditor. The page keeps its
 // background in factory, as the editor does. history is the undo history
 // of the page, and gate is its startup gate. options.readLive is a promise
-// that the live load waits for.
+// that the live load waits for. options.decode, when given, decodes the
+// stored image.
 function startupPage(factory, options = {}) {
   const document = fakeStartupDocument(); const gate = editor.createStartupGate();
   const history = editor.createHistory({ scenario: editor.emptyConfig(), background: null });
@@ -3324,7 +3453,7 @@ function startupPage(factory, options = {}) {
     readDraft: async () => null, readBackground: () => keeper.load(),
     loadLive: async () => { await options.readLive; history.reset({ scenario: connectedScenario(), background: null }); },
     restore: (record) => editor.restoreStoredBackground(record, {
-      warn: (text) => warnings.push(text), install: (background) => history.reset({ scenario: history.value.scenario, background }),
+      decode: options.decode, warn: (text) => warnings.push(text), install: (background) => history.reset({ scenario: history.value.scenario, background }),
     }),
     release: gate.release, armBackground: () => keeper.arm(), offerDraft: () => {},
   });

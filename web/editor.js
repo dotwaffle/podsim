@@ -56,6 +56,13 @@
   // EXPORT_ALLOWANCE bytes for the other fields, rounded up to a whole MiB.
   const MIB = 1024 * 1024;
   const IMAGE_FILE_BYTES = 8 * MIB;
+  // IMAGE_MAX_SIDE and IMAGE_MAX_PIXELS limit the pixel size of a
+  // background image: each side, and the width times the height. A small
+  // compressed file can have a very large image, and the browser keeps 4
+  // bytes for each decoded pixel. IMAGE_MAX_PIXELS is 64 Mi pixels, 256 MiB
+  // decoded. It holds a 48 megapixel photo of 8064 by 6048 pixels.
+  const IMAGE_MAX_SIDE = 16384;
+  const IMAGE_MAX_PIXELS = 64 * 1024 * 1024;
   const SERVER_PROJECT_BYTES = 8 * 1024 * 1024;
   const EXPORT_ALLOWANCE = 1024;
   const PROJECT_FILE_BYTES = Math.ceil((dataURLBytes(IMAGE_FILE_BYTES) + SERVER_PROJECT_BYTES + EXPORT_ALLOWANCE) / MIB) * MIB;
@@ -1654,14 +1661,95 @@
   }
 
   // checkBackground throws an error when item is not a valid background: a
-  // PNG or JPEG data URL, a finite position, a positive size, and an
-  // opacity from 0 to 1. The project import and the restore of the stored
-  // background use it.
+  // PNG or JPEG data URL with image data that imageFacts accepts, a finite
+  // position, a positive size, and an opacity from 0 to 1. The project
+  // import and the restore of the stored background use it. It does not
+  // decode the image, so parseDocument stays synchronous.
   function checkBackground(item) {
     if (item === null || typeof item !== "object" || Array.isArray(item)) throw new Error("The background must be an object.");
     if (typeof item.dataURL !== "string" || !/^data:image\/(png|jpeg);base64,/.test(item.dataURL)) throw new Error("The background must be a PNG or JPEG data URL.");
     for (const key of ["x", "y", "width", "height", "opacity"]) if (!Number.isFinite(item[key])) throw new Error(`The background ${key} value is invalid.`);
     if (item.width <= 0 || item.height <= 0 || item.opacity < 0 || item.opacity > 1) throw new Error("The background dimensions or opacity are invalid.");
+    imageFacts(item.dataURL);
+  }
+
+  // imageFacts checks the image data of dataURL, a PNG or JPEG data URL,
+  // before the browser decodes it. It gives the file size in bytes, and the
+  // width and the height in pixels from the PNG or JPEG header. It throws an
+  // error when the base64 text is not valid, when the file is larger than
+  // IMAGE_FILE_BYTES, when the data is not a PNG or a JPEG with a size in its
+  // header, or when checkImageSize rejects the size. The data can be a PNG
+  // or a JPEG for either media type, because the browser reads the data.
+  // A header can be valid for data that the browser cannot decode. The
+  // import and the restore therefore also decode the image, as
+  // checkDecodedImage does.
+  function imageFacts(dataURL) {
+    const base64 = dataURL.slice(dataURL.indexOf(",") + 1);
+    if (base64.length % 4 !== 0 || !/^[A-Za-z0-9+/]*={0,2}$/.test(base64)) throw new Error("The background image data is not valid base64.");
+    const bytes = (base64.length / 4) * 3 - (base64.endsWith("==") ? 2 : base64.endsWith("=") ? 1 : 0);
+    if (bytes > IMAGE_FILE_BYTES) throw new Error(`The background image must be ${IMAGE_FILE_BYTES / MIB} MiB or smaller.`);
+    const data = atob(base64);
+    const size = data.startsWith("\x89PNG\r\n\x1a\n") ? pngSize(data) : data.startsWith("\xff\xd8") ? jpegSize(data) : null;
+    if (!size) throw new Error("The background image is not a valid PNG or JPEG.");
+    checkImageSize(size.width, size.height);
+    return { bytes, width: size.width, height: size.height };
+  }
+
+  // checkImageSize throws an error when an image of width by height pixels
+  // is empty or larger than IMAGE_MAX_SIDE or IMAGE_MAX_PIXELS.
+  function checkImageSize(width, height) {
+    if (!(width >= 1 && height >= 1)) throw new Error("The background image has no pixels.");
+    if (width > IMAGE_MAX_SIDE || height > IMAGE_MAX_SIDE || width * height > IMAGE_MAX_PIXELS) {
+      throw new Error(`The background image is ${width} by ${height} pixels. The limit is ${IMAGE_MAX_SIDE} pixels on each side and ${IMAGE_MAX_PIXELS} pixels in total.`);
+    }
+  }
+
+  // pngSize gives the width and the height in the IHDR chunk of data, the
+  // bytes of a PNG file as a binary string, or null when data has no IHDR
+  // chunk first.
+  function pngSize(data) {
+    if (data.length < 24 || data.slice(12, 16) !== "IHDR") return null;
+    const word = (at) => ((data.charCodeAt(at) << 24) | (data.charCodeAt(at + 1) << 16) | (data.charCodeAt(at + 2) << 8) | data.charCodeAt(at + 3)) >>> 0;
+    return { width: word(16), height: word(20) };
+  }
+
+  // jpegSize gives the width and the height in the first frame header of
+  // data, the bytes of a JPEG file as a binary string. It follows the
+  // segment lengths from the start. It gives null when the data ends, or a
+  // scan starts, before a frame header. The frame header markers are 0xC0
+  // to 0xCF, but not 0xC4, 0xC8 and 0xCC.
+  function jpegSize(data) {
+    const half = (at) => (data.charCodeAt(at) << 8) | data.charCodeAt(at + 1);
+    let at = 2;
+    while (at + 4 <= data.length) {
+      if (data.charCodeAt(at) !== 0xff) return null;
+      const marker = data.charCodeAt(at + 1);
+      if (marker === 0xff) { at += 1; continue; }
+      if (marker === 0x01 || (marker >= 0xd0 && marker <= 0xd7)) { at += 2; continue; }
+      if (marker === 0xd9 || marker === 0xda) return null;
+      const length = half(at + 2);
+      if (length < 2) return null;
+      if (marker >= 0xc0 && marker <= 0xcf && ![0xc4, 0xc8, 0xcc].includes(marker)) return at + 9 <= data.length ? { width: half(at + 7), height: half(at + 5) } : null;
+      at += 2 + length;
+    }
+    return null;
+  }
+
+  // checkDecodedImage checks the image of dataURL as imageFacts does, then
+  // decodes it. decode gives a promise of the decoded width and height, as
+  // the browser gives them, and rejects when the browser cannot decode the
+  // image. The browser can turn a JPEG, as its orientation tag tells, so
+  // the decoded size can have the width and the height of the header in
+  // the other order. checkDecodedImage gives the decoded size, or rejects
+  // with an error for the user.
+  async function checkDecodedImage(dataURL, decode) {
+    const facts = imageFacts(dataURL);
+    let size;
+    try { size = await decode(dataURL); } catch (_) { throw new Error("The browser cannot decode the background image."); }
+    checkImageSize(size.width, size.height);
+    const same = (size.width === facts.width && size.height === facts.height) || (size.width === facts.height && size.height === facts.width);
+    if (!same) throw new Error("The decoded background image does not have the size in its header.");
+    return size;
   }
 
   // backgroundFields gives a copy of the background fields of item, without
@@ -2451,12 +2539,16 @@
   // restoreStoredBackground puts the background of record, a record of the
   // background store, on the page. The page blocks input until the restore
   // ends, as startEditor does, so no background change of the user comes
-  // before it. page.install puts the background on the page, and page.warn
-  // tells the user of a record that is not valid. It gives true when it
-  // installs the background.
+  // before it. page.decode, when given, decodes the image for
+  // checkDecodedImage. page.install puts the background on the page, and
+  // page.warn tells the user of a record that is not valid. It gives true
+  // when it installs the background.
   async function restoreStoredBackground(record, page) {
     let background = null;
-    try { background = storedBackground(record); } catch (error) { page.warn(`${error.message} The browser deletes the stored background.`); return false; }
+    try {
+      background = storedBackground(record);
+      if (background && page.decode) await checkDecodedImage(background.dataURL, page.decode);
+    } catch (error) { page.warn(`${error.message} The browser deletes the stored background.`); return false; }
     if (!background) return false;
     page.install(background);
     return true;
@@ -2598,7 +2690,7 @@
     MIN_LANE_LENGTH, MAX_STATIONS, MAX_NODES, MAX_LANES, MAX_NODE_LANES, MAX_FLOWS, MIN_ZOOM, NODE_LABEL_SCALE, NODE_LABEL_SIZE, LANE_PAIR_OFFSET, CHEVRON_LANE_LENGTH, BERTH_PITCH, STATION_PADDING, CLEARANCE, CHECK_DELAY, emptyConfig, fallbackConfig, normalizeConfig, inferStationLanes, addLane, addJunction, addStation, addBerth,
     stationBearing, stationShape, rotateStation, setStationBearing, nextBerthPosition, berthChain, nextChainRow, lanePolyline, laneConflict, removeBerth, moveStation, moveNode, deleteNode, deleteLane, deleteStation, stationFlowCount, setFleetCount, fleetRows, selectionCard, berthFocusID, undoFocus, setDemandPattern,
     laneLength, curveLength, reachable, cutOffStations, stationNodeOwners, dragTargets, validateConfig, configWarnings, checkResults, checkSelector, checkSelection, selectionPoint, focusView,
-    problemCountText, createCheckTimer, validationSummary, checkFocusKey, IMAGE_FILE_BYTES, SERVER_PROJECT_BYTES, PROJECT_FILE_BYTES, SERVER_COMMAND_BYTES, SERVER_COMMAND_JSON_BYTES, GZIP_COMMAND_BYTES, SERVER_TOO_LARGE_TEXT, postCommand, dataURLBytes, serializeDocument, parseDocument, createHistory,
+    problemCountText, createCheckTimer, validationSummary, checkFocusKey, IMAGE_FILE_BYTES, IMAGE_MAX_SIDE, IMAGE_MAX_PIXELS, imageFacts, checkImageSize, checkDecodedImage, SERVER_PROJECT_BYTES, PROJECT_FILE_BYTES, SERVER_COMMAND_BYTES, SERVER_COMMAND_JSON_BYTES, GZIP_COMMAND_BYTES, SERVER_TOO_LARGE_TEXT, postCommand, dataURLBytes, serializeDocument, parseDocument, createHistory,
     networkBounds, fitView, zoomScale, nodeLabelSize, pairedLaneIDs, showsChevron, laneOffset, laneCurve, lanePathData, SNAPSHOT_ATTEMPTS, snapshotConsistent, draftBeforeRestart, readState, readSnapshot, applyToServer, applyFailureText, applyFailureStatus, applyToast,
     readLive, readConflict, CONFLICT_UNLOADED_TEXT, conflictView, LOAD_LIVE_QUESTION, applyOverQuestion, loadLive, liveDraft, applyOverBase,
     DRAFT_SAVE_DELAY, DRAFT_STORE_TEXT, DRAFT_UNSAVED_TEXT, DRAFT_DISPLACED_TEXT, DRAFT_STORE, BACKGROUND_STORE, openRecordStore, createDraftKeeper, draftChanged, draftRecordFor, draftOffer, backgroundRecordFor, storedBackground, restoreStoredBackground, STARTUP_EVENTS, createStartupGate, blockInput, startupExempt, startEditor, BACKGROUND_STORE_TEXT, checkBackground, DRAFT_RESTART_TEXT, draftOfferText, RESTORED_RESTART_TEXT, restoreStatusText, shellPage,
@@ -3088,15 +3180,22 @@
     if (status !== "ok") toast(BACKGROUND_STORE_TEXT[status], true);
   }
 
+  // decodeImage decodes the image of dataURL in the browser. It gives a
+  // promise of the decoded width and height, for checkDecodedImage.
+  function decodeImage(dataURL) {
+    const image = new Image(); image.src = dataURL;
+    return image.decode().then(() => ({ width: image.naturalWidth, height: image.naturalHeight }));
+  }
+
   // restoreBackground puts the stored background of record on the page, as
-  // restoreStoredBackground does. The background is part of the loaded
-  // project, so Reset draft keeps it. The undo history starts again from
-  // the draft with the background, so no undo step removes it. A record
-  // that is not valid shows the error toast, and the background keeper
-  // then deletes it.
+  // restoreStoredBackground does. The browser decodes the image first, as
+  // checkDecodedImage does. The background is part of the loaded project,
+  // so Reset draft keeps it. The undo history starts again from the draft
+  // with the background, so no undo step removes it. A record that is not
+  // valid shows the error toast, and the background keeper then deletes it.
   function restoreBackground(record) {
     return restoreStoredBackground(record, {
-      warn: (message) => toast(message, true),
+      warn: (message) => toast(message, true), decode: decodeImage,
       install: (background) => {
         state.loaded.background = clone(background);
         state.history.reset({ scenario: draft(), background }); render(); fitNetwork();
@@ -3460,18 +3559,21 @@
   }
 
   // importProject replaces the draft with a project file and makes the file
-  // the baseline of Reset draft. The file has no draft base, so the draft
-  // gets the server start ID of the loaded project. A file that the user
-  // exported before a server restart then applies after a reload, also
-  // after Restore draft.
+  // the baseline of Reset draft. parseDocument checks the file, also the
+  // size and the header of the background image. Then the browser decodes
+  // the image, as checkDecodedImage does, before the draft changes. The
+  // file has no draft base, so the draft gets the server start ID of the
+  // loaded project. A file that the user exported before a server restart
+  // then applies after a reload, also after Restore draft.
   function importProject(file) {
     if (!file) return;
     if (file.size > PROJECT_FILE_BYTES) { toast(`The project file must be ${PROJECT_FILE_BYTES / MIB} MiB or smaller.`, true); return; }
     const reader = new FileReader();
     reader.onerror = () => toast("The project file could not be read. The draft is unchanged.", true);
-    reader.onload = () => {
+    reader.onload = async () => {
       try {
         const imported = parseDocument(String(reader.result));
+        if (imported.background) await checkDecodedImage(imported.background.dataURL, decodeImage);
         state.history.replace(imported); state.background = imported.background; state.loaded = clone(imported); state.selection = null;
         state.draftBase = { ...state.draftBase, serverStart: state.loadedStart };
         render(); fitNetwork(); checks.run(); toast("The project was imported into the draft.");
@@ -3487,15 +3589,21 @@
     link.href = url; link.download = `${safe}.podsim.json`; document.body.append(link); link.click(); link.remove(); URL.revokeObjectURL(url);
   }
 
+  // importBackground makes an image file the background. The file must be
+  // a PNG or JPEG of at most IMAGE_FILE_BYTES. checkDecodedImage checks the
+  // header size of the image before the browser decodes it, and then the
+  // decoded size. Before a calibration, one image pixel is one meter.
   function importBackground(file) {
     if (!file) return;
     if (!/^image\/(png|jpeg)$/.test(file.type)) { toast("Choose a PNG or JPEG image.", true); return; }
     if (file.size > IMAGE_FILE_BYTES) { toast(`The background image must be ${IMAGE_FILE_BYTES / MIB} MiB or smaller.`, true); return; }
     const reader = new FileReader(); reader.onerror = () => toast("The image could not be read.", true);
-    reader.onload = () => {
-      const image = new Image(); image.onerror = () => toast("The image is not a valid PNG or JPEG.", true);
-      image.onload = () => { setBackground({ dataURL: String(reader.result), x: 0, y: 0, width: image.naturalWidth, height: image.naturalHeight, opacity: .45 }); fitNetwork(); toast(backgroundKeeper.status === "ok" ? "This browser keeps the background for this server. Export the project to use it in another browser." : BACKGROUND_STORE_TEXT[backgroundKeeper.status], backgroundKeeper.status !== "ok"); };
-      image.src = String(reader.result);
+    reader.onload = async () => {
+      const dataURL = String(reader.result);
+      let size;
+      try { size = await checkDecodedImage(dataURL, decodeImage); } catch (error) { toast(`${error.message} The background is unchanged.`, true); return; }
+      setBackground({ dataURL, x: 0, y: 0, width: size.width, height: size.height, opacity: .45 }); fitNetwork();
+      toast(backgroundKeeper.status === "ok" ? "This browser keeps the background for this server. Export the project to use it in another browser." : BACKGROUND_STORE_TEXT[backgroundKeeper.status], backgroundKeeper.status !== "ok");
     };
     reader.readAsDataURL(file);
   }

@@ -530,6 +530,11 @@ The draft stays local until you select **Pause and apply**.
   That label has a font size of 9 screen pixels or more.
 - Import a PNG or JPEG background.
   The image file must be 8 MiB or smaller.
+  The image must be at most 16,384 pixels on each side and at most 67,108,864 pixels in total.
+  The editor reads the image size from the PNG or JPEG header before the browser decodes the image.
+  Then the browser decodes the image, and the editor checks the decoded size.
+  The editor does the same checks for a background in an imported project file and for the stored background.
+  If an image fails a check, the editor shows an error notice and does not use the image.
   Select **Calibrate scale**, select two points on the image, enter their distance in meters, then select **Set scale**.
 - Export JSON to save the scenario and optional background.
   Import JSON to restore a draft.
