@@ -100,6 +100,13 @@ simulation.pods[].laneDistance number
 simulation.pods[].distance number
 simulation.pods[].waiting boolean
 simulation.pods[].waitSince number
+simulation.pods[].platoon object
+simulation.pods[].platoon.leader string
+simulation.pods[].platoon.lane number
+simulation.pods[].platoon.leaderLane number
+simulation.pods[].platoon.lanes number
+simulation.pods[].platoon.turn number
+simulation.pods[].platoon.draining boolean
 simulation.waiting array
 simulation.waiting[] object
 simulation.waiting[].request object

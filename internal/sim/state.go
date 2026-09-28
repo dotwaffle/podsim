@@ -115,6 +115,32 @@ type SavedPod struct {
 	// Waiting is true when the pod waits for track admission since WaitSince.
 	Waiting   bool  `json:"waiting,omitzero"`
 	WaitSince int64 `json:"waitSince,omitzero"`
+	// Platoon is the link of a traveling pod to its predecessor in a
+	// platoon, or nil. The restore couples the pods again before it places
+	// them, because a follower can hold cells of its predecessor.
+	Platoon *SavedPlatoonLink `json:"platoon,omitzero"`
+}
+
+// SavedPlatoonLink is the saved link of a traveling pod to its predecessor
+// in a platoon. The link certifies a run of lanes that both routes share.
+// The restore checks the link against the network and the pods, and it
+// does not plan the link again.
+type SavedPlatoonLink struct {
+	// Leader is the ID of the predecessor.
+	Leader string `json:"leader"`
+	// Lane and LeaderLane are the indexes of the first lane of the run in
+	// the saved route of the pod and in the saved route of the predecessor.
+	// Lanes is the number of lanes in the run.
+	Lane       int `json:"lane"`
+	LeaderLane int `json:"leaderLane"`
+	Lanes      int `json:"lanes"`
+	// Turn is the largest total turn in radians of the run from the lane of
+	// the pod. All links of one platoon have the same turn. The clearance
+	// of the link follows from it.
+	Turn float64 `json:"turn"`
+	// Draining is true when the pod reserved the end block of the run. The
+	// pod then makes no more coupled grants.
+	Draining bool `json:"draining,omitzero"`
 }
 
 // SavedTrip is a saved queued order. A route holds indexes into
@@ -290,19 +316,77 @@ func (s *Simulation) exportPod(v *vehicle, limits routeLimits) SavedPod {
 		if v.blocks.len() == 0 {
 			break
 		}
-		start, offset, current := v.savedRouteStart()
+		start, offset, current := s.savedStart(v)
 		if pod.Route = s.laneIndexes(v.Route[start:], limits.pod); pod.Route != nil {
 			pod.RouteIndex = current - start
 			pod.Distance = v.distance - offset
 			if v.carriesPassengers() {
 				pod.RiddenMeters = v.riddenBase + offset
 			}
+			pod.Platoon = s.savedLink(v, start)
 		}
 	default:
 		// An idle or unloading pod keeps the route of its last journey only
 		// for display.
 	}
 	return pod
+}
+
+// savedLink returns the saved link of the traveling pod v, whose saved
+// route starts at route index start, or nil. The saved route of v can start
+// after the first lane of the run, so the saved run starts at the first
+// lane of the run that the saved route holds. savedStart keeps that lane
+// in the saved route of the predecessor. The end of the run does not
+// change. When the predecessor stopped traveling or no lane of the run is
+// left, the follower holds no resource of a pod ahead, and its link ends
+// at the next tick. Then savedLink returns nil.
+func (s *Simulation) savedLink(v *vehicle, start int) *SavedPlatoonLink {
+	leader, skip, ok := s.savedRun(v, start)
+	if !ok {
+		return nil
+	}
+	leaderStart, _, _ := s.savedStart(leader)
+	return &SavedPlatoonLink{
+		Leader: leader.Pod.ID, Lane: v.link.lane + skip - start, LeaderLane: v.link.leaderLane + skip - leaderStart,
+		Lanes: v.link.lanes - skip, Turn: v.link.turn, Draining: v.link.draining || v.reservedThrough >= v.link.end,
+	}
+}
+
+// savedRun returns the predecessor of the traveling pod v, whose saved route
+// starts at route index start, and the number of lanes at the start of the
+// run that the saved route does not hold. It reports false when v has no
+// saved link.
+func (s *Simulation) savedRun(v *vehicle, start int) (leader *vehicle, skip int, ok bool) {
+	if v.link.leader == 0 {
+		return nil, 0, false
+	}
+	leader = &s.vehicles[v.link.leader-1]
+	skip = max(0, start-v.link.lane)
+	return leader, skip, leader.Pod.Activity == Traveling && leader.blocks.len() > 0 && skip < v.link.lanes
+}
+
+// savedStart returns the values of savedRouteStart for the traveling pod v,
+// with an earlier start when the saved link of its follower needs it. The
+// saved run of the follower starts at the first lane of the run that the
+// saved route of the follower holds. The predecessor can have passed that
+// lane, but a junction section of the lane can be in its next lane too,
+// and the follower can share it. So the saved route of the predecessor
+// starts at that lane at the latest.
+func (s *Simulation) savedStart(v *vehicle) (start int, offset float64, current int) {
+	start, offset, current = v.savedRouteStart()
+	if v.follower == 0 {
+		return start, offset, current
+	}
+	follower := &s.vehicles[v.follower-1]
+	if follower.Pod.Activity != Traveling || follower.blocks.len() == 0 {
+		return start, offset, current
+	}
+	followerStart, _, _ := s.savedStart(follower)
+	if _, skip, ok := s.savedRun(follower, followerStart); ok && follower.link.leaderLane+skip < start {
+		start = follower.link.leaderLane + skip
+		offset = v.blocks.lanes[start].start
+	}
+	return start, offset, current
 }
 
 // savedRouteStart returns the first route index that a restore of a traveling

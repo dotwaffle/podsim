@@ -180,7 +180,7 @@ var persistRules = map[reflect.Type]map[string]persistRule{
 		"reservationLookaheadSeconds": persistUnsupported, "finishingPodWait": persistUnsupported,
 		"requestBoardings": persistReset, "requestCompletions": persistReset, "nodePasses": persistReset,
 		"recordExperiments": persistUnsupported, "pass": persistReset,
-		"platooning": persistUnsupported, "platoonLimit": persistUnsupported, "platoonLinks": persistReset,
+		"platooning": persistUnsupported, "platoonLimit": persistUnsupported, "platoonLinks": persistDerive,
 		"platoonData": persistDerive, "platoonOrder": persistReset, "platoonAhead": persistReset,
 		"platoonLanes": persistReset,
 	},
@@ -191,7 +191,7 @@ var persistRules = map[reflect.Type]map[string]persistRule{
 		"waitSince":      persistSave,
 		"rebalanceAfter": persistSave, "origin": persistSave, "destination": persistSave,
 		"destinationStation": persistSave, "released": persistSave, "terminal": persistReset,
-		"routeLengths": persistDerive, "link": persistReset, "follower": persistReset, "platoonCap": persistReset,
+		"routeLengths": persistDerive, "link": persistSave, "follower": persistDerive, "platoonCap": persistReset,
 	},
 	reflect.TypeFor[Vehicle](): {
 		"Pod": persistSave, "Riders": persistSave, "Stops": persistSave, "Route": persistSave,

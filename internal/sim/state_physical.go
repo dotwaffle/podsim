@@ -66,6 +66,9 @@ type physicalRestore struct {
 	laneBlocks   []int
 	cost, budget int
 	requeued     []waitingTrip
+	// leaders holds one plus the index of the saved predecessor of each
+	// pod, or 0.
+	leaders []int
 }
 
 // restorePhysical rebuilds a running simulation with each pod where the saved
@@ -103,10 +106,15 @@ func restorePhysical(input RestoreStateInput) (*Simulation, RestoreResult, error
 	if err := r.buildRoutes(); err != nil {
 		return nil, RestoreResult{}, err
 	}
+	if err := r.checkLinks(); err != nil {
+		return nil, RestoreResult{}, err
+	}
 	if err := r.claimBerths(); err != nil {
 		return nil, RestoreResult{}, err
 	}
-	r.placeTraveling()
+	if err := r.placeTraveling(); err != nil {
+		return nil, RestoreResult{}, err
+	}
 	r.claimDestinations()
 	if err := r.separate(); err != nil {
 		return nil, RestoreResult{}, err
@@ -451,9 +459,17 @@ func (r *physicalRestore) limitWork() {
 }
 
 // demote marks a pod for a berth. It drops the route of the pod and releases
-// each resource that the pod holds.
+// each resource that the pod holds. It also demotes the pods behind the pod
+// in its platoon, because they can hold cells of the pod, and it ends the
+// link of the pod.
 func (r *physicalRestore) demote(index int) {
 	v := &r.s.vehicles[index]
+	if v.follower != 0 {
+		r.demote(v.follower - 1)
+	}
+	if v.link.leader != 0 {
+		r.s.unlink(v)
+	}
 	r.demoted[index] = true
 	r.cost -= r.costs[index]
 	r.costs[index], r.routes[index] = 0, nil
@@ -548,28 +564,153 @@ func (r *physicalRestore) claimBerths() error {
 	return nil
 }
 
-// placeTraveling puts each traveling pod on its route in saved order. It
-// demotes a pod whose values are not valid or whose resources another pod
-// holds.
-func (r *physicalRestore) placeTraveling() {
+// checkLinks checks the saved platoon links and keeps them in r.leaders. A
+// link must name another traveling pod, and a pod can have one follower. A
+// platoon must not form a loop, hold more than MaxPlatoonLimit pods, or
+// have two turns. checkSavedLink checks the run of each link of two pods
+// that keep their routes.
+func (r *physicalRestore) checkLinks() error {
+	indexes := make(map[string]int, len(r.state.Pods))
 	for index, saved := range r.state.Pods {
-		v := &r.s.vehicles[index]
-		if v.Pod.Activity == Traveling && !r.demoted[index] && !r.placeTravelingPod(v, saved) {
+		indexes[saved.ID] = index
+	}
+	r.leaders = make([]int, len(r.state.Pods))
+	followed := make([]bool, len(r.state.Pods))
+	for index, saved := range r.state.Pods {
+		if saved.Platoon == nil {
+			continue
+		}
+		leader, ok := indexes[saved.Platoon.Leader]
+		switch {
+		case !ok || leader == index:
+			return fmt.Errorf("pod %s names a platoon predecessor that is not valid", saved.ID)
+		case r.s.vehicles[index].Pod.Activity != Traveling || r.s.vehicles[leader].Pod.Activity != Traveling:
+			return fmt.Errorf("pod %s has a platoon link, and it or its predecessor is not traveling", saved.ID)
+		case followed[leader]:
+			return fmt.Errorf("pod %s has two platoon followers", saved.Platoon.Leader)
+		}
+		followed[leader] = true
+		r.leaders[index] = leader + 1
+	}
+	for index := range r.leaders {
+		if r.linkDepth(index) > MaxPlatoonLimit {
+			return fmt.Errorf("the platoon of pod %s is a loop or holds more than %d pods", r.state.Pods[index].ID, MaxPlatoonLimit)
+		}
+		if r.leaders[index] == 0 {
+			continue
+		}
+		link, ahead := r.state.Pods[index].Platoon, r.state.Pods[r.leaders[index]-1].Platoon
+		if ahead != nil && ahead.Turn != link.Turn {
+			return fmt.Errorf("the platoon of pod %s has two turns", r.state.Pods[index].ID)
+		}
+		if err := r.checkSavedLink(index); err != nil {
+			return fmt.Errorf("pod %s: %w", r.state.Pods[index].ID, err)
+		}
+	}
+	return nil
+}
+
+// checkSavedLink checks the saved run of the link of the pod at index. Both
+// routes must hold the lanes of the run and a lane after it, and no lane of
+// the run can enter a station. The turn must be within platoonMaxTurn, and
+// the total turn of the route of the pod from its lane to the end of the
+// run must be within the turn. As when a link forms, the rest of both
+// routes and the lanes of both destination stations must have one speed
+// limit, because a pod slows down at once to a lower limit. It does not
+// check a pod that lost its route.
+func (r *physicalRestore) checkSavedLink(index int) error {
+	v, leader := &r.s.vehicles[index], &r.s.vehicles[r.leaders[index]-1]
+	saved := r.state.Pods[index]
+	link := saved.Platoon
+	if v.Route == nil || leader.Route == nil {
+		return nil
+	}
+	switch {
+	case link.Lane < 0 || link.Lane >= len(v.Route) || link.LeaderLane < 0 || link.LeaderLane >= len(leader.Route) ||
+		link.Lanes < 1 || link.Lanes >= len(v.Route)-link.Lane || link.Lanes >= len(leader.Route)-link.LeaderLane:
+		return errors.New("the platoon run is not on both routes")
+	case math.IsNaN(link.Turn) || link.Turn < 0 || link.Turn > platoonMaxTurn:
+		return fmt.Errorf("the platoon turn %g is not between 0 and %g", link.Turn, platoonMaxTurn)
+	}
+	for k := range link.Lanes {
+		lane := &v.Route[link.Lane+k]
+		if lane.ID != leader.Route[link.LeaderLane+k].ID || lane.StationRole == StationEntryRole || lane.StationRole == StationBerthAccessRole {
+			return errors.New("the platoon run is not on both routes")
+		}
+	}
+	if last := link.Lane + link.Lanes - 1; saved.RouteIndex >= 0 && saved.RouteIndex <= last && r.s.runTurn(v.Route, saved.RouteIndex, last) > link.Turn+platoonTurnSlack {
+		return fmt.Errorf("the platoon run turns more than %g", link.Turn)
+	}
+	// A pod with a route index out of range is demoted, and then the link
+	// is not restored.
+	ahead := r.state.Pods[r.leaders[index]-1].RouteIndex
+	if saved.RouteIndex < 0 || saved.RouteIndex >= len(v.Route) || ahead < 0 || ahead >= len(leader.Route) {
+		return nil
+	}
+	if limit := v.Route[saved.RouteIndex].SpeedLimit; !r.s.oneSpeedLimit(v, saved.RouteIndex, limit) || !r.s.oneSpeedLimit(leader, ahead, limit) {
+		return errors.New("the routes of the platoon have more than one speed limit")
+	}
+	return nil
+}
+
+// linkDepth returns the number of pods from the pod at index to the front
+// of its saved platoon. It stops after MaxPlatoonLimit+1 pods, so a loop
+// also gives a depth larger than MaxPlatoonLimit.
+func (r *physicalRestore) linkDepth(index int) int {
+	depth := 1
+	for leader := r.leaders[index]; leader != 0 && depth <= MaxPlatoonLimit; leader = r.leaders[leader-1] {
+		depth++
+	}
+	return depth
+}
+
+// placeTraveling puts each traveling pod on its route. It places the pods in
+// saved order by their depth in their platoons, so each predecessor is in
+// place before its follower. It demotes a pod whose values are not valid or
+// whose resources another pod holds.
+func (r *physicalRestore) placeTraveling() error {
+	order := make([]int, 0, len(r.state.Pods))
+	for index := range r.state.Pods {
+		if r.s.vehicles[index].Pod.Activity == Traveling {
+			order = append(order, index)
+		}
+	}
+	slices.SortStableFunc(order, func(a, b int) int { return cmp.Compare(r.linkDepth(a), r.linkDepth(b)) })
+	for _, index := range order {
+		if r.demoted[index] {
+			continue
+		}
+		leader := r.leaders[index] - 1
+		if leader >= 0 && r.demoted[leader] {
+			leader = -1
+		}
+		placed, err := r.placeTravelingPod(index, leader)
+		if err != nil {
+			return fmt.Errorf("pod %s: %w", r.state.Pods[index].ID, err)
+		}
+		if !placed {
 			r.demote(index)
 		}
 	}
+	return nil
 }
 
-// placeTravelingPod derives the reservations of a traveling pod from its
-// saved position and claims them. It returns false when a saved value is not
-// valid or when another pod holds a resource that the pod needs.
-func (r *physicalRestore) placeTravelingPod(v *vehicle, saved SavedPod) bool {
+// placeTravelingPod derives the reservations of the traveling pod at index
+// from its saved position and claims them. leader is the index of its placed
+// predecessor, or -1. With a predecessor, the pod couples to it with the
+// saved link. It returns false when a saved value is not valid or when
+// another pod holds a resource that the pod needs. A resource that a pod
+// ahead in the platoon holds is not in the way in a block that the pod can
+// reserve as a platoon member. It returns an error when the pods are closer
+// than the clearance of the saved link.
+func (r *physicalRestore) placeTravelingPod(index, leader int) (bool, error) {
+	v, saved := &r.s.vehicles[index], r.state.Pods[index]
 	if saved.RouteIndex < 0 || saved.RouteIndex >= len(v.Route) {
-		return false
+		return false, nil
 	}
 	lane := v.Route[saved.RouteIndex]
 	if saved.LaneID != "" && saved.LaneID != lane.ID {
-		return false
+		return false, nil
 	}
 	first, last := routeLaneBlocks(&v.blocks, saved.RouteIndex)
 	laneDistance := min(max(saved.LaneDistance, -restoreTolerance), r.s.laneLength(lane)+restoreTolerance)
@@ -577,27 +718,39 @@ func (r *physicalRestore) placeTravelingPod(v *vehicle, saved SavedPod) bool {
 		blocks: &v.blocks, first: first, last: last, laneDistance: laneDistance, saved: saved.Distance,
 	})
 	// The saved route index picks the lane, also at an exact lane boundary.
-	index := last
+	current := last
 	for candidate, b := range v.blocks.span(first, last+1) {
 		if b.end >= distance {
-			index = candidate
+			current = candidate
 			break
 		}
 	}
-	through := reservationEnd(&v.blocks, index)
+	through := reservationEnd(&v.blocks, current)
 	if distance < Clearance && (v.origin.ID == "" || v.Route[0].From != v.origin.Node) {
-		return false
+		return false, nil
 	}
 	// A pod that has no berth yet chooses one before it reserves the last lane.
 	if lastLane, _ := routeLaneBlocks(&v.blocks, len(v.Route)-1); v.destination.ID == "" && through >= lastLane {
-		return false
+		return false, nil
 	}
+	v.distance, v.blockIndex = distance, current
 	footprint := v.footprint(through, distance)
-	if slices.ContainsFunc(footprint, func(claimed resource) bool { return r.s.owners[claimed] != "" }) {
-		return false
+	if leader >= 0 {
+		link, err := r.savedLink(index, leader)
+		if err != nil {
+			return false, err
+		}
+		if !r.linkClaims(v, &r.s.vehicles[leader], link, through) {
+			return false, nil
+		}
+		r.s.link(index, leader, link)
+	} else if slices.ContainsFunc(footprint, func(claimed resource) bool { return r.s.owners[claimed] != "" }) {
+		return false, nil
 	}
 	for _, claimed := range footprint {
-		r.s.owners[claimed] = v.Pod.ID
+		if r.s.owners[claimed] == "" {
+			r.s.owners[claimed] = v.Pod.ID
+		}
 	}
 	for _, b := range v.blocks.span(0, through+1) {
 		for _, claimed := range b.resources {
@@ -606,7 +759,7 @@ func (r *physicalRestore) placeTravelingPod(v *vehicle, saved SavedPod) bool {
 			}
 		}
 	}
-	v.distance, v.blockIndex, v.reservedThrough = distance, index, through
+	v.reservedThrough = through
 	v.originReleased = distance >= Clearance
 	v.Pod.LaneDistance = laneDistance
 	v.Pod.Position = r.s.position(lane, laneDistance)
@@ -616,7 +769,48 @@ func (r *physicalRestore) placeTravelingPod(v *vehicle, saved SavedPod) bool {
 	if saved.Waiting && through+1 < v.blocks.len() {
 		v.pending, v.waitSince = through+1, saved.WaitSince
 	}
-	return true
+	return true, nil
+}
+
+// savedLink returns the link of the pod at index to its placed predecessor
+// at index leader, from the saved link. The follower must be at least the
+// clearance of the link behind the predecessor. A restored pod has no
+// speed, so its stop point is its position, and its cap is not behind it.
+func (r *physicalRestore) savedLink(index, leader int) (platoonLink, error) {
+	v, ahead := &r.s.vehicles[index], &r.s.vehicles[leader]
+	saved := r.state.Pods[index].Platoon
+	link := platoonLink{
+		lane: saved.Lane, leaderLane: saved.LeaderLane, lanes: saved.Lanes,
+		turn: saved.Turn, clearance: linkClearance(saved.Turn), draining: saved.Draining,
+	}
+	_, link.end = linkEnds(&v.blocks, link)
+	if gap := leaderPosition(v, ahead, link) - v.distance; gap < link.clearance-3*restoreTolerance {
+		return platoonLink{}, fmt.Errorf("the pod is %.6f m behind its platoon predecessor, less than the clearance %.6f m", gap, link.clearance)
+	}
+	return link, nil
+}
+
+// linkClaims reports whether the restored follower v can claim the blocks up
+// to through with link to its placed predecessor leader. Another pod can hold a resource of these blocks only
+// when it is ahead of v in its platoon, the resource is not a berth, the
+// block is in the run and not after the end block of the link, and the
+// predecessor reserved the block. A coupled grant has the same rules.
+func (r *physicalRestore) linkClaims(v, leader *vehicle, link platoonLink, through int) bool {
+	shared := false
+	for block, b := range v.blocks.span(0, through+1) {
+		for _, claimed := range b.resources {
+			owner := r.s.owners[claimed]
+			if owner == "" || resourceReleaseDistance(b, claimed) <= v.distance {
+				continue
+			}
+			if block < v.blocks.laneFirst(link.lane) || claimed.kind == berthResource ||
+				owner != leader.Pod.ID && !r.s.aheadInPlatoon(leader, owner) {
+				return false
+			}
+			shared = true
+		}
+	}
+	return !shared || through <= link.end && leaderBlock(v, leader, link, through) <= leader.reservedThrough
 }
 
 type restoredDistanceInput struct {
