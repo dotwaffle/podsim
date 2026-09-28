@@ -385,7 +385,7 @@ func NewFleet(network Network, placements []Placement) (*Simulation, error) {
 		junctionConflicts:           buildJunctionConflicts(owned),
 		berthResources:              indexBerthResources(owned),
 		sharedRidePartyLimit:        1,
-		sharedRideMode:              SharedRideDestination,
+		sharedRideMode:              DefaultSharedRideMode,
 		sharedRideMaxStops:          DefaultSharedRideMaxStops,
 		platoonLimit:                MaxPlatoonLimit,
 		reservationLookaheadSeconds: defaultReservationLookaheadSeconds,

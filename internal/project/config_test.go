@@ -261,14 +261,14 @@ func TestLegacySharedRideLimitDefaultsToOne(t *testing.T) {
 func TestSharedRideModeDefaults(t *testing.T) {
 	t.Parallel()
 	config := Default()
-	if mode, stops := EffectiveSharedRideMode(config), EffectiveSharedRideMaxStops(config); mode != sim.SharedRideDestination || stops != sim.DefaultSharedRideMaxStops {
+	if mode, stops := EffectiveSharedRideMode(config), EffectiveSharedRideMaxStops(config); mode != sim.SharedRideDropOffs || stops != sim.DefaultSharedRideMaxStops {
 		t.Fatalf("effective mode %q with %d stops", mode, stops)
 	}
-	config.SharedRideMode, config.SharedRideMaxStops = sim.SharedRideDropOffs, sim.MaxSharedRideStops
+	config.SharedRideMode, config.SharedRideMaxStops = sim.SharedRideDestination, sim.MaxSharedRideStops
 	if err := Validate(config); err != nil {
 		t.Fatal(err)
 	}
-	if mode, stops := EffectiveSharedRideMode(config), EffectiveSharedRideMaxStops(config); mode != sim.SharedRideDropOffs || stops != sim.MaxSharedRideStops {
+	if mode, stops := EffectiveSharedRideMode(config), EffectiveSharedRideMaxStops(config); mode != sim.SharedRideDestination || stops != sim.MaxSharedRideStops {
 		t.Fatalf("effective mode %q with %d stops", mode, stops)
 	}
 }

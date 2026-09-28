@@ -94,6 +94,7 @@ Each order has the members `ID`, `From`, `To`, `PartySize`, `PodID`, `Completed`
 `BoardedTick` is the simulation tick when the party boarded the pod or joined it.
 An order stays in `Riders` with `Completed` set to `true` after the party leaves the pod, until the pod gets a new order.
 `Stops` has the IDs of the stations where the pod must stop and that it did not reach, in the sequence of the stops.
+With a party limit above 1 in the default `drop-offs` mode, `Stops` can have more than one station.
 A pod omits each key when its array is empty.
 
 A pod in a [virtual platoon](../README.md#virtual-platoons) also has `PlatoonID` and `PlatoonIndex`.

@@ -771,7 +771,7 @@ The synthetic patterns are balanced, destination, hotspot, bursty-hotspot, and h
 | `-workers` | Run independent arms concurrently. Reports keep their deterministic order. |
 | `-burst-size` | Group burst-pattern requests at the same simulated time. |
 | `-sharing-limits 1,4` | Compare shared ride party limits. |
-| `-sharing-modes destination,drop-offs` | Compare the shared ride modes. Default `destination`. A limit of 1 runs one time, in destination mode, because no party joins a pod. |
+| `-sharing-modes drop-offs,destination` | Compare the shared ride modes. Default `drop-offs`. A limit of 1 runs one time and shows the destination mode, because no party joins a pod. |
 | `-sharing-max-stops` | The stop limit of the drop-offs mode, from 1 to 7. Default 3. |
 | `-routing-policies free-flow,congestion,queue` | Compare the experimental routing policies. See [routing](#time-geometry-and-routing). |
 | `-redistribution-policies off,on` | Select the positioning policies. `on` is guarded positioning. |
@@ -992,8 +992,8 @@ The project setting `sharedRideMode` selects the parties that can join:
 
 | Mode | Parties that can join |
 | --- | --- |
-| `destination` | The default. Parties for the destination of the pod. |
-| `drop-offs` | Parties for a stop of the pod, or for a station that the pod can add as a stop. |
+| `drop-offs` | The default. Parties for a stop of the pod, or for a station that the pod can add as a stop. |
+| `destination` | Parties for the destination of the pod. |
 
 In `drop-offs` mode, a boarding pod adds a stop for a new party in one of these conditions:
 

@@ -31,7 +31,7 @@ type SavedState struct {
 	SharedParties           int     `json:"sharedParties"`
 	SharedRidePartyLimit    int     `json:"sharedRidePartyLimit"`
 	// SharedRideMode and SharedRideMaxStops are the settings of
-	// SetSharedRideMode. An empty mode restores as SharedRideDestination,
+	// SetSharedRideMode. An empty mode restores as DefaultSharedRideMode,
 	// and a zero limit restores as DefaultSharedRideMaxStops.
 	SharedRideMode     SharedRideMode `json:"sharedRideMode,omitempty"`
 	SharedRideMaxStops int            `json:"sharedRideMaxStops,omitzero"`

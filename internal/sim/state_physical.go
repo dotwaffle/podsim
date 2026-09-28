@@ -250,7 +250,7 @@ func (r *physicalRestore) restoreCounters() {
 func savedSharedRideMode(state SavedState) (SharedRideMode, int) {
 	mode, maxStops := state.SharedRideMode, state.SharedRideMaxStops
 	if mode == "" {
-		mode = SharedRideDestination
+		mode = DefaultSharedRideMode
 	}
 	if maxStops == 0 {
 		maxStops = DefaultSharedRideMaxStops

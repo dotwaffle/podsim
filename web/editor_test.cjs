@@ -1718,8 +1718,9 @@ test("import gives the default settings to a browser export that leaves them out
     { name: "no party limit", edit: (config) => { delete config.sharedRidePartyLimit; }, want: (config) => ({ ...config, sharedRidePartyLimit: 1 }) },
     { name: "a valid party limit", edit: (config) => { config.sharedRidePartyLimit = 4; }, want: (config) => config },
     { name: "a zero party limit, which the server loads as one", edit: (config) => { config.sharedRidePartyLimit = 0; }, want: (config) => ({ ...config, sharedRidePartyLimit: 1 }) },
-    { name: "no shared ride mode", edit: (config) => { delete config.sharedRideMode; delete config.sharedRideMaxStops; }, want: (config) => ({ ...config, sharedRideMode: "destination", sharedRideMaxStops: 3 }) },
-    { name: "an empty mode and a zero stop limit, which the server loads as the defaults", edit: (config) => { Object.assign(config, { sharedRideMode: "", sharedRideMaxStops: 0 }); }, want: (config) => ({ ...config, sharedRideMode: "destination", sharedRideMaxStops: 3 }) },
+    { name: "no shared ride mode", edit: (config) => { delete config.sharedRideMode; delete config.sharedRideMaxStops; }, want: (config) => ({ ...config, sharedRideMode: "drop-offs", sharedRideMaxStops: 3 }) },
+    { name: "an empty mode and a zero stop limit, which the server loads as the defaults", edit: (config) => { Object.assign(config, { sharedRideMode: "", sharedRideMaxStops: 0 }); }, want: (config) => ({ ...config, sharedRideMode: "drop-offs", sharedRideMaxStops: 3 }) },
+    { name: "the destination mode, which is not the default", edit: (config) => { config.sharedRideMode = "destination"; }, want: (config) => config },
     { name: "no platoon limit", edit: (config) => { delete config.platoonLimit; }, want: (config) => ({ ...config, platoonLimit: 0 }) },
     { name: "a platoon limit", edit: (config) => { config.platoonLimit = 3; }, want: (config) => config },
     { name: "no demand profiles", edit: (config) => { delete config.demandProfiles; }, want: (config) => ({ ...config, demandProfiles: [] }) },
@@ -3495,7 +3496,7 @@ test("an empty scenario and the fallback draft have the settings of a normalized
     const config = tc.config();
     const normalized = editor.normalizeConfig(config);
     assert.equal(config.sharedRidePartyLimit, 1, tc.name);
-    assert.deepEqual([config.sharedRideMode, config.sharedRideMaxStops], ["destination", 3], tc.name);
+    assert.deepEqual([config.sharedRideMode, config.sharedRideMaxStops], ["drop-offs", 3], tc.name);
     assert.equal(config.platoonLimit, 0, tc.name);
     assert.deepEqual(config, normalized, tc.name);
     assert.deepEqual(editor.validateConfig(config), editor.validateConfig(normalized), tc.name);

@@ -13,6 +13,9 @@ const (
 	// destination of the party, or that can extend its journey to it. The
 	// pod then stops at that destination on the way.
 	SharedRideDropOffs SharedRideMode = "drop-offs"
+	// DefaultSharedRideMode is the mode of a new simulation, and the mode
+	// of a project or a saved state that does not give a mode.
+	DefaultSharedRideMode = SharedRideDropOffs
 )
 
 const (

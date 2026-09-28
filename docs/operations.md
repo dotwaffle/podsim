@@ -217,6 +217,8 @@ It reports them as unaccounted orders at each restore, together with the orders 
   A pod in a [virtual platoon](../README.md#virtual-platoons) keeps its link to the pod ahead, with the same run of lanes, turn, and clearance.
   The tier checks each saved link against the network and the other pods, and a link that is not valid fails the tier.
   The file does not keep the platoon limit, so the restore uses the `platoonLimit` of the project.
+  The file keeps the shared ride mode.
+  A file without the mode restores in the default `drop-offs` mode.
 - `logical`: The server uses this tier with reason `physical_failed` when the `physical` tier fails.
   It also uses it with reason `restore_loop`, as described below.
   The pods start again at their initial berths.

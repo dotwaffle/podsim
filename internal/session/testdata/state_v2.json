@@ -44,7 +44,7 @@
     "rebalanceMoves": 0,
     "sharedParties": 0,
     "sharedRidePartyLimit": 1,
-    "sharedRideMode": "destination",
+    "sharedRideMode": "drop-offs",
     "sharedRideMaxStops": 3,
     "pods": [
       {

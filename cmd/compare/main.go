@@ -284,7 +284,7 @@ func parseOptions(args []string, stderr io.Writer) (options, error) {
 	flags.StringVar(&opts.bandsText, "bands", "", "comma-separated profile bands or all")
 	flags.StringVar(&opts.loadsText, "loads", "", "comma-separated request intervals")
 	flags.StringVar(&opts.sharingLimitsText, "sharing-limits", "1", "comma-separated shared ride party limits")
-	flags.StringVar(&opts.sharingModesText, "sharing-modes", "destination", "comma-separated shared ride modes: destination, drop-offs")
+	flags.StringVar(&opts.sharingModesText, "sharing-modes", string(sim.DefaultSharedRideMode), "comma-separated shared ride modes: drop-offs, destination")
 	flags.IntVar(&opts.sharingMaxStops, "sharing-max-stops", sim.DefaultSharedRideMaxStops, "intermediate stops of a pod in drop-offs mode")
 	flags.StringVar(&opts.routingPoliciesText, "routing-policies", "free-flow", "comma-separated routing policies: free-flow, congestion, queue")
 	flags.StringVar(&opts.redistributionText, "redistribution-policies", "off,on", "comma-separated redistribution policies: off, on")
@@ -507,7 +507,7 @@ type sharingArm struct {
 
 // sharingArms returns the party limits and the sharing modes that compare
 // runs. With a limit of 1, no party joins a pod, so each mode gives the same
-// run. The limit then runs one time, in destination mode.
+// run. The limit then runs one time. See sharingSettings.
 func sharingArms(opts options) []sharingArm {
 	var arms []sharingArm
 	for _, limit := range opts.sharingLimits {
@@ -1006,8 +1006,8 @@ type runInput struct {
 	queueLimit                          int
 	burstSize                           int
 	sharingLimit                        int
-	// sharingMode is the sharing mode. Empty selects the destination
-	// mode. sharingMaxStops is the stop limit of the drop-offs mode. Zero
+	// sharingMode is the sharing mode. Empty selects
+	// sim.DefaultSharedRideMode. sharingMaxStops is the stop limit of the drop-offs mode. Zero
 	// selects the default limit.
 	sharingMode     sim.SharedRideMode
 	sharingMaxStops int
@@ -1023,11 +1023,16 @@ type runInput struct {
 }
 
 // sharingSettings returns the sharing mode and the stop limit of an arm,
-// with the defaults for the zero values.
+// with the defaults for the zero values. With a limit of 1, no party joins
+// a pod, so the mode has no effect. The arm then uses the destination mode,
+// because the recorded rows of limit 1 use this mode name.
 func (input *runInput) sharingSettings() (sim.SharedRideMode, int) {
 	mode, maxStops := input.sharingMode, input.sharingMaxStops
-	if mode == "" {
+	switch {
+	case input.sharingLimit <= 1:
 		mode = sim.SharedRideDestination
+	case mode == "":
+		mode = sim.DefaultSharedRideMode
 	}
 	if maxStops == 0 {
 		maxStops = sim.DefaultSharedRideMaxStops

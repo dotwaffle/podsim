@@ -156,7 +156,8 @@ type Config struct {
 	// SharedRidePartyLimit caps the parties per pod. Zero loads as one.
 	SharedRidePartyLimit int `json:"sharedRidePartyLimit,omitempty"`
 	// SharedRideMode selects the parties that can join a pod: "destination"
-	// or "drop-offs". An empty mode loads as "destination".
+	// or "drop-offs". An empty mode loads as sim.DefaultSharedRideMode,
+	// which is "drop-offs".
 	SharedRideMode sim.SharedRideMode `json:"sharedRideMode,omitempty"`
 	// SharedRideMaxStops caps the intermediate stops of a pod in drop-offs
 	// mode, from 1 to sim.MaxSharedRideStops. Zero loads as
@@ -258,10 +259,10 @@ func EffectiveSharedRidePartyLimit(config Config) int {
 }
 
 // EffectiveSharedRideMode returns the shared ride mode, with
-// sim.SharedRideDestination for an empty mode.
+// sim.DefaultSharedRideMode for an empty mode.
 func EffectiveSharedRideMode(config Config) sim.SharedRideMode {
 	if config.SharedRideMode == "" {
-		return sim.SharedRideDestination
+		return sim.DefaultSharedRideMode
 	}
 	return config.SharedRideMode
 }

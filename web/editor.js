@@ -41,8 +41,9 @@
   const MAX_NODE_LANES = 64;
   const MAX_FLOWS = 40000;
   const STATION_LANE_ROLES = new Set(["approach", "entry", "berth-access", "through", "departure", "exit"]);
-  // sharedRideModes mirrors the modes of sim.SharedRideMode.
-  const sharedRideModes = ["destination", "drop-offs"];
+  // sharedRideModes mirrors the modes of sim.SharedRideMode. The first
+  // mode is sim.DefaultSharedRideMode.
+  const sharedRideModes = ["drop-offs", "destination"];
   // platoonLimits holds the platoon limits that project.Validate accepts. 0
   // turns platoons off.
   const platoonLimits = [0, 2, 3, 4];
@@ -86,7 +87,7 @@
       demand: { enabled: false, perMinute: 2, pattern: "balanced", destination: "", profile: "", band: "", seed: 1 },
       demandProfiles: [],
       sharedRidePartyLimit: 1,
-      sharedRideMode: "destination",
+      sharedRideMode: "drop-offs",
       sharedRideMaxStops: 3,
       platoonLimit: 0,
       redistribution: false,
@@ -138,7 +139,7 @@
     if (demandProfile && Array.isArray(demandProfile.bands) && !demandProfile.bands.some((band) => band && band.id === config.demand.band)) config.demand.band = demandProfile.bands[0]?.id || "";
     config.demand.seed = Math.max(0, Math.floor(Number(config.demand.seed) || 0));
     config.sharedRidePartyLimit = Math.max(1, Math.min(8, Math.floor(Number(config.sharedRidePartyLimit) || 1)));
-    config.sharedRideMode = sharedRideModes.includes(config.sharedRideMode) ? config.sharedRideMode : "destination";
+    config.sharedRideMode = sharedRideModes.includes(config.sharedRideMode) ? config.sharedRideMode : "drop-offs";
     config.sharedRideMaxStops = Math.max(1, Math.min(7, Math.floor(Number(config.sharedRideMaxStops) || 3)));
     config.platoonLimit = platoonLimits.includes(config.platoonLimit) ? config.platoonLimit : 0;
     config.redistribution = Boolean(config.redistribution);
@@ -3374,7 +3375,7 @@
     $("#demandProfile").addEventListener("change", (event) => mutate((config) => { config.demand.profile = event.target.value; config.demand.band = config.demandProfiles.find((profile) => profile.id === event.target.value)?.bands?.[0]?.id || ""; return config; }));
     $("#demandBand").addEventListener("change", (event) => mutate((config) => { config.demand.band = event.target.value; return config; }));
     $("#sharedRidePartyLimit").addEventListener("change", (event) => mutate((config) => { config.sharedRidePartyLimit = Math.max(1, Math.min(8, Math.floor(Number(event.target.value) || 1))); return config; }));
-    $("#sharedRideMode").addEventListener("change", (event) => mutate((config) => { config.sharedRideMode = sharedRideModes.includes(event.target.value) ? event.target.value : "destination"; return config; }));
+    $("#sharedRideMode").addEventListener("change", (event) => mutate((config) => { config.sharedRideMode = sharedRideModes.includes(event.target.value) ? event.target.value : "drop-offs"; return config; }));
     $("#sharedRideMaxStops").addEventListener("change", (event) => mutate((config) => { config.sharedRideMaxStops = Math.max(1, Math.min(7, Math.floor(Number(event.target.value) || 3))); return config; }));
     $("#platoonLimit").addEventListener("change", (event) => mutate((config) => { const limit = Number(event.target.value); config.platoonLimit = platoonLimits.includes(limit) ? limit : 0; return config; }));
     $("#demandSeed").addEventListener("change", (event) => mutate((config) => { config.demand.seed = Math.max(0, Math.floor(Number(event.target.value))); return config; }));

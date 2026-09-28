@@ -51,6 +51,9 @@ func TestSameDestinationSharingHonorsPolicyAndDestination(t *testing.T) {
 			if err := s.SetSharedRidePartyLimit(test.limit); err != nil {
 				t.Fatal(err)
 			}
+			if err := s.SetSharedRideMode(SharedRideDestination, DefaultSharedRideMaxStops); err != nil {
+				t.Fatal(err)
+			}
 			for _, destination := range test.destinations {
 				if err := s.RequestTrip("harbor", destination); err != nil {
 					t.Fatal(err)
@@ -100,7 +103,7 @@ func TestSetSharedRideModeRejectsInvalidSettings(t *testing.T) {
 			t.Errorf("mode %q with %d stops was accepted", test.mode, test.stops)
 		}
 	}
-	if s.sharedRideMode != SharedRideDestination || s.sharedRideMaxStops != DefaultSharedRideMaxStops {
+	if s.sharedRideMode != SharedRideDropOffs || s.sharedRideMaxStops != DefaultSharedRideMaxStops {
 		t.Fatalf("rejected settings changed the mode to %q with %d stops", s.sharedRideMode, s.sharedRideMaxStops)
 	}
 	if err := s.SetSharedRideMode(SharedRideDropOffs, MaxSharedRideStops); err != nil {
