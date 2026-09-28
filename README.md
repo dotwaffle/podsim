@@ -790,6 +790,11 @@ After the first rate at which a seed does not drain, the group runs `-past-limit
 The report omits the skipped arms.
 The other rows are identical to the rows of a full run.
 
+When `GOGC` is not set, the compare command sets the Go GC percent to 400.
+A London arm then uses about 14% less CPU and about 120 MB more memory than at the default of 100.
+The reports do not change.
+Set `GOGC` to use another value.
+
 #### Report columns
 
 The JSON report has `schema_version` 9.
@@ -959,7 +964,8 @@ The compare command has two experimental routing policies.
 They change only the route that a pod gets when it starts a journey, a pickup, or an empty move.
 Estimates and the choices of dispatch, positioning, and parking use free-flow times.
 A route from these policies does not go through the berths of a third station.
-The `congestion` policy adds 6 s for each owned track cell and 20 s for each lane with a stopped pod, and it keeps these costs for 5 s.
+When each other route goes through such berths, the pod gets the free-flow route.
+The `congestion` policy adds 6 s for each owned track cell of a lane and 20 s for each waiting pod on a lane, and it keeps these costs for 5 s.
 The `queue` policy gives each stopped pod on a lane 3 s of queue time.
 It adds only the queue time that remains when the pod gets to the lane.
 It changes the free-flow route only when the saving is at least 15 s and at least 5%.
