@@ -88,9 +88,10 @@ func (s *Simulation) candidateRoute(v *vehicle, stationID string, load func(Bert
 // must keep and the node where a new route can start. The pod keeps each
 // lane that its reserved blocks touch. It reports false when the pod is not
 // departing or traveling, or when its reserved blocks enter its destination
-// berth. Such a pod must finish its committed inlet.
+// berth. Such a pod must finish its committed inlet. It also reports false
+// for a pod in a platoon, because a link depends on the routes of its pods.
 func (s *Simulation) divertStart(v *vehicle) (int, string, bool) {
-	if v.Pod.Activity != Traveling && v.Pod.Activity != DepartingEmpty {
+	if v.Pod.Activity != Traveling && v.Pod.Activity != DepartingEmpty || v.coupled() {
 		return 0, "", false
 	}
 	prefix, from := 0, v.origin.Node

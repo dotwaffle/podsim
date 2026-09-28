@@ -213,9 +213,10 @@ type vehicle struct {
 	// as a pod on its way to parking can.
 	released bool
 	// nextRelease is 0, or it is at most each release distance in
-	// routeReleases and the pod owns each resource in routeReleases. In
-	// the second case, releaseVehicleResources has no entry to change
-	// while distance is less than nextRelease. With the value 0, an entry
+	// routeReleases and the pod or a pod ahead of it in its platoon owns
+	// each resource in routeReleases that the pod has not passed. In the
+	// second case, releaseVehicleResources has no entry to change while
+	// distance is less than nextRelease. With the value 0, an entry
 	// can name a resource that the pod does not own. releaseOwned sets 0,
 	// and retainRouteResource keeps 0. Code that removes the owner of a
 	// resource in routeReleases must call releaseOwned or clear
@@ -230,6 +231,13 @@ type vehicle struct {
 	// blocks holds the blocks of Route. Each write of the route also writes
 	// it.
 	blocks blockList
+	// link couples the pod to its predecessor in a platoon. follower is one
+	// plus the index in Simulation.vehicles of the pod that couples to this
+	// pod, or 0. platoonCap is the route distance within which a pod with a
+	// predecessor must stop in this tick. platoonCaps sets it.
+	link       platoonLink
+	follower   int
+	platoonCap float64
 }
 
 // Simulation owns a fixed fleet and local track, junction, and berth resources.
@@ -327,6 +335,19 @@ type Simulation struct {
 	// and reuses it at each later call. It is not part of the state. Clone
 	// drops it, so two simulations never share the buffers.
 	pass *dispatchPass
+	// platooning is the platooning mode and platoonLimit is the largest
+	// platoon. platoonLinks counts the pods with a predecessor. Reset
+	// keeps the mode and the limit.
+	platooning   Platooning
+	platoonLimit int
+	platoonLinks int
+	// platoonData holds the network data that links read. platoonIndexes
+	// builds it, and no code writes to it in place.
+	platoonData *platoonIndexData
+	// platoonOrder, platoonAhead and platoonLanes are work storage of
+	// formPlatoons. Clone does not share them.
+	platoonOrder, platoonAhead []int
+	platoonLanes               map[string]bool
 }
 
 // New creates a one-pod scenario for focused experiments.
@@ -360,6 +381,7 @@ func NewFleet(network Network, placements []Placement) (*Simulation, error) {
 		sharedRidePartyLimit:        1,
 		sharedRideMode:              SharedRideDestination,
 		sharedRideMaxStops:          DefaultSharedRideMaxStops,
+		platoonLimit:                MaxPlatoonLimit,
 		reservationLookaheadSeconds: defaultReservationLookaheadSeconds,
 		laneSafety:                  make(map[string]SafetyLocation, len(network.Lanes)),
 		berthSafety:                 make(map[string]SafetyLocation),
@@ -433,6 +455,7 @@ func (s *Simulation) Reset() {
 	s.nextCongestionRouteRefresh, s.congestionRouteCosts, s.congestionRoutes = 0, nil, nil
 	s.passengerDistanceMeters, s.emptyDistanceMeters, s.rebalanceMoves, s.sharedParties = 0, 0, 0, 0
 	s.requestBoardings, s.requestCompletions, s.nodePasses = nil, nil, nil
+	s.platoonLinks = 0
 	s.owners = make(map[resource]string)
 	s.vehicles = nil
 	for _, p := range s.initial {
@@ -605,8 +628,10 @@ func (s *Simulation) Step() {
 	}
 	s.dispatch()
 	s.redistribute()
+	s.formPlatoons()
 	s.admit()
 	s.clearBlockedBerths()
+	s.platoonCaps()
 	for i := range s.vehicles {
 		v := &s.vehicles[i]
 		if departs(v.Pod.Activity) && v.phaseTicks == 0 && v.reservedThrough >= 0 {

@@ -528,12 +528,36 @@ func (s *Simulation) admit() {
 	}
 }
 
+// grant reserves the blocks of an intent up to the end of their conflict
+// zones when no other pod holds a resource of them. A follower that
+// coupledSpan accepts can also reserve a resource that a pod ahead in its
+// platoon holds, except a berth. That pod stays the owner, and the
+// resource passes to the follower when that pod releases it.
 func (s *Simulation) grant(in intent) {
 	v := &s.vehicles[in.index]
 	through := reservationEnd(&v.blocks, in.block)
+	coupled := v.link.leader != 0 && s.coupledSpan(v, in.block, through)
+	if v.link.leader != 0 && !coupled && s.holdsPending(v) {
+		// A follower that holds a cell of a pod ahead can be as far
+		// forward in its reservation as that pod. If it took free cells
+		// that its predecessor did not reserve yet, it would block its
+		// own predecessor. Thus it takes only the cells of the pods ahead
+		// until it owns each cell that it holds.
+		v.Pod.BlockedBy = s.vehicles[v.link.leader-1].Pod.ID
+		v.Pod.WaitReason = TrackOccupied
+		return
+	}
+	// A route that passes a node again must not keep a resource that a
+	// pod behind in the platoon shares past the run of that pod.
+	if v.follower != 0 && s.returnsToShared(v, in.block, through) {
+		v.Pod.BlockedBy = s.vehicles[v.follower-1].Pod.ID
+		v.Pod.WaitReason = TrackOccupied
+		return
+	}
 	for resources := range v.blocks.spanResources(in.block, through+1) {
 		for _, r := range resources {
-			if owner := s.owners[r]; owner != "" && owner != v.Pod.ID {
+			if owner := s.owners[r]; owner != "" && owner != v.Pod.ID &&
+				(!coupled || r.kind == berthResource || !s.aheadInPlatoon(v, owner)) {
 				v.Pod.BlockedBy = owner
 				switch r.kind {
 				case berthResource:
@@ -558,7 +582,9 @@ func (s *Simulation) grant(in intent) {
 		cell := index - blocks.lanes[lane].first
 		start, end := blocks.cellBounds(lane, cell)
 		for _, r := range blocks.lanes[lane].cells.cell(cell) {
-			s.owners[r] = v.Pod.ID
+			if !coupled || s.owners[r] == "" {
+				s.owners[r] = v.Pod.ID
+			}
 			v.retainRouteResource(r, releaseDistance(r, releaseInput{from: blocks.route[lane].From, start: start, end: end}))
 		}
 	}
@@ -618,6 +644,9 @@ func reservationEnd(blocks *blockList, start int) int {
 
 func (s *Simulation) move(v *vehicle) {
 	limit := v.blocks.end(v.reservedThrough)
+	if v.link.leader != 0 && v.platoonCap < limit {
+		limit = v.platoonCap
+	}
 	available := math.Max(0, limit-v.distance)
 	dt := 1.0 / TicksPerSecond
 	// Semi-implicit integration preserves enough owned track to stop on the next tick.
@@ -686,8 +715,8 @@ func releaseDistance(r resource, b releaseInput) float64 {
 	return b.end + Clearance
 }
 
-// retainRouteResource keeps r until the pod is at releaseAt. The pod must
-// own r.
+// retainRouteResource keeps r until the pod is at releaseAt. The pod or a
+// pod ahead of it in its platoon must own r.
 func (v *vehicle) retainRouteResource(r resource, releaseAt float64) {
 	if v.routeReleases == nil {
 		v.routeReleases = make(map[resource]float64)
@@ -724,11 +753,12 @@ func (s *Simulation) releaseVehicleResources(v *vehicle) {
 }
 
 // releasePassedResources releases each resource in v.routeReleases that the
-// pod passed. It removes the entry of a resource that the pod does not own.
-// Then it sets v.nextRelease to the smallest release distance that stays, or
-// to +Inf when no entry stays. An owner check is necessary only when
-// v.nextRelease is 0. When v.nextRelease is not 0 and v.distance is less,
-// no entry changes, so the function returns at once.
+// pod passed. It removes the entry of a resource that neither the pod nor a
+// pod ahead of it in its platoon owns. Then it sets v.nextRelease to the
+// smallest release distance that stays, or to +Inf when no entry stays. An
+// owner check is necessary only when v.nextRelease is 0. When v.nextRelease
+// is not 0 and v.distance is less, no entry changes, so the function
+// returns at once.
 func (s *Simulation) releasePassedResources(v *vehicle) {
 	checkOwners := v.nextRelease == 0
 	if !checkOwners && v.distance < v.nextRelease {
@@ -736,13 +766,13 @@ func (s *Simulation) releasePassedResources(v *vehicle) {
 	}
 	next := math.Inf(1)
 	for r, releaseAt := range v.routeReleases {
-		if checkOwners && s.owners[r] != v.Pod.ID {
+		if owner := s.owners[r]; checkOwners && owner != v.Pod.ID && !s.aheadInPlatoon(v, owner) {
 			delete(v.routeReleases, r)
 			continue
 		}
 		if releaseAt <= v.distance {
 			if s.owners[r] == v.Pod.ID {
-				delete(s.owners, r)
+				s.releaseRouteResource(v, r)
 			}
 			delete(v.routeReleases, r)
 			continue
@@ -761,12 +791,12 @@ func (s *Simulation) releaseRouteResourcesExcept(v *vehicle, retained ...resourc
 	clear(v.routeReleases)
 }
 
-// releaseOwned deletes the owner of r when the owner is v. An entry for r in
-// v.routeReleases then names a resource that v does not own, so
-// releaseOwned sets v.nextRelease to 0.
+// releaseOwned releases r when the owner is v, as releaseRouteResource
+// does. An entry for r in v.routeReleases then names a resource that v does
+// not own, so releaseOwned sets v.nextRelease to 0.
 func (s *Simulation) releaseOwned(v *vehicle, r resource) {
 	if s.owners[r] == v.Pod.ID {
-		delete(s.owners, r)
+		s.releaseRouteResource(v, r)
 		v.nextRelease = 0
 	}
 }

@@ -87,6 +87,9 @@ type corridorCase struct {
 	onMain bool
 	// want is the pinned mean headway in seconds.
 	want float64
+	// platoonLimit turns on virtual platoons with this limit. 0 keeps
+	// platooning off.
+	platoonLimit int
 }
 
 type corridorResult struct {
@@ -96,6 +99,9 @@ type corridorResult struct {
 	// order lists the feed lane of each pod in the order in which the pods
 	// enter the exit lane.
 	order []string
+	// coupled counts the pods that were in a platoon at some tick, and
+	// largest is the largest platoon.
+	coupled, largest int
 }
 
 // runMergeCorridor restores a stopped queue of corridorStreamPods pods on
@@ -136,6 +142,16 @@ func runMergeCorridor(t *testing.T, test corridorCase) corridorResult {
 		t.Fatalf("the queue did not restore in place: %+v", result)
 	}
 	s.SetExperimentRecords(true)
+	platoons := newPlatoonMonitor(s)
+	platoons.ownerTicks = TicksPerSecond / 4
+	if test.platoonLimit != 0 {
+		if err := s.SetPlatoonLimit(test.platoonLimit); err != nil {
+			t.Fatal(err)
+		}
+		if err := s.SetPlatooning(PlatooningVirtual); err != nil {
+			t.Fatal(err)
+		}
+	}
 	measured, entered := make(map[string]bool), make(map[string]bool)
 	var ticks []int64
 	var order []string
@@ -145,6 +161,9 @@ func runMergeCorridor(t *testing.T, test corridorCase) corridorResult {
 		checkTraffic(t, snapshot)
 		if _, err := s.SafetyObservation().Check(); err != nil {
 			t.Fatalf("tick %d: %v", snapshot.Tick, err)
+		}
+		if test.platoonLimit != 0 {
+			platoons.check(t)
 		}
 		for _, v := range snapshot.Vehicles {
 			if v.Pod.LaneID == "main" && v.Pod.LaneDistance >= 2000 && !measured[v.Pod.ID] {
@@ -174,7 +193,7 @@ func runMergeCorridor(t *testing.T, test corridorCase) corridorResult {
 	if len(ticks) != len(fleet) {
 		t.Fatalf("%d pods passed the measure point, want %d", len(ticks), len(fleet))
 	}
-	return corridorResult{headway: meanHeadway(ticks), order: order}
+	return corridorResult{headway: meanHeadway(ticks), order: order, coupled: len(platoons.coupled), largest: platoons.largest}
 }
 
 // meanHeadway returns the mean time in seconds between two ticks after

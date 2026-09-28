@@ -8,13 +8,14 @@ package sim
 // pod holds each resource of its reserved blocks until it passes the release
 // distance of that resource. It also holds its origin berth and node until it
 // is Clearance from the origin. A relocating pod keeps each destination claim
-// that s.owners gives to it.
+// that s.owners gives to it. When pods of one platoon hold a resource, the
+// pod nearest to the front of the platoon owns it.
 func (s *Simulation) retainedOwners() map[resource]string {
 	owners := make(map[resource]string, len(s.owners))
 	for i := range s.vehicles {
 		v := &s.vehicles[i]
 		if v.Pod.Activity == Traveling {
-			addRouteOwners(owners, v)
+			s.addRouteOwners(owners, v)
 		} else {
 			station, _ := s.station(v.Pod.StationID)
 			berth, _ := station.berth(v.Pod.BerthID)
@@ -37,10 +38,14 @@ func (s *Simulation) retainedOwners() map[resource]string {
 }
 
 // addRouteOwners adds the resources that a traveling pod holds to owners.
-func addRouteOwners(owners map[resource]string, v *vehicle) {
+// It keeps an owner that is ahead of the pod in its platoon.
+func (s *Simulation) addRouteOwners(owners map[resource]string, v *vehicle) {
 	for _, b := range v.blocks.span(0, v.reservedThrough+1) {
 		for _, r := range b.resources {
-			if resourceReleaseDistance(b, r) > v.distance {
+			if resourceReleaseDistance(b, r) <= v.distance {
+				continue
+			}
+			if owner, ok := owners[r]; !ok || !s.aheadInPlatoon(v, owner) {
 				owners[r] = v.Pod.ID
 			}
 		}

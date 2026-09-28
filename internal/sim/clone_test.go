@@ -33,7 +33,8 @@ var cloneRules = map[reflect.Type]map[string]cloneRule{
 		"laneSafety": cloneShare, "berthSafety": cloneShare, "vehicleIndexes": cloneShare,
 		"berthResources": cloneShare, "laneCells": cloneShare, "approachStations": cloneShare, "routeStations": cloneDrop,
 		"requestBoardings": cloneCopy, "requestCompletions": cloneCopy, "nodePasses": cloneCopy, "monitor": cloneShare,
-		"pass": cloneDrop,
+		"pass": cloneDrop, "platoonData": cloneShare, "platoonOrder": cloneDrop, "platoonAhead": cloneDrop,
+		"platoonLanes": cloneDrop,
 	},
 	reflect.TypeFor[vehicle](): {
 		"Vehicle": cloneCopy, "blocks": cloneShare, "blockStarts": cloneShare, "routeReleases": cloneCopy,
@@ -179,6 +180,9 @@ var persistRules = map[reflect.Type]map[string]persistRule{
 		"reservationLookaheadSeconds": persistUnsupported, "finishingPodWait": persistUnsupported,
 		"requestBoardings": persistReset, "requestCompletions": persistReset, "nodePasses": persistReset,
 		"recordExperiments": persistUnsupported, "pass": persistReset,
+		"platooning": persistUnsupported, "platoonLimit": persistUnsupported, "platoonLinks": persistReset,
+		"platoonData": persistDerive, "platoonOrder": persistReset, "platoonAhead": persistReset,
+		"platoonLanes": persistReset,
 	},
 	reflect.TypeFor[vehicle](): {
 		"Vehicle": persistSave, "phaseTicks": persistSave, "blocks": persistDerive, "blockStarts": persistDerive,
@@ -187,7 +191,7 @@ var persistRules = map[reflect.Type]map[string]persistRule{
 		"waitSince":      persistSave,
 		"rebalanceAfter": persistSave, "origin": persistSave, "destination": persistSave,
 		"destinationStation": persistSave, "released": persistSave, "terminal": persistReset,
-		"routeLengths": persistDerive,
+		"routeLengths": persistDerive, "link": persistReset, "follower": persistReset, "platoonCap": persistReset,
 	},
 	reflect.TypeFor[Vehicle](): {
 		"Pod": persistSave, "Riders": persistSave, "Stops": persistSave, "Route": persistSave,
@@ -336,7 +340,8 @@ func checkCopiedStorage(t *testing.T, check cloneStorageCheck) {
 }
 
 // activeCloneSimulation returns a demo in progress. It has pods with requests
-// and routes, waiting trips with routes, and filled congestion routes.
+// and routes, waiting trips with routes, filled congestion routes, and the
+// platoon work storage.
 func activeCloneSimulation(t *testing.T) *Simulation {
 	t.Helper()
 	s := newTraffic(t)
@@ -354,7 +359,17 @@ func activeCloneSimulation(t *testing.T) *Simulation {
 	if err := s.SetPositioning(PositioningGuarded); err != nil {
 		t.Fatal(err)
 	}
+	if err := s.SetPlatooning(PlatooningVirtual); err != nil {
+		t.Fatal(err)
+	}
 	advance(s, 35*TicksPerSecond)
+	// The platoon work storage holds data only at a tick with a slow pod.
+	for range 30 * TicksPerSecond {
+		if len(s.platoonOrder) != 0 {
+			break
+		}
+		s.Step()
+	}
 	// The demo does not use drop-offs, so the fixture fills the station
 	// caches of drop-offs.
 	s.stationsOnRoute("harbor-berth", "market")

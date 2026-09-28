@@ -53,7 +53,7 @@ func (s *Simulation) reevaluateTerminalBerth(v *vehicle) {
 	for routeIndex := eligible; routeIndex < len(v.Route); routeIndex++ {
 		lane := v.Route[routeIndex]
 		first := v.firstBlockForLane(lane.ID)
-		if first > through {
+		if first > through || s.inLinkRun(v, routeIndex) {
 			return
 		}
 		for _, berth := range station.Berths {

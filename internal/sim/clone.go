@@ -30,5 +30,6 @@ func (s *Simulation) Clone() *Simulation {
 	// congestionRoute writes to this map while congestionRouteCosts is set.
 	// maps.Clone keeps a non-nil map non-nil.
 	c.congestionRoutes = maps.Clone(s.congestionRoutes)
+	c.platoonOrder, c.platoonAhead, c.platoonLanes = nil, nil, nil
 	return &c
 }
