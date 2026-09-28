@@ -294,6 +294,7 @@ type Simulation struct {
 	sharedRidePartyLimit                      int
 	sharedRideMode                            SharedRideMode
 	sharedRideMaxStops                        int
+	sharedRideJoin                            SharedRideJoin
 	// approachStations and routeStations belong to stationsOnRoute.
 	approachStations            map[string][]string
 	routeStations               map[stopKey][]string
@@ -388,6 +389,7 @@ func NewFleet(network Network, placements []Placement) (*Simulation, error) {
 		sharedRidePartyLimit:        1,
 		sharedRideMode:              DefaultSharedRideMode,
 		sharedRideMaxStops:          DefaultSharedRideMaxStops,
+		sharedRideJoin:              DefaultSharedRideJoin,
 		platoonLimit:                MaxPlatoonLimit,
 		reservationLookaheadSeconds: defaultReservationLookaheadSeconds,
 		laneSafety:                  make(map[string]SafetyLocation, len(network.Lanes)),

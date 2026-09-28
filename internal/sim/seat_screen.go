@@ -40,6 +40,11 @@ type SeatScreen struct {
 	// of JoinEligibleAssigned is in this member. Each party counts one time,
 	// so the member is at most JoinEligibleAssigned.
 	JoinEligibleExistingStop int
+	// ReassignedParties counts the parties that joined a boarding pod while
+	// they had a pod on its way. Dispatch released that pod. See
+	// SharedRideJoinReassignExisting. A rider that a restore queues again
+	// does not count.
+	ReassignedParties int
 }
 
 // SeatScreen returns the counters of the seat screen. It does not change
@@ -56,14 +61,18 @@ func (s *Simulation) screensSeats() bool {
 // refusedByFullPod reports whether the seat screen must count a refusal
 // of the trip by the full boarding pod v. This is so for a new party that
 // the pod could take with a free seat, with the rules of joinSharedRide,
-// when the screen did not count the trip before. It does not change the
-// pod.
+// when the screen did not count the trip before. For a trip with a pod on
+// its way, these rules accept only a stop of the pod. It does not change
+// the pod.
 func (s *Simulation) refusedByFullPod(trip *waitingTrip, v *vehicle) bool {
 	if !s.recordExperiments || trip.boarded || trip.fullPodRefused {
 		return false
 	}
 	if s.sharedRideMode != SharedRideDropOffs {
 		return v.destinationStation == trip.request.To
+	}
+	if trip.request.PodID != "" {
+		return slices.Contains(v.Stops, trip.request.To)
 	}
 	_, ok := s.dropOffStops(v, trip.request.To)
 	return ok

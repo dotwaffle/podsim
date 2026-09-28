@@ -35,6 +35,9 @@ type SavedState struct {
 	// and a zero limit restores as DefaultSharedRideMaxStops.
 	SharedRideMode     SharedRideMode `json:"sharedRideMode,omitempty"`
 	SharedRideMaxStops int            `json:"sharedRideMaxStops,omitzero"`
+	// SharedRideJoin is the setting of SetSharedRideJoin. An empty policy
+	// restores as DefaultSharedRideJoin.
+	SharedRideJoin SharedRideJoin `json:"sharedRideJoin,omitempty"`
 	// Journeys counts the parties that left a pod at their destination.
 	// The journey and distance totals count the same parties.
 	Journeys             int     `json:"journeys,omitzero"`
@@ -249,7 +252,7 @@ func (s *Simulation) ExportState() SavedState {
 		TotalWaitTicks: s.totalWaitTicks, MaxWaitTicks: s.maxWaitTicks, NextRedistributionTick: s.nextRedistributionTick,
 		PassengerDistanceMeters: s.passengerDistanceMeters, EmptyDistanceMeters: s.emptyDistanceMeters,
 		RebalanceMoves: s.rebalanceMoves, SharedParties: s.sharedParties, SharedRidePartyLimit: s.sharedRidePartyLimit,
-		SharedRideMode: s.sharedRideMode, SharedRideMaxStops: s.sharedRideMaxStops,
+		SharedRideMode: s.sharedRideMode, SharedRideMaxStops: s.sharedRideMaxStops, SharedRideJoin: s.sharedRideJoin,
 		Journeys: s.journeys, TotalJourneyTicks: s.totalJourneyTicks, MaxJourneyTicks: s.maxJourneyTicks,
 		RiderDistanceMeters: s.riderDistanceMeters, DirectDistanceMeters: s.directDistanceMeters, MaxDetourRatio: s.maxDetourRatio,
 		DemoError: s.demoError, Pods: make([]SavedPod, len(s.vehicles)),

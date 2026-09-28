@@ -18,6 +18,24 @@ const (
 	DefaultSharedRideMode = SharedRideDropOffs
 )
 
+// SharedRideJoin selects the parties that can join a boarding pod by
+// their pickup state.
+type SharedRideJoin string
+
+const (
+	// SharedRideJoinUnassigned lets only a party with no pod join a
+	// boarding pod.
+	SharedRideJoinUnassigned SharedRideJoin = "unassigned"
+	// SharedRideJoinReassignExisting also lets a party with an empty pod on
+	// its way join a boarding pod at its origin, when the boarding pod
+	// already stops at the destination of the party. Dispatch then
+	// releases the pod of the party. See releasePickup.
+	SharedRideJoinReassignExisting SharedRideJoin = "reassign-existing"
+	// DefaultSharedRideJoin is the join policy of a new simulation, and the
+	// policy of a project or a saved state that does not give a policy.
+	DefaultSharedRideJoin = SharedRideJoinUnassigned
+)
+
 const (
 	// DefaultSharedRideMaxStops is the default limit of the intermediate
 	// stops of a pod in drop-offs mode.
@@ -60,6 +78,24 @@ func validateSharedRideMode(mode SharedRideMode, maxStops int) error {
 	}
 	if maxStops < 1 || maxStops > MaxSharedRideStops {
 		return fmt.Errorf("shared ride stop limit must be 1 to %d", MaxSharedRideStops)
+	}
+	return nil
+}
+
+// SetSharedRideJoin sets the join policy. With a party limit of 1, no
+// party joins a pod, so the policy has no effect.
+func (s *Simulation) SetSharedRideJoin(join SharedRideJoin) error {
+	defer s.observe()
+	if err := validateSharedRideJoin(join); err != nil {
+		return err
+	}
+	s.sharedRideJoin = join
+	return nil
+}
+
+func validateSharedRideJoin(join SharedRideJoin) error {
+	if join != SharedRideJoinUnassigned && join != SharedRideJoinReassignExisting {
+		return fmt.Errorf("shared ride join policy must be %q or %q", SharedRideJoinUnassigned, SharedRideJoinReassignExisting)
 	}
 	return nil
 }

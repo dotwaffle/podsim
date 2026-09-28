@@ -183,7 +183,7 @@ func TestSeatScreenChangesNoDecision(t *testing.T) {
 		{"harbor", "market"}, {"harbor", "market"}, {"harbor", "market"}, {"harbor", "garden"},
 		{"garden", "market"}, {"market", "harbor"},
 	}
-	screen := runRecordsOnAndOff(t, placements, 3, burst)
+	screen := runRecordsOnAndOff(t, placements, 3, SharedRideJoinUnassigned, burst)
 	departures := 0
 	for _, count := range screen.Aboard {
 		departures += count
@@ -194,15 +194,20 @@ func TestSeatScreenChangesNoDecision(t *testing.T) {
 }
 
 // runRecordsOnAndOff runs a burst of trips every 30 s for 300 s in the
-// example network in drop-offs mode, with the experiment records on and
-// off, and steps to 450 s. It fails the test when the snapshots differ at
-// a simulated second. It returns the seat screen of the run with the
-// records.
-func runRecordsOnAndOff(t *testing.T, placements []Placement, limit int, burst [][2]string) SeatScreen {
+// example network in drop-offs mode with the join policy, with the
+// experiment records on and off, and steps to 450 s. It fails the test when
+// the snapshots differ at a simulated second. It returns the seat screen of
+// the run with the records.
+func runRecordsOnAndOff(t *testing.T, placements []Placement, limit int, join SharedRideJoin, burst [][2]string) SeatScreen {
 	t.Helper()
 	on := newScreenSimulation(t, Example(), placements, limit, SharedRideDropOffs)
 	off := newScreenSimulation(t, Example(), placements, limit, SharedRideDropOffs)
 	off.SetExperimentRecords(false)
+	for _, s := range []*Simulation{on, off} {
+		if err := s.SetSharedRideJoin(join); err != nil {
+			t.Fatal(err)
+		}
+	}
 	for tick := range 450 * TicksPerSecond {
 		if tick%(30*TicksPerSecond) == 0 && tick < 300*TicksPerSecond {
 			for _, trip := range burst {
@@ -245,7 +250,7 @@ func TestJoinCensusChangesNoDecision(t *testing.T) {
 		{ID: "03", StationID: "garden", BerthID: "garden-1"},
 	}
 	burst := [][2]string{{"harbor", "market"}, {"harbor", "garden"}, {"harbor", "market"}, {"garden", "market"}}
-	screen := runRecordsOnAndOff(t, placements, 4, burst)
+	screen := runRecordsOnAndOff(t, placements, 4, SharedRideJoinUnassigned, burst)
 	if screen.JoinEligibleExistingStop == 0 || screen.JoinEligibleAssigned <= screen.JoinEligibleExistingStop {
 		t.Fatalf("the run did not use the join census: %+v", screen)
 	}

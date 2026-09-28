@@ -51,6 +51,7 @@ simulation.sharedParties number
 simulation.sharedRidePartyLimit number
 simulation.sharedRideMode string
 simulation.sharedRideMaxStops number
+simulation.sharedRideJoin string
 simulation.journeys number
 simulation.totalJourneyTicks number
 simulation.maxJourneyTicks number

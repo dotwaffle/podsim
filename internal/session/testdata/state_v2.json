@@ -46,6 +46,7 @@
     "sharedRidePartyLimit": 1,
     "sharedRideMode": "drop-offs",
     "sharedRideMaxStops": 3,
+    "sharedRideJoin": "unassigned",
     "pods": [
       {
         "id": "01",
