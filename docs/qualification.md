@@ -2009,3 +2009,126 @@ All 12 arms give identical rows and snapshot hashes.
 The harness writes no seat screen column, and its replay does not turn on the experiment records.
 A second run of the shared arm with the records on in the replay also gives identical hashes.
 Raw results are in [`measurements/london-seat-screen.csv`](measurements/london-seat-screen.csv) and [`measurements/rail-hub-seat-screen.csv`](measurements/rail-hub-seat-screen.csv).
+
+## Assigned-party sharing
+
+The `reassign-existing` join policy remains opt-in.
+It improves average journeys, but fails the all-band adoption rules.
+Late and Morning each lose one capacity step, from 13/min to 12/min.
+The default remains `unassigned`, and sharing remains off unless the party limit exceeds one.
+See [parties](../README.md#parties) for the policy semantics.
+
+These experiments used four parties per pod, drop-offs mode, three intermediate stops, a 1.5 detour cap, virtual platoons, free-flow routing, and redistribution off.
+London arms admitted requests for 30 minutes and ran for up to 65 minutes, stopping when drained.
+Each rate used seeds 1, 2, and 3.
+
+The capacity limit is the last consecutive rate that every seed drained by 3,600 seconds without skipped requests.
+A passing rate above an earlier failure does not raise that limit.
+Rates in the tables are nominal rates from the request interval.
+The CSV's `offered_per_minute` uses the realized arrival count, so it can differ slightly.
+
+The original measurements were captured on September 28, 2026.
+The census used `1141f43`, and the paired implementation used `39eaf54`.
+The tables below were recomputed from those CSVs.
+The full matrices were not rerun for this record.
+Two targeted request-level replays at `025fff4` reproduced the original arm summaries exactly.
+
+### Census and capacity extension
+
+The [London census](measurements/london-pooling-census.csv) and [rail-hub census](measurements/rail-hub-pooling-census.csv) counted assigned waiting parties that a boarding pod could take.
+The London totals use rates at or below the original band limit.
+
+| Regime | Served parties | Eligible assigned parties | Eligible share | Added-stop-only share of eligible |
+| --- | ---: | ---: | ---: | ---: |
+| Early | 10,770 | 5,709 | 53.01% | 14.03% |
+| Night | 5,913 | 1,898 | 32.10% | 6.90% |
+| AM peak | 9,423 | 1,238 | 13.14% | 76.82% |
+| Rail hub | 177 | 85 | 48.02% | 0.00% |
+
+Early and rail hub exceeded the 2% eligibility screen.
+Their added-stop-only shares were below 20%, which selected existing-stop reassignment for implementation.
+The initial [London paired screen](measurements/london-pooling-screen.csv) covered Early, Night, and AM peak from 1/min through 15/min.
+The [rail-hub pairs](measurements/rail-hub-pooling.csv) reduced mean journey time from 526.1 to 438.6 seconds, a 16.62% reduction.
+Their mean journey p95 fell from 957.6 to 733.5 seconds.
+
+The [16 to 24/min extension](measurements/london-pooling-extension.csv) and [higher-rate Early extension](measurements/london-pooling-early-extension.csv) found consecutive limits of 22 to 27/min in Early and 11 to 21/min in Night.
+Early also passed 32/min after failing 28/min, and Night passed 23/min after failing 22/min.
+Those isolated passes do not change the consecutive limits.
+
+### All-band result
+
+The [all-band matrix](measurements/london-pooling-all.csv) contains 720 arms, or 360 policy pairs.
+It tests 1/min through 15/min in all eight bands.
+The journey columns below average arm statistics across pairs at or below the `unassigned` limit.
+They are not pooled request quantiles.
+A `15+` limit means every tested rate passed, so this matrix gives only a lower bound.
+The extended Early and Night limits above come from separate runs.
+
+| Band | Pairs within baseline limit | Limit, unassigned / reassign | Mean journey, unassigned / reassign | Mean change | Mean journey p95, unassigned / reassign |
+| --- | ---: | --- | ---: | ---: | ---: |
+| Early | 45 | 15+ / 15+ | 707.1 / 593.9 s | -16.01% | 1,167.1 / 876.3 s |
+| Morning | 39 | 13 / 12 | 570.8 / 558.9 s | -2.09% | 1,072.8 / 1,049.8 s |
+| AM peak | 42 | 14 / 15+ | 531.6 / 521.8 s | -1.85% | 997.3 / 977.8 s |
+| Interpeak | 45 | 15+ / 15+ | 473.1 / 469.0 s | -0.88% | 854.4 / 847.1 s |
+| PM peak | 45 | 15+ / 15+ | 493.0 / 484.5 s | -1.72% | 860.9 / 851.3 s |
+| Evening | 42 | 14 / 15+ | 529.0 / 521.9 s | -1.34% | 889.7 / 872.0 s |
+| Late | 39 | 13 / 12 | 564.2 / 556.4 s | -1.37% | 918.8 / 909.3 s |
+| Night | 33 | 11 / 15+ | 547.0 / 498.8 s | -8.80% | 1,209.7 / 1,074.8 s |
+
+All 330 pairs within the baseline limits had matching schedule IDs, no skipped requests, and both arms drained.
+No reassignment arm in that set exceeded the 1.5 detour cap.
+Mean journey time fell in every band, but these aggregate gains do not pass the per-pair guards.
+
+| Rule | Requirement | Result |
+| --- | --- | --- |
+| 1 | Matching schedules, no skipped arrivals, both arms drained | Pass for all 330 pairs within baseline limits. |
+| 2 | Identity, determinism, and CPU gates | Historical gates passed. They were not rerun for this record. |
+| 3 | No lower band capacity | Fail: Late and Morning fall from 13/min to 12/min. |
+| 4 | Mean journey and journey p95 at most 2% higher in every pair | Six p95 failures. No mean-journey failure. See below. |
+| 5 | Serve baseline requests without crossing the 3,600-second deadline | Fail: one Late pair and one Morning pair cross the deadline. All requests still finish. |
+| 6 | Detour ratio at most 1.5 | Pass within the baseline limits. |
+| 7 | Matched-request diagnostic and traces of flagged parties | Initial three-band and rail-hub diagnostics exist. All-band coverage remains incomplete. |
+| 8 | A capacity gain or qualifying mean-journey gain | Pass, including Early and Night capacity gains and the rail-hub mean reduction. |
+| 9 | AM peak mean journey at most 1% higher | Pass: the mean falls 1.85%. |
+
+The historical A/B checks passed identity and determinism.
+The archived CPU runs reported a 1.008 ratio on the disabled path and 0.747 on the active path.
+Those CPU runs were not repeated for this record.
+Matched-request diagnostics covered the initial three London bands and rail hub, not the complete all-band matrix.
+The guarded-positioning follow-up remains unqualified for adoption.
+None of these limits or exceptions supports a default change.
+
+The next table lists all six p95 failures within baseline limits.
+The previously traced AM peak pair has an explicit dispatch-order exception.
+That exception does not cover the other five pairs.
+
+| Band | Nominal rate | Seed | Mean journey change | Journey p95 change |
+| --- | ---: | ---: | ---: | ---: |
+| AM peak | 13/min | 1 | -1.71% | +2.76% |
+| Interpeak | 11/min | 3 | +0.80% | +3.17% |
+| Interpeak | 15/min | 3 | +0.96% | +6.11% |
+| Late | 9/min | 1 | +0.42% | +2.93% |
+| Morning | 4/min | 1 | +0.19% | +2.09% |
+| PM peak | 11/min | 3 | -1.65% | +2.00245% |
+
+### Deadline traces
+
+The targeted replay used the same schedules and policies as the two failed deadline pairs.
+Both policies reproduced served counts, reassignment counts, shared counts, journey means, journey p95 values, and final times exactly.
+The replay also required every matched request to have the same requested tick.
+The late completion comes mainly from longer pickup waiting in both cases.
+The last party in each reassignment arm was neither reassigned nor a host for a reassigned party.
+
+| Pair | Finish time, unassigned / reassign | Last party with reassign | Journey change for that party | Wait change | Ride change |
+| --- | ---: | --- | ---: | ---: | ---: |
+| Late, 13/min, seed 2 | 3,571 / 3,672 s | 388, SBC to BNK | +101.57 s | +96.20 s | +5.37 s |
+| Morning, 13/min, seed 1 | 3,463 / 3,645 s | 383, WIG to MGT | +750.20 s | +755.52 s | -5.32 s |
+
+Party 388 was last in both Late arms.
+The Morning baseline finished with party 378, while party 383 became last under reassignment.
+The finish times round to the next reporting second.
+The request timings retain simulation-tick precision.
+
+See the [Late request pairs](measurements/london-pooling-late-parties.csv) and [arm summaries](measurements/london-pooling-late-arms.csv), and the [Morning request pairs](measurements/london-pooling-morning-parties.csv) and [arm summaries](measurements/london-pooling-morning-arms.csv).
+These traces locate the deadline regressions in pickup waiting.
+They do not establish a specific dispatch defect or justify a policy change.
