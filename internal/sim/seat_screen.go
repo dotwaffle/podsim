@@ -3,10 +3,12 @@ package sim
 import "slices"
 
 // SeatScreen holds the counters of the seat screen. They show whether the
-// parties that a pod could take are more than its seats. The simulation
-// counts them only while the experiment records are on and the party limit
-// is more than 1. They change no decision, and they are not in the
-// snapshot or in a saved state. Reset and a restore start them from 0.
+// parties that a pod could take are more than its seats. The join census
+// members count the parties with a pod on its way that a boarding pod
+// could take. The simulation counts them only while the experiment
+// records are on and the party limit is more than 1. They change no
+// decision, and they are not in the snapshot or in a saved state. Reset
+// and a restore start them from 0.
 type SeatScreen struct {
 	// FullPodRefusals counts the new parties that found a full boarding pod
 	// at their origin that could take them with a free seat, and that
@@ -27,6 +29,17 @@ type SeatScreen struct {
 	// plus the departure backlog. Index n is for n parties. The last index
 	// is for MaxSharedRideParties parties or more.
 	Demand [MaxSharedRideParties + 1]int
+	// JoinEligibleAssigned counts the parties with a pod on its way that a
+	// boarding pod at their origin could take with a free seat at one or
+	// more dispatch passes. See recordJoinEligible. Each party counts one
+	// time. A rider that a restore queues again does not count.
+	JoinEligibleAssigned int
+	// JoinEligibleExistingStop counts the parties of JoinEligibleAssigned
+	// that a boarding pod could take with no new stop, because the pod
+	// already stops at their destination. In destination mode, each party
+	// of JoinEligibleAssigned is in this member. Each party counts one time,
+	// so the member is at most JoinEligibleAssigned.
+	JoinEligibleExistingStop int
 }
 
 // SeatScreen returns the counters of the seat screen. It does not change
@@ -89,4 +102,40 @@ func (s *Simulation) backlogParty(v *vehicle, to string) bool {
 	}
 	_, ok := s.addedStops(v, to)
 	return ok
+}
+
+// recordJoinEligible counts the trip in the join census when its pod v is
+// on its way and a boarding pod at its origin could take the party with a
+// free seat. The rules are the rules of joinSharedRide, but the census
+// does not call setBoardingStops, because it changes the pod. Thus it also
+// counts a party whose new first stop has no route. The census counts each
+// party one time in each member, and it does not count a rider that a
+// restore queues again. It does not change the pods.
+func (s *Simulation) recordJoinEligible(trip *waitingTrip, v *vehicle, pass *dispatchPass) {
+	if trip.boarded || trip.joinEligibleExistingStop || !releasable(v) {
+		return
+	}
+	to := trip.request.To
+	for _, host := range s.boardingPods(pass)[trip.request.From] {
+		if len(host.Riders) >= s.sharedRidePartyLimit {
+			continue
+		}
+		existing := host.destinationStation == to
+		if s.sharedRideMode == SharedRideDropOffs {
+			existing = slices.Contains(host.Stops, to)
+		}
+		eligible := existing
+		if !existing && !trip.joinEligibleAssigned && s.sharedRideMode == SharedRideDropOffs {
+			_, eligible = s.dropOffStops(host, to)
+		}
+		if eligible && !trip.joinEligibleAssigned {
+			trip.joinEligibleAssigned = true
+			s.seatScreen.JoinEligibleAssigned++
+		}
+		if existing {
+			trip.joinEligibleExistingStop = true
+			s.seatScreen.JoinEligibleExistingStop++
+			return
+		}
+	}
 }

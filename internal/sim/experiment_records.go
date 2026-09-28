@@ -47,6 +47,12 @@ func (s *Simulation) SetExperimentRecords(enabled bool) {
 	if !enabled {
 		s.requestBoardings, s.requestCompletions, s.nodePasses = nil, nil, nil
 		s.seatScreen = SeatScreen{}
+		// The census flags of the waiting trips go with the counters, so
+		// each set flag is a count in SeatScreen.
+		for index := range s.waiting {
+			trip := &s.waiting[index]
+			trip.joinEligibleAssigned, trip.joinEligibleExistingStop = false, false
+		}
 	}
 }
 

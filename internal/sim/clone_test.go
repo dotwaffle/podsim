@@ -210,6 +210,7 @@ var persistRules = map[reflect.Type]map[string]persistRule{
 	reflect.TypeFor[waitingTrip](): {
 		"request": persistSave, "route": persistSave, "destination": persistReset, "deferUntil": persistSave,
 		"deferCheck": persistSave, "deferPodID": persistSave, "boarded": persistSave, "fullPodRefused": persistReset,
+		"joinEligibleAssigned": persistReset, "joinEligibleExistingStop": persistReset,
 	},
 	reflect.TypeFor[demoRun](): {"secondSent": persistSave, "followupsSent": persistSave},
 }

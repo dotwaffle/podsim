@@ -22,6 +22,10 @@ type waitingTrip struct {
 	// fullPodRefused is true after the seat screen counted a refusal of
 	// the trip. See refusedByFullPod.
 	fullPodRefused bool
+	// joinEligibleAssigned and joinEligibleExistingStop are true after the
+	// join census counted the trip in the member of the same name. See
+	// recordJoinEligible.
+	joinEligibleAssigned, joinEligibleExistingStop bool
 }
 
 // RequestTrip queues a passenger journey between stations and assigns an available pod when possible.
@@ -77,6 +81,10 @@ func (s *Simulation) RequestTrip(origin, destination string) error {
 // pod that holds no claim on its destination berth goes to the nearest free
 // berth. This includes a pod that a restore released. See
 // parkUnclaimedReleased.
+//
+// While the seat screen is on, the pass also counts the trips with a pod on
+// its way that a boarding pod at the origin could take. The count reads the
+// pods and changes no decision. See recordJoinEligible.
 func (s *Simulation) dispatch() {
 	if s.pass == nil {
 		s.pass = new(dispatchPass)
@@ -97,6 +105,9 @@ func (s *Simulation) dispatch() {
 			continue
 		}
 		v := s.findVehicle(trip.request.PodID)
+		if v != nil && s.screensSeats() {
+			s.recordJoinEligible(trip, v, pass)
+		}
 		if v != nil && (v.Pod.Activity != Idle || v.Pod.StationID != trip.request.From) && s.mayBeIdle(pass, trip.request.From) {
 			if local := s.localPickup(trip.request.From, pass); local != nil {
 				pass.reset()
