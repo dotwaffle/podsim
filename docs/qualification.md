@@ -895,6 +895,7 @@ The drop-offs envelope and Evening files come from version 9.
 Thus the older files do not have the columns that version 6 adds, such as `wait_p95_seconds`, `journey_average_seconds`, `occupancy`, `stopped_pod_seconds`, and `peak_node`.
 The platoon A/B file has the columns of version 6, and the `platoon_policy` and `coupled_time_percent` columns that version 9 adds.
 The platoon capacity file comes from version 9, so it also has the rider columns of version 8.
+The seat screen files come from version 10, so they also have the seat screen columns.
 See [report columns](../README.md#report-columns) for the definitions.
 
 At the limit rate, every seed has all 114 pods with work at the same time in AM peak, Interpeak, PM peak, Evening, and Late.
@@ -1902,3 +1903,109 @@ This A/B does not run them.
 Thus the results support a project option for virtual platoons, off by default, and the defaults do not change.
 The `platoonLimit` project setting now gives this option.
 Raw results are in [`measurements/london-platoon-ab.csv`](measurements/london-platoon-ab.csv).
+
+## Seat screen for larger pods
+
+A pod with more seats can help only when the parties that a pod could take are more than its seats.
+This screen measures that demand, and it compares 4-seat and 8-seat pods with all other settings equal.
+It has no physical model of a larger pod.
+Each pod keeps its 4 m body, its acceleration, and its dwell, so the 8-seat arms give an optimistic gain.
+The compare command at commit `d434de5` gives the recorded values, with report `schema_version` 10.
+
+The arms differ only in the party limit, 4 or 8.
+Both use the drop-offs mode, with the stop limit of 3 and the detour cap of 1.5.
+Dispatch, dwell, speed, platoons, placements, and seeds are equal.
+The London arms use the current preset, which has a platoon limit of 4.
+The compare command does not read the platoon limit of a project, so the London command gives `-platoon-policies virtual`.
+The rail-hub preset has no platoons.
+The London sweep took 254 wall seconds with ten workers.
+
+```sh
+mise run scenario -- -preset london -output /tmp/podsim-london.json
+mise run compare -- -project /tmp/podsim-london.json -pattern profile -bands early,night,am-peak -duration 65m -arrivals-for 30m -loads 60s,30s,20s,15s,12s,10s,8.571429s,7.5s,6.666667s,6s,5.454545s,5s,4.615385s,4.285714s,4s -seeds 1,2,3 -redistribution-policies off -platoon-policies virtual -focus 940GZZLUEUS -queue-limit 1000000 -stop-when-drained -adaptive-limit -past-limit 1 -sharing-limits 4,8 -sharing-modes drop-offs -workers 10 -format csv -output docs/measurements/london-seat-screen.csv
+mise run scenario -- -preset rail-hub -output /tmp/podsim-rail-hub.json
+mise run compare -- -project /tmp/podsim-rail-hub.json -pattern hub-burst -duration 30m -arrivals-for 5m -request-every 5s -burst-size 12 -seeds 1,2,3 -sharing-limits 4,8 -sharing-modes drop-offs -redistribution-policies off -workers 10 -format csv -output docs/measurements/rail-hub-seat-screen.csv
+```
+
+The screen uses these columns.
+See [report columns](../README.md#report-columns) for the full definitions.
+
+- `full_pod_refusals` counts the parties that found a full boarding pod at their origin that could take them, and that joined no pod.
+- `departures_over_four_aboard` counts the pod journeys that use a fifth seat or more.
+- `departure_backlog` counts, at each departure of a boarding pod, the waiting parties at the origin that the pod could take with a free seat.
+  It also counts parties that have another pod on its way.
+
+The limits use the 60-minute rule of the capacity sweep.
+With 4 seats and with 8 seats, the limits are equal: 15/min in Early, 11/min in Night, and 14/min in AM peak.
+15/min is the highest tested rate, so the Early limit is a lower bound in both arms.
+
+The next table gives the arms from 1/min to the 4-seat limit of each band, with all three seeds, and the three rail-hub seeds.
+All arms in this table finish every request.
+The refusals, the departures, and the served requests are totals.
+The waits and journeys are the mean of the arms.
+Each pair of cells gives the 4-seat value, then the 8-seat value.
+
+| Regime | Arms | Served | Refusals, 4 seats | Refusals per served request | Departures with more than 4 aboard, 8 seats | Average wait | Average journey | Journey p95 |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| Early, 1 to 15/min | 45 | 10,770 | 398 | 3.70% | 140 | 226.3 / 224.1 s | 707.1 / 705.5 s | 1,167.1 / 1,163.7 s |
+| Night, 1 to 11/min | 33 | 5,913 | 1 | 0.02% | 1 | 122.9 / 122.6 s | 547.0 / 546.7 s | 1,209.7 / 1,208.7 s |
+| AM peak, 1 to 14/min | 42 | 9,423 | 0 | 0.00% | 0 | 133.2 / 133.2 s | 531.6 / 531.6 s | 997.3 / 997.3 s |
+| Rail-hub | 3 | 177 | 5 | 2.82% | 3 | 229.3 / 223.8 s | 526.1 / 520.7 s | 957.6 / 909.0 s |
+
+In AM peak, the 4-seat and 8-seat rows are equal at each rate up to the limit, apart from one full departure at 14/min.
+In Night, one party is refused, at 9/min.
+In Early, refusals start at 7/min and grow with the rate.
+In the 8-seat arms, 140 pod journeys depart with more than four parties aboard.
+
+The next table gives Early at each rate with a refusal.
+
+| Rate | Refusals, 4 / 8 seats | Departures with more than 4 aboard, 8 seats | Average wait | Average journey | Journey p95 |
+| ---: | ---: | ---: | ---: | ---: | ---: |
+| 7/min | 1 / 0 | 1 | 242.1 / 242.1 s | 720.6 / 720.9 s | 1,150.0 / 1,148.3 s |
+| 8/min | 3 / 0 | 3 | 238.6 / 238.9 s | 721.9 / 722.1 s | 1,159.2 / 1,163.2 s |
+| 9/min | 3 / 0 | 2 | 247.5 / 247.4 s | 732.4 / 732.3 s | 1,199.8 / 1,199.8 s |
+| 10/min | 15 / 0 | 10 | 240.0 / 241.2 s | 730.9 / 733.2 s | 1,225.0 / 1,236.8 s |
+| 11/min | 15 / 0 | 13 | 249.3 / 251.4 s | 742.9 / 744.4 s | 1,279.8 / 1,279.1 s |
+| 12/min | 36 / 0 | 16 | 263.2 / 254.6 s | 758.3 / 749.9 s | 1,330.5 / 1,336.8 s |
+| 13/min | 53 / 0 | 22 | 260.3 / 258.0 s | 758.9 / 757.5 s | 1,359.9 / 1,338.1 s |
+| 14/min | 108 / 5 | 33 | 253.1 / 243.0 s | 754.4 / 747.8 s | 1,342.9 / 1,325.8 s |
+| 15/min | 164 / 15 | 40 | 254.4 / 239.6 s | 758.6 / 745.6 s | 1,401.6 / 1,368.6 s |
+
+The largest fall of the Early mean journey is 1.71%, at 15/min.
+At 10/min and 11/min, the mean journey with 8 seats is 0.20% to 0.32% longer, because the extra joins change later dispatch.
+
+The backlog is much larger than the refusals.
+In the Early arms of the first table, 3,547 of the 7,869 pod journeys depart with more than four parties aboard plus backlog.
+The backlog of these arms is 45,615 parties with 4 seats and 43,464 with 8 seats.
+Most of these parties already have another pod, on its way or at the station, when the boarding pod departs.
+Only a party with no pod tries to join a boarding pod, so more seats cannot take them.
+
+The design of the screen gives three rules.
+
+| Rule | Result |
+| --- | --- |
+| 1. Demand: in one regime, the 4-seat arms at or below the 4-seat limit refuse a fifth party for at least 1% of the served requests. | Met in Early, 3.70%, and in rail-hub, 2.82%. Not met in Night and AM peak. |
+| 2. Gain: the 8-seat arms raise a London band limit by one rate step, or they lower the mean journey by at least 5% in rail-hub or 2% in a London band. | Not met. No limit rises. The mean journey falls by 0.24% in Early, 0.05% in Night, 0% in AM peak, and 1.01% in rail-hub. |
+| 3. Guard: in each pair of arms with the same band, rate, and seed, the 8-seat journey p95 is at most 2% higher, and no 8-seat arm at or below the limit ends after 3,600 s when its 4-seat arm ends by 3,600 s. | Not met. The mean p95 of each regime falls, but three Early pairs have a p95 that is more than 2% higher. No arm ends late. |
+
+The next table gives each pair of arms at or below the 4-seat limit where the 8-seat journey p95 is more than 2% higher.
+No Night, AM peak, or rail-hub pair has such a rise.
+
+| Band | Rate | Seed | Journey p95, 4 seats | Journey p95, 8 seats | Change |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| Early | 10/min | 3 | 1,198.2 s | 1,238.3 s | +3.35% |
+| Early | 14/min | 3 | 1,339.8 s | 1,372.0 s | +2.40% |
+| Early | 15/min | 1 | 1,356.7 s | 1,413.5 s | +4.18% |
+
+Thus the demand for a fifth seat exists in Early and at the rail hub, but seats 5 to 8 give almost no gain.
+In some Early arms, the journey tail becomes longer.
+The failed guard makes the result against the physical model stronger.
+This result uses the optimistic model, so a pod with a longer body and slower acceleration would give less.
+The screen does not justify the physical model of a larger pod for these regimes.
+The Early limit is at the highest tested rate, so rates above 15/min did not run.
+
+The A/B harness ran its 12 arms at `43f10a9` and at `d434de5`.
+All 12 arms give identical rows and snapshot hashes.
+The harness writes no seat screen column, and its replay does not turn on the experiment records.
+A second run of the shared arm with the records on in the replay also gives identical hashes.
+Raw results are in [`measurements/london-seat-screen.csv`](measurements/london-seat-screen.csv) and [`measurements/rail-hub-seat-screen.csv`](measurements/rail-hub-seat-screen.csv).
