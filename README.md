@@ -1152,7 +1152,8 @@ The restore uses the `platoonLimit` of the project.
 #### Berth choice
 
 Passenger journeys route to the station entry without a berth assignment.
-The controller chooses the least-assigned reachable berth when the pod enters the final station-access lane.
+The controller chooses the least-assigned reachable berth when the next reservation of the pod starts on the final lane of the road route.
+It also chooses the berth when that reservation reaches the last block of the road route, as it can on a short final lane.
 The controller can change this choice before it reserves a berth branch.
 A passenger or pickup pod can choose a free alternate berth before it reserves the next station branch.
 A route change preserves all admitted track.
