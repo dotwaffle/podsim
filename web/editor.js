@@ -1619,9 +1619,11 @@
 
   // serializeDocument gives the export file. It is compact JSON, as the
   // server project file is, so PROJECT_FILE_BYTES holds each export.
+  // The file has the members of backgroundFields, so the image key of the
+  // page does not go into the file.
   function serializeDocument(config, background) {
     const document = { format: "podsim", version: 1, scenario: clone(config) };
-    if (background && background.dataURL) document.background = clone(background);
+    if (background && background.dataURL) document.background = backgroundFields(background);
     return JSON.stringify(document);
   }
 
@@ -1679,9 +1681,75 @@
   function checkBackground(item) {
     if (item === null || typeof item !== "object" || Array.isArray(item)) throw new Error("The background must be an object.");
     if (typeof item.dataURL !== "string" || !/^data:image\/(png|jpeg);base64,/.test(item.dataURL)) throw new Error("The background must be a PNG or JPEG data URL.");
-    for (const key of ["x", "y", "width", "height", "opacity"]) if (!Number.isFinite(item[key])) throw new Error(`The background ${key} value is invalid.`);
-    if (item.width <= 0 || item.height <= 0 || item.opacity < 0 || item.opacity > 1) throw new Error("The background dimensions or opacity are invalid.");
+    checkPlacement(item);
     imageFacts(item.dataURL);
+  }
+
+  // checkPlacement throws an error when item does not have a finite
+  // position, a positive size, and an opacity from 0 to 1.
+  function checkPlacement(item) {
+    for (const key of ["x", "y", "width", "height", "opacity"]) if (typeof item[key] !== "number" || !Number.isFinite(item[key])) throw new Error(`The background ${key} value is invalid.`);
+    if (item.width <= 0 || item.height <= 0 || item.opacity < 0 || item.opacity > 1) throw new Error("The background dimensions or opacity are invalid.");
+  }
+
+  // IMAGE_KEY_PATTERN is the form of an image key: 128 random bits as 32
+  // lower case hex digits. The key tells two images apart in the text of
+  // the background keeper, also across tabs and reloads.
+  const IMAGE_KEY_PATTERN = /^[0-9a-f]{32}$/;
+
+  // newImageKey gives a new image key from random, an object with
+  // getRandomValues, such as crypto.
+  function newImageKey(random) {
+    return [...random.getRandomValues(new Uint8Array(16))].map((byte) => byte.toString(16).padStart(2, "0")).join("");
+  }
+
+  // FRAME_STATES are the states of the frame of a background. "none" is an
+  // image with no frame. "attached" is the intent to keep the placement on
+  // the frame, and "detached" keeps the frame but not that intent.
+  const FRAME_STATES = ["none", "attached", "detached"];
+
+  // LICENSE_LIMITS gives the members of the license facts of an image, and
+  // the largest number of characters of each one. Each member is a
+  // string, and can be empty. licenseURL and copyrightURL are HTTPS URLs.
+  // retrieved is an ISO 8601 time. method is the query that selected the
+  // data, or "user supplied". notice is a text that the user must keep.
+  const LICENSE_LIMITS = { source: 200, attribution: 500, license: 64, licenseURL: 2048, copyrightURL: 2048, retrieved: 40, method: 10000, notice: 2000 };
+
+  // httpsURL tells if text is an HTTPS URL.
+  function httpsURL(text) {
+    try { return new URL(text).protocol === "https:"; } catch (_) { return false; }
+  }
+
+  // licenseError gives the error of license facts, or an empty text when
+  // license is null or valid. A license has each member of LICENSE_LIMITS
+  // and no other member.
+  function licenseError(license) {
+    if (license === null) return "";
+    if (typeof license !== "object" || Array.isArray(license)) return "The license must be an object.";
+    for (const key of Object.keys(license)) if (!(key in LICENSE_LIMITS)) return `The license has an unknown member ${JSON.stringify(key.slice(0, 40))}.`;
+    for (const [key, limit] of Object.entries(LICENSE_LIMITS)) {
+      const value = license[key];
+      if (typeof value !== "string") return `The license ${key} must be text.`;
+      if ([...value].length > limit) return `The license ${key} must have at most ${limit} characters.`;
+      if ((key === "licenseURL" || key === "copyrightURL") && value && !httpsURL(value)) return `The license ${key} must be an HTTPS URL.`;
+    }
+    if (license.retrieved && !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2}(\.\d+)?)?(Z|[+-]\d{2}:\d{2})$/.test(license.retrieved)) return "The license retrieved time must be an ISO 8601 time.";
+    return "";
+  }
+
+  // assetError gives the error of the frame state, the frame and the
+  // license of a background, or an empty text when they are valid. The
+  // state "none" has no frame, and "attached" and "detached" have a frame
+  // that frameError accepts. A missing alignment is not an error.
+  function assetError(asset) {
+    if (!FRAME_STATES.includes(asset.frameState)) return `The frame state must be ${FRAME_STATES.map((name) => `"${name}"`).join(", ")}.`;
+    if (asset.frameState === "none" && asset.frame !== null) return 'A background with the frame state "none" cannot have a frame.';
+    if (asset.frameState !== "none") {
+      if (asset.frame === null) return `A background with the frame state "${asset.frameState}" needs a frame.`;
+      const frame = frameError(asset.frame);
+      if (frame) return frame;
+    }
+    return licenseError(asset.license);
   }
 
   // imageFacts checks the image data of dataURL, a PNG or JPEG data URL,
@@ -1699,11 +1767,50 @@
     if (base64.length % 4 !== 0 || !/^[A-Za-z0-9+/]*={0,2}$/.test(base64)) throw new Error("The background image data is not valid base64.");
     const bytes = (base64.length / 4) * 3 - (base64.endsWith("==") ? 2 : base64.endsWith("=") ? 1 : 0);
     if (bytes > IMAGE_FILE_BYTES) throw new Error(`The background image must be ${IMAGE_FILE_BYTES / MIB} MiB or smaller.`);
-    const data = atob(base64);
-    const size = data.startsWith("\x89PNG\r\n\x1a\n") ? pngSize(data) : data.startsWith("\xff\xd8") ? jpegSize(data) : null;
+    return { bytes, ...headerFacts(binaryBytes(atob(base64))) };
+  }
+
+  // imageBytesFacts checks image bytes as imageFacts checks a data URL.
+  // bytes is an ArrayBuffer. It gives the file size in bytes, the width and
+  // the height in pixels, and mime, the media type of the signature.
+  function imageBytesFacts(bytes) {
+    if (!(bytes instanceof ArrayBuffer)) throw new Error("The background image data is not bytes.");
+    if (bytes.byteLength > IMAGE_FILE_BYTES) throw new Error(`The background image must be ${IMAGE_FILE_BYTES / MIB} MiB or smaller.`);
+    return { bytes: bytes.byteLength, ...headerFacts(new Uint8Array(bytes)) };
+  }
+
+  // headerFacts gives the width, the height and the media type in the
+  // header of data, the bytes of a PNG or JPEG file as a Uint8Array. It
+  // throws an error when data is not a PNG or a JPEG with a size in its
+  // header, or when checkImageSize rejects the size.
+  function headerFacts(data) {
+    const starts = (signature) => signature.every((byte, index) => data[index] === byte);
+    const png = starts([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]); const jpeg = !png && starts([0xff, 0xd8]);
+    const size = png ? pngSize(data) : jpeg ? jpegSize(data) : null;
     if (!size) throw new Error("The background image is not a valid PNG or JPEG.");
     checkImageSize(size.width, size.height);
-    return { bytes, width: size.width, height: size.height };
+    return { width: size.width, height: size.height, mime: png ? "image/png" : "image/jpeg" };
+  }
+
+  // binaryBytes gives the bytes of a binary string, as atob gives it.
+  function binaryBytes(text) {
+    const bytes = new Uint8Array(text.length);
+    for (let index = 0; index < text.length; index += 1) bytes[index] = text.charCodeAt(index);
+    return bytes;
+  }
+
+  // dataURLToBytes gives the bytes of a base64 data URL as an ArrayBuffer.
+  function dataURLToBytes(dataURL) {
+    return binaryBytes(atob(dataURL.slice(dataURL.indexOf(",") + 1))).buffer;
+  }
+
+  // bytesToDataURL gives a base64 data URL of bytes, an ArrayBuffer, with
+  // the media type mime. It converts the bytes in parts, because a spread
+  // of a large array exceeds the stack.
+  function bytesToDataURL(bytes, mime) {
+    const view = new Uint8Array(bytes); const parts = [];
+    for (let at = 0; at < view.length; at += 0x8000) parts.push(String.fromCharCode(...view.subarray(at, at + 0x8000)));
+    return `data:${mime};base64,${btoa(parts.join(""))}`;
   }
 
   // checkImageSize throws an error when an image of width by height pixels
@@ -1716,25 +1823,25 @@
   }
 
   // pngSize gives the width and the height in the IHDR chunk of data, the
-  // bytes of a PNG file as a binary string, or null when data has no IHDR
+  // bytes of a PNG file as a Uint8Array, or null when data has no IHDR
   // chunk first.
   function pngSize(data) {
-    if (data.length < 24 || data.slice(12, 16) !== "IHDR") return null;
-    const word = (at) => ((data.charCodeAt(at) << 24) | (data.charCodeAt(at + 1) << 16) | (data.charCodeAt(at + 2) << 8) | data.charCodeAt(at + 3)) >>> 0;
+    if (data.length < 24 || String.fromCharCode(...data.subarray(12, 16)) !== "IHDR") return null;
+    const word = (at) => ((data[at] << 24) | (data[at + 1] << 16) | (data[at + 2] << 8) | data[at + 3]) >>> 0;
     return { width: word(16), height: word(20) };
   }
 
   // jpegSize gives the width and the height in the first frame header of
-  // data, the bytes of a JPEG file as a binary string. It follows the
+  // data, the bytes of a JPEG file as a Uint8Array. It follows the
   // segment lengths from the start. It gives null when the data ends, or a
   // scan starts, before a frame header. The frame header markers are 0xC0
   // to 0xCF, but not 0xC4, 0xC8 and 0xCC.
   function jpegSize(data) {
-    const half = (at) => (data.charCodeAt(at) << 8) | data.charCodeAt(at + 1);
+    const half = (at) => (data[at] << 8) | data[at + 1];
     let at = 2;
     while (at + 4 <= data.length) {
-      if (data.charCodeAt(at) !== 0xff) return null;
-      const marker = data.charCodeAt(at + 1);
+      if (data[at] !== 0xff) return null;
+      const marker = data[at + 1];
       if (marker === 0xff) { at += 1; continue; }
       if (marker === 0x01 || (marker >= 0xd0 && marker <= 0xd7)) { at += 2; continue; }
       if (marker === 0xd9 || marker === 0xda) return null;
@@ -1764,7 +1871,7 @@
   }
 
   // backgroundFields gives a copy of the background fields of item, without
-  // other members.
+  // other members. These are the fields of the export file.
   function backgroundFields(item) {
     return { dataURL: item.dataURL, x: item.x, y: item.y, width: item.width, height: item.height, opacity: item.opacity };
   }
@@ -1946,7 +2053,8 @@
 
   // createHistory keeps the draft with undo and redo. onChange runs after
   // each change of the draft, also after an undo, a redo, and a reset. The
-  // editor uses it to schedule the checks.
+  // editor uses it to schedule the checks. background gives a copy of the
+  // background of the draft only, with no copy of the scenario.
   function createHistory(initial, onChange) {
     let past = [];
     let present = clone(initial);
@@ -1954,6 +2062,7 @@
     const changed = () => { if (onChange) onChange(); return true; };
     return {
       get value() { return clone(present); },
+      get background() { return present.background ? clone(present.background) : null; },
       get canUndo() { return past.length > 0; },
       get canRedo() { return future.length > 0; },
       replace(next, record) {
@@ -2538,7 +2647,11 @@
   // its own database at version 1. Thus a new store needs no version
   // upgrade, which an open editor tab of an older version can block.
   const DRAFT_STORE = { database: "podsim-editor", store: "drafts" };
-  const BACKGROUND_STORE = { database: "podsim-editor-backgrounds", store: "backgrounds" };
+  // The background database has the suffix -2, because its record holds
+  // the image as bytes with an image key. The editor does not open the
+  // older podsim-editor-backgrounds database, so an open tab of an older
+  // editor cannot read or delete a record of this form.
+  const BACKGROUND_STORE = { database: "podsim-editor-backgrounds-2", store: "backgrounds" };
 
   // openRecordStore gives a record store that keeps records in IndexedDB.
   // factory is the indexedDB object of the browser, and names is
@@ -2575,10 +2688,20 @@
   // background. keeper.store has get, put and delete, as openRecordStore
   // gives, or is null. keeper.key names the one record.
   // keeper.snapshot gives the record to keep, or null when the draft has no
-  // changes. Then the keeper deletes the record. schedule saves the draft
-  // keeper.delay milliseconds after the last call, and keeper.clock holds
-  // setTimeout and clearTimeout. Each put or delete waits for the write
-  // before it, so the writes commit in the order of the calls.
+  // changes. Then the keeper deletes the record. keeper.text, when given,
+  // gives the text that the keeper compares for a record. The default is
+  // the JSON text. schedule saves the draft keeper.delay milliseconds after
+  // the last call, and keeper.clock holds setTimeout and clearTimeout.
+  //
+  // The queue holds at most one running write and one waiting write, and
+  // the writes commit in the order of the calls. A newer write replaces
+  // the waiting write, which has not started. The replaced write settles
+  // at once with no store call: it does not set the stored text, change
+  // the status or tell the other tabs. keeper.onQueued runs with the record
+  // of each write when the keeper queues it, and keeper.onSettled runs once
+  // with the same record when the write commits, fails or is replaced. The
+  // record of a delete is null. Thus the page can count the writes that
+  // hold an image.
   //
   // The keeper does not write before arm. Thus load can read the saved
   // record, and the editor can offer it before a new draft replaces it.
@@ -2586,6 +2709,14 @@
   // one delete, also when the store has the same text. Thus a discard or
   // an apply never deletes the record and then puts a new one in a second
   // write that can fail.
+  //
+  // With keeper.holdUntilChange set, arm keeps the text of the snapshot,
+  // and the keeper does not write, and unsaved is false, until the text of
+  // a snapshot differs from it. From that change on, the keeper works as
+  // without the option, also when the snapshot gets the old text again.
+  // The background keeper sets it, so a stored background that did not
+  // restore, or that another tab wrote after the restore, stays in the
+  // store until a background change of this page.
   //
   // unsaved tells if the draft has changes that are not in the store: a
   // write is still in the queue, or the snapshot is not the text of the
@@ -2609,27 +2740,55 @@
   // two tabs would then replace the record of each other without end.
   function createDraftKeeper(keeper) {
     let store = keeper.store || null; let status = store ? "ok" : "off";
-    let armed = false; let waiting = null; let writes = Promise.resolve();
-    // stored is the JSON text of the record in the store, and queued is the
+    let armed = false; let waiting = null;
+    // stored is the text of the record in the store, and queued is the
     // text of the last queued write. An empty text is no record. Only a
-    // committed write sets stored. A failed write sets queued to null, so
-    // the next flush writes again. A write of another tab sets stored and
-    // queued to null. pending counts the writes in the queue.
-    let stored = ""; let queued = ""; let pending = 0;
+    // committed write sets stored. A failed write sets queued to null when
+    // no newer write waits, so the next flush writes again. A write of
+    // another tab sets stored and queued to null. pending counts the
+    // writes that did not settle. next is the write that waits for the
+    // running write, or null, and writes resolves when the last queued
+    // write settles.
+    let stored = ""; let queued = ""; let pending = 0; let next = null; let draining = false; let writes = Promise.resolve();
+    // changed tells if the snapshot changed since arm, and baseline is the
+    // text of the snapshot at arm. See keeper.holdUntilChange.
+    let changed = !keeper.holdUntilChange; let baseline = "";
     const channel = keeper.channel || null;
-    const setStatus = (next) => { if (next === status) return; status = next; if (keeper.onStatus) keeper.onStatus(next); };
+    const textOf = (record) => (record ? (keeper.text ? keeper.text(record) : JSON.stringify(record)) : "");
+    const hook = (name, record) => { if (keeper[name]) keeper[name](record); };
+    const setStatus = (value) => { if (value === status) return; status = value; if (keeper.onStatus) keeper.onStatus(value); };
     const cancel = () => { if (waiting !== null) keeper.clock.clearTimeout(waiting); waiting = null; };
-    const write = (text, action) => {
-      queued = text; pending += 1;
-      writes = writes.then(action).then(
-        () => { pending -= 1; stored = text; setStatus("ok"); if (channel) channel.postMessage({ key: keeper.key }); },
-        (error) => { pending -= 1; queued = null; setStatus(error && error.name === "QuotaExceededError" ? "full" : "failed"); },
-      );
-      return writes;
+    // noteChange tells if the keeper can write a snapshot with the text.
+    const noteChange = (text) => {
+      if (!changed && armed && text !== baseline) changed = true;
+      return changed;
     };
-    const writeSnapshot = () => {
-      const record = keeper.snapshot(); const text = record ? JSON.stringify(record) : "";
-      return { text, run: () => write(text, () => (record ? store.put(keeper.key, record) : store.delete(keeper.key))) };
+    const settle = (item) => {
+      pending -= 1; hook("onSettled", item.record);
+      item.record = null; item.resolve(); item.resolve = null;
+    };
+    const drain = async () => {
+      while (next) {
+        const item = next; next = null;
+        try {
+          await (item.record ? store.put(keeper.key, item.record) : store.delete(keeper.key));
+          stored = item.text; setStatus("ok"); if (channel) channel.postMessage({ key: keeper.key });
+        } catch (error) {
+          if (!next) queued = null;
+          setStatus(error && error.name === "QuotaExceededError" ? "full" : "failed");
+        }
+        settle(item);
+      }
+      draining = false;
+    };
+    const write = (text, record) => {
+      queued = text; pending += 1; hook("onQueued", record);
+      if (next) { const replaced = next; next = null; settle(replaced); }
+      const item = { text, record }; const done = new Promise((resolve) => { item.resolve = resolve; });
+      next = item;
+      // One drain owns the queue. Replaced writes leave no promise callback.
+      if (!draining) { draining = true; writes = Promise.resolve().then(drain); }
+      return done;
     };
     if (channel) {
       channel.addEventListener("message", (event) => {
@@ -2642,28 +2801,41 @@
     const flush = () => {
       cancel();
       if (!armed || !store) return writes;
-      const next = writeSnapshot();
-      return next.text === queued ? writes : next.run();
+      const record = keeper.snapshot(); const text = textOf(record);
+      return !noteChange(text) || text === queued ? writes : write(text, record);
     };
     return {
       get status() { return status; },
       get unsaved() {
         if (pending > 0) return true;
-        const record = keeper.snapshot();
+        const record = keeper.snapshot(); const text = textOf(record);
+        if (keeper.holdUntilChange && !noteChange(text)) return false;
         if (!record) return Boolean(keeper.deletes && armed && store) && stored !== "";
-        return !store || JSON.stringify(record) !== stored;
+        return !store || text !== stored;
       },
       async load() {
         if (!store) return null;
         try {
           const record = await store.get(keeper.key);
-          stored = record ? JSON.stringify(record) : ""; queued = stored; return record || null;
+          stored = textOf(record); queued = stored; return record || null;
         } catch (_) { store = null; setStatus("off"); return null; }
       },
-      arm() { armed = true; return flush(); },
-      schedule() { cancel(); if (armed && store) waiting = keeper.clock.setTimeout(flush, keeper.delay); },
+      arm() {
+        if (!armed && !changed) baseline = textOf(keeper.snapshot());
+        armed = true; return flush();
+      },
+      schedule() {
+        cancel();
+        if (!armed || (!changed && !noteChange(textOf(keeper.snapshot())))) return;
+        if (store) waiting = keeper.clock.setTimeout(flush, keeper.delay);
+      },
       flush,
-      replace() { cancel(); armed = true; return store ? writeSnapshot().run() : writes; },
+      replace() {
+        cancel(); armed = true; changed = true;
+        if (!store) return writes;
+        const record = keeper.snapshot();
+        return write(textOf(record), record);
+      },
     };
   }
 
@@ -2705,38 +2877,79 @@
   }
 
   // backgroundRecordFor gives the record that the background keeper saves
-  // for background, the background of the page with its calibration and
-  // opacity. It gives null when the page has no background. Then the keeper
-  // deletes the record.
-  function backgroundRecordFor(background) {
-    return background ? { background: backgroundFields(background) } : null;
+  // for background, the background of the page with its image key, its
+  // placement, its opacity and its frame state. image has bytes, the image
+  // as an ArrayBuffer, frame and license. The record holds the image and
+  // the placement in one value, so one put writes both. It gives null when
+  // the page has no background. Then the keeper deletes the record.
+  function backgroundRecordFor(background, image) {
+    if (!background) return null;
+    const { imageKey, x, y, width, height, opacity } = background;
+    return { background: { imageKey, x, y, width, height, opacity, frameState: background.frameState || "none", image: { bytes: image.bytes, frame: image.frame ?? null, license: image.license ?? null } } };
   }
 
-  // storedBackground gives the background of record, a record that the
-  // background keeper saved, or null when there is no record. It throws an
-  // error when the record does not have a valid background.
+  // backgroundRecordText gives the keeper text of a background record: the
+  // JSON text of the record without its image. An ArrayBuffer has the JSON
+  // text {}, so the image key stands for the image. A record that JSON
+  // cannot write gives a text that no page record gives.
+  function backgroundRecordText(record) {
+    try {
+      const background = record && typeof record === "object" ? record.background : undefined;
+      if (!background || typeof background !== "object") return JSON.stringify(record) ?? "invalid";
+      const { image: _, ...rest } = background;
+      return JSON.stringify({ background: rest });
+    } catch (_) { return "invalid"; }
+  }
+
+  // storedBackground gives the background and the image of record, a
+  // record that the background keeper saved, or null when there is no
+  // record. background has the image key, the placement, the opacity and
+  // the frame state. image has bytes, mime, pixelWidth and pixelHeight from
+  // the image header, frame and license. It throws an error when the
+  // record is not valid.
   function storedBackground(record) {
     if (record === null || record === undefined) return null;
     if (typeof record !== "object" || Array.isArray(record)) throw new Error("The stored background is not a record.");
-    checkBackground(record.background);
-    return backgroundFields(record.background);
+    const item = record.background;
+    if (item === null || typeof item !== "object" || Array.isArray(item)) throw new Error("The background must be an object.");
+    if (typeof item.imageKey !== "string" || !IMAGE_KEY_PATTERN.test(item.imageKey)) throw new Error("The stored background has no valid image key.");
+    checkPlacement(item);
+    const image = item.image;
+    if (image === null || typeof image !== "object" || Array.isArray(image)) throw new Error("The stored background has no image.");
+    const facts = imageBytesFacts(image.bytes);
+    const asset = { frameState: item.frameState, frame: image.frame ?? null, license: image.license ?? null };
+    const error = assetError(asset);
+    if (error) throw new Error(error);
+    const { imageKey, x, y, width, height, opacity } = item;
+    return {
+      background: { imageKey, x, y, width, height, opacity, frameState: asset.frameState },
+      image: { bytes: image.bytes, mime: facts.mime, pixelWidth: facts.width, pixelHeight: facts.height, frame: asset.frame, license: asset.license },
+    };
   }
+
+  // STORED_BACKGROUND_KEPT_TEXT tells the user that the browser keeps a
+  // stored background that is not valid, until a new background of this
+  // page replaces it.
+  const STORED_BACKGROUND_KEPT_TEXT = "The stored background stays in this browser until a new background replaces it.";
 
   // restoreStoredBackground puts the background of record, a record of the
   // background store, on the page. The page blocks input until the restore
   // ends, as startEditor does, so no background change of the user comes
-  // before it. page.decode, when given, decodes the image for
-  // checkDecodedImage. page.install puts the background on the page, and
-  // page.warn tells the user of a record that is not valid. It gives true
-  // when it installs the background.
+  // before it. page.decode, when given, decodes the image of the restored
+  // value, as storedBackground gives it, and rejects when the check of the
+  // decoded image fails. page.install puts the restored value on the page,
+  // and page.warn tells the user of a record that is not valid. The record
+  // then stays in the store, because the background keeper does not write
+  // before a background change of the page. It gives true when it installs
+  // the background.
   async function restoreStoredBackground(record, page) {
-    let background = null;
+    let restored = null;
     try {
-      background = storedBackground(record);
-      if (background && page.decode) await checkDecodedImage(background.dataURL, page.decode);
-    } catch (error) { page.warn(`${error.message} The browser deletes the stored background.`); return false; }
-    if (!background) return false;
-    page.install(background);
+      restored = storedBackground(record);
+      if (restored && page.decode) await page.decode(restored);
+    } catch (error) { page.warn(`${error.message} ${STORED_BACKGROUND_KEPT_TEXT}`); return false; }
+    if (!restored) return false;
+    page.install(restored);
     return true;
   }
 
@@ -2877,7 +3090,8 @@
     stationBearing, stationShape, rotateStation, setStationBearing, nextBerthPosition, berthChain, nextChainRow, lanePolyline, laneConflict, removeBerth, moveStation, moveNode, deleteNode, deleteLane, deleteStation, stationFlowCount, setFleetCount, fleetRows, selectionCard, berthFocusID, undoFocus, setDemandPattern,
     laneLength, curveLength, reachable, cutOffStations, stationNodeOwners, dragTargets, validateConfig, configWarnings, checkResults, checkSelector, checkSelection, selectionPoint, focusView,
     GEO_PROJECTION, GEO_RADIUS, GEO_MAX_LATITUDE, MAX_COORDINATE, FRAME_SOURCES, SCALE_TOLERANCE, ALIGN_TOLERANCE, RESAMPLE_MAX_SIDE, makeGeo, geoError, projectPoint, unprojectPoint, frameError, scaleError, framePlacement, placementError, frameAligned, anchorGeo, resampleSize, mercatorY, resampleRows,
-    problemCountText, createCheckTimer, validationSummary, checkFocusKey, IMAGE_FILE_BYTES, IMAGE_MAX_SIDE, IMAGE_MAX_PIXELS, imageFacts, checkImageSize, checkDecodedImage, SERVER_PROJECT_BYTES, PROJECT_FILE_BYTES, SERVER_COMMAND_BYTES, SERVER_COMMAND_JSON_BYTES, GZIP_COMMAND_BYTES, SERVER_TOO_LARGE_TEXT, postCommand, dataURLBytes, serializeDocument, parseDocument, createHistory,
+    problemCountText, createCheckTimer, validationSummary, checkFocusKey, IMAGE_FILE_BYTES, IMAGE_MAX_SIDE, IMAGE_MAX_PIXELS, imageFacts, imageBytesFacts, dataURLToBytes, bytesToDataURL, checkImageSize, checkDecodedImage,
+    IMAGE_KEY_PATTERN, newImageKey, FRAME_STATES, LICENSE_LIMITS, licenseError, assetError, backgroundRecordText, STORED_BACKGROUND_KEPT_TEXT, SERVER_PROJECT_BYTES, PROJECT_FILE_BYTES, SERVER_COMMAND_BYTES, SERVER_COMMAND_JSON_BYTES, GZIP_COMMAND_BYTES, SERVER_TOO_LARGE_TEXT, postCommand, dataURLBytes, serializeDocument, parseDocument, createHistory,
     networkBounds, fitView, zoomScale, nodeLabelSize, pairedLaneIDs, showsChevron, laneOffset, laneCurve, lanePathData, SNAPSHOT_ATTEMPTS, snapshotConsistent, draftBeforeRestart, readState, readSnapshot, applyToServer, applyFailureText, applyFailureStatus, applyToast,
     readLive, readConflict, CONFLICT_UNLOADED_TEXT, conflictView, LOAD_LIVE_QUESTION, applyOverQuestion, loadLive, liveDraft, applyOverBase,
     DRAFT_SAVE_DELAY, DRAFT_STORE_TEXT, DRAFT_UNSAVED_TEXT, DRAFT_DISPLACED_TEXT, DRAFT_STORE, BACKGROUND_STORE, openRecordStore, createDraftKeeper, draftChanged, draftRecordFor, draftOffer, backgroundRecordFor, storedBackground, restoreStoredBackground, STARTUP_EVENTS, createStartupGate, blockInput, startupExempt, startEditor, BACKGROUND_STORE_TEXT, checkBackground, DRAFT_RESTART_TEXT, draftOfferText, RESTORED_RESTART_TEXT, restoreStatusText, shellPage,
@@ -2899,6 +3113,10 @@
     store: openRecordStore(draftDatabase(), DRAFT_STORE), key: root.location.origin, delay: DRAFT_SAVE_DELAY, clock: root, snapshot: draftRecord,
     channel: draftChannel(), onStatus: showDraftStatus, onDisplaced: showDraftDisplaced,
   });
+  // pageImage holds the bytes of the image of the page background, for the
+  // record of the background keeper. The page holds the image as a data
+  // URL, and key is the image key of the bytes.
+  let pageImage = { key: "", bytes: null };
   // backgroundKeeper keeps the background of the page in this browser,
   // apart from the draft, so a reload after an apply still shows it. It
   // keeps one record for each server origin, as the draft keeper does. It
@@ -2906,11 +3124,13 @@
   // project import and Reset draft. A page with no background deletes the
   // record, and the unload question stays until the delete commits. All
   // editor tabs of one server share the record, and the last background
-  // change of a tab replaces it. It has no channel, so a tab writes only
-  // when its own background changes.
+  // change of a tab replaces it. It has no channel. It writes nothing
+  // until the background of this page changes after the restore, so a tab
+  // does not replace the record of another tab, or a record that did not
+  // restore, when the user did not change the background.
   const backgroundKeeper = createDraftKeeper({
     store: openRecordStore(draftDatabase(), BACKGROUND_STORE), key: root.location.origin, delay: DRAFT_SAVE_DELAY, clock: root,
-    snapshot: () => backgroundRecordFor(state.history.value.background), onStatus: showBackgroundStatus, deletes: true,
+    snapshot: backgroundRecord, text: backgroundRecordText, onStatus: showBackgroundStatus, deletes: true, holdUntilChange: true,
   });
   const state = {
     history: createHistory({ scenario: emptyConfig(), background: null }, () => { checks.schedule(); keeper.schedule(); backgroundKeeper.schedule(); }),
@@ -3353,6 +3573,16 @@
   // this page, as draftRecordFor gives it with state.draftBase.
   function draftRecord() { return draftRecordFor(state.history.value, state.live, state.draftBase); }
 
+  // backgroundRecord gives the record that the background keeper saves for
+  // the background of this page, as backgroundRecordFor gives it. It
+  // converts the data URL of a new image to bytes one time.
+  function backgroundRecord() {
+    const background = state.history.background;
+    if (!background) return null;
+    if (pageImage.key !== background.imageKey) pageImage = { key: background.imageKey, bytes: dataURLToBytes(background.dataURL) };
+    return backgroundRecordFor(background, { bytes: pageImage.bytes, frame: null, license: null });
+  }
+
   // showDraftStatus tells the user when the status of the saved draft
   // changes. A failure also shows the error toast.
   function showDraftStatus(status) {
@@ -3375,15 +3605,22 @@
   }
 
   // restoreBackground puts the stored background of record on the page, as
-  // restoreStoredBackground does. The browser decodes the image first, as
-  // checkDecodedImage does. The background is part of the loaded project,
-  // so Reset draft keeps it. The undo history starts again from the draft
-  // with the background, so no undo step removes it. A record that is not
-  // valid shows the error toast, and the background keeper then deletes it.
+  // restoreStoredBackground does. The page makes the data URL from the
+  // bytes that the store gave, and the browser decodes it first, as
+  // checkDecodedImage does. The background keeps its stored image key. The
+  // background is part of the loaded project, so Reset draft keeps it. The
+  // undo history starts again from the draft with the background, so no
+  // undo step removes it. A record that is not valid shows the error
+  // toast, and stays in the store until a background change of the page.
   function restoreBackground(record) {
+    let dataURL = "";
     return restoreStoredBackground(record, {
-      warn: (message) => toast(message, true), decode: decodeImage,
-      install: (background) => {
+      warn: (message) => toast(message, true),
+      decode: (restored) => { dataURL = bytesToDataURL(restored.image.bytes, restored.image.mime); return checkDecodedImage(dataURL, decodeImage); },
+      install: (restored) => {
+        const { imageKey, x, y, width, height, opacity } = restored.background;
+        const background = { dataURL, imageKey, x, y, width, height, opacity };
+        pageImage = { key: imageKey, bytes: restored.image.bytes };
         state.loaded.background = clone(background);
         state.history.reset({ scenario: draft(), background }); render(); fitNetwork();
       },
@@ -3760,7 +3997,10 @@
     reader.onload = async () => {
       try {
         const imported = parseDocument(String(reader.result));
-        if (imported.background) await checkDecodedImage(imported.background.dataURL, decodeImage);
+        if (imported.background) {
+          await checkDecodedImage(imported.background.dataURL, decodeImage);
+          imported.background.imageKey = newImageKey(root.crypto);
+        }
         state.history.replace(imported); state.background = imported.background; state.loaded = clone(imported); state.selection = null;
         state.draftBase = { ...state.draftBase, serverStart: state.loadedStart };
         render(); fitNetwork(); checks.run(); toast("The project was imported into the draft.");
@@ -3789,7 +4029,7 @@
       const dataURL = String(reader.result);
       let size;
       try { size = await checkDecodedImage(dataURL, decodeImage); } catch (error) { toast(`${error.message} The background is unchanged.`, true); return; }
-      setBackground({ dataURL, x: 0, y: 0, width: size.width, height: size.height, opacity: .45 }); fitNetwork();
+      setBackground({ dataURL, imageKey: newImageKey(root.crypto), x: 0, y: 0, width: size.width, height: size.height, opacity: .45 }); fitNetwork();
       toast(backgroundKeeper.status === "ok" ? "This browser keeps the background for this server. Export the project to use it in another browser." : BACKGROUND_STORE_TEXT[backgroundKeeper.status], backgroundKeeper.status !== "ok");
     };
     reader.readAsDataURL(file);

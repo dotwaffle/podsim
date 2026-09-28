@@ -1570,6 +1570,10 @@ test("portable documents round trip the scenario and local background", () => {
 
   assert.deepEqual(parsed.scenario, config);
   assert.deepEqual(parsed.background, background);
+  // The image key of the page stays in this browser.
+  const exported = editor.serializeDocument(config, { ...background, imageKey: TEST_KEY, frameState: "none" });
+  assert.ok(!exported.includes("imageKey") && !exported.includes(TEST_KEY), "the export has no image key");
+  assert.deepEqual(Object.keys(JSON.parse(exported).background), ["dataURL", "x", "y", "width", "height", "opacity"]);
   assert.throws(() => editor.parseDocument('{"format":"podsim","version":2}'), /version field must be 1/);
   assert.throws(() => editor.parseDocument('{broken'), /not valid JSON/);
 });
@@ -1590,8 +1594,16 @@ test("the image checks read the size and the header of the image data before a d
   for (const item of accepted) {
     const facts = editor.imageFacts(item.url);
     assert.deepEqual({ width: facts.width, height: facts.height }, item.want, item.name);
+    // The bytes form gives the same facts, and the media type of the
+    // signature.
+    const bytes = editor.dataURLToBytes(item.url);
+    assert.deepEqual(editor.imageBytesFacts(bytes), { ...facts, mime: item.name.includes("JPEG") || item.name.includes("photo") ? "image/jpeg" : "image/png" }, `${item.name}: bytes`);
+    assert.deepEqual(Buffer.from(editor.dataURLToBytes(editor.bytesToDataURL(bytes, facts.mime))), Buffer.from(bytes), `${item.name}: round trip`);
   }
   assert.equal(editor.imageFacts(dataURL(padded(limit), "jpeg")).bytes, limit);
+  assert.equal(editor.bytesToDataURL(editor.dataURLToBytes(dataURL(padded(limit), "jpeg")), "image/jpeg"), dataURL(padded(limit), "jpeg"), "a large image converts in parts");
+  assert.throws(() => editor.imageBytesFacts(new Uint8Array(pngBytes(3, 2))), /not bytes/, "a Uint8Array is not an ArrayBuffer");
+  assert.throws(() => editor.imageBytesFacts(new ArrayBuffer(limit + 1)), /must be 8 MiB or smaller/);
 
   const rejected = [
     { name: "bytes that are not an image", url: "data:image/png;base64,AAAA", want: /not a valid PNG or JPEG/ },
@@ -1608,7 +1620,10 @@ test("the image checks read the size and the header of the image data before a d
     { name: "a small PNG of 30000 by 30000 pixels", url: dataURL(pngBytes(30000, 30000, true)), want: /is 30000 by 30000 pixels/ },
     { name: "a JPEG of 65535 by 65535 pixels", url: dataURL(jpegBytes(65535, 65535), "jpeg"), want: /is 65535 by 65535 pixels/ },
   ];
-  for (const item of rejected) assert.throws(() => editor.imageFacts(item.url), item.want, item.name);
+  for (const item of rejected) {
+    assert.throws(() => editor.imageFacts(item.url), item.want, item.name);
+    if (!/base64/.test(item.want.source)) assert.throws(() => editor.imageBytesFacts(editor.dataURLToBytes(item.url)), item.want, `${item.name}: bytes`);
+  }
 });
 
 test("a project import and a stored background reject image data that is not valid", () => {
@@ -1622,7 +1637,7 @@ test("a project import and a stored background reject image data that is not val
   for (const item of cases) {
     const bad = { ...background, dataURL: item.dataURL };
     assert.throws(() => editor.parseDocument(editor.serializeDocument(config, bad)), item.want, `${item.name}: import`);
-    assert.throws(() => editor.storedBackground({ background: bad }), item.want, `${item.name}: restore`);
+    assert.throws(() => editor.storedBackground(recordOf({ ...TEST_BACKGROUND, dataURL: item.dataURL })), item.want, `${item.name}: restore`);
   }
 });
 
@@ -1641,10 +1656,10 @@ test("the decode check needs a decoded image with the size of its header", async
 });
 
 test("a stored background restore decodes the image, and an edit during the decode is stopped", async () => {
-  const record = editor.backgroundRecordFor(TEST_BACKGROUND);
+  const record = recordOf(TEST_BACKGROUND);
   const cases = [
     { name: "an image that decodes", decoded: { width: 4, height: 2 }, want: TEST_BACKGROUND, warnings: [] },
-    { name: "an image that does not decode", decoded: null, want: null, warnings: ["The browser cannot decode the background image. The browser deletes the stored background."] },
+    { name: "an image that does not decode", decoded: null, want: null, warnings: [`The browser cannot decode the background image. ${editor.STORED_BACKGROUND_KEPT_TEXT}`] },
   ];
   for (const item of cases) {
     const factory = fakeIndexedDB(); const store = editor.openRecordStore(factory, editor.BACKGROUND_STORE);
@@ -1664,7 +1679,7 @@ test("a stored background restore decodes the image, and an edit during the deco
     assert.deepEqual([edits, event.prevented], [0, true], item.name);
     finish(); await page.started;
     assert.deepEqual([page.history.value.background, page.history.canUndo, page.warnings], [item.want, false, item.warnings], item.name);
-    assert.deepEqual(await store.get(DRAFT_KEY), item.want ? record : undefined, `${item.name}: the keeper keeps only a valid record`);
+    assert.deepEqual([await store.get(DRAFT_KEY), page.counts.writes], [record, 0], `${item.name}: the keeper does not write`);
     // An edit after the startup keeps the background in its undo step.
     page.document.dispatch("change", fakeElement("scenarioName"), edit);
     assert.equal(page.history.undo(), true);
@@ -3136,8 +3151,34 @@ test("after session_changed, the next command uses the new epoch", async () => {
 // DRAFT_KEY is the record key of the keeper tests, a server origin.
 const DRAFT_KEY = "http://podsim.test";
 
-// TEST_BACKGROUND is a background with a calibration and an opacity.
-const TEST_BACKGROUND = { dataURL: dataURL(pngBytes(4, 2)), x: -10, y: 5, width: 400, height: 200, opacity: 0.45 };
+// TEST_KEY is the image key of TEST_BACKGROUND.
+const TEST_KEY = "0123456789abcdef0123456789abcdef";
+
+// TEST_BACKGROUND is a page background with an image key, a calibration
+// and an opacity.
+const TEST_BACKGROUND = { dataURL: dataURL(pngBytes(4, 2)), imageKey: TEST_KEY, x: -10, y: 5, width: 400, height: 200, opacity: 0.45 };
+
+// recordOf gives the record that the background keeper saves for a page
+// background with no frame and no license.
+function recordOf(background) {
+  return editor.backgroundRecordFor(background, { bytes: editor.dataURLToBytes(background.dataURL), frame: null, license: null });
+}
+
+// pageOf gives the page background of a restored value, as
+// storedBackground gives it, as the page installs it.
+function pageOf(restored) {
+  const { imageKey, x, y, width, height, opacity } = restored.background;
+  return { dataURL: editor.bytesToDataURL(restored.image.bytes, restored.image.mime), imageKey, x, y, width, height, opacity };
+}
+
+// backgroundKeeper gives a background keeper as the page makes it, with
+// the snapshot of page.background. options adds hooks.
+function backgroundKeeper(store, page, options = {}) {
+  return editor.createDraftKeeper({
+    store, key: DRAFT_KEY, delay: editor.DRAFT_SAVE_DELAY, clock: globalThis, deletes: true, holdUntilChange: true,
+    snapshot: () => (page.background ? recordOf(page.background) : null), text: editor.backgroundRecordText, ...options,
+  });
+}
 
 // savedRecord gives a draft record, as the editor saves it, with a scenario
 // name that the tests can check.
@@ -3388,11 +3429,11 @@ test("the IndexedDB record stores save, read and delete one record, and reject a
   await t.test("the draft and the background have their own database at version 1", async () => {
     const factory = fakeIndexedDB();
     const drafts = editor.openRecordStore(factory, editor.DRAFT_STORE); const backgrounds = editor.openRecordStore(factory, editor.BACKGROUND_STORE);
-    const record = editor.backgroundRecordFor(TEST_BACKGROUND);
+    const record = recordOf(TEST_BACKGROUND);
     await drafts.put(DRAFT_KEY, savedRecord("A")); await backgrounds.put(DRAFT_KEY, record);
     await drafts.delete(DRAFT_KEY);
     assert.deepEqual([await drafts.get(DRAFT_KEY), await backgrounds.get(DRAFT_KEY)], [undefined, record]);
-    assert.deepEqual(factory.log, ["open podsim-editor 1", "create drafts", "open podsim-editor-backgrounds 1", "create backgrounds"]);
+    assert.deepEqual(factory.log, ["open podsim-editor 1", "create drafts", "open podsim-editor-backgrounds-2 1", "create backgrounds"]);
   });
 
   const quota = new DOMException("The quota is used.", "QuotaExceededError");
@@ -3439,22 +3480,61 @@ test("Pause and apply and the saved draft need a scenario change, and a backgrou
   }
 });
 
-test("the background record keeps only the background fields, and a restore checks it", () => {
-  assert.equal(editor.backgroundRecordFor(null), null, "no background deletes the record");
-  const record = editor.backgroundRecordFor({ ...TEST_BACKGROUND, note: "extra" });
-  assert.deepEqual(record, { background: TEST_BACKGROUND });
-  assert.deepEqual(editor.storedBackground(structuredClone(record)), TEST_BACKGROUND);
+test("the background record holds the image key, the placement and the image bytes, and a restore checks it", () => {
+  assert.equal(editor.backgroundRecordFor(null, null), null, "no background deletes the record");
+  const bytes = editor.dataURLToBytes(TEST_BACKGROUND.dataURL);
+  const record = editor.backgroundRecordFor({ ...TEST_BACKGROUND, note: "extra" }, { bytes, frame: null, license: null });
+  const { dataURL: _, ...placement } = TEST_BACKGROUND;
+  assert.deepEqual(record, { background: { ...placement, frameState: "none", image: { bytes, frame: null, license: null } } });
+  const restored = editor.storedBackground(structuredClone(record));
+  assert.deepEqual(restored, { background: { ...placement, frameState: "none" }, image: { bytes, mime: "image/png", pixelWidth: 4, pixelHeight: 2, frame: null, license: null } });
+  assert.deepEqual(pageOf(restored), TEST_BACKGROUND, "the page gets the same background from the stored bytes");
   assert.equal(editor.storedBackground(undefined), null, "no record");
   assert.equal(editor.storedBackground(null), null, "no record");
+  const frame = { south: 51.4, north: 51.6, west: -0.2, east: 0, source: "web-mercator" };
+  const license = { source: "Council", attribution: "Map by the council", license: "CC-BY-4.0", licenseURL: "https://creativecommons.org/licenses/by/4.0/", copyrightURL: "", retrieved: "2026-09-28T12:00:00Z", method: "user supplied", notice: "" };
+  const framed = editor.backgroundRecordFor({ ...TEST_BACKGROUND, frameState: "detached" }, { bytes, frame, license });
+  assert.deepEqual(editor.storedBackground(structuredClone(framed)).image, { bytes, mime: "image/png", pixelWidth: 4, pixelHeight: 2, frame, license });
+  // change gives a copy of record with a change of its background.
+  const change = (edit) => { const copy = structuredClone(record); edit(copy.background); return copy; };
   const bad = [
     { name: "a record that is not an object", record: "background", want: /not a record/ },
     { name: "a record without a background", record: {}, want: /must be an object/ },
-    { name: "a text data URL", record: { background: { ...TEST_BACKGROUND, dataURL: "data:text/html;base64,AAAA" } }, want: /PNG or JPEG data URL/ },
-    { name: "a position that is not finite", record: { background: { ...TEST_BACKGROUND, x: null } }, want: /x value is invalid/ },
-    { name: "a zero width", record: { background: { ...TEST_BACKGROUND, width: 0 } }, want: /dimensions or opacity/ },
-    { name: "an opacity above 1", record: { background: { ...TEST_BACKGROUND, opacity: 2 } }, want: /dimensions or opacity/ },
+    { name: "an image key in upper case", record: change((item) => { item.imageKey = TEST_KEY.toUpperCase(); }), want: /no valid image key/ },
+    { name: "a short image key", record: change((item) => { item.imageKey = "abc"; }), want: /no valid image key/ },
+    { name: "a position that is not finite", record: change((item) => { item.x = null; }), want: /x value is invalid/ },
+    { name: "a zero width", record: change((item) => { item.width = 0; }), want: /dimensions or opacity/ },
+    { name: "an opacity above 1", record: change((item) => { item.opacity = 2; }), want: /dimensions or opacity/ },
+    { name: "no image", record: change((item) => { delete item.image; }), want: /has no image/ },
+    { name: "a data URL in place of the bytes", record: change((item) => { item.image.bytes = TEST_BACKGROUND.dataURL; }), want: /not bytes/ },
+    { name: "bytes that are not an image", record: change((item) => { item.image.bytes = new ArrayBuffer(16); }), want: /not a valid PNG or JPEG/ },
+    { name: "an unknown frame state", record: change((item) => { item.frameState = "loose"; }), want: /frame state must be/ },
+    { name: "none with a frame", record: change((item) => { item.image.frame = frame; }), want: /"none" cannot have a frame/ },
+    { name: "attached with no frame", record: change((item) => { item.frameState = "attached"; }), want: /"attached" needs a frame/ },
+    { name: "a frame that is not valid", record: change((item) => { item.frameState = "detached"; item.image.frame = { ...frame, north: 81 }; }), want: /latitudes must be from -80 to 80/ },
+    { name: "a license that is not valid", record: change((item) => { item.image.license = { ...license, licenseURL: "http://example.com/" }; }), want: /licenseURL must be an HTTPS URL/ },
   ];
   for (const item of bad) assert.throws(() => editor.storedBackground(item.record), item.want, item.name);
+});
+
+test("the license facts have their limits, text only and HTTPS links", () => {
+  const license = { source: "", attribution: "", license: "", licenseURL: "", copyrightURL: "", retrieved: "", method: "", notice: "" };
+  assert.equal(editor.licenseError(null), "");
+  assert.equal(editor.licenseError(license), "", "empty members");
+  const full = Object.fromEntries(Object.entries(editor.LICENSE_LIMITS).map(([key, limit]) => [key, "é".repeat(limit)]));
+  full.licenseURL = `https://example.com/${"a".repeat(editor.LICENSE_LIMITS.licenseURL - 20)}`; full.copyrightURL = "https://www.openstreetmap.org/copyright"; full.retrieved = "2026-09-28T12:00:00.000+01:00";
+  assert.equal(editor.licenseError(full), "", "each member at its limit");
+  const cases = [
+    { name: "a list", license: [], want: "The license must be an object." },
+    { name: "a missing member", license: (({ notice: _, ...rest }) => rest)(license), want: "The license notice must be text." },
+    { name: "another member", license: { ...license, tiles: "yes" }, want: 'The license has an unknown member "tiles".' },
+    { name: "a number", license: { ...license, source: 3 }, want: "The license source must be text." },
+    { name: "a long attribution", license: { ...license, attribution: "a".repeat(501) }, want: "The license attribution must have at most 500 characters." },
+    { name: "an HTTP copyright URL", license: { ...license, copyrightURL: "http://www.openstreetmap.org/copyright" }, want: "The license copyrightURL must be an HTTPS URL." },
+    { name: "a script link", license: { ...license, licenseURL: "javascript:alert(1)" }, want: "The license licenseURL must be an HTTPS URL." },
+    { name: "a date with no time", license: { ...license, retrieved: "2026-09-28" }, want: "The license retrieved time must be an ISO 8601 time." },
+  ];
+  for (const item of cases) assert.equal(editor.licenseError(item.license), item.want, item.name);
 });
 
 test("a background keeper counts a pending or failed delete as unsaved until the delete commits", async (t) => {
@@ -3469,16 +3549,14 @@ test("a background keeper counts a pending or failed delete as unsaved until the
   };
   for (const fail of [false, true]) {
     await t.test(fail ? "a rejected delete" : "a delayed delete", async () => {
-      const { store, release } = gated(fail); store.records.set(DRAFT_KEY, editor.backgroundRecordFor(TEST_BACKGROUND));
+      const { store, release } = gated(fail); store.records.set(DRAFT_KEY, recordOf(TEST_BACKGROUND));
       const page = { background: TEST_BACKGROUND };
-      const keeper = editor.createDraftKeeper({
-        store, key: DRAFT_KEY, delay: editor.DRAFT_SAVE_DELAY, clock: globalThis, deletes: true,
-        snapshot: () => editor.backgroundRecordFor(page.background),
-      });
+      const keeper = backgroundKeeper(store, page);
       await keeper.load();
-      page.background = null;
       assert.equal(keeper.unsaved, false, "before arm, the page has not decided");
-      const armed = keeper.arm();
+      await keeper.arm();
+      page.background = null;
+      const armed = keeper.flush();
       assert.equal(keeper.unsaved, true, "the delete is pending");
       if (!fail) {
         await new Promise((resolve) => setImmediate(resolve));
@@ -3508,7 +3586,7 @@ test("an image put in the queue and then Remove background stay unsaved until th
   const store = fakeDraftStore(); const puts = []; const put = store.put;
   store.put = (key, record) => new Promise((resolve) => { puts.push(() => resolve(put(key, record))); });
   const page = { background: null };
-  const keeper = editor.createDraftKeeper({ store, key: DRAFT_KEY, delay: editor.DRAFT_SAVE_DELAY, clock: globalThis, deletes: true, snapshot: () => editor.backgroundRecordFor(page.background) });
+  const keeper = backgroundKeeper(store, page);
   await keeper.load(); await keeper.arm();
   page.background = TEST_BACKGROUND;
   const putDone = keeper.flush();
@@ -3525,15 +3603,207 @@ test("an image put in the queue and then Remove background stay unsaved until th
   assert.deepEqual([keeper.unsaved, store.records.has(DRAFT_KEY), keeper.status], [false, false, "ok"], "the final state is empty");
 });
 
+// heldStore gives a draft store whose put and delete wait for the test.
+// calls lists each write with the name of the record, or "delete". next
+// ends the oldest waiting write, and fail rejects it with an error.
+function heldStore() {
+  const records = new Map(); const calls = []; const held = [];
+  const hold = (name, action) => { calls.push(name); return new Promise((resolve, reject) => { held.push({ commit: () => { action(); resolve(); }, reject }); }); };
+  return {
+    records, calls,
+    get: async (key) => structuredClone(records.get(key)),
+    put: (key, record) => hold(`put ${record.name}`, () => records.set(key, structuredClone(record))),
+    delete: (key) => hold("delete", () => records.delete(key)),
+    next: () => held.shift().commit(),
+    fail: (error) => held.shift().reject(error),
+  };
+}
+
+// pinKeeper gives a keeper of page.record on store with a channel that
+// counts its messages, and hooks that count the queued writes of each
+// record name. pins gives the count of each name, and live gives the
+// number of writes that did not settle.
+function pinKeeper(store, page) {
+  const pins = new Map(); const log = []; const channel = { messages: 0, postMessage() { channel.messages += 1; }, addEventListener() {} };
+  const count = (record, step) => { const name = record ? record.name : "delete"; pins.set(name, (pins.get(name) || 0) + step); log.push(`${step > 0 ? "queued" : "settled"} ${name}`); };
+  const keeper = editor.createDraftKeeper({
+    store, key: DRAFT_KEY, delay: editor.DRAFT_SAVE_DELAY, clock: globalThis, channel,
+    snapshot: () => (page.record ? { ...page.record } : null), onStatus: (status) => log.push(`status ${status}`),
+    onQueued: (record) => count(record, 1), onSettled: (record) => count(record, -1),
+  });
+  const live = () => [...pins.values()].reduce((sum, value) => sum + value, 0);
+  return { keeper, pins, log, channel, live };
+}
+
+const tick = () => new Promise((resolve) => setImmediate(resolve));
+
+test("a newer write replaces the waiting write, and the replaced write settles with no store call", async () => {
+  const store = heldStore(); const page = { record: { name: "X" } };
+  const { keeper, pins, log, channel, live } = pinKeeper(store, page);
+  await keeper.load();
+  const first = keeper.arm(); await tick();
+  assert.deepEqual([store.calls, live(), pins.get("X")], [["put X"], 1, 1], "X runs");
+  page.record = { name: "Y" }; const waiting = keeper.flush();
+  assert.deepEqual([live(), keeper.unsaved], [2, true], "Y waits");
+  page.record = { name: "X" }; const last = keeper.flush();
+  await waiting;
+  assert.deepEqual([store.calls, live(), pins.get("X"), pins.get("Y")], [["put X"], 2, 2, 0], "the second X replaces Y, and Y settles with no store call");
+  assert.deepEqual([store.records.size, channel.messages, keeper.status], [0, 0, "ok"], "Y does not commit or broadcast");
+  store.next(); await first; await tick();
+  assert.deepEqual([store.calls, live(), pins.get("X"), keeper.unsaved], [["put X", "put X"], 1, 1, true], "the first X commits, then the second X runs");
+  store.next(); await last;
+  assert.deepEqual([live(), pins.get("X"), keeper.unsaved, channel.messages], [0, 0, false, 2]);
+  assert.deepEqual(log, ["queued X", "queued Y", "queued X", "settled Y", "settled X", "settled X"], "the hooks run once for each write");
+  assert.deepEqual(store.records.get(DRAFT_KEY), { name: "X" });
+});
+
+test("a blocked keeper releases replaced records and image buffers before storage resumes", () => {
+  const script = `
+    const assert = require("node:assert/strict");
+    const { queryObjects } = require("node:v8");
+    const editor = require(${JSON.stringify(path.join(__dirname, "editor.js"))});
+    class ImageBytes extends ArrayBuffer {}
+    class Snapshot {
+      constructor(name) { this.name = name; this.image = new ImageBytes(1024 * 1024); }
+    }
+    const held = []; const calls = []; const settled = []; const promises = [];
+    let current = null;
+    const keeper = editor.createDraftKeeper({
+      store: { get: async () => null, put: async (_, record) => {
+        calls.push(record.name); await new Promise((resolve) => held.push(resolve));
+      } },
+      key: "retention", clock: globalThis, snapshot: () => current,
+      text: (record) => String(record.name), onSettled: (record) => settled.push(record.name),
+    });
+    const tick = () => new Promise((resolve) => setImmediate(resolve));
+    const queue = (name) => { current = new Snapshot(name); promises.push(keeper.flush()); };
+    (async () => {
+      await keeper.load(); await keeper.arm();
+      queue(0); await tick();
+      for (let name = 1; name <= 24; name += 1) queue(name);
+      await Promise.all(promises.slice(1, -1)); await tick();
+      assert.deepEqual(calls, [0]);
+      assert.equal(settled.length, 23);
+      // queryObjects collects garbage before counting instances. No finalizer must run.
+      assert.equal(queryObjects(Snapshot), 2, "only the running and waiting records remain");
+      assert.equal(queryObjects(ImageBytes), 2, "only the running and waiting buffers remain");
+      held.shift()(); await tick();
+      assert.deepEqual(calls, [0, 24]);
+      held.shift()(); await Promise.all(promises);
+      current = null; await tick();
+      assert.equal(queryObjects(Snapshot), 0, "settled records are released");
+      assert.equal(queryObjects(ImageBytes), 0, "settled buffers are released");
+      assert.equal(settled.length, 25);
+      process.stdout.write("done");
+    })().catch((error) => { console.error(error); process.exitCode = 1; });
+  `;
+  assert.equal(execFileSync(process.execPath, ["--disable-warning=ExperimentalWarning", "-e", script], { timeout: 10000, encoding: "utf8" }), "done");
+});
+
+test("a failed running write settles once, and the waiting write then commits", async () => {
+  const store = heldStore(); const page = { record: { name: "X" } };
+  const { keeper, pins, log, live } = pinKeeper(store, page);
+  await keeper.load();
+  const first = keeper.arm(); await tick();
+  page.record = { name: "Y" }; const second = keeper.flush();
+  store.fail(new Error("The disk failed.")); await first;
+  assert.deepEqual([keeper.status, pins.get("X"), live(), keeper.unsaved], ["failed", 0, 1, true], "X failed, and Y waits");
+  await tick();
+  assert.deepEqual(store.calls, ["put X", "put Y"]);
+  store.next(); await second;
+  assert.deepEqual([keeper.status, live(), keeper.unsaved, store.records.get(DRAFT_KEY)], ["ok", 0, false, { name: "Y" }]);
+  assert.deepEqual(log, ["queued X", "queued Y", "status failed", "settled X", "status ok", "settled Y"]);
+  await keeper.flush();
+  assert.equal(store.calls.length, 2, "Y is in the store, so a flush does not write");
+});
+
+test("replace writes also when the waiting write has the same text", async () => {
+  const store = heldStore(); const page = { record: { name: "X" } };
+  const { keeper, log } = pinKeeper(store, page);
+  await keeper.load();
+  const first = keeper.arm(); await tick();
+  page.record = { name: "Y" }; keeper.flush();
+  const forced = keeper.replace();
+  assert.deepEqual(log, ["queued X", "queued Y", "queued Y", "settled Y"], "the forced write replaces the waiting write");
+  store.next(); await first; await tick();
+  store.next(); await forced;
+  assert.deepEqual([store.calls, store.records.get(DRAFT_KEY), keeper.unsaved], [["put X", "put Y"], { name: "Y" }, false]);
+  page.record = null; const removed = keeper.flush(); await tick();
+  assert.deepEqual(store.calls.at(-1), "delete");
+  store.next(); await removed;
+  assert.deepEqual(log.slice(-2), ["queued delete", "settled delete"], "a delete runs the hooks with no record");
+});
+
+test("the keeper text of a background record leaves out the image, and the image key tells two images apart", () => {
+  const other = { ...TEST_BACKGROUND, imageKey: "fedcba9876543210fedcba9876543210", dataURL: dataURL(pngBytes(2, 4)) };
+  const text = editor.backgroundRecordText(recordOf(TEST_BACKGROUND));
+  assert.ok(!text.includes('"image"') && text.includes(TEST_KEY), text);
+  assert.notEqual(editor.backgroundRecordText(recordOf(other)), text, "the same placement with another image");
+  assert.equal(editor.backgroundRecordText(recordOf({ ...TEST_BACKGROUND, dataURL: other.dataURL })), text, "the key stands for the image");
+  assert.equal(editor.backgroundRecordText({ background: { x: 1n } }), "invalid", "a record that JSON cannot write");
+  assert.equal(editor.backgroundRecordText("text"), '"text"');
+  assert.match(editor.newImageKey(globalThis.crypto), editor.IMAGE_KEY_PATTERN);
+  assert.notEqual(editor.newImageKey(globalThis.crypto), editor.newImageKey(globalThis.crypto));
+});
+
+test("a stored background that does not restore stays in the store until a new background of the page", async () => {
+  const factory = fakeIndexedDB(); const store = editor.openRecordStore(factory, editor.BACKGROUND_STORE);
+  const broken = recordOf(TEST_BACKGROUND); broken.background.imageKey = "not a key";
+  await store.put(DRAFT_KEY, broken);
+  const page = startupPage(factory);
+  await page.started;
+  assert.deepEqual([page.history.value.background, page.warnings], [null, [`The stored background has no valid image key. ${editor.STORED_BACKGROUND_KEPT_TEXT}`]]);
+  // An edit of the scenario and the flush at unload do not write.
+  page.history.replace({ scenario: { ...page.history.value.scenario, name: "Edited" }, background: null });
+  page.keeper.schedule(); await page.keeper.flush();
+  assert.deepEqual([await store.get(DRAFT_KEY), page.keeper.unsaved, page.counts.writes], [broken, false, 0], "the record stays, and unload does not ask");
+  // Remove background with no background does not change the page.
+  await page.keeper.flush();
+  assert.deepEqual(await store.get(DRAFT_KEY), broken);
+  // A new image replaces the record, and an undo back to no background
+  // then deletes it.
+  page.history.replace({ scenario: page.history.value.scenario, background: TEST_BACKGROUND });
+  page.keeper.schedule();
+  assert.equal(page.keeper.unsaved, true);
+  await page.keeper.flush();
+  assert.deepEqual(await store.get(DRAFT_KEY), recordOf(TEST_BACKGROUND));
+  page.history.undo(); await page.keeper.flush();
+  assert.deepEqual([await store.get(DRAFT_KEY), page.keeper.unsaved], [undefined, false]);
+});
+
+test("a tab that restored an image does not write it back over the image of another tab", async () => {
+  const factory = fakeIndexedDB(); const store = editor.openRecordStore(factory, editor.BACKGROUND_STORE);
+  await store.put(DRAFT_KEY, recordOf(TEST_BACKGROUND));
+  const page = startupPage(factory);
+  await page.started;
+  assert.deepEqual([page.history.value.background, page.counts.writes], [TEST_BACKGROUND, 0], "arm after the restore writes nothing");
+  const other = { ...TEST_BACKGROUND, imageKey: "fedcba9876543210fedcba9876543210", x: 99 };
+  await store.put(DRAFT_KEY, recordOf(other));
+  page.history.replace({ scenario: { ...page.history.value.scenario, name: "Edited" }, background: page.history.value.background });
+  page.keeper.schedule(); await page.keeper.flush();
+  assert.deepEqual([await store.get(DRAFT_KEY), page.keeper.unsaved], [recordOf(other), false], "the store keeps the image of the other tab");
+});
+
+test("the restore reads only the new background database", async () => {
+  const factory = fakeIndexedDB();
+  const older = editor.openRecordStore(factory, { database: "podsim-editor-backgrounds", store: "backgrounds" });
+  await older.put(DRAFT_KEY, { background: { dataURL: TEST_BACKGROUND.dataURL, x: 0, y: 0, width: 4, height: 2, opacity: 1 } });
+  const page = startupPage(factory);
+  await page.started;
+  assert.deepEqual([page.history.value.background, page.warnings], [null, []], "the older record is not read");
+  assert.deepEqual(factory.log, ["open podsim-editor-backgrounds 1", "create backgrounds", "open podsim-editor-backgrounds-2 1", "create backgrounds"]);
+  assert.equal(editor.BACKGROUND_STORE.database, "podsim-editor-backgrounds-2");
+});
+
 test("restoreStoredBackground puts a valid stored background on the page, and warns of one that is not valid", async () => {
   const cases = [
     { name: "no record", record: null, want: null, warnings: [] },
-    { name: "a valid record", record: editor.backgroundRecordFor(TEST_BACKGROUND), want: TEST_BACKGROUND, warnings: [] },
-    { name: "a record that is not valid", record: { background: { x: 1 } }, want: null, warnings: ["The background must be a PNG or JPEG data URL. The browser deletes the stored background."] },
+    { name: "a valid record", record: recordOf(TEST_BACKGROUND), want: TEST_BACKGROUND, warnings: [] },
+    { name: "a record that is not valid", record: { background: { x: 1 } }, want: null, warnings: [`The stored background has no valid image key. ${editor.STORED_BACKGROUND_KEPT_TEXT}`] },
   ];
   for (const item of cases) {
     const page = { background: null }; const warnings = [];
-    const installed = await editor.restoreStoredBackground(item.record, { warn: (text) => warnings.push(text), install: (background) => { page.background = background; } });
+    const installed = await editor.restoreStoredBackground(item.record, { warn: (text) => warnings.push(text), install: (restored) => { page.background = pageOf(restored); } });
     assert.deepEqual([installed, page.background, warnings], [item.want !== null, item.want, item.warnings], item.name);
   }
 });
@@ -3585,25 +3855,25 @@ function fakeStartupDocument() {
 // background in factory, as the editor does. history is the undo history
 // of the page, and gate is its startup gate. options.readLive is a promise
 // that the live load waits for. options.decode, when given, decodes the
-// stored image.
+// stored image for checkDecodedImage. writes counts the writes that the
+// background keeper queues.
 function startupPage(factory, options = {}) {
   const document = fakeStartupDocument(); const gate = editor.createStartupGate();
   const history = editor.createHistory({ scenario: editor.emptyConfig(), background: null });
-  const keeper = editor.createDraftKeeper({
-    store: editor.openRecordStore(factory, editor.BACKGROUND_STORE), key: DRAFT_KEY, delay: editor.DRAFT_SAVE_DELAY, clock: globalThis, deletes: true,
-    snapshot: () => editor.backgroundRecordFor(history.value.background),
-  });
+  const page = { get background() { return history.value.background; } }; const counts = { writes: 0 };
+  const keeper = backgroundKeeper(editor.openRecordStore(factory, editor.BACKGROUND_STORE), page, { onQueued: () => { counts.writes += 1; } });
   const warnings = [];
   const cleared = editor.blockInput(document, gate, editor.startupExempt);
+  const decode = options.decode && ((restored) => editor.checkDecodedImage(pageOf(restored).dataURL, options.decode));
   const started = editor.startEditor({
     readDraft: async () => null, readBackground: () => keeper.load(),
     loadLive: async () => { await options.readLive; history.reset({ scenario: connectedScenario(), background: null }); },
     restore: (record) => editor.restoreStoredBackground(record, {
-      decode: options.decode, warn: (text) => warnings.push(text), install: (background) => history.reset({ scenario: history.value.scenario, background }),
+      decode, warn: (text) => warnings.push(text), install: (restored) => history.reset({ scenario: history.value.scenario, background: pageOf(restored) }),
     }),
     release: gate.release, armBackground: () => keeper.arm(), offerDraft: () => {},
   });
-  return { document, gate, history, keeper, warnings, cleared, started };
+  return { document, gate, history, keeper, warnings, cleared, started, counts };
 }
 
 test("the startup gate blocks input until the release, except the Simulation link and Tab", async () => {
@@ -3639,7 +3909,7 @@ test("the startup gate blocks input until the release, except the Simulation lin
 
 test("an import while the live scenario loads is stopped, and the stored background survives", async () => {
   const factory = fakeIndexedDB(); const store = editor.openRecordStore(factory, editor.BACKGROUND_STORE);
-  const record = editor.backgroundRecordFor(TEST_BACKGROUND);
+  const record = recordOf(TEST_BACKGROUND);
   await store.put(DRAFT_KEY, record);
   let finishLive; const page = startupPage(factory, { readLive: new Promise((resolve) => { finishLive = resolve; }) });
   // The import of a project file with no background removes the
@@ -3714,13 +3984,18 @@ test("after an apply clears the saved draft, a reload still gets the background"
   const factory = fakeIndexedDB(); const scenario = { ...connectedScenario(), name: "Changed" };
   const page = { value: { scenario, background: TEST_BACKGROUND }, live: { scenario: JSON.stringify(connectedScenario()), revision: 3 } };
   const base = { revision: 3, epoch: "epoch-1", serverStart: "start-1" };
+  const background = { get background() { return page.value.background; } };
   const keepers = () => ({
     draft: editor.createDraftKeeper({ store: editor.openRecordStore(factory, editor.DRAFT_STORE), key: DRAFT_KEY, delay: editor.DRAFT_SAVE_DELAY, clock: globalThis, snapshot: () => editor.draftRecordFor(page.value, page.live, base) }),
-    background: editor.createDraftKeeper({ store: editor.openRecordStore(factory, editor.BACKGROUND_STORE), key: DRAFT_KEY, delay: editor.DRAFT_SAVE_DELAY, clock: globalThis, snapshot: () => editor.backgroundRecordFor(page.value.background) }),
+    background: backgroundKeeper(editor.openRecordStore(factory, editor.BACKGROUND_STORE), background),
   });
   const first = keepers();
   assert.deepEqual([await first.draft.load(), await first.background.load()], [null, null]);
+  // The page imports the image after the startup.
+  page.value = { scenario, background: null };
   await first.draft.arm(); await first.background.arm();
+  page.value = { scenario, background: TEST_BACKGROUND };
+  await first.background.flush();
   // A successful apply makes the draft the live baseline and clears the
   // saved draft. The background stays.
   page.live = { scenario: JSON.stringify(scenario), revision: 4 };
@@ -3729,11 +4004,12 @@ test("after an apply clears the saved draft, a reload still gets the background"
 
   const second = keepers();
   assert.equal(await second.draft.load(), null, "no saved draft after the apply");
-  assert.deepEqual(editor.storedBackground(await second.background.load()), TEST_BACKGROUND, "the reload gets the background");
+  assert.deepEqual(pageOf(editor.storedBackground(await second.background.load())), TEST_BACKGROUND, "the reload gets the background");
 
   // Remove background deletes the record.
-  page.value = { scenario, background: null };
   await second.background.arm();
+  page.value = { scenario, background: null };
+  await second.background.flush();
   assert.equal(await keepers().background.load(), null, "the removed background is gone");
 });
 
@@ -3947,6 +4223,9 @@ test("history coalesces a drag snapshot and supports redo", () => {
   assert.deepEqual(history.value, original);
   assert.equal(history.redo(), true);
   assert.deepEqual(history.value, moved);
+  const background = history.background; background.x = 99;
+  assert.deepEqual(history.background, moved.background, "background gives a copy");
+  assert.equal(editor.createHistory({ scenario: original.scenario, background: null }).background, null);
 });
 
 test("history preserves the full draft through repeated undo", () => {

@@ -618,7 +618,12 @@ The server does not get the background, so the background does not follow the li
 If the live project is at a different place, remove or replace the background.
 All editor tabs of one server share the stored background.
 The last background change in a tab replaces it.
-If the stored background is not valid, the editor shows an error notice and deletes it.
+A tab writes the stored background only after a background change in that tab.
+Thus a tab that shows an older background does not replace a newer background from another tab, also at a scenario edit or when you leave the page.
+If the stored background is not valid, the editor shows an error notice and does not delete it.
+The browser keeps it until a new background in the page replaces it.
+The browser keeps the image in the IndexedDB database `podsim-editor-backgrounds-2`, with a random image key, the placement, and the opacity.
+The editor does not read the background of an older editor, which is in the `podsim-editor-backgrounds` database.
 If the browser cannot keep the background, the editor shows an error notice.
 Then export the project to keep the background.
 When the background has changes that are not saved in the browser, the browser asks before you leave or reload the page.
