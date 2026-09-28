@@ -136,6 +136,34 @@ func TestSeatScreenCountsEachPartyOnce(t *testing.T) {
 	}
 }
 
+// TestSeatScreenRestart recounts a waiting party after records restart.
+func TestSeatScreenRestart(t *testing.T) {
+	t.Parallel()
+	s := newScreenSimulation(t, Example(), []Placement{{ID: "01", StationID: "harbor", BerthID: "harbor-1"}}, 2, SharedRideDropOffs)
+	for range 3 {
+		if err := s.RequestTrip("harbor", "market"); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if got := s.SeatScreen().FullPodRefusals; got != 1 {
+		t.Fatalf("initial refusals = %d, want 1", got)
+	}
+	for cycle := range 2 {
+		s.SetExperimentRecords(false)
+		s.Step()
+		if got := s.SeatScreen(); got != (SeatScreen{}) {
+			t.Fatalf("cycle %d: records off kept counters: %+v", cycle, got)
+		}
+		s.SetExperimentRecords(true)
+		for range 2 {
+			s.Step()
+			if got := s.SeatScreen().FullPodRefusals; got != 1 {
+				t.Fatalf("cycle %d: restarted refusals = %d, want 1", cycle, got)
+			}
+		}
+	}
+}
+
 func TestSeatScreenOff(t *testing.T) {
 	t.Parallel()
 	for _, test := range []struct {

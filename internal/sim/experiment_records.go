@@ -55,7 +55,7 @@ func (s *Simulation) SetExperimentRecords(enabled bool) {
 		// each set flag is a count in SeatScreen.
 		for index := range s.waiting {
 			trip := &s.waiting[index]
-			trip.joinEligibleAssigned, trip.joinEligibleExistingStop = false, false
+			trip.fullPodRefused, trip.joinEligibleAssigned, trip.joinEligibleExistingStop = false, false, false
 		}
 	}
 }
