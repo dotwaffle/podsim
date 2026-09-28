@@ -1387,7 +1387,7 @@ The design sets seven rules for the drop-offs mode against the destination mode 
 | 7. The CPU time of the heavy arm grows by less than 10 percent. | Met. The total falls by 4.8 percent. |
 
 The drop-offs mode does not meet rules 3 and 5, so it does not become the mode that the editor offers first.
-Sharing stays off by default, and the default mode stays `destination`.
+Sharing stays off by default, and this record keeps `destination` as the default mode.
 Raw results are in [`measurements/london-drop-offs.csv`](measurements/london-drop-offs.csv), [`measurements/london-drop-offs-guarded.csv`](measurements/london-drop-offs-guarded.csv), [`measurements/rail-hub-drop-offs.csv`](measurements/rail-hub-drop-offs.csv), and [`measurements/scale100-drop-offs.csv`](measurements/scale100-drop-offs.csv).
 
 #### Drop-offs with a detour cap
@@ -1559,7 +1559,7 @@ With the cap and the envelope rule, the drop-offs mode meets the seven rules on 
 Rule 4 uses only the tested rates near the limits, and rule 2 does not decide the Evening limit.
 The next subsection closes these two points.
 A change of the default mode changes the project contract, so this record does not change it.
-Sharing stays off by default, and the default mode stays `destination`.
+Sharing stays off by default.
 Raw results are in [`measurements/london-drop-offs-cap.csv`](measurements/london-drop-offs-cap.csv) and [`measurements/london-drop-offs-uncapped.csv`](measurements/london-drop-offs-uncapped.csv).
 The first file has the drop-offs rows with the cap for seeds 1 to 10 and the destination rows for seeds 4 to 10.
 The second file has the drop-offs rows without the cap for seeds 4 to 10.

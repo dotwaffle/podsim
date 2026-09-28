@@ -402,8 +402,8 @@ Keep passenger capacity distinct from the number of parties aboard.
 Compare passenger throughput, waiting, occupancy, and empty running across fleet mixes.
 MATSim's [demand-responsive transport module](https://github.com/matsim-org/matsim-libs/blob/main/contribs/drt/README.md) supports shared taxis or minibuses and additional pickups during occupied journeys.
 
-**Status:** Step 1 is available as an option.
-A limit of two to eight parties lets a party join a pod that is still boarding at the same origin for the same destination.
+**Status:** Step 1 is available as the `destination` shared ride mode.
+In this mode, a limit of two to eight parties lets a party join a pod that is still boarding at the same origin for the same destination.
 The default limit of one disables sharing.
 See [docs/qualification.md](docs/qualification.md#same-destination-sharing).
 
