@@ -410,7 +410,7 @@ The stops do not change after the pod departs, and a pod with passengers does no
 A pod adds a stop only when the planned detour ratio of each party, new or aboard, is 1.5 or less.
 In London at a limit of 4, the mode raises five 60-minute band limits and lowers the journey time, the wait, and the empty distance in each band.
 The first measurement did not meet two of the seven adoption rules, because five arms ended late and the largest detour ratio was 1.509.
-With the detour cap and 10 seeds at the rates near the band limits, the mode meets the seven rules.
+With the detour cap, the mode meets the seven rules on the full envelope with seeds 1 to 3 and with 10 seeds at the rates near the band limits.
 A change of the default mode changes the project contract, so the default mode stays same-destination sharing.
 See [docs/qualification.md](docs/qualification.md#drop-offs-sharing-in-london).
 
