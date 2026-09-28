@@ -471,7 +471,9 @@ The A/B meets the seven adoption rules of the design.
 Seeds 4 to 10 and the rail-hub checks of the design are not run.
 The editor sets the option, the state frame gives the platoon of each pod, and the view draws a line between the pods of a platoon.
 A saved state keeps the links.
-See [docs/qualification.md](docs/qualification.md#platoon-screening).
+The London preset turns platoons on with a limit of 4 pods.
+In the London capacity envelope with 114 pods, they raise the Early limit from 7 to 10 requests per minute, and no band limit falls.
+See [docs/qualification.md](docs/qualification.md#platoon-screening) and [the envelope with platoons](docs/qualification.md#with-virtual-platoons).
 
 ### Suggested first extension experiment
 

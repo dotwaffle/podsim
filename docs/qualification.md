@@ -894,6 +894,7 @@ The platoon screening and queue routing files come from version 6, and the drop-
 The drop-offs envelope and Evening files come from version 9.
 Thus the older files do not have the columns that version 6 adds, such as `wait_p95_seconds`, `journey_average_seconds`, `occupancy`, `stopped_pod_seconds`, and `peak_node`.
 The platoon A/B file has the columns of version 6, and the `platoon_policy` and `coupled_time_percent` columns that version 9 adds.
+The platoon capacity file comes from version 9, so it also has the rider columns of version 8.
 See [report columns](../README.md#report-columns) for the definitions.
 
 At the limit rate, every seed has all 114 pods with work at the same time in AM peak, Interpeak, PM peak, Evening, and Late.
@@ -954,6 +955,81 @@ The capacity sweep took 5,375 wall seconds for 345 arms.
 The wait-rule sweep took 6,243 seconds for 675 arms, and the redistribution sweep took 5,610 seconds for 342 arms.
 Each arm is independent and deterministic, so the number of workers does not change the rows.
 Raw results are in [`measurements/london-capacity.csv`](measurements/london-capacity.csv).
+
+### With virtual platoons
+
+The London preset sets `platoonLimit` to 4, so the server runs London with virtual platoons.
+A second sweep measures the envelope with platoons on.
+It uses the bands, rates, seeds, and settings of the capacity sweep, with `-platoon-policies virtual` and ten workers.
+The compare command does not read `platoonLimit` from the project, so the flag turns platoons on, with a limit of 4 pods.
+The off baseline is the capacity CSV above.
+The sweep ran before the platoon option landed, and its simulation and compare code is the code of commit `9b89b07`.
+These commands give the rows of the platoon CSV again:
+
+```sh
+mise run scenario -- -preset london -output /tmp/podsim-london-capacity.json
+mise run compare -- -project /tmp/podsim-london-capacity.json -pattern profile -bands all -duration 65m -arrivals-for 30m -loads 60s,30s,20s,15s,12s,10s,8.571429s,7.5s,6.666667s,6s,5.454545s,5s,4.615385s,4.285714s,4s -seeds 1,2,3 -redistribution-policies off -platoon-policies virtual -focus 940GZZLUEUS -queue-limit 1000000 -stop-when-drained -adaptive-limit -past-limit 1 -workers 10 -format csv -output docs/measurements/london-capacity-platoons.csv
+```
+
+The sweep took 319 wall seconds for 345 arms.
+The limits use the 60-minute rule of the capacity sweep.
+The coupled time and the average waits are the means of the three seeds at the rate of the limit with platoons.
+
+| NUMBAT band | Limit, off | Limit, platoons | Coupled time | Average wait, off | Average wait, platoons |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| Early | 7/min | 10/min | 10.8% | 597.7 s | 545.3 s |
+| Morning | 9/min | 9/min | 0.2% | 173.5 s | 174.6 s |
+| AM peak | 13/min | 13/min | 0.2% | 317.1 s | 316.8 s |
+| Interpeak | 14/min | 15/min | 0.4% | 319.9 s | 322.3 s |
+| PM peak | 13/min | 13/min | 0.3% | 250.5 s | 246.5 s |
+| Evening | 14/min | 14/min | 0.3% | 356.3 s | 353.5 s |
+| Late | 12/min | 12/min | 0.3% | 300.6 s | 300.1 s |
+| Night | 9/min | 9/min | 1.6% | 213.3 s | 213.4 s |
+
+Platoons raise the Early limit from 7/min to 10/min and the Interpeak limit from 14/min to 15/min.
+No band limit falls.
+Early is the band where queues on the track set the limit, and its pods spend 10.8% of their travel time in a platoon at 10/min.
+In the other bands, the fleet sets the limit, and the pods spend at most 2.3% of their travel time in a platoon in any arm.
+
+The envelope rule is the rule of the drop-offs record.
+At or below the platoon limit of each band, no arm with platoons ends after 3,600 seconds when the arm without platoons ends by 3,600 seconds.
+Above the limits, 4 arms regress in this way:
+
+| NUMBAT band | Rate | Seed | End, off | End, platoons |
+| --- | ---: | ---: | ---: | ---: |
+| AM peak | 15/min | 3 | 3,597 s | 3,610 s |
+| AM peak | 14/min | 2 | 3,570 s | 3,777 s |
+| Evening | 15/min | 1 | 3,516 s | 3,735 s |
+| Late | 15/min | 3 | 3,596 s | 3,804 s |
+
+In these 4 arms, the pods spend less than 0.5% of their travel time in a platoon.
+Before the record, the 4 arms and two arms near them ran again without platoons at the code of the sweep.
+Their rows without platoons are equal to the capacity CSV in each column that it has, so the platoons cause the regressions.
+In 8 other arms, the arm with platoons ends by 3,600 seconds and the arm without platoons does not.
+They are Early at 8/min with seed 1, at 9/min with seed 1, and at 10/min with seeds 1 and 3, Morning at 14/min with seed 2, Interpeak at 15/min with seed 3, and Night at 11/min with seeds 1 and 2.
+
+The limits also change with a later cap.
+This table gives the limits with platoons for the four caps of the capacity sweep.
+
+| NUMBAT band | 60 min | 60 min 30 s | 61 min | 65 min |
+| --- | ---: | ---: | ---: | ---: |
+| Early | 10/min | 10/min | 10/min | 10/min |
+| Morning | 9/min | 9/min | 13/min | 13/min |
+| AM peak | 13/min | 13/min | 13/min | 14/min |
+| Interpeak | 15/min | 15/min | 15/min | 15/min |
+| PM peak | 13/min | 13/min | 15/min | 15/min |
+| Evening | 14/min | 14/min | 14/min | 15/min |
+| Late | 12/min | 12/min | 13/min | 13/min |
+| Night | 9/min | 9/min | 9/min | 11/min |
+
+With a cap of 60 minutes and 30 seconds, platoons give lower limits in PM peak (13/min against 15/min), Evening (14/min against 15/min), and Late (12/min against 13/min).
+With a cap of 61 minutes, they give lower limits in AM peak (13/min against 14/min) and Evening (14/min against 15/min), and a higher limit in Morning (13/min against 12/min).
+With both caps, the Early and Interpeak limits are higher with platoons, as with the 60-minute cap.
+With the 65-minute cap, an arm must also drain, because each arm that does not drain stops at 3,900 seconds.
+With this cap, platoons lower the Late limit from 14/min to 13/min, and the other limits are the same.
+At Late 14/min with seed 2, the arm without platoons finishes its 420 requests at 3,856 seconds.
+With platoons, the arm serves 419 of them by 3,900 seconds.
+Raw results are in [`measurements/london-capacity-platoons.csv`](measurements/london-capacity-platoons.csv).
 
 ### Finishing-pod wait rules
 

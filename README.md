@@ -947,6 +947,7 @@ Configure and start it from the Demand panel.
 #### london
 
 The [London qualification network](docs/london.md) uses TfL station locations and topology, real station names, directed twin guideways, off-line berths, and three Parking facilities.
+It sets `platoonLimit` to 4, so the server runs it with virtual platoons.
 Station lanes identify approach, entry, berth access, through, departure, and exit maneuvers.
 The pod inspector shows the current maneuver in **Station phase** and the station name on the line below it.
 Projects without this optional lane metadata still load.

@@ -89,10 +89,7 @@ func (w *restoreWork) check(t *testing.T, network sim.Network) {
 func checkLondonRestore(t *testing.T, live *sim.Simulation, config project.Config) (*sim.Simulation, sim.SavedState) {
 	t.Helper()
 	state := live.ExportState()
-	restored, result, err := sim.RestoreState(sim.RestoreStateInput{Network: config.Network, Fleet: config.Fleet, State: state})
-	if err != nil {
-		t.Fatalf("tick %d: %v", state.Tick, err)
-	}
+	restored, result := restoreSimulation(t, config, sim.RestoreStateInput{State: state})
 	if result.Tier != sim.RestorePhysical || len(result.Demoted) > 0 {
 		t.Fatalf("tick %d: result %+v", state.Tick, result)
 	}
@@ -126,12 +123,7 @@ func checkLondonRestore(t *testing.T, live *sim.Simulation, config project.Confi
 func checkLondonLogicalRestore(t *testing.T, live *sim.Simulation, config project.Config) {
 	t.Helper()
 	state := live.ExportState()
-	restored, result, err := sim.RestoreState(sim.RestoreStateInput{
-		Network: config.Network, Fleet: config.Fleet, State: state, LogicalOnly: true,
-	})
-	if err != nil {
-		t.Fatalf("tick %d: %v", state.Tick, err)
-	}
+	restored, result := restoreSimulation(t, config, sim.RestoreStateInput{State: state, LogicalOnly: true})
 	if _, err := restored.SafetyObservation().Check(); err != nil {
 		t.Fatalf("tick %d: %v", state.Tick, err)
 	}
@@ -208,6 +200,84 @@ func TestRestorePhysicalLondon(t *testing.T) {
 	}
 	t.Logf("preset=london band=am_peak seed=%d restores=%d submitted=%d..%d completed=%d..%d",
 		londonCloneSeed, londonRestoreCount, start.Submitted, final.Submitted, start.Completed, final.Completed)
+}
+
+// TestLondonPlatoonsRestoreAndClone restores and clones London when pods
+// travel in platoons. The schedules of the other London restore and clone
+// tests form no platoon link. This test requests 120 AM peak journeys, four
+// each second. The first link forms at about 148 s. At that tick, the test
+// restores the physical state and clones the simulation. Then it runs the
+// clone and the restored simulation for 30 s.
+func TestLondonPlatoonsRestoreAndClone(t *testing.T) {
+	if testing.Short() {
+		t.Skip("the London platoon test runs for about 9 s with the race detector")
+	}
+	t.Parallel()
+	const (
+		requests  = 120
+		linkTicks = 200 * sim.TicksPerSecond
+		runTicks  = 30 * sim.TicksPerSecond
+	)
+	config := London()
+	schedule := londonDemandSchedule(londonCloneSeed, LondonDemand()[2], requests)
+	for index := range schedule {
+		schedule[index].tick = int64(index * sim.TicksPerSecond / 4)
+	}
+	live := newSimulation(t, config)
+	var linked int64
+	for tick := int64(0); linked == 0; tick++ {
+		if tick == linkTicks {
+			t.Fatalf("no platoon link formed in %d ticks", linkTicks)
+		}
+		if err := stepScheduled(live, scheduledStep{schedule: schedule, tick: tick}); err != nil {
+			t.Fatal(err)
+		}
+		if live.CoupledPods() > 0 {
+			linked = tick + 1
+		}
+	}
+	restored, _ := checkLondonRestore(t, live, config)
+	want, got := live.Snapshot(), restored.Snapshot()
+	for index, v := range want.Vehicles {
+		if w := got.Vehicles[index]; w.PlatoonID != v.PlatoonID || w.PlatoonIndex != v.PlatoonIndex {
+			t.Fatalf("tick %d: pod %s is in platoon %q at %d, want %q at %d",
+				linked, v.Pod.ID, w.PlatoonID, w.PlatoonIndex, v.PlatoonID, v.PlatoonIndex)
+		}
+	}
+	atRestore := live.CoupledPods()
+	if restored.CoupledPods() != atRestore {
+		t.Fatalf("tick %d: the restore has %d coupled pods, want %d", linked, restored.CoupledPods(), atRestore)
+	}
+	clone := live.Clone()
+	var observations []londonObservation
+	coupled := 0
+	runLondon(t, live, londonRun{
+		schedule: schedule, start: linked, end: linked + runTicks,
+		observe: func(observation londonObservation) {
+			observations = append(observations, observation)
+			coupled = max(coupled, live.CoupledPods())
+		},
+	})
+	second := 0
+	runLondon(t, clone, londonRun{
+		schedule: schedule, start: linked, end: linked + runTicks,
+		observe: func(observation londonObservation) {
+			if !reflect.DeepEqual(observation, observations[second]) {
+				t.Fatalf("the clone differs at tick %d", observations[second].snapshot.Tick)
+			}
+			second++
+		},
+	})
+	runLondon(t, restored, londonRun{
+		schedule: schedule, start: linked, end: linked + runTicks,
+		observe: func(observation londonObservation) {
+			if _, err := observation.safety.Check(); err != nil {
+				t.Fatal(err)
+			}
+		},
+	})
+	t.Logf("first link at tick %d, coupled pods %d at the restore, at most %d in the next 30 s",
+		linked, atRestore, coupled)
 }
 
 // setGuarded selects guarded positioning at 20 requests per minute, as the

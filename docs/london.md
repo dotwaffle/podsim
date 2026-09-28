@@ -172,6 +172,7 @@ mise run serve -- -project /tmp/podsim-london.json
 The generated project has 99 stations, 1,842 nodes, 3,101 lanes, and 114 pods.
 Project validation checks directed reachability between all passenger berths.
 The preset starts with automatic demand and redistribution disabled.
+It turns on [virtual platoons](../README.md#virtual-platoons) with at most 4 pods in a platoon.
 
 A project can have at most 200 stations, 4,000 nodes, and 8,000 lanes.
 The lane pairs at the nodes can be at most 100,000 in total.

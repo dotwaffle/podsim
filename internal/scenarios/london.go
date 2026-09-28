@@ -269,6 +269,10 @@ func londonConfig(source londonSource, capacity londonCapacity) (project.Config,
 			Band:      "am-peak",
 		},
 		DemandProfiles: []project.DemandProfile{londonDemandProfile()},
+		// Virtual platoons raise the Early limit, where queues on the
+		// track set the limit. See the London capacity envelope in the
+		// qualification record.
+		PlatoonLimit: sim.MaxPlatoonLimit,
 	}
 	config.Fleet = londonFleet(config.Network, capacity.pods)
 	if err := project.Validate(config); err != nil {

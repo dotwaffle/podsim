@@ -232,13 +232,51 @@ func runQualification(t *testing.T, input qualificationInput) qualificationResul
 	return qualificationResult{state: simulation.Snapshot(), fingerprint: scheduleFingerprint(input.schedule)}
 }
 
+// newSimulation starts a simulation of config with the shared ride and
+// platoon settings of the project, as the session does.
 func newSimulation(tb testing.TB, config project.Config) *sim.Simulation {
 	tb.Helper()
 	simulation, err := sim.NewFleet(config.Network, config.Fleet)
 	if err != nil {
 		tb.Fatal(err)
 	}
+	if err := project.ConfigureSharedRides(simulation, config); err != nil {
+		tb.Fatal(err)
+	}
+	if err := project.ConfigurePlatoons(simulation, config); err != nil {
+		tb.Fatal(err)
+	}
 	return simulation
+}
+
+// restoreSimulation restores a saved state of config. The saved state does
+// not keep the platooning mode, so it applies the platoon settings of the
+// project again, as the session does.
+func restoreSimulation(tb testing.TB, config project.Config, input sim.RestoreStateInput) (*sim.Simulation, sim.RestoreResult) {
+	tb.Helper()
+	input.Network, input.Fleet = config.Network, config.Fleet
+	restored, result, err := sim.RestoreState(input)
+	if err != nil {
+		tb.Fatalf("tick %d: %v", input.State.Tick, err)
+	}
+	if err := project.ConfigurePlatoons(restored, config); err != nil {
+		tb.Fatal(err)
+	}
+	return restored, result
+}
+
+// TestLondonRunsWithPlatoons checks that the London preset turns on virtual
+// platoons of up to 4 pods in the test simulations, also after a restore.
+func TestLondonRunsWithPlatoons(t *testing.T) {
+	t.Parallel()
+	config := London()
+	simulation := newSimulation(t, config)
+	restored, _ := restoreSimulation(t, config, sim.RestoreStateInput{State: simulation.ExportState()})
+	for name, s := range map[string]*sim.Simulation{"new": simulation, "restored": restored} {
+		if s.Platooning() != sim.PlatooningVirtual || s.PlatoonLimit() != sim.MaxPlatoonLimit {
+			t.Fatalf("%s London simulation: mode %d with limit %d, want virtual platoons of %d pods", name, s.Platooning(), s.PlatoonLimit(), sim.MaxPlatoonLimit)
+		}
+	}
 }
 
 type scheduleParameters struct {
