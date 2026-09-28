@@ -1311,6 +1311,177 @@ The drop-offs mode does not meet rules 3 and 5, so it does not become the mode t
 Sharing stays off by default, and the default mode stays `destination`.
 Raw results are in [`measurements/london-drop-offs.csv`](measurements/london-drop-offs.csv), [`measurements/london-drop-offs-guarded.csv`](measurements/london-drop-offs-guarded.csv), [`measurements/rail-hub-drop-offs.csv`](measurements/rail-hub-drop-offs.csv), and [`measurements/scale100-drop-offs.csv`](measurements/scale100-drop-offs.csv).
 
+#### Drop-offs with a detour cap
+
+Since commit `b6d2b1d`, a pod in the `drop-offs` mode adds a stop only when the planned detour ratio of each party, new or aboard, is at most 1.5.
+See [parties](../README.md#parties).
+The plan uses the berth at each stop that gives the largest ratio, so the cap also refuses some joins that end with a measured ratio below 1.5.
+A leg on a costed route and a change to another berth get the same check.
+When a costed leg fails the check, the pod takes the free-flow leg, which the plan used.
+When a berth change fails the check, the pod keeps its berth.
+Thus the measured ratio of each party is at most 1.5 with each routing policy.
+The cap changes only the `drop-offs` mode with a party limit of two or more.
+The A/B harness ran the limit, shared, congestion example, and congestion London arms at commit `b6d2b1d` and at commit `afc2d65`.
+It found equal rows and an equal snapshot hash at each simulated second.
+
+The rule 3 decision changed after the first measurement.
+Rule 3 now uses the envelope of the modes:
+
+- In the reliable range of the destination mode, no drop-offs arm ends after 3,600 seconds when the destination arm ends by 3,600 seconds.
+- The new higher limits of the drop-offs mode hold with more seeds.
+- The record gives the regressions above the limits separately.
+
+The six arms that did not meet rules 3 and 5 ran again with and without the cap.
+Each end is in seconds.
+
+| Arm | Destination end | Drop-offs end without the cap | Drop-offs end with the cap | Largest detour without / with the cap |
+| --- | ---: | ---: | ---: | ---: |
+| PM peak, 15/min, seed 1 | 3,303 | 3,707 | 3,707 | 1.219 / 1.219 |
+| PM peak, 15/min, seed 2 | 3,439 | 3,611 | 3,611 | 1.367 / 1.367 |
+| Late, 13/min, seed 1 | 3,279 | 3,627 | 3,627 | 1.288 / 1.288 |
+| Night, 12/min, seed 1 | 3,267 | 3,680 | 3,680 | 1.189 / 1.189 |
+| Night, 15/min, seed 1 | 3,538 | 3,742 | 3,742 | 1.360 / 1.360 |
+| AM peak, 12/min, seed 2 | 3,017 | 3,004 | 3,004 | 1.509 / 1.258 |
+
+The cap changes only the AM peak arm.
+Its largest detour goes from 1.509 to 1.258, and its end does not change.
+The cap does not change the five late arms.
+In each of them, the last order to complete is a party that boarded its own pod.
+It waits 980 to 1,230 seconds for a pod, and then it rides 710 to 970 seconds, for example from Walthamstow Central to Canary Wharf in the Night arms.
+In four of these arms, all 114 pods travel at 1,800 seconds.
+Thus the end depends on when a pod becomes free near the stations of the last orders.
+The drop-offs mode ends journeys at other stations, and this changes that time.
+The mean wait of the orders from the last 10 minutes of arrivals is lower in the drop-offs mode in four of the five arms.
+All five arms run above the 60-minute limit of the drop-offs mode.
+
+A targeted sweep then ran each band at the 60-minute limit of each mode from the first measurement, and at one rate below and above each limit, up to 15/min.
+It used seeds 1 to 10.
+The destination rows of seeds 1 to 3 and the drop-offs rows without the cap of seeds 1 to 3 come from `london-drop-offs.csv`.
+A run at commit `5371085` gives these rows again.
+
+```sh
+mise run compare -- -project /tmp/podsim-london-capacity.json -pattern profile -bands early -loads 7.5s,6.666667s,6s,4.285714s,4s -duration 65m -arrivals-for 30m -seeds 1,2,3,4,5,6,7,8,9,10 -redistribution-policies off -focus 940GZZLUEUS -queue-limit 1000000 -stop-when-drained -sharing-limits 4 -sharing-modes drop-offs -workers 10 -format csv
+```
+
+The other bands use the same command with these loads:
+
+| NUMBAT band | Loads | Rates |
+| --- | --- | --- |
+| Early | `7.5s,6.666667s,6s,4.285714s,4s` | 8, 9, 10, 14, and 15/min |
+| Morning | `7.5s,6.666667s,6s,4.615385s,4.285714s,4s` | 8, 9, 10, 13, 14, and 15/min |
+| AM peak | `5s,4.615385s,4.285714s,4s` | 12 to 15/min |
+| Interpeak | `4.615385s,4.285714s,4s` | 13 to 15/min |
+| PM peak | `5s,4.615385s,4.285714s,4s` | 12 to 15/min |
+| Evening | `4.285714s,4s` | 14 and 15/min |
+| Late | `5.454545s,5s,4.615385s` | 11 to 13/min |
+| Night | `6s,5.454545s,5s` | 10 to 12/min |
+
+The command gave the drop-offs rows with the cap at the first version of the cap, which checked only the plan.
+The A/B harness ran three of these arms at that version and at commit `b6d2b1d`: AM peak 14/min seed 1, Morning 13/min seed 2, and Night 11/min seed 1.
+It found equal rows and an equal snapshot hash at each simulated second.
+At commit `5371085`, with `-seeds 4,5,6,7,8,9,10 -sharing-modes destination,drop-offs`, the command gives the destination rows and the drop-offs rows without the cap.
+The destination rows are the same with and without the cap.
+
+The next table gives the number of the 10 seeds that finish every request by 3,600 seconds.
+
+| NUMBAT band | Rate | Destination | Drop-offs without the cap | Drop-offs with the cap |
+| --- | ---: | ---: | ---: | ---: |
+| Early | 8/min | 10 | 10 | 10 |
+| Early | 9/min | 10 | 10 | 10 |
+| Early | 10/min | 9 | 10 | 10 |
+| Early | 14/min | 10 | 10 | 10 |
+| Early | 15/min | 10 | 10 | 10 |
+| Morning | 8/min | 10 | 10 | 10 |
+| Morning | 9/min | 10 | 10 | 10 |
+| Morning | 10/min | 9 | 10 | 10 |
+| Morning | 13/min | 5 | 9 | 9 |
+| Morning | 14/min | 1 | 7 | 7 |
+| Morning | 15/min | 0 | 5 | 5 |
+| AM peak | 12/min | 9 | 10 | 10 |
+| AM peak | 13/min | 8 | 10 | 10 |
+| AM peak | 14/min | 4 | 9 | 7 |
+| AM peak | 15/min | 3 | 5 | 5 |
+| Interpeak | 13/min | 10 | 10 | 10 |
+| Interpeak | 14/min | 9 | 9 | 9 |
+| Interpeak | 15/min | 7 | 9 | 9 |
+| PM peak | 12/min | 10 | 10 | 10 |
+| PM peak | 13/min | 9 | 10 | 10 |
+| PM peak | 14/min | 9 | 10 | 10 |
+| PM peak | 15/min | 8 | 8 | 8 |
+| Evening | 14/min | 9 | 8 | 8 |
+| Evening | 15/min | 10 | 10 | 10 |
+| Late | 11/min | 10 | 10 | 10 |
+| Late | 12/min | 10 | 10 | 10 |
+| Late | 13/min | 9 | 9 | 9 |
+| Night | 10/min | 10 | 10 | 10 |
+| Night | 11/min | 8 | 9 | 9 |
+| Night | 12/min | 8 | 5 | 5 |
+
+With 10 seeds, a limit is the highest tested rate at which all seeds finish by 3,600 seconds, with all seeds finishing at each lower tested rate.
+The sweep tests only the rates near the limits, so some limits have a range.
+
+| NUMBAT band | Destination, 3 seeds | Destination, 10 seeds | Drop-offs without the cap, 3 seeds | Drop-offs without the cap, 10 seeds | Drop-offs with the cap, 10 seeds |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| Early | 9/min | 9/min | 15/min | 15/min | 15/min |
+| Morning | 9/min | 9/min | 14/min | 10 to 12/min | 10 to 12/min |
+| AM peak | 13/min | below 12/min | 14/min | 13/min | 13/min |
+| Interpeak | 14/min | 13/min | 15/min | 13/min | 13/min |
+| PM peak | 13/min | 12/min | 14/min | 14/min | 14/min |
+| Evening | 15/min | below 14/min | 15/min | below 14/min | below 14/min |
+| Late | 12/min | 12/min | 12/min | 12/min | 12/min |
+| Night | 11/min | 10/min | 11/min | 10/min | 10/min |
+
+In the Early band, the drop-offs limit of 15/min uses the rates from 11 to 13/min with seeds 1 to 3 only.
+With 10 seeds, some limits are lower than with 3 seeds in both modes, because a rate near the limit finishes with some seeds and not with others.
+The cap does not change a 10-seed limit.
+It changes 12 of the 300 drop-offs arms.
+At AM peak 14/min, two more seeds end after 3,600 seconds with the cap, and one seed ends earlier.
+
+Over the 300 drop-offs arms with the cap, the largest detour ratio is 1.443.
+Without the cap, it is 1.677.
+
+The next table gives the mean over the arms at or below the 10-seed destination limit, with all 10 seeds.
+Each cell gives the destination value, then the value with the cap.
+AM peak and Evening have no tested rate at or below the destination limit.
+
+| NUMBAT band | Rates | Average journey | Average wait | Empty distance | Detour ratio, mean / maximum |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| Early | 8 and 9/min | 808.3 / 725.3 s | 335.4 / 240.0 s | 6,375 / 5,229 m | 1.020 / 1.365 |
+| Morning | 8 and 9/min | 587.3 / 581.5 s | 164.4 / 157.4 s | 3,206 / 3,099 m | 1.003 / 1.294 |
+| Interpeak | 13/min | 557.6 / 544.3 s | 191.5 / 177.0 s | 2,920 / 2,798 m | 1.003 / 1.320 |
+| PM peak | 12/min | 549.6 / 540.5 s | 179.5 / 169.4 s | 3,000 / 2,923 m | 1.002 / 1.342 |
+| Late | 11 and 12/min | 678.0 / 663.6 s | 270.3 / 253.9 s | 3,856 / 3,781 m | 1.004 / 1.369 |
+| Night | 10/min | 620.2 / 617.9 s | 191.8 / 188.7 s | 4,472 / 4,492 m | 1.002 / 1.251 |
+
+Over all 300 pairs of arms, 9 drop-offs arms with the cap end after 3,600 seconds when the destination arm ends by 3,600 seconds.
+Each of the 9 arms runs above the 10-seed limits of both modes.
+They are Morning at 13/min with seed 4, AM peak at 14/min with seed 5, PM peak at 15/min with seeds 1 and 2, Evening at 14/min with seed 6, Late at 13/min with seed 1, and Night at 12/min with seeds 1, 5, and 10.
+In 35 other pairs, the drop-offs arm ends by 3,600 seconds and the destination arm does not.
+
+The heavy arm is PM peak at 12/min with seed 1.
+Another job used some of the host during the three runs of each arm with one worker.
+The median user time is 5.78 seconds with limit 1, 5.94 seconds in the destination mode, 6.01 seconds in the drop-offs mode with the cap, and 5.90 seconds without the cap.
+The drop-offs arm ends at 2,695 seconds with and without the cap, and the destination arm at 3,018 seconds.
+Thus the total grows by 1.2 percent, and the time for each simulated second grows by 2.8 percent.
+
+| Rule | Result with the cap |
+| --- | --- |
+| 1. With limit 1, each row and each snapshot hash is equal to the earlier code. | Met. The A/B harness finds equal rows and hashes for limit 1 and for the destination mode. |
+| 2. No London band limit is lower. | Met where the tested rates give the limits. No 10-seed drop-offs limit is lower than the destination limit. In Evening, both modes fail at 14/min and finish at 15/min, so the tested rates do not give the limit. |
+| 3. Envelope rule. | Met. At or below the drop-offs limit of each band, no drop-offs arm ends after 3,600 seconds when the destination arm ends by 3,600 seconds. The 9 regressions above the limits are given above. |
+| 4. The mean journey from 1/min to the limit rate is lower, and no band mean is more than 2 percent higher. | Met on the tested rates. The mean falls from 652.7 seconds to 627.1 seconds, and each band mean falls. |
+| 5. The mean detour ratio is at most 1.15 in each band, and the maximum is at most 1.5. | Met. The means are at most 1.027, and the maximum is 1.443. |
+| 6. The empty distance for each served request is at most 1.05 times the destination value in each band. | Met. The ratio is 0.82 to 1.004. |
+| 7. The CPU time of the heavy arm grows by less than 10 percent. | Met. The total grows by 1.2 percent. |
+
+With the cap and the envelope rule, the drop-offs mode meets the seven rules on this evidence.
+Rule 4 uses only the tested rates near the limits, and rule 2 does not decide the Evening limit.
+A change of the default mode changes the project contract, so this record does not change it.
+Sharing stays off by default, and the default mode stays `destination`.
+Raw results are in [`measurements/london-drop-offs-cap.csv`](measurements/london-drop-offs-cap.csv) and [`measurements/london-drop-offs-uncapped.csv`](measurements/london-drop-offs-uncapped.csv).
+The first file has the drop-offs rows with the cap for seeds 1 to 10 and the destination rows for seeds 4 to 10.
+The second file has the drop-offs rows without the cap for seeds 4 to 10.
+
 ### More London berths
 
 The scenario command can give London more berths.
