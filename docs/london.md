@@ -67,8 +67,7 @@ The search adds a penalty for each of these:
 - A crossing or overlap with another station.
 - A core lane that is nearer than 36 meters to a core lane of another station.
   This is the distance between the two directions of a guideway.
-- A different station whose TfL position is nearer to the berths than the TfL
-  position of the station.
+- A different station whose TfL position is nearer to the berths than the TfL position of the station.
 
 A heading that makes a road lane too short for project validation gets a much larger penalty.
 A small penalty increases with the angle from the middle of the free angle.
@@ -183,7 +182,7 @@ These limits also apply to an edit of the London project in the editor.
 The `serve` and `compare` commands read a `-project` file of 8 MiB or less.
 The generated file is indented, so it is about 3.3 MiB.
 Project validation also limits the compact JSON form of a project to 8 MiB, with room for the widest demand settings.
-In that form, the London project is about 1.5 MiB (1,591,018 bytes).
+In that form, the London project is about 1.5 MiB (1,591,041 bytes).
 The server writes the `-project` file in this form when it saves it.
 When the editor applies the project, it compresses the command with gzip, so it sends about 0.3 MiB.
 The server accepts a compressed command of 4 MiB or less, with 8 MiB plus 64 KiB of JSON or less after decompression.

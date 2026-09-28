@@ -11,7 +11,7 @@ Optional redistribution runs guarded positioning, which moves idle empty pods on
 It remains off by default.
 
 The rail-hub, London capacity envelope, same-destination sharing, drop-offs sharing, and first congestion-aware routing experiments are complete.
-The screen of the queue routing policy is also complete.
+The screen of the queue routing policy and the platoon screening are also complete.
 The first station-maneuver slice is complete: station lanes have explicit roles, pod snapshots expose the current phase, and the inspector names the maneuver.
 The scenario command sets the berths and berth pitch of the generated presets and the initial pods of the London preset.
 A layout check rejects lanes that come too near.
@@ -404,12 +404,14 @@ The default limit of one disables sharing.
 See [docs/qualification.md](docs/qualification.md#same-destination-sharing).
 
 The drop-offs mode, a part of step 3, is also available as an option.
-A party can join a boarding pod that passes its destination, and the pod stops there on its way.
+A party can join a boarding pod that passes its destination, or a pod that can add that destination as its last stop.
+The pod stops at each destination on its way.
 The stops do not change after the pod departs, and a pod with passengers does not pick up parties.
+A pod adds a stop only when the planned detour ratio of each party, new or aboard, is 1.5 or less.
 In London at a limit of 4, the mode raises five 60-minute band limits and lowers the journey time, the wait, and the empty distance in each band.
-It does not meet two of the seven adoption rules.
-Five arms end after 60 minutes when the same-destination arm ends within 60 minutes, and the largest detour ratio is 1.509.
-Thus the default mode stays same-destination sharing.
+The first measurement did not meet two of the seven adoption rules, because five arms ended late and the largest detour ratio was 1.509.
+With the detour cap and 10 seeds at the rates near the band limits, the mode meets the seven rules.
+A change of the default mode changes the project contract, so the default mode stays same-destination sharing.
 See [docs/qualification.md](docs/qualification.md#drop-offs-sharing-in-london).
 
 ### Railway and park-and-ride hubs
