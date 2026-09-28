@@ -375,7 +375,7 @@ The table gives the frames at 120 s.
 
 With a party limit above 1, each party that joined a pod adds a full order to the frame.
 Before, it added only to the `Parties` count.
-At 20 Hz, the largest London frame is 0.40 MB/s.
+At 20 Hz, the largest London frame in the table uses 0.44 MB/s.
 The data is in [`measurements/protocol-riders.csv`](measurements/protocol-riders.csv).
 
 ## Codec measurements
