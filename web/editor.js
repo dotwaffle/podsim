@@ -1629,12 +1629,7 @@
     let document;
     try { document = JSON.parse(text); } catch (error) { throw new Error(`The file is not valid JSON. ${error.message}`); }
     const { scenario, background } = unwrapDocument(document);
-    if (background) {
-      const item = background;
-      if (typeof item.dataURL !== "string" || !/^data:image\/(png|jpeg);base64,/.test(item.dataURL)) throw new Error("The background must be a PNG or JPEG data URL.");
-      for (const key of ["x", "y", "width", "height", "opacity"]) if (!Number.isFinite(item[key])) throw new Error(`The background ${key} value is invalid.`);
-      if (item.width <= 0 || item.height <= 0 || item.opacity < 0 || item.opacity > 1) throw new Error("The background dimensions or opacity are invalid.");
-    }
+    if (background) checkBackground(background);
     for (const pod of Array.isArray(scenario.fleet) ? scenario.fleet : []) {
       if (pod && !pod.BerthID) {
         const station = scenario.network?.Stations?.find((item) => item && item.ID === pod.StationID);
@@ -1655,7 +1650,24 @@
     // edited browser export can also leave out a field. Add them as the live
     // server project load does. The checks run first, so the default values
     // do not replace an invalid value.
-    return { scenario: normalizeConfig(scenario), background: background ? clone(background) : null };
+    return { scenario: normalizeConfig(scenario), background: background ? backgroundFields(background) : null };
+  }
+
+  // checkBackground throws an error when item is not a valid background: a
+  // PNG or JPEG data URL, a finite position, a positive size, and an
+  // opacity from 0 to 1. The project import and the restore of the stored
+  // background use it.
+  function checkBackground(item) {
+    if (item === null || typeof item !== "object" || Array.isArray(item)) throw new Error("The background must be an object.");
+    if (typeof item.dataURL !== "string" || !/^data:image\/(png|jpeg);base64,/.test(item.dataURL)) throw new Error("The background must be a PNG or JPEG data URL.");
+    for (const key of ["x", "y", "width", "height", "opacity"]) if (!Number.isFinite(item[key])) throw new Error(`The background ${key} value is invalid.`);
+    if (item.width <= 0 || item.height <= 0 || item.opacity < 0 || item.opacity > 1) throw new Error("The background dimensions or opacity are invalid.");
+  }
+
+  // backgroundFields gives a copy of the background fields of item, without
+  // other members.
+  function backgroundFields(item) {
+    return { dataURL: item.dataURL, x: item.x, y: item.y, width: item.width, height: item.height, opacity: item.opacity };
   }
 
   // createHistory keeps the draft with undo and redo. onChange runs after
@@ -2247,50 +2259,72 @@
   // this tab.
   const DRAFT_DISPLACED_TEXT = "Another editor tab replaced the saved draft. This browser saves the draft of this tab again after your next change.";
 
-  // openDraftStore gives a draft store that keeps records in IndexedDB.
-  // factory is the indexedDB object of the browser. get, put and delete
-  // give promises. A write ends when its transaction completes, so a quota
-  // error at the commit rejects the write. Without factory, the function
-  // gives null. When the database cannot open, each call rejects.
-  function openDraftStore(factory) {
+  // DRAFT_STORE and BACKGROUND_STORE name the IndexedDB database and the
+  // object store of the saved draft and of the stored background. Each has
+  // its own database at version 1. Thus a new store needs no version
+  // upgrade, which an open editor tab of an older version can block.
+  const DRAFT_STORE = { database: "podsim-editor", store: "drafts" };
+  const BACKGROUND_STORE = { database: "podsim-editor-backgrounds", store: "backgrounds" };
+
+  // openRecordStore gives a record store that keeps records in IndexedDB.
+  // factory is the indexedDB object of the browser, and names is
+  // DRAFT_STORE or BACKGROUND_STORE. get, put and delete give promises. A
+  // write ends when its transaction completes, so a quota error at the
+  // commit rejects the write. Without factory, the function gives null.
+  // When the database cannot open, each call rejects.
+  function openRecordStore(factory, names) {
     if (!factory) return null;
     let database = null;
     const open = () => database ??= new Promise((resolve, reject) => {
-      const request = factory.open("podsim-editor", 1);
-      request.onupgradeneeded = () => request.result.createObjectStore("drafts");
+      const request = factory.open(names.database, 1);
+      request.onupgradeneeded = () => request.result.createObjectStore(names.store);
       request.onsuccess = () => resolve(request.result);
       request.onerror = () => reject(request.error);
     });
     const run = async (mode, action) => {
       const db = await open();
       return new Promise((resolve, reject) => {
-        const transaction = db.transaction("drafts", mode); const request = action(transaction.objectStore("drafts"));
+        const transaction = db.transaction(names.store, mode); const request = action(transaction.objectStore(names.store));
         transaction.oncomplete = () => resolve(request.result);
-        transaction.onabort = () => reject(transaction.error || request.error || new Error("The draft transaction stopped."));
+        transaction.onabort = () => reject(transaction.error || request.error || new Error("The IndexedDB transaction stopped."));
       });
     };
     return {
-      get: (key) => run("readonly", (drafts) => drafts.get(key)),
-      put: (key, record) => run("readwrite", (drafts) => drafts.put(record, key)),
-      delete: (key) => run("readwrite", (drafts) => drafts.delete(key)),
+      get: (key) => run("readonly", (records) => records.get(key)),
+      put: (key, record) => run("readwrite", (records) => records.put(record, key)),
+      delete: (key) => run("readwrite", (records) => records.delete(key)),
     };
   }
 
   // createDraftKeeper saves the draft in a draft store, so that a reload or
-  // a closed tab does not lose it. keeper.store has get, put and delete, as
-  // openDraftStore gives, or is null. keeper.key names the one record.
+  // a closed tab does not lose it. The page also uses it to keep the
+  // background. keeper.store has get, put and delete, as openRecordStore
+  // gives, or is null. keeper.key names the one record.
   // keeper.snapshot gives the record to keep, or null when the draft has no
   // changes. Then the keeper deletes the record. schedule saves the draft
   // keeper.delay milliseconds after the last call, and keeper.clock holds
-  // setTimeout and clearTimeout. The writes end in the order of the calls.
+  // setTimeout and clearTimeout. Each put or delete waits for the write
+  // before it, so the writes commit in the order of the calls.
   //
   // The keeper does not write before arm. Thus load can read the saved
   // record, and the editor can offer it before a new draft replaces it.
-  // clear deletes the record also before arm. unsaved tells if the draft
-  // has changes that are not in the store. status is "ok", "off" without a
+  // replace arms the keeper and writes the snapshot at once, in one put or
+  // one delete, also when the store has the same text. Thus a discard or
+  // an apply never deletes the record and then puts a new one in a second
+  // write that can fail.
+  //
+  // unsaved tells if the draft has changes that are not in the store: a
+  // write is still in the queue, or the snapshot is not the text of the
+  // last write that the store committed. status is "ok", "off" without a
   // store or after a failed load, "failed" after a failed write, or "full"
   // after a write that the storage quota stopped. keeper.onStatus runs when
   // the status changes. After a failed load, the keeper does not write.
+  //
+  // For the draft, a snapshot of null is not an unsaved change, because
+  // the saved draft can wait for an offer. With keeper.deletes set, a
+  // snapshot of null after arm is an unsaved change until the delete of
+  // the record commits. The background keeper sets it, so a removed
+  // background that is still in the store keeps the unload question.
   //
   // Each editor tab of one server writes the same record. keeper.channel,
   // when given, tells the other tabs of each write. It is a BroadcastChannel,
@@ -2303,20 +2337,25 @@
     let store = keeper.store || null; let status = store ? "ok" : "off";
     let armed = false; let waiting = null; let writes = Promise.resolve();
     // stored is the JSON text of the record in the store, and queued is the
-    // text of the last queued write. An empty text is no record. A failed
-    // write sets queued to null, so the next flush writes again. A write of
-    // another tab sets stored and queued to null.
-    let stored = ""; let queued = "";
+    // text of the last queued write. An empty text is no record. Only a
+    // committed write sets stored. A failed write sets queued to null, so
+    // the next flush writes again. A write of another tab sets stored and
+    // queued to null. pending counts the writes in the queue.
+    let stored = ""; let queued = ""; let pending = 0;
     const channel = keeper.channel || null;
     const setStatus = (next) => { if (next === status) return; status = next; if (keeper.onStatus) keeper.onStatus(next); };
     const cancel = () => { if (waiting !== null) keeper.clock.clearTimeout(waiting); waiting = null; };
     const write = (text, action) => {
-      queued = text;
+      queued = text; pending += 1;
       writes = writes.then(action).then(
-        () => { stored = text; setStatus("ok"); if (channel) channel.postMessage({ key: keeper.key }); },
-        (error) => { queued = null; setStatus(error && error.name === "QuotaExceededError" ? "full" : "failed"); },
+        () => { pending -= 1; stored = text; setStatus("ok"); if (channel) channel.postMessage({ key: keeper.key }); },
+        (error) => { pending -= 1; queued = null; setStatus(error && error.name === "QuotaExceededError" ? "full" : "failed"); },
       );
       return writes;
+    };
+    const writeSnapshot = () => {
+      const record = keeper.snapshot(); const text = record ? JSON.stringify(record) : "";
+      return { text, run: () => write(text, () => (record ? store.put(keeper.key, record) : store.delete(keeper.key))) };
     };
     if (channel) {
       channel.addEventListener("message", (event) => {
@@ -2329,12 +2368,17 @@
     const flush = () => {
       cancel();
       if (!armed || !store) return writes;
-      const record = keeper.snapshot(); const text = record ? JSON.stringify(record) : "";
-      return text === queued ? writes : write(text, () => (record ? store.put(keeper.key, record) : store.delete(keeper.key)));
+      const next = writeSnapshot();
+      return next.text === queued ? writes : next.run();
     };
     return {
       get status() { return status; },
-      get unsaved() { const record = keeper.snapshot(); return Boolean(record) && (!store || JSON.stringify(record) !== stored); },
+      get unsaved() {
+        if (pending > 0) return true;
+        const record = keeper.snapshot();
+        if (!record) return Boolean(keeper.deletes && armed && store) && stored !== "";
+        return !store || JSON.stringify(record) !== stored;
+      },
       async load() {
         if (!store) return null;
         try {
@@ -2345,41 +2389,34 @@
       arm() { armed = true; return flush(); },
       schedule() { cancel(); if (armed && store) waiting = keeper.clock.setTimeout(flush, keeper.delay); },
       flush,
-      clear() { cancel(); return store ? write("", () => store.delete(keeper.key)) : writes; },
+      replace() { cancel(); armed = true; return store ? writeSnapshot().run() : writes; },
     };
   }
 
-  // draftChanges tells which parts of a draft differ from the live
-  // baseline. draft has scenario and background. live.scenario is the JSON
-  // text of the live scenario, and live.background is the background of the
-  // page at the load or the apply. Pause and apply sends only the scenario,
-  // so it needs a scenario change. The saved draft also keeps the
-  // background, with its calibration.
-  function draftChanges(draft, live) {
-    const place = (item) => (item ? [item.dataURL, item.x, item.y, item.width, item.height, item.opacity] : []);
-    const background = place(draft.background); const liveBackground = place(live.background);
-    return {
-      scenario: JSON.stringify(draft.scenario) !== live.scenario,
-      background: background.length !== liveBackground.length || background.some((value, index) => value !== liveBackground[index]),
-    };
+  // draftChanged tells if the scenario of draft differs from the live
+  // baseline. live.scenario is the JSON text of the live scenario. Pause
+  // and apply sends only the scenario, so it needs a scenario change. The
+  // background is not part of the saved draft. The page keeps it apart, as
+  // backgroundRecordFor gives it.
+  function draftChanged(draft, live) {
+    return JSON.stringify(draft.scenario) !== live.scenario;
   }
 
   // draftRecordFor gives the record that the keeper saves for draft: the
-  // scenario, the background with its calibration, and the revision, the
-  // epoch and the server start ID of base, the draft base. It gives null
-  // when live is null, which is before the load ends, and when the draft
-  // has no changes from the live baseline.
+  // scenario, and the revision, the epoch and the server start ID of base,
+  // the draft base. It gives null when live is null, which is before the
+  // load ends, and when the draft scenario is the live scenario.
   function draftRecordFor(draft, live, base) {
-    if (!live) return null;
-    const changes = draftChanges(draft, live);
-    return changes.scenario || changes.background ? { scenario: draft.scenario, background: draft.background, revision: base.revision, epoch: base.epoch, serverStart: base.serverStart } : null;
+    if (!live || !draftChanged(draft, live)) return null;
+    return { scenario: draft.scenario, revision: base.revision, epoch: base.epoch, serverStart: base.serverStart };
   }
 
   // draftOffer gives the saved draft that the editor offers to restore, or
   // null. record is the record that createDraftKeeper saved, and live is
-  // the live baseline, as draftChanges uses it. The editor offers a record
-  // that has a scenario object and differs from the live baseline. A
-  // background without a data URL does not count. revision is the project
+  // the live baseline, as draftChanged uses it. The editor offers a record
+  // that has a scenario object that differs from the live scenario. It
+  // ignores other members, such as the background that an older editor
+  // saved in the draft. revision is the project
   // revision that the draft started from, epoch is the session epoch of
   // that revision, and serverStart is the server start ID of that state.
   // A record from an older editor has no serverStart, so it gets an empty
@@ -2387,13 +2424,130 @@
   function draftOffer(record, live) {
     const isObject = (value) => value !== null && typeof value === "object" && !Array.isArray(value);
     if (!isObject(record) || !isObject(record.scenario)) return null;
-    const background = isObject(record.background) && typeof record.background.dataURL === "string" ? record.background : null;
-    const draft = { scenario: record.scenario, background };
-    const changes = draftChanges(draft, live);
-    if (!changes.scenario && !changes.background) return null;
+    const draft = { scenario: record.scenario };
+    if (!draftChanged(draft, live)) return null;
     const text = (value) => (typeof value === "string" ? value : "");
     return { draft, revision: Math.max(0, Math.floor(Number(record.revision) || 0)), epoch: text(record.epoch), serverStart: text(record.serverStart) };
   }
+
+  // backgroundRecordFor gives the record that the background keeper saves
+  // for background, the background of the page with its calibration and
+  // opacity. It gives null when the page has no background. Then the keeper
+  // deletes the record.
+  function backgroundRecordFor(background) {
+    return background ? { background: backgroundFields(background) } : null;
+  }
+
+  // storedBackground gives the background of record, a record that the
+  // background keeper saved, or null when there is no record. It throws an
+  // error when the record does not have a valid background.
+  function storedBackground(record) {
+    if (record === null || record === undefined) return null;
+    if (typeof record !== "object" || Array.isArray(record)) throw new Error("The stored background is not a record.");
+    checkBackground(record.background);
+    return backgroundFields(record.background);
+  }
+
+  // restoreStoredBackground puts the background of record, a record of the
+  // background store, on the page. The page blocks input until the restore
+  // ends, as startEditor does, so no background change of the user comes
+  // before it. page.install puts the background on the page, and page.warn
+  // tells the user of a record that is not valid. It gives true when it
+  // installs the background.
+  async function restoreStoredBackground(record, page) {
+    let background = null;
+    try { background = storedBackground(record); } catch (error) { page.warn(`${error.message} The browser deletes the stored background.`); return false; }
+    if (!background) return false;
+    page.install(background);
+    return true;
+  }
+
+  // STARTUP_EVENTS are the input events that blockInput stops while the
+  // editor starts.
+  const STARTUP_EVENTS = ["click", "change", "input", "keydown", "pointerdown", "pointerup", "wheel", "contextmenu"];
+
+  // createStartupGate gives the gate that holds the input of the user while
+  // the editor starts. closed is true until the first release. ready is a
+  // promise that resolves at the release. A second release does nothing.
+  // guard stops an event while the gate is closed, and tells if it stopped
+  // the event.
+  function createStartupGate() {
+    let closed = true; let open;
+    const ready = new Promise((resolve) => { open = resolve; });
+    return {
+      ready,
+      get closed() { return closed; },
+      guard(event) {
+        if (!closed) return false;
+        event.stopImmediatePropagation(); event.preventDefault(); return true;
+      },
+      release() { if (!closed) return; closed = false; open(); },
+    };
+  }
+
+  // blockInput stops the STARTUP_EVENTS of document while gate is closed.
+  // Its listeners are in the capture phase of document, so they run before
+  // the listeners of the page. A wheel listener of a document is passive
+  // by default, so the listeners are not passive. exempt tells if an event
+  // can pass. While the gate is closed, each element with the data-startup
+  // attribute is inert, and the body has aria-busy. At the release,
+  // blockInput removes the listeners, the inert attributes, the
+  // data-startup attributes and aria-busy. It gives a promise that
+  // resolves after the removal.
+  function blockInput(document, gate, exempt) {
+    const options = { capture: true, passive: false };
+    const stop = (event) => { if (!exempt(event)) gate.guard(event); };
+    const marked = [...document.querySelectorAll("[data-startup]")];
+    for (const type of STARTUP_EVENTS) document.addEventListener(type, stop, options);
+    for (const element of marked) element.setAttribute("inert", "");
+    document.body.setAttribute("aria-busy", "true");
+    return gate.ready.then(() => {
+      for (const type of STARTUP_EVENTS) document.removeEventListener(type, stop, options);
+      for (const element of marked) { element.removeAttribute("inert"); element.removeAttribute("data-startup"); }
+      document.body.removeAttribute("aria-busy");
+    });
+  }
+
+  // startupExempt tells if an input event can pass while the editor starts.
+  // An event on the Simulation link passes, so the user can leave the page.
+  // The Tab key passes, so the keyboard can get to the link.
+  function startupExempt(event) {
+    if (event.type === "keydown" && event.key === "Tab") return true;
+    const target = event.target;
+    return Boolean(target && typeof target.closest === "function" && target.closest("#simulationLink"));
+  }
+
+  // startEditor starts the editor page. page.readDraft reads the saved
+  // draft and page.readBackground reads the stored background, while
+  // page.loadLive loads the live scenario. Then page.restore puts the
+  // stored background on the page. The page blocks input until the live
+  // load and the restore end, so no change of the user can come before
+  // the live scenario or the stored background. page.release then opens
+  // the startup gate, also when a step fails, so the page does not stay
+  // blocked. After the release, page.armBackground starts the background
+  // keeper. The gate does not wait for the saved draft, so a draft store
+  // that does not answer does not stop the editor. page.offerDraft offers
+  // the saved draft when its read ends. The draft keeper does not save
+  // until the offer ends, so an edit before the offer cannot replace the
+  // saved draft. When a step fails, startEditor rejects with the error and
+  // does not start the background keeper, so the keeper cannot delete the
+  // stored background.
+  async function startEditor(page) {
+    const saved = page.readDraft(); const stored = page.readBackground();
+    try {
+      await page.loadLive();
+      await page.restore(await stored);
+    } finally { page.release(); }
+    await Promise.all([page.armBackground(), saved.then(page.offerDraft)]);
+  }
+
+  // BACKGROUND_STORE_TEXT tells the user when the browser does not keep the
+  // background, for each status of the background keeper that is not "ok".
+  const BACKGROUND_STORE_TEXT = {
+    off: "This browser cannot keep the background. Export the project to keep it.",
+    failed: "This browser could not save the background. Export the project to keep it.",
+    full: "The browser storage is full, so the background is not saved. Export the project to keep it.",
+  };
 
   // DRAFT_RESTART_TEXT tells the user that the saved draft is from before
   // a server restart, and what Pause and apply then does.
@@ -2447,7 +2601,7 @@
     problemCountText, createCheckTimer, validationSummary, checkFocusKey, IMAGE_FILE_BYTES, SERVER_PROJECT_BYTES, PROJECT_FILE_BYTES, SERVER_COMMAND_BYTES, SERVER_COMMAND_JSON_BYTES, GZIP_COMMAND_BYTES, SERVER_TOO_LARGE_TEXT, postCommand, dataURLBytes, serializeDocument, parseDocument, createHistory,
     networkBounds, fitView, zoomScale, nodeLabelSize, pairedLaneIDs, showsChevron, laneOffset, laneCurve, lanePathData, SNAPSHOT_ATTEMPTS, snapshotConsistent, draftBeforeRestart, readState, readSnapshot, applyToServer, applyFailureText, applyFailureStatus, applyToast,
     readLive, readConflict, CONFLICT_UNLOADED_TEXT, conflictView, LOAD_LIVE_QUESTION, applyOverQuestion, loadLive, liveDraft, applyOverBase,
-    DRAFT_SAVE_DELAY, DRAFT_STORE_TEXT, DRAFT_UNSAVED_TEXT, DRAFT_DISPLACED_TEXT, openDraftStore, createDraftKeeper, draftChanges, draftRecordFor, draftOffer, DRAFT_RESTART_TEXT, draftOfferText, RESTORED_RESTART_TEXT, restoreStatusText, shellPage,
+    DRAFT_SAVE_DELAY, DRAFT_STORE_TEXT, DRAFT_UNSAVED_TEXT, DRAFT_DISPLACED_TEXT, DRAFT_STORE, BACKGROUND_STORE, openRecordStore, createDraftKeeper, draftChanged, draftRecordFor, draftOffer, backgroundRecordFor, storedBackground, restoreStoredBackground, STARTUP_EVENTS, createStartupGate, blockInput, startupExempt, startEditor, BACKGROUND_STORE_TEXT, checkBackground, DRAFT_RESTART_TEXT, draftOfferText, RESTORED_RESTART_TEXT, restoreStatusText, shellPage,
   };
   if (typeof module !== "undefined" && module.exports) module.exports = API;
   root.PodsimEditorModel = API;
@@ -2463,11 +2617,24 @@
   // after the last draft change. It keeps one record for each server origin,
   // and tells the other editor tabs of each write.
   const keeper = createDraftKeeper({
-    store: openDraftStore(draftDatabase()), key: root.location.origin, delay: DRAFT_SAVE_DELAY, clock: root, snapshot: draftRecord,
+    store: openRecordStore(draftDatabase(), DRAFT_STORE), key: root.location.origin, delay: DRAFT_SAVE_DELAY, clock: root, snapshot: draftRecord,
     channel: draftChannel(), onStatus: showDraftStatus, onDisplaced: showDraftDisplaced,
   });
+  // backgroundKeeper keeps the background of the page in this browser,
+  // apart from the draft, so a reload after an apply still shows it. It
+  // keeps one record for each server origin, as the draft keeper does. It
+  // writes when the background changes, also after an undo, a redo, a
+  // project import and Reset draft. A page with no background deletes the
+  // record, and the unload question stays until the delete commits. All
+  // editor tabs of one server share the record, and the last background
+  // change of a tab replaces it. It has no channel, so a tab writes only
+  // when its own background changes.
+  const backgroundKeeper = createDraftKeeper({
+    store: openRecordStore(draftDatabase(), BACKGROUND_STORE), key: root.location.origin, delay: DRAFT_SAVE_DELAY, clock: root,
+    snapshot: () => backgroundRecordFor(state.history.value.background), onStatus: showBackgroundStatus, deletes: true,
+  });
   const state = {
-    history: createHistory({ scenario: emptyConfig(), background: null }, () => { checks.schedule(); keeper.schedule(); }),
+    history: createHistory({ scenario: emptyConfig(), background: null }, () => { checks.schedule(); keeper.schedule(); backgroundKeeper.schedule(); }),
     background: null,
     loaded: null,
     loadedRevision: 0,
@@ -2482,8 +2649,8 @@
     // refreshing is true while the page reads the live state for
     // refreshLiveStart.
     refreshing: false,
-    // live is the live baseline for draftChanges. It has the scenario text
-    // and the background after the load or the last apply, and revision,
+    // live is the live baseline for draftChanged. It has the scenario text
+    // after the load or the last apply, and revision,
     // the live project revision, or null when the live scenario did not
     // load. It is null until the load ends.
     live: null,
@@ -2882,16 +3049,16 @@
   // renderApply last. It also disables the apply conflict actions while an
   // apply or a conflict action runs.
   function renderApply() {
-    const changed = Boolean(state.live) && draftChanges({ scenario: draft() }, state.live).scenario;
+    const changed = Boolean(state.live) && draftChanged({ scenario: draft() }, state.live);
     const button = $("#applyButton"); button.disabled = state.applying || !changed;
     button.title = changed || state.applying ? "" : "The draft has no changes to apply.";
     $("#loadLiveButton").disabled = state.applying; $("#applyOverButton").disabled = state.applying;
   }
 
-  // setLive keeps the scenario and the background of value as the live
-  // baseline, with the live project revision.
+  // setLive keeps the scenario of value as the live baseline, with the live
+  // project revision.
   function setLive(value, revision) {
-    state.live = { scenario: JSON.stringify(value.scenario), background: value.background ? clone(value.background) : null, revision };
+    state.live = { scenario: JSON.stringify(value.scenario), revision };
     renderApply();
   }
 
@@ -2913,6 +3080,28 @@
     const live = state.live && state.live.revision !== null ? `Live revision ${state.live.revision}. ` : "";
     updateStatus(`${live}${DRAFT_STORE_TEXT[status]}`);
     if (status !== "ok") toast(DRAFT_STORE_TEXT[status], true);
+  }
+
+  // showBackgroundStatus shows the error toast when the browser does not
+  // keep the background.
+  function showBackgroundStatus(status) {
+    if (status !== "ok") toast(BACKGROUND_STORE_TEXT[status], true);
+  }
+
+  // restoreBackground puts the stored background of record on the page, as
+  // restoreStoredBackground does. The background is part of the loaded
+  // project, so Reset draft keeps it. The undo history starts again from
+  // the draft with the background, so no undo step removes it. A record
+  // that is not valid shows the error toast, and the background keeper
+  // then deletes it.
+  function restoreBackground(record) {
+    return restoreStoredBackground(record, {
+      warn: (message) => toast(message, true),
+      install: (background) => {
+        state.loaded.background = clone(background);
+        state.history.reset({ scenario: draft(), background }); render(); fitNetwork();
+      },
+    });
   }
 
   // showDraftDisplaced tells the user that another editor tab replaced the
@@ -2972,6 +3161,7 @@
   }
 
   // restoreDraft puts the saved draft back and starts a new undo history.
+  // The page keeps its background, because the draft does not have it.
   // The draft keeps the revision, the epoch and the server start ID that it
   // started from, so a later offer names them. Pause and apply sends the
   // live revision of this page, so it replaces the live scenario. It also
@@ -2982,16 +3172,16 @@
     if (!state.offer) return;
     const { draft: saved, revision, epoch, serverStart } = state.offer; closeOffer(event);
     state.draftBase = { revision, epoch, serverStart };
-    state.history.reset({ scenario: normalizeConfig(saved.scenario), background: saved.background ? clone(saved.background) : null });
+    state.history.reset({ scenario: normalizeConfig(saved.scenario), background: state.background });
     state.selection = null; render(); fitNetwork(); checks.run(); keeper.arm();
     updateStatus(restoreStatusText({ revision, live: state.live.revision, serverStart, liveStart: state.liveStart }));
     toast("The saved draft is restored.");
   }
 
-  // discardDraft deletes the saved draft. The keeper then saves the
-  // current draft when it has changes.
+  // discardDraft replaces the saved draft with the current draft in one
+  // write: a delete, or a put when the draft has changes.
   function discardDraft(event) {
-    closeOffer(event); keeper.clear(); keeper.arm(); toast("The saved draft is discarded.");
+    closeOffer(event); keeper.replace(); toast("The saved draft is discarded.");
   }
 
   // renderTools marks the button of the active tool as pressed. The
@@ -3141,18 +3331,16 @@
     $(".map-panel").scrollIntoView({ block: "nearest" });
   }
 
-  // loadServerProject loads the live scenario as the draft, and reads the
-  // saved draft of this browser at the same time. The live scenario does
-  // not wait for the saved draft, so a draft store that does not answer
-  // does not stop the editor. The live baseline is the draft after the
-  // first render, because renderDemand can set the demand destination.
-  // When the live scenario cannot load, the local fallback draft is the
-  // baseline. Then the editor offers a saved draft that is different.
-  // readLive gives the live scenario with the revision, the epoch and the
-  // server start ID of the same server state.
+  // loadServerProject loads the live scenario as the draft, as startEditor
+  // calls it. The live baseline is the draft after the first render,
+  // because renderDemand can set the demand destination. When the live
+  // scenario cannot load, the local fallback draft is the baseline. Then
+  // the editor offers a saved draft that is different. readLive gives the
+  // live scenario with the revision, the epoch and the server start ID of
+  // the same server state. The load ignores a background in a saved draft
+  // of an older editor.
   async function loadServerProject() {
     updateStatus("Loading the live scenario…");
-    const saved = keeper.load();
     try {
       const live = await readLive(state.connection);
       state.loadedRevision = live.revision; state.connection.epoch = live.epoch; state.loadedStart = live.serverStart;
@@ -3169,13 +3357,13 @@
       state.loaded = { scenario: fallbackConfig(), background: null }; state.history.reset(state.loaded);
       updateStatus("The live scenario could not load. This draft is local."); render(); setLive(state.history.value, null); fitNetwork(); toast(`Load failed. ${error.message}`, true);
     }
-    offerDraft(await saved);
   }
 
   // applyProject applies the draft to the live session. The keeper saves
   // the draft first, so a failed apply does not lose it. A successful apply
-  // makes the draft the live baseline and deletes the saved draft. While
-  // the saved draft offer shows, the keeper does not save. Then the apply
+  // makes the draft the live baseline and deletes the saved draft, in one
+  // replace write. The background keeper keeps the background. While the
+  // saved draft offer shows, the keeper does not save. Then the apply
   // keeps the saved draft, and the offer names the new live revision.
   // After a conflict, the page shows the apply conflict actions. base has
   // the revision and the server start ID that the apply sends. Only a
@@ -3193,7 +3381,7 @@
       state.loadedRevision = applied.revision; state.loadedStart = serverStart; state.draftBase = { revision: applied.revision, epoch: state.connection.epoch, serverStart };
       state.loaded = { scenario: project, background: state.background ? clone(state.background) : null };
       setLive(state.loaded, applied.revision); renderOffer(); showConflict(null);
-      if (!state.offer) { keeper.clear(); keeper.arm(); }
+      if (!state.offer) keeper.replace();
       updateStatus(`Applied revision ${state.loadedRevision}. The simulation is paused.`); toast(...applyToast(applied));
     } catch (error) {
       // note tells the user when a reload loses the draft. Another failure
@@ -3249,11 +3437,11 @@
   // replaced draft.
   function loadLiveScenario(event) {
     return runConflictAction(event, async () => {
-      const live = await loadLive({ connection: state.connection, changed: draftChanges(state.history.value, state.live).scenario, confirm: (text) => root.confirm(text) });
+      const live = await loadLive({ connection: state.connection, changed: draftChanged(state.history.value, state.live), confirm: (text) => root.confirm(text) });
       return live && (() => {
         const { value, ...page } = liveDraft(live, state); Object.assign(state, page);
         state.history.replace(value); state.selection = null;
-        render(); setLive({ scenario: draft(), background: state.live ? state.live.background : null }, live.revision);
+        render(); setLive({ scenario: draft() }, live.revision);
         showConflict(null); renderOffer(); fitNetwork(); checks.run(); keeper.flush();
         updateStatus(`Live revision ${live.revision}. The draft is the live scenario.`); toast("The live scenario replaced the draft.");
       });
@@ -3306,7 +3494,7 @@
     const reader = new FileReader(); reader.onerror = () => toast("The image could not be read.", true);
     reader.onload = () => {
       const image = new Image(); image.onerror = () => toast("The image is not a valid PNG or JPEG.", true);
-      image.onload = () => { setBackground({ dataURL: String(reader.result), x: 0, y: 0, width: image.naturalWidth, height: image.naturalHeight, opacity: .45 }); fitNetwork(); toast("The background stays in this browser until you export the project."); };
+      image.onload = () => { setBackground({ dataURL: String(reader.result), x: 0, y: 0, width: image.naturalWidth, height: image.naturalHeight, opacity: .45 }); fitNetwork(); toast(backgroundKeeper.status === "ok" ? "This browser keeps the background for this server. Export the project to use it in another browser." : BACKGROUND_STORE_TEXT[backgroundKeeper.status], backgroundKeeper.status !== "ok"); };
       image.src = String(reader.result);
     };
     reader.readAsDataURL(file);
@@ -3346,11 +3534,11 @@
       event.preventDefault(); shell.postMessage({ podsim: "show", view: "game", keyboard: event.detail === 0 }, root.location.origin);
     });
     // The browser asks before you leave or reload the page only when the
-    // draft has changes that are not in the draft store. A waiting save
-    // starts now. It is not in the store yet, so the prompt still shows.
+    // draft or the background has changes that are not in their store. A
+    // waiting save starts now. It is not in the store yet, so the prompt still shows.
     state.connection.onServerStart = observeServerStart;
     root.addEventListener("focus", refreshLiveStart);
-    root.addEventListener("beforeunload", (event) => { keeper.flush(); if (keeper.unsaved) { event.preventDefault(); event.returnValue = ""; } });
+    root.addEventListener("beforeunload", (event) => { keeper.flush(); backgroundKeeper.flush(); if (keeper.unsaved || backgroundKeeper.unsaved) { event.preventDefault(); event.returnValue = ""; } });
     $("#problemCount").addEventListener("click", showChecks);
     $("#validationList").addEventListener("click", (event) => { const button = event.target.closest("button[data-type]"); if (button) selectCheck({ type: button.dataset.type, id: button.dataset.id }); });
     $("#exportButton").addEventListener("click", exportProject); $("#projectImport").addEventListener("change", (event) => { importProject(event.target.files[0]); event.target.value = ""; });
@@ -3427,5 +3615,14 @@
     });
   }
 
-  bindEvents(); render(); loadServerProject();
+  // The startup gate blocks input until the live scenario and the stored
+  // background are on the page. See startEditor. When a startup step
+  // fails, the error toast tells the user to reload the page.
+  const gate = createStartupGate();
+  blockInput(document, gate, startupExempt);
+  bindEvents(); render();
+  startEditor({
+    readDraft: () => keeper.load(), readBackground: () => backgroundKeeper.load(), loadLive: loadServerProject, restore: restoreBackground,
+    release: gate.release, armBackground: () => backgroundKeeper.arm(), offerDraft,
+  }).catch((error) => toast(`The editor could not start. ${error.message} Reload the page.`, true));
 })(typeof window !== "undefined" ? window : globalThis);

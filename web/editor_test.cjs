@@ -2802,7 +2802,7 @@ test("Apply over sends the project command with the live revision, epoch and ser
 });
 
 test("Load live scenario replaces the base and clears the unsaved changes after the user agrees", async () => {
-  const baseline = { scenario: JSON.stringify(connectedScenario()), background: null, revision: 3 };
+  const baseline = { scenario: JSON.stringify(connectedScenario()), revision: 3 };
   const oldBase = { revision: 3, epoch: "epoch-1", serverStart: "start-1" };
   const changed = { scenario: { ...connectedScenario(), name: "Changed" }, background: null };
   const cases = [
@@ -2816,7 +2816,7 @@ test("Load live scenario replaces the base and clears the unsaved changes after 
     const session = conflictSession({ project: liveProject }); restartServer(session.server.live);
     const questions = [];
     const live = await editor.loadLive({
-      connection: session.connection, changed: editor.draftChanges(item.draft, baseline).scenario,
+      connection: session.connection, changed: editor.draftChanged(item.draft, baseline),
       confirm: (text) => { questions.push(text); return item.answer; },
     });
     assert.deepEqual(questions, item.wantQuestions, item.name);
@@ -2833,9 +2833,9 @@ test("Load live scenario replaces the base and clears the unsaved changes after 
     assert.deepEqual([page.value.scenario.name, page.loaded.scenario.name], ["Live", "Live"], `${item.name}: the draft is the live project`);
     assert.deepEqual([page.value.background, page.loaded.background], [background, background], `${item.name}: the background stays`);
     assert.notEqual(page.value.scenario, page.loaded.scenario, `${item.name}: the draft and the base are copies`);
-    const liveBaseline = { scenario: JSON.stringify(live.project), background, revision: live.revision };
+    const liveBaseline = { scenario: JSON.stringify(live.project), revision: live.revision };
     assert.equal(editor.draftRecordFor(page.value, liveBaseline, page.draftBase), null, `${item.name}: no unsaved changes`);
-    assert.deepEqual(editor.draftChanges(page.value, liveBaseline), { scenario: false, background: false }, item.name);
+    assert.equal(editor.draftChanged(page.value, liveBaseline), false, item.name);
   }
 });
 
@@ -2862,10 +2862,13 @@ test("after session_changed, the next command uses the new epoch", async () => {
 // DRAFT_KEY is the record key of the keeper tests, a server origin.
 const DRAFT_KEY = "http://podsim.test";
 
+// TEST_BACKGROUND is a background with a calibration and an opacity.
+const TEST_BACKGROUND = { dataURL: "data:image/png;base64,AAAA", x: -10, y: 5, width: 400, height: 200, opacity: 0.45 };
+
 // savedRecord gives a draft record, as the editor saves it, with a scenario
 // name that the tests can check.
 function savedRecord(name, revision = 3) {
-  return { scenario: { ...connectedScenario(), name }, background: null, revision, epoch: "epoch-1", serverStart: "start-1" };
+  return { scenario: { ...connectedScenario(), name }, revision, epoch: "epoch-1", serverStart: "start-1" };
 }
 
 // fakeDraftStore gives a draft store for createDraftKeeper that keeps the
@@ -2956,7 +2959,7 @@ test("the keeper keeps the saved draft until a restore or a discard, and clears 
       name: "discard with no edits",
       steps: [
         { name: "load", call: "load", calls: ["get"], saved: "Saved", unsaved: false },
-        { name: "discard deletes the saved draft", call: "clear", calls: ["delete"], saved: null, unsaved: false },
+        { name: "discard deletes the saved draft", call: "replace", calls: ["delete"], saved: null, unsaved: false },
         { name: "arm with no changes", call: "arm", saved: null, unsaved: false },
       ],
     },
@@ -2964,8 +2967,8 @@ test("the keeper keeps the saved draft until a restore or a discard, and clears 
       name: "discard after an edit",
       steps: [
         ...hold,
-        { name: "discard deletes the saved draft", call: "clear", calls: ["delete"], saved: null, unsaved: true },
-        { name: "arm saves the edit", call: "arm", calls: ["put"], saved: "Edit", unsaved: false },
+        { name: "discard replaces the saved draft with the edit in one put", call: "replace", calls: ["put"], saved: "Edit", unsaved: false },
+        { name: "arm after the discard", call: "arm", saved: "Edit", unsaved: false },
       ],
     },
     {
@@ -2974,7 +2977,7 @@ test("the keeper keeps the saved draft until a restore or a discard, and clears 
         { name: "load", call: "load", calls: ["get"], saved: "Saved" },
         { name: "restore", call: "arm", record: savedRecord("Saved"), saved: "Saved", unsaved: false },
         { name: "an edit", record: savedRecord("Edit"), call: "schedule", wait: delay, calls: ["put"], saved: "Edit" },
-        { name: "an apply clears the saved draft", record: null, call: "clear", calls: ["delete"], saved: null, unsaved: false },
+        { name: "an apply deletes the saved draft", record: null, call: "replace", calls: ["delete"], saved: null, unsaved: false },
         { name: "arm after the apply", call: "arm", saved: null, unsaved: false },
         { name: "an edit after the apply", record: savedRecord("Next"), call: "schedule", wait: delay, calls: ["put"], saved: "Next", unsaved: false },
       ],
@@ -2985,7 +2988,7 @@ test("the keeper keeps the saved draft until a restore or a discard, and clears 
         { name: "load", call: "load", calls: ["get"], saved: "Saved" },
         { name: "arm with the saved draft", record: savedRecord("Saved"), call: "arm", saved: "Saved" },
         { name: "an edit waits for the delay", record: savedRecord("Edit"), call: "schedule", wait: delay - 1, saved: "Saved", unsaved: true },
-        { name: "clear cancels the wait and deletes the saved draft", call: "clear", wait: delay, calls: ["delete"], saved: null, unsaved: true },
+        { name: "the apply cancels the wait and deletes the saved draft", record: null, call: "replace", wait: delay, calls: ["delete"], saved: null, unsaved: false },
       ],
     },
   ];
@@ -3007,7 +3010,7 @@ test("a failed draft save gives a status and does not throw", async (t) => {
       steps: [
         { name: "load", call: "load", status: "off", unsaved: false },
         { name: "arm with a change", record: savedRecord("A"), call: "arm", wait: 1000, status: "off", unsaved: true },
-        { name: "clear", call: "clear", status: "off", unsaved: true },
+        { name: "replace", call: "replace", status: "off", unsaved: true },
         { name: "no changes", record: null, call: "flush", status: "off", unsaved: false },
       ],
     },
@@ -3032,7 +3035,7 @@ test("a failed draft save gives a status and does not throw", async (t) => {
       steps: [
         { name: "load", call: "load", calls: ["get"], status: "ok" },
         { name: "a save", record: savedRecord("A"), call: "arm", calls: ["put"], saved: "A", status: "ok", unsaved: false },
-        { name: "a failed delete", call: "clear", calls: ["delete"], saved: "A", status: "failed", unsaved: false },
+        { name: "a failed delete", record: null, call: "replace", calls: ["delete"], saved: "A", status: "failed", unsaved: false },
         { name: "a new change saves again", record: savedRecord("B"), call: "flush", calls: ["put"], saved: "B", status: "ok", unsaved: false },
       ],
     },
@@ -3048,13 +3051,14 @@ test("a failed draft save gives a status and does not throw", async (t) => {
 });
 
 // fakeIndexedDB gives an indexedDB object with the calls that
-// openDraftStore uses. Each request and each transaction ends in a later
-// task, as in a browser. options.openError fails the open, and
-// options.commitError aborts each readwrite transaction.
+// openRecordStore uses. Each request and each transaction ends in a later
+// task, as in a browser. Each database name has its own object stores.
+// options.openError fails the open, and options.commitError aborts each
+// readwrite transaction.
 function fakeIndexedDB(options = {}) {
-  const stores = new Map(); const log = [];
+  const databases = new Map(); const log = [];
   const later = (callback) => setImmediate(callback);
-  const database = {
+  const makeDatabase = (stores) => ({
     createObjectStore(name) { log.push(`create ${name}`); stores.set(name, new Map()); },
     transaction(name, mode) {
       const data = stores.get(name); const transaction = { error: null };
@@ -3075,15 +3079,17 @@ function fakeIndexedDB(options = {}) {
       });
       return transaction;
     },
-  };
+  });
   return {
-    log, stores,
+    log, databases,
     open(name, version) {
       log.push(`open ${name} ${version}`); const request = {};
       later(() => {
         if (options.openError) { request.error = options.openError; request.onerror(); return; }
-        request.result = database;
-        if (!stores.size) request.onupgradeneeded();
+        const upgrade = !databases.has(name);
+        if (upgrade) databases.set(name, new Map());
+        request.result = makeDatabase(databases.get(name));
+        if (upgrade) request.onupgradeneeded();
         request.onsuccess();
       });
       return request;
@@ -3091,12 +3097,12 @@ function fakeIndexedDB(options = {}) {
   };
 }
 
-test("the IndexedDB draft store saves, reads and deletes one record, and rejects a failed commit", async (t) => {
-  assert.equal(editor.openDraftStore(null), null);
-  assert.equal(editor.openDraftStore(undefined), null);
+test("the IndexedDB record stores save, read and delete one record, and reject a failed commit", async (t) => {
+  assert.equal(editor.openRecordStore(null, editor.DRAFT_STORE), null);
+  assert.equal(editor.openRecordStore(undefined, editor.BACKGROUND_STORE), null);
 
   await t.test("a record round trips", async () => {
-    const factory = fakeIndexedDB(); const store = editor.openDraftStore(factory);
+    const factory = fakeIndexedDB(); const store = editor.openRecordStore(factory, editor.DRAFT_STORE);
     assert.equal(await store.get(DRAFT_KEY), undefined);
     await store.put(DRAFT_KEY, savedRecord("A"));
     assert.deepEqual(await store.get(DRAFT_KEY), savedRecord("A"));
@@ -3105,16 +3111,26 @@ test("the IndexedDB draft store saves, reads and deletes one record, and rejects
     assert.deepEqual(factory.log, ["open podsim-editor 1", "create drafts"]);
   });
 
+  await t.test("the draft and the background have their own database at version 1", async () => {
+    const factory = fakeIndexedDB();
+    const drafts = editor.openRecordStore(factory, editor.DRAFT_STORE); const backgrounds = editor.openRecordStore(factory, editor.BACKGROUND_STORE);
+    const record = editor.backgroundRecordFor(TEST_BACKGROUND);
+    await drafts.put(DRAFT_KEY, savedRecord("A")); await backgrounds.put(DRAFT_KEY, record);
+    await drafts.delete(DRAFT_KEY);
+    assert.deepEqual([await drafts.get(DRAFT_KEY), await backgrounds.get(DRAFT_KEY)], [undefined, record]);
+    assert.deepEqual(factory.log, ["open podsim-editor 1", "create drafts", "open podsim-editor-backgrounds 1", "create backgrounds"]);
+  });
+
   const quota = new DOMException("The quota is used.", "QuotaExceededError");
   await t.test("a quota error at the commit rejects the write", async () => {
-    const factory = fakeIndexedDB({ commitError: quota }); const store = editor.openDraftStore(factory);
+    const factory = fakeIndexedDB({ commitError: quota }); const store = editor.openRecordStore(factory, editor.DRAFT_STORE);
     await assert.rejects(store.put(DRAFT_KEY, savedRecord("A")), (error) => error === quota);
     assert.equal(await store.get(DRAFT_KEY), undefined);
   });
 
   await t.test("a failed open rejects each call", async () => {
     const failure = new DOMException("The database is closed.", "UnknownError");
-    const store = editor.openDraftStore(fakeIndexedDB({ openError: failure }));
+    const store = editor.openRecordStore(fakeIndexedDB({ openError: failure }), editor.DRAFT_STORE);
     for (const call of [() => store.get(DRAFT_KEY), () => store.put(DRAFT_KEY, savedRecord("A")), () => store.delete(DRAFT_KEY)]) {
       await assert.rejects(call(), (error) => error === failure);
     }
@@ -3123,7 +3139,7 @@ test("the IndexedDB draft store saves, reads and deletes one record, and rejects
   await t.test("the keeper reports the full storage of IndexedDB", async () => {
     const statuses = [];
     const keeper = editor.createDraftKeeper({
-      store: editor.openDraftStore(fakeIndexedDB({ commitError: quota })), key: DRAFT_KEY, delay: editor.DRAFT_SAVE_DELAY, clock: globalThis,
+      store: editor.openRecordStore(fakeIndexedDB({ commitError: quota }), editor.DRAFT_STORE), key: DRAFT_KEY, delay: editor.DRAFT_SAVE_DELAY, clock: globalThis,
       snapshot: () => savedRecord("A"), onStatus: (status) => statuses.push(status),
     });
     assert.equal(await keeper.load(), null);
@@ -3132,46 +3148,343 @@ test("the IndexedDB draft store saves, reads and deletes one record, and rejects
   });
 });
 
-test("Pause and apply needs a scenario change, and the saved draft also keeps the background", () => {
-  const background = { dataURL: "data:image/png;base64,AAAA", x: 0, y: 0, width: 400, height: 200, opacity: 0.45 };
+test("Pause and apply and the saved draft need a scenario change, and a background change is not a draft change", () => {
   const scenario = connectedScenario();
-  const live = { scenario: JSON.stringify(scenario), background: null };
+  const live = { scenario: JSON.stringify(scenario), revision: 3 };
+  const base = { revision: 3, epoch: "epoch-1", serverStart: "start-1" };
   const cases = [
-    { name: "the live scenario", draft: { scenario: connectedScenario(), background: null }, live, want: { scenario: false, background: false } },
-    { name: "a changed scenario", draft: { scenario: { ...scenario, name: "Changed" }, background: null }, live, want: { scenario: true, background: false } },
-    { name: "a new background", draft: { scenario, background }, live, want: { scenario: false, background: true } },
-    { name: "the same background", draft: { scenario, background: { ...background } }, live: { ...live, background }, want: { scenario: false, background: false } },
-    { name: "a calibrated background", draft: { scenario, background: { ...background, width: 800, height: 400 } }, live: { ...live, background }, want: { scenario: false, background: true } },
-    { name: "a new opacity", draft: { scenario, background: { ...background, opacity: 0.8 } }, live: { ...live, background }, want: { scenario: false, background: true } },
-    { name: "a removed background", draft: { scenario, background: null }, live: { ...live, background }, want: { scenario: false, background: true } },
+    { name: "the live scenario", draft: { scenario: connectedScenario(), background: null }, want: false },
+    { name: "a changed scenario", draft: { scenario: { ...scenario, name: "Changed" }, background: null }, want: true },
+    { name: "a new background", draft: { scenario, background: TEST_BACKGROUND }, want: false },
+    { name: "a changed scenario and a background", draft: { scenario: { ...scenario, name: "Changed" }, background: TEST_BACKGROUND }, want: true },
   ];
-  for (const item of cases) assert.deepEqual(editor.draftChanges(item.draft, item.live), item.want, item.name);
+  for (const item of cases) {
+    assert.equal(editor.draftChanged(item.draft, live), item.want, item.name);
+    const record = editor.draftRecordFor(item.draft, live, base);
+    assert.deepEqual(record && Object.keys(record), item.want ? ["scenario", "revision", "epoch", "serverStart"] : null, `${item.name}: the saved draft has no background`);
+  }
+});
+
+test("the background record keeps only the background fields, and a restore checks it", () => {
+  assert.equal(editor.backgroundRecordFor(null), null, "no background deletes the record");
+  const record = editor.backgroundRecordFor({ ...TEST_BACKGROUND, note: "extra" });
+  assert.deepEqual(record, { background: TEST_BACKGROUND });
+  assert.deepEqual(editor.storedBackground(structuredClone(record)), TEST_BACKGROUND);
+  assert.equal(editor.storedBackground(undefined), null, "no record");
+  assert.equal(editor.storedBackground(null), null, "no record");
+  const bad = [
+    { name: "a record that is not an object", record: "background", want: /not a record/ },
+    { name: "a record without a background", record: {}, want: /must be an object/ },
+    { name: "a text data URL", record: { background: { ...TEST_BACKGROUND, dataURL: "data:text/html;base64,AAAA" } }, want: /PNG or JPEG data URL/ },
+    { name: "a position that is not finite", record: { background: { ...TEST_BACKGROUND, x: null } }, want: /x value is invalid/ },
+    { name: "a zero width", record: { background: { ...TEST_BACKGROUND, width: 0 } }, want: /dimensions or opacity/ },
+    { name: "an opacity above 1", record: { background: { ...TEST_BACKGROUND, opacity: 2 } }, want: /dimensions or opacity/ },
+  ];
+  for (const item of bad) assert.throws(() => editor.storedBackground(item.record), item.want, item.name);
+});
+
+test("a background keeper counts a pending or failed delete as unsaved until the delete commits", async (t) => {
+  const broken = new Error("The disk failed.");
+  // gated gives a store whose delete waits for release, or rejects with
+  // broken when fail is set.
+  const gated = (fail) => {
+    const store = fakeDraftStore(); let release = null;
+    const remove = store.delete;
+    store.delete = (key) => (fail ? (store.calls.push("delete"), Promise.reject(broken)) : new Promise((resolve) => { release = () => resolve(remove(key)); }));
+    return { store, release: () => release() };
+  };
+  for (const fail of [false, true]) {
+    await t.test(fail ? "a rejected delete" : "a delayed delete", async () => {
+      const { store, release } = gated(fail); store.records.set(DRAFT_KEY, editor.backgroundRecordFor(TEST_BACKGROUND));
+      const page = { background: TEST_BACKGROUND };
+      const keeper = editor.createDraftKeeper({
+        store, key: DRAFT_KEY, delay: editor.DRAFT_SAVE_DELAY, clock: globalThis, deletes: true,
+        snapshot: () => editor.backgroundRecordFor(page.background),
+      });
+      await keeper.load();
+      page.background = null;
+      assert.equal(keeper.unsaved, false, "before arm, the page has not decided");
+      const armed = keeper.arm();
+      assert.equal(keeper.unsaved, true, "the delete is pending");
+      if (!fail) {
+        await new Promise((resolve) => setImmediate(resolve));
+        assert.equal(keeper.unsaved, true, "the delete still waits");
+        release();
+      }
+      await armed;
+      assert.deepEqual([keeper.unsaved, keeper.status], fail ? [true, "failed"] : [false, "ok"]);
+      assert.equal(store.records.has(DRAFT_KEY), fail, "the record is gone only after a committed delete");
+    });
+  }
+
+  await t.test("the draft keeper counts a null snapshot only while its delete is in the queue", async () => {
+    const store = fakeDraftStore(); store.records.set(DRAFT_KEY, savedRecord("Saved"));
+    const keeper = editor.createDraftKeeper({ store, key: DRAFT_KEY, delay: editor.DRAFT_SAVE_DELAY, clock: globalThis, snapshot: () => null });
+    await keeper.load();
+    assert.equal(keeper.unsaved, false, "the saved draft waits for an offer");
+    const armed = keeper.arm();
+    assert.equal(keeper.unsaved, true, "the delete is in the queue");
+    await armed;
+    assert.deepEqual([keeper.unsaved, store.records.has(DRAFT_KEY)], [false, false]);
+  });
+});
+
+test("an image put in the queue and then Remove background stay unsaved until the delete commits", async () => {
+  // The background store starts empty. Each put waits for release.
+  const store = fakeDraftStore(); const puts = []; const put = store.put;
+  store.put = (key, record) => new Promise((resolve) => { puts.push(() => resolve(put(key, record))); });
+  const page = { background: null };
+  const keeper = editor.createDraftKeeper({ store, key: DRAFT_KEY, delay: editor.DRAFT_SAVE_DELAY, clock: globalThis, deletes: true, snapshot: () => editor.backgroundRecordFor(page.background) });
+  await keeper.load(); await keeper.arm();
+  page.background = TEST_BACKGROUND;
+  const putDone = keeper.flush();
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(keeper.unsaved, true, "the image put is in the queue");
+  page.background = null;
+  assert.equal(keeper.unsaved, true, "Remove background while the put is in the queue");
+  const deleteDone = keeper.flush();
+  puts.shift()();
+  await putDone;
+  assert.equal(store.records.has(DRAFT_KEY), true, "the put committed first");
+  assert.equal(keeper.unsaved, true, "the delete is still in the queue");
+  await deleteDone;
+  assert.deepEqual([keeper.unsaved, store.records.has(DRAFT_KEY), keeper.status], [false, false, "ok"], "the final state is empty");
+});
+
+test("restoreStoredBackground puts a valid stored background on the page, and warns of one that is not valid", async () => {
+  const cases = [
+    { name: "no record", record: null, want: null, warnings: [] },
+    { name: "a valid record", record: editor.backgroundRecordFor(TEST_BACKGROUND), want: TEST_BACKGROUND, warnings: [] },
+    { name: "a record that is not valid", record: { background: { x: 1 } }, want: null, warnings: ["The background must be a PNG or JPEG data URL. The browser deletes the stored background."] },
+  ];
+  for (const item of cases) {
+    const page = { background: null }; const warnings = [];
+    const installed = await editor.restoreStoredBackground(item.record, { warn: (text) => warnings.push(text), install: (background) => { page.background = background; } });
+    assert.deepEqual([installed, page.background, warnings], [item.want !== null, item.want, item.warnings], item.name);
+  }
+});
+
+// fakeElement gives an element with the calls that blockInput and
+// startupExempt use. attributes holds its attributes.
+function fakeElement(id, attributes = {}) {
+  const element = {
+    id, attributes: new Map(Object.entries(attributes)),
+    setAttribute(name, value) { element.attributes.set(name, String(value)); },
+    removeAttribute(name) { element.attributes.delete(name); },
+    closest(selector) { return selector === `#${id}` ? element : null; },
+  };
+  return element;
+}
+
+// fakeStartupDocument gives a document with the calls that blockInput
+// uses. It has the three regions that the editor page marks with
+// data-startup. dispatch sends an event of type to target, and gives the
+// event. The capture listeners of the document get the event first, as in
+// a browser. Then handler runs as the listener of the page, unless a
+// capture listener stopped the event.
+function fakeStartupDocument() {
+  const listeners = new Map();
+  const regions = ["actions", "draftOffer", "workspace"].map((id) => fakeElement(id, { "data-startup": "" }));
+  return {
+    body: fakeElement("body"), regions,
+    listenerCount: () => [...listeners.values()].reduce((count, set) => count + set.size, 0),
+    querySelectorAll(selector) { assert.equal(selector, "[data-startup]"); return regions.filter((element) => element.attributes.has("data-startup")); },
+    addEventListener(type, listener, options) {
+      assert.deepEqual(options, { capture: true, passive: false });
+      if (!listeners.has(type)) listeners.set(type, new Set());
+      listeners.get(type).add(listener);
+    },
+    removeEventListener(type, listener, options) { assert.deepEqual(options, { capture: true, passive: false }); listeners.get(type)?.delete(listener); },
+    dispatch(type, target, handler, fields = {}) {
+      const event = {
+        type, target, ...fields, stopped: false, prevented: false,
+        stopImmediatePropagation() { event.stopped = true; }, preventDefault() { event.prevented = true; },
+      };
+      for (const listener of listeners.get(type) || []) { listener(event); if (event.stopped) break; }
+      if (!event.stopped) handler(event);
+      return event;
+    },
+  };
+}
+
+// startupPage starts an editor page with startEditor. The page keeps its
+// background in factory, as the editor does. history is the undo history
+// of the page, and gate is its startup gate. options.readLive is a promise
+// that the live load waits for.
+function startupPage(factory, options = {}) {
+  const document = fakeStartupDocument(); const gate = editor.createStartupGate();
+  const history = editor.createHistory({ scenario: editor.emptyConfig(), background: null });
+  const keeper = editor.createDraftKeeper({
+    store: editor.openRecordStore(factory, editor.BACKGROUND_STORE), key: DRAFT_KEY, delay: editor.DRAFT_SAVE_DELAY, clock: globalThis, deletes: true,
+    snapshot: () => editor.backgroundRecordFor(history.value.background),
+  });
+  const warnings = [];
+  const cleared = editor.blockInput(document, gate, editor.startupExempt);
+  const started = editor.startEditor({
+    readDraft: async () => null, readBackground: () => keeper.load(),
+    loadLive: async () => { await options.readLive; history.reset({ scenario: connectedScenario(), background: null }); },
+    restore: (record) => editor.restoreStoredBackground(record, {
+      warn: (text) => warnings.push(text), install: (background) => history.reset({ scenario: history.value.scenario, background }),
+    }),
+    release: gate.release, armBackground: () => keeper.arm(), offerDraft: () => {},
+  });
+  return { document, gate, history, keeper, warnings, cleared, started };
+}
+
+test("the startup gate blocks input until the release, except the Simulation link and Tab", async () => {
+  const document = fakeStartupDocument(); const gate = editor.createStartupGate();
+  const cleared = editor.blockInput(document, gate, editor.startupExempt);
+  const map = fakeElement("networkMap"); const link = fakeElement("simulationLink");
+  const marks = () => [document.body.attributes.get("aria-busy"), ...document.regions.map((element) => [element.attributes.has("inert"), element.attributes.has("data-startup")])];
+  assert.deepEqual(marks(), ["true", [true, true], [true, true], [true, true]]);
+  assert.equal(document.listenerCount(), editor.STARTUP_EVENTS.length);
+  let runs = 0; const handler = () => { runs += 1; };
+  for (const type of editor.STARTUP_EVENTS) {
+    const event = document.dispatch(type, map, handler, { key: "z" });
+    assert.deepEqual([event.stopped, event.prevented], [true, true], type);
+  }
+  assert.equal(runs, 0, "no page listener runs while the gate is closed");
+  const passed = [
+    document.dispatch("click", link, handler), document.dispatch("keydown", link, handler, { key: "Enter" }),
+    document.dispatch("keydown", map, handler, { key: "Tab" }),
+  ];
+  assert.deepEqual([runs, passed.map((event) => event.prevented)], [3, [false, false, false]], "the link and Tab pass");
+
+  gate.release(); gate.release();
+  await cleared;
+  assert.equal(gate.closed, false);
+  assert.deepEqual(marks(), [undefined, [false, false], [false, false], [false, false]]);
+  assert.equal(document.listenerCount(), 0);
+  assert.equal(document.dispatch("click", map, handler).prevented, false);
+  assert.equal(runs, 4, "input works after the release");
+
+  const html = fs.readFileSync(path.join(__dirname, "editor.html"), "utf8");
+  for (const tag of [/<div class="actions"[^>]*\sdata-startup[\s>]/, /<section id="draftOffer"[^>]*\sdata-startup[\s>]/, /<main class="workspace"[^>]*\sdata-startup[\s>]/]) assert.match(html, tag);
+});
+
+test("an import while the live scenario loads is stopped, and the stored background survives", async () => {
+  const factory = fakeIndexedDB(); const store = editor.openRecordStore(factory, editor.BACKGROUND_STORE);
+  const record = editor.backgroundRecordFor(TEST_BACKGROUND);
+  await store.put(DRAFT_KEY, record);
+  let finishLive; const page = startupPage(factory, { readLive: new Promise((resolve) => { finishLive = resolve; }) });
+  // The import of a project file with no background removes the
+  // background.
+  let imports = 0;
+  const importFile = () => { imports += 1; page.history.replace({ scenario: { ...page.history.value.scenario, name: "Imported" }, background: null }); };
+  await new Promise((resolve) => setImmediate(resolve));
+  const event = page.document.dispatch("change", fakeElement("projectImport"), importFile);
+  assert.deepEqual([imports, event.prevented, page.gate.closed], [0, true, true], "the gate stops the import");
+  finishLive(); await page.started;
+  assert.deepEqual([page.history.value.background, page.history.canUndo, page.warnings], [TEST_BACKGROUND, false, []]);
+  assert.deepEqual(await store.get(DRAFT_KEY), record, "the armed keeper keeps the record");
+  page.document.dispatch("change", fakeElement("projectImport"), importFile);
+  assert.equal(imports, 1, "an import after the startup runs");
+});
+
+test("the startup gate opens when a startup step fails, and the background keeper then does not start", async () => {
+  const failure = new Error("The step failed.");
+  // The page catches a failed live read, and loads the fallback draft.
+  // Thus loadLive fails only on an error that the page does not expect.
+  const cases = [
+    { name: "the live read fails, and the page loads the fallback draft", fail: "", want: ["loadLive", "restore", "release", "armBackground", "offerDraft"] },
+    { name: "the live load throws", fail: "loadLive", want: ["loadLive", "release"] },
+    { name: "the restore throws", fail: "restore", want: ["loadLive", "restore", "release"] },
+  ];
+  for (const item of cases) {
+    const calls = []; const gate = editor.createStartupGate();
+    const step = (name, value) => async (argument) => {
+      calls.push(name);
+      if (value !== undefined) assert.equal(argument, value, name);
+      if (item.fail === name) throw failure;
+    };
+    const started = editor.startEditor({
+      readDraft: async () => "draft", readBackground: async () => "record",
+      loadLive: step("loadLive"), restore: step("restore", "record"),
+      release: () => { calls.push("release"); gate.release(); }, armBackground: step("armBackground"), offerDraft: step("offerDraft", "draft"),
+    });
+    if (item.fail) await assert.rejects(started, failure, item.name);
+    else await started;
+    assert.deepEqual([calls, gate.closed], [item.want, false], item.name);
+  }
+});
+
+test("a saved draft read that does not end does not block the startup", async () => {
+  const calls = []; const gate = editor.createStartupGate();
+  let finishDraft; const saved = new Promise((resolve) => { finishDraft = resolve; });
+  const started = editor.startEditor({
+    readDraft: () => saved, readBackground: async () => null,
+    loadLive: async () => { calls.push("loadLive"); }, restore: async () => { calls.push("restore"); },
+    release: () => { calls.push("release"); gate.release(); },
+    armBackground: async () => { calls.push("armBackground"); }, offerDraft: (record) => { calls.push(`offerDraft ${record}`); },
+  });
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.deepEqual([calls, gate.closed], [["loadLive", "restore", "release", "armBackground"], false], "the gate opens with no saved draft read");
+  finishDraft("draft"); await started;
+  assert.deepEqual(calls.slice(4), ["offerDraft draft"], "the offer comes when the read ends");
+});
+
+test("after the startup, a background change stays in the store, and a reload finds it", async () => {
+  const factory = fakeIndexedDB();
+  const first = startupPage(factory);
+  await first.started; await first.cleared;
+  first.document.dispatch("change", fakeElement("backgroundImport"), () => first.history.replace({ scenario: first.history.value.scenario, background: TEST_BACKGROUND }));
+  await first.keeper.flush();
+  const second = startupPage(factory);
+  await second.started;
+  assert.deepEqual([second.history.value.background, second.history.canUndo, second.warnings], [TEST_BACKGROUND, false, []]);
+});
+
+test("after an apply clears the saved draft, a reload still gets the background", async (t) => {
+  t.mock.timers.enable({ apis: ["setTimeout"] });
+  const factory = fakeIndexedDB(); const scenario = { ...connectedScenario(), name: "Changed" };
+  const page = { value: { scenario, background: TEST_BACKGROUND }, live: { scenario: JSON.stringify(connectedScenario()), revision: 3 } };
+  const base = { revision: 3, epoch: "epoch-1", serverStart: "start-1" };
+  const keepers = () => ({
+    draft: editor.createDraftKeeper({ store: editor.openRecordStore(factory, editor.DRAFT_STORE), key: DRAFT_KEY, delay: editor.DRAFT_SAVE_DELAY, clock: globalThis, snapshot: () => editor.draftRecordFor(page.value, page.live, base) }),
+    background: editor.createDraftKeeper({ store: editor.openRecordStore(factory, editor.BACKGROUND_STORE), key: DRAFT_KEY, delay: editor.DRAFT_SAVE_DELAY, clock: globalThis, snapshot: () => editor.backgroundRecordFor(page.value.background) }),
+  });
+  const first = keepers();
+  assert.deepEqual([await first.draft.load(), await first.background.load()], [null, null]);
+  await first.draft.arm(); await first.background.arm();
+  // A successful apply makes the draft the live baseline and clears the
+  // saved draft. The background stays.
+  page.live = { scenario: JSON.stringify(scenario), revision: 4 };
+  await first.draft.replace();
+  await first.draft.arm();
+
+  const second = keepers();
+  assert.equal(await second.draft.load(), null, "no saved draft after the apply");
+  assert.deepEqual(editor.storedBackground(await second.background.load()), TEST_BACKGROUND, "the reload gets the background");
+
+  // Remove background deletes the record.
+  page.value = { scenario, background: null };
+  await second.background.arm();
+  assert.equal(await keepers().background.load(), null, "the removed background is gone");
 });
 
 test("the page offers a saved draft only when it differs from the live scenario", () => {
-  const background = { dataURL: "data:image/png;base64,AAAA", x: 0, y: 0, width: 400, height: 200, opacity: 0.45 };
-  const live = { scenario: JSON.stringify(connectedScenario()), background: null, revision: 5 };
-  const liveRecord = { scenario: connectedScenario(), background: null, revision: 5, epoch: "epoch-1", serverStart: "start-1" };
+  const live = { scenario: JSON.stringify(connectedScenario()), revision: 5 };
+  const liveRecord = { scenario: connectedScenario(), revision: 5, epoch: "epoch-1", serverStart: "start-1" };
   const olderRecord = savedRecord("Changed"); delete olderRecord.serverStart;
   // want gives the revision, the epoch, the server start ID, the scenario
-  // name, and the background of the offer, or null for no offer.
+  // name, and the members of the offered draft, or null for no offer.
   const cases = [
     { name: "no saved draft", record: null, want: null },
     { name: "a record that is not an object", record: "draft", want: null },
     { name: "a record without a scenario", record: { revision: 3 }, want: null },
     { name: "a scenario that is an array", record: { scenario: [], revision: 3 }, want: null },
     { name: "the live scenario", record: liveRecord, want: null },
-    { name: "the live scenario and a background without a data URL", record: { ...liveRecord, background: { x: 1 } }, want: null },
-    { name: "a changed scenario", record: savedRecord("Changed"), want: { revision: 3, epoch: "epoch-1", serverStart: "start-1", name: "Changed", background: null } },
-    { name: "the live scenario and a background", record: { ...liveRecord, background }, want: { revision: 5, epoch: "epoch-1", serverStart: "start-1", name: liveRecord.scenario.name, background } },
-    { name: "a revision that is not a number", record: { ...savedRecord("Changed"), revision: "x" }, want: { revision: 0, epoch: "epoch-1", serverStart: "start-1", name: "Changed", background: null } },
-    { name: "an epoch that is not a string", record: { ...savedRecord("Changed"), epoch: 7 }, want: { revision: 3, epoch: "", serverStart: "start-1", name: "Changed", background: null } },
-    { name: "a record from an older editor without a server start ID", record: olderRecord, want: { revision: 3, epoch: "epoch-1", serverStart: "", name: "Changed", background: null } },
-    { name: "a server start ID that is not a string", record: { ...savedRecord("Changed"), serverStart: 7 }, want: { revision: 3, epoch: "epoch-1", serverStart: "", name: "Changed", background: null } },
+    { name: "the live scenario and a background of an older editor", record: { ...liveRecord, background: TEST_BACKGROUND }, want: null },
+    { name: "a changed scenario", record: savedRecord("Changed"), want: { revision: 3, epoch: "epoch-1", serverStart: "start-1", name: "Changed", members: ["scenario"] } },
+    { name: "a changed scenario and a background of an older editor", record: { ...savedRecord("Changed"), background: TEST_BACKGROUND }, want: { revision: 3, epoch: "epoch-1", serverStart: "start-1", name: "Changed", members: ["scenario"] } },
+    { name: "a revision that is not a number", record: { ...savedRecord("Changed"), revision: "x" }, want: { revision: 0, epoch: "epoch-1", serverStart: "start-1", name: "Changed", members: ["scenario"] } },
+    { name: "an epoch that is not a string", record: { ...savedRecord("Changed"), epoch: 7 }, want: { revision: 3, epoch: "", serverStart: "start-1", name: "Changed", members: ["scenario"] } },
+    { name: "a record from an older editor without a server start ID", record: olderRecord, want: { revision: 3, epoch: "epoch-1", serverStart: "", name: "Changed", members: ["scenario"] } },
+    { name: "a server start ID that is not a string", record: { ...savedRecord("Changed"), serverStart: 7 }, want: { revision: 3, epoch: "epoch-1", serverStart: "", name: "Changed", members: ["scenario"] } },
   ];
   for (const item of cases) {
     const offer = editor.draftOffer(item.record, live);
-    assert.deepEqual(offer && { revision: offer.revision, epoch: offer.epoch, serverStart: offer.serverStart, name: offer.draft.scenario.name, background: offer.draft.background }, item.want, item.name);
+    assert.deepEqual(offer && { revision: offer.revision, epoch: offer.epoch, serverStart: offer.serverStart, name: offer.draft.scenario.name, members: Object.keys(offer.draft) }, item.want, item.name);
   }
 
   const texts = [
@@ -3217,7 +3530,7 @@ test("a draft is from before a server restart only when both server start IDs ar
 });
 
 test("the saved draft record keeps the draft base through the draft store", async () => {
-  const live = { scenario: JSON.stringify(connectedScenario()), background: null, revision: 5 };
+  const live = { scenario: JSON.stringify(connectedScenario()), revision: 5 };
   const changed = { scenario: { ...connectedScenario(), name: "Changed" }, background: null };
   const base = { revision: 3, epoch: "epoch-1", serverStart: "start-1" };
   assert.equal(editor.draftRecordFor(changed, null, base), null, "no live baseline");
@@ -3631,7 +3944,7 @@ test("a tab knows when another tab replaced or deleted its saved draft", async (
   assert.equal(b.keeper.unsaved, true, "then tab B knows that its draft is not saved");
 
   // An apply makes the draft of tab B equal to the live scenario, then clears the record.
-  b.draft.record = null; await b.keeper.clear(); await settle();
+  b.draft.record = null; await b.keeper.replace(); await settle();
   assert.equal(saved(), null, "an apply in tab B deletes the record");
   assert.equal(a.keeper.unsaved, true, "tab A knows that the delete removed its draft");
   assert.deepEqual(a.displaced, ["a", "a"]);

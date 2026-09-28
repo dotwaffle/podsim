@@ -434,6 +434,8 @@ To return to the simulation, select **← Simulation** in the editor, or use the
 The simulation then shows the same map view and the same selected pod as before.
 The editor keeps its state while the simulation shows.
 The editor loads the live scenario only the first time that it opens in the page.
+Until it has the live scenario and the stored background, the editor ignores input, except **← Simulation**.
+If a part of the load fails, the editor shows an error notice and then accepts input.
 If you change the demand in the simulation after that, **Pause and apply** fails with a conflict.
 The **Apply conflict** bar then lets you load the live scenario.
 See [Apply a draft](#apply-a-draft).
@@ -556,7 +558,9 @@ After Escape during a move, the item goes back to its position before the move.
 ### Saved draft
 
 The browser saves the draft in IndexedDB 300 ms after the last change.
-The saved draft has the scenario and the background image with its calibration.
+The saved draft has the scenario.
+It does not have the background image.
+See [Stored background](#stored-background).
 It also has the project revision that the draft is based on, the session epoch of that revision, and the server start ID of that state.
 The browser keeps one saved draft for each server address.
 After a successful apply, the browser deletes the saved draft.
@@ -590,6 +594,33 @@ When a different tab saves its draft or applies, the saved draft of this tab is 
 This tab then shows a notice, and the browser asks before you leave or reload the page.
 Your next change in this tab saves its draft again, and the other tab then shows the notice.
 
+### Stored background
+
+The browser keeps the background image with its calibration and opacity in IndexedDB, apart from the saved draft.
+It saves the background 300 ms after each change, for example an image import, a scale calibration, an opacity change, an undo, or a redo.
+The browser keeps one background for each server address.
+Thus the background stays after a successful apply and after a reload.
+
+- **Remove background** deletes the stored background.
+- A new image replaces the stored background.
+- **Import JSON** replaces the stored background with the background of the file.
+  A file with no background removes it.
+- **Reset draft** puts back the background of the last load, apply, or import.
+- **Undo** brings back a replaced or removed background.
+- **Load live scenario**, **Restore draft**, and a live scenario change from another page do not change the background.
+
+The server does not get the background, so the background does not follow the live project.
+If the live project is at a different place, remove or replace the background.
+All editor tabs of one server share the stored background.
+The last background change in a tab replaces it.
+If the stored background is not valid, the editor shows an error notice and deletes it.
+If the browser cannot keep the background, the editor shows an error notice.
+Then export the project to keep the background.
+When the background has changes that are not saved in the browser, the browser asks before you leave or reload the page.
+This includes a removed background that the browser has not yet deleted.
+The editor puts the stored background on the page before it accepts input.
+The editor ignores the background in a saved draft of an older editor.
+
 ### Apply a draft
 
 **Pause and apply** is disabled when the draft scenario is the same as the live scenario.
@@ -618,7 +649,7 @@ The **Apply conflict** bar then shows the live project revision N and two action
 
 - **Load live scenario** makes the live scenario the draft and the base of **Reset draft**.
   When the draft has scenario changes, the editor asks first.
-  The draft keeps its background, and **Undo** brings back the replaced draft.
+  The page keeps its background, and **Undo** brings back the replaced draft.
 - **Apply over revision N** applies the draft over revision N of the live scenario.
   The editor asks first, because the draft replaces the live scenario.
   If the live revision is not N any more, or the server restarted again, the apply fails with a conflict again, and the bar shows the new revision.
@@ -1224,7 +1255,7 @@ During the wait, the line below the panels shows **Shared session / waiting for 
 **From** and **To** send no command, so you can change them during the wait.
 
 Pod selection, origin, destination, and the open inspection panel stay local to each browser.
-Background images stay in the editor, in the draft that the browser saves, and in the exported project file.
+Background images stay in the editor, in the IndexedDB storage of the browser, and in the exported project file.
 The shared simulation receives the network geometry and settings.
 
 #### Motion

@@ -15,7 +15,7 @@
         <p id="serverStatus">Loading the live scenario…</p>
       </div>
     </div>
-    <div class="actions" aria-label="File and server actions">
+    <div class="actions" aria-label="File and server actions" data-startup>
       <button id="undoButton" type="button">Undo</button>
       <button id="redoButton" type="button">Redo</button>
       <button id="resetButton" type="button">Reset draft</button>
@@ -27,7 +27,7 @@
     </div>
   </header>
 
-  <section id="draftOffer" class="draft-offer" aria-labelledby="draftOfferTitle" hidden>
+  <section id="draftOffer" class="draft-offer" aria-labelledby="draftOfferTitle" data-startup hidden>
     <div>
       <h2 id="draftOfferTitle">Saved draft</h2>
       <p id="draftOfferText"></p>
@@ -51,7 +51,7 @@
     </div>
   </section>
 
-  <main class="workspace">
+  <main class="workspace" data-startup>
     <aside class="toolbox" aria-label="Drawing tools">
       <h2>Build</h2>
       <div class="tool-grid" role="toolbar" aria-label="Editor mode">
