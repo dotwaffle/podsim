@@ -692,6 +692,13 @@ A node can have at most 64 lanes, counted at the start node and at the end node 
 At each node, the simulator compares each ordered pair of two different lanes at the node when it starts.
 The total of these pairs over all nodes can be at most 100,000, for example about 24 nodes with 64 lanes each.
 Each coordinate of a node position or a lane control point must be from -100,000 to 100,000 meters.
+A project can have an optional `geo` member, the geographic reference of the network.
+It has `latitude` and `longitude` in degrees, `projection` with the value `equirectangular`, and `radius` with the value 6371000.
+The latitude must be from -80 to 80 degrees, and the longitude must be from -180 to 180 degrees.
+The reference is the place of world position 0, 0.
+A point at latitude `lat` and longitude `lon` is at x = R cos(lat0) (lon - lon0) and y = -R (lat - lat0), with lat0 and lon0 the reference, the angles in radians, and R the radius.
+Thus x increases to the east, and y increases to the south.
+The simulation does not use the reference.
 The simulator divides each lane into track cells of about 30 meters, with at least 2 cells in each lane.
 All lanes together can have at most 64,000 cells, for example about 1,900 km of lanes.
 Two lanes cannot have the same start node, end node, and path.
@@ -1010,6 +1017,7 @@ Configure and start it from the Demand panel.
 
 The [London qualification network](docs/london.md) uses TfL station locations and topology, real station names, directed twin guideways, off-line berths, and three Parking facilities.
 It sets `platoonLimit` to 4, so the server runs it with virtual platoons.
+Its `geo` member is the reference of its projection, latitude 51.5074 and longitude -0.1278.
 Station lanes identify approach, entry, berth access, through, departure, and exit maneuvers.
 The pod inspector shows the current maneuver in **Station phase** and the station name on the line below it.
 Projects without this optional lane metadata still load.

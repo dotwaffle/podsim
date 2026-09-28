@@ -195,3 +195,8 @@ project.sharedRideMaxStops number
 project.sharedRideJoin string
 project.platoonLimit number
 project.redistribution boolean
+project.geo object
+project.geo.latitude number
+project.geo.longitude number
+project.geo.projection string
+project.geo.radius number

@@ -437,6 +437,25 @@ func TestNewFromStoreRoundTrip(t *testing.T) {
 	}
 }
 
+// TestNewFromStoreKeepsGeo checks that a restart keeps the geo reference
+// of the saved project.
+func TestNewFromStoreKeepsGeo(t *testing.T) {
+	t.Parallel()
+	config := project.Default()
+	config.Geo = &project.Geo{Latitude: 51.5074, Longitude: -0.1278, Projection: project.GeoProjection, Radius: project.GeoRadius}
+	store := &fakeStore{}
+	s := startFromStore(t, StoreInput{Store: store, Project: &config, Options: []Option{WithBuildID(testBuildID)}})
+	s.Close()
+	if err := s.SaveState(t.Context(), SaveFinal); err != nil {
+		t.Fatal(err)
+	}
+	writes := store.writeList()
+	restored := startFromStore(t, StoreInput{Store: &fakeStore{data: writes[len(writes)-1]}, Options: []Option{WithBuildID(testBuildID)}})
+	if got := restored.project.Geo; got == nil || *got != *config.Geo {
+		t.Fatalf("restored geo = %+v, want %+v", got, config.Geo)
+	}
+}
+
 func TestNewFromStoreEpoch(t *testing.T) {
 	t.Parallel()
 	run := newStoredRun(t)

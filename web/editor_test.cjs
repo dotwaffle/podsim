@@ -1691,6 +1691,152 @@ test("the project import limit holds an export at the project and image limits",
   assert.equal(editor.PROJECT_FILE_BYTES % (1024 * 1024), 0);
 });
 
+// LONDON_GEO is the geo reference of the London preset.
+const LONDON_GEO = editor.makeGeo(51.5074, -0.1278);
+
+// metersNorth gives the latitude that is meters north of the latitude of
+// geo, in the projection of geo.
+function metersNorth(geo, meters) {
+  return editor.unprojectPoint(geo, { X: 0, Y: -meters }).latitude;
+}
+
+test("the projection of three London stations gives the positions of the London preset", () => {
+  // TestLondonPointsGolden in internal/scenarios writes the file from
+  // londonPoint.
+  const file = JSON.parse(fs.readFileSync(path.join(repoRoot, "internal", "scenarios", "testdata", "london_points.json"), "utf8"));
+  assert.deepEqual(file.geo, LONDON_GEO);
+  assert.equal(file.points.length, 3);
+  for (const item of file.points) {
+    const at = editor.projectPoint(file.geo, item.latitude, item.longitude);
+    assertNear(at, { X: item.x, Y: item.y }, item.id);
+    const back = editor.unprojectPoint(file.geo, at);
+    assert.ok(Math.abs(back.latitude - item.latitude) < 1e-12 && Math.abs(back.longitude - item.longitude) < 1e-12, `${item.id}: the inverse gives the place again`);
+  }
+});
+
+test("the editor checks the geo reference as the server does", () => {
+  const config = connectedScenario();
+  assert.deepEqual(editor.validateConfig({ ...config, geo: LONDON_GEO }), []);
+  assert.deepEqual(editor.validateConfig({ ...config, geo: null }), [], "null is no reference");
+  assert.deepEqual(editor.validateConfig({ ...config, geo: editor.makeGeo(0, 0) }), [], "0, 0 is a valid reference");
+  assert.deepEqual(editor.validateConfig({ ...config, geo: editor.makeGeo(-80, 180) }), [], "the limits");
+  const bad = [
+    { geo: "London", want: "The geo reference must be an object." },
+    { geo: editor.makeGeo(80.001, 0), want: "The geo latitude must be from -80 to 80 degrees." },
+    { geo: editor.makeGeo(0, -180.001), want: "The geo longitude must be from -180 to 180 degrees." },
+    { geo: { ...LONDON_GEO, latitude: "51" }, want: "The geo latitude must be from -80 to 80 degrees." },
+    { geo: { ...LONDON_GEO, projection: "web-mercator" }, want: 'The geo projection must be "equirectangular".' },
+    { geo: { ...LONDON_GEO, radius: 6378137 }, want: "The geo radius must be 6371000 meters." },
+  ];
+  for (const item of bad) assert.deepEqual(editor.validateConfig({ ...config, geo: item.geo }), [item.want], item.want);
+  assert.equal(editor.normalizeConfig({ ...config, geo: LONDON_GEO }).geo.latitude, 51.5074, "normalizeConfig keeps the reference");
+  assert.equal("geo" in editor.normalizeConfig(config), false, "normalizeConfig adds no reference");
+});
+
+test("the placement of a frame follows the geo reference, and alignment allows 0.5 m", () => {
+  const frame = { south: 51.50, north: 51.52, west: -0.14, east: -0.10, source: "equirectangular" };
+  const other = editor.makeGeo(51.52, -0.10);
+  const place = editor.framePlacement(frame, LONDON_GEO);
+  const corner = editor.projectPoint(LONDON_GEO, 51.52, -0.14);
+  assert.deepEqual([place.x, place.y], [corner.X, corner.Y], "the north-west corner");
+  assert.ok(Math.abs(place.height - 6371000 * 0.02 * Math.PI / 180) < 1e-6, "the height is exact north to south");
+  assert.ok(place.width > 0 && place.height > 0);
+  const moved = editor.framePlacement(frame, other);
+  assert.ok(Math.abs(moved.x - place.x) > 1000 && Math.abs(moved.width - place.width) > 0.5, "a different reference moves and scales the placement");
+  assert.equal(editor.frameAligned(place, frame, LONDON_GEO), true);
+  assert.equal(editor.frameAligned(moved, frame, other), true);
+  assert.equal(editor.frameAligned(place, frame, other), false);
+  assert.equal(editor.frameAligned({ ...place, x: place.x + 0.5 }, frame, LONDON_GEO), true, "0.5 m is aligned");
+  assert.equal(editor.frameAligned({ ...place, height: place.height - 0.6 }, frame, LONDON_GEO), false, "0.6 m is not aligned");
+  assert.equal(editor.frameAligned(place, frame, null), false, "no reference is not aligned");
+});
+
+test("a frame must be in the accuracy budget, the latitude limit, the antimeridian rule and the coordinate square", () => {
+  const geo = editor.makeGeo(51.5, 0);
+  // box gives a frame from the reference latitude to meters north, or to
+  // meters south for a negative value.
+  const box = (meters) => {
+    const edge = metersNorth(geo, meters);
+    return { south: Math.min(51.5, edge), north: Math.max(51.5, edge), west: -0.01, east: 0.01, source: "equirectangular" };
+  };
+  const cases = [
+    { name: "a north edge at 25.1 km", frame: box(25100), ok: true },
+    { name: "a north edge at 25.3 km", frame: box(25300), ok: false },
+    { name: "a south edge at 25.4 km", frame: box(-25400), ok: true },
+    { name: "a south edge at 25.6 km", frame: box(-25600), ok: false },
+  ];
+  for (const item of cases) assert.equal(editor.placementError(item.frame, geo) === "", item.ok, `${item.name}: ${editor.placementError(item.frame, geo)}`);
+  assert.match(editor.placementError(box(25300), geo), /The east-west scale differs by 0\.5\d%, and the limit is 0\.5%\./);
+  // A box across the equator has its smallest scale error at the edges and
+  // its largest at the equator.
+  const equator = { south: -6, north: 6, west: 0, east: 0.1, source: "web-mercator" };
+  assert.match(editor.scaleError(editor.makeGeo(6, 0), equator.south, equator.north), /differs by 0\.55%/, "the equator fails");
+  assert.equal(editor.scaleError(editor.makeGeo(6, 0), 5.9, 6.1), "", "the same reference passes near its latitude");
+  assert.equal(editor.scaleError(editor.makeGeo(0, 0), -1, 1), "");
+  const frame = { south: 51.4, north: 51.6, west: -0.2, east: 0, source: "equirectangular" };
+  const rejected = [
+    { name: "a latitude past 80", frame: { ...frame, south: 79, north: 80.5 }, want: /latitudes must be from -80 to 80/ },
+    { name: "a box across the antimeridian", frame: { ...frame, west: 179, east: -179 }, want: /cannot cross the antimeridian/ },
+    { name: "a longitude past 180", frame: { ...frame, east: 181 }, want: /longitudes must be from -180 to 180/ },
+    { name: "south north of north", frame: { ...frame, south: 51.7 }, want: /south edge of the frame must be south/ },
+    { name: "an unknown source", frame: { ...frame, source: "utm" }, want: /source must be "equirectangular" or "web-mercator"/ },
+    { name: "a bound that is not a number", frame: { ...frame, west: "0" }, want: /bounds must be numbers/ },
+    { name: "another member", frame: { ...frame, zoom: 3 }, want: /unknown member/ },
+    { name: "a corner past the coordinate square", frame: { ...frame, west: 1, east: 1.5 }, want: /more than 100000 m from the reference/ },
+  ];
+  for (const item of rejected) assert.match(editor.placementError(item.frame, geo), item.want, item.name);
+  assert.equal(editor.placementError(frame, null), "The project has no geographic reference.");
+  assert.equal(editor.placementError(frame, geo), "");
+});
+
+test("an anchor maps the first node exactly and checks the residual of the second", () => {
+  const geo = editor.makeGeo(51.5, -0.1);
+  const place = (latitude, longitude, at) => ({ ...at, latitude, longitude });
+  const start = editor.unprojectPoint(geo, { X: 250, Y: -400 });
+  const a = place(start.latitude, start.longitude, { X: 250, Y: -400 });
+  // east is the place 1 km east of a on the map.
+  const east = editor.unprojectPoint(geo, { X: a.X + 1000, Y: a.Y });
+  const result = editor.anchorGeo({ a, b: place(east.latitude, east.longitude, { X: a.X + 1000, Y: a.Y }) });
+  assertNear(editor.projectPoint(result.geo, a.latitude, a.longitude), a, "a maps to its node");
+  assert.ok(Math.abs(result.geo.latitude - 51.5) < 1e-12 && Math.abs(result.geo.longitude + 0.1) < 1e-12, "the anchor gives the reference of the places");
+  assert.ok(result.residual < 1e-6 && result.error === "", "b on its node");
+  // The network pair goes 1 km south, and the map pair goes 1 km east.
+  const turned = editor.anchorGeo({ a, b: place(east.latitude, east.longitude, { X: a.X, Y: a.Y + 1000 }) });
+  assert.ok(Math.abs(turned.residual - 1414.2) < 0.2, `the residual is ${turned.residual}`);
+  assert.match(turned.error, /^The second anchor is 1414\.\d m from its node, more than 2% of the 1000\.0 m between the nodes\.$/);
+  const near = editor.anchorGeo({ a, b: place(east.latitude, east.longitude, { X: a.X + 1000, Y: a.Y + 19 }) });
+  assert.equal(near.error, "", "19 m is in 2% of 1 km");
+  const far = editor.anchorGeo({ a, b: place(east.latitude, east.longitude, { X: a.X + 1000, Y: a.Y + 21 }) });
+  assert.match(far.error, /more than 2%/, "21 m is more than 2% of 1 km");
+  const close = editor.unprojectPoint(geo, { X: a.X + 99, Y: a.Y });
+  assert.equal(editor.anchorGeo({ a, b: place(close.latitude, close.longitude, { X: a.X + 99, Y: a.Y }) }).error, "The anchor nodes must be at least 100 m apart.");
+});
+
+test("the Web Mercator resample gives the latitude and the source row of each output row", () => {
+  const frame = { south: 51.4, north: 51.6, west: -0.2, east: 0, source: "web-mercator" };
+  const rows = editor.resampleRows(frame, 4, 1000);
+  rows.forEach((row, index) => assert.ok(Math.abs(row.latitude - (51.6 - (index + 0.5) * 0.05)) < 1e-12, `row ${index}`));
+  // The inverse Web Mercator formula gives the latitude of each source row.
+  const top = editor.mercatorY(51.6); const span = top - editor.mercatorY(51.4);
+  for (const row of rows) {
+    const y = top - row.source / 1000 * span;
+    assert.ok(Math.abs((2 * Math.atan(Math.exp(y)) - Math.PI / 2) * 180 / Math.PI - row.latitude) < 1e-12, `source row ${row.source}`);
+  }
+  // Web Mercator stretches the north, so the source rows of the north half
+  // are farther apart than the rows of the south half.
+  assert.ok(rows[1].source - rows[0].source > rows[3].source - rows[2].source);
+  assert.ok(rows[0].source > 125 && rows[3].source > 875, "the north stretches");
+  assert.deepEqual(editor.resampleRows(frame, 1, 10).map((row) => row.latitude), [51.5]);
+  // The output size comes from the meters for each pixel in the reference.
+  const geo = editor.makeGeo(51.5, -0.1);
+  const place = editor.framePlacement(frame, geo);
+  const size = editor.resampleSize(frame, geo, 10);
+  assert.deepEqual([size.width, size.height, size.error], [Math.round(place.width / 10), Math.round(place.height / 10), ""]);
+  assert.match(editor.resampleSize(frame, geo, 1).error, /The limit is 4096 pixels on each side/);
+  assert.match(editor.resampleSize(frame, geo, 0).error, /must be a positive number/);
+  assert.deepEqual([editor.resampleSize(frame, geo, 1e6).width, editor.resampleSize(frame, geo, 1e6).height], [1, 1], "each side is at least 1 pixel");
+});
+
 test("import accepts a server project file", () => {
   // The server leaves out empty optional fields, such as the demand profiles.
   const config = connectedScenario();

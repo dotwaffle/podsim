@@ -30,19 +30,53 @@ func TestConfigJSONRoundTripAndClone(t *testing.T) {
 		t.Fatal(err)
 	}
 	var got Config
-	if err := json.Unmarshal(data, &got); err != nil {
+	if err = json.Unmarshal(data, &got); err != nil {
 		t.Fatal(err)
 	}
 	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("round trip changed config\n got: %#v\nwant: %#v", got, want)
 	}
+	want.Geo = &Geo{Latitude: 51.5, Longitude: -0.1, Projection: GeoProjection, Radius: GeoRadius}
+	data, err = json.Marshal(want)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var withGeo Config
+	if err = json.Unmarshal(data, &withGeo); err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(withGeo, want) {
+		t.Fatalf("round trip changed the geo reference\n got: %#v\nwant: %#v", withGeo.Geo, want.Geo)
+	}
 	clone := Clone(want)
+	clone.Geo.Latitude = 1
+	if want.Geo.Latitude != 51.5 {
+		t.Fatal("clone aliases the geo reference")
+	}
 	clone.Network.Nodes[0].ID = "changed"
 	clone.Network.Stations[0].Berths[0].ID = "changed"
 	clone.Fleet[0].ID = "changed"
 	clone.DemandProfiles[0].Flows[0].Weights[0] = 99
 	if strings.Contains(string(mustJSON(t, want)), "changed") {
 		t.Fatal("clone aliases config storage")
+	}
+}
+
+// testGeo gives a valid geo reference at the latitude and the longitude.
+func testGeo(latitude, longitude float64) *Geo {
+	return &Geo{Latitude: latitude, Longitude: longitude, Projection: GeoProjection, Radius: GeoRadius}
+}
+
+// TestValidateAcceptsGeo checks the geo references at the limits, and a
+// reference at latitude 0 and longitude 0.
+func TestValidateAcceptsGeo(t *testing.T) {
+	t.Parallel()
+	for _, geo := range []*Geo{nil, testGeo(0, 0), testGeo(MaxGeoLatitude, 180), testGeo(-MaxGeoLatitude, -180), testGeo(51.5074, -0.1278)} {
+		config := Default()
+		config.Geo = geo
+		if err := Validate(config); err != nil {
+			t.Fatalf("Validate with geo %+v: %v", geo, err)
+		}
 	}
 }
 
@@ -134,6 +168,13 @@ func TestValidateRejectsMalformedProjects(t *testing.T) {
 		}},
 		{"node bound", func(config *Config) { config.Network.Nodes = make([]sim.Node, MaxNodes+1) }},
 		{"lane bound", func(config *Config) { config.Network.Lanes = make([]sim.Lane, MaxLanes+1) }},
+		{"geo latitude", func(config *Config) { config.Geo = testGeo(MaxGeoLatitude+0.001, 0) }},
+		{"geo negative latitude", func(config *Config) { config.Geo = testGeo(-MaxGeoLatitude-0.001, 0) }},
+		{"geo latitude not a number", func(config *Config) { config.Geo = testGeo(math.NaN(), 0) }},
+		{"geo longitude", func(config *Config) { config.Geo = testGeo(0, 180.001) }},
+		{"geo longitude not a number", func(config *Config) { config.Geo = testGeo(0, math.NaN()) }},
+		{"geo projection", func(config *Config) { config.Geo = testGeo(0, 0); config.Geo.Projection = "web-mercator" }},
+		{"geo radius", func(config *Config) { config.Geo = testGeo(0, 0); config.Geo.Radius = 6_378_137 }},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -240,10 +281,16 @@ func TestEditorMirrorsLimits(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for name, want := range map[string]int{"MAX_STATIONS": MaxStations, "MAX_BERTHS": MaxBerths, "MAX_NODES": MaxNodes, "MAX_LANES": MaxLanes, "MAX_NODE_LANES": MaxNodeLanes, "MAX_FLOWS": MaxFlows} {
+	for name, want := range map[string]int{
+		"MAX_STATIONS": MaxStations, "MAX_BERTHS": MaxBerths, "MAX_NODES": MaxNodes, "MAX_LANES": MaxLanes, "MAX_NODE_LANES": MaxNodeLanes, "MAX_FLOWS": MaxFlows,
+		"MAX_COORDINATE": MaxCoordinate, "GEO_RADIUS": GeoRadius, "GEO_MAX_LATITUDE": MaxGeoLatitude,
+	} {
 		if !strings.Contains(string(source), fmt.Sprintf("const %s = %d;", name, want)) {
 			t.Errorf("web/editor.js does not set %s to %d", name, want)
 		}
+	}
+	if want := fmt.Sprintf("const GEO_PROJECTION = %q;", GeoProjection); !strings.Contains(string(source), want) {
+		t.Errorf("web/editor.js does not have %s", want)
 	}
 }
 

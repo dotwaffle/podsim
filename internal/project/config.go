@@ -80,6 +80,30 @@ const (
 	MaxNetworkBlocks = 64_000
 )
 
+// These values limit the geographic reference of a project. GeoProjection
+// is the one projection that Validate accepts. GeoRadius is the sphere
+// radius in meters of that projection, the radius of the London preset.
+// MaxGeoLatitude is the largest absolute latitude in degrees of the
+// reference. web/editor.js has a copy of these values.
+const (
+	GeoProjection  = "equirectangular"
+	GeoRadius      = 6_371_000
+	MaxGeoLatitude = 80
+)
+
+// Geo is the geographic reference of a project. The projection maps a
+// latitude and a longitude in degrees to world meters: x is R cos(lat0)
+// (lon - lon0) and y is -R (lat - lat0), with the angles in radians, lat0
+// and lon0 the reference, and R the radius. Thus x increases to the east
+// and y increases to the south. The browser editor uses it to place a map
+// image on the network. The simulation does not use it.
+type Geo struct {
+	Latitude   float64 `json:"latitude"`
+	Longitude  float64 `json:"longitude"`
+	Projection string  `json:"projection"`
+	Radius     float64 `json:"radius"`
+}
+
 // MaxFileBytes is the largest project file accepted from local storage. It
 // also limits the canonical encoding of a valid project. Validate measures
 // the project with the widest demand settings that ValidateDemand accepts.
@@ -172,6 +196,9 @@ type Config struct {
 	// off.
 	PlatoonLimit   int  `json:"platoonLimit,omitzero"`
 	Redistribution bool `json:"redistribution"`
+	// Geo is the geographic reference, or nil for a project with no
+	// reference. A reference at latitude 0 and longitude 0 is valid.
+	Geo *Geo `json:"geo,omitzero"`
 }
 
 // Default returns the supplied example project.
@@ -225,6 +252,9 @@ func Validate(config Config) error {
 	}
 	if limit := config.PlatoonLimit; limit != 0 && (limit < sim.MinPlatoonLimit || limit > sim.MaxPlatoonLimit) {
 		return fmt.Errorf("platoon limit must be %d to %d, or 0 for no platoons", sim.MinPlatoonLimit, sim.MaxPlatoonLimit)
+	}
+	if err := validateGeo(config.Geo); err != nil {
+		return err
 	}
 	if err := validateNames(config); err != nil {
 		return err
@@ -316,6 +346,27 @@ func ConfigurePlatoons(simulation *sim.Simulation, config Config) error {
 		return err
 	}
 	return simulation.SetPlatooning(sim.PlatooningVirtual)
+}
+
+// validateGeo checks the geographic reference of a project. A nil
+// reference is valid. The latitude must be from -MaxGeoLatitude to
+// MaxGeoLatitude degrees and the longitude from -180 to 180 degrees. The
+// projection must be GeoProjection and the radius must be GeoRadius, so
+// the formula of Geo needs no hidden value.
+func validateGeo(geo *Geo) error {
+	switch {
+	case geo == nil:
+		return nil
+	case !(math.Abs(geo.Latitude) <= MaxGeoLatitude):
+		return fmt.Errorf("geo latitude must be from -%d to %d degrees", MaxGeoLatitude, MaxGeoLatitude)
+	case !(math.Abs(geo.Longitude) <= 180):
+		return errors.New("geo longitude must be from -180 to 180 degrees")
+	case geo.Projection != GeoProjection:
+		return fmt.Errorf("geo projection must be %q", GeoProjection)
+	case geo.Radius != GeoRadius:
+		return fmt.Errorf("geo radius must be %d meters", GeoRadius)
+	}
+	return nil
 }
 
 // validatePassengerRoutes returns an error for the first pair of passenger
@@ -722,6 +773,9 @@ func Clone(config Config) Config {
 	clone.Network = CloneNetwork(config.Network)
 	clone.Fleet = append([]sim.Placement(nil), config.Fleet...)
 	clone.DemandProfiles = cloneDemandProfiles(config.DemandProfiles)
+	if config.Geo != nil {
+		clone.Geo = new(*config.Geo)
+	}
 	return clone
 }
 

@@ -273,6 +273,9 @@ func londonConfig(source londonSource, capacity londonCapacity) (project.Config,
 		// track set the limit. See the London capacity envelope in the
 		// qualification record.
 		PlatoonLimit: sim.MaxPlatoonLimit,
+		// The editor places a map image with this reference, which is the
+		// reference of londonPoint.
+		Geo: &project.Geo{Latitude: londonReferenceLatitude, Longitude: londonReferenceLongitude, Projection: project.GeoProjection, Radius: project.GeoRadius},
 	}
 	config.Fleet = londonFleet(config.Network, capacity.pods)
 	if err := project.Validate(config); err != nil {
@@ -411,8 +414,10 @@ func londonPortalPositions(portals []londonPortal) []sim.Point {
 	return positions
 }
 
+// londonPoint gives the world position of a latitude and a longitude with
+// the projection of project.Geo at the London reference.
 func londonPoint(latitude, longitude float64) sim.Point {
-	const earthRadiusMeters = 6_371_000.0
+	const earthRadiusMeters = project.GeoRadius
 	referenceLatitude := londonReferenceLatitude * math.Pi / 180
 	x := (longitude - londonReferenceLongitude) * math.Pi / 180 * earthRadiusMeters * math.Cos(referenceLatitude)
 	y := -(latitude - londonReferenceLatitude) * math.Pi / 180 * earthRadiusMeters

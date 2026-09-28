@@ -75,6 +75,16 @@
   // one gzip command at a time. The compression makes a project command
   // about 6 times smaller, so a slow link sends it in less time.
   const SERVER_COMMAND_BYTES = 4 * MIB;
+  // GEO_PROJECTION, GEO_RADIUS and GEO_MAX_LATITUDE mirror
+  // project.GeoProjection, project.GeoRadius and project.MaxGeoLatitude,
+  // the limits of the geo reference of a project. MAX_COORDINATE mirrors
+  // project.MaxCoordinate, the largest absolute value in meters of each
+  // coordinate of a node. A Go test in internal/project checks the
+  // mirrors.
+  const GEO_PROJECTION = "equirectangular";
+  const GEO_RADIUS = 6371000;
+  const GEO_MAX_LATITUDE = 80;
+  const MAX_COORDINATE = 100000;
   const SERVER_COMMAND_JSON_BYTES = SERVER_PROJECT_BYTES + 64 * 1024;
   const GZIP_COMMAND_BYTES = 64 * 1024;
 
@@ -1405,6 +1415,7 @@
       }
       if (totals.some((total) => !Number.isFinite(total) || total <= 0)) errors.push(`Demand profile ${profile.id} has an empty band.`);
     }
+    if (value.geo !== undefined && value.geo !== null) { const geo = geoError(value.geo); if (geo) errors.push(geo); }
     if (!demand || !["balanced", "destination", "market", "profile"].includes(demand.pattern)) errors.push("The passenger demand pattern is invalid.");
     if (isRecord(demand) && "destination" in demand && (typeof demand.destination !== "string" || new TextEncoder().encode(demand.destination).length > 64)) errors.push("The passenger demand destination is invalid.");
     if (demand && demand.pattern === "destination" && !passenger.some((station) => station.ID === demand.destination)) errors.push("Select a passenger destination.");
@@ -1756,6 +1767,181 @@
   // other members.
   function backgroundFields(item) {
     return { dataURL: item.dataURL, x: item.x, y: item.y, width: item.width, height: item.height, opacity: item.opacity };
+  }
+
+  // FRAME_SOURCES are the projections of an image that the user gives with
+  // its bounds. An "equirectangular" image is linear in longitude and
+  // latitude. A "web-mercator" image is in EPSG:3857, north up, as the
+  // OpenStreetMap tiles are. FRAME_MAX_LATITUDE is the largest absolute
+  // latitude in degrees of a frame edge.
+  const FRAME_SOURCES = ["equirectangular", "web-mercator"];
+  const FRAME_MAX_LATITUDE = 80;
+  // SCALE_TOLERANCE is the accuracy budget of a frame. The projection of
+  // the project is exact north to south, and its east-west scale at
+  // latitude lat is cos(lat0) / cos(lat) of the true scale. A frame edge
+  // with a scale error of more than SCALE_TOLERANCE is not accepted.
+  const SCALE_TOLERANCE = 0.005;
+  // ALIGN_TOLERANCE is the largest difference in meters of each placement
+  // value from the placement of the frame, for an aligned background.
+  const ALIGN_TOLERANCE = 0.5;
+  // ANCHOR_MIN_DISTANCE is the smallest distance in meters between the two
+  // anchor nodes, and ANCHOR_MAX_RESIDUAL is the largest residual of the
+  // second node as a part of that distance.
+  const ANCHOR_MIN_DISTANCE = 100;
+  const ANCHOR_MAX_RESIDUAL = 0.02;
+  // RESAMPLE_MAX_SIDE is the largest side in pixels of a resampled image.
+  const RESAMPLE_MAX_SIDE = 4096;
+  const DEGREE = Math.PI / 180;
+
+  // makeGeo gives the geo reference of a project at a latitude and a
+  // longitude in degrees.
+  function makeGeo(latitude, longitude) {
+    return { latitude, longitude, projection: GEO_PROJECTION, radius: GEO_RADIUS };
+  }
+
+  // geoError gives the error of a geo reference that project.Validate does
+  // not accept, or an empty text for a valid reference.
+  function geoError(geo) {
+    if (geo === null || typeof geo !== "object" || Array.isArray(geo)) return "The geo reference must be an object.";
+    if (typeof geo.latitude !== "number" || !(Math.abs(geo.latitude) <= GEO_MAX_LATITUDE)) return `The geo latitude must be from -${GEO_MAX_LATITUDE} to ${GEO_MAX_LATITUDE} degrees.`;
+    if (typeof geo.longitude !== "number" || !(Math.abs(geo.longitude) <= 180)) return "The geo longitude must be from -180 to 180 degrees.";
+    if (geo.projection !== GEO_PROJECTION) return `The geo projection must be "${GEO_PROJECTION}".`;
+    if (geo.radius !== GEO_RADIUS) return `The geo radius must be ${GEO_RADIUS} meters.`;
+    return "";
+  }
+
+  // projectPoint gives the world position in meters of a latitude and a
+  // longitude in degrees, with the projection of geo: x is R cos(lat0)
+  // (lon - lon0) and y is -R (lat - lat0), with the angles in radians.
+  function projectPoint(geo, latitude, longitude) {
+    return { X: geo.radius * Math.cos(geo.latitude * DEGREE) * (longitude - geo.longitude) * DEGREE, Y: -geo.radius * (latitude - geo.latitude) * DEGREE };
+  }
+
+  // unprojectPoint gives the latitude and the longitude in degrees of a
+  // world position, as the inverse of projectPoint.
+  function unprojectPoint(geo, at) {
+    return { latitude: geo.latitude - at.Y / (geo.radius * DEGREE), longitude: geo.longitude + at.X / (geo.radius * Math.cos(geo.latitude * DEGREE) * DEGREE) };
+  }
+
+  // frameError gives the error of a frame record, or an empty text for a
+  // valid frame. A frame has south, north, west and east in degrees, at
+  // the outer edges of the edge pixels, and source, one of FRAME_SOURCES.
+  // south is less than north, and both are at most FRAME_MAX_LATITUDE from
+  // the equator. west is less than east, from -180 to 180, so the box does
+  // not cross the antimeridian. A frame has no other members.
+  function frameError(frame) {
+    if (frame === null || typeof frame !== "object" || Array.isArray(frame)) return "The frame must be an object.";
+    const keys = ["south", "north", "west", "east", "source"];
+    if (Object.keys(frame).some((key) => !keys.includes(key))) return "The frame has an unknown member.";
+    if (!FRAME_SOURCES.includes(frame.source)) return `The frame source must be ${FRAME_SOURCES.map((name) => `"${name}"`).join(" or ")}.`;
+    if (!["south", "north", "west", "east"].every((key) => typeof frame[key] === "number" && Number.isFinite(frame[key]))) return "The frame bounds must be numbers.";
+    if (Math.abs(frame.south) > FRAME_MAX_LATITUDE || Math.abs(frame.north) > FRAME_MAX_LATITUDE) return `The frame latitudes must be from -${FRAME_MAX_LATITUDE} to ${FRAME_MAX_LATITUDE} degrees.`;
+    if (frame.south >= frame.north) return "The south edge of the frame must be south of the north edge.";
+    if (frame.west < -180 || frame.east > 180) return "The frame longitudes must be from -180 to 180 degrees.";
+    if (frame.west >= frame.east) return "The west edge of the frame must be west of the east edge. The frame cannot cross the antimeridian.";
+    return "";
+  }
+
+  // scaleError gives the error when the east-west scale of the projection
+  // of geo, cos(lat0) / cos(lat), differs from 1 by more than
+  // SCALE_TOLERANCE in the latitudes from south to north. The largest and
+  // the smallest cos(lat) are at south, at north, and at 0 when the range
+  // crosses the equator. It gives an empty text when the scale is in the
+  // budget.
+  function scaleError(geo, south, north) {
+    const edges = south < 0 && north > 0 ? [south, north, 0] : [south, north];
+    const worst = Math.max(...edges.map((latitude) => Math.abs(Math.cos(geo.latitude * DEGREE) / Math.cos(latitude * DEGREE) - 1)));
+    if (worst <= SCALE_TOLERANCE) return "";
+    return `The frame is too far north or south of the reference latitude ${geo.latitude}. The east-west scale differs by ${(worst * 100).toFixed(2)}%, and the limit is ${SCALE_TOLERANCE * 100}%.`;
+  }
+
+  // framePlacement gives the placement of an image with frame in the
+  // project projection of geo: the world position of the north-west
+  // corner, and the width and the height in meters.
+  function framePlacement(frame, geo) {
+    const corner = projectPoint(geo, frame.north, frame.west); const far = projectPoint(geo, frame.south, frame.east);
+    return { x: corner.X, y: corner.Y, width: far.X - corner.X, height: far.Y - corner.Y };
+  }
+
+  // placementError gives the error when the editor cannot place an image
+  // with frame in geo, or an empty text. The frame must be valid, geo must
+  // be set, the frame must be in the accuracy budget of scaleError, and
+  // each corner must be in the square of MAX_COORDINATE meters.
+  function placementError(frame, geo) {
+    const frameText = frameError(frame);
+    if (frameText) return frameText;
+    if (!geo) return "The project has no geographic reference.";
+    const scale = scaleError(geo, frame.south, frame.north);
+    if (scale) return scale;
+    const place = framePlacement(frame, geo);
+    const inside = [place.x, place.y, place.x + place.width, place.y + place.height].every((value) => Math.abs(value) <= MAX_COORDINATE);
+    return inside ? "" : `The frame is more than ${MAX_COORDINATE} m from the reference of the project.`;
+  }
+
+  // frameAligned tells if the placement of background, with x, y, width
+  // and height, is the placement of frame in geo, each value within
+  // ALIGN_TOLERANCE meters. With no geo, a background is not aligned.
+  function frameAligned(background, frame, geo) {
+    if (!geo || !frame) return false;
+    const place = framePlacement(frame, geo);
+    return ["x", "y", "width", "height"].every((key) => Math.abs(background[key] - place[key]) <= ALIGN_TOLERANCE);
+  }
+
+  // anchorGeo gives the geo reference from two anchor nodes. a and b have X
+  // and Y, the node position in meters, and latitude and longitude, the
+  // place of the node in degrees. The reference puts a exactly at its node
+  // position. The result has geo, the residual, the distance in meters
+  // from the projection of b to its node, and distance, the distance in
+  // meters between the two nodes. error is empty when the nodes are at
+  // least ANCHOR_MIN_DISTANCE meters apart, the residual is at most
+  // ANCHOR_MAX_RESIDUAL of the distance, and the reference is valid. The
+  // frame of an image has no rotation, so a network that turns against the
+  // map fails the residual check.
+  function anchorGeo(anchor) {
+    const { a, b } = anchor;
+    const distance = Math.hypot(b.X - a.X, b.Y - a.Y);
+    const latitude = a.latitude + a.Y / (GEO_RADIUS * DEGREE);
+    const geo = makeGeo(latitude, a.longitude - a.X / (GEO_RADIUS * Math.cos(latitude * DEGREE) * DEGREE));
+    const at = projectPoint(geo, b.latitude, b.longitude);
+    const residual = Math.hypot(at.X - b.X, at.Y - b.Y);
+    let error = geoError(geo);
+    if (!error && distance < ANCHOR_MIN_DISTANCE) error = `The anchor nodes must be at least ${ANCHOR_MIN_DISTANCE} m apart.`;
+    if (!error && residual > ANCHOR_MAX_RESIDUAL * distance) error = `The second anchor is ${residual.toFixed(1)} m from its node, more than ${ANCHOR_MAX_RESIDUAL * 100}% of the ${distance.toFixed(1)} m between the nodes.`;
+    return { geo, residual, distance, error };
+  }
+
+  // resampleSize gives the pixel size of the resampled image of frame at
+  // metersPerPixel meters for each pixel in geo. Each side is at least 1
+  // pixel. It gives an error when the size is not a positive number or a
+  // side is more than RESAMPLE_MAX_SIDE pixels.
+  function resampleSize(frame, geo, metersPerPixel) {
+    if (!(Number.isFinite(metersPerPixel) && metersPerPixel > 0)) return { width: 0, height: 0, error: "The meters for each pixel must be a positive number." };
+    const place = framePlacement(frame, geo);
+    const width = Math.max(1, Math.round(place.width / metersPerPixel)); const height = Math.max(1, Math.round(place.height / metersPerPixel));
+    const error = width > RESAMPLE_MAX_SIDE || height > RESAMPLE_MAX_SIDE ? `The resampled image would be ${width} by ${height} pixels. The limit is ${RESAMPLE_MAX_SIDE} pixels on each side, so choose more meters for each pixel.` : "";
+    return { width, height, error };
+  }
+
+  // mercatorY gives the Web Mercator y value of a latitude in degrees, on
+  // a unit sphere. It increases to the north.
+  function mercatorY(latitude) {
+    return Math.log(Math.tan(Math.PI / 4 + latitude * DEGREE / 2));
+  }
+
+  // resampleRows gives the rows of a Web Mercator image with frame, for an
+  // output image of height rows that is linear in latitude. sourceHeight is
+  // the number of rows of the source image. Each item has latitude, the
+  // latitude of the center of the output row, and source, the source row
+  // coordinate of that latitude. A source row r has its center at r + 0.5,
+  // so the draw of an output row copies a source rectangle of one row
+  // from source - 0.5. Longitude is linear in both projections, so each
+  // output row is a scaled copy of one source row.
+  function resampleRows(frame, height, sourceHeight) {
+    const top = mercatorY(frame.north); const span = top - mercatorY(frame.south);
+    return Array.from({ length: height }, (_, row) => {
+      const latitude = frame.north - (row + 0.5) * (frame.north - frame.south) / height;
+      return { latitude, source: (top - mercatorY(latitude)) / span * sourceHeight };
+    });
   }
 
   // createHistory keeps the draft with undo and redo. onChange runs after
@@ -2690,6 +2876,7 @@
     MIN_LANE_LENGTH, MAX_STATIONS, MAX_NODES, MAX_LANES, MAX_NODE_LANES, MAX_FLOWS, MIN_ZOOM, NODE_LABEL_SCALE, NODE_LABEL_SIZE, LANE_PAIR_OFFSET, CHEVRON_LANE_LENGTH, BERTH_PITCH, STATION_PADDING, CLEARANCE, CHECK_DELAY, emptyConfig, fallbackConfig, normalizeConfig, inferStationLanes, addLane, addJunction, addStation, addBerth,
     stationBearing, stationShape, rotateStation, setStationBearing, nextBerthPosition, berthChain, nextChainRow, lanePolyline, laneConflict, removeBerth, moveStation, moveNode, deleteNode, deleteLane, deleteStation, stationFlowCount, setFleetCount, fleetRows, selectionCard, berthFocusID, undoFocus, setDemandPattern,
     laneLength, curveLength, reachable, cutOffStations, stationNodeOwners, dragTargets, validateConfig, configWarnings, checkResults, checkSelector, checkSelection, selectionPoint, focusView,
+    GEO_PROJECTION, GEO_RADIUS, GEO_MAX_LATITUDE, MAX_COORDINATE, FRAME_SOURCES, SCALE_TOLERANCE, ALIGN_TOLERANCE, RESAMPLE_MAX_SIDE, makeGeo, geoError, projectPoint, unprojectPoint, frameError, scaleError, framePlacement, placementError, frameAligned, anchorGeo, resampleSize, mercatorY, resampleRows,
     problemCountText, createCheckTimer, validationSummary, checkFocusKey, IMAGE_FILE_BYTES, IMAGE_MAX_SIDE, IMAGE_MAX_PIXELS, imageFacts, checkImageSize, checkDecodedImage, SERVER_PROJECT_BYTES, PROJECT_FILE_BYTES, SERVER_COMMAND_BYTES, SERVER_COMMAND_JSON_BYTES, GZIP_COMMAND_BYTES, SERVER_TOO_LARGE_TEXT, postCommand, dataURLBytes, serializeDocument, parseDocument, createHistory,
     networkBounds, fitView, zoomScale, nodeLabelSize, pairedLaneIDs, showsChevron, laneOffset, laneCurve, lanePathData, SNAPSHOT_ATTEMPTS, snapshotConsistent, draftBeforeRestart, readState, readSnapshot, applyToServer, applyFailureText, applyFailureStatus, applyToast,
     readLive, readConflict, CONFLICT_UNLOADED_TEXT, conflictView, LOAD_LIVE_QUESTION, applyOverQuestion, loadLive, liveDraft, applyOverBase,
