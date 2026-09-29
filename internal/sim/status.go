@@ -5,3 +5,6 @@ func (s *Simulation) Paused() bool { return s.paused }
 
 // DemoRunning reports whether the scripted traffic demo is active.
 func (s *Simulation) DemoRunning() bool { return s.demo != nil }
+
+// PendingCount returns the number of requests that have not started boarding.
+func (s *Simulation) PendingCount() int { return len(s.waiting) }

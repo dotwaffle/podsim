@@ -1175,7 +1175,7 @@ func run(input runInput) (result, error) {
 		injected := false
 		for next < len(input.schedule) && input.schedule[next].tick == tick {
 			request := input.schedule[next]
-			if len(simulation.Snapshot().Pending) >= input.queueLimit {
+			if simulation.PendingCount() >= input.queueLimit {
 				// The guarded gate reads the rate of the accepted requests.
 				// After a skipped arrival, that rate is lower than the
 				// offered rate, and the gate can open above its limit. The
