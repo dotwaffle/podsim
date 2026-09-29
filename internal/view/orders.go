@@ -30,7 +30,7 @@ func outstandingOrders(state sim.Snapshot) []orderRow {
 	for i := range state.Vehicles {
 		v := &state.Vehicles[i]
 		parties := v.RidersAboard()
-		status := fmt.Sprintf("Pod %s / %s", fleetPodLabel(i), v.Pod.Activity)
+		status := fmt.Sprintf("Pod %s %s", fleetPodLabel(i), strings.ToLower(string(v.Pod.Activity)))
 		if parties > 1 {
 			status += fmt.Sprintf(" / %d parties", parties)
 		}

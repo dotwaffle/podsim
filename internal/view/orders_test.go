@@ -72,7 +72,7 @@ func TestOutstandingOrdersUseFleetNumbers(t *testing.T) {
 	for _, row := range outstandingOrders(state) {
 		got = append(got, row.status)
 	}
-	shared := "Pod 01 / " + string(sim.Traveling) + " / 2 parties"
+	shared := "Pod 01 traveling / 2 parties"
 	want := []string{shared, "Pod 02 traveling to pickup", shared, "Waiting for pod 01 to finish"}
 	if !slices.Equal(got, want) {
 		t.Fatalf("statuses = %q, want %q", got, want)
