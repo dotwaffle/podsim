@@ -355,18 +355,19 @@ func londonNetworkWithHeadings(source londonSource, capacity londonCapacity, ove
 	for id, direction := range overrides {
 		headings[indexes[id]] = direction
 	}
+	shapes := mirrorLondonStations(input, headings)
 	for index, station := range source.Stations {
 		addLondonMovements(&network, station.ID, positions[station.ID], *portals[station.ID])
 		addLondonStation(&network, londonStationInput{
 			id: station.ID, name: station.Name, portals: *portals[station.ID],
-			shape: input.sites[index].shape(headings[index]),
+			shape: shapes[index],
 		})
 	}
 	for index, parking := range facilities {
 		site := len(source.Stations) + index
 		addLondonStation(&network, londonStationInput{
 			id: parking.ID, name: parking.Name, portals: *portals[parking.Gateway], parking: true,
-			shape: input.sites[site].shape(headings[site]),
+			shape: shapes[site],
 		})
 	}
 	return network, nil

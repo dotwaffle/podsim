@@ -78,6 +78,21 @@ A through station can also use the other side of its line for a slightly larger 
 The Parking facilities use the same search.
 Their preferred headings are west, north, and east, and their gateway station is an obstacle.
 
+After the heading search, the generator compares each station with its mirror image.
+It reverses the complete arrival and departure arrangement, including the berth spines, without moving the berths or changing station IDs.
+It accepts a mirror only when access-road crossings decrease and the existing layout penalties do not increase.
+It checks both orientations against the actual links and nearby stations, not a compass-angle cutoff.
+A tie keeps the current orientation.
+The pass makes at most three sweeps.
+
+This reduces crossings among each station's access roads from 524 to 318 in LondonCentral and from 1,167 to 581 in LondonFull.
+It mirrors 82 and 246 station layouts, respectively, including Parking facilities.
+Acton Town in LondonFull decreases from 11 such crossings to 5.
+Some crossings remain because each arrival portal connects to the station and each departure portal connects from it.
+Existing saved projects keep their stored geometry.
+Historical capacity measurements describe the earlier geometry and do not qualify the mirrored presets.
+
+The following crossing counts describe the layout before the mirror pass.
 In the generated network, no core lane crosses a guideway or a movement lane.
 Near the junction, road lanes cross guideways at 25 stations and movement lanes at 80 stations.
 Each road lane has its own separation group, so the separation oracle treats such a crossing as grade-separated.

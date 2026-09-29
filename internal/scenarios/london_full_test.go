@@ -161,7 +161,7 @@ func TestLondonFullOwnedAndDeterministic(t *testing.T) {
 	}
 }
 
-func TestLondonCentralBytesUnchanged(t *testing.T) {
+func TestLondonCentralMirroredBytesPinned(t *testing.T) {
 	t.Parallel()
 	config := LondonCentral()
 	if config.Name != "LondonCentral" {
@@ -172,7 +172,7 @@ func TestLondonCentralBytesUnchanged(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	const want = "7cd1808cd927153a6e8ac87f79db7400d43be293a20ffba3517d10ee0bdccaca"
+	const want = "f3ff5b1ec7ad53daa65f605d8e1f6d7ac4bd01fa2a315812ac681b726d3093cc"
 	if got := fmt.Sprintf("%x", sha256.Sum256(raw)); got != want {
 		t.Fatalf("central project hash=%s want %s", got, want)
 	}

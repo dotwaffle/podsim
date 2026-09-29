@@ -130,6 +130,7 @@ func countNear(first, second []londonSegment, limit float64) int {
 type londonStationShape struct {
 	center    sim.Point
 	direction float64
+	mirrored  bool
 	berths    int
 	// pitch is the distance between two berth rows.
 	pitch float64
@@ -150,7 +151,11 @@ type londonBerthNodes struct {
 // along the heading, from the center to the berth rows.
 func (shape londonStationShape) frame() stationFrame {
 	outward := sim.Point{X: math.Cos(shape.direction), Y: math.Sin(shape.direction)}
-	return stationFrame{origin: shape.center, along: sim.Point{X: -outward.Y, Y: outward.X}, outward: outward}
+	along := sim.Point{X: -outward.Y, Y: outward.X}
+	if shape.mirrored {
+		along = scale(along, -1)
+	}
+	return stationFrame{origin: shape.center, along: along, outward: outward}
 }
 
 // lastBerthDepth returns the distance from the center to the last berth row.
@@ -261,7 +266,10 @@ func (site londonSite) shape(direction float64) londonStationShape {
 
 // footprint returns the lanes and the area of the station with the heading.
 func (site londonSite) footprint(direction float64) londonFootprint {
-	shape := site.shape(direction)
+	return site.shapeFootprint(site.shape(direction))
+}
+
+func (site londonSite) shapeFootprint(shape londonStationShape) londonFootprint {
 	nodes := shape.nodes()
 	footprint := londonFootprint{
 		core: []londonSegment{
