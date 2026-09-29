@@ -305,6 +305,49 @@ test("undo after a station delete restores the station and its demand flows", ()
   assert.deepEqual(history.value, original);
 });
 
+test("operating flags preserve undo snapshots across graph edits and external copies", () => {
+  const { config, gamma } = profileScenario();
+  config.demand.enabled = false; config.redistribution = false;
+  const original = { scenario: config, background: { imageKey: "kept" } };
+  let changes = 0;
+  const history = editor.createHistory(original, () => { changes++; });
+  assert.equal(history.setOperatingFlag("demandEnabled", true), true);
+  assert.equal(history.setOperatingFlag("redistribution", true), true);
+  assert.equal(history.setOperatingFlag("redistribution", true), false);
+  assert.equal(changes, 2);
+  const enabled = history.value;
+  const external = history.value;
+  external.scenario.network.Stations[0].Name = "external mutation";
+  external.scenario.demand.enabled = false;
+  external.background.imageKey = "changed";
+  assert.deepEqual(history.value, enabled);
+  const edited = editor.deleteStation(history.value.scenario, gamma.ID);
+  history.replace({ scenario: edited, background: original.background });
+  assert.equal(history.undo(), true);
+  assert.deepEqual(history.value, enabled);
+  history.undo(); history.undo();
+  assert.deepEqual(history.value, original);
+  history.redo(); history.redo();
+  assert.deepEqual(history.value, enabled);
+  assert.equal(history.scenarioText, JSON.stringify(enabled.scenario));
+  history.undo(); history.setOperatingFlag("demandEnabled", false);
+  assert.equal(history.canRedo, false);
+  assert.deepEqual(history.value, original);
+  assert.throws(() => history.setOperatingFlag("network", true));
+  assert.throws(() => history.setOperatingFlag("redistribution", "true"));
+});
+
+test("operating flags skip checks only for boolean-to-boolean changes", () => {
+  const { config } = profileScenario();
+  config.demand.enabled = false; config.redistribution = "invalid";
+  const changes = [];
+  const model = editor.createBackgroundModel({ initial: { scenario: config, background: null }, onChange: (unchanged) => changes.push(unchanged) });
+  model.history.setOperatingFlag("demandEnabled", true);
+  model.history.setOperatingFlag("redistribution", false);
+  model.history.undo();
+  assert.deepEqual(changes, [true, false, false]);
+});
+
 test("a station delete works on a draft with no demand profiles", () => {
   // An older browser export has no demandProfiles field. The import adds an
   // empty list. The helpers also accept a draft with no such field.

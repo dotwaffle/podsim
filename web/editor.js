@@ -2098,7 +2098,9 @@
 
   // createHistory keeps the draft with undo and redo. onChange runs after
   // each change of the draft, also after an undo, a redo, and a reset. The
-  // editor uses it to schedule the checks. background gives a copy of the
+  // editor uses it to schedule the checks. Its argument is true only when
+  // valid boolean flags change, so existing checks remain valid. A pending
+  // check from an earlier edit must still run. background gives a copy of the
   // background of the draft only, with no copy of the scenario. The
   // background of an entry holds an image key, and no image data, so the
   // JSON copy of an entry copies only numbers and strings.
@@ -2106,12 +2108,29 @@
     let past = [];
     let present = clone(initial);
     let future = [];
-    const changed = () => { if (onChange) onChange(); return true; };
+    const changed = (checksUnchanged = false) => { if (onChange) onChange(checksUnchanged); return true; };
     return {
       get value() { return clone(present); },
+      get scenarioText() { return JSON.stringify(present.scenario); },
       get background() { return present.background ? clone(present.background) : null; },
       get canUndo() { return past.length > 0; },
       get canRedo() { return future.length > 0; },
+      // Internal snapshots never escape without a copy. A boolean edit can
+      // share the unchanged graph while keeping previous entries intact.
+      setOperatingFlag(name, value) {
+        if (!["demandEnabled", "redistribution"].includes(name) || typeof value !== "boolean") throw new Error("Invalid operating flag.");
+        const scenario = present.scenario;
+        const enabled = name === "demandEnabled";
+        const previous = enabled ? scenario.demand.enabled : scenario.redistribution;
+        if (previous === value) return false;
+        past.push(present);
+        present = { ...present, scenario: enabled
+          ? { ...scenario, demand: { ...scenario.demand, enabled: value } }
+          : { ...scenario, redistribution: value } };
+        future = [];
+        // Validation depends on the flag types, not their boolean values.
+        return changed(typeof previous === "boolean");
+      },
       replace(next, record) {
         const serialized = JSON.stringify(next);
         if (serialized === JSON.stringify(present)) return false;
@@ -3064,14 +3083,14 @@
     let gesture = null; let own = false;
     // ticket is the open acquisition or import, or null.
     let ticket = null;
-    const history = createHistory(options.initial, () => {
+    const history = createHistory(options.initial, (checksUnchanged) => {
       edits += 1;
       // A history change that the gesture did not make starts the gesture
       // again from the new value, so its pointer up cannot record an old
       // entry.
       if (gesture && !own) gesture = { entry: history.value, changed: false };
       prune();
-      if (options.onChange) options.onChange();
+      if (options.onChange) options.onChange(checksUnchanged);
     });
     const keyOf = (background) => (background && background.imageKey) || "";
     const sizeOf = (keys) => { let total = 0; for (const key of keys) { const image = images.get(key); if (image) total += image.bytes.byteLength; } return total; };
@@ -3583,10 +3602,11 @@
   const checks = createCheckTimer({ delay: CHECK_DELAY, run: runValidation, clock: root });
   // model keeps the draft history with the images of its backgrounds, the
   // Reset draft baseline, the edit counter, the open gestures and the open
-  // acquisition. Each draft change schedules the checks and both keepers.
+  // acquisition. Each draft change schedules both keepers. Changes that can
+  // affect validation also schedule the checks.
   const model = createBackgroundModel({
     initial: { scenario: emptyConfig(), background: null },
-    onChange: () => { checks.schedule(); keeper.schedule(); backgroundKeeper.schedule(); },
+    onChange: (checksUnchanged) => { if (!checksUnchanged) checks.schedule(); keeper.schedule(); backgroundKeeper.schedule(); },
   });
   // slot is the decoder slot of the tab. Each check decode, the restore and
   // each resample run in it. decoder gives the browser functions to the
@@ -3713,6 +3733,13 @@
   function setDraft(next, record = true) { if (state.history.replace({ scenario: next, background: state.background }, record)) render(); }
   function setBackground(next, record = true) { if (state.history.replace({ scenario: draft(), background: next }, record)) render(); }
   function mutate(change) { setDraft(change(draft())); }
+  function setOperatingFlag(name, value) {
+    if (!state.history.setOperatingFlag(name, value)) return;
+    if (state.drag && state.drag.working) { render(); return; }
+    $("#undoButton").disabled = !state.history.canUndo;
+    $("#redoButton").disabled = !state.history.canRedo;
+    renderApply();
+  }
   function toast(message, error) {
     const element = $("#toast"); element.textContent = message; element.className = error ? "show error" : "show";
     clearTimeout(state.toastTimer); state.toastTimer = setTimeout(() => { element.className = ""; }, 4000);
@@ -4123,7 +4150,7 @@
   // renderApply last. It also disables the apply conflict actions while an
   // apply or a conflict action runs.
   function renderApply() {
-    const changed = Boolean(state.live) && draftChanged({ scenario: draft() }, state.live);
+    const changed = Boolean(state.live) && state.history.scenarioText !== state.live.scenario;
     const button = $("#applyButton"); button.disabled = state.applying || !changed;
     button.title = changed || state.applying ? "" : "The draft has no changes to apply.";
     $("#loadLiveButton").disabled = state.applying; $("#applyOverButton").disabled = state.applying;
@@ -4828,7 +4855,7 @@
     });
     $("#finishCalibrationButton").addEventListener("click", finishCalibration); $("#cancelCalibrationButton").addEventListener("click", () => { state.calibrating = false; state.calibrationPoints = []; $("#calibrationPanel").hidden = true; render(); });
     $("#scenarioName").addEventListener("change", (event) => mutate((config) => { config.name = event.target.value.trim(); return config; }));
-    $("#demandEnabled").addEventListener("change", (event) => mutate((config) => { config.demand.enabled = event.target.checked; return config; }));
+    $("#demandEnabled").addEventListener("change", (event) => setOperatingFlag("demandEnabled", event.target.checked));
     $("#demandRate").addEventListener("change", (event) => mutate((config) => { config.demand.perMinute = Math.floor(Number(event.target.value)); return config; }));
     $("#demandPattern").addEventListener("change", (event) => setDraft(setDemandPattern(draft(), event.target.value)));
     $("#demandDestination").addEventListener("change", (event) => mutate((config) => { config.demand.destination = event.target.value; return config; }));
@@ -4840,7 +4867,7 @@
     $("#sharedRideMaxStops").addEventListener("change", (event) => mutate((config) => { config.sharedRideMaxStops = Math.max(1, Math.min(7, Math.floor(Number(event.target.value) || 3))); return config; }));
     $("#platoonLimit").addEventListener("change", (event) => mutate((config) => { const limit = Number(event.target.value); config.platoonLimit = platoonLimits.includes(limit) ? limit : 0; return config; }));
     $("#demandSeed").addEventListener("change", (event) => mutate((config) => { config.demand.seed = Math.max(0, Math.floor(Number(event.target.value))); return config; }));
-    $("#redistribution").addEventListener("change", (event) => mutate((config) => { config.redistribution = event.target.checked; return config; }));
+    $("#redistribution").addEventListener("change", (event) => setOperatingFlag("redistribution", event.target.checked));
     $("#fleetControls").addEventListener("change", (event) => { if (event.target.dataset.station) setDraft(setFleetCount(draft(), event.target.dataset.station, event.target.value)); });
     $("#selectionContent").addEventListener("change", (event) => {
       if (!state.selection) return;
