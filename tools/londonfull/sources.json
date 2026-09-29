@@ -1,0 +1,146 @@
+[
+  {
+    "file": "bakerloo-inbound.json",
+    "url": "https://api.tfl.gov.uk/Line/bakerloo/Route/Sequence/inbound",
+    "bytes": 64213,
+    "sha256": "7a92d428c50a13ea047a255fe8b3e66bd6dc59220e35948e9d202f6589f90ae9"
+  },
+  {
+    "file": "bakerloo-outbound.json",
+    "url": "https://api.tfl.gov.uk/Line/bakerloo/Route/Sequence/outbound",
+    "bytes": 64215,
+    "sha256": "8d7871d9add63408416ef81b1f3148d60e81890850ab3fb552888040559e0ea6"
+  },
+  {
+    "file": "central-inbound.json",
+    "url": "https://api.tfl.gov.uk/Line/central/Route/Sequence/inbound",
+    "bytes": 107486,
+    "sha256": "d1b22f959753e955949f6acd3ba9b194aa5d6cc30208f0cbb05d9dfa19fc7664"
+  },
+  {
+    "file": "central-outbound.json",
+    "url": "https://api.tfl.gov.uk/Line/central/Route/Sequence/outbound",
+    "bytes": 107507,
+    "sha256": "a6aeace091da062ca236d7c75feb3ac395fe8f933357caa67f921d80a65c1cef"
+  },
+  {
+    "file": "circle-inbound.json",
+    "url": "https://api.tfl.gov.uk/Line/circle/Route/Sequence/inbound",
+    "bytes": 111146,
+    "sha256": "869a3ffe92ed0a80925d3aa5bcfacf6488b7f12946110948393cc14f6f65845f"
+  },
+  {
+    "file": "circle-outbound.json",
+    "url": "https://api.tfl.gov.uk/Line/circle/Route/Sequence/outbound",
+    "bytes": 111149,
+    "sha256": "0eb31e38705238f01bfa0a850e405e47a56d952f9c1174a36c6f8525b0f03ffa"
+  },
+  {
+    "file": "district-inbound.json",
+    "url": "https://api.tfl.gov.uk/Line/district/Route/Sequence/inbound",
+    "bytes": 147248,
+    "sha256": "6b9c4db6413a1cf0b4f9817b6bf0bf6fb46c365eda9fc42fbaff3b494e028ac6"
+  },
+  {
+    "file": "district-outbound.json",
+    "url": "https://api.tfl.gov.uk/Line/district/Route/Sequence/outbound",
+    "bytes": 147270,
+    "sha256": "8ce005db41478c0116918b880dcdff77ccc06e219a94fc407f4143b1f76dec20"
+  },
+  {
+    "file": "hammersmith-city-inbound.json",
+    "url": "https://api.tfl.gov.uk/Line/hammersmith-city/Route/Sequence/inbound",
+    "bytes": 86307,
+    "sha256": "91caf0d53ec5a3da18bd185e8d60fd039753ab3bdb4963e05678e45a5ecaa759"
+  },
+  {
+    "file": "hammersmith-city-outbound.json",
+    "url": "https://api.tfl.gov.uk/Line/hammersmith-city/Route/Sequence/outbound",
+    "bytes": 86309,
+    "sha256": "61cba472579acb9e236eeba35babd1c3a1ac1abcf318a88b4117a50e57c114c5"
+  },
+  {
+    "file": "jubilee-inbound.json",
+    "url": "https://api.tfl.gov.uk/Line/jubilee/Route/Sequence/inbound",
+    "bytes": 78997,
+    "sha256": "79e48db1f9bff1ff562540a8af433b486ff7e1daf3685b676030c92dc489c517"
+  },
+  {
+    "file": "jubilee-outbound.json",
+    "url": "https://api.tfl.gov.uk/Line/jubilee/Route/Sequence/outbound",
+    "bytes": 78999,
+    "sha256": "62df46e2f8c491f3b20c10982ac699dabba1811978dea6c55100e0cc2dd922ea"
+  },
+  {
+    "file": "metropolitan-inbound.json",
+    "url": "https://api.tfl.gov.uk/Line/metropolitan/Route/Sequence/inbound",
+    "bytes": 88126,
+    "sha256": "fc1cdbc75dc4472ce991c296012623c82377167d6559aa942963da6b5a2f23d0"
+  },
+  {
+    "file": "metropolitan-outbound.json",
+    "url": "https://api.tfl.gov.uk/Line/metropolitan/Route/Sequence/outbound",
+    "bytes": 94573,
+    "sha256": "9bc9de6614b2dc327f4dc01148aeae015bb7daaa6dab26e273ce4396d0d7552a"
+  },
+  {
+    "file": "northern-inbound.json",
+    "url": "https://api.tfl.gov.uk/Line/northern/Route/Sequence/inbound",
+    "bytes": 132828,
+    "sha256": "761b17048d7ee59d09a4282dac113aa243f69b29369de658d9f583264f59fc83"
+  },
+  {
+    "file": "northern-outbound.json",
+    "url": "https://api.tfl.gov.uk/Line/northern/Route/Sequence/outbound",
+    "bytes": 132871,
+    "sha256": "ed2d652fbfdda07050c433b1f3ebe8174b610adba9c79b096be590ffc1442493"
+  },
+  {
+    "file": "piccadilly-inbound.json",
+    "url": "https://api.tfl.gov.uk/Line/piccadilly/Route/Sequence/inbound",
+    "bytes": 119577,
+    "sha256": "e0cc05440ef2646e0963b25c7c4062a66dbb0e96c8f9564ba35c67815c6c3f90"
+  },
+  {
+    "file": "piccadilly-outbound.json",
+    "url": "https://api.tfl.gov.uk/Line/piccadilly/Route/Sequence/outbound",
+    "bytes": 119669,
+    "sha256": "169057152cf6b9dcdd2cb3757de75b2ebcf6a98b111b7a8adbce223341b7ef25"
+  },
+  {
+    "file": "victoria-inbound.json",
+    "url": "https://api.tfl.gov.uk/Line/victoria/Route/Sequence/inbound",
+    "bytes": 50979,
+    "sha256": "c429ea69d5b3c38fd0957c193c5b96f1ff212439a0a4cc9f8722a65f3bdc00ca"
+  },
+  {
+    "file": "victoria-outbound.json",
+    "url": "https://api.tfl.gov.uk/Line/victoria/Route/Sequence/outbound",
+    "bytes": 50981,
+    "sha256": "22a54bfd1c80aeafe6114212a3abfbe366d06a4fc8d211dc6434086c25828e7b"
+  },
+  {
+    "file": "waterloo-city-inbound.json",
+    "url": "https://api.tfl.gov.uk/Line/waterloo-city/Route/Sequence/inbound",
+    "bytes": 16024,
+    "sha256": "3d9e9defd791d662ed088db706e14353c9af820987c3cd585ff0db3259e17384"
+  },
+  {
+    "file": "waterloo-city-outbound.json",
+    "url": "https://api.tfl.gov.uk/Line/waterloo-city/Route/Sequence/outbound",
+    "bytes": 16026,
+    "sha256": "5d00c92c2c8e915571106508fed201a7c00dd2ba5628f2f54c6fa1b42c3c783c"
+  },
+  {
+    "file": "numbat-2024-twt.csv",
+    "url": "https://crowding.data.tfl.gov.uk/NUMBAT/NUMBAT%202024/OD%20Data/NBT24TWT5d_od_network_tb_lf_o.csv",
+    "bytes": 22540190,
+    "sha256": "9bd0fcfed7c52e337248cc264ba361c94be2199c51164974bf2bcd67a6b7a92a"
+  },
+  {
+    "file": "numbat-2024-definitions.xlsx",
+    "url": "https://crowding.data.tfl.gov.uk/NUMBAT/NUMBAT%202024/PTSP%20Oasis%20for%20NUMBAT%20definitions.xlsx",
+    "bytes": 6237807,
+    "sha256": "4b2bf85aa082a7452d8e6d1ea63d5b48498771c267a71c258a445c6c1a23940c"
+  }
+]

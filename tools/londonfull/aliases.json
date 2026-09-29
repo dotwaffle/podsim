@@ -1,0 +1,236 @@
+[
+  {
+    "code": "506",
+    "name": "Amersham",
+    "naptan": "910GAMERSHM",
+    "selected": "940GZZLUAMS"
+  },
+  {
+    "code": "514",
+    "name": "Barking",
+    "naptan": "910GBARKING",
+    "selected": "940GZZLUBKG"
+  },
+  {
+    "code": "522",
+    "name": "Blackhorse Road",
+    "naptan": "910GBLCHSRD",
+    "selected": "940GZZLUBLR"
+  },
+  {
+    "code": "539",
+    "name": "Chalfont & Latimer",
+    "naptan": "910GCHLFNAL",
+    "selected": "940GZZLUCAL"
+  },
+  {
+    "code": "546",
+    "name": "Chorleywood",
+    "naptan": "910GCHRW",
+    "selected": "940GZZLUCYD"
+  },
+  {
+    "code": "560",
+    "name": "Ealing Broadway",
+    "naptan": "910GEALINGB",
+    "selected": "940GZZLUEBY"
+  },
+  {
+    "code": "577",
+    "name": "Farringdon",
+    "naptan": "910GFRNDNLT",
+    "selected": "940GZZLUFCN"
+  },
+  {
+    "code": "589",
+    "name": "Greenford",
+    "naptan": "910GGFORD",
+    "selected": "940GZZLUGFD"
+  },
+  {
+    "code": "591",
+    "name": "Gunnersbury",
+    "naptan": "910GGNRSBRY",
+    "selected": "940GZZLUGBY"
+  },
+  {
+    "code": "596",
+    "name": "Harlesden",
+    "naptan": "910GHARLSDN",
+    "selected": "940GZZLUHSN"
+  },
+  {
+    "code": "597",
+    "name": "Harrow & Wealdstone",
+    "naptan": "910GHROW",
+    "selected": "940GZZLUHAW"
+  },
+  {
+    "code": "598",
+    "name": "Harrow-on-the-Hill",
+    "naptan": "910GHAROOTH",
+    "selected": "940GZZLUHOH"
+  },
+  {
+    "code": "603",
+    "name": "Highbury & Islington",
+    "naptan": "910GHGHI",
+    "selected": "940GZZLUHAI"
+  },
+  {
+    "code": "617",
+    "name": "Kensal Green",
+    "naptan": "910GKENSLG",
+    "selected": "940GZZLUKSL"
+  },
+  {
+    "code": "618",
+    "name": "Kensington (Olympia)",
+    "naptan": "910GKENOLYM",
+    "selected": "940GZZLUKOY"
+  },
+  {
+    "code": "619",
+    "name": "Kentish Town",
+    "naptan": "910GKNTSHTN",
+    "selected": "940GZZLUKSH"
+  },
+  {
+    "code": "620",
+    "name": "Kenton",
+    "naptan": "910GKTON",
+    "selected": "940GZZLUKEN"
+  },
+  {
+    "code": "621",
+    "name": "Kew Gardens",
+    "naptan": "910GKEWGRDN",
+    "selected": "940GZZLUKWG"
+  },
+  {
+    "code": "645",
+    "name": "Moorgate",
+    "naptan": "910GMRGT",
+    "selected": "940GZZLUMGT"
+  },
+  {
+    "code": "659",
+    "name": "North Wembley",
+    "naptan": "910GNWEMBLY",
+    "selected": "940GZZLUNWY"
+  },
+  {
+    "code": "665",
+    "name": "Old Street",
+    "naptan": "910GOLDST",
+    "selected": "940GZZLUODS"
+  },
+  {
+    "code": "680",
+    "name": "Queen's Park",
+    "naptan": "910GQPRK",
+    "selected": "940GZZLUQPS"
+  },
+  {
+    "code": "686",
+    "name": "Richmond",
+    "naptan": "910GRICHMND",
+    "selected": "940GZZLURMD"
+  },
+  {
+    "code": "687",
+    "name": "Rickmansworth",
+    "naptan": "910GRCKMNSW",
+    "selected": "940GZZLURKW"
+  },
+  {
+    "code": "698",
+    "name": "Seven Sisters",
+    "naptan": "910GSEVNSIS",
+    "selected": "940GZZLUSVS"
+  },
+  {
+    "code": "709",
+    "name": "South Kenton",
+    "naptan": "910GSKENTON",
+    "selected": "940GZZLUSKT"
+  },
+  {
+    "code": "710",
+    "name": "South Ruislip",
+    "naptan": "910GSRUISLP",
+    "selected": "940GZZLUSRP"
+  },
+  {
+    "code": "717",
+    "name": "Stonebridge Park",
+    "naptan": "910GSTNBGPK",
+    "selected": "940GZZLUSGP"
+  },
+  {
+    "code": "719",
+    "name": "Stratford",
+    "naptan": "910GSTFD",
+    "selected": "940GZZLUSTD"
+  },
+  {
+    "code": "736",
+    "name": "Upminster",
+    "naptan": "910GUPMNSTR",
+    "selected": "940GZZLUUPM"
+  },
+  {
+    "code": "742",
+    "name": "Walthamstow Central",
+    "naptan": "910GWLTWCEN",
+    "selected": "940GZZLUWWL"
+  },
+  {
+    "code": "751",
+    "name": "Wembley Central",
+    "naptan": "910GWMBY",
+    "selected": "940GZZLUWYC"
+  },
+  {
+    "code": "755",
+    "name": "West Brompton",
+    "naptan": "910GWBRMPTN",
+    "selected": "940GZZLUWBN"
+  },
+  {
+    "code": "757",
+    "name": "West Ham",
+    "naptan": "910GWHAMHL",
+    "selected": "940GZZLUWHM"
+  },
+  {
+    "code": "762",
+    "name": "West Ruislip",
+    "naptan": "910GWRUISLP",
+    "selected": "940GZZLUWRP"
+  },
+  {
+    "code": "763",
+    "name": "Whitechapel",
+    "naptan": "910GWCHAPEL",
+    "selected": "940GZZLUWPL"
+  },
+  {
+    "code": "766",
+    "name": "Willesden Junction",
+    "naptan": "910GWLSDJHL",
+    "selected": "940GZZLUWJN"
+  },
+  {
+    "code": "767",
+    "name": "Wimbledon",
+    "naptan": "910GWIMBLDN",
+    "selected": "940GZZLUWIM"
+  },
+  {
+    "code": "788",
+    "name": "Canada Water",
+    "naptan": "910GCNDAW",
+    "selected": "940GZZLUCWR"
+  }
+]

@@ -1,0 +1,6529 @@
+{
+  "sources": [
+    {
+      "file": "bakerloo-inbound.json",
+      "url": "https://api.tfl.gov.uk/Line/bakerloo/Route/Sequence/inbound",
+      "bytes": 64213,
+      "sha256": "7a92d428c50a13ea047a255fe8b3e66bd6dc59220e35948e9d202f6589f90ae9"
+    },
+    {
+      "file": "bakerloo-outbound.json",
+      "url": "https://api.tfl.gov.uk/Line/bakerloo/Route/Sequence/outbound",
+      "bytes": 64215,
+      "sha256": "8d7871d9add63408416ef81b1f3148d60e81890850ab3fb552888040559e0ea6"
+    },
+    {
+      "file": "central-inbound.json",
+      "url": "https://api.tfl.gov.uk/Line/central/Route/Sequence/inbound",
+      "bytes": 107486,
+      "sha256": "d1b22f959753e955949f6acd3ba9b194aa5d6cc30208f0cbb05d9dfa19fc7664"
+    },
+    {
+      "file": "central-outbound.json",
+      "url": "https://api.tfl.gov.uk/Line/central/Route/Sequence/outbound",
+      "bytes": 107507,
+      "sha256": "a6aeace091da062ca236d7c75feb3ac395fe8f933357caa67f921d80a65c1cef"
+    },
+    {
+      "file": "circle-inbound.json",
+      "url": "https://api.tfl.gov.uk/Line/circle/Route/Sequence/inbound",
+      "bytes": 111146,
+      "sha256": "869a3ffe92ed0a80925d3aa5bcfacf6488b7f12946110948393cc14f6f65845f"
+    },
+    {
+      "file": "circle-outbound.json",
+      "url": "https://api.tfl.gov.uk/Line/circle/Route/Sequence/outbound",
+      "bytes": 111149,
+      "sha256": "0eb31e38705238f01bfa0a850e405e47a56d952f9c1174a36c6f8525b0f03ffa"
+    },
+    {
+      "file": "district-inbound.json",
+      "url": "https://api.tfl.gov.uk/Line/district/Route/Sequence/inbound",
+      "bytes": 147248,
+      "sha256": "6b9c4db6413a1cf0b4f9817b6bf0bf6fb46c365eda9fc42fbaff3b494e028ac6"
+    },
+    {
+      "file": "district-outbound.json",
+      "url": "https://api.tfl.gov.uk/Line/district/Route/Sequence/outbound",
+      "bytes": 147270,
+      "sha256": "8ce005db41478c0116918b880dcdff77ccc06e219a94fc407f4143b1f76dec20"
+    },
+    {
+      "file": "hammersmith-city-inbound.json",
+      "url": "https://api.tfl.gov.uk/Line/hammersmith-city/Route/Sequence/inbound",
+      "bytes": 86307,
+      "sha256": "91caf0d53ec5a3da18bd185e8d60fd039753ab3bdb4963e05678e45a5ecaa759"
+    },
+    {
+      "file": "hammersmith-city-outbound.json",
+      "url": "https://api.tfl.gov.uk/Line/hammersmith-city/Route/Sequence/outbound",
+      "bytes": 86309,
+      "sha256": "61cba472579acb9e236eeba35babd1c3a1ac1abcf318a88b4117a50e57c114c5"
+    },
+    {
+      "file": "jubilee-inbound.json",
+      "url": "https://api.tfl.gov.uk/Line/jubilee/Route/Sequence/inbound",
+      "bytes": 78997,
+      "sha256": "79e48db1f9bff1ff562540a8af433b486ff7e1daf3685b676030c92dc489c517"
+    },
+    {
+      "file": "jubilee-outbound.json",
+      "url": "https://api.tfl.gov.uk/Line/jubilee/Route/Sequence/outbound",
+      "bytes": 78999,
+      "sha256": "62df46e2f8c491f3b20c10982ac699dabba1811978dea6c55100e0cc2dd922ea"
+    },
+    {
+      "file": "metropolitan-inbound.json",
+      "url": "https://api.tfl.gov.uk/Line/metropolitan/Route/Sequence/inbound",
+      "bytes": 88126,
+      "sha256": "fc1cdbc75dc4472ce991c296012623c82377167d6559aa942963da6b5a2f23d0"
+    },
+    {
+      "file": "metropolitan-outbound.json",
+      "url": "https://api.tfl.gov.uk/Line/metropolitan/Route/Sequence/outbound",
+      "bytes": 94573,
+      "sha256": "9bc9de6614b2dc327f4dc01148aeae015bb7daaa6dab26e273ce4396d0d7552a"
+    },
+    {
+      "file": "northern-inbound.json",
+      "url": "https://api.tfl.gov.uk/Line/northern/Route/Sequence/inbound",
+      "bytes": 132828,
+      "sha256": "761b17048d7ee59d09a4282dac113aa243f69b29369de658d9f583264f59fc83"
+    },
+    {
+      "file": "northern-outbound.json",
+      "url": "https://api.tfl.gov.uk/Line/northern/Route/Sequence/outbound",
+      "bytes": 132871,
+      "sha256": "ed2d652fbfdda07050c433b1f3ebe8174b610adba9c79b096be590ffc1442493"
+    },
+    {
+      "file": "piccadilly-inbound.json",
+      "url": "https://api.tfl.gov.uk/Line/piccadilly/Route/Sequence/inbound",
+      "bytes": 119577,
+      "sha256": "e0cc05440ef2646e0963b25c7c4062a66dbb0e96c8f9564ba35c67815c6c3f90"
+    },
+    {
+      "file": "piccadilly-outbound.json",
+      "url": "https://api.tfl.gov.uk/Line/piccadilly/Route/Sequence/outbound",
+      "bytes": 119669,
+      "sha256": "169057152cf6b9dcdd2cb3757de75b2ebcf6a98b111b7a8adbce223341b7ef25"
+    },
+    {
+      "file": "victoria-inbound.json",
+      "url": "https://api.tfl.gov.uk/Line/victoria/Route/Sequence/inbound",
+      "bytes": 50979,
+      "sha256": "c429ea69d5b3c38fd0957c193c5b96f1ff212439a0a4cc9f8722a65f3bdc00ca"
+    },
+    {
+      "file": "victoria-outbound.json",
+      "url": "https://api.tfl.gov.uk/Line/victoria/Route/Sequence/outbound",
+      "bytes": 50981,
+      "sha256": "22a54bfd1c80aeafe6114212a3abfbe366d06a4fc8d211dc6434086c25828e7b"
+    },
+    {
+      "file": "waterloo-city-inbound.json",
+      "url": "https://api.tfl.gov.uk/Line/waterloo-city/Route/Sequence/inbound",
+      "bytes": 16024,
+      "sha256": "3d9e9defd791d662ed088db706e14353c9af820987c3cd585ff0db3259e17384"
+    },
+    {
+      "file": "waterloo-city-outbound.json",
+      "url": "https://api.tfl.gov.uk/Line/waterloo-city/Route/Sequence/outbound",
+      "bytes": 16026,
+      "sha256": "5d00c92c2c8e915571106508fed201a7c00dd2ba5628f2f54c6fa1b42c3c783c"
+    },
+    {
+      "file": "numbat-2024-twt.csv",
+      "url": "https://crowding.data.tfl.gov.uk/NUMBAT/NUMBAT%202024/OD%20Data/NBT24TWT5d_od_network_tb_lf_o.csv",
+      "bytes": 22540190,
+      "sha256": "9bd0fcfed7c52e337248cc264ba361c94be2199c51164974bf2bcd67a6b7a92a"
+    },
+    {
+      "file": "numbat-2024-definitions.xlsx",
+      "url": "https://crowding.data.tfl.gov.uk/NUMBAT/NUMBAT%202024/PTSP%20Oasis%20for%20NUMBAT%20definitions.xlsx",
+      "bytes": 6237807,
+      "sha256": "4b2bf85aa082a7452d8e6d1ea63d5b48498771c267a71c258a445c6c1a23940c"
+    }
+  ],
+  "semantics": "2024 Tuesday-to-Thursday network journeys filtered to Tube endpoints, including journeys on other modes",
+  "empty_source_bands": [
+    1,
+    8
+  ],
+  "available_source_bands": [
+    2,
+    3,
+    4,
+    5,
+    6,
+    7
+  ],
+  "band_note": "Source contains no Early or Night rows. Preserve their zero columns; do not offer them as positive-demand selections.",
+  "merges": {
+    "940GZZLUMMT": "940GZZLUBNK",
+    "940GZZLUPAH": "940GZZLUPAC",
+    "940GZZLUHSC": "940GZZLUHSD"
+  },
+  "source_stations": [
+    {
+      "id": "940GZZBPSUST",
+      "name": "Battersea Power Station Underground Station",
+      "lat": 51.479932,
+      "lon": -0.142142,
+      "zone": "1",
+      "site_id": "940GZZBPSUST"
+    },
+    {
+      "id": "940GZZLUACT",
+      "name": "Acton Town Underground Station",
+      "lat": 51.503057,
+      "lon": -0.280462,
+      "zone": "3",
+      "site_id": "940GZZLUACT"
+    },
+    {
+      "id": "940GZZLUACY",
+      "name": "Archway Underground Station",
+      "lat": 51.565478,
+      "lon": -0.134819,
+      "zone": "2+3",
+      "site_id": "940GZZLUACY"
+    },
+    {
+      "id": "940GZZLUADE",
+      "name": "Aldgate East Underground Station",
+      "lat": 51.515037,
+      "lon": -0.072384,
+      "zone": "1",
+      "site_id": "940GZZLUADE"
+    },
+    {
+      "id": "940GZZLUAGL",
+      "name": "Angel Underground Station",
+      "lat": 51.53184,
+      "lon": -0.10635,
+      "zone": "1",
+      "site_id": "940GZZLUAGL"
+    },
+    {
+      "id": "940GZZLUALD",
+      "name": "Aldgate Underground Station",
+      "lat": 51.514246,
+      "lon": -0.075689,
+      "zone": "1",
+      "site_id": "940GZZLUALD"
+    },
+    {
+      "id": "940GZZLUALP",
+      "name": "Alperton Underground Station",
+      "lat": 51.540627,
+      "lon": -0.29961,
+      "zone": "4",
+      "site_id": "940GZZLUALP"
+    },
+    {
+      "id": "940GZZLUAMS",
+      "name": "Amersham Underground Station",
+      "lat": 51.674126,
+      "lon": -0.607714,
+      "zone": "9",
+      "site_id": "940GZZLUAMS"
+    },
+    {
+      "id": "940GZZLUASG",
+      "name": "Arnos Grove Underground Station",
+      "lat": 51.616446,
+      "lon": -0.133062,
+      "zone": "4",
+      "site_id": "940GZZLUASG"
+    },
+    {
+      "id": "940GZZLUASL",
+      "name": "Arsenal Underground Station",
+      "lat": 51.558655,
+      "lon": -0.107457,
+      "zone": "2",
+      "site_id": "940GZZLUASL"
+    },
+    {
+      "id": "940GZZLUBBB",
+      "name": "Bromley-by-Bow Underground Station",
+      "lat": 51.524839,
+      "lon": -0.011538,
+      "zone": "2/3",
+      "site_id": "940GZZLUBBB"
+    },
+    {
+      "id": "940GZZLUBBN",
+      "name": "Barbican Underground Station",
+      "lat": 51.520275,
+      "lon": -0.097993,
+      "zone": "1",
+      "site_id": "940GZZLUBBN"
+    },
+    {
+      "id": "940GZZLUBDS",
+      "name": "Bounds Green Underground Station",
+      "lat": 51.607034,
+      "lon": -0.124235,
+      "zone": "3+4",
+      "site_id": "940GZZLUBDS"
+    },
+    {
+      "id": "940GZZLUBEC",
+      "name": "Becontree Underground Station",
+      "lat": 51.540331,
+      "lon": 0.127016,
+      "zone": "5",
+      "site_id": "940GZZLUBEC"
+    },
+    {
+      "id": "940GZZLUBKE",
+      "name": "Barkingside Underground Station",
+      "lat": 51.585689,
+      "lon": 0.088585,
+      "zone": "4",
+      "site_id": "940GZZLUBKE"
+    },
+    {
+      "id": "940GZZLUBKF",
+      "name": "Blackfriars Underground Station",
+      "lat": 51.511581,
+      "lon": -0.103659,
+      "zone": "1",
+      "site_id": "940GZZLUBKF"
+    },
+    {
+      "id": "940GZZLUBKG",
+      "name": "Barking Underground Station",
+      "lat": 51.539321,
+      "lon": 0.081053,
+      "zone": "4",
+      "site_id": "940GZZLUBKG"
+    },
+    {
+      "id": "940GZZLUBKH",
+      "name": "Buckhurst Hill Underground Station",
+      "lat": 51.626605,
+      "lon": 0.046757,
+      "zone": "5",
+      "site_id": "940GZZLUBKH"
+    },
+    {
+      "id": "940GZZLUBLG",
+      "name": "Bethnal Green Underground Station",
+      "lat": 51.527222,
+      "lon": -0.055506,
+      "zone": "2",
+      "site_id": "940GZZLUBLG"
+    },
+    {
+      "id": "940GZZLUBLM",
+      "name": "Balham Underground Station",
+      "lat": 51.443288,
+      "lon": -0.152997,
+      "zone": "3",
+      "site_id": "940GZZLUBLM"
+    },
+    {
+      "id": "940GZZLUBLR",
+      "name": "Blackhorse Road Underground Station",
+      "lat": 51.586919,
+      "lon": -0.04115,
+      "zone": "3",
+      "site_id": "940GZZLUBLR"
+    },
+    {
+      "id": "940GZZLUBMY",
+      "name": "Bermondsey Underground Station",
+      "lat": 51.49775,
+      "lon": -0.063993,
+      "zone": "2",
+      "site_id": "940GZZLUBMY"
+    },
+    {
+      "id": "940GZZLUBND",
+      "name": "Bond Street Underground Station",
+      "lat": 51.514304,
+      "lon": -0.149723,
+      "zone": "1",
+      "site_id": "940GZZLUBND"
+    },
+    {
+      "id": "940GZZLUBNK",
+      "name": "Bank Underground Station",
+      "lat": 51.513132,
+      "lon": -0.090047,
+      "zone": "1",
+      "site_id": "940GZZLUBNK"
+    },
+    {
+      "id": "940GZZLUBOR",
+      "name": "Borough Underground Station",
+      "lat": 51.501199,
+      "lon": -0.09337,
+      "zone": "1",
+      "site_id": "940GZZLUBOR"
+    },
+    {
+      "id": "940GZZLUBOS",
+      "name": "Boston Manor Underground Station",
+      "lat": 51.495635,
+      "lon": -0.324939,
+      "zone": "4",
+      "site_id": "940GZZLUBOS"
+    },
+    {
+      "id": "940GZZLUBSC",
+      "name": "Barons Court Underground Station",
+      "lat": 51.490311,
+      "lon": -0.213427,
+      "zone": "2",
+      "site_id": "940GZZLUBSC"
+    },
+    {
+      "id": "940GZZLUBST",
+      "name": "Baker Street Underground Station",
+      "lat": 51.522883,
+      "lon": -0.15713,
+      "zone": "1",
+      "site_id": "940GZZLUBST"
+    },
+    {
+      "id": "940GZZLUBTK",
+      "name": "Burnt Oak Underground Station",
+      "lat": 51.602774,
+      "lon": -0.264048,
+      "zone": "4",
+      "site_id": "940GZZLUBTK"
+    },
+    {
+      "id": "940GZZLUBTX",
+      "name": "Brent Cross Underground Station",
+      "lat": 51.57665,
+      "lon": -0.213622,
+      "zone": "3",
+      "site_id": "940GZZLUBTX"
+    },
+    {
+      "id": "940GZZLUBWR",
+      "name": "Bow Road Underground Station",
+      "lat": 51.52694,
+      "lon": -0.025128,
+      "zone": "2",
+      "site_id": "940GZZLUBWR"
+    },
+    {
+      "id": "940GZZLUBWT",
+      "name": "Bayswater Underground Station",
+      "lat": 51.512284,
+      "lon": -0.187938,
+      "zone": "1",
+      "site_id": "940GZZLUBWT"
+    },
+    {
+      "id": "940GZZLUBXN",
+      "name": "Brixton Underground Station",
+      "lat": 51.462618,
+      "lon": -0.114888,
+      "zone": "2",
+      "site_id": "940GZZLUBXN"
+    },
+    {
+      "id": "940GZZLUBZP",
+      "name": "Belsize Park Underground Station",
+      "lat": 51.550311,
+      "lon": -0.164648,
+      "zone": "2",
+      "site_id": "940GZZLUBZP"
+    },
+    {
+      "id": "940GZZLUCAL",
+      "name": "Chalfont & Latimer Underground Station",
+      "lat": 51.667985,
+      "lon": -0.560689,
+      "zone": "8",
+      "site_id": "940GZZLUCAL"
+    },
+    {
+      "id": "940GZZLUCAR",
+      "name": "Caledonian Road Underground Station",
+      "lat": 51.548519,
+      "lon": -0.118493,
+      "zone": "2",
+      "site_id": "940GZZLUCAR"
+    },
+    {
+      "id": "940GZZLUCFM",
+      "name": "Chalk Farm Underground Station",
+      "lat": 51.544118,
+      "lon": -0.153388,
+      "zone": "2",
+      "site_id": "940GZZLUCFM"
+    },
+    {
+      "id": "940GZZLUCGN",
+      "name": "Covent Garden Underground Station",
+      "lat": 51.513093,
+      "lon": -0.124436,
+      "zone": "1",
+      "site_id": "940GZZLUCGN"
+    },
+    {
+      "id": "940GZZLUCGT",
+      "name": "Canning Town Underground Station",
+      "lat": 51.513584,
+      "lon": 0.008322,
+      "zone": "2/3",
+      "site_id": "940GZZLUCGT"
+    },
+    {
+      "id": "940GZZLUCHL",
+      "name": "Chancery Lane Underground Station",
+      "lat": 51.518247,
+      "lon": -0.111583,
+      "zone": "1",
+      "site_id": "940GZZLUCHL"
+    },
+    {
+      "id": "940GZZLUCHX",
+      "name": "Charing Cross Underground Station",
+      "lat": 51.50741,
+      "lon": -0.127277,
+      "zone": "1",
+      "site_id": "940GZZLUCHX"
+    },
+    {
+      "id": "940GZZLUCKS",
+      "name": "Cockfosters Underground Station",
+      "lat": 51.65152,
+      "lon": -0.149171,
+      "zone": "5",
+      "site_id": "940GZZLUCKS"
+    },
+    {
+      "id": "940GZZLUCND",
+      "name": "Colindale Underground Station",
+      "lat": 51.595424,
+      "lon": -0.249919,
+      "zone": "4",
+      "site_id": "940GZZLUCND"
+    },
+    {
+      "id": "940GZZLUCPC",
+      "name": "Clapham Common Underground Station",
+      "lat": 51.461742,
+      "lon": -0.138317,
+      "zone": "2",
+      "site_id": "940GZZLUCPC"
+    },
+    {
+      "id": "940GZZLUCPK",
+      "name": "Canons Park Underground Station",
+      "lat": 51.607701,
+      "lon": -0.294693,
+      "zone": "5",
+      "site_id": "940GZZLUCPK"
+    },
+    {
+      "id": "940GZZLUCPN",
+      "name": "Clapham North Underground Station",
+      "lat": 51.465135,
+      "lon": -0.130016,
+      "zone": "2",
+      "site_id": "940GZZLUCPN"
+    },
+    {
+      "id": "940GZZLUCPS",
+      "name": "Clapham South Underground Station",
+      "lat": 51.452654,
+      "lon": -0.147582,
+      "zone": "2+3",
+      "site_id": "940GZZLUCPS"
+    },
+    {
+      "id": "940GZZLUCSD",
+      "name": "Colliers Wood Underground Station",
+      "lat": 51.41816,
+      "lon": -0.178086,
+      "zone": "3",
+      "site_id": "940GZZLUCSD"
+    },
+    {
+      "id": "940GZZLUCSM",
+      "name": "Chesham Underground Station",
+      "lat": 51.705208,
+      "lon": -0.611247,
+      "zone": "9",
+      "site_id": "940GZZLUCSM"
+    },
+    {
+      "id": "940GZZLUCST",
+      "name": "Cannon Street Underground Station",
+      "lat": 51.51151,
+      "lon": -0.090432,
+      "zone": "1",
+      "site_id": "940GZZLUCST"
+    },
+    {
+      "id": "940GZZLUCTN",
+      "name": "Camden Town Underground Station",
+      "lat": 51.539292,
+      "lon": -0.14274,
+      "zone": "2",
+      "site_id": "940GZZLUCTN"
+    },
+    {
+      "id": "940GZZLUCWL",
+      "name": "Chigwell Underground Station",
+      "lat": 51.617916,
+      "lon": 0.075041,
+      "zone": "4",
+      "site_id": "940GZZLUCWL"
+    },
+    {
+      "id": "940GZZLUCWP",
+      "name": "Chiswick Park Underground Station",
+      "lat": 51.494627,
+      "lon": -0.267972,
+      "zone": "3",
+      "site_id": "940GZZLUCWP"
+    },
+    {
+      "id": "940GZZLUCWR",
+      "name": "Canada Water Underground Station",
+      "lat": 51.497931,
+      "lon": -0.049405,
+      "zone": "2",
+      "site_id": "940GZZLUCWR"
+    },
+    {
+      "id": "940GZZLUCXY",
+      "name": "Croxley Underground Station",
+      "lat": 51.647044,
+      "lon": -0.441718,
+      "zone": "7",
+      "site_id": "940GZZLUCXY"
+    },
+    {
+      "id": "940GZZLUCYD",
+      "name": "Chorleywood Underground Station",
+      "lat": 51.654358,
+      "lon": -0.518461,
+      "zone": "7",
+      "site_id": "940GZZLUCYD"
+    },
+    {
+      "id": "940GZZLUCYF",
+      "name": "Canary Wharf Underground Station",
+      "lat": 51.503488,
+      "lon": -0.018246,
+      "zone": "2",
+      "site_id": "940GZZLUCYF"
+    },
+    {
+      "id": "940GZZLUDBN",
+      "name": "Debden Underground Station",
+      "lat": 51.645386,
+      "lon": 0.083782,
+      "zone": "6",
+      "site_id": "940GZZLUDBN"
+    },
+    {
+      "id": "940GZZLUDGE",
+      "name": "Dagenham East Underground Station",
+      "lat": 51.544096,
+      "lon": 0.166017,
+      "zone": "5",
+      "site_id": "940GZZLUDGE"
+    },
+    {
+      "id": "940GZZLUDGY",
+      "name": "Dagenham Heathway Underground Station",
+      "lat": 51.541639,
+      "lon": 0.147527,
+      "zone": "5",
+      "site_id": "940GZZLUDGY"
+    },
+    {
+      "id": "940GZZLUDOH",
+      "name": "Dollis Hill Underground Station",
+      "lat": 51.551955,
+      "lon": -0.239068,
+      "zone": "3",
+      "site_id": "940GZZLUDOH"
+    },
+    {
+      "id": "940GZZLUEAC",
+      "name": "Elephant & Castle Underground Station",
+      "lat": 51.494536,
+      "lon": -0.100606,
+      "zone": "1+2",
+      "site_id": "940GZZLUEAC"
+    },
+    {
+      "id": "940GZZLUEAE",
+      "name": "Eastcote Underground Station",
+      "lat": 51.576506,
+      "lon": -0.397373,
+      "zone": "5",
+      "site_id": "940GZZLUEAE"
+    },
+    {
+      "id": "940GZZLUEAN",
+      "name": "East Acton Underground Station",
+      "lat": 51.516612,
+      "lon": -0.247248,
+      "zone": "2",
+      "site_id": "940GZZLUEAN"
+    },
+    {
+      "id": "940GZZLUEBY",
+      "name": "Ealing Broadway Underground Station",
+      "lat": 51.515017,
+      "lon": -0.301457,
+      "zone": "3",
+      "site_id": "940GZZLUEBY"
+    },
+    {
+      "id": "940GZZLUECM",
+      "name": "Ealing Common Underground Station",
+      "lat": 51.51014,
+      "lon": -0.288265,
+      "zone": "3",
+      "site_id": "940GZZLUECM"
+    },
+    {
+      "id": "940GZZLUECT",
+      "name": "Earl's Court Underground Station",
+      "lat": 51.492063,
+      "lon": -0.193378,
+      "zone": "1+2",
+      "site_id": "940GZZLUECT"
+    },
+    {
+      "id": "940GZZLUEFY",
+      "name": "East Finchley Underground Station",
+      "lat": 51.587131,
+      "lon": -0.165012,
+      "zone": "3",
+      "site_id": "940GZZLUEFY"
+    },
+    {
+      "id": "940GZZLUEGW",
+      "name": "Edgware Underground Station",
+      "lat": 51.613653,
+      "lon": -0.274928,
+      "zone": "5",
+      "site_id": "940GZZLUEGW"
+    },
+    {
+      "id": "940GZZLUEHM",
+      "name": "East Ham Underground Station",
+      "lat": 51.538948,
+      "lon": 0.051186,
+      "zone": "3+4",
+      "site_id": "940GZZLUEHM"
+    },
+    {
+      "id": "940GZZLUEMB",
+      "name": "Embankment Underground Station",
+      "lat": 51.507058,
+      "lon": -0.122666,
+      "zone": "1",
+      "site_id": "940GZZLUEMB"
+    },
+    {
+      "id": "940GZZLUEPG",
+      "name": "Epping Underground Station",
+      "lat": 51.69368,
+      "lon": 0.113767,
+      "zone": "6",
+      "site_id": "940GZZLUEPG"
+    },
+    {
+      "id": "940GZZLUEPK",
+      "name": "Elm Park Underground Station",
+      "lat": 51.549775,
+      "lon": 0.19864,
+      "zone": "6",
+      "site_id": "940GZZLUEPK"
+    },
+    {
+      "id": "940GZZLUEPY",
+      "name": "East Putney Underground Station",
+      "lat": 51.459205,
+      "lon": -0.211,
+      "zone": "2+3",
+      "site_id": "940GZZLUEPY"
+    },
+    {
+      "id": "940GZZLUERB",
+      "name": "Edgware Road (Bakerloo) Underground Station",
+      "lat": 51.520299,
+      "lon": -0.17015,
+      "zone": "1",
+      "site_id": "940GZZLUERB"
+    },
+    {
+      "id": "940GZZLUERC",
+      "name": "Edgware Road (Circle Line) Underground Station",
+      "lat": 51.519858,
+      "lon": -0.167832,
+      "zone": "1",
+      "site_id": "940GZZLUERC"
+    },
+    {
+      "id": "940GZZLUESQ",
+      "name": "Euston Square Underground Station",
+      "lat": 51.525604,
+      "lon": -0.135829,
+      "zone": "1",
+      "site_id": "940GZZLUESQ"
+    },
+    {
+      "id": "940GZZLUEUS",
+      "name": "Euston Underground Station",
+      "lat": 51.527999,
+      "lon": -0.133785,
+      "zone": "1",
+      "site_id": "940GZZLUEUS"
+    },
+    {
+      "id": "940GZZLUFBY",
+      "name": "Fulham Broadway Underground Station",
+      "lat": 51.480081,
+      "lon": -0.195422,
+      "zone": "2",
+      "site_id": "940GZZLUFBY"
+    },
+    {
+      "id": "940GZZLUFCN",
+      "name": "Farringdon Underground Station",
+      "lat": 51.520252,
+      "lon": -0.104913,
+      "zone": "1",
+      "site_id": "940GZZLUFCN"
+    },
+    {
+      "id": "940GZZLUFLP",
+      "name": "Fairlop Underground Station",
+      "lat": 51.595618,
+      "lon": 0.091004,
+      "zone": "4",
+      "site_id": "940GZZLUFLP"
+    },
+    {
+      "id": "940GZZLUFPK",
+      "name": "Finsbury Park Underground Station",
+      "lat": 51.564158,
+      "lon": -0.106825,
+      "zone": "2",
+      "site_id": "940GZZLUFPK"
+    },
+    {
+      "id": "940GZZLUFYC",
+      "name": "Finchley Central Underground Station",
+      "lat": 51.600921,
+      "lon": -0.192527,
+      "zone": "4",
+      "site_id": "940GZZLUFYC"
+    },
+    {
+      "id": "940GZZLUFYR",
+      "name": "Finchley Road Underground Station",
+      "lat": 51.546825,
+      "lon": -0.179845,
+      "zone": "2",
+      "site_id": "940GZZLUFYR"
+    },
+    {
+      "id": "940GZZLUGBY",
+      "name": "Gunnersbury Underground Station",
+      "lat": 51.491803,
+      "lon": -0.275267,
+      "zone": "3",
+      "site_id": "940GZZLUGBY"
+    },
+    {
+      "id": "940GZZLUGDG",
+      "name": "Goodge Street Underground Station",
+      "lat": 51.520599,
+      "lon": -0.134361,
+      "zone": "1",
+      "site_id": "940GZZLUGDG"
+    },
+    {
+      "id": "940GZZLUGFD",
+      "name": "Greenford Underground Station",
+      "lat": 51.542424,
+      "lon": -0.34605,
+      "zone": "4",
+      "site_id": "940GZZLUGFD"
+    },
+    {
+      "id": "940GZZLUGGH",
+      "name": "Grange Hill Underground Station",
+      "lat": 51.613378,
+      "lon": 0.092066,
+      "zone": "4",
+      "site_id": "940GZZLUGGH"
+    },
+    {
+      "id": "940GZZLUGGN",
+      "name": "Golders Green Underground Station",
+      "lat": 51.572259,
+      "lon": -0.194039,
+      "zone": "3",
+      "site_id": "940GZZLUGGN"
+    },
+    {
+      "id": "940GZZLUGHK",
+      "name": "Goldhawk Road Underground Station",
+      "lat": 51.502005,
+      "lon": -0.226715,
+      "zone": "2",
+      "site_id": "940GZZLUGHK"
+    },
+    {
+      "id": "940GZZLUGPK",
+      "name": "Green Park Underground Station",
+      "lat": 51.506947,
+      "lon": -0.142787,
+      "zone": "1",
+      "site_id": "940GZZLUGPK"
+    },
+    {
+      "id": "940GZZLUGPS",
+      "name": "Great Portland Street Underground Station",
+      "lat": 51.52384,
+      "lon": -0.144262,
+      "zone": "1",
+      "site_id": "940GZZLUGPS"
+    },
+    {
+      "id": "940GZZLUGTH",
+      "name": "Gants Hill Underground Station",
+      "lat": 51.576544,
+      "lon": 0.066185,
+      "zone": "4",
+      "site_id": "940GZZLUGTH"
+    },
+    {
+      "id": "940GZZLUGTR",
+      "name": "Gloucester Road Underground Station",
+      "lat": 51.494316,
+      "lon": -0.182658,
+      "zone": "1",
+      "site_id": "940GZZLUGTR"
+    },
+    {
+      "id": "940GZZLUHAI",
+      "name": "Highbury & Islington Underground Station",
+      "lat": 51.54635,
+      "lon": -0.103324,
+      "zone": "2",
+      "site_id": "940GZZLUHAI"
+    },
+    {
+      "id": "940GZZLUHAW",
+      "name": "Harrow & Wealdstone Underground Station",
+      "lat": 51.592268,
+      "lon": -0.335217,
+      "zone": "5",
+      "site_id": "940GZZLUHAW"
+    },
+    {
+      "id": "940GZZLUHBN",
+      "name": "Holborn Underground Station",
+      "lat": 51.51758,
+      "lon": -0.120475,
+      "zone": "1",
+      "site_id": "940GZZLUHBN"
+    },
+    {
+      "id": "940GZZLUHBT",
+      "name": "High Barnet Underground Station",
+      "lat": 51.650541,
+      "lon": -0.194298,
+      "zone": "5",
+      "site_id": "940GZZLUHBT"
+    },
+    {
+      "id": "940GZZLUHCH",
+      "name": "Hornchurch Underground Station",
+      "lat": 51.554093,
+      "lon": 0.219116,
+      "zone": "6",
+      "site_id": "940GZZLUHCH"
+    },
+    {
+      "id": "940GZZLUHCL",
+      "name": "Hendon Central Underground Station",
+      "lat": 51.583301,
+      "lon": -0.226424,
+      "zone": "3+4",
+      "site_id": "940GZZLUHCL"
+    },
+    {
+      "id": "940GZZLUHGD",
+      "name": "Hillingdon Underground Station",
+      "lat": 51.553715,
+      "lon": -0.449828,
+      "zone": "6",
+      "site_id": "940GZZLUHGD"
+    },
+    {
+      "id": "940GZZLUHGR",
+      "name": "Hanger Lane Underground Station",
+      "lat": 51.530177,
+      "lon": -0.292704,
+      "zone": "3",
+      "site_id": "940GZZLUHGR"
+    },
+    {
+      "id": "940GZZLUHGT",
+      "name": "Highgate Underground Station",
+      "lat": 51.577532,
+      "lon": -0.145857,
+      "zone": "3",
+      "site_id": "940GZZLUHGT"
+    },
+    {
+      "id": "940GZZLUHLT",
+      "name": "Hainault Underground Station",
+      "lat": 51.603659,
+      "lon": 0.093482,
+      "zone": "4",
+      "site_id": "940GZZLUHLT"
+    },
+    {
+      "id": "940GZZLUHNX",
+      "name": "Hatton Cross Underground Station",
+      "lat": 51.466747,
+      "lon": -0.423191,
+      "zone": "5+6",
+      "site_id": "940GZZLUHNX"
+    },
+    {
+      "id": "940GZZLUHOH",
+      "name": "Harrow-on-the-Hill Underground Station",
+      "lat": 51.579195,
+      "lon": -0.337225,
+      "zone": "5",
+      "site_id": "940GZZLUHOH"
+    },
+    {
+      "id": "940GZZLUHPC",
+      "name": "Hyde Park Corner Underground Station",
+      "lat": 51.503035,
+      "lon": -0.152441,
+      "zone": "1",
+      "site_id": "940GZZLUHPC"
+    },
+    {
+      "id": "940GZZLUHPK",
+      "name": "Holland Park Underground Station",
+      "lat": 51.507143,
+      "lon": -0.205679,
+      "zone": "2",
+      "site_id": "940GZZLUHPK"
+    },
+    {
+      "id": "940GZZLUHR4",
+      "name": "Heathrow Terminal 4 Underground Station",
+      "lat": 51.458524,
+      "lon": -0.445771,
+      "zone": "6",
+      "site_id": "940GZZLUHR4"
+    },
+    {
+      "id": "940GZZLUHR5",
+      "name": "Heathrow Terminal 5 Underground Station",
+      "lat": 51.470052,
+      "lon": -0.49056,
+      "zone": "6",
+      "site_id": "940GZZLUHR5"
+    },
+    {
+      "id": "940GZZLUHRC",
+      "name": "Heathrow Terminals 2 & 3 Underground Station",
+      "lat": 51.471235,
+      "lon": -0.452265,
+      "zone": "6",
+      "site_id": "940GZZLUHRC"
+    },
+    {
+      "id": "940GZZLUHSC",
+      "name": "Hammersmith (H&C Line) Underground Station",
+      "lat": 51.49339,
+      "lon": -0.22503,
+      "zone": "2",
+      "site_id": "940GZZLUHSD"
+    },
+    {
+      "id": "940GZZLUHSD",
+      "name": "Hammersmith (Dist&Picc Line) Underground Station",
+      "lat": 51.4923,
+      "lon": -0.22362,
+      "zone": "2",
+      "site_id": "940GZZLUHSD"
+    },
+    {
+      "id": "940GZZLUHSK",
+      "name": "High Street Kensington Underground Station",
+      "lat": 51.501055,
+      "lon": -0.192792,
+      "zone": "1",
+      "site_id": "940GZZLUHSK"
+    },
+    {
+      "id": "940GZZLUHSN",
+      "name": "Harlesden Underground Station",
+      "lat": 51.53631,
+      "lon": -0.257883,
+      "zone": "3",
+      "site_id": "940GZZLUHSN"
+    },
+    {
+      "id": "940GZZLUHTD",
+      "name": "Hampstead Underground Station",
+      "lat": 51.556239,
+      "lon": -0.177464,
+      "zone": "2+3",
+      "site_id": "940GZZLUHTD"
+    },
+    {
+      "id": "940GZZLUHWC",
+      "name": "Hounslow Central Underground Station",
+      "lat": 51.471295,
+      "lon": -0.366578,
+      "zone": "4",
+      "site_id": "940GZZLUHWC"
+    },
+    {
+      "id": "940GZZLUHWE",
+      "name": "Hounslow East Underground Station",
+      "lat": 51.473213,
+      "lon": -0.356474,
+      "zone": "4",
+      "site_id": "940GZZLUHWE"
+    },
+    {
+      "id": "940GZZLUHWT",
+      "name": "Hounslow West Underground Station",
+      "lat": 51.473469,
+      "lon": -0.386544,
+      "zone": "5",
+      "site_id": "940GZZLUHWT"
+    },
+    {
+      "id": "940GZZLUHWY",
+      "name": "Holloway Road Underground Station",
+      "lat": 51.552697,
+      "lon": -0.113244,
+      "zone": "2",
+      "site_id": "940GZZLUHWY"
+    },
+    {
+      "id": "940GZZLUICK",
+      "name": "Ickenham Underground Station",
+      "lat": 51.56177,
+      "lon": -0.442225,
+      "zone": "6",
+      "site_id": "940GZZLUICK"
+    },
+    {
+      "id": "940GZZLUKBN",
+      "name": "Kilburn Underground Station",
+      "lat": 51.547183,
+      "lon": -0.204248,
+      "zone": "2",
+      "site_id": "940GZZLUKBN"
+    },
+    {
+      "id": "940GZZLUKBY",
+      "name": "Kingsbury Underground Station",
+      "lat": 51.584845,
+      "lon": -0.27879,
+      "zone": "4",
+      "site_id": "940GZZLUKBY"
+    },
+    {
+      "id": "940GZZLUKEN",
+      "name": "Kenton Underground Station",
+      "lat": 51.581756,
+      "lon": -0.31691,
+      "zone": "4",
+      "site_id": "940GZZLUKEN"
+    },
+    {
+      "id": "940GZZLUKNB",
+      "name": "Knightsbridge Underground Station",
+      "lat": 51.501669,
+      "lon": -0.160508,
+      "zone": "1",
+      "site_id": "940GZZLUKNB"
+    },
+    {
+      "id": "940GZZLUKNG",
+      "name": "Kennington Underground Station",
+      "lat": 51.488337,
+      "lon": -0.105963,
+      "zone": "1+2",
+      "site_id": "940GZZLUKNG"
+    },
+    {
+      "id": "940GZZLUKOY",
+      "name": "Kensington (Olympia) Underground Station",
+      "lat": 51.497624,
+      "lon": -0.210015,
+      "zone": "2",
+      "site_id": "940GZZLUKOY"
+    },
+    {
+      "id": "940GZZLUKPK",
+      "name": "Kilburn Park Underground Station",
+      "lat": 51.534979,
+      "lon": -0.194232,
+      "zone": "2",
+      "site_id": "940GZZLUKPK"
+    },
+    {
+      "id": "940GZZLUKSH",
+      "name": "Kentish Town Underground Station",
+      "lat": 51.550312,
+      "lon": -0.140733,
+      "zone": "2",
+      "site_id": "940GZZLUKSH"
+    },
+    {
+      "id": "940GZZLUKSL",
+      "name": "Kensal Green Underground Station",
+      "lat": 51.530539,
+      "lon": -0.225016,
+      "zone": "2",
+      "site_id": "940GZZLUKSL"
+    },
+    {
+      "id": "940GZZLUKSX",
+      "name": "King's Cross St. Pancras Underground Station",
+      "lat": 51.530663,
+      "lon": -0.123194,
+      "zone": "1",
+      "site_id": "940GZZLUKSX"
+    },
+    {
+      "id": "940GZZLUKWG",
+      "name": "Kew Gardens Underground Station",
+      "lat": 51.477058,
+      "lon": -0.285241,
+      "zone": "3+4",
+      "site_id": "940GZZLUKWG"
+    },
+    {
+      "id": "940GZZLULAD",
+      "name": "Ladbroke Grove Underground Station",
+      "lat": 51.517449,
+      "lon": -0.210391,
+      "zone": "2",
+      "site_id": "940GZZLULAD"
+    },
+    {
+      "id": "940GZZLULBN",
+      "name": "Lambeth North Underground Station",
+      "lat": 51.498808,
+      "lon": -0.112315,
+      "zone": "1",
+      "site_id": "940GZZLULBN"
+    },
+    {
+      "id": "940GZZLULGN",
+      "name": "Loughton Underground Station",
+      "lat": 51.641443,
+      "lon": 0.055476,
+      "zone": "6",
+      "site_id": "940GZZLULGN"
+    },
+    {
+      "id": "940GZZLULGT",
+      "name": "Lancaster Gate Underground Station",
+      "lat": 51.511723,
+      "lon": -0.175494,
+      "zone": "1",
+      "site_id": "940GZZLULGT"
+    },
+    {
+      "id": "940GZZLULNB",
+      "name": "London Bridge Underground Station",
+      "lat": 51.505721,
+      "lon": -0.088873,
+      "zone": "1",
+      "site_id": "940GZZLULNB"
+    },
+    {
+      "id": "940GZZLULRD",
+      "name": "Latimer Road Underground Station",
+      "lat": 51.513389,
+      "lon": -0.217799,
+      "zone": "2",
+      "site_id": "940GZZLULRD"
+    },
+    {
+      "id": "940GZZLULSQ",
+      "name": "Leicester Square Underground Station",
+      "lat": 51.511386,
+      "lon": -0.128426,
+      "zone": "1",
+      "site_id": "940GZZLULSQ"
+    },
+    {
+      "id": "940GZZLULVT",
+      "name": "Liverpool Street Underground Station",
+      "lat": 51.517372,
+      "lon": -0.083182,
+      "zone": "1",
+      "site_id": "940GZZLULVT"
+    },
+    {
+      "id": "940GZZLULYN",
+      "name": "Leyton Underground Station",
+      "lat": 51.556589,
+      "lon": -0.005523,
+      "zone": "3",
+      "site_id": "940GZZLULYN"
+    },
+    {
+      "id": "940GZZLULYS",
+      "name": "Leytonstone Underground Station",
+      "lat": 51.568324,
+      "lon": 0.008194,
+      "zone": "3+4",
+      "site_id": "940GZZLULYS"
+    },
+    {
+      "id": "940GZZLUMBA",
+      "name": "Marble Arch Underground Station",
+      "lat": 51.513424,
+      "lon": -0.158953,
+      "zone": "1",
+      "site_id": "940GZZLUMBA"
+    },
+    {
+      "id": "940GZZLUMDN",
+      "name": "Morden Underground Station",
+      "lat": 51.402142,
+      "lon": -0.194839,
+      "zone": "4",
+      "site_id": "940GZZLUMDN"
+    },
+    {
+      "id": "940GZZLUMED",
+      "name": "Mile End Underground Station",
+      "lat": 51.525122,
+      "lon": -0.03364,
+      "zone": "2",
+      "site_id": "940GZZLUMED"
+    },
+    {
+      "id": "940GZZLUMGT",
+      "name": "Moorgate Underground Station",
+      "lat": 51.518176,
+      "lon": -0.088322,
+      "zone": "1",
+      "site_id": "940GZZLUMGT"
+    },
+    {
+      "id": "940GZZLUMHL",
+      "name": "Mill Hill East Underground Station",
+      "lat": 51.608229,
+      "lon": -0.209986,
+      "zone": "4",
+      "site_id": "940GZZLUMHL"
+    },
+    {
+      "id": "940GZZLUMMT",
+      "name": "Monument Underground Station",
+      "lat": 51.5107,
+      "lon": -0.085969,
+      "zone": "1",
+      "site_id": "940GZZLUBNK"
+    },
+    {
+      "id": "940GZZLUMPK",
+      "name": "Moor Park Underground Station",
+      "lat": 51.629845,
+      "lon": -0.432454,
+      "zone": "6+7",
+      "site_id": "940GZZLUMPK"
+    },
+    {
+      "id": "940GZZLUMRH",
+      "name": "Manor House Underground Station",
+      "lat": 51.570738,
+      "lon": -0.096118,
+      "zone": "2+3",
+      "site_id": "940GZZLUMRH"
+    },
+    {
+      "id": "940GZZLUMSH",
+      "name": "Mansion House Underground Station",
+      "lat": 51.512117,
+      "lon": -0.094009,
+      "zone": "1",
+      "site_id": "940GZZLUMSH"
+    },
+    {
+      "id": "940GZZLUMTC",
+      "name": "Mornington Crescent Underground Station",
+      "lat": 51.534679,
+      "lon": -0.138789,
+      "zone": "2",
+      "site_id": "940GZZLUMTC"
+    },
+    {
+      "id": "940GZZLUMVL",
+      "name": "Maida Vale Underground Station",
+      "lat": 51.529777,
+      "lon": -0.185758,
+      "zone": "2",
+      "site_id": "940GZZLUMVL"
+    },
+    {
+      "id": "940GZZLUMYB",
+      "name": "Marylebone Underground Station",
+      "lat": 51.522322,
+      "lon": -0.163207,
+      "zone": "1",
+      "site_id": "940GZZLUMYB"
+    },
+    {
+      "id": "940GZZLUNAN",
+      "name": "North Acton Underground Station",
+      "lat": 51.523524,
+      "lon": -0.259755,
+      "zone": "2+3",
+      "site_id": "940GZZLUNAN"
+    },
+    {
+      "id": "940GZZLUNBP",
+      "name": "Newbury Park Underground Station",
+      "lat": 51.575726,
+      "lon": 0.090004,
+      "zone": "4",
+      "site_id": "940GZZLUNBP"
+    },
+    {
+      "id": "940GZZLUNDN",
+      "name": "Neasden Underground Station",
+      "lat": 51.553986,
+      "lon": -0.249837,
+      "zone": "3",
+      "site_id": "940GZZLUNDN"
+    },
+    {
+      "id": "940GZZLUNEN",
+      "name": "North Ealing Underground Station",
+      "lat": 51.517505,
+      "lon": -0.288868,
+      "zone": "3",
+      "site_id": "940GZZLUNEN"
+    },
+    {
+      "id": "940GZZLUNFD",
+      "name": "Northfields Underground Station",
+      "lat": 51.499319,
+      "lon": -0.314719,
+      "zone": "3",
+      "site_id": "940GZZLUNFD"
+    },
+    {
+      "id": "940GZZLUNGW",
+      "name": "North Greenwich Underground Station",
+      "lat": 51.50047,
+      "lon": 0.004287,
+      "zone": "2/3",
+      "site_id": "940GZZLUNGW"
+    },
+    {
+      "id": "940GZZLUNHA",
+      "name": "North Harrow Underground Station",
+      "lat": 51.584872,
+      "lon": -0.362408,
+      "zone": "5",
+      "site_id": "940GZZLUNHA"
+    },
+    {
+      "id": "940GZZLUNHG",
+      "name": "Notting Hill Gate Underground Station",
+      "lat": 51.509128,
+      "lon": -0.196104,
+      "zone": "1+2",
+      "site_id": "940GZZLUNHG"
+    },
+    {
+      "id": "940GZZLUNHT",
+      "name": "Northolt Underground Station",
+      "lat": 51.548236,
+      "lon": -0.368699,
+      "zone": "5",
+      "site_id": "940GZZLUNHT"
+    },
+    {
+      "id": "940GZZLUNKP",
+      "name": "Northwick Park Underground Station",
+      "lat": 51.578481,
+      "lon": -0.318056,
+      "zone": "4",
+      "site_id": "940GZZLUNKP"
+    },
+    {
+      "id": "940GZZLUNOW",
+      "name": "Northwood Underground Station",
+      "lat": 51.611053,
+      "lon": -0.423829,
+      "zone": "6",
+      "site_id": "940GZZLUNOW"
+    },
+    {
+      "id": "940GZZLUNWH",
+      "name": "Northwood Hills Underground Station",
+      "lat": 51.600572,
+      "lon": -0.409464,
+      "zone": "6",
+      "site_id": "940GZZLUNWH"
+    },
+    {
+      "id": "940GZZLUNWY",
+      "name": "North Wembley Underground Station",
+      "lat": 51.562551,
+      "lon": -0.304,
+      "zone": "4",
+      "site_id": "940GZZLUNWY"
+    },
+    {
+      "id": "940GZZLUOAK",
+      "name": "Oakwood Underground Station",
+      "lat": 51.647726,
+      "lon": -0.132182,
+      "zone": "5",
+      "site_id": "940GZZLUOAK"
+    },
+    {
+      "id": "940GZZLUODS",
+      "name": "Old Street Underground Station",
+      "lat": 51.525864,
+      "lon": -0.08777,
+      "zone": "1",
+      "site_id": "940GZZLUODS"
+    },
+    {
+      "id": "940GZZLUOSY",
+      "name": "Osterley Underground Station",
+      "lat": 51.481274,
+      "lon": -0.352224,
+      "zone": "4",
+      "site_id": "940GZZLUOSY"
+    },
+    {
+      "id": "940GZZLUOVL",
+      "name": "Oval Underground Station",
+      "lat": 51.48185,
+      "lon": -0.112439,
+      "zone": "2",
+      "site_id": "940GZZLUOVL"
+    },
+    {
+      "id": "940GZZLUOXC",
+      "name": "Oxford Circus Underground Station",
+      "lat": 51.515224,
+      "lon": -0.141903,
+      "zone": "1",
+      "site_id": "940GZZLUOXC"
+    },
+    {
+      "id": "940GZZLUPAC",
+      "name": "Paddington Underground Station",
+      "lat": 51.516581,
+      "lon": -0.175689,
+      "zone": "1",
+      "site_id": "940GZZLUPAC"
+    },
+    {
+      "id": "940GZZLUPAH",
+      "name": "Paddington (H&C Line)-Underground",
+      "lat": 51.518187,
+      "lon": -0.178306,
+      "zone": "1",
+      "site_id": "940GZZLUPAC"
+    },
+    {
+      "id": "940GZZLUPCC",
+      "name": "Piccadilly Circus Underground Station",
+      "lat": 51.51005,
+      "lon": -0.133798,
+      "zone": "1",
+      "site_id": "940GZZLUPCC"
+    },
+    {
+      "id": "940GZZLUPCO",
+      "name": "Pimlico Underground Station",
+      "lat": 51.489097,
+      "lon": -0.133761,
+      "zone": "1",
+      "site_id": "940GZZLUPCO"
+    },
+    {
+      "id": "940GZZLUPKR",
+      "name": "Park Royal Underground Station",
+      "lat": 51.527123,
+      "lon": -0.284341,
+      "zone": "3",
+      "site_id": "940GZZLUPKR"
+    },
+    {
+      "id": "940GZZLUPLW",
+      "name": "Plaistow Underground Station",
+      "lat": 51.531341,
+      "lon": 0.017451,
+      "zone": "3",
+      "site_id": "940GZZLUPLW"
+    },
+    {
+      "id": "940GZZLUPNR",
+      "name": "Pinner Underground Station",
+      "lat": 51.592901,
+      "lon": -0.381161,
+      "zone": "5",
+      "site_id": "940GZZLUPNR"
+    },
+    {
+      "id": "940GZZLUPRD",
+      "name": "Preston Road Underground Station",
+      "lat": 51.571972,
+      "lon": -0.295107,
+      "zone": "4",
+      "site_id": "940GZZLUPRD"
+    },
+    {
+      "id": "940GZZLUPSG",
+      "name": "Parsons Green Underground Station",
+      "lat": 51.475277,
+      "lon": -0.20117,
+      "zone": "2",
+      "site_id": "940GZZLUPSG"
+    },
+    {
+      "id": "940GZZLUPVL",
+      "name": "Perivale Underground Station",
+      "lat": 51.536717,
+      "lon": -0.323446,
+      "zone": "4",
+      "site_id": "940GZZLUPVL"
+    },
+    {
+      "id": "940GZZLUPYB",
+      "name": "Putney Bridge Underground Station",
+      "lat": 51.468262,
+      "lon": -0.208731,
+      "zone": "2",
+      "site_id": "940GZZLUPYB"
+    },
+    {
+      "id": "940GZZLUQBY",
+      "name": "Queensbury Underground Station",
+      "lat": 51.594188,
+      "lon": -0.286219,
+      "zone": "4",
+      "site_id": "940GZZLUQBY"
+    },
+    {
+      "id": "940GZZLUQPS",
+      "name": "Queen's Park Underground Station",
+      "lat": 51.534158,
+      "lon": -0.204574,
+      "zone": "2",
+      "site_id": "940GZZLUQPS"
+    },
+    {
+      "id": "940GZZLUQWY",
+      "name": "Queensway Underground Station",
+      "lat": 51.510312,
+      "lon": -0.187152,
+      "zone": "1",
+      "site_id": "940GZZLUQWY"
+    },
+    {
+      "id": "940GZZLURBG",
+      "name": "Redbridge Underground Station",
+      "lat": 51.576243,
+      "lon": 0.04536,
+      "zone": "4",
+      "site_id": "940GZZLURBG"
+    },
+    {
+      "id": "940GZZLURGP",
+      "name": "Regent's Park Underground Station",
+      "lat": 51.523344,
+      "lon": -0.146444,
+      "zone": "1",
+      "site_id": "940GZZLURGP"
+    },
+    {
+      "id": "940GZZLURKW",
+      "name": "Rickmansworth Underground Station",
+      "lat": 51.640207,
+      "lon": -0.473703,
+      "zone": "7",
+      "site_id": "940GZZLURKW"
+    },
+    {
+      "id": "940GZZLURMD",
+      "name": "Richmond Underground Station",
+      "lat": 51.463237,
+      "lon": -0.301336,
+      "zone": "4",
+      "site_id": "940GZZLURMD"
+    },
+    {
+      "id": "940GZZLURSG",
+      "name": "Ruislip Gardens Underground Station",
+      "lat": 51.560736,
+      "lon": -0.41071,
+      "zone": "5",
+      "site_id": "940GZZLURSG"
+    },
+    {
+      "id": "940GZZLURSM",
+      "name": "Ruislip Manor Underground Station",
+      "lat": 51.573202,
+      "lon": -0.412973,
+      "zone": "6",
+      "site_id": "940GZZLURSM"
+    },
+    {
+      "id": "940GZZLURSP",
+      "name": "Ruislip Underground Station",
+      "lat": 51.571354,
+      "lon": -0.421898,
+      "zone": "6",
+      "site_id": "940GZZLURSP"
+    },
+    {
+      "id": "940GZZLURSQ",
+      "name": "Russell Square Underground Station",
+      "lat": 51.523073,
+      "lon": -0.124285,
+      "zone": "1",
+      "site_id": "940GZZLURSQ"
+    },
+    {
+      "id": "940GZZLURVP",
+      "name": "Ravenscourt Park Underground Station",
+      "lat": 51.494122,
+      "lon": -0.235881,
+      "zone": "2",
+      "site_id": "940GZZLURVP"
+    },
+    {
+      "id": "940GZZLURVY",
+      "name": "Roding Valley Underground Station",
+      "lat": 51.617199,
+      "lon": 0.043647,
+      "zone": "4",
+      "site_id": "940GZZLURVY"
+    },
+    {
+      "id": "940GZZLURYL",
+      "name": "Rayners Lane Underground Station",
+      "lat": 51.575147,
+      "lon": -0.371127,
+      "zone": "5",
+      "site_id": "940GZZLURYL"
+    },
+    {
+      "id": "940GZZLURYO",
+      "name": "Royal Oak Underground Station",
+      "lat": 51.519113,
+      "lon": -0.188748,
+      "zone": "2",
+      "site_id": "940GZZLURYO"
+    },
+    {
+      "id": "940GZZLUSBC",
+      "name": "Shepherd's Bush (Central) Underground Station",
+      "lat": 51.504376,
+      "lon": -0.218813,
+      "zone": "2",
+      "site_id": "940GZZLUSBC"
+    },
+    {
+      "id": "940GZZLUSBM",
+      "name": "Shepherd's Bush Market Underground Station",
+      "lat": 51.505579,
+      "lon": -0.226375,
+      "zone": "2",
+      "site_id": "940GZZLUSBM"
+    },
+    {
+      "id": "940GZZLUSEA",
+      "name": "South Ealing Underground Station",
+      "lat": 51.501003,
+      "lon": -0.307424,
+      "zone": "3",
+      "site_id": "940GZZLUSEA"
+    },
+    {
+      "id": "940GZZLUSFB",
+      "name": "Stamford Brook Underground Station",
+      "lat": 51.494917,
+      "lon": -0.245704,
+      "zone": "2",
+      "site_id": "940GZZLUSFB"
+    },
+    {
+      "id": "940GZZLUSFS",
+      "name": "Southfields Underground Station",
+      "lat": 51.445073,
+      "lon": -0.206602,
+      "zone": "3",
+      "site_id": "940GZZLUSFS"
+    },
+    {
+      "id": "940GZZLUSGN",
+      "name": "Stepney Green Underground Station",
+      "lat": 51.521858,
+      "lon": -0.046596,
+      "zone": "2",
+      "site_id": "940GZZLUSGN"
+    },
+    {
+      "id": "940GZZLUSGP",
+      "name": "Stonebridge Park Underground Station",
+      "lat": 51.543959,
+      "lon": -0.275892,
+      "zone": "3",
+      "site_id": "940GZZLUSGP"
+    },
+    {
+      "id": "940GZZLUSGT",
+      "name": "Southgate Underground Station",
+      "lat": 51.632315,
+      "lon": -0.127816,
+      "zone": "4",
+      "site_id": "940GZZLUSGT"
+    },
+    {
+      "id": "940GZZLUSHH",
+      "name": "South Harrow Underground Station",
+      "lat": 51.564888,
+      "lon": -0.352492,
+      "zone": "5",
+      "site_id": "940GZZLUSHH"
+    },
+    {
+      "id": "940GZZLUSJP",
+      "name": "St. James's Park Underground Station",
+      "lat": 51.499544,
+      "lon": -0.133608,
+      "zone": "1",
+      "site_id": "940GZZLUSJP"
+    },
+    {
+      "id": "940GZZLUSJW",
+      "name": "St. John's Wood Underground Station",
+      "lat": 51.534521,
+      "lon": -0.173948,
+      "zone": "2",
+      "site_id": "940GZZLUSJW"
+    },
+    {
+      "id": "940GZZLUSKS",
+      "name": "South Kensington Underground Station",
+      "lat": 51.494094,
+      "lon": -0.174138,
+      "zone": "1",
+      "site_id": "940GZZLUSKS"
+    },
+    {
+      "id": "940GZZLUSKT",
+      "name": "South Kenton Underground Station",
+      "lat": 51.570232,
+      "lon": -0.308433,
+      "zone": "4",
+      "site_id": "940GZZLUSKT"
+    },
+    {
+      "id": "940GZZLUSKW",
+      "name": "Stockwell Underground Station",
+      "lat": 51.472184,
+      "lon": -0.122644,
+      "zone": "2",
+      "site_id": "940GZZLUSKW"
+    },
+    {
+      "id": "940GZZLUSNB",
+      "name": "Snaresbrook Underground Station",
+      "lat": 51.580678,
+      "lon": 0.02144,
+      "zone": "4",
+      "site_id": "940GZZLUSNB"
+    },
+    {
+      "id": "940GZZLUSPU",
+      "name": "St. Paul's Underground Station",
+      "lat": 51.514936,
+      "lon": -0.097567,
+      "zone": "1",
+      "site_id": "940GZZLUSPU"
+    },
+    {
+      "id": "940GZZLUSRP",
+      "name": "South Ruislip Underground Station",
+      "lat": 51.556853,
+      "lon": -0.398915,
+      "zone": "5",
+      "site_id": "940GZZLUSRP"
+    },
+    {
+      "id": "940GZZLUSSQ",
+      "name": "Sloane Square Underground Station",
+      "lat": 51.49227,
+      "lon": -0.156377,
+      "zone": "1",
+      "site_id": "940GZZLUSSQ"
+    },
+    {
+      "id": "940GZZLUSTD",
+      "name": "Stratford Underground Station",
+      "lat": 51.541806,
+      "lon": -0.003458,
+      "zone": "2/3",
+      "site_id": "940GZZLUSTD"
+    },
+    {
+      "id": "940GZZLUSTM",
+      "name": "Stanmore Underground Station",
+      "lat": 51.619839,
+      "lon": -0.303266,
+      "zone": "5",
+      "site_id": "940GZZLUSTM"
+    },
+    {
+      "id": "940GZZLUSUH",
+      "name": "Sudbury Hill Underground Station",
+      "lat": 51.556946,
+      "lon": -0.336435,
+      "zone": "4",
+      "site_id": "940GZZLUSUH"
+    },
+    {
+      "id": "940GZZLUSUT",
+      "name": "Sudbury Town Underground Station",
+      "lat": 51.550815,
+      "lon": -0.315745,
+      "zone": "4",
+      "site_id": "940GZZLUSUT"
+    },
+    {
+      "id": "940GZZLUSVS",
+      "name": "Seven Sisters Underground Station",
+      "lat": 51.58333,
+      "lon": -0.072584,
+      "zone": "3",
+      "site_id": "940GZZLUSVS"
+    },
+    {
+      "id": "940GZZLUSWC",
+      "name": "Swiss Cottage Underground Station",
+      "lat": 51.543681,
+      "lon": -0.174894,
+      "zone": "2",
+      "site_id": "940GZZLUSWC"
+    },
+    {
+      "id": "940GZZLUSWF",
+      "name": "South Woodford Underground Station",
+      "lat": 51.591907,
+      "lon": 0.027338,
+      "zone": "4",
+      "site_id": "940GZZLUSWF"
+    },
+    {
+      "id": "940GZZLUSWK",
+      "name": "Southwark Underground Station",
+      "lat": 51.50427,
+      "lon": -0.105331,
+      "zone": "1",
+      "site_id": "940GZZLUSWK"
+    },
+    {
+      "id": "940GZZLUSWN",
+      "name": "South Wimbledon Underground Station",
+      "lat": 51.415309,
+      "lon": -0.192005,
+      "zone": "3+4",
+      "site_id": "940GZZLUSWN"
+    },
+    {
+      "id": "940GZZLUTAW",
+      "name": "Totteridge & Whetstone Underground Station",
+      "lat": 51.630597,
+      "lon": -0.17921,
+      "zone": "4",
+      "site_id": "940GZZLUTAW"
+    },
+    {
+      "id": "940GZZLUTBC",
+      "name": "Tooting Bec Underground Station",
+      "lat": 51.435678,
+      "lon": -0.159736,
+      "zone": "3",
+      "site_id": "940GZZLUTBC"
+    },
+    {
+      "id": "940GZZLUTBY",
+      "name": "Tooting Broadway Underground Station",
+      "lat": 51.42763,
+      "lon": -0.168374,
+      "zone": "3",
+      "site_id": "940GZZLUTBY"
+    },
+    {
+      "id": "940GZZLUTCR",
+      "name": "Tottenham Court Road Underground Station",
+      "lat": 51.516426,
+      "lon": -0.13041,
+      "zone": "1",
+      "site_id": "940GZZLUTCR"
+    },
+    {
+      "id": "940GZZLUTFP",
+      "name": "Tufnell Park Underground Station",
+      "lat": 51.556822,
+      "lon": -0.138433,
+      "zone": "2",
+      "site_id": "940GZZLUTFP"
+    },
+    {
+      "id": "940GZZLUTHB",
+      "name": "Theydon Bois Underground Station",
+      "lat": 51.671759,
+      "lon": 0.103085,
+      "zone": "6",
+      "site_id": "940GZZLUTHB"
+    },
+    {
+      "id": "940GZZLUTMH",
+      "name": "Tottenham Hale Underground Station",
+      "lat": 51.588108,
+      "lon": -0.060241,
+      "zone": "3",
+      "site_id": "940GZZLUTMH"
+    },
+    {
+      "id": "940GZZLUTMP",
+      "name": "Temple Underground Station",
+      "lat": 51.511006,
+      "lon": -0.11426,
+      "zone": "1",
+      "site_id": "940GZZLUTMP"
+    },
+    {
+      "id": "940GZZLUTNG",
+      "name": "Turnham Green Underground Station",
+      "lat": 51.495148,
+      "lon": -0.254555,
+      "zone": "2+3",
+      "site_id": "940GZZLUTNG"
+    },
+    {
+      "id": "940GZZLUTPN",
+      "name": "Turnpike Lane Underground Station",
+      "lat": 51.590272,
+      "lon": -0.102953,
+      "zone": "3",
+      "site_id": "940GZZLUTPN"
+    },
+    {
+      "id": "940GZZLUTWH",
+      "name": "Tower Hill Underground Station",
+      "lat": 51.509971,
+      "lon": -0.076546,
+      "zone": "1",
+      "site_id": "940GZZLUTWH"
+    },
+    {
+      "id": "940GZZLUUPB",
+      "name": "Upminster Bridge Underground Station",
+      "lat": 51.55856,
+      "lon": 0.235809,
+      "zone": "6",
+      "site_id": "940GZZLUUPB"
+    },
+    {
+      "id": "940GZZLUUPK",
+      "name": "Upton Park Underground Station",
+      "lat": 51.53534,
+      "lon": 0.035263,
+      "zone": "3",
+      "site_id": "940GZZLUUPK"
+    },
+    {
+      "id": "940GZZLUUPM",
+      "name": "Upminster Underground Station",
+      "lat": 51.559063,
+      "lon": 0.250882,
+      "zone": "6",
+      "site_id": "940GZZLUUPM"
+    },
+    {
+      "id": "940GZZLUUPY",
+      "name": "Upney Underground Station",
+      "lat": 51.538372,
+      "lon": 0.10153,
+      "zone": "4",
+      "site_id": "940GZZLUUPY"
+    },
+    {
+      "id": "940GZZLUUXB",
+      "name": "Uxbridge Underground Station",
+      "lat": 51.546565,
+      "lon": -0.477949,
+      "zone": "6",
+      "site_id": "940GZZLUUXB"
+    },
+    {
+      "id": "940GZZLUVIC",
+      "name": "Victoria Underground Station",
+      "lat": 51.496359,
+      "lon": -0.143102,
+      "zone": "1",
+      "site_id": "940GZZLUVIC"
+    },
+    {
+      "id": "940GZZLUVXL",
+      "name": "Vauxhall Underground Station",
+      "lat": 51.485743,
+      "lon": -0.124204,
+      "zone": "1+2",
+      "site_id": "940GZZLUVXL"
+    },
+    {
+      "id": "940GZZLUWAF",
+      "name": "Watford Underground Station",
+      "lat": 51.657446,
+      "lon": -0.417377,
+      "zone": "7",
+      "site_id": "940GZZLUWAF"
+    },
+    {
+      "id": "940GZZLUWBN",
+      "name": "West Brompton Underground Station",
+      "lat": 51.487268,
+      "lon": -0.195599,
+      "zone": "2",
+      "site_id": "940GZZLUWBN"
+    },
+    {
+      "id": "940GZZLUWCY",
+      "name": "White City Underground Station",
+      "lat": 51.511959,
+      "lon": -0.224297,
+      "zone": "2",
+      "site_id": "940GZZLUWCY"
+    },
+    {
+      "id": "940GZZLUWFN",
+      "name": "West Finchley Underground Station",
+      "lat": 51.609426,
+      "lon": -0.188362,
+      "zone": "4",
+      "site_id": "940GZZLUWFN"
+    },
+    {
+      "id": "940GZZLUWHM",
+      "name": "West Ham Underground Station",
+      "lat": 51.528136,
+      "lon": 0.005055,
+      "zone": "2/3",
+      "site_id": "940GZZLUWHM"
+    },
+    {
+      "id": "940GZZLUWHP",
+      "name": "West Hampstead Underground Station",
+      "lat": 51.546638,
+      "lon": -0.191059,
+      "zone": "2",
+      "site_id": "940GZZLUWHP"
+    },
+    {
+      "id": "940GZZLUWHW",
+      "name": "West Harrow Underground Station",
+      "lat": 51.57971,
+      "lon": -0.3534,
+      "zone": "5",
+      "site_id": "940GZZLUWHW"
+    },
+    {
+      "id": "940GZZLUWIG",
+      "name": "Willesden Green Underground Station",
+      "lat": 51.549146,
+      "lon": -0.221537,
+      "zone": "2+3",
+      "site_id": "940GZZLUWIG"
+    },
+    {
+      "id": "940GZZLUWIM",
+      "name": "Wimbledon Underground Station",
+      "lat": 51.421207,
+      "lon": -0.206573,
+      "zone": "3",
+      "site_id": "940GZZLUWIM"
+    },
+    {
+      "id": "940GZZLUWIP",
+      "name": "Wimbledon Park Underground Station",
+      "lat": 51.434573,
+      "lon": -0.199719,
+      "zone": "3",
+      "site_id": "940GZZLUWIP"
+    },
+    {
+      "id": "940GZZLUWJN",
+      "name": "Willesden Junction Underground Station",
+      "lat": 51.532259,
+      "lon": -0.244283,
+      "zone": "2+3",
+      "site_id": "940GZZLUWJN"
+    },
+    {
+      "id": "940GZZLUWKA",
+      "name": "Warwick Avenue Underground Station",
+      "lat": 51.523263,
+      "lon": -0.183783,
+      "zone": "2",
+      "site_id": "940GZZLUWKA"
+    },
+    {
+      "id": "940GZZLUWKN",
+      "name": "West Kensington Underground Station",
+      "lat": 51.490459,
+      "lon": -0.206636,
+      "zone": "2",
+      "site_id": "940GZZLUWKN"
+    },
+    {
+      "id": "940GZZLUWLA",
+      "name": "Wood Lane Underground Station",
+      "lat": 51.509669,
+      "lon": -0.22453,
+      "zone": "2",
+      "site_id": "940GZZLUWLA"
+    },
+    {
+      "id": "940GZZLUWLO",
+      "name": "Waterloo Underground Station",
+      "lat": 51.503299,
+      "lon": -0.11478,
+      "zone": "1",
+      "site_id": "940GZZLUWLO"
+    },
+    {
+      "id": "940GZZLUWOF",
+      "name": "Woodford Underground Station",
+      "lat": 51.606899,
+      "lon": 0.03397,
+      "zone": "4",
+      "site_id": "940GZZLUWOF"
+    },
+    {
+      "id": "940GZZLUWOG",
+      "name": "Wood Green Underground Station",
+      "lat": 51.597479,
+      "lon": -0.109886,
+      "zone": "3",
+      "site_id": "940GZZLUWOG"
+    },
+    {
+      "id": "940GZZLUWOP",
+      "name": "Woodside Park Underground Station",
+      "lat": 51.618014,
+      "lon": -0.18542,
+      "zone": "4",
+      "site_id": "940GZZLUWOP"
+    },
+    {
+      "id": "940GZZLUWPL",
+      "name": "Whitechapel Underground Station",
+      "lat": 51.519518,
+      "lon": -0.059971,
+      "zone": "2",
+      "site_id": "940GZZLUWPL"
+    },
+    {
+      "id": "940GZZLUWRP",
+      "name": "West Ruislip Underground Station",
+      "lat": 51.569688,
+      "lon": -0.437886,
+      "zone": "6",
+      "site_id": "940GZZLUWRP"
+    },
+    {
+      "id": "940GZZLUWRR",
+      "name": "Warren Street Underground Station",
+      "lat": 51.524951,
+      "lon": -0.138321,
+      "zone": "1",
+      "site_id": "940GZZLUWRR"
+    },
+    {
+      "id": "940GZZLUWSD",
+      "name": "Wanstead Underground Station",
+      "lat": 51.575501,
+      "lon": 0.028527,
+      "zone": "4",
+      "site_id": "940GZZLUWSD"
+    },
+    {
+      "id": "940GZZLUWSM",
+      "name": "Westminster Underground Station",
+      "lat": 51.50132,
+      "lon": -0.124861,
+      "zone": "1",
+      "site_id": "940GZZLUWSM"
+    },
+    {
+      "id": "940GZZLUWSP",
+      "name": "Westbourne Park Underground Station",
+      "lat": 51.52111,
+      "lon": -0.201065,
+      "zone": "2",
+      "site_id": "940GZZLUWSP"
+    },
+    {
+      "id": "940GZZLUWTA",
+      "name": "West Acton Underground Station",
+      "lat": 51.518001,
+      "lon": -0.28098,
+      "zone": "3",
+      "site_id": "940GZZLUWTA"
+    },
+    {
+      "id": "940GZZLUWWL",
+      "name": "Walthamstow Central Underground Station",
+      "lat": 51.582965,
+      "lon": -0.019885,
+      "zone": "3",
+      "site_id": "940GZZLUWWL"
+    },
+    {
+      "id": "940GZZLUWYC",
+      "name": "Wembley Central Underground Station",
+      "lat": 51.552304,
+      "lon": -0.296852,
+      "zone": "4",
+      "site_id": "940GZZLUWYC"
+    },
+    {
+      "id": "940GZZLUWYP",
+      "name": "Wembley Park Underground Station",
+      "lat": 51.563198,
+      "lon": -0.279262,
+      "zone": "4",
+      "site_id": "940GZZLUWYP"
+    },
+    {
+      "id": "940GZZNEUGST",
+      "name": "Nine Elms Underground Station",
+      "lat": 51.479912,
+      "lon": -0.128476,
+      "zone": "1",
+      "site_id": "940GZZNEUGST"
+    }
+  ],
+  "sequences": [
+    {
+      "file": "bakerloo-inbound.json",
+      "line": "bakerloo",
+      "direction": "inbound",
+      "branch": 0,
+      "next": [],
+      "previous": [],
+      "stops": [
+        "940GZZLUHAW",
+        "940GZZLUKEN",
+        "940GZZLUSKT",
+        "940GZZLUNWY",
+        "940GZZLUWYC",
+        "940GZZLUSGP",
+        "940GZZLUHSN",
+        "940GZZLUWJN",
+        "940GZZLUKSL",
+        "940GZZLUQPS",
+        "940GZZLUKPK",
+        "940GZZLUMVL",
+        "940GZZLUWKA",
+        "940GZZLUPAC",
+        "940GZZLUERB",
+        "940GZZLUMYB",
+        "940GZZLUBST",
+        "940GZZLURGP",
+        "940GZZLUOXC",
+        "940GZZLUPCC",
+        "940GZZLUCHX",
+        "940GZZLUEMB",
+        "940GZZLUWLO",
+        "940GZZLULBN",
+        "940GZZLUEAC"
+      ]
+    },
+    {
+      "file": "bakerloo-outbound.json",
+      "line": "bakerloo",
+      "direction": "outbound",
+      "branch": 1,
+      "next": [],
+      "previous": [],
+      "stops": [
+        "940GZZLUEAC",
+        "940GZZLULBN",
+        "940GZZLUWLO",
+        "940GZZLUEMB",
+        "940GZZLUCHX",
+        "940GZZLUPCC",
+        "940GZZLUOXC",
+        "940GZZLURGP",
+        "940GZZLUBST",
+        "940GZZLUMYB",
+        "940GZZLUERB",
+        "940GZZLUPAC",
+        "940GZZLUWKA",
+        "940GZZLUMVL",
+        "940GZZLUKPK",
+        "940GZZLUQPS",
+        "940GZZLUKSL",
+        "940GZZLUWJN",
+        "940GZZLUHSN",
+        "940GZZLUSGP",
+        "940GZZLUWYC",
+        "940GZZLUNWY",
+        "940GZZLUSKT",
+        "940GZZLUKEN",
+        "940GZZLUHAW"
+      ]
+    },
+    {
+      "file": "central-inbound.json",
+      "line": "central",
+      "direction": "inbound",
+      "branch": 2,
+      "next": [
+        5
+      ],
+      "previous": [],
+      "stops": [
+        "940GZZLUEPG",
+        "940GZZLUTHB",
+        "940GZZLUDBN",
+        "940GZZLULGN",
+        "940GZZLUBKH",
+        "940GZZLUWOF"
+      ]
+    },
+    {
+      "file": "central-inbound.json",
+      "line": "central",
+      "direction": "inbound",
+      "branch": 5,
+      "next": [
+        6
+      ],
+      "previous": [
+        2,
+        0
+      ],
+      "stops": [
+        "940GZZLUWOF",
+        "940GZZLUSWF",
+        "940GZZLUSNB",
+        "940GZZLULYS"
+      ]
+    },
+    {
+      "file": "central-inbound.json",
+      "line": "central",
+      "direction": "inbound",
+      "branch": 6,
+      "next": [
+        3,
+        4
+      ],
+      "previous": [
+        5,
+        1
+      ],
+      "stops": [
+        "940GZZLULYS",
+        "940GZZLULYN",
+        "940GZZLUSTD",
+        "940GZZLUMED",
+        "940GZZLUBLG",
+        "940GZZLULVT",
+        "940GZZLUBNK",
+        "940GZZLUSPU",
+        "940GZZLUCHL",
+        "940GZZLUHBN",
+        "940GZZLUTCR",
+        "940GZZLUOXC",
+        "940GZZLUBND",
+        "940GZZLUMBA",
+        "940GZZLULGT",
+        "940GZZLUQWY",
+        "940GZZLUNHG",
+        "940GZZLUHPK",
+        "940GZZLUSBC",
+        "940GZZLUWCY",
+        "940GZZLUEAN",
+        "940GZZLUNAN"
+      ]
+    },
+    {
+      "file": "central-inbound.json",
+      "line": "central",
+      "direction": "inbound",
+      "branch": 4,
+      "next": [],
+      "previous": [
+        6
+      ],
+      "stops": [
+        "940GZZLUNAN",
+        "940GZZLUHGR",
+        "940GZZLUPVL",
+        "940GZZLUGFD",
+        "940GZZLUNHT",
+        "940GZZLUSRP",
+        "940GZZLURSG",
+        "940GZZLUWRP"
+      ]
+    },
+    {
+      "file": "central-inbound.json",
+      "line": "central",
+      "direction": "inbound",
+      "branch": 1,
+      "next": [
+        6
+      ],
+      "previous": [],
+      "stops": [
+        "940GZZLUHLT",
+        "940GZZLUFLP",
+        "940GZZLUBKE",
+        "940GZZLUNBP",
+        "940GZZLUGTH",
+        "940GZZLURBG",
+        "940GZZLUWSD",
+        "940GZZLULYS"
+      ]
+    },
+    {
+      "file": "central-inbound.json",
+      "line": "central",
+      "direction": "inbound",
+      "branch": 0,
+      "next": [
+        5
+      ],
+      "previous": [],
+      "stops": [
+        "940GZZLUHLT",
+        "940GZZLUGGH",
+        "940GZZLUCWL",
+        "940GZZLURVY",
+        "940GZZLUWOF"
+      ]
+    },
+    {
+      "file": "central-inbound.json",
+      "line": "central",
+      "direction": "inbound",
+      "branch": 3,
+      "next": [],
+      "previous": [
+        6
+      ],
+      "stops": [
+        "940GZZLUNAN",
+        "940GZZLUWTA",
+        "940GZZLUEBY"
+      ]
+    },
+    {
+      "file": "central-outbound.json",
+      "line": "central",
+      "direction": "outbound",
+      "branch": 8,
+      "next": [
+        13
+      ],
+      "previous": [],
+      "stops": [
+        "940GZZLUWRP",
+        "940GZZLURSG",
+        "940GZZLUSRP",
+        "940GZZLUNHT",
+        "940GZZLUGFD",
+        "940GZZLUPVL",
+        "940GZZLUHGR",
+        "940GZZLUNAN"
+      ]
+    },
+    {
+      "file": "central-outbound.json",
+      "line": "central",
+      "direction": "outbound",
+      "branch": 13,
+      "next": [
+        11,
+        12
+      ],
+      "previous": [
+        8,
+        7
+      ],
+      "stops": [
+        "940GZZLUNAN",
+        "940GZZLUEAN",
+        "940GZZLUWCY",
+        "940GZZLUSBC",
+        "940GZZLUHPK",
+        "940GZZLUNHG",
+        "940GZZLUQWY",
+        "940GZZLULGT",
+        "940GZZLUMBA",
+        "940GZZLUBND",
+        "940GZZLUOXC",
+        "940GZZLUTCR",
+        "940GZZLUHBN",
+        "940GZZLUCHL",
+        "940GZZLUSPU",
+        "940GZZLUBNK",
+        "940GZZLULVT",
+        "940GZZLUBLG",
+        "940GZZLUMED",
+        "940GZZLUSTD",
+        "940GZZLULYN",
+        "940GZZLULYS"
+      ]
+    },
+    {
+      "file": "central-outbound.json",
+      "line": "central",
+      "direction": "outbound",
+      "branch": 11,
+      "next": [
+        9,
+        10
+      ],
+      "previous": [
+        13
+      ],
+      "stops": [
+        "940GZZLULYS",
+        "940GZZLUSNB",
+        "940GZZLUSWF",
+        "940GZZLUWOF"
+      ]
+    },
+    {
+      "file": "central-outbound.json",
+      "line": "central",
+      "direction": "outbound",
+      "branch": 10,
+      "next": [],
+      "previous": [
+        11
+      ],
+      "stops": [
+        "940GZZLUWOF",
+        "940GZZLUBKH",
+        "940GZZLULGN",
+        "940GZZLUDBN",
+        "940GZZLUTHB",
+        "940GZZLUEPG"
+      ]
+    },
+    {
+      "file": "central-outbound.json",
+      "line": "central",
+      "direction": "outbound",
+      "branch": 12,
+      "next": [],
+      "previous": [
+        13
+      ],
+      "stops": [
+        "940GZZLULYS",
+        "940GZZLUWSD",
+        "940GZZLURBG",
+        "940GZZLUGTH",
+        "940GZZLUNBP",
+        "940GZZLUBKE",
+        "940GZZLUFLP",
+        "940GZZLUHLT"
+      ]
+    },
+    {
+      "file": "central-outbound.json",
+      "line": "central",
+      "direction": "outbound",
+      "branch": 9,
+      "next": [],
+      "previous": [
+        11
+      ],
+      "stops": [
+        "940GZZLUWOF",
+        "940GZZLURVY",
+        "940GZZLUCWL",
+        "940GZZLUGGH",
+        "940GZZLUHLT"
+      ]
+    },
+    {
+      "file": "central-outbound.json",
+      "line": "central",
+      "direction": "outbound",
+      "branch": 7,
+      "next": [
+        13
+      ],
+      "previous": [],
+      "stops": [
+        "940GZZLUEBY",
+        "940GZZLUWTA",
+        "940GZZLUNAN"
+      ]
+    },
+    {
+      "file": "circle-inbound.json",
+      "line": "circle",
+      "direction": "inbound",
+      "branch": 1,
+      "next": [
+        1,
+        0
+      ],
+      "previous": [
+        1
+      ],
+      "stops": [
+        "940GZZLUERC",
+        "940GZZLUPAC",
+        "940GZZLUBWT",
+        "940GZZLUNHG",
+        "940GZZLUHSK",
+        "940GZZLUGTR",
+        "940GZZLUSKS",
+        "940GZZLUSSQ",
+        "940GZZLUVIC",
+        "940GZZLUSJP",
+        "940GZZLUWSM",
+        "940GZZLUEMB",
+        "940GZZLUTMP",
+        "940GZZLUBKF",
+        "940GZZLUMSH",
+        "940GZZLUCST",
+        "940GZZLUMMT",
+        "940GZZLUTWH",
+        "940GZZLUALD",
+        "940GZZLULVT",
+        "940GZZLUMGT",
+        "940GZZLUBBN",
+        "940GZZLUFCN",
+        "940GZZLUKSX",
+        "940GZZLUESQ",
+        "940GZZLUGPS",
+        "940GZZLUBST",
+        "940GZZLUERC"
+      ]
+    },
+    {
+      "file": "circle-inbound.json",
+      "line": "circle",
+      "direction": "inbound",
+      "branch": 0,
+      "next": [],
+      "previous": [
+        1
+      ],
+      "stops": [
+        "940GZZLUERC",
+        "940GZZLUPAH",
+        "940GZZLURYO",
+        "940GZZLUWSP",
+        "940GZZLULAD",
+        "940GZZLULRD",
+        "940GZZLUWLA",
+        "940GZZLUSBM",
+        "940GZZLUGHK",
+        "940GZZLUHSC"
+      ]
+    },
+    {
+      "file": "circle-outbound.json",
+      "line": "circle",
+      "direction": "outbound",
+      "branch": 2,
+      "next": [
+        3
+      ],
+      "previous": [],
+      "stops": [
+        "940GZZLUHSC",
+        "940GZZLUGHK",
+        "940GZZLUSBM",
+        "940GZZLUWLA",
+        "940GZZLULRD",
+        "940GZZLULAD",
+        "940GZZLUWSP",
+        "940GZZLURYO",
+        "940GZZLUPAH",
+        "940GZZLUERC"
+      ]
+    },
+    {
+      "file": "circle-outbound.json",
+      "line": "circle",
+      "direction": "outbound",
+      "branch": 3,
+      "next": [
+        3
+      ],
+      "previous": [
+        2,
+        3
+      ],
+      "stops": [
+        "940GZZLUERC",
+        "940GZZLUBST",
+        "940GZZLUGPS",
+        "940GZZLUESQ",
+        "940GZZLUKSX",
+        "940GZZLUFCN",
+        "940GZZLUBBN",
+        "940GZZLUMGT",
+        "940GZZLULVT",
+        "940GZZLUALD",
+        "940GZZLUTWH",
+        "940GZZLUMMT",
+        "940GZZLUCST",
+        "940GZZLUMSH",
+        "940GZZLUBKF",
+        "940GZZLUTMP",
+        "940GZZLUEMB",
+        "940GZZLUWSM",
+        "940GZZLUSJP",
+        "940GZZLUVIC",
+        "940GZZLUSSQ",
+        "940GZZLUSKS",
+        "940GZZLUGTR",
+        "940GZZLUHSK",
+        "940GZZLUNHG",
+        "940GZZLUBWT",
+        "940GZZLUPAC",
+        "940GZZLUERC"
+      ]
+    },
+    {
+      "file": "district-inbound.json",
+      "line": "district",
+      "direction": "inbound",
+      "branch": 1,
+      "next": [
+        3,
+        4
+      ],
+      "previous": [],
+      "stops": [
+        "940GZZLUUPM",
+        "940GZZLUUPB",
+        "940GZZLUHCH",
+        "940GZZLUEPK",
+        "940GZZLUDGE",
+        "940GZZLUDGY",
+        "940GZZLUBEC",
+        "940GZZLUUPY",
+        "940GZZLUBKG",
+        "940GZZLUEHM",
+        "940GZZLUUPK",
+        "940GZZLUPLW",
+        "940GZZLUWHM",
+        "940GZZLUBBB",
+        "940GZZLUBWR",
+        "940GZZLUMED",
+        "940GZZLUSGN",
+        "940GZZLUWPL",
+        "940GZZLUADE",
+        "940GZZLUTWH",
+        "940GZZLUMMT",
+        "940GZZLUCST",
+        "940GZZLUMSH",
+        "940GZZLUBKF",
+        "940GZZLUTMP",
+        "940GZZLUEMB",
+        "940GZZLUWSM",
+        "940GZZLUSJP",
+        "940GZZLUVIC",
+        "940GZZLUSSQ",
+        "940GZZLUSKS",
+        "940GZZLUGTR",
+        "940GZZLUECT"
+      ]
+    },
+    {
+      "file": "district-inbound.json",
+      "line": "district",
+      "direction": "inbound",
+      "branch": 3,
+      "next": [
+        5,
+        6
+      ],
+      "previous": [
+        1,
+        0
+      ],
+      "stops": [
+        "940GZZLUECT",
+        "940GZZLUWKN",
+        "940GZZLUBSC",
+        "940GZZLUHSD",
+        "940GZZLURVP",
+        "940GZZLUSFB",
+        "940GZZLUTNG"
+      ]
+    },
+    {
+      "file": "district-inbound.json",
+      "line": "district",
+      "direction": "inbound",
+      "branch": 6,
+      "next": [],
+      "previous": [
+        3
+      ],
+      "stops": [
+        "940GZZLUTNG",
+        "940GZZLUCWP",
+        "940GZZLUACT",
+        "940GZZLUECM",
+        "940GZZLUEBY"
+      ]
+    },
+    {
+      "file": "district-inbound.json",
+      "line": "district",
+      "direction": "inbound",
+      "branch": 5,
+      "next": [],
+      "previous": [
+        3
+      ],
+      "stops": [
+        "940GZZLUTNG",
+        "940GZZLUGBY",
+        "940GZZLUKWG",
+        "940GZZLURMD"
+      ]
+    },
+    {
+      "file": "district-inbound.json",
+      "line": "district",
+      "direction": "inbound",
+      "branch": 4,
+      "next": [],
+      "previous": [
+        1,
+        0
+      ],
+      "stops": [
+        "940GZZLUECT",
+        "940GZZLUWBN",
+        "940GZZLUFBY",
+        "940GZZLUPSG",
+        "940GZZLUPYB",
+        "940GZZLUEPY",
+        "940GZZLUSFS",
+        "940GZZLUWIP",
+        "940GZZLUWIM"
+      ]
+    },
+    {
+      "file": "district-inbound.json",
+      "line": "district",
+      "direction": "inbound",
+      "branch": 0,
+      "next": [
+        3,
+        4,
+        2
+      ],
+      "previous": [],
+      "stops": [
+        "940GZZLUERC",
+        "940GZZLUPAC",
+        "940GZZLUBWT",
+        "940GZZLUNHG",
+        "940GZZLUHSK",
+        "940GZZLUECT"
+      ]
+    },
+    {
+      "file": "district-inbound.json",
+      "line": "district",
+      "direction": "inbound",
+      "branch": 2,
+      "next": [],
+      "previous": [
+        0
+      ],
+      "stops": [
+        "940GZZLUECT",
+        "940GZZLUKOY"
+      ]
+    },
+    {
+      "file": "district-outbound.json",
+      "line": "district",
+      "direction": "outbound",
+      "branch": 10,
+      "next": [
+        13
+      ],
+      "previous": [],
+      "stops": [
+        "940GZZLUEBY",
+        "940GZZLUECM",
+        "940GZZLUACT",
+        "940GZZLUCWP",
+        "940GZZLUTNG"
+      ]
+    },
+    {
+      "file": "district-outbound.json",
+      "line": "district",
+      "direction": "outbound",
+      "branch": 13,
+      "next": [
+        11,
+        12
+      ],
+      "previous": [
+        10,
+        8
+      ],
+      "stops": [
+        "940GZZLUTNG",
+        "940GZZLUSFB",
+        "940GZZLURVP",
+        "940GZZLUHSD",
+        "940GZZLUBSC",
+        "940GZZLUWKN",
+        "940GZZLUECT"
+      ]
+    },
+    {
+      "file": "district-outbound.json",
+      "line": "district",
+      "direction": "outbound",
+      "branch": 12,
+      "next": [],
+      "previous": [
+        13,
+        9
+      ],
+      "stops": [
+        "940GZZLUECT",
+        "940GZZLUGTR",
+        "940GZZLUSKS",
+        "940GZZLUSSQ",
+        "940GZZLUVIC",
+        "940GZZLUSJP",
+        "940GZZLUWSM",
+        "940GZZLUEMB",
+        "940GZZLUTMP",
+        "940GZZLUBKF",
+        "940GZZLUMSH",
+        "940GZZLUCST",
+        "940GZZLUMMT",
+        "940GZZLUTWH",
+        "940GZZLUADE",
+        "940GZZLUWPL",
+        "940GZZLUSGN",
+        "940GZZLUMED",
+        "940GZZLUBWR",
+        "940GZZLUBBB",
+        "940GZZLUWHM",
+        "940GZZLUPLW",
+        "940GZZLUUPK",
+        "940GZZLUEHM",
+        "940GZZLUBKG",
+        "940GZZLUUPY",
+        "940GZZLUBEC",
+        "940GZZLUDGY",
+        "940GZZLUDGE",
+        "940GZZLUEPK",
+        "940GZZLUHCH",
+        "940GZZLUUPB",
+        "940GZZLUUPM"
+      ]
+    },
+    {
+      "file": "district-outbound.json",
+      "line": "district",
+      "direction": "outbound",
+      "branch": 8,
+      "next": [
+        13
+      ],
+      "previous": [],
+      "stops": [
+        "940GZZLURMD",
+        "940GZZLUKWG",
+        "940GZZLUGBY",
+        "940GZZLUTNG"
+      ]
+    },
+    {
+      "file": "district-outbound.json",
+      "line": "district",
+      "direction": "outbound",
+      "branch": 9,
+      "next": [
+        11,
+        12
+      ],
+      "previous": [],
+      "stops": [
+        "940GZZLUWIM",
+        "940GZZLUWIP",
+        "940GZZLUSFS",
+        "940GZZLUEPY",
+        "940GZZLUPYB",
+        "940GZZLUPSG",
+        "940GZZLUFBY",
+        "940GZZLUWBN",
+        "940GZZLUECT"
+      ]
+    },
+    {
+      "file": "district-outbound.json",
+      "line": "district",
+      "direction": "outbound",
+      "branch": 11,
+      "next": [],
+      "previous": [
+        13,
+        9,
+        7
+      ],
+      "stops": [
+        "940GZZLUECT",
+        "940GZZLUHSK",
+        "940GZZLUNHG",
+        "940GZZLUBWT",
+        "940GZZLUPAC",
+        "940GZZLUERC"
+      ]
+    },
+    {
+      "file": "district-outbound.json",
+      "line": "district",
+      "direction": "outbound",
+      "branch": 7,
+      "next": [
+        11
+      ],
+      "previous": [],
+      "stops": [
+        "940GZZLUKOY",
+        "940GZZLUECT"
+      ]
+    },
+    {
+      "file": "hammersmith-city-inbound.json",
+      "line": "hammersmith-city",
+      "direction": "inbound",
+      "branch": 0,
+      "next": [],
+      "previous": [],
+      "stops": [
+        "940GZZLUBKG",
+        "940GZZLUEHM",
+        "940GZZLUUPK",
+        "940GZZLUPLW",
+        "940GZZLUWHM",
+        "940GZZLUBBB",
+        "940GZZLUBWR",
+        "940GZZLUMED",
+        "940GZZLUSGN",
+        "940GZZLUWPL",
+        "940GZZLUADE",
+        "940GZZLULVT",
+        "940GZZLUMGT",
+        "940GZZLUBBN",
+        "940GZZLUFCN",
+        "940GZZLUKSX",
+        "940GZZLUESQ",
+        "940GZZLUGPS",
+        "940GZZLUBST",
+        "940GZZLUERC",
+        "940GZZLUPAH",
+        "940GZZLURYO",
+        "940GZZLUWSP",
+        "940GZZLULAD",
+        "940GZZLULRD",
+        "940GZZLUWLA",
+        "940GZZLUSBM",
+        "940GZZLUGHK",
+        "940GZZLUHSC"
+      ]
+    },
+    {
+      "file": "hammersmith-city-outbound.json",
+      "line": "hammersmith-city",
+      "direction": "outbound",
+      "branch": 1,
+      "next": [],
+      "previous": [],
+      "stops": [
+        "940GZZLUHSC",
+        "940GZZLUGHK",
+        "940GZZLUSBM",
+        "940GZZLUWLA",
+        "940GZZLULRD",
+        "940GZZLULAD",
+        "940GZZLUWSP",
+        "940GZZLURYO",
+        "940GZZLUPAH",
+        "940GZZLUERC",
+        "940GZZLUBST",
+        "940GZZLUGPS",
+        "940GZZLUESQ",
+        "940GZZLUKSX",
+        "940GZZLUFCN",
+        "940GZZLUBBN",
+        "940GZZLUMGT",
+        "940GZZLULVT",
+        "940GZZLUADE",
+        "940GZZLUWPL",
+        "940GZZLUSGN",
+        "940GZZLUMED",
+        "940GZZLUBWR",
+        "940GZZLUBBB",
+        "940GZZLUWHM",
+        "940GZZLUPLW",
+        "940GZZLUUPK",
+        "940GZZLUEHM",
+        "940GZZLUBKG"
+      ]
+    },
+    {
+      "file": "jubilee-inbound.json",
+      "line": "jubilee",
+      "direction": "inbound",
+      "branch": 0,
+      "next": [],
+      "previous": [],
+      "stops": [
+        "940GZZLUSTD",
+        "940GZZLUWHM",
+        "940GZZLUCGT",
+        "940GZZLUNGW",
+        "940GZZLUCYF",
+        "940GZZLUCWR",
+        "940GZZLUBMY",
+        "940GZZLULNB",
+        "940GZZLUSWK",
+        "940GZZLUWLO",
+        "940GZZLUWSM",
+        "940GZZLUGPK",
+        "940GZZLUBND",
+        "940GZZLUBST",
+        "940GZZLUSJW",
+        "940GZZLUSWC",
+        "940GZZLUFYR",
+        "940GZZLUWHP",
+        "940GZZLUKBN",
+        "940GZZLUWIG",
+        "940GZZLUDOH",
+        "940GZZLUNDN",
+        "940GZZLUWYP",
+        "940GZZLUKBY",
+        "940GZZLUQBY",
+        "940GZZLUCPK",
+        "940GZZLUSTM"
+      ]
+    },
+    {
+      "file": "jubilee-outbound.json",
+      "line": "jubilee",
+      "direction": "outbound",
+      "branch": 1,
+      "next": [],
+      "previous": [],
+      "stops": [
+        "940GZZLUSTM",
+        "940GZZLUCPK",
+        "940GZZLUQBY",
+        "940GZZLUKBY",
+        "940GZZLUWYP",
+        "940GZZLUNDN",
+        "940GZZLUDOH",
+        "940GZZLUWIG",
+        "940GZZLUKBN",
+        "940GZZLUWHP",
+        "940GZZLUFYR",
+        "940GZZLUSWC",
+        "940GZZLUSJW",
+        "940GZZLUBST",
+        "940GZZLUBND",
+        "940GZZLUGPK",
+        "940GZZLUWSM",
+        "940GZZLUWLO",
+        "940GZZLUSWK",
+        "940GZZLULNB",
+        "940GZZLUBMY",
+        "940GZZLUCWR",
+        "940GZZLUCYF",
+        "940GZZLUNGW",
+        "940GZZLUCGT",
+        "940GZZLUWHM",
+        "940GZZLUSTD"
+      ]
+    },
+    {
+      "file": "metropolitan-inbound.json",
+      "line": "metropolitan",
+      "direction": "inbound",
+      "branch": 0,
+      "next": [
+        1,
+        2
+      ],
+      "previous": [],
+      "stops": [
+        "940GZZLUALD",
+        "940GZZLULVT",
+        "940GZZLUMGT",
+        "940GZZLUBBN",
+        "940GZZLUFCN",
+        "940GZZLUKSX",
+        "940GZZLUESQ",
+        "940GZZLUGPS",
+        "940GZZLUBST",
+        "940GZZLUFYR",
+        "940GZZLUWYP",
+        "940GZZLUPRD",
+        "940GZZLUNKP",
+        "940GZZLUHOH"
+      ]
+    },
+    {
+      "file": "metropolitan-inbound.json",
+      "line": "metropolitan",
+      "direction": "inbound",
+      "branch": 1,
+      "next": [
+        3,
+        4
+      ],
+      "previous": [
+        0
+      ],
+      "stops": [
+        "940GZZLUHOH",
+        "940GZZLUNHA",
+        "940GZZLUPNR",
+        "940GZZLUNWH",
+        "940GZZLUNOW",
+        "940GZZLUMPK"
+      ]
+    },
+    {
+      "file": "metropolitan-inbound.json",
+      "line": "metropolitan",
+      "direction": "inbound",
+      "branch": 4,
+      "next": [
+        5,
+        6
+      ],
+      "previous": [
+        1
+      ],
+      "stops": [
+        "940GZZLUMPK",
+        "940GZZLURKW",
+        "940GZZLUCYD",
+        "940GZZLUCAL"
+      ]
+    },
+    {
+      "file": "metropolitan-inbound.json",
+      "line": "metropolitan",
+      "direction": "inbound",
+      "branch": 5,
+      "next": [],
+      "previous": [
+        4
+      ],
+      "stops": [
+        "940GZZLUCAL",
+        "940GZZLUCSM"
+      ]
+    },
+    {
+      "file": "metropolitan-inbound.json",
+      "line": "metropolitan",
+      "direction": "inbound",
+      "branch": 6,
+      "next": [],
+      "previous": [
+        4
+      ],
+      "stops": [
+        "940GZZLUCAL",
+        "940GZZLUAMS"
+      ]
+    },
+    {
+      "file": "metropolitan-inbound.json",
+      "line": "metropolitan",
+      "direction": "inbound",
+      "branch": 2,
+      "next": [],
+      "previous": [
+        0
+      ],
+      "stops": [
+        "940GZZLUHOH",
+        "940GZZLUWHW",
+        "940GZZLURYL",
+        "940GZZLUEAE",
+        "940GZZLURSM",
+        "940GZZLURSP",
+        "940GZZLUICK",
+        "940GZZLUHGD",
+        "940GZZLUUXB"
+      ]
+    },
+    {
+      "file": "metropolitan-inbound.json",
+      "line": "metropolitan",
+      "direction": "inbound",
+      "branch": 3,
+      "next": [],
+      "previous": [
+        1
+      ],
+      "stops": [
+        "940GZZLUMPK",
+        "940GZZLUCXY",
+        "940GZZLUWAF"
+      ]
+    },
+    {
+      "file": "metropolitan-outbound.json",
+      "line": "metropolitan",
+      "direction": "outbound",
+      "branch": 8,
+      "next": [
+        17
+      ],
+      "previous": [],
+      "stops": [
+        "940GZZLUAMS",
+        "940GZZLUCAL"
+      ]
+    },
+    {
+      "file": "metropolitan-outbound.json",
+      "line": "metropolitan",
+      "direction": "outbound",
+      "branch": 17,
+      "next": [
+        15
+      ],
+      "previous": [
+        8,
+        10
+      ],
+      "stops": [
+        "940GZZLUCAL",
+        "940GZZLUCYD",
+        "940GZZLURKW",
+        "940GZZLUMPK"
+      ]
+    },
+    {
+      "file": "metropolitan-outbound.json",
+      "line": "metropolitan",
+      "direction": "outbound",
+      "branch": 15,
+      "next": [
+        11,
+        12
+      ],
+      "previous": [
+        17,
+        7
+      ],
+      "stops": [
+        "940GZZLUMPK",
+        "940GZZLUNOW",
+        "940GZZLUNWH",
+        "940GZZLUPNR",
+        "940GZZLUNHA",
+        "940GZZLUHOH"
+      ]
+    },
+    {
+      "file": "metropolitan-outbound.json",
+      "line": "metropolitan",
+      "direction": "outbound",
+      "branch": 11,
+      "next": [
+        13,
+        14
+      ],
+      "previous": [
+        15,
+        9
+      ],
+      "stops": [
+        "940GZZLUHOH",
+        "940GZZLUNKP",
+        "940GZZLUPRD",
+        "940GZZLUWYP"
+      ]
+    },
+    {
+      "file": "metropolitan-outbound.json",
+      "line": "metropolitan",
+      "direction": "outbound",
+      "branch": 16,
+      "next": [],
+      "previous": [
+        13,
+        14
+      ],
+      "stops": [
+        "940GZZLUFYR",
+        "940GZZLUBST",
+        "940GZZLUGPS",
+        "940GZZLUESQ",
+        "940GZZLUKSX",
+        "940GZZLUFCN",
+        "940GZZLUBBN",
+        "940GZZLUMGT",
+        "940GZZLULVT",
+        "940GZZLUALD"
+      ]
+    },
+    {
+      "file": "metropolitan-outbound.json",
+      "line": "metropolitan",
+      "direction": "outbound",
+      "branch": 14,
+      "next": [
+        16
+      ],
+      "previous": [
+        11
+      ],
+      "stops": [
+        "940GZZLUWYP",
+        "940GZZLUWIG",
+        "940GZZLUFYR"
+      ]
+    },
+    {
+      "file": "metropolitan-outbound.json",
+      "line": "metropolitan",
+      "direction": "outbound",
+      "branch": 13,
+      "next": [
+        16
+      ],
+      "previous": [
+        11,
+        12
+      ],
+      "stops": [
+        "940GZZLUWYP",
+        "940GZZLUFYR"
+      ]
+    },
+    {
+      "file": "metropolitan-outbound.json",
+      "line": "metropolitan",
+      "direction": "outbound",
+      "branch": 10,
+      "next": [
+        17
+      ],
+      "previous": [],
+      "stops": [
+        "940GZZLUCSM",
+        "940GZZLUCAL"
+      ]
+    },
+    {
+      "file": "metropolitan-outbound.json",
+      "line": "metropolitan",
+      "direction": "outbound",
+      "branch": 9,
+      "next": [
+        11
+      ],
+      "previous": [],
+      "stops": [
+        "940GZZLUUXB",
+        "940GZZLUHGD",
+        "940GZZLUICK",
+        "940GZZLURSP",
+        "940GZZLURSM",
+        "940GZZLUEAE",
+        "940GZZLURYL",
+        "940GZZLUWHW",
+        "940GZZLUHOH"
+      ]
+    },
+    {
+      "file": "metropolitan-outbound.json",
+      "line": "metropolitan",
+      "direction": "outbound",
+      "branch": 7,
+      "next": [
+        15
+      ],
+      "previous": [],
+      "stops": [
+        "940GZZLUWAF",
+        "940GZZLUCXY",
+        "940GZZLUMPK"
+      ]
+    },
+    {
+      "file": "northern-inbound.json",
+      "line": "northern",
+      "direction": "inbound",
+      "branch": 1,
+      "next": [
+        9
+      ],
+      "previous": [],
+      "stops": [
+        "940GZZLUHBT",
+        "940GZZLUTAW",
+        "940GZZLUWOP",
+        "940GZZLUWFN",
+        "940GZZLUFYC"
+      ]
+    },
+    {
+      "file": "northern-inbound.json",
+      "line": "northern",
+      "direction": "inbound",
+      "branch": 9,
+      "next": [
+        3,
+        4
+      ],
+      "previous": [
+        1,
+        2
+      ],
+      "stops": [
+        "940GZZLUFYC",
+        "940GZZLUEFY",
+        "940GZZLUHGT",
+        "940GZZLUACY",
+        "940GZZLUTFP",
+        "940GZZLUKSH",
+        "940GZZLUCTN"
+      ]
+    },
+    {
+      "file": "northern-inbound.json",
+      "line": "northern",
+      "direction": "inbound",
+      "branch": 3,
+      "next": [
+        5
+      ],
+      "previous": [
+        9,
+        0
+      ],
+      "stops": [
+        "940GZZLUCTN",
+        "940GZZLUMTC",
+        "940GZZLUEUS"
+      ]
+    },
+    {
+      "file": "northern-inbound.json",
+      "line": "northern",
+      "direction": "inbound",
+      "branch": 5,
+      "next": [
+        7,
+        8
+      ],
+      "previous": [
+        3
+      ],
+      "stops": [
+        "940GZZLUEUS",
+        "940GZZLUWRR",
+        "940GZZLUGDG",
+        "940GZZLUTCR",
+        "940GZZLULSQ",
+        "940GZZLUCHX",
+        "940GZZLUEMB",
+        "940GZZLUWLO",
+        "940GZZLUKNG"
+      ]
+    },
+    {
+      "file": "northern-inbound.json",
+      "line": "northern",
+      "direction": "inbound",
+      "branch": 8,
+      "next": [],
+      "previous": [
+        5,
+        6
+      ],
+      "stops": [
+        "940GZZLUKNG",
+        "940GZZLUOVL",
+        "940GZZLUSKW",
+        "940GZZLUCPN",
+        "940GZZLUCPC",
+        "940GZZLUCPS",
+        "940GZZLUBLM",
+        "940GZZLUTBC",
+        "940GZZLUTBY",
+        "940GZZLUCSD",
+        "940GZZLUSWN",
+        "940GZZLUMDN"
+      ]
+    },
+    {
+      "file": "northern-inbound.json",
+      "line": "northern",
+      "direction": "inbound",
+      "branch": 4,
+      "next": [
+        6
+      ],
+      "previous": [
+        9,
+        0
+      ],
+      "stops": [
+        "940GZZLUCTN",
+        "940GZZLUEUS"
+      ]
+    },
+    {
+      "file": "northern-inbound.json",
+      "line": "northern",
+      "direction": "inbound",
+      "branch": 6,
+      "next": [
+        8
+      ],
+      "previous": [
+        4
+      ],
+      "stops": [
+        "940GZZLUEUS",
+        "940GZZLUKSX",
+        "940GZZLUAGL",
+        "940GZZLUODS",
+        "940GZZLUMGT",
+        "940GZZLUBNK",
+        "940GZZLULNB",
+        "940GZZLUBOR",
+        "940GZZLUEAC",
+        "940GZZLUKNG"
+      ]
+    },
+    {
+      "file": "northern-inbound.json",
+      "line": "northern",
+      "direction": "inbound",
+      "branch": 0,
+      "next": [
+        3,
+        4
+      ],
+      "previous": [],
+      "stops": [
+        "940GZZLUEGW",
+        "940GZZLUBTK",
+        "940GZZLUCND",
+        "940GZZLUHCL",
+        "940GZZLUBTX",
+        "940GZZLUGGN",
+        "940GZZLUHTD",
+        "940GZZLUBZP",
+        "940GZZLUCFM",
+        "940GZZLUCTN"
+      ]
+    },
+    {
+      "file": "northern-inbound.json",
+      "line": "northern",
+      "direction": "inbound",
+      "branch": 2,
+      "next": [
+        9
+      ],
+      "previous": [],
+      "stops": [
+        "940GZZLUMHL",
+        "940GZZLUFYC"
+      ]
+    },
+    {
+      "file": "northern-inbound.json",
+      "line": "northern",
+      "direction": "inbound",
+      "branch": 7,
+      "next": [],
+      "previous": [
+        5
+      ],
+      "stops": [
+        "940GZZLUKNG",
+        "940GZZNEUGST",
+        "940GZZBPSUST"
+      ]
+    },
+    {
+      "file": "northern-outbound.json",
+      "line": "northern",
+      "direction": "outbound",
+      "branch": 11,
+      "next": [
+        12,
+        13
+      ],
+      "previous": [],
+      "stops": [
+        "940GZZLUMDN",
+        "940GZZLUSWN",
+        "940GZZLUCSD",
+        "940GZZLUTBY",
+        "940GZZLUTBC",
+        "940GZZLUBLM",
+        "940GZZLUCPS",
+        "940GZZLUCPC",
+        "940GZZLUCPN",
+        "940GZZLUSKW",
+        "940GZZLUOVL",
+        "940GZZLUKNG"
+      ]
+    },
+    {
+      "file": "northern-outbound.json",
+      "line": "northern",
+      "direction": "outbound",
+      "branch": 12,
+      "next": [
+        14
+      ],
+      "previous": [
+        11,
+        10
+      ],
+      "stops": [
+        "940GZZLUKNG",
+        "940GZZLUWLO",
+        "940GZZLUEMB",
+        "940GZZLUCHX",
+        "940GZZLULSQ",
+        "940GZZLUTCR",
+        "940GZZLUGDG",
+        "940GZZLUWRR",
+        "940GZZLUEUS"
+      ]
+    },
+    {
+      "file": "northern-outbound.json",
+      "line": "northern",
+      "direction": "outbound",
+      "branch": 14,
+      "next": [
+        16,
+        17
+      ],
+      "previous": [
+        12
+      ],
+      "stops": [
+        "940GZZLUEUS",
+        "940GZZLUMTC",
+        "940GZZLUCTN"
+      ]
+    },
+    {
+      "file": "northern-outbound.json",
+      "line": "northern",
+      "direction": "outbound",
+      "branch": 17,
+      "next": [
+        18,
+        19
+      ],
+      "previous": [
+        14,
+        15
+      ],
+      "stops": [
+        "940GZZLUCTN",
+        "940GZZLUKSH",
+        "940GZZLUTFP",
+        "940GZZLUACY",
+        "940GZZLUHGT",
+        "940GZZLUEFY",
+        "940GZZLUFYC"
+      ]
+    },
+    {
+      "file": "northern-outbound.json",
+      "line": "northern",
+      "direction": "outbound",
+      "branch": 18,
+      "next": [],
+      "previous": [
+        17
+      ],
+      "stops": [
+        "940GZZLUFYC",
+        "940GZZLUWFN",
+        "940GZZLUWOP",
+        "940GZZLUTAW",
+        "940GZZLUHBT"
+      ]
+    },
+    {
+      "file": "northern-outbound.json",
+      "line": "northern",
+      "direction": "outbound",
+      "branch": 13,
+      "next": [
+        15
+      ],
+      "previous": [
+        11
+      ],
+      "stops": [
+        "940GZZLUKNG",
+        "940GZZLUEAC",
+        "940GZZLUBOR",
+        "940GZZLULNB",
+        "940GZZLUBNK",
+        "940GZZLUMGT",
+        "940GZZLUODS",
+        "940GZZLUAGL",
+        "940GZZLUKSX",
+        "940GZZLUEUS"
+      ]
+    },
+    {
+      "file": "northern-outbound.json",
+      "line": "northern",
+      "direction": "outbound",
+      "branch": 15,
+      "next": [
+        17,
+        16
+      ],
+      "previous": [
+        13
+      ],
+      "stops": [
+        "940GZZLUEUS",
+        "940GZZLUCTN"
+      ]
+    },
+    {
+      "file": "northern-outbound.json",
+      "line": "northern",
+      "direction": "outbound",
+      "branch": 16,
+      "next": [],
+      "previous": [
+        14,
+        15
+      ],
+      "stops": [
+        "940GZZLUCTN",
+        "940GZZLUCFM",
+        "940GZZLUBZP",
+        "940GZZLUHTD",
+        "940GZZLUGGN",
+        "940GZZLUBTX",
+        "940GZZLUHCL",
+        "940GZZLUCND",
+        "940GZZLUBTK",
+        "940GZZLUEGW"
+      ]
+    },
+    {
+      "file": "northern-outbound.json",
+      "line": "northern",
+      "direction": "outbound",
+      "branch": 19,
+      "next": [],
+      "previous": [
+        17
+      ],
+      "stops": [
+        "940GZZLUFYC",
+        "940GZZLUMHL"
+      ]
+    },
+    {
+      "file": "northern-outbound.json",
+      "line": "northern",
+      "direction": "outbound",
+      "branch": 10,
+      "next": [
+        12
+      ],
+      "previous": [],
+      "stops": [
+        "940GZZBPSUST",
+        "940GZZNEUGST",
+        "940GZZLUKNG"
+      ]
+    },
+    {
+      "file": "piccadilly-inbound.json",
+      "line": "piccadilly",
+      "direction": "inbound",
+      "branch": 0,
+      "next": [
+        1,
+        2
+      ],
+      "previous": [],
+      "stops": [
+        "940GZZLUCKS",
+        "940GZZLUOAK",
+        "940GZZLUSGT",
+        "940GZZLUASG",
+        "940GZZLUBDS",
+        "940GZZLUWOG",
+        "940GZZLUTPN",
+        "940GZZLUMRH",
+        "940GZZLUFPK",
+        "940GZZLUASL",
+        "940GZZLUHWY",
+        "940GZZLUCAR",
+        "940GZZLUKSX",
+        "940GZZLURSQ",
+        "940GZZLUHBN",
+        "940GZZLUCGN",
+        "940GZZLULSQ",
+        "940GZZLUPCC",
+        "940GZZLUGPK",
+        "940GZZLUHPC",
+        "940GZZLUKNB",
+        "940GZZLUSKS",
+        "940GZZLUGTR",
+        "940GZZLUECT",
+        "940GZZLUBSC",
+        "940GZZLUHSD",
+        "940GZZLUTNG",
+        "940GZZLUACT"
+      ]
+    },
+    {
+      "file": "piccadilly-inbound.json",
+      "line": "piccadilly",
+      "direction": "inbound",
+      "branch": 1,
+      "next": [],
+      "previous": [
+        0
+      ],
+      "stops": [
+        "940GZZLUACT",
+        "940GZZLUECM",
+        "940GZZLUNEN",
+        "940GZZLUPKR",
+        "940GZZLUALP",
+        "940GZZLUSUT",
+        "940GZZLUSUH",
+        "940GZZLUSHH",
+        "940GZZLURYL",
+        "940GZZLUEAE",
+        "940GZZLURSM",
+        "940GZZLURSP",
+        "940GZZLUICK",
+        "940GZZLUHGD",
+        "940GZZLUUXB"
+      ]
+    },
+    {
+      "file": "piccadilly-inbound.json",
+      "line": "piccadilly",
+      "direction": "inbound",
+      "branch": 2,
+      "next": [
+        3,
+        4
+      ],
+      "previous": [
+        0
+      ],
+      "stops": [
+        "940GZZLUACT",
+        "940GZZLUSEA",
+        "940GZZLUNFD",
+        "940GZZLUBOS",
+        "940GZZLUOSY",
+        "940GZZLUHWE",
+        "940GZZLUHWC",
+        "940GZZLUHWT",
+        "940GZZLUHNX"
+      ]
+    },
+    {
+      "file": "piccadilly-inbound.json",
+      "line": "piccadilly",
+      "direction": "inbound",
+      "branch": 4,
+      "next": [],
+      "previous": [
+        2
+      ],
+      "stops": [
+        "940GZZLUHNX",
+        "940GZZLUHRC",
+        "940GZZLUHR5"
+      ]
+    },
+    {
+      "file": "piccadilly-inbound.json",
+      "line": "piccadilly",
+      "direction": "inbound",
+      "branch": 3,
+      "next": [],
+      "previous": [
+        2
+      ],
+      "stops": [
+        "940GZZLUHNX",
+        "940GZZLUHR4"
+      ]
+    },
+    {
+      "file": "piccadilly-outbound.json",
+      "line": "piccadilly",
+      "direction": "outbound",
+      "branch": 5,
+      "next": [
+        8
+      ],
+      "previous": [],
+      "stops": [
+        "940GZZLUUXB",
+        "940GZZLUHGD",
+        "940GZZLUICK",
+        "940GZZLURSP",
+        "940GZZLURSM",
+        "940GZZLUEAE",
+        "940GZZLURYL",
+        "940GZZLUSHH",
+        "940GZZLUSUH",
+        "940GZZLUSUT",
+        "940GZZLUALP",
+        "940GZZLUPKR",
+        "940GZZLUNEN",
+        "940GZZLUECM",
+        "940GZZLUACT"
+      ]
+    },
+    {
+      "file": "piccadilly-outbound.json",
+      "line": "piccadilly",
+      "direction": "outbound",
+      "branch": 8,
+      "next": [],
+      "previous": [
+        5,
+        9
+      ],
+      "stops": [
+        "940GZZLUACT",
+        "940GZZLUTNG",
+        "940GZZLUHSD",
+        "940GZZLUBSC",
+        "940GZZLUECT",
+        "940GZZLUGTR",
+        "940GZZLUSKS",
+        "940GZZLUKNB",
+        "940GZZLUHPC",
+        "940GZZLUGPK",
+        "940GZZLUPCC",
+        "940GZZLULSQ",
+        "940GZZLUCGN",
+        "940GZZLUHBN",
+        "940GZZLURSQ",
+        "940GZZLUKSX",
+        "940GZZLUCAR",
+        "940GZZLUHWY",
+        "940GZZLUASL",
+        "940GZZLUFPK",
+        "940GZZLUMRH",
+        "940GZZLUTPN",
+        "940GZZLUWOG",
+        "940GZZLUBDS",
+        "940GZZLUASG",
+        "940GZZLUSGT",
+        "940GZZLUOAK",
+        "940GZZLUCKS"
+      ]
+    },
+    {
+      "file": "piccadilly-outbound.json",
+      "line": "piccadilly",
+      "direction": "outbound",
+      "branch": 6,
+      "next": [
+        9
+      ],
+      "previous": [],
+      "stops": [
+        "940GZZLUHR4",
+        "940GZZLUHRC"
+      ]
+    },
+    {
+      "file": "piccadilly-outbound.json",
+      "line": "piccadilly",
+      "direction": "outbound",
+      "branch": 9,
+      "next": [
+        8
+      ],
+      "previous": [
+        6,
+        7
+      ],
+      "stops": [
+        "940GZZLUHRC",
+        "940GZZLUHNX",
+        "940GZZLUHWT",
+        "940GZZLUHWC",
+        "940GZZLUHWE",
+        "940GZZLUOSY",
+        "940GZZLUBOS",
+        "940GZZLUNFD",
+        "940GZZLUSEA",
+        "940GZZLUACT"
+      ]
+    },
+    {
+      "file": "piccadilly-outbound.json",
+      "line": "piccadilly",
+      "direction": "outbound",
+      "branch": 7,
+      "next": [
+        9
+      ],
+      "previous": [],
+      "stops": [
+        "940GZZLUHR5",
+        "940GZZLUHRC"
+      ]
+    },
+    {
+      "file": "victoria-inbound.json",
+      "line": "victoria",
+      "direction": "inbound",
+      "branch": 0,
+      "next": [],
+      "previous": [],
+      "stops": [
+        "940GZZLUWWL",
+        "940GZZLUBLR",
+        "940GZZLUTMH",
+        "940GZZLUSVS",
+        "940GZZLUFPK",
+        "940GZZLUHAI",
+        "940GZZLUKSX",
+        "940GZZLUEUS",
+        "940GZZLUWRR",
+        "940GZZLUOXC",
+        "940GZZLUGPK",
+        "940GZZLUVIC",
+        "940GZZLUPCO",
+        "940GZZLUVXL",
+        "940GZZLUSKW",
+        "940GZZLUBXN"
+      ]
+    },
+    {
+      "file": "victoria-outbound.json",
+      "line": "victoria",
+      "direction": "outbound",
+      "branch": 1,
+      "next": [],
+      "previous": [],
+      "stops": [
+        "940GZZLUBXN",
+        "940GZZLUSKW",
+        "940GZZLUVXL",
+        "940GZZLUPCO",
+        "940GZZLUVIC",
+        "940GZZLUGPK",
+        "940GZZLUOXC",
+        "940GZZLUWRR",
+        "940GZZLUEUS",
+        "940GZZLUKSX",
+        "940GZZLUHAI",
+        "940GZZLUFPK",
+        "940GZZLUSVS",
+        "940GZZLUTMH",
+        "940GZZLUBLR",
+        "940GZZLUWWL"
+      ]
+    },
+    {
+      "file": "waterloo-city-inbound.json",
+      "line": "waterloo-city",
+      "direction": "inbound",
+      "branch": 0,
+      "next": [],
+      "previous": [],
+      "stops": [
+        "940GZZLUBNK",
+        "940GZZLUWLO"
+      ]
+    },
+    {
+      "file": "waterloo-city-outbound.json",
+      "line": "waterloo-city",
+      "direction": "outbound",
+      "branch": 1,
+      "next": [],
+      "previous": [],
+      "stops": [
+        "940GZZLUWLO",
+        "940GZZLUBNK"
+      ]
+    }
+  ],
+  "demand_mapping": [
+    {
+      "code": "500",
+      "name": "Acton Town",
+      "primary_naptan": "940GZZLUACT",
+      "source_id": "940GZZLUACT",
+      "site_id": "940GZZLUACT",
+      "mixed_mode_alias": false
+    },
+    {
+      "code": "501",
+      "name": "Barbican",
+      "primary_naptan": "940GZZLUBBN",
+      "source_id": "940GZZLUBBN",
+      "site_id": "940GZZLUBBN",
+      "mixed_mode_alias": false
+    },
+    {
+      "code": "502",
+      "name": "Aldgate",
+      "primary_naptan": "940GZZLUALD",
+      "source_id": "940GZZLUALD",
+      "site_id": "940GZZLUALD",
+      "mixed_mode_alias": false
+    },
+    {
+      "code": "503",
+      "name": "Aldgate East",
+      "primary_naptan": "940GZZLUADE",
+      "source_id": "940GZZLUADE",
+      "site_id": "940GZZLUADE",
+      "mixed_mode_alias": false
+    },
+    {
+      "code": "505",
+      "name": "Alperton",
+      "primary_naptan": "940GZZLUALP",
+      "source_id": "940GZZLUALP",
+      "site_id": "940GZZLUALP",
+      "mixed_mode_alias": false
+    },
+    {
+      "code": "506",
+      "name": "Amersham",
+      "primary_naptan": "910GAMERSHM",
+      "source_id": "940GZZLUAMS",
+      "site_id": "940GZZLUAMS",
+      "mixed_mode_alias": true
+    },
+    {
+      "code": "507",
+      "name": "Angel",
+      "primary_naptan": "940GZZLUAGL",
+      "source_id": "940GZZLUAGL",
+      "site_id": "940GZZLUAGL",
+      "mixed_mode_alias": false
+    },
+    {
+      "code": "508",
+      "name": "Archway",
+      "primary_naptan": "940GZZLUACY",
+      "source_id": "940GZZLUACY",
+      "site_id": "940GZZLUACY",
+      "mixed_mode_alias": false
+    },
+    {
+      "code": "509",
+      "name": "Arnos Grove",
+      "primary_naptan": "940GZZLUASG",
+      "source_id": "940GZZLUASG",
+      "site_id": "940GZZLUASG",
+      "mixed_mode_alias": false
+    },
+    {
+      "code": "510",
+      "name": "Arsenal",
+      "primary_naptan": "940GZZLUASL",
+      "source_id": "940GZZLUASL",
+      "site_id": "940GZZLUASL",
+      "mixed_mode_alias": false
+    },
+    {
+      "code": "511",
+      "name": "Baker Street",
+      "primary_naptan": "940GZZLUBST",
+      "source_id": "940GZZLUBST",
+      "site_id": "940GZZLUBST",
+      "mixed_mode_alias": false
+    },
+    {
+      "code": "512",
+      "name": "Balham LU",
+      "primary_naptan": "940GZZLUBLM",
+      "source_id": "940GZZLUBLM",
+      "site_id": "940GZZLUBLM",
+      "mixed_mode_alias": false
+    },
+    {
+      "code": "513",
+      "name": "Bank and Monument",
+      "primary_naptan": "940GZZLUBNK",
+      "source_id": "940GZZLUBNK",
+      "site_id": "940GZZLUBNK",
+      "mixed_mode_alias": false
+    },
+    {
+      "code": "514",
+      "name": "Barking",
+      "primary_naptan": "910GBARKING",
+      "source_id": "940GZZLUBKG",
+      "site_id": "940GZZLUBKG",
+      "mixed_mode_alias": true
+    },
+    {
+      "code": "515",
+      "name": "Barkingside",
+      "primary_naptan": "940GZZLUBKE",
+      "source_id": "940GZZLUBKE",
+      "site_id": "940GZZLUBKE",
+      "mixed_mode_alias": false
+    },
+    {
+      "code": "516",
+      "name": "Barons Court",
+      "primary_naptan": "940GZZLUBSC",
+      "source_id": "940GZZLUBSC",
+      "site_id": "940GZZLUBSC",
+      "mixed_mode_alias": false
+    },
+    {
+      "code": "517",
+      "name": "Bayswater",
+      "primary_naptan": "940GZZLUBWT",
+      "source_id": "940GZZLUBWT",
+      "site_id": "940GZZLUBWT",
+      "mixed_mode_alias": false
+    },
+    {
+      "code": "518",
+      "name": "Becontree",
+      "primary_naptan": "940GZZLUBEC",
+      "source_id": "940GZZLUBEC",
+      "site_id": "940GZZLUBEC",
+      "mixed_mode_alias": false
+    },
+    {
+      "code": "519",
+      "name": "Belsize Park",
+      "primary_naptan": "940GZZLUBZP",
+      "source_id": "940GZZLUBZP",
+      "site_id": "940GZZLUBZP",
+      "mixed_mode_alias": false
+    },
+    {
+      "code": "520",
+      "name": "Bethnal Green LU",
+      "primary_naptan": "940GZZLUBLG",
+      "source_id": "940GZZLUBLG",
+      "site_id": "940GZZLUBLG",
+      "mixed_mode_alias": false
+    },
+    {
+      "code": "521",
+      "name": "Blackfriars LU",
+      "primary_naptan": "940GZZLUBKF",
+      "source_id": "940GZZLUBKF",
+      "site_id": "940GZZLUBKF",
+      "mixed_mode_alias": false
+    },
+    {
+      "code": "522",
+      "name": "Blackhorse Road",
+      "primary_naptan": "910GBLCHSRD",
+      "source_id": "940GZZLUBLR",
+      "site_id": "940GZZLUBLR",
+      "mixed_mode_alias": true
+    },
+    {
+      "code": "524",
+      "name": "Bond Street",
+      "primary_naptan": "940GZZLUBND",
+      "source_id": "940GZZLUBND",
+      "site_id": "940GZZLUBND",
+      "mixed_mode_alias": false
+    },
+    {
+      "code": "525",
+      "name": "Borough",
+      "primary_naptan": "940GZZLUBOR",
+      "source_id": "940GZZLUBOR",
+      "site_id": "940GZZLUBOR",
+      "mixed_mode_alias": false
+    },
+    {
+      "code": "526",
+      "name": "Boston Manor",
+      "primary_naptan": "940GZZLUBOS",
+      "source_id": "940GZZLUBOS",
+      "site_id": "940GZZLUBOS",
+      "mixed_mode_alias": false
+    },
+    {
+      "code": "527",
+      "name": "Bounds Green",
+      "primary_naptan": "940GZZLUBDS",
+      "source_id": "940GZZLUBDS",
+      "site_id": "940GZZLUBDS",
+      "mixed_mode_alias": false
+    },
+    {
+      "code": "528",
+      "name": "Bow Road",
+      "primary_naptan": "940GZZLUBWR",
+      "source_id": "940GZZLUBWR",
+      "site_id": "940GZZLUBWR",
+      "mixed_mode_alias": false
+    },
+    {
+      "code": "529",
+      "name": "Brent Cross",
+      "primary_naptan": "940GZZLUBTX",
+      "source_id": "940GZZLUBTX",
+      "site_id": "940GZZLUBTX",
+      "mixed_mode_alias": false
+    },
+    {
+      "code": "530",
+      "name": "Bromley-by-Bow",
+      "primary_naptan": "940GZZLUBBB",
+      "source_id": "940GZZLUBBB",
+      "site_id": "940GZZLUBBB",
+      "mixed_mode_alias": false
+    },
+    {
+      "code": "531",
+      "name": "Buckhurst Hill",
+      "primary_naptan": "940GZZLUBKH",
+      "source_id": "940GZZLUBKH",
+      "site_id": "940GZZLUBKH",
+      "mixed_mode_alias": false
+    },
+    {
+      "code": "532",
+      "name": "Burnt Oak",
+      "primary_naptan": "940GZZLUBTK",
+      "source_id": "940GZZLUBTK",
+      "site_id": "940GZZLUBTK",
+      "mixed_mode_alias": false
+    },
+    {
+      "code": "534",
+      "name": "Caledonian Road",
+      "primary_naptan": "940GZZLUCAR",
+      "source_id": "940GZZLUCAR",
+      "site_id": "940GZZLUCAR",
+      "mixed_mode_alias": false
+    },
+    {
+      "code": "535",
+      "name": "Camden Town",
+      "primary_naptan": "940GZZLUCTN",
+      "source_id": "940GZZLUCTN",
+      "site_id": "940GZZLUCTN",
+      "mixed_mode_alias": false
+    },
+    {
+      "code": "536",
+      "name": "Cannon Street LU",
+      "primary_naptan": "940GZZLUCST",
+      "source_id": "940GZZLUCST",
+      "site_id": "940GZZLUCST",
+      "mixed_mode_alias": false
+    },
+    {
+      "code": "537",
+      "name": "Canons Park",
+      "primary_naptan": "940GZZLUCPK",
+      "source_id": "940GZZLUCPK",
+      "site_id": "940GZZLUCPK",
+      "mixed_mode_alias": false
+    },
+    {
+      "code": "539",
+      "name": "Chalfont & Latimer",
+      "primary_naptan": "910GCHLFNAL",
+      "source_id": "940GZZLUCAL",
+      "site_id": "940GZZLUCAL",
+      "mixed_mode_alias": true
+    },
+    {
+      "code": "540",
+      "name": "Chalk Farm",
+      "primary_naptan": "940GZZLUCFM",
+      "source_id": "940GZZLUCFM",
+      "site_id": "940GZZLUCFM",
+      "mixed_mode_alias": false
+    },
+    {
+      "code": "541",
+      "name": "Chancery Lane",
+      "primary_naptan": "940GZZLUCHL",
+      "source_id": "940GZZLUCHL",
+      "site_id": "940GZZLUCHL",
+      "mixed_mode_alias": false
+    },
+    {
+      "code": "542",
+      "name": "Embankment",
+      "primary_naptan": "940GZZLUEMB",
+      "source_id": "940GZZLUEMB",
+      "site_id": "940GZZLUEMB",
+      "mixed_mode_alias": false
+    },
+    {
+      "code": "543",
+      "name": "Chesham",
+      "primary_naptan": "940GZZLUCSM",
+      "source_id": "940GZZLUCSM",
+      "site_id": "940GZZLUCSM",
+      "mixed_mode_alias": false
+    },
+    {
+      "code": "544",
+      "name": "Chigwell",
+      "primary_naptan": "940GZZLUCWL",
+      "source_id": "940GZZLUCWL",
+      "site_id": "940GZZLUCWL",
+      "mixed_mode_alias": false
+    },
+    {
+      "code": "545",
+      "name": "Chiswick Park",
+      "primary_naptan": "940GZZLUCWP",
+      "source_id": "940GZZLUCWP",
+      "site_id": "940GZZLUCWP",
+      "mixed_mode_alias": false
+    },
+    {
+      "code": "546",
+      "name": "Chorleywood",
+      "primary_naptan": "910GCHRW",
+      "source_id": "940GZZLUCYD",
+      "site_id": "940GZZLUCYD",
+      "mixed_mode_alias": true
+    },
+    {
+      "code": "547",
+      "name": "Clapham Common",
+      "primary_naptan": "940GZZLUCPC",
+      "source_id": "940GZZLUCPC",
+      "site_id": "940GZZLUCPC",
+      "mixed_mode_alias": false
+    },
+    {
+      "code": "548",
+      "name": "Clapham North",
+      "primary_naptan": "940GZZLUCPN",
+      "source_id": "940GZZLUCPN",
+      "site_id": "940GZZLUCPN",
+      "mixed_mode_alias": false
+    },
+    {
+      "code": "549",
+      "name": "Clapham South",
+      "primary_naptan": "940GZZLUCPS",
+      "source_id": "940GZZLUCPS",
+      "site_id": "940GZZLUCPS",
+      "mixed_mode_alias": false
+    },
+    {
+      "code": "550",
+      "name": "Cockfosters",
+      "primary_naptan": "940GZZLUCKS",
+      "source_id": "940GZZLUCKS",
+      "site_id": "940GZZLUCKS",
+      "mixed_mode_alias": false
+    },
+    {
+      "code": "551",
+      "name": "Colindale",
+      "primary_naptan": "940GZZLUCND",
+      "source_id": "940GZZLUCND",
+      "site_id": "940GZZLUCND",
+      "mixed_mode_alias": false
+    },
+    {
+      "code": "552",
+      "name": "Colliers Wood",
+      "primary_naptan": "940GZZLUCSD",
+      "source_id": "940GZZLUCSD",
+      "site_id": "940GZZLUCSD",
+      "mixed_mode_alias": false
+    },
+    {
+      "code": "553",
+      "name": "Covent Garden",
+      "primary_naptan": "940GZZLUCGN",
+      "source_id": "940GZZLUCGN",
+      "site_id": "940GZZLUCGN",
+      "mixed_mode_alias": false
+    },
+    {
+      "code": "554",
+      "name": "Croxley",
+      "primary_naptan": "940GZZLUCXY",
+      "source_id": "940GZZLUCXY",
+      "site_id": "940GZZLUCXY",
+      "mixed_mode_alias": false
+    },
+    {
+      "code": "555",
+      "name": "Dagenham East",
+      "primary_naptan": "940GZZLUDGE",
+      "source_id": "940GZZLUDGE",
+      "site_id": "940GZZLUDGE",
+      "mixed_mode_alias": false
+    },
+    {
+      "code": "556",
+      "name": "Dagenham Heathway",
+      "primary_naptan": "940GZZLUDGY",
+      "source_id": "940GZZLUDGY",
+      "site_id": "940GZZLUDGY",
+      "mixed_mode_alias": false
+    },
+    {
+      "code": "557",
+      "name": "Debden",
+      "primary_naptan": "940GZZLUDBN",
+      "source_id": "940GZZLUDBN",
+      "site_id": "940GZZLUDBN",
+      "mixed_mode_alias": false
+    },
+    {
+      "code": "558",
+      "name": "Dollis Hill",
+      "primary_naptan": "940GZZLUDOH",
+      "source_id": "940GZZLUDOH",
+      "site_id": "940GZZLUDOH",
+      "mixed_mode_alias": false
+    },
+    {
+      "code": "560",
+      "name": "Ealing Broadway",
+      "primary_naptan": "910GEALINGB",
+      "source_id": "940GZZLUEBY",
+      "site_id": "940GZZLUEBY",
+      "mixed_mode_alias": true
+    },
+    {
+      "code": "561",
+      "name": "Ealing Common",
+      "primary_naptan": "940GZZLUECM",
+      "source_id": "940GZZLUECM",
+      "site_id": "940GZZLUECM",
+      "mixed_mode_alias": false
+    },
+    {
+      "code": "562",
+      "name": "Earl's Court",
+      "primary_naptan": "940GZZLUECT",
+      "source_id": "940GZZLUECT",
+      "site_id": "940GZZLUECT",
+      "mixed_mode_alias": false
+    },
+    {
+      "code": "563",
+      "name": "East Acton",
+      "primary_naptan": "940GZZLUEAN",
+      "source_id": "940GZZLUEAN",
+      "site_id": "940GZZLUEAN",
+      "mixed_mode_alias": false
+    },
+    {
+      "code": "564",
+      "name": "Eastcote",
+      "primary_naptan": "940GZZLUEAE",
+      "source_id": "940GZZLUEAE",
+      "site_id": "940GZZLUEAE",
+      "mixed_mode_alias": false
+    },
+    {
+      "code": "565",
+      "name": "East Finchley",
+      "primary_naptan": "940GZZLUEFY",
+      "source_id": "940GZZLUEFY",
+      "site_id": "940GZZLUEFY",
+      "mixed_mode_alias": false
+    },
+    {
+      "code": "566",
+      "name": "East Ham",
+      "primary_naptan": "940GZZLUEHM",
+      "source_id": "940GZZLUEHM",
+      "site_id": "940GZZLUEHM",
+      "mixed_mode_alias": false
+    },
+    {
+      "code": "567",
+      "name": "East Putney",
+      "primary_naptan": "940GZZLUEPY",
+      "source_id": "940GZZLUEPY",
+      "site_id": "940GZZLUEPY",
+      "mixed_mode_alias": false
+    },
+    {
+      "code": "568",
+      "name": "Edgware",
+      "primary_naptan": "940GZZLUEGW",
+      "source_id": "940GZZLUEGW",
+      "site_id": "940GZZLUEGW",
+      "mixed_mode_alias": false
+    },
+    {
+      "code": "569",
+      "name": "Edgware Road (DIS)",
+      "primary_naptan": "940GZZLUERC",
+      "source_id": "940GZZLUERC",
+      "site_id": "940GZZLUERC",
+      "mixed_mode_alias": false
+    },
+    {
+      "code": "570",
+      "name": "Elephant & Castle LU",
+      "primary_naptan": "940GZZLUEAC",
+      "source_id": "940GZZLUEAC",
+      "site_id": "940GZZLUEAC",
+      "mixed_mode_alias": false
+    },
+    {
+      "code": "571",
+      "name": "Elm Park",
+      "primary_naptan": "940GZZLUEPK",
+      "source_id": "940GZZLUEPK",
+      "site_id": "940GZZLUEPK",
+      "mixed_mode_alias": false
+    },
+    {
+      "code": "572",
+      "name": "Epping",
+      "primary_naptan": "940GZZLUEPG",
+      "source_id": "940GZZLUEPG",
+      "site_id": "940GZZLUEPG",
+      "mixed_mode_alias": false
+    },
+    {
+      "code": "574",
+      "name": "Euston LU",
+      "primary_naptan": "940GZZLUEUS",
+      "source_id": "940GZZLUEUS",
+      "site_id": "940GZZLUEUS",
+      "mixed_mode_alias": false
+    },
+    {
+      "code": "575",
+      "name": "Euston Square",
+      "primary_naptan": "940GZZLUESQ",
+      "source_id": "940GZZLUESQ",
+      "site_id": "940GZZLUESQ",
+      "mixed_mode_alias": false
+    },
+    {
+      "code": "576",
+      "name": "Fairlop",
+      "primary_naptan": "940GZZLUFLP",
+      "source_id": "940GZZLUFLP",
+      "site_id": "940GZZLUFLP",
+      "mixed_mode_alias": false
+    },
+    {
+      "code": "577",
+      "name": "Farringdon",
+      "primary_naptan": "910GFRNDNLT",
+      "source_id": "940GZZLUFCN",
+      "site_id": "940GZZLUFCN",
+      "mixed_mode_alias": true
+    },
+    {
+      "code": "578",
+      "name": "Finchley Central",
+      "primary_naptan": "940GZZLUFYC",
+      "source_id": "940GZZLUFYC",
+      "site_id": "940GZZLUFYC",
+      "mixed_mode_alias": false
+    },
+    {
+      "code": "579",
+      "name": "Finchley Road",
+      "primary_naptan": "940GZZLUFYR",
+      "source_id": "940GZZLUFYR",
+      "site_id": "940GZZLUFYR",
+      "mixed_mode_alias": false
+    },
+    {
+      "code": "580",
+      "name": "Finsbury Park",
+      "primary_naptan": "940GZZLUFPK",
+      "source_id": "940GZZLUFPK",
+      "site_id": "940GZZLUFPK",
+      "mixed_mode_alias": false
+    },
+    {
+      "code": "581",
+      "name": "Fulham Broadway",
+      "primary_naptan": "940GZZLUFBY",
+      "source_id": "940GZZLUFBY",
+      "site_id": "940GZZLUFBY",
+      "mixed_mode_alias": false
+    },
+    {
+      "code": "582",
+      "name": "Gants Hill",
+      "primary_naptan": "940GZZLUGTH",
+      "source_id": "940GZZLUGTH",
+      "site_id": "940GZZLUGTH",
+      "mixed_mode_alias": false
+    },
+    {
+      "code": "583",
+      "name": "Gloucester Road",
+      "primary_naptan": "940GZZLUGTR",
+      "source_id": "940GZZLUGTR",
+      "site_id": "940GZZLUGTR",
+      "mixed_mode_alias": false
+    },
+    {
+      "code": "584",
+      "name": "Golders Green",
+      "primary_naptan": "940GZZLUGGN",
+      "source_id": "940GZZLUGGN",
+      "site_id": "940GZZLUGGN",
+      "mixed_mode_alias": false
+    },
+    {
+      "code": "585",
+      "name": "Goldhawk Road",
+      "primary_naptan": "940GZZLUGHK",
+      "source_id": "940GZZLUGHK",
+      "site_id": "940GZZLUGHK",
+      "mixed_mode_alias": false
+    },
+    {
+      "code": "586",
+      "name": "Goodge Street",
+      "primary_naptan": "940GZZLUGDG",
+      "source_id": "940GZZLUGDG",
+      "site_id": "940GZZLUGDG",
+      "mixed_mode_alias": false
+    },
+    {
+      "code": "587",
+      "name": "Grange Hill",
+      "primary_naptan": "940GZZLUGGH",
+      "source_id": "940GZZLUGGH",
+      "site_id": "940GZZLUGGH",
+      "mixed_mode_alias": false
+    },
+    {
+      "code": "588",
+      "name": "Great Portland Street",
+      "primary_naptan": "940GZZLUGPS",
+      "source_id": "940GZZLUGPS",
+      "site_id": "940GZZLUGPS",
+      "mixed_mode_alias": false
+    },
+    {
+      "code": "589",
+      "name": "Greenford",
+      "primary_naptan": "910GGFORD",
+      "source_id": "940GZZLUGFD",
+      "site_id": "940GZZLUGFD",
+      "mixed_mode_alias": true
+    },
+    {
+      "code": "590",
+      "name": "Green Park",
+      "primary_naptan": "940GZZLUGPK",
+      "source_id": "940GZZLUGPK",
+      "site_id": "940GZZLUGPK",
+      "mixed_mode_alias": false
+    },
+    {
+      "code": "591",
+      "name": "Gunnersbury",
+      "primary_naptan": "910GGNRSBRY",
+      "source_id": "940GZZLUGBY",
+      "site_id": "940GZZLUGBY",
+      "mixed_mode_alias": true
+    },
+    {
+      "code": "592",
+      "name": "Hainault",
+      "primary_naptan": "940GZZLUHLT",
+      "source_id": "940GZZLUHLT",
+      "site_id": "940GZZLUHLT",
+      "mixed_mode_alias": false
+    },
+    {
+      "code": "593",
+      "name": "Hammersmith (DIS)",
+      "primary_naptan": "940GZZLUHSD",
+      "source_id": "940GZZLUHSD",
+      "site_id": "940GZZLUHSD",
+      "mixed_mode_alias": false
+    },
+    {
+      "code": "594",
+      "name": "Hampstead",
+      "primary_naptan": "940GZZLUHTD",
+      "source_id": "940GZZLUHTD",
+      "site_id": "940GZZLUHTD",
+      "mixed_mode_alias": false
+    },
+    {
+      "code": "595",
+      "name": "Hanger Lane",
+      "primary_naptan": "940GZZLUHGR",
+      "source_id": "940GZZLUHGR",
+      "site_id": "940GZZLUHGR",
+      "mixed_mode_alias": false
+    },
+    {
+      "code": "596",
+      "name": "Harlesden",
+      "primary_naptan": "910GHARLSDN",
+      "source_id": "940GZZLUHSN",
+      "site_id": "940GZZLUHSN",
+      "mixed_mode_alias": true
+    },
+    {
+      "code": "597",
+      "name": "Harrow & Wealdstone",
+      "primary_naptan": "910GHROW",
+      "source_id": "940GZZLUHAW",
+      "site_id": "940GZZLUHAW",
+      "mixed_mode_alias": true
+    },
+    {
+      "code": "598",
+      "name": "Harrow-on-the-Hill",
+      "primary_naptan": "910GHAROOTH",
+      "source_id": "940GZZLUHOH",
+      "site_id": "940GZZLUHOH",
+      "mixed_mode_alias": true
+    },
+    {
+      "code": "599",
+      "name": "Wood Lane",
+      "primary_naptan": "940GZZLUWLA",
+      "source_id": "940GZZLUWLA",
+      "site_id": "940GZZLUWLA",
+      "mixed_mode_alias": false
+    },
+    {
+      "code": "601",
+      "name": "Hendon Central",
+      "primary_naptan": "940GZZLUHCL",
+      "source_id": "940GZZLUHCL",
+      "site_id": "940GZZLUHCL",
+      "mixed_mode_alias": false
+    },
+    {
+      "code": "602",
+      "name": "High Barnet",
+      "primary_naptan": "940GZZLUHBT",
+      "source_id": "940GZZLUHBT",
+      "site_id": "940GZZLUHBT",
+      "mixed_mode_alias": false
+    },
+    {
+      "code": "603",
+      "name": "Highbury & Islington",
+      "primary_naptan": "910GHGHI",
+      "source_id": "940GZZLUHAI",
+      "site_id": "940GZZLUHAI",
+      "mixed_mode_alias": true
+    },
+    {
+      "code": "604",
+      "name": "Highgate",
+      "primary_naptan": "940GZZLUHGT",
+      "source_id": "940GZZLUHGT",
+      "site_id": "940GZZLUHGT",
+      "mixed_mode_alias": false
+    },
+    {
+      "code": "605",
+      "name": "High Street Kensington",
+      "primary_naptan": "940GZZLUHSK",
+      "source_id": "940GZZLUHSK",
+      "site_id": "940GZZLUHSK",
+      "mixed_mode_alias": false
+    },
+    {
+      "code": "606",
+      "name": "Hillingdon",
+      "primary_naptan": "940GZZLUHGD",
+      "source_id": "940GZZLUHGD",
+      "site_id": "940GZZLUHGD",
+      "mixed_mode_alias": false
+    },
+    {
+      "code": "607",
+      "name": "Holborn",
+      "primary_naptan": "940GZZLUHBN",
+      "source_id": "940GZZLUHBN",
+      "site_id": "940GZZLUHBN",
+      "mixed_mode_alias": false
+    },
+    {
+      "code": "608",
+      "name": "Holland Park",
+      "primary_naptan": "940GZZLUHPK",
+      "source_id": "940GZZLUHPK",
+      "site_id": "940GZZLUHPK",
+      "mixed_mode_alias": false
+    },
+    {
+      "code": "609",
+      "name": "Holloway Road",
+      "primary_naptan": "940GZZLUHWY",
+      "source_id": "940GZZLUHWY",
+      "site_id": "940GZZLUHWY",
+      "mixed_mode_alias": false
+    },
+    {
+      "code": "610",
+      "name": "Hornchurch",
+      "primary_naptan": "940GZZLUHCH",
+      "source_id": "940GZZLUHCH",
+      "site_id": "940GZZLUHCH",
+      "mixed_mode_alias": false
+    },
+    {
+      "code": "611",
+      "name": "Hounslow Central",
+      "primary_naptan": "940GZZLUHWC",
+      "source_id": "940GZZLUHWC",
+      "site_id": "940GZZLUHWC",
+      "mixed_mode_alias": false
+    },
+    {
+      "code": "612",
+      "name": "Hounslow East",
+      "primary_naptan": "940GZZLUHWE",
+      "source_id": "940GZZLUHWE",
+      "site_id": "940GZZLUHWE",
+      "mixed_mode_alias": false
+    },
+    {
+      "code": "613",
+      "name": "Hounslow West",
+      "primary_naptan": "940GZZLUHWT",
+      "source_id": "940GZZLUHWT",
+      "site_id": "940GZZLUHWT",
+      "mixed_mode_alias": false
+    },
+    {
+      "code": "614",
+      "name": "Hyde Park Corner",
+      "primary_naptan": "940GZZLUHPC",
+      "source_id": "940GZZLUHPC",
+      "site_id": "940GZZLUHPC",
+      "mixed_mode_alias": false
+    },
+    {
+      "code": "615",
+      "name": "Ickenham",
+      "primary_naptan": "940GZZLUICK",
+      "source_id": "940GZZLUICK",
+      "site_id": "940GZZLUICK",
+      "mixed_mode_alias": false
+    },
+    {
+      "code": "616",
+      "name": "Kennington",
+      "primary_naptan": "940GZZLUKNG",
+      "source_id": "940GZZLUKNG",
+      "site_id": "940GZZLUKNG",
+      "mixed_mode_alias": false
+    },
+    {
+      "code": "617",
+      "name": "Kensal Green",
+      "primary_naptan": "910GKENSLG",
+      "source_id": "940GZZLUKSL",
+      "site_id": "940GZZLUKSL",
+      "mixed_mode_alias": true
+    },
+    {
+      "code": "618",
+      "name": "Kensington (Olympia)",
+      "primary_naptan": "910GKENOLYM",
+      "source_id": "940GZZLUKOY",
+      "site_id": "940GZZLUKOY",
+      "mixed_mode_alias": true
+    },
+    {
+      "code": "619",
+      "name": "Kentish Town",
+      "primary_naptan": "910GKNTSHTN",
+      "source_id": "940GZZLUKSH",
+      "site_id": "940GZZLUKSH",
+      "mixed_mode_alias": true
+    },
+    {
+      "code": "620",
+      "name": "Kenton",
+      "primary_naptan": "910GKTON",
+      "source_id": "940GZZLUKEN",
+      "site_id": "940GZZLUKEN",
+      "mixed_mode_alias": true
+    },
+    {
+      "code": "621",
+      "name": "Kew Gardens",
+      "primary_naptan": "910GKEWGRDN",
+      "source_id": "940GZZLUKWG",
+      "site_id": "940GZZLUKWG",
+      "mixed_mode_alias": true
+    },
+    {
+      "code": "622",
+      "name": "Kilburn",
+      "primary_naptan": "940GZZLUKBN",
+      "source_id": "940GZZLUKBN",
+      "site_id": "940GZZLUKBN",
+      "mixed_mode_alias": false
+    },
+    {
+      "code": "623",
+      "name": "Kilburn Park",
+      "primary_naptan": "940GZZLUKPK",
+      "source_id": "940GZZLUKPK",
+      "site_id": "940GZZLUKPK",
+      "mixed_mode_alias": false
+    },
+    {
+      "code": "624",
+      "name": "Kingsbury",
+      "primary_naptan": "940GZZLUKBY",
+      "source_id": "940GZZLUKBY",
+      "site_id": "940GZZLUKBY",
+      "mixed_mode_alias": false
+    },
+    {
+      "code": "625",
+      "name": "King's Cross St. Pancras",
+      "primary_naptan": "940GZZLUKSX",
+      "source_id": "940GZZLUKSX",
+      "site_id": "940GZZLUKSX",
+      "mixed_mode_alias": false
+    },
+    {
+      "code": "626",
+      "name": "Knightsbridge",
+      "primary_naptan": "940GZZLUKNB",
+      "source_id": "940GZZLUKNB",
+      "site_id": "940GZZLUKNB",
+      "mixed_mode_alias": false
+    },
+    {
+      "code": "627",
+      "name": "Ladbroke Grove",
+      "primary_naptan": "940GZZLULAD",
+      "source_id": "940GZZLULAD",
+      "site_id": "940GZZLULAD",
+      "mixed_mode_alias": false
+    },
+    {
+      "code": "628",
+      "name": "Lambeth North",
+      "primary_naptan": "940GZZLULBN",
+      "source_id": "940GZZLULBN",
+      "site_id": "940GZZLULBN",
+      "mixed_mode_alias": false
+    },
+    {
+      "code": "629",
+      "name": "Lancaster Gate",
+      "primary_naptan": "940GZZLULGT",
+      "source_id": "940GZZLULGT",
+      "site_id": "940GZZLULGT",
+      "mixed_mode_alias": false
+    },
+    {
+      "code": "630",
+      "name": "Latimer Road",
+      "primary_naptan": "940GZZLULRD",
+      "source_id": "940GZZLULRD",
+      "site_id": "940GZZLULRD",
+      "mixed_mode_alias": false
+    },
+    {
+      "code": "631",
+      "name": "Leicester Square",
+      "primary_naptan": "940GZZLULSQ",
+      "source_id": "940GZZLULSQ",
+      "site_id": "940GZZLULSQ",
+      "mixed_mode_alias": false
+    },
+    {
+      "code": "632",
+      "name": "Leyton",
+      "primary_naptan": "940GZZLULYN",
+      "source_id": "940GZZLULYN",
+      "site_id": "940GZZLULYN",
+      "mixed_mode_alias": false
+    },
+    {
+      "code": "633",
+      "name": "Leytonstone",
+      "primary_naptan": "940GZZLULYS",
+      "source_id": "940GZZLULYS",
+      "site_id": "940GZZLULYS",
+      "mixed_mode_alias": false
+    },
+    {
+      "code": "634",
+      "name": "Liverpool Street LU",
+      "primary_naptan": "940GZZLULVT",
+      "source_id": "940GZZLULVT",
+      "site_id": "940GZZLULVT",
+      "mixed_mode_alias": false
+    },
+    {
+      "code": "635",
+      "name": "London Bridge LU",
+      "primary_naptan": "940GZZLULNB",
+      "source_id": "940GZZLULNB",
+      "site_id": "940GZZLULNB",
+      "mixed_mode_alias": false
+    },
+    {
+      "code": "636",
+      "name": "Loughton",
+      "primary_naptan": "940GZZLULGN",
+      "source_id": "940GZZLULGN",
+      "site_id": "940GZZLULGN",
+      "mixed_mode_alias": false
+    },
+    {
+      "code": "637",
+      "name": "Maida Vale",
+      "primary_naptan": "940GZZLUMVL",
+      "source_id": "940GZZLUMVL",
+      "site_id": "940GZZLUMVL",
+      "mixed_mode_alias": false
+    },
+    {
+      "code": "638",
+      "name": "Manor House",
+      "primary_naptan": "940GZZLUMRH",
+      "source_id": "940GZZLUMRH",
+      "site_id": "940GZZLUMRH",
+      "mixed_mode_alias": false
+    },
+    {
+      "code": "639",
+      "name": "Mansion House",
+      "primary_naptan": "940GZZLUMSH",
+      "source_id": "940GZZLUMSH",
+      "site_id": "940GZZLUMSH",
+      "mixed_mode_alias": false
+    },
+    {
+      "code": "640",
+      "name": "Marble Arch",
+      "primary_naptan": "940GZZLUMBA",
+      "source_id": "940GZZLUMBA",
+      "site_id": "940GZZLUMBA",
+      "mixed_mode_alias": false
+    },
+    {
+      "code": "641",
+      "name": "Marylebone LU",
+      "primary_naptan": "940GZZLUMYB",
+      "source_id": "940GZZLUMYB",
+      "site_id": "940GZZLUMYB",
+      "mixed_mode_alias": false
+    },
+    {
+      "code": "642",
+      "name": "Mile End",
+      "primary_naptan": "940GZZLUMED",
+      "source_id": "940GZZLUMED",
+      "site_id": "940GZZLUMED",
+      "mixed_mode_alias": false
+    },
+    {
+      "code": "643",
+      "name": "Mill Hill East",
+      "primary_naptan": "940GZZLUMHL",
+      "source_id": "940GZZLUMHL",
+      "site_id": "940GZZLUMHL",
+      "mixed_mode_alias": false
+    },
+    {
+      "code": "645",
+      "name": "Moorgate",
+      "primary_naptan": "910GMRGT",
+      "source_id": "940GZZLUMGT",
+      "site_id": "940GZZLUMGT",
+      "mixed_mode_alias": true
+    },
+    {
+      "code": "646",
+      "name": "Moor Park",
+      "primary_naptan": "940GZZLUMPK",
+      "source_id": "940GZZLUMPK",
+      "site_id": "940GZZLUMPK",
+      "mixed_mode_alias": false
+    },
+    {
+      "code": "647",
+      "name": "Morden",
+      "primary_naptan": "940GZZLUMDN",
+      "source_id": "940GZZLUMDN",
+      "site_id": "940GZZLUMDN",
+      "mixed_mode_alias": false
+    },
+    {
+      "code": "648",
+      "name": "Mornington Crescent",
+      "primary_naptan": "940GZZLUMTC",
+      "source_id": "940GZZLUMTC",
+      "site_id": "940GZZLUMTC",
+      "mixed_mode_alias": false
+    },
+    {
+      "code": "649",
+      "name": "Neasden",
+      "primary_naptan": "940GZZLUNDN",
+      "source_id": "940GZZLUNDN",
+      "site_id": "940GZZLUNDN",
+      "mixed_mode_alias": false
+    },
+    {
+      "code": "650",
+      "name": "Newbury Park",
+      "primary_naptan": "940GZZLUNBP",
+      "source_id": "940GZZLUNBP",
+      "site_id": "940GZZLUNBP",
+      "mixed_mode_alias": false
+    },
+    {
+      "code": "653",
+      "name": "North Acton",
+      "primary_naptan": "940GZZLUNAN",
+      "source_id": "940GZZLUNAN",
+      "site_id": "940GZZLUNAN",
+      "mixed_mode_alias": false
+    },
+    {
+      "code": "654",
+      "name": "North Ealing",
+      "primary_naptan": "940GZZLUNEN",
+      "source_id": "940GZZLUNEN",
+      "site_id": "940GZZLUNEN",
+      "mixed_mode_alias": false
+    },
+    {
+      "code": "655",
+      "name": "Northfields",
+      "primary_naptan": "940GZZLUNFD",
+      "source_id": "940GZZLUNFD",
+      "site_id": "940GZZLUNFD",
+      "mixed_mode_alias": false
+    },
+    {
+      "code": "656",
+      "name": "North Harrow",
+      "primary_naptan": "940GZZLUNHA",
+      "source_id": "940GZZLUNHA",
+      "site_id": "940GZZLUNHA",
+      "mixed_mode_alias": false
+    },
+    {
+      "code": "657",
+      "name": "Northolt",
+      "primary_naptan": "940GZZLUNHT",
+      "source_id": "940GZZLUNHT",
+      "site_id": "940GZZLUNHT",
+      "mixed_mode_alias": false
+    },
+    {
+      "code": "659",
+      "name": "North Wembley",
+      "primary_naptan": "910GNWEMBLY",
+      "source_id": "940GZZLUNWY",
+      "site_id": "940GZZLUNWY",
+      "mixed_mode_alias": true
+    },
+    {
+      "code": "660",
+      "name": "Northwick Park",
+      "primary_naptan": "940GZZLUNKP",
+      "source_id": "940GZZLUNKP",
+      "site_id": "940GZZLUNKP",
+      "mixed_mode_alias": false
+    },
+    {
+      "code": "661",
+      "name": "Northwood",
+      "primary_naptan": "940GZZLUNOW",
+      "source_id": "940GZZLUNOW",
+      "site_id": "940GZZLUNOW",
+      "mixed_mode_alias": false
+    },
+    {
+      "code": "662",
+      "name": "Northwood Hills",
+      "primary_naptan": "940GZZLUNWH",
+      "source_id": "940GZZLUNWH",
+      "site_id": "940GZZLUNWH",
+      "mixed_mode_alias": false
+    },
+    {
+      "code": "663",
+      "name": "Notting Hill Gate",
+      "primary_naptan": "940GZZLUNHG",
+      "source_id": "940GZZLUNHG",
+      "site_id": "940GZZLUNHG",
+      "mixed_mode_alias": false
+    },
+    {
+      "code": "664",
+      "name": "Oakwood",
+      "primary_naptan": "940GZZLUOAK",
+      "source_id": "940GZZLUOAK",
+      "site_id": "940GZZLUOAK",
+      "mixed_mode_alias": false
+    },
+    {
+      "code": "665",
+      "name": "Old Street",
+      "primary_naptan": "910GOLDST",
+      "source_id": "940GZZLUODS",
+      "site_id": "940GZZLUODS",
+      "mixed_mode_alias": true
+    },
+    {
+      "code": "667",
+      "name": "Osterley",
+      "primary_naptan": "940GZZLUOSY",
+      "source_id": "940GZZLUOSY",
+      "site_id": "940GZZLUOSY",
+      "mixed_mode_alias": false
+    },
+    {
+      "code": "668",
+      "name": "Oval",
+      "primary_naptan": "940GZZLUOVL",
+      "source_id": "940GZZLUOVL",
+      "site_id": "940GZZLUOVL",
+      "mixed_mode_alias": false
+    },
+    {
+      "code": "669",
+      "name": "Oxford Circus",
+      "primary_naptan": "940GZZLUOXC",
+      "source_id": "940GZZLUOXC",
+      "site_id": "940GZZLUOXC",
+      "mixed_mode_alias": false
+    },
+    {
+      "code": "670",
+      "name": "Paddington TfL",
+      "primary_naptan": "940GZZLUPAC",
+      "source_id": "940GZZLUPAC",
+      "site_id": "940GZZLUPAC",
+      "mixed_mode_alias": false
+    },
+    {
+      "code": "671",
+      "name": "Park Royal",
+      "primary_naptan": "940GZZLUPKR",
+      "source_id": "940GZZLUPKR",
+      "site_id": "940GZZLUPKR",
+      "mixed_mode_alias": false
+    },
+    {
+      "code": "672",
+      "name": "Parsons Green",
+      "primary_naptan": "940GZZLUPSG",
+      "source_id": "940GZZLUPSG",
+      "site_id": "940GZZLUPSG",
+      "mixed_mode_alias": false
+    },
+    {
+      "code": "673",
+      "name": "Perivale",
+      "primary_naptan": "940GZZLUPVL",
+      "source_id": "940GZZLUPVL",
+      "site_id": "940GZZLUPVL",
+      "mixed_mode_alias": false
+    },
+    {
+      "code": "674",
+      "name": "Piccadilly Circus",
+      "primary_naptan": "940GZZLUPCC",
+      "source_id": "940GZZLUPCC",
+      "site_id": "940GZZLUPCC",
+      "mixed_mode_alias": false
+    },
+    {
+      "code": "675",
+      "name": "Pinner",
+      "primary_naptan": "940GZZLUPNR",
+      "source_id": "940GZZLUPNR",
+      "site_id": "940GZZLUPNR",
+      "mixed_mode_alias": false
+    },
+    {
+      "code": "676",
+      "name": "Plaistow",
+      "primary_naptan": "940GZZLUPLW",
+      "source_id": "940GZZLUPLW",
+      "site_id": "940GZZLUPLW",
+      "mixed_mode_alias": false
+    },
+    {
+      "code": "677",
+      "name": "Preston Road",
+      "primary_naptan": "940GZZLUPRD",
+      "source_id": "940GZZLUPRD",
+      "site_id": "940GZZLUPRD",
+      "mixed_mode_alias": false
+    },
+    {
+      "code": "678",
+      "name": "Putney Bridge",
+      "primary_naptan": "940GZZLUPYB",
+      "source_id": "940GZZLUPYB",
+      "site_id": "940GZZLUPYB",
+      "mixed_mode_alias": false
+    },
+    {
+      "code": "679",
+      "name": "Queensbury",
+      "primary_naptan": "940GZZLUQBY",
+      "source_id": "940GZZLUQBY",
+      "site_id": "940GZZLUQBY",
+      "mixed_mode_alias": false
+    },
+    {
+      "code": "680",
+      "name": "Queen's Park",
+      "primary_naptan": "910GQPRK",
+      "source_id": "940GZZLUQPS",
+      "site_id": "940GZZLUQPS",
+      "mixed_mode_alias": true
+    },
+    {
+      "code": "681",
+      "name": "Queensway",
+      "primary_naptan": "940GZZLUQWY",
+      "source_id": "940GZZLUQWY",
+      "site_id": "940GZZLUQWY",
+      "mixed_mode_alias": false
+    },
+    {
+      "code": "682",
+      "name": "Ravenscourt Park",
+      "primary_naptan": "940GZZLURVP",
+      "source_id": "940GZZLURVP",
+      "site_id": "940GZZLURVP",
+      "mixed_mode_alias": false
+    },
+    {
+      "code": "683",
+      "name": "Rayners Lane",
+      "primary_naptan": "940GZZLURYL",
+      "source_id": "940GZZLURYL",
+      "site_id": "940GZZLURYL",
+      "mixed_mode_alias": false
+    },
+    {
+      "code": "684",
+      "name": "Redbridge",
+      "primary_naptan": "940GZZLURBG",
+      "source_id": "940GZZLURBG",
+      "site_id": "940GZZLURBG",
+      "mixed_mode_alias": false
+    },
+    {
+      "code": "685",
+      "name": "Regent's Park",
+      "primary_naptan": "940GZZLURGP",
+      "source_id": "940GZZLURGP",
+      "site_id": "940GZZLURGP",
+      "mixed_mode_alias": false
+    },
+    {
+      "code": "686",
+      "name": "Richmond",
+      "primary_naptan": "910GRICHMND",
+      "source_id": "940GZZLURMD",
+      "site_id": "940GZZLURMD",
+      "mixed_mode_alias": true
+    },
+    {
+      "code": "687",
+      "name": "Rickmansworth",
+      "primary_naptan": "910GRCKMNSW",
+      "source_id": "940GZZLURKW",
+      "site_id": "940GZZLURKW",
+      "mixed_mode_alias": true
+    },
+    {
+      "code": "688",
+      "name": "Roding Valley",
+      "primary_naptan": "940GZZLURVY",
+      "source_id": "940GZZLURVY",
+      "site_id": "940GZZLURVY",
+      "mixed_mode_alias": false
+    },
+    {
+      "code": "690",
+      "name": "Royal Oak",
+      "primary_naptan": "940GZZLURYO",
+      "source_id": "940GZZLURYO",
+      "site_id": "940GZZLURYO",
+      "mixed_mode_alias": false
+    },
+    {
+      "code": "691",
+      "name": "Ruislip",
+      "primary_naptan": "940GZZLURSP",
+      "source_id": "940GZZLURSP",
+      "site_id": "940GZZLURSP",
+      "mixed_mode_alias": false
+    },
+    {
+      "code": "692",
+      "name": "Ruislip Gardens",
+      "primary_naptan": "940GZZLURSG",
+      "source_id": "940GZZLURSG",
+      "site_id": "940GZZLURSG",
+      "mixed_mode_alias": false
+    },
+    {
+      "code": "693",
+      "name": "Ruislip Manor",
+      "primary_naptan": "940GZZLURSM",
+      "source_id": "940GZZLURSM",
+      "site_id": "940GZZLURSM",
+      "mixed_mode_alias": false
+    },
+    {
+      "code": "694",
+      "name": "Russell Square",
+      "primary_naptan": "940GZZLURSQ",
+      "source_id": "940GZZLURSQ",
+      "site_id": "940GZZLURSQ",
+      "mixed_mode_alias": false
+    },
+    {
+      "code": "695",
+      "name": "St James's Park",
+      "primary_naptan": "940GZZLUSJP",
+      "source_id": "940GZZLUSJP",
+      "site_id": "940GZZLUSJP",
+      "mixed_mode_alias": false
+    },
+    {
+      "code": "696",
+      "name": "St John's Wood",
+      "primary_naptan": "940GZZLUSJW",
+      "source_id": "940GZZLUSJW",
+      "site_id": "940GZZLUSJW",
+      "mixed_mode_alias": false
+    },
+    {
+      "code": "697",
+      "name": "St Paul's",
+      "primary_naptan": "940GZZLUSPU",
+      "source_id": "940GZZLUSPU",
+      "site_id": "940GZZLUSPU",
+      "mixed_mode_alias": false
+    },
+    {
+      "code": "698",
+      "name": "Seven Sisters",
+      "primary_naptan": "910GSEVNSIS",
+      "source_id": "940GZZLUSVS",
+      "site_id": "940GZZLUSVS",
+      "mixed_mode_alias": true
+    },
+    {
+      "code": "700",
+      "name": "Shepherd's Bush LU",
+      "primary_naptan": "940GZZLUSBC",
+      "source_id": "940GZZLUSBC",
+      "site_id": "940GZZLUSBC",
+      "mixed_mode_alias": false
+    },
+    {
+      "code": "702",
+      "name": "Sloane Square",
+      "primary_naptan": "940GZZLUSSQ",
+      "source_id": "940GZZLUSSQ",
+      "site_id": "940GZZLUSSQ",
+      "mixed_mode_alias": false
+    },
+    {
+      "code": "703",
+      "name": "Snaresbrook",
+      "primary_naptan": "940GZZLUSNB",
+      "source_id": "940GZZLUSNB",
+      "site_id": "940GZZLUSNB",
+      "mixed_mode_alias": false
+    },
+    {
+      "code": "704",
+      "name": "South Ealing",
+      "primary_naptan": "940GZZLUSEA",
+      "source_id": "940GZZLUSEA",
+      "site_id": "940GZZLUSEA",
+      "mixed_mode_alias": false
+    },
+    {
+      "code": "705",
+      "name": "Southfields",
+      "primary_naptan": "940GZZLUSFS",
+      "source_id": "940GZZLUSFS",
+      "site_id": "940GZZLUSFS",
+      "mixed_mode_alias": false
+    },
+    {
+      "code": "706",
+      "name": "Southgate",
+      "primary_naptan": "940GZZLUSGT",
+      "source_id": "940GZZLUSGT",
+      "site_id": "940GZZLUSGT",
+      "mixed_mode_alias": false
+    },
+    {
+      "code": "707",
+      "name": "South Harrow",
+      "primary_naptan": "940GZZLUSHH",
+      "source_id": "940GZZLUSHH",
+      "site_id": "940GZZLUSHH",
+      "mixed_mode_alias": false
+    },
+    {
+      "code": "708",
+      "name": "South Kensington",
+      "primary_naptan": "940GZZLUSKS",
+      "source_id": "940GZZLUSKS",
+      "site_id": "940GZZLUSKS",
+      "mixed_mode_alias": false
+    },
+    {
+      "code": "709",
+      "name": "South Kenton",
+      "primary_naptan": "910GSKENTON",
+      "source_id": "940GZZLUSKT",
+      "site_id": "940GZZLUSKT",
+      "mixed_mode_alias": true
+    },
+    {
+      "code": "710",
+      "name": "South Ruislip",
+      "primary_naptan": "910GSRUISLP",
+      "source_id": "940GZZLUSRP",
+      "site_id": "940GZZLUSRP",
+      "mixed_mode_alias": true
+    },
+    {
+      "code": "711",
+      "name": "South Wimbledon",
+      "primary_naptan": "940GZZLUSWN",
+      "source_id": "940GZZLUSWN",
+      "site_id": "940GZZLUSWN",
+      "mixed_mode_alias": false
+    },
+    {
+      "code": "712",
+      "name": "South Woodford",
+      "primary_naptan": "940GZZLUSWF",
+      "source_id": "940GZZLUSWF",
+      "site_id": "940GZZLUSWF",
+      "mixed_mode_alias": false
+    },
+    {
+      "code": "713",
+      "name": "Stamford Brook",
+      "primary_naptan": "940GZZLUSFB",
+      "source_id": "940GZZLUSFB",
+      "site_id": "940GZZLUSFB",
+      "mixed_mode_alias": false
+    },
+    {
+      "code": "714",
+      "name": "Stanmore",
+      "primary_naptan": "940GZZLUSTM",
+      "source_id": "940GZZLUSTM",
+      "site_id": "940GZZLUSTM",
+      "mixed_mode_alias": false
+    },
+    {
+      "code": "715",
+      "name": "Stepney Green",
+      "primary_naptan": "940GZZLUSGN",
+      "source_id": "940GZZLUSGN",
+      "site_id": "940GZZLUSGN",
+      "mixed_mode_alias": false
+    },
+    {
+      "code": "716",
+      "name": "Stockwell",
+      "primary_naptan": "940GZZLUSKW",
+      "source_id": "940GZZLUSKW",
+      "site_id": "940GZZLUSKW",
+      "mixed_mode_alias": false
+    },
+    {
+      "code": "717",
+      "name": "Stonebridge Park",
+      "primary_naptan": "910GSTNBGPK",
+      "source_id": "940GZZLUSGP",
+      "site_id": "940GZZLUSGP",
+      "mixed_mode_alias": true
+    },
+    {
+      "code": "718",
+      "name": "Charing Cross LU",
+      "primary_naptan": "940GZZLUCHX",
+      "source_id": "940GZZLUCHX",
+      "site_id": "940GZZLUCHX",
+      "mixed_mode_alias": false
+    },
+    {
+      "code": "719",
+      "name": "Stratford",
+      "primary_naptan": "910GSTFD",
+      "source_id": "940GZZLUSTD",
+      "site_id": "940GZZLUSTD",
+      "mixed_mode_alias": true
+    },
+    {
+      "code": "720",
+      "name": "Sudbury Hill",
+      "primary_naptan": "940GZZLUSUH",
+      "source_id": "940GZZLUSUH",
+      "site_id": "940GZZLUSUH",
+      "mixed_mode_alias": false
+    },
+    {
+      "code": "721",
+      "name": "Sudbury Town",
+      "primary_naptan": "940GZZLUSUT",
+      "source_id": "940GZZLUSUT",
+      "site_id": "940GZZLUSUT",
+      "mixed_mode_alias": false
+    },
+    {
+      "code": "723",
+      "name": "Swiss Cottage",
+      "primary_naptan": "940GZZLUSWC",
+      "source_id": "940GZZLUSWC",
+      "site_id": "940GZZLUSWC",
+      "mixed_mode_alias": false
+    },
+    {
+      "code": "724",
+      "name": "Temple",
+      "primary_naptan": "940GZZLUTMP",
+      "source_id": "940GZZLUTMP",
+      "site_id": "940GZZLUTMP",
+      "mixed_mode_alias": false
+    },
+    {
+      "code": "725",
+      "name": "Theydon Bois",
+      "primary_naptan": "940GZZLUTHB",
+      "source_id": "940GZZLUTHB",
+      "site_id": "940GZZLUTHB",
+      "mixed_mode_alias": false
+    },
+    {
+      "code": "726",
+      "name": "Tooting Bec",
+      "primary_naptan": "940GZZLUTBC",
+      "source_id": "940GZZLUTBC",
+      "site_id": "940GZZLUTBC",
+      "mixed_mode_alias": false
+    },
+    {
+      "code": "727",
+      "name": "Tooting Broadway",
+      "primary_naptan": "940GZZLUTBY",
+      "source_id": "940GZZLUTBY",
+      "site_id": "940GZZLUTBY",
+      "mixed_mode_alias": false
+    },
+    {
+      "code": "728",
+      "name": "Tottenham Court Road",
+      "primary_naptan": "940GZZLUTCR",
+      "source_id": "940GZZLUTCR",
+      "site_id": "940GZZLUTCR",
+      "mixed_mode_alias": false
+    },
+    {
+      "code": "729",
+      "name": "Tottenham Hale LU",
+      "primary_naptan": "940GZZLUTMH",
+      "source_id": "940GZZLUTMH",
+      "site_id": "940GZZLUTMH",
+      "mixed_mode_alias": false
+    },
+    {
+      "code": "730",
+      "name": "Totteridge & Whetstone",
+      "primary_naptan": "940GZZLUTAW",
+      "source_id": "940GZZLUTAW",
+      "site_id": "940GZZLUTAW",
+      "mixed_mode_alias": false
+    },
+    {
+      "code": "731",
+      "name": "Tower Hill",
+      "primary_naptan": "940GZZLUTWH",
+      "source_id": "940GZZLUTWH",
+      "site_id": "940GZZLUTWH",
+      "mixed_mode_alias": false
+    },
+    {
+      "code": "733",
+      "name": "Tufnell Park",
+      "primary_naptan": "940GZZLUTFP",
+      "source_id": "940GZZLUTFP",
+      "site_id": "940GZZLUTFP",
+      "mixed_mode_alias": false
+    },
+    {
+      "code": "734",
+      "name": "Turnham Green",
+      "primary_naptan": "940GZZLUTNG",
+      "source_id": "940GZZLUTNG",
+      "site_id": "940GZZLUTNG",
+      "mixed_mode_alias": false
+    },
+    {
+      "code": "735",
+      "name": "Turnpike Lane",
+      "primary_naptan": "940GZZLUTPN",
+      "source_id": "940GZZLUTPN",
+      "site_id": "940GZZLUTPN",
+      "mixed_mode_alias": false
+    },
+    {
+      "code": "736",
+      "name": "Upminster",
+      "primary_naptan": "910GUPMNSTR",
+      "source_id": "940GZZLUUPM",
+      "site_id": "940GZZLUUPM",
+      "mixed_mode_alias": true
+    },
+    {
+      "code": "737",
+      "name": "Upminster Bridge",
+      "primary_naptan": "940GZZLUUPB",
+      "source_id": "940GZZLUUPB",
+      "site_id": "940GZZLUUPB",
+      "mixed_mode_alias": false
+    },
+    {
+      "code": "738",
+      "name": "Upney",
+      "primary_naptan": "940GZZLUUPY",
+      "source_id": "940GZZLUUPY",
+      "site_id": "940GZZLUUPY",
+      "mixed_mode_alias": false
+    },
+    {
+      "code": "739",
+      "name": "Upton Park",
+      "primary_naptan": "940GZZLUUPK",
+      "source_id": "940GZZLUUPK",
+      "site_id": "940GZZLUUPK",
+      "mixed_mode_alias": false
+    },
+    {
+      "code": "740",
+      "name": "Uxbridge",
+      "primary_naptan": "940GZZLUUXB",
+      "source_id": "940GZZLUUXB",
+      "site_id": "940GZZLUUXB",
+      "mixed_mode_alias": false
+    },
+    {
+      "code": "741",
+      "name": "Victoria LU",
+      "primary_naptan": "940GZZLUVIC",
+      "source_id": "940GZZLUVIC",
+      "site_id": "940GZZLUVIC",
+      "mixed_mode_alias": false
+    },
+    {
+      "code": "742",
+      "name": "Walthamstow Central",
+      "primary_naptan": "910GWLTWCEN",
+      "source_id": "940GZZLUWWL",
+      "site_id": "940GZZLUWWL",
+      "mixed_mode_alias": true
+    },
+    {
+      "code": "743",
+      "name": "Wanstead",
+      "primary_naptan": "940GZZLUWSD",
+      "source_id": "940GZZLUWSD",
+      "site_id": "940GZZLUWSD",
+      "mixed_mode_alias": false
+    },
+    {
+      "code": "745",
+      "name": "Warren Street",
+      "primary_naptan": "940GZZLUWRR",
+      "source_id": "940GZZLUWRR",
+      "site_id": "940GZZLUWRR",
+      "mixed_mode_alias": false
+    },
+    {
+      "code": "746",
+      "name": "Warwick Avenue",
+      "primary_naptan": "940GZZLUWKA",
+      "source_id": "940GZZLUWKA",
+      "site_id": "940GZZLUWKA",
+      "mixed_mode_alias": false
+    },
+    {
+      "code": "747",
+      "name": "Waterloo LU",
+      "primary_naptan": "940GZZLUWLO",
+      "source_id": "940GZZLUWLO",
+      "site_id": "940GZZLUWLO",
+      "mixed_mode_alias": false
+    },
+    {
+      "code": "748",
+      "name": "Watford",
+      "primary_naptan": "940GZZLUWAF",
+      "source_id": "940GZZLUWAF",
+      "site_id": "940GZZLUWAF",
+      "mixed_mode_alias": false
+    },
+    {
+      "code": "751",
+      "name": "Wembley Central",
+      "primary_naptan": "910GWMBY",
+      "source_id": "940GZZLUWYC",
+      "site_id": "940GZZLUWYC",
+      "mixed_mode_alias": true
+    },
+    {
+      "code": "752",
+      "name": "Wembley Park",
+      "primary_naptan": "940GZZLUWYP",
+      "source_id": "940GZZLUWYP",
+      "site_id": "940GZZLUWYP",
+      "mixed_mode_alias": false
+    },
+    {
+      "code": "753",
+      "name": "West Acton",
+      "primary_naptan": "940GZZLUWTA",
+      "source_id": "940GZZLUWTA",
+      "site_id": "940GZZLUWTA",
+      "mixed_mode_alias": false
+    },
+    {
+      "code": "754",
+      "name": "Westbourne Park",
+      "primary_naptan": "940GZZLUWSP",
+      "source_id": "940GZZLUWSP",
+      "site_id": "940GZZLUWSP",
+      "mixed_mode_alias": false
+    },
+    {
+      "code": "755",
+      "name": "West Brompton",
+      "primary_naptan": "910GWBRMPTN",
+      "source_id": "940GZZLUWBN",
+      "site_id": "940GZZLUWBN",
+      "mixed_mode_alias": true
+    },
+    {
+      "code": "756",
+      "name": "West Finchley",
+      "primary_naptan": "940GZZLUWFN",
+      "source_id": "940GZZLUWFN",
+      "site_id": "940GZZLUWFN",
+      "mixed_mode_alias": false
+    },
+    {
+      "code": "757",
+      "name": "West Ham",
+      "primary_naptan": "910GWHAMHL",
+      "source_id": "940GZZLUWHM",
+      "site_id": "940GZZLUWHM",
+      "mixed_mode_alias": true
+    },
+    {
+      "code": "758",
+      "name": "West Hampstead LU",
+      "primary_naptan": "940GZZLUWHP",
+      "source_id": "940GZZLUWHP",
+      "site_id": "940GZZLUWHP",
+      "mixed_mode_alias": false
+    },
+    {
+      "code": "759",
+      "name": "West Harrow",
+      "primary_naptan": "940GZZLUWHW",
+      "source_id": "940GZZLUWHW",
+      "site_id": "940GZZLUWHW",
+      "mixed_mode_alias": false
+    },
+    {
+      "code": "760",
+      "name": "West Kensington",
+      "primary_naptan": "940GZZLUWKN",
+      "source_id": "940GZZLUWKN",
+      "site_id": "940GZZLUWKN",
+      "mixed_mode_alias": false
+    },
+    {
+      "code": "761",
+      "name": "Westminster",
+      "primary_naptan": "940GZZLUWSM",
+      "source_id": "940GZZLUWSM",
+      "site_id": "940GZZLUWSM",
+      "mixed_mode_alias": false
+    },
+    {
+      "code": "762",
+      "name": "West Ruislip",
+      "primary_naptan": "910GWRUISLP",
+      "source_id": "940GZZLUWRP",
+      "site_id": "940GZZLUWRP",
+      "mixed_mode_alias": true
+    },
+    {
+      "code": "763",
+      "name": "Whitechapel",
+      "primary_naptan": "910GWCHAPEL",
+      "source_id": "940GZZLUWPL",
+      "site_id": "940GZZLUWPL",
+      "mixed_mode_alias": true
+    },
+    {
+      "code": "764",
+      "name": "White City",
+      "primary_naptan": "940GZZLUWCY",
+      "source_id": "940GZZLUWCY",
+      "site_id": "940GZZLUWCY",
+      "mixed_mode_alias": false
+    },
+    {
+      "code": "765",
+      "name": "Willesden Green",
+      "primary_naptan": "940GZZLUWIG",
+      "source_id": "940GZZLUWIG",
+      "site_id": "940GZZLUWIG",
+      "mixed_mode_alias": false
+    },
+    {
+      "code": "766",
+      "name": "Willesden Junction",
+      "primary_naptan": "910GWLSDJHL",
+      "source_id": "940GZZLUWJN",
+      "site_id": "940GZZLUWJN",
+      "mixed_mode_alias": true
+    },
+    {
+      "code": "767",
+      "name": "Wimbledon",
+      "primary_naptan": "910GWIMBLDN",
+      "source_id": "940GZZLUWIM",
+      "site_id": "940GZZLUWIM",
+      "mixed_mode_alias": true
+    },
+    {
+      "code": "768",
+      "name": "Wimbledon Park",
+      "primary_naptan": "940GZZLUWIP",
+      "source_id": "940GZZLUWIP",
+      "site_id": "940GZZLUWIP",
+      "mixed_mode_alias": false
+    },
+    {
+      "code": "769",
+      "name": "Woodford",
+      "primary_naptan": "940GZZLUWOF",
+      "source_id": "940GZZLUWOF",
+      "site_id": "940GZZLUWOF",
+      "mixed_mode_alias": false
+    },
+    {
+      "code": "770",
+      "name": "Wood Green",
+      "primary_naptan": "940GZZLUWOG",
+      "source_id": "940GZZLUWOG",
+      "site_id": "940GZZLUWOG",
+      "mixed_mode_alias": false
+    },
+    {
+      "code": "771",
+      "name": "Woodside Park",
+      "primary_naptan": "940GZZLUWOP",
+      "source_id": "940GZZLUWOP",
+      "site_id": "940GZZLUWOP",
+      "mixed_mode_alias": false
+    },
+    {
+      "code": "773",
+      "name": "Hammersmith (H&C)",
+      "primary_naptan": "940GZZLUHSC",
+      "source_id": "940GZZLUHSC",
+      "site_id": "940GZZLUHSD",
+      "mixed_mode_alias": false
+    },
+    {
+      "code": "774",
+      "name": "Edgware Road (Bak)",
+      "primary_naptan": "940GZZLUERB",
+      "source_id": "940GZZLUERB",
+      "site_id": "940GZZLUERB",
+      "mixed_mode_alias": false
+    },
+    {
+      "code": "775",
+      "name": "Shepherd's Bush Market",
+      "primary_naptan": "940GZZLUSBM",
+      "source_id": "940GZZLUSBM",
+      "site_id": "940GZZLUSBM",
+      "mixed_mode_alias": false
+    },
+    {
+      "code": "776",
+      "name": "Pimlico",
+      "primary_naptan": "940GZZLUPCO",
+      "source_id": "940GZZLUPCO",
+      "site_id": "940GZZLUPCO",
+      "mixed_mode_alias": false
+    },
+    {
+      "code": "777",
+      "name": "Vauxhall LU",
+      "primary_naptan": "940GZZLUVXL",
+      "source_id": "940GZZLUVXL",
+      "site_id": "940GZZLUVXL",
+      "mixed_mode_alias": false
+    },
+    {
+      "code": "778",
+      "name": "Brixton LU",
+      "primary_naptan": "940GZZLUBXN",
+      "source_id": "940GZZLUBXN",
+      "site_id": "940GZZLUBXN",
+      "mixed_mode_alias": false
+    },
+    {
+      "code": "779",
+      "name": "Hatton Cross",
+      "primary_naptan": "940GZZLUHNX",
+      "source_id": "940GZZLUHNX",
+      "site_id": "940GZZLUHNX",
+      "mixed_mode_alias": false
+    },
+    {
+      "code": "780",
+      "name": "Heathrow Terminals 123 LU",
+      "primary_naptan": "940GZZLUHRC",
+      "source_id": "940GZZLUHRC",
+      "site_id": "940GZZLUHRC",
+      "mixed_mode_alias": false
+    },
+    {
+      "code": "781",
+      "name": "Heathrow Terminal 4 LU",
+      "primary_naptan": "940GZZLUHR4",
+      "source_id": "940GZZLUHR4",
+      "site_id": "940GZZLUHR4",
+      "mixed_mode_alias": false
+    },
+    {
+      "code": "783",
+      "name": "Heathrow Terminal 5 LU",
+      "primary_naptan": "940GZZLUHR5",
+      "source_id": "940GZZLUHR5",
+      "site_id": "940GZZLUHR5",
+      "mixed_mode_alias": false
+    },
+    {
+      "code": "784",
+      "name": "Southwark",
+      "primary_naptan": "940GZZLUSWK",
+      "source_id": "940GZZLUSWK",
+      "site_id": "940GZZLUSWK",
+      "mixed_mode_alias": false
+    },
+    {
+      "code": "787",
+      "name": "Bermondsey",
+      "primary_naptan": "940GZZLUBMY",
+      "source_id": "940GZZLUBMY",
+      "site_id": "940GZZLUBMY",
+      "mixed_mode_alias": false
+    },
+    {
+      "code": "788",
+      "name": "Canada Water",
+      "primary_naptan": "910GCNDAW",
+      "source_id": "940GZZLUCWR",
+      "site_id": "940GZZLUCWR",
+      "mixed_mode_alias": true
+    },
+    {
+      "code": "789",
+      "name": "North Greenwich",
+      "primary_naptan": "940GZZLUNGW",
+      "source_id": "940GZZLUNGW",
+      "site_id": "940GZZLUNGW",
+      "mixed_mode_alias": false
+    },
+    {
+      "code": "831",
+      "name": "Nine Elms",
+      "primary_naptan": "940GZZNEUGST",
+      "source_id": "940GZZNEUGST",
+      "site_id": "940GZZNEUGST",
+      "mixed_mode_alias": false
+    },
+    {
+      "code": "832",
+      "name": "Battersea Power Station",
+      "primary_naptan": "940GZZBPSUST",
+      "source_id": "940GZZBPSUST",
+      "site_id": "940GZZBPSUST",
+      "mixed_mode_alias": false
+    },
+    {
+      "code": "852",
+      "name": "Canary Wharf LU",
+      "primary_naptan": "940GZZLUCYF",
+      "source_id": "940GZZLUCYF",
+      "site_id": "940GZZLUCYF",
+      "mixed_mode_alias": false
+    },
+    {
+      "code": "884",
+      "name": "Canning Town",
+      "primary_naptan": "940GZZLUCGT",
+      "source_id": "940GZZLUCGT",
+      "site_id": "940GZZLUCGT",
+      "mixed_mode_alias": false
+    }
+  ],
+  "excluded_definitions": [
+    {
+      "code": "866",
+      "name": "West India Quay",
+      "naptan": "940GZZDLWIQ"
+    }
+  ],
+  "counts": {
+    "source_rows": 1008816,
+    "retained_rows": 310672,
+    "excluded_endpoint_rows": 698133,
+    "same_site_rows": 11,
+    "source_stations": 272,
+    "sites": 269,
+    "links": 313,
+    "od_pairs": 60996
+  },
+  "band_totals": [
+    "0",
+    "125963.911182952224660",
+    "757276.65073436023244",
+    "919432.6128912000418",
+    "891479.5573990023117",
+    "382992.352236989262455",
+    "179168.5577339180025165",
+    "0"
+  ]
+}
