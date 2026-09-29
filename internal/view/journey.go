@@ -25,13 +25,13 @@ type stationChip struct {
 }
 
 func (g *Game) stationPages() [][]stationChip {
-	available := stationControlRight - stationControlLeft + g.layout.extraX/g.layout.unit
+	available := stationControlRight - stationControlLeft - stationSearchWidth - stationChipGap + g.layout.extraX/g.layout.unit
 	chipSpace := available - 2*(stationArrowWidth+stationChipGap)
 	face := g.textFace(stationFontSize)
 	var pages [][]stationChip
 	var page []stationChip
 	used := 0.0
-	for _, station := range g.passengerStations() {
+	for _, station := range g.journeyStations() {
 		label := compactStationName(station.Name)
 		measured, _ := text.Measure(label, face, 0)
 		width := max(44, measured/g.layout.unit+stationChipPadding)
@@ -65,20 +65,23 @@ func (g *Game) stationPages() [][]stationChip {
 // journeyButtons returns the station page arrows and the From and To chips
 // of the current station page. The chips are disabled when disabled is true.
 func (g *Game) journeyButtons(disabled bool) []button {
-	pages := g.stationPages()
-	if len(pages) == 0 {
+	if len(g.passengerStations()) == 0 {
 		return nil
 	}
-	g.stationPage = min(g.stationPage, len(pages)-1)
+	pages := g.stationPages()
+	buttons := g.journeySearchButtons(disabled)
+	if len(pages) == 0 {
+		return buttons
+	}
+	g.stationPage = max(0, min(g.stationPage, len(pages)-1))
 	hasPages := len(pages) > 1
-	left := stationControlLeft
+	left := stationControlLeft + stationSearchWidth + stationChipGap
 	if hasPages {
 		left += stationArrowWidth + stationChipGap
 	}
-	buttons := make([]button, 0, len(pages[g.stationPage])*2+2)
 	if hasPages {
 		buttons = append(buttons,
-			button{x: stationControlLeft, y: 600, w: stationArrowWidth, h: 64, label: "‹", disabled: g.stationPage == 0, action: "stations-prev", expandsWithMap: true},
+			button{x: stationControlLeft + stationSearchWidth + stationChipGap, y: 600, w: stationArrowWidth, h: 64, label: "‹", disabled: g.stationPage == 0, action: "stations-prev", expandsWithMap: true},
 			button{x: stationControlRight + g.layout.extraX/g.layout.unit - stationArrowWidth, y: 600, w: stationArrowWidth, h: 64, label: "›", disabled: g.stationPage == len(pages)-1, action: "stations-next", expandsWithMap: true},
 		)
 	}

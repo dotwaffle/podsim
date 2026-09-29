@@ -250,6 +250,17 @@ See [the London qualification network](docs/london.md) for these rules.
 
 - Under **ORDER A JOURNEY**, select **From** and **To**, then **Order [Enter]**.
   Pod selection affects inspection only.
+- Station choices are alphabetical by name.
+  Type a name or code in the **From** and **To** fields to filter them.
+  An exact match takes priority.
+  Otherwise, select a match or type until only one station matches.
+  **Tab** moves between browser fields.
+  **Enter** in **To** orders the journey when both fields resolve.
+  Typing in a field does not activate playback shortcuts.
+  London uses the three-letter NaPTAN station suffix, such as **CHX** for Charing Cross.
+  **BPS** and **NEL** identify Battersea Power Station and Nine Elms.
+  Full station IDs also work.
+  Custom networks can use station names or full IDs.
 - Click a station on the map to make it **From**.
   Shift+click a station to make it **To**.
   The station row then shows the page with that station.

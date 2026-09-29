@@ -105,9 +105,9 @@ func (g *Game) pickOnMap(point sim.Point, toStation bool) {
 		return
 	}
 	if toStation {
-		g.destination = target.station
+		g.chooseJourneyStation(2, target.station)
 	} else {
-		g.origin = target.station
+		g.chooseJourneyStation(1, target.station)
 	}
 	g.stationPage = stationPageOf(g.stationPages(), target.station, g.stationPage)
 	g.message = ""

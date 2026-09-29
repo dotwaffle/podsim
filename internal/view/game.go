@@ -79,6 +79,8 @@ type Game struct {
 	showDemand           bool
 	font                 *text.GoTextFaceSource
 	origin, destination  string
+	journeySearch        journeySearch
+	browserJourney       *browserJourney
 	message              string
 	selected             int
 	followSelected       bool
@@ -194,28 +196,30 @@ func (g *Game) Update() error {
 	g.readShell()
 	g.fitNetwork()
 	g.tickNotice()
-	if inpututil.IsKeyJustPressed(ebiten.KeyTab) {
-		step := 1
-		if ebiten.IsKeyPressed(ebiten.KeyShift) {
-			step = -1
+	if !g.updateJourneyInput() {
+		if inpututil.IsKeyJustPressed(ebiten.KeyTab) {
+			step := 1
+			if ebiten.IsKeyPressed(ebiten.KeyShift) {
+				step = -1
+			}
+			g.selectAdjacentPod(step)
 		}
-		g.selectAdjacentPod(step)
-	}
-	if inpututil.IsKeyJustPressed(ebiten.KeySpace) {
-		g.pause()
-	}
-	if inpututil.IsKeyJustPressed(ebiten.KeyR) && ebiten.IsKeyPressed(ebiten.KeyShift) {
-		g.reset(time.Now())
-		return nil
-	}
-	if inpututil.IsKeyJustPressed(ebiten.KeyEnter) {
-		g.request()
-	}
-	if inpututil.IsKeyJustPressed(ebiten.KeyS) {
-		g.cycleSpeed()
-	}
-	if inpututil.IsKeyJustPressed(ebiten.KeyF) {
-		g.toggleFollow()
+		if inpututil.IsKeyJustPressed(ebiten.KeySpace) {
+			g.pause()
+		}
+		if inpututil.IsKeyJustPressed(ebiten.KeyR) && ebiten.IsKeyPressed(ebiten.KeyShift) {
+			g.reset(time.Now())
+			return nil
+		}
+		if inpututil.IsKeyJustPressed(ebiten.KeyEnter) {
+			g.request()
+		}
+		if inpututil.IsKeyJustPressed(ebiten.KeyS) {
+			g.cycleSpeed()
+		}
+		if inpututil.IsKeyJustPressed(ebiten.KeyF) {
+			g.toggleFollow()
+		}
 	}
 	if g.followSelected {
 		g.followSelectedPod()
@@ -303,6 +307,7 @@ func (g *Game) updateMapInput(pointer pointerTransform) bool {
 	}
 	if inpututil.IsMouseButtonJustPressed(ebiten.MouseButtonLeft) {
 		if g.camera.contains(point) {
+			g.journeySearch.focus = 0
 			g.followSelected = false
 			g.camera.beginDrag(point)
 			return false
@@ -406,7 +411,7 @@ func (g *Game) cycleSpeed() {
 	g.submit(session.Command{Action: "speed", Speed: session.NextSpeed(g.state.Speed)})
 }
 func (g *Game) request() {
-	if g.state.Simulation.Demo {
+	if g.state.Simulation.Demo || g.journeySearch.unresolved[0] || g.journeySearch.unresolved[1] {
 		return
 	}
 	g.submit(session.Command{Action: "trip", Origin: g.origin, Destination: g.destination})
@@ -499,7 +504,7 @@ func (g *Game) buttons() []button {
 		{x: 964, y: 72, w: 96, h: 24, label: followLabel, selected: g.followSelected, action: "map-follow", fontSize: 11},
 		{x: 810, y: 477, w: 120, h: 26, label: fmt.Sprintf("Orders %d", outstandingOrderCount(state)), selected: g.showOrders, action: "orders"},
 		{x: 940, y: 477, w: 120, h: 26, label: "Demand", selected: g.showDemand, action: "demand"},
-		{x: 930, y: 612, w: 130, h: 42, label: requestLabel, selected: true, disabled: busy || g.destination == g.origin, action: "request"},
+		{x: 930, y: 612, w: 130, h: 42, label: requestLabel, selected: true, disabled: busy || g.destination == g.origin || g.journeySearch.unresolved[0] || g.journeySearch.unresolved[1], action: "request"},
 		{x: 810, y: 401, w: 250, h: 32, label: pauseLabel, action: "pause"},
 		{x: 810, y: 439, w: 119, h: 32, label: fmt.Sprintf("Speed %dx [S]", g.state.Speed), action: "speed"},
 		{x: 941, y: 439, w: 119, h: 32, label: "Reset [Shift+R]", action: "reset"},
@@ -559,7 +564,14 @@ func (g *Game) click(point sim.Point) bool {
 		if b.disabled || point.X < b.x || point.X >= b.x+b.w || point.Y < b.y || point.Y >= b.y+b.h {
 			continue
 		}
+		if b.action != "search-from" && b.action != "search-to" {
+			g.journeySearch.focus = 0
+		}
 		switch b.action {
+		case "search-from":
+			g.startJourneySearch(1)
+		case "search-to":
+			g.startJourneySearch(2)
 		case "map-zoom-out":
 			g.zoomMap(1 / mapZoomStep)
 		case "map-zoom-in":
@@ -622,9 +634,9 @@ func (g *Game) click(point sim.Point) bool {
 				}
 				g.showOrders, g.showDemand = false, false
 			} else if origin, ok := strings.CutPrefix(b.action, "from/"); ok {
-				g.origin = origin
+				g.chooseJourneyStation(1, origin)
 			} else if destination, ok := strings.CutPrefix(b.action, "to/"); ok {
-				g.destination = destination
+				g.chooseJourneyStation(2, destination)
 			}
 			g.message = ""
 		}
@@ -1837,7 +1849,8 @@ func fleetStatLabels(state sim.Snapshot) []label {
 const sameStationHint = "Choose a different destination."
 
 // hintLine returns the line below the journey controls. It shows the first
-// text that is set, in this order: a confirmation, the message, the demo
+// text that is set, in this order: a confirmation, an unresolved search,
+// the message, the demo
 // error, the notice, sameStationHint, and hint. A second press of Reset or
 // Start traffic demo resets the session while its confirmation is set, so
 // the confirmation shows in place of all other text. The server update
@@ -1850,6 +1863,8 @@ func (g *Game) hintLine(state sim.Snapshot, hint string) label {
 	switch {
 	case isConfirmation(g.noticeAction):
 		value, shade = g.notice, accent
+	case g.journeySearch.unresolved[0] || g.journeySearch.unresolved[1]:
+		value, shade = "Choose a matching station for each search before ordering.", amber
 	case g.message != "":
 		value, shade = g.message, amber
 	case state.DemoError != "":
@@ -2040,7 +2055,7 @@ func (g *Game) normalizeSelection() {
 	if !valid(g.destination) {
 		g.destination = stations[len(stations)-1].ID
 	}
-	g.stationPage = min(g.stationPage, len(g.stationPages())-1)
+	g.stationPage = max(0, min(g.stationPage, len(g.stationPages())-1))
 	g.podPage = min(g.podPage, podPageCount(len(g.state.Simulation.Vehicles))-1)
 }
 
