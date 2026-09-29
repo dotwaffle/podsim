@@ -197,7 +197,7 @@ func (g *Game) orderLabels(state sim.Snapshot) []label {
 	}
 	labels := []label{
 		panelLabel(83, 12, "OUTSTANDING ORDERS", muted),
-		panelLabel(108, 14, fmt.Sprintf("Queued %d / active %d", len(state.Pending), active), foreground),
+		panelLabel(108, 14, fmt.Sprintf("Aboard %d / total %d", active, len(rows)), foreground),
 	}
 	if len(rows) == 0 {
 		return append(labels, panelLabel(153, 13, "No outstanding orders.", muted))

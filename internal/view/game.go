@@ -475,6 +475,7 @@ type button struct {
 func (g *Game) buttons() []button {
 	g.ensureLayout()
 	state := g.state.Simulation
+	orders := outstandingOrderCount(state)
 	busy := state.Demo || !g.connected || g.pending
 	// The request button reads Order accepted for as long as the notice of
 	// the accepted order shows. The user can change From and To during and
@@ -502,7 +503,7 @@ func (g *Game) buttons() []button {
 		{x: 651, y: 72, w: 28, h: 24, label: "+", action: "map-zoom-in"},
 		{x: 685, y: 72, w: 66, h: 24, label: "Fit", action: "map-fit"},
 		{x: 964, y: 72, w: 96, h: 24, label: followLabel, selected: g.followSelected, action: "map-follow", fontSize: 11},
-		{x: 810, y: 477, w: 120, h: 26, label: fmt.Sprintf("Orders %d", outstandingOrderCount(state)), selected: g.showOrders, action: "orders"},
+		{x: 810, y: 477, w: 120, h: 26, label: fmt.Sprintf("Orders %d / %d", orders-len(state.Pending), orders), selected: g.showOrders, action: "orders", fontSize: 11},
 		{x: 940, y: 477, w: 120, h: 26, label: "Demand", selected: g.showDemand, action: "demand"},
 		{x: 930, y: 612, w: 130, h: 42, label: requestLabel, selected: true, disabled: busy || g.destination == g.origin || g.journeySearch.unresolved[0] || g.journeySearch.unresolved[1], action: "request"},
 		{x: 810, y: 401, w: 250, h: 32, label: pauseLabel, action: "pause"},
