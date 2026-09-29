@@ -102,6 +102,29 @@
             <button id="geoImportCloseButton" type="button">Close</button>
           </div>
         </div>
+        <button id="mapOpenButton" class="wide" type="button">Optional OSM schematic map</button>
+        <div id="overpassPanel" class="subpanel" hidden>
+          <p>Enter an HTTPS Overpass endpoint that permits your use. Public instances share capacity and are not a general application backend.</p>
+          <p>This browser sends the bounds to your endpoint, without credentials. No endpoint is selected by default.</p>
+          <label>Overpass endpoint<input id="mapEndpoint" type="url" maxlength="200" autocomplete="off" placeholder="HTTPS endpoint"></label>
+          <div class="row">
+            <label>South<input id="mapSouth" type="number" step="any"></label>
+            <label>North<input id="mapNorth" type="number" step="any"></label>
+          </div>
+          <div class="row">
+            <label>West<input id="mapWest" type="number" step="any"></label>
+            <label>East<input id="mapEast" type="number" step="any"></label>
+          </div>
+          <p>Up to 25 km²: roads, railways, water, parks. Up to 400 km²: major roads through tertiary, railways, water. Up to 2,500 km²: major roads through secondary, railways, water. A response must fit 8 MiB.</p>
+          <p>Local limits: 20 requests and 10 MB each UTC day, shared by tabs on this origin. These limits do not control a provider's total traffic.</p>
+          <p>Network positions copied or aligned from OSM data can put the scenario under the ODbL. Export the project to preserve the image and notice.</p>
+          <div class="row">
+            <button id="mapImportButton" type="button">Import schematic</button>
+            <button id="mapCancelButton" type="button">Cancel</button>
+          </div>
+          <p id="mapDiagnostics" role="status" aria-live="polite"></p>
+          <button id="mapRecoverButton" class="wide quiet" type="button">Reset abandoned request guard</button>
+        </div>
         <div id="frameControls" class="subpanel" hidden>
           <p id="frameStateText"></p>
           <p id="frameWarning" class="warning" hidden></p>

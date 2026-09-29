@@ -77,7 +77,7 @@ description = "Test editor model, project validation, game loader, and page shel
 # fixture. PODSIM_REQUIRE_GO makes a missing Go a failure, so the check
 # task and CI stay strict.
 env = { PODSIM_REQUIRE_GO = "1" }
-run = "node --test web/editor_test.cjs web/loader_test.cjs web/shell_test.cjs web/stream_test.cjs"
+run = "node --test web/overpass_test.cjs web/editor_test.cjs web/loader_test.cjs web/shell_test.cjs web/stream_test.cjs"
 
 [tasks.check]
 description = "Run tests, static analysis, and native and browser builds"

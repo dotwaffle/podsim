@@ -1,0 +1,182 @@
+{
+  "synthetic": true,
+  "bounds": [
+    51.5,
+    -0.14,
+    51.51,
+    -0.12
+  ],
+  "cases": [
+    {
+      "name": "outside-adjacent-coordinate",
+      "status": 200,
+      "body": {
+        "elements": [
+          {
+            "type": "way",
+            "id": 1,
+            "nodes": [
+              1,
+              2,
+              3
+            ],
+            "geometry": [
+              {
+                "lat": 51.505,
+                "lon": -0.13
+              },
+              {
+                "lat": 51.505,
+                "lon": -0.11
+              },
+              null
+            ]
+          }
+        ]
+      },
+      "expect": "Do not reject only because a finite neighbor exceeds the 10 percent box margin. Clip visible spans."
+    },
+    {
+      "name": "disconnected-way-spans",
+      "status": 200,
+      "body": {
+        "elements": [
+          {
+            "type": "way",
+            "id": 2,
+            "nodes": [
+              4,
+              5,
+              6,
+              7,
+              8
+            ],
+            "geometry": [
+              {
+                "lat": 51.502,
+                "lon": -0.13
+              },
+              {
+                "lat": 51.503,
+                "lon": -0.13
+              },
+              null,
+              {
+                "lat": 51.507,
+                "lon": -0.125
+              },
+              {
+                "lat": 51.508,
+                "lon": -0.125
+              }
+            ]
+          }
+        ]
+      },
+      "expect": "Preserve the missing span. Do not connect the two visible parts."
+    },
+    {
+      "name": "incomplete-multipolygon",
+      "status": 200,
+      "body": {
+        "elements": [
+          {
+            "type": "relation",
+            "id": 3,
+            "tags": {
+              "type": "multipolygon",
+              "natural": "water"
+            },
+            "members": [
+              {
+                "type": "way",
+                "ref": 2,
+                "role": "outer",
+                "geometry": [
+                  {
+                    "lat": 51.502,
+                    "lon": -0.13
+                  },
+                  {
+                    "lat": 51.503,
+                    "lon": -0.13
+                  }
+                ]
+              },
+              {
+                "type": "way",
+                "ref": 4,
+                "role": "outer"
+              }
+            ]
+          }
+        ]
+      },
+      "expect": "Count missing geometry. Do not fill an invented closed polygon."
+    },
+    {
+      "name": "runtime-remark",
+      "status": 200,
+      "body": {
+        "elements": [],
+        "remark": "runtime error: Query timed out"
+      },
+      "expect": "Reject before caching or changing the background."
+    },
+    {
+      "name": "provider-429",
+      "status": 429,
+      "body": "fixture refusal",
+      "expect": "Keep background unchanged. No automatic retry. Apply the proposed cooldown."
+    },
+    {
+      "name": "provider-406",
+      "status": 406,
+      "body": "fixture refusal",
+      "expect": "Keep background unchanged. No automatic retry. Apply the proposed cooldown."
+    },
+    {
+      "name": "provider-504",
+      "status": 504,
+      "body": "fixture refusal",
+      "expect": "Keep background unchanged. No automatic retry. Apply the proposed cooldown."
+    },
+    {
+      "name": "cors-denied",
+      "status": 200,
+      "cors": false,
+      "body": {
+        "elements": []
+      },
+      "expect": "Browser fetch fails and background stays unchanged."
+    },
+    {
+      "name": "truncated-json",
+      "status": 200,
+      "rawBody": "{\"elements\":[",
+      "expect": "Reject incomplete JSON and preserve background."
+    },
+    {
+      "name": "stream-overflow",
+      "status": 200,
+      "generateBytes": 8388609,
+      "expect": "Abort after exceeding 8 MiB without parsing or publishing."
+    },
+    {
+      "name": "wrong-content-type",
+      "status": 200,
+      "contentType": "text/html",
+      "rawBody": "<html>error</html>",
+      "expect": "Reject before parsing."
+    },
+    {
+      "name": "abort-after-edit",
+      "status": 200,
+      "delayMs": 1000,
+      "body": {
+        "elements": []
+      },
+      "expect": "A later user edit invalidates publication. Keep the newer background."
+    }
+  ]
+}

@@ -26,7 +26,8 @@ Its bounded demo trials do not establish a sustainable capacity envelope.
 The original `london` selector is now `london-central`.
 
 The editor imports georeferenced PNG or JPEG backgrounds with stored bounds, projection, attribution, and an atomic undo step.
-A network-backed map provider remains unselected, and direct OSM import remains future work.
+The optional Overpass adapter imports an attributed OSM schematic background from a user-selected HTTPS endpoint.
+It has no default endpoint and does not create guideways or editable OSM vectors.
 See [georeferenced backgrounds](README.md#georeferenced-background).
 
 The live viewer uses shared gzip WebSocket deltas, and explicit public-origin configuration supports a TLS-terminating proxy.
@@ -366,7 +367,8 @@ In every band except Early, the results suggest that the 114-pod fleet, not trac
 See [docs/london.md](docs/london.md) and [docs/qualification.md](docs/qualification.md#london-capacity-envelope).
 
 The network does not include a background map or stored tunnel depth.
-The general OSM-backed import workflow above remains future work.
+The optional Overpass adapter supplies schematic backgrounds.
+Automatic guideway generation and editable OSM vectors remain future work.
 Local georeferenced image import is implemented and preserves frame and attribution data.
 LondonFull is a separate generated preset with 269 passenger sites and 2024 endpoint demand.
 Its demo trials are separate from the LondonCentral capacity envelope above.

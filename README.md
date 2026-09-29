@@ -675,6 +675,61 @@ The export keeps the frame state, the frame, and the license in `background.asse
 When the image has an attribution, the map shows it in a line at the lower right corner, with a link to the copyright URL and to the license URL.
 The **Background** section shows the source, the license, the time of the import, the method, and the notice.
 
+### Optional OSM schematic background
+
+Select **Optional OSM schematic map** in the Background panel.
+Enter an HTTPS Overpass endpoint and the south, west, north, and east bounds in degrees.
+No endpoint is selected by default.
+Select an endpoint that permits your use.
+[Public Overpass instances share capacity](https://dev.overpass-api.de/overpass-doc/en/preface/commons.html) and are not a general application backend.
+The browser sends one explicit POST without credentials, with a 90-second timeout and no automatic retry.
+The server does not fetch map data.
+
+The schematic includes these layers:
+
+| Area | Layers |
+| --- | --- |
+| Up to 25 km² | All road classes, railways, water, parks |
+| Up to 400 km² | Roads from motorway through tertiary, railways, water |
+| Up to 2,500 km² | Roads from motorway through secondary, railways, water |
+
+Larger areas fail before a request.
+A smaller area can still exceed the 8 MiB response limit.
+The generated PNG has at most 4,096 pixels on each side and at most 8 MiB of encoded data.
+Raw, expanded, and clipped geometry each have a limit of 2,000,000 vertices.
+Ways and relations have limits of 200,000 and 5,000.
+Each polygon member reference counts toward the expanded vertex limit before ring assembly.
+Relation members have a separate limit of 200,000.
+
+The editor preserves missing spans and clips coordinates to the selected bounds.
+It joins polygon members by node identity before clipping.
+An incomplete, ambiguous, or complex polygon retains its valid lines but has no fill.
+Polygon topology checks stop after 2,000,000 segment comparisons per import.
+Segments that cross the antimeridian and their polygon fills are omitted.
+Import diagnostics show missing coordinates, missing members, omitted segments, and omitted fills.
+Malformed data, runtime errors, and exceeded limits leave the draft unchanged.
+The image and its frame use the same atomic history and storage path as a georeferenced image.
+The import does not create guideways or editable OSM vectors.
+
+Tabs on this origin share a persistent limit of 20 requests and 10 MB each UTC day.
+These local limits do not control a provider's total application traffic.
+HTTP 429, 406, or 504 pauses new requests for at least 60 seconds.
+A request reserves its byte allowance before it starts.
+An unreadable or interrupted response keeps its full allowance charged.
+If its tab closes before settlement, the reservation stays charged and new requests stay blocked.
+Close other editor tabs before you select **Reset abandoned request guard**.
+The reset is available after 90 seconds and does not refund the abandoned allowance.
+Browser cancellation does not prove that the provider stopped its work.
+
+The optional response cache holds at most 16 entries and 48 MiB, for at most seven days.
+Draft and background writes can clear this cache to recover storage space.
+Export the project to preserve the image, exact bounds, source endpoint, retrieval time, query, attribution, and license notice.
+The image also contains an attribution strip.
+Public use must preserve attribution and the notice.
+Network positions copied or aligned from OSM can put the scenario under the ODbL.
+Mixed-source data is not automatically exempt, and a query does not replace a required derivative-database offer.
+The background stays in the editor and does not appear in the simulation view.
+
 ### Apply a draft
 
 **Pause and apply** is disabled when the draft scenario is the same as the live scenario.
