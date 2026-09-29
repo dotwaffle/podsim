@@ -22,7 +22,8 @@ See [README.md](README.md) for controls, validation commands, and current model 
 
 LondonCentral (`london-central`) retains the central qualification network and its 2019 demand.
 [LondonFull](docs/london-full.md) adds 269 Tube sites with 2024 endpoint demand.
-Its 302-arm study tested 60 minutes of arrivals with up to 60 minutes to recover.
+Its [308-arm post-fix study](docs/london-full-postfix.md) tested 60 minutes of arrivals with up to 60 minutes to recover.
+Six historical cases improve recovery after the parking diversion fix.
 No fleet candidate established an all-ten recovery improvement at its next tested rate.
 These finite tests do not establish a sustainable capacity envelope.
 The original `london` selector is now `london-central`.
@@ -370,7 +371,8 @@ The optional live map supplies a geographic backdrop.
 Automatic guideway generation and editable OSM vectors remain future work.
 Local georeferenced image import is implemented and preserves frame and attribution data.
 LondonFull is a separate generated preset with 269 passenger sites and 2024 endpoint demand.
-Its [302-arm study](docs/london-full.md#finite-arrival-study-september-29-2026) used 60 minutes of arrivals and up to 60 minutes to recover.
+Its [308-arm post-fix study](docs/london-full-postfix.md) repeats the original 302 arms and adds six conditional AM peak cases.
+It uses 60 minutes of arrivals and up to 60 minutes to recover.
 No fleet candidate met the all-ten recovery criterion at its next tested rate.
 These finite tests do not establish sustainable capacity or replace the LondonCentral measurements above.
 

@@ -89,6 +89,9 @@ The lane, junction-pair, and track-cell limits remain unchanged.
 
 ## Finite-arrival study, September 29, 2026
 
+The measurements below precede the parking diversion fix.
+The [308-arm post-fix study](london-full-postfix.md) repeats this matrix and its conditional selection rules.
+
 The study used 60 minutes of arrivals and at most 60 additional minutes to complete them.
 A recovery pass means all scheduled requests completed by minute 120, with no skipped demand or sampled safety/accounting failure.
 This finite recovery test does not establish indefinitely sustainable demand.

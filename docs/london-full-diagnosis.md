@@ -133,6 +133,7 @@ In baseline AM peak at rate 10, request 577 boards at 3,841.40 seconds and compl
 All 599 requests finish by the 7,467-second observation.
 One long journey still exceeds the original two-hour cutoff.
 The other three arms reproduce every earlier result field exactly.
-The full 302-arm capacity study was not repeated, so its tables remain historical measurements of the original source.
+The [post-fix capacity study](london-full-postfix.md) repeats all 302 original arms and adds six conditionally selected AM peak arms.
+The original tables remain historical measurements of the earlier source.
 
 Fix validation and raw reruns are retained in `~/.cache/agents/podsim/parking-diversion-fix-20260929/`.

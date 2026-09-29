@@ -1,0 +1,3412 @@
+{
+  "provenance": {
+    "source_commit": "c804c000282937a9e432d728ff24f126fee595b1",
+    "comparison_source": "677e62bf6e108c2bdd00e2831948b323eec3bef3",
+    "projects": {
+      "full.json": "0383116025818e73cd371cba29f97fd820fcc11fdb0d5ea9ed158e22fee86926",
+      "fleet300.json": "06570fb40f6fe6b847cf80232d11b41df2c69ac9f01f4ad5ae12c2aae8265ef5",
+      "fleet300-local.json": "b0de75747b7730dc418f6bf77e1f11531ee0ef9fa5063e477578c31a653bb604",
+      "fleet287-local.json": "c93efb13400fd6e655b2f3196ca519c59498f47cfbe8ee0ae5ed01f8c1ad1b0a"
+    },
+    "replay_count": 302,
+    "initial_rules": "Replay matched historical arms first. Recompute original bracket/candidate selection and execute newly required conditional arms. No policy or default changes.",
+    "resources": {
+      "workers": 4,
+      "gomaxprocs_each": 2,
+      "GOGC": 400,
+      "memory_max_gib": 6,
+      "swap": 0,
+      "arm_timeout_seconds": 330,
+      "run_timeout_seconds": 10800
+    },
+    "toolchain": {
+      "GOVERSION": "go1.27.1",
+      "GOOS": "linux",
+      "GOARCH": "amd64",
+      "CGO_ENABLED": "1",
+      "GOEXPERIMENT": "",
+      "GOFLAGS": "-buildvcs=false -p=2"
+    }
+  },
+  "arms": 308,
+  "selected_arms": 308,
+  "historical_replays": 302,
+  "changed_historical_arms": 20,
+  "changes": [
+    {
+      "project": "full.json",
+      "band": "am-peak",
+      "rate": 10,
+      "seed": 3,
+      "differences": {
+        "peak_stopped_vehicles": {
+          "before": 3,
+          "after": 2
+        },
+        "stopped_pod_seconds": {
+          "before": 7590,
+          "after": 511
+        },
+        "track_wait_seconds": {
+          "before": 3551,
+          "after": 92
+        },
+        "queue_clear_seconds": {
+          "before": 1334,
+          "after": 1336
+        },
+        "wait_average_seconds": {
+          "before": 178.0003895381191,
+          "after": 178.01271563717307
+        },
+        "journey_average_seconds": {
+          "before": 907.0632721202004,
+          "after": 907.0755982192543
+        },
+        "passenger_distance_meters": {
+          "before": 5992596.235419673,
+          "after": 5992596.235419675
+        },
+        "empty_distance_meters": {
+          "before": 2668226.811643218,
+          "after": 2681373.623386837
+        },
+        "loaded_distance_percent": {
+          "before": 69.19199483531669,
+          "after": 69.08712311624544
+        },
+        "coupled_time_percent": {
+          "before": 0.10640675714389153,
+          "after": 0.10744348091447753
+        }
+      }
+    },
+    {
+      "project": "full.json",
+      "band": "am-peak",
+      "rate": 10,
+      "seed": 8,
+      "differences": {
+        "served": {
+          "before": 597,
+          "after": 598
+        },
+        "remaining": {
+          "before": 2,
+          "after": 1
+        },
+        "peak_stopped_vehicles": {
+          "before": 4,
+          "after": 3
+        },
+        "stopped_pod_seconds": {
+          "before": 7314,
+          "after": 293
+        },
+        "junction_wait_seconds": {
+          "before": 232,
+          "after": 233
+        },
+        "track_wait_seconds": {
+          "before": 3363,
+          "after": 60
+        },
+        "queue_cleared": {
+          "before": false,
+          "after": true
+        },
+        "queue_clear_seconds": {
+          "before": 0,
+          "after": 1339
+        },
+        "wait_average_seconds": {
+          "before": 183.9517529215359,
+          "after": 178.32687813021704
+        },
+        "wait_maximum_seconds": {
+          "before": 3738,
+          "after": 1528.1333333333334
+        },
+        "wait_p95_seconds": {
+          "before": 749.7833333333333,
+          "after": 724.6
+        },
+        "journey_average_seconds": {
+          "before": 885.0822724734786,
+          "after": 885.5701783723523
+        },
+        "passenger_distance_meters": {
+          "before": 5843043.107664598,
+          "after": 5854155.604724532
+        },
+        "empty_distance_meters": {
+          "before": 2620584.387022899,
+          "after": 2633579.954839259
+        },
+        "loaded_distance_percent": {
+          "before": 69.03710154224292,
+          "after": 68.97193678622799
+        },
+        "rider_distance_meters": {
+          "before": 5811388.989854749,
+          "after": 5822501.486911778
+        },
+        "direct_distance_meters": {
+          "before": 5811388.989854749,
+          "after": 5822501.486911778
+        },
+        "coupled_time_percent": {
+          "before": 0.09570611455731894,
+          "after": 0.09652415541364014
+        }
+      }
+    },
+    {
+      "project": "full.json",
+      "band": "am-peak",
+      "rate": 10,
+      "seed": 9,
+      "differences": {
+        "wait_average_seconds": {
+          "before": 169.87518085698386,
+          "after": 169.87807456872568
+        },
+        "journey_average_seconds": {
+          "before": 874.2960767946578,
+          "after": 874.2989705063995
+        },
+        "passenger_distance_meters": {
+          "before": 5789763.11792417,
+          "after": 5789763.1179241715
+        },
+        "empty_distance_meters": {
+          "before": 2639269.714032912,
+          "after": 2639569.7140329736
+        },
+        "loaded_distance_percent": {
+          "before": 68.68834459836695,
+          "after": 68.68589997981951
+        },
+        "coupled_time_percent": {
+          "before": 0.06937399784024346,
+          "after": 0.06937081975366814
+        }
+      }
+    },
+    {
+      "project": "full.json",
+      "band": "pm-peak",
+      "rate": 10,
+      "seed": 5,
+      "differences": {
+        "stopped_pod_seconds": {
+          "before": 372,
+          "after": 343
+        },
+        "junction_wait_seconds": {
+          "before": 302,
+          "after": 277
+        },
+        "track_wait_seconds": {
+          "before": 69,
+          "after": 66
+        },
+        "queue_clear_seconds": {
+          "before": 557,
+          "after": 512
+        },
+        "wait_average_seconds": {
+          "before": 202.91099053978854,
+          "after": 202.54949916527545
+        },
+        "wait_maximum_seconds": {
+          "before": 814.2166666666667,
+          "after": 787.75
+        },
+        "wait_p95_seconds": {
+          "before": 508.18333333333334,
+          "after": 499.03333333333336
+        },
+        "journey_average_seconds": {
+          "before": 931.3217584863661,
+          "after": 931.001752921536
+        },
+        "passenger_distance_meters": {
+          "before": 5992483.625965772,
+          "after": 5992708.625965718
+        },
+        "empty_distance_meters": {
+          "before": 2131889.5570006585,
+          "after": 2123906.9284911463
+        },
+        "loaded_distance_percent": {
+          "before": 73.75933491742623,
+          "after": 73.83260406703751
+        },
+        "rider_distance_meters": {
+          "before": 5992483.624783164,
+          "after": 5992708.624783164
+        },
+        "direct_distance_meters": {
+          "before": 5992483.624783164,
+          "after": 5992708.624783164
+        },
+        "coupled_time_percent": {
+          "before": 0.03905394368421321,
+          "after": 0.032294855429530075
+        }
+      }
+    },
+    {
+      "project": "full.json",
+      "band": "am-peak",
+      "rate": 15,
+      "seed": 9,
+      "differences": {
+        "completed_at_arrival_end": {
+          "before": 643,
+          "after": 644
+        },
+        "backlog_at_arrival_end": {
+          "before": 256,
+          "after": 255
+        },
+        "arrival_throughput_per_minute": {
+          "before": 10.716666666666667,
+          "after": 10.733333333333333
+        },
+        "late_arrival_throughput_per_minute": {
+          "before": 13.233333333333333,
+          "after": 13.266666666666667
+        },
+        "late_backlog_change": {
+          "before": 53,
+          "after": 52
+        },
+        "peak_outstanding": {
+          "before": 263,
+          "after": 262
+        },
+        "peak_active_vehicles": {
+          "before": 259,
+          "after": 258
+        },
+        "peak_passenger_vehicles": {
+          "before": 171,
+          "after": 170
+        },
+        "stopped_pod_seconds": {
+          "before": 1035,
+          "after": 784
+        },
+        "junction_wait_seconds": {
+          "before": 653,
+          "after": 650
+        },
+        "wait_average_seconds": {
+          "before": 267.0206896551724,
+          "after": 266.7586021505376
+        },
+        "journey_average_seconds": {
+          "before": 974.6169079435782,
+          "after": 974.345564216778
+        },
+        "passenger_distance_meters": {
+          "before": 8758830.886214478,
+          "after": 8758830.886214493
+        },
+        "empty_distance_meters": {
+          "before": 4153594.756749053,
+          "after": 4153949.0263012717
+        },
+        "loaded_distance_percent": {
+          "before": 67.8325756012194,
+          "after": 67.83071457544908
+        },
+        "coupled_time_percent": {
+          "before": 0.21473381331819238,
+          "after": 0.2135093789332431
+        }
+      }
+    },
+    {
+      "project": "full.json",
+      "band": "interpeak",
+      "rate": 20,
+      "seed": 5,
+      "differences": {
+        "served": {
+          "before": 1197,
+          "after": 1196
+        },
+        "remaining": {
+          "before": 2,
+          "after": 3
+        },
+        "completed_at_arrival_end": {
+          "before": 807,
+          "after": 804
+        },
+        "backlog_at_arrival_end": {
+          "before": 392,
+          "after": 395
+        },
+        "arrival_throughput_per_minute": {
+          "before": 13.45,
+          "after": 13.4
+        },
+        "late_arrival_throughput_per_minute": {
+          "before": 16.733333333333334,
+          "after": 16.633333333333333
+        },
+        "late_backlog_change": {
+          "before": 98,
+          "after": 101
+        },
+        "peak_pending": {
+          "before": 238,
+          "after": 239
+        },
+        "peak_outstanding": {
+          "before": 393,
+          "after": 396
+        },
+        "peak_stopped_vehicles": {
+          "before": 4,
+          "after": 5
+        },
+        "stopped_pod_seconds": {
+          "before": 2051,
+          "after": 2035
+        },
+        "junction_wait_seconds": {
+          "before": 1673,
+          "after": 1628
+        },
+        "track_wait_seconds": {
+          "before": 378,
+          "after": 407
+        },
+        "queue_cleared": {
+          "before": false,
+          "after": true
+        },
+        "queue_clear_seconds": {
+          "before": 0,
+          "after": 2897
+        },
+        "wait_average_seconds": {
+          "before": 493.5949541284404,
+          "after": 499.8941061996108
+        },
+        "wait_maximum_seconds": {
+          "before": 3717,
+          "after": 3228.616666666667
+        },
+        "wait_p95_seconds": {
+          "before": 1505.3333333333333,
+          "after": 1489.7166666666667
+        },
+        "journey_average_seconds": {
+          "before": 1100.7367724867725,
+          "after": 1105.4792781493868
+        },
+        "journey_p95_seconds": {
+          "before": 2532.6833333333334,
+          "after": 2566.85
+        },
+        "journey_maximum_seconds": {
+          "before": 4445.366666666667,
+          "after": 4391.116666666667
+        },
+        "passenger_distance_meters": {
+          "before": 10007316.27523187,
+          "after": 10022253.682699429
+        },
+        "empty_distance_meters": {
+          "before": 7168754.987399429,
+          "after": 7154253.111163853
+        },
+        "loaded_distance_percent": {
+          "before": 58.263127360236595,
+          "after": 58.34861420297705
+        },
+        "rider_distance_meters": {
+          "before": 9984498.729406483,
+          "after": 9966046.836935977
+        },
+        "direct_distance_meters": {
+          "before": 9984498.729406483,
+          "after": 9966046.836935977
+        },
+        "coupled_time_percent": {
+          "before": 0.4050838707194828,
+          "after": 0.730664332132395
+        }
+      }
+    },
+    {
+      "project": "full.json",
+      "band": "interpeak",
+      "rate": 20,
+      "seed": 8,
+      "differences": {
+        "served": {
+          "before": 1194,
+          "after": 1196
+        },
+        "remaining": {
+          "before": 5,
+          "after": 3
+        },
+        "completed_at_arrival_end": {
+          "before": 808,
+          "after": 805
+        },
+        "backlog_at_arrival_end": {
+          "before": 391,
+          "after": 394
+        },
+        "arrival_throughput_per_minute": {
+          "before": 13.466666666666667,
+          "after": 13.416666666666666
+        },
+        "late_arrival_throughput_per_minute": {
+          "before": 16.166666666666668,
+          "after": 16.066666666666666
+        },
+        "late_backlog_change": {
+          "before": 115,
+          "after": 118
+        },
+        "peak_outstanding": {
+          "before": 391,
+          "after": 394
+        },
+        "stopped_pod_seconds": {
+          "before": 1776,
+          "after": 1773
+        },
+        "junction_wait_seconds": {
+          "before": 1460,
+          "after": 1468
+        },
+        "track_wait_seconds": {
+          "before": 312,
+          "after": 301
+        },
+        "peak_node": {
+          "before": "london-link-008-a-arrival",
+          "after": "london-link-151-a-arrival"
+        },
+        "queue_clear_seconds": {
+          "before": 3069,
+          "after": 2400
+        },
+        "wait_average_seconds": {
+          "before": 428.0379760911871,
+          "after": 424.09563525159854
+        },
+        "wait_maximum_seconds": {
+          "before": 3239.65,
+          "after": 2892.9666666666667
+        },
+        "wait_p95_seconds": {
+          "before": 1366.9166666666667,
+          "after": 1391.0333333333333
+        },
+        "journey_average_seconds": {
+          "before": 1053.705164712451,
+          "after": 1055.6570234113713
+        },
+        "journey_p95_seconds": {
+          "before": 2342.6,
+          "after": 2382.9333333333334
+        },
+        "journey_maximum_seconds": {
+          "before": 4005.95,
+          "after": 4049.4166666666665
+        },
+        "passenger_distance_meters": {
+          "before": 10453242.316347249,
+          "after": 10469043.283414867
+        },
+        "empty_distance_meters": {
+          "before": 6160211.486433512,
+          "after": 6137068.424985818
+        },
+        "loaded_distance_percent": {
+          "before": 62.92034420078012,
+          "after": 63.04331481835568
+        },
+        "rider_distance_meters": {
+          "before": 10360051.438818973,
+          "after": 10404512.27260636
+        },
+        "direct_distance_meters": {
+          "before": 10360051.438818973,
+          "after": 10404512.27260636
+        },
+        "coupled_time_percent": {
+          "before": 0.31402093528167796,
+          "after": 0.4303942959072737
+        }
+      }
+    },
+    {
+      "project": "fleet300-local.json",
+      "band": "morning",
+      "rate": 5,
+      "seed": 2,
+      "differences": {
+        "actual_end_seconds": {
+          "before": 7200,
+          "after": 6834
+        },
+        "served": {
+          "before": 298,
+          "after": 299
+        },
+        "remaining": {
+          "before": 1,
+          "after": 0
+        },
+        "drained": {
+          "before": false,
+          "after": true
+        },
+        "drain_seconds": {
+          "before": 0,
+          "after": 3234
+        },
+        "stopped_pod_seconds": {
+          "before": 6742,
+          "after": 102
+        },
+        "track_wait_seconds": {
+          "before": 3084,
+          "after": 18
+        },
+        "queue_cleared": {
+          "before": false,
+          "after": true
+        },
+        "queue_clear_seconds": {
+          "before": 0,
+          "after": 1188
+        },
+        "wait_average_seconds": {
+          "before": 207.7279821627648,
+          "after": 197.67904124860647
+        },
+        "wait_maximum_seconds": {
+          "before": 3624,
+          "after": 1967.6833333333334
+        },
+        "wait_p95_seconds": {
+          "before": 793.9166666666666,
+          "after": 788.6833333333333
+        },
+        "journey_average_seconds": {
+          "before": 1224.5773489932885,
+          "after": 1225.4746376811595
+        },
+        "passenger_distance_meters": {
+          "before": 4232844.970683326,
+          "after": 4244905.149298484
+        },
+        "empty_distance_meters": {
+          "before": 1424492.393247791,
+          "after": 1425243.6644611019
+        },
+        "loaded_distance_percent": {
+          "before": 74.82044464362731,
+          "after": 74.86408714701625
+        },
+        "rider_distance_meters": {
+          "before": 4232844.969959324,
+          "after": 4244905.148571312
+        },
+        "direct_distance_meters": {
+          "before": 4232844.969959324,
+          "after": 4244905.148571312
+        }
+      }
+    },
+    {
+      "project": "fleet300-local.json",
+      "band": "morning",
+      "rate": 5,
+      "seed": 3,
+      "differences": {
+        "served": {
+          "before": 297,
+          "after": 298
+        },
+        "remaining": {
+          "before": 2,
+          "after": 1
+        },
+        "peak_stopped_vehicles": {
+          "before": 3,
+          "after": 1
+        },
+        "stopped_pod_seconds": {
+          "before": 7558,
+          "after": 86
+        },
+        "track_wait_seconds": {
+          "before": 3047,
+          "after": 18
+        },
+        "queue_cleared": {
+          "before": false,
+          "after": true
+        },
+        "queue_clear_seconds": {
+          "before": 0,
+          "after": 1201
+        },
+        "wait_average_seconds": {
+          "before": 202.01560758082496,
+          "after": 189.25139353400223
+        },
+        "wait_maximum_seconds": {
+          "before": 4488,
+          "after": 1344.5166666666667
+        },
+        "wait_p95_seconds": {
+          "before": 760.8333333333334,
+          "after": 734.0333333333333
+        },
+        "journey_average_seconds": {
+          "before": 1233.7473063973064,
+          "after": 1234.9723713646533
+        },
+        "passenger_distance_meters": {
+          "before": 4341843.330548827,
+          "after": 4354591.554135747
+        },
+        "empty_distance_meters": {
+          "before": 1769693.5537337966,
+          "after": 1782643.620075151
+        },
+        "loaded_distance_percent": {
+          "before": 71.04339567539851,
+          "after": 70.9536367847537
+        },
+        "rider_distance_meters": {
+          "before": 4301512.013128696,
+          "after": 4314260.236712275
+        },
+        "direct_distance_meters": {
+          "before": 4301512.013128696,
+          "after": 4314260.236712275
+        }
+      }
+    },
+    {
+      "project": "fleet287-local.json",
+      "band": "am-peak",
+      "rate": 10,
+      "seed": 1,
+      "differences": {
+        "actual_end_seconds": {
+          "before": 7200,
+          "after": 6769
+        },
+        "served": {
+          "before": 598,
+          "after": 599
+        },
+        "remaining": {
+          "before": 1,
+          "after": 0
+        },
+        "drained": {
+          "before": false,
+          "after": true
+        },
+        "drain_seconds": {
+          "before": 0,
+          "after": 3169
+        },
+        "peak_stopped_vehicles": {
+          "before": 3,
+          "after": 2
+        },
+        "stopped_pod_seconds": {
+          "before": 6804,
+          "after": 287
+        },
+        "track_wait_seconds": {
+          "before": 2959,
+          "after": 59
+        },
+        "queue_cleared": {
+          "before": false,
+          "after": true
+        },
+        "queue_clear_seconds": {
+          "before": 0,
+          "after": 1048
+        },
+        "wait_average_seconds": {
+          "before": 181.14373956594324,
+          "after": 176.08439065108513
+        },
+        "wait_maximum_seconds": {
+          "before": 3666,
+          "after": 1354.0333333333333
+        },
+        "journey_average_seconds": {
+          "before": 884.552591973244,
+          "after": 885.6109905397884
+        },
+        "passenger_distance_meters": {
+          "before": 5819401.763528176,
+          "after": 5831595.980530834
+        },
+        "empty_distance_meters": {
+          "before": 2793255.256734154,
+          "after": 2789309.4922281913
+        },
+        "loaded_distance_percent": {
+          "before": 67.56801936774355,
+          "after": 67.64481989691156
+        },
+        "rider_distance_meters": {
+          "before": 5819401.762391372,
+          "after": 5831595.979390816
+        },
+        "direct_distance_meters": {
+          "before": 5819401.762391372,
+          "after": 5831595.979390816
+        },
+        "coupled_time_percent": {
+          "before": 0.0821300540504545,
+          "after": 0.08290772434302031
+        }
+      }
+    },
+    {
+      "project": "fleet300-local.json",
+      "band": "am-peak",
+      "rate": 10,
+      "seed": 1,
+      "differences": {
+        "actual_end_seconds": {
+          "before": 7200,
+          "after": 6307
+        },
+        "served": {
+          "before": 598,
+          "after": 599
+        },
+        "remaining": {
+          "before": 1,
+          "after": 0
+        },
+        "completed_at_arrival_end": {
+          "before": 441,
+          "after": 439
+        },
+        "backlog_at_arrival_end": {
+          "before": 158,
+          "after": 160
+        },
+        "arrival_throughput_per_minute": {
+          "before": 7.35,
+          "after": 7.316666666666666
+        },
+        "late_arrival_throughput_per_minute": {
+          "before": 9.1,
+          "after": 9.033333333333333
+        },
+        "late_backlog_change": {
+          "before": 27,
+          "after": 29
+        },
+        "drained": {
+          "before": false,
+          "after": true
+        },
+        "drain_seconds": {
+          "before": 0,
+          "after": 2707
+        },
+        "peak_pending": {
+          "before": 46,
+          "after": 45
+        },
+        "peak_active_vehicles": {
+          "before": 162,
+          "after": 163
+        },
+        "peak_passenger_vehicles": {
+          "before": 121,
+          "after": 122
+        },
+        "peak_stopped_vehicles": {
+          "before": 3,
+          "after": 2
+        },
+        "stopped_pod_seconds": {
+          "before": 7536,
+          "after": 272
+        },
+        "junction_wait_seconds": {
+          "before": 191,
+          "after": 222
+        },
+        "track_wait_seconds": {
+          "before": 3570,
+          "after": 50
+        },
+        "queue_cleared": {
+          "before": false,
+          "after": true
+        },
+        "queue_clear_seconds": {
+          "before": 0,
+          "after": 875
+        },
+        "wait_average_seconds": {
+          "before": 171.83052309404562,
+          "after": 166.44048414023374
+        },
+        "wait_maximum_seconds": {
+          "before": 3666,
+          "after": 1354.0333333333333
+        },
+        "journey_average_seconds": {
+          "before": 874.8907748049053,
+          "after": 875.7242904841402
+        },
+        "passenger_distance_meters": {
+          "before": 5818801.763528099,
+          "after": 5830845.980530612
+        },
+        "empty_distance_meters": {
+          "before": 2884299.147587914,
+          "after": 2840655.771296867
+        },
+        "loaded_distance_percent": {
+          "before": 66.85894858573971,
+          "after": 67.24147843597898
+        },
+        "rider_distance_meters": {
+          "before": 5818801.762391372,
+          "after": 5830845.979390816
+        },
+        "direct_distance_meters": {
+          "before": 5818801.762391372,
+          "after": 5830845.979390816
+        },
+        "coupled_time_percent": {
+          "before": 0.09155240905114707,
+          "after": 0.12985049688502026
+        }
+      }
+    },
+    {
+      "project": "fleet300.json",
+      "band": "am-peak",
+      "rate": 10,
+      "seed": 1,
+      "differences": {
+        "actual_end_seconds": {
+          "before": 7200,
+          "after": 6307
+        },
+        "served": {
+          "before": 598,
+          "after": 599
+        },
+        "remaining": {
+          "before": 1,
+          "after": 0
+        },
+        "drained": {
+          "before": false,
+          "after": true
+        },
+        "drain_seconds": {
+          "before": 0,
+          "after": 2707
+        },
+        "peak_stopped_vehicles": {
+          "before": 4,
+          "after": 2
+        },
+        "stopped_pod_seconds": {
+          "before": 7236,
+          "after": 301
+        },
+        "track_wait_seconds": {
+          "before": 3374,
+          "after": 56
+        },
+        "queue_cleared": {
+          "before": false,
+          "after": true
+        },
+        "queue_clear_seconds": {
+          "before": 0,
+          "after": 875
+        },
+        "wait_average_seconds": {
+          "before": 177.45943238731218,
+          "after": 172.38219254312745
+        },
+        "wait_maximum_seconds": {
+          "before": 3666,
+          "after": 1354.0333333333333
+        },
+        "journey_average_seconds": {
+          "before": 880.7861204013377,
+          "after": 881.8329159710628
+        },
+        "passenger_distance_meters": {
+          "before": 5818951.763528176,
+          "after": 5831145.980530832
+        },
+        "empty_distance_meters": {
+          "before": 2831070.872580177,
+          "after": 2785589.292038899
+        },
+        "loaded_distance_percent": {
+          "before": 67.27094261277126,
+          "after": 67.67233524155645
+        },
+        "rider_distance_meters": {
+          "before": 5818951.762391372,
+          "after": 5831145.979390816
+        },
+        "direct_distance_meters": {
+          "before": 5818951.762391372,
+          "after": 5831145.979390816
+        },
+        "coupled_time_percent": {
+          "before": 0.130323995550682,
+          "after": 0.13226920145271936
+        }
+      }
+    },
+    {
+      "project": "fleet300.json",
+      "band": "am-peak",
+      "rate": 10,
+      "seed": 2,
+      "differences": {
+        "stopped_pod_seconds": {
+          "before": 359,
+          "after": 351
+        },
+        "junction_wait_seconds": {
+          "before": 291,
+          "after": 284
+        },
+        "track_wait_seconds": {
+          "before": 68,
+          "after": 67
+        },
+        "wait_average_seconds": {
+          "before": 179.2590428491931,
+          "after": 179.25831942125765
+        },
+        "journey_average_seconds": {
+          "before": 910.424429604897,
+          "after": 910.4063995548136
+        },
+        "passenger_distance_meters": {
+          "before": 6011803.670190109,
+          "after": 6011803.670190152
+        },
+        "empty_distance_meters": {
+          "before": 2685322.657628658,
+          "after": 2685622.657628759
+        },
+        "loaded_distance_percent": {
+          "before": 69.1240237704799,
+          "after": 69.12163947812084
+        },
+        "coupled_time_percent": {
+          "before": 0.04345081969812781,
+          "after": 0.04408387988887057
+        }
+      }
+    },
+    {
+      "project": "fleet287-local.json",
+      "band": "am-peak",
+      "rate": 10,
+      "seed": 3,
+      "differences": {
+        "actual_end_seconds": {
+          "before": 7200,
+          "after": 7095
+        },
+        "served": {
+          "before": 598,
+          "after": 599
+        },
+        "remaining": {
+          "before": 1,
+          "after": 0
+        },
+        "drained": {
+          "before": false,
+          "after": true
+        },
+        "drain_seconds": {
+          "before": 0,
+          "after": 3495
+        },
+        "peak_stopped_vehicles": {
+          "before": 3,
+          "after": 2
+        },
+        "stopped_pod_seconds": {
+          "before": 7352,
+          "after": 356
+        },
+        "junction_wait_seconds": {
+          "before": 285,
+          "after": 287
+        },
+        "track_wait_seconds": {
+          "before": 3382,
+          "after": 69
+        },
+        "queue_cleared": {
+          "before": false,
+          "after": true
+        },
+        "queue_clear_seconds": {
+          "before": 0,
+          "after": 1336
+        },
+        "wait_average_seconds": {
+          "before": 178.36683361157483,
+          "after": 172.7173344462994
+        },
+        "wait_maximum_seconds": {
+          "before": 3702,
+          "after": 1431.9666666666667
+        },
+        "wait_p95_seconds": {
+          "before": 627.65,
+          "after": 623.1833333333333
+        },
+        "journey_average_seconds": {
+          "before": 901.1269509476031,
+          "after": 901.2489148580968
+        },
+        "passenger_distance_meters": {
+          "before": 5981811.741938337,
+          "after": 5990721.235420165
+        },
+        "empty_distance_meters": {
+          "before": 2700386.1443030285,
+          "after": 2705038.1159970006
+        },
+        "loaded_distance_percent": {
+          "before": 68.89743611370208,
+          "after": 68.8924450794955
+        },
+        "rider_distance_meters": {
+          "before": 5981811.740757969,
+          "after": 5990721.23423746
+        },
+        "direct_distance_meters": {
+          "before": 5981811.740757969,
+          "after": 5990721.23423746
+        },
+        "coupled_time_percent": {
+          "before": 0.22441926799715234,
+          "after": 0.2265591409791226
+        }
+      }
+    },
+    {
+      "project": "fleet300-local.json",
+      "band": "am-peak",
+      "rate": 10,
+      "seed": 3,
+      "differences": {
+        "actual_end_seconds": {
+          "before": 7200,
+          "after": 7095
+        },
+        "served": {
+          "before": 598,
+          "after": 599
+        },
+        "remaining": {
+          "before": 1,
+          "after": 0
+        },
+        "completed_at_arrival_end": {
+          "before": 439,
+          "after": 440
+        },
+        "backlog_at_arrival_end": {
+          "before": 160,
+          "after": 159
+        },
+        "arrival_throughput_per_minute": {
+          "before": 7.316666666666666,
+          "after": 7.333333333333333
+        },
+        "late_arrival_throughput_per_minute": {
+          "before": 9.033333333333333,
+          "after": 9.066666666666666
+        },
+        "late_backlog_change": {
+          "before": 29,
+          "after": 28
+        },
+        "drained": {
+          "before": false,
+          "after": true
+        },
+        "drain_seconds": {
+          "before": 0,
+          "after": 3495
+        },
+        "peak_pending": {
+          "before": 55,
+          "after": 54
+        },
+        "peak_outstanding": {
+          "before": 162,
+          "after": 160
+        },
+        "peak_active_vehicles": {
+          "before": 160,
+          "after": 159
+        },
+        "peak_stopped_vehicles": {
+          "before": 4,
+          "after": 2
+        },
+        "stopped_pod_seconds": {
+          "before": 8665,
+          "after": 385
+        },
+        "junction_wait_seconds": {
+          "before": 300,
+          "after": 307
+        },
+        "track_wait_seconds": {
+          "before": 3934,
+          "after": 78
+        },
+        "queue_cleared": {
+          "before": false,
+          "after": true
+        },
+        "queue_clear_seconds": {
+          "before": 0,
+          "after": 1339
+        },
+        "wait_average_seconds": {
+          "before": 174.840428491931,
+          "after": 167.6632164718976
+        },
+        "wait_maximum_seconds": {
+          "before": 3816,
+          "after": 1431.9666666666667
+        },
+        "wait_p95_seconds": {
+          "before": 627.65,
+          "after": 613.85
+        },
+        "journey_average_seconds": {
+          "before": 898.0008639910815,
+          "after": 896.4883695047301
+        },
+        "passenger_distance_meters": {
+          "before": 5983995.411117603,
+          "after": 5990721.23541914
+        },
+        "empty_distance_meters": {
+          "before": 2823611.4158552927,
+          "after": 2837711.0120599032
+        },
+        "loaded_distance_percent": {
+          "before": 67.94121863832396,
+          "after": 67.85713553082755
+        },
+        "rider_distance_meters": {
+          "before": 5983995.409937781,
+          "after": 5990721.2342374595
+        },
+        "direct_distance_meters": {
+          "before": 5983995.409937781,
+          "after": 5990721.2342374595
+        },
+        "coupled_time_percent": {
+          "before": 0.06153532173851199,
+          "after": 0.06218312774883016
+        }
+      }
+    },
+    {
+      "project": "fleet300-local.json",
+      "band": "late",
+      "rate": 10,
+      "seed": 3,
+      "differences": {
+        "actual_end_seconds": {
+          "before": 6351,
+          "after": 6504
+        },
+        "drain_seconds": {
+          "before": 2751,
+          "after": 2904
+        },
+        "stopped_pod_seconds": {
+          "before": 414,
+          "after": 408
+        },
+        "junction_wait_seconds": {
+          "before": 324,
+          "after": 319
+        },
+        "track_wait_seconds": {
+          "before": 90,
+          "after": 89
+        },
+        "wait_average_seconds": {
+          "before": 305.8372008903728,
+          "after": 305.85105731775184
+        },
+        "wait_p95_seconds": {
+          "before": 771.3166666666667,
+          "after": 773.15
+        },
+        "journey_average_seconds": {
+          "before": 1007.5558708959377,
+          "after": 1007.5270728992766
+        },
+        "journey_maximum_seconds": {
+          "before": 2960.7,
+          "after": 3113.866666666667
+        },
+        "passenger_distance_meters": {
+          "before": 5766204.028702419,
+          "after": 5766054.028702393
+        },
+        "empty_distance_meters": {
+          "before": 3039228.53439168,
+          "after": 3042814.8124627755
+        },
+        "loaded_distance_percent": {
+          "before": 65.48461972067231,
+          "after": 65.45737179962035
+        },
+        "rider_distance_meters": {
+          "before": 5766204.0275803115,
+          "after": 5766054.0275803115
+        },
+        "direct_distance_meters": {
+          "before": 5766204.0275803115,
+          "after": 5766054.0275803115
+        },
+        "coupled_time_percent": {
+          "before": 0.1234736200491074,
+          "after": 0.1234262371600688
+        }
+      }
+    },
+    {
+      "project": "fleet300-local.json",
+      "band": "pm-peak",
+      "rate": 10,
+      "seed": 2,
+      "differences": {
+        "completed_at_arrival_end": {
+          "before": 455,
+          "after": 456
+        },
+        "backlog_at_arrival_end": {
+          "before": 144,
+          "after": 143
+        },
+        "arrival_throughput_per_minute": {
+          "before": 7.583333333333333,
+          "after": 7.6
+        },
+        "late_arrival_throughput_per_minute": {
+          "before": 9.533333333333333,
+          "after": 9.566666666666666
+        },
+        "late_backlog_change": {
+          "before": 14,
+          "after": 13
+        },
+        "peak_outstanding": {
+          "before": 148,
+          "after": 149
+        },
+        "peak_active_vehicles": {
+          "before": 146,
+          "after": 147
+        },
+        "peak_passenger_vehicles": {
+          "before": 120,
+          "after": 123
+        },
+        "stopped_pod_seconds": {
+          "before": 311,
+          "after": 310
+        },
+        "junction_wait_seconds": {
+          "before": 249,
+          "after": 251
+        },
+        "track_wait_seconds": {
+          "before": 62,
+          "after": 59
+        },
+        "peak_node": {
+          "before": "london-link-008-a-arrival",
+          "after": "london-link-090-a-departure"
+        },
+        "queue_clear_seconds": {
+          "before": 403,
+          "after": 285
+        },
+        "wait_average_seconds": {
+          "before": 139.18567056204787,
+          "after": 139.1007512520868
+        },
+        "wait_maximum_seconds": {
+          "before": 588.65,
+          "after": 610.2333333333333
+        },
+        "wait_p95_seconds": {
+          "before": 391.5833333333333,
+          "after": 397.21666666666664
+        },
+        "journey_average_seconds": {
+          "before": 817.188898163606,
+          "after": 817.1092932665554
+        },
+        "passenger_distance_meters": {
+          "before": 5570576.4151835125,
+          "after": 5571101.415183887
+        },
+        "empty_distance_meters": {
+          "before": 1719356.687158067,
+          "after": 1714203.383069814
+        },
+        "loaded_distance_percent": {
+          "before": 76.41464382429247,
+          "after": 76.47039580992259
+        },
+        "rider_distance_meters": {
+          "before": 5570576.414111193,
+          "after": 5571101.414111194
+        },
+        "direct_distance_meters": {
+          "before": 5570576.414111193,
+          "after": 5571101.414111194
+        }
+      }
+    },
+    {
+      "project": "fleet287-local.json",
+      "band": "pm-peak",
+      "rate": 10,
+      "seed": 3,
+      "differences": {
+        "actual_end_seconds": {
+          "before": 5536,
+          "after": 5440
+        },
+        "completed_at_arrival_end": {
+          "before": 455,
+          "after": 456
+        },
+        "backlog_at_arrival_end": {
+          "before": 144,
+          "after": 143
+        },
+        "arrival_throughput_per_minute": {
+          "before": 7.583333333333333,
+          "after": 7.6
+        },
+        "late_arrival_throughput_per_minute": {
+          "before": 9.766666666666667,
+          "after": 9.8
+        },
+        "late_backlog_change": {
+          "before": 7,
+          "after": 6
+        },
+        "drain_seconds": {
+          "before": 1936,
+          "after": 1840
+        },
+        "peak_pending": {
+          "before": 42,
+          "after": 41
+        },
+        "peak_outstanding": {
+          "before": 147,
+          "after": 148
+        },
+        "peak_active_vehicles": {
+          "before": 144,
+          "after": 145
+        },
+        "peak_passenger_vehicles": {
+          "before": 119,
+          "after": 118
+        },
+        "stopped_pod_seconds": {
+          "before": 380,
+          "after": 284
+        },
+        "junction_wait_seconds": {
+          "before": 305,
+          "after": 222
+        },
+        "track_wait_seconds": {
+          "before": 75,
+          "after": 62
+        },
+        "peak_node_throughput_per_minute": {
+          "before": 4,
+          "after": 5
+        },
+        "peak_node": {
+          "before": "940GZZLUKSX-diverge",
+          "after": "london-link-045-a-departure"
+        },
+        "queue_clear_seconds": {
+          "before": 683,
+          "after": 451
+        },
+        "wait_average_seconds": {
+          "before": 155.83970506399555,
+          "after": 154.05656649972175
+        },
+        "wait_maximum_seconds": {
+          "before": 712.3333333333334,
+          "after": 537.3
+        },
+        "wait_p95_seconds": {
+          "before": 410.5833333333333,
+          "after": 408.21666666666664
+        },
+        "journey_average_seconds": {
+          "before": 830.6250695603784,
+          "after": 828.7599610461881
+        },
+        "journey_p95_seconds": {
+          "before": 1763.8333333333333,
+          "after": 1762.2833333333333
+        },
+        "journey_maximum_seconds": {
+          "before": 2706.95,
+          "after": 2681.55
+        },
+        "passenger_distance_meters": {
+          "before": 5543399.452991238,
+          "after": 5542424.452991015
+        },
+        "empty_distance_meters": {
+          "before": 1661051.1096299982,
+          "after": 1643972.559978485
+        },
+        "loaded_distance_percent": {
+          "before": 76.94409732994755,
+          "after": 77.12382773994311
+        },
+        "rider_distance_meters": {
+          "before": 5543399.451927666,
+          "after": 5542424.451927665
+        },
+        "direct_distance_meters": {
+          "before": 5543399.451927666,
+          "after": 5542424.451927665
+        },
+        "coupled_time_percent": {
+          "before": 0.15558163448637036,
+          "after": 0.12881188289619716
+        }
+      }
+    },
+    {
+      "project": "fleet300.json",
+      "band": "interpeak",
+      "rate": 15,
+      "seed": 2,
+      "differences": {
+        "peak_pending": {
+          "before": 41,
+          "after": 40
+        },
+        "wait_average_seconds": {
+          "before": 107.44000741564702,
+          "after": 107.35207638116427
+        },
+        "journey_average_seconds": {
+          "before": 749.5053948832035,
+          "after": 749.4038190582128
+        },
+        "passenger_distance_meters": {
+          "before": 7901696.34494801,
+          "after": 7901546.3449479705
+        },
+        "empty_distance_meters": {
+          "before": 1710795.5878768454,
+          "after": 1708928.1316596435
+        },
+        "loaded_distance_percent": {
+          "before": 82.20237166561564,
+          "after": 82.21806700783335
+        },
+        "rider_distance_meters": {
+          "before": 7901696.343267133,
+          "after": 7901546.343267133
+        },
+        "direct_distance_meters": {
+          "before": 7901696.343267133,
+          "after": 7901546.343267133
+        },
+        "coupled_time_percent": {
+          "before": 0.06893296912317835,
+          "after": 0.06894716815956835
+        }
+      }
+    },
+    {
+      "project": "fleet300-local.json",
+      "band": "interpeak",
+      "rate": 20,
+      "seed": 2,
+      "differences": {
+        "served": {
+          "before": 1198,
+          "after": 1197
+        },
+        "remaining": {
+          "before": 1,
+          "after": 2
+        },
+        "completed_at_arrival_end": {
+          "before": 855,
+          "after": 863
+        },
+        "backlog_at_arrival_end": {
+          "before": 344,
+          "after": 336
+        },
+        "arrival_throughput_per_minute": {
+          "before": 14.25,
+          "after": 14.383333333333333
+        },
+        "completed_at_arrival_midpoint": {
+          "before": 329,
+          "after": 332
+        },
+        "backlog_at_arrival_midpoint": {
+          "before": 270,
+          "after": 267
+        },
+        "late_arrival_throughput_per_minute": {
+          "before": 17.533333333333335,
+          "after": 17.7
+        },
+        "late_backlog_change": {
+          "before": 74,
+          "after": 69
+        },
+        "peak_pending": {
+          "before": 167,
+          "after": 155
+        },
+        "peak_outstanding": {
+          "before": 346,
+          "after": 339
+        },
+        "peak_focus_approaching": {
+          "before": 2,
+          "after": 1
+        },
+        "stopped_pod_seconds": {
+          "before": 1518,
+          "after": 1910
+        },
+        "junction_wait_seconds": {
+          "before": 1238,
+          "after": 1550
+        },
+        "track_wait_seconds": {
+          "before": 277,
+          "after": 357
+        },
+        "peak_node": {
+          "before": "london-link-024-a-arrival",
+          "after": "london-link-151-a-departure"
+        },
+        "queue_clear_seconds": {
+          "before": 2261,
+          "after": 3037
+        },
+        "wait_average_seconds": {
+          "before": 307.7234917987211,
+          "after": 295.9965387823186
+        },
+        "wait_maximum_seconds": {
+          "before": 2656.116666666667,
+          "after": 3162.9333333333334
+        },
+        "wait_p95_seconds": {
+          "before": 955.5333333333333,
+          "after": 960.5333333333333
+        },
+        "journey_average_seconds": {
+          "before": 950.8801892042292,
+          "after": 937.4954191033138
+        },
+        "journey_p95_seconds": {
+          "before": 2085.4,
+          "after": 2064.2
+        },
+        "journey_maximum_seconds": {
+          "before": 3596.65,
+          "after": 4016.15
+        },
+        "passenger_distance_meters": {
+          "before": 10585776.888927614,
+          "after": 10582323.04393081
+        },
+        "empty_distance_meters": {
+          "before": 5215726.711974944,
+          "after": 5114105.061099995
+        },
+        "loaded_distance_percent": {
+          "before": 66.99221261654475,
+          "after": 67.41866985992252
+        },
+        "rider_distance_meters": {
+          "before": 10567067.4118809,
+          "after": 10555865.616859743
+        },
+        "direct_distance_meters": {
+          "before": 10567067.4118809,
+          "after": 10555865.616859743
+        },
+        "coupled_time_percent": {
+          "before": 0.4886573813923381,
+          "after": 0.5478522805852054
+        }
+      }
+    }
+  ],
+  "aggregates": [
+    {
+      "project": "fleet287-local.json",
+      "band": "am-peak",
+      "rate": 10,
+      "seeds": [
+        1,
+        2,
+        3
+      ],
+      "recovered": 3,
+      "tested": 3,
+      "max_remaining": 0,
+      "max_end_seconds": 7095,
+      "mean_wait_seconds": 181.42473567056206,
+      "mean_journey_seconds": 904.3774717121127
+    },
+    {
+      "project": "fleet287-local.json",
+      "band": "evening",
+      "rate": 10,
+      "seeds": [
+        1,
+        2,
+        3
+      ],
+      "recovered": 3,
+      "tested": 3,
+      "max_remaining": 0,
+      "max_end_seconds": 6369,
+      "mean_wait_seconds": 270.65907067334444,
+      "mean_journey_seconds": 934.9377109998145
+    },
+    {
+      "project": "fleet287-local.json",
+      "band": "evening",
+      "rate": 15,
+      "seeds": [
+        1,
+        2,
+        3
+      ],
+      "recovered": 1,
+      "tested": 3,
+      "max_remaining": 1,
+      "max_end_seconds": 7200,
+      "mean_wait_seconds": 461.00346063527377,
+      "mean_journey_seconds": 1115.2003130729818
+    },
+    {
+      "project": "fleet287-local.json",
+      "band": "interpeak",
+      "rate": 15,
+      "seeds": [
+        1,
+        2,
+        3
+      ],
+      "recovered": 3,
+      "tested": 3,
+      "max_remaining": 0,
+      "max_end_seconds": 6295,
+      "mean_wait_seconds": 109.72589296749474,
+      "mean_journey_seconds": 736.9665430725498
+    },
+    {
+      "project": "fleet287-local.json",
+      "band": "late",
+      "rate": 10,
+      "seeds": [
+        1,
+        2,
+        3
+      ],
+      "recovered": 3,
+      "tested": 3,
+      "max_remaining": 0,
+      "max_end_seconds": 6435,
+      "mean_wait_seconds": 321.85244852531997,
+      "mean_journey_seconds": 1014.7208031905027
+    },
+    {
+      "project": "fleet287-local.json",
+      "band": "late",
+      "rate": 15,
+      "seeds": [
+        1,
+        2,
+        3
+      ],
+      "recovered": 2,
+      "tested": 3,
+      "max_remaining": 1,
+      "max_end_seconds": 7200,
+      "mean_wait_seconds": 565.065931281671,
+      "mean_journey_seconds": 1262.3516738125536
+    },
+    {
+      "project": "fleet287-local.json",
+      "band": "morning",
+      "rate": 2,
+      "seeds": [
+        1,
+        2,
+        3
+      ],
+      "recovered": 3,
+      "tested": 3,
+      "max_remaining": 0,
+      "max_end_seconds": 6536,
+      "mean_wait_seconds": 66.34565826330532,
+      "mean_journey_seconds": 1122.1709150326797
+    },
+    {
+      "project": "fleet287-local.json",
+      "band": "morning",
+      "rate": 5,
+      "seeds": [
+        1,
+        2,
+        3
+      ],
+      "recovered": 2,
+      "tested": 3,
+      "max_remaining": 1,
+      "max_end_seconds": 7200,
+      "mean_wait_seconds": 195.3001486436269,
+      "mean_journey_seconds": 1223.5982491351983
+    },
+    {
+      "project": "fleet287-local.json",
+      "band": "pm-peak",
+      "rate": 10,
+      "seeds": [
+        1,
+        2,
+        3
+      ],
+      "recovered": 3,
+      "tested": 3,
+      "max_remaining": 0,
+      "max_end_seconds": 6413,
+      "mean_wait_seconds": 171.51621220552775,
+      "mean_journey_seconds": 862.9236134297904
+    },
+    {
+      "project": "fleet287-local.json",
+      "band": "pm-peak",
+      "rate": 15,
+      "seeds": [
+        1,
+        2,
+        3
+      ],
+      "recovered": 1,
+      "tested": 3,
+      "max_remaining": 3,
+      "max_end_seconds": 7200,
+      "mean_wait_seconds": 342.9809726857002,
+      "mean_journey_seconds": 1027.9792549491772
+    },
+    {
+      "project": "fleet300-local.json",
+      "band": "am-peak",
+      "rate": 10,
+      "seeds": [
+        1,
+        2,
+        3
+      ],
+      "recovered": 3,
+      "tested": 3,
+      "max_remaining": 0,
+      "max_end_seconds": 7095,
+      "mean_wait_seconds": 172.55850491560008,
+      "mean_journey_seconds": 895.7495084399925
+    },
+    {
+      "project": "fleet300-local.json",
+      "band": "am-peak",
+      "rate": 15,
+      "seeds": [
+        1,
+        2,
+        3
+      ],
+      "recovered": 1,
+      "tested": 3,
+      "max_remaining": 1,
+      "max_end_seconds": 7200,
+      "mean_wait_seconds": 281.130416512174,
+      "mean_journey_seconds": 1000.7596053824275
+    },
+    {
+      "project": "fleet300-local.json",
+      "band": "evening",
+      "rate": 10,
+      "seeds": [
+        1,
+        2,
+        3
+      ],
+      "recovered": 3,
+      "tested": 3,
+      "max_remaining": 0,
+      "max_end_seconds": 6369,
+      "mean_wait_seconds": 241.48394546466332,
+      "mean_journey_seconds": 905.5562511593396
+    },
+    {
+      "project": "fleet300-local.json",
+      "band": "evening",
+      "rate": 15,
+      "seeds": [
+        1,
+        2,
+        3
+      ],
+      "recovered": 1,
+      "tested": 3,
+      "max_remaining": 2,
+      "max_end_seconds": 7200,
+      "mean_wait_seconds": 403.96373130638983,
+      "mean_journey_seconds": 1056.8184678194157
+    },
+    {
+      "project": "fleet300-local.json",
+      "band": "interpeak",
+      "rate": 15,
+      "seeds": [
+        1,
+        2,
+        3
+      ],
+      "recovered": 3,
+      "tested": 3,
+      "max_remaining": 0,
+      "max_end_seconds": 6187,
+      "mean_wait_seconds": 97.7584229390681,
+      "mean_journey_seconds": 724.9867445309603
+    },
+    {
+      "project": "fleet300-local.json",
+      "band": "interpeak",
+      "rate": 20,
+      "seeds": [
+        1,
+        2,
+        3
+      ],
+      "recovered": 1,
+      "tested": 3,
+      "max_remaining": 2,
+      "max_end_seconds": 7200,
+      "mean_wait_seconds": 258.3410063942174,
+      "mean_journey_seconds": 883.9196838947836
+    },
+    {
+      "project": "fleet300-local.json",
+      "band": "late",
+      "rate": 10,
+      "seeds": [
+        1,
+        2,
+        3
+      ],
+      "recovered": 3,
+      "tested": 3,
+      "max_remaining": 0,
+      "max_end_seconds": 6504,
+      "mean_wait_seconds": 290.6302170283806,
+      "mean_journey_seconds": 983.9049156000742
+    },
+    {
+      "project": "fleet300-local.json",
+      "band": "late",
+      "rate": 15,
+      "seeds": [
+        1,
+        2,
+        3
+      ],
+      "recovered": 1,
+      "tested": 3,
+      "max_remaining": 1,
+      "max_end_seconds": 7200,
+      "mean_wait_seconds": 511.03356198244967,
+      "mean_journey_seconds": 1207.0729039098408
+    },
+    {
+      "project": "fleet300-local.json",
+      "band": "morning",
+      "rate": 2,
+      "seeds": [
+        1,
+        2,
+        3
+      ],
+      "recovered": 3,
+      "tested": 3,
+      "max_remaining": 0,
+      "max_end_seconds": 6536,
+      "mean_wait_seconds": 60.56414565826331,
+      "mean_journey_seconds": 1116.6303921568626
+    },
+    {
+      "project": "fleet300-local.json",
+      "band": "morning",
+      "rate": 5,
+      "seeds": [
+        1,
+        2,
+        3
+      ],
+      "recovered": 2,
+      "tested": 3,
+      "max_remaining": 1,
+      "max_end_seconds": 7200,
+      "mean_wait_seconds": 181.5539762170197,
+      "mean_journey_seconds": 1209.9187726176492
+    },
+    {
+      "project": "fleet300-local.json",
+      "band": "pm-peak",
+      "rate": 10,
+      "seeds": [
+        1,
+        2,
+        3
+      ],
+      "recovered": 3,
+      "tested": 3,
+      "max_remaining": 0,
+      "max_end_seconds": 6413,
+      "mean_wait_seconds": 147.88429790391393,
+      "mean_journey_seconds": 839.312251901317
+    },
+    {
+      "project": "fleet300-local.json",
+      "band": "pm-peak",
+      "rate": 15,
+      "seeds": [
+        1,
+        2,
+        3
+      ],
+      "recovered": 1,
+      "tested": 3,
+      "max_remaining": 1,
+      "max_end_seconds": 7200,
+      "mean_wait_seconds": 287.12356939809666,
+      "mean_journey_seconds": 973.7511127530686
+    },
+    {
+      "project": "fleet300.json",
+      "band": "am-peak",
+      "rate": 10,
+      "seeds": [
+        1,
+        2,
+        3
+      ],
+      "recovered": 3,
+      "tested": 3,
+      "max_remaining": 0,
+      "max_end_seconds": 7095,
+      "mean_wait_seconds": 174.84950843999258,
+      "mean_journey_seconds": 898.0417826006307
+    },
+    {
+      "project": "fleet300.json",
+      "band": "am-peak",
+      "rate": 15,
+      "seeds": [
+        1,
+        2,
+        3
+      ],
+      "recovered": 2,
+      "tested": 3,
+      "max_remaining": 2,
+      "max_end_seconds": 7200,
+      "mean_wait_seconds": 277.63399456185886,
+      "mean_journey_seconds": 996.3601446795212
+    },
+    {
+      "project": "fleet300.json",
+      "band": "evening",
+      "rate": 10,
+      "seeds": [
+        1,
+        2,
+        3
+      ],
+      "recovered": 3,
+      "tested": 3,
+      "max_remaining": 0,
+      "max_end_seconds": 5973,
+      "mean_wait_seconds": 252.96421814134666,
+      "mean_journey_seconds": 917.1086162122054
+    },
+    {
+      "project": "fleet300.json",
+      "band": "evening",
+      "rate": 15,
+      "seeds": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10
+      ],
+      "recovered": 9,
+      "tested": 10,
+      "max_remaining": 1,
+      "max_end_seconds": 7200,
+      "mean_wait_seconds": 393.66155543196146,
+      "mean_journey_seconds": 1056.2299213305553
+    },
+    {
+      "project": "fleet300.json",
+      "band": "interpeak",
+      "rate": 15,
+      "seeds": [
+        1,
+        2,
+        3
+      ],
+      "recovered": 3,
+      "tested": 3,
+      "max_remaining": 0,
+      "max_end_seconds": 6330,
+      "mean_wait_seconds": 104.2343777036213,
+      "mean_journey_seconds": 731.1630947966876
+    },
+    {
+      "project": "fleet300.json",
+      "band": "late",
+      "rate": 10,
+      "seeds": [
+        1,
+        2,
+        3
+      ],
+      "recovered": 3,
+      "tested": 3,
+      "max_remaining": 0,
+      "max_end_seconds": 6661,
+      "mean_wait_seconds": 303.95483212762014,
+      "mean_journey_seconds": 997.0404099424967
+    },
+    {
+      "project": "fleet300.json",
+      "band": "morning",
+      "rate": 2,
+      "seeds": [
+        1,
+        2,
+        3
+      ],
+      "recovered": 3,
+      "tested": 3,
+      "max_remaining": 0,
+      "max_end_seconds": 6536,
+      "mean_wait_seconds": 65.46788048552754,
+      "mean_journey_seconds": 1120.992390289449
+    },
+    {
+      "project": "fleet300.json",
+      "band": "morning",
+      "rate": 5,
+      "seeds": [
+        1,
+        2,
+        3
+      ],
+      "recovered": 2,
+      "tested": 3,
+      "max_remaining": 1,
+      "max_end_seconds": 7200,
+      "mean_wait_seconds": 177.9185061315496,
+      "mean_journey_seconds": 1206.1750727630506
+    },
+    {
+      "project": "fleet300.json",
+      "band": "pm-peak",
+      "rate": 10,
+      "seeds": [
+        1,
+        2,
+        3
+      ],
+      "recovered": 3,
+      "tested": 3,
+      "max_remaining": 0,
+      "max_end_seconds": 6413,
+      "mean_wait_seconds": 165.40450751252087,
+      "mean_journey_seconds": 856.95306065665
+    },
+    {
+      "project": "fleet300.json",
+      "band": "pm-peak",
+      "rate": 15,
+      "seeds": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10
+      ],
+      "recovered": 9,
+      "tested": 10,
+      "max_remaining": 1,
+      "max_end_seconds": 7200,
+      "mean_wait_seconds": 308.2055839822024,
+      "mean_journey_seconds": 998.3911169467353
+    },
+    {
+      "project": "full.json",
+      "band": "am-peak",
+      "rate": 5,
+      "seeds": [
+        1,
+        2,
+        3
+      ],
+      "recovered": 3,
+      "tested": 3,
+      "max_remaining": 0,
+      "max_end_seconds": 5937,
+      "mean_wait_seconds": 86.70574136008919,
+      "mean_journey_seconds": 797.3111482720178
+    },
+    {
+      "project": "full.json",
+      "band": "am-peak",
+      "rate": 10,
+      "seeds": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10
+      ],
+      "recovered": 9,
+      "tested": 10,
+      "max_remaining": 1,
+      "max_end_seconds": 7200,
+      "mean_wait_seconds": 177.85316638842517,
+      "mean_journey_seconds": 897.0318731516481
+    },
+    {
+      "project": "full.json",
+      "band": "am-peak",
+      "rate": 15,
+      "seeds": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10
+      ],
+      "recovered": 8,
+      "tested": 10,
+      "max_remaining": 3,
+      "max_end_seconds": 7200,
+      "mean_wait_seconds": 277.9139562476826,
+      "mean_journey_seconds": 996.8812744909445
+    },
+    {
+      "project": "full.json",
+      "band": "am-peak",
+      "rate": 20,
+      "seeds": [
+        1,
+        2,
+        3
+      ],
+      "recovered": 0,
+      "tested": 3,
+      "max_remaining": 18,
+      "max_end_seconds": 7200,
+      "mean_wait_seconds": 777.2310814567695,
+      "mean_journey_seconds": 1457.9237515097977
+    },
+    {
+      "project": "full.json",
+      "band": "am-peak",
+      "rate": 30,
+      "seeds": [
+        1,
+        2,
+        3
+      ],
+      "recovered": 0,
+      "tested": 3,
+      "max_remaining": 401,
+      "max_end_seconds": 7200,
+      "mean_wait_seconds": 2123.579331109876,
+      "mean_journey_seconds": 2298.3175447932663
+    },
+    {
+      "project": "full.json",
+      "band": "am-peak",
+      "rate": 40,
+      "seeds": [
+        1,
+        2,
+        3
+      ],
+      "recovered": 0,
+      "tested": 3,
+      "max_remaining": 1010,
+      "max_end_seconds": 7200,
+      "mean_wait_seconds": 2935.6284864063728,
+      "mean_journey_seconds": 2636.7221835048103
+    },
+    {
+      "project": "full.json",
+      "band": "evening",
+      "rate": 5,
+      "seeds": [
+        1,
+        2,
+        3
+      ],
+      "recovered": 3,
+      "tested": 3,
+      "max_remaining": 0,
+      "max_end_seconds": 5556,
+      "mean_wait_seconds": 148.05496098104794,
+      "mean_journey_seconds": 834.5180602006689
+    },
+    {
+      "project": "full.json",
+      "band": "evening",
+      "rate": 10,
+      "seeds": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10
+      ],
+      "recovered": 10,
+      "tested": 10,
+      "max_remaining": 0,
+      "max_end_seconds": 6463,
+      "mean_wait_seconds": 264.2770923761825,
+      "mean_journey_seconds": 932.4582665553701
+    },
+    {
+      "project": "full.json",
+      "band": "evening",
+      "rate": 15,
+      "seeds": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10
+      ],
+      "recovered": 3,
+      "tested": 10,
+      "max_remaining": 2,
+      "max_end_seconds": 7200,
+      "mean_wait_seconds": 452.27261401557286,
+      "mean_journey_seconds": 1112.508423875817
+    },
+    {
+      "project": "full.json",
+      "band": "evening",
+      "rate": 20,
+      "seeds": [
+        1,
+        2,
+        3
+      ],
+      "recovered": 0,
+      "tested": 3,
+      "max_remaining": 11,
+      "max_end_seconds": 7200,
+      "mean_wait_seconds": 925.3342646649986,
+      "mean_journey_seconds": 1568.0056102107333
+    },
+    {
+      "project": "full.json",
+      "band": "evening",
+      "rate": 30,
+      "seeds": [
+        1,
+        2,
+        3
+      ],
+      "recovered": 0,
+      "tested": 3,
+      "max_remaining": 300,
+      "max_end_seconds": 7200,
+      "mean_wait_seconds": 2015.7900438515226,
+      "mean_journey_seconds": 2372.30491129275
+    },
+    {
+      "project": "full.json",
+      "band": "evening",
+      "rate": 40,
+      "seeds": [
+        1,
+        2,
+        3
+      ],
+      "recovered": 0,
+      "tested": 3,
+      "max_remaining": 892,
+      "max_end_seconds": 7200,
+      "mean_wait_seconds": 2825.476596730119,
+      "mean_journey_seconds": 2717.1223743502737
+    },
+    {
+      "project": "full.json",
+      "band": "interpeak",
+      "rate": 5,
+      "seeds": [
+        1,
+        2,
+        3
+      ],
+      "recovered": 3,
+      "tested": 3,
+      "max_remaining": 0,
+      "max_end_seconds": 5940,
+      "mean_wait_seconds": 50.14108138238573,
+      "mean_journey_seconds": 694.1366406540319
+    },
+    {
+      "project": "full.json",
+      "band": "interpeak",
+      "rate": 10,
+      "seeds": [
+        1,
+        2,
+        3
+      ],
+      "recovered": 3,
+      "tested": 3,
+      "max_remaining": 0,
+      "max_end_seconds": 5788,
+      "mean_wait_seconds": 83.00982192543127,
+      "mean_journey_seconds": 709.6606288258208
+    },
+    {
+      "project": "full.json",
+      "band": "interpeak",
+      "rate": 15,
+      "seeds": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10
+      ],
+      "recovered": 9,
+      "tested": 10,
+      "max_remaining": 1,
+      "max_end_seconds": 7200,
+      "mean_wait_seconds": 136.8237764182425,
+      "mean_journey_seconds": 765.5686715091338
+    },
+    {
+      "project": "full.json",
+      "band": "interpeak",
+      "rate": 20,
+      "seeds": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10
+      ],
+      "recovered": 0,
+      "tested": 10,
+      "max_remaining": 6,
+      "max_end_seconds": 7200,
+      "mean_wait_seconds": 459.6854559355018,
+      "mean_journey_seconds": 1079.4729718475032
+    },
+    {
+      "project": "full.json",
+      "band": "interpeak",
+      "rate": 30,
+      "seeds": [
+        1,
+        2,
+        3
+      ],
+      "recovered": 0,
+      "tested": 3,
+      "max_remaining": 160,
+      "max_end_seconds": 7200,
+      "mean_wait_seconds": 1621.5313970724476,
+      "mean_journey_seconds": 2060.5328438266115
+    },
+    {
+      "project": "full.json",
+      "band": "interpeak",
+      "rate": 40,
+      "seeds": [
+        1,
+        2,
+        3
+      ],
+      "recovered": 0,
+      "tested": 3,
+      "max_remaining": 764,
+      "max_end_seconds": 7200,
+      "mean_wait_seconds": 2541.4428442406556,
+      "mean_journey_seconds": 2466.8361923788584
+    },
+    {
+      "project": "full.json",
+      "band": "late",
+      "rate": 5,
+      "seeds": [
+        1,
+        2,
+        3
+      ],
+      "recovered": 3,
+      "tested": 3,
+      "max_remaining": 0,
+      "max_end_seconds": 6433,
+      "mean_wait_seconds": 176.08634336677815,
+      "mean_journey_seconds": 871.0016722408027
+    },
+    {
+      "project": "full.json",
+      "band": "late",
+      "rate": 10,
+      "seeds": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10
+      ],
+      "recovered": 10,
+      "tested": 10,
+      "max_remaining": 0,
+      "max_end_seconds": 7055,
+      "mean_wait_seconds": 338.8880773511408,
+      "mean_journey_seconds": 1029.925998887034
+    },
+    {
+      "project": "full.json",
+      "band": "late",
+      "rate": 15,
+      "seeds": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10
+      ],
+      "recovered": 2,
+      "tested": 10,
+      "max_remaining": 3,
+      "max_end_seconds": 7200,
+      "mean_wait_seconds": 586.9313440860215,
+      "mean_journey_seconds": 1273.0363803645057
+    },
+    {
+      "project": "full.json",
+      "band": "late",
+      "rate": 20,
+      "seeds": [
+        1,
+        2,
+        3
+      ],
+      "recovered": 0,
+      "tested": 3,
+      "max_remaining": 9,
+      "max_end_seconds": 7200,
+      "mean_wait_seconds": 1064.468024279492,
+      "mean_journey_seconds": 1742.3132516814771
+    },
+    {
+      "project": "full.json",
+      "band": "late",
+      "rate": 30,
+      "seeds": [
+        1,
+        2,
+        3
+      ],
+      "recovered": 0,
+      "tested": 3,
+      "max_remaining": 362,
+      "max_end_seconds": 7200,
+      "mean_wait_seconds": 2201.2852510654066,
+      "mean_journey_seconds": 2478.525037855975
+    },
+    {
+      "project": "full.json",
+      "band": "late",
+      "rate": 40,
+      "seeds": [
+        1,
+        2,
+        3
+      ],
+      "recovered": 0,
+      "tested": 3,
+      "max_remaining": 953,
+      "max_end_seconds": 7200,
+      "mean_wait_seconds": 2949.515788986151,
+      "mean_journey_seconds": 2804.5435564680784
+    },
+    {
+      "project": "full.json",
+      "band": "morning",
+      "rate": 1,
+      "seeds": [
+        1,
+        2,
+        3
+      ],
+      "recovered": 3,
+      "tested": 3,
+      "max_remaining": 0,
+      "max_end_seconds": 5560,
+      "mean_wait_seconds": 36.30734463276836,
+      "mean_journey_seconds": 1126.9274011299435
+    },
+    {
+      "project": "full.json",
+      "band": "morning",
+      "rate": 2,
+      "seeds": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10
+      ],
+      "recovered": 10,
+      "tested": 10,
+      "max_remaining": 0,
+      "max_end_seconds": 6536,
+      "mean_wait_seconds": 69.00371148459384,
+      "mean_journey_seconds": 1082.1715266106442
+    },
+    {
+      "project": "full.json",
+      "band": "morning",
+      "rate": 5,
+      "seeds": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10
+      ],
+      "recovered": 8,
+      "tested": 10,
+      "max_remaining": 2,
+      "max_end_seconds": 7200,
+      "mean_wait_seconds": 187.5771293199554,
+      "mean_journey_seconds": 1186.1733393526772
+    },
+    {
+      "project": "full.json",
+      "band": "morning",
+      "rate": 10,
+      "seeds": [
+        1,
+        2,
+        3
+      ],
+      "recovered": 0,
+      "tested": 3,
+      "max_remaining": 7,
+      "max_end_seconds": 7200,
+      "mean_wait_seconds": 395.2597570024114,
+      "mean_journey_seconds": 1390.5820514540223
+    },
+    {
+      "project": "full.json",
+      "band": "morning",
+      "rate": 15,
+      "seeds": [
+        1,
+        2,
+        3
+      ],
+      "recovered": 0,
+      "tested": 3,
+      "max_remaining": 35,
+      "max_end_seconds": 7200,
+      "mean_wait_seconds": 948.6595352861203,
+      "mean_journey_seconds": 1859.836184674527
+    },
+    {
+      "project": "full.json",
+      "band": "morning",
+      "rate": 20,
+      "seeds": [
+        1,
+        2,
+        3
+      ],
+      "recovered": 0,
+      "tested": 3,
+      "max_remaining": 234,
+      "max_end_seconds": 7200,
+      "mean_wait_seconds": 1809.8419191919193,
+      "mean_journey_seconds": 2336.6021338799937
+    },
+    {
+      "project": "full.json",
+      "band": "morning",
+      "rate": 30,
+      "seeds": [
+        1,
+        2,
+        3
+      ],
+      "recovered": 0,
+      "tested": 3,
+      "max_remaining": 826,
+      "max_end_seconds": 7200,
+      "mean_wait_seconds": 2946.520699771478,
+      "mean_journey_seconds": 2762.8297507315992
+    },
+    {
+      "project": "full.json",
+      "band": "morning",
+      "rate": 40,
+      "seeds": [
+        1,
+        2,
+        3
+      ],
+      "recovered": 0,
+      "tested": 3,
+      "max_remaining": 1396,
+      "max_end_seconds": 7200,
+      "mean_wait_seconds": 3515.8262146264647,
+      "mean_journey_seconds": 2998.951581004748
+    },
+    {
+      "project": "full.json",
+      "band": "pm-peak",
+      "rate": 5,
+      "seeds": [
+        1,
+        2,
+        3
+      ],
+      "recovered": 3,
+      "tested": 3,
+      "max_remaining": 0,
+      "max_end_seconds": 6010,
+      "mean_wait_seconds": 97.71519881085099,
+      "mean_journey_seconds": 781.9806205871423
+    },
+    {
+      "project": "full.json",
+      "band": "pm-peak",
+      "rate": 10,
+      "seeds": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10
+      ],
+      "recovered": 10,
+      "tested": 10,
+      "max_remaining": 0,
+      "max_end_seconds": 6458,
+      "mean_wait_seconds": 190.03942125765164,
+      "mean_journey_seconds": 881.4383416805788
+    },
+    {
+      "project": "full.json",
+      "band": "pm-peak",
+      "rate": 15,
+      "seeds": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10
+      ],
+      "recovered": 5,
+      "tested": 10,
+      "max_remaining": 2,
+      "max_end_seconds": 7200,
+      "mean_wait_seconds": 362.92642380422694,
+      "mean_journey_seconds": 1051.875571421419
+    },
+    {
+      "project": "full.json",
+      "band": "pm-peak",
+      "rate": 20,
+      "seeds": [
+        1,
+        2,
+        3
+      ],
+      "recovered": 0,
+      "tested": 3,
+      "max_remaining": 11,
+      "max_end_seconds": 7200,
+      "mean_wait_seconds": 822.136349735891,
+      "mean_journey_seconds": 1491.5662298861596
+    },
+    {
+      "project": "full.json",
+      "band": "pm-peak",
+      "rate": 30,
+      "seeds": [
+        1,
+        2,
+        3
+      ],
+      "recovered": 0,
+      "tested": 3,
+      "max_remaining": 315,
+      "max_end_seconds": 7200,
+      "mean_wait_seconds": 1953.4090050027794,
+      "mean_journey_seconds": 2317.123732726464
+    },
+    {
+      "project": "full.json",
+      "band": "pm-peak",
+      "rate": 40,
+      "seeds": [
+        1,
+        2,
+        3
+      ],
+      "recovered": 0,
+      "tested": 3,
+      "max_remaining": 918,
+      "max_end_seconds": 7200,
+      "mean_wait_seconds": 2774.655787133528,
+      "mean_journey_seconds": 2670.811212230849
+    }
+  ],
+  "selection": {
+    "brackets": {
+      "morning": {
+        "highest_three_seed_pass": 2,
+        "next_tested_rate": 5,
+        "screen_rate": 2
+      },
+      "am-peak": {
+        "highest_three_seed_pass": 10,
+        "next_tested_rate": 15,
+        "screen_rate": 10
+      },
+      "interpeak": {
+        "highest_three_seed_pass": 15,
+        "next_tested_rate": 20,
+        "screen_rate": 15
+      },
+      "pm-peak": {
+        "highest_three_seed_pass": 10,
+        "next_tested_rate": 15,
+        "screen_rate": 10
+      },
+      "evening": {
+        "highest_three_seed_pass": 10,
+        "next_tested_rate": 15,
+        "screen_rate": 10
+      },
+      "late": {
+        "highest_three_seed_pass": 10,
+        "next_tested_rate": 15,
+        "screen_rate": 10
+      }
+    },
+    "candidate_selection": [
+      {
+        "project": "fleet300.json",
+        "band": "morning",
+        "screen_rate": 2,
+        "next_rate": 5,
+        "baseline_score": [
+          -3,
+          0,
+          6536,
+          1122.7765639589168
+        ],
+        "candidate_score": [
+          -3,
+          0,
+          6536,
+          1120.992390289449
+        ],
+        "promising": true
+      },
+      {
+        "project": "fleet300-local.json",
+        "band": "morning",
+        "screen_rate": 2,
+        "next_rate": 5,
+        "baseline_score": [
+          -3,
+          0,
+          6536,
+          1122.7765639589168
+        ],
+        "candidate_score": [
+          -3,
+          0,
+          6536,
+          1116.6303921568626
+        ],
+        "promising": true
+      },
+      {
+        "project": "fleet287-local.json",
+        "band": "morning",
+        "screen_rate": 2,
+        "next_rate": 5,
+        "baseline_score": [
+          -3,
+          0,
+          6536,
+          1122.7765639589168
+        ],
+        "candidate_score": [
+          -3,
+          0,
+          6536,
+          1122.1709150326797
+        ],
+        "promising": true
+      },
+      {
+        "project": "fleet300.json",
+        "band": "am-peak",
+        "screen_rate": 10,
+        "next_rate": 15,
+        "baseline_score": [
+          -3,
+          0,
+          7095,
+          903.388443702467
+        ],
+        "candidate_score": [
+          -3,
+          0,
+          7095,
+          898.0417826006307
+        ],
+        "promising": true
+      },
+      {
+        "project": "fleet300-local.json",
+        "band": "am-peak",
+        "screen_rate": 10,
+        "next_rate": 15,
+        "baseline_score": [
+          -3,
+          0,
+          7095,
+          903.388443702467
+        ],
+        "candidate_score": [
+          -3,
+          0,
+          7095,
+          895.7495084399925
+        ],
+        "promising": true
+      },
+      {
+        "project": "fleet287-local.json",
+        "band": "am-peak",
+        "screen_rate": 10,
+        "next_rate": 15,
+        "baseline_score": [
+          -3,
+          0,
+          7095,
+          903.388443702467
+        ],
+        "candidate_score": [
+          -3,
+          0,
+          7095,
+          904.3774717121127
+        ],
+        "promising": false
+      },
+      {
+        "project": "fleet300.json",
+        "band": "interpeak",
+        "screen_rate": 15,
+        "next_rate": 20,
+        "baseline_score": [
+          -3,
+          0,
+          6260,
+          756.6514398714621
+        ],
+        "candidate_score": [
+          -3,
+          0,
+          6330,
+          731.1630947966876
+        ],
+        "promising": false
+      },
+      {
+        "project": "fleet300-local.json",
+        "band": "interpeak",
+        "screen_rate": 15,
+        "next_rate": 20,
+        "baseline_score": [
+          -3,
+          0,
+          6260,
+          756.6514398714621
+        ],
+        "candidate_score": [
+          -3,
+          0,
+          6187,
+          724.9867445309603
+        ],
+        "promising": true
+      },
+      {
+        "project": "fleet287-local.json",
+        "band": "interpeak",
+        "screen_rate": 15,
+        "next_rate": 20,
+        "baseline_score": [
+          -3,
+          0,
+          6260,
+          756.6514398714621
+        ],
+        "candidate_score": [
+          -3,
+          0,
+          6295,
+          736.9665430725498
+        ],
+        "promising": false
+      },
+      {
+        "project": "fleet300.json",
+        "band": "pm-peak",
+        "screen_rate": 10,
+        "next_rate": 15,
+        "baseline_score": [
+          -3,
+          0,
+          6458,
+          882.5131051752921
+        ],
+        "candidate_score": [
+          -3,
+          0,
+          6413,
+          856.95306065665
+        ],
+        "promising": true
+      },
+      {
+        "project": "fleet300-local.json",
+        "band": "pm-peak",
+        "screen_rate": 10,
+        "next_rate": 15,
+        "baseline_score": [
+          -3,
+          0,
+          6458,
+          882.5131051752921
+        ],
+        "candidate_score": [
+          -3,
+          0,
+          6413,
+          839.312251901317
+        ],
+        "promising": true
+      },
+      {
+        "project": "fleet287-local.json",
+        "band": "pm-peak",
+        "screen_rate": 10,
+        "next_rate": 15,
+        "baseline_score": [
+          -3,
+          0,
+          6458,
+          882.5131051752921
+        ],
+        "candidate_score": [
+          -3,
+          0,
+          6413,
+          862.9236134297904
+        ],
+        "promising": true
+      },
+      {
+        "project": "fleet300.json",
+        "band": "evening",
+        "screen_rate": 10,
+        "next_rate": 15,
+        "baseline_score": [
+          -3,
+          0,
+          6463,
+          947.2831107401224
+        ],
+        "candidate_score": [
+          -3,
+          0,
+          5973,
+          917.1086162122054
+        ],
+        "promising": true
+      },
+      {
+        "project": "fleet300-local.json",
+        "band": "evening",
+        "screen_rate": 10,
+        "next_rate": 15,
+        "baseline_score": [
+          -3,
+          0,
+          6463,
+          947.2831107401224
+        ],
+        "candidate_score": [
+          -3,
+          0,
+          6369,
+          905.5562511593396
+        ],
+        "promising": true
+      },
+      {
+        "project": "fleet287-local.json",
+        "band": "evening",
+        "screen_rate": 10,
+        "next_rate": 15,
+        "baseline_score": [
+          -3,
+          0,
+          6463,
+          947.2831107401224
+        ],
+        "candidate_score": [
+          -3,
+          0,
+          6369,
+          934.9377109998145
+        ],
+        "promising": true
+      },
+      {
+        "project": "fleet300.json",
+        "band": "late",
+        "screen_rate": 10,
+        "next_rate": 15,
+        "baseline_score": [
+          -3,
+          0,
+          6563,
+          1034.054906325357
+        ],
+        "candidate_score": [
+          -3,
+          0,
+          6661,
+          997.0404099424967
+        ],
+        "promising": false
+      },
+      {
+        "project": "fleet300-local.json",
+        "band": "late",
+        "screen_rate": 10,
+        "next_rate": 15,
+        "baseline_score": [
+          -3,
+          0,
+          6563,
+          1034.054906325357
+        ],
+        "candidate_score": [
+          -3,
+          0,
+          6504,
+          983.9049156000742
+        ],
+        "promising": true
+      },
+      {
+        "project": "fleet287-local.json",
+        "band": "late",
+        "screen_rate": 10,
+        "next_rate": 15,
+        "baseline_score": [
+          -3,
+          0,
+          6563,
+          1034.054906325357
+        ],
+        "candidate_score": [
+          -3,
+          0,
+          6435,
+          1014.7208031905027
+        ],
+        "promising": true
+      }
+    ],
+    "candidate_confirmation": [
+      {
+        "project": "fleet300.json",
+        "band": "morning",
+        "rate": 5,
+        "recovered": 2,
+        "confirm": false
+      },
+      {
+        "project": "fleet300-local.json",
+        "band": "morning",
+        "rate": 5,
+        "recovered": 2,
+        "confirm": false
+      },
+      {
+        "project": "fleet287-local.json",
+        "band": "morning",
+        "rate": 5,
+        "recovered": 2,
+        "confirm": false
+      },
+      {
+        "project": "fleet300.json",
+        "band": "am-peak",
+        "rate": 15,
+        "recovered": 2,
+        "confirm": false
+      },
+      {
+        "project": "fleet300-local.json",
+        "band": "am-peak",
+        "rate": 15,
+        "recovered": 1,
+        "confirm": false
+      },
+      {
+        "project": "fleet300-local.json",
+        "band": "interpeak",
+        "rate": 20,
+        "recovered": 1,
+        "confirm": false
+      },
+      {
+        "project": "fleet300.json",
+        "band": "pm-peak",
+        "rate": 15,
+        "recovered": 3,
+        "confirm": true
+      },
+      {
+        "project": "fleet300-local.json",
+        "band": "pm-peak",
+        "rate": 15,
+        "recovered": 1,
+        "confirm": false
+      },
+      {
+        "project": "fleet287-local.json",
+        "band": "pm-peak",
+        "rate": 15,
+        "recovered": 1,
+        "confirm": false
+      },
+      {
+        "project": "fleet300.json",
+        "band": "evening",
+        "rate": 15,
+        "recovered": 3,
+        "confirm": true
+      },
+      {
+        "project": "fleet300-local.json",
+        "band": "evening",
+        "rate": 15,
+        "recovered": 1,
+        "confirm": false
+      },
+      {
+        "project": "fleet287-local.json",
+        "band": "evening",
+        "rate": 15,
+        "recovered": 1,
+        "confirm": false
+      },
+      {
+        "project": "fleet300-local.json",
+        "band": "late",
+        "rate": 15,
+        "recovered": 1,
+        "confirm": false
+      },
+      {
+        "project": "fleet287-local.json",
+        "band": "late",
+        "rate": 15,
+        "recovered": 2,
+        "confirm": false
+      }
+    ]
+  },
+  "safety_samples": 2032514
+}
