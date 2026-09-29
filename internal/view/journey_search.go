@@ -16,6 +16,7 @@ const stationSearchWidth = 200.0
 
 type journeySearch struct {
 	focus      int
+	filter     int
 	query      [2]string
 	unresolved [2]bool
 	selectAll  bool
@@ -66,14 +67,15 @@ func (g *Game) journeyStations() []sim.Station {
 		}
 		return cmp.Compare(a.ID, b.ID)
 	})
-	if g.journeySearch.focus != 0 {
-		return stationMatches(stations, g.journeySearch.query[g.journeySearch.focus-1])
+	if g.journeySearch.filter != 0 {
+		return stationMatches(stations, g.journeySearch.query[g.journeySearch.filter-1])
 	}
 	return stations
 }
 
 func (g *Game) startJourneySearch(side int) {
 	g.journeySearch.focus = side
+	g.journeySearch.filter = side
 	g.journeySearch.query[side-1] = ""
 	g.journeySearch.unresolved[side-1] = false
 	g.journeySearch.selectAll = false
@@ -90,6 +92,7 @@ func (g *Game) chooseJourneyStation(side int, id string) {
 	g.journeySearch.query[side-1] = ""
 	g.journeySearch.unresolved[side-1] = false
 	g.journeySearch.focus = 0
+	g.journeySearch.filter = 0
 	g.stationPage = 0
 }
 
@@ -98,6 +101,7 @@ func (g *Game) searchJourney(query string) {
 	if side == 0 {
 		return
 	}
+	g.journeySearch.filter = side
 	g.journeySearch.query[side-1] = query
 	g.journeySearch.unresolved[side-1] = true
 	g.stationPage = 0
@@ -139,6 +143,7 @@ func (g *Game) updateJourneyInput() bool {
 		g.journeySearch.query[side-1] = ""
 		g.journeySearch.unresolved[side-1] = false
 		g.journeySearch.focus = 0
+		g.journeySearch.filter = 0
 		g.message = ""
 		return true
 	}

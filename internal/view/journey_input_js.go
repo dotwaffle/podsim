@@ -102,6 +102,7 @@ func (b *browserJourney) update(g *Game) (bool, bool) {
 			g.journeySearch.unresolved[event.side-1] = false
 			g.journeySearch.query[event.side-1] = ""
 			g.journeySearch.focus = 0
+			g.journeySearch.filter = 0
 			g.message = ""
 		case "enter":
 			if event.side == 2 {

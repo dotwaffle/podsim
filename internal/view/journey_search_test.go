@@ -82,3 +82,20 @@ func TestJourneySearchDoesNotGuessAmbiguousCodes(t *testing.T) {
 		t.Fatalf("invented custom station code %q", got)
 	}
 }
+
+func TestJourneyResultClickKeepsFilterAfterBlur(t *testing.T) {
+	t.Parallel()
+	game := journeyNetworkGame(t, scenarios.LondonFull().Network)
+	game.startJourneySearch(1)
+	game.searchJourney("arc")
+	result := findButton(t, game.buttons(), "from/940GZZLUACY")
+	// A native input blurs before the canvas handles the same pointer press.
+	game.journeySearch.focus = 0
+	game.click(centerOfButton(result))
+	if game.origin != "940GZZLUACY" {
+		t.Fatalf("clicked Archway but selected %s", game.origin)
+	}
+	if game.journeySearch.filter != 0 {
+		t.Fatal("selection retained the old filter")
+	}
+}
