@@ -358,7 +358,8 @@ func (s *Simulation) localPickup(stationID string, pass *dispatchPass) *vehicle 
 	return nil
 }
 
-// pickupPod chooses the fastest available idle or divertible parking pod, with pod ID breaking ties.
+// pickupPod chooses the fastest available idle or divertible parking pod.
+// Fleet order breaks ties.
 // An idle pod at the pickup station has an estimate of zero, so it wins
 // over each pod that must travel.
 // It does not change the pods, the berth owners, or the waiting trips, so it
@@ -367,9 +368,9 @@ func (s *Simulation) localPickup(stationID string, pass *dispatchPass) *vehicle 
 // pickupRouteWithAssignments rejects each pod that pickupCandidate rejects,
 // and it does not change the simulation when it does so. Thus pickupPod
 // reads only the pickup candidates of the pass. They are in fleet order, so
-// candidateRoute runs for the same pods in the same order as a read of
-// each pod, and it fills the route caches in the same order. With no
-// candidate, pickupPod does not compute the berth loads.
+// the full route search retains fleet-order ties. A reverse-search lower
+// bound skips candidates that cannot improve the best pickup time. With
+// no candidate, pickupPod does not compute the berth loads.
 func (s *Simulation) pickupPod(stationID string, pass *dispatchPass) *vehicle {
 	candidates := s.pickupCandidates(pass)
 	if len(candidates) == 0 {
@@ -378,7 +379,17 @@ func (s *Simulation) pickupPod(stationID string, pass *dispatchPass) *vehicle {
 	var best *vehicle
 	bestTime := math.Inf(1)
 	load := s.berthLoads()
+	var bounds []float64
 	for _, v := range candidates {
+		if best != nil {
+			if bounds == nil {
+				station, _ := s.station(stationID)
+				bounds = s.graph.berthTravelBounds(station.Berths)
+			}
+			if pickupCannotImprove(s.pickupBound(v, bounds), bestTime) {
+				continue
+			}
+		}
 		route, _, ok := s.candidateRoute(v, stationID, load)
 		if !ok {
 			continue

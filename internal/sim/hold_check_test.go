@@ -335,9 +335,8 @@ func (s *Simulation) pickupPodFull(stationID string, assigned map[string]bool) *
 }
 
 // TestPickupPodMatchesFullScan checks pickupPod beside pickupPodFull for
-// each station. The pods must be equal. The states must be equal, route
-// caches included, because the two make the same route queries in the same
-// order.
+// each station. The pods and simulation states must be equal. Route
+// caches can differ because the optimized search can skip candidates.
 func TestPickupPodMatchesFullScan(t *testing.T) {
 	t.Parallel()
 	for _, congestion := range []bool{false, true} {
@@ -365,7 +364,7 @@ func TestPickupPodMatchesFullScan(t *testing.T) {
 						moving++
 					}
 				}
-				if !reflect.DeepEqual(fast, full) { //nolint:govet // deepequalerrors: route errors compare by value on purpose.
+				if !sameHoldState(fast, full) {
 					t.Fatalf("tick %d: the states differ", s.tick)
 				}
 			})
