@@ -1,5 +1,6 @@
 (function (root) {
   "use strict";
+  if (typeof document === "undefined" && typeof importScripts === "function") importScripts("./tiles.js");
   const Tiles = typeof module !== "undefined" && module.exports ? require("./tiles.js") : root.PodsimTiles;
 
   const MIN_LANE_LENGTH = 24;
@@ -97,6 +98,70 @@
 
   function clone(value) {
     return JSON.parse(JSON.stringify(value));
+  }
+
+  const frozenDrafts = new WeakSet();
+
+  // freezeDraft makes history snapshots safe to share with read-only callers.
+  function freezeDraft(value) {
+    if (!value || typeof value !== "object" || frozenDrafts.has(value)) return value;
+    for (const child of Object.values(value)) freezeDraft(child);
+    frozenDrafts.add(value); return Object.freeze(value);
+  }
+
+  // ownDraft copies external mutable data and reuses equal history branches.
+  function ownDraft(value, previous) {
+    if (Object.is(value, previous)) return previous;
+    if (!value || typeof value !== "object") return value;
+    if (frozenDrafts.has(value)) return value;
+    const out = Array.isArray(value) ? new Array(value.length) : {};
+    const keys = Object.keys(value);
+    for (const key of keys) Object.defineProperty(out, key, { value: ownDraft(value[key], previous?.[key]), enumerable: true, writable: true, configurable: true });
+    if (previous && Array.isArray(previous) === Array.isArray(value) && (!Array.isArray(value) || previous.length === value.length) && keys.length === Object.keys(previous).length && keys.every((key) => Object.hasOwn(previous, key) && Object.is(out[key], previous[key]))) return previous;
+    frozenDrafts.add(out); return Object.freeze(out);
+  }
+
+  function sameDraft(a, b) {
+    if (Object.is(a, b)) return true;
+    if (!a || !b || typeof a !== "object" || typeof b !== "object" || Array.isArray(a) !== Array.isArray(b) || (Array.isArray(a) && a.length !== b.length)) return false;
+    const keys = Object.keys(a);
+    return keys.length === Object.keys(b).length && keys.every((key) => Object.hasOwn(b, key) && sameDraft(a[key], b[key]));
+  }
+
+  // editDraft copies only the branches that a mutation changes. The callback
+  // receives temporary proxies. No proxy enters a history snapshot.
+  function editDraft(value, change) {
+    const states = new WeakMap();
+    function wrap(base) {
+      const target = Array.isArray(base) ? base.slice() : { ...base };
+      const children = new Map();
+      const proxy = new Proxy(target, {
+        get(object, key) {
+          const child = object[key];
+          if (!child || typeof child !== "object") return child;
+          if (!children.has(key)) children.set(key, wrap(child));
+          return children.get(key);
+        },
+        set(object, key, next) { children.delete(key); object[key] = next; return true; },
+        deleteProperty(object, key) { children.delete(key); delete object[key]; return true; },
+      });
+      states.set(proxy, () => {
+        for (const [key, child] of children) if (Object.hasOwn(target, key)) target[key] = finish(child);
+        for (const key of Object.keys(target)) target[key] = finish(target[key]);
+        const keys = Object.keys(target);
+        return (!Array.isArray(base) || target.length === base.length) && keys.length === Object.keys(base).length && keys.every((key) => Object.hasOwn(base, key) && Object.is(target[key], base[key])) ? base : target;
+      });
+      return proxy;
+    }
+    function finish(item) {
+      if (!item || typeof item !== "object" || frozenDrafts.has(item)) return item;
+      if (states.has(item)) return states.get(item)();
+      const out = Array.isArray(item) ? item.slice() : { ...item };
+      for (const key of Object.keys(out)) out[key] = finish(out[key]);
+      return out;
+    }
+    const proxy = wrap(value);
+    return finish(change(proxy) ?? proxy);
   }
 
   // emptyConfig gives a scenario with an empty network. Each setting has the
@@ -987,7 +1052,7 @@
   }
 
   function setFleetCount(config, stationID, requested) {
-    const out = clone(config);
+    const out = frozenDrafts.has(config) ? { ...config } : clone(config);
     const station = out.network.Stations.find((item) => item.ID === stationID);
     if (!station) return config;
     const count = Math.max(0, Math.min(station.Berths.length, Math.floor(Number(requested) || 0)));
@@ -1088,7 +1153,7 @@
   // demand profiles, or with a demandProfiles value that is not an array, gets
   // only the pattern. The checks then report the missing profile.
   function setDemandPattern(config, pattern) {
-    const out = clone(config);
+    const out = frozenDrafts.has(config) ? { ...config, demand: { ...config.demand } } : clone(config);
     out.demand.pattern = pattern;
     const [first] = Array.isArray(out.demandProfiles) ? out.demandProfiles : [];
     if (pattern === "profile" && first) { out.demand.profile = first.id; out.demand.band = first.bands?.[0]?.id || ""; }
@@ -1575,7 +1640,7 @@
   function createCheckTimer(timer) {
     let waiting = null;
     const cancel = () => { if (waiting !== null) timer.clock.clearTimeout(waiting); waiting = null; };
-    const fire = () => { waiting = null; timer.run(); };
+    const fire = () => { waiting = null; (timer.scheduled || timer.run)(); };
     return {
       get waiting() { return waiting !== null; },
       schedule() { cancel(); waiting = timer.clock.setTimeout(() => { waiting = timer.clock.setTimeout(fire, timer.delay); }, 0); },
@@ -2106,16 +2171,23 @@
   // JSON copy of an entry copies only numbers and strings.
   function createHistory(initial, onChange) {
     let past = [];
-    let present = clone(initial);
+    let present = freezeDraft(clone(initial));
     let future = [];
     const changed = (checksUnchanged = false) => { if (onChange) onChange(checksUnchanged); return true; };
     return {
       get value() { return clone(present); },
+      get snapshot() { return present; },
+      edit(change) {
+        const scenario = editDraft(present.scenario, change);
+        if (scenario === present.scenario) return false;
+        past.push(present); present = freezeDraft({ ...present, scenario }); future = [];
+        return changed();
+      },
       get scenarioText() { return JSON.stringify(present.scenario); },
       get background() { return present.background ? clone(present.background) : null; },
       get canUndo() { return past.length > 0; },
       get canRedo() { return future.length > 0; },
-      // Internal snapshots never escape without a copy. A boolean edit can
+      // Shared snapshots are deeply frozen. A boolean edit can
       // share the unchanged graph while keeping previous entries intact.
       setOperatingFlag(name, value) {
         if (!["demandEnabled", "redistribution"].includes(name) || typeof value !== "boolean") throw new Error("Invalid operating flag.");
@@ -2124,26 +2196,26 @@
         const previous = enabled ? scenario.demand.enabled : scenario.redistribution;
         if (previous === value) return false;
         past.push(present);
-        present = { ...present, scenario: enabled
+        present = freezeDraft({ ...present, scenario: enabled
           ? { ...scenario, demand: { ...scenario.demand, enabled: value } }
-          : { ...scenario, redistribution: value } };
+          : { ...scenario, redistribution: value } });
         future = [];
         // Validation depends on the flag types, not their boolean values.
         return changed(typeof previous === "boolean");
       },
       replace(next, record) {
-        const serialized = JSON.stringify(next);
-        if (serialized === JSON.stringify(present)) return false;
-        if (record !== false) past.push(clone(present));
-        present = clone(next);
+        const owned = ownDraft(next, present);
+        if (owned === present) return false;
+        if (record !== false) past.push(present);
+        present = owned;
         future = [];
         return changed();
       },
       commitFrom(before, next) {
         if (JSON.stringify(before) === JSON.stringify(next)) return false;
-        past.push(clone(before)); present = clone(next); future = []; return changed();
+        past.push(ownDraft(before)); present = ownDraft(next, present); future = []; return changed();
       },
-      undo() { if (!past.length) return false; future.push(clone(present)); present = past.pop(); return changed(); },
+      undo() { if (!past.length) return false; future.push(present); present = past.pop(); return changed(); },
       // keys gives the image keys of the backgrounds of all entries: the
       // undo steps, the draft and the redo steps.
       keys() {
@@ -2154,8 +2226,8 @@
       // dropOldest removes the oldest undo step. It gives false when there
       // is no undo step. It is not a draft change, so onChange does not run.
       dropOldest() { if (!past.length) return false; past.shift(); return true; },
-      redo() { if (!future.length) return false; past.push(clone(present)); present = future.pop(); return changed(); },
-      reset(next) { past = []; present = clone(next); future = []; changed(); },
+      redo() { if (!future.length) return false; past.push(present); present = future.pop(); return changed(); },
+      reset(next) { past = []; present = freezeDraft(clone(next)); future = []; changed(); },
     };
   }
 
@@ -3158,7 +3230,7 @@
         background.opacity = opacity;
         own = true;
         let changed = false;
-        try { changed = history.replace({ scenario: history.value.scenario, background }, false); } finally { own = false; }
+        try { changed = history.replace({ scenario: history.snapshot.scenario, background }, false); } finally { own = false; }
         if (changed && gesture) gesture.changed = true;
         return changed;
       },
@@ -3593,13 +3665,22 @@
   if (typeof module !== "undefined" && module.exports) module.exports = API;
   root.PodsimEditorModel = API;
 
-  if (typeof document === "undefined") return;
+  if (typeof document === "undefined") {
+    if (typeof importScripts === "function") {
+      let config = {};
+      root.onmessage = ({ data }) => {
+        config = Object.fromEntries(data.keys.map((key) => [key, Object.hasOwn(data.patch, key) ? data.patch[key] : config[key]]));
+        root.postMessage({ id: data.id, results: checkResults(config) });
+      };
+    }
+    return;
+  }
 
   const $ = (selector) => document.querySelector(selector);
   const svgNS = "http://www.w3.org/2000/svg";
   // checks runs the checks CHECK_DELAY milliseconds after the last draft
   // change. The history schedules it for each change.
-  const checks = createCheckTimer({ delay: CHECK_DELAY, run: runValidation, clock: root });
+  const checks = createCheckTimer({ delay: CHECK_DELAY, run: runValidation, scheduled: scheduleValidation, clock: root });
   // model keeps the draft history with the images of its backgrounds, the
   // Reset draft baseline, the edit counter, the open gestures and the open
   // acquisition. Each draft change schedules both keepers. Changes that can
@@ -3722,7 +3803,7 @@
     tiles.setView({ ...state.view, width: rect.width, height: rect.height, geo: config.geo, opacity: config.map?.opacity, enabled });
   }
 
-  function draft() { return state.history.value.scenario; }
+  function draft() { return state.history.snapshot.scenario; }
   function setAttributes(element, attributes) {
     for (const [key, value] of Object.entries(attributes || {})) element.setAttribute(key, value);
     return element;
@@ -3732,7 +3813,7 @@
   function stationForNode(config, id) { const stationID = stationNodeOwners(config).get(id); return config.network.Stations.find((station) => station.ID === stationID); }
   function setDraft(next, record = true) { if (state.history.replace({ scenario: next, background: state.background }, record)) render(); }
   function setBackground(next, record = true) { if (state.history.replace({ scenario: draft(), background: next }, record)) render(); }
-  function mutate(change) { setDraft(change(draft())); }
+  function mutate(change) { if (state.history.edit(change)) render(); }
   function setOperatingFlag(name, value) {
     if (!state.history.setOperatingFlag(name, value)) return;
     if (state.drag && state.drag.working) { render(); return; }
@@ -3813,6 +3894,7 @@
   }
 
   function renderMap() {
+    drawnNetwork = null;
     const config = draft();
     const backgroundLayer = $("#backgroundLayer"); const laneLayer = $("#laneLayer"); const stationLayer = $("#stationLayer"); const stationLabelLayer = $("#stationLabelLayer"); const nodeLayer = $("#nodeLayer"); const handleLayer = $("#handleLayer");
     backgroundLayer.replaceChildren(); laneLayer.replaceChildren(); stationLayer.replaceChildren(); stationLabelLayer.replaceChildren(); nodeLayer.replaceChildren(); handleLayer.replaceChildren();
@@ -4057,9 +4139,10 @@
     const passenger = config.network.Stations.filter((station) => !station.ParkingOnly);
     for (const station of passenger) { const option = document.createElement("option"); option.value = station.ID; option.textContent = station.Name; select.append(option); }
     if (passenger.length && !passenger.some((station) => station.ID === demand.destination)) {
-      config.demand.destination = passenger[0].ID; state.history.replace({ scenario: config, background: state.background }, false);
+      const next = { ...config, demand: { ...demand, destination: passenger[0].ID } };
+      state.history.replace({ scenario: next, background: state.background }, false);
     }
-    select.value = config.demand.destination; $("#destinationLabel").hidden = demand.pattern !== "destination";
+    select.value = draft().demand.destination; $("#destinationLabel").hidden = demand.pattern !== "destination";
     const profiles = config.demandProfiles || []; const profileSelect = $("#demandProfile"); profileSelect.replaceChildren();
     for (const profile of profiles) { const option = document.createElement("option"); option.value = profile.id; option.textContent = profile.name; profileSelect.append(option); }
     profileSelect.value = demand.profile;
@@ -4075,15 +4158,21 @@
     $("#platoonLimit").value = String(config.platoonLimit);
   }
 
+  let drawnNetwork = null, drawnBackground = "", drawnSelection = "";
   function render() {
     // A render draws the draft from the history. It ends a drag of a working
     // copy, so that a pointer up cannot record that copy over a newer draft.
-    if (state.drag && state.drag.working) { state.drag = null; model.endDrag(); }
+    if (state.drag && state.drag.working) { state.drag = null; model.endDrag(); drawnNetwork = null; }
     state.background = state.history.background;
     const config = draft(); $("#scenarioName").value = config.name; $("#backgroundOpacity").value = state.background ? state.background.opacity : .45; $("#opacityValue").value = `${Math.round(Number($("#backgroundOpacity").value) * 100)}%`;
     $("#undoButton").disabled = !state.history.canUndo; $("#redoButton").disabled = !state.history.canRedo;
     $("#networkMap").dataset.tool = state.tool; $("#cancelLinkButton").hidden = !state.linkFrom;
-    renderTools(); renderMap(); renderSelection(); renderFleet(); renderDemand(); updatePrompt(); renderBackground(); renderApply();
+    renderTools();
+    const backgroundKey = JSON.stringify(state.background), selectionKey = JSON.stringify([state.selection, state.linkFrom, state.tool, state.calibrating, state.calibrationPoints]);
+    if (config.network !== drawnNetwork || backgroundKey !== drawnBackground || selectionKey !== drawnSelection) {
+      renderMap(); drawnNetwork = config.network; drawnBackground = backgroundKey; drawnSelection = selectionKey;
+    } else { renderTiles(); }
+    renderSelection(); renderFleet(); renderDemand(); updatePrompt(); renderBackground(); renderApply();
   }
 
   // displayURL gives the object URL of the image of background for the
@@ -4150,7 +4239,7 @@
   // renderApply last. It also disables the apply conflict actions while an
   // apply or a conflict action runs.
   function renderApply() {
-    const changed = Boolean(state.live) && state.history.scenarioText !== state.live.scenario;
+    const changed = Boolean(state.live) && !sameDraft(draft(), state.live.snapshot);
     const button = $("#applyButton"); button.disabled = state.applying || !changed;
     button.title = changed || state.applying ? "" : "The draft has no changes to apply.";
     $("#loadLiveButton").disabled = state.applying; $("#applyOverButton").disabled = state.applying;
@@ -4159,7 +4248,7 @@
   // setLive keeps the scenario of value as the live baseline, with the live
   // project revision.
   function setLive(value, revision) {
-    state.live = { scenario: JSON.stringify(value.scenario), revision };
+    state.live = { scenario: JSON.stringify(value.scenario), snapshot: ownDraft(value.scenario, draft()), revision };
     renderApply();
   }
 
@@ -4332,7 +4421,7 @@
       if (field && field.matches("input, select, textarea")) field.blur();
       // The drag changes a working copy of the draft and redraws only its
       // targets. The pointer up records the result in the history.
-      drag.working = draft(); drag.targets = dragTargets(drag.working, { type, id }); drag.moved = new Set(drag.targets.nodeIDs); drag.last = worldPoint(event);
+      drag.working = clone(draft()); drag.targets = dragTargets(drag.working, { type, id }); drag.moved = new Set(drag.targets.nodeIDs); drag.last = worldPoint(event);
     }
     state.drag = drag;
     $("#networkMap").setPointerCapture(event.pointerId);
@@ -4400,6 +4489,33 @@
   }
 
   function fitNetwork() { state.view = fitView(state.map.bounds, $("#networkMap").getBoundingClientRect()); setView(); }
+
+  let validationWorker = null, validationJob = null, validationID = 0, validationFailed = false, validationSent = {};
+  function scheduleValidation() {
+    if (validationFailed || typeof Worker === "undefined") { runValidation(); return; }
+    // Keep at most one worker job. Its completion schedules the latest draft.
+    if (validationJob) return;
+    try {
+      if (!validationWorker) {
+        validationWorker = new Worker("./editor.js");
+        validationWorker.onmessage = ({ data }) => {
+          const job = validationJob; validationJob = null;
+          if (job && job.id === data.id && job.config === draft()) showValidation(job.config, data.results);
+          else checks.schedule();
+        };
+        validationWorker.onerror = () => {
+          validationWorker.terminate(); validationWorker = null; validationJob = null; validationFailed = true; checks.schedule();
+        };
+      }
+      validationJob = { id: ++validationID, config: draft() };
+      const patch = {};
+      for (const key of Object.keys(validationJob.config)) if (validationJob.config[key] !== validationSent[key]) patch[key] = validationJob.config[key];
+      validationWorker.postMessage({ id: validationJob.id, keys: Object.keys(validationJob.config), patch });
+      validationSent = validationJob.config;
+    } catch (_) {
+      validationWorker?.terminate(); validationWorker = null; validationJob = null; validationFailed = true; runValidation();
+    }
+  }
 
   // runValidation checks the draft and shows the results. It gives the
   // errors. Use checks.run to run it, so that a scheduled run is canceled.

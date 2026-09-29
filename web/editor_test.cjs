@@ -5160,3 +5160,72 @@ test("each abort event of the page aborts the open acquisition, and each import 
     assert.match(source, new RegExp(event));
   }
 });
+
+test("history edits share unchanged data and isolate undo snapshots", () => {
+  const initial = { scenario: editor.fallbackConfig(), background: null };
+  const history = editor.createHistory(initial);
+  const before = history.snapshot;
+  assert.ok(Object.isFrozen(before.scenario.network.Nodes));
+  assert.ok(history.edit((config) => { config.demand.perMinute = 37; }));
+  assert.equal(history.snapshot.scenario.network, before.scenario.network);
+  assert.equal(before.scenario.demand.perMinute, initial.scenario.demand.perMinute);
+  assert.equal(history.snapshot.scenario.demand.perMinute, 37);
+  assert.equal(history.edit((config) => { config.demand.perMinute = 37; }), false);
+  const changed = history.snapshot;
+  assert.ok(history.undo()); assert.equal(history.snapshot, before);
+  assert.ok(history.redo()); assert.equal(history.snapshot, changed);
+  const copy = history.value; copy.scenario.demand.perMinute = 99;
+  assert.equal(history.snapshot.scenario.demand.perMinute, 37);
+  assert.ok(history.edit((config) => { config.network.Stations[0].Name = "Renamed"; }));
+  assert.equal(history.snapshot.scenario.network.Lanes, before.scenario.network.Lanes);
+  assert.equal(before.scenario.network.Stations[0].Name, initial.scenario.network.Stations[0].Name);
+});
+
+test("history replacement isolates external data and reuses unchanged branches", () => {
+  const history = editor.createHistory({ scenario: editor.fallbackConfig(), background: null });
+  const before = history.snapshot;
+  const next = history.value; next.scenario.name = "Changed";
+  assert.ok(history.replace(next));
+  assert.equal(history.snapshot.scenario.network, before.scenario.network);
+  next.scenario.name = "External edit";
+  assert.equal(history.snapshot.scenario.name, "Changed");
+  assert.equal(history.replace(history.value), false);
+  history.undo(); assert.equal(history.snapshot, before);
+});
+
+test("history owns shallow-frozen inputs and opacity undo entries", () => {
+  const history = editor.createHistory({ scenario: editor.fallbackConfig(), background: null });
+  const external = editor.fallbackConfig(); external.name = "External";
+  history.replace(Object.freeze({ scenario: external, background: null }));
+  external.name = "Changed outside";
+  assert.equal(history.snapshot.scenario.name, "External");
+  const before = history.value;
+  const next = history.value; next.scenario.name = "Gesture";
+  history.commitFrom(before, next); history.undo();
+  assert.ok(Object.isFrozen(history.snapshot.scenario.network.Nodes));
+  assert.equal(history.snapshot.scenario.name, "External");
+});
+
+test("history edits finalize nested assignments and array changes", () => {
+  const history = editor.createHistory({ scenario: editor.fallbackConfig(), background: null });
+  const before = history.snapshot;
+  history.edit(config => {
+    config.extra = { demand: config.demand };
+    config.fleet.push({ ID: "extra", StationID: "missing", BerthID: "missing" });
+  });
+  assert.ok(Object.isFrozen(history.snapshot.scenario.extra.demand));
+  assert.equal(history.snapshot.scenario.extra.demand, before.scenario.demand);
+  assert.equal(history.snapshot.scenario.fleet.length, before.scenario.fleet.length + 1);
+  history.undo(); assert.equal(history.snapshot, before);
+});
+
+test("history preserves own JSON keys without prototype setters", () => {
+  const history = editor.createHistory({ scenario: editor.fallbackConfig(), background: null });
+  const next = history.value;
+  next.scenario.extra = JSON.parse('{"__proto__":{"value":12}}');
+  history.replace(next);
+  const extra = history.snapshot.scenario.extra;
+  assert.equal(Object.getPrototypeOf(extra), Object.prototype);
+  assert.ok(Object.hasOwn(extra, "__proto__"));
+  assert.equal(extra.__proto__.value, 12);
+});
