@@ -107,6 +107,9 @@ type SavedPod struct {
 	// station to relocate to, a rebalancing pod, or a pod that is not
 	// traveling or departing empty.
 	Released bool `json:"released,omitzero"`
+	// StationBuffered preserves a pending or physical buffer membership.
+	// Only the version 3 restore contract accepts this flag.
+	StationBuffered bool `json:"stationBuffered,omitzero"`
 	// Route holds the lanes that the pod still needs. The route of a traveling
 	// pod starts at the first lane that can still hold a resource, and
 	// RouteIndex and Distance count from the start of that lane.
@@ -178,6 +181,9 @@ type RestoreStateInput struct {
 	State   SavedState
 	// LogicalOnly makes RestoreState skip the physical tier.
 	LogicalOnly bool
+	// StationBuffers selects the version 3 physical buffer contract.
+	// It does not enable new buffer admissions after restoration.
+	StationBuffers bool
 }
 
 // RestoreResult tells how RestoreState rebuilt the simulation.
@@ -301,7 +307,7 @@ func (s *Simulation) exportPod(v *vehicle, limits routeLimits) SavedPod {
 		Destination: v.destination.ID, DestinationStation: v.destinationStation,
 		ClaimsDestination: v.RelocatingTo != "" && v.destination.ID != "" &&
 			s.owners[resource{kind: berthResource, id: v.destination.ID}] == v.Pod.ID,
-		LaneID: v.Pod.LaneID, LaneDistance: v.Pod.LaneDistance, Waiting: v.pending >= 0, Released: v.released,
+		LaneID: v.Pod.LaneID, LaneDistance: v.Pod.LaneDistance, Waiting: v.pending >= 0, Released: v.released, StationBuffered: v.buffered,
 	}
 	for _, rider := range v.Riders {
 		pod.Riders = append(pod.Riders, SavedRequest(rider))

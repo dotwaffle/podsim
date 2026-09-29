@@ -22,8 +22,9 @@ const (
 	// release, an added optional member with a safe zero value keeps the
 	// version. Each other change to the members of the file needs a new
 	// version.
-	stateFormat  = "podsim-session"
-	stateVersion = 2
+	stateFormat        = "podsim-session"
+	stateVersion       = 2
+	bufferStateVersion = 3
 	// maxEpochBytes is the largest saved epoch.
 	maxEpochBytes = 100
 	// buildIDLength is the number of lowercase hex digits in a build ID.
@@ -120,7 +121,9 @@ var stateJSONLimits = jsonLimits{
 	},
 }
 
-// stateFile is version 2 of the saved session state. The file on disk is
+// stateFile holds versions 2 and 3 of the saved session state. Version 3
+// accepts explicit station buffer membership. Version 2 rejects that member.
+// The file on disk is
 // the JSON form of stateFile, compressed with gzip. Each change to a member,
 // also in the simulation and in the project, needs a new version. Until the
 // first release, an added optional member with a safe zero value is an
@@ -298,18 +301,44 @@ func decodeStateFile(data []byte) (stateFile, error) {
 	if err := json.Unmarshal(raw, &header); err != nil {
 		return stateFile{}, invalidState(fmt.Errorf("decode session state header: %w", err))
 	}
-	if header.Format != stateFormat || header.Version != stateVersion {
+	if header.Format != stateFormat || header.Version != stateVersion && header.Version != bufferStateVersion {
 		return stateFile{}, &stateError{
 			reason: reasonUnsupportedVersion,
 			err: fmt.Errorf("session state format %.20q version %d is not %q version %d",
 				header.Format, header.Version, stateFormat, stateVersion),
 		}
 	}
+	options := strictStateOptions
+	if header.Version == stateVersion {
+		options = json.JoinOptions(options, json.WithUnmarshalers(json.JoinUnmarshalers(
+			json.UnmarshalFromFunc(decodeSavedProject), json.UnmarshalFromFunc(decodeV2Pod))))
+	}
 	var file stateFile
-	if err := json.Unmarshal(raw, &file, strictStateOptions); err != nil {
+	if err := json.Unmarshal(raw, &file, options); err != nil {
 		return stateFile{}, invalidState(fmt.Errorf("decode session state: %w", err))
 	}
 	return file, nil
+}
+
+// decodeV2Pod rejects the version 3 member even when its value is false.
+func decodeV2Pod(decoder *jsontext.Decoder, pod *sim.SavedPod) error {
+	type legacyPod sim.SavedPod
+	var saved struct {
+		legacyPod
+		Buffer jsontext.Value `json:"stationBuffered"`
+	}
+	value, err := decoder.ReadValue()
+	if err != nil {
+		return err
+	}
+	if err := json.Unmarshal(value, &saved, json.RejectUnknownMembers(true)); err != nil {
+		return err
+	}
+	if saved.Buffer != nil {
+		return errors.New("version 2 pod contains stationBuffered")
+	}
+	*pod = sim.SavedPod(saved.legacyPod)
+	return nil
 }
 
 // decompressState returns the JSON form of a state file. It reads at most

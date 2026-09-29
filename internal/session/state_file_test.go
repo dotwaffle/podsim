@@ -698,7 +698,7 @@ func TestStateFileWorstCaseSize(t *testing.T) {
 		ID: id("p", 0), Activity: "continuing", StationID: id("s", 0), BerthID: id("b", 0),
 		Occupied: true, Riders: riders, Stops: stops, RiddenMeters: -math.MaxFloat64, JourneyOrigin: id("j", 0), RelocatingTo: id("r", 0),
 		Rebalancing: true, RebalanceAfter: widest, PhaseTicks: widest, Origin: id("o", 0),
-		Destination: id("d", 0), DestinationStation: id("e", 0), ClaimsDestination: true, Released: true,
+		Destination: id("d", 0), DestinationStation: id("e", 0), ClaimsDestination: true, Released: true, StationBuffered: true,
 		Route: route(lanes + nodes), RouteIndex: widest, LaneID: id("l", 0),
 		LaneDistance: -math.MaxFloat64, Distance: -math.MaxFloat64, Waiting: true, WaitSince: widest,
 		Platoon: &sim.SavedPlatoonLink{
@@ -753,15 +753,25 @@ func TestStateFileWorstCaseSize(t *testing.T) {
 	// an array, so each other pod or trip adds its size and 1.
 	unrouted := trip
 	unrouted.Route = nil
-	size := jsonSize(t, file) + (maxSavedPods-1)*(jsonSize(t, pod)+1) + (maxSavedPods-1)*(jsonSize(t, trip)+1) +
-		(maxSavedTrips-maxSavedPods)*(jsonSize(t, unrouted)+1)
-	t.Logf("worst case: %d JSON bytes, limit %d", size, MaxStateBytes)
-	if size > MaxStateBytes {
-		t.Fatalf("the largest state has %d JSON bytes, more than %d", size, MaxStateBytes)
+	for _, version := range []int{stateVersion, bufferStateVersion} {
+		t.Run(strconv.Itoa(version), func(t *testing.T) {
+			t.Parallel()
+			maxFile, maxPod := file, pod
+			maxFile.Version = version
+			maxPod.StationBuffered = version == bufferStateVersion
+			maxFile.Simulation.Pods = []sim.SavedPod{maxPod}
+			size := jsonSize(t, maxFile) + (maxSavedPods-1)*(jsonSize(t, maxPod)+1) + (maxSavedPods-1)*(jsonSize(t, trip)+1) +
+				(maxSavedTrips-maxSavedPods)*(jsonSize(t, unrouted)+1)
+			t.Logf("worst case: %d JSON bytes, limit %d", size, MaxStateBytes)
+			if size > MaxStateBytes {
+				t.Fatalf("the largest state has %d JSON bytes, more than %d", size, MaxStateBytes)
+			}
+			if _, err := decodeCheckedState(encodeTestState(t, maxFile)); err != nil {
+				t.Fatal(err)
+			}
+		})
 	}
-	if _, err := decodeCheckedState(encodeTestState(t, file)); err != nil {
-		t.Fatal(err)
-	}
+
 }
 
 // jsonSize returns the size of the state file encoding of value.
@@ -828,7 +838,8 @@ func TestEncodeStateFileTooLarge(t *testing.T) {
 // version. Run the test with -update to write the member list again.
 func TestStateFileMembers(t *testing.T) {
 	t.Parallel()
-	got := stateMembers(t, "", reflect.TypeFor[stateFile](), nil)
+	legacy := withoutMember(reflect.TypeFor[stateFile](), reflect.TypeFor[sim.SavedPod](), "stationBuffered")
+	got := stateMembers(t, "", legacy, nil)
 	if *update {
 		if err := os.WriteFile(stateMembersPath, []byte(stateMembersHeader+strings.Join(got, "\n")+"\n"), 0o600); err != nil {
 			t.Fatal(err)

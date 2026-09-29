@@ -256,6 +256,18 @@ It reports them as unaccounted orders at each restore, together with the orders 
 - `empty`: The server does not use the saved state and starts a new session.
   Except after a read failure, it moves `session.json.gz` to a rejected file.
 
+Ordinary sessions write saved-state version 2.
+An experimental station buffer session writes version 3 while admissions are enabled or buffer members remain.
+This server accepts both versions.
+Version 3 adds the optional pod field `stationBuffered` and permits validated berthless occupancy of a station holding lane.
+Restore keeps those members draining but does not enable new buffer admissions.
+Version 2 rejects the field, including an explicit `false` value.
+The writer returns to version 2 after buffers are disabled and all members drain.
+An older server rejects version 3 with `unsupported_version` and moves the file aside.
+Keep a copy before a downgrade.
+See the [station buffer contract](station-buffer-state-proposal.md) for the experimental limits.
+Project files, commands, and WebSocket frames retain their existing formats.
+
 The reason for an `empty` start is `project_changed`, `unsupported_version`, `invalid_state`, `too_large`, `restore_loop`, or `unreadable`.
 `too_large` means more than 80 MiB, compressed or decompressed.
 A file with another format version gets `unsupported_version`.

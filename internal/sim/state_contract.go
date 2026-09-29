@@ -260,6 +260,9 @@ func checkPodFlags(pod SavedPod, rule phaseRule) error {
 	// release, so the contract does not check it.
 	relocation := pod.RelocatingTo != "" || pod.Rebalancing || pod.ClaimsDestination
 	switch {
+	case pod.StationBuffered && (pod.Destination != "" || pod.Rebalancing ||
+		pod.Activity != "traveling" && pod.Activity != "boarding" && pod.Activity != "continuing"):
+		return errors.New("the station buffer flag does not agree with the phase")
 	case pod.Occupied != rule.occupied:
 		return fmt.Errorf("occupied is %t", pod.Occupied)
 	case pod.PhaseTicks < rule.minPhase || pod.PhaseTicks > rule.maxPhase:

@@ -68,7 +68,8 @@ type physicalRestore struct {
 	requeued     []waitingTrip
 	// leaders holds one plus the index of the saved predecessor of each
 	// pod, or 0.
-	leaders []int
+	leaders        []int
+	stationBuffers bool
 }
 
 // restorePhysical rebuilds a running simulation with each pod where the saved
@@ -93,6 +94,7 @@ func restorePhysical(input RestoreStateInput, newFleet func() (*Simulation, erro
 		return nil, RestoreResult{}, err
 	}
 	r := newPhysicalRestore(s, input.State)
+	r.stationBuffers = input.StationBuffers
 	r.restoreCounters()
 	if err := r.decodePods(); err != nil {
 		return nil, RestoreResult{}, err
@@ -485,6 +487,7 @@ func (r *physicalRestore) demote(index int) {
 	r.demoted[index] = true
 	r.cost -= r.costs[index]
 	r.costs[index], r.routes[index] = 0, nil
+	v.buffered, v.bufferBerth = false, ""
 	v.replaceRoute(nil)
 	v.blocks, v.routeLengths, v.blockStarts, v.terminal = blockList{}, nil, nil, terminalCheck{}
 	maps.DeleteFunc(r.s.owners, func(_ resource, owner string) bool { return owner == v.Pod.ID })
@@ -513,6 +516,16 @@ func (r *physicalRestore) buildRoutes() error {
 			continue
 		}
 		r.s.setVehicleRoute(v, route)
+		if r.state.Pods[index].StationBuffered {
+			_, eligible := r.s.bufferPlan(v)
+			pickup := slices.ContainsFunc(r.state.Waiting, func(trip SavedTrip) bool {
+				return trip.Request.PodID == v.Pod.ID && trip.Request.From == v.destinationStation
+			})
+			if !r.stationBuffers || !eligible || !v.carriesPassengers() && !pickup && !v.released && v.Pod.Activity != Boarding && v.Pod.Activity != Continuing {
+				return fmt.Errorf("pod %s: invalid station buffer membership", v.Pod.ID)
+			}
+			v.buffered = true
+		}
 	}
 	return nil
 }
@@ -744,7 +757,12 @@ func (r *physicalRestore) placeTravelingPod(index, leader int) (bool, error) {
 	}
 	// A pod that has no berth yet chooses one before it reserves the last lane.
 	if lastLane, _ := routeLaneBlocks(&v.blocks, len(v.Route)-1); v.destination.ID == "" && through >= lastLane {
-		return false, nil
+		plan, ok := r.s.bufferPlan(v)
+		if !r.stationBuffers || !v.buffered || !ok || leader >= 0 || through > plan.frontier || distance > v.blocks.end(plan.frontier)+restoreTolerance {
+			return false, nil
+		}
+		through = max(through, plan.entryStop)
+		v.buffered = true
 	}
 	v.distance, v.blockIndex = distance, current
 	footprint := v.footprint(through, distance)

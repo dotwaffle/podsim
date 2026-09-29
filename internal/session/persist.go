@@ -490,7 +490,7 @@ func (s *Session) loadState(input loadInput) (loaded loadedState, err error) {
 		return loaded, invalidState(err)
 	}
 	loaded.simulation, loaded.result, err = input.steps.restoreSimulation(sim.RestoreStateInput{
-		Network: loaded.config.Network, Fleet: loaded.config.Fleet, State: file.Simulation, LogicalOnly: loaded.logicalOnly,
+		Network: loaded.config.Network, Fleet: loaded.config.Fleet, State: file.Simulation, LogicalOnly: loaded.logicalOnly, StationBuffers: file.Version == bufferStateVersion,
 	})
 	if err != nil {
 		return loaded, invalidState(err)
@@ -768,6 +768,9 @@ func (s *Session) captureState(kind SaveKind) (stateFile, bool, error) {
 		Demand:     savedDemand{State: s.demand.state, Random: random, Budget: s.demand.budget},
 		Simulation: s.simulation.ExportState(),
 		Project:    s.project,
+	}
+	if s.simulation.NeedsBufferState() {
+		file.Version = bufferStateVersion
 	}
 	// A restore rejects a file with a build of another form.
 	if isBuildID(s.build) {

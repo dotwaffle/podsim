@@ -252,7 +252,7 @@ var (
 	invalidBudget  = func(file *stateFile) { file.Demand.Budget = demandBudgetLimit }
 	invalidProject = func(file *stateFile) { file.Project.Name = "" }
 	bothTiersFail  = func(file *stateFile) { file.Simulation.Completed = file.Simulation.RequestID + 1 }
-	newerVersion   = func(file *stateFile) { file.Version = stateVersion + 1 }
+	newerVersion   = func(file *stateFile) { file.Version = bufferStateVersion + 1 }
 	pausedAtSpeed4 = func(file *stateFile) { file.Simulation.Paused, file.Speed = true, 4 }
 	// sharedBerth puts the first two pods at one berth. The physical tier
 	// then fails. The active riders of the two pods go to the queue, so the

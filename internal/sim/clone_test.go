@@ -182,7 +182,7 @@ var persistRules = map[reflect.Type]map[string]persistRule{
 		"recordExperiments": persistUnsupported, "pass": persistReset,
 		"platooning": persistSession, "platoonLimit": persistSession, "platoonLinks": persistDerive,
 		"platoonData": persistDerive, "platoonOrder": persistReset, "platoonAhead": persistReset,
-		"platoonLanes": persistReset,
+		"platoonLanes": persistReset, "stationBuffers": persistUnsupported,
 	},
 	reflect.TypeFor[vehicle](): {
 		"Vehicle": persistSave, "phaseTicks": persistSave, "blocks": persistDerive, "blockStarts": persistDerive,
@@ -191,6 +191,7 @@ var persistRules = map[reflect.Type]map[string]persistRule{
 		"waitSince":      persistSave,
 		"rebalanceAfter": persistSave, "origin": persistSave, "destination": persistSave,
 		"destinationStation": persistSave, "released": persistSave, "terminal": persistReset,
+		"buffered": persistSave, "bufferBerth": persistReset,
 		"routeVersion": persistReset, "routeLengths": persistDerive, "link": persistSave, "follower": persistDerive, "platoonCap": persistReset,
 	},
 	reflect.TypeFor[Vehicle](): {

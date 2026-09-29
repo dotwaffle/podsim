@@ -1,6 +1,8 @@
 # Station approach buffer proposal
 
-Status: design for review. No buffer controller is implemented.
+Status: original design, superseded by the approved [version 3 contract](station-buffer-state-proposal.md).
+The experimental controller keeps new admissions off by default and excludes station-entry platoons.
+The platoon discussion below describes future work, not the implemented controller.
 
 ## Problem and first case
 

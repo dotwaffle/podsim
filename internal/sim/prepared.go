@@ -139,9 +139,10 @@ func (p *PreparedNetwork) newFleet(placements []Placement) *Simulation {
 // PreparedRestoreInput supplies the fleet and saved state for a prepared network.
 // The network must be the one that the saved simulation used.
 type PreparedRestoreInput struct {
-	Fleet       []Placement
-	State       SavedState
-	LogicalOnly bool
+	Fleet          []Placement
+	State          SavedState
+	LogicalOnly    bool
+	StationBuffers bool
 }
 
 // RestoreState rebuilds a simulation with this network's immutable geometry.
@@ -151,6 +152,6 @@ func (p *PreparedNetwork) RestoreState(input PreparedRestoreInput) (*Simulation,
 	if err := p.check(); err != nil {
 		return nil, RestoreResult{}, err
 	}
-	stateInput := RestoreStateInput{Network: p.network, Fleet: input.Fleet, State: input.State, LogicalOnly: input.LogicalOnly}
+	stateInput := RestoreStateInput{Network: p.network, Fleet: input.Fleet, State: input.State, LogicalOnly: input.LogicalOnly, StationBuffers: input.StationBuffers}
 	return restoreState(stateInput, func() (*Simulation, error) { return p.NewFleet(input.Fleet) })
 }

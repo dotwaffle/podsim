@@ -443,10 +443,14 @@ type intent struct {
 	index, block int
 	since        int64
 	priority     int
+	through      int
 	id           string
 }
 
 func (s *Simulation) setVehicleRoute(v *vehicle, route []Lane) {
+	if v.buffered && (len(route) == 0 || len(v.Route) == 0 || route[len(route)-1].ID != v.Route[len(v.Route)-1].ID) {
+		v.buffered, v.bufferBerth = false, ""
+	}
 	v.replaceRoute(route)
 	v.blocks, v.routeLengths = s.routeBlocks(route)
 	v.blockStarts = indexBlockStarts(&v.blocks, len(route))
@@ -567,7 +571,21 @@ func compareAdmission(a, b intent, tick int64) int {
 // resource passes to the follower when that pod releases it.
 func (s *Simulation) grant(in intent) {
 	v := &s.vehicles[in.index]
-	through := reservationEnd(&v.blocks, in.block)
+	through := max(reservationEnd(&v.blocks, in.block), in.through)
+	if v.buffered && v.destination.ID == "" {
+		plan, ok := s.bufferPlan(v)
+		if !ok {
+			v.Pod.WaitReason = BerthOccupied
+			return
+		}
+		if through >= plan.first {
+			through = max(through, plan.entryStop)
+		}
+		if through > plan.frontier {
+			s.grantBufferedHead(in, plan)
+			return
+		}
+	}
 	coupled := v.link.leader != 0 && s.coupledSpan(v, in.block, through)
 	if v.link.leader != 0 && !coupled && s.holdsPending(v) {
 		// A follower that holds a cell of a pod ahead can be as far
@@ -701,6 +719,11 @@ func (s *Simulation) move(v *vehicle) {
 	for v.distance >= current.end {
 		if v.blockIndex+1 == blocks.len() {
 			s.recordLaneEntries(v, entered, current.lane)
+			if v.destination.ID == "" {
+				v.Pod.Speed = 0
+				v.Pod.WaitReason = BerthOccupied
+				return
+			}
 			s.arrive(v)
 			return
 		}
