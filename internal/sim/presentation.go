@@ -36,6 +36,7 @@ func (s *Simulation) PresentationSnapshot() (Snapshot, []RoutePresentation, erro
 		nodes[node.ID] = i
 	}
 	routes := make([]RoutePresentation, len(s.vehicles))
+	var seen []bool
 	for i := range s.vehicles {
 		v := &s.vehicles[i]
 		if v.routeVersion == ^uint64(0) {
@@ -64,7 +65,11 @@ func (s *Simulation) PresentationSnapshot() (Snapshot, []RoutePresentation, erro
 			end := min(len(v.Route), start+MotionRouteLimit)
 			route.Start, route.Current = uint64(start), uint64(current)
 			route.Before, route.After = start > 0, end < len(v.Route)
-			seen := make([]bool, len(lanes))
+			if seen == nil {
+				seen = make([]bool, len(lanes))
+			} else {
+				clear(seen)
+			}
 			for j, lane := range v.Route {
 				index, ok := lanes[lane.ID]
 				if !ok {

@@ -1,6 +1,7 @@
 package sim
 
 import (
+	"fmt"
 	"reflect"
 	"slices"
 	"testing"
@@ -75,5 +76,63 @@ func TestPresentationIdentityExhaustion(t *testing.T) {
 	}
 	if _, _, err := s.PresentationSnapshot(); err == nil {
 		t.Fatal("exhausted identity accepted")
+	}
+}
+
+func TestPresentationVehicleMarksAreIndependent(t *testing.T) {
+	t.Parallel()
+	s := newExample(t)
+	s.vehicles = slices.Repeat(s.vehicles, 4)
+	a, b := s.network.Lanes[0], s.network.Lanes[1]
+	inputs := [][]Lane{{a, a, b}, {b, a, b}, nil, {a}}
+	for i, route := range inputs {
+		s.setVehicleRoute(&s.vehicles[i], route)
+		s.vehicles[i].Pod.LaneID = ""
+	}
+	for range 2 {
+		_, routes, err := s.PresentationSnapshot()
+		if err != nil {
+			t.Fatal(err)
+		}
+		expected := [][]int{{0, 1}, {0, 1}, nil, {0}}
+		for i, want := range expected {
+			if !slices.Equal(routes[i].Display, want) {
+				t.Fatalf("vehicle %d display = %v, want %v", i, routes[i].Display, want)
+			}
+		}
+		routes[0].Display[0] = -1
+		if routes[1].Display[0] != 0 {
+			t.Fatal("vehicle displays share storage")
+		}
+	}
+}
+
+func BenchmarkPresentationFleet(b *testing.B) {
+	for _, size := range []int{1, 300} {
+		b.Run(fmt.Sprintf("vehicles-%d", size), func(b *testing.B) {
+			s, err := New(Example(), "harbor")
+			if err != nil {
+				b.Fatal(err)
+			}
+			route := slices.Repeat(s.network.Lanes[:2], 32)
+			// Extra lanes size the presentation index without changing the route.
+			for len(s.network.Lanes) < 8000 {
+				lane := s.network.Lanes[0]
+				lane.ID = fmt.Sprintf("extra-%d", len(s.network.Lanes))
+				s.network.Lanes = append(s.network.Lanes, lane)
+			}
+			s.vehicles = slices.Repeat(s.vehicles, size)
+			for i := range s.vehicles {
+				s.setVehicleRoute(&s.vehicles[i], route)
+				s.vehicles[i].Pod.LaneID = ""
+			}
+			b.ReportAllocs()
+			b.ResetTimer()
+			for b.Loop() {
+				if _, _, err := s.PresentationSnapshot(); err != nil {
+					b.Fatal(err)
+				}
+			}
+		})
 	}
 }
