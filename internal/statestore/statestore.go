@@ -75,7 +75,8 @@ type Store struct {
 
 var _ session.StateStore = (*Store)(nil)
 
-// Open opens the store at rawURL.
+// Open opens the store at rawURL, a trusted server configuration value.
+// The caller must not take rawURL from a browser request or project file.
 //
 // A file:// URL needs an empty host and an absolute path. Its only query
 // parameter is prefix, a key prefix. prefix=podsim/ puts the files in the
@@ -238,7 +239,7 @@ func notPrefixRune(r rune) bool {
 // deepest parent of dir that exists.
 func existingAncestor(dir string) string {
 	for {
-		_, err := os.Lstat(dir)
+		_, err := os.Lstat(dir) // #nosec G703 -- Inspect the administrator-selected root and its parents.
 		parent := filepath.Dir(dir)
 		if !errors.Is(err, fs.ErrNotExist) || parent == dir {
 			return dir
@@ -460,7 +461,7 @@ func (s *Store) syncDirs(key string) error {
 
 // syncDirectory makes the entries of dir durable.
 func syncDirectory(dir string) error {
-	file, err := os.Open(filepath.Clean(dir))
+	file, err := os.Open(filepath.Clean(dir)) // #nosec G703 -- Sync the configured root, checked prefix, and internal key parents.
 	if err != nil {
 		return err
 	}
