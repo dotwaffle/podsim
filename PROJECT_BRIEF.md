@@ -38,10 +38,15 @@ The renderer batches station summaries, and presentation snapshots reuse call-lo
 The restore and rendering optimizations preserve simulation behavior and existing protocol semantics.
 
 Sharing remains off by default.
-The sharing screens still have failed adoption rules, while larger pods and congestion-aware routing remain parked.
+The opt-in `reassign-existing` join policy and guarded-positioning follow-up still fail adoption rules.
+These results do not reverse the earlier adoption of the drop-offs mode when sharing is enabled.
+Larger pods and congestion-aware routing remain parked.
 Local Chromium software-rendering checks cover the viewer, editor, and high-latency streams.
-Firefox native gzip checks pass, but this host lacks Firefox WebGL2 and WebKit libraries.
-Physical GPUs, Safari devices, and an actual Fly deployment remain unqualified.
+Desktop Chrome is the required browser for current development.
+Firefox and Safari validation are not required.
+The simulator currently runs on the local machine.
+Fly deployment and hosted-origin validation are deferred until release preparation.
+Software-rendering measurements do not establish physical-GPU performance.
 
 This document records the project direction, initial feature scope, architecture, effort estimates, and research.
 The initial scope and policies were the starting point for implementation planning.
@@ -325,32 +330,35 @@ Status notes record the parts that Podsim now implements.
 
 ### Geographic map import
 
-Allow the user to select an area of a real location and import it directly as a map background.
-OpenStreetMap is a candidate source, not a selected integration provider.
+The editor supports local georeferenced images and an optional Overpass adapter for OSM schematic backgrounds.
+The adapter takes a user-selected HTTPS endpoint and geographic bounds.
+The browser requests bounded raw geometry and draws an attributed background image.
+It does not download rendered map tiles or convert streets into pod guideways.
 
-The intended workflow is:
+The current workflow is:
 
-1. Find a location on a map.
-2. Draw a rectangle around the area to use.
-3. Import the background with its geographic bounds and automatic scale.
-4. Draw the pod network over that background.
+1. Enter the endpoint and geographic bounds in the editor.
+2. Import the schematic background and inspect any omitted-geometry diagnostics.
+3. Draw the pod network over the background.
 
-Preserve the geographic bounds and coordinate transformation with the project.
-Convert geographic coordinates into local world units with an appropriate map projection.
-This avoids manual screenshot measurement while keeping simulation distances independent of display pixels.
-Retain manual scale calibration for ordinary image files without geographic metadata.
+Projects retain the bounds, coordinate frame, source, and attribution through save, export, and undo.
+Ordinary image files still support manual scale calibration.
+Incomplete or ambiguous geometry is omitted with diagnostics.
+Malformed or oversized responses reject the import without changing the draft.
+There is no default provider, server proxy, automatic retry, locator map, or geocoder.
 
-OpenStreetMap distinguishes [raw geographic data exports from rendered map images](https://wiki.openstreetmap.org/wiki/Export).
-Start by studying a rendered background with geographic metadata.
-Importing streets and buildings as editable geographic objects would be a separate extension.
-Imported streets do not automatically become pod guideways.
-Aerial imagery would require a separate imagery source.
+Local synthetic, browser, and mutation tests passed.
+The first small public-provider probe returned HTTP 504, so validation stopped before the larger queries.
+This leaves public-service availability unqualified, not a demonstrated importer defect.
+A new bounded probe requires a separate request budget.
+See [georeferenced backgrounds](README.md#georeferenced-background) for the current controls and limits.
 
-Choose a source that supports the intended area export and saved-project use, and preserve its attribution.
-The public OSM tile endpoint is not a bulk or offline export service, as its [tile usage policy](https://operations.osmfoundation.org/policies/tiles/) explains.
-Provider choice, export limits, and any hosting needs remain implementation decisions for this later feature.
+Location search and drawing an import rectangle on a locator map remain possible UI extensions.
+Editable geographic objects, automatic guideway generation, and aerial imagery require separate designs.
+Users must choose a provider that permits their intended requests and saved-project use.
+The adapter preserves attribution and export notices but does not supply a provider agreement.
 
-**Status:** LondonCentral provides the central geographic qualification network without a network-backed map importer.
+**London presets:** LondonCentral supplies a generated geographic network independently of the background importer.
 It uses a normalized TfL topology snapshot for 96 passenger stations, their real names and locations, and 127 unique adjacencies.
 The preset adds twin directed guideways, off-line berths, and three Parking facilities.
 The local projection uses meters.
@@ -373,7 +381,9 @@ The optional Overpass adapter supplies schematic backgrounds.
 Automatic guideway generation and editable OSM vectors remain future work.
 Local georeferenced image import is implemented and preserves frame and attribution data.
 LondonFull is a separate generated preset with 269 passenger sites and 2024 endpoint demand.
-Its demo trials are separate from the LondonCentral capacity envelope above.
+Its [302-arm study](docs/london-full.md#finite-arrival-study-september-29-2026) used 60 minutes of arrivals and up to 60 minutes to recover.
+No fleet candidate met the all-ten recovery criterion at its next tested rate.
+These finite tests do not establish sustainable capacity or replace the LondonCentral measurements above.
 
 Explicit separation groups distinguish unrelated grade-separated paths.
 Directional portals retain geometric checks at real diverges and merges.

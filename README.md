@@ -26,8 +26,13 @@ mise run serve
 
 Open <http://127.0.0.1:8080> in desktop Chrome.
 Keep the server running while you use the application.
+Desktop Chrome is the current browser target.
+Firefox and Safari validation are not required.
+Current development uses a local server.
+Hosted deployment checks are release-stage work.
 
 The first build downloads Go dependencies.
+See [dependency review notes](docs/dependencies.md) for the recorded gRPC advisory discrepancy and state-store lint annotations.
 The build creates static files in `dist/`, including the matching Go WebAssembly runtime and the gzip WASM file `podsim.wasm.gz`.
 
 The network view fills the browser window and renders at the display pixel density.
