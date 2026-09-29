@@ -4,6 +4,7 @@ package main
 import (
 	"crypto/sha256"
 	"encoding/json"
+	jsonv2 "encoding/json/v2"
 	"errors"
 	"flag"
 	"fmt"
@@ -71,6 +72,10 @@ func run(arguments []string, stdout, stderr io.Writer) error {
 	if validateErr := project.Validate(config); validateErr != nil {
 		return fmt.Errorf("validate %s preset: %w", *preset, validateErr)
 	}
+	data, err := scenarioJSON(config, project.MaxFileBytes)
+	if err != nil {
+		return err
+	}
 	destination := stdout
 	var file *os.File
 	if *output != "" {
@@ -86,9 +91,7 @@ func run(arguments []string, stdout, stderr io.Writer) error {
 		destination = file
 	}
 	counter := &countingWriter{writer: destination}
-	encoder := json.NewEncoder(counter)
-	encoder.SetIndent("", "  ")
-	if err := encoder.Encode(config); err != nil {
+	if _, err := counter.Write(data); err != nil {
 		return fmt.Errorf("write scenario: %w", err)
 	}
 	if file != nil {
@@ -98,6 +101,25 @@ func run(arguments []string, stdout, stderr io.Writer) error {
 		file = nil
 	}
 	return writeSummary(stderr, *preset, config, counter.count)
+}
+
+// scenarioJSON keeps indented output when it fits the project file limit.
+// Larger projects use the same compact encoding as project validation.
+func scenarioJSON(config project.Config, limit int) ([]byte, error) {
+	data, err := json.MarshalIndent(config, "", "  ")
+	if err != nil {
+		return nil, fmt.Errorf("encode scenario: %w", err)
+	}
+	if len(data)+1 > limit {
+		data, err = jsonv2.Marshal(config, jsonv2.Deterministic(true))
+		if err != nil {
+			return nil, fmt.Errorf("encode compact scenario: %w", err)
+		}
+	}
+	if len(data)+1 > limit {
+		return nil, fmt.Errorf("scenario JSON has %d bytes, limit %d", len(data)+1, limit)
+	}
+	return append(data, '\n'), nil
 }
 
 // presetConfig returns the named preset with the capacity flags.

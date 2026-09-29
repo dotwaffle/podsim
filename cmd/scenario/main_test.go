@@ -199,3 +199,55 @@ func TestRunRejectsBadCapacityFlags(t *testing.T) {
 		})
 	}
 }
+
+func TestScenarioJSONFitsFileLimit(t *testing.T) {
+	t.Parallel()
+	config := project.Default()
+	pretty, err := json.MarshalIndent(config, "", "  ")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, test := range []struct {
+		name                    string
+		limit                   int
+		wantIndented, wantError bool
+	}{
+		{name: "exact indented bound", limit: len(pretty) + 1, wantIndented: true},
+		{name: "compact fallback", limit: len(pretty)},
+		{name: "cannot fit", limit: 1, wantError: true},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			data, err := scenarioJSON(config, test.limit)
+			if test.wantError {
+				if err == nil {
+					t.Fatal("accepted oversized output")
+				}
+				return
+			}
+			if err != nil {
+				t.Fatal(err)
+			}
+			if len(data) > test.limit || !bytes.HasSuffix(data, []byte{'\n'}) {
+				t.Fatal("output exceeds the limit or lacks its final newline")
+			}
+			if got := bytes.Contains(data, []byte("\n  ")); got != test.wantIndented {
+				t.Fatalf("indented = %t, want %t", got, test.wantIndented)
+			}
+			var decoded project.Config
+			if err := json.Unmarshal(data, &decoded); err != nil {
+				t.Fatal(err)
+			}
+			want, err := json.Marshal(config)
+			if err != nil {
+				t.Fatal(err)
+			}
+			got, err := json.Marshal(decoded)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if !bytes.Equal(got, want) {
+				t.Fatal("output changed the project")
+			}
+		})
+	}
+}
