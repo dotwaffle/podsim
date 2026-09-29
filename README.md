@@ -286,9 +286,10 @@ See [the London qualification network](docs/london.md) for these rules.
 
 - Use **Pause**, **Resume**, **Reset**, and **Speed** to control playback.
 - **Speed** cycles through 1x, 2x, 5x, 15x, and 60x.
-  If achieved speed averages below 90% of the selected speed over three wall-clock seconds, the server selects the next lower speed.
+  The server tracks five rolling one-second buckets.
+  If at least two complete buckets achieve less than 90% of selected speed, it selects the next lower speed.
   A notice explains the reduction.
-  Each reduction starts a new three-second measurement window.
+  Each reduction starts a new five-second measurement window.
   Pauses and project loads do not count toward this window.
   The server never increases speed automatically.
 - A paused simulation accepts and assigns requests but does not advance until you resume it.

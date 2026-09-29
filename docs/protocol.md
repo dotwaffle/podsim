@@ -51,12 +51,16 @@ Frames from a closed connection cannot replace the current view.
 Playback uses fixed simulation steps, including at 60x.
 The live clock releases its session lock after eight steps or four milliseconds, whichever occurs first.
 A single simulation step is indivisible and can exceed that time budget.
-The server measures completed steps over three wall-clock seconds.
-If achieved speed is below 90% of selected speed, it selects the next lower value from 1, 2, 5, 15, and 60.
+The server measures completed steps in five rolling one-second buckets.
+After five complete buckets, it reduces speed if at least two achieved less than 90% of the selected speed.
+It selects the next lower value from 1, 2, 5, 15, and 60.
 Legacy 4x and 8x reduce to 2x and 5x respectively.
 It never reduces below 1x or increases speed automatically.
 Each measurement window starts fresh after a reduction, pause, speed command, reset, demo, project apply, or rewind.
-No simulation steps are skipped to catch up with wall time.
+Missed timer wakes accumulate at most 250 milliseconds of wall-time debt.
+Each wake spends at most 20 milliseconds on catch-up, apart from an indivisible step.
+Excess wall-time debt is discarded.
+No simulation steps are skipped.
 
 HTTP state frames and stream state carry optional `speedReduction` with `sequence`, `from`, and `to` members.
 The sequence increases for each automatic reduction in one server process.

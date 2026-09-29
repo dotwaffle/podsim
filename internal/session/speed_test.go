@@ -36,38 +36,55 @@ func TestSpeedMonitor(t *testing.T) {
 	t.Parallel()
 	start := time.Unix(100, 0)
 	for _, tc := range []struct {
-		name               string
-		elapsed            time.Duration
-		steps, speed, want int
+		name    string
+		buckets []int
+		want    int
 	}{
-		{"too soon", 3*time.Second - time.Nanosecond, 0, 60, 60},
-		{"overloaded", 3 * time.Second, 9000, 60, 15},
-		{"threshold", 3 * time.Second, 9720, 60, 60},
-		{"brief stall", 3 * time.Second, 10440, 60, 60},
-		{"late observation", 4 * time.Second, 10000, 60, 15},
-		{"minimum", 3 * time.Second, 0, 1, 1},
+		{"too soon", []int{0, 0, 0, 0}, 60},
+		{"one stalled second", []int{3600, 0, 3600, 3600, 3600}, 60},
+		{"two slow seconds", []int{3600, 3000, 3600, 3000, 3600}, 15},
+		{"threshold", []int{3240, 3240, 3240, 3240, 3240}, 60},
+		{"boundary stall recovered", []int{3600, 3200, 3600, 4000, 3600}, 60},
+		{"boundary stall unrecovered", []int{3600, 3200, 3200, 3600, 3600}, 15},
+		{"old stall expired", []int{0, 3600, 3600, 3600, 3600, 0}, 60},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 			c := playbackClock{}
-			c.observe(start, tc.speed)
-			c.steps = tc.steps
-			got, _ := c.observe(start.Add(tc.elapsed), tc.speed)
+			c.observe(start, 60)
+			got := 60
+			for i, steps := range tc.buckets {
+				c.steps = steps
+				got, _ = c.observe(start.Add(time.Duration(i+1)*time.Second), 60)
+			}
 			if got != tc.want {
 				t.Fatalf("got %d, want %d", got, tc.want)
 			}
-			if tc.elapsed >= speedWindow {
-				if next, _ := c.observe(start.Add(tc.elapsed+time.Second), got); next != got {
-					t.Fatal("no cooldown")
-				}
+			c.reset()
+			if next, _ := c.observe(start.Add(time.Hour), 60); next != 60 {
+				t.Fatal("reset included inactive time")
 			}
 		})
 	}
-	c := playbackClock{}
-	c.observe(start, 60)
+}
+
+func TestClockCatchUp(t *testing.T) {
+	t.Parallel()
+	start := time.Unix(100, 0)
+	c := playbackClock{paced: start}
+	if n := c.due(start.Add(100*time.Millisecond), 60); n != 360 {
+		t.Fatalf("missed wakes: %d", n)
+	}
+	c.debt -= 300
+	if n := c.due(start.Add(150*time.Millisecond), 60); n != 240 {
+		t.Fatalf("remaining debt: %d", n)
+	}
+	if n := c.due(start.Add(time.Hour), 60); n != 900 {
+		t.Fatalf("unbounded catch-up: %d", n)
+	}
 	c.reset()
-	if next, _ := c.observe(start.Add(time.Hour), 60); next != 60 {
-		t.Fatal("reset included inactive time")
+	if n := c.due(start.Add(time.Hour), 1); n > 1 {
+		t.Fatalf("reset retained debt: %d", n)
 	}
 }
 
@@ -92,7 +109,10 @@ func TestLiveBatchesPreserveSimulation(t *testing.T) {
 		s := newActive()
 		s.speed = speed
 		for range 600 / speed {
-			s.liveAdvance(context.Background())
+			remaining := speed
+			for remaining > 0 {
+				remaining -= s.liveBatch(s.clock.version, remaining)
+			}
 		}
 		got := s.State()
 		if !reflect.DeepEqual(got.Simulation, want.Simulation) || !reflect.DeepEqual(got.Demand, want.Demand) {
@@ -162,8 +182,8 @@ func TestAutomaticSpeedReduction(t *testing.T) {
 	if s.speed != before {
 		t.Fatal("cooldown failed")
 	}
+	s.clock.reset()
 	s.clock.start = time.Now().Add(-speedWindow)
-	s.clock.steps = 0
 	s.liveAdvance(context.Background())
 	if s.speed != 5 || s.speedReduction.Sequence != 2 {
 		t.Fatal("second reduction failed")

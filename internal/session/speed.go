@@ -9,7 +9,11 @@ import (
 	"github.com/dotwaffle/podsim/internal/sim"
 )
 
-const speedWindow = 3 * time.Second
+const (
+	speedWindow  = 5 * time.Second
+	catchUpLimit = 250 * time.Millisecond
+	wakeBudget   = 20 * time.Millisecond
+)
 
 // NextSpeed cycles the visible playback choices. Legacy speeds move to the
 // next higher choice. Commands and saved sessions still accept 4x and 8x.
@@ -54,29 +58,72 @@ type playbackClock struct {
 	version uint64
 	start   time.Time
 	steps   int
+	buckets [5]int
+	count   int
+	cursor  int
+	paced   time.Time
+	debt    float64
 }
 
 func (c *playbackClock) reset() {
-	c.version++
-	c.start = time.Time{}
-	c.steps = 0
+	*c = playbackClock{version: c.version + 1}
+}
+
+// closeBuckets records completed seconds. A long suspension retains only
+// the last five seconds, so it cannot cause an unbounded accounting loop.
+func (c *playbackClock) closeBuckets(now time.Time) {
+	if c.start.IsZero() {
+		c.start = now
+		return
+	}
+	elapsed := int(now.Sub(c.start) / time.Second)
+	if elapsed > len(c.buckets) {
+		c.buckets = [5]int{}
+		c.count = len(c.buckets)
+		c.steps = 0
+		c.start = c.start.Add(time.Duration(elapsed) * time.Second)
+		return
+	}
+	for range elapsed {
+		c.buckets[c.cursor] = c.steps
+		c.cursor = (c.cursor + 1) % len(c.buckets)
+		c.count = min(c.count+1, len(c.buckets))
+		c.steps = 0
+		c.start = c.start.Add(time.Second)
+	}
 }
 
 func (c *playbackClock) observe(now time.Time, speed int) (int, float64) {
-	if c.start.IsZero() {
-		c.start = now
+	c.closeBuckets(now)
+	if c.count < len(c.buckets) {
 		return speed, 0
 	}
-	elapsed := now.Sub(c.start)
-	if elapsed < speedWindow {
-		return speed, 0
+	slow, total := 0, 0
+	for _, steps := range c.buckets {
+		total += steps
+		if float64(steps) < float64(speed*sim.TicksPerSecond)*.9 {
+			slow++
+		}
 	}
-	achieved := float64(c.steps) / sim.TicksPerSecond / elapsed.Seconds()
-	c.start, c.steps = now, 0
-	if achieved < float64(speed)*.9 {
+	achieved := float64(total) / sim.TicksPerSecond / float64(len(c.buckets))
+	if slow >= 2 {
 		return lowerSpeed(speed), achieved
 	}
 	return speed, achieved
+}
+
+// due retains missed timer wakes as step debt, capped at 250 ms of wall
+// time. Excess wall time is discarded, never an individual physics step.
+func (c *playbackClock) due(now time.Time, speed int) int {
+	if c.paced.IsZero() {
+		c.paced = now
+		c.debt = float64(speed)
+	}
+	elapsed := max(0, now.Sub(c.paced).Seconds())
+	c.paced = now
+	rate := float64(speed * sim.TicksPerSecond)
+	c.debt = min(c.debt+elapsed*rate, catchUpLimit.Seconds()*rate)
+	return int(c.debt + 1e-6)
 }
 
 // liveAdvance advances one clock wake. Each lock hold ends after eight steps
@@ -90,25 +137,32 @@ func (s *Session) liveAdvance(ctx context.Context) {
 		return
 	}
 	from := s.speed
-	next, achieved := s.clock.observe(time.Now(), from)
+	now := time.Now()
+	next, achieved := s.clock.observe(now, from)
 	var reduction SpeedReduction
 	if next != from {
 		s.speed = next
+		s.clock.reset()
+		s.clock.observe(now, next)
 		s.speedReduction = SpeedReduction{Sequence: s.speedReduction.Sequence + 1, From: from, To: next}
 		reduction = s.speedReduction
 		s.revision++
 	}
-	remaining, version := s.speed, s.clock.version
+	remaining, version := s.clock.due(now, s.speed), s.clock.version
 	s.mu.Unlock()
 	if reduction.Sequence != 0 {
 		s.logger.Warn("Reduced playback speed", slog.Int("from", from), slog.Int("to", next), slog.Float64("achieved", achieved))
 	}
+	deadline := time.Now().Add(wakeBudget)
 	for remaining > 0 && ctx.Err() == nil {
 		completed := s.liveBatch(version, remaining)
 		if completed == 0 {
 			return
 		}
 		remaining -= completed
+		if time.Now().After(deadline) {
+			return
+		}
 		if remaining > 0 {
 			runtime.Gosched()
 		}
@@ -130,7 +184,9 @@ func (s *Session) liveBatch(version uint64, remaining int) int {
 			break
 		}
 	}
+	s.clock.closeBuckets(time.Now())
 	s.clock.steps += completed
+	s.clock.debt = max(0, s.clock.debt-float64(completed))
 	s.revision++
 	return completed
 }
