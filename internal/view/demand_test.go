@@ -190,7 +190,7 @@ func TestDemandLabelsWithoutError(t *testing.T) {
 			t.Errorf("label %q is amber without a demand error", value.value)
 		}
 	}
-	const want = "Redistribution: on / 3 moves / 15.3 km empty"
+	const want = "Redistribution: on / 3 moves / 100.0% distance empty"
 	if !slices.ContainsFunc(labels, func(value label) bool { return value.value == want && value.color == muted }) {
 		t.Errorf("Demand panel does not show %q in the muted color", want)
 	}
@@ -245,10 +245,12 @@ func TestRedistributionText(t *testing.T) {
 		state session.State
 		want  string
 	}{
-		{name: "off", want: "Redistribution: off / 0 moves / 0 m empty"},
-		{name: "one move", state: session.State{Redistribution: true, Simulation: sim.Snapshot{RebalanceMoves: 1, EmptyDistanceMeters: 480}}, want: "Redistribution: on / 1 move / 480 m empty"},
-		{name: "London sample", state: session.State{Redistribution: true, Simulation: sim.Snapshot{RebalanceMoves: 3, EmptyDistanceMeters: 15327}}, want: "Redistribution: on / 3 moves / 15.3 km empty"},
-		{name: "off with empty travel", state: session.State{Simulation: sim.Snapshot{EmptyDistanceMeters: 2049.9}}, want: "Redistribution: off / 0 moves / 2.0 km empty"},
+		{name: "mixed travel", state: session.State{Simulation: sim.Snapshot{EmptyDistanceMeters: 25, PassengerDistanceMeters: 75, RiderDistanceMeters: 900}}, want: "Redistribution: off / 0 moves / 25.0% distance empty"},
+		{name: "occupied only", state: session.State{Simulation: sim.Snapshot{PassengerDistanceMeters: 100}}, want: "Redistribution: off / 0 moves / 0.0% distance empty"},
+		{name: "off", want: "Redistribution: off / 0 moves / - distance empty"},
+		{name: "one move", state: session.State{Redistribution: true, Simulation: sim.Snapshot{RebalanceMoves: 1, EmptyDistanceMeters: 480}}, want: "Redistribution: on / 1 move / 100.0% distance empty"},
+		{name: "London sample", state: session.State{Redistribution: true, Simulation: sim.Snapshot{RebalanceMoves: 3, EmptyDistanceMeters: 15327}}, want: "Redistribution: on / 3 moves / 100.0% distance empty"},
+		{name: "off with empty travel", state: session.State{Simulation: sim.Snapshot{EmptyDistanceMeters: 2049.9}}, want: "Redistribution: off / 0 moves / 100.0% distance empty"},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
