@@ -520,7 +520,7 @@ func TestProjectFileHoldsCanonicalEncoding(t *testing.T) {
 		config project.Config
 	}{
 		{"empty demand profiles", emptyProfiles},
-		{"London", scenarios.London()},
+		{"London", scenarios.LondonCentral()},
 		{"default demand at the size limit", limitProject(t, project.Default().Demand)},
 		{"widest demand at the size limit", limitProject(t, widestDemand())},
 	}

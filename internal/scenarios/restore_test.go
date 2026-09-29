@@ -27,7 +27,7 @@ const (
 // londonRestoreSchedule requests AM peak journeys at 20 per minute. The last
 // request comes before the tick until.
 func londonRestoreSchedule(until int) []scheduledRequest {
-	schedule := londonDemandSchedule(londonCloneSeed, LondonDemand()[2], (until-1)/londonRestoreInterval)
+	schedule := londonDemandSchedule(londonCloneSeed, LondonCentralDemand()[2], (until-1)/londonRestoreInterval)
 	for index := range schedule {
 		schedule[index].tick = int64((index + 1) * londonRestoreInterval)
 	}
@@ -161,7 +161,7 @@ func TestRestorePhysicalLondon(t *testing.T) {
 		t.Skip("the London restore test runs for about 15 s with the race detector")
 	}
 	t.Parallel()
-	config := London()
+	config := LondonCentral()
 	last := int64(londonRestoreWarmupTicks + (londonRestoreCount-1)*londonRestorePeriodTicks)
 	end := last + londonRestoreContinuationTicks
 	schedule := londonRestoreSchedule(int(end))
@@ -218,8 +218,8 @@ func TestLondonPlatoonsRestoreAndClone(t *testing.T) {
 		linkTicks = 200 * sim.TicksPerSecond
 		runTicks  = 30 * sim.TicksPerSecond
 	)
-	config := London()
-	schedule := londonDemandSchedule(londonCloneSeed, LondonDemand()[2], requests)
+	config := LondonCentral()
+	schedule := londonDemandSchedule(londonCloneSeed, LondonCentralDemand()[2], requests)
 	for index := range schedule {
 		schedule[index].tick = int64(index * sim.TicksPerSecond / 4)
 	}
@@ -305,14 +305,14 @@ func TestLondonSharingMeetsContract(t *testing.T) {
 		requests = 120
 		end      = int64(180 * sim.TicksPerSecond)
 	)
-	live := newSimulation(t, London())
+	live := newSimulation(t, LondonCentral())
 	if err := live.SetSharedRidePartyLimit(4); err != nil {
 		t.Fatal(err)
 	}
 	if err := live.SetSharedRideMode(sim.SharedRideDropOffs, sim.DefaultSharedRideMaxStops); err != nil {
 		t.Fatal(err)
 	}
-	schedule := londonDemandSchedule(londonCloneSeed, LondonDemand()[2], requests)
+	schedule := londonDemandSchedule(londonCloneSeed, LondonCentralDemand()[2], requests)
 	for index := range schedule {
 		schedule[index].tick = int64(index * sim.TicksPerSecond / 4)
 	}

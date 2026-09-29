@@ -65,7 +65,7 @@ func TestPickMapTarget(t *testing.T) {
 // pods. The camera fits the network.
 func londonPickGame(t *testing.T) *Game {
 	t.Helper()
-	game := journeyNetworkGame(t, scenarios.London().Network)
+	game := journeyNetworkGame(t, scenarios.LondonCentral().Network)
 	game.state = session.State{Epoch: "test", Speed: 1}
 	game.fitNetwork()
 	return game

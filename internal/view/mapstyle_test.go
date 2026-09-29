@@ -446,7 +446,7 @@ func TestNetworkStyleKeepsExampleLook(t *testing.T) {
 // scale through the game state.
 func TestNetworkStyleOnLondon(t *testing.T) {
 	t.Parallel()
-	network := scenarios.London().Network
+	network := scenarios.LondonCentral().Network
 	input := layoutInput{outsideWidth: minimumWidth, outsideHeight: minimumHeight, deviceScale: 1}
 
 	fit := zoomedGame(network, input, 1)

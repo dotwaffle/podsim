@@ -104,7 +104,7 @@ func TestStationChipsDoNotTriggerControls(t *testing.T) {
 // wider than the station row gets a shorter label.
 func TestStationChipLabelsFit(t *testing.T) {
 	t.Parallel()
-	london := scenarios.London().Network
+	london := scenarios.LondonCentral().Network
 	long := sim.Network{Stations: []sim.Station{
 		{ID: "bank", Name: "Bank"},
 		{ID: "long", Name: strings.Repeat("Very Long Station Name ", 20)},

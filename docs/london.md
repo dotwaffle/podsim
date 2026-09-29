@@ -1,8 +1,11 @@
-# London qualification network
+# LondonCentral qualification network
 
-The `london` preset maps the central London Underground topology onto a PRT network.
+LondonCentral (`london-central`) maps the central London Underground topology onto a PRT network.
 Pods use the guideways as independent vehicles.
 The preset does not simulate Underground trains or service patterns.
+[LondonFull](london-full.md) extends the source boundary to all 269 normalized Tube sites.
+Historical London measurements refer to this central preset.
+Its topology, demand data, and defaults remain unchanged after the rename.
 
 ## Initial boundary
 
@@ -165,7 +168,7 @@ An optional background must use a permitted source, preserve attribution, and av
 ## Generate
 
 ```sh
-mise run scenario -- -preset london -output /tmp/podsim-london.json
+mise run scenario -- -preset london-central -output /tmp/podsim-london.json
 mise run serve -- -project /tmp/podsim-london.json
 ```
 
@@ -181,7 +184,8 @@ The lanes can have at most 64,000 track cells of about 30 meters in total.
 The London preset has 17,074 cells and the largest London capacity options in the tests have 24,736.
 These limits also apply to an edit of the London project in the editor.
 The `serve` and `compare` commands read a `-project` file of 10 MiB or less.
-The generated file is indented, so it is about 3.3 MiB.
+The central generated file is indented, so it is about 3.3 MiB.
+The generator uses compact JSON when indentation would exceed the project file limit.
 Project validation also limits the compact JSON form of a project to 10 MiB, with room for the widest demand settings.
 In that form, the London project is about 1.5 MiB (1,591,041 bytes).
 The server writes the `-project` file in this form when it saves it.

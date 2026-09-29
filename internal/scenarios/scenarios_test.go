@@ -27,7 +27,7 @@ func TestPresetsValidateAndRemainStable(t *testing.T) {
 		{name: "parking constrained", config: ParkingConstrained, stations: 6, pods: 20},
 		{name: "rail hub", config: RailHub, stations: 7, pods: 30},
 		{name: "scale 100", config: Scale100, stations: 20, pods: 100},
-		{name: "London", config: London, stations: 99, pods: 114},
+		{name: "London", config: LondonCentral, stations: 99, pods: 114},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -65,7 +65,7 @@ func TestPresetsValidateAndRemainStable(t *testing.T) {
 
 func TestLondonUsesRealScaleAndDirectedGuideways(t *testing.T) {
 	t.Parallel()
-	config := London()
+	config := LondonCentral()
 	if config.Redistribution {
 		t.Fatal("London enables redistribution by default")
 	}
@@ -118,7 +118,7 @@ func TestLondonUsesRealScaleAndDirectedGuideways(t *testing.T) {
 
 func TestLondonWaterlooUsesIndependentPortalMovements(t *testing.T) {
 	t.Parallel()
-	network := London().Network
+	network := LondonCentral().Network
 	if len(network.Nodes) != 1842 || len(network.Lanes) != 3101 {
 		t.Fatalf("London network has %d nodes and %d lanes", len(network.Nodes), len(network.Lanes))
 	}
@@ -163,7 +163,7 @@ func TestLondonWaterlooUsesIndependentPortalMovements(t *testing.T) {
 
 func TestLondonStationsExposeManeuverRoles(t *testing.T) {
 	t.Parallel()
-	config := London()
+	config := LondonCentral()
 	rolesByStation := make(map[string]map[sim.StationLaneRole]bool, len(config.Network.Stations))
 	lanesByID := make(map[string]sim.Lane, len(config.Network.Lanes))
 	for _, lane := range config.Network.Lanes {
@@ -207,7 +207,7 @@ func TestLondonStationsExposeManeuverRoles(t *testing.T) {
 
 func TestLondonJourneyReportsStationManeuvers(t *testing.T) {
 	t.Parallel()
-	config := London()
+	config := LondonCentral()
 	stations := make(map[string]sim.Station, len(config.Network.Stations))
 	for _, station := range config.Network.Stations {
 		stations[station.Name] = station
@@ -253,7 +253,7 @@ func TestLondonJourneyReportsStationManeuvers(t *testing.T) {
 
 func TestLondonHasDistributedParking(t *testing.T) {
 	t.Parallel()
-	config := London()
+	config := LondonCentral()
 	parking, parkingPods := 0, 0
 	for _, station := range config.Network.Stations {
 		for _, berth := range station.Berths {

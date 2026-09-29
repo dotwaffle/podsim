@@ -2601,13 +2601,13 @@ func hasField(typ reflect.Type, name string) bool {
 // 3,822 nodes, near the node limit of 4,000.
 func TestLondonStateSave(t *testing.T) {
 	t.Parallel()
-	larger := scenarios.DefaultLondonOptions()
+	larger := scenarios.DefaultLondonCentralOptions()
 	larger.StationBerths, larger.ParkingBerths, larger.BerthPitch = 3, 200, 40
-	largerConfig, err := scenarios.LondonWith(larger)
+	largerConfig, err := scenarios.LondonCentralWith(larger)
 	if err != nil {
 		t.Fatal(err)
 	}
-	for name, config := range map[string]project.Config{"preset": scenarios.London(), "larger": largerConfig} {
+	for name, config := range map[string]project.Config{"preset": scenarios.LondonCentral(), "larger": largerConfig} {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 			config.Demand.Enabled = true
@@ -2645,7 +2645,7 @@ func TestLondonStateSave(t *testing.T) {
 // because the saved state does not keep them.
 func TestLondonPlatoonRestore(t *testing.T) {
 	t.Parallel()
-	config := scenarios.London()
+	config := scenarios.LondonCentral()
 	config.PlatoonLimit = 3
 	config.Demand.Enabled = true
 	config.Demand.Band, config.Demand.PerMinute = "early", 120
@@ -2736,17 +2736,17 @@ func TestNewFromStoreReportsUnaccountedOrders(t *testing.T) {
 func TestMaximalRequeueRoundTrip(t *testing.T) {
 	t.Parallel()
 	var parking string
-	for _, station := range scenarios.London().Network.Stations {
+	for _, station := range scenarios.LondonCentral().Network.Stations {
 		if station.ParkingOnly {
 			parking = station.ID
 			break
 		}
 	}
-	options := scenarios.DefaultLondonOptions()
+	options := scenarios.DefaultLondonCentralOptions()
 	options.StationPods, options.ParkingPods = 2, (maxSavedPods-192)/3
 	options.StationBerths, options.ParkingBerths, options.BerthPitch = 3, 200, 40
 	options.Pods = map[string]int{parking: options.ParkingPods + (maxSavedPods-192)%3}
-	config, err := scenarios.LondonWith(options)
+	config, err := scenarios.LondonCentralWith(options)
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -43,8 +43,8 @@ var (
 	londonProfile    project.DemandProfile
 )
 
-// LondonDemand returns the normalized 2019 midweek OD demand for the preset.
-func LondonDemand() []LondonDemandBand {
+// LondonCentralDemand returns the normalized 2019 midweek OD demand for the preset.
+func LondonCentralDemand() []LondonDemandBand {
 	londonDemandOnce.Do(loadLondonDemand)
 	result := make([]LondonDemandBand, len(londonDemand))
 	copy(result, londonDemand)

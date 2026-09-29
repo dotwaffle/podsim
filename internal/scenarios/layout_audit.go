@@ -451,9 +451,9 @@ func newLondonAuditInput(source londonSource) londonAuditInput {
 	return input
 }
 
-// LondonSoftConflicts returns the number of soft layout conflicts of a
+// LondonCentralSoftConflicts returns the number of soft layout conflicts of a
 // London network.
-func LondonSoftConflicts(network sim.Network) (int, error) {
+func LondonCentralSoftConflicts(network sim.Network) (int, error) {
 	var source londonSource
 	if err := decodeLondonSource(&source); err != nil {
 		return 0, err

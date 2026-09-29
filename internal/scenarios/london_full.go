@@ -47,7 +47,7 @@ func LondonFull() project.Config {
 // Berths overrides take precedence over StationBerths, as in LondonOptions.
 func DefaultLondonFullOptions() LondonOptions {
 	londonFullDemandOnce.Do(loadLondonFullDemand)
-	options := DefaultLondonOptions()
+	options := DefaultLondonCentralOptions()
 	options.Berths = londonFullBerths(londonFullProfile)
 	return options
 }
@@ -91,14 +91,14 @@ func londonFullConfig(source londonSource, capacity londonCapacity, defaultCapac
 	if err := layoutError(network, auditLondonLayout(network, newLondonAuditInput(source))); err != nil {
 		return project.Config{}, err
 	}
-	name := "Full London Underground-derived PRT"
+	name := "LondonFull"
 	if !defaultCapacity {
 		name += customCapacitySuffix
 	}
 	config := project.Config{
 		Version: 1, Name: name, Network: network,
 		Fleet:          londonFleet(network, capacity.pods),
-		Demand:         project.DemandConfig{PerMinute: 20, Pattern: "profile", Seed: 20260929, Profile: londonFullDemandProfileID, Band: "am-peak"},
+		Demand:         project.DemandConfig{PerMinute: 10, Pattern: "profile", Seed: 20260929, Profile: londonFullDemandProfileID, Band: "am-peak"},
 		DemandProfiles: []project.DemandProfile{londonFullDemandProfile()},
 		PlatoonLimit:   sim.MaxPlatoonLimit,
 		Geo:            &project.Geo{Latitude: londonReferenceLatitude, Longitude: londonReferenceLongitude, Projection: project.GeoProjection, Radius: project.GeoRadius},
@@ -185,4 +185,13 @@ func londonFullBerths(profile project.DemandProfile) map[string]int {
 		berths[item.id] = londonStationBerths + item.extra
 	}
 	return berths
+}
+
+// LondonFullSoftConflicts returns the number of soft layout conflicts in the full network.
+func LondonFullSoftConflicts(network sim.Network) (int, error) {
+	source, err := decodeLondonFullSource()
+	if err != nil {
+		return 0, err
+	}
+	return countSoft(auditLondonLayout(network, newLondonAuditInput(source))), nil
 }

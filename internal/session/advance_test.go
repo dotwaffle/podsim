@@ -7,7 +7,7 @@ import (
 )
 
 func TestAdvanceIdleFleetAllocations(t *testing.T) {
-	config := scenarios.London()
+	config := scenarios.LondonCentral()
 	config.Demand.Enabled, config.Redistribution = false, false
 	shared, err := NewWithProject(config)
 	if err != nil {
@@ -20,7 +20,7 @@ func TestAdvanceIdleFleetAllocations(t *testing.T) {
 }
 
 func BenchmarkAdvanceLondonIdle(b *testing.B) {
-	config := scenarios.London()
+	config := scenarios.LondonCentral()
 	config.Demand.Enabled, config.Redistribution = false, false
 	shared, err := NewWithProject(config)
 	if err != nil {

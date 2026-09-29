@@ -823,7 +823,7 @@ Run the same seeded demand schedule with redistribution off and on.
 This example runs the London preset at 3 requests per minute, where the policy is active:
 
 ```sh
-mise run scenario -- -preset london -output /tmp/podsim-london.json
+mise run scenario -- -preset london-central -output /tmp/podsim-london.json
 mise run compare -- -project /tmp/podsim-london.json -pattern profile -bands am-peak -focus 940GZZLUEUS -loads 20s -duration 30m
 ```
 
@@ -1001,7 +1001,9 @@ mise run scenario -- -preset scale100 -output /tmp/podsim-scale100.json
 mise run serve -- -project /tmp/podsim-scale100.json
 ```
 
-Presets include `small`, `busy`, `parking-constrained`, `rail-hub`, `scale100`, and `london`.
+Presets include `small`, `busy`, `parking-constrained`, `rail-hub`, `scale100`, `london-central`, and `london-full`.
+LondonCentral preserves the central qualification network.
+[LondonFull](docs/london-full.md) covers 269 Tube sites with 2024 endpoint demand.
 Generated files contain raw server settings.
 The editor can export the loaded scenario with optional local background data.
 See [qualification results](docs/qualification.md) for safety checks, performance measurements, and redistribution limits.
@@ -1014,17 +1016,17 @@ A flag that is not on the command line keeps the preset value, so the output wit
 | `-station-berths N` | Set the berths of each passenger station. |
 | `-parking-berths N` | Set the berths of each Parking station. |
 | `-berths ID=N,ID=N` | Set the berths of single stations by station ID, such as `station-19` or the ID of a TfL station. |
-| `-station-pods N` | London only. Set the initial pods of each passenger station. |
-| `-parking-pods N` | London only. Set the initial pods of each Parking facility. |
+| `-station-pods N` | London presets only. Set the initial pods of each passenger station. |
+| `-parking-pods N` | London presets only. Set the initial pods of each Parking facility. |
 | `-berth-pitch M` | Set the distance in meters between two berths of a station. The minimum is 25. |
 
-A ring station has a 30-meter pitch, and a `scale100` or `london` station has a 75-meter pitch.
+A ring station has a 30-meter pitch, and a `scale100`, `london-central`, or `london-full` station has a 75-meter pitch.
 The ring and `scale100` presets put the initial pods round robin on the passenger stations, and a full station gets no more pods.
 With changed capacity, the project name ends with "(custom capacity)".
 A layout check then examines the generated network.
 If two lanes are too near each other, the command writes no project and gives an error that names the station and the lanes.
 In a ring or `scale100` network, two lanes without a common node must be at least 12 meters apart on the paths that the pods follow.
-For the `london` rules, see [London capacity options](docs/london.md#capacity-options).
+For the London layout rules, see [London capacity options](docs/london.md#capacity-options).
 An unknown station ID, a berth count out of range, more pods than berths, or a network over the project limits also gives an error.
 A London station can have 1 to 200 berths.
 A ring or mesh station can have 1 to 62 berths.
@@ -1033,11 +1035,11 @@ The entry and exit nodes of a ring station have a lane for each berth, and a nod
 The command writes one summary line to standard error.
 The line gives the preset, the passenger and Parking berths, the pods, the nodes and lanes with their limits, the output bytes, the SHA-256 of the network, and the number of soft layout conflicts.
 A soft conflict does not stop the command.
-Only `london` has soft conflicts, for example berths that are nearer to the TfL position of another station.
+The London presets can have soft conflicts, for example berths that are nearer to the TfL position of another station.
 
 ```sh
 mise run scenario -- -preset scale100 -berths station-19=8 -berth-pitch 68 -output /tmp/podsim-station19-8.json
-mise run scenario -- -preset london -station-berths 3 -berths 940GZZLUEMB=2 -parking-berths 24 -output /tmp/podsim-london-3.json
+mise run scenario -- -preset london-central -station-berths 3 -berths 940GZZLUEMB=2 -parking-berths 24 -output /tmp/podsim-london-3.json
 ```
 
 #### rail-hub
@@ -1423,7 +1425,7 @@ See [the project brief](PROJECT_BRIEF.md) for the wider scope and research.
 | `internal/sim` | Network, routing, requests, pod movement, state export and restore, and deterministic tests. |
 | `internal/observe` | Station berth and queue metrics for the view and comparison reports. |
 | `internal/project` | Versioned scenario settings, validation, and detached copies. |
-| `internal/scenarios` | Deterministic scenario presets, including `scale100` and `london`, and qualification tests. |
+| `internal/scenarios` | Deterministic scenario presets, including `scale100`, `london-central`, and `london-full`, and qualification tests. |
 | `internal/session` | Shared clock, command validation, save points, saved session state, HTTP API, and repeatable demand. |
 | `internal/statestore` | Saved session state in a `file://` blob bucket, for the server only. |
 | `internal/remote` | Shared state streaming, motion buffering, command retries, and connection state. |
@@ -1454,7 +1456,7 @@ mise run check
 `mise.toml` tracks Go 1.27, rumdl 0.2, and major versions for the other development tools.
 `mise.lock` records the resolved tool downloads.
 
-Some editor tests use Go to generate the `scale100` and `london` projects.
+Some editor tests use Go to generate the `scale100` and `london-central` projects.
 If Go is not on `PATH`, `node --test web/editor_test.cjs` skips these tests and gives the reason.
 The `test:web` task sets `PODSIM_REQUIRE_GO=1`, so a missing Go makes the task and `mise run check` fail.
 

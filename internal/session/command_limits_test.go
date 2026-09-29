@@ -167,7 +167,7 @@ func TestCommandInvalidUTF8(t *testing.T) {
 func TestReceiptsKeepNoProject(t *testing.T) {
 	s := newTestSession(t)
 	handler := s.Handler(t.TempDir())
-	config := scenarios.London()
+	config := scenarios.LondonCentral()
 	bodies := make([][]byte, 16)
 	for index := range bodies {
 		body, err := json.Marshal(Command{

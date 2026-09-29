@@ -92,8 +92,8 @@ var (
 	londonPreset project.Config
 )
 
-// London returns a geographically scaled central-London qualification preset.
-func London() project.Config {
+// LondonCentral returns a geographically scaled central-LondonCentral qualification preset.
+func LondonCentral() project.Config {
 	londonOnce.Do(func() {
 		londonPreset = mustLondonConfig()
 	})
@@ -121,8 +121,8 @@ type LondonOptions struct {
 	BerthPitch float64
 }
 
-// DefaultLondonOptions returns the options of the London preset.
-func DefaultLondonOptions() LondonOptions {
+// DefaultLondonCentralOptions returns the options of the London preset.
+func DefaultLondonCentralOptions() LondonOptions {
 	return LondonOptions{
 		StationBerths: londonStationBerths, ParkingBerths: londonParkingBerths,
 		StationPods: londonStationPods, ParkingPods: londonParkingPods,
@@ -130,11 +130,11 @@ func DefaultLondonOptions() LondonOptions {
 	}
 }
 
-// LondonWith returns the London preset with the given station capacity.
+// LondonCentralWith returns the London preset with the given station capacity.
 // With options other than the defaults, the project name ends with
 // " (custom capacity)", and a layout audit checks the network. The error
 // names the station of the first hard conflict.
-func LondonWith(options LondonOptions) (project.Config, error) {
+func LondonCentralWith(options LondonOptions) (project.Config, error) {
 	var source londonSource
 	if err := decodeLondonSource(&source); err != nil {
 		return project.Config{}, err
@@ -144,7 +144,7 @@ func LondonWith(options LondonOptions) (project.Config, error) {
 		return project.Config{}, err
 	}
 	if capacity.isDefault() {
-		return London(), nil
+		return LondonCentral(), nil
 	}
 	config, err := londonConfig(source, capacity)
 	if err != nil {
@@ -236,7 +236,7 @@ func mustLondonConfig() project.Config {
 	if err := decodeLondonSource(&source); err != nil {
 		panic(err)
 	}
-	capacity, err := DefaultLondonOptions().resolve(source)
+	capacity, err := DefaultLondonCentralOptions().resolve(source)
 	if err != nil {
 		panic(err)
 	}
@@ -253,7 +253,7 @@ func londonConfig(source londonSource, capacity londonCapacity) (project.Config,
 	if err != nil {
 		return project.Config{}, err
 	}
-	name := "Central London Underground-derived PRT"
+	name := "LondonCentral"
 	if !capacity.isDefault() {
 		name += customCapacitySuffix
 	}

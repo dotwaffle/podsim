@@ -12,7 +12,7 @@ import (
 // package, because the scenarios package imports this package.
 func TestValidateAcceptsLondon(t *testing.T) {
 	t.Parallel()
-	if err := project.Validate(scenarios.London()); err != nil {
+	if err := project.Validate(scenarios.LondonCentral()); err != nil {
 		t.Fatal(err)
 	}
 }

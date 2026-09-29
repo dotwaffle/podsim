@@ -26,7 +26,7 @@ func londonBandWeights(band LondonDemandBand) map[string]float64 {
 // the settings that set applies.
 func newLondonPositioning(tb testing.TB, band LondonDemandBand, set func(*sim.Simulation) error) *sim.Simulation {
 	tb.Helper()
-	simulation := newSimulation(tb, London())
+	simulation := newSimulation(tb, LondonCentral())
 	if err := simulation.SetDemandWeights(londonBandWeights(band)); err != nil {
 		tb.Fatal(err)
 	}
@@ -41,7 +41,7 @@ func newLondonPositioning(tb testing.TB, band LondonDemandBand, set func(*sim.Si
 // at 12 per minute.
 func TestLondonPositioningOffSettingsMatch(t *testing.T) {
 	t.Parallel()
-	band := LondonDemand()[2]
+	band := LondonCentralDemand()[2]
 	schedule := londonDemandSchedule(londonCloneSeed, band, (londonPositioningTicks-1)/(5*sim.TicksPerSecond))
 	for _, pair := range []struct {
 		name      string
@@ -102,14 +102,14 @@ const (
 // saved states differ only in the time of the next guarded check.
 func TestLondonGuardedIsInertAtSixPerMinute(t *testing.T) {
 	t.Parallel()
-	band := LondonDemand()[2]
+	band := LondonCentralDemand()[2]
 	schedule := londonDemandSchedule(londonCloneSeed, band, (londonInertTicks-1)/londonInertInterval)
 	for index := range schedule {
 		schedule[index].tick = int64((index + 1) * londonInertInterval)
 	}
 	// The gate is active while ID*20 requests per minute is less than
 	// the fleet times the minutes to the request.
-	if fleet := len(London().Fleet); 6*20 < fleet {
+	if fleet := len(LondonCentral().Fleet); 6*20 < fleet {
 		t.Fatalf("the gate of a fleet of %d pods is active at 6 requests per minute", fleet)
 	}
 	off := newLondonPositioning(t, band, func(*sim.Simulation) error { return nil })
@@ -151,12 +151,12 @@ const londonThreePerMinuteInterval = 20 * sim.TicksPerSecond
 // same saved state at each second, and they must make positioning moves.
 func TestLondonDemandRateMatchesMean(t *testing.T) {
 	t.Parallel()
-	band := LondonDemand()[2]
+	band := LondonCentralDemand()[2]
 	schedule := londonDemandSchedule(londonCloneSeed, band, (londonInertTicks-1)/londonThreePerMinuteInterval)
 	for index := range schedule {
 		schedule[index].tick = int64((index + 1) * londonThreePerMinuteInterval)
 	}
-	if fleet := len(London().Fleet); 3*20 >= fleet {
+	if fleet := len(LondonCentral().Fleet); 3*20 >= fleet {
 		t.Fatalf("the gate of a fleet of %d pods is not active at 3 requests per minute", fleet)
 	}
 	guarded := func(s *sim.Simulation) error { return s.SetPositioning(sim.PositioningGuarded) }

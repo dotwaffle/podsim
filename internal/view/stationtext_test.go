@@ -491,7 +491,7 @@ func TestStationTextFormFollowsZoom(t *testing.T) {
 // full counts of each station stay available.
 func TestStationTextFormOnLondon(t *testing.T) {
 	t.Parallel()
-	network := scenarios.London().Network
+	network := scenarios.LondonCentral().Network
 	for _, input := range []layoutInput{
 		{outsideWidth: 1100, outsideHeight: 728, deviceScale: 1},
 		{outsideWidth: 1366, outsideHeight: 610, deviceScale: 1},
@@ -771,7 +771,7 @@ func TestStationTextOnExample(t *testing.T) {
 // were on the rings of the next berths.
 func TestStationTextOnLondon(t *testing.T) {
 	t.Parallel()
-	network := scenarios.London().Network
+	network := scenarios.LondonCentral().Network
 	for _, stationID := range []string{"parking-west", "940GZZLUGDG"} {
 		t.Run(stationID, func(t *testing.T) {
 			t.Parallel()

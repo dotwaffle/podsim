@@ -208,7 +208,7 @@ func TestSearchLondonHeadings(t *testing.T) {
 // between a guideway and a station road.
 func TestLondonStationsLieBesideTheirLines(t *testing.T) {
 	t.Parallel()
-	config := London()
+	config := LondonCentral()
 	network := config.Network
 	berths := 0
 	for _, station := range network.Stations {

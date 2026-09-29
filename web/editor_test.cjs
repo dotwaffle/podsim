@@ -1554,7 +1554,7 @@ test("a check selection moves the view only when the map does not show the item 
 });
 
 test("a check on the generated london project selects the lane that it names", needsGo, () => {
-  const config = generatedProject("london");
+  const config = generatedProject("london-central");
   const lane = config.network.Lanes.find((item) => !item.StationID);
   lane.SpeedLimit = 0;
   const { errors, warnings } = editor.checkResults(config);
@@ -2109,7 +2109,7 @@ test("a fixture test skips without Go unless PODSIM_REQUIRE_GO is 1", () => {
   for (const item of cases) assert.deepEqual(fixtureOptions(item.hasGo, item.env), { skip: item.skip }, item.name);
 });
 
-for (const preset of ["scale100", "london"]) {
+for (const preset of ["scale100", "london-central"]) {
   test(`the generated ${preset} project passes the editor checks`, needsGo, () => {
     const config = generatedProject(preset);
     assert.deepEqual(editor.validateConfig(config), []);
@@ -2142,14 +2142,14 @@ for (const preset of ["scale100", "london"]) {
 test("the editor accepts a generated london project near the node limit", needsGo, () => {
   // 3 berths at each passenger station, 200 berths at each Parking facility,
   // and a 40 meter pitch.
-  const config = generatedProject("london", "-station-berths", "3", "-parking-berths", "200", "-berth-pitch", "40");
+  const config = generatedProject("london-central", "-station-berths", "3", "-parking-berths", "200", "-berth-pitch", "40");
   assert.equal(config.network.Nodes.length, 3822);
   assert.ok(config.network.Nodes.length <= editor.MAX_NODES && config.network.Lanes.length <= editor.MAX_LANES);
   assert.deepEqual(editor.validateConfig(config), []);
 });
 
 test("each station shape on the generated london project holds its station nodes", needsGo, () => {
-  const config = generatedProject("london");
+  const config = generatedProject("london-central");
   const owners = editor.stationNodeOwners(config); const pad = editor.STATION_PADDING;
   for (const station of config.network.Stations) {
     const points = [...owners].filter(([, stationID]) => stationID === station.ID).map(([id]) => nodePosition(config, id));
@@ -2164,7 +2164,7 @@ test("each station shape on the generated london project holds its station nodes
 });
 
 test("add berth on a generated london station extends its berth chain", needsGo, () => {
-  const config = generatedProject("london");
+  const config = generatedProject("london-central");
   const station = config.network.Stations.find((item) => item.Name === "Tottenham Court Road");
   // At a bearing of 135 degrees, the chain turns with the station.
   for (const bearing of [null, 135]) {
@@ -2180,7 +2180,7 @@ test("add berth on a generated london station extends its berth chain", needsGo,
 });
 
 // kingsCrossRow is the third berth row of King's Cross St. Pancras in the
-// output of scenario -preset london -berths 940GZZLUKSX=3. With three
+// output of scenario -preset london-central -berths 940GZZLUKSX=3. With three
 // berths, the generator does not move a node of the london preset.
 const kingsCrossRow = {
   nodes: [
@@ -2198,7 +2198,7 @@ const kingsCrossRow = {
 };
 
 test("add berth on a generated london station gives the row of the london generator", needsGo, () => {
-  const config = generatedProject("london");
+  const config = generatedProject("london-central");
   const added = addedBerth(config, "940GZZLUKSX");
   const nodes = added.network.Nodes.slice(config.network.Nodes.length);
   assert.deepEqual(nodes.map((node) => node.ID), kingsCrossRow.nodes.map((node) => node.ID));
@@ -2292,7 +2292,7 @@ test("the network bounds hold the nodes and the background", () => {
 });
 
 test("a station delete on the generated london project removes the flows of the station", needsGo, () => {
-  const config = generatedProject("london");
+  const config = generatedProject("london-central");
   const station = config.network.Stations.find((item) => !item.ParkingOnly);
   const flowCount = (project) => project.demandProfiles.reduce((count, profile) => count + profile.flows.length, 0);
   const naming = config.demandProfiles.flatMap((profile) => profile.flows).filter((flow) => flow.from === station.ID || flow.to === station.ID);
@@ -2305,7 +2305,7 @@ test("a station delete on the generated london project removes the flows of the 
 });
 
 test("fit shows the whole London network below the 0.15 zoom floor", needsGo, () => {
-  const config = generatedProject("london");
+  const config = generatedProject("london-central");
   const size = { width: 940, height: 824 };
   const bounds = editor.networkBounds(config, null);
   const view = editor.fitView(bounds, size);

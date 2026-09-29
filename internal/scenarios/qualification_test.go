@@ -269,7 +269,7 @@ func restoreSimulation(tb testing.TB, config project.Config, input sim.RestoreSt
 // platoons of up to 4 pods in the test simulations, also after a restore.
 func TestLondonRunsWithPlatoons(t *testing.T) {
 	t.Parallel()
-	config := London()
+	config := LondonCentral()
 	simulation := newSimulation(t, config)
 	restored, _ := restoreSimulation(t, config, sim.RestoreStateInput{State: simulation.ExportState()})
 	for name, s := range map[string]*sim.Simulation{"new": simulation, "restored": restored} {

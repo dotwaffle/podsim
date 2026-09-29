@@ -34,7 +34,7 @@ func londonDemandSchedule(seed uint64, band LondonDemandBand, count int) []sched
 
 func TestLondonDemandBandsAreNormalized(t *testing.T) {
 	t.Parallel()
-	bands := LondonDemand()
+	bands := LondonCentralDemand()
 	want := []struct {
 		name            string
 		start, duration int
@@ -51,7 +51,7 @@ func TestLondonDemandBandsAreNormalized(t *testing.T) {
 	if len(bands) != len(want) {
 		t.Fatalf("got %d demand bands", len(bands))
 	}
-	config := London()
+	config := LondonCentral()
 	if config.Demand.Pattern != "profile" || config.Demand.Profile != londonDemandProfileID || config.Demand.Band != "am-peak" || len(config.DemandProfiles) != 1 {
 		t.Fatalf("London project demand = %+v, profiles=%d", config.Demand, len(config.DemandProfiles))
 	}
@@ -94,7 +94,7 @@ func TestLondonDemandBandsAreNormalized(t *testing.T) {
 
 func TestLondonDemandPreservesStationScale(t *testing.T) {
 	t.Parallel()
-	band := LondonDemand()[2]
+	band := LondonCentralDemand()[2]
 	outbound := make(map[string]float64)
 	for _, flow := range band.Flows {
 		outbound[flow.From] += flow.Share
@@ -110,7 +110,7 @@ func TestLondonDemandPreservesStationScale(t *testing.T) {
 
 func TestLondonDemandScheduleIsRepeatable(t *testing.T) {
 	t.Parallel()
-	band := LondonDemand()[2]
+	band := LondonCentralDemand()[2]
 	first := londonDemandSchedule(20260922, band, 20)
 	second := londonDemandSchedule(20260922, band, 20)
 	other := londonDemandSchedule(20260923, band, 20)
@@ -124,9 +124,9 @@ func TestLondonDemandScheduleIsRepeatable(t *testing.T) {
 
 func TestLondonAMPeakSampleCompletes(t *testing.T) {
 	t.Parallel()
-	config := London()
+	config := LondonCentral()
 	const requestCount = 40
-	schedule := londonDemandSchedule(20260922, LondonDemand()[2], requestCount)
+	schedule := londonDemandSchedule(20260922, LondonCentralDemand()[2], requestCount)
 	result := runQualification(t, qualificationInput{
 		config: config, schedule: schedule, checkSafety: true,
 		ticks: 30 * 60 * sim.TicksPerSecond,

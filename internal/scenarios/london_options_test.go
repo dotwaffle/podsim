@@ -17,29 +17,29 @@ import (
 // project limits allow. 4 berths at each passenger station would need 4,110
 // nodes.
 func largestLondonOptions() LondonOptions {
-	options := DefaultLondonOptions()
+	options := DefaultLondonCentralOptions()
 	options.StationBerths, options.ParkingBerths, options.BerthPitch = 3, 200, 40
 	return options
 }
 
 func TestLondonWithDefaultOptionsIsLondon(t *testing.T) {
 	t.Parallel()
-	config, err := LondonWith(DefaultLondonOptions())
+	config, err := LondonCentralWith(DefaultLondonCentralOptions())
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !reflect.DeepEqual(config, London()) {
+	if !reflect.DeepEqual(config, LondonCentral()) {
 		t.Fatal("LondonWith with the default options is not London")
 	}
 	// Overrides with the default values also give the preset.
-	options := DefaultLondonOptions()
+	options := DefaultLondonCentralOptions()
 	options.Berths = map[string]int{"940GZZLUKSX": londonStationBerths, "parking-west": londonParkingBerths}
 	options.Pods = map[string]int{"940GZZLUKSX": londonStationPods}
-	config, err = LondonWith(options)
+	config, err = LondonCentralWith(options)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !reflect.DeepEqual(config, London()) {
+	if !reflect.DeepEqual(config, LondonCentral()) {
 		t.Fatal("LondonWith with default overrides is not London")
 	}
 }
@@ -184,9 +184,9 @@ func TestLondonWithCapacity(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
-			options := DefaultLondonOptions()
+			options := DefaultLondonCentralOptions()
 			test.change(&options)
-			config, err := LondonWith(options)
+			config, err := LondonCentralWith(options)
 			if test.err != "" {
 				if err == nil || !strings.Contains(err.Error(), test.err) {
 					t.Fatalf("LondonWith error = %v, want an error with %q", err, test.err)
@@ -220,7 +220,7 @@ func TestLondonWithCapacity(t *testing.T) {
 // of command JSON after decompression.
 func TestLargestLondonFitsTheFileLimits(t *testing.T) {
 	t.Parallel()
-	config, err := LondonWith(largestLondonOptions())
+	config, err := LondonCentralWith(largestLondonOptions())
 	if err != nil {
 		t.Fatal(err)
 	}

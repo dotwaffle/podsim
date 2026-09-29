@@ -19,7 +19,7 @@ import (
 )
 
 // presets lists the preset names in help order.
-var presets = []string{"small", "busy", "parking-constrained", "rail-hub", "scale100", "london"}
+var presets = []string{"small", "busy", "parking-constrained", "rail-hub", "scale100", "london-central", "london-full"}
 
 func main() {
 	if err := run(os.Args[1:], os.Stdout, os.Stderr); err != nil && !errors.Is(err, flag.ErrHelp) {
@@ -41,14 +41,14 @@ type capacity struct {
 func run(arguments []string, stdout, stderr io.Writer) error {
 	flags := flag.NewFlagSet("scenario", flag.ContinueOnError)
 	flags.SetOutput(stdout)
-	preset := flags.String("preset", "scale100", "Preset: small, busy, parking-constrained, rail-hub, scale100, or london")
+	preset := flags.String("preset", "scale100", "Preset: "+strings.Join(presets, ", "))
 	output := flags.String("output", "", "Output file; omit to write standard output")
 	var options capacity
 	flags.IntVar(&options.stationBerths, "station-berths", 0, "Berths at each passenger station; omit to keep the preset value")
 	flags.IntVar(&options.parkingBerths, "parking-berths", 0, "Berths at each Parking station; omit to keep the preset value")
 	berths := flags.String("berths", "", "Berths at single stations, as comma-separated ID=N items")
-	flags.IntVar(&options.stationPods, "station-pods", 0, "London only: initial pods at each passenger station")
-	flags.IntVar(&options.parkingPods, "parking-pods", 0, "London only: initial pods at each Parking facility")
+	flags.IntVar(&options.stationPods, "station-pods", 0, "London presets only: initial pods at each passenger station")
+	flags.IntVar(&options.parkingPods, "parking-pods", 0, "London presets only: initial pods at each Parking facility")
 	flags.Float64Var(&options.berthPitch, "berth-pitch", 0, "Distance in meters between two berths of a station, at least 25")
 	if err := flags.Parse(arguments); err != nil {
 		return err
@@ -127,23 +127,12 @@ func presetConfig(name string, options capacity) (project.Config, error) {
 	if !slices.Contains(presets, name) {
 		return project.Config{}, fmt.Errorf("unknown preset %q", name)
 	}
-	if name == "london" {
-		london := scenarios.DefaultLondonOptions()
-		setInt(options.set["station-berths"], &london.StationBerths, options.stationBerths)
-		setInt(options.set["parking-berths"], &london.ParkingBerths, options.parkingBerths)
-		setInt(options.set["station-pods"], &london.StationPods, options.stationPods)
-		setInt(options.set["parking-pods"], &london.ParkingPods, options.parkingPods)
-		if options.set["berths"] {
-			london.Berths = options.berths
-		}
-		if options.set["berth-pitch"] {
-			london.BerthPitch = options.berthPitch
-		}
-		return scenarios.LondonWith(london)
+	if name == "london-central" || name == "london-full" {
+		return londonPresetConfig(name, options)
 	}
 	for _, flag := range []string{"station-pods", "parking-pods"} {
 		if options.set[flag] {
-			return project.Config{}, fmt.Errorf("-%s applies only to the london preset", flag)
+			return project.Config{}, fmt.Errorf("-%s applies only to the London presets", flag)
 		}
 	}
 	return scenarios.PresetWith(name, func(parameters *scenarios.Parameters) {
@@ -156,6 +145,33 @@ func presetConfig(name string, options capacity) (project.Config, error) {
 			parameters.BerthPitch = options.berthPitch
 		}
 	})
+}
+
+// londonPresetConfig applies explicit flags over the selected preset defaults.
+func londonPresetConfig(name string, options capacity) (project.Config, error) {
+	london := scenarios.DefaultLondonCentralOptions()
+	build := scenarios.LondonCentralWith
+	if name == "london-full" {
+		london, build = scenarios.DefaultLondonFullOptions(), scenarios.LondonFullWith
+	}
+	if options.set["station-berths"] {
+		london.StationBerths, london.Berths = options.stationBerths, nil
+	}
+	setInt(options.set["parking-berths"], &london.ParkingBerths, options.parkingBerths)
+	setInt(options.set["station-pods"], &london.StationPods, options.stationPods)
+	setInt(options.set["parking-pods"], &london.ParkingPods, options.parkingPods)
+	if options.set["berths"] {
+		if london.Berths == nil {
+			london.Berths = make(map[string]int)
+		}
+		for id, count := range options.berths {
+			london.Berths[id] = count
+		}
+	}
+	if options.set["berth-pitch"] {
+		london.BerthPitch = options.berthPitch
+	}
+	return build(london)
 }
 
 // setInt sets target to value when set is true.
@@ -215,10 +231,14 @@ func writeSummary(stderr io.Writer, preset string, config project.Config, size i
 		return fmt.Errorf("encode network: %w", err)
 	}
 	soft := 0
-	if preset == "london" {
-		if soft, err = scenarios.LondonSoftConflicts(config.Network); err != nil {
-			return err
-		}
+	switch preset {
+	case "london-central":
+		soft, err = scenarios.LondonCentralSoftConflicts(config.Network)
+	case "london-full":
+		soft, err = scenarios.LondonFullSoftConflicts(config.Network)
+	}
+	if err != nil {
+		return err
 	}
 	_, err = fmt.Fprintf(stderr, "preset=%s passenger_berths=%d parking_berths=%d pods=%d nodes=%d/%d lanes=%d/%d bytes=%d network_sha256=%x soft_conflicts=%d\n",
 		preset, passenger, parking, len(config.Fleet), len(config.Network.Nodes), project.MaxNodes,

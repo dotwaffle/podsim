@@ -30,7 +30,7 @@ func TestWriteConflictFixture(t *testing.T) {
 	networks := map[string]sim.Network{}
 	for name, config := range map[string]func() project.Config{
 		"small": Small, "busy": Busy, "parking constrained": ParkingConstrained,
-		"rail hub": RailHub, "scale 100": Scale100, "London": London,
+		"rail hub": RailHub, "scale 100": Scale100, "London": LondonCentral,
 	} {
 		networks[name] = config().Network
 	}

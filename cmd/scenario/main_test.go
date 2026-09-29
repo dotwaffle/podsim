@@ -75,7 +75,7 @@ func TestRunWithoutFlagsKeepsPresets(t *testing.T) {
 		"parking-constrained": "690cd3857d2bc4cef4cf7758b6703f3e02877e7bf13a47301f41b0210b9be1d1",
 		"rail-hub":            "e492e0a3fd738f5121779bc2d4880a4c5c14733d330eb57f20b0acded3b73917",
 		"scale100":            "896f1784d0f1e13cf9f6637d24de7970db99edbbd4c10adf9ce60f17388e1abc",
-		"london":              "a14e1be2af28121105877558f804055de2dc064c9b7444685cff5965907e61b4",
+		"london-central":      "1c0a1402d3ffa9bc383faa6a5f34d42376d33fdf54813784633a8803e7f5ec9a",
 	}
 	for preset, want := range tests {
 		t.Run(preset, func(t *testing.T) {
@@ -157,7 +157,7 @@ func TestRunCapacityFlags(t *testing.T) {
 	})
 	t.Run("London", func(t *testing.T) {
 		t.Parallel()
-		config, summary := generate(t, "-preset", "london", "-berths", "940GZZLUKSX=3", "-station-pods", "0", "-parking-pods", "12", "-parking-berths", "12")
+		config, summary := generate(t, "-preset", "london-central", "-berths", "940GZZLUKSX=3", "-station-pods", "0", "-parking-pods", "12", "-parking-berths", "12")
 		if berthCount(t, config, "940GZZLUKSX") != 3 || len(config.Fleet) != 36 {
 			t.Fatalf("got %d King's Cross berths and %d pods", berthCount(t, config, "940GZZLUKSX"), len(config.Fleet))
 		}
@@ -179,11 +179,11 @@ func TestRunRejectsBadCapacityFlags(t *testing.T) {
 		{name: "count not a number", arguments: []string{"-preset", "small", "-berths", "station-01=x"}, err: "has no whole berth count"},
 		{name: "station twice", arguments: []string{"-preset", "small", "-berths", "station-01=2,station-01=3"}, err: "more than once"},
 		{name: "unknown station", arguments: []string{"-preset", "small", "-berths", "station-09=2"}, err: `unknown station ID "station-09"`},
-		{name: "unknown London station", arguments: []string{"-preset", "london", "-berths", "940GZZLUXXX=3"}, err: `unknown London station ID "940GZZLUXXX"`},
-		{name: "pods for a ring", arguments: []string{"-preset", "busy", "-station-pods", "2"}, err: "-station-pods applies only to the london preset"},
-		{name: "Parking pods for the mesh", arguments: []string{"-preset", "scale100", "-parking-pods", "2"}, err: "-parking-pods applies only to the london preset"},
-		{name: "pitch below the floor", arguments: []string{"-preset", "london", "-berth-pitch", "20"}, err: "berth pitch"},
-		{name: "layout conflict", arguments: []string{"-preset", "london", "-berths", "940GZZLUEMB=3"}, err: "Embankment (940GZZLUEMB)"},
+		{name: "unknown London station", arguments: []string{"-preset", "london-central", "-berths", "940GZZLUXXX=3"}, err: `unknown London station ID "940GZZLUXXX"`},
+		{name: "pods for a ring", arguments: []string{"-preset", "busy", "-station-pods", "2"}, err: "-station-pods applies only to the London presets"},
+		{name: "Parking pods for the mesh", arguments: []string{"-preset", "scale100", "-parking-pods", "2"}, err: "-parking-pods applies only to the London presets"},
+		{name: "pitch below the floor", arguments: []string{"-preset", "london-central", "-berth-pitch", "20"}, err: "berth pitch"},
+		{name: "layout conflict", arguments: []string{"-preset", "london-central", "-berths", "940GZZLUEMB=3"}, err: "Embankment (940GZZLUEMB)"},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -247,6 +247,53 @@ func TestScenarioJSONFitsFileLimit(t *testing.T) {
 			}
 			if !bytes.Equal(got, want) {
 				t.Fatal("output changed the project")
+			}
+		})
+	}
+}
+
+func TestRunWritesImportableLondonFull(t *testing.T) {
+	t.Parallel()
+	var output, summary bytes.Buffer
+	if err := run([]string{"-preset", "london-full"}, &output, &summary); err != nil {
+		t.Fatal(err)
+	}
+	if output.Len() > project.MaxFileBytes || bytes.Count(output.Bytes(), []byte{'\n'}) != 1 {
+		t.Fatalf("full output has %d bytes or is not compact", output.Len())
+	}
+	var config project.Config
+	if err := json.Unmarshal(output.Bytes(), &config); err != nil {
+		t.Fatal(err)
+	}
+	if err := project.Validate(config); err != nil {
+		t.Fatal(err)
+	}
+	if config.Name != "LondonFull" || len(config.Network.Stations) != 272 || len(config.Fleet) != 287 ||
+		len(config.DemandProfiles) != 1 || len(config.DemandProfiles[0].Flows) != 60996 || len(config.DemandProfiles[0].Bands) != 6 {
+		t.Fatal("full export lost its preset identity, network, fleet, or demand")
+	}
+	if !strings.Contains(summary.String(), "soft_conflicts=3") {
+		t.Fatalf("full summary = %s", summary.String())
+	}
+}
+
+func TestLondonFullCapacityFlagsPreserveDefaults(t *testing.T) {
+	t.Parallel()
+	for _, test := range []struct {
+		name                 string
+		flags                []string
+		heathrow, kingsCross int
+	}{
+		{name: "single override", flags: []string{"-berths", "940GZZLUHRC=1"}, heathrow: 1, kingsCross: 5},
+		{name: "uniform override", flags: []string{"-station-berths", "2"}, heathrow: 2, kingsCross: 2},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			config, _ := generate(t, append([]string{"-preset", "london-full"}, test.flags...)...)
+			for id, count := range map[string]int{"940GZZLUHRC": test.heathrow, "940GZZLUKSX": test.kingsCross} {
+				station, ok := config.Network.Station(id)
+				if !ok || len(station.Berths) != count {
+					t.Fatalf("station %s has %d berths, want %d", id, len(station.Berths), count)
+				}
 			}
 		})
 	}

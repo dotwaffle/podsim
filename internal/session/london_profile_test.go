@@ -9,7 +9,7 @@ import (
 
 func TestLondonProfileDrivesLiveDemand(t *testing.T) {
 	t.Parallel()
-	config := scenarios.London()
+	config := scenarios.LondonCentral()
 	config.Demand.Enabled = true
 	shared, err := NewWithProject(config)
 	if err != nil {
@@ -67,7 +67,7 @@ const londonRewindPerMinute = 5
 
 func TestLondonRewindReplaysExactly(t *testing.T) {
 	t.Parallel()
-	config := scenarios.London()
+	config := scenarios.LondonCentral()
 	config.Demand.Enabled = true
 	config.Demand.PerMinute = londonRewindPerMinute
 	config.Redistribution = true

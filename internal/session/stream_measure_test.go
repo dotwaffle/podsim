@@ -12,7 +12,7 @@ import (
 )
 
 func TestStreamLondonWire(t *testing.T) {
-	config := scenarios.London()
+	config := scenarios.LondonCentral()
 	config.Demand.Enabled = true
 	shared, err := NewWithProject(config)
 	if err != nil {

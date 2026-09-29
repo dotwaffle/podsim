@@ -28,7 +28,7 @@ var benchmarkClone *sim.Simulation
 // request comes before the tick until.
 func londonCloneSchedule(until int) []scheduledRequest {
 	const interval = 5 * sim.TicksPerSecond
-	return londonDemandSchedule(londonCloneSeed, LondonDemand()[2], (until-1)/interval)
+	return londonDemandSchedule(londonCloneSeed, LondonCentralDemand()[2], (until-1)/interval)
 }
 
 type scheduledStep struct {
@@ -60,7 +60,7 @@ type londonWarmup struct {
 // route at the end.
 func warmLondon(tb testing.TB, warmup londonWarmup) *sim.Simulation {
 	tb.Helper()
-	simulation := newSimulation(tb, London())
+	simulation := newSimulation(tb, LondonCentral())
 	for tick := range warmup.ticks {
 		if err := stepScheduled(simulation, scheduledStep{schedule: warmup.schedule, tick: tick}); err != nil {
 			tb.Fatal(err)

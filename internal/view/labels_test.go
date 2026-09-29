@@ -99,7 +99,7 @@ func TestStationLabelRanks(t *testing.T) {
 // interchanges come first, not the first stations in alphabetical order.
 func TestStationLabelRanksOnLondon(t *testing.T) {
 	t.Parallel()
-	network := scenarios.London().Network
+	network := scenarios.LondonCentral().Network
 	names := make(map[string]string, len(network.Stations))
 	for _, station := range network.Stations {
 		names[station.ID] = station.Name
@@ -512,7 +512,7 @@ func TestClearPodLabels(t *testing.T) {
 // marker is not under a label placed before it.
 func TestOverviewLabelsOnLondon(t *testing.T) {
 	t.Parallel()
-	network := scenarios.London().Network
+	network := scenarios.LondonCentral().Network
 	for _, zoom := range []float64{1, 2, 4} {
 		t.Run(fmt.Sprintf("zoom %g", zoom), func(t *testing.T) {
 			t.Parallel()

@@ -42,7 +42,7 @@ type londonStationPoint struct {
 // again.
 func TestLondonPointsGolden(t *testing.T) {
 	t.Parallel()
-	geo := London().Geo
+	geo := LondonCentral().Geo
 	want := project.Geo{Latitude: londonReferenceLatitude, Longitude: londonReferenceLongitude, Projection: project.GeoProjection, Radius: project.GeoRadius}
 	if geo == nil || *geo != want {
 		t.Fatalf("London geo = %+v, want %+v", geo, want)

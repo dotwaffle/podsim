@@ -168,7 +168,7 @@ func TestFitInspectionValueCutsLongValues(t *testing.T) {
 // units in a window of 1366x617.
 func TestInspectionRowsFitLondonNames(t *testing.T) {
 	t.Parallel()
-	network := scenarios.London().Network
+	network := scenarios.LondonCentral().Network
 	var vehicles []sim.Vehicle
 	for _, station := range network.Stations {
 		for _, phase := range stationPhases {

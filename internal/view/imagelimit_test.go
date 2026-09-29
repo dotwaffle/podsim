@@ -81,7 +81,7 @@ func TestMapImagesFitImageLimit(t *testing.T) {
 		network sim.Network
 	}{
 		{name: "example", network: sim.Example()},
-		{name: "London", network: scenarios.London().Network},
+		{name: "London", network: scenarios.LondonCentral().Network},
 	}
 	tests := []struct {
 		layout layoutInput

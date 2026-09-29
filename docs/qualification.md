@@ -1,5 +1,8 @@
 # Qualification results
 
+The historical London results below refer to LondonCentral (`london-central`).
+The recorded measurements and source data have not changed.
+
 These measurements use Go 1.27.1 on a Ryzen 5 3600 with 12 logical CPUs and Debian 13.
 They compare the accepted `0f8f10f` baseline with the changes documented here.
 The recorded scale measurements use the ring fixture from `fe8fbe7`, before the mesh and map-navigation changes.
@@ -243,8 +246,8 @@ It is the first London arm in which track congestion limits service.
 ```sh
 mise run scenario -- -preset rail-hub -output /tmp/podsim-rail-hub.json
 mise run scenario -- -preset scale100 -output /tmp/podsim-scale100.json
-mise run scenario -- -preset london -output /tmp/podsim-london.json
-mise run scenario -- -preset london -station-berths 3 -berths 940GZZLUEMB=2 -parking-berths 24 -station-pods 2 -parking-pods 0 -output /tmp/podsim-london-192.json
+mise run scenario -- -preset london-central -output /tmp/podsim-london.json
+mise run scenario -- -preset london-central -station-berths 3 -berths 940GZZLUEMB=2 -parking-berths 24 -station-pods 2 -parking-pods 0 -output /tmp/podsim-london-192.json
 mise run compare -- -project /tmp/podsim-rail-hub.json -pattern hub-burst -duration 30m -arrivals-for 5m -request-every 5s -burst-size 12 -seeds 1,2,3,4,5 -redistribution-policies off -routing-policies free-flow,congestion,queue -stop-when-drained -format csv -output docs/measurements/routing-queue-rail-hub.csv
 mise run compare -- -project /tmp/podsim-scale100.json -pattern hub-burst -duration 30m -arrivals-for 5m -request-every 5s -burst-size 12 -seeds 1,2,3 -redistribution-policies off -routing-policies free-flow,congestion,queue -stop-when-drained -format csv -output docs/measurements/routing-queue-scale100.csv
 mise run compare -- -project /tmp/podsim-london-192.json -pattern profile -bands early,am-peak -duration 65m -arrivals-for 30m -loads 6s,5s,4s,3s -seeds 1,2,3,4,5,6,7,8,9,10 -redistribution-policies off -routing-policies free-flow,congestion,queue -focus 940GZZLUEUS -queue-limit 1000000 -stop-when-drained -workers 5 -format csv -output docs/measurements/routing-queue-london-192.csv
@@ -845,7 +848,7 @@ See the subsections below.
 The code at commit `d64c3e0` gives each row of the capacity CSV again.
 
 ```sh
-mise run scenario -- -preset london -output /tmp/podsim-london-capacity.json
+mise run scenario -- -preset london-central -output /tmp/podsim-london-capacity.json
 mise run compare -- -project /tmp/podsim-london-capacity.json -pattern profile -bands all -duration 65m -arrivals-for 30m -loads 60s,30s,20s,15s,12s,10s,8.571429s,7.5s,6.666667s,6s,5.454545s,5s,4.615385s,4.285714s,4s -seeds 1,2,3 -redistribution-policies off -focus 940GZZLUEUS -queue-limit 1000000 -stop-when-drained -adaptive-limit -past-limit 1 -workers 5 -format csv -output docs/measurements/london-capacity.csv
 ```
 
@@ -968,7 +971,7 @@ The sweep ran before the platoon option landed, and its simulation and compare c
 These commands give the rows of the platoon CSV again:
 
 ```sh
-mise run scenario -- -preset london -output /tmp/podsim-london-capacity.json
+mise run scenario -- -preset london-central -output /tmp/podsim-london-capacity.json
 mise run compare -- -project /tmp/podsim-london-capacity.json -pattern profile -bands all -duration 65m -arrivals-for 30m -loads 60s,30s,20s,15s,12s,10s,8.571429s,7.5s,6.666667s,6s,5.454545s,5s,4.615385s,4.285714s,4s -seeds 1,2,3 -redistribution-policies off -platoon-policies virtual -focus 940GZZLUEUS -queue-limit 1000000 -stop-when-drained -adaptive-limit -past-limit 1 -workers 10 -format csv -output docs/measurements/london-capacity-platoons.csv
 ```
 
@@ -1695,7 +1698,7 @@ The AM peak band ran with seeds 1, 2, and 3, in 30-minute arrival windows, with 
 The added berths do not change the result, so the berths do not limit the AM peak with this fleet.
 
 ```sh
-mise run scenario -- -preset london -station-berths 3 -berths 940GZZLUEMB=2 -parking-berths 24 -output /tmp/podsim-london-3.json
+mise run scenario -- -preset london-central -station-berths 3 -berths 940GZZLUEMB=2 -parking-berths 24 -output /tmp/podsim-london-3.json
 mise run compare -- -project /tmp/podsim-london-3.json -pattern profile -bands am-peak -loads 5s,4.615385s,4s -seeds 1,2,3 -duration 65m -arrivals-for 30m -stop-when-drained -redistribution-policies off -focus 940GZZLUEUS -queue-limit 1000000 -workers 4
 ```
 
@@ -1750,7 +1753,7 @@ The compare command at commit `4f2ad0a` gives the recorded values.
 The sweep took 540 wall seconds with four workers.
 
 ```sh
-mise run scenario -- -preset london -station-pods 2 -parking-pods 2 -output /tmp/podsim-london-198.json
+mise run scenario -- -preset london-central -station-pods 2 -parking-pods 2 -output /tmp/podsim-london-198.json
 mise run compare -- -project /tmp/podsim-london-198.json -pattern profile -bands early,am-peak,pm-peak -duration 65m -arrivals-for 30m -loads 60s,30s,20s,15s,12s,10s,8.571429s,7.5s,6.666667s,6s,5.454545s,5s,4.615385s,4.285714s,4s,3.5s,3s,2.5s,2s,1.5s -seeds 1,2,3 -redistribution-policies off -focus 940GZZLUEUS -queue-limit 1000000 -stop-when-drained -adaptive-limit -past-limit 1 -workers 4 -format csv -output docs/measurements/london-platoon-screening.csv
 ```
 
@@ -1842,7 +1845,7 @@ The three commands took 107 wall seconds with ten workers.
 Each seed drains within 65 minutes at each rate, so `-adaptive-limit` skips no rate.
 
 ```sh
-mise run scenario -- -preset london -station-pods 2 -parking-pods 2 -output /tmp/podsim-london-198.json
+mise run scenario -- -preset london-central -station-pods 2 -parking-pods 2 -output /tmp/podsim-london-198.json
 mise run compare -- -project /tmp/podsim-london-198.json -pattern profile -bands early -loads 6.666667s,6s,5.454545s,5s -seeds 1,2,3 -redistribution-policies off -platoon-policies virtual -focus 940GZZLUEUS -queue-limit 1000000 -duration 65m -arrivals-for 30m -stop-when-drained -adaptive-limit -workers 10 -format csv
 mise run compare -- -project /tmp/podsim-london-198.json -pattern profile -bands am-peak -loads 3s,2.5s -seeds 1,2,3 -redistribution-policies off -platoon-policies virtual -focus 940GZZLUEUS -queue-limit 1000000 -duration 65m -arrivals-for 30m -stop-when-drained -adaptive-limit -workers 10 -format csv
 mise run compare -- -project /tmp/podsim-london-198.json -pattern profile -bands pm-peak -loads 2.5s -seeds 1,2,3 -redistribution-policies off -platoon-policies virtual -focus 940GZZLUEUS -queue-limit 1000000 -duration 65m -arrivals-for 30m -stop-when-drained -adaptive-limit -workers 10 -format csv
@@ -1921,7 +1924,7 @@ The rail-hub preset has no platoons.
 The London sweep took 254 wall seconds with ten workers.
 
 ```sh
-mise run scenario -- -preset london -output /tmp/podsim-london.json
+mise run scenario -- -preset london-central -output /tmp/podsim-london.json
 mise run compare -- -project /tmp/podsim-london.json -pattern profile -bands early,night,am-peak -duration 65m -arrivals-for 30m -loads 60s,30s,20s,15s,12s,10s,8.571429s,7.5s,6.666667s,6s,5.454545s,5s,4.615385s,4.285714s,4s -seeds 1,2,3 -redistribution-policies off -platoon-policies virtual -focus 940GZZLUEUS -queue-limit 1000000 -stop-when-drained -adaptive-limit -past-limit 1 -sharing-limits 4,8 -sharing-modes drop-offs -workers 10 -format csv -output docs/measurements/london-seat-screen.csv
 mise run scenario -- -preset rail-hub -output /tmp/podsim-rail-hub.json
 mise run compare -- -project /tmp/podsim-rail-hub.json -pattern hub-burst -duration 30m -arrivals-for 5m -request-every 5s -burst-size 12 -seeds 1,2,3 -sharing-limits 4,8 -sharing-modes drop-offs -redistribution-policies off -workers 10 -format csv -output docs/measurements/rail-hub-seat-screen.csv

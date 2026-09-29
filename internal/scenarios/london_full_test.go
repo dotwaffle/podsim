@@ -29,7 +29,7 @@ func TestLondonFullPreset(t *testing.T) {
 	if berths != 674 {
 		t.Fatalf("berths=%d want 674", berths)
 	}
-	if config.Demand.PerMinute != 20 || config.Demand.Band != "am-peak" || config.Demand.Profile != londonFullDemandProfileID {
+	if config.Demand.PerMinute != 10 || config.Demand.Band != "am-peak" || config.Demand.Profile != londonFullDemandProfileID {
 		t.Fatalf("demand=%+v", config.Demand)
 	}
 	source, err := decodeLondonFullSource()
@@ -163,7 +163,12 @@ func TestLondonFullOwnedAndDeterministic(t *testing.T) {
 
 func TestLondonCentralBytesUnchanged(t *testing.T) {
 	t.Parallel()
-	raw, err := json.Marshal(London())
+	config := LondonCentral()
+	if config.Name != "LondonCentral" {
+		t.Fatal("central display name changed")
+	}
+	config.Name = "Central London Underground-derived PRT"
+	raw, err := json.Marshal(config)
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -14,7 +14,7 @@ import (
 
 func TestCollapsedStationAnchorsUseLondonJunctions(t *testing.T) {
 	t.Parallel()
-	network := scenarios.London().Network
+	network := scenarios.LondonCentral().Network
 	sources := londonSourcePositions(t)
 	anchors := collapsedStationAnchors(network)
 	passengers := 0

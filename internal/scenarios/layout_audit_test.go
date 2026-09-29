@@ -25,7 +25,7 @@ func TestPresetOutputIsPinned(t *testing.T) {
 		{name: "parking constrained", config: ParkingConstrained, sha256: "70efdca391170884c1ba79376750512ae4c020c42d7fc25574c383c1cbcd6400"},
 		{name: "rail hub", config: RailHub, sha256: "ce145a92886574f527ce3f2a078c6188a8dbe4874688a49b17dd8c24d1588069"},
 		{name: "scale 100", config: Scale100, sha256: "3c9377cde8efee8fa954dd5a8d7168b0ad3013dfcd8ec805e0444c96e3bb54a0"},
-		{name: "London", config: London, sha256: "7cd1808cd927153a6e8ac87f79db7400d43be293a20ffba3517d10ee0bdccaca"},
+		{name: "LondonCentral", config: LondonCentral, sha256: "5853e2a63c7d8ff6026c2da0a3e1a2c6ce05832d6434aebe630218a8b8b07c4d"},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -69,7 +69,7 @@ func TestAuditPresetsHaveNoHardConflicts(t *testing.T) {
 		if err := decodeLondonSource(&source); err != nil {
 			t.Fatal(err)
 		}
-		network := London().Network
+		network := LondonCentral().Network
 		conflicts := auditLondonLayout(network, newLondonAuditInput(source))
 		if err := layoutError(network, conflicts); err != nil {
 			t.Fatal(err)
@@ -161,7 +161,7 @@ func TestAuditLondonLayoutFindsConflicts(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
-			network := London().Network
+			network := LondonCentral().Network
 			test.change(&network)
 			err := layoutError(network, auditLondonLayout(network, input))
 			t.Log(err)
