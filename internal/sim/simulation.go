@@ -309,6 +309,7 @@ type Simulation struct {
 	routingPolicy               RoutingPolicy
 	finishingPodWait            FinishingPodWait
 	stationBuffers              bool
+	pickupSwaps                 *pickupSwapController
 	congestionRouteCosts        []float64
 	congestionRoutes            map[routeKey]routeResult
 	nextCongestionRouteRefresh  int64
@@ -414,6 +415,9 @@ func (s *Simulation) Reset() {
 	s.passengerDistanceMeters, s.emptyDistanceMeters, s.rebalanceMoves, s.sharedParties = 0, 0, 0, 0
 	s.seatScreen = SeatScreen{}
 	s.requestBoardings, s.requestCompletions, s.nodePasses = nil, nil, nil
+	if s.pickupSwaps != nil {
+		s.pickupSwaps = &pickupSwapController{enabled: s.pickupSwaps.enabled, right: 1, cooldown: make(map[string]int64)}
+	}
 	s.platoonLinks = 0
 	s.owners = make(map[resource]string)
 	s.vehicles = nil
@@ -599,6 +603,7 @@ func (s *Simulation) Step() {
 		}
 	}
 	s.dispatch()
+	s.swapPickups()
 	s.redistribute()
 	s.formPlatoons()
 	s.admit()

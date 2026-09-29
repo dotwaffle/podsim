@@ -1,6 +1,7 @@
 # Pickup reassignment research
 
-Status: research and proposed follow-up, not an approved dispatch change.
+Status: approved overnight experiment, disabled by default.
+The candidate has no project, command, or editor control.
 Evidence captured on September 29, 2026.
 
 ## Observed problem
@@ -79,11 +80,14 @@ The linked manuscript was uploaded to arXiv in 2024.
 Its sampling-and-voting approach concerns proactive empty-vehicle positioning.
 That is relevant to the broader fleet policy, but it does not replace a correction to existing pickup assignments.
 
-## Recommended follow-up
+## Bounded experiment
 
 Start with pairwise swaps of empty, assigned pickup pods.
 This is smaller than periodic global matching and directly addresses the observed candidate.
-Use an observation-only implementation first, then a disabled-by-default experiment if approved.
+The September 29 overnight grant approved a disabled-by-default experiment.
+The controller runs after ordinary dispatch, before track admission.
+It runs at most once each simulated second and only with free-flow routing.
+Congestion and queue routing retain their existing dispatch behavior.
 
 For each pair:
 
@@ -93,10 +97,30 @@ For each pair:
 4. Require neither pickup to become later, and require a useful reduction in total remaining pickup time.
 5. Apply both assignments and routes together in deterministic order.
 
-A minimum improvement and a reassignment cooldown should prevent repeated small changes.
-Their values remain design decisions.
+The candidate requires at least 10 seconds of combined predicted saving and neither request becoming later.
+Compare each request with its replacement pod, not each pod with its new request.
+A pod has a 30-second cooldown after a successful swap.
+Each check scans at most 256 fleet pairs and prepares routes for at most eight eligible pairs.
+It commits at most one swap.
+The pair cursor advances after every examined pair, including rejection or success.
+These limits bound attempts, not CPU time.
+Route-search cost still depends on the network and cache state.
 Do not let reassignment reset an order's original request time or queue priority.
 Preserve passenger accounting and all track, berth, and platoon safety checks.
+
+The controller excludes occupied, coupled, released, rebalancing, and buffered pods.
+It rejects duplicate assignments and mismatched pickup targets.
+Both routes must pass the existing diversion frontier before either redirect commits.
+The redirect retains admission wait age only when the complete pending resource group stays the same.
+Changed groups start a new wait on their next admission attempt.
+The request keeps its original ID, request time, queue position, and sharing census flags.
+The controller clears cached onward routes and obsolete deferral fields.
+
+Reset keeps enablement but clears cursor, cooldowns, and counters.
+Clone preserves the controller and copies its mutable storage.
+A file restore keeps valid swapped routes and bindings but disables the experimental policy.
+Policy history is not saved, so a restart does not promise identical future experimental decisions.
+Project files and WebSocket frames do not change.
 
 | Approach | Benefit | Limitation |
 | --- | --- | --- |
@@ -118,4 +142,28 @@ Compare existing dispatch and the candidate with the same seeds and demand sched
 Measure mean, p95, and maximum wait, request-to-alight time, empty distance, completed parties, queue recovery, and CPU cost.
 Record candidate counts, rejection reasons, swaps, predicted savings, and realized pickup times.
 A predicted saving for two orders is not proof of higher network capacity.
+
+The first LondonFull comparison used seed 1, AM peak demand at 10 requests per minute, and 30 minutes of arrivals.
+Both modes completed 298 of 299 orders within one simulated hour.
+Their complete comparison results matched, including mean wait, p95 wait, and empty distance.
+The enabled controller evaluated 928 pairs and made no swaps.
+The instrumented arms took 14.08 seconds disabled and 14.39 seconds enabled.
+They include once-per-second safety and order checks and ran alongside another study.
+These times do not establish a production playback limit or a reliable overhead estimate.
+Raw profiles and frozen manifests are in `~/.cache/agents/podsim/pickup-reassignment-20260929/profile/`.
+A second comparison used two seeds, 20 requests per minute, one hour of arrivals, and a two-hour observation cap.
+Each pair used the same demand schedule and passed once-per-second safety and order-accounting checks.
+
+| Seed | Completed, off/on | Mean wait, off/on | p95 wait, off/on | Empty distance change |
+| --- | --- | --- | --- | --- |
+| 1 | 1184/1186 of 1199 | 785.5/716.0 s | 2176.0/1959.3 s | -6.6% |
+| 2 | 1181/1187 of 1199 | 813.9/764.8 s | 2172.5/1952.4 s | -6.7% |
+
+Both enabled arms reduced mean and p95 pickup wait.
+Neither mode completed every order by the cap.
+Seed 1 maximum request-to-alight time increased from 4900.0 to 5208.0 seconds.
+This comparison does not establish a no-harm envelope or sustained capacity.
+The instrumented enabled arms took more wall time, but concurrent work prevents a reliable production overhead estimate.
+Raw results and frozen manifests are in `~/.cache/agents/podsim/pickup-reassignment-20260929/load/`.
+Broader load comparisons remain qualification work.
 The experiment must also check later congestion and effects on other waiting parties.

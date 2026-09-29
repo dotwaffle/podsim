@@ -34,15 +34,16 @@ var cloneRules = map[reflect.Type]map[string]cloneRule{
 		"berthResources": cloneShare, "laneCells": cloneShare, "approachStations": cloneShare, "routeStations": cloneDrop,
 		"requestBoardings": cloneCopy, "requestCompletions": cloneCopy, "nodePasses": cloneCopy, "monitor": cloneShare,
 		"pass": cloneDrop, "platoonData": cloneShare, "platoonOrder": cloneDrop, "platoonAhead": cloneDrop,
-		"platoonLanes": cloneDrop,
+		"platoonLanes": cloneDrop, "pickupSwaps": cloneCopy,
 	},
 	reflect.TypeFor[vehicle](): {
 		"Vehicle": cloneCopy, "blocks": cloneShare, "blockStarts": cloneShare, "routeReleases": cloneCopy,
 		"routeLengths": cloneShare,
 	},
-	reflect.TypeFor[Vehicle]():     {"Riders": cloneCopy, "Stops": cloneCopy, "Route": cloneShare, "Presentation": cloneShare},
-	reflect.TypeFor[waitingTrip](): {"route": cloneShare},
-	reflect.TypeFor[routeResult](): {"lanes": cloneShare, "err": cloneShare},
+	reflect.TypeFor[Vehicle]():              {"Riders": cloneCopy, "Stops": cloneCopy, "Route": cloneShare, "Presentation": cloneShare},
+	reflect.TypeFor[waitingTrip]():          {"route": cloneShare},
+	reflect.TypeFor[routeResult]():          {"lanes": cloneShare, "err": cloneShare},
+	reflect.TypeFor[pickupSwapController](): {"cooldown": cloneCopy},
 }
 
 // clonePlainTypes hold only plain values, so a value copy of them is deep.
@@ -182,7 +183,7 @@ var persistRules = map[reflect.Type]map[string]persistRule{
 		"recordExperiments": persistUnsupported, "pass": persistReset,
 		"platooning": persistSession, "platoonLimit": persistSession, "platoonLinks": persistDerive,
 		"platoonData": persistDerive, "platoonOrder": persistReset, "platoonAhead": persistReset,
-		"platoonLanes": persistReset, "stationBuffers": persistUnsupported,
+		"platoonLanes": persistReset, "stationBuffers": persistUnsupported, "pickupSwaps": persistUnsupported,
 	},
 	reflect.TypeFor[vehicle](): {
 		"Vehicle": persistSave, "phaseTicks": persistSave, "blocks": persistDerive, "blockStarts": persistDerive,
@@ -375,6 +376,8 @@ func activeCloneSimulation(t *testing.T) *Simulation {
 	// The demo does not use drop-offs, so the fixture fills the station
 	// caches of drop-offs.
 	s.stationsOnRoute("harbor-berth", "market")
+	s.SetPickupSwaps(true)
+	s.pickupSwaps.cooldown["01"] = s.tick + pickupSwapCooldownTicks
 	return s
 }
 
