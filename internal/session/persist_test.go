@@ -443,6 +443,7 @@ func TestNewFromStoreKeepsGeo(t *testing.T) {
 	t.Parallel()
 	config := project.Default()
 	config.Geo = &project.Geo{Latitude: 51.5074, Longitude: -0.1278, Projection: project.GeoProjection, Radius: project.GeoRadius}
+	config.Map = &project.MapBackground{Provider: "osm", Opacity: .6}
 	store := &fakeStore{}
 	s := startFromStore(t, StoreInput{Store: store, Project: &config, Options: []Option{WithBuildID(testBuildID)}})
 	s.Close()
@@ -453,6 +454,9 @@ func TestNewFromStoreKeepsGeo(t *testing.T) {
 	restored := startFromStore(t, StoreInput{Store: &fakeStore{data: writes[len(writes)-1]}, Options: []Option{WithBuildID(testBuildID)}})
 	if got := restored.project.Geo; got == nil || *got != *config.Geo {
 		t.Fatalf("restored geo = %+v, want %+v", got, config.Geo)
+	}
+	if got := restored.project.Map; got == nil || *got != *config.Map {
+		t.Fatalf("restored map = %+v, want %+v", got, config.Map)
 	}
 }
 

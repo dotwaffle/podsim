@@ -87,6 +87,7 @@ type Game struct {
 	mapScale             float64
 	mapOrigin            sim.Point
 	camera               mapCamera
+	mapBackground        mapPublisher
 	touch                touchGestures
 	cameraKey            cameraFitKey
 	networkBase          *ebiten.Image
@@ -686,12 +687,14 @@ func (g *Game) ensureLayout() {
 // frame until then. See ebiten.SetScreenClearedEveryFrame in cmd/podsim.
 func (g *Game) Draw(screen *ebiten.Image) {
 	if g.hidden {
+		g.mapBackground.publish(g.currentMapView())
 		return
 	}
 	g.drawnFrames++
 	g.ensureLayout()
 	g.fitNetwork()
 	g.imageLimit = imageSideLimit(ebiten.MaxImageSize())
+	mapEnabled := g.mapBackground.publish(g.currentMapView())
 	screen.Fill(rgb(background))
 	for _, header := range g.headerLabels() {
 		g.label(screen, header)
@@ -699,6 +702,11 @@ func (g *Game) Draw(screen *ebiten.Image) {
 	vector.FillRect(screen, float32(g.layout.x(24)), float32(g.layout.y(headerHeight)), float32(g.layout.x(748)+g.layout.extraX), float32(g.layout.y(474)+g.layout.extraY), rgb(panel), false)
 	vector.FillRect(screen, float32(g.layout.right(796)), float32(g.layout.y(headerHeight)), float32(g.layout.x(280)), float32(g.layout.y(474)+g.layout.extraY), rgb(panel), false)
 	vector.FillRect(screen, float32(g.layout.x(24)), float32(g.layout.bottom(558)), float32(g.layout.x(1052)+g.layout.extraX), float32(g.layout.y(142)), rgb(panel), false)
+	if mapEnabled {
+		if mapScreen, ok := screen.SubImage(g.layout.mapViewport).(*ebiten.Image); ok {
+			mapScreen.Clear()
+		}
+	}
 	state := g.state.Simulation
 	g.drawNetwork(screen, g.mapSnapshot())
 	g.drawConnectionState(screen, time.Now())

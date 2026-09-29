@@ -1,5 +1,6 @@
 (function (root) {
   "use strict";
+  const Tiles = typeof module !== "undefined" && module.exports ? require("./tiles.js") : root.PodsimTiles;
 
   const MIN_LANE_LENGTH = 24;
   const DEFAULT_SPEED = 12;
@@ -137,6 +138,7 @@
     config.network.Stations = Array.isArray(config.network.Stations) ? config.network.Stations : [];
     config.fleet = Array.isArray(config.fleet) ? config.fleet : [];
     config.demandProfiles = Array.isArray(config.demandProfiles) ? config.demandProfiles : [];
+    if (config.map && config.map.opacity === undefined) config.map.opacity = 0;
     for (const pod of config.fleet) {
       if (pod && !pod.BerthID) {
         const station = config.network.Stations.find((item) => item && item.ID === pod.StationID);
@@ -1424,6 +1426,7 @@
       if (totals.some((total) => !Number.isFinite(total) || total <= 0)) errors.push(`Demand profile ${profile.id} has an empty band.`);
     }
     if (value.geo !== undefined && value.geo !== null) { const geo = geoError(value.geo); if (geo) errors.push(geo); }
+    if (value.map !== undefined && value.map !== null && !Tiles.validMap(value.map, value.geo)) errors.push("The map needs provider osm, opacity from 0 to 1, and a geographic reference.");
     if (!demand || !["balanced", "destination", "market", "profile"].includes(demand.pattern)) errors.push("The passenger demand pattern is invalid.");
     if (isRecord(demand) && "destination" in demand && (typeof demand.destination !== "string" || new TextEncoder().encode(demand.destination).length > 64)) errors.push("The passenger demand destination is invalid.");
     if (demand && demand.pattern === "destination" && !passenger.some((station) => station.ID === demand.destination)) errors.push("Select a passenger destination.");
@@ -3525,433 +3528,26 @@
     return draft.live === draft.revision ? text : `${text} It is based on revision ${draft.revision}. Pause and apply replaces the live changes after revision ${draft.revision}.`;
   }
 
-  // Overpass is an optional browser adapter. Its ledger covers tabs
-  // on this origin. They do not control a provider's total application load.
-  const OVERPASS_LIMITS = Object.freeze({ responseBytes: 8 * MIB, dayBytes: 10000000, dayRequests: 20, vertices: 2000000, ways: 200000, relations: 5000, members: 200000, cacheEntries: 16, cacheBytes: 48 * MIB, cacheAge: 7 * 86400000, timeout: 90000, pause: 60000, side: 4096 });
-  const OSM_COPYRIGHT = "https://www.openstreetmap.org/copyright";
-  const OSM_LICENSE = "https://opendatacommons.org/licenses/odbl/1-0/";
-
-  function overpassEndpoint(text) {
-    let url;
-    try { url = new URL(text); } catch (_) { throw new Error("Enter an HTTPS Overpass endpoint."); }
-    if (url.protocol !== "https:" || url.username || url.password || url.hash || url.search || url.href.length > 200) throw new Error("Use an HTTPS endpoint without credentials, a query, or a fragment, at most 200 characters long.");
-    return url.href;
-  }
-
-  function overpassQuery(frame) {
-    const error = frameError(frame);
-    if (error) throw new Error(error);
-    const radians = Math.PI / 180;
-    const area = GEO_RADIUS ** 2 * (frame.east - frame.west) * radians * (Math.sin(frame.north * radians) - Math.sin(frame.south * radians)) / 1e6;
-    if (area > 2500) throw new Error("The map area exceeds 2,500 square kilometers. Choose a smaller box.");
-    const tier = area <= 25 ? 25 : area <= 400 ? 400 : 2500;
-    const roads = tier === 25 ? '["highway"]' : `["highway"~"^(motorway|trunk|primary|secondary${tier === 400 ? "|tertiary" : ""})(_link)?$"]`;
-    // Round outward so the six-decimal query still contains the chosen frame.
-    const bound = (value, upper) => ((upper ? Math.ceil(value * 1e6) : Math.floor(value * 1e6)) / 1e6).toFixed(6);
-    const box = [bound(frame.south, false), bound(frame.west, false), bound(frame.north, true), bound(frame.east, true)].join(",");
-    const selectors = [`way${roads}`, 'way["railway"]', 'way["waterway"]', 'way["natural"="water"]', 'relation["type"="multipolygon"]["natural"="water"]'];
-    if (tier === 25) selectors.push('way["leisure"="park"]', 'relation["type"="multipolygon"]["leisure"="park"]');
-    // Member ways supply node identities that relation geometry omits.
-    const query = `[out:json][timeout:80];(${selectors.map((selector) => `${selector}(${box});`).join("")});(._;way(r););out body geom(${box});`;
-    return { query, area, tier, layers: `roads (${tier === 25 ? "all classes" : tier === 400 ? "motorway through tertiary" : "motorway through secondary"}), railways, water${tier === 25 ? ", parks" : ""}` };
-  }
-
-  function overpassLayer(tags = {}) {
-    if (tags.natural === "water" || tags.waterway) return "water";
-    if (tags.leisure === "park") return "park";
-    if (tags.railway) return "rail";
-    return "road";
-  }
-
-  function overpassArea(tags = {}) { return tags.natural === "water" || tags.leisure === "park" || tags.waterway === "riverbank"; }
-  function overpassID(value) { return Number.isSafeInteger(value) && value > 0; }
-  function overpassObject(value) { return value !== null && typeof value === "object" && !Array.isArray(value); }
-
-  // Clip each adjacent pair independently. Null coordinates never connect.
-  function overpassClipLine(a, b, frame) {
-    if (Math.abs(a.lon - b.lon) > 180) return null;
-    let lo = 0; let hi = 1;
-    const dx = b.lon - a.lon; const dy = b.lat - a.lat;
-    for (const [p, q] of [[-dx, a.lon - frame.west], [dx, frame.east - a.lon], [-dy, a.lat - frame.south], [dy, frame.north - a.lat]]) {
-      if (p === 0) { if (q < 0) return null; continue; }
-      const t = q / p;
-      if (p < 0) lo = Math.max(lo, t); else hi = Math.min(hi, t);
-      if (lo > hi) return null;
+  // withTileMap preserves coordinates and requires a reference before enabling tiles.
+  function withTileMap(config, options) {
+    const next = clone(config);
+    if (!next.geo) {
+      const choice = options.choice || {};
+      if (!next.network.Nodes.length || (choice.mode === "adopt" && choice.confirmed)) {
+        next.geo = makeGeo(options.latitude, options.longitude);
+        const error = geoError(next.geo);
+        if (error) throw new Error(error);
+      } else if (choice.mode === "anchor") {
+        const lat = choice.a.latitude, lon = choice.a.longitude;
+        const frame = { south: Math.max(-80, lat - .00001), north: Math.min(80, lat + .00001), west: Math.max(-180, lon - .00001), east: Math.min(180, lon + .00001), source: "equirectangular" };
+        const reference = referenceFor({ config: next, frame, choice });
+        if (reference.error) throw new Error(reference.error);
+        next.geo = reference.geo;
+      } else throw new Error("Anchor two nodes, or confirm the map origin. Network positions will not change.");
     }
-    return [{ lon: a.lon + lo * dx, lat: a.lat + lo * dy }, { lon: a.lon + hi * dx, lat: a.lat + hi * dy }];
-  }
-
-  function overpassClipRing(points, frame) {
-    let out = points.slice(0, -1);
-    for (const [axis, bound, greater] of [["lon", frame.west, true], ["lon", frame.east, false], ["lat", frame.south, true], ["lat", frame.north, false]]) {
-      const input = out; out = [];
-      if (!input.length) break;
-      let a = input.at(-1); let insideA = greater ? a[axis] >= bound : a[axis] <= bound;
-      for (const b of input) {
-        const insideB = greater ? b[axis] >= bound : b[axis] <= bound;
-        if (insideA !== insideB) {
-          const t = (bound - a[axis]) / (b[axis] - a[axis]);
-          out.push({ lon: a.lon + t * (b.lon - a.lon), lat: a.lat + t * (b.lat - a.lat) });
-        }
-        if (insideB) out.push(b);
-        a = b; insideA = insideB;
-      }
-    }
-    return out;
-  }
-
-  // Identity joins reject branching endpoints, duplicate nodes, and gaps.
-  function overpassRings(ways) {
-    if (!ways.length) return [];
-    const ends = new Map();
-    for (let i = 0; i < ways.length; i++) {
-      const way = ways[i];
-      if (!way.nodes || way.nodes.length < 2 || way.geometry.length !== way.nodes.length || way.geometry.some((point) => !point)) return null;
-      for (const id of [way.nodes[0], way.nodes.at(-1)]) { if (!ends.has(id)) ends.set(id, []); ends.get(id).push(i); }
-    }
-    if ([...ends.values()].some((list) => list.length !== 2)) return null;
-    const used = new Set(); const rings = [];
-    for (let start = 0; start < ways.length; start++) {
-      if (used.has(start)) continue;
-      const nodes = ways[start].nodes.slice(); const points = ways[start].geometry.slice(); used.add(start);
-      while (nodes.at(-1) !== nodes[0]) {
-        const index = ends.get(nodes.at(-1)).find((id) => !used.has(id));
-        if (index === undefined) return null;
-        used.add(index);
-        const way = ways[index]; const forward = way.nodes[0] === nodes.at(-1);
-        const ids = forward ? way.nodes : way.nodes.slice().reverse(); const coords = forward ? way.geometry : way.geometry.slice().reverse();
-        for (let i = 1; i < ids.length; i++) { nodes.push(ids[i]); points.push(coords[i]); }
-      }
-      if (nodes.length < 4 || new Set(nodes.slice(0, -1)).size !== nodes.length - 1) return null;
-      rings.push(points);
-    }
-    return rings;
-  }
-
-  function overpassCross(a, b, c) { return (b.lon - a.lon) * (c.lat - a.lat) - (b.lat - a.lat) * (c.lon - a.lon); }
-  function overpassIntersects(a, b, c, d) {
-    if (Math.max(a.lon, b.lon) < Math.min(c.lon, d.lon) || Math.max(c.lon, d.lon) < Math.min(a.lon, b.lon) || Math.max(a.lat, b.lat) < Math.min(c.lat, d.lat) || Math.max(c.lat, d.lat) < Math.min(a.lat, b.lat)) return false;
-    return overpassCross(a, b, c) * overpassCross(a, b, d) <= 0 && overpassCross(c, d, a) * overpassCross(c, d, b) <= 0;
-  }
-  function overpassContains(ring, point) {
-    let inside = false;
-    for (let i = 0, j = ring.length - 2; i < ring.length - 1; j = i++) {
-      const a = ring[i]; const b = ring[j];
-      if ((a.lat > point.lat) !== (b.lat > point.lat) && point.lon < (b.lon - a.lon) * (point.lat - a.lat) / (b.lat - a.lat) + a.lon) inside = !inside;
-    }
-    return inside;
-  }
-
-  // Bound topology work. Complex or touching rings retain lines, not fills.
-  function overpassSafeRings(outer, inner, budget = { remaining: 1000000 }) {
-    if (!outer || !inner || !outer.length) return false;
-    const rings = [...outer, ...inner];
-    for (let r = 0; r < rings.length; r++) {
-      const ring = rings[r];
-      if (ring.slice(1).some((point, i) => Math.abs(point.lon - ring[i].lon) > 180)) return false;
-      if (ring.slice(1).reduce((area, b, i) => area + ring[i].lon * b.lat - b.lon * ring[i].lat, 0) === 0) return false;
-      for (let s = r; s < rings.length; s++) {
-        for (let i = 0; i < ring.length - 1; i++) for (let j = s === r ? i + 1 : 0; j < rings[s].length - 1; j++) {
-          if (--budget.remaining < 0) return false;
-          if (s === r && (j === i + 1 || (i === 0 && j === ring.length - 2))) continue;
-          if (overpassIntersects(ring[i], ring[i + 1], rings[s][j], rings[s][j + 1])) return false;
-        }
-      }
-    }
-    for (let i = 0; i < outer.length; i++) for (let j = 0; j < outer.length; j++) if (i !== j && overpassContains(outer[i], outer[j][0])) return false;
-    for (const hole of inner) if (outer.filter((ring) => overpassContains(ring, hole[0])).length !== 1) return false;
-    for (let i = 0; i < inner.length; i++) for (let j = 0; j < inner.length; j++) if (i !== j && overpassContains(inner[i], inner[j][0])) return false;
-    return true;
-  }
-
-  function overpassGeometry(body, frame, limits = OVERPASS_LIMITS) {
-    if (!overpassObject(body) || !Array.isArray(body.elements) || body.remark !== undefined) throw new Error("The provider returned a runtime remark or an invalid element list.");
-    const checked = frameError(frame); if (checked) throw new Error(checked);
-    if (body.elements.length > limits.ways + limits.relations + limits.vertices) throw new Error("The element limit was exceeded.");
-    const stats = { rawVertices: 0, expandedVertices: 0, clippedVertices: 0, ways: 0, relations: 0, missingCoordinates: 0, missingMembers: 0, omittedSegments: 0, omittedFills: 0 };
-    const ways = new Map(); const relations = []; const ids = new Set(); const coordinates = new Map(); const lines = []; const polygons = [];
-    let members = 0;
-    const point = (value) => {
-      if (!overpassObject(value) || typeof value.lat !== "number" || !Number.isFinite(value.lat) || Math.abs(value.lat) > 90 || typeof value.lon !== "number" || !Number.isFinite(value.lon) || Math.abs(value.lon) > 180) throw new Error("The provider returned an invalid coordinate.");
-      if (++stats.rawVertices > limits.vertices) throw new Error("The raw vertex limit was exceeded.");
-      return { lat: value.lat, lon: value.lon };
-    };
-    const geometry = (item) => {
-      if (item.geometry === undefined) return [];
-      if (!Array.isArray(item.geometry)) throw new Error("The provider returned invalid geometry.");
-      return item.geometry.map((value) => { if (value === null) { stats.missingCoordinates++; if (++stats.rawVertices > limits.vertices) throw new Error("The raw vertex limit was exceeded."); return null; } return point(value); });
-    };
-    const tags = (item) => { if (item.tags !== undefined && (!overpassObject(item.tags) || Object.values(item.tags).some((value) => typeof value !== "string"))) throw new Error("The provider returned invalid tags."); };
-    for (const element of body.elements) {
-      if (!overpassObject(element) || !["node", "way", "relation"].includes(element.type) || !overpassID(element.id) || ids.has(`${element.type}/${element.id}`)) throw new Error("The provider returned an invalid or duplicate element.");
-      ids.add(`${element.type}/${element.id}`); tags(element);
-      if (element.type === "node") { point(element); continue; }
-      if (element.type === "way") {
-        if (++stats.ways > limits.ways) throw new Error("The way limit was exceeded.");
-        if (element.nodes !== undefined && (!Array.isArray(element.nodes) || element.nodes.length > limits.vertices || element.nodes.some((id) => !overpassID(id)))) throw new Error("The provider returned invalid node identities.");
-        const coords = geometry(element);
-        if (element.geometry === undefined) stats.missingMembers++;
-        if (element.nodes && coords.length && element.nodes.length !== coords.length) throw new Error("The provider returned mismatched nodes and coordinates.");
-        if (element.nodes) for (let i = 0; i < coords.length; i++) {
-          if (!coords[i]) continue;
-          const id = element.nodes[i]; const old = coordinates.get(id);
-          if (old && (old.lat !== coords[i].lat || old.lon !== coords[i].lon)) throw new Error("A node identity has conflicting coordinates.");
-          coordinates.set(id, coords[i]);
-        }
-        ways.set(element.id, { ...element, geometry: coords });
-      } else {
-        if (++stats.relations > limits.relations) throw new Error("The relation limit was exceeded.");
-        if (!Array.isArray(element.members)) throw new Error("The provider returned invalid relation members.");
-        const checkedMembers = element.members.map((member) => {
-          if (++members > limits.members) throw new Error("The relation member limit was exceeded.");
-          if (!overpassObject(member) || !["node", "way", "relation"].includes(member.type) || !overpassID(member.ref) || typeof member.role !== "string") throw new Error("The provider returned an invalid relation member.");
-          if (member.type === "node") { if (member.lat !== undefined || member.lon !== undefined) point(member); return member; }
-          return { ...member, geometry: geometry(member) };
-        });
-        relations.push({ ...element, members: checkedMembers });
-      }
-    }
-    const count = (amount) => { stats.clippedVertices += amount; if (stats.clippedVertices > limits.vertices) throw new Error("The clipped vertex limit was exceeded."); };
-    const addLines = (way, layer) => {
-      for (let i = 1; i < way.geometry.length; i++) {
-        if (!way.geometry[i - 1] || !way.geometry[i]) continue;
-        if (Math.abs(way.geometry[i - 1].lon - way.geometry[i].lon) > 180) { stats.omittedSegments++; continue; }
-        const line = overpassClipLine(way.geometry[i - 1], way.geometry[i], frame);
-        if (line) { count(2); lines.push({ layer, points: line }); }
-      }
-    };
-    const topologyBudget = { remaining: 2000000 };
-    const addPolygon = (outer, inner, layer) => {
-      if (!overpassSafeRings(outer, inner, topologyBudget)) { stats.omittedFills++; return; }
-      const rings = [...outer, ...inner].map((ring) => overpassClipRing(ring, frame)).filter((ring) => ring.length >= 3);
-      for (const ring of rings) count(ring.length);
-      if (rings.length) polygons.push({ layer, rings });
-    };
-    const ringsFor = (members) => {
-      for (const member of members) {
-        stats.expandedVertices += member.geometry.length;
-        if (stats.expandedVertices > limits.vertices) throw new Error("The expanded vertex limit was exceeded. Choose a smaller box.");
-      }
-      return overpassRings(members);
-    };
-    const relationWays = new Set(); const memberLayers = new Map();
-    for (const relation of relations) {
-      const outer = []; const inner = []; let valid = true; const seen = new Set();
-      for (const member of relation.members) {
-        if (member.type !== "way" || !["outer", "inner"].includes(member.role) || seen.has(member.ref)) { valid = false; continue; }
-        seen.add(member.ref); relationWays.add(member.ref);
-        if (!memberLayers.has(member.ref)) memberLayers.set(member.ref, overpassLayer(relation.tags));
-        const way = ways.get(member.ref);
-        if (!way) { valid = false; stats.missingMembers++; addLines(member, overpassLayer(relation.tags)); continue; }
-        (member.role === "outer" ? outer : inner).push(way);
-      }
-      if (overpassArea(relation.tags)) addPolygon(valid ? ringsFor(outer) : null, valid ? ringsFor(inner) : null, overpassLayer(relation.tags));
-    }
-    for (const way of ways.values()) {
-      const ownLayer = way.tags && ["highway", "railway", "natural", "waterway", "leisure"].some((key) => way.tags[key]);
-      addLines(way, ownLayer ? overpassLayer(way.tags) : memberLayers.get(way.id) || "road");
-      if (overpassArea(way.tags) && !relationWays.has(way.id)) addPolygon(ringsFor([way]), [], overpassLayer(way.tags));
-    }
-    return { lines, polygons, stats };
-  }
-
-  function overpassLicense(endpoint, plan, frame, retrieved) {
-    return {
-      source: endpoint, attribution: "© OpenStreetMap contributors", license: "ODbL 1.0", licenseURL: OSM_LICENSE, copyrightURL: OSM_COPYRIGHT, retrieved, method: plan.query,
-      notice: `Map data © OpenStreetMap contributors, under the ODbL 1.0. The image shows OpenStreetMap data retrieved ${retrieved}, filtered to ${plan.layers} in the box ${frame.south},${frame.west},${frame.north},${frame.east}, and drawn with no other data. Equivalent OpenStreetMap data is available from https://www.openstreetmap.org and https://planet.openstreetmap.org. The method member keeps the query. Public use must preserve attribution and this notice. Network positions copied or aligned from this image can put the scenario under the ODbL. Mixed-source data is not automatically exempt. The query alone does not satisfy a required derivative-database offer.`,
-    };
-  }
-
-  async function overpassDraw(geometry, frame, geo, decoder, signal) {
-    signal.throwIfAborted();
-    const placement = framePlacement(frame, geo); const scale = OVERPASS_LIMITS.side / Math.max(placement.width, placement.height);
-    const width = Math.max(640, Math.round(placement.width * scale)); const height = Math.max(32, Math.round(placement.height * scale));
-    const canvas = decoder.canvas(width, height);
-    try {
-      const ctx = canvas.getContext("2d"); if (!ctx) throw new Error("The browser cannot draw the map.");
-      const xy = (point) => [(point.lon - frame.west) / (frame.east - frame.west) * width, (frame.north - point.lat) / (frame.north - frame.south) * height];
-      const path = (points) => { points.forEach((point, i) => { const [x, y] = xy(point); if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y); }); };
-      ctx.fillStyle = "#f2f0e8"; ctx.fillRect(0, 0, width, height);
-      for (const polygon of geometry.polygons) { ctx.beginPath(); for (const ring of polygon.rings) { path(ring); ctx.closePath(); } ctx.fillStyle = polygon.layer === "park" ? "#d2e1c2" : "#b5d6e5"; ctx.fill("evenodd"); }
-      for (const line of geometry.lines) { ctx.beginPath(); path(line.points); ctx.strokeStyle = { road: "#b6afa1", rail: "#7d7770", water: "#78b0c9", park: "#90b37b" }[line.layer]; ctx.lineWidth = line.layer === "road" ? 2 : 1; ctx.stroke(); }
-      // The image carries attribution even outside a portable project.
-      const credit = "© OpenStreetMap contributors | openstreetmap.org/copyright";
-      const font = Math.min(16, Math.max(1, (width - 8) / 37));
-      ctx.font = `${font}px sans-serif`; const strip = Math.min(height, Math.ceil(font + 8));
-      ctx.fillStyle = "rgba(255,255,255,0.95)"; ctx.fillRect(0, height - strip, width, strip);
-      ctx.fillStyle = "#222"; ctx.textBaseline = "bottom"; ctx.fillText(credit, 4, height - 3, Math.max(1, width - 8));
-      signal.throwIfAborted();
-      const blob = await decoder.encode(canvas); signal.throwIfAborted();
-      if (!blob || blob.size > IMAGE_FILE_BYTES) throw new Error("The generated map exceeds the 8 MiB image limit. Choose a smaller box.");
-      const bytes = await blob.arrayBuffer(); signal.throwIfAborted();
-      return { bytes, facts: imageBytesFacts(bytes) };
-    } finally { canvas.width = 0; canvas.height = 0; }
-  }
-
-  // The ledger reserves the response allowance before a request. A crashed
-  // tab keeps its reservation, so the next tab cannot spend those bytes again.
-  function overpassBudget(ledger, now, limits = OVERPASS_LIMITS) {
-    const day = Math.floor(now / 86400000);
-    if (ledger && (!overpassObject(ledger) || !Number.isSafeInteger(ledger.day) || !Number.isSafeInteger(ledger.requests) || ledger.requests < 0 || !Number.isSafeInteger(ledger.bytes) || ledger.bytes < 0 || !Number.isFinite(ledger.pauseUntil) || ledger.pauseUntil < 0 || (ledger.active && (!overpassObject(ledger.active) || typeof ledger.active.token !== "string" || !ledger.active.token || !Number.isSafeInteger(ledger.active.day) || !Number.isSafeInteger(ledger.active.allowance) || ledger.active.allowance <= 0 || ledger.active.allowance > limits.responseBytes || !Number.isFinite(ledger.active.started) || ledger.active.started < 0)))) throw new Error("The local map request ledger is invalid. Clear site data to reset it.");
-    if (!ledger || ledger.day < day) return { day, requests: 0, bytes: 0, pauseUntil: ledger?.pauseUntil || 0, active: ledger?.active || null };
-    if (ledger.day > day) throw new Error("The clock moved backward. Map requests are paused until the saved day.");
-    return { ...ledger };
-  }
-
-  function openOverpassStore(factory) {
-    let database;
-    const open = () => database ??= new Promise((resolve, reject) => {
-      if (!factory) { reject(new Error("Map requests need browser storage to enforce the local request limits.")); return; }
-      const request = factory.open("podsim-editor-overpass", 1);
-      request.onupgradeneeded = () => { request.result.createObjectStore("state"); request.result.createObjectStore("cache"); };
-      request.onerror = () => { database = null; reject(request.error); };
-      request.onblocked = () => { database = null; reject(new Error("Another tab blocked the map request store.")); };
-      request.onsuccess = () => { const db = request.result; db.onversionchange = () => { db.close(); database = null; }; resolve(db); };
-    });
-    const run = async (stores, action) => {
-      const db = await open();
-      return new Promise((resolve, reject) => {
-        const tx = db.transaction(stores, "readwrite"); let result; let failure;
-        const fail = (error) => { failure = error; tx.abort(); };
-        tx.oncomplete = () => resolve(result);
-        tx.onabort = () => reject(failure || tx.error || new Error("The map store transaction stopped."));
-        try { action(tx, (value) => { result = value; }, fail); } catch (error) { fail(error); }
-      });
-    };
-    return {
-      admit: (key, now, token) => run(["state", "cache"], (tx, done, fail) => {
-        const state = tx.objectStore("state"); const cache = tx.objectStore("cache");
-        const read = state.get("budget");
-        read.onsuccess = () => { try {
-          const ledger = overpassBudget(read.result, now);
-          const entry = cache.get(key);
-          entry.onsuccess = () => { try {
-            const hit = entry.result;
-            if (hit && typeof hit.text === "string" && Number.isSafeInteger(hit.bytes) && hit.bytes > 0 && hit.bytes <= OVERPASS_LIMITS.responseBytes && Number.isFinite(hit.created) && Number.isFinite(hit.used) && hit.created <= now && now - hit.created <= OVERPASS_LIMITS.cacheAge) {
-              hit.used = now; cache.put(hit, key); done({ cached: hit }); return;
-            }
-            if (hit) cache.delete(key);
-            if (ledger.active) throw new Error("Another map request is active. If its tab closed, reset the request guard after you close other editor tabs.");
-            if (ledger.pauseUntil > now) throw new Error(`The provider paused requests. Wait ${Math.ceil((ledger.pauseUntil - now) / 1000)} seconds.`);
-            if (ledger.requests >= OVERPASS_LIMITS.dayRequests || ledger.bytes >= OVERPASS_LIMITS.dayBytes) throw new Error("This browser reached the daily map request or byte limit.");
-            const allowance = Math.min(OVERPASS_LIMITS.responseBytes, OVERPASS_LIMITS.dayBytes - ledger.bytes);
-            ledger.requests++; ledger.bytes += allowance; ledger.active = { token, day: ledger.day, allowance, started: now };
-            state.put(ledger, "budget"); done({ allowance });
-          } catch (error) { fail(error); } };
-        } catch (error) { fail(error); } };
-      }),
-      finish: (token, bytes, pause, now) => run(["state"], (tx, done, fail) => {
-        const store = tx.objectStore("state"); const request = store.get("budget");
-        request.onsuccess = () => { try {
-          const ledger = overpassBudget(request.result, now);
-          if (!ledger.active || ledger.active.token !== token) throw new Error("The map request no longer owns its local reservation.");
-          if (ledger.day === ledger.active.day) ledger.bytes += bytes - ledger.active.allowance;
-          ledger.pauseUntil = Math.max(ledger.pauseUntil, pause ? now + OVERPASS_LIMITS.pause : 0); ledger.active = null;
-          store.put(ledger, "budget"); done(true);
-        } catch (error) { fail(error); } };
-      }),
-      recover: (now) => run(["state"], (tx, done, fail) => {
-        const store = tx.objectStore("state"); const request = store.get("budget");
-        request.onsuccess = () => { try {
-          const ledger = overpassBudget(request.result, now);
-          if (ledger.active && now - ledger.active.started < OVERPASS_LIMITS.timeout) throw new Error("Wait at least 90 seconds before you reset the request guard.");
-          // Do not refund a reservation whose network result is unknown.
-          ledger.active = null; store.put(ledger, "budget"); done(true);
-        } catch (error) { fail(error); } };
-      }),
-      put: (key, entry) => run(["cache"], (tx, done) => {
-        const store = tx.objectStore("cache"); const read = store.getAll(); const keys = store.getAllKeys();
-        let entries; let names;
-        const write = () => {
-          if (!entries || !names) return;
-          const rows = entries.map((value, i) => ({ ...value, key: names[i] })).filter((value) => {
-            if (value.key === key || entry.created - value.created > OVERPASS_LIMITS.cacheAge || value.created > entry.created || !Number.isSafeInteger(value.bytes) || value.bytes <= 0 || value.bytes > OVERPASS_LIMITS.responseBytes) { store.delete(value.key); return false; }
-            return true;
-          }).sort((a, b) => a.used - b.used);
-          let bytes = rows.reduce((sum, value) => sum + value.bytes, entry.bytes);
-          while (rows.length >= OVERPASS_LIMITS.cacheEntries || bytes > OVERPASS_LIMITS.cacheBytes) { const oldest = rows.shift(); bytes -= oldest.bytes; store.delete(oldest.key); }
-          store.put(entry, key); done(true);
-        };
-        read.onsuccess = () => { entries = read.result; write(); }; keys.onsuccess = () => { names = keys.result; write(); };
-      }),
-      clear: () => run(["cache"], (tx) => tx.objectStore("cache").clear()),
-    };
-  }
-
-  function overpassQuotaStore(store, cache) {
-    if (!store) return null;
-    return { ...store, put: async (key, value) => {
-      try { return await store.put(key, value); } catch (error) {
-        if (error?.name !== "QuotaExceededError") throw error;
-        try { await cache.clear(); } catch (_) { /* The original store still gets one retry. */ }
-        return store.put(key, value);
-      }
-    } };
-  }
-
-  async function overpassRead(response, allowance, signal, onBytes) {
-    if (!response.body || !response.body.getReader) throw new Error("The provider response cannot be read as a stream.");
-    const reader = response.body.getReader(); const chunks = []; let bytes = 0;
-    const cancel = () => { reader.cancel().catch(() => {}); };
-    signal.addEventListener("abort", cancel, { once: true });
-    try {
-      while (true) {
-        signal.throwIfAborted();
-        const { value, done } = await reader.read(); signal.throwIfAborted();
-        if (done) break;
-        bytes += value.byteLength; onBytes(bytes);
-        if (bytes > allowance) throw new Error("The map response exceeds the response or daily byte limit. Choose a smaller box.");
-        chunks.push(value);
-      }
-      const buffer = new Uint8Array(bytes); let offset = 0;
-      for (const chunk of chunks) { buffer.set(chunk, offset); offset += chunk.byteLength; }
-      return { text: new TextDecoder("utf-8", { fatal: true }).decode(buffer), bytes };
-    } finally { signal.removeEventListener("abort", cancel); await reader.cancel().catch(() => {}); reader.releaseLock(); }
-  }
-
-  function createOverpassClient({ store, fetch: fetcher, clock = globalThis, now = Date.now, token = () => newImageKey(globalThis.crypto), estimate }) {
-    let busy = false;
-    return { get busy() { return busy; }, async load(endpointText, frame, signal) {
-      if (busy) throw new Error("A map import is already active.");
-      const endpoint = overpassEndpoint(endpointText); const plan = overpassQuery(frame); const key = `${endpoint}\n${plan.query}`;
-      signal.throwIfAborted(); const id = token(); busy = true;
-      const controller = new AbortController(); const abort = () => controller.abort(signal.reason);
-      signal.addEventListener("abort", abort, { once: true });
-      const timer = clock.setTimeout(() => controller.abort(new DOMException("The map request timed out after 90 seconds.", "TimeoutError")), OVERPASS_LIMITS.timeout);
-      let admitted = false; let bytes = 0; let pause = false; let allowance = 0; let networkStarted = false; let measured = false;
-      try {
-        const admission = await store.admit(key, now(), id); admitted = !admission.cached; allowance = admission.allowance || 0;
-        controller.signal.throwIfAborted();
-        let entry = admission.cached;
-        if (!entry) {
-          networkStarted = true;
-          const response = await fetcher(endpoint, { method: "POST", body: new URLSearchParams({ data: plan.query }), credentials: "omit", mode: "cors", redirect: "error", referrerPolicy: "strict-origin-when-cross-origin", signal: controller.signal });
-          pause = [429, 406, 504].includes(response.status);
-          if (response.status !== 200 || !/^application\/(?:[a-z0-9.+-]+\+)?json(?:\s*;|$)/i.test(response.headers.get("content-type") || "")) {
-            if (response.body) await response.body.cancel().catch(() => {});
-            throw new Error(`The provider returned HTTP ${response.status} or a non-JSON response.${pause ? " Requests pause for 60 seconds." : ""}`);
-          }
-          entry = { ...await overpassRead(response, admission.allowance, controller.signal, (value) => { bytes = value; }), created: now(), used: now() };
-          measured = true;
-        }
-        const encodedBytes = new TextEncoder().encode(entry.text).byteLength;
-        if (encodedBytes > OVERPASS_LIMITS.responseBytes || encodedBytes !== entry.bytes) throw new Error("The cached map response has an invalid byte count.");
-        const geometry = overpassGeometry(JSON.parse(entry.text), frame);
-        controller.signal.throwIfAborted();
-        if (admitted) {
-          await store.finish(id, Math.min(bytes, admission.allowance), false, now()); admitted = false;
-          try {
-            const space = estimate ? await estimate() : null;
-            if (!space || !Number.isFinite(space.quota) || !Number.isFinite(space.usage) || space.quota - space.usage >= 2 * entry.bytes) await store.put(key, entry);
-          } catch (_) { /* The response cache is optional. */ }
-        }
-        controller.signal.throwIfAborted();
-        return { geometry, plan, cached: !!admission.cached, license: overpassLicense(endpoint, plan, frame, new Date(entry.created).toISOString()), bytes: entry.bytes };
-      } finally {
-        clock.clearTimeout(timer); signal.removeEventListener("abort", abort); controller.abort();
-        try { if (admitted) await store.finish(id, networkStarted && !measured ? Math.max(bytes, allowance) : bytes, pause, now()); } finally { busy = false; }
-      }
-    } };
+    next.map = { provider: "osm", opacity: options.opacity ?? .45 };
+    if (!Tiles.validMap(next.map, next.geo)) throw new Error("The map settings are invalid.");
+    return next;
   }
 
   // shellPage gives the parent window when the editor is a frame of the
@@ -3963,7 +3559,7 @@
   }
 
   const API = {
-    OVERPASS_LIMITS, overpassEndpoint, overpassQuery, overpassClipLine, overpassClipRing, overpassRings, overpassSafeRings, overpassGeometry, overpassLicense, overpassDraw, overpassBudget, openOverpassStore, overpassQuotaStore, overpassRead, createOverpassClient,
+    withTileMap,
     MIN_LANE_LENGTH, MAX_PODS, MAX_STATIONS, MAX_NODES, MAX_LANES, MAX_NODE_LANES, MAX_FLOWS, MIN_ZOOM, NODE_LABEL_SCALE, NODE_LABEL_SIZE, LANE_PAIR_OFFSET, CHEVRON_LANE_LENGTH, BERTH_PITCH, STATION_PADDING, CLEARANCE, CHECK_DELAY, emptyConfig, fallbackConfig, normalizeConfig, inferStationLanes, addLane, addJunction, addStation, addBerth,
     stationBearing, stationShape, rotateStation, setStationBearing, nextBerthPosition, berthChain, nextChainRow, lanePolyline, laneConflict, removeBerth, moveStation, moveNode, deleteNode, deleteLane, deleteStation, stationFlowCount, setFleetCount, fleetRows, selectionCard, berthFocusID, undoFocus, setDemandPattern,
     laneLength, curveLength, reachable, cutOffStations, stationNodeOwners, dragTargets, validateConfig, configWarnings, checkResults, checkSelector, checkSelection, selectionPoint, focusView,
@@ -4010,10 +3606,8 @@
   // keeper saves the draft in this browser DRAFT_SAVE_DELAY milliseconds
   // after the last draft change. It keeps one record for each server origin,
   // and tells the other editor tabs of each write.
-  const overpassStore = openOverpassStore(draftDatabase());
-  const overpassClient = createOverpassClient({ store: overpassStore, fetch: (...args) => root.fetch(...args), estimate: root.navigator.storage?.estimate ? () => root.navigator.storage.estimate() : null });
   const keeper = createDraftKeeper({
-    store: overpassQuotaStore(openRecordStore(draftDatabase(), DRAFT_STORE), overpassStore), key: root.location.origin, delay: DRAFT_SAVE_DELAY, clock: root, snapshot: draftRecord,
+    store: openRecordStore(draftDatabase(), DRAFT_STORE), key: root.location.origin, delay: DRAFT_SAVE_DELAY, clock: root, snapshot: draftRecord,
     channel: draftChannel(), onStatus: showDraftStatus, onDisplaced: showDraftDisplaced,
   });
   // backgroundKeeper keeps the background of the page in this browser,
@@ -4029,7 +3623,7 @@
   // restore, when the user did not change the background. Each queued
   // write pins its image in the model until it settles.
   const backgroundKeeper = createDraftKeeper({
-    store: overpassQuotaStore(openRecordStore(draftDatabase(), BACKGROUND_STORE), overpassStore), key: root.location.origin, delay: DRAFT_SAVE_DELAY, clock: root,
+    store: openRecordStore(draftDatabase(), BACKGROUND_STORE), key: root.location.origin, delay: DRAFT_SAVE_DELAY, clock: root,
     snapshot: backgroundRecord, text: backgroundRecordText, onStatus: showBackgroundStatus, deletes: true, holdUntilChange: true,
     onQueued: (record) => { if (record) model.pin(record.background.imageKey); },
     onSettled: (record, committed) => {
@@ -4100,6 +3694,14 @@
     toastTimer: 0,
   };
 
+  let tilePageActive = true;
+  const tiles = Tiles.createLayer({ container: $(".map-panel"), onStatus: (text) => { $("#mapDiagnostics").textContent = text; } });
+  function renderTiles() {
+    const config = draft(), rect = $("#networkMap").getBoundingClientRect();
+    const enabled = tilePageActive && !document.hidden && !root.frameElement?.inert && Tiles.validMap(config.map, config.geo);
+    tiles.setView({ ...state.view, width: rect.width, height: rect.height, geo: config.geo, opacity: config.map?.opacity, enabled });
+  }
+
   function draft() { return state.history.value.scenario; }
   function setAttributes(element, attributes) {
     for (const [key, value] of Object.entries(attributes || {})) element.setAttribute(key, value);
@@ -4132,6 +3734,7 @@
     $("#viewport").setAttribute("transform", `translate(${state.view.x} ${state.view.y}) scale(${state.view.scale})`);
     if (state.map && state.map.laneScale !== state.view.scale) scaleLanes();
     if (state.map && state.map.labelScale !== state.view.scale) renderNodeLabels();
+    renderTiles();
   }
   function zoomAt(factor, clientX, clientY) {
     const rect = $("#networkMap").getBoundingClientRect();
@@ -4485,9 +4088,16 @@
     const calibrate = $("#calibrateButton"); calibrate.disabled = Boolean(view.calibrateReason); calibrate.title = view.calibrateReason;
     const unreferenced = !value.scenario.geo && value.scenario.network.Nodes.length > 0;
     $("#referencePanel").hidden = !(unreferenced && (state.geoOpen || state.mapOpen || view.framed));
+    $("#referenceMode").querySelector('[value="adopt"]').textContent = state.mapOpen ? "Adopt the map origin" : "Adopt the image center";
+    $("#adoptText").textContent = state.mapOpen ? "Use the entered map origin without moving the network. The map and network can fail to align." : "The image center becomes the reference, and the network does not move. The network and the image can then fail to align.";
     const mode = $("#referenceMode").value; $("#anchorFields").hidden = mode !== "anchor"; $("#adoptField").hidden = mode !== "adopt";
     $("#geoPanel").hidden = !state.geoOpen;
-    $("#overpassPanel").hidden = !state.mapOpen;
+    $("#tilePanel").hidden = !state.mapOpen;
+    $("#mapRemoveButton").disabled = !value.scenario.map;
+    $("#mapOpacity").value = value.scenario.map?.opacity ?? .45;
+    $("#mapOpacityValue").value = `${Math.round(Number($("#mapOpacity").value) * 100)}%`;
+    $("#mapOriginFields").hidden = !!value.scenario.geo;
+    $("#mapReferenceText").textContent = value.scenario.geo ? `Map origin: ${value.scenario.geo.latitude}, ${value.scenario.geo.longitude}.` : "Set the latitude and longitude of world position 0, 0, or anchor two existing nodes.";
     const line = $("#mapAttribution"); const parts = attributionParts(image && image.license);
     line.replaceChildren(...parts.flatMap((part, index) => {
       const node = part.href ? Object.assign(document.createElement("a"), { href: part.href, target: "_blank", rel: "noopener noreferrer" }) : document.createElement("span");
@@ -5118,34 +4728,13 @@
     }
   }
 
-  async function importOverpassMap() {
-    if (overpassClient.busy) { toast("A map import is already active.", true); return; }
+  function enableTileMap() {
     model.abort();
-    const number = (id) => { const value = $(id).value.trim(); return value === "" ? NaN : Number(value); };
-    const frame = { south: number("#mapSouth"), north: number("#mapNorth"), west: number("#mapWest"), east: number("#mapEast"), source: "equirectangular" };
-    let endpoint;
-    try { endpoint = overpassEndpoint($("#mapEndpoint").value.trim()); overpassQuery(frame); } catch (error) { toast(error.message, true); return; }
-    const reference = referenceFor({ config: draft(), frame, choice: referenceChoice() });
-    if (reference.error) { toast(reference.error, true); return; }
-    const ticket = model.start();
-    $("#mapImportButton").disabled = true;
-    $("#mapDiagnostics").textContent = "Requesting map data. Cancel keeps the draft unchanged.";
+    const number = (id) => $(id).value.trim() === "" ? NaN : Number($(id).value);
     try {
-      const loaded = await overpassClient.load(endpoint, frame, ticket.signal);
-      if (!model.current(ticket)) return;
-      const rendered = await slot.run((signal) => overpassDraw(loaded.geometry, frame, reference.geo, decoder, signal), ticket.signal);
-      if (!model.current(ticket)) return;
-      const image = freezeImage({ key: newImageKey(root.crypto), bytes: rendered.bytes, mime: rendered.facts.mime, pixelWidth: rendered.facts.width, pixelHeight: rendered.facts.height, frame, license: loaded.license });
-      const published = publishBackground(ticket, image, framedValue({ scenario: draft(), background: state.background }, image, reference.geo), "schematic map import");
-      if (!published || published.error) { $("#mapDiagnostics").textContent = published?.error || "Map import canceled."; return; }
-      const stats = loaded.geometry.stats;
-      const text = `${loaded.cached ? "Cached" : "Received"} ${loaded.bytes} bytes. ${stats.rawVertices} raw, ${stats.expandedVertices} expanded, and ${stats.clippedVertices} clipped vertices. Missing coordinates: ${stats.missingCoordinates}. Missing members: ${stats.missingMembers}. Omitted antimeridian segments: ${stats.omittedSegments}. Omitted polygon fills: ${stats.omittedFills}.`;
-      $("#mapDiagnostics").textContent = text;
-      console.info("podsim editor: map diagnostics", { ...stats, bytes: loaded.bytes, cached: loaded.cached });
-    } catch (error) {
-      if (!model.current(ticket) || ticket.signal.aborted) { $("#mapDiagnostics").textContent = "Map import canceled. The background is unchanged."; return; }
-      model.abort(); $("#mapDiagnostics").textContent = error.message; toast(`${error.message} The background is unchanged.`, true);
-    } finally { $("#mapImportButton").disabled = false; }
+      setDraft(withTileMap(draft(), { latitude: number("#mapLatitude"), longitude: number("#mapLongitude"), opacity: Number($("#mapOpacity").value), choice: referenceChoice() }));
+      toast("Live map enabled. Pause and apply to show it in the simulation.");
+    } catch (error) { toast(error.message, true); }
   }
 
   // placeFromFrame places the background on its frame in the geo
@@ -5214,13 +4803,18 @@
     $("#backgroundOpacity").addEventListener("change", (event) => { if (model.gestureOpen || !state.background) return; const background = clone(state.background); background.opacity = Number(event.target.value); setBackground(background); });
     $("#removeBackgroundButton").addEventListener("click", () => { model.abort(); setBackground(null); state.calibrating = false; state.calibrationPoints = []; $("#calibrationPanel").hidden = true; render(); });
     $("#mapOpenButton").addEventListener("click", () => { state.mapOpen = !state.mapOpen; if (!state.mapOpen) model.abort(); renderBackground(); });
-    $("#mapImportButton").addEventListener("click", importOverpassMap);
-    $("#mapCancelButton").addEventListener("click", () => { model.abort(); $("#mapDiagnostics").textContent = "Map import canceled. The background is unchanged."; });
-    $("#mapRecoverButton").addEventListener("click", async () => {
-      if (!root.confirm("Another import may still be running. Close other editor tabs first. Reset the request guard? Abandoned bytes stay charged.")) return;
-      model.abort();
-      try { await overpassStore.recover(Date.now()); toast("The map request guard was reset. Daily request and byte charges remain."); } catch (error) { toast(error.message, true); }
+    $("#mapEnableButton").addEventListener("click", enableTileMap);
+    $("#mapRemoveButton").addEventListener("click", () => { const next = clone(draft()); delete next.map; setDraft(next); });
+    $("#mapRetryButton").addEventListener("click", () => tiles.retry());
+    $("#mapOpacity").addEventListener("input", () => {
+      $("#mapOpacityValue").value = `${Math.round(Number($("#mapOpacity").value) * 100)}%`;
+      if (draft().map) { const next = clone(draft()); next.map.opacity = Number($("#mapOpacity").value); setDraft(next); }
     });
+    new ResizeObserver(renderTiles).observe($("#networkMap"));
+    document.addEventListener("visibilitychange", renderTiles);
+    root.addEventListener("pagehide", () => { tilePageActive = false; renderTiles(); });
+    root.addEventListener("pageshow", () => { tilePageActive = true; renderTiles(); });
+    if (root.frameElement) new MutationObserver(renderTiles).observe(root.frameElement, { attributes: true, attributeFilter: ["inert"] });
     $("#geoImportButton").addEventListener("click", () => { state.geoOpen = true; renderBackground(); });
     $("#geoImportCloseButton").addEventListener("click", closeGeoPanel); $("#geoImportRunButton").addEventListener("click", importFramedImage);
     $("#geoFile").addEventListener("change", (event) => { const file = event.target.files[0]; $("#geoFileName").textContent = file ? file.name : "No image chosen."; });

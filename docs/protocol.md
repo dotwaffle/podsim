@@ -19,7 +19,7 @@ The client uses these message boundaries:
 
 | Boundary | JSON endpoint | Purpose |
 | --- | --- | --- |
-| Topology | `GET /api/topology` | Network geometry for one project revision. |
+| Topology | `GET /api/topology` | Network geometry and optional geographic map settings for one project revision. |
 | Stream | `GET /api/state/stream` | WebSocket state publications and application acknowledgments. |
 | State | `GET /api/state` | Controls, demand, queues, berths, metrics, save points, the build, the server start ID, the restore result, and dynamic vehicle fields. |
 | Project | `GET /api/project` | Complete editable scenario data. |
@@ -35,6 +35,16 @@ They do not contain lane objects or network geometry.
 The Go client caches topology by session epoch, project revision, and server start ID, then reconstructs the presentation state.
 It rejects a frame if matching topology is not available.
 Topology must match the frame server start ID, epoch, and project revision.
+Optional `geo` and `map` members travel with that topology, not recurring stream deltas.
+`map` contains `provider: "osm"` and an `opacity` number from 0 to 1.
+An omitted opacity defaults to zero, which requests no tiles.
+A map requires the project's existing equirectangular `geo` reference.
+The project file and browser export retain these settings.
+Missing `map` means no live backdrop.
+Map changes use the existing project-apply command and project revision rules.
+Tile pixels never enter the simulation state, project file, or WebSocket stream.
+The browser fetches visible tiles directly.
+Native viewers retain their existing background.
 A verified full stream baseline can establish a restored older epoch immediately.
 Frames from a closed connection cannot replace the current view.
 

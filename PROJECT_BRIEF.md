@@ -28,8 +28,10 @@ These finite tests do not establish a sustainable capacity envelope.
 The original `london` selector is now `london-central`.
 
 The editor imports georeferenced PNG or JPEG backgrounds with stored bounds, projection, attribution, and an atomic undo step.
-The optional Overpass adapter imports an attributed OSM schematic background from a user-selected HTTPS endpoint.
-It has no default endpoint and does not create guideways or editable OSM vectors.
+Live OSM raster tiles provide a zoom-dependent backdrop in the editor and simulation.
+Projects save provider settings and geographic coordinates.
+Each simulation viewer can hide the map.
+The map does not create guideways or editable OSM vectors.
 See [georeferenced backgrounds](README.md#georeferenced-background).
 
 The live viewer uses shared gzip WebSocket deltas, and explicit public-origin configuration supports a TLS-terminating proxy.
@@ -273,7 +275,7 @@ Significant JavaScript learning may extend it.
 At eight hours per week, the usable 2D version represents roughly 10-20 weeks.
 The first experiment should provide something playable much earlier.
 
-Keep multiplayer features beyond one shared session, live map services, realistic scenery, legacy simulator file import, and advanced fleet optimization outside the first release.
+Keep multiplayer features beyond one shared session, realistic scenery, legacy simulator file import, and advanced fleet optimization outside the first release.
 The experiments in Section 6 also remain outside the initial scope.
 This brief does not estimate their effort, except where an optional stage appears in the table above.
 
@@ -330,33 +332,20 @@ Status notes record the parts that Podsim now implements.
 
 ### Geographic map import
 
-The editor supports local georeferenced images and an optional Overpass adapter for OSM schematic backgrounds.
-The adapter takes a user-selected HTTPS endpoint and geographic bounds.
-The browser requests bounded raw geometry and draws an attributed background image.
-It does not download rendered map tiles or convert streets into pod guideways.
+The editor supports local georeferenced images and a live OpenStreetMap raster backdrop.
+The simulation shares the live map settings, with an independent visibility toggle for each browser.
+Visible tiles load as the user pans and zooms, with more detail at higher zoom levels.
+The browser reprojects them into the network's existing geographic coordinate system.
 
-The current workflow is:
+Projects save provider settings and the geographic reference, not downloaded tile images.
+Ordinary image files retain their manual calibration, attribution, export, and undo behavior.
+Older schematic images remain usable.
+Tile failures leave the network usable, and the user can retry failed tiles.
+There is no bulk download, offline map archive, server proxy, or automatic guideway generation.
+See [live OpenStreetMap](README.md#live-openstreetmap-backdrop) for the current workflow.
 
-1. Enter the endpoint and geographic bounds in the editor.
-2. Import the schematic background and inspect any omitted-geometry diagnostics.
-3. Draw the pod network over the background.
-
-Projects retain the bounds, coordinate frame, source, and attribution through save, export, and undo.
-Ordinary image files still support manual scale calibration.
-Incomplete or ambiguous geometry is omitted with diagnostics.
-Malformed or oversized responses reject the import without changing the draft.
-There is no default provider, server proxy, automatic retry, locator map, or geocoder.
-
-Local synthetic, browser, and mutation tests passed.
-The first small public-provider probe returned HTTP 504, so validation stopped before the larger queries.
-This leaves public-service availability unqualified, not a demonstrated importer defect.
-A new bounded probe requires a separate request budget.
-See [georeferenced backgrounds](README.md#georeferenced-background) for the current controls and limits.
-
-Location search and drawing an import rectangle on a locator map remain possible UI extensions.
+Location search remains a possible UI extension.
 Editable geographic objects, automatic guideway generation, and aerial imagery require separate designs.
-Users must choose a provider that permits their intended requests and saved-project use.
-The adapter preserves attribution and export notices but does not supply a provider agreement.
 
 **London presets:** LondonCentral supplies a generated geographic network independently of the background importer.
 It uses a normalized TfL topology snapshot for 96 passenger stations, their real names and locations, and 127 unique adjacencies.
@@ -376,8 +365,8 @@ Recovery limits range from 7 requests per minute in Early to 14 in Interpeak and
 In every band except Early, the results suggest that the 114-pod fleet, not track congestion, sets the limit.
 See [docs/london.md](docs/london.md) and [docs/qualification.md](docs/qualification.md#london-capacity-envelope).
 
-The network does not include a background map or stored tunnel depth.
-The optional Overpass adapter supplies schematic backgrounds.
+The network does not include stored tunnel depth or map pixels.
+The optional live map supplies a geographic backdrop.
 Automatic guideway generation and editable OSM vectors remain future work.
 Local georeferenced image import is implemented and preserves frame and attribution data.
 LondonFull is a separate generated preset with 269 passenger sites and 2024 endpoint demand.

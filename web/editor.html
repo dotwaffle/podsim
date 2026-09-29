@@ -102,28 +102,24 @@
             <button id="geoImportCloseButton" type="button">Close</button>
           </div>
         </div>
-        <button id="mapOpenButton" class="wide" type="button">Optional OSM schematic map</button>
-        <div id="overpassPanel" class="subpanel" hidden>
-          <p>Enter an HTTPS Overpass endpoint that permits your use. Public instances share capacity and are not a general application backend.</p>
-          <p>This browser sends the bounds to your endpoint, without credentials. No endpoint is selected by default.</p>
-          <label>Overpass endpoint<input id="mapEndpoint" type="url" maxlength="200" autocomplete="off" placeholder="HTTPS endpoint"></label>
-          <div class="row">
-            <label>South<input id="mapSouth" type="number" step="any"></label>
-            <label>North<input id="mapNorth" type="number" step="any"></label>
+        <button id="mapOpenButton" class="wide" type="button">Live OpenStreetMap</button>
+        <div id="tilePanel" class="subpanel" hidden>
+          <p>Load map tiles as you pan and zoom. More detail appears at higher zoom levels.</p>
+          <p>Tiles load from OpenStreetMap in this browser. Projects save map settings, not tile images. Internet access is required.</p>
+          <p id="mapReferenceText"></p>
+          <div id="mapOriginFields" class="row">
+            <label>Origin latitude<input id="mapLatitude" type="number" min="-80" max="80" step="any" value="51.5074"></label>
+            <label>Origin longitude<input id="mapLongitude" type="number" min="-180" max="180" step="any" value="-0.1278"></label>
           </div>
+          <label>Map opacity <output id="mapOpacityValue">45%</output><input id="mapOpacity" type="range" min="0" max="1" step="0.05" value="0.45"></label>
+          <p>Pause and apply to share these settings with simulation viewers. Each viewer can hide the map independently.</p>
+          <p>Network geometry traced from OSM can be subject to the <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">ODbL</a>.</p>
           <div class="row">
-            <label>West<input id="mapWest" type="number" step="any"></label>
-            <label>East<input id="mapEast" type="number" step="any"></label>
-          </div>
-          <p>Up to 25 km²: roads, railways, water, parks. Up to 400 km²: major roads through tertiary, railways, water. Up to 2,500 km²: major roads through secondary, railways, water. A response must fit 8 MiB.</p>
-          <p>Local limits: 20 requests and 10 MB each UTC day, shared by tabs on this origin. These limits do not control a provider's total traffic.</p>
-          <p>Network positions copied or aligned from OSM data can put the scenario under the ODbL. Export the project to preserve the image and notice.</p>
-          <div class="row">
-            <button id="mapImportButton" type="button">Import schematic</button>
-            <button id="mapCancelButton" type="button">Cancel</button>
+            <button id="mapEnableButton" type="button">Enable live map</button>
+            <button id="mapRemoveButton" type="button">Remove live map</button>
           </div>
           <p id="mapDiagnostics" role="status" aria-live="polite"></p>
-          <button id="mapRecoverButton" class="wide quiet" type="button">Reset abandoned request guard</button>
+          <button id="mapRetryButton" type="button">Retry failed tiles</button>
         </div>
         <div id="frameControls" class="subpanel" hidden>
           <p id="frameStateText"></p>
@@ -134,7 +130,7 @@
           </div>
         </div>
         <div id="referencePanel" class="subpanel" hidden>
-          <p>The project has nodes and no geographic reference. Choose how the image gets its place.</p>
+          <p>The project has nodes and no geographic reference. Choose an origin or anchor two nodes before you place a map or image.</p>
           <label>Reference
             <select id="referenceMode">
               <option value="">Choose</option>
@@ -154,7 +150,7 @@
               <label>Longitude<input id="anchorBLongitude" type="number" step="any"></label>
             </div>
           </div>
-          <label id="adoptField" class="check" hidden><input id="adoptConfirm" type="checkbox"> The image center becomes the reference, and the network does not move. The network and the image can then fail to align.</label>
+          <label id="adoptField" class="check" hidden><input id="adoptConfirm" type="checkbox"> <span id="adoptText">The image center becomes the reference, and the network does not move. The network and the image can then fail to align.</span></label>
         </div>
         <button id="calibrateButton" class="wide" type="button">Calibrate scale</button>
         <button id="removeBackgroundButton" class="wide quiet" type="button">Remove background</button>
@@ -245,6 +241,7 @@
   </main>
 
   <div id="toast" role="status" aria-live="polite"></div>
+  <script src="tiles.js"></script>
   <script src="editor.js"></script>
 </body>
 </html>

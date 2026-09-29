@@ -680,65 +680,50 @@ The export keeps the frame state, the frame, and the license in `background.asse
 When the image has an attribution, the map shows it in a line at the lower right corner, with a link to the copyright URL and to the license URL.
 The **Background** section shows the source, the license, the time of the import, the method, and the notice.
 
-### Optional OSM schematic background
+### Live OpenStreetMap backdrop
 
-Select **Optional OSM schematic map** in the Background panel.
-Enter an HTTPS Overpass endpoint and the south, west, north, and east bounds in degrees.
-No endpoint is selected by default.
-Select an endpoint that permits your use.
-[Public Overpass instances share capacity](https://dev.overpass-api.de/overpass-doc/en/preface/commons.html) and are not a general application backend.
-The browser sends one explicit POST without credentials, with a 90-second timeout and no automatic retry.
-The server does not fetch map data.
+Select **Live OpenStreetMap** in the Background panel, then **Enable live map**.
+LondonCentral and LondonFull already have geographic references.
+For an empty project, enter the latitude and longitude of world position 0, 0.
+For an existing network without a reference, anchor two nodes or explicitly adopt the entered origin.
+This does not move the network.
 
-The schematic includes these layers:
+Pan and zoom to load the visible map tiles.
+Higher zoom levels show more detail.
+Podsim reprojects the tiles into the same coordinates as the network, between 80 degrees south and 80 degrees north.
+The **Map opacity** control changes the saved map opacity.
+**Remove live map** removes the map settings but keeps the geographic reference and any imported image.
+These changes support undo and redo.
 
-| Area | Layers |
-| --- | --- |
-| Up to 25 km² | All road classes, railways, water, parks |
-| Up to 400 km² | Roads from motorway through tertiary, railways, water |
-| Up to 2,500 km² | Roads from motorway through secondary, railways, water |
+Select **Pause and apply** to share the map settings with simulation viewers.
+The simulation has a **Show map** toggle, remembered in each browser.
+It does not change the shared project.
+Hidden views, a disabled toggle, and zero opacity stop new tile requests.
+Requests already sent can finish at the provider.
 
-Larger areas fail before a request.
-A smaller area can still exceed the 8 MiB response limit.
-The generated PNG has at most 4,096 pixels on each side and at most 8 MiB of encoded data.
-Raw, expanded, and clipped geometry each have a limit of 2,000,000 vertices.
-Ways and relations have limits of 200,000 and 5,000.
-Each polygon member reference counts toward the expanded vertex limit before ring assembly.
-Relation members have a separate limit of 200,000.
+The browser requests OSM Standard raster tiles directly from `tile.openstreetmap.org`.
+Normal browser HTTP caching applies.
+Only the visible area loads, with up to four requests in flight per view.
+Failed requests do not retry automatically.
+Select **Retry failed tiles** to retry them.
+The network remains usable when tiles are unavailable.
 
-The editor preserves missing spans and clips coordinates to the selected bounds.
-It joins polygon members by node identity before clipping.
-An incomplete, ambiguous, or complex polygon retains its valid lines but has no fill.
-Polygon topology checks stop after 2,000,000 segment comparisons per import.
-Segments that cross the antimeridian and their polygon fills are omitted.
-Import diagnostics show missing coordinates, missing members, omitted segments, and omitted fills.
-Malformed data, runtime errors, and exceeded limits leave the draft unchanged.
-The image and its frame use the same atomic history and storage path as a georeferenced image.
-The import does not create guideways or editable OSM vectors.
+Projects save the provider, opacity, and geographic reference, not tile pixels.
+They need internet access to load the map on another machine.
+There is no offline download, server proxy, geocoder, or automatic guideway generation.
+Existing PNG and JPEG backgrounds, including older schematic imports, remain usable in the editor.
+Their image export and calibration behavior do not change.
 
-Tabs on this origin share a persistent limit of 20 requests and 10 MB each UTC day.
-These local limits do not control a provider's total application traffic.
-HTTP 429, 406, or 504 pauses new requests for at least 60 seconds.
-A request reserves its byte allowance before it starts.
-An unreadable or interrupted response keeps its full allowance charged.
-If its tab closes before settlement, the reservation stays charged and new requests stay blocked.
-Close other editor tabs before you select **Reset abandoned request guard**.
-The reset is available after 90 seconds and does not refund the abandoned allowance.
-Browser cancellation does not prove that the provider stopped its work.
-
-The optional response cache holds at most 16 entries and 48 MiB, for at most seven days.
-Draft and background writes can clear this cache to recover storage space.
-Export the project to preserve the image, exact bounds, source endpoint, retrieval time, query, attribution, and license notice.
-The image also contains an attribution strip.
-Public use must preserve attribution and the notice.
-Network positions copied or aligned from OSM can put the scenario under the ODbL.
-Mixed-source data is not automatically exempt, and a query does not replace a required derivative-database offer.
-The background stays in the editor and does not appear in the simulation view.
+Keep the visible OpenStreetMap attribution when sharing a map view.
+Network geometry traced from OSM can be subject to the [ODbL](https://www.openstreetmap.org/copyright).
+The [OSM tile policy](https://operations.osmfoundation.org/policies/tiles/) governs use of the public tile service.
+Automated tests use local tile fixtures and make no requests to that service.
 
 ### Apply a draft
 
 **Pause and apply** is disabled when the draft scenario is the same as the live scenario.
-A background change does not enable it, because the server does not get the background.
+An imported-image change does not enable it, because the server does not get the image.
+Live map settings are part of the scenario and do enable it.
 Applying a valid draft resets the shared simulation and leaves it paused.
 If the apply fails after the editor paused the simulation, the editor resumes it.
 A simulation that was paused before the apply stays paused.
@@ -802,12 +787,15 @@ At each node, the simulator compares each ordered pair of two different lanes at
 The total of these pairs over all nodes can be at most 100,000, for example about 24 nodes with 64 lanes each.
 Each coordinate of a node position or a lane control point must be from -100,000 to 100,000 meters.
 A project can have an optional `geo` member, the geographic reference of the network.
-It has `latitude` and `longitude` in degrees, `projection` with the value `equirectangular`, and `radius` with the value 6371000.
+An optional `map` member selects the live backdrop, for example `{"provider":"osm","opacity":0.45}`.
+It requires `geo`.
+Omitting `map` keeps the existing plain background.
+The `geo` member has `latitude` and `longitude` in degrees, `projection` with the value `equirectangular`, and `radius` with the value 6371000.
 The latitude must be from -80 to 80 degrees, and the longitude must be from -180 to 180 degrees.
 The reference is the place of world position 0, 0.
 A point at latitude `lat` and longitude `lon` is at x = R cos(lat0) (lon - lon0) and y = -R (lat - lat0), with lat0 and lon0 the reference, the angles in radians, and R the radius.
 Thus x increases to the east, and y increases to the south.
-The simulation does not use the reference.
+Simulation physics does not use the reference.
 The simulator divides each lane into track cells of about 30 meters, with at least 2 cells in each lane.
 All lanes together can have at most 64,000 cells, for example about 1,900 km of lanes.
 Two lanes cannot have the same start node, end node, and path.
@@ -1410,7 +1398,9 @@ During the wait, the line below the panels shows **Shared session / waiting for 
 **From** and **To** send no command, so you can change them during the wait.
 
 Pod selection, origin, destination, and the open inspection panel stay local to each browser.
-Background images stay in the editor, in the IndexedDB storage of the browser, and in the exported project file.
+Imported background images stay in the editor, in browser IndexedDB storage, and in the exported project file.
+Live map settings travel with the project and topology.
+Each viewer fetches its visible tiles directly.
 The shared simulation receives the network geometry and settings.
 
 #### Motion

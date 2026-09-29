@@ -17,13 +17,13 @@ var gameCanvas struct {
 // readDrawingBuffer returns the size of the WebGL drawing buffer and the
 // size of the canvas, in pixels. See newPointerTransform and screenSize.
 // Call it only from Update and LayoutF, which run in the game loop.
-// Ebitengine adds the only canvas of game.html and makes its WebGL 2 context
+// Ebitengine adds the game canvas to game.html and makes its WebGL 2 context
 // before the game loop starts. Thus getContext returns the context of
 // Ebitengine and does not make a new one. When the canvas or its context is
 // not found, both sizes are 0.
 func readDrawingBuffer() (buffer, canvas image.Point) {
 	if !gameCanvas.context.Truthy() {
-		element := js.Global().Get("document").Call("querySelector", "canvas")
+		element := js.Global().Get("document").Call("querySelector", "canvas:not(.tile-canvas)")
 		if !element.Truthy() {
 			return image.Point{}, image.Point{}
 		}

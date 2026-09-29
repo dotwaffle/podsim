@@ -200,3 +200,6 @@ project.geo.latitude number
 project.geo.longitude number
 project.geo.projection string
 project.geo.radius number
+project.map object
+project.map.provider string
+project.map.opacity number

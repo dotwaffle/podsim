@@ -4,6 +4,7 @@ import (
 	"context"
 	"log/slog"
 	"os"
+	"runtime"
 
 	"github.com/hajimehoshi/ebiten/v2"
 
@@ -34,5 +35,5 @@ func run() error {
 	// the game, Draw does not draw, and the screen keeps the last frame.
 	// Thus the game shows no empty frame when it shows again.
 	ebiten.SetScreenClearedEveryFrame(false)
-	return ebiten.RunGame(game)
+	return ebiten.RunGameWithOptions(game, &ebiten.RunGameOptions{ScreenTransparent: runtime.GOOS == "js"})
 }

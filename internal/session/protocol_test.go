@@ -408,3 +408,52 @@ func TestVehicleFrameRidersJSON(t *testing.T) {
 		}
 	}
 }
+
+func TestTopologyMapMetadata(t *testing.T) {
+	t.Parallel()
+	config := project.Default()
+	config.Geo = &project.Geo{Latitude: 51.5, Longitude: -.1, Projection: project.GeoProjection, Radius: project.GeoRadius}
+	config.Map = &project.MapBackground{Provider: "osm", Opacity: .45}
+	shared, err := NewWithProject(config)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer shared.Close()
+	topology := shared.Topology()
+	encoded, err := json.Marshal(topology)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var decoded TopologySnapshot
+	if err = json.Unmarshal(encoded, &decoded); err != nil {
+		t.Fatal(err)
+	}
+	got, err := FrameState(decoded, shared.Frame())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.Geo == nil || got.Map == nil || *got.Geo != *config.Geo || *got.Map != *config.Map {
+		t.Fatalf("assembled map metadata: %+v %+v", got.Geo, got.Map)
+	}
+	got.Geo.Latitude = 0
+	got.Map.Opacity = 0
+	if decoded.Geo.Latitude != 51.5 || decoded.Map.Opacity != .45 {
+		t.Fatal("assembled state aliases topology map metadata")
+	}
+	topology.Geo.Latitude = 1
+	topology.Map.Opacity = .1
+	state := shared.State()
+	if state.Geo.Latitude != 51.5 || state.Map.Opacity != .45 {
+		t.Fatal("topology aliases session map metadata")
+	}
+	state.Geo.Latitude = 2
+	state.Map.Opacity = .2
+	if next := shared.State(); next.Geo.Latitude != 51.5 || next.Map.Opacity != .45 {
+		t.Fatal("state aliases session map metadata")
+	}
+	decoded.Geo, decoded.Map = nil, nil
+	got, err = FrameState(decoded, shared.Frame())
+	if err != nil || got.Geo != nil || got.Map != nil {
+		t.Fatal("map metadata survived a topology without a map", err)
+	}
+}

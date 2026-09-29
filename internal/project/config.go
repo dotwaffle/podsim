@@ -99,6 +99,12 @@ type Geo struct {
 	Radius     float64 `json:"radius"`
 }
 
+// MapBackground selects a live browser map. It does not change simulation geometry.
+type MapBackground struct {
+	Provider string  `json:"provider"`
+	Opacity  float64 `json:"opacity"`
+}
+
 // MaxFileBytes is the largest project file accepted from local storage. It
 // also limits the canonical encoding of a valid project. Validate measures
 // the project with the widest demand settings that ValidateDemand accepts.
@@ -194,6 +200,8 @@ type Config struct {
 	// Geo is the geographic reference, or nil for a project with no
 	// reference. A reference at latitude 0 and longitude 0 is valid.
 	Geo *Geo `json:"geo,omitzero"`
+	// Map selects an optional live map behind the network.
+	Map *MapBackground `json:"map,omitzero"`
 }
 
 // Default returns the supplied example project.
@@ -249,6 +257,9 @@ func Validate(config Config) error {
 		return fmt.Errorf("platoon limit must be %d to %d, or 0 for no platoons", sim.MinPlatoonLimit, sim.MaxPlatoonLimit)
 	}
 	if err := validateGeo(config.Geo); err != nil {
+		return err
+	}
+	if err := validateMap(config.Map, config.Geo); err != nil {
 		return err
 	}
 	if err := validateNames(config); err != nil {
@@ -762,6 +773,22 @@ func PassengerStations(network sim.Network) []sim.Station {
 	return stations
 }
 
+func validateMap(background *MapBackground, geo *Geo) error {
+	if background == nil {
+		return nil
+	}
+	if geo == nil {
+		return errors.New("a map background needs a geographic reference")
+	}
+	if background.Provider != "osm" {
+		return errors.New("map provider must be osm")
+	}
+	if math.IsNaN(background.Opacity) || math.IsInf(background.Opacity, 0) || background.Opacity < 0 || background.Opacity > 1 {
+		return errors.New("map opacity must be a finite number from 0 to 1")
+	}
+	return nil
+}
+
 // Clone returns a detached project configuration.
 func Clone(config Config) Config {
 	clone := config
@@ -770,6 +797,9 @@ func Clone(config Config) Config {
 	clone.DemandProfiles = cloneDemandProfiles(config.DemandProfiles)
 	if config.Geo != nil {
 		clone.Geo = new(*config.Geo)
+	}
+	if config.Map != nil {
+		clone.Map = new(*config.Map)
 	}
 	return clone
 }

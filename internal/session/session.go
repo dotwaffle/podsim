@@ -43,19 +43,21 @@ const (
 // existed, when the server has no store, and after a reset, a demo or a
 // project apply.
 type State struct {
-	Epoch           string       `json:"epoch"`
-	Revision        uint64       `json:"revision"`
-	ProjectRevision uint64       `json:"projectRevision"`
-	Generation      uint64       `json:"generation"`
-	Redistribution  bool         `json:"redistribution"`
-	Network         sim.Network  `json:"network"`
-	Simulation      sim.Snapshot `json:"simulation"`
-	Speed           int          `json:"speed"`
-	Demand          DemandState  `json:"demand"`
-	Checkpoints     []Checkpoint `json:"checkpoints,omitempty"`
-	Build           string       `json:"build,omitempty"`
-	ServerStart     string       `json:"serverStart,omitempty"`
-	Restore         RestoreInfo  `json:"restore,omitzero"`
+	Epoch           string                 `json:"epoch"`
+	Revision        uint64                 `json:"revision"`
+	ProjectRevision uint64                 `json:"projectRevision"`
+	Generation      uint64                 `json:"generation"`
+	Redistribution  bool                   `json:"redistribution"`
+	Network         sim.Network            `json:"network"`
+	Geo             *project.Geo           `json:"geo,omitzero"`
+	Map             *project.MapBackground `json:"map,omitzero"`
+	Simulation      sim.Snapshot           `json:"simulation"`
+	Speed           int                    `json:"speed"`
+	Demand          DemandState            `json:"demand"`
+	Checkpoints     []Checkpoint           `json:"checkpoints,omitempty"`
+	Build           string                 `json:"build,omitempty"`
+	ServerStart     string                 `json:"serverStart,omitempty"`
+	Restore         RestoreInfo            `json:"restore,omitzero"`
 }
 
 // ProjectState contains a copied project and its edit revision.
@@ -361,10 +363,17 @@ func (s *Session) State() State { s.mu.Lock(); defer s.mu.Unlock(); return s.sta
 func (s *Session) Topology() TopologySnapshot {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	return TopologySnapshot{
+	topology := TopologySnapshot{
 		ServerStart: s.serverStart, Epoch: s.epoch, ProjectRevision: s.projectRevision,
 		Network: project.CloneNetwork(s.project.Network),
 	}
+	if s.project.Geo != nil {
+		topology.Geo = new(*s.project.Geo)
+	}
+	if s.project.Map != nil {
+		topology.Map = new(*s.project.Map)
+	}
+	return topology
 }
 
 // Frame returns recurring state without network geometry or complete route lanes.
@@ -411,6 +420,12 @@ func (s *Session) Metrics() Metrics {
 func (s *Session) state() State {
 	state := s.stateWithoutNetwork()
 	state.Network = project.CloneNetwork(s.project.Network)
+	if s.project.Geo != nil {
+		state.Geo = new(*s.project.Geo)
+	}
+	if s.project.Map != nil {
+		state.Map = new(*s.project.Map)
+	}
 	return state
 }
 

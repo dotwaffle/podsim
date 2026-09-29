@@ -37,6 +37,7 @@ func TestConfigJSONRoundTripAndClone(t *testing.T) {
 		t.Fatalf("round trip changed config\n got: %#v\nwant: %#v", got, want)
 	}
 	want.Geo = &Geo{Latitude: 51.5, Longitude: -0.1, Projection: GeoProjection, Radius: GeoRadius}
+	want.Map = &MapBackground{Provider: "osm", Opacity: .45}
 	data, err = json.Marshal(want)
 	if err != nil {
 		t.Fatal(err)
@@ -50,6 +51,10 @@ func TestConfigJSONRoundTripAndClone(t *testing.T) {
 	}
 	clone := Clone(want)
 	clone.Geo.Latitude = 1
+	clone.Map.Opacity = .9
+	if want.Map.Opacity != .45 {
+		t.Fatal("clone aliases map settings")
+	}
 	if want.Geo.Latitude != 51.5 {
 		t.Fatal("clone aliases the geo reference")
 	}
@@ -744,5 +749,43 @@ func TestQuoteID(t *testing.T) {
 	invalid := strings.Repeat("\x80", 2*maxIDLength)
 	if got := quoteID(invalid); len(got) < 4*(maxIDLength-utf8.UTFMax) {
 		t.Fatalf("quoteID(invalid) = %s, too short", got)
+	}
+}
+
+func TestValidateMapBackground(t *testing.T) {
+	t.Parallel()
+	for _, test := range []struct {
+		name           string
+		background     *MapBackground
+		noGeo, wantErr bool
+	}{
+		{name: "absent", noGeo: true},
+		{name: "opaque", background: &MapBackground{Provider: "osm", Opacity: 1}},
+		{name: "transparent", background: &MapBackground{Provider: "osm", Opacity: 0}},
+		{name: "no geo", background: &MapBackground{Provider: "osm", Opacity: .45}, noGeo: true, wantErr: true},
+		{name: "unknown provider", background: &MapBackground{Provider: "custom", Opacity: .45}, wantErr: true},
+		{name: "negative opacity", background: &MapBackground{Provider: "osm", Opacity: -.01}, wantErr: true},
+		{name: "large opacity", background: &MapBackground{Provider: "osm", Opacity: 1.01}, wantErr: true},
+		{name: "nan opacity", background: &MapBackground{Provider: "osm", Opacity: math.NaN()}, wantErr: true},
+		{name: "infinite opacity", background: &MapBackground{Provider: "osm", Opacity: math.Inf(1)}, wantErr: true},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			config := Default()
+			config.Map = test.background
+			if !test.noGeo {
+				config.Geo = testGeo(0, 0)
+			}
+			if err := validateMap(config.Map, config.Geo); (err != nil) != test.wantErr {
+				t.Fatalf("map metadata: %v, want error %t", err, test.wantErr)
+			}
+			if err := Validate(config); (err != nil) != test.wantErr {
+				t.Fatalf("Validate map: %v, want error %t", err, test.wantErr)
+			}
+		})
+	}
+	data := mustJSON(t, Default())
+	if bytes.Contains(data, []byte(`"map"`)) {
+		t.Fatal("absent map was encoded")
 	}
 }

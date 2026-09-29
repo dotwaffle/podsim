@@ -11,10 +11,12 @@ import (
 
 // TopologySnapshot contains geometry that changes only with the project.
 type TopologySnapshot struct {
-	ServerStart     string      `json:"serverStart"`
-	Epoch           string      `json:"epoch"`
-	ProjectRevision uint64      `json:"projectRevision"`
-	Network         sim.Network `json:"network"`
+	ServerStart     string                 `json:"serverStart"`
+	Epoch           string                 `json:"epoch"`
+	ProjectRevision uint64                 `json:"projectRevision"`
+	Network         sim.Network            `json:"network"`
+	Geo             *project.Geo           `json:"geo,omitzero"`
+	Map             *project.MapBackground `json:"map,omitzero"`
 }
 
 // StateFrame contains the recurring state without network geometry.
@@ -113,13 +115,20 @@ func frameState(topology TopologySnapshot, frame StateFrame, immutable bool) (St
 	}
 	snapshot := frame.Simulation
 	network := topology.Network
+	geo, background := topology.Geo, topology.Map
 	if !immutable {
 		network = project.CloneNetwork(network)
+		if geo != nil {
+			geo = new(*geo)
+		}
+		if background != nil {
+			background = new(*background)
+		}
 	}
 	return State{
 		Epoch: frame.Epoch, Revision: frame.Revision, ProjectRevision: frame.ProjectRevision,
 		Generation: frame.Generation, Redistribution: frame.Redistribution,
-		Network: network,
+		Network: network, Geo: geo, Map: background,
 		Simulation: sim.Snapshot{
 			Submitted: snapshot.Submitted, Tick: snapshot.Tick, Paused: snapshot.Paused,
 			Vehicles: vehicles, Berths: snapshot.Berths, Completed: snapshot.Completed,
