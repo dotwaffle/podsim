@@ -47,10 +47,9 @@ const (
 	// berth. The ring line is 2 units wide.
 	berthRingRadius = 13
 	// podLabelLeft and podLabelTop place the pod label in display units from
-	// the center of the pod. The label is up and to the right of the pod,
-	// outside the berth ring of a pod at a berth.
-	podLabelLeft = 16
-	podLabelTop  = -22
+	// the center of the pod. The label is up and to the right of the pod.
+	podLabelLeft = 8
+	podLabelTop  = -11
 
 	inspectionLeft       = 816.0
 	inspectionRight      = 1054.0

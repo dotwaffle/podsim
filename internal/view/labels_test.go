@@ -444,9 +444,9 @@ func TestPodMapLabels(t *testing.T) {
 	}
 }
 
-// TestPodLabelClearsBerthRing checks that the label of a pod at a berth
-// stays outside the berth ring. Before, the label covered the ring.
-func TestPodLabelClearsBerthRing(t *testing.T) {
+// TestPodLabelClearsPod checks that the closer label stays outside the pod
+// icon at each display scale. The label can overlap the larger berth ring.
+func TestPodLabelClearsPod(t *testing.T) {
 	t.Parallel()
 	for _, deviceScale := range []float64{1, 1.5, 2} {
 		for _, size := range []struct{ width, height int }{{1100, 728}, {1920, 1080}, {800, 600}} {
@@ -458,12 +458,12 @@ func TestPodLabelClearsBerthRing(t *testing.T) {
 			podLabel := game.podMapLabels(vehicles, map[string]bool{})[0]
 			bounds := game.labelBounds(podLabel)
 			center := game.mapPoint(vehicles[0].Pod.Position)
-			// The nearest point of the label area to the center of the ring.
+			// The nearest point of the label area to the center of the pod.
 			nearX := min(max(center.X, float64(bounds.Min.X)), float64(bounds.Max.X))
 			nearY := min(max(center.Y, float64(bounds.Min.Y)), float64(bounds.Max.Y))
-			outerRadius := (berthRingRadius + 1) * game.layout.unit
+			outerRadius := podRadius * game.layout.unit
 			if distance := math.Hypot(nearX-center.X, nearY-center.Y); distance <= outerRadius {
-				t.Errorf("scale %.1f, window %dx%d: label %v is %.1f from the pod, want more than the ring radius %.1f", deviceScale, size.width, size.height, bounds, distance, outerRadius)
+				t.Errorf("scale %.1f, window %dx%d: label %v is %.1f from the pod, want more than the pod radius %.1f", deviceScale, size.width, size.height, bounds, distance, outerRadius)
 			}
 		}
 	}
