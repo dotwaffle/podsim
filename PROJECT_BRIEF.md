@@ -331,6 +331,28 @@ None of them needs 3D.
 These are proposed experiments and design considerations.
 Status notes record the parts that Podsim now implements.
 
+### Station approach buffers
+
+**Status:** Added to the backlog on September 29, 2026. Design and implementation are pending.
+
+Use bounded holding space on station approaches to keep short arrival queues off the mainline.
+Choose a berth at the head of the buffer, before the pod commits to a berth branch.
+Use the Turnham Green approach to Acton Town as the first diagnostic case.
+Inspect junction reservation coverage before changing berth selection.
+The current conflict zone covers the full feeder from that approach, which can hold pods on the mainline.
+
+Derive buffer capacity from safe stopping positions outside merge, entry, and exit conflict regions.
+Keep departure paths clear.
+Define what happens when the buffer is full. A finite buffer cannot prevent spillback under sustained overload without upstream admission control.
+
+Include virtual platoons in the design, with safe separation before berth routes diverge.
+Current platoons exclude station-entry and berth-access lanes and retain at least 12 meters of separation.
+Shared reservations can improve discharge flow, but do not imply tighter stopped queues.
+Preserve existing reservations, passenger and pickup priority, and the aging override.
+
+Validate merge contention, occupied berths, departure progress, full-buffer behavior, platoon separation, and saved-state restoration.
+Measure mainline blocking, passenger waits, station throughput, and buffer occupancy before proposing adoption or default changes.
+
 ### Geographic map import
 
 The editor supports local georeferenced images and a live OpenStreetMap raster backdrop.
