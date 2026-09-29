@@ -48,8 +48,8 @@ const (
 	berthRingRadius = 13
 	// podLabelLeft and podLabelTop place the pod label in display units from
 	// the center of the pod. The label is up and to the right of the pod.
-	podLabelLeft = 8
-	podLabelTop  = -11
+	podLabelLeft = 12
+	podLabelTop  = -16.5
 
 	inspectionLeft       = 816.0
 	inspectionRight      = 1054.0
