@@ -296,6 +296,12 @@ func decodeLondonSource(source *londonSource) error {
 // search, it checks that the network stays in the project node and lane
 // limits.
 func londonNetwork(source londonSource, capacity londonCapacity) (sim.Network, error) {
+	return londonNetworkWithHeadings(source, capacity, nil)
+}
+
+// londonNetworkWithHeadings applies preset-specific headings after the shared search.
+// The size checks and station construction are the same for both presets.
+func londonNetworkWithHeadings(source londonSource, capacity londonCapacity, overrides map[string]float64) (sim.Network, error) {
 	network := sim.Network{}
 	positions := make(map[string]sim.Point, len(source.Stations))
 	portals := make(map[string]*londonStationPortals, len(source.Stations))
@@ -346,6 +352,9 @@ func londonNetwork(source londonSource, capacity londonCapacity) (sim.Network, e
 		})
 	}
 	headings := searchLondonHeadings(input)
+	for id, direction := range overrides {
+		headings[indexes[id]] = direction
+	}
 	for index, station := range source.Stations {
 		addLondonMovements(&network, station.ID, positions[station.ID], *portals[station.ID])
 		addLondonStation(&network, londonStationInput{
