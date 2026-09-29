@@ -368,7 +368,7 @@ There is no bulk download, offline map archive, server proxy, or automatic guide
 See [live OpenStreetMap](README.md#live-openstreetmap-backdrop) for the current workflow.
 
 Location search remains a possible UI extension.
-Editable geographic objects, automatic guideway generation, and aerial imagery require separate designs.
+Editable geographic objects, automatic guideway generation, and aerial imagery are shelved as very low priority at the user's request.
 
 **London presets:** LondonCentral supplies a generated geographic network independently of the background importer.
 It uses a normalized TfL topology snapshot for 96 passenger stations, their real names and locations, and 127 unique adjacencies.
