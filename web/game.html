@@ -16,6 +16,11 @@
     #simulationMapControls[hidden] { display: none; }
     #simulationMapStatus { display: block; max-width: 300px; color: #f3c479; }
     #simulationMapStatus:empty, #simulationMapStatus[hidden] { display: none; }
+    #streamDiagnostics { position: absolute; right: 8px; bottom: 8px; z-index: 4; max-width: min(330px, calc(100vw - 32px)); max-height: 65vh; overflow: auto; padding: 7px 10px; border: 1px solid #496174; border-radius: 5px; background: #101d28; font: 12px system-ui, sans-serif; }
+    #streamDiagnostics summary { cursor: pointer; }
+    #streamDiagnostics dl { display: grid; grid-template-columns: 1fr auto; gap: 4px 12px; }
+    #streamDiagnostics dd { margin: 0; text-align: right; font-variant-numeric: tabular-nums; }
+    #streamDiagnostics p { color: #b7c8d6; line-height: 1.4; }
   </style>
   <script src="wasm_exec.js"></script>
   <script src="loader.js"></script>

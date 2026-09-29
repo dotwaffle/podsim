@@ -155,6 +155,12 @@ The executable holds only the gzip WASM file, so it is about 35 MB and not 64 MB
 
 The project also includes a non-root, multiarchitecture ko image and a GHCR publishing workflow.
 The server provides `/healthz`, opt-in pprof on a separate listener, and opt-in OTLP telemetry.
+Open **Connection diagnostics** at the bottom right of the simulation to inspect its stream.
+The panel shows received payload rate, applied updates, mean receive-to-apply time, state and heartbeat age, and reconnect attempts.
+An HTTP round-trip probe runs every five seconds while the panel is visible.
+Rates exclude HTTP assets and network headers. Apply time excludes rendering.
+State age increases normally while paused. One-way delay and socket backlog are not measured.
+
 The browser receives shared gzip JSON state deltas over WebSocket.
 
 See [distribution and operations](docs/operations.md) for build and runtime settings, the saved session state, graceful shutdown, save point memory use, and save point logs.

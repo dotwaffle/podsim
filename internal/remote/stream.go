@@ -50,6 +50,8 @@ func (c *Client) stream(ctx context.Context) {
 	}
 }
 func (c *Client) receiveStream(ctx context.Context) error {
+	streamDiagnostic("connecting")
+	defer streamDiagnostic("disconnected")
 	url := strings.Replace(strings.Replace(c.url, "https://", "wss://", 1), "http://", "ws://", 1) + "/api/state/stream"
 	conn, response, err := dialStream(ctx, url, c.http)
 	if response != nil && response.Body != nil {
@@ -66,7 +68,11 @@ func (c *Client) receiveStream(ctx context.Context) error {
 	read := func() (websocket.MessageType, []byte, error) {
 		bounded, cancel := context.WithTimeout(ctx, 35*time.Second)
 		defer cancel()
-		return conn.Read(bounded)
+		kind, data, readErr := conn.Read(bounded)
+		if readErr == nil {
+			streamDiagnostic("received", len(data))
+		}
+		return kind, data, readErr
 	}
 	kind, data, err := read()
 	if err != nil {
@@ -115,6 +121,7 @@ func (c *Client) receiveStream(ctx context.Context) error {
 			c.mu.Lock()
 			if c.connected {
 				c.lastFrame = time.Now()
+				streamDiagnostic("heartbeat")
 			}
 			c.mu.Unlock()
 			continue
@@ -122,6 +129,7 @@ func (c *Client) receiveStream(ctx context.Context) error {
 		if kind != websocket.MessageBinary {
 			return errors.New("invalid state message")
 		}
+		processingStarted := time.Now()
 		inflated, err := inflatePublication(ctx, data)
 		if err != nil {
 			return err
@@ -159,6 +167,7 @@ func (c *Client) receiveStream(ctx context.Context) error {
 		if stale {
 			return errors.New("stale same-server state")
 		}
+		streamDiagnostic("applied", float64(time.Since(processingStarted))/float64(time.Millisecond), envelope.Kind)
 		frame, stream, sequence = candidate, envelope.Stream, envelope.Sequence
 		if err := writeControl(ctx, conn, map[string]string{"kind": "ack", "stream": stream, "sequence": strconv.FormatUint(sequence, 10)}); err != nil {
 			return err
