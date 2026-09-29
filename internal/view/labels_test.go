@@ -454,7 +454,7 @@ func TestPodLabelClearsSelectionRing(t *testing.T) {
 			game.layoutFor(layoutInput{outsideWidth: size.width, outsideHeight: size.height, deviceScale: deviceScale})
 			game.camera = mapCamera{scale: 1, minScale: 0.5}
 			game.syncCamera()
-			vehicles := []sim.Vehicle{{Pod: sim.Pod{ID: "at berth", Activity: sim.Idle, StationID: "expanded", Position: sim.Point{X: 70, Y: 80}}}}
+			vehicles := []sim.Vehicle{{Pod: sim.Pod{ID: "traveling", Activity: sim.Traveling, Position: sim.Point{X: 70, Y: 80}}, Stops: []string{"940GZZLUACT"}}}
 			podLabel := game.podMapLabels(vehicles, map[string]bool{})[0]
 			bounds := game.labelBounds(podLabel)
 			center := game.mapPoint(vehicles[0].Pod.Position)

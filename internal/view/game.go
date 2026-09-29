@@ -1118,7 +1118,7 @@ func (g *Game) boundedStationLabels(input collapsedLabelsInput) []boundedStation
 
 // labelBounds returns the screen area of the text of a map label.
 func (g *Game) labelBounds(value label) image.Rectangle {
-	width, height := text.Measure(value.value, g.labelFace(value), 0)
+	width, height := text.Measure(value.value, g.labelFace(value), value.lineSpacing)
 	return image.Rect(
 		int(math.Floor(value.x)), int(math.Floor(value.y)),
 		int(math.Ceil(value.x+width)), int(math.Ceil(value.y+height)),
@@ -1216,7 +1216,12 @@ func (g *Game) podMapLabels(vehicles []sim.Vehicle, collapsedStations map[string
 			continue
 		}
 		p := g.mapPoint(vehicle.Pod.Position)
-		labels[index] = label{x: p.X + podLabelLeft*g.layout.unit, y: p.Y + podLabelTop*g.layout.unit, size: 11, value: fleetPodLabel(index), mapLabel: true}
+		tag := label{x: p.X + podLabelLeft*g.layout.unit, y: p.Y + podLabelTop*g.layout.unit, size: 11, value: fleetPodLabel(index), mapLabel: true}
+		if code := podDestinationCode(vehicle); code != "" {
+			tag.value += "\n" + code
+			tag.lineSpacing = 1.2 * g.layout.mapLabelSize(tag.size)
+		}
+		labels[index] = tag
 	}
 	return labels
 }
@@ -1918,9 +1923,11 @@ func (g *Game) textFace(size float64) *text.GoTextFace {
 
 type label struct {
 	x, y, size float64
-	value      string
-	color      uint32
-	physical   bool
+	// lineSpacing is the baseline distance in pixels for a multiline tag.
+	lineSpacing float64
+	value       string
+	color       uint32
+	physical    bool
 	// mapLabel is true for a map label, such as a station name, a station
 	// count or a pod label. Its size is in CSS pixels. See
 	// displayLayout.mapLabelSize.
@@ -1941,6 +1948,7 @@ func (g *Game) label(screen *ebiten.Image, label label) {
 		label.x, label.y = g.layout.labelPosition(label.x, label.y)
 	}
 	options := &text.DrawOptions{}
+	options.LineSpacing = label.lineSpacing
 	options.GeoM.Translate(label.x, label.y)
 	options.ColorScale.ScaleWithColor(rgb(label.color))
 	text.Draw(screen, label.value, g.labelFace(label), options)
@@ -1948,7 +1956,7 @@ func (g *Game) label(screen *ebiten.Image, label label) {
 
 // centerLabel returns value as a physical label in the center of area.
 func (g *Game) centerLabel(area image.Rectangle, value label) label {
-	width, height := text.Measure(value.value, g.labelFace(value), 0)
+	width, height := text.Measure(value.value, g.labelFace(value), value.lineSpacing)
 	value.x = float64(area.Min.X) + (float64(area.Dx())-width)/2
 	value.y = float64(area.Min.Y) + (float64(area.Dy())-height)/2
 	value.physical = true
