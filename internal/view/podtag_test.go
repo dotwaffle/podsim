@@ -1,7 +1,6 @@
 package view
 
 import (
-	"image"
 	"testing"
 
 	"github.com/dotwaffle/podsim/internal/sim"
@@ -48,10 +47,5 @@ func TestPodTagBoundsIncludeDestination(t *testing.T) {
 	numberBounds := game.labelBounds(number)
 	if bounds.Dy() <= numberBounds.Dy() {
 		t.Fatalf("destination missing from bounds: %v vs %v", bounds, numberBounds)
-	}
-	obstacle := image.Rect(bounds.Min.X, numberBounds.Max.Y+1, bounds.Max.X, bounds.Max.Y)
-	game.selected = -1
-	if got := game.clearPodLabels([]label{tag}, []image.Rectangle{obstacle})[0]; got.value != "" {
-		t.Fatal("destination overlapped station text")
 	}
 }

@@ -901,12 +901,10 @@ func (g *Game) drawNetwork(screen *ebiten.Image, state sim.Snapshot) {
 	if g.selected >= 0 && g.selected < len(podLabels) {
 		selectedPodLabel = podLabels[g.selected]
 	}
-	shownLabels := g.drawCollapsedStationLabels(mapScreen, collapsedLabelsInput{
+	g.drawCollapsedStationLabels(mapScreen, collapsedLabelsInput{
 		labels: collapsedLabels, selected: selected,
 		markers: markers, markerRadius: style.markerRadius, selectedPodLabel: selectedPodLabel,
 	})
-	shownLabels = appendStationTextAreas(shownLabels, placedText)
-	podLabels = g.clearPodLabels(podLabels, shownLabels)
 	// Draw the route after the station markers and labels, and before the
 	// pods. A marker can sit on a line junction, and a label can cover a
 	// line. The route must stay visible through them, and the pods stay on
@@ -1060,11 +1058,9 @@ type collapsedLabelsInput struct {
 }
 
 // drawCollapsedStationLabels draws the overview labels that
-// visibleCollapsedStationLabels selects. It returns the screen areas of the
-// labels that it draws.
-func (g *Game) drawCollapsedStationLabels(screen *ebiten.Image, input collapsedLabelsInput) []image.Rectangle {
-	bounded, visible := g.visibleCollapsedStationLabels(input)
-	var shown []image.Rectangle
+// visibleCollapsedStationLabels selects.
+func (g *Game) drawCollapsedStationLabels(screen *ebiten.Image, input collapsedLabelsInput) {
+	_, visible := g.visibleCollapsedStationLabels(input)
 	for index, candidate := range input.labels {
 		if !visible[index] {
 			continue
@@ -1073,9 +1069,7 @@ func (g *Game) drawCollapsedStationLabels(screen *ebiten.Image, input collapsedL
 		if candidate.secondary != "" {
 			g.label(screen, candidate.secondaryLabel(g.layout.deviceScale))
 		}
-		shown = append(shown, bounded[index].bounds)
 	}
-	return shown
 }
 
 // visibleCollapsedStationLabels returns the screen areas of the overview
@@ -1228,26 +1222,6 @@ func (g *Game) podMapLabels(vehicles []sim.Vehicle, collapsedStations map[string
 		labels[index] = tag
 	}
 	return labels
-}
-
-// clearPodLabels returns the pod labels without the labels that overlap
-// shown station text on a dense map. The label of the selected pod stays.
-// stationLabels holds the screen areas of the shown overview labels and of
-// the text of expanded stations.
-func (g *Game) clearPodLabels(podLabels []label, stationLabels []image.Rectangle) []label {
-	if len(g.network.Stations) <= 30 {
-		return podLabels
-	}
-	cleared := slices.Clone(podLabels)
-	for index, podLabel := range cleared {
-		if index == g.selected || podLabel.value == "" {
-			continue
-		}
-		if slices.ContainsFunc(stationLabels, g.labelBounds(podLabel).Overlaps) {
-			cleared[index] = label{}
-		}
-	}
-	return cleared
 }
 
 func (g *Game) showPodMapLabel(index int) bool {

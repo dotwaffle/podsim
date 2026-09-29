@@ -795,7 +795,6 @@ func TestStationTextOnLondon(t *testing.T) {
 			}
 			checkStationText(t, game, expanded, placed)
 			checkBerthNumbers(t, expanded, placed)
-			checkPodLabelsCleared(t, game, placed)
 		})
 	}
 }
@@ -824,19 +823,6 @@ func checkBerthNumbers(t *testing.T, expanded []expandedStationText, placed []pl
 				t.Errorf("berth number %q at %v is at a corner of its ring at %v", berth.text.lines[0].value, area, berth.ring)
 			}
 		}
-	}
-}
-
-// checkPodLabelsCleared checks that a pod label over station text does not
-// show, and that the label of the selected pod shows.
-func checkPodLabelsCleared(t *testing.T, game *Game, placed []placedStationText) {
-	t.Helper()
-	area := placed[len(placed)-1].area
-	over := label{x: float64(area.Min.X), y: float64(area.Min.Y), size: 11, value: "P1", color: foreground, mapLabel: true}
-	game.selected = 1
-	got := game.clearPodLabels([]label{over, over}, appendStationTextAreas(nil, placed))
-	if got[0].value != "" || got[1].value != "P1" {
-		t.Errorf("clearPodLabels() = %q and %q, want the first label cleared and the selected label kept", got[0].value, got[1].value)
 	}
 }
 

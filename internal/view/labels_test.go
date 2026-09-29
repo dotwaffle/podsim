@@ -469,43 +469,6 @@ func TestPodLabelClearsSelectionRing(t *testing.T) {
 	}
 }
 
-func TestClearPodLabels(t *testing.T) {
-	t.Parallel()
-	podLabel := func(x, y float64, value string) label { return label{x: x, y: y, size: 11, value: value} }
-	stationLabels := []image.Rectangle{image.Rect(100, 100, 200, 120)}
-	labels := []label{
-		podLabel(10, 10, "01"),   // clear of the station label
-		podLabel(150, 105, "02"), // on the station label
-		podLabel(150, 105, "03"), // selected, on the station label
-		{},                       // no label
-		podLabel(95, 90, "05"),   // on the edge of the station label
-	}
-	tests := []struct {
-		name     string
-		stations int
-		want     []string
-	}{
-		{name: "dense map", stations: 31, want: []string{"01", "", "03", "", ""}},
-		{name: "small network", stations: 30, want: []string{"01", "02", "03", "", "05"}},
-	}
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			t.Parallel()
-			game := journeyTestGame(t, test.stations)
-			game.selected = 2
-			got := game.clearPodLabels(labels, stationLabels)
-			for index, podLabel := range got {
-				if podLabel.value != test.want[index] {
-					t.Fatalf("pod %d label = %q, want %q", index, podLabel.value, test.want[index])
-				}
-			}
-			if labels[1].value != "02" {
-				t.Fatal("clearPodLabels changed its input")
-			}
-		})
-	}
-}
-
 // TestOverviewLabelsOnLondon checks the overview labels of London at Fit and
 // when zoomed in. A shown label does not cover another label, the label of
 // the selected pod, or the marker of a station placed before it. Its own

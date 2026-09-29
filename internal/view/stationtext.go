@@ -392,15 +392,6 @@ func (g *Game) placeStationTextInOrder(stations []expandedStationText, lanes []l
 	return placed, total
 }
 
-// appendStationTextAreas returns areas with the areas of the placed text
-// blocks added.
-func appendStationTextAreas(areas []image.Rectangle, placed []placedStationText) []image.Rectangle {
-	for _, text := range placed {
-		areas = append(areas, text.area)
-	}
-	return areas
-}
-
 // stationTextSize returns the size in screen pixels of the lines of a text
 // block with a padding on each side.
 func (g *Game) stationTextSize(lines []label) image.Point {
