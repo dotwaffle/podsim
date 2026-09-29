@@ -24,6 +24,9 @@ type networkIndexKey struct {
 // once for each network, not on each frame. On a dense map, such as London,
 // a scan of all nodes for each lane end or berth takes too long for a frame.
 type networkIndex struct {
+	// bounds includes nodes and lane control points for camera fitting.
+	bounds         worldBounds
+	hasBounds      bool
 	stationMonitor observe.NetworkMonitor
 	// positions holds the position of each node by node ID.
 	positions map[string]sim.Point
@@ -42,11 +45,14 @@ type networkIndex struct {
 
 // newNetworkIndex builds the display index of network.
 func newNetworkIndex(network sim.Network) *networkIndex {
+	bounds, hasBounds := networkBounds(network)
 	positions := make(map[string]sim.Point, len(network.Nodes))
 	for _, node := range network.Nodes {
 		positions[node.ID] = node.Position
 	}
 	return &networkIndex{
+		bounds:         bounds,
+		hasBounds:      hasBounds,
 		stationMonitor: observe.NewNetworkMonitor(network),
 		positions:      positions,
 		anchors:        collapsedStationAnchors(network),

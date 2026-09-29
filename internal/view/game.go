@@ -2002,8 +2002,9 @@ func networkBounds(network sim.Network) (worldBounds, bool) {
 // network bounds change. A layout change also clears the camera and causes a
 // fit. Otherwise the camera keeps the zoom and pan of the user.
 func (g *Game) fitNetwork() {
-	bounds, ok := networkBounds(g.network)
-	if !ok {
+	index := g.displayIndex()
+	bounds := index.bounds
+	if !index.hasBounds {
 		g.camera = mapCamera{scale: 1, minScale: 1, maxScale: mapMaxZoom, initialized: true, viewport: g.layout.mapViewport, panMargin: mapPanMargin * g.layout.unit, dragThreshold: mapDragThreshold * g.layout.unit}
 		g.syncCamera()
 		return

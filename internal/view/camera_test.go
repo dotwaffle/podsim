@@ -248,6 +248,11 @@ func TestGameCameraAcrossStateChanges(t *testing.T) {
 			g.state.Generation++
 			g.network.Lanes = []sim.Lane{{ID: "curve", From: "b1", To: "far", Control: new(sim.Point{X: 900, Y: 50})}}
 		}},
+		{name: "new server restores different bounds with repeated source counters", world: worldBounds{left: 100, top: 100, right: 1200, bottom: 700}, change: func(g *Game) {
+			g.state.ServerStart = "restarted"
+			g.network.Nodes = slices.Clone(g.network.Nodes)
+			g.network.Nodes[2].Position = sim.Point{X: 1200, Y: 700}
+		}},
 		{name: "new epoch", world: fullNetwork, change: func(g *Game) {
 			g.state.Epoch, g.state.Generation = "restarted", 1
 		}},
