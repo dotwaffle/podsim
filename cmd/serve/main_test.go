@@ -380,6 +380,8 @@ func TestRunFailsBeforeServing(t *testing.T) {
 	}{
 		{name: "unknown flag", args: []string{"-unknown"}, wantErr: errFlags},
 		{name: "bad flag value", args: []string{"-addr"}, wantErr: errFlags},
+		{name: "invalid public origin", args: []string{"-public-origin", "https://example.com/path"}, wantErr: errFlags},
+		{name: "public origin query", args: []string{"-public-origin", "https://example.com?"}, wantErr: errFlags},
 		{name: "help", args: []string{"-h"}, wantErr: flag.ErrHelp},
 		{name: "missing browser files", args: []string{"-dir", t.TempDir()}, wantErr: fs.ErrNotExist},
 		{name: "application address in use", args: []string{"-addr", occupied, "-dir", directory}, wantErr: syscall.EADDRINUSE},
@@ -710,5 +712,61 @@ func TestLoadProjectRejectsInvalidFiles(t *testing.T) {
 				t.Fatal("accepted invalid project file")
 			}
 		})
+	}
+}
+
+func TestRunPublicOrigin(t *testing.T) {
+	t.Parallel()
+	ctx, cancel := context.WithCancel(t.Context())
+	defer cancel()
+	ready := make(chan string, 1)
+	done := make(chan error, 1)
+	input := runInput{args: []string{"-addr", "127.0.0.1:0", "-dir", browserDirectory(t), "-public-origin", "https://example.com"}, ready: func(address string) { ready <- address }}
+	go func() { done <- run(ctx, input) }()
+	var address string
+	select {
+	case address = <-ready:
+	case err := <-done:
+		t.Fatal("startup failed", err)
+	case <-time.After(10 * time.Second):
+		t.Fatal("startup timed out")
+	}
+	client := &http.Client{Transport: &http.Transport{}, Timeout: 3 * time.Second}
+	defer client.CloseIdleConnections()
+	for _, host := range []string{"example.com:443", "other.com"} {
+		request, err := http.NewRequestWithContext(t.Context(), http.MethodPost, "http://"+address+"/api/command", strings.NewReader(`{"client":"origin","sequence":1,"epoch":"stale","action":"pause","paused":true}`))
+		if err != nil {
+			t.Fatal(err)
+		}
+		request.Host = host
+		request.Header.Set("Origin", "https://example.com")
+		request.Header.Set("Content-Type", "application/json")
+		response, err := client.Do(request)
+		if err != nil {
+			t.Fatal(err)
+		}
+		_, readErr := io.Copy(io.Discard, response.Body)
+		_ = response.Body.Close()
+		if readErr != nil {
+			t.Fatal(readErr)
+		}
+		// The accepted request reaches the command's stale-epoch check.
+		want := http.StatusConflict
+		if host == "other.com" {
+			want = http.StatusForbidden
+		}
+		if response.StatusCode != want {
+			t.Fatalf("Host %s: status %d want %d", host, response.StatusCode, want)
+		}
+	}
+	client.CloseIdleConnections()
+	cancel()
+	select {
+	case err := <-done:
+		if err != nil {
+			t.Fatal(err)
+		}
+	case <-time.After(10 * time.Second):
+		t.Fatal("shutdown timed out")
 	}
 }

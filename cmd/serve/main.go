@@ -91,8 +91,13 @@ func run(ctx context.Context, input runInput) error {
 	directory := flags.String("dir", "", "Browser build directory; overrides embedded assets")
 	pprofAddress := flags.String("pprof-addr", "", "Separate pprof listen address; disabled when empty")
 	projectPath := flags.String("project", "", "Project JSON file to load and save")
+	publicOrigin := flags.String("public-origin", "", "Canonical public HTTP or HTTPS origin for commands and streams")
 	stateURL := flags.String("state", "", "Bucket URL for the saved session state, for example file:///var/lib/podsim. Off when empty.")
 	if err := flags.Parse(input.args); err != nil {
+		return fmt.Errorf("%w: %w", errFlags, err)
+	}
+	originOption, err := session.WithPublicOrigin(*publicOrigin)
+	if err != nil {
 		return fmt.Errorf("%w: %w", errFlags, err)
 	}
 	files, err := browserFiles(*directory)
@@ -101,7 +106,7 @@ func run(ctx context.Context, input runInput) error {
 	}
 	build := buildIDOrRandom(slog.Default(), files)
 	config := project.Default()
-	options := []session.Option{session.WithLogger(slog.Default()), session.WithBuildID(build)}
+	options := []session.Option{originOption, session.WithLogger(slog.Default()), session.WithBuildID(build)}
 	if *projectPath != "" {
 		loaded, loadErr := loadProject(*projectPath)
 		if loadErr != nil {

@@ -13,7 +13,6 @@ import (
 	"log/slog"
 	"mime"
 	"net/http"
-	"net/url"
 	"os"
 	"path"
 	"strings"
@@ -145,18 +144,12 @@ func (s *Session) HandlerFS(files fs.FS, routes ...func(*http.ServeMux)) http.Ha
 }
 
 func (s *Session) commandHTTP(w http.ResponseWriter, r *http.Request) {
-	if origin := r.Header.Get("Origin"); origin != "" {
-		scheme := "http"
-		if r.TLS != nil {
-			scheme = "https"
-		}
-		parsed, err := url.Parse(origin)
-		if err != nil || parsed.Host != r.Host || parsed.Scheme != scheme {
-			closeUnread(w)
-			writeError(w, "cross-origin commands are not allowed", http.StatusForbidden)
-			return
-		}
+	if !s.originAllowed(r) {
+		closeUnread(w)
+		writeError(w, "cross-origin commands are not allowed", http.StatusForbidden)
+		return
 	}
+
 	mediaType, _, err := mime.ParseMediaType(r.Header.Get("Content-Type"))
 	if err != nil || mediaType != "application/json" {
 		closeUnread(w)

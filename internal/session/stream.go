@@ -416,25 +416,13 @@ func (p *statePublisher) publish(ctx context.Context, need, capture bool) error 
 	return nil
 }
 
-func sameOrigin(r *http.Request) bool {
-	origin := r.Header.Get("Origin")
-	if origin == "" {
-		return true
-	}
-	scheme := "http"
-	if r.TLS != nil {
-		scheme = "https"
-	}
-	return origin == scheme+"://"+r.Host
-}
-
 //nolint:contextcheck // The shared publisher belongs to the session, not a request.
 func (s *Session) streamHTTP(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		writeError(w, "use GET", http.StatusMethodNotAllowed)
 		return
 	}
-	if !sameOrigin(r) {
+	if !s.originAllowed(r) {
 		writeError(w, "cross-origin state streams are not allowed", http.StatusForbidden)
 		return
 	}
@@ -456,7 +444,8 @@ func (s *Session) streamHTTP(w http.ResponseWriter, r *http.Request) {
 	p.workers.Add(1)
 	p.mu.Unlock()
 	defer func() { p.mu.Lock(); delete(p.clients, c); p.mu.Unlock(); p.workers.Done() }()
-	conn, err := websocket.Accept(w, r, &websocket.AcceptOptions{CompressionMode: websocket.CompressionDisabled})
+	// The shared policy above validates the complete normalized origin.
+	conn, err := websocket.Accept(w, r, &websocket.AcceptOptions{CompressionMode: websocket.CompressionDisabled, InsecureSkipVerify: true})
 	if err != nil {
 		return
 	}

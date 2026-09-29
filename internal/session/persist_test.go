@@ -2560,7 +2560,7 @@ var sessionPersistRules = map[string]persistRule{
 	// sequence. Save points stay in memory only.
 	"receipts": persistReset, "checkpoints": persistReset,
 	"closed": persistInfrastructure, "mu": persistInfrastructure, "largeCommands": persistInfrastructure,
-	"largeBodies": persistInfrastructure, "streamMu": persistInfrastructure, "stream": persistInfrastructure,
+	"largeBodies": persistInfrastructure, "streamMu": persistInfrastructure, "stream": persistInfrastructure, "publicOrigin": persistInfrastructure,
 	"saveProject": persistInfrastructure, "logger": persistInfrastructure,
 	"build": persistInfrastructure, "persist": persistInfrastructure,
 	"serverStart": persistInfrastructure,

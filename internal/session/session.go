@@ -206,8 +206,9 @@ func WithBuildID(id string) Option {
 
 // Session contains one fleet and one simulation clock. Use Run once per session.
 type Session struct {
-	streamMu sync.Mutex
-	stream   *statePublisher
+	publicOrigin *publicOrigin
+	streamMu     sync.Mutex
+	stream       *statePublisher
 	// Close sets closed without mu, so a slow command cannot block shutdown.
 	closed     atomic.Bool
 	mu         sync.Mutex

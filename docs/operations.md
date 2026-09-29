@@ -119,12 +119,32 @@ spec:
 
 ## TLS-terminating reverse proxies
 
-The server compares a browser Origin with the request Host and the backend connection scheme.
-It rejects an HTTPS Origin when a proxy forwards the request over plaintext HTTP.
-This affects commands and the WebSocket state stream.
-Forwarded scheme headers do not change this check.
-The server does not yet have a public-origin setting.
-A default Fly.io HTTPS deployment therefore cannot use the viewer or commands until this origin policy supports TLS termination.
+Without `-public-origin`, browser commands and WebSocket upgrades must use the request Host and the backend connection scheme.
+A proxy that terminates HTTPS and forwards plaintext HTTP needs an explicit public origin:
+
+```sh
+podsim-server -addr :8080 -public-origin https://podsim.example.com
+```
+
+Use one absolute HTTP or HTTPS origin with an authority only.
+The server rejects credentials, paths (including a trailing slash), queries, fragments, invalid hostnames, and ports outside 1 through 65535 at startup.
+Use ASCII DNS names or punycode for internationalized names.
+IPv6 literals need brackets and cannot include a zone identifier.
+Hostname case, equivalent IPv6 notation, and the scheme's default port are normalized.
+An explicit trailing DNS dot remains significant.
+
+When configured, both the request Host and browser Origin must match that public authority.
+The Origin must also use the configured scheme.
+Host default ports are interpreted with the configured public scheme, regardless of the backend transport.
+The proxy must preserve that public Host instead of replacing it with an internal backend authority.
+Duplicate, multiple, malformed, and `null` Origin values are rejected.
+Native clients may omit Origin, but their Host must still match when configured.
+
+`Forwarded`, `X-Forwarded-Proto`, and `X-Forwarded-Host` do not affect these checks.
+The setting does not provide TLS, authenticate clients, or authorize other public names.
+Use the deployment's canonical HTTPS origin for a TLS-terminating proxy such as Fly Proxy.
+The setting removes the backend-scheme mismatch identified in the local proxy audit.
+It does not establish deployment readiness or grant deployment approval.
 
 ## Session state
 

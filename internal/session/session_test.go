@@ -297,7 +297,9 @@ func TestHTTPValidationAndSharedObservers(t *testing.T) {
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			request := httptest.NewRequestWithContext(t.Context(), tc.method, "http://example.com/api/command", strings.NewReader(tc.body))
-			request.Header.Set("Origin", tc.origin)
+			if tc.origin != "" {
+				request.Header.Set("Origin", tc.origin)
+			}
 			request.Header.Set("Content-Type", tc.contentType)
 			response := httptest.NewRecorder()
 			handler.ServeHTTP(response, request)

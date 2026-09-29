@@ -253,7 +253,13 @@ A smaller plain command, such as a pause, does not need a place.
 Each array in the body must have no more items than the project limits permit, also for an action that does not use the project.
 For example, `project.network.Lanes` can have at most 8,000 items.
 Each string and each member name in the body must have at most 1,024 bytes, including the quotes and the escapes.
-A request with an `Origin` header must come from the same host and scheme.
+Commands and WebSocket upgrades share one Origin policy.
+Without `-public-origin`, Origin must match the request Host and local connection scheme.
+With that option, request Host must match the configured public authority, and Origin must match its normalized scheme and authority.
+Duplicate or malformed Origin values are rejected.
+Native clients may omit Origin, but a configured authority still constrains Host.
+Forwarded headers do not select the expected origin.
+See [TLS-terminating reverse proxies](operations.md#tls-terminating-reverse-proxies) for normalization and configuration bounds.
 A request that breaks these rules gets HTTP 400, 403, 413, 415, or 503 and a plain text body, not an acknowledgment.
 A body that is larger than a size limit, before or after decompression, gets HTTP 413, and the text gives the limit in bytes.
 These responses also have `Cache-Control: no-store`.
