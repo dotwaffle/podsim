@@ -1833,6 +1833,11 @@ Raw results are in [`measurements/london-platoon-screening.csv`](measurements/lo
 
 #### Platoon A/B
 
+This section records the historical three-seed A/B.
+The [162-arm follow-up](platoon-followup.md) adds seeds 4 through 10, rail-hub, and default-London controls on source `c804c00`.
+It finds one recovery-rule failure and three no-harm failures, despite passing all per-tick safety checks.
+The historical measurements below remain unchanged.
+
 The A/B runs Early at 9/min to 12/min, the load that the sweep found.
 It also runs AM peak at 20/min and 24/min and PM peak at 24/min as controls, because the fleet limits these bands.
 Each band uses seeds 1, 2, and 3, and the other settings of the sweep.
@@ -1902,8 +1907,9 @@ The design gives seven adoption rules.
 
 The screening thus meets all seven rules.
 The design also gives seeds 4 to 10 and the rail-hub hub-burst schedule as further measurements before adoption.
-This A/B does not run them.
-Thus the results support a project option for virtual platoons, off by default, and the defaults do not change.
+This historical A/B did not run them.
+The [follow-up](platoon-followup.md) completes those measurements and records the expanded study's failures.
+The historical results supported a project option for virtual platoons, off by default, and the defaults do not change.
 The `platoonLimit` project setting now gives this option.
 Raw results are in [`measurements/london-platoon-ab.csv`](measurements/london-platoon-ab.csv).
 

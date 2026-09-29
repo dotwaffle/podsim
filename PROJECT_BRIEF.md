@@ -501,14 +501,19 @@ A slow pod in a queue can follow the pod ahead at a short gap and share its trac
 Each link keeps a fixed certificate of a run of lanes that turns 120 degrees or less, and its clearance follows from that turn.
 On the synthetic corridor, platoons of 4 give 2.5 to 3.1 times the flow of single pods.
 A London sweep with 198 pods found that track and junction flow limit the Early band at 9 to 12 requests per minute.
-On that load, platoons raise the Early limit from 10 to at least 12 requests per minute.
-The AM peak and PM peak limits do not change.
-The A/B meets the seven adoption rules of the design.
-Seeds 4 to 10 and the rail-hub checks of the design are not run.
+The ten-seed follow-up raises the highest tested Early rate with one-hour recovery from 10/minute to 11/minute.
+At 12/minute, virtual platoons recover nine of ten seeds within one hour.
+The expanded study finds one recovery-rule failure at AM peak 24/minute and three no-harm failures in default-London controls.
+All five rail-hub pairs pass the no-harm thresholds.
+The historical three-seed A/B met the seven adoption rules, but the expanded study fails the recovery and no-harm rules.
+All 162 follow-up arms passed the per-tick safety and ownership checks.
+See the [platoon follow-up](docs/platoon-followup.md) for the full results and validation limits.
 The editor sets the option, the state frame gives the platoon of each pod, and the view draws a line between the pods of a platoon.
 A saved state keeps the links.
-The London preset turns platoons on with a limit of 4 pods.
-In the London capacity envelope with 114 pods, they raise the Early limit from 7 to 10 requests per minute, and no band limit falls.
+The LondonCentral preset turns platoons on with a limit of 4 pods.
+The follow-up preserves this preset and all other defaults.
+In the historical three-seed London capacity envelope with 114 pods, platoons raised the Early limit from 7/minute to 10/minute.
+No band limit fell in that envelope.
 See [docs/qualification.md](docs/qualification.md#platoon-screening) and [the envelope with platoons](docs/qualification.md#with-virtual-platoons).
 
 ### Suggested first extension experiment
