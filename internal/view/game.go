@@ -848,12 +848,12 @@ func (g *Game) drawNetwork(screen *ebiten.Image, state sim.Snapshot) {
 	}
 	selected, hasSelected := selectedVehicle(state, g.selected)
 	collapsedStations := make(map[string]bool)
-	stationMonitor := observe.NewStationMonitor(g.network)
+	stationMetrics := g.displayIndex().stationMonitor.Summarize(state)
 	labelRanks := g.currentStationLabelRanks()
 	var collapsedLabels []collapsedStationLabel
 	var expanded []expandedStationText
-	for _, station := range g.network.Stations {
-		status := stationMonitor.Summarize(station, state)
+	for index, station := range g.network.Stations {
+		status := stationMetrics[index]
 		if marker, ok := markers[station.ID]; ok {
 			collapsedStations[station.ID] = true
 			if len(station.Berths) > 0 {

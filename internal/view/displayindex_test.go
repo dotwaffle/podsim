@@ -40,6 +40,12 @@ func TestNetworkCacheKeyCoversNetworkChanges(t *testing.T) {
 			game.ensureLayout()
 			game.fitNetwork()
 			indexKey, baseKey := game.currentNetworkIndexKey(), game.currentNetworkCacheKey()
+			berthNode := game.network.Stations[0].Berths[0].Node
+			state := sim.Snapshot{Vehicles: []sim.Vehicle{{Pod: sim.Pod{Activity: sim.Traveling}, Route: []sim.Lane{{To: berthNode}}}}}
+			if got := game.displayIndex().stationMonitor.Summarize(state)[0].Approaching; got != 1 {
+				t.Fatalf("initial approaching = %d, want 1", got)
+			}
+			wantApproaching := 1
 			node := game.network.Nodes[0]
 			if got := game.nodePosition(node.ID); got != node.Position {
 				t.Fatalf("first node position = %v, want %v", got, node.Position)
@@ -50,7 +56,14 @@ func TestNetworkCacheKeyCoversNetworkChanges(t *testing.T) {
 				for index := range moved.Nodes {
 					moved.Nodes[index].Position.X += 1000
 				}
+				for _, candidate := range moved.Nodes {
+					if candidate.ID != berthNode {
+						moved.Stations[0].Berths[0].Node = candidate.ID
+						break
+					}
+				}
 				game.network = moved
+				wantApproaching = 0
 				want = moved.Nodes[0].Position
 			}
 			game.state = test.state
@@ -69,6 +82,9 @@ func TestNetworkCacheKeyCoversNetworkChanges(t *testing.T) {
 			}
 			if got := game.nodePosition(node.ID); got != want {
 				t.Errorf("node position = %v, want %v", got, want)
+			}
+			if got := game.displayIndex().stationMonitor.Summarize(state)[0].Approaching; got != wantApproaching {
+				t.Errorf("approaching = %d, want %d after network change", got, wantApproaching)
 			}
 		})
 	}

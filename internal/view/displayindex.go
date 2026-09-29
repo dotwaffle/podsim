@@ -3,6 +3,7 @@ package view
 import (
 	"math"
 
+	"github.com/dotwaffle/podsim/internal/observe"
 	"github.com/dotwaffle/podsim/internal/sim"
 )
 
@@ -23,6 +24,7 @@ type networkIndexKey struct {
 // once for each network, not on each frame. On a dense map, such as London,
 // a scan of all nodes for each lane end or berth takes too long for a frame.
 type networkIndex struct {
+	stationMonitor observe.NetworkMonitor
 	// positions holds the position of each node by node ID.
 	positions map[string]sim.Point
 	// anchors holds the collapsed station anchors by station ID. See
@@ -45,11 +47,12 @@ func newNetworkIndex(network sim.Network) *networkIndex {
 		positions[node.ID] = node.Position
 	}
 	return &networkIndex{
-		positions:    positions,
-		anchors:      collapsedStationAnchors(network),
-		berthSpacing: berthSpacings(network.Stations, positions),
-		lineLanes:    stationLineLanes(network),
-		labelRanks:   stationLabelRanks(network),
+		stationMonitor: observe.NewNetworkMonitor(network),
+		positions:      positions,
+		anchors:        collapsedStationAnchors(network),
+		berthSpacing:   berthSpacings(network.Stations, positions),
+		lineLanes:      stationLineLanes(network),
+		labelRanks:     stationLabelRanks(network),
 	}
 }
 
