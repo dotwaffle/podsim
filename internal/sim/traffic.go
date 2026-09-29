@@ -442,6 +442,7 @@ func (s *Simulation) routeBlocks(route []Lane) (blockList, []float64) {
 type intent struct {
 	index, block int
 	since        int64
+	priority     int
 	id           string
 }
 
@@ -508,24 +509,55 @@ func (s *Simulation) admit() {
 		}
 		intents = append(intents, intent{index: i, block: next, since: v.waitSince, id: v.Pod.ID})
 	}
+	pickups := make(map[string]bool)
+	for _, trip := range s.waiting {
+		if trip.request.PodID != "" {
+			pickups[trip.request.PodID] = true
+		}
+	}
+	for i := range intents {
+		v := &s.vehicles[intents[i].index]
+		intents[i].priority = admissionPriority(v, pickups[v.Pod.ID])
+	}
 	slices.SortFunc(intents, func(a, b intent) int {
-		if a.since < b.since {
-			return -1
-		}
-		if a.since > b.since {
-			return 1
-		}
-		if a.id < b.id {
-			return -1
-		}
-		if a.id > b.id {
-			return 1
-		}
-		return 0
+		return compareAdmission(a, b, s.tick)
 	})
 	for _, in := range intents {
 		s.grant(in)
 	}
+}
+
+const admissionAgeTicks = 10 * TicksPerSecond
+
+func admissionPriority(v *vehicle, pickup bool) int {
+	if v.carriesPassengers() {
+		return 0
+	}
+	if pickup {
+		return 1
+	}
+	return 2
+}
+
+// compareAdmission gives requests that waited ten seconds precedence over
+// younger requests. Existing reservations do not participate in this order.
+func compareAdmission(a, b intent, tick int64) int {
+	agedA, agedB := tick-a.since >= admissionAgeTicks, tick-b.since >= admissionAgeTicks
+	if agedA != agedB {
+		if agedA {
+			return -1
+		}
+		return 1
+	}
+	if !agedA {
+		if order := cmp.Compare(a.priority, b.priority); order != 0 {
+			return order
+		}
+	}
+	if order := cmp.Compare(a.since, b.since); order != 0 {
+		return order
+	}
+	return cmp.Compare(a.id, b.id)
 }
 
 // grant reserves the blocks of an intent up to the end of their conflict

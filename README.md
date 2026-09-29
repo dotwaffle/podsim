@@ -1301,8 +1301,10 @@ It releases the conflict resource after the pod reaches the end of that section.
 
 Admission follows these rules:
 
-- The oldest local admission request wins.
-- Pod ID breaks a tie.
+- Requests that waited at least 10 simulated seconds take priority, oldest first.
+- Younger requests prioritize pods with passengers, then assigned pickups, then other empty movements.
+- Within each class, the oldest local admission request wins. Pod ID breaks a tie.
+- Existing reservations remain protected.
 - Admission uses the state before movement.
 - Released resources become available on the next tick.
 
