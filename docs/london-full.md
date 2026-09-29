@@ -180,6 +180,7 @@ The complete study contains 302 distinct arms: 198 baseline, 54 screens, 36 next
 All planned and conditional arms have confirmed successful test-process exits.
 `fleet300` recovered in 9 of 10 seeds at rate 15 in both PM peak and Evening, compared with baseline counts of 5 and 3.
 Each of these two failed confirmation seeds left one unfinished request.
+The [targeted diagnosis](london-full-diagnosis.md) found long journeys in these two cases and a parking-diversion deadlock in baseline AM peak seed 8.
 Neither result meets the all-ten recovery criterion.
 No candidate established an all-ten recovery improvement at its next tested rate.
 The preset and its defaults remain unchanged.
