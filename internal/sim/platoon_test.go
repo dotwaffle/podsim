@@ -680,8 +680,15 @@ func TestPlatoonSnapshotMembers(t *testing.T) {
 // simulation.
 func roundTrip(t *testing.T, network Network, s *Simulation) *Simulation {
 	t.Helper()
+	return roundTripUsing(t, s, func(saved SavedState) (*Simulation, RestoreResult, error) {
+		return RestoreState(RestoreStateInput{Network: network, Fleet: s.initial, State: saved})
+	})
+}
+
+func roundTripUsing(t *testing.T, s *Simulation, restore func(SavedState) (*Simulation, RestoreResult, error)) *Simulation {
+	t.Helper()
 	saved := s.ExportState()
-	restored, result, err := RestoreState(RestoreStateInput{Network: network, Fleet: s.initial, State: saved})
+	restored, result, err := restore(saved)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -764,6 +771,13 @@ func TestPlatoonRestoreRoundTrip(t *testing.T) {
 	if err := s.SetPlatooning(PlatooningVirtual); err != nil {
 		t.Fatal(err)
 	}
+	prepared, err := PrepareNetwork(network)
+	if err != nil {
+		t.Fatal(err)
+	}
+	restore := func(saved SavedState) (*Simulation, RestoreResult, error) {
+		return prepared.RestoreState(PreparedRestoreInput{Fleet: s.initial, State: saved})
+	}
 	follower := &s.vehicles[0]
 	phases := make(map[string]bool)
 	for tick := range 120 * TicksPerSecond {
@@ -777,7 +791,7 @@ func TestPlatoonRestoreRoundTrip(t *testing.T) {
 		}
 		if tick%5 == 0 && follower.Pod.Activity == Traveling {
 			phases[phase] = true
-			roundTrip(t, network, roundTrip(t, network, s))
+			roundTripUsing(t, roundTripUsing(t, s, restore), restore)
 		}
 	}
 	if len(phases) != 3 {
@@ -1191,13 +1205,20 @@ func TestPlatoonLongJunctionRun(t *testing.T) {
 	if err := s.SetPlatooning(PlatooningVirtual); err != nil {
 		t.Fatal(err)
 	}
+	prepared, err := PrepareNetwork(network)
+	if err != nil {
+		t.Fatal(err)
+	}
+	restore := func(saved SavedState) (*Simulation, RestoreResult, error) {
+		return prepared.RestoreState(PreparedRestoreInput{Fleet: s.initial, State: saved})
+	}
 	monitor := newPlatoonMonitor(s)
 	for tick := range 120 * TicksPerSecond {
 		s.Step()
 		checkTraffic(t, s.Snapshot())
 		monitor.check(t)
 		if tick%10 == 0 {
-			roundTrip(t, network, roundTrip(t, network, s))
+			roundTripUsing(t, roundTripUsing(t, s, restore), restore)
 		}
 		entered := 0
 		for i := range s.vehicles {

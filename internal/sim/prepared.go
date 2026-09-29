@@ -1,0 +1,156 @@
+package sim
+
+import (
+	"cmp"
+	"errors"
+	"fmt"
+	"slices"
+)
+
+// PreparedNetwork owns validated network geometry and indexes that do not change.
+// Its methods can be called concurrently. Each returned simulation owns its
+// mutable state and must be used by only one goroutine at a time.
+// The zero value is not prepared. Use PrepareNetwork to create a handle.
+type PreparedNetwork struct {
+	network           Network
+	graph             routeGraph
+	stationIndexes    map[string]int
+	stationForbidden  map[string]bool
+	geometry          map[string]*laneGeometry
+	junctionConflicts map[string][]laneConflict
+	berthResources    map[string][]resource
+	laneCells         map[string]*laneCells
+	laneSafety        map[string]SafetyLocation
+	berthSafety       map[string]SafetyLocation
+}
+
+// PrepareNetwork validates and copies network, then builds its immutable indexes.
+// Later changes to the caller's network do not change the prepared network.
+func PrepareNetwork(network Network) (*PreparedNetwork, error) {
+	owned, graph, err := prepareNetwork(network)
+	if err != nil {
+		return nil, err
+	}
+	return newPreparedNetwork(owned, graph), nil
+}
+
+func prepareNetwork(network Network) (Network, routeGraph, error) {
+	if err := network.validate(); err != nil {
+		return Network{}, routeGraph{}, err
+	}
+	owned := network.clone()
+	inferStationLaneRoles(&owned)
+	graph := newRouteGraph(owned)
+	for index, lane := range owned.Lanes {
+		if graph.lengths[index] < 2*Clearance {
+			return Network{}, routeGraph{}, fmt.Errorf("lane %q must be at least %.0f meters long", lane.ID, 2*Clearance)
+		}
+	}
+	return owned, graph, nil
+}
+
+func newPreparedNetwork(owned Network, graph routeGraph) *PreparedNetwork {
+	p := &PreparedNetwork{
+		network: owned, graph: graph,
+		stationIndexes: indexStations(owned), stationForbidden: owned.stationForbidden(),
+		geometry: buildLaneGeometry(owned), junctionConflicts: buildJunctionConflicts(owned),
+		berthResources: indexBerthResources(owned),
+		laneSafety:     make(map[string]SafetyLocation, len(owned.Lanes)),
+		berthSafety:    make(map[string]SafetyLocation),
+	}
+	for _, lane := range owned.Lanes {
+		p.laneSafety[lane.ID] = SafetyLocation{SeparationGroup: lane.SeparationGroup, From: lane.From, To: lane.To}
+	}
+	for _, station := range owned.Stations {
+		for _, berth := range station.Berths {
+			p.berthSafety[berth.ID] = SafetyLocation{SeparationGroup: berth.SeparationGroup, From: berth.Node, To: berth.Node}
+		}
+	}
+	p.laneCells = indexLaneCells(laneCellsIndexInput{network: owned, geometry: p.geometry, conflicts: p.junctionConflicts, berths: p.berthResources})
+	return p
+}
+
+func (p *PreparedNetwork) check() error {
+	if p == nil || len(p.network.Nodes) == 0 {
+		return errors.New("network is not prepared")
+	}
+	return nil
+}
+
+// Network returns a detached copy of the prepared network.
+func (p *PreparedNetwork) Network() Network {
+	if p == nil {
+		return Network{}
+	}
+	return p.network.clone()
+}
+
+// NewFleet validates and copies placements and creates fresh simulation state.
+// An omitted berth ID selects the first berth, as in NewFleet.
+func (p *PreparedNetwork) NewFleet(placements []Placement) (*Simulation, error) {
+	if err := p.check(); err != nil {
+		return nil, err
+	}
+	if err := validatePlacements(p.network, placements); err != nil {
+		return nil, err
+	}
+	return p.newFleet(placements), nil
+}
+
+func validatePlacements(network Network, placements []Placement) error {
+	if len(placements) == 0 {
+		return errors.New("the fleet needs at least one pod")
+	}
+	ids, berths := make(map[string]bool), make(map[string]bool)
+	for _, placement := range placements {
+		if placement.ID == "" || ids[placement.ID] {
+			return fmt.Errorf("invalid or duplicate pod %q", placement.ID)
+		}
+		station, ok := network.Station(placement.StationID)
+		if !ok {
+			return fmt.Errorf("unknown start station %q", placement.StationID)
+		}
+		berth, ok := station.berth(placement.BerthID)
+		if !ok || berths[berth.ID] {
+			return fmt.Errorf("invalid or occupied initial berth at %q", placement.StationID)
+		}
+		ids[placement.ID], berths[berth.ID] = true, true
+	}
+	return nil
+}
+
+func (p *PreparedNetwork) newFleet(placements []Placement) *Simulation {
+	initial := slices.Clone(placements)
+	slices.SortFunc(initial, func(a, b Placement) int { return cmp.Compare(a.ID, b.ID) })
+	s := &Simulation{
+		network: p.network, initial: initial, graph: p.graph,
+		stationIndexes: p.stationIndexes, stationForbidden: p.stationForbidden,
+		geometry: p.geometry, junctionConflicts: p.junctionConflicts,
+		berthResources: p.berthResources, laneCells: p.laneCells,
+		laneSafety: p.laneSafety, berthSafety: p.berthSafety,
+		sharedRidePartyLimit: 1, sharedRideMode: DefaultSharedRideMode,
+		sharedRideMaxStops: DefaultSharedRideMaxStops, sharedRideJoin: DefaultSharedRideJoin,
+		platoonLimit: MaxPlatoonLimit, reservationLookaheadSeconds: defaultReservationLookaheadSeconds,
+	}
+	s.Reset()
+	return s
+}
+
+// PreparedRestoreInput supplies the fleet and saved state for a prepared network.
+// The network must be the one that the saved simulation used.
+type PreparedRestoreInput struct {
+	Fleet       []Placement
+	State       SavedState
+	LogicalOnly bool
+}
+
+// RestoreState rebuilds a simulation with this network's immutable geometry.
+// Each tier starts with fresh mutable state and performs the same validation as
+// RestoreState. A failed physical tier cannot change the logical fallback.
+func (p *PreparedNetwork) RestoreState(input PreparedRestoreInput) (*Simulation, RestoreResult, error) {
+	if err := p.check(); err != nil {
+		return nil, RestoreResult{}, err
+	}
+	stateInput := RestoreStateInput{Network: p.network, Fleet: input.Fleet, State: input.State, LogicalOnly: input.LogicalOnly}
+	return restoreState(stateInput, func() (*Simulation, error) { return p.NewFleet(input.Fleet) })
+}

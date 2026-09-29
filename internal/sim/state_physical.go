@@ -77,12 +77,12 @@ type physicalRestore struct {
 // which is a demotion. restorePhysical fails when the saved state is not
 // valid, when two pods at berths conflict, or when a demoted pod finds no
 // free berth.
-func restorePhysical(input RestoreStateInput) (*Simulation, RestoreResult, error) {
+func restorePhysical(input RestoreStateInput, newFleet func() (*Simulation, error)) (*Simulation, RestoreResult, error) {
 	unaccounted, err := validateSavedState(input.State)
 	if err != nil {
 		return nil, RestoreResult{}, err
 	}
-	s, err := NewFleet(input.Network, input.Fleet)
+	s, err := newFleet()
 	if err != nil {
 		return nil, RestoreResult{}, fmt.Errorf("create the fleet: %w", err)
 	}

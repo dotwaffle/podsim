@@ -372,43 +372,7 @@ func NewFleet(network Network, placements []Placement) (*Simulation, error) {
 	if err != nil {
 		return nil, err
 	}
-	initial := slices.Clone(placements)
-	slices.SortFunc(initial, func(a, b Placement) int {
-		if a.ID < b.ID {
-			return -1
-		}
-		if a.ID > b.ID {
-			return 1
-		}
-		return 0
-	})
-	s := &Simulation{
-		network: owned, initial: initial, graph: graph,
-		stationIndexes:              indexStations(owned),
-		stationForbidden:            owned.stationForbidden(),
-		geometry:                    buildLaneGeometry(owned),
-		junctionConflicts:           buildJunctionConflicts(owned),
-		berthResources:              indexBerthResources(owned),
-		sharedRidePartyLimit:        1,
-		sharedRideMode:              DefaultSharedRideMode,
-		sharedRideMaxStops:          DefaultSharedRideMaxStops,
-		sharedRideJoin:              DefaultSharedRideJoin,
-		platoonLimit:                MaxPlatoonLimit,
-		reservationLookaheadSeconds: defaultReservationLookaheadSeconds,
-		laneSafety:                  make(map[string]SafetyLocation, len(network.Lanes)),
-		berthSafety:                 make(map[string]SafetyLocation),
-	}
-	for _, lane := range owned.Lanes {
-		s.laneSafety[lane.ID] = SafetyLocation{SeparationGroup: lane.SeparationGroup, From: lane.From, To: lane.To}
-	}
-	for _, station := range owned.Stations {
-		for _, berth := range station.Berths {
-			s.berthSafety[berth.ID] = SafetyLocation{SeparationGroup: berth.SeparationGroup, From: berth.Node, To: berth.Node}
-		}
-	}
-	s.laneCells = indexLaneCells(laneCellsIndexInput{network: owned, geometry: s.geometry, conflicts: s.junctionConflicts, berths: s.berthResources})
-	s.Reset()
-	return s, nil
+	return newPreparedNetwork(owned, graph).newFleet(placements), nil
 }
 
 // ValidateFleet returns the error that NewFleet returns for the same network and fleet.
@@ -421,34 +385,12 @@ func ValidateFleet(network Network, placements []Placement) error {
 // prepareFleet validates a network and a fleet. It returns an owned copy of the
 // network with inferred station lane roles, and the route graph of that copy.
 func prepareFleet(network Network, placements []Placement) (Network, routeGraph, error) {
-	if err := network.validate(); err != nil {
+	owned, graph, err := prepareNetwork(network)
+	if err != nil {
 		return Network{}, routeGraph{}, err
 	}
-	owned := network.clone()
-	inferStationLaneRoles(&owned)
-	graph := newRouteGraph(owned)
-	for index, lane := range owned.Lanes {
-		if graph.lengths[index] < 2*Clearance {
-			return Network{}, routeGraph{}, fmt.Errorf("lane %q must be at least %.0f meters long", lane.ID, 2*Clearance)
-		}
-	}
-	if len(placements) == 0 {
-		return Network{}, routeGraph{}, errors.New("the fleet needs at least one pod")
-	}
-	ids, berths := make(map[string]bool), make(map[string]bool)
-	for _, p := range placements {
-		if p.ID == "" || ids[p.ID] {
-			return Network{}, routeGraph{}, fmt.Errorf("invalid or duplicate pod %q", p.ID)
-		}
-		station, ok := network.Station(p.StationID)
-		if !ok {
-			return Network{}, routeGraph{}, fmt.Errorf("unknown start station %q", p.StationID)
-		}
-		berth, ok := station.berth(p.BerthID)
-		if !ok || berths[berth.ID] {
-			return Network{}, routeGraph{}, fmt.Errorf("invalid or occupied initial berth at %q", p.StationID)
-		}
-		ids[p.ID], berths[berth.ID] = true, true
+	if err := validatePlacements(owned, placements); err != nil {
+		return Network{}, routeGraph{}, err
 	}
 	return owned, graph, nil
 }

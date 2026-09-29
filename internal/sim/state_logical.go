@@ -23,13 +23,13 @@ type logicalTrip struct {
 // The queued trips lose their pod bindings. As after Reset,
 // the traffic demo stops and its parked pods are gone. restoreLogical fails
 // when the saved state is not valid or when the result fails a check.
-func restoreLogical(input RestoreStateInput) (*Simulation, RestoreResult, error) {
+func restoreLogical(input RestoreStateInput, newFleet func() (*Simulation, error)) (*Simulation, RestoreResult, error) {
 	state := input.State
 	unaccounted, err := validateSavedState(state)
 	if err != nil {
 		return nil, RestoreResult{}, err
 	}
-	s, err := NewFleet(input.Network, input.Fleet)
+	s, err := newFleet()
 	if err != nil {
 		return nil, RestoreResult{}, fmt.Errorf("create the fleet: %w", err)
 	}

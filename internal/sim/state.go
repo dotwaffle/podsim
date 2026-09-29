@@ -217,15 +217,19 @@ type RestoreResult struct {
 // that it tries fails. The error then wraps the error of each tier that it
 // tried.
 func RestoreState(input RestoreStateInput) (*Simulation, RestoreResult, error) {
+	return restoreState(input, func() (*Simulation, error) { return NewFleet(input.Network, input.Fleet) })
+}
+
+func restoreState(input RestoreStateInput, newFleet func() (*Simulation, error)) (*Simulation, RestoreResult, error) {
 	var physicalErr error
 	if !input.LogicalOnly {
-		s, result, err := restorePhysical(input)
+		s, result, err := restorePhysical(input, newFleet)
 		if err == nil {
 			return s, result, nil
 		}
 		physicalErr = err
 	}
-	s, result, err := restoreLogical(input)
+	s, result, err := restoreLogical(input, newFleet)
 	switch {
 	case err == nil:
 		result.PhysicalError = physicalErr
