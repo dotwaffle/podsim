@@ -2562,7 +2562,7 @@ var sessionPersistRules = map[string]persistRule{
 	"projectOrigin": persistDerive, "restore": persistDerive, "restoredSequences": persistDerive,
 	// A receipt can hold a large project, so the state file keeps only its
 	// sequence. Save points stay in memory only.
-	"receipts": persistReset, "checkpoints": persistReset,
+	"receipts": persistReset, "checkpoints": persistReset, "clock": persistReset, "speedReduction": persistReset,
 	"closed": persistInfrastructure, "mu": persistInfrastructure, "largeCommands": persistInfrastructure,
 	"largeBodies": persistInfrastructure, "streamMu": persistInfrastructure, "stream": persistInfrastructure, "publicOrigin": persistInfrastructure,
 	"saveProject": persistInfrastructure, "logger": persistInfrastructure,

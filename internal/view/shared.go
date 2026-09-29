@@ -40,6 +40,7 @@ func (g *Game) readRemote() {
 	// Compare the states after the command result. A session change notice
 	// then replaces a notice or an error of a command result in the same
 	// update.
+	g.announceSpeedReduction(previous)
 	g.announceSessionChange(previous)
 	// Check the build after the command result. handleResult clears the
 	// message, and the update message must then show again at once.
@@ -556,4 +557,15 @@ func lineWordCount(words []string, fit textFit) int {
 		count++
 	}
 	return count
+}
+
+// announceSpeedReduction shows each server reduction once. A first connection
+// or a new process does not repeat a historical reduction.
+func (g *Game) announceSpeedReduction(previous session.State) {
+	reduction := g.state.SpeedReduction
+	if previous.Epoch == "" || previous.ServerStart != g.state.ServerStart ||
+		previous.Epoch != g.state.Epoch || reduction.Sequence <= previous.SpeedReduction.Sequence {
+		return
+	}
+	g.showNotice("speed", fmt.Sprintf("Speed reduced from %dx to %dx: the simulation could not keep up.", reduction.From, reduction.To))
 }

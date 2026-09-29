@@ -285,7 +285,12 @@ See [the London qualification network](docs/london.md) for these rules.
 ### Playback
 
 - Use **Pause**, **Resume**, **Reset**, and **Speed** to control playback.
-- **Speed** cycles through 1x, 2x, 4x, and 8x.
+- **Speed** cycles through 1x, 2x, 5x, 15x, and 60x.
+  If achieved speed averages below 90% of the selected speed over three wall-clock seconds, the server selects the next lower speed.
+  A notice explains the reduction.
+  Each reduction starts a new three-second measurement window.
+  Pauses and project loads do not count toward this window.
+  The server never increases speed automatically.
 - A paused simulation accepts and assigns requests but does not advance until you resume it.
 
 ### Reset
@@ -377,7 +382,7 @@ The demo starts four pods: pod 01 at Harbor, pod 02 at Garden, and pods 03 and 0
    Normal dispatch and traffic rules handle these orders.
 5. The demo ends after eight passenger journeys and all empty moves finish.
 
-Use 8x speed to see the experiment in about 41 seconds, or slow playback to inspect a queue.
+Use 15x speed to see the experiment in about 22 seconds if the server keeps up, or select a lower speed to inspect a queue.
 
 Starting the demo resets the current run and disables automatic demand.
 The demo uses the shared ride and platoon settings of the project, so with sharing on, a party can join a pod in the demo.
@@ -395,7 +400,7 @@ See [Traffic demo](#traffic-demo).
 **Rate** cycles through 1, 2, 4, 8, 12, 20, 30, and 60 orders per simulated minute, then starts again at 1.
 A project rate that is not in this list, for example 7, shows until the first click.
 That click selects the next higher rate in the list, or 1 for a rate above 60.
-Rates use simulated minutes, so 8x playback generates orders eight times faster in wall time.
+Rates use simulated minutes, so 15x playback generates orders fifteen times faster in wall time when the server keeps up.
 
 Each click on **Seed** adds 1 to the seed.
 Arrivals have equal time intervals.

@@ -35,6 +35,7 @@ type StateFrame struct {
 	Redistribution  bool            `json:"redistribution"`
 	Simulation      SimulationFrame `json:"simulation"`
 	Speed           int             `json:"speed"`
+	SpeedReduction  SpeedReduction  `json:"speedReduction,omitzero"`
 	Demand          DemandState     `json:"demand"`
 	Checkpoints     []Checkpoint    `json:"checkpoints,omitempty"`
 	Build           string          `json:"build,omitempty"`
@@ -139,7 +140,7 @@ func frameState(topology TopologySnapshot, frame StateFrame, immutable bool) (St
 			SharedParties:  snapshot.SharedParties, SharedRidePartyLimit: snapshot.SharedRidePartyLimit,
 			EmptyDistanceMeters: snapshot.EmptyDistanceMeters, RebalanceMoves: snapshot.RebalanceMoves,
 		},
-		Speed: frame.Speed, Demand: frame.Demand, Checkpoints: slices.Clone(frame.Checkpoints),
+		Speed: frame.Speed, SpeedReduction: frame.SpeedReduction, Demand: frame.Demand, Checkpoints: slices.Clone(frame.Checkpoints),
 		Build: frame.Build, ServerStart: frame.ServerStart, Restore: frame.Restore,
 	}, nil
 }
@@ -174,7 +175,7 @@ func stateFrame(state State) StateFrame {
 			SharedParties:  snapshot.SharedParties, SharedRidePartyLimit: snapshot.SharedRidePartyLimit,
 			EmptyDistanceMeters: snapshot.EmptyDistanceMeters, RebalanceMoves: snapshot.RebalanceMoves,
 		},
-		Speed: state.Speed, Demand: state.Demand, Checkpoints: slices.Clone(state.Checkpoints),
+		Speed: state.Speed, SpeedReduction: state.SpeedReduction, Demand: state.Demand, Checkpoints: slices.Clone(state.Checkpoints),
 		Build: state.Build, ServerStart: state.ServerStart, Restore: state.Restore,
 	}
 }

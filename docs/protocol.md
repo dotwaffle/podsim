@@ -48,6 +48,24 @@ Native viewers retain their existing background.
 A verified full stream baseline can establish a restored older epoch immediately.
 Frames from a closed connection cannot replace the current view.
 
+Playback uses fixed simulation steps, including at 60x.
+The live clock releases its session lock after eight steps or four milliseconds, whichever occurs first.
+A single simulation step is indivisible and can exceed that time budget.
+The server measures completed steps over three wall-clock seconds.
+If achieved speed is below 90% of selected speed, it selects the next lower value from 1, 2, 5, 15, and 60.
+Legacy 4x and 8x reduce to 2x and 5x respectively.
+It never reduces below 1x or increases speed automatically.
+Each measurement window starts fresh after a reduction, pause, speed command, reset, demo, project apply, or rewind.
+No simulation steps are skipped to catch up with wall time.
+
+HTTP state frames and stream state carry optional `speedReduction` with `sequence`, `from`, and `to` members.
+The sequence increases for each automatic reduction in one server process.
+The stream controls group includes the same value as `SpeedReduction`.
+Clients show a notice for a new sequence from the same server process and epoch.
+The reduction record and wall-clock measurements are not saved or restored.
+Saved playback speeds still accept legacy 4x and 8x values.
+Older executables cannot restore a save with a new speed value they do not recognize.
+
 ## Shared state stream
 
 The server sends a text hello with `version`, `build`, and `serverStart` before any binary state message.
@@ -198,7 +216,7 @@ The other members depend on the action:
 | --- | --- | --- |
 | `trip` | `origin`, `destination`: station IDs | Adds an order. The stations must be different, connected passenger stations. The server rejects the order during the demo or when the queue holds 200 orders. |
 | `pause` | `paused`: boolean | `true` pauses the session. `false` or an absent member resumes it. |
-| `speed` | `speed`: 1, 2, 4, or 8 | Sets the playback speed. |
+| `speed` | `speed`: 1, 2, 5, 15, or 60. Legacy values 4 and 8 remain valid. | Sets the playback speed and starts a new overload measurement window. |
 | `reset` | None | Restores the project fleet and demand settings, and clears the orders. It sets the speed to 1 and keeps the pause state. |
 | `demo` | None | Resets the run, starts the traffic demo, disables automatic demand, and sets the speed to 1. It needs the unchanged example network and fleet. |
 | `demand` | `demand`: the `demand` object of a project | Replaces the demand settings of the project and increases the project revision. The server rejects it during the demo. |

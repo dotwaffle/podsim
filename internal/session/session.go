@@ -53,6 +53,7 @@ type State struct {
 	Map             *project.MapBackground `json:"map,omitzero"`
 	Simulation      sim.Snapshot           `json:"simulation"`
 	Speed           int                    `json:"speed"`
+	SpeedReduction  SpeedReduction         `json:"speedReduction,omitzero"`
 	Demand          DemandState            `json:"demand"`
 	Checkpoints     []Checkpoint           `json:"checkpoints,omitempty"`
 	Build           string                 `json:"build,omitempty"`
@@ -224,6 +225,8 @@ type Session struct {
 	projectRevision uint64
 	generation      uint64
 	speed           int
+	clock           playbackClock
+	speedReduction  SpeedReduction
 	demand          demandRun
 	receipts        map[string]receipt
 	// restoredSequences holds the last command sequence of each client
@@ -330,7 +333,7 @@ func (s *Session) Run(ctx context.Context) {
 		case <-ctx.Done():
 			return
 		case <-ticker.C:
-			s.advance()
+			s.liveAdvance(ctx)
 		}
 	}
 }
@@ -346,12 +349,7 @@ func (s *Session) advance() {
 		return
 	}
 	for range s.speed {
-		wasDemo := s.simulation.DemoRunning()
-		s.simulation.Step()
-		if wasDemo && !s.simulation.DemoRunning() {
-			s.configureRedistribution()
-		}
-		s.demand.step(s.simulation)
+		s.step()
 	}
 	s.revision++
 }
@@ -438,6 +436,7 @@ func (s *Session) stateWithoutNetwork() State {
 		Redistribution:  s.project.Redistribution && !s.simulation.Snapshot().Demo,
 		Simulation:      s.simulation.Snapshot(),
 		Speed:           s.speed,
+		SpeedReduction:  s.speedReduction,
 		Demand:          s.demand.state,
 		Checkpoints:     s.checkpointList(),
 		Build:           s.build,
@@ -643,6 +642,10 @@ func (e *sessionEvent) args() []any {
 
 func (s *Session) apply(command Command) (outcome, error) {
 	switch command.Action {
+	case "pause", "speed", "reset", "demo", "project", "rewind":
+		defer s.clock.reset()
+	}
+	switch command.Action {
 	case "trip":
 		state := s.simulation.Snapshot()
 		if state.Demo {
@@ -658,8 +661,8 @@ func (s *Session) apply(command Command) (outcome, error) {
 	case "pause":
 		s.simulation.SetPaused(command.Paused)
 	case "speed":
-		if command.Speed != 1 && command.Speed != 2 && command.Speed != 4 && command.Speed != 8 {
-			return outcome{}, errors.New("speed must be 1, 2, 4, or 8")
+		if !validSpeed(command.Speed) {
+			return outcome{}, errors.New("speed must be 1, 2, 5, 15, or 60 (legacy 4 and 8 are also accepted)")
 		}
 		s.speed = command.Speed
 	case "reset":

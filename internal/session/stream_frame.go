@@ -21,7 +21,7 @@ func (s *Session) presentationFrame() (StreamFrame, error) {
 		return StreamFrame{}, errors.New("stream build ID exceeds 64 bytes")
 	}
 	state := State{Epoch: s.epoch, Revision: s.revision, ProjectRevision: s.projectRevision, Generation: s.generation,
-		Redistribution: s.project.Redistribution && !snapshot.Demo, Simulation: snapshot, Speed: s.speed, Demand: s.demand.state,
+		Redistribution: s.project.Redistribution && !snapshot.Demo, Simulation: snapshot, Speed: s.speed, SpeedReduction: s.speedReduction, Demand: s.demand.state,
 		Checkpoints: s.checkpointList(), Build: s.build, ServerStart: s.serverStart, Restore: s.restore}
 	return StreamFrame{State: stateFrame(state), Routes: routes}, nil
 }

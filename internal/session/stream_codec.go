@@ -157,7 +157,8 @@ func frameGroups(f StreamFrame) (map[string]json.RawMessage, error) {
 		"controls": struct {
 			Speed          int
 			Redistribution bool
-		}{state.Speed, state.Redistribution},
+			SpeedReduction SpeedReduction
+		}{state.Speed, state.Redistribution, state.SpeedReduction},
 		"demand": state.Demand, "restore": state.Restore, "checkpoints": f.State.Checkpoints, "pending": f.State.Simulation.Pending,
 		"global": struct {
 			Submitted int
@@ -217,11 +218,13 @@ func applyGroups(f *StreamFrame, groups map[string]json.RawMessage) error {
 			var v struct {
 				Speed          int
 				Redistribution bool
+				SpeedReduction SpeedReduction
 			}
 			if err := decodeStreamJSON(raw, &v); err != nil {
 				return err
 			}
 			f.State.Speed, f.State.Redistribution = v.Speed, v.Redistribution
+			f.State.SpeedReduction = v.SpeedReduction
 			continue
 		case "global":
 			var v struct {

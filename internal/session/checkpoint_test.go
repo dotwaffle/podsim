@@ -984,6 +984,8 @@ const (
 	// the server start ID, and the state saves. They are not simulation
 	// state, and a rewind does not change them.
 	rewindInfrastructure
+	// rewindReset marks transient wall-clock measurements discarded after a rewind.
+	rewindReset
 )
 
 // sessionRewindRules gives a rule for each Session field.
@@ -992,6 +994,7 @@ var sessionRewindRules = map[string]rewindRule{
 	"largeBodies": rewindInfrastructure, "streamMu": rewindInfrastructure, "stream": rewindInfrastructure, "publicOrigin": rewindInfrastructure,
 	"saveProject": rewindInfrastructure, "logger": rewindInfrastructure,
 	"build": rewindInfrastructure, "persist": rewindInfrastructure, "serverStart": rewindInfrastructure,
+	"clock": rewindReset, "speedReduction": rewindKeep,
 	"simulation": rewindRestore, "demand": rewindRestore,
 	// A rewind restores the project of the save point. When it restores a
 	// different project, it increases projectRevision and does not restore

@@ -403,11 +403,7 @@ func (g *Game) startDemo(now time.Time) {
 }
 
 func (g *Game) cycleSpeed() {
-	speed := g.state.Speed * 2
-	if speed > 8 {
-		speed = 1
-	}
-	g.submit(session.Command{Action: "speed", Speed: speed})
+	g.submit(session.Command{Action: "speed", Speed: session.NextSpeed(g.state.Speed)})
 }
 func (g *Game) request() {
 	if g.state.Simulation.Demo {

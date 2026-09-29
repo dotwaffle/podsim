@@ -10,7 +10,6 @@ import (
 	"io"
 	"math"
 	"math/rand/v2"
-	"slices"
 	"strings"
 	"time"
 
@@ -449,8 +448,8 @@ func (file *stateFile) validate() error {
 			file.Revision, file.ProjectRevision, file.Generation)
 	case file.RestoreAttempts < 0:
 		return fmt.Errorf("restore attempts %d is negative", file.RestoreAttempts)
-	case !slices.Contains([]int{1, 2, 4, 8}, file.Speed):
-		return fmt.Errorf("speed %d is not 1, 2, 4 or 8", file.Speed)
+	case !validSpeed(file.Speed):
+		return fmt.Errorf("speed %d is not 1, 2, 4, 5, 8, 15 or 60", file.Speed)
 	}
 	if err := validateSequences(file.Sequences); err != nil {
 		return err

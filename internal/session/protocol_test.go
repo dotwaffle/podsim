@@ -100,6 +100,7 @@ func TestStateFrameRoundTrip(t *testing.T) {
 			t.Parallel()
 			shared := newFrameFixture(t, fixture)
 			want := shared.State()
+			want.SpeedReduction = SpeedReduction{Sequence: 3, From: 60, To: 15}
 			if len(want.Checkpoints) != fixture.checkpoints {
 				t.Fatalf("state has %d checkpoints, want %d", len(want.Checkpoints), fixture.checkpoints)
 			}

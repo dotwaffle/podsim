@@ -37,6 +37,7 @@ func TestStreamReconstruction(t *testing.T) {
 	s, a := streamFixture(t)
 	oldJSON := streamJSON(t, a)
 	for i := range 50 {
+		s.speedReduction = SpeedReduction{Sequence: uint64(i + 1), From: 60, To: 15}
 		if i == 0 {
 			s.Apply(Command{Client: "test", Sequence: 1, Epoch: a.State.Epoch, Action: "trip", Origin: "harbor", Destination: "market"})
 		}
@@ -490,7 +491,7 @@ func TestStreamFieldOwnership(t *testing.T) {
 		groups map[string][]string
 	}{
 		{reflect.TypeFor[StateFrame](), map[string][]string{
-			"identity": {"Epoch", "Revision", "ProjectRevision", "Generation", "Build", "ServerStart"}, "controls": {"Speed", "Redistribution"}, "demand": {"Demand"}, "restore": {"Restore"}, "checkpoints": {"Checkpoints"}, "simulation": {"Simulation"},
+			"identity": {"Epoch", "Revision", "ProjectRevision", "Generation", "Build", "ServerStart"}, "controls": {"Speed", "Redistribution", "SpeedReduction"}, "demand": {"Demand"}, "restore": {"Restore"}, "checkpoints": {"Checkpoints"}, "simulation": {"Simulation"},
 		}},
 		{reflect.TypeFor[SimulationFrame](), map[string][]string{
 			"global": {"Submitted", "Tick", "Paused", "Completed", "Demo", "DemoError"}, "vehicles": {"Vehicles"}, "berths": {"Berths"}, "pending": {"Pending"},
