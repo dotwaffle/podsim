@@ -404,7 +404,8 @@ The traffic patterns:
   When you select this pattern in the **Demand** panel, it uses the current **To** station.
   The pattern label shows that station, for example **Market-bound**.
 - Projects can also include weighted origin-destination profiles with named time bands.
-  The London preset includes eight TfL bands and selects AM peak by default.
+  LondonCentral includes eight TfL bands, while LondonFull offers its six populated 2024 bands.
+  Both select AM peak by default.
   For a profile, the pattern label shows the band ID first and then the profile ID, for example **am-peak / tfl-numbat-2019-midweek**.
   The selected band remains active until the demand settings change.
 
@@ -887,7 +888,9 @@ The report omits the skipped arms.
 The other rows are identical to the rows of a full run.
 
 When `GOGC` is not set, the compare command sets the Go GC percent to 400.
-A London arm then uses about 14% less CPU and about 120 MB more memory than at the default of 100.
+An earlier LondonCentral measurement used about 14% less CPU and about 120 MB more memory than at the default of 100.
+The September 29 review retained 400 after testing both London presets.
+CPU and memory costs depend on the workload, and these measurements do not set the server GC policy.
 The reports do not change.
 Set `GOGC` to use another value.
 
@@ -1063,15 +1066,22 @@ This geometry separates incoming and outgoing traffic and shortens the parking e
 Demand starts disabled.
 Configure and start it from the Demand panel.
 
-#### london
+#### london-central
 
-The [London qualification network](docs/london.md) uses TfL station locations and topology, real station names, directed twin guideways, off-line berths, and three Parking facilities.
+The [LondonCentral qualification network](docs/london.md) uses TfL station locations and topology, real station names, directed twin guideways, off-line berths, and three Parking facilities.
 It sets `platoonLimit` to 4, so the server runs it with virtual platoons.
 Its `geo` member is the reference of its projection, latitude 51.5074 and longitude -0.1278.
 Station lanes identify approach, entry, berth access, through, departure, and exit maneuvers.
 The pod inspector shows the current maneuver in **Station phase** and the station name on the line below it.
 Projects without this optional lane metadata still load.
 The simulator infers through, berth access, and departure roles from the station paths.
+
+#### london-full
+
+[LondonFull](docs/london-full.md) includes 269 passenger sites and three Parking facilities with 2024 endpoint demand.
+It starts with 287 pods, weighted station berths, and a configured rate of 10 requests per minute.
+Demand starts disabled.
+Its finite-arrival demo checks do not establish sustainable capacity or replace the LondonCentral qualification results.
 
 ## Scope and model
 

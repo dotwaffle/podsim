@@ -13,10 +13,32 @@ It remains off by default.
 The rail-hub, London capacity envelope, same-destination sharing, drop-offs sharing, and first congestion-aware routing experiments are complete.
 The screen of the queue routing policy and the platoon screening are also complete.
 The first station-maneuver slice is complete: station lanes have explicit roles, pod snapshots expose the current phase, and the inspector names the maneuver.
-The scenario command sets the berths and berth pitch of the generated presets and the initial pods of the London preset.
+The scenario command sets the berths and berth pitch of the generated presets and the initial pods of both London presets.
 A layout check rejects lanes that come too near.
 Other station geometry options and the other experiments in Section 6 remain later work.
 See [README.md](README.md) for controls, validation commands, and current model limits.
+
+**Current work status, September 29, 2026:**
+
+LondonCentral (`london-central`) retains the central qualification network and its 2019 demand.
+[LondonFull](docs/london-full.md) adds 269 Tube sites with 2024 endpoint demand.
+Its bounded demo trials do not establish a sustainable capacity envelope.
+The original `london` selector is now `london-central`.
+
+The editor imports georeferenced PNG or JPEG backgrounds with stored bounds, projection, attribution, and an atomic undo step.
+A network-backed map provider remains unselected, and direct OSM import remains future work.
+See [georeferenced backgrounds](README.md#georeferenced-background).
+
+The live viewer uses shared gzip WebSocket deltas, and explicit public-origin configuration supports a TLS-terminating proxy.
+Prepared network geometry speeds repeated isolated restores without changing the saved format or removing restore assertions.
+The renderer batches station summaries, and presentation snapshots reuse call-local lane marks.
+The restore and rendering optimizations preserve simulation behavior and existing protocol semantics.
+
+Sharing remains off by default.
+The sharing screens still have failed adoption rules, while larger pods and congestion-aware routing remain parked.
+Local Chromium software-rendering checks cover the viewer, editor, and high-latency streams.
+Firefox native gzip checks pass, but this host lacks Firefox WebGL2 and WebKit libraries.
+Physical GPUs, Safari devices, and an actual Fly deployment remain unqualified.
 
 This document records the project direction, initial feature scope, architecture, effort estimates, and research.
 The initial scope and policies were the starting point for implementation planning.
@@ -325,7 +347,7 @@ Choose a source that supports the intended area export and saved-project use, an
 The public OSM tile endpoint is not a bulk or offline export service, as its [tile usage policy](https://operations.osmfoundation.org/policies/tiles/) explains.
 Provider choice, export limits, and any hosting needs remain implementation decisions for this later feature.
 
-**Status:** A generated London qualification preset now provides the first geographic network without implementing a general map importer.
+**Status:** LondonCentral provides the central geographic qualification network without a network-backed map importer.
 It uses a normalized TfL topology snapshot for 96 passenger stations, their real names and locations, and 127 unique adjacencies.
 The preset adds twin directed guideways, off-line berths, and three Parking facilities.
 The local projection uses meters.
@@ -344,7 +366,10 @@ In every band except Early, the results suggest that the 114-pod fleet, not trac
 See [docs/london.md](docs/london.md) and [docs/qualification.md](docs/qualification.md#london-capacity-envelope).
 
 The network does not include a background map or stored tunnel depth.
-The general OSM-backed import workflow above also remains future work.
+The general OSM-backed import workflow above remains future work.
+Local georeferenced image import is implemented and preserves frame and attribution data.
+LondonFull is a separate generated preset with 269 passenger sites and 2024 endpoint demand.
+Its demo trials are separate from the LondonCentral capacity envelope above.
 
 Explicit separation groups distinguish unrelated grade-separated paths.
 Directional portals retain geometric checks at real diverges and merges.

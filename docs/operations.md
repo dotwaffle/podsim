@@ -334,14 +334,15 @@ The server sets the Go memory limit to 90 percent of the detected cgroup limit.
 Set `GOMEMLIMIT` to use an explicit Go memory limit.
 Set `AUTOMEMLIMIT` to change the ratio or disable automatic detection.
 
+These historical measurements cover LondonCentral.
 Save points keep copies of the simulation in memory.
-A London save point uses about 6.2 MB after the live simulation continues from it.
-The server keeps at most 8 save points, so they use about 50 MB with one London project.
-A save point that holds a replaced London project uses about 4.6 MB more.
-If each of the 8 save points holds its own London project, they use about 85 MB.
+A LondonCentral save point uses about 6.2 MB after the live simulation continues from it.
+The server keeps at most 8 save points, so they use about 50 MB with one LondonCentral project.
+A save point that holds a replaced LondonCentral project uses about 4.6 MB more.
+If each of the 8 save points holds its own LondonCentral project, they use about 85 MB.
 
 With `-state`, each save of the session state allocates memory for a short time.
-A London save with 20 orders per minute, after 15 simulated minutes, allocates about 8.5 MB.
+A LondonCentral save with 20 orders per minute, after 15 simulated minutes, allocates about 8.5 MB.
 About 8 MB of this is JSON work on the 1.5 MiB project.
 The encoder checks and formats the project text again when it adds the project to the file.
 The compressed file is about 320 KB.
