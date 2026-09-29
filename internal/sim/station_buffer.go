@@ -136,7 +136,10 @@ func (s *Simulation) grantBufferedHead(in intent, plan stationBufferPlan) {
 	v.bufferBerth = ""
 	blockedBerth, blockedOwner := "", ""
 	for _, berth := range station.Berths {
-		if !s.berthAvailableFor(v, berth) {
+		// A following pickup may target this berth without owning it.
+		// Deferring to that assignment would prevent either pod advancing.
+		// The complete-path grant below protects all actual reservations.
+		if !s.berthAvailableTo(v, berth) {
 			if owner := s.owners[resource{kind: berthResource, id: berth.ID}]; owner != "" {
 				if blockedOwner == "" || s.findVehicle(owner) != nil && s.findVehicle(owner).Pod.Activity == Idle {
 					blockedBerth, blockedOwner = berth.ID, owner

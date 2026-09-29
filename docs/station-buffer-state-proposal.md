@@ -52,7 +52,12 @@ The physically furthest downstream pod is the head, including any already assign
 Within a buffer, only a berthless head can select its berth suffix.
 Commit the destination and safe berth-path admission atomically.
 Keep existing reservations and berth assignments.
-Do not revoke them to make buffer space.
+A destination assignment does not grant exclusive berth ownership.
+The buffer head can compete for an unowned berth, including one targeted by a pickup behind it.
+Otherwise the head and following pickup can block each other indefinitely.
+The complete-path grant must acquire the berth, its node, and every required track or conflict resource before committing.
+A failed trial changes no assignment, route, or ownership.
+Do not revoke existing reservations or assignments to make buffer space.
 Preserve passenger, pickup, and empty priorities and the ten-second aging override.
 Full buffers retain ordinary upstream waiting.
 

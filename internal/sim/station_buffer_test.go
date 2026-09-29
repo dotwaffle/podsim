@@ -572,3 +572,215 @@ func TestStationBufferReleasedPickupDrain(t *testing.T) {
 		})
 	}
 }
+
+// bufferedHeadWithPickup has a passenger at the holding frontier and an
+// assigned pickup behind it. The pickup retains the only berth destination.
+func bufferedHeadWithPickup(t *testing.T) *Simulation {
+	t.Helper()
+	s, err := NewFleet(stationBufferNetwork(Example(), 4), []Placement{{ID: "01", StationID: "harbor"}, {ID: "02", StationID: "garden"}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	s.SetStationBuffers(true)
+	if err := s.RequestJourney("01", "market"); err != nil {
+		t.Fatal(err)
+	}
+	barrier := resource{kind: berthResource, id: "market-1"}
+	s.owners[barrier] = "external"
+	stepUntil(t, s, "head at holding frontier", func() bool {
+		v := s.findVehicle("01")
+		plan, ok := s.bufferPlan(v)
+		return ok && v.Pod.Speed == 0 && v.distance == v.blocks.end(plan.frontier)
+	})
+	if err := s.RequestTrip("market", "harbor"); err != nil {
+		t.Fatal(err)
+	}
+	stepUntil(t, s, "assigned pickup behind buffer head", func() bool {
+		v := s.findVehicle("02")
+		return v.Pod.Speed == 0 && v.Pod.BlockedBy == "01"
+	})
+	delete(s.owners, barrier)
+	if s.findVehicle("02").destination.ID != "market-1" || s.findVehicle("01").destination.ID != "" {
+		t.Fatal("fixture lost the head or following berth assignment")
+	}
+	return s
+}
+
+func checkBufferOrders(t *testing.T, s *Simulation) {
+	t.Helper()
+	state := s.Snapshot()
+	checkTraffic(t, state)
+	if _, err := s.SafetyObservation().Check(); err != nil {
+		t.Fatal(err)
+	}
+	ids := make(map[int]bool)
+	for _, request := range state.Pending {
+		if ids[request.ID] {
+			t.Fatal("duplicate pending request")
+		}
+		ids[request.ID] = true
+	}
+	for _, v := range state.Vehicles {
+		for _, rider := range v.Riders {
+			if rider.Completed {
+				continue
+			}
+			if ids[rider.ID] {
+				t.Fatal("duplicate active request")
+			}
+			ids[rider.ID] = true
+		}
+	}
+	if len(ids)+state.Completed != state.Submitted || state.Submitted != 2 {
+		t.Fatalf("buffer lost order accounting: %+v", state)
+	}
+}
+
+func TestStationBufferHeadBeforeAssignedPickup(t *testing.T) {
+	t.Parallel()
+	for _, restore := range []bool{false, true} {
+		t.Run(map[bool]string{false: "uninterrupted", true: "restored"}[restore], func(t *testing.T) {
+			t.Parallel()
+			s := bufferedHeadWithPickup(t)
+			committed := false
+			for range 600 * TicksPerSecond {
+				s.Step()
+				checkBufferOrders(t, s)
+				if !committed && s.findVehicle("01").destination.ID == "market-1" {
+					committed = true
+					if s.findVehicle("02").destination.ID != "market-1" || !s.assigned("02") {
+						t.Fatal("head admission revoked the following pickup assignment")
+					}
+					if s.owners[resource{kind: berthResource, id: "market-1"}] != "01" {
+						t.Fatal("head destination committed without berth ownership")
+					}
+					if restore {
+						restored, result, err := RestoreState(RestoreStateInput{Network: s.network, Fleet: s.initial, State: s.ExportState(), StationBuffers: true})
+						if err != nil || result.Tier != RestorePhysical || len(result.Demoted)+len(result.Requeued)+len(result.Dropped) != 0 {
+							t.Fatalf("head/pickup restore: %+v %v", result, err)
+						}
+						if restored.findVehicle("02").destination.ID != "market-1" || !restored.assigned("02") {
+							t.Fatal("restore lost the following pickup destination or order")
+						}
+						s = restored
+						checkBufferOrders(t, s)
+					}
+				}
+				if s.completed == 2 {
+					break
+				}
+			}
+			if !committed || s.completed != 2 || s.PendingCount() != 0 {
+				t.Fatalf("head and assigned pickup did not complete: committed=%t state=%+v", committed, s.Snapshot())
+			}
+		})
+	}
+}
+
+func TestStationBufferHeadHonorsOwnedPath(t *testing.T) {
+	t.Parallel()
+	for _, blocked := range []resource{
+		{kind: berthResource, id: "market-1"},
+		{kind: nodeResource, id: "market-berth"},
+		{kind: trackResource, id: "market-in", cell: 0},
+	} {
+		t.Run(fmt.Sprint(blocked), func(t *testing.T) {
+			t.Parallel()
+			s := bufferedHeadWithPickup(t)
+			s.owners[blocked] = "02"
+			head := s.findVehicle("01")
+			before := s.ExportState().Pods[0]
+			distance := head.distance
+			owners := maps.Clone(s.owners)
+			for range 2 {
+				s.grant(intent{index: 0, block: head.pending, since: head.waitSince})
+			}
+			after := s.ExportState().Pods[0]
+			if head.destination.ID != "" || head.distance != distance || !reflect.DeepEqual(before.Route, after.Route) || !maps.Equal(owners, s.owners) {
+				t.Fatal("blocked berth-path trial changed the head route or existing ownership")
+			}
+			if s.findVehicle("02").destination.ID != "market-1" {
+				t.Fatal("blocked trial revoked the pickup assignment")
+			}
+			delete(s.owners, blocked)
+			stepUntil(t, s, "head progress after resource release", func() bool { return s.findVehicle("01").destination.ID == "market-1" })
+		})
+	}
+}
+
+func TestStationBufferCompetingBerthAdmission(t *testing.T) {
+	t.Parallel()
+	for _, aged := range []bool{false, true} {
+		t.Run(map[bool]string{false: "passenger-priority", true: "aged-pickup"}[aged], func(t *testing.T) {
+			t.Parallel()
+			network := stationBufferNetwork(Example(), 4)
+			for index := range network.Lanes {
+				if network.Lanes[index].ID == "garden-merge" {
+					network.Lanes[index].To = "market-entry"
+					network.Lanes[index].StationID = "market"
+					network.Lanes[index].StationRole = StationEntryRole
+				}
+			}
+			s, err := NewFleet(network, []Placement{{ID: "01", StationID: "harbor"}, {ID: "02", StationID: "garden"}})
+			if err != nil {
+				t.Fatal(err)
+			}
+			s.SetStationBuffers(true)
+			if err := s.RequestJourney("01", "market"); err != nil {
+				t.Fatal(err)
+			}
+			if err := s.RequestTrip("market", "harbor"); err != nil {
+				t.Fatal(err)
+			}
+			barrier := resource{kind: nodeResource, id: "market-entry"}
+			berth := resource{kind: berthResource, id: "market-1"}
+			s.owners[barrier] = "external"
+			stepUntil(t, s, "two independent station approaches", func() bool {
+				head, pickup := s.findVehicle("01"), s.findVehicle("02")
+				return head.Pod.Speed == 0 && pickup.Pod.Speed == 0 && head.Pod.BlockedBy == "external" && pickup.Pod.BlockedBy == "external"
+			})
+			head, pickup := s.findVehicle("01"), s.findVehicle("02")
+			if head.Pod.LaneID == pickup.Pod.LaneID || !head.buffered || pickup.destination.ID != berth.id {
+				t.Fatal("fixture lacks independent approaches and retained pickup destination")
+			}
+			head.waitSince, pickup.waitSince = s.tick, s.tick
+			if aged {
+				pickup.waitSince -= admissionAgeTicks
+			}
+			delete(s.owners, barrier)
+			s.admit()
+			want := "01"
+			if aged {
+				want = "02"
+			}
+			if s.owners[barrier] != want {
+				t.Fatalf("entry owner=%q, want %q", s.owners[barrier], want)
+			}
+			firstBerthOwner := s.owners[berth]
+			if pickup.destination.ID != berth.id {
+				t.Fatal("competition revoked pickup destination")
+			}
+			head.waitSince, pickup.waitSince = 0, 0
+			s.admit()
+			if s.owners[barrier] != want {
+				t.Fatal("later priority change revoked committed entry")
+			}
+			if firstBerthOwner != "" && s.owners[berth] != firstBerthOwner {
+				t.Fatal("later priority change revoked committed berth")
+			}
+			for range 600 * TicksPerSecond {
+				s.Step()
+				checkBufferOrders(t, s)
+				if firstBerthOwner == "" {
+					firstBerthOwner = s.owners[berth]
+				}
+				if s.completed == 2 {
+					break
+				}
+			}
+			if s.completed != 2 || firstBerthOwner != want {
+				t.Fatalf("competing arrivals: completed=%d first berth owner=%q, want %q", s.completed, firstBerthOwner, want)
+			}
+		})
+	}
+}
