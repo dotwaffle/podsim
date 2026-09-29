@@ -10,8 +10,7 @@ The projection omits fields that neither station-summary path reads.
 It does not truncate or deduplicate routes.
 
 Source sessions are retained in the external profiling evidence.
-The extraction tool decoded each saved project and simulation, called sim.RestoreState,
-required RestorePhysical, then projected Simulation.Snapshot.
+The extraction tool decoded each saved project and simulation, called `sim.RestoreState`, required `RestorePhysical`, then projected `Simulation.Snapshot`.
 Its source and execution log are archived in station-batch-20260929.
 
 | Preset | Source session SHA256 | Demand seed | Vehicles | Berths | Fixture bytes |
