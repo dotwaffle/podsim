@@ -1,7 +1,8 @@
 # LondonFull unfinished-request diagnosis
 
 The targeted reruns found one parking-diversion deadlock and three journeys that exceeded the study cutoff.
-The simulation and preset defaults are unchanged.
+The initial diagnosis left simulation behavior and preset defaults unchanged.
+The follow-up fix below prevents diversions inside committed parking arrivals.
 
 ## Scope and reproduction
 
@@ -90,14 +91,48 @@ Every rerun and continuation checks separation, speed, berth ownership, and requ
 The existing parking-diversion tests pass, including the committed-inlet test.
 Their small scenario does not cover this multi-berth access-chain case.
 The diagnostic helper uses a Go overlay and does not change checked-in simulation code.
-No production fix or fleet change is included.
+The initial investigation included no production fix or fleet change.
 
-The next implementation should prevent a pickup diversion from trapping a pod inside a committed parking access maneuver.
-Completing the parking maneuver before reassignment is the conservative option.
-A regression must cover two different parking berths, a reserved berth ahead, and a following pod.
-It must check eventual completion as well as separation and reservation ownership.
-Rerun these four arms after the fix, then the relevant qualification checks.
+The diagnosis recommended preventing pickup diversions inside committed parking access maneuvers.
+Completing the parking maneuver before reassignment avoids the observed cycle.
+The required regression covers two different parking berths, a reserved berth ahead, and a following pod.
+It checks eventual completion as well as separation and reservation ownership.
+The follow-up repeats the four arms and checks the relevant simulation behavior.
 
 Local evidence is retained in `~/.cache/agents/podsim/londonfull-diagnosis-20260929/`.
 It includes the helper and overlays, commands, exit markers, cutoff and extended snapshots, request timings, and five-minute traces.
 The capacity-study bundle retains the input projects and schedules.
+
+## Parking diversion fix
+
+The diversion guard checks the committed route against the destination Parking station's entry node.
+Once reserved track includes a lane leaving that entry, the pod completes its arrival before it can divert.
+The decision uses route geometry, not station lane labels or the pod's displayed position.
+It also covers reservations ahead of the moving pod.
+A restored route can omit the entry lane after the pod has passed it.
+In that case, a station-local path check identifies committed endpoints inside the remaining arrival chain.
+That check excludes intermediate berth and station boundary nodes.
+Before that commitment, a parking pod can still divert.
+
+The new entry guard applies only to Parking stations.
+Passenger-station release and rerouting behavior remains unchanged, including `TestReleasedPodPassesIdleBerthPod`.
+The existing destination-berth and platoon guards still apply to all pods.
+There is no saved-state, protocol, preset, fleet-size, or demand-policy change.
+The guard prevents the unsafe diversion.
+It does not rewrite routes in an already-deadlocked saved session.
+
+A small shared-access fixture covers live and physically restored simulations at the entry and farther along the arrival chain.
+The later restore case verifies that the saved route has omitted the entry lane.
+The leading pod retains its motion and destination claims, completes parking, and the passenger request finishes.
+Every simulation tick checks separation, speed, and berth ownership.
+A second test checks both sides of the reservation boundary and verifies that a pickup query does not change saved state.
+The original-code overlay fails the live, restored, and reserved-ahead cases.
+
+The four targeted arms pass their safety and request-accounting checks with the fix.
+In baseline AM peak at rate 10, request 577 boards at 3,841.40 seconds and completes at 4,649.55 seconds.
+All 599 requests finish by the 7,467-second observation.
+One long journey still exceeds the original two-hour cutoff.
+The other three arms reproduce every earlier result field exactly.
+The full 302-arm capacity study was not repeated, so its tables remain historical measurements of the original source.
+
+Fix validation and raw reruns are retained in `~/.cache/agents/podsim/parking-diversion-fix-20260929/`.

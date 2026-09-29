@@ -133,3 +133,144 @@ func TestParkingDepartureCanceledForLocalOrder(t *testing.T) {
 		t.Fatal("local order did not complete")
 	}
 }
+
+// The shared arrival lane leads to either parking berth. A diversion from
+// that lane can cross berth 1 even when the pod was going to berth 2.
+func chainedParkingArrival() Network {
+	network := Example()
+	network.Nodes = append(network.Nodes, Node{ID: "parking-arrival", Position: Point{580, 150}}, Node{ID: "parking-arrival-branch", Position: Point{180, 150}})
+	for index := range network.Lanes {
+		lane := &network.Lanes[index]
+		if lane.ID == "parking-in-1" || lane.ID == "parking-in-2" {
+			lane.From = "parking-arrival-branch"
+		}
+	}
+	network.Lanes = append(network.Lanes,
+		Lane{ID: "parking-arrival-link", From: "parking-entry", To: "parking-arrival", SpeedLimit: 14},
+		Lane{ID: "parking-arrival-next", From: "parking-arrival", To: "parking-arrival-branch", SpeedLimit: 14},
+	)
+	return network
+}
+
+func TestCommittedParkingAccessChainFinishesBeforePickup(t *testing.T) {
+	t.Parallel()
+	for _, test := range []struct {
+		name, lane string
+		distance   float64
+		restore    bool
+	}{
+		{name: "live entry", lane: "parking-arrival-link", distance: 5},
+		{name: "restored entry", lane: "parking-arrival-link", distance: 5, restore: true},
+		{name: "live chain", lane: "parking-arrival-next", distance: 60},
+		{name: "restored chain", lane: "parking-arrival-next", distance: 60, restore: true},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			network := chainedParkingArrival()
+			fleet := []Placement{
+				{ID: "01", StationID: "market", BerthID: "market-1"},
+				{ID: "02", StationID: "garden", BerthID: "garden-1"},
+			}
+			s, err := NewFleet(network, fleet)
+			if err != nil {
+				t.Fatal(err)
+			}
+			station, _ := s.station("parking")
+			lead := s.findVehicle("01")
+			if moveErr := s.startEmptyMove(lead, emptyDestination{station: station.ID, berth: station.Berths[1], reserveBerth: true}); moveErr != nil {
+				t.Fatal(moveErr)
+			}
+			stepUntil(t, s, "pod enters shared parking access", func() bool {
+				return lead.Pod.LaneID == test.lane && lead.Pod.LaneDistance > test.distance
+			})
+			if moveErr := s.startEmptyMove(s.findVehicle("02"), emptyDestination{station: station.ID, berth: station.Berths[0], reserveBerth: true}); moveErr != nil {
+				t.Fatal(moveErr)
+			}
+			if test.restore {
+				var result RestoreResult
+				s, result, err = RestoreState(RestoreStateInput{Network: network, Fleet: fleet, State: s.ExportState()})
+				if err != nil || result.Tier != RestorePhysical || len(result.Demoted) != 0 {
+					t.Fatalf("physical restore: result %+v, error %v", result, err)
+				}
+				lead = s.findVehicle("01")
+				if test.lane == "parking-arrival-next" {
+					for _, lane := range lead.Route {
+						if lane.From == station.Entry {
+							t.Fatal("restored chain still includes the parking entry")
+						}
+					}
+				}
+			}
+			if err := s.SetFinishingPodWait(FinishingPodWaitNone); err != nil {
+				t.Fatal(err)
+			}
+			if _, _, ok := s.pickupRoute(lead, "harbor"); ok {
+				t.Fatal("pickup route can leave a committed parking access chain")
+			}
+			before := lead.Pod
+			if err := s.RequestTrip("harbor", "garden"); err != nil {
+				t.Fatal(err)
+			}
+			if lead.RelocatingTo != "parking" || lead.destination.ID != "parking-2" {
+				t.Fatalf("pod diverted inside shared parking access: %+v", lead.Vehicle)
+			}
+			if lead.Pod.Position != before.Position || lead.Pod.Speed != before.Speed || lead.Pod.LaneID != before.LaneID || lead.Pod.LaneDistance != before.LaneDistance {
+				t.Fatal("pickup changed the parking pod's motion")
+			}
+			for _, claim := range berthResources(station.Berths[1]) {
+				if s.owners[claim] != "01" {
+					t.Fatal("pickup released the committed parking destination")
+				}
+			}
+			parked := false
+			for range 600 * TicksPerSecond {
+				s.Step()
+				checkTraffic(t, s.Snapshot())
+				parked = parked || lead.Pod.BerthID == "parking-2"
+				if s.completed == 1 {
+					break
+				}
+			}
+			if !parked || s.completed != 1 {
+				t.Fatalf("parking arrival or pickup stalled: parked %v, state %+v", parked, s.Snapshot())
+			}
+		})
+	}
+}
+
+func TestParkingArrivalReservationBoundary(t *testing.T) {
+	t.Parallel()
+	for _, test := range []struct {
+		name      string
+		committed bool
+	}{
+		{name: "approaching entry"},
+		{name: "arrival reserved ahead", committed: true},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			s, err := New(chainedParkingArrival(), "market")
+			if err != nil {
+				t.Fatal(err)
+			}
+			v := s.findVehicle("01")
+			if !s.park(v) {
+				t.Fatal("cannot start parking move")
+			}
+			stepUntil(t, s, test.name, func() bool {
+				if v.Pod.LaneID != "return-to-parking" || v.reservedThrough < 0 {
+					return false
+				}
+				lane := v.blocks.at(v.reservedThrough).lane
+				return (lane.ID == "parking-arrival-link") == test.committed
+			})
+			before := s.ExportState()
+			if _, _, ok := s.pickupRoute(v, "harbor"); ok == test.committed {
+				t.Fatalf("pickup candidacy is %v, want %v", ok, !test.committed)
+			}
+			if !reflect.DeepEqual(before, s.ExportState()) {
+				t.Fatal("pickup query changed simulation state")
+			}
+		})
+	}
+}

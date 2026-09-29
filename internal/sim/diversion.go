@@ -84,12 +84,12 @@ func (s *Simulation) candidateRoute(v *vehicle, stationID string, load func(Bert
 	return append(slices.Clone(v.Route[:prefix]), suffix...), berth, true
 }
 
-// divertStart returns the number of route lanes that a moving empty pod
-// must keep and the node where a new route can start. The pod keeps each
-// lane that its reserved blocks touch. It reports false when the pod is not
-// departing or traveling, or when its reserved blocks enter its destination
-// berth. Such a pod must finish its committed inlet. It also reports false
-// for a pod in a platoon, because a link depends on the routes of its pods.
+// divertStart returns the route prefix that a moving empty pod must keep
+// and the node where its new route can start. The prefix keeps every lane
+// touched by reserved track. Only departing or traveling pods can divert.
+// A pod must finish its committed berth inlet. A parking pod must finish
+// the full arrival chain once it reserves a lane leaving the parking entry.
+// Pods in a platoon cannot divert because their links depend on the routes.
 func (s *Simulation) divertStart(v *vehicle) (int, string, bool) {
 	if v.Pod.Activity != Traveling && v.Pod.Activity != DepartingEmpty || v.coupled() {
 		return 0, "", false
@@ -98,18 +98,28 @@ func (s *Simulation) divertStart(v *vehicle) (int, string, bool) {
 	if v.reservedThrough < 0 {
 		return prefix, from, true
 	}
+	station, _ := s.station(v.destinationStation)
 	committed := v.blocks.at(v.reservedThrough)
 	end := committed.laneStart + s.laneLength(committed.lane)
 	distance := 0.0
 	for i, lane := range v.Route {
-		// Finish a committed inlet before returning to service.
-		if lane.To == v.destination.Node {
+		// A new route inside the arrival chain could cross another berth
+		// that a following pod reserved, leaving both pods blocked.
+		if station.ParkingOnly && lane.From == station.Entry || lane.To == v.destination.Node {
 			return 0, "", false
 		}
 		distance += s.laneLength(lane)
 		prefix, from = i+1, lane.To
 		if distance >= end-1e-9 {
 			break
+		}
+	}
+	// A restored route can omit the entry lane already behind the pod.
+	// Check whether the remaining endpoint is inside the arrival chain.
+	// stationPath cannot pass a berth or a station boundary.
+	if station.ParkingOnly && from != station.Entry && from != station.Exit {
+		if _, err := s.stationPath(station.Entry, from); err == nil {
+			return 0, "", false
 		}
 	}
 	return prefix, from, true
