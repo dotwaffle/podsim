@@ -503,12 +503,12 @@ func (g *Game) buttons() []button {
 		{x: 651, y: 72, w: 28, h: 24, label: "+", action: "map-zoom-in"},
 		{x: 685, y: 72, w: 66, h: 24, label: "Fit", action: "map-fit"},
 		{x: 964, y: 72, w: 96, h: 24, label: followLabel, selected: g.followSelected, action: "map-follow", fontSize: 11},
-		{x: 810, y: 477, w: 120, h: 26, label: fmt.Sprintf("Orders %d / %d", orders-len(state.Pending), orders), selected: g.showOrders, action: "orders", fontSize: 11},
-		{x: 940, y: 477, w: 120, h: 26, label: "Demand", selected: g.showDemand, action: "demand"},
+		{x: 810, y: 465, w: 120, h: 26, label: fmt.Sprintf("Orders %d", orders), selected: g.showOrders, action: "orders"},
+		{x: 940, y: 465, w: 120, h: 26, label: "Demand", selected: g.showDemand, action: "demand"},
 		{x: 930, y: 612, w: 130, h: 42, label: requestLabel, selected: true, disabled: busy || g.destination == g.origin || g.journeySearch.unresolved[0] || g.journeySearch.unresolved[1], action: "request"},
-		{x: 810, y: 401, w: 250, h: 32, label: pauseLabel, action: "pause"},
-		{x: 810, y: 439, w: 119, h: 32, label: fmt.Sprintf("Speed %dx [S]", g.state.Speed), action: "speed"},
-		{x: 941, y: 439, w: 119, h: 32, label: "Reset [Shift+R]", action: "reset"},
+		{x: 810, y: 397, w: 250, h: 32, label: pauseLabel, action: "pause"},
+		{x: 810, y: 431, w: 119, h: 32, label: fmt.Sprintf("Speed %dx [S]", g.state.Speed), action: "speed"},
+		{x: 941, y: 431, w: 119, h: 32, label: "Reset [Shift+R]", action: "reset"},
 	}
 	buttons = append(buttons, g.shellButtons()...)
 	for i, v := range state.Vehicles {
@@ -1844,9 +1844,11 @@ func journeyText(demo bool) (title, hint string) {
 // They are the last lines of the right panel, below Orders and Demand.
 func fleetStatLabels(state sim.Snapshot) []label {
 	use := summarizeFleet(state)
+	orders := outstandingOrderCount(state)
 	return []label{
-		{x: 816, y: 507, size: 10, value: fmt.Sprintf("Pickup wait: avg %.0f s / max %.0f s", state.Wait.AverageSeconds, state.Wait.MaxSeconds), color: muted},
-		{x: 816, y: 521, size: 10, value: fmt.Sprintf("Fleet use: %d%% active / %d%% passenger", use.activePercent(), use.passengerPercent()), color: muted},
+		{x: 816, y: 495, size: 10, value: fmt.Sprintf("Orders: %d active / %d queued", orders-len(state.Pending), len(state.Pending)), color: muted},
+		{x: 816, y: 509, size: 10, value: fmt.Sprintf("Pickup wait: avg %.0f s / max %.0f s", state.Wait.AverageSeconds, state.Wait.MaxSeconds), color: muted},
+		{x: 816, y: 523, size: 10, value: fmt.Sprintf("Fleet use: %d%% active / %d%% passenger", use.activePercent(), use.passengerPercent()), color: muted},
 	}
 }
 
