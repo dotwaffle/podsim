@@ -776,11 +776,11 @@ It can use all lanes.
 A berth route goes from the station entry to the berth, or from the berth to the station exit.
 It can use a chain of lanes, as in the London stations.
 It cannot pass through the entry, exit, or berth node of a station.
-Validation also limits the compact JSON form of a project to 8 MiB or less.
+Validation also limits the compact JSON form of a project to 10 MiB or less.
 The editor sends the project in one command, and it compresses a command of more than 64 KiB with gzip.
-The server accepts a command body of 4 MiB or less, and 8 MiB plus 64 KiB of command JSON after decompression.
+The server accepts a command body of 4 MiB or less, and 10 MiB plus 64 KiB of command JSON after decompression.
 Before the editor pauses the simulation for an apply, it checks the size of the project and shows the limit.
-A project can have at most 200 stations, 4,000 nodes, 8,000 lanes, and 200 pods.
+A project can have at most 300 stations, 5,000 nodes, 8,000 lanes, and 300 pods.
 Each station can have at most 200 berths.
 A node can have at most 64 lanes, counted at the start node and at the end node of each lane.
 At each node, the simulator compares each ordered pair of two different lanes at the node when it starts.
@@ -799,7 +799,7 @@ Simulation physics does not use the reference.
 The simulator divides each lane into track cells of about 30 meters, with at least 2 cells in each lane.
 All lanes together can have at most 64,000 cells, for example about 1,900 km of lanes.
 Two lanes cannot have the same start node, end node, and path.
-A demand profile can have at most 40,000 flows, so it can hold a flow for each ordered pair of 200 stations.
+A demand profile can have at most 65,000 flows.
 The editor checks do not include the limits of the lane pairs, the coordinates, and the track cells.
 The server checks these limits when you apply the project.
 
