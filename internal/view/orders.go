@@ -6,6 +6,7 @@ import (
 	"math"
 	"slices"
 	"strings"
+	"unicode"
 
 	"github.com/hajimehoshi/ebiten/v2"
 
@@ -30,7 +31,7 @@ func outstandingOrders(state sim.Snapshot) []orderRow {
 	for i := range state.Vehicles {
 		v := &state.Vehicles[i]
 		parties := v.RidersAboard()
-		status := fmt.Sprintf("Pod %s %s", fleetPodLabel(i), strings.ToLower(string(v.Pod.Activity)))
+		status := fmt.Sprintf("Pod %s / %s", fleetPodLabel(i), v.Pod.Activity)
 		if parties > 1 {
 			status += fmt.Sprintf(" / %d parties", parties)
 		}
@@ -58,7 +59,7 @@ func fleetNumbers(vehicles []sim.Vehicle) map[string]string {
 // The simulation names a pod with the word "Pod" or "pod" and then the pod
 // ID, for example "Pod london-pod-008 traveling to pickup" or "Waiting for
 // pod london-pod-021 to finish". A word that is not a pod ID in fleet does
-// not change.
+// not change. A status that starts with a pod uses a slash before its action.
 func fleetDispatchReason(reason string, fleet map[string]string) string {
 	words := strings.Split(reason, " ")
 	for i := 1; i < len(words); i++ {
@@ -68,6 +69,11 @@ func fleetDispatchReason(reason string, fleet map[string]string) string {
 		if number, ok := fleet[words[i]]; ok {
 			words[i] = number
 		}
+	}
+	if len(words) > 2 && words[0] == "Pod" && words[2] != "" {
+		action := []rune(strings.Join(words[2:], " "))
+		action[0] = unicode.ToUpper(action[0])
+		return fmt.Sprintf("Pod %s / %s", words[1], string(action))
 	}
 	return strings.Join(words, " ")
 }

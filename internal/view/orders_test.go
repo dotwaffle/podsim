@@ -35,14 +35,14 @@ func TestFleetDispatchReason(t *testing.T) {
 	tests := []struct {
 		name, reason, want string
 	}{
-		{name: "traveling to pickup", reason: "Pod london-pod-008 traveling to pickup", want: "Pod 02 traveling to pickup"},
-		{name: "waiting in traffic", reason: "Pod london-pod-001 waiting in traffic", want: "Pod 01 waiting in traffic"},
+		{name: "traveling to pickup", reason: "Pod london-pod-008 traveling to pickup", want: "Pod 02 / Traveling to pickup"},
+		{name: "waiting in traffic", reason: "Pod london-pod-001 waiting in traffic", want: "Pod 01 / Waiting in traffic"},
 		{name: "waiting for a pod to finish", reason: "Waiting for pod london-pod-008 to finish", want: "Waiting for pod 02 to finish"},
 		{name: "no pod", reason: "Waiting for destination access", want: "Waiting for destination access"},
 		{name: "empty", reason: "", want: ""},
-		{name: "unknown pod", reason: "Pod other traveling to pickup", want: "Pod other traveling to pickup"},
+		{name: "unknown pod", reason: "Pod other traveling to pickup", want: "Pod other / Traveling to pickup"},
 		{name: "pod ID without the word pod", reason: "Behind london-pod-001", want: "Behind london-pod-001"},
-		{name: "part of a pod ID", reason: "Pod london-pod-00 traveling to pickup", want: "Pod london-pod-00 traveling to pickup"},
+		{name: "part of a pod ID", reason: "Pod london-pod-00 traveling to pickup", want: "Pod london-pod-00 / Traveling to pickup"},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -72,8 +72,8 @@ func TestOutstandingOrdersUseFleetNumbers(t *testing.T) {
 	for _, row := range outstandingOrders(state) {
 		got = append(got, row.status)
 	}
-	shared := "Pod 01 traveling / 2 parties"
-	want := []string{shared, "Pod 02 traveling to pickup", shared, "Waiting for pod 01 to finish"}
+	shared := "Pod 01 / Traveling / 2 parties"
+	want := []string{shared, "Pod 02 / Traveling to pickup", shared, "Waiting for pod 01 to finish"}
 	if !slices.Equal(got, want) {
 		t.Fatalf("statuses = %q, want %q", got, want)
 	}
