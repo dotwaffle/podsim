@@ -34,12 +34,13 @@
   // MAX_FLOWS are limits of the server (internal/project/config.go). Keep
   // them the same. MAX_BERTHS applies to each station. MAX_NODE_LANES
   // counts each lane at its From node and at its To node.
-  const MAX_STATIONS = 200;
+  const MAX_PODS = 300;
+  const MAX_STATIONS = 300;
   const MAX_BERTHS = 200;
-  const MAX_NODES = 4000;
+  const MAX_NODES = 5000;
   const MAX_LANES = 8000;
   const MAX_NODE_LANES = 64;
-  const MAX_FLOWS = 40000;
+  const MAX_FLOWS = 65000;
   const STATION_LANE_ROLES = new Set(["approach", "entry", "berth-access", "through", "departure", "exit"]);
   // sharedRideModes mirrors the modes of sim.SharedRideMode. The first
   // mode is sim.DefaultSharedRideMode.
@@ -67,7 +68,7 @@
   // decoded. It holds a 48 megapixel photo of 8064 by 6048 pixels.
   const IMAGE_MAX_SIDE = 16384;
   const IMAGE_MAX_PIXELS = 64 * 1024 * 1024;
-  const SERVER_PROJECT_BYTES = 8 * 1024 * 1024;
+  const SERVER_PROJECT_BYTES = 10 * 1024 * 1024;
   const EXPORT_ALLOWANCE = 1024;
   const ASSET_ALLOWANCE = 128 * 1024;
   const PROJECT_FILE_BYTES = Math.ceil((dataURLBytes(IMAGE_FILE_BYTES) + SERVER_PROJECT_BYTES + EXPORT_ALLOWANCE + ASSET_ALLOWANCE) / MIB) * MIB;
@@ -1379,7 +1380,7 @@
     const passenger = validStations.filter((station) => station.ParkingOnly !== true);
     if (passenger.length < 2) errors.push("The network needs at least two passenger stations.");
     if (network.Stations.length > MAX_STATIONS || network.Nodes.length > MAX_NODES || network.Lanes.length > MAX_LANES) errors.push("The network exceeds the supported size.");
-    if (fleet.length < 1 || fleet.length > 200) errors.push("The fleet must contain 1 to 200 pods.");
+    if (fleet.length < 1 || fleet.length > MAX_PODS) errors.push(`The fleet must contain 1 to ${MAX_PODS} pods.`);
     // As on the server, each berth of a passenger station must reach each
     // berth of the other passenger stations. The check skips a berth that has
     // a berth route error. That error already blocks, and the server stops at
@@ -3533,7 +3534,7 @@
   }
 
   const API = {
-    MIN_LANE_LENGTH, MAX_STATIONS, MAX_NODES, MAX_LANES, MAX_NODE_LANES, MAX_FLOWS, MIN_ZOOM, NODE_LABEL_SCALE, NODE_LABEL_SIZE, LANE_PAIR_OFFSET, CHEVRON_LANE_LENGTH, BERTH_PITCH, STATION_PADDING, CLEARANCE, CHECK_DELAY, emptyConfig, fallbackConfig, normalizeConfig, inferStationLanes, addLane, addJunction, addStation, addBerth,
+    MIN_LANE_LENGTH, MAX_PODS, MAX_STATIONS, MAX_NODES, MAX_LANES, MAX_NODE_LANES, MAX_FLOWS, MIN_ZOOM, NODE_LABEL_SCALE, NODE_LABEL_SIZE, LANE_PAIR_OFFSET, CHEVRON_LANE_LENGTH, BERTH_PITCH, STATION_PADDING, CLEARANCE, CHECK_DELAY, emptyConfig, fallbackConfig, normalizeConfig, inferStationLanes, addLane, addJunction, addStation, addBerth,
     stationBearing, stationShape, rotateStation, setStationBearing, nextBerthPosition, berthChain, nextChainRow, lanePolyline, laneConflict, removeBerth, moveStation, moveNode, deleteNode, deleteLane, deleteStation, stationFlowCount, setFleetCount, fleetRows, selectionCard, berthFocusID, undoFocus, setDemandPattern,
     laneLength, curveLength, reachable, cutOffStations, stationNodeOwners, dragTargets, validateConfig, configWarnings, checkResults, checkSelector, checkSelection, selectionPoint, focusView,
     GEO_PROJECTION, GEO_RADIUS, GEO_MAX_LATITUDE, MAX_COORDINATE, FRAME_SOURCES, SCALE_TOLERANCE, ALIGN_TOLERANCE, RESAMPLE_MAX_SIDE, makeGeo, geoError, projectPoint, unprojectPoint, frameError, scaleError, framePlacement, placementError, frameAligned, anchorGeo, resampleSize, mercatorY, resampleRows,

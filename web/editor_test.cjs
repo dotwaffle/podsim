@@ -2729,7 +2729,7 @@ test("the editor does not send a command that is larger than the server accepts"
   const json = "x".repeat(editor.SERVER_COMMAND_JSON_BYTES + 1 - envelope);
   await assert.rejects(editor.postCommand(connection, { action: "pause", origin: json }), (error) => {
     assert.equal(error.status, 413);
-    assert.equal(error.message, "The command has 8.07 MiB of JSON. The server accepts at most 8.06 MiB.");
+    assert.equal(error.message, "The command has 10.07 MiB of JSON. The server accepts at most 10.06 MiB.");
     return true;
   });
   // Random base64 text compresses to about three quarters of its size.
@@ -2747,7 +2747,7 @@ test("an apply that is too large fails before the pause, and a 413 reply gives t
   const connection = { fetch: server.fetch, clientID: "editor-test", sequence: 0, epoch: "" };
   await assert.rejects(editor.applyToServer({ connection, revision: 3, project: paddedScenario(editor.SERVER_PROJECT_BYTES + 1) }), (error) => {
     assert.equal(error.status, 413);
-    assert.equal(editor.applyFailureText(error), "Apply failed. The scenario has 8.01 MiB of JSON. The server accepts at most 8 MiB. The simulation was not paused.");
+    assert.equal(editor.applyFailureText(error), "Apply failed. The scenario has 10.01 MiB of JSON. The server accepts at most 10 MiB. The simulation was not paused.");
     assert.equal(editor.applyFailureStatus(error), "Apply failed. The draft stays on this page.");
     return true;
   });
@@ -2762,7 +2762,7 @@ test("an apply that is too large fails before the pause, and a 413 reply gives t
   await assert.rejects(editor.applyToServer({ connection: refused, revision: 3, project: paddedScenario(editor.SERVER_PROJECT_BYTES) }), (error) => {
     assert.equal(error.status, 413);
     assert.equal(error.message, editor.SERVER_TOO_LARGE_TEXT);
-    assert.equal(editor.applyFailureText(error), "Apply failed. The command is too large for the server. The server accepts at most 8.06 MiB of JSON and 4 MiB after compression. The editor resumed the simulation.");
+    assert.equal(editor.applyFailureText(error), "Apply failed. The command is too large for the server. The server accepts at most 10.06 MiB of JSON and 4 MiB after compression. The editor resumed the simulation.");
     return true;
   });
   assert.deepEqual(commandList(refusing), ["pause true", "pause false"]);

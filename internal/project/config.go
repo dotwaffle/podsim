@@ -21,23 +21,18 @@ const (
 )
 
 // These are the largest counts that Validate accepts. The saved session
-// decoder uses the same limits, and web/editor.js has a copy of
-// MaxStations, MaxNodes, MaxLanes, MaxNodeLanes, and MaxFlows. The largest
-// session state file grows by about 3,000 bytes for each node and 1,000
-// bytes for each lane of these limits, because each saved route can have
-// one index for each node or lane. With these limits and a project member
-// of MaxFileBytes, it is 30,164,660 bytes, below session.MaxStateBytes.
-// Thus a larger node or lane limit also needs a larger
-// session.MaxStateBytes.
+// decoder and web/editor.js use the same limits. The maximum saved-state
+// fixture includes the widest routes and a MaxFileBytes project member.
+// TestStateFileWorstCaseSize must pass after any count or byte limit changes.
 const (
 	// MaxPods is the largest fleet.
-	MaxPods = 200
+	MaxPods = 300
 	// MaxBerths is the largest number of berths in one station.
 	MaxBerths = 200
 	// MaxStations is the largest number of stations.
-	MaxStations = 200
+	MaxStations = 300
 	// MaxNodes is the largest number of network nodes.
-	MaxNodes = 4000
+	MaxNodes = 5000
 	// MaxLanes is the largest number of network lanes.
 	MaxLanes = 8000
 	// MaxNodeLanes is the largest number of lanes at one node. A lane
@@ -56,7 +51,7 @@ const (
 	// MaxBands is the largest number of bands in one demand profile.
 	MaxBands = 24
 	// MaxFlows is the largest number of flows in one demand profile.
-	MaxFlows = 40000
+	MaxFlows = 65000
 )
 
 // These limits bound the network geometry. The coordinate limit keeps each
@@ -109,7 +104,7 @@ type Geo struct {
 // the project with the widest demand settings that ValidateDemand accepts.
 // Thus a session state file can hold each valid project, also after a
 // change to its demand settings.
-const MaxFileBytes = 8 << 20
+const MaxFileBytes = 10 << 20
 
 // errTooLarge means that the canonical encoding of a project, with the
 // widest demand settings, has more than MaxFileBytes.

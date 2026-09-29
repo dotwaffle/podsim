@@ -174,19 +174,19 @@ Project validation checks directed reachability between all passenger berths.
 The preset starts with automatic demand and redistribution disabled.
 It turns on [virtual platoons](../README.md#virtual-platoons) with at most 4 pods in a platoon.
 
-A project can have at most 200 stations, 4,000 nodes, and 8,000 lanes.
+A project can have at most 300 stations, 5,000 nodes, and 8,000 lanes.
 The lane pairs at the nodes can be at most 100,000 in total.
 The London preset has 20,096 pairs and the largest London capacity options in the tests have 29,336.
 The lanes can have at most 64,000 track cells of about 30 meters in total.
 The London preset has 17,074 cells and the largest London capacity options in the tests have 24,736.
 These limits also apply to an edit of the London project in the editor.
-The `serve` and `compare` commands read a `-project` file of 8 MiB or less.
+The `serve` and `compare` commands read a `-project` file of 10 MiB or less.
 The generated file is indented, so it is about 3.3 MiB.
-Project validation also limits the compact JSON form of a project to 8 MiB, with room for the widest demand settings.
+Project validation also limits the compact JSON form of a project to 10 MiB, with room for the widest demand settings.
 In that form, the London project is about 1.5 MiB (1,591,041 bytes).
 The server writes the `-project` file in this form when it saves it.
 When the editor applies the project, it compresses the command with gzip, so it sends about 0.3 MiB.
-The server accepts a compressed command of 4 MiB or less, with 8 MiB plus 64 KiB of JSON or less after decompression.
+The server accepts a compressed command of 4 MiB or less, with 10 MiB plus 64 KiB of JSON or less after decompression.
 Change a limit only after measured editor validation.
 
 The view treats this project as a dense map because it has more than 30 stations.
@@ -267,7 +267,8 @@ The generated file has 3,643,251 bytes.
 With a 40-meter pitch, 3 berths at each passenger station and 200 berths at each Parking facility give 3,822 nodes and 5,741 lanes, with 1 soft conflict.
 This generated file has 4,610,584 bytes.
 When the editor applies this project, the command has about 2.3 MiB of JSON, and the editor sends about 0.3 MiB with gzip.
-The node limit of 4,000 stops larger projects, for example 4 berths at each passenger station and 200 berths at each Parking facility (4,110 nodes).
+Capacity options must also pass the layout audit.
+A project below the node limit can still have station lanes that cross guideways.
 The capacity tests in the [qualification results](qualification.md#more-london-berths) did not find a change with the same 114 pods.
 
 On a London station, the editor **Add physical berth** button adds one more row at the end of the berth chain.

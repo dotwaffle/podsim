@@ -883,7 +883,7 @@ func TestRestoreFailsForInvalidState(t *testing.T) {
 			edit: func(state *SavedState) { state.Completed = state.RequestID + 1 },
 		},
 		{
-			name: "too many pods", fixture: example, want: "201 pods",
+			name: "too many pods", fixture: example, want: fmt.Sprintf("%d pods", maxSavedPods+1),
 			edit: func(state *SavedState) {
 				state.Pods = make([]SavedPod, maxSavedPods+1)
 				for index := range state.Pods {

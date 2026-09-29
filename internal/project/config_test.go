@@ -282,7 +282,7 @@ func TestEditorMirrorsLimits(t *testing.T) {
 		t.Fatal(err)
 	}
 	for name, want := range map[string]int{
-		"MAX_STATIONS": MaxStations, "MAX_BERTHS": MaxBerths, "MAX_NODES": MaxNodes, "MAX_LANES": MaxLanes, "MAX_NODE_LANES": MaxNodeLanes, "MAX_FLOWS": MaxFlows,
+		"MAX_PODS": MaxPods, "MAX_STATIONS": MaxStations, "MAX_BERTHS": MaxBerths, "MAX_NODES": MaxNodes, "MAX_LANES": MaxLanes, "MAX_NODE_LANES": MaxNodeLanes, "MAX_FLOWS": MaxFlows,
 		"MAX_COORDINATE": MaxCoordinate, "GEO_RADIUS": GeoRadius, "GEO_MAX_LATITUDE": MaxGeoLatitude,
 	} {
 		if !strings.Contains(string(source), fmt.Sprintf("const %s = %d;", name, want)) {
@@ -549,12 +549,12 @@ func demandReserve(t *testing.T) int {
 	return len(canonicalJSON(t, widestDemand)) - len(canonicalJSON(t, Default().Demand))
 }
 
-// weightedProject returns a valid project with 48 passenger stations and the
+// weightedProject returns a valid project with 50 passenger stations and the
 // largest number of demand profiles and bands. Each profile has a flow for
-// each ordered pair of stations, so the project has 215,424 weights. Each
+// each ordered pair of stations, so the project has 470,400 weights. Each
 // weight is 1.
 func weightedProject() Config {
-	const stations = 48
+	const stations = 50
 	config := Default()
 	config.Network = loopNetwork(stations)
 	config.Fleet = []sim.Placement{{ID: "01", StationID: "s00", BerthID: "s00-1"}}

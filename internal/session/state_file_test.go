@@ -301,8 +301,8 @@ func TestDecodeStateFileRejects(t *testing.T) {
 		{"trailing data", compressTestJSON(t, append(slices.Clone(raw), "{}"...)), reasonInvalidState, nil},
 		{"depth 65", insert(`{`, `"extra":`+nested+`,`), reasonInvalidState, errJSONTooDeep},
 		{"array of 65,537 elements", insert(`{`, `"extra":`+zeros(65_537)+`,`), reasonInvalidState, errJSONArrayTooLong},
-		{"201 pods", edit(func(file *stateFile) {
-			file.Simulation.Pods = make([]sim.SavedPod, 201)
+		{"too many pods", edit(func(file *stateFile) {
+			file.Simulation.Pods = make([]sim.SavedPod, maxSavedPods+1)
 		}), reasonInvalidState, errJSONArrayTooLong},
 		{"project too large", replace(`"name":"Podsim example"`, `"name":"`+strings.Repeat("x", project.MaxFileBytes)+`"`),
 			reasonInvalidState, errProjectTooLarge},
@@ -377,7 +377,7 @@ func TestDecodeStateFileAcceptsLimits(t *testing.T) {
 		{"budget 0", func(file *stateFile) { file.Demand.Budget = 0 }},
 		{"budget 3599", func(file *stateFile) { file.Demand.Budget = 3599 }},
 		{"revision 0", func(file *stateFile) { file.Revision = 0 }},
-		{"200 pods", func(file *stateFile) { file.Simulation.Pods = make([]sim.SavedPod, 200) }},
+		{"maximum pods", func(file *stateFile) { file.Simulation.Pods = make([]sim.SavedPod, maxSavedPods) }},
 		{"1,024 client sequences", func(file *stateFile) { file.Sequences = testSequences(clientLimit) }},
 		{"client ID of 100 bytes", func(file *stateFile) {
 			file.Sequences = []savedSequence{{Client: strings.Repeat("c", maxClientBytes), Sequence: math.MaxUint64}}
@@ -571,9 +571,11 @@ func TestDecodeStateFileBombs(t *testing.T) {
 	}
 	past := pods
 	past.size = 2 * MaxStateBytes
-	// Stored blocks add 5 bytes to each 64 KiB, so the file stays below the
-	// size limit.
-	members := bombInput{head: head, item: member, tail: "}", size: MaxStateBytes - 4<<10, level: gzip.NoCompression}
+	// Stored blocks add five bytes per 65,535 bytes, plus the gzip header,
+	// trailer and final empty block. Keep the compressed fixture admitted
+	// so this test reaches the object-member bound.
+	const storedOverhead = (MaxStateBytes/65535+2)*5 + 18
+	members := bombInput{head: head, item: member, tail: "}", size: MaxStateBytes - storedOverhead, level: gzip.NoCompression}
 	// repeated returns count copies of item, with commas between them.
 	repeated := func(item string, count int) string { return strings.Repeat(item+",", count-1) + item }
 	// arrayBomb returns a project-sized array of copies of item. Each item
@@ -610,6 +612,9 @@ func TestDecodeStateFileBombs(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			data := compressBomb(t, tc.input)
+			if tc.reason != reasonTooLarge && len(data) > MaxStateBytes {
+				t.Fatal("fixture exceeds the compressed admission limit")
+			}
 			runtime.GC()
 			var before, after runtime.MemStats
 			runtime.ReadMemStats(&before)
@@ -668,8 +673,12 @@ func TestStateFileWorstCaseSize(t *testing.T) {
 		t.Fatalf("project has %d bytes, want %d", size, project.MaxFileBytes)
 	}
 
+	// Saved IDs and diagnostic text can contain control bytes. Each byte
+	// then occupies six JSON bytes. The project member already fills its
+	// independent byte cap, so its node and lane IDs can remain short.
+	id = func(_ string, _ int) string { return strings.Repeat("\x01", 64) }
 	const widest = math.MinInt64
-	text := strings.Repeat("x", 1<<10)
+	text := strings.Repeat("\x01", 1<<10)
 	route := func(length int) []int {
 		indexes := make([]int, length)
 		for index := range indexes {
@@ -719,7 +728,7 @@ func TestStateFileWorstCaseSize(t *testing.T) {
 	file := stateFile{
 		Format: stateFormat, Version: stateVersion, Final: true,
 		SavedAt: time.Date(2026, time.September, 23, 9, 0, 0, 123456789, time.FixedZone("", -12*60*60)),
-		Build:   testBuildID, Epoch: strings.Repeat("E", maxEpochBytes),
+		Build:   testBuildID, Epoch: strings.Repeat("\x01", maxEpochBytes),
 		Revision: math.MaxUint64 - 1, ProjectRevision: math.MaxUint64 - 1, Generation: math.MaxUint64 - 1,
 		LastCheckpoint: math.MaxUint64, Speed: 8, RestoreAttempts: math.MaxInt, Sequences: sequences,
 		Demand: savedDemand{
@@ -770,7 +779,7 @@ func TestEncodeStateFileTooLarge(t *testing.T) {
 	file := newTestStateFile(t)
 	// A project file can hold 1e20, and the project member holds its 21
 	// digits. The project is not valid, but the encoder does not check it.
-	const weights = 400_000
+	const weights = project.MaxFileBytes/21 + 1
 	var profile project.DemandProfile
 	text := `{"id":"p","name":"P","flows":[{"from":"harbor","to":"market","weights":[` +
 		strings.Repeat("1e20,", weights-1) + `1e20]}]}`

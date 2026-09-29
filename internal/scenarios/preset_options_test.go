@@ -145,7 +145,7 @@ func TestPresetWithCapacity(t *testing.T) {
 		{
 			name: "network past the node limit", preset: "small",
 			change: func(parameters *Parameters) { parameters.Stations, parameters.PassengerBerths = 200, 20 },
-			err:    "more than the limits of 4000 and 8000",
+			err:    "more than the limits of 5000 and 8000",
 		},
 		{
 			name: "unknown preset", preset: "london",

@@ -97,8 +97,8 @@ func TestLondonWithCapacity(t *testing.T) {
 		},
 		{
 			name:   "past the node limit",
-			change: func(options *LondonOptions) { options.StationBerths, options.ParkingBerths = 4, 200 },
-			err:    "London network needs 4110 nodes, more than the limit of 4000",
+			change: func(options *LondonOptions) { options.StationBerths, options.ParkingBerths = 8, 200 },
+			err:    "London network needs 5262 nodes, more than the limit of 5000",
 		},
 		{
 			name: "pods per station",
@@ -156,12 +156,14 @@ func TestLondonWithCapacity(t *testing.T) {
 		{
 			name:   "no pod",
 			change: func(options *LondonOptions) { options.StationPods, options.ParkingPods = 0, 0 },
-			err:    "fleet has 0 pods, want 1 to 200",
+			err:    "fleet has 0 pods, want 1 to 300",
 		},
 		{
-			name:   "too many pods",
-			change: func(options *LondonOptions) { options.StationPods, options.ParkingPods = 2, 12 },
-			err:    "fleet has 228 pods, want 1 to 200",
+			name: "too many pods",
+			change: func(options *LondonOptions) {
+				options.StationBerths, options.StationPods, options.ParkingPods = 3, 3, 12
+			},
+			err: "fleet has 324 pods, want 1 to 300",
 		},
 		{
 			name:   "pitch below the floor",

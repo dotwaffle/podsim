@@ -2743,8 +2743,9 @@ func TestMaximalRequeueRoundTrip(t *testing.T) {
 		}
 	}
 	options := scenarios.DefaultLondonOptions()
-	options.StationPods, options.ParkingPods = 2, 2
-	options.Pods = map[string]int{parking: 4}
+	options.StationPods, options.ParkingPods = 2, (maxSavedPods-192)/3
+	options.StationBerths, options.ParkingBerths, options.BerthPitch = 3, 200, 40
+	options.Pods = map[string]int{parking: options.ParkingPods + (maxSavedPods-192)%3}
 	config, err := scenarios.LondonWith(options)
 	if err != nil {
 		t.Fatal(err)

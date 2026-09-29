@@ -7,8 +7,8 @@ import (
 
 const (
 	// maxSavedPods is the largest fleet that a saved state can hold. It is the
-	// project fleet limit.
-	maxSavedPods = 200
+	// project fleet limit. TestMaximalRequeueRoundTrip checks both limits.
+	maxSavedPods = 300
 	// maxSavedText is the largest saved demo error or dispatch reason in bytes.
 	maxSavedText = 1 << 10
 )

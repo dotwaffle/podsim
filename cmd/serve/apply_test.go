@@ -20,7 +20,7 @@ import (
 // the time and the memory of the request.
 func TestRunAppliesLargestProjectWithGzip(t *testing.T) {
 	if testing.Short() {
-		t.Skip("the test starts the server and applies an 8 MiB project")
+		t.Skip("the test starts the server and applies a project at the size limit")
 	}
 	t.Parallel()
 	address, stop := startRun(t, []string{"-addr", "127.0.0.1:0", "-dir", browserDirectory(t)})

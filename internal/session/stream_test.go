@@ -231,7 +231,7 @@ func TestStreamMaximumEncoding(t *testing.T) {
 	for i := range f.Routes {
 		p := sim.Pod{ID: escaped, StationID: escaped, BerthID: escaped, LaneID: escaped, BlockedBy: escaped, ManeuverStationID: escaped, Activity: sim.Activity(escaped), WaitReason: sim.WaitReason(escaped), StationPhase: sim.StationPhase(escaped), Position: sim.Point{X: math.MaxFloat64, Y: -math.MaxFloat64}, LaneDistance: math.MaxFloat64, Speed: math.MaxFloat64}
 		f.State.Simulation.Vehicles[i] = VehicleFrame{Pod: p, Riders: slices.Repeat([]sim.Request{request}, 8), Stops: slices.Repeat([]string{escaped}, 8), RelocatingTo: escaped, Rebalancing: true, PlatoonID: escaped, PlatoonIndex: math.MaxInt}
-		f.Routes[i] = sim.RoutePresentation{Identity: math.MaxUint64, Display: slices.Repeat([]int{7999}, 8000), Origin: 3999, Lanes: slices.Repeat([]int{7999}, 2048), Start: math.MaxUint64, Current: math.MaxUint64, Before: true, After: true}
+		f.Routes[i] = sim.RoutePresentation{Identity: math.MaxUint64, Display: slices.Repeat([]int{project.MaxLanes - 1}, project.MaxLanes), Origin: project.MaxNodes - 1, Lanes: slices.Repeat([]int{project.MaxLanes - 1}, sim.MotionRouteLimit), Start: math.MaxUint64, Current: math.MaxUint64, Before: true, After: true}
 	}
 	// Berths have unique nodes, so MaxNodes also bounds their total count.
 	f.State.Simulation.Berths = slices.Repeat([]sim.BerthState{{ID: escaped, Occupant: escaped, ReservedBy: escaped}}, project.MaxNodes)
@@ -246,7 +246,7 @@ func TestStreamMaximumEncoding(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(data) > 48_780_776 {
+	if len(data) > MaxStreamJSON {
 		t.Fatalf("full allowance exceeded: %d", len(data))
 	}
 	t.Logf("conservative full encoder fixture: %d bytes", len(data))
@@ -276,6 +276,14 @@ func TestStreamMaximumEncoding(t *testing.T) {
 		t.Fatal("maximum delta exceeds cap", len(data), err)
 	}
 	t.Logf("conservative delta encoder fixture: %s bytes", strconv.Itoa(len(data)))
+	compressed, err = encodeStream(e)
+	if err != nil {
+		t.Fatal(err)
+	}
+	out, err = InflateStream(compressed)
+	if err != nil || !bytes.Equal(out, data) {
+		t.Fatal("maximum delta gzip round trip", err)
+	}
 }
 
 func TestStreamLatencyWindow(t *testing.T) {

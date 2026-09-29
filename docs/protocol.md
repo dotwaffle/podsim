@@ -240,7 +240,7 @@ After a graceful shutdown starts, the server rejects new commands with `server_s
 The request must have the `application/json` content type.
 The body must be at most 4 MiB and contain one JSON command with no unknown members.
 The request can send the body with `Content-Encoding: gzip`.
-Then the 4 MiB limit applies to the compressed body, and the command JSON must be at most 8 MiB plus 64 KiB (8,454,144 bytes) after decompression.
+Then the 4 MiB limit applies to the compressed body, and the command JSON must be at most 10 MiB plus 64 KiB (10,551,296 bytes) after decompression.
 A project command that is larger than 4 MiB must use gzip.
 A gzip body must have one gzip member and no data after it.
 A request with another content encoding gets HTTP 415 with `Accept-Encoding: gzip`.
@@ -266,7 +266,7 @@ These responses also have `Cache-Control: no-store`.
 A 403, 415, or 503 reply comes before the server reads the body, and a 413 reply for a body over the 4 MiB limit comes before the end of the body.
 The server closes the connection after these replies, so it does not wait for the rest of the body.
 
-A `project` command with more than 200 stations, 4,000 nodes, 8,000 lanes, or 200 pods gets HTTP 400, because these arrays are larger than the limits above.
+A `project` command with more than 300 stations, 5,000 nodes, 8,000 lanes, or 300 pods gets HTTP 400, because these arrays are larger than the limits above.
 A station with more than 200 berths also gets HTTP 400.
 A `project` command gets `command_rejected` when the project fails validation, for example when a node has more than 64 lanes.
 A lane counts at its start node and at its end node.

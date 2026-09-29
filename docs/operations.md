@@ -74,7 +74,7 @@ docker run --rm -p 8080:8080 ghcr.io/dotwaffle/podsim:latest -addr :8080
 The `-project` option needs an existing project file.
 Mount its directory with write access for UID 65532.
 Without write access, the server rejects project applies, demand changes, and rewinds that restore a project.
-For each of these changes, the server replaces the file with compact JSON of 8 MiB or less.
+For each of these changes, the server replaces the file with compact JSON of 10 MiB or less.
 The new file belongs to UID 65532 and has mode 0600.
 
 The `-state` option needs a directory that UID 65532 can write.
@@ -257,7 +257,7 @@ It reports them as unaccounted orders at each restore, together with the orders 
   Except after a read failure, it moves `session.json.gz` to a rejected file.
 
 The reason for an `empty` start is `project_changed`, `unsupported_version`, `invalid_state`, `too_large`, `restore_loop`, or `unreadable`.
-`too_large` means more than 32 MiB, compressed or decompressed.
+`too_large` means more than 80 MiB, compressed or decompressed.
 A file with another format version gets `unsupported_version`.
 Until the first release, an added optional member with a safe zero value keeps the format version.
 The file leaves out the member when its value is zero.
@@ -345,7 +345,7 @@ A London save with 20 orders per minute, after 15 simulated minutes, allocates a
 About 8 MB of this is JSON work on the 1.5 MiB project.
 The encoder checks and formats the project text again when it adds the project to the file.
 The compressed file is about 320 KB.
-A project near the 8 MiB file limit needs more memory.
+A project near the 10 MiB file limit needs more memory.
 
 Each project apply also allocates memory for a short time.
 The server decompresses, checks, and decodes the command, then validates and starts the project.
