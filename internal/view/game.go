@@ -299,6 +299,10 @@ func (g *Game) tickNotice() {
 func (g *Game) updateMapInput(pointer pointerTransform) bool {
 	x, y := ebiten.CursorPosition()
 	point := pointer.apply(sim.Point{X: float64(x), Y: float64(y)})
+	if inpututil.IsMouseButtonJustPressed(ebiten.MouseButtonRight) {
+		g.rightClick(point)
+		return false
+	}
 	if _, wheelY := ebiten.Wheel(); wheelY != 0 && g.camera.contains(point) {
 		factor := wheelZoomFactor(wheelY, runtime.GOOS == "js")
 		if g.camera.zoomAt(point, factor) {

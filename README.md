@@ -187,7 +187,9 @@ See [distribution and operations](docs/operations.md) for build and runtime sett
   An idle pod is white, so it looks different from the gray node dots and berth rings.
 - A berth ring shows the color of a moving or busy pod in the berth.
   A berth with an idle pod keeps the gray ring.
-  The pod number shows above and to the right of the pod, outside the berth ring.
+  The pod number shows above and to the right of the pod.
+  The next station code appears below it when known, including the pickup station on a pickup run.
+  Idle pods show only their number.
 - An amber ring around a pod marks a waiting pod.
   A white ring marks the selected pod.
 - A white line joins each pod in a [virtual platoon](#virtual-platoons) to the pod ahead of it.
@@ -302,7 +304,8 @@ See [the London qualification network](docs/london.md) for these rules.
 ### Playback
 
 - Use **Pause**, **Resume**, **Reset**, and **Speed** to control playback.
-- **Speed** cycles through 1x, 2x, 5x, 15x, and 60x.
+- Left-click **Speed** or press **S** to cycle through 1x, 2x, 5x, 15x, and 60x.
+  Right-click **Speed** to step backward through these choices.
   The server tracks five rolling one-second buckets.
   If at least two complete buckets achieve less than 90% of selected speed, it selects the next lower speed.
   A notice explains the reduction.
