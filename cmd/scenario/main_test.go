@@ -217,6 +217,7 @@ func TestScenarioJSONFitsFileLimit(t *testing.T) {
 		{name: "cannot fit", limit: 1, wantError: true},
 	} {
 		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
 			data, err := scenarioJSON(config, test.limit)
 			if test.wantError {
 				if err == nil {
@@ -234,8 +235,8 @@ func TestScenarioJSONFitsFileLimit(t *testing.T) {
 				t.Fatalf("indented = %t, want %t", got, test.wantIndented)
 			}
 			var decoded project.Config
-			if err := json.Unmarshal(data, &decoded); err != nil {
-				t.Fatal(err)
+			if decodeErr := json.Unmarshal(data, &decoded); decodeErr != nil {
+				t.Fatal(decodeErr)
 			}
 			want, err := json.Marshal(config)
 			if err != nil {
@@ -288,6 +289,7 @@ func TestLondonFullCapacityFlagsPreserveDefaults(t *testing.T) {
 		{name: "uniform override", flags: []string{"-station-berths", "2"}, heathrow: 2, kingsCross: 2},
 	} {
 		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
 			config, _ := generate(t, append([]string{"-preset", "london-full"}, test.flags...)...)
 			for id, count := range map[string]int{"940GZZLUHRC": test.heathrow, "940GZZLUKSX": test.kingsCross} {
 				station, ok := config.Network.Station(id)

@@ -393,10 +393,10 @@ func checkLondonSize(network sim.Network, source londonSource, portals map[strin
 		lanes += len(station.arrivals) + len(station.departures) + 3 + 4*berths
 	}
 	if nodes > project.MaxNodes {
-		return fmt.Errorf("London network needs %d nodes, more than the limit of %d", nodes, project.MaxNodes)
+		return fmt.Errorf("generated London network needs %d nodes, more than the limit of %d", nodes, project.MaxNodes)
 	}
 	if lanes > project.MaxLanes {
-		return fmt.Errorf("London network needs %d lanes, more than the limit of %d", lanes, project.MaxLanes)
+		return fmt.Errorf("generated London network needs %d lanes, more than the limit of %d", lanes, project.MaxLanes)
 	}
 	return nil
 }

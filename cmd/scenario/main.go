@@ -9,6 +9,7 @@ import (
 	"flag"
 	"fmt"
 	"io"
+	"maps"
 	"os"
 	"slices"
 	"strconv"
@@ -164,9 +165,7 @@ func londonPresetConfig(name string, options capacity) (project.Config, error) {
 		if london.Berths == nil {
 			london.Berths = make(map[string]int)
 		}
-		for id, count := range options.berths {
-			london.Berths[id] = count
-		}
+		maps.Copy(london.Berths, options.berths)
 	}
 	if options.set["berth-pitch"] {
 		london.BerthPitch = options.berthPitch
