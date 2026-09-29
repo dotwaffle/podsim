@@ -79,9 +79,139 @@ Increasing each Parking reserve from six to ten pods did not improve it.
 The preset retains demand-weighted berth space and the existing six-pod Parking reserves.
 These trials do not prove a performance benefit from that extra capacity.
 A passing layout audit does not qualify a demand rate.
-The full qualification envelope has not been run.
+These initial checks preceded the finite-arrival study below.
+They do not establish a complete qualification envelope.
 
 The project limits admit 5,000 nodes, 300 stations and pods, 65,000 flows, and 10 MiB of project JSON.
 The saved-state cap is 80 MiB, including the conservative case with JSON-escaped IDs and diagnostic text.
 Stream caps remain 64 MiB of JSON and 65 MiB of gzip data.
 The lane, junction-pair, and track-cell limits remain unchanged.
+
+## Finite-arrival study, September 29, 2026
+
+The study used 60 minutes of arrivals and at most 60 additional minutes to complete them.
+A recovery pass means all scheduled requests completed by minute 120, with no skipped demand or sampled safety/accounting failure.
+This finite recovery test does not establish indefinitely sustainable demand.
+A run can pass its safety assertions and still fail to recover.
+
+The baseline used the unchanged 287-pod preset, with sharing and redistribution off, free-flow routing, and virtual platooning.
+The source and study binary were frozen at `677e62b`.
+Later dependency and client changes through `04af058` did not change the simulation, scenario generator, or comparison command.
+All six demand bands used nominal rates 5, 10, 15, 20, 30, and 40 requests/minute with seeds 1 through 3.
+Morning also used rates 1 and 2 because none of its initial rates recovered in all three seeds.
+The selected lower and next higher tested rates then used seeds 4 through 10.
+The baseline contains 198 distinct arms: 108 initial, 6 edge, and 84 confirmation arms.
+
+Each schedule has `60 * rate - 1` requests, so its actual offered rate is nominal rate minus `1/60`.
+The same band/rate/seed uses the same request times and OD pairs across configurations.
+The archived 198 gzip rosters contain 189,582 requests.
+Independent decoding reproduced each schedule ID and verified every arrival tick and positive-weight OD pair.
+
+| Band | Nominal rate | Recovered, seeds 1-10 | Late throughput | Backlog change | Max unfinished |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| Morning | 2 | 10/10 | 1.67 to 2.13 | -4 to 10 | 0 |
+| Morning | 5 | 8/10 | 4.33 to 4.93 | 2 to 20 | 2 |
+| AM peak | 10 | 9/10 | 8.77 to 9.67 | 10 to 37 | 2 |
+| AM peak | 15 | 8/10 | 12.80 to 14.33 | 20 to 66 | 3 |
+| Interpeak | 15 | 9/10 | 13.90 to 15.37 | -11 to 33 | 1 |
+| Interpeak | 20 | 0/10 | 15.43 to 17.23 | 83 to 137 | 6 |
+| PM peak | 10 | 10/10 | 9.17 to 10.13 | -4 to 25 | 0 |
+| PM peak | 15 | 5/10 | 12.40 to 13.93 | 32 to 78 | 2 |
+| Evening | 10 | 10/10 | 8.90 to 9.67 | 10 to 33 | 0 |
+| Evening | 15 | 3/10 | 12.50 to 13.70 | 39 to 75 | 2 |
+| Late | 10 | 10/10 | 8.43 to 9.33 | 20 to 47 | 0 |
+| Late | 15 | 2/10 | 11.53 to 12.43 | 77 to 104 | 3 |
+
+Late throughput counts completions during arrival minutes 30 through 60, in requests/minute.
+Backlog change covers the same interval and can be negative.
+Ranges span the ten seeds, and unfinished counts show the largest final remainder.
+AM peak at 10 and Interpeak at 15 recovered in the first three seeds, but not all ten.
+Their lower tested rates have only three seeds, so they do not establish ten-seed recovery bounds.
+AM peak seed 8 failed at 10 and recovered at 15 requests/minute.
+Do not assume monotonic results or passing rates between tested points.
+
+### Fleet candidates
+
+The study screened three configurations with unchanged geometry, demand, and operating policies.
+`fleet300` added 13 pods and retained the 18 Parking pods.
+`fleet287-local` moved those 18 Parking pods to passenger stations without changing the fleet size.
+`fleet300-local` combined local placement with a 300-pod fleet.
+Each placement retained at least one free berth at its selected passenger station.
+The extra-pod allocation differs between the two 300-pod candidates, so their difference does not isolate the Parking relocation.
+
+Baseline Interpeak at 20 and Evening/Late at 15 used all 287 pods in the initial seeds.
+Empty travel was 36.8% to 44.9%, with peak stopped counts of 3 to 6.
+The placement score used each station's largest origin-demand share across bands divided by its proposed local pod count plus one.
+These observations motivated the candidates but did not identify a causal station bottleneck.
+The study did not change routes, dispatch rules, berths, defaults, or implementation limits.
+
+All three candidates screened all six bands at the initial baseline recovery boundary, using seeds 1 through 3.
+The predeclared score compared recovery count, unfinished demand, longest elapsed run, then mean seed request-to-alight time.
+Every candidate with three recoveries and a better score received a next-rate test.
+Every next-rate candidate with three recoveries received seeds 4 through 10 at that rate.
+This exploratory selection does not establish statistical significance.
+
+| Candidate | Band | Screen rate: recovered / 3 | Next rate: recovered / tested |
+| --- | --- | ---: | ---: |
+| `fleet300` | Morning | 2: 3/3 | 5: 2/3 |
+| `fleet300` | AM peak | 10: 2/3 | not selected |
+| `fleet300` | Interpeak | 15: 3/3 | not selected |
+| `fleet300` | PM peak | 10: 3/3 | 15: 9/10 |
+| `fleet300` | Evening | 10: 3/3 | 15: 9/10 |
+| `fleet300` | Late | 10: 3/3 | not selected |
+| `fleet300-local` | Morning | 2: 3/3 | 5: 1/3 |
+| `fleet300-local` | AM peak | 10: 1/3 | not selected |
+| `fleet300-local` | Interpeak | 15: 3/3 | 20: 1/3 |
+| `fleet300-local` | PM peak | 10: 3/3 | 15: 1/3 |
+| `fleet300-local` | Evening | 10: 3/3 | 15: 1/3 |
+| `fleet300-local` | Late | 10: 3/3 | 15: 1/3 |
+| `fleet287-local` | Morning | 2: 3/3 | 5: 2/3 |
+| `fleet287-local` | AM peak | 10: 1/3 | not selected |
+| `fleet287-local` | Interpeak | 15: 3/3 | not selected |
+| `fleet287-local` | PM peak | 10: 3/3 | 15: 1/3 |
+| `fleet287-local` | Evening | 10: 3/3 | 15: 1/3 |
+| `fleet287-local` | Late | 10: 3/3 | 15: 2/3 |
+
+A next-rate denominator of 3 contains the initial seeds only.
+A denominator of 10 includes the seven confirmation seeds.
+"Not selected" means the screen did not meet the predeclared rule, not that the next rate passed.
+
+The complete study contains 302 distinct arms: 198 baseline, 54 screens, 36 next-rate tests, and 14 confirmation tests.
+All planned and conditional arms have confirmed successful test-process exits.
+`fleet300` recovered in 9 of 10 seeds at rate 15 in both PM peak and Evening, compared with baseline counts of 5 and 3.
+Each of these two failed confirmation seeds left one unfinished request.
+Neither result meets the all-ten recovery criterion.
+No candidate established an all-ten recovery improvement at its next tested rate.
+The preset and its defaults remain unchanged.
+
+### Metrics, checks, and retained failures
+
+[Per-arm measurements](measurements/london-full-capacity.csv) retain every result field, including unfinished requests and all required wait, journey, backlog, throughput, fleet, distance, and drain metrics.
+Rows identify the project, study phase, seed group, source commit, accounting oracle, schedule ID, and raw artifact.
+[Study metadata](measurements/london-full-capacity.json) records configuration hashes, exact fleet changes, schedule hashes, and selection decisions.
+Pickup statistics include elapsed pending waits.
+Request-to-alight statistics include completed requests only.
+`peak_active_vehicles` counts vehicles with assigned work.
+For failed recovery, `drain_seconds=0` is a sentinel, not a successful zero-duration drain.
+
+The local artifact bundle is `~/.cache/agents/podsim/londonfull-capacity-study-20260929`.
+It retains full configurations, request rosters, frozen source, helpers, binary hashes, commands, logs, and incomplete historical inventory.
+The first baseline run stopped at Morning, rate 15, seed 1 because its final oracle omitted two pending requests.
+The corrected census checks boarded timings plus pending requests against submitted requests, with uniqueness and completion checks.
+The original 40 passing rows had no pending requests and remain valid.
+A later supervisor stopped without a final marker.
+Its 15 unconfirmed or unstarted rows were rerun, including four inner test passes without outer exit markers.
+The 83 superseded historical inventory entries are not 83 executed attempts.
+
+All confirmed matrix arms checked separation, speed, berth ownership, and request accounting once per simulated second.
+Selected Interpeak boundary continuations also checked every tick, including physical restores.
+Baseline rates 15 and 20, plus `fleet300-local` rate 15, each used seed 1 at minute 60.
+Each live clone and restore continued for 60 seconds with no new arrivals, with 3,601 observations at 60 Hz.
+These continuations do not prove every-tick safety for the full matrix or identical restored trajectories.
+
+An isolated implementation-limit feasibility probe changed only the 300-pod limit and its editor mirror to 400.
+The existing conservative payload fixtures failed.
+No 400-pod scenario or demand trial existed.
+Its worst-case full JSON was 78,625,591 bytes, above 64 MiB.
+Its saved-state JSON was 101,378,967 bytes, above 80 MiB.
+The limit change was rejected, and the production limits remained unchanged.

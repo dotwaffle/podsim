@@ -1,0 +1,2850 @@
+{
+  "source_commit": "677e62bf6e108c2bdd00e2831948b323eec3bef3",
+  "source_provenance": {
+    "base_commit": "677e62bf6e108c2bdd00e2831948b323eec3bef3",
+    "files": {
+      "capacity/full.json": "0383116025818e73cd371cba29f97fd820fcc11fdb0d5ea9ed158e22fee86926",
+      "capacity/study.test": "8207f2d66442d3be44f53ae0045b5baa65a386578c063394055808d35df53ddd",
+      "capacity/study-v2.test": "5a86a887742a257549e757825eb57b2b05991ca0a24ce5a92e981e414ccc6f03",
+      "repo/go.mod": "86a6883fdf4b977a157bf34f05bfe7dcba4643d112ee2d6c8ccf7b46c276cbbc",
+      "repo/go.sum": "c124689b61512a231cb720dd2b4aa3060b689c2081e7e514c9a3fe69019e52f9",
+      "repo/cmd/compare/main.go": "ca4818e245bcc048811454a8dc06813a8cdb9b38e2f9f01631211d62a47f3105"
+    },
+    "oracle_correction": "RequestTimings counts boarded requests. Include pending in final census. Original40 passing arms had zero pending, so their stricter check implies corrected check. Failed and67 unstarted arms rerun. Per-second safety checks and counts unchanged. Independent review map_provider READY. All input lane limits14m/s."
+  },
+  "artifact_bundle": "londonfull-capacity-study-20260929",
+  "arrival_seconds": 3600,
+  "maximum_end_seconds": 7200,
+  "ticks_per_second": 60,
+  "projects": [
+    {
+      "project_id": "full",
+      "sha256": "0383116025818e73cd371cba29f97fd820fcc11fdb0d5ea9ed158e22fee86926",
+      "pods": 287,
+      "changes": [],
+      "removed_pod_ids": []
+    },
+    {
+      "project_id": "fleet300",
+      "sha256": "06570fb40f6fe6b847cf80232d11b41df2c69ac9f01f4ad5ae12c2aae8265ef5",
+      "pods": 300,
+      "changes": [
+        {
+          "ID": "study-extra-001",
+          "StationID": "940GZZLUWLO",
+          "BerthID": "940GZZLUWLO-02"
+        },
+        {
+          "ID": "study-extra-002",
+          "StationID": "940GZZLUTCR",
+          "BerthID": "940GZZLUTCR-02"
+        },
+        {
+          "ID": "study-extra-003",
+          "StationID": "940GZZLULSQ",
+          "BerthID": "940GZZLULSQ-02"
+        },
+        {
+          "ID": "study-extra-004",
+          "StationID": "940GZZLUOXC",
+          "BerthID": "940GZZLUOXC-02"
+        },
+        {
+          "ID": "study-extra-005",
+          "StationID": "940GZZLUPCC",
+          "BerthID": "940GZZLUPCC-02"
+        },
+        {
+          "ID": "study-extra-006",
+          "StationID": "940GZZLUKSX",
+          "BerthID": "940GZZLUKSX-02"
+        },
+        {
+          "ID": "study-extra-007",
+          "StationID": "940GZZLUWLO",
+          "BerthID": "940GZZLUWLO-03"
+        },
+        {
+          "ID": "study-extra-008",
+          "StationID": "940GZZLUTCR",
+          "BerthID": "940GZZLUTCR-03"
+        },
+        {
+          "ID": "study-extra-009",
+          "StationID": "940GZZLUGPK",
+          "BerthID": "940GZZLUGPK-02"
+        },
+        {
+          "ID": "study-extra-010",
+          "StationID": "940GZZLUNGW",
+          "BerthID": "940GZZLUNGW-02"
+        },
+        {
+          "ID": "study-extra-011",
+          "StationID": "940GZZLULSQ",
+          "BerthID": "940GZZLULSQ-03"
+        },
+        {
+          "ID": "study-extra-012",
+          "StationID": "940GZZLUOXC",
+          "BerthID": "940GZZLUOXC-03"
+        },
+        {
+          "ID": "study-extra-013",
+          "StationID": "940GZZLUPCC",
+          "BerthID": "940GZZLUPCC-03"
+        }
+      ],
+      "removed_pod_ids": []
+    },
+    {
+      "project_id": "fleet300-local",
+      "sha256": "b0de75747b7730dc418f6bf77e1f11531ee0ef9fa5063e477578c31a653bb604",
+      "pods": 300,
+      "changes": [
+        {
+          "ID": "london-pod-270",
+          "StationID": "940GZZLUWLO",
+          "BerthID": "940GZZLUWLO-02"
+        },
+        {
+          "ID": "london-pod-271",
+          "StationID": "940GZZLUTCR",
+          "BerthID": "940GZZLUTCR-02"
+        },
+        {
+          "ID": "london-pod-272",
+          "StationID": "940GZZLULSQ",
+          "BerthID": "940GZZLULSQ-02"
+        },
+        {
+          "ID": "london-pod-273",
+          "StationID": "940GZZLUOXC",
+          "BerthID": "940GZZLUOXC-02"
+        },
+        {
+          "ID": "london-pod-274",
+          "StationID": "940GZZLUPCC",
+          "BerthID": "940GZZLUPCC-02"
+        },
+        {
+          "ID": "london-pod-275",
+          "StationID": "940GZZLUKSX",
+          "BerthID": "940GZZLUKSX-02"
+        },
+        {
+          "ID": "london-pod-276",
+          "StationID": "940GZZLUWLO",
+          "BerthID": "940GZZLUWLO-03"
+        },
+        {
+          "ID": "london-pod-277",
+          "StationID": "940GZZLUTCR",
+          "BerthID": "940GZZLUTCR-03"
+        },
+        {
+          "ID": "london-pod-278",
+          "StationID": "940GZZLUGPK",
+          "BerthID": "940GZZLUGPK-02"
+        },
+        {
+          "ID": "london-pod-279",
+          "StationID": "940GZZLUNGW",
+          "BerthID": "940GZZLUNGW-02"
+        },
+        {
+          "ID": "london-pod-280",
+          "StationID": "940GZZLULSQ",
+          "BerthID": "940GZZLULSQ-03"
+        },
+        {
+          "ID": "london-pod-281",
+          "StationID": "940GZZLUOXC",
+          "BerthID": "940GZZLUOXC-03"
+        },
+        {
+          "ID": "london-pod-282",
+          "StationID": "940GZZLUPCC",
+          "BerthID": "940GZZLUPCC-03"
+        },
+        {
+          "ID": "london-pod-283",
+          "StationID": "940GZZLUWLO",
+          "BerthID": "940GZZLUWLO-04"
+        },
+        {
+          "ID": "london-pod-284",
+          "StationID": "940GZZLUVIC",
+          "BerthID": "940GZZLUVIC-02"
+        },
+        {
+          "ID": "london-pod-285",
+          "StationID": "940GZZLULNB",
+          "BerthID": "940GZZLULNB-02"
+        },
+        {
+          "ID": "london-pod-286",
+          "StationID": "940GZZLULVT",
+          "BerthID": "940GZZLULVT-02"
+        },
+        {
+          "ID": "london-pod-287",
+          "StationID": "940GZZLUKSX",
+          "BerthID": "940GZZLUKSX-03"
+        },
+        {
+          "ID": "study-extra-001",
+          "StationID": "940GZZLUPAC",
+          "BerthID": "940GZZLUPAC-02"
+        },
+        {
+          "ID": "study-extra-002",
+          "StationID": "940GZZLUBND",
+          "BerthID": "940GZZLUBND-02"
+        },
+        {
+          "ID": "study-extra-003",
+          "StationID": "940GZZLUCYF",
+          "BerthID": "940GZZLUCYF-02"
+        },
+        {
+          "ID": "study-extra-004",
+          "StationID": "940GZZLUHSD",
+          "BerthID": "940GZZLUHSD-02"
+        },
+        {
+          "ID": "study-extra-005",
+          "StationID": "940GZZLUNGW",
+          "BerthID": "940GZZLUNGW-03"
+        },
+        {
+          "ID": "study-extra-006",
+          "StationID": "940GZZLUEMB",
+          "BerthID": "940GZZLUEMB-02"
+        },
+        {
+          "ID": "study-extra-007",
+          "StationID": "940GZZLUFCN",
+          "BerthID": "940GZZLUFCN-02"
+        },
+        {
+          "ID": "study-extra-008",
+          "StationID": "940GZZLUSTD",
+          "BerthID": "940GZZLUSTD-02"
+        },
+        {
+          "ID": "study-extra-009",
+          "StationID": "940GZZLUBKG",
+          "BerthID": "940GZZLUBKG-02"
+        },
+        {
+          "ID": "study-extra-010",
+          "StationID": "940GZZLUKSX",
+          "BerthID": "940GZZLUKSX-04"
+        },
+        {
+          "ID": "study-extra-011",
+          "StationID": "940GZZLUHBN",
+          "BerthID": "940GZZLUHBN-02"
+        },
+        {
+          "ID": "study-extra-012",
+          "StationID": "940GZZLUVIC",
+          "BerthID": "940GZZLUVIC-03"
+        },
+        {
+          "ID": "study-extra-013",
+          "StationID": "940GZZLUCHX",
+          "BerthID": "940GZZLUCHX-02"
+        }
+      ],
+      "removed_pod_ids": []
+    },
+    {
+      "project_id": "fleet287-local",
+      "sha256": "c93efb13400fd6e655b2f3196ca519c59498f47cfbe8ee0ae5ed01f8c1ad1b0a",
+      "pods": 287,
+      "changes": [
+        {
+          "ID": "london-pod-270",
+          "StationID": "940GZZLUWLO",
+          "BerthID": "940GZZLUWLO-02"
+        },
+        {
+          "ID": "london-pod-271",
+          "StationID": "940GZZLUTCR",
+          "BerthID": "940GZZLUTCR-02"
+        },
+        {
+          "ID": "london-pod-272",
+          "StationID": "940GZZLULSQ",
+          "BerthID": "940GZZLULSQ-02"
+        },
+        {
+          "ID": "london-pod-273",
+          "StationID": "940GZZLUOXC",
+          "BerthID": "940GZZLUOXC-02"
+        },
+        {
+          "ID": "london-pod-274",
+          "StationID": "940GZZLUPCC",
+          "BerthID": "940GZZLUPCC-02"
+        },
+        {
+          "ID": "london-pod-275",
+          "StationID": "940GZZLUKSX",
+          "BerthID": "940GZZLUKSX-02"
+        },
+        {
+          "ID": "london-pod-276",
+          "StationID": "940GZZLUWLO",
+          "BerthID": "940GZZLUWLO-03"
+        },
+        {
+          "ID": "london-pod-277",
+          "StationID": "940GZZLUTCR",
+          "BerthID": "940GZZLUTCR-03"
+        },
+        {
+          "ID": "london-pod-278",
+          "StationID": "940GZZLUGPK",
+          "BerthID": "940GZZLUGPK-02"
+        },
+        {
+          "ID": "london-pod-279",
+          "StationID": "940GZZLUNGW",
+          "BerthID": "940GZZLUNGW-02"
+        },
+        {
+          "ID": "london-pod-280",
+          "StationID": "940GZZLULSQ",
+          "BerthID": "940GZZLULSQ-03"
+        },
+        {
+          "ID": "london-pod-281",
+          "StationID": "940GZZLUOXC",
+          "BerthID": "940GZZLUOXC-03"
+        },
+        {
+          "ID": "london-pod-282",
+          "StationID": "940GZZLUPCC",
+          "BerthID": "940GZZLUPCC-03"
+        },
+        {
+          "ID": "london-pod-283",
+          "StationID": "940GZZLUWLO",
+          "BerthID": "940GZZLUWLO-04"
+        },
+        {
+          "ID": "london-pod-284",
+          "StationID": "940GZZLUVIC",
+          "BerthID": "940GZZLUVIC-02"
+        },
+        {
+          "ID": "london-pod-285",
+          "StationID": "940GZZLULNB",
+          "BerthID": "940GZZLULNB-02"
+        },
+        {
+          "ID": "london-pod-286",
+          "StationID": "940GZZLULVT",
+          "BerthID": "940GZZLULVT-02"
+        },
+        {
+          "ID": "london-pod-287",
+          "StationID": "940GZZLUKSX",
+          "BerthID": "940GZZLUKSX-03"
+        }
+      ],
+      "removed_pod_ids": []
+    }
+  ],
+  "schedule_rosters": {
+    "rosters": 198,
+    "requests": 189582,
+    "hash_recipe": "SHA-256 of UTF-8 tick:origin>destination followed by newline per request; schedule ID is first 8 bytes in hexadecimal",
+    "files": [
+      {
+        "file": "am-peak-r10-s1.json.gz",
+        "compressed_sha256": "f74eaa795eebc74d982c315751bb4357ff43b3b55ce3cb259087b8eba0ed02b2",
+        "request_stream_sha256": "e322e62405fcf19e5e3f2d2276a6fcaca6c7f992beca346594b81a8ec059139c",
+        "band": "am-peak",
+        "rate": 10,
+        "seed": 1,
+        "schedule_id": "e322e62405fcf19e",
+        "scheduled": 599
+      },
+      {
+        "file": "am-peak-r10-s10.json.gz",
+        "compressed_sha256": "9bf49c09e84a873cc0f26f87ee104596c243d24eaeaf3be0506e00756c671be5",
+        "request_stream_sha256": "f0f19634d70d65facaacf1d5a43d6a5125bc98461117a181d80d28bb51ff2bb8",
+        "band": "am-peak",
+        "rate": 10,
+        "seed": 10,
+        "schedule_id": "f0f19634d70d65fa",
+        "scheduled": 599
+      },
+      {
+        "file": "am-peak-r10-s2.json.gz",
+        "compressed_sha256": "992778dec4e2c91b80486344c909a56735e047dbd00d0caf3f8a1ea4143ba0e6",
+        "request_stream_sha256": "56437d285c16cf39018d76c88daa01aafd0c12d3f25e2cca3c4d49e6cb84416f",
+        "band": "am-peak",
+        "rate": 10,
+        "seed": 2,
+        "schedule_id": "56437d285c16cf39",
+        "scheduled": 599
+      },
+      {
+        "file": "am-peak-r10-s3.json.gz",
+        "compressed_sha256": "9381b03025fd97810e0278ade092ee07512b1916d08f0939c684433416b575a1",
+        "request_stream_sha256": "8d3de711a4ae70d3849ce57be14bb1e41757dd702d25b4375bf913cab1af432f",
+        "band": "am-peak",
+        "rate": 10,
+        "seed": 3,
+        "schedule_id": "8d3de711a4ae70d3",
+        "scheduled": 599
+      },
+      {
+        "file": "am-peak-r10-s4.json.gz",
+        "compressed_sha256": "7ac5cf50be5c7f2b00642f91902a355a4fc0599bb677e1a27bd1ef53f3bc949e",
+        "request_stream_sha256": "3f9916929220aff16ba1057b7aaf5aaea26bd16758bd04e913175735337f42e3",
+        "band": "am-peak",
+        "rate": 10,
+        "seed": 4,
+        "schedule_id": "3f9916929220aff1",
+        "scheduled": 599
+      },
+      {
+        "file": "am-peak-r10-s5.json.gz",
+        "compressed_sha256": "076a7bb8c50ce30d66c75e43ee57411ae9a941586defe5d2fb6512d10e9012df",
+        "request_stream_sha256": "8e4db06ff5b411c495bf71309a5a09e93a1523320d22127d124b16f548784f45",
+        "band": "am-peak",
+        "rate": 10,
+        "seed": 5,
+        "schedule_id": "8e4db06ff5b411c4",
+        "scheduled": 599
+      },
+      {
+        "file": "am-peak-r10-s6.json.gz",
+        "compressed_sha256": "240a7b1cbbe3723c61a63510db09f86c0ef7807e568c3947fac9e5691c84be52",
+        "request_stream_sha256": "4b0dbb7f21b4fd799fcf4ff8aacacab8f7ea935d09a9fb3ffaca00c787bdbe68",
+        "band": "am-peak",
+        "rate": 10,
+        "seed": 6,
+        "schedule_id": "4b0dbb7f21b4fd79",
+        "scheduled": 599
+      },
+      {
+        "file": "am-peak-r10-s7.json.gz",
+        "compressed_sha256": "b1abaf6f672ffee1aa06e6614455676c915e46ab8a5f1cf0d45d78d9f104dc63",
+        "request_stream_sha256": "28a9cfb8b457eaab18291415111049765073096483a8aafff661d0e34670f750",
+        "band": "am-peak",
+        "rate": 10,
+        "seed": 7,
+        "schedule_id": "28a9cfb8b457eaab",
+        "scheduled": 599
+      },
+      {
+        "file": "am-peak-r10-s8.json.gz",
+        "compressed_sha256": "928c1f9bb06cef8e1b19f11051078f87f53978f6cf6f644896aa853701ee1547",
+        "request_stream_sha256": "317477cf646509bcf7b9068ef58c03206d88a7035569e1fbe55f24d9247bd673",
+        "band": "am-peak",
+        "rate": 10,
+        "seed": 8,
+        "schedule_id": "317477cf646509bc",
+        "scheduled": 599
+      },
+      {
+        "file": "am-peak-r10-s9.json.gz",
+        "compressed_sha256": "98abf40d568fb2a423b869d61fb30881cde200a4553044025fbc4a425308d9c3",
+        "request_stream_sha256": "046b72925d38a9b7646c7090eb32970a4596e824188e4e7312ad2da7e0ddd832",
+        "band": "am-peak",
+        "rate": 10,
+        "seed": 9,
+        "schedule_id": "046b72925d38a9b7",
+        "scheduled": 599
+      },
+      {
+        "file": "am-peak-r15-s1.json.gz",
+        "compressed_sha256": "272512e43b41c3fc8b040a0787b2c318d4ed4eaf1c4b478a7634d2b5c582fe6e",
+        "request_stream_sha256": "60b9276e32153023e3214b2b384c0984e22da53697ae8d447cef0c9aa71e5d4e",
+        "band": "am-peak",
+        "rate": 15,
+        "seed": 1,
+        "schedule_id": "60b9276e32153023",
+        "scheduled": 899
+      },
+      {
+        "file": "am-peak-r15-s10.json.gz",
+        "compressed_sha256": "8e14f1a38ff7f39adb66d6bc459403f8d75bc2ca68e82540e7cd340fc36bdd12",
+        "request_stream_sha256": "abdb37ad8df9d07d4f697e4c75df4c6b55e892011c0fd7d46fbddbda91d98404",
+        "band": "am-peak",
+        "rate": 15,
+        "seed": 10,
+        "schedule_id": "abdb37ad8df9d07d",
+        "scheduled": 899
+      },
+      {
+        "file": "am-peak-r15-s2.json.gz",
+        "compressed_sha256": "43d654e09996943c6232815b1d84d2be11b14eec720b49af7f7fa1d2853d3fb3",
+        "request_stream_sha256": "ec25ba5d5ea6a9be897a10917a89c50d3608cd13841eec19d57d6b3fc6abe564",
+        "band": "am-peak",
+        "rate": 15,
+        "seed": 2,
+        "schedule_id": "ec25ba5d5ea6a9be",
+        "scheduled": 899
+      },
+      {
+        "file": "am-peak-r15-s3.json.gz",
+        "compressed_sha256": "21698478e2df6cf2e70a871d92e4f4a2baead1c5b9c5f98d4fa781926ea35978",
+        "request_stream_sha256": "492cb3c7e6b6c6441140b6e2e24d9334f508a92f1b793529c0a5fcd9c9366566",
+        "band": "am-peak",
+        "rate": 15,
+        "seed": 3,
+        "schedule_id": "492cb3c7e6b6c644",
+        "scheduled": 899
+      },
+      {
+        "file": "am-peak-r15-s4.json.gz",
+        "compressed_sha256": "904a293650bd1e8ef22b1aed224d9f3fc5b614e3448c2a998667c9c50a73e2a8",
+        "request_stream_sha256": "fc82cb4e32fcc27f923816872f1d563987f6451c4a81e8bee4f3bba6b9dba3f7",
+        "band": "am-peak",
+        "rate": 15,
+        "seed": 4,
+        "schedule_id": "fc82cb4e32fcc27f",
+        "scheduled": 899
+      },
+      {
+        "file": "am-peak-r15-s5.json.gz",
+        "compressed_sha256": "be1990da03525fbd015d845829be139f4c51e555bc63b1cf79d650660da420da",
+        "request_stream_sha256": "d8614f8187758aeb0a12746005faf1aa4113e9277c2e1585139849bf281af60e",
+        "band": "am-peak",
+        "rate": 15,
+        "seed": 5,
+        "schedule_id": "d8614f8187758aeb",
+        "scheduled": 899
+      },
+      {
+        "file": "am-peak-r15-s6.json.gz",
+        "compressed_sha256": "6f09d95af15228cfdd978a89ce8c7b84b3d4e0aa52988dfe6c166101f33c0b6f",
+        "request_stream_sha256": "257dee7b2f853a4d33953a22629b5841a31bd21d0c115da4d3eb5f5b1600c8af",
+        "band": "am-peak",
+        "rate": 15,
+        "seed": 6,
+        "schedule_id": "257dee7b2f853a4d",
+        "scheduled": 899
+      },
+      {
+        "file": "am-peak-r15-s7.json.gz",
+        "compressed_sha256": "9ce2574e840cbd21facfc9fab3f00a623ddec740aa445c3456be6935096e685d",
+        "request_stream_sha256": "492a7c681af2522cdcd6d5e85bea900d94341c3d9dc996b6f5e5e19028b7e6aa",
+        "band": "am-peak",
+        "rate": 15,
+        "seed": 7,
+        "schedule_id": "492a7c681af2522c",
+        "scheduled": 899
+      },
+      {
+        "file": "am-peak-r15-s8.json.gz",
+        "compressed_sha256": "6418842121096ada4902ec78e94e1f8ec923509f9ca551db124fa278577d6626",
+        "request_stream_sha256": "0570e63a865ecabd2f79c0d0a4785eabedb79d22dec48f846e0ae3500d5b7937",
+        "band": "am-peak",
+        "rate": 15,
+        "seed": 8,
+        "schedule_id": "0570e63a865ecabd",
+        "scheduled": 899
+      },
+      {
+        "file": "am-peak-r15-s9.json.gz",
+        "compressed_sha256": "b801cd9b3bce62495d9b682d220382d75b5246568b2a1f06d469dbdc3c10ff4e",
+        "request_stream_sha256": "631118a91f1cc260d62e1aaa3e832e793c6ff4e2f07025250a794d689e6047ff",
+        "band": "am-peak",
+        "rate": 15,
+        "seed": 9,
+        "schedule_id": "631118a91f1cc260",
+        "scheduled": 899
+      },
+      {
+        "file": "am-peak-r20-s1.json.gz",
+        "compressed_sha256": "3be238295e598c8393eec33ad51ca4fa0851aa3f9938176c60d8fe95130b44cb",
+        "request_stream_sha256": "2afb738ab31b68cfc2f49ab655c0a3d619baaf933dc77eab5dd7491d45844137",
+        "band": "am-peak",
+        "rate": 20,
+        "seed": 1,
+        "schedule_id": "2afb738ab31b68cf",
+        "scheduled": 1199
+      },
+      {
+        "file": "am-peak-r20-s2.json.gz",
+        "compressed_sha256": "381dd413df805991eb9777712266cc64dee002240d352549afbc69185c8dfb91",
+        "request_stream_sha256": "68f92bce2004d9fd49128d7e08570a21ce5ca28f3dbdf8912a5c4ffe88d09898",
+        "band": "am-peak",
+        "rate": 20,
+        "seed": 2,
+        "schedule_id": "68f92bce2004d9fd",
+        "scheduled": 1199
+      },
+      {
+        "file": "am-peak-r20-s3.json.gz",
+        "compressed_sha256": "c3cd635366fefddfd86495b1f23d7435c858a283e5abf8aadc75af5357ed027d",
+        "request_stream_sha256": "b5e56b284d588edf24eb6d1729360c47e593b105a2bad830a71c1b8666c32f17",
+        "band": "am-peak",
+        "rate": 20,
+        "seed": 3,
+        "schedule_id": "b5e56b284d588edf",
+        "scheduled": 1199
+      },
+      {
+        "file": "am-peak-r30-s1.json.gz",
+        "compressed_sha256": "7e0a54d4b1e15bf8b9834f535019b622fa4aa8c8d5f3d5cae994b5d440a42707",
+        "request_stream_sha256": "a1ba70edaa1e743fc6d8fb4851186781c9e0424e90c0b86c215e81b96cb0c310",
+        "band": "am-peak",
+        "rate": 30,
+        "seed": 1,
+        "schedule_id": "a1ba70edaa1e743f",
+        "scheduled": 1799
+      },
+      {
+        "file": "am-peak-r30-s2.json.gz",
+        "compressed_sha256": "cd75685590b96079d146e8918586b3ecbe17480d225352d3d0bbc273342e49a0",
+        "request_stream_sha256": "a8ba694b77631331f9ed57f55859c60519de3c17f51f91046924902a71a384bc",
+        "band": "am-peak",
+        "rate": 30,
+        "seed": 2,
+        "schedule_id": "a8ba694b77631331",
+        "scheduled": 1799
+      },
+      {
+        "file": "am-peak-r30-s3.json.gz",
+        "compressed_sha256": "a06a833289cd2da1c52ec324a7f604a9c7ead3a3ec6be936b74031fe70ddd108",
+        "request_stream_sha256": "5ffb76312cdbfcf50fe8b8ca50da8132d7c3080bd1ad16380c052bde7ac38575",
+        "band": "am-peak",
+        "rate": 30,
+        "seed": 3,
+        "schedule_id": "5ffb76312cdbfcf5",
+        "scheduled": 1799
+      },
+      {
+        "file": "am-peak-r40-s1.json.gz",
+        "compressed_sha256": "c9349ce46bf6b53a2ee797df51fb9f9104f22da066bf9acade7e7b110505e7b2",
+        "request_stream_sha256": "50377b383d1d860ba2835b98e44011f89554f5fa47c17c1f88d1e740fb9c6e9a",
+        "band": "am-peak",
+        "rate": 40,
+        "seed": 1,
+        "schedule_id": "50377b383d1d860b",
+        "scheduled": 2399
+      },
+      {
+        "file": "am-peak-r40-s2.json.gz",
+        "compressed_sha256": "f8e3d4bc87279c6979d2cf146bf3183fff93af3d57926718c179f6e819fe6c17",
+        "request_stream_sha256": "61fa72cdf42cd501a1a78d083948f251e2886d272db98caee4cb17078b7ff4bf",
+        "band": "am-peak",
+        "rate": 40,
+        "seed": 2,
+        "schedule_id": "61fa72cdf42cd501",
+        "scheduled": 2399
+      },
+      {
+        "file": "am-peak-r40-s3.json.gz",
+        "compressed_sha256": "438fbcb8bccc4e65cda5669a70b5a6d3d5b7aac714cdc426e0d55e6a458bdb94",
+        "request_stream_sha256": "984247851634de97d2e11e56815c1ba0c4b68c1a13246ffe958734216c5161c4",
+        "band": "am-peak",
+        "rate": 40,
+        "seed": 3,
+        "schedule_id": "984247851634de97",
+        "scheduled": 2399
+      },
+      {
+        "file": "am-peak-r5-s1.json.gz",
+        "compressed_sha256": "557c58c1a0b7526d6f1131fd74815408807cd5ced6361e3c6e31176f14d5b476",
+        "request_stream_sha256": "c4cfb5aa5e407691e0ef28c71554b7caa658d35289dd4767990639ac7e9c1fc0",
+        "band": "am-peak",
+        "rate": 5,
+        "seed": 1,
+        "schedule_id": "c4cfb5aa5e407691",
+        "scheduled": 299
+      },
+      {
+        "file": "am-peak-r5-s2.json.gz",
+        "compressed_sha256": "07b45d84f2e806127d5b743e1b51ebac63b9b757304bae2c13d924d3d4bc8c8d",
+        "request_stream_sha256": "918c91477a5367d768ab687bafbbf1db5b5dbab4914eada32f46d2d09800f21f",
+        "band": "am-peak",
+        "rate": 5,
+        "seed": 2,
+        "schedule_id": "918c91477a5367d7",
+        "scheduled": 299
+      },
+      {
+        "file": "am-peak-r5-s3.json.gz",
+        "compressed_sha256": "3bc3ab679184c2a8fc93eb5421eec3159082c5dd48efb9aaf5ac65bef607f925",
+        "request_stream_sha256": "90b5d2f2e7e9a76db0be4976a2c022189a7af61610a719ac5b135fcf321c5d70",
+        "band": "am-peak",
+        "rate": 5,
+        "seed": 3,
+        "schedule_id": "90b5d2f2e7e9a76d",
+        "scheduled": 299
+      },
+      {
+        "file": "evening-r10-s1.json.gz",
+        "compressed_sha256": "fbf80fc9552553b80f1705914ed764bf5190c37825deb7e3f5f8ce8176aef40f",
+        "request_stream_sha256": "3ca285d0bfd50a3aeb59d8b059617f4602187ec0ba59fc7b7b876e78be1211e0",
+        "band": "evening",
+        "rate": 10,
+        "seed": 1,
+        "schedule_id": "3ca285d0bfd50a3a",
+        "scheduled": 599
+      },
+      {
+        "file": "evening-r10-s10.json.gz",
+        "compressed_sha256": "49cd4220d5cee8c646c04ae3c335484678a60c4f2be56dde68d7703747a71a2b",
+        "request_stream_sha256": "c6fe893f4cb1eb081a0b8d6dbfb2cf5932477111d3a7e860ee4477eca13723d4",
+        "band": "evening",
+        "rate": 10,
+        "seed": 10,
+        "schedule_id": "c6fe893f4cb1eb08",
+        "scheduled": 599
+      },
+      {
+        "file": "evening-r10-s2.json.gz",
+        "compressed_sha256": "8fc0519020acfdc89c64a2b130bc9bb6545f0e36c9281565181940b866a017c8",
+        "request_stream_sha256": "04e7f45963245a4baef520b86fd846f110d0cfdc25225946bcc7b48702f67a67",
+        "band": "evening",
+        "rate": 10,
+        "seed": 2,
+        "schedule_id": "04e7f45963245a4b",
+        "scheduled": 599
+      },
+      {
+        "file": "evening-r10-s3.json.gz",
+        "compressed_sha256": "d55b1c83c15e1f0d789b5e3e6d6b7fbb4809f24936bc927dca37bb6715d8bf9b",
+        "request_stream_sha256": "cc100567b4b703b1650e12a324103de47c658ec1ed76a7a99e6e21ee487dd1d9",
+        "band": "evening",
+        "rate": 10,
+        "seed": 3,
+        "schedule_id": "cc100567b4b703b1",
+        "scheduled": 599
+      },
+      {
+        "file": "evening-r10-s4.json.gz",
+        "compressed_sha256": "41fd91aa703f89c465f2b663eded1ce8122d7b7b6579a9a8b34d3c5514be19d5",
+        "request_stream_sha256": "77ba2ba76ce22f66893755935ede32a134ec0889975e44c43b1edf1351bb339a",
+        "band": "evening",
+        "rate": 10,
+        "seed": 4,
+        "schedule_id": "77ba2ba76ce22f66",
+        "scheduled": 599
+      },
+      {
+        "file": "evening-r10-s5.json.gz",
+        "compressed_sha256": "b48c7d558c5e3408d42ce9389efe5095e92c48f2bfb29b505c687936f54a80ae",
+        "request_stream_sha256": "d6bac659e840ccc32d44acff577244e804791a8771c2e3d7029044b7daff1385",
+        "band": "evening",
+        "rate": 10,
+        "seed": 5,
+        "schedule_id": "d6bac659e840ccc3",
+        "scheduled": 599
+      },
+      {
+        "file": "evening-r10-s6.json.gz",
+        "compressed_sha256": "740891b0c0cb956737193142e6210ec305c7343466df229a3e180d6fe84297a2",
+        "request_stream_sha256": "be38e554b409908e43eebe2ed99069e19c20705897973d188398ba6266b3dd94",
+        "band": "evening",
+        "rate": 10,
+        "seed": 6,
+        "schedule_id": "be38e554b409908e",
+        "scheduled": 599
+      },
+      {
+        "file": "evening-r10-s7.json.gz",
+        "compressed_sha256": "3c5772fff1728848d0782ae69b71105ced1e91ea3aecd6ab6ebc06619ea0370b",
+        "request_stream_sha256": "2477f4e1ea6dc55a918cb1e8ef6ded9bdf4fba9950296663abbeb3f3768dbb3f",
+        "band": "evening",
+        "rate": 10,
+        "seed": 7,
+        "schedule_id": "2477f4e1ea6dc55a",
+        "scheduled": 599
+      },
+      {
+        "file": "evening-r10-s8.json.gz",
+        "compressed_sha256": "5080780492d86cadaa9368726c3034f10991f4266dcd211b92e15be800f5980b",
+        "request_stream_sha256": "59588a5bf16b9c4d2b00512636a7c3bdc1b28ad50f8b63fb2736657a659ab322",
+        "band": "evening",
+        "rate": 10,
+        "seed": 8,
+        "schedule_id": "59588a5bf16b9c4d",
+        "scheduled": 599
+      },
+      {
+        "file": "evening-r10-s9.json.gz",
+        "compressed_sha256": "f9232562bf21d1939fc7c417a7d12f07046356e0240fb6be6541eefc197fd936",
+        "request_stream_sha256": "c21bd157bb2f2e5579a54360854313a943dd72e7771fe0a7a91c2a9987e08c7e",
+        "band": "evening",
+        "rate": 10,
+        "seed": 9,
+        "schedule_id": "c21bd157bb2f2e55",
+        "scheduled": 599
+      },
+      {
+        "file": "evening-r15-s1.json.gz",
+        "compressed_sha256": "fc5d7caf714cd994b7373ee68462caa72a3e60f89f8b848537b6a218cea4917b",
+        "request_stream_sha256": "f40e38b16cb25537d9024d4c893c0c914d40848627b2a917e226ab13223aeb1f",
+        "band": "evening",
+        "rate": 15,
+        "seed": 1,
+        "schedule_id": "f40e38b16cb25537",
+        "scheduled": 899
+      },
+      {
+        "file": "evening-r15-s10.json.gz",
+        "compressed_sha256": "79c42481d78aa6049f216e796190a0b0e35636f3ccc42445955ac4196fd0ea4c",
+        "request_stream_sha256": "ff339046f78c0673bd9c302cfff00c2ecc476a8ead6797ec92bf02efe3972dff",
+        "band": "evening",
+        "rate": 15,
+        "seed": 10,
+        "schedule_id": "ff339046f78c0673",
+        "scheduled": 899
+      },
+      {
+        "file": "evening-r15-s2.json.gz",
+        "compressed_sha256": "1662888ae81054cc6ce9fc6faf96599457b2577dc8789aa1aa5205d515bb2c2b",
+        "request_stream_sha256": "468e308778e5cf08a5b9633d7039322a407f4571de264be4b9406139187f8351",
+        "band": "evening",
+        "rate": 15,
+        "seed": 2,
+        "schedule_id": "468e308778e5cf08",
+        "scheduled": 899
+      },
+      {
+        "file": "evening-r15-s3.json.gz",
+        "compressed_sha256": "5ff1b4938f2d287ce60f543fed97dfbb5fcf2cbd65717a28f70aa4f0c4c297bb",
+        "request_stream_sha256": "02b95066e96008038e0b01f5fd81ed09e2e94e4a6ad3650226664967e74ef71f",
+        "band": "evening",
+        "rate": 15,
+        "seed": 3,
+        "schedule_id": "02b95066e9600803",
+        "scheduled": 899
+      },
+      {
+        "file": "evening-r15-s4.json.gz",
+        "compressed_sha256": "28f82dbdf7941b5c7c375e17673c804f31abe2158e54500cb820584bf5a39099",
+        "request_stream_sha256": "1deea9b39e0c31556563a57b93a82e7870f6cf806438d400b582bed7aa6aa88f",
+        "band": "evening",
+        "rate": 15,
+        "seed": 4,
+        "schedule_id": "1deea9b39e0c3155",
+        "scheduled": 899
+      },
+      {
+        "file": "evening-r15-s5.json.gz",
+        "compressed_sha256": "b934165cfb264bd0c21662aa2441dd09b14316fbf1c1e2c2fe157196f8fbbfa7",
+        "request_stream_sha256": "2f2e9fbbdb058b7809ba484435d550bcc64d5c72158d338a844a869f674a82a7",
+        "band": "evening",
+        "rate": 15,
+        "seed": 5,
+        "schedule_id": "2f2e9fbbdb058b78",
+        "scheduled": 899
+      },
+      {
+        "file": "evening-r15-s6.json.gz",
+        "compressed_sha256": "4bd79d7bdc293118deb3e20ac94a03e01eee63f8b586ae0ca4ae767505b97f26",
+        "request_stream_sha256": "726794c52ae9d8f849aef00fdc0057ff34b7e3131d003f9917d6cf8cfc62d097",
+        "band": "evening",
+        "rate": 15,
+        "seed": 6,
+        "schedule_id": "726794c52ae9d8f8",
+        "scheduled": 899
+      },
+      {
+        "file": "evening-r15-s7.json.gz",
+        "compressed_sha256": "e4d8ad0b122d1acbc5080879fbef782494f70d5b8503c5f94b105fb69811e9d6",
+        "request_stream_sha256": "681c2ce65e30e9ea9100d75336faf0875d4b6a1cba8be50d4c08e2842f753acf",
+        "band": "evening",
+        "rate": 15,
+        "seed": 7,
+        "schedule_id": "681c2ce65e30e9ea",
+        "scheduled": 899
+      },
+      {
+        "file": "evening-r15-s8.json.gz",
+        "compressed_sha256": "b13790eef2ea4d28a2dced69f8c471a4585c11d150d92bd7177f3d57a93c23ef",
+        "request_stream_sha256": "2801b30465ef9fb9d27a0a1ceb8e8e1005656cb7fa72dc318b592cdb92c5f419",
+        "band": "evening",
+        "rate": 15,
+        "seed": 8,
+        "schedule_id": "2801b30465ef9fb9",
+        "scheduled": 899
+      },
+      {
+        "file": "evening-r15-s9.json.gz",
+        "compressed_sha256": "7feb74bcd03de7a7c7dc12a4110dd724ed4dcc3cc8ee506571ede04ee7c878c5",
+        "request_stream_sha256": "cb90db609c2662009f6c6f4deb02c731cb4ddd4faaef6ff98fbf900de04c4d2f",
+        "band": "evening",
+        "rate": 15,
+        "seed": 9,
+        "schedule_id": "cb90db609c266200",
+        "scheduled": 899
+      },
+      {
+        "file": "evening-r20-s1.json.gz",
+        "compressed_sha256": "11f56dc45b7cda8115125be76e871d8b9bb7630cc0286aa6fd48a2ca0b632f1f",
+        "request_stream_sha256": "623e983a66c81115da669971a7c3c3dea29144c227a2f881f1e204ceee4bf82e",
+        "band": "evening",
+        "rate": 20,
+        "seed": 1,
+        "schedule_id": "623e983a66c81115",
+        "scheduled": 1199
+      },
+      {
+        "file": "evening-r20-s2.json.gz",
+        "compressed_sha256": "1fb8223c3d3b7f26add66f906c432a92e26bb647d7812a3dd279ac073ff28a2e",
+        "request_stream_sha256": "e86805bc178a326df0892c560aa1ac12bac8ef7e4d8c000aec53dc5aaada7eee",
+        "band": "evening",
+        "rate": 20,
+        "seed": 2,
+        "schedule_id": "e86805bc178a326d",
+        "scheduled": 1199
+      },
+      {
+        "file": "evening-r20-s3.json.gz",
+        "compressed_sha256": "2ddf0b2edfcb49fb8bd04c9b7fc817a2e15e9a70d7987bb4768cf104bb49e919",
+        "request_stream_sha256": "1a988ecf7cb220b9a7bc21c4cf008bb2fe10d52c1138fca69e8a2ae5b5d3ccd7",
+        "band": "evening",
+        "rate": 20,
+        "seed": 3,
+        "schedule_id": "1a988ecf7cb220b9",
+        "scheduled": 1199
+      },
+      {
+        "file": "evening-r30-s1.json.gz",
+        "compressed_sha256": "00bb37045ff6ce0753a56ea30e67a5285cb3165554a1c961c2f486b6a5ee980c",
+        "request_stream_sha256": "85f2e28fe913ac9d1c57ffbf21aea1b5625de4e3429c3b1b206c6038a6b69174",
+        "band": "evening",
+        "rate": 30,
+        "seed": 1,
+        "schedule_id": "85f2e28fe913ac9d",
+        "scheduled": 1799
+      },
+      {
+        "file": "evening-r30-s2.json.gz",
+        "compressed_sha256": "7764b36b35b03728b6f58bcb89f2bfda8cb06e845dcc0be6e47769273bbcd81a",
+        "request_stream_sha256": "f0bb753beade41816d845b13df2e4dacb9c3e9893bf19b16410c116aa00ea054",
+        "band": "evening",
+        "rate": 30,
+        "seed": 2,
+        "schedule_id": "f0bb753beade4181",
+        "scheduled": 1799
+      },
+      {
+        "file": "evening-r30-s3.json.gz",
+        "compressed_sha256": "5d5381c6c3cd99cc0ba7b29739d0d9b0e386a1124b5885d89aa5d35fe702f043",
+        "request_stream_sha256": "5e22d3fb4b93aeae4c984cfcc9eb1f1f5f954e17d7b80b0b26a878bb29b64a63",
+        "band": "evening",
+        "rate": 30,
+        "seed": 3,
+        "schedule_id": "5e22d3fb4b93aeae",
+        "scheduled": 1799
+      },
+      {
+        "file": "evening-r40-s1.json.gz",
+        "compressed_sha256": "cfdaf137171779ca35ba0143dc5a770cf8012982e2de73f75a59da0d6ffa855d",
+        "request_stream_sha256": "d8e6f1165960260236e2b8f6562c2eb017f8fb3f38aaa40ee638262d620b5a39",
+        "band": "evening",
+        "rate": 40,
+        "seed": 1,
+        "schedule_id": "d8e6f11659602602",
+        "scheduled": 2399
+      },
+      {
+        "file": "evening-r40-s2.json.gz",
+        "compressed_sha256": "1430fbf7cdfc4e6aaf29e90f215b563e2b09f4b2d681ae92507d494646e1ab6b",
+        "request_stream_sha256": "0f08e835f920e13221a7272666b49d8b7f5211267661e4aa732e6bc63bb2abec",
+        "band": "evening",
+        "rate": 40,
+        "seed": 2,
+        "schedule_id": "0f08e835f920e132",
+        "scheduled": 2399
+      },
+      {
+        "file": "evening-r40-s3.json.gz",
+        "compressed_sha256": "eec05726da5bdf1189aa8b7631aa7fd5928b8513442c32a6f0e193a6860057f6",
+        "request_stream_sha256": "4c399a15ebf6c7c5aa1ce56fe7bad3ad285e83c4b4e8500523bda8cd65165527",
+        "band": "evening",
+        "rate": 40,
+        "seed": 3,
+        "schedule_id": "4c399a15ebf6c7c5",
+        "scheduled": 2399
+      },
+      {
+        "file": "evening-r5-s1.json.gz",
+        "compressed_sha256": "9e33e1a70dd0e04eb95d8876cbaf7f3460b1449a3c0026a6faa7fac6b0d3fe8e",
+        "request_stream_sha256": "65bf9421eb1f2964595090a1e2e05be31f57b8460880ce944b383db3bed57047",
+        "band": "evening",
+        "rate": 5,
+        "seed": 1,
+        "schedule_id": "65bf9421eb1f2964",
+        "scheduled": 299
+      },
+      {
+        "file": "evening-r5-s2.json.gz",
+        "compressed_sha256": "7a896636cc3aa17589b561e08e811f3f3aea8573e952a58db7cfd9e29b46014f",
+        "request_stream_sha256": "c35c8d1bce3dc842dacecf14de8cae6b3fa2d68985a1e994e1a00e6d28f0520f",
+        "band": "evening",
+        "rate": 5,
+        "seed": 2,
+        "schedule_id": "c35c8d1bce3dc842",
+        "scheduled": 299
+      },
+      {
+        "file": "evening-r5-s3.json.gz",
+        "compressed_sha256": "b40cec4ee3aee0b62a7266512c0f620de61efdd05f9767e4cd5e39186ba65b90",
+        "request_stream_sha256": "fa14d70eccf7ee7566cc2cd8c386d96b518091f3fece76991991cc955a87f76b",
+        "band": "evening",
+        "rate": 5,
+        "seed": 3,
+        "schedule_id": "fa14d70eccf7ee75",
+        "scheduled": 299
+      },
+      {
+        "file": "interpeak-r10-s1.json.gz",
+        "compressed_sha256": "a7b6b7f19ef8ea4237862d197c245a4f74a4a46870a975856d39afe8cd1ea269",
+        "request_stream_sha256": "b488ee2ec63351cf4605e54ece5e4cad9a7f73454fa9c9f4cfd04d983a1125d4",
+        "band": "interpeak",
+        "rate": 10,
+        "seed": 1,
+        "schedule_id": "b488ee2ec63351cf",
+        "scheduled": 599
+      },
+      {
+        "file": "interpeak-r10-s2.json.gz",
+        "compressed_sha256": "b05054aa48f763844559c1940d29295c7b0d725ac03a4d75e9eb1c2bc6c5f3b1",
+        "request_stream_sha256": "ac05aaa4422cb153def8aedf46d0515ffe99191400ba6b72e490a5c9edaaa66a",
+        "band": "interpeak",
+        "rate": 10,
+        "seed": 2,
+        "schedule_id": "ac05aaa4422cb153",
+        "scheduled": 599
+      },
+      {
+        "file": "interpeak-r10-s3.json.gz",
+        "compressed_sha256": "ba3a16877694dc5efa124b1ced34b2e0db5cf7b06f99a91de7c02456462e7c8c",
+        "request_stream_sha256": "a00a6c9a0faae4896e2120308600bf7b40c4a70dcae3c1f760f72a96b76ce8d8",
+        "band": "interpeak",
+        "rate": 10,
+        "seed": 3,
+        "schedule_id": "a00a6c9a0faae489",
+        "scheduled": 599
+      },
+      {
+        "file": "interpeak-r15-s1.json.gz",
+        "compressed_sha256": "d22fc09a2da29154ba8f807da8518183a42315a49eb8e4d6353a9279e1a707a8",
+        "request_stream_sha256": "eda692728d4ad935ff0c8a8de722261299e287c58dda9bc30b7df00097d24c30",
+        "band": "interpeak",
+        "rate": 15,
+        "seed": 1,
+        "schedule_id": "eda692728d4ad935",
+        "scheduled": 899
+      },
+      {
+        "file": "interpeak-r15-s10.json.gz",
+        "compressed_sha256": "ac1536a2a2d8f355803a9331066c6cc4e6f7ca5bcae3032f96c8674009278cae",
+        "request_stream_sha256": "99d818f8a0f9aa7f7a0dd5a92d378bd45cbe6d5674881eac8c902f3a7a993319",
+        "band": "interpeak",
+        "rate": 15,
+        "seed": 10,
+        "schedule_id": "99d818f8a0f9aa7f",
+        "scheduled": 899
+      },
+      {
+        "file": "interpeak-r15-s2.json.gz",
+        "compressed_sha256": "f30efa21cb4fbb615b4eb9786a5a9c86e1899e31a50d203209fe0051ea28c338",
+        "request_stream_sha256": "f0c8e51f2012245fd74139dfd479e7f3faf7305c9fb38c7c4e7c41bd4adbd7ef",
+        "band": "interpeak",
+        "rate": 15,
+        "seed": 2,
+        "schedule_id": "f0c8e51f2012245f",
+        "scheduled": 899
+      },
+      {
+        "file": "interpeak-r15-s3.json.gz",
+        "compressed_sha256": "6b51d3297a704598d6a5423ff97075d445f129ac5def458e28ff390178d3b3bf",
+        "request_stream_sha256": "2a90e4f005c4fd05eccfb8742dfae7aa1884df5ba43ff9b66837447220649614",
+        "band": "interpeak",
+        "rate": 15,
+        "seed": 3,
+        "schedule_id": "2a90e4f005c4fd05",
+        "scheduled": 899
+      },
+      {
+        "file": "interpeak-r15-s4.json.gz",
+        "compressed_sha256": "4063a6a84885378a9f37b05309c5969ac5b862f53455c190205a96504f19e933",
+        "request_stream_sha256": "096235b082e5759f55c222de1f6fd8356b6dcfccb18928e0d24f0eed7211abf8",
+        "band": "interpeak",
+        "rate": 15,
+        "seed": 4,
+        "schedule_id": "096235b082e5759f",
+        "scheduled": 899
+      },
+      {
+        "file": "interpeak-r15-s5.json.gz",
+        "compressed_sha256": "463ac5e049f3ef9ed4180df77e279b0743a8b997f5f18fb5c61f365ac605864d",
+        "request_stream_sha256": "478f05cde6170bdea67bcc1744b806e633f30913fedaea6125bdec9736900c8d",
+        "band": "interpeak",
+        "rate": 15,
+        "seed": 5,
+        "schedule_id": "478f05cde6170bde",
+        "scheduled": 899
+      },
+      {
+        "file": "interpeak-r15-s6.json.gz",
+        "compressed_sha256": "2f29a8f87bcfe9bd84cdeb27efbbf24d4c28f994a01824fdd50f2a70cd89fde8",
+        "request_stream_sha256": "1128660b9623eddc726a18b4768c2b4c34038b2c6793706f55cf79a743f4a543",
+        "band": "interpeak",
+        "rate": 15,
+        "seed": 6,
+        "schedule_id": "1128660b9623eddc",
+        "scheduled": 899
+      },
+      {
+        "file": "interpeak-r15-s7.json.gz",
+        "compressed_sha256": "f6f662e0538a90c8ab17710684fdc01862badd35ac74d433be8959780c9ad888",
+        "request_stream_sha256": "ba5e569b5d017e587f3b1c93fa5aa8c20b0dcc5e18cb2845f842a49bacf97ecf",
+        "band": "interpeak",
+        "rate": 15,
+        "seed": 7,
+        "schedule_id": "ba5e569b5d017e58",
+        "scheduled": 899
+      },
+      {
+        "file": "interpeak-r15-s8.json.gz",
+        "compressed_sha256": "80d2f3618beb2d4c59a659232bda0e7f19b41418030e2c5287ea27c23d08528d",
+        "request_stream_sha256": "ceb220a362bc073e8576a5d0a99d557ef89db6ecfe637290b24a6ad298cdf063",
+        "band": "interpeak",
+        "rate": 15,
+        "seed": 8,
+        "schedule_id": "ceb220a362bc073e",
+        "scheduled": 899
+      },
+      {
+        "file": "interpeak-r15-s9.json.gz",
+        "compressed_sha256": "a595969ad8c1f615895bcf15868019aecf2390cc18e029cd759afc92c0e1dbee",
+        "request_stream_sha256": "fbeed48a92067346217fb0aed52c6d9d82e6153711f7f42b56b49d834b5b9c29",
+        "band": "interpeak",
+        "rate": 15,
+        "seed": 9,
+        "schedule_id": "fbeed48a92067346",
+        "scheduled": 899
+      },
+      {
+        "file": "interpeak-r20-s1.json.gz",
+        "compressed_sha256": "da0053d837684cc967b2ce5c49ae0c2304e4019e931a5b5fd21eac77f0e1db67",
+        "request_stream_sha256": "61949351adc2f5caa0dee31ce6ecaa0007d430611e9f0878dc1cc3993b8128a9",
+        "band": "interpeak",
+        "rate": 20,
+        "seed": 1,
+        "schedule_id": "61949351adc2f5ca",
+        "scheduled": 1199
+      },
+      {
+        "file": "interpeak-r20-s10.json.gz",
+        "compressed_sha256": "165dcf1775e35c3432c3bb2f3bd3d081be05bc2715042c0defb6bf048d117d4b",
+        "request_stream_sha256": "7bee109e2338bc8f668a461303b1e925df7eb527153a01371650127d5d3b69cb",
+        "band": "interpeak",
+        "rate": 20,
+        "seed": 10,
+        "schedule_id": "7bee109e2338bc8f",
+        "scheduled": 1199
+      },
+      {
+        "file": "interpeak-r20-s2.json.gz",
+        "compressed_sha256": "6f5282ee6e38936f07090ca2800e07546ce9c830039582398ed07e2200f46041",
+        "request_stream_sha256": "d524029aee6494f5bf54437ffc810074674bb632a9833210454f1b1a704aa7d0",
+        "band": "interpeak",
+        "rate": 20,
+        "seed": 2,
+        "schedule_id": "d524029aee6494f5",
+        "scheduled": 1199
+      },
+      {
+        "file": "interpeak-r20-s3.json.gz",
+        "compressed_sha256": "9603c5d571d56e1c482f2e182a6fe661c2cc81e3db27b3fd9dd617fcf8ac3ae5",
+        "request_stream_sha256": "cd6f4a36f96b564da89607cd9245fbd83e2368b48a2024dc9cd5e75e4061ea63",
+        "band": "interpeak",
+        "rate": 20,
+        "seed": 3,
+        "schedule_id": "cd6f4a36f96b564d",
+        "scheduled": 1199
+      },
+      {
+        "file": "interpeak-r20-s4.json.gz",
+        "compressed_sha256": "518ca157c32c222e609c2002d3f5e15efafbf763377bce4aa284c1e4ee9c1ba4",
+        "request_stream_sha256": "214c7ffb8fd74c775bc6c07c26e5e018ff2e158676fa725310fe56b5b21e435c",
+        "band": "interpeak",
+        "rate": 20,
+        "seed": 4,
+        "schedule_id": "214c7ffb8fd74c77",
+        "scheduled": 1199
+      },
+      {
+        "file": "interpeak-r20-s5.json.gz",
+        "compressed_sha256": "7a12d7447f037f3fb01d8de3de536203e4666467cfba3460f143ab53dc5cf28a",
+        "request_stream_sha256": "fc8efc637201ea1eb4b68e6b076d620ed197ea47c35e02bbdaf5c14890a1b634",
+        "band": "interpeak",
+        "rate": 20,
+        "seed": 5,
+        "schedule_id": "fc8efc637201ea1e",
+        "scheduled": 1199
+      },
+      {
+        "file": "interpeak-r20-s6.json.gz",
+        "compressed_sha256": "9647b914b4fc76fea52db627973c1e7850ba06e00da874937efc4216452cfc8e",
+        "request_stream_sha256": "21fc7aba59736c271f17c58d0cf291fac7b63c2568d9cb56f7b6aa94a98348b2",
+        "band": "interpeak",
+        "rate": 20,
+        "seed": 6,
+        "schedule_id": "21fc7aba59736c27",
+        "scheduled": 1199
+      },
+      {
+        "file": "interpeak-r20-s7.json.gz",
+        "compressed_sha256": "a630745ea034f80d2cffdc1be3d51fa74e11d9e074f91886d260f89f72a9cd68",
+        "request_stream_sha256": "384cb03834ca742bce4bc2ce20bfaf6c084e032b78c19f99b1b6088ea7e9395c",
+        "band": "interpeak",
+        "rate": 20,
+        "seed": 7,
+        "schedule_id": "384cb03834ca742b",
+        "scheduled": 1199
+      },
+      {
+        "file": "interpeak-r20-s8.json.gz",
+        "compressed_sha256": "d56ae9eb8fb9fb9d68339f8bfc0c08772cd2a3232e2712e00310a09550951b52",
+        "request_stream_sha256": "16e9ff1d84857782148524f228fac4be312343f0f8cdf029f506bd5a125c97f6",
+        "band": "interpeak",
+        "rate": 20,
+        "seed": 8,
+        "schedule_id": "16e9ff1d84857782",
+        "scheduled": 1199
+      },
+      {
+        "file": "interpeak-r20-s9.json.gz",
+        "compressed_sha256": "c05cd5f8737142b695cb0d2b6a7b2ad3fdf8bdb538079b521d277ca9ee6d85b4",
+        "request_stream_sha256": "83504097d88a2d0e98c132abb932db338edfa215fee5daa2a0e9fff885726915",
+        "band": "interpeak",
+        "rate": 20,
+        "seed": 9,
+        "schedule_id": "83504097d88a2d0e",
+        "scheduled": 1199
+      },
+      {
+        "file": "interpeak-r30-s1.json.gz",
+        "compressed_sha256": "1e83ec8360d469667f4290bf4b17ca37cd10a2c106197a0694ac4e65a0d8c9fb",
+        "request_stream_sha256": "6bf7a5fd28d9e718bb06d315b0eed6105daf5969bd8c7db24e5e3f9ec25ffc10",
+        "band": "interpeak",
+        "rate": 30,
+        "seed": 1,
+        "schedule_id": "6bf7a5fd28d9e718",
+        "scheduled": 1799
+      },
+      {
+        "file": "interpeak-r30-s2.json.gz",
+        "compressed_sha256": "c6bdc6502431314c5afc84de505e56e3f21d9cd3351cb1ce5e5c6e301017987b",
+        "request_stream_sha256": "80392a7ab1df60ea5773041ada7172f55294c38022486bc4712039a2adfe779c",
+        "band": "interpeak",
+        "rate": 30,
+        "seed": 2,
+        "schedule_id": "80392a7ab1df60ea",
+        "scheduled": 1799
+      },
+      {
+        "file": "interpeak-r30-s3.json.gz",
+        "compressed_sha256": "cf21ee47345ae5c9d2da3be50883db0dd3e881931aba409f2a5217e3aab0bcce",
+        "request_stream_sha256": "219f444986d93c58df1f40e5ab9d0ee948533a441d7ed258fe820e160e2599c4",
+        "band": "interpeak",
+        "rate": 30,
+        "seed": 3,
+        "schedule_id": "219f444986d93c58",
+        "scheduled": 1799
+      },
+      {
+        "file": "interpeak-r40-s1.json.gz",
+        "compressed_sha256": "acb215148291ee89fcf0163f423db62934ba9ac82be336938f1ed56571c5b1c7",
+        "request_stream_sha256": "6e1a63b153ac718620e2c68deda672f8d8c2dbee59a1a3a538e6f3b8f26db1d6",
+        "band": "interpeak",
+        "rate": 40,
+        "seed": 1,
+        "schedule_id": "6e1a63b153ac7186",
+        "scheduled": 2399
+      },
+      {
+        "file": "interpeak-r40-s2.json.gz",
+        "compressed_sha256": "175f8a5b71aa9d9c165d5a613e98ebaad19e8cbf9b0bb044818f14608381d525",
+        "request_stream_sha256": "463dd6f718b6858937a871d1ad78b95c86e17b58889b6e1e719db9fc0b6a30ce",
+        "band": "interpeak",
+        "rate": 40,
+        "seed": 2,
+        "schedule_id": "463dd6f718b68589",
+        "scheduled": 2399
+      },
+      {
+        "file": "interpeak-r40-s3.json.gz",
+        "compressed_sha256": "fe9595b351ac3f50bd026a1c3f538e794a3526099f3916c4c2eda7c908795a7d",
+        "request_stream_sha256": "d1b2c017880b3c30cd86bddd6f080688bb51a1c103503f9b71151a2f53ba2ada",
+        "band": "interpeak",
+        "rate": 40,
+        "seed": 3,
+        "schedule_id": "d1b2c017880b3c30",
+        "scheduled": 2399
+      },
+      {
+        "file": "interpeak-r5-s1.json.gz",
+        "compressed_sha256": "1f2172fd0f30c4a94396ae4f9790e418b88547a212ea3f0aa79643d5fcebb047",
+        "request_stream_sha256": "7b8b560864ab893d6da37e6d77c31229dc4dce21d8a10891c2897ab2777f6109",
+        "band": "interpeak",
+        "rate": 5,
+        "seed": 1,
+        "schedule_id": "7b8b560864ab893d",
+        "scheduled": 299
+      },
+      {
+        "file": "interpeak-r5-s2.json.gz",
+        "compressed_sha256": "6039868356dfe3ec5caf90c36d661d0f3f921efb2a510b222c5946f0b2d7b1d6",
+        "request_stream_sha256": "be11e9381e6aab0bf86644b22f1357e9fb69fdcff949f830ad9a94ebdc4146a3",
+        "band": "interpeak",
+        "rate": 5,
+        "seed": 2,
+        "schedule_id": "be11e9381e6aab0b",
+        "scheduled": 299
+      },
+      {
+        "file": "interpeak-r5-s3.json.gz",
+        "compressed_sha256": "fe64f5d8d67bc30a3cc8ba005007b625bdbc518a854f0699c6c5fab6e161bf9d",
+        "request_stream_sha256": "4f6098c3ede1395a873b714e1c6affaece18f0612e16027adb575d5ecd9ecc6b",
+        "band": "interpeak",
+        "rate": 5,
+        "seed": 3,
+        "schedule_id": "4f6098c3ede1395a",
+        "scheduled": 299
+      },
+      {
+        "file": "late-r10-s1.json.gz",
+        "compressed_sha256": "9e96b856e430ec5913b8d2b3a62e36bdd807ecf0c318d1c0cdfc54c975835e7f",
+        "request_stream_sha256": "0a7fa62dbee2bf6f3198c8896b1d818a00b7eecf907e299fd3bbaf09ff1b69fe",
+        "band": "late",
+        "rate": 10,
+        "seed": 1,
+        "schedule_id": "0a7fa62dbee2bf6f",
+        "scheduled": 599
+      },
+      {
+        "file": "late-r10-s10.json.gz",
+        "compressed_sha256": "d258c734b35bfc65777a2e7ddc3f6017395e9e86420cdb80164e7589a4ffa6d2",
+        "request_stream_sha256": "2f9847fda35881a01bd78a83ef70554259ceadf994da5d79ecaab300f40d3238",
+        "band": "late",
+        "rate": 10,
+        "seed": 10,
+        "schedule_id": "2f9847fda35881a0",
+        "scheduled": 599
+      },
+      {
+        "file": "late-r10-s2.json.gz",
+        "compressed_sha256": "8473fc5dc76089103d9b87fe2486b47dea19c8dacba7f483eefaa4b2217a0e98",
+        "request_stream_sha256": "4f58435ca85140d4a61e4d80f24feeb3b2a2186ace8a7fa66810d45117f51be5",
+        "band": "late",
+        "rate": 10,
+        "seed": 2,
+        "schedule_id": "4f58435ca85140d4",
+        "scheduled": 599
+      },
+      {
+        "file": "late-r10-s3.json.gz",
+        "compressed_sha256": "8eed15ef60ebbba839661359ca3239b216a88a2e5c4c08d859a8e55cd83bdda7",
+        "request_stream_sha256": "1c4f8cedf07eadebfff80863fdb247bb1a60ce41222a5993602900d42d6a5478",
+        "band": "late",
+        "rate": 10,
+        "seed": 3,
+        "schedule_id": "1c4f8cedf07eadeb",
+        "scheduled": 599
+      },
+      {
+        "file": "late-r10-s4.json.gz",
+        "compressed_sha256": "94ae69a20dd33f5d1bc6e63add4ef76b04f4a065b4f6125bb5ac5426c5bc09ad",
+        "request_stream_sha256": "fd6b3078c6ce8ae2b0def420c7381f4163ae48fb4bcc243ad1dcaab7120ece19",
+        "band": "late",
+        "rate": 10,
+        "seed": 4,
+        "schedule_id": "fd6b3078c6ce8ae2",
+        "scheduled": 599
+      },
+      {
+        "file": "late-r10-s5.json.gz",
+        "compressed_sha256": "fc6afe6aa77e6796f80d63b2f19aa1304b5a637b24852faf91c0d2ab2e5fe3fc",
+        "request_stream_sha256": "ff156760f8a48eb7783e334f089028f4c0b48d652e53b50f88ab7354449ffc33",
+        "band": "late",
+        "rate": 10,
+        "seed": 5,
+        "schedule_id": "ff156760f8a48eb7",
+        "scheduled": 599
+      },
+      {
+        "file": "late-r10-s6.json.gz",
+        "compressed_sha256": "b382b6569c64050480bd4fca8fbbaa6ef9461c41ed3ea7f5a5058a0a9665309a",
+        "request_stream_sha256": "77bb82106b849f179516ab3f787c4bf3da7c280203952bab07a390b027d115b9",
+        "band": "late",
+        "rate": 10,
+        "seed": 6,
+        "schedule_id": "77bb82106b849f17",
+        "scheduled": 599
+      },
+      {
+        "file": "late-r10-s7.json.gz",
+        "compressed_sha256": "0d9a1912ae782bc3a34e7bc46d96fc215f49317536086420862aa82118ac27a7",
+        "request_stream_sha256": "1640bdf8363ec51d48f63567eb0a05cc7da322a354b9d9432045f075a3339905",
+        "band": "late",
+        "rate": 10,
+        "seed": 7,
+        "schedule_id": "1640bdf8363ec51d",
+        "scheduled": 599
+      },
+      {
+        "file": "late-r10-s8.json.gz",
+        "compressed_sha256": "3afac1766cec5ebe5979e1261f0a58728192505b1f0e17dd75f7a722502e57a8",
+        "request_stream_sha256": "c24c0f7b7fa615211be2da021bc5517bb48044beabdf033c922cc66c8c412c52",
+        "band": "late",
+        "rate": 10,
+        "seed": 8,
+        "schedule_id": "c24c0f7b7fa61521",
+        "scheduled": 599
+      },
+      {
+        "file": "late-r10-s9.json.gz",
+        "compressed_sha256": "7aaddc4208de213f6b6cd0a05c757be7e0a3e7134ed81f13ffbbbf130f14cb2b",
+        "request_stream_sha256": "92a60d79c8ccc23a375ddf19371613b4c7bbe6298a1a056c6d9b557f5f58405d",
+        "band": "late",
+        "rate": 10,
+        "seed": 9,
+        "schedule_id": "92a60d79c8ccc23a",
+        "scheduled": 599
+      },
+      {
+        "file": "late-r15-s1.json.gz",
+        "compressed_sha256": "c5b3a236f8399e3814b95a5e769c725494f7598651f35fbb8d3bdc2314932c67",
+        "request_stream_sha256": "afd2f00ce72e402532fdce555ddc18979093582bc841f15e6892edc1227c39f1",
+        "band": "late",
+        "rate": 15,
+        "seed": 1,
+        "schedule_id": "afd2f00ce72e4025",
+        "scheduled": 899
+      },
+      {
+        "file": "late-r15-s10.json.gz",
+        "compressed_sha256": "48d72b47edfd154c44ae39341e2bcc19ae147cccb208da40bfbce3a88b39d6ca",
+        "request_stream_sha256": "5a107763a9f8ddb1782a45518aa7eb609174b34dfcf3ee0c7eb04f2f2f1a8dcc",
+        "band": "late",
+        "rate": 15,
+        "seed": 10,
+        "schedule_id": "5a107763a9f8ddb1",
+        "scheduled": 899
+      },
+      {
+        "file": "late-r15-s2.json.gz",
+        "compressed_sha256": "f0e7d0ad1b51ac5893b112c1d9d0750fa3cb7f76b23da1f90c15553619f3f604",
+        "request_stream_sha256": "26c072c6141f44447df72909d701c4424c5cf97bc3c1119af85ed1c7826e8968",
+        "band": "late",
+        "rate": 15,
+        "seed": 2,
+        "schedule_id": "26c072c6141f4444",
+        "scheduled": 899
+      },
+      {
+        "file": "late-r15-s3.json.gz",
+        "compressed_sha256": "b14f4d4f7db06b606dfdbfcb8def6adf48a863a7a21ce38c86811c53e9aeb808",
+        "request_stream_sha256": "aff21d370283b97dbfbf8aa0df57b3c492c1c9557f4ef71b01ebf32228864206",
+        "band": "late",
+        "rate": 15,
+        "seed": 3,
+        "schedule_id": "aff21d370283b97d",
+        "scheduled": 899
+      },
+      {
+        "file": "late-r15-s4.json.gz",
+        "compressed_sha256": "7d509cc0ac48c89bedae5fd130bff43b8c2e234b7f04856c6487662628423de5",
+        "request_stream_sha256": "8b49bdd0b07e97913fdd47017bedd00761741aee727de5571062b220dd6b151b",
+        "band": "late",
+        "rate": 15,
+        "seed": 4,
+        "schedule_id": "8b49bdd0b07e9791",
+        "scheduled": 899
+      },
+      {
+        "file": "late-r15-s5.json.gz",
+        "compressed_sha256": "e863669b5d6f4fe8a3857993e9dcb736f7d4aae0361574f5679a71045f664f5d",
+        "request_stream_sha256": "8a76521b4ec3d24d450f505f3ba518293e3adc6b6767b88096668c4091639340",
+        "band": "late",
+        "rate": 15,
+        "seed": 5,
+        "schedule_id": "8a76521b4ec3d24d",
+        "scheduled": 899
+      },
+      {
+        "file": "late-r15-s6.json.gz",
+        "compressed_sha256": "da7f498fd4664ca1782d66a99e5fe056d17fd34e1d3b0cf5ff70204419ef56a9",
+        "request_stream_sha256": "0a9b8e26395569b6bbc49a9ef2e26e8c391027a3b8268a5b93c50c74419cbe49",
+        "band": "late",
+        "rate": 15,
+        "seed": 6,
+        "schedule_id": "0a9b8e26395569b6",
+        "scheduled": 899
+      },
+      {
+        "file": "late-r15-s7.json.gz",
+        "compressed_sha256": "837b1e649c3b598c6a7afa4af569a8ba8f91b551b2fba0cfa0df06db29f30b08",
+        "request_stream_sha256": "48271a53f1efbda48b2512fcd801a7f29a248b90ea512e2839fa0e9e7c4d5109",
+        "band": "late",
+        "rate": 15,
+        "seed": 7,
+        "schedule_id": "48271a53f1efbda4",
+        "scheduled": 899
+      },
+      {
+        "file": "late-r15-s8.json.gz",
+        "compressed_sha256": "ef1d8a8471e5da58b858a41c11df8d8f328aafbc0dbac6e338e39ee9d0f7b5d4",
+        "request_stream_sha256": "2b2d2cf51a658356a76085ea92340eea0718787fc1eb281994199bc8b3f7fd02",
+        "band": "late",
+        "rate": 15,
+        "seed": 8,
+        "schedule_id": "2b2d2cf51a658356",
+        "scheduled": 899
+      },
+      {
+        "file": "late-r15-s9.json.gz",
+        "compressed_sha256": "8d9cc0f2a2f53a8587674055c4be13de2fe8cd7b65cc4e75ff0a0bb4ad7ced3e",
+        "request_stream_sha256": "fcbc9801439747db25d9156db9a5599dfefcb5a2133f0b83e348bd37da7f5dff",
+        "band": "late",
+        "rate": 15,
+        "seed": 9,
+        "schedule_id": "fcbc9801439747db",
+        "scheduled": 899
+      },
+      {
+        "file": "late-r20-s1.json.gz",
+        "compressed_sha256": "1e0804e36edf743ea236f6a569387323816ea285a2be98d28093f5ec66c665b2",
+        "request_stream_sha256": "0912e7339fd866d8f6008883e7e2a95e2ffe288251ac41f8da81f7b50b750bcb",
+        "band": "late",
+        "rate": 20,
+        "seed": 1,
+        "schedule_id": "0912e7339fd866d8",
+        "scheduled": 1199
+      },
+      {
+        "file": "late-r20-s2.json.gz",
+        "compressed_sha256": "57f1cd253610bb324602026ff799509457433f72eb1a2660a24316525a33a32d",
+        "request_stream_sha256": "5dd8936f24194bd8b09b8086a1f80c1f412b892314f8672319174928f21e5c47",
+        "band": "late",
+        "rate": 20,
+        "seed": 2,
+        "schedule_id": "5dd8936f24194bd8",
+        "scheduled": 1199
+      },
+      {
+        "file": "late-r20-s3.json.gz",
+        "compressed_sha256": "c506155174c1ae71c2c9eaea831bfddb3c9d85f7212e18628984cc4abb82a7bb",
+        "request_stream_sha256": "5c4df959c91a4a2eb1169ad0fefcf640875aeadf52a0fd172e5d3a688ea79497",
+        "band": "late",
+        "rate": 20,
+        "seed": 3,
+        "schedule_id": "5c4df959c91a4a2e",
+        "scheduled": 1199
+      },
+      {
+        "file": "late-r30-s1.json.gz",
+        "compressed_sha256": "80cfbc022c83cd6072d17042356f528c33b20729e46802c2f7ed5e231f749fb6",
+        "request_stream_sha256": "7617505ca2806e15a269d536dc14dc1028bae45589e8c1c763cf68a45a8d4a94",
+        "band": "late",
+        "rate": 30,
+        "seed": 1,
+        "schedule_id": "7617505ca2806e15",
+        "scheduled": 1799
+      },
+      {
+        "file": "late-r30-s2.json.gz",
+        "compressed_sha256": "0f3e676dc5bdfe2b9350d6e77868140fbc8bbae456fa4400fecfca3f990f90f8",
+        "request_stream_sha256": "24d3583f8fcc5322d5315ccdee814cea55d9248ccd72fdf4bdbe857e4dfd9274",
+        "band": "late",
+        "rate": 30,
+        "seed": 2,
+        "schedule_id": "24d3583f8fcc5322",
+        "scheduled": 1799
+      },
+      {
+        "file": "late-r30-s3.json.gz",
+        "compressed_sha256": "9b8d72ca855778017d80b721705336602bfaf0eedeb3c5814b6a52ca1ba12723",
+        "request_stream_sha256": "10fd58a2d408053f676cc1e4ef0044b9c24fd146cdb0ac7834cb5a0839a9e407",
+        "band": "late",
+        "rate": 30,
+        "seed": 3,
+        "schedule_id": "10fd58a2d408053f",
+        "scheduled": 1799
+      },
+      {
+        "file": "late-r40-s1.json.gz",
+        "compressed_sha256": "b33f7c27b3b3e4ded328d681e243a5c983702cdd70afc9172bba25c21fd6aef0",
+        "request_stream_sha256": "37fa6be9356690fdc8eb87ea58ee36b4c37886a03627c99d731b26541cb0b817",
+        "band": "late",
+        "rate": 40,
+        "seed": 1,
+        "schedule_id": "37fa6be9356690fd",
+        "scheduled": 2399
+      },
+      {
+        "file": "late-r40-s2.json.gz",
+        "compressed_sha256": "af5ada4dac31619c610267fcbc5bd14bb816385265037f74b0eeca612ff4b6c3",
+        "request_stream_sha256": "53f35b87ecc3f611ec4e2ede871266bb13fce813c2f2e6401d530e3b08cf6705",
+        "band": "late",
+        "rate": 40,
+        "seed": 2,
+        "schedule_id": "53f35b87ecc3f611",
+        "scheduled": 2399
+      },
+      {
+        "file": "late-r40-s3.json.gz",
+        "compressed_sha256": "232e6245594671398919c380ce96671c05f93d05b2fe262c04d895fe1bb2a602",
+        "request_stream_sha256": "549d064bd95434ef7fea26d659a9640a5f8c60b8ec9b61f29407dc13eb155fcc",
+        "band": "late",
+        "rate": 40,
+        "seed": 3,
+        "schedule_id": "549d064bd95434ef",
+        "scheduled": 2399
+      },
+      {
+        "file": "late-r5-s1.json.gz",
+        "compressed_sha256": "e2d60673812de471a68d7ce82fbe81a80d7921d042a1b76129f5133392b814c2",
+        "request_stream_sha256": "143710096f9514dbdc9f0686cb8420c771453d9371f4c6c502600966b3757796",
+        "band": "late",
+        "rate": 5,
+        "seed": 1,
+        "schedule_id": "143710096f9514db",
+        "scheduled": 299
+      },
+      {
+        "file": "late-r5-s2.json.gz",
+        "compressed_sha256": "4b6d00cfab1aed819b0c114df66504151f228459b57d8364edf504cbed9738f1",
+        "request_stream_sha256": "8a4afd03b9b6e681fcddfd75c02309c2b75ae43babbf954072dd0db9e317fa4d",
+        "band": "late",
+        "rate": 5,
+        "seed": 2,
+        "schedule_id": "8a4afd03b9b6e681",
+        "scheduled": 299
+      },
+      {
+        "file": "late-r5-s3.json.gz",
+        "compressed_sha256": "1ff0930fa04efa12811c91d7435050927ee69a55083d295bd281cb1f9d4e84ac",
+        "request_stream_sha256": "c17df658969099a3d843a76f41b0e0f4869c582c14d29b1d06503f7667035f02",
+        "band": "late",
+        "rate": 5,
+        "seed": 3,
+        "schedule_id": "c17df658969099a3",
+        "scheduled": 299
+      },
+      {
+        "file": "morning-r1-s1.json.gz",
+        "compressed_sha256": "42cd57397c28563a4b47bada9eae53af351f84e887d20c6db4b38b21b2d4327e",
+        "request_stream_sha256": "819b25c433e49b54eb522fc19fed6d6959c8f7156b587c594eb0232b2b4a7263",
+        "band": "morning",
+        "rate": 1,
+        "seed": 1,
+        "schedule_id": "819b25c433e49b54",
+        "scheduled": 59
+      },
+      {
+        "file": "morning-r1-s2.json.gz",
+        "compressed_sha256": "7a14e63c42510ccadd1d7aff7ba76173c1e78eb09ecd8ebf097957d5709201c5",
+        "request_stream_sha256": "3a178092aad3c47e6ad447a8ac72ebcda9cbd625ad0458d467ddd8389a2d4054",
+        "band": "morning",
+        "rate": 1,
+        "seed": 2,
+        "schedule_id": "3a178092aad3c47e",
+        "scheduled": 59
+      },
+      {
+        "file": "morning-r1-s3.json.gz",
+        "compressed_sha256": "8e0428f655670cdc2244dfe8038079190dabc17c7c4ab20bd73613809e0dc98e",
+        "request_stream_sha256": "7b822578e9e99e03f01d1188b0468ca1a43130fbfba728940e54596f85809c83",
+        "band": "morning",
+        "rate": 1,
+        "seed": 3,
+        "schedule_id": "7b822578e9e99e03",
+        "scheduled": 59
+      },
+      {
+        "file": "morning-r10-s1.json.gz",
+        "compressed_sha256": "9dc25bed846ffaedee8b24b1cd4e020e73edc0e377dc9de670c87ee29fb14964",
+        "request_stream_sha256": "b089e8e76c5be09737100a8d0a7ebdb6842d935b030478406c2ef2030568eafd",
+        "band": "morning",
+        "rate": 10,
+        "seed": 1,
+        "schedule_id": "b089e8e76c5be097",
+        "scheduled": 599
+      },
+      {
+        "file": "morning-r10-s2.json.gz",
+        "compressed_sha256": "891435725dd17158c757e452bc8352376eb166511f0966547f9f0f12884bb9ba",
+        "request_stream_sha256": "4d7d0807bd2d28b3b19150adf7a404aba6f57a92d52b15f7f59e9100d34cf30f",
+        "band": "morning",
+        "rate": 10,
+        "seed": 2,
+        "schedule_id": "4d7d0807bd2d28b3",
+        "scheduled": 599
+      },
+      {
+        "file": "morning-r10-s3.json.gz",
+        "compressed_sha256": "bc16000d92ab3976f3df6418a6bb1c8ec3fcd6757d8801e5efea4216032c19d5",
+        "request_stream_sha256": "aeffb372e10249c84de08f01a94b97f35cffae38f4cebf115692716d2e86a5b9",
+        "band": "morning",
+        "rate": 10,
+        "seed": 3,
+        "schedule_id": "aeffb372e10249c8",
+        "scheduled": 599
+      },
+      {
+        "file": "morning-r15-s1.json.gz",
+        "compressed_sha256": "d7eba0e5e05fc8039104f7ab448cd46378c2d17c197a3a6b0ec1bed4fba7429a",
+        "request_stream_sha256": "b0ea37ec1f1a0e2cbc745f18b5556f16dfe52d04a518443cb3b284152aa9e589",
+        "band": "morning",
+        "rate": 15,
+        "seed": 1,
+        "schedule_id": "b0ea37ec1f1a0e2c",
+        "scheduled": 899
+      },
+      {
+        "file": "morning-r15-s2.json.gz",
+        "compressed_sha256": "5926ae73fe768d7f34512324d71c7b1895220caa54ad840f241c66286a01dcf2",
+        "request_stream_sha256": "16a007faafe19a85369258a45795ef0aaa69ba5fb3436aeba3645d44ccb20f51",
+        "band": "morning",
+        "rate": 15,
+        "seed": 2,
+        "schedule_id": "16a007faafe19a85",
+        "scheduled": 899
+      },
+      {
+        "file": "morning-r15-s3.json.gz",
+        "compressed_sha256": "632010447c0ed4760ccc647d1727f22d7860a9d4995e775b708e7ed63a298b23",
+        "request_stream_sha256": "f7548341be22037748bcade6d423ab0a3648a96411afb20616e6a976a34d71d5",
+        "band": "morning",
+        "rate": 15,
+        "seed": 3,
+        "schedule_id": "f7548341be220377",
+        "scheduled": 899
+      },
+      {
+        "file": "morning-r2-s1.json.gz",
+        "compressed_sha256": "3f4714e45721e0d2b61e8219bcda817c87360610cd20f4fc0d220aaa07c7b2a9",
+        "request_stream_sha256": "ca01f1581c185676c7728ddc01506b0215a3ae4b34ee93ae4fe1746517e2248c",
+        "band": "morning",
+        "rate": 2,
+        "seed": 1,
+        "schedule_id": "ca01f1581c185676",
+        "scheduled": 119
+      },
+      {
+        "file": "morning-r2-s10.json.gz",
+        "compressed_sha256": "64a39d920cf00775d8b1483161dca98e7db04d50ca30ce4c1214721e2fa00ebd",
+        "request_stream_sha256": "396a013822f2fdc9e734305a575308b060e3cdbb3eb2e105649e6eee7b2ac263",
+        "band": "morning",
+        "rate": 2,
+        "seed": 10,
+        "schedule_id": "396a013822f2fdc9",
+        "scheduled": 119
+      },
+      {
+        "file": "morning-r2-s2.json.gz",
+        "compressed_sha256": "41db3596d02c21adc8ba506a152828043c9f8672b90f7e907b4fdba942934d95",
+        "request_stream_sha256": "db3b198f324b1e355ba213109e2bf597df79a2dee52e2e293c79a306d118430e",
+        "band": "morning",
+        "rate": 2,
+        "seed": 2,
+        "schedule_id": "db3b198f324b1e35",
+        "scheduled": 119
+      },
+      {
+        "file": "morning-r2-s3.json.gz",
+        "compressed_sha256": "8b4d743300aaf37cae11060052e08fc280d599c455f6c5725dfbd4f64b397224",
+        "request_stream_sha256": "910e80ca8588ed6570ca45d7a5cad03fe81d2487358eb6a2420459fbd114e276",
+        "band": "morning",
+        "rate": 2,
+        "seed": 3,
+        "schedule_id": "910e80ca8588ed65",
+        "scheduled": 119
+      },
+      {
+        "file": "morning-r2-s4.json.gz",
+        "compressed_sha256": "29f8a8b99378372a12a8d731f489468a01daa6b99780737c7d4001f47e91da31",
+        "request_stream_sha256": "2729ccfc24bed48ad564cb8fc179d1ea4cdf904acec8a59b7ff6376a6c82bcbd",
+        "band": "morning",
+        "rate": 2,
+        "seed": 4,
+        "schedule_id": "2729ccfc24bed48a",
+        "scheduled": 119
+      },
+      {
+        "file": "morning-r2-s5.json.gz",
+        "compressed_sha256": "ee9177e726e8ff86353488e2494c43e4b725e788208be3390cde1a961f8d0ed8",
+        "request_stream_sha256": "d6fa23d57c43dea006e07b7590701d5a54b024ed2a795a0eff11776352374ef3",
+        "band": "morning",
+        "rate": 2,
+        "seed": 5,
+        "schedule_id": "d6fa23d57c43dea0",
+        "scheduled": 119
+      },
+      {
+        "file": "morning-r2-s6.json.gz",
+        "compressed_sha256": "45852e6c95764e062f66c31c29bee16a966444647b36e9cf74478ef301189bbd",
+        "request_stream_sha256": "e527778af5cc1c295ea3428351abbcf149165b13dbe3b71e0e68136b60181d64",
+        "band": "morning",
+        "rate": 2,
+        "seed": 6,
+        "schedule_id": "e527778af5cc1c29",
+        "scheduled": 119
+      },
+      {
+        "file": "morning-r2-s7.json.gz",
+        "compressed_sha256": "8f09f0af2681a7cb33a8c4135b2e9979066c0455877cdee7db73f239c44439cd",
+        "request_stream_sha256": "928052b0709d0caa652f3a41d7e6196e4ddff9521f681a12408cbd6ded4e837c",
+        "band": "morning",
+        "rate": 2,
+        "seed": 7,
+        "schedule_id": "928052b0709d0caa",
+        "scheduled": 119
+      },
+      {
+        "file": "morning-r2-s8.json.gz",
+        "compressed_sha256": "bf194bcf71b2a59fbfde7ef7156cdd7eba58a5a977213c10bc9e0dfafb083877",
+        "request_stream_sha256": "bdf9515568a6415b92f112585ac1c9636882893d3521208ac45632d5d5aca093",
+        "band": "morning",
+        "rate": 2,
+        "seed": 8,
+        "schedule_id": "bdf9515568a6415b",
+        "scheduled": 119
+      },
+      {
+        "file": "morning-r2-s9.json.gz",
+        "compressed_sha256": "886756a86f642c18fa371e71a3687cae762fee1b18e7491c4c71847cf00895d1",
+        "request_stream_sha256": "029f5d850bbcc9161c9a226a11485c9a0eacb272d16c0463b77b8e79e8b51774",
+        "band": "morning",
+        "rate": 2,
+        "seed": 9,
+        "schedule_id": "029f5d850bbcc916",
+        "scheduled": 119
+      },
+      {
+        "file": "morning-r20-s1.json.gz",
+        "compressed_sha256": "d6e469ca102164f8f2111b7d87a209cac56a98c9ce7fe48e296158dfda7ce87e",
+        "request_stream_sha256": "3d86c74880b14e266d2d487f4306bc9954c448f52add9481bca6f9bfacd909f5",
+        "band": "morning",
+        "rate": 20,
+        "seed": 1,
+        "schedule_id": "3d86c74880b14e26",
+        "scheduled": 1199
+      },
+      {
+        "file": "morning-r20-s2.json.gz",
+        "compressed_sha256": "79bd013e104deb7d635a65982c96b6dfd89d7be33d43a12ed5c18165fe1b7b4a",
+        "request_stream_sha256": "1a61cc4bdb1c81511993eb98ea8c4c661d20eb2b16326dabce9630b85a1ff650",
+        "band": "morning",
+        "rate": 20,
+        "seed": 2,
+        "schedule_id": "1a61cc4bdb1c8151",
+        "scheduled": 1199
+      },
+      {
+        "file": "morning-r20-s3.json.gz",
+        "compressed_sha256": "c00e36db4ba6aa74a688cdc3e3af2b198c8cab38041f70d4b08687b89ce16f89",
+        "request_stream_sha256": "9a3d9a447f0c02752fd3fb6e1e09178eff9f3c46b027efa95e952ef2d65b78e2",
+        "band": "morning",
+        "rate": 20,
+        "seed": 3,
+        "schedule_id": "9a3d9a447f0c0275",
+        "scheduled": 1199
+      },
+      {
+        "file": "morning-r30-s1.json.gz",
+        "compressed_sha256": "29b23f4dd1d9c9070f4d00bc687deeeaa3902c6435d73c08fce3eaaa95fb9ef4",
+        "request_stream_sha256": "db726ee2fbd49fd63c45ae7e8c97bba06758d038b957ed3a50218a0eddb3eedc",
+        "band": "morning",
+        "rate": 30,
+        "seed": 1,
+        "schedule_id": "db726ee2fbd49fd6",
+        "scheduled": 1799
+      },
+      {
+        "file": "morning-r30-s2.json.gz",
+        "compressed_sha256": "dce07c545fea26808adc0ffef190d8d582618091b4b23001e92d8191de99ca7b",
+        "request_stream_sha256": "8795cede4e913e456188554915e07516b14dafec51c411cbcbeb1d6daeb89fff",
+        "band": "morning",
+        "rate": 30,
+        "seed": 2,
+        "schedule_id": "8795cede4e913e45",
+        "scheduled": 1799
+      },
+      {
+        "file": "morning-r30-s3.json.gz",
+        "compressed_sha256": "71745ebb4b0d502e4b6665622611a92744a3437a369e1040e9a9eb1db257397b",
+        "request_stream_sha256": "1c897438024e50d6a2eeb58a70424947fa6ed248515155bac4fa31086f1c76ec",
+        "band": "morning",
+        "rate": 30,
+        "seed": 3,
+        "schedule_id": "1c897438024e50d6",
+        "scheduled": 1799
+      },
+      {
+        "file": "morning-r40-s1.json.gz",
+        "compressed_sha256": "fde8941dd96b1b15312528c461f5dcfc8f0266c307461e99473c370a13d1a254",
+        "request_stream_sha256": "03ca9dd41734019b3b7ee1edda88bb283e42308a5b5d3a3884391243f28b4b89",
+        "band": "morning",
+        "rate": 40,
+        "seed": 1,
+        "schedule_id": "03ca9dd41734019b",
+        "scheduled": 2399
+      },
+      {
+        "file": "morning-r40-s2.json.gz",
+        "compressed_sha256": "a841e17d8ff395721ba8e3b8f6e8426a9ba4364ef6e6cb3bc1e40f565f4769f2",
+        "request_stream_sha256": "b36380e8d66872bf03a8a0bb491576e6d57db79d8b6fd3b3b5410dfbb46ebc81",
+        "band": "morning",
+        "rate": 40,
+        "seed": 2,
+        "schedule_id": "b36380e8d66872bf",
+        "scheduled": 2399
+      },
+      {
+        "file": "morning-r40-s3.json.gz",
+        "compressed_sha256": "222d3e86fc840c59aaa05d800bab624a60e984a4b061016deaf8d25f91631cfa",
+        "request_stream_sha256": "af73e757e3b5faf8b59c1cbacdccf8952a363c4d8d33c3c8ffd8af567d4cc9a1",
+        "band": "morning",
+        "rate": 40,
+        "seed": 3,
+        "schedule_id": "af73e757e3b5faf8",
+        "scheduled": 2399
+      },
+      {
+        "file": "morning-r5-s1.json.gz",
+        "compressed_sha256": "bdd57ecdf466321a28172c4dcea3fdffb637c8aeb4a64861410cd9fa8a570484",
+        "request_stream_sha256": "b798061e95a55b97298df8a458c1b27cf0c8f36d5cbefc6f6ce6e906dfc909b6",
+        "band": "morning",
+        "rate": 5,
+        "seed": 1,
+        "schedule_id": "b798061e95a55b97",
+        "scheduled": 299
+      },
+      {
+        "file": "morning-r5-s10.json.gz",
+        "compressed_sha256": "c1c28a40f809f7b03072ee566dd4f5887427b66fcaff68ce645482411d72fe0d",
+        "request_stream_sha256": "93a20e5cabeb485151995c562d098e59d5d3529a4f6a357539eda9b15d5e2898",
+        "band": "morning",
+        "rate": 5,
+        "seed": 10,
+        "schedule_id": "93a20e5cabeb4851",
+        "scheduled": 299
+      },
+      {
+        "file": "morning-r5-s2.json.gz",
+        "compressed_sha256": "557bef73577173dcfb3d5c9d4fcf5ff6bb70ca2808dd2327d79938691e3d40b4",
+        "request_stream_sha256": "34d4ed437ad806406a343dc78d8ddcdbd6d7453f6532c2d887dd9af72ed37106",
+        "band": "morning",
+        "rate": 5,
+        "seed": 2,
+        "schedule_id": "34d4ed437ad80640",
+        "scheduled": 299
+      },
+      {
+        "file": "morning-r5-s3.json.gz",
+        "compressed_sha256": "f402e61041b0fecb52dcbd0584546aa56aa0c035749287f2b99d330013797834",
+        "request_stream_sha256": "00ff4695150d8f61fc144ce616861b723e46e73098bfce6b147c17eb91b61ac3",
+        "band": "morning",
+        "rate": 5,
+        "seed": 3,
+        "schedule_id": "00ff4695150d8f61",
+        "scheduled": 299
+      },
+      {
+        "file": "morning-r5-s4.json.gz",
+        "compressed_sha256": "8fe55698494496d6a8508062a159e67553615c2bb2aa6785b06d9f5f3e057b6a",
+        "request_stream_sha256": "44ba0710582cd4c1433db45adbe5e5c9f6a238e206ab9c8eb0b0bbe72891833d",
+        "band": "morning",
+        "rate": 5,
+        "seed": 4,
+        "schedule_id": "44ba0710582cd4c1",
+        "scheduled": 299
+      },
+      {
+        "file": "morning-r5-s5.json.gz",
+        "compressed_sha256": "93f669fbedc4de6c69f214d19ed5cd2ed1e16bb1569b275ba195f4d0aee1f80a",
+        "request_stream_sha256": "2abbcd005d9751772073d41833cb2dcd1bec4927abb33875c30b106ab474160d",
+        "band": "morning",
+        "rate": 5,
+        "seed": 5,
+        "schedule_id": "2abbcd005d975177",
+        "scheduled": 299
+      },
+      {
+        "file": "morning-r5-s6.json.gz",
+        "compressed_sha256": "c0ae6e9d7b8086fdc1e95e42980a58a2feb991fa1b52a282d992bf71ab9fdd7b",
+        "request_stream_sha256": "b7d61dbcc83b17c32381c5e5fe798553c4634348e26e3d9e751e1c95f9898389",
+        "band": "morning",
+        "rate": 5,
+        "seed": 6,
+        "schedule_id": "b7d61dbcc83b17c3",
+        "scheduled": 299
+      },
+      {
+        "file": "morning-r5-s7.json.gz",
+        "compressed_sha256": "ebdfda193d7a121659a34b8c5733d28ec1f9df903c3ce340d1995581cdc63cff",
+        "request_stream_sha256": "f5dfe1d62263e247f82827278d1440cd723c2069f50647f66df2f6e9bba603a9",
+        "band": "morning",
+        "rate": 5,
+        "seed": 7,
+        "schedule_id": "f5dfe1d62263e247",
+        "scheduled": 299
+      },
+      {
+        "file": "morning-r5-s8.json.gz",
+        "compressed_sha256": "5dd20b58b74f5b1b45552a3c0e9bd10f2cb95269745726b215546f7dff290b72",
+        "request_stream_sha256": "c8ecb19a8e478fc4d1d666c76d41c3cd8e94e97d71444afc379243025636ed28",
+        "band": "morning",
+        "rate": 5,
+        "seed": 8,
+        "schedule_id": "c8ecb19a8e478fc4",
+        "scheduled": 299
+      },
+      {
+        "file": "morning-r5-s9.json.gz",
+        "compressed_sha256": "d11b5a55a5b58d950e5dabf1b7487c385cfb8d28db0c444f4833bce8e7bef30f",
+        "request_stream_sha256": "8353678ecb1f405c804a84f9ce125c8b70236cb4dc78222a782bea64f52bb1b4",
+        "band": "morning",
+        "rate": 5,
+        "seed": 9,
+        "schedule_id": "8353678ecb1f405c",
+        "scheduled": 299
+      },
+      {
+        "file": "pm-peak-r10-s1.json.gz",
+        "compressed_sha256": "5fee77ad2f5dc47932455e60851ffc2a9bdba4f713ac8287d8277a12d56e1498",
+        "request_stream_sha256": "1e05a1d1b9c870e7dcbf1c4e997c412b4ab2f51972d47915998b439685553548",
+        "band": "pm-peak",
+        "rate": 10,
+        "seed": 1,
+        "schedule_id": "1e05a1d1b9c870e7",
+        "scheduled": 599
+      },
+      {
+        "file": "pm-peak-r10-s10.json.gz",
+        "compressed_sha256": "c65672dfd48bfeb1c3e8adb669d40410c36164c0257b6211fb1107563445a009",
+        "request_stream_sha256": "140c437a01ae9824845db1a52fa08204470df0597ca3770395406c38b71febef",
+        "band": "pm-peak",
+        "rate": 10,
+        "seed": 10,
+        "schedule_id": "140c437a01ae9824",
+        "scheduled": 599
+      },
+      {
+        "file": "pm-peak-r10-s2.json.gz",
+        "compressed_sha256": "fdc2f5e73752ec9bace2ce3a2199d3eadba45e71d2d66c0734fcd9403b62759c",
+        "request_stream_sha256": "d9bc2d34343c4048579a9af4d9c3486547ede428021b47d82bf0a992ea629477",
+        "band": "pm-peak",
+        "rate": 10,
+        "seed": 2,
+        "schedule_id": "d9bc2d34343c4048",
+        "scheduled": 599
+      },
+      {
+        "file": "pm-peak-r10-s3.json.gz",
+        "compressed_sha256": "b81a36cb0bf8526fe29046a07cf4f59b28dc74cff8cad1b4257a5d55b2ab5492",
+        "request_stream_sha256": "9fa279271ab253e47ea22127cc004c4725bbcd6b6769c7df5078cbbe4f870b2f",
+        "band": "pm-peak",
+        "rate": 10,
+        "seed": 3,
+        "schedule_id": "9fa279271ab253e4",
+        "scheduled": 599
+      },
+      {
+        "file": "pm-peak-r10-s4.json.gz",
+        "compressed_sha256": "b973c603d8b621621a5a5954f5fd29bb875745239a08b0914292c377b0c0f742",
+        "request_stream_sha256": "266eb9ba43c1be273e891404c78939b1d9bff96a8d35d74e515ac7329d00387d",
+        "band": "pm-peak",
+        "rate": 10,
+        "seed": 4,
+        "schedule_id": "266eb9ba43c1be27",
+        "scheduled": 599
+      },
+      {
+        "file": "pm-peak-r10-s5.json.gz",
+        "compressed_sha256": "4bfffd45ecf2c71a8080255e6528736b96e99a19a9b05e32c58bdaa277c8f6c3",
+        "request_stream_sha256": "7c09f64dc479fa7b4aa64df2443508d26151639ea3ad697e4175c3120eccac7c",
+        "band": "pm-peak",
+        "rate": 10,
+        "seed": 5,
+        "schedule_id": "7c09f64dc479fa7b",
+        "scheduled": 599
+      },
+      {
+        "file": "pm-peak-r10-s6.json.gz",
+        "compressed_sha256": "fcdf314a918b702fb62c6ed669fe401457c71ee4e9f844bbf5240cd956efc253",
+        "request_stream_sha256": "3d149538bebd7fa07b6d470a410b9fbad7c1931ab60d3acb07b6074b792dcd63",
+        "band": "pm-peak",
+        "rate": 10,
+        "seed": 6,
+        "schedule_id": "3d149538bebd7fa0",
+        "scheduled": 599
+      },
+      {
+        "file": "pm-peak-r10-s7.json.gz",
+        "compressed_sha256": "c35d97c4ecc58ca3e09d6a6616188d83fd9d8591be87670b79726ca988802b8c",
+        "request_stream_sha256": "092522b72f8afe65fdf4772496e4df27806691c81af77eae0bb1d2beb9808b5b",
+        "band": "pm-peak",
+        "rate": 10,
+        "seed": 7,
+        "schedule_id": "092522b72f8afe65",
+        "scheduled": 599
+      },
+      {
+        "file": "pm-peak-r10-s8.json.gz",
+        "compressed_sha256": "538201972b6bfab5a808c9563847abc277f00c6f69a81f95623a7e769ee6fd95",
+        "request_stream_sha256": "ee3eb4b5d27e2ab300824c3d07be2a97797611b94403c867022c39aaf1277a20",
+        "band": "pm-peak",
+        "rate": 10,
+        "seed": 8,
+        "schedule_id": "ee3eb4b5d27e2ab3",
+        "scheduled": 599
+      },
+      {
+        "file": "pm-peak-r10-s9.json.gz",
+        "compressed_sha256": "c531f04c60e51bc012acbda336e0b9e895eec9ab138f140649177cb8f38093db",
+        "request_stream_sha256": "a8a2484ea7f13b9ca16db35545b1eed884a30ee4e5c755d99045ab623cd34bae",
+        "band": "pm-peak",
+        "rate": 10,
+        "seed": 9,
+        "schedule_id": "a8a2484ea7f13b9c",
+        "scheduled": 599
+      },
+      {
+        "file": "pm-peak-r15-s1.json.gz",
+        "compressed_sha256": "a06075d34676deb9d2bdf19cd6724af0615e647c78afd38f7a79ee8d0856d8ab",
+        "request_stream_sha256": "3f0f0c4d29ac28f4ced4e83e959c75fde53f74e2bed056615dbe1567b7af3331",
+        "band": "pm-peak",
+        "rate": 15,
+        "seed": 1,
+        "schedule_id": "3f0f0c4d29ac28f4",
+        "scheduled": 899
+      },
+      {
+        "file": "pm-peak-r15-s10.json.gz",
+        "compressed_sha256": "2a24924b99633509ad5026212c2215b10ddbe35e31c3a06b935e0312fec990de",
+        "request_stream_sha256": "057582463c84f100fea787abbdd40dd877b899597bdf2c9295324aa21987f603",
+        "band": "pm-peak",
+        "rate": 15,
+        "seed": 10,
+        "schedule_id": "057582463c84f100",
+        "scheduled": 899
+      },
+      {
+        "file": "pm-peak-r15-s2.json.gz",
+        "compressed_sha256": "d044ece9f5677930fb10b78a697e2e182a79fb03de13a709985c70b6782f3ea5",
+        "request_stream_sha256": "55941e6f517da673bd6d0ca2bb8d676d972e1036d3b3949f42e6ec65ace9c06f",
+        "band": "pm-peak",
+        "rate": 15,
+        "seed": 2,
+        "schedule_id": "55941e6f517da673",
+        "scheduled": 899
+      },
+      {
+        "file": "pm-peak-r15-s3.json.gz",
+        "compressed_sha256": "aa4ab055b0fbcf68701aa8a141b58cbb3b428b64a478b84c72e25e6fba497f8f",
+        "request_stream_sha256": "d3c67ad21983f770de34423e405504cfb074fc87cb8314149acf65184bd4e4ad",
+        "band": "pm-peak",
+        "rate": 15,
+        "seed": 3,
+        "schedule_id": "d3c67ad21983f770",
+        "scheduled": 899
+      },
+      {
+        "file": "pm-peak-r15-s4.json.gz",
+        "compressed_sha256": "9275927b40524b576360820718ca25a87dc0163530b59f29cb77e222f69e36e7",
+        "request_stream_sha256": "026927034c430ddef44f9d9c05abaf6241f734842df55896bc8b11f80b0af461",
+        "band": "pm-peak",
+        "rate": 15,
+        "seed": 4,
+        "schedule_id": "026927034c430dde",
+        "scheduled": 899
+      },
+      {
+        "file": "pm-peak-r15-s5.json.gz",
+        "compressed_sha256": "801ca3e5f49c2fb0f2cba593acd0581879f74a74cacb9cb2a78abae698affa04",
+        "request_stream_sha256": "d59972af76bebe660ca51ac82bf79114b49b5a5c4d06bf68bfa8c2b66bf1eaed",
+        "band": "pm-peak",
+        "rate": 15,
+        "seed": 5,
+        "schedule_id": "d59972af76bebe66",
+        "scheduled": 899
+      },
+      {
+        "file": "pm-peak-r15-s6.json.gz",
+        "compressed_sha256": "c72ef0f577a3e5a08072ee4d4c3aa399cbc7127ca5e4a7f95a0d0adbb9b01926",
+        "request_stream_sha256": "5e3d325b017544eeff171dac024de2f59ca78e2f3aed6302d9bab8b9d0ed3779",
+        "band": "pm-peak",
+        "rate": 15,
+        "seed": 6,
+        "schedule_id": "5e3d325b017544ee",
+        "scheduled": 899
+      },
+      {
+        "file": "pm-peak-r15-s7.json.gz",
+        "compressed_sha256": "067eff1d4368a306332b9da388ab598bbc178d16d121aeb794ae8ea56e2dd884",
+        "request_stream_sha256": "6701ae51d786cb32ba9a2fd222949b8a11fd81373459437fb667eb4e5a38a2b2",
+        "band": "pm-peak",
+        "rate": 15,
+        "seed": 7,
+        "schedule_id": "6701ae51d786cb32",
+        "scheduled": 899
+      },
+      {
+        "file": "pm-peak-r15-s8.json.gz",
+        "compressed_sha256": "37f786863eff4e2e48128ee1b8ad2351abb1073e0ab0516c408507bc4d1eeb52",
+        "request_stream_sha256": "92afa591ce98087902db2d9b76d9ad833650de54ea79137dea0fe30a28438654",
+        "band": "pm-peak",
+        "rate": 15,
+        "seed": 8,
+        "schedule_id": "92afa591ce980879",
+        "scheduled": 899
+      },
+      {
+        "file": "pm-peak-r15-s9.json.gz",
+        "compressed_sha256": "95896b76d26945b264ef9565181ec90377bc93fab24a139de03fe7ecb22f1ada",
+        "request_stream_sha256": "a384d30882269f6eeb178b2848da6a70eb074663e87f36b9b306f4528e62c18f",
+        "band": "pm-peak",
+        "rate": 15,
+        "seed": 9,
+        "schedule_id": "a384d30882269f6e",
+        "scheduled": 899
+      },
+      {
+        "file": "pm-peak-r20-s1.json.gz",
+        "compressed_sha256": "76c8ad9ed2814e79c412778d96389dfb69ee4ab336e382b0e68318d932511438",
+        "request_stream_sha256": "c1f07e354ee1a73584a037abdb3b85faa50171a21f29a9f9196d5ecfd029623b",
+        "band": "pm-peak",
+        "rate": 20,
+        "seed": 1,
+        "schedule_id": "c1f07e354ee1a735",
+        "scheduled": 1199
+      },
+      {
+        "file": "pm-peak-r20-s2.json.gz",
+        "compressed_sha256": "632f05f49cc80d5e1ce5390b751adce1fd73cecc5d839337501debc6cd402032",
+        "request_stream_sha256": "65fb1f8e41bcb1593d27b699039287e10b1f227bb27351e87f56862bf07b34ab",
+        "band": "pm-peak",
+        "rate": 20,
+        "seed": 2,
+        "schedule_id": "65fb1f8e41bcb159",
+        "scheduled": 1199
+      },
+      {
+        "file": "pm-peak-r20-s3.json.gz",
+        "compressed_sha256": "1636047417c44040350f23175813dc5d7dda53de57227e35c8dced211a0a82fb",
+        "request_stream_sha256": "f9260ae34a3b54577ddb811b4df8ffa549f56327039f46f7bcc9da355583f21b",
+        "band": "pm-peak",
+        "rate": 20,
+        "seed": 3,
+        "schedule_id": "f9260ae34a3b5457",
+        "scheduled": 1199
+      },
+      {
+        "file": "pm-peak-r30-s1.json.gz",
+        "compressed_sha256": "5951218b7d6c50d662bb2e88042eac4664cc9a0b2de7cfb73162d02402b36fee",
+        "request_stream_sha256": "4766002ec5aa68a82a9165e68cd65dc076084c5e31c7c0b945dceb08f1f7b80f",
+        "band": "pm-peak",
+        "rate": 30,
+        "seed": 1,
+        "schedule_id": "4766002ec5aa68a8",
+        "scheduled": 1799
+      },
+      {
+        "file": "pm-peak-r30-s2.json.gz",
+        "compressed_sha256": "daf15ef1e4056c17583aab2795075be53f0344c5a784649a43116213e91aa25e",
+        "request_stream_sha256": "02c359239362a9ed25a8cd529d9f7fe855db0df9b17cf86ee1d8c255e48d7b93",
+        "band": "pm-peak",
+        "rate": 30,
+        "seed": 2,
+        "schedule_id": "02c359239362a9ed",
+        "scheduled": 1799
+      },
+      {
+        "file": "pm-peak-r30-s3.json.gz",
+        "compressed_sha256": "c67a4776ff342ee7a4e41b8cb399adbdb123fcdc4a022a1a51988997153d3512",
+        "request_stream_sha256": "53cfd0ddd987a69ca6c953f9c9759a8116c282688b01f48788a86d00842a89b3",
+        "band": "pm-peak",
+        "rate": 30,
+        "seed": 3,
+        "schedule_id": "53cfd0ddd987a69c",
+        "scheduled": 1799
+      },
+      {
+        "file": "pm-peak-r40-s1.json.gz",
+        "compressed_sha256": "56594f95575f307b45c33332abd8a4b1caf19fe9343886a4e302c59e22cfb9ab",
+        "request_stream_sha256": "a337e282db9883b418d81c192373e863b12c0653232d5a33969675395900d7dc",
+        "band": "pm-peak",
+        "rate": 40,
+        "seed": 1,
+        "schedule_id": "a337e282db9883b4",
+        "scheduled": 2399
+      },
+      {
+        "file": "pm-peak-r40-s2.json.gz",
+        "compressed_sha256": "e4c4822b34939a0026fe937275c409e1c998a009dd98bdbee77ce3fb4ed777b6",
+        "request_stream_sha256": "764671ec0264b88deac4cc77f184949de377b2689b94cce0b8b813a3cec26556",
+        "band": "pm-peak",
+        "rate": 40,
+        "seed": 2,
+        "schedule_id": "764671ec0264b88d",
+        "scheduled": 2399
+      },
+      {
+        "file": "pm-peak-r40-s3.json.gz",
+        "compressed_sha256": "fc378729262d832df9e95c8fcef92a3bfcf93eb4d5911c571e4a6e08f8c3bbde",
+        "request_stream_sha256": "8b99e1243c26c746bc7a1b472a47de59fd32925df9dc88e77940bdcdc64fcdd3",
+        "band": "pm-peak",
+        "rate": 40,
+        "seed": 3,
+        "schedule_id": "8b99e1243c26c746",
+        "scheduled": 2399
+      },
+      {
+        "file": "pm-peak-r5-s1.json.gz",
+        "compressed_sha256": "21581c131eb20ea223e6a6c84d78045da4bf23130c7639acfd8cbb12d4a94507",
+        "request_stream_sha256": "7c98bb0ae60e7bebd8c2ee8ab2d54603364d6b5870caa87d840270c491d0411f",
+        "band": "pm-peak",
+        "rate": 5,
+        "seed": 1,
+        "schedule_id": "7c98bb0ae60e7beb",
+        "scheduled": 299
+      },
+      {
+        "file": "pm-peak-r5-s2.json.gz",
+        "compressed_sha256": "f9469f9fe9c5682056c726670730b1c6319eaae90be84e49a39ca52976f9bac6",
+        "request_stream_sha256": "d6811e4837e45754805d2f3bf2aa5157f747fa760968402360c126b912f1ff2b",
+        "band": "pm-peak",
+        "rate": 5,
+        "seed": 2,
+        "schedule_id": "d6811e4837e45754",
+        "scheduled": 299
+      },
+      {
+        "file": "pm-peak-r5-s3.json.gz",
+        "compressed_sha256": "31c68a4f8e2cc4b64ffda356edf8545c3bdab7d106cd3b52b6079f8b79f237e5",
+        "request_stream_sha256": "d8b526937a7dee3fccdfc1af1dee516bcd77efa2870a7e088a4ad7d067fa43f2",
+        "band": "pm-peak",
+        "rate": 5,
+        "seed": 3,
+        "schedule_id": "d8b526937a7dee3f",
+        "scheduled": 299
+      }
+    ]
+  },
+  "candidate_selection": {
+    "rule": "All three screen seeds recover and improve lexicographic recovery count, unfinished count, longest elapsed run, then mean seed request-to-alight. Exploratory selection, not statistical significance. Test every qualifying candidate at the next tested nominal rate.",
+    "decisions": [
+      {
+        "candidate": "fleet300",
+        "band": "morning",
+        "screen_rate": 2,
+        "next_rate": 5,
+        "baseline_score": [
+          -3,
+          0,
+          6536,
+          1122.7765639589168
+        ],
+        "candidate_score": [
+          -3,
+          0,
+          6536,
+          1120.992390289449
+        ],
+        "promising": true
+      },
+      {
+        "candidate": "fleet300-local",
+        "band": "morning",
+        "screen_rate": 2,
+        "next_rate": 5,
+        "baseline_score": [
+          -3,
+          0,
+          6536,
+          1122.7765639589168
+        ],
+        "candidate_score": [
+          -3,
+          0,
+          6536,
+          1116.6303921568626
+        ],
+        "promising": true
+      },
+      {
+        "candidate": "fleet287-local",
+        "band": "morning",
+        "screen_rate": 2,
+        "next_rate": 5,
+        "baseline_score": [
+          -3,
+          0,
+          6536,
+          1122.7765639589168
+        ],
+        "candidate_score": [
+          -3,
+          0,
+          6536,
+          1122.1709150326797
+        ],
+        "promising": true
+      },
+      {
+        "candidate": "fleet300",
+        "band": "am-peak",
+        "screen_rate": 10,
+        "next_rate": 15,
+        "baseline_score": [
+          -3,
+          0,
+          7095,
+          903.3843350027824
+        ],
+        "candidate_score": [
+          -2,
+          1,
+          7200,
+          897.6988607607501
+        ],
+        "promising": false
+      },
+      {
+        "candidate": "fleet300-local",
+        "band": "am-peak",
+        "screen_rate": 10,
+        "next_rate": 15,
+        "baseline_score": [
+          -3,
+          0,
+          7095,
+          903.3843350027824
+        ],
+        "candidate_score": [
+          -1,
+          2,
+          7200,
+          895.9758347090313
+        ],
+        "promising": false
+      },
+      {
+        "candidate": "fleet287-local",
+        "band": "am-peak",
+        "screen_rate": 10,
+        "next_rate": 15,
+        "baseline_score": [
+          -3,
+          0,
+          7095,
+          903.3843350027824
+        ],
+        "candidate_score": [
+          -1,
+          2,
+          7200,
+          903.9840175531
+        ],
+        "promising": false
+      },
+      {
+        "candidate": "fleet300",
+        "band": "interpeak",
+        "screen_rate": 15,
+        "next_rate": 20,
+        "baseline_score": [
+          -3,
+          0,
+          6260,
+          756.6514398714621
+        ],
+        "candidate_score": [
+          -3,
+          0,
+          6330,
+          731.1969534050179
+        ],
+        "promising": false
+      },
+      {
+        "candidate": "fleet300-local",
+        "band": "interpeak",
+        "screen_rate": 15,
+        "next_rate": 20,
+        "baseline_score": [
+          -3,
+          0,
+          6260,
+          756.6514398714621
+        ],
+        "candidate_score": [
+          -3,
+          0,
+          6187,
+          724.9867445309603
+        ],
+        "promising": true
+      },
+      {
+        "candidate": "fleet287-local",
+        "band": "interpeak",
+        "screen_rate": 15,
+        "next_rate": 20,
+        "baseline_score": [
+          -3,
+          0,
+          6260,
+          756.6514398714621
+        ],
+        "candidate_score": [
+          -3,
+          0,
+          6295,
+          736.9665430725498
+        ],
+        "promising": false
+      },
+      {
+        "candidate": "fleet300",
+        "band": "pm-peak",
+        "screen_rate": 10,
+        "next_rate": 15,
+        "baseline_score": [
+          -3,
+          0,
+          6458,
+          882.5131051752921
+        ],
+        "candidate_score": [
+          -3,
+          0,
+          6413,
+          856.95306065665
+        ],
+        "promising": true
+      },
+      {
+        "candidate": "fleet300-local",
+        "band": "pm-peak",
+        "screen_rate": 10,
+        "next_rate": 15,
+        "baseline_score": [
+          -3,
+          0,
+          6458,
+          882.5131051752921
+        ],
+        "candidate_score": [
+          -3,
+          0,
+          6413,
+          839.3387868670006
+        ],
+        "promising": true
+      },
+      {
+        "candidate": "fleet287-local",
+        "band": "pm-peak",
+        "screen_rate": 10,
+        "next_rate": 15,
+        "baseline_score": [
+          -3,
+          0,
+          6458,
+          882.5131051752921
+        ],
+        "candidate_score": [
+          -3,
+          0,
+          6413,
+          863.5453162678538
+        ],
+        "promising": true
+      },
+      {
+        "candidate": "fleet300",
+        "band": "evening",
+        "screen_rate": 10,
+        "next_rate": 15,
+        "baseline_score": [
+          -3,
+          0,
+          6463,
+          947.2831107401224
+        ],
+        "candidate_score": [
+          -3,
+          0,
+          5973,
+          917.1086162122054
+        ],
+        "promising": true
+      },
+      {
+        "candidate": "fleet300-local",
+        "band": "evening",
+        "screen_rate": 10,
+        "next_rate": 15,
+        "baseline_score": [
+          -3,
+          0,
+          6463,
+          947.2831107401224
+        ],
+        "candidate_score": [
+          -3,
+          0,
+          6369,
+          905.5562511593396
+        ],
+        "promising": true
+      },
+      {
+        "candidate": "fleet287-local",
+        "band": "evening",
+        "screen_rate": 10,
+        "next_rate": 15,
+        "baseline_score": [
+          -3,
+          0,
+          6463,
+          947.2831107401224
+        ],
+        "candidate_score": [
+          -3,
+          0,
+          6369,
+          934.9377109998145
+        ],
+        "promising": true
+      },
+      {
+        "candidate": "fleet300",
+        "band": "late",
+        "screen_rate": 10,
+        "next_rate": 15,
+        "baseline_score": [
+          -3,
+          0,
+          6563,
+          1034.054906325357
+        ],
+        "candidate_score": [
+          -3,
+          0,
+          6661,
+          997.0404099424967
+        ],
+        "promising": false
+      },
+      {
+        "candidate": "fleet300-local",
+        "band": "late",
+        "screen_rate": 10,
+        "next_rate": 15,
+        "baseline_score": [
+          -3,
+          0,
+          6563,
+          1034.054906325357
+        ],
+        "candidate_score": [
+          -3,
+          0,
+          6491,
+          983.9145149322945
+        ],
+        "promising": true
+      },
+      {
+        "candidate": "fleet287-local",
+        "band": "late",
+        "screen_rate": 10,
+        "next_rate": 15,
+        "baseline_score": [
+          -3,
+          0,
+          6563,
+          1034.054906325357
+        ],
+        "candidate_score": [
+          -3,
+          0,
+          6435,
+          1014.7208031905027
+        ],
+        "promising": true
+      }
+    ]
+  },
+  "inventory": {
+    "baseline": {
+      "planned": 108,
+      "confirmed_exit0": 40,
+      "failed_exit": 1,
+      "no_exit_marker": 67,
+      "run_exit": "1"
+    },
+    "baseline-resume": {
+      "planned": 68,
+      "confirmed_exit0": 53,
+      "no_exit_marker": 15,
+      "run_exit": null
+    },
+    "baseline-finish": {
+      "planned": 15,
+      "confirmed_exit0": 15,
+      "run_exit": "0"
+    },
+    "edges": {
+      "planned": 6,
+      "confirmed_exit0": 6,
+      "run_exit": "0"
+    },
+    "boundary": {
+      "planned": 84,
+      "confirmed_exit0": 84,
+      "run_exit": "0"
+    },
+    "screen": {
+      "planned": 54,
+      "confirmed_exit0": 54,
+      "run_exit": "0"
+    },
+    "candidate-next": {
+      "planned": 36,
+      "confirmed_exit0": 36,
+      "run_exit": "0"
+    },
+    "candidate-confirmation": {
+      "planned": 14,
+      "confirmed_exit0": 14,
+      "run_exit": "0"
+    }
+  },
+  "metrics_notes": {
+    "time_unit": "seconds unless field name specifies otherwise",
+    "distance_unit": "meters",
+    "throughput_unit": "completed requests per minute",
+    "late_window": "arrival minutes 30 through 60",
+    "late_backlog_change": "outstanding at minute 60 minus outstanding at minute 30",
+    "wait_statistics": "request to boarding, including elapsed pending waits",
+    "journey_statistics": "request to alight, completed requests only",
+    "peak_active_vehicles": "vehicles with assigned work",
+    "drain_seconds": "0 is a sentinel when drained is false"
+  },
+  "confirmation_selection": [
+    {
+      "project": "fleet287-local.json",
+      "band": "evening",
+      "rate": 15,
+      "recovered": 1,
+      "seeds": 3,
+      "confirm": false
+    },
+    {
+      "project": "fleet287-local.json",
+      "band": "late",
+      "rate": 15,
+      "recovered": 2,
+      "seeds": 3,
+      "confirm": false
+    },
+    {
+      "project": "fleet287-local.json",
+      "band": "morning",
+      "rate": 5,
+      "recovered": 2,
+      "seeds": 3,
+      "confirm": false
+    },
+    {
+      "project": "fleet287-local.json",
+      "band": "pm-peak",
+      "rate": 15,
+      "recovered": 1,
+      "seeds": 3,
+      "confirm": false
+    },
+    {
+      "project": "fleet300-local.json",
+      "band": "evening",
+      "rate": 15,
+      "recovered": 1,
+      "seeds": 3,
+      "confirm": false
+    },
+    {
+      "project": "fleet300-local.json",
+      "band": "interpeak",
+      "rate": 20,
+      "recovered": 1,
+      "seeds": 3,
+      "confirm": false
+    },
+    {
+      "project": "fleet300-local.json",
+      "band": "late",
+      "rate": 15,
+      "recovered": 1,
+      "seeds": 3,
+      "confirm": false
+    },
+    {
+      "project": "fleet300-local.json",
+      "band": "morning",
+      "rate": 5,
+      "recovered": 1,
+      "seeds": 3,
+      "confirm": false
+    },
+    {
+      "project": "fleet300-local.json",
+      "band": "pm-peak",
+      "rate": 15,
+      "recovered": 1,
+      "seeds": 3,
+      "confirm": false
+    },
+    {
+      "project": "fleet300.json",
+      "band": "evening",
+      "rate": 15,
+      "recovered": 3,
+      "seeds": 3,
+      "confirm": true
+    },
+    {
+      "project": "fleet300.json",
+      "band": "morning",
+      "rate": 5,
+      "recovered": 2,
+      "seeds": 3,
+      "confirm": false
+    },
+    {
+      "project": "fleet300.json",
+      "band": "pm-peak",
+      "rate": 15,
+      "recovered": 3,
+      "seeds": 3,
+      "confirm": true
+    }
+  ]
+}

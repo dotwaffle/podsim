@@ -22,7 +22,9 @@ See [README.md](README.md) for controls, validation commands, and current model 
 
 LondonCentral (`london-central`) retains the central qualification network and its 2019 demand.
 [LondonFull](docs/london-full.md) adds 269 Tube sites with 2024 endpoint demand.
-Its bounded demo trials do not establish a sustainable capacity envelope.
+Its 302-arm study tested 60 minutes of arrivals with up to 60 minutes to recover.
+No fleet candidate established an all-ten recovery improvement at its next tested rate.
+These finite tests do not establish a sustainable capacity envelope.
 The original `london` selector is now `london-central`.
 
 The editor imports georeferenced PNG or JPEG backgrounds with stored bounds, projection, attribution, and an atomic undo step.
