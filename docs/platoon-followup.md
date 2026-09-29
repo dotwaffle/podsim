@@ -103,3 +103,36 @@ Journey statistics include completed requests only. The dataset retains unfinish
 The [historical A/B](qualification.md#platoon-ab) remains a separate measurement record.
 Local evidence: `~/.cache/agents/podsim/platoon-followup-20260929/`.
 It includes generated projects, hashes, helper overlays, commands, logs, manifests, and exit markers.
+
+## Targeted diagnosis after junction priority
+
+A later eight-arm replay repeats the four failing pairs on source `fbe0332`.
+It retains each original project, schedule, demand window, and platoon limit.
+Buffers and pickup swaps remain disabled.
+This replay checks safety and unique-order accounting once each simulated second.
+It records per-request boarding and completion times, pickup pods, stopped time, and passenger coupling samples.
+It does not repeat the original per-tick certificate and retention monitor.
+
+| Pair | Current off / virtual end | Mean wait change | Empty-distance ratio | Result |
+| --- | --- | --- | --- | --- |
+| London198 AM24 seed 2 | 3516 / 3625 s | -4.29 s | 1.0123 | recovery fails |
+| London114 AM12 seed 1 | 3433 / 3433 s | +4.29 s | 1.0074 | wait fails |
+| London114 AM12 seed 2 | 3500 / 3110 s | -1.33 s | 0.9650 | control passes |
+| London114 AM13 seed 2 | 3411 / 3548 s | +2.31 s | 1.0261 | wait and empty travel fail |
+
+The junction-priority change `87d6da8` explains the differences from the historical rows.
+A test-only replay restores the former FIFO admission comparator while keeping the other current production code.
+All eight FIFO replay rows match every common historical result field exactly.
+The production comparator and user-selected passenger/pickup/empty priorities remain unchanged.
+
+The two inspected late orders show changes in pickup assignment, not large passenger delays while coupled.
+In London198, request 712 boards 202 seconds later with virtual platoons.
+Its sampled passenger travel time stays at 805 seconds, with no passenger coupling or stopped samples in either mode.
+In London114 AM13, request 358 boards about 500 seconds later and uses a different pickup pod.
+Its passenger travel time decreases by about three seconds, again with no sampled passenger coupling.
+These observations do not identify a direct platoon movement defect.
+They also do not show that empty-pod coupling has no effect on dispatch.
+
+The adoption criteria remain unmet.
+This targeted replay does not qualify the full matrix or justify a new operating default.
+Evidence, frozen hashes, per-request comparisons, and the FIFO overlay are in `~/.cache/agents/podsim/platoon-diagnosis-20260929/`.
