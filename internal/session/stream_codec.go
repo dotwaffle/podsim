@@ -384,6 +384,17 @@ func DecodeStreamJSON(data []byte) (StreamEnvelope, error) {
 }
 
 func encodeStream(e StreamEnvelope) ([]byte, error) {
+	return new(streamEncoder).encode(e)
+}
+
+// streamEncoder belongs to one publication goroutine.
+// The writer keeps the buffer address, but each call releases its backing array.
+type streamEncoder struct {
+	writer *gzip.Writer
+	output bytes.Buffer
+}
+
+func (c *streamEncoder) encode(e StreamEnvelope) ([]byte, error) {
 	data, err := json.Marshal(e)
 	if err != nil {
 		return nil, err
@@ -391,26 +402,33 @@ func encodeStream(e StreamEnvelope) ([]byte, error) {
 	if len(data) > MaxStreamJSON {
 		return nil, errors.New("state JSON exceeds supported limit")
 	}
-	return compressStreamJSON(data)
+	return c.compressJSON(data)
 }
 
 func compressStreamJSON(data []byte) ([]byte, error) {
+	return new(streamEncoder).compressJSON(data)
+}
+
+func (c *streamEncoder) compressJSON(data []byte) ([]byte, error) {
 	if len(data) > MaxStreamJSON {
 		return nil, errors.New("state JSON exceeds supported limit")
 	}
-	var err error
-	var out bytes.Buffer
-	z, _ := gzip.NewWriterLevel(&out, gzip.BestSpeed)
-	if _, err = z.Write(data); err != nil {
+	defer func() { c.output = bytes.Buffer{} }()
+	if c.writer == nil {
+		c.writer, _ = gzip.NewWriterLevel(&c.output, gzip.BestSpeed)
+	} else {
+		c.writer.Reset(&c.output)
+	}
+	if _, err := c.writer.Write(data); err != nil {
 		return nil, err
 	}
-	if err := z.Close(); err != nil {
+	if err := c.writer.Close(); err != nil {
 		return nil, err
 	}
-	if out.Len() > MaxStreamMessage {
+	if c.output.Len() > MaxStreamMessage {
 		return nil, errors.New("compressed state exceeds supported limit")
 	}
-	return slices.Clone(out.Bytes()), nil
+	return slices.Clone(c.output.Bytes()), nil
 }
 
 // InflateStream accepts exactly one gzip member with bounded output.

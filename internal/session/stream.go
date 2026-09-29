@@ -94,6 +94,8 @@ type statePublisher struct {
 	needFull     bool
 	metrics      StreamMetrics
 	stopped      bool
+	// mu protects the pointer. Only run uses the encoder contents.
+	encoder *streamEncoder
 }
 
 func (s *Session) publisher() *statePublisher {
@@ -188,7 +190,13 @@ func (p *statePublisher) release(b *streamPayload) {
 	}
 }
 func (p *statePublisher) retain(ctx context.Context, e StreamEnvelope) (*streamPayload, error) {
-	data, err := encodeStream(e)
+	p.mu.Lock()
+	if p.encoder == nil {
+		p.encoder = new(streamEncoder)
+	}
+	encoder := p.encoder
+	p.mu.Unlock()
+	data, err := encoder.encode(e)
 	if err != nil {
 		return nil, err
 	}
@@ -269,6 +277,7 @@ func (p *statePublisher) run(ctx context.Context) {
 		}
 		p.release(p.full)
 		p.full = nil
+		p.encoder = nil
 		p.mu.Unlock()
 		close(p.done)
 	}()
@@ -301,6 +310,7 @@ func (p *statePublisher) run(ctx context.Context) {
 				p.stream = ""
 				p.sequence = 0
 				p.needFull = false
+				p.encoder = nil
 			}
 			p.mu.Unlock()
 			continue
