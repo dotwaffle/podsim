@@ -317,6 +317,7 @@ func (s *Session) startProject(config project.Config) error {
 	if err := project.ConfigurePlatoons(simulation, owned); err != nil {
 		return fmt.Errorf("configure platoons: %w", err)
 	}
+	project.ConfigureExperiments(simulation, owned)
 	s.simulation, s.project, s.epoch = simulation, owned, rand.Text()
 	s.projectRevision, s.projectOrigin, s.generation, s.speed = 1, 1, 1, 1
 	s.demand = newDemand(demandInput{config: owned.Demand, network: owned.Network, profiles: owned.DemandProfiles})
@@ -668,6 +669,7 @@ func (s *Session) apply(command Command) (outcome, error) {
 	case "reset":
 		paused := s.simulation.Snapshot().Paused
 		s.simulation.Reset()
+		project.ConfigureExperiments(s.simulation, s.project)
 		s.simulation.SetPaused(paused)
 		s.speed = 1
 		s.demand = newDemand(demandInput{config: s.project.Demand, network: s.project.Network, profiles: s.project.DemandProfiles})
@@ -690,6 +692,7 @@ func (s *Session) apply(command Command) (outcome, error) {
 		if err := project.ConfigurePlatoons(s.simulation, s.project); err != nil {
 			return outcome{}, fmt.Errorf("configure platoons: %w", err)
 		}
+		project.ConfigureExperiments(s.simulation, s.project)
 		s.speed = 1
 		disabled := s.project.Demand
 		disabled.Enabled = false
@@ -773,6 +776,7 @@ func (s *Session) applyProject(command Command) error {
 	if err := project.ConfigurePlatoons(candidate, config); err != nil {
 		return fmt.Errorf("configure platoons: %w", err)
 	}
+	project.ConfigureExperiments(candidate, config)
 	candidate.SetPaused(true)
 	if err := s.save(config); err != nil {
 		return err

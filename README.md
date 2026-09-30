@@ -138,7 +138,7 @@ State frames give the result in `restore`.
 With `-project`, the project file has priority:
 
 - If the saved project is different, the server starts a new session with the project file.
-- If only the demand settings are different, the server restores the saved session and applies the demand settings of the project file.
+- If only demand or experimental policy settings differ, the server restores the session and applies the project settings.
   While the saved traffic demo runs, the server cannot change the demand settings.
   It then starts a new session with the project file.
 

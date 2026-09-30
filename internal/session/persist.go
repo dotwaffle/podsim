@@ -501,6 +501,7 @@ func (s *Session) loadState(input loadInput) (loaded loadedState, err error) {
 	if err = project.ConfigurePlatoons(loaded.simulation, loaded.config); err != nil {
 		return loaded, invalidState(err)
 	}
+	project.ConfigureExperiments(loaded.simulation, loaded.config)
 	// The demand command refuses a change while the traffic demo runs, so
 	// a restored demo cannot apply other demand settings. The restore then
 	// rejects the saved state, as for a different project. The saved state
@@ -521,8 +522,8 @@ func (s *Session) loadState(input loadInput) (loaded loadedState, err error) {
 
 // restoreProject returns the project that a restore uses. saved is the
 // project of the saved state. With a project of the caller, the two projects
-// must be the same, but their demand settings can be different. The restore
-// then uses a copy of the project of the caller with the saved demand
+// must match except for demand and experimental policy settings. The restore
+// uses a copy of the caller's project with the saved demand
 // settings. Without a project of the caller, saved must be valid. Each
 // error is a *stateError.
 func restoreProject(input loadInput, saved project.Config) (project.Config, error) {
@@ -534,7 +535,10 @@ func restoreProject(input loadInput, saved project.Config) (project.Config, erro
 	}
 	config := project.Clone(*input.project)
 	config.Demand = saved.Demand
-	same, err := sameProject(config, saved)
+	comparison := config
+	comparison.StationBuffers = saved.StationBuffers
+	comparison.PickupReassignment = saved.PickupReassignment
+	same, err := sameProject(comparison, saved)
 	switch {
 	case err != nil:
 		return project.Config{}, invalidState(err)

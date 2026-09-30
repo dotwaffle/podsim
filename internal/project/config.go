@@ -192,6 +192,10 @@ type Config struct {
 	// their pickup state: "unassigned" or "reassign-existing". An empty
 	// policy loads as sim.DefaultSharedRideJoin, which is "unassigned".
 	SharedRideJoin sim.SharedRideJoin `json:"sharedRideJoin,omitempty"`
+	// StationBuffers enables experimental berthless station queues.
+	StationBuffers PolicyFlag `json:"stationBuffers,omitzero"`
+	// PickupReassignment enables experimental empty-pod pickup replacement.
+	PickupReassignment PolicyFlag `json:"pickupReassignment,omitzero"`
 	// PlatoonLimit is the largest number of pods in one virtual platoon,
 	// from sim.MinPlatoonLimit to sim.MaxPlatoonLimit. Zero turns platoons
 	// off.

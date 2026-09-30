@@ -193,6 +193,8 @@ project.sharedRidePartyLimit number
 project.sharedRideMode string
 project.sharedRideMaxStops number
 project.sharedRideJoin string
+project.stationBuffers boolean
+project.pickupReassignment boolean
 project.platoonLimit number
 project.redistribution boolean
 project.geo object

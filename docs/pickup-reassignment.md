@@ -1,7 +1,7 @@
 # Pickup reassignment research
 
 Status: approved local experiment, disabled by default.
-The candidate has no project, command, or editor control.
+The project setting `pickupReassignment` enables the controller.
 Evidence captured on September 29, 2026.
 
 ## Observed problem

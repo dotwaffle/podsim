@@ -260,11 +260,24 @@ Ordinary sessions write saved-state version 2.
 An experimental station buffer session writes version 3 while admissions are enabled or buffer members remain.
 This server accepts both versions.
 Version 3 adds the optional pod field `stationBuffered` and permits validated berthless occupancy of a station holding lane.
-Restore keeps those members draining but does not enable new buffer admissions.
+Restore keeps those members draining, then applies the project's experimental policy settings.
 Version 2 rejects the field, including an explicit `false` value.
 The writer returns to version 2 after buffers are disabled and all members drain.
 An older server rejects version 3 with `unsupported_version` and moves the file aside.
 Keep a copy before a downgrade.
+
+Portable project version 1 accepts optional `stationBuffers` and `pickupReassignment` Boolean settings.
+Both default to false and are omitted from canonical exports when false.
+The server rejects non-Boolean values, including `null`.
+These settings enable experimental controllers, not qualified capacity improvements.
+Project load, reset, apply, demo, and checkpoint rewind preserve the selected settings.
+After file restore, the effective project controls new admissions and reassignment.
+A startup project can change these two settings without replacing valid saved physical state.
+Other project identity checks remain in force.
+Disabling buffers keeps existing flagged members draining.
+Reassignment cursors, cooldowns, counters, and experiment records reset after file restore.
+The saved routes and request bindings remain valid, but future experimental decisions can differ after restart.
+Older strict project readers reject exports that include these settings.
 See the [station buffer contract](station-buffer-state-proposal.md) for the experimental limits.
 Project files, commands, and WebSocket frames retain their existing formats.
 
@@ -277,7 +290,7 @@ An older server restores a file without the member, but it gets `invalid_state` 
 Each other change to the members of the file gets a new format version.
 Thus after a downgrade past such a change, the older server moves the file aside.
 With `-project`, the project file has priority, and a saved state with a different project gets `project_changed`.
-But when only the demand settings are different, the server restores the saved state.
+When only demand or experimental policy settings differ, the server restores the saved state.
 A demand change writes the project file at once and the session state about 1 second later.
 Thus a crash between the two writes can leave this difference.
 A project apply or a rewind that restores a project also writes the project file at once.
