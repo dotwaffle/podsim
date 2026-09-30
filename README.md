@@ -1547,10 +1547,11 @@ They do not replace scenario qualification or authorize policy adoption.
 | Area | Records | Main limitation |
 | --- | --- | --- |
 | LondonFull | [Post-fix capacity](docs/london-full-postfix.md), [sustained load](docs/london-full-sustained.md), [mirrored layout](docs/station-mirror-load.md) | Finite recovery and growing backlogs do not establish sustainable capacity. |
-| Pickup swaps | [Sustained comparison](docs/pickup-swap-sustained.md), [matched requests](docs/pickup-request-diagnosis.md) | Better averages coexist with slower individual requests. The policy stays off by default. |
-| Platoon queues | [Qualification follow-up](docs/platoon-followup.md), [Paddington reservation diagnosis](docs/paddington-reservation-diagnosis.md) | Observed rejection conditions do not establish a safety defect or permit weaker guards. |
+| Pickup swaps and buffers | [Combined qualification](docs/dispatch-policy-qualification.md), [sustained comparison](docs/pickup-swap-sustained.md), [matched requests](docs/pickup-request-diagnosis.md) | Better averages coexist with slower individual requests. Both policies stay off by default. |
+| Platoon queues | [Qualification follow-up](docs/platoon-followup.md), [Paddington leader progress](docs/paddington-leader-progress.md), [station-entry proposal](docs/station-entry-platoons-proposal.md) | The diagnosis establishes no safe controller fix. Station-entry platoons remain design-only. |
 | Server performance | [Route search storage](docs/route-search-performance.md), [admission storage](docs/admission-work-performance.md), [live server and GC](docs/admission-live-performance.md), [publisher cadence](docs/publisher-cadence-performance.md) | Live results cover two short repetitions per case. GC defaults remain unchanged. |
-| Browser performance | [Live Chrome measurements](docs/live-chrome-performance.md), [journey page cache](docs/journey-page-cache-performance.md), [label dimensions](docs/label-measure-cache-performance.md) | Software-rendering results do not predict physical-GPU performance. |
+| Browser performance | [Live Chrome measurements](docs/live-chrome-performance.md), [compatible stream decoder](docs/stream-decoder-qualification.md), [journey page cache](docs/journey-page-cache-performance.md), [label dimensions](docs/label-measure-cache-performance.md) | Software-rendering results do not predict physical-GPU performance. Decoder gains do not establish lower whole-browser CPU. |
+| Tests and restarts | [Test timing](docs/test-speed.md), [experimental policy file restarts](docs/experimental-policy-restarts.md) | Timing depends on workload and hardware. File tests do not simulate power loss. |
 
 ### Tasks
 

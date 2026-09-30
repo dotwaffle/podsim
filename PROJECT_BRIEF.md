@@ -56,10 +56,12 @@ Total software-rendered browser CPU changes little.
 The [publisher timer](docs/publisher-cadence-performance.md) restores measured delivery toward 20 Hz at higher CPU and traffic cost.
 
 Experimental [station approach buffers](docs/station-buffer-state-proposal.md) and [pickup swaps](docs/pickup-reassignment.md) remain disabled by default.
-They have no project, command, or editor controls.
+Separate saved project and editor controls permit opt-in testing, and explicit comparison flags select independent policy combinations.
 Buffered sessions use saved-state version 3 with explicit membership.
 Unbuffered sessions can retain version 2.
 Broader adoption requires separate qualification and a decision.
+The [combined dispatch qualification](docs/dispatch-policy-qualification.md) records average benefits, tail regressions, and remaining work.
+The [compatible decoder qualification](docs/stream-decoder-qualification.md) measures lower decode and apply time without a whole-browser CPU gain.
 The [sustained pickup-swap study](docs/pickup-swap-sustained.md) lowers average waits and empty distance in its tested pairs, but every arm still grows a backlog.
 Its [matched-request diagnosis](docs/pickup-request-diagnosis.md) separates unfinished requests from completed maxima and retains actual same-request regressions.
 
@@ -358,9 +360,13 @@ Status notes record the parts that Podsim now implements.
 
 **Status:** An experimental implementation is available through `Simulation.SetStationBuffers` and remains disabled by default.
 Version 3 saved states preserve existing buffer membership, while version 2 loading remains supported.
-The editor does not expose this option, and station-entry platoons remain excluded.
+The editor and comparison tool expose separate, saved opt-in controls for buffers and pickup reassignment.
+New pickup dispatch can defer berth choice at an eligible buffer approach without changing existing commitments.
+Station-entry and berth-access platoons remain excluded.
 The [saved-state proposal](docs/station-buffer-state-proposal.md) records the contract.
-The [six-hour LondonFull screen](docs/london-full-sustained.md) does not support enabling buffers by default.
+The [combined dispatch qualification](docs/dispatch-policy-qualification.md) finds mixed service effects and individual tail regressions.
+These results do not support enabling either policy by default.
+The [file restart checks](docs/experimental-policy-restarts.md) cover saved settings, physical membership, disabled-mode drain, and failed saves.
 
 Use bounded holding space on station approaches to keep short arrival queues off the mainline.
 Choose a berth at the head of the buffer, before the pod commits to a berth branch.
@@ -375,6 +381,8 @@ A finite buffer cannot prevent spillback under sustained overload without upstre
 
 Include virtual platoons in the design, with safe separation before berth routes diverge.
 Current platoons exclude station-entry and berth-access lanes and retain at least 12 meters of separation.
+The [station-entry platoon proposal](docs/station-entry-platoons-proposal.md) specifies a bounded certificate and proposed version 4 contract.
+It remains design-only and needs separate approval before implementation.
 Shared reservations can improve discharge flow, but do not imply tighter stopped queues.
 Preserve existing reservations, passenger and pickup priority, and the aging override.
 

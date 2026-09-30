@@ -4,7 +4,7 @@ import "slices"
 
 // SetStationBuffers enables experimental local station buffers. The default
 // is false. Disabling new admissions keeps existing buffer members draining.
-// Projects and ordinary version 2 saved states do not enable this option.
+// Projects select this option through their experimental settings.
 func (s *Simulation) SetStationBuffers(enabled bool) { s.stationBuffers = enabled }
 
 // NeedsBufferState reports whether a save requires the version 3 buffer

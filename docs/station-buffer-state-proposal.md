@@ -3,7 +3,10 @@
 Status: original bounded v3 proposal approved September 29, 2026.
 The user approved the membership amendment below on September 29, 2026.
 The experimental controller keeps new admissions off by default.
-It has no project, command, or editor control.
+The original proposal added no project, command, or editor control.
+The user approved separate saved project and editor controls on September 30, 2026.
+The current restore applies the effective project's settings after restoring physical buffer membership.
+See [operations](operations.md) and [file restart checks](experimental-policy-restarts.md).
 
 ## Required contract change
 
@@ -108,7 +111,8 @@ Version 2 rejects the flag instead of interpreting it.
 Ordinary version 2 output remains unchanged.
 Project files and WebSocket frames remain unchanged.
 
-Keep admissions off after restore.
+The original amendment kept admissions off after restore.
+The subsequent project-control contract selects new admissions from the effective project.
 Existing flagged members drain under the buffer controller.
 Unflagged ordinary trips retain early berth assignment.
 Test mixed flagged and unflagged routes through a save and restart, including boarding and upstream travel.

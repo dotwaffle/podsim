@@ -279,7 +279,9 @@ Reassignment cursors, cooldowns, counters, and experiment records reset after fi
 The saved routes and request bindings remain valid, but future experimental decisions can differ after restart.
 Older strict project readers reject exports that include these settings.
 See the [station buffer contract](station-buffer-state-proposal.md) for the experimental limits.
-Project files, commands, and WebSocket frames retain their existing formats.
+The [file restart checks](experimental-policy-restarts.md) cover combined policies, version 2 loading, and canceled or failed-sync saves.
+They do not simulate power loss.
+The optional project settings do not change command or WebSocket envelope formats.
 
 The reason for an `empty` start is `project_changed`, `unsupported_version`, `invalid_state`, `too_large`, `restore_loop`, or `unreadable`.
 `too_large` means more than 80 MiB, compressed or decompressed.
