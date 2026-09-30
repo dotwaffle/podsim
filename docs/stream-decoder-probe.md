@@ -1,7 +1,7 @@
 # Stream decoder follow-up probe
 
-Production decoding remains unchanged.
-A native test-only experiment identifies a smaller-allocation path worth browser validation.
+This report records the initial native experiment before implementation.
+The compatible direct decoder later landed after [native and Chrome qualification](stream-decoder-qualification.md).
 The fastest one-pass variant changes accepted input and must not replace the production decoder.
 
 ## Profile evidence
@@ -21,7 +21,7 @@ These single profiles identify candidates, not controlled optimization results.
 
 ## Variants and compatibility
 
-The current decoder checks the message size, validates strict JSON, and uses a legacy streaming Decoder with unknown-field rejection.
+The baseline decoder checks the message size, validates strict JSON, and uses a legacy streaming Decoder with unknown-field rejection.
 That Decoder reads and buffers a complete value before typed decoding.
 The Go 1.27 implementation then calls json/v2.Unmarshal with DefaultOptionsV1 and RejectUnknownMembers.
 
@@ -43,7 +43,7 @@ It calls the same Go 1.27 typed decoder and options directly, avoiding the strea
 The finite corpus matches acceptance, decoded values, partially decoded error targets, and error text against production.
 Existing stream tests also pass under a test-only codec overlay.
 This evidence does not establish all input compatibility.
-Production implementation still needs the remaining validation gates.
+Later qualification added outer-whitespace trimming to preserve typed error offsets.
 
 ## Native benchmark
 
@@ -67,12 +67,10 @@ Allocated bytes decrease by approximately 47% to 72%.
 KB means decimal thousands of bytes here.
 These results do not measure WASM, whole-page CPU, retained heap, network traffic, or simulation capacity.
 
-## Remaining work
+## Follow-up
 
-Keep production decoding and the protocol unchanged for now.
-Preserve the case-key counterexample and strict lexical validation.
-Before implementation, review every generic decode target and preserve legacy options, partial-error behavior, and unknown-field handling.
-Then run complete codec and affected package checks, native/WASM builds, and matched Chrome correctness and performance probes.
+The direct decoder preserves the case-key counterexample and strict lexical validation.
+The follow-up report records the completed compatibility, native, WASM, and live Chrome checks.
 A one-pass migration requires an explicit acceptance-contract decision or a decoder that preserves the existing behavior.
 
 [All native measurements](measurements/stream-decoder-probe.csv) retain all three variants, including the incompatible one-pass results.
