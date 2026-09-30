@@ -14,12 +14,16 @@ This can prevent a pod from leaving the mainline before the merge becomes availa
 
 The next lane, from the station merge to the entry branch, is 138.92 meters long.
 Its geometric conflict regions cover the first 13 meters and roughly the last 15 meters.
-The middle is potential holding space. These measurements do not establish a safe pod capacity.
+The middle is potential holding space.
+These measurements do not establish a safe pod capacity.
 Track-cell boundaries, pod tails, stopping distance, and platoon clearance also matter.
 
-Today, passenger and pickup routes approach a station without a berth assignment.
-The controller chooses a berth before reserving the final approach lane and can change an uncommitted berth branch.
-That choice can name a busy berth. The observed blockage therefore does not prove that berth selection alone causes the queue.
+Passenger routes approach a station without a berth assignment.
+Ordinary pickup dispatch assigns a berth before departure.
+With experimental buffers enabled, new pickups use an eligible berthless station approach.
+Without buffers, the controller chooses a berth before reserving the final approach lane and can change an uncommitted berth branch.
+That choice can name a busy berth.
+The observed blockage therefore does not prove that berth selection alone causes the queue.
 
 ## Proposed first implementation
 
@@ -42,7 +46,8 @@ Do not reorder pods within a single lane.
 Competing approaches retain passenger, pickup, and empty priority, with the existing 10-second aging override.
 Existing reservations remain protected.
 
-The first implementation absorbs finite bursts. When the buffer fills, upstream pods wait under the existing traffic rules.
+The first implementation absorbs finite bursts.
+When the buffer fills, upstream pods wait under the existing traffic rules.
 It does not promise that sustained excess demand cannot reach the mainline.
 A later station-wide admission system could reserve queue capacity before departure, but must account for pods already underway and avoid cyclic waits between full stations.
 Do not add that system to the first implementation.

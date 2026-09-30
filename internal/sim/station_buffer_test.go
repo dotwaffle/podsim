@@ -330,9 +330,12 @@ func TestStationBufferCompetingArrivalAge(t *testing.T) {
 			if requestErr := s.RequestJourney("01", "market"); requestErr != nil {
 				t.Fatal(requestErr)
 			}
+			// Keep a pickup assigned before buffers were enabled.
+			s.SetStationBuffers(false)
 			if requestErr := s.RequestTrip("market", "harbor"); requestErr != nil {
 				t.Fatal(requestErr)
 			}
+			s.SetStationBuffers(true)
 			barrier := resource{kind: nodeResource, id: "merge"}
 			s.owners[barrier] = "external"
 			stepUntil(t, s, "competing buffer arrivals", func() bool {
@@ -592,9 +595,12 @@ func bufferedHeadWithPickup(t *testing.T) *Simulation {
 		plan, ok := s.bufferPlan(v)
 		return ok && v.Pod.Speed == 0 && v.distance == v.blocks.end(plan.frontier)
 	})
+	// Preserve a pickup with an existing berth assignment behind the head.
+	s.SetStationBuffers(false)
 	if err := s.RequestTrip("market", "harbor"); err != nil {
 		t.Fatal(err)
 	}
+	s.SetStationBuffers(true)
 	stepUntil(t, s, "assigned pickup behind buffer head", func() bool {
 		v := s.findVehicle("02")
 		return v.Pod.Speed == 0 && v.Pod.BlockedBy == "01"
@@ -729,9 +735,12 @@ func TestStationBufferCompetingBerthAdmission(t *testing.T) {
 			if err := s.RequestJourney("01", "market"); err != nil {
 				t.Fatal(err)
 			}
+			// This case retains a pickup's pre-buffer berth assignment.
+			s.SetStationBuffers(false)
 			if err := s.RequestTrip("market", "harbor"); err != nil {
 				t.Fatal(err)
 			}
+			s.SetStationBuffers(true)
 			barrier := resource{kind: nodeResource, id: "market-entry"}
 			berth := resource{kind: berthResource, id: "market-1"}
 			s.owners[barrier] = "external"

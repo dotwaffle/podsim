@@ -23,7 +23,7 @@ HTTP commands, WebSocket frames, and project files do not change under this prop
 
 Use the optional `stationBuffered` field as the authoritative membership flag.
 A physical buffer member remains Traveling and has no destination berth.
-A pending member can still be boarding or continuing at its origin berth.
+A pending member can still be boarding, continuing, or departing for a pickup at its origin berth.
 Each member retains its destination station, connected entry-ending route, physical position, riders or pickup assignment, and wait age.
 Derive ordering and holding frontiers from the saved network, route, and position.
 Do not add a saved queue number or slot number.
@@ -117,9 +117,16 @@ Require independent review and the original endpoint checks before a local commi
 ## Implementation limits and initial measurements
 
 The controller accepts entry-ending routes that have not received a berth assignment.
-Existing pickup routes generally have a berth assignment at dispatch and retain it.
+With buffers enabled, new pickup routes stop at an eligible station entry before choosing a berth.
+The route keeps every reserved lane and the pod's position and speed.
+An ineligible approach retains ordinary dispatch with an early berth assignment.
+Existing pickup routes retain berth assignments made before buffers were enabled.
 The controller does not remove these assignments to create a queue.
 Flagged pickup routes from saved states can drain when they meet the version 3 checks.
+An explicitly flagged empty departure can save without a destination berth.
+Its origin berth, eligible approach, and pickup binding must still pass restore validation.
+An unflagged empty departure still requires a destination berth.
+Version 2 still rejects the membership field.
 
 Each eligible lane needs at least two contiguous interior cells with no conflict resources.
 The cells must be at least 12 meters long.

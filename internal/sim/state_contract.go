@@ -261,7 +261,7 @@ func checkPodFlags(pod SavedPod, rule phaseRule) error {
 	relocation := pod.RelocatingTo != "" || pod.Rebalancing || pod.ClaimsDestination
 	switch {
 	case pod.StationBuffered && (pod.Destination != "" || pod.Rebalancing ||
-		pod.Activity != "traveling" && pod.Activity != "boarding" && pod.Activity != "continuing"):
+		pod.Activity != "traveling" && pod.Activity != "boarding" && pod.Activity != "continuing" && pod.Activity != "departing"):
 		return errors.New("the station buffer flag does not agree with the phase")
 	case pod.Occupied != rule.occupied:
 		return fmt.Errorf("occupied is %t", pod.Occupied)
@@ -299,7 +299,7 @@ func checkPodPlace(pod SavedPod, rule phaseRule) error {
 		return errors.New("the journey has no origin")
 	case rule.atDestination && (pod.Destination != pod.BerthID || pod.DestinationStation != pod.StationID):
 		return errors.New("the unloading pod is not at its destination")
-	case rule.hasDestination && pod.Destination == "":
+	case rule.hasDestination && pod.Destination == "" && !pod.StationBuffered:
 		return errors.New("the pod has no destination berth")
 	default:
 		return nil

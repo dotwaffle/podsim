@@ -159,7 +159,10 @@ func (s *Simulation) dispatch() {
 					i++
 					continue
 				}
-				trip.route, _ = s.stationApproachRoute(v.destination.Node, trip.request.To)
+				trip.route = nil
+				if v.destination.Node != "" {
+					trip.route, _ = s.stationApproachRoute(v.destination.Node, trip.request.To)
+				}
 				trip.destination = Berth{}
 			}
 			trip.request.PodID = v.Pod.ID

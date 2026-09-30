@@ -117,6 +117,58 @@ func TestBufferStateSessionRoundTrip(t *testing.T) {
 	}
 }
 
+func TestPickupBufferSessionDepartureRoundTrip(t *testing.T) {
+	t.Parallel()
+	config := project.Default()
+	config.Fleet = config.Fleet[:1]
+	for index := range config.Network.Nodes {
+		config.Network.Nodes[index].Position.X *= 4
+		config.Network.Nodes[index].Position.Y *= 4
+	}
+	for index := range config.Network.Lanes {
+		if config.Network.Lanes[index].ID == "market-approach" {
+			config.Network.Lanes[index].StationRole = sim.StationEntryRole
+		}
+	}
+	store := &fakeStore{}
+	shared := startFromStore(t, StoreInput{Store: store, Project: &config})
+	shared.simulation.SetStationBuffers(true)
+	if err := shared.simulation.RequestTrip("market", "garden"); err != nil {
+		t.Fatal(err)
+	}
+	pod := shared.simulation.ExportState().Pods[0]
+	if pod.Activity != "departing" || !pod.StationBuffered || pod.Destination != "" {
+		t.Fatal("fixture did not save a berthless pickup departure")
+	}
+	shared.Close()
+	if err := shared.SaveState(t.Context(), SaveFinal); err != nil {
+		t.Fatal(err)
+	}
+	if store.lastWrite(t).Version != bufferStateVersion {
+		t.Fatal("buffer pickup departure did not require version 3")
+	}
+	data := store.writeList()[len(store.writeList())-1]
+	restored := startFromStore(t, StoreInput{Store: &fakeStore{data: data}, Project: &config})
+	defer restored.Close()
+	info := restored.State().Restore
+	if info.Tier != "physical" || info.Demoted+info.Requeued+info.Dropped != 0 {
+		t.Fatalf("pickup departure did not restore physically: %+v", info)
+	}
+	if !restored.simulation.ExportState().Pods[0].StationBuffered || restored.simulation.PendingCount() != 1 {
+		t.Fatal("file restore lost pickup membership or its order")
+	}
+	for range 1200 * sim.TicksPerSecond {
+		restored.advance()
+		if _, err := restored.simulation.SafetyObservation().Check(); err != nil {
+			t.Fatal(err)
+		}
+		if restored.simulation.Snapshot().Completed == 1 {
+			return
+		}
+	}
+	t.Fatal("restored pickup did not complete its passenger journey")
+}
+
 func TestBufferMemberRequiresV3(t *testing.T) {
 	t.Parallel()
 	for _, value := range []string{"true", "false"} {
