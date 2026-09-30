@@ -1,0 +1,200 @@
+{
+  "baselineProductionCommit": "bb3dae9",
+  "cachedProductionCommit": "b488de2",
+  "binarySha256": {
+    "baseline": "8d7a17fb16b24e038ba30822458d54e986bfb79fcf7d5fbf744cd42dc5058535",
+    "cached": "16fb33d70e26fa2e7eb720dfba5e66dff9937ca239d5da1309472ac5b192e20e"
+  },
+  "probeSha256": "5ff48bb7ed526ad42c75926ccafa9762d83066e95ea874a1f70f03a41529cdaf",
+  "stateDigestSha256": "0d83498454403aed464a4ed14f6ebd01b93a835e976e7e409641b03be0db4891",
+  "arms": 24,
+  "repetitionsPerCell": 2,
+  "seed": 20260929,
+  "demandPerMinute": 12,
+  "warmupSimSeconds": 3600,
+  "measurementSimSeconds": 3600,
+  "GOMAXPROCS": 2,
+  "streamHzAt60x": 20,
+  "streamPublicationsPerArm": 1200,
+  "timingIncludesNetworkIO": false,
+  "timingUsesLivePlaybackClock": false,
+  "heapMetric": "Sampled HeapAlloc maximum, not RSS or post-GC live heap",
+  "interruption": "The foreground runner stopped after16 complete arms. These arms were retained after exit/digest verification. Eight remaining arms completed in a user service, including a rerun of interrupted arm17.",
+  "rawArtifact": "pickup-bounds-cache-20260930/paired/",
+  "summary": [
+    {
+      "gc": 100,
+      "stream": false,
+      "repetitions": 2,
+      "baseline": {
+        "wallSeconds": 31.345640467499997,
+        "processCpuSeconds": 34.0631695,
+        "allocatedBytes": 8025565632,
+        "allocations": 4999762.5,
+        "sampledPeakHeapBytes": 196715508,
+        "heapBeforeBytes": 97898368,
+        "collections": 90.5,
+        "batchP99Ms": 31.9406835,
+        "gzipBytesPerWallSecondAt60x": 0
+      },
+      "cached": {
+        "wallSeconds": 29.4573296765,
+        "processCpuSeconds": 31.854191,
+        "allocatedBytes": 7656340884,
+        "allocations": 4925971,
+        "sampledPeakHeapBytes": 216124896,
+        "heapBeforeBytes": 106268508,
+        "collections": 77.5,
+        "batchP99Ms": 30.964634,
+        "gzipBytesPerWallSecondAt60x": 0
+      },
+      "cpuReductionPercent": 6.484947033481426,
+      "wallReductionPercent": 6.024157627143878
+    },
+    {
+      "gc": 100,
+      "stream": true,
+      "repetitions": 2,
+      "baseline": {
+        "wallSeconds": 34.931847627500005,
+        "processCpuSeconds": 38.578118999999994,
+        "allocatedBytes": 10746457628,
+        "allocations": 11044637.5,
+        "sampledPeakHeapBytes": 200994276,
+        "heapBeforeBytes": 97896852,
+        "collections": 120.5,
+        "batchP99Ms": 31.883174,
+        "gzipBytesPerWallSecondAt60x": 347398.2916666666
+      },
+      "cached": {
+        "wallSeconds": 32.8971899505,
+        "processCpuSeconds": 36.133075000000005,
+        "allocatedBytes": 10375969856,
+        "allocations": 10970173.5,
+        "sampledPeakHeapBytes": 219720252,
+        "heapBeforeBytes": 106260132,
+        "collections": 105.5,
+        "batchP99Ms": 30.997580999999997,
+        "gzipBytesPerWallSecondAt60x": 347387.5916666667
+      },
+      "cpuReductionPercent": 6.337903618369756,
+      "wallReductionPercent": 5.824649468006459
+    },
+    {
+      "gc": 200,
+      "stream": false,
+      "repetitions": 2,
+      "baseline": {
+        "wallSeconds": 30.908416906,
+        "processCpuSeconds": 32.2381035,
+        "allocatedBytes": 8025574180,
+        "allocations": 4999774,
+        "sampledPeakHeapBytes": 295637100,
+        "heapBeforeBytes": 97892056,
+        "collections": 41,
+        "batchP99Ms": 31.609319499999998,
+        "gzipBytesPerWallSecondAt60x": 0
+      },
+      "cached": {
+        "wallSeconds": 29.022651654,
+        "processCpuSeconds": 30.204238000000004,
+        "allocatedBytes": 7656356724,
+        "allocations": 4925993,
+        "sampledPeakHeapBytes": 327904368,
+        "heapBeforeBytes": 106261368,
+        "collections": 36,
+        "batchP99Ms": 30.699896,
+        "gzipBytesPerWallSecondAt60x": 0
+      },
+      "cpuReductionPercent": 6.308886935610214,
+      "wallReductionPercent": 6.10113826837223
+    },
+    {
+      "gc": 200,
+      "stream": true,
+      "repetitions": 2,
+      "baseline": {
+        "wallSeconds": 34.347808896000004,
+        "processCpuSeconds": 36.118120000000005,
+        "allocatedBytes": 10745092940,
+        "allocations": 11043480,
+        "sampledPeakHeapBytes": 303344364,
+        "heapBeforeBytes": 97897688,
+        "collections": 55,
+        "batchP99Ms": 31.7644155,
+        "gzipBytesPerWallSecondAt60x": 347408.725
+      },
+      "cached": {
+        "wallSeconds": 32.443448169,
+        "processCpuSeconds": 34.058082,
+        "allocatedBytes": 10375165636,
+        "allocations": 10969449,
+        "sampledPeakHeapBytes": 326916564,
+        "heapBeforeBytes": 106239092,
+        "collections": 48.5,
+        "batchP99Ms": 30.507192,
+        "gzipBytesPerWallSecondAt60x": 347461.9583333334
+      },
+      "cpuReductionPercent": 5.703613587861178,
+      "wallReductionPercent": 5.544344132011803
+    },
+    {
+      "gc": 400,
+      "stream": false,
+      "repetitions": 2,
+      "baseline": {
+        "wallSeconds": 30.9419513545,
+        "processCpuSeconds": 31.689130000000002,
+        "allocatedBytes": 8025572740,
+        "allocations": 4999772,
+        "sampledPeakHeapBytes": 506069232,
+        "heapBeforeBytes": 97898292,
+        "collections": 20,
+        "batchP99Ms": 30.732457500000002,
+        "gzipBytesPerWallSecondAt60x": 0
+      },
+      "cached": {
+        "wallSeconds": 29.0961608975,
+        "processCpuSeconds": 29.758778,
+        "allocatedBytes": 7656352308,
+        "allocations": 4925986.5,
+        "sampledPeakHeapBytes": 550736516,
+        "heapBeforeBytes": 106265348,
+        "collections": 17,
+        "batchP99Ms": 30.4972645,
+        "gzipBytesPerWallSecondAt60x": 0
+      },
+      "cpuReductionPercent": 6.091527283961417,
+      "wallReductionPercent": 5.965333071120482
+    },
+    {
+      "gc": 400,
+      "stream": true,
+      "repetitions": 2,
+      "baseline": {
+        "wallSeconds": 34.2005161875,
+        "processCpuSeconds": 35.1736245,
+        "allocatedBytes": 10746839680,
+        "allocations": 11043511,
+        "sampledPeakHeapBytes": 500751484,
+        "heapBeforeBytes": 97893356,
+        "collections": 26,
+        "batchP99Ms": 31.214911,
+        "gzipBytesPerWallSecondAt60x": 347442.65
+      },
+      "cached": {
+        "wallSeconds": 32.270690267000006,
+        "processCpuSeconds": 33.134834999999995,
+        "allocatedBytes": 10375127548,
+        "allocations": 10969125.5,
+        "sampledPeakHeapBytes": 562336376,
+        "heapBeforeBytes": 106263592,
+        "collections": 23,
+        "batchP99Ms": 30.4412935,
+        "gzipBytesPerWallSecondAt60x": 347399.56666666665
+      },
+      "cpuReductionPercent": 5.796358859747331,
+      "wallReductionPercent": 5.642680683297197
+    }
+  ]
+}
