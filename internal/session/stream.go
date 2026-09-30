@@ -538,8 +538,17 @@ func (s *Session) streamHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 }
-func streamWrite(ctx context.Context, c *websocket.Conn, kind websocket.MessageType, data []byte) error {
-	bounded, cancel := context.WithTimeout(ctx, streamWriteTimeout)
+
+type streamMessageWriter interface {
+	Write(context.Context, websocket.MessageType, []byte) error
+}
+
+func streamWrite(ctx context.Context, c streamMessageWriter, kind websocket.MessageType, data []byte) error {
+	return streamWriteWithin(ctx, c, kind, data, streamWriteTimeout)
+}
+
+func streamWriteWithin(ctx context.Context, c streamMessageWriter, kind websocket.MessageType, data []byte, timeout time.Duration) error {
+	bounded, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 	return c.Write(bounded, kind, data)
 }

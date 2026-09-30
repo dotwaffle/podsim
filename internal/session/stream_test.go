@@ -176,6 +176,7 @@ func TestStreamOwnership(t *testing.T) {
 	}
 }
 func TestStreamBaselineAndShutdown(t *testing.T) {
+	t.Parallel()
 	s, _ := streamFixture(t)
 	server := httptest.NewServer(s.HandlerFS(fstest.MapFS{}))
 	defer server.Close()
@@ -288,8 +289,10 @@ func TestStreamMaximumEncoding(t *testing.T) {
 }
 
 func TestStreamLatencyWindow(t *testing.T) {
+	t.Parallel()
 	for _, rtt := range []time.Duration{300 * time.Millisecond, 600 * time.Millisecond} {
 		t.Run(rtt.String(), func(t *testing.T) {
+			t.Parallel()
 			s, _ := streamFixture(t)
 			defer s.Close()
 			server := httptest.NewServer(s.HandlerFS(fstest.MapFS{}))
@@ -396,6 +399,7 @@ func TestStreamLatencyWindow(t *testing.T) {
 	}
 }
 func TestStreamNonReaderIsBounded(t *testing.T) {
+	t.Parallel()
 	s, _ := streamFixture(t)
 	defer s.Close()
 	server := httptest.NewServer(s.HandlerFS(fstest.MapFS{}))
@@ -427,6 +431,7 @@ func TestStreamNonReaderIsBounded(t *testing.T) {
 	}
 }
 func TestStreamSharedFullAndAdmission(t *testing.T) {
+	t.Parallel()
 	s, f := streamFixture(t)
 	s.Apply(Command{Client: "pause", Sequence: 1, Epoch: f.State.Epoch, Action: "pause", Paused: true})
 	defer s.Close()
@@ -709,6 +714,7 @@ func streamJSON(t *testing.T, value any) []byte {
 }
 
 func TestStreamBlockedWriterStops(t *testing.T) {
+	t.Parallel()
 	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 	entered := make(chan struct{})

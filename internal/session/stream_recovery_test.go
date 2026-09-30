@@ -13,17 +13,92 @@ import (
 	"github.com/coder/websocket"
 )
 
+type streamWriteProbe func(context.Context, websocket.MessageType, []byte) error
+
+func (f streamWriteProbe) Write(ctx context.Context, kind websocket.MessageType, data []byte) error {
+	return f(ctx, kind, data)
+}
+
+func TestStreamWriteDeadline(t *testing.T) {
+	t.Parallel()
+	writeErr := errors.New("write failed")
+	for _, test := range []struct {
+		name     string
+		parent   time.Duration
+		canceled bool
+		writeErr error
+	}{
+		{name: "production timeout"},
+		{name: "parent deadline", parent: time.Second},
+		{name: "parent cancellation", canceled: true},
+		{name: "writer error", writeErr: writeErr},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			parent, cancel := context.WithCancel(t.Context())
+			if test.parent != 0 {
+				cancel()
+				parent, cancel = context.WithTimeout(t.Context(), test.parent)
+			}
+			defer cancel()
+			if test.canceled {
+				cancel()
+			}
+			data := []byte("message")
+			var childDone <-chan struct{}
+			var deadline time.Time
+			var hasDeadline bool
+			calls := 0
+			probe := streamWriteProbe(func(ctx context.Context, kind websocket.MessageType, got []byte) error {
+				childDone = ctx.Done()
+				deadline, hasDeadline = ctx.Deadline()
+				calls++
+				if kind != websocket.MessageBinary || len(got) != len(data) || &got[0] != &data[0] {
+					t.Fatal("write changed the message")
+				}
+				if test.canceled && !errors.Is(ctx.Err(), context.Canceled) {
+					t.Fatal("write lost parent cancellation", ctx.Err())
+				}
+				return test.writeErr
+			})
+			before := time.Now()
+			gotErr := streamWrite(parent, probe, websocket.MessageBinary, data)
+			after := time.Now()
+			if !errors.Is(gotErr, test.writeErr) || calls != 1 {
+				t.Fatal("write changed the error or call count", gotErr, calls)
+			}
+			if !hasDeadline {
+				t.Fatal("write has no deadline")
+			}
+			if want, parentBounded := parent.Deadline(); test.parent != 0 && parentBounded {
+				if !deadline.Equal(want) {
+					t.Fatal("write changed the earlier parent deadline", deadline, want)
+				}
+			} else if deadline.Before(before.Add(30*time.Second)) || deadline.After(after.Add(30*time.Second)) {
+				t.Fatal("write changed the production thirty-second timeout", deadline)
+			}
+			select {
+			case <-childDone:
+			default:
+				t.Fatal("write did not cancel its child context")
+			}
+		})
+	}
+}
+
 func TestStreamSlowWriteBudget(t *testing.T) {
 	t.Parallel()
 	for _, read := range []bool{true, false} {
 		name := "stalled"
+		timeout := 500 * time.Millisecond
 		if read {
 			name = "slow reader"
+			timeout = 3 * time.Second
 		}
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 			result := make(chan error, 1)
-			entered := make(chan struct{})
+			entered := make(chan time.Time, 1)
 			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				conn, err := websocket.Accept(w, r, &websocket.AcceptOptions{CompressionMode: websocket.CompressionDisabled})
 				if err != nil {
@@ -31,11 +106,14 @@ func TestStreamSlowWriteBudget(t *testing.T) {
 					return
 				}
 				defer func() { _ = conn.CloseNow() }()
-				close(entered)
-				result <- streamWrite(r.Context(), conn, websocket.MessageBinary, make([]byte, MaxStreamMessage))
+				writer := streamWriteProbe(func(ctx context.Context, kind websocket.MessageType, data []byte) error {
+					entered <- time.Now()
+					return conn.Write(ctx, kind, data)
+				})
+				result <- streamWriteWithin(r.Context(), writer, websocket.MessageBinary, make([]byte, MaxStreamMessage), timeout)
 			}))
 			defer server.Close()
-			ctx, cancel := context.WithTimeout(t.Context(), 35*time.Second)
+			ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
 			defer cancel()
 			conn, response, err := websocket.Dial(ctx, "ws"+strings.TrimPrefix(server.URL, "http"), nil)
 			if response != nil && response.Body != nil {
@@ -46,11 +124,11 @@ func TestStreamSlowWriteBudget(t *testing.T) {
 			}
 			defer func() { _ = conn.CloseNow() }()
 			conn.SetReadLimit(MaxStreamMessage)
-			<-entered
-			started := time.Now()
+			started := <-entered
 			if read {
-				// Backpressure lasts longer than the old five-second write deadline.
-				time.Sleep(6 * time.Second)
+				// Scale the old five-second budget and six-second delay by ten.
+				// The wrapper deadline test checks the production thirty seconds.
+				time.Sleep(600 * time.Millisecond)
 				_, data, readErr := conn.Read(ctx)
 				if readErr != nil || len(data) != MaxStreamMessage {
 					t.Fatal("legal-size slow baseline failed", len(data), readErr)
@@ -59,10 +137,10 @@ func TestStreamSlowWriteBudget(t *testing.T) {
 			select {
 			case err := <-result:
 				elapsed := time.Since(started)
-				if read && (err != nil || elapsed < 5*time.Second || elapsed >= 30*time.Second) {
+				if read && (err != nil || elapsed < 500*time.Millisecond || elapsed >= timeout) {
 					t.Fatal("slow write budget", elapsed, err)
 				}
-				if !read && (err == nil || elapsed < 29*time.Second || elapsed > 33*time.Second) {
+				if !read && (err == nil || elapsed < timeout-100*time.Millisecond || elapsed > timeout+2*time.Second) {
 					t.Fatal("stalled write deadline", elapsed, err)
 				}
 			case <-ctx.Done():
@@ -73,6 +151,7 @@ func TestStreamSlowWriteBudget(t *testing.T) {
 }
 
 func TestStreamWatchdogTracksACKProgress(t *testing.T) {
+	t.Parallel()
 	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 	p := &statePublisher{}
