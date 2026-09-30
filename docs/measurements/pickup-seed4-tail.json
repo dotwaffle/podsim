@@ -1,0 +1,1867 @@
+{
+  "scope": "Post-hoc indirect request1324 seed4 at12/min, unchanged baseline/reassignment histories. Pure pending/assigned/blocker snapshot observations.",
+  "sampling": "Once/sec boundary samples, not exact blocked durations. Boarding ticks exact. Assignment/reason-change frames do not capture the exact mutation event.",
+  "equivalence": "Every original result/schedule/check field matches. Frame replay additionally matches all previous tail/boarding observations.",
+  "wait_increase_seconds": 5404.733333333334,
+  "manifest": {
+    "source_commit": "b4060b8",
+    "scope": "Post-hoc request1324 at12/minseed4 baseline/reassignment, read-only once/sec assigned-pod snapshot and exact rider boarding. Every original result/schedule/check field must match. No causal policy change or production edit.",
+    "hashes": {
+      "/home/dotwaffle/.cache/agents/podsim/pickup-seed4-tail-20260930/run.py": "d6d815a6a2cf66d1711a3af809020c6ddaa0d59557fad0c1fe3076ac4c2fb5cb",
+      "/home/dotwaffle/.cache/agents/podsim/pickup-seed4-tail-20260930/tail_test.go": "ce8b9cf9e664d42b7bc51792e69123f8b7f01e6e773fc9d941ecd71467a906a0",
+      "/home/dotwaffle/.cache/agents/podsim/pickup-seed4-tail-20260930/study_test.go": "31896c08f6c34a1de09f49e837ba9ec10e1063490f3a2e768ea86230c2488a4c",
+      "/home/dotwaffle/.cache/agents/podsim/pickup-seed4-tail-20260930/restore_test.go": "957fbd7b3f0b86088e08e7de53fa212708090cee193f72c13d42c524c1349a86",
+      "/home/dotwaffle/.cache/agents/podsim/pickup-seed4-tail-20260930/jobs.json": "a9dc50f5b10a84662d611176406a5441d969025e441d1c4b1584ffee13570e54",
+      "/home/dotwaffle/.cache/agents/podsim/pickup-seed4-tail-20260930/observed_test.go": "8de1110365b1b5c2ef4fa4b664e0a38685c09b47db5274c73fb508bd69cb970b",
+      "/home/dotwaffle/.cache/agents/podsim/pickup-seed4-tail-20260930/overlay.json": "55261cad18627f1a7cc061ffe6f0553ac728496602617de5e2f746e8c22bb4a8",
+      "/tmp/build/podsim/pickup-seed4-tail-20260930/study.test": "fa772290c8c14deab6ae85bfb90c42f8556e60cc941d71fd5b06947fb49468d4"
+    },
+    "limits": "RuntimeMax660,outer600/Go580,workers2,4GiB/swap0,nice19. Overlaycompile passed, MCP diagnostics lacks cachedhelper metadata."
+  },
+  "frame_manifest": {
+    "source_commit": "e021b52",
+    "scope": "Read-only full assigned-pod and blocker snapshots at request1324 binding or wait-reason changes. Retains all original observations/oracles/equivalence gate. No new policy experiment.",
+    "hashes": {
+      "/home/dotwaffle/.cache/agents/podsim/pickup-seed4-tail-20260930/frames/tail_test.go": "ce8b9cf9e664d42b7bc51792e69123f8b7f01e6e773fc9d941ecd71467a906a0",
+      "/home/dotwaffle/.cache/agents/podsim/pickup-seed4-tail-20260930/frames/run.py": "6b9923c3fd97e4f7307f97c804e0ce8851e7cd99955334995e6e1d76abcf9eed",
+      "/home/dotwaffle/.cache/agents/podsim/pickup-seed4-tail-20260930/frames/jobs.json": "d07e820beee53a6ef67d015dff4020ed452234181fb29e9b74f8c829747596fb",
+      "/home/dotwaffle/.cache/agents/podsim/pickup-seed4-tail-20260930/frames/study_test.go": "9fa514980635ea21b17f97e70573117ceffda5bd931e3ac2c25937a3b26c553a",
+      "/home/dotwaffle/.cache/agents/podsim/pickup-seed4-tail-20260930/frames/observed_test.go": "8de1110365b1b5c2ef4fa4b664e0a38685c09b47db5274c73fb508bd69cb970b",
+      "/home/dotwaffle/.cache/agents/podsim/pickup-seed4-tail-20260930/frames/frames_test.go": "f4d26cee06f608e40e1002d4ffa9185b9f201cf5b77a3a85c2ea5a90c55feaf4",
+      "/home/dotwaffle/.cache/agents/podsim/pickup-seed4-tail-20260930/frames/overlay.json": "d3ce30f3afc3f7718b18129c2dca430e240cad1ba12e9bac671b5a8d5f6fa92f",
+      "/home/dotwaffle/.cache/agents/podsim/pickup-seed4-tail-20260930/frames/restore_test.go": "957fbd7b3f0b86088e08e7de53fa212708090cee193f72c13d42c524c1349a86",
+      "/tmp/build/podsim/pickup-seed4-tail-20260930/frames/study.test": "686f2bbb7bf0f068925d285af810ca11a5e3142c54e618b6fe4731adcb934f54"
+    },
+    "validation": "Overlaycompile passed. Cachedhelpers outside module lackMCPmetadata. Pure snapshotretention, no simulation/owner/cursor writes. Every priorcandidatefield mustmatch."
+  },
+  "raw_sha256": {
+    "tail-rate12-s4-boff-roff.json": "b339c29a334a2a8e56d60d8eefefb62751a23701a5deec3476c6e899c9f93286",
+    "/home/dotwaffle/.cache/agents/podsim/sustained-full-20260930/midpoint/rate12-s4-boff-roff.json": "83324c41a53be6da25761599344c194f22da6183fbbf16129f8a9172c9786394",
+    "tail-rate12-s4-boff-ron.json": "c96facd77605ab2081404284336983de4c851cdc13a92a836e4f63c090fc8802",
+    "/home/dotwaffle/.cache/agents/podsim/sustained-full-20260930/midpoint/rate12-s4-boff-ron.json": "f2c95fb1acc460644044ac7d417629b0cf9d4452db8b6c98293f22c9ab86c9e6",
+    "frames": "1591322fe31587fcaa9d7792516fad82bf8ec575d9ce8dca6fc2f70eacd788ee"
+  },
+  "cases": {
+    "baseline": {
+      "timing": {
+        "RequestID": 1324,
+        "RequestedTick": 397200,
+        "BoardedTick": 426061,
+        "CompletedTick": 501906,
+        "RiddenMeters": 17528.241534446497,
+        "DirectMeters": 17528.241534446497,
+        "SharedWith": 0,
+        "Reassigned": false
+      },
+      "boarding": {
+        "Pod": "london-pod-058",
+        "BoardedTick": 426061,
+        "ObservedTick": 426120
+      },
+      "counts": [
+        {
+          "ID": 1324,
+          "Pod": "london-pod-058",
+          "Lane": "",
+          "Activity": "Ready",
+          "Reason": "",
+          "Blocker": "",
+          "Phase": "At berth",
+          "Station": "940GZZLULYN",
+          "Berth": "940GZZLULYN-01",
+          "Platoon": "",
+          "Stopped": true,
+          "Samples": 1
+        },
+        {
+          "ID": 1324,
+          "Pod": "london-pod-058",
+          "Lane": "940GZZLULYN-01-arrival-link",
+          "Activity": "Traveling",
+          "Reason": "",
+          "Blocker": "",
+          "Phase": "Accessing berth",
+          "Station": "",
+          "Berth": "",
+          "Platoon": "",
+          "Stopped": false,
+          "Samples": 7
+        },
+        {
+          "ID": 1324,
+          "Pod": "london-pod-058",
+          "Lane": "940GZZLULYN-01-in",
+          "Activity": "Traveling",
+          "Reason": "",
+          "Blocker": "",
+          "Phase": "Accessing berth",
+          "Station": "",
+          "Berth": "",
+          "Platoon": "",
+          "Stopped": false,
+          "Samples": 10
+        },
+        {
+          "ID": 1324,
+          "Pod": "london-pod-058",
+          "Lane": "940GZZLULYN-access-in",
+          "Activity": "Traveling",
+          "Reason": "",
+          "Blocker": "",
+          "Phase": "Entering station",
+          "Station": "",
+          "Berth": "",
+          "Platoon": "",
+          "Stopped": false,
+          "Samples": 10
+        },
+        {
+          "ID": 1324,
+          "Pod": "london-pod-058",
+          "Lane": "940GZZLULYN-road-in-02",
+          "Activity": "Traveling",
+          "Reason": "",
+          "Blocker": "",
+          "Phase": "Approaching station",
+          "Station": "",
+          "Berth": "",
+          "Platoon": "",
+          "Stopped": false,
+          "Samples": 10
+        },
+        {
+          "ID": 1324,
+          "Pod": "london-pod-058",
+          "Lane": "940GZZLUSTD-move-02-01",
+          "Activity": "Traveling",
+          "Reason": "",
+          "Blocker": "",
+          "Phase": "",
+          "Station": "",
+          "Berth": "",
+          "Platoon": "",
+          "Stopped": false,
+          "Samples": 9
+        },
+        {
+          "ID": 1324,
+          "Pod": "london-pod-058",
+          "Lane": "london-link-241-ba-1",
+          "Activity": "Traveling",
+          "Reason": "",
+          "Blocker": "",
+          "Phase": "",
+          "Station": "",
+          "Berth": "",
+          "Platoon": "",
+          "Stopped": false,
+          "Samples": 55
+        },
+        {
+          "ID": 1324,
+          "Pod": "london-pod-058",
+          "Lane": "london-link-241-ba-2",
+          "Activity": "Traveling",
+          "Reason": "",
+          "Blocker": "",
+          "Phase": "",
+          "Station": "",
+          "Berth": "",
+          "Platoon": "",
+          "Stopped": false,
+          "Samples": 54
+        },
+        {
+          "ID": 1324,
+          "Pod": "london-pod-058",
+          "Lane": "london-link-246-ab-1",
+          "Activity": "Traveling",
+          "Reason": "",
+          "Blocker": "",
+          "Phase": "",
+          "Station": "",
+          "Berth": "",
+          "Platoon": "",
+          "Stopped": false,
+          "Samples": 29
+        },
+        {
+          "ID": 1324,
+          "Pod": "london-pod-058",
+          "Lane": "london-link-246-ab-2",
+          "Activity": "Traveling",
+          "Reason": "",
+          "Blocker": "",
+          "Phase": "",
+          "Station": "",
+          "Berth": "",
+          "Platoon": "",
+          "Stopped": false,
+          "Samples": 95
+        },
+        {
+          "ID": 1324,
+          "Pod": "london-pod-162",
+          "Lane": "940GZZLULYN-01-arrival-link",
+          "Activity": "Traveling",
+          "Reason": "",
+          "Blocker": "",
+          "Phase": "Accessing berth",
+          "Station": "",
+          "Berth": "",
+          "Platoon": "",
+          "Stopped": false,
+          "Samples": 7
+        },
+        {
+          "ID": 1324,
+          "Pod": "london-pod-162",
+          "Lane": "940GZZLULYN-02-arrival-link",
+          "Activity": "Traveling",
+          "Reason": "",
+          "Blocker": "",
+          "Phase": "Accessing berth",
+          "Station": "",
+          "Berth": "",
+          "Platoon": "",
+          "Stopped": false,
+          "Samples": 5
+        },
+        {
+          "ID": 1324,
+          "Pod": "london-pod-162",
+          "Lane": "940GZZLULYN-02-in",
+          "Activity": "Traveling",
+          "Reason": "",
+          "Blocker": "",
+          "Phase": "Accessing berth",
+          "Station": "",
+          "Berth": "",
+          "Platoon": "",
+          "Stopped": false,
+          "Samples": 11
+        },
+        {
+          "ID": 1324,
+          "Pod": "london-pod-162",
+          "Lane": "940GZZLULYN-access-in",
+          "Activity": "Traveling",
+          "Reason": "",
+          "Blocker": "",
+          "Phase": "Entering station",
+          "Station": "",
+          "Berth": "",
+          "Platoon": "",
+          "Stopped": false,
+          "Samples": 10
+        },
+        {
+          "ID": 1324,
+          "Pod": "london-pod-162",
+          "Lane": "940GZZLULYN-road-in-02",
+          "Activity": "Traveling",
+          "Reason": "",
+          "Blocker": "",
+          "Phase": "Approaching station",
+          "Station": "",
+          "Berth": "",
+          "Platoon": "",
+          "Stopped": false,
+          "Samples": 10
+        },
+        {
+          "ID": 1324,
+          "Pod": "london-pod-162",
+          "Lane": "940GZZLUSTD-move-03-01",
+          "Activity": "Traveling",
+          "Reason": "",
+          "Blocker": "",
+          "Phase": "",
+          "Station": "",
+          "Berth": "",
+          "Platoon": "",
+          "Stopped": false,
+          "Samples": 8
+        },
+        {
+          "ID": 1324,
+          "Pod": "london-pod-162",
+          "Lane": "london-link-241-ba-1",
+          "Activity": "Traveling",
+          "Reason": "",
+          "Blocker": "",
+          "Phase": "",
+          "Station": "",
+          "Berth": "",
+          "Platoon": "",
+          "Stopped": false,
+          "Samples": 54
+        },
+        {
+          "ID": 1324,
+          "Pod": "london-pod-162",
+          "Lane": "london-link-241-ba-2",
+          "Activity": "Traveling",
+          "Reason": "",
+          "Blocker": "",
+          "Phase": "",
+          "Station": "",
+          "Berth": "",
+          "Platoon": "",
+          "Stopped": false,
+          "Samples": 55
+        },
+        {
+          "ID": 1324,
+          "Pod": "london-pod-162",
+          "Lane": "london-link-301-ba-2",
+          "Activity": "Traveling",
+          "Reason": "",
+          "Blocker": "",
+          "Phase": "",
+          "Station": "",
+          "Berth": "",
+          "Platoon": "",
+          "Stopped": false,
+          "Samples": 41
+        }
+      ],
+      "episodes": [
+        {
+          "ID": 1324,
+          "Pod": "london-pod-162",
+          "Lane": "london-link-301-ba-2",
+          "Activity": "Traveling",
+          "Reason": "",
+          "Blocker": "",
+          "Phase": "",
+          "Station": "",
+          "Berth": "",
+          "Platoon": "",
+          "Stopped": false,
+          "FirstTick": 397260,
+          "LastTick": 399660
+        },
+        {
+          "ID": 1324,
+          "Pod": "london-pod-162",
+          "Lane": "940GZZLUSTD-move-03-01",
+          "Activity": "Traveling",
+          "Reason": "",
+          "Blocker": "",
+          "Phase": "",
+          "Station": "",
+          "Berth": "",
+          "Platoon": "",
+          "Stopped": false,
+          "FirstTick": 399720,
+          "LastTick": 400140
+        },
+        {
+          "ID": 1324,
+          "Pod": "london-pod-162",
+          "Lane": "london-link-241-ba-1",
+          "Activity": "Traveling",
+          "Reason": "",
+          "Blocker": "",
+          "Phase": "",
+          "Station": "",
+          "Berth": "",
+          "Platoon": "",
+          "Stopped": false,
+          "FirstTick": 400200,
+          "LastTick": 403380
+        },
+        {
+          "ID": 1324,
+          "Pod": "london-pod-162",
+          "Lane": "london-link-241-ba-2",
+          "Activity": "Traveling",
+          "Reason": "",
+          "Blocker": "",
+          "Phase": "",
+          "Station": "",
+          "Berth": "",
+          "Platoon": "",
+          "Stopped": false,
+          "FirstTick": 403440,
+          "LastTick": 406680
+        },
+        {
+          "ID": 1324,
+          "Pod": "london-pod-162",
+          "Lane": "940GZZLULYN-road-in-02",
+          "Activity": "Traveling",
+          "Reason": "",
+          "Blocker": "",
+          "Phase": "Approaching station",
+          "Station": "",
+          "Berth": "",
+          "Platoon": "",
+          "Stopped": false,
+          "FirstTick": 406740,
+          "LastTick": 407280
+        },
+        {
+          "ID": 1324,
+          "Pod": "london-pod-162",
+          "Lane": "940GZZLULYN-access-in",
+          "Activity": "Traveling",
+          "Reason": "",
+          "Blocker": "",
+          "Phase": "Entering station",
+          "Station": "",
+          "Berth": "",
+          "Platoon": "",
+          "Stopped": false,
+          "FirstTick": 407340,
+          "LastTick": 407880
+        },
+        {
+          "ID": 1324,
+          "Pod": "london-pod-162",
+          "Lane": "940GZZLULYN-01-arrival-link",
+          "Activity": "Traveling",
+          "Reason": "",
+          "Blocker": "",
+          "Phase": "Accessing berth",
+          "Station": "",
+          "Berth": "",
+          "Platoon": "",
+          "Stopped": false,
+          "FirstTick": 407940,
+          "LastTick": 408300
+        },
+        {
+          "ID": 1324,
+          "Pod": "london-pod-162",
+          "Lane": "940GZZLULYN-02-arrival-link",
+          "Activity": "Traveling",
+          "Reason": "",
+          "Blocker": "",
+          "Phase": "Accessing berth",
+          "Station": "",
+          "Berth": "",
+          "Platoon": "",
+          "Stopped": false,
+          "FirstTick": 408360,
+          "LastTick": 408600
+        },
+        {
+          "ID": 1324,
+          "Pod": "london-pod-162",
+          "Lane": "940GZZLULYN-02-in",
+          "Activity": "Traveling",
+          "Reason": "",
+          "Blocker": "",
+          "Phase": "Accessing berth",
+          "Station": "",
+          "Berth": "",
+          "Platoon": "",
+          "Stopped": false,
+          "FirstTick": 408660,
+          "LastTick": 409260
+        },
+        {
+          "ID": 1324,
+          "Pod": "london-pod-058",
+          "Lane": "london-link-246-ab-1",
+          "Activity": "Traveling",
+          "Reason": "",
+          "Blocker": "",
+          "Phase": "",
+          "Station": "",
+          "Berth": "",
+          "Platoon": "",
+          "Stopped": false,
+          "FirstTick": 409320,
+          "LastTick": 411000
+        },
+        {
+          "ID": 1324,
+          "Pod": "london-pod-058",
+          "Lane": "london-link-246-ab-2",
+          "Activity": "Traveling",
+          "Reason": "",
+          "Blocker": "",
+          "Phase": "",
+          "Station": "",
+          "Berth": "",
+          "Platoon": "",
+          "Stopped": false,
+          "FirstTick": 411060,
+          "LastTick": 416700
+        },
+        {
+          "ID": 1324,
+          "Pod": "london-pod-058",
+          "Lane": "940GZZLUSTD-move-02-01",
+          "Activity": "Traveling",
+          "Reason": "",
+          "Blocker": "",
+          "Phase": "",
+          "Station": "",
+          "Berth": "",
+          "Platoon": "",
+          "Stopped": false,
+          "FirstTick": 416760,
+          "LastTick": 417240
+        },
+        {
+          "ID": 1324,
+          "Pod": "london-pod-058",
+          "Lane": "london-link-241-ba-1",
+          "Activity": "Traveling",
+          "Reason": "",
+          "Blocker": "",
+          "Phase": "",
+          "Station": "",
+          "Berth": "",
+          "Platoon": "",
+          "Stopped": false,
+          "FirstTick": 417300,
+          "LastTick": 420540
+        },
+        {
+          "ID": 1324,
+          "Pod": "london-pod-058",
+          "Lane": "london-link-241-ba-2",
+          "Activity": "Traveling",
+          "Reason": "",
+          "Blocker": "",
+          "Phase": "",
+          "Station": "",
+          "Berth": "",
+          "Platoon": "",
+          "Stopped": false,
+          "FirstTick": 420600,
+          "LastTick": 423780
+        },
+        {
+          "ID": 1324,
+          "Pod": "london-pod-058",
+          "Lane": "940GZZLULYN-road-in-02",
+          "Activity": "Traveling",
+          "Reason": "",
+          "Blocker": "",
+          "Phase": "Approaching station",
+          "Station": "",
+          "Berth": "",
+          "Platoon": "",
+          "Stopped": false,
+          "FirstTick": 423840,
+          "LastTick": 424380
+        },
+        {
+          "ID": 1324,
+          "Pod": "london-pod-058",
+          "Lane": "940GZZLULYN-access-in",
+          "Activity": "Traveling",
+          "Reason": "",
+          "Blocker": "",
+          "Phase": "Entering station",
+          "Station": "",
+          "Berth": "",
+          "Platoon": "",
+          "Stopped": false,
+          "FirstTick": 424440,
+          "LastTick": 424980
+        },
+        {
+          "ID": 1324,
+          "Pod": "london-pod-058",
+          "Lane": "940GZZLULYN-01-arrival-link",
+          "Activity": "Traveling",
+          "Reason": "",
+          "Blocker": "",
+          "Phase": "Accessing berth",
+          "Station": "",
+          "Berth": "",
+          "Platoon": "",
+          "Stopped": false,
+          "FirstTick": 425040,
+          "LastTick": 425400
+        },
+        {
+          "ID": 1324,
+          "Pod": "london-pod-058",
+          "Lane": "940GZZLULYN-01-in",
+          "Activity": "Traveling",
+          "Reason": "",
+          "Blocker": "",
+          "Phase": "Accessing berth",
+          "Station": "",
+          "Berth": "",
+          "Platoon": "",
+          "Stopped": false,
+          "FirstTick": 425460,
+          "LastTick": 426000
+        },
+        {
+          "ID": 1324,
+          "Pod": "london-pod-058",
+          "Lane": "",
+          "Activity": "Ready",
+          "Reason": "",
+          "Blocker": "",
+          "Phase": "At berth",
+          "Station": "940GZZLULYN",
+          "Berth": "940GZZLULYN-01",
+          "Platoon": "",
+          "Stopped": true,
+          "FirstTick": 426060,
+          "LastTick": 426060
+        }
+      ],
+      "schedule_event": {
+        "tick": 397200,
+        "Origin": "940GZZLULYN",
+        "Destination": "940GZZLUHSK"
+      },
+      "direct_decisions": []
+    },
+    "reassignment": {
+      "timing": {
+        "RequestID": 1324,
+        "RequestedTick": 397200,
+        "BoardedTick": 750345,
+        "CompletedTick": 826927,
+        "RiddenMeters": 17603.241534446497,
+        "DirectMeters": 17603.241534446497,
+        "SharedWith": 0,
+        "Reassigned": false
+      },
+      "boarding": {
+        "Pod": "london-pod-216",
+        "BoardedTick": 750345,
+        "ObservedTick": 750360
+      },
+      "counts": [
+        {
+          "ID": 1324,
+          "Pod": "",
+          "Lane": "",
+          "Activity": "unassigned",
+          "Reason": "",
+          "Blocker": "",
+          "Phase": "",
+          "Station": "",
+          "Berth": "",
+          "Platoon": "",
+          "Stopped": false,
+          "Samples": 26
+        },
+        {
+          "ID": 1324,
+          "Pod": "london-pod-036",
+          "Lane": "940GZZLULYN-01-arrival-link",
+          "Activity": "Traveling",
+          "Reason": "",
+          "Blocker": "",
+          "Phase": "Accessing berth",
+          "Station": "",
+          "Berth": "",
+          "Platoon": "",
+          "Stopped": false,
+          "Samples": 7
+        },
+        {
+          "ID": 1324,
+          "Pod": "london-pod-036",
+          "Lane": "940GZZLULYN-02-arrival-link",
+          "Activity": "Traveling",
+          "Reason": "",
+          "Blocker": "",
+          "Phase": "Accessing berth",
+          "Station": "",
+          "Berth": "",
+          "Platoon": "",
+          "Stopped": false,
+          "Samples": 5
+        },
+        {
+          "ID": 1324,
+          "Pod": "london-pod-036",
+          "Lane": "940GZZLULYN-03-arrival-link",
+          "Activity": "Traveling",
+          "Reason": "",
+          "Blocker": "",
+          "Phase": "Accessing berth",
+          "Station": "",
+          "Berth": "",
+          "Platoon": "",
+          "Stopped": false,
+          "Samples": 5
+        },
+        {
+          "ID": 1324,
+          "Pod": "london-pod-036",
+          "Lane": "940GZZLULYN-03-in",
+          "Activity": "Traveling",
+          "Reason": "",
+          "Blocker": "",
+          "Phase": "Accessing berth",
+          "Station": "",
+          "Berth": "",
+          "Platoon": "",
+          "Stopped": false,
+          "Samples": 11
+        },
+        {
+          "ID": 1324,
+          "Pod": "london-pod-036",
+          "Lane": "940GZZLULYN-access-in",
+          "Activity": "Traveling",
+          "Reason": "",
+          "Blocker": "",
+          "Phase": "Entering station",
+          "Station": "",
+          "Berth": "",
+          "Platoon": "",
+          "Stopped": false,
+          "Samples": 10
+        },
+        {
+          "ID": 1324,
+          "Pod": "london-pod-036",
+          "Lane": "940GZZLULYN-road-in-02",
+          "Activity": "Traveling",
+          "Reason": "",
+          "Blocker": "",
+          "Phase": "Approaching station",
+          "Station": "",
+          "Berth": "",
+          "Platoon": "",
+          "Stopped": false,
+          "Samples": 10
+        },
+        {
+          "ID": 1324,
+          "Pod": "london-pod-036",
+          "Lane": "940GZZLUSTD-move-03-01",
+          "Activity": "Traveling",
+          "Reason": "",
+          "Blocker": "",
+          "Phase": "",
+          "Station": "",
+          "Berth": "",
+          "Platoon": "",
+          "Stopped": false,
+          "Samples": 8
+        },
+        {
+          "ID": 1324,
+          "Pod": "london-pod-036",
+          "Lane": "940GZZLUWHM-move-02-04",
+          "Activity": "Traveling",
+          "Reason": "",
+          "Blocker": "",
+          "Phase": "",
+          "Station": "",
+          "Berth": "",
+          "Platoon": "",
+          "Stopped": false,
+          "Samples": 9
+        },
+        {
+          "ID": 1324,
+          "Pod": "london-pod-036",
+          "Lane": "london-link-087-ab-2",
+          "Activity": "Traveling",
+          "Reason": "",
+          "Blocker": "",
+          "Phase": "",
+          "Station": "",
+          "Berth": "",
+          "Platoon": "",
+          "Stopped": false,
+          "Samples": 13
+        },
+        {
+          "ID": 1324,
+          "Pod": "london-pod-036",
+          "Lane": "london-link-241-ba-1",
+          "Activity": "Traveling",
+          "Reason": "",
+          "Blocker": "",
+          "Phase": "",
+          "Station": "",
+          "Berth": "",
+          "Platoon": "",
+          "Stopped": false,
+          "Samples": 55
+        },
+        {
+          "ID": 1324,
+          "Pod": "london-pod-036",
+          "Lane": "london-link-241-ba-2",
+          "Activity": "Traveling",
+          "Reason": "",
+          "Blocker": "",
+          "Phase": "",
+          "Station": "",
+          "Berth": "",
+          "Platoon": "",
+          "Stopped": false,
+          "Samples": 54
+        },
+        {
+          "ID": 1324,
+          "Pod": "london-pod-036",
+          "Lane": "london-link-301-ba-1",
+          "Activity": "Traveling",
+          "Reason": "",
+          "Blocker": "",
+          "Phase": "",
+          "Station": "",
+          "Berth": "",
+          "Platoon": "",
+          "Stopped": false,
+          "Samples": 54
+        },
+        {
+          "ID": 1324,
+          "Pod": "london-pod-036",
+          "Lane": "london-link-301-ba-2",
+          "Activity": "Traveling",
+          "Reason": "",
+          "Blocker": "",
+          "Phase": "",
+          "Station": "",
+          "Berth": "",
+          "Platoon": "",
+          "Stopped": false,
+          "Samples": 54
+        },
+        {
+          "ID": 1324,
+          "Pod": "london-pod-123",
+          "Lane": "940GZZLUSTD-02-in",
+          "Activity": "Traveling",
+          "Reason": "Berth occupied",
+          "Blocker": "london-pod-025",
+          "Phase": "Accessing berth",
+          "Station": "",
+          "Berth": "",
+          "Platoon": "",
+          "Stopped": true,
+          "Samples": 5564
+        }
+      ],
+      "episodes": [
+        {
+          "ID": 1324,
+          "Pod": "",
+          "Lane": "",
+          "Activity": "unassigned",
+          "Reason": "",
+          "Blocker": "",
+          "Phase": "",
+          "Station": "",
+          "Berth": "",
+          "Platoon": "",
+          "Stopped": false,
+          "FirstTick": 397260,
+          "LastTick": 398760
+        },
+        {
+          "ID": 1324,
+          "Pod": "london-pod-036",
+          "Lane": "london-link-087-ab-2",
+          "Activity": "Traveling",
+          "Reason": "",
+          "Blocker": "",
+          "Phase": "",
+          "Station": "",
+          "Berth": "",
+          "Platoon": "",
+          "Stopped": false,
+          "FirstTick": 398820,
+          "LastTick": 399540
+        },
+        {
+          "ID": 1324,
+          "Pod": "london-pod-036",
+          "Lane": "940GZZLUWHM-move-02-04",
+          "Activity": "Traveling",
+          "Reason": "",
+          "Blocker": "",
+          "Phase": "",
+          "Station": "",
+          "Berth": "",
+          "Platoon": "",
+          "Stopped": false,
+          "FirstTick": 399600,
+          "LastTick": 400080
+        },
+        {
+          "ID": 1324,
+          "Pod": "london-pod-036",
+          "Lane": "london-link-301-ba-1",
+          "Activity": "Traveling",
+          "Reason": "",
+          "Blocker": "",
+          "Phase": "",
+          "Station": "",
+          "Berth": "",
+          "Platoon": "",
+          "Stopped": false,
+          "FirstTick": 400140,
+          "LastTick": 403320
+        },
+        {
+          "ID": 1324,
+          "Pod": "london-pod-036",
+          "Lane": "london-link-301-ba-2",
+          "Activity": "Traveling",
+          "Reason": "",
+          "Blocker": "",
+          "Phase": "",
+          "Station": "",
+          "Berth": "",
+          "Platoon": "",
+          "Stopped": false,
+          "FirstTick": 403380,
+          "LastTick": 406560
+        },
+        {
+          "ID": 1324,
+          "Pod": "london-pod-036",
+          "Lane": "940GZZLUSTD-move-03-01",
+          "Activity": "Traveling",
+          "Reason": "",
+          "Blocker": "",
+          "Phase": "",
+          "Station": "",
+          "Berth": "",
+          "Platoon": "",
+          "Stopped": false,
+          "FirstTick": 406620,
+          "LastTick": 407040
+        },
+        {
+          "ID": 1324,
+          "Pod": "london-pod-036",
+          "Lane": "london-link-241-ba-1",
+          "Activity": "Traveling",
+          "Reason": "",
+          "Blocker": "",
+          "Phase": "",
+          "Station": "",
+          "Berth": "",
+          "Platoon": "",
+          "Stopped": false,
+          "FirstTick": 407100,
+          "LastTick": 410340
+        },
+        {
+          "ID": 1324,
+          "Pod": "london-pod-036",
+          "Lane": "london-link-241-ba-2",
+          "Activity": "Traveling",
+          "Reason": "",
+          "Blocker": "",
+          "Phase": "",
+          "Station": "",
+          "Berth": "",
+          "Platoon": "",
+          "Stopped": false,
+          "FirstTick": 410400,
+          "LastTick": 413580
+        },
+        {
+          "ID": 1324,
+          "Pod": "london-pod-036",
+          "Lane": "940GZZLULYN-road-in-02",
+          "Activity": "Traveling",
+          "Reason": "",
+          "Blocker": "",
+          "Phase": "Approaching station",
+          "Station": "",
+          "Berth": "",
+          "Platoon": "",
+          "Stopped": false,
+          "FirstTick": 413640,
+          "LastTick": 414180
+        },
+        {
+          "ID": 1324,
+          "Pod": "london-pod-036",
+          "Lane": "940GZZLULYN-access-in",
+          "Activity": "Traveling",
+          "Reason": "",
+          "Blocker": "",
+          "Phase": "Entering station",
+          "Station": "",
+          "Berth": "",
+          "Platoon": "",
+          "Stopped": false,
+          "FirstTick": 414240,
+          "LastTick": 414780
+        },
+        {
+          "ID": 1324,
+          "Pod": "london-pod-036",
+          "Lane": "940GZZLULYN-01-arrival-link",
+          "Activity": "Traveling",
+          "Reason": "",
+          "Blocker": "",
+          "Phase": "Accessing berth",
+          "Station": "",
+          "Berth": "",
+          "Platoon": "",
+          "Stopped": false,
+          "FirstTick": 414840,
+          "LastTick": 415200
+        },
+        {
+          "ID": 1324,
+          "Pod": "london-pod-036",
+          "Lane": "940GZZLULYN-02-arrival-link",
+          "Activity": "Traveling",
+          "Reason": "",
+          "Blocker": "",
+          "Phase": "Accessing berth",
+          "Station": "",
+          "Berth": "",
+          "Platoon": "",
+          "Stopped": false,
+          "FirstTick": 415260,
+          "LastTick": 415500
+        },
+        {
+          "ID": 1324,
+          "Pod": "london-pod-036",
+          "Lane": "940GZZLULYN-03-arrival-link",
+          "Activity": "Traveling",
+          "Reason": "",
+          "Blocker": "",
+          "Phase": "Accessing berth",
+          "Station": "",
+          "Berth": "",
+          "Platoon": "",
+          "Stopped": false,
+          "FirstTick": 415560,
+          "LastTick": 415800
+        },
+        {
+          "ID": 1324,
+          "Pod": "london-pod-036",
+          "Lane": "940GZZLULYN-03-in",
+          "Activity": "Traveling",
+          "Reason": "",
+          "Blocker": "",
+          "Phase": "Accessing berth",
+          "Station": "",
+          "Berth": "",
+          "Platoon": "",
+          "Stopped": false,
+          "FirstTick": 415860,
+          "LastTick": 416460
+        },
+        {
+          "ID": 1324,
+          "Pod": "london-pod-123",
+          "Lane": "940GZZLUSTD-02-in",
+          "Activity": "Traveling",
+          "Reason": "Berth occupied",
+          "Blocker": "london-pod-025",
+          "Phase": "Accessing berth",
+          "Station": "",
+          "Berth": "",
+          "Platoon": "",
+          "Stopped": true,
+          "FirstTick": 416520,
+          "LastTick": 750300
+        }
+      ],
+      "schedule_event": {
+        "tick": 397200,
+        "Origin": "940GZZLULYN",
+        "Destination": "940GZZLUHSK"
+      },
+      "direct_decisions": []
+    }
+  },
+  "frames": [
+    {
+      "Tick": 397260,
+      "Request": {
+        "ID": 1324,
+        "From": "940GZZLULYN",
+        "To": "940GZZLUHSK",
+        "PartySize": 1,
+        "PodID": "",
+        "Completed": false,
+        "RequestedTick": 397200,
+        "DispatchReason": "Waiting for pod london-pod-283 to finish"
+      },
+      "Pod": null,
+      "Blocker": null
+    },
+    {
+      "Tick": 398820,
+      "Request": {
+        "ID": 1324,
+        "From": "940GZZLULYN",
+        "To": "940GZZLUHSK",
+        "PartySize": 1,
+        "PodID": "london-pod-036",
+        "Completed": false,
+        "RequestedTick": 397200,
+        "DispatchReason": "Pod london-pod-036 traveling to pickup"
+      },
+      "Pod": {
+        "Pod": {
+          "ID": "london-pod-036",
+          "Position": {
+            "X": 9245.353981495131,
+            "Y": -2073.9643485315655
+          },
+          "Activity": "Traveling",
+          "StationID": "",
+          "BerthID": "",
+          "LaneID": "london-link-087-ab-2",
+          "LaneDistance": 580.3741187136138,
+          "Speed": 14,
+          "Occupied": false,
+          "WaitReason": "",
+          "BlockedBy": ""
+        },
+        "Riders": [
+          {
+            "ID": 1048,
+            "From": "940GZZLUBST",
+            "To": "940GZZLUCYF",
+            "PartySize": 1,
+            "PodID": "london-pod-036",
+            "Completed": true,
+            "RequestedTick": 314400,
+            "BoardedTick": 326063,
+            "DispatchReason": ""
+          }
+        ],
+        "Route": [
+          {
+            "ID": "940GZZLUCYF-01-out",
+            "From": "940GZZLUCYF-01-node",
+            "To": "940GZZLUCYF-01-departure",
+            "SpeedLimit": 14,
+            "SeparationGroup": "940GZZLUCYF-station",
+            "StationID": "940GZZLUCYF",
+            "StationRole": "departure"
+          },
+          {
+            "ID": "940GZZLUCYF-01-departure-link",
+            "From": "940GZZLUCYF-01-departure",
+            "To": "940GZZLUCYF-exit",
+            "SpeedLimit": 14,
+            "SeparationGroup": "940GZZLUCYF-station",
+            "StationID": "940GZZLUCYF",
+            "StationRole": "departure"
+          },
+          {
+            "ID": "940GZZLUCYF-access-out",
+            "From": "940GZZLUCYF-exit",
+            "To": "940GZZLUCYF-merge",
+            "SpeedLimit": 14,
+            "SeparationGroup": "940GZZLUCYF-station",
+            "StationID": "940GZZLUCYF",
+            "StationRole": "exit"
+          },
+          {
+            "ID": "940GZZLUCYF-road-out-02",
+            "From": "940GZZLUCYF-merge",
+            "To": "london-link-113-a-departure",
+            "SpeedLimit": 14,
+            "SeparationGroup": "940GZZLUCYF-road-out-02",
+            "StationID": "940GZZLUCYF",
+            "StationRole": "exit"
+          },
+          {
+            "ID": "london-link-113-ab-1",
+            "From": "london-link-113-a-departure",
+            "To": "london-mid-113-a",
+            "SpeedLimit": 14,
+            "SeparationGroup": "london-link-113"
+          },
+          {
+            "ID": "london-link-113-ab-2",
+            "From": "london-mid-113-a",
+            "To": "london-link-113-b-arrival",
+            "SpeedLimit": 14,
+            "SeparationGroup": "london-link-113"
+          },
+          {
+            "ID": "940GZZLUNGW-move-02-01",
+            "From": "london-link-113-b-arrival",
+            "To": "london-link-086-b-departure",
+            "SpeedLimit": 14,
+            "SeparationGroup": "940GZZLUNGW-move-02-01"
+          },
+          {
+            "ID": "london-link-086-ba-1",
+            "From": "london-link-086-b-departure",
+            "To": "london-mid-086-b",
+            "SpeedLimit": 14,
+            "SeparationGroup": "london-link-086"
+          },
+          {
+            "ID": "london-link-086-ba-2",
+            "From": "london-mid-086-b",
+            "To": "london-link-086-a-arrival",
+            "SpeedLimit": 14,
+            "SeparationGroup": "london-link-086"
+          },
+          {
+            "ID": "940GZZLUCGT-move-01-02",
+            "From": "london-link-086-a-arrival",
+            "To": "london-link-087-a-departure",
+            "SpeedLimit": 14,
+            "SeparationGroup": "940GZZLUCGT-move-01-02"
+          },
+          {
+            "ID": "london-link-087-ab-1",
+            "From": "london-link-087-a-departure",
+            "To": "london-mid-087-a",
+            "SpeedLimit": 14,
+            "SeparationGroup": "london-link-087"
+          },
+          {
+            "ID": "london-link-087-ab-2",
+            "From": "london-mid-087-a",
+            "To": "london-link-087-b-arrival",
+            "SpeedLimit": 14,
+            "SeparationGroup": "london-link-087"
+          },
+          {
+            "ID": "940GZZLUWHM-move-02-04",
+            "From": "london-link-087-b-arrival",
+            "To": "london-link-301-b-departure",
+            "SpeedLimit": 14,
+            "SeparationGroup": "940GZZLUWHM-move-02-04"
+          },
+          {
+            "ID": "london-link-301-ba-1",
+            "From": "london-link-301-b-departure",
+            "To": "london-mid-301-b",
+            "SpeedLimit": 14,
+            "SeparationGroup": "london-link-301"
+          },
+          {
+            "ID": "london-link-301-ba-2",
+            "From": "london-mid-301-b",
+            "To": "london-link-301-a-arrival",
+            "SpeedLimit": 14,
+            "SeparationGroup": "london-link-301"
+          },
+          {
+            "ID": "940GZZLUSTD-move-03-01",
+            "From": "london-link-301-a-arrival",
+            "To": "london-link-241-b-departure",
+            "SpeedLimit": 14,
+            "SeparationGroup": "940GZZLUSTD-move-03-01"
+          },
+          {
+            "ID": "london-link-241-ba-1",
+            "From": "london-link-241-b-departure",
+            "To": "london-mid-241-b",
+            "SpeedLimit": 14,
+            "SeparationGroup": "london-link-241"
+          },
+          {
+            "ID": "london-link-241-ba-2",
+            "From": "london-mid-241-b",
+            "To": "london-link-241-a-arrival",
+            "SpeedLimit": 14,
+            "SeparationGroup": "london-link-241"
+          },
+          {
+            "ID": "940GZZLULYN-road-in-02",
+            "From": "london-link-241-a-arrival",
+            "To": "940GZZLULYN-diverge",
+            "SpeedLimit": 14,
+            "SeparationGroup": "940GZZLULYN-road-in-02",
+            "StationID": "940GZZLULYN",
+            "StationRole": "approach"
+          },
+          {
+            "ID": "940GZZLULYN-access-in",
+            "From": "940GZZLULYN-diverge",
+            "To": "940GZZLULYN-entry",
+            "SpeedLimit": 14,
+            "SeparationGroup": "940GZZLULYN-station",
+            "StationID": "940GZZLULYN",
+            "StationRole": "entry"
+          },
+          {
+            "ID": "940GZZLULYN-01-arrival-link",
+            "From": "940GZZLULYN-entry",
+            "To": "940GZZLULYN-01-arrival",
+            "SpeedLimit": 14,
+            "SeparationGroup": "940GZZLULYN-station",
+            "StationID": "940GZZLULYN",
+            "StationRole": "berth-access"
+          },
+          {
+            "ID": "940GZZLULYN-02-arrival-link",
+            "From": "940GZZLULYN-01-arrival",
+            "To": "940GZZLULYN-02-arrival",
+            "SpeedLimit": 14,
+            "SeparationGroup": "940GZZLULYN-station",
+            "StationID": "940GZZLULYN",
+            "StationRole": "berth-access"
+          },
+          {
+            "ID": "940GZZLULYN-03-arrival-link",
+            "From": "940GZZLULYN-02-arrival",
+            "To": "940GZZLULYN-03-arrival",
+            "SpeedLimit": 14,
+            "SeparationGroup": "940GZZLULYN-station",
+            "StationID": "940GZZLULYN",
+            "StationRole": "berth-access"
+          },
+          {
+            "ID": "940GZZLULYN-03-in",
+            "From": "940GZZLULYN-03-arrival",
+            "To": "940GZZLULYN-03-node",
+            "SpeedLimit": 14,
+            "SeparationGroup": "940GZZLULYN-station",
+            "StationID": "940GZZLULYN",
+            "StationRole": "berth-access"
+          }
+        ],
+        "RelocatingTo": "940GZZLULYN",
+        "Rebalancing": false
+      },
+      "Blocker": null,
+      "current_lane_berth_endpoints": [],
+      "route_berth_endpoints": [
+        {
+          "station": "940GZZLULYN",
+          "berth": "940GZZLULYN-03",
+          "name": "Leyton",
+          "lane": "940GZZLULYN-03-in"
+        }
+      ]
+    },
+    {
+      "Tick": 416520,
+      "Request": {
+        "ID": 1324,
+        "From": "940GZZLULYN",
+        "To": "940GZZLUHSK",
+        "PartySize": 1,
+        "PodID": "london-pod-123",
+        "Completed": false,
+        "RequestedTick": 397200,
+        "DispatchReason": "Pod london-pod-123 waiting in traffic"
+      },
+      "Pod": {
+        "Pod": {
+          "ID": "london-pod-123",
+          "Position": {
+            "X": 8964.647417256563,
+            "Y": -3896.093451938343
+          },
+          "Activity": "Traveling",
+          "StationID": "",
+          "BerthID": "",
+          "LaneID": "940GZZLUSTD-02-in",
+          "LaneDistance": 75,
+          "Speed": 0,
+          "Occupied": false,
+          "WaitReason": "Berth occupied",
+          "BlockedBy": "london-pod-025",
+          "StationPhase": "Accessing berth",
+          "ManeuverStationID": "940GZZLUSTD"
+        },
+        "Riders": [
+          {
+            "ID": 439,
+            "From": "940GZZLUGTR",
+            "To": "940GZZLUEHM",
+            "PartySize": 1,
+            "PodID": "london-pod-123",
+            "Completed": true,
+            "RequestedTick": 131700,
+            "BoardedTick": 131700,
+            "DispatchReason": ""
+          }
+        ],
+        "Route": [
+          {
+            "ID": "940GZZLUEHM-01-out",
+            "From": "940GZZLUEHM-01-node",
+            "To": "940GZZLUEHM-01-departure",
+            "SpeedLimit": 14,
+            "SeparationGroup": "940GZZLUEHM-station",
+            "StationID": "940GZZLUEHM",
+            "StationRole": "departure"
+          },
+          {
+            "ID": "940GZZLUEHM-01-departure-link",
+            "From": "940GZZLUEHM-01-departure",
+            "To": "940GZZLUEHM-exit",
+            "SpeedLimit": 14,
+            "SeparationGroup": "940GZZLUEHM-station",
+            "StationID": "940GZZLUEHM",
+            "StationRole": "departure"
+          },
+          {
+            "ID": "940GZZLUEHM-access-out",
+            "From": "940GZZLUEHM-exit",
+            "To": "940GZZLUEHM-merge",
+            "SpeedLimit": 14,
+            "SeparationGroup": "940GZZLUEHM-station",
+            "StationID": "940GZZLUEHM",
+            "StationRole": "exit"
+          },
+          {
+            "ID": "940GZZLUEHM-road-out-02",
+            "From": "940GZZLUEHM-merge",
+            "To": "london-link-136-a-departure",
+            "SpeedLimit": 14,
+            "SeparationGroup": "940GZZLUEHM-road-out-02",
+            "StationID": "940GZZLUEHM",
+            "StationRole": "exit"
+          },
+          {
+            "ID": "london-link-136-ab-1",
+            "From": "london-link-136-a-departure",
+            "To": "london-mid-136-a",
+            "SpeedLimit": 14,
+            "SeparationGroup": "london-link-136"
+          },
+          {
+            "ID": "london-link-136-ab-2",
+            "From": "london-mid-136-a",
+            "To": "london-link-136-b-arrival",
+            "SpeedLimit": 14,
+            "SeparationGroup": "london-link-136"
+          },
+          {
+            "ID": "940GZZLUUPK-move-01-02",
+            "From": "london-link-136-b-arrival",
+            "To": "london-link-274-b-departure",
+            "SpeedLimit": 14,
+            "SeparationGroup": "940GZZLUUPK-move-01-02"
+          },
+          {
+            "ID": "london-link-274-ba-1",
+            "From": "london-link-274-b-departure",
+            "To": "london-mid-274-b",
+            "SpeedLimit": 14,
+            "SeparationGroup": "london-link-274"
+          },
+          {
+            "ID": "london-link-274-ba-2",
+            "From": "london-mid-274-b",
+            "To": "london-link-274-a-arrival",
+            "SpeedLimit": 14,
+            "SeparationGroup": "london-link-274"
+          },
+          {
+            "ID": "940GZZLUPLW-move-01-02",
+            "From": "london-link-274-a-arrival",
+            "To": "london-link-275-a-departure",
+            "SpeedLimit": 14,
+            "SeparationGroup": "940GZZLUPLW-move-01-02"
+          },
+          {
+            "ID": "london-link-275-ab-1",
+            "From": "london-link-275-a-departure",
+            "To": "london-mid-275-a",
+            "SpeedLimit": 14,
+            "SeparationGroup": "london-link-275"
+          },
+          {
+            "ID": "london-link-275-ab-2",
+            "From": "london-mid-275-a",
+            "To": "london-link-275-b-arrival",
+            "SpeedLimit": 14,
+            "SeparationGroup": "london-link-275"
+          },
+          {
+            "ID": "940GZZLUWHM-move-03-04",
+            "From": "london-link-275-b-arrival",
+            "To": "london-link-301-b-departure",
+            "SpeedLimit": 14,
+            "SeparationGroup": "940GZZLUWHM-move-03-04"
+          },
+          {
+            "ID": "london-link-301-ba-1",
+            "From": "london-link-301-b-departure",
+            "To": "london-mid-301-b",
+            "SpeedLimit": 14,
+            "SeparationGroup": "london-link-301"
+          },
+          {
+            "ID": "london-link-301-ba-2",
+            "From": "london-mid-301-b",
+            "To": "london-link-301-a-arrival",
+            "SpeedLimit": 14,
+            "SeparationGroup": "london-link-301"
+          },
+          {
+            "ID": "940GZZLUSTD-road-in-03",
+            "From": "london-link-301-a-arrival",
+            "To": "940GZZLUSTD-diverge",
+            "SpeedLimit": 14,
+            "SeparationGroup": "940GZZLUSTD-road-in-03",
+            "StationID": "940GZZLUSTD",
+            "StationRole": "approach"
+          },
+          {
+            "ID": "940GZZLUSTD-access-in",
+            "From": "940GZZLUSTD-diverge",
+            "To": "940GZZLUSTD-entry",
+            "SpeedLimit": 14,
+            "SeparationGroup": "940GZZLUSTD-station",
+            "StationID": "940GZZLUSTD",
+            "StationRole": "entry"
+          },
+          {
+            "ID": "940GZZLUSTD-01-arrival-link",
+            "From": "940GZZLUSTD-entry",
+            "To": "940GZZLUSTD-01-arrival",
+            "SpeedLimit": 14,
+            "SeparationGroup": "940GZZLUSTD-station",
+            "StationID": "940GZZLUSTD",
+            "StationRole": "berth-access"
+          },
+          {
+            "ID": "940GZZLUSTD-02-arrival-link",
+            "From": "940GZZLUSTD-01-arrival",
+            "To": "940GZZLUSTD-02-arrival",
+            "SpeedLimit": 14,
+            "SeparationGroup": "940GZZLUSTD-station",
+            "StationID": "940GZZLUSTD",
+            "StationRole": "berth-access"
+          },
+          {
+            "ID": "940GZZLUSTD-02-in",
+            "From": "940GZZLUSTD-02-arrival",
+            "To": "940GZZLUSTD-02-node",
+            "SpeedLimit": 14,
+            "SeparationGroup": "940GZZLUSTD-station",
+            "StationID": "940GZZLUSTD",
+            "StationRole": "berth-access"
+          },
+          {
+            "ID": "940GZZLUSTD-02-out",
+            "From": "940GZZLUSTD-02-node",
+            "To": "940GZZLUSTD-02-departure",
+            "SpeedLimit": 14,
+            "SeparationGroup": "940GZZLUSTD-station",
+            "StationID": "940GZZLUSTD",
+            "StationRole": "departure"
+          },
+          {
+            "ID": "940GZZLUSTD-02-departure-link",
+            "From": "940GZZLUSTD-02-departure",
+            "To": "940GZZLUSTD-01-departure",
+            "SpeedLimit": 14,
+            "SeparationGroup": "940GZZLUSTD-station",
+            "StationID": "940GZZLUSTD",
+            "StationRole": "departure"
+          },
+          {
+            "ID": "940GZZLUSTD-01-departure-link",
+            "From": "940GZZLUSTD-01-departure",
+            "To": "940GZZLUSTD-exit",
+            "SpeedLimit": 14,
+            "SeparationGroup": "940GZZLUSTD-station",
+            "StationID": "940GZZLUSTD",
+            "StationRole": "departure"
+          },
+          {
+            "ID": "940GZZLUSTD-access-out",
+            "From": "940GZZLUSTD-exit",
+            "To": "940GZZLUSTD-merge",
+            "SpeedLimit": 14,
+            "SeparationGroup": "940GZZLUSTD-station",
+            "StationID": "940GZZLUSTD",
+            "StationRole": "exit"
+          },
+          {
+            "ID": "940GZZLUSTD-road-out-01",
+            "From": "940GZZLUSTD-merge",
+            "To": "london-link-241-b-departure",
+            "SpeedLimit": 14,
+            "SeparationGroup": "940GZZLUSTD-road-out-01",
+            "StationID": "940GZZLUSTD",
+            "StationRole": "exit"
+          },
+          {
+            "ID": "london-link-241-ba-1",
+            "From": "london-link-241-b-departure",
+            "To": "london-mid-241-b",
+            "SpeedLimit": 14,
+            "SeparationGroup": "london-link-241"
+          },
+          {
+            "ID": "london-link-241-ba-2",
+            "From": "london-mid-241-b",
+            "To": "london-link-241-a-arrival",
+            "SpeedLimit": 14,
+            "SeparationGroup": "london-link-241"
+          },
+          {
+            "ID": "940GZZLULYN-road-in-02",
+            "From": "london-link-241-a-arrival",
+            "To": "940GZZLULYN-diverge",
+            "SpeedLimit": 14,
+            "SeparationGroup": "940GZZLULYN-road-in-02",
+            "StationID": "940GZZLULYN",
+            "StationRole": "approach"
+          },
+          {
+            "ID": "940GZZLULYN-access-in",
+            "From": "940GZZLULYN-diverge",
+            "To": "940GZZLULYN-entry",
+            "SpeedLimit": 14,
+            "SeparationGroup": "940GZZLULYN-station",
+            "StationID": "940GZZLULYN",
+            "StationRole": "entry"
+          },
+          {
+            "ID": "940GZZLULYN-01-arrival-link",
+            "From": "940GZZLULYN-entry",
+            "To": "940GZZLULYN-01-arrival",
+            "SpeedLimit": 14,
+            "SeparationGroup": "940GZZLULYN-station",
+            "StationID": "940GZZLULYN",
+            "StationRole": "berth-access"
+          },
+          {
+            "ID": "940GZZLULYN-01-in",
+            "From": "940GZZLULYN-01-arrival",
+            "To": "940GZZLULYN-01-node",
+            "SpeedLimit": 14,
+            "SeparationGroup": "940GZZLULYN-station",
+            "StationID": "940GZZLULYN",
+            "StationRole": "berth-access"
+          }
+        ],
+        "RelocatingTo": "940GZZLULYN",
+        "Rebalancing": false
+      },
+      "Blocker": {
+        "Pod": {
+          "ID": "london-pod-025",
+          "Position": {
+            "X": 8971.117893384126,
+            "Y": -3871.9453062811162
+          },
+          "Activity": "Traveling",
+          "StationID": "",
+          "BerthID": "",
+          "LaneID": "940GZZLUSTD-02-in",
+          "LaneDistance": 50,
+          "Speed": 0,
+          "Occupied": false,
+          "WaitReason": "Pod ahead",
+          "BlockedBy": "london-pod-123",
+          "StationPhase": "Accessing berth",
+          "ManeuverStationID": "940GZZLUSTD"
+        },
+        "Riders": [
+          {
+            "ID": 430,
+            "From": "940GZZLUBLM",
+            "To": "940GZZLUWPL",
+            "PartySize": 1,
+            "PodID": "london-pod-025",
+            "Completed": true,
+            "RequestedTick": 129000,
+            "BoardedTick": 169441,
+            "DispatchReason": ""
+          }
+        ],
+        "Route": [
+          {
+            "ID": "940GZZLUWPL-01-out",
+            "From": "940GZZLUWPL-01-node",
+            "To": "940GZZLUWPL-01-departure",
+            "SpeedLimit": 14,
+            "SeparationGroup": "940GZZLUWPL-station",
+            "StationID": "940GZZLUWPL",
+            "StationRole": "departure"
+          },
+          {
+            "ID": "940GZZLUWPL-01-departure-link",
+            "From": "940GZZLUWPL-01-departure",
+            "To": "940GZZLUWPL-exit",
+            "SpeedLimit": 14,
+            "SeparationGroup": "940GZZLUWPL-station",
+            "StationID": "940GZZLUWPL",
+            "StationRole": "departure"
+          },
+          {
+            "ID": "940GZZLUWPL-access-out",
+            "From": "940GZZLUWPL-exit",
+            "To": "940GZZLUWPL-merge",
+            "SpeedLimit": 14,
+            "SeparationGroup": "940GZZLUWPL-station",
+            "StationID": "940GZZLUWPL",
+            "StationRole": "exit"
+          },
+          {
+            "ID": "940GZZLUWPL-road-out-02",
+            "From": "940GZZLUWPL-merge",
+            "To": "london-link-291-b-departure",
+            "SpeedLimit": 14,
+            "SeparationGroup": "940GZZLUWPL-road-out-02",
+            "StationID": "940GZZLUWPL",
+            "StationRole": "exit"
+          },
+          {
+            "ID": "london-link-291-ba-1",
+            "From": "london-link-291-b-departure",
+            "To": "london-mid-291-b",
+            "SpeedLimit": 14,
+            "SeparationGroup": "london-link-291"
+          },
+          {
+            "ID": "london-link-291-ba-2",
+            "From": "london-mid-291-b",
+            "To": "london-link-291-a-arrival",
+            "SpeedLimit": 14,
+            "SeparationGroup": "london-link-291"
+          },
+          {
+            "ID": "940GZZLUSGN-move-02-01",
+            "From": "london-link-291-a-arrival",
+            "To": "london-link-245-b-departure",
+            "SpeedLimit": 14,
+            "SeparationGroup": "940GZZLUSGN-move-02-01"
+          },
+          {
+            "ID": "london-link-245-ba-1",
+            "From": "london-link-245-b-departure",
+            "To": "london-mid-245-b",
+            "SpeedLimit": 14,
+            "SeparationGroup": "london-link-245"
+          },
+          {
+            "ID": "london-link-245-ba-2",
+            "From": "london-mid-245-b",
+            "To": "london-link-245-a-arrival",
+            "SpeedLimit": 14,
+            "SeparationGroup": "london-link-245"
+          },
+          {
+            "ID": "940GZZLUMED-move-03-04",
+            "From": "london-link-245-a-arrival",
+            "To": "london-link-246-a-departure",
+            "SpeedLimit": 14,
+            "SeparationGroup": "940GZZLUMED-move-03-04"
+          },
+          {
+            "ID": "london-link-246-ab-1",
+            "From": "london-link-246-a-departure",
+            "To": "london-mid-246-a",
+            "SpeedLimit": 14,
+            "SeparationGroup": "london-link-246"
+          },
+          {
+            "ID": "london-link-246-ab-2",
+            "From": "london-mid-246-a",
+            "To": "london-link-246-b-arrival",
+            "SpeedLimit": 14,
+            "SeparationGroup": "london-link-246"
+          },
+          {
+            "ID": "940GZZLUSTD-road-in-02",
+            "From": "london-link-246-b-arrival",
+            "To": "940GZZLUSTD-diverge",
+            "SpeedLimit": 14,
+            "SeparationGroup": "940GZZLUSTD-road-in-02",
+            "StationID": "940GZZLUSTD",
+            "StationRole": "approach"
+          },
+          {
+            "ID": "940GZZLUSTD-access-in",
+            "From": "940GZZLUSTD-diverge",
+            "To": "940GZZLUSTD-entry",
+            "SpeedLimit": 14,
+            "SeparationGroup": "940GZZLUSTD-station",
+            "StationID": "940GZZLUSTD",
+            "StationRole": "entry"
+          },
+          {
+            "ID": "940GZZLUSTD-01-arrival-link",
+            "From": "940GZZLUSTD-entry",
+            "To": "940GZZLUSTD-01-arrival",
+            "SpeedLimit": 14,
+            "SeparationGroup": "940GZZLUSTD-station",
+            "StationID": "940GZZLUSTD",
+            "StationRole": "berth-access"
+          },
+          {
+            "ID": "940GZZLUSTD-02-arrival-link",
+            "From": "940GZZLUSTD-01-arrival",
+            "To": "940GZZLUSTD-02-arrival",
+            "SpeedLimit": 14,
+            "SeparationGroup": "940GZZLUSTD-station",
+            "StationID": "940GZZLUSTD",
+            "StationRole": "berth-access"
+          },
+          {
+            "ID": "940GZZLUSTD-02-in",
+            "From": "940GZZLUSTD-02-arrival",
+            "To": "940GZZLUSTD-02-node",
+            "SpeedLimit": 14,
+            "SeparationGroup": "940GZZLUSTD-station",
+            "StationID": "940GZZLUSTD",
+            "StationRole": "berth-access"
+          }
+        ],
+        "RelocatingTo": "940GZZLUSTD",
+        "Rebalancing": false
+      },
+      "current_lane_berth_endpoints": [
+        {
+          "station": "940GZZLUSTD",
+          "berth": "940GZZLUSTD-02",
+          "name": "Stratford"
+        }
+      ],
+      "route_berth_endpoints": [
+        {
+          "station": "940GZZLUSTD",
+          "berth": "940GZZLUSTD-02",
+          "name": "Stratford",
+          "lane": "940GZZLUSTD-02-in"
+        },
+        {
+          "station": "940GZZLULYN",
+          "berth": "940GZZLULYN-01",
+          "name": "Leyton",
+          "lane": "940GZZLULYN-01-in"
+        }
+      ]
+    }
+  ],
+  "run_status": [
+    {
+      "name": "tail-rate12-s4-boff-roff",
+      "status": "passed",
+      "exit": 0,
+      "wall_seconds": 216.6259021582082
+    },
+    {
+      "name": "tail-rate12-s4-boff-ron",
+      "status": "passed",
+      "exit": 0,
+      "wall_seconds": 268.08504774421453
+    },
+    {
+      "name": "frames-rate12-s4-boff-ron",
+      "status": "passed",
+      "exit": 0,
+      "wall_seconds": 282.91234499774873
+    }
+  ]
+}
