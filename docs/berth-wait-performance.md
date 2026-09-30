@@ -38,3 +38,38 @@ Independent review found the predicate reorder equivalent because the skipped sc
 [Measurements](measurements/berth-wait.csv) retain the means and allocation figures.
 [Metadata](measurements/berth-wait.json) records binaries, raw hashes, and the exact final-state hash.
 The local artifact bundle is `~/.cache/agents/podsim/berth-filter-20260930/`.
+
+## Live Central follow-up
+
+The isolated CPU improvement did not remove the live Central speed reductions.
+Seven of eight runs reduced from 60x to 15x, including all four candidate runs.
+This result does not establish a live regression or improvement from the filter change.
+
+This follow-up compares the `c93bc9a` server with `7cd5fe9`.
+The server behavior change is the berth-wait filter in `1f6cdb2`.
+Both servers use the same catalog-cache client assets and paused Central saved state.
+The state starts at tick 216000, with demand at 12 requests per simulated minute and seed 20260929.
+Each arm uses one headless Chrome client, GOMAXPROCS 4, and a 60-second observation window.
+The second repetition reverses the server order.
+Other agent CPU-heavy work remains off during measurement.
+
+| GOGC | Baseline playback, repetitions 1 / 2 | Candidate playback, repetitions 1 / 2 | Baseline reductions | Candidate reductions |
+| --- | ---: | ---: | ---: | ---: |
+| 100 | 35.99x / 35.91x | 35.97x / 35.96x | 2 of 2 | 2 of 2 |
+| 200 | 50.30x / 58.59x | 50.29x / 50.27x | 1 of 2 | 2 of 2 |
+
+Every arm passes the protocol checks, with one socket and one initial full snapshot.
+Browser receipt-to-ACK p95 spans `14.3-18.0 ms`.
+Gzip inflate p95 spans `0.5-0.6 ms`.
+The proxy records at most two outstanding updates and about 21 kB of pending binary messages.
+These observations do not identify the cause of the speed reductions.
+
+The browser uses software rendering and profile instrumentation, with a local decoding proxy and normal server persistence.
+Speed reductions change the number of simulated ticks and the later traffic cohort.
+Process CPU totals therefore cannot measure normalized tick cost in this comparison.
+Two repetitions are insufficient to attribute the differing GOGC 200 results to the filter.
+The server retains its default GOGC 100, and the comparison command retains GOGC 400 when unset.
+The overload sensor is unchanged.
+
+[Arm measurements](measurements/berth-wait-live-arms.csv), [client measurements](measurements/berth-wait-live-pages.csv), and [metadata](measurements/berth-wait-live.json) record this follow-up.
+The local artifacts are in `~/.cache/agents/podsim/server-live-followup-20260930/`.

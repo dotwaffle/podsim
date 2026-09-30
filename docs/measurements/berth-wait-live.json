@@ -1,0 +1,153 @@
+{
+  "baselineServer": "c93bc9a",
+  "candidateServer": "7cd5fe9",
+  "serverBehaviorChange": "1f6cdb2 berth-wait filter",
+  "fixedClient": "7cd5fe9 catalog candidate from prior frozen build",
+  "harnessSha256": "e29108f3b1208e0e7ae048d73f95cec2b67bdbbee663bb26c0985443bcddf697",
+  "fileSha256": {
+    "baseline/full-paused.json.gz": "8ff4b8993b45b8efcc5dec4b2a70956b221304262e50f42351c5c6156b528ac5",
+    "baseline/central-paused.json.gz": "280aa4fe21647e357106d5c75f71ac707a5b1d9d0ffb77b6f8b0f27f902b4998",
+    "baseline/serve": "5344b61a20eb755c95e3d77df8ed7afe8dda9ab359dca7f597e1454055e1d1d9",
+    "baseline/web/tiles.js": "2adee79651c332e1c9f41d4ba1689e5ed592a359004a9d543f8071a12e957f9b",
+    "baseline/web/shell.js": "90ffff90e53726982f510601889f138410daa65c43fe252ccdaccbf9b5cbda9e",
+    "baseline/web/podsim.wasm.gz": "4725dfa8b0fa588046f92358ceb99092d2b83ed79070f42ed8d3aec9dcfd8d17",
+    "baseline/web/stream.js": "7a39992016582ecedfbc27f13f04b1574eb52feb34f2f1e8343dab3f97cc4aee",
+    "baseline/web/editor.css": "bb70f74d963b1719f08718ef4878412a9e4c789ba447566317fcd3a68f0803f3",
+    "baseline/web/index.html": "ca314f81f80df18ad22f41b03bbd12c16c1a3fa075cb3c2e90109a6eb22b429a",
+    "baseline/web/loader.js": "2b02e1ae4d8f5c78fe414bceefb42383f8d7567282af39b003b294c196af5937",
+    "baseline/web/game.html": "a140ff4dbe086cb71af5cc5fd9ab2f8a9c68f3d01083ef4fca11f24089f9e907",
+    "baseline/web/editor.html": "7cbca3d86dc1005515f63925d58b974b4e58bf13319e1a36e2428c685adef09a",
+    "baseline/web/editor.js": "911b76251544e89adac89bc8dd554f37a1d403dc32d26be1ab4a2032c6d088fd",
+    "baseline/web/simulation-map.js": "007daf7e53721aa9ead8a4512dbc7d99d38a7c343ed2835ccae3c924bcdc23db",
+    "baseline/web/wasm_exec.js": "0c949f4996f9a89698e4b5c586de32249c3b69b7baadb64d220073cc04acba14",
+    "candidate/serve": "5ac07dc5ba4f96c6d44c25568f3d4c87bf0aeddf02ed6439b782ecb99a131738",
+    "candidate/central-paused.json.gz": "280aa4fe21647e357106d5c75f71ac707a5b1d9d0ffb77b6f8b0f27f902b4998",
+    "candidate/full-paused.json.gz": "8ff4b8993b45b8efcc5dec4b2a70956b221304262e50f42351c5c6156b528ac5",
+    "candidate/web/shell.js": "90ffff90e53726982f510601889f138410daa65c43fe252ccdaccbf9b5cbda9e",
+    "candidate/web/tiles.js": "2adee79651c332e1c9f41d4ba1689e5ed592a359004a9d543f8071a12e957f9b",
+    "candidate/web/wasm_exec.js": "0c949f4996f9a89698e4b5c586de32249c3b69b7baadb64d220073cc04acba14",
+    "candidate/web/stream.js": "7a39992016582ecedfbc27f13f04b1574eb52feb34f2f1e8343dab3f97cc4aee",
+    "candidate/web/editor.html": "7cbca3d86dc1005515f63925d58b974b4e58bf13319e1a36e2428c685adef09a",
+    "candidate/web/loader.js": "2b02e1ae4d8f5c78fe414bceefb42383f8d7567282af39b003b294c196af5937",
+    "candidate/web/editor.js": "911b76251544e89adac89bc8dd554f37a1d403dc32d26be1ab4a2032c6d088fd",
+    "candidate/web/game.html": "a140ff4dbe086cb71af5cc5fd9ab2f8a9c68f3d01083ef4fca11f24089f9e907",
+    "candidate/web/editor.css": "bb70f74d963b1719f08718ef4878412a9e4c789ba447566317fcd3a68f0803f3",
+    "candidate/web/podsim.wasm.gz": "4725dfa8b0fa588046f92358ceb99092d2b83ed79070f42ed8d3aec9dcfd8d17",
+    "candidate/web/index.html": "ca314f81f80df18ad22f41b03bbd12c16c1a3fa075cb3c2e90109a6eb22b429a",
+    "candidate/web/simulation-map.js": "007daf7e53721aa9ead8a4512dbc7d99d38a7c343ed2835ccae3c924bcdc23db"
+  },
+  "deadlineSeconds": 1200,
+  "jobs": [
+    {
+      "preset": "central",
+      "clients": 1,
+      "gc": 100,
+      "variant": "baseline",
+      "rep": 1
+    },
+    {
+      "preset": "central",
+      "clients": 1,
+      "gc": 100,
+      "variant": "candidate",
+      "rep": 1
+    },
+    {
+      "preset": "central",
+      "clients": 1,
+      "gc": 200,
+      "variant": "baseline",
+      "rep": 1
+    },
+    {
+      "preset": "central",
+      "clients": 1,
+      "gc": 200,
+      "variant": "candidate",
+      "rep": 1
+    },
+    {
+      "preset": "central",
+      "clients": 1,
+      "gc": 100,
+      "variant": "candidate",
+      "rep": 2
+    },
+    {
+      "preset": "central",
+      "clients": 1,
+      "gc": 100,
+      "variant": "baseline",
+      "rep": 2
+    },
+    {
+      "preset": "central",
+      "clients": 1,
+      "gc": 200,
+      "variant": "candidate",
+      "rep": 2
+    },
+    {
+      "preset": "central",
+      "clients": 1,
+      "gc": 200,
+      "variant": "baseline",
+      "rep": 2
+    }
+  ],
+  "plan": {
+    "preset": "central",
+    "clients": 1,
+    "GOGC": [
+      100,
+      200
+    ],
+    "GOMAXPROCS": 4,
+    "durationSeconds": 60,
+    "repetitions": 2,
+    "order": "reversed in second repetition",
+    "fixture": "same saved Central tick216000, demand12 seed20260929, postrestore routecache cold",
+    "restore": "physical, no losses",
+    "limits": [
+      "Instrumented headless software Chrome, proxy decoding and profiles",
+      "Longer client capture windows",
+      "Gzip publication timestamps before proxy delay",
+      "Normal file persistence policy",
+      "No default, overload sensor, or wire changes"
+    ]
+  },
+  "rawSha256": {
+    "runs/baseline-central-1-gc100-1/results.json": "5f2d193ca86784e2455e71425d11f0f29a30adb9e65999ef8c6b95819e03fcdd",
+    "runs/baseline-central-1-gc100-1/publications.json": "c653499b3aab9975b6901559ef5f60005e7572470804ce8e46ffe8ca04460317",
+    "runs/baseline-central-1-gc100-1/rtt0-probe.json": "2896ad6df87d1d42e199c217af545a8198294e4456f9fa24dbf3a064da347617",
+    "runs/candidate-central-1-gc100-1/results.json": "6f0999abae6919c02ac9df8fb2c8acb1e3c12094bd00bb91f38955740d0e1c51",
+    "runs/candidate-central-1-gc100-1/publications.json": "1cf59fbc5956c91179ab6aac3cacdb2eebcd7e59526a6373c233a9d9190e43d5",
+    "runs/candidate-central-1-gc100-1/rtt0-probe.json": "77c1b15deb04c84ba043bfdb6952c8c1e16bbc0076b0303be289be2584e48340",
+    "runs/baseline-central-1-gc200-1/results.json": "40df9270b69f1d30ab9f5d59144665bf50f0dc8a37fb38eeec838bcd1ebe0fbc",
+    "runs/baseline-central-1-gc200-1/publications.json": "97b5dc9c4cd79ed9f84c2653d950bab03b4fcadd263103ba3c0dac45db158aa4",
+    "runs/baseline-central-1-gc200-1/rtt0-probe.json": "b31357277bbb5fd7692a60d70fa8a7d090ac8998a7fab77961fb54e323fbdff8",
+    "runs/candidate-central-1-gc200-1/results.json": "dc3df882da2a1d4cdc34917f7fa6b8b239808235196641cfe4cebf4640dd2985",
+    "runs/candidate-central-1-gc200-1/publications.json": "7db20f6e3de55bd017bb123117bf5988005443a970b93f090692682e7ac3c3b9",
+    "runs/candidate-central-1-gc200-1/rtt0-probe.json": "6d435784d969de1030e136ad426763179a07e825e961453cd246babd510281d4",
+    "runs/candidate-central-1-gc100-2/results.json": "bb4957fef57463e7fab5871b46204944bf97393ead062679e501c02f0e64ac37",
+    "runs/candidate-central-1-gc100-2/publications.json": "e959ef6c4c3f43e87888cdd108642ad0f0e070ddc505ccb3b29480832d9e6d29",
+    "runs/candidate-central-1-gc100-2/rtt0-probe.json": "697e3442ecec9dfa72d78512a43db72072b8f894754f422870134c73176d7466",
+    "runs/baseline-central-1-gc100-2/results.json": "7cebcad8cf53ba92197dac08863bdf9912373973982126cd5a38e1b28a5474bc",
+    "runs/baseline-central-1-gc100-2/publications.json": "727a547237d5e2baa4d085e35fd5b67fd375bba616a99d60bcaec8c16f6fe883",
+    "runs/baseline-central-1-gc100-2/rtt0-probe.json": "6ebb8caf8865ec2f8c983c351ed4eeb01e74f0940ac5e6f8116be72fe2b7f7f3",
+    "runs/candidate-central-1-gc200-2/results.json": "215ee7ee0fe6fb24a9ee6bd6ba71a3e2fe17ce496c4dd8c59cf02275b5397822",
+    "runs/candidate-central-1-gc200-2/publications.json": "a0d722cb31e87fac6c56521954666b699fc6c03425583024ab04c1e1e087b714",
+    "runs/candidate-central-1-gc200-2/rtt0-probe.json": "f01713c9727ac31f0ee182cc762c2e5b56e754261a1aa0a7f4ba60a8389b4380",
+    "runs/baseline-central-1-gc200-2/results.json": "d590c9f6f50ba3e1563481173a23219bb764c9785a08a437c7d348bafc289361",
+    "runs/baseline-central-1-gc200-2/publications.json": "440478f420f28a82c8f62278759306d060043a72c12331b5cdde4a7cb375fe4c",
+    "runs/baseline-central-1-gc200-2/rtt0-probe.json": "440f559a0c56c5f48dce465b9059779fa77aa81f20490459cc69946da8e0e0fc"
+  },
+  "protocolChecks": "Eight arms passed: no errors/check failures, one socket and one initial full each",
+  "limitations": [
+    "Two repetitions, fixed Central fixture and one headless software-rendered Chrome client",
+    "GC200 second baseline does not demote, candidate does; no consistent live improvement established",
+    "Different final ticks produce different traffic cohorts after speed reduction",
+    "Process CPU is affected by how many simulated ticks run; not normalized tick cost",
+    "No default, speed sensor, or wire contract change"
+  ]
+}
