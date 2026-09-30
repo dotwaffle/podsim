@@ -56,7 +56,7 @@ Sparse exported states at hours three and six retain the physical queue and plat
 At hour six, earlier virtual geometry has two and three draining links for seeds 1 and 2.
 Mirrored geometry has zero draining links at those two checkpoints.
 These snapshots show different platoon states, without proving that drain behavior causes the queue.
-A focused Paddington geometry intervention can test the location before a change to platoon rules.
+The [Paddington geometry intervention](paddington-mirror-intervention.md) tests this location without changing platoon rules.
 
 ## Validation and limits
 
