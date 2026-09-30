@@ -1,0 +1,5 @@
+name,rate,seed,buffers,reassignment,scheduled,completed,remaining,backlog_3h,backlog_6h,late_backlog_per_minute,late_throughput_per_minute,reported_wait_or_age_mean_seconds,reported_wait_or_age_p95_seconds,all_request_wait_or_age_mean_seconds,peak_pending,peak_outstanding,mainline_stopped_pod_seconds,entry_stopped_pod_seconds,peak_flagged_entry_pods,peak_empty_flagged_entry_pods,swaps,transfers,actual_end_seconds,drained
+rate13-s1-boff-roff,13,1,off,off,4695,4693,2,250,242,-0.044444444444444446,13.088888888888889,371.57607738729143,1131.1166666666666,371.57607738729143,102,261,3924,0,0,0,0,0,25200,False
+rate13-s2-boff-roff,13,2,off,off,4695,4692,3,245,247,0.011111111111111112,13.033333333333333,378.3338800141995,1102.4166666666667,378.3338800141995,110,269,4851,0,0,0,0,0,25200,False
+rate13-s1-bon-ron,13,1,on,on,4695,4694,1,245,239,-0.03333333333333333,13.077777777777778,349.5488036918708,1073.4166666666667,349.5488036918708,102,261,6073,27,8,3,29,115,25200,False
+rate13-s2-bon-ron,13,2,on,on,4695,4692,3,245,240,-0.027777777777777776,13.072222222222223,357.4858111466099,1053.3333333333333,357.4858111466099,108,264,6543,19,9,3,25,138,25200,False
