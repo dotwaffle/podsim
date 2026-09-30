@@ -1,5 +1,8 @@
 # Label dimension cache measurements
 
+This report records the original clear-on-capacity cache.
+The [admission follow-up](label-admission-performance.md) measures its bounded replacement policy.
+
 The client reuses measurements for repeated label text.
 Chrome page script time decreases by 1.6% for Central and 3.0% for Full in these short comparisons.
 Whole-browser CPU remains roughly unchanged.
@@ -13,7 +16,7 @@ The cache tracks the font source separately and clears entries when it changes.
 Only the font source and size affect the faces that these labels currently create.
 Text longer than 512 bytes bypasses the cache.
 Inserted keys clone the text to avoid retaining large substring backing storage.
-At capacity, the cache clears its entries before adding the next measurement.
+In this measured version, the cache clears its entries before adding the next measurement at capacity.
 
 Positions, colors, visibility, queue counts, preferred stations, and pod selection remain outside the cache.
 Rectangle rounding and rendering still use their original rules.
