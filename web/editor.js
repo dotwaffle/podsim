@@ -180,6 +180,8 @@
       sharedRideJoin: "unassigned",
       sharedRideMaxStops: 3,
       platoonLimit: 0,
+      stationBuffers: false,
+      pickupReassignment: false,
       redistribution: false,
     };
   }
@@ -234,6 +236,8 @@
     config.sharedRideJoin = sharedRideJoins.includes(config.sharedRideJoin) ? config.sharedRideJoin : "unassigned";
     config.sharedRideMaxStops = Math.max(1, Math.min(7, Math.floor(Number(config.sharedRideMaxStops) || 3)));
     config.platoonLimit = platoonLimits.includes(config.platoonLimit) ? config.platoonLimit : 0;
+    config.stationBuffers = config.stationBuffers === true;
+    config.pickupReassignment = config.pickupReassignment === true;
     config.redistribution = Boolean(config.redistribution);
     inferStationLanes(config.network);
     return config;
@@ -1507,6 +1511,8 @@
     if ("sharedRideJoin" in value && value.sharedRideJoin !== "" && !sharedRideJoins.includes(value.sharedRideJoin)) errors.push("The shared ride join policy must be unassigned or reassign-existing.");
     if ("sharedRideMaxStops" in value && (!Number.isInteger(value.sharedRideMaxStops) || value.sharedRideMaxStops < 0 || value.sharedRideMaxStops > 7)) errors.push("The shared ride stop limit must be 1 to 7.");
     if ("platoonLimit" in value && !platoonLimits.includes(value.platoonLimit)) errors.push("The platoon limit must be 2 to 4, or 0 for no platoons.");
+    if ("stationBuffers" in value && typeof value.stationBuffers !== "boolean") errors.push("The station buffer setting must be true or false.");
+    if ("pickupReassignment" in value && typeof value.pickupReassignment !== "boolean") errors.push("The pickup reassignment setting must be true or false.");
     return [...new Set(errors)];
   }
 
@@ -2190,15 +2196,15 @@
       // Shared snapshots are deeply frozen. A boolean edit can
       // share the unchanged graph while keeping previous entries intact.
       setOperatingFlag(name, value) {
-        if (!["demandEnabled", "redistribution"].includes(name) || typeof value !== "boolean") throw new Error("Invalid operating flag.");
+        if (!["demandEnabled", "redistribution", "stationBuffers", "pickupReassignment"].includes(name) || typeof value !== "boolean") throw new Error("Invalid operating flag.");
         const scenario = present.scenario;
         const enabled = name === "demandEnabled";
-        const previous = enabled ? scenario.demand.enabled : scenario.redistribution;
+        const previous = enabled ? scenario.demand.enabled : scenario[name];
         if (previous === value) return false;
         past.push(present);
         present = freezeDraft({ ...present, scenario: enabled
           ? { ...scenario, demand: { ...scenario.demand, enabled: value } }
-          : { ...scenario, redistribution: value } });
+          : { ...scenario, [name]: value } });
         future = [];
         // Validation depends on the flag types, not their boolean values.
         return changed(typeof previous === "boolean");
@@ -4156,6 +4162,8 @@
     $("#sharedRideMaxStops").value = config.sharedRideMaxStops;
     $("#sharedRideMaxStopsLabel").hidden = config.sharedRideMode !== "drop-offs";
     $("#platoonLimit").value = String(config.platoonLimit);
+    $("#stationBuffers").checked = config.stationBuffers;
+    $("#pickupReassignment").checked = config.pickupReassignment;
   }
 
   let drawnNetwork = null, drawnBackground = "", drawnSelection = "";
@@ -4984,6 +4992,8 @@
     $("#platoonLimit").addEventListener("change", (event) => mutate((config) => { const limit = Number(event.target.value); config.platoonLimit = platoonLimits.includes(limit) ? limit : 0; return config; }));
     $("#demandSeed").addEventListener("change", (event) => mutate((config) => { config.demand.seed = Math.max(0, Math.floor(Number(event.target.value))); return config; }));
     $("#redistribution").addEventListener("change", (event) => setOperatingFlag("redistribution", event.target.checked));
+    $("#stationBuffers").addEventListener("change", (event) => setOperatingFlag("stationBuffers", event.target.checked));
+    $("#pickupReassignment").addEventListener("change", (event) => setOperatingFlag("pickupReassignment", event.target.checked));
     $("#fleetControls").addEventListener("change", (event) => { if (event.target.dataset.station) setDraft(setFleetCount(draft(), event.target.dataset.station, event.target.value)); });
     $("#selectionContent").addEventListener("change", (event) => {
       if (!state.selection) return;

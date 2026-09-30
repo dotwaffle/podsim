@@ -348,6 +348,42 @@ test("operating flags skip checks only for boolean-to-boolean changes", () => {
   assert.deepEqual(changes, [true, false, false]);
 });
 
+test("experimental flags keep independent undo history and graph ownership", () => {
+  const { config } = profileScenario();
+  const history = editor.createHistory({ scenario: config, background: null });
+  const network = history.snapshot.scenario.network;
+  assert.equal(history.setOperatingFlag("stationBuffers", true), true);
+  assert.equal(history.snapshot.scenario.network, network);
+  assert.equal(history.snapshot.scenario.pickupReassignment, false);
+  assert.equal(history.setOperatingFlag("pickupReassignment", true), true);
+  assert.equal(history.setOperatingFlag("pickupReassignment", true), false);
+  assert.equal(history.snapshot.scenario.network, network);
+  history.undo();
+  assert.equal(history.snapshot.scenario.stationBuffers, true);
+  assert.equal(history.snapshot.scenario.pickupReassignment, false);
+  history.undo();
+  assert.equal(history.snapshot.scenario.stationBuffers, false);
+  history.redo(); history.redo();
+  assert.equal(history.snapshot.scenario.stationBuffers, true);
+  assert.equal(history.snapshot.scenario.pickupReassignment, true);
+});
+
+test("experimental project flags round trip and reject non-Boolean values", () => {
+  for (const field of ["stationBuffers", "pickupReassignment"]) {
+    const config = connectedScenario();
+    delete config[field];
+    assert.equal(editor.parseDocument(editor.serializeDocument(config)).scenario[field], false);
+    for (const enabled of [false, true]) {
+      config[field] = enabled;
+      assert.equal(editor.parseDocument(editor.serializeDocument(config)).scenario[field], enabled);
+    }
+    for (const value of [null, 0, 1, "true", "false", [], {}]) {
+      config[field] = value;
+      assert.throws(() => editor.parseDocument(editor.serializeDocument(config)), /setting must be true or false/);
+    }
+  }
+});
+
 test("a station delete works on a draft with no demand profiles", () => {
   // An older browser export has no demandProfiles field. The import adds an
   // empty list. The helpers also accept a draft with no such field.

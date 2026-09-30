@@ -231,6 +231,9 @@
         <label>Seed<input id="demandSeed" type="number" min="0" step="1"></label>
         <label class="check"><input id="redistribution" type="checkbox"> Redistribute empty pods</label>
         <p class="hint">Moves an idle empty pod to a busy station that has no pod, only while demand is below one trip per minute for each 20 pods.</p>
+        <label class="check"><input id="stationBuffers" type="checkbox"> Station buffers (experimental)</label>
+        <label class="check"><input id="pickupReassignment" type="checkbox"> Pickup reassignment (experimental)</label>
+        <p class="hint">Use Apply draft to activate these settings. Both are off by default and can change passenger waits.</p>
       </section>
       <section id="checksPanel">
         <div class="section-title"><h2 id="checksHeading" tabindex="-1">Checks</h2><button id="validateButton" type="button">Run checks</button></div>
