@@ -94,6 +94,8 @@ type options struct {
 	waitRulesText          string
 	platoonPoliciesText    string
 	sharingJoinsText       string
+	stationBuffersText     string
+	pickupReassignmentText string
 	focus                  string
 	format                 string
 	projectPath            string
@@ -119,8 +121,10 @@ type options struct {
 	// sharingJoins is nil when -sharing-joins is not given. Then each arm
 	// uses the default join policy and the report has no join policy
 	// column.
-	sharingJoins    []string
-	stopWhenDrained bool
+	sharingJoins       []string
+	stationBuffers     []string
+	pickupReassignment []string
+	stopWhenDrained    bool
 	// adaptiveLimit skips the rates of a group more than pastLimit rates
 	// above the first rate at which a seed does not drain.
 	adaptiveLimit bool
@@ -143,84 +147,87 @@ type scenario struct {
 }
 
 type result struct {
-	Pattern                        string  `json:"pattern"`
-	DemandProfile                  string  `json:"demand_profile,omitempty"`
-	DemandBand                     string  `json:"demand_band,omitempty"`
-	RequestEverySeconds            float64 `json:"request_every_seconds"`
-	OfferedPerMinute               float64 `json:"offered_per_minute"`
-	BurstSize                      int     `json:"burst_size"`
-	Seed                           int64   `json:"seed"`
-	Policy                         string  `json:"policy"`
-	SharedRidePartyLimit           int     `json:"shared_ride_party_limit"`
-	SharingMode                    string  `json:"sharing_mode"`
-	SharingJoin                    string  `json:"sharing_join,omitempty"`
-	SharedParties                  int     `json:"shared_parties"`
-	FullPodRefusals                int     `json:"full_pod_refusals"`
-	FullDepartures                 int     `json:"full_departures"`
-	DepartureBacklog               int     `json:"departure_backlog"`
-	DeparturesDemandOverFour       int     `json:"departures_demand_over_four"`
-	DeparturesOverFourAboard       int     `json:"departures_over_four_aboard"`
-	JoinEligibleAssigned           int     `json:"join_eligible_assigned"`
-	JoinEligibleExistingStop       int     `json:"join_eligible_existing_stop"`
-	JoinEligibleAddedStopOnly      int     `json:"join_eligible_added_stop_only"`
-	ReassignedParties              int     `json:"reassigned_parties"`
-	RoutingPolicy                  string  `json:"routing_policy"`
-	WaitRule                       string  `json:"wait_rule,omitempty"`
-	PlatoonPolicy                  string  `json:"platoon_policy,omitempty"`
-	FocusStation                   string  `json:"focus_station"`
-	WindowStartSeconds             float64 `json:"window_start_seconds"`
-	WindowEndSeconds               float64 `json:"window_end_seconds"`
-	ActualEndSeconds               float64 `json:"actual_end_seconds"`
-	ArrivalWindowSeconds           float64 `json:"arrival_window_seconds"`
-	ArrivalEndSeconds              float64 `json:"arrival_end_seconds"`
-	ScheduleID                     string  `json:"schedule_id"`
-	Scheduled                      int     `json:"scheduled"`
-	Served                         int     `json:"served"`
-	Remaining                      int     `json:"remaining"`
-	Skipped                        int     `json:"skipped"`
-	CompletedAtArrivalEnd          int     `json:"completed_at_arrival_end"`
-	BacklogAtArrivalEnd            int     `json:"backlog_at_arrival_end"`
-	ArrivalThroughputPerMinute     float64 `json:"arrival_throughput_per_minute"`
-	CompletedAtArrivalMidpoint     int     `json:"completed_at_arrival_midpoint"`
-	BacklogAtArrivalMidpoint       int     `json:"backlog_at_arrival_midpoint"`
-	LateArrivalThroughputPerMinute float64 `json:"late_arrival_throughput_per_minute"`
-	LateBacklogChange              int     `json:"late_backlog_change"`
-	Drained                        bool    `json:"drained"`
-	DrainSeconds                   float64 `json:"drain_seconds"`
-	PeakPending                    int     `json:"peak_pending"`
-	PeakOutstanding                int     `json:"peak_outstanding"`
-	PeakActiveVehicles             int     `json:"peak_active_vehicles"`
-	PeakPassengerVehicles          int     `json:"peak_passenger_vehicles"`
-	PeakStoppedVehicles            int     `json:"peak_stopped_vehicles"`
-	PeakFocusApproaching           int     `json:"peak_focus_approaching"`
-	PeakFocusEntranceStopped       int     `json:"peak_focus_entrance_stopped"`
-	PeakFocusExitStopped           int     `json:"peak_focus_exit_stopped"`
-	PeakFocusOccupiedBerths        int     `json:"peak_focus_occupied_berths"`
-	PeakFocusReservedEmptyBerths   int     `json:"peak_focus_reserved_empty_berths"`
-	StoppedPodSeconds              float64 `json:"stopped_pod_seconds"`
-	JunctionWaitSeconds            float64 `json:"junction_wait_seconds"`
-	TrackWaitSeconds               float64 `json:"track_wait_seconds"`
-	PeakNodeThroughputPerMinute    int     `json:"peak_node_throughput_per_minute"`
-	PeakNode                       string  `json:"peak_node"`
-	QueueCleared                   bool    `json:"queue_cleared"`
-	QueueClearSeconds              float64 `json:"queue_clear_seconds"`
-	WaitAverageSeconds             float64 `json:"wait_average_seconds"`
-	WaitMaximumSeconds             float64 `json:"wait_maximum_seconds"`
-	WaitP95Seconds                 float64 `json:"wait_p95_seconds"`
-	JourneyAverageSeconds          float64 `json:"journey_average_seconds"`
-	JourneyP95Seconds              float64 `json:"journey_p95_seconds"`
-	JourneyMaximumSeconds          float64 `json:"journey_maximum_seconds"`
-	PassengerDistanceMeters        float64 `json:"passenger_distance_meters"`
-	EmptyDistanceMeters            float64 `json:"empty_distance_meters"`
-	LoadedDistancePercent          float64 `json:"loaded_distance_percent"`
-	Occupancy                      float64 `json:"occupancy"`
-	RiderDistanceMeters            float64 `json:"rider_distance_meters"`
-	DirectDistanceMeters           float64 `json:"direct_distance_meters"`
-	DetourRatioMean                float64 `json:"detour_ratio_mean"`
-	DetourRatioMax                 float64 `json:"detour_ratio_max"`
-	IntermediateStops              int     `json:"intermediate_stops"`
-	PositioningMoveCount           int     `json:"positioning_moves"`
-	CoupledTimePercent             float64 `json:"coupled_time_percent"`
+	Pattern                        string             `json:"pattern"`
+	DemandProfile                  string             `json:"demand_profile,omitempty"`
+	DemandBand                     string             `json:"demand_band,omitempty"`
+	RequestEverySeconds            float64            `json:"request_every_seconds"`
+	OfferedPerMinute               float64            `json:"offered_per_minute"`
+	BurstSize                      int                `json:"burst_size"`
+	Seed                           int64              `json:"seed"`
+	Policy                         string             `json:"policy"`
+	SharedRidePartyLimit           int                `json:"shared_ride_party_limit"`
+	SharingMode                    string             `json:"sharing_mode"`
+	SharingJoin                    string             `json:"sharing_join,omitempty"`
+	SharedParties                  int                `json:"shared_parties"`
+	FullPodRefusals                int                `json:"full_pod_refusals"`
+	FullDepartures                 int                `json:"full_departures"`
+	DepartureBacklog               int                `json:"departure_backlog"`
+	DeparturesDemandOverFour       int                `json:"departures_demand_over_four"`
+	DeparturesOverFourAboard       int                `json:"departures_over_four_aboard"`
+	JoinEligibleAssigned           int                `json:"join_eligible_assigned"`
+	JoinEligibleExistingStop       int                `json:"join_eligible_existing_stop"`
+	JoinEligibleAddedStopOnly      int                `json:"join_eligible_added_stop_only"`
+	ReassignedParties              int                `json:"reassigned_parties"`
+	RoutingPolicy                  string             `json:"routing_policy"`
+	WaitRule                       string             `json:"wait_rule,omitempty"`
+	PlatoonPolicy                  string             `json:"platoon_policy,omitempty"`
+	StationBuffers                 string             `json:"station_buffers,omitempty"`
+	PickupReassignment             string             `json:"pickup_reassignment,omitempty"`
+	PickupReassignmentStats        *pickupPolicyStats `json:"pickup_reassignment_stats,omitempty"`
+	FocusStation                   string             `json:"focus_station"`
+	WindowStartSeconds             float64            `json:"window_start_seconds"`
+	WindowEndSeconds               float64            `json:"window_end_seconds"`
+	ActualEndSeconds               float64            `json:"actual_end_seconds"`
+	ArrivalWindowSeconds           float64            `json:"arrival_window_seconds"`
+	ArrivalEndSeconds              float64            `json:"arrival_end_seconds"`
+	ScheduleID                     string             `json:"schedule_id"`
+	Scheduled                      int                `json:"scheduled"`
+	Served                         int                `json:"served"`
+	Remaining                      int                `json:"remaining"`
+	Skipped                        int                `json:"skipped"`
+	CompletedAtArrivalEnd          int                `json:"completed_at_arrival_end"`
+	BacklogAtArrivalEnd            int                `json:"backlog_at_arrival_end"`
+	ArrivalThroughputPerMinute     float64            `json:"arrival_throughput_per_minute"`
+	CompletedAtArrivalMidpoint     int                `json:"completed_at_arrival_midpoint"`
+	BacklogAtArrivalMidpoint       int                `json:"backlog_at_arrival_midpoint"`
+	LateArrivalThroughputPerMinute float64            `json:"late_arrival_throughput_per_minute"`
+	LateBacklogChange              int                `json:"late_backlog_change"`
+	Drained                        bool               `json:"drained"`
+	DrainSeconds                   float64            `json:"drain_seconds"`
+	PeakPending                    int                `json:"peak_pending"`
+	PeakOutstanding                int                `json:"peak_outstanding"`
+	PeakActiveVehicles             int                `json:"peak_active_vehicles"`
+	PeakPassengerVehicles          int                `json:"peak_passenger_vehicles"`
+	PeakStoppedVehicles            int                `json:"peak_stopped_vehicles"`
+	PeakFocusApproaching           int                `json:"peak_focus_approaching"`
+	PeakFocusEntranceStopped       int                `json:"peak_focus_entrance_stopped"`
+	PeakFocusExitStopped           int                `json:"peak_focus_exit_stopped"`
+	PeakFocusOccupiedBerths        int                `json:"peak_focus_occupied_berths"`
+	PeakFocusReservedEmptyBerths   int                `json:"peak_focus_reserved_empty_berths"`
+	StoppedPodSeconds              float64            `json:"stopped_pod_seconds"`
+	JunctionWaitSeconds            float64            `json:"junction_wait_seconds"`
+	TrackWaitSeconds               float64            `json:"track_wait_seconds"`
+	PeakNodeThroughputPerMinute    int                `json:"peak_node_throughput_per_minute"`
+	PeakNode                       string             `json:"peak_node"`
+	QueueCleared                   bool               `json:"queue_cleared"`
+	QueueClearSeconds              float64            `json:"queue_clear_seconds"`
+	WaitAverageSeconds             float64            `json:"wait_average_seconds"`
+	WaitMaximumSeconds             float64            `json:"wait_maximum_seconds"`
+	WaitP95Seconds                 float64            `json:"wait_p95_seconds"`
+	JourneyAverageSeconds          float64            `json:"journey_average_seconds"`
+	JourneyP95Seconds              float64            `json:"journey_p95_seconds"`
+	JourneyMaximumSeconds          float64            `json:"journey_maximum_seconds"`
+	PassengerDistanceMeters        float64            `json:"passenger_distance_meters"`
+	EmptyDistanceMeters            float64            `json:"empty_distance_meters"`
+	LoadedDistancePercent          float64            `json:"loaded_distance_percent"`
+	Occupancy                      float64            `json:"occupancy"`
+	RiderDistanceMeters            float64            `json:"rider_distance_meters"`
+	DirectDistanceMeters           float64            `json:"direct_distance_meters"`
+	DetourRatioMean                float64            `json:"detour_ratio_mean"`
+	DetourRatioMax                 float64            `json:"detour_ratio_max"`
+	IntermediateStops              int                `json:"intermediate_stops"`
+	PositioningMoveCount           int                `json:"positioning_moves"`
+	CoupledTimePercent             float64            `json:"coupled_time_percent"`
 }
 
 type report struct {
@@ -280,7 +287,8 @@ func runCLI(input cliInput) int {
 	if err := writeReport(writeReportInput{
 		output: output, format: opts.format, results: results,
 		waitRuleColumn: opts.waitRules != nil, platoonColumn: opts.platoonPolicies != nil, sharingJoinColumn: opts.sharingJoins != nil,
-		seatColumns: slices.ContainsFunc(opts.sharingLimits, func(limit int) bool { return limit > 1 }),
+		seatColumns:         slices.ContainsFunc(opts.sharingLimits, func(limit int) bool { return limit > 1 }),
+		stationBufferColumn: opts.stationBuffers != nil, pickupReassignmentColumn: opts.pickupReassignment != nil,
 	}); err != nil {
 		_ = closeOutput()
 		_, _ = fmt.Fprintln(input.stderr, err)
@@ -314,6 +322,8 @@ func parseOptions(args []string, stderr io.Writer) (options, error) {
 	flags.StringVar(&opts.redistributionText, "redistribution-policies", "off,on", "comma-separated redistribution policies: off, on")
 	flags.StringVar(&opts.waitRulesText, "wait-rules", "current", "comma-separated finishing-pod wait rules: current, strict, none (adds a wait_rule column)")
 	flags.StringVar(&opts.platoonPoliciesText, "platoon-policies", "off", "comma-separated platoon policies: off, virtual (adds a platoon_policy column)")
+	flags.StringVar(&opts.stationBuffersText, "station-buffers", "off", "comma-separated experimental station buffer policies: off, on")
+	flags.StringVar(&opts.pickupReassignmentText, "pickup-reassignment", "off", "comma-separated experimental pickup reassignment policies: off, on")
 	flags.StringVar(&opts.focus, "focus", "", "passenger station used by focused patterns")
 	flags.StringVar(&opts.format, "format", "table", "output format: table, json, or csv")
 	flags.StringVar(&opts.projectPath, "project", "", "raw project configuration path")
@@ -410,8 +420,11 @@ func parseOptions(args []string, stderr io.Writer) (options, error) {
 			return options{}, err
 		}
 	}
+	if err := parseExperimentalOptions(&opts, given); err != nil {
+		return options{}, err
+	}
 	if len(opts.seeds)*len(opts.patterns)*len(opts.loads)*len(sharingArms(opts))*max(1, len(opts.sharingJoins))*len(opts.routingPolicies)*
-		max(1, len(opts.waitRules))*max(1, len(opts.platoonPolicies)) > maxComparisons {
+		max(1, len(opts.waitRules))*max(1, len(opts.platoonPolicies))*experimentalArmCount(opts) > maxComparisons {
 		return options{}, fmt.Errorf("the matrix must contain at most %d comparisons", maxComparisons)
 	}
 	return opts, nil
@@ -798,7 +811,7 @@ func compare(opts options, scenario scenario) ([]result, error) {
 	if platoonPolicies == nil {
 		platoonPolicies = []string{""}
 	}
-	armsPerSchedule := len(sharing) * len(sharingJoins) * len(opts.routingPolicies) * len(waitRules) * len(platoonPolicies)
+	armsPerSchedule := len(sharing) * len(sharingJoins) * len(opts.routingPolicies) * len(waitRules) * len(platoonPolicies) * experimentalArmCount(opts)
 	if len(opts.seeds)*len(arms)*len(opts.loads)*armsPerSchedule > maxComparisons {
 		return nil, fmt.Errorf("the expanded matrix must contain at most %d comparisons", maxComparisons)
 	}
@@ -836,6 +849,7 @@ func compare(opts options, scenario scenario) ([]result, error) {
 			}
 		}
 	}
+	inputs = experimentalInputs(inputs, opts)
 	if opts.adaptiveLimit {
 		return runAdaptive(adaptiveRun{inputs: inputs, workers: opts.workers, pastLimit: opts.pastLimit, run: run})
 	}
@@ -1081,10 +1095,12 @@ type runInput struct {
 	waitRule string
 	// platoonPolicy names a platoonPolicyValues key. Empty runs without
 	// platoons.
-	platoonPolicy   string
-	schedule        []scheduledRequest
-	scenario        scenario
-	stopWhenDrained bool
+	platoonPolicy      string
+	stationBuffers     string
+	pickupReassignment string
+	schedule           []scheduledRequest
+	scenario           scenario
+	stopWhenDrained    bool
 }
 
 // sharingSettings returns the sharing mode and the stop limit of an arm,
@@ -1137,6 +1153,9 @@ func run(input runInput) (result, error) {
 		return result{}, fmt.Errorf("set routing policy: %w", routingErr)
 	}
 	simulation.SetExperimentRecords(true)
+	if policyErr := configureExperimentalPolicies(simulation, input); policyErr != nil {
+		return result{}, policyErr
+	}
 	if input.waitRule != "" {
 		rule, ok := waitRuleValues[input.waitRule]
 		if !ok {
@@ -1256,8 +1275,10 @@ func run(input runInput) (result, error) {
 		JoinEligibleAssigned: seats.JoinEligibleAssigned, JoinEligibleExistingStop: seats.JoinEligibleExistingStop, JoinEligibleAddedStopOnly: seats.addedStopOnly,
 		ReassignedParties: seats.ReassignedParties,
 		RoutingPolicy:     input.routingPolicy, WaitRule: input.waitRule, PlatoonPolicy: input.platoonPolicy,
-		FocusStation:       input.scenario.focus,
-		WindowStartSeconds: 0, WindowEndSeconds: input.duration.Seconds(), ActualEndSeconds: float64(state.Tick) / sim.TicksPerSecond,
+		StationBuffers: input.stationBuffers, PickupReassignment: input.pickupReassignment,
+		PickupReassignmentStats: pickupStatsForReport(simulation, input.pickupReassignment),
+		FocusStation:            input.scenario.focus,
+		WindowStartSeconds:      0, WindowEndSeconds: input.duration.Seconds(), ActualEndSeconds: float64(state.Tick) / sim.TicksPerSecond,
 		ArrivalWindowSeconds: input.arrivalsFor.Seconds(), ArrivalEndSeconds: arrivalEnd, ScheduleID: input.scheduleID,
 		Scheduled: len(input.schedule), Served: state.Completed, Remaining: state.Submitted - state.Completed, Skipped: skipped,
 		CompletedAtArrivalEnd: arrivalState.Completed, BacklogAtArrivalEnd: arrivalState.Submitted - arrivalState.Completed,
@@ -1376,7 +1397,9 @@ type writeReportInput struct {
 	sharingJoinColumn bool
 	// seatColumns adds the seat screen columns to CSV output. JSON output
 	// always has them.
-	seatColumns bool
+	seatColumns              bool
+	stationBufferColumn      bool
+	pickupReassignmentColumn bool
 }
 
 func writeReport(input writeReportInput) error {
@@ -1384,7 +1407,11 @@ func writeReport(input writeReportInput) error {
 	case "json":
 		encoder := json.NewEncoder(input.output)
 		encoder.SetIndent("", "  ")
-		if err := encoder.Encode(report{SchemaVersion: 12, Results: input.results}); err != nil {
+		version := 12
+		if slices.ContainsFunc(input.results, func(outcome result) bool { return outcome.StationBuffers != "" || outcome.PickupReassignment != "" }) {
+			version = 13
+		}
+		if err := encoder.Encode(report{SchemaVersion: version, Results: input.results}); err != nil {
 			return fmt.Errorf("write JSON report: %w", err)
 		}
 		return nil
@@ -1418,6 +1445,12 @@ func writeTable(input writeReportInput) error {
 	if input.sharingJoinColumn {
 		policyHeader += "\tJOIN"
 	}
+	if input.stationBufferColumn {
+		policyHeader += "\tBUFFERS"
+	}
+	if input.pickupReassignmentColumn {
+		policyHeader += "\tREASSIGN"
+	}
 	if _, err := fmt.Fprintln(w, "PATTERN\tBAND\tLOAD (S)\tOFFERED/M\tARRIVAL/M\tLATE/M\tBACKLOG\tLATE DELTA\tDRAIN (S)\tSEED\t"+policyHeader+"\tWAIT AVG\tWAIT MAX\tWAIT P95\tJOURNEY AVG\tJOURNEY P95\tSERVED\tLEFT\tSKIPPED\tPEAK OUT\tPEAK ACTIVE\tPEAK PAX\tPEAK STOPPED\tHUB IN\tHUB OUT\tHUB OCC\tHUB RSV\tPASSENGER (M)\tEMPTY (M)\tLOADED %\tMOVES"); err != nil {
 		return fmt.Errorf("write table header: %w", err)
 	}
@@ -1431,6 +1464,12 @@ func writeTable(input writeReportInput) error {
 		}
 		if input.sharingJoinColumn {
 			policy += "\t" + outcome.SharingJoin
+		}
+		if input.stationBufferColumn {
+			policy += "\t" + outcome.StationBuffers
+		}
+		if input.pickupReassignmentColumn {
+			policy += "\t" + outcome.PickupReassignment
 		}
 		if _, err := fmt.Fprintf(w, "%s\t%s\t%.2f\t%.2f\t%.2f\t%.2f\t%d\t%d\t%s\t%d\t%s\t%.2f\t%.2f\t%.2f\t%.2f\t%.2f\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%.1f\t%.1f\t%.2f\t%d\n",
 			outcome.Pattern, outcome.DemandBand, outcome.RequestEverySeconds, outcome.OfferedPerMinute,
@@ -1470,6 +1509,12 @@ func writeCSV(input writeReportInput) error {
 	if input.platoonColumn {
 		header = append(header, "platoon_policy")
 	}
+	if input.stationBufferColumn {
+		header = append(header, "station_buffers")
+	}
+	if input.pickupReassignmentColumn {
+		header = append(header, "pickup_reassignment")
+	}
 	header = append(header, "shared_ride_party_limit", "sharing_mode")
 	if input.sharingJoinColumn {
 		header = append(header, "sharing_join")
@@ -1504,6 +1549,12 @@ func writeCSV(input writeReportInput) error {
 		}
 		if input.platoonColumn {
 			row = append(row, outcome.PlatoonPolicy)
+		}
+		if input.stationBufferColumn {
+			row = append(row, outcome.StationBuffers)
+		}
+		if input.pickupReassignmentColumn {
+			row = append(row, outcome.PickupReassignment)
 		}
 		row = append(row, strconv.Itoa(outcome.SharedRidePartyLimit), outcome.SharingMode)
 		if input.sharingJoinColumn {

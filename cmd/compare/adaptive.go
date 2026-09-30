@@ -71,14 +71,15 @@ func (group *rateGroup) finish(rate int, drained bool) {
 // rateGroupKey holds every dimension of an arm except the offered rate and
 // the seed. A new dimension in compare must also go here.
 type rateGroupKey struct {
-	pattern, profile, band  string
-	sharingLimit            int
-	sharingMode             sim.SharedRideMode
-	sharingMaxStops         int
-	sharingJoin             string
-	routingPolicy, waitRule string
-	platoonPolicy           string
-	policy                  string
+	pattern, profile, band             string
+	sharingLimit                       int
+	sharingMode                        sim.SharedRideMode
+	sharingMaxStops                    int
+	sharingJoin                        string
+	routingPolicy, waitRule            string
+	platoonPolicy                      string
+	policy                             string
+	stationBuffers, pickupReassignment string
 }
 
 func rateGroupKeyOf(input *runInput) rateGroupKey {
@@ -88,6 +89,7 @@ func rateGroupKeyOf(input *runInput) rateGroupKey {
 		sharingJoin:   input.sharingJoin,
 		routingPolicy: input.routingPolicy,
 		waitRule:      input.waitRule, platoonPolicy: input.platoonPolicy, policy: input.policy,
+		stationBuffers: input.stationBuffers, pickupReassignment: input.pickupReassignment,
 	}
 }
 

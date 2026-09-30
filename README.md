@@ -946,6 +946,8 @@ The synthetic patterns are balanced, destination, hotspot, bursty-hotspot, and h
 | `-redistribution-policies off,on` | Select the positioning policies. `on` is guarded positioning. |
 | `-wait-rules current,strict,none` | Compare the finishing-pod wait rules from the dispatch section. |
 | `-platoon-policies off,virtual` | The experimental platoon A/B. `virtual` lets queued pods follow the pod ahead at a short gap. |
+| `-station-buffers off,on` | Compare independent station-buffer admission settings. The default is off. |
+| `-pickup-reassignment off,on` | Compare independent pickup reassignment settings. The default is off. |
 | `-queue-limit` | Change the limit of 200 pending requests. At the limit, the comparison skips new arrivals. |
 
 The report has a `wait_rule` column or JSON field only when you give `-wait-rules`.
@@ -954,6 +956,14 @@ The report has a `sharing_join` column or JSON field only when you give `-sharin
 Without the option, each arm uses the `unassigned` policy.
 The CSV report has the seat screen columns only when a `-sharing-limits` value is above 1.
 The JSON report always has them.
+
+The editor has separate experimental controls for station buffers and pickup reassignment.
+Pause and apply activates the draft settings.
+The comparison command uses its explicit policy flags, not the experimental settings in the input project.
+Without either flag, both policies stay off and the existing report format stays unchanged.
+With a flag, table and CSV output include its policy column, and JSON output includes its off/on value.
+With `-pickup-reassignment`, JSON also records controller work, swaps, transfers, and predicted seconds saved.
+These predictions exclude future traffic; they do not establish realized service improvement.
 
 The `sharing_mode` column gives the sharing mode of each arm.
 
@@ -972,7 +982,7 @@ Set `GOGC` to use another value.
 
 #### Report columns
 
-The JSON report has `schema_version` 12.
+The JSON report has `schema_version` 12, or 13 when an experimental policy flag is present.
 These columns give the waits and journeys of the passengers.
 
 | Column | Definition |
