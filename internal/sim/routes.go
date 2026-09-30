@@ -50,7 +50,7 @@ func (s *Simulation) cachedRoute(from, to string) routeResult {
 	if cached, ok := s.routes[key]; ok {
 		return cached
 	}
-	lanes, err := s.network.routeIndexed(networkRouteInput{from: from, to: to}, s.graph)
+	lanes, err := s.searchRoute(networkRouteInput{from: from, to: to})
 	return s.cacheRoute(key, routeResult{lanes: lanes, err: err})
 }
 
@@ -89,9 +89,9 @@ func (s *Simulation) congestionRoute(from, to string) routeResult {
 	if cached, ok := s.congestionRoutes[key]; ok {
 		return cached
 	}
-	lanes, err := s.network.routeIndexed(networkRouteInput{from: from, to: to, extraCost: s.congestionRouteCosts, ownBerthsOnly: true}, s.graph)
+	lanes, err := s.searchRoute(networkRouteInput{from: from, to: to, extraCost: s.congestionRouteCosts, ownBerthsOnly: true})
 	if err != nil {
-		lanes, err = s.network.routeIndexed(networkRouteInput{from: from, to: to}, s.graph)
+		lanes, err = s.searchRoute(networkRouteInput{from: from, to: to})
 	}
 	result := s.withSeconds(routeResult{lanes: lanes, err: err})
 	s.congestionRoutes[key] = result
@@ -160,7 +160,7 @@ func (s *Simulation) stationPath(from, to string) ([]Lane, error) {
 	if cached, ok := s.routes[key]; ok {
 		return cached.lanes, cached.err
 	}
-	lanes, err := s.network.routeIndexed(networkRouteInput{from: from, to: to, forbidden: s.stationForbidden}, s.graph)
+	lanes, err := s.searchRoute(networkRouteInput{from: from, to: to, forbidden: s.stationForbidden})
 	s.cacheRoute(key, routeResult{lanes: lanes, err: err})
 	return lanes, err
 }
@@ -180,6 +180,7 @@ func (s *Simulation) ensureNetworkIndexes() {
 	s.routes = nil
 	s.routeOrder = nil
 	s.pickupBounds = nil
+	s.routeWork = nil
 	s.congestionRouteCosts = nil
 	s.congestionRoutes = nil
 }

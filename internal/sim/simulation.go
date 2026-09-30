@@ -272,6 +272,7 @@ type Simulation struct {
 	stationIndexes               map[string]int
 	stationForbidden             map[string]bool
 	pickupBounds                 map[string][]float64
+	routeWork                    *routeSearchWork
 	geometry                     map[string]*laneGeometry
 	network                      Network
 	initial                      []Placement

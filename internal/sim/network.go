@@ -169,6 +169,11 @@ func (n Network) route(input networkRouteInput) ([]Lane, error) {
 }
 
 func (n Network) routeIndexed(input networkRouteInput, graph routeGraph) ([]Lane, error) {
+	var work routeSearchWork
+	return n.routeIndexedWithWork(input, graph, &work)
+}
+
+func (n Network) routeIndexedWithWork(input networkRouteInput, graph routeGraph, work *routeSearchWork) ([]Lane, error) {
 	from, ok := graph.nodes[input.from]
 	if !ok {
 		return nil, fmt.Errorf("unknown origin %q", input.from)
@@ -177,14 +182,11 @@ func (n Network) routeIndexed(input networkRouteInput, graph routeGraph) ([]Lane
 	if !ok {
 		return nil, fmt.Errorf("unknown destination %q", input.to)
 	}
-	distance := make([]float64, len(n.Nodes))
-	previous := make([]int, len(n.Nodes))
-	visited := make([]bool, len(n.Nodes))
-	for i := range distance {
-		distance[i], previous[i] = math.Inf(1), -1
-	}
+	work.reset(len(n.Nodes))
+	distance, previous, visited := work.distance, work.previous, work.visited
 	distance[from] = 0
-	queue := routeQueue{{node: from}}
+	work.queue = append(work.queue, routeQueueItem{node: from})
+	queue := work.queue
 	for len(queue) > 0 {
 		item := queue.pop()
 		if visited[item.node] || item.distance != distance[item.node] {
@@ -217,6 +219,7 @@ func (n Network) routeIndexed(input networkRouteInput, graph routeGraph) ([]Lane
 			}
 		}
 	}
+	work.queue = queue[:0]
 	return n.routeLanes(graph, from, to, distance, previous)
 }
 
