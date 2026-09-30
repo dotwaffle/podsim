@@ -32,6 +32,8 @@ The [six-hour LondonFull screen](docs/london-full-sustained.md) finds growing ba
 Experimental station buffers do not resolve that overload.
 The [paired mirrored-layout study](docs/station-mirror-load.md) passes its sampled safety and 48 physical-restore checks.
 Service results are mixed, with higher LondonCentral Early waits under mirrored geometry.
+The [Paddington reservation diagnosis](docs/paddington-reservation-diagnosis.md) identifies predecessor-frontier limits as most observed shared-guard failures in two Central schedules.
+It does not establish a safety defect or identify one geometric root cause.
 
 The editor imports georeferenced PNG or JPEG backgrounds with stored bounds, projection, attribution, and an atomic undo step.
 Live OSM raster tiles provide a zoom-dependent backdrop in the editor and simulation.
@@ -46,12 +48,17 @@ The renderer batches station summaries, and presentation snapshots reuse call-lo
 The restore and rendering optimizations preserve simulation behavior and existing protocol semantics.
 The [pickup-bound cache measurements](docs/pickup-bounds-cache-performance.md) show lower CPU use and allocations in an unpaced LondonFull probe.
 They do not establish live playback speed or a capacity improvement.
+[Reusable admission storage](docs/admission-work-performance.md) lowers allocations and usually CPU in paired equal-work studies.
+The server retains GOGC 100 and the comparison command retains 400.
+The [journey page cache](docs/journey-page-cache-performance.md) lowers measured page script time, while total software-rendered browser CPU changes little.
 
 Experimental [station approach buffers](docs/station-buffer-state-proposal.md) and [pickup swaps](docs/pickup-reassignment.md) remain disabled by default.
 They have no project, command, or editor controls.
 Buffered sessions use saved-state version 3 with explicit membership.
 Unbuffered sessions can retain version 2.
 Broader adoption requires separate qualification and a decision.
+The [sustained pickup-swap study](docs/pickup-swap-sustained.md) lowers average waits and empty distance in its tested pairs, but every arm still grows a backlog.
+Its [matched-request diagnosis](docs/pickup-request-diagnosis.md) separates unfinished requests from completed maxima and retains actual same-request regressions.
 
 Sharing remains off by default.
 The opt-in `reassign-existing` join policy and guarded-positioning follow-up still fail adoption rules.

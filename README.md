@@ -158,8 +158,10 @@ The server provides `/healthz`, opt-in pprof on a separate listener, and opt-in 
 Open **Connection diagnostics** at the bottom right of the simulation to inspect its stream.
 The panel shows received payload rate, applied updates, mean receive-to-apply time, state and heartbeat age, and reconnect attempts.
 An HTTP round-trip probe runs every five seconds while the panel is visible.
-Rates exclude HTTP assets and network headers. Apply time excludes rendering.
-State age increases normally while paused. One-way delay and socket backlog are not measured.
+Rates exclude HTTP assets and network headers.
+Apply time excludes rendering.
+State age increases normally while paused.
+One-way delay and socket backlog are not measured.
 
 The browser receives shared gzip JSON state deltas over WebSocket.
 
@@ -1312,7 +1314,8 @@ Admission follows these rules:
 
 - Requests that waited at least 10 simulated seconds take priority, oldest first.
 - Younger requests prioritize pods with passengers, then assigned pickups, then other empty movements.
-- Within each class, the oldest local admission request wins. Pod ID breaks a tie.
+- Within each class, the oldest local admission request wins.
+  Pod ID breaks a tie.
 - Existing reservations remain protected.
 - Admission uses the state before movement.
 - Released resources become available on the next tick.
@@ -1525,6 +1528,19 @@ See [the project brief](PROJECT_BRIEF.md) for the wider scope and research.
 | `cmd/compare` | Reproducible policy comparisons. |
 | `cmd/scenario` | Generated scenario files. |
 | `web` | Browser page, game loader, and scenario editor. |
+
+### Measurement reports
+
+These reports record tested workloads and their limits.
+They do not replace scenario qualification or authorize policy adoption.
+
+| Area | Records | Main limitation |
+| --- | --- | --- |
+| LondonFull | [Post-fix capacity](docs/london-full-postfix.md), [sustained load](docs/london-full-sustained.md), [mirrored layout](docs/station-mirror-load.md) | Finite recovery and growing backlogs do not establish sustainable capacity. |
+| Pickup swaps | [Sustained comparison](docs/pickup-swap-sustained.md), [matched requests](docs/pickup-request-diagnosis.md) | Better averages coexist with slower individual requests. The policy stays off by default. |
+| Platoon queues | [Qualification follow-up](docs/platoon-followup.md), [Paddington reservation diagnosis](docs/paddington-reservation-diagnosis.md) | Observed rejection conditions do not establish a safety defect or permit weaker guards. |
+| Server performance | [Route search storage](docs/route-search-performance.md), [admission storage](docs/admission-work-performance.md) | Equal-work tests do not establish live playback speed. GC defaults remain unchanged. |
+| Browser performance | [Live Chrome measurements](docs/live-chrome-performance.md), [journey page cache](docs/journey-page-cache-performance.md) | Software-rendering results do not predict physical-GPU performance. |
 
 ### Tasks
 

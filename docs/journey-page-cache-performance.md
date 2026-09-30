@@ -69,7 +69,9 @@ Every page receives one initial full snapshot and subsequent deltas, with no rec
 All shared sequence hashes agree across clients.
 The maximum outstanding count ranges from 2 to 7.
 All final captures have zero unacknowledged messages.
-Gzip inflation p95 ranges from 0.6 to 0.8 ms. Local processing-to-ACK-submission p95 ranges from 16.4 to 25.3 ms. This interval excludes the return network delay and is not full round-trip latency.
+Gzip inflation p95 ranges from 0.6 to 0.8 milliseconds.
+Local processing-to-ACK-submission p95 ranges from 16.4 to 25.3 milliseconds.
+This interval excludes the return network delay and is not full round-trip latency.
 The cache does not change the wire payload or compression method.
 Small byte-rate differences do not establish network savings.
 
