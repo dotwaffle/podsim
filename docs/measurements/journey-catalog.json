@@ -1,0 +1,239 @@
+{
+  "sourceParent": "5f15af6",
+  "dirtyPatch": "Reviewed route work optimization pending frozen state gate",
+  "fileSha256": {
+    "baseline/full-paused.json.gz": "8ff4b8993b45b8efcc5dec4b2a70956b221304262e50f42351c5c6156b528ac5",
+    "baseline/central-paused.json.gz": "280aa4fe21647e357106d5c75f71ac707a5b1d9d0ffb77b6f8b0f27f902b4998",
+    "baseline/serve": "5344b61a20eb755c95e3d77df8ed7afe8dda9ab359dca7f597e1454055e1d1d9",
+    "baseline/web/stream.js": "7a39992016582ecedfbc27f13f04b1574eb52feb34f2f1e8343dab3f97cc4aee",
+    "baseline/web/shell.js": "90ffff90e53726982f510601889f138410daa65c43fe252ccdaccbf9b5cbda9e",
+    "baseline/web/tiles.js": "2adee79651c332e1c9f41d4ba1689e5ed592a359004a9d543f8071a12e957f9b",
+    "baseline/web/editor.html": "7cbca3d86dc1005515f63925d58b974b4e58bf13319e1a36e2428c685adef09a",
+    "baseline/web/editor.css": "bb70f74d963b1719f08718ef4878412a9e4c789ba447566317fcd3a68f0803f3",
+    "baseline/web/index.html": "ca314f81f80df18ad22f41b03bbd12c16c1a3fa075cb3c2e90109a6eb22b429a",
+    "baseline/web/simulation-map.js": "007daf7e53721aa9ead8a4512dbc7d99d38a7c343ed2835ccae3c924bcdc23db",
+    "baseline/web/game.html": "a140ff4dbe086cb71af5cc5fd9ab2f8a9c68f3d01083ef4fca11f24089f9e907",
+    "baseline/web/podsim.wasm.gz": "f444aced419bc624ae0fdd7fbe9df4f2a39148bc9808f064c78ba0429086fe60",
+    "baseline/web/editor.js": "911b76251544e89adac89bc8dd554f37a1d403dc32d26be1ab4a2032c6d088fd",
+    "baseline/web/loader.js": "2b02e1ae4d8f5c78fe414bceefb42383f8d7567282af39b003b294c196af5937",
+    "baseline/web/wasm_exec.js": "0c949f4996f9a89698e4b5c586de32249c3b69b7baadb64d220073cc04acba14",
+    "candidate/full-paused.json.gz": "8ff4b8993b45b8efcc5dec4b2a70956b221304262e50f42351c5c6156b528ac5",
+    "candidate/central-paused.json.gz": "280aa4fe21647e357106d5c75f71ac707a5b1d9d0ffb77b6f8b0f27f902b4998",
+    "candidate/serve": "5344b61a20eb755c95e3d77df8ed7afe8dda9ab359dca7f597e1454055e1d1d9",
+    "candidate/web/editor.html": "7cbca3d86dc1005515f63925d58b974b4e58bf13319e1a36e2428c685adef09a",
+    "candidate/web/index.html": "ca314f81f80df18ad22f41b03bbd12c16c1a3fa075cb3c2e90109a6eb22b429a",
+    "candidate/web/editor.js": "911b76251544e89adac89bc8dd554f37a1d403dc32d26be1ab4a2032c6d088fd",
+    "candidate/web/editor.css": "bb70f74d963b1719f08718ef4878412a9e4c789ba447566317fcd3a68f0803f3",
+    "candidate/web/game.html": "a140ff4dbe086cb71af5cc5fd9ab2f8a9c68f3d01083ef4fca11f24089f9e907",
+    "candidate/web/loader.js": "2b02e1ae4d8f5c78fe414bceefb42383f8d7567282af39b003b294c196af5937",
+    "candidate/web/wasm_exec.js": "0c949f4996f9a89698e4b5c586de32249c3b69b7baadb64d220073cc04acba14",
+    "candidate/web/tiles.js": "2adee79651c332e1c9f41d4ba1689e5ed592a359004a9d543f8071a12e957f9b",
+    "candidate/web/stream.js": "7a39992016582ecedfbc27f13f04b1574eb52feb34f2f1e8343dab3f97cc4aee",
+    "candidate/web/shell.js": "90ffff90e53726982f510601889f138410daa65c43fe252ccdaccbf9b5cbda9e",
+    "candidate/web/podsim.wasm.gz": "4725dfa8b0fa588046f92358ceb99092d2b83ed79070f42ed8d3aec9dcfd8d17",
+    "candidate/web/simulation-map.js": "007daf7e53721aa9ead8a4512dbc7d99d38a7c343ed2835ccae3c924bcdc23db"
+  },
+  "harnessSha256": "e29108f3b1208e0e7ae048d73f95cec2b67bdbbee663bb26c0985443bcddf697",
+  "dependencies": {
+    "playwright": "1.57.0",
+    "ws": "8.18.3"
+  },
+  "chrome": "/home/dotwaffle/.cache/ms-playwright/chromium-1200/chrome-linux64/chrome",
+  "plan": {
+    "state": "Fixture generated and decode-validated; harness syntax checked; native/WASM transfer, frozen manifest and pilot pending",
+    "presets": [
+      "central",
+      "full"
+    ],
+    "clients": [
+      0,
+      1,
+      3
+    ],
+    "GOGC": [
+      100,
+      200,
+      400
+    ],
+    "GOMAXPROCS": 4,
+    "durationSeconds": 60,
+    "RTTms": [
+      0,
+      300,
+      600
+    ],
+    "latencyScope": "WebSocket only, symmetric +/-35ms jitter, ordered delivery",
+    "commandLatencyScope": "Local HTTP pause commands, excludes added RTT",
+    "externalTiles": "Replace image requests locally; block other external requests; service workers blocked",
+    "warmupSimSeconds": 3600,
+    "fixtureTick": 216000,
+    "seed": 20260929,
+    "demandPerMinute": 12,
+    "gatesRequired": "Wait for route gates and mirrored study to finish before timing",
+    "metrics": "Actual playback/speed reductions, shared gzip hashes/full counts, CPU/heap, client inflate/RAF/longtask, local command latency",
+    "restoreTier": "Physical required",
+    "fixtureSha256": {
+      "full-paused.json.gz": "8ff4b8993b45b8efcc5dec4b2a70956b221304262e50f42351c5c6156b528ac5",
+      "central-paused.json.gz": "280aa4fe21647e357106d5c75f71ac707a5b1d9d0ffb77b6f8b0f27f902b4998"
+    },
+    "serverDefaultGC": 100,
+    "comparisonCommandDefaultGC": 400,
+    "arms": 18,
+    "worstArmWallSeconds": 3780,
+    "plannedServiceCapSeconds": 4200
+  },
+  "landedProductionCommit": "c93bc9a",
+  "limits": [
+    "Post-restore cold route caches, warmed traffic state",
+    "Instrumented headless Chrome with SwiftShader/CDP/proxy decoding overhead",
+    "No speed timeline for zero clients",
+    "ACK interval covers receipt to submission, excluding return path",
+    "HTTPcommand latency local; added RTT applies to WebSockets"
+  ],
+  "review": "Astra approved diagnostic pilot; window-reset/shared-overlap/cleanup improvements applied; service KillModecontrol-group required",
+  "baselineClientSource": "c93bc9a",
+  "candidateClientParent": "1f6cdb2",
+  "candidateClientChange": "networkIndex journey catalog",
+  "fixedServerSource": "c93bc9a",
+  "jobs": [
+    {
+      "preset": "full",
+      "clients": 1,
+      "gc": 100,
+      "variant": "baseline",
+      "rep": 1
+    },
+    {
+      "preset": "full",
+      "clients": 1,
+      "gc": 100,
+      "variant": "candidate",
+      "rep": 1
+    },
+    {
+      "preset": "central",
+      "clients": 1,
+      "gc": 100,
+      "variant": "baseline",
+      "rep": 1
+    },
+    {
+      "preset": "central",
+      "clients": 1,
+      "gc": 100,
+      "variant": "candidate",
+      "rep": 1
+    },
+    {
+      "preset": "central",
+      "clients": 3,
+      "gc": 100,
+      "variant": "baseline",
+      "rep": 1
+    },
+    {
+      "preset": "central",
+      "clients": 3,
+      "gc": 100,
+      "variant": "candidate",
+      "rep": 1
+    },
+    {
+      "preset": "full",
+      "clients": 1,
+      "gc": 100,
+      "variant": "candidate",
+      "rep": 2
+    },
+    {
+      "preset": "full",
+      "clients": 1,
+      "gc": 100,
+      "variant": "baseline",
+      "rep": 2
+    },
+    {
+      "preset": "central",
+      "clients": 1,
+      "gc": 100,
+      "variant": "candidate",
+      "rep": 2
+    },
+    {
+      "preset": "central",
+      "clients": 1,
+      "gc": 100,
+      "variant": "baseline",
+      "rep": 2
+    },
+    {
+      "preset": "central",
+      "clients": 3,
+      "gc": 100,
+      "variant": "candidate",
+      "rep": 2
+    },
+    {
+      "preset": "central",
+      "clients": 3,
+      "gc": 100,
+      "variant": "baseline",
+      "rep": 2
+    }
+  ],
+  "historicalPreflightFields": [
+    "sourceParent",
+    "dirtyPatch",
+    "plan.state"
+  ],
+  "status": "Twelve matched Chrome arms passed, view race/full suite/native/WASM/static gates passed",
+  "deadlineSeconds": 1600,
+  "rawSha256": {
+    "runs/baseline-full-1-gc100-1/results.json": "43229562528cedddedf6a5d92554eb9a1a930619d79d774c9f92ee601593348c",
+    "runs/baseline-full-1-gc100-1/publications.json": "68472557f7acc6ef9400d90d398cb487d225aedb355d1e9e3c8783f66d30b26e",
+    "runs/baseline-full-1-gc100-1/rtt0-probe.json": "22b5e2b0609388f91e673679091191ff26d96273de22d069ef38e0216e56f0ca",
+    "runs/candidate-full-1-gc100-1/results.json": "e983301232132e32ee7a4733469231f017e87ee04d8ae47fd144b14cb48a1f2c",
+    "runs/candidate-full-1-gc100-1/publications.json": "15e217df9c2c33242f0b0878b90b0d2c0570bed781ea4863041616d36e71c251",
+    "runs/candidate-full-1-gc100-1/rtt0-probe.json": "72732d192634468ac1004cc5baac9556aa9bbaa87fa32241cf5e6e5f77920ebc",
+    "runs/baseline-central-1-gc100-1/results.json": "f16e35ecf7c532c0c7a317b7ced80901d05e4c24025ebceaa03708287828d505",
+    "runs/baseline-central-1-gc100-1/publications.json": "fa119f2bc95c49e31ef67e6e1051fbaa2e881a7be0036ab8b6f2a7d16373845e",
+    "runs/baseline-central-1-gc100-1/rtt0-probe.json": "ad61e2ddece6c0c7b01b633ffeffac268b13d913fd5f245d1cef91a294a0ce79",
+    "runs/candidate-central-1-gc100-1/results.json": "180676db90d42ac0f25c9b4ae9d0b2abb602e02832dd08f3c7b6166164e2ccda",
+    "runs/candidate-central-1-gc100-1/publications.json": "eb215ab05979d8945e40b39a3be9111b6617cac08d73d290004f3daaf997cbff",
+    "runs/candidate-central-1-gc100-1/rtt0-probe.json": "3773a11283840333135653d19693ea412c62e0fa1f797de0975615efc19f88dd",
+    "runs/baseline-central-3-gc100-1/results.json": "96054818aaae80334bc985b43d723c0d95bdf5b675059993e31b115622ee1d03",
+    "runs/baseline-central-3-gc100-1/publications.json": "c692ca820d303fde610accd13d549adc70d28498853cc06defed794f55ab27a2",
+    "runs/baseline-central-3-gc100-1/rtt0-probe.json": "72a74ec6da663496f3cf6c5907ec6ad199f93ded4a63b4dfdcd85dc74cc36fbc",
+    "runs/baseline-central-3-gc100-1/rtt600-probe.json": "f65968b35a493b63fd0bdf69e87c32366f1997c6a11d2664f7e1b8571635ff84",
+    "runs/baseline-central-3-gc100-1/rtt300-probe.json": "599519e97d5aadcb9eb5b390ca6872030dc06fc39788995a57f6007d7a8b6c8b",
+    "runs/candidate-central-3-gc100-1/results.json": "e0a122332795fbf8aa68a7d2c2a56460a7332a3079af09b2b2b3e08c31b5e9ee",
+    "runs/candidate-central-3-gc100-1/publications.json": "f2ede452a4ff96de375a87267838cffd0122ddc9452a53dd439a35002b2d8b73",
+    "runs/candidate-central-3-gc100-1/rtt300-probe.json": "844e6ff00304289cb1665e6999d4f68342620174c797a97cb94863ecb3b0ca62",
+    "runs/candidate-central-3-gc100-1/rtt600-probe.json": "104b0050a0da9515eff39aebc7caa3d4b1af075160d30afc15970b1445c2f269",
+    "runs/candidate-central-3-gc100-1/rtt0-probe.json": "b77fbefc8fcb3a30b2e226815dbb02e5ef74ad1842db764db71dd9a247e6a7b0",
+    "runs/candidate-full-1-gc100-2/results.json": "5835d87088807fbea2dfa481f121539697e20ae75ea044981627ccc597ffcf22",
+    "runs/candidate-full-1-gc100-2/publications.json": "b0237ee78a8663f0bacfeffea7cdd9e1e39dba405f90a7f9db54075fb62d0f2d",
+    "runs/candidate-full-1-gc100-2/rtt0-probe.json": "b4e5f97831b13d5e497bae2e1994080ea1b031252a1d748f05640b459ee677c5",
+    "runs/baseline-full-1-gc100-2/results.json": "895191b252b2f6eeb9c1177b2bda6a8c10535c203c93e7d4eef6e1b807b9b31c",
+    "runs/baseline-full-1-gc100-2/publications.json": "761dd516d1ffdbb761159673f7e2fc0fd66cdb234beaacae80526aae4fa114e7",
+    "runs/baseline-full-1-gc100-2/rtt0-probe.json": "8a91e28b1c8c6e02aee843132ca28a2c0d8982412fd7d7f26f1a11314fe369a3",
+    "runs/candidate-central-1-gc100-2/results.json": "111d17b52635c161da5131622554e384e341b705289dccab394cf2c9367cd0e4",
+    "runs/candidate-central-1-gc100-2/publications.json": "f60d6bd326ef57c84833873654c61beb84ef91e36c77d5b7043a1b5e7b47a062",
+    "runs/candidate-central-1-gc100-2/rtt0-probe.json": "e15b4ac69ca628c0893d55bf4185a691ebb6411d07ac652f2112ee4506bd2e89",
+    "runs/baseline-central-1-gc100-2/results.json": "4d978ef7b961a3455c4f51f8ce5329eb4b61390779f7559992fad60fcab3031a",
+    "runs/baseline-central-1-gc100-2/publications.json": "2b74ca8cb3de80fe5b2be18c467f9004aefa64254d5386fa9249a0f3be8d6daf",
+    "runs/baseline-central-1-gc100-2/rtt0-probe.json": "d550a761a19573b3cf0e4029093307a5c8754b1de857ab5b872c075685d7fa58",
+    "runs/candidate-central-3-gc100-2/results.json": "7c8f7081df37c32c012ee9351c3893af338f9732d2475fa115c91e5cc97b8d5a",
+    "runs/candidate-central-3-gc100-2/publications.json": "c404faa58a80606b3399c091d56e86a442b24763c447f8e55ca3b792bb2e3be3",
+    "runs/candidate-central-3-gc100-2/rtt300-probe.json": "c1339f5a6e533bd3f73943a56f0cc55375cc56cd9bedf86947ba2510dc3d8e74",
+    "runs/candidate-central-3-gc100-2/rtt600-probe.json": "0b680727973c6fa104c01213023b13acdc42b1fefb9202dc7aa8b1706b66d00e",
+    "runs/candidate-central-3-gc100-2/rtt0-probe.json": "22a305074bfae24238a2c7a08edb689cc5e4c1d8c6c3ace60e54b231980de38b",
+    "runs/baseline-central-3-gc100-2/results.json": "adb689b1df0dea280c6d7963f0987e07b3b883c80cdcd39755fbd91f69b48542",
+    "runs/baseline-central-3-gc100-2/publications.json": "bdad11e88a0cd0861b9ed2602b73a6e9effb63f82b8752e2905ecc20388bf754",
+    "runs/baseline-central-3-gc100-2/rtt0-probe.json": "2d5f5eccac90d3b4d21a996111638c07b1c1ab47248dbc6e05cd0d2c108c7913",
+    "runs/baseline-central-3-gc100-2/rtt300-probe.json": "1a5c0699beb6c197abf629d72b6e70375d8cd413baa649c715eb6b530cc953b0",
+    "runs/baseline-central-3-gc100-2/rtt600-probe.json": "bb97c36c75672378a87e4fe81616b6416681ba9eb25aee2c8d901e2085c87081"
+  },
+  "benchmarkFinal": "benchmark-final.log",
+  "outcome": "Full script time lower, Central reductions persist, defaults unchanged"
+}

@@ -41,6 +41,10 @@ type networkIndex struct {
 	lineLanes map[string]bool
 	// labelRanks holds the station label rank by station ID.
 	labelRanks map[string]int
+	// passengers retains network order for default journey selections.
+	passengers []sim.Station
+	// journeys holds the sorted station catalog and normalized search keys.
+	journeys journeyCatalog
 }
 
 // newNetworkIndex builds the display index of network.
@@ -49,6 +53,12 @@ func newNetworkIndex(network sim.Network) *networkIndex {
 	positions := make(map[string]sim.Point, len(network.Nodes))
 	for _, node := range network.Nodes {
 		positions[node.ID] = node.Position
+	}
+	var passengers []sim.Station
+	for _, station := range network.Stations {
+		if !station.ParkingOnly {
+			passengers = append(passengers, station)
+		}
 	}
 	return &networkIndex{
 		bounds:         bounds,
@@ -59,6 +69,8 @@ func newNetworkIndex(network sim.Network) *networkIndex {
 		berthSpacing:   berthSpacings(network.Stations, positions),
 		lineLanes:      stationLineLanes(network),
 		labelRanks:     stationLabelRanks(network),
+		passengers:     passengers,
+		journeys:       newJourneyCatalog(passengers),
 	}
 }
 

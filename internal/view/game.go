@@ -1965,14 +1965,9 @@ func (g *Game) mapSnapshot() sim.Snapshot {
 	return state
 }
 
+// passengerStations returns the cached network-order slice. Callers must not change it.
 func (g *Game) passengerStations() []sim.Station {
-	var stations []sim.Station
-	for _, s := range g.network.Stations {
-		if !s.ParkingOnly {
-			stations = append(stations, s)
-		}
-	}
-	return stations
+	return g.displayIndex().passengers
 }
 
 // cameraFitKey identifies the network of the last camera fit. It does not

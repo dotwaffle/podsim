@@ -25,7 +25,7 @@ func TestJourneyStationNamesAndCodes(t *testing.T) {
 	} {
 		t.Run(tc.query, func(t *testing.T) {
 			t.Parallel()
-			matches := stationMatches(stations, tc.query)
+			matches := newJourneyCatalog(stations).matches(tc.query)
 			if len(matches) != 1 || matches[0].ID != tc.id {
 				t.Fatalf("matches for %q: %+v", tc.query, matches)
 			}
@@ -75,7 +75,7 @@ func TestJourneySearchRejectsUnresolvedOrders(t *testing.T) {
 func TestJourneySearchDoesNotGuessAmbiguousCodes(t *testing.T) {
 	t.Parallel()
 	stations := []sim.Station{{ID: "940GZZLUBNK", Name: "Bank"}, {ID: "BNK", Name: "Other"}}
-	if got := stationMatches(stations, "bnk"); len(got) != 2 {
+	if got := newJourneyCatalog(stations).matches("bnk"); len(got) != 2 {
 		t.Fatalf("ambiguous code matched %d", len(got))
 	}
 	if got := stationCode("custom-CHX"); got != "" {

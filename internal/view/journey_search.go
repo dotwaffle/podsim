@@ -37,20 +37,50 @@ func stationCode(id string) string {
 	return ""
 }
 
-func stationMatches(stations []sim.Station, query string) []sim.Station {
+type journeyStation struct {
+	station    sim.Station
+	name, code string
+}
+
+// journeyCatalog owns a sorted station slice. Callers must not change it.
+type journeyCatalog struct {
+	stations []sim.Station
+	entries  []journeyStation
+}
+
+func newJourneyCatalog(stations []sim.Station) journeyCatalog {
+	var catalog journeyCatalog
+	for _, station := range stations {
+		catalog.entries = append(catalog.entries, journeyStation{
+			station: station,
+			name:    strings.ToLower(station.Name),
+			code:    strings.ToLower(stationCode(station.ID)),
+		})
+	}
+	slices.SortFunc(catalog.entries, func(a, b journeyStation) int {
+		if order := cmp.Compare(a.name, b.name); order != 0 {
+			return order
+		}
+		return cmp.Compare(a.station.ID, b.station.ID)
+	})
+	for _, entry := range catalog.entries {
+		catalog.stations = append(catalog.stations, entry.station)
+	}
+	return catalog
+}
+
+func (c journeyCatalog) matches(query string) []sim.Station {
 	query = strings.ToLower(strings.TrimSpace(query))
 	if query == "" {
-		return stations
+		return c.stations
 	}
 	var exact, partial []sim.Station
-	for _, station := range stations {
-		name := strings.ToLower(station.Name)
-		code := strings.ToLower(stationCode(station.ID))
-		if name == query || code == query || strings.EqualFold(station.ID, query) {
-			exact = append(exact, station)
+	for _, entry := range c.entries {
+		if entry.name == query || entry.code == query || strings.EqualFold(entry.station.ID, query) {
+			exact = append(exact, entry.station)
 		}
-		if strings.Contains(name, query) || (code != "" && strings.HasPrefix(code, query)) {
-			partial = append(partial, station)
+		if strings.Contains(entry.name, query) || (entry.code != "" && strings.HasPrefix(entry.code, query)) {
+			partial = append(partial, entry.station)
 		}
 	}
 	if len(exact) > 0 {
@@ -60,17 +90,11 @@ func stationMatches(stations []sim.Station, query string) []sim.Station {
 }
 
 func (g *Game) journeyStations() []sim.Station {
-	stations := g.passengerStations()
-	slices.SortFunc(stations, func(a, b sim.Station) int {
-		if order := cmp.Compare(strings.ToLower(a.Name), strings.ToLower(b.Name)); order != 0 {
-			return order
-		}
-		return cmp.Compare(a.ID, b.ID)
-	})
+	catalog := g.displayIndex().journeys
 	if g.journeySearch.filter != 0 {
-		return stationMatches(stations, g.journeySearch.query[g.journeySearch.filter-1])
+		return catalog.matches(g.journeySearch.query[g.journeySearch.filter-1])
 	}
-	return stations
+	return catalog.stations
 }
 
 func (g *Game) startJourneySearch(side int) {
@@ -105,7 +129,7 @@ func (g *Game) searchJourney(query string) {
 	g.journeySearch.query[side-1] = query
 	g.journeySearch.unresolved[side-1] = true
 	g.stationPage = 0
-	matches := stationMatches(g.passengerStations(), query)
+	matches := g.displayIndex().journeys.matches(query)
 	switch {
 	case strings.TrimSpace(query) == "" || len(matches) == 0:
 		g.message = "Type a station name or code. No station selected."
