@@ -1,0 +1,103 @@
+name,RootEnd,Activity,Phase,Lane,Boundary,Available,Gap,NextSpeed,Moving,HasLeader,Observations
+pilot-old,retained-or-none,Traveling,Approaching station,940GZZLUPAC-road-in-03,reservation,over-12m,no-moving-leader,moving,True,False,42876
+pilot-old,retained-or-none,Traveling,,london-link-067-ab-2,reservation,over-12m,no-moving-leader,moving,True,False,42355
+pilot-old,retained-or-none,Traveling,Entering station,940GZZLUPAC-access-in,reservation,over-12m,no-moving-leader,moving,True,False,21475
+pilot-old,retained-or-none,Traveling,,london-link-067-ab-2,platoon,1-12m,over-12m,moving,True,True,7566
+pilot-old,retained-or-none,Traveling,,london-link-067-ab-2,platoon,0-1m,over-12m,moving,True,True,4572
+pilot-old,retained-or-none,Traveling,,london-link-067-ab-2,platoon,over-12m,over-12m,moving,True,True,327
+pilot-old,granted-owner,Traveling,Entering station,940GZZLUPAC-access-in,reservation,over-12m,no-moving-leader,moving,True,False,261
+pilot-old,retained-or-none,Traveling,,london-link-067-ab-2,platoon,0-1m,over-12m,moving,False,True,245
+pilot-old,granted-owner,Traveling,,london-link-067-ab-2,reservation,over-12m,no-moving-leader,moving,False,False,212
+pilot-old,retained-or-none,Traveling,,london-link-067-ab-2,platoon,0-1m,over-12m,stopped,True,True,190
+pilot-old,granted-owner,Traveling,Approaching station,940GZZLUPAC-road-in-03,reservation,over-12m,no-moving-leader,moving,True,False,109
+pilot-old,retained-or-none,Traveling,,london-link-067-ab-2,platoon,zero,over-12m,stopped,False,True,50
+pilot-old,granted-owner,Traveling,,london-link-067-ab-2,platoon,zero,over-12m,stopped,False,True,43
+pilot-old,granted-owner,Traveling,,london-link-067-ab-2,platoon,over-12m,over-12m,moving,False,True,28
+pilot-old,granted-owner,Traveling,,london-link-067-ab-2,platoon,over-12m,over-12m,moving,True,True,1
+pilot-current,retained-or-none,Traveling,Approaching station,940GZZLUPAC-road-in-03,reservation,over-12m,no-moving-leader,moving,True,False,425831
+pilot-current,retained-or-none,Traveling,,london-link-067-ab-2,reservation,over-12m,no-moving-leader,moving,True,False,293851
+pilot-current,retained-or-none,Traveling,Entering station,940GZZLUPAC-access-in,reservation,over-12m,no-moving-leader,moving,True,False,162024
+pilot-current,retained-or-none,Traveling,,london-link-067-ab-2,platoon,1-12m,over-12m,moving,True,True,133333
+pilot-current,retained-or-none,Traveling,,london-link-067-ab-2,platoon,0-1m,over-12m,moving,True,True,85792
+pilot-current,retained-or-none,Traveling,,london-link-067-ab-2,platoon,0-1m,over-12m,moving,False,True,4792
+pilot-current,retained-or-none,Traveling,,london-link-067-ab-2,platoon,0-1m,over-12m,stopped,True,True,3761
+pilot-current,retained-or-none,Traveling,,london-link-067-ab-2,platoon,over-12m,over-12m,moving,True,True,2273
+pilot-current,granted-owner,Traveling,Entering station,940GZZLUPAC-access-in,reservation,over-12m,no-moving-leader,moving,True,False,1982
+pilot-current,granted-owner,Traveling,,london-link-067-ab-2,reservation,over-12m,no-moving-leader,moving,False,False,1853
+pilot-current,granted-owner,Traveling,,london-link-067-ab-2,platoon,zero,over-12m,stopped,False,True,1035
+pilot-current,retained-or-none,Traveling,,london-link-067-ab-2,platoon,zero,over-12m,stopped,False,True,974
+pilot-current,granted-owner,Traveling,Approaching station,940GZZLUPAC-road-in-03,reservation,over-12m,no-moving-leader,moving,True,False,853
+pilot-current,granted-owner,Traveling,,london-link-067-ab-2,platoon,over-12m,over-12m,moving,False,True,74
+pilot-current,granted-owner,Traveling,,london-link-067-ab-2,platoon,over-12m,over-12m,moving,True,True,12
+pilot-current,granted-owner,Traveling,,london-link-067-ab-2,platoon,0-1m,over-12m,moving,True,True,3
+central-early-r10-s1-old-virtual,retained-or-none,Traveling,,london-link-067-ab-2,reservation,over-12m,no-moving-leader,moving,True,False,168712
+central-early-r10-s1-old-virtual,retained-or-none,Traveling,Approaching station,940GZZLUPAC-road-in-03,reservation,over-12m,no-moving-leader,moving,True,False,161137
+central-early-r10-s1-old-virtual,retained-or-none,Traveling,Entering station,940GZZLUPAC-access-in,reservation,over-12m,no-moving-leader,moving,True,False,78376
+central-early-r10-s1-old-virtual,retained-or-none,Traveling,,london-link-067-ab-2,platoon,1-12m,over-12m,moving,True,True,20302
+central-early-r10-s1-old-virtual,retained-or-none,Traveling,,london-link-067-ab-2,platoon,0-1m,over-12m,moving,True,True,14012
+central-early-r10-s1-old-virtual,granted-owner,Traveling,Entering station,940GZZLUPAC-access-in,reservation,over-12m,no-moving-leader,moving,True,False,979
+central-early-r10-s1-old-virtual,granted-owner,Traveling,,london-link-067-ab-2,reservation,over-12m,no-moving-leader,moving,False,False,748
+central-early-r10-s1-old-virtual,retained-or-none,Traveling,,london-link-067-ab-2,platoon,0-1m,over-12m,moving,False,True,695
+central-early-r10-s1-old-virtual,retained-or-none,Traveling,,london-link-067-ab-2,platoon,0-1m,over-12m,stopped,True,True,545
+central-early-r10-s1-old-virtual,granted-owner,Traveling,Approaching station,940GZZLUPAC-road-in-03,reservation,over-12m,no-moving-leader,moving,True,False,423
+central-early-r10-s1-old-virtual,retained-or-none,Traveling,,london-link-067-ab-2,platoon,over-12m,over-12m,moving,True,True,327
+central-early-r10-s1-old-virtual,retained-or-none,Traveling,,london-link-067-ba-1,reservation,over-12m,no-moving-leader,moving,True,False,172
+central-early-r10-s1-old-virtual,retained-or-none,Traveling,,london-link-067-ab-2,platoon,zero,over-12m,stopped,False,True,143
+central-early-r10-s1-old-virtual,retained-or-none,Traveling,,940GZZLUPAC-move-04-03,reservation,over-12m,no-moving-leader,moving,True,False,138
+central-early-r10-s1-old-virtual,granted-owner,Traveling,,london-link-067-ab-2,platoon,zero,over-12m,stopped,False,True,135
+central-early-r10-s1-old-virtual,granted-owner,Traveling,,london-link-067-ab-2,platoon,over-12m,over-12m,moving,False,True,62
+central-early-r10-s1-old-virtual,granted-owner,Traveling,,london-link-067-ba-1,reservation,over-12m,no-moving-leader,moving,True,False,2
+central-early-r10-s1-old-virtual,granted-owner,Traveling,,940GZZLUPAC-move-04-03,reservation,over-12m,no-moving-leader,moving,True,False,1
+central-early-r10-s1-old-virtual,granted-owner,Traveling,,london-link-067-ab-2,platoon,1-12m,over-12m,moving,False,True,1
+central-early-r10-s1-old-virtual,granted-owner,Traveling,,london-link-067-ab-2,platoon,over-12m,over-12m,moving,True,True,1
+central-early-r10-s1-current-virtual,retained-or-none,Traveling,Approaching station,940GZZLUPAC-road-in-03,reservation,over-12m,no-moving-leader,moving,True,False,1951161
+central-early-r10-s1-current-virtual,retained-or-none,Traveling,,london-link-067-ab-2,reservation,over-12m,no-moving-leader,moving,True,False,1351532
+central-early-r10-s1-current-virtual,retained-or-none,Traveling,Entering station,940GZZLUPAC-access-in,reservation,over-12m,no-moving-leader,moving,True,False,723681
+central-early-r10-s1-current-virtual,retained-or-none,Traveling,,london-link-067-ab-2,platoon,1-12m,over-12m,moving,True,True,650875
+central-early-r10-s1-current-virtual,retained-or-none,Traveling,,london-link-067-ab-2,platoon,0-1m,over-12m,moving,True,True,386900
+central-early-r10-s1-current-virtual,retained-or-none,Traveling,,london-link-067-ab-2,platoon,0-1m,over-12m,moving,False,True,20911
+central-early-r10-s1-current-virtual,retained-or-none,Traveling,,london-link-067-ab-2,platoon,0-1m,over-12m,stopped,True,True,16356
+central-early-r10-s1-current-virtual,granted-owner,Traveling,Entering station,940GZZLUPAC-access-in,reservation,over-12m,no-moving-leader,moving,True,False,8793
+central-early-r10-s1-current-virtual,granted-owner,Traveling,,london-link-067-ab-2,reservation,over-12m,no-moving-leader,moving,False,False,8144
+central-early-r10-s1-current-virtual,granted-owner,Traveling,,london-link-067-ab-2,platoon,zero,over-12m,stopped,False,True,4596
+central-early-r10-s1-current-virtual,retained-or-none,Traveling,,london-link-067-ab-2,platoon,over-12m,over-12m,moving,True,True,4407
+central-early-r10-s1-current-virtual,retained-or-none,Traveling,,london-link-067-ab-2,platoon,zero,over-12m,stopped,False,True,4393
+central-early-r10-s1-current-virtual,granted-owner,Traveling,Approaching station,940GZZLUPAC-road-in-03,reservation,over-12m,no-moving-leader,moving,True,False,3844
+central-early-r10-s1-current-virtual,retained-or-none,Traveling,,940GZZLUPAC-move-03-04,reservation,over-12m,no-moving-leader,moving,True,False,1335
+central-early-r10-s1-current-virtual,granted-owner,Traveling,,london-link-067-ab-2,platoon,over-12m,over-12m,moving,False,True,383
+central-early-r10-s1-current-virtual,granted-owner,Traveling,,london-link-067-ab-2,platoon,over-12m,over-12m,moving,True,True,24
+central-early-r10-s1-current-virtual,granted-owner,Traveling,,london-link-067-ab-2,platoon,1-12m,over-12m,moving,False,True,8
+central-early-r10-s1-current-virtual,granted-owner,Traveling,,london-link-067-ab-2,platoon,0-1m,over-12m,moving,True,True,3
+central-early-r10-s1-current-virtual,granted-owner,Traveling,,london-link-067-ab-2,platoon,1-12m,over-12m,moving,True,True,1
+central-early-r10-s2-old-virtual,retained-or-none,Traveling,,london-link-067-ab-2,reservation,over-12m,no-moving-leader,moving,True,False,159917
+central-early-r10-s2-old-virtual,retained-or-none,Traveling,Approaching station,940GZZLUPAC-road-in-03,reservation,over-12m,no-moving-leader,moving,True,False,146155
+central-early-r10-s2-old-virtual,retained-or-none,Traveling,Entering station,940GZZLUPAC-access-in,reservation,over-12m,no-moving-leader,moving,True,False,73837
+central-early-r10-s2-old-virtual,retained-or-none,Traveling,,london-link-067-ab-2,platoon,1-12m,over-12m,moving,True,True,24822
+central-early-r10-s2-old-virtual,retained-or-none,Traveling,,london-link-067-ab-2,platoon,0-1m,over-12m,moving,True,True,20261
+central-early-r10-s2-old-virtual,retained-or-none,Traveling,,london-link-067-ab-2,platoon,0-1m,over-12m,moving,False,True,1112
+central-early-r10-s2-old-virtual,granted-owner,Traveling,Entering station,940GZZLUPAC-access-in,reservation,over-12m,no-moving-leader,moving,True,False,918
+central-early-r10-s2-old-virtual,retained-or-none,Traveling,,london-link-067-ab-2,platoon,0-1m,over-12m,stopped,True,True,911
+central-early-r10-s2-old-virtual,granted-owner,Traveling,,london-link-067-ab-2,reservation,over-12m,no-moving-leader,moving,False,False,718
+central-early-r10-s2-old-virtual,granted-owner,Traveling,Approaching station,940GZZLUPAC-road-in-03,reservation,over-12m,no-moving-leader,moving,True,False,387
+central-early-r10-s2-old-virtual,retained-or-none,Traveling,,london-link-067-ab-2,platoon,over-12m,over-12m,moving,True,True,361
+central-early-r10-s2-old-virtual,retained-or-none,Traveling,,london-link-067-ab-2,platoon,zero,over-12m,stopped,False,True,255
+central-early-r10-s2-old-virtual,granted-owner,Traveling,,london-link-067-ab-2,platoon,zero,over-12m,stopped,False,True,204
+central-early-r10-s2-old-virtual,granted-owner,Traveling,,london-link-067-ab-2,platoon,over-12m,over-12m,moving,False,True,61
+central-early-r10-s2-old-virtual,granted-owner,Traveling,,london-link-067-ab-2,platoon,over-12m,over-12m,moving,True,True,2
+central-early-r10-s2-current-virtual,retained-or-none,Traveling,Approaching station,940GZZLUPAC-road-in-03,reservation,over-12m,no-moving-leader,moving,True,False,1509991
+central-early-r10-s2-current-virtual,retained-or-none,Traveling,,london-link-067-ab-2,reservation,over-12m,no-moving-leader,moving,True,False,1095211
+central-early-r10-s2-current-virtual,retained-or-none,Traveling,Entering station,940GZZLUPAC-access-in,reservation,over-12m,no-moving-leader,moving,True,False,582664
+central-early-r10-s2-current-virtual,retained-or-none,Traveling,,london-link-067-ab-2,platoon,1-12m,over-12m,moving,True,True,402370
+central-early-r10-s2-current-virtual,retained-or-none,Traveling,,london-link-067-ab-2,platoon,0-1m,over-12m,moving,True,True,260193
+central-early-r10-s2-current-virtual,retained-or-none,Traveling,,london-link-067-ab-2,platoon,0-1m,over-12m,moving,False,True,14242
+central-early-r10-s2-current-virtual,retained-or-none,Traveling,,london-link-067-ab-2,platoon,0-1m,over-12m,stopped,True,True,11267
+central-early-r10-s2-current-virtual,granted-owner,Traveling,Entering station,940GZZLUPAC-access-in,reservation,over-12m,no-moving-leader,moving,True,False,7027
+central-early-r10-s2-current-virtual,granted-owner,Traveling,,london-link-067-ab-2,reservation,over-12m,no-moving-leader,moving,False,False,6171
+central-early-r10-s2-current-virtual,retained-or-none,Traveling,,london-link-067-ab-2,platoon,over-12m,over-12m,moving,True,True,3075
+central-early-r10-s2-current-virtual,granted-owner,Traveling,Approaching station,940GZZLUPAC-road-in-03,reservation,over-12m,no-moving-leader,moving,True,False,3031
+central-early-r10-s2-current-virtual,granted-owner,Traveling,,london-link-067-ab-2,platoon,zero,over-12m,stopped,False,True,2978
+central-early-r10-s2-current-virtual,retained-or-none,Traveling,,london-link-067-ab-2,platoon,zero,over-12m,stopped,False,True,2968
+central-early-r10-s2-current-virtual,granted-owner,Traveling,,london-link-067-ab-2,platoon,over-12m,over-12m,moving,False,True,290
+central-early-r10-s2-current-virtual,granted-owner,Traveling,,london-link-067-ab-2,platoon,over-12m,over-12m,moving,True,True,17
+central-early-r10-s2-current-virtual,granted-owner,Traveling,,london-link-067-ab-2,platoon,1-12m,over-12m,moving,False,True,7
+central-early-r10-s2-current-virtual,granted-owner,Traveling,,london-link-067-ab-2,platoon,1-12m,over-12m,moving,True,True,1
