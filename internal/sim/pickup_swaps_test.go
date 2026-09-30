@@ -111,7 +111,7 @@ func TestPickupSwapImprovementUsesRequestCosts(t *testing.T) {
 	}{
 		{name: "both requests improve", oldA: 100, oldB: 200, newA: 150, newB: 50, want: true},
 		{name: "each pod improves but first request worsens", oldA: 100, oldB: 200, newA: 50, newB: 150},
-		{name: "one tie and useful combined gain", oldA: 100, oldB: 200, newA: 200, newB: 90, want: true},
+		{name: "one tie and useful combined gain", oldA: 100, oldB: 200, newA: 200, newB: 90},
 		{name: "gain too small", oldA: 100, oldB: 200, newA: 195, newB: 96},
 		{name: "nonfinite estimate", oldA: math.Inf(1), oldB: 200, newA: 150, newB: 50},
 		{name: "negative estimate", oldA: 100, oldB: 200, newA: -1, newB: 50},

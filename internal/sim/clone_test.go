@@ -43,13 +43,14 @@ var cloneRules = map[reflect.Type]map[string]cloneRule{
 	reflect.TypeFor[Vehicle]():              {"Riders": cloneCopy, "Stops": cloneCopy, "Route": cloneShare, "Presentation": cloneShare},
 	reflect.TypeFor[waitingTrip]():          {"route": cloneShare},
 	reflect.TypeFor[routeResult]():          {"lanes": cloneShare, "err": cloneShare},
-	reflect.TypeFor[pickupSwapController](): {"cooldown": cloneCopy},
+	reflect.TypeFor[pickupSwapController](): {"cooldown": cloneCopy, "records": cloneCopy},
 }
 
 // clonePlainTypes hold only plain values, so a value copy of them is deep.
 var clonePlainTypes = []reflect.Type{
 	reflect.TypeFor[Request](), reflect.TypeFor[Pod](), reflect.TypeFor[Berth](),
 	reflect.TypeFor[resource](), reflect.TypeFor[demoRun](), reflect.TypeFor[routeKey](),
+	reflect.TypeFor[PickupReassignment](),
 }
 
 // holdsReferences reports whether a value copy of t shares storage with the
@@ -379,6 +380,7 @@ func activeCloneSimulation(t *testing.T) *Simulation {
 	s.stationPickupBounds("market")
 	s.SetPickupSwaps(true)
 	s.pickupSwaps.cooldown["01"] = s.tick + pickupSwapCooldownTicks
+	s.pickupSwaps.records = []PickupReassignment{{Tick: s.tick, RequestID: 1, OldPod: "01", NewPod: "02", OldSeconds: 30, NewSeconds: 10}}
 	return s
 }
 

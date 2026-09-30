@@ -1,6 +1,6 @@
 # Pickup reassignment research
 
-Status: approved overnight experiment, disabled by default.
+Status: approved local experiment, disabled by default.
 The candidate has no project, command, or editor control.
 Evidence captured on September 29, 2026.
 
@@ -40,7 +40,7 @@ The opt-in `reassign-existing` sharing policy can transfer a waiting party into 
 That policy is distinct from swapping two empty pickup pods.
 
 `pickupCandidate` in `internal/sim/diversion.go` excludes a pod assigned to another waiting order.
-There is no general reassignment of two en-route pickups.
+The experimental controller below can reassign en-route pickups.
 `divertStart` already defines where a moving empty pod may change its route:
 
 - Preserve every lane touched by reserved track.
@@ -82,45 +82,60 @@ That is relevant to the broader fleet policy, but it does not replace a correcti
 
 ## Bounded experiment
 
-Start with pairwise swaps of empty, assigned pickup pods.
-This is smaller than periodic global matching and directly addresses the observed candidate.
-The September 29 overnight grant approved a disabled-by-default experiment.
-The controller runs after ordinary dispatch, before track admission.
-It runs at most once each simulated second and only with free-flow routing.
-Congestion and queue routing retain their existing dispatch behavior.
+The September 30 extension checks assigned pickups against eligible empty alternatives.
+Alternatives include idle pods, parking moves, repositioning moves, and other assigned pickups.
+An unassigned replacement must have a strictly faster predicted pickup.
+A swap must predict strictly faster pickups for both requests.
+The controller retains a 10-second minimum combined saving and a 30-second pod cooldown.
+These limits reduce small repeated route changes.
 
-For each pair:
-
-1. Check both diversion frontiers and exclude pods with incompatible commitments.
-2. Build both replacement routes and berth claims without changing the simulation.
-3. Estimate pickup times from the committed frontiers, not straight-line distance or heading.
-4. Require neither pickup to become later, and require a useful reduction in total remaining pickup time.
-5. Apply both assignments and routes together in deterministic order.
-
-The candidate requires at least 10 seconds of combined predicted saving and neither request becoming later.
-Compare each request with its replacement pod, not each pod with its new request.
-A pod has a 30-second cooldown after a successful swap.
-Each check scans at most 256 fleet pairs and prepares routes for at most eight eligible pairs.
-It commits at most one swap.
-The pair cursor advances after every examined pair, including rejection or success.
-These limits bound attempts, not CPU time.
+The controller checks each new remote pickup assignment and runs periodically before track admission.
+Periodic checks run at most once each simulated second.
+Both triggers share a budget of 256 examined fleet pairs and eight route pairs per simulated second.
+Each trigger commits at most one change.
+The periodic pair cursor and assignment alternative cursor advance in fleet order.
+The budgets bound attempts, not CPU time.
 Route-search cost still depends on the network and cache state.
-Do not let reassignment reset an order's original request time or queue priority.
-Preserve passenger accounting and all track, berth, and platoon safety checks.
+Only free-flow routing supports the experiment.
+Congestion and queue routing retain existing dispatch behavior.
 
-The controller excludes occupied, coupled, released, rebalancing, and buffered pods.
-It rejects duplicate assignments and mismatched pickup targets.
-Both routes must pass the existing diversion frontier before either redirect commits.
+For each candidate:
+
+1. Check the diversion frontiers and exclude incompatible commitments.
+2. Prepare replacement routes before changing assignments.
+3. Compare each request's old pod with that request's replacement pod.
+4. Require strictly faster predicted pickups and the minimum saving.
+5. Apply routes and assignments in deterministic order.
+
+Occupied or coupled pods cannot take replacements.
+Assigned pickups must have one valid binding and matching pickup targets.
+Released and rebalancing pods cannot participate as assigned pickups.
+An upstream buffer member can divert before it reserves the station entry lane.
+A member committed to that entry keeps its queue position.
+Estimates extend a berthless route to a reachable berth, so entry-only and berth-ending costs are not compared directly.
+Future traffic and queue delays remain unknown.
+
+A swap prepares both routes before either redirect commits.
+An idle replacement prepares its departure before the old pickup is released.
+Moving replacements preserve every reserved lane, position, speed, and origin ownership.
+A released old pickup uses the ordinary parking controller.
 The redirect retains admission wait age only when the complete pending resource group stays the same.
 Changed groups start a new wait on their next admission attempt.
-The request keeps its original ID, request time, queue position, and sharing census flags.
+Each request keeps its ID, request time, queue position, and sharing census flags.
 The controller clears cached onward routes and obsolete deferral fields.
 
-Reset keeps enablement but clears cursor, cooldowns, and counters.
-Clone preserves the controller and copies its mutable storage.
-A file restore keeps valid swapped routes and bindings but disables the experimental policy.
-Policy history is not saved, so a restart does not promise identical future experimental decisions.
-Project files and WebSocket frames do not change.
+Reset keeps enablement but clears cursors, budgets, cooldowns, and counters.
+Clone copies controller storage.
+File restore keeps valid routes and bindings but disables the policy until its owner configures it.
+Controller history is not saved, so restart does not promise identical future experimental decisions.
+Project files and WebSocket frames do not change in this controller slice.
+
+Counters include assignment checks, transfers, swaps, route attempts, and rejection reasons.
+With experiment recording enabled, each changed request records its old and new pod and predicted pickup time.
+These records can be joined to actual boarding and completion records by request ID.
+Normal server sessions retain no decision history.
+The September 30 extension requires new matched-request and sustained-load qualification.
+The measurements below describe the earlier periodic assigned-pair controller.
 
 | Approach | Benefit | Limitation |
 | --- | --- | --- |

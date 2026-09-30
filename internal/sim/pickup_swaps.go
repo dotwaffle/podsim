@@ -16,20 +16,25 @@ const (
 // Estimates exclude future traffic and do not promise a realized wait saving.
 type PickupSwapStats struct {
 	ScannedPairs, RoutePairs, Swaps                        int
+	Transfers, AssignmentChecks                            int
 	IneligiblePairs, CooldownPairs, SameOriginPairs        int
 	RouteFailures, NoBenefitPairs, UnsupportedPolicyChecks int
 	PredictedSecondsSaved                                  float64
 }
 
 type pickupSwapController struct {
-	enabled     bool
-	nextTick    int64
-	left, right int
-	cooldown    map[string]int64
-	stats       PickupSwapStats
+	enabled       bool
+	nextTick      int64
+	left, right   int
+	alternative   int
+	budgetSecond  int64
+	scans, routes int
+	cooldown      map[string]int64
+	stats         PickupSwapStats
+	records       []PickupReassignment
 }
 
-// SetPickupSwaps enables experimental pairwise pickup reassignment. It is off
+// SetPickupSwaps enables experimental pickup reassignment. It is off
 // by default and runs only with free-flow routing. Reset keeps enablement but
 // clears its history. Saved states do not retain the policy or its history.
 func (s *Simulation) SetPickupSwaps(enabled bool) {
@@ -67,7 +72,11 @@ func (s *Simulation) swapPickups() {
 		return
 	}
 	n := len(s.vehicles)
-	if n < 2 || len(s.waiting) < 2 {
+	if n < 2 || len(s.waiting) == 0 {
+		return
+	}
+	c.resetBudget(s.tick)
+	if !c.hasBudget() {
 		return
 	}
 	assigned := s.swapAssignments()
@@ -75,26 +84,10 @@ func (s *Simulation) swapPickups() {
 	if n <= pickupSwapScanLimit {
 		limit = min(limit, n*(n-1)/2)
 	}
-	for scanned, evaluated := 0, 0; scanned < limit && evaluated < pickupSwapRouteLimit; scanned++ {
+	for scanned := 0; scanned < limit && c.hasBudget(); scanned++ {
 		left, right := c.nextPair(n)
-		c.stats.ScannedPairs++
-		a, b := &s.vehicles[left], &s.vehicles[right]
-		i, j := assigned[a.Pod.ID], assigned[b.Pod.ID]
-		if i < 0 || j < 0 || !s.swapEligible(a, &s.waiting[i]) || !s.swapEligible(b, &s.waiting[j]) {
-			c.stats.IneligiblePairs++
-			continue
-		}
-		if c.cooldown[a.Pod.ID] > s.tick || c.cooldown[b.Pod.ID] > s.tick {
-			c.stats.CooldownPairs++
-			continue
-		}
-		if s.waiting[i].request.From == s.waiting[j].request.From {
-			c.stats.SameOriginPairs++
-			continue
-		}
-		evaluated++
-		c.stats.RoutePairs++
-		if s.tryPickupSwap(i, j) {
+		if s.checkPickupPair(assigned, left, right) {
+			s.parkUnclaimedReleased()
 			return
 		}
 	}
@@ -136,10 +129,16 @@ func (c *pickupSwapController) nextPair(n int) (int, int) {
 }
 
 func (s *Simulation) swapEligible(v *vehicle, trip *waitingTrip) bool {
-	if !releasable(v) || v.released || v.buffered || v.RidersAboard() != 0 ||
+	if !releasable(v) || v.released || v.RidersAboard() != 0 ||
 		trip.request.Completed || trip.request.PodID != v.Pod.ID ||
 		v.RelocatingTo != trip.request.From || v.destinationStation != trip.request.From {
 		return false
+	}
+	if v.buffered {
+		plan, ok := s.bufferPlan(v)
+		if !ok || v.reservedThrough >= plan.first {
+			return false
+		}
 	}
 	_, _, ok := s.divertStart(v)
 	return ok
@@ -157,16 +156,20 @@ func (s *Simulation) tryPickupSwap(i, j int) bool {
 		c.stats.RouteFailures++
 		return false
 	}
-	oldA, oldB := s.pickupSeconds(a, a.Route), s.pickupSeconds(b, b.Route)
+	oldA, oldB := s.assignedPickupSeconds(a), s.assignedPickupSeconds(b)
 	newA, newB := s.pickupSeconds(a, routeA), s.pickupSeconds(b, routeB)
 	if !pickupSwapImproves(oldA, oldB, newA, newB) {
 		c.stats.NoBenefitPairs++
 		return false
 	}
+	s.recordPickupReassignment(s.waiting[i].request, b.Pod.ID, oldA, newB)
+	s.recordPickupReassignment(s.waiting[j].request, a.Pod.ID, oldB, newA)
 	// Neither redirect can fail. Both prepared routes keep their pod's
 	// reserved lanes, and unused destination claims are released normally.
 	s.redirectPickupSwap(a, redirection{route: routeA, berth: berthA, station: s.waiting[j].request.From})
 	s.redirectPickupSwap(b, redirection{route: routeB, berth: berthB, station: s.waiting[i].request.From})
+	s.bufferPickup(a)
+	s.bufferPickup(b)
 	s.waiting[i].request.PodID, s.waiting[j].request.PodID = b.Pod.ID, a.Pod.ID
 	for _, index := range []int{i, j} {
 		trip := &s.waiting[index]
@@ -186,7 +189,7 @@ func pickupSwapImproves(oldA, oldB, newA, newB float64) bool {
 			return false
 		}
 	}
-	return newB <= oldA+1e-9 && newA <= oldB+1e-9 && oldA+oldB-newA-newB >= pickupSwapMinimumGain
+	return newB < oldA-1e-9 && newA < oldB-1e-9 && oldA+oldB-newA-newB >= pickupSwapMinimumGain
 }
 
 func (s *Simulation) redirectPickupSwap(v *vehicle, to redirection) {

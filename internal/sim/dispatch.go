@@ -167,6 +167,11 @@ func (s *Simulation) dispatch() {
 			}
 			trip.request.PodID = v.Pod.ID
 			assigned[v.Pod.ID] = true
+			if s.reassignPickup(i) {
+				pass.begin(s.waiting)
+				assigned = pass.assigned
+				v = s.findVehicle(trip.request.PodID)
+			}
 		}
 		if v.Pod.Activity == Idle && v.Pod.StationID == trip.request.From {
 			pass.reset()

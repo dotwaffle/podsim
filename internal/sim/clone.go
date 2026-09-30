@@ -26,6 +26,7 @@ func (s *Simulation) Clone() *Simulation {
 	if s.pickupSwaps != nil {
 		c.pickupSwaps = new(*s.pickupSwaps)
 		c.pickupSwaps.cooldown = maps.Clone(s.pickupSwaps.cooldown)
+		c.pickupSwaps.records = slices.Clone(s.pickupSwaps.records)
 	}
 	if s.demo != nil {
 		c.demo = new(*s.demo)

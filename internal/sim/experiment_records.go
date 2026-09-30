@@ -42,13 +42,16 @@ type NodePass struct {
 	Node string `json:"Node"`
 }
 
-// SetExperimentRecords turns the records of RequestTimings, NodePasses and
-// SeatScreen on or off. They are off by default, so a long server session
+// SetExperimentRecords controls RequestTimings, NodePasses, SeatScreen, and
+// PickupReassignments. They are off by default, so a long server session
 // does not keep a record for each request and each lane. The records do not
 // change the simulation. Turning them off clears them.
 func (s *Simulation) SetExperimentRecords(enabled bool) {
 	s.recordExperiments = enabled
 	if !enabled {
+		if s.pickupSwaps != nil {
+			s.pickupSwaps.records = nil
+		}
 		s.requestBoardings, s.requestCompletions, s.nodePasses = nil, nil, nil
 		s.seatScreen = SeatScreen{}
 		// The census flags of the waiting trips go with the counters, so
