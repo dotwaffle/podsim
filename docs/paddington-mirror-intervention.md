@@ -63,6 +63,7 @@ One-second observations can miss movement between samples and do not prove conti
 The longest sampled stop spans 68 observations in the mirrored network with earlier Paddington, despite its lower average wait.
 
 The result does not identify which lane geometry, certificate, or reservation rule causes the added queue.
+The later [reservation diagnosis](paddington-reservation-diagnosis.md) records actual guard failures and predecessor-frontier limits without changing the rules.
 It does not establish a platoon safety defect or support weaker clearance rules.
 It also does not qualify sustained capacity, other demand bands, or LondonFull.
 The project geometry, platoon defaults, protocol, and saved format remain unchanged.
