@@ -51,7 +51,8 @@ Its cached stream elapsed time differs by about 0.5%, with about 2.8% more proce
 The comparison command defaults to GOGC 400 when its environment does not set a value.
 The server does not override Go's default of 100.
 A server environment can select another value.
-Further routing and live Chrome measurements should precede a change to either default.
+The [route search study](route-search-performance.md) measures the next optimization on the cached baseline.
+Live Chrome measurements should precede a change to either default.
 Both defaults remain unchanged.
 
 The [CSV](measurements/pickup-bounds-cache.csv) records the six means.
