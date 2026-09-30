@@ -1,0 +1,9 @@
+arm,completed,unfinished,mean_wait_seconds,frontier_attempts,stationary_frontier_pod_seconds,stationary_episodes,longest_stationary_episode_seconds,moving_leader_attempts,stationary_leader_attempts
+central-early-r10-s1-old-virtual,2893,706,4223.8265490414005,906552,7448.516666666666,9748,18.566666666666666,327553,578999
+central-early-r10-s1-old-off,2638,961,5057.99501713439,0,0.0,0,0,0,0
+central-early-r10-s1-current-virtual,2660,939,4966.617551171622,8228945,85622.45,71766,23.783333333333335,2315159,5913786
+central-early-r10-s1-current-off,2646,953,5033.933236084097,0,0.0,0,0,0,0
+central-early-r10-s2-old-virtual,2896,703,4106.692567379828,873684,7165.35,9463,18.583333333333332,317776,555908
+central-early-r10-s2-old-off,2705,894,4895.693586181346,0,0.0,0,0,0,0
+central-early-r10-s2-current-virtual,2760,839,4694.7011345744195,6285076,65025.05,55800,24.233333333333334,1742682,4542394
+central-early-r10-s2-current-off,2709,890,4886.428670000926,0,0.0,0,0,0,0
