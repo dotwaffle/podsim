@@ -2219,7 +2219,7 @@ test("add berth on a generated london station extends its berth chain", needsGo,
   // The row crosses a guideway at Blackfriars, so the editor does not add it.
   const result = editor.addBerth(config, "940GZZLUBKF");
   assert.equal(result.config, config);
-  assert.equal(result.error, "No space for another berth at Blackfriars. New lane 940GZZLUBKF-03-arrival-link would cross lane london-link-027-ab-2.");
+  assert.equal(result.error, "No space for another berth at Blackfriars. New lane 940GZZLUBKF-03-departure-link would cross lane london-link-027-ab-2.");
 });
 
 // kingsCrossRow is the third berth row of King's Cross St. Pancras in the
@@ -2227,9 +2227,9 @@ test("add berth on a generated london station extends its berth chain", needsGo,
 // berths, the generator does not move a node of the london preset.
 const kingsCrossRow = {
   nodes: [
-    { ID: "940GZZLUKSX-03-arrival", Position: { X: -82.56060486235629, Y: -2792.949682482553 } },
+    { ID: "940GZZLUKSX-03-arrival", Position: { X: 45.99691707495151, Y: -2946.1585711063485 } },
     { ID: "940GZZLUKSX-03-node", Position: { X: -18.281843893702387, Y: -2869.554126794451 } },
-    { ID: "940GZZLUKSX-03-departure", Position: { X: 45.99691707495151, Y: -2946.1585711063485 } },
+    { ID: "940GZZLUKSX-03-departure", Position: { X: -82.56060486235629, Y: -2792.949682482553 } },
   ],
   lanes: [
     ["arrival-link", "940GZZLUKSX-02-arrival", "940GZZLUKSX-03-arrival", "berth-access"],
