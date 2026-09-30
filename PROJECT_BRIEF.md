@@ -30,6 +30,11 @@ The original `london` selector is now `london-central`.
 
 The [six-hour LondonFull screen](docs/london-full-sustained.md) finds growing backlogs at 15 and 20 requests per minute.
 Experimental station buffers do not resolve that overload.
+The [combined controller study](docs/london-full-controller-sustained.md) compares 24 arms with matched requests and physical restores.
+Its late backlog stays nearly flat at 10/min, but grows under every policy at 15 and 20/min.
+The [12/min four-seed extension](docs/london-full-controller-rate12.md) and [13/min focused comparison](docs/london-full-controller-rate13.md) also retain nearly flat late backlogs.
+At [14/min](docs/london-full-controller-rate14.md), baseline seed 2 grows a backlog, while baseline seed 1 and both combined-policy seeds remain nearly flat.
+Individual wait regressions still prevent an adoption recommendation.
 The [paired mirrored-layout study](docs/station-mirror-load.md) passes its sampled safety and 48 physical-restore checks.
 Service results are mixed, with higher LondonCentral Early waits under mirrored geometry.
 The [Paddington reservation diagnosis](docs/paddington-reservation-diagnosis.md) identifies predecessor-frontier limits as most observed shared-guard failures in two Central schedules.
@@ -50,9 +55,11 @@ The [pickup-bound cache measurements](docs/pickup-bounds-cache-performance.md) s
 They do not establish live playback speed or a capacity improvement.
 [Reusable admission storage](docs/admission-work-performance.md) lowers allocations and usually CPU in paired equal-work studies.
 The [live follow-up](docs/admission-live-performance.md) sustains approximately 60x with GC 100 and 400 in short one-client runs.
+The [finishing-pod bounds](docs/finishing-pod-bounds-performance.md) reduce Full CPU use by about 14% in short matched live runs.
 The server retains GOGC 100 and the comparison command retains 400.
 The [journey page cache](docs/journey-page-cache-performance.md) and [label cache](docs/label-measure-cache-performance.md) lower measured page script time.
 Total software-rendered browser CPU changes little.
+The [label admission follow-up](docs/label-admission-performance.md) avoids repeated cache clears when visible labels exceed capacity.
 The [publisher timer](docs/publisher-cadence-performance.md) restores measured delivery toward 20 Hz at higher CPU and traffic cost.
 
 Experimental [station approach buffers](docs/station-buffer-state-proposal.md) and [pickup swaps](docs/pickup-reassignment.md) remain disabled by default.
@@ -64,6 +71,9 @@ The [combined dispatch qualification](docs/dispatch-policy-qualification.md) rec
 The [compatible decoder qualification](docs/stream-decoder-qualification.md) measures lower decode and apply time without a whole-browser CPU gain.
 The [sustained pickup-swap study](docs/pickup-swap-sustained.md) lowers average waits and empty distance in its tested pairs, but every arm still grows a backlog.
 Its [matched-request diagnosis](docs/pickup-request-diagnosis.md) separates unfinished requests from completed maxima and retains actual same-request regressions.
+The [selected service-tail cases](docs/pickup-tail-cases.md) trace earlier fleet divergence and longer pickup travel with little sampled stopping.
+The [selected exclusions](docs/pickup-local-intervention.md) show useful local swaps within those histories, with mixed effects on other requests.
+The separate [Stratford diagnosis](docs/pickup-seed4-tail.md) captures reciprocal waits at an intermediate berth and identifies an open routing defect.
 
 Sharing remains off by default.
 The opt-in `reassign-existing` join policy and guarded-positioning follow-up still fail adoption rules.
@@ -426,7 +436,7 @@ See [docs/london.md](docs/london.md) and [docs/qualification.md](docs/qualificat
 
 The network does not include stored tunnel depth or map pixels.
 The optional live map supplies a geographic backdrop.
-Automatic guideway generation and editable OSM vectors remain future work.
+Automatic guideway generation and editable OSM vectors are shelved at the user's request.
 Local georeferenced image import is implemented and preserves frame and attribution data.
 LondonFull is a separate generated preset with 269 passenger sites and 2024 endpoint demand.
 Its [308-arm post-fix study](docs/london-full-postfix.md) repeats the original 302 arms and adds six conditional AM peak cases.
@@ -440,6 +450,19 @@ The London AM peak sample now runs the separation oracle once per simulated seco
 
 Each station lane also identifies its approach, entry, berth access, through, departure, or exit role.
 Snapshots and the pod inspector use these roles to report station maneuvers without changing the existing traffic controller.
+
+### Intermediate berth routing
+
+The [Stratford diagnosis](docs/pickup-seed4-tail.md) records a stalled empty pod whose Leyton route crosses a Stratford berth.
+That pod blocks the Stratford berth's arriving claimant, which owns the berth and blocks the first pod.
+The diagnosis identifies this cycle in a captured snapshot, without changing routing or reservation rules.
+
+Qualify routes that avoid intermediate berths before applying a restriction.
+Treat direct searches and cached station searches consistently.
+Preserve directed reachability, committed route prefixes, and existing saved physical routes.
+Define compatibility for authored layouts that lack an independent through route.
+Keep berth ownership and reservation guards intact.
+This work addresses route validity separately from the parked congestion-cost experiments below.
 
 ### Congestion-aware routing
 
