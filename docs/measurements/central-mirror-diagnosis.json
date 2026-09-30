@@ -1,0 +1,346 @@
+{
+  "manifest": {
+    "sourceCommit": "7cd5fe9",
+    "projects": {
+      "old": "/home/dotwaffle/.cache/agents/podsim/mirrored-load-20260930/old/central.json",
+      "current": "/home/dotwaffle/.cache/agents/podsim/mirrored-load-20260930/current/central.json"
+    },
+    "expectedResults": "/home/dotwaffle/.cache/agents/podsim/mirrored-load-20260930",
+    "jobs": [
+      {
+        "preset": "central",
+        "band": "early",
+        "rate": 10,
+        "seed": 1,
+        "variant": "old",
+        "mode": "virtual",
+        "name": "central-early-r10-s1-old-virtual"
+      },
+      {
+        "preset": "central",
+        "band": "early",
+        "rate": 10,
+        "seed": 1,
+        "variant": "current",
+        "mode": "virtual",
+        "name": "central-early-r10-s1-current-virtual"
+      },
+      {
+        "preset": "central",
+        "band": "early",
+        "rate": 10,
+        "seed": 1,
+        "variant": "old",
+        "mode": "off",
+        "name": "central-early-r10-s1-old-off"
+      },
+      {
+        "preset": "central",
+        "band": "early",
+        "rate": 10,
+        "seed": 1,
+        "variant": "current",
+        "mode": "off",
+        "name": "central-early-r10-s1-current-off"
+      },
+      {
+        "preset": "central",
+        "band": "early",
+        "rate": 10,
+        "seed": 2,
+        "variant": "old",
+        "mode": "virtual",
+        "name": "central-early-r10-s2-old-virtual"
+      },
+      {
+        "preset": "central",
+        "band": "early",
+        "rate": 10,
+        "seed": 2,
+        "variant": "current",
+        "mode": "virtual",
+        "name": "central-early-r10-s2-current-virtual"
+      },
+      {
+        "preset": "central",
+        "band": "early",
+        "rate": 10,
+        "seed": 2,
+        "variant": "old",
+        "mode": "off",
+        "name": "central-early-r10-s2-old-off"
+      },
+      {
+        "preset": "central",
+        "band": "early",
+        "rate": 10,
+        "seed": 2,
+        "variant": "current",
+        "mode": "off",
+        "name": "central-early-r10-s2-current-off"
+      }
+    ],
+    "GOGC": 200,
+    "GOMAXPROCS": 2,
+    "workers": 2,
+    "perArmWallCap": 850,
+    "testTimeout": "830s",
+    "wallDeadlineSeconds": 3700,
+    "arrivalSeconds": 21600,
+    "maxSimSeconds": 25200,
+    "restoreChecks": false,
+    "sparseExportSeconds": [
+      10800,
+      21600
+    ],
+    "sampleEverySimSeconds": 1,
+    "defaultsChanged": false,
+    "fileSha256": {
+      "/home/dotwaffle/.cache/agents/podsim/central-mirror-diagnosis-20260930/study.test": "d583f4a01611a0b62ef0d19eb8f618eaf3e24bc8022719ff89402941e9842997",
+      "/home/dotwaffle/.cache/agents/podsim/central-mirror-diagnosis-20260930/study_test.go": "6ad32a693d4e87335ec312cf408c49fa2099dee0ba1a1433fc2adb92431dbb1e",
+      "/home/dotwaffle/.cache/agents/podsim/central-mirror-diagnosis-20260930/lanes_test.go": "6dc665fcfa198f2e8059314225f782ea77047532487b48f9735599007889146b",
+      "/home/dotwaffle/.cache/agents/podsim/central-mirror-diagnosis-20260930/restore_test.go": "259d5b848a20d3592d8a0136d753db08d4179bdec2837daa37cab3d9b058e829",
+      "/home/dotwaffle/.cache/agents/podsim/central-mirror-diagnosis-20260930/overlay.json": "82723bfd4c7abadb4d77863ee446f4450bc33996d3008f5ac55c874bcb003d5d",
+      "/home/dotwaffle/.cache/agents/podsim/central-mirror-diagnosis-20260930/run.py": "cd3ca979a94218e99a5a9364c7f22bd77f935caa5a26d0f89d1521f419e60c7b",
+      "/home/dotwaffle/.cache/agents/podsim/central-mirror-diagnosis-20260930/pilot-results.json": "3c08367a7e22e6eae43740537c6a4c6ff66cf6a1029226ba6acf45d343eb8519",
+      "/home/dotwaffle/.cache/agents/podsim/mirrored-load-20260930/old/central.json": "b805c990d8278975e81d2a8569da985638eb4d8ddbf6e695e0b0c75daae34a0d",
+      "/home/dotwaffle/.cache/agents/podsim/mirrored-load-20260930/current/central.json": "546cd5b2c32a5551f7cb3cc44d2e012ca1f32bba8cc376b77d10395a7bd6b4ad",
+      "/home/dotwaffle/.cache/agents/podsim/mirrored-load-20260930/central-early-r10-s1-old.json": "405dd775ea4220f6d9c5a24602c403b5150a8064586ac8729ebf51c1422dc8a6",
+      "/home/dotwaffle/.cache/agents/podsim/mirrored-load-20260930/central-early-r10-s1-old.schedule.json": "5485e6e615efc80d2da81faaf8d3b5059aeebdcbac97a62eef8bea5fd1a03913",
+      "/home/dotwaffle/.cache/agents/podsim/mirrored-load-20260930/central-early-r10-s1-current.json": "29918c67be21b4e1090950c220c69fd638afe171d6dd40d7b165bc898b868896",
+      "/home/dotwaffle/.cache/agents/podsim/mirrored-load-20260930/central-early-r10-s1-current.schedule.json": "5485e6e615efc80d2da81faaf8d3b5059aeebdcbac97a62eef8bea5fd1a03913",
+      "/home/dotwaffle/.cache/agents/podsim/mirrored-load-20260930/central-early-r10-s2-old.json": "9c560e1eeff658dc3d707fc479dcccdad3cf35f6990275fb9cb12764eae78b2f",
+      "/home/dotwaffle/.cache/agents/podsim/mirrored-load-20260930/central-early-r10-s2-old.schedule.json": "0f277396bd44ca738a4507ecfb2be6f1d585beb26070ba5e5ef784eac514f623",
+      "/home/dotwaffle/.cache/agents/podsim/mirrored-load-20260930/central-early-r10-s2-current.json": "4a116a76baa45b04025def2031ff46e31dd43de6f20c07155f829b9d11c586b1",
+      "/home/dotwaffle/.cache/agents/podsim/mirrored-load-20260930/central-early-r10-s2-current.schedule.json": "0f277396bd44ca738a4507ecfb2be6f1d585beb26070ba5e5ef784eac514f623"
+    }
+  },
+  "rawSha256": {
+    "central-early-r10-s1-old-virtual.json-h3.state.json.gz": "8f64051829deeb11d22ee2ace5c14702c966b75c811ea52fcfd46630fe89c765",
+    "central-early-r10-s1-old-virtual.json-h6.state.json.gz": "1397b3f7fdafd65bb92f57a423c2658c602d8f78b33b38533e678d0dcd15cd2b",
+    "central-early-r10-s1-old-virtual.json": "c8ffd806831d2e83f09208c044fca61529036e783f4a358aff981a50aef80e57",
+    "central-early-r10-s1-current-virtual.json-h3.state.json.gz": "f559fac5b365b7c8718aed7dc157d2591a5c6c2b43a7384bf7c4caa25aec8ec8",
+    "central-early-r10-s1-current-virtual.json-h6.state.json.gz": "22f1d9a9d944e58d453b84bb026419d8ab897b8e4ccdbff9d5f01370bcdee03b",
+    "central-early-r10-s1-current-virtual.json": "f0e36f6fbbd6a8a31e112cd4fbef4bb677c295ac2a480ae3ee34af130d82c601",
+    "central-early-r10-s1-old-off.json-h3.state.json.gz": "f98b10a2a5928ebc6e2c91cf73f07fa59b711a4649784cb4236fa81d761dbdf7",
+    "central-early-r10-s1-old-off.json-h6.state.json.gz": "85856634945e9706cf52c61f90a8da3ed8277e16d48798c9e40b374dbbb6ae22",
+    "central-early-r10-s1-old-off.json": "faeddbeb4298fe9c0e47edc2a4a0f31a64e951a73e8ed1ba8460b7bd67c056e6",
+    "central-early-r10-s1-current-off.json-h3.state.json.gz": "8a2ef73d362ea915bb441ce80436c3b66ea494735f8d255aeaca2cf6205a8d9a",
+    "central-early-r10-s1-current-off.json-h6.state.json.gz": "12cea0486ed0918d7d3f265487752033c7fe9dec4c1863722f3bbf49ead46bbd",
+    "central-early-r10-s1-current-off.json": "31a9a3c48771d011eb31222f520f454ee70332e1b9722844eb5c098d0b942fbb",
+    "central-early-r10-s2-old-virtual.json-h3.state.json.gz": "f2e373d2be7661907de221cb5af1c4c8374c8f8802665545fc7555d5ab1ec9fd",
+    "central-early-r10-s2-old-virtual.json-h6.state.json.gz": "a20fc928694980dcb56706ca4964c4cdf6103d8df33cfca8620cc7f1ff7baa48",
+    "central-early-r10-s2-old-virtual.json": "82a6202b0d94da8acefcf8aaf161c3f3e6290976147ee61c5062c10687e5f20b",
+    "central-early-r10-s2-current-virtual.json-h3.state.json.gz": "13fd0d176e3edcbd88c4a21d30a57aa8d7cf160d5496e604777fbbb6a5690062",
+    "central-early-r10-s2-current-virtual.json-h6.state.json.gz": "7673ad3b55c46d7fd89804bc6f4686c29b0873a941cdc5b68cd9cc935c28d85b",
+    "central-early-r10-s2-current-virtual.json": "dc11227b01edb527729c1d1fc4c5fadb6704f7459c6388be49a1110ca8f78b71",
+    "central-early-r10-s2-old-off.json-h3.state.json.gz": "3ce514d741d8fcc1ff77b1c1b77ce25a9f465f29e356465401d9e3b7805080b7",
+    "central-early-r10-s2-old-off.json-h6.state.json.gz": "c846bad0871593c4cc7ed4aee7ba69d08118c7a3d209c13724c9e43961aaf48d",
+    "central-early-r10-s2-old-off.json": "4fb65d96eab9b39d9e352f314be3209ebc04daa7fe525fb78d92d7a014687c26",
+    "central-early-r10-s2-current-off.json-h3.state.json.gz": "a8b54d4325f7273b10287526133c5c8c2f6cbf5674cc768e41124c46be847240",
+    "central-early-r10-s2-current-off.json-h6.state.json.gz": "fb0176fcdd7aef4ccba7110afe689d8d99010dc97b5c86bbe7ad697f44b0e7f9",
+    "central-early-r10-s2-current-off.json": "fd9ecda5a568467fc12273bb867f6da576ec0c7a0204d874244ddd69d296172a"
+  },
+  "pairs": [
+    {
+      "seed": 1,
+      "status": "passed",
+      "schedulesEqual": true,
+      "virtualResultsExact": true,
+      "scheduleSha256": "5485e6e615efc80d2da81faaf8d3b5059aeebdcbac97a62eef8bea5fd1a03913"
+    },
+    {
+      "seed": 2,
+      "status": "passed",
+      "schedulesEqual": true,
+      "virtualResultsExact": true,
+      "scheduleSha256": "0f277396bd44ca738a4507ecfb2be6f1d585beb26070ba5e5ef784eac514f623"
+    }
+  ],
+  "parentObservations": 201600,
+  "arms": [
+    {
+      "arm": "central-early-r10-s1-old-virtual",
+      "parentSamples": 25200,
+      "paddingtonLinkPodAheadSamples": 21470,
+      "longestSampledEpisode": 55,
+      "states": [
+        {
+          "Tick": 648000,
+          "Coupled": 10,
+          "Links": 5,
+          "Draining": 0,
+          "File": "/home/dotwaffle/.cache/agents/podsim/central-mirror-diagnosis-20260930/central-early-r10-s1-old-virtual.json-h3.state.json.gz"
+        },
+        {
+          "Tick": 1296000,
+          "Coupled": 17,
+          "Links": 10,
+          "Draining": 2,
+          "File": "/home/dotwaffle/.cache/agents/podsim/central-mirror-diagnosis-20260930/central-early-r10-s1-old-virtual.json-h6.state.json.gz"
+        }
+      ]
+    },
+    {
+      "arm": "central-early-r10-s1-current-virtual",
+      "parentSamples": 25200,
+      "paddingtonLinkPodAheadSamples": 158574,
+      "longestSampledEpisode": 55,
+      "states": [
+        {
+          "Tick": 648000,
+          "Coupled": 18,
+          "Links": 12,
+          "Draining": 0,
+          "File": "/home/dotwaffle/.cache/agents/podsim/central-mirror-diagnosis-20260930/central-early-r10-s1-current-virtual.json-h3.state.json.gz"
+        },
+        {
+          "Tick": 1296000,
+          "Coupled": 16,
+          "Links": 10,
+          "Draining": 0,
+          "File": "/home/dotwaffle/.cache/agents/podsim/central-mirror-diagnosis-20260930/central-early-r10-s1-current-virtual.json-h6.state.json.gz"
+        }
+      ]
+    },
+    {
+      "arm": "central-early-r10-s1-old-off",
+      "parentSamples": 25200,
+      "paddingtonLinkPodAheadSamples": 0,
+      "longestSampledEpisode": 37,
+      "states": [
+        {
+          "Tick": 648000,
+          "Coupled": 0,
+          "Links": 0,
+          "Draining": 0,
+          "File": "/home/dotwaffle/.cache/agents/podsim/central-mirror-diagnosis-20260930/central-early-r10-s1-old-off.json-h3.state.json.gz"
+        },
+        {
+          "Tick": 1296000,
+          "Coupled": 0,
+          "Links": 0,
+          "Draining": 0,
+          "File": "/home/dotwaffle/.cache/agents/podsim/central-mirror-diagnosis-20260930/central-early-r10-s1-old-off.json-h6.state.json.gz"
+        }
+      ]
+    },
+    {
+      "arm": "central-early-r10-s1-current-off",
+      "parentSamples": 25200,
+      "paddingtonLinkPodAheadSamples": 2,
+      "longestSampledEpisode": 41,
+      "states": [
+        {
+          "Tick": 648000,
+          "Coupled": 0,
+          "Links": 0,
+          "Draining": 0,
+          "File": "/home/dotwaffle/.cache/agents/podsim/central-mirror-diagnosis-20260930/central-early-r10-s1-current-off.json-h3.state.json.gz"
+        },
+        {
+          "Tick": 1296000,
+          "Coupled": 0,
+          "Links": 0,
+          "Draining": 0,
+          "File": "/home/dotwaffle/.cache/agents/podsim/central-mirror-diagnosis-20260930/central-early-r10-s1-current-off.json-h6.state.json.gz"
+        }
+      ]
+    },
+    {
+      "arm": "central-early-r10-s2-old-virtual",
+      "parentSamples": 25200,
+      "paddingtonLinkPodAheadSamples": 20717,
+      "longestSampledEpisode": 58,
+      "states": [
+        {
+          "Tick": 648000,
+          "Coupled": 12,
+          "Links": 7,
+          "Draining": 0,
+          "File": "/home/dotwaffle/.cache/agents/podsim/central-mirror-diagnosis-20260930/central-early-r10-s2-old-virtual.json-h3.state.json.gz"
+        },
+        {
+          "Tick": 1296000,
+          "Coupled": 10,
+          "Links": 6,
+          "Draining": 3,
+          "File": "/home/dotwaffle/.cache/agents/podsim/central-mirror-diagnosis-20260930/central-early-r10-s2-old-virtual.json-h6.state.json.gz"
+        }
+      ]
+    },
+    {
+      "arm": "central-early-r10-s2-current-virtual",
+      "parentSamples": 25200,
+      "paddingtonLinkPodAheadSamples": 124296,
+      "longestSampledEpisode": 55,
+      "states": [
+        {
+          "Tick": 648000,
+          "Coupled": 28,
+          "Links": 18,
+          "Draining": 0,
+          "File": "/home/dotwaffle/.cache/agents/podsim/central-mirror-diagnosis-20260930/central-early-r10-s2-current-virtual.json-h3.state.json.gz"
+        },
+        {
+          "Tick": 1296000,
+          "Coupled": 22,
+          "Links": 13,
+          "Draining": 0,
+          "File": "/home/dotwaffle/.cache/agents/podsim/central-mirror-diagnosis-20260930/central-early-r10-s2-current-virtual.json-h6.state.json.gz"
+        }
+      ]
+    },
+    {
+      "arm": "central-early-r10-s2-old-off",
+      "parentSamples": 25200,
+      "paddingtonLinkPodAheadSamples": 0,
+      "longestSampledEpisode": 36,
+      "states": [
+        {
+          "Tick": 648000,
+          "Coupled": 0,
+          "Links": 0,
+          "Draining": 0,
+          "File": "/home/dotwaffle/.cache/agents/podsim/central-mirror-diagnosis-20260930/central-early-r10-s2-old-off.json-h3.state.json.gz"
+        },
+        {
+          "Tick": 1296000,
+          "Coupled": 0,
+          "Links": 0,
+          "Draining": 0,
+          "File": "/home/dotwaffle/.cache/agents/podsim/central-mirror-diagnosis-20260930/central-early-r10-s2-old-off.json-h6.state.json.gz"
+        }
+      ]
+    },
+    {
+      "arm": "central-early-r10-s2-current-off",
+      "parentSamples": 25200,
+      "paddingtonLinkPodAheadSamples": 96,
+      "longestSampledEpisode": 37,
+      "states": [
+        {
+          "Tick": 648000,
+          "Coupled": 0,
+          "Links": 0,
+          "Draining": 0,
+          "File": "/home/dotwaffle/.cache/agents/podsim/central-mirror-diagnosis-20260930/central-early-r10-s2-current-off.json-h3.state.json.gz"
+        },
+        {
+          "Tick": 1296000,
+          "Coupled": 0,
+          "Links": 0,
+          "Draining": 0,
+          "File": "/home/dotwaffle/.cache/agents/podsim/central-mirror-diagnosis-20260930/central-early-r10-s2-current-off.json-h6.state.json.gz"
+        }
+      ]
+    }
+  ],
+  "limits": [
+    "Two seeds, Central Early only, six-hour arrivals and seven-hour cutoff",
+    "One-second stopped-pod observations and consecutive sampled episodes, not continuous deadlock traces",
+    "RouteSuccessor uses a unique current-lane occurrence in complete assigned route; repeated lanes unresolved",
+    "No new restore qualification; sparse snapshots exported only",
+    "No default, project, protocol, saved format, or adoption change"
+  ]
+}

@@ -61,6 +61,7 @@ No run skips a request.
 
 Central Early demand leaves more unfinished requests with mirroring, despite less empty travel.
 The study does not establish the cause of that regression.
+The [Central Early diagnosis](central-mirror-diagnosis.md) compares platoons off and virtual and locates the largest added queue toward Paddington.
 Full at 15/minute improves for seed 2 and regresses for seed 1.
 Fewer visual crossings therefore do not establish a throughput benefit.
 These six-hour runs do not replace the historical finite-arrival qualification envelope.
