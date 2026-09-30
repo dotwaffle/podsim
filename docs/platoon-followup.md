@@ -47,14 +47,16 @@ A regression occurs when the off arm finishes by 3,600 seconds and its virtual c
 AM peak at 24 requests/minute, seed 2, changes the historical recovery comparison.
 The current off arm finishes at 3,547 seconds, compared with 3,681 seconds in the historical measurement.
 The virtual arm remains at 3,696 seconds and matches every common historical measurement field.
-The improved off baseline now crosses the one-hour threshold. The virtual arm does not.
+The improved off baseline now crosses the one-hour threshold.
+The virtual arm does not.
 This pair fails the recovery rule on the current source.
 
 ## Rail-hub and default-London controls
 
 Rail-hub uses seeds 1 through 5, hub-burst demand, a five-second request interval, and a burst size of twelve.
 It has five minutes of arrivals and a 30-minute total cap.
-Each rail-hub arm schedules 59 requests. The burst size groups these requests and does not multiply their number.
+Each rail-hub arm schedules 59 requests.
+The burst size groups these requests and does not multiply their number.
 Default LondonCentral has 114 pods and uses AM peak rates of 12 and 13 requests/minute with seeds 1 through 3.
 These London controls use the same 30-minute arrival window and 65-minute total cap as the main matrix.
 
@@ -97,7 +99,8 @@ The first two pilot results are reused only with matching job, project, and bina
 
 This follow-up does not repeat the historical pre-platoon snapshot equivalence test or the uninstrumented CPU comparison.
 It therefore does not claim a new pass for all seven original adoption rules.
-Journey statistics include completed requests only. The dataset retains unfinished requests and failed recovery outcomes.
+Journey statistics include completed requests only.
+The dataset retains unfinished requests and failed recovery outcomes.
 
 [Per-arm measurements](measurements/platoon-followup.csv) and [metadata](measurements/platoon-followup.json) retain the full results.
 The [historical A/B](qualification.md#platoon-ab) remains a separate measurement record.

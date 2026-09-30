@@ -38,7 +38,7 @@ The planner first replays all historical arms.
 It then applies the original edge, boundary, candidate-screen, next-rate, and confirmation rules.
 A historical-data check reproduced the original 302-arm selection exactly.
 The new AM peak screens select fleet300 and fleet300-local for rate-15 tests with seeds 1 through 3.
-fleet300 recovers in two of three seeds, and fleet300-local recovers in one.
+The fleet300 candidate recovers in two of three seeds, and fleet300-local recovers in one.
 Neither qualifies for seeds 4 through 10 at that rate.
 This exploratory selection does not establish statistical significance or indefinitely sustainable demand.
 
