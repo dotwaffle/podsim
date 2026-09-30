@@ -196,5 +196,8 @@
       "cpuReductionPercent": 5.796358859747331,
       "wallReductionPercent": 5.642680683297197
     }
-  ]
+  ],
+  "comparisonCommandDefaultGOGC": 400,
+  "serverDefaultGOGC": 100,
+  "defaultsChanged": false
 }

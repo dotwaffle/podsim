@@ -48,8 +48,11 @@ Map storage adds to that bound.
 
 GOGC 200 uses much less peak heap than 400 in this fixture.
 Its cached stream elapsed time differs by about 0.5%, with about 2.8% more process CPU time.
-Further routing and live Chrome measurements should precede a change to the existing GOGC 400 setting.
-The setting remains unchanged.
+The comparison command defaults to GOGC 400 when its environment does not set a value.
+The server does not override Go's default of 100.
+A server environment can select another value.
+Further routing and live Chrome measurements should precede a change to either default.
+Both defaults remain unchanged.
 
 The [CSV](measurements/pickup-bounds-cache.csv) records the six means.
 The [metadata](measurements/pickup-bounds-cache.json) records identities, raw artifact location, and measurement limits.
