@@ -53,7 +53,9 @@ func (s *Simulation) SetFinishingPodWait(rule FinishingPodWait) error {
 // Network validation keeps each lane speed positive, so emptySeconds is not
 // negative. Thus the ETA of a busy pod is not less than the time before the
 // pod is available. When that time cannot win, the loop does not compute
-// the empty route.
+// the empty route. Immutable travel bounds can also exclude a candidate.
+// The bound can end at any berth and omits acceleration and braking.
+// Ties retain the exact route estimate and fleet order.
 func (s *Simulation) waitForFinishingPod(trip *waitingTrip, idle *vehicle, assigned map[string]bool) bool {
 	if s.finishingPodWait == FinishingPodWaitNone {
 		return false
@@ -81,6 +83,7 @@ func (s *Simulation) waitForFinishingPod(trip *waitingTrip, idle *vehicle, assig
 		holdSeconds = float64(holdUntil-s.tick) / TicksPerSecond
 	}
 	var best *vehicle
+	var bounds []float64
 	for i := range s.vehicles {
 		v := &s.vehicles[i]
 		if v == idle {
@@ -91,6 +94,13 @@ func (s *Simulation) waitForFinishingPod(trip *waitingTrip, idle *vehicle, assig
 			continue
 		}
 		if canWin := remaining < bestETA && remaining <= holdSeconds; !canWin {
+			continue
+		}
+		if bounds == nil {
+			bounds = s.stationPickupBounds(station.ID)
+		}
+		if index, found := s.graph.nodes[node]; found && index < len(bounds) &&
+			pickupCannotImprove(remaining+bounds[index], min(bestETA, holdSeconds)) {
 			continue
 		}
 		eta := remaining + s.emptySeconds(node, station.Berths[0].Node)
