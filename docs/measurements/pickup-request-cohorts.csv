@@ -1,0 +1,14 @@
+rate,seed,off_status,on_status,requests
+15,2,completed,completed,5041
+15,2,aboard,completed,137
+15,2,aboard,aboard,18
+15,2,completed,aboard,1
+15,2,pending,aboard,88
+15,2,pending,completed,86
+15,2,pending,pending,28
+20,2,completed,completed,4949
+20,2,aboard,completed,130
+20,2,aboard,aboard,9
+20,2,pending,completed,158
+20,2,pending,aboard,140
+20,2,pending,pending,1813

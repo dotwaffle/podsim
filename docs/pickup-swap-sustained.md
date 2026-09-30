@@ -84,3 +84,5 @@ No preset, policy default, saved-state contract, or wire API changes follow from
 [Per-arm results](measurements/pickup-swap-sustained.csv) retain the comparison fields and controller counters.
 [Study metadata](measurements/pickup-swap-sustained.json) records source identity, hashes, paired controls, and validation limits.
 Raw results and scripts are in `~/.cache/agents/podsim/pickup-swap-sustained-20260930/`.
+
+The later [matched-request diagnosis](pickup-request-diagnosis.md) explains the two larger completed maxima and retains same-request regressions and censored cohorts.
