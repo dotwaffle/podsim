@@ -154,6 +154,16 @@ func chainedParkingArrival() Network {
 
 func TestCommittedParkingAccessChainFinishesBeforePickup(t *testing.T) {
 	t.Parallel()
+	testCommittedStationAccessChainFinishesBeforePickup(t, true)
+}
+
+func TestCommittedPassengerAccessChainFinishesBeforePickup(t *testing.T) {
+	t.Parallel()
+	testCommittedStationAccessChainFinishesBeforePickup(t, false)
+}
+
+func testCommittedStationAccessChainFinishesBeforePickup(t *testing.T, parkingOnly bool) {
+	t.Helper()
 	for _, test := range []struct {
 		name, lane string
 		distance   float64
@@ -167,6 +177,11 @@ func TestCommittedParkingAccessChainFinishesBeforePickup(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
 			network := chainedParkingArrival()
+			for index := range network.Stations {
+				if network.Stations[index].ID == "parking" {
+					network.Stations[index].ParkingOnly = parkingOnly
+				}
+			}
 			fleet := []Placement{
 				{ID: "01", StationID: "market", BerthID: "market-1"},
 				{ID: "02", StationID: "garden", BerthID: "garden-1"},
@@ -186,6 +201,9 @@ func TestCommittedParkingAccessChainFinishesBeforePickup(t *testing.T) {
 			if moveErr := s.startEmptyMove(s.findVehicle("02"), emptyDestination{station: station.ID, berth: station.Berths[0], reserveBerth: true}); moveErr != nil {
 				t.Fatal(moveErr)
 			}
+			if !parkingOnly {
+				lead.released = true
+			}
 			if test.restore {
 				var result RestoreResult
 				s, result, err = RestoreState(RestoreStateInput{Network: network, Fleet: fleet, State: s.ExportState()})
@@ -196,7 +214,7 @@ func TestCommittedParkingAccessChainFinishesBeforePickup(t *testing.T) {
 				if test.lane == "parking-arrival-next" {
 					for _, lane := range lead.Route {
 						if lane.From == station.Entry {
-							t.Fatal("restored chain still includes the parking entry")
+							t.Fatal("restored chain still includes the station entry")
 						}
 					}
 				}
@@ -205,14 +223,14 @@ func TestCommittedParkingAccessChainFinishesBeforePickup(t *testing.T) {
 				t.Fatal(err)
 			}
 			if _, _, ok := s.pickupRoute(lead, "harbor"); ok {
-				t.Fatal("pickup route can leave a committed parking access chain")
+				t.Fatal("pickup route can leave a committed station access chain")
 			}
 			before := lead.Pod
 			if err := s.RequestTrip("harbor", "garden"); err != nil {
 				t.Fatal(err)
 			}
 			if lead.RelocatingTo != "parking" || lead.destination.ID != "parking-2" {
-				t.Fatalf("pod diverted inside shared parking access: %+v", lead.Vehicle)
+				t.Fatalf("pod diverted inside shared station access: %+v", lead.Vehicle)
 			}
 			if lead.Pod.Position != before.Position || lead.Pod.Speed != before.Speed || lead.Pod.LaneID != before.LaneID || lead.Pod.LaneDistance != before.LaneDistance {
 				t.Fatal("pickup changed the parking pod's motion")
@@ -267,6 +285,70 @@ func TestParkingArrivalReservationBoundary(t *testing.T) {
 			before := s.ExportState()
 			if _, _, ok := s.pickupRoute(v, "harbor"); ok == test.committed {
 				t.Fatalf("pickup candidacy is %v, want %v", ok, !test.committed)
+			}
+			if !reflect.DeepEqual(before, s.ExportState()) {
+				t.Fatal("pickup query changed simulation state")
+			}
+		})
+	}
+}
+
+func TestPassengerArrivalReservationBoundary(t *testing.T) {
+	t.Parallel()
+	for _, test := range []struct {
+		name      string
+		committed bool
+		restore   bool
+	}{
+		{name: "approaching entry"},
+		{name: "arrival reserved ahead", committed: true},
+		{name: "restored approach", restore: true},
+		{name: "restored approach after lookahead", committed: true, restore: true},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			network := chainedParkingArrival()
+			for index := range network.Stations {
+				if network.Stations[index].ID == "parking" {
+					network.Stations[index].ParkingOnly = false
+				}
+			}
+			fleet := []Placement{{ID: "01", StationID: "market", BerthID: "market-1"}}
+			s, err := NewFleet(network, fleet)
+			if err != nil {
+				t.Fatal(err)
+			}
+			v := s.findVehicle("01")
+			station, _ := s.station("parking")
+			if moveErr := s.startEmptyMove(v, emptyDestination{station: station.ID, berth: station.Berths[0], reserveBerth: true}); moveErr != nil {
+				t.Fatal(moveErr)
+			}
+			v.released = true
+			stepUntil(t, s, test.name, func() bool {
+				if v.Pod.LaneID != "return-to-parking" || v.reservedThrough < 0 {
+					return false
+				}
+				lane := v.blocks.at(v.reservedThrough).lane
+				return (lane.ID == "parking-arrival-link") == test.committed
+			})
+			wantCommitted := test.committed
+			if test.restore {
+				var result RestoreResult
+				s, result, err = RestoreState(RestoreStateInput{Network: network, Fleet: fleet, State: s.ExportState()})
+				if err != nil || result.Tier != RestorePhysical || len(result.Demoted) != 0 {
+					t.Fatalf("physical restore: result %+v, error %v", result, err)
+				}
+				v = s.findVehicle("01")
+				// Physical restore rebuilds the current footprint, not every
+				// live lookahead claim. The pod has not entered the access chain.
+				if lane := v.blocks.at(v.reservedThrough).lane.ID; lane != "return-to-parking" {
+					t.Fatalf("restored footprint ends on %s, want approach lane", lane)
+				}
+				wantCommitted = false
+			}
+			before := s.ExportState()
+			if _, _, ok := s.pickupRoute(v, "harbor"); ok == wantCommitted {
+				t.Fatalf("pickup candidacy is %v, want %v", ok, !wantCommitted)
 			}
 			if !reflect.DeepEqual(before, s.ExportState()) {
 				t.Fatal("pickup query changed simulation state")

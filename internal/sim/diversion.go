@@ -100,8 +100,8 @@ func (s *Simulation) candidateRouteParts(v *vehicle, stationID string, load func
 // divertStart returns the route prefix that a moving empty pod must keep
 // and the node where its new route can start. The prefix keeps every lane
 // touched by reserved track. Only departing or traveling pods can divert.
-// A pod must finish its committed berth inlet. A parking pod must finish
-// the full arrival chain once it reserves a lane leaving the parking entry.
+// A pod must finish its committed berth inlet and the full arrival chain
+// once it reserves a lane leaving the destination station's entry.
 // Pods in a platoon cannot divert because their links depend on the routes.
 func (s *Simulation) divertStart(v *vehicle) (int, string, bool) {
 	if v.Pod.Activity != Traveling && v.Pod.Activity != DepartingEmpty || v.coupled() {
@@ -118,7 +118,7 @@ func (s *Simulation) divertStart(v *vehicle) (int, string, bool) {
 	for i, lane := range v.Route {
 		// A new route inside the arrival chain could cross another berth
 		// that a following pod reserved, leaving both pods blocked.
-		if station.ParkingOnly && lane.From == station.Entry || lane.To == v.destination.Node {
+		if lane.From == station.Entry || lane.To == v.destination.Node {
 			return 0, "", false
 		}
 		distance += s.laneLength(lane)
@@ -130,7 +130,7 @@ func (s *Simulation) divertStart(v *vehicle) (int, string, bool) {
 	// A restored route can omit the entry lane already behind the pod.
 	// Check whether the remaining endpoint is inside the arrival chain.
 	// stationPath cannot pass a berth or a station boundary.
-	if station.ParkingOnly && from != station.Entry && from != station.Exit {
+	if from != station.Entry && from != station.Exit {
 		if _, err := s.stationPath(station.Entry, from); err == nil {
 			return 0, "", false
 		}
