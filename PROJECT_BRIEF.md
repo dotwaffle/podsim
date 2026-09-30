@@ -18,7 +18,7 @@ A layout check rejects lanes that come too near.
 Other station geometry options and the other experiments in Section 6 remain later work.
 See [README.md](README.md) for controls, validation commands, and current model limits.
 
-**Current work status, September 29, 2026:**
+**Current work status, September 30, 2026:**
 
 LondonCentral (`london-central`) retains the central qualification network and its 2019 demand.
 [LondonFull](docs/london-full.md) adds 269 Tube sites with 2024 endpoint demand.
@@ -27,6 +27,11 @@ Six historical cases improve recovery after the parking diversion fix.
 No fleet candidate established an all-ten recovery improvement at its next tested rate.
 These finite tests do not establish a sustainable capacity envelope.
 The original `london` selector is now `london-central`.
+
+The [six-hour LondonFull screen](docs/london-full-sustained.md) finds growing backlogs at 15 and 20 requests per minute.
+Experimental station buffers do not resolve that overload.
+The [paired mirrored-layout study](docs/station-mirror-load.md) passes its sampled safety and 48 physical-restore checks.
+Service results are mixed, with higher LondonCentral Early waits under mirrored geometry.
 
 The editor imports georeferenced PNG or JPEG backgrounds with stored bounds, projection, attribution, and an atomic undo step.
 Live OSM raster tiles provide a zoom-dependent backdrop in the editor and simulation.
@@ -39,6 +44,14 @@ The live viewer uses shared gzip WebSocket deltas, and explicit public-origin co
 Prepared network geometry speeds repeated isolated restores without changing the saved format or removing restore assertions.
 The renderer batches station summaries, and presentation snapshots reuse call-local lane marks.
 The restore and rendering optimizations preserve simulation behavior and existing protocol semantics.
+The [pickup-bound cache measurements](docs/pickup-bounds-cache-performance.md) show lower CPU use and allocations in an unpaced LondonFull probe.
+They do not establish live playback speed or a capacity improvement.
+
+Experimental [station approach buffers](docs/station-buffer-state-proposal.md) and [pickup swaps](docs/pickup-reassignment.md) remain disabled by default.
+They have no project, command, or editor controls.
+Buffered sessions use saved-state version 3 with explicit membership.
+Unbuffered sessions can retain version 2.
+Broader adoption requires separate qualification and a decision.
 
 Sharing remains off by default.
 The opt-in `reassign-existing` join policy and guarded-positioning follow-up still fail adoption rules.
