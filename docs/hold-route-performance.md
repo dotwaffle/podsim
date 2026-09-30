@@ -4,7 +4,7 @@ Skipping route assembly for availability-only pickup checks reduces measured Cen
 It saves about 1.4 GiB of allocations per simulated hour.
 LondonFull saves about 1.2 GiB, with a smaller CPU reduction of 0.9-1.2%.
 All 24 arms match their preset's final serialized simulation-state hash.
-These measurements do not establish a live playback improvement.
+A separate matched Chrome test keeps Central at 60x in both default-GOGC repetitions where the baseline reduces to 15x.
 
 ## Change and equivalence
 
@@ -59,8 +59,45 @@ The probes make no network-rate claim from those small byte differences.
 
 The server retains its default GOGC 100, and the comparison command retains GOGC 400 when unset.
 The overload sensor, project format, protocol, and saved-state format remain unchanged.
-Live Chrome validation is separate from these unpaced measurements.
+The live Chrome results below remain separate from these unpaced measurements.
 
 [Measurements](measurements/hold-route-parts.csv) retain CPU, allocation, collection, pause, heap, and gzip totals.
 [Metadata](measurements/hold-route-parts.json) records frozen inputs and both exact saved-state hashes.
 The local artifacts are in `~/.cache/agents/podsim/hold-route-20260930/`.
+
+## Matched live Chrome follow-up
+
+Twelve live arms compare the server before and after the route-parts change.
+Both servers use the same catalog client, frozen physical state at tick 216000, and demand at 12 requests per simulated minute.
+GOMAXPROCS is 4.
+Each arm connects one local Chromium client, requests 60x, and measures one wall-clock minute with server CPU profiling enabled.
+The second repetition reverses server order.
+No other agent CPU-heavy work runs during the matrix.
+The table gives means of two runs.
+
+| Preset | GOGC | Baseline playback | Candidate playback | Baseline final speed | Candidate final speed |
+| --- | ---: | ---: | ---: | --- | --- |
+| Central | 100 | 35.94x | 59.75x | 15x in both | 60x in both |
+| Central | 200 | 58.62x | 59.78x | 60x in both | 60x in both |
+| Full | 200 | 59.97x | 59.97x | 60x in both | 60x in both |
+
+The candidate has no speed reduction in these six runs.
+This result supports a live improvement for this Central GOGC 100 fixture.
+Two short repetitions do not establish performance across demand rates, machines, or longer runs.
+Full already keeps 60x with either server in this fixture.
+
+Central GOGC 100 server CPU rises from 16.64 to 21.38 seconds because the candidate advances more simulated ticks.
+Those wall-window CPU totals do not measure the cost of equal simulated work.
+The paired unpaced probes above provide that comparison.
+At GOGC 200, both servers advance similar work: Central CPU is 22.12 / 20.46 seconds and Full CPU is 43.69 / 43.43 seconds.
+No GC setting or overload threshold changes.
+
+All pages use one WebSocket and one initial full snapshot.
+Every publication during measurement is a delta, with no reconnect or second compression extension.
+The maximum outstanding publication count is two.
+Across all pages, ACK p95 is 14.7-21.4 milliseconds and gzip decompression p95 is 0.5-0.7 milliseconds.
+These checks show no transport recovery event during the matrix.
+They do not establish the cause of every live stall.
+
+[Live arm measurements](measurements/hold-route-live-arms.csv), [page measurements](measurements/hold-route-live-pages.csv), and [metadata](measurements/hold-route-live.json) retain the results.
+Raw probes, screenshots, and profiles remain in `~/.cache/agents/podsim/hold-route-live-20260930/`.
