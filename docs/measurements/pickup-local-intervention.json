@@ -1,0 +1,945 @@
+{
+  "scope": "Ongoing experimental reassignment exclusion of one selected request from its original beneficial trial tick. Ordinary dispatch and local pickup remain active. Functional comparisons, no CPU claim.",
+  "limits": "Saved-state projection hash, earlier decisions and completed outcomes match before exclusion. Not full runtime equality, not suppression of exactly one swap, not population evidence or policy adoption.",
+  "censoring": "Global wait deltas use only IDs boarded in both arms. Target waits exact, completed in both arms.",
+  "raw_sha256": {
+    "control.json": "30bb49c8f1862fe804fe7e1f62becadf4eb61fdd4e96c91ce4c0d9a1633e07d2",
+    "exclude-1366.json": "e9711f60b62cdf2979862e5dda75822a0850faa9db3a10016788b3b30ff5fa7f",
+    "exclude-1379.json": "1aed893ab012ac6288bed26b415a65472a2679ecf87228fedfec68cf37ee8afe",
+    "exclude-1845.json": "847a0aa81ff890e825d1fffee6ec302507ebe8eba376c3d3d643b8addd0be0ab"
+  },
+  "manifest": {
+    "source_commit": "6b4f756",
+    "scope": "Study-only ongoing selected-request reassignment exclusion from its original decision tick. Ordinary dispatch/localpickup and safety rules unchanged. Refusals consume existing work budgets. ExportState hash is saved-state projection, not full runtime equivalence. No active-controller clone in harness.",
+    "hashes": {
+      "/home/dotwaffle/.cache/agents/podsim/pickup-local-intervention-20260930/pickup_reassignment.go": "1db40e1d773f828fbc8ce2b613ae2ddc464f5d008e067f6ac4f3b43b9f1cf2cd",
+      "/home/dotwaffle/.cache/agents/podsim/pickup-local-intervention-20260930/overlay.json": "ee47c84e18f34cc672fb54776def1c3964ab60b1f4349105548e0ff329c934b4",
+      "/home/dotwaffle/.cache/agents/podsim/pickup-local-intervention-20260930/jobs.json": "a06e6cf1330732c443949fc8b12aa5361f2cde0e28f5eb6e7bf1f5e2baa9c34f",
+      "/home/dotwaffle/.cache/agents/podsim/pickup-local-intervention-20260930/restore_test.go": "957fbd7b3f0b86088e08e7de53fa212708090cee193f72c13d42c524c1349a86",
+      "/home/dotwaffle/.cache/agents/podsim/pickup-local-intervention-20260930/run.py": "6ecce66c8ebe7c1b3e829ecd3417928d4e338329dc1d6c7b04f2cec3b49501cb",
+      "/home/dotwaffle/.cache/agents/podsim/pickup-local-intervention-20260930/observed_test.go": "8de1110365b1b5c2ef4fa4b664e0a38685c09b47db5274c73fb508bd69cb970b",
+      "/home/dotwaffle/.cache/agents/podsim/pickup-local-intervention-20260930/tail_test.go": "ce8b9cf9e664d42b7bc51792e69123f8b7f01e6e773fc9d941ecd71467a906a0",
+      "/home/dotwaffle/.cache/agents/podsim/pickup-local-intervention-20260930/pickup_swaps.go": "17606f963b63fe8c7fc659674eec1a2af4066427dc66e2fdb0d98ba7f4e70157",
+      "/home/dotwaffle/.cache/agents/podsim/pickup-local-intervention-20260930/study_pickup_intervention.go": "021f5090a6d2aae3e4c3149c77593e54458094cb05e2974028f3213830164abe",
+      "/home/dotwaffle/.cache/agents/podsim/pickup-local-intervention-20260930/study_pickup_intervention_test.go": "9966de2bf4e972dfdfb2fa8a23ac132ef9a0f41855350ae99f1b5d7855e7ac12",
+      "/home/dotwaffle/.cache/agents/podsim/pickup-local-intervention-20260930/source-hashes.json": "84b72332b029cdd2895a8fd1e5e2880c096db68b33aa204e4650ea83e86a041a",
+      "/home/dotwaffle/.cache/agents/podsim/pickup-local-intervention-20260930/study_test.go": "1857b65c8ebcc7c4f756742c40d7bc31966e37050d2b990b02e64543ec15c03a",
+      "/tmp/build/podsim/pickup-local-intervention-20260930/study.test": "40b36f89002529f3ffc20928ff963ed153274533f7ad8291a5f8e825c3f4771e"
+    },
+    "validation": "Overlay compile and vet pass. Existing pickup tests pass with exclusion disabled. Six transfer/pair boundary/refusal physical-state/owner invariance cases pass under race. Control must reproduce all previous fields; first prospective target trial including ExportState hash must equal control. MCP diagnostics lacked metadata outside module; overlay compile/tests/vet used."
+  },
+  "cases": [
+    {
+      "summary": {
+        "request_id": 1366,
+        "exclusion_from_tick": 535321,
+        "refused_trials": 1,
+        "control_wait_seconds": 1730.9666666666667,
+        "excluded_wait_seconds": 1737.3333333333333,
+        "target_wait_change_seconds": 6.366666666666666,
+        "excluded_boarding_pod": "london-pod-089",
+        "control_completed": 3598,
+        "excluded_completed": 3597,
+        "both_boarded_count": 3599,
+        "both_boarded_mean_wait_change_seconds": -2.0448226359173844,
+        "both_boarded_maximum_wait_increase_seconds": 1458.3166666666666,
+        "both_boarded_over_300_seconds": 43,
+        "control_pending_at_cap": 0,
+        "excluded_pending_at_cap": 0
+      },
+      "before_intervention_trial": {
+        "Tick": 535321,
+        "RequestID": 1366,
+        "OldPod": "london-pod-243",
+        "NewPod": "london-pod-089",
+        "OldSeconds": 2025.2061022125984,
+        "NewSeconds": 1004.8807720890072,
+        "PhysicalSHA256": "12b18ee823fe39f625b8818ba987e94d16fcd75f13f29a96968fc543801332b7"
+      },
+      "control_timing": {
+        "RequestID": 1366,
+        "RequestedTick": 491760,
+        "BoardedTick": 595618,
+        "CompletedTick": 772461,
+        "RiddenMeters": 41094.51058221116,
+        "DirectMeters": 41094.51058221116,
+        "SharedWith": 0,
+        "Reassigned": false
+      },
+      "excluded_timing": {
+        "RequestID": 1366,
+        "RequestedTick": 491760,
+        "BoardedTick": 596000,
+        "CompletedTick": 773164,
+        "RiddenMeters": 41169.51058221116,
+        "DirectMeters": 41169.51058221116,
+        "SharedWith": 0,
+        "Reassigned": false
+      },
+      "excluded_boarding": {
+        "Pod": "london-pod-089",
+        "BoardedTick": 596000,
+        "ObservedTick": 596040
+      },
+      "evidence": {
+        "ExcludeID": 1366,
+        "ExcludeTick": 535321,
+        "Refusals": 1,
+        "First": [
+          {
+            "Tick": 505080,
+            "RequestID": 1379,
+            "OldPod": "london-pod-201",
+            "NewPod": "london-pod-088",
+            "OldSeconds": 1774.3272967106777,
+            "NewSeconds": 1367.5439905794506,
+            "PhysicalSHA256": "f04745172212136f770d42e5e78f448471f84563c90002bdc1f6b90cfd09902c"
+          },
+          {
+            "Tick": 535321,
+            "RequestID": 1366,
+            "OldPod": "london-pod-243",
+            "NewPod": "london-pod-089",
+            "OldSeconds": 2025.2061022125984,
+            "NewSeconds": 1004.8807720890072,
+            "PhysicalSHA256": "12b18ee823fe39f625b8818ba987e94d16fcd75f13f29a96968fc543801332b7"
+          }
+        ]
+      },
+      "control_prefix_decisions": [
+        {
+          "Tick": 185641,
+          "RequestID": 419,
+          "OldPod": "london-pod-164",
+          "NewPod": "london-pod-240",
+          "OldSeconds": 705.3015456198954,
+          "NewSeconds": 546.9838688153485
+        },
+        {
+          "Tick": 193021,
+          "RequestID": 521,
+          "OldPod": "london-pod-254",
+          "NewPod": "london-pod-276",
+          "OldSeconds": 87.77678517175649,
+          "NewSeconds": 71.83309094756434
+        },
+        {
+          "Tick": 207301,
+          "RequestID": 554,
+          "OldPod": "london-pod-030",
+          "NewPod": "london-pod-146",
+          "OldSeconds": 190.83232154892949,
+          "NewSeconds": 164.17393304228233
+        },
+        {
+          "Tick": 216121,
+          "RequestID": 541,
+          "OldPod": "london-pod-057",
+          "NewPod": "london-pod-089",
+          "OldSeconds": 240.50393542958352,
+          "NewSeconds": 144.85513299301402
+        },
+        {
+          "Tick": 219901,
+          "RequestID": 592,
+          "OldPod": "london-pod-077",
+          "NewPod": "london-pod-251",
+          "OldSeconds": 180.2300848086848,
+          "NewSeconds": 86.21755523764627
+        },
+        {
+          "Tick": 275641,
+          "RequestID": 744,
+          "OldPod": "london-pod-215",
+          "NewPod": "london-pod-081",
+          "OldSeconds": 119.00622946102456,
+          "NewSeconds": 101.07126093138783
+        },
+        {
+          "Tick": 281581,
+          "RequestID": 721,
+          "OldPod": "london-pod-099",
+          "NewPod": "london-pod-266",
+          "OldSeconds": 434.7494649307767,
+          "NewSeconds": 216.37851540902204
+        },
+        {
+          "Tick": 298621,
+          "RequestID": 797,
+          "OldPod": "london-pod-164",
+          "NewPod": "london-pod-186",
+          "OldSeconds": 1319.8986880821178,
+          "NewSeconds": 295.4681293470553
+        },
+        {
+          "Tick": 311161,
+          "RequestID": 814,
+          "OldPod": "london-pod-234",
+          "NewPod": "london-pod-261",
+          "OldSeconds": 1546.8471467164961,
+          "NewSeconds": 1055.7864929164198
+        },
+        {
+          "Tick": 339061,
+          "RequestID": 896,
+          "OldPod": "london-pod-174",
+          "NewPod": "london-pod-063",
+          "OldSeconds": 667.5471898833108,
+          "NewSeconds": 308.0035784813566
+        },
+        {
+          "Tick": 358081,
+          "RequestID": 944,
+          "OldPod": "london-pod-119",
+          "NewPod": "london-pod-284",
+          "OldSeconds": 449.996782937411,
+          "NewSeconds": 172.62333534285506
+        },
+        {
+          "Tick": 380821,
+          "RequestID": 932,
+          "OldPod": "london-pod-010",
+          "NewPod": "london-pod-196",
+          "OldSeconds": 899.6312440500199,
+          "NewSeconds": 808.4353200325052
+        },
+        {
+          "Tick": 380821,
+          "RequestID": 1033,
+          "OldPod": "london-pod-196",
+          "NewPod": "london-pod-010",
+          "OldSeconds": 478.7708807491703,
+          "NewSeconds": 360.6303981275989
+        },
+        {
+          "Tick": 382021,
+          "RequestID": 983,
+          "OldPod": "london-pod-038",
+          "NewPod": "london-pod-016",
+          "OldSeconds": 698.8482243589315,
+          "NewSeconds": 484.06619716104143
+        },
+        {
+          "Tick": 387661,
+          "RequestID": 991,
+          "OldPod": "london-pod-231",
+          "NewPod": "london-pod-027",
+          "OldSeconds": 372.9853038552104,
+          "NewSeconds": 153.0571782820997
+        },
+        {
+          "Tick": 423241,
+          "RequestID": 1028,
+          "OldPod": "london-pod-142",
+          "NewPod": "london-pod-246",
+          "OldSeconds": 550.182708902003,
+          "NewSeconds": 267.61300927910855
+        },
+        {
+          "Tick": 423241,
+          "RequestID": 1141,
+          "OldPod": "london-pod-246",
+          "NewPod": "london-pod-142",
+          "OldSeconds": 591.4378207038878,
+          "NewSeconds": 199.05422893602793
+        },
+        {
+          "Tick": 462661,
+          "RequestID": 1217,
+          "OldPod": "london-pod-064",
+          "NewPod": "london-pod-167",
+          "OldSeconds": 963.4422227209405,
+          "NewSeconds": 507.50679755548884
+        },
+        {
+          "Tick": 481561,
+          "RequestID": 1269,
+          "OldPod": "london-pod-121",
+          "NewPod": "london-pod-143",
+          "OldSeconds": 763.2023491235956,
+          "NewSeconds": 334.3056394245581
+        },
+        {
+          "Tick": 490321,
+          "RequestID": 1265,
+          "OldPod": "london-pod-163",
+          "NewPod": "london-pod-218",
+          "OldSeconds": 179.1478166316674,
+          "NewSeconds": 136.76172036428696
+        },
+        {
+          "Tick": 505080,
+          "RequestID": 1403,
+          "OldPod": "london-pod-088",
+          "NewPod": "london-pod-201",
+          "OldSeconds": 415.6156748508613,
+          "NewSeconds": 368.58072484328363
+        },
+        {
+          "Tick": 505080,
+          "RequestID": 1379,
+          "OldPod": "london-pod-201",
+          "NewPod": "london-pod-088",
+          "OldSeconds": 1774.3272967106777,
+          "NewSeconds": 1367.5439905794506
+        },
+        {
+          "Tick": 514021,
+          "RequestID": 1412,
+          "OldPod": "london-pod-033",
+          "NewPod": "london-pod-041",
+          "OldSeconds": 1723.5743798619974,
+          "NewSeconds": 1172.9115805840095
+        },
+        {
+          "Tick": 516481,
+          "RequestID": 1412,
+          "OldPod": "london-pod-041",
+          "NewPod": "london-pod-137",
+          "OldSeconds": 1131.9199139173422,
+          "NewSeconds": 1111.14240435119
+        },
+        {
+          "Tick": 516481,
+          "RequestID": 1342,
+          "OldPod": "london-pod-137",
+          "NewPod": "london-pod-041",
+          "OldSeconds": 2023.2804983718104,
+          "NewSeconds": 1717.1224013459312
+        },
+        {
+          "Tick": 528901,
+          "RequestID": 1453,
+          "OldPod": "london-pod-069",
+          "NewPod": "london-pod-139",
+          "OldSeconds": 530.0560096716509,
+          "NewSeconds": 167.4798232586207
+        }
+      ],
+      "post_threshold_selected_decisions": [],
+      "restores": [
+        {
+          "tick": 648000,
+          "dense_samples": 3600,
+          "coupled_pods": 0
+        },
+        {
+          "tick": 1296000,
+          "dense_samples": 3600,
+          "coupled_pods": 0
+        }
+      ]
+    },
+    {
+      "summary": {
+        "request_id": 1379,
+        "exclusion_from_tick": 505080,
+        "refused_trials": 1,
+        "control_wait_seconds": 1511.6333333333334,
+        "excluded_wait_seconds": 1918.4166666666667,
+        "target_wait_change_seconds": 406.78333333333336,
+        "excluded_boarding_pod": "london-pod-201",
+        "control_completed": 3598,
+        "excluded_completed": 3598,
+        "both_boarded_count": 3599,
+        "both_boarded_mean_wait_change_seconds": 0.49346114661480034,
+        "both_boarded_maximum_wait_increase_seconds": 1629.2666666666667,
+        "both_boarded_over_300_seconds": 46,
+        "control_pending_at_cap": 0,
+        "excluded_pending_at_cap": 0
+      },
+      "before_intervention_trial": {
+        "Tick": 505080,
+        "RequestID": 1379,
+        "OldPod": "london-pod-201",
+        "NewPod": "london-pod-088",
+        "OldSeconds": 1774.3272967106777,
+        "NewSeconds": 1367.5439905794506,
+        "PhysicalSHA256": "f04745172212136f770d42e5e78f448471f84563c90002bdc1f6b90cfd09902c"
+      },
+      "control_timing": {
+        "RequestID": 1379,
+        "RequestedTick": 496440,
+        "BoardedTick": 587138,
+        "CompletedTick": 683647,
+        "RiddenMeters": 22349.838726004175,
+        "DirectMeters": 22349.838726004175,
+        "SharedWith": 0,
+        "Reassigned": false
+      },
+      "excluded_timing": {
+        "RequestID": 1379,
+        "RequestedTick": 496440,
+        "BoardedTick": 611545,
+        "CompletedTick": 707950,
+        "RiddenMeters": 22274.838726004175,
+        "DirectMeters": 22274.838726004175,
+        "SharedWith": 0,
+        "Reassigned": false
+      },
+      "excluded_boarding": {
+        "Pod": "london-pod-201",
+        "BoardedTick": 611545,
+        "ObservedTick": 611580
+      },
+      "evidence": {
+        "ExcludeID": 1379,
+        "ExcludeTick": 505080,
+        "Refusals": 1,
+        "First": [
+          {
+            "Tick": 505080,
+            "RequestID": 1379,
+            "OldPod": "london-pod-201",
+            "NewPod": "london-pod-088",
+            "OldSeconds": 1774.3272967106777,
+            "NewSeconds": 1367.5439905794506,
+            "PhysicalSHA256": "f04745172212136f770d42e5e78f448471f84563c90002bdc1f6b90cfd09902c"
+          }
+        ]
+      },
+      "control_prefix_decisions": [
+        {
+          "Tick": 185641,
+          "RequestID": 419,
+          "OldPod": "london-pod-164",
+          "NewPod": "london-pod-240",
+          "OldSeconds": 705.3015456198954,
+          "NewSeconds": 546.9838688153485
+        },
+        {
+          "Tick": 193021,
+          "RequestID": 521,
+          "OldPod": "london-pod-254",
+          "NewPod": "london-pod-276",
+          "OldSeconds": 87.77678517175649,
+          "NewSeconds": 71.83309094756434
+        },
+        {
+          "Tick": 207301,
+          "RequestID": 554,
+          "OldPod": "london-pod-030",
+          "NewPod": "london-pod-146",
+          "OldSeconds": 190.83232154892949,
+          "NewSeconds": 164.17393304228233
+        },
+        {
+          "Tick": 216121,
+          "RequestID": 541,
+          "OldPod": "london-pod-057",
+          "NewPod": "london-pod-089",
+          "OldSeconds": 240.50393542958352,
+          "NewSeconds": 144.85513299301402
+        },
+        {
+          "Tick": 219901,
+          "RequestID": 592,
+          "OldPod": "london-pod-077",
+          "NewPod": "london-pod-251",
+          "OldSeconds": 180.2300848086848,
+          "NewSeconds": 86.21755523764627
+        },
+        {
+          "Tick": 275641,
+          "RequestID": 744,
+          "OldPod": "london-pod-215",
+          "NewPod": "london-pod-081",
+          "OldSeconds": 119.00622946102456,
+          "NewSeconds": 101.07126093138783
+        },
+        {
+          "Tick": 281581,
+          "RequestID": 721,
+          "OldPod": "london-pod-099",
+          "NewPod": "london-pod-266",
+          "OldSeconds": 434.7494649307767,
+          "NewSeconds": 216.37851540902204
+        },
+        {
+          "Tick": 298621,
+          "RequestID": 797,
+          "OldPod": "london-pod-164",
+          "NewPod": "london-pod-186",
+          "OldSeconds": 1319.8986880821178,
+          "NewSeconds": 295.4681293470553
+        },
+        {
+          "Tick": 311161,
+          "RequestID": 814,
+          "OldPod": "london-pod-234",
+          "NewPod": "london-pod-261",
+          "OldSeconds": 1546.8471467164961,
+          "NewSeconds": 1055.7864929164198
+        },
+        {
+          "Tick": 339061,
+          "RequestID": 896,
+          "OldPod": "london-pod-174",
+          "NewPod": "london-pod-063",
+          "OldSeconds": 667.5471898833108,
+          "NewSeconds": 308.0035784813566
+        },
+        {
+          "Tick": 358081,
+          "RequestID": 944,
+          "OldPod": "london-pod-119",
+          "NewPod": "london-pod-284",
+          "OldSeconds": 449.996782937411,
+          "NewSeconds": 172.62333534285506
+        },
+        {
+          "Tick": 380821,
+          "RequestID": 932,
+          "OldPod": "london-pod-010",
+          "NewPod": "london-pod-196",
+          "OldSeconds": 899.6312440500199,
+          "NewSeconds": 808.4353200325052
+        },
+        {
+          "Tick": 380821,
+          "RequestID": 1033,
+          "OldPod": "london-pod-196",
+          "NewPod": "london-pod-010",
+          "OldSeconds": 478.7708807491703,
+          "NewSeconds": 360.6303981275989
+        },
+        {
+          "Tick": 382021,
+          "RequestID": 983,
+          "OldPod": "london-pod-038",
+          "NewPod": "london-pod-016",
+          "OldSeconds": 698.8482243589315,
+          "NewSeconds": 484.06619716104143
+        },
+        {
+          "Tick": 387661,
+          "RequestID": 991,
+          "OldPod": "london-pod-231",
+          "NewPod": "london-pod-027",
+          "OldSeconds": 372.9853038552104,
+          "NewSeconds": 153.0571782820997
+        },
+        {
+          "Tick": 423241,
+          "RequestID": 1028,
+          "OldPod": "london-pod-142",
+          "NewPod": "london-pod-246",
+          "OldSeconds": 550.182708902003,
+          "NewSeconds": 267.61300927910855
+        },
+        {
+          "Tick": 423241,
+          "RequestID": 1141,
+          "OldPod": "london-pod-246",
+          "NewPod": "london-pod-142",
+          "OldSeconds": 591.4378207038878,
+          "NewSeconds": 199.05422893602793
+        },
+        {
+          "Tick": 462661,
+          "RequestID": 1217,
+          "OldPod": "london-pod-064",
+          "NewPod": "london-pod-167",
+          "OldSeconds": 963.4422227209405,
+          "NewSeconds": 507.50679755548884
+        },
+        {
+          "Tick": 481561,
+          "RequestID": 1269,
+          "OldPod": "london-pod-121",
+          "NewPod": "london-pod-143",
+          "OldSeconds": 763.2023491235956,
+          "NewSeconds": 334.3056394245581
+        },
+        {
+          "Tick": 490321,
+          "RequestID": 1265,
+          "OldPod": "london-pod-163",
+          "NewPod": "london-pod-218",
+          "OldSeconds": 179.1478166316674,
+          "NewSeconds": 136.76172036428696
+        }
+      ],
+      "post_threshold_selected_decisions": [],
+      "restores": [
+        {
+          "tick": 648000,
+          "dense_samples": 3600,
+          "coupled_pods": 0
+        },
+        {
+          "tick": 1296000,
+          "dense_samples": 3600,
+          "coupled_pods": 0
+        }
+      ]
+    },
+    {
+      "summary": {
+        "request_id": 1845,
+        "exclusion_from_tick": 715441,
+        "refused_trials": 1,
+        "control_wait_seconds": 1158.8,
+        "excluded_wait_seconds": 2617.116666666667,
+        "target_wait_change_seconds": 1458.3166666666666,
+        "excluded_boarding_pod": "london-pod-070",
+        "control_completed": 3598,
+        "excluded_completed": 3597,
+        "both_boarded_count": 3599,
+        "both_boarded_mean_wait_change_seconds": -0.17809576734278035,
+        "both_boarded_maximum_wait_increase_seconds": 1458.3166666666666,
+        "both_boarded_over_300_seconds": 44,
+        "control_pending_at_cap": 0,
+        "excluded_pending_at_cap": 0
+      },
+      "before_intervention_trial": {
+        "Tick": 715441,
+        "RequestID": 1845,
+        "OldPod": "london-pod-070",
+        "NewPod": "london-pod-137",
+        "OldSeconds": 1763.0240210994245,
+        "NewSeconds": 304.70674230833237,
+        "PhysicalSHA256": "12b3e1b8198f2e5a3d5b7a991e8b2af756aa84e66c96d00f833ae865adccd341"
+      },
+      "control_timing": {
+        "RequestID": 1845,
+        "RequestedTick": 664200,
+        "BoardedTick": 733728,
+        "CompletedTick": 908000,
+        "RiddenMeters": 40461.94790293023,
+        "DirectMeters": 40461.94790293023,
+        "SharedWith": 0,
+        "Reassigned": false
+      },
+      "excluded_timing": {
+        "RequestID": 1845,
+        "RequestedTick": 664200,
+        "BoardedTick": 821227,
+        "CompletedTick": 994716,
+        "RiddenMeters": 40311.94790293024,
+        "DirectMeters": 40311.94790293024,
+        "SharedWith": 0,
+        "Reassigned": false
+      },
+      "excluded_boarding": {
+        "Pod": "london-pod-070",
+        "BoardedTick": 821227,
+        "ObservedTick": 821280
+      },
+      "evidence": {
+        "ExcludeID": 1845,
+        "ExcludeTick": 715441,
+        "Refusals": 1,
+        "First": [
+          {
+            "Tick": 505080,
+            "RequestID": 1379,
+            "OldPod": "london-pod-201",
+            "NewPod": "london-pod-088",
+            "OldSeconds": 1774.3272967106777,
+            "NewSeconds": 1367.5439905794506,
+            "PhysicalSHA256": "f04745172212136f770d42e5e78f448471f84563c90002bdc1f6b90cfd09902c"
+          },
+          {
+            "Tick": 535321,
+            "RequestID": 1366,
+            "OldPod": "london-pod-243",
+            "NewPod": "london-pod-089",
+            "OldSeconds": 2025.2061022125984,
+            "NewSeconds": 1004.8807720890072,
+            "PhysicalSHA256": "12b18ee823fe39f625b8818ba987e94d16fcd75f13f29a96968fc543801332b7"
+          },
+          {
+            "Tick": 715441,
+            "RequestID": 1845,
+            "OldPod": "london-pod-070",
+            "NewPod": "london-pod-137",
+            "OldSeconds": 1763.0240210994245,
+            "NewSeconds": 304.70674230833237,
+            "PhysicalSHA256": "12b3e1b8198f2e5a3d5b7a991e8b2af756aa84e66c96d00f833ae865adccd341"
+          }
+        ]
+      },
+      "control_prefix_decisions": [
+        {
+          "Tick": 185641,
+          "RequestID": 419,
+          "OldPod": "london-pod-164",
+          "NewPod": "london-pod-240",
+          "OldSeconds": 705.3015456198954,
+          "NewSeconds": 546.9838688153485
+        },
+        {
+          "Tick": 193021,
+          "RequestID": 521,
+          "OldPod": "london-pod-254",
+          "NewPod": "london-pod-276",
+          "OldSeconds": 87.77678517175649,
+          "NewSeconds": 71.83309094756434
+        },
+        {
+          "Tick": 207301,
+          "RequestID": 554,
+          "OldPod": "london-pod-030",
+          "NewPod": "london-pod-146",
+          "OldSeconds": 190.83232154892949,
+          "NewSeconds": 164.17393304228233
+        },
+        {
+          "Tick": 216121,
+          "RequestID": 541,
+          "OldPod": "london-pod-057",
+          "NewPod": "london-pod-089",
+          "OldSeconds": 240.50393542958352,
+          "NewSeconds": 144.85513299301402
+        },
+        {
+          "Tick": 219901,
+          "RequestID": 592,
+          "OldPod": "london-pod-077",
+          "NewPod": "london-pod-251",
+          "OldSeconds": 180.2300848086848,
+          "NewSeconds": 86.21755523764627
+        },
+        {
+          "Tick": 275641,
+          "RequestID": 744,
+          "OldPod": "london-pod-215",
+          "NewPod": "london-pod-081",
+          "OldSeconds": 119.00622946102456,
+          "NewSeconds": 101.07126093138783
+        },
+        {
+          "Tick": 281581,
+          "RequestID": 721,
+          "OldPod": "london-pod-099",
+          "NewPod": "london-pod-266",
+          "OldSeconds": 434.7494649307767,
+          "NewSeconds": 216.37851540902204
+        },
+        {
+          "Tick": 298621,
+          "RequestID": 797,
+          "OldPod": "london-pod-164",
+          "NewPod": "london-pod-186",
+          "OldSeconds": 1319.8986880821178,
+          "NewSeconds": 295.4681293470553
+        },
+        {
+          "Tick": 311161,
+          "RequestID": 814,
+          "OldPod": "london-pod-234",
+          "NewPod": "london-pod-261",
+          "OldSeconds": 1546.8471467164961,
+          "NewSeconds": 1055.7864929164198
+        },
+        {
+          "Tick": 339061,
+          "RequestID": 896,
+          "OldPod": "london-pod-174",
+          "NewPod": "london-pod-063",
+          "OldSeconds": 667.5471898833108,
+          "NewSeconds": 308.0035784813566
+        },
+        {
+          "Tick": 358081,
+          "RequestID": 944,
+          "OldPod": "london-pod-119",
+          "NewPod": "london-pod-284",
+          "OldSeconds": 449.996782937411,
+          "NewSeconds": 172.62333534285506
+        },
+        {
+          "Tick": 380821,
+          "RequestID": 932,
+          "OldPod": "london-pod-010",
+          "NewPod": "london-pod-196",
+          "OldSeconds": 899.6312440500199,
+          "NewSeconds": 808.4353200325052
+        },
+        {
+          "Tick": 380821,
+          "RequestID": 1033,
+          "OldPod": "london-pod-196",
+          "NewPod": "london-pod-010",
+          "OldSeconds": 478.7708807491703,
+          "NewSeconds": 360.6303981275989
+        },
+        {
+          "Tick": 382021,
+          "RequestID": 983,
+          "OldPod": "london-pod-038",
+          "NewPod": "london-pod-016",
+          "OldSeconds": 698.8482243589315,
+          "NewSeconds": 484.06619716104143
+        },
+        {
+          "Tick": 387661,
+          "RequestID": 991,
+          "OldPod": "london-pod-231",
+          "NewPod": "london-pod-027",
+          "OldSeconds": 372.9853038552104,
+          "NewSeconds": 153.0571782820997
+        },
+        {
+          "Tick": 423241,
+          "RequestID": 1028,
+          "OldPod": "london-pod-142",
+          "NewPod": "london-pod-246",
+          "OldSeconds": 550.182708902003,
+          "NewSeconds": 267.61300927910855
+        },
+        {
+          "Tick": 423241,
+          "RequestID": 1141,
+          "OldPod": "london-pod-246",
+          "NewPod": "london-pod-142",
+          "OldSeconds": 591.4378207038878,
+          "NewSeconds": 199.05422893602793
+        },
+        {
+          "Tick": 462661,
+          "RequestID": 1217,
+          "OldPod": "london-pod-064",
+          "NewPod": "london-pod-167",
+          "OldSeconds": 963.4422227209405,
+          "NewSeconds": 507.50679755548884
+        },
+        {
+          "Tick": 481561,
+          "RequestID": 1269,
+          "OldPod": "london-pod-121",
+          "NewPod": "london-pod-143",
+          "OldSeconds": 763.2023491235956,
+          "NewSeconds": 334.3056394245581
+        },
+        {
+          "Tick": 490321,
+          "RequestID": 1265,
+          "OldPod": "london-pod-163",
+          "NewPod": "london-pod-218",
+          "OldSeconds": 179.1478166316674,
+          "NewSeconds": 136.76172036428696
+        },
+        {
+          "Tick": 505080,
+          "RequestID": 1403,
+          "OldPod": "london-pod-088",
+          "NewPod": "london-pod-201",
+          "OldSeconds": 415.6156748508613,
+          "NewSeconds": 368.58072484328363
+        },
+        {
+          "Tick": 505080,
+          "RequestID": 1379,
+          "OldPod": "london-pod-201",
+          "NewPod": "london-pod-088",
+          "OldSeconds": 1774.3272967106777,
+          "NewSeconds": 1367.5439905794506
+        },
+        {
+          "Tick": 514021,
+          "RequestID": 1412,
+          "OldPod": "london-pod-033",
+          "NewPod": "london-pod-041",
+          "OldSeconds": 1723.5743798619974,
+          "NewSeconds": 1172.9115805840095
+        },
+        {
+          "Tick": 516481,
+          "RequestID": 1412,
+          "OldPod": "london-pod-041",
+          "NewPod": "london-pod-137",
+          "OldSeconds": 1131.9199139173422,
+          "NewSeconds": 1111.14240435119
+        },
+        {
+          "Tick": 516481,
+          "RequestID": 1342,
+          "OldPod": "london-pod-137",
+          "NewPod": "london-pod-041",
+          "OldSeconds": 2023.2804983718104,
+          "NewSeconds": 1717.1224013459312
+        },
+        {
+          "Tick": 528901,
+          "RequestID": 1453,
+          "OldPod": "london-pod-069",
+          "NewPod": "london-pod-139",
+          "OldSeconds": 530.0560096716509,
+          "NewSeconds": 167.4798232586207
+        },
+        {
+          "Tick": 535321,
+          "RequestID": 1366,
+          "OldPod": "london-pod-243",
+          "NewPod": "london-pod-089",
+          "OldSeconds": 2025.2061022125984,
+          "NewSeconds": 1004.8807720890072
+        },
+        {
+          "Tick": 561061,
+          "RequestID": 1519,
+          "OldPod": "london-pod-251",
+          "NewPod": "london-pod-252",
+          "OldSeconds": 1449.971513788504,
+          "NewSeconds": 927.773204111966
+        },
+        {
+          "Tick": 602521,
+          "RequestID": 1565,
+          "OldPod": "london-pod-107",
+          "NewPod": "london-pod-181",
+          "OldSeconds": 492.1916161645543,
+          "NewSeconds": 389.7982566171927
+        },
+        {
+          "Tick": 606421,
+          "RequestID": 1635,
+          "OldPod": "london-pod-281",
+          "NewPod": "london-pod-119",
+          "OldSeconds": 740.6181331054063,
+          "NewSeconds": 704.9490543681047
+        },
+        {
+          "Tick": 626521,
+          "RequestID": 1702,
+          "OldPod": "london-pod-266",
+          "NewPod": "london-pod-243",
+          "OldSeconds": 1313.6159248453966,
+          "NewSeconds": 1215.433633970326
+        },
+        {
+          "Tick": 687001,
+          "RequestID": 1879,
+          "OldPod": "london-pod-245",
+          "NewPod": "london-pod-285",
+          "OldSeconds": 345.3626962337005,
+          "NewSeconds": 87.26138113265972
+        },
+        {
+          "Tick": 687001,
+          "RequestID": 1867,
+          "OldPod": "london-pod-285",
+          "NewPod": "london-pod-245",
+          "OldSeconds": 234.75250105450158,
+          "NewSeconds": 198.57994946106461
+        }
+      ],
+      "post_threshold_selected_decisions": [],
+      "restores": [
+        {
+          "tick": 648000,
+          "dense_samples": 3600,
+          "coupled_pods": 0
+        },
+        {
+          "tick": 1296000,
+          "dense_samples": 3600,
+          "coupled_pods": 0
+        }
+      ]
+    }
+  ],
+  "unavailable": []
+}
