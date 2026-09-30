@@ -1,0 +1,2014 @@
+{
+  "analysis": {
+    "arms": [
+      {
+        "name": "rate12-s1-boff-roff",
+        "rate": 12,
+        "seed": 1,
+        "buffers": "off",
+        "reassignment": "off",
+        "scheduled": 4319,
+        "completed": 4317,
+        "remaining": 2,
+        "backlog_3h": 230,
+        "backlog_6h": 229,
+        "late_backlog_per_minute": -0.005555555555555556,
+        "late_throughput_per_minute": 12.005555555555556,
+        "reported_wait_or_age_mean_seconds": 349.02029790846643,
+        "reported_wait_or_age_p95_seconds": 1089.05,
+        "all_request_wait_or_age_mean_seconds": 349.0202979084665,
+        "peak_pending": 91,
+        "peak_outstanding": 236,
+        "mainline_stopped_pod_seconds": 5237,
+        "entry_stopped_pod_seconds": 0,
+        "peak_flagged_entry_pods": 0,
+        "peak_empty_flagged_entry_pods": 0,
+        "swaps": 0,
+        "transfers": 0,
+        "actual_end_seconds": 25200,
+        "drained": false
+      },
+      {
+        "name": "rate12-s1-boff-ron",
+        "rate": 12,
+        "seed": 1,
+        "buffers": "off",
+        "reassignment": "on",
+        "scheduled": 4319,
+        "completed": 4319,
+        "remaining": 0,
+        "backlog_3h": 230,
+        "backlog_6h": 222,
+        "late_backlog_per_minute": -0.044444444444444446,
+        "late_throughput_per_minute": 12.044444444444444,
+        "reported_wait_or_age_mean_seconds": 345.78315196418924,
+        "reported_wait_or_age_p95_seconds": 1059.6333333333334,
+        "all_request_wait_or_age_mean_seconds": 345.78315196418924,
+        "peak_pending": 91,
+        "peak_outstanding": 236,
+        "mainline_stopped_pod_seconds": 5522,
+        "entry_stopped_pod_seconds": 0,
+        "peak_flagged_entry_pods": 0,
+        "peak_empty_flagged_entry_pods": 0,
+        "swaps": 28,
+        "transfers": 83,
+        "actual_end_seconds": 25159,
+        "drained": true
+      },
+      {
+        "name": "rate12-s1-bon-roff",
+        "rate": 12,
+        "seed": 1,
+        "buffers": "on",
+        "reassignment": "off",
+        "scheduled": 4319,
+        "completed": 4317,
+        "remaining": 2,
+        "backlog_3h": 227,
+        "backlog_6h": 217,
+        "late_backlog_per_minute": -0.05555555555555555,
+        "late_throughput_per_minute": 12.055555555555555,
+        "reported_wait_or_age_mean_seconds": 329.035451879293,
+        "reported_wait_or_age_p95_seconds": 1081.4166666666667,
+        "all_request_wait_or_age_mean_seconds": 329.035451879293,
+        "peak_pending": 85,
+        "peak_outstanding": 233,
+        "mainline_stopped_pod_seconds": 7948,
+        "entry_stopped_pod_seconds": 24,
+        "peak_flagged_entry_pods": 8,
+        "peak_empty_flagged_entry_pods": 3,
+        "swaps": 0,
+        "transfers": 0,
+        "actual_end_seconds": 25200,
+        "drained": false
+      },
+      {
+        "name": "rate12-s1-bon-ron",
+        "rate": 12,
+        "seed": 1,
+        "buffers": "on",
+        "reassignment": "on",
+        "scheduled": 4319,
+        "completed": 4318,
+        "remaining": 1,
+        "backlog_3h": 226,
+        "backlog_6h": 214,
+        "late_backlog_per_minute": -0.06666666666666667,
+        "late_throughput_per_minute": 12.066666666666666,
+        "reported_wait_or_age_mean_seconds": 319.1271590645983,
+        "reported_wait_or_age_p95_seconds": 1034.55,
+        "all_request_wait_or_age_mean_seconds": 319.1271590645983,
+        "peak_pending": 85,
+        "peak_outstanding": 231,
+        "mainline_stopped_pod_seconds": 7730,
+        "entry_stopped_pod_seconds": 15,
+        "peak_flagged_entry_pods": 9,
+        "peak_empty_flagged_entry_pods": 3,
+        "swaps": 22,
+        "transfers": 82,
+        "actual_end_seconds": 25200,
+        "drained": false
+      },
+      {
+        "name": "rate12-s2-boff-roff",
+        "rate": 12,
+        "seed": 2,
+        "buffers": "off",
+        "reassignment": "off",
+        "scheduled": 4319,
+        "completed": 4315,
+        "remaining": 4,
+        "backlog_3h": 211,
+        "backlog_6h": 218,
+        "late_backlog_per_minute": 0.03888888888888889,
+        "late_throughput_per_minute": 11.96111111111111,
+        "reported_wait_or_age_mean_seconds": 363.2505981322837,
+        "reported_wait_or_age_p95_seconds": 1098.5333333333333,
+        "all_request_wait_or_age_mean_seconds": 363.2505981322837,
+        "peak_pending": 98,
+        "peak_outstanding": 245,
+        "mainline_stopped_pod_seconds": 5361,
+        "entry_stopped_pod_seconds": 0,
+        "peak_flagged_entry_pods": 0,
+        "peak_empty_flagged_entry_pods": 0,
+        "swaps": 0,
+        "transfers": 0,
+        "actual_end_seconds": 25200,
+        "drained": false
+      },
+      {
+        "name": "rate12-s2-boff-ron",
+        "rate": 12,
+        "seed": 2,
+        "buffers": "off",
+        "reassignment": "on",
+        "scheduled": 4319,
+        "completed": 4315,
+        "remaining": 4,
+        "backlog_3h": 210,
+        "backlog_6h": 217,
+        "late_backlog_per_minute": 0.03888888888888889,
+        "late_throughput_per_minute": 11.96111111111111,
+        "reported_wait_or_age_mean_seconds": 355.0407733271591,
+        "reported_wait_or_age_p95_seconds": 1074.55,
+        "all_request_wait_or_age_mean_seconds": 355.04077332715906,
+        "peak_pending": 95,
+        "peak_outstanding": 247,
+        "mainline_stopped_pod_seconds": 5384,
+        "entry_stopped_pod_seconds": 0,
+        "peak_flagged_entry_pods": 0,
+        "peak_empty_flagged_entry_pods": 0,
+        "swaps": 38,
+        "transfers": 88,
+        "actual_end_seconds": 25200,
+        "drained": false
+      },
+      {
+        "name": "rate12-s2-bon-roff",
+        "rate": 12,
+        "seed": 2,
+        "buffers": "on",
+        "reassignment": "off",
+        "scheduled": 4319,
+        "completed": 4315,
+        "remaining": 4,
+        "backlog_3h": 211,
+        "backlog_6h": 211,
+        "late_backlog_per_minute": 0.0,
+        "late_throughput_per_minute": 12,
+        "reported_wait_or_age_mean_seconds": 333.05421393841164,
+        "reported_wait_or_age_p95_seconds": 1059.0833333333333,
+        "all_request_wait_or_age_mean_seconds": 333.0542139384117,
+        "peak_pending": 89,
+        "peak_outstanding": 241,
+        "mainline_stopped_pod_seconds": 7724,
+        "entry_stopped_pod_seconds": 11,
+        "peak_flagged_entry_pods": 8,
+        "peak_empty_flagged_entry_pods": 3,
+        "swaps": 0,
+        "transfers": 0,
+        "actual_end_seconds": 25200,
+        "drained": false
+      },
+      {
+        "name": "rate12-s2-bon-ron",
+        "rate": 12,
+        "seed": 2,
+        "buffers": "on",
+        "reassignment": "on",
+        "scheduled": 4319,
+        "completed": 4315,
+        "remaining": 4,
+        "backlog_3h": 207,
+        "backlog_6h": 213,
+        "late_backlog_per_minute": 0.03333333333333333,
+        "late_throughput_per_minute": 11.966666666666667,
+        "reported_wait_or_age_mean_seconds": 331.5108860075635,
+        "reported_wait_or_age_p95_seconds": 1042,
+        "all_request_wait_or_age_mean_seconds": 331.5108860075635,
+        "peak_pending": 90,
+        "peak_outstanding": 236,
+        "mainline_stopped_pod_seconds": 7930,
+        "entry_stopped_pod_seconds": 18,
+        "peak_flagged_entry_pods": 9,
+        "peak_empty_flagged_entry_pods": 3,
+        "swaps": 25,
+        "transfers": 97,
+        "actual_end_seconds": 25200,
+        "drained": false
+      },
+      {
+        "name": "rate12-s3-boff-roff",
+        "rate": 12,
+        "seed": 3,
+        "buffers": "off",
+        "reassignment": "off",
+        "scheduled": 4319,
+        "completed": 4318,
+        "remaining": 1,
+        "backlog_3h": 223,
+        "backlog_6h": 238,
+        "late_backlog_per_minute": 0.08333333333333333,
+        "late_throughput_per_minute": 11.916666666666666,
+        "reported_wait_or_age_mean_seconds": 356.9231187774948,
+        "reported_wait_or_age_p95_seconds": 1113.6333333333334,
+        "all_request_wait_or_age_mean_seconds": 356.9231187774948,
+        "peak_pending": 105,
+        "peak_outstanding": 249,
+        "mainline_stopped_pod_seconds": 5504,
+        "entry_stopped_pod_seconds": 0,
+        "peak_flagged_entry_pods": 0,
+        "peak_empty_flagged_entry_pods": 0,
+        "swaps": 0,
+        "transfers": 0,
+        "actual_end_seconds": 25200,
+        "drained": false
+      },
+      {
+        "name": "rate12-s3-boff-ron",
+        "rate": 12,
+        "seed": 3,
+        "buffers": "off",
+        "reassignment": "on",
+        "scheduled": 4319,
+        "completed": 4318,
+        "remaining": 1,
+        "backlog_3h": 219,
+        "backlog_6h": 236,
+        "late_backlog_per_minute": 0.09444444444444444,
+        "late_throughput_per_minute": 11.905555555555555,
+        "reported_wait_or_age_mean_seconds": 353.6614687041754,
+        "reported_wait_or_age_p95_seconds": 1091.35,
+        "all_request_wait_or_age_mean_seconds": 353.6614687041754,
+        "peak_pending": 104,
+        "peak_outstanding": 253,
+        "mainline_stopped_pod_seconds": 5551,
+        "entry_stopped_pod_seconds": 0,
+        "peak_flagged_entry_pods": 0,
+        "peak_empty_flagged_entry_pods": 0,
+        "swaps": 21,
+        "transfers": 96,
+        "actual_end_seconds": 25200,
+        "drained": false
+      },
+      {
+        "name": "rate12-s3-bon-roff",
+        "rate": 12,
+        "seed": 3,
+        "buffers": "on",
+        "reassignment": "off",
+        "scheduled": 4319,
+        "completed": 4318,
+        "remaining": 1,
+        "backlog_3h": 211,
+        "backlog_6h": 227,
+        "late_backlog_per_minute": 0.08888888888888889,
+        "late_throughput_per_minute": 11.911111111111111,
+        "reported_wait_or_age_mean_seconds": 332.2219263718453,
+        "reported_wait_or_age_p95_seconds": 1074.1666666666667,
+        "all_request_wait_or_age_mean_seconds": 332.2219263718453,
+        "peak_pending": 95,
+        "peak_outstanding": 247,
+        "mainline_stopped_pod_seconds": 7681,
+        "entry_stopped_pod_seconds": 10,
+        "peak_flagged_entry_pods": 8,
+        "peak_empty_flagged_entry_pods": 3,
+        "swaps": 0,
+        "transfers": 0,
+        "actual_end_seconds": 25200,
+        "drained": false
+      },
+      {
+        "name": "rate12-s3-bon-ron",
+        "rate": 12,
+        "seed": 3,
+        "buffers": "on",
+        "reassignment": "on",
+        "scheduled": 4319,
+        "completed": 4318,
+        "remaining": 1,
+        "backlog_3h": 213,
+        "backlog_6h": 230,
+        "late_backlog_per_minute": 0.09444444444444444,
+        "late_throughput_per_minute": 11.905555555555555,
+        "reported_wait_or_age_mean_seconds": 331.7124604460909,
+        "reported_wait_or_age_p95_seconds": 1067.5333333333333,
+        "all_request_wait_or_age_mean_seconds": 331.7124604460909,
+        "peak_pending": 97,
+        "peak_outstanding": 247,
+        "mainline_stopped_pod_seconds": 7957,
+        "entry_stopped_pod_seconds": 10,
+        "peak_flagged_entry_pods": 8,
+        "peak_empty_flagged_entry_pods": 3,
+        "swaps": 23,
+        "transfers": 102,
+        "actual_end_seconds": 25200,
+        "drained": false
+      },
+      {
+        "name": "rate12-s4-boff-roff",
+        "rate": 12,
+        "seed": 4,
+        "buffers": "off",
+        "reassignment": "off",
+        "scheduled": 4319,
+        "completed": 4319,
+        "remaining": 0,
+        "backlog_3h": 233,
+        "backlog_6h": 215,
+        "late_backlog_per_minute": -0.1,
+        "late_throughput_per_minute": 12.1,
+        "reported_wait_or_age_mean_seconds": 358.3141699467469,
+        "reported_wait_or_age_p95_seconds": 1103.2166666666667,
+        "all_request_wait_or_age_mean_seconds": 358.3141699467469,
+        "peak_pending": 96,
+        "peak_outstanding": 247,
+        "mainline_stopped_pod_seconds": 5153,
+        "entry_stopped_pod_seconds": 0,
+        "peak_flagged_entry_pods": 0,
+        "peak_empty_flagged_entry_pods": 0,
+        "swaps": 0,
+        "transfers": 0,
+        "actual_end_seconds": 24763,
+        "drained": true
+      },
+      {
+        "name": "rate12-s4-boff-ron",
+        "rate": 12,
+        "seed": 4,
+        "buffers": "off",
+        "reassignment": "on",
+        "scheduled": 4319,
+        "completed": 4319,
+        "remaining": 0,
+        "backlog_3h": 228,
+        "backlog_6h": 211,
+        "late_backlog_per_minute": -0.09444444444444444,
+        "late_throughput_per_minute": 12.094444444444445,
+        "reported_wait_or_age_mean_seconds": 357.7297406807131,
+        "reported_wait_or_age_p95_seconds": 1090.25,
+        "all_request_wait_or_age_mean_seconds": 357.7297406807131,
+        "peak_pending": 98,
+        "peak_outstanding": 256,
+        "mainline_stopped_pod_seconds": 5529,
+        "entry_stopped_pod_seconds": 0,
+        "peak_flagged_entry_pods": 0,
+        "peak_empty_flagged_entry_pods": 0,
+        "swaps": 27,
+        "transfers": 123,
+        "actual_end_seconds": 24579,
+        "drained": true
+      },
+      {
+        "name": "rate12-s4-bon-roff",
+        "rate": 12,
+        "seed": 4,
+        "buffers": "on",
+        "reassignment": "off",
+        "scheduled": 4319,
+        "completed": 4319,
+        "remaining": 0,
+        "backlog_3h": 227,
+        "backlog_6h": 205,
+        "late_backlog_per_minute": -0.12222222222222222,
+        "late_throughput_per_minute": 12.122222222222222,
+        "reported_wait_or_age_mean_seconds": 334.65817704715596,
+        "reported_wait_or_age_p95_seconds": 1077.4333333333334,
+        "all_request_wait_or_age_mean_seconds": 334.65817704715596,
+        "peak_pending": 91,
+        "peak_outstanding": 242,
+        "mainline_stopped_pod_seconds": 7738,
+        "entry_stopped_pod_seconds": 27,
+        "peak_flagged_entry_pods": 10,
+        "peak_empty_flagged_entry_pods": 3,
+        "swaps": 0,
+        "transfers": 0,
+        "actual_end_seconds": 24697,
+        "drained": true
+      },
+      {
+        "name": "rate12-s4-bon-ron",
+        "rate": 12,
+        "seed": 4,
+        "buffers": "on",
+        "reassignment": "on",
+        "scheduled": 4319,
+        "completed": 4319,
+        "remaining": 0,
+        "backlog_3h": 228,
+        "backlog_6h": 205,
+        "late_backlog_per_minute": -0.12777777777777777,
+        "late_throughput_per_minute": 12.127777777777778,
+        "reported_wait_or_age_mean_seconds": 331.9594003241491,
+        "reported_wait_or_age_p95_seconds": 1063.3333333333333,
+        "all_request_wait_or_age_mean_seconds": 331.9594003241491,
+        "peak_pending": 93,
+        "peak_outstanding": 244,
+        "mainline_stopped_pod_seconds": 7672,
+        "entry_stopped_pod_seconds": 26,
+        "peak_flagged_entry_pods": 8,
+        "peak_empty_flagged_entry_pods": 3,
+        "swaps": 32,
+        "transfers": 102,
+        "actual_end_seconds": 24751,
+        "drained": true
+      }
+    ],
+    "pairs": [
+      {
+        "rate": 12,
+        "seed": 1,
+        "buffers": "on",
+        "reassignment": "off",
+        "cohorts": {
+          "completed/completed": 4317,
+          "aboard/aboard": 2
+        },
+        "all_request_wait_or_age_delta": {
+          "count": 4319,
+          "mean_seconds": -19.98484602917342,
+          "p95_seconds": 148.3,
+          "maximum_seconds": 1175.7166666666667,
+          "regressions": 1387,
+          "over_30_seconds": 799,
+          "over_120_seconds": 279,
+          "over_300_seconds": 83
+        },
+        "exact_boarded_wait_delta": {
+          "count": 4319,
+          "mean_seconds": -19.98484602917342,
+          "p95_seconds": 148.3,
+          "maximum_seconds": 1175.7166666666667,
+          "regressions": 1387,
+          "over_30_seconds": 799,
+          "over_120_seconds": 279,
+          "over_300_seconds": 83
+        },
+        "completed_journey_delta": {
+          "count": 4317,
+          "mean_seconds": -20.780345147092888,
+          "p95_seconds": 145.45000000000027,
+          "maximum_seconds": 1169.2,
+          "regressions": 1694,
+          "over_30_seconds": 829,
+          "over_120_seconds": 273,
+          "over_300_seconds": 82
+        },
+        "directly_reassigned_exact_wait_delta": {
+          "count": 0,
+          "mean_seconds": null,
+          "p95_seconds": null,
+          "maximum_seconds": null,
+          "regressions": 0,
+          "over_30_seconds": 0,
+          "over_120_seconds": 0,
+          "over_300_seconds": 0
+        },
+        "other_exact_wait_delta": {
+          "count": 4319,
+          "mean_seconds": -19.98484602917342,
+          "p95_seconds": 148.3,
+          "maximum_seconds": 1175.7166666666667,
+          "regressions": 1387,
+          "over_30_seconds": 799,
+          "over_120_seconds": 279,
+          "over_300_seconds": 83
+        },
+        "candidate_pending_known_regression_lower_bounds": {
+          "count": 0,
+          "mean_seconds": null,
+          "p95_seconds": null,
+          "maximum_seconds": null,
+          "regressions": 0,
+          "over_30_seconds": 0,
+          "over_120_seconds": 0,
+          "over_300_seconds": 0
+        }
+      },
+      {
+        "rate": 12,
+        "seed": 1,
+        "buffers": "off",
+        "reassignment": "on",
+        "cohorts": {
+          "completed/completed": 4317,
+          "aboard/completed": 2
+        },
+        "all_request_wait_or_age_delta": {
+          "count": 4319,
+          "mean_seconds": -3.2371459442772244,
+          "p95_seconds": 159.7,
+          "maximum_seconds": 1514.0166666666667,
+          "regressions": 1435,
+          "over_30_seconds": 733,
+          "over_120_seconds": 283,
+          "over_300_seconds": 100
+        },
+        "exact_boarded_wait_delta": {
+          "count": 4319,
+          "mean_seconds": -3.2371459442772244,
+          "p95_seconds": 159.7,
+          "maximum_seconds": 1514.0166666666667,
+          "regressions": 1435,
+          "over_30_seconds": 733,
+          "over_120_seconds": 283,
+          "over_300_seconds": 100
+        },
+        "completed_journey_delta": {
+          "count": 4317,
+          "mean_seconds": -2.692324916994826,
+          "p95_seconds": 157.91666666666663,
+          "maximum_seconds": 1514.0166666666669,
+          "regressions": 1690,
+          "over_30_seconds": 760,
+          "over_120_seconds": 283,
+          "over_300_seconds": 98
+        },
+        "directly_reassigned_exact_wait_delta": {
+          "count": 137,
+          "mean_seconds": -81.19075425790754,
+          "p95_seconds": 365.0333333333333,
+          "maximum_seconds": 1098.6666666666667,
+          "regressions": 45,
+          "over_30_seconds": 36,
+          "over_120_seconds": 27,
+          "over_300_seconds": 9
+        },
+        "other_exact_wait_delta": {
+          "count": 4182,
+          "mean_seconds": -0.6834289813486364,
+          "p95_seconds": 144.41666666666663,
+          "maximum_seconds": 1514.0166666666667,
+          "regressions": 1390,
+          "over_30_seconds": 697,
+          "over_120_seconds": 256,
+          "over_300_seconds": 91
+        },
+        "candidate_pending_known_regression_lower_bounds": {
+          "count": 0,
+          "mean_seconds": null,
+          "p95_seconds": null,
+          "maximum_seconds": null,
+          "regressions": 0,
+          "over_30_seconds": 0,
+          "over_120_seconds": 0,
+          "over_300_seconds": 0
+        }
+      },
+      {
+        "rate": 12,
+        "seed": 1,
+        "buffers": "on",
+        "reassignment": "on",
+        "cohorts": {
+          "completed/completed": 4317,
+          "aboard/aboard": 1,
+          "aboard/completed": 1
+        },
+        "all_request_wait_or_age_delta": {
+          "count": 4319,
+          "mean_seconds": -29.89313884386818,
+          "p95_seconds": 157.21666666666667,
+          "maximum_seconds": 1194.1333333333334,
+          "regressions": 1380,
+          "over_30_seconds": 800,
+          "over_120_seconds": 300,
+          "over_300_seconds": 87
+        },
+        "exact_boarded_wait_delta": {
+          "count": 4319,
+          "mean_seconds": -29.89313884386818,
+          "p95_seconds": 157.21666666666667,
+          "maximum_seconds": 1194.1333333333334,
+          "regressions": 1380,
+          "over_30_seconds": 800,
+          "over_120_seconds": 300,
+          "over_300_seconds": 87
+        },
+        "completed_journey_delta": {
+          "count": 4317,
+          "mean_seconds": -30.150119681877847,
+          "p95_seconds": 156.95000000000005,
+          "maximum_seconds": 1204.6666666666665,
+          "regressions": 1713,
+          "over_30_seconds": 838,
+          "over_120_seconds": 298,
+          "over_300_seconds": 86
+        },
+        "directly_reassigned_exact_wait_delta": {
+          "count": 124,
+          "mean_seconds": -147.98991935483872,
+          "p95_seconds": 337.2833333333333,
+          "maximum_seconds": 933.0,
+          "regressions": 32,
+          "over_30_seconds": 28,
+          "over_120_seconds": 18,
+          "over_300_seconds": 10
+        },
+        "other_exact_wait_delta": {
+          "count": 4195,
+          "mean_seconds": -26.40231624950338,
+          "p95_seconds": 152.55000000000018,
+          "maximum_seconds": 1194.1333333333334,
+          "regressions": 1348,
+          "over_30_seconds": 772,
+          "over_120_seconds": 282,
+          "over_300_seconds": 77
+        },
+        "candidate_pending_known_regression_lower_bounds": {
+          "count": 0,
+          "mean_seconds": null,
+          "p95_seconds": null,
+          "maximum_seconds": null,
+          "regressions": 0,
+          "over_30_seconds": 0,
+          "over_120_seconds": 0,
+          "over_300_seconds": 0
+        }
+      },
+      {
+        "rate": 12,
+        "seed": 2,
+        "buffers": "on",
+        "reassignment": "off",
+        "cohorts": {
+          "completed/completed": 4315,
+          "aboard/aboard": 4
+        },
+        "all_request_wait_or_age_delta": {
+          "count": 4319,
+          "mean_seconds": -30.19638419387204,
+          "p95_seconds": 171.5666666666666,
+          "maximum_seconds": 1300.65,
+          "regressions": 1380,
+          "over_30_seconds": 823,
+          "over_120_seconds": 333,
+          "over_300_seconds": 100
+        },
+        "exact_boarded_wait_delta": {
+          "count": 4319,
+          "mean_seconds": -30.19638419387204,
+          "p95_seconds": 171.5666666666666,
+          "maximum_seconds": 1300.65,
+          "regressions": 1380,
+          "over_30_seconds": 823,
+          "over_120_seconds": 333,
+          "over_300_seconds": 100
+        },
+        "completed_journey_delta": {
+          "count": 4315,
+          "mean_seconds": -31.250579374275784,
+          "p95_seconds": 169.1833333333334,
+          "maximum_seconds": 1284.0166666666667,
+          "regressions": 1636,
+          "over_30_seconds": 842,
+          "over_120_seconds": 330,
+          "over_300_seconds": 100
+        },
+        "directly_reassigned_exact_wait_delta": {
+          "count": 0,
+          "mean_seconds": null,
+          "p95_seconds": null,
+          "maximum_seconds": null,
+          "regressions": 0,
+          "over_30_seconds": 0,
+          "over_120_seconds": 0,
+          "over_300_seconds": 0
+        },
+        "other_exact_wait_delta": {
+          "count": 4319,
+          "mean_seconds": -30.19638419387204,
+          "p95_seconds": 171.5666666666666,
+          "maximum_seconds": 1300.65,
+          "regressions": 1380,
+          "over_30_seconds": 823,
+          "over_120_seconds": 333,
+          "over_300_seconds": 100
+        },
+        "candidate_pending_known_regression_lower_bounds": {
+          "count": 0,
+          "mean_seconds": null,
+          "p95_seconds": null,
+          "maximum_seconds": null,
+          "regressions": 0,
+          "over_30_seconds": 0,
+          "over_120_seconds": 0,
+          "over_300_seconds": 0
+        }
+      },
+      {
+        "rate": 12,
+        "seed": 2,
+        "buffers": "off",
+        "reassignment": "on",
+        "cohorts": {
+          "completed/completed": 4315,
+          "aboard/aboard": 4
+        },
+        "all_request_wait_or_age_delta": {
+          "count": 4319,
+          "mean_seconds": -8.209824805124644,
+          "p95_seconds": 165.3166666666667,
+          "maximum_seconds": 1458.8333333333333,
+          "regressions": 1397,
+          "over_30_seconds": 751,
+          "over_120_seconds": 306,
+          "over_300_seconds": 95
+        },
+        "exact_boarded_wait_delta": {
+          "count": 4319,
+          "mean_seconds": -8.209824805124644,
+          "p95_seconds": 165.3166666666667,
+          "maximum_seconds": 1458.8333333333333,
+          "regressions": 1397,
+          "over_30_seconds": 751,
+          "over_120_seconds": 306,
+          "over_300_seconds": 95
+        },
+        "completed_journey_delta": {
+          "count": 4315,
+          "mean_seconds": -8.156195442255697,
+          "p95_seconds": 162.39999999999998,
+          "maximum_seconds": 1458.8333333333335,
+          "regressions": 1657,
+          "over_30_seconds": 768,
+          "over_120_seconds": 304,
+          "over_300_seconds": 97
+        },
+        "directly_reassigned_exact_wait_delta": {
+          "count": 160,
+          "mean_seconds": -78.92395833333333,
+          "p95_seconds": 337.6833333333334,
+          "maximum_seconds": 989.8666666666667,
+          "regressions": 42,
+          "over_30_seconds": 33,
+          "over_120_seconds": 22,
+          "over_300_seconds": 11
+        },
+        "other_exact_wait_delta": {
+          "count": 4159,
+          "mean_seconds": -5.489396489540755,
+          "p95_seconds": 159.88333333333333,
+          "maximum_seconds": 1458.8333333333333,
+          "regressions": 1355,
+          "over_30_seconds": 718,
+          "over_120_seconds": 284,
+          "over_300_seconds": 84
+        },
+        "candidate_pending_known_regression_lower_bounds": {
+          "count": 0,
+          "mean_seconds": null,
+          "p95_seconds": null,
+          "maximum_seconds": null,
+          "regressions": 0,
+          "over_30_seconds": 0,
+          "over_120_seconds": 0,
+          "over_300_seconds": 0
+        }
+      },
+      {
+        "rate": 12,
+        "seed": 2,
+        "buffers": "on",
+        "reassignment": "on",
+        "cohorts": {
+          "completed/completed": 4315,
+          "aboard/aboard": 4
+        },
+        "all_request_wait_or_age_delta": {
+          "count": 4319,
+          "mean_seconds": -31.739712124720228,
+          "p95_seconds": 191.0333333333333,
+          "maximum_seconds": 2304.1833333333334,
+          "regressions": 1430,
+          "over_30_seconds": 884,
+          "over_120_seconds": 360,
+          "over_300_seconds": 119
+        },
+        "exact_boarded_wait_delta": {
+          "count": 4319,
+          "mean_seconds": -31.739712124720228,
+          "p95_seconds": 191.0333333333333,
+          "maximum_seconds": 2304.1833333333334,
+          "regressions": 1430,
+          "over_30_seconds": 884,
+          "over_120_seconds": 360,
+          "over_300_seconds": 119
+        },
+        "completed_journey_delta": {
+          "count": 4315,
+          "mean_seconds": -32.56981460023175,
+          "p95_seconds": 190.88333333333344,
+          "maximum_seconds": 2295.5000000000005,
+          "regressions": 1647,
+          "over_30_seconds": 893,
+          "over_120_seconds": 361,
+          "over_300_seconds": 118
+        },
+        "directly_reassigned_exact_wait_delta": {
+          "count": 144,
+          "mean_seconds": -140.31909722222224,
+          "p95_seconds": 339.2,
+          "maximum_seconds": 948.15,
+          "regressions": 45,
+          "over_30_seconds": 30,
+          "over_120_seconds": 19,
+          "over_300_seconds": 9
+        },
+        "other_exact_wait_delta": {
+          "count": 4175,
+          "mean_seconds": -27.99469860279441,
+          "p95_seconds": 186.29999999999995,
+          "maximum_seconds": 2304.1833333333334,
+          "regressions": 1385,
+          "over_30_seconds": 854,
+          "over_120_seconds": 341,
+          "over_300_seconds": 110
+        },
+        "candidate_pending_known_regression_lower_bounds": {
+          "count": 0,
+          "mean_seconds": null,
+          "p95_seconds": null,
+          "maximum_seconds": null,
+          "regressions": 0,
+          "over_30_seconds": 0,
+          "over_120_seconds": 0,
+          "over_300_seconds": 0
+        }
+      },
+      {
+        "rate": 12,
+        "seed": 3,
+        "buffers": "on",
+        "reassignment": "off",
+        "cohorts": {
+          "completed/completed": 4318,
+          "aboard/aboard": 1
+        },
+        "all_request_wait_or_age_delta": {
+          "count": 4319,
+          "mean_seconds": -24.701192405649454,
+          "p95_seconds": 176.51666666666665,
+          "maximum_seconds": 1080.2166666666667,
+          "regressions": 1455,
+          "over_30_seconds": 860,
+          "over_120_seconds": 337,
+          "over_300_seconds": 116
+        },
+        "exact_boarded_wait_delta": {
+          "count": 4319,
+          "mean_seconds": -24.701192405649454,
+          "p95_seconds": 176.51666666666665,
+          "maximum_seconds": 1080.2166666666667,
+          "regressions": 1455,
+          "over_30_seconds": 860,
+          "over_120_seconds": 337,
+          "over_300_seconds": 116
+        },
+        "completed_journey_delta": {
+          "count": 4318,
+          "mean_seconds": -25.77169600123514,
+          "p95_seconds": 176.8499999999999,
+          "maximum_seconds": 1077.0166666666669,
+          "regressions": 1706,
+          "over_30_seconds": 877,
+          "over_120_seconds": 338,
+          "over_300_seconds": 118
+        },
+        "directly_reassigned_exact_wait_delta": {
+          "count": 0,
+          "mean_seconds": null,
+          "p95_seconds": null,
+          "maximum_seconds": null,
+          "regressions": 0,
+          "over_30_seconds": 0,
+          "over_120_seconds": 0,
+          "over_300_seconds": 0
+        },
+        "other_exact_wait_delta": {
+          "count": 4319,
+          "mean_seconds": -24.701192405649454,
+          "p95_seconds": 176.51666666666665,
+          "maximum_seconds": 1080.2166666666667,
+          "regressions": 1455,
+          "over_30_seconds": 860,
+          "over_120_seconds": 337,
+          "over_300_seconds": 116
+        },
+        "candidate_pending_known_regression_lower_bounds": {
+          "count": 0,
+          "mean_seconds": null,
+          "p95_seconds": null,
+          "maximum_seconds": null,
+          "regressions": 0,
+          "over_30_seconds": 0,
+          "over_120_seconds": 0,
+          "over_300_seconds": 0
+        }
+      },
+      {
+        "rate": 12,
+        "seed": 3,
+        "buffers": "off",
+        "reassignment": "on",
+        "cohorts": {
+          "completed/completed": 4318,
+          "aboard/aboard": 1
+        },
+        "all_request_wait_or_age_delta": {
+          "count": 4319,
+          "mean_seconds": -3.261650073319441,
+          "p95_seconds": 149.31666666666666,
+          "maximum_seconds": 1584.5166666666667,
+          "regressions": 1295,
+          "over_30_seconds": 694,
+          "over_120_seconds": 268,
+          "over_300_seconds": 91
+        },
+        "exact_boarded_wait_delta": {
+          "count": 4319,
+          "mean_seconds": -3.261650073319441,
+          "p95_seconds": 149.31666666666666,
+          "maximum_seconds": 1584.5166666666667,
+          "regressions": 1295,
+          "over_30_seconds": 694,
+          "over_120_seconds": 268,
+          "over_300_seconds": 91
+        },
+        "completed_journey_delta": {
+          "count": 4318,
+          "mean_seconds": -3.243060058669137,
+          "p95_seconds": 148.91666666666674,
+          "maximum_seconds": 1593.2666666666669,
+          "regressions": 1582,
+          "over_30_seconds": 705,
+          "over_120_seconds": 265,
+          "over_300_seconds": 91
+        },
+        "directly_reassigned_exact_wait_delta": {
+          "count": 133,
+          "mean_seconds": -38.40250626566416,
+          "p95_seconds": 646.8166666666667,
+          "maximum_seconds": 1275.8833333333334,
+          "regressions": 40,
+          "over_30_seconds": 33,
+          "over_120_seconds": 23,
+          "over_300_seconds": 9
+        },
+        "other_exact_wait_delta": {
+          "count": 4186,
+          "mean_seconds": -2.145134575569358,
+          "p95_seconds": 140.8166666666666,
+          "maximum_seconds": 1584.5166666666667,
+          "regressions": 1255,
+          "over_30_seconds": 661,
+          "over_120_seconds": 245,
+          "over_300_seconds": 82
+        },
+        "candidate_pending_known_regression_lower_bounds": {
+          "count": 0,
+          "mean_seconds": null,
+          "p95_seconds": null,
+          "maximum_seconds": null,
+          "regressions": 0,
+          "over_30_seconds": 0,
+          "over_120_seconds": 0,
+          "over_300_seconds": 0
+        }
+      },
+      {
+        "rate": 12,
+        "seed": 3,
+        "buffers": "on",
+        "reassignment": "on",
+        "cohorts": {
+          "completed/completed": 4318,
+          "aboard/aboard": 1
+        },
+        "all_request_wait_or_age_delta": {
+          "count": 4319,
+          "mean_seconds": -25.210658331403874,
+          "p95_seconds": 175.08333333333337,
+          "maximum_seconds": 1680.4666666666667,
+          "regressions": 1423,
+          "over_30_seconds": 826,
+          "over_120_seconds": 340,
+          "over_300_seconds": 105
+        },
+        "exact_boarded_wait_delta": {
+          "count": 4319,
+          "mean_seconds": -25.210658331403874,
+          "p95_seconds": 175.08333333333337,
+          "maximum_seconds": 1680.4666666666667,
+          "regressions": 1423,
+          "over_30_seconds": 826,
+          "over_120_seconds": 340,
+          "over_300_seconds": 105
+        },
+        "completed_journey_delta": {
+          "count": 4318,
+          "mean_seconds": -26.341759302146055,
+          "p95_seconds": 174.91666666666674,
+          "maximum_seconds": 1699.3333333333335,
+          "regressions": 1694,
+          "over_30_seconds": 846,
+          "over_120_seconds": 336,
+          "over_300_seconds": 104
+        },
+        "directly_reassigned_exact_wait_delta": {
+          "count": 142,
+          "mean_seconds": -39.23169014084507,
+          "p95_seconds": 486.4833333333331,
+          "maximum_seconds": 721.5,
+          "regressions": 49,
+          "over_30_seconds": 42,
+          "over_120_seconds": 29,
+          "over_300_seconds": 15
+        },
+        "other_exact_wait_delta": {
+          "count": 4177,
+          "mean_seconds": -24.73400367089618,
+          "p95_seconds": 161.01666666666668,
+          "maximum_seconds": 1680.4666666666667,
+          "regressions": 1374,
+          "over_30_seconds": 784,
+          "over_120_seconds": 311,
+          "over_300_seconds": 90
+        },
+        "candidate_pending_known_regression_lower_bounds": {
+          "count": 0,
+          "mean_seconds": null,
+          "p95_seconds": null,
+          "maximum_seconds": null,
+          "regressions": 0,
+          "over_30_seconds": 0,
+          "over_120_seconds": 0,
+          "over_300_seconds": 0
+        }
+      },
+      {
+        "rate": 12,
+        "seed": 4,
+        "buffers": "on",
+        "reassignment": "off",
+        "cohorts": {
+          "completed/completed": 4319
+        },
+        "all_request_wait_or_age_delta": {
+          "count": 4319,
+          "mean_seconds": -23.655992899590956,
+          "p95_seconds": 178.66666666666669,
+          "maximum_seconds": 1386.0,
+          "regressions": 1403,
+          "over_30_seconds": 817,
+          "over_120_seconds": 317,
+          "over_300_seconds": 84
+        },
+        "exact_boarded_wait_delta": {
+          "count": 4319,
+          "mean_seconds": -23.655992899590956,
+          "p95_seconds": 178.66666666666669,
+          "maximum_seconds": 1386.0,
+          "regressions": 1403,
+          "over_30_seconds": 817,
+          "over_120_seconds": 317,
+          "over_300_seconds": 84
+        },
+        "completed_journey_delta": {
+          "count": 4319,
+          "mean_seconds": -24.421525044377557,
+          "p95_seconds": 176.81666666666683,
+          "maximum_seconds": 1378.5333333333333,
+          "regressions": 1701,
+          "over_30_seconds": 848,
+          "over_120_seconds": 315,
+          "over_300_seconds": 84
+        },
+        "directly_reassigned_exact_wait_delta": {
+          "count": 0,
+          "mean_seconds": null,
+          "p95_seconds": null,
+          "maximum_seconds": null,
+          "regressions": 0,
+          "over_30_seconds": 0,
+          "over_120_seconds": 0,
+          "over_300_seconds": 0
+        },
+        "other_exact_wait_delta": {
+          "count": 4319,
+          "mean_seconds": -23.655992899590956,
+          "p95_seconds": 178.66666666666669,
+          "maximum_seconds": 1386.0,
+          "regressions": 1403,
+          "over_30_seconds": 817,
+          "over_120_seconds": 317,
+          "over_300_seconds": 84
+        },
+        "candidate_pending_known_regression_lower_bounds": {
+          "count": 0,
+          "mean_seconds": null,
+          "p95_seconds": null,
+          "maximum_seconds": null,
+          "regressions": 0,
+          "over_30_seconds": 0,
+          "over_120_seconds": 0,
+          "over_300_seconds": 0
+        }
+      },
+      {
+        "rate": 12,
+        "seed": 4,
+        "buffers": "off",
+        "reassignment": "on",
+        "cohorts": {
+          "completed/completed": 4319
+        },
+        "all_request_wait_or_age_delta": {
+          "count": 4319,
+          "mean_seconds": -0.5844292660338044,
+          "p95_seconds": 170.0,
+          "maximum_seconds": 5404.733333333334,
+          "regressions": 1479,
+          "over_30_seconds": 829,
+          "over_120_seconds": 340,
+          "over_300_seconds": 100
+        },
+        "exact_boarded_wait_delta": {
+          "count": 4319,
+          "mean_seconds": -0.5844292660338044,
+          "p95_seconds": 170.0,
+          "maximum_seconds": 5404.733333333334,
+          "regressions": 1479,
+          "over_30_seconds": 829,
+          "over_120_seconds": 340,
+          "over_300_seconds": 100
+        },
+        "completed_journey_delta": {
+          "count": 4319,
+          "mean_seconds": -0.1481708728872432,
+          "p95_seconds": 171.05000000000007,
+          "maximum_seconds": 5417.016666666666,
+          "regressions": 1761,
+          "over_30_seconds": 850,
+          "over_120_seconds": 330,
+          "over_300_seconds": 98
+        },
+        "directly_reassigned_exact_wait_delta": {
+          "count": 171,
+          "mean_seconds": -103.47777777777779,
+          "p95_seconds": 216.43333333333334,
+          "maximum_seconds": 1288.2833333333333,
+          "regressions": 43,
+          "over_30_seconds": 30,
+          "over_120_seconds": 17,
+          "over_300_seconds": 7
+        },
+        "other_exact_wait_delta": {
+          "count": 4148,
+          "mean_seconds": 3.6573167791706847,
+          "p95_seconds": 168.25,
+          "maximum_seconds": 5404.733333333334,
+          "regressions": 1436,
+          "over_30_seconds": 799,
+          "over_120_seconds": 323,
+          "over_300_seconds": 93
+        },
+        "candidate_pending_known_regression_lower_bounds": {
+          "count": 0,
+          "mean_seconds": null,
+          "p95_seconds": null,
+          "maximum_seconds": null,
+          "regressions": 0,
+          "over_30_seconds": 0,
+          "over_120_seconds": 0,
+          "over_300_seconds": 0
+        }
+      },
+      {
+        "rate": 12,
+        "seed": 4,
+        "buffers": "on",
+        "reassignment": "on",
+        "cohorts": {
+          "completed/completed": 4319
+        },
+        "all_request_wait_or_age_delta": {
+          "count": 4319,
+          "mean_seconds": -26.354769622597825,
+          "p95_seconds": 180.86666666666667,
+          "maximum_seconds": 1337.2666666666667,
+          "regressions": 1462,
+          "over_30_seconds": 910,
+          "over_120_seconds": 338,
+          "over_300_seconds": 114
+        },
+        "exact_boarded_wait_delta": {
+          "count": 4319,
+          "mean_seconds": -26.354769622597825,
+          "p95_seconds": 180.86666666666667,
+          "maximum_seconds": 1337.2666666666667,
+          "regressions": 1462,
+          "over_30_seconds": 910,
+          "over_120_seconds": 338,
+          "over_300_seconds": 114
+        },
+        "completed_journey_delta": {
+          "count": 4319,
+          "mean_seconds": -27.254321988114533,
+          "p95_seconds": 181.31666666666706,
+          "maximum_seconds": 1349.2166666666667,
+          "regressions": 1689,
+          "over_30_seconds": 938,
+          "over_120_seconds": 342,
+          "over_300_seconds": 110
+        },
+        "directly_reassigned_exact_wait_delta": {
+          "count": 160,
+          "mean_seconds": -76.84260416666666,
+          "p95_seconds": 280.1833333333333,
+          "maximum_seconds": 822.1333333333334,
+          "regressions": 46,
+          "over_30_seconds": 38,
+          "over_120_seconds": 24,
+          "over_300_seconds": 7
+        },
+        "other_exact_wait_delta": {
+          "count": 4159,
+          "mean_seconds": -24.4124629317945,
+          "p95_seconds": 174.33333333333326,
+          "maximum_seconds": 1337.2666666666667,
+          "regressions": 1416,
+          "over_30_seconds": 872,
+          "over_120_seconds": 314,
+          "over_300_seconds": 107
+        },
+        "candidate_pending_known_regression_lower_bounds": {
+          "count": 0,
+          "mean_seconds": null,
+          "p95_seconds": null,
+          "maximum_seconds": null,
+          "regressions": 0,
+          "over_30_seconds": 0,
+          "over_120_seconds": 0,
+          "over_300_seconds": 0
+        }
+      }
+    ],
+    "unavailable": [],
+    "scope": "six-hour arrivals, seven-hour cap, seeds 1-4, 12 per minute; once/sec oracles and two physical restores",
+    "censoring": "wait-or-age is observed wait for boarded requests, elapsed age for unboarded requests; not eventual wait",
+    "tail_thresholds": "30/120/300 seconds are descriptive counts, not approved adoption gates",
+    "raw_paths": {
+      "rate12-s1-boff-roff": "rate12-s1-boff-roff.json",
+      "rate12-s1-boff-ron": "rate12-s1-boff-ron.json",
+      "rate12-s1-bon-roff": "rate12-s1-bon-roff.json",
+      "rate12-s1-bon-ron": "rate12-s1-bon-ron.json",
+      "rate12-s2-boff-roff": "rate12-s2-boff-roff.json",
+      "rate12-s2-boff-ron": "rate12-s2-boff-ron.json",
+      "rate12-s2-bon-roff": "rate12-s2-bon-roff.json",
+      "rate12-s2-bon-ron": "rate12-s2-bon-ron.json",
+      "rate12-s3-boff-roff": "rate12-s3-boff-roff.json",
+      "rate12-s3-boff-ron": "rate12-s3-boff-ron.json",
+      "rate12-s3-bon-roff": "rate12-s3-bon-roff.json",
+      "rate12-s3-bon-ron": "rate12-s3-bon-ron.json",
+      "rate12-s4-boff-roff": "rate12-s4-boff-roff.json",
+      "rate12-s4-boff-ron": "rate12-s4-boff-ron.json",
+      "rate12-s4-bon-roff": "rate12-s4-bon-roff.json",
+      "rate12-s4-bon-ron": "rate12-s4-bon-ron.json"
+    },
+    "raw_sha256": {
+      "rate12-s1-boff-roff": "9d0a9be373c30388554584484d4411b128e0a10e88fe90222a582f3943196f23",
+      "rate12-s1-boff-ron": "a38c75492e7a412c02800d78c73584137afee401feea3ccc6cbe625923b75510",
+      "rate12-s1-bon-roff": "16499687ed3144c16d0757a89ffbfa5260742a6f94d78c36a90d2c4831d41915",
+      "rate12-s1-bon-ron": "329a7febf93fdf47bf440c4ade421c70e66e41b038645702d38df0844ef2cf18",
+      "rate12-s2-boff-roff": "6493a14dbbafbaaba2187a5320dbc4de3f1ac6ddfa4636f7d0a9e3a6f547ceaa",
+      "rate12-s2-boff-ron": "7c3593916756fe7e89409eb8f6b307908e6fae2a5e11a343bdb463f3dff07d33",
+      "rate12-s2-bon-roff": "f563403e0b37024f402d0bf4c241b16c7c55f1005a5f908a52787879739a9589",
+      "rate12-s2-bon-ron": "e54ca929dc19c11b2158b9e5571da93673c1cc85f026b0a03ca1e68777f0d477",
+      "rate12-s3-boff-roff": "52e1f4b9a535fcddbaae8fa4c6f836bc37112a068c509b517f49e09520fc531d",
+      "rate12-s3-boff-ron": "af9c411ca0b0a1ddddd7aa7d058dccf467f86c56ee8a49af5ad024eda67a3582",
+      "rate12-s3-bon-roff": "6e399957fb94125f514e3e89f139ddcfd6c0f06725e4c2765256e8718e8569d1",
+      "rate12-s3-bon-ron": "cdef09b837e5f8bfd2a5be27cc63d06a0b629d291dfb69adfba8153d25d8c7c2",
+      "rate12-s4-boff-roff": "83324c41a53be6da25761599344c194f22da6183fbbf16129f8a9172c9786394",
+      "rate12-s4-boff-ron": "f2c95fb1acc460644044ac7d417629b0cf9d4452db8b6c98293f22c9ab86c9e6",
+      "rate12-s4-bon-roff": "ca85fa52ca98bea9013a41480bbe01d60209eb730e60f93b5f166acdeb90acf6",
+      "rate12-s4-bon-ron": "087c25d9df821c07800c0580639d8eafc590070bed0ec3425299b80bbe5f691e"
+    }
+  },
+  "manifest": {
+    "reason": "Approved capacity expansion after first comparisons pass accounting and restore checks; intermediate12/min matches live demo offered rate; new seeds3/4 broaden coverage.",
+    "source": "Same frozen study binary and production-equivalence-qualified observers as original10/15/20 matrix. Existing physical restore/dense continuation checks unchanged.",
+    "hashes": {
+      "/home/dotwaffle/.cache/agents/podsim/sustained-full-20260930/midpoint/jobs.json": "198d22dadf3729b4a9fd34b3af3afe100ea948abe5ef7557eda5a07adc125d61",
+      "/home/dotwaffle/.cache/agents/podsim/sustained-full-20260930/midpoint/run.py": "d3d859dad71321ee27e7096c41d50ad9fba7d686e30f7f3a49bc69e7062373e3",
+      "/home/dotwaffle/.cache/agents/podsim/sustained-full-20260930/midpoint/analyze.py": "ddc1ccaba6f6865c2b8b6981c0c3f377874d4591d56900c159edbcc7f997705c",
+      "/home/dotwaffle/.cache/agents/podsim/sustained-full-20260930/full.json": "be8e751c012805e4941937fcc62364984f7746df82d29c363134dbf2f08b8182",
+      "/tmp/build/podsim/sustained-full-20260930/study.test": "e66394cafda058101cee384ad5761f37f4426b9d878a7712c5e2c4cb0a9265e5"
+    },
+    "jobs": [
+      {
+        "Name": "rate12-s1-boff-roff",
+        "Project": "/home/dotwaffle/.cache/agents/podsim/sustained-full-20260930/full.json",
+        "Pattern": "profile",
+        "Band": "am-peak",
+        "Buffers": "off",
+        "Reassignment": "off",
+        "Output": "/home/dotwaffle/.cache/agents/podsim/sustained-full-20260930/midpoint/rate12-s1-boff-roff.json",
+        "Seed": 1,
+        "Rate": 12,
+        "Arrivals": 21600000000000,
+        "Duration": 25200000000000,
+        "RestoreSeconds": [
+          10800,
+          21600
+        ],
+        "EveryTick": false,
+        "Control": false
+      },
+      {
+        "Name": "rate12-s1-boff-ron",
+        "Project": "/home/dotwaffle/.cache/agents/podsim/sustained-full-20260930/full.json",
+        "Pattern": "profile",
+        "Band": "am-peak",
+        "Buffers": "off",
+        "Reassignment": "on",
+        "Output": "/home/dotwaffle/.cache/agents/podsim/sustained-full-20260930/midpoint/rate12-s1-boff-ron.json",
+        "Seed": 1,
+        "Rate": 12,
+        "Arrivals": 21600000000000,
+        "Duration": 25200000000000,
+        "RestoreSeconds": [
+          10800,
+          21600
+        ],
+        "EveryTick": false,
+        "Control": false
+      },
+      {
+        "Name": "rate12-s1-bon-roff",
+        "Project": "/home/dotwaffle/.cache/agents/podsim/sustained-full-20260930/full.json",
+        "Pattern": "profile",
+        "Band": "am-peak",
+        "Buffers": "on",
+        "Reassignment": "off",
+        "Output": "/home/dotwaffle/.cache/agents/podsim/sustained-full-20260930/midpoint/rate12-s1-bon-roff.json",
+        "Seed": 1,
+        "Rate": 12,
+        "Arrivals": 21600000000000,
+        "Duration": 25200000000000,
+        "RestoreSeconds": [
+          10800,
+          21600
+        ],
+        "EveryTick": false,
+        "Control": false
+      },
+      {
+        "Name": "rate12-s1-bon-ron",
+        "Project": "/home/dotwaffle/.cache/agents/podsim/sustained-full-20260930/full.json",
+        "Pattern": "profile",
+        "Band": "am-peak",
+        "Buffers": "on",
+        "Reassignment": "on",
+        "Output": "/home/dotwaffle/.cache/agents/podsim/sustained-full-20260930/midpoint/rate12-s1-bon-ron.json",
+        "Seed": 1,
+        "Rate": 12,
+        "Arrivals": 21600000000000,
+        "Duration": 25200000000000,
+        "RestoreSeconds": [
+          10800,
+          21600
+        ],
+        "EveryTick": false,
+        "Control": false
+      },
+      {
+        "Name": "rate12-s2-boff-roff",
+        "Project": "/home/dotwaffle/.cache/agents/podsim/sustained-full-20260930/full.json",
+        "Pattern": "profile",
+        "Band": "am-peak",
+        "Buffers": "off",
+        "Reassignment": "off",
+        "Output": "/home/dotwaffle/.cache/agents/podsim/sustained-full-20260930/midpoint/rate12-s2-boff-roff.json",
+        "Seed": 2,
+        "Rate": 12,
+        "Arrivals": 21600000000000,
+        "Duration": 25200000000000,
+        "RestoreSeconds": [
+          10800,
+          21600
+        ],
+        "EveryTick": false,
+        "Control": false
+      },
+      {
+        "Name": "rate12-s2-boff-ron",
+        "Project": "/home/dotwaffle/.cache/agents/podsim/sustained-full-20260930/full.json",
+        "Pattern": "profile",
+        "Band": "am-peak",
+        "Buffers": "off",
+        "Reassignment": "on",
+        "Output": "/home/dotwaffle/.cache/agents/podsim/sustained-full-20260930/midpoint/rate12-s2-boff-ron.json",
+        "Seed": 2,
+        "Rate": 12,
+        "Arrivals": 21600000000000,
+        "Duration": 25200000000000,
+        "RestoreSeconds": [
+          10800,
+          21600
+        ],
+        "EveryTick": false,
+        "Control": false
+      },
+      {
+        "Name": "rate12-s2-bon-roff",
+        "Project": "/home/dotwaffle/.cache/agents/podsim/sustained-full-20260930/full.json",
+        "Pattern": "profile",
+        "Band": "am-peak",
+        "Buffers": "on",
+        "Reassignment": "off",
+        "Output": "/home/dotwaffle/.cache/agents/podsim/sustained-full-20260930/midpoint/rate12-s2-bon-roff.json",
+        "Seed": 2,
+        "Rate": 12,
+        "Arrivals": 21600000000000,
+        "Duration": 25200000000000,
+        "RestoreSeconds": [
+          10800,
+          21600
+        ],
+        "EveryTick": false,
+        "Control": false
+      },
+      {
+        "Name": "rate12-s2-bon-ron",
+        "Project": "/home/dotwaffle/.cache/agents/podsim/sustained-full-20260930/full.json",
+        "Pattern": "profile",
+        "Band": "am-peak",
+        "Buffers": "on",
+        "Reassignment": "on",
+        "Output": "/home/dotwaffle/.cache/agents/podsim/sustained-full-20260930/midpoint/rate12-s2-bon-ron.json",
+        "Seed": 2,
+        "Rate": 12,
+        "Arrivals": 21600000000000,
+        "Duration": 25200000000000,
+        "RestoreSeconds": [
+          10800,
+          21600
+        ],
+        "EveryTick": false,
+        "Control": false
+      },
+      {
+        "Name": "rate12-s3-boff-roff",
+        "Project": "/home/dotwaffle/.cache/agents/podsim/sustained-full-20260930/full.json",
+        "Pattern": "profile",
+        "Band": "am-peak",
+        "Buffers": "off",
+        "Reassignment": "off",
+        "Output": "/home/dotwaffle/.cache/agents/podsim/sustained-full-20260930/midpoint/rate12-s3-boff-roff.json",
+        "Seed": 3,
+        "Rate": 12,
+        "Arrivals": 21600000000000,
+        "Duration": 25200000000000,
+        "RestoreSeconds": [
+          10800,
+          21600
+        ],
+        "EveryTick": false,
+        "Control": false
+      },
+      {
+        "Name": "rate12-s3-boff-ron",
+        "Project": "/home/dotwaffle/.cache/agents/podsim/sustained-full-20260930/full.json",
+        "Pattern": "profile",
+        "Band": "am-peak",
+        "Buffers": "off",
+        "Reassignment": "on",
+        "Output": "/home/dotwaffle/.cache/agents/podsim/sustained-full-20260930/midpoint/rate12-s3-boff-ron.json",
+        "Seed": 3,
+        "Rate": 12,
+        "Arrivals": 21600000000000,
+        "Duration": 25200000000000,
+        "RestoreSeconds": [
+          10800,
+          21600
+        ],
+        "EveryTick": false,
+        "Control": false
+      },
+      {
+        "Name": "rate12-s3-bon-roff",
+        "Project": "/home/dotwaffle/.cache/agents/podsim/sustained-full-20260930/full.json",
+        "Pattern": "profile",
+        "Band": "am-peak",
+        "Buffers": "on",
+        "Reassignment": "off",
+        "Output": "/home/dotwaffle/.cache/agents/podsim/sustained-full-20260930/midpoint/rate12-s3-bon-roff.json",
+        "Seed": 3,
+        "Rate": 12,
+        "Arrivals": 21600000000000,
+        "Duration": 25200000000000,
+        "RestoreSeconds": [
+          10800,
+          21600
+        ],
+        "EveryTick": false,
+        "Control": false
+      },
+      {
+        "Name": "rate12-s3-bon-ron",
+        "Project": "/home/dotwaffle/.cache/agents/podsim/sustained-full-20260930/full.json",
+        "Pattern": "profile",
+        "Band": "am-peak",
+        "Buffers": "on",
+        "Reassignment": "on",
+        "Output": "/home/dotwaffle/.cache/agents/podsim/sustained-full-20260930/midpoint/rate12-s3-bon-ron.json",
+        "Seed": 3,
+        "Rate": 12,
+        "Arrivals": 21600000000000,
+        "Duration": 25200000000000,
+        "RestoreSeconds": [
+          10800,
+          21600
+        ],
+        "EveryTick": false,
+        "Control": false
+      },
+      {
+        "Name": "rate12-s4-boff-roff",
+        "Project": "/home/dotwaffle/.cache/agents/podsim/sustained-full-20260930/full.json",
+        "Pattern": "profile",
+        "Band": "am-peak",
+        "Buffers": "off",
+        "Reassignment": "off",
+        "Output": "/home/dotwaffle/.cache/agents/podsim/sustained-full-20260930/midpoint/rate12-s4-boff-roff.json",
+        "Seed": 4,
+        "Rate": 12,
+        "Arrivals": 21600000000000,
+        "Duration": 25200000000000,
+        "RestoreSeconds": [
+          10800,
+          21600
+        ],
+        "EveryTick": false,
+        "Control": false
+      },
+      {
+        "Name": "rate12-s4-boff-ron",
+        "Project": "/home/dotwaffle/.cache/agents/podsim/sustained-full-20260930/full.json",
+        "Pattern": "profile",
+        "Band": "am-peak",
+        "Buffers": "off",
+        "Reassignment": "on",
+        "Output": "/home/dotwaffle/.cache/agents/podsim/sustained-full-20260930/midpoint/rate12-s4-boff-ron.json",
+        "Seed": 4,
+        "Rate": 12,
+        "Arrivals": 21600000000000,
+        "Duration": 25200000000000,
+        "RestoreSeconds": [
+          10800,
+          21600
+        ],
+        "EveryTick": false,
+        "Control": false
+      },
+      {
+        "Name": "rate12-s4-bon-roff",
+        "Project": "/home/dotwaffle/.cache/agents/podsim/sustained-full-20260930/full.json",
+        "Pattern": "profile",
+        "Band": "am-peak",
+        "Buffers": "on",
+        "Reassignment": "off",
+        "Output": "/home/dotwaffle/.cache/agents/podsim/sustained-full-20260930/midpoint/rate12-s4-bon-roff.json",
+        "Seed": 4,
+        "Rate": 12,
+        "Arrivals": 21600000000000,
+        "Duration": 25200000000000,
+        "RestoreSeconds": [
+          10800,
+          21600
+        ],
+        "EveryTick": false,
+        "Control": false
+      },
+      {
+        "Name": "rate12-s4-bon-ron",
+        "Project": "/home/dotwaffle/.cache/agents/podsim/sustained-full-20260930/full.json",
+        "Pattern": "profile",
+        "Band": "am-peak",
+        "Buffers": "on",
+        "Reassignment": "on",
+        "Output": "/home/dotwaffle/.cache/agents/podsim/sustained-full-20260930/midpoint/rate12-s4-bon-ron.json",
+        "Seed": 4,
+        "Rate": 12,
+        "Arrivals": 21600000000000,
+        "Duration": 25200000000000,
+        "RestoreSeconds": [
+          10800,
+          21600
+        ],
+        "EveryTick": false,
+        "Control": false
+      }
+    ],
+    "deadline_seconds": 3900,
+    "phase_gate": "Seeds1/2 first, seeds3/4 only if phase passes and per-job900s budget remains. No adoption/default changes."
+  },
+  "run_status": [
+    {
+      "name": "rate12-s1-boff-roff",
+      "status": "passed",
+      "exit": 0,
+      "wall_seconds": 243.25304110348225
+    },
+    {
+      "name": "rate12-s1-boff-ron",
+      "status": "passed",
+      "exit": 0,
+      "wall_seconds": 298.47698361147195
+    },
+    {
+      "name": "rate12-s1-bon-roff",
+      "status": "passed",
+      "exit": 0,
+      "wall_seconds": 311.94857558980584
+    },
+    {
+      "name": "rate12-s1-bon-ron",
+      "status": "passed",
+      "exit": 0,
+      "wall_seconds": 365.4840364800766
+    },
+    {
+      "name": "rate12-s2-boff-roff",
+      "status": "passed",
+      "exit": 0,
+      "wall_seconds": 245.97019883897156
+    },
+    {
+      "name": "rate12-s2-boff-ron",
+      "status": "passed",
+      "exit": 0,
+      "wall_seconds": 298.9506542328745
+    },
+    {
+      "name": "rate12-s2-bon-roff",
+      "status": "passed",
+      "exit": 0,
+      "wall_seconds": 311.8304909663275
+    },
+    {
+      "name": "rate12-s2-bon-ron",
+      "status": "passed",
+      "exit": 0,
+      "wall_seconds": 355.49168495554477
+    },
+    {
+      "name": "rate12-s3-boff-roff",
+      "status": "passed",
+      "exit": 0,
+      "wall_seconds": 246.34855977073312
+    },
+    {
+      "name": "rate12-s3-boff-ron",
+      "status": "passed",
+      "exit": 0,
+      "wall_seconds": 302.9731901315972
+    },
+    {
+      "name": "rate12-s3-bon-roff",
+      "status": "passed",
+      "exit": 0,
+      "wall_seconds": 315.1984430840239
+    },
+    {
+      "name": "rate12-s3-bon-ron",
+      "status": "passed",
+      "exit": 0,
+      "wall_seconds": 370.27227189205587
+    },
+    {
+      "name": "rate12-s4-boff-roff",
+      "status": "passed",
+      "exit": 0,
+      "wall_seconds": 243.42702504713088
+    },
+    {
+      "name": "rate12-s4-boff-ron",
+      "status": "passed",
+      "exit": 0,
+      "wall_seconds": 310.3743095640093
+    },
+    {
+      "name": "rate12-s4-bon-roff",
+      "status": "passed",
+      "exit": 0,
+      "wall_seconds": 325.08036637399346
+    },
+    {
+      "name": "rate12-s4-bon-ron",
+      "status": "passed",
+      "exit": 0,
+      "wall_seconds": 386.1055618459359
+    }
+  ],
+  "remaining_aboard": {
+    "rate12-s1-boff-roff": [
+      {
+        "RequestID": 4228,
+        "RequestedTick": 1268400,
+        "BoardedTick": 1379252,
+        "CompletedTick": -1,
+        "RiddenMeters": 0,
+        "DirectMeters": 0,
+        "SharedWith": 0,
+        "Reassigned": false
+      },
+      {
+        "RequestID": 4223,
+        "RequestedTick": 1266900,
+        "BoardedTick": 1405628,
+        "CompletedTick": -1,
+        "RiddenMeters": 0,
+        "DirectMeters": 0,
+        "SharedWith": 0,
+        "Reassigned": false
+      }
+    ],
+    "rate12-s1-boff-ron": [],
+    "rate12-s1-bon-roff": [
+      {
+        "RequestID": 4228,
+        "RequestedTick": 1268400,
+        "BoardedTick": 1370842,
+        "CompletedTick": -1,
+        "RiddenMeters": 0,
+        "DirectMeters": 0,
+        "SharedWith": 0,
+        "Reassigned": false
+      },
+      {
+        "RequestID": 4223,
+        "RequestedTick": 1266900,
+        "BoardedTick": 1405306,
+        "CompletedTick": -1,
+        "RiddenMeters": 0,
+        "DirectMeters": 0,
+        "SharedWith": 0,
+        "Reassigned": false
+      }
+    ],
+    "rate12-s1-bon-ron": [
+      {
+        "RequestID": 4228,
+        "RequestedTick": 1268400,
+        "BoardedTick": 1363201,
+        "CompletedTick": -1,
+        "RiddenMeters": 0,
+        "DirectMeters": 0,
+        "SharedWith": 0,
+        "Reassigned": false
+      }
+    ],
+    "rate12-s2-boff-roff": [
+      {
+        "RequestID": 3955,
+        "RequestedTick": 1186500,
+        "BoardedTick": 1368621,
+        "CompletedTick": -1,
+        "RiddenMeters": 0,
+        "DirectMeters": 0,
+        "SharedWith": 0,
+        "Reassigned": false
+      },
+      {
+        "RequestID": 4179,
+        "RequestedTick": 1253700,
+        "BoardedTick": 1381840,
+        "CompletedTick": -1,
+        "RiddenMeters": 0,
+        "DirectMeters": 0,
+        "SharedWith": 0,
+        "Reassigned": false
+      },
+      {
+        "RequestID": 4135,
+        "RequestedTick": 1240500,
+        "BoardedTick": 1407633,
+        "CompletedTick": -1,
+        "RiddenMeters": 0,
+        "DirectMeters": 0,
+        "SharedWith": 0,
+        "Reassigned": false
+      },
+      {
+        "RequestID": 4255,
+        "RequestedTick": 1276500,
+        "BoardedTick": 1412835,
+        "CompletedTick": -1,
+        "RiddenMeters": 0,
+        "DirectMeters": 0,
+        "SharedWith": 0,
+        "Reassigned": false
+      }
+    ],
+    "rate12-s2-boff-ron": [
+      {
+        "RequestID": 3955,
+        "RequestedTick": 1186500,
+        "BoardedTick": 1335389,
+        "CompletedTick": -1,
+        "RiddenMeters": 0,
+        "DirectMeters": 0,
+        "SharedWith": 0,
+        "Reassigned": false
+      },
+      {
+        "RequestID": 4179,
+        "RequestedTick": 1253700,
+        "BoardedTick": 1381840,
+        "CompletedTick": -1,
+        "RiddenMeters": 0,
+        "DirectMeters": 0,
+        "SharedWith": 0,
+        "Reassigned": false
+      },
+      {
+        "RequestID": 4255,
+        "RequestedTick": 1276500,
+        "BoardedTick": 1389083,
+        "CompletedTick": -1,
+        "RiddenMeters": 0,
+        "DirectMeters": 0,
+        "SharedWith": 0,
+        "Reassigned": false
+      },
+      {
+        "RequestID": 4135,
+        "RequestedTick": 1240500,
+        "BoardedTick": 1424693,
+        "CompletedTick": -1,
+        "RiddenMeters": 0,
+        "DirectMeters": 0,
+        "SharedWith": 0,
+        "Reassigned": false
+      }
+    ],
+    "rate12-s2-bon-roff": [
+      {
+        "RequestID": 3955,
+        "RequestedTick": 1186500,
+        "BoardedTick": 1367035,
+        "CompletedTick": -1,
+        "RiddenMeters": 0,
+        "DirectMeters": 0,
+        "SharedWith": 0,
+        "Reassigned": false
+      },
+      {
+        "RequestID": 4179,
+        "RequestedTick": 1253700,
+        "BoardedTick": 1384072,
+        "CompletedTick": -1,
+        "RiddenMeters": 0,
+        "DirectMeters": 0,
+        "SharedWith": 0,
+        "Reassigned": false
+      },
+      {
+        "RequestID": 4255,
+        "RequestedTick": 1276500,
+        "BoardedTick": 1406908,
+        "CompletedTick": -1,
+        "RiddenMeters": 0,
+        "DirectMeters": 0,
+        "SharedWith": 0,
+        "Reassigned": false
+      },
+      {
+        "RequestID": 4135,
+        "RequestedTick": 1240500,
+        "BoardedTick": 1424059,
+        "CompletedTick": -1,
+        "RiddenMeters": 0,
+        "DirectMeters": 0,
+        "SharedWith": 0,
+        "Reassigned": false
+      }
+    ],
+    "rate12-s2-bon-ron": [
+      {
+        "RequestID": 3955,
+        "RequestedTick": 1186500,
+        "BoardedTick": 1363619,
+        "CompletedTick": -1,
+        "RiddenMeters": 0,
+        "DirectMeters": 0,
+        "SharedWith": 0,
+        "Reassigned": false
+      },
+      {
+        "RequestID": 4135,
+        "RequestedTick": 1240500,
+        "BoardedTick": 1366918,
+        "CompletedTick": -1,
+        "RiddenMeters": 0,
+        "DirectMeters": 0,
+        "SharedWith": 0,
+        "Reassigned": false
+      },
+      {
+        "RequestID": 4179,
+        "RequestedTick": 1253700,
+        "BoardedTick": 1382161,
+        "CompletedTick": -1,
+        "RiddenMeters": 0,
+        "DirectMeters": 0,
+        "SharedWith": 0,
+        "Reassigned": false
+      },
+      {
+        "RequestID": 4255,
+        "RequestedTick": 1276500,
+        "BoardedTick": 1390901,
+        "CompletedTick": -1,
+        "RiddenMeters": 0,
+        "DirectMeters": 0,
+        "SharedWith": 0,
+        "Reassigned": false
+      }
+    ],
+    "rate12-s3-boff-roff": [
+      {
+        "RequestID": 4153,
+        "RequestedTick": 1245900,
+        "BoardedTick": 1377493,
+        "CompletedTick": -1,
+        "RiddenMeters": 0,
+        "DirectMeters": 0,
+        "SharedWith": 0,
+        "Reassigned": false
+      }
+    ],
+    "rate12-s3-boff-ron": [
+      {
+        "RequestID": 4153,
+        "RequestedTick": 1245900,
+        "BoardedTick": 1421176,
+        "CompletedTick": -1,
+        "RiddenMeters": 0,
+        "DirectMeters": 0,
+        "SharedWith": 0,
+        "Reassigned": false
+      }
+    ],
+    "rate12-s3-bon-roff": [
+      {
+        "RequestID": 4153,
+        "RequestedTick": 1245900,
+        "BoardedTick": 1377493,
+        "CompletedTick": -1,
+        "RiddenMeters": 0,
+        "DirectMeters": 0,
+        "SharedWith": 0,
+        "Reassigned": false
+      }
+    ],
+    "rate12-s3-bon-ron": [
+      {
+        "RequestID": 4153,
+        "RequestedTick": 1245900,
+        "BoardedTick": 1419597,
+        "CompletedTick": -1,
+        "RiddenMeters": 0,
+        "DirectMeters": 0,
+        "SharedWith": 0,
+        "Reassigned": false
+      }
+    ],
+    "rate12-s4-boff-roff": [],
+    "rate12-s4-boff-ron": [],
+    "rate12-s4-bon-roff": [],
+    "rate12-s4-bon-ron": []
+  }
+}
