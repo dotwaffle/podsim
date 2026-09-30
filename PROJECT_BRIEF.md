@@ -51,7 +51,9 @@ They do not establish live playback speed or a capacity improvement.
 [Reusable admission storage](docs/admission-work-performance.md) lowers allocations and usually CPU in paired equal-work studies.
 The [live follow-up](docs/admission-live-performance.md) sustains approximately 60x with GC 100 and 400 in short one-client runs.
 The server retains GOGC 100 and the comparison command retains 400.
-The [journey page cache](docs/journey-page-cache-performance.md) lowers measured page script time, while total software-rendered browser CPU changes little.
+The [journey page cache](docs/journey-page-cache-performance.md) and [label cache](docs/label-measure-cache-performance.md) lower measured page script time.
+Total software-rendered browser CPU changes little.
+The [publisher timer](docs/publisher-cadence-performance.md) restores measured delivery toward 20 Hz at higher CPU and traffic cost.
 
 Experimental [station approach buffers](docs/station-buffer-state-proposal.md) and [pickup swaps](docs/pickup-reassignment.md) remain disabled by default.
 They have no project, command, or editor controls.

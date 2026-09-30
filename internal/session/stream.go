@@ -24,6 +24,7 @@ const (
 	streamRetainedBytes   = streamHistoryBytes + 2*MaxStreamMessage
 	streamProgressTimeout = 30 * time.Second
 	streamWriteTimeout    = 30 * time.Second
+	streamCaptureInterval = 50 * time.Millisecond
 )
 
 type streamPayload struct {
@@ -281,14 +282,14 @@ func (p *statePublisher) run(ctx context.Context) {
 		p.mu.Unlock()
 		close(p.done)
 	}()
-	ticker := time.NewTicker(50 * time.Millisecond)
-	defer ticker.Stop()
+	timer := time.NewTimer(streamCaptureInterval)
+	defer timer.Stop()
 	var captured time.Time
 	for {
 		select {
 		case <-ctx.Done():
 			return
-		case <-ticker.C:
+		case <-timer.C:
 		case <-p.wake:
 		}
 		if ctx.Err() != nil {
@@ -313,11 +314,13 @@ func (p *statePublisher) run(ctx context.Context) {
 				p.encoder = nil
 			}
 			p.mu.Unlock()
+			timer.Reset(streamCaptureInterval)
 			continue
 		}
-		capture := p.sequence == 0 || time.Since(captured) >= 50*time.Millisecond
+		now := time.Now()
+		capture := p.sequence == 0 || now.Sub(captured) >= streamCaptureInterval
 		if capture {
-			captured = time.Now()
+			captured = now
 		}
 		if err := p.publish(ctx, need, capture); err != nil {
 			p.session.logger.Warn("State stream publication failed", "error", err)
@@ -329,7 +332,17 @@ func (p *statePublisher) run(ctx context.Context) {
 			}
 			p.mu.Unlock()
 		}
+		// Keep the capture deadline across early recovery wakes. A fixed ticker
+		// can skip its next event when scheduling jitter makes it arrive early.
+		timer.Reset(streamCaptureDelay(captured, time.Now()))
 	}
+}
+
+func streamCaptureDelay(captured, now time.Time) time.Duration {
+	if captured.IsZero() {
+		return streamCaptureInterval
+	}
+	return max(0, streamCaptureInterval-now.Sub(captured))
 }
 
 func (p *statePublisher) publish(ctx context.Context, need, capture bool) error {
