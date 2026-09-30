@@ -2,6 +2,26 @@ package sim
 
 import "math"
 
+// stationPickupBounds caches each station's free-flow bounds. These bounds
+// depend only on the owned network, so Reset can retain them. Clone drops
+// the cache, and a graph rebuild clears it. Callers must not change the slice.
+func (s *Simulation) stationPickupBounds(stationID string) []float64 {
+	s.ensureNetworkIndexes()
+	if bounds, ok := s.pickupBounds[stationID]; ok {
+		return bounds
+	}
+	station, ok := s.station(stationID)
+	if !ok {
+		return nil
+	}
+	bounds := s.graph.berthTravelBounds(station.Berths)
+	if s.pickupBounds == nil {
+		s.pickupBounds = make(map[string][]float64)
+	}
+	s.pickupBounds[stationID] = bounds
+	return bounds
+}
+
 // berthTravelBounds gives the minimum free-flow lane time from each node
 // to any berth. One reverse search covers every pickup candidate. The
 // bound ignores berth load, acceleration, and braking, so it does not

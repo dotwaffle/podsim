@@ -383,8 +383,7 @@ func (s *Simulation) pickupPod(stationID string, pass *dispatchPass) *vehicle {
 	for _, v := range candidates {
 		if best != nil {
 			if bounds == nil {
-				station, _ := s.station(stationID)
-				bounds = s.graph.berthTravelBounds(station.Berths)
+				bounds = s.stationPickupBounds(stationID)
 			}
 			if pickupCannotImprove(s.pickupBound(v, bounds), bestTime) {
 				continue

@@ -2,8 +2,83 @@ package sim
 
 import (
 	"math"
+	"slices"
 	"testing"
 )
+
+func TestStationPickupBoundsCache(t *testing.T) {
+	t.Parallel()
+	s := newTraffic(t)
+	for _, station := range s.network.Stations {
+		got := s.stationPickupBounds(station.ID)
+		want := s.graph.berthTravelBounds(station.Berths)
+		if !slices.Equal(got, want) {
+			t.Fatalf("%s: cached bounds %v, want %v", station.ID, got, want)
+		}
+		again := s.stationPickupBounds(station.ID)
+		if &again[0] != &got[0] {
+			t.Fatalf("%s: repeated lookup rebuilt the bounds", station.ID)
+		}
+	}
+	if got := s.stationPickupBounds("missing"); got != nil || len(s.pickupBounds) != len(s.network.Stations) {
+		t.Fatal("unknown station added a cache entry")
+	}
+}
+
+func TestStationPickupBoundsLifecycle(t *testing.T) {
+	t.Parallel()
+	s := newTraffic(t)
+	original := s.stationPickupBounds("market")
+	s.Reset()
+	if got := s.stationPickupBounds("market"); &got[0] != &original[0] {
+		t.Fatal("Reset rebuilt fixed-network bounds")
+	}
+	clone := s.Clone()
+	if clone.pickupBounds != nil {
+		t.Fatal("Clone retained a mutable cache")
+	}
+	copied := clone.stationPickupBounds("market")
+	if !slices.Equal(copied, original) || &copied[0] == &original[0] {
+		t.Fatal("Clone did not rebuild independent, equal bounds")
+	}
+	copied[0] = -1
+	if s.stationPickupBounds("market")[0] != original[0] || original[0] < 0 {
+		t.Fatal("the clone changed its source's bounds")
+	}
+	clone.network.Nodes = append(slices.Clone(clone.network.Nodes), Node{ID: "disconnected"})
+	clone.ensureNetworkIndexes()
+	if clone.pickupBounds != nil {
+		t.Fatal("graph rebuild retained old bounds")
+	}
+	rebuilt := clone.stationPickupBounds("market")
+	if len(rebuilt) != len(original)+1 || !slices.Equal(rebuilt[:len(original)], original) || !math.IsInf(rebuilt[len(original)], 1) {
+		t.Fatal("graph rebuild did not replace the cached bounds")
+	}
+}
+
+func BenchmarkStationPickupBounds(b *testing.B) {
+	for _, cached := range []bool{false, true} {
+		name := "fresh"
+		if cached {
+			name = "cached"
+		}
+		b.Run(name, func(b *testing.B) {
+			s := &Simulation{network: Example()}
+			s.ensureNetworkIndexes()
+			station, _ := s.station("market")
+			s.stationPickupBounds(station.ID)
+			b.ReportAllocs()
+			b.ResetTimer()
+			for b.Loop() {
+				if cached {
+					s.stationPickupBounds(station.ID)
+				} else {
+					s.graph.berthTravelBounds(station.Berths)
+				}
+			}
+		})
+	}
+}
 
 func TestBerthTravelBoundsMatchForwardSearch(t *testing.T) {
 	t.Parallel()

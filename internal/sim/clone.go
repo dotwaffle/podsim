@@ -13,6 +13,7 @@ func (s *Simulation) Clone() *Simulation {
 	// Lookups refill these caches with identical results, and dispatch
 	// makes a new pass.
 	c.lengths, c.routes, c.routeOrder, c.routeStations, c.pass = nil, nil, nil, nil, nil
+	c.pickupBounds = nil
 	c.vehicles = slices.Clone(s.vehicles)
 	for i := range c.vehicles {
 		v := &c.vehicles[i]

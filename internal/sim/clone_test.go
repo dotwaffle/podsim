@@ -26,7 +26,7 @@ const (
 var cloneRules = map[reflect.Type]map[string]cloneRule{
 	reflect.TypeFor[Simulation](): {
 		"junctionConflicts": cloneShare, "lengths": cloneDrop, "routes": cloneDrop, "routeOrder": cloneDrop,
-		"graph": cloneShare, "stationIndexes": cloneShare, "stationForbidden": cloneShare,
+		"graph": cloneShare, "stationIndexes": cloneShare, "stationForbidden": cloneShare, "pickupBounds": cloneDrop,
 		"geometry": cloneShare, "network": cloneShare, "initial": cloneShare,
 		"vehicles": cloneCopy, "owners": cloneCopy, "demo": cloneCopy, "waiting": cloneCopy,
 		"demandWeights": cloneShare, "congestionRouteCosts": cloneShare, "congestionRoutes": cloneCopy,
@@ -162,7 +162,7 @@ const (
 var persistRules = map[reflect.Type]map[string]persistRule{
 	reflect.TypeFor[Simulation](): {
 		"junctionConflicts": persistDerive, "lengths": persistReset, "routes": persistReset, "routeOrder": persistReset,
-		"graph": persistDerive, "stationIndexes": persistDerive, "stationForbidden": persistDerive,
+		"graph": persistDerive, "stationIndexes": persistDerive, "stationForbidden": persistDerive, "pickupBounds": persistReset,
 		"geometry": persistDerive, "network": persistSession, "initial": persistSession,
 		"vehicles": persistSave, "owners": persistDerive, "tick": persistSave, "paused": persistSave,
 		"completed": persistSave, "requestID": persistSave, "demo": persistSave, "demoError": persistSave,
@@ -376,6 +376,7 @@ func activeCloneSimulation(t *testing.T) *Simulation {
 	// The demo does not use drop-offs, so the fixture fills the station
 	// caches of drop-offs.
 	s.stationsOnRoute("harbor-berth", "market")
+	s.stationPickupBounds("market")
 	s.SetPickupSwaps(true)
 	s.pickupSwaps.cooldown["01"] = s.tick + pickupSwapCooldownTicks
 	return s
@@ -665,6 +666,7 @@ func cloneFixtures() []cloneFixture {
 func stripCaches(s *Simulation) *Simulation {
 	c := *s
 	c.lengths, c.routes, c.routeOrder = nil, nil, nil
+	c.pickupBounds = nil
 	// The dispatch pass holds only buffers of the last dispatch.
 	c.pass = nil
 	// The cursors of a block list depend on the order of the lookups.

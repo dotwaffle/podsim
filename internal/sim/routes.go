@@ -179,6 +179,7 @@ func (s *Simulation) ensureNetworkIndexes() {
 	s.lengths = nil
 	s.routes = nil
 	s.routeOrder = nil
+	s.pickupBounds = nil
 	s.congestionRouteCosts = nil
 	s.congestionRoutes = nil
 }
