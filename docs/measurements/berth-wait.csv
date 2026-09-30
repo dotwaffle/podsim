@@ -1,0 +1,3 @@
+mode,baseline_cpu_seconds,candidate_cpu_seconds,cpu_reduction_percent,baseline_wall_seconds,candidate_wall_seconds,baseline_allocated_bytes,candidate_allocated_bytes,baseline_allocations,candidate_allocations,candidate_peak_heap_mib
+ticks,33.162131499999994,29.038997000000002,12.43326141445399,32.1764156395,28.081546142,5355257288,5355245104,4668041,4668024.5,313.65845489501953
+stream,37.6221825,32.9802715,12.338228915879611,36.215331522,31.5607529415,8076191532,8073887188,10711735.5,10711398,305.4249458312988

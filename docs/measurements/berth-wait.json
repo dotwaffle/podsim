@@ -1,0 +1,94 @@
+{
+  "baselineSource": "c93bc9a",
+  "candidateParent": "3f95687",
+  "candidateChange": "clearBlockedBerths pure filter first",
+  "binaries": {
+    "baseline": "/home/dotwaffle/.cache/agents/podsim/route-work-20260930/probe.test",
+    "candidate": "/home/dotwaffle/.cache/agents/podsim/berth-filter-20260930/probe.test"
+  },
+  "binarySha256": {
+    "baseline": "762a5b9a01f422b3467b6785206d217519888972e881d5086cedaea15d0db4ce",
+    "candidate": "5143bba67dc5d511c18239803274751d00f7fb69d687a6734b88d5f1cbad3afc"
+  },
+  "expectedStateDigest": "0d83498454403aed464a4ed14f6ebd01b93a835e976e7e409641b03be0db4891",
+  "perArmWallCap": 120,
+  "wallDeadlineSeconds": 1100,
+  "testTimeout": "100s",
+  "GOMAXPROCS": 2,
+  "GOGC": 200,
+  "measuredSimSeconds": 3600,
+  "warmupSimSeconds": 3600,
+  "jobs": [
+    {
+      "name": "baseline-ticks-1",
+      "candidate": "baseline",
+      "publish": false,
+      "gc": 200,
+      "rep": 1
+    },
+    {
+      "name": "candidate-ticks-1",
+      "candidate": "candidate",
+      "publish": false,
+      "gc": 200,
+      "rep": 1
+    },
+    {
+      "name": "baseline-stream-1",
+      "candidate": "baseline",
+      "publish": true,
+      "gc": 200,
+      "rep": 1
+    },
+    {
+      "name": "candidate-stream-1",
+      "candidate": "candidate",
+      "publish": true,
+      "gc": 200,
+      "rep": 1
+    },
+    {
+      "name": "candidate-ticks-2",
+      "candidate": "candidate",
+      "publish": false,
+      "gc": 200,
+      "rep": 2
+    },
+    {
+      "name": "baseline-ticks-2",
+      "candidate": "baseline",
+      "publish": false,
+      "gc": 200,
+      "rep": 2
+    },
+    {
+      "name": "candidate-stream-2",
+      "candidate": "candidate",
+      "publish": true,
+      "gc": 200,
+      "rep": 2
+    },
+    {
+      "name": "baseline-stream-2",
+      "candidate": "baseline",
+      "publish": true,
+      "gc": 200,
+      "rep": 2
+    }
+  ],
+  "rawSha256": {
+    "baseline-ticks-1.json": "b9c7b38b1cb34e83355bbb83eb1e382aeb15ac87aa1de92d9e4e760976a03ffc",
+    "baseline-ticks-2.json": "a8badcbc49c1c27775caf79dab65d035656bdf41b65d41708287ed1e04740592",
+    "candidate-ticks-1.json": "06d484213e3959ed2237cdd095bd5f70a067b9fd421f38202401d2ea7bc95aa0",
+    "candidate-ticks-2.json": "4d45aca5f7055c9cca045b2cdc3f61ee9da256a8eaf33949d98cd1fcaf600b4c",
+    "baseline-stream-1.json": "75b9a87c5717cb375c2cf9c6a415f80bb0f3ee1cad4931ed84f6a3318ba9ec3c",
+    "baseline-stream-2.json": "574553d3f7731201f2c82b6bdacc9af6a6a5c3c093980be5b72f17252f67d5e3",
+    "candidate-stream-1.json": "96550dc083c91293fb42ad3d6333985342db23c19ca5fd8114075e64207c5f96",
+    "candidate-stream-2.json": "44cbf460c1303df34b40488484f22d2f7c14a4822eddb6e9788ff8ebe2611344"
+  },
+  "limits": [
+    "Two repetitions, unpaced LondonFull only",
+    "No browser, network, or persistence writer",
+    "No default or saved-state changes"
+  ]
+}
