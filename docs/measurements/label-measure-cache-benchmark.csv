@@ -1,0 +1,13 @@
+labels,variant,iterations,ns_per_call,bytes_per_call,allocations_per_call
+1,original,513296,390.1,144,1
+1,original,630883,403.6,144,1
+1,cached,4969964,48.0,0,0
+1,cached,4963012,49.25,0,0
+600,original,613188,403.5,144,1
+600,original,659587,382.1,144,1
+600,cached,4588968,51.77,0,0
+600,cached,4660266,51.29,0,0
+1500,original,546543,403.6,144,1
+1500,original,617136,398.9,144,1
+1500,cached,484390,519.9,152,2
+1500,cached,489150,520.6,152,2

@@ -1540,7 +1540,7 @@ They do not replace scenario qualification or authorize policy adoption.
 | Pickup swaps | [Sustained comparison](docs/pickup-swap-sustained.md), [matched requests](docs/pickup-request-diagnosis.md) | Better averages coexist with slower individual requests. The policy stays off by default. |
 | Platoon queues | [Qualification follow-up](docs/platoon-followup.md), [Paddington reservation diagnosis](docs/paddington-reservation-diagnosis.md) | Observed rejection conditions do not establish a safety defect or permit weaker guards. |
 | Server performance | [Route search storage](docs/route-search-performance.md), [admission storage](docs/admission-work-performance.md), [live server and GC](docs/admission-live-performance.md) | Live results cover two short repetitions per case. GC defaults remain unchanged. |
-| Browser performance | [Live Chrome measurements](docs/live-chrome-performance.md), [journey page cache](docs/journey-page-cache-performance.md) | Software-rendering results do not predict physical-GPU performance. |
+| Browser performance | [Live Chrome measurements](docs/live-chrome-performance.md), [journey page cache](docs/journey-page-cache-performance.md), [label dimensions](docs/label-measure-cache-performance.md) | Software-rendering results do not predict physical-GPU performance. |
 
 ### Tasks
 

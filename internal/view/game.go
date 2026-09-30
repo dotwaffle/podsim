@@ -81,6 +81,7 @@ type Game struct {
 	origin, destination  string
 	journeySearch        journeySearch
 	stationPagesCache    *stationPageCache
+	labelMeasures        *labelMeasureCache
 	browserJourney       *browserJourney
 	message              string
 	selected             int
@@ -1117,7 +1118,7 @@ func (g *Game) boundedStationLabels(input collapsedLabelsInput) []boundedStation
 
 // labelBounds returns the screen area of the text of a map label.
 func (g *Game) labelBounds(value label) image.Rectangle {
-	width, height := text.Measure(value.value, g.labelFace(value), value.lineSpacing)
+	width, height := g.measureLabel(value)
 	return image.Rect(
 		int(math.Floor(value.x)), int(math.Floor(value.y)),
 		int(math.Ceil(value.x+width)), int(math.Ceil(value.y+height)),
@@ -1918,10 +1919,14 @@ type label struct {
 // labelFace returns the font face of a label. The size of a map label does
 // not follow the display unit. See displayLayout.mapLabelSize.
 func (g *Game) labelFace(value label) *text.GoTextFace {
+	return &text.GoTextFace{Source: g.font, Size: g.labelFaceSize(value)}
+}
+
+func (g *Game) labelFaceSize(value label) float64 {
 	if value.mapLabel {
-		return &text.GoTextFace{Source: g.font, Size: g.layout.mapLabelSize(value.size)}
+		return g.layout.mapLabelSize(value.size)
 	}
-	return g.textFace(value.size)
+	return value.size * g.layout.unit
 }
 
 func (g *Game) label(screen *ebiten.Image, label label) {
