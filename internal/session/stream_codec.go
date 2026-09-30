@@ -5,6 +5,7 @@ import (
 	"compress/gzip"
 	"encoding/json"
 	"encoding/json/jsontext"
+	jsonv2 "encoding/json/v2"
 	"errors"
 	"fmt"
 	"io"
@@ -368,15 +369,9 @@ func decodeStreamJSON(data []byte, target any) error {
 	if !jsontext.Value(data).IsValid() {
 		return errors.New("invalid or duplicate state JSON")
 	}
-	decoder := json.NewDecoder(bytes.NewReader(data))
-	decoder.DisallowUnknownFields()
-	if err := decoder.Decode(target); err != nil {
-		return err
-	}
-	if decoder.Decode(new(any)) != io.EOF {
-		return errors.New("trailing state JSON")
-	}
-	return nil
+	// The streaming decoder removes outer whitespace before typed decoding.
+	// Keep its offsets and legacy options without the extra input buffer.
+	return jsonv2.Unmarshal(bytes.TrimSpace(data), target, json.DefaultOptionsV1(), jsonv2.RejectUnknownMembers(true))
 }
 
 // DecodeStreamJSON validates one inflated envelope.
