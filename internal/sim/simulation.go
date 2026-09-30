@@ -273,6 +273,7 @@ type Simulation struct {
 	stationForbidden             map[string]bool
 	pickupBounds                 map[string][]float64
 	routeWork                    *routeSearchWork
+	admissionWork                *admissionWork
 	geometry                     map[string]*laneGeometry
 	network                      Network
 	initial                      []Placement
@@ -405,6 +406,7 @@ func prepareFleet(network Network, placements []Placement) (Network, routeGraph,
 // Reset restores the initial fleet, clock, and resources. It clears supplied demo requests.
 func (s *Simulation) Reset() {
 	defer s.observe()
+	s.admissionWork = nil
 	s.tick, s.completed, s.requestID, s.unaccountedOrders = 0, 0, 0, 0
 	s.paused, s.demo, s.demoError = false, nil, ""
 	s.waiting = nil

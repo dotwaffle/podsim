@@ -447,6 +447,13 @@ type intent struct {
 	id           string
 }
 
+// admissionWork belongs to one simulation. Each pass clears pod IDs before
+// retaining the storage for the next pass.
+type admissionWork struct {
+	intents []intent
+	pickups map[string]bool
+}
+
 func (s *Simulation) setVehicleRoute(v *vehicle, route []Lane) {
 	if v.buffered && (len(route) == 0 || len(v.Route) == 0 || route[len(route)-1].ID != v.Route[len(v.Route)-1].ID) {
 		v.buffered, v.bufferBerth = false, ""
@@ -485,7 +492,11 @@ func (s *Simulation) SetReservationLookahead(seconds float64) error {
 }
 
 func (s *Simulation) admit() {
-	var intents []intent
+	if s.admissionWork == nil {
+		s.admissionWork = &admissionWork{pickups: make(map[string]bool)}
+	}
+	work := s.admissionWork
+	intents := work.intents[:0]
 	for i := range s.vehicles {
 		v := &s.vehicles[i]
 		ready := departs(v.Pod.Activity) && v.phaseTicks == 0
@@ -513,7 +524,7 @@ func (s *Simulation) admit() {
 		}
 		intents = append(intents, intent{index: i, block: next, since: v.waitSince, id: v.Pod.ID})
 	}
-	pickups := make(map[string]bool)
+	pickups := work.pickups
 	for _, trip := range s.waiting {
 		if trip.request.PodID != "" {
 			pickups[trip.request.PodID] = true
@@ -529,6 +540,9 @@ func (s *Simulation) admit() {
 	for _, in := range intents {
 		s.grant(in)
 	}
+	clear(intents)
+	work.intents = intents[:0]
+	clear(pickups)
 }
 
 const admissionAgeTicks = 10 * TicksPerSecond
