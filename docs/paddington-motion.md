@@ -64,6 +64,8 @@ These weighted measurements do not isolate one geometric parameter.
 
 A useful next probe would record when each disputed cell clears and how far each immediate predecessor must move before release.
 That would distinguish normal clearance delay from changes in certificate endpoints or station approach geometry.
+The later [clearance sample probe](paddington-clearance.md) records release distances and ownership through the same tick.
+It preserves these historical results but does not record complete clearance histories.
 Station-entry platoons still require the separate [design contract](station-entry-platoons-proposal.md).
 The current buffer and reassignment defaults remain off.
 
