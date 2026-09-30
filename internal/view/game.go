@@ -80,6 +80,7 @@ type Game struct {
 	font                 *text.GoTextFaceSource
 	origin, destination  string
 	journeySearch        journeySearch
+	stationPagesCache    *stationPageCache
 	browserJourney       *browserJourney
 	message              string
 	selected             int

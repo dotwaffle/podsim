@@ -24,7 +24,34 @@ type stationChip struct {
 	width   float64
 }
 
+type stationPageKey struct {
+	index        *networkIndex
+	font         *text.GoTextFaceSource
+	unit, extraX float64
+	query        string
+}
+
+type stationPageCache struct {
+	key   stationPageKey
+	pages [][]stationChip
+}
+
+// stationPages returns read-only pages for the current network, font, layout,
+// and effective search query. Selection and button state remain uncached.
 func (g *Game) stationPages() [][]stationChip {
+	key := stationPageKey{index: g.displayIndex(), font: g.font, unit: g.layout.unit, extraX: g.layout.extraX}
+	if g.journeySearch.filter != 0 {
+		key.query = strings.ToLower(strings.TrimSpace(g.journeySearch.query[g.journeySearch.filter-1]))
+	}
+	if g.stationPagesCache != nil && g.stationPagesCache.key == key {
+		return g.stationPagesCache.pages
+	}
+	pages := g.buildStationPages()
+	g.stationPagesCache = &stationPageCache{key: key, pages: pages}
+	return pages
+}
+
+func (g *Game) buildStationPages() [][]stationChip {
 	available := stationControlRight - stationControlLeft - stationSearchWidth - stationChipGap + g.layout.extraX/g.layout.unit
 	chipSpace := available - 2*(stationArrowWidth+stationChipGap)
 	face := g.textFace(stationFontSize)
