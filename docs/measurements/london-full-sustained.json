@@ -1,0 +1,55 @@
+{
+  "measuredProductionCommit": "fbe03329186a4a5ba4202712105a494fd0eb0176",
+  "frozenProductionHashesMatchLandedCommit": true,
+  "projectSha256": "0383116025818e73cd371cba29f97fd820fcc11fdb0d5ea9ed158e22fee86926",
+  "projectArtifact": "/home/dotwaffle/.cache/agents/podsim/londonfull-postfix-study-20260929/raw/full.json",
+  "arrivalsSeconds": 21600,
+  "maximumSimSeconds": 25200,
+  "stopWhenDrained": true,
+  "band": "am-peak",
+  "profile": "tfl-numbat-2024-twt",
+  "ratesPerMinute": [
+    10,
+    15,
+    20
+  ],
+  "seeds": [
+    1,
+    2
+  ],
+  "buffers": [
+    "off",
+    "on"
+  ],
+  "pickupSwaps": false,
+  "fleet": 287,
+  "sharingLimit": 1,
+  "redistribution": "off",
+  "routing": "free-flow",
+  "platoon": "virtual",
+  "platoonLimit": 4,
+  "samples": 302399,
+  "sampleEverySimSeconds": 1,
+  "allProcessesPassed": true,
+  "offArmsMatchHistoricalExactly": [
+    "am-r10-s1-off",
+    "am-r10-s2-off",
+    "am-r15-s1-off",
+    "am-r15-s2-off",
+    "am-r20-s1-off",
+    "am-r20-s2-off"
+  ],
+  "perArmWallCapSeconds": 1200,
+  "goTestTimeoutSeconds": 1190,
+  "GOGC": 400,
+  "GOMAXPROCS": 2,
+  "csvSha256": "72479297df0465611216827e4fb058c8bba85af94e4a398c84fced0890eef2d1",
+  "artifact": "~/.cache/agents/podsim/station-buffer-20260929/fixed-sustained/",
+  "limits": [
+    "Two seeds and AM peak only, no universal or indefinite capacity bound",
+    "Safety sampled once per simulation second and final unique-order timing census",
+    "Average wait includes elapsed unboarded waits; journey metrics include only completed requests",
+    "Nonbuffer stopped metric includes station access and is not isolated mainline delay",
+    "Wall time includes instrumentation and concurrent work, not production playback maximum"
+  ]
+}

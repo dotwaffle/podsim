@@ -64,6 +64,9 @@ Mean pickup waits ranged from 63 to 84 seconds.
 Higher rates increased waiting times in the sampled runs.
 These finite-arrival trials do not establish a sustainable rate.
 
+The later [six-hour sustained-load screen](london-full-sustained.md) finds growing AM peak backlogs at 15 and 20 requests per minute.
+Station approach buffers do not resolve that overload and remain disabled by default.
+
 A separate one-hour run checked safety each second and completed all 199 requests.
 A physical restore at 20 minutes preserved the 287-pod fleet and its pending requests.
 The restored continuation passed safety checks on every tick for 30 seconds.

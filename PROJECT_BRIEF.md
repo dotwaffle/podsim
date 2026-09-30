@@ -333,7 +333,11 @@ Status notes record the parts that Podsim now implements.
 
 ### Station approach buffers
 
-**Status:** Added to the backlog on September 29, 2026. Design and implementation are pending.
+**Status:** An experimental implementation is available through `Simulation.SetStationBuffers` and remains disabled by default.
+Version 3 saved states preserve existing buffer membership, while version 2 loading remains supported.
+The editor does not expose this option, and station-entry platoons remain excluded.
+The [saved-state proposal](docs/station-buffer-state-proposal.md) records the contract.
+The [six-hour LondonFull screen](docs/london-full-sustained.md) does not support enabling buffers by default.
 
 Use bounded holding space on station approaches to keep short arrival queues off the mainline.
 Choose a berth at the head of the buffer, before the pod commits to a berth branch.
@@ -343,7 +347,8 @@ The current conflict zone covers the full feeder from that approach, which can h
 
 Derive buffer capacity from safe stopping positions outside merge, entry, and exit conflict regions.
 Keep departure paths clear.
-Define what happens when the buffer is full. A finite buffer cannot prevent spillback under sustained overload without upstream admission control.
+Define what happens when the buffer is full.
+A finite buffer cannot prevent spillback under sustained overload without upstream admission control.
 
 Include virtual platoons in the design, with safe separation before berth routes diverge.
 Current platoons exclude station-entry and berth-access lanes and retain at least 12 meters of separation.
@@ -431,8 +436,10 @@ Congestion-aware routing is parked.
 Free-flow routing stays the default, and the `congestion` arm keeps its two guards.
 The plan made a cost from the planned routes of the pods the next candidate, but only if platoons or shared rides do not relieve the congested Early band.
 Platoons relieve it.
-The platoon A/B with 198 pods raises the Early limit from 10 to at least 12 requests per minute.
-The London preset with `platoonLimit` 4 raises it from 7 to 10 requests per minute.
+The historical three-seed platoon A/B with 198 pods raised the tested Early recovery limit from 10 to at least 12 requests per minute.
+The ten-seed follow-up recovered all seeds at 11/minute and nine of ten at 12/minute.
+The historical three-seed London preset envelope with `platoonLimit` 4 raised its Early recovery limit from 7 to 10 requests per minute.
+These finite-arrival experiments do not establish sustained capacity.
 Thus the condition of that candidate is not met, and the planned-route cost stays parked with the other routing work.
 See [docs/qualification.md](docs/qualification.md#queue-routing-screen).
 
