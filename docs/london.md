@@ -91,6 +91,8 @@ Acton Town in LondonFull decreases from 11 such crossings to 5.
 Some crossings remain because each arrival portal connects to the station and each departure portal connects from it.
 Existing saved projects keep their stored geometry.
 Historical capacity measurements describe the earlier geometry and do not qualify the mirrored presets.
+The [paired load and restore study](station-mirror-load.md) passes its safety checks but finds mixed service results.
+LondonCentral Early demand has higher waits with mirroring.
 
 The following crossing counts describe the layout before the mirror pass.
 In the generated network, no core lane crosses a guideway or a movement lane.

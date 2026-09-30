@@ -1,0 +1,774 @@
+{
+  "measuredProductionCommit": "b488de2d45c9b51c92378310b784759f0a3fa530",
+  "layoutCommit": "f4eb618",
+  "artifacts": "~/.cache/agents/podsim/mirrored-load-20260930/",
+  "arms": 24,
+  "orderedSchedulePairs": 12,
+  "allProcessesPassed": true,
+  "arrivalsSeconds": 21600,
+  "maximumSimSeconds": 25200,
+  "GOGC": 400,
+  "GOMAXPROCS": 2,
+  "workers": 2,
+  "sharingLimit": 1,
+  "redistribution": "off",
+  "routing": "free-flow",
+  "platoon": "virtual",
+  "platoonLimit": 4,
+  "stationBuffers": false,
+  "pickupSwaps": false,
+  "fixtures": {
+    "oldFullMatchesHistoricalSemantically": true,
+    "presets": {
+      "full": {
+        "oldSha256": "9c08732d319c48d91c920bd3407dcccbd465790ac450fe46cc7729c6f4026818",
+        "currentSha256": "be8e751c012805e4941937fcc62364984f7746df82d29c363134dbf2f08b8182",
+        "movedNodes": 2116,
+        "nodes": 4988,
+        "lanes": 7778,
+        "stations": 272,
+        "fleet": 287,
+        "sameNonGeometryFields": true,
+        "sameBerthPositions": true
+      },
+      "central": {
+        "oldSha256": "b805c990d8278975e81d2a8569da985638eb4d8ddbf6e695e0b0c75daae34a0d",
+        "currentSha256": "546cd5b2c32a5551f7cb3cc44d2e012ca1f32bba8cc376b77d10395a7bd6b4ad",
+        "movedNodes": 716,
+        "nodes": 1842,
+        "lanes": 3101,
+        "stations": 99,
+        "fleet": 114,
+        "sameNonGeometryFields": true,
+        "sameBerthPositions": true
+      }
+    }
+  },
+  "fullFixtureNormalization": {
+    "reason": "Match historical disabled-demand study metadata for both Full geometry variants",
+    "demandEnabled": false,
+    "demandPerMinute": 20,
+    "sharedRideMaxStops": 0,
+    "sharedRidePartyLimit": 0,
+    "generatedFilesRetained": true
+  },
+  "historicalControls": [
+    "full-am-peak-r10-s1",
+    "full-am-peak-r10-s2",
+    "full-am-peak-r15-s1",
+    "full-am-peak-r15-s2",
+    "full-am-peak-r20-s1",
+    "full-am-peak-r20-s2"
+  ],
+  "pairs": [
+    {
+      "preset": "full",
+      "band": "am-peak",
+      "rate": 10,
+      "seed": 1,
+      "status": "passed",
+      "scheduleSha256": "3d93615b311aeb2e050ac63534d17634dac53b206473c928acf1180919824acd"
+    },
+    {
+      "preset": "full",
+      "band": "am-peak",
+      "rate": 10,
+      "seed": 2,
+      "status": "passed",
+      "scheduleSha256": "afc2771b9a6067c0df9b4be5b964fa0f2534a0cb36da747fe9ce79f62bd73eb5"
+    },
+    {
+      "preset": "full",
+      "band": "am-peak",
+      "rate": 15,
+      "seed": 1,
+      "status": "passed",
+      "scheduleSha256": "616f10d13af8c3c46bc9e4059b2135a3bed98503a2d89577e934df25fe8a4ed8"
+    },
+    {
+      "preset": "full",
+      "band": "am-peak",
+      "rate": 15,
+      "seed": 2,
+      "status": "passed",
+      "scheduleSha256": "e3156f5def832c36022bd92e23d364cda8df54935ff221e29e9c6225bedbaabc"
+    },
+    {
+      "preset": "full",
+      "band": "am-peak",
+      "rate": 20,
+      "seed": 1,
+      "status": "passed",
+      "scheduleSha256": "6ecfcb60e9fd75d4bf85357a232e781ec6ca72e4ea2b0332f44463b4499efca4"
+    },
+    {
+      "preset": "full",
+      "band": "am-peak",
+      "rate": 20,
+      "seed": 2,
+      "status": "passed",
+      "scheduleSha256": "d9c9580c1c3d23fb2fa0007008b08e6d5ee43adbaf315981f0cd1d1f7da9d1c6"
+    },
+    {
+      "preset": "central",
+      "band": "early",
+      "rate": 10,
+      "seed": 1,
+      "status": "passed",
+      "scheduleSha256": "5485e6e615efc80d2da81faaf8d3b5059aeebdcbac97a62eef8bea5fd1a03913"
+    },
+    {
+      "preset": "central",
+      "band": "early",
+      "rate": 10,
+      "seed": 2,
+      "status": "passed",
+      "scheduleSha256": "0f277396bd44ca738a4507ecfb2be6f1d585beb26070ba5e5ef784eac514f623"
+    },
+    {
+      "preset": "central",
+      "band": "am-peak",
+      "rate": 12,
+      "seed": 1,
+      "status": "passed",
+      "scheduleSha256": "61ba881147736cb6eba1d309a9082036be213e72c1e93d2db9e92fdf08c86ed3"
+    },
+    {
+      "preset": "central",
+      "band": "am-peak",
+      "rate": 12,
+      "seed": 2,
+      "status": "passed",
+      "scheduleSha256": "b0b9122526351cc164727a913027c3da073801871e7d9600ffd0fdd48bffcd30"
+    },
+    {
+      "preset": "central",
+      "band": "pm-peak",
+      "rate": 14,
+      "seed": 1,
+      "status": "passed",
+      "scheduleSha256": "93ebf81138d0e6006e476a25bf159a2b45c103ab49973937bf2167a5551e43ad"
+    },
+    {
+      "preset": "central",
+      "band": "pm-peak",
+      "rate": 14,
+      "seed": 2,
+      "status": "passed",
+      "scheduleSha256": "7feb841c1450335db3076c39a7e253b9d1a173bfd93ea7115181e658a2ee3398"
+    }
+  ],
+  "parentSamples": 603928,
+  "parentSampleEverySimSeconds": 1,
+  "restoreCheckpoints": 48,
+  "restoreAtSimSeconds": [
+    3600,
+    18000
+  ],
+  "restoreCopyContinuationSeconds": 60,
+  "restoreCopySamples": 172800,
+  "coupledRestoreCheckpoints": 20,
+  "maximumCoupledPodsAtRestore": 21,
+  "restoreCheckDetails": [
+    {
+      "preset": "full",
+      "band": "am-peak",
+      "rate": 10,
+      "seed": 1,
+      "variant": "old",
+      "tick": 216000,
+      "dense_samples": 3600,
+      "coupled_pods": 0
+    },
+    {
+      "preset": "full",
+      "band": "am-peak",
+      "rate": 10,
+      "seed": 1,
+      "variant": "old",
+      "tick": 1080000,
+      "dense_samples": 3600,
+      "coupled_pods": 0
+    },
+    {
+      "preset": "full",
+      "band": "am-peak",
+      "rate": 10,
+      "seed": 1,
+      "variant": "current",
+      "tick": 216000,
+      "dense_samples": 3600,
+      "coupled_pods": 0
+    },
+    {
+      "preset": "full",
+      "band": "am-peak",
+      "rate": 10,
+      "seed": 1,
+      "variant": "current",
+      "tick": 1080000,
+      "dense_samples": 3600,
+      "coupled_pods": 0
+    },
+    {
+      "preset": "full",
+      "band": "am-peak",
+      "rate": 10,
+      "seed": 2,
+      "variant": "old",
+      "tick": 216000,
+      "dense_samples": 3600,
+      "coupled_pods": 0
+    },
+    {
+      "preset": "full",
+      "band": "am-peak",
+      "rate": 10,
+      "seed": 2,
+      "variant": "old",
+      "tick": 1080000,
+      "dense_samples": 3600,
+      "coupled_pods": 0
+    },
+    {
+      "preset": "full",
+      "band": "am-peak",
+      "rate": 10,
+      "seed": 2,
+      "variant": "current",
+      "tick": 216000,
+      "dense_samples": 3600,
+      "coupled_pods": 0
+    },
+    {
+      "preset": "full",
+      "band": "am-peak",
+      "rate": 10,
+      "seed": 2,
+      "variant": "current",
+      "tick": 1080000,
+      "dense_samples": 3600,
+      "coupled_pods": 2
+    },
+    {
+      "preset": "full",
+      "band": "am-peak",
+      "rate": 15,
+      "seed": 1,
+      "variant": "old",
+      "tick": 216000,
+      "dense_samples": 3600,
+      "coupled_pods": 0
+    },
+    {
+      "preset": "full",
+      "band": "am-peak",
+      "rate": 15,
+      "seed": 1,
+      "variant": "old",
+      "tick": 1080000,
+      "dense_samples": 3600,
+      "coupled_pods": 0
+    },
+    {
+      "preset": "full",
+      "band": "am-peak",
+      "rate": 15,
+      "seed": 1,
+      "variant": "current",
+      "tick": 216000,
+      "dense_samples": 3600,
+      "coupled_pods": 0
+    },
+    {
+      "preset": "full",
+      "band": "am-peak",
+      "rate": 15,
+      "seed": 1,
+      "variant": "current",
+      "tick": 1080000,
+      "dense_samples": 3600,
+      "coupled_pods": 4
+    },
+    {
+      "preset": "full",
+      "band": "am-peak",
+      "rate": 15,
+      "seed": 2,
+      "variant": "old",
+      "tick": 216000,
+      "dense_samples": 3600,
+      "coupled_pods": 0
+    },
+    {
+      "preset": "full",
+      "band": "am-peak",
+      "rate": 15,
+      "seed": 2,
+      "variant": "old",
+      "tick": 1080000,
+      "dense_samples": 3600,
+      "coupled_pods": 2
+    },
+    {
+      "preset": "full",
+      "band": "am-peak",
+      "rate": 15,
+      "seed": 2,
+      "variant": "current",
+      "tick": 216000,
+      "dense_samples": 3600,
+      "coupled_pods": 0
+    },
+    {
+      "preset": "full",
+      "band": "am-peak",
+      "rate": 15,
+      "seed": 2,
+      "variant": "current",
+      "tick": 1080000,
+      "dense_samples": 3600,
+      "coupled_pods": 2
+    },
+    {
+      "preset": "full",
+      "band": "am-peak",
+      "rate": 20,
+      "seed": 1,
+      "variant": "old",
+      "tick": 216000,
+      "dense_samples": 3600,
+      "coupled_pods": 0
+    },
+    {
+      "preset": "full",
+      "band": "am-peak",
+      "rate": 20,
+      "seed": 1,
+      "variant": "old",
+      "tick": 1080000,
+      "dense_samples": 3600,
+      "coupled_pods": 4
+    },
+    {
+      "preset": "full",
+      "band": "am-peak",
+      "rate": 20,
+      "seed": 1,
+      "variant": "current",
+      "tick": 216000,
+      "dense_samples": 3600,
+      "coupled_pods": 4
+    },
+    {
+      "preset": "full",
+      "band": "am-peak",
+      "rate": 20,
+      "seed": 1,
+      "variant": "current",
+      "tick": 1080000,
+      "dense_samples": 3600,
+      "coupled_pods": 2
+    },
+    {
+      "preset": "full",
+      "band": "am-peak",
+      "rate": 20,
+      "seed": 2,
+      "variant": "old",
+      "tick": 216000,
+      "dense_samples": 3600,
+      "coupled_pods": 6
+    },
+    {
+      "preset": "full",
+      "band": "am-peak",
+      "rate": 20,
+      "seed": 2,
+      "variant": "old",
+      "tick": 1080000,
+      "dense_samples": 3600,
+      "coupled_pods": 4
+    },
+    {
+      "preset": "full",
+      "band": "am-peak",
+      "rate": 20,
+      "seed": 2,
+      "variant": "current",
+      "tick": 216000,
+      "dense_samples": 3600,
+      "coupled_pods": 0
+    },
+    {
+      "preset": "full",
+      "band": "am-peak",
+      "rate": 20,
+      "seed": 2,
+      "variant": "current",
+      "tick": 1080000,
+      "dense_samples": 3600,
+      "coupled_pods": 6
+    },
+    {
+      "preset": "central",
+      "band": "early",
+      "rate": 10,
+      "seed": 1,
+      "variant": "old",
+      "tick": 216000,
+      "dense_samples": 3600,
+      "coupled_pods": 10
+    },
+    {
+      "preset": "central",
+      "band": "early",
+      "rate": 10,
+      "seed": 1,
+      "variant": "old",
+      "tick": 1080000,
+      "dense_samples": 3600,
+      "coupled_pods": 14
+    },
+    {
+      "preset": "central",
+      "band": "early",
+      "rate": 10,
+      "seed": 1,
+      "variant": "current",
+      "tick": 216000,
+      "dense_samples": 3600,
+      "coupled_pods": 20
+    },
+    {
+      "preset": "central",
+      "band": "early",
+      "rate": 10,
+      "seed": 1,
+      "variant": "current",
+      "tick": 1080000,
+      "dense_samples": 3600,
+      "coupled_pods": 21
+    },
+    {
+      "preset": "central",
+      "band": "early",
+      "rate": 10,
+      "seed": 2,
+      "variant": "old",
+      "tick": 216000,
+      "dense_samples": 3600,
+      "coupled_pods": 13
+    },
+    {
+      "preset": "central",
+      "band": "early",
+      "rate": 10,
+      "seed": 2,
+      "variant": "old",
+      "tick": 1080000,
+      "dense_samples": 3600,
+      "coupled_pods": 18
+    },
+    {
+      "preset": "central",
+      "band": "early",
+      "rate": 10,
+      "seed": 2,
+      "variant": "current",
+      "tick": 216000,
+      "dense_samples": 3600,
+      "coupled_pods": 15
+    },
+    {
+      "preset": "central",
+      "band": "early",
+      "rate": 10,
+      "seed": 2,
+      "variant": "current",
+      "tick": 1080000,
+      "dense_samples": 3600,
+      "coupled_pods": 20
+    },
+    {
+      "preset": "central",
+      "band": "am-peak",
+      "rate": 12,
+      "seed": 1,
+      "variant": "old",
+      "tick": 216000,
+      "dense_samples": 3600,
+      "coupled_pods": 0
+    },
+    {
+      "preset": "central",
+      "band": "am-peak",
+      "rate": 12,
+      "seed": 1,
+      "variant": "old",
+      "tick": 1080000,
+      "dense_samples": 3600,
+      "coupled_pods": 0
+    },
+    {
+      "preset": "central",
+      "band": "am-peak",
+      "rate": 12,
+      "seed": 1,
+      "variant": "current",
+      "tick": 216000,
+      "dense_samples": 3600,
+      "coupled_pods": 0
+    },
+    {
+      "preset": "central",
+      "band": "am-peak",
+      "rate": 12,
+      "seed": 1,
+      "variant": "current",
+      "tick": 1080000,
+      "dense_samples": 3600,
+      "coupled_pods": 0
+    },
+    {
+      "preset": "central",
+      "band": "am-peak",
+      "rate": 12,
+      "seed": 2,
+      "variant": "old",
+      "tick": 216000,
+      "dense_samples": 3600,
+      "coupled_pods": 2
+    },
+    {
+      "preset": "central",
+      "band": "am-peak",
+      "rate": 12,
+      "seed": 2,
+      "variant": "old",
+      "tick": 1080000,
+      "dense_samples": 3600,
+      "coupled_pods": 0
+    },
+    {
+      "preset": "central",
+      "band": "am-peak",
+      "rate": 12,
+      "seed": 2,
+      "variant": "current",
+      "tick": 216000,
+      "dense_samples": 3600,
+      "coupled_pods": 0
+    },
+    {
+      "preset": "central",
+      "band": "am-peak",
+      "rate": 12,
+      "seed": 2,
+      "variant": "current",
+      "tick": 1080000,
+      "dense_samples": 3600,
+      "coupled_pods": 0
+    },
+    {
+      "preset": "central",
+      "band": "pm-peak",
+      "rate": 14,
+      "seed": 1,
+      "variant": "old",
+      "tick": 216000,
+      "dense_samples": 3600,
+      "coupled_pods": 0
+    },
+    {
+      "preset": "central",
+      "band": "pm-peak",
+      "rate": 14,
+      "seed": 1,
+      "variant": "old",
+      "tick": 1080000,
+      "dense_samples": 3600,
+      "coupled_pods": 0
+    },
+    {
+      "preset": "central",
+      "band": "pm-peak",
+      "rate": 14,
+      "seed": 1,
+      "variant": "current",
+      "tick": 216000,
+      "dense_samples": 3600,
+      "coupled_pods": 0
+    },
+    {
+      "preset": "central",
+      "band": "pm-peak",
+      "rate": 14,
+      "seed": 1,
+      "variant": "current",
+      "tick": 1080000,
+      "dense_samples": 3600,
+      "coupled_pods": 0
+    },
+    {
+      "preset": "central",
+      "band": "pm-peak",
+      "rate": 14,
+      "seed": 2,
+      "variant": "old",
+      "tick": 216000,
+      "dense_samples": 3600,
+      "coupled_pods": 0
+    },
+    {
+      "preset": "central",
+      "band": "pm-peak",
+      "rate": 14,
+      "seed": 2,
+      "variant": "old",
+      "tick": 1080000,
+      "dense_samples": 3600,
+      "coupled_pods": 2
+    },
+    {
+      "preset": "central",
+      "band": "pm-peak",
+      "rate": 14,
+      "seed": 2,
+      "variant": "current",
+      "tick": 216000,
+      "dense_samples": 3600,
+      "coupled_pods": 0
+    },
+    {
+      "preset": "central",
+      "band": "pm-peak",
+      "rate": 14,
+      "seed": 2,
+      "variant": "current",
+      "tick": 1080000,
+      "dense_samples": 3600,
+      "coupled_pods": 0
+    }
+  ],
+  "csvSha256": "2451ea9a520a7b291f4c513cc611f6559a248ce0b070ab56af2acda36cf53897",
+  "rawResults": [
+    {
+      "file": "central-am-peak-r12-s1-old.json",
+      "sha256": "0d5663b3374e41fc241baedc7e74de8da64ee4a3a8aea364d93b8329745ab45a"
+    },
+    {
+      "file": "central-am-peak-r12-s2-old.json",
+      "sha256": "fd5c35aab54d47f06d6b60dbf0fcdf223016956d98ca8ba68f23f61d0ca4659f"
+    },
+    {
+      "file": "central-early-r10-s1-old.json",
+      "sha256": "405dd775ea4220f6d9c5a24602c403b5150a8064586ac8729ebf51c1422dc8a6"
+    },
+    {
+      "file": "central-early-r10-s2-old.json",
+      "sha256": "9c560e1eeff658dc3d707fc479dcccdad3cf35f6990275fb9cb12764eae78b2f"
+    },
+    {
+      "file": "central-pm-peak-r14-s1-old.json",
+      "sha256": "1124bc1ac0c4920dffc5712c27980c0db715b3fc8b7b1d9ad2f771e85fb5532e"
+    },
+    {
+      "file": "central-pm-peak-r14-s2-old.json",
+      "sha256": "dae977bbaa9947cc1ade729c4780deebf16d55c0e173c24b83e57a1d29cfb02e"
+    },
+    {
+      "file": "full-am-peak-r10-s1-old.json",
+      "sha256": "edfdde4f4899e7a495670c17a0d14a5f2d57ba9e834db9a8cf969759df05ad84"
+    },
+    {
+      "file": "full-am-peak-r10-s2-old.json",
+      "sha256": "e1e34dab3ca90fd8211581a45f9615b6737d6dd2e8ca6abee33e61f82b75d604"
+    },
+    {
+      "file": "full-am-peak-r15-s1-old.json",
+      "sha256": "ddafda2993fd1933616f495e8440c9265ee8ad3dd07bcfdacea4b8e955d2aafd"
+    },
+    {
+      "file": "full-am-peak-r15-s2-old.json",
+      "sha256": "ad21bb96eff96a44ce238fb26e06638748492f581e18bc6131bf8b12bb065886"
+    },
+    {
+      "file": "full-am-peak-r20-s1-old.json",
+      "sha256": "f2f184567abc9d1aad104ba6361b4f02bdb8810157fa3ebca4f4915d6008b7d2"
+    },
+    {
+      "file": "full-am-peak-r20-s2-old.json",
+      "sha256": "2e9bfe4ad9de73c627b14e4efbcf065adeb96ecc7af0fe9559c2c09ec65e9928"
+    },
+    {
+      "file": "pilot-full-old.json",
+      "sha256": "34c3f99fde6b7f2f71b95819e48a69b72b5243ac25df3739be7021733aacf540"
+    },
+    {
+      "file": "central-am-peak-r12-s1-current.json",
+      "sha256": "6fb6339377ec1a6331c6d7d243932cb29788ba694144bfe7b852ea0f43f6e8f2"
+    },
+    {
+      "file": "central-am-peak-r12-s2-current.json",
+      "sha256": "0850790936ea3fa17ae4709e7f01cb9aa1179394beff3d04177679bb97aa7bd2"
+    },
+    {
+      "file": "central-early-r10-s1-current.json",
+      "sha256": "29918c67be21b4e1090950c220c69fd638afe171d6dd40d7b165bc898b868896"
+    },
+    {
+      "file": "central-early-r10-s2-current.json",
+      "sha256": "4a116a76baa45b04025def2031ff46e31dd43de6f20c07155f829b9d11c586b1"
+    },
+    {
+      "file": "central-pm-peak-r14-s1-current.json",
+      "sha256": "9b8a0c384413afc99d74feef1c061f33fd922e65a3a607b78aac478fab0fcc36"
+    },
+    {
+      "file": "central-pm-peak-r14-s2-current.json",
+      "sha256": "5b9b981c11b87498d6278f196e81526d00f6ea9006d2201edce80ec97d0c2573"
+    },
+    {
+      "file": "full-am-peak-r10-s1-current.json",
+      "sha256": "bcdcafb7b9edee60bfec28b59d1fe80725d79c7a52b0aa2fcaf3c1c596e15d26"
+    },
+    {
+      "file": "full-am-peak-r10-s2-current.json",
+      "sha256": "cfe06d9663f8409bb5a3e26dba10aef45b8f700b430d1194e46799c772f57898"
+    },
+    {
+      "file": "full-am-peak-r15-s1-current.json",
+      "sha256": "bc218344167c33436154337358b2cab31e93fca788663ee072255cbe3fafeb50"
+    },
+    {
+      "file": "full-am-peak-r15-s2-current.json",
+      "sha256": "6b18405921a6d117f22aeb7ab5239330733503eaaba70149d58a2d8c0ae6cba0"
+    },
+    {
+      "file": "full-am-peak-r20-s1-current.json",
+      "sha256": "33fc19527e8e6e4b3f0576e408709b75a73644ae56dd23e5190ec493a6e953d0"
+    },
+    {
+      "file": "full-am-peak-r20-s2-current.json",
+      "sha256": "b0d3c9e6dc71dbb663151061fc0d01cb15cb7c5e356e4e619fdd63c18dd8490b"
+    },
+    {
+      "file": "pilot-central-current.json",
+      "sha256": "86b5b95ab36b2ec84fe32abd1131be73f70c89ab8b770be19c75dd30b291d746"
+    },
+    {
+      "file": "pilot-full-current.json",
+      "sha256": "bce98f5abd79ab5f535795edd23d02c8b9815cc3e3b563b865ac0c23e1a21d2f"
+    }
+  ],
+  "limits": [
+    "Two seeds per band, no universal or indefinite capacity bound",
+    "Parent safety sampled once per simulation second, final unique-order and rider-timing census",
+    "Restored copies exclude new arrivals and do not test unchanged future trajectories",
+    "Restore permits only speed and transient wait/blocker normalization and reapplies unsupported settings",
+    "Average waits include unboarded elapsed wait; journey metrics use completed requests",
+    "Instrumentation and two concurrent workers invalidate playback-speed timing claims",
+    "Nominal request intervals quantize to simulation ticks; CSV records actual scheduled counts and offered rates"
+  ]
+}
