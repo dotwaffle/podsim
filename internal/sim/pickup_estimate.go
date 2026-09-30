@@ -143,7 +143,7 @@ func (s *Simulation) keepHold(trip *waitingTrip, pass *dispatchPass) bool {
 // can reach. Thus pickupAvailable does not compute the berth loads.
 func (s *Simulation) pickupAvailable(stationID string, pass *dispatchPass) bool {
 	for _, v := range s.pickupCandidates(pass) {
-		if _, _, ok := s.candidateRoute(v, stationID, noBerthLoad); ok {
+		if _, _, _, ok := s.candidateRouteParts(v, stationID, noBerthLoad); ok {
 			return true
 		}
 	}

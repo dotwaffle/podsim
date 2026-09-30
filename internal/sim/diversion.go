@@ -61,6 +61,19 @@ func (s *Simulation) pickupCandidate(v *vehicle, assigned map[string]bool) bool 
 // candidateRoute is pickupRouteWithAssignments for a pod that
 // pickupCandidate accepts. load is as in pickupRouteInput.
 func (s *Simulation) candidateRoute(v *vehicle, stationID string, load func(Berth) int) ([]Lane, Berth, bool) {
+	prefix, suffix, berth, ok := s.candidateRouteParts(v, stationID, load)
+	if v.Pod.Activity == Idle {
+		return suffix, berth, ok
+	}
+	if !ok {
+		return nil, Berth{}, false
+	}
+	return append(slices.Clone(prefix), suffix...), berth, true
+}
+
+// candidateRouteParts checks the same route without joining its parts.
+// The parts borrow vehicle routes and cached routes. Callers must not change them.
+func (s *Simulation) candidateRouteParts(v *vehicle, stationID string, load func(Berth) int) ([]Lane, []Lane, Berth, bool) {
 	if v.Pod.Activity == Idle {
 		from, _ := s.station(v.Pod.StationID)
 		berth, _ := from.berth(v.Pod.BerthID)
@@ -68,20 +81,20 @@ func (s *Simulation) candidateRoute(v *vehicle, stationID string, load func(Bert
 			// The pod can board where it is. Its own berth has a load of at
 			// least one because the pod holds it, so stationRouteByLoad
 			// would choose a free berth and a loop around the network.
-			return nil, berth, true
+			return nil, nil, berth, true
 		}
 		route, destination, err := s.stationRouteByLoad(stationRouteInput{from: berth.Node, station: stationID, load: load})
-		return route, destination, err == nil
+		return nil, route, destination, err == nil
 	}
 	prefix, from, ok := s.divertStart(v)
 	if !ok {
-		return nil, Berth{}, false
+		return nil, nil, Berth{}, false
 	}
 	suffix, berth, err := s.stationRouteByLoad(stationRouteInput{from: from, station: stationID, load: load})
 	if err != nil {
-		return nil, Berth{}, false
+		return nil, nil, Berth{}, false
 	}
-	return append(slices.Clone(v.Route[:prefix]), suffix...), berth, true
+	return v.Route[:prefix], suffix, berth, true
 }
 
 // divertStart returns the route prefix that a moving empty pod must keep
