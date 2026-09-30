@@ -49,6 +49,7 @@ The restore and rendering optimizations preserve simulation behavior and existin
 The [pickup-bound cache measurements](docs/pickup-bounds-cache-performance.md) show lower CPU use and allocations in an unpaced LondonFull probe.
 They do not establish live playback speed or a capacity improvement.
 [Reusable admission storage](docs/admission-work-performance.md) lowers allocations and usually CPU in paired equal-work studies.
+The [live follow-up](docs/admission-live-performance.md) sustains approximately 60x with GC 100 and 400 in short one-client runs.
 The server retains GOGC 100 and the comparison command retains 400.
 The [journey page cache](docs/journey-page-cache-performance.md) lowers measured page script time, while total software-rendered browser CPU changes little.
 

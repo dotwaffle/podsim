@@ -109,6 +109,8 @@ GOGC 200 merits further testing for memory-limited comparisons.
 The existing GOGC 400 comparison setting remains available for historical consistency.
 No default change follows from this study.
 
+A separate [live Chrome follow-up](admission-live-performance.md) checks these servers with GC 100 and 400.
+
 ## Limits and evidence
 
 Batch latency covers simulation advance only.
