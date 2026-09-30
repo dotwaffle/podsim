@@ -165,5 +165,7 @@ Seed 1 maximum request-to-alight time increased from 4900.0 to 5208.0 seconds.
 This comparison does not establish a no-harm envelope or sustained capacity.
 The instrumented enabled arms took more wall time, but concurrent work prevents a reliable production overhead estimate.
 Raw results and frozen manifests are in `~/.cache/agents/podsim/pickup-reassignment-20260929/load/`.
-Broader load comparisons remain qualification work.
-The experiment must also check later congestion and effects on other waiting parties.
+The [six-hour load screen](pickup-swap-sustained.md) compares two seeds at 15 and 20 requests per minute.
+It improves mean and p95 wait, but increases maximum journey time in both seed 2 cases.
+The controller remains disabled by default.
+Individual-request effects and controlled CPU overhead remain qualification work.
