@@ -161,6 +161,8 @@ type networkRouteInput struct {
 	// has no berth at from or at to. Thus the route cannot go through the
 	// berths of a third station.
 	ownBerthsOnly bool
+	// terminalBerthsOnly allows a berth only at an exact route endpoint.
+	terminalBerthsOnly bool
 }
 
 func (n Network) route(input networkRouteInput) ([]Lane, error) {
@@ -196,6 +198,9 @@ func (n Network) routeIndexedWithWork(input networkRouteInput, graph routeGraph,
 			break
 		}
 		visited[item.node] = true
+		if input.terminalBerthsOnly && item.node != from && graph.berthStations[item.node] >= 0 {
+			continue
+		}
 		for _, laneIndex := range graph.outgoing[item.node] {
 			edge := graph.edges[laneIndex]
 			// The node indexes are equal only when the node IDs are equal.
@@ -234,58 +239,7 @@ func (n Network) routeIndexedWithWork(input networkRouteInput, graph routeGraph,
 // the search takes the node. Thus the route to a destination does not
 // change after the search takes the destination.
 func (n Network) routesIndexed(from string, to []string, graph routeGraph) []routeResult {
-	results := make([]routeResult, len(to))
-	start, ok := graph.nodes[from]
-	if !ok {
-		for index := range results {
-			results[index].err = fmt.Errorf("unknown origin %q", from)
-		}
-		return results
-	}
-	var goals []int
-	for index, id := range to {
-		goal, ok := graph.nodes[id]
-		if !ok {
-			results[index].err = fmt.Errorf("unknown destination %q", id)
-		} else if !slices.Contains(goals, goal) {
-			goals = append(goals, goal)
-		}
-	}
-	distance := make([]float64, len(n.Nodes))
-	previous := make([]int, len(n.Nodes))
-	visited := make([]bool, len(n.Nodes))
-	for i := range distance {
-		distance[i], previous[i] = math.Inf(1), -1
-	}
-	distance[start] = 0
-	queue := routeQueue{{node: start}}
-	for remaining := len(goals); remaining > 0 && len(queue) > 0; {
-		item := queue.pop()
-		if visited[item.node] || item.distance != distance[item.node] {
-			continue
-		}
-		if slices.Contains(goals, item.node) {
-			remaining--
-			if remaining == 0 {
-				break
-			}
-		}
-		visited[item.node] = true
-		for _, laneIndex := range graph.outgoing[item.node] {
-			edge := graph.edges[laneIndex]
-			candidate := item.distance + edge.seconds
-			if candidate < distance[edge.to] {
-				distance[edge.to], previous[edge.to] = candidate, laneIndex
-				queue.push(routeQueueItem{node: edge.to, distance: candidate})
-			}
-		}
-	}
-	for index, id := range to {
-		if results[index].err == nil {
-			results[index].lanes, results[index].err = n.routeLanes(graph, start, graph.nodes[id], distance, previous)
-		}
-	}
-	return results
+	return n.routesFromTargets(n.routeTargets(routeTargetsInput{from: from, to: to}, graph), graph)
 }
 
 // routeLanes returns the route from node from to node to that a route
@@ -448,7 +402,7 @@ type routeGraph struct {
 	lanes    map[string]int
 	outgoing [][]int
 	// incoming holds the index of each lane that ends at a node. Only
-	// nearestWithin reads it.
+	// nearestWithin and reverse target searches read it.
 	incoming [][]int
 	lengths  []float64
 	// edges holds the route search data of each lane, so that the search

@@ -98,8 +98,8 @@ func (s *Simulation) queueRoute(v *vehicle, from, to string) ([]Lane, error) {
 		return free, nil
 	}
 	// The free-flow route exists, so the search can fail only when each
-	// route goes through the berths of a third station.
-	queued, err := s.searchRoute(networkRouteInput{from: from, to: to, discharge: discharge, ownBerthsOnly: true})
+	// route goes through an intermediate berth.
+	queued, err := s.searchRoute(networkRouteInput{from: from, to: to, discharge: discharge, terminalBerthsOnly: true})
 	if err == nil {
 		seconds, cost, _ := s.queueCost(queued, discharge)
 		saving := freeCost - cost

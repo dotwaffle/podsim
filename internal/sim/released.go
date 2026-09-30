@@ -139,7 +139,7 @@ func (s *Simulation) nearestFreeBerth(v *vehicle, from string) (Berth, string, b
 	if len(candidates) == 0 {
 		return Berth{}, "", false
 	}
-	node, ok := s.network.nearestIndexed(nearestInput{from: from, rank: rank}, s.graph)
+	node, ok := s.network.preferredNearestIndexed(preferredNearestInput{from: from, rank: rank}, s.graph)
 	if !ok {
 		return Berth{}, "", false
 	}

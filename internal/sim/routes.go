@@ -1,6 +1,9 @@
 package sim
 
-import "slices"
+import (
+	"errors"
+	"slices"
+)
 
 const (
 	routeCacheLimit                 = 8192
@@ -29,10 +32,11 @@ func (s *Simulation) withSeconds(result routeResult) routeResult {
 	return result
 }
 
-// route returns the free-flow route. It shares read-only paths within this
-// simulation's immutable network. Snapshots copy routes before they leave
-// the simulation. Clones share the routes of pods and waiting trips, so code
-// replaces a route whole and never writes into it in place.
+// route prefers a free-flow path without intermediate berths. A legacy
+// layout without such a path keeps its unrestricted route. Paths are
+// read-only within this simulation's immutable network. Snapshots copy them
+// before they leave the simulation. Clones share routes of pods and trips.
+// Code replaces a whole route and never writes into it in place.
 //
 // Estimates, candidate searches and the choices of dispatch, positioning
 // and parking use route with each routing policy. Only a pod that starts
@@ -50,7 +54,10 @@ func (s *Simulation) cachedRoute(from, to string) routeResult {
 	if cached, ok := s.routes[key]; ok {
 		return cached
 	}
-	lanes, err := s.searchRoute(networkRouteInput{from: from, to: to})
+	lanes, err := s.searchRoute(networkRouteInput{from: from, to: to, terminalBerthsOnly: true})
+	if errors.Is(err, ErrUnreachable) {
+		lanes, err = s.searchRoute(networkRouteInput{from: from, to: to})
+	}
 	return s.cacheRoute(key, routeResult{lanes: lanes, err: err})
 }
 
@@ -77,21 +84,18 @@ func (s *Simulation) assignedRoute(v *vehicle, from, to string) ([]Lane, error) 
 	}
 }
 
-// congestionRoute returns the route with the lowest travel time plus
-// congestion cost. The route does not go through the berths of a station
-// other than the stations at from and to. A pod at a berth costs nothing, so
-// without this rule a route could go through the berths of a station to
-// avoid its through lane. When no such route exists, congestionRoute
-// returns the free-flow route.
+// congestionRoute minimizes travel time plus congestion cost without
+// intermediate berths. If no such path exists, it returns the route
+// selected by the free-flow preference and legacy fallback.
 func (s *Simulation) congestionRoute(from, to string) routeResult {
 	s.refreshCongestionCosts()
 	key := routeKey{from: from, to: to}
 	if cached, ok := s.congestionRoutes[key]; ok {
 		return cached
 	}
-	lanes, err := s.searchRoute(networkRouteInput{from: from, to: to, extraCost: s.congestionRouteCosts, ownBerthsOnly: true})
+	lanes, err := s.searchRoute(networkRouteInput{from: from, to: to, extraCost: s.congestionRouteCosts, terminalBerthsOnly: true})
 	if err != nil {
-		lanes, err = s.searchRoute(networkRouteInput{from: from, to: to})
+		lanes, err = s.route(from, to)
 	}
 	result := s.withSeconds(routeResult{lanes: lanes, err: err})
 	s.congestionRoutes[key] = result
@@ -132,8 +136,8 @@ func (s *Simulation) congestionCosts() []float64 {
 }
 
 // cacheStationRoutes puts the routes from a node to each berth of a station
-// in the route cache. One route search gives all the routes, so the
-// route calls that follow do not search again. The cache holds only routes
+// in the route cache. A preferred search and an optional fallback give
+// the routes. Later route calls do not search again. The cache holds only routes
 // that route returns, so this changes no result.
 func (s *Simulation) cacheStationRoutes(from string, berths []Berth) {
 	if len(berths) < 2 {
@@ -149,7 +153,8 @@ func (s *Simulation) cacheStationRoutes(from string, berths []Berth) {
 	if len(targets) < 2 {
 		return
 	}
-	for index, result := range s.network.routesIndexed(from, targets, s.graph) {
+	preferred := s.network.preferredTargets(routeTargetsInput{from: from, to: targets}, s.graph)
+	for index, result := range s.network.routesFromTargets(preferred, s.graph) {
 		s.cacheRoute(routeKey{from: from, to: targets[index]}, result)
 	}
 }
