@@ -1,0 +1,492 @@
+{
+  "source_commit": "e285e69",
+  "production_phase_sha256": "fca4dfe50c5591430cb7efca3dd586cc7ff9c17a20d9c777c021d66c73d943e5",
+  "source_manifest_sha256": "073c8d66a5fc00caae6ea1b615d6852be8d0ef5d0a27b374f8ff28f513d16028",
+  "phase_overlay_manifest_sha256": "1af9b0f38c2df0b5b83ba24b17677a5acbce36948767a1a4be59c701986b934e",
+  "fast_overlay_manifest_sha256": "860fad5169888962d011cf9a77dbcce39011cc48aa9d29bb361202b96e9edde0",
+  "binary_sha256": {
+    "baseline": "03d8f29179583ba463d96e5b7a34039463582e92d7910169f59355e68e3596d2",
+    "fast": "273b49a68e034f256e188b979e7c66cac44bff63078dd05c7450f88ea2a80136",
+    "phase": "b057037d3da9179cab1d85113307e3c544f844340c504fcfabf9ab0c49ec108d"
+  },
+  "environment": {
+    "go": "1.27.1",
+    "GOMAXPROCS": 1,
+    "GOGC": 100,
+    "GOMEMLIMIT": "1536MiB",
+    "cpu_quota_percent": 100,
+    "concurrent_cpu_studies": 0
+  },
+  "arms": [
+    {
+      "name": "baseline-1",
+      "variant": "baseline",
+      "exit": 0,
+      "wall_seconds": 433.0377330882475,
+      "user_seconds": 428.78,
+      "system_seconds": 1.7,
+      "cpu_seconds": 430.47999999999996,
+      "max_rss_kib": 302068,
+      "exact_output_parity": true,
+      "output_sha256": "bd46f628ec3e5b5d9c3998bcea8f67a77559097895dd9150133fc856a6df1214"
+    },
+    {
+      "name": "fast-1",
+      "variant": "fast",
+      "exit": 0,
+      "wall_seconds": 334.43493355065584,
+      "user_seconds": 332.72,
+      "system_seconds": 0.93,
+      "cpu_seconds": 333.65000000000003,
+      "max_rss_kib": 299236,
+      "exact_output_parity": true,
+      "output_sha256": "7d3fa0a1457e8b39379419d82a7342320590ea3607715488a267993f0c0f2e72"
+    },
+    {
+      "name": "phase-only",
+      "variant": "phase",
+      "exit": 0,
+      "wall_seconds": 360.8348955688998,
+      "user_seconds": 359.15,
+      "system_seconds": 1.47,
+      "cpu_seconds": 360.62,
+      "max_rss_kib": 334996,
+      "exact_output_parity": true,
+      "output_sha256": "ab09a3356d8094d1528263f75bfc73b660676364d94acc1ec3fb7f4e098fc37a"
+    },
+    {
+      "name": "fast-2",
+      "variant": "fast",
+      "exit": 0,
+      "wall_seconds": 315.4427322251722,
+      "user_seconds": 314.34,
+      "system_seconds": 0.82,
+      "cpu_seconds": 315.15999999999997,
+      "max_rss_kib": 300064,
+      "exact_output_parity": true,
+      "output_sha256": "b10d9651b9aca19b380b4f303641baecf7879322cabacae62ea6ac08680ac665"
+    },
+    {
+      "name": "baseline-2",
+      "variant": "baseline",
+      "exit": 0,
+      "wall_seconds": 385.54414465557784,
+      "user_seconds": 383.11,
+      "system_seconds": 1.99,
+      "cpu_seconds": 385.1,
+      "max_rss_kib": 330708,
+      "exact_output_parity": true,
+      "output_sha256": "6e219686b42f5a4fe51ac9b541b98c5afb8ee0f30f1494e86e1894a0adc76271"
+    }
+  ],
+  "means": {
+    "baseline": {
+      "wall_seconds": 409.29093887191266,
+      "cpu_seconds": 407.78999999999996,
+      "max_rss_kib": 316388
+    },
+    "fast": {
+      "wall_seconds": 324.93883288791403,
+      "cpu_seconds": 324.405,
+      "max_rss_kib": 299650
+    },
+    "phase": {
+      "wall_seconds": 360.8348955688998,
+      "cpu_seconds": 360.62,
+      "max_rss_kib": 334996
+    }
+  },
+  "route_index_benchmarks": {
+    "baseline": {
+      "16": [
+        {
+          "ns": 41.98,
+          "bytes": 0,
+          "allocs": 0
+        },
+        {
+          "ns": 44.01,
+          "bytes": 0,
+          "allocs": 0
+        },
+        {
+          "ns": 39.59,
+          "bytes": 0,
+          "allocs": 0
+        },
+        {
+          "ns": 40.14,
+          "bytes": 0,
+          "allocs": 0
+        },
+        {
+          "ns": 37.83,
+          "bytes": 0,
+          "allocs": 0
+        }
+      ],
+      "64": [
+        {
+          "ns": 238.9,
+          "bytes": 0,
+          "allocs": 0
+        },
+        {
+          "ns": 229.8,
+          "bytes": 0,
+          "allocs": 0
+        },
+        {
+          "ns": 224.8,
+          "bytes": 0,
+          "allocs": 0
+        },
+        {
+          "ns": 236.8,
+          "bytes": 0,
+          "allocs": 0
+        },
+        {
+          "ns": 221.1,
+          "bytes": 0,
+          "allocs": 0
+        }
+      ],
+      "256": [
+        {
+          "ns": 605.9,
+          "bytes": 0,
+          "allocs": 0
+        },
+        {
+          "ns": 596.2,
+          "bytes": 0,
+          "allocs": 0
+        },
+        {
+          "ns": 592.6,
+          "bytes": 0,
+          "allocs": 0
+        },
+        {
+          "ns": 576.6,
+          "bytes": 0,
+          "allocs": 0
+        },
+        {
+          "ns": 591.3,
+          "bytes": 0,
+          "allocs": 0
+        }
+      ]
+    },
+    "current": {
+      "16": [
+        {
+          "ns": 38.38,
+          "bytes": 0,
+          "allocs": 0
+        },
+        {
+          "ns": 38.3,
+          "bytes": 0,
+          "allocs": 0
+        },
+        {
+          "ns": 38.85,
+          "bytes": 0,
+          "allocs": 0
+        },
+        {
+          "ns": 39.31,
+          "bytes": 0,
+          "allocs": 0
+        },
+        {
+          "ns": 39.14,
+          "bytes": 0,
+          "allocs": 0
+        }
+      ],
+      "64": [
+        {
+          "ns": 43.58,
+          "bytes": 0,
+          "allocs": 0
+        },
+        {
+          "ns": 43.75,
+          "bytes": 0,
+          "allocs": 0
+        },
+        {
+          "ns": 43.24,
+          "bytes": 0,
+          "allocs": 0
+        },
+        {
+          "ns": 43.58,
+          "bytes": 0,
+          "allocs": 0
+        },
+        {
+          "ns": 44.16,
+          "bytes": 0,
+          "allocs": 0
+        }
+      ],
+      "256": [
+        {
+          "ns": 50.66,
+          "bytes": 0,
+          "allocs": 0
+        },
+        {
+          "ns": 51.11,
+          "bytes": 0,
+          "allocs": 0
+        },
+        {
+          "ns": 49.47,
+          "bytes": 0,
+          "allocs": 0
+        },
+        {
+          "ns": 55.52,
+          "bytes": 0,
+          "allocs": 0
+        },
+        {
+          "ns": 65.59,
+          "bytes": 0,
+          "allocs": 0
+        }
+      ]
+    }
+  },
+  "checks": {
+    "Samples": 25200,
+    "DenseSamples": 0,
+    "restores": [
+      {
+        "tick": 648000,
+        "dense_samples": 3600,
+        "coupled_pods": 4
+      },
+      {
+        "tick": 1296000,
+        "dense_samples": 3600,
+        "coupled_pods": 0
+      }
+    ]
+  },
+  "limits": "One LondonFull AM15 seed3 workload. Two baseline/combined repetitions; one phase-only diagnostic. Snapshot helper is cache-only, no production API change. Exact Result/Schedule/all Checks parity. No test/restore assertion dropped.",
+  "snapshot_allocation_benchmark": {
+    "fixture": "Synthetic 287 moving pods, 128 route lanes per pod, curve control on every fourth lane. No stepping or safety qualification.",
+    "GOMAXPROCS": 2,
+    "benchtime": "300ms",
+    "repetitions": 5,
+    "samples": {
+      "full": [
+        {
+          "ns_per_op": 1697575.0,
+          "bytes_per_op": 4957760,
+          "allocs_per_op": 9475
+        },
+        {
+          "ns_per_op": 1548908.0,
+          "bytes_per_op": 4957736,
+          "allocs_per_op": 9475
+        },
+        {
+          "ns_per_op": 1611727.0,
+          "bytes_per_op": 4957737,
+          "allocs_per_op": 9475
+        },
+        {
+          "ns_per_op": 1614164.0,
+          "bytes_per_op": 4957736,
+          "allocs_per_op": 9475
+        },
+        {
+          "ns_per_op": 1621320.0,
+          "bytes_per_op": 4957736,
+          "allocs_per_op": 9475
+        }
+      ],
+      "context": [
+        {
+          "ns_per_op": 37481.0,
+          "bytes_per_op": 140728,
+          "allocs_per_op": 291
+        },
+        {
+          "ns_per_op": 38166.0,
+          "bytes_per_op": 140728,
+          "allocs_per_op": 291
+        },
+        {
+          "ns_per_op": 37809.0,
+          "bytes_per_op": 140728,
+          "allocs_per_op": 291
+        },
+        {
+          "ns_per_op": 36760.0,
+          "bytes_per_op": 140728,
+          "allocs_per_op": 291
+        },
+        {
+          "ns_per_op": 36668.0,
+          "bytes_per_op": 140728,
+          "allocs_per_op": 291
+        }
+      ]
+    },
+    "source_sha256": "650e6e350ae9ab18d6176f7320e8a3db5d8a34916ad5cf32202ea9b772f3eeef",
+    "overlay_sha256": "5c14a1c88ed26b180f625f2a62e7287834f4026ca14582f0ef184fc5bc591cca"
+  },
+  "source_validation": {
+    "initial_passes": [
+      {
+        "name": "benchmark-baseline",
+        "command": [
+          "go",
+          "test",
+          "-overlay=/home/dotwaffle/.cache/agents/podsim/study-performance-paired-20261001/benchmark-baseline-overlay.json",
+          "./internal/sim",
+          "-run=^$",
+          "-bench=^BenchmarkStationManeuverRouteIndex$",
+          "-benchtime=300ms",
+          "-count=5",
+          "-benchmem"
+        ],
+        "exit": 0,
+        "seconds": 8.981528003700078
+      },
+      {
+        "name": "benchmark-current",
+        "command": [
+          "go",
+          "test",
+          "./internal/sim",
+          "-run=^$",
+          "-bench=^BenchmarkStationManeuverRouteIndex$",
+          "-benchtime=300ms",
+          "-count=5",
+          "-benchmem"
+        ],
+        "exit": 0,
+        "seconds": 8.881149579770863
+      },
+      {
+        "name": "plain",
+        "command": [
+          "go",
+          "test",
+          "./...",
+          "-count=1",
+          "-timeout=15m"
+        ],
+        "exit": 0,
+        "seconds": 124.19296454451978
+      },
+      {
+        "name": "vet",
+        "command": [
+          "go",
+          "vet",
+          "./..."
+        ],
+        "exit": 0,
+        "seconds": 5.741976057179272
+      }
+    ],
+    "initial_lint_corrections": "Test-only t.Parallel and strconv formatting. Production source unchanged. All current gates pass.",
+    "current_passes": [
+      {
+        "name": "plain-sim",
+        "command": [
+          "go",
+          "test",
+          "./internal/sim",
+          "-count=1",
+          "-timeout=15m"
+        ],
+        "exit": 0,
+        "seconds": 57.6672996180132
+      },
+      {
+        "name": "vet",
+        "command": [
+          "go",
+          "vet",
+          "./..."
+        ],
+        "exit": 0,
+        "seconds": 0.7149944957345724
+      },
+      {
+        "name": "lint",
+        "command": [
+          "golangci-lint",
+          "run"
+        ],
+        "exit": 0,
+        "seconds": 5.8735136250033975
+      },
+      {
+        "name": "native",
+        "command": [
+          "go",
+          "build",
+          "-trimpath",
+          "./..."
+        ],
+        "exit": 0,
+        "seconds": 38.89986624568701
+      },
+      {
+        "name": "web",
+        "command": [
+          "go",
+          "generate",
+          "./..."
+        ],
+        "exit": 0,
+        "seconds": 23.905415816232562
+      },
+      {
+        "name": "embedded",
+        "command": [
+          "go",
+          "test",
+          "-tags=embed_assets",
+          ".",
+          "./cmd/serve",
+          "./internal/session",
+          "-count=1",
+          "-timeout=15m"
+        ],
+        "exit": 0,
+        "seconds": 26.980181442573667
+      },
+      {
+        "name": "race",
+        "command": [
+          "go",
+          "test",
+          "-race",
+          "./internal/sim",
+          "./internal/session",
+          "-count=1",
+          "-timeout=20m"
+        ],
+        "exit": 0,
+        "seconds": 529.5484019313008
+      }
+    ],
+    "source_unchanged_during_gates": true,
+    "independent_review": "PASS: first-occurrence lookup semantics, snapshot ownership/context, all five replay outputs, profiles and benchmark calculations.",
+    "gopls": "CLI check passes. MCP reports stale new-file/cache metadata."
+  }
+}

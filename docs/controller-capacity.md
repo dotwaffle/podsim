@@ -126,6 +126,8 @@ This boundary screen neither raises a qualified rate nor replaces the full deman
 [Pair totals](measurements/controller-capacity-pairs.csv) retain matched cohorts, accepted totals, and individual increases.
 [Metadata](measurements/controller-capacity.json) retains source hashes, all 42 successful runs, one-sided acceptance indices, request-status transitions, selected tails, and unfinished joint cohorts.
 Raw schedules, complete status records, and individual comparisons remain in `~/.cache/agents/podsim/controller-capacity-20261001/`.
+The [capacity diagnosis](london-full-capacity-diagnosis.md) identifies exhausted pickup supply at AM14/AM15 and confirms extended AM13 recovery.
+The [buffer and speed diagnosis](station-buffer-speed.md) records longer berth claims and lower completions in slower Acton fixtures.
 The invalid initial `early` band inputs remain separate from the corrected Full Morning runs.
 
 The result field `wait_average_seconds` combines realized waits with elapsed pending ages and is a lower bound on eventual pickup wait.

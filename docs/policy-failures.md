@@ -122,3 +122,5 @@ The limits remain proposals, and these counts do not authorize a default change.
 Complete per-request comparisons and raw one-second diagnostics remain in `~/.cache/agents/podsim/policy-failures-20261001/`.
 Observed pickup pods, stopping, and coupling counts are samples, not complete transition or resource-grant histories.
 The owned run stopped successfully, and its scratch binary was removed.
+The [fleet-history follow-up](policy-fleet-history.md) traces earlier assignments and empty destinations behind selected pickup delays.
+It separates percentile ranks from same-request changes and retains the remaining failures.

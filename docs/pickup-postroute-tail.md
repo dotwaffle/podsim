@@ -70,6 +70,8 @@ The moving histories support further dispatch and fleet-availability work.
 They do not prove an optimal assignment, identify every earlier divergence, or establish that empty-pod coupling has no effect.
 No production fix follows from this diagnosis.
 Pickup reassignment and buffers remain off by default.
+The [exact fleet-history intervention](pickup-fleet-ablation.md) confirms that an early swap changes selected later pickup tails.
+Suppressing that pair does not establish a general dispatch fix.
 
 ## Evidence
 

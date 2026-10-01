@@ -1190,6 +1190,7 @@ The new route must also take at most 1.2 times the free-flow time of the free-fl
 The [predictive policy](docs/predictive-routing.md) adds smoothed observed queues and planned lane arrivals over a 90-second horizon.
 It retains the same saving and detour guards, and remains experimental.
 The [selected service screen](docs/predictive-service.md) returns no alternative routes across six matched pairs and establishes no service gain.
+The [route-selection diagnosis](docs/predictive-diagnosis.md) explains the guard outcomes and records a congested trial with worse service.
 
 Lanes can be straight or quadratic curves.
 The simulator and browser measure each curve along the same sampled path.
@@ -1562,14 +1563,19 @@ They do not replace scenario qualification or authorize policy adoption.
 | Server performance | [Route search storage](docs/route-search-performance.md), [finishing-pod bounds](docs/finishing-pod-bounds-performance.md), [admission storage](docs/admission-work-performance.md), [live server and GC](docs/admission-live-performance.md), [publisher cadence](docs/publisher-cadence-performance.md) | Live results cover two short repetitions per case. GC defaults remain unchanged. |
 | Browser performance | [Live Chrome measurements](docs/live-chrome-performance.md), [compatible stream decoder](docs/stream-decoder-qualification.md), [journey page cache](docs/journey-page-cache-performance.md), [label dimensions](docs/label-measure-cache-performance.md), [label admission](docs/label-admission-performance.md) | Software-rendering results do not predict physical-GPU performance. Decoder gains do not establish lower whole-browser CPU. |
 | Experimental adoption | [Proposed gates](docs/experimental-adoption.md) | Individual-tail and capacity thresholds need agreement before a default change. Historical 300-second counts remain diagnostics. |
-| Tests and restarts | [Test timing](docs/test-speed.md), [experimental policy file restarts](docs/experimental-policy-restarts.md) | Timing depends on workload and hardware. File tests do not simulate power loss. |
+| Tests and restarts | [Test timing](docs/test-speed.md), [diagnostic study performance](docs/study-performance.md), [experimental policy file restarts](docs/experimental-policy-restarts.md) | Study timings cover one matched LondonFull workload. File tests do not simulate power loss. |
 
 Current-source follow-ups retain their own fixtures and limits:
 
 - [Pickup tails](docs/pickup-postroute-tail.md) trace selected reassignment regressions without finding a new movement defect.
+- [Exact pickup histories](docs/pickup-fleet-ablation.md) show how one early swap changes later pickup availability.
 - [Policy failures](docs/policy-failures.md) retain selected platoon, sharing, and positioning failures after the routing fixes.
+- [Policy fleet histories](docs/policy-fleet-history.md) separate earlier pickup changes, percentile ranks, and same-request delays.
 - [Paddington position trials](docs/paddington-layout.md) improve selected full-restoration outcomes, but reject both partial layouts on safety.
 - [Controller and capacity trials](docs/controller-capacity.md) retain Acton overload, individual regressions, and unfinished six-hour AM baselines.
+- [Capacity diagnosis](docs/london-full-capacity-diagnosis.md) confirms extended AM13 recovery and exhausted AM14/AM15 pickup supply.
+- [Strict finishing waits](docs/finishing-wait-capacity.md) reduce completions in four matched capacity cells.
+- [Buffer claims and station speed](docs/station-buffer-speed.md) retain the Acton buffer loss and negative lower-speed trials.
 - [Reserve and sharing trials](docs/acton-reserve-sharing.md) compare initial empty supply and pooling without establishing sustained capacity.
 - [Predictive service trials](docs/predictive-service.md) leave matched request outcomes unchanged.
 - [Predictive cost trials](docs/predictive-cost.md) measure CPU, allocation, and GC tradeoffs separately from service outcomes.
