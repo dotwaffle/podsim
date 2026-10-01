@@ -1,0 +1,1509 @@
+name,Lane,Role,Wait,Occupied,PodTicks,StoppedPodTicks
+EUS-s1-boff-q200-burst1,940GZZLUEUS-01-arrival-link,berth-access,,False,59967,0
+EUS-s1-boff-q200-burst1,940GZZLUEUS-01-arrival-link,berth-access,Junction traffic,False,28542,79
+EUS-s1-boff-q200-burst1,940GZZLUEUS-01-arrival-link,berth-access,Pod ahead,False,89424,36400
+EUS-s1-boff-q200-burst1,940GZZLUEUS-01-departure-link,departure,,True,103583,9174
+EUS-s1-boff-q200-burst1,940GZZLUEUS-01-departure-link,departure,Junction traffic,True,39173,18947
+EUS-s1-boff-q200-burst1,940GZZLUEUS-01-departure-link,departure,Pod ahead,True,213848,121647
+EUS-s1-boff-q200-burst1,940GZZLUEUS-01-in,berth-access,,False,59249,11
+EUS-s1-boff-q200-burst1,940GZZLUEUS-01-in,berth-access,Berth occupied,False,53723,14757
+EUS-s1-boff-q200-burst1,940GZZLUEUS-01-in,berth-access,Junction traffic,False,19355,17724
+EUS-s1-boff-q200-burst1,940GZZLUEUS-01-in,berth-access,Pod ahead,False,76347,35581
+EUS-s1-boff-q200-burst1,940GZZLUEUS-01-out,departure,,True,83964,8957
+EUS-s1-boff-q200-burst1,940GZZLUEUS-01-out,departure,Junction traffic,True,45512,33909
+EUS-s1-boff-q200-burst1,940GZZLUEUS-01-out,departure,Pod ahead,True,104991,67721
+EUS-s1-boff-q200-burst1,940GZZLUEUS-02-arrival-link,berth-access,,False,24989,0
+EUS-s1-boff-q200-burst1,940GZZLUEUS-02-arrival-link,berth-access,Junction traffic,False,12382,71
+EUS-s1-boff-q200-burst1,940GZZLUEUS-02-arrival-link,berth-access,Pod ahead,False,33925,13834
+EUS-s1-boff-q200-burst1,940GZZLUEUS-02-departure-link,departure,,True,31356,84
+EUS-s1-boff-q200-burst1,940GZZLUEUS-02-departure-link,departure,Junction traffic,True,58239,45756
+EUS-s1-boff-q200-burst1,940GZZLUEUS-02-departure-link,departure,Pod ahead,True,109283,78768
+EUS-s1-boff-q200-burst1,940GZZLUEUS-02-in,berth-access,,False,58437,10
+EUS-s1-boff-q200-burst1,940GZZLUEUS-02-in,berth-access,Berth occupied,False,45527,12492
+EUS-s1-boff-q200-burst1,940GZZLUEUS-02-in,berth-access,Junction traffic,False,10741,9845
+EUS-s1-boff-q200-burst1,940GZZLUEUS-02-in,berth-access,Pod ahead,False,63692,24473
+EUS-s1-boff-q200-burst1,940GZZLUEUS-02-out,departure,,True,81681,10017
+EUS-s1-boff-q200-burst1,940GZZLUEUS-02-out,departure,Junction traffic,True,13116,11120
+EUS-s1-boff-q200-burst1,940GZZLUEUS-02-out,departure,Pod ahead,True,55749,36635
+EUS-s1-boff-q200-burst1,940GZZLUEUS-access-in,entry,,False,106670,0
+EUS-s1-boff-q200-burst1,940GZZLUEUS-access-in,entry,Junction traffic,False,20469,0
+EUS-s1-boff-q200-burst1,940GZZLUEUS-access-in,entry,Pod ahead,False,103492,38320
+EUS-s1-boff-q200-burst1,940GZZLUEUS-access-out,exit,,True,147415,9929
+EUS-s1-boff-q200-burst1,940GZZLUEUS-access-out,exit,Junction traffic,True,81819,43919
+EUS-s1-boff-q200-burst1,940GZZLUEUS-access-out,exit,Pod ahead,True,380908,126990
+EUS-s1-boff-q200-burst1,940GZZLUEUS-road-in-01,approach,,False,1367,0
+EUS-s1-boff-q200-burst1,940GZZLUEUS-road-in-02,approach,,False,29612,0
+EUS-s1-boff-q200-burst1,940GZZLUEUS-road-in-02,approach,Junction traffic,False,50957,31725
+EUS-s1-boff-q200-burst1,940GZZLUEUS-road-in-02,approach,Pod ahead,False,45202,27533
+EUS-s1-boff-q200-burst1,940GZZLUEUS-road-in-03,approach,,False,700,0
+EUS-s1-boff-q200-burst1,940GZZLUEUS-road-in-04,approach,,False,60161,70
+EUS-s1-boff-q200-burst1,940GZZLUEUS-road-in-04,approach,Junction traffic,False,51508,32424
+EUS-s1-boff-q200-burst1,940GZZLUEUS-road-in-04,approach,Pod ahead,False,176357,90440
+EUS-s1-boff-q200-burst1,940GZZLUEUS-road-out-01,exit,,True,1138,0
+EUS-s1-boff-q200-burst1,940GZZLUEUS-road-out-02,exit,,True,22728,0
+EUS-s1-boff-q200-burst1,940GZZLUEUS-road-out-03,exit,,True,378,0
+EUS-s1-boff-q200-burst1,940GZZLUEUS-road-out-04,exit,,True,75939,0
+EUS-s1-boff-q200-burst1,london-link-052-ab-2,upstream-mainline,,False,10977,0
+EUS-s1-boff-q200-burst1,london-link-052-ab-2,upstream-mainline,Junction traffic,False,4226,3309
+EUS-s1-boff-q200-burst1,london-link-052-ab-2,upstream-mainline,Pod ahead,False,577,411
+EUS-s1-boff-q200-burst1,london-link-070-ba-2,upstream-mainline,,False,113598,821
+EUS-s1-boff-q200-burst1,london-link-070-ba-2,upstream-mainline,Junction traffic,False,43478,21627
+EUS-s1-boff-q200-burst1,london-link-070-ba-2,upstream-mainline,Pod ahead,False,1003352,710957
+EUS-s1-boff-q200-burst1,london-link-071-ba-2,upstream-mainline,,False,3055,0
+EUS-s1-boff-q200-burst1,london-link-071-ba-2,upstream-mainline,Junction traffic,False,644,271
+EUS-s1-boff-q200-burst1,london-link-071-ba-2,upstream-mainline,Pod ahead,False,102,51
+EUS-s1-boff-q200-burst1,london-link-072-ba-2,upstream-mainline,,False,101928,45
+EUS-s1-boff-q200-burst1,london-link-072-ba-2,upstream-mainline,Junction traffic,False,21350,14887
+EUS-s1-boff-q200-burst1,london-link-072-ba-2,upstream-mainline,Pod ahead,False,32881,19192
+EUS-s1-boff-q200-burst120,940GZZLUEUS-01-arrival-link,berth-access,,False,57732,0
+EUS-s1-boff-q200-burst120,940GZZLUEUS-01-arrival-link,berth-access,Junction traffic,False,34308,46
+EUS-s1-boff-q200-burst120,940GZZLUEUS-01-arrival-link,berth-access,Pod ahead,False,127586,62319
+EUS-s1-boff-q200-burst120,940GZZLUEUS-01-departure-link,departure,,True,151745,32673
+EUS-s1-boff-q200-burst120,940GZZLUEUS-01-departure-link,departure,Junction traffic,True,60596,38111
+EUS-s1-boff-q200-burst120,940GZZLUEUS-01-departure-link,departure,Pod ahead,True,235115,135254
+EUS-s1-boff-q200-burst120,940GZZLUEUS-01-in,berth-access,,False,58359,8
+EUS-s1-boff-q200-burst120,940GZZLUEUS-01-in,berth-access,Berth occupied,False,56021,15251
+EUS-s1-boff-q200-burst120,940GZZLUEUS-01-in,berth-access,Junction traffic,False,33188,32047
+EUS-s1-boff-q200-burst120,940GZZLUEUS-01-in,berth-access,Pod ahead,False,109736,63647
+EUS-s1-boff-q200-burst120,940GZZLUEUS-01-out,departure,,True,94927,18876
+EUS-s1-boff-q200-burst120,940GZZLUEUS-01-out,departure,Junction traffic,True,75048,61433
+EUS-s1-boff-q200-burst120,940GZZLUEUS-01-out,departure,Pod ahead,True,120304,85386
+EUS-s1-boff-q200-burst120,940GZZLUEUS-02-arrival-link,berth-access,,False,24240,0
+EUS-s1-boff-q200-burst120,940GZZLUEUS-02-arrival-link,berth-access,Junction traffic,False,10797,25
+EUS-s1-boff-q200-burst120,940GZZLUEUS-02-arrival-link,berth-access,Pod ahead,False,43615,20635
+EUS-s1-boff-q200-burst120,940GZZLUEUS-02-departure-link,departure,,True,39649,1525
+EUS-s1-boff-q200-burst120,940GZZLUEUS-02-departure-link,departure,Junction traffic,True,81883,67982
+EUS-s1-boff-q200-burst120,940GZZLUEUS-02-departure-link,departure,Pod ahead,True,178637,147910
+EUS-s1-boff-q200-burst120,940GZZLUEUS-02-in,berth-access,,False,56308,5
+EUS-s1-boff-q200-burst120,940GZZLUEUS-02-in,berth-access,Berth occupied,False,52726,14905
+EUS-s1-boff-q200-burst120,940GZZLUEUS-02-in,berth-access,Junction traffic,False,26692,25362
+EUS-s1-boff-q200-burst120,940GZZLUEUS-02-in,berth-access,Pod ahead,False,90254,42448
+EUS-s1-boff-q200-burst120,940GZZLUEUS-02-out,departure,,True,158650,70831
+EUS-s1-boff-q200-burst120,940GZZLUEUS-02-out,departure,Junction traffic,True,66211,59267
+EUS-s1-boff-q200-burst120,940GZZLUEUS-02-out,departure,Pod ahead,True,94596,73149
+EUS-s1-boff-q200-burst120,940GZZLUEUS-access-in,entry,,False,95381,0
+EUS-s1-boff-q200-burst120,940GZZLUEUS-access-in,entry,Junction traffic,False,27690,0
+EUS-s1-boff-q200-burst120,940GZZLUEUS-access-in,entry,Pod ahead,False,155144,70245
+EUS-s1-boff-q200-burst120,940GZZLUEUS-access-out,exit,,True,184519,19682
+EUS-s1-boff-q200-burst120,940GZZLUEUS-access-out,exit,Junction traffic,True,94713,51316
+EUS-s1-boff-q200-burst120,940GZZLUEUS-access-out,exit,Pod ahead,True,480440,167876
+EUS-s1-boff-q200-burst120,940GZZLUEUS-road-in-01,approach,,False,1378,0
+EUS-s1-boff-q200-burst120,940GZZLUEUS-road-in-02,approach,,False,28805,0
+EUS-s1-boff-q200-burst120,940GZZLUEUS-road-in-02,approach,Junction traffic,False,60274,41395
+EUS-s1-boff-q200-burst120,940GZZLUEUS-road-in-02,approach,Pod ahead,False,55083,35026
+EUS-s1-boff-q200-burst120,940GZZLUEUS-road-in-03,approach,,False,705,0
+EUS-s1-boff-q200-burst120,940GZZLUEUS-road-in-04,approach,,False,59438,189
+EUS-s1-boff-q200-burst120,940GZZLUEUS-road-in-04,approach,Junction traffic,False,57121,38127
+EUS-s1-boff-q200-burst120,940GZZLUEUS-road-in-04,approach,Pod ahead,False,231631,101556
+EUS-s1-boff-q200-burst120,940GZZLUEUS-road-out-01,exit,,True,1139,0
+EUS-s1-boff-q200-burst120,940GZZLUEUS-road-out-02,exit,,True,22868,0
+EUS-s1-boff-q200-burst120,940GZZLUEUS-road-out-03,exit,,True,378,0
+EUS-s1-boff-q200-burst120,940GZZLUEUS-road-out-04,exit,,True,76004,0
+EUS-s1-boff-q200-burst120,london-link-052-ab-2,upstream-mainline,,False,11070,0
+EUS-s1-boff-q200-burst120,london-link-052-ab-2,upstream-mainline,Junction traffic,False,2507,1291
+EUS-s1-boff-q200-burst120,london-link-052-ab-2,upstream-mainline,Pod ahead,False,321,263
+EUS-s1-boff-q200-burst120,london-link-070-ba-2,upstream-mainline,,False,123600,9166
+EUS-s1-boff-q200-burst120,london-link-070-ba-2,upstream-mainline,Junction traffic,False,54166,26975
+EUS-s1-boff-q200-burst120,london-link-070-ba-2,upstream-mainline,Pod ahead,False,1689377,1226703
+EUS-s1-boff-q200-burst120,london-link-071-ba-2,upstream-mainline,,False,2978,0
+EUS-s1-boff-q200-burst120,london-link-071-ba-2,upstream-mainline,Junction traffic,False,1778,1124
+EUS-s1-boff-q200-burst120,london-link-071-ba-2,upstream-mainline,Pod ahead,False,255,153
+EUS-s1-boff-q200-burst120,london-link-072-ba-2,upstream-mainline,,False,103470,76
+EUS-s1-boff-q200-burst120,london-link-072-ba-2,upstream-mainline,Junction traffic,False,20719,13945
+EUS-s1-boff-q200-burst120,london-link-072-ba-2,upstream-mainline,Pod ahead,False,43281,22692
+EUS-s1-boff-q1000000-burst1,940GZZLUEUS-01-arrival-link,berth-access,,False,59967,0
+EUS-s1-boff-q1000000-burst1,940GZZLUEUS-01-arrival-link,berth-access,Junction traffic,False,28542,79
+EUS-s1-boff-q1000000-burst1,940GZZLUEUS-01-arrival-link,berth-access,Pod ahead,False,89424,36400
+EUS-s1-boff-q1000000-burst1,940GZZLUEUS-01-departure-link,departure,,True,103583,9174
+EUS-s1-boff-q1000000-burst1,940GZZLUEUS-01-departure-link,departure,Junction traffic,True,39173,18947
+EUS-s1-boff-q1000000-burst1,940GZZLUEUS-01-departure-link,departure,Pod ahead,True,213848,121647
+EUS-s1-boff-q1000000-burst1,940GZZLUEUS-01-in,berth-access,,False,59249,11
+EUS-s1-boff-q1000000-burst1,940GZZLUEUS-01-in,berth-access,Berth occupied,False,53723,14757
+EUS-s1-boff-q1000000-burst1,940GZZLUEUS-01-in,berth-access,Junction traffic,False,19355,17724
+EUS-s1-boff-q1000000-burst1,940GZZLUEUS-01-in,berth-access,Pod ahead,False,76347,35581
+EUS-s1-boff-q1000000-burst1,940GZZLUEUS-01-out,departure,,True,83964,8957
+EUS-s1-boff-q1000000-burst1,940GZZLUEUS-01-out,departure,Junction traffic,True,45512,33909
+EUS-s1-boff-q1000000-burst1,940GZZLUEUS-01-out,departure,Pod ahead,True,104991,67721
+EUS-s1-boff-q1000000-burst1,940GZZLUEUS-02-arrival-link,berth-access,,False,24989,0
+EUS-s1-boff-q1000000-burst1,940GZZLUEUS-02-arrival-link,berth-access,Junction traffic,False,12382,71
+EUS-s1-boff-q1000000-burst1,940GZZLUEUS-02-arrival-link,berth-access,Pod ahead,False,33925,13834
+EUS-s1-boff-q1000000-burst1,940GZZLUEUS-02-departure-link,departure,,True,31356,84
+EUS-s1-boff-q1000000-burst1,940GZZLUEUS-02-departure-link,departure,Junction traffic,True,58239,45756
+EUS-s1-boff-q1000000-burst1,940GZZLUEUS-02-departure-link,departure,Pod ahead,True,109283,78768
+EUS-s1-boff-q1000000-burst1,940GZZLUEUS-02-in,berth-access,,False,58437,10
+EUS-s1-boff-q1000000-burst1,940GZZLUEUS-02-in,berth-access,Berth occupied,False,45527,12492
+EUS-s1-boff-q1000000-burst1,940GZZLUEUS-02-in,berth-access,Junction traffic,False,10741,9845
+EUS-s1-boff-q1000000-burst1,940GZZLUEUS-02-in,berth-access,Pod ahead,False,63692,24473
+EUS-s1-boff-q1000000-burst1,940GZZLUEUS-02-out,departure,,True,81681,10017
+EUS-s1-boff-q1000000-burst1,940GZZLUEUS-02-out,departure,Junction traffic,True,13116,11120
+EUS-s1-boff-q1000000-burst1,940GZZLUEUS-02-out,departure,Pod ahead,True,55749,36635
+EUS-s1-boff-q1000000-burst1,940GZZLUEUS-access-in,entry,,False,106670,0
+EUS-s1-boff-q1000000-burst1,940GZZLUEUS-access-in,entry,Junction traffic,False,20469,0
+EUS-s1-boff-q1000000-burst1,940GZZLUEUS-access-in,entry,Pod ahead,False,103492,38320
+EUS-s1-boff-q1000000-burst1,940GZZLUEUS-access-out,exit,,True,147415,9929
+EUS-s1-boff-q1000000-burst1,940GZZLUEUS-access-out,exit,Junction traffic,True,81819,43919
+EUS-s1-boff-q1000000-burst1,940GZZLUEUS-access-out,exit,Pod ahead,True,380908,126990
+EUS-s1-boff-q1000000-burst1,940GZZLUEUS-road-in-01,approach,,False,1367,0
+EUS-s1-boff-q1000000-burst1,940GZZLUEUS-road-in-02,approach,,False,29612,0
+EUS-s1-boff-q1000000-burst1,940GZZLUEUS-road-in-02,approach,Junction traffic,False,50957,31725
+EUS-s1-boff-q1000000-burst1,940GZZLUEUS-road-in-02,approach,Pod ahead,False,45202,27533
+EUS-s1-boff-q1000000-burst1,940GZZLUEUS-road-in-03,approach,,False,700,0
+EUS-s1-boff-q1000000-burst1,940GZZLUEUS-road-in-04,approach,,False,60161,70
+EUS-s1-boff-q1000000-burst1,940GZZLUEUS-road-in-04,approach,Junction traffic,False,51508,32424
+EUS-s1-boff-q1000000-burst1,940GZZLUEUS-road-in-04,approach,Pod ahead,False,176357,90440
+EUS-s1-boff-q1000000-burst1,940GZZLUEUS-road-out-01,exit,,True,1138,0
+EUS-s1-boff-q1000000-burst1,940GZZLUEUS-road-out-02,exit,,True,22728,0
+EUS-s1-boff-q1000000-burst1,940GZZLUEUS-road-out-03,exit,,True,378,0
+EUS-s1-boff-q1000000-burst1,940GZZLUEUS-road-out-04,exit,,True,75939,0
+EUS-s1-boff-q1000000-burst1,london-link-052-ab-2,upstream-mainline,,False,10977,0
+EUS-s1-boff-q1000000-burst1,london-link-052-ab-2,upstream-mainline,Junction traffic,False,4226,3309
+EUS-s1-boff-q1000000-burst1,london-link-052-ab-2,upstream-mainline,Pod ahead,False,577,411
+EUS-s1-boff-q1000000-burst1,london-link-070-ba-2,upstream-mainline,,False,113598,821
+EUS-s1-boff-q1000000-burst1,london-link-070-ba-2,upstream-mainline,Junction traffic,False,43478,21627
+EUS-s1-boff-q1000000-burst1,london-link-070-ba-2,upstream-mainline,Pod ahead,False,1003352,710957
+EUS-s1-boff-q1000000-burst1,london-link-071-ba-2,upstream-mainline,,False,3055,0
+EUS-s1-boff-q1000000-burst1,london-link-071-ba-2,upstream-mainline,Junction traffic,False,644,271
+EUS-s1-boff-q1000000-burst1,london-link-071-ba-2,upstream-mainline,Pod ahead,False,102,51
+EUS-s1-boff-q1000000-burst1,london-link-072-ba-2,upstream-mainline,,False,101928,45
+EUS-s1-boff-q1000000-burst1,london-link-072-ba-2,upstream-mainline,Junction traffic,False,21350,14887
+EUS-s1-boff-q1000000-burst1,london-link-072-ba-2,upstream-mainline,Pod ahead,False,32881,19192
+EUS-s1-boff-q1000000-burst120,940GZZLUEUS-01-arrival-link,berth-access,,False,57732,0
+EUS-s1-boff-q1000000-burst120,940GZZLUEUS-01-arrival-link,berth-access,Junction traffic,False,34308,46
+EUS-s1-boff-q1000000-burst120,940GZZLUEUS-01-arrival-link,berth-access,Pod ahead,False,127586,62319
+EUS-s1-boff-q1000000-burst120,940GZZLUEUS-01-departure-link,departure,,True,151745,32673
+EUS-s1-boff-q1000000-burst120,940GZZLUEUS-01-departure-link,departure,Junction traffic,True,60596,38111
+EUS-s1-boff-q1000000-burst120,940GZZLUEUS-01-departure-link,departure,Pod ahead,True,235115,135254
+EUS-s1-boff-q1000000-burst120,940GZZLUEUS-01-in,berth-access,,False,58359,8
+EUS-s1-boff-q1000000-burst120,940GZZLUEUS-01-in,berth-access,Berth occupied,False,56021,15251
+EUS-s1-boff-q1000000-burst120,940GZZLUEUS-01-in,berth-access,Junction traffic,False,33188,32047
+EUS-s1-boff-q1000000-burst120,940GZZLUEUS-01-in,berth-access,Pod ahead,False,109736,63647
+EUS-s1-boff-q1000000-burst120,940GZZLUEUS-01-out,departure,,True,94927,18876
+EUS-s1-boff-q1000000-burst120,940GZZLUEUS-01-out,departure,Junction traffic,True,75048,61433
+EUS-s1-boff-q1000000-burst120,940GZZLUEUS-01-out,departure,Pod ahead,True,120304,85386
+EUS-s1-boff-q1000000-burst120,940GZZLUEUS-02-arrival-link,berth-access,,False,24240,0
+EUS-s1-boff-q1000000-burst120,940GZZLUEUS-02-arrival-link,berth-access,Junction traffic,False,10797,25
+EUS-s1-boff-q1000000-burst120,940GZZLUEUS-02-arrival-link,berth-access,Pod ahead,False,43615,20635
+EUS-s1-boff-q1000000-burst120,940GZZLUEUS-02-departure-link,departure,,True,39649,1525
+EUS-s1-boff-q1000000-burst120,940GZZLUEUS-02-departure-link,departure,Junction traffic,True,81883,67982
+EUS-s1-boff-q1000000-burst120,940GZZLUEUS-02-departure-link,departure,Pod ahead,True,178637,147910
+EUS-s1-boff-q1000000-burst120,940GZZLUEUS-02-in,berth-access,,False,56308,5
+EUS-s1-boff-q1000000-burst120,940GZZLUEUS-02-in,berth-access,Berth occupied,False,52726,14905
+EUS-s1-boff-q1000000-burst120,940GZZLUEUS-02-in,berth-access,Junction traffic,False,26692,25362
+EUS-s1-boff-q1000000-burst120,940GZZLUEUS-02-in,berth-access,Pod ahead,False,90254,42448
+EUS-s1-boff-q1000000-burst120,940GZZLUEUS-02-out,departure,,True,158650,70831
+EUS-s1-boff-q1000000-burst120,940GZZLUEUS-02-out,departure,Junction traffic,True,66211,59267
+EUS-s1-boff-q1000000-burst120,940GZZLUEUS-02-out,departure,Pod ahead,True,94596,73149
+EUS-s1-boff-q1000000-burst120,940GZZLUEUS-access-in,entry,,False,95381,0
+EUS-s1-boff-q1000000-burst120,940GZZLUEUS-access-in,entry,Junction traffic,False,27690,0
+EUS-s1-boff-q1000000-burst120,940GZZLUEUS-access-in,entry,Pod ahead,False,155144,70245
+EUS-s1-boff-q1000000-burst120,940GZZLUEUS-access-out,exit,,True,184519,19682
+EUS-s1-boff-q1000000-burst120,940GZZLUEUS-access-out,exit,Junction traffic,True,94713,51316
+EUS-s1-boff-q1000000-burst120,940GZZLUEUS-access-out,exit,Pod ahead,True,480440,167876
+EUS-s1-boff-q1000000-burst120,940GZZLUEUS-road-in-01,approach,,False,1378,0
+EUS-s1-boff-q1000000-burst120,940GZZLUEUS-road-in-02,approach,,False,28805,0
+EUS-s1-boff-q1000000-burst120,940GZZLUEUS-road-in-02,approach,Junction traffic,False,60274,41395
+EUS-s1-boff-q1000000-burst120,940GZZLUEUS-road-in-02,approach,Pod ahead,False,55083,35026
+EUS-s1-boff-q1000000-burst120,940GZZLUEUS-road-in-03,approach,,False,705,0
+EUS-s1-boff-q1000000-burst120,940GZZLUEUS-road-in-04,approach,,False,59438,189
+EUS-s1-boff-q1000000-burst120,940GZZLUEUS-road-in-04,approach,Junction traffic,False,57121,38127
+EUS-s1-boff-q1000000-burst120,940GZZLUEUS-road-in-04,approach,Pod ahead,False,231631,101556
+EUS-s1-boff-q1000000-burst120,940GZZLUEUS-road-out-01,exit,,True,1139,0
+EUS-s1-boff-q1000000-burst120,940GZZLUEUS-road-out-02,exit,,True,22868,0
+EUS-s1-boff-q1000000-burst120,940GZZLUEUS-road-out-03,exit,,True,378,0
+EUS-s1-boff-q1000000-burst120,940GZZLUEUS-road-out-04,exit,,True,76004,0
+EUS-s1-boff-q1000000-burst120,london-link-052-ab-2,upstream-mainline,,False,11070,0
+EUS-s1-boff-q1000000-burst120,london-link-052-ab-2,upstream-mainline,Junction traffic,False,2507,1291
+EUS-s1-boff-q1000000-burst120,london-link-052-ab-2,upstream-mainline,Pod ahead,False,321,263
+EUS-s1-boff-q1000000-burst120,london-link-070-ba-2,upstream-mainline,,False,123600,9166
+EUS-s1-boff-q1000000-burst120,london-link-070-ba-2,upstream-mainline,Junction traffic,False,54166,26975
+EUS-s1-boff-q1000000-burst120,london-link-070-ba-2,upstream-mainline,Pod ahead,False,1689377,1226703
+EUS-s1-boff-q1000000-burst120,london-link-071-ba-2,upstream-mainline,,False,2978,0
+EUS-s1-boff-q1000000-burst120,london-link-071-ba-2,upstream-mainline,Junction traffic,False,1778,1124
+EUS-s1-boff-q1000000-burst120,london-link-071-ba-2,upstream-mainline,Pod ahead,False,255,153
+EUS-s1-boff-q1000000-burst120,london-link-072-ba-2,upstream-mainline,,False,103470,76
+EUS-s1-boff-q1000000-burst120,london-link-072-ba-2,upstream-mainline,Junction traffic,False,20719,13945
+EUS-s1-boff-q1000000-burst120,london-link-072-ba-2,upstream-mainline,Pod ahead,False,43281,22692
+EUS-s1-bon-q200-burst1,940GZZLUEUS-01-arrival-link,berth-access,,False,94826,0
+EUS-s1-bon-q200-burst1,940GZZLUEUS-01-departure-link,departure,,True,83804,0
+EUS-s1-bon-q200-burst1,940GZZLUEUS-01-departure-link,departure,Junction traffic,True,5823,0
+EUS-s1-bon-q200-burst1,940GZZLUEUS-01-departure-link,departure,Pod ahead,True,5953,0
+EUS-s1-bon-q200-burst1,940GZZLUEUS-01-in,berth-access,,False,77040,1
+EUS-s1-bon-q200-burst1,940GZZLUEUS-01-out,departure,,True,56928,0
+EUS-s1-bon-q200-burst1,940GZZLUEUS-01-out,departure,Junction traffic,True,28920,0
+EUS-s1-bon-q200-burst1,940GZZLUEUS-01-out,departure,Pod ahead,True,13298,0
+EUS-s1-bon-q200-burst1,940GZZLUEUS-02-arrival-link,berth-access,,False,37880,0
+EUS-s1-bon-q200-burst1,940GZZLUEUS-02-departure-link,departure,,True,37878,0
+EUS-s1-bon-q200-burst1,940GZZLUEUS-02-in,berth-access,,False,75756,0
+EUS-s1-bon-q200-burst1,940GZZLUEUS-02-out,departure,,True,75284,0
+EUS-s1-bon-q200-burst1,940GZZLUEUS-access-in,entry,,False,86424,0
+EUS-s1-bon-q200-burst1,940GZZLUEUS-access-in,entry,Berth occupied,False,160445,95440
+EUS-s1-bon-q200-burst1,940GZZLUEUS-access-in,entry,Pod ahead,False,355786,145971
+EUS-s1-bon-q200-burst1,940GZZLUEUS-access-out,exit,,True,135312,0
+EUS-s1-bon-q200-burst1,940GZZLUEUS-access-out,exit,Junction traffic,True,27448,6474
+EUS-s1-bon-q200-burst1,940GZZLUEUS-access-out,exit,Pod ahead,True,3482,1298
+EUS-s1-bon-q200-burst1,940GZZLUEUS-road-in-01,approach,,False,1378,0
+EUS-s1-bon-q200-burst1,940GZZLUEUS-road-in-02,approach,,False,34843,0
+EUS-s1-bon-q200-burst1,940GZZLUEUS-road-in-02,approach,Junction traffic,False,62392,54739
+EUS-s1-bon-q200-burst1,940GZZLUEUS-road-in-02,approach,Pod ahead,False,219248,178083
+EUS-s1-bon-q200-burst1,940GZZLUEUS-road-in-03,approach,,False,700,0
+EUS-s1-bon-q200-burst1,940GZZLUEUS-road-in-04,approach,,False,65594,469
+EUS-s1-bon-q200-burst1,940GZZLUEUS-road-in-04,approach,Junction traffic,False,54904,41067
+EUS-s1-bon-q200-burst1,940GZZLUEUS-road-in-04,approach,Pod ahead,False,865348,661029
+EUS-s1-bon-q200-burst1,940GZZLUEUS-road-out-01,exit,,True,1112,0
+EUS-s1-bon-q200-burst1,940GZZLUEUS-road-out-02,exit,,True,21709,0
+EUS-s1-bon-q200-burst1,940GZZLUEUS-road-out-03,exit,,True,379,0
+EUS-s1-bon-q200-burst1,940GZZLUEUS-road-out-04,exit,,True,74983,0
+EUS-s1-bon-q200-burst1,london-link-052-ab-2,upstream-mainline,,False,11070,0
+EUS-s1-bon-q200-burst1,london-link-052-ab-2,upstream-mainline,Junction traffic,False,4592,4525
+EUS-s1-bon-q200-burst1,london-link-052-ab-2,upstream-mainline,Pod ahead,False,7516,6309
+EUS-s1-bon-q200-burst1,london-link-070-ba-2,upstream-mainline,,False,129826,8866
+EUS-s1-bon-q200-burst1,london-link-070-ba-2,upstream-mainline,Junction traffic,False,100239,74518
+EUS-s1-bon-q200-burst1,london-link-070-ba-2,upstream-mainline,Pod ahead,False,3388676,2926255
+EUS-s1-bon-q200-burst1,london-link-071-ba-2,upstream-mainline,,False,2992,0
+EUS-s1-bon-q200-burst1,london-link-071-ba-2,upstream-mainline,Junction traffic,False,3194,2857
+EUS-s1-bon-q200-burst1,london-link-071-ba-2,upstream-mainline,Pod ahead,False,4839,4675
+EUS-s1-bon-q200-burst1,london-link-072-ba-2,upstream-mainline,,False,105676,992
+EUS-s1-bon-q200-burst1,london-link-072-ba-2,upstream-mainline,Junction traffic,False,118692,105372
+EUS-s1-bon-q200-burst1,london-link-072-ba-2,upstream-mainline,Pod ahead,False,1260629,1076917
+EUS-s1-bon-q200-burst120,940GZZLUEUS-01-arrival-link,berth-access,,False,91328,0
+EUS-s1-bon-q200-burst120,940GZZLUEUS-01-departure-link,departure,,True,80521,0
+EUS-s1-bon-q200-burst120,940GZZLUEUS-01-departure-link,departure,Junction traffic,True,5739,0
+EUS-s1-bon-q200-burst120,940GZZLUEUS-01-departure-link,departure,Pod ahead,True,5799,0
+EUS-s1-bon-q200-burst120,940GZZLUEUS-01-in,berth-access,,False,73830,0
+EUS-s1-bon-q200-burst120,940GZZLUEUS-01-out,departure,,True,54061,0
+EUS-s1-bon-q200-burst120,940GZZLUEUS-01-out,departure,Junction traffic,True,28621,0
+EUS-s1-bon-q200-burst120,940GZZLUEUS-01-out,departure,Pod ahead,True,13079,0
+EUS-s1-bon-q200-burst120,940GZZLUEUS-02-arrival-link,berth-access,,False,36596,0
+EUS-s1-bon-q200-burst120,940GZZLUEUS-02-departure-link,departure,,True,36594,0
+EUS-s1-bon-q200-burst120,940GZZLUEUS-02-in,berth-access,,False,73188,2
+EUS-s1-bon-q200-burst120,940GZZLUEUS-02-out,departure,,True,72732,0
+EUS-s1-bon-q200-burst120,940GZZLUEUS-access-in,entry,,False,81846,0
+EUS-s1-bon-q200-burst120,940GZZLUEUS-access-in,entry,Berth occupied,False,158470,94577
+EUS-s1-bon-q200-burst120,940GZZLUEUS-access-in,entry,Pod ahead,False,352443,144661
+EUS-s1-bon-q200-burst120,940GZZLUEUS-access-out,exit,,True,130930,0
+EUS-s1-bon-q200-burst120,940GZZLUEUS-access-out,exit,Junction traffic,True,26682,6817
+EUS-s1-bon-q200-burst120,940GZZLUEUS-access-out,exit,Pod ahead,True,3301,1347
+EUS-s1-bon-q200-burst120,940GZZLUEUS-road-in-01,approach,,False,1378,0
+EUS-s1-bon-q200-burst120,940GZZLUEUS-road-in-02,approach,,False,33885,0
+EUS-s1-bon-q200-burst120,940GZZLUEUS-road-in-02,approach,Junction traffic,False,61017,53366
+EUS-s1-bon-q200-burst120,940GZZLUEUS-road-in-02,approach,Pod ahead,False,194465,154816
+EUS-s1-bon-q200-burst120,940GZZLUEUS-road-in-03,approach,,False,710,0
+EUS-s1-bon-q200-burst120,940GZZLUEUS-road-in-04,approach,,False,62372,387
+EUS-s1-bon-q200-burst120,940GZZLUEUS-road-in-04,approach,Junction traffic,False,51828,38650
+EUS-s1-bon-q200-burst120,940GZZLUEUS-road-in-04,approach,Pod ahead,False,798603,599190
+EUS-s1-bon-q200-burst120,940GZZLUEUS-road-out-01,exit,,True,1111,0
+EUS-s1-bon-q200-burst120,940GZZLUEUS-road-out-02,exit,,True,20595,0
+EUS-s1-bon-q200-burst120,940GZZLUEUS-road-out-03,exit,,True,378,0
+EUS-s1-bon-q200-burst120,940GZZLUEUS-road-out-04,exit,,True,73093,0
+EUS-s1-bon-q200-burst120,london-link-052-ab-2,upstream-mainline,,False,11070,0
+EUS-s1-bon-q200-burst120,london-link-052-ab-2,upstream-mainline,Junction traffic,False,4609,4234
+EUS-s1-bon-q200-burst120,london-link-052-ab-2,upstream-mainline,Pod ahead,False,6462,5563
+EUS-s1-bon-q200-burst120,london-link-070-ba-2,upstream-mainline,,False,192457,64868
+EUS-s1-bon-q200-burst120,london-link-070-ba-2,upstream-mainline,Junction traffic,False,81591,56210
+EUS-s1-bon-q200-burst120,london-link-070-ba-2,upstream-mainline,Pod ahead,False,3168374,2712831
+EUS-s1-bon-q200-burst120,london-link-071-ba-2,upstream-mainline,,False,3044,0
+EUS-s1-bon-q200-burst120,london-link-071-ba-2,upstream-mainline,Junction traffic,False,2404,1847
+EUS-s1-bon-q200-burst120,london-link-071-ba-2,upstream-mainline,Pod ahead,False,3617,3326
+EUS-s1-bon-q200-burst120,london-link-072-ba-2,upstream-mainline,,False,101476,1052
+EUS-s1-bon-q200-burst120,london-link-072-ba-2,upstream-mainline,Junction traffic,False,115168,101013
+EUS-s1-bon-q200-burst120,london-link-072-ba-2,upstream-mainline,Pod ahead,False,1280792,1077784
+EUS-s1-bon-q1000000-burst1,940GZZLUEUS-01-arrival-link,berth-access,,False,94826,0
+EUS-s1-bon-q1000000-burst1,940GZZLUEUS-01-departure-link,departure,,True,83804,0
+EUS-s1-bon-q1000000-burst1,940GZZLUEUS-01-departure-link,departure,Junction traffic,True,5823,0
+EUS-s1-bon-q1000000-burst1,940GZZLUEUS-01-departure-link,departure,Pod ahead,True,5953,0
+EUS-s1-bon-q1000000-burst1,940GZZLUEUS-01-in,berth-access,,False,77040,1
+EUS-s1-bon-q1000000-burst1,940GZZLUEUS-01-out,departure,,True,56928,0
+EUS-s1-bon-q1000000-burst1,940GZZLUEUS-01-out,departure,Junction traffic,True,28920,0
+EUS-s1-bon-q1000000-burst1,940GZZLUEUS-01-out,departure,Pod ahead,True,13298,0
+EUS-s1-bon-q1000000-burst1,940GZZLUEUS-02-arrival-link,berth-access,,False,37880,0
+EUS-s1-bon-q1000000-burst1,940GZZLUEUS-02-departure-link,departure,,True,37878,0
+EUS-s1-bon-q1000000-burst1,940GZZLUEUS-02-in,berth-access,,False,75756,0
+EUS-s1-bon-q1000000-burst1,940GZZLUEUS-02-out,departure,,True,75284,0
+EUS-s1-bon-q1000000-burst1,940GZZLUEUS-access-in,entry,,False,86424,0
+EUS-s1-bon-q1000000-burst1,940GZZLUEUS-access-in,entry,Berth occupied,False,160445,95440
+EUS-s1-bon-q1000000-burst1,940GZZLUEUS-access-in,entry,Pod ahead,False,355786,145971
+EUS-s1-bon-q1000000-burst1,940GZZLUEUS-access-out,exit,,True,135312,0
+EUS-s1-bon-q1000000-burst1,940GZZLUEUS-access-out,exit,Junction traffic,True,27448,6474
+EUS-s1-bon-q1000000-burst1,940GZZLUEUS-access-out,exit,Pod ahead,True,3482,1298
+EUS-s1-bon-q1000000-burst1,940GZZLUEUS-road-in-01,approach,,False,1378,0
+EUS-s1-bon-q1000000-burst1,940GZZLUEUS-road-in-02,approach,,False,34843,0
+EUS-s1-bon-q1000000-burst1,940GZZLUEUS-road-in-02,approach,Junction traffic,False,62392,54739
+EUS-s1-bon-q1000000-burst1,940GZZLUEUS-road-in-02,approach,Pod ahead,False,219248,178083
+EUS-s1-bon-q1000000-burst1,940GZZLUEUS-road-in-03,approach,,False,700,0
+EUS-s1-bon-q1000000-burst1,940GZZLUEUS-road-in-04,approach,,False,65594,469
+EUS-s1-bon-q1000000-burst1,940GZZLUEUS-road-in-04,approach,Junction traffic,False,54904,41067
+EUS-s1-bon-q1000000-burst1,940GZZLUEUS-road-in-04,approach,Pod ahead,False,865348,661029
+EUS-s1-bon-q1000000-burst1,940GZZLUEUS-road-out-01,exit,,True,1112,0
+EUS-s1-bon-q1000000-burst1,940GZZLUEUS-road-out-02,exit,,True,21709,0
+EUS-s1-bon-q1000000-burst1,940GZZLUEUS-road-out-03,exit,,True,379,0
+EUS-s1-bon-q1000000-burst1,940GZZLUEUS-road-out-04,exit,,True,74983,0
+EUS-s1-bon-q1000000-burst1,london-link-052-ab-2,upstream-mainline,,False,11070,0
+EUS-s1-bon-q1000000-burst1,london-link-052-ab-2,upstream-mainline,Junction traffic,False,4592,4525
+EUS-s1-bon-q1000000-burst1,london-link-052-ab-2,upstream-mainline,Pod ahead,False,7516,6309
+EUS-s1-bon-q1000000-burst1,london-link-070-ba-2,upstream-mainline,,False,129826,8866
+EUS-s1-bon-q1000000-burst1,london-link-070-ba-2,upstream-mainline,Junction traffic,False,100239,74518
+EUS-s1-bon-q1000000-burst1,london-link-070-ba-2,upstream-mainline,Pod ahead,False,3388676,2926255
+EUS-s1-bon-q1000000-burst1,london-link-071-ba-2,upstream-mainline,,False,2992,0
+EUS-s1-bon-q1000000-burst1,london-link-071-ba-2,upstream-mainline,Junction traffic,False,3194,2857
+EUS-s1-bon-q1000000-burst1,london-link-071-ba-2,upstream-mainline,Pod ahead,False,4839,4675
+EUS-s1-bon-q1000000-burst1,london-link-072-ba-2,upstream-mainline,,False,105676,992
+EUS-s1-bon-q1000000-burst1,london-link-072-ba-2,upstream-mainline,Junction traffic,False,118692,105372
+EUS-s1-bon-q1000000-burst1,london-link-072-ba-2,upstream-mainline,Pod ahead,False,1260629,1076917
+EUS-s1-bon-q1000000-burst120,940GZZLUEUS-01-arrival-link,berth-access,,False,94919,0
+EUS-s1-bon-q1000000-burst120,940GZZLUEUS-01-departure-link,departure,,True,83703,0
+EUS-s1-bon-q1000000-burst120,940GZZLUEUS-01-departure-link,departure,Junction traffic,True,5943,0
+EUS-s1-bon-q1000000-burst120,940GZZLUEUS-01-departure-link,departure,Pod ahead,True,6003,0
+EUS-s1-bon-q1000000-burst120,940GZZLUEUS-01-in,berth-access,,False,76398,0
+EUS-s1-bon-q1000000-burst120,940GZZLUEUS-01-out,departure,,True,55909,0
+EUS-s1-bon-q1000000-burst120,940GZZLUEUS-01-out,departure,Junction traffic,True,29629,0
+EUS-s1-bon-q1000000-burst120,940GZZLUEUS-01-out,departure,Pod ahead,True,13539,0
+EUS-s1-bon-q1000000-burst120,940GZZLUEUS-02-arrival-link,berth-access,,False,38201,0
+EUS-s1-bon-q1000000-burst120,940GZZLUEUS-02-departure-link,departure,,True,38199,0
+EUS-s1-bon-q1000000-burst120,940GZZLUEUS-02-in,berth-access,,False,76398,2
+EUS-s1-bon-q1000000-burst120,940GZZLUEUS-02-out,departure,,True,75922,0
+EUS-s1-bon-q1000000-burst120,940GZZLUEUS-access-in,entry,,False,84978,0
+EUS-s1-bon-q1000000-burst120,940GZZLUEUS-access-in,entry,Berth occupied,False,165041,98637
+EUS-s1-bon-q1000000-burst120,940GZZLUEUS-access-in,entry,Pod ahead,False,367477,151162
+EUS-s1-bon-q1000000-burst120,940GZZLUEUS-access-out,exit,,True,135848,0
+EUS-s1-bon-q1000000-burst120,940GZZLUEUS-access-out,exit,Junction traffic,True,28963,7583
+EUS-s1-bon-q1000000-burst120,940GZZLUEUS-access-out,exit,Pod ahead,True,3690,1449
+EUS-s1-bon-q1000000-burst120,940GZZLUEUS-road-in-01,approach,,False,1378,0
+EUS-s1-bon-q1000000-burst120,940GZZLUEUS-road-in-02,approach,,False,34434,0
+EUS-s1-bon-q1000000-burst120,940GZZLUEUS-road-in-02,approach,Junction traffic,False,63492,55373
+EUS-s1-bon-q1000000-burst120,940GZZLUEUS-road-in-02,approach,Pod ahead,False,194756,158563
+EUS-s1-bon-q1000000-burst120,940GZZLUEUS-road-in-03,approach,,False,710,0
+EUS-s1-bon-q1000000-burst120,940GZZLUEUS-road-in-04,approach,,False,64547,399
+EUS-s1-bon-q1000000-burst120,940GZZLUEUS-road-in-04,approach,Junction traffic,False,54914,41167
+EUS-s1-bon-q1000000-burst120,940GZZLUEUS-road-in-04,approach,Pod ahead,False,845525,635840
+EUS-s1-bon-q1000000-burst120,940GZZLUEUS-road-out-01,exit,,True,1111,0
+EUS-s1-bon-q1000000-burst120,940GZZLUEUS-road-out-02,exit,,True,21711,0
+EUS-s1-bon-q1000000-burst120,940GZZLUEUS-road-out-03,exit,,True,378,0
+EUS-s1-bon-q1000000-burst120,940GZZLUEUS-road-out-04,exit,,True,75018,0
+EUS-s1-bon-q1000000-burst120,london-link-052-ab-2,upstream-mainline,,False,11070,0
+EUS-s1-bon-q1000000-burst120,london-link-052-ab-2,upstream-mainline,Junction traffic,False,4609,4234
+EUS-s1-bon-q1000000-burst120,london-link-052-ab-2,upstream-mainline,Pod ahead,False,6462,5563
+EUS-s1-bon-q1000000-burst120,london-link-070-ba-2,upstream-mainline,,False,200447,70843
+EUS-s1-bon-q1000000-burst120,london-link-070-ba-2,upstream-mainline,Junction traffic,False,78032,51631
+EUS-s1-bon-q1000000-burst120,london-link-070-ba-2,upstream-mainline,Pod ahead,False,3315311,2847535
+EUS-s1-bon-q1000000-burst120,london-link-071-ba-2,upstream-mainline,,False,3044,0
+EUS-s1-bon-q1000000-burst120,london-link-071-ba-2,upstream-mainline,Junction traffic,False,2404,1847
+EUS-s1-bon-q1000000-burst120,london-link-071-ba-2,upstream-mainline,Pod ahead,False,3617,3326
+EUS-s1-bon-q1000000-burst120,london-link-072-ba-2,upstream-mainline,,False,104258,1056
+EUS-s1-bon-q1000000-burst120,london-link-072-ba-2,upstream-mainline,Junction traffic,False,119302,104046
+EUS-s1-bon-q1000000-burst120,london-link-072-ba-2,upstream-mainline,Pod ahead,False,1287258,1081924
+EUS-s2-boff-q200-burst1,940GZZLUEUS-01-arrival-link,berth-access,,False,57183,0
+EUS-s2-boff-q200-burst1,940GZZLUEUS-01-arrival-link,berth-access,Junction traffic,False,32793,77
+EUS-s2-boff-q200-burst1,940GZZLUEUS-01-arrival-link,berth-access,Pod ahead,False,130086,67937
+EUS-s2-boff-q200-burst1,940GZZLUEUS-01-departure-link,departure,,True,166532,41003
+EUS-s2-boff-q200-burst1,940GZZLUEUS-01-departure-link,departure,Junction traffic,True,62284,42388
+EUS-s2-boff-q200-burst1,940GZZLUEUS-01-departure-link,departure,Pod ahead,True,250591,158570
+EUS-s2-boff-q200-burst1,940GZZLUEUS-01-in,berth-access,,False,58263,11
+EUS-s2-boff-q200-burst1,940GZZLUEUS-01-in,berth-access,Berth occupied,False,54008,15549
+EUS-s2-boff-q200-burst1,940GZZLUEUS-01-in,berth-access,Junction traffic,False,38536,37270
+EUS-s2-boff-q200-burst1,940GZZLUEUS-01-in,berth-access,Pod ahead,False,118210,70913
+EUS-s2-boff-q200-burst1,940GZZLUEUS-01-out,departure,,True,107391,24934
+EUS-s2-boff-q200-burst1,940GZZLUEUS-01-out,departure,Junction traffic,True,77517,64905
+EUS-s2-boff-q200-burst1,940GZZLUEUS-01-out,departure,Pod ahead,True,150088,116359
+EUS-s2-boff-q200-burst1,940GZZLUEUS-02-arrival-link,berth-access,,False,26654,0
+EUS-s2-boff-q200-burst1,940GZZLUEUS-02-arrival-link,berth-access,Junction traffic,False,8781,93
+EUS-s2-boff-q200-burst1,940GZZLUEUS-02-arrival-link,berth-access,Pod ahead,False,32367,14026
+EUS-s2-boff-q200-burst1,940GZZLUEUS-02-departure-link,departure,,True,43193,1024
+EUS-s2-boff-q200-burst1,940GZZLUEUS-02-departure-link,departure,Junction traffic,True,89232,77305
+EUS-s2-boff-q200-burst1,940GZZLUEUS-02-departure-link,departure,Pod ahead,True,213871,183378
+EUS-s2-boff-q200-burst1,940GZZLUEUS-02-in,berth-access,,False,59941,9
+EUS-s2-boff-q200-burst1,940GZZLUEUS-02-in,berth-access,Berth occupied,False,43543,11646
+EUS-s2-boff-q200-burst1,940GZZLUEUS-02-in,berth-access,Junction traffic,False,22335,20709
+EUS-s2-boff-q200-burst1,940GZZLUEUS-02-in,berth-access,Pod ahead,False,70665,35296
+EUS-s2-boff-q200-burst1,940GZZLUEUS-02-out,departure,,True,165965,77844
+EUS-s2-boff-q200-burst1,940GZZLUEUS-02-out,departure,Junction traffic,True,81147,72901
+EUS-s2-boff-q200-burst1,940GZZLUEUS-02-out,departure,Pod ahead,True,121659,96569
+EUS-s2-boff-q200-burst1,940GZZLUEUS-access-in,entry,,False,98019,0
+EUS-s2-boff-q200-burst1,940GZZLUEUS-access-in,entry,Junction traffic,False,24223,0
+EUS-s2-boff-q200-burst1,940GZZLUEUS-access-in,entry,Pod ahead,False,150055,69045
+EUS-s2-boff-q200-burst1,940GZZLUEUS-access-out,exit,,True,196982,26578
+EUS-s2-boff-q200-burst1,940GZZLUEUS-access-out,exit,Junction traffic,True,105627,62626
+EUS-s2-boff-q200-burst1,940GZZLUEUS-access-out,exit,Pod ahead,True,512834,198572
+EUS-s2-boff-q200-burst1,940GZZLUEUS-road-in-01,approach,,False,1020,0
+EUS-s2-boff-q200-burst1,940GZZLUEUS-road-in-02,approach,,False,26294,0
+EUS-s2-boff-q200-burst1,940GZZLUEUS-road-in-02,approach,Junction traffic,False,50844,34727
+EUS-s2-boff-q200-burst1,940GZZLUEUS-road-in-02,approach,Pod ahead,False,58293,41990
+EUS-s2-boff-q200-burst1,940GZZLUEUS-road-in-03,approach,,False,700,0
+EUS-s2-boff-q200-burst1,940GZZLUEUS-road-in-04,approach,,False,65586,132
+EUS-s2-boff-q200-burst1,940GZZLUEUS-road-in-04,approach,Junction traffic,False,50051,32453
+EUS-s2-boff-q200-burst1,940GZZLUEUS-road-in-04,approach,Pod ahead,False,273522,152455
+EUS-s2-boff-q200-burst1,940GZZLUEUS-road-out-01,exit,,True,1536,0
+EUS-s2-boff-q200-burst1,940GZZLUEUS-road-out-02,exit,,True,19935,0
+EUS-s2-boff-q200-burst1,940GZZLUEUS-road-out-03,exit,,True,1176,0
+EUS-s2-boff-q200-burst1,940GZZLUEUS-road-out-04,exit,,True,83768,0
+EUS-s2-boff-q200-burst1,london-link-052-ab-2,upstream-mainline,,False,8212,0
+EUS-s2-boff-q200-burst1,london-link-052-ab-2,upstream-mainline,Junction traffic,False,3715,3533
+EUS-s2-boff-q200-burst1,london-link-052-ab-2,upstream-mainline,Pod ahead,False,2830,2353
+EUS-s2-boff-q200-burst1,london-link-070-ba-2,upstream-mainline,,False,115179,584
+EUS-s2-boff-q200-burst1,london-link-070-ba-2,upstream-mainline,Junction traffic,False,45286,28502
+EUS-s2-boff-q200-burst1,london-link-070-ba-2,upstream-mainline,Pod ahead,False,986880,790863
+EUS-s2-boff-q200-burst1,london-link-071-ba-2,upstream-mainline,,False,3055,0
+EUS-s2-boff-q200-burst1,london-link-071-ba-2,upstream-mainline,Junction traffic,False,2676,2676
+EUS-s2-boff-q200-burst1,london-link-071-ba-2,upstream-mainline,Pod ahead,False,1417,993
+EUS-s2-boff-q200-burst1,london-link-072-ba-2,upstream-mainline,,False,110388,88
+EUS-s2-boff-q200-burst1,london-link-072-ba-2,upstream-mainline,Junction traffic,False,23370,14118
+EUS-s2-boff-q200-burst1,london-link-072-ba-2,upstream-mainline,Pod ahead,False,68210,46958
+EUS-s2-boff-q200-burst120,940GZZLUEUS-01-arrival-link,berth-access,,False,53720,0
+EUS-s2-boff-q200-burst120,940GZZLUEUS-01-arrival-link,berth-access,Junction traffic,False,36591,99
+EUS-s2-boff-q200-burst120,940GZZLUEUS-01-arrival-link,berth-access,Pod ahead,False,125718,60243
+EUS-s2-boff-q200-burst120,940GZZLUEUS-01-departure-link,departure,,True,158221,36699
+EUS-s2-boff-q200-burst120,940GZZLUEUS-01-departure-link,departure,Junction traffic,True,57954,36571
+EUS-s2-boff-q200-burst120,940GZZLUEUS-01-departure-link,departure,Pod ahead,True,270429,164851
+EUS-s2-boff-q200-burst120,940GZZLUEUS-01-in,berth-access,,False,56785,6
+EUS-s2-boff-q200-burst120,940GZZLUEUS-01-in,berth-access,Berth occupied,False,61697,17595
+EUS-s2-boff-q200-burst120,940GZZLUEUS-01-in,berth-access,Junction traffic,False,40952,39995
+EUS-s2-boff-q200-burst120,940GZZLUEUS-01-in,berth-access,Pod ahead,False,144615,86954
+EUS-s2-boff-q200-burst120,940GZZLUEUS-01-out,departure,,True,111356,27820
+EUS-s2-boff-q200-burst120,940GZZLUEUS-01-out,departure,Junction traffic,True,79237,66796
+EUS-s2-boff-q200-burst120,940GZZLUEUS-01-out,departure,Pod ahead,True,153623,116643
+EUS-s2-boff-q200-burst120,940GZZLUEUS-02-arrival-link,berth-access,,False,28041,0
+EUS-s2-boff-q200-burst120,940GZZLUEUS-02-arrival-link,berth-access,Junction traffic,False,6157,41
+EUS-s2-boff-q200-burst120,940GZZLUEUS-02-arrival-link,berth-access,Pod ahead,False,24600,9692
+EUS-s2-boff-q200-burst120,940GZZLUEUS-02-departure-link,departure,,True,39564,149
+EUS-s2-boff-q200-burst120,940GZZLUEUS-02-departure-link,departure,Junction traffic,True,88424,76086
+EUS-s2-boff-q200-burst120,940GZZLUEUS-02-departure-link,departure,Pod ahead,True,191334,160610
+EUS-s2-boff-q200-burst120,940GZZLUEUS-02-in,berth-access,,False,56448,7
+EUS-s2-boff-q200-burst120,940GZZLUEUS-02-in,berth-access,Berth occupied,False,51343,14477
+EUS-s2-boff-q200-burst120,940GZZLUEUS-02-in,berth-access,Junction traffic,False,26630,25323
+EUS-s2-boff-q200-burst120,940GZZLUEUS-02-in,berth-access,Pod ahead,False,77521,38418
+EUS-s2-boff-q200-burst120,940GZZLUEUS-02-out,departure,,True,161595,74801
+EUS-s2-boff-q200-burst120,940GZZLUEUS-02-out,departure,Junction traffic,True,60632,54556
+EUS-s2-boff-q200-burst120,940GZZLUEUS-02-out,departure,Pod ahead,True,96252,75857
+EUS-s2-boff-q200-burst120,940GZZLUEUS-access-in,entry,,False,96683,0
+EUS-s2-boff-q200-burst120,940GZZLUEUS-access-in,entry,Junction traffic,False,26453,0
+EUS-s2-boff-q200-burst120,940GZZLUEUS-access-in,entry,Pod ahead,False,147010,66352
+EUS-s2-boff-q200-burst120,940GZZLUEUS-access-out,exit,,True,191473,24259
+EUS-s2-boff-q200-burst120,940GZZLUEUS-access-out,exit,Junction traffic,True,102147,59443
+EUS-s2-boff-q200-burst120,940GZZLUEUS-access-out,exit,Pod ahead,True,511527,192716
+EUS-s2-boff-q200-burst120,940GZZLUEUS-road-in-01,approach,,False,1031,0
+EUS-s2-boff-q200-burst120,940GZZLUEUS-road-in-02,approach,,False,28351,0
+EUS-s2-boff-q200-burst120,940GZZLUEUS-road-in-02,approach,Junction traffic,False,62660,42470
+EUS-s2-boff-q200-burst120,940GZZLUEUS-road-in-02,approach,Pod ahead,False,54828,36252
+EUS-s2-boff-q200-burst120,940GZZLUEUS-road-in-03,approach,,False,705,0
+EUS-s2-boff-q200-burst120,940GZZLUEUS-road-in-04,approach,,False,62045,119
+EUS-s2-boff-q200-burst120,940GZZLUEUS-road-in-04,approach,Junction traffic,False,59634,39911
+EUS-s2-boff-q200-burst120,940GZZLUEUS-road-in-04,approach,Pod ahead,False,223793,92652
+EUS-s2-boff-q200-burst120,940GZZLUEUS-road-out-01,exit,,True,1536,0
+EUS-s2-boff-q200-burst120,940GZZLUEUS-road-out-02,exit,,True,19932,0
+EUS-s2-boff-q200-burst120,940GZZLUEUS-road-out-03,exit,,True,1160,0
+EUS-s2-boff-q200-burst120,940GZZLUEUS-road-out-04,exit,,True,83776,0
+EUS-s2-boff-q200-burst120,london-link-052-ab-2,upstream-mainline,,False,8305,0
+EUS-s2-boff-q200-burst120,london-link-052-ab-2,upstream-mainline,Junction traffic,False,1152,372
+EUS-s2-boff-q200-burst120,london-link-052-ab-2,upstream-mainline,Pod ahead,False,192,122
+EUS-s2-boff-q200-burst120,london-link-070-ba-2,upstream-mainline,,False,100560,1772
+EUS-s2-boff-q200-burst120,london-link-070-ba-2,upstream-mainline,Junction traffic,False,58590,32599
+EUS-s2-boff-q200-burst120,london-link-070-ba-2,upstream-mainline,Pod ahead,False,1618539,1184201
+EUS-s2-boff-q200-burst120,london-link-071-ba-2,upstream-mainline,,False,2978,0
+EUS-s2-boff-q200-burst120,london-link-071-ba-2,upstream-mainline,Junction traffic,False,2340,1686
+EUS-s2-boff-q200-burst120,london-link-071-ba-2,upstream-mainline,Pod ahead,False,306,204
+EUS-s2-boff-q200-burst120,london-link-072-ba-2,upstream-mainline,,False,110170,57
+EUS-s2-boff-q200-burst120,london-link-072-ba-2,upstream-mainline,Junction traffic,False,17366,9252
+EUS-s2-boff-q200-burst120,london-link-072-ba-2,upstream-mainline,Pod ahead,False,26963,11000
+EUS-s2-boff-q1000000-burst1,940GZZLUEUS-01-arrival-link,berth-access,,False,57183,0
+EUS-s2-boff-q1000000-burst1,940GZZLUEUS-01-arrival-link,berth-access,Junction traffic,False,32793,77
+EUS-s2-boff-q1000000-burst1,940GZZLUEUS-01-arrival-link,berth-access,Pod ahead,False,130086,67937
+EUS-s2-boff-q1000000-burst1,940GZZLUEUS-01-departure-link,departure,,True,166532,41003
+EUS-s2-boff-q1000000-burst1,940GZZLUEUS-01-departure-link,departure,Junction traffic,True,62284,42388
+EUS-s2-boff-q1000000-burst1,940GZZLUEUS-01-departure-link,departure,Pod ahead,True,250591,158570
+EUS-s2-boff-q1000000-burst1,940GZZLUEUS-01-in,berth-access,,False,58263,11
+EUS-s2-boff-q1000000-burst1,940GZZLUEUS-01-in,berth-access,Berth occupied,False,54008,15549
+EUS-s2-boff-q1000000-burst1,940GZZLUEUS-01-in,berth-access,Junction traffic,False,38536,37270
+EUS-s2-boff-q1000000-burst1,940GZZLUEUS-01-in,berth-access,Pod ahead,False,118210,70913
+EUS-s2-boff-q1000000-burst1,940GZZLUEUS-01-out,departure,,True,107391,24934
+EUS-s2-boff-q1000000-burst1,940GZZLUEUS-01-out,departure,Junction traffic,True,77517,64905
+EUS-s2-boff-q1000000-burst1,940GZZLUEUS-01-out,departure,Pod ahead,True,150088,116359
+EUS-s2-boff-q1000000-burst1,940GZZLUEUS-02-arrival-link,berth-access,,False,26654,0
+EUS-s2-boff-q1000000-burst1,940GZZLUEUS-02-arrival-link,berth-access,Junction traffic,False,8781,93
+EUS-s2-boff-q1000000-burst1,940GZZLUEUS-02-arrival-link,berth-access,Pod ahead,False,32367,14026
+EUS-s2-boff-q1000000-burst1,940GZZLUEUS-02-departure-link,departure,,True,43193,1024
+EUS-s2-boff-q1000000-burst1,940GZZLUEUS-02-departure-link,departure,Junction traffic,True,89232,77305
+EUS-s2-boff-q1000000-burst1,940GZZLUEUS-02-departure-link,departure,Pod ahead,True,213871,183378
+EUS-s2-boff-q1000000-burst1,940GZZLUEUS-02-in,berth-access,,False,59941,9
+EUS-s2-boff-q1000000-burst1,940GZZLUEUS-02-in,berth-access,Berth occupied,False,43543,11646
+EUS-s2-boff-q1000000-burst1,940GZZLUEUS-02-in,berth-access,Junction traffic,False,22335,20709
+EUS-s2-boff-q1000000-burst1,940GZZLUEUS-02-in,berth-access,Pod ahead,False,70665,35296
+EUS-s2-boff-q1000000-burst1,940GZZLUEUS-02-out,departure,,True,165965,77844
+EUS-s2-boff-q1000000-burst1,940GZZLUEUS-02-out,departure,Junction traffic,True,81147,72901
+EUS-s2-boff-q1000000-burst1,940GZZLUEUS-02-out,departure,Pod ahead,True,121659,96569
+EUS-s2-boff-q1000000-burst1,940GZZLUEUS-access-in,entry,,False,98019,0
+EUS-s2-boff-q1000000-burst1,940GZZLUEUS-access-in,entry,Junction traffic,False,24223,0
+EUS-s2-boff-q1000000-burst1,940GZZLUEUS-access-in,entry,Pod ahead,False,150055,69045
+EUS-s2-boff-q1000000-burst1,940GZZLUEUS-access-out,exit,,True,196982,26578
+EUS-s2-boff-q1000000-burst1,940GZZLUEUS-access-out,exit,Junction traffic,True,105627,62626
+EUS-s2-boff-q1000000-burst1,940GZZLUEUS-access-out,exit,Pod ahead,True,512834,198572
+EUS-s2-boff-q1000000-burst1,940GZZLUEUS-road-in-01,approach,,False,1020,0
+EUS-s2-boff-q1000000-burst1,940GZZLUEUS-road-in-02,approach,,False,26294,0
+EUS-s2-boff-q1000000-burst1,940GZZLUEUS-road-in-02,approach,Junction traffic,False,50844,34727
+EUS-s2-boff-q1000000-burst1,940GZZLUEUS-road-in-02,approach,Pod ahead,False,58293,41990
+EUS-s2-boff-q1000000-burst1,940GZZLUEUS-road-in-03,approach,,False,700,0
+EUS-s2-boff-q1000000-burst1,940GZZLUEUS-road-in-04,approach,,False,65586,132
+EUS-s2-boff-q1000000-burst1,940GZZLUEUS-road-in-04,approach,Junction traffic,False,50051,32453
+EUS-s2-boff-q1000000-burst1,940GZZLUEUS-road-in-04,approach,Pod ahead,False,273522,152455
+EUS-s2-boff-q1000000-burst1,940GZZLUEUS-road-out-01,exit,,True,1536,0
+EUS-s2-boff-q1000000-burst1,940GZZLUEUS-road-out-02,exit,,True,19935,0
+EUS-s2-boff-q1000000-burst1,940GZZLUEUS-road-out-03,exit,,True,1176,0
+EUS-s2-boff-q1000000-burst1,940GZZLUEUS-road-out-04,exit,,True,83768,0
+EUS-s2-boff-q1000000-burst1,london-link-052-ab-2,upstream-mainline,,False,8212,0
+EUS-s2-boff-q1000000-burst1,london-link-052-ab-2,upstream-mainline,Junction traffic,False,3715,3533
+EUS-s2-boff-q1000000-burst1,london-link-052-ab-2,upstream-mainline,Pod ahead,False,2830,2353
+EUS-s2-boff-q1000000-burst1,london-link-070-ba-2,upstream-mainline,,False,115179,584
+EUS-s2-boff-q1000000-burst1,london-link-070-ba-2,upstream-mainline,Junction traffic,False,45286,28502
+EUS-s2-boff-q1000000-burst1,london-link-070-ba-2,upstream-mainline,Pod ahead,False,986880,790863
+EUS-s2-boff-q1000000-burst1,london-link-071-ba-2,upstream-mainline,,False,3055,0
+EUS-s2-boff-q1000000-burst1,london-link-071-ba-2,upstream-mainline,Junction traffic,False,2676,2676
+EUS-s2-boff-q1000000-burst1,london-link-071-ba-2,upstream-mainline,Pod ahead,False,1417,993
+EUS-s2-boff-q1000000-burst1,london-link-072-ba-2,upstream-mainline,,False,110388,88
+EUS-s2-boff-q1000000-burst1,london-link-072-ba-2,upstream-mainline,Junction traffic,False,23370,14118
+EUS-s2-boff-q1000000-burst1,london-link-072-ba-2,upstream-mainline,Pod ahead,False,68210,46958
+EUS-s2-boff-q1000000-burst120,940GZZLUEUS-01-arrival-link,berth-access,,False,53720,0
+EUS-s2-boff-q1000000-burst120,940GZZLUEUS-01-arrival-link,berth-access,Junction traffic,False,36591,99
+EUS-s2-boff-q1000000-burst120,940GZZLUEUS-01-arrival-link,berth-access,Pod ahead,False,125718,60243
+EUS-s2-boff-q1000000-burst120,940GZZLUEUS-01-departure-link,departure,,True,158221,36699
+EUS-s2-boff-q1000000-burst120,940GZZLUEUS-01-departure-link,departure,Junction traffic,True,57954,36571
+EUS-s2-boff-q1000000-burst120,940GZZLUEUS-01-departure-link,departure,Pod ahead,True,270429,164851
+EUS-s2-boff-q1000000-burst120,940GZZLUEUS-01-in,berth-access,,False,56785,6
+EUS-s2-boff-q1000000-burst120,940GZZLUEUS-01-in,berth-access,Berth occupied,False,61697,17595
+EUS-s2-boff-q1000000-burst120,940GZZLUEUS-01-in,berth-access,Junction traffic,False,40952,39995
+EUS-s2-boff-q1000000-burst120,940GZZLUEUS-01-in,berth-access,Pod ahead,False,144615,86954
+EUS-s2-boff-q1000000-burst120,940GZZLUEUS-01-out,departure,,True,111356,27820
+EUS-s2-boff-q1000000-burst120,940GZZLUEUS-01-out,departure,Junction traffic,True,79237,66796
+EUS-s2-boff-q1000000-burst120,940GZZLUEUS-01-out,departure,Pod ahead,True,153623,116643
+EUS-s2-boff-q1000000-burst120,940GZZLUEUS-02-arrival-link,berth-access,,False,28041,0
+EUS-s2-boff-q1000000-burst120,940GZZLUEUS-02-arrival-link,berth-access,Junction traffic,False,6157,41
+EUS-s2-boff-q1000000-burst120,940GZZLUEUS-02-arrival-link,berth-access,Pod ahead,False,24600,9692
+EUS-s2-boff-q1000000-burst120,940GZZLUEUS-02-departure-link,departure,,True,39564,149
+EUS-s2-boff-q1000000-burst120,940GZZLUEUS-02-departure-link,departure,Junction traffic,True,88424,76086
+EUS-s2-boff-q1000000-burst120,940GZZLUEUS-02-departure-link,departure,Pod ahead,True,191334,160610
+EUS-s2-boff-q1000000-burst120,940GZZLUEUS-02-in,berth-access,,False,56448,7
+EUS-s2-boff-q1000000-burst120,940GZZLUEUS-02-in,berth-access,Berth occupied,False,51343,14477
+EUS-s2-boff-q1000000-burst120,940GZZLUEUS-02-in,berth-access,Junction traffic,False,26630,25323
+EUS-s2-boff-q1000000-burst120,940GZZLUEUS-02-in,berth-access,Pod ahead,False,77521,38418
+EUS-s2-boff-q1000000-burst120,940GZZLUEUS-02-out,departure,,True,161595,74801
+EUS-s2-boff-q1000000-burst120,940GZZLUEUS-02-out,departure,Junction traffic,True,60632,54556
+EUS-s2-boff-q1000000-burst120,940GZZLUEUS-02-out,departure,Pod ahead,True,96252,75857
+EUS-s2-boff-q1000000-burst120,940GZZLUEUS-access-in,entry,,False,96683,0
+EUS-s2-boff-q1000000-burst120,940GZZLUEUS-access-in,entry,Junction traffic,False,26453,0
+EUS-s2-boff-q1000000-burst120,940GZZLUEUS-access-in,entry,Pod ahead,False,147010,66352
+EUS-s2-boff-q1000000-burst120,940GZZLUEUS-access-out,exit,,True,191473,24259
+EUS-s2-boff-q1000000-burst120,940GZZLUEUS-access-out,exit,Junction traffic,True,102147,59443
+EUS-s2-boff-q1000000-burst120,940GZZLUEUS-access-out,exit,Pod ahead,True,511527,192716
+EUS-s2-boff-q1000000-burst120,940GZZLUEUS-road-in-01,approach,,False,1031,0
+EUS-s2-boff-q1000000-burst120,940GZZLUEUS-road-in-02,approach,,False,28351,0
+EUS-s2-boff-q1000000-burst120,940GZZLUEUS-road-in-02,approach,Junction traffic,False,62660,42470
+EUS-s2-boff-q1000000-burst120,940GZZLUEUS-road-in-02,approach,Pod ahead,False,54828,36252
+EUS-s2-boff-q1000000-burst120,940GZZLUEUS-road-in-03,approach,,False,705,0
+EUS-s2-boff-q1000000-burst120,940GZZLUEUS-road-in-04,approach,,False,62045,119
+EUS-s2-boff-q1000000-burst120,940GZZLUEUS-road-in-04,approach,Junction traffic,False,59634,39911
+EUS-s2-boff-q1000000-burst120,940GZZLUEUS-road-in-04,approach,Pod ahead,False,223793,92652
+EUS-s2-boff-q1000000-burst120,940GZZLUEUS-road-out-01,exit,,True,1536,0
+EUS-s2-boff-q1000000-burst120,940GZZLUEUS-road-out-02,exit,,True,19932,0
+EUS-s2-boff-q1000000-burst120,940GZZLUEUS-road-out-03,exit,,True,1160,0
+EUS-s2-boff-q1000000-burst120,940GZZLUEUS-road-out-04,exit,,True,83776,0
+EUS-s2-boff-q1000000-burst120,london-link-052-ab-2,upstream-mainline,,False,8305,0
+EUS-s2-boff-q1000000-burst120,london-link-052-ab-2,upstream-mainline,Junction traffic,False,1152,372
+EUS-s2-boff-q1000000-burst120,london-link-052-ab-2,upstream-mainline,Pod ahead,False,192,122
+EUS-s2-boff-q1000000-burst120,london-link-070-ba-2,upstream-mainline,,False,100560,1772
+EUS-s2-boff-q1000000-burst120,london-link-070-ba-2,upstream-mainline,Junction traffic,False,58590,32599
+EUS-s2-boff-q1000000-burst120,london-link-070-ba-2,upstream-mainline,Pod ahead,False,1618539,1184201
+EUS-s2-boff-q1000000-burst120,london-link-071-ba-2,upstream-mainline,,False,2978,0
+EUS-s2-boff-q1000000-burst120,london-link-071-ba-2,upstream-mainline,Junction traffic,False,2340,1686
+EUS-s2-boff-q1000000-burst120,london-link-071-ba-2,upstream-mainline,Pod ahead,False,306,204
+EUS-s2-boff-q1000000-burst120,london-link-072-ba-2,upstream-mainline,,False,110170,57
+EUS-s2-boff-q1000000-burst120,london-link-072-ba-2,upstream-mainline,Junction traffic,False,17366,9252
+EUS-s2-boff-q1000000-burst120,london-link-072-ba-2,upstream-mainline,Pod ahead,False,26963,11000
+EUS-s2-bon-q200-burst1,940GZZLUEUS-01-arrival-link,berth-access,,False,94826,0
+EUS-s2-bon-q200-burst1,940GZZLUEUS-01-departure-link,departure,,True,83784,0
+EUS-s2-bon-q200-burst1,940GZZLUEUS-01-departure-link,departure,Junction traffic,True,5823,0
+EUS-s2-bon-q200-burst1,940GZZLUEUS-01-departure-link,departure,Pod ahead,True,5975,0
+EUS-s2-bon-q200-burst1,940GZZLUEUS-01-in,berth-access,,False,77040,1
+EUS-s2-bon-q200-burst1,940GZZLUEUS-01-out,departure,,True,56928,0
+EUS-s2-bon-q200-burst1,940GZZLUEUS-01-out,departure,Junction traffic,True,28920,0
+EUS-s2-bon-q200-burst1,940GZZLUEUS-01-out,departure,Pod ahead,True,13298,0
+EUS-s2-bon-q200-burst1,940GZZLUEUS-02-arrival-link,berth-access,,False,37880,0
+EUS-s2-bon-q200-burst1,940GZZLUEUS-02-departure-link,departure,,True,37878,0
+EUS-s2-bon-q200-burst1,940GZZLUEUS-02-in,berth-access,,False,75756,0
+EUS-s2-bon-q200-burst1,940GZZLUEUS-02-out,departure,,True,75284,0
+EUS-s2-bon-q200-burst1,940GZZLUEUS-access-in,entry,,False,86406,0
+EUS-s2-bon-q200-burst1,940GZZLUEUS-access-in,entry,Berth occupied,False,160445,95440
+EUS-s2-bon-q200-burst1,940GZZLUEUS-access-in,entry,Pod ahead,False,356182,146426
+EUS-s2-bon-q200-burst1,940GZZLUEUS-access-out,exit,,True,135244,0
+EUS-s2-bon-q200-burst1,940GZZLUEUS-access-out,exit,Junction traffic,True,32500,9478
+EUS-s2-bon-q200-burst1,940GZZLUEUS-access-out,exit,Pod ahead,True,4631,1656
+EUS-s2-bon-q200-burst1,940GZZLUEUS-road-in-01,approach,,False,1031,0
+EUS-s2-bon-q200-burst1,940GZZLUEUS-road-in-02,approach,,False,32215,0
+EUS-s2-bon-q200-burst1,940GZZLUEUS-road-in-02,approach,Junction traffic,False,64054,57678
+EUS-s2-bon-q200-burst1,940GZZLUEUS-road-in-02,approach,Pod ahead,False,203076,167377
+EUS-s2-bon-q200-burst1,940GZZLUEUS-road-in-03,approach,,False,700,0
+EUS-s2-bon-q200-burst1,940GZZLUEUS-road-in-04,approach,,False,70108,485
+EUS-s2-bon-q200-burst1,940GZZLUEUS-road-in-04,approach,Junction traffic,False,56300,41807
+EUS-s2-bon-q200-burst1,940GZZLUEUS-road-in-04,approach,Pod ahead,False,921937,697278
+EUS-s2-bon-q200-burst1,940GZZLUEUS-road-out-01,exit,,True,1483,0
+EUS-s2-bon-q200-burst1,940GZZLUEUS-road-out-02,exit,,True,18934,0
+EUS-s2-bon-q200-burst1,940GZZLUEUS-road-out-03,exit,,True,1137,0
+EUS-s2-bon-q200-burst1,940GZZLUEUS-road-out-04,exit,,True,82671,0
+EUS-s2-bon-q200-burst1,london-link-052-ab-2,upstream-mainline,,False,8305,0
+EUS-s2-bon-q200-burst1,london-link-052-ab-2,upstream-mainline,Junction traffic,False,3228,3161
+EUS-s2-bon-q200-burst1,london-link-052-ab-2,upstream-mainline,Pod ahead,False,5200,4417
+EUS-s2-bon-q200-burst1,london-link-070-ba-2,upstream-mainline,,False,99789,1803
+EUS-s2-bon-q200-burst1,london-link-070-ba-2,upstream-mainline,Junction traffic,False,85657,60794
+EUS-s2-bon-q200-burst1,london-link-070-ba-2,upstream-mainline,Pod ahead,False,3415869,2969350
+EUS-s2-bon-q200-burst1,london-link-071-ba-2,upstream-mainline,,False,2992,0
+EUS-s2-bon-q200-burst1,london-link-071-ba-2,upstream-mainline,Junction traffic,False,2033,1847
+EUS-s2-bon-q200-burst1,london-link-071-ba-2,upstream-mainline,Pod ahead,False,3474,3159
+EUS-s2-bon-q200-burst1,london-link-072-ba-2,upstream-mainline,,False,107996,1175
+EUS-s2-bon-q200-burst1,london-link-072-ba-2,upstream-mainline,Junction traffic,False,132552,117697
+EUS-s2-bon-q200-burst1,london-link-072-ba-2,upstream-mainline,Pod ahead,False,1471457,1237539
+EUS-s2-bon-q200-burst120,940GZZLUEUS-01-arrival-link,berth-access,,False,91328,0
+EUS-s2-bon-q200-burst120,940GZZLUEUS-01-departure-link,departure,,True,80521,0
+EUS-s2-bon-q200-burst120,940GZZLUEUS-01-departure-link,departure,Junction traffic,True,5739,0
+EUS-s2-bon-q200-burst120,940GZZLUEUS-01-departure-link,departure,Pod ahead,True,5799,0
+EUS-s2-bon-q200-burst120,940GZZLUEUS-01-in,berth-access,,False,73830,0
+EUS-s2-bon-q200-burst120,940GZZLUEUS-01-out,departure,,True,54061,0
+EUS-s2-bon-q200-burst120,940GZZLUEUS-01-out,departure,Junction traffic,True,28621,0
+EUS-s2-bon-q200-burst120,940GZZLUEUS-01-out,departure,Pod ahead,True,13079,0
+EUS-s2-bon-q200-burst120,940GZZLUEUS-02-arrival-link,berth-access,,False,36596,0
+EUS-s2-bon-q200-burst120,940GZZLUEUS-02-departure-link,departure,,True,36594,0
+EUS-s2-bon-q200-burst120,940GZZLUEUS-02-in,berth-access,,False,73188,2
+EUS-s2-bon-q200-burst120,940GZZLUEUS-02-out,departure,,True,72732,0
+EUS-s2-bon-q200-burst120,940GZZLUEUS-access-in,entry,,False,81602,0
+EUS-s2-bon-q200-burst120,940GZZLUEUS-access-in,entry,Berth occupied,False,158470,94577
+EUS-s2-bon-q200-burst120,940GZZLUEUS-access-in,entry,Pod ahead,False,354444,146282
+EUS-s2-bon-q200-burst120,940GZZLUEUS-access-out,exit,,True,130589,0
+EUS-s2-bon-q200-burst120,940GZZLUEUS-access-out,exit,Junction traffic,True,29154,7601
+EUS-s2-bon-q200-burst120,940GZZLUEUS-access-out,exit,Pod ahead,True,3725,1504
+EUS-s2-bon-q200-burst120,940GZZLUEUS-road-in-01,approach,,False,684,0
+EUS-s2-bon-q200-burst120,940GZZLUEUS-road-in-02,approach,,False,31710,0
+EUS-s2-bon-q200-burst120,940GZZLUEUS-road-in-02,approach,Junction traffic,False,62025,54899
+EUS-s2-bon-q200-burst120,940GZZLUEUS-road-in-02,approach,Pod ahead,False,194314,160064
+EUS-s2-bon-q200-burst120,940GZZLUEUS-road-in-03,approach,,False,355,0
+EUS-s2-bon-q200-burst120,940GZZLUEUS-road-in-04,approach,,False,67411,505
+EUS-s2-bon-q200-burst120,940GZZLUEUS-road-in-04,approach,Junction traffic,False,53352,38693
+EUS-s2-bon-q200-burst120,940GZZLUEUS-road-in-04,approach,Pod ahead,False,892515,671530
+EUS-s2-bon-q200-burst120,940GZZLUEUS-road-out-01,exit,,True,1483,0
+EUS-s2-bon-q200-burst120,940GZZLUEUS-road-out-02,exit,,True,18747,0
+EUS-s2-bon-q200-burst120,940GZZLUEUS-road-out-03,exit,,True,1137,0
+EUS-s2-bon-q200-burst120,940GZZLUEUS-road-out-04,exit,,True,77571,0
+EUS-s2-bon-q200-burst120,london-link-052-ab-2,upstream-mainline,,False,11082,0
+EUS-s2-bon-q200-burst120,london-link-052-ab-2,upstream-mainline,Junction traffic,False,2351,1622
+EUS-s2-bon-q200-burst120,london-link-052-ab-2,upstream-mainline,Pod ahead,False,1716,1596
+EUS-s2-bon-q200-burst120,london-link-070-ba-2,upstream-mainline,,False,186697,72714
+EUS-s2-bon-q200-burst120,london-link-070-ba-2,upstream-mainline,Junction traffic,False,77474,53577
+EUS-s2-bon-q200-burst120,london-link-070-ba-2,upstream-mainline,Pod ahead,False,3121640,2684882
+EUS-s2-bon-q200-burst120,london-link-071-ba-2,upstream-mainline,,False,4519,0
+EUS-s2-bon-q200-burst120,london-link-071-ba-2,upstream-mainline,Junction traffic,False,813,22
+EUS-s2-bon-q200-burst120,london-link-071-ba-2,upstream-mainline,Pod ahead,False,482,213
+EUS-s2-bon-q200-burst120,london-link-072-ba-2,upstream-mainline,,False,105595,1250
+EUS-s2-bon-q200-burst120,london-link-072-ba-2,upstream-mainline,Junction traffic,False,128530,113762
+EUS-s2-bon-q200-burst120,london-link-072-ba-2,upstream-mainline,Pod ahead,False,1548194,1310272
+EUS-s2-bon-q1000000-burst1,940GZZLUEUS-01-arrival-link,berth-access,,False,94826,0
+EUS-s2-bon-q1000000-burst1,940GZZLUEUS-01-departure-link,departure,,True,83784,0
+EUS-s2-bon-q1000000-burst1,940GZZLUEUS-01-departure-link,departure,Junction traffic,True,5823,0
+EUS-s2-bon-q1000000-burst1,940GZZLUEUS-01-departure-link,departure,Pod ahead,True,5975,0
+EUS-s2-bon-q1000000-burst1,940GZZLUEUS-01-in,berth-access,,False,77040,1
+EUS-s2-bon-q1000000-burst1,940GZZLUEUS-01-out,departure,,True,56928,0
+EUS-s2-bon-q1000000-burst1,940GZZLUEUS-01-out,departure,Junction traffic,True,28920,0
+EUS-s2-bon-q1000000-burst1,940GZZLUEUS-01-out,departure,Pod ahead,True,13298,0
+EUS-s2-bon-q1000000-burst1,940GZZLUEUS-02-arrival-link,berth-access,,False,37880,0
+EUS-s2-bon-q1000000-burst1,940GZZLUEUS-02-departure-link,departure,,True,37878,0
+EUS-s2-bon-q1000000-burst1,940GZZLUEUS-02-in,berth-access,,False,75756,0
+EUS-s2-bon-q1000000-burst1,940GZZLUEUS-02-out,departure,,True,75284,0
+EUS-s2-bon-q1000000-burst1,940GZZLUEUS-access-in,entry,,False,86406,0
+EUS-s2-bon-q1000000-burst1,940GZZLUEUS-access-in,entry,Berth occupied,False,160445,95440
+EUS-s2-bon-q1000000-burst1,940GZZLUEUS-access-in,entry,Pod ahead,False,356182,146426
+EUS-s2-bon-q1000000-burst1,940GZZLUEUS-access-out,exit,,True,135244,0
+EUS-s2-bon-q1000000-burst1,940GZZLUEUS-access-out,exit,Junction traffic,True,32500,9478
+EUS-s2-bon-q1000000-burst1,940GZZLUEUS-access-out,exit,Pod ahead,True,4631,1656
+EUS-s2-bon-q1000000-burst1,940GZZLUEUS-road-in-01,approach,,False,1031,0
+EUS-s2-bon-q1000000-burst1,940GZZLUEUS-road-in-02,approach,,False,32215,0
+EUS-s2-bon-q1000000-burst1,940GZZLUEUS-road-in-02,approach,Junction traffic,False,64054,57678
+EUS-s2-bon-q1000000-burst1,940GZZLUEUS-road-in-02,approach,Pod ahead,False,203076,167377
+EUS-s2-bon-q1000000-burst1,940GZZLUEUS-road-in-03,approach,,False,700,0
+EUS-s2-bon-q1000000-burst1,940GZZLUEUS-road-in-04,approach,,False,70108,485
+EUS-s2-bon-q1000000-burst1,940GZZLUEUS-road-in-04,approach,Junction traffic,False,56300,41807
+EUS-s2-bon-q1000000-burst1,940GZZLUEUS-road-in-04,approach,Pod ahead,False,921937,697278
+EUS-s2-bon-q1000000-burst1,940GZZLUEUS-road-out-01,exit,,True,1483,0
+EUS-s2-bon-q1000000-burst1,940GZZLUEUS-road-out-02,exit,,True,18934,0
+EUS-s2-bon-q1000000-burst1,940GZZLUEUS-road-out-03,exit,,True,1137,0
+EUS-s2-bon-q1000000-burst1,940GZZLUEUS-road-out-04,exit,,True,82671,0
+EUS-s2-bon-q1000000-burst1,london-link-052-ab-2,upstream-mainline,,False,8305,0
+EUS-s2-bon-q1000000-burst1,london-link-052-ab-2,upstream-mainline,Junction traffic,False,3228,3161
+EUS-s2-bon-q1000000-burst1,london-link-052-ab-2,upstream-mainline,Pod ahead,False,5200,4417
+EUS-s2-bon-q1000000-burst1,london-link-070-ba-2,upstream-mainline,,False,99789,1803
+EUS-s2-bon-q1000000-burst1,london-link-070-ba-2,upstream-mainline,Junction traffic,False,85657,60794
+EUS-s2-bon-q1000000-burst1,london-link-070-ba-2,upstream-mainline,Pod ahead,False,3415869,2969350
+EUS-s2-bon-q1000000-burst1,london-link-071-ba-2,upstream-mainline,,False,2992,0
+EUS-s2-bon-q1000000-burst1,london-link-071-ba-2,upstream-mainline,Junction traffic,False,2033,1847
+EUS-s2-bon-q1000000-burst1,london-link-071-ba-2,upstream-mainline,Pod ahead,False,3474,3159
+EUS-s2-bon-q1000000-burst1,london-link-072-ba-2,upstream-mainline,,False,107996,1175
+EUS-s2-bon-q1000000-burst1,london-link-072-ba-2,upstream-mainline,Junction traffic,False,132552,117697
+EUS-s2-bon-q1000000-burst1,london-link-072-ba-2,upstream-mainline,Pod ahead,False,1471457,1237539
+EUS-s2-bon-q1000000-burst120,940GZZLUEUS-01-arrival-link,berth-access,,False,94919,0
+EUS-s2-bon-q1000000-burst120,940GZZLUEUS-01-departure-link,departure,,True,83703,0
+EUS-s2-bon-q1000000-burst120,940GZZLUEUS-01-departure-link,departure,Junction traffic,True,5943,0
+EUS-s2-bon-q1000000-burst120,940GZZLUEUS-01-departure-link,departure,Pod ahead,True,6003,0
+EUS-s2-bon-q1000000-burst120,940GZZLUEUS-01-in,berth-access,,False,76398,0
+EUS-s2-bon-q1000000-burst120,940GZZLUEUS-01-out,departure,,True,55909,0
+EUS-s2-bon-q1000000-burst120,940GZZLUEUS-01-out,departure,Junction traffic,True,29629,0
+EUS-s2-bon-q1000000-burst120,940GZZLUEUS-01-out,departure,Pod ahead,True,13539,0
+EUS-s2-bon-q1000000-burst120,940GZZLUEUS-02-arrival-link,berth-access,,False,38201,0
+EUS-s2-bon-q1000000-burst120,940GZZLUEUS-02-departure-link,departure,,True,38199,0
+EUS-s2-bon-q1000000-burst120,940GZZLUEUS-02-in,berth-access,,False,76398,2
+EUS-s2-bon-q1000000-burst120,940GZZLUEUS-02-out,departure,,True,75922,0
+EUS-s2-bon-q1000000-burst120,940GZZLUEUS-access-in,entry,,False,84992,0
+EUS-s2-bon-q1000000-burst120,940GZZLUEUS-access-in,entry,Berth occupied,False,165041,98637
+EUS-s2-bon-q1000000-burst120,940GZZLUEUS-access-in,entry,Pod ahead,False,367017,150801
+EUS-s2-bon-q1000000-burst120,940GZZLUEUS-access-out,exit,,True,135749,2
+EUS-s2-bon-q1000000-burst120,940GZZLUEUS-access-out,exit,Junction traffic,True,32505,9353
+EUS-s2-bon-q1000000-burst120,940GZZLUEUS-access-out,exit,Pod ahead,True,4977,1986
+EUS-s2-bon-q1000000-burst120,940GZZLUEUS-road-in-01,approach,,False,1031,0
+EUS-s2-bon-q1000000-burst120,940GZZLUEUS-road-in-02,approach,,False,32622,0
+EUS-s2-bon-q1000000-burst120,940GZZLUEUS-road-in-02,approach,Junction traffic,False,66246,59206
+EUS-s2-bon-q1000000-burst120,940GZZLUEUS-road-in-02,approach,Pod ahead,False,206204,168241
+EUS-s2-bon-q1000000-burst120,940GZZLUEUS-road-in-03,approach,,False,710,0
+EUS-s2-bon-q1000000-burst120,940GZZLUEUS-road-in-04,approach,,False,70627,561
+EUS-s2-bon-q1000000-burst120,940GZZLUEUS-road-in-04,approach,Junction traffic,False,57132,41641
+EUS-s2-bon-q1000000-burst120,940GZZLUEUS-road-in-04,approach,Pod ahead,False,959909,728212
+EUS-s2-bon-q1000000-burst120,940GZZLUEUS-road-out-01,exit,,True,1483,0
+EUS-s2-bon-q1000000-burst120,940GZZLUEUS-road-out-02,exit,,True,18932,0
+EUS-s2-bon-q1000000-burst120,940GZZLUEUS-road-out-03,exit,,True,1137,0
+EUS-s2-bon-q1000000-burst120,940GZZLUEUS-road-out-04,exit,,True,82694,0
+EUS-s2-bon-q1000000-burst120,london-link-052-ab-2,upstream-mainline,,False,8305,0
+EUS-s2-bon-q1000000-burst120,london-link-052-ab-2,upstream-mainline,Junction traffic,False,4143,3833
+EUS-s2-bon-q1000000-burst120,london-link-052-ab-2,upstream-mainline,Pod ahead,False,5800,5260
+EUS-s2-bon-q1000000-burst120,london-link-070-ba-2,upstream-mainline,,False,199278,81943
+EUS-s2-bon-q1000000-burst120,london-link-070-ba-2,upstream-mainline,Junction traffic,False,83421,58944
+EUS-s2-bon-q1000000-burst120,london-link-070-ba-2,upstream-mainline,Pod ahead,False,3250288,2797458
+EUS-s2-bon-q1000000-burst120,london-link-071-ba-2,upstream-mainline,,False,3044,0
+EUS-s2-bon-q1000000-burst120,london-link-071-ba-2,upstream-mainline,Junction traffic,False,2680,2015
+EUS-s2-bon-q1000000-burst120,london-link-071-ba-2,upstream-mainline,Pod ahead,False,3743,3560
+EUS-s2-bon-q1000000-burst120,london-link-072-ba-2,upstream-mainline,,False,109856,1281
+EUS-s2-bon-q1000000-burst120,london-link-072-ba-2,upstream-mainline,Junction traffic,False,144329,128824
+EUS-s2-bon-q1000000-burst120,london-link-072-ba-2,upstream-mainline,Pod ahead,False,1596746,1352731
+PAC-s1-boff-q200-burst1,940GZZLUPAC-01-arrival-link,berth-access,,False,91682,0
+PAC-s1-boff-q200-burst1,940GZZLUPAC-01-departure-link,departure,,True,88000,0
+PAC-s1-boff-q200-burst1,940GZZLUPAC-01-departure-link,departure,Junction traffic,True,2657,0
+PAC-s1-boff-q200-burst1,940GZZLUPAC-01-departure-link,departure,Pod ahead,True,2939,0
+PAC-s1-boff-q200-burst1,940GZZLUPAC-01-in,berth-access,,False,74527,91
+PAC-s1-boff-q200-burst1,940GZZLUPAC-01-in,berth-access,Berth occupied,False,2953,31
+PAC-s1-boff-q200-burst1,940GZZLUPAC-01-in,berth-access,Junction traffic,False,1349,92
+PAC-s1-boff-q200-burst1,940GZZLUPAC-01-out,departure,,True,70476,0
+PAC-s1-boff-q200-burst1,940GZZLUPAC-01-out,departure,Junction traffic,True,8084,0
+PAC-s1-boff-q200-burst1,940GZZLUPAC-01-out,departure,Pod ahead,True,3220,0
+PAC-s1-boff-q200-burst1,940GZZLUPAC-02-arrival-link,berth-access,,False,38314,0
+PAC-s1-boff-q200-burst1,940GZZLUPAC-02-departure-link,departure,,True,38161,0
+PAC-s1-boff-q200-burst1,940GZZLUPAC-02-departure-link,departure,Junction traffic,True,814,0
+PAC-s1-boff-q200-burst1,940GZZLUPAC-02-departure-link,departure,Pod ahead,True,104,70
+PAC-s1-boff-q200-burst1,940GZZLUPAC-02-in,berth-access,,False,74327,11
+PAC-s1-boff-q200-burst1,940GZZLUPAC-02-in,berth-access,Berth occupied,False,2133,0
+PAC-s1-boff-q200-burst1,940GZZLUPAC-02-in,berth-access,Junction traffic,False,1349,0
+PAC-s1-boff-q200-burst1,940GZZLUPAC-02-out,departure,,True,75922,0
+PAC-s1-boff-q200-burst1,940GZZLUPAC-access-in,entry,,False,141796,0
+PAC-s1-boff-q200-burst1,940GZZLUPAC-access-out,exit,,True,136183,0
+PAC-s1-boff-q200-burst1,940GZZLUPAC-access-out,exit,Junction traffic,True,11550,0
+PAC-s1-boff-q200-burst1,940GZZLUPAC-access-out,exit,Pod ahead,True,2112,0
+PAC-s1-boff-q200-burst1,940GZZLUPAC-road-in-01,approach,,False,10190,0
+PAC-s1-boff-q200-burst1,940GZZLUPAC-road-in-02,approach,,False,2811,0
+PAC-s1-boff-q200-burst1,940GZZLUPAC-road-in-03,approach,,False,98602,0
+PAC-s1-boff-q200-burst1,940GZZLUPAC-road-in-04,approach,,False,1880,0
+PAC-s1-boff-q200-burst1,940GZZLUPAC-road-in-05,approach,,False,1784,0
+PAC-s1-boff-q200-burst1,940GZZLUPAC-road-in-05,approach,Junction traffic,False,5889,5138
+PAC-s1-boff-q200-burst1,940GZZLUPAC-road-in-05,approach,Pod ahead,False,409,312
+PAC-s1-boff-q200-burst1,940GZZLUPAC-road-out-01,exit,,True,19647,0
+PAC-s1-boff-q200-burst1,940GZZLUPAC-road-out-02,exit,,True,6000,0
+PAC-s1-boff-q200-burst1,940GZZLUPAC-road-out-03,exit,,True,38286,0
+PAC-s1-boff-q200-burst1,940GZZLUPAC-road-out-04,exit,,True,2518,0
+PAC-s1-boff-q200-burst1,940GZZLUPAC-road-out-05,exit,,True,1826,0
+PAC-s1-boff-q200-burst1,london-link-040-ab-2,upstream-mainline,,False,71751,17
+PAC-s1-boff-q200-burst1,london-link-040-ab-2,upstream-mainline,Junction traffic,False,74737,63909
+PAC-s1-boff-q200-burst1,london-link-040-ab-2,upstream-mainline,Pod ahead,False,91608,65931
+PAC-s1-boff-q200-burst1,london-link-066-ab-2,upstream-mainline,,False,6149,0
+PAC-s1-boff-q200-burst1,london-link-066-ab-2,upstream-mainline,Junction traffic,False,9138,7414
+PAC-s1-boff-q200-burst1,london-link-066-ab-2,upstream-mainline,Pod ahead,False,675,520
+PAC-s1-boff-q200-burst1,london-link-067-ab-2,upstream-mainline,,False,216984,3242
+PAC-s1-boff-q200-burst1,london-link-067-ab-2,upstream-mainline,Junction traffic,False,168431,135690
+PAC-s1-boff-q200-burst1,london-link-067-ab-2,upstream-mainline,Pod ahead,False,2683962,1844747
+PAC-s1-boff-q200-burst1,london-link-116-ba-2,upstream-mainline,,False,5168,0
+PAC-s1-boff-q200-burst1,london-link-116-ba-2,upstream-mainline,Junction traffic,False,13515,11971
+PAC-s1-boff-q200-burst1,london-link-116-ba-2,upstream-mainline,Pod ahead,False,935,779
+PAC-s1-boff-q200-burst1,london-link-117-ba-2,upstream-mainline,,False,3597,0
+PAC-s1-boff-q200-burst120,940GZZLUPAC-01-arrival-link,berth-access,,False,90139,0
+PAC-s1-boff-q200-burst120,940GZZLUPAC-01-departure-link,departure,,True,86516,0
+PAC-s1-boff-q200-burst120,940GZZLUPAC-01-departure-link,departure,Junction traffic,True,2424,0
+PAC-s1-boff-q200-burst120,940GZZLUPAC-01-departure-link,departure,Pod ahead,True,3167,0
+PAC-s1-boff-q200-burst120,940GZZLUPAC-01-in,berth-access,,False,74773,92
+PAC-s1-boff-q200-burst120,940GZZLUPAC-01-in,berth-access,Berth occupied,False,1487,0
+PAC-s1-boff-q200-burst120,940GZZLUPAC-01-in,berth-access,Junction traffic,False,644,0
+PAC-s1-boff-q200-burst120,940GZZLUPAC-01-out,departure,,True,69833,0
+PAC-s1-boff-q200-burst120,940GZZLUPAC-01-out,departure,Junction traffic,True,10645,0
+PAC-s1-boff-q200-burst120,940GZZLUPAC-01-out,departure,Pod ahead,True,3613,0
+PAC-s1-boff-q200-burst120,940GZZLUPAC-02-arrival-link,berth-access,,False,37351,0
+PAC-s1-boff-q200-burst120,940GZZLUPAC-02-departure-link,departure,,True,37006,0
+PAC-s1-boff-q200-burst120,940GZZLUPAC-02-departure-link,departure,Junction traffic,True,792,0
+PAC-s1-boff-q200-burst120,940GZZLUPAC-02-departure-link,departure,Pod ahead,True,184,51
+PAC-s1-boff-q200-burst120,940GZZLUPAC-02-in,berth-access,,False,72802,12
+PAC-s1-boff-q200-burst120,940GZZLUPAC-02-in,berth-access,Berth occupied,False,2525,30
+PAC-s1-boff-q200-burst120,940GZZLUPAC-02-in,berth-access,Junction traffic,False,1161,92
+PAC-s1-boff-q200-burst120,940GZZLUPAC-02-out,departure,,True,74008,0
+PAC-s1-boff-q200-burst120,940GZZLUPAC-access-in,entry,,False,139415,0
+PAC-s1-boff-q200-burst120,940GZZLUPAC-access-out,exit,,True,132496,0
+PAC-s1-boff-q200-burst120,940GZZLUPAC-access-out,exit,Junction traffic,True,13941,0
+PAC-s1-boff-q200-burst120,940GZZLUPAC-access-out,exit,Pod ahead,True,2590,0
+PAC-s1-boff-q200-burst120,940GZZLUPAC-road-in-01,approach,,False,9747,0
+PAC-s1-boff-q200-burst120,940GZZLUPAC-road-in-02,approach,,False,2811,0
+PAC-s1-boff-q200-burst120,940GZZLUPAC-road-in-03,approach,,False,97559,0
+PAC-s1-boff-q200-burst120,940GZZLUPAC-road-in-04,approach,,False,1868,0
+PAC-s1-boff-q200-burst120,940GZZLUPAC-road-in-05,approach,,False,1782,0
+PAC-s1-boff-q200-burst120,940GZZLUPAC-road-in-05,approach,Junction traffic,False,11150,9930
+PAC-s1-boff-q200-burst120,940GZZLUPAC-road-in-05,approach,Pod ahead,False,727,675
+PAC-s1-boff-q200-burst120,940GZZLUPAC-road-out-01,exit,,True,19628,0
+PAC-s1-boff-q200-burst120,940GZZLUPAC-road-out-01,exit,Junction traffic,True,464,40
+PAC-s1-boff-q200-burst120,940GZZLUPAC-road-out-01,exit,Pod ahead,True,52,52
+PAC-s1-boff-q200-burst120,940GZZLUPAC-road-out-02,exit,,True,5732,0
+PAC-s1-boff-q200-burst120,940GZZLUPAC-road-out-03,exit,,True,37623,0
+PAC-s1-boff-q200-burst120,940GZZLUPAC-road-out-04,exit,,True,2520,0
+PAC-s1-boff-q200-burst120,940GZZLUPAC-road-out-05,exit,,True,1826,0
+PAC-s1-boff-q200-burst120,london-link-040-ab-2,upstream-mainline,,False,67817,88
+PAC-s1-boff-q200-burst120,london-link-040-ab-2,upstream-mainline,Junction traffic,False,76192,65529
+PAC-s1-boff-q200-burst120,london-link-040-ab-2,upstream-mainline,Pod ahead,False,154082,110246
+PAC-s1-boff-q200-burst120,london-link-066-ab-2,upstream-mainline,,False,6158,0
+PAC-s1-boff-q200-burst120,london-link-066-ab-2,upstream-mainline,Junction traffic,False,14392,12562
+PAC-s1-boff-q200-burst120,london-link-066-ab-2,upstream-mainline,Pod ahead,False,987,832
+PAC-s1-boff-q200-burst120,london-link-067-ab-2,upstream-mainline,,False,216711,3884
+PAC-s1-boff-q200-burst120,london-link-067-ab-2,upstream-mainline,Junction traffic,False,171972,138955
+PAC-s1-boff-q200-burst120,london-link-067-ab-2,upstream-mainline,Pod ahead,False,2955259,2071275
+PAC-s1-boff-q200-burst120,london-link-116-ba-2,upstream-mainline,,False,5076,0
+PAC-s1-boff-q200-burst120,london-link-116-ba-2,upstream-mainline,Junction traffic,False,15290,13947
+PAC-s1-boff-q200-burst120,london-link-116-ba-2,upstream-mainline,Pod ahead,False,1039,884
+PAC-s1-boff-q200-burst120,london-link-117-ba-2,upstream-mainline,,False,3597,0
+PAC-s1-boff-q1000000-burst1,940GZZLUPAC-01-arrival-link,berth-access,,False,91682,0
+PAC-s1-boff-q1000000-burst1,940GZZLUPAC-01-departure-link,departure,,True,88000,0
+PAC-s1-boff-q1000000-burst1,940GZZLUPAC-01-departure-link,departure,Junction traffic,True,2657,0
+PAC-s1-boff-q1000000-burst1,940GZZLUPAC-01-departure-link,departure,Pod ahead,True,2939,0
+PAC-s1-boff-q1000000-burst1,940GZZLUPAC-01-in,berth-access,,False,74527,91
+PAC-s1-boff-q1000000-burst1,940GZZLUPAC-01-in,berth-access,Berth occupied,False,2953,31
+PAC-s1-boff-q1000000-burst1,940GZZLUPAC-01-in,berth-access,Junction traffic,False,1349,92
+PAC-s1-boff-q1000000-burst1,940GZZLUPAC-01-out,departure,,True,70476,0
+PAC-s1-boff-q1000000-burst1,940GZZLUPAC-01-out,departure,Junction traffic,True,8084,0
+PAC-s1-boff-q1000000-burst1,940GZZLUPAC-01-out,departure,Pod ahead,True,3220,0
+PAC-s1-boff-q1000000-burst1,940GZZLUPAC-02-arrival-link,berth-access,,False,38314,0
+PAC-s1-boff-q1000000-burst1,940GZZLUPAC-02-departure-link,departure,,True,38161,0
+PAC-s1-boff-q1000000-burst1,940GZZLUPAC-02-departure-link,departure,Junction traffic,True,814,0
+PAC-s1-boff-q1000000-burst1,940GZZLUPAC-02-departure-link,departure,Pod ahead,True,104,70
+PAC-s1-boff-q1000000-burst1,940GZZLUPAC-02-in,berth-access,,False,74327,11
+PAC-s1-boff-q1000000-burst1,940GZZLUPAC-02-in,berth-access,Berth occupied,False,2133,0
+PAC-s1-boff-q1000000-burst1,940GZZLUPAC-02-in,berth-access,Junction traffic,False,1349,0
+PAC-s1-boff-q1000000-burst1,940GZZLUPAC-02-out,departure,,True,75922,0
+PAC-s1-boff-q1000000-burst1,940GZZLUPAC-access-in,entry,,False,141796,0
+PAC-s1-boff-q1000000-burst1,940GZZLUPAC-access-out,exit,,True,136183,0
+PAC-s1-boff-q1000000-burst1,940GZZLUPAC-access-out,exit,Junction traffic,True,11550,0
+PAC-s1-boff-q1000000-burst1,940GZZLUPAC-access-out,exit,Pod ahead,True,2112,0
+PAC-s1-boff-q1000000-burst1,940GZZLUPAC-road-in-01,approach,,False,10190,0
+PAC-s1-boff-q1000000-burst1,940GZZLUPAC-road-in-02,approach,,False,2811,0
+PAC-s1-boff-q1000000-burst1,940GZZLUPAC-road-in-03,approach,,False,98602,0
+PAC-s1-boff-q1000000-burst1,940GZZLUPAC-road-in-04,approach,,False,1880,0
+PAC-s1-boff-q1000000-burst1,940GZZLUPAC-road-in-05,approach,,False,1784,0
+PAC-s1-boff-q1000000-burst1,940GZZLUPAC-road-in-05,approach,Junction traffic,False,5889,5138
+PAC-s1-boff-q1000000-burst1,940GZZLUPAC-road-in-05,approach,Pod ahead,False,409,312
+PAC-s1-boff-q1000000-burst1,940GZZLUPAC-road-out-01,exit,,True,19647,0
+PAC-s1-boff-q1000000-burst1,940GZZLUPAC-road-out-02,exit,,True,6000,0
+PAC-s1-boff-q1000000-burst1,940GZZLUPAC-road-out-03,exit,,True,38286,0
+PAC-s1-boff-q1000000-burst1,940GZZLUPAC-road-out-04,exit,,True,2518,0
+PAC-s1-boff-q1000000-burst1,940GZZLUPAC-road-out-05,exit,,True,1826,0
+PAC-s1-boff-q1000000-burst1,london-link-040-ab-2,upstream-mainline,,False,71751,17
+PAC-s1-boff-q1000000-burst1,london-link-040-ab-2,upstream-mainline,Junction traffic,False,74737,63909
+PAC-s1-boff-q1000000-burst1,london-link-040-ab-2,upstream-mainline,Pod ahead,False,91608,65931
+PAC-s1-boff-q1000000-burst1,london-link-066-ab-2,upstream-mainline,,False,6149,0
+PAC-s1-boff-q1000000-burst1,london-link-066-ab-2,upstream-mainline,Junction traffic,False,9138,7414
+PAC-s1-boff-q1000000-burst1,london-link-066-ab-2,upstream-mainline,Pod ahead,False,675,520
+PAC-s1-boff-q1000000-burst1,london-link-067-ab-2,upstream-mainline,,False,216984,3242
+PAC-s1-boff-q1000000-burst1,london-link-067-ab-2,upstream-mainline,Junction traffic,False,168431,135690
+PAC-s1-boff-q1000000-burst1,london-link-067-ab-2,upstream-mainline,Pod ahead,False,2683962,1844747
+PAC-s1-boff-q1000000-burst1,london-link-116-ba-2,upstream-mainline,,False,5168,0
+PAC-s1-boff-q1000000-burst1,london-link-116-ba-2,upstream-mainline,Junction traffic,False,13515,11971
+PAC-s1-boff-q1000000-burst1,london-link-116-ba-2,upstream-mainline,Pod ahead,False,935,779
+PAC-s1-boff-q1000000-burst1,london-link-117-ba-2,upstream-mainline,,False,3597,0
+PAC-s1-boff-q1000000-burst120,940GZZLUPAC-01-arrival-link,berth-access,,False,91681,0
+PAC-s1-boff-q1000000-burst120,940GZZLUPAC-01-departure-link,departure,,True,88066,0
+PAC-s1-boff-q1000000-burst120,940GZZLUPAC-01-departure-link,departure,Junction traffic,True,2404,0
+PAC-s1-boff-q1000000-burst120,940GZZLUPAC-01-departure-link,departure,Pod ahead,True,3185,0
+PAC-s1-boff-q1000000-burst120,940GZZLUPAC-01-in,berth-access,,False,76058,93
+PAC-s1-boff-q1000000-burst120,940GZZLUPAC-01-in,berth-access,Berth occupied,False,1487,0
+PAC-s1-boff-q1000000-burst120,940GZZLUPAC-01-in,berth-access,Junction traffic,False,644,0
+PAC-s1-boff-q1000000-burst120,940GZZLUPAC-01-out,departure,,True,71146,0
+PAC-s1-boff-q1000000-burst120,940GZZLUPAC-01-out,departure,Junction traffic,True,10525,0
+PAC-s1-boff-q1000000-burst120,940GZZLUPAC-01-out,departure,Pod ahead,True,3597,0
+PAC-s1-boff-q1000000-burst120,940GZZLUPAC-02-arrival-link,berth-access,,False,37995,0
+PAC-s1-boff-q1000000-burst120,940GZZLUPAC-02-departure-link,departure,,True,37629,0
+PAC-s1-boff-q1000000-burst120,940GZZLUPAC-02-departure-link,departure,Junction traffic,True,1209,0
+PAC-s1-boff-q1000000-burst120,940GZZLUPAC-02-departure-link,departure,Pod ahead,True,236,96
+PAC-s1-boff-q1000000-burst120,940GZZLUPAC-02-in,berth-access,,False,74086,13
+PAC-s1-boff-q1000000-burst120,940GZZLUPAC-02-in,berth-access,Berth occupied,False,2525,30
+PAC-s1-boff-q1000000-burst120,940GZZLUPAC-02-in,berth-access,Junction traffic,False,1161,92
+PAC-s1-boff-q1000000-burst120,940GZZLUPAC-02-out,departure,,True,75284,0
+PAC-s1-boff-q1000000-burst120,940GZZLUPAC-access-in,entry,,False,141797,0
+PAC-s1-boff-q1000000-burst120,940GZZLUPAC-access-out,exit,,True,134747,0
+PAC-s1-boff-q1000000-burst120,940GZZLUPAC-access-out,exit,Junction traffic,True,14159,0
+PAC-s1-boff-q1000000-burst120,940GZZLUPAC-access-out,exit,Pod ahead,True,2594,0
+PAC-s1-boff-q1000000-burst120,940GZZLUPAC-road-in-01,approach,,False,10223,0
+PAC-s1-boff-q1000000-burst120,940GZZLUPAC-road-in-02,approach,,False,2811,0
+PAC-s1-boff-q1000000-burst120,940GZZLUPAC-road-in-03,approach,,False,98637,0
+PAC-s1-boff-q1000000-burst120,940GZZLUPAC-road-in-04,approach,,False,1868,0
+PAC-s1-boff-q1000000-burst120,940GZZLUPAC-road-in-05,approach,,False,1782,0
+PAC-s1-boff-q1000000-burst120,940GZZLUPAC-road-in-05,approach,Junction traffic,False,11150,9930
+PAC-s1-boff-q1000000-burst120,940GZZLUPAC-road-in-05,approach,Pod ahead,False,727,675
+PAC-s1-boff-q1000000-burst120,940GZZLUPAC-road-out-01,exit,,True,19471,0
+PAC-s1-boff-q1000000-burst120,940GZZLUPAC-road-out-01,exit,Junction traffic,True,789,233
+PAC-s1-boff-q1000000-burst120,940GZZLUPAC-road-out-01,exit,Pod ahead,True,155,52
+PAC-s1-boff-q1000000-burst120,940GZZLUPAC-road-out-02,exit,,True,6000,0
+PAC-s1-boff-q1000000-burst120,940GZZLUPAC-road-out-03,exit,,True,38285,0
+PAC-s1-boff-q1000000-burst120,940GZZLUPAC-road-out-04,exit,,True,2520,0
+PAC-s1-boff-q1000000-burst120,940GZZLUPAC-road-out-05,exit,,True,1826,0
+PAC-s1-boff-q1000000-burst120,london-link-040-ab-2,upstream-mainline,,False,71163,88
+PAC-s1-boff-q1000000-burst120,london-link-040-ab-2,upstream-mainline,Junction traffic,False,79234,68005
+PAC-s1-boff-q1000000-burst120,london-link-040-ab-2,upstream-mainline,Pod ahead,False,155690,110951
+PAC-s1-boff-q1000000-burst120,london-link-066-ab-2,upstream-mainline,,False,6254,0
+PAC-s1-boff-q1000000-burst120,london-link-066-ab-2,upstream-mainline,Junction traffic,False,14154,12562
+PAC-s1-boff-q1000000-burst120,london-link-066-ab-2,upstream-mainline,Pod ahead,False,936,832
+PAC-s1-boff-q1000000-burst120,london-link-067-ab-2,upstream-mainline,,False,217369,3889
+PAC-s1-boff-q1000000-burst120,london-link-067-ab-2,upstream-mainline,Junction traffic,False,174876,141608
+PAC-s1-boff-q1000000-burst120,london-link-067-ab-2,upstream-mainline,Pod ahead,False,3012749,2118157
+PAC-s1-boff-q1000000-burst120,london-link-116-ba-2,upstream-mainline,,False,5076,0
+PAC-s1-boff-q1000000-burst120,london-link-116-ba-2,upstream-mainline,Junction traffic,False,15290,13947
+PAC-s1-boff-q1000000-burst120,london-link-116-ba-2,upstream-mainline,Pod ahead,False,1039,884
+PAC-s1-boff-q1000000-burst120,london-link-117-ba-2,upstream-mainline,,False,3597,0
+PAC-s1-bon-q200-burst1,940GZZLUPAC-01-arrival-link,berth-access,,False,92820,0
+PAC-s1-bon-q200-burst1,940GZZLUPAC-01-departure-link,departure,,True,88470,0
+PAC-s1-bon-q200-burst1,940GZZLUPAC-01-departure-link,departure,Junction traffic,True,1977,0
+PAC-s1-bon-q200-burst1,940GZZLUPAC-01-departure-link,departure,Pod ahead,True,3303,0
+PAC-s1-bon-q200-burst1,940GZZLUPAC-01-in,berth-access,,False,77104,66
+PAC-s1-bon-q200-burst1,940GZZLUPAC-01-out,departure,,True,69502,0
+PAC-s1-bon-q200-burst1,940GZZLUPAC-01-out,departure,Junction traffic,True,17431,0
+PAC-s1-bon-q200-burst1,940GZZLUPAC-01-out,departure,Pod ahead,True,5110,19
+PAC-s1-bon-q200-burst1,940GZZLUPAC-02-arrival-link,berth-access,,False,37939,0
+PAC-s1-bon-q200-burst1,940GZZLUPAC-02-departure-link,departure,,True,37878,0
+PAC-s1-bon-q200-burst1,940GZZLUPAC-02-in,berth-access,,False,75761,8
+PAC-s1-bon-q200-burst1,940GZZLUPAC-02-out,departure,,True,75284,0
+PAC-s1-bon-q200-burst1,940GZZLUPAC-access-in,entry,,False,131877,0
+PAC-s1-bon-q200-burst1,940GZZLUPAC-access-in,entry,Berth occupied,False,57065,24232
+PAC-s1-bon-q200-burst1,940GZZLUPAC-access-in,entry,Pod ahead,False,26190,4354
+PAC-s1-bon-q200-burst1,940GZZLUPAC-access-out,exit,,True,132787,0
+PAC-s1-bon-q200-burst1,940GZZLUPAC-access-out,exit,Junction traffic,True,16479,0
+PAC-s1-bon-q200-burst1,940GZZLUPAC-access-out,exit,Pod ahead,True,3060,0
+PAC-s1-bon-q200-burst1,940GZZLUPAC-road-in-01,approach,,False,9964,0
+PAC-s1-bon-q200-burst1,940GZZLUPAC-road-in-02,approach,,False,2811,0
+PAC-s1-bon-q200-burst1,940GZZLUPAC-road-in-03,approach,,False,99165,0
+PAC-s1-bon-q200-burst1,940GZZLUPAC-road-in-04,approach,,False,1880,0
+PAC-s1-bon-q200-burst1,940GZZLUPAC-road-in-05,approach,,False,1784,0
+PAC-s1-bon-q200-burst1,940GZZLUPAC-road-in-05,approach,Junction traffic,False,3661,2813
+PAC-s1-bon-q200-burst1,940GZZLUPAC-road-in-05,approach,Pod ahead,False,886,886
+PAC-s1-bon-q200-burst1,940GZZLUPAC-road-out-01,exit,,True,19648,0
+PAC-s1-bon-q200-burst1,940GZZLUPAC-road-out-02,exit,,True,6006,0
+PAC-s1-bon-q200-burst1,940GZZLUPAC-road-out-03,exit,,True,38315,0
+PAC-s1-bon-q200-burst1,940GZZLUPAC-road-out-04,exit,,True,2518,0
+PAC-s1-bon-q200-burst1,940GZZLUPAC-road-out-05,exit,,True,1827,0
+PAC-s1-bon-q200-burst1,london-link-040-ab-2,upstream-mainline,,False,68611,24
+PAC-s1-bon-q200-burst1,london-link-040-ab-2,upstream-mainline,Junction traffic,False,71839,62889
+PAC-s1-bon-q200-burst1,london-link-040-ab-2,upstream-mainline,Pod ahead,False,184644,145977
+PAC-s1-bon-q200-burst1,london-link-066-ab-2,upstream-mainline,,False,7145,0
+PAC-s1-bon-q200-burst1,london-link-066-ab-2,upstream-mainline,Junction traffic,False,7812,6466
+PAC-s1-bon-q200-burst1,london-link-066-ab-2,upstream-mainline,Pod ahead,False,2142,1452
+PAC-s1-bon-q200-burst1,london-link-067-ab-2,upstream-mainline,,False,225980,3882
+PAC-s1-bon-q200-burst1,london-link-067-ab-2,upstream-mainline,Junction traffic,False,171607,138051
+PAC-s1-bon-q200-burst1,london-link-067-ab-2,upstream-mainline,Pod ahead,False,3364614,2482923
+PAC-s1-bon-q200-burst1,london-link-116-ba-2,upstream-mainline,,False,5168,0
+PAC-s1-bon-q200-burst1,london-link-116-ba-2,upstream-mainline,Junction traffic,False,12207,10721
+PAC-s1-bon-q200-burst1,london-link-116-ba-2,upstream-mainline,Pod ahead,False,2984,2770
+PAC-s1-bon-q200-burst1,london-link-117-ba-2,upstream-mainline,,False,3597,0
+PAC-s1-bon-q200-burst120,940GZZLUPAC-01-arrival-link,berth-access,,False,89207,0
+PAC-s1-bon-q200-burst120,940GZZLUPAC-01-departure-link,departure,,True,85217,0
+PAC-s1-bon-q200-burst120,940GZZLUPAC-01-departure-link,departure,Junction traffic,True,1940,0
+PAC-s1-bon-q200-burst120,940GZZLUPAC-01-departure-link,departure,Pod ahead,True,2946,0
+PAC-s1-bon-q200-burst120,940GZZLUPAC-01-in,berth-access,,False,73900,72
+PAC-s1-bon-q200-burst120,940GZZLUPAC-01-out,departure,,True,66922,0
+PAC-s1-bon-q200-burst120,940GZZLUPAC-01-out,departure,Junction traffic,True,14169,0
+PAC-s1-bon-q200-burst120,940GZZLUPAC-01-out,departure,Pod ahead,True,4567,7
+PAC-s1-bon-q200-burst120,940GZZLUPAC-02-arrival-link,berth-access,,False,36660,0
+PAC-s1-bon-q200-burst120,940GZZLUPAC-02-departure-link,departure,,True,36594,0
+PAC-s1-bon-q200-burst120,940GZZLUPAC-02-in,berth-access,,False,73190,3
+PAC-s1-bon-q200-burst120,940GZZLUPAC-02-out,departure,,True,72732,0
+PAC-s1-bon-q200-burst120,940GZZLUPAC-access-in,entry,,False,126605,0
+PAC-s1-bon-q200-burst120,940GZZLUPAC-access-in,entry,Berth occupied,False,51365,24309
+PAC-s1-bon-q200-burst120,940GZZLUPAC-access-in,entry,Pod ahead,False,34252,7560
+PAC-s1-bon-q200-burst120,940GZZLUPAC-access-out,exit,,True,126961,0
+PAC-s1-bon-q200-burst120,940GZZLUPAC-access-out,exit,Junction traffic,True,16879,0
+PAC-s1-bon-q200-burst120,940GZZLUPAC-access-out,exit,Pod ahead,True,3468,0
+PAC-s1-bon-q200-burst120,940GZZLUPAC-road-in-01,approach,,False,9282,0
+PAC-s1-bon-q200-burst120,940GZZLUPAC-road-in-02,approach,,False,2246,0
+PAC-s1-bon-q200-burst120,940GZZLUPAC-road-in-03,approach,,False,96481,0
+PAC-s1-bon-q200-burst120,940GZZLUPAC-road-in-04,approach,,False,1876,0
+PAC-s1-bon-q200-burst120,940GZZLUPAC-road-in-05,approach,,False,1782,0
+PAC-s1-bon-q200-burst120,940GZZLUPAC-road-in-05,approach,Junction traffic,False,11046,10010
+PAC-s1-bon-q200-burst120,940GZZLUPAC-road-in-05,approach,Pod ahead,False,3079,2843
+PAC-s1-bon-q200-burst120,940GZZLUPAC-road-out-01,exit,,True,19116,0
+PAC-s1-bon-q200-burst120,940GZZLUPAC-road-out-02,exit,,True,5739,0
+PAC-s1-bon-q200-burst120,940GZZLUPAC-road-out-03,exit,,True,36982,0
+PAC-s1-bon-q200-burst120,940GZZLUPAC-road-out-04,exit,,True,2520,0
+PAC-s1-bon-q200-burst120,940GZZLUPAC-road-out-05,exit,,True,1218,0
+PAC-s1-bon-q200-burst120,london-link-040-ab-2,upstream-mainline,,False,67081,164
+PAC-s1-bon-q200-burst120,london-link-040-ab-2,upstream-mainline,Junction traffic,False,68037,58046
+PAC-s1-bon-q200-burst120,london-link-040-ab-2,upstream-mainline,Pod ahead,False,203395,153487
+PAC-s1-bon-q200-burst120,london-link-066-ab-2,upstream-mainline,,False,6270,0
+PAC-s1-bon-q200-burst120,london-link-066-ab-2,upstream-mainline,Junction traffic,False,9549,8436
+PAC-s1-bon-q200-burst120,london-link-066-ab-2,upstream-mainline,Pod ahead,False,2117,1958
+PAC-s1-bon-q200-burst120,london-link-067-ab-2,upstream-mainline,,False,232407,25636
+PAC-s1-bon-q200-burst120,london-link-067-ab-2,upstream-mainline,Junction traffic,False,169085,138109
+PAC-s1-bon-q200-burst120,london-link-067-ab-2,upstream-mainline,Pod ahead,False,3382843,2498673
+PAC-s1-bon-q200-burst120,london-link-116-ba-2,upstream-mainline,,False,5108,0
+PAC-s1-bon-q200-burst120,london-link-116-ba-2,upstream-mainline,Junction traffic,False,10502,9399
+PAC-s1-bon-q200-burst120,london-link-116-ba-2,upstream-mainline,Pod ahead,False,3394,2879
+PAC-s1-bon-q200-burst120,london-link-117-ba-2,upstream-mainline,,False,3597,0
+PAC-s1-bon-q1000000-burst1,940GZZLUPAC-01-arrival-link,berth-access,,False,92820,0
+PAC-s1-bon-q1000000-burst1,940GZZLUPAC-01-departure-link,departure,,True,88470,0
+PAC-s1-bon-q1000000-burst1,940GZZLUPAC-01-departure-link,departure,Junction traffic,True,1977,0
+PAC-s1-bon-q1000000-burst1,940GZZLUPAC-01-departure-link,departure,Pod ahead,True,3303,0
+PAC-s1-bon-q1000000-burst1,940GZZLUPAC-01-in,berth-access,,False,77104,66
+PAC-s1-bon-q1000000-burst1,940GZZLUPAC-01-out,departure,,True,69502,0
+PAC-s1-bon-q1000000-burst1,940GZZLUPAC-01-out,departure,Junction traffic,True,17431,0
+PAC-s1-bon-q1000000-burst1,940GZZLUPAC-01-out,departure,Pod ahead,True,5110,19
+PAC-s1-bon-q1000000-burst1,940GZZLUPAC-02-arrival-link,berth-access,,False,37939,0
+PAC-s1-bon-q1000000-burst1,940GZZLUPAC-02-departure-link,departure,,True,37878,0
+PAC-s1-bon-q1000000-burst1,940GZZLUPAC-02-in,berth-access,,False,75761,8
+PAC-s1-bon-q1000000-burst1,940GZZLUPAC-02-out,departure,,True,75284,0
+PAC-s1-bon-q1000000-burst1,940GZZLUPAC-access-in,entry,,False,131877,0
+PAC-s1-bon-q1000000-burst1,940GZZLUPAC-access-in,entry,Berth occupied,False,57065,24232
+PAC-s1-bon-q1000000-burst1,940GZZLUPAC-access-in,entry,Pod ahead,False,26190,4354
+PAC-s1-bon-q1000000-burst1,940GZZLUPAC-access-out,exit,,True,132787,0
+PAC-s1-bon-q1000000-burst1,940GZZLUPAC-access-out,exit,Junction traffic,True,16479,0
+PAC-s1-bon-q1000000-burst1,940GZZLUPAC-access-out,exit,Pod ahead,True,3060,0
+PAC-s1-bon-q1000000-burst1,940GZZLUPAC-road-in-01,approach,,False,9964,0
+PAC-s1-bon-q1000000-burst1,940GZZLUPAC-road-in-02,approach,,False,2811,0
+PAC-s1-bon-q1000000-burst1,940GZZLUPAC-road-in-03,approach,,False,99165,0
+PAC-s1-bon-q1000000-burst1,940GZZLUPAC-road-in-04,approach,,False,1880,0
+PAC-s1-bon-q1000000-burst1,940GZZLUPAC-road-in-05,approach,,False,1784,0
+PAC-s1-bon-q1000000-burst1,940GZZLUPAC-road-in-05,approach,Junction traffic,False,3661,2813
+PAC-s1-bon-q1000000-burst1,940GZZLUPAC-road-in-05,approach,Pod ahead,False,886,886
+PAC-s1-bon-q1000000-burst1,940GZZLUPAC-road-out-01,exit,,True,19648,0
+PAC-s1-bon-q1000000-burst1,940GZZLUPAC-road-out-02,exit,,True,6006,0
+PAC-s1-bon-q1000000-burst1,940GZZLUPAC-road-out-03,exit,,True,38315,0
+PAC-s1-bon-q1000000-burst1,940GZZLUPAC-road-out-04,exit,,True,2518,0
+PAC-s1-bon-q1000000-burst1,940GZZLUPAC-road-out-05,exit,,True,1827,0
+PAC-s1-bon-q1000000-burst1,london-link-040-ab-2,upstream-mainline,,False,68611,24
+PAC-s1-bon-q1000000-burst1,london-link-040-ab-2,upstream-mainline,Junction traffic,False,71839,62889
+PAC-s1-bon-q1000000-burst1,london-link-040-ab-2,upstream-mainline,Pod ahead,False,184644,145977
+PAC-s1-bon-q1000000-burst1,london-link-066-ab-2,upstream-mainline,,False,7145,0
+PAC-s1-bon-q1000000-burst1,london-link-066-ab-2,upstream-mainline,Junction traffic,False,7812,6466
+PAC-s1-bon-q1000000-burst1,london-link-066-ab-2,upstream-mainline,Pod ahead,False,2142,1452
+PAC-s1-bon-q1000000-burst1,london-link-067-ab-2,upstream-mainline,,False,225980,3882
+PAC-s1-bon-q1000000-burst1,london-link-067-ab-2,upstream-mainline,Junction traffic,False,171607,138051
+PAC-s1-bon-q1000000-burst1,london-link-067-ab-2,upstream-mainline,Pod ahead,False,3364614,2482923
+PAC-s1-bon-q1000000-burst1,london-link-116-ba-2,upstream-mainline,,False,5168,0
+PAC-s1-bon-q1000000-burst1,london-link-116-ba-2,upstream-mainline,Junction traffic,False,12207,10721
+PAC-s1-bon-q1000000-burst1,london-link-116-ba-2,upstream-mainline,Pod ahead,False,2984,2770
+PAC-s1-bon-q1000000-burst1,london-link-117-ba-2,upstream-mainline,,False,3597,0
+PAC-s1-bon-q1000000-burst120,940GZZLUPAC-01-arrival-link,berth-access,,False,92677,0
+PAC-s1-bon-q1000000-burst120,940GZZLUPAC-01-departure-link,departure,,True,88392,0
+PAC-s1-bon-q1000000-burst120,940GZZLUPAC-01-departure-link,departure,Junction traffic,True,2073,0
+PAC-s1-bon-q1000000-burst120,940GZZLUPAC-01-departure-link,departure,Pod ahead,True,3198,0
+PAC-s1-bon-q1000000-burst120,940GZZLUPAC-01-in,berth-access,,False,76470,74
+PAC-s1-bon-q1000000-burst120,940GZZLUPAC-01-out,departure,,True,69001,0
+PAC-s1-bon-q1000000-burst120,940GZZLUPAC-01-out,departure,Junction traffic,True,14727,0
+PAC-s1-bon-q1000000-burst120,940GZZLUPAC-01-out,departure,Pod ahead,True,4870,7
+PAC-s1-bon-q1000000-burst120,940GZZLUPAC-02-arrival-link,berth-access,,False,38267,0
+PAC-s1-bon-q1000000-burst120,940GZZLUPAC-02-departure-link,departure,,True,38199,0
+PAC-s1-bon-q1000000-burst120,940GZZLUPAC-02-in,berth-access,,False,76400,3
+PAC-s1-bon-q1000000-burst120,940GZZLUPAC-02-out,departure,,True,75922,0
+PAC-s1-bon-q1000000-burst120,940GZZLUPAC-access-in,entry,,False,131666,0
+PAC-s1-bon-q1000000-burst120,940GZZLUPAC-access-in,entry,Berth occupied,False,51843,24309
+PAC-s1-bon-q1000000-burst120,940GZZLUPAC-access-in,entry,Pod ahead,False,34252,7560
+PAC-s1-bon-q1000000-burst120,940GZZLUPAC-access-out,exit,,True,131961,0
+PAC-s1-bon-q1000000-burst120,940GZZLUPAC-access-out,exit,Junction traffic,True,17666,0
+PAC-s1-bon-q1000000-burst120,940GZZLUPAC-access-out,exit,Pod ahead,True,3570,0
+PAC-s1-bon-q1000000-burst120,940GZZLUPAC-road-in-01,approach,,False,9996,0
+PAC-s1-bon-q1000000-burst120,940GZZLUPAC-road-in-02,approach,,False,2811,0
+PAC-s1-bon-q1000000-burst120,940GZZLUPAC-road-in-03,approach,,False,99176,0
+PAC-s1-bon-q1000000-burst120,940GZZLUPAC-road-in-04,approach,,False,1876,0
+PAC-s1-bon-q1000000-burst120,940GZZLUPAC-road-in-05,approach,,False,1782,0
+PAC-s1-bon-q1000000-burst120,940GZZLUPAC-road-in-05,approach,Junction traffic,False,11046,10010
+PAC-s1-bon-q1000000-burst120,940GZZLUPAC-road-in-05,approach,Pod ahead,False,3079,2843
+PAC-s1-bon-q1000000-burst120,940GZZLUPAC-road-out-01,exit,,True,19648,0
+PAC-s1-bon-q1000000-burst120,940GZZLUPAC-road-out-02,exit,,True,6000,0
+PAC-s1-bon-q1000000-burst120,940GZZLUPAC-road-out-03,exit,,True,38321,0
+PAC-s1-bon-q1000000-burst120,940GZZLUPAC-road-out-04,exit,,True,2520,0
+PAC-s1-bon-q1000000-burst120,940GZZLUPAC-road-out-05,exit,,True,1827,0
+PAC-s1-bon-q1000000-burst120,london-link-040-ab-2,upstream-mainline,,False,72162,164
+PAC-s1-bon-q1000000-burst120,london-link-040-ab-2,upstream-mainline,Junction traffic,False,79320,68510
+PAC-s1-bon-q1000000-burst120,london-link-040-ab-2,upstream-mainline,Pod ahead,False,206620,155639
+PAC-s1-bon-q1000000-burst120,london-link-066-ab-2,upstream-mainline,,False,7307,0
+PAC-s1-bon-q1000000-burst120,london-link-066-ab-2,upstream-mainline,Junction traffic,False,11259,9722
+PAC-s1-bon-q1000000-burst120,london-link-066-ab-2,upstream-mainline,Pod ahead,False,2459,2300
+PAC-s1-bon-q1000000-burst120,london-link-067-ab-2,upstream-mainline,,False,236916,25713
+PAC-s1-bon-q1000000-burst120,london-link-067-ab-2,upstream-mainline,Junction traffic,False,175979,144138
+PAC-s1-bon-q1000000-burst120,london-link-067-ab-2,upstream-mainline,Pod ahead,False,3526290,2615289
+PAC-s1-bon-q1000000-burst120,london-link-116-ba-2,upstream-mainline,,False,5108,0
+PAC-s1-bon-q1000000-burst120,london-link-116-ba-2,upstream-mainline,Junction traffic,False,10502,9399
+PAC-s1-bon-q1000000-burst120,london-link-116-ba-2,upstream-mainline,Pod ahead,False,3394,2879
+PAC-s1-bon-q1000000-burst120,london-link-117-ba-2,upstream-mainline,,False,3597,0
+PAC-s2-boff-q200-burst1,940GZZLUPAC-01-arrival-link,berth-access,,False,91679,0
+PAC-s2-boff-q200-burst1,940GZZLUPAC-01-departure-link,departure,,True,88343,0
+PAC-s2-boff-q200-burst1,940GZZLUPAC-01-departure-link,departure,Junction traffic,True,2304,0
+PAC-s2-boff-q200-burst1,940GZZLUPAC-01-departure-link,departure,Pod ahead,True,2856,0
+PAC-s2-boff-q200-burst1,940GZZLUPAC-01-in,berth-access,,False,76346,95
+PAC-s2-boff-q200-burst1,940GZZLUPAC-01-in,berth-access,Berth occupied,False,1767,0
+PAC-s2-boff-q200-burst1,940GZZLUPAC-01-in,berth-access,Junction traffic,False,981,0
+PAC-s2-boff-q200-burst1,940GZZLUPAC-01-out,departure,,True,72249,0
+PAC-s2-boff-q200-burst1,940GZZLUPAC-01-out,departure,Junction traffic,True,8795,0
+PAC-s2-boff-q200-burst1,940GZZLUPAC-01-out,departure,Pod ahead,True,3176,13
+PAC-s2-boff-q200-burst1,940GZZLUPAC-02-arrival-link,berth-access,,False,37670,0
+PAC-s2-boff-q200-burst1,940GZZLUPAC-02-departure-link,departure,,True,37419,0
+PAC-s2-boff-q200-burst1,940GZZLUPAC-02-departure-link,departure,Junction traffic,True,678,0
+PAC-s2-boff-q200-burst1,940GZZLUPAC-02-departure-link,departure,Pod ahead,True,132,45
+PAC-s2-boff-q200-burst1,940GZZLUPAC-02-in,berth-access,,False,73245,10
+PAC-s2-boff-q200-burst1,940GZZLUPAC-02-in,berth-access,Berth occupied,False,2174,0
+PAC-s2-boff-q200-burst1,940GZZLUPAC-02-in,berth-access,Junction traffic,False,1292,0
+PAC-s2-boff-q200-burst1,940GZZLUPAC-02-out,departure,,True,74646,0
+PAC-s2-boff-q200-burst1,940GZZLUPAC-access-in,entry,,False,141799,0
+PAC-s2-boff-q200-burst1,940GZZLUPAC-access-out,exit,,True,135749,0
+PAC-s2-boff-q200-burst1,940GZZLUPAC-access-out,exit,Junction traffic,True,11392,0
+PAC-s2-boff-q200-burst1,940GZZLUPAC-access-out,exit,Pod ahead,True,2198,0
+PAC-s2-boff-q200-burst1,940GZZLUPAC-road-in-01,approach,,False,10190,0
+PAC-s2-boff-q200-burst1,940GZZLUPAC-road-in-02,approach,,False,2811,0
+PAC-s2-boff-q200-burst1,940GZZLUPAC-road-in-03,approach,,False,100219,0
+PAC-s2-boff-q200-burst1,940GZZLUPAC-road-in-04,approach,,False,470,0
+PAC-s2-boff-q200-burst1,940GZZLUPAC-road-in-05,approach,,False,1784,0
+PAC-s2-boff-q200-burst1,940GZZLUPAC-road-in-05,approach,Junction traffic,False,5873,5129
+PAC-s2-boff-q200-burst1,940GZZLUPAC-road-in-05,approach,Pod ahead,False,416,312
+PAC-s2-boff-q200-burst1,940GZZLUPAC-road-out-01,exit,,True,24957,0
+PAC-s2-boff-q200-burst1,940GZZLUPAC-road-out-02,exit,,True,3648,0
+PAC-s2-boff-q200-burst1,940GZZLUPAC-road-out-03,exit,,True,38480,0
+PAC-s2-boff-q200-burst1,940GZZLUPAC-road-out-04,exit,,True,630,0
+PAC-s2-boff-q200-burst1,940GZZLUPAC-road-out-05,exit,,True,2434,0
+PAC-s2-boff-q200-burst1,london-link-040-ab-2,upstream-mainline,,False,70880,10
+PAC-s2-boff-q200-burst1,london-link-040-ab-2,upstream-mainline,Junction traffic,False,77238,66922
+PAC-s2-boff-q200-burst1,london-link-040-ab-2,upstream-mainline,Pod ahead,False,101766,74768
+PAC-s2-boff-q200-burst1,london-link-066-ab-2,upstream-mainline,,False,6254,0
+PAC-s2-boff-q200-burst1,london-link-066-ab-2,upstream-mainline,Junction traffic,False,8525,6981
+PAC-s2-boff-q200-burst1,london-link-066-ab-2,upstream-mainline,Pod ahead,False,672,520
+PAC-s2-boff-q200-burst1,london-link-067-ab-2,upstream-mainline,,False,247261,3428
+PAC-s2-boff-q200-burst1,london-link-067-ab-2,upstream-mainline,Junction traffic,False,168929,134161
+PAC-s2-boff-q200-burst1,london-link-067-ab-2,upstream-mainline,Pod ahead,False,2544316,1716899
+PAC-s2-boff-q200-burst1,london-link-116-ba-2,upstream-mainline,,False,1292,0
+PAC-s2-boff-q200-burst1,london-link-116-ba-2,upstream-mainline,Junction traffic,False,526,101
+PAC-s2-boff-q200-burst1,london-link-116-ba-2,upstream-mainline,Pod ahead,False,51,51
+PAC-s2-boff-q200-burst1,london-link-117-ba-2,upstream-mainline,,False,3597,0
+PAC-s2-boff-q200-burst120,940GZZLUPAC-01-arrival-link,berth-access,,False,90523,0
+PAC-s2-boff-q200-burst120,940GZZLUPAC-01-departure-link,departure,,True,87046,0
+PAC-s2-boff-q200-burst120,940GZZLUPAC-01-departure-link,departure,Junction traffic,True,2344,0
+PAC-s2-boff-q200-burst120,940GZZLUPAC-01-departure-link,departure,Pod ahead,True,2995,0
+PAC-s2-boff-q200-burst120,940GZZLUPAC-01-in,berth-access,,False,74055,92
+PAC-s2-boff-q200-burst120,940GZZLUPAC-01-in,berth-access,Berth occupied,False,2842,39
+PAC-s2-boff-q200-burst120,940GZZLUPAC-01-in,berth-access,Junction traffic,False,1104,92
+PAC-s2-boff-q200-burst120,940GZZLUPAC-01-out,departure,,True,70042,0
+PAC-s2-boff-q200-burst120,940GZZLUPAC-01-out,departure,Junction traffic,True,9067,0
+PAC-s2-boff-q200-burst120,940GZZLUPAC-01-out,departure,Pod ahead,True,3415,0
+PAC-s2-boff-q200-burst120,940GZZLUPAC-02-arrival-link,berth-access,,False,37673,0
+PAC-s2-boff-q200-burst120,940GZZLUPAC-02-departure-link,departure,,True,37424,0
+PAC-s2-boff-q200-burst120,940GZZLUPAC-02-departure-link,departure,Junction traffic,True,695,0
+PAC-s2-boff-q200-burst120,940GZZLUPAC-02-departure-link,departure,Pod ahead,True,132,51
+PAC-s2-boff-q200-burst120,940GZZLUPAC-02-in,berth-access,,False,73687,13
+PAC-s2-boff-q200-burst120,940GZZLUPAC-02-in,berth-access,Berth occupied,False,1481,0
+PAC-s2-boff-q200-burst120,940GZZLUPAC-02-in,berth-access,Junction traffic,False,1016,0
+PAC-s2-boff-q200-burst120,940GZZLUPAC-02-out,departure,,True,74646,0
+PAC-s2-boff-q200-burst120,940GZZLUPAC-access-in,entry,,False,140012,0
+PAC-s2-boff-q200-burst120,940GZZLUPAC-access-out,exit,,True,134049,0
+PAC-s2-boff-q200-burst120,940GZZLUPAC-access-out,exit,Junction traffic,True,12559,0
+PAC-s2-boff-q200-burst120,940GZZLUPAC-access-out,exit,Pod ahead,True,2347,0
+PAC-s2-boff-q200-burst120,940GZZLUPAC-road-in-01,approach,,False,10223,0
+PAC-s2-boff-q200-burst120,940GZZLUPAC-road-in-02,approach,,False,2811,0
+PAC-s2-boff-q200-burst120,940GZZLUPAC-road-in-03,approach,,False,98637,0
+PAC-s2-boff-q200-burst120,940GZZLUPAC-road-in-04,approach,,False,458,0
+PAC-s2-boff-q200-burst120,940GZZLUPAC-road-in-05,approach,,False,1782,0
+PAC-s2-boff-q200-burst120,940GZZLUPAC-road-in-05,approach,Junction traffic,False,12046,10826
+PAC-s2-boff-q200-burst120,940GZZLUPAC-road-in-05,approach,Pod ahead,False,779,727
+PAC-s2-boff-q200-burst120,940GZZLUPAC-road-out-01,exit,,True,24426,0
+PAC-s2-boff-q200-burst120,940GZZLUPAC-road-out-02,exit,,True,3647,0
+PAC-s2-boff-q200-burst120,940GZZLUPAC-road-out-03,exit,,True,38079,0
+PAC-s2-boff-q200-burst120,940GZZLUPAC-road-out-04,exit,,True,629,0
+PAC-s2-boff-q200-burst120,940GZZLUPAC-road-out-05,exit,,True,2435,0
+PAC-s2-boff-q200-burst120,london-link-040-ab-2,upstream-mainline,,False,70107,20
+PAC-s2-boff-q200-burst120,london-link-040-ab-2,upstream-mainline,Junction traffic,False,80401,70141
+PAC-s2-boff-q200-burst120,london-link-040-ab-2,upstream-mainline,Pod ahead,False,104258,64735
+PAC-s2-boff-q200-burst120,london-link-066-ab-2,upstream-mainline,,False,6254,0
+PAC-s2-boff-q200-burst120,london-link-066-ab-2,upstream-mainline,Junction traffic,False,8045,6383
+PAC-s2-boff-q200-burst120,london-link-066-ab-2,upstream-mainline,Pod ahead,False,572,538
+PAC-s2-boff-q200-burst120,london-link-067-ab-2,upstream-mainline,,False,231054,16795
+PAC-s2-boff-q200-burst120,london-link-067-ab-2,upstream-mainline,Junction traffic,False,172162,138981
+PAC-s2-boff-q200-burst120,london-link-067-ab-2,upstream-mainline,Pod ahead,False,2924227,2034981
+PAC-s2-boff-q200-burst120,london-link-116-ba-2,upstream-mainline,,False,1200,0
+PAC-s2-boff-q200-burst120,london-link-116-ba-2,upstream-mainline,Junction traffic,False,172,0
+PAC-s2-boff-q200-burst120,london-link-116-ba-2,upstream-mainline,Pod ahead,False,51,0
+PAC-s2-boff-q200-burst120,london-link-117-ba-2,upstream-mainline,,False,3597,0
+PAC-s2-boff-q1000000-burst1,940GZZLUPAC-01-arrival-link,berth-access,,False,91679,0
+PAC-s2-boff-q1000000-burst1,940GZZLUPAC-01-departure-link,departure,,True,88343,0
+PAC-s2-boff-q1000000-burst1,940GZZLUPAC-01-departure-link,departure,Junction traffic,True,2304,0
+PAC-s2-boff-q1000000-burst1,940GZZLUPAC-01-departure-link,departure,Pod ahead,True,2856,0
+PAC-s2-boff-q1000000-burst1,940GZZLUPAC-01-in,berth-access,,False,76346,95
+PAC-s2-boff-q1000000-burst1,940GZZLUPAC-01-in,berth-access,Berth occupied,False,1767,0
+PAC-s2-boff-q1000000-burst1,940GZZLUPAC-01-in,berth-access,Junction traffic,False,981,0
+PAC-s2-boff-q1000000-burst1,940GZZLUPAC-01-out,departure,,True,72249,0
+PAC-s2-boff-q1000000-burst1,940GZZLUPAC-01-out,departure,Junction traffic,True,8795,0
+PAC-s2-boff-q1000000-burst1,940GZZLUPAC-01-out,departure,Pod ahead,True,3176,13
+PAC-s2-boff-q1000000-burst1,940GZZLUPAC-02-arrival-link,berth-access,,False,37670,0
+PAC-s2-boff-q1000000-burst1,940GZZLUPAC-02-departure-link,departure,,True,37419,0
+PAC-s2-boff-q1000000-burst1,940GZZLUPAC-02-departure-link,departure,Junction traffic,True,678,0
+PAC-s2-boff-q1000000-burst1,940GZZLUPAC-02-departure-link,departure,Pod ahead,True,132,45
+PAC-s2-boff-q1000000-burst1,940GZZLUPAC-02-in,berth-access,,False,73245,10
+PAC-s2-boff-q1000000-burst1,940GZZLUPAC-02-in,berth-access,Berth occupied,False,2174,0
+PAC-s2-boff-q1000000-burst1,940GZZLUPAC-02-in,berth-access,Junction traffic,False,1292,0
+PAC-s2-boff-q1000000-burst1,940GZZLUPAC-02-out,departure,,True,74646,0
+PAC-s2-boff-q1000000-burst1,940GZZLUPAC-access-in,entry,,False,141799,0
+PAC-s2-boff-q1000000-burst1,940GZZLUPAC-access-out,exit,,True,135749,0
+PAC-s2-boff-q1000000-burst1,940GZZLUPAC-access-out,exit,Junction traffic,True,11392,0
+PAC-s2-boff-q1000000-burst1,940GZZLUPAC-access-out,exit,Pod ahead,True,2198,0
+PAC-s2-boff-q1000000-burst1,940GZZLUPAC-road-in-01,approach,,False,10190,0
+PAC-s2-boff-q1000000-burst1,940GZZLUPAC-road-in-02,approach,,False,2811,0
+PAC-s2-boff-q1000000-burst1,940GZZLUPAC-road-in-03,approach,,False,100219,0
+PAC-s2-boff-q1000000-burst1,940GZZLUPAC-road-in-04,approach,,False,470,0
+PAC-s2-boff-q1000000-burst1,940GZZLUPAC-road-in-05,approach,,False,1784,0
+PAC-s2-boff-q1000000-burst1,940GZZLUPAC-road-in-05,approach,Junction traffic,False,5873,5129
+PAC-s2-boff-q1000000-burst1,940GZZLUPAC-road-in-05,approach,Pod ahead,False,416,312
+PAC-s2-boff-q1000000-burst1,940GZZLUPAC-road-out-01,exit,,True,24957,0
+PAC-s2-boff-q1000000-burst1,940GZZLUPAC-road-out-02,exit,,True,3648,0
+PAC-s2-boff-q1000000-burst1,940GZZLUPAC-road-out-03,exit,,True,38480,0
+PAC-s2-boff-q1000000-burst1,940GZZLUPAC-road-out-04,exit,,True,630,0
+PAC-s2-boff-q1000000-burst1,940GZZLUPAC-road-out-05,exit,,True,2434,0
+PAC-s2-boff-q1000000-burst1,london-link-040-ab-2,upstream-mainline,,False,70880,10
+PAC-s2-boff-q1000000-burst1,london-link-040-ab-2,upstream-mainline,Junction traffic,False,77238,66922
+PAC-s2-boff-q1000000-burst1,london-link-040-ab-2,upstream-mainline,Pod ahead,False,101766,74768
+PAC-s2-boff-q1000000-burst1,london-link-066-ab-2,upstream-mainline,,False,6254,0
+PAC-s2-boff-q1000000-burst1,london-link-066-ab-2,upstream-mainline,Junction traffic,False,8525,6981
+PAC-s2-boff-q1000000-burst1,london-link-066-ab-2,upstream-mainline,Pod ahead,False,672,520
+PAC-s2-boff-q1000000-burst1,london-link-067-ab-2,upstream-mainline,,False,247261,3428
+PAC-s2-boff-q1000000-burst1,london-link-067-ab-2,upstream-mainline,Junction traffic,False,168929,134161
+PAC-s2-boff-q1000000-burst1,london-link-067-ab-2,upstream-mainline,Pod ahead,False,2544316,1716899
+PAC-s2-boff-q1000000-burst1,london-link-116-ba-2,upstream-mainline,,False,1292,0
+PAC-s2-boff-q1000000-burst1,london-link-116-ba-2,upstream-mainline,Junction traffic,False,526,101
+PAC-s2-boff-q1000000-burst1,london-link-116-ba-2,upstream-mainline,Pod ahead,False,51,51
+PAC-s2-boff-q1000000-burst1,london-link-117-ba-2,upstream-mainline,,False,3597,0
+PAC-s2-boff-q1000000-burst120,940GZZLUPAC-01-arrival-link,berth-access,,False,91679,0
+PAC-s2-boff-q1000000-burst120,940GZZLUPAC-01-departure-link,departure,,True,88270,0
+PAC-s2-boff-q1000000-burst120,940GZZLUPAC-01-departure-link,departure,Junction traffic,True,2298,0
+PAC-s2-boff-q1000000-burst120,940GZZLUPAC-01-departure-link,departure,Pod ahead,True,2969,0
+PAC-s2-boff-q1000000-burst120,940GZZLUPAC-01-in,berth-access,,False,75340,93
+PAC-s2-boff-q1000000-burst120,940GZZLUPAC-01-in,berth-access,Berth occupied,False,2842,39
+PAC-s2-boff-q1000000-burst120,940GZZLUPAC-01-in,berth-access,Junction traffic,False,1104,92
+PAC-s2-boff-q1000000-burst120,940GZZLUPAC-01-out,departure,,True,71377,0
+PAC-s2-boff-q1000000-burst120,940GZZLUPAC-01-out,departure,Junction traffic,True,9366,0
+PAC-s2-boff-q1000000-burst120,940GZZLUPAC-01-out,departure,Pod ahead,True,3415,0
+PAC-s2-boff-q1000000-burst120,940GZZLUPAC-02-arrival-link,berth-access,,False,37995,0
+PAC-s2-boff-q1000000-burst120,940GZZLUPAC-02-departure-link,departure,,True,37745,0
+PAC-s2-boff-q1000000-burst120,940GZZLUPAC-02-departure-link,departure,Junction traffic,True,695,0
+PAC-s2-boff-q1000000-burst120,940GZZLUPAC-02-departure-link,departure,Pod ahead,True,132,51
+PAC-s2-boff-q1000000-burst120,940GZZLUPAC-02-in,berth-access,,False,74329,13
+PAC-s2-boff-q1000000-burst120,940GZZLUPAC-02-in,berth-access,Berth occupied,False,1481,0
+PAC-s2-boff-q1000000-burst120,940GZZLUPAC-02-in,berth-access,Junction traffic,False,1016,0
+PAC-s2-boff-q1000000-burst120,940GZZLUPAC-02-out,departure,,True,75284,0
+PAC-s2-boff-q1000000-burst120,940GZZLUPAC-access-in,entry,,False,141799,0
+PAC-s2-boff-q1000000-burst120,940GZZLUPAC-access-out,exit,,True,135771,0
+PAC-s2-boff-q1000000-burst120,940GZZLUPAC-access-out,exit,Junction traffic,True,12585,0
+PAC-s2-boff-q1000000-burst120,940GZZLUPAC-access-out,exit,Pod ahead,True,2399,0
+PAC-s2-boff-q1000000-burst120,940GZZLUPAC-road-in-01,approach,,False,10461,0
+PAC-s2-boff-q1000000-burst120,940GZZLUPAC-road-in-02,approach,,False,2811,0
+PAC-s2-boff-q1000000-burst120,940GZZLUPAC-road-in-03,approach,,False,99715,0
+PAC-s2-boff-q1000000-burst120,940GZZLUPAC-road-in-04,approach,,False,458,0
+PAC-s2-boff-q1000000-burst120,940GZZLUPAC-road-in-05,approach,,False,1782,0
+PAC-s2-boff-q1000000-burst120,940GZZLUPAC-road-in-05,approach,Junction traffic,False,12046,10826
+PAC-s2-boff-q1000000-burst120,940GZZLUPAC-road-in-05,approach,Pod ahead,False,779,727
+PAC-s2-boff-q1000000-burst120,940GZZLUPAC-road-out-01,exit,,True,24957,0
+PAC-s2-boff-q1000000-burst120,940GZZLUPAC-road-out-02,exit,,True,3647,0
+PAC-s2-boff-q1000000-burst120,940GZZLUPAC-road-out-03,exit,,True,38523,0
+PAC-s2-boff-q1000000-burst120,940GZZLUPAC-road-out-04,exit,,True,630,0
+PAC-s2-boff-q1000000-burst120,940GZZLUPAC-road-out-05,exit,,True,2435,0
+PAC-s2-boff-q1000000-burst120,london-link-040-ab-2,upstream-mainline,,False,71841,20
+PAC-s2-boff-q1000000-burst120,london-link-040-ab-2,upstream-mainline,Junction traffic,False,83645,73012
+PAC-s2-boff-q1000000-burst120,london-link-040-ab-2,upstream-mainline,Pod ahead,False,104466,64891
+PAC-s2-boff-q1000000-burst120,london-link-066-ab-2,upstream-mainline,,False,6254,0
+PAC-s2-boff-q1000000-burst120,london-link-066-ab-2,upstream-mainline,Junction traffic,False,8045,6383
+PAC-s2-boff-q1000000-burst120,london-link-066-ab-2,upstream-mainline,Pod ahead,False,572,538
+PAC-s2-boff-q1000000-burst120,london-link-067-ab-2,upstream-mainline,,False,235329,16920
+PAC-s2-boff-q1000000-burst120,london-link-067-ab-2,upstream-mainline,Junction traffic,False,174384,140694
+PAC-s2-boff-q1000000-burst120,london-link-067-ab-2,upstream-mainline,Pod ahead,False,2970444,2069878
+PAC-s2-boff-q1000000-burst120,london-link-116-ba-2,upstream-mainline,,False,1200,0
+PAC-s2-boff-q1000000-burst120,london-link-116-ba-2,upstream-mainline,Junction traffic,False,172,0
+PAC-s2-boff-q1000000-burst120,london-link-116-ba-2,upstream-mainline,Pod ahead,False,51,0
+PAC-s2-boff-q1000000-burst120,london-link-117-ba-2,upstream-mainline,,False,3597,0
+PAC-s2-bon-q200-burst1,940GZZLUPAC-01-arrival-link,berth-access,,False,92872,0
+PAC-s2-bon-q200-burst1,940GZZLUPAC-01-departure-link,departure,,True,88380,0
+PAC-s2-bon-q200-burst1,940GZZLUPAC-01-departure-link,departure,Junction traffic,True,2059,0
+PAC-s2-bon-q200-burst1,940GZZLUPAC-01-departure-link,departure,Pod ahead,True,3417,0
+PAC-s2-bon-q200-burst1,940GZZLUPAC-01-in,berth-access,,False,76456,62
+PAC-s2-bon-q200-burst1,940GZZLUPAC-01-out,departure,,True,68589,0
+PAC-s2-bon-q200-burst1,940GZZLUPAC-01-out,departure,Junction traffic,True,19045,0
+PAC-s2-bon-q200-burst1,940GZZLUPAC-01-out,departure,Pod ahead,True,5371,26
+PAC-s2-bon-q200-burst1,940GZZLUPAC-02-arrival-link,berth-access,,False,38256,0
+PAC-s2-bon-q200-burst1,940GZZLUPAC-02-departure-link,departure,,True,38199,0
+PAC-s2-bon-q200-burst1,940GZZLUPAC-02-in,berth-access,,False,76398,0
+PAC-s2-bon-q200-burst1,940GZZLUPAC-02-out,departure,,True,75922,0
+PAC-s2-bon-q200-burst1,940GZZLUPAC-access-in,entry,,False,131654,0
+PAC-s2-bon-q200-burst1,940GZZLUPAC-access-in,entry,Berth occupied,False,58801,24846
+PAC-s2-bon-q200-burst1,940GZZLUPAC-access-in,entry,Pod ahead,False,28423,4301
+PAC-s2-bon-q200-burst1,940GZZLUPAC-access-out,exit,,True,132379,0
+PAC-s2-bon-q200-burst1,940GZZLUPAC-access-out,exit,Junction traffic,True,17206,0
+PAC-s2-bon-q200-burst1,940GZZLUPAC-access-out,exit,Pod ahead,True,3519,0
+PAC-s2-bon-q200-burst1,940GZZLUPAC-road-in-01,approach,,False,10450,0
+PAC-s2-bon-q200-burst1,940GZZLUPAC-road-in-02,approach,,False,2811,0
+PAC-s2-bon-q200-burst1,940GZZLUPAC-road-in-03,approach,,False,99710,0
+PAC-s2-bon-q200-burst1,940GZZLUPAC-road-in-04,approach,,False,470,0
+PAC-s2-bon-q200-burst1,940GZZLUPAC-road-in-05,approach,,False,1784,0
+PAC-s2-bon-q200-burst1,940GZZLUPAC-road-in-05,approach,Junction traffic,False,8000,7231
+PAC-s2-bon-q200-burst1,940GZZLUPAC-road-in-05,approach,Pod ahead,False,1714,1635
+PAC-s2-bon-q200-burst1,940GZZLUPAC-road-out-01,exit,,True,24959,0
+PAC-s2-bon-q200-burst1,940GZZLUPAC-road-out-02,exit,,True,3652,0
+PAC-s2-bon-q200-burst1,940GZZLUPAC-road-out-03,exit,,True,38548,0
+PAC-s2-bon-q200-burst1,940GZZLUPAC-road-out-04,exit,,True,630,0
+PAC-s2-bon-q200-burst1,940GZZLUPAC-road-out-05,exit,,True,2436,0
+PAC-s2-bon-q200-burst1,london-link-040-ab-2,upstream-mainline,,False,73004,37
+PAC-s2-bon-q200-burst1,london-link-040-ab-2,upstream-mainline,Junction traffic,False,83949,73687
+PAC-s2-bon-q200-burst1,london-link-040-ab-2,upstream-mainline,Pod ahead,False,166808,132318
+PAC-s2-bon-q200-burst1,london-link-066-ab-2,upstream-mainline,,False,7206,0
+PAC-s2-bon-q200-burst1,london-link-066-ab-2,upstream-mainline,Junction traffic,False,13202,11680
+PAC-s2-bon-q200-burst1,london-link-066-ab-2,upstream-mainline,Pod ahead,False,3492,3153
+PAC-s2-bon-q200-burst1,london-link-067-ab-2,upstream-mainline,,False,227399,3596
+PAC-s2-bon-q200-burst1,london-link-067-ab-2,upstream-mainline,Junction traffic,False,171766,138579
+PAC-s2-bon-q200-burst1,london-link-067-ab-2,upstream-mainline,Pod ahead,False,3198167,2331544
+PAC-s2-bon-q200-burst1,london-link-116-ba-2,upstream-mainline,,False,1292,0
+PAC-s2-bon-q200-burst1,london-link-116-ba-2,upstream-mainline,Junction traffic,False,526,101
+PAC-s2-bon-q200-burst1,london-link-116-ba-2,upstream-mainline,Pod ahead,False,170,170
+PAC-s2-bon-q200-burst1,london-link-117-ba-2,upstream-mainline,,False,3597,0
+PAC-s2-bon-q200-burst120,940GZZLUPAC-01-arrival-link,berth-access,,False,89229,0
+PAC-s2-bon-q200-burst120,940GZZLUPAC-01-departure-link,departure,,True,85183,0
+PAC-s2-bon-q200-burst120,940GZZLUPAC-01-departure-link,departure,Junction traffic,True,1843,0
+PAC-s2-bon-q200-burst120,940GZZLUPAC-01-departure-link,departure,Pod ahead,True,3101,0
+PAC-s2-bon-q200-burst120,940GZZLUPAC-01-in,berth-access,,False,73898,77
+PAC-s2-bon-q200-burst120,940GZZLUPAC-01-out,departure,,True,66876,0
+PAC-s2-bon-q200-burst120,940GZZLUPAC-01-out,departure,Junction traffic,True,15009,0
+PAC-s2-bon-q200-burst120,940GZZLUPAC-01-out,departure,Pod ahead,True,4706,13
+PAC-s2-bon-q200-burst120,940GZZLUPAC-02-arrival-link,berth-access,,False,36653,0
+PAC-s2-bon-q200-burst120,940GZZLUPAC-02-departure-link,departure,,True,36594,0
+PAC-s2-bon-q200-burst120,940GZZLUPAC-02-in,berth-access,,False,73191,6
+PAC-s2-bon-q200-burst120,940GZZLUPAC-02-out,departure,,True,72732,0
+PAC-s2-bon-q200-burst120,940GZZLUPAC-access-in,entry,,False,125873,0
+PAC-s2-bon-q200-burst120,940GZZLUPAC-access-in,entry,Berth occupied,False,52149,23196
+PAC-s2-bon-q200-burst120,940GZZLUPAC-access-in,entry,Pod ahead,False,34131,7604
+PAC-s2-bon-q200-burst120,940GZZLUPAC-access-out,exit,,True,127447,0
+PAC-s2-bon-q200-burst120,940GZZLUPAC-access-out,exit,Junction traffic,True,16547,0
+PAC-s2-bon-q200-burst120,940GZZLUPAC-access-out,exit,Pod ahead,True,3468,0
+PAC-s2-bon-q200-burst120,940GZZLUPAC-road-in-01,approach,,False,10234,0
+PAC-s2-bon-q200-burst120,940GZZLUPAC-road-in-02,approach,,False,2811,0
+PAC-s2-bon-q200-burst120,940GZZLUPAC-road-in-03,approach,,False,95403,0
+PAC-s2-bon-q200-burst120,940GZZLUPAC-road-in-04,approach,,False,466,0
+PAC-s2-bon-q200-burst120,940GZZLUPAC-road-in-05,approach,,False,1782,0
+PAC-s2-bon-q200-burst120,940GZZLUPAC-road-in-05,approach,Junction traffic,False,9019,8215
+PAC-s2-bon-q200-burst120,940GZZLUPAC-road-in-05,approach,Pod ahead,False,2515,2047
+PAC-s2-bon-q200-burst120,940GZZLUPAC-road-out-01,exit,,True,23364,0
+PAC-s2-bon-q200-burst120,940GZZLUPAC-road-out-02,exit,,True,3653,0
+PAC-s2-bon-q200-burst120,940GZZLUPAC-road-out-03,exit,,True,37225,0
+PAC-s2-bon-q200-burst120,940GZZLUPAC-road-out-04,exit,,True,630,0
+PAC-s2-bon-q200-burst120,940GZZLUPAC-road-out-05,exit,,True,2434,0
+PAC-s2-bon-q200-burst120,london-link-040-ab-2,upstream-mainline,,False,71815,117
+PAC-s2-bon-q200-burst120,london-link-040-ab-2,upstream-mainline,Junction traffic,False,94266,84373
+PAC-s2-bon-q200-burst120,london-link-040-ab-2,upstream-mainline,Pod ahead,False,254258,198056
+PAC-s2-bon-q200-burst120,london-link-066-ab-2,upstream-mainline,,False,7206,0
+PAC-s2-bon-q200-burst120,london-link-066-ab-2,upstream-mainline,Junction traffic,False,8982,7383
+PAC-s2-bon-q200-burst120,london-link-066-ab-2,upstream-mainline,Pod ahead,False,2223,1961
+PAC-s2-bon-q200-burst120,london-link-067-ab-2,upstream-mainline,,False,227290,20347
+PAC-s2-bon-q200-burst120,london-link-067-ab-2,upstream-mainline,Junction traffic,False,169302,137271
+PAC-s2-bon-q200-burst120,london-link-067-ab-2,upstream-mainline,Pod ahead,False,3478058,2600378
+PAC-s2-bon-q200-burst120,london-link-116-ba-2,upstream-mainline,,False,1232,0
+PAC-s2-bon-q200-burst120,london-link-116-ba-2,upstream-mainline,Junction traffic,False,172,0
+PAC-s2-bon-q200-burst120,london-link-116-ba-2,upstream-mainline,Pod ahead,False,171,0
+PAC-s2-bon-q200-burst120,london-link-117-ba-2,upstream-mainline,,False,3597,0
+PAC-s2-bon-q1000000-burst1,940GZZLUPAC-01-arrival-link,berth-access,,False,92872,0
+PAC-s2-bon-q1000000-burst1,940GZZLUPAC-01-departure-link,departure,,True,88380,0
+PAC-s2-bon-q1000000-burst1,940GZZLUPAC-01-departure-link,departure,Junction traffic,True,2059,0
+PAC-s2-bon-q1000000-burst1,940GZZLUPAC-01-departure-link,departure,Pod ahead,True,3417,0
+PAC-s2-bon-q1000000-burst1,940GZZLUPAC-01-in,berth-access,,False,76456,62
+PAC-s2-bon-q1000000-burst1,940GZZLUPAC-01-out,departure,,True,68589,0
+PAC-s2-bon-q1000000-burst1,940GZZLUPAC-01-out,departure,Junction traffic,True,19045,0
+PAC-s2-bon-q1000000-burst1,940GZZLUPAC-01-out,departure,Pod ahead,True,5371,26
+PAC-s2-bon-q1000000-burst1,940GZZLUPAC-02-arrival-link,berth-access,,False,38256,0
+PAC-s2-bon-q1000000-burst1,940GZZLUPAC-02-departure-link,departure,,True,38199,0
+PAC-s2-bon-q1000000-burst1,940GZZLUPAC-02-in,berth-access,,False,76398,0
+PAC-s2-bon-q1000000-burst1,940GZZLUPAC-02-out,departure,,True,75922,0
+PAC-s2-bon-q1000000-burst1,940GZZLUPAC-access-in,entry,,False,131654,0
+PAC-s2-bon-q1000000-burst1,940GZZLUPAC-access-in,entry,Berth occupied,False,58801,24846
+PAC-s2-bon-q1000000-burst1,940GZZLUPAC-access-in,entry,Pod ahead,False,28423,4301
+PAC-s2-bon-q1000000-burst1,940GZZLUPAC-access-out,exit,,True,132379,0
+PAC-s2-bon-q1000000-burst1,940GZZLUPAC-access-out,exit,Junction traffic,True,17206,0
+PAC-s2-bon-q1000000-burst1,940GZZLUPAC-access-out,exit,Pod ahead,True,3519,0
+PAC-s2-bon-q1000000-burst1,940GZZLUPAC-road-in-01,approach,,False,10450,0
+PAC-s2-bon-q1000000-burst1,940GZZLUPAC-road-in-02,approach,,False,2811,0
+PAC-s2-bon-q1000000-burst1,940GZZLUPAC-road-in-03,approach,,False,99710,0
+PAC-s2-bon-q1000000-burst1,940GZZLUPAC-road-in-04,approach,,False,470,0
+PAC-s2-bon-q1000000-burst1,940GZZLUPAC-road-in-05,approach,,False,1784,0
+PAC-s2-bon-q1000000-burst1,940GZZLUPAC-road-in-05,approach,Junction traffic,False,8000,7231
+PAC-s2-bon-q1000000-burst1,940GZZLUPAC-road-in-05,approach,Pod ahead,False,1714,1635
+PAC-s2-bon-q1000000-burst1,940GZZLUPAC-road-out-01,exit,,True,24959,0
+PAC-s2-bon-q1000000-burst1,940GZZLUPAC-road-out-02,exit,,True,3652,0
+PAC-s2-bon-q1000000-burst1,940GZZLUPAC-road-out-03,exit,,True,38548,0
+PAC-s2-bon-q1000000-burst1,940GZZLUPAC-road-out-04,exit,,True,630,0
+PAC-s2-bon-q1000000-burst1,940GZZLUPAC-road-out-05,exit,,True,2436,0
+PAC-s2-bon-q1000000-burst1,london-link-040-ab-2,upstream-mainline,,False,73004,37
+PAC-s2-bon-q1000000-burst1,london-link-040-ab-2,upstream-mainline,Junction traffic,False,83949,73687
+PAC-s2-bon-q1000000-burst1,london-link-040-ab-2,upstream-mainline,Pod ahead,False,166808,132318
+PAC-s2-bon-q1000000-burst1,london-link-066-ab-2,upstream-mainline,,False,7206,0
+PAC-s2-bon-q1000000-burst1,london-link-066-ab-2,upstream-mainline,Junction traffic,False,13202,11680
+PAC-s2-bon-q1000000-burst1,london-link-066-ab-2,upstream-mainline,Pod ahead,False,3492,3153
+PAC-s2-bon-q1000000-burst1,london-link-067-ab-2,upstream-mainline,,False,227399,3596
+PAC-s2-bon-q1000000-burst1,london-link-067-ab-2,upstream-mainline,Junction traffic,False,171766,138579
+PAC-s2-bon-q1000000-burst1,london-link-067-ab-2,upstream-mainline,Pod ahead,False,3198167,2331544
+PAC-s2-bon-q1000000-burst1,london-link-116-ba-2,upstream-mainline,,False,1292,0
+PAC-s2-bon-q1000000-burst1,london-link-116-ba-2,upstream-mainline,Junction traffic,False,526,101
+PAC-s2-bon-q1000000-burst1,london-link-116-ba-2,upstream-mainline,Pod ahead,False,170,170
+PAC-s2-bon-q1000000-burst1,london-link-117-ba-2,upstream-mainline,,False,3597,0
+PAC-s2-bon-q1000000-burst120,940GZZLUPAC-01-arrival-link,berth-access,,False,92695,0
+PAC-s2-bon-q1000000-burst120,940GZZLUPAC-01-departure-link,departure,,True,88592,0
+PAC-s2-bon-q1000000-burst120,940GZZLUPAC-01-departure-link,departure,Junction traffic,True,1854,0
+PAC-s2-bon-q1000000-burst120,940GZZLUPAC-01-departure-link,departure,Pod ahead,True,3161,0
+PAC-s2-bon-q1000000-burst120,940GZZLUPAC-01-in,berth-access,,False,76470,81
+PAC-s2-bon-q1000000-burst120,940GZZLUPAC-01-out,departure,,True,69337,0
+PAC-s2-bon-q1000000-burst120,940GZZLUPAC-01-out,departure,Junction traffic,True,15025,0
+PAC-s2-bon-q1000000-burst120,940GZZLUPAC-01-out,departure,Pod ahead,True,4781,13
+PAC-s2-bon-q1000000-burst120,940GZZLUPAC-02-arrival-link,berth-access,,False,38262,0
+PAC-s2-bon-q1000000-burst120,940GZZLUPAC-02-departure-link,departure,,True,38199,0
+PAC-s2-bon-q1000000-burst120,940GZZLUPAC-02-in,berth-access,,False,76401,6
+PAC-s2-bon-q1000000-burst120,940GZZLUPAC-02-out,departure,,True,75922,0
+PAC-s2-bon-q1000000-burst120,940GZZLUPAC-access-in,entry,,False,131136,0
+PAC-s2-bon-q1000000-burst120,940GZZLUPAC-access-in,entry,Berth occupied,False,52309,23196
+PAC-s2-bon-q1000000-burst120,940GZZLUPAC-access-in,entry,Pod ahead,False,34131,7604
+PAC-s2-bon-q1000000-burst120,940GZZLUPAC-access-out,exit,,True,132515,0
+PAC-s2-bon-q1000000-burst120,940GZZLUPAC-access-out,exit,Junction traffic,True,17023,0
+PAC-s2-bon-q1000000-burst120,940GZZLUPAC-access-out,exit,Pod ahead,True,3570,0
+PAC-s2-bon-q1000000-burst120,940GZZLUPAC-road-in-01,approach,,False,10472,0
+PAC-s2-bon-q1000000-burst120,940GZZLUPAC-road-in-02,approach,,False,2811,0
+PAC-s2-bon-q1000000-burst120,940GZZLUPAC-road-in-03,approach,,False,99715,0
+PAC-s2-bon-q1000000-burst120,940GZZLUPAC-road-in-04,approach,,False,466,0
+PAC-s2-bon-q1000000-burst120,940GZZLUPAC-road-in-05,approach,,False,1782,0
+PAC-s2-bon-q1000000-burst120,940GZZLUPAC-road-in-05,approach,Junction traffic,False,9019,8215
+PAC-s2-bon-q1000000-burst120,940GZZLUPAC-road-in-05,approach,Pod ahead,False,2515,2047
+PAC-s2-bon-q1000000-burst120,940GZZLUPAC-road-out-01,exit,,True,24957,0
+PAC-s2-bon-q1000000-burst120,940GZZLUPAC-road-out-02,exit,,True,3653,0
+PAC-s2-bon-q1000000-burst120,940GZZLUPAC-road-out-03,exit,,True,38560,0
+PAC-s2-bon-q1000000-burst120,940GZZLUPAC-road-out-04,exit,,True,630,0
+PAC-s2-bon-q1000000-burst120,940GZZLUPAC-road-out-05,exit,,True,2434,0
+PAC-s2-bon-q1000000-burst120,london-link-040-ab-2,upstream-mainline,,False,73549,117
+PAC-s2-bon-q1000000-burst120,london-link-040-ab-2,upstream-mainline,Junction traffic,False,95245,84977
+PAC-s2-bon-q1000000-burst120,london-link-040-ab-2,upstream-mainline,Pod ahead,False,254479,198227
+PAC-s2-bon-q1000000-burst120,london-link-066-ab-2,upstream-mainline,,False,7206,0
+PAC-s2-bon-q1000000-burst120,london-link-066-ab-2,upstream-mainline,Junction traffic,False,8982,7383
+PAC-s2-bon-q1000000-burst120,london-link-066-ab-2,upstream-mainline,Pod ahead,False,2223,1961
+PAC-s2-bon-q1000000-burst120,london-link-067-ab-2,upstream-mainline,,False,237174,20575
+PAC-s2-bon-q1000000-burst120,london-link-067-ab-2,upstream-mainline,Junction traffic,False,176149,142592
+PAC-s2-bon-q1000000-burst120,london-link-067-ab-2,upstream-mainline,Pod ahead,False,3640932,2719474
+PAC-s2-bon-q1000000-burst120,london-link-116-ba-2,upstream-mainline,,False,1232,0
+PAC-s2-bon-q1000000-burst120,london-link-116-ba-2,upstream-mainline,Junction traffic,False,172,0
+PAC-s2-bon-q1000000-burst120,london-link-116-ba-2,upstream-mainline,Pod ahead,False,171,0
+PAC-s2-bon-q1000000-burst120,london-link-117-ba-2,upstream-mainline,,False,3597,0

@@ -1,0 +1,1691 @@
+{
+  "manifest": {
+    "source_commit": "4e36e9fe981bbd5403ffe8e53a1f12b5463896ac",
+    "scope": "Pure pre-step observer, four dense production-equivalent pilots then 32 Central outgoing cells: steady versus train-sized bursts with identical OD sequences, explicit queue200/1m, Euston/Paddington seed1/2 buffersoff/on. Full safety/census once/sec and selected physical restores with dense continuations; no default adoption or CPU claims.",
+    "sha256": {
+      "/home/dotwaffle/.cache/agents/podsim/terminus-flow-20261001/terminus_probe_test.go": "0580dd33f26d775fddff027ff457469ae30ed5e8e41a4c12c77d44b6cf23cd93",
+      "/home/dotwaffle/.cache/agents/podsim/terminus-flow-20261001/observed_test.go": "e03c81de3416cfd112b12148721a2397a3571e24ac031ec958ed8e7f9e48eef8",
+      "/home/dotwaffle/.cache/agents/podsim/terminus-flow-20261001/terminus_study_test.go": "418bb06e856a510224181c6d872f4e8d69acc0c28d42335075f0e3cf12d30e9d",
+      "/home/dotwaffle/.cache/agents/podsim/terminus-flow-20261001/restore_test.go": "957fbd7b3f0b86088e08e7de53fa212708090cee193f72c13d42c524c1349a86",
+      "/home/dotwaffle/.cache/agents/podsim/terminus-flow-20261001/terminus_probe.go": "a3bfb5b224e66da516b2886ded28ae07b888eaac8fc11217042bf323dce77c4f",
+      "/home/dotwaffle/.cache/agents/podsim/terminus-flow-20261001/overlay.json": "10ec39eec66bbe9bc63656e84f2347c3769a7d7b66b5f4abc4f87c19cb7bf05e",
+      "/home/dotwaffle/.cache/agents/podsim/terminus-flow-20261001/run.py": "47cee071bfe0d47404d4bebdfc82db1ebd6516a09a39678687616d5b773c474c",
+      "/home/dotwaffle/.cache/agents/podsim/terminus-flow-20261001/jobs.json": "42416dd193891ccf5db14fea9b88c93d15927271cb37ed586cf0da5bf970fab1",
+      "/home/dotwaffle/.cache/agents/podsim/terminus-flow-20261001/pilots.json": "849b75c39942f3761aae61bfd31f3de17de71c9ee3b95edf0f830668d2d6db88",
+      "/home/dotwaffle/.cache/agents/podsim/mirrored-load-20260930/current/central.json": "546cd5b2c32a5551f7cb3cc44d2e012ca1f32bba8cc376b77d10395a7bd6b4ad",
+      "/tmp/build/podsim/terminus-flow-20261001/study.test": "09ed37a0b58b90a63353a1dac2da3bf653fd860c63861e7db285f806b78e1047"
+    },
+    "limits": "unit RuntimeMax3600s,arm900/Go880,workers2,GOMAXPROCS2 each,GOMEMLIMIT1536MiB each,unit MemoryMax4G/swap0,Nice19,KillModecontrol-group,TimeoutStop10s",
+    "review": "Read-only independent review accepted final transition, physical stopped counts, bounded oracle and disabled-admission restores. Pure tests and overlay vet passed; gopls cache metadata unavailable.",
+    "binary_retention": "Owned unit verified inactive, MainPID0, empty ControlGroup, success. Scratch compiled binary removed; frozen helpers and binary SHA retained."
+  },
+  "validation_runs": [
+    {
+      "name": "pilot-EUS-s1-boff-q200-burst12",
+      "status": "passed",
+      "exit": 0,
+      "wall_seconds": 11.212476689368486
+    },
+    {
+      "name": "pilot-EUS-s1-bon-q200-burst12",
+      "status": "passed",
+      "exit": 0,
+      "wall_seconds": 11.728651171550155
+    },
+    {
+      "name": "pilot-PAC-s1-boff-q200-burst12",
+      "status": "passed",
+      "exit": 0,
+      "wall_seconds": 11.034766650758684
+    },
+    {
+      "name": "pilot-PAC-s1-bon-q200-burst12",
+      "status": "passed",
+      "exit": 0,
+      "wall_seconds": 11.382124892435968
+    },
+    {
+      "name": "EUS-s1-boff-q200-burst1",
+      "status": "passed",
+      "exit": 0,
+      "wall_seconds": 15.037076169624925
+    },
+    {
+      "name": "EUS-s1-boff-q200-burst120",
+      "status": "passed",
+      "exit": 0,
+      "wall_seconds": 17.154526442289352
+    },
+    {
+      "name": "EUS-s1-boff-q1000000-burst1",
+      "status": "passed",
+      "exit": 0,
+      "wall_seconds": 14.752647237852216
+    },
+    {
+      "name": "EUS-s1-boff-q1000000-burst120",
+      "status": "passed",
+      "exit": 0,
+      "wall_seconds": 17.016253418289125
+    },
+    {
+      "name": "EUS-s1-bon-q200-burst1",
+      "status": "passed",
+      "exit": 0,
+      "wall_seconds": 38.642960995435715
+    },
+    {
+      "name": "EUS-s1-bon-q200-burst120",
+      "status": "passed",
+      "exit": 0,
+      "wall_seconds": 39.95157519355416
+    },
+    {
+      "name": "EUS-s1-bon-q1000000-burst1",
+      "status": "passed",
+      "exit": 0,
+      "wall_seconds": 38.670919666066766
+    },
+    {
+      "name": "EUS-s1-bon-q1000000-burst120",
+      "status": "passed",
+      "exit": 0,
+      "wall_seconds": 41.29313325230032
+    },
+    {
+      "name": "EUS-s2-boff-q200-burst1",
+      "status": "passed",
+      "exit": 0,
+      "wall_seconds": 16.138560784980655
+    },
+    {
+      "name": "EUS-s2-boff-q200-burst120",
+      "status": "passed",
+      "exit": 0,
+      "wall_seconds": 17.27504172641784
+    },
+    {
+      "name": "EUS-s2-boff-q1000000-burst1",
+      "status": "passed",
+      "exit": 0,
+      "wall_seconds": 16.145104046911
+    },
+    {
+      "name": "EUS-s2-boff-q1000000-burst120",
+      "status": "passed",
+      "exit": 0,
+      "wall_seconds": 17.495336754247546
+    },
+    {
+      "name": "EUS-s2-bon-q200-burst1",
+      "status": "passed",
+      "exit": 0,
+      "wall_seconds": 38.30636286828667
+    },
+    {
+      "name": "EUS-s2-bon-q200-burst120",
+      "status": "passed",
+      "exit": 0,
+      "wall_seconds": 39.158024062402546
+    },
+    {
+      "name": "EUS-s2-bon-q1000000-burst1",
+      "status": "passed",
+      "exit": 0,
+      "wall_seconds": 38.325336230918765
+    },
+    {
+      "name": "EUS-s2-bon-q1000000-burst120",
+      "status": "passed",
+      "exit": 0,
+      "wall_seconds": 41.03150298073888
+    },
+    {
+      "name": "PAC-s1-boff-q200-burst1",
+      "status": "passed",
+      "exit": 0,
+      "wall_seconds": 24.1730523603037
+    },
+    {
+      "name": "PAC-s1-boff-q200-burst120",
+      "status": "passed",
+      "exit": 0,
+      "wall_seconds": 25.495326574891806
+    },
+    {
+      "name": "PAC-s1-boff-q1000000-burst1",
+      "status": "passed",
+      "exit": 0,
+      "wall_seconds": 24.507058720104396
+    },
+    {
+      "name": "PAC-s1-boff-q1000000-burst120",
+      "status": "passed",
+      "exit": 0,
+      "wall_seconds": 26.16991982422769
+    },
+    {
+      "name": "PAC-s1-bon-q200-burst1",
+      "status": "passed",
+      "exit": 0,
+      "wall_seconds": 38.10268453322351
+    },
+    {
+      "name": "PAC-s1-bon-q200-burst120",
+      "status": "passed",
+      "exit": 0,
+      "wall_seconds": 38.5307822227478
+    },
+    {
+      "name": "PAC-s1-bon-q1000000-burst1",
+      "status": "passed",
+      "exit": 0,
+      "wall_seconds": 37.31159833073616
+    },
+    {
+      "name": "PAC-s1-bon-q1000000-burst120",
+      "status": "passed",
+      "exit": 0,
+      "wall_seconds": 40.44121465459466
+    },
+    {
+      "name": "PAC-s2-boff-q200-burst1",
+      "status": "passed",
+      "exit": 0,
+      "wall_seconds": 23.770354203879833
+    },
+    {
+      "name": "PAC-s2-boff-q200-burst120",
+      "status": "passed",
+      "exit": 0,
+      "wall_seconds": 25.562711484730244
+    },
+    {
+      "name": "PAC-s2-boff-q1000000-burst1",
+      "status": "passed",
+      "exit": 0,
+      "wall_seconds": 24.066052860580385
+    },
+    {
+      "name": "PAC-s2-boff-q1000000-burst120",
+      "status": "passed",
+      "exit": 0,
+      "wall_seconds": 25.730115345679224
+    },
+    {
+      "name": "PAC-s2-bon-q200-burst1",
+      "status": "passed",
+      "exit": 0,
+      "wall_seconds": 37.07607513573021
+    },
+    {
+      "name": "PAC-s2-bon-q200-burst120",
+      "status": "passed",
+      "exit": 0,
+      "wall_seconds": 38.8652052404359
+    },
+    {
+      "name": "PAC-s2-bon-q1000000-burst1",
+      "status": "passed",
+      "exit": 0,
+      "wall_seconds": 37.503928896039724
+    },
+    {
+      "name": "PAC-s2-bon-q1000000-burst120",
+      "status": "passed",
+      "exit": 0,
+      "wall_seconds": 40.157204300165176
+    }
+  ],
+  "arms": [
+    {
+      "name": "EUS-s1-boff-q200-burst1",
+      "raw_sha256": "409535d4f3628badf14468720530775aca88cb75c884227e0f4484e45ab97eb2",
+      "samples": 3129,
+      "dense_samples": 0,
+      "restores": [
+        {
+          "tick": 36000,
+          "dense_samples": 3600,
+          "coupled_pods": 2
+        },
+        {
+          "tick": 72000,
+          "dense_samples": 3600,
+          "coupled_pods": 21
+        }
+      ],
+      "berth_ticks": {
+        "boarding": 43020,
+        "departure-footprint": 49724,
+        "free": 175943,
+        "idle": 538,
+        "reserved-incoming": 106255
+      },
+      "pending_ticks": {
+        "assigned-other-phase": 253,
+        "pickup-moving": 6318004,
+        "pickup-resource-wait": 1394100,
+        "pickup-stopped-no-reason": 1422,
+        "unassigned": 2340579
+      },
+      "conflict_ticks": {
+        "1:free": 892418,
+        "1:owned": 421762,
+        "2:free": 853423,
+        "2:owned": 460757,
+        "3:free": 184729,
+        "3:owned": 190751,
+        "5:free": 87192,
+        "5:owned": 100548,
+        "6:free": 84442,
+        "6:owned": 103298
+      },
+      "conflict_resources": 18
+    },
+    {
+      "name": "EUS-s1-boff-q200-burst120",
+      "raw_sha256": "1b8900b3091f185b809283d6ff2436cec755fb4a9857e007e39235cdc31af489",
+      "samples": 3235,
+      "dense_samples": 0,
+      "restores": [
+        {
+          "tick": 36000,
+          "dense_samples": 3600,
+          "coupled_pods": 50
+        },
+        {
+          "tick": 72000,
+          "dense_samples": 3600,
+          "coupled_pods": 42
+        }
+      ],
+      "berth_ticks": {
+        "boarding": 43020,
+        "departure-footprint": 49738,
+        "free": 189676,
+        "idle": 538,
+        "reserved-incoming": 105228
+      },
+      "pending_ticks": {
+        "assigned-other-phase": 276,
+        "pickup-moving": 6769125,
+        "pickup-resource-wait": 2548239,
+        "pickup-stopped-no-reason": 14021,
+        "unassigned": 4154567
+      },
+      "conflict_ticks": {
+        "1:free": 934445,
+        "1:owned": 424255,
+        "2:free": 823369,
+        "2:owned": 535331,
+        "3:free": 167968,
+        "3:owned": 220232,
+        "5:free": 91780,
+        "5:owned": 102320,
+        "6:free": 77141,
+        "6:owned": 116959
+      },
+      "conflict_resources": 18
+    },
+    {
+      "name": "EUS-s1-boff-q1000000-burst1",
+      "raw_sha256": "6ab3fc613465fca1bc0c5824076765288f135e20a5371320bb3f454193f763a6",
+      "samples": 3129,
+      "dense_samples": 0,
+      "restores": [
+        {
+          "tick": 36000,
+          "dense_samples": 3600,
+          "coupled_pods": 2
+        },
+        {
+          "tick": 72000,
+          "dense_samples": 3600,
+          "coupled_pods": 21
+        }
+      ],
+      "berth_ticks": {
+        "boarding": 43020,
+        "departure-footprint": 49724,
+        "free": 175943,
+        "idle": 538,
+        "reserved-incoming": 106255
+      },
+      "pending_ticks": {
+        "assigned-other-phase": 253,
+        "pickup-moving": 6318004,
+        "pickup-resource-wait": 1394100,
+        "pickup-stopped-no-reason": 1422,
+        "unassigned": 2340579
+      },
+      "conflict_ticks": {
+        "1:free": 892418,
+        "1:owned": 421762,
+        "2:free": 853423,
+        "2:owned": 460757,
+        "3:free": 184729,
+        "3:owned": 190751,
+        "5:free": 87192,
+        "5:owned": 100548,
+        "6:free": 84442,
+        "6:owned": 103298
+      },
+      "conflict_resources": 18
+    },
+    {
+      "name": "EUS-s1-boff-q1000000-burst120",
+      "raw_sha256": "ad60f40108b71eac724827aee054ba05505423be7dd5903b24db666927c3574c",
+      "samples": 3235,
+      "dense_samples": 0,
+      "restores": [
+        {
+          "tick": 36000,
+          "dense_samples": 3600,
+          "coupled_pods": 50
+        },
+        {
+          "tick": 72000,
+          "dense_samples": 3600,
+          "coupled_pods": 42
+        }
+      ],
+      "berth_ticks": {
+        "boarding": 43020,
+        "departure-footprint": 49738,
+        "free": 189676,
+        "idle": 538,
+        "reserved-incoming": 105228
+      },
+      "pending_ticks": {
+        "assigned-other-phase": 276,
+        "pickup-moving": 6769125,
+        "pickup-resource-wait": 2548239,
+        "pickup-stopped-no-reason": 14021,
+        "unassigned": 4154567
+      },
+      "conflict_ticks": {
+        "1:free": 934445,
+        "1:owned": 424255,
+        "2:free": 823369,
+        "2:owned": 535331,
+        "3:free": 167968,
+        "3:owned": 220232,
+        "5:free": 91780,
+        "5:owned": 102320,
+        "6:free": 77141,
+        "6:owned": 116959
+      },
+      "conflict_resources": 18
+    },
+    {
+      "name": "EUS-s1-bon-q200-burst1",
+      "raw_sha256": "f2bc1cebfb50e1ad6513c0faf5a237916b721a70d0482d5b805d7d65e0b7f2f6",
+      "samples": 4865,
+      "dense_samples": 0,
+      "restores": [
+        {
+          "tick": 36000,
+          "dense_samples": 3600,
+          "coupled_pods": 14
+        },
+        {
+          "tick": 72000,
+          "dense_samples": 3600,
+          "coupled_pods": 59
+        }
+      ],
+      "berth_ticks": {
+        "boarding": 43020,
+        "departure-footprint": 49712,
+        "free": 130451,
+        "idle": 538,
+        "reserved-incoming": 360079
+      },
+      "pending_ticks": {
+        "assigned-other-phase": 245,
+        "pickup-moving": 7122272,
+        "pickup-resource-wait": 10787003,
+        "pickup-stopped-no-reason": 64156,
+        "unassigned": 5636047
+      },
+      "conflict_ticks": {
+        "1:free": 1318885,
+        "1:owned": 724415,
+        "2:free": 1601978,
+        "2:owned": 441322,
+        "3:free": 152021,
+        "3:owned": 431779,
+        "5:free": 191283,
+        "5:owned": 100617,
+        "6:free": 198990,
+        "6:owned": 92910
+      },
+      "conflict_resources": 18
+    },
+    {
+      "name": "EUS-s1-bon-q200-burst120",
+      "raw_sha256": "317d1720a573ef7392408b99a04b9d3281832f520b4266ba9db389a66e181172",
+      "samples": 4840,
+      "dense_samples": 0,
+      "restores": [
+        {
+          "tick": 36000,
+          "dense_samples": 3600,
+          "coupled_pods": 64
+        },
+        {
+          "tick": 72000,
+          "dense_samples": 3600,
+          "coupled_pods": 68
+        }
+      ],
+      "berth_ticks": {
+        "boarding": 41400,
+        "departure-footprint": 47840,
+        "free": 144187,
+        "idle": 529,
+        "reserved-incoming": 346844
+      },
+      "pending_ticks": {
+        "assigned-other-phase": 240,
+        "pickup-moving": 7081378,
+        "pickup-resource-wait": 11658947,
+        "pickup-stopped-no-reason": 195515,
+        "unassigned": 6593671
+      },
+      "conflict_ticks": {
+        "1:free": 1350393,
+        "1:owned": 682407,
+        "2:free": 1604947,
+        "2:owned": 427853,
+        "3:free": 164956,
+        "3:owned": 415844,
+        "5:free": 193351,
+        "5:owned": 97049,
+        "6:free": 201135,
+        "6:owned": 89265
+      },
+      "conflict_resources": 18
+    },
+    {
+      "name": "EUS-s1-bon-q1000000-burst1",
+      "raw_sha256": "20129e1781665c8d8d65d955d7f4f93c59870639da2e893d36284575b253c887",
+      "samples": 4865,
+      "dense_samples": 0,
+      "restores": [
+        {
+          "tick": 36000,
+          "dense_samples": 3600,
+          "coupled_pods": 14
+        },
+        {
+          "tick": 72000,
+          "dense_samples": 3600,
+          "coupled_pods": 59
+        }
+      ],
+      "berth_ticks": {
+        "boarding": 43020,
+        "departure-footprint": 49712,
+        "free": 130451,
+        "idle": 538,
+        "reserved-incoming": 360079
+      },
+      "pending_ticks": {
+        "assigned-other-phase": 245,
+        "pickup-moving": 7122272,
+        "pickup-resource-wait": 10787003,
+        "pickup-stopped-no-reason": 64156,
+        "unassigned": 5636047
+      },
+      "conflict_ticks": {
+        "1:free": 1318885,
+        "1:owned": 724415,
+        "2:free": 1601978,
+        "2:owned": 441322,
+        "3:free": 152021,
+        "3:owned": 431779,
+        "5:free": 191283,
+        "5:owned": 100617,
+        "6:free": 198990,
+        "6:owned": 92910
+      },
+      "conflict_resources": 18
+    },
+    {
+      "name": "EUS-s1-bon-q1000000-burst120",
+      "raw_sha256": "e99c8b1e34beb443783c5c64047f5f0de29e6a26589fe918773a5dbe7fa09d7f",
+      "samples": 4840,
+      "dense_samples": 0,
+      "restores": [
+        {
+          "tick": 36000,
+          "dense_samples": 3600,
+          "coupled_pods": 64
+        },
+        {
+          "tick": 72000,
+          "dense_samples": 3600,
+          "coupled_pods": 68
+        }
+      ],
+      "berth_ticks": {
+        "boarding": 43020,
+        "departure-footprint": 49712,
+        "free": 126877,
+        "idle": 538,
+        "reserved-incoming": 360653
+      },
+      "pending_ticks": {
+        "assigned-other-phase": 249,
+        "pickup-moving": 7358178,
+        "pickup-resource-wait": 12263516,
+        "pickup-stopped-no-reason": 203135,
+        "unassigned": 7696075
+      },
+      "conflict_ticks": {
+        "1:free": 1328738,
+        "1:owned": 704062,
+        "2:free": 1589908,
+        "2:owned": 442892,
+        "3:free": 148447,
+        "3:owned": 432353,
+        "5:free": 189526,
+        "5:owned": 100874,
+        "6:free": 197607,
+        "6:owned": 92793
+      },
+      "conflict_resources": 18
+    },
+    {
+      "name": "EUS-s2-boff-q200-burst1",
+      "raw_sha256": "fe8e4d10d2075bcdd0506e672e561df7174be463a601c796381f8eab3ec7d571",
+      "samples": 3561,
+      "dense_samples": 0,
+      "restores": [
+        {
+          "tick": 36000,
+          "dense_samples": 3600,
+          "coupled_pods": 4
+        },
+        {
+          "tick": 72000,
+          "dense_samples": 3600,
+          "coupled_pods": 41
+        }
+      ],
+      "berth_ticks": {
+        "boarding": 43020,
+        "departure-footprint": 49738,
+        "free": 227232,
+        "idle": 538,
+        "reserved-incoming": 106792
+      },
+      "pending_ticks": {
+        "assigned-other-phase": 256,
+        "pickup-moving": 6524441,
+        "pickup-resource-wait": 1652112,
+        "pickup-stopped-no-reason": 1188,
+        "unassigned": 3136514
+      },
+      "conflict_ticks": {
+        "1:free": 1064606,
+        "1:owned": 431014,
+        "2:free": 932953,
+        "2:owned": 562667,
+        "3:free": 202696,
+        "3:owned": 224624,
+        "5:free": 113364,
+        "5:owned": 100296,
+        "6:free": 87503,
+        "6:owned": 126157
+      },
+      "conflict_resources": 18
+    },
+    {
+      "name": "EUS-s2-boff-q200-burst120",
+      "raw_sha256": "8437b7787b05e61068658bb408d10ed685167d094d686056fb9ea38a379ef79b",
+      "samples": 3535,
+      "dense_samples": 0,
+      "restores": [
+        {
+          "tick": 36000,
+          "dense_samples": 3600,
+          "coupled_pods": 46
+        },
+        {
+          "tick": 72000,
+          "dense_samples": 3600,
+          "coupled_pods": 41
+        }
+      ],
+      "berth_ticks": {
+        "boarding": 43020,
+        "departure-footprint": 49740,
+        "free": 225746,
+        "idle": 538,
+        "loaded-departure-blocked": 384,
+        "reserved-incoming": 104772
+      },
+      "pending_ticks": {
+        "assigned-other-phase": 271,
+        "pickup-moving": 6960489,
+        "pickup-resource-wait": 2423908,
+        "pickup-stopped-no-reason": 2877,
+        "unassigned": 4633273
+      },
+      "conflict_ticks": {
+        "1:free": 1061547,
+        "1:owned": 423153,
+        "2:free": 935057,
+        "2:owned": 549643,
+        "3:free": 194678,
+        "3:owned": 229522,
+        "5:free": 111028,
+        "5:owned": 101072,
+        "6:free": 93112,
+        "6:owned": 118988
+      },
+      "conflict_resources": 18
+    },
+    {
+      "name": "EUS-s2-boff-q1000000-burst1",
+      "raw_sha256": "f1579f93dad7595819c97ff41b550fa46072f82a74b0758bb77335629f5a7636",
+      "samples": 3561,
+      "dense_samples": 0,
+      "restores": [
+        {
+          "tick": 36000,
+          "dense_samples": 3600,
+          "coupled_pods": 4
+        },
+        {
+          "tick": 72000,
+          "dense_samples": 3600,
+          "coupled_pods": 41
+        }
+      ],
+      "berth_ticks": {
+        "boarding": 43020,
+        "departure-footprint": 49738,
+        "free": 227232,
+        "idle": 538,
+        "reserved-incoming": 106792
+      },
+      "pending_ticks": {
+        "assigned-other-phase": 256,
+        "pickup-moving": 6524441,
+        "pickup-resource-wait": 1652112,
+        "pickup-stopped-no-reason": 1188,
+        "unassigned": 3136514
+      },
+      "conflict_ticks": {
+        "1:free": 1064606,
+        "1:owned": 431014,
+        "2:free": 932953,
+        "2:owned": 562667,
+        "3:free": 202696,
+        "3:owned": 224624,
+        "5:free": 113364,
+        "5:owned": 100296,
+        "6:free": 87503,
+        "6:owned": 126157
+      },
+      "conflict_resources": 18
+    },
+    {
+      "name": "EUS-s2-boff-q1000000-burst120",
+      "raw_sha256": "33a7a4266c95aed32da08eb2d26592a36343875490fb33859f2568da1c766032",
+      "samples": 3535,
+      "dense_samples": 0,
+      "restores": [
+        {
+          "tick": 36000,
+          "dense_samples": 3600,
+          "coupled_pods": 46
+        },
+        {
+          "tick": 72000,
+          "dense_samples": 3600,
+          "coupled_pods": 41
+        }
+      ],
+      "berth_ticks": {
+        "boarding": 43020,
+        "departure-footprint": 49740,
+        "free": 225746,
+        "idle": 538,
+        "loaded-departure-blocked": 384,
+        "reserved-incoming": 104772
+      },
+      "pending_ticks": {
+        "assigned-other-phase": 271,
+        "pickup-moving": 6960489,
+        "pickup-resource-wait": 2423908,
+        "pickup-stopped-no-reason": 2877,
+        "unassigned": 4633273
+      },
+      "conflict_ticks": {
+        "1:free": 1061547,
+        "1:owned": 423153,
+        "2:free": 935057,
+        "2:owned": 549643,
+        "3:free": 194678,
+        "3:owned": 229522,
+        "5:free": 111028,
+        "5:owned": 101072,
+        "6:free": 93112,
+        "6:owned": 118988
+      },
+      "conflict_resources": 18
+    },
+    {
+      "name": "EUS-s2-bon-q200-burst1",
+      "raw_sha256": "e74946e28fb247b86f0508cea888af82277a35cf74a64812c9a4075755f5b873",
+      "samples": 5047,
+      "dense_samples": 0,
+      "restores": [
+        {
+          "tick": 36000,
+          "dense_samples": 3600,
+          "coupled_pods": 15
+        },
+        {
+          "tick": 72000,
+          "dense_samples": 3600,
+          "coupled_pods": 58
+        }
+      ],
+      "berth_ticks": {
+        "boarding": 43020,
+        "departure-footprint": 49712,
+        "free": 152291,
+        "idle": 538,
+        "reserved-incoming": 360079
+      },
+      "pending_ticks": {
+        "assigned-other-phase": 245,
+        "pickup-moving": 7370613,
+        "pickup-resource-wait": 10316934,
+        "pickup-stopped-no-reason": 5248,
+        "unassigned": 5916683
+      },
+      "conflict_ticks": {
+        "1:free": 1400679,
+        "1:owned": 719061,
+        "2:free": 1672470,
+        "2:owned": 447270,
+        "3:free": 173861,
+        "3:owned": 431779,
+        "5:free": 202203,
+        "5:owned": 100617,
+        "6:free": 209892,
+        "6:owned": 92928
+      },
+      "conflict_resources": 18
+    },
+    {
+      "name": "EUS-s2-bon-q200-burst120",
+      "raw_sha256": "cff6078859fe351190cd64c4cce25dbc68ca52eccfdde1a6353019bb75a682ed",
+      "samples": 4790,
+      "dense_samples": 0,
+      "restores": [
+        {
+          "tick": 36000,
+          "dense_samples": 3600,
+          "coupled_pods": 64
+        },
+        {
+          "tick": 72000,
+          "dense_samples": 3600,
+          "coupled_pods": 66
+        }
+      ],
+      "berth_ticks": {
+        "boarding": 41400,
+        "departure-footprint": 47840,
+        "free": 138187,
+        "idle": 529,
+        "reserved-incoming": 346844
+      },
+      "pending_ticks": {
+        "assigned-other-phase": 239,
+        "pickup-moving": 7352558,
+        "pickup-resource-wait": 11102608,
+        "pickup-stopped-no-reason": 177294,
+        "unassigned": 6897052
+      },
+      "conflict_ticks": {
+        "1:free": 1322349,
+        "1:owned": 689451,
+        "2:free": 1580031,
+        "2:owned": 431769,
+        "3:free": 158956,
+        "3:owned": 415844,
+        "5:free": 190351,
+        "5:owned": 97049,
+        "6:free": 198134,
+        "6:owned": 89266
+      },
+      "conflict_resources": 18
+    },
+    {
+      "name": "EUS-s2-bon-q1000000-burst1",
+      "raw_sha256": "39334dbe56be9268468b973df181f8c245b826d64c7c0b6a72ecec9a5e4b737d",
+      "samples": 5047,
+      "dense_samples": 0,
+      "restores": [
+        {
+          "tick": 36000,
+          "dense_samples": 3600,
+          "coupled_pods": 15
+        },
+        {
+          "tick": 72000,
+          "dense_samples": 3600,
+          "coupled_pods": 58
+        }
+      ],
+      "berth_ticks": {
+        "boarding": 43020,
+        "departure-footprint": 49712,
+        "free": 152291,
+        "idle": 538,
+        "reserved-incoming": 360079
+      },
+      "pending_ticks": {
+        "assigned-other-phase": 245,
+        "pickup-moving": 7370613,
+        "pickup-resource-wait": 10316934,
+        "pickup-stopped-no-reason": 5248,
+        "unassigned": 5916683
+      },
+      "conflict_ticks": {
+        "1:free": 1400679,
+        "1:owned": 719061,
+        "2:free": 1672470,
+        "2:owned": 447270,
+        "3:free": 173861,
+        "3:owned": 431779,
+        "5:free": 202203,
+        "5:owned": 100617,
+        "6:free": 209892,
+        "6:owned": 92928
+      },
+      "conflict_resources": 18
+    },
+    {
+      "name": "EUS-s2-bon-q1000000-burst120",
+      "raw_sha256": "4485d5576e915565331cc840b1f5c46e3e7405d2bd344a97c252be2db215254c",
+      "samples": 5017,
+      "dense_samples": 0,
+      "restores": [
+        {
+          "tick": 36000,
+          "dense_samples": 3600,
+          "coupled_pods": 64
+        },
+        {
+          "tick": 72000,
+          "dense_samples": 3600,
+          "coupled_pods": 66
+        }
+      ],
+      "berth_ticks": {
+        "boarding": 43020,
+        "departure-footprint": 49712,
+        "free": 148117,
+        "idle": 538,
+        "reserved-incoming": 360653
+      },
+      "pending_ticks": {
+        "assigned-other-phase": 248,
+        "pickup-moving": 7581853,
+        "pickup-resource-wait": 11774593,
+        "pickup-stopped-no-reason": 186566,
+        "unassigned": 7977893
+      },
+      "conflict_ticks": {
+        "1:free": 1379496,
+        "1:owned": 727644,
+        "2:free": 1659125,
+        "2:owned": 448015,
+        "3:free": 169687,
+        "3:owned": 432353,
+        "5:free": 200146,
+        "5:owned": 100874,
+        "6:free": 208226,
+        "6:owned": 92794
+      },
+      "conflict_resources": 18
+    },
+    {
+      "name": "PAC-s1-boff-q200-burst1",
+      "raw_sha256": "72c32a44aadbfdcf59c4eec764b8f1b73731fa6bc913ba0dc9c98f743112d366",
+      "samples": 4618,
+      "dense_samples": 0,
+      "restores": [
+        {
+          "tick": 36000,
+          "dense_samples": 3600,
+          "coupled_pods": 16
+        },
+        {
+          "tick": 72000,
+          "dense_samples": 3600,
+          "coupled_pods": 59
+        }
+      ],
+      "berth_ticks": {
+        "boarding": 43020,
+        "departure-footprint": 49712,
+        "free": 338336,
+        "idle": 538,
+        "reserved-incoming": 122554
+      },
+      "pending_ticks": {
+        "assigned-other-phase": 259,
+        "pickup-moving": 8559741,
+        "pickup-resource-wait": 6713171,
+        "pickup-stopped-no-reason": 8905,
+        "unassigned": 4891565
+      },
+      "conflict_ticks": {
+        "1:free": 1735684,
+        "1:owned": 480956,
+        "2:free": 1784401,
+        "2:owned": 432239,
+        "3:free": 359906,
+        "3:owned": 194254,
+        "5:free": 168024,
+        "5:owned": 109056,
+        "6:free": 171768,
+        "6:owned": 105312
+      },
+      "conflict_resources": 20
+    },
+    {
+      "name": "PAC-s1-boff-q200-burst120",
+      "raw_sha256": "a76c79d57e14256a8928af817f01d78573e25deb1b202feb508d7dac026c4b16",
+      "samples": 4586,
+      "dense_samples": 0,
+      "restores": [
+        {
+          "tick": 36000,
+          "dense_samples": 3600,
+          "coupled_pods": 68
+        },
+        {
+          "tick": 72000,
+          "dense_samples": 3600,
+          "coupled_pods": 65
+        }
+      ],
+      "berth_ticks": {
+        "boarding": 42300,
+        "departure-footprint": 48880,
+        "free": 336888,
+        "idle": 534,
+        "reserved-incoming": 121718
+      },
+      "pending_ticks": {
+        "assigned-other-phase": 263,
+        "pickup-moving": 8642468,
+        "pickup-resource-wait": 8012150,
+        "pickup-stopped-no-reason": 10564,
+        "unassigned": 6380383
+      },
+      "conflict_ticks": {
+        "1:free": 1727986,
+        "1:owned": 473294,
+        "2:free": 1779353,
+        "2:owned": 421927,
+        "3:free": 358102,
+        "3:owned": 192218,
+        "5:free": 167939,
+        "5:owned": 107221,
+        "6:free": 171739,
+        "6:owned": 103421
+      },
+      "conflict_resources": 20
+    },
+    {
+      "name": "PAC-s1-boff-q1000000-burst1",
+      "raw_sha256": "c64a569bdbaa38c9a12f803782c3aba85ce7190912c3e5c9ba7aa73079dfab33",
+      "samples": 4618,
+      "dense_samples": 0,
+      "restores": [
+        {
+          "tick": 36000,
+          "dense_samples": 3600,
+          "coupled_pods": 16
+        },
+        {
+          "tick": 72000,
+          "dense_samples": 3600,
+          "coupled_pods": 59
+        }
+      ],
+      "berth_ticks": {
+        "boarding": 43020,
+        "departure-footprint": 49712,
+        "free": 338336,
+        "idle": 538,
+        "reserved-incoming": 122554
+      },
+      "pending_ticks": {
+        "assigned-other-phase": 259,
+        "pickup-moving": 8559741,
+        "pickup-resource-wait": 6713171,
+        "pickup-stopped-no-reason": 8905,
+        "unassigned": 4891565
+      },
+      "conflict_ticks": {
+        "1:free": 1735684,
+        "1:owned": 480956,
+        "2:free": 1784401,
+        "2:owned": 432239,
+        "3:free": 359906,
+        "3:owned": 194254,
+        "5:free": 168024,
+        "5:owned": 109056,
+        "6:free": 171768,
+        "6:owned": 105312
+      },
+      "conflict_resources": 20
+    },
+    {
+      "name": "PAC-s1-boff-q1000000-burst120",
+      "raw_sha256": "ab895cc90cee315dda835924473c2d3869b2a7c4e3c5c3d5987e75dd1b085346",
+      "samples": 4566,
+      "dense_samples": 0,
+      "restores": [
+        {
+          "tick": 36000,
+          "dense_samples": 3600,
+          "coupled_pods": 68
+        },
+        {
+          "tick": 72000,
+          "dense_samples": 3600,
+          "coupled_pods": 65
+        }
+      ],
+      "berth_ticks": {
+        "boarding": 43020,
+        "departure-footprint": 49712,
+        "free": 330805,
+        "idle": 538,
+        "reserved-incoming": 123845
+      },
+      "pending_ticks": {
+        "assigned-other-phase": 267,
+        "pickup-moving": 8782397,
+        "pickup-resource-wait": 8183859,
+        "pickup-stopped-no-reason": 10589,
+        "unassigned": 6827445
+      },
+      "conflict_ticks": {
+        "1:free": 1710572,
+        "1:owned": 481108,
+        "2:free": 1762440,
+        "2:owned": 429240,
+        "3:free": 352375,
+        "3:owned": 195545,
+        "5:free": 164905,
+        "5:owned": 109055,
+        "6:free": 168709,
+        "6:owned": 105251
+      },
+      "conflict_resources": 20
+    },
+    {
+      "name": "PAC-s1-bon-q200-burst1",
+      "raw_sha256": "d66db4545bcd25fcc3b036b3bd18ddd02a58cb14c172491eb16ff4fb275b0617",
+      "samples": 5121,
+      "dense_samples": 0,
+      "restores": [
+        {
+          "tick": 36000,
+          "dense_samples": 3600,
+          "coupled_pods": 17
+        },
+        {
+          "tick": 72000,
+          "dense_samples": 3600,
+          "coupled_pods": 63
+        }
+      ],
+      "berth_ticks": {
+        "boarding": 43020,
+        "departure-footprint": 49712,
+        "free": 163507,
+        "idle": 538,
+        "reserved-incoming": 357743
+      },
+      "pending_ticks": {
+        "assigned-other-phase": 250,
+        "pickup-moving": 8791233,
+        "pickup-resource-wait": 9183241,
+        "pickup-stopped-no-reason": 10905,
+        "unassigned": 6057733
+      },
+      "conflict_ticks": {
+        "1:free": 1807710,
+        "1:owned": 650370,
+        "2:free": 2032686,
+        "2:owned": 425394,
+        "3:free": 185077,
+        "3:owned": 429443,
+        "5:free": 201495,
+        "5:owned": 105765,
+        "6:free": 201869,
+        "6:owned": 105391
+      },
+      "conflict_resources": 20
+    },
+    {
+      "name": "PAC-s1-bon-q200-burst120",
+      "raw_sha256": "e447f7431d598f9f2d0fc79a3208fffbb3f879ff71621cb30578e5e9c410014f",
+      "samples": 4963,
+      "dense_samples": 0,
+      "restores": [
+        {
+          "tick": 36000,
+          "dense_samples": 3600,
+          "coupled_pods": 73
+        },
+        {
+          "tick": 72000,
+          "dense_samples": 3600,
+          "coupled_pods": 68
+        }
+      ],
+      "berth_ticks": {
+        "boarding": 41400,
+        "departure-footprint": 47840,
+        "free": 160605,
+        "idle": 529,
+        "reserved-incoming": 345186
+      },
+      "pending_ticks": {
+        "assigned-other-phase": 241,
+        "pickup-moving": 8708129,
+        "pickup-resource-wait": 10205712,
+        "pickup-stopped-no-reason": 32611,
+        "unassigned": 6982625
+      },
+      "conflict_ticks": {
+        "1:free": 1754011,
+        "1:owned": 628229,
+        "2:free": 1973937,
+        "2:owned": 408303,
+        "3:free": 181374,
+        "3:owned": 414186,
+        "5:free": 195206,
+        "5:owned": 102574,
+        "6:free": 196191,
+        "6:owned": 101589
+      },
+      "conflict_resources": 20
+    },
+    {
+      "name": "PAC-s1-bon-q1000000-burst1",
+      "raw_sha256": "de101968181fba2fed18e0171b5771401c1a1363ba89272c5cc61a1aeda6a4e9",
+      "samples": 5121,
+      "dense_samples": 0,
+      "restores": [
+        {
+          "tick": 36000,
+          "dense_samples": 3600,
+          "coupled_pods": 17
+        },
+        {
+          "tick": 72000,
+          "dense_samples": 3600,
+          "coupled_pods": 63
+        }
+      ],
+      "berth_ticks": {
+        "boarding": 43020,
+        "departure-footprint": 49712,
+        "free": 163507,
+        "idle": 538,
+        "reserved-incoming": 357743
+      },
+      "pending_ticks": {
+        "assigned-other-phase": 250,
+        "pickup-moving": 8791233,
+        "pickup-resource-wait": 9183241,
+        "pickup-stopped-no-reason": 10905,
+        "unassigned": 6057733
+      },
+      "conflict_ticks": {
+        "1:free": 1807710,
+        "1:owned": 650370,
+        "2:free": 2032686,
+        "2:owned": 425394,
+        "3:free": 185077,
+        "3:owned": 429443,
+        "5:free": 201495,
+        "5:owned": 105765,
+        "6:free": 201869,
+        "6:owned": 105391
+      },
+      "conflict_resources": 20
+    },
+    {
+      "name": "PAC-s1-bon-q1000000-burst120",
+      "raw_sha256": "439c37e451d0c20d4d145a55c63c8f4415028c878d0ff5b1c49f2a3c50e26814",
+      "samples": 5094,
+      "dense_samples": 0,
+      "restores": [
+        {
+          "tick": 36000,
+          "dense_samples": 3600,
+          "coupled_pods": 73
+        },
+        {
+          "tick": 72000,
+          "dense_samples": 3600,
+          "coupled_pods": 68
+        }
+      ],
+      "berth_ticks": {
+        "boarding": 43020,
+        "departure-footprint": 49712,
+        "free": 159297,
+        "idle": 538,
+        "reserved-incoming": 358713
+      },
+      "pending_ticks": {
+        "assigned-other-phase": 250,
+        "pickup-moving": 9026528,
+        "pickup-resource-wait": 10739632,
+        "pickup-stopped-no-reason": 32980,
+        "unassigned": 8122570
+      },
+      "conflict_ticks": {
+        "1:free": 1792476,
+        "1:owned": 652644,
+        "2:free": 2020796,
+        "2:owned": 424324,
+        "3:free": 180867,
+        "3:owned": 430413,
+        "5:free": 199242,
+        "5:owned": 106398,
+        "6:free": 200231,
+        "6:owned": 105409
+      },
+      "conflict_resources": 20
+    },
+    {
+      "name": "PAC-s2-boff-q200-burst1",
+      "raw_sha256": "0f13df772741dac0f79f4587e9699c17f3c4f962700b9e0c1866ffae5c801208",
+      "samples": 4629,
+      "dense_samples": 0,
+      "restores": [
+        {
+          "tick": 36000,
+          "dense_samples": 3600,
+          "coupled_pods": 16
+        },
+        {
+          "tick": 72000,
+          "dense_samples": 3600,
+          "coupled_pods": 54
+        }
+      ],
+      "berth_ticks": {
+        "boarding": 43020,
+        "departure-footprint": 49712,
+        "free": 338921,
+        "idle": 538,
+        "reserved-incoming": 123289
+      },
+      "pending_ticks": {
+        "assigned-other-phase": 269,
+        "pickup-moving": 8808253,
+        "pickup-resource-wait": 6283393,
+        "pickup-stopped-no-reason": 9685,
+        "unassigned": 5083104
+      },
+      "conflict_ticks": {
+        "1:free": 1742392,
+        "1:owned": 479528,
+        "2:free": 1794908,
+        "2:owned": 427012,
+        "3:free": 360491,
+        "3:owned": 194989,
+        "5:free": 168687,
+        "5:owned": 109053,
+        "6:free": 172139,
+        "6:owned": 105601
+      },
+      "conflict_resources": 20
+    },
+    {
+      "name": "PAC-s2-boff-q200-burst120",
+      "raw_sha256": "4b0c5ca0ed1d5bbc65d0dcb0909676df4da2df42a906c7e4aaa25e7432c49683",
+      "samples": 4586,
+      "dense_samples": 0,
+      "restores": [
+        {
+          "tick": 36000,
+          "dense_samples": 3600,
+          "coupled_pods": 67
+        },
+        {
+          "tick": 72000,
+          "dense_samples": 3600,
+          "coupled_pods": 54
+        }
+      ],
+      "berth_ticks": {
+        "boarding": 42480,
+        "departure-footprint": 49088,
+        "free": 336442,
+        "idle": 535,
+        "reserved-incoming": 121775
+      },
+      "pending_ticks": {
+        "assigned-other-phase": 290,
+        "pickup-moving": 8861513,
+        "pickup-resource-wait": 7674555,
+        "pickup-stopped-no-reason": 22967,
+        "unassigned": 6641405
+      },
+      "conflict_ticks": {
+        "1:free": 1726867,
+        "1:owned": 474413,
+        "2:free": 1778719,
+        "2:owned": 422561,
+        "3:free": 357745,
+        "3:owned": 192575,
+        "5:free": 167482,
+        "5:owned": 107678,
+        "6:free": 171084,
+        "6:owned": 104076
+      },
+      "conflict_resources": 20
+    },
+    {
+      "name": "PAC-s2-boff-q1000000-burst1",
+      "raw_sha256": "93722dfca807290e52a74fda674e52c151697e6691d1e4f85dea41a73d5dae36",
+      "samples": 4629,
+      "dense_samples": 0,
+      "restores": [
+        {
+          "tick": 36000,
+          "dense_samples": 3600,
+          "coupled_pods": 16
+        },
+        {
+          "tick": 72000,
+          "dense_samples": 3600,
+          "coupled_pods": 54
+        }
+      ],
+      "berth_ticks": {
+        "boarding": 43020,
+        "departure-footprint": 49712,
+        "free": 338921,
+        "idle": 538,
+        "reserved-incoming": 123289
+      },
+      "pending_ticks": {
+        "assigned-other-phase": 269,
+        "pickup-moving": 8808253,
+        "pickup-resource-wait": 6283393,
+        "pickup-stopped-no-reason": 9685,
+        "unassigned": 5083104
+      },
+      "conflict_ticks": {
+        "1:free": 1742392,
+        "1:owned": 479528,
+        "2:free": 1794908,
+        "2:owned": 427012,
+        "3:free": 360491,
+        "3:owned": 194989,
+        "5:free": 168687,
+        "5:owned": 109053,
+        "6:free": 172139,
+        "6:owned": 105601
+      },
+      "conflict_resources": 20
+    },
+    {
+      "name": "PAC-s2-boff-q1000000-burst120",
+      "raw_sha256": "ea04fe13b14468e14bc7ee935bf5010576844945f7a4b8044ea611367808c207",
+      "samples": 4592,
+      "dense_samples": 0,
+      "restores": [
+        {
+          "tick": 36000,
+          "dense_samples": 3600,
+          "coupled_pods": 67
+        },
+        {
+          "tick": 72000,
+          "dense_samples": 3600,
+          "coupled_pods": 54
+        }
+      ],
+      "berth_ticks": {
+        "boarding": 43020,
+        "departure-footprint": 49712,
+        "free": 334400,
+        "idle": 538,
+        "reserved-incoming": 123370
+      },
+      "pending_ticks": {
+        "assigned-other-phase": 293,
+        "pickup-moving": 8984889,
+        "pickup-resource-wait": 7793465,
+        "pickup-stopped-no-reason": 23324,
+        "unassigned": 6979319
+      },
+      "conflict_ticks": {
+        "1:free": 1724025,
+        "1:owned": 480135,
+        "2:free": 1776396,
+        "2:owned": 427764,
+        "3:free": 355970,
+        "3:owned": 195070,
+        "5:free": 166467,
+        "5:owned": 109053,
+        "6:free": 170014,
+        "6:owned": 105506
+      },
+      "conflict_resources": 20
+    },
+    {
+      "name": "PAC-s2-bon-q200-burst1",
+      "raw_sha256": "fb3eb44774a0c1e4af3bb680bea1430e5d1d5658be4fbd7cfe032a97e94b8d20",
+      "samples": 5117,
+      "dense_samples": 0,
+      "restores": [
+        {
+          "tick": 36000,
+          "dense_samples": 3600,
+          "coupled_pods": 17
+        },
+        {
+          "tick": 72000,
+          "dense_samples": 3600,
+          "coupled_pods": 61
+        }
+      ],
+      "berth_ticks": {
+        "boarding": 43020,
+        "departure-footprint": 49712,
+        "free": 162679,
+        "idle": 538,
+        "reserved-incoming": 358091
+      },
+      "pending_ticks": {
+        "assigned-other-phase": 259,
+        "pickup-moving": 8980603,
+        "pickup-resource-wait": 8651401,
+        "pickup-stopped-no-reason": 10068,
+        "unassigned": 6118966
+      },
+      "conflict_ticks": {
+        "1:free": 1804965,
+        "1:owned": 651195,
+        "2:free": 2034225,
+        "2:owned": 421935,
+        "3:free": 184249,
+        "3:owned": 429791,
+        "5:free": 201218,
+        "5:owned": 105802,
+        "6:free": 201765,
+        "6:owned": 105255
+      },
+      "conflict_resources": 20
+    },
+    {
+      "name": "PAC-s2-bon-q200-burst120",
+      "raw_sha256": "254de05c4cafc486ca1f671f5d439133efc40b6ca187f2f7bff10fe4af5c3c62",
+      "samples": 4961,
+      "dense_samples": 0,
+      "restores": [
+        {
+          "tick": 36000,
+          "dense_samples": 3600,
+          "coupled_pods": 72
+        },
+        {
+          "tick": 72000,
+          "dense_samples": 3600,
+          "coupled_pods": 60
+        }
+      ],
+      "berth_ticks": {
+        "boarding": 41400,
+        "departure-footprint": 47840,
+        "free": 161218,
+        "idle": 529,
+        "reserved-incoming": 344333
+      },
+      "pending_ticks": {
+        "assigned-other-phase": 252,
+        "pickup-moving": 8790696,
+        "pickup-resource-wait": 9842555,
+        "pickup-stopped-no-reason": 27328,
+        "unassigned": 7146752
+      },
+      "conflict_ticks": {
+        "1:free": 1755624,
+        "1:owned": 625656,
+        "2:free": 1974823,
+        "2:owned": 406457,
+        "3:free": 181987,
+        "3:owned": 413333,
+        "5:free": 195942,
+        "5:owned": 101718,
+        "6:free": 196137,
+        "6:owned": 101523
+      },
+      "conflict_resources": 20
+    },
+    {
+      "name": "PAC-s2-bon-q1000000-burst1",
+      "raw_sha256": "6be8b4d1f6783d4dd5b176538d5bdf3bb663ee0bb0bd5757cb8a8ea1d1e39116",
+      "samples": 5117,
+      "dense_samples": 0,
+      "restores": [
+        {
+          "tick": 36000,
+          "dense_samples": 3600,
+          "coupled_pods": 17
+        },
+        {
+          "tick": 72000,
+          "dense_samples": 3600,
+          "coupled_pods": 61
+        }
+      ],
+      "berth_ticks": {
+        "boarding": 43020,
+        "departure-footprint": 49712,
+        "free": 162679,
+        "idle": 538,
+        "reserved-incoming": 358091
+      },
+      "pending_ticks": {
+        "assigned-other-phase": 259,
+        "pickup-moving": 8980603,
+        "pickup-resource-wait": 8651401,
+        "pickup-stopped-no-reason": 10068,
+        "unassigned": 6118966
+      },
+      "conflict_ticks": {
+        "1:free": 1804965,
+        "1:owned": 651195,
+        "2:free": 2034225,
+        "2:owned": 421935,
+        "3:free": 184249,
+        "3:owned": 429791,
+        "5:free": 201218,
+        "5:owned": 105802,
+        "6:free": 201765,
+        "6:owned": 105255
+      },
+      "conflict_resources": 20
+    },
+    {
+      "name": "PAC-s2-bon-q1000000-burst120",
+      "raw_sha256": "23d987557c083da887b27edda057d5852cd8deb7f56e2c7884e3693d626cb487",
+      "samples": 5107,
+      "dense_samples": 0,
+      "restores": [
+        {
+          "tick": 36000,
+          "dense_samples": 3600,
+          "coupled_pods": 72
+        },
+        {
+          "tick": 72000,
+          "dense_samples": 3600,
+          "coupled_pods": 60
+        }
+      ],
+      "berth_ticks": {
+        "boarding": 43020,
+        "departure-footprint": 49712,
+        "free": 161510,
+        "idle": 538,
+        "reserved-incoming": 358060
+      },
+      "pending_ticks": {
+        "assigned-other-phase": 261,
+        "pickup-moving": 9181825,
+        "pickup-resource-wait": 10322630,
+        "pickup-stopped-no-reason": 28098,
+        "unassigned": 8300133
+      },
+      "conflict_ticks": {
+        "1:free": 1800330,
+        "1:owned": 651030,
+        "2:free": 2028865,
+        "2:owned": 422495,
+        "3:free": 183080,
+        "3:owned": 429760,
+        "5:free": 200680,
+        "5:owned": 105740,
+        "6:free": 200831,
+        "6:owned": 105589
+      },
+      "conflict_resources": 20
+    }
+  ],
+  "limits": [
+    "Chronological selection of two Central stations and two seeds; all origins are focus, no inbound/background traffic.",
+    "Ownership samples are reservations, not physical conflict use. Berth fractions use full run durations, which differ across arms.",
+    "Full cells use safety/census once per simulated second; dense pilots and selected physical-restore continuations are separate qualification.",
+    "Production control asserts result aggregates only; individual timings and identities reconcile the observer census.",
+    "Burst and steady arms preserve OD sequences but intentionally use different arrival timestamps. Concurrent wall time is not a CPU comparison."
+  ]
+}
