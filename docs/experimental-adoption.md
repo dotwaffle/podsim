@@ -1,11 +1,11 @@
-# Proposed experimental policy adoption gates
+# Experimental policy adoption gates
 
-Status: proposal, October 1, 2026.
+Status: qualification limits approved October 1, 2026.
 These thresholds do not authorize a default change.
 Station buffers, pickup reassignment, and sharing remain opt-in.
 Free-flow routing remains the default.
 Existing qualification rules and documented exceptions remain in force.
-The proposal adds individual service limits and current-source coverage requirements.
+These gates add individual service limits and current-source coverage requirements.
 
 ## Evidence required
 
@@ -24,12 +24,12 @@ Two selected seeds or a finite burst screen cannot replace this coverage.
 Historical results remain evidence for their recorded source and fixtures.
 They do not qualify a later implementation without a reproducibility bridge or a new matched run.
 
-## Proposed numerical limits
+## Numerical limits
 
 Apply every service gate to each matched arm pair, not only to pooled averages.
 Times below are simulated seconds.
 
-| Gate | Proposed limit |
+| Gate | Approved limit |
 | --- | --- |
 | Safety and accounting | No separation, speed, ownership, or request-conservation failure. No lost or duplicate order. |
 | Restore fidelity | Physical tier with no demotions, requeues, or drops for every planned checkpoint. Existing members drain with policies disabled. |
@@ -58,7 +58,8 @@ Report initial fleet placement and any station reserves because they can improve
 
 ## Decision and exceptions
 
-Agree on these limits before enabling an experimental policy by default.
+Passing these limits does not authorize a default change.
+Request separate approval before enabling an experimental policy by default.
 Record each exception with its request IDs, mechanism, affected workloads, and separate approval.
 An aggregate improvement or a historical exception does not approve a new exception.
 If a candidate fails, retain its measured results and experimental control.
@@ -68,6 +69,6 @@ Current reports retain unresolved individual tails and overload cases.
 See [dispatch qualification](dispatch-policy-qualification.md), [post-routing service](berth-routing-service.md), and [sharing rules](qualification.md).
 The [fixed entry contract](station-entry-platoons.md) defines its additional save and ownership checks.
 The [expanded controller screen](controller-capacity.md) retains live queue loss, censored requests, and individual-limit exceedances.
-The [selected policy rerun](policy-failures.md) separates historical failures from these proposed limits.
+The [selected policy rerun](policy-failures.md) separates historical failures from these qualification limits.
 The [Paddington trials](paddington-layout.md) reject unsafe partial fixtures while preserving individual regressions in the complete layouts.
 The [predictive screen](predictive-service.md) finds no service gain in its six matched pairs.
