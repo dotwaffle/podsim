@@ -56,6 +56,7 @@ func restoreLogical(input RestoreStateInput, newFleet func() (*Simulation, error
 	}
 	result := s.queueTrips(state, trips)
 	result.Tier, result.Unaccounted = RestoreLogical, unaccounted
+	result.LogicalCompleted = completed
 	if err := s.verifyRestore(state, completed, result.Dropped, unaccounted); err != nil {
 		return nil, RestoreResult{}, err
 	}

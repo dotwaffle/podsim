@@ -32,7 +32,7 @@ var cloneRules = map[reflect.Type]map[string]cloneRule{
 		"demandWeights": cloneShare, "congestionRouteCosts": cloneShare, "congestionRoutes": cloneCopy, "predictiveQueues": cloneCopy, "predictivePodQueues": cloneCopy,
 		"laneSafety": cloneShare, "berthSafety": cloneShare, "vehicleIndexes": cloneShare,
 		"berthResources": cloneShare, "laneCells": cloneShare, "approachStations": cloneShare, "routeStations": cloneDrop,
-		"requestBoardings": cloneCopy, "requestCompletions": cloneCopy, "nodePasses": cloneCopy, "monitor": cloneShare,
+		"requestBoardings": cloneCopy, "requestCompletions": cloneCopy, "stepCompletions": cloneCopy, "nodePasses": cloneCopy, "monitor": cloneShare,
 		"pass": cloneDrop, "platoonData": cloneShare, "platoonOrder": cloneDrop, "platoonAhead": cloneDrop,
 		"platoonLanes": cloneDrop, "pickupSwaps": cloneCopy,
 	},
@@ -182,7 +182,7 @@ var persistRules = map[reflect.Type]map[string]persistRule{
 		"routingPolicy": persistUnsupported, "congestionRouteCosts": persistUnsupported,
 		"congestionRoutes": persistUnsupported, "nextCongestionRouteRefresh": persistUnsupported,
 		"reservationLookaheadSeconds": persistUnsupported, "finishingPodWait": persistUnsupported,
-		"requestBoardings": persistReset, "requestCompletions": persistReset, "nodePasses": persistReset, "seatScreen": persistReset,
+		"requestBoardings": persistReset, "requestCompletions": persistReset, "stepCompletions": persistReset, "nodePasses": persistReset, "seatScreen": persistReset,
 		"recordExperiments": persistUnsupported, "pass": persistReset,
 		"platooning": persistSession, "platoonLimit": persistSession, "platoonLinks": persistDerive,
 		"platoonData": persistDerive, "platoonOrder": persistReset, "platoonAhead": persistReset,
@@ -388,6 +388,8 @@ func activeCloneSimulation(t *testing.T) *Simulation {
 	s.predictiveQueues[0] = queueHeadwaySeconds
 	s.predictivePodQueues = map[string]podQueueHistory{"01": {lanes: map[int]float64{0: queueHeadwaySeconds}}}
 	s.predictiveQueueTick = s.tick
+	// This clone-storage fixture also covers the transient completion slice.
+	s.stepCompletions = []StepCompletion{{RequestID: 1, AlightedTick: s.tick}}
 	s.pickupSwaps.records = []PickupReassignment{{Tick: s.tick, RequestID: 1, OldPod: "01", NewPod: "02", OldSeconds: 30, NewSeconds: 10}}
 	return s
 }

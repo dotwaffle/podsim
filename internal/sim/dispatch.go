@@ -30,25 +30,31 @@ type waitingTrip struct {
 
 // RequestTrip queues a passenger journey between stations and assigns an available pod when possible.
 func (s *Simulation) RequestTrip(origin, destination string) error {
+	_, err := s.SubmitTrip(origin, destination)
+	return err
+}
+
+// SubmitTrip queues a journey and returns its request ID. An error returns zero.
+func (s *Simulation) SubmitTrip(origin, destination string) (int, error) {
 	defer s.observe()
 	from, ok := s.station(origin)
 	if !ok || from.ParkingOnly {
-		return errors.New("choose a passenger pickup station")
+		return 0, errors.New("choose a passenger pickup station")
 	}
 	to, ok := s.station(destination)
 	if !ok || to.ParkingOnly {
-		return errors.New("choose a passenger destination")
+		return 0, errors.New("choose a passenger destination")
 	}
 	if from.ID == to.ID {
-		return ErrSameStation
+		return 0, ErrSameStation
 	}
 	if !s.stationsConnected(from, to) {
-		return fmt.Errorf("passenger route %s to %s: %w", origin, destination, ErrUnreachable)
+		return 0, fmt.Errorf("passenger route %s to %s: %w", origin, destination, ErrUnreachable)
 	}
 	s.requestID++
 	s.waiting = append(s.waiting, waitingTrip{request: Request{ID: s.requestID, From: origin, To: destination, PartySize: 1, RequestedTick: s.tick}})
 	s.dispatch()
-	return nil
+	return s.requestID, nil
 }
 
 // dispatch considers requests in submission order. Unavailable pickups do not block other stations.

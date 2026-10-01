@@ -200,6 +200,9 @@ type RestoreResult struct {
 	Demoted []string
 	// Requeued lists the requests that went back to the queue.
 	Requeued []int
+	// LogicalCompleted lists logical auto-completions without an actual
+	// alighting tick. It does not include physical completions.
+	LogicalCompleted []int
 	// Dropped lists the requests that the restore removed because they were
 	// not valid.
 	Dropped []int

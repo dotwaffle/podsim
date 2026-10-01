@@ -80,6 +80,7 @@ func (s *Simulation) alight(v *vehicle) {
 			direct, directKnown = s.directDistance(v.journeyOrigin.Node, rider.To, v.destination), true
 		}
 		rider.Completed = true
+		s.stepCompletions = append(s.stepCompletions, StepCompletion{RequestID: rider.ID, AlightedTick: s.tick})
 		s.completed++
 		journey := s.tick - rider.RequestedTick
 		s.journeys++

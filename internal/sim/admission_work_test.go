@@ -328,6 +328,7 @@ func (s *Simulation) stepBeforeAdmissionWork() {
 	if s.paused {
 		return
 	}
+	s.stepCompletions = s.stepCompletions[:0]
 	s.tick++
 	s.stepDemo()
 	for i := range s.vehicles {

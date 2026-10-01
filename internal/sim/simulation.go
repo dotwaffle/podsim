@@ -353,6 +353,7 @@ type Simulation struct {
 	recordExperiments  bool
 	requestBoardings   []RequestTiming
 	requestCompletions []requestCompletion
+	stepCompletions    []StepCompletion
 	nodePasses         []NodePass
 	// pass holds the buffers of dispatch, which makes it at the first call
 	// and reuses it at each later call. It is not part of the state. Clone
@@ -424,6 +425,7 @@ func (s *Simulation) Reset() {
 	s.passengerDistanceMeters, s.emptyDistanceMeters, s.rebalanceMoves, s.sharedParties = 0, 0, 0, 0
 	s.seatScreen = SeatScreen{}
 	s.requestBoardings, s.requestCompletions, s.nodePasses = nil, nil, nil
+	s.stepCompletions = nil
 	if s.pickupSwaps != nil {
 		s.pickupSwaps = &pickupSwapController{enabled: s.pickupSwaps.enabled, right: 1, cooldown: make(map[string]int64)}
 	}
@@ -601,6 +603,7 @@ func (s *Simulation) Step() {
 	if s.paused {
 		return
 	}
+	s.stepCompletions = s.stepCompletions[:0]
 	s.tick++
 	s.stepDemo()
 	for i := range s.vehicles {
