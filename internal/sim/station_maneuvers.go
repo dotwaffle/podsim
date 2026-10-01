@@ -68,17 +68,14 @@ func (s *Simulation) updateStationPhase(v *vehicle) {
 		v.Pod.ManeuverStationID = lane.StationID
 		return
 	}
-	for index, routeLane := range v.Route {
-		if routeLane.ID != lane.ID || index+1 >= len(v.Route) {
-			continue
-		}
+	index := v.blocks.locate(v.firstBlockForLane(lane.ID), 0)
+	if index >= 0 && index+1 < len(v.Route) {
 		next := v.Route[index+1]
 		if next.StationRole == StationEntryRole || next.StationRole == StationBerthAccessRole {
 			v.Pod.StationPhase = ApproachingStation
 			v.Pod.ManeuverStationID = next.StationID
 			return
 		}
-		break
 	}
 	v.Pod.StationPhase = ""
 	v.Pod.ManeuverStationID = ""
