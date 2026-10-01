@@ -1,0 +1,9 @@
+request_id,reassignment,origin,origin_name,destination,destination_name,wait_seconds,journey_seconds,boarding_pod,pending_samples,unassigned_samples,traveling_samples,stopped_traveling_samples,berth_wait_samples,direct_reassignments
+1324,off,940GZZLULYN,Leyton,940GZZLUHSK,High Street Kensington,446.3,1726.5166666666667,london-pod-044,446,1,445,0,0,0
+1324,on,940GZZLULYN,Leyton,940GZZLUHSK,High Street Kensington,664.1,1928.1833333333334,london-pod-112,664,29,635,1,0,0
+3651,off,940GZZLUAMS,Amersham,940GZZLUFCN,Farringdon,1191.95,4218.016666666666,london-pod-215,1191,29,1162,1,0,0
+3651,on,940GZZLUAMS,Amersham,940GZZLUFCN,Farringdon,2821.6833333333334,5847.75,london-pod-174,2821,29,2792,1,0,0
+2175,off,940GZZLURKW,Rickmansworth,940GZZLUGPK,Green Park,557.6333333333333,2714.133333333333,london-pod-216,557,0,557,0,0,0
+2175,on,940GZZLURKW,Rickmansworth,940GZZLUGPK,Green Park,2115.516666666667,4253.183333333333,london-pod-063,2115,29,2086,0,0,0
+3421,off,940GZZLURKW,Rickmansworth,940GZZLUWLO,Waterloo,0.0,2275.9166666666665,london-pod-223,0,0,0,0,0,0
+3421,on,940GZZLURKW,Rickmansworth,940GZZLUWLO,Waterloo,1453.35,3763.0,london-pod-235,1453,29,1424,1,0,1
