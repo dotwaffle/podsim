@@ -358,6 +358,8 @@ func demandPatternLabel(config session.DemandConfig, destination string) string 
 		pattern = destination + "-bound"
 	case "rail-arrivals":
 		pattern = "Rail arrivals"
+	case "rail-services":
+		pattern = "Rail services"
 	case "profile":
 		pattern = config.Band + " / " + config.Profile
 	}
@@ -376,8 +378,11 @@ func (g *Game) demandButtons() []button {
 	if config.Pattern == "rail-arrivals" {
 		rateLabel = "Rate: scheduled arrivals"
 	}
+	if config.Pattern == "rail-services" {
+		rateLabel = "Rate: scheduled services"
+	}
 	return []button{
-		{x: 810, y: 144, w: 250, h: 24, label: rateLabel, disabled: disabled || config.Pattern == "rail-arrivals", action: "demand-rate"},
+		{x: 810, y: 144, w: 250, h: 24, label: rateLabel, disabled: disabled || config.Pattern == "rail-arrivals" || config.Pattern == "rail-services", action: "demand-rate"},
 		{x: 810, y: 174, w: 250, h: 24, label: demandPatternLabel(config, destination.Name), disabled: disabled, action: "demand-pattern"},
 		{x: 810, y: 204, w: 250, h: 24, label: fmt.Sprintf("Seed: %d", config.Seed), disabled: disabled, action: "demand-seed"},
 		{x: 810, y: 234, w: 250, h: 24, label: toggle, selected: config.Enabled, disabled: disabled, action: "demand-toggle"},
@@ -497,6 +502,10 @@ func (g *Game) demandLabels() []label {
 		{x: 816, y: 126, size: 10, value: demandSavesNote, color: muted},
 		{x: 816, y: 264, size: 11, value: fmt.Sprintf("Generated %d / skipped %d", demand.Generated, demand.Skipped), color: foreground},
 		{x: 816, y: 282, size: 10, value: g.fitText(redistributionText(g.state), 10, demandTextWidth), color: muted},
+	}
+	if c := demand.Connections; c.Made+c.Missed+c.Unserved+c.Unresolved > 0 {
+		labels[1].value = fmt.Sprintf("Trains: %d made / %d missed", c.Made, c.Missed)
+		labels[2].value = fmt.Sprintf("%d unserved / %d unresolved", c.Unserved, c.Unresolved)
 	}
 	errorFit := textFit{face: g.textFace(10), width: demandTextWidth * g.layout.unit}
 	for index, line := range wrapText(demand.Error, errorFit, demandErrorLines) {

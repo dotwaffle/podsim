@@ -5510,3 +5510,63 @@ test("layout controls recognize generated London and scale100 stations", needsGo
     assert.deepEqual(editor.validateConfig(result.config), []);
   }
 });
+
+test("rail departures validate windows, weighted origins, and combined limits", () => {
+  const config = editor.addRailDeparture(connectedScenario()).config;
+  config.demand.pattern = "rail-services";
+  assert.deepEqual(editor.validateConfig(config), []);
+  assert.equal(editor.normalizeConfig(config).demand.pattern, "rail-services");
+  const [hub, origin] = config.network.Stations;
+  const base = config.railDepartures[0];
+  for (const [field, value] of [
+    ["id", ""], ["id", "x".repeat(65)], ["station", "missing"], ["atSeconds", 0], ["atSeconds", 86401],
+    ["walkingSeconds", -1], ["walkingSeconds", 3601], ["requestFromSeconds", -1], ["requestFromSeconds", 301],
+    ["requestUntilSeconds", 540], ["requestUntilSeconds", 1.5], ["passengers", 0], ["passengers", 201],
+    ["origins", []], ["origins", [{ station: hub.ID, weight: 1 }]], ["origins", [{ station: origin.ID, weight: 0 }]],
+    ["origins", [{ station: origin.ID, weight: 1000001 }]], ["origins", [base.origins[0], base.origins[0]]],
+  ]) {
+    const changed = structuredClone(config); changed.railDepartures[0][field] = value;
+    assert.ok(editor.validateConfig(changed).some((error) => error.startsWith("Rail departure")), `${field}=${JSON.stringify(value)}`);
+  }
+  config.railDepartures = Array.from({ length: 15 }, (_, index) => ({ ...base, id: `out-${index}`, requestFromSeconds: index, requestUntilSeconds: index, passengers: 200 }));
+  assert.deepEqual(editor.validateConfig(config), []);
+  config.railDepartures.push({ ...base, id: "extra", requestFromSeconds: 30, requestUntilSeconds: 30, passengers: 1 });
+  assert.ok(editor.validateConfig(config).some((error) => error.includes("3000")));
+  config.railDepartures.pop();
+  config.railArrivals = Array.from({ length: 35 }, (_, index) => ({ id: `in-${index}`, station: hub.ID, atSeconds: 1000 + index, walkingSeconds: 0, passengers: 200, destinations: [{ station: origin.ID, weight: 1 }] }));
+  assert.deepEqual(editor.validateConfig(config), []);
+  config.railArrivals.push({ ...config.railArrivals[0], id: "extra", atSeconds: 2000, passengers: 1 });
+  assert.ok(editor.validateConfig(config).some((error) => error.includes("10000 combined")));
+  config.railArrivals = [{ ...config.railArrivals[0], passengers: 1, atSeconds: 0 }];
+  assert.ok(editor.validateConfig(config).some((error) => error.includes("one release tick")));
+});
+
+test("departure edits, origins, deletion, and undo retain owned plans", () => {
+  let original = editor.addStation(connectedScenario(), 580, 100, { name: "Gamma" }); const [hub, origin, third] = original.network.Stations;
+  original = editor.addLane(original, origin.Exit, third.Entry, false); original = editor.addLane(original, third.Exit, hub.Entry, false);
+  let config = editor.addRailDeparture(original).config;
+  assert.equal(original.railDepartures, undefined);
+  const id = config.railDepartures[0].id;
+  config = editor.addRailOrigin(config, id).config;
+  const history = editor.createHistory({ scenario: config, background: null });
+  const network = history.snapshot.scenario.network;
+  const edited = editor.editRailDeparture(history.snapshot.scenario, id, (departure) => { departure.requestFromSeconds = 45; departure.origins[0].weight = 9; return departure; });
+  assert.equal(edited.network, network);
+  history.replace({ scenario: edited, background: null });
+  assert.equal(history.value.scenario.railDepartures[0].requestFromSeconds, 45);
+  assert.equal(history.undo(), true); assert.equal(history.value.scenario.railDepartures[0].requestFromSeconds, 0);
+  assert.equal(history.redo(), true);
+  assert.deepEqual(editor.parseDocument(editor.serializeDocument(history.value.scenario)).scenario.railDepartures, history.value.scenario.railDepartures);
+  assert.equal(editor.stationRailReferences(config, hub.ID), 1);
+  assert.equal(editor.stationRailReferences(config, origin.ID), 1);
+  const removed = editor.deleteStation(config, origin.ID);
+  assert.deepEqual(removed.railDepartures[0].origins, [{ station: third.ID, weight: 1 }]);
+  assert.deepEqual(editor.deleteStation(removed, third.ID).railDepartures, []);
+  history.replace({ scenario: editor.deleteStation(history.value.scenario, hub.ID), background: null });
+  assert.deepEqual(history.value.scenario.railDepartures, []);
+  history.undo(); assert.equal(history.value.scenario.railDepartures.length, 1);
+  const added = editor.addRailDeparture(config).config;
+  added.railDepartures[0].origins[0].weight = 99;
+  assert.equal(config.railDepartures[0].origins[0].weight, 1);
+  assert.deepEqual(editor.removeRailDeparture(config, id).railDepartures, []);
+});

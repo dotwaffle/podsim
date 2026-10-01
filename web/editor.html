@@ -219,7 +219,7 @@
         <h2>Passenger demand</h2>
         <label class="check"><input id="demandEnabled" type="checkbox"> Generate passengers</label>
         <label>Trips per minute<input id="demandRate" type="number" min="1" max="120" step="1"></label>
-        <label>Pattern<select id="demandPattern"><option value="balanced">Balanced</option><option value="destination">One destination</option><option value="profile">OD profile</option><option value="rail-arrivals">Rail arrivals</option></select></label>
+        <label>Pattern<select id="demandPattern"><option value="balanced">Balanced</option><option value="destination">One destination</option><option value="profile">OD profile</option><option value="rail-arrivals">Rail arrivals</option><option value="rail-services">Rail arrivals and departures</option></select></label>
         <label id="destinationLabel">Destination<select id="demandDestination"></select></label>
         <label id="profileLabel">Profile<select id="demandProfile"></select></label>
         <label id="bandLabel">Time band<select id="demandBand"></select></label>
@@ -239,6 +239,11 @@
         <div class="section-title"><h2>Rail arrivals</h2><button id="addRailArrival" type="button">Add arrival</button></div>
         <p class="hint">Times use simulated seconds since reset. Walking delays postpone requests. Select Rail arrivals in Passenger demand to use this plan.</p>
         <div id="railArrivalRows"></div>
+      </section>
+      <section>
+        <div class="section-title"><h2>Rail departures</h2><button id="addRailDeparture" type="button">Add departure</button></div>
+        <p class="hint">Times use simulated seconds since reset. Requests span the inclusive window. A connection succeeds when alighting plus transfer time meets departure. Missed pod journeys continue. Select Rail arrivals and departures to use both plans.</p>
+        <div id="railDepartureRows"></div>
       </section>
       <section id="checksPanel">
         <div class="section-title"><h2 id="checksHeading" tabindex="-1">Checks</h2><button id="validateButton" type="button">Run checks</button></div>

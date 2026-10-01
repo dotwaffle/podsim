@@ -223,7 +223,7 @@
         config.demand.destination = (market || first || {}).ID || "";
       }
     }
-    if (!["destination", "profile", "rail-arrivals"].includes(config.demand.pattern)) config.demand.pattern = "balanced";
+    if (!["destination", "profile", "rail-arrivals", "rail-services"].includes(config.demand.pattern)) config.demand.pattern = "balanced";
     config.demand.destination = typeof config.demand.destination === "string" ? config.demand.destination : "";
     config.demand.profile = typeof config.demand.profile === "string" ? config.demand.profile : "";
     config.demand.band = typeof config.demand.band === "string" ? config.demand.band : "";
@@ -1146,12 +1146,15 @@
     if (Array.isArray(out.railArrivals)) {
       out.railArrivals = out.railArrivals.filter((arrival) => arrival.station !== stationID).map((arrival) => ({ ...arrival, destinations: arrival.destinations.filter((destination) => destination.station !== stationID) })).filter((arrival) => arrival.destinations.length > 0);
     }
+    if (Array.isArray(out.railDepartures)) {
+      out.railDepartures = out.railDepartures.filter((departure) => departure.station !== stationID).map((departure) => ({ ...departure, origins: departure.origins.filter((origin) => origin.station !== stationID) })).filter((departure) => departure.origins.length > 0);
+    }
     return out;
   }
 
-  function withRailPlan(config, arrivals) {
+  function withRailPlan(config, arrivals, key = "railArrivals") {
     const out = frozenDrafts.has(config) ? { ...config } : clone(config);
-    out.railArrivals = frozenDrafts.has(config) ? arrivals : clone(arrivals);
+    out[key] = frozenDrafts.has(config) ? arrivals : clone(arrivals);
     return out;
   }
 
@@ -1159,7 +1162,7 @@
     const passenger = config.network.Stations.filter((station) => !station.ParkingOnly);
     const arrivals = config.railArrivals || [];
     if (passenger.length < 2) return { config, error: "Rail arrivals need at least two passenger stations." };
-    if (arrivals.length >= 256) return { config, error: "The plan already has 256 rail arrivals." };
+    if (arrivals.length + (config.railDepartures || []).length >= 256) return { config, error: "The plan already has 256 rail events." };
     let number = 1;
     while (arrivals.some((arrival) => arrival.id === `train-${number}`)) number += 1;
     const atSeconds = arrivals.length ? Math.min(86400, Math.max(...arrivals.map((arrival) => arrival.atSeconds)) + 600) : 0;
@@ -1187,8 +1190,41 @@
     return { config: editRailArrival(config, id, (item) => { item.destinations.push({ station: station.ID, weight: 1 }); return item; }), error: "" };
   }
 
+  function addRailDeparture(config) {
+    const passenger = config.network.Stations.filter((station) => !station.ParkingOnly);
+    const departures = config.railDepartures || [];
+    if (passenger.length < 2) return { config, error: "Rail departures need at least two passenger stations." };
+    if (departures.length + (config.railArrivals || []).length >= 256) return { config, error: "The plan already has 256 rail events." };
+    if (departures.reduce((sum, item) => sum + item.passengers, 0) + 120 > 3000) return { config, error: "Rail departures can offer at most 3000 passengers." };
+    let number = 1;
+    while (departures.some((departure) => departure.id === `departure-${number}`)) number += 1;
+    const atSeconds = departures.length ? Math.min(86400, Math.max(...departures.map((departure) => departure.atSeconds)) + 600) : 600;
+    const departure = { id: `departure-${number}`, station: passenger[0].ID, atSeconds, walkingSeconds: 60, requestFromSeconds: atSeconds - 600, requestUntilSeconds: atSeconds - 300, passengers: 120, origins: [{ station: passenger[1].ID, weight: 1 }] };
+    return { config: withRailPlan(config, [...departures, departure], "railDepartures"), error: "" };
+  }
+
+  function editRailDeparture(config, id, change) {
+    const departures = config.railDepartures || [];
+    if (!departures.some((departure) => departure.id === id)) return config;
+    return withRailPlan(config, departures.map((departure) => departure.id === id ? change(clone(departure)) : departure), "railDepartures");
+  }
+
+  function removeRailDeparture(config, id) {
+    const departures = config.railDepartures || [];
+    if (!departures.some((departure) => departure.id === id)) return config;
+    return withRailPlan(config, departures.filter((departure) => departure.id !== id), "railDepartures");
+  }
+
+  function addRailOrigin(config, id) {
+    const departure = (config.railDepartures || []).find((item) => item.id === id);
+    if (!departure || departure.origins.length >= 16) return { config, error: "A rail departure can have at most 16 origins." };
+    const station = config.network.Stations.find((item) => !item.ParkingOnly && item.ID !== departure.station && !departure.origins.some((origin) => origin.station === item.ID));
+    if (!station) return { config, error: "All other passenger stations are already origins." };
+    return { config: editRailDeparture(config, id, (item) => { item.origins.push({ station: station.ID, weight: 1 }); return item; }), error: "" };
+  }
+
   function stationRailReferences(config, stationID) {
-    return (config.railArrivals || []).reduce((count, arrival) => count + (arrival.station === stationID ? 1 : arrival.destinations.filter((destination) => destination.station === stationID).length), 0);
+    return (config.railArrivals || []).reduce((count, arrival) => count + (arrival.station === stationID ? 1 : arrival.destinations.filter((destination) => destination.station === stationID).length), 0) + (config.railDepartures || []).reduce((count, departure) => count + (departure.station === stationID ? 1 : departure.origins.filter((origin) => origin.station === stationID).length), 0);
   }
 
   function setFleetCount(config, stationID, requested) {
@@ -1496,6 +1532,48 @@
     return errors;
   }
 
+  function railDepartureErrors(departures, arrivals, passengerIDs) {
+    if (departures === undefined || departures === null) return [];
+    if (!Array.isArray(departures)) return ["Rail departures must be an array."];
+    const errors = [], ids = new Set(), releases = new Map(); let outbound = 0, total = 0;
+    if (departures.length + (Array.isArray(arrivals) ? arrivals.length : 0) > 256) errors.push("Rail plans must contain at most 256 combined events.");
+    for (const arrival of Array.isArray(arrivals) ? arrivals : []) {
+      if (!arrival || !Number.isInteger(arrival.passengers)) continue;
+      total += arrival.passengers;
+      const tick = Math.max(1, (arrival.atSeconds + arrival.walkingSeconds) * 60);
+      releases.set(tick, (releases.get(tick) || 0) + arrival.passengers);
+    }
+    for (const [index, departure] of departures.entries()) {
+      const row = `Rail departure ${index + 1}`;
+      if (!departure || typeof departure !== "object" || Array.isArray(departure)) { errors.push(`${row} must be an object.`); continue; }
+      if (typeof departure.id !== "string" || !departure.id.length || new TextEncoder().encode(departure.id).length > 64 || ids.has(departure.id)) errors.push(`${row} has an invalid or duplicate ID.`);
+      ids.add(departure.id);
+      if (!passengerIDs.has(departure.station)) errors.push(`${row} needs a passenger hub.`);
+      const timeValid = Number.isInteger(departure.atSeconds) && departure.atSeconds >= 1 && departure.atSeconds <= 86400 && Number.isInteger(departure.walkingSeconds) && departure.walkingSeconds >= 0 && departure.walkingSeconds <= 3600 && Number.isInteger(departure.requestFromSeconds) && departure.requestFromSeconds >= 0 && Number.isInteger(departure.requestUntilSeconds) && departure.requestUntilSeconds >= departure.requestFromSeconds && departure.requestUntilSeconds + departure.walkingSeconds < departure.atSeconds;
+      if (!timeValid) errors.push(`${row} has an invalid request window or transfer time.`);
+      if (!Number.isInteger(departure.passengers) || departure.passengers < 1 || departure.passengers > 200) errors.push(`${row} must offer 1 to 200 passengers.`);
+      else {
+        outbound += departure.passengers; total += departure.passengers;
+        if (timeValid) for (let i = 0; i < departure.passengers; i += 1) {
+          const tick = Math.max(1, departure.requestFromSeconds * 60 + (departure.passengers > 1 ? Math.floor(i * (departure.requestUntilSeconds - departure.requestFromSeconds) * 60 / (departure.passengers - 1)) : 0));
+          releases.set(tick, (releases.get(tick) || 0) + 1);
+        }
+      }
+      if (!Array.isArray(departure.origins) || departure.origins.length < 1 || departure.origins.length > 16) { errors.push(`${row} needs 1 to 16 origins.`); continue; }
+      const origins = new Set();
+      for (const origin of departure.origins) {
+        if (!origin || typeof origin !== "object" || Array.isArray(origin)) { errors.push(`${row} has an invalid origin.`); continue; }
+        if (!passengerIDs.has(origin.station) || origin.station === departure.station || origins.has(origin.station)) errors.push(`${row} has an invalid or duplicate origin.`);
+        origins.add(origin.station);
+        if (!Number.isInteger(origin.weight) || origin.weight < 1 || origin.weight > 1000000) errors.push(`${row} needs origin weights from 1 to 1000000.`);
+      }
+    }
+    if (outbound > 3000) errors.push("Rail departures must offer at most 3000 passengers.");
+    if (total > 10000) errors.push("Rail plans must offer at most 10000 combined passengers.");
+    if ([...releases.values()].some((count) => count > 200)) errors.push("Rail plans must offer at most 200 passengers at one release tick.");
+    return errors;
+  }
+
   // validateConfig gives the errors for a scenario. An error blocks an apply
   // or an import. configWarnings gives the checks that do not block. When
   // targets is a Map, validateConfig adds the object that an error names to
@@ -1665,13 +1743,14 @@
       }
       if (totals.some((total) => !Number.isFinite(total) || total <= 0)) errors.push(`Demand profile ${profile.id} has an empty band.`);
     }
-    errors.push(...railArrivalErrors(value.railArrivals, passengerIDs));
+    errors.push(...railArrivalErrors(value.railArrivals, passengerIDs), ...railDepartureErrors(value.railDepartures, value.railArrivals, passengerIDs));
     if (value.geo !== undefined && value.geo !== null) { const geo = geoError(value.geo); if (geo) errors.push(geo); }
     if (value.map !== undefined && value.map !== null && !Tiles.validMap(value.map, value.geo)) errors.push("The map needs provider osm, opacity from 0 to 1, and a geographic reference.");
-    if (!demand || !["balanced", "destination", "market", "profile", "rail-arrivals"].includes(demand.pattern)) errors.push("The passenger demand pattern is invalid.");
+    if (!demand || !["balanced", "destination", "market", "profile", "rail-arrivals", "rail-services"].includes(demand.pattern)) errors.push("The passenger demand pattern is invalid.");
     if (isRecord(demand) && "destination" in demand && (typeof demand.destination !== "string" || new TextEncoder().encode(demand.destination).length > 64)) errors.push("The passenger demand destination is invalid.");
     if (demand && demand.pattern === "destination" && !passenger.some((station) => station.ID === demand.destination)) errors.push("Select a passenger destination.");
     if (demand && demand.pattern === "rail-arrivals" && (!Array.isArray(value.railArrivals) || !value.railArrivals.length)) errors.push("Rail-arrivals demand needs a nonempty arrival plan.");
+    if (demand && demand.pattern === "rail-services" && !(value.railArrivals || []).length && !(value.railDepartures || []).length) errors.push("Rail-services demand needs a nonempty rail plan.");
     if (demand && demand.pattern === "profile") {
       const profile = profiles.find((item) => isRecord(item) && item.id === demand.profile);
       if (!profiles.length) errors.push("The project has no demand profiles. Select another pattern.");
@@ -3831,7 +3910,7 @@
   const API = {
     withTileMap,
     MIN_LANE_LENGTH, MAX_PODS, MAX_STATIONS, MAX_NODES, MAX_LANES, MAX_NODE_LANES, MAX_FLOWS, MIN_ZOOM, NODE_LABEL_SCALE, NODE_LABEL_SIZE, LANE_PAIR_OFFSET, CHEVRON_LANE_LENGTH, BERTH_PITCH, STATION_PADDING, CLEARANCE, CHECK_DELAY, emptyConfig, fallbackConfig, normalizeConfig, inferStationLanes, addLane, addJunction, addStation, addBerth,
-    stationBearing, stationShape, rotateStation, setStationBearing, stationLayout, setStationLayout, nextBerthPosition, berthChain, nextChainRow, lanePolyline, laneConflict, removeBerth, moveStation, moveNode, deleteNode, deleteLane, deleteStation, stationFlowCount, stationRailReferences, addRailArrival, removeRailArrival, editRailArrival, addRailDestination, setFleetCount, fleetRows, selectionCard, berthFocusID, undoFocus, setDemandPattern,
+    stationBearing, stationShape, rotateStation, setStationBearing, stationLayout, setStationLayout, nextBerthPosition, berthChain, nextChainRow, lanePolyline, laneConflict, removeBerth, moveStation, moveNode, deleteNode, deleteLane, deleteStation, stationFlowCount, stationRailReferences, addRailDeparture, removeRailDeparture, editRailDeparture, addRailOrigin, addRailArrival, removeRailArrival, editRailArrival, addRailDestination, setFleetCount, fleetRows, selectionCard, berthFocusID, undoFocus, setDemandPattern,
     laneLength, curveLength, reachable, cutOffStations, stationNodeOwners, dragTargets, validateConfig, configWarnings, checkResults, checkSelector, checkSelection, selectionPoint, focusView,
     GEO_PROJECTION, GEO_RADIUS, GEO_MAX_LATITUDE, MAX_COORDINATE, FRAME_SOURCES, SCALE_TOLERANCE, ALIGN_TOLERANCE, RESAMPLE_MAX_SIDE, makeGeo, geoError, projectPoint, unprojectPoint, frameError, scaleError, framePlacement, placementError, frameAligned, anchorGeo, resampleSize, mercatorY, resampleRows,
     problemCountText, createCheckTimer, validationSummary, checkFocusKey, IMAGE_FILE_BYTES, IMAGE_MAX_SIDE, IMAGE_MAX_PIXELS, imageFacts, imageBytesFacts, dataURLToBytes, bytesToDataURL, checkImageSize,
@@ -4328,11 +4407,14 @@
     });
   }
 
-  let drawnRailPlan = null, drawnRailStations = null;
-  function renderRailArrivals(config) {
-    const parent = $("#railArrivalRows"); const arrivals = config.railArrivals || [];
-    $("#addRailArrival").disabled = arrivals.length >= 256 || config.network.Stations.filter((station) => !station.ParkingOnly).length < 2;
-    if (drawnRailPlan === config.railArrivals && drawnRailStations === config.network.Stations) return;
+  const drawnRailPlans = new Map();
+  function renderRailArrivals(config, kind = "arrival") {
+    const departure = kind === "departure", key = departure ? "railDepartures" : "railArrivals", choices = departure ? "origins" : "destinations";
+    const rowsID = departure ? "#railDepartureRows" : "#railArrivalRows", addID = departure ? "#addRailDeparture" : "#addRailArrival";
+    const parent = $(rowsID); const arrivals = config[key] || [];
+    $(addID).disabled = (config.railArrivals || []).length + (config.railDepartures || []).length >= 256 || config.network.Stations.filter((station) => !station.ParkingOnly).length < 2;
+    const drawn = drawnRailPlans.get(kind);
+    if (drawn?.plan === config[key] && drawn?.stations === config.network.Stations) return;
     const active = parent.contains(document.activeElement) ? document.activeElement : null;
     const focus = active ? { ...active.dataset } : null;
     const opened = new Set([...parent.querySelectorAll("details[open]")].map((item) => item.dataset.railID));
@@ -4359,22 +4441,26 @@
     for (const arrival of arrivals) {
       const row = document.createElement("details"); row.dataset.railID = arrival.id; row.open = opened.has(arrival.id) || arrivals.length === 1;
       const title = document.createElement("summary"); const hub = passenger.find((station) => station.ID === arrival.station);
-      title.textContent = `${arrival.id}: ${hub?.Name || arrival.station}, ${arrival.passengers} passengers at ${arrival.atSeconds + arrival.walkingSeconds}s`; row.append(title);
+      title.textContent = `${arrival.id}: ${hub?.Name || arrival.station}, ${arrival.passengers} passengers ${departure ? "departing" : "released"} at ${departure ? arrival.atSeconds : arrival.atSeconds + arrival.walkingSeconds}s`; row.append(title);
       row.append(field("Rail hub", stationSelect(arrival.station, arrival.id, "station")));
-      row.append(field("Arrival after reset (seconds)", number(arrival.atSeconds, arrival.id, "atSeconds", 0, 86400)));
-      row.append(field("Walking delay (seconds)", number(arrival.walkingSeconds, arrival.id, "walkingSeconds", 0, 3600)));
+      row.append(field(`${departure ? "Departure" : "Arrival"} after reset (seconds)`, number(arrival.atSeconds, arrival.id, "atSeconds", departure ? 1 : 0, 86400)));
+      if (departure) {
+        row.append(field("Request window start (seconds)", number(arrival.requestFromSeconds, arrival.id, "requestFromSeconds", 0, 86399)));
+        row.append(field("Request window end (seconds)", number(arrival.requestUntilSeconds, arrival.id, "requestUntilSeconds", 0, 86399)));
+      }
+      row.append(field(departure ? "Transfer after alighting (seconds)" : "Walking delay (seconds)", number(arrival.walkingSeconds, arrival.id, "walkingSeconds", 0, 3600)));
       row.append(field("Passengers", number(arrival.passengers, arrival.id, "passengers", 1, 200)));
-      arrival.destinations.forEach((destination, index) => {
+      arrival[choices].forEach((destination, index) => {
         const group = document.createElement("div"); group.className = "subpanel";
-        group.append(field(`Destination ${index + 1}`, stationSelect(destination.station, arrival.id, "station", index)));
+        group.append(field(`${departure ? "Origin" : "Destination"} ${index + 1}`, stationSelect(destination.station, arrival.id, "station", index)));
         group.append(field("Weight", number(destination.weight, arrival.id, "weight", 1, 1000000, index)));
-        const remove = button("Remove destination", "remove-destination", arrival.id, index); remove.disabled = arrival.destinations.length <= 1; group.append(remove); row.append(group);
+        const remove = button(departure ? "Remove origin" : "Remove destination", "remove-destination", arrival.id, index); remove.disabled = arrival[choices].length <= 1; group.append(remove); row.append(group);
       });
-      const add = button("Add destination", "add-destination", arrival.id); add.disabled = arrival.destinations.length >= 16; row.append(add, button("Remove arrival", "remove-arrival", arrival.id));
+      const add = button(departure ? "Add origin" : "Add destination", "add-destination", arrival.id); add.disabled = arrival[choices].length >= 16; row.append(add, button(departure ? "Remove departure" : "Remove arrival", "remove-arrival", arrival.id));
       parent.append(row);
     }
-    drawnRailPlan = config.railArrivals; drawnRailStations = config.network.Stations;
-    if (focus) ([...parent.querySelectorAll("input, select, button")].find((item) => Object.keys(focus).every((key) => item.dataset[key] === focus[key])) || $("#addRailArrival")).focus({ preventScroll: true });
+    drawnRailPlans.set(kind, { plan: config[key], stations: config.network.Stations });
+    if (focus) ([...parent.querySelectorAll("input, select, button")].find((item) => Object.keys(focus).every((key) => item.dataset[key] === focus[key])) || $(addID)).focus({ preventScroll: true });
   }
 
   function renderDemand() {
@@ -4396,7 +4482,8 @@
     bandSelect.value = demand.band; $("#profileLabel").hidden = demand.pattern !== "profile"; $("#bandLabel").hidden = demand.pattern !== "profile";
     $("#demandPattern").querySelector('option[value="profile"]').disabled = profiles.length === 0;
     $("#demandPattern").querySelector('option[value="rail-arrivals"]').disabled = !(config.railArrivals || []).length;
-    $("#demandRate").disabled = demand.pattern === "rail-arrivals";
+    $("#demandPattern").querySelector('option[value="rail-services"]').disabled = !(config.railArrivals || []).length && !(config.railDepartures || []).length;
+    $("#demandRate").disabled = ["rail-arrivals", "rail-services"].includes(demand.pattern);
     $("#sharedRidePartyLimit").value = config.sharedRidePartyLimit;
     $("#sharedRideMode").value = config.sharedRideMode;
     $("#sharedRideJoin").value = config.sharedRideJoin;
@@ -4421,7 +4508,7 @@
     if (config.network !== drawnNetwork || backgroundKey !== drawnBackground || selectionKey !== drawnSelection) {
       renderMap(); drawnNetwork = config.network; drawnBackground = backgroundKey; drawnSelection = selectionKey;
     } else { renderTiles(); }
-    renderSelection(); renderFleet(); renderDemand(); renderRailArrivals(config); updatePrompt(); renderBackground(); renderApply();
+    renderSelection(); renderFleet(); renderDemand(); renderRailArrivals(config); renderRailArrivals(config, "departure"); updatePrompt(); renderBackground(); renderApply();
   }
 
   // displayURL gives the object URL of the image of background for the
@@ -5220,22 +5307,24 @@
     });
     $("#finishCalibrationButton").addEventListener("click", finishCalibration); $("#cancelCalibrationButton").addEventListener("click", () => { state.calibrating = false; state.calibrationPoints = []; $("#calibrationPanel").hidden = true; render(); });
     $("#scenarioName").addEventListener("change", (event) => mutate((config) => { config.name = event.target.value.trim(); return config; }));
-    $("#addRailArrival").addEventListener("click", () => {
-      const result = addRailArrival(draft()); if (result.error) { toast(result.error, true); return; } setDraft(result.config);
-    });
-    $("#railArrivalRows").addEventListener("change", (event) => {
-      const { railID, railField, railDestination } = event.target.dataset;
-      if (!railID || !railField) return;
-      const value = event.target.tagName === "SELECT" ? event.target.value : event.target.valueAsNumber;
-      setDraft(editRailArrival(draft(), railID, (arrival) => { if (railDestination !== undefined) arrival.destinations[Number(railDestination)][railField] = value; else arrival[railField] = value; return arrival; }));
-    });
-    $("#railArrivalRows").addEventListener("click", (event) => {
-      const control = event.target.closest("button[data-rail-action]"); if (!control) return;
-      const { railID, railAction, railDestination } = control.dataset;
-      if (railAction === "remove-arrival") setDraft(removeRailArrival(draft(), railID));
-      else if (railAction === "remove-destination") setDraft(editRailArrival(draft(), railID, (arrival) => { if (arrival.destinations.length > 1) arrival.destinations.splice(Number(railDestination), 1); return arrival; }));
-      else if (railAction === "add-destination") { const result = addRailDestination(draft(), railID); if (result.error) toast(result.error, true); else setDraft(result.config); }
-    });
+    for (const departure of [false, true]) {
+      const addID = departure ? "#addRailDeparture" : "#addRailArrival", rowsID = departure ? "#railDepartureRows" : "#railArrivalRows", choices = departure ? "origins" : "destinations";
+      const add = departure ? addRailDeparture : addRailArrival, edit = departure ? editRailDeparture : editRailArrival, remove = departure ? removeRailDeparture : removeRailArrival, addChoice = departure ? addRailOrigin : addRailDestination;
+      $(addID).addEventListener("click", () => { const result = add(draft()); if (result.error) toast(result.error, true); else setDraft(result.config); });
+      $(rowsID).addEventListener("change", (event) => {
+        const { railID, railField, railDestination } = event.target.dataset;
+        if (!railID || !railField) return;
+        const value = event.target.tagName === "SELECT" ? event.target.value : event.target.valueAsNumber;
+        setDraft(edit(draft(), railID, (item) => { if (railDestination !== undefined) item[choices][Number(railDestination)][railField] = value; else item[railField] = value; return item; }));
+      });
+      $(rowsID).addEventListener("click", (event) => {
+        const control = event.target.closest("button[data-rail-action]"); if (!control) return;
+        const { railID, railAction, railDestination } = control.dataset;
+        if (railAction === "remove-arrival") setDraft(remove(draft(), railID));
+        else if (railAction === "remove-destination") setDraft(edit(draft(), railID, (item) => { if (item[choices].length > 1) item[choices].splice(Number(railDestination), 1); return item; }));
+        else if (railAction === "add-destination") { const result = addChoice(draft(), railID); if (result.error) toast(result.error, true); else setDraft(result.config); }
+      });
+    }
     $("#demandEnabled").addEventListener("change", (event) => setOperatingFlag("demandEnabled", event.target.checked));
     $("#demandRate").addEventListener("change", (event) => mutate((config) => { config.demand.perMinute = Math.floor(Number(event.target.value)); return config; }));
     $("#demandPattern").addEventListener("change", (event) => setDraft(setDemandPattern(draft(), event.target.value)));

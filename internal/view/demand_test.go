@@ -346,3 +346,36 @@ func TestRailDemandRateButton(t *testing.T) {
 		t.Fatalf("rail rate control: %+v", rate)
 	}
 }
+
+func TestRailConnectionCountsFitDemandPanel(t *testing.T) {
+	t.Parallel()
+	for _, layout := range controlLayouts {
+		t.Run(layout.name, func(t *testing.T) {
+			t.Parallel()
+			game := controlTestGame(t, layout.input)
+			game.state.Demand.Connections.Made = 10000
+			game.state.Demand.Connections.Missed = 10000
+			game.state.Demand.Connections.Unserved = 10000
+			game.state.Demand.Connections.Unresolved = 10000
+			game.state.Demand.Error = londonDemandError
+			labels := game.demandLabels()
+			for _, want := range []string{"Trains: 10000 made / 10000 missed", "10000 unserved / 10000 unresolved"} {
+				if !slices.ContainsFunc(labels, func(value label) bool { return value.value == want }) {
+					t.Fatalf("missing counts %q", want)
+				}
+			}
+			for _, value := range labels {
+				if value.y == 108 || value.y == 126 {
+					if (game.labelArea(value).right - game.labelArea(value).left) > demandTextWidth*game.layout.unit {
+						t.Fatalf("count label overflows: %q", value.value)
+					}
+				}
+			}
+			game.state.Demand.Config.Pattern = "rail-services"
+			rate := findButton(t, game.demandButtons(), "demand-rate")
+			if !rate.disabled || rate.label != "Rate: scheduled services" {
+				t.Fatal("fixed volume rate control")
+			}
+		})
+	}
+}
