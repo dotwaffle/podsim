@@ -1344,7 +1344,7 @@ The compare command does not read this setting.
 It uses `-platoon-policies`, and the `virtual` policy has a limit of 4 pods.
 
 With platoons on, a slow pod in a queue can link to the pod ahead on the same lane.
-The two routes must share the next lanes, and each route must have one speed limit.
+A mainline link needs shared succeeding lanes, and each route must have one speed limit.
 
 Each link certifies a run of lanes that both routes share, from the lane of the follower.
 The total turn along the run must be at most 120 degrees.
@@ -1360,7 +1360,7 @@ Thus each pod that holds a shared resource is on the run.
 It stops at least the clearance behind the stop point of the pod ahead, less the distance of 0.5 s of travel at its speed.
 When a pod ahead releases a shared resource, the next pod in the platoon owns it.
 Berths are not shared.
-A link can add the next shared lane to its run while the total turn from the lane of the follower stays within the turn of the platoon.
+A mainline link can add the next shared lane while its total turn stays within the turn of the platoon.
 After the last block that it can share, the link drains: the follower waits until the pods ahead pass the shared resources and hand them to it.
 Then the link ends.
 A link also drains when platooning stops, when one of its pods stops traveling, or when a different pod comes between the two pods.
@@ -1369,10 +1369,16 @@ A pod ahead in a platoon does not reserve a resource again while a pod behind it
 A linked empty pod cannot divert.
 The 12 m separation check does not change.
 
+With experimental station buffers enabled, eligible entry queues can form [fixed local links](docs/station-entry-platoons.md).
+These links share only complete interior track cells and cannot grow onto berth branches.
+A head can append an exclusive berth suffix while inherited ownership drains.
+They require saved-state version 4, and their service benefit remains unqualified.
+
 A saved state keeps each link in the `platoon` field of the follower.
 The field gives the predecessor, the run as indexes into the two saved routes, the turn, and whether the link drains.
 The restore checks the run, the turn, the speed limits, and the clearance against the network and the pods, and it does not plan the link again.
-A link that is not valid fails the physical tier.
+An invalid complete-lane link fails the physical tier under the existing recovery rules.
+An invalid version 4 buffer certificate rejects the saved state without logical fallback or partial member demotion.
 A link that drains before the save also drains after the restore.
 The saved state does not keep the platoon limit.
 The restore uses the `platoonLimit` of the project.
@@ -1548,9 +1554,11 @@ They do not replace scenario qualification or authorize policy adoption.
 | --- | --- | --- |
 | LondonFull | [Post-fix capacity](docs/london-full-postfix.md), [sustained load](docs/london-full-sustained.md), [combined controllers](docs/london-full-controller-sustained.md), [12/min comparison](docs/london-full-controller-rate12.md), [13/min comparison](docs/london-full-controller-rate13.md), [14/min comparison](docs/london-full-controller-rate14.md), [mirrored layout](docs/station-mirror-load.md) | Finite recovery and growing backlogs do not establish sustainable capacity. |
 | Pickup swaps and buffers | [Combined qualification](docs/dispatch-policy-qualification.md), [sustained comparison](docs/pickup-swap-sustained.md), [matched requests](docs/pickup-request-diagnosis.md), [service-tail cases](docs/pickup-tail-cases.md), [selected exclusions](docs/pickup-local-intervention.md), [Stratford berth cycle](docs/pickup-seed4-tail.md), [berth-route preference](docs/berth-route-preference.md), [post-routing service](docs/berth-routing-service.md) | Better averages coexist with slower individual requests. Both policies stay off by default. New routes avoid intermediate berths when a compatible path exists. |
-| Platoon queues | [Qualification follow-up](docs/platoon-followup.md), [Paddington leader progress](docs/paddington-leader-progress.md), [Paddington movement](docs/paddington-motion.md), [clearance samples](docs/paddington-clearance.md), [station-entry proposal](docs/station-entry-platoons-proposal.md) | The diagnosis establishes no safe controller fix. Station-entry platoons remain design-only. |
+| Platoon queues | [Qualification follow-up](docs/platoon-followup.md), [Paddington leader progress](docs/paddington-leader-progress.md), [Paddington movement](docs/paddington-motion.md), [clearance samples](docs/paddington-clearance.md), [selected resource histories](docs/paddington-resource-history.md), [fixed station-entry links](docs/station-entry-platoons.md) | Paddington traces do not justify a clearance change. Fixed entry links are experimental and require version 4 saves. |
+| Terminus throughput | [Burst measurements](docs/terminus-flow.md) | Buffers increase waits in the selected outbound Central bursts. Geometry and supply causes remain diagnostic work. |
 | Server performance | [Route search storage](docs/route-search-performance.md), [finishing-pod bounds](docs/finishing-pod-bounds-performance.md), [admission storage](docs/admission-work-performance.md), [live server and GC](docs/admission-live-performance.md), [publisher cadence](docs/publisher-cadence-performance.md) | Live results cover two short repetitions per case. GC defaults remain unchanged. |
 | Browser performance | [Live Chrome measurements](docs/live-chrome-performance.md), [compatible stream decoder](docs/stream-decoder-qualification.md), [journey page cache](docs/journey-page-cache-performance.md), [label dimensions](docs/label-measure-cache-performance.md), [label admission](docs/label-admission-performance.md) | Software-rendering results do not predict physical-GPU performance. Decoder gains do not establish lower whole-browser CPU. |
+| Experimental adoption | [Proposed gates](docs/experimental-adoption.md) | Individual-tail and capacity thresholds need agreement before a default change. Historical 300-second counts remain diagnostics. |
 | Tests and restarts | [Test timing](docs/test-speed.md), [experimental policy file restarts](docs/experimental-policy-restarts.md) | Timing depends on workload and hardware. File tests do not simulate power loss. |
 
 ### Tasks

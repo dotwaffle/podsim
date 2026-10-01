@@ -1,8 +1,9 @@
 # Station approach buffer proposal
 
 Status: original design, superseded by the approved [version 3 contract](station-buffer-state-proposal.md).
-The experimental controller keeps new admissions off by default and excludes station-entry platoons.
-The platoon discussion below describes future work, not the implemented controller.
+The experimental controller keeps new admissions off by default.
+The [version 4 implementation](station-entry-platoons.md) now adds fixed local entry links.
+The discussion below records the original design and does not establish a service benefit.
 
 ## Problem and first case
 

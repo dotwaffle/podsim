@@ -66,7 +66,7 @@ Full buffers retain ordinary upstream waiting.
 
 ## Restore validation
 
-For version 3 only, permit berthless occupancy of an eligible final entry lane at or before its holding frontier, strictly before the terminal endpoint.
+Version 3 permits berthless occupancy of an eligible final entry lane at or before its holding frontier, strictly before the terminal endpoint.
 Reconstruct complete reservation groups and pod tail footprints.
 Validate connected routes, journey or pickup bindings, queue order, separation, and ownership before accepting physical restore.
 Preserve wait age.
@@ -78,8 +78,8 @@ Version 2 keeps its current rejection and demotion behavior.
 
 ## Platoons and validation
 
-Keep station-entry and berth-access platoons excluded in this first implementation.
-Their certificate endpoint, safe drain, and inherited ownership need a separate proposal and approval.
+The version 3 implementation excludes station-entry and berth-access platoons.
+The approved [version 4 contract](station-entry-platoons.md) adds fixed entry certificates and retains the berth-access exclusion.
 Ordinary upstream platoons must separate before entering the buffer under existing rules.
 Do not reduce stopped-pod separation.
 

@@ -18,7 +18,7 @@ A layout check rejects lanes that come too near.
 Other station geometry options and the other experiments in Section 6 remain later work.
 See [README.md](README.md) for controls, validation commands, and current model limits.
 
-**Current work status, September 30, 2026:**
+**Current work status, October 1, 2026:**
 
 LondonCentral (`london-central`) retains the central qualification network and its 2019 demand.
 [LondonFull](docs/london-full.md) adds 269 Tube sites with 2024 endpoint demand.
@@ -33,12 +33,16 @@ Experimental station buffers do not resolve that overload.
 The [combined controller study](docs/london-full-controller-sustained.md) compares 24 arms with matched requests and physical restores.
 Its late backlog stays nearly flat at 10/min, but grows under every policy at 15 and 20/min.
 The [12/min four-seed extension](docs/london-full-controller-rate12.md) and [13/min focused comparison](docs/london-full-controller-rate13.md) also retain nearly flat late backlogs.
-At [14/min](docs/london-full-controller-rate14.md), baseline seed 2 grows a backlog, while baseline seed 1 and both combined-policy seeds remain nearly flat.
+In the pre-routing [14/min study](docs/london-full-controller-rate14.md), baseline seed 2 grows a backlog, while the other tested seeds remain nearly flat.
+The [post-routing service study](docs/berth-routing-service.md) reduces that seed-2 growth from 1.683 to 0.139 orders per minute.
+It still has positive growth and three parties aboard at the observation cap.
 Individual wait regressions still prevent an adoption recommendation.
 The [paired mirrored-layout study](docs/station-mirror-load.md) passes its sampled safety and 48 physical-restore checks.
 Service results are mixed, with higher LondonCentral Early waits under mirrored geometry.
 The [Paddington reservation diagnosis](docs/paddington-reservation-diagnosis.md) identifies predecessor-frontier limits as most observed shared-guard failures in two Central schedules.
-It does not establish a safety defect or identify one geometric root cause.
+The [selected resource histories](docs/paddington-resource-history.md) follow releases, ownership transfers, and later grants.
+All 128 full-arm selections reach their original frontier within 24 simulated seconds after selection.
+These histories do not measure the entire wait from its onset or identify one geometric root cause.
 
 The editor imports georeferenced PNG or JPEG backgrounds with stored bounds, projection, attribution, and an atomic undo step.
 Live OSM raster tiles provide a zoom-dependent backdrop in the editor and simulation.
@@ -65,20 +69,26 @@ The [publisher timer](docs/publisher-cadence-performance.md) restores measured d
 Experimental [station approach buffers](docs/station-buffer-state-proposal.md) and [pickup swaps](docs/pickup-reassignment.md) remain disabled by default.
 Separate saved project and editor controls permit opt-in testing, and explicit comparison flags select independent policy combinations.
 Buffered sessions use saved-state version 3 with explicit membership.
+[Fixed station-entry platoons](docs/station-entry-platoons.md) require version 4 until their ownership dependencies drain.
 Unbuffered sessions can retain version 2.
+The [terminus burst fixture](docs/terminus-flow.md) measures berth claims, pickup supply, and finite outbound service.
+Buffers increase waits in its selected Central comparisons, so throughput benefits remain unqualified.
 Broader adoption requires separate qualification and a decision.
+The [proposed adoption gates](docs/experimental-adoption.md) add explicit individual-tail limits without changing defaults.
 The [combined dispatch qualification](docs/dispatch-policy-qualification.md) records average benefits, tail regressions, and remaining work.
 The [compatible decoder qualification](docs/stream-decoder-qualification.md) measures lower decode and apply time without a whole-browser CPU gain.
 The [sustained pickup-swap study](docs/pickup-swap-sustained.md) lowers average waits and empty distance in its tested pairs, but every arm still grows a backlog.
 Its [matched-request diagnosis](docs/pickup-request-diagnosis.md) separates unfinished requests from completed maxima and retains actual same-request regressions.
 The [selected service-tail cases](docs/pickup-tail-cases.md) trace earlier fleet divergence and longer pickup travel with little sampled stopping.
 The [selected exclusions](docs/pickup-local-intervention.md) show useful local swaps within those histories, with mixed effects on other requests.
-The separate [Stratford diagnosis](docs/pickup-seed4-tail.md) captures reciprocal waits at an intermediate berth and identifies an open routing defect.
+The [Stratford diagnosis](docs/pickup-seed4-tail.md) captures reciprocal waits at an intermediate berth.
+The [route preference and commitment fix](docs/berth-route-preference.md) addresses that mechanism for new routes while preserving old physical saves.
 
 Sharing remains off by default.
 The opt-in `reassign-existing` join policy and guarded-positioning follow-up still fail adoption rules.
 These results do not reverse the earlier adoption of the drop-offs mode when sharing is enabled.
-Larger pods and congestion-aware routing remain parked.
+Larger pods remain parked.
+A bounded predictive routing prototype is queued for comparison, with free-flow routing retained by default.
 Local Chromium software-rendering checks cover the viewer, editor, and high-latency streams.
 Desktop Chrome is the required browser for current development.
 Firefox and Safari validation are not required.
@@ -390,10 +400,11 @@ Define what happens when the buffer is full.
 A finite buffer cannot prevent spillback under sustained overload without upstream admission control.
 
 Include virtual platoons in the design, with safe separation before berth routes diverge.
-Current platoons exclude station-entry and berth-access lanes and retain at least 12 meters of separation.
-The [station-entry platoon proposal](docs/station-entry-platoons-proposal.md) specifies a bounded certificate and proposed version 4 contract.
-It remains design-only and needs separate approval before implementation.
-Shared reservations can improve discharge flow, but do not imply tighter stopped queues.
+The [fixed entry implementation](docs/station-entry-platoons.md) shares complete interior cells while eligible buffer queues move.
+It retains at least 12 meters of separation, excludes berth-access links, and uses a fixed version 4 certificate.
+Blocked departures, exclusive berth suffixes, ownership transfer, and disabled-policy restoration have deterministic tests.
+Matched service qualification remains separate.
+Shared reservations do not imply tighter stopped queues.
 Preserve existing reservations, passenger and pickup priority, and the aging override.
 
 Validate merge contention, occupied berths, departure progress, full-buffer behavior, platoon separation, and saved-state restoration.
@@ -457,20 +468,21 @@ The [Stratford diagnosis](docs/pickup-seed4-tail.md) records a stalled empty pod
 That pod blocks the Stratford berth's arriving claimant, which owns the berth and blocks the first pod.
 The diagnosis identifies this cycle in a captured snapshot, without changing routing or reservation rules.
 
-Qualify routes that avoid intermediate berths before applying a restriction.
-Treat direct searches and cached station searches consistently.
-Preserve directed reachability, committed route prefixes, and existing saved physical routes.
-Define compatibility for authored layouts that lack an independent through route.
-Keep berth ownership and reservation guards intact.
-This work addresses route validity separately from the parked congestion-cost experiments below.
+The [implemented route preference](docs/berth-route-preference.md) treats direct and cached station searches consistently.
+New routes avoid intermediate berths when a compatible path exists.
+Authored layouts without an independent through path retain the unrestricted fallback.
+The passenger arrival-chain guard preserves committed prefixes.
+Existing physical saves retain their routes, and berth ownership and reservation guards remain intact.
+The [selected service qualification](docs/berth-routing-service.md) retains individual tail regressions despite improved aggregate results.
 
 ### Congestion-aware routing
 
 Compare the initial shortest expected travel-time policy with a policy that accounts for observed queues and delays.
 An alternative route may be longer but faster under the current load.
 
-Use smoothed travel-time estimates and reconsider routes at suitable junctions.
-Investigate whether repeated route changes cause pods to switch between alternatives or only move congestion elsewhere.
+First compare smoothed delay estimates and planned incoming routes at route assignment.
+Keep committed route prefixes intact.
+Rerouting at junctions remains later work.
 Keep route choice separate from the movement rules that prevent conflicting access to track and junctions.
 
 Useful comparisons include completed journeys, journey-time distributions, queue lengths, and empty-pod travel.
@@ -486,7 +498,7 @@ A second policy, `queue`, adds the part of each queue that remains when the pod 
 In rail-hub, scale100, London-192, and the London envelope, each `queue` result is equal to free-flow, so the policy is not adopted.
 Most delays that it sees are on the departure lane of the pod, which no route can avoid.
 The guarded `congestion` arm serves more requests in the congested London-192 Early band, but it lowers two London band limits.
-Congestion-aware routing is parked.
+The existing `congestion` and `queue` policies remain unadopted.
 Free-flow routing stays the default, and the `congestion` arm keeps its two guards.
 The plan made a cost from the planned routes of the pods the next candidate, but only if platoons or shared rides do not relieve the congested Early band.
 Platoons relieve it.
@@ -494,7 +506,10 @@ The historical three-seed platoon A/B with 198 pods raised the tested Early reco
 The ten-seed follow-up recovered all seeds at 11/minute and nine of ten at 12/minute.
 The historical three-seed London preset envelope with `platoonLimit` 4 raised its Early recovery limit from 7 to 10 requests per minute.
 These finite-arrival experiments do not establish sustained capacity.
-Thus the condition of that candidate is not met, and the planned-route cost stays parked with the other routing work.
+These historical results did not meet the original prerequisite for planned-route costs.
+A separate bounded predictive prototype is now approved for comparison.
+It will combine observed delays and already-planned arrivals, update forecasts between assignments, and bound free-flow detours.
+It will select routes before departure and preserve existing defaults.
 See [docs/qualification.md](docs/qualification.md#queue-routing-screen).
 
 ### Mixed vehicle capacities and shared rides
