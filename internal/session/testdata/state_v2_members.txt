@@ -4,6 +4,17 @@
 # keeps the version.
 # Each line is a member path and its JSON kind. "[]" is an array element.
 # TestStateFileMembers compares this list with the Go types.
+railConnections array
+railConnections[] object
+railConnections[].event string
+railConnections[].passenger number
+railConnections[].requestedTick number
+railConnections[].from string
+railConnections[].to string
+railConnections[].requestID number
+railConnections[].alightedTick number
+railConnections[].outcome string
+railConnections[].reason string
 format string
 version number
 final boolean
@@ -32,6 +43,11 @@ demand.state.config.profile string
 demand.state.config.band string
 demand.state.generated number
 demand.state.skipped number
+demand.state.connections object
+demand.state.connections.made number
+demand.state.connections.missed number
+demand.state.connections.unserved number
+demand.state.connections.unresolved number
 demand.state.error string
 demand.random base64
 demand.budget number

@@ -5,6 +5,7 @@ import (
 	"sort"
 
 	"github.com/dotwaffle/podsim/internal/project"
+	"github.com/dotwaffle/podsim/internal/rail"
 	"github.com/dotwaffle/podsim/internal/sim"
 )
 
@@ -13,10 +14,11 @@ type DemandConfig = project.DemandConfig
 
 // DemandState reports accepted and skipped generated orders for the current stream.
 type DemandState struct {
-	Config    DemandConfig `json:"config"`
-	Generated int          `json:"generated"`
-	Skipped   int          `json:"skipped"`
-	Error     string       `json:"error,omitempty"`
+	Config      DemandConfig `json:"config"`
+	Generated   int          `json:"generated"`
+	Skipped     int          `json:"skipped"`
+	Connections rail.Counts  `json:"connections,omitzero"`
+	Error       string       `json:"error,omitempty"`
 }
 
 // demandRun is the live demand stream. clone copies pcg and rng, because
@@ -35,14 +37,18 @@ type demandRun struct {
 	pickupWeights map[string]float64
 	railOffers    []project.RailOffer
 	railCursor    int
+	serviceOffers []project.RailServiceOffer
+	serviceCursor int
+	connections   *rail.Connections
 }
 
 type demandInput struct {
-	config   DemandConfig
-	network  sim.Network
-	profiles []project.DemandProfile
-	arrivals []project.RailArrival
-	tick     int64
+	config     DemandConfig
+	network    sim.Network
+	profiles   []project.DemandProfile
+	arrivals   []project.RailArrival
+	departures []project.RailDeparture
+	tick       int64
 }
 
 type weightedDemandFlow struct {
@@ -73,6 +79,9 @@ func newDemand(input demandInput) demandRun {
 		destination:   destination,
 		pickupWeights: make(map[string]float64, len(passenger)),
 	}
+	if len(input.departures) > 0 {
+		run.connections = rail.NewConnections(input.departures)
+	}
 	run.prepareLegacyWeights()
 	if input.config.Pattern == "profile" {
 		run.prepareProfile(input.profiles)
@@ -83,6 +92,14 @@ func newDemand(input demandInput) demandRun {
 		clear(run.pickupWeights)
 		for _, arrival := range input.arrivals {
 			run.pickupWeights[arrival.Station] += float64(arrival.Passengers)
+		}
+	}
+	if input.config.Pattern == "rail-services" {
+		run.serviceOffers = project.RailServicesSchedule(input.arrivals, input.departures, input.config.Seed)
+		run.serviceCursor = sort.Search(len(run.serviceOffers), func(i int) bool { return run.serviceOffers[i].Tick > input.tick })
+		clear(run.pickupWeights)
+		for _, offer := range run.serviceOffers {
+			run.pickupWeights[offer.From]++
 		}
 	}
 	return run
@@ -131,6 +148,7 @@ func (d *demandRun) prepareProfile(profiles []project.DemandProfile) {
 // shares the fields that code never writes to in place.
 func (d *demandRun) clone() demandRun {
 	c := *d
+	c.connections = d.connections.Clone()
 	if d.pcg != nil {
 		c.pcg = new(*d.pcg)
 		c.rng = rand.New(c.pcg)
@@ -139,14 +157,19 @@ func (d *demandRun) clone() demandRun {
 }
 
 func (d *demandRun) configure(input demandInput) error {
-	if err := project.ValidateDemand(input.config, project.DemandContext{Network: input.network, Profiles: input.profiles, RailArrivals: input.arrivals}); err != nil {
+	if err := project.ValidateDemand(input.config, project.DemandContext{Network: input.network, Profiles: input.profiles, RailArrivals: input.arrivals, RailDepartures: input.departures}); err != nil {
 		return err
 	}
 	if input.config == d.state.Config {
 		return nil
 	}
 	if input.config.Enabled {
+		connections := d.connections
 		*d = newDemand(input)
+		d.connections = connections
+		if connections != nil {
+			d.state.Connections = connections.Counts()
+		}
 	} else {
 		d.state.Config = input.config
 	}
@@ -154,7 +177,15 @@ func (d *demandRun) configure(input demandInput) error {
 }
 
 func (d *demandRun) step(simulation *sim.Simulation) {
+	if d.connections != nil {
+		d.connections.Advance(simulation.Tick(), simulation.StepCompletions())
+		d.state.Connections = d.connections.Counts()
+	}
 	if !d.state.Config.Enabled {
+		return
+	}
+	if d.state.Config.Pattern == "rail-services" {
+		d.releaseServices(simulation)
 		return
 	}
 	if d.state.Config.Pattern == "rail-arrivals" {
@@ -219,4 +250,51 @@ func (d *demandRun) nextPair() (string, string) {
 		}
 	}
 	return d.passenger[from], d.passenger[to]
+}
+
+// releaseServices issues offers after physics and retains rejected identities.
+func (d *demandRun) releaseServices(simulation *sim.Simulation) {
+	tick := simulation.Tick()
+	for d.serviceCursor < len(d.serviceOffers) && d.serviceOffers[d.serviceCursor].Tick <= tick {
+		offer := d.serviceOffers[d.serviceCursor]
+		d.serviceCursor++
+		if offer.Tick != tick {
+			continue
+		}
+		if offer.Kind == "arrival" {
+			d.offer(simulation, offer.From, offer.To)
+			continue
+		}
+		if d.connections.Issued(offer.Event, offer.Passenger) {
+			continue
+		}
+		requestID, reason := 0, ""
+		if simulation.PendingCount() >= QueueLimit {
+			d.state.Skipped++
+			reason = "queue-limit"
+		} else {
+			var err error
+			requestID, err = simulation.SubmitTrip(offer.From, offer.To)
+			if err != nil {
+				d.state.Skipped++
+				d.state.Error = err.Error()
+				reason = "request-error"
+			} else {
+				d.state.Generated++
+			}
+		}
+		if err := d.connections.Add(offer, requestID, reason); err != nil {
+			d.state.Error = err.Error()
+		}
+	}
+	if d.connections != nil {
+		d.state.Connections = d.connections.Counts()
+	}
+}
+
+func (d *demandRun) connectionRecords() []rail.Connection {
+	if d.connections == nil {
+		return nil
+	}
+	return d.connections.Records()
 }

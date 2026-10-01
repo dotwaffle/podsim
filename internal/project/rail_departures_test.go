@@ -128,17 +128,36 @@ func TestRailServicesCombinedCaps(t *testing.T) {
 	if err := validateRailServices([]RailArrival{a}, plan, network); err == nil {
 		t.Fatal("accepted too many combined events")
 	}
-	plan = plan[:50]
+	plan = plan[:15]
 	for i := range plan {
 		plan[i].Passengers = 200
 	}
 	if err := validateRailServices(nil, plan, network); err != nil {
 		t.Fatal(err)
 	}
+	extra := testRailDeparture()
+	extra.ID = "extra"
+	extra.Passengers = 1
+	extra.RequestFromSeconds, extra.RequestUntilSeconds = 500, 500
+	if err := validateRailServices(nil, append(slices.Clone(plan), extra), network); err == nil {
+		t.Fatal("accepted outbound passenger cap overflow")
+	}
+	arrivals := make([]RailArrival, 35)
+	for i := range arrivals {
+		arrivals[i] = a
+		arrivals[i].ID = strconv.Itoa(i)
+		arrivals[i].Passengers = 200
+		arrivals[i].AtSeconds = 1000 + i
+		arrivals[i].WalkingSeconds = 0
+	}
+	if err := validateRailServices(arrivals, plan, network); err != nil {
+		t.Fatal(err)
+	}
 	a.Passengers, a.AtSeconds = 1, 50000
-	if err := validateRailServices([]RailArrival{a}, plan, network); err == nil {
+	if err := validateRailServices(append(arrivals, a), plan, network); err == nil {
 		t.Fatal("accepted too many combined passengers")
 	}
+
 }
 
 func TestRailServicesStreamsAndOwnership(t *testing.T) {

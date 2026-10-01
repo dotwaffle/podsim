@@ -23,6 +23,7 @@ import (
 	"time"
 
 	"github.com/dotwaffle/podsim/internal/project"
+	"github.com/dotwaffle/podsim/internal/rail"
 	"github.com/dotwaffle/podsim/internal/sim"
 )
 
@@ -104,10 +105,11 @@ func sessionStateFile(t *testing.T, shared *Session) stateFile {
 		Build:   shared.build, Epoch: testStateEpoch,
 		Revision: shared.revision, ProjectRevision: shared.projectRevision, Generation: shared.generation,
 		LastCheckpoint: shared.lastCheckpoint, Speed: shared.speed, RestoreAttempts: 1,
-		Sequences:  shared.commandSequences(),
-		Demand:     savedDemand{State: shared.demand.state, Random: random, Budget: shared.demand.budget},
-		Simulation: shared.simulation.ExportState(),
-		Project:    shared.project,
+		RailConnections: shared.demand.connectionRecords(),
+		Sequences:       shared.commandSequences(),
+		Demand:          savedDemand{State: shared.demand.state, Random: random, Budget: shared.demand.budget},
+		Simulation:      shared.simulation.ExportState(),
+		Project:         shared.project,
 	}
 }
 
@@ -720,19 +722,26 @@ func TestStateFileWorstCaseSize(t *testing.T) {
 	}
 	demand := config.Demand
 	demand.Enabled, demand.PerMinute, demand.Seed = true, 120, math.MaxUint64
+	demand.Pattern = "rail-services"
 	demand.Destination, demand.Profile, demand.Band = id("d", 0), id("p", 0), id("b", 0)
 	random, err := newDemand(demandInput{config: demand, network: config.Network}).pcg.MarshalBinary()
 	if err != nil {
 		t.Fatal(err)
 	}
+	connections := make([]rail.Connection, project.MaxRailDeparturePassengers)
+	for i := range connections {
+		connections[i] = rail.Connection{Event: id("e", i), Passenger: 200, RequestedTick: widest, From: id("f", i), To: id("t", i), RequestID: math.MaxInt, AlightedTick: widest, Outcome: "unserved", Reason: "restore-degraded"}
+	}
+
 	file := stateFile{
-		Format: stateFormat, Version: stateVersion, Final: true,
+		RailConnections: connections,
+		Format:          stateFormat, Version: stateVersion, Final: true,
 		SavedAt: time.Date(2026, time.September, 23, 9, 0, 0, 123456789, time.FixedZone("", -12*60*60)),
 		Build:   testBuildID, Epoch: strings.Repeat("\x01", maxEpochBytes),
 		Revision: math.MaxUint64 - 1, ProjectRevision: math.MaxUint64 - 1, Generation: math.MaxUint64 - 1,
 		LastCheckpoint: math.MaxUint64, Speed: 8, RestoreAttempts: math.MaxInt, Sequences: sequences,
 		Demand: savedDemand{
-			State:  DemandState{Config: demand, Generated: math.MaxInt, Skipped: math.MaxInt, Error: text},
+			State:  DemandState{Config: demand, Generated: math.MaxInt, Skipped: math.MaxInt, Error: text, Connections: rail.Counts{Made: 10000, Missed: 10000, Unserved: 10000, Unresolved: 10000}},
 			Random: random, Budget: demandBudgetLimit - 1,
 		},
 		Simulation: sim.SavedState{
@@ -772,7 +781,17 @@ func TestStateFileWorstCaseSize(t *testing.T) {
 			if size > MaxStateBytes {
 				t.Fatalf("the largest state has %d JSON bytes, more than %d", size, MaxStateBytes)
 			}
-			if _, err := decodeCheckedState(encodeTestState(t, maxFile)); err != nil {
+			// The size fixture uses maximal numeric values, including invalid IDs.
+			// Decode its full shape, then retain the original physical validation fixture.
+			decoded, err := decodeStateFile(encodeTestState(t, maxFile))
+			if err != nil || len(decoded.RailConnections) != project.MaxRailDeparturePassengers {
+				t.Fatalf("maximal saved shape: %v", err)
+			}
+			physical := maxFile
+			physical.RailConnections = nil
+			physical.Demand.State.Connections = rail.Counts{}
+			physical.Demand.State.Config.Pattern = project.Default().Demand.Pattern
+			if _, err := decodeCheckedState(encodeTestState(t, physical)); err != nil {
 				t.Fatal(err)
 			}
 		})

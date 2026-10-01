@@ -11,6 +11,9 @@ import (
 	"github.com/dotwaffle/podsim/internal/sim"
 )
 
+// MaxRailDeparturePassengers bounds the saved outbound connection ledger.
+const MaxRailDeparturePassengers = 3000
+
 // RailDeparture offers pod trips to a hub before a scheduled train leaves.
 type RailDeparture struct {
 	ID                  string       `json:"id"`
@@ -51,7 +54,7 @@ func validateRailServices(arrivals []RailArrival, departures []RailDeparture, ne
 	}
 	ids := make(map[string]bool, len(departures))
 	releases := make(map[int64]int)
-	total := 0
+	total, outbound := 0, 0
 	for _, arrival := range arrivals {
 		total += arrival.Passengers
 		releases[railReleaseTick(arrival)] += arrival.Passengers
@@ -62,6 +65,10 @@ func validateRailServices(arrivals []RailArrival, departures []RailDeparture, ne
 		}
 		ids[departure.ID] = true
 		total += departure.Passengers
+		outbound += departure.Passengers
+		if outbound > MaxRailDeparturePassengers {
+			return fmt.Errorf("rail departures must offer at most %d passengers", MaxRailDeparturePassengers)
+		}
 		if total > MaxRailPassengers {
 			return fmt.Errorf("rail plans must offer at most %d combined passengers", MaxRailPassengers)
 		}

@@ -108,7 +108,14 @@ func (c *Connections) Issued(event string, passenger int) bool {
 func (c *Connections) Counts() Counts { return c.counts }
 
 // Records returns owned connections in issue order.
-func (c *Connections) Records() []Connection { return slices.Clone(c.records) }
+func (c *Connections) Records() []Connection {
+	if len(c.records) == 0 {
+		return nil
+	}
+	records := make([]Connection, len(c.records))
+	copy(records, c.records)
+	return records
+}
 
 // Add records an issued departure offer after its submission attempt.
 // Rejected offers use ID zero and reason queue-limit or request-error.
@@ -120,7 +127,7 @@ func (c *Connections) Add(offer project.RailServiceOffer, requestID int, reason 
 		offer.WalkingTicks != int64(departure.WalkingSeconds)*sim.TicksPerSecond {
 		return fmt.Errorf("invalid departure offer %q passenger %d", offer.Event, offer.Passenger)
 	}
-	if len(c.records) >= project.MaxRailPassengers || c.Issued(offer.Event, offer.Passenger) {
+	if len(c.records) >= project.MaxRailDeparturePassengers || c.Issued(offer.Event, offer.Passenger) {
 		return fmt.Errorf("departure offer %q passenger %d exceeds the ledger bound or was already issued", offer.Event, offer.Passenger)
 	}
 	if requestID < 0 || requestID == 0 && reason != "queue-limit" && reason != "request-error" || requestID > 0 && reason != "" {
@@ -199,7 +206,7 @@ func (c *Connections) Advance(tick int64, completions []sim.StepCompletion) {
 // RestoreConnections validates owned saved records against the saved project
 // and active requests. It never regenerates past origins from the current seed.
 func RestoreConnections(departures []project.RailDeparture, records []Connection, state sim.SavedState, counts Counts) (*Connections, error) {
-	if len(records) > project.MaxRailPassengers || len(records) > 0 && len(departures) == 0 {
+	if len(records) > project.MaxRailDeparturePassengers || len(records) > 0 && len(departures) == 0 {
 		return nil, fmt.Errorf("connection ledger exceeds its bound or has no departure plan")
 	}
 	c := NewConnections(departures)

@@ -18,6 +18,7 @@ import (
 	"time"
 
 	"github.com/dotwaffle/podsim/internal/project"
+	"github.com/dotwaffle/podsim/internal/rail"
 	"github.com/dotwaffle/podsim/internal/sim"
 )
 
@@ -518,6 +519,17 @@ func (s *Session) loadState(input loadInput) (loaded loadedState, err error) {
 	if loaded.demand, err = restoreDemand(file.Demand, loaded.config, loaded.simulation.Tick()); err != nil {
 		return loaded, invalidState(err)
 	}
+	if len(file.RailConnections) > 0 {
+		connections, err := rail.RestoreConnections(loaded.config.RailDepartures, file.RailConnections, file.Simulation, file.Demand.State.Connections)
+		if err != nil {
+			return loaded, invalidState(err)
+		}
+		if err := connections.ReconcileRestore(loaded.simulation.ExportState(), loaded.result); err != nil {
+			return loaded, invalidState(err)
+		}
+		loaded.demand.connections = connections
+		loaded.demand.state.Connections = connections.Counts()
+	}
 	return loaded, nil
 }
 
@@ -567,7 +579,7 @@ func sameProject(first, second project.Config) (bool, error) {
 // restoreDemand makes the saved demand stream of config again. The stream
 // continues with the same draws.
 func restoreDemand(saved savedDemand, config project.Config, tick int64) (demandRun, error) {
-	run := newDemand(demandInput{config: saved.State.Config, network: config.Network, profiles: config.DemandProfiles, arrivals: config.RailArrivals, tick: tick})
+	run := newDemand(demandInput{config: saved.State.Config, network: config.Network, profiles: config.DemandProfiles, arrivals: config.RailArrivals, departures: config.RailDepartures, tick: tick})
 	// run.rng draws from run.pcg, and rand.Rand has no other state.
 	if err := run.pcg.UnmarshalBinary(saved.Random); err != nil {
 		return demandRun{}, fmt.Errorf("restore demand random source: %w", err)
@@ -773,6 +785,9 @@ func (s *Session) captureState(kind SaveKind) (stateFile, bool, error) {
 		Demand:     savedDemand{State: s.demand.state, Random: random, Budget: s.demand.budget},
 		Simulation: s.simulation.ExportState(),
 		Project:    s.project,
+	}
+	if s.demand.connections != nil {
+		file.RailConnections = s.demand.connections.Records()
 	}
 	if s.simulation.NeedsBufferState() {
 		file.Version = bufferStateVersion

@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/dotwaffle/podsim/internal/project"
+	"github.com/dotwaffle/podsim/internal/rail"
 	"github.com/dotwaffle/podsim/internal/sim"
 )
 
@@ -102,6 +103,7 @@ var stateJSONLimits = jsonLimits{
 		"/project/network/Stations":                 project.MaxStations,
 		"/project/network/Stations/*/Berths":        project.MaxBerths,
 		"/project/fleet":                            maxSavedPods,
+		"/railConnections":                          project.MaxRailDeparturePassengers,
 		"/project/railArrivals":                     project.MaxRailArrivals,
 		"/project/railArrivals/*/destinations":      project.MaxRailDestinations,
 		"/project/railDepartures":                   project.MaxRailArrivals,
@@ -141,8 +143,9 @@ var stateJSONLimits = jsonLimits{
 // returns a simulation that shares no storage with the session. The session
 // replaces its project whole and does not change it in place.
 type stateFile struct {
-	Format  string `json:"format"`
-	Version int    `json:"version"`
+	RailConnections []rail.Connection `json:"railConnections,omitempty"`
+	Format          string            `json:"format"`
+	Version         int               `json:"version"`
 	// Final is true for a file that the server saved when it stopped.
 	Final   bool      `json:"final"`
 	SavedAt time.Time `json:"savedAt"`
@@ -566,7 +569,14 @@ func (file *stateFile) validate() error {
 	if err := validateSequences(file.Sequences); err != nil {
 		return err
 	}
-	return file.Demand.validate(project.DemandContext{Network: file.Project.Network, Profiles: file.Project.DemandProfiles, RailArrivals: file.Project.RailArrivals})
+	if err := file.Demand.validate(project.DemandContext{Network: file.Project.Network, Profiles: file.Project.DemandProfiles, RailArrivals: file.Project.RailArrivals, RailDepartures: file.Project.RailDepartures}); err != nil {
+		return err
+	}
+	if len(file.RailConnections) == 0 && file.Demand.State.Connections == (rail.Counts{}) {
+		return nil
+	}
+	_, err := rail.RestoreConnections(file.Project.RailDepartures, file.RailConnections, file.Simulation, file.Demand.State.Connections)
+	return err
 }
 
 // validateSequences checks the saved command sequences. The session applies

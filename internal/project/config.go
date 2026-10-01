@@ -166,9 +166,10 @@ type DemandFlow struct {
 
 // DemandContext supplies the network and profiles used to validate demand settings.
 type DemandContext struct {
-	Network      sim.Network
-	Profiles     []DemandProfile
-	RailArrivals []RailArrival
+	Network        sim.Network
+	Profiles       []DemandProfile
+	RailArrivals   []RailArrival
+	RailDepartures []RailDeparture
 }
 
 // Config is the versioned, portable scenario configuration.
@@ -284,7 +285,7 @@ func Validate(config Config) error {
 	if err := validateRailServices(config.RailArrivals, config.RailDepartures, config.Network); err != nil {
 		return err
 	}
-	if err := ValidateDemand(config.Demand, DemandContext{Network: config.Network, Profiles: config.DemandProfiles, RailArrivals: config.RailArrivals}); err != nil {
+	if err := ValidateDemand(config.Demand, DemandContext{Network: config.Network, Profiles: config.DemandProfiles, RailArrivals: config.RailArrivals, RailDepartures: config.RailDepartures}); err != nil {
 		return err
 	}
 	if err := sim.ValidateFleet(config.Network, config.Fleet); err != nil {
@@ -661,11 +662,17 @@ func ValidateDemand(config DemandConfig, context DemandContext) error {
 	if config.PerMinute < 1 || config.PerMinute > 120 {
 		return errors.New("demand rate must be 1 to 120 orders per simulated minute")
 	}
-	if config.Pattern != "balanced" && config.Pattern != "market" && config.Pattern != "destination" && config.Pattern != "profile" && config.Pattern != "rail-arrivals" {
-		return errors.New("demand pattern must be balanced, market, destination, profile, or rail-arrivals")
+	if config.Pattern != "balanced" && config.Pattern != "market" && config.Pattern != "destination" && config.Pattern != "profile" && config.Pattern != "rail-arrivals" && config.Pattern != "rail-services" {
+		return errors.New("demand pattern must be balanced, market, destination, profile, rail-arrivals, or rail-services")
 	}
 	if len(config.Destination) > maxIDLength || len(config.Profile) > maxIDLength || len(config.Band) > maxIDLength {
 		return fmt.Errorf("demand references must contain at most %d characters", maxIDLength)
+	}
+	if config.Pattern == "rail-services" {
+		if len(context.RailArrivals)+len(context.RailDepartures) == 0 {
+			return errors.New("rail-services demand needs a nonempty rail plan")
+		}
+		return validateRailServices(context.RailArrivals, context.RailDepartures, context.Network)
 	}
 	if config.Pattern == "rail-arrivals" {
 		if len(context.RailArrivals) == 0 {
