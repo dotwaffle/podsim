@@ -104,6 +104,8 @@ var stateJSONLimits = jsonLimits{
 		"/project/fleet":                            maxSavedPods,
 		"/project/railArrivals":                     project.MaxRailArrivals,
 		"/project/railArrivals/*/destinations":      project.MaxRailDestinations,
+		"/project/railDepartures":                   project.MaxRailArrivals,
+		"/project/railDepartures/*/origins":         project.MaxRailDestinations,
 		"/project/demandProfiles":                   project.MaxProfiles,
 		"/project/demandProfiles/*/bands":           project.MaxBands,
 		"/project/demandProfiles/*/flows":           project.MaxFlows,
