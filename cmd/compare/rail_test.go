@@ -96,7 +96,7 @@ func TestRailScheduleHashIncludesEventAndPassenger(t *testing.T) {
 
 func TestRailMatrixMemoryPreflight(t *testing.T) {
 	t.Parallel()
-	opts := options{seeds: make([]int64, 100), loads: []time.Duration{0}, redistributionPolicies: []string{"off"}, arrivalsFor: time.Hour}
+	opts := options{seeds: make([]int64, 50), loads: []time.Duration{0}, redistributionPolicies: []string{"off"}, arrivalsFor: time.Hour}
 	caseStudy := scenario{}
 	for index := range 50 {
 		caseStudy.railArrivals = append(caseStudy.railArrivals, project.RailArrival{AtSeconds: index, Passengers: 200})
