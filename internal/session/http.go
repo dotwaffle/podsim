@@ -84,6 +84,8 @@ var commandJSONLimits = jsonLimits{
 		"/project/network/Stations":                 project.MaxStations,
 		"/project/network/Stations/*/Berths":        project.MaxBerths,
 		"/project/fleet":                            project.MaxPods,
+		"/project/railArrivals":                     project.MaxRailArrivals,
+		"/project/railArrivals/*/destinations":      project.MaxRailDestinations,
 		"/project/demandProfiles":                   project.MaxProfiles,
 		"/project/demandProfiles/*/bands":           project.MaxBands,
 		"/project/demandProfiles/*/flows":           project.MaxFlows,

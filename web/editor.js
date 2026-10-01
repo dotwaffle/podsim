@@ -1325,6 +1325,41 @@
     return type && typeof id === "string" && id ? { type, id } : null;
   }
 
+  // railArrivalErrors checks the portable plan before import or apply.
+  function railArrivalErrors(arrivals, passengerIDs) {
+    const isRecord = (value) => value !== null && typeof value === "object" && !Array.isArray(value);
+    if (arrivals === undefined || arrivals === null) return [];
+    if (!Array.isArray(arrivals)) return ["Rail arrivals must be an array."];
+    const validID = (id) => typeof id === "string" && id.length > 0 && new TextEncoder().encode(id).length <= 64;
+    const errors = []; const ids = new Set(); const releases = new Map(); let total = 0;
+    if (arrivals.length > 256) errors.push("The project must contain at most 256 rail arrivals.");
+    for (const [index, arrival] of arrivals.entries()) {
+      const row = `Rail arrival ${index + 1}`;
+      if (!isRecord(arrival)) { errors.push(`${row} must be an object.`); continue; }
+      if (!validID(arrival.id) || ids.has(arrival.id)) errors.push(`${row} has an invalid or duplicate ID.`);
+      ids.add(arrival.id);
+      if (!passengerIDs.has(arrival.station)) errors.push(`${row} needs a passenger hub.`);
+      const timeValid = Number.isInteger(arrival.atSeconds) && arrival.atSeconds >= 0 && arrival.atSeconds <= 86400 && Number.isInteger(arrival.walkingSeconds) && arrival.walkingSeconds >= 0 && arrival.walkingSeconds <= 3600 && arrival.atSeconds + arrival.walkingSeconds <= 86400;
+      if (!timeValid) errors.push(`${row} has an invalid arrival time or walking delay.`);
+      if (!Number.isInteger(arrival.passengers) || arrival.passengers < 1 || arrival.passengers > 200) errors.push(`${row} must offer 1 to 200 passengers.`);
+      else {
+        total += arrival.passengers;
+        if (timeValid) { const tick = Math.max(1, (arrival.atSeconds + arrival.walkingSeconds) * 60); releases.set(tick, (releases.get(tick) || 0) + arrival.passengers); }
+      }
+      if (!Array.isArray(arrival.destinations) || arrival.destinations.length < 1 || arrival.destinations.length > 16) { errors.push(`${row} needs 1 to 16 destinations.`); continue; }
+      const destinations = new Set();
+      for (const destination of arrival.destinations) {
+        if (!isRecord(destination)) { errors.push(`${row} has an invalid destination.`); continue; }
+        if (!passengerIDs.has(destination.station) || destination.station === arrival.station || destinations.has(destination.station)) errors.push(`${row} has an invalid or duplicate destination.`);
+        destinations.add(destination.station);
+        if (!Number.isInteger(destination.weight) || destination.weight < 1 || destination.weight > 1000000) errors.push(`${row} needs destination weights from 1 to 1000000.`);
+      }
+    }
+    if (total > 10000) errors.push("Rail arrivals must offer at most 10000 passengers.");
+    if ([...releases.values()].some((count) => count > 200)) errors.push("Rail arrivals must offer at most 200 passengers at one release tick.");
+    return errors;
+  }
+
   // validateConfig gives the errors for a scenario. An error blocks an apply
   // or an import. configWarnings gives the checks that do not block. When
   // targets is a Map, validateConfig adds the object that an error names to
@@ -1494,6 +1529,7 @@
       }
       if (totals.some((total) => !Number.isFinite(total) || total <= 0)) errors.push(`Demand profile ${profile.id} has an empty band.`);
     }
+    errors.push(...railArrivalErrors(value.railArrivals, passengerIDs));
     if (value.geo !== undefined && value.geo !== null) { const geo = geoError(value.geo); if (geo) errors.push(geo); }
     if (value.map !== undefined && value.map !== null && !Tiles.validMap(value.map, value.geo)) errors.push("The map needs provider osm, opacity from 0 to 1, and a geographic reference.");
     if (!demand || !["balanced", "destination", "market", "profile"].includes(demand.pattern)) errors.push("The passenger demand pattern is invalid.");

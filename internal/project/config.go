@@ -178,6 +178,7 @@ type Config struct {
 	Fleet          []sim.Placement `json:"fleet"`
 	Demand         DemandConfig    `json:"demand"`
 	DemandProfiles []DemandProfile `json:"demandProfiles,omitempty"`
+	RailArrivals   []RailArrival   `json:"railArrivals,omitempty"`
 	// SharedRidePartyLimit caps the parties per pod. Zero loads as one.
 	SharedRidePartyLimit int `json:"sharedRidePartyLimit,omitempty"`
 	// SharedRideMode selects the parties that can join a pod: "destination"
@@ -276,6 +277,9 @@ func Validate(config Config) error {
 		return err
 	}
 	if err := validateDemandProfiles(config.DemandProfiles, config.Network); err != nil {
+		return err
+	}
+	if err := validateRailArrivals(config.RailArrivals, config.Network); err != nil {
 		return err
 	}
 	if err := ValidateDemand(config.Demand, DemandContext{Network: config.Network, Profiles: config.DemandProfiles}); err != nil {
@@ -799,6 +803,7 @@ func Clone(config Config) Config {
 	clone.Network = CloneNetwork(config.Network)
 	clone.Fleet = append([]sim.Placement(nil), config.Fleet...)
 	clone.DemandProfiles = cloneDemandProfiles(config.DemandProfiles)
+	clone.RailArrivals = cloneRailArrivals(config.RailArrivals)
 	if config.Geo != nil {
 		clone.Geo = new(*config.Geo)
 	}

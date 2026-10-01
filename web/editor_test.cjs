@@ -5265,3 +5265,38 @@ test("history preserves own JSON keys without prototype setters", () => {
   assert.ok(Object.hasOwn(extra, "__proto__"));
   assert.equal(extra.__proto__.value, 12);
 });
+
+test("rail plans survive import normalization and mirror portable bounds", () => {
+  const config = connectedScenario(); const [hub, destination] = config.network.Stations;
+  const arrival = { id: "train", station: hub.ID, atSeconds: 60, walkingSeconds: 15, passengers: 120, destinations: [{ station: destination.ID, weight: 1 }] };
+  config.railArrivals = [arrival];
+  assert.deepEqual(editor.normalizeConfig(config).railArrivals, [arrival]);
+  assert.deepEqual(editor.validateConfig(config), []);
+  const tests = [
+    ["id", ""], ["id", "x".repeat(65)], ["station", "missing"],
+    ["atSeconds", -1], ["atSeconds", 86401], ["atSeconds", 86390], ["atSeconds", 1.5],
+    ["walkingSeconds", -1], ["walkingSeconds", 3601],
+    ["passengers", 0], ["passengers", 201], ["passengers", 1.5],
+    ["destinations", []], ["destinations", new Array(17).fill(arrival.destinations[0])],
+    ["destinations", [{ station: destination.ID, weight: 0 }]],
+    ["destinations", [{ station: destination.ID, weight: 1000001 }]],
+    ["destinations", [{ station: hub.ID, weight: 1 }]],
+    ["destinations", [arrival.destinations[0], arrival.destinations[0]]],
+  ];
+  for (const [field, value] of tests) {
+    const changed = structuredClone(config); changed.railArrivals[0][field] = value;
+    assert.ok(editor.validateConfig(changed).some((error) => error.startsWith("Rail arrival")), `${field}=${JSON.stringify(value)}`);
+  }
+  config.railArrivals.push({ ...arrival, id: "second" });
+  assert.ok(editor.validateConfig(config).some((error) => error.includes("one release tick")));
+  config.railArrivals[0].passengers = 100; config.railArrivals[1].passengers = 100;
+  assert.deepEqual(editor.validateConfig(config), []);
+  config.railArrivals = Array.from({ length: 256 }, (_, index) => ({ ...arrival, id: String(index), atSeconds: index, walkingSeconds: 0, passengers: 1 }));
+  assert.deepEqual(editor.validateConfig(config), []);
+  config.railArrivals.push({ ...arrival, id: "extra" });
+  assert.ok(editor.validateConfig(config).some((error) => error.includes("256")));
+  config.railArrivals = Array.from({ length: 50 }, (_, index) => ({ ...arrival, id: String(index), atSeconds: index * 600, passengers: 200 }));
+  assert.deepEqual(editor.validateConfig(config), []);
+  config.railArrivals.push({ ...arrival, id: "extra", atSeconds: 40000, passengers: 1 });
+  assert.ok(editor.validateConfig(config).some((error) => error.includes("10000")));
+});

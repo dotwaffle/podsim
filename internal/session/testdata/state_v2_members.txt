@@ -189,6 +189,17 @@ project.demandProfiles[].flows[].from string
 project.demandProfiles[].flows[].to string
 project.demandProfiles[].flows[].weights array
 project.demandProfiles[].flows[].weights[] number
+project.railArrivals array
+project.railArrivals[] object
+project.railArrivals[].id string
+project.railArrivals[].station string
+project.railArrivals[].atSeconds number
+project.railArrivals[].walkingSeconds number
+project.railArrivals[].passengers number
+project.railArrivals[].destinations array
+project.railArrivals[].destinations[] object
+project.railArrivals[].destinations[].station string
+project.railArrivals[].destinations[].weight number
 project.sharedRidePartyLimit number
 project.sharedRideMode string
 project.sharedRideMaxStops number
