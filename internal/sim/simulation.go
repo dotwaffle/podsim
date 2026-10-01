@@ -467,6 +467,12 @@ func (s *Simulation) snapshot(routes bool) Snapshot {
 		MaxDetourRatio: s.maxDetourRatio, EmptyDistanceMeters: s.emptyDistanceMeters, RebalanceMoves: s.rebalanceMoves,
 		SharedParties: s.sharedParties, SharedRidePartyLimit: s.sharedRidePartyLimit,
 	}
+	if len(s.waiting) > 0 {
+		state.Pending = make([]Request, 0, len(s.waiting))
+	}
+	if len(s.vehicles) > 0 {
+		state.Vehicles = make([]Vehicle, 0, len(s.vehicles))
+	}
 	for _, trip := range s.waiting {
 		state.Pending = append(state.Pending, trip.request)
 	}
