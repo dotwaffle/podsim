@@ -1,0 +1,744 @@
+{
+  "schema_version": 1,
+  "scope": "Selected mixed rail workload screen, not full policy qualification or sustained capacity. Censored offers retained explicitly. No default adoption.",
+  "source": {
+    "source_head": "26f42659199e3076fc5527157198f79928fd5eb7",
+    "source_main_sha256": "a432390f6cbdfc6ec7cd19d0cdad83ae34fb39063579922a1d2abc2c5c10589a",
+    "overlay_main_sha256": "6e4bf2bfc0e0aa2bd66b72175d9bbc3acdf20c07b2c13e3f40605ca031cf4733",
+    "arm_count": 8,
+    "seeds": [
+      1,
+      2
+    ],
+    "fixtures": [
+      "rail-hub",
+      "london-full"
+    ],
+    "forecast": [
+      false,
+      true
+    ],
+    "redistribution": "off",
+    "queue_limit": 200,
+    "sharing": 1,
+    "routing": "free-flow",
+    "buffers": false,
+    "pickup_swaps": false,
+    "offer_window_ticks": 216001,
+    "original_cap_seconds": 10800,
+    "stop_when_drained": true,
+    "offers_per_arm": 1440,
+    "checks": "Separation, berth occupancy, and lane speed each tick. Physical contract each second. Five-minute restore probes. All offered identities and individual timings retained. Functional runs do not measure CPU.",
+    "helper_sha256": "de9d3e265a709292f12dc115453437021d3bceafd1deebbfe91914819f4b529d",
+    "fixture_sha256": {
+      "rail-hub": "c85e87a0c0a538d4e05e9bfc4304da8702aec6d7ab90ede77d28f7c3c0444ad5",
+      "london-full": "f6e8ea198e522c04de56703b56909938dc4a31752d3bcc7ef92f878b944791c6"
+    },
+    "fixture_platoons": {
+      "rail-hub": "off",
+      "london-full": "virtual"
+    },
+    "source_head_at_build": "ce91dfe5cbd5e6d19185a7665de05d09257bece8",
+    "binary_sha256": "2d57d1ac0d228b60c2c130c40b9ec92a072a16ba5530b701f19099a8d738276a",
+    "restore_probe": "Physical tier without recovery receipts every 300 seconds. Exact discrete saved values and berth occupants. Distance tolerance 1e-7 meters. Record unsaved reservation changes. Check restored safety, speed, completion receipts, and conservation for 60 ticks. Clones retain exact continuation parity. Saved velocity and future reservations do not promise identical future trajectories.",
+    "lead_trial": "The initial short-lead dense pilot produced zero moves and identical results. The final workload delays every event by 300 seconds, preserving paired offers and caps. London uses compact JSON within 10 MiB. The initial pretty JSON failed before simulation.",
+    "preserved_binary_gzip_sha256": "f10972c3fe1955465299e7c9b3619fd9e396984a0b73073ff126735986dcaa78",
+    "semantic_bridge": {
+      "source_head": "72c7a30",
+      "changes": "Mechanical static cleanup only. Independent review, affected native suites, feature race checks, static analysis, and WASM model tests passed. The frozen study binary retains its original build revision."
+    }
+  },
+  "original_cap_seconds": 10800,
+  "pairs": [
+    {
+      "fixture": "rail-hub",
+      "seed": 1,
+      "schedule_id": "3a45ddfce8196f13",
+      "offered": 1440,
+      "population_identical": true,
+      "rows": {
+        "off": {
+          "served": 363,
+          "skipped": 1077,
+          "remaining": 0,
+          "actual_end_seconds": 7601,
+          "wait_average_seconds": 2688.465105601469,
+          "journey_average_seconds": 3013.25404040404,
+          "journey_p95_seconds": 4250.816666666667,
+          "empty_distance_meters": 1170966.1163957051,
+          "positioning_moves": 0,
+          "connections": {
+            "made": 0,
+            "missed": 151,
+            "unserved": 569,
+            "unresolved": 0
+          },
+          "checked_ticks": 456060,
+          "contract_checks": 7601,
+          "restore_checks": 25,
+          "restore_reservation_changes": 9,
+          "max_float_delta_meters": 2.2737367544323206e-13
+        },
+        "on": {
+          "served": 364,
+          "skipped": 1076,
+          "remaining": 0,
+          "actual_end_seconds": 7345,
+          "wait_average_seconds": 2659.5513278388275,
+          "journey_average_seconds": 2983.4385073260073,
+          "journey_p95_seconds": 4244.516666666666,
+          "empty_distance_meters": 1099191.9744792187,
+          "positioning_moves": 7,
+          "connections": {
+            "made": 0,
+            "missed": 152,
+            "unserved": 568,
+            "unresolved": 0
+          },
+          "checked_ticks": 440700,
+          "contract_checks": 7345,
+          "restore_checks": 24,
+          "restore_reservation_changes": 6,
+          "max_float_delta_meters": 3.694822225952521e-13
+        }
+      },
+      "status_pairs": {
+        "completed/completed": 311,
+        "completed/skipped": 52,
+        "skipped/completed": 53,
+        "skipped/skipped": 1024
+      },
+      "connection_transitions": {
+        "missed/missed": 102,
+        "missed/unserved": 49,
+        "unserved/missed": 50,
+        "unserved/unserved": 519
+      },
+      "made_connection_loss": [],
+      "matched": {
+        "pickup": {
+          "count": 311,
+          "baseline_mean_seconds": 2538.840192926045,
+          "forecast_mean_seconds": 2507.391747052519,
+          "maximum_increase_seconds": 326.63333333333367
+        },
+        "journey": {
+          "count": 311,
+          "baseline_mean_seconds": 2854.0297963558414,
+          "forecast_mean_seconds": 2821.640246516613,
+          "maximum_increase_seconds": 321.86666666666633
+        }
+      },
+      "pickup_limit_exceeded_indices": [
+        151,
+        1081
+      ],
+      "journey_limit_exceeded_indices": [
+        151,
+        1081
+      ],
+      "accepted_to_skipped_indices": [
+        210,
+        211,
+        224,
+        258,
+        259,
+        361,
+        373,
+        436,
+        439,
+        443,
+        446,
+        471,
+        475,
+        497,
+        612,
+        624,
+        631,
+        632,
+        695,
+        698,
+        701,
+        716,
+        841,
+        851,
+        866,
+        872,
+        879,
+        887,
+        895,
+        951,
+        952,
+        1083,
+        1108,
+        1109,
+        1114,
+        1119,
+        1121,
+        1133,
+        1137,
+        1149,
+        1188,
+        1320,
+        1321,
+        1329,
+        1334,
+        1343,
+        1375,
+        1391,
+        1401,
+        1402,
+        1408,
+        1422
+      ],
+      "baseline_completion_lost_indices": [
+        210,
+        211,
+        224,
+        258,
+        259,
+        361,
+        373,
+        436,
+        439,
+        443,
+        446,
+        471,
+        475,
+        497,
+        612,
+        624,
+        631,
+        632,
+        695,
+        698,
+        701,
+        716,
+        841,
+        851,
+        866,
+        872,
+        879,
+        887,
+        895,
+        951,
+        952,
+        1083,
+        1108,
+        1109,
+        1114,
+        1119,
+        1121,
+        1133,
+        1137,
+        1149,
+        1188,
+        1320,
+        1321,
+        1329,
+        1334,
+        1343,
+        1375,
+        1391,
+        1401,
+        1402,
+        1408,
+        1422
+      ],
+      "useful_changed": false,
+      "selected_no_harm_pass": false,
+      "selected_service_screen_pass": false,
+      "failed_gates": [
+        "previously accepted offers now skipped",
+        "baseline completions lost before original cap",
+        "individual pickup limits",
+        "individual journey limits",
+        "no qualifying service benefit in this pair"
+      ],
+      "censored_observations": 2258,
+      "censored_by_kind_status": {
+        "pickup:skipped/completed": 53,
+        "journey:skipped/completed": 53,
+        "pickup:completed/skipped": 52,
+        "journey:completed/skipped": 52,
+        "pickup:skipped/skipped": 1024,
+        "journey:skipped/skipped": 1024
+      },
+      "censored_detail": "Complete offered/timing and censored records retained in cache services-analysis.json and services-<fixture>-s<seed>-<off/on>.json, with hashes below."
+    },
+    {
+      "fixture": "rail-hub",
+      "seed": 2,
+      "schedule_id": "379d0dd0200a1140",
+      "offered": 1440,
+      "population_identical": true,
+      "rows": {
+        "off": {
+          "served": 366,
+          "skipped": 1074,
+          "remaining": 0,
+          "actual_end_seconds": 7541,
+          "wait_average_seconds": 2645.4551001821496,
+          "journey_average_seconds": 2960.8478142076506,
+          "journey_p95_seconds": 4157.883333333333,
+          "empty_distance_meters": 1185630.8952532515,
+          "positioning_moves": 0,
+          "connections": {
+            "made": 0,
+            "missed": 151,
+            "unserved": 569,
+            "unresolved": 0
+          },
+          "checked_ticks": 452460,
+          "contract_checks": 7541,
+          "restore_checks": 25,
+          "restore_reservation_changes": 3,
+          "max_float_delta_meters": 3.126388037344441e-13
+        },
+        "on": {
+          "served": 367,
+          "skipped": 1073,
+          "remaining": 0,
+          "actual_end_seconds": 7242,
+          "wait_average_seconds": 2604,
+          "journey_average_seconds": 2920.2722524977294,
+          "journey_p95_seconds": 4084.5833333333335,
+          "empty_distance_meters": 1081373.5626027938,
+          "positioning_moves": 7,
+          "connections": {
+            "made": 0,
+            "missed": 158,
+            "unserved": 562,
+            "unresolved": 0
+          },
+          "checked_ticks": 434520,
+          "contract_checks": 7242,
+          "restore_checks": 24,
+          "restore_reservation_changes": 0,
+          "max_float_delta_meters": 3.126388037344441e-13
+        }
+      },
+      "status_pairs": {
+        "completed/completed": 310,
+        "completed/skipped": 56,
+        "skipped/completed": 57,
+        "skipped/skipped": 1017
+      },
+      "connection_transitions": {
+        "missed/missed": 101,
+        "missed/unserved": 50,
+        "unserved/missed": 57,
+        "unserved/unserved": 512
+      },
+      "made_connection_loss": [],
+      "matched": {
+        "pickup": {
+          "count": 310,
+          "baseline_mean_seconds": 2489.803870967742,
+          "forecast_mean_seconds": 2462.4470967741936,
+          "maximum_increase_seconds": 909.4500000000003
+        },
+        "journey": {
+          "count": 310,
+          "baseline_mean_seconds": 2798.448064516129,
+          "forecast_mean_seconds": 2769.7497849462366,
+          "maximum_increase_seconds": 892.1333333333332
+        }
+      },
+      "pickup_limit_exceeded_indices": [
+        127,
+        138,
+        152,
+        163,
+        166,
+        168,
+        241
+      ],
+      "journey_limit_exceeded_indices": [
+        127,
+        163,
+        166,
+        168,
+        241
+      ],
+      "accepted_to_skipped_indices": [
+        210,
+        211,
+        224,
+        363,
+        380,
+        431,
+        439,
+        441,
+        455,
+        495,
+        496,
+        497,
+        602,
+        607,
+        611,
+        621,
+        642,
+        692,
+        699,
+        712,
+        734,
+        735,
+        736,
+        841,
+        856,
+        860,
+        879,
+        880,
+        891,
+        892,
+        905,
+        951,
+        1091,
+        1092,
+        1106,
+        1116,
+        1117,
+        1118,
+        1123,
+        1133,
+        1146,
+        1148,
+        1151,
+        1161,
+        1173,
+        1337,
+        1351,
+        1354,
+        1364,
+        1369,
+        1374,
+        1394,
+        1417,
+        1419,
+        1430,
+        1439
+      ],
+      "baseline_completion_lost_indices": [
+        210,
+        211,
+        224,
+        363,
+        380,
+        431,
+        439,
+        441,
+        455,
+        495,
+        496,
+        497,
+        602,
+        607,
+        611,
+        621,
+        642,
+        692,
+        699,
+        712,
+        734,
+        735,
+        736,
+        841,
+        856,
+        860,
+        879,
+        880,
+        891,
+        892,
+        905,
+        951,
+        1091,
+        1092,
+        1106,
+        1116,
+        1117,
+        1118,
+        1123,
+        1133,
+        1146,
+        1148,
+        1151,
+        1161,
+        1173,
+        1337,
+        1351,
+        1354,
+        1364,
+        1369,
+        1374,
+        1394,
+        1417,
+        1419,
+        1430,
+        1439
+      ],
+      "useful_changed": false,
+      "selected_no_harm_pass": false,
+      "selected_service_screen_pass": false,
+      "failed_gates": [
+        "previously accepted offers now skipped",
+        "baseline completions lost before original cap",
+        "individual pickup limits",
+        "individual journey limits",
+        "no qualifying service benefit in this pair"
+      ],
+      "censored_observations": 2260,
+      "censored_by_kind_status": {
+        "pickup:skipped/skipped": 1017,
+        "journey:skipped/skipped": 1017,
+        "pickup:completed/skipped": 56,
+        "journey:completed/skipped": 56,
+        "pickup:skipped/completed": 57,
+        "journey:skipped/completed": 57
+      },
+      "censored_detail": "Complete offered/timing and censored records retained in cache services-analysis.json and services-<fixture>-s<seed>-<off/on>.json, with hashes below."
+    },
+    {
+      "fixture": "london-full",
+      "seed": 1,
+      "schedule_id": "4a5a277bfea930d3",
+      "offered": 1440,
+      "population_identical": true,
+      "rows": {
+        "off": {
+          "served": 616,
+          "skipped": 824,
+          "remaining": 0,
+          "actual_end_seconds": 7828,
+          "wait_average_seconds": 1275.9041396103896,
+          "journey_average_seconds": 2745.133766233766,
+          "journey_p95_seconds": 4915.966666666666,
+          "empty_distance_meters": 6070541.072897492,
+          "positioning_moves": 0,
+          "connections": {
+            "made": 0,
+            "missed": 279,
+            "unserved": 441,
+            "unresolved": 0
+          },
+          "checked_ticks": 469680,
+          "contract_checks": 7828,
+          "restore_checks": 26,
+          "restore_reservation_changes": 5,
+          "max_float_delta_meters": 3.211653165635653e-12
+        },
+        "on": {
+          "served": 616,
+          "skipped": 824,
+          "remaining": 0,
+          "actual_end_seconds": 7828,
+          "wait_average_seconds": 1275.9041396103896,
+          "journey_average_seconds": 2745.133766233766,
+          "journey_p95_seconds": 4915.966666666666,
+          "empty_distance_meters": 6070541.072897492,
+          "positioning_moves": 0,
+          "connections": {
+            "made": 0,
+            "missed": 279,
+            "unserved": 441,
+            "unresolved": 0
+          },
+          "checked_ticks": 469680,
+          "contract_checks": 7828,
+          "restore_checks": 26,
+          "restore_reservation_changes": 5,
+          "max_float_delta_meters": 3.211653165635653e-12
+        }
+      },
+      "status_pairs": {
+        "completed/completed": 616,
+        "skipped/skipped": 824
+      },
+      "connection_transitions": {
+        "missed/missed": 279,
+        "unserved/unserved": 441
+      },
+      "made_connection_loss": [],
+      "matched": {
+        "pickup": {
+          "count": 616,
+          "baseline_mean_seconds": 1275.9041396103896,
+          "forecast_mean_seconds": 1275.9041396103896,
+          "maximum_increase_seconds": 0.0
+        },
+        "journey": {
+          "count": 616,
+          "baseline_mean_seconds": 2745.1337662337664,
+          "forecast_mean_seconds": 2745.1337662337664,
+          "maximum_increase_seconds": 0.0
+        }
+      },
+      "pickup_limit_exceeded_indices": [],
+      "journey_limit_exceeded_indices": [],
+      "accepted_to_skipped_indices": [],
+      "baseline_completion_lost_indices": [],
+      "useful_changed": false,
+      "selected_no_harm_pass": true,
+      "selected_service_screen_pass": false,
+      "failed_gates": [
+        "no changed positioning",
+        "no qualifying service benefit in this pair"
+      ],
+      "censored_observations": 1648,
+      "censored_by_kind_status": {
+        "pickup:skipped/skipped": 824,
+        "journey:skipped/skipped": 824
+      },
+      "censored_detail": "Complete offered/timing and censored records retained in cache services-analysis.json and services-<fixture>-s<seed>-<off/on>.json, with hashes below."
+    },
+    {
+      "fixture": "london-full",
+      "seed": 2,
+      "schedule_id": "3587a0a289892134",
+      "offered": 1440,
+      "population_identical": true,
+      "rows": {
+        "off": {
+          "served": 624,
+          "skipped": 816,
+          "remaining": 0,
+          "actual_end_seconds": 7862,
+          "wait_average_seconds": 1295.4317574786326,
+          "journey_average_seconds": 2761.898050213675,
+          "journey_p95_seconds": 4923.816666666667,
+          "empty_distance_meters": 6105170.104783315,
+          "positioning_moves": 0,
+          "connections": {
+            "made": 0,
+            "missed": 274,
+            "unserved": 446,
+            "unresolved": 0
+          },
+          "checked_ticks": 471720,
+          "contract_checks": 7862,
+          "restore_checks": 26,
+          "restore_reservation_changes": 8,
+          "max_float_delta_meters": 3.637978807091713e-12
+        },
+        "on": {
+          "served": 624,
+          "skipped": 816,
+          "remaining": 0,
+          "actual_end_seconds": 7862,
+          "wait_average_seconds": 1295.4317574786326,
+          "journey_average_seconds": 2761.898050213675,
+          "journey_p95_seconds": 4923.816666666667,
+          "empty_distance_meters": 6105170.104783315,
+          "positioning_moves": 0,
+          "connections": {
+            "made": 0,
+            "missed": 274,
+            "unserved": 446,
+            "unresolved": 0
+          },
+          "checked_ticks": 471720,
+          "contract_checks": 7862,
+          "restore_checks": 26,
+          "restore_reservation_changes": 8,
+          "max_float_delta_meters": 3.637978807091713e-12
+        }
+      },
+      "status_pairs": {
+        "completed/completed": 624,
+        "skipped/skipped": 816
+      },
+      "connection_transitions": {
+        "missed/missed": 274,
+        "unserved/unserved": 446
+      },
+      "made_connection_loss": [],
+      "matched": {
+        "pickup": {
+          "count": 624,
+          "baseline_mean_seconds": 1295.4317574786326,
+          "forecast_mean_seconds": 1295.4317574786326,
+          "maximum_increase_seconds": 0.0
+        },
+        "journey": {
+          "count": 624,
+          "baseline_mean_seconds": 2761.898050213675,
+          "forecast_mean_seconds": 2761.898050213675,
+          "maximum_increase_seconds": 0.0
+        }
+      },
+      "pickup_limit_exceeded_indices": [],
+      "journey_limit_exceeded_indices": [],
+      "accepted_to_skipped_indices": [],
+      "baseline_completion_lost_indices": [],
+      "useful_changed": false,
+      "selected_no_harm_pass": true,
+      "selected_service_screen_pass": false,
+      "failed_gates": [
+        "no changed positioning",
+        "no qualifying service benefit in this pair"
+      ],
+      "censored_observations": 1632,
+      "censored_by_kind_status": {
+        "pickup:skipped/skipped": 816,
+        "journey:skipped/skipped": 816
+      },
+      "censored_detail": "Complete offered/timing and censored records retained in cache services-analysis.json and services-<fixture>-s<seed>-<off/on>.json, with hashes below."
+    }
+  ],
+  "cost_gate": "Isolated CPU comparison only if a useful changed candidate passes selected service gates. No CPU inference from functional concurrency.",
+  "analysis_sha256": "52b7abdca9ce155d0e439c1cb7ea09585a82a614e79d30c30fe83bc35548d18e",
+  "thresholds": {
+    "aggregate_max_increase_fraction": 0.02,
+    "pickup_minimum_allowance_seconds": 30,
+    "pickup_allowance_fraction": 0.05,
+    "journey_minimum_allowance_seconds": 60,
+    "journey_allowance_fraction": 0.05,
+    "benefit_minimum_mean_decrease_fraction": 0.05,
+    "recovery": "Retain every baseline completed identity before the original cap.",
+    "queue": "No additional skips or accepted identities lost",
+    "connections": "No lost made identity; no greater missed+unserved or unresolved; no lower made",
+    "censoring": "Keep all skipped/unfinished identities; unfinished populations cannot qualify by omission",
+    "cost": "Only useful passing candidates receive isolated cost checks. Active CPU increase must remain below 10%."
+  },
+  "broader_qualification_triggered": false,
+  "artifact_sha256": {
+    "services-rail-hub-s2-on.json": "22898ca2fa777ce581d31e9057677f5a673b5516f2d9b6da4637d0ec2c59b391",
+    "services-rail-hub-s1-off.json": "d941fec2eeca25b7ad5bd20fd253312368ce453850bb47b8acc595b2904c8aaa",
+    "services-london-full-s1-off.json": "11f4834bb9ab5fc9125bca767a89e51ce0d8e5e86ff616dd6e75dad814985d4a",
+    "services-london-full-s1-on.json": "4b91bd52e71a3baa89ee429be598e106f1267754b5767e177796227d78f062a6",
+    "services-london-full-s2-off.json": "bcead1988c825b908307881b31d1587edccae77450a4d8157942af30c619d194",
+    "services-rail-hub-s1-on.json": "cede4b76648f2eb6f1e44fe3f612ba39153528234d71ce2bdc373758497b66ef",
+    "services-rail-hub-s2-off.json": "1dbb1c38779c46e9887996d2a847153f626992325417b3a63691bfc184ced5d7",
+    "services-london-full-s2-on.json": "7f303782503c63bdc0a4cdb955db4d48be0b482b673bda7852bf1425dada17ba"
+  },
+  "analysis_artifact_sha256": "3756c7d5e7812a64cd275246a0555092465308fc98bd893e877dcd924bc472ff",
+  "validation": {
+    "native": "Full go test ./... passed. Full affected suites passed after cleanup.",
+    "web": "301 tests passed, with zero skipped.",
+    "race": "Full sim, session, and rail suites passed. All affected feature tests passed after cleanup.",
+    "wasm": "Current module build passed. Project, rail, and simulation model tests passed with GOMAXPROCS=1.",
+    "session_wasm_limit": "Native-only websocket DialOptions tests do not compile for JS. Native and real Chrome checks cover session controls and decoding.",
+    "chrome": "Current 72c7a30 localhost server passed editor worker, undo, import/export, pause/apply, and WASM gzip stream checks without page errors.",
+    "embedded": "Production asset tests passed.",
+    "persistence": "File-backed physical restore preserved ledger, counters, tick, and pause without replaying offers.",
+    "static": "Actionlint, Markdown, vet, golangci-lint, and WASM storage boundary passed.",
+    "reviews": "All contract, implementation, editor, study, and static cleanup slices received independent review."
+  },
+  "save_bounds": {
+    "outbound_passengers": 3000,
+    "combined_passengers": 10000,
+    "max_saved_bytes": 83886080,
+    "conservative_v4_bytes": 83301572,
+    "cap_increased": false
+  },
+  "diagnostic": {
+    "source_head": "72c7a30",
+    "samples": 65,
+    "searches": 160,
+    "route_starts": 0,
+    "moves": 0,
+    "scope": "London seed 1 before its first inbound release. These checks found no eligible source within the remaining lead time. They do not prove that all London states are inactive.",
+    "sha256": "198340febe46e4418bde5f54e62428115a3fa82a7f3b0b1adf47b42574bc9729"
+  },
+  "decision": "Retain comparison-only forecast as a negative candidate. No live/editor forecast exposure, isolated cost study, broader qualification, default or safety change."
+}

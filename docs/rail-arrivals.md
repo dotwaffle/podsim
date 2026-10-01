@@ -72,6 +72,8 @@ Before a simulation starts, the command limits retained rail offer indices to 1,
 This includes redistribution and experimental policy copies.
 Each index slice has capacity at most its scheduled count.
 One million 64-bit indices require about 8 MiB, excluding the other report fields and JSON encoding.
+A 256 MiB conservative storage preflight also counts full schedule, skipped-index, and outbound-record capacities across all arm copies.
+See [scheduled train connections](rail-connections.md) for mixed plans, connection outcomes, and the explicit forecast comparison control.
 
 ## Equal-volume timing study
 

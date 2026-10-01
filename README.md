@@ -552,6 +552,10 @@ The draft stays local until you select **Pause and apply**.
 - Use **Rail arrivals** to set train passenger counts, arrival times, walking delays, and weighted destinations.
   Select its demand pattern to release the fixed plan instead of rate-based traffic.
   See [scheduled rail arrivals](docs/rail-arrivals.md) for bounds, restart behavior, and comparison evidence.
+- Use **Rail departures** to set request windows, outbound train times, transfer times, and weighted origins.
+  Select **Rail arrivals and departures** to run both plans.
+  The demand inspector shows made, missed, unserved, and unresolved connections.
+  See [scheduled train connections](docs/rail-connections.md) for bounds and comparison controls.
 - Use undo and redo for draft changes.
   See [Editor keyboard shortcuts](#editor-keyboard-shortcuts).
 - Drag empty space to pan, and use the wheel to zoom.

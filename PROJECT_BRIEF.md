@@ -114,7 +114,11 @@ The pickup and busy-station service problems remain unresolved.
 [Scheduled rail arrivals](docs/rail-arrivals.md) now release passengers after walking delays in the editor, live simulation, and comparison tool.
 Their equal-volume timing study preserves skipped offers and matched passenger outcomes.
 Selected train bursts reject more passengers and increase matched waits compared with regular releases.
-The feature does not provide outbound train connections or reserve pods for future arrivals.
+[Scheduled train connections](docs/rail-connections.md) now add outbound windows, transfer deadlines, and persisted made, missed, unserved, and unresolved outcomes.
+Missed passengers continue normally, without deadline priority or rebooking.
+Bounded forecast positioning is available through an explicit comparison flag.
+The selected mixed-service screen fails individual gates at Rail Hub and makes no positioning moves in LondonFull.
+The controller remains comparison-only, with no live exposure or default change.
 
 This document records the project direction, initial feature scope, architecture, effort estimates, and research.
 The initial scope and policies were the starting point for implementation planning.
@@ -574,7 +578,8 @@ See [docs/qualification.md](docs/qualification.md#drop-offs-sharing-in-london).
 **Status:** [Scheduled rail arrivals](docs/rail-arrivals.md) and walking delays are implemented.
 Projects retain event plans, and physical restart resumes without replaying past releases.
 The editor authors plans and the comparison tool retains offered identities, including rejected passengers.
-Outbound train departures, transfer deadlines, missed connections, and forecast positioning form the next approved batch.
+Outbound train plans, request windows, transfer deadlines, connection outcomes, editor controls, and restart accounting are implemented.
+The bounded forecast controller remains comparison-only after its selected service screen failed.
 Time-varying park-and-ride demand remains later work.
 
 Point-to-point pod journeys can already concentrate at a hub.
