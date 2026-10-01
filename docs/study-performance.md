@@ -29,8 +29,9 @@ Stopped waiting pods retain every lane's ID, origin, and destination for entranc
 Station-counter tests cover the stopping threshold, waits, missing lane IDs, and each route lane.
 Ownership tests check that mutations cannot affect simulation storage.
 
-The helper remains outside the repository in the diagnostic overlay.
-The production `Snapshot` API and normal comparison command retain full routes.
+The timing trials used a helper outside the repository in the diagnostic overlay.
+The production `Snapshot` API retains full routes.
+The maintained comparison helper is described below.
 The reported combined gain therefore applies to these diagnostic studies.
 It is not a claim that the entire normal test suite or server runs 20% faster.
 
@@ -108,3 +109,30 @@ The source stays unchanged during the final gates.
 Completed timing units terminated successfully and their scratch binaries were removed.
 Keep `GOGC=100`.
 This study does not establish a new optimal GC setting or justify adopting 400.
+
+## Maintained comparison helper
+
+The comparison command now uses `Simulation.MetricsSnapshot` for its counters.
+The method copies every non-route field and returns owned route context with lane ID, origin, and destination only.
+Moving or unblocked pods retain the terminal lane.
+Stopped waiting pods retain the full ordered route topology.
+The original `Snapshot` method still returns full route geometry.
+Use it for rendering, routing, saves, and safety checks.
+
+Topology tests cover repeated lanes, empty routes, and the exact stopping threshold.
+Ownership tests mutate pending requests, riders, stops, berth records, pods, and route context without changing simulation storage.
+Dense replays compare station, network, and comparison counters with full snapshots for single-party and shared rides.
+All 22 command arms produce identical complete JSON reports with full and metrics snapshots.
+They cover a small ring with buffer/swap/platoon combinations, rail-hub bursts, LondonCentral, and LondonFull.
+
+A separate five-repetition benchmark uses the same synthetic fixture with `GOMAXPROCS=1` and `GOGC=100`.
+Its median results are:
+
+| Snapshot | Microseconds per call | Bytes per call | Allocations per call |
+| --- | ---: | ---: | ---: |
+| Full | 2,194.22 | 4,957,736 | 9,475 |
+| Metrics | 50.77 | 140,728 | 291 |
+
+These numbers measure copying in one synthetic fixture, not whole-test or server speed.
+The command parity runs use one repetition per arm and do not establish a repeatable speed percentage.
+[Maintained-helper measurements](measurements/metrics-snapshot.json) retain source/binary identities, exact-output hashes, benchmark samples, and validation commands.

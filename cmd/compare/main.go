@@ -1189,8 +1189,8 @@ func run(input runInput) (result, error) {
 	next, skipped := 0, 0
 	arrivalWindowTicks := durationTicks(input.arrivalsFor)
 	arrivalMidpointTicks := arrivalWindowTicks / 2
-	midpointState := simulation.Snapshot()
-	arrivalState := simulation.Snapshot()
+	midpointState := simulation.MetricsSnapshot()
+	arrivalState := simulation.MetricsSnapshot()
 	for tick := range durationTicks(input.duration) {
 		injected := false
 		for next < len(input.schedule) && input.schedule[next].tick == tick {
@@ -1217,11 +1217,11 @@ func run(input runInput) (result, error) {
 			injected = true
 		}
 		if injected {
-			metrics.observe(simulation.Snapshot())
+			metrics.observe(simulation.MetricsSnapshot())
 		}
 		simulation.Step()
 		if (tick+1)%sim.TicksPerSecond == 0 || tick+1 == arrivalMidpointTicks || tick+1 == arrivalWindowTicks {
-			state := simulation.Snapshot()
+			state := simulation.MetricsSnapshot()
 			if state.Tick == arrivalMidpointTicks {
 				midpointState = state
 			}
@@ -1238,7 +1238,7 @@ func run(input runInput) (result, error) {
 			}
 		}
 	}
-	state := simulation.Snapshot()
+	state := simulation.MetricsSnapshot()
 	if arrivalState.Tick != arrivalWindowTicks {
 		arrivalState = state
 	}

@@ -1,0 +1,578 @@
+{
+  "base_commit": "faa77c9",
+  "candidate_source_sha256": {
+    "internal/sim/metrics_snapshot.go": "c23f8e3ac63aeb7f7aadb17e6adb5a5c6f531c758aaec1aa1a195a2427a551cf",
+    "internal/sim/metrics_snapshot_test.go": "7f5d936d07eeb163787b7f600b8b4f364be67cd7f9cca02a2f50f858a39793ca",
+    "cmd/compare/main.go": "647762b47988cad26667910d4f183521a43a69460cd53d2e2a93ae90302e9071",
+    "cmd/compare/metrics_snapshot_test.go": "501382e402c0b2b241751b56e20420326649dbb9afd52fb97adcc64c105f38df"
+  },
+  "baseline_overlay_sha256": "9b320951d7af6026206b369d7a2d7e16f643daa83a31eff15033d7e06fe57b93",
+  "binary_sha256": {
+    "compare-full": "6cf44d0fff1669e5fd7ee87e7cf0d6ccb78546b77e52f73d069a946b04833eec",
+    "compare-metrics": "c982c0b886fd99209e2b6c6b3972a4816daf8a0abbb05174f618768d80e8ebdb",
+    "scenario": "fead9b95115985113fd0a2200a54b38ee4a58f0c1673c92a7f378002ca9f76fd"
+  },
+  "source_manifest_sha256": "9401c08d3da5de7445c81b3bd44846b0ba80edf08f95dae250cb43c324a147a4",
+  "source_unchanged_during_validation": true,
+  "environment": {
+    "go": "1.27.1",
+    "GOMAXPROCS": 1,
+    "GOGC": 100,
+    "workers": 1,
+    "cpu_quota": "none",
+    "concurrent_owned_cpu_studies": 0
+  },
+  "command_output_parity": [
+    {
+      "name": "small",
+      "exact_all_fields": true,
+      "rows": 16,
+      "project_sha256": "10de2ae8734fc8b3a3895e2b43a23f135862e366dabd1c3a7426b6c99eaf39ae",
+      "full_output_sha256": "eca982dfd2adc9ee1d8e84a4862bbffadd005a82433ded0023a7ea726365e978",
+      "metrics_output_sha256": "eca982dfd2adc9ee1d8e84a4862bbffadd005a82433ded0023a7ea726365e978"
+    },
+    {
+      "name": "rail-hub",
+      "exact_all_fields": true,
+      "rows": 2,
+      "project_sha256": "e492e0a3fd738f5121779bc2d4880a4c5c14733d330eb57f20b0acded3b73917",
+      "full_output_sha256": "9e38541247581c4a3eaa9e62315a2b2993fb3d1301c336a2b715454be793aaad",
+      "metrics_output_sha256": "9e38541247581c4a3eaa9e62315a2b2993fb3d1301c336a2b715454be793aaad"
+    },
+    {
+      "name": "central",
+      "exact_all_fields": true,
+      "rows": 2,
+      "project_sha256": "e616e7f2d73d8ca19cbd1ec6775dd7193bcda091248144538098ee18deaaafe5",
+      "full_output_sha256": "5d90088082fcfe46f5c0b1022125cca24fec96b3a8cc5151cf08c6db4e1135d8",
+      "metrics_output_sha256": "5d90088082fcfe46f5c0b1022125cca24fec96b3a8cc5151cf08c6db4e1135d8"
+    },
+    {
+      "name": "full",
+      "exact_all_fields": true,
+      "rows": 2,
+      "project_sha256": "be8e751c012805e4941937fcc62364984f7746df82d29c363134dbf2f08b8182",
+      "full_output_sha256": "a6afe11b5e2c54e1fc0ef1451e7f38b375912dba535e274bef320186cd199605",
+      "metrics_output_sha256": "a6afe11b5e2c54e1fc0ef1451e7f38b375912dba535e274bef320186cd199605"
+    }
+  ],
+  "snapshot_benchmark": {
+    "fixture": "Synthetic 287 moving pods, 128 route lanes per pod, 32 curves. Setup excluded. Snapshot copying only, no simulation steps.",
+    "benchtime": "300ms",
+    "repetitions": 5,
+    "samples": {
+      "full": [
+        {
+          "ns_per_op": 2219022.0,
+          "bytes_per_op": 4957736,
+          "allocs_per_op": 9475
+        },
+        {
+          "ns_per_op": 2049059.0,
+          "bytes_per_op": 4957736,
+          "allocs_per_op": 9475
+        },
+        {
+          "ns_per_op": 2141999.0,
+          "bytes_per_op": 4957736,
+          "allocs_per_op": 9475
+        },
+        {
+          "ns_per_op": 2205686.0,
+          "bytes_per_op": 4957736,
+          "allocs_per_op": 9475
+        },
+        {
+          "ns_per_op": 2194217.0,
+          "bytes_per_op": 4957736,
+          "allocs_per_op": 9475
+        }
+      ],
+      "metrics": [
+        {
+          "ns_per_op": 50772.0,
+          "bytes_per_op": 140728,
+          "allocs_per_op": 291
+        },
+        {
+          "ns_per_op": 50410.0,
+          "bytes_per_op": 140728,
+          "allocs_per_op": 291
+        },
+        {
+          "ns_per_op": 50795.0,
+          "bytes_per_op": 140728,
+          "allocs_per_op": 291
+        },
+        {
+          "ns_per_op": 50541.0,
+          "bytes_per_op": 140728,
+          "allocs_per_op": 291
+        },
+        {
+          "ns_per_op": 51115.0,
+          "bytes_per_op": 140728,
+          "allocs_per_op": 291
+        }
+      ]
+    }
+  },
+  "validation": [
+    {
+      "name": "metrics-lint",
+      "command": [
+        "mise",
+        "exec",
+        "--",
+        "golangci-lint",
+        "run",
+        "./internal/sim",
+        "./internal/observe",
+        "./cmd/compare"
+      ],
+      "exit": 0,
+      "wall_seconds": 4.22081589885056
+    },
+    {
+      "name": "metrics-gopls-current",
+      "command": [
+        "mise",
+        "exec",
+        "--",
+        "gopls",
+        "check",
+        "internal/sim/metrics_snapshot.go",
+        "internal/sim/metrics_snapshot_test.go",
+        "cmd/compare/metrics_snapshot_test.go",
+        "cmd/compare/main.go"
+      ],
+      "exit": 0,
+      "wall_seconds": 1.9168255366384983
+    },
+    {
+      "name": "metrics-focused-current",
+      "command": [
+        "mise",
+        "exec",
+        "--",
+        "go",
+        "test",
+        "./internal/sim",
+        "./cmd/compare",
+        "-run=^TestMetrics",
+        "-count=1"
+      ],
+      "exit": 0,
+      "wall_seconds": 2.5676737064495683
+    },
+    {
+      "name": "metrics-benchmark",
+      "command": [
+        "mise",
+        "exec",
+        "--",
+        "go",
+        "test",
+        "./internal/sim",
+        "-run=^$",
+        "-bench=^BenchmarkMetricsSnapshot$",
+        "-benchtime=300ms",
+        "-count=5",
+        "-benchmem"
+      ],
+      "exit": 0,
+      "wall_seconds": 3.920012481510639
+    },
+    {
+      "name": "build-compare-full",
+      "command": [
+        "mise",
+        "exec",
+        "--",
+        "go",
+        "build",
+        "-overlay=/home/dotwaffle/.cache/agents/podsim/followup-nine-20261001/compare-full-overlay.json",
+        "-o",
+        "/tmp/build/podsim/followup-nine-20261001/compare-full",
+        "./cmd/compare"
+      ],
+      "exit": 0,
+      "wall_seconds": 0.6147276544943452
+    },
+    {
+      "name": "build-compare-metrics",
+      "command": [
+        "mise",
+        "exec",
+        "--",
+        "go",
+        "build",
+        "-o",
+        "/tmp/build/podsim/followup-nine-20261001/compare-metrics",
+        "./cmd/compare"
+      ],
+      "exit": 0,
+      "wall_seconds": 0.31431995052844286
+    },
+    {
+      "name": "build-scenario",
+      "command": [
+        "mise",
+        "exec",
+        "--",
+        "go",
+        "build",
+        "-o",
+        "/tmp/build/podsim/followup-nine-20261001/scenario",
+        "./cmd/scenario"
+      ],
+      "exit": 0,
+      "wall_seconds": 0.31430380046367645
+    },
+    {
+      "name": "generate-small",
+      "command": [
+        "/tmp/build/podsim/followup-nine-20261001/scenario",
+        "-preset",
+        "small",
+        "-output",
+        "/home/dotwaffle/.cache/agents/podsim/followup-nine-20261001/small.json"
+      ],
+      "exit": 0,
+      "wall_seconds": 0.00345052033662796
+    },
+    {
+      "name": "generate-rail-hub",
+      "command": [
+        "/tmp/build/podsim/followup-nine-20261001/scenario",
+        "-preset",
+        "rail-hub",
+        "-output",
+        "/home/dotwaffle/.cache/agents/podsim/followup-nine-20261001/rail-hub.json"
+      ],
+      "exit": 0,
+      "wall_seconds": 0.007428995333611965
+    },
+    {
+      "name": "generate-london-central",
+      "command": [
+        "/tmp/build/podsim/followup-nine-20261001/scenario",
+        "-preset",
+        "london-central",
+        "-output",
+        "/home/dotwaffle/.cache/agents/podsim/followup-nine-20261001/london-central.json"
+      ],
+      "exit": 0,
+      "wall_seconds": 0.26393726095557213
+    },
+    {
+      "name": "parity-small-full",
+      "command": [
+        "/tmp/build/podsim/followup-nine-20261001/compare-full",
+        "-duration",
+        "30m",
+        "-arrivals-for",
+        "15m",
+        "-request-every",
+        "5s",
+        "-seed",
+        "3",
+        "-format",
+        "json",
+        "-workers",
+        "1",
+        "-redistribution-policies",
+        "off",
+        "-routing-policies",
+        "free-flow",
+        "-project",
+        "/home/dotwaffle/.cache/agents/podsim/followup-nine-20261001/small.json",
+        "-pattern",
+        "hub-burst",
+        "-burst-size",
+        "12",
+        "-sharing-limits",
+        "1,4",
+        "-platoon-policies",
+        "off,virtual",
+        "-station-buffers",
+        "off,on",
+        "-pickup-reassignment",
+        "off,on",
+        "-output",
+        "/home/dotwaffle/.cache/agents/podsim/followup-nine-20261001/parity-small-full.json"
+      ],
+      "exit": 0,
+      "wall_seconds": 12.48147725686431
+    },
+    {
+      "name": "parity-small-metrics",
+      "command": [
+        "/tmp/build/podsim/followup-nine-20261001/compare-metrics",
+        "-duration",
+        "30m",
+        "-arrivals-for",
+        "15m",
+        "-request-every",
+        "5s",
+        "-seed",
+        "3",
+        "-format",
+        "json",
+        "-workers",
+        "1",
+        "-redistribution-policies",
+        "off",
+        "-routing-policies",
+        "free-flow",
+        "-project",
+        "/home/dotwaffle/.cache/agents/podsim/followup-nine-20261001/small.json",
+        "-pattern",
+        "hub-burst",
+        "-burst-size",
+        "12",
+        "-sharing-limits",
+        "1,4",
+        "-platoon-policies",
+        "off,virtual",
+        "-station-buffers",
+        "off,on",
+        "-pickup-reassignment",
+        "off,on",
+        "-output",
+        "/home/dotwaffle/.cache/agents/podsim/followup-nine-20261001/parity-small-metrics.json"
+      ],
+      "exit": 0,
+      "wall_seconds": 12.18135098926723
+    },
+    {
+      "name": "parity-rail-hub-full",
+      "command": [
+        "/tmp/build/podsim/followup-nine-20261001/compare-full",
+        "-duration",
+        "30m",
+        "-arrivals-for",
+        "15m",
+        "-request-every",
+        "5s",
+        "-seed",
+        "3",
+        "-format",
+        "json",
+        "-workers",
+        "1",
+        "-redistribution-policies",
+        "off",
+        "-routing-policies",
+        "free-flow",
+        "-project",
+        "/home/dotwaffle/.cache/agents/podsim/followup-nine-20261001/rail-hub.json",
+        "-pattern",
+        "hub-burst",
+        "-burst-size",
+        "120",
+        "-sharing-limits",
+        "1,4",
+        "-platoon-policies",
+        "virtual",
+        "-output",
+        "/home/dotwaffle/.cache/agents/podsim/followup-nine-20261001/parity-rail-hub-full.json"
+      ],
+      "exit": 0,
+      "wall_seconds": 3.36879560071975
+    },
+    {
+      "name": "parity-rail-hub-metrics",
+      "command": [
+        "/tmp/build/podsim/followup-nine-20261001/compare-metrics",
+        "-duration",
+        "30m",
+        "-arrivals-for",
+        "15m",
+        "-request-every",
+        "5s",
+        "-seed",
+        "3",
+        "-format",
+        "json",
+        "-workers",
+        "1",
+        "-redistribution-policies",
+        "off",
+        "-routing-policies",
+        "free-flow",
+        "-project",
+        "/home/dotwaffle/.cache/agents/podsim/followup-nine-20261001/rail-hub.json",
+        "-pattern",
+        "hub-burst",
+        "-burst-size",
+        "120",
+        "-sharing-limits",
+        "1,4",
+        "-platoon-policies",
+        "virtual",
+        "-output",
+        "/home/dotwaffle/.cache/agents/podsim/followup-nine-20261001/parity-rail-hub-metrics.json"
+      ],
+      "exit": 0,
+      "wall_seconds": 3.2683773264288902
+    },
+    {
+      "name": "parity-central-full",
+      "command": [
+        "/tmp/build/podsim/followup-nine-20261001/compare-full",
+        "-duration",
+        "30m",
+        "-arrivals-for",
+        "15m",
+        "-request-every",
+        "5s",
+        "-seed",
+        "3",
+        "-format",
+        "json",
+        "-workers",
+        "1",
+        "-redistribution-policies",
+        "off",
+        "-routing-policies",
+        "free-flow",
+        "-project",
+        "/home/dotwaffle/.cache/agents/podsim/followup-nine-20261001/london-central.json",
+        "-pattern",
+        "profile",
+        "-sharing-limits",
+        "1,4",
+        "-platoon-policies",
+        "virtual",
+        "-output",
+        "/home/dotwaffle/.cache/agents/podsim/followup-nine-20261001/parity-central-full.json"
+      ],
+      "exit": 0,
+      "wall_seconds": 5.572751434519887
+    },
+    {
+      "name": "parity-central-metrics",
+      "command": [
+        "/tmp/build/podsim/followup-nine-20261001/compare-metrics",
+        "-duration",
+        "30m",
+        "-arrivals-for",
+        "15m",
+        "-request-every",
+        "5s",
+        "-seed",
+        "3",
+        "-format",
+        "json",
+        "-workers",
+        "1",
+        "-redistribution-policies",
+        "off",
+        "-routing-policies",
+        "free-flow",
+        "-project",
+        "/home/dotwaffle/.cache/agents/podsim/followup-nine-20261001/london-central.json",
+        "-pattern",
+        "profile",
+        "-sharing-limits",
+        "1,4",
+        "-platoon-policies",
+        "virtual",
+        "-output",
+        "/home/dotwaffle/.cache/agents/podsim/followup-nine-20261001/parity-central-metrics.json"
+      ],
+      "exit": 0,
+      "wall_seconds": 5.021624078974128
+    },
+    {
+      "name": "parity-full-full",
+      "command": [
+        "/tmp/build/podsim/followup-nine-20261001/compare-full",
+        "-duration",
+        "30m",
+        "-arrivals-for",
+        "15m",
+        "-request-every",
+        "5s",
+        "-seed",
+        "3",
+        "-format",
+        "json",
+        "-workers",
+        "1",
+        "-redistribution-policies",
+        "off",
+        "-routing-policies",
+        "free-flow",
+        "-project",
+        "/home/dotwaffle/.cache/agents/podsim/mirrored-load-20260930/current/full.json",
+        "-pattern",
+        "profile",
+        "-sharing-limits",
+        "1,4",
+        "-platoon-policies",
+        "virtual",
+        "-output",
+        "/home/dotwaffle/.cache/agents/podsim/followup-nine-20261001/parity-full-full.json"
+      ],
+      "exit": 0,
+      "wall_seconds": 9.52907182276249
+    },
+    {
+      "name": "parity-full-metrics",
+      "command": [
+        "/tmp/build/podsim/followup-nine-20261001/compare-metrics",
+        "-duration",
+        "30m",
+        "-arrivals-for",
+        "15m",
+        "-request-every",
+        "5s",
+        "-seed",
+        "3",
+        "-format",
+        "json",
+        "-workers",
+        "1",
+        "-redistribution-policies",
+        "off",
+        "-routing-policies",
+        "free-flow",
+        "-project",
+        "/home/dotwaffle/.cache/agents/podsim/mirrored-load-20260930/current/full.json",
+        "-pattern",
+        "profile",
+        "-sharing-limits",
+        "1,4",
+        "-platoon-policies",
+        "virtual",
+        "-output",
+        "/home/dotwaffle/.cache/agents/podsim/followup-nine-20261001/parity-full-metrics.json"
+      ],
+      "exit": 0,
+      "wall_seconds": 8.526970519684255
+    },
+    {
+      "name": "metrics-focused-race",
+      "command": [
+        "mise",
+        "exec",
+        "--",
+        "go",
+        "test",
+        "-race",
+        "./internal/sim",
+        "./cmd/compare",
+        "-run=^TestMetrics",
+        "-count=1"
+      ],
+      "exit": 0,
+      "package_seconds": {
+        "internal/sim": 1.014,
+        "cmd/compare": 6.894
+      }
+    }
+  ],
+  "limits": "The historical 20.61% diagnostic gain was measured with a cache helper. Current command trials establish exact output parity across 22 arms, not a repeatable whole-command performance percentage. No safety or physical restore assertion changed."
+}
