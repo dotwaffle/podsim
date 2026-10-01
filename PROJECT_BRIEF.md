@@ -15,7 +15,9 @@ The screen of the queue routing policy and the platoon screening are also comple
 The first station-maneuver slice is complete: station lanes have explicit roles, pod snapshots expose the current phase, and the inspector names the maneuver.
 The scenario command sets the berths and berth pitch of the generated presets and the initial pods of both London presets.
 A layout check rejects lanes that come too near.
-Other station geometry options and the other experiments in Section 6 remain later work.
+The [station-layout editor](docs/station-layout-editor.md) adjusts berth pitch, entry/exit spacing, and approach setback for supported straight chains.
+Independent berth banks and richer storage layouts remain later work.
+The other experiments in Section 6 retain their separate status.
 See [README.md](README.md) for controls, validation commands, and current model limits.
 
 **Current work status, October 1, 2026:**
@@ -74,7 +76,8 @@ Unbuffered sessions can retain version 2.
 The [terminus burst fixture](docs/terminus-flow.md) measures berth claims, pickup supply, and finite outbound service.
 Buffers increase waits in its selected Central comparisons, so throughput benefits remain unqualified.
 Broader adoption requires separate qualification and a decision.
-The [proposed adoption gates](docs/experimental-adoption.md) add explicit individual-tail limits without changing defaults.
+The user approved the [adoption gates](docs/experimental-adoption.md) on October 1.
+They add explicit individual-tail limits without authorizing a default change.
 The [combined dispatch qualification](docs/dispatch-policy-qualification.md) records average benefits, tail regressions, and remaining work.
 The [compatible decoder qualification](docs/stream-decoder-qualification.md) measures lower decode and apply time without a whole-browser CPU gain.
 The [sustained pickup-swap study](docs/pickup-swap-sustained.md) lowers average waits and empty distance in its tested pairs, but every arm still grows a backlog.
@@ -95,6 +98,23 @@ Firefox and Safari validation are not required.
 The simulator currently runs on the local machine.
 Fly deployment and hosted-origin validation are deferred until release preparation.
 Software-rendering measurements do not establish physical-GPU performance.
+
+The [maintained metrics snapshot](docs/study-performance.md) gives comparison tooling owned route context without copying route geometry.
+Its measured output matches the full snapshot across the recorded small, rail-hub, Central, and Full arms.
+The [current playback screen](docs/live-playback-qualification.md) measures 15x and 60x with one and three Chrome clients.
+The [station-phase cache](docs/station-phase-performance.md) reduces server CPU by 13.67% in short matched one-Chrome 60x runs.
+It retains exact state parity in the separate fixed replay.
+These measurements do not establish indefinite capacity or physical-GPU performance.
+
+The [pickup supply](docs/pickup-supply.md), [later buffer claims](docs/buffer-late-claim.md), and [pickup safeguards](docs/pickup-guards.md) retain failed service candidates.
+The [shorter Paddington paths](docs/paddington-short-path.md) improve mean pickup wait in a focused workload but exceed individual limits.
+None passes its selected screen, so broader qualification does not start and defaults stay unchanged.
+The pickup and busy-station service problems remain unresolved.
+
+[Scheduled rail arrivals](docs/rail-arrivals.md) now release passengers after walking delays in the editor, live simulation, and comparison tool.
+Their equal-volume timing study preserves skipped offers and matched passenger outcomes.
+Selected train bursts reject more passengers and increase matched waits compared with regular releases.
+The feature does not provide outbound train connections or reserve pods for future arrivals.
 
 This document records the project direction, initial feature scope, architecture, effort estimates, and research.
 The initial scope and policies were the starting point for implementation planning.
@@ -382,7 +402,8 @@ Status notes record the parts that Podsim now implements.
 Version 3 saved states preserve existing buffer membership, while version 2 loading remains supported.
 The editor and comparison tool expose separate, saved opt-in controls for buffers and pickup reassignment.
 New pickup dispatch can defer berth choice at an eligible buffer approach without changing existing commitments.
-Station-entry and berth-access platoons remain excluded.
+Fixed station-entry platoons use the separately tested version 4 contract.
+Berth-access links remain excluded.
 The [saved-state proposal](docs/station-buffer-state-proposal.md) records the contract.
 The [combined dispatch qualification](docs/dispatch-policy-qualification.md) finds mixed service effects and individual tail regressions.
 These results do not support enabling either policy by default.
@@ -549,6 +570,12 @@ On 2026-09-28, the user made drop-offs the default mode, and same-destination sh
 See [docs/qualification.md](docs/qualification.md#drop-offs-sharing-in-london).
 
 ### Railway and park-and-ride hubs
+
+**Status:** [Scheduled rail arrivals](docs/rail-arrivals.md) and walking delays are implemented.
+Projects retain event plans, and physical restart resumes without replaying past releases.
+The editor authors plans and the comparison tool retains offered identities, including rejected passengers.
+Outbound train departures, transfer deadlines, missed connections, and forecast positioning form the next approved batch.
+Time-varying park-and-ride demand remains later work.
 
 Point-to-point pod journeys can already concentrate at a hub.
 The extensions to study are time-dependent demand, transfer delays, and connections to scheduled services.
