@@ -55,6 +55,7 @@ No project, command, WebSocket, or saved-state fields change.
 
 Focused tests cover forecast boundaries, monotone exit times, exhaustive small-graph route costs, self exclusion, and same-tick route updates.
 They also cover fleet-order independence, clone storage and continuation, settings reset, berth fallback, committed-prefix diversion, and sharing detour guards.
-Selected matched service and isolated CPU measurements remain necessary before an adoption recommendation.
+The [selected service comparisons](predictive-service.md) retain identical outcomes with zero returned alternatives across six matched pairs.
+Isolated CPU measurements remain necessary before an adoption recommendation.
 This implementation does not establish greater London capacity or faster actual routes.
 See the [existing routing qualification](qualification.md#queue-routing-screen) and [proposed adoption gates](experimental-adoption.md).
