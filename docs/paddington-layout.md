@@ -71,9 +71,10 @@ Unfinished requests still limit service conclusions.
 Positive late backlog growth prevents treating either layout as sustained capacity at this rate.
 
 The largest matched pickup-wait increases are 478.82 and 1,252.52 seconds.
-The proposed individual wait limits flag 36 and 54 matched boarded requests.
-The proposed journey limits flag 19 and 35 jointly completed requests.
-These [limits](experimental-adoption.md) remain unagreed proposals.
+The individual wait limits flag 36 and 54 matched boarded requests.
+The journey limits flag 19 and 35 jointly completed requests.
+The user approved these [limits](experimental-adoption.md) on October 1.
+These selected comparisons do not establish full qualification.
 Aggregate improvements do not erase those individual regressions.
 
 ## Mechanism boundary and evidence

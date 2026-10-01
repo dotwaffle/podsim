@@ -112,10 +112,11 @@ These controls do not replace a full guarded-positioning qualification.
 
 ## Individual outcomes and evidence
 
-[Pair totals](measurements/policy-failures-pairs.csv) retain maximum individual changes and the provisional [adoption-limit](experimental-adoption.md) counts.
-Every active sharing pair has requests that exceed those proposed individual limits.
+[Pair totals](measurements/policy-failures-pairs.csv) retain maximum individual changes and the [adoption-limit](experimental-adoption.md) counts.
+Every active sharing pair has requests that exceed those individual limits.
 The active positioning controls and most platoon pairs also have individual increases.
-The limits remain proposals, and these counts do not authorize a default change.
+The user approved the limits on October 1.
+These selected counts do not establish full qualification or authorize a default change.
 
 [Arm totals](measurements/policy-failures-arms.csv) retain recovery, safety checks, and policy activity.
 [Metadata](measurements/policy-failures.json) retains group statistics, selected request tails, P95 ranks, source hashes, and run outcomes.

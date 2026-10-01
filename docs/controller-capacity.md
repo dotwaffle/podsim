@@ -57,7 +57,7 @@ Queue 200 repeats these effects exactly for the selected Full cells.
 | PM14 | Both | -43.82 | 1,584.63 | 750 |
 
 These mean improvements coexist with substantial individual regressions.
-The [individual limits](experimental-adoption.md) remain proposals.
+The user approved the [individual limits](experimental-adoption.md) on October 1.
 Morning's unfinished requests also prevent interpreting completed-only journey statistics as full-cohort outcomes.
 The metadata retains the exact status transitions and all jointly accepted unfinished requests.
 
@@ -90,7 +90,7 @@ The larger queue removes rejection but retains hundreds of unfinished orders in 
 Its late backlog grows by 9.48 to 10.67 requests per minute, depending on the controllers.
 
 With the larger queue, reassignment alone decreases matched boarded-request wait by 469.10 seconds.
-Its largest matched wait increase remains 190.98 seconds, with 78 proposed individual-limit exceedances.
+Its largest matched wait increase remains 190.98 seconds, with 78 individual-limit exceedances.
 Buffers alone increase matched mean wait by 799.55 seconds, and both controllers increase it by 896.31 seconds.
 Those wait comparisons exclude requests still awaiting boarding in either arm.
 The metadata retains their unfinished status and the separate jointly completed journey cohort.

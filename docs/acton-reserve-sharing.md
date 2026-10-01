@@ -62,9 +62,10 @@ Journeys compare only jointly completed parties, with unfinished parties retaine
 No comparison leaves a baseline-completed party unfinished.
 The pair records count candidate completions of previously unfinished parties separately.
 
-The provisional pickup limit is `max(30 seconds, 5% of baseline wait)`.
-The provisional journey limit is `max(60 seconds, 5% of baseline journey)`.
-These are proposals, not agreed adoption thresholds.
+The pickup limit is `max(30 seconds, 5% of baseline wait)`.
+The journey limit is `max(60 seconds, 5% of baseline journey)`.
+The user approved these [individual limits](experimental-adoption.md) on October 1.
+They are part of the separate qualification requirements.
 The table counts failures among the matched measurable cohorts.
 
 | Change | Seed | Pickup-limit failures | Journey-limit failures | Largest added wait | Largest added journey |
