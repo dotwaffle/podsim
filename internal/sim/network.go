@@ -157,6 +157,9 @@ type networkRouteInput struct {
 	// which the queue on the lane clears. A lane adds queueDelay of this
 	// time and the route cost at its start. See queueRoute.
 	discharge []float64
+	// forecasts hold a frozen FIFO model of planned lane entries.
+	forecasts     []laneForecast
+	forecastStart float64
 	// ownBerthsOnly stops the search at each berth node of a station that
 	// has no berth at from or at to. Thus the route cannot go through the
 	// berths of a third station.
@@ -216,6 +219,9 @@ func (n Network) routeIndexedWithWork(input networkRouteInput, graph routeGraph,
 			}
 			if laneIndex < len(input.discharge) {
 				extra += queueDelay(input.discharge[laneIndex], item.distance)
+			}
+			if laneIndex < len(input.forecasts) {
+				extra += input.forecasts[laneIndex].delay(input.forecastStart + item.distance)
 			}
 			candidate := item.distance + edge.seconds + extra
 			if candidate < distance[edge.to] {

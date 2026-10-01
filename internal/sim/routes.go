@@ -79,6 +79,8 @@ func (s *Simulation) assignedRoute(v *vehicle, from, to string) ([]Lane, error) 
 		return result.lanes, result.err
 	case QueueRouting:
 		return s.queueRoute(v, from, to)
+	case PredictiveRouting:
+		return s.predictiveRoute(v, from, to)
 	default:
 		return s.route(from, to)
 	}

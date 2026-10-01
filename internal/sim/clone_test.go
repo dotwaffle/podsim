@@ -29,7 +29,7 @@ var cloneRules = map[reflect.Type]map[string]cloneRule{
 		"graph": cloneShare, "stationIndexes": cloneShare, "stationForbidden": cloneShare, "pickupBounds": cloneDrop, "routeWork": cloneDrop, "admissionWork": cloneDrop,
 		"geometry": cloneShare, "network": cloneShare, "initial": cloneShare,
 		"vehicles": cloneCopy, "owners": cloneCopy, "demo": cloneCopy, "waiting": cloneCopy,
-		"demandWeights": cloneShare, "congestionRouteCosts": cloneShare, "congestionRoutes": cloneCopy,
+		"demandWeights": cloneShare, "congestionRouteCosts": cloneShare, "congestionRoutes": cloneCopy, "predictiveQueues": cloneCopy, "predictivePodQueues": cloneCopy,
 		"laneSafety": cloneShare, "berthSafety": cloneShare, "vehicleIndexes": cloneShare,
 		"berthResources": cloneShare, "laneCells": cloneShare, "approachStations": cloneShare, "routeStations": cloneDrop,
 		"requestBoardings": cloneCopy, "requestCompletions": cloneCopy, "nodePasses": cloneCopy, "monitor": cloneShare,
@@ -43,6 +43,7 @@ var cloneRules = map[reflect.Type]map[string]cloneRule{
 	reflect.TypeFor[Vehicle]():              {"Riders": cloneCopy, "Stops": cloneCopy, "Route": cloneShare, "Presentation": cloneShare},
 	reflect.TypeFor[waitingTrip]():          {"route": cloneShare},
 	reflect.TypeFor[routeResult]():          {"lanes": cloneShare, "err": cloneShare},
+	reflect.TypeFor[podQueueHistory]():      {"lanes": cloneCopy},
 	reflect.TypeFor[pickupSwapController](): {"cooldown": cloneCopy, "records": cloneCopy},
 }
 
@@ -176,7 +177,8 @@ var persistRules = map[reflect.Type]map[string]persistRule{
 		"journeys": persistSave, "totalJourneyTicks": persistSave, "maxJourneyTicks": persistSave,
 		"riderDistanceMeters": persistSave, "directDistanceMeters": persistSave, "maxDetourRatio": persistSave,
 		"laneSafety": persistDerive, "berthSafety": persistDerive, "vehicleIndexes": persistDerive, "berthResources": persistDerive,
-		"laneCells":     persistDerive,
+		"laneCells":        persistDerive,
+		"predictiveQueues": persistUnsupported, "predictivePodQueues": persistUnsupported, "predictiveQueueTick": persistUnsupported,
 		"routingPolicy": persistUnsupported, "congestionRouteCosts": persistUnsupported,
 		"congestionRoutes": persistUnsupported, "nextCongestionRouteRefresh": persistUnsupported,
 		"reservationLookaheadSeconds": persistUnsupported, "finishingPodWait": persistUnsupported,
@@ -380,6 +382,12 @@ func activeCloneSimulation(t *testing.T) *Simulation {
 	s.stationPickupBounds("market")
 	s.SetPickupSwaps(true)
 	s.pickupSwaps.cooldown["01"] = s.tick + pickupSwapCooldownTicks
+	// Congestion routing does not fill predictive history, so this fixture
+	// supplies one sample for the independent-storage checks.
+	s.predictiveQueues = make([]float64, len(s.network.Lanes))
+	s.predictiveQueues[0] = queueHeadwaySeconds
+	s.predictivePodQueues = map[string]podQueueHistory{"01": {lanes: map[int]float64{0: queueHeadwaySeconds}}}
+	s.predictiveQueueTick = s.tick
 	s.pickupSwaps.records = []PickupReassignment{{Tick: s.tick, RequestID: 1, OldPod: "01", NewPod: "02", OldSeconds: 30, NewSeconds: 10}}
 	return s
 }
@@ -625,6 +633,19 @@ func cloneFixtures() []cloneFixture {
 				}
 				if end.completed <= clonePoint.completed || end.nextCongestionRouteRefresh <= clonePoint.nextCongestionRouteRefresh {
 					return fmt.Errorf("continuation completed %d and did not refresh congestion routes", end.completed-clonePoint.completed)
+				}
+				return nil
+			},
+		},
+		{
+			name: "predictive routing", placements: queueFleet,
+			network:      queueFixtureNetwork,
+			setup:        func(s *Simulation) error { return s.SetRoutingPolicy(PredictiveRouting) },
+			warmup:       cloneInputs{seconds: 20, trips: queueTrips(1, 20)},
+			continuation: cloneInputs{seconds: 150, trips: queueTrips(1, 60)},
+			exercised: func(clonePoint, end *Simulation) error {
+				if len(clonePoint.predictiveQueues) == 0 || end.completed <= clonePoint.completed {
+					return fmt.Errorf("the clone point has no forecast history, or continuation completed %d", end.completed-clonePoint.completed)
 				}
 				return nil
 			},

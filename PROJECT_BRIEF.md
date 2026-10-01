@@ -88,7 +88,7 @@ Sharing remains off by default.
 The opt-in `reassign-existing` join policy and guarded-positioning follow-up still fail adoption rules.
 These results do not reverse the earlier adoption of the drop-offs mode when sharing is enabled.
 Larger pods remain parked.
-A bounded predictive routing prototype is queued for comparison, with free-flow routing retained by default.
+The bounded [predictive routing prototype](docs/predictive-routing.md) is implemented for comparison, with free-flow routing retained by default.
 Local Chromium software-rendering checks cover the viewer, editor, and high-latency streams.
 Desktop Chrome is the required browser for current development.
 Firefox and Safari validation are not required.
@@ -508,8 +508,8 @@ The historical three-seed London preset envelope with `platoonLimit` 4 raised it
 These finite-arrival experiments do not establish sustained capacity.
 These historical results did not meet the original prerequisite for planned-route costs.
 A separate bounded predictive prototype is now approved for comparison.
-It will combine observed delays and already-planned arrivals, update forecasts between assignments, and bound free-flow detours.
-It will select routes before departure and preserve existing defaults.
+It combines observed delays and already-planned arrivals, updates forecasts between assignments, and bounds free-flow detours.
+It selects new routes or uncommitted suffixes and preserves existing defaults.
 See [docs/qualification.md](docs/qualification.md#queue-routing-screen).
 
 ### Mixed vehicle capacities and shared rides

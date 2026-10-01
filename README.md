@@ -942,7 +942,7 @@ The synthetic patterns are balanced, destination, hotspot, bursty-hotspot, and h
 | `-sharing-modes drop-offs,destination` | Compare the shared ride modes. Default `drop-offs`. A limit of 1 runs one time and shows the destination mode, because no party joins a pod. |
 | `-sharing-max-stops` | The stop limit of the drop-offs mode, from 1 to 7. Default 3. |
 | `-sharing-joins unassigned,reassign-existing` | Compare the shared ride join policies. See [parties](#parties). A limit of 1 shows the given policy, but no party joins a pod. |
-| `-routing-policies free-flow,congestion,queue` | Compare the experimental routing policies. See [routing](#time-geometry-and-routing). |
+| `-routing-policies free-flow,congestion,queue,predictive` | Compare the experimental routing policies. See [routing](#time-geometry-and-routing). |
 | `-redistribution-policies off,on` | Select the positioning policies. `on` is guarded positioning. |
 | `-wait-rules current,strict,none` | Compare the finishing-pod wait rules from the dispatch section. |
 | `-platoon-policies off,virtual` | The experimental platoon A/B. `virtual` lets queued pods follow the pod ahead at a short gap. |
@@ -1177,7 +1177,7 @@ The Go core uses fixed 60 Hz steps and world coordinates in meters.
 Routing chooses the shortest free-flow travel time on directed lanes.
 Equal-cost routes use scenario order for deterministic results.
 
-The compare command has two experimental routing policies.
+The compare command has three experimental routing policies.
 They change only the route that a pod gets when it starts a journey, a pickup, or an empty move.
 Estimates and the choices of dispatch, positioning, and parking use free-flow times.
 A route from these policies does not go through the berths of a third station.
@@ -1187,6 +1187,8 @@ The `queue` policy gives each stopped pod on a lane 3 s of queue time.
 It adds only the queue time that remains when the pod gets to the lane.
 It changes the free-flow route only when the saving is at least 15 s and at least 5%.
 The new route must also take at most 1.2 times the free-flow time of the free-flow route.
+The [predictive policy](docs/predictive-routing.md) adds smoothed observed queues and planned lane arrivals over a 90-second horizon.
+It retains the same saving and detour guards, and remains experimental.
 
 Lanes can be straight or quadratic curves.
 The simulator and browser measure each curve along the same sampled path.

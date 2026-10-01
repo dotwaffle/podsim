@@ -177,7 +177,7 @@ func TestComparePairsSharingModes(t *testing.T) {
 func TestComparePairsRoutingPolicies(t *testing.T) {
 	t.Parallel()
 	opts, err := parseOptions([]string{
-		"-duration", "2m", "-request-every", "20s", "-routing-policies", "free-flow,congestion,queue",
+		"-duration", "2m", "-request-every", "20s", "-routing-policies", "free-flow,congestion,queue,predictive",
 	}, &bytes.Buffer{})
 	if err != nil {
 		t.Fatal(err)
@@ -190,10 +190,10 @@ func TestComparePairsRoutingPolicies(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(results) != 6 {
-		t.Fatalf("routing comparison has %d arms, want 6", len(results))
+	if len(results) != 8 {
+		t.Fatalf("routing comparison has %d arms, want 8", len(results))
 	}
-	for index, want := range []string{"free-flow", "free-flow", "congestion", "congestion", "queue", "queue"} {
+	for index, want := range []string{"free-flow", "free-flow", "congestion", "congestion", "queue", "queue", "predictive", "predictive"} {
 		if results[index].RoutingPolicy != want {
 			t.Fatalf("routing comparison arm %d has policy %q, want %q", index, results[index].RoutingPolicy, want)
 		}

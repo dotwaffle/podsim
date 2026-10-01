@@ -327,7 +327,7 @@ func TestDropOffsDetourCapWithRoutingPolicies(t *testing.T) {
 			network.Nodes[index].Position.Y = 10
 		}
 	}
-	for name, policy := range map[string]RoutingPolicy{"free flow": FreeFlowRouting, "congestion": CongestionRouting, "queue": QueueRouting} {
+	for name, policy := range map[string]RoutingPolicy{"free flow": FreeFlowRouting, "congestion": CongestionRouting, "queue": QueueRouting, "predictive": PredictiveRouting} {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 			s, err := NewFleet(network, []Placement{

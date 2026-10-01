@@ -21,6 +21,9 @@ const (
 	// QueueRouting adds the time that each queue of stopped pods needs to
 	// clear after the pod gets to the queue. See queueRoute.
 	QueueRouting
+	// PredictiveRouting adds observed queues and near-term planned arrivals
+	// to route costs. It changes new routes only and remains experimental.
+	PredictiveRouting
 )
 
 const (
@@ -43,13 +46,14 @@ const (
 // SetRoutingPolicy selects the routing policy for the routes that pods
 // start after the call.
 func (s *Simulation) SetRoutingPolicy(policy RoutingPolicy) error {
-	if policy < FreeFlowRouting || policy > QueueRouting {
+	if policy < FreeFlowRouting || policy > PredictiveRouting {
 		return fmt.Errorf("unknown routing policy %d", policy)
 	}
 	s.routingPolicy = policy
 	s.nextCongestionRouteRefresh = 0
 	s.congestionRouteCosts = nil
 	s.congestionRoutes = nil
+	s.predictiveQueues, s.predictiveQueueTick, s.predictivePodQueues = nil, 0, nil
 	return nil
 }
 

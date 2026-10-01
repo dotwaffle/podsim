@@ -310,6 +310,9 @@ type Simulation struct {
 	sharedParties               int
 	seatScreen                  SeatScreen
 	routingPolicy               RoutingPolicy
+	predictiveQueues            []float64
+	predictivePodQueues         map[string]podQueueHistory
+	predictiveQueueTick         int64
 	finishingPodWait            FinishingPodWait
 	stationBuffers              bool
 	pickupSwaps                 *pickupSwapController
@@ -416,6 +419,7 @@ func (s *Simulation) Reset() {
 	s.positioning, s.demandRate, s.demandWeights = PositioningOff, 0, nil
 	s.nextRedistributionTick = 0
 	s.nextCongestionRouteRefresh, s.congestionRouteCosts, s.congestionRoutes = 0, nil, nil
+	s.predictiveQueues, s.predictiveQueueTick, s.predictivePodQueues = nil, 0, nil
 	s.passengerDistanceMeters, s.emptyDistanceMeters, s.rebalanceMoves, s.sharedParties = 0, 0, 0, 0
 	s.seatScreen = SeatScreen{}
 	s.requestBoardings, s.requestCompletions, s.nodePasses = nil, nil, nil
