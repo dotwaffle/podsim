@@ -5387,3 +5387,126 @@ test("rail helpers detach mutable input plans and unchanged nested destinations"
     assert.equal(config.railArrivals[1].destinations[0].weight, 1);
   }
 });
+
+// This fixture keeps the mainline throat fixed while station rows move.
+function layoutFixture(count = 3, side = 1, degrees = 0) {
+  const config = editor.emptyConfig(); const nodes = config.network.Nodes; const lanes = config.network.Lanes;
+  const node = (ID, X, Y) => nodes.push({ ID, Position: { X, Y } });
+  const lane = (ID, From, To, StationRole, SeparationGroup = "station-plane") => lanes.push({ ID, From, To, SpeedLimit: 14, StationID: "layout", StationRole, SeparationGroup });
+  node("entry", -100, 120); node("exit", 100, 120); node("diverge", -60, 120 - side * 120); node("merge", 60, 120 - side * 120);
+  lane("access-in", "diverge", "entry", "entry"); lane("access-out", "exit", "merge", "exit"); lane("bypass", "entry", "exit", "through");
+  const station = { ID: "layout", Name: "Layout", Entry: "entry", Exit: "exit", ParkingOnly: false, Berths: [] };
+  for (let index = 0; index < count; index += 1) {
+    const id = String(index); const y = 120 + side * (90 + index * 75);
+    node(`a${id}`, -100, y); node(`b${id}`, 0, y); node(`d${id}`, 100, y);
+    lane(`al${id}`, index ? `a${index - 1}` : "entry", `a${id}`, "berth-access"); lane(`dl${id}`, `d${id}`, index ? `d${index - 1}` : "exit", "departure");
+    lane(`in${id}`, `a${id}`, `b${id}`, "berth-access"); lane(`out${id}`, `b${id}`, `d${id}`, "departure");
+    station.Berths.push({ ID: `berth${id}`, Node: `b${id}`, SeparationGroup: "station-plane" });
+  }
+  config.network.Stations.push(station); config.fleet.push({ ID: "Pod01", BerthID: "berth0" });
+  const radians = degrees * Math.PI / 180;
+  for (const item of nodes) { const { X, Y } = item.Position; item.Position = { X: X * Math.cos(radians) - Y * Math.sin(radians), Y: X * Math.sin(radians) + Y * Math.cos(radians) }; }
+  return config;
+}
+
+test("station layout dimensions preserve rotated and mirrored frames", () => {
+  for (const side of [-1, 1]) for (const bearing of [0, 37, 90, 180, 271]) {
+    const config = layoutFixture(3, side, bearing); const before = structuredClone(config);
+    const layout = editor.stationLayout(config, "layout"); assert.equal(layout.error, "");
+    assert.ok(Math.abs(layout.pitch - 75) < 1e-6); assert.ok(Math.abs(layout.spacing - 200) < 1e-6); assert.ok(Math.abs(layout.setback - 120) < 1e-6);
+    const result = editor.setStationLayout(config, "layout", { pitch: 40, spacing: 160, setback: 140 }); assert.equal(result.error, "", result.error);
+    const after = editor.stationLayout(result.config, "layout"); assert.equal(after.error, "");
+    for (const [key, value] of Object.entries({ pitch: 40, spacing: 160, setback: 140 })) assert.ok(Math.abs(after[key] - value) < 1e-6, key);
+    assert.deepEqual(config, before); assert.deepEqual(result.config.network.Lanes, config.network.Lanes); assert.deepEqual(result.config.network.Stations, config.network.Stations); assert.deepEqual(result.config.fleet, config.fleet);
+    for (const id of ["diverge", "merge"]) assert.deepEqual(nodePosition(result.config, id), nodePosition(config, id));
+    assert.deepEqual({ ...result.config, network: null }, { ...config, network: null });
+    result.config.network.Nodes[0].Position.X += 1; assert.deepEqual(config, before);
+  }
+});
+
+test("pitch keeps the first row fixed and mouth spacing keeps berth centers fixed", () => {
+  const config = layoutFixture();
+  const pitch = editor.setStationLayout(config, "layout", { pitch: 25 }); assert.equal(pitch.error, "");
+  for (const id of ["entry", "exit", "a0", "b0", "d0"]) assert.deepEqual(nodePosition(pitch.config, id), nodePosition(config, id));
+  assert.equal(nodePosition(pitch.config, "b2").Y - nodePosition(config, "b2").Y, -100);
+  const spacing = editor.setStationLayout(config, "layout", { spacing: 120 }); assert.equal(spacing.error, "");
+  for (const id of ["b0", "b1", "b2"]) assert.deepEqual(nodePosition(spacing.config, id), nodePosition(config, id));
+  assert.equal(nodePosition(spacing.config, "entry").X, -60); assert.equal(nodePosition(spacing.config, "exit").X, 60);
+  assert.equal(editor.setStationLayout(config, "layout", { pitch: 75, spacing: 200, setback: 120 }).config, config);
+  assert.equal(editor.setStationLayout(config, "layout", {}).config, config);
+});
+
+test("one-row stations expose mouth and approach controls without inventing pitch", () => {
+  const config = layoutFixture(1); const layout = editor.stationLayout(config, "layout"); assert.equal(layout.error, ""); assert.equal(layout.pitch, null);
+  assert.match(editor.setStationLayout(config, "layout", { pitch: 50 }).error, /two rows/);
+  assert.equal(editor.setStationLayout(config, "layout", { spacing: 150, setback: 160 }).error, "");
+  config.network.Lanes = config.network.Lanes.filter((lane) => lane.ID !== "access-in");
+  assert.equal(editor.stationLayout(config, "layout").setback, null);
+  assert.match(editor.setStationLayout(config, "layout", { setback: 160 }).error, /paired, aligned throat/);
+  assert.equal(editor.setStationLayout(config, "layout", { spacing: 150 }).error, "");
+});
+
+test("station dimension bounds and short lanes reject the whole edit", () => {
+  const config = layoutFixture(); const before = structuredClone(config);
+  for (const dimensions of [{ pitch: 24 }, { spacing: 47 }, { setback: 0 }, { pitch: NaN }, { spacing: Infinity }, { setback: 200000 }, { unknown: 30 }]) {
+    const result = editor.setStationLayout(config, "layout", dimensions); assert.equal(result.config, config); assert.ok(result.error.startsWith("Layout:"), JSON.stringify(dimensions));
+  }
+  const short = editor.setStationLayout(config, "layout", { spacing: 120, setback: 10 }); assert.match(short.error, /access-in.*shorter than 24/); assert.equal(short.config, config);
+  assert.deepEqual(config, before);
+});
+
+test("layout clearance accepts exactly 24 m lanes and 12 m gaps", () => {
+  const config = layoutFixture(); const minimum = editor.setStationLayout(config, "layout", { spacing: 48 });
+  assert.equal(minimum.error, "", minimum.error); assert.equal(editor.laneLength(minimum.config, minimum.config.network.Lanes.find((lane) => lane.ID === "in0")), 24);
+  for (const gap of [12, 12 - 1e-6]) {
+    const obstacle = layoutFixture(); obstacle.network.Nodes.push({ ID: "near-a", Position: { X: -75, Y: 250 + gap } }, { ID: "near-b", Position: { X: -25, Y: 250 + gap } });
+    obstacle.network.Lanes.push({ ID: "near", From: "near-a", To: "near-b", SpeedLimit: 14, SeparationGroup: "station-plane" });
+    const result = editor.setStationLayout(obstacle, "layout", { pitch: 40 });
+    if (gap === 12) assert.equal(result.error, "", result.error); else { assert.equal(result.config, obstacle); assert.match(result.error, /in1.*near/); }
+  }
+});
+
+test("custom, curved and shared berth layouts remain manual", () => {
+  const cases = [
+    (config) => { nodePosition(config, "b1").X += 1; },
+    (config) => { nodePosition(config, "b2").Y += 1; },
+    (config) => { config.network.Lanes[0].Control = { X: 0, Y: 10 }; },
+    (config) => { config.network.Lanes.push({ ID: "foreign", From: "a0", To: "diverge", SpeedLimit: 14 }); },
+    (config) => { config.network.Stations.push({ ID: "other", Entry: "a0", Exit: "exit", Berths: [] }); },
+    (config) => { config.network.Stations[0].Berths[1].Node = "b0"; },
+  ];
+  for (const change of cases) { const config = layoutFixture(); change(config); const result = editor.setStationLayout(config, "layout", { pitch: 50 }); assert.equal(result.config, config); assert.ok(result.error); }
+  assert.ok(editor.stationLayout(connectedScenario(), connectedScenario().network.Stations[0].ID).error);
+});
+
+test("station layout checks moved approaches and retains existing separation planes", () => {
+  for (const group of ["", "station-plane", "other-plane"]) {
+    const config = layoutFixture(); config.network.Nodes.push({ ID: "obstacle-a", Position: { X: -90, Y: 130 } }, { ID: "obstacle-b", Position: { X: -130, Y: 130 } });
+    config.network.Lanes.push({ ID: "obstacle", From: "obstacle-a", To: "obstacle-b", SpeedLimit: 14, SeparationGroup: group });
+    const result = editor.setStationLayout(config, "layout", { setback: 160 });
+    if (group === "other-plane") { assert.equal(result.error, ""); assert.deepEqual(result.config.network.Lanes, config.network.Lanes); }
+    else { assert.equal(result.config, config); assert.match(result.error, /access-in.*obstacle/); }
+  }
+});
+
+test("layout preview is one undo step and export stores only node coordinates", () => {
+  const config = layoutFixture(); const history = editor.createHistory({ scenario: config, background: null });
+  const result = editor.setStationLayout(history.snapshot.scenario, "layout", { pitch: 50, spacing: 160, setback: 140 }); assert.equal(result.error, "");
+  history.replace({ scenario: result.config, background: null });
+  const exported = JSON.parse(JSON.stringify(history.value.scenario)); assert.deepEqual(Object.keys(exported), Object.keys(config));
+  assert.deepEqual(exported, result.config); history.undo(); assert.deepEqual(history.value.scenario, config); history.redo(); assert.deepEqual(history.value.scenario, result.config);
+});
+
+test("layout controls recognize generated London and scale100 stations", needsGo, () => {
+  for (const preset of ["london-central", "london-full", "scale100"]) {
+    const config = generatedProject(preset); const stations = config.network.Stations.filter((station) => !station.ParkingOnly);
+    assert.ok(stations.length > 10);
+    for (const station of stations) {
+      const layout = editor.stationLayout(config, station.ID); assert.equal(layout.error, "", station.Name); assert.ok(layout.spacing > 0); assert.ok(layout.setback > 0, station.Name);
+    }
+    const chosen = preset.startsWith("london") ? stations.find((station) => station.Name === "Acton Town") || stations.find((station) => station.Name === "Tottenham Court Road") : stations[4];
+    const current = editor.stationLayout(config, chosen.ID);
+    const result = editor.setStationLayout(config, chosen.ID, { pitch: 60, spacing: current.spacing * 0.9, setback: current.setback + 20 }); assert.equal(result.error, "", result.error);
+    assert.deepEqual(editor.validateConfig(result.config), []);
+  }
+});

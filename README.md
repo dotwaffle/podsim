@@ -480,6 +480,11 @@ The draft stays local until you select **Pause and apply**.
 
 ### Edit the network
 
+- Select a generated London or scale100 station to change its berth pitch, entry/exit spacing, or approach setback.
+  Select **Preview in draft** to update the map with one undo step.
+  The controls keep the mainline throat fixed and retain the station's nodes, lanes, berths, and fleet placements.
+  Unsupported layouts retain manual node editing.
+  See [station layout controls](docs/station-layout-editor.md) for limits and validation.
 - Create stations and explicit junctions, then connect their nodes with directed guideways.
 - Select **Add paired lanes** to add both directions.
   Crossing lines do not create a junction.

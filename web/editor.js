@@ -744,6 +744,96 @@
     return rows.length ? rows : null;
   }
 
+  // Station dimensions come from existing coordinates. Only aligned, straight
+  // berth chains support these controls. Other layouts keep manual node edits.
+  function stationLayout(config, stationID) {
+    const station = config.network.Stations.find((item) => item.ID === stationID);
+    const rows = station && berthChain(config, station);
+    const unsupported = (reason) => ({ error: reason });
+    if (!rows) return unsupported("Layout controls require a straight berth chain.");
+    const nodes = new Map(config.network.Nodes.map((node) => [node.ID, node.Position]));
+    const entry = nodes.get(station.Entry); const exit = nodes.get(station.Exit);
+    if (!entry || !exit) return unsupported("The station entry or exit is missing.");
+    const frame = stationAxes(entry, exit); const spacing = Math.hypot(exit.X - entry.X, exit.Y - entry.Y);
+    if (spacing < 2 * MIN_LANE_LENGTH) return unsupported("Entry/exit spacing must be at least 48 m.");
+    const offset = (id, axis) => { const at = nodes.get(id); return at && (at.X - frame.origin.X) * frame[axis].X + (at.Y - frame.origin.Y) * frame[axis].Y; };
+    const near = (a, b) => Number.isFinite(a) && Number.isFinite(b) && Math.abs(a - b) < 1e-6;
+    const body = new Set([station.Entry, station.Exit]); const rowNodes = new Set(); const rowLanes = new Set();
+    for (const row of rows) {
+      for (const id of [row.arrival, row.berth.Node, row.departure]) {
+        if (body.has(id)) return unsupported("Berth rows must use distinct nodes.");
+        body.add(id); rowNodes.add(id);
+      }
+      for (const lane of [row.arrivalLink, row.departureLink, row.inLane, row.outLane]) rowLanes.add(lane.ID);
+    }
+    if (config.network.Stations.some((other) => other.ID !== stationID && [...stationCoreNodeIDs(other)].some((id) => body.has(id)))) return unsupported("Another station shares these nodes.");
+    for (const lane of config.network.Lanes) {
+      if (!body.has(lane.From) && !body.has(lane.To)) continue;
+      if (lane.Control) return unsupported(`Curved lane ${lane.ID} requires manual node edits.`);
+      if ((rowNodes.has(lane.From) || rowNodes.has(lane.To)) && (!rowLanes.has(lane.ID) || lane.StationID !== stationID)) return unsupported(`Lane ${lane.ID} shares a berth row node.`);
+    }
+    const firstDepth = offset(rows[0].berth.Node, "across"); const side = Math.sign(firstDepth);
+    if (!side) return unsupported("Berth rows must lie on one side of the station mouth.");
+    const depths = rows.map((row) => side * offset(row.berth.Node, "across"));
+    const pitch = rows.length > 1 ? depths[1] - depths[0] : null;
+    for (const [index, row] of rows.entries()) {
+      if (!near(offset(row.arrival, "along"), -spacing / 2) || !near(offset(row.departure, "along"), spacing / 2) || !near(offset(row.berth.Node, "along"), 0) ||
+          !near(offset(row.arrival, "across"), side * depths[index]) || !near(offset(row.departure, "across"), side * depths[index]) || depths[index] <= 0 ||
+          (pitch !== null && (pitch < 25 - 1e-6 || !near(depths[index], depths[0] + index * pitch)))) return unsupported("Berth rows must form an aligned rectangular chain with uniform pitch of at least 25 m.");
+    }
+    const incoming = config.network.Lanes.filter((lane) => lane.To === station.Entry && lane.StationID === stationID && lane.StationRole === "entry");
+    const outgoing = config.network.Lanes.filter((lane) => lane.From === station.Exit && lane.StationID === stationID && lane.StationRole === "exit");
+    let setback = null;
+    if (incoming.length === 1 && outgoing.length === 1 && !body.has(incoming[0].From) && !body.has(outgoing[0].To) &&
+        near(offset(incoming[0].From, "across"), offset(outgoing[0].To, "across")) && near(offset(incoming[0].From, "along") + offset(outgoing[0].To, "along"), 0)) {
+      const depth = -side * offset(incoming[0].From, "across");
+      if (depth > 0) setback = depth;
+    }
+    return { station, rows, frame, side, body, pitch, spacing, setback, error: "" };
+  }
+
+  // A dimension edit moves only ordinary node coordinates. Rejected edits
+  // retain the original draft, including fleet placement and lane metadata.
+  function setStationLayout(config, stationID, dimensions) {
+    const layout = stationLayout(config, stationID); const name = layout.station?.Name || stationID;
+    const reject = (reason) => ({ config, error: `${name}: ${reason}` });
+    if (layout.error) return reject(layout.error);
+    const keys = Object.keys(dimensions);
+    for (const key of keys) {
+      if (!["pitch", "spacing", "setback"].includes(key)) return reject(`Unknown dimension ${key}.`);
+      if (layout[key] === null) return reject(key === "pitch" ? "Berth pitch requires at least two rows." : "Approach setback requires a paired, aligned throat.");
+      const minimum = key === "pitch" ? 25 : key === "spacing" ? 2 * MIN_LANE_LENGTH : Number.MIN_VALUE;
+      if (!Number.isFinite(dimensions[key]) || dimensions[key] < minimum) return reject(`${key} must be a finite ${key === "setback" ? "positive value" : `value of at least ${minimum} m`}.`);
+    }
+    if (!keys.some((key) => Math.abs(dimensions[key] - layout[key]) > 1e-6)) return { config, error: "" };
+    const out = clone(config); const moves = new Map();
+    const add = (id, along, across) => {
+      const old = moves.get(id) || { X: 0, Y: 0 };
+      moves.set(id, { X: old.X + along * layout.frame.along.X + across * layout.frame.across.X, Y: old.Y + along * layout.frame.along.Y + across * layout.frame.across.Y });
+    };
+    const spacing = (dimensions.spacing ?? layout.spacing) - layout.spacing;
+    if (spacing) {
+      add(layout.station.Entry, -spacing / 2, 0); add(layout.station.Exit, spacing / 2, 0);
+      for (const row of layout.rows) { add(row.arrival, -spacing / 2, 0); add(row.departure, spacing / 2, 0); }
+    }
+    const pitch = (dimensions.pitch ?? layout.pitch) - layout.pitch;
+    if (pitch) layout.rows.forEach((row, index) => { for (const id of [row.arrival, row.berth.Node, row.departure]) add(id, 0, layout.side * index * pitch); });
+    const setback = (dimensions.setback ?? layout.setback) - layout.setback;
+    if (setback) for (const id of layout.body) add(id, 0, layout.side * setback);
+    const moved = new Set();
+    for (const node of out.network.Nodes) {
+      const delta = moves.get(node.ID); if (!delta || (!delta.X && !delta.Y)) continue;
+      node.Position.X += delta.X; node.Position.Y += delta.Y; moved.add(node.ID);
+      if (![node.Position.X, node.Position.Y].every((value) => Number.isFinite(value) && Math.abs(value) <= MAX_COORDINATE)) return reject(`Node ${node.ID} exceeds the coordinate limit.`);
+    }
+    const lanes = out.network.Lanes.filter((lane) => moved.has(lane.From) || moved.has(lane.To));
+    const short = lanes.find((lane) => laneLength(out, lane) < MIN_LANE_LENGTH);
+    if (short) return reject(`Lane ${short.ID} would be shorter than ${MIN_LANE_LENGTH} m.`);
+    const conflict = laneConflict(out, lanes.map((lane) => lane.ID), true);
+    if (conflict) return reject(`Lane ${conflict.lane} would ${conflict.gap === 0 ? "cross" : `come within ${conflict.gap.toFixed(1)} m of`} lane ${conflict.other}.`);
+    return { config: out, error: "" };
+  }
+
   // nextChainRow gives the next row of a berth chain. rows is the chain that
   // berthChain gives. The row is a copy of the last row, moved by one pitch.
   // The pitch is the distance from the berth node of the row before the
@@ -847,7 +937,7 @@
   // apart. It gives the first conflict as lane, the ID from ids, other, the
   // ID of the other lane, and gap, the distance in meters, which is 0 for a
   // crossing. It gives null when there is no conflict.
-  function laneConflict(config, ids) {
+  function laneConflict(config, ids, separationGroups = false) {
     const paths = new Map();
     for (const lane of config.network.Lanes) {
       const from = point(config, lane.From); const to = point(config, lane.To);
@@ -864,6 +954,7 @@
         if (other.lane.ID === id || apart(item, other)) continue;
         const ends = [other.lane.From, other.lane.To];
         if (ends.includes(item.lane.From) || ends.includes(item.lane.To)) continue;
+        if (separationGroups && item.lane.SeparationGroup && other.lane.SeparationGroup && item.lane.SeparationGroup !== other.lane.SeparationGroup) continue;
         const gap = pathGap(item.path, other.path);
         if (gap < CLEARANCE) return { lane: id, other: other.lane.ID, gap };
       }
@@ -3740,7 +3831,7 @@
   const API = {
     withTileMap,
     MIN_LANE_LENGTH, MAX_PODS, MAX_STATIONS, MAX_NODES, MAX_LANES, MAX_NODE_LANES, MAX_FLOWS, MIN_ZOOM, NODE_LABEL_SCALE, NODE_LABEL_SIZE, LANE_PAIR_OFFSET, CHEVRON_LANE_LENGTH, BERTH_PITCH, STATION_PADDING, CLEARANCE, CHECK_DELAY, emptyConfig, fallbackConfig, normalizeConfig, inferStationLanes, addLane, addJunction, addStation, addBerth,
-    stationBearing, stationShape, rotateStation, setStationBearing, nextBerthPosition, berthChain, nextChainRow, lanePolyline, laneConflict, removeBerth, moveStation, moveNode, deleteNode, deleteLane, deleteStation, stationFlowCount, stationRailReferences, addRailArrival, removeRailArrival, editRailArrival, addRailDestination, setFleetCount, fleetRows, selectionCard, berthFocusID, undoFocus, setDemandPattern,
+    stationBearing, stationShape, rotateStation, setStationBearing, stationLayout, setStationLayout, nextBerthPosition, berthChain, nextChainRow, lanePolyline, laneConflict, removeBerth, moveStation, moveNode, deleteNode, deleteLane, deleteStation, stationFlowCount, stationRailReferences, addRailArrival, removeRailArrival, editRailArrival, addRailDestination, setFleetCount, fleetRows, selectionCard, berthFocusID, undoFocus, setDemandPattern,
     laneLength, curveLength, reachable, cutOffStations, stationNodeOwners, dragTargets, validateConfig, configWarnings, checkResults, checkSelector, checkSelection, selectionPoint, focusView,
     GEO_PROJECTION, GEO_RADIUS, GEO_MAX_LATITUDE, MAX_COORDINATE, FRAME_SOURCES, SCALE_TOLERANCE, ALIGN_TOLERANCE, RESAMPLE_MAX_SIDE, makeGeo, geoError, projectPoint, unprojectPoint, frameError, scaleError, framePlacement, placementError, frameAligned, anchorGeo, resampleSize, mercatorY, resampleRows,
     problemCountText, createCheckTimer, validationSummary, checkFocusKey, IMAGE_FILE_BYTES, IMAGE_MAX_SIDE, IMAGE_MAX_PIXELS, imageFacts, imageBytesFacts, dataURLToBytes, bytesToDataURL, checkImageSize,
@@ -4120,7 +4211,7 @@
   // renderSelection puts the item data into the data-field elements and the
   // inputs.
   const SELECTION_FORMS = {
-    station: '<label>Name<input data-edit="station-name" maxlength="80"></label><p class="id" data-field="id"></p><label class="check"><input data-edit="parking-only" type="checkbox"> Parking station</label><label>Bearing (degrees)<input data-edit="station-bearing" type="number" step="1"></label><p class="hint">The bearing is the direction from the entry to the exit, clockwise from up. The square marks the entry, and the triangle marks the exit. Drag the shape to move the station, or drag a node to move only that node.</p><div class="berth-list" data-field="berths"><strong>Physical berths</strong></div><button data-action="add-berth" type="button">Add physical berth</button><button data-action="delete-station" class="danger" type="button">Delete station and connections</button>',
+    station: '<label>Name<input data-edit="station-name" maxlength="80"></label><p class="id" data-field="id"></p><label class="check"><input data-edit="parking-only" type="checkbox"> Parking station</label><label>Bearing (degrees)<input data-edit="station-bearing" type="number" step="1"></label><p class="hint">The bearing is the direction from the entry to the exit, clockwise from up. The square marks the entry, and the triangle marks the exit. Drag the shape to move the station, or drag a node to move only that node.</p><fieldset data-field="layout"><legend>Station layout</legend><label>Berth pitch (m)<input data-layout="pitch" type="number" min="25" step="1"></label><label>Entry/exit spacing (m)<input data-layout="spacing" type="number" min="48" step="1"></label><label>Approach setback (m)<input data-layout="setback" type="number" min="1" step="1"></label><p class="hint" data-field="layout-hint"></p><button data-action="station-layout" type="button">Preview in draft</button></fieldset><div class="berth-list" data-field="berths"><strong>Physical berths</strong></div><button data-action="add-berth" type="button">Add physical berth</button><button data-action="delete-station" class="danger" type="button">Delete station and connections</button>',
     lane: '<p class="id" data-field="id"></p><p data-field="route"></p><label>Speed limit (km/h)<input data-edit="lane-speed" type="number" min="1" step="1"></label><p class="hint" data-field="length"></p><button data-action="toggle-curve" type="button"></button><button data-action="delete-lane" class="danger" type="button">Delete guideway</button>',
     node: '<p class="id" data-field="id"></p><p data-field="position"></p><button data-action="delete-node" class="danger" type="button">Delete junction and connections</button>',
   };
@@ -4135,18 +4226,33 @@
     const panel = $("#selectionContent"); const card = selectionCard(draft(), state.selection);
     if (!card) { state.selection = null; delete panel.dataset.card; panel.className = "empty"; panel.textContent = "No item selected."; return; }
     const key = `${card.type} ${card.id}`;
-    if (panel.dataset.card !== key) { panel.dataset.card = key; panel.className = "selection-card"; panel.innerHTML = SELECTION_FORMS[card.type]; }
+    if (panel.dataset.card !== key) { panel.dataset.card = key; panel.layoutNetwork = null; panel.className = "selection-card"; panel.innerHTML = SELECTION_FORMS[card.type]; }
     const field = (name) => panel.querySelector(`[data-field="${name}"]`); const input = (name) => panel.querySelector(`[data-edit="${name}"]`);
     // Set only a changed value. This keeps the caret in a focused field.
     const setValue = (element, value) => { if (element.value !== value) element.value = value; };
     field("id").textContent = card.id;
     if (card.type === "station") {
-      setValue(input("station-name"), card.name); setValue(input("station-bearing"), String(card.bearing)); input("parking-only").checked = card.parkingOnly; renderBerths(field("berths"), card);
+      setValue(input("station-name"), card.name); setValue(input("station-bearing"), String(card.bearing)); input("parking-only").checked = card.parkingOnly; renderBerths(field("berths"), card); renderStationLayout(panel, draft(), card.id);
     } else if (card.type === "lane") {
       field("route").textContent = `${card.from} → ${card.to}`; setValue(input("lane-speed"), String(card.speed));
       field("length").textContent = `Length: ${card.length.toFixed(1)} m`;
       panel.querySelector('[data-action="toggle-curve"]').textContent = card.curved ? "Make straight" : "Add curve";
     } else field("position").textContent = `Junction at ${card.x.toFixed(1)}, ${card.y.toFixed(1)} m`;
+  }
+
+  function renderStationLayout(panel, config, stationID) {
+    if (panel.layoutNetwork === config.network) return;
+    panel.layoutNetwork = config.network;
+    const layout = stationLayout(config, stationID);
+    for (const key of ["pitch", "spacing", "setback"]) {
+      const input = panel.querySelector(`[data-layout="${key}"]`);
+      input.disabled = Boolean(layout.error) || layout[key] === null;
+      input.value = input.disabled ? "" : String(Number(layout[key].toFixed(3)));
+      input.dataset.layoutValue = input.value;
+    }
+    const note = layout.error || [layout.pitch === null ? "Pitch requires two berth rows." : "", layout.setback === null ? "Setback requires an aligned entry/exit throat." : ""].filter(Boolean).join(" ");
+    panel.querySelector('[data-field="layout-hint"]').textContent = note || "Preview updates the draft map in one undo step. Apply the project to change the simulation.";
+    panel.querySelector('[data-action="station-layout"]').disabled = Boolean(layout.error);
   }
 
   // renderBerths shows a row with a Remove button for each berth of the
@@ -5166,7 +5272,13 @@
     $("#selectionContent").addEventListener("click", (event) => {
       const button = event.target.closest("button[data-action]"); if (!button || !state.selection) return; const action = button.dataset.action; const config = draft();
       const berthIDs = action === "remove-berth" ? selectionCard(config, state.selection)?.berths.map((berth) => berth.id) || [] : [];
-      if (action === "add-berth") { const result = addBerth(config, state.selection.id); if (result.error) toast(result.error, true); else setDraft(result.config); }
+      if (action === "station-layout") {
+        const fields = [...$("#selectionContent").querySelectorAll("input[data-layout]")].filter((input) => !input.disabled && input.value !== input.dataset.layoutValue);
+        const dimensions = Object.fromEntries(fields.map((input) => [input.dataset.layout, input.valueAsNumber]));
+        const result = setStationLayout(config, state.selection.id, dimensions);
+        if (result.error) toast(result.error, true); else setDraft(result.config);
+      }
+      else if (action === "add-berth") { const result = addBerth(config, state.selection.id); if (result.error) toast(result.error, true); else setDraft(result.config); }
       else if (action === "remove-berth") { const result = removeBerth(config, state.selection.id, button.dataset.id); if (result.error) toast(result.error, true); else setDraft(result.config); }
       else if (action === "delete-station") { removeStation(state.selection.id); state.selection = null; render(); }
       else if (action === "delete-lane") { setDraft(deleteLane(config, state.selection.id)); state.selection = null; render(); }

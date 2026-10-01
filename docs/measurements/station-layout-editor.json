@@ -1,0 +1,71 @@
+{
+  "schema_version": 1,
+  "recorded_at": "2026-10-01T15:41:27.549780+00:00",
+  "scope": "Bounded station editor controls and generated-layout pilots, not saturated capacity qualification",
+  "source_base": "5e0ddcc",
+  "editor_tests": {
+    "full_editor_and_shell": 257,
+    "passed": 257,
+    "exact_24m_12m_boundary_test_passed": true
+  },
+  "browser": {
+    "checks": [
+      "station/lane/deselection transitions initialize dimensions",
+      "combined preview preserves input focus and is one undo transaction",
+      "invalid preview is atomic and coordinate-only export/import round-trips",
+      "one-row and curved layouts show disabled controls and reasons"
+    ],
+    "errors": [],
+    "scope": "Station-layout editor in Chromium with local read-only API fixture. Native pilots separately validate simulation/restore."
+  },
+  "native_pilot": {
+    "fixtures": [
+      "london-central",
+      "london-full",
+      "scale100"
+    ],
+    "buffers": [
+      false,
+      true
+    ],
+    "ticks_per_arm": 7200,
+    "mixed_initial_orders_per_arm": 40,
+    "balanced_orders_per_minute": 12,
+    "seed": 7,
+    "checkpoints_per_arm": [
+      1800,
+      3600,
+      5400
+    ],
+    "restored_ticks_per_checkpoint": 120,
+    "require_edited_station_arrivals_and_departures": true,
+    "physical_restore": {
+      "demotions": 0,
+      "requeues": 0,
+      "drops": 0,
+      "saved_distance_tolerance_m": 1e-07,
+      "other_saved_fields": "exact"
+    },
+    "every_tick": [
+      "separation",
+      "lane speed",
+      "berth occupancy and reservation"
+    ],
+    "wall_seconds": 26.905,
+    "command": "go test -overlay <cache>/station-layout-pilot-overlay.json ./internal/session -run ^TestStationLayoutEditorPilot$ -count=1 -timeout 5m -v"
+  },
+  "artifact_sha256": {
+    "station_layout_pilot_test.go": "4108788d6a15ff35af48be2e1fac4c9c39df0b96d4cb255b93815e282dd5e60a",
+    "station-layout-fixtures.cjs": "d020b6ee362fa52d510ae0618d663193e46c8b11955d50e59cd528c6830101d8",
+    "station-layout-browser.cjs": "be0173f3cd7308c1fc7f2bdbd5a27e7622a42e42a74c6f9fe2ba09960ce459c9",
+    "station-layout-london-central.json": "b05e028e0120aa19c41e47d73de6107c91f37c51327b3f1d42fc9c173d4091bc",
+    "station-layout-london-full.json": "8331753394825474e91eae8791e04ec089ea95d1b7b2a97841a99e4ca3242dff",
+    "station-layout-scale100.json": "9c98dd5b20a263d4c2b7765f4b4c83c87b4eb81dfc407a912d61d9a4b0a08e90"
+  },
+  "limitations": [
+    "Chrome editor used read-only local API fixture; no backend apply claim",
+    "Physical restore restarts pods from rest under existing contract",
+    "Pilot is bounded at 120 simulated seconds and does not establish sustained capacity",
+    "Final full batch gates remain separate"
+  ]
+}
