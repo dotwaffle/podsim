@@ -10,6 +10,10 @@ Run the commands below to repeat the checks on another machine.
 Code changes after a measurement can give different results.
 [Recorded performance samples](measurements/performance.json) retain the individual step benchmark, WASM loading, and moving-browser measurements.
 
+The [selected current-source policy rerun](policy-failures.md) records later platoon, sharing, and positioning outcomes separately.
+The [expanded controller and capacity screen](controller-capacity.md) preserves queue-limit effects and unfinished long-run requests.
+Neither report replaces the historical qualification matrices below or authorizes a default change.
+
 ## Scale and safety
 
 The measured ring fixture has 20 stations, including one parking station, and 100 pods in 138 berths.

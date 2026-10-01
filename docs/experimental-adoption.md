@@ -67,3 +67,7 @@ Fix a reproduced defect or choose a different candidate, then rerun the affected
 Current reports retain unresolved individual tails and overload cases.
 See [dispatch qualification](dispatch-policy-qualification.md), [post-routing service](berth-routing-service.md), and [sharing rules](qualification.md).
 The [fixed entry contract](station-entry-platoons.md) defines its additional save and ownership checks.
+The [expanded controller screen](controller-capacity.md) retains live queue loss, censored requests, and individual-limit exceedances.
+The [selected policy rerun](policy-failures.md) separates historical failures from these proposed limits.
+The [Paddington trials](paddington-layout.md) reject unsafe partial fixtures while preserving individual regressions in the complete layouts.
+The [predictive screen](predictive-service.md) finds no service gain in its six matched pairs.

@@ -183,4 +183,6 @@ Raw results and frozen manifests are in `~/.cache/agents/podsim/pickup-reassignm
 The [six-hour load screen](pickup-swap-sustained.md) compares two seeds at 15 and 20 requests per minute.
 It improves mean and p95 wait, but increases maximum journey time in both seed 2 cases.
 The controller remains disabled by default.
-Individual-request effects and controlled CPU overhead remain qualification work.
+The [post-routing tail traces](pickup-postroute-tail.md) retain selected individual regressions without identifying a new movement defect.
+The [expanded controller screen](controller-capacity.md) improves selected Acton throughput with reassignment alone, but retains individual wait increases.
+Broader individual-service coverage and controlled CPU overhead remain qualification work.
