@@ -151,7 +151,7 @@ func (d *demandRun) step(simulation *sim.Simulation) {
 	}
 	d.budget -= 60 * sim.TicksPerSecond
 	from, to := d.nextPair()
-	if len(simulation.Snapshot().Pending) >= QueueLimit {
+	if simulation.PendingCount() >= QueueLimit {
 		d.state.Skipped++
 		return
 	}
