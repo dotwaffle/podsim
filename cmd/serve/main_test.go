@@ -515,6 +515,8 @@ func TestProjectFileHoldsCanonicalEncoding(t *testing.T) {
 	// loadProject decodes it as nil.
 	emptyProfiles := project.Default()
 	emptyProfiles.DemandProfiles = []project.DemandProfile{}
+	railDemand := widestDemand()
+	railDemand.Pattern = "rail-arrivals"
 	tests := []struct {
 		name   string
 		config project.Config
@@ -523,6 +525,7 @@ func TestProjectFileHoldsCanonicalEncoding(t *testing.T) {
 		{"London", scenarios.LondonCentral()},
 		{"default demand at the size limit", limitProject(t, project.Default().Demand)},
 		{"widest demand at the size limit", limitProject(t, widestDemand())},
+		{"rail demand at the size limit", limitProject(t, railDemand)},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -557,10 +560,9 @@ func TestProjectFileHoldsCanonicalEncoding(t *testing.T) {
 // bytes as a 6-byte escape.
 var controlID = strings.Repeat("\x01", 64)
 
-// widestDemand returns the demand settings with the longest canonical
-// encoding that project.ValidateDemand accepts. They are the same as
-// widestDemand in internal/project. weightedProject has a station with the
-// ID controlID, so the destination is valid.
+// widestDemand returns the longest demand encoding without a rail plan.
+// weightedProject has a station with ID controlID, so the destination is
+// valid. limitProject reserves space for the longer rail pattern name.
 func widestDemand() project.DemandConfig {
 	return project.DemandConfig{
 		PerMinute: 120, Pattern: "destination", Seed: math.MaxUint64,
@@ -579,10 +581,18 @@ func widestDemand() project.DemandConfig {
 // indented project file fails the test.
 func limitProject(t *testing.T, demand project.DemandConfig) project.Config {
 	t.Helper()
-	size := project.MaxFileBytes - len(canonicalJSON(t, widestDemand())) + len(canonicalJSON(t, demand))
+	reserve := widestDemand()
+	reserve.Pattern = "rail-arrivals"
+	size := project.MaxFileBytes - len(canonicalJSON(t, reserve)) + len(canonicalJSON(t, demand))
 	sized := func(length int) project.Config {
 		config := weightedProject()
 		config.Demand = demand
+		if demand.Pattern == "rail-arrivals" {
+			config.RailArrivals = []project.RailArrival{{
+				ID: "train", Station: controlID, Passengers: 1,
+				Destinations: []project.RailDestination{{Station: "s01", Weight: 1}},
+			}}
+		}
 		return withEncodedSize(t, config, length)
 	}
 	config := sized(size)
