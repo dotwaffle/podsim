@@ -1016,7 +1016,8 @@ const (
 
 // demandRunRules gives a rule for each demandRun field that holds references.
 var demandRunRules = map[string]demandCloneRule{
-	"pcg": demandCopy, "rng": demandCopy,
+	"railOffers": demandShare,
+	"pcg":        demandCopy, "rng": demandCopy,
 	"passenger": demandShare, "profileFlows": demandShare, "pickupWeights": demandShare,
 }
 
@@ -1082,6 +1083,10 @@ func TestDemandRunFieldsHaveCloneRules(t *testing.T) {
 			continue
 		}
 		from, to := source.FieldByIndex(field.Index), copied.FieldByIndex(field.Index)
+		if from.IsNil() && name == "railOffers" {
+			// The rail clone fixture checks this field with a populated plan.
+			continue
+		}
 		if from.IsNil() {
 			t.Errorf("the profile fixture has no data in demandRun.%s", name)
 			continue

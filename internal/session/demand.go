@@ -33,12 +33,16 @@ type demandRun struct {
 	profileFlows  []weightedDemandFlow
 	profileTotal  float64
 	pickupWeights map[string]float64
+	railOffers    []project.RailOffer
+	railCursor    int
 }
 
 type demandInput struct {
 	config   DemandConfig
 	network  sim.Network
 	profiles []project.DemandProfile
+	arrivals []project.RailArrival
+	tick     int64
 }
 
 type weightedDemandFlow struct {
@@ -72,6 +76,14 @@ func newDemand(input demandInput) demandRun {
 	run.prepareLegacyWeights()
 	if input.config.Pattern == "profile" {
 		run.prepareProfile(input.profiles)
+	}
+	if input.config.Pattern == "rail-arrivals" {
+		run.railOffers = project.RailSchedule(input.arrivals, input.config.Seed)
+		run.railCursor = sort.Search(len(run.railOffers), func(index int) bool { return run.railOffers[index].Tick > input.tick })
+		clear(run.pickupWeights)
+		for _, arrival := range input.arrivals {
+			run.pickupWeights[arrival.Station] += float64(arrival.Passengers)
+		}
 	}
 	return run
 }
@@ -127,7 +139,7 @@ func (d *demandRun) clone() demandRun {
 }
 
 func (d *demandRun) configure(input demandInput) error {
-	if err := project.ValidateDemand(input.config, project.DemandContext{Network: input.network, Profiles: input.profiles}); err != nil {
+	if err := project.ValidateDemand(input.config, project.DemandContext{Network: input.network, Profiles: input.profiles, RailArrivals: input.arrivals}); err != nil {
 		return err
 	}
 	if input.config == d.state.Config {
@@ -145,12 +157,20 @@ func (d *demandRun) step(simulation *sim.Simulation) {
 	if !d.state.Config.Enabled {
 		return
 	}
+	if d.state.Config.Pattern == "rail-arrivals" {
+		d.releaseRail(simulation)
+		return
+	}
 	d.budget += d.state.Config.PerMinute
 	if d.budget < 60*sim.TicksPerSecond {
 		return
 	}
 	d.budget -= 60 * sim.TicksPerSecond
 	from, to := d.nextPair()
+	d.offer(simulation, from, to)
+}
+
+func (d *demandRun) offer(simulation *sim.Simulation, from, to string) {
 	if simulation.PendingCount() >= QueueLimit {
 		d.state.Skipped++
 		return
@@ -161,6 +181,18 @@ func (d *demandRun) step(simulation *sim.Simulation) {
 		return
 	}
 	d.state.Generated++
+}
+
+// releaseRail consumes this tick once and skips past offers without catch-up.
+func (d *demandRun) releaseRail(simulation *sim.Simulation) {
+	tick := simulation.Tick()
+	for d.railCursor < len(d.railOffers) && d.railOffers[d.railCursor].Tick <= tick {
+		offer := d.railOffers[d.railCursor]
+		d.railCursor++
+		if offer.Tick == tick {
+			d.offer(simulation, offer.From, offer.To)
+		}
+	}
 }
 
 func (d *demandRun) nextPair() (string, string) {

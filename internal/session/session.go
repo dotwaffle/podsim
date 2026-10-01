@@ -320,7 +320,7 @@ func (s *Session) startProject(config project.Config) error {
 	project.ConfigureExperiments(simulation, owned)
 	s.simulation, s.project, s.epoch = simulation, owned, rand.Text()
 	s.projectRevision, s.projectOrigin, s.generation, s.speed = 1, 1, 1, 1
-	s.demand = newDemand(demandInput{config: owned.Demand, network: owned.Network, profiles: owned.DemandProfiles})
+	s.demand = newDemand(demandInput{config: owned.Demand, network: owned.Network, profiles: owned.DemandProfiles, arrivals: owned.RailArrivals})
 	s.configureRedistribution()
 	return nil
 }
@@ -672,7 +672,7 @@ func (s *Session) apply(command Command) (outcome, error) {
 		project.ConfigureExperiments(s.simulation, s.project)
 		s.simulation.SetPaused(paused)
 		s.speed = 1
-		s.demand = newDemand(demandInput{config: s.project.Demand, network: s.project.Network, profiles: s.project.DemandProfiles})
+		s.demand = newDemand(demandInput{config: s.project.Demand, network: s.project.Network, profiles: s.project.DemandProfiles, arrivals: s.project.RailArrivals})
 		s.configureRedistribution()
 		s.generation++
 		s.restore = RestoreInfo{}
@@ -696,7 +696,7 @@ func (s *Session) apply(command Command) (outcome, error) {
 		s.speed = 1
 		disabled := s.project.Demand
 		disabled.Enabled = false
-		s.demand = newDemand(demandInput{config: disabled, network: s.project.Network, profiles: s.project.DemandProfiles})
+		s.demand = newDemand(demandInput{config: disabled, network: s.project.Network, profiles: s.project.DemandProfiles, arrivals: s.project.RailArrivals})
 		s.generation++
 		s.restore = RestoreInfo{}
 	case "demand":
@@ -726,7 +726,7 @@ func (s *Session) apply(command Command) (outcome, error) {
 // again. The demand command and a restore both use applyDemand. The caller
 // holds s.mu, or no other goroutine uses the session yet.
 func (s *Session) applyDemand(config DemandConfig, save func(project.Config) error) error {
-	demandContext := project.DemandContext{Network: s.project.Network, Profiles: s.project.DemandProfiles}
+	demandContext := project.DemandContext{Network: s.project.Network, Profiles: s.project.DemandProfiles, RailArrivals: s.project.RailArrivals}
 	if err := project.ValidateDemand(config, demandContext); err != nil {
 		return err
 	}
@@ -737,7 +737,7 @@ func (s *Session) applyDemand(config DemandConfig, save func(project.Config) err
 			return err
 		}
 	}
-	if err := s.demand.configure(demandInput{config: config, network: s.project.Network, profiles: s.project.DemandProfiles}); err != nil {
+	if err := s.demand.configure(demandInput{config: config, network: s.project.Network, profiles: s.project.DemandProfiles, arrivals: s.project.RailArrivals, tick: s.simulation.Tick()}); err != nil {
 		return err
 	}
 	s.project = updated
@@ -784,7 +784,7 @@ func (s *Session) applyProject(command Command) error {
 	s.project = config
 	s.simulation = candidate
 	s.speed = 1
-	s.demand = newDemand(demandInput{config: config.Demand, network: config.Network, profiles: config.DemandProfiles})
+	s.demand = newDemand(demandInput{config: config.Demand, network: config.Network, profiles: config.DemandProfiles, arrivals: config.RailArrivals})
 	s.configureRedistribution()
 	s.projectRevision++
 	s.projectOrigin = s.projectRevision
@@ -811,7 +811,7 @@ func (s *Session) save(config project.Config) error {
 // stream and not the project, because after the demo the stream is off
 // while the project can keep demand on.
 func (s *Session) configureRedistribution() {
-	demand := newDemand(demandInput{config: s.project.Demand, network: s.project.Network, profiles: s.project.DemandProfiles})
+	demand := newDemand(demandInput{config: s.project.Demand, network: s.project.Network, profiles: s.project.DemandProfiles, arrivals: s.project.RailArrivals})
 	// Project validation guarantees at least two passenger stations and valid settings.
 	if err := s.simulation.SetDemandWeights(demand.pickupWeights); err != nil {
 		panic(err)
@@ -821,7 +821,7 @@ func (s *Session) configureRedistribution() {
 		mode = sim.PositioningGuarded
 	}
 	rate := 0
-	if live := s.demand.state.Config; live.Enabled {
+	if live := s.demand.state.Config; live.Enabled && live.Pattern != "rail-arrivals" {
 		rate = live.PerMinute
 	}
 	// The mode is valid, and demand validation rejects a negative rate.

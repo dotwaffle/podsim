@@ -205,6 +205,7 @@ func TestDemandPatternLabel(t *testing.T) {
 		want        string
 	}{
 		{name: "balanced", config: session.DemandConfig{Pattern: "balanced"}, want: "Pattern: Balanced"},
+		{name: "rail arrivals", config: session.DemandConfig{Pattern: "rail-arrivals"}, want: "Pattern: Rail arrivals"},
 		{name: "market", config: session.DemandConfig{Pattern: "market"}, want: "Pattern: Market-bound"},
 		{name: "destination", config: session.DemandConfig{Pattern: "destination", Destination: "garden"}, destination: "Garden", want: "Pattern: Garden-bound"},
 		{name: "profile gives the band first", config: session.DemandConfig{Pattern: "profile", Profile: "tfl-numbat-2019-midweek", Band: "am-peak"}, want: "Pattern: am-peak / tfl-numbat-2019-midweek"},
@@ -333,5 +334,15 @@ func TestWrapText(t *testing.T) {
 				t.Fatalf("wrapText(%q) = %q, want %q", test.value, got, test.want)
 			}
 		})
+	}
+}
+
+func TestRailDemandRateButton(t *testing.T) {
+	t.Parallel()
+	game := controlTestGame(t, controlLayouts[0].input)
+	game.state.Demand.Config = session.DemandConfig{Pattern: "rail-arrivals", PerMinute: 120}
+	rate := findButton(t, game.demandButtons(), "demand-rate")
+	if rate.label != "Rate: scheduled arrivals" || !rate.disabled {
+		t.Fatalf("rail rate control: %+v", rate)
 	}
 }

@@ -472,7 +472,7 @@ func TestWidestDemandBoundsDemandSettings(t *testing.T) {
 	control := strings.Repeat("\x01", maxIDLength)
 	network := CloneNetwork(Default().Network)
 	network.Stations[0].ID = control
-	context := DemandContext{Network: network, Profiles: []DemandProfile{{ID: control, Bands: []DemandBand{{ID: control}}}}}
+	context := DemandContext{Network: network, Profiles: []DemandProfile{{ID: control, Bands: []DemandBand{{ID: control}}}}, RailArrivals: []RailArrival{{ID: "train", Station: control, Passengers: 1, Destinations: []RailDestination{{Station: "market", Weight: 1}}}}}
 	tooFast := DemandConfig{PerMinute: widestDemand.PerMinute + 1, Pattern: "balanced"}
 	if err := ValidateDemand(tooFast, context); err == nil {
 		t.Errorf("ValidateDemand accepted %d orders per minute", tooFast.PerMinute)
@@ -483,7 +483,7 @@ func TestWidestDemandBoundsDemandSettings(t *testing.T) {
 	}
 	widest := len(canonicalJSON(t, widestDemand))
 	for _, enabled := range []bool{false, true} {
-		for _, pattern := range []string{"balanced", "market", "destination", "profile"} {
+		for _, pattern := range []string{"balanced", "market", "destination", "profile", "rail-arrivals"} {
 			demand := DemandConfig{
 				Enabled: enabled, PerMinute: widestDemand.PerMinute, Pattern: pattern, Seed: math.MaxUint64,
 				Destination: control, Profile: control, Band: control,

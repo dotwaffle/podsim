@@ -564,7 +564,7 @@ func (file *stateFile) validate() error {
 	if err := validateSequences(file.Sequences); err != nil {
 		return err
 	}
-	return file.Demand.validate(project.DemandContext{Network: file.Project.Network, Profiles: file.Project.DemandProfiles})
+	return file.Demand.validate(project.DemandContext{Network: file.Project.Network, Profiles: file.Project.DemandProfiles, RailArrivals: file.Project.RailArrivals})
 }
 
 // validateSequences checks the saved command sequences. The session applies

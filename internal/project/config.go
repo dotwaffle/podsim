@@ -118,12 +118,12 @@ var errTooLarge = fmt.Errorf("encoded project must have at most %d bytes with an
 
 // widestDemand has the longest canonical encoding of all demand settings
 // that ValidateDemand accepts. Enabled is false, because false is longer
-// than true. Destination is the longest pattern name. Each reference has
+// than true. Rail-arrivals is the longest pattern name. Each reference has
 // the largest length, and each byte is a control character, which JSON
 // writes as a 6-byte escape. Keep this value in step with ValidateDemand.
 var widestDemand = DemandConfig{
 	PerMinute:   120,
-	Pattern:     "destination",
+	Pattern:     "rail-arrivals",
 	Seed:        math.MaxUint64,
 	Destination: strings.Repeat("\x01", maxIDLength),
 	Profile:     strings.Repeat("\x01", maxIDLength),
@@ -166,8 +166,9 @@ type DemandFlow struct {
 
 // DemandContext supplies the network and profiles used to validate demand settings.
 type DemandContext struct {
-	Network  sim.Network
-	Profiles []DemandProfile
+	Network      sim.Network
+	Profiles     []DemandProfile
+	RailArrivals []RailArrival
 }
 
 // Config is the versioned, portable scenario configuration.
@@ -282,7 +283,7 @@ func Validate(config Config) error {
 	if err := validateRailArrivals(config.RailArrivals, config.Network); err != nil {
 		return err
 	}
-	if err := ValidateDemand(config.Demand, DemandContext{Network: config.Network, Profiles: config.DemandProfiles}); err != nil {
+	if err := ValidateDemand(config.Demand, DemandContext{Network: config.Network, Profiles: config.DemandProfiles, RailArrivals: config.RailArrivals}); err != nil {
 		return err
 	}
 	if err := sim.ValidateFleet(config.Network, config.Fleet); err != nil {
@@ -659,11 +660,17 @@ func ValidateDemand(config DemandConfig, context DemandContext) error {
 	if config.PerMinute < 1 || config.PerMinute > 120 {
 		return errors.New("demand rate must be 1 to 120 orders per simulated minute")
 	}
-	if config.Pattern != "balanced" && config.Pattern != "market" && config.Pattern != "destination" && config.Pattern != "profile" {
-		return errors.New("demand pattern must be balanced, market, destination, or profile")
+	if config.Pattern != "balanced" && config.Pattern != "market" && config.Pattern != "destination" && config.Pattern != "profile" && config.Pattern != "rail-arrivals" {
+		return errors.New("demand pattern must be balanced, market, destination, profile, or rail-arrivals")
 	}
 	if len(config.Destination) > maxIDLength || len(config.Profile) > maxIDLength || len(config.Band) > maxIDLength {
 		return fmt.Errorf("demand references must contain at most %d characters", maxIDLength)
+	}
+	if config.Pattern == "rail-arrivals" {
+		if len(context.RailArrivals) == 0 {
+			return errors.New("rail-arrivals demand needs a nonempty arrival plan")
+		}
+		return validateRailArrivals(context.RailArrivals, context.Network)
 	}
 	if config.Pattern == "profile" {
 		profile, ok := demandProfile(context.Profiles, config.Profile)

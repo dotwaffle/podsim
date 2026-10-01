@@ -356,6 +356,8 @@ func demandPatternLabel(config session.DemandConfig, destination string) string 
 		pattern = "Market-bound"
 	case "destination":
 		pattern = destination + "-bound"
+	case "rail-arrivals":
+		pattern = "Rail arrivals"
 	case "profile":
 		pattern = config.Band + " / " + config.Profile
 	}
@@ -370,8 +372,12 @@ func (g *Game) demandButtons() []button {
 		toggle = "Stop demand"
 	}
 	disabled := !g.connected || g.pending || g.state.Simulation.Demo
+	rateLabel := fmt.Sprintf("Rate: %d orders/min", config.PerMinute)
+	if config.Pattern == "rail-arrivals" {
+		rateLabel = "Rate: scheduled arrivals"
+	}
 	return []button{
-		{x: 810, y: 144, w: 250, h: 24, label: fmt.Sprintf("Rate: %d orders/min", config.PerMinute), disabled: disabled, action: "demand-rate"},
+		{x: 810, y: 144, w: 250, h: 24, label: rateLabel, disabled: disabled || config.Pattern == "rail-arrivals", action: "demand-rate"},
 		{x: 810, y: 174, w: 250, h: 24, label: demandPatternLabel(config, destination.Name), disabled: disabled, action: "demand-pattern"},
 		{x: 810, y: 204, w: 250, h: 24, label: fmt.Sprintf("Seed: %d", config.Seed), disabled: disabled, action: "demand-seed"},
 		{x: 810, y: 234, w: 250, h: 24, label: toggle, selected: config.Enabled, disabled: disabled, action: "demand-toggle"},

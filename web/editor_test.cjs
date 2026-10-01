@@ -5300,3 +5300,16 @@ test("rail plans survive import normalization and mirror portable bounds", () =>
   config.railArrivals.push({ ...arrival, id: "extra", atSeconds: 40000, passengers: 1 });
   assert.ok(editor.validateConfig(config).some((error) => error.includes("10000")));
 });
+
+
+test("rail demand requires a plan even when disabled and retains its pattern", () => {
+  const config = connectedScenario(); config.demand.pattern = "rail-arrivals";
+  assert.ok(editor.validateConfig(config).some((error) => error.includes("nonempty arrival plan")));
+  const [hub, destination] = config.network.Stations;
+  config.railArrivals = [{ id: "train", station: hub.ID, atSeconds: 0, walkingSeconds: 0, passengers: 1, destinations: [{ station: destination.ID, weight: 1 }] }];
+  for (const enabled of [false, true]) {
+    config.demand.enabled = enabled;
+    assert.deepEqual(editor.validateConfig(config), []);
+    assert.equal(editor.normalizeConfig(config).demand.pattern, "rail-arrivals");
+  }
+});

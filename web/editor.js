@@ -223,7 +223,7 @@
         config.demand.destination = (market || first || {}).ID || "";
       }
     }
-    if (!["destination", "profile"].includes(config.demand.pattern)) config.demand.pattern = "balanced";
+    if (!["destination", "profile", "rail-arrivals"].includes(config.demand.pattern)) config.demand.pattern = "balanced";
     config.demand.destination = typeof config.demand.destination === "string" ? config.demand.destination : "";
     config.demand.profile = typeof config.demand.profile === "string" ? config.demand.profile : "";
     config.demand.band = typeof config.demand.band === "string" ? config.demand.band : "";
@@ -1532,9 +1532,10 @@
     errors.push(...railArrivalErrors(value.railArrivals, passengerIDs));
     if (value.geo !== undefined && value.geo !== null) { const geo = geoError(value.geo); if (geo) errors.push(geo); }
     if (value.map !== undefined && value.map !== null && !Tiles.validMap(value.map, value.geo)) errors.push("The map needs provider osm, opacity from 0 to 1, and a geographic reference.");
-    if (!demand || !["balanced", "destination", "market", "profile"].includes(demand.pattern)) errors.push("The passenger demand pattern is invalid.");
+    if (!demand || !["balanced", "destination", "market", "profile", "rail-arrivals"].includes(demand.pattern)) errors.push("The passenger demand pattern is invalid.");
     if (isRecord(demand) && "destination" in demand && (typeof demand.destination !== "string" || new TextEncoder().encode(demand.destination).length > 64)) errors.push("The passenger demand destination is invalid.");
     if (demand && demand.pattern === "destination" && !passenger.some((station) => station.ID === demand.destination)) errors.push("Select a passenger destination.");
+    if (demand && demand.pattern === "rail-arrivals" && (!Array.isArray(value.railArrivals) || !value.railArrivals.length)) errors.push("Rail-arrivals demand needs a nonempty arrival plan.");
     if (demand && demand.pattern === "profile") {
       const profile = profiles.find((item) => isRecord(item) && item.id === demand.profile);
       if (!profiles.length) errors.push("The project has no demand profiles. Select another pattern.");
@@ -4192,6 +4193,8 @@
     for (const band of profile?.bands || []) { const option = document.createElement("option"); option.value = band.id; option.textContent = band.name; bandSelect.append(option); }
     bandSelect.value = demand.band; $("#profileLabel").hidden = demand.pattern !== "profile"; $("#bandLabel").hidden = demand.pattern !== "profile";
     $("#demandPattern").querySelector('option[value="profile"]').disabled = profiles.length === 0;
+    $("#demandPattern").querySelector('option[value="rail-arrivals"]').disabled = !(config.railArrivals || []).length;
+    $("#demandRate").disabled = demand.pattern === "rail-arrivals";
     $("#sharedRidePartyLimit").value = config.sharedRidePartyLimit;
     $("#sharedRideMode").value = config.sharedRideMode;
     $("#sharedRideJoin").value = config.sharedRideJoin;

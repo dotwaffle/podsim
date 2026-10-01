@@ -515,7 +515,7 @@ func (s *Session) loadState(input loadInput) (loaded loadedState, err error) {
 			err:    errors.New("the demand settings of the project file are different, and the saved traffic demo runs"),
 		}
 	}
-	if loaded.demand, err = restoreDemand(file.Demand, loaded.config); err != nil {
+	if loaded.demand, err = restoreDemand(file.Demand, loaded.config, loaded.simulation.Tick()); err != nil {
 		return loaded, invalidState(err)
 	}
 	return loaded, nil
@@ -566,8 +566,8 @@ func sameProject(first, second project.Config) (bool, error) {
 
 // restoreDemand makes the saved demand stream of config again. The stream
 // continues with the same draws.
-func restoreDemand(saved savedDemand, config project.Config) (demandRun, error) {
-	run := newDemand(demandInput{config: saved.State.Config, network: config.Network, profiles: config.DemandProfiles})
+func restoreDemand(saved savedDemand, config project.Config, tick int64) (demandRun, error) {
+	run := newDemand(demandInput{config: saved.State.Config, network: config.Network, profiles: config.DemandProfiles, arrivals: config.RailArrivals, tick: tick})
 	// run.rng draws from run.pcg, and rand.Rand has no other state.
 	if err := run.pcg.UnmarshalBinary(saved.Random); err != nil {
 		return demandRun{}, fmt.Errorf("restore demand random source: %w", err)
