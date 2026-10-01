@@ -99,19 +99,34 @@ type emptyDestination struct {
 }
 
 func (s *Simulation) startEmptyMove(v *vehicle, to emptyDestination) error {
+	route, err := s.prepareEmptyMove(v, to)
+	if err != nil {
+		return err
+	}
+	s.installEmptyMove(v, to, route)
+	return nil
+}
+
+func (s *Simulation) prepareEmptyMove(v *vehicle, to emptyDestination) ([]Lane, error) {
 	space := resource{kind: berthResource, id: to.berth.ID}
 	node := resource{kind: nodeResource, id: to.berth.Node}
 	if to.reserveBerth && (s.owners[space] != "" || s.owners[node] != "") {
-		return ErrBerthUnavailable
+		return nil, ErrBerthUnavailable
 	}
 	from, _ := s.station(v.Pod.StationID)
 	origin, _ := from.berth(v.Pod.BerthID)
 	route, err := s.assignedRoute(v, origin.Node, to.berth.Node)
 	if err != nil {
-		return fmt.Errorf("empty route %s to %s: %w", from.ID, to.station, err)
+		return nil, fmt.Errorf("empty route %s to %s: %w", from.ID, to.station, err)
 	}
+	return route, nil
+}
+
+func (s *Simulation) installEmptyMove(v *vehicle, to emptyDestination, route []Lane) {
+	from, _ := s.station(v.Pod.StationID)
+	origin, _ := from.berth(v.Pod.BerthID)
 	if to.reserveBerth {
-		s.owners[space], s.owners[node] = v.Pod.ID, v.Pod.ID
+		s.owners[resource{kind: berthResource, id: to.berth.ID}], s.owners[resource{kind: nodeResource, id: to.berth.Node}] = v.Pod.ID, v.Pod.ID
 	}
 	v.origin, v.destination, v.destinationStation = origin, to.berth, to.station
 	s.setVehicleRoute(v, route)
@@ -122,5 +137,4 @@ func (s *Simulation) startEmptyMove(v *vehicle, to emptyDestination) error {
 	v.phaseTicks, v.blockIndex, v.reservedThrough = 0, 0, -1
 	v.originReleased = false
 	v.distance, v.pending = 0, -1
-	return nil
 }
