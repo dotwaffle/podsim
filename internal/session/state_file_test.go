@@ -753,12 +753,18 @@ func TestStateFileWorstCaseSize(t *testing.T) {
 	// an array, so each other pod or trip adds its size and 1.
 	unrouted := trip
 	unrouted.Route = nil
-	for _, version := range []int{stateVersion, bufferStateVersion} {
+	for _, version := range []int{stateVersion, bufferStateVersion, bufferPlatoonStateVersion} {
 		t.Run(strconv.Itoa(version), func(t *testing.T) {
 			t.Parallel()
 			maxFile, maxPod := file, pod
 			maxFile.Version = version
-			maxPod.StationBuffered = version == bufferStateVersion
+			maxPod.StationBuffered = version >= bufferStateVersion
+			if version == bufferPlatoonStateVersion {
+				link := *maxPod.Platoon
+				terminal := math.MaxInt
+				link.Kind, link.Lanes, link.TerminalCell = "buffer", 1, &terminal
+				maxPod.Platoon = &link
+			}
 			maxFile.Simulation.Pods = []sim.SavedPod{maxPod}
 			size := jsonSize(t, maxFile) + (maxSavedPods-1)*(jsonSize(t, maxPod)+1) + (maxSavedPods-1)*(jsonSize(t, trip)+1) +
 				(maxSavedTrips-maxSavedPods)*(jsonSize(t, unrouted)+1)
@@ -839,6 +845,7 @@ func TestEncodeStateFileTooLarge(t *testing.T) {
 func TestStateFileMembers(t *testing.T) {
 	t.Parallel()
 	legacy := withoutMember(reflect.TypeFor[stateFile](), reflect.TypeFor[sim.SavedPod](), "stationBuffered")
+	legacy = withoutMember(legacy, reflect.TypeFor[sim.SavedPlatoonLink](), "kind", "terminalCell")
 	got := stateMembers(t, "", legacy, nil)
 	if *update {
 		if err := os.WriteFile(stateMembersPath, []byte(stateMembersHeader+strings.Join(got, "\n")+"\n"), 0o600); err != nil {
@@ -884,14 +891,14 @@ func TestReleasedMemberBreaksOlderReader(t *testing.T) {
 // withoutMember returns typ with the JSON member name removed from each
 // struct of type owner. Types that do not contain owner stay the same, so
 // that they keep their methods.
-func withoutMember(typ, owner reflect.Type, name string) reflect.Type {
+func withoutMember(typ, owner reflect.Type, names ...string) reflect.Type {
 	switch typ.Kind() {
 	case reflect.Pointer:
-		if elem := withoutMember(typ.Elem(), owner, name); elem != typ.Elem() {
+		if elem := withoutMember(typ.Elem(), owner, names...); elem != typ.Elem() {
 			return reflect.PointerTo(elem)
 		}
 	case reflect.Slice:
-		if elem := withoutMember(typ.Elem(), owner, name); elem != typ.Elem() {
+		if elem := withoutMember(typ.Elem(), owner, names...); elem != typ.Elem() {
 			return reflect.SliceOf(elem)
 		}
 	case reflect.Struct:
@@ -899,11 +906,11 @@ func withoutMember(typ, owner reflect.Type, name string) reflect.Type {
 		changed := false
 		for field := range typ.Fields() {
 			member, _, _ := strings.Cut(field.Tag.Get("json"), ",")
-			if typ == owner && member == name {
+			if typ == owner && slices.Contains(names, member) {
 				changed = true
 				continue
 			}
-			if fieldType := withoutMember(field.Type, owner, name); fieldType != field.Type {
+			if fieldType := withoutMember(field.Type, owner, names...); fieldType != field.Type {
 				field.Type, changed = fieldType, true
 			}
 			fields = append(fields, field)

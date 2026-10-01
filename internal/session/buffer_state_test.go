@@ -12,11 +12,11 @@ import (
 
 func TestBufferStateVersions(t *testing.T) {
 	t.Parallel()
-	for _, version := range []int{stateVersion, bufferStateVersion, bufferStateVersion + 1} {
+	for _, version := range []int{stateVersion, bufferStateVersion, bufferPlatoonStateVersion, bufferPlatoonStateVersion + 1} {
 		file := newTestStateFile(t)
 		file.Version = version
 		got, err := decodeCheckedState(encodeTestState(t, file))
-		if version > bufferStateVersion {
+		if version > bufferPlatoonStateVersion {
 			if stateReason(err) != reasonUnsupportedVersion {
 				t.Fatalf("future version accepted: %v", err)
 			}
@@ -193,8 +193,10 @@ func TestBufferMemberRequiresV3(t *testing.T) {
 func TestBufferV3MemberList(t *testing.T) {
 	t.Parallel()
 	legacy := withoutMember(reflect.TypeFor[stateFile](), reflect.TypeFor[sim.SavedPod](), "stationBuffered")
+	legacy = withoutMember(legacy, reflect.TypeFor[sim.SavedPlatoonLink](), "kind", "terminalCell")
+	v3Type := withoutMember(reflect.TypeFor[stateFile](), reflect.TypeFor[sim.SavedPlatoonLink](), "kind", "terminalCell")
 	v2 := stateMembers(t, "", legacy, nil)
-	v3 := stateMembers(t, "", reflect.TypeFor[stateFile](), nil)
+	v3 := stateMembers(t, "", v3Type, nil)
 	extra := []string{}
 	for _, member := range v3 {
 		if !slices.Contains(v2, member) {

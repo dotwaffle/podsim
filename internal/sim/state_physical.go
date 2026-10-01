@@ -70,6 +70,7 @@ type physicalRestore struct {
 	// pod, or 0.
 	leaders        []int
 	stationBuffers bool
+	bufferPlatoons bool
 }
 
 // restorePhysical rebuilds a running simulation with each pod where the saved
@@ -95,6 +96,7 @@ func restorePhysical(input RestoreStateInput, newFleet func() (*Simulation, erro
 	}
 	r := newPhysicalRestore(s, input.State)
 	r.stationBuffers = input.StationBuffers
+	r.bufferPlatoons = input.BufferPlatoons
 	r.restoreCounters()
 	if err := r.decodePods(); err != nil {
 		return nil, RestoreResult{}, err
@@ -626,6 +628,9 @@ func (r *physicalRestore) checkLinks() error {
 			continue
 		}
 		link, ahead := r.state.Pods[index].Platoon, r.state.Pods[r.leaders[index]-1].Platoon
+		if ahead != nil && ahead.Kind != link.Kind {
+			return fmt.Errorf("the platoon of pod %s mixes certificate kinds", r.state.Pods[index].ID)
+		}
 		if ahead != nil && ahead.Turn != link.Turn {
 			return fmt.Errorf("the platoon of pod %s has two turns", r.state.Pods[index].ID)
 		}
@@ -648,6 +653,12 @@ func (r *physicalRestore) checkSavedLink(index int) error {
 	v, leader := &r.s.vehicles[index], &r.s.vehicles[r.leaders[index]-1]
 	saved := r.state.Pods[index]
 	link := saved.Platoon
+	if link.Kind == "buffer" {
+		if err := r.checkSavedBufferLink(index); err != nil {
+			return fmt.Errorf("%w: %w", errBufferCertificate, err)
+		}
+		return nil
+	}
 	if v.Route == nil || leader.Route == nil {
 		return nil
 	}
@@ -758,7 +769,8 @@ func (r *physicalRestore) placeTravelingPod(index, leader int) (bool, error) {
 	// A pod that has no berth yet chooses one before it reserves the last lane.
 	if lastLane, _ := routeLaneBlocks(&v.blocks, len(v.Route)-1); v.destination.ID == "" && through >= lastLane {
 		plan, ok := r.s.bufferPlan(v)
-		if !r.stationBuffers || !v.buffered || !ok || leader >= 0 || through > plan.frontier || distance > v.blocks.end(plan.frontier)+restoreTolerance {
+		bufferLink := leader >= 0 && r.bufferPlatoons && saved.Platoon != nil && saved.Platoon.Kind == "buffer"
+		if !r.stationBuffers || !v.buffered || !ok || leader >= 0 && !bufferLink || through > plan.frontier || distance > v.blocks.end(plan.frontier)+restoreTolerance {
 			return false, nil
 		}
 		through = max(through, plan.entryStop)
@@ -814,6 +826,13 @@ func (r *physicalRestore) savedLink(index, leader int) (platoonLink, error) {
 		lane: saved.Lane, leaderLane: saved.LeaderLane, lanes: saved.Lanes,
 		turn: saved.Turn, clearance: linkClearance(saved.Turn), draining: saved.Draining,
 	}
+	if saved.Kind == "buffer" {
+		plan, ok := r.s.bufferPlan(v)
+		if !ok {
+			return platoonLink{}, fmt.Errorf("%w: invalid restored buffer plan", errBufferCertificate)
+		}
+		link.buffer, link.terminalCell, link.first = true, *saved.TerminalCell, plan.entryStop+1
+	}
 	_, link.end = linkEnds(&v.blocks, link)
 	if gap := leaderPosition(v, ahead, link) - v.distance; gap < link.clearance-3*restoreTolerance {
 		return platoonLink{}, fmt.Errorf("the pod is %.6f m behind its platoon predecessor, less than the clearance %.6f m", gap, link.clearance)
@@ -836,6 +855,9 @@ func (r *physicalRestore) linkClaims(v, leader *vehicle, link platoonLink, throu
 			}
 			if block < v.blocks.laneFirst(link.lane) || claimed.kind == berthResource ||
 				owner != leader.Pod.ID && !r.s.aheadInPlatoon(leader, owner) {
+				return false
+			}
+			if link.buffer && (block < link.first || claimed.kind != trackResource) {
 				return false
 			}
 			shared = true

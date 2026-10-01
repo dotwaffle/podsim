@@ -1,7 +1,8 @@
 # Station entry platoon proposal
 
-Status: design only, September 30, 2026.
-No station-entry or berth-access platoon behavior is approved or implemented by this proposal.
+Historical design, September 30, 2026.
+The approved fixed-entry implementation and version 4 fields are documented in [the current contract](station-entry-platoons.md).
+Berth-access platoons remain excluded.
 New buffer admissions and pickup reassignment remain off by default.
 
 ## Recommendation and alternatives
@@ -22,7 +23,7 @@ The fixed buffer certificate is the recommended next design.
 Its implementation needs separate approval and independent safety review.
 Shorter stopped gaps would be a separate design.
 
-## Current constraints
+## Constraints before implementation
 
 `sharedLane` in `internal/sim/platoon.go` excludes station-entry and berth-access lanes.
 It also requires both routes to continue after every shared lane.
@@ -150,5 +151,5 @@ Report moving admission, queue occupancy, mainline blocking, discharge rate, wai
 A lower completed maximum does not establish a benefit for every request.
 Keep the feature unadopted if it has no measured benefit or makes departure progress worse.
 
-The next decision is whether to approve the version 4 design and its bounded prototype.
-This proposal does not request or imply that approval.
+The current contract records the approved fields and implementation.
+Capacity qualification and default adoption remain separate.

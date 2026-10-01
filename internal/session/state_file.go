@@ -22,9 +22,10 @@ const (
 	// release, an added optional member with a safe zero value keeps the
 	// version. Each other change to the members of the file needs a new
 	// version.
-	stateFormat        = "podsim-session"
-	stateVersion       = 2
-	bufferStateVersion = 3
+	stateFormat               = "podsim-session"
+	stateVersion              = 2
+	bufferStateVersion        = 3
+	bufferPlatoonStateVersion = 4
 	// maxEpochBytes is the largest saved epoch.
 	maxEpochBytes = 100
 	// buildIDLength is the number of lowercase hex digits in a build ID.
@@ -121,8 +122,9 @@ var stateJSONLimits = jsonLimits{
 	},
 }
 
-// stateFile holds versions 2 and 3 of the saved session state. Version 3
-// accepts explicit station buffer membership. Version 2 rejects that member.
+// stateFile holds versions 2, 3, and 4 of the saved session state. Version 3
+// adds explicit station buffer membership. Version 4 adds fixed entry links.
+// Earlier versions reject these fields, including explicit empty or null values.
 // The file on disk is
 // the JSON form of stateFile, compressed with gzip. Each change to a member,
 // also in the simulation and in the project, needs a new version. Until the
@@ -301,7 +303,7 @@ func decodeStateFile(data []byte) (stateFile, error) {
 	if err := json.Unmarshal(raw, &header); err != nil {
 		return stateFile{}, invalidState(fmt.Errorf("decode session state header: %w", err))
 	}
-	if header.Format != stateFormat || header.Version != stateVersion && header.Version != bufferStateVersion {
+	if header.Format != stateFormat || header.Version != stateVersion && header.Version != bufferStateVersion && header.Version != bufferPlatoonStateVersion {
 		return stateFile{}, &stateError{
 			reason: reasonUnsupportedVersion,
 			err: fmt.Errorf("session state format %.20q version %d is not %q version %d",
@@ -309,15 +311,92 @@ func decodeStateFile(data []byte) (stateFile, error) {
 		}
 	}
 	options := strictStateOptions
-	if header.Version == stateVersion {
+	switch header.Version {
+	case stateVersion:
 		options = json.JoinOptions(options, json.WithUnmarshalers(json.JoinUnmarshalers(
-			json.UnmarshalFromFunc(decodeSavedProject), json.UnmarshalFromFunc(decodeV2Pod))))
+			json.UnmarshalFromFunc(decodeSavedProject), json.UnmarshalFromFunc(decodeV2Pod), json.UnmarshalFromFunc(decodeLegacyPlatoon))))
+	case bufferStateVersion:
+		options = json.JoinOptions(options, json.WithUnmarshalers(json.JoinUnmarshalers(
+			json.UnmarshalFromFunc(decodeSavedProject), json.UnmarshalFromFunc(decodeLegacyPlatoon))))
+	default:
+		options = json.JoinOptions(options, json.WithUnmarshalers(json.JoinUnmarshalers(
+			json.UnmarshalFromFunc(decodeSavedProject), json.UnmarshalFromFunc(decodeV4Platoon))))
 	}
 	var file stateFile
 	if err := json.Unmarshal(raw, &file, options); err != nil {
 		return stateFile{}, invalidState(fmt.Errorf("decode session state: %w", err))
 	}
 	return file, nil
+}
+
+type savedPlatoonFields sim.SavedPlatoonLink
+
+// decodePlatoonFields retains field presence, including explicit empty and null values.
+func decodePlatoonFields(decoder *jsontext.Decoder) (sim.SavedPlatoonLink, jsontext.Value, jsontext.Value, error) {
+	var saved struct {
+		savedPlatoonFields
+		Kind     jsontext.Value `json:"kind"`
+		Terminal jsontext.Value `json:"terminalCell"`
+	}
+	value, err := decoder.ReadValue()
+	if err != nil {
+		return sim.SavedPlatoonLink{}, nil, nil, err
+	}
+	if err := json.Unmarshal(value, &saved, json.RejectUnknownMembers(true)); err != nil {
+		return sim.SavedPlatoonLink{}, nil, nil, err
+	}
+	return sim.SavedPlatoonLink(saved.savedPlatoonFields), saved.Kind, saved.Terminal, nil
+}
+
+// decodeLegacyPlatoon rejects any occurrence of the version 4 fields.
+func decodeLegacyPlatoon(decoder *jsontext.Decoder, link *sim.SavedPlatoonLink) error {
+	saved, kind, terminal, err := decodePlatoonFields(decoder)
+	if err != nil {
+		return err
+	}
+	if kind != nil || terminal != nil {
+		return errors.New("legacy platoon contains version 4 fields")
+	}
+	*link = saved
+	return nil
+}
+
+// decodeV4Platoon checks explicit kinds and the fixed endpoint field.
+func decodeV4Platoon(decoder *jsontext.Decoder, link *sim.SavedPlatoonLink) error {
+	saved, kind, terminal, err := decodePlatoonFields(decoder)
+	if err != nil {
+		return err
+	}
+	if kind != nil {
+		if bytes.Equal(bytes.TrimSpace(kind), []byte("null")) {
+			return errors.New("platoon kind is null")
+		}
+		if err := json.Unmarshal(kind, &saved.Kind); err != nil {
+			return err
+		}
+	}
+	switch saved.Kind {
+	case "":
+		if terminal != nil {
+			return errors.New("complete-lane platoon contains terminalCell")
+		}
+	case "buffer":
+		if terminal == nil || bytes.Equal(bytes.TrimSpace(terminal), []byte("null")) || saved.Lanes != 1 {
+			return errors.New("buffer platoon has no integer terminalCell or is not one lane")
+		}
+		var cell int
+		if err := json.Unmarshal(terminal, &cell); err != nil {
+			return err
+		}
+		if cell < 0 {
+			return errors.New("buffer platoon terminalCell is negative")
+		}
+		saved.TerminalCell = new(cell)
+	default:
+		return errors.New("unknown platoon kind")
+	}
+	*link = saved
+	return nil
 }
 
 // decodeV2Pod rejects the version 3 member even when its value is false.
@@ -331,7 +410,7 @@ func decodeV2Pod(decoder *jsontext.Decoder, pod *sim.SavedPod) error {
 	if err != nil {
 		return err
 	}
-	if err := json.Unmarshal(value, &saved, json.RejectUnknownMembers(true)); err != nil {
+	if err := json.Unmarshal(value, &saved, json.RejectUnknownMembers(true), json.WithUnmarshalers(json.UnmarshalFromFunc(decodeLegacyPlatoon))); err != nil {
 		return err
 	}
 	if saved.Buffer != nil {

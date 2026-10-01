@@ -13,6 +13,11 @@ func (s *Simulation) NeedsBufferState() bool {
 	return s.stationBuffers || slices.ContainsFunc(s.vehicles, func(v vehicle) bool { return v.buffered })
 }
 
+// NeedsBufferPlatoonState reports whether fixed entry links require version 4.
+func (s *Simulation) NeedsBufferPlatoonState() bool {
+	return slices.ContainsFunc(s.vehicles, func(v vehicle) bool { return v.link.leader != 0 && v.link.buffer })
+}
+
 // StationBufferGeometry describes conservative stopping cells. These cells
 // still require ordinary track and conflict admission before a pod can enter.
 type StationBufferGeometry struct {
@@ -129,7 +134,7 @@ func (s *Simulation) bufferHead(v *vehicle, plan stationBufferPlan) bool {
 // assignment. A denied trial changes no ownership or committed route.
 func (s *Simulation) grantBufferedHead(in intent, plan stationBufferPlan) {
 	v := &s.vehicles[in.index]
-	if !s.bufferHead(v, plan) || v.coupled() {
+	if !s.bufferHead(v, plan) || v.link.leader != 0 || v.follower != 0 && !s.vehicles[v.follower-1].link.buffer {
 		return
 	}
 	station, _ := s.station(v.destinationStation)
@@ -152,7 +157,17 @@ func (s *Simulation) grantBufferedHead(in intent, plan stationBufferPlan) {
 		if err != nil || len(suffix) == 0 {
 			continue
 		}
+		if v.follower != 0 && !s.bufferSuffixValid(v, suffix, berth) {
+			continue
+		}
 		before := *v
+		var follower *vehicle
+		wasDraining := false
+		if v.follower != 0 {
+			follower = &s.vehicles[v.follower-1]
+			wasDraining = follower.link.draining
+			follower.link.draining = true
+		}
 		route := append(slices.Clone(v.Route), suffix...)
 		for _, claim := range claims {
 			if claim.owner != nil {
@@ -175,6 +190,9 @@ func (s *Simulation) grantBufferedHead(in intent, plan stationBufferPlan) {
 		}
 		reason, blocker := v.Pod.WaitReason, v.Pod.BlockedBy
 		*v = before
+		if follower != nil {
+			follower.link.draining = wasDraining
+		}
 		v.Pod.WaitReason, v.Pod.BlockedBy = reason, blocker
 	}
 	if blockedOwner != "" {

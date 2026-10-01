@@ -66,6 +66,10 @@ const (
 // pod that the follower can come close to is on the run, and the zero value
 // is no link.
 type platoonLink struct {
+	// buffer fixes the stopping frontier to terminalCell on one entry lane.
+	buffer       bool
+	terminalCell int
+	first        int
 	// leader is one plus the index in Simulation.vehicles of the
 	// predecessor, or 0 when the pod has no predecessor.
 	leader int
@@ -141,9 +145,17 @@ func linkClearance(turn float64) float64 {
 // platoonDrainSlack before that distance, or -1.
 func linkEnds(blocks *blockList, link platoonLink) (geometry float64, end int) {
 	last := link.lane + link.lanes - 1
-	geometry = blocks.cellEnd(last, blocks.laneFirst(last+1)-blocks.laneFirst(last)-1)
+	terminal := blocks.laneFirst(last+1) - 1
+	if link.buffer {
+		terminal = blocks.laneFirst(last) + link.terminalCell
+	}
+	geometry = blocks.cellEnd(last, terminal-blocks.laneFirst(last))
 	lane := last
-	for index := blocks.laneFirst(last+1) - 1; index >= blocks.laneFirst(link.lane); index-- {
+	first := blocks.laneFirst(link.lane)
+	if link.buffer {
+		first = link.first
+	}
+	for index := terminal; index >= first; index-- {
 		for index < blocks.laneFirst(lane) {
 			lane--
 		}
@@ -251,6 +263,9 @@ func (s *Simulation) releaseRouteResource(v *vehicle, r resource) {
 // the same blocks. A link that drains has no coupled grants.
 func (s *Simulation) coupledSpan(v *vehicle, from, through int) bool {
 	if s.platooning == PlatooningOff || v.link.draining || through > v.link.end || from < v.blocks.laneFirst(v.link.lane) {
+		return false
+	}
+	if v.link.buffer && from < v.link.first {
 		return false
 	}
 	leader := &s.vehicles[v.link.leader-1]
@@ -395,6 +410,9 @@ func (s *Simulation) lanePredecessors() []int {
 func (s *Simulation) maintainLink(i, ahead int) {
 	v := &s.vehicles[i]
 	leader := &s.vehicles[v.link.leader-1]
+	if v.link.buffer && !s.stationBuffers {
+		v.link.draining = true
+	}
 	over := s.platooning == PlatooningOff || v.Pod.Activity != Traveling || leader.Pod.Activity != Traveling ||
 		ahead != 0 && ahead != v.link.leader
 	if !over {
@@ -423,6 +441,9 @@ func (s *Simulation) unlink(v *vehicle) {
 // of the link do not change. When the end block moves, the link stops
 // draining.
 func (s *Simulation) extendLink(v, leader *vehicle) {
+	if v.link.buffer {
+		return
+	}
 	for v.link.end >= 0 && v.reservedThrough >= v.blocks.laneFirst(v.blocks.routeLane(v.link.end)) {
 		lane, leaderLane := v.link.lane+v.link.lanes, v.link.leaderLane+v.link.lanes
 		if !s.sharedLane(v, leader, lane, leaderLane) {
@@ -566,6 +587,9 @@ func (plan linkPlan) turnBound() float64 {
 // the cap of the follower is not behind its stop point.
 func (s *Simulation) planLink(plan linkPlan) (platoonLink, bool) {
 	v, leader := plan.v, plan.leader
+	if v.Route[plan.lane].StationRole == StationEntryRole {
+		return s.planBufferLink(plan)
+	}
 	shapes := s.platoonIndexes().shapes
 	link := platoonLink{lane: plan.lane, leaderLane: plan.leaderLane}
 	var sum turnSum
@@ -638,6 +662,10 @@ func (s *Simulation) platoonCaps() {
 		limit := leaderPosition(v, leader, v.link) + stoppingDistance(leader.Pod.Speed) - v.link.clearance
 		own := v.distance + stoppingDistance(v.Pod.Speed)
 		v.platoonCap = max(min(own, limit), limit-v.Pod.Speed*platoonReactionSeconds)
+		if v.link.buffer {
+			geometry, _ := linkEnds(&v.blocks, v.link)
+			v.platoonCap = min(v.platoonCap, geometry)
+		}
 	}
 }
 

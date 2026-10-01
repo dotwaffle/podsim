@@ -258,12 +258,19 @@ It reports them as unaccounted orders at each restore, together with the orders 
 
 Ordinary sessions write saved-state version 2.
 An experimental station buffer session writes version 3 while admissions are enabled or buffer members remain.
-This server accepts both versions.
+This server accepts versions 2, 3, and 4.
 Version 3 adds the optional pod field `stationBuffered` and permits validated berthless occupancy of a station holding lane.
 Restore keeps those members draining, then applies the project's experimental policy settings.
 Version 2 rejects the field, including an explicit `false` value.
 The writer returns to version 2 after buffers are disabled and all members drain.
-An older server rejects version 3 with `unsupported_version` and moves the file aside.
+Fixed station-entry platoons write version 4 until their certificates and shared ownership drain.
+Version 4 adds `kind` and `terminalCell` to buffer certificates.
+Versions 2 and 3 reject any occurrence of these fields, including empty or null values.
+Invalid buffer certificates fail restoration without a logical fallback or partial member demotion.
+Explicit logical recovery validates those certificates physically before it requeues orders.
+The writer returns to the existing version 3 or version 2 rules after the links drain.
+See the [fixed entry contract](station-entry-platoons.md) for field and restore checks.
+An older server rejects an unsupported version and moves the file aside.
 Keep a copy before a downgrade.
 
 Portable project version 1 accepts optional `stationBuffers` and `pickupReassignment` Boolean settings.

@@ -108,7 +108,7 @@ type SavedPod struct {
 	// traveling or departing empty.
 	Released bool `json:"released,omitzero"`
 	// StationBuffered preserves a pending or physical buffer membership.
-	// Only the version 3 restore contract accepts this flag.
+	// Versions 3 and 4 accept this flag.
 	StationBuffered bool `json:"stationBuffered,omitzero"`
 	// Route holds the lanes that the pod still needs. The route of a traveling
 	// pod starts at the first lane that can still hold a resource, and
@@ -132,6 +132,10 @@ type SavedPod struct {
 // The restore checks the link against the network and the pods, and it
 // does not plan the link again.
 type SavedPlatoonLink struct {
+	// Kind is empty for a complete-lane run, or buffer for a fixed entry run.
+	Kind string `json:"kind,omitempty"`
+	// TerminalCell is the fixed stopping-frontier cell of a buffer run.
+	TerminalCell *int `json:"terminalCell,omitzero"`
 	// Leader is the ID of the predecessor.
 	Leader string `json:"leader"`
 	// Lane and LeaderLane are the indexes of the first lane of the run in
@@ -184,6 +188,9 @@ type RestoreStateInput struct {
 	// StationBuffers selects the version 3 physical buffer contract.
 	// It does not enable new buffer admissions after restoration.
 	StationBuffers bool
+	// BufferPlatoons selects the version 4 fixed entry certificate contract.
+	// It does not enable formations or buffer admissions after restoration.
+	BufferPlatoons bool
 }
 
 // RestoreResult tells how RestoreState rebuilt the simulation.
@@ -221,19 +228,31 @@ type RestoreResult struct {
 // physical tier first. When that tier fails, or when input.LogicalOnly is
 // set, it uses the logical tier. It returns an error only when the last tier
 // that it tries fails. The error then wraps the error of each tier that it
-// tried.
+// tried. Invalid version 4 buffer certificates return an error without a
+// logical fallback. LogicalOnly still validates those certificates physically.
 func RestoreState(input RestoreStateInput) (*Simulation, RestoreResult, error) {
 	return restoreState(input, func() (*Simulation, error) { return NewFleet(input.Network, input.Fleet) })
 }
 
 func restoreState(input RestoreStateInput, newFleet func() (*Simulation, error)) (*Simulation, RestoreResult, error) {
+	if err := checkBufferLinkFields(input); err != nil {
+		return nil, RestoreResult{}, err
+	}
 	var physicalErr error
-	if !input.LogicalOnly {
+	bufferCertificate := hasBufferCertificate(input.State)
+	if !input.LogicalOnly || bufferCertificate {
 		s, result, err := restorePhysical(input, newFleet)
-		if err == nil {
+		if err == nil && bufferCertificate {
+			err = checkRestoredBufferMembers(input.State, result)
+		}
+		if err == nil && !input.LogicalOnly {
 			return s, result, nil
 		}
 		physicalErr = err
+		if err != nil && bufferCertificate {
+			err = fmt.Errorf("%w: %w", errBufferCertificate, err)
+			return nil, RestoreResult{PhysicalError: err}, err
+		}
 	}
 	s, result, err := restoreLogical(input, newFleet)
 	switch {
@@ -359,10 +378,15 @@ func (s *Simulation) savedLink(v *vehicle, start int) *SavedPlatoonLink {
 		return nil
 	}
 	leaderStart, _, _ := s.savedStart(leader)
-	return &SavedPlatoonLink{
+	saved := &SavedPlatoonLink{
 		Leader: leader.Pod.ID, Lane: v.link.lane + skip - start, LeaderLane: v.link.leaderLane + skip - leaderStart,
 		Lanes: v.link.lanes - skip, Turn: v.link.turn, Draining: v.link.draining || v.reservedThrough >= v.link.end,
 	}
+	if v.link.buffer {
+		saved.Kind = "buffer"
+		saved.TerminalCell = new(v.link.terminalCell)
+	}
+	return saved
 }
 
 // savedRun returns the predecessor of the traveling pod v, whose saved route
@@ -387,6 +411,10 @@ func (s *Simulation) savedRun(v *vehicle, start int) (leader *vehicle, skip int,
 // starts at that lane at the latest.
 func (s *Simulation) savedStart(v *vehicle) (start int, offset float64, current int) {
 	start, offset, current = v.savedRouteStart()
+	if v.link.leader != 0 && v.link.buffer && v.link.lane < start {
+		start = v.link.lane
+		offset = v.blocks.lanes[start].start
+	}
 	if v.follower == 0 {
 		return start, offset, current
 	}

@@ -143,6 +143,7 @@ type PreparedRestoreInput struct {
 	State          SavedState
 	LogicalOnly    bool
 	StationBuffers bool
+	BufferPlatoons bool
 }
 
 // RestoreState rebuilds a simulation with this network's immutable geometry.
@@ -152,6 +153,6 @@ func (p *PreparedNetwork) RestoreState(input PreparedRestoreInput) (*Simulation,
 	if err := p.check(); err != nil {
 		return nil, RestoreResult{}, err
 	}
-	stateInput := RestoreStateInput{Network: p.network, Fleet: input.Fleet, State: input.State, LogicalOnly: input.LogicalOnly, StationBuffers: input.StationBuffers}
+	stateInput := RestoreStateInput{Network: p.network, Fleet: input.Fleet, State: input.State, LogicalOnly: input.LogicalOnly, StationBuffers: input.StationBuffers, BufferPlatoons: input.BufferPlatoons}
 	return restoreState(stateInput, func() (*Simulation, error) { return p.NewFleet(input.Fleet) })
 }
