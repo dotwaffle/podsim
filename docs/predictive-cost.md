@@ -72,8 +72,8 @@ The candidate free-flow allocation profile attributes about 5.36 GiB to lane-sli
 These sampled amounts include setup and do not equal the interval allocation totals above.
 Snapshot construction preserves independent returned routes and cannot drop those copies without considering its callers and ownership contract.
 The pending and vehicle slices in `a54281e` grow through repeated append allocation.
-Pre-sizing those slices is a bounded candidate for a separate matched measurement.
-It must preserve empty nil values and independent snapshot storage.
+The [matched snapshot comparison](snapshot-allocation.md) reduces allocated bytes by 5.6% to 7.2% with a six-line preallocation change.
+It preserves empty nil values and independent snapshot storage.
 
 The CPU profile includes station-phase updates, admission, pickup handling, map lookup, and garbage collection.
 Profile percentages are diagnostic samples, not isolated speedups available from changing each function.
