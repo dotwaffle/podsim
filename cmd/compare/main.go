@@ -38,7 +38,7 @@ const (
 )
 
 var syntheticPatterns = []string{"balanced", "destination", "hotspot", "bursty-hotspot", "hub-burst"}
-var knownPatterns = append(append([]string(nil), syntheticPatterns...), "profile")
+var knownPatterns = append(append([]string(nil), syntheticPatterns...), "profile", "rail-arrivals")
 
 // waitRuleValues maps each -wait-rules name to its simulation rule.
 var waitRuleValues = map[string]sim.FinishingPodWait{
@@ -136,6 +136,8 @@ type scheduledRequest struct {
 	tick        int64
 	origin      string
 	destination string
+	event       string
+	passenger   int
 }
 
 type scenario struct {
@@ -145,6 +147,7 @@ type scenario struct {
 	focus          string
 	demand         project.DemandConfig
 	demandProfiles []project.DemandProfile
+	railArrivals   []project.RailArrival
 }
 
 type result struct {
@@ -186,6 +189,7 @@ type result struct {
 	Served                         int                `json:"served"`
 	Remaining                      int                `json:"remaining"`
 	Skipped                        int                `json:"skipped"`
+	RailSkippedOffers              []int              `json:"rail_skipped_offers,omitempty"`
 	CompletedAtArrivalEnd          int                `json:"completed_at_arrival_end"`
 	BacklogAtArrivalEnd            int                `json:"backlog_at_arrival_end"`
 	ArrivalThroughputPerMinute     float64            `json:"arrival_throughput_per_minute"`
@@ -380,9 +384,16 @@ func parseOptions(args []string, stderr io.Writer) (options, error) {
 	if err != nil {
 		return options{}, err
 	}
-	opts.loads, err = parseLoads(parseLoadsInput{single: opts.requestEvery, list: opts.loadsText, duration: opts.arrivalsFor})
-	if err != nil {
-		return options{}, err
+	if railErr := validateRailOptions(opts, given); railErr != nil {
+		return options{}, railErr
+	}
+	if len(opts.patterns) == 1 && opts.patterns[0] == "rail-arrivals" {
+		opts.loads = []time.Duration{0}
+	} else {
+		opts.loads, err = parseLoads(parseLoadsInput{single: opts.requestEvery, list: opts.loadsText, duration: opts.arrivalsFor})
+		if err != nil {
+			return options{}, err
+		}
 	}
 	opts.sharingLimits, err = parseSharingLimits(opts.sharingLimitsText)
 	if err != nil {
@@ -745,7 +756,7 @@ func loadScenario(path, focus string) (scenario, error) {
 	}
 	return scenario{
 		network: config.Network, fleet: config.Fleet, passengers: passengers, focus: focus,
-		demand: config.Demand, demandProfiles: config.DemandProfiles,
+		demand: config.Demand, demandProfiles: config.DemandProfiles, railArrivals: config.RailArrivals,
 	}, nil
 }
 
@@ -816,6 +827,9 @@ func compare(opts options, scenario scenario) ([]result, error) {
 	if len(opts.seeds)*len(arms)*len(opts.loads)*armsPerSchedule > maxComparisons {
 		return nil, fmt.Errorf("the expanded matrix must contain at most %d comparisons", maxComparisons)
 	}
+	if err := validateRailMatrix(opts, arms, scenario, armsPerSchedule); err != nil {
+		return nil, err
+	}
 	inputs := make([]runInput, 0, len(arms)*len(opts.loads)*len(opts.seeds)*armsPerSchedule*2)
 	for _, arm := range arms {
 		for _, load := range opts.loads {
@@ -823,7 +837,7 @@ func compare(opts options, scenario scenario) ([]result, error) {
 				schedule := demandSchedule(scheduleInput{
 					seed: seed, durationTicks: durationTicks(opts.arrivalsFor), intervalTicks: durationTicks(load), pattern: arm.pattern,
 					burstSize:  opts.burstSize,
-					passengers: scenario.passengers, focus: scenario.focus, profileFlows: arm.flows,
+					passengers: scenario.passengers, focus: scenario.focus, profileFlows: arm.flows, railArrivals: scenario.railArrivals,
 				})
 				id := scheduleID(schedule)
 				for _, sharingArm := range sharing {
@@ -890,6 +904,11 @@ func runComparisons(inputs []runInput, workers int) ([]result, error) {
 func demandArms(opts options, scenario scenario) ([]demandArm, error) {
 	arms := make([]demandArm, 0, len(opts.patterns))
 	for _, pattern := range opts.patterns {
+		if pattern == "rail-arrivals" {
+			if err := project.ValidateDemand(project.DemandConfig{Pattern: pattern, PerMinute: 12}, project.DemandContext{Network: scenario.network, RailArrivals: scenario.railArrivals}); err != nil {
+				return nil, fmt.Errorf("rail demand: %w", err)
+			}
+		}
 		if pattern != "profile" {
 			if opts.bandsText != "" {
 				return nil, errors.New("bands require the profile demand pattern")
@@ -985,9 +1004,13 @@ type scheduleInput struct {
 	pattern, focus               string
 	passengers                   []string
 	profileFlows                 []weightedDemandFlow
+	railArrivals                 []project.RailArrival
 }
 
 func demandSchedule(input scheduleInput) []scheduledRequest {
+	if input.pattern == "rail-arrivals" {
+		return railDemandSchedule(input)
+	}
 	if input.pattern == "profile" {
 		return profileDemandSchedule(input)
 	}
@@ -1069,7 +1092,11 @@ func without(stations []string, excluded string) []string {
 func scheduleID(schedule []scheduledRequest) string {
 	hash := sha256.New()
 	for _, request := range schedule {
-		_, _ = fmt.Fprintf(hash, "%d:%s>%s\n", request.tick, request.origin, request.destination)
+		if request.event != "" {
+			_, _ = fmt.Fprintf(hash, "%d:%q:%d:%q>%q\n", request.tick, request.event, request.passenger, request.origin, request.destination)
+		} else {
+			_, _ = fmt.Fprintf(hash, "%d:%s>%s\n", request.tick, request.origin, request.destination)
+		}
 	}
 	return hex.EncodeToString(hash.Sum(nil)[:8])
 }
@@ -1187,6 +1214,10 @@ func run(input runInput) (result, error) {
 		return result{}, err
 	}
 	next, skipped := 0, 0
+	var railSkipped []int
+	if input.pattern == "rail-arrivals" {
+		railSkipped = make([]int, 0, len(input.schedule))
+	}
 	arrivalWindowTicks := durationTicks(input.arrivalsFor)
 	arrivalMidpointTicks := arrivalWindowTicks / 2
 	midpointState := simulation.MetricsSnapshot()
@@ -1207,6 +1238,9 @@ func run(input runInput) (result, error) {
 					}
 				}
 				skipped++
+				if input.pattern == "rail-arrivals" {
+					railSkipped = append(railSkipped, next)
+				}
 				next++
 				continue
 			}
@@ -1253,6 +1287,10 @@ func run(input runInput) (result, error) {
 	if isBurstPattern(input.pattern) {
 		burstSize = input.burstSize
 	}
+	requestEvery := input.requestEvery.Seconds()
+	if input.pattern == "rail-arrivals" {
+		burstSize, requestEvery = 0, 0
+	}
 	arrivalEnd := 0.0
 	if len(input.schedule) > 0 {
 		arrivalEnd = float64(input.schedule[len(input.schedule)-1].tick) / sim.TicksPerSecond
@@ -1268,7 +1306,7 @@ func run(input runInput) (result, error) {
 	arrivalBacklog := arrivalState.Submitted - arrivalState.Completed
 	return result{
 		Pattern: input.pattern, DemandProfile: input.profile, DemandBand: input.band,
-		RequestEverySeconds: input.requestEvery.Seconds(), OfferedPerMinute: float64(len(input.schedule)) / arrivalMinutes, Seed: input.seed,
+		RequestEverySeconds: requestEvery, OfferedPerMinute: float64(len(input.schedule)) / arrivalMinutes, Seed: input.seed,
 		BurstSize: burstSize, Policy: input.policy, SharedRidePartyLimit: input.sharingLimit, SharingMode: string(sharingMode),
 		SharingJoin:   input.sharingJoin,
 		SharedParties: state.SharedParties, FullPodRefusals: seats.FullPodRefusals, FullDepartures: seats.FullDepartures,
@@ -1281,7 +1319,7 @@ func run(input runInput) (result, error) {
 		FocusStation:            input.scenario.focus,
 		WindowStartSeconds:      0, WindowEndSeconds: input.duration.Seconds(), ActualEndSeconds: float64(state.Tick) / sim.TicksPerSecond,
 		ArrivalWindowSeconds: input.arrivalsFor.Seconds(), ArrivalEndSeconds: arrivalEnd, ScheduleID: input.scheduleID,
-		Scheduled: len(input.schedule), Served: state.Completed, Remaining: state.Submitted - state.Completed, Skipped: skipped,
+		Scheduled: len(input.schedule), Served: state.Completed, Remaining: state.Submitted - state.Completed, Skipped: skipped, RailSkippedOffers: railSkipped,
 		CompletedAtArrivalEnd: arrivalState.Completed, BacklogAtArrivalEnd: arrivalState.Submitted - arrivalState.Completed,
 		ArrivalThroughputPerMinute: float64(arrivalState.Completed) / arrivalMinutes,
 		CompletedAtArrivalMidpoint: midpointState.Completed, BacklogAtArrivalMidpoint: midpointBacklog,
@@ -1351,6 +1389,12 @@ func demandWeights(pattern, band string, scenario scenario) (map[string]float64,
 		return nil, nil
 	}
 	weights := make(map[string]float64, len(scenario.passengers))
+	if pattern == "rail-arrivals" {
+		for _, arrival := range scenario.railArrivals {
+			weights[arrival.Station] += float64(arrival.Passengers)
+		}
+		return weights, nil
+	}
 	if pattern == "profile" {
 		profile, err := selectedDemandProfile(scenario)
 		if err != nil {

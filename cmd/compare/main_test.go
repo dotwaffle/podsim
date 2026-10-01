@@ -86,16 +86,16 @@ func TestCompareIsRepeatableAndPairsSchedules(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	scenario, err := loadScenario("", "")
+	caseStudy, err := loadScenario("", "")
 	if err != nil {
 		t.Fatal(err)
 	}
-	first, err := compare(opts, scenario)
+	first, err := compare(opts, caseStudy)
 	if err != nil {
 		t.Fatal(err)
 	}
 	opts.workers = 4
-	second, err := compare(opts, scenario)
+	second, err := compare(opts, caseStudy)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -393,11 +393,11 @@ func TestQueueLimitCountsSkippedArrivals(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	scenario, err := loadScenario("", "")
+	caseStudy, err := loadScenario("", "")
 	if err != nil {
 		t.Fatal(err)
 	}
-	results, err := compare(opts, scenario)
+	results, err := compare(opts, caseStudy)
 	if err != nil {
 		t.Fatal(err)
 	}

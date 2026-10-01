@@ -549,6 +549,9 @@ The draft stays local until you select **Pause and apply**.
   The editor gets the bearing from the entry and exit positions.
 - Set the passenger generation option, rate, pattern, destination, OD profile, time band, party limit, shared ride mode, stop limit, platoon limit, seed, and redistribution option.
   The stop limit shows only for the drop-offs mode.
+- Use **Rail arrivals** to set train passenger counts, arrival times, walking delays, and weighted destinations.
+  Select its demand pattern to release the fixed plan instead of rate-based traffic.
+  See [scheduled rail arrivals](docs/rail-arrivals.md) for bounds, restart behavior, and comparison evidence.
 - Use undo and redo for draft changes.
   See [Editor keyboard shortcuts](#editor-keyboard-shortcuts).
 - Drag empty space to pan, and use the wheel to zoom.
