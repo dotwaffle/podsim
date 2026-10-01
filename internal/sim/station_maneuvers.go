@@ -51,34 +51,45 @@ func setStationLaneRole(n *Network, graph routeGraph, laneID, stationID string, 
 	n.Lanes[index].StationRole = role
 }
 
+// stationPhaseCheck holds the phase for one block of the current route.
+// replaceRoute clears it, including when routeVersion cannot increase.
+type stationPhaseCheck struct {
+	blockIndex int
+	phase      StationPhase
+	stationID  string
+	valid      bool
+}
+
 func (s *Simulation) updateStationPhase(v *vehicle) {
 	if v.Pod.BerthID != "" {
 		v.Pod.StationPhase = AtBerth
 		v.Pod.ManeuverStationID = v.Pod.StationID
 		return
 	}
+	if !v.stationPhase.valid || v.stationPhase.blockIndex != v.blockIndex {
+		phase, stationID := routeStationPhase(v)
+		v.stationPhase = stationPhaseCheck{blockIndex: v.blockIndex, phase: phase, stationID: stationID, valid: true}
+	}
+	v.Pod.StationPhase = v.stationPhase.phase
+	v.Pod.ManeuverStationID = v.stationPhase.stationID
+}
+
+func routeStationPhase(v *vehicle) (StationPhase, string) {
 	lane := currentManeuverLane(v)
 	if lane == nil {
-		v.Pod.StationPhase = ""
-		v.Pod.ManeuverStationID = ""
-		return
+		return "", ""
 	}
 	if phase := phaseForStationRole(lane.StationRole); phase != "" {
-		v.Pod.StationPhase = phase
-		v.Pod.ManeuverStationID = lane.StationID
-		return
+		return phase, lane.StationID
 	}
 	index := v.blocks.locate(v.firstBlockForLane(lane.ID), 0)
 	if index >= 0 && index+1 < len(v.Route) {
 		next := v.Route[index+1]
 		if next.StationRole == StationEntryRole || next.StationRole == StationBerthAccessRole {
-			v.Pod.StationPhase = ApproachingStation
-			v.Pod.ManeuverStationID = next.StationID
-			return
+			return ApproachingStation, next.StationID
 		}
 	}
-	v.Pod.StationPhase = ""
-	v.Pod.ManeuverStationID = ""
+	return "", ""
 }
 
 // currentManeuverLane returns the lane of the block that v is in, or nil.

@@ -200,6 +200,7 @@ type vehicle struct {
 	buffered     bool
 	bufferBerth  string
 	routeVersion uint64
+	stationPhase stationPhaseCheck
 	Vehicle
 	phaseTicks                  int
 	blockStarts                 map[string]int
