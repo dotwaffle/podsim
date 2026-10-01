@@ -72,3 +72,12 @@ The [expanded controller screen](controller-capacity.md) retains live queue loss
 The [selected policy rerun](policy-failures.md) separates historical failures from these qualification limits.
 The [Paddington trials](paddington-layout.md) reject unsafe partial fixtures while preserving individual regressions in the complete layouts.
 The [predictive screen](predictive-service.md) finds no service gain in its six matched pairs.
+
+## Later bounded candidate screens
+
+The [pickup supply screen](pickup-supply.md) tests four current LondonFull fleet placements and sizes.
+The [later buffer claims](buffer-late-claim.md) reduce sampled claim duration without a service gain.
+The [pickup safeguards](pickup-guards.md) test request age and local idle-pod reserves independently.
+The [shorter Paddington paths](paddington-short-path.md) include a focused mean gain that still exceeds individual limits.
+No changed candidate passes its selected service screen.
+These results do not trigger broader qualification or authorize default changes.
