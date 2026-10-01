@@ -49,7 +49,7 @@ Exact paired timing and censoring records prevent interpreting completed-only av
 ## Interpretation and evidence
 
 The [prototype](predictive-routing.md) exercises route selection in synthetic tests, but none of these service cells selects a changed route.
-This study does not identify which forecast or route-selection guard prevents alternatives.
+The later [route-selection diagnosis](predictive-diagnosis.md) identifies the forecast and guard outcomes for all six cells.
 It does not prove that congestion routing cannot help another topology or workload.
 These cells provide no basis for reducing selection guards or enabling the policy by default.
 An isolated CPU comparison must measure the cost of these unchanged outcomes separately.
