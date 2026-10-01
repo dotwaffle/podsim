@@ -83,6 +83,7 @@ It does not identify one responsible resource or show that a departure holding l
 The partial groups cannot supply that evidence because they fail safety checks.
 The [selected resource histories](paddington-resource-history.md) and [earlier geometry intervention](paddington-mirror-intervention.md) retain their separate source boundaries.
 This result supplies no basis for weaker reservations or automatic changes to authored geometry.
+The later [spacing study](paddington-spacing.md) reproduces both rejected partials and compares three coherent layouts on current source.
 
 [Arm totals](measurements/paddington-layout-arms.csv) retain service, backlog, station-resource observations, and check counts.
 [Pair totals](measurements/paddington-layout-pairs.csv) retain matched cohorts and individual increases.
