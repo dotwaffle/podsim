@@ -1574,6 +1574,7 @@ Current-source follow-ups retain their own fixtures and limits:
 - [Predictive service trials](docs/predictive-service.md) leave matched request outcomes unchanged.
 - [Predictive cost trials](docs/predictive-cost.md) measure CPU, allocation, and GC tradeoffs separately from service outcomes.
 - [Snapshot allocation trials](docs/snapshot-allocation.md) measure a 5.6% to 7.2% allocation reduction with unchanged results.
+- [Current Chrome and network trials](docs/current-client-network.md) check one and three clients, shared gzip updates, and emulated high latency.
 
 ### Tasks
 

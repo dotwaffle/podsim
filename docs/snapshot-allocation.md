@@ -41,6 +41,7 @@ End-of-run heap values do not measure retained live heap.
 Allocation profiles use sampling and include setup history.
 The comparison takes full snapshots once per simulated second, which differs from live-server publication.
 These results do not establish live-server throughput, browser speed, or a 60x playback limit.
+The [separate Chrome and network screen](current-client-network.md) measures bounded current-build live windows.
 
 ## Repeated results
 
