@@ -8,7 +8,8 @@ Keep the existing buffer implementation and leave buffers off by default.
 
 The first candidate required every head to reach the fixed stopping frontier before seeking a berth.
 Existing linked-drain and assigned-pickup staging tests failed.
-That candidate remains rejected. Its failures do not justify weaker tests or ownership checks.
+That candidate remains rejected.
+Its failures do not justify weaker tests or ownership checks.
 
 The narrower candidate delays only heads without a follower.
 It permits the existing complete berth-path grant within 24 meters of the stopping frontier.
@@ -28,7 +29,8 @@ The comparison uses current source `943fd74` and the current builtin LondonFull 
 The historical Acton mixed schedule retains seed 3, four station pairs, and 16 offers per minute.
 Each primary arm receives the same 1,920 offers over two hours and has a fixed three-hour cap.
 The queue limit is one million.
-Sharing, reassignment, and positioning remain off. Routing uses free-flow costs and virtual platoons permit four pods.
+Sharing, reassignment, and positioning remain off.
+Routing uses free-flow costs and virtual platoons permit four pods.
 All offers are accepted, and every arm remains overloaded at the cap.
 
 Incoming-claim episodes require an empty berth with a traveling owner whose route ends at that berth.
