@@ -1572,6 +1572,7 @@ Current-source follow-ups retain their own fixtures and limits:
 - [Controller and capacity trials](docs/controller-capacity.md) retain Acton overload, individual regressions, and unfinished six-hour AM baselines.
 - [Reserve and sharing trials](docs/acton-reserve-sharing.md) compare initial empty supply and pooling without establishing sustained capacity.
 - [Predictive service trials](docs/predictive-service.md) leave matched request outcomes unchanged.
+- [Predictive cost trials](docs/predictive-cost.md) measure CPU, allocation, and GC tradeoffs separately from service outcomes.
 
 ### Tasks
 
