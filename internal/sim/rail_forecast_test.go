@@ -20,6 +20,7 @@ func forecastFixture(t *testing.T, parking bool, pods, berths int) *Simulation {
 	return s
 }
 
+//nolint:tparallel // These cases share one simulation to check rejected-input atomicity.
 func TestForecastInputAtomicity(t *testing.T) {
 	t.Parallel()
 	s := forecastFixture(t, true, 4, 3)
@@ -77,6 +78,7 @@ func TestForecastEligibilityAndReserves(t *testing.T) {
 		{name: "target claim", parking: true, pods: 4, berths: 2, prepare: func(s *Simulation) { s.owners[resource{kind: berthResource, id: "target-1"}] = "external" }},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
 			s := forecastFixture(t, tc.parking, tc.pods, tc.berths)
 			if tc.prepare != nil {
 				tc.prepare(s)
@@ -115,6 +117,7 @@ func TestForecastIncomingCapsAndSupply(t *testing.T) {
 		{"global floor", 4, 4, 1},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
 			s := forecastFixture(t, true, tc.pods, 6)
 			target := []ForecastTarget{{Station: "target", ReleaseTick: 300 * TicksPerSecond, Passengers: tc.passengers}}
 			for i := range tc.moves {
@@ -181,8 +184,8 @@ func TestForecastPolicyRouteLeadAndSpareBerth(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := s.SetRoutingPolicy(CongestionRouting); err != nil {
-		t.Fatal(err)
+	if routingErr := s.SetRoutingPolicy(CongestionRouting); routingErr != nil {
+		t.Fatal(routingErr)
 	}
 	for cell := range 10 {
 		s.owners[resource{kind: trackResource, id: "source-link", cell: cell}] = "external"

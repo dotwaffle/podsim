@@ -58,22 +58,23 @@ func TestRailServiceReportsAndOriginalCap(t *testing.T) {
 		{"inclusive deadline", "10m", 0}, {"capped later deadline", "2m", 3},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
 			opts, err := parseOptions([]string{"-pattern", "rail-services", "-duration", tc.duration, "-arrivals-for", "3s", "-stop-when-drained", "-seeds", "7,19", "-redistribution-policies", "off"}, &bytes.Buffer{})
 			if err != nil {
 				t.Fatal(err)
 			}
-			scenario, err := loadScenario("", "harbor")
+			caseStudy, err := loadScenario("", "harbor")
 			if err != nil {
 				t.Fatal(err)
 			}
-			scenario.railDepartures = serviceComparisonDepartures()
-			scenario.railArrivals = []project.RailArrival{{ID: "inbound", Station: "garden", Passengers: 1, Destinations: []project.RailDestination{{Station: "market", Weight: 1}}}}
-			one, err := compare(opts, scenario)
+			caseStudy.railDepartures = serviceComparisonDepartures()
+			caseStudy.railArrivals = []project.RailArrival{{ID: "inbound", Station: "garden", Passengers: 1, Destinations: []project.RailDestination{{Station: "market", Weight: 1}}}}
+			one, err := compare(opts, caseStudy)
 			if err != nil {
 				t.Fatal(err)
 			}
 			opts.workers = 4
-			many, err := compare(opts, scenario)
+			many, err := compare(opts, caseStudy)
 			if err != nil || !reflect.DeepEqual(one, many) {
 				t.Fatalf("parallel outcomes: %v", err)
 			}
@@ -107,12 +108,12 @@ func TestRailServiceSkipsAndForecastTargets(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	scenario, err := loadScenario("", "harbor")
+	caseStudy, err := loadScenario("", "harbor")
 	if err != nil {
 		t.Fatal(err)
 	}
-	scenario.railDepartures = serviceComparisonDepartures()
-	rows, err := compare(opts, scenario)
+	caseStudy.railDepartures = serviceComparisonDepartures()
+	rows, err := compare(opts, caseStudy)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -120,8 +121,8 @@ func TestRailServiceSkipsAndForecastTargets(t *testing.T) {
 	if row.RailConnections == nil || row.RailConnections.Unserved == 0 || row.RailConnections.Unserved != row.Skipped || len(row.RailSkippedOffers) != row.Skipped {
 		t.Fatalf("skips: %+v", row)
 	}
-	schedule := demandSchedule(scheduleInput{pattern: "rail-services", seed: 7, durationTicks: 200, railDepartures: scenario.railDepartures})
-	ledger := rail.NewConnections(scenario.railDepartures)
+	schedule := demandSchedule(scheduleInput{pattern: "rail-services", seed: 7, durationTicks: 200, railDepartures: caseStudy.railDepartures})
+	ledger := rail.NewConnections(caseStudy.railDepartures)
 	if err := ledger.Add(schedule[2].serviceOffer(), 0, "queue-limit"); err != nil {
 		t.Fatal(err)
 	}
@@ -154,26 +155,26 @@ func TestRailServiceSkipsAndForecastTargets(t *testing.T) {
 
 func TestRailServiceFullCapacityPreflight(t *testing.T) {
 	t.Parallel()
-	scenario := scenario{}
+	caseStudy := scenario{}
 	for i := range 15 {
-		scenario.railDepartures = append(scenario.railDepartures, project.RailDeparture{ID: strconv.Itoa(i), Passengers: 200, RequestFromSeconds: 1000, RequestUntilSeconds: 1000})
+		caseStudy.railDepartures = append(caseStudy.railDepartures, project.RailDeparture{ID: strconv.Itoa(i), Passengers: 200, RequestFromSeconds: 1000, RequestUntilSeconds: 1000})
 	}
 	opts := options{seeds: make([]int64, 87), loads: []time.Duration{0}, redistributionPolicies: []string{"off"}, arrivalsFor: time.Second}
 	arms := []demandArm{{pattern: "rail-services"}}
 	// No offer is in the window, but each result allocates the full live ledger.
-	if err := validateRailMatrix(opts, arms, scenario, 1); err != nil {
+	if err := validateRailMatrix(opts, arms, caseStudy, 1); err != nil {
 		t.Fatal(err)
 	}
 	opts.seeds = make([]int64, 88)
-	if err := validateRailMatrix(opts, arms, scenario, 1); err == nil {
+	if err := validateRailMatrix(opts, arms, caseStudy, 1); err == nil {
 		t.Fatal("unissued full ledger capacity escaped storage bound")
 	}
 	opts.seeds = make([]int64, 87)
-	if err := validateRailMatrix(opts, arms, scenario, 2); err == nil {
+	if err := validateRailMatrix(opts, arms, caseStudy, 2); err == nil {
 		t.Fatal("sharing/routing result copies escaped storage bound")
 	}
 	opts.redistributionPolicies = []string{"off", "guarded"}
-	if err := validateRailMatrix(opts, arms, scenario, 1); err == nil {
+	if err := validateRailMatrix(opts, arms, caseStudy, 1); err == nil {
 		t.Fatal("redistribution result copies escaped storage bound")
 	}
 }

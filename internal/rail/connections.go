@@ -3,6 +3,7 @@ package rail
 
 import (
 	"container/heap"
+	"errors"
 	"fmt"
 	"maps"
 	"slices"
@@ -46,12 +47,22 @@ type deadline struct {
 
 type deadlines []deadline
 
-func (d deadlines) Len() int { return len(d) }
-func (d deadlines) Less(i, j int) bool {
-	return d[i].tick < d[j].tick || d[i].tick == d[j].tick && d[i].index < d[j].index
+func (d *deadlines) Len() int { return len(*d) }
+func (d *deadlines) Less(i, j int) bool {
+	return (*d)[i].tick < (*d)[j].tick || (*d)[i].tick == (*d)[j].tick && (*d)[i].index < (*d)[j].index
 }
-func (d deadlines) Swap(i, j int)   { d[i], d[j] = d[j], d[i] }
-func (d *deadlines) Push(value any) { *d = append(*d, value.(deadline)) }
+func (d *deadlines) Swap(i, j int) { (*d)[i], (*d)[j] = (*d)[j], (*d)[i] }
+
+// Push adds the deadline supplied by the connection ledger.
+func (d *deadlines) Push(value any) {
+	entry, ok := value.(deadline)
+	if !ok {
+		panic("invalid connection deadline")
+	}
+	*d = append(*d, entry)
+}
+
+// Pop removes the last deadline after heap adjustment.
 func (d *deadlines) Pop() any {
 	last := len(*d) - 1
 	value := (*d)[last]
@@ -185,7 +196,10 @@ func (c *Connections) Advance(tick int64, completions []sim.StepCompletion) {
 		}
 	}
 	for len(c.deadlines) > 0 && c.deadlines[0].tick <= tick {
-		entry := heap.Pop(&c.deadlines).(deadline)
+		entry, ok := heap.Pop(&c.deadlines).(deadline)
+		if !ok {
+			panic("invalid connection deadline")
+		}
 		record := &c.records[entry.index]
 		if record.Outcome != "pending" {
 			continue
@@ -207,7 +221,7 @@ func (c *Connections) Advance(tick int64, completions []sim.StepCompletion) {
 // and active requests. It never regenerates past origins from the current seed.
 func RestoreConnections(departures []project.RailDeparture, records []Connection, state sim.SavedState, counts Counts) (*Connections, error) {
 	if len(records) > project.MaxRailDeparturePassengers || len(records) > 0 && len(departures) == 0 {
-		return nil, fmt.Errorf("connection ledger exceeds its bound or has no departure plan")
+		return nil, errors.New("connection ledger exceeds its bound or has no departure plan")
 	}
 	c := NewConnections(departures)
 	bindings, err := savedBindings(state)
@@ -229,7 +243,7 @@ func RestoreConnections(departures []project.RailDeparture, records []Connection
 		c.append(record, departure)
 	}
 	if c.counts != counts {
-		return nil, fmt.Errorf("saved connection counts do not match the ledger")
+		return nil, errors.New("saved connection counts do not match the ledger")
 	}
 	return c, nil
 }

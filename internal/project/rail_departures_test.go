@@ -154,7 +154,7 @@ func TestRailServicesCombinedCaps(t *testing.T) {
 		t.Fatal(err)
 	}
 	a.Passengers, a.AtSeconds = 1, 50000
-	if err := validateRailServices(append(arrivals, a), plan, network); err == nil {
+	if err := validateRailServices(slices.Concat(arrivals, []RailArrival{a}), plan, network); err == nil {
 		t.Fatal("accepted too many combined passengers")
 	}
 
@@ -210,8 +210,8 @@ func TestRailServicesStreamsAndOwnership(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := json.Unmarshal(raw, &restored, json.RejectUnknownMembers(true)); err != nil || !reflect.DeepEqual(restored, config) {
-		t.Fatalf("departure project round trip: %v", err)
+	if decodeErr := json.Unmarshal(raw, &restored, json.RejectUnknownMembers(true)); decodeErr != nil || !reflect.DeepEqual(restored, config) {
+		t.Fatalf("departure project round trip: %v", decodeErr)
 	}
 	raw, err = json.Marshal(Default())
 	if err != nil || strings.Contains(string(raw), "railDepartures") {

@@ -163,6 +163,7 @@ func TestRailServicesSavedLedgerValidation(t *testing.T) {
 		{"changed binding", func(f *stateFile) { f.RailConnections[0].From = "garden" }},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
 			f := sessionStateFile(t, s)
 			tc.edit(&f)
 			if _, err := decodeCheckedState(encodeTestState(t, f)); err == nil {
@@ -176,8 +177,8 @@ func TestRailServicesSavedLedgerValidation(t *testing.T) {
 		t.Fatal(err)
 	}
 	var object map[string]any
-	if err := json.Unmarshal(data, &object); err != nil {
-		t.Fatal(err)
+	if decodeErr := json.Unmarshal(data, &object); decodeErr != nil {
+		t.Fatal(decodeErr)
 	}
 	if _, ok := object["connections"]; ok {
 		t.Fatal("zero connections changed legacy JSON")
@@ -244,6 +245,7 @@ func TestRailServicesMaximumValidLedger(t *testing.T) {
 func TestRailServicesLogicalRestoreReceipts(t *testing.T) {
 	t.Parallel()
 	t.Run("completed queue drop", func(t *testing.T) {
+		t.Parallel()
 		s := newRailSession(t, railServicesProject())
 		s.step()
 		file := sessionStateFile(t, s)
@@ -265,6 +267,7 @@ func TestRailServicesLogicalRestoreReceipts(t *testing.T) {
 		}
 	})
 	t.Run("untimed unloading", func(t *testing.T) {
+		t.Parallel()
 		s := newRailSession(t, railServicesProject())
 		var file stateFile
 		id := 0

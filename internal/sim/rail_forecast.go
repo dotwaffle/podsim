@@ -2,6 +2,7 @@ package sim
 
 import (
 	"cmp"
+	"errors"
 	"fmt"
 	"slices"
 )
@@ -28,7 +29,7 @@ type ForecastPositionResult struct {
 func (s *Simulation) PositionForForecast(targets []ForecastTarget) (ForecastPositionResult, error) {
 	var result ForecastPositionResult
 	if len(targets) > 300 {
-		return result, fmt.Errorf("forecast must contain at most 300 stations")
+		return result, errors.New("forecast must contain at most 300 stations")
 	}
 	seen := make(map[string]bool, len(targets))
 	for _, target := range targets {

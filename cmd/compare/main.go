@@ -1111,11 +1111,12 @@ func without(stations []string, excluded string) []string {
 func scheduleID(schedule []scheduledRequest) string {
 	hash := sha256.New()
 	for _, request := range schedule {
-		if request.kind != "" {
+		switch {
+		case request.kind != "":
 			_, _ = fmt.Fprintf(hash, "%s:%d:%q:%d:%q>%q:%d:%d\n", request.kind, request.tick, request.event, request.passenger, request.origin, request.destination, request.departureTick, request.walkingTicks)
-		} else if request.event != "" {
+		case request.event != "":
 			_, _ = fmt.Fprintf(hash, "%d:%q:%d:%q>%q\n", request.tick, request.event, request.passenger, request.origin, request.destination)
-		} else {
+		default:
 			_, _ = fmt.Fprintf(hash, "%d:%s>%s\n", request.tick, request.origin, request.destination)
 		}
 	}

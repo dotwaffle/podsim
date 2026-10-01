@@ -2,6 +2,7 @@ package main
 
 import (
 	"cmp"
+	"errors"
 	"fmt"
 	"slices"
 
@@ -45,7 +46,7 @@ func validateRailMatrix(opts options, arms []demandArm, scenario scenario, armsP
 		outcomes += copies * int64(records)
 		storage += copies * (8*int64(offers) + 1024*int64(records) + 512*int64(offers))
 		if indices > maxRailOfferIndices || outcomes > maxRailOfferIndices || storage > 256<<20 {
-			return fmt.Errorf("rail matrix exceeds its index, outcome, or 256 MiB storage bound")
+			return errors.New("rail matrix exceeds its index, outcome, or 256 MiB storage bound")
 		}
 	}
 
@@ -104,7 +105,7 @@ func railServiceSchedule(input scheduleInput) []scheduledRequest {
 }
 
 func (r scheduledRequest) serviceOffer() project.RailServiceOffer {
-	return project.RailServiceOffer{RailOffer: project.RailOffer{Tick: r.tick, Event: r.event, Passenger: r.passenger, From: r.origin, To: r.destination}, Kind: r.kind, DepartureTick: r.departureTick, WalkingTicks: r.walkingTicks}
+	return project.RailServiceOffer{Tick: r.tick, Event: r.event, Passenger: r.passenger, From: r.origin, To: r.destination, Kind: r.kind, DepartureTick: r.departureTick, WalkingTicks: r.walkingTicks}
 }
 
 type connectionReport struct {

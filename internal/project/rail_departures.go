@@ -172,8 +172,8 @@ func appendDepartureOffers(offers []RailServiceOffer, departure RailDeparture, s
 		for _, origin := range departure.Origins {
 			if target < origin.Weight {
 				offers = append(offers, RailServiceOffer{
-					RailOffer: RailOffer{Tick: DepartureOfferTick(departure, ordinal), Event: departure.ID,
-						Passenger: ordinal, From: origin.Station, To: departure.Station},
+					Tick: DepartureOfferTick(departure, ordinal), Event: departure.ID,
+					Passenger: ordinal, From: origin.Station, To: departure.Station,
 					Kind: "departure", DepartureTick: int64(departure.AtSeconds) * sim.TicksPerSecond,
 					WalkingTicks: int64(departure.WalkingSeconds) * sim.TicksPerSecond,
 				})
