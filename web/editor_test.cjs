@@ -5313,3 +5313,77 @@ test("rail demand requires a plan even when disabled and retains its pattern", (
     assert.equal(editor.normalizeConfig(config).demand.pattern, "rail-arrivals");
   }
 });
+
+test("rail arrival edits retain geometry, event identity, and portable round trips", () => {
+  const original = connectedScenario(); let config = editor.addRailArrival(original).config;
+  const [hub, destination] = config.network.Stations;
+  assert.equal(config.railArrivals.length, 1);
+  assert.deepEqual(editor.validateConfig(config), []);
+  assert.equal(original.railArrivals, undefined);
+  const id = config.railArrivals[0].id;
+  config = editor.editRailArrival(config, id, (arrival) => { arrival.atSeconds = 600; arrival.walkingSeconds = 45; arrival.passengers = 100; arrival.destinations[0].weight = 9; return arrival; });
+  assert.deepEqual(config.network, original.network);
+  assert.deepEqual(config.fleet, original.fleet);
+  assert.equal(config.railArrivals[0].id, id);
+  assert.equal(config.railArrivals[0].station, hub.ID);
+  assert.equal(config.railArrivals[0].destinations[0].station, destination.ID);
+  assert.deepEqual(editor.parseDocument(editor.serializeDocument(config)).scenario.railArrivals, config.railArrivals);
+  const added = editor.addRailArrival(config); assert.equal(added.error, "");
+  assert.notEqual(added.config.railArrivals[1].id, id);
+  assert.equal(added.config.railArrivals[1].atSeconds, 1200);
+  assert.deepEqual(editor.removeRailArrival(added.config, added.config.railArrivals[1].id).railArrivals, config.railArrivals);
+  assert.equal(editor.addRailDestination(config, id).config, config);
+  assert.match(editor.addRailDestination(config, id).error, /already destinations/);
+  let third = editor.addStation(config, 620, 240, { name: "Gamma" });
+  const next = editor.addRailDestination(third, id); assert.equal(next.error, "");
+  assert.equal(next.config.railArrivals[0].destinations.length, 2);
+  assert.equal(third.railArrivals[0].destinations.length, 1);
+});
+
+test("station deletion cleans rail events and destinations without changing the source", () => {
+  let config = editor.addRailArrival(connectedScenario()).config;
+  config = editor.addStation(config, 620, 240, { name: "Gamma" });
+  const [hub, destination, third] = config.network.Stations; const id = config.railArrivals[0].id;
+  config = editor.addRailDestination(config, id).config;
+  const before = structuredClone(config);
+  assert.equal(editor.stationRailReferences(config, hub.ID), 1);
+  assert.equal(editor.stationRailReferences(config, destination.ID), 1);
+  assert.deepEqual(editor.deleteStation(config, hub.ID).railArrivals, []);
+  const removed = editor.deleteStation(config, destination.ID);
+  assert.deepEqual(removed.railArrivals[0].destinations, [{ station: third.ID, weight: 1 }]);
+  assert.deepEqual(editor.deleteStation(removed, third.ID).railArrivals, []);
+  assert.deepEqual(config, before);
+});
+
+test("rail changes form undo steps and preserve the frozen network", () => {
+  const config = editor.addRailArrival(connectedScenario()).config;
+  const history = editor.createHistory({ scenario: config, background: null });
+  const network = history.snapshot.scenario.network; const id = history.value.scenario.railArrivals[0].id;
+  const edited = editor.editRailArrival(history.snapshot.scenario, id, (arrival) => { arrival.walkingSeconds = 45; return arrival; });
+  assert.equal(edited.network, network);
+  history.replace({ scenario: edited, background: null });
+  assert.equal(history.value.scenario.railArrivals[0].walkingSeconds, 45);
+  assert.equal(history.undo(), true);
+  assert.equal(history.value.scenario.railArrivals[0].walkingSeconds, 0);
+  assert.equal(history.redo(), true);
+  assert.equal(history.value.scenario.railArrivals[0].walkingSeconds, 45);
+  const beforeDelete = history.value;
+  history.replace({ scenario: editor.deleteStation(history.value.scenario, config.network.Stations[0].ID), background: null });
+  assert.deepEqual(history.value.scenario.railArrivals, []);
+  history.undo(); assert.deepEqual(history.value, beforeDelete);
+});
+
+test("rail helpers detach mutable input plans and unchanged nested destinations", () => {
+  const config = editor.addRailArrival(editor.addRailArrival(connectedScenario()).config).config;
+  const id = config.railArrivals[0].id;
+  const results = [
+    editor.addRailArrival(config).config,
+    editor.removeRailArrival(config, id),
+    editor.editRailArrival(config, id, (arrival) => { arrival.passengers = 1; return arrival; }),
+  ];
+  for (const result of results) {
+    const untouched = result.railArrivals.find((arrival) => arrival.id === config.railArrivals[1].id);
+    untouched.destinations[0].weight = 99;
+    assert.equal(config.railArrivals[1].destinations[0].weight, 1);
+  }
+});

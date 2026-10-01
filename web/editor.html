@@ -235,6 +235,11 @@
         <label class="check"><input id="pickupReassignment" type="checkbox"> Pickup reassignment (experimental)</label>
         <p class="hint">Use Apply draft to activate these settings. Both are off by default and can change passenger waits.</p>
       </section>
+      <section>
+        <div class="section-title"><h2>Rail arrivals</h2><button id="addRailArrival" type="button">Add arrival</button></div>
+        <p class="hint">Times use simulated seconds since reset. Walking delays postpone requests. Select Rail arrivals in Passenger demand to use this plan.</p>
+        <div id="railArrivalRows"></div>
+      </section>
       <section id="checksPanel">
         <div class="section-title"><h2 id="checksHeading" tabindex="-1">Checks</h2><button id="validateButton" type="button">Run checks</button></div>
         <div id="validationSummary" class="validation neutral">Checks have not run.</div>
