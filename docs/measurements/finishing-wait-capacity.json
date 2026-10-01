@@ -1,0 +1,459 @@
+{
+  "source_commit": "e285e69",
+  "source_manifest_sha256": "073c8d66a5fc00caae6ea1b615d6852be8d0ef5d0a27b374f8ff28f513d16028",
+  "overlay_manifest_sha256": "572c0d4a494239868cdb9f94b64e25db35bfe5454549abb47f2a642e183e7059",
+  "binary_sha256": "c09a9e98ef46f4aa911ae3a4e83d9187568983b067b18aadc00da3ea6d180620",
+  "arms": [
+    {
+      "name": "capacity-full-am-peak-r14-s3-strict",
+      "baseline": {
+        "served": 5000,
+        "remaining": 42,
+        "wait_p95_seconds": 2757.6666666666665,
+        "journey_p95_seconds": 3797.1,
+        "late_backlog_change": 382,
+        "empty_distance_meters": 39582912.1659953
+      },
+      "strict": {
+        "served": 4951,
+        "remaining": 91,
+        "wait_p95_seconds": 3160.133333333333,
+        "journey_p95_seconds": 4068.266666666667,
+        "late_backlog_change": 417,
+        "empty_distance_meters": 41609669.94739772
+      },
+      "checks": {
+        "Samples": 25200,
+        "DenseSamples": 0,
+        "restores": [
+          {
+            "tick": 648000,
+            "dense_samples": 3600,
+            "coupled_pods": 0
+          },
+          {
+            "tick": 1296000,
+            "dense_samples": 3600,
+            "coupled_pods": 0
+          }
+        ]
+      },
+      "cohort": {
+        "joint_completed": 4951,
+        "lost_completions": [
+          4153,
+          4402,
+          4452,
+          4619,
+          4629,
+          4630,
+          4673,
+          4735,
+          4737,
+          4789,
+          4794,
+          4797,
+          4809,
+          4837,
+          4844,
+          4850,
+          4872,
+          4874,
+          4876,
+          4878,
+          4884,
+          4886,
+          4887,
+          4913,
+          4915,
+          4926,
+          4928,
+          4930,
+          4933,
+          4943,
+          4945,
+          4947,
+          4950,
+          4955,
+          4960,
+          4963,
+          4970,
+          4987,
+          4998,
+          5006,
+          5009,
+          5018,
+          5019,
+          5020,
+          5021,
+          5022,
+          5023,
+          5024,
+          5040
+        ],
+        "new_completions": [],
+        "max_pickup_increase": {
+          "id": 2702,
+          "pickup_seconds": 2844.35,
+          "completion_seconds": 2848.25
+        },
+        "max_completion_increase": {
+          "id": 2702,
+          "pickup_seconds": 2844.35,
+          "completion_seconds": 2848.25
+        },
+        "mean_completion_change": 186.25407325119502
+      }
+    },
+    {
+      "name": "capacity-full-am-peak-r14-s4-strict",
+      "baseline": {
+        "served": 5028,
+        "remaining": 14,
+        "wait_p95_seconds": 1855.5666666666666,
+        "journey_p95_seconds": 3071.633333333333,
+        "late_backlog_change": 216,
+        "empty_distance_meters": 35232841.02968267
+      },
+      "strict": {
+        "served": 4983,
+        "remaining": 59,
+        "wait_p95_seconds": 2724.15,
+        "journey_p95_seconds": 3687.6833333333334,
+        "late_backlog_change": 384,
+        "empty_distance_meters": 39580697.516650386
+      },
+      "checks": {
+        "Samples": 25200,
+        "DenseSamples": 0,
+        "restores": [
+          {
+            "tick": 648000,
+            "dense_samples": 3600,
+            "coupled_pods": 2
+          },
+          {
+            "tick": 1296000,
+            "dense_samples": 3600,
+            "coupled_pods": 0
+          }
+        ]
+      },
+      "cohort": {
+        "joint_completed": 4983,
+        "lost_completions": [
+          4419,
+          4441,
+          4635,
+          4653,
+          4730,
+          4737,
+          4764,
+          4769,
+          4782,
+          4815,
+          4836,
+          4846,
+          4856,
+          4871,
+          4875,
+          4878,
+          4882,
+          4897,
+          4915,
+          4916,
+          4920,
+          4922,
+          4925,
+          4931,
+          4933,
+          4935,
+          4937,
+          4940,
+          4941,
+          4949,
+          4953,
+          4971,
+          4973,
+          4974,
+          4981,
+          4994,
+          4996,
+          4998,
+          4999,
+          5011,
+          5028,
+          5029,
+          5031,
+          5036,
+          5038
+        ],
+        "new_completions": [],
+        "max_pickup_increase": {
+          "id": 4225,
+          "pickup_seconds": 2740.5333333333333,
+          "completion_seconds": 2772.4666666666667
+        },
+        "max_completion_increase": {
+          "id": 4225,
+          "pickup_seconds": 2740.5333333333333,
+          "completion_seconds": 2772.4666666666667
+        },
+        "mean_completion_change": 369.3122917920931
+      }
+    },
+    {
+      "name": "capacity-full-am-peak-r15-s3-strict",
+      "baseline": {
+        "served": 5022,
+        "remaining": 377,
+        "wait_p95_seconds": 4414.166666666667,
+        "journey_p95_seconds": 5149,
+        "late_backlog_change": 584,
+        "empty_distance_meters": 44148231.27758814
+      },
+      "strict": {
+        "served": 4958,
+        "remaining": 441,
+        "wait_p95_seconds": 4656,
+        "journey_p95_seconds": 5334.433333333333,
+        "late_backlog_change": 587,
+        "empty_distance_meters": 44956231.49248682
+      },
+      "checks": {
+        "Samples": 25200,
+        "DenseSamples": 0,
+        "restores": [
+          {
+            "tick": 648000,
+            "dense_samples": 3600,
+            "coupled_pods": 0
+          },
+          {
+            "tick": 1296000,
+            "dense_samples": 3600,
+            "coupled_pods": 0
+          }
+        ]
+      },
+      "cohort": {
+        "joint_completed": 4953,
+        "lost_completions": [
+          4153,
+          4402,
+          4452,
+          4479,
+          4587,
+          4619,
+          4629,
+          4630,
+          4647,
+          4712,
+          4720,
+          4769,
+          4771,
+          4789,
+          4820,
+          4829,
+          4848,
+          4850,
+          4855,
+          4863,
+          4867,
+          4872,
+          4882,
+          4889,
+          4895,
+          4915,
+          4930,
+          4933,
+          4945,
+          4954,
+          4957,
+          4974,
+          4975,
+          4978,
+          5001,
+          5011,
+          5021,
+          5023,
+          5024,
+          5034,
+          5040,
+          5043,
+          5045,
+          5050,
+          5052,
+          5054,
+          5060,
+          5067,
+          5068,
+          5070,
+          5082,
+          5088,
+          5097,
+          5115,
+          5123,
+          5124,
+          5127,
+          5130,
+          5137,
+          5144,
+          5157,
+          5162,
+          5165,
+          5167,
+          5180,
+          5198,
+          5202,
+          5212,
+          5225
+        ],
+        "new_completions": [
+          4700,
+          4735,
+          4843,
+          4948,
+          5012
+        ],
+        "max_pickup_increase": {
+          "id": 5080,
+          "pickup_seconds": 3512.4333333333334,
+          "completion_seconds": 3517.7833333333333
+        },
+        "max_completion_increase": {
+          "id": 5080,
+          "pickup_seconds": 3512.4333333333334,
+          "completion_seconds": 3517.7833333333333
+        },
+        "mean_completion_change": 194.59431657581266
+      }
+    },
+    {
+      "name": "capacity-full-am-peak-r15-s4-strict",
+      "baseline": {
+        "served": 4973,
+        "remaining": 426,
+        "wait_p95_seconds": 4595.25,
+        "journey_p95_seconds": 5327.483333333334,
+        "late_backlog_change": 588,
+        "empty_distance_meters": 44931235.88561513
+      },
+      "strict": {
+        "served": 4920,
+        "remaining": 479,
+        "wait_p95_seconds": 4824,
+        "journey_p95_seconds": 5537.05,
+        "late_backlog_change": 628,
+        "empty_distance_meters": 45614894.93078647
+      },
+      "checks": {
+        "Samples": 25200,
+        "DenseSamples": 0,
+        "restores": [
+          {
+            "tick": 648000,
+            "dense_samples": 3600,
+            "coupled_pods": 4
+          },
+          {
+            "tick": 1296000,
+            "dense_samples": 3600,
+            "coupled_pods": 0
+          }
+        ]
+      },
+      "cohort": {
+        "joint_completed": 4910,
+        "lost_completions": [
+          4420,
+          4441,
+          4513,
+          4541,
+          4557,
+          4625,
+          4652,
+          4673,
+          4744,
+          4755,
+          4766,
+          4774,
+          4781,
+          4788,
+          4802,
+          4812,
+          4837,
+          4870,
+          4880,
+          4889,
+          4906,
+          4912,
+          4913,
+          4918,
+          4920,
+          4924,
+          4927,
+          4929,
+          4935,
+          4938,
+          4939,
+          4943,
+          4955,
+          4961,
+          4978,
+          4982,
+          4983,
+          5009,
+          5015,
+          5023,
+          5024,
+          5027,
+          5035,
+          5044,
+          5053,
+          5054,
+          5064,
+          5066,
+          5068,
+          5072,
+          5074,
+          5078,
+          5084,
+          5104,
+          5119,
+          5123,
+          5131,
+          5133,
+          5150,
+          5158,
+          5163,
+          5167,
+          5361
+        ],
+        "new_completions": [
+          4269,
+          4432,
+          4655,
+          4674,
+          4726,
+          4815,
+          4867,
+          4930,
+          5107,
+          5111
+        ],
+        "max_pickup_increase": {
+          "id": 1514,
+          "pickup_seconds": 2740.266666666667,
+          "completion_seconds": 2741.05
+        },
+        "max_completion_increase": {
+          "id": 1514,
+          "pickup_seconds": 2740.266666666667,
+          "completion_seconds": 2741.05
+        },
+        "mean_completion_change": 137.37235913102512
+      }
+    }
+  ]
+}

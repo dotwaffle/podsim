@@ -2,7 +2,8 @@
 
 The selected AM14 and AM15 workloads exhaust the available fleet while most pods keep moving.
 Their growing backlogs do not coincide with substantial junction or station-departure waits.
-The AM13 recovery cutoff leaves one long passenger trip in each seed.
+The AM13 seven-hour cutoff leaves one long passenger trip in each seed.
+Extended recovery completes all requests without changing the arrivals or policies.
 Those two cutoff misses do not establish sustained overload at AM13.
 
 ## Replay and checks
@@ -75,16 +76,23 @@ The last recorded lane transition can precede the cutoff, so the estimates are a
 The existing timing records give pickup waits of 2,286.70 and 2,633.58 seconds.
 The sampled finishing holds account for only a small part of those waits.
 No selected pickup or passenger sample records a traffic wait.
-An extended recovery run can confirm their completion without changing the arrival workload.
-Their long moving pickups remain a service problem even if they complete under a later cutoff.
+An eight-hour recovery allowance confirms completion of all 4,695 requests in each seed.
+Seed 3 ends at 26,688 simulated seconds, and seed 4 ends at 26,952 seconds.
+They require 5,088 and 5,352 seconds of recovery after arrivals stop.
+The accepted requests and schedule remain identical to the seven-hour runs.
+Only the final request's timing record changes in each arm.
+Physical restores at three, six, and seven hours pass, including dense continuation checks.
+Their long moving pickups remain a service problem despite eventual completion.
 
 ## Evidence and remaining work
 
 [Fleet census](measurements/london-full-fleet-census.csv) retains each replay's early, late, and recovery windows, including the separate Acton stress fixture.
 [Metadata](measurements/london-full-capacity-diagnosis.json) retains exact replay checks, source and binary identities, selected tails, and aggregate census rows.
+[Extended recovery](measurements/london-full-recovery.json) retains the final timings and checks from `prediction-diagnosis-extra-20261001/`.
 Raw station samples, complete selected histories, immutable sources, observer tests, and logs remain in `~/.cache/agents/podsim/throughput-diagnosis-20261001/`.
 
 Next compare bounded dispatch or fleet-use candidates against the same accepted requests.
 Retain individual delays and unfinished requests alongside aggregate throughput.
+The existing [strict finishing-wait rule](finishing-wait-capacity.md) reduces completions in all four selected AM14/AM15 cells.
 The Acton buffer regression requires separate grant and release histories because it has substantial traffic queues.
 These selected AM cells do not qualify all demand bands or authorize a default or capacity-limit change.
