@@ -72,3 +72,57 @@ Before a simulation starts, the command limits retained rail offer indices to 1,
 This includes redistribution and experimental policy copies.
 Each index slice has capacity at most its scheduled count.
 One million 64-bit indices require about 8 MiB, excluding the other report fields and JSON encoding.
+
+## Equal-volume timing study
+
+The October 1 study compared six trains with evenly spaced demand at Rail Hub and LondonFull's Paddington.
+Each train released 120 passengers after a 30-second walking delay, at simulated seconds 30, 630, 1,230, 1,830, 2,430, and 3,030.
+The control released the same 720 ordered passenger identities and endpoints every five seconds, through second 3,600.
+Both arms used seeds 1 and 2, a 200-order queue, and a fixed three-hour recovery cap.
+The arrival window ended at tick 216,001 so it included the control's final passenger.
+Rail Hub used 30 pods.
+LondonFull used its existing 287-pod fleet.
+Redistribution, sharing, platoons, station buffers, and pickup reassignment were off.
+Routing used free-flow costs.
+
+| Fixture | Seed | Completed, train / regular | Skipped, train / regular | Drain time, train / regular (s) | Empty distance, train / regular (km) |
+| --- | --- | --- | --- | --- | --- |
+| Rail Hub | 1 | 337 / 366 | 383 / 354 | 7,795 / 8,388 | 1,580 / 1,731 |
+| Rail Hub | 2 | 336 / 367 | 384 / 353 | 7,709 / 8,392 | 1,636 / 1,759 |
+| LondonFull | 1 | 412 / 443 | 308 / 277 | 7,784 / 8,304 | 6,559 / 6,749 |
+| LondonFull | 2 | 412 / 449 | 308 / 271 | 7,503 / 8,419 | 6,815 / 7,255 |
+
+All eight arms recovered within the original cap, with no remaining orders.
+The train arms rejected 29 to 37 more passengers than their controls.
+Their earlier drain times and lower total empty distance also reflect their earlier last offers and fewer accepted passengers.
+Neither establishes better service or capacity.
+The queue-clear delay starts at each arm's last offer, at second 3,030 for trains and second 3,600 for controls.
+The measurement record includes both that delay and the absolute queue-clear time.
+
+Each pair preserved all 720 offered identities, including skipped passengers.
+Matching passengers completed in both arms gives a different result from averaging each arm's accepted population:
+
+| Fixture | Seed | Matched passengers | Mean additional pickup wait with trains (s) | Mean additional journey time with trains (s) |
+| --- | --- | --- | --- | --- |
+| Rail Hub | 1 | 273 | 195.7 | 197.7 |
+| Rail Hub | 2 | 272 | 207.3 | 210.2 |
+| LondonFull | 1 | 330 | 108.2 | 111.8 |
+| LondonFull | 2 | 328 | 133.4 | 135.7 |
+
+The bursts increased pickup waits and journey times for those matched passengers on average.
+The study retained each skipped offer and each individual timing comparison.
+These are selected timing experiments, not sustained capacity measurements or policy qualification.
+Release times differ, so the individual service limits serve as diagnostics here.
+No default changed.
+
+An observation-only test overlay checked separation, lane speed, and berth use after all 3,857,640 simulation ticks.
+It checked the saved-state contract each simulated second and verified request accounting and actual injection timestamps.
+The overlay did not change movement, dispatch, or release schedules.
+The [measurement record](measurements/rail-arrivals.json) contains the frozen matrix, hashes, matched results, and endpoint checks.
+
+The endpoint test used an isolated localhost server and the current editor and Chrome WASM client.
+Editor Apply saved the plan and paused the new run before its first release.
+The client received native gzip binary WebSocket updates without page errors.
+A graceful stop and physical restore retained four generated requests at tick 105.
+The next event generated three more passengers without replaying the earlier event.
+Fly hosting and the stopped Tailscale demo were outside this test.
