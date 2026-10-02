@@ -3631,7 +3631,19 @@
     return element;
   }
   function svgElement(name, attributes) { return setAttributes(document.createElementNS(svgNS, name), attributes); }
-  function nodeFor(config, id) { return config.network.Nodes.find((node) => node.ID === id); }
+  const drawingNodeIndexes = new WeakMap();
+  function nodeFor(config, id) {
+    const nodes = config.network.Nodes;
+    let index = drawingNodeIndexes.get(nodes);
+    if (!index) {
+      index = new Map();
+      // Draft node IDs are immutable. Drag copies change positions only.
+      // Keep the first node when an unfinished draft repeats an ID.
+      for (const node of nodes) if (!index.has(node.ID)) index.set(node.ID, node);
+      drawingNodeIndexes.set(nodes, index);
+    }
+    return index.get(id);
+  }
   function stationForNode(config, id) { const stationID = stationNodeOwners(config).get(id); return config.network.Stations.find((station) => station.ID === stationID); }
   function setDraft(next, record = true) { if (state.history.replace({ scenario: next, background: state.background }, record)) render(); }
   function setBackground(next, record = true) { if (state.history.replace({ scenario: draft(), background: next }, record)) render(); }
