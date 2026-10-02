@@ -30,10 +30,14 @@
           worker.onmessageerror = () => fail(new Error("The Go editor model response could not be read."));
         }
         active.timer = clock.setTimeout(() => fail(new Error("The Go editor model timed out. Reload the editor to try again.")), timeout);
-        const patch = {};
-        for (const key of Object.keys(active.config)) if (active.config[key] !== sent[key]) patch[key] = active.config[key];
-        worker.postMessage({ id: active.id, op: active.op, keys: Object.keys(active.config), patch, parkRide: active.plan });
-        sent = active.config;
+        if (active.op === "place-view") {
+          worker.postMessage({ id: active.id, op: active.op, project: active.config, view: active.plan });
+        } else {
+          const patch = {};
+          for (const key of Object.keys(active.config)) if (active.config[key] !== sent[key]) patch[key] = active.config[key];
+          worker.postMessage({ id: active.id, op: active.op, keys: Object.keys(active.config), patch, parkRide: active.plan });
+          sent = active.config;
+        }
       } catch (error) { fail(error); }
     }
     return {
@@ -86,16 +90,30 @@
   if (typeof document !== "undefined" || typeof root.importScripts !== "function") return;
 
   let config = {};
+  let needsFullSync = false;
+  function invoke(command) {
+    const result = JSON.parse(root.podsimEditorCall(JSON.stringify(command)));
+    if (!result || typeof result !== "object" || Array.isArray(result) || result.fatal) throw new Error("Invalid or fatal Go response");
+    return result;
+  }
   // Set the handler after startWorker imports the old model reference.
   const starting = startWorker();
   root.onmessage = async ({ data }) => {
     try {
       await starting;
-      config = Object.fromEntries(data.keys.map((key) => [key, Object.hasOwn(data.patch, key) ? data.patch[key] : config[key]]));
-      const command = { op: data.op, project: config };
-      if (data.parkRide !== undefined) command[data.op === "place-view" ? "view" : "parkRide"] = data.parkRide;
-      const result = JSON.parse(root.podsimEditorCall(JSON.stringify(command)));
-      if (!result || typeof result !== "object" || Array.isArray(result) || result.fatal) throw new Error("Invalid or fatal Go response");
+      let result;
+      if (data.op === "place-view") result = invoke({ op: data.op, project: data.project, view: data.view });
+      else {
+        config = Object.fromEntries(data.keys.map((key) => [key, Object.hasOwn(data.patch, key) ? data.patch[key] : config[key]]));
+        result = invoke({ op: "sync", keys: data.keys, patch: needsFullSync ? config : data.patch });
+        if (result.valid !== true && typeof result.error !== "string") throw new Error("Missing Go synchronization verdict");
+        needsFullSync = !!result.error;
+        if (!result.error) {
+          const command = { op: data.op };
+          if (data.parkRide !== undefined) command.parkRide = data.parkRide;
+          result = invoke(command);
+        }
+      }
       if (data.op === "validate") {
         if (result.valid !== true && typeof result.error !== "string") throw new Error("Missing Go validation verdict");
         const checks = root.PodsimEditorModel.checkResults(config);

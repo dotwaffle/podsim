@@ -10,6 +10,7 @@ import (
 )
 
 func main() {
+	model := editormodel.NewCall()
 	call := js.FuncOf(func(_ js.Value, args []js.Value) (result any) {
 		defer func() {
 			if recover() != nil {
@@ -19,7 +20,7 @@ func main() {
 		if len(args) != 1 || args[0].Type() != js.TypeString {
 			return `{"error":"The editor model needs one JSON request."}`
 		}
-		return editormodel.Call(args[0].String())
+		return model(args[0].String())
 	})
 	defer call.Release()
 	js.Global().Set("podsimEditorCall", call)

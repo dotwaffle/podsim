@@ -85,3 +85,16 @@ test("malformed model results fail all waiters", async () => {
   await rejected;
   assert.equal(f.terminated, true);
 });
+
+test("place navigation does not replace the project transfer baseline", async () => {
+  const f = fixture(), network = {}, first = { name: "Draft", network };
+  const initial = f.client.call(first);
+  f.worker.onmessage({ data: { id: f.sent[0].id, result: { valid: true } } }); await initial;
+  const place = f.client.call({ geo: { latitude: 0 } }, "place-view", { width: 900 });
+  assert.deepEqual(f.sent[1].project, { geo: { latitude: 0 } });
+  assert.equal(f.sent[1].patch, undefined);
+  f.worker.onmessage({ data: { id: f.sent[1].id, result: { view: { x: 0, y: 0, scale: 1 } } } }); await place;
+  const after = f.client.call({ name: "Renamed", network });
+  assert.deepEqual(f.sent[2].patch, { name: "Renamed" });
+  f.worker.onmessage({ data: { id: f.sent[2].id, result: { valid: true } } }); await after;
+});

@@ -57,12 +57,17 @@ func scanRequest(data []byte) error {
 
 func requestArrayLimit(decoder *jsontext.Decoder) int64 {
 	parts := strings.Split(string(decoder.StackPointer()), "/")
+	if len(parts) > 1 && parts[1] == "patch" {
+		parts[1] = "project"
+	}
 	for level := 1; level < len(parts); level++ {
 		if kind, _ := decoder.StackIndex(level); kind == jsontext.KindBeginArray {
 			parts[level] = "*"
 		}
 	}
 	switch strings.Join(parts, "/") {
+	case "/keys":
+		return 32
 	case "/project/network/Nodes":
 		return project.MaxNodes
 	case "/project/network/Lanes":

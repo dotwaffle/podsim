@@ -18,6 +18,8 @@ type request struct {
 	Project  jsontext.Value `json:"project"`
 	ParkRide jsontext.Value `json:"parkRide,omitempty"`
 	View     jsontext.Value `json:"view,omitempty"`
+	Keys     []string       `json:"keys,omitempty"`
+	Patch    jsontext.Value `json:"patch,omitempty"`
 }
 
 type response struct {
@@ -32,6 +34,10 @@ type response struct {
 // It returns JSON errors instead of throwing across the browser boundary.
 func Call(input string) string {
 	result, err := execute(input)
+	return encodeResponse(result, err)
+}
+
+func encodeResponse(result response, err error) string {
 	if err != nil {
 		result = response{Error: err.Error()}
 	}
@@ -43,15 +49,12 @@ func Call(input string) string {
 }
 
 func execute(input string) (response, error) {
-	if len(input) > MaxRequestBytes {
-		return response{}, errors.New("editor model request is too large")
+	command, err := decodeRequest(input)
+	if err != nil {
+		return response{}, err
 	}
-	if err := scanRequest([]byte(input)); err != nil {
-		return response{}, fmt.Errorf("check editor request: %w", err)
-	}
-	var command request
-	if err := json.Unmarshal([]byte(input), &command, json.RejectUnknownMembers(true)); err != nil {
-		return response{}, fmt.Errorf("decode editor request: %w", err)
+	if command.Keys != nil || len(command.Patch) != 0 {
+		return response{}, errors.New("a project operation cannot include synchronization fields")
 	}
 	if len(command.Project) > project.MaxFileBytes {
 		return response{}, errors.New("editor project is too large")
@@ -63,6 +66,24 @@ func execute(input string) (response, error) {
 	if err := json.Unmarshal(command.Project, &config, json.RejectUnknownMembers(true)); err != nil {
 		return response{}, fmt.Errorf("decode editor project: %w", err)
 	}
+	return operate(config, command)
+}
+
+func decodeRequest(input string) (request, error) {
+	if len(input) > MaxRequestBytes {
+		return request{}, errors.New("editor model request is too large")
+	}
+	if err := scanRequest([]byte(input)); err != nil {
+		return request{}, fmt.Errorf("check editor request: %w", err)
+	}
+	var command request
+	if err := json.Unmarshal([]byte(input), &command, json.RejectUnknownMembers(true)); err != nil {
+		return request{}, fmt.Errorf("decode editor request: %w", err)
+	}
+	return command, nil
+}
+
+func operate(config project.Config, command request) (response, error) {
 	if command.Op != "place-view" && len(command.View) != 0 || command.Op != "park-ride" && len(command.ParkRide) != 0 {
 		return response{}, errors.New("editor operation has unrelated parameters")
 	}
