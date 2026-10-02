@@ -24,13 +24,16 @@
             if (!data.error && (!data.result || typeof data.result !== "object" || Array.isArray(data.result))) { fail(new Error("The Go editor model response is invalid.")); return; }
             const job = active; active = null; clock.clearTimeout(job.timer);
             if (data.error) { job.reject(new Error(data.error)); fail(new Error(data.error)); return; }
+            if (job.op === "history" && job.plan.action === "accept" && !data.result.error) sent = job.config;
             job.resolve(data.result); pump();
           };
           worker.onerror = () => fail(new Error("The Go editor model could not start. Reload the editor to try again."));
           worker.onmessageerror = () => fail(new Error("The Go editor model response could not be read."));
         }
         active.timer = clock.setTimeout(() => fail(new Error("The Go editor model timed out. Reload the editor to try again.")), timeout);
-        if (active.op === "place-view") {
+        if (active.op === "history" && !historyCreates(active.plan)) {
+          worker.postMessage({ id: active.id, op: active.op, history: active.plan });
+        } else if (active.op === "place-view") {
           worker.postMessage({ id: active.id, op: active.op, project: active.config, view: active.plan });
         } else {
           const patch = {};
@@ -38,28 +41,163 @@
           const message = { id: active.id, op: active.op, keys: Object.keys(active.config), patch };
           if (active.op === "park-ride") message.parkRide = active.plan;
           if (active.op === "edit") message.edit = active.plan;
+          if (active.op === "history") message.history = active.plan;
           worker.postMessage(message);
           sent = active.config;
         }
       } catch (error) { fail(error); }
     }
+    function enqueue(config, op, plan, background) {
+      if (failed) throw failed;
+      if (background) {
+        for (let index = queue.length - 1; index >= 0; index--) if (queue[index].background) {
+          queue.splice(index, 1)[0].reject(new DOMException("A newer draft replaced this validation.", "AbortError"));
+        }
+      }
+      if (queue.length >= 8) throw new Error("The Go editor model is busy. Try the action again.");
+      return new Promise((resolve, reject) => {
+        const job = { id: ++nextID, config, op, plan, background, resolve, reject };
+        const pendingBackground = background ? -1 : queue.findIndex((item) => item.background);
+        if (pendingBackground < 0) queue.push(job); else queue.splice(pendingBackground, 0, job);
+        pump();
+      });
+    }
     return {
       call(config, op = "validate", plan, { background = false } = {}) {
-        if (failed) return Promise.reject(failed);
-        if (background) {
-          for (let index = queue.length - 1; index >= 0; index--) if (queue[index].background) {
+        try { return enqueue(config, op, plan, background); } catch (error) { return Promise.reject(error); }
+      },
+      // A throw means acceptance was not queued and the draft must not publish.
+      acceptHistory(config, token) {
+        for (let index = queue.length - 1; index >= 0; index--) {
+          const job = queue[index];
+          if (job.background && (Object.keys(job.config).length !== Object.keys(config).length || Object.keys(config).some((key) => job.config[key] !== config[key]))) {
             queue.splice(index, 1)[0].reject(new DOMException("A newer draft replaced this validation.", "AbortError"));
           }
         }
-        if (queue.length >= 8) return Promise.reject(new Error("The Go editor model is busy. Try the action again."));
-        return new Promise((resolve, reject) => {
-          const job = { id: ++nextID, config, op, plan, background, resolve, reject };
-          const pendingBackground = background ? -1 : queue.findIndex((item) => item.background);
-          if (pendingBackground < 0) queue.push(job); else queue.splice(pendingBackground, 0, job);
-          pump();
-        });
+        return enqueue(config, "history", { action: "accept", token }, false);
       },
       close() { fail(new Error("The Go editor model has stopped.")); },
+    };
+  }
+
+  function historyCreates(command) {
+    return command?.action === "prepare" && ["reset", "replace", "commitFrom"].includes(command.kind);
+  }
+
+  function checkedHistory(result, proposal) {
+    if (result.error) throw new Error(result.error);
+    const view = result.history;
+    if (!view || typeof view.head !== "string" || !view.head || typeof view.revision !== "string" || !/^[1-9][0-9]*$/.test(view.revision) ||
+        ![view.changed, view.canUndo, view.canRedo].every((value) => typeof value === "boolean") ||
+        !Array.isArray(view.retained) || !view.retained.includes(view.head) || !view.retained.every((id) => typeof id === "string" && id) || new Set(view.retained).size !== view.retained.length ||
+        !Array.isArray(view.imageKeys) || !view.imageKeys.every((key) => typeof key === "string" && key) ||
+        !(view.background === null || view.background && typeof view.background === "object" && !Array.isArray(view.background)) ||
+        (proposal ? typeof view.proposal !== "string" || !view.proposal : view.proposal !== undefined)) throw new Error("The Go history response is invalid.");
+    return view;
+  }
+
+  function historySignature(view) {
+    return JSON.stringify([view.head, view.revision, view.changed, view.canUndo, view.canRedo, view.retained, view.imageKeys, view.background]);
+  }
+
+  // createHistory stores render copies by Go IDs. Go owns the timeline.
+  function createHistory({ initial, own, clone, call, accept, captureGuard = () => () => true, onChange = () => {}, onAcknowledged = () => {}, onFatal = () => {} }) {
+    const cache = new Map(), identities = new WeakMap();
+    let present = own(initial), view = null, heldKeys = [], generation = 0, pending = 0, failed = null;
+    let tail = Promise.resolve();
+    function fatal(error) {
+      if (!failed) { failed = error instanceof Error ? error : new Error(String(error)); onFatal(failed); }
+      return failed;
+    }
+    function identify(value) { if (view) identities.set(value, view.head); return value; }
+    function notify(checksUnchanged) { onChange(checksUnchanged); }
+    async function discard(token) {
+      try {
+        const result = await call(present.scenario, "history", { action: "discard", token });
+        if (result.error) throw new Error(result.error);
+      } catch (error) { throw fatal(error); }
+    }
+    function run(kind, target, extra = {}, { current = () => true, beforePublish = () => {} } = {}, checksUnchanged = false) {
+      const ticket = generation;
+      const candidate = target === undefined ? null : own(target, present);
+      pending++;
+      const work = tail.then(async () => {
+        if (failed) throw failed;
+        if (ticket !== generation || !current()) return false;
+        const source = present;
+        const unchanged = captureGuard(kind);
+        if (!unchanged()) return false;
+        const command = { action: "prepare", kind, revision: view?.revision || "0", ...extra };
+        if (candidate) command.background = candidate.background;
+        const result = await call(candidate?.scenario || present.scenario, "history", command);
+        if (result.error) throw new Error(result.error);
+        let prepared;
+        try { prepared = checkedHistory(result, true); } catch (error) { throw fatal(error); }
+        if (ticket !== generation || source !== present || !current() || !unchanged()) {
+          await discard(prepared.proposal);
+          return false;
+        }
+        const next = cache.get(prepared.head) || candidate;
+        if (!next) throw fatal(new Error("The Go history snapshot is missing from the render cache."));
+        let acknowledgment;
+        try { acknowledgment = accept(next.scenario, prepared.proposal); }
+        catch (error) {
+          await discard(prepared.proposal);
+          throw error;
+        }
+        // Acceptance is irrevocable. Keep both image sets until acknowledgment.
+        heldKeys = [...new Set([...heldKeys, ...prepared.imageKeys])];
+        cache.set(prepared.head, next); present = next;
+        view = { ...prepared }; delete view.proposal;
+        identify(present);
+        try {
+          beforePublish();
+          if (prepared.changed && kind !== "dropOldest") notify(checksUnchanged);
+          const accepted = checkedHistory(await acknowledgment, false);
+          if (historySignature(accepted) !== historySignature(prepared)) throw new Error("The Go history acknowledgment does not match its proposal.");
+          heldKeys = accepted.imageKeys;
+          const retained = new Set(accepted.retained);
+          for (const id of cache.keys()) if (!retained.has(id)) cache.delete(id);
+          onAcknowledged();
+          return prepared.changed;
+        } catch (error) {
+          await acknowledgment.catch(() => {});
+          throw fatal(error);
+        }
+      });
+      const complete = work.finally(() => { pending--; });
+      tail = complete.catch(() => {});
+      return complete;
+    }
+    return {
+      get value() { return identify(clone(present)); },
+      get snapshot() { return present; },
+      get scenarioText() { return JSON.stringify(present.scenario); },
+      get background() { return present.background ? clone(present.background) : null; },
+      get canUndo() { return Boolean(view?.canUndo); },
+      get canRedo() { return Boolean(view?.canRedo); },
+      get pending() { return pending > 0; },
+      get failed() { return failed; },
+      replace(next, record = true, checksUnchanged = false, options) { return run("replace", next, { record }, options, checksUnchanged); },
+      reset(next, options) { return run("reset", next, {}, options); },
+      commitFrom(before, next, options) {
+        const id = identities.get(before);
+        if (!id) return Promise.reject(new Error("The history gesture has no starting snapshot."));
+        return run("commitFrom", next, { before: id }, options);
+      },
+      undo(options) { return run("undo", undefined, {}, options); },
+      redo(options) { return run("redo", undefined, {}, options); },
+      dropOldest(options) { return run("dropOldest", undefined, {}, options); },
+      keys() { return new Set([...heldKeys, present.background?.imageKey].filter(Boolean)); },
+      // Local previews change drawing only. They do not advance Go history.
+      preview(next) {
+        if (failed) return false;
+        const owned = own(next, present);
+        if (owned === present) return false;
+        present = owned; identify(present); notify(false); return true;
+      },
+      cancel() { generation++; },
+      async flush() { await tail; if (failed) throw failed; },
     };
   }
 
@@ -121,23 +259,38 @@
     if (typeof root.podsimEditorCall !== "function") throw new Error("The Go editor model did not initialize.");
   }
 
-  const api = { createClient, createEditQueue, bounded };
-  if (typeof module !== "undefined" && module.exports) module.exports = api;
-  root.PodsimGoEditor = api;
-  if (typeof document !== "undefined" || typeof root.importScripts !== "function") return;
-
-  let config = {};
-  let needsFullSync = false;
-  function invoke(command) {
-    const result = JSON.parse(root.podsimEditorCall(JSON.stringify(command)));
-    if (!result || typeof result !== "object" || Array.isArray(result) || result.fatal) throw new Error("Invalid or fatal Go response");
-    return result;
-  }
-  // The worker initializes Go before it accepts model operations.
-  const starting = startWorker();
-  root.onmessage = async ({ data }) => {
-    try {
-      await starting;
+  // createOperations retains transport copies by Go IDs without a JS timeline.
+  function createOperations(invoke) {
+    let config = {}, needsFullSync = false, proposal = null;
+    const snapshots = new Map();
+    function historyOperation(data) {
+      const command = data.history;
+      if (historyCreates(command)) {
+        config = Object.fromEntries(data.keys.map((key) => [key, Object.hasOwn(data.patch, key) ? data.patch[key] : config[key]]));
+        const synced = invoke({ op: "sync", keys: data.keys, patch: needsFullSync ? config : data.patch });
+        if (synced.valid !== true && typeof synced.error !== "string") throw new Error("Missing Go synchronization verdict");
+        needsFullSync = !!synced.error;
+        if (synced.error && synced.synced !== true) return synced;
+      }
+      const result = invoke({ op: "history", history: command });
+      if (result.error) return result;
+      if (command.action === "prepare") {
+        const view = checkedHistory(result, true);
+        const target = snapshots.get(view.head) || (historyCreates(command) ? config : null);
+        if (!target) throw new Error("Missing Go history transport snapshot");
+        proposal = { token: view.proposal, head: view.head, config: target };
+      } else if (command.action === "accept") {
+        const view = checkedHistory(result, false);
+        if (!proposal || proposal.token !== command.token || proposal.head !== view.head) throw new Error("Invalid Go history transport acceptance");
+        snapshots.set(view.head, proposal.config);
+        config = proposal.config; needsFullSync = false; proposal = null;
+        const retained = new Set(view.retained);
+        for (const id of snapshots.keys()) if (!retained.has(id)) snapshots.delete(id);
+      } else if (command.action === "discard") proposal = null;
+      return result;
+    }
+    return { handle(data) {
+      if (data.op === "history") return historyOperation(data);
       let result, synchronized = false;
       if (data.op === "place-view") result = invoke({ op: data.op, project: data.project, view: data.view });
       else {
@@ -162,17 +315,37 @@
         const checks = checked.checks || { errors: [{ text: checked.error || "The Go editor checks failed.", target: null }], warnings: [] };
         if (!Array.isArray(checks.errors) || !Array.isArray(checks.warnings) || ![...checks.errors, ...checks.warnings].every((row) => row && typeof row.text === "string" && row.text.length > 0)) throw new Error("Invalid Go check response");
         if (result.error && !checks.errors.some((item) => item.text === result.error)) checks.errors.push({ text: result.error });
-        root.postMessage({ id: data.id, result: { ...checks, valid: result.valid === true } });
+        return { ...checks, valid: result.valid === true };
       } else if (data.op === "place-view") {
         if (!result.error && (!result.view || ![result.view.x, result.view.y, result.view.scale].every(Number.isFinite) || result.view.scale <= 0)) throw new Error("Invalid Go view response");
-        root.postMessage({ id: data.id, result });
+        return result;
       } else if (data.op === "edit") {
         if (!result.error && (!result.change || !result.change.patch || typeof result.change.patch !== "object" || Array.isArray(result.change.patch) || (result.change.flag !== undefined && !["demandEnabled", "redistribution", "stationBuffers", "pickupReassignment"].includes(result.change.flag)))) throw new Error("Invalid Go edit response");
-        root.postMessage({ id: data.id, result });
+        return result;
       } else {
         if (!result.error && (!result.profile || typeof result.profile !== "object" || typeof result.profile.id !== "string" || !Array.isArray(result.profile.bands) || !Array.isArray(result.profile.flows) || !result.demand || typeof result.demand !== "object" || typeof result.demand.pattern !== "string")) throw new Error("Invalid Go constructor response");
-        root.postMessage({ id: data.id, result });
+        return result;
       }
+    } };
+  }
+
+  const api = { createClient, createEditQueue, createHistory, createOperations, bounded };
+  if (typeof module !== "undefined" && module.exports) module.exports = api;
+  root.PodsimGoEditor = api;
+  if (typeof document !== "undefined" || typeof root.importScripts !== "function") return;
+
+  function invoke(command) {
+    const result = JSON.parse(root.podsimEditorCall(JSON.stringify(command)));
+    if (!result || typeof result !== "object" || Array.isArray(result) || result.fatal) throw new Error("Invalid or fatal Go response");
+    return result;
+  }
+  const operations = createOperations(invoke);
+  // The worker initializes Go before it accepts model operations.
+  const starting = startWorker();
+  root.onmessage = async ({ data }) => {
+    try {
+      await starting;
+      root.postMessage({ id: data.id, result: operations.handle(data) });
     } catch (_) { root.postMessage({ id: data.id, error: "The Go editor model is unavailable. Reload the editor to try again." }); }
   };
   starting.catch(() => root.postMessage({ fatal: "The Go editor model could not start. Reload the editor to try again." }));

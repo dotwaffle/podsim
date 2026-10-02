@@ -226,6 +226,32 @@ func TestHistoryRejectsUnrelatedAndMalformedRequests(t *testing.T) {
 	}
 }
 
+func TestHistorySynchronizationStatusDistinguishesInvalidDrafts(t *testing.T) {
+	t.Parallel()
+	for _, test := range []struct {
+		name, request  string
+		synced, failed bool
+	}{
+		{"valid", `{"op":"sync","keys":["name"],"patch":{"name":"Draft"}}`, true, false},
+		{"typed-invalid", `{"op":"sync","keys":["name"],"patch":{"name":false}}`, true, true},
+		{"structural", `{"op":"sync","keys":["missing"],"patch":{}}`, false, true},
+		{"malformed", `{"op":"sync","keys":[],"patch":[]}`, false, true},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			call := NewCall()
+			call(`{"op":"sync","keys":["name"],"patch":{"name":"Earlier"}}`)
+			var result response
+			if err := json.Unmarshal([]byte(call(test.request)), &result); err != nil {
+				t.Fatal(err)
+			}
+			if result.Synced != test.synced || (result.Error != "") != test.failed {
+				t.Fatal("incorrect synchronization status", result)
+			}
+		})
+	}
+}
+
 func TestHistoryStrictParametersAndGestureOwnership(t *testing.T) {
 	t.Parallel()
 	model := new(engine)

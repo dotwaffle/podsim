@@ -171,9 +171,9 @@ func (e *engine) sync(command request) (response, error) {
 	}
 	e.branches, e.config, e.err, e.ready, e.size = next, config, firstError, true, size
 	if firstError != nil {
-		return response{}, firstError
+		return response{Synced: true}, firstError
 	}
-	return response{Valid: true}, nil
+	return response{Valid: true, Synced: true}, nil
 }
 
 func copyBranch(dst *project.Config, key string, src project.Config) bool {

@@ -26,6 +26,7 @@ type request struct {
 
 type response struct {
 	Valid   bool                   `json:"valid,omitempty"`
+	Synced  bool                   `json:"synced,omitzero"`
 	Error   string                 `json:"error,omitempty"`
 	Profile *project.DemandProfile `json:"profile,omitempty"`
 	Demand  *project.DemandConfig  `json:"demand,omitempty"`
@@ -44,7 +45,7 @@ func Call(input string) string {
 
 func encodeResponse(result response, err error) string {
 	if err != nil {
-		result = response{Error: err.Error()}
+		result = response{Error: err.Error(), Synced: result.Synced}
 	}
 	encoded, err := json.Marshal(result)
 	if err != nil {
