@@ -62,6 +62,11 @@ func editProject(draft any, raw jsontext.Value) (projectChange, error) {
 	}
 	change := projectChange{Patch: make(map[string]any)}
 	switch command.Field {
+	case "normalize":
+		if value != true {
+			return projectChange{}, errors.New("normalization requires a true value")
+		}
+		return normalizeProject(draft)
 	case "fleetCount":
 		if command.Target.Kind() != '"' {
 			return projectChange{}, errors.New("a fleet edit needs a station ID string")
@@ -296,7 +301,7 @@ func (e *engine) edit(raw jsontext.Value) (response, error) {
 	for key, branch := range e.branches {
 		draft[key] = branch.value
 	}
-	needsFlows := editNeedsProfileFlows(raw)
+	needsFlows := editNeedsFullProfiles(raw)
 	// Keep raw selection IDs unchanged, including missing IDs in drafts.
 	// Full flows are temporary and only supplied to edits that change them.
 	if (e.profiles == nil || needsFlows) && len(e.branches["demandProfiles"].raw) != 0 {
@@ -325,9 +330,15 @@ func (e *engine) edit(raw jsontext.Value) (response, error) {
 	return response{Change: &change}, err
 }
 
-func editNeedsProfileFlows(raw jsontext.Value) bool {
+func editNeedsFullProfiles(raw jsontext.Value) bool {
 	var command editCommand
-	if json.Unmarshal(raw, &command) != nil || command.Field != "geometry" {
+	if json.Unmarshal(raw, &command) != nil {
+		return false
+	}
+	if command.Field == "normalize" {
+		return true
+	}
+	if command.Field != "geometry" {
 		return false
 	}
 	geometry, err := decodeGeometryEdit(command.Value)
