@@ -24,6 +24,7 @@ type engine struct {
 	ready    bool
 	checks   *preparedChecks
 	profiles any
+	size     int
 }
 
 // NewCall returns a private editor-worker handler with owned project state.
@@ -43,7 +44,7 @@ func (e *engine) handle(input string) (response, error) {
 		return response{}, err
 	}
 	if command.Op == "sync" {
-		if len(command.Project) != 0 || len(command.ParkRide) != 0 || len(command.View) != 0 {
+		if len(command.Project) != 0 || len(command.ParkRide) != 0 || len(command.View) != 0 || len(command.Edit) != 0 {
 			return response{}, errors.New("synchronization cannot include operation parameters")
 		}
 		return e.sync(command)
@@ -57,8 +58,14 @@ func (e *engine) handle(input string) (response, error) {
 	if !e.ready {
 		return response{}, errors.New("the editor project is not synchronized")
 	}
-	if command.Op == "checks" {
+	if command.Op == "edit" {
 		if len(command.ParkRide) != 0 || len(command.View) != 0 {
+			return response{}, errors.New("editor operation has unrelated parameters")
+		}
+		return e.edit(command.Edit)
+	}
+	if command.Op == "checks" {
+		if len(command.ParkRide) != 0 || len(command.View) != 0 || len(command.Edit) != 0 {
 			return response{}, errors.New("checks do not accept operation parameters")
 		}
 		checks, err := e.draftChecks()
@@ -141,14 +148,17 @@ func (e *engine) sync(command request) (response, error) {
 			firstError = fmt.Errorf("unsupported editor project field %s", key)
 		}
 	}
+	if !bytes.Equal(e.branches["demandProfiles"].raw, next["demandProfiles"].raw) {
+		e.profiles = nil
+		if e.checks != nil {
+			e.checks.profiles = nil
+			e.checks.profilesReady = false
+		}
+	}
 	if !bytes.Equal(e.branches["network"].raw, next["network"].raw) {
 		e.checks = nil
-	} else if e.checks != nil && !bytes.Equal(e.branches["demandProfiles"].raw, next["demandProfiles"].raw) {
-		e.checks.profiles = nil
-		e.checks.profilesReady = false
-		e.profiles = nil
 	}
-	e.branches, e.config, e.err, e.ready = next, config, firstError, true
+	e.branches, e.config, e.err, e.ready, e.size = next, config, firstError, true, size
 	if firstError != nil {
 		return response{}, firstError
 	}

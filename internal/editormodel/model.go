@@ -20,6 +20,7 @@ type request struct {
 	View     jsontext.Value `json:"view,omitempty"`
 	Keys     []string       `json:"keys,omitempty"`
 	Patch    jsontext.Value `json:"patch,omitempty"`
+	Edit     jsontext.Value `json:"edit,omitempty"`
 }
 
 type response struct {
@@ -29,6 +30,7 @@ type response struct {
 	Demand  *project.DemandConfig  `json:"demand,omitempty"`
 	View    *mapView               `json:"view,omitempty"`
 	Checks  *checkReport           `json:"checks,omitempty"`
+	Change  *projectChange         `json:"change,omitempty"`
 }
 
 // Call handles one bounded JSON request without retaining caller data.
@@ -63,13 +65,26 @@ func execute(input string) (response, error) {
 	if command.Project.Kind() != '{' {
 		return response{}, errors.New("editor request needs a project object")
 	}
-	if command.Op == "checks" {
+	if command.Op == "checks" || command.Op == "edit" {
 		if len(command.ParkRide) != 0 || len(command.View) != 0 {
-			return response{}, errors.New("checks do not accept operation parameters")
+			return response{}, errors.New("editor operation has unrelated parameters")
 		}
 		var draft any
 		if err := json.Unmarshal(command.Project, &draft); err != nil {
 			return response{}, fmt.Errorf("decode editor draft: %w", err)
+		}
+		if command.Op == "edit" {
+			change, err := editProject(draft, command.Edit)
+			if err == nil {
+				var branches map[string]jsontext.Value
+				if err = json.Unmarshal(command.Project, &branches); err == nil {
+					err = checkEditSize(len(command.Project), branches, change.Patch)
+				}
+			}
+			return response{Change: &change}, err
+		}
+		if len(command.Edit) != 0 {
+			return response{}, errors.New("checks do not accept an edit command")
 		}
 		checks := draftChecks(draft)
 		return response{Checks: &checks}, nil
@@ -96,7 +111,7 @@ func decodeRequest(input string) (request, error) {
 }
 
 func operate(config project.Config, command request) (response, error) {
-	if command.Op != "place-view" && len(command.View) != 0 || command.Op != "park-ride" && len(command.ParkRide) != 0 {
+	if len(command.Edit) != 0 || command.Op != "place-view" && len(command.View) != 0 || command.Op != "park-ride" && len(command.ParkRide) != 0 {
 		return response{}, errors.New("editor operation has unrelated parameters")
 	}
 	switch command.Op {

@@ -35,7 +35,10 @@
         } else {
           const patch = {};
           for (const key of Object.keys(active.config)) if (active.config[key] !== sent[key]) patch[key] = active.config[key];
-          worker.postMessage({ id: active.id, op: active.op, keys: Object.keys(active.config), patch, parkRide: active.plan });
+          const message = { id: active.id, op: active.op, keys: Object.keys(active.config), patch };
+          if (active.op === "park-ride") message.parkRide = active.plan;
+          if (active.op === "edit") message.edit = active.plan;
+          worker.postMessage(message);
           sent = active.config;
         }
       } catch (error) { fail(error); }
@@ -112,7 +115,11 @@
           synchronized = true;
           const command = { op: data.op };
           if (data.parkRide !== undefined) command.parkRide = data.parkRide;
+          if (data.edit !== undefined) command.edit = data.edit;
           result = invoke(command);
+        } else if (data.op === "edit") {
+          // An edit can repair a malformed draft without using older worker state.
+          result = invoke({ op: "edit", project: config, edit: data.edit });
         }
       }
       if (data.op === "validate") {
@@ -124,6 +131,9 @@
         root.postMessage({ id: data.id, result: { ...checks, valid: result.valid === true } });
       } else if (data.op === "place-view") {
         if (!result.error && (!result.view || ![result.view.x, result.view.y, result.view.scale].every(Number.isFinite) || result.view.scale <= 0)) throw new Error("Invalid Go view response");
+        root.postMessage({ id: data.id, result });
+      } else if (data.op === "edit") {
+        if (!result.error && (!result.change || !result.change.patch || typeof result.change.patch !== "object" || Array.isArray(result.change.patch) || (result.change.flag !== undefined && !["demandEnabled", "redistribution", "stationBuffers", "pickupReassignment"].includes(result.change.flag)))) throw new Error("Invalid Go edit response");
         root.postMessage({ id: data.id, result });
       } else {
         if (!result.error && (!result.profile || typeof result.profile !== "object" || typeof result.profile.id !== "string" || !Array.isArray(result.profile.bands) || !Array.isArray(result.profile.flows) || !result.demand || typeof result.demand !== "object" || typeof result.demand.pattern !== "string")) throw new Error("Invalid Go constructor response");

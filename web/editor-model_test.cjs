@@ -98,3 +98,20 @@ test("place navigation does not replace the project transfer baseline", async ()
   assert.deepEqual(f.sent[2].patch, { name: "Renamed" });
   f.worker.onmessage({ data: { id: f.sent[2].id, result: { valid: true } } }); await after;
 });
+
+test("proposed edits use edit parameters and retain the transfer baseline until accepted", async () => {
+  const f = fixture(), network = {}, original = { name: "Original", network };
+  const command = { field: "name", value: "Proposed" };
+  const pending = f.client.call(original, "edit", command);
+  assert.deepEqual(f.sent[0].edit, command);
+  assert.equal(Object.hasOwn(f.sent[0], "parkRide"), false);
+  f.worker.onmessage({ data: { id: f.sent[0].id, result: { change: { patch: { name: "Proposed" } } } } });
+  assert.deepEqual(await pending, { change: { patch: { name: "Proposed" } } });
+  const discarded = f.client.call(original);
+  assert.deepEqual(f.sent[1].patch, {});
+  assert.equal(Object.hasOwn(f.sent[1], "edit"), false);
+  f.worker.onmessage({ data: { id: f.sent[1].id, result: { valid: true } } }); await discarded;
+  const accepted = f.client.call({ ...original, name: "Proposed" });
+  assert.deepEqual(f.sent[2].patch, { name: "Proposed" });
+  f.worker.onmessage({ data: { id: f.sent[2].id, result: { valid: true } } }); await accepted;
+});
