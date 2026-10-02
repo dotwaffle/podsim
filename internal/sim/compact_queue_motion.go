@@ -44,6 +44,7 @@ func compactQueueStoppingDistance(speed float64) float64 {
 // headSpeed is the caller's next speed, not a desired speed that can be clipped.
 // Each follower takes the largest feasible speed within its acceleration bounds.
 // Errors return no partial plan. No endpoint snap or instant stop is applied.
+// Live compact control must use compactQueueRecoverablePlan to prove finite recovery.
 func compactQueuePlan(states []compactQueueState, bounds compactQueueBounds, headSpeed float64) ([]compactQueueState, error) {
 	if err := compactQueueValidate(states, bounds); err != nil {
 		return nil, err
@@ -137,14 +138,12 @@ func compactQueueValidate(states []compactQueueState, bounds compactQueueBounds)
 	if !compactQueueFinite(bounds.start) || !compactQueueFinite(bounds.frontier) || bounds.start > bounds.frontier {
 		return errors.New("compact queue: invalid plain entry bounds")
 	}
+	var leader *compactQueueState
 	for i, state := range states {
-		var leader *compactQueueState
-		if i != 0 {
-			leader = &states[i-1]
-		}
 		if !compactQueueFits(state, bounds, leader) {
 			return fmt.Errorf("compact queue: invalid member %d or neighbor envelope", i)
 		}
+		leader = &states[i]
 	}
 	if !compactQueueRecoveryFits(states[0], len(states), bounds) {
 		return errors.New("compact queue: insufficient future recovery room")
