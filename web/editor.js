@@ -2031,13 +2031,13 @@
         // Validation depends on the flag types, not their boolean values.
         return changed(typeof previous === "boolean");
       },
-      replace(next, record) {
+      replace(next, record, checksUnchanged = false) {
         const owned = ownDraft(next, present);
         if (owned === present) return false;
         if (record !== false) past.push(present);
         present = owned;
         future = [];
-        return changed();
+        return changed(checksUnchanged);
       },
       commitFrom(before, next) {
         if (JSON.stringify(before) === JSON.stringify(next)) return false;
@@ -3636,13 +3636,6 @@
   function setDraft(next, record = true) { if (state.history.replace({ scenario: next, background: state.background }, record)) render(); }
   function setBackground(next, record = true) { if (state.history.replace({ scenario: draft(), background: next }, record)) render(); }
   function mutate(change) { if (state.history.edit(change)) render(); }
-  function setOperatingFlag(name, value) {
-    if (!state.history.setOperatingFlag(name, value)) return;
-    if (state.drag && state.drag.working) { render(); return; }
-    $("#undoButton").disabled = !state.history.canUndo;
-    $("#redoButton").disabled = !state.history.canRedo;
-    renderApply();
-  }
   function toast(message, error) {
     const element = $("#toast"); element.textContent = message; element.className = error ? "show error" : "show";
     clearTimeout(state.toastTimer); state.toastTimer = setTimeout(() => { element.className = ""; }, 4000);
@@ -3939,6 +3932,10 @@
   // render made again gets the focus back.
   function stepHistory(redo) {
     model.abort();
+    editQueue.submit((current) => { if (current()) stepHistoryNow(redo); return current(); }).catch((error) => toast(error.message, true));
+  }
+  function stepHistoryNow(redo) {
+    model.abort();
     const panel = $("#selectionContent"); const focused = document.activeElement; const before = draft();
     const control = panel.contains(focused) ? { action: focused.dataset.action || "", id: focused.dataset.id || "" } : null;
     if (!(redo ? state.history.redo() : state.history.undo())) return;
@@ -4029,7 +4026,7 @@
 
   function renderDemand() {
     const config = draft(); const demand = config.demand;
-    $("#demandEnabled").checked = demand.enabled; $("#demandRate").value = demand.perMinute; $("#demandPattern").value = demand.pattern; $("#demandSeed").value = demand.seed; $("#redistribution").checked = config.redistribution;
+    $("#demandEnabled").checked = demand.enabled; setScalarValue("#demandRate", demand.perMinute); setScalarValue("#demandPattern", demand.pattern); setScalarValue("#demandSeed", demand.seed); $("#redistribution").checked = config.redistribution;
     const select = $("#demandDestination"); select.replaceChildren();
     const passenger = config.network.Stations.filter((station) => !station.ParkingOnly);
     for (const station of passenger) { const option = document.createElement("option"); option.value = station.ID; option.textContent = station.Name; select.append(option); }
@@ -4053,12 +4050,12 @@
     $("#demandPattern").querySelector('option[value="rail-arrivals"]').disabled = !(config.railArrivals || []).length;
     $("#demandPattern").querySelector('option[value="rail-services"]').disabled = !(config.railArrivals || []).length && !(config.railDepartures || []).length;
     $("#demandRate").disabled = ["rail-arrivals", "rail-services"].includes(demand.pattern);
-    $("#sharedRidePartyLimit").value = config.sharedRidePartyLimit;
-    $("#sharedRideMode").value = config.sharedRideMode;
-    $("#sharedRideJoin").value = config.sharedRideJoin;
-    $("#sharedRideMaxStops").value = config.sharedRideMaxStops;
+    setScalarValue("#sharedRidePartyLimit", config.sharedRidePartyLimit);
+    setScalarValue("#sharedRideMode", config.sharedRideMode);
+    setScalarValue("#sharedRideJoin", config.sharedRideJoin);
+    setScalarValue("#sharedRideMaxStops", config.sharedRideMaxStops);
     $("#sharedRideMaxStopsLabel").hidden = config.sharedRideMode !== "drop-offs";
-    $("#platoonLimit").value = String(config.platoonLimit);
+    setScalarValue("#platoonLimit", String(config.platoonLimit));
     $("#stationBuffers").checked = config.stationBuffers;
     $("#pickupReassignment").checked = config.pickupReassignment;
   }
@@ -4089,16 +4086,18 @@
   async function createParkRideProfile() {
     if (parkRideBusy) return;
     for (const input of $("#parkRideForm").querySelectorAll("input, select")) if (!input.reportValidity()) return;
-    const config = draft(), editGeneration = model.edits, status = $("#parkRideStatus");
+    const inputRevision = editRevision(), status = $("#parkRideStatus");
     const band = (name) => ({ startMinute: inputMinute(`#parkRide${name}Start`), durationMinutes: $(`#parkRide${name}Duration`).valueAsNumber, perMinute: $(`#parkRide${name}Rate`).valueAsNumber });
     const plan = { name: $("#parkRideName").value, hub: $("#parkRideHub").value,
       destinations: [...$("#parkRideDestinations").children].map((row) => ({ station: row.dataset.station, weight: row.querySelector("input").valueAsNumber })),
       morning: band("Morning"), evening: band("Evening"), dailyStartMinute: inputMinute("#parkRideStartTime") };
-    parkRideBusy = true; renderParkRide(config, config.network.Stations.filter((station) => !station.ParkingOnly)); status.textContent = "Creating profile…";
+    parkRideBusy = true; renderParkRide(draft(), draft().network.Stations.filter((station) => !station.ParkingOnly)); status.textContent = "Creating profile…";
     try {
+      if (!await editQueue.flush() || inputRevision !== editRevision()) throw new Error("The settings changed. Create the profile again.");
+      const config = draft(), editGeneration = model.edits;
       const result = await goModel.call(config, "park-ride", plan);
       if (result.error) throw new Error(result.error);
-      if (config !== draft() || editGeneration !== model.edits || state.drag && state.drag.type !== "pan" || model.gestureOpen) throw new Error("The draft changed or a gesture is open. Finish the gesture and create the profile again.");
+      if (config !== draft() || editGeneration !== model.edits || inputRevision !== editRevision() || state.drag && state.drag.type !== "pan" || model.gestureOpen) throw new Error("The draft changed or a gesture is open. Finish the gesture and create the profile again.");
       setDraft({ ...config, demandProfiles: [...(config.demandProfiles || []), result.profile], demand: result.demand });
       status.textContent = `Created ${result.profile.name}. Pause and apply to use it.`;
     } catch (error) { status.textContent = error.message; toast(error.message, true); }
@@ -4111,8 +4110,8 @@
     // copy, so that a pointer up cannot record that copy over a newer draft.
     if (state.drag && state.drag.working) { state.drag = null; model.endDrag(); drawnNetwork = null; }
     state.background = state.history.background;
-    const config = draft(); $("#scenarioName").value = config.name; $("#backgroundOpacity").value = state.background ? state.background.opacity : .45; $("#opacityValue").value = `${Math.round(Number($("#backgroundOpacity").value) * 100)}%`;
-    $("#undoButton").disabled = !state.history.canUndo; $("#redoButton").disabled = !state.history.canRedo;
+    const config = draft(); setScalarValue("#scenarioName", config.name); $("#backgroundOpacity").value = state.background ? state.background.opacity : .45; $("#opacityValue").value = `${Math.round(Number($("#backgroundOpacity").value) * 100)}%`;
+    renderHistoryButtons();
     $("#networkMap").dataset.tool = state.tool; $("#cancelLinkButton").hidden = !state.linkFrom;
     renderTools();
     const backgroundKey = JSON.stringify(state.background), selectionKey = JSON.stringify([state.selection, state.linkFrom, state.tool, state.calibrating, state.calibrationPoints]);
@@ -4120,6 +4119,18 @@
       renderMap(); drawnNetwork = config.network; drawnBackground = backgroundKey; drawnSelection = selectionKey;
     } else { renderTiles(); }
     renderSelection(); renderFleet(); renderDemand(); renderRailArrivals(config); renderRailArrivals(config, "departure"); updatePrompt(); renderBackground(); renderApply();
+    restorePendingInputs();
+  }
+  function restorePendingInputs() {
+    for (const [input, pending] of pendingInputs) if (input.isConnected && !typingInputs.has(input)) {
+      if (input.type === "checkbox") input.checked = pending.value;
+      else if (input.value !== pending.value) input.value = pending.value;
+    }
+  }
+  function setScalarValue(selector, value) {
+    const input = $(selector);
+    // A number field can hold partial text that its value getter cannot read.
+    if (!typingInputs.has(input) && input.value !== String(value)) input.value = String(value);
   }
 
   // displayURL gives the object URL of the image of background for the
@@ -4188,8 +4199,8 @@
   // apply or a conflict action runs.
   function renderApply() {
     const changed = Boolean(state.live) && !sameDraft(draft(), state.live.snapshot);
-    const button = $("#applyButton"); button.disabled = state.applying || !changed;
-    button.title = changed || state.applying ? "" : "The draft has no changes to apply.";
+    const button = $("#applyButton"); button.disabled = state.applying || !changed && !editQueue.pending;
+    button.title = changed || state.applying || editQueue.pending ? "" : "The draft has no changes to apply.";
     $("#loadLiveButton").disabled = state.applying; $("#applyOverButton").disabled = state.applying;
   }
 
@@ -4322,6 +4333,7 @@
   // counts as changed.
   function restoreDraft(event) {
     if (!state.offer) return;
+    cancelPendingEdits();
     model.abort();
     const { draft: saved, revision, epoch, serverStart } = state.offer; closeOffer(event);
     state.draftBase = { revision, epoch, serverStart };
@@ -4439,6 +4451,44 @@
   function fitNetwork() { state.view = fitView(state.map.bounds, $("#networkMap").getBoundingClientRect()); setView(); }
 
   const goModel = root.PodsimGoEditor.createClient({ makeWorker: () => new Worker("./editor-model.js") });
+  const pendingInputs = new Map();
+  const typingInputs = new Set();
+  let typingRevision = 0;
+  const editQueue = root.PodsimGoEditor.createEditQueue({ onChange: () => { renderHistoryButtons(); renderApply(); } });
+  function editRevision() { return `${editQueue.revision}:${typingRevision}`; }
+  function bindScalarInput(id, field = id) {
+    const input = $("#" + id);
+    input.addEventListener("input", () => {
+      typingRevision++; model.abort();
+      typingInputs.add(input);
+    });
+    input.addEventListener("change", () => queueScalarEdit(field, input));
+  }
+  function renderHistoryButtons() {
+    $("#undoButton").disabled = !state.history.canUndo && !editQueue.pending;
+    $("#redoButton").disabled = !state.history.canRedo;
+  }
+  function cancelPendingEdits() { editQueue.cancel(); pendingInputs.clear(); typingInputs.clear(); }
+  function queueScalarEdit(field, input) {
+    const pending = { value: input.type === "checkbox" ? input.checked : input.value };
+    typingInputs.delete(input); pendingInputs.set(input, pending); model.abort();
+    editQueue.submit(async (current) => {
+      if (!current()) return false;
+      const config = draft(), generation = model.edits;
+      if (state.drag && state.drag.type !== "pan" || model.gestureOpen) throw new Error("Finish the open gesture before editing settings.");
+      const result = await goModel.call(config, "edit", { field, value: pending.value });
+      if (result.error) throw new Error(result.error);
+      if (!current()) return false;
+      if (config !== draft() || generation !== model.edits || state.drag && state.drag.type !== "pan" || model.gestureOpen) throw new Error("The draft changed during the edit. Enter the setting again.");
+      state.history.replace({ scenario: { ...config, ...result.change.patch }, background: state.background }, true, Boolean(result.change.flag));
+      return true;
+    }).catch((error) => toast(error.message, true)).finally(() => {
+      if (pendingInputs.get(input) === pending) pendingInputs.delete(input);
+      // Settings replies must not end or redraw a newer map gesture.
+      setScalarValue("#scenarioName", draft().name); renderDemand();
+      renderHistoryButtons(); renderApply(); restorePendingInputs();
+    });
+  }
   let placeNavigationEpoch = 0;
   const placeSearch = root.PodsimPlaceSearch.create({
     form: $("#placeSearchForm"), input: $("#placeSearchQuery"), button: $("#placeSearchButton"), status: $("#placeSearchStatus"), results: $("#placeSearchResults"),
@@ -4558,9 +4608,11 @@
   // successful apply changes the loaded revision and the draft base.
   async function applyProject(base = { revision: state.loadedRevision, serverStart: state.draftBase.serverStart }) {
     if (state.applying) return;
-    const project = draft();
+    const inputRevision = editRevision();
     const button = $("#applyButton"); state.applying = true; renderApply(); button.textContent = "Checking…";
     try {
+      if (!await editQueue.flush() || inputRevision !== editRevision()) { toast("The settings changed or an edit failed. Apply the current draft again.", true); return; }
+      const project = draft();
       if (!await readyToApply(project)) return;
       button.textContent = "Pausing…"; keeper.flush();
       const applied = await applyToServer({ connection: state.connection, revision: base.revision, serverStart: base.serverStart, project, onApplying: () => { button.textContent = "Applying…"; } });
@@ -4586,9 +4638,9 @@
   // readyToApply runs the checks. When the draft has errors, it shows them
   // and gives false.
   async function readyToApply(config = draft()) {
-    const editGeneration = model.edits;
+    const editGeneration = model.edits, inputRevision = editRevision();
     const { errors, valid } = await checks.run();
-    if (config !== draft() || editGeneration !== model.edits || state.drag && state.drag.type !== "pan" || model.gestureOpen) { toast("The draft changed during validation. Apply the current draft again.", true); return false; }
+    if (config !== draft() || editGeneration !== model.edits || inputRevision !== editRevision() || editQueue.pending || state.drag && state.drag.type !== "pan" || model.gestureOpen) { toast("The draft changed during validation. Apply the current draft again.", true); return false; }
     if (errors.length) { showChecks(); toast("Fix the listed problems before you apply the scenario.", true); }
     return valid === true && !errors.length;
   }
@@ -4630,7 +4682,7 @@
     return runConflictAction(event, async () => {
       const live = await loadLive({ connection: state.connection, changed: draftChanged(state.history.value, state.live), confirm: (text) => root.confirm(text) });
       return live && (() => {
-        model.abort();
+        cancelPendingEdits(); model.abort();
         const { value, loaded, ...page } = liveDraft(live, { loaded: model.loaded, background: state.background }); Object.assign(state, page); model.setLoaded(loaded);
         state.history.replace(value); state.selection = null;
         render(); setLive({ scenario: draft() }, live.revision);
@@ -4665,7 +4717,7 @@
   async function importProject(file) {
     if (!file) return;
     if (file.size > PROJECT_FILE_BYTES) { toast(`The project file must be ${PROJECT_FILE_BYTES / MIB} MiB or smaller.`, true); return; }
-    const ticket = model.start();
+    cancelPendingEdits(); const ticket = model.start();
     try {
       let text = await file.text();
       if (!model.current(ticket)) return;
@@ -4708,9 +4760,10 @@
   }
 
   // exportProject writes the draft and its background to a project file.
-  // It takes the image descriptor and makes the data URL in the same task,
-  // with no wait, so no later change drops the image first.
-  function exportProject() {
+  // After pending edits finish, it takes the image and makes its data URL
+  // in one task, so no later change drops the image first.
+  async function exportProject() {
+    await editQueue.flush();
     const background = state.background ? exportBackground(state.background, model.image(state.background.imageKey)) : null;
     const blob = new Blob([serializeDocument(draft(), background)], { type: "application/json" });
     const url = URL.createObjectURL(blob); const link = document.createElement("a");
@@ -4874,8 +4927,8 @@
     $("#zoomOutButton").addEventListener("click", () => { const rect = $("#networkMap").getBoundingClientRect(); zoomAt(.8, rect.left + rect.width / 2, rect.top + rect.height / 2); });
     $("#fitButton").addEventListener("click", fitNetwork); $("#cancelLinkButton").addEventListener("click", () => { state.linkFrom = ""; render(); });
     $("#undoButton").addEventListener("click", () => stepHistory(false)); $("#redoButton").addEventListener("click", () => stepHistory(true));
-    $("#resetButton").addEventListener("click", () => { model.abort(); state.draftBase = { revision: state.loadedRevision, epoch: state.connection.epoch, serverStart: state.loadedStart }; state.history.replace(model.loaded); state.selection = null; render(); fitNetwork(); toast("The draft matches the last loaded project."); });
-    $("#validateButton").addEventListener("click", () => checks.run()); $("#applyButton").addEventListener("click", () => applyProject());
+    $("#resetButton").addEventListener("click", () => { model.abort(); cancelPendingEdits(); state.draftBase = { revision: state.loadedRevision, epoch: state.connection.epoch, serverStart: state.loadedStart }; state.history.replace(model.loaded); state.selection = null; render(); fitNetwork(); toast("The draft matches the last loaded project."); });
+    $("#validateButton").addEventListener("click", async () => { if (await editQueue.flush()) checks.run(); }); $("#applyButton").addEventListener("click", () => applyProject());
     $("#restoreDraftButton").addEventListener("click", restoreDraft); $("#discardDraftButton").addEventListener("click", discardDraft);
     $("#loadLiveButton").addEventListener("click", loadLiveScenario); $("#applyOverButton").addEventListener("click", applyOver);
     // Reset draft also hides the apply conflict actions.
@@ -4894,7 +4947,7 @@
     // waiting save starts now. It is not in the store yet, so the prompt still shows.
     state.connection.onServerStart = observeServerStart;
     root.addEventListener("focus", refreshLiveStart);
-    root.addEventListener("beforeunload", (event) => { model.abort(); keeper.flush(); backgroundKeeper.flush(); if (keeper.unsaved || backgroundKeeper.unsaved) { event.preventDefault(); event.returnValue = ""; } });
+    root.addEventListener("beforeunload", (event) => { model.abort(); keeper.flush(); backgroundKeeper.flush(); if (editQueue.pending || typingInputs.size || keeper.unsaved || backgroundKeeper.unsaved) { event.preventDefault(); event.returnValue = ""; } });
     $("#problemCount").addEventListener("click", showChecks);
     $("#validationList").addEventListener("click", (event) => { const button = event.target.closest("button[data-type]"); if (button) selectCheck({ type: button.dataset.type, id: button.dataset.id }); });
     $("#exportButton").addEventListener("click", exportProject); $("#projectImport").addEventListener("change", (event) => { importProject(event.target.files[0]); event.target.value = ""; });
@@ -4937,7 +4990,6 @@
     $("#parkRideAddDestination").addEventListener("click", addParkRideDestination);
     $("#parkRideCreate").addEventListener("click", createParkRideProfile);
     $("#dailyStartTime").addEventListener("change", () => { if ($("#dailyStartTime").reportValidity()) mutate((config) => { config.demand.dailyStartMinute = inputMinute("#dailyStartTime"); return config; }); });
-    $("#scenarioName").addEventListener("change", (event) => mutate((config) => { config.name = event.target.value.trim(); return config; }));
     for (const departure of [false, true]) {
       const addID = departure ? "#addRailDeparture" : "#addRailArrival", rowsID = departure ? "#railDepartureRows" : "#railArrivalRows", choices = departure ? "origins" : "destinations";
       const add = departure ? addRailDeparture : addRailArrival, edit = departure ? editRailDeparture : editRailArrival, remove = departure ? removeRailDeparture : removeRailArrival, addChoice = departure ? addRailOrigin : addRailDestination;
@@ -4956,21 +5008,8 @@
         else if (railAction === "add-destination") { const result = addChoice(draft(), railID); if (result.error) toast(result.error, true); else setDraft(result.config); }
       });
     }
-    $("#demandEnabled").addEventListener("change", (event) => setOperatingFlag("demandEnabled", event.target.checked));
-    $("#demandRate").addEventListener("change", (event) => mutate((config) => { config.demand.perMinute = Math.floor(Number(event.target.value)); return config; }));
-    $("#demandPattern").addEventListener("change", (event) => setDraft(setDemandPattern(draft(), event.target.value)));
-    $("#demandDestination").addEventListener("change", (event) => mutate((config) => { config.demand.destination = event.target.value; return config; }));
-    $("#demandProfile").addEventListener("change", (event) => mutate((config) => { config.demand.profile = event.target.value; config.demand.band = config.demandProfiles.find((profile) => profile.id === event.target.value)?.bands?.[0]?.id || ""; return config; }));
-    $("#demandBand").addEventListener("change", (event) => mutate((config) => { config.demand.band = event.target.value; return config; }));
-    $("#sharedRidePartyLimit").addEventListener("change", (event) => mutate((config) => { config.sharedRidePartyLimit = Math.max(1, Math.min(8, Math.floor(Number(event.target.value) || 1))); return config; }));
-    $("#sharedRideMode").addEventListener("change", (event) => mutate((config) => { config.sharedRideMode = sharedRideModes.includes(event.target.value) ? event.target.value : "drop-offs"; return config; }));
-    $("#sharedRideJoin").addEventListener("change", (event) => mutate((config) => { config.sharedRideJoin = sharedRideJoins.includes(event.target.value) ? event.target.value : "unassigned"; return config; }));
-    $("#sharedRideMaxStops").addEventListener("change", (event) => mutate((config) => { config.sharedRideMaxStops = Math.max(1, Math.min(7, Math.floor(Number(event.target.value) || 3))); return config; }));
-    $("#platoonLimit").addEventListener("change", (event) => mutate((config) => { const limit = Number(event.target.value); config.platoonLimit = platoonLimits.includes(limit) ? limit : 0; return config; }));
-    $("#demandSeed").addEventListener("change", (event) => mutate((config) => { config.demand.seed = Math.max(0, Math.floor(Number(event.target.value))); return config; }));
-    $("#redistribution").addEventListener("change", (event) => setOperatingFlag("redistribution", event.target.checked));
-    $("#stationBuffers").addEventListener("change", (event) => setOperatingFlag("stationBuffers", event.target.checked));
-    $("#pickupReassignment").addEventListener("change", (event) => setOperatingFlag("pickupReassignment", event.target.checked));
+    for (const id of ["demandEnabled", "demandRate", "demandPattern", "demandDestination", "demandProfile", "demandBand", "sharedRidePartyLimit", "sharedRideMode", "sharedRideJoin", "sharedRideMaxStops", "platoonLimit", "demandSeed", "redistribution", "stationBuffers", "pickupReassignment"]) bindScalarInput(id);
+    bindScalarInput("scenarioName", "name");
     $("#fleetControls").addEventListener("change", (event) => { if (event.target.dataset.station) setDraft(setFleetCount(draft(), event.target.dataset.station, event.target.value)); });
     $("#selectionContent").addEventListener("change", (event) => {
       if (!state.selection) return;

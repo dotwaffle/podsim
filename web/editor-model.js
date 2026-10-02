@@ -63,6 +63,37 @@
     };
   }
 
+  // createEditQueue orders browser actions that depend on pending Go replies.
+  // Cancellation invalidates active replies and drops actions that have not started.
+  function createEditQueue({ onChange = () => {} } = {}) {
+    let active = null, generation = 0, revision = 0;
+    const queue = [];
+    function pump() {
+      if (active || !queue.length) return;
+      const job = active = queue.shift();
+      Promise.resolve().then(() => job.action(() => job.generation === generation))
+        .then(job.resolve, job.reject).finally(() => { active = null; onChange(); pump(); });
+    }
+    return {
+      get pending() { return Boolean(active || queue.length); },
+      get revision() { return revision; },
+      submit(action) {
+        if (queue.length >= 8) return Promise.reject(new Error("The editor is busy. Try the action again."));
+        revision++;
+        let resolve, reject;
+        const promise = new Promise((yes, no) => { resolve = yes; reject = no; });
+        queue.push({ action, generation, promise, resolve, reject }); pump(); onChange();
+        return promise;
+      },
+      async flush() {
+        const jobs = active ? [active, ...queue] : [...queue];
+        const results = await Promise.all(jobs.map((job) => job.promise.catch(() => false)));
+        return results.every((result) => result !== false);
+      },
+      cancel() { generation++; revision++; for (const job of queue.splice(0)) job.resolve(false); onChange(); },
+    };
+  }
+
   // bounded limits streamed bytes before the browser retains or compiles them.
   function bounded(stream, limit) {
     let count = 0;
@@ -87,7 +118,7 @@
     if (typeof root.podsimEditorCall !== "function") throw new Error("The Go editor model did not initialize.");
   }
 
-  const api = { createClient, bounded };
+  const api = { createClient, createEditQueue, bounded };
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   root.PodsimGoEditor = api;
   if (typeof document !== "undefined" || typeof root.importScripts !== "function") return;

@@ -1,7 +1,7 @@
 "use strict";
 const test = require("node:test");
 const assert = require("node:assert/strict");
-const { createClient, bounded } = require("./editor-model.js");
+const { createClient, createEditQueue, bounded } = require("./editor-model.js");
 
 function fixture() {
   const sent = [], timers = new Map();
@@ -30,6 +30,45 @@ test("model client serializes jobs and transfers only changed project fields", a
   f.worker.onmessage({ data: { id: f.sent[1].id, result: { error: "Invalid plan" } } });
   assert.deepEqual(await two, { error: "Invalid plan" });
   assert.equal(f.timers.size, 0);
+});
+
+test("browser edit queue orders actions and waits before dependent work", async () => {
+  const queue = createEditQueue(), order = [];
+  let release;
+  const one = queue.submit(async (current) => { order.push("first"); await new Promise((resolve) => { release = resolve; }); assert.equal(current(), true); order.push("commit first"); return true; });
+  const two = queue.submit(async () => { order.push("second"); return true; });
+  const flushed = queue.flush().then((ok) => { order.push("flushed"); return ok; });
+  await Promise.resolve();
+  assert.deepEqual(order, ["first"]); assert.equal(queue.pending, true); assert.equal(queue.revision, 2);
+  release(); assert.equal(await one, true); assert.equal(await two, true); assert.equal(await flushed, true);
+  assert.deepEqual(order, ["first", "commit first", "second", "flushed"]);
+});
+
+test("canceling edits invalidates active replies, drops queued intents, and permits new work", async () => {
+  const queue = createEditQueue(); let release, committed = 0;
+  const first = queue.submit(async (current) => { await new Promise((resolve) => { release = resolve; }); if (!current()) return false; committed++; return true; });
+  const dropped = queue.submit(() => { assert.fail("canceled action ran"); });
+  await Promise.resolve(); queue.cancel(); assert.equal(queue.revision, 3);
+  assert.equal(await dropped, false);
+  const latest = queue.submit(() => { committed++; return true; });
+  release(); assert.equal(await first, false); assert.equal(await latest, true); assert.equal(committed, 1);
+});
+
+test("edit failures block a waiting action and do not poison later edits", async () => {
+  const queue = createEditQueue();
+  const rejected = assert.rejects(queue.submit(() => { throw new Error("Rejected edit"); }), /Rejected edit/);
+  assert.equal(await queue.flush(), false); await rejected;
+  assert.equal(await queue.submit(() => true), true);
+  assert.equal(await queue.flush(), true);
+});
+
+test("browser edit queue bounds pending intentions", async () => {
+  const queue = createEditQueue(); let release;
+  const first = queue.submit(async (current) => { await new Promise((resolve) => { release = resolve; }); return current(); });
+  const pending = Array.from({ length: 8 }, () => queue.submit(() => true));
+  await assert.rejects(queue.submit(() => true), /busy/);
+  await Promise.resolve(); queue.cancel(); release();
+  assert.equal(await first, false); assert.deepEqual(await Promise.all(pending), Array(8).fill(false));
 });
 
 test("model client fails active and queued jobs on startup, transport, timeout, or shutdown", async (t) => {

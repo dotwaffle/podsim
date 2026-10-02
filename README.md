@@ -842,6 +842,8 @@ They end when the server stops, also with `-state`.
 An import does not replace the draft when the file is malformed, unsupported, or fails validation.
 The Go/WASM editor worker checks the draft and imported projects off the main browser thread.
 It retains project branches and reuses topology and demand flow checks until their inputs change.
+The worker computes changes for scenario names, demand selectors and rates, sharing, platoons, and operating flags.
+The browser keeps queued input and waits for pending edits before apply, export, undo, or redo.
 Validation checks routes between passenger stations, berth routes, pod placement, resource IDs, and the 24-meter minimum lane length.
 A route between passenger stations goes from each berth of one station to each berth of the other station.
 It can use all lanes.
@@ -1582,7 +1584,7 @@ See [the project brief](PROJECT_BRIEF.md) for the wider scope and research.
 | `internal/sim` | Network, routing, requests, pod movement, state export and restore, and deterministic tests. |
 | `internal/observe` | Station berth and queue metrics for the view and comparison reports. |
 | `internal/project` | Versioned scenario settings, validation, and detached copies. |
-| `internal/editormodel` | Go editor worker state, targeted checks, daily profile construction, and place navigation. |
+| `internal/editormodel` | Go editor worker state, targeted checks, settings edits, daily profile construction, and place navigation. |
 | `internal/scenarios` | Deterministic scenario presets, including `scale100`, `london-central`, and `london-full`, and qualification tests. |
 | `internal/session` | Shared clock, command validation, save points, saved session state, HTTP API, and repeatable demand. |
 | `internal/statestore` | Saved session state in a `file://` blob bucket, for the server only. |

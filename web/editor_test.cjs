@@ -5018,7 +5018,7 @@ function pageImports() {
     $: (selector) => { assert.ok(controls[selector], selector); return controls[selector]; },
     draft: () => model.history.value.scenario, referenceChoice: () => null,
     toast: (message) => messages.push(message), updateStatus: (message) => messages.push(message),
-    render: noop, fitNetwork: noop, checks: { run: noop }, reportPublish: noop, keptToast: () => ["saved"],
+    render: noop, fitNetwork: noop, cancelPendingEdits: noop, checks: { run: noop }, reportPublish: noop, keptToast: () => ["saved"],
   };
   const imports = new Function(...Object.keys(deps), `${functions}\nreturn { ${names.join(", ")} };`)(...Object.values(deps));
   return { ...imports, model, slot, fake, controls, messages, queued: () => queued };
