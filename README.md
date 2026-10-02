@@ -1589,7 +1589,7 @@ See [the project brief](PROJECT_BRIEF.md) for the wider scope and research.
 | `internal/sim` | Network, routing, requests, pod movement, state export and restore, and deterministic tests. |
 | `internal/observe` | Station berth and queue metrics for the view and comparison reports. |
 | `internal/project` | Versioned scenario settings, validation, and detached copies. |
-| `internal/editormodel` | Go editor worker state, targeted checks, settings edits, daily profile construction, and place navigation. |
+| `internal/editormodel` | Go editor worker state, checks, edits, normalization, undo history, daily profile construction, and place navigation. |
 | `internal/scenarios` | Deterministic scenario presets, including `scale100`, `london-central`, and `london-full`, and qualification tests. |
 | `internal/session` | Shared clock, command validation, save points, saved session state, HTTP API, and repeatable demand. |
 | `internal/statestore` | Saved session state in a `file://` blob bucket, for the server only. |
