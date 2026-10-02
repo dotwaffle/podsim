@@ -756,7 +756,7 @@ The network remains usable when tiles are unavailable.
 
 Projects save the provider, opacity, and geographic reference, not tile pixels.
 They need internet access to load the map on another machine.
-There is no offline download, server proxy, geocoder, or automatic guideway generation.
+There is no offline tile download, tile proxy, or automatic guideway generation.
 Existing PNG and JPEG backgrounds, including older schematic imports, remain usable in the editor.
 Their image export and calibration behavior do not change.
 
@@ -764,6 +764,30 @@ Keep the visible OpenStreetMap attribution when sharing a map view.
 Network geometry traced from OSM can be subject to the [ODbL](https://www.openstreetmap.org/copyright).
 The [OSM tile policy](https://operations.osmfoundation.org/policies/tiles/) governs use of the public tile service.
 Automated tests use local tile fixtures and make no requests to that service.
+
+### Find a place
+
+Enter a place name under **View**, then press Enter or select **Search**.
+Select a result to pan and zoom the editor map.
+The project needs a geographic reference before search is available.
+Search and selection do not change the project, add stations, or create undo steps.
+
+Place search needs the native Podsim server.
+The default provider is [Nominatim](https://nominatim.org/).
+The server shares one request slot across all clients, with at least one second between upstream requests.
+It caches up to 128 successful searches for 24 hours.
+Busy searches show a wait message.
+Press **Search** again after the wait.
+Search never runs while you type and never retries automatically.
+Do not enter personal or confidential information.
+Keep the OpenStreetMap attribution and follow the [Nominatim usage policy](https://operations.osmfoundation.org/policies/nominatim/).
+
+Use `-geocoding-url=""` to disable external place search.
+To switch providers, set `-geocoding-url` to a Nominatim-compatible HTTP or HTTPS search endpoint.
+The endpoint cannot contain credentials, query parameters, or a fragment.
+The server does not follow redirects or use environment proxy settings for searches.
+Multiple server deployments need a shared limiter before using the public provider.
+Tests use a local fake provider and make no public searches.
 
 ### Apply a draft
 

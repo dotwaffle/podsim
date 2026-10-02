@@ -17,6 +17,7 @@ type request struct {
 	Op       string         `json:"op"`
 	Project  jsontext.Value `json:"project"`
 	ParkRide jsontext.Value `json:"parkRide,omitempty"`
+	View     jsontext.Value `json:"view,omitempty"`
 }
 
 type response struct {
@@ -24,6 +25,7 @@ type response struct {
 	Error   string                 `json:"error,omitempty"`
 	Profile *project.DemandProfile `json:"profile,omitempty"`
 	Demand  *project.DemandConfig  `json:"demand,omitempty"`
+	View    *mapView               `json:"view,omitempty"`
 }
 
 // Call handles one bounded JSON request without retaining caller data.
@@ -61,6 +63,9 @@ func execute(input string) (response, error) {
 	if err := json.Unmarshal(command.Project, &config, json.RejectUnknownMembers(true)); err != nil {
 		return response{}, fmt.Errorf("decode editor project: %w", err)
 	}
+	if command.Op != "place-view" && len(command.View) != 0 || command.Op != "park-ride" && len(command.ParkRide) != 0 {
+		return response{}, errors.New("editor operation has unrelated parameters")
+	}
 	switch command.Op {
 	case "validate":
 		if len(command.ParkRide) != 0 {
@@ -83,6 +88,12 @@ func execute(input string) (response, error) {
 			return response{}, err
 		}
 		return response{Profile: &profile, Demand: &demand}, nil
+	case "place-view":
+		view, err := placeView(config.Geo, command.View)
+		if err != nil {
+			return response{}, err
+		}
+		return response{View: &view}, nil
 	default:
 		return response{}, errors.New("unknown editor model operation")
 	}

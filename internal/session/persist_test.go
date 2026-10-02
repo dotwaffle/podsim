@@ -2567,7 +2567,7 @@ var sessionPersistRules = map[string]persistRule{
 	"largeBodies": persistInfrastructure, "streamMu": persistInfrastructure, "stream": persistInfrastructure, "publicOrigin": persistInfrastructure,
 	"saveProject": persistInfrastructure, "logger": persistInfrastructure,
 	"build": persistInfrastructure, "persist": persistInfrastructure,
-	"serverStart": persistInfrastructure,
+	"serverStart": persistInfrastructure, "places": persistInfrastructure,
 }
 
 func TestSessionFieldsHavePersistRules(t *testing.T) {

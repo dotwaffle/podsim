@@ -446,10 +446,12 @@ Projects save provider settings and the geographic reference, not downloaded til
 Ordinary image files retain their manual calibration, attribution, export, and undo behavior.
 Older schematic images remain usable.
 Tile failures leave the network usable, and the user can retry failed tiles.
-There is no bulk download, offline map archive, server proxy, or automatic guideway generation.
+There is no bulk tile download, offline map archive, tile proxy, or automatic guideway generation.
 See [live OpenStreetMap](README.md#live-openstreetmap-backdrop) for the current workflow.
 
-Location search remains a possible UI extension.
+The editor supports explicit place search through a cached, rate-limited native Nominatim proxy.
+Selecting a result changes only the view.
+Go/WASM computes its projected position and zoom.
 Editable geographic objects, automatic guideway generation, and aerial imagery are shelved as very low priority at the user's request.
 
 **London presets:** LondonCentral supplies a generated geographic network independently of the background importer.

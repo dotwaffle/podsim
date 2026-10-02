@@ -4608,6 +4608,7 @@
     }));
     line.hidden = !parts.length;
     renderBackgroundInfo();
+    placeSearch.refresh();
   }
 
   // renderBackgroundInfo shows the facts of backgroundFacts in the
@@ -4877,6 +4878,21 @@
   function fitNetwork() { state.view = fitView(state.map.bounds, $("#networkMap").getBoundingClientRect()); setView(); }
 
   const goModel = root.PodsimGoEditor.createClient({ makeWorker: () => new Worker("./editor-model.js") });
+  let placeNavigationEpoch = 0;
+  const placeSearch = root.PodsimPlaceSearch.create({
+    form: $("#placeSearchForm"), input: $("#placeSearchQuery"), button: $("#placeSearchButton"), status: $("#placeSearchStatus"), results: $("#placeSearchResults"),
+    fetch: (url, options) => root.fetch(url, options), hasReference: () => !!draft().geo,
+    navigate: async (place) => {
+      const geo = draft().geo, previousView = { ...state.view }, epoch = placeNavigationEpoch, rect = $("#networkMap").getBoundingClientRect();
+      const result = await goModel.call({ geo }, "place-view", { latitude: place.latitude, longitude: place.longitude, bounds: place.bounds, width: rect.width, height: rect.height });
+      if (result.error) throw new Error(result.error);
+      const currentRect = $("#networkMap").getBoundingClientRect();
+      if (geo !== draft().geo || ["x", "y", "scale"].some((key) => previousView[key] !== state.view[key]) || rect.width !== currentRect.width || rect.height !== currentRect.height || state.drag || epoch !== placeNavigationEpoch) throw new Error("The map view or geographic reference changed. Select the place again.");
+      state.view = result.view; setView();
+    },
+  });
+  root.addEventListener("pagehide", () => { placeNavigationEpoch++; placeSearch.suspend(); });
+  root.addEventListener("pageshow", () => placeSearch.resume());
   let validationJob = null;
   function scheduleValidation() {
     if (validationJob) return;

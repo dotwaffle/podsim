@@ -382,6 +382,8 @@ func TestRunFailsBeforeServing(t *testing.T) {
 		{name: "bad flag value", args: []string{"-addr"}, wantErr: errFlags},
 		{name: "invalid public origin", args: []string{"-public-origin", "https://example.com/path"}, wantErr: errFlags},
 		{name: "public origin query", args: []string{"-public-origin", "https://example.com?"}, wantErr: errFlags},
+		{name: "invalid geocoding URL", args: []string{"-geocoding-url", "file:///search"}, wantErr: errFlags},
+		{name: "geocoding credentials", args: []string{"-geocoding-url", "https://user:secret@host/search"}, wantErr: errFlags},
 		{name: "help", args: []string{"-h"}, wantErr: flag.ErrHelp},
 		{name: "missing browser files", args: []string{"-dir", t.TempDir()}, wantErr: fs.ErrNotExist},
 		{name: "application address in use", args: []string{"-addr", occupied, "-dir", directory}, wantErr: syscall.EADDRINUSE},

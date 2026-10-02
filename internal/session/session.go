@@ -263,6 +263,8 @@ type Session struct {
 	// it reads a body that needs a place, and removes the value after it
 	// applies the command.
 	largeBodies chan struct{}
+	// places owns the native server geocoding limiter and cache.
+	places *placeSearch
 	// persist saves the session state. It is nil without a state store.
 	persist *persistence
 }
@@ -341,7 +343,13 @@ func (s *Session) Run(ctx context.Context) {
 
 // Close stops the clock and rejects new commands. Reads continue. Close does not
 // wait for a tick or a command that is already in progress. Close is idempotent.
-func (s *Session) Close() { s.closed.Store(true); s.stopStreams() }
+func (s *Session) Close() {
+	s.closed.Store(true)
+	s.stopStreams()
+	if s.places != nil {
+		s.places.client.CloseIdleConnections()
+	}
+}
 
 func (s *Session) advance() {
 	s.mu.Lock()

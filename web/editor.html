@@ -169,6 +169,14 @@
         <h2>View</h2>
         <p class="hint">Drag empty space to pan. Use the wheel to zoom. Zoom in to show junction labels. Press Escape to cancel drawing or moving an item.</p>
         <button id="fitButton" class="wide" type="button">Fit network</button>
+        <form id="placeSearchForm" class="subpanel">
+          <label>Find a place<input id="placeSearchQuery" type="search" maxlength="200" required autocomplete="off"></label>
+          <button id="placeSearchButton" class="wide" type="submit">Search</button>
+          <p id="placeSearchStatus" role="status" aria-live="polite"></p>
+          <ul id="placeSearchResults" class="place-results"></ul>
+          <p class="hint">Searches send the entered name to the server's map provider. Do not enter personal or confidential information.</p>
+          <p class="hint">© <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap contributors</a>. <a href="https://operations.osmfoundation.org/policies/nominatim/" target="_blank" rel="noopener">Search usage policy</a>.</p>
+        </form>
       </section>
     </aside>
 
@@ -275,6 +283,7 @@
   <div id="toast" role="status" aria-live="polite"></div>
   <script src="tiles.js"></script>
   <script src="editor-model.js"></script>
+  <script src="place-search.js"></script>
   <script src="editor.js"></script>
 </body>
 </html>

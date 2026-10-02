@@ -90,6 +90,7 @@ func run(ctx context.Context, input runInput) error {
 	address := flags.String("addr", "127.0.0.1:8080", "HTTP listen address")
 	directory := flags.String("dir", "", "Browser build directory; overrides embedded assets")
 	pprofAddress := flags.String("pprof-addr", "", "Separate pprof listen address; disabled when empty")
+	geocodingURL := flags.String("geocoding-url", "https://nominatim.openstreetmap.org/search", "Nominatim-compatible search URL; empty disables place search")
 	projectPath := flags.String("project", "", "Project JSON file to load and save")
 	publicOrigin := flags.String("public-origin", "", "Canonical public HTTP or HTTPS origin for commands and streams")
 	stateURL := flags.String("state", "", "Bucket URL for the saved session state, for example file:///var/lib/podsim. Off when empty.")
@@ -100,13 +101,17 @@ func run(ctx context.Context, input runInput) error {
 	if err != nil {
 		return fmt.Errorf("%w: %w", errFlags, err)
 	}
+	geocodingOption, err := session.WithGeocodingURL(*geocodingURL)
+	if err != nil {
+		return fmt.Errorf("%w: %w", errFlags, err)
+	}
 	files, err := browserFiles(*directory)
 	if err != nil {
 		return err
 	}
 	build := buildIDOrRandom(slog.Default(), files)
 	config := project.Default()
-	options := []session.Option{originOption, session.WithLogger(slog.Default()), session.WithBuildID(build)}
+	options := []session.Option{originOption, geocodingOption, session.WithLogger(slog.Default()), session.WithBuildID(build)}
 	if *projectPath != "" {
 		loaded, loadErr := loadProject(*projectPath)
 		if loadErr != nil {

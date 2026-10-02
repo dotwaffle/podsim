@@ -93,7 +93,7 @@
       await starting;
       config = Object.fromEntries(data.keys.map((key) => [key, Object.hasOwn(data.patch, key) ? data.patch[key] : config[key]]));
       const command = { op: data.op, project: config };
-      if (data.parkRide !== undefined) command.parkRide = data.parkRide;
+      if (data.parkRide !== undefined) command[data.op === "place-view" ? "view" : "parkRide"] = data.parkRide;
       const result = JSON.parse(root.podsimEditorCall(JSON.stringify(command)));
       if (!result || typeof result !== "object" || Array.isArray(result) || result.fatal) throw new Error("Invalid or fatal Go response");
       if (data.op === "validate") {
@@ -101,6 +101,9 @@
         const checks = root.PodsimEditorModel.checkResults(config);
         if (result.error && !checks.errors.some((item) => item.text === result.error)) checks.errors.push({ text: result.error });
         root.postMessage({ id: data.id, result: { ...checks, valid: result.valid === true } });
+      } else if (data.op === "place-view") {
+        if (!result.error && (!result.view || ![result.view.x, result.view.y, result.view.scale].every(Number.isFinite) || result.view.scale <= 0)) throw new Error("Invalid Go view response");
+        root.postMessage({ id: data.id, result });
       } else {
         if (!result.error && (!result.profile || typeof result.profile !== "object" || typeof result.profile.id !== "string" || !Array.isArray(result.profile.bands) || !Array.isArray(result.profile.flows) || !result.demand || typeof result.demand !== "object" || typeof result.demand.pattern !== "string")) throw new Error("Invalid Go constructor response");
         root.postMessage({ id: data.id, result });
