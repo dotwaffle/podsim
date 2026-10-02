@@ -595,10 +595,11 @@ Projects retain event plans, and physical restart resumes without replaying past
 The editor authors plans and the comparison tool retains offered identities, including rejected passengers.
 Outbound train plans, request windows, transfer deadlines, connection outcomes, editor controls, and restart accounting are implemented.
 The bounded forecast controller remains comparison-only after its selected service screen failed.
-Time-varying park-and-ride demand remains later work.
+Repeating [daily demand profiles](docs/daily-demand.md) and morning/evening park-and-ride authoring are implemented.
+Explicit car journeys and parking capacity remain later work.
 
 Point-to-point pod journeys can already concentrate at a hub.
-The extensions to study are time-dependent demand, transfer delays, and connections to scheduled services.
+Further studies can test achievable train connections and station throughput under different demand schedules.
 
 Compare these invented demand scenarios:
 
