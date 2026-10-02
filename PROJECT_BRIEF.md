@@ -270,11 +270,12 @@ A saved scenario and random seed should produce repeatable results.
 
 Ebitengine draws the simulation view and handles its controls.
 A separate HTML and JavaScript page provides the scenario editor, background images, and project import and export.
-Its Go/WASM worker owns project checks, settings, fleet and rail edits, demand profile construction, and place-search projection.
+Its Go/WASM worker computes project checks, settings, fleet and rail edits, geometry edit proposals, demand profile construction, and place-search projection.
 The worker retains changed project branches and caches checks for unchanged topology and demand flows.
 JavaScript handles browser controls, drawing, storage, and image decoding.
 It orders asynchronous edits and keeps newer typing when an older worker reply arrives.
-Move the remaining project edits, geometry operations, and undo history into Go in stages.
+JavaScript still commits drag previews, normalizes loaded drafts, and holds undo history.
+Move these model operations and geographic metadata edits into Go in stages.
 
 Define a clear boundary between user commands, simulation updates, and state exposed for display.
 Avoid a general plugin system in the first version.

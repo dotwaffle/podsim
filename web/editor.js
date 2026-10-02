@@ -3641,12 +3641,10 @@
     clearTimeout(state.toastTimer); state.toastTimer = setTimeout(() => { element.className = ""; }, 4000);
   }
   function updateStatus(message) { $("#serverStatus").textContent = message; }
-  // removeStation deletes the station from the draft. When the delete removes
-  // demand profile flows, a toast gives their number.
-  function removeStation(stationID) {
-    const flows = stationFlowCount(draft(), stationID);
-    const rail = stationRailReferences(draft(), stationID);
-    setDraft(deleteStation(draft(), stationID));
+  // reportStationDeletion shows the references removed by an accepted edit.
+  function reportStationDeletion(config, stationID) {
+    const flows = stationFlowCount(config, stationID);
+    const rail = stationRailReferences(config, stationID);
     if (rail > 0) toast(`Station deleted. Rail arrival plans updated${flows ? ` and ${flows} demand flows removed` : ""}.`);
     else if (flows > 0) toast(`Station deleted. ${flows} demand ${flows === 1 ? "flow" : "flows"} removed.`);
   }
@@ -3860,12 +3858,12 @@
   // the next field.
   function renderSelection() {
     const panel = $("#selectionContent"); const card = selectionCard(draft(), state.selection);
-    if (!card) { state.selection = null; delete panel.dataset.card; panel.className = "empty"; panel.textContent = "No item selected."; return; }
+    if (!card) { clearSelectionInputs(panel); state.selection = null; delete panel.dataset.card; panel.className = "empty"; panel.textContent = "No item selected."; return; }
     const key = `${card.type} ${card.id}`;
-    if (panel.dataset.card !== key) { panel.dataset.card = key; panel.layoutNetwork = null; panel.className = "selection-card"; panel.innerHTML = SELECTION_FORMS[card.type]; }
+    if (panel.dataset.card !== key) { clearSelectionInputs(panel); panel.dataset.card = key; panel.layoutNetwork = null; panel.className = "selection-card"; panel.innerHTML = SELECTION_FORMS[card.type]; }
     const field = (name) => panel.querySelector(`[data-field="${name}"]`); const input = (name) => panel.querySelector(`[data-edit="${name}"]`);
     // Set only a changed value. This keeps the caret in a focused field.
-    const setValue = (element, value) => { if (element.value !== value) element.value = value; };
+    const setValue = setControlValue;
     field("id").textContent = card.id;
     if (card.type === "station") {
       setValue(input("station-name"), card.name); setValue(input("station-bearing"), String(card.bearing)); input("parking-only").checked = card.parkingOnly; renderBerths(field("berths"), card); renderStationLayout(panel, draft(), card.id);
@@ -3874,6 +3872,10 @@
       field("length").textContent = `Length: ${card.length.toFixed(1)} m`;
       panel.querySelector('[data-action="toggle-curve"]').textContent = card.curved ? "Make straight" : "Add curve";
     } else field("position").textContent = `Junction at ${card.x.toFixed(1)}, ${card.y.toFixed(1)} m`;
+    for (const control of panel.querySelectorAll("input, button")) { control.dataset.item = card.id; control.dataset.kind = card.type; }
+  }
+  function clearSelectionInputs(panel) {
+    for (const input of panel.querySelectorAll("input")) { typingInputs.delete(input); pendingInputs.delete(input); }
   }
 
   function renderStationLayout(panel, config, stationID) {
@@ -3883,8 +3885,9 @@
     for (const key of ["pitch", "spacing", "setback"]) {
       const input = panel.querySelector(`[data-layout="${key}"]`);
       input.disabled = Boolean(layout.error) || layout[key] === null;
-      input.value = input.disabled ? "" : String(Number(layout[key].toFixed(3)));
-      input.dataset.layoutValue = input.value;
+      const value = input.disabled ? "" : String(Number(layout[key].toFixed(3)));
+      setControlValue(input, value);
+      input.dataset.layoutValue = value;
     }
     const note = layout.error || [layout.pitch === null ? "Pitch requires two berth rows." : "", layout.setback === null ? "Setback requires an aligned entry/exit throat." : ""].filter(Boolean).join(" ");
     panel.querySelector('[data-field="layout-hint"]').textContent = note || "Preview updates the draft map in one undo step. Apply the project to change the simulation.";
@@ -4413,7 +4416,8 @@
     render();
   }
 
-  function selectItem(type, id) { state.selection = { type, id }; render(); }
+  let geometrySelectionEpoch = 0;
+  function selectItem(type, id) { geometrySelectionEpoch++; state.selection = { type, id }; render(); }
 
   function beginDrag(type, id, event) {
     const drag = { type, id, startClient: { x: event.clientX, y: event.clientY }, originalView: { ...state.view } };
@@ -4432,6 +4436,7 @@
 
   function onPointerDown(event) {
     if (event.button !== 0) return;
+    const selectionEpoch = ++geometrySelectionEpoch;
     const target = event.target; const type = target.dataset && target.dataset.type; const id = target.dataset && target.dataset.id;
     if (state.calibrating) {
       if (!state.background) return;
@@ -4441,7 +4446,7 @@
     }
     if (state.tool === "lane" && (type === "node" || type === "station-node")) {
       if (!state.linkFrom) state.linkFrom = id;
-      else if (state.linkFrom !== id) { setDraft(addLane(draft(), state.linkFrom, id, $("#pairedLanes").checked)); state.linkFrom = ""; }
+      else if (state.linkFrom !== id) { queueGeometryEdit({ action: "addLane", id: state.linkFrom, to: id, paired: $("#pairedLanes").checked }); state.linkFrom = ""; }
       render(); return;
     }
     if (type === "lane") { selectItem("lane", id); return; }
@@ -4460,8 +4465,13 @@
     }
     if (type === "control") { beginDrag("control", id, event); return; }
     const location = worldPoint(event);
-    if (state.tool === "junction") { const next = addJunction(draft(), location.X, location.Y); setDraft(next); selectItem("node", next.network.Nodes.at(-1).ID); return; }
-    if (state.tool === "station") { const next = addStation(draft(), location.X, location.Y); setDraft(next); selectItem("station", next.network.Stations.at(-1).ID); return; }
+    if (state.tool === "junction" || state.tool === "station") {
+      const station = state.tool === "station";
+      queueGeometryEdit({ action: station ? "addStation" : "addNode", point: location }, { accepted: () => {
+        if (selectionEpoch === geometrySelectionEpoch) selectItem(station ? "station" : "node", draft().network[station ? "Stations" : "Nodes"].at(-1).ID);
+      } });
+      return;
+    }
     state.selection = null; beginDrag("pan", "", event); render();
   }
 
@@ -4563,6 +4573,42 @@
       // Rail replies must not end a newer map gesture.
       renderRailArrivals(draft(), kind); renderDemand(); renderHistoryButtons(); renderApply(); restorePendingInputs();
     });
+  }
+  function queueGeometryEdit(command, { controls = [], accepted } = {}) {
+    const pending = controls.map((input) => {
+      const value = { value: input.type === "checkbox" ? input.checked : input.value };
+      typingInputs.delete(input); pendingInputs.set(input, value);
+      return { input, value };
+    });
+    model.abort();
+    return editQueue.submit(async (current) => {
+      if (!current()) return false;
+      const config = draft(), generation = model.edits;
+      if (state.drag && state.drag.type !== "pan" || model.gestureOpen) throw new Error("Finish the open gesture before editing geometry.");
+      const result = await goModel.call(config, "edit", { field: "geometry", value: command });
+      if (result.error) throw new Error(result.error);
+      if (!current()) return false;
+      if (config !== draft() || generation !== model.edits || state.drag && state.drag.type !== "pan" || model.gestureOpen) throw new Error("The draft changed during the edit. Enter the geometry change again.");
+      state.history.replace({ scenario: { ...config, ...result.change.patch }, background: state.background }, true);
+      if (accepted) accepted(config);
+      return true;
+    }).catch((error) => { toast(error.message, true); return false; }).finally(() => {
+      for (const { input, value } of pending) if (pendingInputs.get(input) === value) pendingInputs.delete(input);
+      // A late geometry reply must preserve a newer drawing gesture.
+      if (!(state.drag && state.drag.type !== "pan") && !model.gestureOpen) render();
+      else { renderHistoryButtons(); renderApply(); restorePendingInputs(); }
+    });
+  }
+  function deleteSelectedItem(selection, { keyboard = false } = {}) {
+    const focused = document.activeElement;
+    const action = { station: "deleteStation", lane: "deleteLane", node: "deleteNode" }[selection.type];
+    return queueGeometryEdit({ action, id: selection.id }, { accepted: (before) => {
+      const ownsFocus = document.activeElement === focused;
+      if (selection.type === "station") reportStationDeletion(before, selection.id);
+      if (state.selection?.type === selection.type && state.selection.id === selection.id) state.selection = null;
+      render();
+      if (keyboard && ownsFocus && !focused.isConnected) focusMap();
+    } });
   }
   let placeNavigationEpoch = 0;
   const placeSearch = root.PodsimPlaceSearch.create({
@@ -5096,39 +5142,40 @@
     bindScalarInput("scenarioName", "name");
     $("#fleetControls").addEventListener("input", (event) => { if (event.target.dataset.station) markTyping(event.target); });
     $("#fleetControls").addEventListener("change", (event) => { if (event.target.dataset.station) queueScalarEdit("fleetCount", event.target, event.target.dataset.station); });
-    $("#selectionContent").addEventListener("change", (event) => {
-      if (!state.selection) return;
-      if (event.target.dataset.edit === "station-name") mutate((config) => { config.network.Stations.find((item) => item.ID === state.selection.id).Name = event.target.value.trim(); return config; });
-      if (event.target.dataset.edit === "parking-only") mutate((config) => { config.network.Stations.find((item) => item.ID === state.selection.id).ParkingOnly = event.target.checked; return config; });
-      // After a bearing change, the field shows the bearing from 0 to 359.
-      // A value that is not a number does not turn the station.
-      if (event.target.dataset.edit === "station-bearing") {
-        const bearing = event.target.value === "" ? NaN : Number(event.target.value);
-        if (Number.isFinite(bearing)) setDraft(setStationBearing(draft(), state.selection.id, bearing));
-        renderSelection();
-      }
-      if (event.target.dataset.edit === "lane-speed") mutate((config) => { config.network.Lanes.find((item) => item.ID === state.selection.id).SpeedLimit = Number(event.target.value)/3.6; return config; });
+    $("#selectionContent").addEventListener("input", (event) => {
+      if (event.target.dataset.edit || event.target.dataset.layout) markTyping(event.target);
     });
-    // A delete removes the button that started it. Enter or Space on a
-    // button gives a click with detail 0. After such a delete from the
-    // keyboard, the focus goes to a nearby control. After a pointer click,
-    // the editor does not move the focus.
+    $("#selectionContent").addEventListener("change", (event) => {
+      const control = event.target, id = control.dataset.item;
+      const action = { "station-name": "stationName", "parking-only": "stationParking", "station-bearing": "stationBearing", "lane-speed": "laneSpeed" }[control.dataset.edit];
+      if (!action || !id) return;
+      queueGeometryEdit({ action, id, value: control.type === "checkbox" ? control.checked : control.value }, { controls: [control] });
+    });
+    // Keyboard deletion keeps focus near the removed item after acceptance.
     $("#selectionContent").addEventListener("click", (event) => {
-      const button = event.target.closest("button[data-action]"); if (!button || !state.selection) return; const action = button.dataset.action; const config = draft();
-      const berthIDs = action === "remove-berth" ? selectionCard(config, state.selection)?.berths.map((berth) => berth.id) || [] : [];
+      const button = event.target.closest("button[data-action]");
+      if (!button || !button.dataset.item) return;
+      const action = button.dataset.action, id = button.dataset.item, keyboard = event.detail === 0;
+      if (action.startsWith("delete-")) { deleteSelectedItem({ type: button.dataset.kind, id }, { keyboard }); return; }
       if (action === "station-layout") {
         const fields = [...$("#selectionContent").querySelectorAll("input[data-layout]")].filter((input) => !input.disabled && input.value !== input.dataset.layoutValue);
+        if (fields.some((input) => !Number.isFinite(input.valueAsNumber))) { toast("Station dimensions must be finite numbers.", true); return; }
         const dimensions = Object.fromEntries(fields.map((input) => [input.dataset.layout, input.valueAsNumber]));
-        const result = setStationLayout(config, state.selection.id, dimensions);
-        if (result.error) toast(result.error, true); else setDraft(result.config);
+        queueGeometryEdit({ action: "stationLayout", id, value: dimensions }, { controls: fields });
+        return;
       }
-      else if (action === "add-berth") { const result = addBerth(config, state.selection.id); if (result.error) toast(result.error, true); else setDraft(result.config); }
-      else if (action === "remove-berth") { const result = removeBerth(config, state.selection.id, button.dataset.id); if (result.error) toast(result.error, true); else setDraft(result.config); }
-      else if (action === "delete-station") { removeStation(state.selection.id); state.selection = null; render(); }
-      else if (action === "delete-lane") { setDraft(deleteLane(config, state.selection.id)); state.selection = null; render(); }
-      else if (action === "delete-node") { const result = deleteNode(config, state.selection.id); if (result.error) toast(result.error, true); else { setDraft(result.config); state.selection = null; render(); } }
-      else if (action === "toggle-curve") mutate((next) => { const lane = next.network.Lanes.find((item) => item.ID === state.selection.id); if (lane.Control) delete lane.Control; else { const a = nodeFor(next, lane.From).Position; const b = nodeFor(next, lane.To).Position; lane.Control = { X: (a.X + b.X) / 2 - (b.Y - a.Y) * .25, Y: (a.Y + b.Y) / 2 + (b.X - a.X) * .25 }; } return next; });
-      if (event.detail === 0 && !button.isConnected) { if (action === "remove-berth") focusBerthControl(berthFocusID(berthIDs, button.dataset.id)); else focusMap(); }
+      const command = { action: { "add-berth": "addBerth", "remove-berth": "removeBerth", "toggle-curve": "toggleCurve" }[action], id };
+      if (!command.action) return;
+      const berthIDs = action === "remove-berth" ? draft().network.Stations.find((station) => station.ID === id)?.Berths.map((berth) => berth.ID) || [] : [];
+      if (action === "remove-berth") command.value = button.dataset.id;
+      queueGeometryEdit(command, { accepted: () => {
+        const ownsFocus = document.activeElement === button;
+        render();
+        if (keyboard && ownsFocus && !button.isConnected && state.selection?.id === id) {
+          if (action === "remove-berth") focusBerthControl(berthFocusID(berthIDs, button.dataset.id));
+          else focusMap();
+        }
+      } });
     });
     document.addEventListener("keydown", (event) => {
       const editing = /INPUT|SELECT|TEXTAREA/.test(document.activeElement.tagName);
@@ -5138,12 +5185,7 @@
       // A delete of the selected item clears the Selection panel. When a
       // panel button had the focus, the map gets the focus.
       if (!editing && (event.key === "Delete" || event.key === "Backspace") && state.selection) {
-        const focused = document.activeElement;
-        if (state.selection.type === "lane") setDraft(deleteLane(draft(), state.selection.id));
-        else if (state.selection.type === "station") removeStation(state.selection.id);
-        else { const result = deleteNode(draft(), state.selection.id); if (result.error) toast(result.error, true); else setDraft(result.config); }
-        state.selection = null; render();
-        if (!focused.isConnected) focusMap();
+        event.preventDefault(); deleteSelectedItem({ ...state.selection }, { keyboard: true });
       }
     });
   }
