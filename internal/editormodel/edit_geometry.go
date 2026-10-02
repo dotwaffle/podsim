@@ -36,6 +36,8 @@ var geometryFields = map[string][]string{
 	"deleteStation": {"id"},
 	"addBerth":      {"id"}, "removeBerth": {"id", "value"},
 	"stationLayout": {"id", "value"},
+	"stationBanks":  {"id", "value"}, "bankLayout": {"id", "value"},
+	"addBankBerth": {"id", "value"}, "stationLegacy": {"id"},
 }
 
 type geometryDraft struct {
@@ -62,6 +64,23 @@ func editGeometry(draft any, raw jsontext.Value) (projectChange, error) {
 		if len(items(geometry.network[key])) > limit {
 			return projectChange{}, fmt.Errorf("the edit exceeds the %s count limit", key)
 		}
+	}
+	if hasBanks(original) || hasBanks(geometry.network) {
+		if err := geometry.validateBankChanges(original); err != nil {
+			return projectChange{}, err
+		}
+	}
+	if hasBanks(geometry.network) {
+		if err := validateBankDraft(geometry.network); err != nil {
+			return projectChange{}, err
+		}
+	}
+	if hasBanks(original) || command.Action == "stationBanks" || command.Action == "stationLegacy" {
+		version := float64(1)
+		if hasBanks(geometry.network) {
+			version = 2
+		}
+		geometry.replaceBranch("version", version)
 	}
 	if !reflect.DeepEqual(original, geometry.network) {
 		change.Patch["network"] = geometry.network
@@ -274,6 +293,18 @@ func (g geometryDraft) change(command geometryEdit) error {
 		return g.removeBerth(command.ID, berthID)
 	case "stationLayout":
 		return g.setStationLayout(command.ID, command.Value)
+	case "stationBanks":
+		return g.setStationBanks(command.ID, command.Value)
+	case "stationLegacy":
+		return g.setStationLegacy(command.ID)
+	case "bankLayout":
+		return g.setBankLayout(command.ID, command.Value)
+	case "addBankBerth":
+		var bankID string
+		if err := json.Unmarshal(command.Value, &bankID); err != nil {
+			return fmt.Errorf("decode bank ID: %w", err)
+		}
+		return g.addBankBerth(command.ID, bankID)
 	}
 	return errors.New("unknown geometry action")
 }
@@ -402,6 +433,13 @@ func stationCoreNodes(station any) map[string]bool {
 	for _, key := range []string{"Entry", "Exit"} {
 		if id := text(member(station, key)); id != "" {
 			ids[id] = true
+		}
+	}
+	for _, bank := range items(member(station, "Banks")) {
+		for _, key := range []string{"Entry", "Exit"} {
+			if id := text(member(bank, key)); id != "" {
+				ids[id] = true
+			}
 		}
 	}
 	for _, berth := range items(member(station, "Berths")) {

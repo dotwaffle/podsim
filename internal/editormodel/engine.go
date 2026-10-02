@@ -146,7 +146,12 @@ func (e *engine) sync(command request) (response, error) {
 			if err != nil {
 				return response{}, fmt.Errorf("encode project branch: %w", err)
 			}
-			branch.err = json.Unmarshal(encoded, &branch.decoded, json.RejectUnknownMembers(true))
+			// Branches can omit the project version or network. Check bank
+			// version and field presence after the branches are combined.
+			type branchConfig project.Config
+			var decoded branchConfig
+			branch.err = json.Unmarshal(encoded, &decoded, json.RejectUnknownMembers(true))
+			branch.decoded = project.Config(decoded)
 			next[key] = branch
 		}
 		if branch.err != nil {
@@ -158,6 +163,14 @@ func (e *engine) sync(command request) (response, error) {
 		if !copyBranch(&config, key, branch.decoded) && firstError == nil {
 			firstError = fmt.Errorf("unsupported editor project field %s", key)
 		}
+	}
+	if firstError == nil && (hasBanks(next["network"].value) || config.Version == 2) {
+		raw, err := json.Marshal(map[string]jsontext.Value{"version": next["version"].raw, "network": next["network"].raw})
+		if err != nil {
+			return response{}, fmt.Errorf("encode editor bank branches: %w", err)
+		}
+		var checked project.Config
+		firstError = json.Unmarshal(raw, &checked, json.RejectUnknownMembers(true))
 	}
 	if !bytes.Equal(e.branches["demandProfiles"].raw, next["demandProfiles"].raw) {
 		e.profiles = nil

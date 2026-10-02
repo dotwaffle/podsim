@@ -22,6 +22,14 @@ func (g geometryDraft) stationLayout(id string) (stationDimensions, error) {
 	if err != nil {
 		return stationDimensions{}, err
 	}
+	if has(station, "Banks") {
+		return stationDimensions{}, errors.New("select a bank for layout changes")
+	}
+	return g.stationLayoutFor(station)
+}
+
+func (g geometryDraft) stationLayoutFor(station map[string]any) (stationDimensions, error) {
+	id := text(station["ID"])
 	rows := g.berthChain(station)
 	if len(rows) == 0 {
 		return stationDimensions{}, errors.New("layout controls require a straight berth chain")
@@ -152,6 +160,10 @@ func (g geometryDraft) setStationLayout(id string, raw jsontext.Value) error {
 	if err != nil {
 		return err
 	}
+	return g.setLayoutDimensions(layout, raw, true)
+}
+
+func (g geometryDraft) setLayoutDimensions(layout stationDimensions, raw jsontext.Value, check bool) error {
 	if raw.Kind() != '{' {
 		return errors.New("station dimensions must be an object")
 	}
@@ -250,10 +262,13 @@ func (g geometryDraft) setStationLayout(id string, raw jsontext.Value) error {
 		if err != nil {
 			return err
 		}
-		if length := draftLaneLength(map[string]any{"X": a.X, "Y": a.Y}, map[string]any{"X": b.X, "Y": b.Y}, member(lane, "Control")); length < 24 {
+		if length := draftLaneLength(map[string]any{"X": a.X, "Y": a.Y}, map[string]any{"X": b.X, "Y": b.Y}, member(lane, "Control")); check && length < 24 {
 			return fmt.Errorf("lane %s would be shorter than 24 meters", text(member(lane, "ID")))
 		}
 		lanes = append(lanes, text(member(lane, "ID")))
+	}
+	if !check {
+		return nil
 	}
 	if conflict := g.laneConflict(lanes, true); conflict != nil {
 		return fmt.Errorf("lane %s would come within 12 meters of lane %s", conflict.lane, conflict.other)

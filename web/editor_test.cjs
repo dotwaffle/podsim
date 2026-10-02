@@ -1984,8 +1984,8 @@ test("import names the missing or wrong field", () => {
     { name: "an export with a scenario list", file: { format: "podsim", version: 1, scenario: [scenario] }, message: "The scenario field must be an object." },
     { name: "an API reply", file: { revision: 3, project: scenario }, message: "The file has no format field and no network field." },
     { name: "a project with a network list", file: { ...scenario, network: [] }, message: "The network field must be an object." },
-    { name: "a project of a different version", file: { ...scenario, version: 2 }, message: "The version field must be 1." },
-    { name: "a project with no version", file: { ...scenario, version: undefined }, message: "The version field must be 1." },
+    { name: "a version 2 project without banks", file: { ...scenario, version: 2 }, message: "Version 2 projects need a banked station." },
+    { name: "a project with no version", file: { ...scenario, version: undefined }, message: "The version field must be 1 or 2." },
   ];
   for (const item of cases) {
     assert.throws(() => editor.parseDocument(JSON.stringify(item.file)), { message: item.message }, item.name);
@@ -5635,4 +5635,77 @@ test("a canceled Go opacity proposal rolls back its owned preview", async () => 
   assert.equal(await job, false);
   assert.equal(model.history.background.opacity, .45);
   assert.equal(model.history.canUndo, false);
+});
+
+function independentBankFixture() {
+  const config = layoutFixture(); const station = config.network.Stations[0];
+  const second = structuredClone(config);
+  for (const node of second.network.Nodes) { node.ID = `b-${node.ID}`; node.Position.X += 600; }
+  for (const lane of second.network.Lanes) { lane.ID = `b-${lane.ID}`; lane.From = `b-${lane.From}`; lane.To = `b-${lane.To}`; }
+  const members = second.network.Stations[0].Berths;
+  for (const berth of members) { berth.ID = `b-${berth.ID}`; berth.Node = `b-${berth.Node}`; }
+  station.Banks = [
+    { ID: "a", Entry: station.Entry, Exit: station.Exit, BerthIDs: station.Berths.map((berth) => berth.ID) },
+    { ID: "b", Entry: "b-entry", Exit: "b-exit", BerthIDs: members.map((berth) => berth.ID) },
+  ];
+  station.Berths.push(...members); config.network.Nodes.push(...second.network.Nodes); config.network.Lanes.push(...second.network.Lanes);
+  for (const prefix of ["", "b-"]) {
+    config.network.Nodes.push({ ID: `${prefix}road-in`, Position: { X: prefix ? 540 : -60, Y: -100 } }, { ID: `${prefix}road-out`, Position: { X: prefix ? 660 : 60, Y: -100 } });
+    config.network.Lanes.push({ ID: `${prefix}road-in`, From: `${prefix}road-in`, To: `${prefix}diverge`, SpeedLimit: 14 }, { ID: `${prefix}road-out`, From: `${prefix}merge`, To: `${prefix}road-out`, SpeedLimit: 14 });
+  }
+  config.version = 2;
+  return config;
+}
+
+test("bank controls send scoped Go geometry commands", () => {
+  const config = independentBankFixture(); const before = structuredClone(config);
+  assert.deepEqual(editor.stationGeometryCommand(config, "layout", "addBerth", undefined, "b"), { action: "addBankBerth", id: "layout", value: "b" });
+  assert.deepEqual(editor.stationGeometryCommand(config, "layout", "stationLayout", { pitch: 50, approachLength: 160 }, "b"), { action: "bankLayout", id: "layout", value: { bank: "b", pitch: 50, approachLength: 160 } });
+  assert.throws(() => editor.stationGeometryCommand(config, "layout", "addBerth"), /Select a station bank/);
+  const legacy = layoutFixture();
+  assert.deepEqual(editor.stationGeometryCommand(legacy, "layout", "addBerth"), { action: "addBerth", id: "layout" });
+  assert.deepEqual(editor.stationGeometryCommand(config, "layout", "removeBerth", "berth0", "a"), { action: "removeBerth", id: "layout", value: "berth0" });
+  assert.deepEqual(config, before);
+});
+
+test("bank views select berth membership and dedicated anchor dimensions", () => {
+  const config = independentBankFixture();
+  const card = editor.selectionCard(config, { type: "station", id: "layout", bank: "b", berth: "b-berth1" });
+  assert.equal(card.bank, "b"); assert.deepEqual(card.banks, [{ id: "a" }, { id: "b" }]);
+  assert.deepEqual(card.berths, [{ id: "b-berth0", selected: false }, { id: "b-berth1", selected: true }, { id: "b-berth2", selected: false }]);
+  assert.equal(editor.selectionCard(config, { type: "station", id: "layout", bank: "removed" }).bank, "a");
+  assert.equal(editor.selectionCard(config, { type: "station", id: "layout", berth: "b-berth1" }).bank, "b");
+  assert.match(editor.stationLayout(config, "layout").error, /Select/);
+  const a = editor.stationLayout(config, "layout", "a"), b = editor.stationLayout(config, "layout", "b");
+  assert.equal(a.error, ""); assert.equal(b.error, ""); assert.equal(b.pitch, 75); assert.equal(b.spacing, 200);
+  assert.equal(b.station.Entry, "b-entry"); assert.ok(b.approachLength > 120); assert.ok(b.departureLength > 120);
+  Object.assign(config.network.Lanes.find((lane) => lane.ID === "b-road-in"), { StationID: "layout", StationRole: "approach" });
+  assert.ok(editor.stationLayout(config, "layout", "b").approachLength > 120);
+  config.network.Lanes.push({ ID: "shared", From: "b-diverge", To: "road-in", SpeedLimit: 14 });
+  assert.equal(editor.stationLayout(config, "layout", "b").approachLength, null);
+});
+
+test("bank import and export preserve metadata and nested array caps", () => {
+  const config = independentBankFixture();
+  const sandbox = { structuredClone, TextEncoder, PodsimTiles: require("./tiles.js") };
+  require("node:vm").runInNewContext(fs.readFileSync(path.join(__dirname, "editor.js"), "utf8"), sandbox);
+  const browser = sandbox.PodsimEditorModel;
+  assert.deepEqual(JSON.parse(JSON.stringify(browser.parseDocument(JSON.stringify(config)).scenario)), config);
+  assert.deepEqual(JSON.parse(JSON.stringify(browser.parseDocument(editor.serializeDocument(config)).scenario)), config);
+  for (const banks of [null, [], Array(9).fill(config.network.Stations[0].Banks[0])]) {
+    const invalid = structuredClone(config); invalid.network.Stations[0].Banks = banks;
+    assert.throws(() => browser.parseDocument(JSON.stringify(invalid)), /1 to 8 banks/);
+  }
+  const invalid = structuredClone(config); invalid.network.Stations[0].Banks[0].BerthIDs = Array(201).fill("berth0");
+  assert.throws(() => browser.parseDocument(JSON.stringify(invalid)), /1 to 200 berth IDs/);
+  const legacy = structuredClone(config); legacy.version = 1;
+  assert.throws(() => browser.parseDocument(JSON.stringify(legacy)), /Version 1.*banks/);
+});
+
+test("bank station pointer previews include every gate and local row once", () => {
+  const config = independentBankFixture();
+  const targets = editor.dragTargets(config, { type: "station", id: "layout" });
+  for (const id of ["entry", "exit", "b-entry", "b-exit", "b-a0", "b-b0", "b-d0"]) assert.ok(targets.nodeIDs.includes(id), id);
+  assert.equal(new Set(targets.nodeIDs).size, targets.nodeIDs.length);
+  assert.ok(!targets.nodeIDs.includes("diverge")); assert.ok(!targets.nodeIDs.includes("b-diverge"));
 });

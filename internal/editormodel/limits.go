@@ -74,6 +74,10 @@ func requestArrayLimit(decoder *jsontext.Decoder) int64 {
 		return project.MaxLanes
 	case "/project/network/Stations":
 		return project.MaxStations
+	case "/project/network/Stations/*/Banks", "/edit/value/value":
+		return 8
+	case "/project/network/Stations/*/Banks/*/BerthIDs", "/edit/value/value/*/BerthIDs":
+		return project.MaxBerths
 	case "/project/network/Stations/*/Berths":
 		return project.MaxBerths
 	case "/project/fleet":

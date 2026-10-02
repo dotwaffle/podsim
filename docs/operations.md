@@ -258,7 +258,7 @@ It reports them as unaccounted orders at each restore, together with the orders 
 
 Ordinary sessions write saved-state version 2.
 An experimental station buffer session writes version 3 while admissions are enabled or buffer members remain.
-This server accepts versions 2, 3, and 4.
+This server accepts versions 2, 3, 4, and 5.
 Version 3 adds the optional pod field `stationBuffered` and permits validated berthless occupancy of a station holding lane.
 Restore keeps those members draining, then applies the project's experimental policy settings.
 Version 2 rejects the field, including an explicit `false` value.
@@ -270,6 +270,11 @@ Invalid buffer certificates fail restoration without a logical fallback or parti
 Explicit logical recovery validates those certificates physically before it requeues orders.
 The writer returns to the existing version 3 or version 2 rules after the links drain.
 See the [fixed entry contract](station-entry-platoons.md) for field and restore checks.
+Banked projects use project version 2 and saved-state version 5.
+Saved-state versions 2, 3, and 4 require project version 1.
+Version 5 requires project version 2 and retains the buffer and fixed entry fields.
+Bank-inconsistent retained routes reject restoration before either tier.
+See [independent station banks](station-banks.md) for bank membership, routing, and browser editing.
 An older server rejects an unsupported version and moves the file aside.
 Keep a copy before a downgrade.
 

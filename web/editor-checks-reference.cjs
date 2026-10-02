@@ -215,7 +215,9 @@ module.exports = function (editor) {
     const errors = [];
     const report = (text, target) => { errors.push(text); if (targets && target && !targets.has(text)) targets.set(text, target); };
     if (!value || typeof value !== "object" || Array.isArray(value)) return ["The scenario must be a JSON object."];
-    if (value.version !== 1) errors.push("The scenario version must be 1.");
+    const banked = value.network?.Stations?.some((station) => station && Object.hasOwn(station, "Banks"));
+    if (![1, 2].includes(value.version)) errors.push("The scenario version must be 1 or 2.");
+    else if (value.version === 1 && banked || value.version === 2 && !banked) errors.push("The scenario version does not match its station banks.");
     if (typeof value.name !== "string" || !value.name.trim()) errors.push("The scenario needs a name.");
     if (typeof value.name === "string" && new TextEncoder().encode(value.name).length > 80) errors.push("The scenario name exceeds 80 bytes.");
     const network = value.network;
@@ -285,6 +287,7 @@ module.exports = function (editor) {
       if (typeof station.Name !== "string" || !station.Name.trim()) report(`Station ${station.ID} needs a name.`, stationTarget);
       if (!nodeIDs.has(station.Entry) || !nodeIDs.has(station.Exit) || station.Entry === station.Exit) report(`Station ${station.ID} has invalid entry or exit nodes.`, stationTarget);
       componentNodes.add(station.Entry); componentNodes.add(station.Exit);
+      for (const bank of station.Banks || []) { componentNodes.add(bank.Entry); componentNodes.add(bank.Exit); }
       if (!Array.isArray(station.Berths) || station.Berths.length === 0) report(`Station ${station.ID} needs at least one berth.`, stationTarget);
       for (const berth of Array.isArray(station.Berths) ? station.Berths : []) {
         uniqueID(berth && berth.ID, "A berth");
@@ -305,8 +308,9 @@ module.exports = function (editor) {
     const brokenBerths = new Set();
     for (const station of validStations) {
       for (const berth of Array.isArray(station.Berths) ? station.Berths.filter(isRecord) : []) {
-        const entry = reachableAvoiding(directed, station.Entry, berth.Node, componentNodes);
-        const exit = reachableAvoiding(directed, berth.Node, station.Exit, componentNodes);
+        const gates = station.Banks ? station.Banks.find((bank) => bank.BerthIDs?.includes(berth.ID)) : station;
+        const entry = reachableAvoiding(directed, gates?.Entry, berth.Node, componentNodes);
+        const exit = reachableAvoiding(directed, berth.Node, gates?.Exit, componentNodes);
         if (!entry) report(`Berth ${berth.ID} needs an entry lane.`, checkTarget("berth", berth.ID));
         if (!exit) report(`Berth ${berth.ID} needs an exit lane.`, checkTarget("berth", berth.ID));
         if (!entry || !exit) brokenBerths.add(berth.Node);

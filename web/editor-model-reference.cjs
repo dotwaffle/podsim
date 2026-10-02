@@ -67,7 +67,7 @@ module.exports = (helpers) => {
 
   function normalizeConfig(input) {
     const config = clone(input || emptyConfig());
-    config.version = 1;
+    config.version = config.network?.Stations?.some((station) => station && Object.hasOwn(station, "Banks")) ? 2 : 1;
     config.name = typeof config.name === "string" ? config.name : "Untitled scenario";
     config.network = config.network || {};
     config.network.Nodes = Array.isArray(config.network.Nodes) ? config.network.Nodes : [];
@@ -143,6 +143,7 @@ module.exports = (helpers) => {
     const forbidden = new Set(Stations.flatMap((station) => [station.Entry, station.Exit, ...station.Berths.map((berth) => berth.Node)]));
     let kept = 0;
     for (const station of Stations) {
+      if (Object.hasOwn(station, "Banks")) continue;
       const roles = new Map();
       const keep = (index, role) => { if (!roles.has(index)) roles.set(index, role); };
       Lanes.forEach((lane, index) => { if (lane.From === station.Entry && lane.To === station.Exit) keep(index, "through"); });

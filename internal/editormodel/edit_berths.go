@@ -67,6 +67,9 @@ func (g geometryDraft) addBerth(id string) error {
 	if err != nil {
 		return err
 	}
+	if has(station, "Banks") {
+		return errors.New("select a bank to add a berth")
+	}
 	if len(items(station["Berths"])) >= project.MaxBerths {
 		return errors.New("the station already has 200 berths")
 	}
@@ -274,7 +277,13 @@ func (g geometryDraft) removeBerth(stationID, berthID string) error {
 	}
 	berths := items(station["Berths"])
 	index := slices.IndexFunc(berths, func(berth any) bool { return member(berth, "ID") == berthID })
-	if index < 0 || len(berths) <= 1 {
+	if index < 0 {
+		return nil
+	}
+	if len(berths) <= 1 {
+		if has(station, "Banks") {
+			return errors.New("the station must retain one berth")
+		}
 		return nil
 	}
 	node := text(member(berths[index], "Node"))
@@ -287,7 +296,21 @@ func (g geometryDraft) removeBerth(stationID, berthID string) error {
 		}
 	}
 	goneNodes, goneLanes := map[string]bool{node: true}, map[string]bool{}
-	if rows := g.berthChain(station); len(rows) != 0 {
+	chainStation := station
+	var owningBank map[string]any
+	if has(station, "Banks") {
+		for _, bank := range items(station["Banks"]) {
+			if slices.ContainsFunc(items(member(bank, "BerthIDs")), func(id any) bool { return id == berthID }) {
+				owningBank = object(bank)
+				chainStation = bankStation(station, owningBank)
+				break
+			}
+		}
+		if owningBank == nil {
+			return errors.New("the berth has no owning bank")
+		}
+	}
+	if rows := g.berthChain(chainStation); len(rows) != 0 {
 		last := rows[len(rows)-1]
 		if last.berth["ID"] == berthID {
 			goneNodes[last.arrival], goneNodes[last.departure] = true, true
@@ -299,6 +322,24 @@ func (g geometryDraft) removeBerth(stationID, berthID string) error {
 					return errors.New("delete shared lanes at the berth row nodes first")
 				}
 			}
+		}
+	}
+	if owningBank != nil {
+		owningBank["BerthIDs"] = slices.DeleteFunc(items(owningBank["BerthIDs"]), func(id any) bool { return id == berthID })
+		if len(items(owningBank["BerthIDs"])) == 0 {
+			for _, key := range []string{"Entry", "Exit"} {
+				goneNodes[text(owningBank[key])] = true
+			}
+			for _, lane := range items(g.network["Lanes"]) {
+				if goneNodes[text(member(lane, "From"))] || goneNodes[text(member(lane, "To"))] {
+					if member(lane, "StationID") != stationID {
+						return errors.New("delete nonstation lanes at the bank gates first")
+					}
+					goneLanes[text(member(lane, "ID"))] = true
+				}
+			}
+			station["Banks"] = slices.DeleteFunc(items(station["Banks"]), func(bank any) bool { return member(bank, "ID") == owningBank["ID"] })
+			refreshBankAliases(station)
 		}
 	}
 	station["Berths"] = slices.Delete(berths, index, index+1)

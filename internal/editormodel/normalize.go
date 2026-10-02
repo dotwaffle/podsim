@@ -17,6 +17,9 @@ func normalizeProject(draft any) (projectChange, error) {
 	}
 	out := maps.Clone(object(draft))
 	out["version"] = float64(1)
+	if hasBanks(member(out, "network")) {
+		out["version"] = float64(2)
+	}
 	if _, ok := out["name"].(string); !ok {
 		out["name"] = "Untitled scenario"
 	}

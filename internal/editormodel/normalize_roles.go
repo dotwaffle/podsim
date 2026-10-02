@@ -31,6 +31,9 @@ func inferEditorStationLanes(network map[string]any) {
 		}
 	}
 	for _, station := range stations {
+		if has(station, "Banks") {
+			continue
+		}
 		roles := make(map[int]string)
 		for index, lane := range lanes {
 			if member(lane, "From") == member(station, "Entry") && member(lane, "To") == member(station, "Exit") {

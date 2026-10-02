@@ -253,10 +253,15 @@
 
   // Station dimensions come from existing coordinates. Only aligned, straight
   // berth chains support these controls. Other layouts keep manual node edits.
-  function stationLayout(config, stationID) {
-    const station = config.network.Stations.find((item) => item.ID === stationID);
+  function stationLayout(config, stationID, bankID = "") {
+    let station = config.network.Stations.find((item) => item.ID === stationID);
+    if (station && Object.hasOwn(station, "Banks")) {
+      const bank = station.Banks?.find((item) => item.ID === bankID);
+      if (!bank) return { error: "Select a station bank." };
+      station = bankStation(station, bank);
+    }
     const rows = station && berthChain(config, station);
-    const unsupported = (reason) => ({ error: reason });
+    const unsupported = (reason) => ({ error: reason, approachLength: bankID && station ? bankAccessLength(config, station, "entry") : null, departureLength: bankID && station ? bankAccessLength(config, station, "exit") : null });
     if (!rows) return unsupported("Layout controls require a straight berth chain.");
     const nodes = new Map(config.network.Nodes.map((node) => [node.ID, node.Position]));
     const entry = nodes.get(station.Entry); const exit = nodes.get(station.Exit);
@@ -296,11 +301,44 @@
       const depth = -side * offset(incoming[0].From, "across");
       if (depth > 0) setback = depth;
     }
-    return { station, rows, frame, side, body, pitch, spacing, setback, error: "" };
+    return { station, rows, frame, side, body, pitch, spacing, setback, error: "",
+      approachLength: bankID ? bankAccessLength(config, station, "entry") : null,
+      departureLength: bankID ? bankAccessLength(config, station, "exit") : null };
+  }
+
+  function selectedBank(station, selection) {
+    return station.Banks?.find((bank) => bank.ID === selection?.bank) || station.Banks?.find((bank) => bank.BerthIDs.includes(selection?.berth)) || station.Banks?.[0];
+  }
+
+  function bankStation(station, bank) {
+    const ids = new Set(bank.BerthIDs);
+    return { ...station, Banks: undefined, Entry: bank.Entry, Exit: bank.Exit, Berths: station.Berths.filter((berth) => ids.has(berth.ID)) };
+  }
+
+  function bankAccessLength(config, station, role) {
+    const gate = role === "entry" ? station.Entry : station.Exit;
+    const lanes = config.network.Lanes.filter((lane) => lane.StationID === station.ID && lane.StationRole === role && (role === "entry" ? lane.To === gate : lane.From === gate));
+    if (lanes.length !== 1 || lanes[0].Control) return null;
+    const anchor = role === "entry" ? lanes[0].From : lanes[0].To;
+    const incident = config.network.Lanes.filter((lane) => lane.From === anchor || lane.To === anchor);
+    if (incident.length !== 2 || incident.some((lane) => lane.Control) || config.network.Stations.some((other) => stationCoreNodeIDs(other).has(anchor))) return null;
+    const otherRole = role === "entry" ? "approach" : "exit";
+    if (incident.some((lane) => lane.ID !== lanes[0].ID && (lane.StationID && (lane.StationID !== station.ID || lane.StationRole !== otherRole) || lane.From === gate || lane.To === gate))) return null;
+    const length = laneLength(config, lanes[0]);
+    return length > 0 ? length : null;
+  }
+
+  function stationGeometryCommand(config, id, action, value, bankID = "") {
+    const station = config.network.Stations.find((item) => item.ID === id);
+    if (Object.hasOwn(station || {}, "Banks") && ["stationLayout", "addBerth"].includes(action)) {
+      if (!station.Banks?.some((bank) => bank.ID === bankID)) throw new Error("Select a station bank.");
+      return action === "addBerth" ? { action: "addBankBerth", id, value: bankID } : { action: "bankLayout", id, value: { bank: bankID, ...value } };
+    }
+    return value === undefined ? { action, id } : { action, id, value };
   }
 
   function stationCoreNodeIDs(station) {
-    return new Set([station.Entry, station.Exit, ...(station.Berths || []).map((berth) => berth.Node)]);
+    return new Set([station.Entry, station.Exit, ...(station.Banks || []).flatMap((bank) => [bank.Entry, bank.Exit]), ...(station.Berths || []).map((berth) => berth.Node)]);
   }
 
   // stationNodeOwners maps each station node to its station ID. A station has
@@ -410,10 +448,12 @@
     if (selection.type === "station") {
       const station = find(config.network.Stations);
       const entry = station && point(config, station.Entry); const exit = station && point(config, station.Exit);
+      const bank = station && selectedBank(station, selection);
       return station ? {
         type: "station", id: station.ID, name: station.Name, bearing: entry && exit ? Math.round(stationBearing(entry, exit)) % 360 : 0,
         parkingOnly: Boolean(station.ParkingOnly), canRemove: station.Berths.length > 1,
-        berths: station.Berths.map((berth) => ({ id: berth.ID, selected: berth.ID === selection.berth })),
+        berths: station.Berths.filter((berth) => !station.Banks || bank?.BerthIDs.includes(berth.ID)).map((berth) => ({ id: berth.ID, selected: berth.ID === selection.berth })),
+        ...(station.Banks ? { banks: station.Banks.map((bank) => ({ id: bank.ID })), bank: bank?.ID || "" } : {}),
       } : null;
     }
     if (selection.type === "lane") {
@@ -681,7 +721,7 @@
     }
     if (!("network" in document)) throw new Error("The file has no format field and no network field.");
     if (!isObject(document.network)) throw new Error("The network field must be an object.");
-    if (document.version !== 1) throw new Error("The version field must be 1.");
+    if (![1, 2].includes(document.version)) throw new Error("The version field must be 1 or 2.");
     return { scenario: clone(document), background: null };
   }
 
@@ -693,6 +733,13 @@
     let document;
     try { document = JSON.parse(text); } catch (error) { throw new Error(`The file is not valid JSON. ${error.message}`); }
     const { scenario, background } = unwrapDocument(document);
+    const banked = (scenario.network?.Stations || []).filter((station) => station && Object.hasOwn(station, "Banks"));
+    if (scenario.version === 1 && banked.length) throw new Error("Version 1 projects cannot contain station banks.");
+    if (scenario.version === 2 && !banked.length) throw new Error("Version 2 projects need a banked station.");
+    for (const station of banked) {
+      if (!Array.isArray(station.Banks) || !station.Banks.length || station.Banks.length > 8) throw new Error("A station needs 1 to 8 banks.");
+      for (const bank of station.Banks) if (!Array.isArray(bank?.BerthIDs) || !bank.BerthIDs.length || bank.BerthIDs.length > MAX_BERTHS) throw new Error("A bank needs 1 to 200 berth IDs.");
+    }
     if (background) checkBackground(background);
     const asset = background ? documentAsset(background.asset) : null;
     for (const pod of Array.isArray(scenario.fleet) ? scenario.fleet : []) {
@@ -2342,7 +2389,7 @@
   const API = {
 
     MIN_LANE_LENGTH, MAX_PODS, MAX_STATIONS, MAX_NODES, MAX_LANES, MAX_NODE_LANES, MAX_FLOWS, MIN_ZOOM, NODE_LABEL_SCALE, NODE_LABEL_SIZE, LANE_PAIR_OFFSET, CHEVRON_LANE_LENGTH, BERTH_PITCH, STATION_PADDING, CLEARANCE, CHECK_DELAY, emptyConfig, fallbackConfig,
-    stationBearing, stationShape, stationLayout, berthChain, stationFlowCount, stationRailReferences, fleetRows, selectionCard, berthFocusID, undoFocus,
+    stationBearing, stationShape, stationLayout, stationGeometryCommand, berthChain, stationFlowCount, stationRailReferences, fleetRows, selectionCard, berthFocusID, undoFocus,
     laneLength, curveLength, stationNodeOwners, dragTargets, checkSelector, checkSelection, selectionPoint, focusView,
     GEO_PROJECTION, GEO_RADIUS, GEO_MAX_LATITUDE, MAX_COORDINATE, FRAME_SOURCES, SCALE_TOLERANCE, ALIGN_TOLERANCE, RESAMPLE_MAX_SIDE, projectPoint, frameError, framePlacement, frameAligned, resampleSize, mercatorY, resampleRows,
     problemCountText, createCheckTimer, validationSummary, checkFocusKey, IMAGE_FILE_BYTES, IMAGE_MAX_SIDE, IMAGE_MAX_PIXELS, imageFacts, imageBytesFacts, dataURLToBytes, bytesToDataURL, checkImageSize,
@@ -2746,7 +2793,7 @@
   // renderSelection puts the item data into the data-field elements and the
   // inputs.
   const SELECTION_FORMS = {
-    station: '<label>Name<input data-edit="station-name" maxlength="80"></label><p class="id" data-field="id"></p><label class="check"><input data-edit="parking-only" type="checkbox"> Parking station</label><label>Bearing (degrees)<input data-edit="station-bearing" type="number" step="1"></label><p class="hint">The bearing is the direction from the entry to the exit, clockwise from up. The square marks the entry, and the triangle marks the exit. Drag the shape to move the station, or drag a node to move only that node.</p><fieldset data-field="layout"><legend>Station layout</legend><label>Berth pitch (m)<input data-layout="pitch" type="number" min="25" step="1"></label><label>Entry/exit spacing (m)<input data-layout="spacing" type="number" min="48" step="1"></label><label>Approach setback (m)<input data-layout="setback" type="number" min="1" step="1"></label><p class="hint" data-field="layout-hint"></p><button data-action="station-layout" type="button">Preview in draft</button></fieldset><div class="berth-list" data-field="berths"><strong>Physical berths</strong></div><button data-action="add-berth" type="button">Add physical berth</button><button data-action="delete-station" class="danger" type="button">Delete station and connections</button>',
+    station: '<label>Name<input data-edit="station-name" maxlength="80"></label><p class="id" data-field="id"></p><label class="check"><input data-edit="parking-only" type="checkbox"> Parking station</label><label>Bearing (degrees)<input data-edit="station-bearing" type="number" step="1"></label><p class="hint">The bearing is the direction from the entry to the exit, clockwise from up. The square marks the entry, and the triangle marks the exit. Drag the shape to move the station, or drag a node to move only that node.</p><label data-field="bank-selection" hidden>Bank<select data-edit="station-bank"></select></label><fieldset data-field="layout"><legend>Station layout</legend><label>Berth pitch (m)<input data-layout="pitch" type="number" min="25" step="1"></label><label>Entry/exit spacing (m)<input data-layout="spacing" type="number" min="48" step="1"></label><label>Approach setback (m)<input data-layout="setback" type="number" min="1" step="1"></label><label data-field="approach-length" hidden>Approach length (m)<input data-layout="approachLength" type="number" min="24" step="1"></label><label data-field="departure-length" hidden>Departure length (m)<input data-layout="departureLength" type="number" min="24" step="1"></label><p class="hint" data-field="layout-hint"></p><button data-action="station-layout" type="button">Preview in draft</button></fieldset><details><summary>Bank membership</summary><label>Complete bank array<textarea data-edit="station-banks" rows="5" spellcheck="false"></textarea></label><p class="hint">Import or edit the physical nodes and lanes first. Each bank needs distinct gates and its own berth paths.</p><button data-action="station-banks" type="button">Preview bank membership</button><button data-action="station-legacy" type="button">Use legacy station gates</button></details><div class="berth-list" data-field="berths"><strong>Physical berths</strong></div><button data-action="add-berth" type="button">Add physical berth</button><button data-action="delete-station" class="danger" type="button">Delete station and connections</button>',
     lane: '<p class="id" data-field="id"></p><p data-field="route"></p><label>Speed limit (km/h)<input data-edit="lane-speed" type="number" min="1" step="1"></label><p class="hint" data-field="length"></p><button data-action="toggle-curve" type="button"></button><button data-action="delete-lane" class="danger" type="button">Delete guideway</button>',
     node: '<p class="id" data-field="id"></p><p data-field="position"></p><button data-action="delete-node" class="danger" type="button">Delete junction and connections</button>',
   };
@@ -2773,26 +2820,35 @@
       field("length").textContent = `Length: ${card.length.toFixed(1)} m`;
       panel.querySelector('[data-action="toggle-curve"]').textContent = card.curved ? "Make straight" : "Add curve";
     } else field("position").textContent = `Junction at ${card.x.toFixed(1)}, ${card.y.toFixed(1)} m`;
-    for (const control of panel.querySelectorAll("input, button")) { control.dataset.item = card.id; control.dataset.kind = card.type; }
+    for (const control of panel.querySelectorAll("input, button, select, textarea")) { control.dataset.item = card.id; control.dataset.kind = card.type; }
   }
   function clearSelectionInputs(panel) {
-    for (const input of panel.querySelectorAll("input")) { typingInputs.delete(input); pendingInputs.delete(input); }
+    for (const input of panel.querySelectorAll("input, textarea")) { typingInputs.delete(input); pendingInputs.delete(input); }
   }
 
   function renderStationLayout(panel, config, stationID) {
-    if (panel.layoutNetwork === config.network) return;
-    panel.layoutNetwork = config.network;
-    const layout = stationLayout(config, stationID);
-    for (const key of ["pitch", "spacing", "setback"]) {
+    const station = config.network.Stations.find((item) => item.ID === stationID);
+    const bankID = selectedBank(station, state.selection)?.ID || "";
+    if (panel.layoutNetwork === config.network && panel.layoutBank === bankID) return;
+    panel.layoutNetwork = config.network; panel.layoutBank = bankID;
+    const select = panel.querySelector('[data-edit="station-bank"]');
+    panel.querySelector('[data-field="bank-selection"]').hidden = !station.Banks;
+    select.replaceChildren(...(station.Banks || []).map((bank) => { const option = document.createElement("option"); option.value = bank.ID; option.textContent = bank.ID; return option; }));
+    select.value = bankID;
+    const membership = panel.querySelector('[data-edit="station-banks"]');
+    setControlValue(membership, JSON.stringify(station.Banks || [], null, 2));
+    panel.querySelector('[data-action="station-legacy"]').disabled = !Object.hasOwn(station, "Banks");
+    for (const field of ["approach-length", "departure-length"]) panel.querySelector(`[data-field="${field}"]`).hidden = !station.Banks;
+    const layout = stationLayout(config, stationID, bankID);
+    for (const key of ["pitch", "spacing", "setback", "approachLength", "departureLength"]) {
       const input = panel.querySelector(`[data-layout="${key}"]`);
-      input.disabled = Boolean(layout.error) || layout[key] === null;
+      input.disabled = (!["approachLength", "departureLength"].includes(key) && Boolean(layout.error)) || layout[key] == null;
       const value = input.disabled ? "" : String(Number(layout[key].toFixed(3)));
-      setControlValue(input, value);
-      input.dataset.layoutValue = value;
+      setControlValue(input, value); input.dataset.layoutValue = value;
     }
     const note = layout.error || [layout.pitch === null ? "Pitch requires two berth rows." : "", layout.setback === null ? "Setback requires an aligned entry/exit throat." : ""].filter(Boolean).join(" ");
     panel.querySelector('[data-field="layout-hint"]').textContent = note || "Preview updates the draft map in one undo step. Apply the project to change the simulation.";
-    panel.querySelector('[data-action="station-layout"]').disabled = Boolean(layout.error);
+    panel.querySelector('[data-action="station-layout"]').disabled = [...panel.querySelectorAll("input[data-layout]")].every((input) => input.disabled);
   }
 
   // renderBerths shows a row with a Remove button for each berth of the
@@ -4203,6 +4259,10 @@
     });
     $("#selectionContent").addEventListener("change", (event) => {
       const control = event.target, id = control.dataset.item;
+      if (control.dataset.edit === "station-bank" && state.selection?.id === id) {
+        for (const input of $("#selectionContent").querySelectorAll("input[data-layout]")) { typingInputs.delete(input); pendingInputs.delete(input); }
+        state.selection.bank = control.value; render(); return;
+      }
       const action = { "station-name": "stationName", "parking-only": "stationParking", "station-bearing": "stationBearing", "lane-speed": "laneSpeed" }[control.dataset.edit];
       if (!action || !id) return;
       queueGeometryEdit({ action, id, value: control.type === "checkbox" ? control.checked : control.value }, { controls: [control] });
@@ -4213,14 +4273,22 @@
       if (!button || !button.dataset.item) return;
       const action = button.dataset.action, id = button.dataset.item, keyboard = event.detail === 0;
       if (action.startsWith("delete-")) { deleteSelectedItem({ type: button.dataset.kind, id }, { keyboard }); return; }
+      if (action === "station-banks") {
+        const control = $("#selectionContent").querySelector('[data-edit="station-banks"]');
+        let value;
+        try { value = JSON.parse(control.value); } catch (_) { toast("Bank membership must be a JSON array.", true); return; }
+        queueGeometryEdit({ action: "stationBanks", id, value }, { controls: [control] }); return;
+      }
+      if (action === "station-legacy") { queueGeometryEdit({ action: "stationLegacy", id }); return; }
       if (action === "station-layout") {
         const fields = [...$("#selectionContent").querySelectorAll("input[data-layout]")].filter((input) => !input.disabled && input.value !== input.dataset.layoutValue);
         if (fields.some((input) => !Number.isFinite(input.valueAsNumber))) { toast("Station dimensions must be finite numbers.", true); return; }
         const dimensions = Object.fromEntries(fields.map((input) => [input.dataset.layout, input.valueAsNumber]));
-        queueGeometryEdit({ action: "stationLayout", id, value: dimensions }, { controls: fields });
+        if (!fields.length) return;
+        queueGeometryEdit(stationGeometryCommand(draft(), id, "stationLayout", dimensions, $("#selectionContent").layoutBank), { controls: fields });
         return;
       }
-      const command = { action: { "add-berth": "addBerth", "remove-berth": "removeBerth", "toggle-curve": "toggleCurve" }[action], id };
+      const command = stationGeometryCommand(draft(), id, { "add-berth": "addBerth", "remove-berth": "removeBerth", "toggle-curve": "toggleCurve" }[action], undefined, $("#selectionContent").layoutBank);
       if (!command.action) return;
       const berthIDs = action === "remove-berth" ? draft().network.Stations.find((station) => station.ID === id)?.Berths.map((berth) => berth.ID) || [] : [];
       if (action === "remove-berth") command.value = button.dataset.id;

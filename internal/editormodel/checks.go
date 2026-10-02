@@ -102,8 +102,12 @@ func preparedDraftChecks(value any, prepared *preparedChecks) checkReport {
 		errors.add("The scenario must be a JSON object.", nil)
 		return checkReport{Errors: errors.items}
 	}
-	if number(member(value, "version")) != 1 {
-		errors.add("The scenario version must be 1.", nil)
+	version := number(member(value, "version"))
+	banked := hasBanks(member(value, "network"))
+	if version != 1 && version != 2 {
+		errors.add("The scenario version must be 1 or 2.", nil)
+	} else if version == 1 && banked || version == 2 && !banked {
+		errors.add("The scenario version does not match its station banks.", nil)
 	}
 	name := member(value, "name")
 	if strings.TrimSpace(text(name)) == "" {
@@ -170,6 +174,11 @@ func checkNetwork(value any, errors *checkList) *draftNetwork {
 	g.checkStations(ids, pairs, errors)
 	g.checkBerthRoutes(errors)
 	g.checkStationRoles(errors)
+	if hasBanks(value) {
+		if err := validateBankDraft(value); err != nil {
+			errors.add(err.Error(), nil)
+		}
+	}
 	return g
 }
 
@@ -292,6 +301,9 @@ func (g *draftNetwork) checkStations(ids draftIDs, pairs map[[2]string]bool, err
 			errors.add("Station "+label(id)+" has invalid entry or exit nodes.", at)
 		}
 		g.stationNodes[entry], g.stationNodes[exit] = true, true
+		for node := range stationCoreNodes(station) {
+			g.stationNodes[node] = true
+		}
 		if len(berths) == 0 {
 			errors.add("Station "+label(id)+" needs at least one berth.", at)
 		}
@@ -364,8 +376,12 @@ func (g *draftNetwork) checkBerthRoutes(errors *checkList) {
 				continue
 			}
 			node, id := text(member(berth, "Node")), member(berth, "ID")
-			entry := draftRoute(g.directed, text(member(station, "Entry")), node, g.stationNodes)
-			exit := draftRoute(g.directed, node, text(member(station, "Exit")), g.stationNodes)
+			gates := station
+			if has(station, "Banks") {
+				gates = bankForBerth(station, text(id))
+			}
+			entry := draftRoute(g.directed, text(member(gates, "Entry")), node, g.stationNodes)
+			exit := draftRoute(g.directed, node, text(member(gates, "Exit")), g.stationNodes)
 			if !entry {
 				errors.add("Berth "+label(id)+" needs an entry lane.", target("berth", id))
 			}
