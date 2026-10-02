@@ -1,0 +1,360 @@
+{
+  "version": 1,
+  "date": "2026-10-02",
+  "base_commit": "05951e80503be8bc2a1a7262c49490bf6b287df2",
+  "sources_sha256": {
+    "internal/sim/platoon.go": "b922f9b57639a45ac0a034c276380b5e07c7133a364dbc33dcbe14beb209f23c",
+    "internal/sim/platoon_test.go": "e202f010ef27c64c3c48d88977a0c2bcfa133766710a0903afe96fe4ac101ee1",
+    "internal/sim/station_buffer_platoon.go": "2729d9f4cc780f28d39223491617857f625f08f06466388ef7b8a7b85e4f0ae7",
+    "internal/sim/station_buffer_recruitment_test.go": "bf6723227a0967d05b7c08943b879c04e288518b727421bc469b0e6929d44e7b"
+  },
+  "artifact_directory": "/home/dotwaffle/.cache/agents/podsim/buffer-recruitment-20261002",
+  "rule": {
+    "scope": "successful fixed-entry buffer certificates with both pod positions inside holding region",
+    "ceiling": "max(link clearance + stopping distance at lane limit, entry lane length / cell count + 1e-9 meters)",
+    "clearance_m": 12,
+    "straight_link_clearance_m": 12.01,
+    "defaults_changed": false,
+    "contracts_changed": false
+  },
+  "held_queue": {
+    "arrivals": 4,
+    "fleet": 7,
+    "uniform_speed_limit_kmh": 9,
+    "blocker": "real occupied berth, no available reachable clearing berth",
+    "stable_seconds": 5,
+    "arms": [
+      {
+        "controller": "off",
+        "span_m": 90,
+        "coupled_pods": 0,
+        "settled_after_staging_seconds": 84.28333333333333
+      },
+      {
+        "controller": "previous_virtual",
+        "span_m": 90,
+        "coupled_pods": 0,
+        "settled_after_staging_seconds": 84.28333333333333
+      },
+      {
+        "controller": "one_cell_virtual",
+        "span_m": 54.02,
+        "coupled_pods": 3,
+        "settled_after_staging_seconds": 101.78333333333333
+      }
+    ],
+    "span_reduction_fraction": 0.39977777777777773,
+    "settling_change_seconds": 17.5,
+    "full_discharge_qualified": false
+  },
+  "discharge": {
+    "fixture": "four staged arrivals and a real departing berth occupant, enough reachable storage",
+    "station_speed_limit_kmh": 9,
+    "other_lane_speed_limit_m_s": 14,
+    "lookahead_seconds": 0.03333333333333333,
+    "arms": [
+      {
+        "accepted": 5,
+        "completed": 5,
+        "completion_ticks": {
+          "1": 8718,
+          "2": 10699,
+          "3": 12680,
+          "4": 14661,
+          "5": 53142
+        },
+        "coupled_distinct": 0,
+        "final_tick": 53142,
+        "largest_platoon": 0,
+        "minimum_separation_m": 30,
+        "policy": "off",
+        "start_tick": 3600,
+        "arrival_completion_ticks": [
+          8718,
+          10699,
+          12680,
+          14661
+        ],
+        "arrival_clearance_seconds": 184.35,
+        "arrival_completion_intervals_seconds": [
+          33.016666666666666,
+          33.016666666666666,
+          33.016666666666666
+        ],
+        "all_trip_clearance_seconds": 825.7
+      },
+      {
+        "accepted": 5,
+        "completed": 5,
+        "completion_ticks": {
+          "1": 8718,
+          "2": 10699,
+          "3": 12680,
+          "4": 14661,
+          "5": 53142
+        },
+        "coupled_distinct": 4,
+        "final_tick": 53142,
+        "largest_platoon": 4,
+        "minimum_separation_m": 12.010000000000218,
+        "policy": "virtual",
+        "start_tick": 3600,
+        "arrival_completion_ticks": [
+          8718,
+          10699,
+          12680,
+          14661
+        ],
+        "arrival_clearance_seconds": 184.35,
+        "arrival_completion_intervals_seconds": [
+          33.016666666666666,
+          33.016666666666666,
+          33.016666666666666
+        ],
+        "all_trip_clearance_seconds": 825.7
+      }
+    ],
+    "identical_completion_ticks": true
+  },
+  "restore": {
+    "phases": [
+      "wide",
+      "shared",
+      "compacted",
+      "draining",
+      "suffix"
+    ],
+    "each_phase_policies": [
+      {
+        "buffers": true,
+        "platoons": "virtual"
+      },
+      {
+        "buffers": false,
+        "platoons": "off"
+      }
+    ],
+    "each_continuation_accepted": 5,
+    "each_continuation_completed": 5,
+    "lookahead_seconds": 10,
+    "linked_leader_suffix_required": true,
+    "previous_controller_compatibility": "all ten physical restore continuations pass with stock platoon.go and station_buffer_platoon.go from base commit"
+  },
+  "qualification": {
+    "every_tick": [
+      "Euclidean separation and berth occupancy",
+      "lane speed limit",
+      "platoon stop-point inequality and curve certificate",
+      "coupled and previously coupled speed-change limit",
+      "no overtaking",
+      "incremental ownership compared with full retention scan",
+      "owner transfers restricted to predecessor/follower chain",
+      "buffer shared cells exclude conflict and endpoint resources"
+    ],
+    "fractional_pitch_zero_slack_mutation": "expected recruitment test failure",
+    "wider_service_claim": false,
+    "capacity_claim": false,
+    "cpu_comparison": false
+  },
+  "checks": {
+    "native": {
+      "command": [
+        "go",
+        "test",
+        "./...",
+        "-count=1",
+        "-timeout=15m"
+      ],
+      "exit_code": 0,
+      "receipt": "native-exit.json"
+    },
+    "native-sim-final": {
+      "command": [
+        "go",
+        "test",
+        "./internal/sim",
+        "-count=1",
+        "-timeout=12m"
+      ],
+      "exit_code": 0,
+      "receipt": "native-sim-final-exit.json"
+    },
+    "lint-final": {
+      "command": [
+        "mise",
+        "run",
+        "lint"
+      ],
+      "exit_code": 0,
+      "receipt": "lint-final-exit.json"
+    },
+    "wasm": {
+      "command": [
+        "go",
+        "build",
+        "-o",
+        "/tmp/build/podsim/buffer-recruitment/podsim.wasm",
+        "./cmd/podsim"
+      ],
+      "exit_code": 0,
+      "receipt": "wasm-exit.json"
+    },
+    "capture": {
+      "command": [
+        "go",
+        "test",
+        "-overlay",
+        "/home/dotwaffle/.cache/agents/podsim/buffer-recruitment-20261002/capture-overlay.json",
+        "./internal/sim",
+        "-run",
+        "^TestStationBufferRecruitmentRealDeparture$",
+        "-v",
+        "-count=1",
+        "-timeout=4m"
+      ],
+      "exit_code": 0,
+      "receipt": "capture-exit.json"
+    },
+    "stock-held": {
+      "command": [
+        "go",
+        "test",
+        "-overlay",
+        "/home/dotwaffle/.cache/agents/podsim/buffer-recruitment-20261002/stock-held-overlay.json",
+        "./internal/sim",
+        "-run",
+        "^TestStationBufferRecruitmentOccupiedQueue$",
+        "-v",
+        "-count=1",
+        "-timeout=4m"
+      ],
+      "exit_code": 0,
+      "receipt": "stock-held-exit.json"
+    },
+    "stock-restore": {
+      "command": [
+        "go",
+        "test",
+        "-overlay",
+        "/home/dotwaffle/.cache/agents/podsim/buffer-recruitment-20261002/stock-restore-overlay.json",
+        "./internal/sim",
+        "-run",
+        "^TestStationBufferRecruitmentCompatibility$",
+        "-v",
+        "-count=1",
+        "-timeout=4m"
+      ],
+      "exit_code": 0,
+      "receipt": "stock-restore-exit.json"
+    },
+    "discharge": {
+      "command": [
+        "go",
+        "test",
+        "-overlay",
+        "/home/dotwaffle/.cache/agents/podsim/buffer-recruitment-20261002/discharge-overlay.json",
+        "./internal/sim",
+        "-run",
+        "^TestStationBufferRecruitmentDischargeStudy$",
+        "-v",
+        "-count=1",
+        "-timeout=4m"
+      ],
+      "exit_code": 0,
+      "receipt": "discharge-exit.json"
+    },
+    "race-sim-final": {
+      "command": [
+        "go",
+        "test",
+        "-race",
+        "./internal/sim",
+        "-count=1",
+        "-timeout=15m"
+      ],
+      "exit_code": 0,
+      "receipt": "race-sim-final-exit.json"
+    },
+    "full-race-initial": {
+      "command": [
+        "go",
+        "test",
+        "-race",
+        "./...",
+        "-count=1",
+        "-timeout=15m"
+      ],
+      "exit_code": 1,
+      "reason": "shared checkpoint ExportState in new parallel test mutated route cursor; create restores before t.Parallel; no production source change",
+      "all_other_packages": "passed",
+      "affected_package_recheck": "race-sim-final"
+    },
+    "diagnostics": {
+      "receipt": "gopls-final.log",
+      "result": "No diagnostics"
+    }
+  },
+  "artifacts_sha256": {
+    "buffer-no-slack.go": "f5dad8b5e3cf734486915ab8e9dc9f698a5f99bfd5b32620af54b59d183ad236",
+    "buffer-stock.go": "5a2e7fb22d01ce1395135519c53d02ee92bbc5a14209dfdc19cdc498fc48fcda",
+    "capture-exit.json": "739321c3535521f04d010efb3c393c889a33f96da17d80ed708b35d7f4cf7cc2",
+    "capture-manifest.json": "42e3c0583b812c2d6cb134fec4065dee3ecb5cc2388f54abcc1a2855f33ee243",
+    "capture-overlay.json": "965db96cca32b6cb471fd76afe630193c6b6fdeecd181028a4216358fce7ac76",
+    "capture-test.go": "1f003f022770cd6db6f0fb1df953b43bb93da696307b46c3ae75dc8c1825fff8",
+    "capture.log": "dcb058cd7302d2d18f482f92cf3fda416898651408696ac8b391ecb810b45ed4",
+    "discharge-0.json": "2809cb161370a0befa51b8458ad7f7349f1304c8dd48f974ad83b297bb8a57f9",
+    "discharge-1.json": "1981a247b15894eff12d2fefde2311dd7b48e478cc3b6d2566e171582d4515c3",
+    "discharge-debug.log": "33bfc07892521718f00968f59960e397387a0b4b886202a73f737a094c58d780",
+    "discharge-exit.json": "26bb6ca876b8a7bda3ababf0806bc7a6708ce0e8e98653ae8e1644689333e78e",
+    "discharge-manifest.json": "c3a475a4418af62aa24d207450dbfc7c9cd3efd8793ddb83d6b49f9cb4a90743",
+    "discharge-overlay.json": "91318f5f1d9f26f70587d080ed7bc5e4917af6134372ddd4d2755cdd0eefad7e",
+    "discharge-test.go": "7c5e2f6774f50560ada47d6219586e62a4082d6553f945516a330d3b0c610ada",
+    "discharge.log": "7441d2aeade82d832f61db8374d59092f4076841646b93da80732e77006e08dd",
+    "focused.log": "1020a7a989f14b2754b749599f18fa7c10427cfc383a91c0ef811ac5015f171b",
+    "gopls-final.log": "a2bf56a4b7a884f102915b9eeec1e838749999017b2590134e83a8d6d40a8ee6",
+    "gopls.log": "a2bf56a4b7a884f102915b9eeec1e838749999017b2590134e83a8d6d40a8ee6",
+    "implementation-review.md": "3425dcd3b0ae9e0625b663fb1ca133be41c7054ca963acacf442618b67597956",
+    "lint-exit.json": "da841d0995a278a45e8ec49d82c74c5e0d74bc38ef00ee2e7286a052a701959e",
+    "lint-final-exit.json": "46160e4aedf9dab01ae10823f541dcfa53dede53966ac05a3da2ab12a94e773f",
+    "lint-final-manifest.json": "82c48c5fc9d4158266e95889a47df47b49c96dd6503fb8accb73794c18049800",
+    "lint-final.log": "0e6f9893b9a7f5d2bd9de87d32027dc437e3917d3017656a29d301c443a8d60c",
+    "lint-manifest.json": "1de8b1ac924184f31761bab25711a6a32b34a766bcd49551aa5f71a7fba5a3b6",
+    "lint.log": "ba8472eb414211a08fa5848bfa2b4134e6925b966d6fcbdc321864dbf349cc67",
+    "native-exit.json": "03c689e7578bdd492e5f83be561f3d92ea9dd5ef0ffa842746f25bc9ec3cbdfa",
+    "native-manifest.json": "5dbc44933ef16855cb995feb512deef9af5dbd1107eacb27c89ab2699eb0c0f2",
+    "native-sim-final-exit.json": "70b8c3a77775fd52f12bab97ae6a1f203d115693f5df801df2cfca5744f3bea5",
+    "native-sim-final-manifest.json": "eddf7791d765856296c6ee326cbcc75653ad13e3553a097b7f7b6335be2b5a12",
+    "native-sim-final.log": "1c4a5da8e7161f40c6466e7055913a08d78f987d21159212e952001f92c636ea",
+    "native.log": "6951a7e05cb1586537b92967bd41a596ef50a66d9cf93ddeaba8c43a7c269383",
+    "no-slack-overlay.json": "0f61d9ce73a941b9b2ac79b75d9f876993d415ff06d810e325c2b0a42d1a8a63",
+    "no-slack.log": "a9c3de1c116ad5e6655a889cfd69e6cccb53dd3e20273463b12ef11d9317bc91",
+    "platoon-stock.go": "6039ed1df74d95e3002de429b979fbf0e9b2f592696a0f52e34d95f8a89dd006",
+    "race-exit.json": "c8a699c05a602ffb3a0fee336f7c9e7a5bc2506c76655b62deb674e6d61e9bed",
+    "race-manifest.json": "91d47ca8edd82086a9f812a0a28bfd263bd7584deba9cdd7f86828e4bdd3643f",
+    "race-sim-final-exit.json": "3f7152a806cb439878b759e261cee47f3ecf29e2e178361dc6fc6fac8dc42ba7",
+    "race-sim-final-manifest.json": "6d7fdf6f9728bd135f89a18e8120077e1a9fb09f4d676bfa6a40f4973b9f2c6c",
+    "race-sim-final.log": "8fff8e77a94dd8fcb3deeb3e73e8b7b12235034c21dd3f08940120d01f95e407",
+    "race.log": "4e5df0e14f43c331357b8adc8b46c706af998d5847a06281fbb7ef2834770a1d",
+    "results-review.md": "1a05abd558f42fd93bbbdac7e7e39e6b3ff8b3a0fd53eaa9987d62274dd4bc15",
+    "run-check.py": "647de1198decbe4eaf0f40c650197fb1e6f5cd0f330ab439d3448aae0436e019",
+    "safety-review.md": "06447c94675a90634c473a0a36e5c436d7cbdd603df4ae3b37a2ee541b454dce",
+    "states/compacted.json": "7f4beb1d85db75f61042aba93eca3f96e1937845f40786405028ea3ea2621f82",
+    "states/draining.json": "b4fca078a7297380c91cfb2381e98f82f7af554e649b382857ba05f097a897b5",
+    "states/shared.json": "7e9e8aaf3c6dd3e143f46a683b0b1f2793b9cc2e798ebc0e98e78732f5d23af8",
+    "states/suffix.json": "24ccbdf92be70167b4f78e88d83103c8974e6539b821505ca8cf1770b070c42c",
+    "states/wide.json": "7e9e8aaf3c6dd3e143f46a683b0b1f2793b9cc2e798ebc0e98e78732f5d23af8",
+    "stock-held-exit.json": "f139179612387e88d2d02830b1ef5e7cefcd457a3feaa034830493a243f7920a",
+    "stock-held-manifest.json": "20d2a17041d843e38096556f927ad2cf50a8469a75224bf5e6428ec0b5e2dc68",
+    "stock-held-overlay.json": "d51ff12ce6426fe382913bf9a9ac1b4622f0aa73ae46fc5f548cb0e0f1da128c",
+    "stock-held-test.go": "c12d4bf45fee69d7d0a57cacb5f3030c80aa3293aff804ea12b6235575ef2aef",
+    "stock-held.log": "50ce196c11028348844c1c58d84d96014e61c31fc83a2f58a59b26c4df40907b",
+    "stock-restore-exit.json": "b9fc6bc9be39d7398d6a8245ac0b8565569cdacf4bf6bba3c982fcf99dec7f31",
+    "stock-restore-manifest.json": "7d9dde7fc6031956c6faced3a18159a6c388ff0a9b9f2e9c9190938d0cc22a96",
+    "stock-restore-overlay.json": "63b1e48e8fb945e7f7f4c405bc84f1adf4001c5680c9cbf10e118996ba0d0c45",
+    "stock-restore.log": "9f8c6227ccb5bcf567cd9150782c2d19d256ae00abac08ff3035b22659a3c269",
+    "wasm-exit.json": "f17c42c0e83a74f7c4fa6ec0975e68e55fb1073e04e47c64bdee30149403b43c",
+    "wasm-manifest.json": "66a65741872224a3d19f7b76edf7043b576353f175f57d17c75fd76bac5df72d",
+    "wasm.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  "provenance_note": "Frozen native comparisons precede a test-only concurrency fix. Production source hashes are identical in every receipt. Final diagnostics, native package, race package and lint qualify the corrected test source."
+}

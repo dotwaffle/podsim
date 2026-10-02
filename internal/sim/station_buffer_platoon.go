@@ -2,6 +2,23 @@ package sim
 
 import "slices"
 
+// bufferRecruitmentSlack absorbs route-distance rounding in recruitment only.
+const bufferRecruitmentSlack = 1e-9
+
+// bufferRecruitmentDistance lets adjacent holding cells recruit at low speed.
+// Both pods must be inside the certified holding region. It changes no clearance.
+func (s *Simulation) bufferRecruitmentDistance(v, leader *vehicle, link platoonLink) float64 {
+	if !link.buffer {
+		return 0
+	}
+	plan, ok := s.bufferPlan(v)
+	if !ok || v.distance+bufferRecruitmentSlack < v.blocks.end(plan.entryStop) ||
+		leaderPosition(v, leader, link) > v.blocks.end(plan.frontier)+bufferRecruitmentSlack {
+		return 0
+	}
+	return s.laneLength(plan.lane)/float64(s.laneCells[plan.lane.ID].count()) + bufferRecruitmentSlack
+}
+
 // planBufferLink keeps both pods inside one fixed entry certificate.
 func (s *Simulation) planBufferLink(plan linkPlan) (platoonLink, bool) {
 	v, leader := plan.v, plan.leader

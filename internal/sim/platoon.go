@@ -489,7 +489,7 @@ func (s *Simulation) canLink(v *vehicle) bool {
 // different turns do not join. Then planLink must accept the pair. The
 // pods must also be in one queue: the path distance between them must be
 // at most the link clearance plus the stopping distance at the speed
-// limit.
+// limit. Inside a fixed entry buffer, one holding-cell pitch also qualifies.
 func (s *Simulation) tryLink(i, ahead int) {
 	v, leader := &s.vehicles[i], &s.vehicles[ahead]
 	if !s.canLink(v) || leader.follower != 0 || s.platoonSize(v, leader) > s.platoonLimit {
@@ -513,7 +513,7 @@ func (s *Simulation) tryLink(i, ahead int) {
 		turn, fixed = behind, true
 	}
 	link, ok := s.planLink(linkPlan{v: v, leader: leader, lane: current, leaderLane: leaderLane, turn: turn, fixed: fixed})
-	if ok && leaderPosition(v, leader, link)-v.distance <= link.clearance+stoppingDistance(limit) {
+	if ok && leaderPosition(v, leader, link)-v.distance <= max(link.clearance+stoppingDistance(limit), s.bufferRecruitmentDistance(v, leader, link)) {
 		s.link(i, ahead, link)
 	}
 }

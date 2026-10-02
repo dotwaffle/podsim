@@ -124,6 +124,10 @@ That result does not predict this Rail Hub workload.
 
 ## Further proposals
 
+The approved follow-up implements [one-cell recruitment inside fixed station buffers](station-buffer-recruitment.md).
+It qualifies real blockers, full discharge, live ownership, and restore continuation while retaining the 12-meter floor.
+The global 60-meter prototype below remains a historical experiment.
+
 First investigate wider recruitment only for certified fixed-entry buffer queues.
 The 60-meter ceiling is an experimental choice, not a justified production threshold.
 A production rule should use the eligible queue geometry and retain all current stopping and ownership checks.
