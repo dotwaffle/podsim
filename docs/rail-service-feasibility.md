@@ -163,3 +163,10 @@ Raw fixtures, full identities, logs, frozen helpers, overlays, failure states, a
 Reproduction needs those cached fixtures and helpers.
 The repository summary alone is not a standalone study runner.
 No live geometry, controller defaults, byte caps, speed limits, or clearance limits changed.
+
+## Follow-up diagnosis
+
+The [busy-station diagnosis](station-service-diagnosis.md) attributes 77-79% of sampled heavy pickup wait to requests without an eligible assigned pod.
+Both captured bank failures came from an unconnected road/bank near-crossing.
+A coordinate correction passes the selected two-seed safety screen but does not improve service.
+Independent bank contracts remain subject to user approval.

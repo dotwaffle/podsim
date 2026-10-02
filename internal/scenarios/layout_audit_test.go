@@ -129,6 +129,55 @@ func TestAuditPlanarLayout(t *testing.T) {
 	}
 }
 
+// TestAuditBankApproachNearCrossing retains the geometry of the two rejected
+// service-study arms. The road misses the bank endpoint but violates clearance.
+func TestAuditBankApproachNearCrossing(t *testing.T) {
+	t.Parallel()
+	for _, test := range []struct {
+		name      string
+		rowY      float64
+		conflicts int
+	}{
+		{name: "rejected row", rowY: -320, conflicts: 2},
+		{name: "row clear of road", rowY: -290, conflicts: 0},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			network := sim.Network{
+				Nodes: []sim.Node{
+					{ID: "road-exit", Position: sim.Point{X: 848.1436689394465, Y: -935.2284837610192}},
+					{ID: "entry", Position: sim.Point{X: 1260, Y: -80}},
+					{ID: "arrival-1", Position: sim.Point{X: 1140, Y: -230}},
+					{ID: "arrival-2", Position: sim.Point{X: 1140, Y: test.rowY}},
+					{ID: "berth", Position: sim.Point{X: 1020, Y: test.rowY}},
+				},
+				Lanes: []sim.Lane{
+					{ID: "road", From: "road-exit", To: "entry", SpeedLimit: 14},
+					{ID: "arrival", From: "arrival-1", To: "arrival-2", SpeedLimit: 14, StationID: "hub", StationRole: sim.StationBerthAccessRole},
+					{ID: "inlet", From: "arrival-2", To: "berth", SpeedLimit: 14, StationID: "hub", StationRole: sim.StationBerthAccessRole},
+				},
+				Stations: []sim.Station{{ID: "hub", Name: "Rail Hub"}},
+			}
+			lanes := newAuditLanes(network)
+			if lanes[0].crosses(lanes[1]) || lanes[0].crosses(lanes[2]) {
+				t.Fatal("fixture must retain a near-crossing without a segment intersection")
+			}
+			conflicts := auditPlanarLayout(network)
+			if len(conflicts) != test.conflicts {
+				t.Fatalf("conflicts = %+v, want %d", conflicts, test.conflicts)
+			}
+			for _, conflict := range conflicts {
+				if conflict.station != "hub" || conflict.first != `lane "road"` || conflict.reason != "is nearer than 12 meters to" {
+					t.Fatalf("unexpected conflict: %+v", conflict)
+				}
+			}
+			if err := layoutError(network, conflicts); (err != nil) != (test.conflicts > 0) {
+				t.Fatalf("layoutError = %v", err)
+			}
+		})
+	}
+}
+
 func TestAuditLondonLayoutFindsConflicts(t *testing.T) {
 	t.Parallel()
 	var source londonSource
