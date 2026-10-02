@@ -1,0 +1,2240 @@
+{
+  "source": "ed2ba64f2a9f376a3d76ec66f20e30bb63707840",
+  "binary_sha256": "a4e4a10300b8cb96def74787462232d0f677f261e21141f1b3135d2d25da678a",
+  "cap_seconds": 10800,
+  "offer_end_tick_exclusive": 216001,
+  "functional_workers": 2,
+  "gomaxprocs": 1,
+  "gogc": 400,
+  "timing_claims": false,
+  "queue_limit": 200,
+  "clearance_meters": 12,
+  "free_flow_speed_meters_per_second": 14,
+  "policies": {
+    "positioning": false,
+    "buffers": false,
+    "pickup_reassignment": false,
+    "party_limit": 1,
+    "routing": "free-flow"
+  },
+  "raw_evidence_cache": "~/.cache/agents/podsim/service-demand-search-20261001/studies/",
+  "provenance": {
+    "source": "ed2ba64f2a9f376a3d76ec66f20e30bb63707840",
+    "binary_sha256": "a4e4a10300b8cb96def74787462232d0f677f261e21141f1b3135d2d25da678a",
+    "cap_seconds": 10800,
+    "queue_limit": 200,
+    "workers": 2,
+    "functional_concurrency_only": true,
+    "source_files": {
+      "study-main.go": "001223a1dc3551208ab34f832a3d653c0d5692162194441a97751c93e1700a3f",
+      "study_test.go": "a54c9aff5c531017370775226e898f65e2d8265e742712547cd63f51b02aa01c",
+      "run-studies.py": "1a5b6c1c0bc3d9ff7fc33162ff8ab3e93b94fd4ef944f456d4f5a554689b18b1"
+    },
+    "fixtures": {
+      "rail-hub-banks-pilot.project.json": "96bf2bfdbf4692290ec6fc7ecd8f5d4b1c8e64258275924990a65b1cbc3e71de",
+      "london-full-isolated2.project.json": "979ba78b7e2e6f4f4c6a46d59752f980c90cd41d66ffb473c9d1c2c6f3de2b8f",
+      "rail-hub-p1.project.json": "fcc995b25f6439ee90d195a637239bf8d79792a087a64dd478e6be64f33f073b",
+      "london-full-isolated3.project.json": "c9c8f298822413b7da263e4c7531abbe239ea36374711a85d5f28a8c37534ace",
+      "london-full-isolated1.project.json": "993fc89159808dd361facf6c0828ffe91a7e4755d90f892eaac1eacd28d99a86",
+      "rail-hub-isolated4.project.json": "8dc7956007ce88aa979ef73f6b08f94bc46445db34c260c05c858ed4e9194a75",
+      "london-full-p1.project.json": "16de7554e1dafd2dbf41adc5b7d15741583e2cb32d715e1dbbc7ba6c2d1522e1",
+      "london-full-isolated0.project.json": "52abcb074427e6eb8db9e69849e7528baa919d3e96c734ef98d6bf443d6e5ba6",
+      "rail-hub-isolated0.project.json": "0a24c9c998aef721249d9eff6c53186d6f884dd4598c851308e3ef75571ee557",
+      "rail-hub-p6.project.json": "026a28d02ba7558d935fa2df6179fdff94717bd3122439441182e80fb7332eed",
+      "rail-hub-banks-baseline.project.json": "c85e87a0c0a538d4e05e9bfc4304da8702aec6d7ab90ede77d28f7c3c0444ad5",
+      "london-full-isolated5.project.json": "d659f55948344333b6805ebc19b40848351adfa4ec2c9d7eb5bb38dea56e3d0b",
+      "rail-hub-isolated1.project.json": "1ce489426a5b3ed868899099ad7dd0b4e12b8f5fa651f05b3fcf63bbc8c095ba",
+      "london-full-isolated4.project.json": "f68538995750d68f55ea2da121ae817daaae4dfc53f6ae3a89c78c28686e799e",
+      "london-full-isolated6.project.json": "bc1173fed2da8f800ff87b7984f77803936d1c60befc70658ecce2565579c799",
+      "rail-hub-isolated3.project.json": "d7fba497ff837cb473f3b50533cdbc22f36e593f94e2317ba48328368b640b8d",
+      "london-full-p6.project.json": "c5e3f4209db127181423ed6c25563fffca9c50719f492b5f8d1a85896b07c854",
+      "london-full-isolated7.project.json": "2ff4c6f45bb2e5c727f19e4aaac780418c8f4561dcffcc759789f8014f51e67c",
+      "rail-hub-isolated2.project.json": "64e45b9e180afd83cbeecd1c8cee5d605d14f7eaed2ae8b8fd8ab3ca9bc63bee",
+      "rail-hub-banks-candidate.project.json": "e80110b561fed1624f03c7850b63fab760056525cc910d5855e435da9a501451",
+      "rail-hub-p24.project.json": "cd63dbcf6803e67251951a5a30def69707f17fc73ddee3a5268909806af69a96",
+      "london-full-p24.project.json": "427326c1f2cd52bb9ad5990d291367296b750fe887849333cecf0deebc75cf61"
+    }
+  },
+  "successful_arms": [
+    {
+      "name": "london-full-isolated0-s1",
+      "seed": 1,
+      "fixture": "london-full-isolated0.project.json",
+      "fixture_sha256": "52abcb074427e6eb8db9e69849e7528baa919d3e96c734ef98d6bf443d6e5ba6",
+      "result_sha256": "d4828f08dea8bb1e1ae0bce076304686e26ee7a8d3f07481d06d2895445efcb6",
+      "schedule_id": "05e661d4c1d6e850",
+      "offered_identities_sha256": "44f16d5f583568647ca0a0574e1eb24a35b3f20c889f713764464225ad009eab",
+      "passenger_receipts_sha256": "4ffad3d2f21f0cf4d2a88798952219b6d2ddd4d47fa99175c9cf06dac4041add",
+      "scheduled": 1,
+      "completed": 1,
+      "skipped": 0,
+      "remaining": 0,
+      "actual_end_seconds": 7200,
+      "connections": {
+        "made": 1,
+        "missed": 0,
+        "unserved": 0,
+        "unresolved": 0
+      },
+      "offered_train_slack_seconds": {
+        "count": 1,
+        "minimum": 7199.0,
+        "mean": 7199.0,
+        "p95": 7199.0,
+        "maximum": 7199.0
+      },
+      "optimistic_route_transfer_margin_seconds": {
+        "count": 1,
+        "minimum": 6753.4077780353755,
+        "mean": 6753.4077780353755,
+        "p95": 6753.4077780353755,
+        "maximum": 6753.4077780353755
+      },
+      "accepted_ready_margin_seconds": {
+        "count": 1,
+        "minimum": 6735.983333333334,
+        "mean": 6735.983333333334,
+        "p95": 6735.983333333334,
+        "maximum": 6735.983333333334
+      },
+      "pickup_wait_seconds": {
+        "count": 1,
+        "minimum": 0.0,
+        "mean": 0.0,
+        "p95": 0.0,
+        "maximum": 0.0
+      },
+      "request_to_alight_seconds": {
+        "count": 1,
+        "minimum": 403.01666666666665,
+        "mean": 403.01666666666665,
+        "p95": 403.01666666666665,
+        "maximum": 403.01666666666665
+      },
+      "station_samples": 7200,
+      "station_sample_means": {
+        "Occupied": 1.9441666666666666,
+        "ReservedEmpty": 0.00125,
+        "TotalReserved": 1.9454166666666666,
+        "Free": 2.0545833333333334,
+        "Approaching": 0.006527777777777778,
+        "EntranceStopped": 0.0,
+        "ExitStopped": 0.0
+      },
+      "sampled_station_lane_holds_pod_seconds": {},
+      "free_flow_route_transfer_lower_bounds_seconds": {
+        "940GZZLUEUS": 445.5922219646241
+      },
+      "checked_ticks": 432000,
+      "contract_checks": 7200,
+      "restore_checks": 24,
+      "restore_reservation_changes": 0,
+      "max_saved_float_delta_meters": 0,
+      "max_saved_float_field": "",
+      "queue_cleared": true,
+      "queue_clear_seconds": 0
+    },
+    {
+      "name": "london-full-isolated1-s1",
+      "seed": 1,
+      "fixture": "london-full-isolated1.project.json",
+      "fixture_sha256": "993fc89159808dd361facf6c0828ffe91a7e4755d90f892eaac1eacd28d99a86",
+      "result_sha256": "85f4a93110dc101722d854795ef59fca663ec39f2a638b619ab3692fbce58001",
+      "schedule_id": "75071abbdb94e3a9",
+      "offered_identities_sha256": "64dc7e2474f9c118ed73032669ed4150ef0732d60fe794ace1dca48eb93b77c6",
+      "passenger_receipts_sha256": "787e3e791ddaa627892479091b55c24c7da40ccb153e70ba63b2d4cd4f88f2b0",
+      "scheduled": 1,
+      "completed": 1,
+      "skipped": 0,
+      "remaining": 0,
+      "actual_end_seconds": 7200,
+      "connections": {
+        "made": 1,
+        "missed": 0,
+        "unserved": 0,
+        "unresolved": 0
+      },
+      "offered_train_slack_seconds": {
+        "count": 1,
+        "minimum": 7199.0,
+        "mean": 7199.0,
+        "p95": 7199.0,
+        "maximum": 7199.0
+      },
+      "optimistic_route_transfer_margin_seconds": {
+        "count": 1,
+        "minimum": 6699.783438881323,
+        "mean": 6699.783438881323,
+        "p95": 6699.783438881323,
+        "maximum": 6699.783438881323
+      },
+      "accepted_ready_margin_seconds": {
+        "count": 1,
+        "minimum": 6682.366666666667,
+        "mean": 6682.366666666667,
+        "p95": 6682.366666666667,
+        "maximum": 6682.366666666667
+      },
+      "pickup_wait_seconds": {
+        "count": 1,
+        "minimum": 0.0,
+        "mean": 0.0,
+        "p95": 0.0,
+        "maximum": 0.0
+      },
+      "request_to_alight_seconds": {
+        "count": 1,
+        "minimum": 456.6333333333333,
+        "mean": 456.6333333333333,
+        "p95": 456.6333333333333,
+        "maximum": 456.6333333333333
+      },
+      "station_samples": 7200,
+      "station_sample_means": {
+        "Occupied": 1.9368055555555554,
+        "ReservedEmpty": 0.00125,
+        "TotalReserved": 1.9380555555555556,
+        "Free": 2.0619444444444444,
+        "Approaching": 0.006527777777777778,
+        "EntranceStopped": 0.0,
+        "ExitStopped": 0.0
+      },
+      "sampled_station_lane_holds_pod_seconds": {},
+      "free_flow_route_transfer_lower_bounds_seconds": {
+        "940GZZLUWLO": 499.21656111867696
+      },
+      "checked_ticks": 432000,
+      "contract_checks": 7200,
+      "restore_checks": 24,
+      "restore_reservation_changes": 0,
+      "max_saved_float_delta_meters": 0,
+      "max_saved_float_field": "",
+      "queue_cleared": true,
+      "queue_clear_seconds": 0
+    },
+    {
+      "name": "london-full-isolated2-s1",
+      "seed": 1,
+      "fixture": "london-full-isolated2.project.json",
+      "fixture_sha256": "979ba78b7e2e6f4f4c6a46d59752f980c90cd41d66ffb473c9d1c2c6f3de2b8f",
+      "result_sha256": "37cc532ec393462cef512d860e6dc585405298ab3e7e984d60ad987f5a02bbe1",
+      "schedule_id": "db8b9065a6f214ef",
+      "offered_identities_sha256": "bc141a04392bf997956d20e7482e980928db32ea7d4ed63294523731b95a28b6",
+      "passenger_receipts_sha256": "2d0ff7b7eb3a8e8999d96c11b956e97ad1a93dbee6b429ec31537b7ff1cc4e6b",
+      "scheduled": 1,
+      "completed": 1,
+      "skipped": 0,
+      "remaining": 0,
+      "actual_end_seconds": 7200,
+      "connections": {
+        "made": 1,
+        "missed": 0,
+        "unserved": 0,
+        "unresolved": 0
+      },
+      "offered_train_slack_seconds": {
+        "count": 1,
+        "minimum": 7199.0,
+        "mean": 7199.0,
+        "p95": 7199.0,
+        "maximum": 7199.0
+      },
+      "optimistic_route_transfer_margin_seconds": {
+        "count": 1,
+        "minimum": 6752.522762585393,
+        "mean": 6752.522762585393,
+        "p95": 6752.522762585393,
+        "maximum": 6752.522762585393
+      },
+      "accepted_ready_margin_seconds": {
+        "count": 1,
+        "minimum": 6735.1,
+        "mean": 6735.1,
+        "p95": 6735.1,
+        "maximum": 6735.1
+      },
+      "pickup_wait_seconds": {
+        "count": 1,
+        "minimum": 0.0,
+        "mean": 0.0,
+        "p95": 0.0,
+        "maximum": 0.0
+      },
+      "request_to_alight_seconds": {
+        "count": 1,
+        "minimum": 403.9,
+        "mean": 403.9,
+        "p95": 403.9,
+        "maximum": 403.9
+      },
+      "station_samples": 7200,
+      "station_sample_means": {
+        "Occupied": 1.9441666666666666,
+        "ReservedEmpty": 0.0011111111111111111,
+        "TotalReserved": 1.9452777777777779,
+        "Free": 2.0547222222222223,
+        "Approaching": 0.006388888888888889,
+        "EntranceStopped": 0.0,
+        "ExitStopped": 0.0
+      },
+      "sampled_station_lane_holds_pod_seconds": {},
+      "free_flow_route_transfer_lower_bounds_seconds": {
+        "940GZZLUVIC": 446.4772374146065
+      },
+      "checked_ticks": 432000,
+      "contract_checks": 7200,
+      "restore_checks": 24,
+      "restore_reservation_changes": 0,
+      "max_saved_float_delta_meters": 0,
+      "max_saved_float_field": "",
+      "queue_cleared": true,
+      "queue_clear_seconds": 0
+    },
+    {
+      "name": "london-full-isolated3-s1",
+      "seed": 1,
+      "fixture": "london-full-isolated3.project.json",
+      "fixture_sha256": "c9c8f298822413b7da263e4c7531abbe239ea36374711a85d5f28a8c37534ace",
+      "result_sha256": "62da13438535a7e0714c2f52fe4159cfadfff27dc52c22b08df726389fce296e",
+      "schedule_id": "58f1aa2dd8412603",
+      "offered_identities_sha256": "797ddf27015511efaebd1ddd5d01fe55c9dd3d68edf011f7a6146bfd298ce6cc",
+      "passenger_receipts_sha256": "90c306ea1f5b6839e7891ae787a48e517af1dbd22c7a2a133cd9f1cd27592763",
+      "scheduled": 1,
+      "completed": 1,
+      "skipped": 0,
+      "remaining": 0,
+      "actual_end_seconds": 7200,
+      "connections": {
+        "made": 1,
+        "missed": 0,
+        "unserved": 0,
+        "unresolved": 0
+      },
+      "offered_train_slack_seconds": {
+        "count": 1,
+        "minimum": 7199.0,
+        "mean": 7199.0,
+        "p95": 7199.0,
+        "maximum": 7199.0
+      },
+      "optimistic_route_transfer_margin_seconds": {
+        "count": 1,
+        "minimum": 6564.432580383289,
+        "mean": 6564.432580383289,
+        "p95": 6564.432580383289,
+        "maximum": 6564.432580383289
+      },
+      "accepted_ready_margin_seconds": {
+        "count": 1,
+        "minimum": 6547.016666666666,
+        "mean": 6547.016666666666,
+        "p95": 6547.016666666666,
+        "maximum": 6547.016666666666
+      },
+      "pickup_wait_seconds": {
+        "count": 1,
+        "minimum": 0.0,
+        "mean": 0.0,
+        "p95": 0.0,
+        "maximum": 0.0
+      },
+      "request_to_alight_seconds": {
+        "count": 1,
+        "minimum": 591.9833333333333,
+        "mean": 591.9833333333333,
+        "p95": 591.9833333333333,
+        "maximum": 591.9833333333333
+      },
+      "station_samples": 7200,
+      "station_sample_means": {
+        "Occupied": 1.9180555555555556,
+        "ReservedEmpty": 0.0011111111111111111,
+        "TotalReserved": 1.9191666666666667,
+        "Free": 2.0808333333333335,
+        "Approaching": 0.006388888888888889,
+        "EntranceStopped": 0.0,
+        "ExitStopped": 0.0
+      },
+      "sampled_station_lane_holds_pod_seconds": {},
+      "free_flow_route_transfer_lower_bounds_seconds": {
+        "940GZZLULVT": 634.5674196167106
+      },
+      "checked_ticks": 432000,
+      "contract_checks": 7200,
+      "restore_checks": 24,
+      "restore_reservation_changes": 0,
+      "max_saved_float_delta_meters": 0,
+      "max_saved_float_field": "",
+      "queue_cleared": true,
+      "queue_clear_seconds": 0
+    },
+    {
+      "name": "london-full-isolated4-s1",
+      "seed": 1,
+      "fixture": "london-full-isolated4.project.json",
+      "fixture_sha256": "f68538995750d68f55ea2da121ae817daaae4dfc53f6ae3a89c78c28686e799e",
+      "result_sha256": "bd134f0a4a58d7c6d78e7263e2391116a0fbeb8d92ff02e129fac8758192a51f",
+      "schedule_id": "1e3ea39d1d8c7416",
+      "offered_identities_sha256": "11f29da016336e4dbd16dcacc387033112b802d2186a4928b5a56951c695ec38",
+      "passenger_receipts_sha256": "08ad43d72df699f6854289174171754e61269839526fe8d686c48286a8fc52d0",
+      "scheduled": 1,
+      "completed": 1,
+      "skipped": 0,
+      "remaining": 0,
+      "actual_end_seconds": 7200,
+      "connections": {
+        "made": 1,
+        "missed": 0,
+        "unserved": 0,
+        "unresolved": 0
+      },
+      "offered_train_slack_seconds": {
+        "count": 1,
+        "minimum": 7199.0,
+        "mean": 7199.0,
+        "p95": 7199.0,
+        "maximum": 7199.0
+      },
+      "optimistic_route_transfer_margin_seconds": {
+        "count": 1,
+        "minimum": 6801.275347258042,
+        "mean": 6801.275347258042,
+        "p95": 6801.275347258042,
+        "maximum": 6801.275347258042
+      },
+      "accepted_ready_margin_seconds": {
+        "count": 1,
+        "minimum": 6783.866666666667,
+        "mean": 6783.866666666667,
+        "p95": 6783.866666666667,
+        "maximum": 6783.866666666667
+      },
+      "pickup_wait_seconds": {
+        "count": 1,
+        "minimum": 0.0,
+        "mean": 0.0,
+        "p95": 0.0,
+        "maximum": 0.0
+      },
+      "request_to_alight_seconds": {
+        "count": 1,
+        "minimum": 355.1333333333333,
+        "mean": 355.1333333333333,
+        "p95": 355.1333333333333,
+        "maximum": 355.1333333333333
+      },
+      "station_samples": 7200,
+      "station_sample_means": {
+        "Occupied": 1.9508333333333334,
+        "ReservedEmpty": 0.00125,
+        "TotalReserved": 1.9520833333333334,
+        "Free": 2.0479166666666666,
+        "Approaching": 0.006527777777777778,
+        "EntranceStopped": 0.0,
+        "ExitStopped": 0.0
+      },
+      "sampled_station_lane_holds_pod_seconds": {},
+      "free_flow_route_transfer_lower_bounds_seconds": {
+        "940GZZLUKSX": 397.7246527419583
+      },
+      "checked_ticks": 432000,
+      "contract_checks": 7200,
+      "restore_checks": 24,
+      "restore_reservation_changes": 0,
+      "max_saved_float_delta_meters": 0,
+      "max_saved_float_field": "",
+      "queue_cleared": true,
+      "queue_clear_seconds": 0
+    },
+    {
+      "name": "london-full-p1-s1",
+      "seed": 1,
+      "fixture": "london-full-p1.project.json",
+      "fixture_sha256": "16de7554e1dafd2dbf41adc5b7d15741583e2cb32d715e1dbbc7ba6c2d1522e1",
+      "result_sha256": "162a866d4289a7e0914ac20d3feb6cac8cef6432e6c1094eae4ce59926346b63",
+      "schedule_id": "ba50ce41cf54d308",
+      "offered_identities_sha256": "9c775170a6f8cf8007a5e17efb3eb6b22520500d63b563ffd0a55a02f34cd113",
+      "passenger_receipts_sha256": "f9626d1b0ad0e36868fbdcc11ac95440a64c2ba98c9a9a80168a21b6933c075a",
+      "scheduled": 12,
+      "completed": 12,
+      "skipped": 0,
+      "remaining": 0,
+      "actual_end_seconds": 7200,
+      "connections": {
+        "made": 6,
+        "missed": 0,
+        "unserved": 0,
+        "unresolved": 0
+      },
+      "offered_train_slack_seconds": {
+        "count": 6,
+        "minimum": 3840.0,
+        "mean": 3840.0,
+        "p95": 3840.0,
+        "maximum": 3840.0
+      },
+      "optimistic_route_transfer_margin_seconds": {
+        "count": 6,
+        "minimum": 3024.3087357685213,
+        "mean": 3327.6159904393676,
+        "p95": 3442.2753472580416,
+        "maximum": 3442.2753472580416
+      },
+      "accepted_ready_margin_seconds": {
+        "count": 6,
+        "minimum": 3012.25,
+        "mean": 3276.930555555555,
+        "p95": 3430.2166666666667,
+        "maximum": 3430.2166666666667
+      },
+      "pickup_wait_seconds": {
+        "count": 12,
+        "minimum": 0.0,
+        "mean": 27.284722222222225,
+        "p95": 113.2,
+        "maximum": 113.2
+      },
+      "request_to_alight_seconds": {
+        "count": 12,
+        "minimum": 349.78333333333336,
+        "mean": 504.7833333333333,
+        "p95": 767.75,
+        "maximum": 767.75
+      },
+      "station_samples": 7200,
+      "station_sample_means": {
+        "Occupied": 1.2641666666666667,
+        "ReservedEmpty": 0.011527777777777777,
+        "TotalReserved": 1.2756944444444445,
+        "Free": 2.7243055555555555,
+        "Approaching": 0.04805555555555555,
+        "EntranceStopped": 0.0,
+        "ExitStopped": 0.0
+      },
+      "sampled_station_lane_holds_pod_seconds": {},
+      "free_flow_route_transfer_lower_bounds_seconds": {
+        "940GZZLUACT": 815.6912642314786,
+        "940GZZLUCHX": 430.8714152897316,
+        "940GZZLUEUS": 445.5922219646241,
+        "940GZZLUKSX": 397.7246527419583,
+        "940GZZLULVT": 634.5674196167106,
+        "940GZZLUVIC": 446.4772374146065,
+        "940GZZLUWLO": 499.21656111867696,
+        "940GZZLUWRP": 1572.0552712305987
+      },
+      "checked_ticks": 432000,
+      "contract_checks": 7200,
+      "restore_checks": 24,
+      "restore_reservation_changes": 0,
+      "max_saved_float_delta_meters": 0,
+      "max_saved_float_field": "",
+      "queue_cleared": true,
+      "queue_clear_seconds": 0
+    },
+    {
+      "name": "london-full-p1-s2",
+      "seed": 2,
+      "fixture": "london-full-p1.project.json",
+      "fixture_sha256": "16de7554e1dafd2dbf41adc5b7d15741583e2cb32d715e1dbbc7ba6c2d1522e1",
+      "result_sha256": "a679276692c9ab344553580b5129d4533dfccfc47cb0973b6a5d924a5143d210",
+      "schedule_id": "763f55d3bedb6d62",
+      "offered_identities_sha256": "9277cafd0b7a6ec71cf9a919786f0f2b15d2ac0bdf286bda56dbf6e34e5bc576",
+      "passenger_receipts_sha256": "ed97dcf36e2e2f2ffd00d708a841cf93c785294653c65bf4680827707ec205ee",
+      "scheduled": 12,
+      "completed": 12,
+      "skipped": 0,
+      "remaining": 0,
+      "actual_end_seconds": 7200,
+      "connections": {
+        "made": 6,
+        "missed": 0,
+        "unserved": 0,
+        "unresolved": 0
+      },
+      "offered_train_slack_seconds": {
+        "count": 6,
+        "minimum": 3840.0,
+        "mean": 3840.0,
+        "p95": 3840.0,
+        "maximum": 3840.0
+      },
+      "optimistic_route_transfer_margin_seconds": {
+        "count": 6,
+        "minimum": 2267.944728769401,
+        "mean": 3115.9383642837056,
+        "p95": 3409.1285847102686,
+        "maximum": 3409.1285847102686
+      },
+      "accepted_ready_margin_seconds": {
+        "count": 6,
+        "minimum": 2255.883333333333,
+        "mean": 3085.652777777778,
+        "p95": 3391.7166666666667,
+        "maximum": 3391.7166666666667
+      },
+      "pickup_wait_seconds": {
+        "count": 12,
+        "minimum": 0.0,
+        "mean": 18.025000000000002,
+        "p95": 101.01666666666667,
+        "maximum": 101.01666666666667
+      },
+      "request_to_alight_seconds": {
+        "count": 12,
+        "minimum": 388.28333333333336,
+        "mean": 630.6305555555556,
+        "p95": 1524.1166666666666,
+        "maximum": 1524.1166666666666
+      },
+      "station_samples": 7200,
+      "station_sample_means": {
+        "Occupied": 1.1068055555555556,
+        "ReservedEmpty": 0.011805555555555555,
+        "TotalReserved": 1.118611111111111,
+        "Free": 2.881388888888889,
+        "Approaching": 0.04805555555555555,
+        "EntranceStopped": 0.0,
+        "ExitStopped": 0.0
+      },
+      "sampled_station_lane_holds_pod_seconds": {},
+      "free_flow_route_transfer_lower_bounds_seconds": {
+        "940GZZLUACT": 815.6912642314786,
+        "940GZZLUCHX": 430.8714152897316,
+        "940GZZLUEUS": 445.5922219646241,
+        "940GZZLUKSX": 397.7246527419583,
+        "940GZZLULVT": 634.5674196167106,
+        "940GZZLUVIC": 446.4772374146065,
+        "940GZZLUWLO": 499.21656111867696,
+        "940GZZLUWRP": 1572.0552712305987
+      },
+      "checked_ticks": 432000,
+      "contract_checks": 7200,
+      "restore_checks": 24,
+      "restore_reservation_changes": 1,
+      "max_saved_float_delta_meters": 0,
+      "max_saved_float_field": "",
+      "queue_cleared": true,
+      "queue_clear_seconds": 0
+    },
+    {
+      "name": "london-full-p24-s1",
+      "seed": 1,
+      "fixture": "london-full-p24.project.json",
+      "fixture_sha256": "427326c1f2cd52bb9ad5990d291367296b750fe887849333cecf0deebc75cf61",
+      "result_sha256": "3d86bee7cd52f9a8c8f8c5c69a8698d1d1253af42e7d1dc2ea6c377140a7205c",
+      "schedule_id": "4ea76e74074acd5d",
+      "offered_identities_sha256": "a5c54eeafd52f5333335ca8219d4e202c8a70da6431c5290c7d7fec75308b73c",
+      "passenger_receipts_sha256": "22f7705445a752372ce1e317da7fddb2b45481d86559e6394f49734f52bb3310",
+      "scheduled": 288,
+      "completed": 288,
+      "skipped": 0,
+      "remaining": 0,
+      "actual_end_seconds": 7200,
+      "connections": {
+        "made": 144,
+        "missed": 0,
+        "unserved": 0,
+        "unresolved": 0
+      },
+      "offered_train_slack_seconds": {
+        "count": 144,
+        "minimum": 3600.0,
+        "mean": 3720.007638888889,
+        "p95": 3829.5666666666666,
+        "maximum": 3840.0
+      },
+      "optimistic_route_transfer_margin_seconds": {
+        "count": 144,
+        "minimum": 2027.9447287694013,
+        "mean": 3037.6856346525224,
+        "p95": 3390.108680591375,
+        "maximum": 3442.2753472580416
+      },
+      "accepted_ready_margin_seconds": {
+        "count": 144,
+        "minimum": 1257.7666666666667,
+        "mean": 2840.811689814815,
+        "p95": 3316.9333333333334,
+        "maximum": 3388.3166666666666
+      },
+      "pickup_wait_seconds": {
+        "count": 288,
+        "minimum": 0.0,
+        "mean": 160.3626736111111,
+        "p95": 422.6166666666667,
+        "maximum": 717.7
+      },
+      "request_to_alight_seconds": {
+        "count": 288,
+        "minimum": 371.0,
+        "mean": 821.6125,
+        "p95": 1947.35,
+        "maximum": 2323.983333333333
+      },
+      "station_samples": 7200,
+      "station_sample_means": {
+        "Occupied": 2.295138888888889,
+        "ReservedEmpty": 0.36541666666666667,
+        "TotalReserved": 2.6605555555555553,
+        "Free": 1.3394444444444444,
+        "Approaching": 4.71125,
+        "EntranceStopped": 0.24222222222222223,
+        "ExitStopped": 0.012916666666666667
+      },
+      "sampled_station_lane_holds_pod_seconds": {
+        "approach:Junction traffic": 1819,
+        "approach:Pod ahead": 921,
+        "departure:Junction traffic": 7,
+        "departure:Pod ahead": 11,
+        "exit:Junction traffic": 62,
+        "exit:Pod ahead": 16,
+        "through:Junction traffic": 11,
+        "through:Pod ahead": 3
+      },
+      "free_flow_route_transfer_lower_bounds_seconds": {
+        "940GZZLUACT": 815.6912642314786,
+        "940GZZLUCHX": 430.8714152897316,
+        "940GZZLUEUS": 445.5922219646241,
+        "940GZZLUKSX": 397.7246527419583,
+        "940GZZLULVT": 634.5674196167106,
+        "940GZZLUVIC": 446.4772374146065,
+        "940GZZLUWLO": 499.21656111867696,
+        "940GZZLUWRP": 1572.0552712305987
+      },
+      "checked_ticks": 432000,
+      "contract_checks": 7200,
+      "restore_checks": 24,
+      "restore_reservation_changes": 3,
+      "max_saved_float_delta_meters": 4.973799150320701e-13,
+      "max_saved_float_field": "state.Pods[212].Distance",
+      "queue_cleared": true,
+      "queue_clear_seconds": 189
+    },
+    {
+      "name": "london-full-p24-s2",
+      "seed": 2,
+      "fixture": "london-full-p24.project.json",
+      "fixture_sha256": "427326c1f2cd52bb9ad5990d291367296b750fe887849333cecf0deebc75cf61",
+      "result_sha256": "51fa8368d962e5453899c0fbf60703f828357f1814c83eb2c21bb68f9e455cb1",
+      "schedule_id": "3f3467893a679e20",
+      "offered_identities_sha256": "dd93905bbb701c8d2235be05b2063ba539592c64a1a465ba421d02a697b3de4b",
+      "passenger_receipts_sha256": "e6d199035ec89038211fae1ad6f3f9b06a2c852a145ee17551d74700a3928540",
+      "scheduled": 288,
+      "completed": 288,
+      "skipped": 0,
+      "remaining": 0,
+      "actual_end_seconds": 7200,
+      "connections": {
+        "made": 144,
+        "missed": 0,
+        "unserved": 0,
+        "unresolved": 0
+      },
+      "offered_train_slack_seconds": {
+        "count": 144,
+        "minimum": 3600.0,
+        "mean": 3720.007638888889,
+        "p95": 3829.5666666666666,
+        "maximum": 3840.0
+      },
+      "optimistic_route_transfer_margin_seconds": {
+        "count": 144,
+        "minimum": 2027.9447287694013,
+        "mean": 3085.1213330228948,
+        "p95": 3394.407778035376,
+        "maximum": 3431.842013924708
+      },
+      "accepted_ready_margin_seconds": {
+        "count": 144,
+        "minimum": 1067.9833333333333,
+        "mean": 2938.273263888889,
+        "p95": 3340.0,
+        "maximum": 3388.2
+      },
+      "pickup_wait_seconds": {
+        "count": 288,
+        "minimum": 0.0,
+        "mean": 144.8537037037037,
+        "p95": 416.1666666666667,
+        "maximum": 849.3
+      },
+      "request_to_alight_seconds": {
+        "count": 288,
+        "minimum": 360.5,
+        "mean": 759.8006944444445,
+        "p95": 1880.2833333333333,
+        "maximum": 2492.9
+      },
+      "station_samples": 7200,
+      "station_sample_means": {
+        "Occupied": 2.3631944444444444,
+        "ReservedEmpty": 0.36444444444444446,
+        "TotalReserved": 2.727638888888889,
+        "Free": 1.272361111111111,
+        "Approaching": 4.436805555555556,
+        "EntranceStopped": 0.26319444444444445,
+        "ExitStopped": 0.021111111111111112
+      },
+      "sampled_station_lane_holds_pod_seconds": {
+        "approach:Junction traffic": 1440,
+        "approach:Pod ahead": 965,
+        "berth-access:Berth occupied": 1,
+        "berth-access:Junction traffic": 2,
+        "departure:Junction traffic": 6,
+        "departure:Pod ahead": 14,
+        "exit:Junction traffic": 122,
+        "exit:Pod ahead": 24,
+        "through:Junction traffic": 7,
+        "through:Pod ahead": 5
+      },
+      "free_flow_route_transfer_lower_bounds_seconds": {
+        "940GZZLUACT": 815.6912642314786,
+        "940GZZLUCHX": 430.8714152897316,
+        "940GZZLUEUS": 445.5922219646241,
+        "940GZZLUKSX": 397.7246527419583,
+        "940GZZLULVT": 634.5674196167106,
+        "940GZZLUVIC": 446.4772374146065,
+        "940GZZLUWLO": 499.21656111867696,
+        "940GZZLUWRP": 1572.0552712305987
+      },
+      "checked_ticks": 432000,
+      "contract_checks": 7200,
+      "restore_checks": 24,
+      "restore_reservation_changes": 1,
+      "max_saved_float_delta_meters": 7.389644451905042e-13,
+      "max_saved_float_field": "state.Pods[181].Distance",
+      "queue_cleared": true,
+      "queue_clear_seconds": 187
+    },
+    {
+      "name": "london-full-p6-s1",
+      "seed": 1,
+      "fixture": "london-full-p6.project.json",
+      "fixture_sha256": "c5e3f4209db127181423ed6c25563fffca9c50719f492b5f8d1a85896b07c854",
+      "result_sha256": "ce3372572dda82946ec9710aac1d0fc3ad393e8012a25d87176cfc9a589dd0f0",
+      "schedule_id": "466741f1dc5d87e5",
+      "offered_identities_sha256": "50386c19faa06d23ed9cba1a5a14a3904abc8027c391d819beef0e6c54f25a79",
+      "passenger_receipts_sha256": "252e60f9b3c1ce0bfc9f17e90a662526dddc4bc964c6c98edd88b34a2114ddc4",
+      "scheduled": 72,
+      "completed": 72,
+      "skipped": 0,
+      "remaining": 0,
+      "actual_end_seconds": 7200,
+      "connections": {
+        "made": 36,
+        "missed": 0,
+        "unserved": 0,
+        "unresolved": 0
+      },
+      "offered_train_slack_seconds": {
+        "count": 36,
+        "minimum": 3600.0,
+        "mean": 3720.0,
+        "p95": 3840.0,
+        "maximum": 3840.0
+      },
+      "optimistic_route_transfer_margin_seconds": {
+        "count": 36,
+        "minimum": 2075.944728769401,
+        "mean": 3045.497465502384,
+        "p95": 3442.2753472580416,
+        "maximum": 3442.2753472580416
+      },
+      "accepted_ready_margin_seconds": {
+        "count": 36,
+        "minimum": 1778.9333333333334,
+        "mean": 2968.912037037037,
+        "p95": 3419.5,
+        "maximum": 3430.2166666666667
+      },
+      "pickup_wait_seconds": {
+        "count": 72,
+        "minimum": 0.0,
+        "mean": 54.77337962962963,
+        "p95": 216.9,
+        "maximum": 305.6333333333333
+      },
+      "request_to_alight_seconds": {
+        "count": 72,
+        "minimum": 349.78333333333336,
+        "mean": 683.0768518518519,
+        "p95": 1704.9666666666667,
+        "maximum": 1857.0666666666666
+      },
+      "station_samples": 7200,
+      "station_sample_means": {
+        "Occupied": 2.42375,
+        "ReservedEmpty": 0.10236111111111111,
+        "TotalReserved": 2.526111111111111,
+        "Free": 1.4738888888888888,
+        "Approaching": 0.5090277777777777,
+        "EntranceStopped": 0.0016666666666666668,
+        "ExitStopped": 0.004166666666666667
+      },
+      "sampled_station_lane_holds_pod_seconds": {
+        "approach:Junction traffic": 36,
+        "approach:Pod ahead": 4,
+        "departure:Junction traffic": 1,
+        "departure:Pod ahead": 3,
+        "exit:Junction traffic": 21,
+        "exit:Pod ahead": 5
+      },
+      "free_flow_route_transfer_lower_bounds_seconds": {
+        "940GZZLUACT": 815.6912642314786,
+        "940GZZLUCHX": 430.8714152897316,
+        "940GZZLUEUS": 445.5922219646241,
+        "940GZZLUKSX": 397.7246527419583,
+        "940GZZLULVT": 634.5674196167106,
+        "940GZZLUVIC": 446.4772374146065,
+        "940GZZLUWLO": 499.21656111867696,
+        "940GZZLUWRP": 1572.0552712305987
+      },
+      "checked_ticks": 432000,
+      "contract_checks": 7200,
+      "restore_checks": 24,
+      "restore_reservation_changes": 0,
+      "max_saved_float_delta_meters": 0,
+      "max_saved_float_field": "",
+      "queue_cleared": true,
+      "queue_clear_seconds": 0
+    },
+    {
+      "name": "london-full-p6-s2",
+      "seed": 2,
+      "fixture": "london-full-p6.project.json",
+      "fixture_sha256": "c5e3f4209db127181423ed6c25563fffca9c50719f492b5f8d1a85896b07c854",
+      "result_sha256": "9ea425d72a468a9122fca50f6171c7d720c3e451612c07b2fba3a00bfcb09dbb",
+      "schedule_id": "5175a8d0f177a412",
+      "offered_identities_sha256": "61ad04f1115368322c51790fe90db3c0634fa4658b5726801f74824a29c6902c",
+      "passenger_receipts_sha256": "83a5a63c3649034e3ca198ef8432d36411fe3e9cd5bb184dba4b84868ca80726",
+      "scheduled": 72,
+      "completed": 72,
+      "skipped": 0,
+      "remaining": 0,
+      "actual_end_seconds": 7200,
+      "connections": {
+        "made": 36,
+        "missed": 0,
+        "unserved": 0,
+        "unresolved": 0
+      },
+      "offered_train_slack_seconds": {
+        "count": 36,
+        "minimum": 3600.0,
+        "mean": 3720.0,
+        "p95": 3840.0,
+        "maximum": 3840.0
+      },
+      "optimistic_route_transfer_margin_seconds": {
+        "count": 36,
+        "minimum": 2075.944728769401,
+        "mean": 3110.461412090314,
+        "p95": 3394.407778035376,
+        "maximum": 3409.1285847102686
+      },
+      "accepted_ready_margin_seconds": {
+        "count": 36,
+        "minimum": 1778.4833333333333,
+        "mean": 3046.0481481481484,
+        "p95": 3360.9166666666665,
+        "maximum": 3375.633333333333
+      },
+      "pickup_wait_seconds": {
+        "count": 72,
+        "minimum": 0.0,
+        "mean": 46.81064814814815,
+        "p95": 182.8,
+        "maximum": 283.06666666666666
+      },
+      "request_to_alight_seconds": {
+        "count": 72,
+        "minimum": 355.1333333333333,
+        "mean": 601.0611111111111,
+        "p95": 1529.4666666666667,
+        "maximum": 1809.5166666666667
+      },
+      "station_samples": 7200,
+      "station_sample_means": {
+        "Occupied": 2.568888888888889,
+        "ReservedEmpty": 0.11208333333333333,
+        "TotalReserved": 2.680972222222222,
+        "Free": 1.3190277777777777,
+        "Approaching": 0.5001388888888889,
+        "EntranceStopped": 0.0016666666666666668,
+        "ExitStopped": 0.0025
+      },
+      "sampled_station_lane_holds_pod_seconds": {
+        "approach:Junction traffic": 10,
+        "approach:Pod ahead": 2,
+        "departure:Junction traffic": 2,
+        "departure:Pod ahead": 2,
+        "exit:Junction traffic": 8,
+        "exit:Pod ahead": 6
+      },
+      "free_flow_route_transfer_lower_bounds_seconds": {
+        "940GZZLUACT": 815.6912642314786,
+        "940GZZLUCHX": 430.8714152897316,
+        "940GZZLUEUS": 445.5922219646241,
+        "940GZZLUKSX": 397.7246527419583,
+        "940GZZLULVT": 634.5674196167106,
+        "940GZZLUVIC": 446.4772374146065,
+        "940GZZLUWLO": 499.21656111867696,
+        "940GZZLUWRP": 1572.0552712305987
+      },
+      "checked_ticks": 432000,
+      "contract_checks": 7200,
+      "restore_checks": 24,
+      "restore_reservation_changes": 0,
+      "max_saved_float_delta_meters": 0,
+      "max_saved_float_field": "",
+      "queue_cleared": true,
+      "queue_clear_seconds": 0
+    },
+    {
+      "name": "rail-hub-banks-baseline-s1",
+      "seed": 1,
+      "fixture": "rail-hub-banks-baseline.project.json",
+      "fixture_sha256": "c85e87a0c0a538d4e05e9bfc4304da8702aec6d7ab90ede77d28f7c3c0444ad5",
+      "result_sha256": "6f2c28d1b192b7e10b1be90c0460e6ef13fcfc19a0b6e21604dd34bbdbc4fff4",
+      "schedule_id": "3a45ddfce8196f13",
+      "offered_identities_sha256": "c91444f2bd0e50f1de6564dfba38372a1f854de234a3240e9acd636af9509033",
+      "passenger_receipts_sha256": "270b234afe27165e752ecbf5fb38f8f555832b5111480c8fac526c72f6b01409",
+      "scheduled": 1440,
+      "completed": 363,
+      "skipped": 1077,
+      "remaining": 0,
+      "actual_end_seconds": 7601,
+      "connections": {
+        "made": 0,
+        "missed": 151,
+        "unserved": 569,
+        "unresolved": 0
+      },
+      "offered_train_slack_seconds": {
+        "count": 720,
+        "minimum": 300.0,
+        "mean": 420.0081944444445,
+        "p95": 527.9,
+        "maximum": 540.0
+      },
+      "optimistic_route_transfer_margin_seconds": {
+        "count": 720,
+        "minimum": -248.97113408246668,
+        "mean": 32.087241860090366,
+        "p95": 231.30229554949312,
+        "maximum": 305.9189622161598
+      },
+      "accepted_ready_margin_seconds": {
+        "count": 151,
+        "minimum": -4187.0,
+        "mean": -3304.988962472406,
+        "p95": -2222.133333333333,
+        "maximum": -272.0833333333333
+      },
+      "pickup_wait_seconds": {
+        "count": 363,
+        "minimum": 0.0,
+        "mean": 2688.4651056014695,
+        "p95": 3862.0333333333333,
+        "maximum": 4135.5
+      },
+      "request_to_alight_seconds": {
+        "count": 363,
+        "minimum": 237.23333333333332,
+        "mean": 3013.25404040404,
+        "p95": 4250.816666666667,
+        "maximum": 4479.833333333333
+      },
+      "station_samples": 7601,
+      "station_sample_means": {
+        "Occupied": 0.7905538744901986,
+        "ReservedEmpty": 0.4761215629522431,
+        "TotalReserved": 1.2666754374424418,
+        "Free": 4.733324562557558,
+        "Approaching": 9.064728325220365,
+        "EntranceStopped": 0.2768056834627023,
+        "ExitStopped": 0.1345875542691751
+      },
+      "sampled_station_lane_holds_pod_seconds": {
+        "berth-access:Berth occupied": 1,
+        "berth-access:Junction traffic": 3,
+        "departure:Junction traffic": 873,
+        "departure:Pod ahead": 109,
+        "through:Junction traffic": 103,
+        "through:Pod ahead": 16
+      },
+      "free_flow_route_transfer_lower_bounds_seconds": {
+        "station-02": 551.0044674158,
+        "station-03": 471.77361000781013,
+        "station-04": 392.5427525998202,
+        "station-05": 313.3118951918302,
+        "station-06": 234.0810377838402
+      },
+      "checked_ticks": 456060,
+      "contract_checks": 7601,
+      "restore_checks": 25,
+      "restore_reservation_changes": 9,
+      "max_saved_float_delta_meters": 2.2737367544323206e-13,
+      "max_saved_float_field": "state.Pods[3].Distance",
+      "queue_cleared": true,
+      "queue_clear_seconds": 3566
+    },
+    {
+      "name": "rail-hub-banks-baseline-s2",
+      "seed": 2,
+      "fixture": "rail-hub-banks-baseline.project.json",
+      "fixture_sha256": "c85e87a0c0a538d4e05e9bfc4304da8702aec6d7ab90ede77d28f7c3c0444ad5",
+      "result_sha256": "749131b8ec55ca3c9556246a5d9cc8d0e3177166dd5ae4b996169a9eabd08f5f",
+      "schedule_id": "379d0dd0200a1140",
+      "offered_identities_sha256": "85b17b736710532ede74e07bc413d48831dde1caa782cade95cd7efd300d21bd",
+      "passenger_receipts_sha256": "2362c8e6e29ac302b99b55ca5b55f16dc6e35368ae379aa01e8ce7051260d8c8",
+      "scheduled": 1440,
+      "completed": 366,
+      "skipped": 1074,
+      "remaining": 0,
+      "actual_end_seconds": 7541,
+      "connections": {
+        "made": 0,
+        "missed": 151,
+        "unserved": 569,
+        "unresolved": 0
+      },
+      "offered_train_slack_seconds": {
+        "count": 720,
+        "minimum": 300.0,
+        "mean": 420.0081944444445,
+        "p95": 527.9,
+        "maximum": 540.0
+      },
+      "optimistic_route_transfer_margin_seconds": {
+        "count": 720,
+        "minimum": -251.00446741580004,
+        "mean": 21.413084681513947,
+        "p95": 247.43562888282645,
+        "maximum": 305.9189622161598
+      },
+      "accepted_ready_margin_seconds": {
+        "count": 151,
+        "minimum": -4142.75,
+        "mean": -3244.7540838852096,
+        "p95": -2274.983333333333,
+        "maximum": -262.35
+      },
+      "pickup_wait_seconds": {
+        "count": 366,
+        "minimum": 0.0,
+        "mean": 2645.455100182149,
+        "p95": 3768.266666666667,
+        "maximum": 4217.333333333333
+      },
+      "request_to_alight_seconds": {
+        "count": 366,
+        "minimum": 237.23333333333332,
+        "mean": 2960.8478142076506,
+        "p95": 4157.883333333333,
+        "maximum": 4439.233333333334
+      },
+      "station_samples": 7541,
+      "station_sample_means": {
+        "Occupied": 0.7091897626309508,
+        "ReservedEmpty": 0.47261636387746986,
+        "TotalReserved": 1.1818061265084205,
+        "Free": 4.8181938734915795,
+        "Approaching": 9.650842063386818,
+        "EntranceStopped": 0.2829863413340406,
+        "ExitStopped": 0.1559474870706803
+      },
+      "sampled_station_lane_holds_pod_seconds": {
+        "berth-access:Berth occupied": 3,
+        "berth-access:Junction traffic": 3,
+        "departure:Junction traffic": 929,
+        "departure:Pod ahead": 144,
+        "through:Junction traffic": 145,
+        "through:Pod ahead": 28
+      },
+      "free_flow_route_transfer_lower_bounds_seconds": {
+        "station-02": 551.0044674158,
+        "station-03": 471.77361000781013,
+        "station-04": 392.5427525998202,
+        "station-05": 313.3118951918302,
+        "station-06": 234.0810377838402
+      },
+      "checked_ticks": 452460,
+      "contract_checks": 7541,
+      "restore_checks": 25,
+      "restore_reservation_changes": 3,
+      "max_saved_float_delta_meters": 3.126388037344441e-13,
+      "max_saved_float_field": "state.Pods[20].Distance",
+      "queue_cleared": true,
+      "queue_clear_seconds": 3434
+    },
+    {
+      "name": "rail-hub-banks-pilot-s1",
+      "seed": 1,
+      "fixture": "rail-hub-banks-pilot.project.json",
+      "fixture_sha256": "96bf2bfdbf4692290ec6fc7ecd8f5d4b1c8e64258275924990a65b1cbc3e71de",
+      "result_sha256": "4978a43998a19a887a20185c7cc2438d933682b3e844638ff159b11f552a4250",
+      "schedule_id": "243bef3788d50a3a",
+      "offered_identities_sha256": "b0afc9764b39ba522ed212c27bb7b8570e01ed26ace8fbd1effab673c310b671",
+      "passenger_receipts_sha256": "5816cb9d39ae302a129b9e9398f0123b5c9086f8b83cce79f84e5bb3e2130a83",
+      "scheduled": 12,
+      "completed": 12,
+      "skipped": 0,
+      "remaining": 0,
+      "actual_end_seconds": 3900,
+      "connections": {
+        "made": 6,
+        "missed": 0,
+        "unserved": 0,
+        "unresolved": 0
+      },
+      "offered_train_slack_seconds": {
+        "count": 6,
+        "minimum": 540.0,
+        "mean": 540.0,
+        "p95": 540.0,
+        "maximum": 540.0
+      },
+      "optimistic_route_transfer_margin_seconds": {
+        "count": 6,
+        "minimum": 63.595760143978055,
+        "mean": 129.62147465063637,
+        "p95": 301.288332367948,
+        "maximum": 301.288332367948
+      },
+      "accepted_ready_margin_seconds": {
+        "count": 6,
+        "minimum": 35.766666666666666,
+        "mean": 108.625,
+        "p95": 289.23333333333335,
+        "maximum": 289.23333333333335
+      },
+      "pickup_wait_seconds": {
+        "count": 12,
+        "minimum": 0.0,
+        "mean": 0.0,
+        "p95": 0.0,
+        "maximum": 0.0
+      },
+      "request_to_alight_seconds": {
+        "count": 12,
+        "minimum": 190.76666666666668,
+        "mean": 331.23333333333335,
+        "p95": 444.23333333333335,
+        "maximum": 444.23333333333335
+      },
+      "station_samples": 3900,
+      "station_sample_means": {
+        "Occupied": 2.3892307692307693,
+        "ReservedEmpty": 0.020256410256410257,
+        "TotalReserved": 2.4094871794871793,
+        "Free": 3.5905128205128207,
+        "Approaching": 0.14794871794871794,
+        "EntranceStopped": 0.0,
+        "ExitStopped": 0.0
+      },
+      "sampled_station_lane_holds_pod_seconds": {},
+      "free_flow_route_transfer_lower_bounds_seconds": {
+        "station-02": 555.6350972640118,
+        "station-03": 476.40423985602195,
+        "station-04": 397.173382448032,
+        "station-05": 317.942525040042,
+        "station-06": 238.71166763205204
+      },
+      "checked_ticks": 234000,
+      "contract_checks": 3900,
+      "restore_checks": 13,
+      "restore_reservation_changes": 0,
+      "max_saved_float_delta_meters": 0,
+      "max_saved_float_field": "",
+      "queue_cleared": true,
+      "queue_clear_seconds": 0
+    },
+    {
+      "name": "rail-hub-isolated0-s1",
+      "seed": 1,
+      "fixture": "rail-hub-isolated0.project.json",
+      "fixture_sha256": "0a24c9c998aef721249d9eff6c53186d6f884dd4598c851308e3ef75571ee557",
+      "result_sha256": "f6c0261126fcc903e1159ce0e83eb4bc0de8d54a4ed26321b74935b73512b170",
+      "schedule_id": "676f2d370c57f586",
+      "offered_identities_sha256": "6375668c985ba411da6891d77408ee4cbc30f8547aa745e9cfc68993d593fff4",
+      "passenger_receipts_sha256": "c6fbb54dde3a72d6d49ea145c93c0e8887120cd8c5d15432b0128f337ce8402a",
+      "scheduled": 1,
+      "completed": 1,
+      "skipped": 0,
+      "remaining": 0,
+      "actual_end_seconds": 3600.016666666667,
+      "connections": {
+        "made": 1,
+        "missed": 0,
+        "unserved": 0,
+        "unresolved": 0
+      },
+      "offered_train_slack_seconds": {
+        "count": 1,
+        "minimum": 1799.0,
+        "mean": 1799.0,
+        "p95": 1799.0,
+        "maximum": 1799.0
+      },
+      "optimistic_route_transfer_margin_seconds": {
+        "count": 1,
+        "minimum": 1247.9955325842,
+        "mean": 1247.9955325842,
+        "p95": 1247.9955325842,
+        "maximum": 1247.9955325842
+      },
+      "accepted_ready_margin_seconds": {
+        "count": 1,
+        "minimum": 1221.75,
+        "mean": 1221.75,
+        "p95": 1221.75,
+        "maximum": 1221.75
+      },
+      "pickup_wait_seconds": {
+        "count": 1,
+        "minimum": 0.0,
+        "mean": 0.0,
+        "p95": 0.0,
+        "maximum": 0.0
+      },
+      "request_to_alight_seconds": {
+        "count": 1,
+        "minimum": 517.25,
+        "mean": 517.25,
+        "p95": 517.25,
+        "maximum": 517.25
+      },
+      "station_samples": 3600,
+      "station_sample_means": {
+        "Occupied": 3.8566666666666665,
+        "ReservedEmpty": 0.0025,
+        "TotalReserved": 3.859166666666667,
+        "Free": 2.140833333333333,
+        "Approaching": 0.029166666666666667,
+        "EntranceStopped": 0.0,
+        "ExitStopped": 0.0
+      },
+      "sampled_station_lane_holds_pod_seconds": {},
+      "free_flow_route_transfer_lower_bounds_seconds": {
+        "station-02": 551.0044674158
+      },
+      "checked_ticks": 216001,
+      "contract_checks": 3600,
+      "restore_checks": 12,
+      "restore_reservation_changes": 0,
+      "max_saved_float_delta_meters": 0,
+      "max_saved_float_field": "",
+      "queue_cleared": true,
+      "queue_clear_seconds": 0
+    },
+    {
+      "name": "rail-hub-isolated1-s1",
+      "seed": 1,
+      "fixture": "rail-hub-isolated1.project.json",
+      "fixture_sha256": "1ce489426a5b3ed868899099ad7dd0b4e12b8f5fa651f05b3fcf63bbc8c095ba",
+      "result_sha256": "03f504a7dc2321024dee8308b969c8a5a1e8abfe72c504a1abe10efb295e11da",
+      "schedule_id": "91a128a90214b908",
+      "offered_identities_sha256": "5ca62ba55e4be7566170704a17351b891eee9df1a9d8cc55d6a3e82296c35b2a",
+      "passenger_receipts_sha256": "ffcae1ccf48bb984b97a486fa02e66a4be0548fa4677f32f19804462441f5ced",
+      "scheduled": 1,
+      "completed": 1,
+      "skipped": 0,
+      "remaining": 0,
+      "actual_end_seconds": 3600.016666666667,
+      "connections": {
+        "made": 1,
+        "missed": 0,
+        "unserved": 0,
+        "unresolved": 0
+      },
+      "offered_train_slack_seconds": {
+        "count": 1,
+        "minimum": 1799.0,
+        "mean": 1799.0,
+        "p95": 1799.0,
+        "maximum": 1799.0
+      },
+      "optimistic_route_transfer_margin_seconds": {
+        "count": 1,
+        "minimum": 1327.22638999219,
+        "mean": 1327.22638999219,
+        "p95": 1327.22638999219,
+        "maximum": 1327.22638999219
+      },
+      "accepted_ready_margin_seconds": {
+        "count": 1,
+        "minimum": 1300.9833333333333,
+        "mean": 1300.9833333333333,
+        "p95": 1300.9833333333333,
+        "maximum": 1300.9833333333333
+      },
+      "pickup_wait_seconds": {
+        "count": 1,
+        "minimum": 0.0,
+        "mean": 0.0,
+        "p95": 0.0,
+        "maximum": 0.0
+      },
+      "request_to_alight_seconds": {
+        "count": 1,
+        "minimum": 438.01666666666665,
+        "mean": 438.01666666666665,
+        "p95": 438.01666666666665,
+        "maximum": 438.01666666666665
+      },
+      "station_samples": 3600,
+      "station_sample_means": {
+        "Occupied": 3.8786111111111112,
+        "ReservedEmpty": 0.002777777777777778,
+        "TotalReserved": 3.881388888888889,
+        "Free": 2.118611111111111,
+        "Approaching": 0.029166666666666667,
+        "EntranceStopped": 0.0,
+        "ExitStopped": 0.0
+      },
+      "sampled_station_lane_holds_pod_seconds": {},
+      "free_flow_route_transfer_lower_bounds_seconds": {
+        "station-03": 471.77361000781013
+      },
+      "checked_ticks": 216001,
+      "contract_checks": 3600,
+      "restore_checks": 12,
+      "restore_reservation_changes": 0,
+      "max_saved_float_delta_meters": 0,
+      "max_saved_float_field": "",
+      "queue_cleared": true,
+      "queue_clear_seconds": 0
+    },
+    {
+      "name": "rail-hub-isolated2-s1",
+      "seed": 1,
+      "fixture": "rail-hub-isolated2.project.json",
+      "fixture_sha256": "64e45b9e180afd83cbeecd1c8cee5d605d14f7eaed2ae8b8fd8ab3ca9bc63bee",
+      "result_sha256": "de6c3904c5e90dd5735475e093544ea5f592e445b975599db3ecc514302a5607",
+      "schedule_id": "e52a79f590053bc5",
+      "offered_identities_sha256": "91a688b713aa96536fa38043b29c772f4fd7c3a741804e7d722fab787ae4b284",
+      "passenger_receipts_sha256": "20d4b1de3c41a4b496eb7617597be9cb7019838024663e90655058e3e3ad47ac",
+      "scheduled": 1,
+      "completed": 1,
+      "skipped": 0,
+      "remaining": 0,
+      "actual_end_seconds": 3600.016666666667,
+      "connections": {
+        "made": 1,
+        "missed": 0,
+        "unserved": 0,
+        "unresolved": 0
+      },
+      "offered_train_slack_seconds": {
+        "count": 1,
+        "minimum": 1799.0,
+        "mean": 1799.0,
+        "p95": 1799.0,
+        "maximum": 1799.0
+      },
+      "optimistic_route_transfer_margin_seconds": {
+        "count": 1,
+        "minimum": 1406.4572474001798,
+        "mean": 1406.4572474001798,
+        "p95": 1406.4572474001798,
+        "maximum": 1406.4572474001798
+      },
+      "accepted_ready_margin_seconds": {
+        "count": 1,
+        "minimum": 1380.2166666666667,
+        "mean": 1380.2166666666667,
+        "p95": 1380.2166666666667,
+        "maximum": 1380.2166666666667
+      },
+      "pickup_wait_seconds": {
+        "count": 1,
+        "minimum": 0.0,
+        "mean": 0.0,
+        "p95": 0.0,
+        "maximum": 0.0
+      },
+      "request_to_alight_seconds": {
+        "count": 1,
+        "minimum": 358.78333333333336,
+        "mean": 358.78333333333336,
+        "p95": 358.78333333333336,
+        "maximum": 358.78333333333336
+      },
+      "station_samples": 3600,
+      "station_sample_means": {
+        "Occupied": 3.9008333333333334,
+        "ReservedEmpty": 0.0025,
+        "TotalReserved": 3.9033333333333333,
+        "Free": 2.0966666666666667,
+        "Approaching": 0.028888888888888888,
+        "EntranceStopped": 0.0,
+        "ExitStopped": 0.0
+      },
+      "sampled_station_lane_holds_pod_seconds": {},
+      "free_flow_route_transfer_lower_bounds_seconds": {
+        "station-04": 392.5427525998202
+      },
+      "checked_ticks": 216001,
+      "contract_checks": 3600,
+      "restore_checks": 12,
+      "restore_reservation_changes": 0,
+      "max_saved_float_delta_meters": 0,
+      "max_saved_float_field": "",
+      "queue_cleared": true,
+      "queue_clear_seconds": 0
+    },
+    {
+      "name": "rail-hub-isolated3-s1",
+      "seed": 1,
+      "fixture": "rail-hub-isolated3.project.json",
+      "fixture_sha256": "d7fba497ff837cb473f3b50533cdbc22f36e593f94e2317ba48328368b640b8d",
+      "result_sha256": "8de9bf2bc3508b0e189effb1e0e4f4bc00315e0710a8e9c7a5624b4e7467609a",
+      "schedule_id": "393e17e9e1beeaf5",
+      "offered_identities_sha256": "4667120a547108d3844be5fd860060d12c9faf1301d0b84011ac4f2cb45a0fff",
+      "passenger_receipts_sha256": "368602fa4ea4705d599623fcd23d4cfe4a96cf110ed870e1217e286c3cbb56fb",
+      "scheduled": 1,
+      "completed": 1,
+      "skipped": 0,
+      "remaining": 0,
+      "actual_end_seconds": 3600.016666666667,
+      "connections": {
+        "made": 1,
+        "missed": 0,
+        "unserved": 0,
+        "unresolved": 0
+      },
+      "offered_train_slack_seconds": {
+        "count": 1,
+        "minimum": 1799.0,
+        "mean": 1799.0,
+        "p95": 1799.0,
+        "maximum": 1799.0
+      },
+      "optimistic_route_transfer_margin_seconds": {
+        "count": 1,
+        "minimum": 1485.6881048081698,
+        "mean": 1485.6881048081698,
+        "p95": 1485.6881048081698,
+        "maximum": 1485.6881048081698
+      },
+      "accepted_ready_margin_seconds": {
+        "count": 1,
+        "minimum": 1459.4333333333334,
+        "mean": 1459.4333333333334,
+        "p95": 1459.4333333333334,
+        "maximum": 1459.4333333333334
+      },
+      "pickup_wait_seconds": {
+        "count": 1,
+        "minimum": 0.0,
+        "mean": 0.0,
+        "p95": 0.0,
+        "maximum": 0.0
+      },
+      "request_to_alight_seconds": {
+        "count": 1,
+        "minimum": 279.56666666666666,
+        "mean": 279.56666666666666,
+        "p95": 279.56666666666666,
+        "maximum": 279.56666666666666
+      },
+      "station_samples": 3600,
+      "station_sample_means": {
+        "Occupied": 3.9227777777777777,
+        "ReservedEmpty": 0.0025,
+        "TotalReserved": 3.9252777777777776,
+        "Free": 2.0747222222222224,
+        "Approaching": 0.028888888888888888,
+        "EntranceStopped": 0.0,
+        "ExitStopped": 0.0
+      },
+      "sampled_station_lane_holds_pod_seconds": {},
+      "free_flow_route_transfer_lower_bounds_seconds": {
+        "station-05": 313.3118951918302
+      },
+      "checked_ticks": 216001,
+      "contract_checks": 3600,
+      "restore_checks": 12,
+      "restore_reservation_changes": 0,
+      "max_saved_float_delta_meters": 0,
+      "max_saved_float_field": "",
+      "queue_cleared": true,
+      "queue_clear_seconds": 0
+    },
+    {
+      "name": "rail-hub-isolated4-s1",
+      "seed": 1,
+      "fixture": "rail-hub-isolated4.project.json",
+      "fixture_sha256": "8dc7956007ce88aa979ef73f6b08f94bc46445db34c260c05c858ed4e9194a75",
+      "result_sha256": "78dd05ef501b6d6dd9ec8c5294947bf8668d1e0e685e68c154c3c4bdaca9d441",
+      "schedule_id": "c5ce17452b1bd594",
+      "offered_identities_sha256": "ac7a98c68ec962daacf7e68896d0d810bfd94e679538037e859f51c71835d7ec",
+      "passenger_receipts_sha256": "9869e1d841d33c30f8f51a7d4d9157f75f35d87635a204a9694e3c2f2e53287a",
+      "scheduled": 1,
+      "completed": 1,
+      "skipped": 0,
+      "remaining": 0,
+      "actual_end_seconds": 3600.016666666667,
+      "connections": {
+        "made": 1,
+        "missed": 0,
+        "unserved": 0,
+        "unresolved": 0
+      },
+      "offered_train_slack_seconds": {
+        "count": 1,
+        "minimum": 1799.0,
+        "mean": 1799.0,
+        "p95": 1799.0,
+        "maximum": 1799.0
+      },
+      "optimistic_route_transfer_margin_seconds": {
+        "count": 1,
+        "minimum": 1564.9189622161598,
+        "mean": 1564.9189622161598,
+        "p95": 1564.9189622161598,
+        "maximum": 1564.9189622161598
+      },
+      "accepted_ready_margin_seconds": {
+        "count": 1,
+        "minimum": 1538.6666666666667,
+        "mean": 1538.6666666666667,
+        "p95": 1538.6666666666667,
+        "maximum": 1538.6666666666667
+      },
+      "pickup_wait_seconds": {
+        "count": 1,
+        "minimum": 0.0,
+        "mean": 0.0,
+        "p95": 0.0,
+        "maximum": 0.0
+      },
+      "request_to_alight_seconds": {
+        "count": 1,
+        "minimum": 200.33333333333334,
+        "mean": 200.33333333333334,
+        "p95": 200.33333333333334,
+        "maximum": 200.33333333333334
+      },
+      "station_samples": 3600,
+      "station_sample_means": {
+        "Occupied": 3.944722222222222,
+        "ReservedEmpty": 0.0025,
+        "TotalReserved": 3.9472222222222224,
+        "Free": 2.0527777777777776,
+        "Approaching": 0.029166666666666667,
+        "EntranceStopped": 0.0,
+        "ExitStopped": 0.0
+      },
+      "sampled_station_lane_holds_pod_seconds": {},
+      "free_flow_route_transfer_lower_bounds_seconds": {
+        "station-06": 234.0810377838402
+      },
+      "checked_ticks": 216001,
+      "contract_checks": 3600,
+      "restore_checks": 12,
+      "restore_reservation_changes": 0,
+      "max_saved_float_delta_meters": 0,
+      "max_saved_float_field": "",
+      "queue_cleared": true,
+      "queue_clear_seconds": 0
+    },
+    {
+      "name": "rail-hub-p1-s1",
+      "seed": 1,
+      "fixture": "rail-hub-p1.project.json",
+      "fixture_sha256": "fcc995b25f6439ee90d195a637239bf8d79792a087a64dd478e6be64f33f073b",
+      "result_sha256": "b04fcb7b70942c58cb960cf7a414f2b3070cc1fc0c334a5ad07a1510e1266968",
+      "schedule_id": "b27e382efdff7fa2",
+      "offered_identities_sha256": "827ee707fcbfd077c37a8992c98c9970b0c6169e2725dd0510c5568872c252d3",
+      "passenger_receipts_sha256": "b025459170acefd3781703622d314cecdbb9432b31ba6a9eb577f66ceea9fdc6",
+      "scheduled": 12,
+      "completed": 12,
+      "skipped": 0,
+      "remaining": 0,
+      "actual_end_seconds": 4500,
+      "connections": {
+        "made": 6,
+        "missed": 0,
+        "unserved": 0,
+        "unresolved": 0
+      },
+      "offered_train_slack_seconds": {
+        "count": 6,
+        "minimum": 1140.0,
+        "mean": 1140.0,
+        "p95": 1140.0,
+        "maximum": 1140.0
+      },
+      "optimistic_route_transfer_margin_seconds": {
+        "count": 6,
+        "minimum": 668.2263899921899,
+        "mean": 734.2521044988481,
+        "p95": 905.9189622161598,
+        "maximum": 905.9189622161598
+      },
+      "accepted_ready_margin_seconds": {
+        "count": 6,
+        "minimum": 642.2333333333333,
+        "mean": 713.5638888888889,
+        "p95": 893.8666666666667,
+        "maximum": 893.8666666666667
+      },
+      "pickup_wait_seconds": {
+        "count": 12,
+        "minimum": 0.0,
+        "mean": 0.0,
+        "p95": 0.0,
+        "maximum": 0.0
+      },
+      "request_to_alight_seconds": {
+        "count": 12,
+        "minimum": 186.13333333333333,
+        "mean": 316.0180555555556,
+        "p95": 437.76666666666665,
+        "maximum": 437.76666666666665
+      },
+      "station_samples": 4500,
+      "station_sample_means": {
+        "Occupied": 2.4775555555555555,
+        "ReservedEmpty": 0.017333333333333333,
+        "TotalReserved": 2.4948888888888887,
+        "Free": 3.5051111111111113,
+        "Approaching": 0.12133333333333333,
+        "EntranceStopped": 0.0,
+        "ExitStopped": 0.0
+      },
+      "sampled_station_lane_holds_pod_seconds": {},
+      "free_flow_route_transfer_lower_bounds_seconds": {
+        "station-02": 551.0044674158,
+        "station-03": 471.77361000781013,
+        "station-04": 392.5427525998202,
+        "station-05": 313.3118951918302,
+        "station-06": 234.0810377838402
+      },
+      "checked_ticks": 270000,
+      "contract_checks": 4500,
+      "restore_checks": 15,
+      "restore_reservation_changes": 1,
+      "max_saved_float_delta_meters": 0,
+      "max_saved_float_field": "",
+      "queue_cleared": true,
+      "queue_clear_seconds": 0
+    },
+    {
+      "name": "rail-hub-p1-s2",
+      "seed": 2,
+      "fixture": "rail-hub-p1.project.json",
+      "fixture_sha256": "fcc995b25f6439ee90d195a637239bf8d79792a087a64dd478e6be64f33f073b",
+      "result_sha256": "5a32f4bbefb1f89cab4dc35f739c90579c7979e67e3f5725db8d66ef3e2f5717",
+      "schedule_id": "756123b583e2235f",
+      "offered_identities_sha256": "0e44c2a057cb85e890b86e811f8afe743e4856aea1ba2a980da6f22a9468965d",
+      "passenger_receipts_sha256": "ecee4f406c93ba4e7bb6af2c1b6ced0dbc0e19be3ac824a206102433fbc7b83c",
+      "scheduled": 12,
+      "completed": 12,
+      "skipped": 0,
+      "remaining": 0,
+      "actual_end_seconds": 4500,
+      "connections": {
+        "made": 6,
+        "missed": 0,
+        "unserved": 0,
+        "unresolved": 0
+      },
+      "offered_train_slack_seconds": {
+        "count": 6,
+        "minimum": 1140.0,
+        "mean": 1140.0,
+        "p95": 1140.0,
+        "maximum": 1140.0
+      },
+      "optimistic_route_transfer_margin_seconds": {
+        "count": 6,
+        "minimum": 588.9955325842,
+        "mean": 721.0469615975165,
+        "p95": 905.9189622161598,
+        "maximum": 905.9189622161598
+      },
+      "accepted_ready_margin_seconds": {
+        "count": 6,
+        "minimum": 572.35,
+        "mean": 698.8361111111111,
+        "p95": 875.0833333333334,
+        "maximum": 875.0833333333334
+      },
+      "pickup_wait_seconds": {
+        "count": 12,
+        "minimum": 0.0,
+        "mean": 0.0,
+        "p95": 0.0,
+        "maximum": 0.0
+      },
+      "request_to_alight_seconds": {
+        "count": 12,
+        "minimum": 111.48333333333333,
+        "mean": 356.73333333333335,
+        "p95": 507.65,
+        "maximum": 507.65
+      },
+      "station_samples": 4500,
+      "station_sample_means": {
+        "Occupied": 2.457777777777778,
+        "ReservedEmpty": 0.017333333333333333,
+        "TotalReserved": 2.475111111111111,
+        "Free": 3.524888888888889,
+        "Approaching": 0.12333333333333334,
+        "EntranceStopped": 0.0,
+        "ExitStopped": 0.0
+      },
+      "sampled_station_lane_holds_pod_seconds": {},
+      "free_flow_route_transfer_lower_bounds_seconds": {
+        "station-02": 551.0044674158,
+        "station-03": 471.77361000781013,
+        "station-04": 392.5427525998202,
+        "station-05": 313.3118951918302,
+        "station-06": 234.0810377838402
+      },
+      "checked_ticks": 270000,
+      "contract_checks": 4500,
+      "restore_checks": 15,
+      "restore_reservation_changes": 1,
+      "max_saved_float_delta_meters": 0,
+      "max_saved_float_field": "",
+      "queue_cleared": true,
+      "queue_clear_seconds": 0
+    },
+    {
+      "name": "rail-hub-p24-s1",
+      "seed": 1,
+      "fixture": "rail-hub-p24.project.json",
+      "fixture_sha256": "cd63dbcf6803e67251951a5a30def69707f17fc73ddee3a5268909806af69a96",
+      "result_sha256": "0f249fa6aef128023c42bb41d2cfbc93aded6649eb22f40be3f24e81ebd15647",
+      "schedule_id": "5aa66a0ef188e48e",
+      "offered_identities_sha256": "c02abaec4e761747822889957a568f27830548b5b175b9b058bd2f35fb607aa9",
+      "passenger_receipts_sha256": "d1ce640db3f7370e925394b49dbc1677b765d5a53a5556546170d2b43dc63e3d",
+      "scheduled": 288,
+      "completed": 288,
+      "skipped": 0,
+      "remaining": 0,
+      "actual_end_seconds": 5464,
+      "connections": {
+        "made": 53,
+        "missed": 91,
+        "unserved": 0,
+        "unresolved": 0
+      },
+      "offered_train_slack_seconds": {
+        "count": 144,
+        "minimum": 900.0,
+        "mean": 1020.0076388888889,
+        "p95": 1129.5666666666666,
+        "maximum": 1140.0
+      },
+      "optimistic_route_transfer_margin_seconds": {
+        "count": 144,
+        "minimum": 348.99553258419996,
+        "mean": 605.4563147868492,
+        "p95": 843.3189622161599,
+        "maximum": 905.9189622161598
+      },
+      "accepted_ready_margin_seconds": {
+        "count": 144,
+        "minimum": -1036.1666666666667,
+        "mean": -139.90219907407408,
+        "p95": 480.93333333333334,
+        "maximum": 884.5166666666667
+      },
+      "pickup_wait_seconds": {
+        "count": 288,
+        "minimum": 0.0,
+        "mean": 616.1461226851852,
+        "p95": 1180.1166666666666,
+        "maximum": 1368.8
+      },
+      "request_to_alight_seconds": {
+        "count": 288,
+        "minimum": 195.48333333333332,
+        "mean": 953.756539351852,
+        "p95": 1603.9666666666667,
+        "maximum": 1917.9166666666667
+      },
+      "station_samples": 5464,
+      "station_sample_means": {
+        "Occupied": 1.0345900439238653,
+        "ReservedEmpty": 0.4216691068814056,
+        "TotalReserved": 1.456259150805271,
+        "Free": 4.543740849194729,
+        "Approaching": 6.25878477306003,
+        "EntranceStopped": 0.33199121522694,
+        "ExitStopped": 0.09150805270863836
+      },
+      "sampled_station_lane_holds_pod_seconds": {
+        "departure:Junction traffic": 338,
+        "departure:Pod ahead": 56,
+        "through:Junction traffic": 89,
+        "through:Pod ahead": 31
+      },
+      "free_flow_route_transfer_lower_bounds_seconds": {
+        "station-02": 551.0044674158,
+        "station-03": 471.77361000781013,
+        "station-04": 392.5427525998202,
+        "station-05": 313.3118951918302,
+        "station-06": 234.0810377838402
+      },
+      "checked_ticks": 327840,
+      "contract_checks": 5464,
+      "restore_checks": 18,
+      "restore_reservation_changes": 7,
+      "max_saved_float_delta_meters": 3.126388037344441e-13,
+      "max_saved_float_field": "state.Pods[26].Distance",
+      "queue_cleared": true,
+      "queue_clear_seconds": 1353
+    },
+    {
+      "name": "rail-hub-p24-s2",
+      "seed": 2,
+      "fixture": "rail-hub-p24.project.json",
+      "fixture_sha256": "cd63dbcf6803e67251951a5a30def69707f17fc73ddee3a5268909806af69a96",
+      "result_sha256": "12297cd067734eb4401b06b354d6210e0120391d73dc4bab9cb44d604f49294c",
+      "schedule_id": "a7d3eb8dfcc7efcb",
+      "offered_identities_sha256": "43a3eb131837b735c03c19bbba742c334524f01924b6563a1279c653b6a87b7e",
+      "passenger_receipts_sha256": "e8a38458210eac5c5c860524240e8a4687540861b7019e8fe5452526a9fa0bcb",
+      "scheduled": 288,
+      "completed": 288,
+      "skipped": 0,
+      "remaining": 0,
+      "actual_end_seconds": 5282,
+      "connections": {
+        "made": 54,
+        "missed": 90,
+        "unserved": 0,
+        "unresolved": 0
+      },
+      "offered_train_slack_seconds": {
+        "count": 144,
+        "minimum": 900.0,
+        "mean": 1020.0076388888889,
+        "p95": 1129.5666666666666,
+        "maximum": 1140.0
+      },
+      "optimistic_route_transfer_margin_seconds": {
+        "count": 144,
+        "minimum": 369.8788659175333,
+        "mean": 629.6657434392906,
+        "p95": 853.752295549493,
+        "maximum": 905.9189622161598
+      },
+      "accepted_ready_margin_seconds": {
+        "count": 144,
+        "minimum": -948.6333333333333,
+        "mean": -117.546875,
+        "p95": 482.0833333333333,
+        "maximum": 794.85
+      },
+      "pickup_wait_seconds": {
+        "count": 288,
+        "minimum": 0.0,
+        "mean": 617.8264467592593,
+        "p95": 1099.8333333333333,
+        "maximum": 1320.3666666666666
+      },
+      "request_to_alight_seconds": {
+        "count": 288,
+        "minimum": 153.9,
+        "mean": 951.3361689814815,
+        "p95": 1502.0666666666666,
+        "maximum": 1819.95
+      },
+      "station_samples": 5282,
+      "station_sample_means": {
+        "Occupied": 0.8044301400984476,
+        "ReservedEmpty": 0.4244604316546763,
+        "TotalReserved": 1.2288905717531238,
+        "Free": 4.771109428246876,
+        "Approaching": 6.35876561908368,
+        "EntranceStopped": 0.3775085195001893,
+        "ExitStopped": 0.20730783794017418
+      },
+      "sampled_station_lane_holds_pod_seconds": {
+        "berth-access:Berth occupied": 1,
+        "berth-access:Junction traffic": 7,
+        "departure:Junction traffic": 904,
+        "departure:Pod ahead": 129,
+        "through:Junction traffic": 273,
+        "through:Pod ahead": 136
+      },
+      "free_flow_route_transfer_lower_bounds_seconds": {
+        "station-02": 551.0044674158,
+        "station-03": 471.77361000781013,
+        "station-04": 392.5427525998202,
+        "station-05": 313.3118951918302,
+        "station-06": 234.0810377838402
+      },
+      "checked_ticks": 316920,
+      "contract_checks": 5282,
+      "restore_checks": 17,
+      "restore_reservation_changes": 3,
+      "max_saved_float_delta_meters": 6.679101716144942e-13,
+      "max_saved_float_field": "state.Pods[14].Distance",
+      "queue_cleared": true,
+      "queue_clear_seconds": 1228
+    },
+    {
+      "name": "rail-hub-p6-s1",
+      "seed": 1,
+      "fixture": "rail-hub-p6.project.json",
+      "fixture_sha256": "026a28d02ba7558d935fa2df6179fdff94717bd3122439441182e80fb7332eed",
+      "result_sha256": "ded6dc8709d8555ed9e21501bc57fcd15e7bcefc326a8d5c14ec807888a91e80",
+      "schedule_id": "ddda92993db931a0",
+      "offered_identities_sha256": "6ea62be82b5a976338198f680c1ac76a0ef400d6e216fe2c7c78a2d269093d1c",
+      "passenger_receipts_sha256": "c255620330259b08178808a6698983edd78690fb6128f2738616030b1eac0bcb",
+      "scheduled": 72,
+      "completed": 72,
+      "skipped": 0,
+      "remaining": 0,
+      "actual_end_seconds": 4500,
+      "connections": {
+        "made": 36,
+        "missed": 0,
+        "unserved": 0,
+        "unresolved": 0
+      },
+      "offered_train_slack_seconds": {
+        "count": 36,
+        "minimum": 900.0,
+        "mean": 1020.0,
+        "p95": 1140.0,
+        "maximum": 1140.0
+      },
+      "optimistic_route_transfer_margin_seconds": {
+        "count": 36,
+        "minimum": 348.99553258419996,
+        "mean": 618.6538187992921,
+        "p95": 857.9189622161598,
+        "maximum": 905.9189622161598
+      },
+      "accepted_ready_margin_seconds": {
+        "count": 36,
+        "minimum": 232.33333333333334,
+        "mean": 585.8162037037038,
+        "p95": 845.8666666666667,
+        "maximum": 889.2833333333333
+      },
+      "pickup_wait_seconds": {
+        "count": 72,
+        "minimum": 0.0,
+        "mean": 8.337962962962964,
+        "p95": 101.95,
+        "maximum": 156.91666666666666
+      },
+      "request_to_alight_seconds": {
+        "count": 72,
+        "minimum": 111.48333333333333,
+        "mean": 351.4469907407408,
+        "p95": 534.9833333333333,
+        "maximum": 609.3166666666667
+      },
+      "station_samples": 4500,
+      "station_sample_means": {
+        "Occupied": 2.9044444444444446,
+        "ReservedEmpty": 0.1497777777777778,
+        "TotalReserved": 3.054222222222222,
+        "Free": 2.945777777777778,
+        "Approaching": 0.9631111111111111,
+        "EntranceStopped": 0.004222222222222222,
+        "ExitStopped": 0.12311111111111112
+      },
+      "sampled_station_lane_holds_pod_seconds": {
+        "departure:Junction traffic": 503,
+        "departure:Pod ahead": 48,
+        "through:Junction traffic": 7,
+        "through:Pod ahead": 1
+      },
+      "free_flow_route_transfer_lower_bounds_seconds": {
+        "station-02": 551.0044674158,
+        "station-03": 471.77361000781013,
+        "station-04": 392.5427525998202,
+        "station-05": 313.3118951918302,
+        "station-06": 234.0810377838402
+      },
+      "checked_ticks": 270000,
+      "contract_checks": 4500,
+      "restore_checks": 15,
+      "restore_reservation_changes": 1,
+      "max_saved_float_delta_meters": 0,
+      "max_saved_float_field": "",
+      "queue_cleared": true,
+      "queue_clear_seconds": 102
+    },
+    {
+      "name": "rail-hub-p6-s2",
+      "seed": 2,
+      "fixture": "rail-hub-p6.project.json",
+      "fixture_sha256": "026a28d02ba7558d935fa2df6179fdff94717bd3122439441182e80fb7332eed",
+      "result_sha256": "502216a1c0180b076c6818d8cdfd510ad4f82a49d37dbdf0f9d353c8587c3908",
+      "schedule_id": "0c451939055e9aa7",
+      "offered_identities_sha256": "ec242c209b9cd6d291abc2205853f988d7c844db5baace9ba88482ff196af916",
+      "passenger_receipts_sha256": "a1df741f41841fc1cc37e22a8ab8dc4f9fd5bb84c5c669a7736f57e47ba2683a",
+      "scheduled": 72,
+      "completed": 72,
+      "skipped": 0,
+      "remaining": 0,
+      "actual_end_seconds": 4500,
+      "connections": {
+        "made": 36,
+        "missed": 0,
+        "unserved": 0,
+        "unresolved": 0
+      },
+      "offered_train_slack_seconds": {
+        "count": 36,
+        "minimum": 900.0,
+        "mean": 1020.0,
+        "p95": 1140.0,
+        "maximum": 1140.0
+      },
+      "optimistic_route_transfer_margin_seconds": {
+        "count": 36,
+        "minimum": 348.99553258419996,
+        "mean": 629.6581045504018,
+        "p95": 857.9189622161598,
+        "maximum": 905.9189622161598
+      },
+      "accepted_ready_margin_seconds": {
+        "count": 36,
+        "minimum": 282.98333333333335,
+        "mean": 579.0194444444445,
+        "p95": 836.5166666666667,
+        "maximum": 889.2833333333333
+      },
+      "pickup_wait_seconds": {
+        "count": 72,
+        "minimum": 0.0,
+        "mean": 20.43726851851852,
+        "p95": 119.73333333333333,
+        "maximum": 156.91666666666666
+      },
+      "request_to_alight_seconds": {
+        "count": 72,
+        "minimum": 119.41666666666667,
+        "mean": 375.24212962962963,
+        "p95": 545.0333333333333,
+        "maximum": 646.7833333333333
+      },
+      "station_samples": 4500,
+      "station_sample_means": {
+        "Occupied": 2.549777777777778,
+        "ReservedEmpty": 0.13844444444444445,
+        "TotalReserved": 2.688222222222222,
+        "Free": 3.311777777777778,
+        "Approaching": 0.9868888888888889,
+        "EntranceStopped": 0.0026666666666666666,
+        "ExitStopped": 0.10466666666666667
+      },
+      "sampled_station_lane_holds_pod_seconds": {
+        "departure:Junction traffic": 428,
+        "departure:Pod ahead": 43
+      },
+      "free_flow_route_transfer_lower_bounds_seconds": {
+        "station-02": 551.0044674158,
+        "station-03": 471.77361000781013,
+        "station-04": 392.5427525998202,
+        "station-05": 313.3118951918302,
+        "station-06": 234.0810377838402
+      },
+      "checked_ticks": 270000,
+      "contract_checks": 4500,
+      "restore_checks": 15,
+      "restore_reservation_changes": 0,
+      "max_saved_float_delta_meters": 0,
+      "max_saved_float_field": "",
+      "queue_cleared": true,
+      "queue_clear_seconds": 24
+    }
+  ],
+  "rejected_arms": [
+    {
+      "name": "rail-hub-banks-candidate-s1",
+      "seed": 1,
+      "reason": "live safety tick 88160: tick 88160: pods pod-008 and pod-017 are 11.71552 meters apart",
+      "stop_tick": 88160,
+      "planned": 1440,
+      "offered": 480,
+      "accepted": 239,
+      "skipped": 241,
+      "future_not_offered": 960,
+      "receipt_sha256": "ea69980b25497f237b2bb8200c341ece1821a37fe4e7b1154ac694c40b94244a",
+      "offered_identities_sha256": "c91444f2bd0e50f1de6564dfba38372a1f854de234a3240e9acd636af9509033",
+      "original_failure_state_sha256": "16e457aa616622fc249d80e630f5eb27c6d89d0fc9fe01f8e6d0fff40294fd53",
+      "capture_failure_state_sha256": "8ae560285c9f7c2fe225f3411fca5accb15a6a2325e1d69ea13615bdeda732aa",
+      "physical_state_identical": true,
+      "partial_connection_counts": {
+        "made": 0,
+        "missed": 91,
+        "unserved": 141,
+        "unresolved": 8
+      },
+      "station_samples": 1469,
+      "station_sample_means": {
+        "Occupied": 0.7787610619469026,
+        "ReservedEmpty": 0.4254594962559564,
+        "TotalReserved": 1.2042205582028591,
+        "Free": 4.795779441797141,
+        "Approaching": 13.92784206943499,
+        "EntranceStopped": 1.1055139550714772,
+        "ExitStopped": 0.07488087134104833
+      },
+      "sampled_station_lane_holds_pod_seconds": {
+        "berth-access:Berth occupied": 4,
+        "berth-access:Junction traffic": 3,
+        "departure:Junction traffic": 15,
+        "departure:Pod ahead": 6
+      },
+      "checked_ticks": 88159,
+      "contract_checks": 1469,
+      "restore_checks": 4
+    },
+    {
+      "name": "rail-hub-banks-candidate-s2",
+      "seed": 2,
+      "reason": "live safety tick 115238: tick 115238: pods pod-027 and pod-029 are 11.85891 meters apart",
+      "stop_tick": 115238,
+      "planned": 1440,
+      "offered": 720,
+      "accepted": 268,
+      "skipped": 452,
+      "future_not_offered": 720,
+      "receipt_sha256": "b3cda89904372ba2cc7c360cd5593f160519ee1c4419c52a994217155ad1aa03",
+      "offered_identities_sha256": "85b17b736710532ede74e07bc413d48831dde1caa782cade95cd7efd300d21bd",
+      "original_failure_state_sha256": "1271e95e8bad5dab3215d31d52ffde6169f3ee03e1cd4d874716cee10f5978e8",
+      "capture_failure_state_sha256": "cdce51e9a0dfa13e7f5b8c1bc6b54c9f09f5e6a67364c55def8b5e8dfe34b1f8",
+      "physical_state_identical": true,
+      "partial_connection_counts": {
+        "made": 0,
+        "missed": 99,
+        "unserved": 253,
+        "unresolved": 8
+      },
+      "station_samples": 1920,
+      "station_sample_means": {
+        "Occupied": 0.6276041666666666,
+        "ReservedEmpty": 0.4588541666666667,
+        "TotalReserved": 1.0864583333333333,
+        "Free": 4.913541666666666,
+        "Approaching": 14.936979166666667,
+        "EntranceStopped": 0.8458333333333333,
+        "ExitStopped": 0.030208333333333334
+      },
+      "sampled_station_lane_holds_pod_seconds": {
+        "berth-access:Berth occupied": 1,
+        "berth-access:Junction traffic": 6,
+        "departure:Junction traffic": 15,
+        "departure:Pod ahead": 8
+      },
+      "checked_ticks": 115237,
+      "contract_checks": 1920,
+      "restore_checks": 6
+    }
+  ]
+}

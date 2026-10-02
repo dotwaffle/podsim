@@ -141,6 +141,9 @@ The comparison flag does not change project defaults or enable live forecasting.
 
 ## Mixed-service forecast screen
 
+The [service feasibility study](rail-service-feasibility.md) tests lighter demand and longer transfer leads, plus a rejected station-bank layout.
+Its results are separate from the fixed heavy-demand forecast comparison below.
+
 The October 1 screen used six inbound trains and six outbound trains at Rail Hub and LondonFull's Paddington.
 Each event contained 120 passengers, for 1,440 offers and 720 outbound connections per arm.
 Inbound releases occurred at seconds 330, 930, 1,530, 2,130, 2,730, and 3,330.
