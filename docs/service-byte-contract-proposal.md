@@ -1,6 +1,7 @@
 # Service byte limits
 
-Status: proposed October 2, 2026. Current byte caps remain unchanged.
+Status: approved October 2, 2026.
+Current byte caps remain unchanged.
 
 The approved foundation requires saved-state and stream byte proofs before the expanded counts land.
 The existing conservative fixtures nearly fill their caps.
@@ -13,7 +14,8 @@ An isolated count projection fails both gates before it adds the new order field
 
 The projection uses 6,200 pending records and 20 stored riders per pod.
 It retains existing text, route, project, fleet, and byte bounds.
-These are conservative independent maxima. They do not prove that a supported fleet can reach that combination.
+These are conservative independent maxima.
+They do not prove that a supported fleet can reach that combination.
 Completed rider history does not count as an outstanding order, so an outstanding-order bound alone does not remove that history.
 
 ## Recommended staged contract
@@ -33,7 +35,8 @@ Approve this qualification scope:
 - Preserve manual session admission at 200 and offline comparison queue settings.
   Add no new native submission ceiling and truncate no accepted orders or histories.
 
-This stages the count amendment. It does not increase byte caps or discard historical passenger records.
+This stages the count amendment.
+It does not increase byte caps or discard historical passenger records.
 The current-profile fixtures must include all new order fields and migration markers before this foundation lands.
 
 ## Alternative
