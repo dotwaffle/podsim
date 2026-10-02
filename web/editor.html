@@ -219,10 +219,29 @@
         <h2>Passenger demand</h2>
         <label class="check"><input id="demandEnabled" type="checkbox"> Generate passengers</label>
         <label>Trips per minute<input id="demandRate" type="number" min="1" max="120" step="1"></label>
-        <label>Pattern<select id="demandPattern"><option value="balanced">Balanced</option><option value="destination">One destination</option><option value="profile">OD profile</option><option value="rail-arrivals">Rail arrivals</option><option value="rail-services">Rail arrivals and departures</option></select></label>
+        <label>Pattern<select id="demandPattern"><option value="balanced">Balanced</option><option value="destination">One destination</option><option value="profile">OD profile</option><option value="profile-daily">Daily OD profile</option><option value="rail-arrivals">Rail arrivals</option><option value="rail-services">Rail arrivals and departures</option></select></label>
         <label id="destinationLabel">Destination<select id="demandDestination"></select></label>
         <label id="profileLabel">Profile<select id="demandProfile"></select></label>
         <label id="bandLabel">Time band<select id="demandBand"></select></label>
+        <label id="dailyClockLabel" hidden>Time at reset<input id="dailyStartTime" type="time" step="60" value="00:00" required></label>
+        <p id="dailyClockHint" class="hint" hidden>The profile repeats each simulated day. Gaps and zero-rate bands generate no passengers.</p>
+        <details id="parkRideForm" class="subpanel">
+          <summary>Create a park-and-ride profile</summary>
+          <p class="hint">Morning trips leave the hub. Evening trips return to it. Pod-storage stations cannot serve passengers.</p>
+          <label>Profile name<input id="parkRideName" maxlength="80" value="Park and ride" required></label>
+          <label>Passenger hub<select id="parkRideHub" required></select></label>
+          <div class="row"><label>Destination<select id="parkRideDestination" required></select></label><button id="parkRideAddDestination" type="button">Add destination</button></div>
+          <div id="parkRideDestinations"></div>
+          <h3>Morning</h3>
+          <div class="row"><label>Start<input id="parkRideMorningStart" type="time" step="60" value="07:00" required></label><label>Minutes<input id="parkRideMorningDuration" type="number" min="1" max="1440" value="120" required></label></div>
+          <label>Trips per minute<input id="parkRideMorningRate" type="number" min="0" max="120" value="12" required></label>
+          <h3>Evening</h3>
+          <div class="row"><label>Start<input id="parkRideEveningStart" type="time" step="60" value="17:00" required></label><label>Minutes<input id="parkRideEveningDuration" type="number" min="1" max="1440" value="120" required></label></div>
+          <label>Trips per minute<input id="parkRideEveningRate" type="number" min="0" max="120" value="12" required></label>
+          <label>Time at reset<input id="parkRideStartTime" type="time" step="60" value="07:00" required></label>
+          <button id="parkRideCreate" type="button">Create profile</button>
+          <p id="parkRideStatus" class="hint" aria-live="polite"></p>
+        </details>
         <label>Parties per pod<input id="sharedRidePartyLimit" type="number" min="1" max="8" step="1"></label>
         <label>Shared rides<select id="sharedRideMode"><option value="drop-offs">Drop-offs on the route</option><option value="destination">Same destination</option></select></label>
         <label>Shared ride joins<select id="sharedRideJoin"><option value="unassigned">Unassigned parties only</option><option value="reassign-existing">Include assigned parties at existing stops</option></select></label>
@@ -255,6 +274,7 @@
 
   <div id="toast" role="status" aria-live="polite"></div>
   <script src="tiles.js"></script>
+  <script src="editor-model.js"></script>
   <script src="editor.js"></script>
 </body>
 </html>

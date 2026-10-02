@@ -17,7 +17,7 @@ func TestEmbeddedWebAssets(t *testing.T) {
 	if !ok {
 		t.Fatal("embedded assets are unavailable")
 	}
-	for _, name := range []string{"index.html", "shell.js", "game.html", "tiles.js", "simulation-map.js", "loader.js", "editor.html", "podsim.wasm.gz", "wasm_exec.js"} {
+	for _, name := range []string{"index.html", "shell.js", "game.html", "tiles.js", "simulation-map.js", "loader.js", "editor.html", "editor-model.js", "editor-model.wasm.gz", "podsim.wasm.gz", "wasm_exec.js"} {
 		info, err := fs.Stat(assets, name)
 		if err != nil {
 			t.Fatalf("stat %s: %v", name, err)
@@ -26,26 +26,30 @@ func TestEmbeddedWebAssets(t *testing.T) {
 			t.Fatalf("invalid embedded asset %s", name)
 		}
 	}
-	if _, err := fs.Stat(assets, "podsim.wasm"); !errors.Is(err, fs.ErrNotExist) {
-		t.Fatalf("stat podsim.wasm: %v, want only the compressed module", err)
+	for _, name := range []string{"podsim.wasm", "editor-model.wasm"} {
+		if _, err := fs.Stat(assets, name); !errors.Is(err, fs.ErrNotExist) {
+			t.Fatalf("stat %s: %v, want only the compressed module", name, err)
+		}
 	}
-	compressed, err := assets.Open("podsim.wasm.gz")
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer func() { _ = compressed.Close() }()
-	reader, err := gzip.NewReader(compressed)
-	if err != nil {
-		t.Fatal(err)
-	}
-	decoded, err := io.ReadAll(reader)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err := reader.Close(); err != nil {
-		t.Fatal(err)
-	}
-	if !bytes.HasPrefix(decoded, []byte("\x00asm")) {
-		t.Fatal("compressed WASM does not hold a WASM module")
+	for _, name := range []string{"podsim.wasm.gz", "editor-model.wasm.gz"} {
+		compressed, err := assets.Open(name)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer func() { _ = compressed.Close() }()
+		reader, err := gzip.NewReader(compressed)
+		if err != nil {
+			t.Fatal(err)
+		}
+		decoded, err := io.ReadAll(reader)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := reader.Close(); err != nil {
+			t.Fatal(err)
+		}
+		if !bytes.HasPrefix(decoded, []byte("\x00asm")) {
+			t.Fatalf("%s does not hold a WASM module", name)
+		}
 	}
 }

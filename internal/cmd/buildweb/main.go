@@ -13,7 +13,7 @@ import (
 	"strings"
 )
 
-var staticFiles = []string{"index.html", "shell.js", "game.html", "tiles.js", "simulation-map.js", "loader.js", "stream.js", "editor.html", "editor.css", "editor.js"}
+var staticFiles = []string{"index.html", "shell.js", "game.html", "tiles.js", "simulation-map.js", "loader.js", "stream.js", "editor.html", "editor.css", "editor-model.js", "editor.js"}
 
 func main() {
 	if err := run(context.Background()); err != nil {
@@ -26,7 +26,10 @@ func run(ctx context.Context) error {
 	if err := os.MkdirAll("dist", 0o750); err != nil {
 		return fmt.Errorf("create dist: %w", err)
 	}
-	if err := buildWASM(ctx, filepath.Join("dist", "podsim.wasm.gz")); err != nil {
+	if err := buildWASM(ctx, "./cmd/podsim", filepath.Join("dist", "podsim.wasm.gz")); err != nil {
+		return err
+	}
+	if err := buildWASM(ctx, "./cmd/editormodel", filepath.Join("dist", "editor-model.wasm.gz")); err != nil {
 		return err
 	}
 	output, err := exec.CommandContext(ctx, "go", "env", "GOROOT").Output() // #nosec G204 -- The command and arguments are fixed build inputs.
@@ -46,17 +49,16 @@ func run(ctx context.Context) error {
 }
 
 // buildWASM builds the WASM module in a temporary directory and writes only
-// the compressed module to destination. The server decompresses the module
-// for clients that do not accept gzip. This keeps one copy of the module in
-// dist and in the embedded server.
-func buildWASM(ctx context.Context, destination string) error {
+// the compressed module to destination. Each module has one copy in dist
+// and in the embedded server.
+func buildWASM(ctx context.Context, source, destination string) error {
 	scratch, err := os.MkdirTemp("", "podsim-wasm-")
 	if err != nil {
 		return fmt.Errorf("create WASM build directory: %w", err)
 	}
 	defer func() { _ = os.RemoveAll(scratch) }()
 	module := filepath.Join(scratch, "podsim.wasm")
-	command := exec.CommandContext(ctx, "go", "build", "-trimpath", "-o", module, "./cmd/podsim") // #nosec G204 -- The command and arguments are fixed build inputs.
+	command := exec.CommandContext(ctx, "go", "build", "-trimpath", "-o", module, source) // #nosec G204 -- The command and arguments are fixed build inputs.
 	command.Env = append(os.Environ(), "GOOS=js", "GOARCH=wasm")
 	command.Stdout = os.Stdout
 	command.Stderr = os.Stderr
@@ -67,7 +69,7 @@ func buildWASM(ctx context.Context, destination string) error {
 		return err
 	}
 	// Remove the raw module of an older build.
-	if err := os.Remove(filepath.Join(filepath.Dir(destination), "podsim.wasm")); err != nil && !errors.Is(err, os.ErrNotExist) {
+	if err := os.Remove(strings.TrimSuffix(destination, ".gz")); err != nil && !errors.Is(err, os.ErrNotExist) {
 		return fmt.Errorf("remove old WASM: %w", err)
 	}
 	return nil

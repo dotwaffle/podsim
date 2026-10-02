@@ -223,7 +223,7 @@
         config.demand.destination = (market || first || {}).ID || "";
       }
     }
-    if (!["destination", "profile", "rail-arrivals", "rail-services"].includes(config.demand.pattern)) config.demand.pattern = "balanced";
+    if (!["destination", "profile", "profile-daily", "rail-arrivals", "rail-services"].includes(config.demand.pattern)) config.demand.pattern = "balanced";
     config.demand.destination = typeof config.demand.destination === "string" ? config.demand.destination : "";
     config.demand.profile = typeof config.demand.profile === "string" ? config.demand.profile : "";
     config.demand.band = typeof config.demand.band === "string" ? config.demand.band : "";
@@ -1333,6 +1333,8 @@
     out.demand.pattern = pattern;
     const [first] = Array.isArray(out.demandProfiles) ? out.demandProfiles : [];
     if (pattern === "profile" && first) { out.demand.profile = first.id; out.demand.band = first.bands?.[0]?.id || ""; }
+    if (pattern === "profile-daily") { if (first) out.demand.profile = first.id; out.demand.band = ""; out.demand.dailyStartMinute ??= 0; }
+    else delete out.demand.dailyStartMinute;
     return out;
   }
 
@@ -1746,16 +1748,17 @@
     errors.push(...railArrivalErrors(value.railArrivals, passengerIDs), ...railDepartureErrors(value.railDepartures, value.railArrivals, passengerIDs));
     if (value.geo !== undefined && value.geo !== null) { const geo = geoError(value.geo); if (geo) errors.push(geo); }
     if (value.map !== undefined && value.map !== null && !Tiles.validMap(value.map, value.geo)) errors.push("The map needs provider osm, opacity from 0 to 1, and a geographic reference.");
-    if (!demand || !["balanced", "destination", "market", "profile", "rail-arrivals", "rail-services"].includes(demand.pattern)) errors.push("The passenger demand pattern is invalid.");
+    if (!demand || !["balanced", "destination", "market", "profile", "profile-daily", "rail-arrivals", "rail-services"].includes(demand.pattern)) errors.push("The passenger demand pattern is invalid.");
     if (isRecord(demand) && "destination" in demand && (typeof demand.destination !== "string" || new TextEncoder().encode(demand.destination).length > 64)) errors.push("The passenger demand destination is invalid.");
     if (demand && demand.pattern === "destination" && !passenger.some((station) => station.ID === demand.destination)) errors.push("Select a passenger destination.");
     if (demand && demand.pattern === "rail-arrivals" && (!Array.isArray(value.railArrivals) || !value.railArrivals.length)) errors.push("Rail-arrivals demand needs a nonempty arrival plan.");
     if (demand && demand.pattern === "rail-services" && !(value.railArrivals || []).length && !(value.railDepartures || []).length) errors.push("Rail-services demand needs a nonempty rail plan.");
-    if (demand && demand.pattern === "profile") {
+    if (demand && ["profile", "profile-daily"].includes(demand.pattern)) {
       const profile = profiles.find((item) => isRecord(item) && item.id === demand.profile);
       if (!profiles.length) errors.push("The project has no demand profiles. Select another pattern.");
       else if (!profile) errors.push("Select a demand profile.");
-      else if (!profile.bands.some((band) => isRecord(band) && band.id === demand.band)) errors.push("Select a demand time band.");
+      else if (demand.pattern === "profile" && !profile.bands.some((band) => isRecord(band) && band.id === demand.band)) errors.push("Select a demand time band.");
+
     }
     if (!demand || !Number.isSafeInteger(demand.seed) || demand.seed < 0) errors.push("The demand seed must be a nonnegative whole number.");
     if ("sharedRidePartyLimit" in value && (!Number.isInteger(value.sharedRidePartyLimit) || value.sharedRidePartyLimit < 0 || value.sharedRidePartyLimit > 8)) errors.push("The shared ride party limit must be 1 to 8.");
@@ -4479,8 +4482,13 @@
     profileSelect.value = demand.profile;
     const profile = profiles.find((item) => item.id === demand.profile); const bandSelect = $("#demandBand"); bandSelect.replaceChildren();
     for (const band of profile?.bands || []) { const option = document.createElement("option"); option.value = band.id; option.textContent = band.name; bandSelect.append(option); }
-    bandSelect.value = demand.band; $("#profileLabel").hidden = demand.pattern !== "profile"; $("#bandLabel").hidden = demand.pattern !== "profile";
+    bandSelect.value = demand.band; $("#profileLabel").hidden = !["profile", "profile-daily"].includes(demand.pattern); $("#bandLabel").hidden = demand.pattern !== "profile";
     $("#demandPattern").querySelector('option[value="profile"]').disabled = profiles.length === 0;
+    $("#demandPattern").querySelector('option[value="profile-daily"]').disabled = profiles.length === 0;
+    $("#dailyClockLabel").hidden = $("#dailyClockHint").hidden = demand.pattern !== "profile-daily";
+    const dailyMinute = demand.dailyStartMinute || 0;
+    $("#dailyStartTime").value = `${String(Math.floor(dailyMinute / 60)).padStart(2, "0")}:${String(dailyMinute % 60).padStart(2, "0")}`;
+    renderParkRide(config, passenger);
     $("#demandPattern").querySelector('option[value="rail-arrivals"]').disabled = !(config.railArrivals || []).length;
     $("#demandPattern").querySelector('option[value="rail-services"]').disabled = !(config.railArrivals || []).length && !(config.railDepartures || []).length;
     $("#demandRate").disabled = ["rail-arrivals", "rail-services"].includes(demand.pattern);
@@ -4492,6 +4500,48 @@
     $("#platoonLimit").value = String(config.platoonLimit);
     $("#stationBuffers").checked = config.stationBuffers;
     $("#pickupReassignment").checked = config.pickupReassignment;
+  }
+
+  let parkRideStations = null, parkRideBusy = false;
+  function renderParkRide(config, passenger) {
+    $("#parkRideCreate").disabled = parkRideBusy || (config.demandProfiles || []).length >= 8;
+    $("#parkRideAddDestination").disabled = passenger.length < 2;
+    if (parkRideStations === config.network.Stations) return;
+    parkRideStations = config.network.Stations;
+    for (const selector of ["#parkRideHub", "#parkRideDestination"]) {
+      const select = $(selector), value = select.value;
+      select.replaceChildren(...passenger.filter((station) => selector !== "#parkRideDestination" || station.ID !== $("#parkRideHub").value).map((station) => Object.assign(document.createElement("option"), { value: station.ID, textContent: station.Name })));
+      if ([...select.options].some((option) => option.value === value)) select.value = value;
+    }
+  }
+
+  function addParkRideDestination() {
+    const select = $("#parkRideDestination");
+    const row = document.createElement("label"); row.className = "fleet-row"; row.dataset.station = select.value;
+    const name = document.createElement("span"); name.textContent = select.selectedOptions[0]?.textContent || "Destination";
+    const input = document.createElement("input"); input.type = "number"; input.min = "0"; input.step = "any"; input.value = "1"; input.required = true; input.setAttribute("aria-label", `Weight for ${name.textContent}`);
+    const remove = document.createElement("button"); remove.type = "button"; remove.textContent = "Remove"; remove.addEventListener("click", () => row.remove());
+    row.append(name, input, remove); $("#parkRideDestinations").append(row);
+  }
+
+  const inputMinute = (selector) => { const [hours, minutes] = $(selector).value.split(":").map(Number); return hours * 60 + minutes; };
+  async function createParkRideProfile() {
+    if (parkRideBusy) return;
+    for (const input of $("#parkRideForm").querySelectorAll("input, select")) if (!input.reportValidity()) return;
+    const config = draft(), editGeneration = model.edits, status = $("#parkRideStatus");
+    const band = (name) => ({ startMinute: inputMinute(`#parkRide${name}Start`), durationMinutes: $(`#parkRide${name}Duration`).valueAsNumber, perMinute: $(`#parkRide${name}Rate`).valueAsNumber });
+    const plan = { name: $("#parkRideName").value, hub: $("#parkRideHub").value,
+      destinations: [...$("#parkRideDestinations").children].map((row) => ({ station: row.dataset.station, weight: row.querySelector("input").valueAsNumber })),
+      morning: band("Morning"), evening: band("Evening"), dailyStartMinute: inputMinute("#parkRideStartTime") };
+    parkRideBusy = true; renderParkRide(config, config.network.Stations.filter((station) => !station.ParkingOnly)); status.textContent = "Creating profile…";
+    try {
+      const result = await goModel.call(config, "park-ride", plan);
+      if (result.error) throw new Error(result.error);
+      if (config !== draft() || editGeneration !== model.edits || state.drag && state.drag.type !== "pan" || model.gestureOpen) throw new Error("The draft changed or a gesture is open. Finish the gesture and create the profile again.");
+      setDraft({ ...config, demandProfiles: [...(config.demandProfiles || []), result.profile], demand: result.demand });
+      status.textContent = `Created ${result.profile.name}. Pause and apply to use it.`;
+    } catch (error) { status.textContent = error.message; toast(error.message, true); }
+    finally { parkRideBusy = false; renderParkRide(draft(), draft().network.Stations.filter((station) => !station.ParkingOnly)); }
   }
 
   let drawnNetwork = null, drawnBackground = "", drawnSelection = "";
@@ -4826,36 +4876,26 @@
 
   function fitNetwork() { state.view = fitView(state.map.bounds, $("#networkMap").getBoundingClientRect()); setView(); }
 
-  let validationWorker = null, validationJob = null, validationID = 0, validationFailed = false, validationSent = {};
+  const goModel = root.PodsimGoEditor.createClient({ makeWorker: () => new Worker("./editor-model.js") });
+  let validationJob = null;
   function scheduleValidation() {
-    if (validationFailed || typeof Worker === "undefined") { runValidation(); return; }
-    // Keep at most one worker job. Its completion schedules the latest draft.
     if (validationJob) return;
-    try {
-      if (!validationWorker) {
-        validationWorker = new Worker("./editor.js");
-        validationWorker.onmessage = ({ data }) => {
-          const job = validationJob; validationJob = null;
-          if (job && job.id === data.id && job.config === draft()) showValidation(job.config, data.results);
-          else checks.schedule();
-        };
-        validationWorker.onerror = () => {
-          validationWorker.terminate(); validationWorker = null; validationJob = null; validationFailed = true; checks.schedule();
-        };
-      }
-      validationJob = { id: ++validationID, config: draft() };
-      const patch = {};
-      for (const key of Object.keys(validationJob.config)) if (validationJob.config[key] !== validationSent[key]) patch[key] = validationJob.config[key];
-      validationWorker.postMessage({ id: validationJob.id, keys: Object.keys(validationJob.config), patch });
-      validationSent = validationJob.config;
-    } catch (_) {
-      validationWorker?.terminate(); validationWorker = null; validationJob = null; validationFailed = true; runValidation();
-    }
+    const config = draft();
+    validationJob = runValidation(config, true).finally(() => {
+      validationJob = null;
+      if (config !== draft()) checks.schedule();
+    });
   }
 
-  // runValidation checks the draft and shows the results. It gives the
-  // errors. Use checks.run to run it, so that a scheduled run is canceled.
-  function runValidation() { const config = draft(); const results = checkResults(config); showValidation(config, results); return results.errors; }
+  // runValidation checks a draft off the main thread. A stale result cannot replace current checks.
+  async function runValidation(config = draft(), background = false) {
+    let results;
+    try { results = await goModel.call(config, "validate", undefined, { background }); }
+    catch (error) { if (error.name === "AbortError") return { errors: [], warnings: [], valid: false }; results = { errors: [{ text: error.message }], warnings: [], valid: false }; }
+    if (!results || !Array.isArray(results.errors) || !Array.isArray(results.warnings) || ![...results.errors, ...results.warnings].every((row) => row && typeof row.text === "string" && row.text.length > 0) || results.valid !== true && !results.errors.length) results = { errors: [{ text: "The Go editor model did not return a valid verdict. Reload the editor." }], warnings: [], valid: false };
+    if (config === draft()) showValidation(config, results);
+    return results;
+  }
   // showValidation shows the check results in the Checks section, and the
   // problem count beside the apply button. It lists the errors first, then
   // the warnings. A result that names an object of the scenario is a button
@@ -4922,7 +4962,7 @@
       updateStatus(`Live revision ${state.loadedRevision}. ${DRAFT_STORE_TEXT[keeper.status]}`);
       // Keep a server scenario that fails the editor checks, and list the
       // problems. Only errors show the error toast.
-      const errors = checks.run();
+      const { errors } = await checks.run();
       if (errors.length) toast(`The server scenario has ${errors.length} validation problem${errors.length === 1 ? "" : "s"}. See Checks.`, true);
     } catch (error) {
       model.setLoaded({ scenario: fallbackConfig(), background: null }); state.history.reset(model.loaded);
@@ -4940,11 +4980,12 @@
   // the revision and the server start ID that the apply sends. Only a
   // successful apply changes the loaded revision and the draft base.
   async function applyProject(base = { revision: state.loadedRevision, serverStart: state.draftBase.serverStart }) {
-    if (!readyToApply()) return;
-    const button = $("#applyButton"); state.applying = true; renderApply(); button.textContent = "Pausing…";
-    keeper.flush();
+    if (state.applying) return;
+    const project = draft();
+    const button = $("#applyButton"); state.applying = true; renderApply(); button.textContent = "Checking…";
     try {
-      const project = draft();
+      if (!await readyToApply(project)) return;
+      button.textContent = "Pausing…"; keeper.flush();
       const applied = await applyToServer({ connection: state.connection, revision: base.revision, serverStart: base.serverStart, project, onApplying: () => { button.textContent = "Applying…"; } });
       // A restored draft from an older editor has no server start ID. The
       // applied state then gets the ID that the apply read.
@@ -4967,10 +5008,12 @@
 
   // readyToApply runs the checks. When the draft has errors, it shows them
   // and gives false.
-  function readyToApply() {
-    const errors = checks.run();
+  async function readyToApply(config = draft()) {
+    const editGeneration = model.edits;
+    const { errors, valid } = await checks.run();
+    if (config !== draft() || editGeneration !== model.edits || state.drag && state.drag.type !== "pan" || model.gestureOpen) { toast("The draft changed during validation. Apply the current draft again.", true); return false; }
     if (errors.length) { showChecks(); toast("Fix the listed problems before you apply the scenario.", true); }
-    return !errors.length;
+    return valid === true && !errors.length;
   }
 
   // showConflict shows the apply conflict actions for conflict, or hides
@@ -5024,7 +5067,7 @@
   // asks first. Pause and apply then runs as usual with the base that
   // applyOverBase gives.
   function applyOver(event) {
-    if (!state.conflict || state.applying || !readyToApply()) return Promise.resolve();
+    if (!state.conflict || state.applying) return Promise.resolve();
     return runConflictAction(event, async () => {
       const base = await applyOverBase({ connection: state.connection, revision: state.conflict.revision, serverStart: state.conflict.serverStart, confirm: (text) => root.confirm(text) });
       return base && (() => applyProject(base));
@@ -5306,6 +5349,10 @@
       state.calibrating = true; state.calibrationPoints = []; $("#calibrationPanel").hidden = false; $("#finishCalibrationButton").disabled = true; updatePrompt(); renderMap();
     });
     $("#finishCalibrationButton").addEventListener("click", finishCalibration); $("#cancelCalibrationButton").addEventListener("click", () => { state.calibrating = false; state.calibrationPoints = []; $("#calibrationPanel").hidden = true; render(); });
+    $("#parkRideHub").addEventListener("change", () => { parkRideStations = null; renderParkRide(draft(), draft().network.Stations.filter((station) => !station.ParkingOnly)); });
+    $("#parkRideAddDestination").addEventListener("click", addParkRideDestination);
+    $("#parkRideCreate").addEventListener("click", createParkRideProfile);
+    $("#dailyStartTime").addEventListener("change", () => { if ($("#dailyStartTime").reportValidity()) mutate((config) => { config.demand.dailyStartMinute = inputMinute("#dailyStartTime"); return config; }); });
     $("#scenarioName").addEventListener("change", (event) => mutate((config) => { config.name = event.target.value.trim(); return config; }));
     for (const departure of [false, true]) {
       const addID = departure ? "#addRailDeparture" : "#addRailArrival", rowsID = departure ? "#railDepartureRows" : "#railArrivalRows", choices = departure ? "origins" : "destinations";
