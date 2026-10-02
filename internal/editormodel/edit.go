@@ -44,6 +44,12 @@ func editProject(draft any, raw jsontext.Value) (projectChange, error) {
 		}
 		return editGeometry(draft, command.Value)
 	}
+	if command.Field == "map" {
+		if len(command.Target) != 0 {
+			return projectChange{}, errors.New("a map edit does not accept a target")
+		}
+		return editMap(draft, command.Value)
+	}
 	if command.Field == "railArrival" || command.Field == "railDeparture" {
 		if len(command.Target) != 0 {
 			return projectChange{}, errors.New("a rail edit does not accept a target")

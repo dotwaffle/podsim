@@ -4226,8 +4226,9 @@
     $("#geoPanel").hidden = !state.geoOpen;
     $("#tilePanel").hidden = !state.mapOpen;
     $("#mapRemoveButton").disabled = !value.scenario.map;
-    $("#mapOpacity").value = value.scenario.map?.opacity ?? .45;
-    $("#mapOpacityValue").value = `${Math.round(Number($("#mapOpacity").value) * 100)}%`;
+    const mapOpacity = $("#mapOpacity");
+    mapOpacity.value = pendingInputs.get(mapOpacity)?.value ?? value.scenario.map?.opacity ?? .45;
+    $("#mapOpacityValue").value = `${Math.round(Number(mapOpacity.value) * 100)}%`;
     $("#mapOriginFields").hidden = !!value.scenario.geo;
     $("#mapReferenceText").textContent = value.scenario.geo ? `Map origin: ${value.scenario.geo.latitude}, ${value.scenario.geo.longitude}.` : "Set the latitude and longitude of world position 0, 0, or anchor two existing nodes.";
     const line = $("#mapAttribution"); const parts = attributionParts(image && image.license);
@@ -4567,6 +4568,7 @@
   }
   function cancelPendingEdits() {
     editQueue.cancel(); pendingInputs.clear(); typingInputs.clear(); railStructuralEdits.clear();
+    pendingMapEnables.clear();
     for (const kind of ["arrival", "departure"]) railEpochs.set(kind, railEpoch(kind) + 1);
   }
   function queueScalarEdit(field, input, target) {
@@ -4642,6 +4644,32 @@
       // A late geometry reply must preserve a newer drawing gesture.
       if (!(state.drag && state.drag.type !== "pan") && !model.gestureOpen) render();
       else { renderHistoryButtons(); renderApply(); restorePendingInputs(); }
+    });
+  }
+  const pendingMapEnables = new Set();
+  function queueMapEdit(command, control) {
+    const pending = control ? { value: control.value } : null;
+    if (pending) { typingInputs.delete(control); pendingInputs.set(control, pending); }
+    if (command.action === "enable") pendingMapEnables.add(command);
+    model.abort();
+    return editQueue.submit(async (current) => {
+      if (!current()) return false;
+      const config = draft(), generation = model.edits;
+      if (state.drag && state.drag.type !== "pan" || model.gestureOpen) throw new Error("Finish the open gesture before editing the map.");
+      const result = await goModel.call(config, "edit", { field: "map", value: command });
+      if (result.error) throw new Error(result.error);
+      if (!current()) return false;
+      if (config !== draft() || generation !== model.edits || state.drag && state.drag.type !== "pan" || model.gestureOpen) throw new Error("The draft changed during the edit. Enter the map change again.");
+      const scenario = { ...config, ...result.change.patch };
+      if (command.action === "remove") delete scenario.map;
+      state.history.replace({ scenario, background: state.background }, true);
+      if (command.action === "enable") toast("Live map enabled. Pause and apply to show it in the simulation.");
+      return true;
+    }, { key: command.action === "opacity" ? "mapOpacity" : undefined }).catch((error) => { toast(error.message, true); return false; }).finally(() => {
+      pendingMapEnables.delete(command);
+      if (pending && pendingInputs.get(control) === pending) pendingInputs.delete(control);
+      if (!(state.drag && state.drag.type !== "pan") && !model.gestureOpen) render();
+      else { renderBackground(); renderHistoryButtons(); renderApply(); restorePendingInputs(); }
     });
   }
   function deleteSelectedItem(selection, { keyboard = false } = {}) {
@@ -5060,12 +5088,8 @@
   }
 
   function enableTileMap() {
-    model.abort();
     const number = (id) => $(id).value.trim() === "" ? NaN : Number($(id).value);
-    try {
-      setDraft(withTileMap(draft(), { latitude: number("#mapLatitude"), longitude: number("#mapLongitude"), opacity: Number($("#mapOpacity").value), choice: referenceChoice() }));
-      toast("Live map enabled. Pause and apply to show it in the simulation.");
-    } catch (error) { toast(error.message, true); }
+    queueMapEdit({ action: "enable", latitude: number("#mapLatitude"), longitude: number("#mapLongitude"), opacity: Number($("#mapOpacity").value), choice: referenceChoice() });
   }
 
   // placeFromFrame places the background on its frame in the geo
@@ -5135,11 +5159,11 @@
     $("#removeBackgroundButton").addEventListener("click", () => { model.abort(); setBackground(null); state.calibrating = false; state.calibrationPoints = []; $("#calibrationPanel").hidden = true; render(); });
     $("#mapOpenButton").addEventListener("click", () => { state.mapOpen = !state.mapOpen; if (!state.mapOpen) model.abort(); renderBackground(); });
     $("#mapEnableButton").addEventListener("click", enableTileMap);
-    $("#mapRemoveButton").addEventListener("click", () => { const next = clone(draft()); delete next.map; setDraft(next); });
+    $("#mapRemoveButton").addEventListener("click", () => queueMapEdit({ action: "remove" }));
     $("#mapRetryButton").addEventListener("click", () => tiles.retry());
     $("#mapOpacity").addEventListener("input", () => {
       $("#mapOpacityValue").value = `${Math.round(Number($("#mapOpacity").value) * 100)}%`;
-      if (draft().map) { const next = clone(draft()); next.map.opacity = Number($("#mapOpacity").value); setDraft(next); }
+      if (draft().map || pendingMapEnables.size) queueMapEdit({ action: "opacity", opacity: Number($("#mapOpacity").value) }, $("#mapOpacity"));
     });
     new ResizeObserver(renderTiles).observe($("#networkMap"));
     document.addEventListener("visibilitychange", renderTiles);

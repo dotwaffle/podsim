@@ -1,0 +1,3731 @@
+[
+  {
+    "name": "empty",
+    "before": {
+      "version": 1,
+      "name": "Untitled scenario",
+      "network": {
+        "Nodes": [],
+        "Lanes": [],
+        "Stations": []
+      },
+      "fleet": [],
+      "demand": {
+        "enabled": false,
+        "perMinute": 2,
+        "pattern": "balanced",
+        "destination": "",
+        "profile": "",
+        "band": "",
+        "seed": 1
+      },
+      "demandProfiles": [],
+      "sharedRidePartyLimit": 1,
+      "sharedRideMode": "drop-offs",
+      "sharedRideJoin": "unassigned",
+      "sharedRideMaxStops": 3,
+      "platoonLimit": 0,
+      "stationBuffers": false,
+      "pickupReassignment": false,
+      "redistribution": false
+    },
+    "command": {
+      "action": "enable",
+      "latitude": 51.5,
+      "longitude": -0.1
+    },
+    "after": {
+      "version": 1,
+      "name": "Untitled scenario",
+      "network": {
+        "Nodes": [],
+        "Lanes": [],
+        "Stations": []
+      },
+      "fleet": [],
+      "demand": {
+        "enabled": false,
+        "perMinute": 2,
+        "pattern": "balanced",
+        "destination": "",
+        "profile": "",
+        "band": "",
+        "seed": 1
+      },
+      "demandProfiles": [],
+      "sharedRidePartyLimit": 1,
+      "sharedRideMode": "drop-offs",
+      "sharedRideJoin": "unassigned",
+      "sharedRideMaxStops": 3,
+      "platoonLimit": 0,
+      "stationBuffers": false,
+      "pickupReassignment": false,
+      "redistribution": false,
+      "geo": {
+        "latitude": 51.5,
+        "longitude": -0.1,
+        "projection": "equirectangular",
+        "radius": 6371000
+      },
+      "map": {
+        "provider": "osm",
+        "opacity": 0.45
+      }
+    },
+    "error": ""
+  },
+  {
+    "name": "adopt",
+    "before": {
+      "version": 1,
+      "name": "Untitled scenario",
+      "network": {
+        "Nodes": [
+          {
+            "ID": "station-1-entry-1",
+            "Position": {
+              "X": 64,
+              "Y": 120
+            }
+          },
+          {
+            "ID": "station-1-exit-1",
+            "Position": {
+              "X": 136,
+              "Y": 120
+            }
+          },
+          {
+            "ID": "station-1-berth-node-1",
+            "Position": {
+              "X": 100,
+              "Y": 150
+            }
+          },
+          {
+            "ID": "station-2-entry-1",
+            "Position": {
+              "X": 304,
+              "Y": 120
+            }
+          },
+          {
+            "ID": "station-2-exit-1",
+            "Position": {
+              "X": 376,
+              "Y": 120
+            }
+          },
+          {
+            "ID": "station-2-berth-node-1",
+            "Position": {
+              "X": 340,
+              "Y": 150
+            }
+          }
+        ],
+        "Lanes": [
+          {
+            "ID": "lane-1",
+            "From": "station-1-entry-1",
+            "To": "station-1-berth-node-1",
+            "SpeedLimit": 12,
+            "StationID": "station-1",
+            "StationRole": "berth-access"
+          },
+          {
+            "ID": "lane-2",
+            "From": "station-1-berth-node-1",
+            "To": "station-1-exit-1",
+            "SpeedLimit": 12,
+            "StationID": "station-1",
+            "StationRole": "departure"
+          },
+          {
+            "ID": "lane-3",
+            "From": "station-1-entry-1",
+            "To": "station-1-exit-1",
+            "SpeedLimit": 12,
+            "StationID": "station-1",
+            "StationRole": "through"
+          },
+          {
+            "ID": "lane-4",
+            "From": "station-2-entry-1",
+            "To": "station-2-berth-node-1",
+            "SpeedLimit": 12,
+            "StationID": "station-2",
+            "StationRole": "berth-access"
+          },
+          {
+            "ID": "lane-5",
+            "From": "station-2-berth-node-1",
+            "To": "station-2-exit-1",
+            "SpeedLimit": 12,
+            "StationID": "station-2",
+            "StationRole": "departure"
+          },
+          {
+            "ID": "lane-6",
+            "From": "station-2-entry-1",
+            "To": "station-2-exit-1",
+            "SpeedLimit": 12,
+            "StationID": "station-2",
+            "StationRole": "through"
+          },
+          {
+            "ID": "lane-7",
+            "From": "station-1-exit-1",
+            "To": "station-2-entry-1",
+            "SpeedLimit": 12
+          },
+          {
+            "ID": "lane-8",
+            "From": "station-2-exit-1",
+            "To": "station-1-entry-1",
+            "SpeedLimit": 12
+          }
+        ],
+        "Stations": [
+          {
+            "ID": "station-1",
+            "Name": "Origin",
+            "Entry": "station-1-entry-1",
+            "Exit": "station-1-exit-1",
+            "Berths": [
+              {
+                "ID": "station-1-berth-1",
+                "Node": "station-1-berth-node-1"
+              }
+            ],
+            "ParkingOnly": false
+          },
+          {
+            "ID": "station-2",
+            "Name": "Destination",
+            "Entry": "station-2-entry-1",
+            "Exit": "station-2-exit-1",
+            "Berths": [
+              {
+                "ID": "station-2-berth-1",
+                "Node": "station-2-berth-node-1"
+              }
+            ],
+            "ParkingOnly": false
+          }
+        ]
+      },
+      "fleet": [],
+      "demand": {
+        "enabled": false,
+        "perMinute": 2,
+        "pattern": "balanced",
+        "destination": "",
+        "profile": "",
+        "band": "",
+        "seed": 1
+      },
+      "demandProfiles": [],
+      "sharedRidePartyLimit": 1,
+      "sharedRideMode": "drop-offs",
+      "sharedRideJoin": "unassigned",
+      "sharedRideMaxStops": 3,
+      "platoonLimit": 0,
+      "stationBuffers": false,
+      "pickupReassignment": false,
+      "redistribution": false
+    },
+    "command": {
+      "action": "enable",
+      "latitude": 51.5,
+      "longitude": -0.1,
+      "opacity": 0.6,
+      "choice": {
+        "mode": "adopt",
+        "confirmed": true
+      }
+    },
+    "after": {
+      "version": 1,
+      "name": "Untitled scenario",
+      "network": {
+        "Nodes": [
+          {
+            "ID": "station-1-entry-1",
+            "Position": {
+              "X": 64,
+              "Y": 120
+            }
+          },
+          {
+            "ID": "station-1-exit-1",
+            "Position": {
+              "X": 136,
+              "Y": 120
+            }
+          },
+          {
+            "ID": "station-1-berth-node-1",
+            "Position": {
+              "X": 100,
+              "Y": 150
+            }
+          },
+          {
+            "ID": "station-2-entry-1",
+            "Position": {
+              "X": 304,
+              "Y": 120
+            }
+          },
+          {
+            "ID": "station-2-exit-1",
+            "Position": {
+              "X": 376,
+              "Y": 120
+            }
+          },
+          {
+            "ID": "station-2-berth-node-1",
+            "Position": {
+              "X": 340,
+              "Y": 150
+            }
+          }
+        ],
+        "Lanes": [
+          {
+            "ID": "lane-1",
+            "From": "station-1-entry-1",
+            "To": "station-1-berth-node-1",
+            "SpeedLimit": 12,
+            "StationID": "station-1",
+            "StationRole": "berth-access"
+          },
+          {
+            "ID": "lane-2",
+            "From": "station-1-berth-node-1",
+            "To": "station-1-exit-1",
+            "SpeedLimit": 12,
+            "StationID": "station-1",
+            "StationRole": "departure"
+          },
+          {
+            "ID": "lane-3",
+            "From": "station-1-entry-1",
+            "To": "station-1-exit-1",
+            "SpeedLimit": 12,
+            "StationID": "station-1",
+            "StationRole": "through"
+          },
+          {
+            "ID": "lane-4",
+            "From": "station-2-entry-1",
+            "To": "station-2-berth-node-1",
+            "SpeedLimit": 12,
+            "StationID": "station-2",
+            "StationRole": "berth-access"
+          },
+          {
+            "ID": "lane-5",
+            "From": "station-2-berth-node-1",
+            "To": "station-2-exit-1",
+            "SpeedLimit": 12,
+            "StationID": "station-2",
+            "StationRole": "departure"
+          },
+          {
+            "ID": "lane-6",
+            "From": "station-2-entry-1",
+            "To": "station-2-exit-1",
+            "SpeedLimit": 12,
+            "StationID": "station-2",
+            "StationRole": "through"
+          },
+          {
+            "ID": "lane-7",
+            "From": "station-1-exit-1",
+            "To": "station-2-entry-1",
+            "SpeedLimit": 12
+          },
+          {
+            "ID": "lane-8",
+            "From": "station-2-exit-1",
+            "To": "station-1-entry-1",
+            "SpeedLimit": 12
+          }
+        ],
+        "Stations": [
+          {
+            "ID": "station-1",
+            "Name": "Origin",
+            "Entry": "station-1-entry-1",
+            "Exit": "station-1-exit-1",
+            "Berths": [
+              {
+                "ID": "station-1-berth-1",
+                "Node": "station-1-berth-node-1"
+              }
+            ],
+            "ParkingOnly": false
+          },
+          {
+            "ID": "station-2",
+            "Name": "Destination",
+            "Entry": "station-2-entry-1",
+            "Exit": "station-2-exit-1",
+            "Berths": [
+              {
+                "ID": "station-2-berth-1",
+                "Node": "station-2-berth-node-1"
+              }
+            ],
+            "ParkingOnly": false
+          }
+        ]
+      },
+      "fleet": [],
+      "demand": {
+        "enabled": false,
+        "perMinute": 2,
+        "pattern": "balanced",
+        "destination": "",
+        "profile": "",
+        "band": "",
+        "seed": 1
+      },
+      "demandProfiles": [],
+      "sharedRidePartyLimit": 1,
+      "sharedRideMode": "drop-offs",
+      "sharedRideJoin": "unassigned",
+      "sharedRideMaxStops": 3,
+      "platoonLimit": 0,
+      "stationBuffers": false,
+      "pickupReassignment": false,
+      "redistribution": false,
+      "geo": {
+        "latitude": 51.5,
+        "longitude": -0.1,
+        "projection": "equirectangular",
+        "radius": 6371000
+      },
+      "map": {
+        "provider": "osm",
+        "opacity": 0.6
+      }
+    },
+    "error": ""
+  },
+  {
+    "name": "keep-reference",
+    "before": {
+      "version": 1,
+      "name": "Untitled scenario",
+      "network": {
+        "Nodes": [
+          {
+            "ID": "station-1-entry-1",
+            "Position": {
+              "X": 64,
+              "Y": 120
+            }
+          },
+          {
+            "ID": "station-1-exit-1",
+            "Position": {
+              "X": 136,
+              "Y": 120
+            }
+          },
+          {
+            "ID": "station-1-berth-node-1",
+            "Position": {
+              "X": 100,
+              "Y": 150
+            }
+          },
+          {
+            "ID": "station-2-entry-1",
+            "Position": {
+              "X": 304,
+              "Y": 120
+            }
+          },
+          {
+            "ID": "station-2-exit-1",
+            "Position": {
+              "X": 376,
+              "Y": 120
+            }
+          },
+          {
+            "ID": "station-2-berth-node-1",
+            "Position": {
+              "X": 340,
+              "Y": 150
+            }
+          }
+        ],
+        "Lanes": [
+          {
+            "ID": "lane-1",
+            "From": "station-1-entry-1",
+            "To": "station-1-berth-node-1",
+            "SpeedLimit": 12,
+            "StationID": "station-1",
+            "StationRole": "berth-access"
+          },
+          {
+            "ID": "lane-2",
+            "From": "station-1-berth-node-1",
+            "To": "station-1-exit-1",
+            "SpeedLimit": 12,
+            "StationID": "station-1",
+            "StationRole": "departure"
+          },
+          {
+            "ID": "lane-3",
+            "From": "station-1-entry-1",
+            "To": "station-1-exit-1",
+            "SpeedLimit": 12,
+            "StationID": "station-1",
+            "StationRole": "through"
+          },
+          {
+            "ID": "lane-4",
+            "From": "station-2-entry-1",
+            "To": "station-2-berth-node-1",
+            "SpeedLimit": 12,
+            "StationID": "station-2",
+            "StationRole": "berth-access"
+          },
+          {
+            "ID": "lane-5",
+            "From": "station-2-berth-node-1",
+            "To": "station-2-exit-1",
+            "SpeedLimit": 12,
+            "StationID": "station-2",
+            "StationRole": "departure"
+          },
+          {
+            "ID": "lane-6",
+            "From": "station-2-entry-1",
+            "To": "station-2-exit-1",
+            "SpeedLimit": 12,
+            "StationID": "station-2",
+            "StationRole": "through"
+          },
+          {
+            "ID": "lane-7",
+            "From": "station-1-exit-1",
+            "To": "station-2-entry-1",
+            "SpeedLimit": 12
+          },
+          {
+            "ID": "lane-8",
+            "From": "station-2-exit-1",
+            "To": "station-1-entry-1",
+            "SpeedLimit": 12
+          }
+        ],
+        "Stations": [
+          {
+            "ID": "station-1",
+            "Name": "Origin",
+            "Entry": "station-1-entry-1",
+            "Exit": "station-1-exit-1",
+            "Berths": [
+              {
+                "ID": "station-1-berth-1",
+                "Node": "station-1-berth-node-1"
+              }
+            ],
+            "ParkingOnly": false
+          },
+          {
+            "ID": "station-2",
+            "Name": "Destination",
+            "Entry": "station-2-entry-1",
+            "Exit": "station-2-exit-1",
+            "Berths": [
+              {
+                "ID": "station-2-berth-1",
+                "Node": "station-2-berth-node-1"
+              }
+            ],
+            "ParkingOnly": false
+          }
+        ]
+      },
+      "fleet": [],
+      "demand": {
+        "enabled": false,
+        "perMinute": 2,
+        "pattern": "balanced",
+        "destination": "",
+        "profile": "",
+        "band": "",
+        "seed": 1
+      },
+      "demandProfiles": [],
+      "sharedRidePartyLimit": 1,
+      "sharedRideMode": "drop-offs",
+      "sharedRideJoin": "unassigned",
+      "sharedRideMaxStops": 3,
+      "platoonLimit": 0,
+      "stationBuffers": false,
+      "pickupReassignment": false,
+      "redistribution": false,
+      "geo": {
+        "latitude": 51.5,
+        "longitude": -0.1,
+        "projection": "equirectangular",
+        "radius": 6371000
+      }
+    },
+    "command": {
+      "action": "enable",
+      "latitude": 70,
+      "longitude": 80
+    },
+    "after": {
+      "version": 1,
+      "name": "Untitled scenario",
+      "network": {
+        "Nodes": [
+          {
+            "ID": "station-1-entry-1",
+            "Position": {
+              "X": 64,
+              "Y": 120
+            }
+          },
+          {
+            "ID": "station-1-exit-1",
+            "Position": {
+              "X": 136,
+              "Y": 120
+            }
+          },
+          {
+            "ID": "station-1-berth-node-1",
+            "Position": {
+              "X": 100,
+              "Y": 150
+            }
+          },
+          {
+            "ID": "station-2-entry-1",
+            "Position": {
+              "X": 304,
+              "Y": 120
+            }
+          },
+          {
+            "ID": "station-2-exit-1",
+            "Position": {
+              "X": 376,
+              "Y": 120
+            }
+          },
+          {
+            "ID": "station-2-berth-node-1",
+            "Position": {
+              "X": 340,
+              "Y": 150
+            }
+          }
+        ],
+        "Lanes": [
+          {
+            "ID": "lane-1",
+            "From": "station-1-entry-1",
+            "To": "station-1-berth-node-1",
+            "SpeedLimit": 12,
+            "StationID": "station-1",
+            "StationRole": "berth-access"
+          },
+          {
+            "ID": "lane-2",
+            "From": "station-1-berth-node-1",
+            "To": "station-1-exit-1",
+            "SpeedLimit": 12,
+            "StationID": "station-1",
+            "StationRole": "departure"
+          },
+          {
+            "ID": "lane-3",
+            "From": "station-1-entry-1",
+            "To": "station-1-exit-1",
+            "SpeedLimit": 12,
+            "StationID": "station-1",
+            "StationRole": "through"
+          },
+          {
+            "ID": "lane-4",
+            "From": "station-2-entry-1",
+            "To": "station-2-berth-node-1",
+            "SpeedLimit": 12,
+            "StationID": "station-2",
+            "StationRole": "berth-access"
+          },
+          {
+            "ID": "lane-5",
+            "From": "station-2-berth-node-1",
+            "To": "station-2-exit-1",
+            "SpeedLimit": 12,
+            "StationID": "station-2",
+            "StationRole": "departure"
+          },
+          {
+            "ID": "lane-6",
+            "From": "station-2-entry-1",
+            "To": "station-2-exit-1",
+            "SpeedLimit": 12,
+            "StationID": "station-2",
+            "StationRole": "through"
+          },
+          {
+            "ID": "lane-7",
+            "From": "station-1-exit-1",
+            "To": "station-2-entry-1",
+            "SpeedLimit": 12
+          },
+          {
+            "ID": "lane-8",
+            "From": "station-2-exit-1",
+            "To": "station-1-entry-1",
+            "SpeedLimit": 12
+          }
+        ],
+        "Stations": [
+          {
+            "ID": "station-1",
+            "Name": "Origin",
+            "Entry": "station-1-entry-1",
+            "Exit": "station-1-exit-1",
+            "Berths": [
+              {
+                "ID": "station-1-berth-1",
+                "Node": "station-1-berth-node-1"
+              }
+            ],
+            "ParkingOnly": false
+          },
+          {
+            "ID": "station-2",
+            "Name": "Destination",
+            "Entry": "station-2-entry-1",
+            "Exit": "station-2-exit-1",
+            "Berths": [
+              {
+                "ID": "station-2-berth-1",
+                "Node": "station-2-berth-node-1"
+              }
+            ],
+            "ParkingOnly": false
+          }
+        ]
+      },
+      "fleet": [],
+      "demand": {
+        "enabled": false,
+        "perMinute": 2,
+        "pattern": "balanced",
+        "destination": "",
+        "profile": "",
+        "band": "",
+        "seed": 1
+      },
+      "demandProfiles": [],
+      "sharedRidePartyLimit": 1,
+      "sharedRideMode": "drop-offs",
+      "sharedRideJoin": "unassigned",
+      "sharedRideMaxStops": 3,
+      "platoonLimit": 0,
+      "stationBuffers": false,
+      "pickupReassignment": false,
+      "redistribution": false,
+      "geo": {
+        "latitude": 51.5,
+        "longitude": -0.1,
+        "projection": "equirectangular",
+        "radius": 6371000
+      },
+      "map": {
+        "provider": "osm",
+        "opacity": 0.45
+      }
+    },
+    "error": ""
+  },
+  {
+    "name": "zero-opacity",
+    "before": {
+      "version": 1,
+      "name": "Untitled scenario",
+      "network": {
+        "Nodes": [
+          {
+            "ID": "station-1-entry-1",
+            "Position": {
+              "X": 64,
+              "Y": 120
+            }
+          },
+          {
+            "ID": "station-1-exit-1",
+            "Position": {
+              "X": 136,
+              "Y": 120
+            }
+          },
+          {
+            "ID": "station-1-berth-node-1",
+            "Position": {
+              "X": 100,
+              "Y": 150
+            }
+          },
+          {
+            "ID": "station-2-entry-1",
+            "Position": {
+              "X": 304,
+              "Y": 120
+            }
+          },
+          {
+            "ID": "station-2-exit-1",
+            "Position": {
+              "X": 376,
+              "Y": 120
+            }
+          },
+          {
+            "ID": "station-2-berth-node-1",
+            "Position": {
+              "X": 340,
+              "Y": 150
+            }
+          }
+        ],
+        "Lanes": [
+          {
+            "ID": "lane-1",
+            "From": "station-1-entry-1",
+            "To": "station-1-berth-node-1",
+            "SpeedLimit": 12,
+            "StationID": "station-1",
+            "StationRole": "berth-access"
+          },
+          {
+            "ID": "lane-2",
+            "From": "station-1-berth-node-1",
+            "To": "station-1-exit-1",
+            "SpeedLimit": 12,
+            "StationID": "station-1",
+            "StationRole": "departure"
+          },
+          {
+            "ID": "lane-3",
+            "From": "station-1-entry-1",
+            "To": "station-1-exit-1",
+            "SpeedLimit": 12,
+            "StationID": "station-1",
+            "StationRole": "through"
+          },
+          {
+            "ID": "lane-4",
+            "From": "station-2-entry-1",
+            "To": "station-2-berth-node-1",
+            "SpeedLimit": 12,
+            "StationID": "station-2",
+            "StationRole": "berth-access"
+          },
+          {
+            "ID": "lane-5",
+            "From": "station-2-berth-node-1",
+            "To": "station-2-exit-1",
+            "SpeedLimit": 12,
+            "StationID": "station-2",
+            "StationRole": "departure"
+          },
+          {
+            "ID": "lane-6",
+            "From": "station-2-entry-1",
+            "To": "station-2-exit-1",
+            "SpeedLimit": 12,
+            "StationID": "station-2",
+            "StationRole": "through"
+          },
+          {
+            "ID": "lane-7",
+            "From": "station-1-exit-1",
+            "To": "station-2-entry-1",
+            "SpeedLimit": 12
+          },
+          {
+            "ID": "lane-8",
+            "From": "station-2-exit-1",
+            "To": "station-1-entry-1",
+            "SpeedLimit": 12
+          }
+        ],
+        "Stations": [
+          {
+            "ID": "station-1",
+            "Name": "Origin",
+            "Entry": "station-1-entry-1",
+            "Exit": "station-1-exit-1",
+            "Berths": [
+              {
+                "ID": "station-1-berth-1",
+                "Node": "station-1-berth-node-1"
+              }
+            ],
+            "ParkingOnly": false
+          },
+          {
+            "ID": "station-2",
+            "Name": "Destination",
+            "Entry": "station-2-entry-1",
+            "Exit": "station-2-exit-1",
+            "Berths": [
+              {
+                "ID": "station-2-berth-1",
+                "Node": "station-2-berth-node-1"
+              }
+            ],
+            "ParkingOnly": false
+          }
+        ]
+      },
+      "fleet": [],
+      "demand": {
+        "enabled": false,
+        "perMinute": 2,
+        "pattern": "balanced",
+        "destination": "",
+        "profile": "",
+        "band": "",
+        "seed": 1
+      },
+      "demandProfiles": [],
+      "sharedRidePartyLimit": 1,
+      "sharedRideMode": "drop-offs",
+      "sharedRideJoin": "unassigned",
+      "sharedRideMaxStops": 3,
+      "platoonLimit": 0,
+      "stationBuffers": false,
+      "pickupReassignment": false,
+      "redistribution": false,
+      "geo": {
+        "latitude": 51.5,
+        "longitude": -0.1,
+        "projection": "equirectangular",
+        "radius": 6371000
+      }
+    },
+    "command": {
+      "action": "enable",
+      "opacity": 0
+    },
+    "after": {
+      "version": 1,
+      "name": "Untitled scenario",
+      "network": {
+        "Nodes": [
+          {
+            "ID": "station-1-entry-1",
+            "Position": {
+              "X": 64,
+              "Y": 120
+            }
+          },
+          {
+            "ID": "station-1-exit-1",
+            "Position": {
+              "X": 136,
+              "Y": 120
+            }
+          },
+          {
+            "ID": "station-1-berth-node-1",
+            "Position": {
+              "X": 100,
+              "Y": 150
+            }
+          },
+          {
+            "ID": "station-2-entry-1",
+            "Position": {
+              "X": 304,
+              "Y": 120
+            }
+          },
+          {
+            "ID": "station-2-exit-1",
+            "Position": {
+              "X": 376,
+              "Y": 120
+            }
+          },
+          {
+            "ID": "station-2-berth-node-1",
+            "Position": {
+              "X": 340,
+              "Y": 150
+            }
+          }
+        ],
+        "Lanes": [
+          {
+            "ID": "lane-1",
+            "From": "station-1-entry-1",
+            "To": "station-1-berth-node-1",
+            "SpeedLimit": 12,
+            "StationID": "station-1",
+            "StationRole": "berth-access"
+          },
+          {
+            "ID": "lane-2",
+            "From": "station-1-berth-node-1",
+            "To": "station-1-exit-1",
+            "SpeedLimit": 12,
+            "StationID": "station-1",
+            "StationRole": "departure"
+          },
+          {
+            "ID": "lane-3",
+            "From": "station-1-entry-1",
+            "To": "station-1-exit-1",
+            "SpeedLimit": 12,
+            "StationID": "station-1",
+            "StationRole": "through"
+          },
+          {
+            "ID": "lane-4",
+            "From": "station-2-entry-1",
+            "To": "station-2-berth-node-1",
+            "SpeedLimit": 12,
+            "StationID": "station-2",
+            "StationRole": "berth-access"
+          },
+          {
+            "ID": "lane-5",
+            "From": "station-2-berth-node-1",
+            "To": "station-2-exit-1",
+            "SpeedLimit": 12,
+            "StationID": "station-2",
+            "StationRole": "departure"
+          },
+          {
+            "ID": "lane-6",
+            "From": "station-2-entry-1",
+            "To": "station-2-exit-1",
+            "SpeedLimit": 12,
+            "StationID": "station-2",
+            "StationRole": "through"
+          },
+          {
+            "ID": "lane-7",
+            "From": "station-1-exit-1",
+            "To": "station-2-entry-1",
+            "SpeedLimit": 12
+          },
+          {
+            "ID": "lane-8",
+            "From": "station-2-exit-1",
+            "To": "station-1-entry-1",
+            "SpeedLimit": 12
+          }
+        ],
+        "Stations": [
+          {
+            "ID": "station-1",
+            "Name": "Origin",
+            "Entry": "station-1-entry-1",
+            "Exit": "station-1-exit-1",
+            "Berths": [
+              {
+                "ID": "station-1-berth-1",
+                "Node": "station-1-berth-node-1"
+              }
+            ],
+            "ParkingOnly": false
+          },
+          {
+            "ID": "station-2",
+            "Name": "Destination",
+            "Entry": "station-2-entry-1",
+            "Exit": "station-2-exit-1",
+            "Berths": [
+              {
+                "ID": "station-2-berth-1",
+                "Node": "station-2-berth-node-1"
+              }
+            ],
+            "ParkingOnly": false
+          }
+        ]
+      },
+      "fleet": [],
+      "demand": {
+        "enabled": false,
+        "perMinute": 2,
+        "pattern": "balanced",
+        "destination": "",
+        "profile": "",
+        "band": "",
+        "seed": 1
+      },
+      "demandProfiles": [],
+      "sharedRidePartyLimit": 1,
+      "sharedRideMode": "drop-offs",
+      "sharedRideJoin": "unassigned",
+      "sharedRideMaxStops": 3,
+      "platoonLimit": 0,
+      "stationBuffers": false,
+      "pickupReassignment": false,
+      "redistribution": false,
+      "geo": {
+        "latitude": 51.5,
+        "longitude": -0.1,
+        "projection": "equirectangular",
+        "radius": 6371000
+      },
+      "map": {
+        "provider": "osm",
+        "opacity": 0
+      }
+    },
+    "error": ""
+  },
+  {
+    "name": "null-opacity",
+    "before": {
+      "version": 1,
+      "name": "Untitled scenario",
+      "network": {
+        "Nodes": [],
+        "Lanes": [],
+        "Stations": []
+      },
+      "fleet": [],
+      "demand": {
+        "enabled": false,
+        "perMinute": 2,
+        "pattern": "balanced",
+        "destination": "",
+        "profile": "",
+        "band": "",
+        "seed": 1
+      },
+      "demandProfiles": [],
+      "sharedRidePartyLimit": 1,
+      "sharedRideMode": "drop-offs",
+      "sharedRideJoin": "unassigned",
+      "sharedRideMaxStops": 3,
+      "platoonLimit": 0,
+      "stationBuffers": false,
+      "pickupReassignment": false,
+      "redistribution": false
+    },
+    "command": {
+      "action": "enable",
+      "latitude": 0,
+      "longitude": 0,
+      "opacity": null
+    },
+    "after": {
+      "version": 1,
+      "name": "Untitled scenario",
+      "network": {
+        "Nodes": [],
+        "Lanes": [],
+        "Stations": []
+      },
+      "fleet": [],
+      "demand": {
+        "enabled": false,
+        "perMinute": 2,
+        "pattern": "balanced",
+        "destination": "",
+        "profile": "",
+        "band": "",
+        "seed": 1
+      },
+      "demandProfiles": [],
+      "sharedRidePartyLimit": 1,
+      "sharedRideMode": "drop-offs",
+      "sharedRideJoin": "unassigned",
+      "sharedRideMaxStops": 3,
+      "platoonLimit": 0,
+      "stationBuffers": false,
+      "pickupReassignment": false,
+      "redistribution": false,
+      "geo": {
+        "latitude": 0,
+        "longitude": 0,
+        "projection": "equirectangular",
+        "radius": 6371000
+      },
+      "map": {
+        "provider": "osm",
+        "opacity": 0.45
+      }
+    },
+    "error": ""
+  },
+  {
+    "name": "anchor",
+    "before": {
+      "version": 1,
+      "name": "Untitled scenario",
+      "network": {
+        "Nodes": [
+          {
+            "ID": "a",
+            "Position": {
+              "X": 0,
+              "Y": 0
+            }
+          },
+          {
+            "ID": "b",
+            "Position": {
+              "X": 400,
+              "Y": 0
+            }
+          }
+        ],
+        "Lanes": [],
+        "Stations": []
+      },
+      "fleet": [],
+      "demand": {
+        "enabled": false,
+        "perMinute": 2,
+        "pattern": "balanced",
+        "destination": "",
+        "profile": "",
+        "band": "",
+        "seed": 1
+      },
+      "demandProfiles": [],
+      "sharedRidePartyLimit": 1,
+      "sharedRideMode": "drop-offs",
+      "sharedRideJoin": "unassigned",
+      "sharedRideMaxStops": 3,
+      "platoonLimit": 0,
+      "stationBuffers": false,
+      "pickupReassignment": false,
+      "redistribution": false
+    },
+    "command": {
+      "action": "enable",
+      "choice": {
+        "mode": "anchor",
+        "a": {
+          "id": "a",
+          "latitude": 51.5,
+          "longitude": -0.1
+        },
+        "b": {
+          "id": "b",
+          "latitude": 51.5,
+          "longitude": -0.09422136249983631
+        }
+      }
+    },
+    "after": {
+      "version": 1,
+      "name": "Untitled scenario",
+      "network": {
+        "Nodes": [
+          {
+            "ID": "a",
+            "Position": {
+              "X": 0,
+              "Y": 0
+            }
+          },
+          {
+            "ID": "b",
+            "Position": {
+              "X": 400,
+              "Y": 0
+            }
+          }
+        ],
+        "Lanes": [],
+        "Stations": []
+      },
+      "fleet": [],
+      "demand": {
+        "enabled": false,
+        "perMinute": 2,
+        "pattern": "balanced",
+        "destination": "",
+        "profile": "",
+        "band": "",
+        "seed": 1
+      },
+      "demandProfiles": [],
+      "sharedRidePartyLimit": 1,
+      "sharedRideMode": "drop-offs",
+      "sharedRideJoin": "unassigned",
+      "sharedRideMaxStops": 3,
+      "platoonLimit": 0,
+      "stationBuffers": false,
+      "pickupReassignment": false,
+      "redistribution": false,
+      "geo": {
+        "latitude": 51.5,
+        "longitude": -0.1,
+        "projection": "equirectangular",
+        "radius": 6371000
+      },
+      "map": {
+        "provider": "osm",
+        "opacity": 0.45
+      }
+    },
+    "error": ""
+  },
+  {
+    "name": "needs-choice",
+    "before": {
+      "version": 1,
+      "name": "Untitled scenario",
+      "network": {
+        "Nodes": [
+          {
+            "ID": "station-1-entry-1",
+            "Position": {
+              "X": 64,
+              "Y": 120
+            }
+          },
+          {
+            "ID": "station-1-exit-1",
+            "Position": {
+              "X": 136,
+              "Y": 120
+            }
+          },
+          {
+            "ID": "station-1-berth-node-1",
+            "Position": {
+              "X": 100,
+              "Y": 150
+            }
+          },
+          {
+            "ID": "station-2-entry-1",
+            "Position": {
+              "X": 304,
+              "Y": 120
+            }
+          },
+          {
+            "ID": "station-2-exit-1",
+            "Position": {
+              "X": 376,
+              "Y": 120
+            }
+          },
+          {
+            "ID": "station-2-berth-node-1",
+            "Position": {
+              "X": 340,
+              "Y": 150
+            }
+          }
+        ],
+        "Lanes": [
+          {
+            "ID": "lane-1",
+            "From": "station-1-entry-1",
+            "To": "station-1-berth-node-1",
+            "SpeedLimit": 12,
+            "StationID": "station-1",
+            "StationRole": "berth-access"
+          },
+          {
+            "ID": "lane-2",
+            "From": "station-1-berth-node-1",
+            "To": "station-1-exit-1",
+            "SpeedLimit": 12,
+            "StationID": "station-1",
+            "StationRole": "departure"
+          },
+          {
+            "ID": "lane-3",
+            "From": "station-1-entry-1",
+            "To": "station-1-exit-1",
+            "SpeedLimit": 12,
+            "StationID": "station-1",
+            "StationRole": "through"
+          },
+          {
+            "ID": "lane-4",
+            "From": "station-2-entry-1",
+            "To": "station-2-berth-node-1",
+            "SpeedLimit": 12,
+            "StationID": "station-2",
+            "StationRole": "berth-access"
+          },
+          {
+            "ID": "lane-5",
+            "From": "station-2-berth-node-1",
+            "To": "station-2-exit-1",
+            "SpeedLimit": 12,
+            "StationID": "station-2",
+            "StationRole": "departure"
+          },
+          {
+            "ID": "lane-6",
+            "From": "station-2-entry-1",
+            "To": "station-2-exit-1",
+            "SpeedLimit": 12,
+            "StationID": "station-2",
+            "StationRole": "through"
+          },
+          {
+            "ID": "lane-7",
+            "From": "station-1-exit-1",
+            "To": "station-2-entry-1",
+            "SpeedLimit": 12
+          },
+          {
+            "ID": "lane-8",
+            "From": "station-2-exit-1",
+            "To": "station-1-entry-1",
+            "SpeedLimit": 12
+          }
+        ],
+        "Stations": [
+          {
+            "ID": "station-1",
+            "Name": "Origin",
+            "Entry": "station-1-entry-1",
+            "Exit": "station-1-exit-1",
+            "Berths": [
+              {
+                "ID": "station-1-berth-1",
+                "Node": "station-1-berth-node-1"
+              }
+            ],
+            "ParkingOnly": false
+          },
+          {
+            "ID": "station-2",
+            "Name": "Destination",
+            "Entry": "station-2-entry-1",
+            "Exit": "station-2-exit-1",
+            "Berths": [
+              {
+                "ID": "station-2-berth-1",
+                "Node": "station-2-berth-node-1"
+              }
+            ],
+            "ParkingOnly": false
+          }
+        ]
+      },
+      "fleet": [],
+      "demand": {
+        "enabled": false,
+        "perMinute": 2,
+        "pattern": "balanced",
+        "destination": "",
+        "profile": "",
+        "band": "",
+        "seed": 1
+      },
+      "demandProfiles": [],
+      "sharedRidePartyLimit": 1,
+      "sharedRideMode": "drop-offs",
+      "sharedRideJoin": "unassigned",
+      "sharedRideMaxStops": 3,
+      "platoonLimit": 0,
+      "stationBuffers": false,
+      "pickupReassignment": false,
+      "redistribution": false
+    },
+    "command": {
+      "action": "enable",
+      "latitude": 1,
+      "longitude": 2
+    },
+    "error": "Anchor two nodes, or confirm the map origin. Network positions will not change."
+  },
+  {
+    "name": "unconfirmed",
+    "before": {
+      "version": 1,
+      "name": "Untitled scenario",
+      "network": {
+        "Nodes": [
+          {
+            "ID": "station-1-entry-1",
+            "Position": {
+              "X": 64,
+              "Y": 120
+            }
+          },
+          {
+            "ID": "station-1-exit-1",
+            "Position": {
+              "X": 136,
+              "Y": 120
+            }
+          },
+          {
+            "ID": "station-1-berth-node-1",
+            "Position": {
+              "X": 100,
+              "Y": 150
+            }
+          },
+          {
+            "ID": "station-2-entry-1",
+            "Position": {
+              "X": 304,
+              "Y": 120
+            }
+          },
+          {
+            "ID": "station-2-exit-1",
+            "Position": {
+              "X": 376,
+              "Y": 120
+            }
+          },
+          {
+            "ID": "station-2-berth-node-1",
+            "Position": {
+              "X": 340,
+              "Y": 150
+            }
+          }
+        ],
+        "Lanes": [
+          {
+            "ID": "lane-1",
+            "From": "station-1-entry-1",
+            "To": "station-1-berth-node-1",
+            "SpeedLimit": 12,
+            "StationID": "station-1",
+            "StationRole": "berth-access"
+          },
+          {
+            "ID": "lane-2",
+            "From": "station-1-berth-node-1",
+            "To": "station-1-exit-1",
+            "SpeedLimit": 12,
+            "StationID": "station-1",
+            "StationRole": "departure"
+          },
+          {
+            "ID": "lane-3",
+            "From": "station-1-entry-1",
+            "To": "station-1-exit-1",
+            "SpeedLimit": 12,
+            "StationID": "station-1",
+            "StationRole": "through"
+          },
+          {
+            "ID": "lane-4",
+            "From": "station-2-entry-1",
+            "To": "station-2-berth-node-1",
+            "SpeedLimit": 12,
+            "StationID": "station-2",
+            "StationRole": "berth-access"
+          },
+          {
+            "ID": "lane-5",
+            "From": "station-2-berth-node-1",
+            "To": "station-2-exit-1",
+            "SpeedLimit": 12,
+            "StationID": "station-2",
+            "StationRole": "departure"
+          },
+          {
+            "ID": "lane-6",
+            "From": "station-2-entry-1",
+            "To": "station-2-exit-1",
+            "SpeedLimit": 12,
+            "StationID": "station-2",
+            "StationRole": "through"
+          },
+          {
+            "ID": "lane-7",
+            "From": "station-1-exit-1",
+            "To": "station-2-entry-1",
+            "SpeedLimit": 12
+          },
+          {
+            "ID": "lane-8",
+            "From": "station-2-exit-1",
+            "To": "station-1-entry-1",
+            "SpeedLimit": 12
+          }
+        ],
+        "Stations": [
+          {
+            "ID": "station-1",
+            "Name": "Origin",
+            "Entry": "station-1-entry-1",
+            "Exit": "station-1-exit-1",
+            "Berths": [
+              {
+                "ID": "station-1-berth-1",
+                "Node": "station-1-berth-node-1"
+              }
+            ],
+            "ParkingOnly": false
+          },
+          {
+            "ID": "station-2",
+            "Name": "Destination",
+            "Entry": "station-2-entry-1",
+            "Exit": "station-2-exit-1",
+            "Berths": [
+              {
+                "ID": "station-2-berth-1",
+                "Node": "station-2-berth-node-1"
+              }
+            ],
+            "ParkingOnly": false
+          }
+        ]
+      },
+      "fleet": [],
+      "demand": {
+        "enabled": false,
+        "perMinute": 2,
+        "pattern": "balanced",
+        "destination": "",
+        "profile": "",
+        "band": "",
+        "seed": 1
+      },
+      "demandProfiles": [],
+      "sharedRidePartyLimit": 1,
+      "sharedRideMode": "drop-offs",
+      "sharedRideJoin": "unassigned",
+      "sharedRideMaxStops": 3,
+      "platoonLimit": 0,
+      "stationBuffers": false,
+      "pickupReassignment": false,
+      "redistribution": false
+    },
+    "command": {
+      "action": "enable",
+      "latitude": 1,
+      "longitude": 2,
+      "choice": {
+        "mode": "adopt",
+        "confirmed": false
+      }
+    },
+    "error": "Anchor two nodes, or confirm the map origin. Network positions will not change."
+  },
+  {
+    "name": "bad-latitude",
+    "before": {
+      "version": 1,
+      "name": "Untitled scenario",
+      "network": {
+        "Nodes": [],
+        "Lanes": [],
+        "Stations": []
+      },
+      "fleet": [],
+      "demand": {
+        "enabled": false,
+        "perMinute": 2,
+        "pattern": "balanced",
+        "destination": "",
+        "profile": "",
+        "band": "",
+        "seed": 1
+      },
+      "demandProfiles": [],
+      "sharedRidePartyLimit": 1,
+      "sharedRideMode": "drop-offs",
+      "sharedRideJoin": "unassigned",
+      "sharedRideMaxStops": 3,
+      "platoonLimit": 0,
+      "stationBuffers": false,
+      "pickupReassignment": false,
+      "redistribution": false
+    },
+    "command": {
+      "action": "enable",
+      "latitude": 90,
+      "longitude": 0
+    },
+    "error": "The geo latitude must be from -80 to 80 degrees."
+  },
+  {
+    "name": "bad-longitude",
+    "before": {
+      "version": 1,
+      "name": "Untitled scenario",
+      "network": {
+        "Nodes": [],
+        "Lanes": [],
+        "Stations": []
+      },
+      "fleet": [],
+      "demand": {
+        "enabled": false,
+        "perMinute": 2,
+        "pattern": "balanced",
+        "destination": "",
+        "profile": "",
+        "band": "",
+        "seed": 1
+      },
+      "demandProfiles": [],
+      "sharedRidePartyLimit": 1,
+      "sharedRideMode": "drop-offs",
+      "sharedRideJoin": "unassigned",
+      "sharedRideMaxStops": 3,
+      "platoonLimit": 0,
+      "stationBuffers": false,
+      "pickupReassignment": false,
+      "redistribution": false
+    },
+    "command": {
+      "action": "enable",
+      "latitude": 0,
+      "longitude": 200
+    },
+    "error": "The geo longitude must be from -180 to 180 degrees."
+  },
+  {
+    "name": "bad-opacity",
+    "before": {
+      "version": 1,
+      "name": "Untitled scenario",
+      "network": {
+        "Nodes": [
+          {
+            "ID": "station-1-entry-1",
+            "Position": {
+              "X": 64,
+              "Y": 120
+            }
+          },
+          {
+            "ID": "station-1-exit-1",
+            "Position": {
+              "X": 136,
+              "Y": 120
+            }
+          },
+          {
+            "ID": "station-1-berth-node-1",
+            "Position": {
+              "X": 100,
+              "Y": 150
+            }
+          },
+          {
+            "ID": "station-2-entry-1",
+            "Position": {
+              "X": 304,
+              "Y": 120
+            }
+          },
+          {
+            "ID": "station-2-exit-1",
+            "Position": {
+              "X": 376,
+              "Y": 120
+            }
+          },
+          {
+            "ID": "station-2-berth-node-1",
+            "Position": {
+              "X": 340,
+              "Y": 150
+            }
+          }
+        ],
+        "Lanes": [
+          {
+            "ID": "lane-1",
+            "From": "station-1-entry-1",
+            "To": "station-1-berth-node-1",
+            "SpeedLimit": 12,
+            "StationID": "station-1",
+            "StationRole": "berth-access"
+          },
+          {
+            "ID": "lane-2",
+            "From": "station-1-berth-node-1",
+            "To": "station-1-exit-1",
+            "SpeedLimit": 12,
+            "StationID": "station-1",
+            "StationRole": "departure"
+          },
+          {
+            "ID": "lane-3",
+            "From": "station-1-entry-1",
+            "To": "station-1-exit-1",
+            "SpeedLimit": 12,
+            "StationID": "station-1",
+            "StationRole": "through"
+          },
+          {
+            "ID": "lane-4",
+            "From": "station-2-entry-1",
+            "To": "station-2-berth-node-1",
+            "SpeedLimit": 12,
+            "StationID": "station-2",
+            "StationRole": "berth-access"
+          },
+          {
+            "ID": "lane-5",
+            "From": "station-2-berth-node-1",
+            "To": "station-2-exit-1",
+            "SpeedLimit": 12,
+            "StationID": "station-2",
+            "StationRole": "departure"
+          },
+          {
+            "ID": "lane-6",
+            "From": "station-2-entry-1",
+            "To": "station-2-exit-1",
+            "SpeedLimit": 12,
+            "StationID": "station-2",
+            "StationRole": "through"
+          },
+          {
+            "ID": "lane-7",
+            "From": "station-1-exit-1",
+            "To": "station-2-entry-1",
+            "SpeedLimit": 12
+          },
+          {
+            "ID": "lane-8",
+            "From": "station-2-exit-1",
+            "To": "station-1-entry-1",
+            "SpeedLimit": 12
+          }
+        ],
+        "Stations": [
+          {
+            "ID": "station-1",
+            "Name": "Origin",
+            "Entry": "station-1-entry-1",
+            "Exit": "station-1-exit-1",
+            "Berths": [
+              {
+                "ID": "station-1-berth-1",
+                "Node": "station-1-berth-node-1"
+              }
+            ],
+            "ParkingOnly": false
+          },
+          {
+            "ID": "station-2",
+            "Name": "Destination",
+            "Entry": "station-2-entry-1",
+            "Exit": "station-2-exit-1",
+            "Berths": [
+              {
+                "ID": "station-2-berth-1",
+                "Node": "station-2-berth-node-1"
+              }
+            ],
+            "ParkingOnly": false
+          }
+        ]
+      },
+      "fleet": [],
+      "demand": {
+        "enabled": false,
+        "perMinute": 2,
+        "pattern": "balanced",
+        "destination": "",
+        "profile": "",
+        "band": "",
+        "seed": 1
+      },
+      "demandProfiles": [],
+      "sharedRidePartyLimit": 1,
+      "sharedRideMode": "drop-offs",
+      "sharedRideJoin": "unassigned",
+      "sharedRideMaxStops": 3,
+      "platoonLimit": 0,
+      "stationBuffers": false,
+      "pickupReassignment": false,
+      "redistribution": false,
+      "geo": {
+        "latitude": 51.5,
+        "longitude": -0.1,
+        "projection": "equirectangular",
+        "radius": 6371000
+      }
+    },
+    "command": {
+      "action": "enable",
+      "opacity": 2
+    },
+    "error": "The map settings are invalid."
+  },
+  {
+    "name": "unknown-geo",
+    "before": {
+      "version": 1,
+      "name": "Untitled scenario",
+      "network": {
+        "Nodes": [
+          {
+            "ID": "station-1-entry-1",
+            "Position": {
+              "X": 64,
+              "Y": 120
+            }
+          },
+          {
+            "ID": "station-1-exit-1",
+            "Position": {
+              "X": 136,
+              "Y": 120
+            }
+          },
+          {
+            "ID": "station-1-berth-node-1",
+            "Position": {
+              "X": 100,
+              "Y": 150
+            }
+          },
+          {
+            "ID": "station-2-entry-1",
+            "Position": {
+              "X": 304,
+              "Y": 120
+            }
+          },
+          {
+            "ID": "station-2-exit-1",
+            "Position": {
+              "X": 376,
+              "Y": 120
+            }
+          },
+          {
+            "ID": "station-2-berth-node-1",
+            "Position": {
+              "X": 340,
+              "Y": 150
+            }
+          }
+        ],
+        "Lanes": [
+          {
+            "ID": "lane-1",
+            "From": "station-1-entry-1",
+            "To": "station-1-berth-node-1",
+            "SpeedLimit": 12,
+            "StationID": "station-1",
+            "StationRole": "berth-access"
+          },
+          {
+            "ID": "lane-2",
+            "From": "station-1-berth-node-1",
+            "To": "station-1-exit-1",
+            "SpeedLimit": 12,
+            "StationID": "station-1",
+            "StationRole": "departure"
+          },
+          {
+            "ID": "lane-3",
+            "From": "station-1-entry-1",
+            "To": "station-1-exit-1",
+            "SpeedLimit": 12,
+            "StationID": "station-1",
+            "StationRole": "through"
+          },
+          {
+            "ID": "lane-4",
+            "From": "station-2-entry-1",
+            "To": "station-2-berth-node-1",
+            "SpeedLimit": 12,
+            "StationID": "station-2",
+            "StationRole": "berth-access"
+          },
+          {
+            "ID": "lane-5",
+            "From": "station-2-berth-node-1",
+            "To": "station-2-exit-1",
+            "SpeedLimit": 12,
+            "StationID": "station-2",
+            "StationRole": "departure"
+          },
+          {
+            "ID": "lane-6",
+            "From": "station-2-entry-1",
+            "To": "station-2-exit-1",
+            "SpeedLimit": 12,
+            "StationID": "station-2",
+            "StationRole": "through"
+          },
+          {
+            "ID": "lane-7",
+            "From": "station-1-exit-1",
+            "To": "station-2-entry-1",
+            "SpeedLimit": 12
+          },
+          {
+            "ID": "lane-8",
+            "From": "station-2-exit-1",
+            "To": "station-1-entry-1",
+            "SpeedLimit": 12
+          }
+        ],
+        "Stations": [
+          {
+            "ID": "station-1",
+            "Name": "Origin",
+            "Entry": "station-1-entry-1",
+            "Exit": "station-1-exit-1",
+            "Berths": [
+              {
+                "ID": "station-1-berth-1",
+                "Node": "station-1-berth-node-1"
+              }
+            ],
+            "ParkingOnly": false
+          },
+          {
+            "ID": "station-2",
+            "Name": "Destination",
+            "Entry": "station-2-entry-1",
+            "Exit": "station-2-exit-1",
+            "Berths": [
+              {
+                "ID": "station-2-berth-1",
+                "Node": "station-2-berth-node-1"
+              }
+            ],
+            "ParkingOnly": false
+          }
+        ]
+      },
+      "fleet": [],
+      "demand": {
+        "enabled": false,
+        "perMinute": 2,
+        "pattern": "balanced",
+        "destination": "",
+        "profile": "",
+        "band": "",
+        "seed": 1
+      },
+      "demandProfiles": [],
+      "sharedRidePartyLimit": 1,
+      "sharedRideMode": "drop-offs",
+      "sharedRideJoin": "unassigned",
+      "sharedRideMaxStops": 3,
+      "platoonLimit": 0,
+      "stationBuffers": false,
+      "pickupReassignment": false,
+      "redistribution": false,
+      "geo": {
+        "latitude": 51.5,
+        "longitude": -0.1,
+        "projection": "equirectangular",
+        "radius": 6371000,
+        "extra": 1
+      }
+    },
+    "command": {
+      "action": "enable"
+    },
+    "after": {
+      "version": 1,
+      "name": "Untitled scenario",
+      "network": {
+        "Nodes": [
+          {
+            "ID": "station-1-entry-1",
+            "Position": {
+              "X": 64,
+              "Y": 120
+            }
+          },
+          {
+            "ID": "station-1-exit-1",
+            "Position": {
+              "X": 136,
+              "Y": 120
+            }
+          },
+          {
+            "ID": "station-1-berth-node-1",
+            "Position": {
+              "X": 100,
+              "Y": 150
+            }
+          },
+          {
+            "ID": "station-2-entry-1",
+            "Position": {
+              "X": 304,
+              "Y": 120
+            }
+          },
+          {
+            "ID": "station-2-exit-1",
+            "Position": {
+              "X": 376,
+              "Y": 120
+            }
+          },
+          {
+            "ID": "station-2-berth-node-1",
+            "Position": {
+              "X": 340,
+              "Y": 150
+            }
+          }
+        ],
+        "Lanes": [
+          {
+            "ID": "lane-1",
+            "From": "station-1-entry-1",
+            "To": "station-1-berth-node-1",
+            "SpeedLimit": 12,
+            "StationID": "station-1",
+            "StationRole": "berth-access"
+          },
+          {
+            "ID": "lane-2",
+            "From": "station-1-berth-node-1",
+            "To": "station-1-exit-1",
+            "SpeedLimit": 12,
+            "StationID": "station-1",
+            "StationRole": "departure"
+          },
+          {
+            "ID": "lane-3",
+            "From": "station-1-entry-1",
+            "To": "station-1-exit-1",
+            "SpeedLimit": 12,
+            "StationID": "station-1",
+            "StationRole": "through"
+          },
+          {
+            "ID": "lane-4",
+            "From": "station-2-entry-1",
+            "To": "station-2-berth-node-1",
+            "SpeedLimit": 12,
+            "StationID": "station-2",
+            "StationRole": "berth-access"
+          },
+          {
+            "ID": "lane-5",
+            "From": "station-2-berth-node-1",
+            "To": "station-2-exit-1",
+            "SpeedLimit": 12,
+            "StationID": "station-2",
+            "StationRole": "departure"
+          },
+          {
+            "ID": "lane-6",
+            "From": "station-2-entry-1",
+            "To": "station-2-exit-1",
+            "SpeedLimit": 12,
+            "StationID": "station-2",
+            "StationRole": "through"
+          },
+          {
+            "ID": "lane-7",
+            "From": "station-1-exit-1",
+            "To": "station-2-entry-1",
+            "SpeedLimit": 12
+          },
+          {
+            "ID": "lane-8",
+            "From": "station-2-exit-1",
+            "To": "station-1-entry-1",
+            "SpeedLimit": 12
+          }
+        ],
+        "Stations": [
+          {
+            "ID": "station-1",
+            "Name": "Origin",
+            "Entry": "station-1-entry-1",
+            "Exit": "station-1-exit-1",
+            "Berths": [
+              {
+                "ID": "station-1-berth-1",
+                "Node": "station-1-berth-node-1"
+              }
+            ],
+            "ParkingOnly": false
+          },
+          {
+            "ID": "station-2",
+            "Name": "Destination",
+            "Entry": "station-2-entry-1",
+            "Exit": "station-2-exit-1",
+            "Berths": [
+              {
+                "ID": "station-2-berth-1",
+                "Node": "station-2-berth-node-1"
+              }
+            ],
+            "ParkingOnly": false
+          }
+        ]
+      },
+      "fleet": [],
+      "demand": {
+        "enabled": false,
+        "perMinute": 2,
+        "pattern": "balanced",
+        "destination": "",
+        "profile": "",
+        "band": "",
+        "seed": 1
+      },
+      "demandProfiles": [],
+      "sharedRidePartyLimit": 1,
+      "sharedRideMode": "drop-offs",
+      "sharedRideJoin": "unassigned",
+      "sharedRideMaxStops": 3,
+      "platoonLimit": 0,
+      "stationBuffers": false,
+      "pickupReassignment": false,
+      "redistribution": false,
+      "geo": {
+        "latitude": 51.5,
+        "longitude": -0.1,
+        "projection": "equirectangular",
+        "radius": 6371000,
+        "extra": 1
+      },
+      "map": {
+        "provider": "osm",
+        "opacity": 0.45
+      }
+    },
+    "error": ""
+  },
+  {
+    "name": "bad-geo",
+    "before": {
+      "version": 1,
+      "name": "Untitled scenario",
+      "network": {
+        "Nodes": [
+          {
+            "ID": "station-1-entry-1",
+            "Position": {
+              "X": 64,
+              "Y": 120
+            }
+          },
+          {
+            "ID": "station-1-exit-1",
+            "Position": {
+              "X": 136,
+              "Y": 120
+            }
+          },
+          {
+            "ID": "station-1-berth-node-1",
+            "Position": {
+              "X": 100,
+              "Y": 150
+            }
+          },
+          {
+            "ID": "station-2-entry-1",
+            "Position": {
+              "X": 304,
+              "Y": 120
+            }
+          },
+          {
+            "ID": "station-2-exit-1",
+            "Position": {
+              "X": 376,
+              "Y": 120
+            }
+          },
+          {
+            "ID": "station-2-berth-node-1",
+            "Position": {
+              "X": 340,
+              "Y": 150
+            }
+          }
+        ],
+        "Lanes": [
+          {
+            "ID": "lane-1",
+            "From": "station-1-entry-1",
+            "To": "station-1-berth-node-1",
+            "SpeedLimit": 12,
+            "StationID": "station-1",
+            "StationRole": "berth-access"
+          },
+          {
+            "ID": "lane-2",
+            "From": "station-1-berth-node-1",
+            "To": "station-1-exit-1",
+            "SpeedLimit": 12,
+            "StationID": "station-1",
+            "StationRole": "departure"
+          },
+          {
+            "ID": "lane-3",
+            "From": "station-1-entry-1",
+            "To": "station-1-exit-1",
+            "SpeedLimit": 12,
+            "StationID": "station-1",
+            "StationRole": "through"
+          },
+          {
+            "ID": "lane-4",
+            "From": "station-2-entry-1",
+            "To": "station-2-berth-node-1",
+            "SpeedLimit": 12,
+            "StationID": "station-2",
+            "StationRole": "berth-access"
+          },
+          {
+            "ID": "lane-5",
+            "From": "station-2-berth-node-1",
+            "To": "station-2-exit-1",
+            "SpeedLimit": 12,
+            "StationID": "station-2",
+            "StationRole": "departure"
+          },
+          {
+            "ID": "lane-6",
+            "From": "station-2-entry-1",
+            "To": "station-2-exit-1",
+            "SpeedLimit": 12,
+            "StationID": "station-2",
+            "StationRole": "through"
+          },
+          {
+            "ID": "lane-7",
+            "From": "station-1-exit-1",
+            "To": "station-2-entry-1",
+            "SpeedLimit": 12
+          },
+          {
+            "ID": "lane-8",
+            "From": "station-2-exit-1",
+            "To": "station-1-entry-1",
+            "SpeedLimit": 12
+          }
+        ],
+        "Stations": [
+          {
+            "ID": "station-1",
+            "Name": "Origin",
+            "Entry": "station-1-entry-1",
+            "Exit": "station-1-exit-1",
+            "Berths": [
+              {
+                "ID": "station-1-berth-1",
+                "Node": "station-1-berth-node-1"
+              }
+            ],
+            "ParkingOnly": false
+          },
+          {
+            "ID": "station-2",
+            "Name": "Destination",
+            "Entry": "station-2-entry-1",
+            "Exit": "station-2-exit-1",
+            "Berths": [
+              {
+                "ID": "station-2-berth-1",
+                "Node": "station-2-berth-node-1"
+              }
+            ],
+            "ParkingOnly": false
+          }
+        ]
+      },
+      "fleet": [],
+      "demand": {
+        "enabled": false,
+        "perMinute": 2,
+        "pattern": "balanced",
+        "destination": "",
+        "profile": "",
+        "band": "",
+        "seed": 1
+      },
+      "demandProfiles": [],
+      "sharedRidePartyLimit": 1,
+      "sharedRideMode": "drop-offs",
+      "sharedRideJoin": "unassigned",
+      "sharedRideMaxStops": 3,
+      "platoonLimit": 0,
+      "stationBuffers": false,
+      "pickupReassignment": false,
+      "redistribution": false,
+      "geo": {
+        "latitude": 51.5,
+        "longitude": -0.1,
+        "projection": "equirectangular",
+        "radius": 1
+      }
+    },
+    "command": {
+      "action": "enable"
+    },
+    "error": "The map settings are invalid."
+  },
+  {
+    "name": "missing-anchor",
+    "before": {
+      "version": 1,
+      "name": "Untitled scenario",
+      "network": {
+        "Nodes": [
+          {
+            "ID": "a",
+            "Position": {
+              "X": 0,
+              "Y": 0
+            }
+          },
+          {
+            "ID": "b",
+            "Position": {
+              "X": 400,
+              "Y": 0
+            }
+          }
+        ],
+        "Lanes": [],
+        "Stations": []
+      },
+      "fleet": [],
+      "demand": {
+        "enabled": false,
+        "perMinute": 2,
+        "pattern": "balanced",
+        "destination": "",
+        "profile": "",
+        "band": "",
+        "seed": 1
+      },
+      "demandProfiles": [],
+      "sharedRidePartyLimit": 1,
+      "sharedRideMode": "drop-offs",
+      "sharedRideJoin": "unassigned",
+      "sharedRideMaxStops": 3,
+      "platoonLimit": 0,
+      "stationBuffers": false,
+      "pickupReassignment": false,
+      "redistribution": false
+    },
+    "command": {
+      "action": "enable",
+      "choice": {
+        "mode": "anchor",
+        "a": {
+          "id": "missing",
+          "latitude": 51.5,
+          "longitude": -0.1
+        },
+        "b": {
+          "id": "b",
+          "latitude": 51.5,
+          "longitude": -0.09422136249983631
+        }
+      }
+    },
+    "error": "The anchor node \"missing\" is not in the project."
+  },
+  {
+    "name": "near-anchors",
+    "before": {
+      "version": 1,
+      "name": "Untitled scenario",
+      "network": {
+        "Nodes": [
+          {
+            "ID": "a",
+            "Position": {
+              "X": 0,
+              "Y": 0
+            }
+          },
+          {
+            "ID": "b",
+            "Position": {
+              "X": 400,
+              "Y": 0
+            }
+          }
+        ],
+        "Lanes": [],
+        "Stations": []
+      },
+      "fleet": [],
+      "demand": {
+        "enabled": false,
+        "perMinute": 2,
+        "pattern": "balanced",
+        "destination": "",
+        "profile": "",
+        "band": "",
+        "seed": 1
+      },
+      "demandProfiles": [],
+      "sharedRidePartyLimit": 1,
+      "sharedRideMode": "drop-offs",
+      "sharedRideJoin": "unassigned",
+      "sharedRideMaxStops": 3,
+      "platoonLimit": 0,
+      "stationBuffers": false,
+      "pickupReassignment": false,
+      "redistribution": false
+    },
+    "command": {
+      "action": "enable",
+      "choice": {
+        "mode": "anchor",
+        "a": {
+          "id": "a",
+          "latitude": 51.5,
+          "longitude": -0.1
+        },
+        "b": {
+          "id": "a",
+          "latitude": 51.5,
+          "longitude": -0.09422136249983631
+        }
+      }
+    },
+    "error": "The anchor nodes must be at least 100 m apart."
+  },
+  {
+    "name": "misaligned-anchors",
+    "before": {
+      "version": 1,
+      "name": "Untitled scenario",
+      "network": {
+        "Nodes": [
+          {
+            "ID": "a",
+            "Position": {
+              "X": 0,
+              "Y": 0
+            }
+          },
+          {
+            "ID": "b",
+            "Position": {
+              "X": 400,
+              "Y": 0
+            }
+          }
+        ],
+        "Lanes": [],
+        "Stations": []
+      },
+      "fleet": [],
+      "demand": {
+        "enabled": false,
+        "perMinute": 2,
+        "pattern": "balanced",
+        "destination": "",
+        "profile": "",
+        "band": "",
+        "seed": 1
+      },
+      "demandProfiles": [],
+      "sharedRidePartyLimit": 1,
+      "sharedRideMode": "drop-offs",
+      "sharedRideJoin": "unassigned",
+      "sharedRideMaxStops": 3,
+      "platoonLimit": 0,
+      "stationBuffers": false,
+      "pickupReassignment": false,
+      "redistribution": false
+    },
+    "command": {
+      "action": "enable",
+      "choice": {
+        "mode": "anchor",
+        "a": {
+          "id": "a",
+          "latitude": 51.5,
+          "longitude": -0.1
+        },
+        "b": {
+          "id": "b",
+          "latitude": 51.5,
+          "longitude": 0.005778637500163691
+        }
+      }
+    },
+    "error": "The second anchor is 6922.0 m from its node, more than 2% of the 400.0 m between the nodes."
+  },
+  {
+    "name": "polar-anchor",
+    "before": {
+      "version": 1,
+      "name": "Untitled scenario",
+      "network": {
+        "Nodes": [
+          {
+            "ID": "a",
+            "Position": {
+              "X": 0,
+              "Y": 0
+            }
+          },
+          {
+            "ID": "b",
+            "Position": {
+              "X": 400,
+              "Y": 0
+            }
+          }
+        ],
+        "Lanes": [],
+        "Stations": []
+      },
+      "fleet": [],
+      "demand": {
+        "enabled": false,
+        "perMinute": 2,
+        "pattern": "balanced",
+        "destination": "",
+        "profile": "",
+        "band": "",
+        "seed": 1
+      },
+      "demandProfiles": [],
+      "sharedRidePartyLimit": 1,
+      "sharedRideMode": "drop-offs",
+      "sharedRideJoin": "unassigned",
+      "sharedRideMaxStops": 3,
+      "platoonLimit": 0,
+      "stationBuffers": false,
+      "pickupReassignment": false,
+      "redistribution": false
+    },
+    "command": {
+      "action": "enable",
+      "choice": {
+        "mode": "anchor",
+        "a": {
+          "id": "a",
+          "latitude": 90,
+          "longitude": -0.1
+        },
+        "b": {
+          "id": "b",
+          "latitude": 90,
+          "longitude": -0.09422136249983631
+        }
+      }
+    },
+    "error": "The geo latitude must be from -80 to 80 degrees."
+  },
+  {
+    "name": "invalid-anchor-coordinate",
+    "before": {
+      "version": 1,
+      "name": "Untitled scenario",
+      "network": {
+        "Nodes": [
+          {
+            "ID": "a",
+            "Position": {
+              "X": 0,
+              "Y": 0
+            }
+          },
+          {
+            "ID": "b",
+            "Position": {
+              "X": 400,
+              "Y": 0
+            }
+          }
+        ],
+        "Lanes": [],
+        "Stations": []
+      },
+      "fleet": [],
+      "demand": {
+        "enabled": false,
+        "perMinute": 2,
+        "pattern": "balanced",
+        "destination": "",
+        "profile": "",
+        "band": "",
+        "seed": 1
+      },
+      "demandProfiles": [],
+      "sharedRidePartyLimit": 1,
+      "sharedRideMode": "drop-offs",
+      "sharedRideJoin": "unassigned",
+      "sharedRideMaxStops": 3,
+      "platoonLimit": 0,
+      "stationBuffers": false,
+      "pickupReassignment": false,
+      "redistribution": false
+    },
+    "command": {
+      "action": "enable",
+      "choice": {
+        "mode": "anchor",
+        "a": {
+          "id": "a",
+          "latitude": "51.5",
+          "longitude": -0.1
+        },
+        "b": {
+          "id": "b",
+          "latitude": 51.5,
+          "longitude": -0.09422136249983631
+        }
+      }
+    },
+    "error": "Each anchor needs a latitude and a longitude in degrees."
+  },
+  {
+    "name": "opacity",
+    "before": {
+      "version": 1,
+      "name": "Untitled scenario",
+      "network": {
+        "Nodes": [
+          {
+            "ID": "station-1-entry-1",
+            "Position": {
+              "X": 64,
+              "Y": 120
+            }
+          },
+          {
+            "ID": "station-1-exit-1",
+            "Position": {
+              "X": 136,
+              "Y": 120
+            }
+          },
+          {
+            "ID": "station-1-berth-node-1",
+            "Position": {
+              "X": 100,
+              "Y": 150
+            }
+          },
+          {
+            "ID": "station-2-entry-1",
+            "Position": {
+              "X": 304,
+              "Y": 120
+            }
+          },
+          {
+            "ID": "station-2-exit-1",
+            "Position": {
+              "X": 376,
+              "Y": 120
+            }
+          },
+          {
+            "ID": "station-2-berth-node-1",
+            "Position": {
+              "X": 340,
+              "Y": 150
+            }
+          }
+        ],
+        "Lanes": [
+          {
+            "ID": "lane-1",
+            "From": "station-1-entry-1",
+            "To": "station-1-berth-node-1",
+            "SpeedLimit": 12,
+            "StationID": "station-1",
+            "StationRole": "berth-access"
+          },
+          {
+            "ID": "lane-2",
+            "From": "station-1-berth-node-1",
+            "To": "station-1-exit-1",
+            "SpeedLimit": 12,
+            "StationID": "station-1",
+            "StationRole": "departure"
+          },
+          {
+            "ID": "lane-3",
+            "From": "station-1-entry-1",
+            "To": "station-1-exit-1",
+            "SpeedLimit": 12,
+            "StationID": "station-1",
+            "StationRole": "through"
+          },
+          {
+            "ID": "lane-4",
+            "From": "station-2-entry-1",
+            "To": "station-2-berth-node-1",
+            "SpeedLimit": 12,
+            "StationID": "station-2",
+            "StationRole": "berth-access"
+          },
+          {
+            "ID": "lane-5",
+            "From": "station-2-berth-node-1",
+            "To": "station-2-exit-1",
+            "SpeedLimit": 12,
+            "StationID": "station-2",
+            "StationRole": "departure"
+          },
+          {
+            "ID": "lane-6",
+            "From": "station-2-entry-1",
+            "To": "station-2-exit-1",
+            "SpeedLimit": 12,
+            "StationID": "station-2",
+            "StationRole": "through"
+          },
+          {
+            "ID": "lane-7",
+            "From": "station-1-exit-1",
+            "To": "station-2-entry-1",
+            "SpeedLimit": 12
+          },
+          {
+            "ID": "lane-8",
+            "From": "station-2-exit-1",
+            "To": "station-1-entry-1",
+            "SpeedLimit": 12
+          }
+        ],
+        "Stations": [
+          {
+            "ID": "station-1",
+            "Name": "Origin",
+            "Entry": "station-1-entry-1",
+            "Exit": "station-1-exit-1",
+            "Berths": [
+              {
+                "ID": "station-1-berth-1",
+                "Node": "station-1-berth-node-1"
+              }
+            ],
+            "ParkingOnly": false
+          },
+          {
+            "ID": "station-2",
+            "Name": "Destination",
+            "Entry": "station-2-entry-1",
+            "Exit": "station-2-exit-1",
+            "Berths": [
+              {
+                "ID": "station-2-berth-1",
+                "Node": "station-2-berth-node-1"
+              }
+            ],
+            "ParkingOnly": false
+          }
+        ]
+      },
+      "fleet": [],
+      "demand": {
+        "enabled": false,
+        "perMinute": 2,
+        "pattern": "balanced",
+        "destination": "",
+        "profile": "",
+        "band": "",
+        "seed": 1
+      },
+      "demandProfiles": [],
+      "sharedRidePartyLimit": 1,
+      "sharedRideMode": "drop-offs",
+      "sharedRideJoin": "unassigned",
+      "sharedRideMaxStops": 3,
+      "platoonLimit": 0,
+      "stationBuffers": false,
+      "pickupReassignment": false,
+      "redistribution": false,
+      "geo": {
+        "latitude": 51.5,
+        "longitude": -0.1,
+        "projection": "equirectangular",
+        "radius": 6371000
+      },
+      "map": {
+        "provider": "osm",
+        "opacity": 0.6,
+        "extra": {
+          "value": 1
+        }
+      }
+    },
+    "command": {
+      "action": "opacity",
+      "opacity": 0.25
+    },
+    "after": {
+      "version": 1,
+      "name": "Untitled scenario",
+      "network": {
+        "Nodes": [
+          {
+            "ID": "station-1-entry-1",
+            "Position": {
+              "X": 64,
+              "Y": 120
+            }
+          },
+          {
+            "ID": "station-1-exit-1",
+            "Position": {
+              "X": 136,
+              "Y": 120
+            }
+          },
+          {
+            "ID": "station-1-berth-node-1",
+            "Position": {
+              "X": 100,
+              "Y": 150
+            }
+          },
+          {
+            "ID": "station-2-entry-1",
+            "Position": {
+              "X": 304,
+              "Y": 120
+            }
+          },
+          {
+            "ID": "station-2-exit-1",
+            "Position": {
+              "X": 376,
+              "Y": 120
+            }
+          },
+          {
+            "ID": "station-2-berth-node-1",
+            "Position": {
+              "X": 340,
+              "Y": 150
+            }
+          }
+        ],
+        "Lanes": [
+          {
+            "ID": "lane-1",
+            "From": "station-1-entry-1",
+            "To": "station-1-berth-node-1",
+            "SpeedLimit": 12,
+            "StationID": "station-1",
+            "StationRole": "berth-access"
+          },
+          {
+            "ID": "lane-2",
+            "From": "station-1-berth-node-1",
+            "To": "station-1-exit-1",
+            "SpeedLimit": 12,
+            "StationID": "station-1",
+            "StationRole": "departure"
+          },
+          {
+            "ID": "lane-3",
+            "From": "station-1-entry-1",
+            "To": "station-1-exit-1",
+            "SpeedLimit": 12,
+            "StationID": "station-1",
+            "StationRole": "through"
+          },
+          {
+            "ID": "lane-4",
+            "From": "station-2-entry-1",
+            "To": "station-2-berth-node-1",
+            "SpeedLimit": 12,
+            "StationID": "station-2",
+            "StationRole": "berth-access"
+          },
+          {
+            "ID": "lane-5",
+            "From": "station-2-berth-node-1",
+            "To": "station-2-exit-1",
+            "SpeedLimit": 12,
+            "StationID": "station-2",
+            "StationRole": "departure"
+          },
+          {
+            "ID": "lane-6",
+            "From": "station-2-entry-1",
+            "To": "station-2-exit-1",
+            "SpeedLimit": 12,
+            "StationID": "station-2",
+            "StationRole": "through"
+          },
+          {
+            "ID": "lane-7",
+            "From": "station-1-exit-1",
+            "To": "station-2-entry-1",
+            "SpeedLimit": 12
+          },
+          {
+            "ID": "lane-8",
+            "From": "station-2-exit-1",
+            "To": "station-1-entry-1",
+            "SpeedLimit": 12
+          }
+        ],
+        "Stations": [
+          {
+            "ID": "station-1",
+            "Name": "Origin",
+            "Entry": "station-1-entry-1",
+            "Exit": "station-1-exit-1",
+            "Berths": [
+              {
+                "ID": "station-1-berth-1",
+                "Node": "station-1-berth-node-1"
+              }
+            ],
+            "ParkingOnly": false
+          },
+          {
+            "ID": "station-2",
+            "Name": "Destination",
+            "Entry": "station-2-entry-1",
+            "Exit": "station-2-exit-1",
+            "Berths": [
+              {
+                "ID": "station-2-berth-1",
+                "Node": "station-2-berth-node-1"
+              }
+            ],
+            "ParkingOnly": false
+          }
+        ]
+      },
+      "fleet": [],
+      "demand": {
+        "enabled": false,
+        "perMinute": 2,
+        "pattern": "balanced",
+        "destination": "",
+        "profile": "",
+        "band": "",
+        "seed": 1
+      },
+      "demandProfiles": [],
+      "sharedRidePartyLimit": 1,
+      "sharedRideMode": "drop-offs",
+      "sharedRideJoin": "unassigned",
+      "sharedRideMaxStops": 3,
+      "platoonLimit": 0,
+      "stationBuffers": false,
+      "pickupReassignment": false,
+      "redistribution": false,
+      "geo": {
+        "latitude": 51.5,
+        "longitude": -0.1,
+        "projection": "equirectangular",
+        "radius": 6371000
+      },
+      "map": {
+        "provider": "osm",
+        "opacity": 0.25,
+        "extra": {
+          "value": 1
+        }
+      }
+    },
+    "error": ""
+  },
+  {
+    "name": "remove",
+    "before": {
+      "version": 1,
+      "name": "Untitled scenario",
+      "network": {
+        "Nodes": [
+          {
+            "ID": "station-1-entry-1",
+            "Position": {
+              "X": 64,
+              "Y": 120
+            }
+          },
+          {
+            "ID": "station-1-exit-1",
+            "Position": {
+              "X": 136,
+              "Y": 120
+            }
+          },
+          {
+            "ID": "station-1-berth-node-1",
+            "Position": {
+              "X": 100,
+              "Y": 150
+            }
+          },
+          {
+            "ID": "station-2-entry-1",
+            "Position": {
+              "X": 304,
+              "Y": 120
+            }
+          },
+          {
+            "ID": "station-2-exit-1",
+            "Position": {
+              "X": 376,
+              "Y": 120
+            }
+          },
+          {
+            "ID": "station-2-berth-node-1",
+            "Position": {
+              "X": 340,
+              "Y": 150
+            }
+          }
+        ],
+        "Lanes": [
+          {
+            "ID": "lane-1",
+            "From": "station-1-entry-1",
+            "To": "station-1-berth-node-1",
+            "SpeedLimit": 12,
+            "StationID": "station-1",
+            "StationRole": "berth-access"
+          },
+          {
+            "ID": "lane-2",
+            "From": "station-1-berth-node-1",
+            "To": "station-1-exit-1",
+            "SpeedLimit": 12,
+            "StationID": "station-1",
+            "StationRole": "departure"
+          },
+          {
+            "ID": "lane-3",
+            "From": "station-1-entry-1",
+            "To": "station-1-exit-1",
+            "SpeedLimit": 12,
+            "StationID": "station-1",
+            "StationRole": "through"
+          },
+          {
+            "ID": "lane-4",
+            "From": "station-2-entry-1",
+            "To": "station-2-berth-node-1",
+            "SpeedLimit": 12,
+            "StationID": "station-2",
+            "StationRole": "berth-access"
+          },
+          {
+            "ID": "lane-5",
+            "From": "station-2-berth-node-1",
+            "To": "station-2-exit-1",
+            "SpeedLimit": 12,
+            "StationID": "station-2",
+            "StationRole": "departure"
+          },
+          {
+            "ID": "lane-6",
+            "From": "station-2-entry-1",
+            "To": "station-2-exit-1",
+            "SpeedLimit": 12,
+            "StationID": "station-2",
+            "StationRole": "through"
+          },
+          {
+            "ID": "lane-7",
+            "From": "station-1-exit-1",
+            "To": "station-2-entry-1",
+            "SpeedLimit": 12
+          },
+          {
+            "ID": "lane-8",
+            "From": "station-2-exit-1",
+            "To": "station-1-entry-1",
+            "SpeedLimit": 12
+          }
+        ],
+        "Stations": [
+          {
+            "ID": "station-1",
+            "Name": "Origin",
+            "Entry": "station-1-entry-1",
+            "Exit": "station-1-exit-1",
+            "Berths": [
+              {
+                "ID": "station-1-berth-1",
+                "Node": "station-1-berth-node-1"
+              }
+            ],
+            "ParkingOnly": false
+          },
+          {
+            "ID": "station-2",
+            "Name": "Destination",
+            "Entry": "station-2-entry-1",
+            "Exit": "station-2-exit-1",
+            "Berths": [
+              {
+                "ID": "station-2-berth-1",
+                "Node": "station-2-berth-node-1"
+              }
+            ],
+            "ParkingOnly": false
+          }
+        ]
+      },
+      "fleet": [],
+      "demand": {
+        "enabled": false,
+        "perMinute": 2,
+        "pattern": "balanced",
+        "destination": "",
+        "profile": "",
+        "band": "",
+        "seed": 1
+      },
+      "demandProfiles": [],
+      "sharedRidePartyLimit": 1,
+      "sharedRideMode": "drop-offs",
+      "sharedRideJoin": "unassigned",
+      "sharedRideMaxStops": 3,
+      "platoonLimit": 0,
+      "stationBuffers": false,
+      "pickupReassignment": false,
+      "redistribution": false,
+      "geo": {
+        "latitude": 51.5,
+        "longitude": -0.1,
+        "projection": "equirectangular",
+        "radius": 6371000
+      },
+      "map": {
+        "provider": "osm",
+        "opacity": 0.6
+      }
+    },
+    "command": {
+      "action": "remove"
+    },
+    "after": {
+      "version": 1,
+      "name": "Untitled scenario",
+      "network": {
+        "Nodes": [
+          {
+            "ID": "station-1-entry-1",
+            "Position": {
+              "X": 64,
+              "Y": 120
+            }
+          },
+          {
+            "ID": "station-1-exit-1",
+            "Position": {
+              "X": 136,
+              "Y": 120
+            }
+          },
+          {
+            "ID": "station-1-berth-node-1",
+            "Position": {
+              "X": 100,
+              "Y": 150
+            }
+          },
+          {
+            "ID": "station-2-entry-1",
+            "Position": {
+              "X": 304,
+              "Y": 120
+            }
+          },
+          {
+            "ID": "station-2-exit-1",
+            "Position": {
+              "X": 376,
+              "Y": 120
+            }
+          },
+          {
+            "ID": "station-2-berth-node-1",
+            "Position": {
+              "X": 340,
+              "Y": 150
+            }
+          }
+        ],
+        "Lanes": [
+          {
+            "ID": "lane-1",
+            "From": "station-1-entry-1",
+            "To": "station-1-berth-node-1",
+            "SpeedLimit": 12,
+            "StationID": "station-1",
+            "StationRole": "berth-access"
+          },
+          {
+            "ID": "lane-2",
+            "From": "station-1-berth-node-1",
+            "To": "station-1-exit-1",
+            "SpeedLimit": 12,
+            "StationID": "station-1",
+            "StationRole": "departure"
+          },
+          {
+            "ID": "lane-3",
+            "From": "station-1-entry-1",
+            "To": "station-1-exit-1",
+            "SpeedLimit": 12,
+            "StationID": "station-1",
+            "StationRole": "through"
+          },
+          {
+            "ID": "lane-4",
+            "From": "station-2-entry-1",
+            "To": "station-2-berth-node-1",
+            "SpeedLimit": 12,
+            "StationID": "station-2",
+            "StationRole": "berth-access"
+          },
+          {
+            "ID": "lane-5",
+            "From": "station-2-berth-node-1",
+            "To": "station-2-exit-1",
+            "SpeedLimit": 12,
+            "StationID": "station-2",
+            "StationRole": "departure"
+          },
+          {
+            "ID": "lane-6",
+            "From": "station-2-entry-1",
+            "To": "station-2-exit-1",
+            "SpeedLimit": 12,
+            "StationID": "station-2",
+            "StationRole": "through"
+          },
+          {
+            "ID": "lane-7",
+            "From": "station-1-exit-1",
+            "To": "station-2-entry-1",
+            "SpeedLimit": 12
+          },
+          {
+            "ID": "lane-8",
+            "From": "station-2-exit-1",
+            "To": "station-1-entry-1",
+            "SpeedLimit": 12
+          }
+        ],
+        "Stations": [
+          {
+            "ID": "station-1",
+            "Name": "Origin",
+            "Entry": "station-1-entry-1",
+            "Exit": "station-1-exit-1",
+            "Berths": [
+              {
+                "ID": "station-1-berth-1",
+                "Node": "station-1-berth-node-1"
+              }
+            ],
+            "ParkingOnly": false
+          },
+          {
+            "ID": "station-2",
+            "Name": "Destination",
+            "Entry": "station-2-entry-1",
+            "Exit": "station-2-exit-1",
+            "Berths": [
+              {
+                "ID": "station-2-berth-1",
+                "Node": "station-2-berth-node-1"
+              }
+            ],
+            "ParkingOnly": false
+          }
+        ]
+      },
+      "fleet": [],
+      "demand": {
+        "enabled": false,
+        "perMinute": 2,
+        "pattern": "balanced",
+        "destination": "",
+        "profile": "",
+        "band": "",
+        "seed": 1
+      },
+      "demandProfiles": [],
+      "sharedRidePartyLimit": 1,
+      "sharedRideMode": "drop-offs",
+      "sharedRideJoin": "unassigned",
+      "sharedRideMaxStops": 3,
+      "platoonLimit": 0,
+      "stationBuffers": false,
+      "pickupReassignment": false,
+      "redistribution": false,
+      "geo": {
+        "latitude": 51.5,
+        "longitude": -0.1,
+        "projection": "equirectangular",
+        "radius": 6371000
+      }
+    },
+    "error": ""
+  },
+  {
+    "name": "remove-absent",
+    "before": {
+      "version": 1,
+      "name": "Untitled scenario",
+      "network": {
+        "Nodes": [
+          {
+            "ID": "station-1-entry-1",
+            "Position": {
+              "X": 64,
+              "Y": 120
+            }
+          },
+          {
+            "ID": "station-1-exit-1",
+            "Position": {
+              "X": 136,
+              "Y": 120
+            }
+          },
+          {
+            "ID": "station-1-berth-node-1",
+            "Position": {
+              "X": 100,
+              "Y": 150
+            }
+          },
+          {
+            "ID": "station-2-entry-1",
+            "Position": {
+              "X": 304,
+              "Y": 120
+            }
+          },
+          {
+            "ID": "station-2-exit-1",
+            "Position": {
+              "X": 376,
+              "Y": 120
+            }
+          },
+          {
+            "ID": "station-2-berth-node-1",
+            "Position": {
+              "X": 340,
+              "Y": 150
+            }
+          }
+        ],
+        "Lanes": [
+          {
+            "ID": "lane-1",
+            "From": "station-1-entry-1",
+            "To": "station-1-berth-node-1",
+            "SpeedLimit": 12,
+            "StationID": "station-1",
+            "StationRole": "berth-access"
+          },
+          {
+            "ID": "lane-2",
+            "From": "station-1-berth-node-1",
+            "To": "station-1-exit-1",
+            "SpeedLimit": 12,
+            "StationID": "station-1",
+            "StationRole": "departure"
+          },
+          {
+            "ID": "lane-3",
+            "From": "station-1-entry-1",
+            "To": "station-1-exit-1",
+            "SpeedLimit": 12,
+            "StationID": "station-1",
+            "StationRole": "through"
+          },
+          {
+            "ID": "lane-4",
+            "From": "station-2-entry-1",
+            "To": "station-2-berth-node-1",
+            "SpeedLimit": 12,
+            "StationID": "station-2",
+            "StationRole": "berth-access"
+          },
+          {
+            "ID": "lane-5",
+            "From": "station-2-berth-node-1",
+            "To": "station-2-exit-1",
+            "SpeedLimit": 12,
+            "StationID": "station-2",
+            "StationRole": "departure"
+          },
+          {
+            "ID": "lane-6",
+            "From": "station-2-entry-1",
+            "To": "station-2-exit-1",
+            "SpeedLimit": 12,
+            "StationID": "station-2",
+            "StationRole": "through"
+          },
+          {
+            "ID": "lane-7",
+            "From": "station-1-exit-1",
+            "To": "station-2-entry-1",
+            "SpeedLimit": 12
+          },
+          {
+            "ID": "lane-8",
+            "From": "station-2-exit-1",
+            "To": "station-1-entry-1",
+            "SpeedLimit": 12
+          }
+        ],
+        "Stations": [
+          {
+            "ID": "station-1",
+            "Name": "Origin",
+            "Entry": "station-1-entry-1",
+            "Exit": "station-1-exit-1",
+            "Berths": [
+              {
+                "ID": "station-1-berth-1",
+                "Node": "station-1-berth-node-1"
+              }
+            ],
+            "ParkingOnly": false
+          },
+          {
+            "ID": "station-2",
+            "Name": "Destination",
+            "Entry": "station-2-entry-1",
+            "Exit": "station-2-exit-1",
+            "Berths": [
+              {
+                "ID": "station-2-berth-1",
+                "Node": "station-2-berth-node-1"
+              }
+            ],
+            "ParkingOnly": false
+          }
+        ]
+      },
+      "fleet": [],
+      "demand": {
+        "enabled": false,
+        "perMinute": 2,
+        "pattern": "balanced",
+        "destination": "",
+        "profile": "",
+        "band": "",
+        "seed": 1
+      },
+      "demandProfiles": [],
+      "sharedRidePartyLimit": 1,
+      "sharedRideMode": "drop-offs",
+      "sharedRideJoin": "unassigned",
+      "sharedRideMaxStops": 3,
+      "platoonLimit": 0,
+      "stationBuffers": false,
+      "pickupReassignment": false,
+      "redistribution": false
+    },
+    "command": {
+      "action": "remove"
+    },
+    "after": {
+      "version": 1,
+      "name": "Untitled scenario",
+      "network": {
+        "Nodes": [
+          {
+            "ID": "station-1-entry-1",
+            "Position": {
+              "X": 64,
+              "Y": 120
+            }
+          },
+          {
+            "ID": "station-1-exit-1",
+            "Position": {
+              "X": 136,
+              "Y": 120
+            }
+          },
+          {
+            "ID": "station-1-berth-node-1",
+            "Position": {
+              "X": 100,
+              "Y": 150
+            }
+          },
+          {
+            "ID": "station-2-entry-1",
+            "Position": {
+              "X": 304,
+              "Y": 120
+            }
+          },
+          {
+            "ID": "station-2-exit-1",
+            "Position": {
+              "X": 376,
+              "Y": 120
+            }
+          },
+          {
+            "ID": "station-2-berth-node-1",
+            "Position": {
+              "X": 340,
+              "Y": 150
+            }
+          }
+        ],
+        "Lanes": [
+          {
+            "ID": "lane-1",
+            "From": "station-1-entry-1",
+            "To": "station-1-berth-node-1",
+            "SpeedLimit": 12,
+            "StationID": "station-1",
+            "StationRole": "berth-access"
+          },
+          {
+            "ID": "lane-2",
+            "From": "station-1-berth-node-1",
+            "To": "station-1-exit-1",
+            "SpeedLimit": 12,
+            "StationID": "station-1",
+            "StationRole": "departure"
+          },
+          {
+            "ID": "lane-3",
+            "From": "station-1-entry-1",
+            "To": "station-1-exit-1",
+            "SpeedLimit": 12,
+            "StationID": "station-1",
+            "StationRole": "through"
+          },
+          {
+            "ID": "lane-4",
+            "From": "station-2-entry-1",
+            "To": "station-2-berth-node-1",
+            "SpeedLimit": 12,
+            "StationID": "station-2",
+            "StationRole": "berth-access"
+          },
+          {
+            "ID": "lane-5",
+            "From": "station-2-berth-node-1",
+            "To": "station-2-exit-1",
+            "SpeedLimit": 12,
+            "StationID": "station-2",
+            "StationRole": "departure"
+          },
+          {
+            "ID": "lane-6",
+            "From": "station-2-entry-1",
+            "To": "station-2-exit-1",
+            "SpeedLimit": 12,
+            "StationID": "station-2",
+            "StationRole": "through"
+          },
+          {
+            "ID": "lane-7",
+            "From": "station-1-exit-1",
+            "To": "station-2-entry-1",
+            "SpeedLimit": 12
+          },
+          {
+            "ID": "lane-8",
+            "From": "station-2-exit-1",
+            "To": "station-1-entry-1",
+            "SpeedLimit": 12
+          }
+        ],
+        "Stations": [
+          {
+            "ID": "station-1",
+            "Name": "Origin",
+            "Entry": "station-1-entry-1",
+            "Exit": "station-1-exit-1",
+            "Berths": [
+              {
+                "ID": "station-1-berth-1",
+                "Node": "station-1-berth-node-1"
+              }
+            ],
+            "ParkingOnly": false
+          },
+          {
+            "ID": "station-2",
+            "Name": "Destination",
+            "Entry": "station-2-entry-1",
+            "Exit": "station-2-exit-1",
+            "Berths": [
+              {
+                "ID": "station-2-berth-1",
+                "Node": "station-2-berth-node-1"
+              }
+            ],
+            "ParkingOnly": false
+          }
+        ]
+      },
+      "fleet": [],
+      "demand": {
+        "enabled": false,
+        "perMinute": 2,
+        "pattern": "balanced",
+        "destination": "",
+        "profile": "",
+        "band": "",
+        "seed": 1
+      },
+      "demandProfiles": [],
+      "sharedRidePartyLimit": 1,
+      "sharedRideMode": "drop-offs",
+      "sharedRideJoin": "unassigned",
+      "sharedRideMaxStops": 3,
+      "platoonLimit": 0,
+      "stationBuffers": false,
+      "pickupReassignment": false,
+      "redistribution": false
+    },
+    "error": ""
+  }
+]

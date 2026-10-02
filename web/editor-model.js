@@ -65,6 +65,7 @@
 
   // createEditQueue orders browser actions that depend on pending Go replies.
   // Cancellation invalidates active replies and drops actions that have not started.
+  // A keyed action replaces its unsent predecessor and moves to the newest position.
   function createEditQueue({ onChange = () => {} } = {}) {
     let active = null, generation = 0, revision = 0;
     const queue = [];
@@ -77,12 +78,14 @@
     return {
       get pending() { return Boolean(active || queue.length); },
       get revision() { return revision; },
-      submit(action) {
+      submit(action, { key } = {}) {
+        const replaced = key === undefined ? -1 : queue.findIndex((job) => job.key === key);
+        if (replaced >= 0) queue.splice(replaced, 1)[0].resolve(false);
         if (queue.length >= 8) return Promise.reject(new Error("The editor is busy. Try the action again."));
         revision++;
         let resolve, reject;
         const promise = new Promise((yes, no) => { resolve = yes; reject = no; });
-        queue.push({ action, generation, promise, resolve, reject }); pump(); onChange();
+        queue.push({ action, key, generation, promise, resolve, reject }); pump(); onChange();
         return promise;
       },
       async flush() {

@@ -277,7 +277,8 @@ It orders asynchronous edits and keeps newer typing when an older worker reply a
 JavaScript previews drags.
 Go computes each completed geometry edit.
 Go normalizes live, imported, and restored drafts.
-JavaScript still holds undo history and geographic metadata edits.
+Go proposes live-map metadata and geographic-reference edits.
+JavaScript still holds undo history and image-background metadata edits.
 Move these model operations into Go in stages.
 
 Define a clear boundary between user commands, simulation updates, and state exposed for display.

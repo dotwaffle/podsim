@@ -54,6 +54,34 @@ test("canceling edits invalidates active replies, drops queued intents, and perm
   release(); assert.equal(await first, false); assert.equal(await latest, true); assert.equal(committed, 1);
 });
 
+test("coalesced edits retain the final intent after more inputs than the queue holds", async () => {
+  const queue = createEditQueue(), order = [], pending = [];
+  let release;
+  const first = queue.submit(async () => { await new Promise((resolve) => { release = resolve; }); order.push("active"); return true; });
+  await Promise.resolve();
+  for (let value = 0; value < 20; value++) {
+    pending.push(queue.submit(() => { order.push(value); return true; }, { key: "opacity" }));
+    if (value === 9) pending.push(queue.submit(() => { order.push("other edit"); return true; }));
+  }
+  const flushed = queue.flush();
+  release();
+  assert.equal(await first, true);
+  const results = await Promise.all(pending);
+  assert.equal(results.filter(Boolean).length, 2);
+  assert.equal(await flushed, true);
+  assert.deepEqual(order, ["active", "other edit", 19]);
+});
+
+test("cancellation drops the final coalesced edit without publishing older values", async () => {
+  const queue = createEditQueue();
+  let release;
+  const active = queue.submit(async (current) => { await new Promise((resolve) => { release = resolve; }); return current(); });
+  const old = queue.submit(() => assert.fail("old edit ran"), { key: "opacity" });
+  const latest = queue.submit(() => assert.fail("latest edit ran"), { key: "opacity" });
+  await Promise.resolve(); queue.cancel(); release();
+  assert.deepEqual(await Promise.all([active, old, latest]), [false, false, false]);
+});
+
 test("edit failures block a waiting action and do not poison later edits", async () => {
   const queue = createEditQueue();
   const rejected = assert.rejects(queue.submit(() => { throw new Error("Rejected edit"); }), /Rejected edit/);
