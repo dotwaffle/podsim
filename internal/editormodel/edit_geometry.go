@@ -33,11 +33,14 @@ var geometryFields = map[string][]string{
 	"stationBearing": {"id", "value"}, "stationName": {"id", "value"}, "stationParking": {"id", "value"},
 	"laneSpeed": {"id", "value"}, "toggleCurve": {"id"},
 	"deleteNode": {"id"}, "deleteLane": {"id"},
+	"addBerth": {"id"}, "removeBerth": {"id", "value"},
+	"stationLayout": {"id", "value"},
 }
 
 type geometryDraft struct {
 	network map[string]any
 	draft   any
+	patch   map[string]any
 }
 
 func editGeometry(draft any, raw jsontext.Value) (projectChange, error) {
@@ -49,7 +52,8 @@ func editGeometry(draft any, raw jsontext.Value) (projectChange, error) {
 	if original == nil {
 		return projectChange{}, errors.New("the draft needs a network object")
 	}
-	geometry := geometryDraft{network: object(cloneEditValue(original)), draft: draft}
+	change := projectChange{Patch: make(map[string]any)}
+	geometry := geometryDraft{network: object(cloneEditValue(original)), draft: draft, patch: change.Patch}
 	if err := geometry.change(command); err != nil {
 		return projectChange{}, err
 	}
@@ -58,7 +62,6 @@ func editGeometry(draft any, raw jsontext.Value) (projectChange, error) {
 			return projectChange{}, fmt.Errorf("the edit exceeds the %s count limit", key)
 		}
 	}
-	change := projectChange{Patch: make(map[string]any)}
 	if !reflect.DeepEqual(original, geometry.network) {
 		change.Patch["network"] = geometry.network
 	}
@@ -258,6 +261,16 @@ func (g geometryDraft) change(command geometryEdit) error {
 		return nil
 	case "deleteNode":
 		return g.deleteNode(command.ID)
+	case "addBerth":
+		return g.addBerth(command.ID)
+	case "removeBerth":
+		var berthID string
+		if err := json.Unmarshal(command.Value, &berthID); err != nil {
+			return fmt.Errorf("decode berth ID: %w", err)
+		}
+		return g.removeBerth(command.ID, berthID)
+	case "stationLayout":
+		return g.setStationLayout(command.ID, command.Value)
 	}
 	return errors.New("unknown geometry action")
 }

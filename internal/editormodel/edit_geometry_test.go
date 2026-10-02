@@ -8,7 +8,10 @@ import (
 	"os"
 	"reflect"
 	"slices"
+	"strconv"
 	"testing"
+
+	"github.com/dotwaffle/podsim/internal/project"
 )
 
 func TestGeometryMatchesExistingEditor(t *testing.T) {
@@ -160,5 +163,85 @@ func TestMalformedStationMovementRetainsWorkerState(t *testing.T) {
 	result, err := model.handle(`{"op":"edit","edit":{"field":"geometry","value":{"action":"stationName","id":"s","value":"Repaired name"}}}`)
 	if err != nil || member(items(member(result.Change.Patch["network"], "Stations"))[0], "Name") != "Repaired name" {
 		t.Fatal("rejected movement prevented subsequent editing", err)
+	}
+}
+
+func TestGeometryRetainsExistingRejections(t *testing.T) {
+	t.Parallel()
+	data, err := os.ReadFile("testdata/geometry_rejections.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var fixtures []struct {
+		Name    string         `json:"name"`
+		Before  map[string]any `json:"before"`
+		Command jsontext.Value `json:"command"`
+		Error   string         `json:"error"`
+	}
+	if err := json.Unmarshal(data, &fixtures); err != nil {
+		t.Fatal(err)
+	}
+	for _, fixture := range fixtures {
+		t.Run(fixture.Name, func(t *testing.T) {
+			t.Parallel()
+			before := cloneEditValue(fixture.Before)
+			command, err := json.Marshal(map[string]any{"field": "geometry", "value": fixture.Command})
+			if err != nil {
+				t.Fatal(err)
+			}
+			if _, editErr := editProject(fixture.Before, command); editErr == nil {
+				t.Fatal("geometry accepted a rejected legacy edit", fixture.Error)
+			}
+			if !reflect.DeepEqual(fixture.Before, before) {
+				t.Fatal("rejected edit changed caller state")
+			}
+			model := new(engine)
+			sync, err := json.Marshal(map[string]any{"op": "sync", "keys": slices.Sorted(maps.Keys(fixture.Before)), "patch": fixture.Before})
+			if err != nil {
+				t.Fatal(err)
+			}
+			if _, syncErr := model.handle(string(sync)); syncErr != nil {
+				t.Fatal(syncErr)
+			}
+			original := model.branches["network"].raw.Clone()
+			if _, editErr := model.handle(`{"op":"edit","edit":` + string(command) + `}`); editErr == nil {
+				t.Fatal("cached edit accepted a rejected legacy edit")
+			}
+			if !reflect.DeepEqual(original, model.branches["network"].raw) {
+				t.Fatal("rejected edit changed synchronized state")
+			}
+			encoded, err := json.Marshal(fixture.Before)
+			if err != nil {
+				t.Fatal(err)
+			}
+			var explicit response
+			if err := json.Unmarshal([]byte(Call(`{"op":"edit","project":`+string(encoded)+`,"edit":`+string(command)+`}`)), &explicit); err != nil || explicit.Error == "" {
+				t.Fatal("stateless edit accepted a rejected legacy edit", err)
+			}
+		})
+	}
+}
+
+func TestGeometryPreservesProjectCountCaps(t *testing.T) {
+	t.Parallel()
+	for _, row := range []struct {
+		name, key, command string
+		limit              int
+	}{
+		{"nodes", "Nodes", `{"action":"addNode","point":{"X":1,"Y":2}}`, project.MaxNodes},
+		{"stations", "Stations", `{"action":"addStation","point":{"X":1,"Y":2}}`, project.MaxStations},
+	} {
+		t.Run(row.name, func(t *testing.T) {
+			t.Parallel()
+			entries := make([]any, row.limit)
+			for i := range entries {
+				entries[i] = map[string]any{"ID": row.name + "-" + strconv.Itoa(i)}
+			}
+			draft := map[string]any{"network": map[string]any{row.key: entries}}
+			before := cloneEditValue(draft)
+			if _, err := editGeometry(draft, jsontext.Value(row.command)); err == nil || !reflect.DeepEqual(draft, before) {
+				t.Fatal("count cap did not reject growth without changing the draft")
+			}
+		})
 	}
 }
