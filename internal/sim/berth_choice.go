@@ -34,7 +34,7 @@ func (s *Simulation) assignTerminalBerth(v *vehicle) bool {
 	if !ok {
 		return false
 	}
-	suffix, berth, err := s.stationRoute(station.routeEntry(v.Route, v.destination), station.ID)
+	suffix, berth, err := s.stationRouteByLoad(stationRouteInput{from: station.routeEntry(v.Route, v.destination), station: station.ID, class: v.Pod.Class, accept: s.berthFilterForVehicle(v)})
 	if err != nil {
 		return false
 	}
@@ -59,7 +59,8 @@ func (s *Simulation) reevaluateTerminalBerth(v *vehicle) {
 		return
 	}
 	passenger := v.Pod.Occupied || v.Pod.Activity == Boarding && len(v.Riders) > 0 || s.assigned(v.Pod.ID)
-	if !passenger || s.berthAvailableFor(v, v.destination) {
+	accept := s.berthFilterForVehicle(v)
+	if !passenger || s.berthAvailableFor(v, v.destination) && (accept == nil || accept(v.destination)) {
 		return
 	}
 	// terminalLane found the station, and the network does not change.
@@ -71,10 +72,10 @@ func (s *Simulation) reevaluateTerminalBerth(v *vehicle) {
 			return
 		}
 		for _, berth := range station.Berths {
-			if berth.ID == v.destination.ID || !s.berthAvailableFor(v, berth) {
+			if berth.ID == v.destination.ID || accept != nil && !accept(berth) || !s.berthAvailableFor(v, berth) {
 				continue
 			}
-			suffix, err := s.stationPath(lane.From, berth.Node)
+			suffix, err := s.stationPathForClass(lane.From, berth.Node, v.Pod.Class)
 			if err != nil || len(suffix) == 0 || suffix[0].ID == lane.ID {
 				continue
 			}

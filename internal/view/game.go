@@ -79,6 +79,8 @@ type Game struct {
 	showDemand           bool
 	font                 *text.GoTextFaceSource
 	origin, destination  string
+	orderPartySize       int
+	orderSharingConsent  sim.SharingConsent
 	journeySearch        journeySearch
 	stationPagesCache    *stationPageCache
 	labelMeasures        *labelMeasureCache
@@ -420,7 +422,7 @@ func (g *Game) request() {
 	if g.state.Simulation.Demo || g.journeySearch.unresolved[0] || g.journeySearch.unresolved[1] {
 		return
 	}
-	g.submit(session.Command{Action: "trip", Origin: g.origin, Destination: g.destination})
+	g.submit(g.orderCommand())
 }
 
 // checkpoint asks the server to save the shared session.
@@ -532,6 +534,7 @@ func (g *Game) buttons() []button {
 	// A station chip changes only the local selection and sends no command,
 	// so the chips stay enabled while a command waits for the server.
 	buttons = append(buttons, g.journeyButtons(state.Demo || !g.connected)...)
+	buttons = append(buttons, g.orderChoiceButtons(state.Demo || !g.connected)...)
 	if g.showDemand {
 		buttons = append(buttons, g.demandButtons()...)
 	}
@@ -575,6 +578,16 @@ func (g *Game) click(point sim.Point) bool {
 			g.journeySearch.focus = 0
 		}
 		switch b.action {
+		case "party-less":
+			g.orderPartySize = max(1, g.selectedPartySize()-1)
+		case "party-more":
+			g.orderPartySize = min(sim.MaxNewPartySize, g.selectedPartySize()+1)
+		case "order-sharing":
+			if g.orderSharingConsent == sim.SharedConsent {
+				g.orderSharingConsent = sim.PrivateConsent
+			} else {
+				g.orderSharingConsent = sim.SharedConsent
+			}
 		case "search-from":
 			g.startJourneySearch(1)
 		case "search-to":
@@ -1759,8 +1772,7 @@ func journeyStations(vehicle sim.Vehicle) []string {
 }
 
 // passengerCount returns the On board value for count passengers, such as
-// "1 passenger". Each party has one passenger, so a party count would show
-// the same number.
+// "1 passenger".
 func passengerCount(count int) string {
 	if count == 1 {
 		return "1 passenger"
@@ -1799,7 +1811,7 @@ func (g *Game) drawControls(screen *ebiten.Image, state sim.Snapshot) {
 	g.label(screen, label{x: 44, y: 606, size: 11, value: "FROM", color: muted})
 	g.label(screen, label{x: 44, y: 642, size: 11, value: "TO", color: muted})
 	if pages := g.stationPages(); len(pages) > 1 {
-		g.label(screen, label{x: 850, y: 577, size: 10, value: fmt.Sprintf("%d / %d", g.stationPage+1, len(pages)), color: muted})
+		g.label(screen, label{x: 180, y: 577, size: 10, value: fmt.Sprintf("%d / %d", g.stationPage+1, len(pages)), color: muted})
 	}
 	for _, value := range fleetStatLabels(state) {
 		g.label(screen, value)

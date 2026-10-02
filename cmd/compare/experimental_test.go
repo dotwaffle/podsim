@@ -140,7 +140,7 @@ func TestExperimentalPoliciesCountTowardMatrixLimit(t *testing.T) {
 
 func TestExperimentalReportMetadata(t *testing.T) {
 	t.Parallel()
-	results := []result{{StationBuffers: "on", PickupReassignment: "off", PickupReassignmentStats: &pickupPolicyStats{}}}
+	results := []result{{SharingConsent: sim.PrivateConsent, StationBuffers: "on", PickupReassignment: "off", PickupReassignmentStats: &pickupPolicyStats{}}}
 	var output bytes.Buffer
 	if err := writeReport(writeReportInput{output: &output, format: "json", results: results}); err != nil {
 		t.Fatal(err)

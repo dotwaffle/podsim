@@ -41,8 +41,7 @@ func TestBufferPlatoonFieldPresence(t *testing.T) {
 		for _, tc := range cases {
 			t.Run(fmt.Sprintf("v%d/%s", version, tc.name), func(t *testing.T) {
 				t.Parallel()
-				file := platoonStateFile(t)
-				file.Version = version
+				file := legacyTestState(platoonStateFile(t), version)
 				file.Simulation.Pods[1].Platoon.Lanes = 1
 				raw, err := json.Marshal(file)
 				if err != nil {
@@ -152,7 +151,7 @@ func TestBufferPlatoonSessionRoundTrip(t *testing.T) {
 			}
 			shared.Close()
 			file, write, err := shared.captureState(SaveFinal)
-			if err != nil || !write || file.Version != bufferPlatoonStateVersion {
+			if err != nil || !write || file.Version != serviceStateVersion {
 				t.Fatalf("capture version=%d write=%t: %v", file.Version, write, err)
 			}
 			file.SavedAt = time.Date(2026, time.October, 1, 3, 0, 0, 0, time.UTC)
@@ -186,10 +185,7 @@ func TestBufferPlatoonSessionRoundTrip(t *testing.T) {
 			if err := restored.SaveState(t.Context(), SaveFinal); err != nil {
 				t.Fatal(err)
 			}
-			want := bufferStateVersion
-			if disabled {
-				want = stateVersion
-			}
+			want := serviceStateVersion
 			if got := store.lastWrite(t).Version; got != want {
 				t.Fatalf("drained save version=%d want=%d", got, want)
 			}

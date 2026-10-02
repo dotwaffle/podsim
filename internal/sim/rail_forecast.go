@@ -112,7 +112,7 @@ func (s *Simulation) PositionForForecast(targets []ForecastTarget) (ForecastPosi
 			}
 		}
 		result.Searches++
-		node, ok := s.network.preferredNearestIndexed(preferredNearestInput{from: selected.Node, rank: sourceRank, limit: float64(target.ReleaseTick-s.tick) / TicksPerSecond, reverse: true}, s.graph)
+		node, ok := s.preferredFleetSource(preferredNearestInput{from: selected.Node, rank: sourceRank, limit: float64(target.ReleaseTick-s.tick) / TicksPerSecond, reverse: true})
 		if !ok {
 			continue
 		}

@@ -246,7 +246,7 @@ func TestRouteReleaseBoundDroppedWithOwner(t *testing.T) {
 			drop: func(s *Simulation, v *vehicle) {
 				pickup := s.findVehicle("02")
 				pickup.destination = v.destination
-				s.waiting = append(s.waiting, waitingTrip{request: Request{ID: 1, From: "market", To: "garden", PodID: "02"}})
+				s.waiting = append(s.waiting, waitingTrip{request: Request{SharingConsent: SharedConsent, Service: OnDemandService, ID: 1, From: "market", To: "garden", PodID: "02"}})
 				s.yieldRelocationClaims()
 			},
 		},

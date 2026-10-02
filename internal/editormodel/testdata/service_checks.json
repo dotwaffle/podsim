@@ -1,0 +1,994 @@
+{
+  "base": {
+    "version": 3,
+    "demand": {
+      "enabled": false,
+      "perMinute": 2,
+      "pattern": "balanced",
+      "seed": 1
+    },
+    "sharedRidePartyLimit": 1,
+    "sharedRideMaxStops": 0,
+    "name": "Podsim example",
+    "network": {
+      "Nodes": [
+        {
+          "Position": {
+            "X": 80,
+            "Y": 260
+          },
+          "ID": "harbor-entry"
+        },
+        {
+          "ID": "harbor-berth",
+          "Position": {
+            "X": 130,
+            "Y": 350
+          }
+        },
+        {
+          "ID": "harbor-exit",
+          "Position": {
+            "X": 200,
+            "Y": 260
+          }
+        },
+        {
+          "ID": "branch",
+          "Position": {
+            "X": 300,
+            "Y": 260
+          }
+        },
+        {
+          "Position": {
+            "X": 400,
+            "Y": 150
+          },
+          "ID": "garden-entry"
+        },
+        {
+          "ID": "garden-berth",
+          "Position": {
+            "Y": 70,
+            "X": 480
+          }
+        },
+        {
+          "ID": "garden-exit",
+          "Position": {
+            "X": 570,
+            "Y": 150
+          }
+        },
+        {
+          "ID": "bypass",
+          "Position": {
+            "X": 470,
+            "Y": 300
+          }
+        },
+        {
+          "ID": "merge",
+          "Position": {
+            "X": 670,
+            "Y": 260
+          }
+        },
+        {
+          "ID": "market-entry",
+          "Position": {
+            "Y": 260,
+            "X": 730
+          }
+        },
+        {
+          "ID": "market-berth",
+          "Position": {
+            "X": 800,
+            "Y": 350
+          }
+        },
+        {
+          "ID": "market-exit",
+          "Position": {
+            "X": 880,
+            "Y": 260
+          }
+        },
+        {
+          "ID": "return-east",
+          "Position": {
+            "X": 900,
+            "Y": 460
+          }
+        },
+        {
+          "ID": "parking-entry",
+          "Position": {
+            "X": 620,
+            "Y": 460
+          }
+        },
+        {
+          "Position": {
+            "X": 340,
+            "Y": 460
+          },
+          "ID": "parking-exit"
+        },
+        {
+          "ID": "parking-berth-1",
+          "Position": {
+            "X": 480,
+            "Y": 420
+          }
+        },
+        {
+          "ID": "parking-berth-2",
+          "Position": {
+            "X": 480,
+            "Y": 365
+          }
+        },
+        {
+          "ID": "return-west",
+          "Position": {
+            "X": 60,
+            "Y": 460
+          }
+        }
+      ],
+      "Lanes": [
+        {
+          "StationID": "harbor",
+          "StationRole": "through",
+          "VehicleClasses": [
+            "legacy",
+            "compact",
+            "group",
+            "express"
+          ],
+          "ID": "harbor-through",
+          "From": "harbor-entry",
+          "To": "harbor-exit",
+          "SpeedLimit": 14
+        },
+        {
+          "From": "harbor-entry",
+          "To": "harbor-berth",
+          "SpeedLimit": 14,
+          "StationID": "harbor",
+          "StationRole": "berth-access",
+          "VehicleClasses": [
+            "legacy",
+            "compact",
+            "group",
+            "express"
+          ],
+          "ID": "harbor-in"
+        },
+        {
+          "VehicleClasses": [
+            "legacy",
+            "compact",
+            "group",
+            "express"
+          ],
+          "ID": "harbor-out",
+          "From": "harbor-berth",
+          "To": "harbor-exit",
+          "SpeedLimit": 14,
+          "StationID": "harbor",
+          "StationRole": "departure"
+        },
+        {
+          "ID": "approach-branch",
+          "From": "harbor-exit",
+          "To": "branch",
+          "SpeedLimit": 14,
+          "VehicleClasses": [
+            "legacy",
+            "compact",
+            "group",
+            "express"
+          ]
+        },
+        {
+          "ID": "garden-approach",
+          "From": "branch",
+          "To": "garden-entry",
+          "SpeedLimit": 14,
+          "StationID": "garden",
+          "StationRole": "approach",
+          "VehicleClasses": [
+            "legacy",
+            "compact",
+            "group",
+            "express"
+          ]
+        },
+        {
+          "VehicleClasses": [
+            "legacy",
+            "compact",
+            "group",
+            "express"
+          ],
+          "ID": "garden-through",
+          "From": "garden-entry",
+          "To": "garden-exit",
+          "SpeedLimit": 14,
+          "StationID": "garden",
+          "StationRole": "through"
+        },
+        {
+          "VehicleClasses": [
+            "legacy",
+            "compact",
+            "group",
+            "express"
+          ],
+          "ID": "garden-in",
+          "From": "garden-entry",
+          "To": "garden-berth",
+          "SpeedLimit": 14,
+          "StationID": "garden",
+          "StationRole": "berth-access"
+        },
+        {
+          "From": "garden-berth",
+          "To": "garden-exit",
+          "SpeedLimit": 14,
+          "StationID": "garden",
+          "StationRole": "departure",
+          "VehicleClasses": [
+            "legacy",
+            "compact",
+            "group",
+            "express"
+          ],
+          "ID": "garden-out"
+        },
+        {
+          "VehicleClasses": [
+            "legacy",
+            "compact",
+            "group",
+            "express"
+          ],
+          "ID": "garden-merge",
+          "From": "garden-exit",
+          "To": "merge",
+          "SpeedLimit": 14
+        },
+        {
+          "VehicleClasses": [
+            "legacy",
+            "compact",
+            "group",
+            "express"
+          ],
+          "ID": "bypass-in",
+          "From": "branch",
+          "To": "bypass",
+          "SpeedLimit": 14
+        },
+        {
+          "VehicleClasses": [
+            "legacy",
+            "compact",
+            "group",
+            "express"
+          ],
+          "ID": "bypass-merge",
+          "From": "bypass",
+          "To": "merge",
+          "SpeedLimit": 14
+        },
+        {
+          "From": "merge",
+          "To": "market-entry",
+          "SpeedLimit": 14,
+          "StationID": "market",
+          "StationRole": "approach",
+          "VehicleClasses": [
+            "legacy",
+            "compact",
+            "group",
+            "express"
+          ],
+          "ID": "market-approach"
+        },
+        {
+          "StationRole": "through",
+          "VehicleClasses": [
+            "legacy",
+            "compact",
+            "group",
+            "express"
+          ],
+          "ID": "market-through",
+          "From": "market-entry",
+          "To": "market-exit",
+          "SpeedLimit": 14,
+          "StationID": "market"
+        },
+        {
+          "StationRole": "berth-access",
+          "VehicleClasses": [
+            "legacy",
+            "compact",
+            "group",
+            "express"
+          ],
+          "ID": "market-in",
+          "From": "market-entry",
+          "To": "market-berth",
+          "SpeedLimit": 14,
+          "StationID": "market"
+        },
+        {
+          "ID": "market-out",
+          "From": "market-berth",
+          "To": "market-exit",
+          "SpeedLimit": 14,
+          "StationID": "market",
+          "StationRole": "departure",
+          "VehicleClasses": [
+            "legacy",
+            "compact",
+            "group",
+            "express"
+          ]
+        },
+        {
+          "SpeedLimit": 14,
+          "VehicleClasses": [
+            "legacy",
+            "compact",
+            "group",
+            "express"
+          ],
+          "ID": "return-start",
+          "From": "market-exit",
+          "To": "return-east"
+        },
+        {
+          "VehicleClasses": [
+            "legacy",
+            "compact",
+            "group",
+            "express"
+          ],
+          "ID": "return-to-parking",
+          "From": "return-east",
+          "To": "parking-entry",
+          "SpeedLimit": 14
+        },
+        {
+          "From": "parking-entry",
+          "To": "parking-exit",
+          "SpeedLimit": 14,
+          "StationID": "parking",
+          "StationRole": "through",
+          "VehicleClasses": [
+            "legacy",
+            "compact",
+            "group",
+            "express"
+          ],
+          "ID": "parking-through"
+        },
+        {
+          "ID": "parking-in-1",
+          "From": "parking-entry",
+          "To": "parking-berth-1",
+          "SpeedLimit": 14,
+          "StationID": "parking",
+          "StationRole": "berth-access",
+          "VehicleClasses": [
+            "legacy",
+            "compact",
+            "group",
+            "express"
+          ]
+        },
+        {
+          "StationRole": "departure",
+          "VehicleClasses": [
+            "legacy",
+            "compact",
+            "group",
+            "express"
+          ],
+          "ID": "parking-out-1",
+          "From": "parking-berth-1",
+          "To": "parking-exit",
+          "SpeedLimit": 14,
+          "StationID": "parking"
+        },
+        {
+          "StationID": "parking",
+          "StationRole": "berth-access",
+          "VehicleClasses": [
+            "legacy",
+            "compact",
+            "group",
+            "express"
+          ],
+          "ID": "parking-in-2",
+          "From": "parking-entry",
+          "To": "parking-berth-2",
+          "SpeedLimit": 14
+        },
+        {
+          "From": "parking-berth-2",
+          "To": "parking-exit",
+          "SpeedLimit": 14,
+          "StationID": "parking",
+          "StationRole": "departure",
+          "VehicleClasses": [
+            "legacy",
+            "compact",
+            "group",
+            "express"
+          ],
+          "ID": "parking-out-2"
+        },
+        {
+          "SpeedLimit": 14,
+          "VehicleClasses": [
+            "legacy",
+            "compact",
+            "group",
+            "express"
+          ],
+          "ID": "return",
+          "From": "parking-exit",
+          "To": "return-west"
+        },
+        {
+          "StationID": "harbor",
+          "StationRole": "approach",
+          "VehicleClasses": [
+            "legacy",
+            "compact",
+            "group",
+            "express"
+          ],
+          "ID": "harbor-approach",
+          "From": "return-west",
+          "To": "harbor-entry",
+          "SpeedLimit": 14
+        }
+      ],
+      "Stations": [
+        {
+          "Berths": [
+            {
+              "Node": "harbor-berth",
+              "VehicleClasses": [
+                "legacy",
+                "compact",
+                "group",
+                "express"
+              ],
+              "ID": "harbor-1"
+            }
+          ],
+          "ParkingOnly": false,
+          "VehicleClasses": [
+            "legacy",
+            "compact",
+            "group",
+            "express"
+          ],
+          "ID": "harbor",
+          "Name": "Harbor",
+          "Entry": "harbor-entry",
+          "Exit": "harbor-exit"
+        },
+        {
+          "ParkingOnly": false,
+          "VehicleClasses": [
+            "legacy",
+            "compact",
+            "group",
+            "express"
+          ],
+          "ID": "garden",
+          "Name": "Garden",
+          "Entry": "garden-entry",
+          "Exit": "garden-exit",
+          "Berths": [
+            {
+              "VehicleClasses": [
+                "legacy",
+                "compact",
+                "group",
+                "express"
+              ],
+              "ID": "garden-1",
+              "Node": "garden-berth"
+            }
+          ]
+        },
+        {
+          "ID": "market",
+          "Name": "Market",
+          "Entry": "market-entry",
+          "Exit": "market-exit",
+          "Berths": [
+            {
+              "Node": "market-berth",
+              "VehicleClasses": [
+                "legacy",
+                "compact",
+                "group",
+                "express"
+              ],
+              "ID": "market-1"
+            }
+          ],
+          "ParkingOnly": false,
+          "VehicleClasses": [
+            "legacy",
+            "compact",
+            "group",
+            "express"
+          ]
+        },
+        {
+          "VehicleClasses": [
+            "legacy",
+            "compact",
+            "group",
+            "express"
+          ],
+          "ID": "parking",
+          "Name": "Parking",
+          "Entry": "parking-entry",
+          "Exit": "parking-exit",
+          "Berths": [
+            {
+              "VehicleClasses": [
+                "legacy",
+                "compact",
+                "group",
+                "express"
+              ],
+              "ID": "parking-1",
+              "Node": "parking-berth-1"
+            },
+            {
+              "VehicleClasses": [
+                "legacy",
+                "compact",
+                "group",
+                "express"
+              ],
+              "ID": "parking-2",
+              "Node": "parking-berth-2"
+            }
+          ],
+          "ParkingOnly": true
+        }
+      ]
+    },
+    "fleet": [
+      {
+        "ID": "01",
+        "StationID": "harbor",
+        "BerthID": "harbor-1",
+        "Class": "compact"
+      },
+      {
+        "ID": "02",
+        "StationID": "garden",
+        "BerthID": "garden-1"
+      }
+    ],
+    "expressServices": [
+      {
+        "ID": "express",
+        "From": "harbor",
+        "To": "garden",
+        "Class": "express",
+        "PartyLimit": 20
+      }
+    ],
+    "redistribution": false
+  },
+  "cases": [
+    {
+      "name": "valid project 3",
+      "changes": [],
+      "checks": {
+        "errors": [],
+        "warnings": []
+      }
+    },
+    {
+      "name": "old project 1",
+      "changes": [
+        {
+          "path": [
+            "version"
+          ],
+          "value": 1
+        }
+      ],
+      "checks": {
+        "errors": [
+          {
+            "text": "Vehicle and service fields require project version 3.",
+            "target": null
+          }
+        ],
+        "warnings": []
+      }
+    },
+    {
+      "name": "old project 2",
+      "changes": [
+        {
+          "path": [
+            "version"
+          ],
+          "value": 2
+        }
+      ],
+      "checks": {
+        "errors": [
+          {
+            "text": "The scenario version does not match its station banks.",
+            "target": null
+          },
+          {
+            "text": "Vehicle and service fields require project version 3.",
+            "target": null
+          }
+        ],
+        "warnings": []
+      }
+    },
+    {
+      "name": "null class",
+      "changes": [
+        {
+          "path": [
+            "fleet",
+            "0",
+            "Class"
+          ],
+          "value": null
+        }
+      ],
+      "checks": {
+        "errors": [
+          {
+            "text": "Pod 01 has an invalid vehicle class.",
+            "target": {
+              "type": "station",
+              "id": "harbor"
+            }
+          }
+        ],
+        "warnings": []
+      }
+    },
+    {
+      "name": "unknown class",
+      "changes": [
+        {
+          "path": [
+            "fleet",
+            "0",
+            "Class"
+          ],
+          "value": "unknown"
+        }
+      ],
+      "checks": {
+        "errors": [
+          {
+            "text": "Pod 01 has an invalid vehicle class.",
+            "target": {
+              "type": "station",
+              "id": "harbor"
+            }
+          }
+        ],
+        "warnings": []
+      }
+    },
+    {
+      "name": "group profile",
+      "changes": [
+        {
+          "path": [
+            "fleet",
+            "0",
+            "Class"
+          ],
+          "value": "group"
+        }
+      ],
+      "checks": {
+        "errors": [
+          {
+            "text": "Pod 01 has no approved physical profile.",
+            "target": {
+              "type": "station",
+              "id": "harbor"
+            }
+          }
+        ],
+        "warnings": []
+      }
+    },
+    {
+      "name": "express profile",
+      "changes": [
+        {
+          "path": [
+            "fleet",
+            "0",
+            "Class"
+          ],
+          "value": "express"
+        }
+      ],
+      "checks": {
+        "errors": [
+          {
+            "text": "Pod 01 has no approved physical profile.",
+            "target": {
+              "type": "station",
+              "id": "harbor"
+            }
+          }
+        ],
+        "warnings": []
+      }
+    },
+    {
+      "name": "null allowlist",
+      "changes": [
+        {
+          "path": [
+            "network",
+            "Lanes",
+            "0",
+            "VehicleClasses"
+          ],
+          "value": null
+        }
+      ],
+      "checks": {
+        "errors": [
+          {
+            "text": "VehicleClasses must contain 1 to 4 distinct known classes.",
+            "target": null
+          },
+          {
+            "text": "Express services or their network have invalid fields.",
+            "target": null
+          }
+        ],
+        "warnings": []
+      }
+    },
+    {
+      "name": "empty allowlist",
+      "changes": [
+        {
+          "path": [
+            "network",
+            "Stations",
+            "0",
+            "VehicleClasses"
+          ],
+          "value": []
+        }
+      ],
+      "checks": {
+        "errors": [
+          {
+            "text": "VehicleClasses must contain 1 to 4 distinct known classes.",
+            "target": null
+          },
+          {
+            "text": "Express services or their network have invalid fields.",
+            "target": null
+          }
+        ],
+        "warnings": []
+      }
+    },
+    {
+      "name": "duplicate allowlist",
+      "changes": [
+        {
+          "path": [
+            "network",
+            "Stations",
+            "0",
+            "Berths",
+            "0",
+            "VehicleClasses"
+          ],
+          "value": [
+            "compact",
+            "compact"
+          ]
+        }
+      ],
+      "checks": {
+        "errors": [
+          {
+            "text": "VehicleClasses must contain 1 to 4 distinct known classes.",
+            "target": null
+          },
+          {
+            "text": "Express services or their network have invalid fields.",
+            "target": null
+          }
+        ],
+        "warnings": []
+      }
+    },
+    {
+      "name": "null registry",
+      "changes": [
+        {
+          "path": [
+            "expressServices"
+          ],
+          "value": null
+        }
+      ],
+      "checks": {
+        "errors": [
+          {
+            "text": "Express services must be an array of at most 300 records.",
+            "target": null
+          }
+        ],
+        "warnings": []
+      }
+    },
+    {
+      "name": "null registry row",
+      "changes": [
+        {
+          "path": [
+            "expressServices"
+          ],
+          "value": [
+            null
+          ]
+        }
+      ],
+      "checks": {
+        "errors": [
+          {
+            "text": "Express services: invalid express service.",
+            "target": null
+          }
+        ],
+        "warnings": []
+      }
+    },
+    {
+      "name": "express party limit",
+      "changes": [
+        {
+          "path": [
+            "expressServices",
+            "0",
+            "PartyLimit"
+          ],
+          "value": 21
+        }
+      ],
+      "checks": {
+        "errors": [
+          {
+            "text": "Express services: invalid express service.",
+            "target": null
+          }
+        ],
+        "warnings": []
+      }
+    },
+    {
+      "name": "express wrong scalar type",
+      "changes": [
+        {
+          "path": [
+            "expressServices",
+            "0",
+            "ID"
+          ],
+          "value": 5
+        }
+      ],
+      "checks": {
+        "errors": [
+          {
+            "text": "Express services or their network have invalid fields.",
+            "target": null
+          }
+        ],
+        "warnings": []
+      }
+    },
+    {
+      "name": "express blocked origin",
+      "changes": [
+        {
+          "path": [
+            "network",
+            "Stations",
+            "0",
+            "VehicleClasses"
+          ],
+          "value": [
+            "legacy",
+            "compact"
+          ]
+        }
+      ],
+      "checks": {
+        "errors": [
+          {
+            "text": "Express services: express service express has incompatible endpoints or paths.",
+            "target": null
+          }
+        ],
+        "warnings": []
+      }
+    },
+    {
+      "name": "legacy pod at compact berth",
+      "changes": [
+        {
+          "path": [
+            "fleet",
+            "0",
+            "Class"
+          ],
+          "value": "legacy"
+        },
+        {
+          "path": [
+            "network",
+            "Stations",
+            "0",
+            "Berths",
+            "0",
+            "VehicleClasses"
+          ],
+          "value": [
+            "compact",
+            "express"
+          ]
+        }
+      ],
+      "checks": {
+        "errors": [
+          {
+            "text": "Pod 01 has an incompatible station or berth.",
+            "target": {
+              "type": "station",
+              "id": "harbor"
+            }
+          }
+        ],
+        "warnings": []
+      }
+    }
+  ]
+}

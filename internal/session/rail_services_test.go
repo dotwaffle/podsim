@@ -141,7 +141,7 @@ func TestRailServicesCheckpointAndRestart(t *testing.T) {
 	saved = sessionStateFile(t, s)
 	saved.RestoreAttempts = 0
 	for _, version := range []int{stateVersion, bufferStateVersion, bufferPlatoonStateVersion} {
-		saved.Version = version
+		saved = legacyTestState(saved, version)
 		loaded, err := s.loadState(loadInput{data: encodeTestState(t, saved), steps: realRestoreSteps()})
 		if err != nil || !slices.Equal(want, loaded.demand.connectionRecords()) {
 			t.Fatalf("version %d: %v", version, err)
@@ -229,7 +229,7 @@ func TestRailServicesMaximumValidLedger(t *testing.T) {
 	file := sessionStateFile(t, s)
 	file.RestoreAttempts = 0
 	for _, version := range []int{stateVersion, bufferStateVersion, bufferPlatoonStateVersion} {
-		file.Version = version
+		file = legacyTestState(file, version)
 		data := encodeTestState(t, file)
 		decoded, err := decodeCheckedState(data)
 		if err != nil || len(decoded.RailConnections) != project.MaxRailDeparturePassengers {

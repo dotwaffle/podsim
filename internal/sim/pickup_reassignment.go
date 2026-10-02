@@ -106,7 +106,7 @@ func (s *Simulation) assignedPickupSeconds(v *vehicle) float64 {
 	if !ok {
 		return math.Inf(1)
 	}
-	suffix, _, err := s.stationRouteByLoad(stationRouteInput{from: station.routeEntry(v.Route, v.destination), station: station.ID, load: noBerthLoad})
+	suffix, _, err := s.stationRouteByLoad(stationRouteInput{class: v.Pod.Class, from: station.routeEntry(v.Route, v.destination), station: station.ID, load: noBerthLoad, accept: s.berthFilterForVehicle(v)})
 	if err != nil {
 		return math.Inf(1)
 	}
@@ -119,9 +119,12 @@ func (s *Simulation) assignedPickupSeconds(v *vehicle) float64 {
 func (s *Simulation) tryPickupTransfer(index int, replacement *vehicle) bool {
 	trip := &s.waiting[index]
 	old := s.findVehicle(trip.request.PodID)
-	route, berth, ok := s.candidateRoute(replacement, trip.request.From, nil)
+	if !s.podFitsRequest(replacement, trip.request) {
+		return false
+	}
+	route, berth, ok := s.candidateRouteForRequest(replacement, trip.request, nil)
 	c := s.pickupSwaps
-	if !ok {
+	if !ok || !s.pickupBerthFitsRequest(replacement, trip.request, berth) {
 		c.stats.RouteFailures++
 		return false
 	}

@@ -50,7 +50,8 @@ These are conditional fleet pod-seconds, not request-weighted wait durations.
 
 Ready or departing assigned pods account for the small remainder.
 The raw observer called boarding dwell `ineligible-empty/Boarding` because `Pod.Occupied` becomes true at departure.
-Those pods already have riders. The measurement summary corrects the label without changing the frozen raw output.
+Those pods already have riders.
+The measurement summary corrects the label without changing the frozen raw output.
 
 A separate origin-second census finds periods with no fleet candidate and periods with candidates that cannot divert or reach that origin.
 The census does not distinguish those latter mechanisms per origin.
@@ -62,7 +63,8 @@ A private Go overlay collects each pending request's phase every tick.
 It includes the submission tick and excludes the boarding tick.
 For every accepted order in all four arms, phase ticks equal `BoardedTick - RequestedTick` exactly.
 The fleet tick total equals 30 times the observed tick count in each arm.
-An unresolved final order would need a separate endpoint convention. This study has no unresolved accepted orders.
+An unresolved final order would need a separate endpoint convention.
+This study has no unresolved accepted orders.
 
 The two light pilots each complete 12 of 12 offers without skips.
 The baseline pilot compares instrumented and plain results exactly.
@@ -73,10 +75,12 @@ The observer can populate route caches through eligibility probes.
 A separate native test compares saved state before and after observation, and full state apart from the existing test's route/admission work caches, dispatch buffers, and block cursors.
 It then compares measured and unmeasured clone continuations for 60 ticks at each sampled checkpoint.
 The test covers current, strict, and disabled finishing-pod rules in a six-pod busy fixture.
-It passes. This is not a disabled-path CPU benchmark.
+It passes.
+This is not a disabled-path CPU benchmark.
 
 Safety checks run every live tick: 452,460 baseline ticks and 460,560 bank ticks.
-Lane speed checks run every tick. Saved-contract checks run once per second.
+Lane speed checks run every tick.
+Saved-contract checks run once per second.
 Each heavy arm passes 25 physical restore probes and their 60-tick continuations.
 Saved-contract checks do not verify every live owner-map invariant.
 Three berth reservation-holder changes occur during physical restore in each heavy arm, as in earlier studies.

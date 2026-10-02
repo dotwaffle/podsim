@@ -116,7 +116,7 @@ func TestCompareIsRepeatableAndPairsSchedules(t *testing.T) {
 func TestComparePairsSharedRideLimits(t *testing.T) {
 	t.Parallel()
 	opts, err := parseOptions([]string{
-		"-duration", "2m", "-request-every", "10s", "-pattern", "hub-burst", "-burst-size", "3", "-sharing-limits", "1,3",
+		"-duration", "2m", "-request-every", "10s", "-pattern", "hub-burst", "-burst-size", "3", "-sharing-consent", "shared", "-sharing-limits", "1,3",
 	}, &bytes.Buffer{})
 	if err != nil {
 		t.Fatal(err)
@@ -145,7 +145,7 @@ func TestComparePairsSharedRideLimits(t *testing.T) {
 func TestComparePairsSharingModes(t *testing.T) {
 	t.Parallel()
 	opts, err := parseOptions([]string{
-		"-duration", "20m", "-arrivals-for", "2m", "-request-every", "10s", "-pattern", "balanced", "-sharing-limits", "1,4",
+		"-duration", "20m", "-arrivals-for", "2m", "-request-every", "10s", "-pattern", "balanced", "-sharing-consent", "shared", "-sharing-limits", "1,4",
 		"-sharing-modes", "destination,drop-offs", "-sharing-max-stops", "2", "-redistribution-policies", "off",
 	}, &bytes.Buffer{})
 	if err != nil {
@@ -307,7 +307,7 @@ func TestProfileDemandBandsAreRepeatable(t *testing.T) {
 
 func TestReportFormatsAreMachineReadable(t *testing.T) {
 	t.Parallel()
-	results := []result{{Pattern: "balanced", Policy: "off", ScheduleID: "abc", Scheduled: 1}}
+	results := []result{{SharingConsent: sim.PrivateConsent, Pattern: "balanced", Policy: "off", ScheduleID: "abc", Scheduled: 1}}
 	var jsonOutput bytes.Buffer
 	if err := writeReport(writeReportInput{output: &jsonOutput, format: "json", results: results}); err != nil {
 		t.Fatal(err)
@@ -948,7 +948,7 @@ func TestSeatColumnsOnlyWithSharing(t *testing.T) {
 			t.Parallel()
 			args := []string{
 				"-duration", "10m", "-arrivals-for", "2m", "-request-every", "5s", "-burst-size", "6", "-pattern", "hub-burst",
-				"-focus", "market", "-redistribution-policies", "off", "-sharing-limits", tc.limits, "-format", "csv",
+				"-focus", "market", "-redistribution-policies", "off", "-sharing-consent", "shared", "-sharing-limits", tc.limits, "-format", "csv",
 			}
 			var output, stderr bytes.Buffer
 			if code := runCLI(cliInput{args: args, stdout: &output, stderr: &stderr}); code != 0 {
@@ -1093,7 +1093,7 @@ func TestSharingJoinsAddArms(t *testing.T) {
 	t.Parallel()
 	args := []string{
 		"-duration", "10m", "-arrivals-for", "2m", "-request-every", "5s", "-burst-size", "6", "-pattern", "hub-burst",
-		"-focus", "market", "-redistribution-policies", "off", "-sharing-limits", "4",
+		"-focus", "market", "-redistribution-policies", "off", "-sharing-consent", "shared", "-sharing-limits", "4",
 	}
 	caseStudy, err := loadScenario("", "market")
 	if err != nil {

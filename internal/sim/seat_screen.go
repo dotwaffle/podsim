@@ -65,7 +65,7 @@ func (s *Simulation) screensSeats() bool {
 // its way, these rules accept only a stop of the pod. It does not change
 // the pod.
 func (s *Simulation) refusedByFullPod(trip *waitingTrip, v *vehicle) bool {
-	if !s.recordExperiments || trip.boarded || trip.fullPodRefused {
+	if !s.recordExperiments || trip.boarded || trip.fullPodRefused || !s.consentCompatible(v, trip.request) {
 		return false
 	}
 	if s.sharedRideMode != SharedRideDropOffs {
@@ -83,7 +83,7 @@ func (s *Simulation) refusedByFullPod(trip *waitingTrip, v *vehicle) bool {
 func (s *Simulation) recordDeparture(v *vehicle) {
 	aboard, backlog := len(v.Riders), 0
 	for index := range s.waiting {
-		if request := s.waiting[index].request; request.From == v.Pod.StationID && s.backlogParty(v, request.To) {
+		if request := s.waiting[index].request; request.From == v.Pod.StationID && s.consentCompatible(v, request) && s.backlogParty(v, request.To) {
 			backlog++
 		}
 	}
@@ -126,7 +126,7 @@ func (s *Simulation) recordJoinEligible(trip *waitingTrip, v *vehicle, pass *dis
 	}
 	to := trip.request.To
 	for _, host := range s.boardingPods(pass)[trip.request.From] {
-		if len(host.Riders) >= s.sharedRidePartyLimit {
+		if !s.canJoin(host, trip.request) {
 			continue
 		}
 		existing := host.destinationStation == to

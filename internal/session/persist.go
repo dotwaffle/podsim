@@ -490,9 +490,16 @@ func (s *Session) loadState(input loadInput) (loaded loadedState, err error) {
 	if err = file.validate(); err != nil {
 		return loaded, invalidState(err)
 	}
+	if file.Version < serviceStateVersion {
+		file.Simulation, err = sim.MigrateLegacyOrderState(file.Simulation)
+		if err != nil {
+			return loaded, invalidState(err)
+		}
+	}
 	loaded.simulation, loaded.result, err = input.steps.restoreSimulation(sim.RestoreStateInput{
 		Network: loaded.config.Network, Fleet: loaded.config.Fleet, State: file.Simulation, LogicalOnly: loaded.logicalOnly,
 		StationBuffers: file.Version >= bufferStateVersion, BufferPlatoons: file.Version >= bufferPlatoonStateVersion,
+		ExpressServices: loaded.config.ExpressServices,
 	})
 	if err != nil {
 		return loaded, invalidState(err)
@@ -779,7 +786,7 @@ func (s *Session) captureState(kind SaveKind) (stateFile, bool, error) {
 		return stateFile{}, false, fmt.Errorf("save demand random source: %w", err)
 	}
 	file := stateFile{
-		Format: stateFormat, Version: stateVersion, Final: kind == SaveFinal, Epoch: s.epoch,
+		Format: stateFormat, Version: serviceStateVersion, Final: kind == SaveFinal, Epoch: s.epoch,
 		Revision: s.revision, ProjectRevision: s.projectRevision, Generation: s.generation,
 		LastCheckpoint: s.lastCheckpoint, Speed: s.speed, Sequences: s.commandSequences(),
 		Demand:     savedDemand{State: s.demand.state, Random: random, Budget: s.demand.budget},
@@ -788,15 +795,6 @@ func (s *Session) captureState(kind SaveKind) (stateFile, bool, error) {
 	}
 	if s.demand.connections != nil {
 		file.RailConnections = s.demand.connections.Records()
-	}
-	if s.simulation.NeedsBufferState() {
-		file.Version = bufferStateVersion
-	}
-	if s.simulation.NeedsBufferPlatoonState() {
-		file.Version = bufferPlatoonStateVersion
-	}
-	if s.project.Version == project.BankVersion {
-		file.Version = bankStateVersion
 	}
 	// A restore rejects a file with a build of another form.
 	if isBuildID(s.build) {

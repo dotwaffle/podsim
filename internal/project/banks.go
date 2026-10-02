@@ -38,17 +38,27 @@ func (config *Config) decodeJSON(data []byte, options jsonv2.Options) error {
 	if err != nil {
 		return err
 	}
+	servicePresent, err := scanProjectService(data)
+	if err != nil {
+		return err
+	}
 	type plainConfig Config
 	decoded := plainConfig(Clone(*config))
 	if err := jsonv2.Unmarshal(data, &decoded, options, jsonv2.RejectUnknownMembers(true)); err != nil {
 		return err
 	}
-	if present && decoded.Version != BankVersion {
-		return errors.New("station Banks requires project version 2")
+	if present && decoded.Version != BankVersion && decoded.Version != ServiceVersion {
+		return errors.New("station Banks requires project version 2 or 3")
+	}
+	if servicePresent && decoded.Version != ServiceVersion {
+		return errors.New("vehicle and service fields require project version 3")
 	}
 	// Partial project updates can omit the version. Validate checks complete projects.
 	if decoded.Version != 0 {
 		if err := validateBankVersion(Config(decoded)); err != nil {
+			return err
+		}
+		if err := validateServiceVersion(Config(decoded)); err != nil {
 			return err
 		}
 	}
@@ -62,8 +72,8 @@ func (config *Config) decodeJSON(data []byte, options jsonv2.Options) error {
 }
 
 func validateBankVersion(config Config) error {
-	if config.Version != currentVersion && config.Version != BankVersion {
-		return errors.New("project version must be 1 or 2")
+	if config.Version != currentVersion && config.Version != BankVersion && config.Version != ServiceVersion {
+		return errors.New("project version must be 1, 2, or 3")
 	}
 	banked := false
 	for _, station := range config.Network.Stations {

@@ -373,8 +373,8 @@ func TestVehicleFramePlatoonJSON(t *testing.T) {
 func TestVehicleFrameRidersJSON(t *testing.T) {
 	t.Parallel()
 	riders := []sim.Request{
-		{ID: 1, From: "harbor", To: "market", PartySize: 2, PodID: "01", RequestedTick: 10, BoardedTick: 20},
-		{ID: 2, From: "harbor", To: "garden", PartySize: 1, PodID: "01", RequestedTick: 15, BoardedTick: 20},
+		{SharingConsent: sim.SharedConsent, Service: sim.OnDemandService, ID: 1, From: "harbor", To: "market", PartySize: 2, PodID: "01", RequestedTick: 10, BoardedTick: 20},
+		{SharingConsent: sim.SharedConsent, Service: sim.OnDemandService, ID: 2, From: "harbor", To: "garden", PartySize: 1, PodID: "01", RequestedTick: 15, BoardedTick: 20},
 	}
 	frame := stateFrame(State{Simulation: sim.Snapshot{Vehicles: []sim.Vehicle{
 		{Pod: sim.Pod{ID: "01"}, Riders: riders, Stops: []string{"garden", "market"}},
@@ -388,7 +388,7 @@ func TestVehicleFrameRidersJSON(t *testing.T) {
 	if err := json.Unmarshal(vehicles[0]["Riders"], &encoded); err != nil {
 		t.Fatal(err)
 	}
-	members := []string{"BoardedTick", "Completed", "DispatchReason", "From", "ID", "PartySize", "PodID", "RequestedTick", "To"}
+	members := []string{"BoardedTick", "Completed", "DispatchReason", "From", "ID", "PartySize", "PodID", "RequestedTick", "Service", "SharingConsent", "To"}
 	if len(encoded) != len(riders) {
 		t.Fatalf("riders = %d, want %d", len(encoded), len(riders))
 	}

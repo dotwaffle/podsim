@@ -1,8 +1,6 @@
 package sim
 
 import (
-	"errors"
-	"fmt"
 	"math"
 	"slices"
 	"strings"
@@ -36,23 +34,18 @@ func (s *Simulation) RequestTrip(origin, destination string) error {
 
 // SubmitTrip queues a journey and returns its request ID. An error returns zero.
 func (s *Simulation) SubmitTrip(origin, destination string) (int, error) {
+	return s.SubmitTripOptions(TripOptions{From: origin, To: destination})
+}
+
+// SubmitTripOptions accepts a whole party after checking certified capacity and paths.
+func (s *Simulation) SubmitTripOptions(options TripOptions) (int, error) {
 	defer s.observe()
-	from, ok := s.station(origin)
-	if !ok || from.ParkingOnly {
-		return 0, errors.New("choose a passenger pickup station")
-	}
-	to, ok := s.station(destination)
-	if !ok || to.ParkingOnly {
-		return 0, errors.New("choose a passenger destination")
-	}
-	if from.ID == to.ID {
-		return 0, ErrSameStation
-	}
-	if !s.stationsConnected(from, to) {
-		return 0, fmt.Errorf("passenger route %s to %s: %w", origin, destination, ErrUnreachable)
+	options, err := s.validateTripOptions(options)
+	if err != nil {
+		return 0, err
 	}
 	s.requestID++
-	s.waiting = append(s.waiting, waitingTrip{request: Request{ID: s.requestID, From: origin, To: destination, PartySize: 1, RequestedTick: s.tick}})
+	s.waiting = append(s.waiting, waitingTrip{request: requestFromOptions(options, s.requestID, s.tick)})
 	s.dispatch()
 	return s.requestID, nil
 }
@@ -115,6 +108,13 @@ func (s *Simulation) dispatch() {
 		previousReason := trip.request.DispatchReason
 		trip.request.DispatchReason = ""
 		v := s.findVehicle(trip.request.PodID)
+		if v != nil && !s.podFitsRequest(v, trip.request) {
+			delete(assigned, v.Pod.ID)
+			s.releasePickup(v)
+			trip.request.PodID = ""
+			v = nil
+			pass.reset()
+		}
 		if v != nil && s.screensSeats() {
 			s.recordJoinEligible(trip, v, pass)
 		}
@@ -128,7 +128,7 @@ func (s *Simulation) dispatch() {
 			continue
 		}
 		if v != nil && (v.Pod.Activity != Idle || v.Pod.StationID != trip.request.From) && s.mayBeIdle(pass, trip.request.From) {
-			if local := s.localPickup(trip.request.From, pass); local != nil {
+			if local := s.localPickupForRequest(trip.request, pass); local != nil {
 				pass.reset()
 				delete(assigned, v.Pod.ID)
 				s.releasePickup(v)
@@ -143,13 +143,20 @@ func (s *Simulation) dispatch() {
 			continue
 		}
 		if v == nil {
+			key := trip.request.options()
 			var known bool
-			if v, known = pass.pickups[trip.request.From]; !known {
-				v = s.pickupPod(trip.request.From, pass)
-				pass.pickups[trip.request.From] = v
+			if v, known = pass.optionPickups[key]; !known {
+				v = s.pickupPodForRequest(trip.request, pass)
+				if pass.optionPickups == nil {
+					pass.optionPickups = make(map[TripOptions]*vehicle)
+				}
+				pass.optionPickups[key] = v
 			}
 			if v == nil {
 				trip.request.DispatchReason = "Waiting for an available pod"
+				if !s.hasFittingPod(trip.request) {
+					trip.request.DispatchReason = "Waiting for a certified vehicle that fits this party and route"
+				}
 				i++
 				continue
 			}
@@ -160,14 +167,14 @@ func (s *Simulation) dispatch() {
 			}
 			pass.reset()
 			if away {
-				if err := s.sendPickup(v, trip.request.From); err != nil {
+				if err := s.sendPickupForRequest(v, trip.request); err != nil {
 					trip.request.DispatchReason = "Waiting for pickup access"
 					i++
 					continue
 				}
 				trip.route = nil
 				if v.destination.Node != "" {
-					trip.route, _ = s.stationApproachRoute(v.destination.Node, trip.request.To)
+					trip.route, _ = s.stationApproachRouteForClass(v.destination.Node, trip.request.To, v.Pod.Class)
 				}
 				trip.destination = Berth{}
 			}
@@ -265,6 +272,7 @@ func (s *Simulation) assigned(podID string) bool {
 // owners, the waiting trips, or assigned, it calls reset before it reads
 // the pass again.
 type dispatchPass struct {
+	optionPickups map[TripOptions]*vehicle
 	// assigned holds the pods of the waiting trips. dispatch changes it
 	// during the pass.
 	assigned map[string]bool
@@ -311,6 +319,7 @@ func (pass *dispatchPass) begin(waiting []waitingTrip) {
 // reset removes the results of the pass.
 func (pass *dispatchPass) reset() {
 	clear(pass.pickups)
+	clear(pass.optionPickups)
 	pass.free, pass.freeKnown = pass.free[:0], false
 	pass.candidates, pass.candidatesKnown = pass.candidates[:0], false
 	pass.idleKnown = false
@@ -372,6 +381,20 @@ func (s *Simulation) localPickup(stationID string, pass *dispatchPass) *vehicle 
 	return nil
 }
 
+func (s *Simulation) localPickupForRequest(request Request, pass *dispatchPass) *vehicle {
+	for _, v := range s.freePods(pass) {
+		if v.Pod.Activity == Idle && v.Pod.StationID == request.From && !pass.assigned[v.Pod.ID] && s.podFitsRequest(v, request) {
+			station, _ := s.station(v.Pod.StationID)
+			berth, _ := station.berth(v.Pod.BerthID)
+			if _, err := s.stationApproachRouteForClass(berth.Node, request.To, v.Pod.Class); err != nil {
+				continue
+			}
+			return v
+		}
+	}
+	return nil
+}
+
 // pickupPod chooses the fastest available idle or divertible parking pod.
 // Fleet order breaks ties.
 // An idle pod at the pickup station has an estimate of zero, so it wins
@@ -386,6 +409,14 @@ func (s *Simulation) localPickup(stationID string, pass *dispatchPass) *vehicle 
 // bound skips candidates that cannot improve the best pickup time. With
 // no candidate, pickupPod does not compute the berth loads.
 func (s *Simulation) pickupPod(stationID string, pass *dispatchPass) *vehicle {
+	return s.pickupPodMatching(stationID, pass, nil)
+}
+
+func (s *Simulation) pickupPodForRequest(request Request, pass *dispatchPass) *vehicle {
+	return s.pickupPodMatching(request.From, pass, &request)
+}
+
+func (s *Simulation) pickupPodMatching(stationID string, pass *dispatchPass, request *Request) *vehicle {
 	candidates := s.pickupCandidates(pass)
 	if len(candidates) == 0 {
 		return nil
@@ -395,6 +426,9 @@ func (s *Simulation) pickupPod(stationID string, pass *dispatchPass) *vehicle {
 	load := s.berthLoads()
 	var bounds []float64
 	for _, v := range candidates {
+		if request != nil && !s.podFitsRequest(v, *request) {
+			continue
+		}
 		if best != nil {
 			if bounds == nil {
 				bounds = s.stationPickupBounds(stationID)
@@ -403,7 +437,13 @@ func (s *Simulation) pickupPod(stationID string, pass *dispatchPass) *vehicle {
 				continue
 			}
 		}
-		route, _, ok := s.candidateRoute(v, stationID, load)
+		var route []Lane
+		var ok bool
+		if request == nil {
+			route, _, ok = s.candidateRoute(v, stationID, load)
+		} else {
+			route, _, ok = s.candidateRouteForRequest(v, *request, load)
+		}
 		if !ok {
 			continue
 		}
@@ -416,6 +456,9 @@ func (s *Simulation) pickupPod(stationID string, pass *dispatchPass) *vehicle {
 }
 
 func (s *Simulation) board(v *vehicle, trip waitingTrip) error {
+	if !s.podFitsRequest(v, trip.request) {
+		return ErrPartyAdmission
+	}
 	from, _ := s.station(trip.request.From)
 	origin, _ := from.berth(v.Pod.BerthID)
 	route, err := s.legRoute(v, leg{origin: origin.Node, from: origin.Node, stops: []string{trip.request.To}})
@@ -423,6 +466,7 @@ func (s *Simulation) board(v *vehicle, trip waitingTrip) error {
 		return err
 	}
 	trip.route, trip.destination = route, Berth{}
+	v.LegacyCohort = false
 	v.Riders = []Request{s.boardingRider(trip, v, 0)}
 	v.Stops = []string{trip.request.To}
 	v.origin, v.destination, v.destinationStation = origin, trip.destination, trip.request.To
@@ -467,7 +511,7 @@ func (s *Simulation) joinSharedRide(trip *waitingTrip, pass *dispatchPass) bool 
 	existingStop := request.PodID != ""
 	refused := false
 	for _, v := range s.boardingPods(pass)[request.From] {
-		if len(v.Riders) >= s.sharedRidePartyLimit {
+		if !s.canJoin(v, request) {
 			refused = refused || s.refusedByFullPod(trip, v)
 			continue
 		}
@@ -559,12 +603,16 @@ func (s *Simulation) promoteReadyPickup(index int) bool {
 			continue
 		}
 		ready := s.findVehicle(later.request.PodID)
-		if ready != nil && ready.Pod.Activity == Idle && ready.Pod.StationID == trip.request.From {
-			trip.request.PodID, later.request.PodID = later.request.PodID, trip.request.PodID
-			trip.route, later.route = nil, nil
-			trip.destination, later.destination = Berth{}, Berth{}
-			return true
+		if ready == nil || ready.Pod.Activity != Idle || ready.Pod.StationID != trip.request.From || !s.podFitsRequest(ready, trip.request) || !s.assignedPickupFitsRequest(ready, trip.request) {
+			continue
 		}
+		if current != nil && (!s.podFitsRequest(current, later.request) || !s.assignedPickupFitsRequest(current, later.request)) {
+			continue
+		}
+		trip.request.PodID, later.request.PodID = later.request.PodID, trip.request.PodID
+		trip.route, later.route = nil, nil
+		trip.destination, later.destination = Berth{}, Berth{}
+		return true
 	}
 	return false
 }

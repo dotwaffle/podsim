@@ -28,7 +28,7 @@ var cloneRules = map[reflect.Type]map[string]cloneRule{
 		"junctionConflicts": cloneShare, "lengths": cloneDrop, "routes": cloneDrop, "routeOrder": cloneDrop,
 		"graph": cloneShare, "stationIndexes": cloneShare, "stationForbidden": cloneShare, "pickupBounds": cloneDrop, "routeWork": cloneDrop, "admissionWork": cloneDrop,
 		"geometry": cloneShare, "network": cloneShare, "initial": cloneShare,
-		"vehicles": cloneCopy, "owners": cloneCopy, "demo": cloneCopy, "waiting": cloneCopy,
+		"vehicles": cloneCopy, "expressServices": cloneCopy, "owners": cloneCopy, "demo": cloneCopy, "waiting": cloneCopy,
 		"demandWeights": cloneShare, "congestionRouteCosts": cloneShare, "congestionRoutes": cloneCopy, "predictiveQueues": cloneCopy, "predictivePodQueues": cloneCopy,
 		"laneSafety": cloneShare, "berthSafety": cloneShare, "vehicleIndexes": cloneShare,
 		"berthResources": cloneShare, "laneCells": cloneShare, "approachStations": cloneShare, "routeStations": cloneDrop,
@@ -163,7 +163,7 @@ const (
 // it.
 var persistRules = map[reflect.Type]map[string]persistRule{
 	reflect.TypeFor[Simulation](): {
-		"junctionConflicts": persistDerive, "lengths": persistReset, "routes": persistReset, "routeOrder": persistReset,
+		"expressServices": persistSession, "junctionConflicts": persistDerive, "lengths": persistReset, "routes": persistReset, "routeOrder": persistReset,
 		"graph": persistDerive, "stationIndexes": persistDerive, "stationForbidden": persistDerive, "pickupBounds": persistReset, "routeWork": persistReset, "admissionWork": persistReset,
 		"geometry": persistDerive, "network": persistSession, "initial": persistSession,
 		"vehicles": persistSave, "owners": persistDerive, "tick": persistSave, "paused": persistSave,
@@ -199,17 +199,17 @@ var persistRules = map[reflect.Type]map[string]persistRule{
 		"routeVersion": persistReset, "stationPhase": persistDerive, "routeLengths": persistDerive, "link": persistSave, "follower": persistDerive, "platoonCap": persistReset,
 	},
 	reflect.TypeFor[Vehicle](): {
-		"Pod": persistSave, "Riders": persistSave, "Stops": persistSave, "Route": persistSave, "Presentation": persistReset,
+		"LegacyCohort": persistSave, "Pod": persistSave, "Riders": persistSave, "Stops": persistSave, "Route": persistSave, "Presentation": persistReset,
 		"RelocatingTo": persistSave, "Rebalancing": persistSave, "PlatoonID": persistDerive, "PlatoonIndex": persistDerive,
 	},
 	reflect.TypeFor[Pod](): {
-		"ID": persistSave, "Position": persistDerive, "Activity": persistSave, "StationID": persistSave,
+		"Class": persistSave, "ID": persistSave, "Position": persistDerive, "Activity": persistSave, "StationID": persistSave,
 		"BerthID": persistSave, "LaneID": persistSave, "LaneDistance": persistSave, "Speed": persistReset,
 		"Occupied": persistSave, "WaitReason": persistReset, "BlockedBy": persistReset,
 		"StationPhase": persistDerive, "ManeuverStationID": persistDerive,
 	},
 	reflect.TypeFor[Request](): {
-		"ID": persistSave, "From": persistSave, "To": persistSave, "PartySize": persistSave, "PodID": persistSave,
+		"SharingConsent": persistSave, "Service": persistSave, "ServiceID": persistSave, "LegacyPartySize": persistSave, "ID": persistSave, "From": persistSave, "To": persistSave, "PartySize": persistSave, "PodID": persistSave,
 		"Completed": persistSave, "RequestedTick": persistSave, "BoardedTick": persistSave, "DispatchReason": persistSave,
 	},
 	reflect.TypeFor[waitingTrip](): {
@@ -389,6 +389,7 @@ func activeCloneSimulation(t *testing.T) *Simulation {
 	s.predictivePodQueues = map[string]podQueueHistory{"01": {lanes: map[int]float64{0: queueHeadwaySeconds}}}
 	s.predictiveQueueTick = s.tick
 	// This clone-storage fixture also covers the transient completion slice.
+	s.expressServices = map[string]ExpressService{"storage": {ID: "storage", From: "harbor", To: "market", Class: ExpressClass, PartyLimit: 20}}
 	s.stepCompletions = []StepCompletion{{RequestID: 1, AlightedTick: s.tick}}
 	s.pickupSwaps.records = []PickupReassignment{{Tick: s.tick, RequestID: 1, OldPod: "01", NewPod: "02", OldSeconds: 30, NewSeconds: 10}}
 	return s
@@ -456,7 +457,7 @@ func (inputs cloneInputs) run(s *Simulation) error {
 			if trip.second*TicksPerSecond != tick {
 				continue
 			}
-			if err := s.RequestTrip(trip.from, trip.to); err != nil {
+			if err := submitSharedTrip(s, trip.from, trip.to); err != nil {
 				return fmt.Errorf("request %s to %s at %d s: %w", trip.from, trip.to, trip.second, err)
 			}
 		}
@@ -573,7 +574,7 @@ func cloneFixtures() []cloneFixture {
 				s.requestID, s.boarded, s.sharedParties = 3, 3, 2
 				for id := 1; id <= 3; id++ {
 					s.waiting = append(s.waiting, waitingTrip{
-						request: Request{ID: id, From: "market", To: "garden", PartySize: 1}, boarded: true,
+						request: Request{SharingConsent: SharedConsent, Service: OnDemandService, ID: id, From: "market", To: "garden", PartySize: 1}, boarded: true,
 					})
 				}
 				return s.SetSharedRidePartyLimit(4)

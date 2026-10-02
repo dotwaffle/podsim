@@ -65,12 +65,16 @@ var (
 
 // Request describes a party's journey separately from the vehicle.
 type Request struct {
-	ID        int    `json:"ID"`
-	From      string `json:"From"`
-	To        string `json:"To"`
-	PartySize int    `json:"PartySize"`
-	PodID     string `json:"PodID"`
-	Completed bool   `json:"Completed"`
+	SharingConsent  SharingConsent `json:"SharingConsent"`
+	Service         ServiceChoice  `json:"Service"`
+	ServiceID       string         `json:"ServiceID,omitempty"`
+	LegacyPartySize bool           `json:"LegacyPartySize,omitzero"`
+	ID              int            `json:"ID"`
+	From            string         `json:"From"`
+	To              string         `json:"To"`
+	PartySize       int            `json:"PartySize"`
+	PodID           string         `json:"PodID"`
+	Completed       bool           `json:"Completed"`
 	// RequestedTick marks submission, before any pickup travel.
 	RequestedTick int64 `json:"RequestedTick"`
 	// BoardedTick is the tick at which the party boarded a pod. It is 0 for
@@ -82,6 +86,7 @@ type Request struct {
 
 // Pod contains observable vehicle state. LaneDistance is measured from the lane start.
 type Pod struct {
+	Class             VehicleClass `json:"Class,omitempty"`
 	ID                string       `json:"ID"`
 	Position          Point        `json:"Position"`
 	Activity          Activity     `json:"Activity"`
@@ -99,6 +104,7 @@ type Pod struct {
 
 // Vehicle is an independent display copy of a pod and its assigned journey.
 type Vehicle struct {
+	LegacyCohort bool `json:"LegacyCohort,omitzero"`
 	// Presentation is set only for bounded stream views.
 	Presentation *RoutePresentation `json:"-"`
 	Pod          Pod                `json:"Pod"`
@@ -190,9 +196,10 @@ type SafetyLocation struct {
 
 // Placement starts a pod at an empty station berth.
 type Placement struct {
-	ID        string `json:"ID"`
-	StationID string `json:"StationID"`
-	BerthID   string `json:"BerthID"`
+	Class     VehicleClass `json:"Class,omitempty"`
+	ID        string       `json:"ID"`
+	StationID string       `json:"StationID"`
+	BerthID   string       `json:"BerthID"`
 }
 
 type vehicle struct {
@@ -263,6 +270,7 @@ type vehicle struct {
 // shared field whole. It must not write into a shared field in place,
 // because that change also changes the clones.
 type Simulation struct {
+	expressServices map[string]ExpressService
 	// NewFleet builds junctionConflicts from the network. No code writes to it
 	// in place. ensureNetworkIndexes replaces it only when the network changes.
 	junctionConflicts            map[string][]laneConflict
@@ -437,7 +445,7 @@ func (s *Simulation) Reset() {
 		berth, _ := station.berth(p.BerthID)
 		node, _ := s.network.Node(berth.Node)
 		pod := Pod{
-			ID: p.ID, Position: node.Position, Activity: Idle,
+			ID: p.ID, Class: p.Class, Position: node.Position, Activity: Idle,
 			StationID: station.ID, BerthID: berth.ID,
 			StationPhase: AtBerth, ManeuverStationID: station.ID,
 		}
@@ -548,6 +556,15 @@ func (s *Simulation) SetPaused(paused bool) { s.paused = paused }
 
 // RequestJourney assigns a party at the selected pod's station.
 func (s *Simulation) RequestJourney(podID, destination string) error {
+	v := s.findVehicle(podID)
+	if v == nil {
+		return fmt.Errorf("unknown pod %q", podID)
+	}
+	return s.RequestJourneyOptions(podID, TripOptions{From: v.Pod.StationID, To: destination})
+}
+
+// RequestJourneyOptions assigns a whole party to the selected idle pod.
+func (s *Simulation) RequestJourneyOptions(podID string, options TripOptions) error {
 	defer s.observe()
 	v := s.findVehicle(podID)
 	if v == nil {
@@ -556,24 +573,25 @@ func (s *Simulation) RequestJourney(podID, destination string) error {
 	if v.Pod.Activity != Idle || s.assigned(v.Pod.ID) {
 		return ErrBusy
 	}
-	from, _ := s.station(v.Pod.StationID)
-	to, ok := s.station(destination)
-	if !ok {
-		return fmt.Errorf("unknown destination %q", destination)
+	if options.From == "" {
+		options.From = v.Pod.StationID
 	}
-	if from.ParkingOnly || to.ParkingOnly {
-		return errors.New("parking stations do not serve passenger requests")
+	if options.From != v.Pod.StationID {
+		return errors.New("the selected pod must be at the pickup station")
 	}
-	if from.ID == to.ID {
-		return ErrSameStation
-	}
-	origin, _ := from.berth(v.Pod.BerthID)
-	route, err := s.stationApproachRoute(origin.Node, to.ID)
+	options, err := s.validateTripOptions(options)
 	if err != nil {
-		return fmt.Errorf("route %s to %s: %w", from.Name, to.Name, err)
+		return err
+	}
+	request := requestFromOptions(options, s.requestID+1, s.tick)
+	if !s.podFitsRequest(v, request) {
+		return ErrPartyAdmission
+	}
+	if err := s.board(v, waitingTrip{request: request}); err != nil {
+		return err
 	}
 	s.requestID++
-	return s.board(v, waitingTrip{request: Request{ID: s.requestID, From: from.ID, To: to.ID, PartySize: 1, RequestedTick: s.tick}, route: route})
+	return nil
 }
 
 // findVehicle returns the pod with the given ID, or nil when no pod has it.
@@ -655,7 +673,7 @@ func (s *Simulation) arrive(v *vehicle) {
 	berth := v.destination
 	node, _ := s.network.Node(berth.Node)
 	v.Pod = Pod{
-		ID: v.Pod.ID, Position: node.Position, Activity: Unloading,
+		ID: v.Pod.ID, Class: v.Pod.Class, Position: node.Position, Activity: Unloading,
 		StationID: station.ID, BerthID: berth.ID, Occupied: true,
 		StationPhase: AtBerth, ManeuverStationID: station.ID,
 	}

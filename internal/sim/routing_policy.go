@@ -89,7 +89,7 @@ func (s *Simulation) SetCongestionRouting(enabled bool) {
 //   - the free-flow time of the queue route is more than queueDetourLimit
 //     times the free-flow time of the free-flow route
 func (s *Simulation) queueRoute(v *vehicle, from, to string) ([]Lane, error) {
-	free, err := s.route(from, to)
+	free, err := s.routeForClass(from, to, podClass(v))
 	if err != nil || len(free) == 0 {
 		return free, err
 	}
@@ -103,7 +103,7 @@ func (s *Simulation) queueRoute(v *vehicle, from, to string) ([]Lane, error) {
 	}
 	// The free-flow route exists, so the search can fail only when each
 	// route goes through an intermediate berth.
-	queued, err := s.searchRoute(networkRouteInput{from: from, to: to, discharge: discharge, terminalBerthsOnly: true})
+	queued, err := s.searchRoute(networkRouteInput{from: from, to: to, class: podClass(v), discharge: discharge, terminalBerthsOnly: true})
 	if err == nil {
 		seconds, cost, _ := s.queueCost(queued, discharge)
 		saving := freeCost - cost

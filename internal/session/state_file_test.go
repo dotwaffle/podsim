@@ -100,7 +100,7 @@ func sessionStateFile(t *testing.T, shared *Session) stateFile {
 		t.Fatal(err)
 	}
 	return stateFile{
-		Format: stateFormat, Version: stateVersion, Final: true,
+		Format: stateFormat, Version: serviceStateVersion, Final: true,
 		SavedAt: time.Date(2026, time.September, 23, 9, 0, 0, 123456789, time.UTC),
 		Build:   shared.build, Epoch: testStateEpoch,
 		Revision: shared.revision, ProjectRevision: shared.projectRevision, Generation: shared.generation,
@@ -222,7 +222,7 @@ func TestStateFileGolden(t *testing.T) {
 	t.Parallel()
 	var encoder stateEncoder
 	if *update {
-		data, err := encoder.encode(newTestStateFile(t))
+		data, err := encoder.encode(legacyTestState(newTestStateFile(t), stateVersion))
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -559,7 +559,7 @@ func compressBomb(t *testing.T, input bombInput) []byte {
 // detector.
 func TestDecodeStateFileBombs(t *testing.T) {
 	defer debug.SetGCPercent(debug.SetGCPercent(100))
-	const head = `{"format":"podsim-session","version":1`
+	const head = `{"format":"podsim-session","version":6`
 	emptyPods := strings.Repeat(",{}", 1<<10)
 	morePods := func(chunk []byte, _ int) []byte { return append(chunk, emptyPods...) }
 	member := func(chunk []byte, index int) []byte {
@@ -689,15 +689,16 @@ func TestStateFileWorstCaseSize(t *testing.T) {
 		return indexes
 	}
 	request := sim.SavedRequest{
-		ID: widest, From: id("f", 0), To: id("t", 0), PartySize: widest, PodID: id("p", 0),
+		ID: widest, From: id("f", 0), To: id("t", 0), PartySize: math.MaxInt64, PodID: id("p", 0),
 		Completed: true, RequestedTick: widest, BoardedTick: widest, DispatchReason: text,
+		SharingConsent: sim.LegacyUnknownConsent, Service: sim.OnDemandService, LegacyPartySize: true,
 	}
 	riders, stops := make([]sim.SavedRequest, sim.MaxSharedRideParties), make([]string, sim.MaxSharedRideParties)
 	for index := range riders {
 		riders[index], stops[index] = request, id("t", index)
 	}
 	pod := sim.SavedPod{
-		ID: id("p", 0), Activity: "continuing", StationID: id("s", 0), BerthID: id("b", 0),
+		ID: id("p", 0), Class: sim.LegacyClass, LegacyCohort: true, Activity: "continuing", StationID: id("s", 0), BerthID: id("b", 0),
 		Occupied: true, Riders: riders, Stops: stops, RiddenMeters: -math.MaxFloat64, JourneyOrigin: id("j", 0), RelocatingTo: id("r", 0),
 		Rebalancing: true, RebalanceAfter: widest, PhaseTicks: widest, Origin: id("o", 0),
 		Destination: id("d", 0), DestinationStation: id("e", 0), ClaimsDestination: true, Released: true, StationBuffered: true,
@@ -711,6 +712,7 @@ func TestStateFileWorstCaseSize(t *testing.T) {
 		Request: request, Route: route(nodes), Boarded: true,
 		DeferUntil: widest, DeferCheck: widest, DeferPodID: id("p", 0),
 	}
+	trip.Request.SharingConsent = sim.PrivateConsent
 	// A client ID of control characters has the longest JSON form, 6 bytes
 	// for each byte. The last 3 bytes make the IDs increase.
 	sequences := make([]savedSequence, clientLimit)
@@ -763,15 +765,27 @@ func TestStateFileWorstCaseSize(t *testing.T) {
 	// A file with all pods and trips takes too long to encode with the race
 	// detector. The file has one of each. A comma separates the elements of
 	// an array, so each other pod or trip adds its size and 1.
-	unrouted := trip
-	unrouted.Route = nil
-	for _, version := range []int{stateVersion, bufferStateVersion, bufferPlatoonStateVersion, bankStateVersion} {
+	for _, version := range []int{stateVersion, bufferStateVersion, bufferPlatoonStateVersion, bankStateVersion, serviceStateVersion} {
 		t.Run(strconv.Itoa(version), func(t *testing.T) {
 			t.Parallel()
-			maxFile, maxPod := file, pod
+			maxFile, maxPod, maxTrip := file, pod, trip
 			maxFile.Version = version
-			if version == bankStateVersion {
+			if version < serviceStateVersion {
+				maxFile = legacyTestState(maxFile, version)
+				maxPod, maxTrip = maxFile.Simulation.Pods[0], maxFile.Simulation.Waiting[0]
+				maxTrip.Request.PartySize = widest
+				for i := range maxPod.Riders {
+					maxPod.Riders[i].PartySize = widest
+				}
+			}
+			if version >= bankStateVersion {
 				maxFile.Project = withBankMetadata(maxFile.Project)
+				if version == serviceStateVersion {
+					maxFile.Project.Version = 3
+					for i := range maxFile.Project.Fleet {
+						maxFile.Project.Fleet[i].Class = sim.LegacyClass
+					}
+				}
 				maxFile.Project.Name = ""
 				maxFile.Project.Name = strings.Repeat("n", project.MaxFileBytes-jsonSize(t, maxFile.Project))
 			}
@@ -783,9 +797,12 @@ func TestStateFileWorstCaseSize(t *testing.T) {
 				maxPod.Platoon = &link
 			}
 			maxFile.Simulation.Pods = []sim.SavedPod{maxPod}
-			size := jsonSize(t, maxFile) + (maxSavedPods-1)*(jsonSize(t, maxPod)+1) + (maxSavedPods-1)*(jsonSize(t, trip)+1) +
-				(maxSavedTrips-maxSavedPods)*(jsonSize(t, unrouted)+1)
-			t.Logf("worst case: %d JSON bytes, limit %d", size, MaxStateBytes)
+			maxFile.Simulation.Waiting = []sim.SavedTrip{maxTrip}
+			maxUnrouted := maxTrip
+			maxUnrouted.Route = nil
+			size := jsonSize(t, maxFile) + (maxSavedPods-1)*(jsonSize(t, maxPod)+1) + (maxSavedPods-1)*(jsonSize(t, maxTrip)+1) +
+				(maxSavedTrips-maxSavedPods)*(jsonSize(t, maxUnrouted)+1)
+			t.Logf("worst case: %d JSON bytes, limit %d, headroom %d", size, MaxStateBytes, MaxStateBytes-size)
 			if size > MaxStateBytes {
 				t.Fatalf("the largest state has %d JSON bytes, more than %d", size, MaxStateBytes)
 			}
@@ -872,9 +889,7 @@ func TestEncodeStateFileTooLarge(t *testing.T) {
 // version. Run the test with -update to write the member list again.
 func TestStateFileMembers(t *testing.T) {
 	t.Parallel()
-	legacy := withoutMember(reflect.TypeFor[stateFile](), reflect.TypeFor[sim.SavedPod](), "stationBuffered")
-	legacy = withoutMember(legacy, reflect.TypeFor[sim.SavedPlatoonLink](), "kind", "terminalCell")
-	legacy = withoutMember(legacy, reflect.TypeFor[sim.Station](), "Banks")
+	legacy := legacyStateMembersType(reflect.TypeFor[stateFile]())
 	got := stateMembers(t, "", legacy, nil)
 	if *update {
 		if err := os.WriteFile(stateMembersPath, []byte(stateMembersHeader+strings.Join(got, "\n")+"\n"), 0o600); err != nil {
@@ -964,6 +979,8 @@ func stateMembers(t *testing.T, path string, typ reflect.Type, parents []reflect
 	switch typ {
 	case reflect.TypeFor[time.Time]():
 		return []string{path + " time"}
+	case reflect.TypeFor[sim.ClassSet]():
+		return []string{path + " array", path + "[] string"}
 	case reflect.TypeFor[[]byte]():
 		return []string{path + " base64"}
 	}

@@ -35,6 +35,7 @@ const (
 
 // Lane is a directed connection with a speed limit in meters per second.
 type Lane struct {
+	VehicleClasses  ClassSet        `json:"VehicleClasses,omitzero"`
 	ID              string          `json:"ID"`
 	From            string          `json:"From"`
 	To              string          `json:"To"`
@@ -48,9 +49,10 @@ type Lane struct {
 
 // Berth is a station resource with its own connection point.
 type Berth struct {
-	ID              string `json:"ID"`
-	Node            string `json:"Node"`
-	SeparationGroup string `json:"SeparationGroup,omitempty"`
+	VehicleClasses  ClassSet `json:"VehicleClasses,omitzero"`
+	ID              string   `json:"ID"`
+	Node            string   `json:"Node"`
+	SeparationGroup string   `json:"SeparationGroup,omitempty"`
 }
 
 // StationBank groups berths behind one independent entry and exit.
@@ -66,13 +68,14 @@ const MaxStationBanks = 8
 
 // Station keeps passenger access separate from through traffic.
 type Station struct {
-	ID          string        `json:"ID"`
-	Name        string        `json:"Name"`
-	Entry       string        `json:"Entry"`
-	Exit        string        `json:"Exit"`
-	Berths      []Berth       `json:"Berths"`
-	ParkingOnly bool          `json:"ParkingOnly"`
-	Banks       []StationBank `json:"Banks,omitempty"`
+	VehicleClasses ClassSet      `json:"VehicleClasses,omitzero"`
+	ID             string        `json:"ID"`
+	Name           string        `json:"Name"`
+	Entry          string        `json:"Entry"`
+	Exit           string        `json:"Exit"`
+	Berths         []Berth       `json:"Berths"`
+	ParkingOnly    bool          `json:"ParkingOnly"`
+	Banks          []StationBank `json:"Banks,omitempty"`
 }
 
 // Network describes immutable geometry and connectivity during a run.
@@ -161,7 +164,17 @@ func (n Network) Route(from, to string) ([]Lane, error) {
 	return n.route(networkRouteInput{from: from, to: to})
 }
 
+// RouteForClass chooses a free-flow path within the class allowlists.
+// This checks compatibility metadata, not physical profile approval.
+func (n Network) RouteForClass(from, to string, class VehicleClass) ([]Lane, error) {
+	if _, ok := LookupVehicleClass(class); !ok {
+		return nil, ErrUnknownVehicleClass
+	}
+	return n.route(networkRouteInput{from: from, to: to, class: class})
+}
+
 type networkRouteInput struct {
+	class     VehicleClass
 	from, to  string
 	forbidden map[string]bool
 	extraCost []float64
@@ -209,6 +222,9 @@ func (n Network) routeIndexedWithWork(input networkRouteInput, graph routeGraph,
 	if !ok {
 		return nil, fmt.Errorf("unknown destination %q", input.to)
 	}
+	if !graph.nodeAllows(from, input.class) || !graph.nodeAllows(to, input.class) {
+		return nil, ErrUnreachable
+	}
 	work.reset(len(n.Nodes))
 	distance, previous, visited := work.distance, work.previous, work.visited
 	distance[from] = input.startCost
@@ -228,6 +244,9 @@ func (n Network) routeIndexedWithWork(input networkRouteInput, graph routeGraph,
 		}
 		for _, laneIndex := range graph.outgoing[item.node] {
 			edge := graph.edges[laneIndex]
+			if !graph.laneAllows(laneIndex, input.class) {
+				continue
+			}
 			if input.bankExternal && graph.banks.lanes[laneIndex] >= 0 && n.Lanes[laneIndex].StationRole != StationThroughRole {
 				continue
 			}
@@ -445,7 +464,11 @@ type routeGraph struct {
 	edges []routeEdge
 	// berthStations holds, for each node, the index of the station that has
 	// a berth at the node, or -1.
-	berthStations []int
+	berthStations     []int
+	berthNodes        map[string]int
+	nodeClasses       []uint8
+	classRestrictions bool
+	laneClasses       []uint8
 }
 
 // berthAllowed reports whether a route search from node from to node to can
@@ -467,7 +490,7 @@ func newRouteGraph(network Network) routeGraph {
 	graph := routeGraph{
 		nodes: make(map[string]int, len(network.Nodes)), lanes: make(map[string]int, len(network.Lanes)), outgoing: make([][]int, len(network.Nodes)),
 		incoming: make([][]int, len(network.Nodes)), lengths: make([]float64, len(network.Lanes)), edges: make([]routeEdge, len(network.Lanes)),
-		berthStations: make([]int, len(network.Nodes)),
+		berthStations: make([]int, len(network.Nodes)), berthNodes: make(map[string]int),
 	}
 	for index, node := range network.Nodes {
 		graph.nodes[node.ID] = index
@@ -477,6 +500,7 @@ func newRouteGraph(network Network) routeGraph {
 		for _, berth := range station.Berths {
 			if node, ok := graph.nodes[berth.Node]; ok {
 				graph.berthStations[node] = stationIndex
+				graph.berthNodes[berth.ID] = node
 			}
 		}
 	}
@@ -492,6 +516,7 @@ func newRouteGraph(network Network) routeGraph {
 		graph.lengths[index] = indexedLaneLength(lane, network.Nodes[from].Position, network.Nodes[to].Position)
 		graph.edges[index] = routeEdge{from: from, to: to, seconds: graph.lengths[index] / lane.SpeedLimit}
 	}
+	indexRouteClasses(&graph, network)
 	graph.banks = indexStationBanks(network, graph)
 	return graph
 }
@@ -577,7 +602,7 @@ func (n Network) validate() error {
 		from, fromOK := nodes[lane.From]
 		to, toOK := nodes[lane.To]
 		length := indexedLaneLength(lane, from, to)
-		if lane.ID == "" || lanes[lane.ID] || !fromOK || !toOK ||
+		if lane.VehicleClasses & ^allClassBits != 0 || lane.ID == "" || lanes[lane.ID] || !fromOK || !toOK ||
 			!finite(lane.SpeedLimit) || lane.SpeedLimit <= 0 || length <= 0 || !finite(length) ||
 			!validStationLaneRole(lane.StationRole) || (lane.StationID == "") != (lane.StationRole == "") {
 			return fmt.Errorf("invalid or duplicate lane %q", lane.ID)
@@ -588,13 +613,13 @@ func (n Network) validate() error {
 	for _, station := range n.Stations {
 		_, entryOK := nodes[station.Entry]
 		_, exitOK := nodes[station.Exit]
-		if station.ID == "" || stations[station.ID] || !entryOK || !exitOK || station.Entry == station.Exit || len(station.Berths) == 0 {
+		if station.VehicleClasses & ^allClassBits != 0 || station.ID == "" || stations[station.ID] || !entryOK || !exitOK || station.Entry == station.Exit || len(station.Berths) == 0 {
 			return fmt.Errorf("station %q needs valid entry, exit, and berth capacity", station.ID)
 		}
 		stations[station.ID] = true
 		for _, berth := range station.Berths {
 			_, nodeOK := nodes[berth.Node]
-			if berth.ID == "" || berths[berth.ID] || berthNodes[berth.Node] || !nodeOK || berth.Node == station.Entry || berth.Node == station.Exit {
+			if berth.VehicleClasses & ^allClassBits != 0 || berth.ID == "" || berths[berth.ID] || berthNodes[berth.Node] || !nodeOK || berth.Node == station.Entry || berth.Node == station.Exit {
 				return fmt.Errorf("station %q has an invalid or duplicate berth", station.ID)
 			}
 			berths[berth.ID] = true
@@ -619,10 +644,10 @@ func (n Network) validate() error {
 			return fmt.Errorf("station %q needs entry, exit, and through lanes", station.ID)
 		}
 		for _, berth := range station.Berths {
-			if _, err := n.routeIndexed(networkRouteInput{from: station.Entry, to: berth.Node, forbidden: forbidden}, graph); err != nil {
+			if _, err := n.routeIndexed(networkRouteInput{class: topologyClass, from: station.Entry, to: berth.Node, forbidden: forbidden}, graph); err != nil {
 				return fmt.Errorf("station %q needs entry, exit, and through lanes", station.ID)
 			}
-			if _, err := n.routeIndexed(networkRouteInput{from: berth.Node, to: station.Exit, forbidden: forbidden}, graph); err != nil {
+			if _, err := n.routeIndexed(networkRouteInput{class: topologyClass, from: berth.Node, to: station.Exit, forbidden: forbidden}, graph); err != nil {
 				return fmt.Errorf("station %q needs entry, exit, and through lanes", station.ID)
 			}
 		}

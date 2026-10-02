@@ -48,7 +48,7 @@ var parkedPair = []Placement{
 func startReassign(t *testing.T, s *Simulation, to string) {
 	t.Helper()
 	for _, destination := range []string{"market", to} {
-		if err := s.RequestTrip("harbor", destination); err != nil {
+		if err := submitSharedTrip(s, "harbor", destination); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -166,7 +166,7 @@ func TestReassignRefusedByFullPod(t *testing.T) {
 	s := newReassignSimulation(t, Example(), append(slices.Clone(parkedPair), Placement{ID: "03", StationID: "garden", BerthID: "garden-1"}),
 		2, SharedRideDropOffs, SharedRideJoinReassignExisting)
 	for range 3 {
-		if err := s.RequestTrip("harbor", "market"); err != nil {
+		if err := submitSharedTrip(s, "harbor", "market"); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -227,12 +227,12 @@ func TestReassignSkipsIdlePods(t *testing.T) {
 		t.Run(fmt.Sprintf("promote %v", promote), func(t *testing.T) {
 			t.Parallel()
 			f := newRestoreFleetFixture(t, harborTwoBerths(), harborFleet)
-			trips := []SavedTrip{{Request: SavedRequest{ID: 2, From: "harbor", To: "market", PartySize: 1, PodID: "02", RequestedTick: restoreTick - 10}}}
+			trips := []SavedTrip{{Request: SavedRequest{SharingConsent: SharedConsent, Service: OnDemandService, ID: 2, From: "harbor", To: "market", PartySize: 1, PodID: "02", RequestedTick: restoreTick - 10}}}
 			var pods []SavedPod
 			if promote {
 				trips = []SavedTrip{
-					{Request: SavedRequest{ID: 2, From: "harbor", To: "market", PartySize: 1, PodID: "03", RequestedTick: restoreTick - 20}},
-					{Request: SavedRequest{ID: 3, From: "harbor", To: "market", PartySize: 1, PodID: "02", RequestedTick: restoreTick - 10}},
+					{Request: SavedRequest{SharingConsent: SharedConsent, Service: OnDemandService, ID: 2, From: "harbor", To: "market", PartySize: 1, PodID: "03", RequestedTick: restoreTick - 20}},
+					{Request: SavedRequest{SharingConsent: SharedConsent, Service: OnDemandService, ID: 3, From: "harbor", To: "market", PartySize: 1, PodID: "02", RequestedTick: restoreTick - 10}},
 				}
 				pods = append(pods, relocating(f.traveling(t, travelInput{id: "03", from: "parking-1", to: "harbor-2", lane: "return", distance: 20})))
 			}
@@ -271,8 +271,8 @@ func TestReassignedPodTakesLaterTrip(t *testing.T) {
 		{ID: "02", StationID: "parking", BerthID: "parking-1"},
 	})
 	s := reassignRestoreFixture(t, f, []SavedTrip{
-		{Request: SavedRequest{ID: 2, From: "harbor", To: "market", PartySize: 1, PodID: "02", RequestedTick: restoreTick - 20}},
-		{Request: SavedRequest{ID: 3, From: "garden", To: "market", PartySize: 1, RequestedTick: restoreTick - 10}},
+		{Request: SavedRequest{SharingConsent: SharedConsent, Service: OnDemandService, ID: 2, From: "harbor", To: "market", PartySize: 1, PodID: "02", RequestedTick: restoreTick - 20}},
+		{Request: SavedRequest{SharingConsent: SharedConsent, Service: OnDemandService, ID: 3, From: "garden", To: "market", PartySize: 1, RequestedTick: restoreTick - 10}},
 	}, relocating(f.traveling(t, travelInput{id: "02", from: "parking-1", to: "harbor-2", lane: "return", distance: 20})))
 	s.Step()
 	own := s.findVehicle("02")
@@ -314,7 +314,7 @@ func TestReassignedPodRoutes(t *testing.T) {
 			own := relocating(f.traveling(t, travelInput{id: "02", from: "parking-1", to: test.to, lane: test.lane, distance: test.distance}))
 			own.ClaimsDestination = test.claims
 			s := reassignRestoreFixture(t, f, []SavedTrip{
-				{Request: SavedRequest{ID: 2, From: "harbor", To: "market", PartySize: 1, PodID: "02", RequestedTick: restoreTick - 20}},
+				{Request: SavedRequest{SharingConsent: SharedConsent, Service: OnDemandService, ID: 2, From: "harbor", To: "market", PartySize: 1, PodID: "02", RequestedTick: restoreTick - 20}},
 			}, own)
 			v := s.findVehicle("02")
 			if _, _, ok := s.divertStart(v); ok == test.committed {
@@ -372,7 +372,7 @@ func TestReassignWithoutSharing(t *testing.T) {
 		if tick%(30*TicksPerSecond) == 0 && tick < 300*TicksPerSecond {
 			for _, trip := range burst {
 				for _, s := range []*Simulation{unassigned, reassign} {
-					if err := s.RequestTrip(trip[0], trip[1]); err != nil {
+					if err := submitSharedTrip(s, trip[0], trip[1]); err != nil {
 						t.Fatal(err)
 					}
 				}
@@ -453,8 +453,8 @@ func TestReassignRequeuedRider(t *testing.T) {
 	state := f.state()
 	state.RequestID, state.Boarded, state.TotalWaitTicks, state.MaxWaitTicks = 2, 1, 10, 10
 	state.Waiting = []SavedTrip{
-		{Request: SavedRequest{ID: 1, From: "harbor", To: "market", PartySize: 1, RequestedTick: restoreTick - 5}},
-		{Request: SavedRequest{ID: 2, From: "harbor", To: "market", PartySize: 1, RequestedTick: 10, BoardedTick: 20}, Boarded: true},
+		{Request: SavedRequest{SharingConsent: SharedConsent, Service: OnDemandService, ID: 1, From: "harbor", To: "market", PartySize: 1, RequestedTick: restoreTick - 5}},
+		{Request: SavedRequest{SharingConsent: SharedConsent, Service: OnDemandService, ID: 2, From: "harbor", To: "market", PartySize: 1, RequestedTick: 10, BoardedTick: 20}, Boarded: true},
 	}
 	state.SharedRidePartyLimit, state.SharedRideJoin = 4, SharedRideJoinReassignExisting
 	s, result, err := f.restore(roundTripState(t, state))
@@ -583,7 +583,7 @@ func TestReassignReleasesPlatoon(t *testing.T) {
 		if index == 2 {
 			state.Pods = append(state.Pods, SavedPod{
 				ID: id, Activity: activityCode(Boarding), StationID: "dest", BerthID: berth, PhaseTicks: boardingTicks,
-				Riders: []SavedRequest{{ID: 1, From: "dest", To: "origin", PartySize: 1, PodID: id, RequestedTick: 10, BoardedTick: 20}},
+				Riders: []SavedRequest{{SharingConsent: SharedConsent, Service: OnDemandService, ID: 1, From: "dest", To: "origin", PartySize: 1, PodID: id, RequestedTick: 10, BoardedTick: 20}},
 				Stops:  []string{"origin"}, Origin: berth, DestinationStation: "origin",
 				Route: indexes("dest-berth-03-out", "loop-back"),
 			})
@@ -596,7 +596,7 @@ func TestReassignReleasesPlatoon(t *testing.T) {
 			LaneDistance: distance, Distance: distance,
 		})
 		state.Waiting = append(state.Waiting, SavedTrip{Request: SavedRequest{
-			ID: index + 2, From: "dest", To: "origin", PartySize: 1, PodID: id, RequestedTick: restoreTick - 10,
+			SharingConsent: SharedConsent, Service: OnDemandService, ID: index + 2, From: "dest", To: "origin", PartySize: 1, PodID: id, RequestedTick: restoreTick - 10,
 		}})
 	}
 	s, result, err := RestoreState(RestoreStateInput{Network: network, Fleet: fleet, State: roundTripState(t, state)})

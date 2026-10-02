@@ -7,7 +7,10 @@ import (
 
 // stopKey identifies the free-flow route from a node to the entry of a
 // station.
-type stopKey struct{ from, station string }
+type stopKey struct {
+	from, station string
+	class         VehicleClass
+}
 
 // stationsOnRoute returns the passenger stations that the free-flow route
 // from a node to a station passes, in route order. The route passes a
@@ -20,7 +23,11 @@ type stopKey struct{ from, station string }
 // then take a costed route. The result does not change during a run, so
 // stationsOnRoute keeps it.
 func (s *Simulation) stationsOnRoute(from, stationID string) []string {
-	key := stopKey{from: from, station: stationID}
+	return s.stationsOnRouteForClass(from, stationID, LegacyClass)
+}
+
+func (s *Simulation) stationsOnRouteForClass(from, stationID string, class VehicleClass) []string {
+	key := stopKey{from: from, station: stationID, class: routeClass(class)}
 	if stations, ok := s.routeStations[key]; ok {
 		return stations
 	}
@@ -28,7 +35,7 @@ func (s *Simulation) stationsOnRoute(from, stationID string) []string {
 		s.approachStations = indexApproachStations(s.network)
 	}
 	var stations []string
-	if route, err := s.stationApproachRoute(from, stationID); err == nil {
+	if route, err := s.stationApproachRouteForClass(from, stationID, class); err == nil {
 		for _, lane := range route {
 			for _, id := range s.approachStations[lane.From] {
 				if !slices.Contains(stations, id) {
@@ -98,7 +105,7 @@ func (s *Simulation) addedStops(v *vehicle, to string) ([]string, bool) {
 		return nil, false
 	}
 	from := v.journeyOrigin.Node
-	plan := s.stationsOnRoute(from, v.lastStop())
+	plan := s.stationsOnRouteForClass(from, v.lastStop(), v.Pod.Class)
 	if at := slices.Index(plan, to); at >= 0 {
 		insert := slices.IndexFunc(v.Stops, func(stop string) bool {
 			index := slices.Index(plan, stop)
@@ -109,7 +116,7 @@ func (s *Simulation) addedStops(v *vehicle, to string) ([]string, bool) {
 		}
 		return s.cappedStops(v, slices.Insert(slices.Clone(v.Stops), insert, to))
 	}
-	if isSubsequence(v.Stops, s.stationsOnRoute(from, to)) {
+	if isSubsequence(v.Stops, s.stationsOnRouteForClass(from, to, v.Pod.Class)) {
 		return s.cappedStops(v, append(slices.Clone(v.Stops), to))
 	}
 	return nil, false
@@ -117,24 +124,25 @@ func (s *Simulation) addedStops(v *vehicle, to string) ([]string, bool) {
 
 // cappedStops returns stops and true when no rider of pod v goes over
 // maxSharedRideDetour with these stops. When the first stop does not
-// change, the pod keeps its route, so the plan uses the length of that
-// route. Otherwise the plan uses the free-flow route to the new first stop,
+// change and its bank admits the continuation, the pod keeps its route.
+// Otherwise the plan uses the free-flow route to a compatible first bank,
 // and legRoute gives the pod a route that keeps each rider within the cap.
 func (s *Simulation) cappedStops(v *vehicle, stops []string) ([]string, bool) {
 	ridden, ok := s.lanesMeters(v.Route), true
-	if stops[0] != v.Stops[0] {
-		ridden, ok = s.routeMeters(v.origin.Node, stops[0])
+	if s.boardingRouteNeedsChange(v, stops) {
+		route, err := s.stationApproachForStops(v.origin.Node, stops, v.Pod.Class)
+		ridden, ok = s.lanesMeters(route), err == nil
 	}
 	entry := ""
 	if ok && s.network.hasStationBanks() {
 		station, _ := s.station(stops[0])
 		route := v.Route
-		if stops[0] != v.Stops[0] {
-			route, _ = s.stationApproachRoute(v.origin.Node, stops[0])
+		if s.boardingRouteNeedsChange(v, stops) {
+			route, _ = s.stationApproachForStops(v.origin.Node, stops, v.Pod.Class)
 		}
 		entry = station.routeEntry(route, Berth{})
 	}
-	if !ok || s.plannedDetour(v.journeyOrigin.Node, stops, detourStart{ridden: ridden, entry: entry}) > maxSharedRideDetour {
+	if !ok || s.plannedDetour(v.journeyOrigin.Node, stops, detourStart{class: v.Pod.Class, ridden: ridden, entry: entry}) > maxSharedRideDetour {
 		return nil, false
 	}
 	return stops, true
@@ -164,16 +172,16 @@ type leg struct {
 // keeps each rider within the cap. See the checks of cappedStops,
 // continueJourney and reevaluateTerminalBerth.
 func (s *Simulation) legRoute(v *vehicle, next leg) ([]Lane, error) {
-	route, err := s.assignedApproachRoute(v, next.from, next.stops[0])
+	route, err := s.assignedApproachRouteMatching(v, next.from, next.stops[0], s.berthFilterForStops(v.Pod.Class, next.stops[1:]))
 	if err != nil || !s.cappedDetours() || !s.costedRouting() {
 		return route, err
 	}
 	station, _ := s.station(next.stops[0])
-	start := detourStart{ridden: next.ridden + s.lanesMeters(route), entry: station.routeEntry(route, Berth{})}
+	start := detourStart{class: v.Pod.Class, ridden: next.ridden + s.lanesMeters(route), entry: station.routeEntry(route, Berth{})}
 	if s.plannedDetour(next.origin, next.stops, start) <= maxSharedRideDetour {
 		return route, nil
 	}
-	return s.stationApproachRoute(next.from, next.stops[0])
+	return s.stationApproachForStops(next.from, next.stops, v.Pod.Class)
 }
 
 // rerouteKeepsDetours reports whether pod v can take a new route to a
@@ -186,7 +194,7 @@ func (s *Simulation) rerouteKeepsDetours(v *vehicle, route []Lane, berth Berth) 
 	if !s.cappedDetours() || v.RidersAboard() == 0 {
 		return true
 	}
-	start := detourStart{ridden: v.riddenBase + s.lanesMeters(route), berth: berth}
+	start := detourStart{class: v.Pod.Class, ridden: v.riddenBase + s.lanesMeters(route), berth: berth}
 	return s.plannedDetour(v.journeyOrigin.Node, v.Stops, start) <= maxSharedRideDetour
 }
 
@@ -195,6 +203,7 @@ func (s *Simulation) rerouteKeepsDetours(v *vehicle, route []Lane, berth Berth) 
 // is set, the pod goes to that berth at the first stop, and ridden is the
 // distance to that berth.
 type detourStart struct {
+	class  VehicleClass
 	ridden float64
 	berth  Berth
 	entry  string
@@ -220,7 +229,7 @@ func (s *Simulation) plannedDetour(origin string, stops []string, start detourSt
 	largest, ridden := 1.0, start.ridden
 	for index, stop := range stops {
 		station, _ := s.station(stop)
-		direct, ok := s.routeMeters(origin, stop)
+		direct, ok := s.routeMetersForClass(origin, stop, start.class)
 		if !ok {
 			return math.Inf(1)
 		}
@@ -231,8 +240,12 @@ func (s *Simulation) plannedDetour(origin string, stops []string, start detourSt
 		// next is the largest planned distance to the entry of the next
 		// stop.
 		next, found := math.Inf(-1), false
+		accept := s.berthFilterForStops(start.class, stops[index+1:])
 		for _, berth := range berths {
-			path, err := s.stationPath(station.berthEntry(berth), berth.Node)
+			if accept != nil && !accept(berth) {
+				continue
+			}
+			path, err := s.stationPathForClass(station.berthEntry(berth), berth.Node, start.class)
 			if err != nil {
 				continue
 			}
@@ -243,8 +256,8 @@ func (s *Simulation) plannedDetour(origin string, stops []string, start detourSt
 			}
 			largest, found = max(largest, arrival/(direct+meters)), true
 			if index+1 < len(stops) {
-				if onward, ok := s.routeMeters(berth.Node, stops[index+1]); ok {
-					next = max(next, arrival+onward)
+				if onward, err := s.stationApproachForStops(berth.Node, stops[index+1:], start.class); err == nil {
+					next = max(next, arrival+s.lanesMeters(onward))
 				}
 			}
 		}
@@ -259,7 +272,11 @@ func (s *Simulation) plannedDetour(origin string, stops []string, start detourSt
 // routeMeters returns the length of the free-flow route from a node to the
 // entry of a station. It reports false when the route does not exist.
 func (s *Simulation) routeMeters(from, stationID string) (float64, bool) {
-	route, err := s.stationApproachRoute(from, stationID)
+	return s.routeMetersForClass(from, stationID, LegacyClass)
+}
+
+func (s *Simulation) routeMetersForClass(from, stationID string, class VehicleClass) (float64, bool) {
+	route, err := s.stationApproachRouteForClass(from, stationID, class)
 	if err != nil {
 		return 0, false
 	}
@@ -291,7 +308,7 @@ func isSubsequence(part, whole []string) bool {
 // changes, the pod gets the route of legRoute to the new first stop. It
 // reports false and does not change the pod when that route does not exist.
 func (s *Simulation) setBoardingStops(v *vehicle, stops []string) bool {
-	if stops[0] != v.Stops[0] {
+	if s.boardingRouteNeedsChange(v, stops) {
 		route, err := s.legRoute(v, leg{origin: v.journeyOrigin.Node, from: v.origin.Node, stops: stops})
 		if err != nil {
 			return false

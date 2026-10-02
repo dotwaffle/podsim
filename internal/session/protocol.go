@@ -11,6 +11,7 @@ import (
 
 // TopologySnapshot contains geometry that changes only with the project.
 type TopologySnapshot struct {
+	ProjectVersion  int                    `json:"projectVersion,omitzero"`
 	ServerStart     string                 `json:"serverStart"`
 	Epoch           string                 `json:"epoch"`
 	ProjectRevision uint64                 `json:"projectRevision"`
@@ -68,6 +69,7 @@ type SimulationFrame struct {
 
 // VehicleFrame contains dynamic vehicle data and its ordered route IDs.
 type VehicleFrame struct {
+	LegacyCohort bool          `json:"LegacyCohort,omitzero"`
 	Pod          sim.Pod       `json:"Pod"`
 	Riders       []sim.Request `json:"Riders,omitempty"`
 	Stops        []string      `json:"Stops,omitempty"`
@@ -109,7 +111,8 @@ func frameState(topology TopologySnapshot, frame StateFrame, immutable bool) (St
 			route[routeIndex] = lane
 		}
 		vehicles[index] = sim.Vehicle{
-			Pod: vehicle.Pod, Riders: vehicle.Riders, Stops: vehicle.Stops, Route: route,
+			LegacyCohort: vehicle.LegacyCohort,
+			Pod:          vehicle.Pod, Riders: vehicle.Riders, Stops: vehicle.Stops, Route: route,
 			RelocatingTo: vehicle.RelocatingTo, Rebalancing: vehicle.Rebalancing,
 			PlatoonID: vehicle.PlatoonID, PlatoonIndex: vehicle.PlatoonIndex,
 		}
@@ -156,7 +159,8 @@ func stateFrame(state State) StateFrame {
 			routeIDs[routeIndex] = lane.ID
 		}
 		vehicles[index] = VehicleFrame{
-			Pod: vehicle.Pod, Riders: vehicle.Riders, Stops: vehicle.Stops, RouteLaneIDs: routeIDs,
+			LegacyCohort: vehicle.LegacyCohort,
+			Pod:          vehicle.Pod, Riders: vehicle.Riders, Stops: vehicle.Stops, RouteLaneIDs: routeIDs,
 			RelocatingTo: vehicle.RelocatingTo, Rebalancing: vehicle.Rebalancing,
 			PlatoonID: vehicle.PlatoonID, PlatoonIndex: vehicle.PlatoonIndex,
 		}

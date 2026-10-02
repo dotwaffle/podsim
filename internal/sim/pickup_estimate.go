@@ -64,11 +64,14 @@ func (s *Simulation) waitForFinishingPod(trip *waitingTrip, idle *vehicle, assig
 		return false
 	}
 	if trip.deferCheck > s.tick {
+		if v := s.findVehicle(trip.deferPodID); v == nil || !s.podFitsRequest(v, trip.request) {
+			return false
+		}
 		trip.request.DispatchReason = "Waiting for pod " + trip.deferPodID + " to finish"
 		return true
 	}
 	station, _ := s.station(trip.request.From)
-	route, _, ok := s.pickupRouteWithAssignments(pickupRouteInput{pod: idle, station: trip.request.From, assigned: assigned})
+	route, _, ok := s.pickupRouteWithAssignments(pickupRouteInput{pod: idle, station: trip.request.From, assigned: assigned, accept: s.berthFilterForStops(idle.Pod.Class, []string{trip.request.To})})
 	if !ok {
 		return false
 	}
@@ -86,7 +89,7 @@ func (s *Simulation) waitForFinishingPod(trip *waitingTrip, idle *vehicle, assig
 	var bounds []float64
 	for i := range s.vehicles {
 		v := &s.vehicles[i]
-		if v == idle {
+		if v == idle || !s.podFitsRequest(v, trip.request) {
 			continue
 		}
 		node, remaining, ok := s.availableAfter(v)
@@ -103,7 +106,11 @@ func (s *Simulation) waitForFinishingPod(trip *waitingTrip, idle *vehicle, assig
 			pickupCannotImprove(remaining+bounds[index], min(bestETA, holdSeconds)) {
 			continue
 		}
-		eta := remaining + s.emptySeconds(node, station.Berths[0].Node)
+		route, _, err := s.stationRouteByLoad(stationRouteInput{class: v.Pod.Class, from: node, station: station.ID, load: noBerthLoad, accept: s.berthFilterForStops(v.Pod.Class, []string{trip.request.To})})
+		if err != nil {
+			continue
+		}
+		eta := remaining + s.routeSeconds(route, motionEstimate{})
 		if eta < bestETA && eta <= holdSeconds {
 			best, bestETA = v, eta
 		}
@@ -133,7 +140,10 @@ func (s *Simulation) keepHold(trip *waitingTrip, pass *dispatchPass) bool {
 	if s.finishingPodWait == FinishingPodWaitNone || trip.deferUntil != 0 && s.tick >= trip.deferUntil || trip.deferCheck <= s.tick {
 		return false
 	}
-	if s.localPickup(trip.request.From, pass) != nil {
+	if v := s.findVehicle(trip.deferPodID); v == nil || !s.podFitsRequest(v, trip.request) {
+		return false
+	}
+	if s.localPickupForRequest(trip.request, pass) != nil {
 		return false
 	}
 	trip.request.DispatchReason = "Waiting for an available pod"
@@ -180,7 +190,7 @@ func (s *Simulation) finishEstimate(v *vehicle) (string, float64, bool) {
 	if v.Pod.Activity == Unloading {
 		station, _ := s.station(v.Pod.StationID)
 		berth, _ := station.berth(v.Pod.BerthID)
-		return s.laterStops(berth.Node, float64(v.phaseTicks)/TicksPerSecond, v.Stops)
+		return s.laterStopsForClass(berth.Node, float64(v.phaseTicks)/TicksPerSecond, v.Stops, v.Pod.Class)
 	}
 	seconds := float64(v.phaseTicks)/TicksPerSecond + s.routeSecondsWith(v.Route, v.routeLengths, motionEstimate{distance: v.distance, speed: v.Pod.Speed})
 	if v.RelocatingTo == "" {
@@ -190,7 +200,7 @@ func (s *Simulation) finishEstimate(v *vehicle) (string, float64, bool) {
 			if !ok {
 				return "", 0, false
 			}
-			suffix, berth, err := s.stationRouteByLoad(stationRouteInput{from: station.routeEntry(v.Route, v.destination), station: station.ID, load: noBerthLoad})
+			suffix, berth, err := s.stationRouteByLoad(stationRouteInput{class: v.Pod.Class, from: station.routeEntry(v.Route, v.destination), station: station.ID, load: noBerthLoad, accept: s.berthFilterForVehicle(v)})
 			if err != nil {
 				return "", 0, false
 			}
@@ -199,7 +209,7 @@ func (s *Simulation) finishEstimate(v *vehicle) (string, float64, bool) {
 		}
 		seconds += float64(unloadingTicks) / TicksPerSecond
 		if len(v.Stops) > 1 {
-			return s.laterStops(destination, seconds, v.Stops[1:])
+			return s.laterStopsForClass(destination, seconds, v.Stops[1:], v.Pod.Class)
 		}
 		return destination, seconds, true
 	}
@@ -209,14 +219,14 @@ func (s *Simulation) finishEstimate(v *vehicle) (string, float64, bool) {
 		}
 		destination, _ := s.station(trip.request.To)
 		seconds += float64(boardingTicks+unloadingTicks)/TicksPerSecond + s.routeSeconds(trip.route, motionEstimate{})
-		if destination.Banks != nil {
-			suffix, berth, err := s.stationRouteByLoad(stationRouteInput{from: destination.routeEntry(trip.route, Berth{}), station: destination.ID, load: noBerthLoad})
-			if err != nil {
-				return "", 0, false
-			}
-			return berth.Node, seconds + s.routeSeconds(suffix, motionEstimate{}), true
+		if destination.Banks == nil && !s.graph.classRestrictions {
+			return destination.Berths[0].Node, seconds, true
 		}
-		return destination.Berths[0].Node, seconds, true
+		suffix, berth, err := s.stationRouteByLoad(stationRouteInput{class: v.Pod.Class, from: destination.routeEntry(trip.route, Berth{}), station: destination.ID, load: noBerthLoad})
+		if err != nil {
+			return "", 0, false
+		}
+		return berth.Node, seconds + s.routeSeconds(suffix, motionEstimate{}), true
 	}
 	return v.destination.Node, seconds, true
 }
@@ -226,14 +236,14 @@ func (s *Simulation) finishEstimate(v *vehicle) (string, float64, bool) {
 // berth of the stop and includes the unloading time. laterStops returns the
 // node of the last stop and the total seconds. It reports false when a leg
 // has no route.
-func (s *Simulation) laterStops(node string, seconds float64, stops []string) (string, float64, bool) {
-	for _, stop := range stops {
-		route, err := s.stationApproachRoute(node, stop)
+func (s *Simulation) laterStopsForClass(node string, seconds float64, stops []string, class VehicleClass) (string, float64, bool) {
+	for index, stop := range stops {
+		route, err := s.stationApproachForStops(node, stops[index:], class)
 		if err != nil {
 			return "", 0, false
 		}
 		station, _ := s.station(stop)
-		suffix, berth, err := s.stationRouteByLoad(stationRouteInput{from: station.routeEntry(route, Berth{}), station: station.ID, load: noBerthLoad})
+		suffix, berth, err := s.stationRouteByLoad(stationRouteInput{class: class, from: station.routeEntry(route, Berth{}), station: station.ID, load: noBerthLoad, accept: s.berthFilterForStops(class, stops[index+1:])})
 		if err != nil {
 			return "", 0, false
 		}

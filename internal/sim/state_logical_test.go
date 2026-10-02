@@ -27,13 +27,13 @@ func logicalState(t *testing.T, f restoreFixture) SavedState {
 	unloading := SavedPod{
 		ID: "03", Activity: activityCode(Unloading), StationID: "market", BerthID: "market-1", Occupied: true,
 		Riders: []SavedRequest{
-			{ID: 2, From: "harbor", To: "market", PartySize: 1, PodID: "03", RequestedTick: 100, BoardedTick: 150},
-			{ID: 3, From: "harbor", To: "market", PartySize: 1, PodID: "03", RequestedTick: 110, BoardedTick: 150},
+			{SharingConsent: SharedConsent, Service: OnDemandService, ID: 2, From: "harbor", To: "market", PartySize: 1, PodID: "03", RequestedTick: 100, BoardedTick: 150},
+			{SharingConsent: SharedConsent, Service: OnDemandService, ID: 3, From: "harbor", To: "market", PartySize: 1, PodID: "03", RequestedTick: 110, BoardedTick: 150},
 		},
 		PhaseTicks: unloadingTicks / 2, Origin: "harbor-1", Destination: "market-1", DestinationStation: "market",
 	}
 	pickup := relocating(f.traveling(t, travelInput{id: "04", from: "garden-1", to: "harbor-1", lane: "return-to-parking", distance: 100}))
-	pickup.Riders = []SavedRequest{{ID: 1, From: "harbor", To: "garden", PartySize: 1, PodID: "04", Completed: true, RequestedTick: 10, BoardedTick: 30}}
+	pickup.Riders = []SavedRequest{{SharingConsent: SharedConsent, Service: OnDemandService, ID: 1, From: "harbor", To: "garden", PartySize: 1, PodID: "04", Completed: true, RequestedTick: 10, BoardedTick: 30}}
 	route, err := f.s.stationApproachRoute("harbor-berth", "market")
 	if err != nil {
 		t.Fatal(err)
@@ -43,10 +43,10 @@ func logicalState(t *testing.T, f restoreFixture) SavedState {
 	state.Demo = &SavedDemo{SecondSent: true}
 	state.Waiting = []SavedTrip{
 		{
-			Request: SavedRequest{ID: 9, From: "harbor", To: "market", PartySize: 1, PodID: "04", RequestedTick: 500},
+			Request: SavedRequest{SharingConsent: SharedConsent, Service: OnDemandService, ID: 9, From: "harbor", To: "market", PartySize: 1, PodID: "04", RequestedTick: 500},
 			Route:   f.s.laneIndexes(route, len(route)), DeferUntil: restoreTick + 100, DeferCheck: restoreTick + 30, DeferPodID: "02",
 		},
-		{Request: SavedRequest{ID: 10, From: "parking", To: "market", PartySize: 1, RequestedTick: 550}},
+		{Request: SavedRequest{SharingConsent: SharedConsent, Service: OnDemandService, ID: 10, From: "parking", To: "market", PartySize: 1, RequestedTick: 550}},
 	}
 	state.RequestID, state.Completed, state.Boarded = 10, 2, 8
 	state.SharedRidePartyLimit, state.SharedParties = 4, 3
@@ -231,7 +231,7 @@ func TestRestoreLogicalKeepsSharedRides(t *testing.T) {
 				t.Fatal(err)
 			}
 			for range 6 {
-				if err = live.RequestTrip("harbor", "market"); err != nil {
+				if err = submitSharedTrip(live, "harbor", "market"); err != nil {
 					t.Fatal(err)
 				}
 			}

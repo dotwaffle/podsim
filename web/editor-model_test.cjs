@@ -12,6 +12,27 @@ function fixture() {
   return { client, sent, worker, timers, get terminated() { return terminated; } };
 }
 
+test("model synchronization transfers authored service branches and removals without class defaults", async () => {
+  const f = fixture();
+  const network = { Stations: [{ ID: "hub", VehicleClasses: ["compact", "express"] }] };
+  const fleet = [{ ID: "pod", Class: "compact" }];
+  const services = [{ ID: "one", Class: "express", PartyLimit: 20 }];
+  const first = { version: 3, network, fleet, expressServices: services };
+  const one = f.client.call(first);
+  assert.deepEqual(f.sent[0].patch, first);
+  f.worker.onmessage({ data: { id: f.sent[0].id, result: { valid: true } } }); await one;
+  const second = { ...first, expressServices: [] };
+  const two = f.client.call(second);
+  assert.deepEqual(f.sent[1].patch, { expressServices: [] });
+  f.worker.onmessage({ data: { id: f.sent[1].id, result: { valid: true } } }); await two;
+  const { expressServices: removed, ...third } = second;
+  const three = f.client.call(third);
+  assert.deepEqual(f.sent[2].patch, {});
+  assert.ok(!f.sent[2].keys.includes("expressServices"));
+  f.worker.onmessage({ data: { id: f.sent[2].id, result: { valid: true } } }); await three;
+  assert.deepEqual(fleet, [{ ID: "pod", Class: "compact" }]);
+});
+
 test("model client serializes jobs and transfers only changed project fields", async () => {
   const f = fixture();
   const network = {}, first = { network, demand: { seed: 1 }, map: {} }, next = { network, demand: { seed: 2 } };

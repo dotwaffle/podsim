@@ -23,6 +23,7 @@ func (s *Simulation) Clone() *Simulation {
 		v.routeReleases = maps.Clone(v.routeReleases)
 	}
 	c.owners = maps.Clone(s.owners)
+	c.expressServices = maps.Clone(s.expressServices)
 	if s.pickupSwaps != nil {
 		c.pickupSwaps = new(*s.pickupSwaps)
 		c.pickupSwaps.cooldown = maps.Clone(s.pickupSwaps.cooldown)

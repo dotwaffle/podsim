@@ -14,11 +14,11 @@ func TestJourneyAndDetourTotals(t *testing.T) {
 	if err := s.SetSharedRidePartyLimit(2); err != nil {
 		t.Fatal(err)
 	}
-	if err := s.RequestTrip("harbor", "market"); err != nil {
+	if err := submitSharedTrip(s, "harbor", "market"); err != nil {
 		t.Fatal(err)
 	}
 	advance(s, TicksPerSecond)
-	if err := s.RequestTrip("harbor", "market"); err != nil {
+	if err := submitSharedTrip(s, "harbor", "market"); err != nil {
 		t.Fatal(err)
 	}
 	var state Snapshot
@@ -69,7 +69,7 @@ func TestDirectDistanceIgnoresCongestionRouting(t *testing.T) {
 func newTwoStopRide(t *testing.T) *Simulation {
 	t.Helper()
 	s := newSharingSimulation(t)
-	if err := s.RequestTrip("harbor", "garden"); err != nil {
+	if err := submitSharedTrip(s, "harbor", "garden"); err != nil {
 		t.Fatal(err)
 	}
 	v := s.findVehicle("01")
@@ -79,7 +79,7 @@ func newTwoStopRide(t *testing.T) *Simulation {
 	s.requestID++
 	s.boarded++
 	v.Riders = append(v.Riders, Request{
-		ID: s.requestID, From: "harbor", To: "market", PartySize: 1, PodID: "01", RequestedTick: s.tick, BoardedTick: s.tick,
+		SharingConsent: SharedConsent, Service: OnDemandService, ID: s.requestID, From: "harbor", To: "market", PartySize: 1, PodID: "01", RequestedTick: s.tick, BoardedTick: s.tick,
 	})
 	v.Stops = []string{"garden", "market"}
 	return s

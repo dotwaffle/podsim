@@ -20,7 +20,7 @@ func TestAutomaticBerthClearing(t *testing.T) {
 			if occupied {
 				blocker.Pod.Activity, blocker.Pod.Occupied = Unloading, true
 				blocker.phaseTicks = 90 * TicksPerSecond
-				blocker.Riders = []Request{{ID: 1, From: "garden", To: "market", PartySize: 1}}
+				blocker.Riders = []Request{{SharingConsent: SharedConsent, Service: OnDemandService, ID: 1, From: "garden", To: "market", PartySize: 1}}
 				s.requestID = 1
 			}
 			if err := s.RequestJourney("01", "market"); err != nil {

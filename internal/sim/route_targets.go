@@ -7,6 +7,7 @@ import (
 )
 
 type routeTargetsInput struct {
+	class              VehicleClass
 	from               string
 	to                 []string
 	terminalBerthsOnly bool
@@ -30,7 +31,7 @@ type routeTargetResult struct {
 func (n Network) routeTargets(input routeTargetsInput, graph routeGraph) []routeTargetResult {
 	results := make([]routeTargetResult, len(input.to))
 	start, ok := graph.nodes[input.from]
-	if !ok {
+	if !ok || !graph.nodeAllows(start, input.class) {
 		for index := range results {
 			results[index].err = fmt.Errorf("unknown origin %q", input.from)
 		}
@@ -40,7 +41,7 @@ func (n Network) routeTargets(input routeTargetsInput, graph routeGraph) []route
 	remaining := 0
 	for index, id := range input.to {
 		goal, found := graph.nodes[id]
-		if !found {
+		if !found || !graph.nodeAllows(goal, input.class) {
 			results[index].err = fmt.Errorf("unknown destination %q", id)
 			continue
 		}
@@ -79,6 +80,9 @@ func (n Network) routeTargets(input routeTargetsInput, graph routeGraph) []route
 			continue
 		}
 		for _, laneIndex := range adjacent[item.node] {
+			if !graph.laneAllows(laneIndex, input.class) {
+				continue
+			}
 			edge := graph.edges[laneIndex]
 			next := edge.to
 			if input.reverse {
@@ -156,8 +160,9 @@ func (n Network) routesFromTargets(targets []routeTargetResult, graph routeGraph
 }
 
 type preferredNearestInput struct {
-	from string
-	rank []int
+	class VehicleClass
+	from  string
+	rank  []int
 	// limit is an inclusive free-flow bound. Zero means no bound.
 	limit   float64
 	reverse bool
@@ -175,7 +180,7 @@ func (n Network) preferredNearestIndexed(input preferredNearestInput, graph rout
 			goals = append(goals, n.Nodes[node].ID)
 		}
 	}
-	targets := n.preferredTargets(routeTargetsInput{from: input.from, to: goals, reverse: input.reverse}, graph)
+	targets := n.preferredTargets(routeTargetsInput{from: input.from, to: goals, reverse: input.reverse, class: input.class}, graph)
 	if input.reverse {
 		return n.preferredSource(input, targets, graph)
 	}
@@ -216,7 +221,7 @@ func (n Network) preferredSource(input preferredNearestInput, targets []routeTar
 		if target.err != nil || target.seconds > minimum+tolerance {
 			continue
 		}
-		search := networkRouteInput{from: n.Nodes[target.to].ID, to: input.from, terminalBerthsOnly: true}
+		search := networkRouteInput{from: n.Nodes[target.to].ID, to: input.from, terminalBerthsOnly: true, class: input.class}
 		_, err := n.routeIndexedWithWork(search, graph, &work)
 		if errors.Is(err, ErrUnreachable) {
 			search.terminalBerthsOnly = false

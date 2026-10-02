@@ -139,7 +139,7 @@ func (s *Simulation) nearestFreeBerth(v *vehicle, from string) (Berth, string, b
 	if len(candidates) == 0 {
 		return Berth{}, "", false
 	}
-	node, ok := s.network.preferredNearestIndexed(preferredNearestInput{from: from, rank: rank}, s.graph)
+	node, ok := s.network.preferredNearestIndexed(preferredNearestInput{from: from, rank: rank, class: v.Pod.Class}, s.graph)
 	if !ok {
 		return Berth{}, "", false
 	}
@@ -150,6 +150,10 @@ func (s *Simulation) nearestFreeBerth(v *vehicle, from string) (Berth, string, b
 // berthAvailableTo reports whether no pod other than v holds the berth or
 // its node.
 func (s *Simulation) berthAvailableTo(v *vehicle, berth Berth) bool {
+	s.ensureNetworkIndexes()
+	if node, ok := s.graph.nodes[berth.Node]; !ok || !s.graph.nodeAllows(node, v.Pod.Class) {
+		return false
+	}
 	for _, r := range berthResources(berth) {
 		if owner := s.owners[r]; owner != "" && owner != v.Pod.ID {
 			return false

@@ -100,15 +100,33 @@ func (n Network) bankRoute(input networkRouteInput, graph routeGraph, work *rout
 
 // stationBankEntry selects free-flow approach cost, then minimum berth load.
 func (s *Simulation) stationBankEntry(from string, station Station, load func(Berth) int) (string, error) {
-	if station.Banks == nil {
-		return station.Entry, nil
+	return s.stationBankEntryForClass(from, station, load, LegacyClass)
+}
+
+func (s *Simulation) stationBankEntryForClass(from string, station Station, load func(Berth) int, class VehicleClass) (string, error) {
+	return s.stationBankEntryMatching(from, station, load, class, nil)
+}
+
+func (s *Simulation) stationBankEntryMatching(from string, station Station, load func(Berth) int, class VehicleClass, accept func(Berth) bool) (string, error) {
+	if !station.VehicleClasses.Allows(string(class)) {
+		return "", ErrUnreachable
 	}
 	s.ensureNetworkIndexes()
+	if station.Banks == nil {
+		if (s.graph.classRestrictions || accept != nil) && !s.entryHasMatchingBerth(station, station.Entry, class, accept) {
+			return "", ErrUnreachable
+		}
+		return station.Entry, nil
+	}
 	if node, ok := s.graph.nodes[from]; ok {
 		if owner := s.graph.banks.nodes[node]; owner >= 0 {
 			bank := s.graph.banks.banks[owner]
 			if s.network.Stations[bank.station].ID == station.ID && node != bank.exit && s.graph.berthStations[node] < 0 {
-				return station.Banks[bank.bank].Entry, nil
+				entry := station.Banks[bank.bank].Entry
+				if accept != nil && !s.entryHasMatchingBerth(station, entry, class, accept) {
+					return "", ErrUnreachable
+				}
+				return entry, nil
 			}
 		}
 	}
@@ -119,7 +137,7 @@ func (s *Simulation) stationBankEntry(from string, station Station, load func(Be
 	}
 	bestEntry, bestCost, bestLoad := "", 0.0, 0
 	for _, bank := range station.Banks {
-		route, err := s.route(from, bank.Entry)
+		route, err := s.routeForClass(from, bank.Entry, class)
 		if err != nil {
 			continue
 		}
@@ -134,7 +152,16 @@ func (s *Simulation) stationBankEntry(from string, station Station, load func(Be
 		minimum := int(^uint(0) >> 1)
 		for _, id := range bank.BerthIDs {
 			berth, _ := station.berth(id)
+			if !berthAllows(station, berth, class) || accept != nil && !accept(berth) {
+				continue
+			}
+			if _, err := s.stationPathForClass(bank.Entry, berth.Node, class); err != nil {
+				continue
+			}
 			minimum = min(minimum, load(berth))
+		}
+		if minimum == int(^uint(0)>>1) {
+			continue
 		}
 		if bestEntry == "" || cost < bestCost || cost == bestCost && minimum < bestLoad {
 			bestEntry, bestCost, bestLoad = bank.Entry, cost, minimum
@@ -144,6 +171,18 @@ func (s *Simulation) stationBankEntry(from string, station Station, load func(Be
 		return "", ErrUnreachable
 	}
 	return bestEntry, nil
+}
+
+func (s *Simulation) entryHasMatchingBerth(station Station, entry string, class VehicleClass, accept func(Berth) bool) bool {
+	for _, berth := range station.Berths {
+		if station.berthEntry(berth) != entry || !berthAllows(station, berth, class) || accept != nil && !accept(berth) {
+			continue
+		}
+		if _, err := s.stationPathForClass(entry, berth.Node, class); err == nil {
+			return true
+		}
+	}
+	return false
 }
 
 func bankArrivalNode(bank bankTopology, graph routeGraph, node int) bool {
@@ -165,9 +204,9 @@ func (n Network) bankNearest(input preferredNearestInput, graph routeGraph) (int
 		if input.reverse {
 			from, to = to, from
 		}
-		route, err := n.routeIndexed(networkRouteInput{from: from, to: to, terminalBerthsOnly: true}, graph)
+		route, err := n.routeIndexed(networkRouteInput{from: from, to: to, terminalBerthsOnly: true, class: input.class}, graph)
 		if errors.Is(err, ErrUnreachable) {
-			route, err = n.routeIndexed(networkRouteInput{from: from, to: to}, graph)
+			route, err = n.routeIndexed(networkRouteInput{from: from, to: to, class: input.class}, graph)
 		}
 		if err != nil {
 			continue

@@ -209,7 +209,7 @@ func (s *Simulation) forecastCost(route []Lane, forecasts []laneForecast, start 
 // predictiveRoute changes only a new route or its uncommitted suffix. Its
 // forecasts select a path without granting any physical resource.
 func (s *Simulation) predictiveRoute(v *vehicle, from, to string) ([]Lane, error) {
-	free, err := s.route(from, to)
+	free, err := s.routeForClass(from, to, podClass(v))
 	if err != nil || len(free) == 0 {
 		return free, err
 	}
@@ -219,7 +219,7 @@ func (s *Simulation) predictiveRoute(v *vehicle, from, to string) ([]Lane, error
 	if freeCost == freeSeconds {
 		return free, nil
 	}
-	planned, err := s.searchRoute(networkRouteInput{from: from, to: to, forecasts: forecasts, forecastStart: start, terminalBerthsOnly: true})
+	planned, err := s.searchRoute(networkRouteInput{from: from, to: to, class: podClass(v), forecasts: forecasts, forecastStart: start, terminalBerthsOnly: true})
 	if err == nil {
 		seconds, cost := s.forecastCost(planned, forecasts, start)
 		if freeCost-cost >= math.Max(queueMinimumSavingSeconds, queueMinimumSavingShare*freeCost) && seconds <= queueDetourLimit*freeSeconds {

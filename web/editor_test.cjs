@@ -48,6 +48,80 @@ function connectedScenario() {
   return editor.setFleetCount(config, alpha.ID, 1);
 }
 
+function serviceScenario() {
+  const config = connectedScenario();
+  config.version = 3;
+  const classes = ["legacy", "compact", "group", "express"];
+  for (const lane of config.network.Lanes) lane.VehicleClasses = [...classes];
+  for (const station of config.network.Stations) {
+    station.VehicleClasses = [...classes];
+    for (const berth of station.Berths) berth.VehicleClasses = [...classes];
+  }
+  config.fleet[0].Class = "compact";
+  config.expressServices = [{ ID: "express", From: config.network.Stations[0].ID, To: config.network.Stations[1].ID, Class: "express", PartyLimit: 20 }];
+  return config;
+}
+
+test("project 3 imports bare or wrapper 1 and preserves authored class and registry metadata", () => {
+  const config = serviceScenario(), before = structuredClone(config);
+  assert.deepEqual(editor.parseDocument(JSON.stringify(config)).scenario, config);
+  const exported = JSON.parse(editor.serializeDocument(config, null));
+  assert.equal(exported.version, 1);
+  assert.equal(exported.scenario.version, 3);
+  assert.deepEqual(editor.parseDocument(JSON.stringify(exported)).scenario, config);
+  assert.deepEqual(editor.validateConfig(config), []);
+  const normalized = editor.normalizeConfig(config);
+  assert.equal(normalized.version, 3);
+  assert.deepEqual(normalized.expressServices, config.expressServices);
+  assert.deepEqual(normalized.fleet, config.fleet);
+  normalized.expressServices[0].PartyLimit = 1;
+  normalized.network.Stations[0].VehicleClasses.pop();
+  assert.deepEqual(config, before);
+  assert.match(editor.fleetClassNotice(config), /New pods use legacy class/);
+  assert.match(editor.fleetClassNotice(config), /Group and express pods cannot start/);
+  assert.equal(editor.fleetClassNotice({ version: 1 }), "");
+  for (const version of [1, 2]) {
+    const invalid = { ...config, version };
+    assert.throws(() => editor.normalizeConfig(invalid), /version 3/);
+    assert.throws(() => editor.parseDocument(JSON.stringify(invalid)), /version 3/);
+  }
+  for (const classID of ["group", "express", "unknown", null, ""]) {
+    const invalid = structuredClone(config); invalid.fleet[0].Class = classID;
+    assert.ok(editor.validateConfig(invalid).some((text) => /vehicle class|physical profile/.test(text)));
+  }
+});
+
+test("project 3 is independent of banks and new metadata; old project fields require explicit version 3", () => {
+  const config = connectedScenario(); config.version = 3;
+  assert.deepEqual(editor.validateConfig(config), []);
+  assert.equal(editor.normalizeConfig(config).version, 3);
+  for (const value of [null, []]) {
+    const invalid = { ...config, version: 1, expressServices: value };
+    assert.throws(() => editor.parseDocument(JSON.stringify(invalid)), /version 3/);
+    const deferred = editor.parseDocument(JSON.stringify(invalid), { deferMetadata: true });
+    assert.deepEqual(deferred.scenario.expressServices, value);
+  }
+  const compactOnly = serviceScenario();
+  compactOnly.network.Stations[0].VehicleClasses = ["compact"];
+  delete compactOnly.fleet[0].Class;
+  assert.ok(editor.validateConfig(compactOnly).some((text) => /incompatible station or berth/.test(text)));
+  const future = serviceScenario();
+  delete future.fleet[0].Class;
+  assert.equal(editor.normalizeConfig(future).fleet[0].Class, undefined);
+});
+
+test("project-3 reference checks match native class and registry reports", () => {
+  const fixture = JSON.parse(fs.readFileSync(path.join(__dirname, "../internal/editormodel/testdata/service_checks.json"), "utf8"));
+  for (const item of fixture.cases) {
+    const config = structuredClone(fixture.base);
+    for (const change of item.changes) {
+      const parent = change.path.slice(0, -1).reduce((current, key) => current[key], config);
+      parent[change.path.at(-1)] = structuredClone(change.value);
+    }
+    assert.deepEqual(editor.checkResults(config), item.checks, item.name);
+  }
+});
+
 // chainScenario gives Alpha a berth chain like the generated stations use:
 // entry, arrival node, berth, departure node, and exit.
 function chainScenario() {
@@ -1985,7 +2059,7 @@ test("import names the missing or wrong field", () => {
     { name: "an API reply", file: { revision: 3, project: scenario }, message: "The file has no format field and no network field." },
     { name: "a project with a network list", file: { ...scenario, network: [] }, message: "The network field must be an object." },
     { name: "a version 2 project without banks", file: { ...scenario, version: 2 }, message: "Version 2 projects need a banked station." },
-    { name: "a project with no version", file: { ...scenario, version: undefined }, message: "The version field must be 1 or 2." },
+    { name: "a project with no version", file: { ...scenario, version: undefined }, message: "The version field must be 1, 2, or 3." },
   ];
   for (const item of cases) {
     assert.throws(() => editor.parseDocument(JSON.stringify(item.file)), { message: item.message }, item.name);

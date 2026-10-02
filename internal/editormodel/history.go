@@ -339,6 +339,14 @@ func (e *engine) restoreHistory(state historySnapshot) {
 			e.checks.profiles, e.checks.profilesReady = nil, false
 		}
 	}
+	if e.checks != nil {
+		for _, key := range []string{"version", "fleet", "expressServices"} {
+			if !bytes.Equal(e.branches[key].raw, state.branches[key].raw) {
+				e.checks.servicesReady = false
+				break
+			}
+		}
+	}
 	branches := maps.Clone(state.branches)
 	if network := branches["network"]; network.needsValue {
 		previous := e.branches["network"]

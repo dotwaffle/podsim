@@ -27,6 +27,10 @@ func TestCommandLimitsCoverEachArray(t *testing.T) {
 	var paths []string
 	var walk func(typ reflect.Type, path string)
 	walk = func(typ reflect.Type, path string) {
+		if typ == reflect.TypeFor[sim.ClassSet]() {
+			paths = append(paths, path)
+			return
+		}
 		switch typ.Kind() {
 		case reflect.Pointer:
 			walk(typ.Elem(), path)

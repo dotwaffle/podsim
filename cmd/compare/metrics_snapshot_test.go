@@ -36,7 +36,7 @@ func TestMetricsSnapshotConsumers(t *testing.T) {
 			for tick := range durationTicks(input.duration) {
 				for next < len(input.schedule) && input.schedule[next].tick == tick {
 					request := input.schedule[next]
-					if err := simulation.RequestTrip(request.origin, request.destination); err != nil {
+					if _, err := simulation.SubmitTripOptions(sim.TripOptions{From: request.origin, To: request.destination, SharingConsent: sim.SharedConsent}); err != nil {
 						t.Fatal(err)
 					}
 					next++

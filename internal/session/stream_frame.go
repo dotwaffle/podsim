@@ -28,6 +28,8 @@ func (s *Session) presentationFrame() (StreamFrame, error) {
 
 // StreamAssembler caches verified topology and immutable expanded route data.
 type StreamAssembler struct {
+	version  int
+	classes  map[string]sim.VehicleClass
 	topology TopologySnapshot
 	lanes    map[string]bool
 	stations map[string]bool
@@ -72,6 +74,9 @@ func NewStreamAssembler(topology TopologySnapshot) (*StreamAssembler, error) {
 
 // State reconstructs a candidate without mutating earlier views.
 func (a *StreamAssembler) State(f StreamFrame) (State, error) {
+	if err := a.serviceOrders(f); err != nil {
+		return State{}, err
+	}
 	if len(f.Routes) != len(f.State.Simulation.Vehicles) {
 		return State{}, errors.New("missing route presentation")
 	}
@@ -135,6 +140,9 @@ func (a *StreamAssembler) State(f StreamFrame) (State, error) {
 			r.OriginNode = a.topology.Network.Nodes[r.Origin].ID
 		}
 		v.Presentation = &r
+	}
+	if err := a.rememberClasses(f); err != nil {
+		return State{}, err
 	}
 	a.previous = f
 	a.state = state

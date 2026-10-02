@@ -59,7 +59,7 @@ func TestDropOffsJoinAddsStops(t *testing.T) {
 				t.Fatal(err)
 			}
 			for _, destination := range test.destinations {
-				if err := s.RequestTrip("harbor", destination); err != nil {
+				if err := submitSharedTrip(s, "harbor", destination); err != nil {
 					t.Fatal(err)
 				}
 			}
@@ -84,7 +84,7 @@ func TestDropOffsJoinAddsStops(t *testing.T) {
 func TestDropOffStopsLimits(t *testing.T) {
 	t.Parallel()
 	s := newDropOffsSimulation(t, 1)
-	if err := s.RequestTrip("harbor", "market"); err != nil {
+	if err := submitSharedTrip(s, "harbor", "market"); err != nil {
 		t.Fatal(err)
 	}
 	v := s.findVehicle("01")
@@ -159,7 +159,7 @@ func TestDropOffsDetourCap(t *testing.T) {
 				t.Fatalf("planned detour ratio %.6f", planned)
 			}
 			for _, destination := range test.destinations {
-				if err := s.RequestTrip("harbor", destination); err != nil {
+				if err := submitSharedTrip(s, "harbor", destination); err != nil {
 					t.Fatal(err)
 				}
 			}
@@ -232,7 +232,7 @@ func TestDropOffsCostedRouteKeepsCap(t *testing.T) {
 		t.Fatalf("planned detour ratio on the congestion route %.6f", planned)
 	}
 	for _, destination := range []string{"market", "garden"} {
-		if err := s.RequestTrip("harbor", destination); err != nil {
+		if err := submitSharedTrip(s, "harbor", destination); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -295,7 +295,7 @@ func TestDropOffsBerthRerouteKeepsCap(t *testing.T) {
 			if path, err := s.stationPath("market-entry", "market-berth-2"); err != nil || len(path) != 1 || path[0].ID != "market-in-direct" {
 				t.Fatalf("station path %v, %v", routeIDs(path), err)
 			}
-			if err := s.RequestJourney("01", "market"); err != nil {
+			if err := requestSharedJourney(s, "01", "market"); err != nil {
 				t.Fatal(err)
 			}
 			v := s.findVehicle("01")
@@ -353,7 +353,7 @@ func TestDropOffsDetourCapWithRoutingPolicies(t *testing.T) {
 			for tick := range 600 * TicksPerSecond {
 				if tick%(3*TicksPerSecond) == 0 {
 					trip := trips[tick/(3*TicksPerSecond)%len(trips)]
-					if err := s.RequestTrip(trip[0], trip[1]); err != nil {
+					if err := submitSharedTrip(s, trip[0], trip[1]); err != nil {
 						t.Fatal(err)
 					}
 				}
@@ -417,7 +417,7 @@ func TestDropOffsRestoreBoardsWithinCap(t *testing.T) {
 	pod.Occupied, pod.Stops, pod.JourneyOrigin, pod.LaneID = true, stops, "harbor-1", "market-in"
 	for index, stop := range stops {
 		pod.Riders = append(pod.Riders, SavedRequest{
-			ID: index + 1, From: "harbor", To: stop, PartySize: 1, PodID: "01", RequestedTick: 10, BoardedTick: 20,
+			SharingConsent: SharedConsent, Service: OnDemandService, ID: index + 1, From: "harbor", To: stop, PartySize: 1, PodID: "01", RequestedTick: 10, BoardedTick: 20,
 		})
 	}
 	for _, test := range []struct {

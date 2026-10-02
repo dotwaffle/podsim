@@ -95,6 +95,7 @@ func policyRestartFixture(t *testing.T) (project.Config, sim.SavedState) {
 		}
 		state.Waiting = append(state.Waiting, sim.SavedTrip{Request: sim.SavedRequest{
 			ID: index + 1, From: from, To: "market", PartySize: 1, PodID: config.Fleet[index].ID,
+			SharingConsent: sim.PrivateConsent, Service: sim.OnDemandService,
 		}})
 	}
 	simulation, result, err := sim.RestoreState(sim.RestoreStateInput{Network: config.Network, Fleet: config.Fleet, State: state})
@@ -145,7 +146,7 @@ func storedPolicyFixture(t *testing.T, store *Store, config project.Config, simu
 	if err != nil {
 		t.Fatal(err)
 	}
-	file["simulation"], file["version"] = raw, json.RawMessage("3")
+	file["simulation"], file["version"] = raw, json.RawMessage("6")
 	data := encodePolicyState(t, file)
 	mustWrite(t, store, data)
 }
@@ -230,10 +231,7 @@ func TestCombinedPoliciesFileRestart(t *testing.T) {
 				if err := restarted.SaveState(t.Context(), session.SaveFinal); err != nil {
 					t.Fatal(err)
 				}
-				wantVersion := "2"
-				if buffers {
-					wantVersion = "3"
-				}
+				wantVersion := "6"
 				if got := string(policyStateJSON(t, mustRead(t, store))["version"]); got != wantVersion {
 					t.Fatalf("drained save version=%s, want %s", got, wantVersion)
 				}
@@ -255,6 +253,34 @@ func TestLegacyFileRestartWithExperimentalPolicies(t *testing.T) {
 	if err := shared.SaveState(t.Context(), session.SaveFinal); err != nil {
 		t.Fatal(err)
 	}
+
+	// Construct a historical version-2 file from the current capture.
+	// Historical files did not contain consent or vehicle-class metadata.
+	file := policyStateJSON(t, mustRead(t, store))
+	var saved sim.SavedState
+	if err := json.Unmarshal(file["simulation"], &saved); err != nil {
+		t.Fatal(err)
+	}
+	strip := func(request *sim.SavedRequest) {
+		request.SharingConsent, request.Service, request.ServiceID = "", "", ""
+		request.LegacyPartySize = false
+	}
+	for index := range saved.Pods {
+		pod := &saved.Pods[index]
+		pod.Class, pod.LegacyCohort, pod.StationBuffered, pod.Platoon = "", false, false, nil
+		for rider := range pod.Riders {
+			strip(&pod.Riders[rider])
+		}
+	}
+	for index := range saved.Waiting {
+		strip(&saved.Waiting[index].Request)
+	}
+	raw, err := json.Marshal(saved)
+	if err != nil {
+		t.Fatal(err)
+	}
+	file["simulation"], file["version"] = raw, json.RawMessage("2")
+	mustWrite(t, store, encodePolicyState(t, file))
 	if string(policyStateJSON(t, mustRead(t, store))["version"]) != "2" {
 		t.Fatal("legacy fixture is not a version 2 save")
 	}

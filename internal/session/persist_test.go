@@ -252,7 +252,7 @@ var (
 	invalidBudget  = func(file *stateFile) { file.Demand.Budget = demandBudgetLimit }
 	invalidProject = func(file *stateFile) { file.Project.Name = "" }
 	bothTiersFail  = func(file *stateFile) { file.Simulation.Completed = file.Simulation.RequestID + 1 }
-	newerVersion   = func(file *stateFile) { file.Version = bankStateVersion + 1 }
+	newerVersion   = func(file *stateFile) { file.Version = serviceStateVersion + 1 }
 	pausedAtSpeed4 = func(file *stateFile) { file.Simulation.Paused, file.Speed = true, 4 }
 	// sharedBerth puts the first two pods at one berth. The physical tier
 	// then fails. The active riders of the two pods go to the queue, so the
@@ -2769,7 +2769,7 @@ func TestMaximalRequeueRoundTrip(t *testing.T) {
 	state := &file.Simulation
 	order := func(from, to, podID string) sim.SavedRequest {
 		state.RequestID++
-		return sim.SavedRequest{ID: state.RequestID, From: from, To: to, PartySize: 1, PodID: podID}
+		return sim.SavedRequest{SharingConsent: sim.SharedConsent, Service: sim.OnDemandService, ID: state.RequestID, From: from, To: to, PartySize: 1, PodID: podID}
 	}
 	for index := range state.Pods {
 		pod := &state.Pods[index]

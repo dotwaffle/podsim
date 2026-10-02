@@ -140,7 +140,11 @@ func (s *Simulation) grantBufferedHead(in intent, plan stationBufferPlan) {
 	station, _ := s.station(v.destinationStation)
 	v.bufferBerth = ""
 	blockedBerth, blockedOwner := "", ""
+	accept := s.berthFilterForVehicle(v)
 	for _, berth := range station.Berths {
+		if accept != nil && !accept(berth) {
+			continue
+		}
 		if station.Banks != nil && station.berthEntry(berth) != plan.lane.To {
 			continue
 		}
@@ -156,11 +160,15 @@ func (s *Simulation) grantBufferedHead(in intent, plan stationBufferPlan) {
 			}
 			continue
 		}
-		suffix, err := s.stationPath(plan.lane.To, berth.Node)
+		suffix, err := s.stationPathForClass(plan.lane.To, berth.Node, v.Pod.Class)
 		if err != nil || len(suffix) == 0 {
 			continue
 		}
 		if v.follower != 0 && !s.bufferSuffixValid(v, suffix, berth) {
+			continue
+		}
+		route := append(slices.Clone(v.Route), suffix...)
+		if !s.rerouteKeepsDetours(v, route, berth) {
 			continue
 		}
 		before := *v
@@ -171,7 +179,6 @@ func (s *Simulation) grantBufferedHead(in intent, plan stationBufferPlan) {
 			wasDraining = follower.link.draining
 			follower.link.draining = true
 		}
-		route := append(slices.Clone(v.Route), suffix...)
 		for _, claim := range claims {
 			if claim.owner != nil {
 				delete(s.owners, claim.resource)

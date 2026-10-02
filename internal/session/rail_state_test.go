@@ -14,8 +14,7 @@ func TestRailPlanStateRoundTrip(t *testing.T) {
 	older := withoutMember(reflect.TypeFor[stateFile](), reflect.TypeFor[project.Config](), "railArrivals")
 	for _, version := range []int{stateVersion, bufferStateVersion, bufferPlatoonStateVersion} {
 		for _, withPlan := range []bool{false, true} {
-			file := newTestStateFile(t)
-			file.Version = version
+			file := legacyTestState(newTestStateFile(t), version)
 			if withPlan {
 				file.Project.RailArrivals = []project.RailArrival{{ID: "train", Station: "harbor", AtSeconds: 60, WalkingSeconds: 15, Passengers: 120,
 					Destinations: []project.RailDestination{{Station: "market", Weight: 1}}}}

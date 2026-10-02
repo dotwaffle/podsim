@@ -106,6 +106,9 @@ func validatePlacements(network Network, placements []Placement) error {
 	}
 	ids, berths := make(map[string]bool), make(map[string]bool)
 	for _, placement := range placements {
+		if err := ValidateVehicleClassProfile(placement.Class); err != nil {
+			return err
+		}
 		if placement.ID == "" || ids[placement.ID] {
 			return fmt.Errorf("invalid or duplicate pod %q", placement.ID)
 		}
@@ -116,6 +119,9 @@ func validatePlacements(network Network, placements []Placement) error {
 		berth, ok := station.berth(placement.BerthID)
 		if !ok || berths[berth.ID] {
 			return fmt.Errorf("invalid or occupied initial berth at %q", placement.StationID)
+		}
+		if !station.VehicleClasses.Allows(string(placement.Class)) || !berth.VehicleClasses.Allows(string(placement.Class)) {
+			return fmt.Errorf("pod %s class is incompatible with its initial berth", placement.ID)
 		}
 		ids[placement.ID], berths[berth.ID] = true, true
 	}
@@ -142,11 +148,12 @@ func (p *PreparedNetwork) newFleet(placements []Placement) *Simulation {
 // PreparedRestoreInput supplies the fleet and saved state for a prepared network.
 // The network must be the one that the saved simulation used.
 type PreparedRestoreInput struct {
-	Fleet          []Placement
-	State          SavedState
-	LogicalOnly    bool
-	StationBuffers bool
-	BufferPlatoons bool
+	ExpressServices []ExpressService
+	Fleet           []Placement
+	State           SavedState
+	LogicalOnly     bool
+	StationBuffers  bool
+	BufferPlatoons  bool
 }
 
 // RestoreState rebuilds a simulation with this network's immutable geometry.
@@ -156,6 +163,6 @@ func (p *PreparedNetwork) RestoreState(input PreparedRestoreInput) (*Simulation,
 	if err := p.check(); err != nil {
 		return nil, RestoreResult{}, err
 	}
-	stateInput := RestoreStateInput{Network: p.network, Fleet: input.Fleet, State: input.State, LogicalOnly: input.LogicalOnly, StationBuffers: input.StationBuffers, BufferPlatoons: input.BufferPlatoons}
+	stateInput := RestoreStateInput{ExpressServices: input.ExpressServices, Network: p.network, Fleet: input.Fleet, State: input.State, LogicalOnly: input.LogicalOnly, StationBuffers: input.StationBuffers, BufferPlatoons: input.BufferPlatoons}
 	return restoreState(stateInput, func() (*Simulation, error) { return p.NewFleet(input.Fleet) })
 }

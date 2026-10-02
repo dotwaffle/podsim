@@ -73,7 +73,7 @@ func TestJourneyColumnsInRun(t *testing.T) {
 	t.Parallel()
 	opts, err := parseOptions([]string{
 		"-duration", "4m", "-arrivals-for", "1m", "-request-every", "5s", "-burst-size", "6", "-pattern", "hub-burst",
-		"-sharing-limits", "1,2", "-redistribution-policies", "off",
+		"-sharing-consent", "shared", "-sharing-limits", "1,2", "-redistribution-policies", "off",
 	}, &bytes.Buffer{})
 	if err != nil {
 		t.Fatal(err)
@@ -116,7 +116,7 @@ func TestWaitSetMatchesSimulation(t *testing.T) {
 	}
 	for second := range 90 {
 		if second%5 == 0 {
-			if err := simulation.RequestTrip("market", caseStudy.passengers[second/5%2]); err != nil {
+			if _, err := simulation.SubmitTripOptions(sim.TripOptions{From: "market", To: caseStudy.passengers[second/5%2], SharingConsent: sim.SharedConsent}); err != nil {
 				t.Fatal(err)
 			}
 		}
@@ -148,6 +148,7 @@ func TestWaitSetMatchesSimulation(t *testing.T) {
 func TestOccupancyInRun(t *testing.T) {
 	t.Parallel()
 	input := smallBurstInput(t)
+	input.sharingConsent = sim.SharedConsent
 	single, err := run(input)
 	if err != nil {
 		t.Fatal(err)

@@ -40,7 +40,7 @@ func TestStepCompletionsFollowUnloading(t *testing.T) {
 		t.Fatal(err)
 	}
 	for want := 1; want <= 2; want++ {
-		if id, err := s.SubmitTrip("harbor", "market"); err != nil || id != want {
+		if id, err := s.SubmitTripOptions(TripOptions{From: "harbor", To: "market", SharingConsent: SharedConsent}); err != nil || id != want {
 			t.Fatalf("submit: ID %d, error %v", id, err)
 		}
 	}

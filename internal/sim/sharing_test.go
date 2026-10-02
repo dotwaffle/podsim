@@ -11,10 +11,10 @@ func TestSameDestinationPartiesShareBoardingPod(t *testing.T) {
 	if err := s.SetSharedRidePartyLimit(2); err != nil {
 		t.Fatal(err)
 	}
-	if err := s.RequestTrip("harbor", "market"); err != nil {
+	if err := submitSharedTrip(s, "harbor", "market"); err != nil {
 		t.Fatal(err)
 	}
-	if err := s.RequestTrip("harbor", "market"); err != nil {
+	if err := submitSharedTrip(s, "harbor", "market"); err != nil {
 		t.Fatal(err)
 	}
 	state := s.Snapshot()
@@ -55,7 +55,7 @@ func TestSameDestinationSharingHonorsPolicyAndDestination(t *testing.T) {
 				t.Fatal(err)
 			}
 			for _, destination := range test.destinations {
-				if err := s.RequestTrip("harbor", destination); err != nil {
+				if err := submitSharedTrip(s, "harbor", destination); err != nil {
 					t.Fatal(err)
 				}
 			}

@@ -15,6 +15,8 @@ type projectBranch struct {
 	decoded    project.Config
 	value      any
 	needsValue bool
+	services   bool
+	banked     bool
 	err        error
 }
 
@@ -146,13 +148,14 @@ func (e *engine) sync(command request) (response, error) {
 				if err := json.Unmarshal(branch.raw, &branch.value); err != nil {
 					return response{}, fmt.Errorf("decode editor draft branch: %w", err)
 				}
+				branch.services = hasServiceMetadata(map[string]any{key: branch.value})
+				branch.banked = key == "network" && hasBanks(branch.value)
 			}
 			encoded, err := json.Marshal(map[string]jsontext.Value{key: branch.raw})
 			if err != nil {
 				return response{}, fmt.Errorf("encode project branch: %w", err)
 			}
-			// Branches can omit the project version or network. Check bank
-			// version and field presence after the branches are combined.
+			// Check version and field presence after combining the branches.
 			type branchConfig project.Config
 			var decoded branchConfig
 			branch.err = json.Unmarshal(encoded, &decoded, json.RejectUnknownMembers(true))
@@ -169,10 +172,17 @@ func (e *engine) sync(command request) (response, error) {
 			firstError = fmt.Errorf("unsupported editor project field %s", key)
 		}
 	}
-	if firstError == nil && (hasBanks(next["network"].value) || config.Version == 2) {
-		raw, err := json.Marshal(map[string]jsontext.Value{"version": next["version"].raw, "network": next["network"].raw})
+	servicePresent := next["network"].services || next["fleet"].services || next["expressServices"].services
+	if firstError == nil && (next["network"].banked || config.Version == 2 || config.Version == 3 || servicePresent) {
+		fields := make(map[string]jsontext.Value, 4)
+		for _, key := range []string{"version", "network", "fleet", "expressServices"} {
+			if branch, present := next[key]; present {
+				fields[key] = branch.raw
+			}
+		}
+		raw, err := json.Marshal(fields)
 		if err != nil {
-			return response{}, fmt.Errorf("encode editor bank branches: %w", err)
+			return response{}, fmt.Errorf("encode editor metadata branches: %w", err)
 		}
 		var checked project.Config
 		firstError = json.Unmarshal(raw, &checked, json.RejectUnknownMembers(true))
@@ -186,6 +196,14 @@ func (e *engine) sync(command request) (response, error) {
 	}
 	if !bytes.Equal(e.branches["network"].raw, next["network"].raw) {
 		e.checks = nil
+	}
+	if e.checks != nil {
+		for _, key := range []string{"version", "fleet", "expressServices"} {
+			if !bytes.Equal(e.branches[key].raw, next[key].raw) {
+				e.checks.servicesReady = false
+				break
+			}
+		}
 	}
 	e.branches, e.config, e.err, e.ready, e.size = next, config, firstError, true, size
 	if firstError != nil {
@@ -204,6 +222,8 @@ func copyBranch(dst *project.Config, key string, src project.Config) bool {
 		dst.Network = src.Network
 	case "fleet":
 		dst.Fleet = src.Fleet
+	case "expressServices":
+		dst.ExpressServices = src.ExpressServices
 	case "demand":
 		dst.Demand = src.Demand
 	case "demandProfiles":

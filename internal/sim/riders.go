@@ -77,7 +77,7 @@ func (s *Simulation) alight(v *vehicle) {
 			continue
 		}
 		if !directKnown {
-			direct, directKnown = s.directDistance(v.journeyOrigin.Node, rider.To, v.destination), true
+			direct, directKnown = s.directDistanceForClass(v.journeyOrigin.Node, rider.To, v.destination, v.Pod.Class), true
 		}
 		rider.Completed = true
 		s.stepCompletions = append(s.stepCompletions, StepCompletion{RequestID: rider.ID, AlightedTick: s.tick})
@@ -107,15 +107,19 @@ func (s *Simulation) alight(v *vehicle) {
 // route gives the free-flow route with each routing policy, so the direct
 // distance does not change with the policy or with congestion.
 func (s *Simulation) directDistance(from, stationID string, berth Berth) float64 {
+	return s.directDistanceForClass(from, stationID, berth, LegacyClass)
+}
+
+func (s *Simulation) directDistanceForClass(from, stationID string, berth Berth, class VehicleClass) float64 {
 	station, ok := s.station(stationID)
 	if !ok || from == "" || berth.Node == "" {
 		return -1
 	}
-	approach, err := s.route(from, station.berthEntry(berth))
+	approach, err := s.routeForClass(from, station.berthEntry(berth), class)
 	if err != nil {
 		return -1
 	}
-	path, err := s.stationPath(station.berthEntry(berth), berth.Node)
+	path, err := s.stationPathForClass(station.berthEntry(berth), berth.Node, class)
 	if err != nil {
 		return -1
 	}

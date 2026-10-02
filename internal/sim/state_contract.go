@@ -185,6 +185,9 @@ func (state SavedState) checkContract() (int, error) {
 	// A queued order that is not valid does not stop the restore. Each tier
 	// drops it and reports it. See validTrip.
 	for _, trip := range state.Waiting {
+		if !validSavedOptions(trip.Request) || trip.Request.SharingConsent == LegacyUnknownConsent {
+			return 0, errors.New("pending order lacks valid effective options")
+		}
 		if err := use(trip.Request.ID, "in the queue"); err != nil {
 			return 0, err
 		}
@@ -214,6 +217,9 @@ func (state SavedState) checkPod(pod SavedPod) error {
 	}
 	rule := phaseRules[phase]
 	active, history := savedRiders(pod)
+	if err := checkSavedAdmission(pod, active); err != nil {
+		return err
+	}
 	if err := state.checkPodRiders(pod, rule, active, history); err != nil {
 		return err
 	}

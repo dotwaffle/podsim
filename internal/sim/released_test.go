@@ -59,7 +59,7 @@ func newReleaseFixture(t *testing.T) releaseFixture {
 	garden, _ := s.station("garden")
 	f.local.destination, _ = market.berth(f.local.Pod.BerthID)
 	f.local.origin, f.local.journeyOrigin = garden.Berths[0], garden.Berths[0]
-	f.local.Riders = []Request{{ID: 1, From: "garden", To: "market", PartySize: 1, PodID: f.local.Pod.ID}}
+	f.local.Riders = []Request{{SharingConsent: SharedConsent, Service: OnDemandService, ID: 1, From: "garden", To: "market", PartySize: 1, PodID: f.local.Pod.ID}}
 	f.local.phaseTicks = 180 * TicksPerSecond
 	s.requestID, s.boarded = 1, 1
 	if err := s.RequestTrip("market", "garden"); err != nil {
@@ -111,7 +111,7 @@ func TestReleasedPickupPodTakesNextTrip(t *testing.T) {
 			if tc.samePass {
 				f.s.requestID++
 				f.s.waiting = append(f.s.waiting, waitingTrip{request: Request{
-					ID: f.s.requestID, From: "garden", To: "market", PartySize: 1, RequestedTick: f.s.tick,
+					SharingConsent: SharedConsent, Service: OnDemandService, ID: f.s.requestID, From: "garden", To: "market", PartySize: 1, RequestedTick: f.s.tick,
 				}})
 			}
 			f.s.Step()
@@ -162,8 +162,8 @@ func TestPromotedPickupReleasesPod(t *testing.T) {
 	// releases pod 01.
 	s.requestID = 2
 	s.waiting = []waitingTrip{
-		{request: Request{ID: 1, From: "market", To: "garden", PartySize: 1, PodID: "01"}},
-		{request: Request{ID: 2, From: "market", To: "harbor", PartySize: 1, PodID: "02"}},
+		{request: Request{SharingConsent: SharedConsent, Service: OnDemandService, ID: 1, From: "market", To: "garden", PartySize: 1, PodID: "01"}},
+		{request: Request{SharingConsent: SharedConsent, Service: OnDemandService, ID: 2, From: "market", To: "harbor", PartySize: 1, PodID: "02"}},
 	}
 	s.dispatch()
 	if len(s.waiting) != 0 {
@@ -219,7 +219,7 @@ func TestReleasedPodFallbackBerth(t *testing.T) {
 			busy: []string{"garden-1", "parking-2"}, want: "market-2",
 			setup: func(s *Simulation) func() {
 				s.waiting = append(s.waiting, waitingTrip{
-					request:     Request{ID: 99, From: "garden", To: "market", PartySize: 1},
+					request:     Request{SharingConsent: SharedConsent, Service: OnDemandService, ID: 99, From: "garden", To: "market", PartySize: 1},
 					destination: Berth{ID: "market-1", Node: "market-berth"},
 				})
 				return func() { s.waiting = nil }
@@ -314,7 +314,7 @@ func openReleasedGate(t *testing.T, s *Simulation) {
 	if s.tick >= requested {
 		t.Fatalf("tick %d is not before request tick %d", s.tick, requested)
 	}
-	s.findVehicle("02").Riders = []Request{{ID: 1, From: "market", To: "garden", PartySize: 1, PodID: "02", Completed: true, RequestedTick: requested}}
+	s.findVehicle("02").Riders = []Request{{SharingConsent: SharedConsent, Service: OnDemandService, ID: 1, From: "market", To: "garden", PartySize: 1, PodID: "02", Completed: true, RequestedTick: requested}}
 	s.requestID, s.boarded = 1, 1
 	s.tick = requested + TicksPerSecond
 	s.nextRedistributionTick = s.tick
@@ -361,7 +361,7 @@ func TestReleasedPodSkipsHeldOrigin(t *testing.T) {
 		t.Fatal("pod 01 released its origin too early for this test")
 	}
 	s.requestID = 1
-	s.waiting = []waitingTrip{{request: Request{ID: 1, From: "market", To: "garden", PartySize: 1, PodID: "01"}}}
+	s.waiting = []waitingTrip{{request: Request{SharingConsent: SharedConsent, Service: OnDemandService, ID: 1, From: "market", To: "garden", PartySize: 1, PodID: "01"}}}
 	s.dispatch()
 	if !remote.released || remote.destination.ID == "harbor-1" {
 		t.Fatalf("pod 01 is not released or goes to its origin: released %v, destination %s",
@@ -400,7 +400,7 @@ func TestReleasedPodYieldsItsOrigin(t *testing.T) {
 	}
 	stepUntil(t, s, "pod 01 passes Clearance", func() bool { return remote.originReleased })
 	s.requestID = 1
-	s.waiting = []waitingTrip{{request: Request{ID: 1, From: "market", To: "harbor", PartySize: 1, PodID: "01"}}}
+	s.waiting = []waitingTrip{{request: Request{SharingConsent: SharedConsent, Service: OnDemandService, ID: 1, From: "market", To: "harbor", PartySize: 1, PodID: "01"}}}
 	s.dispatch()
 	if len(local.Riders) == 0 || local.Riders[0].ID != 1 {
 		t.Fatalf("pod 02 did not take request 1: %+v", local.Vehicle)
@@ -442,7 +442,7 @@ func TestReleasedPodFinishesCommittedInlet(t *testing.T) {
 	})
 	route := slices.Clone(remote.Route)
 	s.requestID = 1
-	s.waiting = []waitingTrip{{request: Request{ID: 1, From: "market", To: "garden", PartySize: 1, PodID: "01"}}}
+	s.waiting = []waitingTrip{{request: Request{SharingConsent: SharedConsent, Service: OnDemandService, ID: 1, From: "market", To: "garden", PartySize: 1, PodID: "01"}}}
 	s.dispatch()
 	local := s.findVehicle("02")
 	if local.Pod.Activity != Boarding || local.Riders[0].ID != 1 {
@@ -757,7 +757,7 @@ func TestReleasedPodRetainsCommittedArrivalChain(t *testing.T) {
 	remote, local, blocker := s.findVehicle("01"), s.findVehicle("02"), s.findVehicle("03")
 	for index, v := range []*vehicle{local, blocker} {
 		v.Pod.Activity, v.Pod.Occupied = Unloading, true
-		v.Riders = []Request{{ID: index + 1, From: "harbor", To: "market", PartySize: 1, PodID: v.Pod.ID}}
+		v.Riders = []Request{{SharingConsent: SharedConsent, Service: OnDemandService, ID: index + 1, From: "harbor", To: "market", PartySize: 1, PodID: v.Pod.ID}}
 		v.phaseTicks = 600 * TicksPerSecond
 	}
 	s.requestID, s.boarded = 2, 2

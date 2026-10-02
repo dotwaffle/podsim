@@ -248,7 +248,7 @@ func TestExportStateLimitsRoutes(t *testing.T) {
 			if tc.trip {
 				s.requestID = 1
 				s.waiting = []waitingTrip{{
-					request: Request{ID: 1, From: "s", To: "t", PartySize: 1, PodID: "02", RequestedTick: 500},
+					request: Request{SharingConsent: SharedConsent, Service: OnDemandService, ID: 1, From: "s", To: "t", PartySize: 1, PodID: "02", RequestedTick: 500},
 					route:   route, deferUntil: restoreTick + 100, deferCheck: restoreTick + 30, deferPodID: "02",
 				}}
 			} else {
@@ -341,6 +341,14 @@ func TestSavedStateGolden(t *testing.T) {
 		!slices.ContainsFunc(state.Pods, func(pod SavedPod) bool { return pod.Activity == activityCode(Traveling) }) {
 		t.Fatalf("the golden state has no demo or traveling pod: %+v", savedCounters(state))
 	}
+	if len(state.Pods[0].Riders) > 0 && state.Pods[0].Riders[0].SharingConsent == "" {
+		var migrateErr error
+		state, migrateErr = MigrateLegacyOrderState(state)
+		if migrateErr != nil {
+			t.Fatal(migrateErr)
+		}
+		data = encodeGolden(t, state)
+	}
 	restored, result, err := RestoreState(RestoreStateInput{Network: Example(), Fleet: demoFleet(), State: state})
 	if err != nil {
 		t.Fatal(err)
@@ -366,7 +374,7 @@ func TestSharedRidesAccountForEachOrder(t *testing.T) {
 	for second := range 900 {
 		if second%30 == 0 {
 			for _, trip := range [][2]string{{"harbor", "market"}, {"harbor", "market"}, {"harbor", "market"}, {"garden", "harbor"}, {"garden", "harbor"}} {
-				if err := s.RequestTrip(trip[0], trip[1]); err != nil {
+				if err := submitSharedTrip(s, trip[0], trip[1]); err != nil {
 					t.Fatal(err)
 				}
 			}

@@ -331,7 +331,7 @@ func TestLondonSharingMeetsContract(t *testing.T) {
 			if request.tick != tick {
 				continue
 			}
-			if err := live.RequestTrip(request.origin, request.destination); err != nil {
+			if _, err := live.SubmitTripOptions(sim.TripOptions{From: request.origin, To: request.destination, SharingConsent: sim.SharedConsent}); err != nil {
 				t.Fatal(err)
 			}
 			check(tick, "request")

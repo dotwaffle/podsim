@@ -149,10 +149,13 @@ func (s *Simulation) swapEligible(v *vehicle, trip *waitingTrip) bool {
 func (s *Simulation) tryPickupSwap(i, j int) bool {
 	a := s.findVehicle(s.waiting[i].request.PodID)
 	b := s.findVehicle(s.waiting[j].request.PodID)
-	routeA, berthA, okA := s.candidateRoute(a, s.waiting[j].request.From, nil)
-	routeB, berthB, okB := s.candidateRoute(b, s.waiting[i].request.From, nil)
+	if a == nil || b == nil || !s.podFitsRequest(a, s.waiting[j].request) || !s.podFitsRequest(b, s.waiting[i].request) {
+		return false
+	}
+	routeA, berthA, okA := s.candidateRouteForRequest(a, s.waiting[j].request, nil)
+	routeB, berthB, okB := s.candidateRouteForRequest(b, s.waiting[i].request, nil)
 	c := s.pickupSwaps
-	if !okA || !okB {
+	if !okA || !okB || !s.pickupBerthFitsRequest(a, s.waiting[j].request, berthA) || !s.pickupBerthFitsRequest(b, s.waiting[i].request, berthB) {
 		c.stats.RouteFailures++
 		return false
 	}

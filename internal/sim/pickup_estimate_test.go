@@ -24,7 +24,7 @@ func TestWaitForFinishingPod(t *testing.T) {
 			busy := s.findVehicle("02")
 			busy.Pod.Activity, busy.Pod.Occupied = Unloading, true
 			busy.phaseTicks = tc.unloadSeconds * TicksPerSecond
-			busy.Riders = []Request{{ID: 1, From: "harbor", To: "garden", PartySize: 1, PodID: "02"}}
+			busy.Riders = []Request{{SharingConsent: SharedConsent, Service: OnDemandService, ID: 1, From: "harbor", To: "garden", PartySize: 1, PodID: "02"}}
 			s.requestID = 1
 			if err := s.RequestTrip("market", "harbor"); err != nil {
 				t.Fatal(err)
@@ -54,7 +54,7 @@ func TestForecastWaitIsBounded(t *testing.T) {
 	busy := s.findVehicle("02")
 	busy.Pod.Activity, busy.Pod.Occupied = Unloading, true
 	busy.phaseTicks = 5 * TicksPerSecond
-	busy.Riders = []Request{{ID: 1, From: "harbor", To: "garden", PartySize: 1, PodID: "02"}}
+	busy.Riders = []Request{{SharingConsent: SharedConsent, Service: OnDemandService, ID: 1, From: "harbor", To: "garden", PartySize: 1, PodID: "02"}}
 	s.requestID = 1
 	if err := s.RequestTrip("market", "harbor"); err != nil {
 		t.Fatal(err)
@@ -80,7 +80,7 @@ func TestPickupForecastIncludesCommittedPassengerTrip(t *testing.T) {
 	}
 	v := s.findVehicle("01")
 	// A previous trip must not replace the committed pickup's destination.
-	v.Riders = []Request{{ID: 99, From: "market", To: "garden", Completed: true}}
+	v.Riders = []Request{{SharingConsent: SharedConsent, Service: OnDemandService, ID: 99, From: "market", To: "garden", Completed: true}}
 	node, seconds, ok := s.availableAfter(v)
 	if !ok || node != "market-berth" {
 		t.Fatalf("forecast ignored committed passenger trip: node=%s ok=%v", node, ok)
@@ -199,7 +199,7 @@ func newFinishingPodTrip(t *testing.T, setup finishingPodSetup) (*Simulation, *v
 	busy := s.findVehicle("02")
 	busy.Pod.Activity, busy.Pod.Occupied = Unloading, true
 	busy.phaseTicks = setup.unloadSeconds * TicksPerSecond
-	busy.Riders = []Request{{ID: 1, From: "harbor", To: setup.busyStation, PartySize: 1, PodID: "02"}}
+	busy.Riders = []Request{{SharingConsent: SharedConsent, Service: OnDemandService, ID: 1, From: "harbor", To: setup.busyStation, PartySize: 1, PodID: "02"}}
 	s.requestID = 1
 	if err := s.RequestTrip("market", "harbor"); err != nil {
 		t.Fatal(err)
@@ -302,7 +302,7 @@ func TestKeepHoldBetweenChecks(t *testing.T) {
 		{
 			name: "no pod is available",
 			change: func(s *Simulation, _ *vehicle) {
-				s.waiting = append(s.waiting, waitingTrip{request: Request{ID: 3, From: "harbor", To: "garden", PartySize: 1, PodID: "01"}})
+				s.waiting = append(s.waiting, waitingTrip{request: Request{SharingConsent: SharedConsent, Service: OnDemandService, ID: 3, From: "harbor", To: "garden", PartySize: 1, PodID: "01"}})
 			},
 			wantReason: "Waiting for an available pod",
 		},

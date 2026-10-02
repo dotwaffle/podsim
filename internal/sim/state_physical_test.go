@@ -109,7 +109,7 @@ func (f restoreFixture) boarding(t *testing.T, id, berthID string) SavedPod {
 	}
 	return SavedPod{
 		ID: id, Activity: activityCode(Boarding), StationID: berth.station, BerthID: berthID,
-		Riders: []SavedRequest{{ID: 1, From: berth.station, To: "market", PartySize: 1, PodID: id, RequestedTick: 10, BoardedTick: 20}},
+		Riders: []SavedRequest{{SharingConsent: SharedConsent, Service: OnDemandService, ID: 1, From: berth.station, To: "market", PartySize: 1, PodID: id, RequestedTick: 10, BoardedTick: 20}},
 		Stops:  []string{"market"}, PhaseTicks: boardingTicks / 2, Origin: berthID, DestinationStation: "market",
 		Route: f.s.laneIndexes(route, len(route)),
 	}
@@ -157,7 +157,7 @@ func (f restoreFixture) carrying(t *testing.T, pod SavedPod, requestID, parties 
 	pod.Occupied, pod.Stops = true, []string{pod.DestinationStation}
 	for index := range parties {
 		pod.Riders = append(pod.Riders, SavedRequest{
-			ID: requestID + index, From: f.berth(t, pod.Origin).station, To: pod.DestinationStation, PartySize: 1,
+			SharingConsent: SharedConsent, Service: OnDemandService, ID: requestID + index, From: f.berth(t, pod.Origin).station, To: pod.DestinationStation, PartySize: 1,
 			PodID: pod.ID, RequestedTick: 10, BoardedTick: 20,
 		})
 	}
@@ -207,8 +207,8 @@ func TestRestoreDemotesTravelingPods(t *testing.T) {
 	ahead := f.carrying(t, f.traveling(t, travelInput{id: "01", from: "harbor-1", to: "market-1", lane: "market-approach", distance: 40}), 1, 1)
 	behind := f.carrying(t, f.traveling(t, travelInput{id: "02", from: "garden-1", to: "market-1", lane: "market-approach", distance: 10}), 3, 3)
 	queued := []SavedTrip{
-		{Request: SavedRequest{ID: 2, From: "market", To: "garden", PartySize: 1, RequestedTick: 10}},
-		{Request: SavedRequest{ID: 6, From: "market", To: "garden", PartySize: 1, RequestedTick: 20}},
+		{Request: SavedRequest{SharingConsent: SharedConsent, Service: OnDemandService, ID: 2, From: "market", To: "garden", PartySize: 1, RequestedTick: 10}},
+		{Request: SavedRequest{SharingConsent: SharedConsent, Service: OnDemandService, ID: 6, From: "market", To: "garden", PartySize: 1, RequestedTick: 20}},
 	}
 	// Pod 04 relocates to Parking. A wrong lane ID demotes it. Pod 05 carries
 	// a party on the return line, so a berth can be free with no pod at it.
@@ -637,7 +637,7 @@ func TestRestoreClearsInvalidTripBindings(t *testing.T) {
 		t.Fatal(err)
 	}
 	valid := SavedTrip{
-		Request: SavedRequest{ID: 1, From: "harbor", To: "market", PartySize: 1, PodID: "03", RequestedTick: 500},
+		Request: SavedRequest{SharingConsent: SharedConsent, Service: OnDemandService, ID: 1, From: "harbor", To: "market", PartySize: 1, PodID: "03", RequestedTick: 500},
 		Route:   f.s.laneIndexes(route, len(route)), DeferUntil: restoreTick + 100, DeferCheck: restoreTick + 30, DeferPodID: "04",
 	}
 	unbound := valid
@@ -706,35 +706,35 @@ func TestRestoreDropsInvalidTrips(t *testing.T) {
 	}{
 		{
 			name: "party from a parking station", parties: 1,
-			trip: SavedTrip{Request: SavedRequest{ID: 1, From: "parking", To: "market", PartySize: 3, RequestedTick: 10}},
+			trip: SavedTrip{Request: SavedRequest{SharingConsent: SharedConsent, Service: OnDemandService, ID: 1, From: "parking", To: "market", PartySize: 3, RequestedTick: 10}},
 		},
 		{
 			name: "party of size zero", parties: 1,
-			trip: SavedTrip{Request: SavedRequest{ID: 1, From: "harbor", To: "market", RequestedTick: 10}},
+			trip: SavedTrip{Request: SavedRequest{SharingConsent: SharedConsent, Service: OnDemandService, ID: 1, From: "harbor", To: "market", RequestedTick: 10}},
 		},
 		{
 			// A completed order in the queue would board, and then leave no
 			// trace, because alight skips a completed rider.
 			name: "completed order", parties: 1,
-			trip: SavedTrip{Request: SavedRequest{ID: 1, From: "harbor", To: "market", PartySize: 1, Completed: true, RequestedTick: 10}},
+			trip: SavedTrip{Request: SavedRequest{SharingConsent: SharedConsent, Service: OnDemandService, ID: 1, From: "harbor", To: "market", PartySize: 1, Completed: true, RequestedTick: 10}},
 		},
 		{
 			name: "order to its own station", parties: 1,
-			trip: SavedTrip{Request: SavedRequest{ID: 1, From: "harbor", To: "harbor", PartySize: 1, RequestedTick: 10}},
+			trip: SavedTrip{Request: SavedRequest{SharingConsent: SharedConsent, Service: OnDemandService, ID: 1, From: "harbor", To: "harbor", PartySize: 1, RequestedTick: 10}},
 		},
 		{
 			name: "boarding time without a boarding", parties: 1,
-			trip: SavedTrip{Request: SavedRequest{ID: 1, From: "harbor", To: "market", PartySize: 1, RequestedTick: 10, BoardedTick: 20}},
+			trip: SavedTrip{Request: SavedRequest{SharingConsent: SharedConsent, Service: OnDemandService, ID: 1, From: "harbor", To: "market", PartySize: 1, RequestedTick: 10, BoardedTick: 20}},
 		},
 		{
 			name: "boarding before the request", parties: 1,
-			trip: SavedTrip{Request: SavedRequest{ID: 1, From: "harbor", To: "market", PartySize: 1, RequestedTick: 30, BoardedTick: 20}, Boarded: true},
+			trip: SavedTrip{Request: SavedRequest{SharingConsent: SharedConsent, Service: OnDemandService, ID: 1, From: "harbor", To: "market", PartySize: 1, RequestedTick: 30, BoardedTick: 20}, Boarded: true},
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 			state := f.state()
-			kept := SavedTrip{Request: SavedRequest{ID: state.RequestID + tc.parties + 1, From: "garden", To: "harbor", PartySize: 1, RequestedTick: 20}}
+			kept := SavedTrip{Request: SavedRequest{SharingConsent: SharedConsent, Service: OnDemandService, ID: state.RequestID + tc.parties + 1, From: "garden", To: "harbor", PartySize: 1, RequestedTick: 20}}
 			state.RequestID = kept.Request.ID
 			state.Waiting = []SavedTrip{kept, tc.trip}
 			if n := countSavedUnaccounted(t, state); n != 0 {
@@ -816,8 +816,8 @@ func TestRestoreFailsForInvalidState(t *testing.T) {
 				state.Pods[4] = SavedPod{
 					ID: "05", Activity: activityCode(Unloading), StationID: "market", BerthID: "market-1", Occupied: true,
 					Riders: []SavedRequest{
-						{ID: 1, From: "harbor", To: "market", PartySize: 1, PodID: "05", RequestedTick: 10, BoardedTick: 20},
-						{ID: 2, From: "harbor", To: "garden", PartySize: 1, PodID: "05", RequestedTick: 12, BoardedTick: 20},
+						{SharingConsent: SharedConsent, Service: OnDemandService, ID: 1, From: "harbor", To: "market", PartySize: 1, PodID: "05", RequestedTick: 10, BoardedTick: 20},
+						{SharingConsent: SharedConsent, Service: OnDemandService, ID: 2, From: "harbor", To: "garden", PartySize: 1, PodID: "05", RequestedTick: 12, BoardedTick: 20},
 					},
 					PhaseTicks: unloadingTicks / 2, Origin: "harbor-1", Destination: "market-1", DestinationStation: "market",
 				}
@@ -1104,7 +1104,7 @@ func TestRestoreLimitsTripRoutes(t *testing.T) {
 	for cost := 0; cost <= budget+4*limit; {
 		entries := 1 + len(trips)%limit
 		trips = append(trips, SavedTrip{
-			Request: SavedRequest{ID: len(trips) + 1, From: "harbor", To: "market", PartySize: 1, RequestedTick: 10},
+			Request: SavedRequest{SharingConsent: SharedConsent, Service: OnDemandService, ID: len(trips) + 1, From: "harbor", To: "market", PartySize: 1, RequestedTick: 10},
 			Route:   slices.Repeat(cycle, 2)[:entries],
 		})
 		cost += entries

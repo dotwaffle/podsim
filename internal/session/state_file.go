@@ -302,7 +302,8 @@ func decodeStateFile(data []byte) (stateFile, error) {
 	if err != nil {
 		return stateFile{}, err
 	}
-	if err := prescanJSON(raw, stateJSONLimits); err != nil {
+	// Check the largest recognized shapes before even the small header decode.
+	if err := prescanJSON(raw, serviceStateLimits()); err != nil {
 		return stateFile{}, invalidState(fmt.Errorf("scan session state: %w", err))
 	}
 	// The header decode ignores the other members, so that a file from a
@@ -314,12 +315,22 @@ func decodeStateFile(data []byte) (stateFile, error) {
 	if err := json.Unmarshal(raw, &header); err != nil {
 		return stateFile{}, invalidState(fmt.Errorf("decode session state header: %w", err))
 	}
-	if header.Format != stateFormat || header.Version < stateVersion || header.Version > bankStateVersion {
+	if header.Format != stateFormat || header.Version < stateVersion || header.Version > serviceStateVersion {
 		return stateFile{}, &stateError{
 			reason: reasonUnsupportedVersion,
 			err: fmt.Errorf("session state format %.20q version %d is not %q version %d",
 				header.Format, header.Version, stateFormat, stateVersion),
 		}
+	}
+	limits := stateJSONLimits
+	if header.Version == serviceStateVersion {
+		limits = serviceStateLimits()
+	}
+	if err := prescanJSON(raw, limits); err != nil {
+		return stateFile{}, invalidState(fmt.Errorf("scan session state: %w", err))
+	}
+	if err := scanStateOrderFields(raw, header.Version); err != nil {
+		return stateFile{}, invalidState(err)
 	}
 	options := strictStateOptions
 	switch header.Version {
@@ -344,6 +355,12 @@ func decodeStateFile(data []byte) (stateFile, error) {
 }
 
 func (file *stateFile) validateProjectVersion() error {
+	if file.Version == serviceStateVersion {
+		if file.Project.Version < 1 || file.Project.Version > project.ServiceVersion {
+			return errors.New("saved version 6 requires project version 1, 2, or 3")
+		}
+		return nil
+	}
 	expected := 1
 	if file.Version == bankStateVersion {
 		expected = project.BankVersion

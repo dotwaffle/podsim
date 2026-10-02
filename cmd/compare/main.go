@@ -90,6 +90,9 @@ type options struct {
 	dailyStartMinute       int
 	bandsText              string
 	loadsText              string
+	sharingConsentText     string
+	sharingConsent         sim.SharingConsent
+	sharingConsentColumn   bool
 	sharingLimitsText      string
 	sharingModesText       string
 	routingPoliciesText    string
@@ -158,6 +161,7 @@ type scenario struct {
 }
 
 type result struct {
+	SharingConsent                 sim.SharingConsent `json:"sharing_consent"`
 	Pattern                        string             `json:"pattern"`
 	DemandProfile                  string             `json:"demand_profile,omitempty"`
 	DemandBand                     string             `json:"demand_band,omitempty"`
@@ -299,7 +303,7 @@ func runCLI(input cliInput) int {
 		closeOutput = file.Close
 	}
 	if err := writeReport(writeReportInput{
-		output: output, format: opts.format, results: results,
+		output: output, format: opts.format, results: results, sharingConsentColumn: opts.sharingConsentColumn,
 		waitRuleColumn: opts.waitRules != nil, platoonColumn: opts.platoonPolicies != nil, sharingJoinColumn: opts.sharingJoins != nil,
 		seatColumns:         slices.ContainsFunc(opts.sharingLimits, func(limit int) bool { return limit > 1 }),
 		stationBufferColumn: opts.stationBuffers != nil, pickupReassignmentColumn: opts.pickupReassignment != nil,
@@ -329,6 +333,7 @@ func parseOptions(args []string, stderr io.Writer) (options, error) {
 	flags.IntVar(&opts.dailyStartMinute, "daily-start-minute", -1, "initial daily profile clock minute; default is the project value")
 	flags.StringVar(&opts.bandsText, "bands", "", "comma-separated profile bands or all")
 	flags.StringVar(&opts.loadsText, "loads", "", "comma-separated request intervals")
+	flags.StringVar(&opts.sharingConsentText, "sharing-consent", string(sim.PrivateConsent), "consent for every offered party: private or shared (default private; adds a sharing_consent column when given)")
 	flags.StringVar(&opts.sharingLimitsText, "sharing-limits", "1", "comma-separated shared ride party limits")
 	flags.StringVar(&opts.sharingModesText, "sharing-modes", string(sim.DefaultSharedRideMode), "comma-separated shared ride modes: drop-offs, destination")
 	flags.IntVar(&opts.sharingMaxStops, "sharing-max-stops", sim.DefaultSharedRideMaxStops, "intermediate stops of a pod in drop-offs mode")
@@ -358,6 +363,7 @@ func parseOptions(args []string, stderr io.Writer) (options, error) {
 	}
 	given := make(map[string]bool)
 	flags.Visit(func(set *flag.Flag) { given[set.Name] = true })
+	opts.sharingConsentColumn = given["sharing-consent"]
 	if opts.duration <= 0 || opts.duration > maxDuration {
 		return options{}, fmt.Errorf("duration must be between one simulation tick and %s", maxDuration)
 	}
@@ -387,6 +393,13 @@ func parseOptions(args []string, stderr io.Writer) (options, error) {
 	}
 
 	var err error
+	if opts.sharingConsentText == "" {
+		return options{}, errors.New("sharing-consent must be private or shared")
+	}
+	opts.sharingConsent, err = comparisonConsent(sim.SharingConsent(opts.sharingConsentText))
+	if err != nil {
+		return options{}, err
+	}
 	opts.seeds, err = parseSeeds(opts.seed, opts.seedsText)
 	if err != nil {
 		return options{}, err
@@ -822,6 +835,10 @@ type weightedDemandFlow struct {
 }
 
 func compare(opts options, scenario scenario) ([]result, error) {
+	consent, err := comparisonConsent(opts.sharingConsent)
+	if err != nil {
+		return nil, err
+	}
 	arms, err := demandArms(opts, scenario)
 	if err != nil {
 		return nil, err
@@ -879,7 +896,7 @@ func compare(opts options, scenario scenario) ([]result, error) {
 											railForecast: opts.railForecast, policy: policy, duration: opts.duration, requestEvery: load, seed: seed,
 											pattern: arm.pattern, profile: arm.profile, band: arm.band, daily: arm.daily, dailyStartMinute: arm.dailyStartMinute,
 											scheduleID: id, queueLimit: opts.queueLimit, arrivalsFor: opts.arrivalsFor,
-											burstSize: opts.burstSize, sharingLimit: sharingArm.limit, sharingMode: sharingArm.mode,
+											burstSize: opts.burstSize, sharingConsent: consent, sharingLimit: sharingArm.limit, sharingMode: sharingArm.mode,
 											sharingMaxStops: opts.sharingMaxStops, sharingJoin: sharingJoin, routingPolicy: routingPolicy,
 											waitRule: waitRule, platoonPolicy: platoonPolicy, schedule: schedule, scenario: scenario,
 											stopWhenDrained: opts.stopWhenDrained,
@@ -1158,6 +1175,7 @@ type runInput struct {
 	queueLimit                          int
 	burstSize                           int
 	sharingLimit                        int
+	sharingConsent                      sim.SharingConsent
 	// sharingMode is the sharing mode. Empty selects
 	// sim.DefaultSharedRideMode. sharingMaxStops is the stop limit of the drop-offs mode. Zero
 	// selects the default limit.
@@ -1201,6 +1219,10 @@ func (input *runInput) sharingSettings() (sim.SharedRideMode, int) {
 }
 
 func run(input runInput) (result, error) {
+	consent, err := comparisonConsent(input.sharingConsent)
+	if err != nil {
+		return result{}, err
+	}
 	simulation, err := sim.NewFleet(input.scenario.network, input.scenario.fleet)
 	if err != nil {
 		return result{}, fmt.Errorf("create comparison: %w", err)
@@ -1328,7 +1350,7 @@ func run(input runInput) (result, error) {
 				continue
 			}
 			if connections != nil && request.kind == "departure" {
-				id, err := simulation.SubmitTrip(request.origin, request.destination)
+				id, err := simulation.SubmitTripOptions(sim.TripOptions{From: request.origin, To: request.destination, SharingConsent: consent})
 				reason := ""
 				if err != nil {
 					reason = "request-error"
@@ -1338,7 +1360,7 @@ func run(input runInput) (result, error) {
 				if err := connections.Add(request.serviceOffer(), id, reason); err != nil {
 					return result{}, err
 				}
-			} else if err := simulation.RequestTrip(request.origin, request.destination); err != nil {
+			} else if _, err := simulation.SubmitTripOptions(sim.TripOptions{From: request.origin, To: request.destination, SharingConsent: consent}); err != nil {
 				return result{}, fmt.Errorf("request %s to %s: %w", request.origin, request.destination, err)
 			}
 			next++
@@ -1411,8 +1433,8 @@ func run(input runInput) (result, error) {
 		dailyStart = new(input.dailyStartMinute)
 	}
 	return result{
-		DailyStartMinute: dailyStart,
-		Pattern:          input.pattern, DemandProfile: input.profile, DemandBand: input.band,
+		SharingConsent: consent, DailyStartMinute: dailyStart,
+		Pattern: input.pattern, DemandProfile: input.profile, DemandBand: input.band,
 		RequestEverySeconds: requestEvery, OfferedPerMinute: float64(len(input.schedule)) / arrivalMinutes, Seed: input.seed,
 		BurstSize: burstSize, Policy: input.policy, SharedRidePartyLimit: input.sharingLimit, SharingMode: string(sharingMode),
 		SharingJoin:   input.sharingJoin,
@@ -1539,9 +1561,10 @@ func demandWeights(pattern, band string, scenario scenario) (map[string]float64,
 }
 
 type writeReportInput struct {
-	output  io.Writer
-	format  string
-	results []result
+	sharingConsentColumn bool
+	output               io.Writer
+	format               string
+	results              []result
 	// waitRuleColumn adds the wait rule to table and CSV output. JSON output
 	// has the wait_rule field only when a result has a wait rule.
 	waitRuleColumn bool
@@ -1561,6 +1584,14 @@ type writeReportInput struct {
 }
 
 func writeReport(input writeReportInput) error {
+	input.results = slices.Clone(input.results)
+	for i := range input.results {
+		consent, err := comparisonConsent(input.results[i].SharingConsent)
+		if err != nil {
+			return err
+		}
+		input.results[i].SharingConsent = consent
+	}
 	switch input.format {
 	case "json":
 		encoder := json.NewEncoder(input.output)
@@ -1601,6 +1632,9 @@ func writeTable(input writeReportInput) error {
 	}
 	w := tabwriter.NewWriter(output, 0, 4, 2, ' ', 0)
 	policyHeader := "POLICY"
+	if input.sharingConsentColumn {
+		policyHeader += "\tSHARING CONSENT"
+	}
 	if input.waitRuleColumn {
 		policyHeader += "\tWAIT RULE"
 	}
@@ -1621,6 +1655,9 @@ func writeTable(input writeReportInput) error {
 	}
 	for _, outcome := range results {
 		policy := outcome.Policy
+		if input.sharingConsentColumn {
+			policy += "\t" + string(outcome.SharingConsent)
+		}
 		if input.waitRuleColumn {
 			policy += "\t" + outcome.WaitRule
 		}
@@ -1669,6 +1706,9 @@ func writeCSV(input writeReportInput) error {
 	header := []string{
 		"pattern", "demand_profile", "demand_band", "request_every_seconds", "offered_per_minute", "burst_size", "seed", "policy", "routing_policy",
 	}
+	if input.sharingConsentColumn {
+		header = append(header, "sharing_consent")
+	}
 	if input.waitRuleColumn {
 		header = append(header, "wait_rule")
 	}
@@ -1712,6 +1752,9 @@ func writeCSV(input writeReportInput) error {
 	for _, outcome := range input.results {
 		row := []string{
 			outcome.Pattern, outcome.DemandProfile, outcome.DemandBand, floatText(outcome.RequestEverySeconds), floatText(outcome.OfferedPerMinute), strconv.Itoa(outcome.BurstSize), strconv.FormatInt(outcome.Seed, 10), outcome.Policy, outcome.RoutingPolicy,
+		}
+		if input.sharingConsentColumn {
+			row = append(row, string(outcome.SharingConsent))
 		}
 		if input.waitRuleColumn {
 			row = append(row, outcome.WaitRule)

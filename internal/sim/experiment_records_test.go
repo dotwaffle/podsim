@@ -18,14 +18,14 @@ func TestRequestTimingsFollowBoardingAndCompletion(t *testing.T) {
 	if err := s.SetSharedRidePartyLimit(2); err != nil {
 		t.Fatal(err)
 	}
-	if err := s.RequestTrip("harbor", "market"); err != nil {
+	if err := submitSharedTrip(s, "harbor", "market"); err != nil {
 		t.Fatal(err)
 	}
 	if state := s.Snapshot(); state.Vehicles[0].Pod.Activity != Boarding {
 		t.Fatalf("request 1 did not board at once: %+v", state.Vehicles[0])
 	}
 	advance(s, TicksPerSecond)
-	if err := s.RequestTrip("harbor", "market"); err != nil {
+	if err := submitSharedTrip(s, "harbor", "market"); err != nil {
 		t.Fatal(err)
 	}
 	if state := s.Snapshot(); state.SharedParties != 1 {
@@ -68,7 +68,7 @@ func TestRequestTimingsReadOnly(t *testing.T) {
 	read, plain := newSharingSimulation(t), newSharingSimulation(t)
 	read.SetExperimentRecords(true)
 	for _, s := range []*Simulation{read, plain} {
-		if err := s.RequestTrip("harbor", "market"); err != nil {
+		if err := submitSharedTrip(s, "harbor", "market"); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -81,7 +81,7 @@ func TestRequestTimingsReadOnly(t *testing.T) {
 		t.Fatal("RequestTimings changed the simulation")
 	}
 	clone := read.Clone()
-	if err := clone.RequestTrip("garden", "harbor"); err != nil {
+	if err := submitSharedTrip(clone, "garden", "harbor"); err != nil {
 		t.Fatal(err)
 	}
 	advance(clone, 200*TicksPerSecond)
@@ -106,7 +106,7 @@ func TestRequestTimingsReadOnly(t *testing.T) {
 func TestRequestTimingsOffByDefault(t *testing.T) {
 	t.Parallel()
 	s := newSharingSimulation(t)
-	if err := s.RequestTrip("harbor", "market"); err != nil {
+	if err := submitSharedTrip(s, "harbor", "market"); err != nil {
 		t.Fatal(err)
 	}
 	advance(s, 200*TicksPerSecond)
@@ -120,7 +120,7 @@ func TestRequestTimingsOffByDefault(t *testing.T) {
 		t.Fatalf("default simulation recorded node passes: %+v", got)
 	}
 	s.SetExperimentRecords(true)
-	if err := s.RequestTrip("garden", "harbor"); err != nil {
+	if err := submitSharedTrip(s, "garden", "harbor"); err != nil {
 		t.Fatal(err)
 	}
 	if got := s.RequestTimings(); len(got) != 1 || got[0].RequestID != 2 {
@@ -146,7 +146,7 @@ func TestNodePassesFollowRoute(t *testing.T) {
 	t.Parallel()
 	s := newSharingSimulation(t)
 	s.SetExperimentRecords(true)
-	if err := s.RequestTrip("harbor", "market"); err != nil {
+	if err := submitSharedTrip(s, "harbor", "market"); err != nil {
 		t.Fatal(err)
 	}
 	var want []NodePass

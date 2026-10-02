@@ -15,6 +15,7 @@ const (
 type routeKey struct {
 	from, to string
 	station  bool
+	class    VehicleClass
 }
 type routeResult struct {
 	lanes []Lane
@@ -42,21 +43,29 @@ func (s *Simulation) withSeconds(result routeResult) routeResult {
 // and parking use route with each routing policy. Only a pod that starts
 // a new route gets it from assignedRoute.
 func (s *Simulation) route(from, to string) ([]Lane, error) {
-	result := s.cachedRoute(from, to)
+	return s.routeForClass(from, to, LegacyClass)
+}
+
+func (s *Simulation) routeForClass(from, to string, class VehicleClass) ([]Lane, error) {
+	result := s.cachedRouteForClass(from, to, class)
 	return result.lanes, result.err
 }
 
 // cachedRoute returns the result that route returns. The result can also
 // hold the travel time of the route.
 func (s *Simulation) cachedRoute(from, to string) routeResult {
+	return s.cachedRouteForClass(from, to, LegacyClass)
+}
+
+func (s *Simulation) cachedRouteForClass(from, to string, class VehicleClass) routeResult {
 	s.ensureNetworkIndexes()
-	key := routeKey{from: from, to: to}
+	key := routeKey{from: from, to: to, class: routeClass(class)}
 	if cached, ok := s.routes[key]; ok {
 		return cached
 	}
-	lanes, err := s.searchRoute(networkRouteInput{from: from, to: to, terminalBerthsOnly: true})
+	lanes, err := s.searchRoute(networkRouteInput{from: from, to: to, class: class, terminalBerthsOnly: true})
 	if errors.Is(err, ErrUnreachable) {
-		lanes, err = s.searchRoute(networkRouteInput{from: from, to: to})
+		lanes, err = s.searchRoute(networkRouteInput{from: from, to: to, class: class})
 	}
 	return s.cacheRoute(key, routeResult{lanes: lanes, err: err})
 }
@@ -75,29 +84,29 @@ func (s *Simulation) assignedRoute(v *vehicle, from, to string) ([]Lane, error) 
 	switch s.routingPolicy {
 	case CongestionRouting:
 		s.ensureNetworkIndexes()
-		result := s.congestionRoute(from, to)
+		result := s.congestionRouteForClass(from, to, podClass(v))
 		return result.lanes, result.err
 	case QueueRouting:
 		return s.queueRoute(v, from, to)
 	case PredictiveRouting:
 		return s.predictiveRoute(v, from, to)
 	default:
-		return s.route(from, to)
+		return s.routeForClass(from, to, podClass(v))
 	}
 }
 
 // congestionRoute minimizes travel time plus congestion cost without
 // intermediate berths. If no such path exists, it returns the route
 // selected by the free-flow preference and legacy fallback.
-func (s *Simulation) congestionRoute(from, to string) routeResult {
+func (s *Simulation) congestionRouteForClass(from, to string, class VehicleClass) routeResult {
 	s.refreshCongestionCosts()
-	key := routeKey{from: from, to: to}
+	key := routeKey{from: from, to: to, class: routeClass(class)}
 	if cached, ok := s.congestionRoutes[key]; ok {
 		return cached
 	}
-	lanes, err := s.searchRoute(networkRouteInput{from: from, to: to, extraCost: s.congestionRouteCosts, terminalBerthsOnly: true})
+	lanes, err := s.searchRoute(networkRouteInput{from: from, to: to, class: class, extraCost: s.congestionRouteCosts, terminalBerthsOnly: true})
 	if err != nil {
-		lanes, err = s.route(from, to)
+		lanes, err = s.routeForClass(from, to, class)
 	}
 	result := s.withSeconds(routeResult{lanes: lanes, err: err})
 	s.congestionRoutes[key] = result
@@ -142,32 +151,40 @@ func (s *Simulation) congestionCosts() []float64 {
 // the routes. Later route calls do not search again. The cache holds only routes
 // that route returns, so this changes no result.
 func (s *Simulation) cacheStationRoutes(from string, berths []Berth) {
+	s.cacheStationRoutesForClass(from, berths, LegacyClass)
+}
+
+func (s *Simulation) cacheStationRoutesForClass(from string, berths []Berth, class VehicleClass) {
 	if len(berths) < 2 || s.network.hasStationBanks() {
 		return
 	}
 	s.ensureNetworkIndexes()
 	var targets []string
 	for _, berth := range berths {
-		if _, cached := s.routes[routeKey{from: from, to: berth.Node}]; !cached && !slices.Contains(targets, berth.Node) {
+		if _, cached := s.routes[routeKey{from: from, to: berth.Node, class: routeClass(class)}]; !cached && !slices.Contains(targets, berth.Node) {
 			targets = append(targets, berth.Node)
 		}
 	}
 	if len(targets) < 2 {
 		return
 	}
-	preferred := s.network.preferredTargets(routeTargetsInput{from: from, to: targets}, s.graph)
+	preferred := s.network.preferredTargets(routeTargetsInput{from: from, to: targets, class: class}, s.graph)
 	for index, result := range s.network.routesFromTargets(preferred, s.graph) {
-		s.cacheRoute(routeKey{from: from, to: targets[index]}, result)
+		s.cacheRoute(routeKey{from: from, to: targets[index], class: routeClass(class)}, result)
 	}
 }
 
 func (s *Simulation) stationPath(from, to string) ([]Lane, error) {
+	return s.stationPathForClass(from, to, LegacyClass)
+}
+
+func (s *Simulation) stationPathForClass(from, to string, class VehicleClass) ([]Lane, error) {
 	s.ensureNetworkIndexes()
-	key := routeKey{from: from, to: to, station: true}
+	key := routeKey{from: from, to: to, station: true, class: routeClass(class)}
 	if cached, ok := s.routes[key]; ok {
 		return cached.lanes, cached.err
 	}
-	lanes, err := s.searchRoute(networkRouteInput{from: from, to: to, forbidden: s.stationForbidden})
+	lanes, err := s.searchRoute(networkRouteInput{from: from, to: to, class: class, forbidden: s.stationForbidden})
 	s.cacheRoute(key, routeResult{lanes: lanes, err: err})
 	return lanes, err
 }

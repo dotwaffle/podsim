@@ -34,7 +34,7 @@ func pickupTransferFixture(t *testing.T, alternative string) *Simulation {
 		t.Fatal(err)
 	}
 	s.requestID = 1
-	s.waiting = []waitingTrip{{request: Request{ID: 1, PodID: "01", From: "s3", To: "s0", PartySize: 1}}}
+	s.waiting = []waitingTrip{{request: Request{SharingConsent: SharedConsent, Service: OnDemandService, ID: 1, PodID: "01", From: "s3", To: "s0", PartySize: 1}}}
 	s.SetExperimentRecords(true)
 	if alternative != "idle" {
 		v := s.findVehicle("02")
@@ -183,7 +183,7 @@ func bufferedCrossedPickupFixture(t *testing.T) *Simulation {
 			t.Fatal(err)
 		}
 		s.requestID++
-		s.waiting = append(s.waiting, waitingTrip{request: Request{ID: s.requestID, PodID: v.Pod.ID, From: pickup.from, To: pickup.to, PartySize: 1}})
+		s.waiting = append(s.waiting, waitingTrip{request: Request{SharingConsent: SharedConsent, Service: OnDemandService, ID: s.requestID, PodID: v.Pod.ID, From: pickup.from, To: pickup.to, PartySize: 1}})
 	}
 	advance(s, 5*TicksPerSecond)
 	return s

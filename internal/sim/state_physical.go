@@ -88,6 +88,12 @@ func restorePhysical(input RestoreStateInput, newFleet func() (*Simulation, erro
 	if err != nil {
 		return nil, RestoreResult{}, fmt.Errorf("create the fleet: %w", err)
 	}
+	if err := s.SetExpressServices(input.ExpressServices); err != nil {
+		return nil, RestoreResult{}, err
+	}
+	if err := s.checkSavedClasses(input.State); err != nil {
+		return nil, RestoreResult{}, err
+	}
 	if err := checkSavedPodIDs(s.initial, input.State); err != nil {
 		return nil, RestoreResult{}, err
 	}
@@ -143,6 +149,9 @@ func restorePhysical(input RestoreStateInput, newFleet func() (*Simulation, erro
 // validateSavedState checks the rules that do not need the network. See
 // checkContract. It returns the unaccounted orders of the saved state.
 func validateSavedState(state SavedState) (int, error) {
+	if len(state.Waiting) > MaxSavedWaitingTrips {
+		return 0, errors.New("too many saved waiting trips")
+	}
 	return state.checkContract()
 }
 
@@ -178,7 +187,7 @@ func (state SavedState) validateCounters() error {
 }
 
 func (state SavedState) validRequest(request SavedRequest) bool {
-	return request.ID >= 1 && request.ID <= state.RequestID && request.PartySize >= 1 &&
+	return validSavedOptions(request) && request.ID >= 1 && request.ID <= state.RequestID && request.PartySize >= 1 &&
 		request.RequestedTick >= 0 && request.RequestedTick <= state.Tick && len(request.DispatchReason) <= maxSavedText &&
 		request.BoardedTick >= 0 && request.BoardedTick <= state.Tick
 }
@@ -308,8 +317,8 @@ func (r *physicalRestore) decodePod(index int, saved SavedPod) error {
 	}
 	v := &r.s.vehicles[index]
 	*v = vehicle{
-		Pod:   Pod{ID: saved.ID, Activity: activity, Occupied: saved.Occupied},
-		Stops: slices.Clone(saved.Stops), RelocatingTo: saved.RelocatingTo, Rebalancing: saved.Rebalancing,
+		Pod:          Pod{ID: saved.ID, Class: saved.Class, Activity: activity, Occupied: saved.Occupied},
+		LegacyCohort: saved.LegacyCohort, Stops: slices.Clone(saved.Stops), RelocatingTo: saved.RelocatingTo, Rebalancing: saved.Rebalancing,
 		phaseTicks: saved.PhaseTicks, rebalanceAfter: saved.RebalanceAfter, destinationStation: saved.DestinationStation,
 		pending: -1, reservedThrough: -1,
 	}
@@ -1037,7 +1046,7 @@ func (r *physicalRestore) placeDemoted(index int) error {
 
 func (r *physicalRestore) freeBerth(v *vehicle, candidates []Berth) (Berth, bool) {
 	for _, berth := range candidates {
-		if berth.ID == "" {
+		if berth.ID == "" || !r.s.berthAvailableTo(v, berth) {
 			continue
 		}
 		claims := berthResources(berth)
@@ -1058,12 +1067,15 @@ func (r *physicalRestore) freeBerth(v *vehicle, candidates []Berth) (Berth, bool
 // returns false when the plan of the stops from the berth takes a rider
 // over maxSharedRideDetour.
 func (r *physicalRestore) boardAgain(v *vehicle, berth Berth) bool {
-	route, err := r.s.stationApproachRoute(berth.Node, v.Stops[0])
+	if v.LegacyCohort {
+		return false
+	}
+	route, err := r.s.stationApproachRouteForClass(berth.Node, v.Stops[0], v.Pod.Class)
 	if err != nil {
 		return false
 	}
 	station, _ := r.s.station(v.Stops[0])
-	if r.s.cappedDetours() && r.s.plannedDetour(berth.Node, v.Stops, detourStart{ridden: r.s.lanesMeters(route), entry: station.routeEntry(route, Berth{})}) > maxSharedRideDetour {
+	if r.s.cappedDetours() && r.s.plannedDetour(berth.Node, v.Stops, detourStart{class: v.Pod.Class, ridden: r.s.lanesMeters(route), entry: station.routeEntry(route, Berth{})}) > maxSharedRideDetour {
 		return false
 	}
 	cost := 0
@@ -1102,12 +1114,16 @@ func (r *physicalRestore) requeue(v *vehicle) {
 		}
 	}
 	v.Riders, v.Stops = nil, nil
+	v.LegacyCohort = false
 }
 
 // requeuedTrip returns the queued trip for a rider of a pod. The trip is
 // boarded, so board and joinSharedRide do not record the boarding again.
 func requeuedTrip(rider Request) waitingTrip {
 	rider.PodID, rider.DispatchReason = "", ""
+	if rider.SharingConsent == LegacyUnknownConsent {
+		rider.SharingConsent = PrivateConsent
+	}
 	return waitingTrip{request: rider, boarded: true}
 }
 
@@ -1119,7 +1135,7 @@ func (r *physicalRestore) moveTo(v *vehicle, berth Berth) {
 		r.s.owners[claimed] = v.Pod.ID
 	}
 	node, _ := r.s.network.Node(berth.Node)
-	v.Pod = Pod{ID: v.Pod.ID, Position: node.Position, BerthID: berth.ID}
+	v.Pod = Pod{ID: v.Pod.ID, Class: v.Pod.Class, Position: node.Position, BerthID: berth.ID}
 	v.phaseTicks, v.blockIndex, v.reservedThrough, v.pending = 0, 0, -1, -1
 	v.distance, v.originReleased = 0, false
 }
@@ -1172,6 +1188,9 @@ func (r *physicalRestore) restoreTrip(index int, request Request) waitingTrip {
 	}
 	unbound := r.unbound[index] || !r.activePod(request.PodID) || !r.activePod(trip.deferPodID) ||
 		trip.deferCheck < 0 || trip.deferCheck > r.s.tick+TicksPerSecond
+	if v := r.s.findVehicle(request.PodID); v != nil && !r.s.podFitsRequest(v, request) {
+		unbound = true
+	}
 	if !r.s.deferralInRange(trip.deferUntil) {
 		trip.deferUntil, unbound = 0, true
 	}

@@ -106,7 +106,7 @@ func contractMutations(rule phaseRule, pod SavedPod) []podMutation {
 		add("an active rider", func(state *SavedState, pod *SavedPod) {
 			state.RequestID++
 			pod.Riders = append(pod.Riders, SavedRequest{
-				ID: state.RequestID, From: "garden", To: "market", PartySize: 1, PodID: pod.ID, RequestedTick: 1, BoardedTick: 2,
+				SharingConsent: SharedConsent, Service: OnDemandService, ID: state.RequestID, From: "garden", To: "market", PartySize: 1, PodID: pod.ID, RequestedTick: 1, BoardedTick: 2,
 			})
 		})
 	}
@@ -318,7 +318,7 @@ func TestRestoreRejectsBrokenOrders(t *testing.T) {
 			state: func(t *testing.T) SavedState {
 				t.Helper()
 				state := boardingState(t)
-				state.Pods[1].Riders = []SavedRequest{{ID: 1, From: "garden", To: "market", PartySize: 1, PodID: "02", Completed: true}}
+				state.Pods[1].Riders = []SavedRequest{{SharingConsent: SharedConsent, Service: OnDemandService, ID: 1, From: "garden", To: "market", PartySize: 1, PodID: "02", Completed: true}}
 				return state
 			},
 			want: "order 1 is in pod 01 and in pod 02",
@@ -328,7 +328,7 @@ func TestRestoreRejectsBrokenOrders(t *testing.T) {
 			state: func(t *testing.T) SavedState {
 				t.Helper()
 				state := boardingState(t)
-				state.Waiting = append(state.Waiting, SavedTrip{Request: SavedRequest{ID: 1, From: "harbor", To: "market", PartySize: 1}})
+				state.Waiting = append(state.Waiting, SavedTrip{Request: SavedRequest{SharingConsent: SharedConsent, Service: OnDemandService, ID: 1, From: "harbor", To: "market", PartySize: 1}})
 				return state
 			},
 			want: "order 1 is in pod 01 and in the queue",
@@ -338,7 +338,7 @@ func TestRestoreRejectsBrokenOrders(t *testing.T) {
 			state: func(t *testing.T) SavedState {
 				t.Helper()
 				state := boardingState(t)
-				trip := SavedTrip{Request: SavedRequest{ID: 2, From: "garden", To: "market", PartySize: 1}}
+				trip := SavedTrip{Request: SavedRequest{SharingConsent: SharedConsent, Service: OnDemandService, ID: 2, From: "garden", To: "market", PartySize: 1}}
 				state.Waiting, state.RequestID = []SavedTrip{trip, trip}, 3
 				return state
 			},
@@ -510,7 +510,7 @@ func TestReconcileOrdersFindsEachMismatch(t *testing.T) {
 		{
 			name: "order that the state does not hold", want: "order 11 is in the queue, but the saved state does not hold it",
 			edit: func(s *Simulation) ([]int, []int) {
-				s.waiting = append(s.waiting, waitingTrip{request: Request{ID: 11, From: "harbor", To: "market", PartySize: 1}})
+				s.waiting = append(s.waiting, waitingTrip{request: Request{SharingConsent: SharedConsent, Service: OnDemandService, ID: 11, From: "harbor", To: "market", PartySize: 1}})
 				return nil, []int{10}
 			},
 		},

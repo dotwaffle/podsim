@@ -89,7 +89,7 @@ func (c *Client) receiveStream(ctx context.Context) error {
 	}
 	err = json.Unmarshal(data, &hello)
 	c.noteBuild(hello.Build)
-	if err != nil || hello.Kind != "hello" || (hello.Version != 1 && hello.Version != session.StreamVersion) || hello.ServerStart == "" {
+	if err != nil || hello.Kind != "hello" || hello.Version < 1 || hello.Version > session.StreamVersion || hello.ServerStart == "" {
 		return errors.New("unsupported state stream protocol")
 	}
 	var frame session.StreamFrame
@@ -134,7 +134,7 @@ func (c *Client) receiveStream(ctx context.Context) error {
 		if err != nil {
 			return err
 		}
-		envelope, err := session.DecodeStreamJSON(inflated)
+		envelope, err := session.DecodeStreamJSONVersion(inflated, hello.Version)
 		c.noteBuild(envelope.Build)
 		if err != nil {
 			return err
@@ -213,7 +213,7 @@ func (cache *streamTopology) state(ctx context.Context, c *Client, candidate ses
 		if topology.ServerStart != identity.ServerStart || topology.Epoch != identity.Epoch || topology.ProjectRevision != identity.ProjectRevision {
 			return session.State{}, errors.New("topology changed while reading stream")
 		}
-		assembler, err := session.NewStreamAssembler(topology)
+		assembler, err := session.NewStreamAssemblerVersion(topology, cache.version)
 		if err != nil {
 			return session.State{}, err
 		}

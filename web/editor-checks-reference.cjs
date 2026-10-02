@@ -2,6 +2,7 @@
 
 // This reference runs only in Node tests. The browser uses Go checks.
 module.exports = function (editor) {
+  const { serviceMetadataChecks } = require("./editor-service-reference.cjs");
   const { MIN_LANE_LENGTH, MAX_NODE_LANES, MAX_STATIONS, MAX_NODES, MAX_LANES, MAX_PODS, MAX_FLOWS, laneLength, geoError } = editor;
   const Tiles = require("./tiles.js");
   const STATION_LANE_ROLES = new Set(["approach", "entry", "berth-access", "through", "departure", "exit"]);
@@ -216,8 +217,9 @@ module.exports = function (editor) {
     const report = (text, target) => { errors.push(text); if (targets && target && !targets.has(text)) targets.set(text, target); };
     if (!value || typeof value !== "object" || Array.isArray(value)) return ["The scenario must be a JSON object."];
     const banked = value.network?.Stations?.some((station) => station && Object.hasOwn(station, "Banks"));
-    if (![1, 2].includes(value.version)) errors.push("The scenario version must be 1 or 2.");
+    if (![1, 2, 3].includes(value.version)) errors.push("The scenario version must be 1, 2, or 3.");
     else if (value.version === 1 && banked || value.version === 2 && !banked) errors.push("The scenario version does not match its station banks.");
+    serviceMetadataChecks(value, report);
     if (typeof value.name !== "string" || !value.name.trim()) errors.push("The scenario needs a name.");
     if (typeof value.name === "string" && new TextEncoder().encode(value.name).length > 80) errors.push("The scenario name exceeds 80 bytes.");
     const network = value.network;

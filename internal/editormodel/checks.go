@@ -94,6 +94,8 @@ type preparedChecks struct {
 	network                 *draftNetwork
 	networkErrors, profiles []check
 	profilesReady           bool
+	services                []check
+	servicesReady           bool
 }
 
 func preparedDraftChecks(value any, prepared *preparedChecks) checkReport {
@@ -104,10 +106,22 @@ func preparedDraftChecks(value any, prepared *preparedChecks) checkReport {
 	}
 	version := number(member(value, "version"))
 	banked := hasBanks(member(value, "network"))
-	if version != 1 && version != 2 {
-		errors.add("The scenario version must be 1 or 2.", nil)
+	if version != 1 && version != 2 && version != 3 {
+		errors.add("The scenario version must be 1, 2, or 3.", nil)
 	} else if version == 1 && banked || version == 2 && !banked {
 		errors.add("The scenario version does not match its station banks.", nil)
+	}
+	if prepared == nil {
+		checkServiceMetadata(value, &errors)
+	} else {
+		if !prepared.servicesReady {
+			var serviceErrors checkList
+			checkServiceMetadata(value, &serviceErrors)
+			prepared.services, prepared.servicesReady = serviceErrors.items, true
+		}
+		for _, item := range prepared.services {
+			errors.add(item.Text, item.Target)
+		}
 	}
 	name := member(value, "name")
 	if strings.TrimSpace(text(name)) == "" {

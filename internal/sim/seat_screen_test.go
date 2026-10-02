@@ -88,7 +88,7 @@ func TestSeatScreenCountsFullPods(t *testing.T) {
 				{ID: "02", StationID: "garden", BerthID: "garden-1"},
 			}, test.limit, test.mode)
 			for _, destination := range test.destinations {
-				if err := s.RequestTrip("harbor", destination); err != nil {
+				if err := submitSharedTrip(s, "harbor", destination); err != nil {
 					t.Fatal(err)
 				}
 			}
@@ -122,7 +122,7 @@ func TestSeatScreenCountsEachPartyOnce(t *testing.T) {
 	t.Parallel()
 	s := newScreenSimulation(t, Example(), []Placement{{ID: "01", StationID: "harbor", BerthID: "harbor-1"}}, 2, SharedRideDropOffs)
 	for range 3 {
-		if err := s.RequestTrip("harbor", "market"); err != nil {
+		if err := submitSharedTrip(s, "harbor", "market"); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -141,7 +141,7 @@ func TestSeatScreenRestart(t *testing.T) {
 	t.Parallel()
 	s := newScreenSimulation(t, Example(), []Placement{{ID: "01", StationID: "harbor", BerthID: "harbor-1"}}, 2, SharedRideDropOffs)
 	for range 3 {
-		if err := s.RequestTrip("harbor", "market"); err != nil {
+		if err := submitSharedTrip(s, "harbor", "market"); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -182,7 +182,7 @@ func TestSeatScreenOff(t *testing.T) {
 			}, test.limit, SharedRideDropOffs)
 			s.SetExperimentRecords(test.records)
 			for range 5 {
-				if err := s.RequestTrip("harbor", "market"); err != nil {
+				if err := submitSharedTrip(s, "harbor", "market"); err != nil {
 					t.Fatal(err)
 				}
 			}
@@ -240,7 +240,7 @@ func runRecordsOnAndOff(t *testing.T, placements []Placement, limit int, join Sh
 		if tick%(30*TicksPerSecond) == 0 && tick < 300*TicksPerSecond {
 			for _, trip := range burst {
 				for _, s := range []*Simulation{on, off} {
-					if err := s.RequestTrip(trip[0], trip[1]); err != nil {
+					if err := submitSharedTrip(s, trip[0], trip[1]); err != nil {
 						t.Fatal(err)
 					}
 				}
@@ -312,7 +312,7 @@ func checkJoinCensus(t *testing.T, s *Simulation, want [2]int) {
 func startCensus(t *testing.T, s *Simulation, to string, requeued bool) {
 	t.Helper()
 	for _, destination := range []string{"market", to} {
-		if err := s.RequestTrip("harbor", destination); err != nil {
+		if err := submitSharedTrip(s, "harbor", destination); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -394,7 +394,7 @@ func TestJoinCensusRestart(t *testing.T) {
 				s.SetExperimentRecords(true)
 				checkJoinCensus(t, s, [2]int{})
 			}
-			if err := s.RequestTrip("harbor", "garden"); err != nil {
+			if err := submitSharedTrip(s, "harbor", "garden"); err != nil {
 				t.Fatal(err)
 			}
 			host := s.findVehicle("01")
@@ -443,7 +443,7 @@ func TestJoinCensusCountsPartyThatBoardsDuringDwell(t *testing.T) {
 	state := f.state(host, own)
 	state.RequestID++
 	state.Waiting = []SavedTrip{{Request: SavedRequest{
-		ID: state.RequestID, From: "harbor", To: "market", PartySize: 1, PodID: "02", RequestedTick: restoreTick - 10,
+		SharingConsent: SharedConsent, Service: OnDemandService, ID: state.RequestID, From: "harbor", To: "market", PartySize: 1, PodID: "02", RequestedTick: restoreTick - 10,
 	}}}
 	s, result, err := f.restore(state)
 	if err != nil || !cleanRestore(result) {

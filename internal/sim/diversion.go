@@ -20,7 +20,8 @@ type pickupRouteInput struct {
 	// load gives the same value as berthLoad. When it is nil,
 	// pickupRouteWithAssignments uses berthLoad. The load does not change
 	// ok, so a caller that uses only ok can give noBerthLoad instead.
-	load func(Berth) int
+	load   func(Berth) int
+	accept func(Berth) bool
 }
 
 // pickupRouteWithAssignments returns the route and the berth for a pickup
@@ -33,7 +34,7 @@ func (s *Simulation) pickupRouteWithAssignments(input pickupRouteInput) ([]Lane,
 	if !s.pickupCandidate(input.pod, input.assigned) {
 		return nil, Berth{}, false
 	}
-	return s.candidateRoute(input.pod, input.station, input.load)
+	return s.candidateRouteMatching(input.pod, input.station, input.load, input.accept)
 }
 
 // pickupCandidate holds the tests of pickupRouteWithAssignments that do not
@@ -61,7 +62,11 @@ func (s *Simulation) pickupCandidate(v *vehicle, assigned map[string]bool) bool 
 // candidateRoute is pickupRouteWithAssignments for a pod that
 // pickupCandidate accepts. load is as in pickupRouteInput.
 func (s *Simulation) candidateRoute(v *vehicle, stationID string, load func(Berth) int) ([]Lane, Berth, bool) {
-	prefix, suffix, berth, ok := s.candidateRouteParts(v, stationID, load)
+	return s.candidateRouteMatching(v, stationID, load, nil)
+}
+
+func (s *Simulation) candidateRouteMatching(v *vehicle, stationID string, load func(Berth) int, accept func(Berth) bool) ([]Lane, Berth, bool) {
+	prefix, suffix, berth, ok := s.candidateRoutePartsMatching(v, stationID, load, accept)
 	if v.Pod.Activity == Idle {
 		return suffix, berth, ok
 	}
@@ -74,6 +79,10 @@ func (s *Simulation) candidateRoute(v *vehicle, stationID string, load func(Bert
 // candidateRouteParts checks the same route without joining its parts.
 // The parts borrow vehicle routes and cached routes. Callers must not change them.
 func (s *Simulation) candidateRouteParts(v *vehicle, stationID string, load func(Berth) int) ([]Lane, []Lane, Berth, bool) {
+	return s.candidateRoutePartsMatching(v, stationID, load, nil)
+}
+
+func (s *Simulation) candidateRoutePartsMatching(v *vehicle, stationID string, load func(Berth) int, accept func(Berth) bool) ([]Lane, []Lane, Berth, bool) {
 	if v.Pod.Activity == Idle {
 		from, _ := s.station(v.Pod.StationID)
 		berth, _ := from.berth(v.Pod.BerthID)
@@ -81,16 +90,16 @@ func (s *Simulation) candidateRouteParts(v *vehicle, stationID string, load func
 			// The pod can board where it is. Its own berth has a load of at
 			// least one because the pod holds it, so stationRouteByLoad
 			// would choose a free berth and a loop around the network.
-			return nil, nil, berth, true
+			return nil, nil, berth, accept == nil || accept(berth)
 		}
-		route, destination, err := s.stationRouteByLoad(stationRouteInput{from: berth.Node, station: stationID, load: load})
+		route, destination, err := s.stationRouteByLoad(stationRouteInput{class: v.Pod.Class, from: berth.Node, station: stationID, load: load, accept: accept})
 		return nil, route, destination, err == nil
 	}
 	prefix, from, ok := s.divertStart(v)
 	if !ok {
 		return nil, nil, Berth{}, false
 	}
-	suffix, berth, err := s.stationRouteByLoad(stationRouteInput{from: from, station: stationID, load: load})
+	suffix, berth, err := s.stationRouteByLoad(stationRouteInput{class: v.Pod.Class, from: from, station: stationID, load: load, accept: accept})
 	if err != nil {
 		return nil, nil, Berth{}, false
 	}
@@ -131,7 +140,7 @@ func (s *Simulation) divertStart(v *vehicle) (int, string, bool) {
 	// Check whether the remaining endpoint is inside the arrival chain.
 	// stationPath cannot pass a berth or a station boundary.
 	if !station.isEntry(from) && !station.isExit(from) {
-		if _, err := s.stationPath(station.routeEntry(v.Route, v.destination), from); err == nil {
+		if _, err := s.stationPathForClass(station.routeEntry(v.Route, v.destination), from, v.Pod.Class); err == nil {
 			return 0, "", false
 		}
 	}
@@ -147,11 +156,19 @@ func (s *Simulation) pickupSeconds(v *vehicle, route []Lane) float64 {
 }
 
 func (s *Simulation) sendPickup(v *vehicle, stationID string) error {
+	return s.sendPickupMatching(v, stationID, nil)
+}
+
+func (s *Simulation) sendPickupForRequest(v *vehicle, request Request) error {
+	return s.sendPickupMatching(v, request.From, s.berthFilterForStops(v.Pod.Class, []string{request.To}))
+}
+
+func (s *Simulation) sendPickupMatching(v *vehicle, stationID string, accept func(Berth) bool) error {
 	station, _ := s.station(stationID)
 	if v.Pod.Activity == Idle {
 		from, _ := s.station(v.Pod.StationID)
 		origin, _ := from.berth(v.Pod.BerthID)
-		_, berth, err := s.stationRoute(origin.Node, stationID)
+		_, berth, err := s.stationRouteByLoad(stationRouteInput{from: origin.Node, station: stationID, class: v.Pod.Class, accept: accept})
 		if err != nil {
 			return err
 		}
@@ -161,7 +178,7 @@ func (s *Simulation) sendPickup(v *vehicle, stationID string) error {
 		s.bufferPickup(v)
 		return nil
 	}
-	route, berth, ok := s.pickupRoute(v, stationID)
+	route, berth, ok := s.pickupRouteWithAssignments(pickupRouteInput{pod: v, station: stationID, accept: accept})
 	if !ok {
 		return errors.New("pod cannot divert before its committed maneuver finishes")
 	}

@@ -13,7 +13,7 @@ func (s *Simulation) plannedBankDetour(origin string, stops []string, start deto
 	}
 	if entry == "" {
 		var err error
-		entry, err = s.stationBankEntry(origin, first, s.berthLoad)
+		entry, err = s.stationBankEntryMatching(origin, first, s.berthLoad, start.class, s.berthFilterForStops(start.class, stops[1:]))
 		if err != nil {
 			return math.Inf(1)
 		}
@@ -24,12 +24,16 @@ func (s *Simulation) plannedBankDetour(origin string, stops []string, start deto
 		station, _ := s.station(stop)
 		next := make(map[string]float64)
 		found := false
+		accept := s.berthFilterForStops(start.class, stops[index+1:])
 		for gate, ridden := range states {
 			for _, berth := range station.Berths {
+				if accept != nil && !accept(berth) {
+					continue
+				}
 				if station.berthEntry(berth) != gate || index == 0 && start.berth.ID != "" && berth.ID != start.berth.ID {
 					continue
 				}
-				path, err := s.stationPath(gate, berth.Node)
+				path, err := s.stationPathForClass(gate, berth.Node, start.class)
 				if err != nil {
 					continue
 				}
@@ -37,13 +41,13 @@ func (s *Simulation) plannedBankDetour(origin string, stops []string, start deto
 				if index != 0 || start.berth.ID == "" {
 					arrival += s.lanesMeters(path)
 				}
-				direct := s.directDistance(origin, station.ID, berth)
+				direct := s.directDistanceForClass(origin, station.ID, berth, start.class)
 				if direct <= 0 {
 					return math.Inf(1)
 				}
 				largest, found = max(largest, arrival/direct), true
 				if index+1 < len(stops) {
-					route, err := s.stationApproachRoute(berth.Node, stops[index+1])
+					route, err := s.stationApproachForStops(berth.Node, stops[index+1:], start.class)
 					if err != nil {
 						return math.Inf(1)
 					}

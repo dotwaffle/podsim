@@ -4,8 +4,8 @@ import "testing"
 
 func TestWorkingVehicles(t *testing.T) {
 	t.Parallel()
-	open := []Request{{ID: 1, From: "a", To: "b", PodID: "p1"}}
-	done := []Request{{ID: 2, From: "a", To: "b", PodID: "p1", Completed: true}}
+	open := []Request{{SharingConsent: SharedConsent, Service: OnDemandService, ID: 1, From: "a", To: "b", PodID: "p1"}}
+	done := []Request{{SharingConsent: SharedConsent, Service: OnDemandService, ID: 2, From: "a", To: "b", PodID: "p1", Completed: true}}
 	pod := func(id string) Pod { return Pod{ID: id} }
 	for _, test := range []struct {
 		name  string
@@ -21,7 +21,7 @@ func TestWorkingVehicles(t *testing.T) {
 			name: "pod on its way to a pickup",
 			state: Snapshot{
 				Vehicles: []Vehicle{{Pod: pod("p1"), Riders: done, RelocatingTo: "a"}, {Pod: pod("p2"), RelocatingTo: "b"}},
-				Pending:  []Request{{ID: 3, From: "a", To: "b", PodID: "p1"}, {ID: 4, From: "b", To: "a"}},
+				Pending:  []Request{{SharingConsent: SharedConsent, Service: OnDemandService, ID: 3, From: "a", To: "b", PodID: "p1"}, {SharingConsent: SharedConsent, Service: OnDemandService, ID: 4, From: "b", To: "a"}},
 			},
 			want: 1,
 		},
@@ -29,7 +29,7 @@ func TestWorkingVehicles(t *testing.T) {
 			name: "pod with a trip and a later pickup is one pod",
 			state: Snapshot{
 				Vehicles: []Vehicle{{Pod: pod("p1"), Riders: open}},
-				Pending:  []Request{{ID: 3, From: "b", To: "a", PodID: "p1"}},
+				Pending:  []Request{{SharingConsent: SharedConsent, Service: OnDemandService, ID: 3, From: "b", To: "a", PodID: "p1"}},
 			},
 			want: 1,
 		},

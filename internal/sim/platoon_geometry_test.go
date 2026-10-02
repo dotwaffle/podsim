@@ -89,7 +89,7 @@ func restoreGeometry(t *testing.T, network Network, lanes, pods int, head, gap f
 		distance := head - gap*float64(index)
 		state.Pods = append(state.Pods, SavedPod{
 			ID: id, Activity: "traveling", Occupied: true, Origin: fleet[index].BerthID, DestinationStation: "dest",
-			Riders: []SavedRequest{{ID: state.RequestID, From: "origin", To: "dest", PartySize: 1, PodID: id}},
+			Riders: []SavedRequest{{SharingConsent: SharedConsent, Service: OnDemandService, ID: state.RequestID, From: "origin", To: "dest", PartySize: 1, PodID: id}},
 			Stops:  []string{"dest"},
 			Route:  route, LaneID: "l0", LaneDistance: distance, Distance: distance,
 		})

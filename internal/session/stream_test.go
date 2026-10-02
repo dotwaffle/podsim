@@ -225,14 +225,14 @@ func TestStreamMaximumEncoding(t *testing.T) {
 	fillStreamScalars(reflect.ValueOf(&f.State).Elem())
 	escaped := strings.Repeat("\x01", 64)
 	reason := strings.Repeat("\x01", 1024)
-	request := sim.Request{ID: math.MaxInt, From: escaped, To: escaped, PodID: escaped, PartySize: 8, RequestedTick: math.MaxInt64, BoardedTick: math.MaxInt64, DispatchReason: reason}
+	request := sim.Request{ID: math.MaxInt, From: escaped, To: escaped, PodID: escaped, PartySize: math.MaxInt, LegacyPartySize: true, SharingConsent: sim.LegacyUnknownConsent, Service: sim.OnDemandService, RequestedTick: math.MaxInt64, BoardedTick: math.MaxInt64, DispatchReason: reason}
 	// Restored pending requests include QueueLimit plus every pod party.
 	f.State.Simulation.Pending = slices.Repeat([]sim.Request{request}, maxSavedTrips)
 	f.State.Simulation.Vehicles = make([]VehicleFrame, project.MaxPods)
 	f.Routes = make([]sim.RoutePresentation, project.MaxPods)
 	for i := range f.Routes {
-		p := sim.Pod{ID: escaped, StationID: escaped, BerthID: escaped, LaneID: escaped, BlockedBy: escaped, ManeuverStationID: escaped, Activity: sim.Activity(escaped), WaitReason: sim.WaitReason(escaped), StationPhase: sim.StationPhase(escaped), Position: sim.Point{X: math.MaxFloat64, Y: -math.MaxFloat64}, LaneDistance: math.MaxFloat64, Speed: math.MaxFloat64}
-		f.State.Simulation.Vehicles[i] = VehicleFrame{Pod: p, Riders: slices.Repeat([]sim.Request{request}, 8), Stops: slices.Repeat([]string{escaped}, 8), RelocatingTo: escaped, Rebalancing: true, PlatoonID: escaped, PlatoonIndex: math.MaxInt}
+		p := sim.Pod{Class: sim.LegacyClass, ID: escaped, StationID: escaped, BerthID: escaped, LaneID: escaped, BlockedBy: escaped, ManeuverStationID: escaped, Activity: sim.Activity(escaped), WaitReason: sim.WaitReason(escaped), StationPhase: sim.StationPhase(escaped), Position: sim.Point{X: math.MaxFloat64, Y: -math.MaxFloat64}, LaneDistance: math.MaxFloat64, Speed: math.MaxFloat64}
+		f.State.Simulation.Vehicles[i] = VehicleFrame{LegacyCohort: true, Pod: p, Riders: slices.Repeat([]sim.Request{request}, 8), Stops: slices.Repeat([]string{escaped}, 8), RelocatingTo: escaped, Rebalancing: true, PlatoonID: escaped, PlatoonIndex: math.MaxInt}
 		f.Routes[i] = sim.RoutePresentation{Identity: math.MaxUint64, Display: slices.Repeat([]int{project.MaxLanes - 1}, project.MaxLanes), Origin: project.MaxNodes - 1, Lanes: slices.Repeat([]int{project.MaxLanes - 1}, sim.MotionRouteLimit), Start: math.MaxUint64, Current: math.MaxUint64, Before: true, After: true}
 	}
 	// Berths have unique nodes, so MaxNodes also bounds their total count.
@@ -502,7 +502,7 @@ func TestStreamFieldOwnership(t *testing.T) {
 			"global": {"Submitted", "Tick", "Paused", "Completed", "Demo", "DemoError"}, "vehicles": {"Vehicles"}, "berths": {"Berths"}, "pending": {"Pending"},
 			"statistics": {"Wait", "Journey", "PassengerDistanceMeters", "RiderDistanceMeters", "DirectDistanceMeters", "MaxDetourRatio", "SharedParties", "SharedRidePartyLimit", "EmptyDistanceMeters", "RebalanceMoves"},
 		}},
-		{reflect.TypeFor[VehicleFrame](), map[string][]string{"pod": {"Pod"}, "riders": {"Riders"}, "stops": {"Stops"}, "presentation replaces route": {"RouteLaneIDs"}, "metadata": {"RelocatingTo", "Rebalancing", "PlatoonID", "PlatoonIndex"}}},
+		{reflect.TypeFor[VehicleFrame](), map[string][]string{"pod": {"Pod"}, "riders": {"Riders"}, "stops": {"Stops"}, "presentation replaces route": {"RouteLaneIDs"}, "metadata": {"LegacyCohort", "RelocatingTo", "Rebalancing", "PlatoonID", "PlatoonIndex"}}},
 	}
 	for _, check := range checks {
 		seen := map[string]string{}

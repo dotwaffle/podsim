@@ -139,7 +139,7 @@ func TestYieldRelocationClaimsMatchesScanInTraffic(t *testing.T) {
 					moves++
 				}
 				for len(trips) > 0 && trips[0].second*TicksPerSecond == tick {
-					if err := s.RequestTrip(trips[0].from, trips[0].to); err != nil {
+					if err := submitSharedTrip(s, trips[0].from, trips[0].to); err != nil {
 						t.Fatal(err)
 					}
 					trips = trips[1:]
@@ -180,7 +180,7 @@ func yieldFixture(t *testing.T) (s *Simulation, relocating, other *vehicle) {
 // assign adds a waiting trip that names the pod.
 func assign(s *Simulation, v *vehicle) {
 	s.requestID++
-	s.waiting = append(s.waiting, waitingTrip{request: Request{ID: s.requestID, From: "market", To: "garden", PartySize: 1, PodID: v.Pod.ID}})
+	s.waiting = append(s.waiting, waitingTrip{request: Request{SharingConsent: SharedConsent, Service: OnDemandService, ID: s.requestID, From: "market", To: "garden", PartySize: 1, PodID: v.Pod.ID}})
 }
 
 func TestPassengerArrivalsMatchScan(t *testing.T) {
@@ -227,7 +227,7 @@ func TestPassengerArrivalsMatchScan(t *testing.T) {
 			setup: func(_ *Simulation, relocating, other *vehicle) {
 				other.destination = relocating.destination
 				other.Pod.Activity = Traveling
-				other.Riders = []Request{{ID: 1, From: "garden", To: "market"}}
+				other.Riders = []Request{{SharingConsent: SharedConsent, Service: OnDemandService, ID: 1, From: "garden", To: "market"}}
 			},
 		},
 		{
@@ -235,7 +235,7 @@ func TestPassengerArrivalsMatchScan(t *testing.T) {
 			setup: func(_ *Simulation, relocating, other *vehicle) {
 				other.destination = relocating.destination
 				other.Pod.Activity = Boarding
-				other.Riders = []Request{{ID: 1, From: "garden", To: "market"}}
+				other.Riders = []Request{{SharingConsent: SharedConsent, Service: OnDemandService, ID: 1, From: "garden", To: "market"}}
 			},
 		},
 		{
@@ -243,14 +243,14 @@ func TestPassengerArrivalsMatchScan(t *testing.T) {
 			setup: func(_ *Simulation, relocating, other *vehicle) {
 				other.destination = relocating.destination
 				other.Pod.Activity = Traveling
-				other.Riders = []Request{{ID: 1, From: "garden", To: "market", Completed: true}}
+				other.Riders = []Request{{SharingConsent: SharedConsent, Service: OnDemandService, ID: 1, From: "garden", To: "market", Completed: true}}
 			},
 		},
 		{
 			name: "idle pod with a passenger", want: false,
 			setup: func(_ *Simulation, relocating, other *vehicle) {
 				other.destination = relocating.destination
-				other.Riders = []Request{{ID: 1, From: "garden", To: "market"}}
+				other.Riders = []Request{{SharingConsent: SharedConsent, Service: OnDemandService, ID: 1, From: "garden", To: "market"}}
 			},
 		},
 		{
@@ -258,7 +258,7 @@ func TestPassengerArrivalsMatchScan(t *testing.T) {
 			setup: func(s *Simulation, relocating, other *vehicle) {
 				other.destination = relocating.destination
 				other.Pod.Activity = Traveling
-				other.Riders = []Request{{ID: 1, From: "garden", To: "market"}}
+				other.Riders = []Request{{SharingConsent: SharedConsent, Service: OnDemandService, ID: 1, From: "garden", To: "market"}}
 				assign(s, other)
 			},
 		},

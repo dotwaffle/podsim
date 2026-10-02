@@ -4,15 +4,23 @@ import "fmt"
 
 // stationApproachRoute routes to the station boundary without choosing a berth.
 func (s *Simulation) stationApproachRoute(fromNode, stationID string) ([]Lane, error) {
+	return s.stationApproachRouteForClass(fromNode, stationID, LegacyClass)
+}
+
+func (s *Simulation) stationApproachRouteForClass(fromNode, stationID string, class VehicleClass) ([]Lane, error) {
+	return s.stationApproachRouteMatching(fromNode, stationID, class, nil)
+}
+
+func (s *Simulation) stationApproachRouteMatching(fromNode, stationID string, class VehicleClass, accept func(Berth) bool) ([]Lane, error) {
 	station, ok := s.station(stationID)
 	if !ok {
 		return nil, fmt.Errorf("unknown station %q", stationID)
 	}
-	entry, err := s.stationBankEntry(fromNode, station, s.berthLoad)
+	entry, err := s.stationBankEntryMatching(fromNode, station, s.berthLoad, class, accept)
 	if err != nil {
 		return nil, err
 	}
-	route, err := s.route(fromNode, entry)
+	route, err := s.routeForClass(fromNode, entry, class)
 	if err != nil {
 		return nil, fmt.Errorf("route to %s: %w", stationID, err)
 	}
@@ -22,11 +30,15 @@ func (s *Simulation) stationApproachRoute(fromNode, stationID string) ([]Lane, e
 // assignedApproachRoute is stationApproachRoute for pod v when it starts
 // the route. It uses assignedRoute.
 func (s *Simulation) assignedApproachRoute(v *vehicle, fromNode, stationID string) ([]Lane, error) {
+	return s.assignedApproachRouteMatching(v, fromNode, stationID, nil)
+}
+
+func (s *Simulation) assignedApproachRouteMatching(v *vehicle, fromNode, stationID string, accept func(Berth) bool) ([]Lane, error) {
 	station, ok := s.station(stationID)
 	if !ok {
 		return nil, fmt.Errorf("unknown station %q", stationID)
 	}
-	entry, err := s.stationBankEntry(fromNode, station, s.berthLoad)
+	entry, err := s.stationBankEntryMatching(fromNode, station, s.berthLoad, v.Pod.Class, accept)
 	if err != nil {
 		return nil, err
 	}
@@ -45,10 +57,13 @@ func (s *Simulation) stationRoute(fromNode, stationID string) ([]Lane, Berth, er
 
 // stationRouteInput is the input of stationRouteByLoad.
 type stationRouteInput struct {
+	class         VehicleClass
 	from, station string
 	// load gives the same value as berthLoad. When it is nil,
 	// stationRouteByLoad uses berthLoad.
 	load func(Berth) int
+	// accept filters passenger continuation before choosing a berth or bank.
+	accept func(Berth) bool
 }
 
 // stationRouteByLoad is stationRoute with a berth load function from the
@@ -63,21 +78,24 @@ func (s *Simulation) stationRouteByLoad(input stationRouteInput) ([]Lane, Berth,
 	if input.load != nil {
 		loadOf = input.load
 	}
-	entry, err := s.stationBankEntry(input.from, station, loadOf)
+	entry, err := s.stationBankEntryMatching(input.from, station, loadOf, input.class, input.accept)
 	if err != nil {
 		return nil, Berth{}, err
 	}
-	s.cacheStationRoutes(input.from, station.Berths)
+	s.cacheStationRoutesForClass(input.from, station.Berths, input.class)
 	var bestRoute []Lane
 	var bestBerth Berth
 	bestLoad, found := 0, false
 	for _, berth := range station.Berths {
+		if !berthAllows(station, berth, input.class) || input.accept != nil && !input.accept(berth) {
+			continue
+		}
 		if station.Banks != nil && station.berthEntry(berth) != entry {
 			continue
 		}
-		route, err := s.route(input.from, berth.Node)
+		route, err := s.routeForClass(input.from, berth.Node, input.class)
 		if station.isEntry(input.from) {
-			route, err = s.stationPath(input.from, berth.Node)
+			route, err = s.stationPathForClass(input.from, berth.Node, input.class)
 		}
 		if err != nil {
 			continue
@@ -159,15 +177,4 @@ func (s *Simulation) berthAvailable(berth Berth) bool {
 		}
 	}
 	return true
-}
-
-func (s *Simulation) stationsConnected(from, to Station) bool {
-	for _, origin := range from.Berths {
-		for _, destination := range to.Berths {
-			if _, err := s.route(origin.Node, destination.Node); err == nil {
-				return true
-			}
-		}
-	}
-	return false
 }

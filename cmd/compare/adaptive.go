@@ -72,6 +72,7 @@ func (group *rateGroup) finish(rate int, drained bool) {
 // the seed. A new dimension in compare must also go here.
 type rateGroupKey struct {
 	pattern, profile, band             string
+	sharingConsent                     sim.SharingConsent
 	sharingLimit                       int
 	sharingMode                        sim.SharedRideMode
 	sharingMaxStops                    int
@@ -83,9 +84,14 @@ type rateGroupKey struct {
 }
 
 func rateGroupKeyOf(input *runInput) rateGroupKey {
+	consent := input.sharingConsent
+	if consent == "" {
+		consent = sim.PrivateConsent
+	}
 	return rateGroupKey{
 		pattern: input.pattern, profile: input.profile, band: input.band,
-		sharingLimit: input.sharingLimit, sharingMode: input.sharingMode, sharingMaxStops: input.sharingMaxStops,
+		sharingConsent: consent,
+		sharingLimit:   input.sharingLimit, sharingMode: input.sharingMode, sharingMaxStops: input.sharingMaxStops,
 		sharingJoin:   input.sharingJoin,
 		routingPolicy: input.routingPolicy,
 		waitRule:      input.waitRule, platoonPolicy: input.platoonPolicy, policy: input.policy,

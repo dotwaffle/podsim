@@ -29,7 +29,7 @@ func TestFinishingPodTravelBound(t *testing.T) {
 			busy := &s.vehicles[1]
 			busy.Pod.Activity, busy.Pod.Occupied = Unloading, true
 			busy.phaseTicks = test.seconds * TicksPerSecond
-			s.waiting = []waitingTrip{{request: Request{ID: 1, From: "market", To: "harbor"}}}
+			s.waiting = []waitingTrip{{request: Request{SharingConsent: SharedConsent, Service: OnDemandService, ID: 1, From: "market", To: "harbor"}}}
 			fast, full := s.Clone(), s.Clone()
 			station, _ := s.station(test.station)
 			market, _ := s.station("market")

@@ -29,7 +29,7 @@ func crossedPickupFixture(t *testing.T) *Simulation {
 		}
 		s.requestID++
 		s.waiting = append(s.waiting, waitingTrip{request: Request{
-			ID: s.requestID, PodID: pickup.pod, From: pickup.from, To: pickup.to,
+			SharingConsent: SharedConsent, Service: OnDemandService, ID: s.requestID, PodID: pickup.pod, From: pickup.from, To: pickup.to,
 			PartySize: 1, RequestedTick: 0,
 		}})
 	}
@@ -368,7 +368,7 @@ func TestPickupSwapWorkLimitsAndCursor(t *testing.T) {
 			if pickupErr := s.sendPickup(v, from); pickupErr != nil {
 				t.Fatal(pickupErr)
 			}
-			s.waiting = append(s.waiting, waitingTrip{request: Request{ID: index + 1, PodID: v.Pod.ID, From: from}})
+			s.waiting = append(s.waiting, waitingTrip{request: Request{SharingConsent: SharedConsent, Service: OnDemandService, ID: index + 1, PodID: v.Pod.ID, From: from}})
 		}
 		s.SetPickupSwaps(true)
 		s.swapPickups()

@@ -30,6 +30,31 @@ async function initialize(f, value = draft("Initial")) {
   const work = f.history.reset(value); await turn(); await finish(f, work, view); return view;
 }
 
+test("browser history preserves owned project-3 class and registry snapshots through undo and redo", async () => {
+  const f = fixture(), first = draft("Service");
+  first.scenario.version = 3;
+  first.scenario.fleet = [{ ID: "pod", Class: "compact" }];
+  first.scenario.network.Stations = [{ ID: "hub", VehicleClasses: ["compact", "express"] }];
+  first.scenario.expressServices = [{ ID: "express", Class: "express", PartyLimit: 20 }];
+  await initialize(f, first);
+  first.scenario.fleet[0].Class = "group";
+  first.scenario.expressServices[0].PartyLimit = 1;
+  const old = f.history.snapshot;
+  const next = f.history.value; next.scenario.expressServices = [];
+  const replacement = f.history.replace(next); await turn();
+  await finish(f, replacement, metadata("s2", 2, { retained: ["s1", "s2"], canUndo: true }));
+  const undo = f.history.undo(); await turn();
+  await finish(f, undo, metadata("s1", 3, { retained: ["s1", "s2"], canRedo: true }));
+  assert.equal(f.history.snapshot, old);
+  assert.equal(f.history.snapshot.scenario.fleet[0].Class, "compact");
+  assert.equal(f.history.snapshot.scenario.expressServices[0].PartyLimit, 20);
+  assert.ok(Object.isFrozen(f.history.snapshot.scenario.network.Stations[0].VehicleClasses));
+  const redo = f.history.redo(); await turn();
+  await finish(f, redo, metadata("s2", 4, { retained: ["s1", "s2"], canUndo: true }));
+  assert.deepEqual(f.history.snapshot.scenario.expressServices, []);
+  assert.equal(f.history.snapshot.scenario.version, 3);
+});
+
 test("history publishes queued acceptance and waits before pruning images or starting the next transition", async () => {
   const f = fixture(); await initialize(f, draft("Initial", "a"));
   const first = f.history.replace(draft("Second", "b"), false);

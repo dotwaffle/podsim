@@ -27,22 +27,28 @@ func withBankMetadata(config project.Config) project.Config {
 
 func TestSavedBankVersionPairs(t *testing.T) {
 	t.Parallel()
-	base := newTestStateFile(t)
+	base := legacyTestState(newTestStateFile(t), stateVersion)
 	for _, savedVersion := range []int{2, 3, 4, 5, 6} {
-		for _, projectVersion := range []int{1, 2} {
+		for _, projectVersion := range []int{1, 2, 3} {
 			t.Run(fmt.Sprintf("saved%d/project%d", savedVersion, projectVersion), func(t *testing.T) {
 				t.Parallel()
 				file := base
+				if savedVersion == serviceStateVersion {
+					file = newTestStateFile(t)
+				}
 				file.Version = savedVersion
-				if projectVersion == project.BankVersion {
+				switch projectVersion {
+				case project.BankVersion:
 					file.Project = withBankMetadata(base.Project)
+				case project.ServiceVersion:
+					file.Project.Version = project.ServiceVersion
 				}
 				raw, err := json.Marshal(file)
 				if err != nil {
 					t.Fatal(err)
 				}
 				got, err := decodeStateFile(compressTestJSON(t, raw))
-				valid := savedVersion >= 2 && savedVersion <= 4 && projectVersion == 1 || savedVersion == 5 && projectVersion == 2
+				valid := savedVersion >= 2 && savedVersion <= 4 && projectVersion == 1 || savedVersion == 5 && projectVersion == 2 || savedVersion == serviceStateVersion
 				if (err == nil) != valid {
 					t.Fatalf("accepted=%t want=%t: %v", err == nil, valid, err)
 				}
@@ -65,7 +71,7 @@ func TestSavedBankVersionPairs(t *testing.T) {
 
 func TestSavedBankRejectsLegacyPresence(t *testing.T) {
 	t.Parallel()
-	base := newTestStateFile(t)
+	base := legacyTestState(newTestStateFile(t), stateVersion)
 	for _, version := range []int{2, 3, 4, 5} {
 		for _, banks := range []string{`null`, `[]`, `[{}]`} {
 			if version == bankStateVersion && banks == `[{}]` {
@@ -108,7 +114,7 @@ func TestSavedBankBufferFieldCompatibility(t *testing.T) {
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
-			file := platoonStateFile(t)
+			file := legacyTestState(platoonStateFile(t), bankStateVersion)
 			file.Version, file.Project = bankStateVersion, withBankMetadata(file.Project)
 			file.Simulation.Pods[0].StationBuffered = true
 			file.Simulation.Pods[1].Platoon.Lanes = 1
@@ -140,7 +146,7 @@ func TestCaptureBankStateVersion(t *testing.T) {
 	t.Cleanup(shared.Close)
 	shared.project = withBankMetadata(shared.project)
 	file, captured, err := shared.captureState(saveStartup)
-	if err != nil || !captured || file.Version != bankStateVersion {
+	if err != nil || !captured || file.Version != serviceStateVersion {
 		t.Fatalf("capture version=%d captured=%t: %v", file.Version, captured, err)
 	}
 	got, err := decodeStateFile(encodeTestState(t, file))
@@ -151,7 +157,7 @@ func TestCaptureBankStateVersion(t *testing.T) {
 
 func TestBankRestoreVersionGatesBeforeSteps(t *testing.T) {
 	t.Parallel()
-	file := newTestStateFile(t)
+	file := legacyTestState(newTestStateFile(t), stateVersion)
 	file.Project = withBankMetadata(file.Project)
 	raw, err := json.Marshal(file)
 	if err != nil {

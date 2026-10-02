@@ -433,6 +433,10 @@
     }));
   }
 
+  function fleetClassNotice(config) {
+    return config.version === 3 ? "New pods use legacy class. Import a project to set vehicle classes and express services. Group and express pods cannot start yet." : "";
+  }
+
   // selectionCard gives the data of the Selection panel for the selected
   // station, lane or junction. A station gives its name, its bearing in
   // whole degrees, the parking option, and its berths. The bearing is 0
@@ -721,7 +725,7 @@
     }
     if (!("network" in document)) throw new Error("The file has no format field and no network field.");
     if (!isObject(document.network)) throw new Error("The network field must be an object.");
-    if (![1, 2].includes(document.version)) throw new Error("The version field must be 1 or 2.");
+    if (![1, 2, 3].includes(document.version)) throw new Error("The version field must be 1, 2, or 3.");
     return { scenario: clone(document), background: null };
   }
 
@@ -739,6 +743,10 @@
       imageFacts(background.dataURL);
     }
     if (!deferMetadata) {
+      if (typeof module !== "undefined" && module.exports) {
+        const { hasServiceMetadata } = require("./editor-service-reference.cjs");
+        if (hasServiceMetadata(scenario) && scenario.version !== 3) throw new Error("Vehicle and service fields require project version 3.");
+      }
       const banked = (scenario.network?.Stations || []).filter((station) => station && Object.hasOwn(station, "Banks"));
       if (scenario.version === 1 && banked.length) throw new Error("Version 1 projects cannot contain station banks.");
       if (scenario.version === 2 && !banked.length) throw new Error("Version 2 projects need a banked station.");
@@ -2408,7 +2416,7 @@
   const API = {
 
     MIN_LANE_LENGTH, MAX_PODS, MAX_STATIONS, MAX_NODES, MAX_LANES, MAX_NODE_LANES, MAX_FLOWS, MIN_ZOOM, NODE_LABEL_SCALE, NODE_LABEL_SIZE, LANE_PAIR_OFFSET, CHEVRON_LANE_LENGTH, BERTH_PITCH, STATION_PADDING, CLEARANCE, CHECK_DELAY, emptyConfig, fallbackConfig,
-    stationBearing, stationShape, stationLayout, stationGeometryCommand, berthChain, stationFlowCount, stationRailReferences, fleetRows, selectionCard, berthFocusID, undoFocus,
+    stationBearing, stationShape, stationLayout, stationGeometryCommand, berthChain, stationFlowCount, stationRailReferences, fleetRows, fleetClassNotice, selectionCard, berthFocusID, undoFocus,
     laneLength, curveLength, stationNodeOwners, dragTargets, checkSelector, checkSelection, selectionPoint, focusView,
     GEO_PROJECTION, GEO_RADIUS, GEO_MAX_LATITUDE, MAX_COORDINATE, FRAME_SOURCES, SCALE_TOLERANCE, ALIGN_TOLERANCE, RESAMPLE_MAX_SIDE, projectPoint, frameError, framePlacement, frameAligned, resampleSize, mercatorY, resampleRows,
     problemCountText, createCheckTimer, validationSummary, checkFocusKey, IMAGE_FILE_BYTES, IMAGE_MAX_SIDE, IMAGE_MAX_PIXELS, imageFacts, imageBytesFacts, dataURLToBytes, bytesToDataURL, checkImageSize,
@@ -2959,6 +2967,11 @@
       // Set only a changed value. This keeps the caret in a focused field.
       setControlValue(input, row.count);
     });
+    let notice = parent.querySelector("[data-fleet-class-notice]");
+    const message = fleetClassNotice(draft());
+    if (!message) { notice?.remove(); return; }
+    if (!notice) { notice = document.createElement("p"); notice.className = "hint"; notice.dataset.fleetClassNotice = "true"; parent.append(notice); }
+    notice.textContent = message;
   }
 
   const drawnRailPlans = new Map();

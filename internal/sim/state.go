@@ -6,6 +6,8 @@ import (
 )
 
 const (
+	// MaxSavedWaitingTrips keeps the current supported-profile restore queue bound.
+	MaxSavedWaitingTrips = 2600
 	// maxSavedPods is the largest fleet that a saved state can hold. It is the
 	// project fleet limit. TestMaximalRequeueRoundTrip checks both limits.
 	maxSavedPods = 300
@@ -62,20 +64,26 @@ type SavedDemo struct {
 
 // SavedRequest is a saved passenger order. It has the same fields as Request.
 type SavedRequest struct {
-	ID             int    `json:"id"`
-	From           string `json:"from"`
-	To             string `json:"to"`
-	PartySize      int    `json:"partySize"`
-	PodID          string `json:"podID,omitempty"`
-	Completed      bool   `json:"completed,omitzero"`
-	RequestedTick  int64  `json:"requestedTick"`
-	BoardedTick    int64  `json:"boardedTick,omitzero"`
-	DispatchReason string `json:"dispatchReason,omitempty"`
+	SharingConsent  SharingConsent `json:"sharingConsent,omitempty"`
+	Service         ServiceChoice  `json:"service,omitempty"`
+	ServiceID       string         `json:"serviceID,omitempty"`
+	LegacyPartySize bool           `json:"legacyPartySize,omitzero"`
+	ID              int            `json:"id"`
+	From            string         `json:"from"`
+	To              string         `json:"to"`
+	PartySize       int            `json:"partySize"`
+	PodID           string         `json:"podID,omitempty"`
+	Completed       bool           `json:"completed,omitzero"`
+	RequestedTick   int64          `json:"requestedTick"`
+	BoardedTick     int64          `json:"boardedTick,omitzero"`
+	DispatchReason  string         `json:"dispatchReason,omitempty"`
 }
 
 // SavedPod is a saved pod. A route holds indexes into Network.Lanes.
 type SavedPod struct {
-	ID string `json:"id"`
+	Class        VehicleClass `json:"class,omitempty"`
+	LegacyCohort bool         `json:"legacyCohort,omitzero"`
+	ID           string       `json:"id"`
 	// Activity is idle, departing, boarding, traveling, unloading or
 	// continuing.
 	Activity           string `json:"activity"`
@@ -180,9 +188,10 @@ const (
 // RestoreStateInput holds the network and the fleet of the saved simulation,
 // and its saved state.
 type RestoreStateInput struct {
-	Network Network
-	Fleet   []Placement
-	State   SavedState
+	ExpressServices []ExpressService
+	Network         Network
+	Fleet           []Placement
+	State           SavedState
 	// LogicalOnly makes RestoreState skip the physical tier.
 	LogicalOnly bool
 	// StationBuffers selects the version 3 physical buffer contract.
@@ -238,6 +247,22 @@ func RestoreState(input RestoreStateInput) (*Simulation, RestoreResult, error) {
 }
 
 func restoreState(input RestoreStateInput, newFleet func() (*Simulation, error)) (*Simulation, RestoreResult, error) {
+	registry, serviceErr := validatedExpressServices(input.Network, newRouteGraph(input.Network), input.ExpressServices)
+	if serviceErr != nil {
+		return nil, RestoreResult{}, serviceErr
+	}
+	for _, trip := range input.State.Waiting {
+		if err := serviceMatches(registry, Request(trip.Request).options()); err != nil {
+			return nil, RestoreResult{}, err
+		}
+	}
+	for _, pod := range input.State.Pods {
+		for _, rider := range pod.Riders {
+			if err := serviceMatches(registry, Request(rider).options()); err != nil {
+				return nil, RestoreResult{}, err
+			}
+		}
+	}
 	if err := checkSavedBankRoutes(input); err != nil {
 		return nil, RestoreResult{}, err
 	}
@@ -326,7 +351,7 @@ func (s *Simulation) ExportState() SavedState {
 
 func (s *Simulation) exportPod(v *vehicle, limits routeLimits) SavedPod {
 	pod := SavedPod{
-		ID: v.Pod.ID, Activity: activityCode(v.Pod.Activity), StationID: v.Pod.StationID, BerthID: v.Pod.BerthID,
+		ID: v.Pod.ID, Class: v.Pod.Class, LegacyCohort: v.LegacyCohort, Activity: activityCode(v.Pod.Activity), StationID: v.Pod.StationID, BerthID: v.Pod.BerthID,
 		Occupied: v.Pod.Occupied, RelocatingTo: v.RelocatingTo, Rebalancing: v.Rebalancing,
 		RebalanceAfter: v.rebalanceAfter, PhaseTicks: v.phaseTicks, Origin: v.origin.ID,
 		Destination: v.destination.ID, DestinationStation: v.destinationStation,

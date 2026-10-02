@@ -19,7 +19,7 @@ import (
 
 // Stream limits are independent of the smaller delivery and history windows.
 const (
-	StreamVersion    = 2
+	StreamVersion    = 3
 	MaxStreamJSON    = 64 << 20
 	MaxStreamMessage = 65 << 20
 )
@@ -54,6 +54,7 @@ type VehicleDelta struct {
 	Metadata *Replacement[vehicleMetadata]       `json:"metadata,omitempty"`
 }
 type vehicleMetadata struct {
+	LegacyCohort bool   `json:"LegacyCohort,omitzero"`
 	RelocatingTo string `json:"RelocatingTo"`
 	Rebalancing  bool   `json:"Rebalancing"`
 	PlatoonID    string `json:"PlatoonID"`
@@ -128,7 +129,7 @@ func sameChain(a, b StreamFrame) bool {
 	return true
 }
 func meta(v VehicleFrame) vehicleMetadata {
-	return vehicleMetadata{v.RelocatingTo, v.Rebalancing, v.PlatoonID, v.PlatoonIndex}
+	return vehicleMetadata{LegacyCohort: v.LegacyCohort, RelocatingTo: v.RelocatingTo, Rebalancing: v.Rebalancing, PlatoonID: v.PlatoonID, PlatoonIndex: v.PlatoonIndex}
 }
 func changed[T any](a, b T) *Replacement[T] {
 	if reflect.DeepEqual(a, b) {
@@ -331,6 +332,7 @@ func ApplyStream(previous StreamFrame, stream string, sequence uint64, e StreamE
 			}
 			if v.Metadata != nil {
 				m := v.Metadata.Value
+				dst.LegacyCohort = m.LegacyCohort
 				dst.RelocatingTo, dst.Rebalancing, dst.PlatoonID, dst.PlatoonIndex = m.RelocatingTo, m.Rebalancing, m.PlatoonID, m.PlatoonIndex
 			}
 		}

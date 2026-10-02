@@ -21,7 +21,7 @@ import (
 
 func TestStreamBankProtocolVersions(t *testing.T) {
 	t.Parallel()
-	for _, version := range []int{1, 2, 3} {
+	for _, version := range []int{1, 2, 3, 4} {
 		for _, banks := range []string{"omitted", "valid", "empty", "null"} {
 			t.Run(fmt.Sprintf("hello%d/%s", version, banks), func(t *testing.T) {
 				t.Parallel()
@@ -31,8 +31,14 @@ func TestStreamBankProtocolVersions(t *testing.T) {
 				}
 				t.Cleanup(shared.Close)
 				topology := shared.Topology()
+				if version < 3 {
+					topology.ProjectVersion = 0
+				}
 				if banks == "valid" {
 					topology.Network = sim.BankExample()
+					if version == 3 {
+						topology.ProjectVersion = 2
+					}
 				}
 				topologyJSON := streamJSON(t, topology)
 				if banks == "empty" || banks == "null" {
@@ -87,7 +93,7 @@ func TestStreamBankProtocolVersions(t *testing.T) {
 				ctx, cancel := context.WithTimeout(t.Context(), 3*time.Second)
 				defer cancel()
 				err = client.receiveStream(ctx)
-				valid := version <= 2 && (banks == "omitted" || version == 2 && banks == "valid")
+				valid := version <= 3 && (banks == "omitted" || version >= 2 && banks == "valid")
 				_, connected, _ := client.View()
 				if connected != valid {
 					t.Fatalf("published=%t want=%t: %v", connected, valid, err)
@@ -95,7 +101,7 @@ func TestStreamBankProtocolVersions(t *testing.T) {
 				if version == 1 && banks == "valid" && (err == nil || !strings.Contains(err.Error(), "version 1")) {
 					t.Fatalf("wrong rejection: %v", err)
 				}
-				if version == 3 && fetches.Load() != 0 {
+				if version == 4 && fetches.Load() != 0 {
 					t.Fatal("unsupported hello fetched topology")
 				}
 			})

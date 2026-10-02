@@ -541,7 +541,7 @@ func TestStationBufferReleasedPickupDrain(t *testing.T) {
 			v.Riders, v.Stops = nil, nil
 			v.RelocatingTo = "market"
 			s.boarded, s.requestID = 0, 1
-			trip := waitingTrip{request: Request{ID: 1, From: "market", To: "garden", PodID: "01", PartySize: 1}}
+			trip := waitingTrip{request: Request{SharingConsent: SharedConsent, Service: OnDemandService, ID: 1, From: "market", To: "garden", PodID: "01", PartySize: 1}}
 			s.waiting = []waitingTrip{trip}
 			switch mode {
 			case "released":

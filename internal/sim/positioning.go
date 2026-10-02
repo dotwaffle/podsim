@@ -403,9 +403,9 @@ func (s *Simulation) positionGuarded() {
 	}
 	for _, deficit := range view.deficits[:min(len(view.deficits), guardedDeficitTries)] {
 		target := deficit.berths[0]
-		node, found := s.network.preferredNearestIndexed(preferredNearestInput{
+		node, found := s.preferredFleetSource(preferredNearestInput{
 			from: target.Node, rank: rank, limit: guardedReachSeconds, reverse: true,
-		}, s.graph)
+		})
 		if !found {
 			continue
 		}
@@ -518,7 +518,7 @@ func (s *Simulation) guardedBumpToDeficit(bump guardedBump) bool {
 		return false
 	}
 	node, ok := s.network.preferredNearestIndexed(preferredNearestInput{
-		from: bump.from, rank: rank, limit: guardedReachSeconds,
+		from: bump.from, rank: rank, class: bump.blocker.Pod.Class, limit: guardedReachSeconds,
 	}, s.graph)
 	if !ok {
 		return false
@@ -552,7 +552,7 @@ func (s *Simulation) guardedBumpToParking(bump guardedBump) bool {
 	if len(goals) == 0 {
 		return false
 	}
-	node, ok := s.network.preferredNearestIndexed(preferredNearestInput{from: bump.from, rank: rank}, s.graph)
+	node, ok := s.network.preferredNearestIndexed(preferredNearestInput{from: bump.from, rank: rank, class: bump.blocker.Pod.Class}, s.graph)
 	if !ok {
 		return false
 	}

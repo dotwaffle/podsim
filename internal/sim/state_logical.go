@@ -33,6 +33,12 @@ func restoreLogical(input RestoreStateInput, newFleet func() (*Simulation, error
 	if err != nil {
 		return nil, RestoreResult{}, fmt.Errorf("create the fleet: %w", err)
 	}
+	if err := s.SetExpressServices(input.ExpressServices); err != nil {
+		return nil, RestoreResult{}, err
+	}
+	if err := s.checkSavedClasses(state); err != nil {
+		return nil, RestoreResult{}, err
+	}
 	if err := checkSavedPodIDs(s.initial, state); err != nil {
 		return nil, RestoreResult{}, err
 	}

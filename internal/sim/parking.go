@@ -62,7 +62,7 @@ func (s *Simulation) clearToPassengerBerth(v *vehicle) bool {
 					if berth.ID == origin.ID || (requireAvailable && !s.berthAvailable(berth)) {
 						continue
 					}
-					route, err := s.route(origin.Node, berth.Node)
+					route, err := s.routeForClass(origin.Node, berth.Node, v.Pod.Class)
 					if err != nil || len(route) == 0 {
 						continue
 					}

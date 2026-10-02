@@ -185,6 +185,8 @@ type Config struct {
 	DemandProfiles []DemandProfile `json:"demandProfiles,omitempty"`
 	RailArrivals   []RailArrival   `json:"railArrivals,omitempty"`
 	RailDepartures []RailDeparture `json:"railDepartures,omitempty"`
+	// ExpressServices declares directed hub pairs without a fill or timetable rule.
+	ExpressServices []sim.ExpressService `json:"expressServices,omitempty"`
 	// SharedRidePartyLimit caps the parties per pod. Zero loads as one.
 	SharedRidePartyLimit int `json:"sharedRidePartyLimit,omitempty"`
 	// SharedRideMode selects the parties that can join a pod: "destination"
@@ -235,6 +237,9 @@ func Default() Config {
 // with any demand settings that ValidateDemand accepts.
 func Validate(config Config) error {
 	if err := validateBankVersion(config); err != nil {
+		return err
+	}
+	if err := validateServiceVersion(config); err != nil {
 		return err
 	}
 	if strings.TrimSpace(config.Name) == "" || len(config.Name) > maxNameLength {
@@ -294,6 +299,9 @@ func Validate(config Config) error {
 	if err := sim.ValidateFleet(config.Network, config.Fleet); err != nil {
 		return fmt.Errorf("invalid project scenario: %w", err)
 	}
+	if err := sim.ValidateExpressServices(config.Network, config.ExpressServices); err != nil {
+		return fmt.Errorf("invalid express registry: %w", err)
+	}
 	passenger := PassengerStations(config.Network)
 	if len(passenger) < 2 {
 		return errors.New("network needs at least two passenger stations")
@@ -345,6 +353,9 @@ func EffectiveSharedRideJoin(config Config) sim.SharedRideJoin {
 // ConfigureSharedRides applies the shared ride settings of a project to a
 // simulation.
 func ConfigureSharedRides(simulation *sim.Simulation, config Config) error {
+	if err := simulation.SetExpressServices(config.ExpressServices); err != nil {
+		return err
+	}
 	if err := simulation.SetSharedRidePartyLimit(EffectiveSharedRidePartyLimit(config)); err != nil {
 		return err
 	}
@@ -835,6 +846,7 @@ func Clone(config Config) Config {
 	clone.DemandProfiles = cloneDemandProfiles(config.DemandProfiles)
 	clone.RailArrivals = cloneRailArrivals(config.RailArrivals)
 	clone.RailDepartures = cloneRailDepartures(config.RailDepartures)
+	clone.ExpressServices = slices.Clone(config.ExpressServices)
 	if config.Geo != nil {
 		clone.Geo = new(*config.Geo)
 	}

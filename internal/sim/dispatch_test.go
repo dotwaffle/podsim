@@ -23,7 +23,7 @@ func TestStationRequestDispatch(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			if err := s.RequestTrip(tc.origin, tc.destination); err != nil {
+			if err := submitSharedTrip(s, tc.origin, tc.destination); err != nil {
 				t.Fatal(err)
 			}
 			expectedID := s.requestID
@@ -48,7 +48,7 @@ func TestStationRequestDispatch(t *testing.T) {
 					}
 				}
 				if pod.Pod.Activity == Idle && s.assigned(tc.pod) {
-					if err := s.RequestJourney(tc.pod, "market"); !errors.Is(err, ErrBusy) {
+					if err := requestSharedJourney(s, tc.pod, "market"); !errors.Is(err, ErrBusy) {
 						t.Fatal("assigned pickup pod could be stolen")
 					}
 				}
@@ -77,7 +77,7 @@ func TestBoardRoutesFromActualPickupBerth(t *testing.T) {
 		t.Fatal(err)
 	}
 	trip := waitingTrip{
-		request: Request{ID: 1, From: "market", To: "garden", PodID: "01"},
+		request: Request{SharingConsent: SharedConsent, Service: OnDemandService, ID: 1, From: "market", To: "garden", PodID: "01"},
 		route:   staleRoute,
 	}
 	if err := s.board(s.findVehicle("01"), trip); err != nil {
@@ -101,9 +101,9 @@ func TestRemotePickupYieldsToNewLocalPod(t *testing.T) {
 	}
 	local := s.findVehicle("02")
 	local.Pod.Activity, local.Pod.Occupied = Unloading, true
-	local.Riders = []Request{{ID: 99, From: "garden", To: "market", PodID: local.Pod.ID}}
+	local.Riders = []Request{{SharingConsent: SharedConsent, Service: OnDemandService, ID: 99, From: "garden", To: "market", PodID: local.Pod.ID}}
 	local.phaseTicks = 180 * TicksPerSecond
-	if err := s.RequestTrip("market", "garden"); err != nil {
+	if err := submitSharedTrip(s, "market", "garden"); err != nil {
 		t.Fatal(err)
 	}
 	remote := s.findVehicle("01")
@@ -133,7 +133,7 @@ func TestQueuedRequestsReusePod(t *testing.T) {
 		t.Fatal(err)
 	}
 	for range 2 {
-		if err := s.RequestTrip("harbor", "garden"); err != nil {
+		if err := submitSharedTrip(s, "harbor", "garden"); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -181,13 +181,13 @@ func TestInfeasiblePickupDoesNotBlockOtherStation(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := s.RequestJourney("01", "garden"); err != nil {
+	if err := requestSharedJourney(s, "01", "garden"); err != nil {
 		t.Fatal(err)
 	}
-	if err := s.RequestTrip("market", "harbor"); err != nil {
+	if err := submitSharedTrip(s, "market", "harbor"); err != nil {
 		t.Fatal(err)
 	}
-	if err := s.RequestTrip("harbor", "garden"); err != nil {
+	if err := submitSharedTrip(s, "harbor", "garden"); err != nil {
 		t.Fatal(err)
 	}
 	if len(s.waiting) != 1 || s.waiting[0].request.PodID != "" || s.findVehicle("02").Pod.Activity != Boarding || s.findVehicle("03").Pod.Activity != Idle {
@@ -204,12 +204,12 @@ func TestLocalDemandPrecedesParking(t *testing.T) {
 	local := s.findVehicle("02")
 	local.Pod.Activity, local.Pod.Occupied = Unloading, true
 	local.phaseTicks = 180 * TicksPerSecond
-	local.Riders = []Request{{ID: 1, From: "garden", To: "market", PartySize: 1, PodID: "02"}}
+	local.Riders = []Request{{SharingConsent: SharedConsent, Service: OnDemandService, ID: 1, From: "garden", To: "market", PartySize: 1, PodID: "02"}}
 	s.requestID = 1
-	if err := s.RequestJourney("01", "market"); err != nil {
+	if err := requestSharedJourney(s, "01", "market"); err != nil {
 		t.Fatal(err)
 	}
-	if err := s.RequestTrip("market", "garden"); err != nil {
+	if err := submitSharedTrip(s, "market", "garden"); err != nil {
 		t.Fatal(err)
 	}
 	for range 120 * TicksPerSecond {
@@ -232,7 +232,7 @@ func TestRejectedStationRequestsDoNotMutate(t *testing.T) {
 			t.Parallel()
 			s := newTraffic(t)
 			before := s.Snapshot()
-			if err := s.RequestTrip(pair[0], pair[1]); err == nil {
+			if err := submitSharedTrip(s, pair[0], pair[1]); err == nil {
 				t.Fatal("invalid trip accepted")
 			}
 			if s.requestID != 0 || !reflect.DeepEqual(before, s.Snapshot()) {
@@ -259,7 +259,7 @@ func TestStationRequestsAfterExpandedDemo(t *testing.T) {
 		t.Fatal("demo did not finish")
 	}
 	for range 2 {
-		if err := s.RequestTrip("harbor", "garden"); err != nil {
+		if err := submitSharedTrip(s, "harbor", "garden"); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -281,7 +281,7 @@ func TestPickupWaitsForIncomingPassengerPod(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := s.RequestJourney("01", "market"); err != nil {
+	if err := requestSharedJourney(s, "01", "market"); err != nil {
 		t.Fatal(err)
 	}
 	for range 120 * TicksPerSecond {
@@ -293,7 +293,7 @@ func TestPickupWaitsForIncomingPassengerPod(t *testing.T) {
 	if s.findVehicle("01").Pod.LaneID != "market-in" || s.owners[resource{kind: berthResource, id: "market-1"}] != "" {
 		t.Fatal("fixture needs an incoming pod before berth admission")
 	}
-	if err := s.RequestTrip("market", "garden"); err != nil {
+	if err := submitSharedTrip(s, "market", "garden"); err != nil {
 		t.Fatal(err)
 	}
 	for range 360 * TicksPerSecond {
@@ -317,14 +317,14 @@ func TestPassengerAndPickupShareBerthAdmission(t *testing.T) {
 	local := s.findVehicle("01")
 	local.Pod.Activity, local.Pod.Occupied = Unloading, true
 	local.phaseTicks = 120 * TicksPerSecond
-	local.Riders = []Request{{ID: 1, From: "garden", To: "harbor", PartySize: 1, PodID: "01"}}
+	local.Riders = []Request{{SharingConsent: SharedConsent, Service: OnDemandService, ID: 1, From: "garden", To: "harbor", PartySize: 1, PodID: "01"}}
 	s.requestID = 1
-	if err := s.RequestTrip("market", "garden"); err != nil {
+	if err := submitSharedTrip(s, "market", "garden"); err != nil {
 		t.Fatal(err)
 	}
 	local.phaseTicks = 1
 	s.Step()
-	if err := s.RequestTrip("harbor", "market"); err != nil {
+	if err := submitSharedTrip(s, "harbor", "market"); err != nil {
 		t.Fatal(err)
 	}
 	if s.findVehicle("01").Pod.Activity != Boarding {
@@ -348,11 +348,11 @@ func TestPickupDepartsBeforeBerthClears(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := s.RequestJourney("01", "market"); err != nil {
+	if err := requestSharedJourney(s, "01", "market"); err != nil {
 		t.Fatal(err)
 	}
 	s.findVehicle("01").phaseTicks = 180 * TicksPerSecond
-	if err := s.RequestTrip("garden", "market"); err != nil {
+	if err := submitSharedTrip(s, "garden", "market"); err != nil {
 		t.Fatal(err)
 	}
 	pickup := s.findVehicle("02")
@@ -387,11 +387,11 @@ func TestPickupArrivalOrderDoesNotReorderPassengers(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := s.RequestTrip("garden", "market"); err != nil {
+	if err := submitSharedTrip(s, "garden", "market"); err != nil {
 		t.Fatal(err)
 	}
 	s.findVehicle("01").phaseTicks = 180 * TicksPerSecond
-	if err := s.RequestTrip("garden", "harbor"); err != nil {
+	if err := submitSharedTrip(s, "garden", "harbor"); err != nil {
 		t.Fatal(err)
 	}
 	if s.waiting[0].request.PodID != "01" || s.waiting[1].request.PodID != "02" {
@@ -474,7 +474,7 @@ func TestQueuedTripBoardsWithItsParties(t *testing.T) {
 				saved.boarded, saved.sharedParties, saved.totalWaitTicks, saved.maxWaitTicks
 			s.requestID = 1
 			s.waiting = append(s.waiting, waitingTrip{
-				request: Request{ID: 1, From: "harbor", To: "market", PartySize: 1, BoardedTick: 7}, boarded: tc.boarded,
+				request: Request{SharingConsent: SharedConsent, Service: OnDemandService, ID: 1, From: "harbor", To: "market", PartySize: 1, BoardedTick: 7}, boarded: tc.boarded,
 			})
 			// The wait statistics must not change when the trip boards.
 			queued := s.waitStats()
@@ -528,7 +528,7 @@ func TestSharedRideCountsQueuedParties(t *testing.T) {
 			if err := s.SetSharedRidePartyLimit(4); err != nil {
 				t.Fatal(err)
 			}
-			if err := s.RequestTrip("harbor", "market"); err != nil {
+			if err := submitSharedTrip(s, "harbor", "market"); err != nil {
 				t.Fatal(err)
 			}
 			pod := s.findVehicle("01")
@@ -539,7 +539,7 @@ func TestSharedRideCountsQueuedParties(t *testing.T) {
 			for range tc.trips {
 				s.requestID++
 				s.waiting = append(s.waiting, waitingTrip{
-					request: Request{ID: s.requestID, From: "harbor", To: "market", PartySize: 1}, boarded: tc.boarded,
+					request: Request{SharingConsent: SharedConsent, Service: OnDemandService, ID: s.requestID, From: "harbor", To: "market", PartySize: 1}, boarded: tc.boarded,
 				})
 			}
 			s.dispatch()
@@ -577,7 +577,7 @@ func TestOnePassDoesNotReuseAClaimedPickupPod(t *testing.T) {
 	}
 	s.requestID = 2
 	for id := 1; id <= 2; id++ {
-		s.waiting = append(s.waiting, waitingTrip{request: Request{ID: id, From: "harbor", To: "garden", PartySize: 1}})
+		s.waiting = append(s.waiting, waitingTrip{request: Request{SharingConsent: SharedConsent, Service: OnDemandService, ID: id, From: "harbor", To: "garden", PartySize: 1}})
 	}
 	s.dispatch()
 	if len(s.waiting) != 2 {
@@ -627,7 +627,7 @@ func TestLocalIdlePodPricedAtItsBerth(t *testing.T) {
 			if got := s.pickupPod("market", &dispatchPass{assigned: map[string]bool{}}); got != local {
 				t.Fatalf("pickupPod chose %v, want the local pod", got)
 			}
-			if err := s.RequestTrip("market", "harbor"); err != nil {
+			if err := submitSharedTrip(s, "market", "harbor"); err != nil {
 				t.Fatal(err)
 			}
 			if local.Pod.Activity != Boarding || len(s.waiting) != 0 {
@@ -702,11 +702,11 @@ func TestIdlePodScansAfterAChangeInThePass(t *testing.T) {
 				t.Fatal(err)
 			}
 			s.waiting = []waitingTrip{
-				{request: Request{ID: 1, From: "harbor", To: "garden", PartySize: 1}},
-				{request: Request{ID: 2, From: "market", To: "garden", PartySize: 1, PodID: "03"}},
+				{request: Request{SharingConsent: SharedConsent, Service: OnDemandService, ID: 1, From: "harbor", To: "garden", PartySize: 1}},
+				{request: Request{SharingConsent: SharedConsent, Service: OnDemandService, ID: 2, From: "market", To: "garden", PartySize: 1, PodID: "03"}},
 			}
 			if tc.readyTrip {
-				s.waiting = append(s.waiting, waitingTrip{request: Request{ID: 3, From: "market", To: "harbor", PartySize: 1, PodID: "02"}})
+				s.waiting = append(s.waiting, waitingTrip{request: Request{SharingConsent: SharedConsent, Service: OnDemandService, ID: 3, From: "market", To: "harbor", PartySize: 1, PodID: "02"}})
 			}
 			s.requestID = len(s.waiting)
 

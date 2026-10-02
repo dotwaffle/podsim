@@ -164,7 +164,7 @@ func openGate(s *Simulation) {
 	const id = 10
 	requested := int64(id)*ticksPerMinute*guardedFleetRateShare/int64(len(s.vehicles)) + 1
 	v := &s.vehicles[0]
-	v.Riders = []Request{{ID: id, From: "s0", To: "s1", PartySize: 1, PodID: v.Pod.ID, Completed: true, RequestedTick: requested}}
+	v.Riders = []Request{{SharingConsent: SharedConsent, Service: OnDemandService, ID: id, From: "s0", To: "s1", PartySize: 1, PodID: v.Pod.ID, Completed: true, RequestedTick: requested}}
 	s.requestID, s.boarded = id, id
 	s.tick = requested + TicksPerSecond
 	s.nextRedistributionTick = s.tick
@@ -239,7 +239,7 @@ func TestGuardedGate(t *testing.T) {
 		{name: "newest in a waiting trip", active: true, open: true, setup: func(s *Simulation) {
 			base(s)
 			s.vehicles[0].Riders = nil
-			s.waiting = []waitingTrip{{request: Request{ID: id, From: "s1", To: "s2", PartySize: 1, PodID: "005", RequestedTick: requested}}}
+			s.waiting = []waitingTrip{{request: Request{SharingConsent: SharedConsent, Service: OnDemandService, ID: id, From: "s1", To: "s2", PartySize: 1, PodID: "005", RequestedTick: requested}}}
 		}},
 		{name: "liveness edge", setup: func(s *Simulation) { base(s); s.tick = liveness }, active: true, open: true},
 		{name: "liveness past", setup: func(s *Simulation) { base(s); s.tick = liveness + 1 }, active: true},
@@ -247,18 +247,18 @@ func TestGuardedGate(t *testing.T) {
 		{name: "budget spent", setup: func(s *Simulation) { base(s); s.rebalanceMoves = id }, active: true},
 		{name: "trip with a pod", active: true, open: true, setup: func(s *Simulation) {
 			base(s)
-			s.waiting = []waitingTrip{{request: Request{ID: id - 1, From: "s1", To: "s2", PartySize: 1, PodID: "005", RequestedTick: 1}}}
+			s.waiting = []waitingTrip{{request: Request{SharingConsent: SharedConsent, Service: OnDemandService, ID: id - 1, From: "s1", To: "s2", PartySize: 1, PodID: "005", RequestedTick: 1}}}
 		}},
 		{name: "trip without a pod", active: true, setup: func(s *Simulation) {
 			base(s)
-			s.waiting = []waitingTrip{{request: Request{ID: id - 1, From: "s1", To: "s2", PartySize: 1, RequestedTick: 1}}}
+			s.waiting = []waitingTrip{{request: Request{SharingConsent: SharedConsent, Service: OnDemandService, ID: id - 1, From: "s1", To: "s2", PartySize: 1, RequestedTick: 1}}}
 		}},
 		{name: "load edge", setup: func(s *Simulation) { base(s); working(s, workingLimit) }, active: true, open: true},
 		{name: "load over", setup: func(s *Simulation) { base(s); working(s, workingLimit+1) }, active: true},
 		{name: "load over with a pickup pod", active: true, setup: func(s *Simulation) {
 			base(s)
 			working(s, workingLimit)
-			s.waiting = []waitingTrip{{request: Request{ID: id - 1, From: "s1", To: "s2", PartySize: 1, PodID: "100", RequestedTick: 1}}}
+			s.waiting = []waitingTrip{{request: Request{SharingConsent: SharedConsent, Service: OnDemandService, ID: id - 1, From: "s1", To: "s2", PartySize: 1, PodID: "100", RequestedTick: 1}}}
 		}},
 		// With a demand rate, the gate reads the rate and not the rate at
 		// the newest request. 5*20 is less than 114, and 6*20 is not.
@@ -362,7 +362,7 @@ func TestGuardedNewestRequest(t *testing.T) {
 	t.Run("highest ID", func(t *testing.T) {
 		t.Parallel()
 		s := newLineSimulation(t, stations, place("s0-1", "s1-1"))
-		s.waiting = []waitingTrip{{request: Request{ID: 7, From: "s1", To: "s2", PartySize: 1, RequestedTick: 700}}}
+		s.waiting = []waitingTrip{{request: Request{SharingConsent: SharedConsent, Service: OnDemandService, ID: 7, From: "s1", To: "s2", PartySize: 1, RequestedTick: 700}}}
 		s.vehicles[0].Riders = []Request{{ID: 9, PartySize: 1, Completed: true, RequestedTick: 900}}
 		s.vehicles[1].Riders = []Request{{ID: 3, PartySize: 1, RequestedTick: 300}}
 		for _, want := range []struct {
@@ -387,8 +387,8 @@ func TestGuardedNewestRequest(t *testing.T) {
 		t.Parallel()
 		s := newLineSimulation(t, stations, place("s0-1", "s1-1"))
 		s.tick, s.requestID = 2000, 2
-		s.vehicles[0].Riders = []Request{{ID: 2, From: "s1", To: "s0", PartySize: 1, PodID: "01", Completed: true, RequestedTick: 1500}}
-		s.waiting = []waitingTrip{{request: Request{ID: 1, From: "s0", To: "s1", PartySize: 1, RequestedTick: 1000}}}
+		s.vehicles[0].Riders = []Request{{SharingConsent: SharedConsent, Service: OnDemandService, ID: 2, From: "s1", To: "s0", PartySize: 1, PodID: "01", Completed: true, RequestedTick: 1500}}
+		s.waiting = []waitingTrip{{request: Request{SharingConsent: SharedConsent, Service: OnDemandService, ID: 1, From: "s0", To: "s1", PartySize: 1, RequestedTick: 1000}}}
 		s.dispatch()
 		if v := s.findVehicle("01"); v.Pod.Activity != Boarding || v.Riders[0].ID != 1 {
 			t.Fatalf("pod 01 does not board request 1: %+v", v.Vehicle)
@@ -406,7 +406,7 @@ func TestGuardedNewestRequest(t *testing.T) {
 		const first = 50000
 		s.tick = first
 		for range 2 {
-			if err := s.RequestTrip("s0", "s1"); err != nil {
+			if err := submitSharedTrip(s, "s0", "s1"); err != nil {
 				t.Fatal(err)
 			}
 			s.tick += TicksPerSecond
@@ -489,7 +489,7 @@ func TestGuardedSupply(t *testing.T) {
 	// passenger from s4 to s2, which is on the other side of the loop.
 	s := newLineSimulation(t, lineStations(4, 3, 3, 3, 3, 3, 3), place("s0-1", "p-1", "s2-1", "s4-1", "p-2", "p-3"))
 	for _, trip := range [][2]string{{"s2", "s3"}, {"s4", "s2"}} {
-		if err := s.RequestTrip(trip[0], trip[1]); err != nil {
+		if err := submitSharedTrip(s, trip[0], trip[1]); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -504,7 +504,7 @@ func TestGuardedSupply(t *testing.T) {
 	}
 	unloading := s.findVehicle("01")
 	unloading.Pod.Activity, unloading.Pod.Occupied, unloading.phaseTicks = Unloading, true, unloadingTicks
-	unloading.Riders = []Request{{ID: 1, From: "s5", To: "s0", PartySize: 1, PodID: "01", RequestedTick: 1}}
+	unloading.Riders = []Request{{SharingConsent: SharedConsent, Service: OnDemandService, ID: 1, From: "s5", To: "s0", PartySize: 1, PodID: "01", RequestedTick: 1}}
 	s1, _ := s.station("s1")
 	if err := s.startEmptyMove(s.findVehicle("02"), emptyDestination{station: "s1", berth: s1.Berths[0], reserveBerth: true}); err != nil {
 		t.Fatal(err)
@@ -592,20 +592,20 @@ func TestGuardedRefill(t *testing.T) {
 		{
 			name: "assigned pod", fleet: place(append(lone, "s6-2", "s6-1")...),
 			setup: func(s *Simulation) {
-				s.waiting = []waitingTrip{{request: Request{ID: 5, From: "s6", To: "s7", PartySize: 1, PodID: "06", RequestedTick: 1}}}
+				s.waiting = []waitingTrip{{request: Request{SharingConsent: SharedConsent, Service: OnDemandService, ID: 5, From: "s6", To: "s7", PartySize: 1, PodID: "06", RequestedTick: 1}}}
 			},
 		},
 		{
 			name: "assigned pod in parking", fleet: place(append(lone, "s6-1", "p-1")...),
 			setup: func(s *Simulation) {
-				s.waiting = []waitingTrip{{request: Request{ID: 5, From: "s1", To: "s2", PartySize: 1, PodID: "07", RequestedTick: 1}}}
+				s.waiting = []waitingTrip{{request: Request{SharingConsent: SharedConsent, Service: OnDemandService, ID: 5, From: "s1", To: "s2", PartySize: 1, PodID: "07", RequestedTick: 1}}}
 			},
 		},
 		{name: "pod in parking", fleet: place(append(lone, "s6-1", "p-1")...), pod: "07", berth: "s0-1"},
 		{
 			name: "waiting trip at the deficit", fleet: place(append(lone, "s6-2", "s6-1")...),
 			setup: func(s *Simulation) {
-				s.waiting = []waitingTrip{{request: Request{ID: 5, From: "s7", To: "s1", PartySize: 1, PodID: "01", RequestedTick: 1}}}
+				s.waiting = []waitingTrip{{request: Request{SharingConsent: SharedConsent, Service: OnDemandService, ID: 5, From: "s7", To: "s1", PartySize: 1, PodID: "01", RequestedTick: 1}}}
 			},
 		},
 		{
@@ -774,7 +774,7 @@ func TestGuardedBumpInTraffic(t *testing.T) {
 				t.Fatal(err)
 			}
 			advance(s, int(tc.request))
-			if err := s.RequestTrip("s0", "s1"); err != nil {
+			if err := submitSharedTrip(s, "s0", "s1"); err != nil {
 				t.Fatal(err)
 			}
 			blocker := s.findVehicle("01")
@@ -847,7 +847,7 @@ func TestGuardedYieldParksAtOnce(t *testing.T) {
 	stepUntil(t, s, "pod 01 on the return lane", func() bool { return v.Pod.LaneID == "return" && v.Pod.LaneDistance > 20 })
 	// Pod 02 goes from Garden to the pickup at Market-1, the berth that
 	// pod 01 holds.
-	if err := s.RequestTrip("market", "garden"); err != nil {
+	if err := submitSharedTrip(s, "market", "garden"); err != nil {
 		t.Fatal(err)
 	}
 	if pickup := s.findVehicle("02"); pickup.destination.ID != "market-1" || !s.assigned("02") {
@@ -883,7 +883,7 @@ func TestGuardedYieldInCommittedInlet(t *testing.T) {
 		t.Fatal("pod 01 already holds the track to its berth")
 	}
 	route := slices.Clone(v.Route)
-	if err := s.RequestTrip("market", "garden"); err != nil {
+	if err := submitSharedTrip(s, "market", "garden"); err != nil {
 		t.Fatal(err)
 	}
 	if pickup := s.findVehicle("02"); pickup.destination.ID != "market-1" || !s.assigned("02") {
@@ -995,7 +995,7 @@ func TestGuardedInvariants(t *testing.T) {
 		if tick > 0 && tick%(80*TicksPerSecond) == 0 {
 			from := rng.IntN(12)
 			to := (from + 1 + rng.IntN(11)) % 12
-			if err := s.RequestTrip(fmt.Sprintf("s%d", from), fmt.Sprintf("s%d", to)); err != nil {
+			if err := submitSharedTrip(s, fmt.Sprintf("s%d", from), fmt.Sprintf("s%d", to)); err != nil {
 				t.Fatal(err)
 			}
 		}
@@ -1094,7 +1094,7 @@ func checkGuardedRestore(t *testing.T, parking, rate int) {
 		t.Helper()
 		for _, trip := range trips {
 			if int64(trip.second*TicksPerSecond) == s.tick {
-				if err := s.RequestTrip(trip.from, trip.to); err != nil {
+				if err := submitSharedTrip(s, trip.from, trip.to); err != nil {
 					t.Fatal(err)
 				}
 			}

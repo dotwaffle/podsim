@@ -110,19 +110,23 @@ type Metrics struct {
 // is based on. When it is not empty and it is not the ID of this session,
 // the project command gets SessionChanged. Other actions ignore it.
 type Command struct {
-	Client          string          `json:"client"`
-	Sequence        uint64          `json:"sequence"`
-	Epoch           string          `json:"epoch"`
-	Action          string          `json:"action"`
-	Origin          string          `json:"origin,omitempty"`
-	Destination     string          `json:"destination,omitempty"`
-	Paused          bool            `json:"paused,omitempty"`
-	Speed           int             `json:"speed,omitempty"`
-	Demand          DemandConfig    `json:"demand,omitzero"`
-	Project         *project.Config `json:"project,omitempty"`
-	ProjectRevision uint64          `json:"projectRevision,omitempty"`
-	Checkpoint      uint64          `json:"checkpoint,omitzero"`
-	ServerStart     string          `json:"serverStart,omitempty"`
+	Client          string             `json:"client"`
+	Sequence        uint64             `json:"sequence"`
+	Epoch           string             `json:"epoch"`
+	Action          string             `json:"action"`
+	Origin          string             `json:"origin,omitempty"`
+	Destination     string             `json:"destination,omitempty"`
+	PartySize       int                `json:"partySize,omitzero"`
+	SharingConsent  sim.SharingConsent `json:"sharingConsent,omitempty"`
+	Service         sim.ServiceChoice  `json:"service,omitempty"`
+	ServiceID       string             `json:"serviceID,omitempty"`
+	Paused          bool               `json:"paused,omitempty"`
+	Speed           int                `json:"speed,omitempty"`
+	Demand          DemandConfig       `json:"demand,omitzero"`
+	Project         *project.Config    `json:"project,omitempty"`
+	ProjectRevision uint64             `json:"projectRevision,omitempty"`
+	Checkpoint      uint64             `json:"checkpoint,omitzero"`
+	ServerStart     string             `json:"serverStart,omitempty"`
 }
 
 // CommandErrorCode classifies a rejected command independently of its wording.
@@ -371,7 +375,8 @@ func (s *Session) Topology() TopologySnapshot {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	topology := TopologySnapshot{
-		ServerStart: s.serverStart, Epoch: s.epoch, ProjectRevision: s.projectRevision,
+		ProjectVersion: s.project.Version,
+		ServerStart:    s.serverStart, Epoch: s.epoch, ProjectRevision: s.projectRevision,
 		Network: project.CloneNetwork(s.project.Network),
 	}
 	if s.project.Geo != nil {
@@ -663,10 +668,12 @@ func (s *Session) apply(command Command) (outcome, error) {
 		if len(state.Pending) >= QueueLimit {
 			return outcome{}, errors.New("the order queue is full; try again after a pickup")
 		}
-		if err := s.simulation.RequestTrip(command.Origin, command.Destination); err != nil {
+		orderID, err := s.simulation.SubmitTripOptions(sim.TripOptions{From: command.Origin, To: command.Destination,
+			PartySize: command.PartySize, SharingConsent: command.SharingConsent, Service: command.Service, ServiceID: command.ServiceID})
+		if err != nil {
 			return outcome{}, err
 		}
-		return outcome{orderID: s.simulation.Snapshot().Submitted}, nil
+		return outcome{orderID: orderID}, nil
 	case "pause":
 		s.simulation.SetPaused(command.Paused)
 	case "speed":

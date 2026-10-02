@@ -68,11 +68,11 @@ func TestForecastEligibilityAndReserves(t *testing.T) {
 		}},
 		{name: "paused", parking: true, pods: 4, berths: 3, prepare: func(s *Simulation) { s.SetPaused(true) }},
 		{name: "unassigned demand", parking: true, pods: 4, berths: 3, prepare: func(s *Simulation) {
-			s.waiting = append(s.waiting, waitingTrip{request: Request{ID: 1, From: "other", To: "target"}})
+			s.waiting = append(s.waiting, waitingTrip{request: Request{SharingConsent: SharedConsent, Service: OnDemandService, ID: 1, From: "other", To: "target"}})
 		}},
 		{name: "working share", pods: 30, berths: 3, prepare: func(s *Simulation) {
 			for i := range 13 {
-				s.waiting = append(s.waiting, waitingTrip{request: Request{ID: i + 1, From: "other", To: "target", PodID: s.vehicles[i].Pod.ID}})
+				s.waiting = append(s.waiting, waitingTrip{request: Request{SharingConsent: SharedConsent, Service: OnDemandService, ID: i + 1, From: "other", To: "target", PodID: s.vehicles[i].Pod.ID}})
 			}
 		}},
 		{name: "target claim", parking: true, pods: 4, berths: 2, prepare: func(s *Simulation) { s.owners[resource{kind: berthResource, id: "target-1"}] = "external" }},
