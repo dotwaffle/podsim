@@ -3969,40 +3969,80 @@
   }
 
   const drawnRailPlans = new Map();
+  const railEpochs = new Map();
+  const observedRailLayouts = new Map();
+  const railStructuralEdits = new Set();
+  function railEpoch(kind) { return railEpochs.get(kind) || 0; }
+  function railRowsID(kind) { return kind === "departure" ? "#railDepartureRows" : "#railArrivalRows"; }
+  function railBusy(kind) { return [...railStructuralEdits].some((edit) => edit.kind === kind); }
+  function renderRailLocks(kind) {
+    const parent = $(railRowsID(kind)), busy = railBusy(kind);
+    for (const control of parent.querySelectorAll("input, select, button")) {
+      control.disabled = busy || control.dataset.railDisabled === "true";
+    }
+    const config = draft();
+    $(kind === "departure" ? "#addRailDeparture" : "#addRailArrival").disabled = busy || (config.railArrivals || []).length + (config.railDepartures || []).length >= 256 || config.network.Stations.filter((station) => !station.ParkingOnly).length < 2;
+  }
+  function railSummary(event, passenger, departure) {
+    const hub = passenger.find((station) => station.ID === event.station);
+    return `${event.id}: ${hub?.Name || event.station}, ${event.passengers} passengers ${departure ? "departing" : "released"} at ${departure ? event.atSeconds : event.atSeconds + event.walkingSeconds}s`;
+  }
   function renderRailArrivals(config, kind = "arrival") {
     const departure = kind === "departure", key = departure ? "railDepartures" : "railArrivals", choices = departure ? "origins" : "destinations";
     const rowsID = departure ? "#railDepartureRows" : "#railArrivalRows", addID = departure ? "#addRailDeparture" : "#addRailArrival";
     const parent = $(rowsID); const arrivals = config[key] || [];
     $(addID).disabled = (config.railArrivals || []).length + (config.railDepartures || []).length >= 256 || config.network.Stations.filter((station) => !station.ParkingOnly).length < 2;
     const drawn = drawnRailPlans.get(kind);
-    if (drawn?.plan === config[key] && drawn?.stations === config.network.Stations) return;
+    const passenger = config.network.Stations.filter((station) => !station.ParkingOnly);
+    const layout = JSON.stringify([passenger.map((station) => station.ID), arrivals.map((event) => [event.id, event[choices].length])]);
+    const observed = observedRailLayouts.get(kind);
+    if (observed !== undefined && observed !== layout) railEpochs.set(kind, railEpoch(kind) + 1);
+    observedRailLayouts.set(kind, layout);
+    if (drawn?.plan === config[key] && drawn?.stations === config.network.Stations && drawn?.epoch === railEpoch(kind)) { renderRailLocks(kind); return; }
+    // Keep the same controls for field edits, including unreadable partial numbers.
+    if (drawn?.layout === layout && drawn?.epoch === railEpoch(kind)) {
+      for (const row of parent.children) {
+        const arrival = arrivals.find((item) => item.id === row.dataset.railID);
+        row.querySelector("summary").textContent = railSummary(arrival, passenger, departure);
+        for (const control of row.querySelectorAll("[data-rail-field]")) {
+          const { railField, railDestination } = control.dataset;
+          const item = railDestination === undefined ? arrival : arrival[choices][Number(railDestination)];
+          if (control.tagName === "SELECT") for (const option of control.options) option.textContent = passenger.find((station) => station.ID === option.value).Name;
+          setControlValue(control, item[railField]);
+          control.dataset.railEpoch = String(railEpoch(kind));
+        }
+        for (const control of row.querySelectorAll("[data-rail-action]")) control.dataset.railEpoch = String(railEpoch(kind));
+      }
+      drawnRailPlans.set(kind, { plan: config[key], stations: config.network.Stations, layout, epoch: railEpoch(kind) });
+      renderRailLocks(kind); return;
+    }
+    if ([...typingInputs].some((input) => parent.contains(input))) { renderRailLocks(kind); return; }
     const active = parent.contains(document.activeElement) ? document.activeElement : null;
     const focus = active ? { ...active.dataset } : null;
+    if (focus) delete focus.railEpoch;
     const opened = new Set([...parent.querySelectorAll("details[open]")].map((item) => item.dataset.railID));
-    const passenger = config.network.Stations.filter((station) => !station.ParkingOnly);
     const field = (text, control) => { const label = document.createElement("label"); label.append(document.createTextNode(text), control); return label; };
     const stationSelect = (value, id, name, destination) => {
-      const select = document.createElement("select"); select.dataset.railID = id; select.dataset.railField = name;
+      const select = document.createElement("select"); select.dataset.railID = id; select.dataset.railField = name; select.dataset.railEpoch = String(railEpoch(kind));
       if (destination !== undefined) select.dataset.railDestination = String(destination);
       for (const station of passenger) { const option = document.createElement("option"); option.value = station.ID; option.textContent = station.Name; select.append(option); }
       select.value = value;
       return select;
     };
     const number = (value, id, name, min, max, destination) => {
-      const input = document.createElement("input"); input.type = "number"; input.min = String(min); input.max = String(max); input.step = "1"; input.value = String(value); input.dataset.railID = id; input.dataset.railField = name;
+      const input = document.createElement("input"); input.type = "number"; input.min = String(min); input.max = String(max); input.step = "1"; input.value = String(value); input.dataset.railID = id; input.dataset.railField = name; input.dataset.railEpoch = String(railEpoch(kind));
       if (destination !== undefined) input.dataset.railDestination = String(destination);
       return input;
     };
     const button = (text, action, id, destination) => {
-      const item = document.createElement("button"); item.type = "button"; item.textContent = text; item.dataset.railAction = action; item.dataset.railID = id;
+      const item = document.createElement("button"); item.type = "button"; item.textContent = text; item.dataset.railAction = action; item.dataset.railID = id; item.dataset.railEpoch = String(railEpoch(kind));
       if (destination !== undefined) item.dataset.railDestination = String(destination);
       return item;
     };
     parent.replaceChildren();
     for (const arrival of arrivals) {
       const row = document.createElement("details"); row.dataset.railID = arrival.id; row.open = opened.has(arrival.id) || arrivals.length === 1;
-      const title = document.createElement("summary"); const hub = passenger.find((station) => station.ID === arrival.station);
-      title.textContent = `${arrival.id}: ${hub?.Name || arrival.station}, ${arrival.passengers} passengers ${departure ? "departing" : "released"} at ${departure ? arrival.atSeconds : arrival.atSeconds + arrival.walkingSeconds}s`; row.append(title);
+      const title = document.createElement("summary"); title.textContent = railSummary(arrival, passenger, departure); row.append(title);
       row.append(field("Rail hub", stationSelect(arrival.station, arrival.id, "station")));
       row.append(field(`${departure ? "Departure" : "Arrival"} after reset (seconds)`, number(arrival.atSeconds, arrival.id, "atSeconds", departure ? 1 : 0, 86400)));
       if (departure) {
@@ -4015,12 +4055,13 @@
         const group = document.createElement("div"); group.className = "subpanel";
         group.append(field(`${departure ? "Origin" : "Destination"} ${index + 1}`, stationSelect(destination.station, arrival.id, "station", index)));
         group.append(field("Weight", number(destination.weight, arrival.id, "weight", 1, 1000000, index)));
-        const remove = button(departure ? "Remove origin" : "Remove destination", "remove-destination", arrival.id, index); remove.disabled = arrival[choices].length <= 1; group.append(remove); row.append(group);
+        const remove = button(departure ? "Remove origin" : "Remove destination", "remove-destination", arrival.id, index); remove.dataset.railDisabled = String(arrival[choices].length <= 1); group.append(remove); row.append(group);
       });
-      const add = button(departure ? "Add origin" : "Add destination", "add-destination", arrival.id); add.disabled = arrival[choices].length >= 16; row.append(add, button(departure ? "Remove departure" : "Remove arrival", "remove-arrival", arrival.id));
+      const add = button(departure ? "Add origin" : "Add destination", "add-destination", arrival.id); add.dataset.railDisabled = String(arrival[choices].length >= 16); row.append(add, button(departure ? "Remove departure" : "Remove arrival", "remove-arrival", arrival.id));
       parent.append(row);
     }
-    drawnRailPlans.set(kind, { plan: config[key], stations: config.network.Stations });
+    drawnRailPlans.set(kind, { plan: config[key], stations: config.network.Stations, layout, epoch: railEpoch(kind) });
+    renderRailLocks(kind);
     if (focus) ([...parent.querySelectorAll("input, select, button")].find((item) => Object.keys(focus).every((key) => item.dataset[key] === focus[key])) || $(addID)).focus({ preventScroll: true });
   }
 
@@ -4470,7 +4511,10 @@
     $("#undoButton").disabled = !state.history.canUndo && !editQueue.pending;
     $("#redoButton").disabled = !state.history.canRedo;
   }
-  function cancelPendingEdits() { editQueue.cancel(); pendingInputs.clear(); typingInputs.clear(); }
+  function cancelPendingEdits() {
+    editQueue.cancel(); pendingInputs.clear(); typingInputs.clear(); railStructuralEdits.clear();
+    for (const kind of ["arrival", "departure"]) railEpochs.set(kind, railEpoch(kind) + 1);
+  }
   function queueScalarEdit(field, input, target) {
     const pending = { value: input.type === "checkbox" ? input.checked : input.value };
     typingInputs.delete(input); pendingInputs.set(input, pending); model.abort();
@@ -4492,6 +4536,32 @@
       setScalarValue("#scenarioName", draft().name); renderDemand();
       if (field === "fleetCount") renderFleet();
       renderHistoryButtons(); renderApply(); restorePendingInputs();
+    });
+  }
+  function queueRailEdit(kind, command, control) {
+    const epoch = control?.dataset.railEpoch === undefined ? railEpoch(kind) : Number(control.dataset.railEpoch);
+    const structural = command.action !== "set", lock = { kind };
+    const pending = command.action === "set" ? { value: control.value } : null;
+    if (pending) { typingInputs.delete(control); pendingInputs.set(control, pending); }
+    if (structural) railStructuralEdits.add(lock);
+    model.abort(); renderRailLocks(kind);
+    editQueue.submit(async (current) => {
+      if (!current()) return false;
+      if (epoch !== railEpoch(kind)) throw new Error("The rail rows changed. Enter the edit again.");
+      const config = draft(), generation = model.edits;
+      if (state.drag && state.drag.type !== "pan" || model.gestureOpen) throw new Error("Finish the open gesture before editing rail plans.");
+      const result = await goModel.call(config, "edit", { field: kind === "departure" ? "railDeparture" : "railArrival", value: command });
+      if (result.error) throw new Error(result.error);
+      if (!current()) return false;
+      if (config !== draft() || generation !== model.edits || state.drag && state.drag.type !== "pan" || model.gestureOpen) throw new Error("The draft changed during the edit. Enter the rail setting again.");
+      state.history.replace({ scenario: { ...config, ...result.change.patch }, background: state.background }, true);
+      if (structural && Object.keys(result.change.patch).length) railEpochs.set(kind, railEpoch(kind) + 1);
+      return true;
+    }).catch((error) => toast(error.message, true)).finally(() => {
+      if (pendingInputs.get(control) === pending) pendingInputs.delete(control);
+      railStructuralEdits.delete(lock);
+      // Rail replies must not end a newer map gesture.
+      renderRailArrivals(draft(), kind); renderDemand(); renderHistoryButtons(); renderApply(); restorePendingInputs();
     });
   }
   let placeNavigationEpoch = 0;
@@ -4997,20 +5067,29 @@
     bindScalarInput("dailyStartTime");
     for (const departure of [false, true]) {
       const addID = departure ? "#addRailDeparture" : "#addRailArrival", rowsID = departure ? "#railDepartureRows" : "#railArrivalRows", choices = departure ? "origins" : "destinations";
-      const add = departure ? addRailDeparture : addRailArrival, edit = departure ? editRailDeparture : editRailArrival, remove = departure ? removeRailDeparture : removeRailArrival, addChoice = departure ? addRailOrigin : addRailDestination;
-      $(addID).addEventListener("click", () => { const result = add(draft()); if (result.error) toast(result.error, true); else setDraft(result.config); });
+      const kind = departure ? "departure" : "arrival", key = departure ? "railDepartures" : "railArrivals";
+      $(addID).addEventListener("click", () => { if (!railBusy(kind)) queueRailEdit(kind, { action: "add" }); });
+      $(rowsID).addEventListener("input", (event) => { if (event.target.dataset.railField) markTyping(event.target); });
       $(rowsID).addEventListener("change", (event) => {
         const { railID, railField, railDestination } = event.target.dataset;
         if (!railID || !railField) return;
-        const value = event.target.tagName === "SELECT" ? event.target.value : event.target.valueAsNumber;
-        setDraft(edit(draft(), railID, (item) => { if (railDestination !== undefined) item[choices][Number(railDestination)][railField] = value; else item[railField] = value; return item; }));
+        const command = { action: "set", id: railID, field: railField, value: event.target.value };
+        if (railDestination !== undefined) {
+          command.index = Number(railDestination);
+          command.choiceCount = draft()[key]?.find((item) => item.id === railID)?.[choices].length || 0;
+        }
+        queueRailEdit(kind, command, event.target);
       });
       $(rowsID).addEventListener("click", (event) => {
         const control = event.target.closest("button[data-rail-action]"); if (!control) return;
+        if (railBusy(kind)) return;
         const { railID, railAction, railDestination } = control.dataset;
-        if (railAction === "remove-arrival") setDraft(remove(draft(), railID));
-        else if (railAction === "remove-destination") setDraft(edit(draft(), railID, (item) => { if (item[choices].length > 1) item[choices].splice(Number(railDestination), 1); return item; }));
-        else if (railAction === "add-destination") { const result = addChoice(draft(), railID); if (result.error) toast(result.error, true); else setDraft(result.config); }
+        const command = { action: railAction === "remove-arrival" ? "remove" : railAction === "remove-destination" ? "removeChoice" : "addChoice", id: railID };
+        if (railDestination !== undefined) {
+          command.index = Number(railDestination);
+          command.choiceCount = draft()[key]?.find((item) => item.id === railID)?.[choices].length || 0;
+        }
+        queueRailEdit(kind, command, control);
       });
     }
     for (const id of ["demandEnabled", "demandRate", "demandPattern", "demandDestination", "demandProfile", "demandBand", "sharedRidePartyLimit", "sharedRideMode", "sharedRideJoin", "sharedRideMaxStops", "platoonLimit", "demandSeed", "redistribution", "stationBuffers", "pickupReassignment"]) bindScalarInput(id);

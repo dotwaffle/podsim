@@ -248,6 +248,8 @@ func TestEditProtocolAndDiscardedProposal(t *testing.T) {
 		`{"field":"stationBuffers","value":true}`,
 		`{"field":"fleetCount","target":"harbor","value":"0"}`,
 		`{"field":"dailyStartTime","value":"23:59"}`,
+		`{"field":"railArrival","value":{"action":"add"}}`,
+		`{"field":"railDeparture","value":{"action":"add"}}`,
 	} {
 		cached, editErr := model.handle(`{"op":"edit","edit":` + command + `}`)
 		if editErr != nil || cached.Change == nil {

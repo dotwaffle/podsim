@@ -38,6 +38,12 @@ func editProject(draft any, raw jsontext.Value) (projectChange, error) {
 	if err := json.Unmarshal(raw, &command, json.RejectUnknownMembers(true)); err != nil {
 		return projectChange{}, fmt.Errorf("decode editor change: %w", err)
 	}
+	if command.Field == "railArrival" || command.Field == "railDeparture" {
+		if len(command.Target) != 0 {
+			return projectChange{}, errors.New("a rail edit does not accept a target")
+		}
+		return editRail(draft, command.Field == "railDeparture", command.Value)
+	}
 	if command.Field == "" || len(command.Value) == 0 || command.Value.Kind() == 'n' || command.Value.Kind() == '{' || command.Value.Kind() == '[' {
 		return projectChange{}, errors.New("a project edit needs a field and a scalar value")
 	}

@@ -843,6 +843,7 @@ An import does not replace the draft when the file is malformed, unsupported, or
 The Go/WASM editor worker checks the draft and imported projects off the main browser thread.
 It retains project branches and reuses topology and demand flow checks until their inputs change.
 The worker computes changes for scenario names, demand controls, fleet counts, sharing, platoons, and operating flags.
+It also adds, edits, and removes rail events and their weighted stations.
 The browser keeps queued input and waits for pending edits before apply, export, undo, or redo.
 Validation checks routes between passenger stations, berth routes, pod placement, resource IDs, and the 24-meter minimum lane length.
 A route between passenger stations goes from each berth of one station to each berth of the other station.
