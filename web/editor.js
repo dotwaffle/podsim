@@ -1989,76 +1989,6 @@
     });
   }
 
-  // createHistory keeps the draft with undo and redo. onChange runs after
-  // each change of the draft, also after an undo, a redo, and a reset. The
-  // editor uses it to schedule the checks. Its argument is true only when
-  // valid boolean flags change, so existing checks remain valid. A pending
-  // check from an earlier edit must still run. background gives a copy of the
-  // background of the draft only, with no copy of the scenario. The
-  // background of an entry holds an image key, and no image data, so the
-  // JSON copy of an entry copies only numbers and strings.
-  function createHistory(initial, onChange) {
-    let past = [];
-    let present = freezeDraft(clone(initial));
-    let future = [];
-    const changed = (checksUnchanged = false) => { if (onChange) onChange(checksUnchanged); return true; };
-    return {
-      get value() { return clone(present); },
-      get snapshot() { return present; },
-      edit(change) {
-        const scenario = editDraft(present.scenario, change);
-        if (scenario === present.scenario) return false;
-        past.push(present); present = freezeDraft({ ...present, scenario }); future = [];
-        return changed();
-      },
-      get scenarioText() { return JSON.stringify(present.scenario); },
-      get background() { return present.background ? clone(present.background) : null; },
-      get canUndo() { return past.length > 0; },
-      get canRedo() { return future.length > 0; },
-      // Shared snapshots are deeply frozen. A boolean edit can
-      // share the unchanged graph while keeping previous entries intact.
-      setOperatingFlag(name, value) {
-        if (!["demandEnabled", "redistribution", "stationBuffers", "pickupReassignment"].includes(name) || typeof value !== "boolean") throw new Error("Invalid operating flag.");
-        const scenario = present.scenario;
-        const enabled = name === "demandEnabled";
-        const previous = enabled ? scenario.demand.enabled : scenario[name];
-        if (previous === value) return false;
-        past.push(present);
-        present = freezeDraft({ ...present, scenario: enabled
-          ? { ...scenario, demand: { ...scenario.demand, enabled: value } }
-          : { ...scenario, [name]: value } });
-        future = [];
-        // Validation depends on the flag types, not their boolean values.
-        return changed(typeof previous === "boolean");
-      },
-      replace(next, record, checksUnchanged = false) {
-        const owned = ownDraft(next, present);
-        if (owned === present) return false;
-        if (record !== false) past.push(present);
-        present = owned;
-        future = [];
-        return changed(checksUnchanged);
-      },
-      commitFrom(before, next) {
-        if (JSON.stringify(before) === JSON.stringify(next)) return false;
-        past.push(ownDraft(before)); present = ownDraft(next, present); future = []; return changed();
-      },
-      undo() { if (!past.length) return false; future.push(present); present = past.pop(); return changed(); },
-      // keys gives the image keys of the backgrounds of all entries: the
-      // undo steps, the draft and the redo steps.
-      keys() {
-        const keys = new Set();
-        for (const entry of [...past, present, ...future]) if (entry.background && entry.background.imageKey) keys.add(entry.background.imageKey);
-        return keys;
-      },
-      // dropOldest removes the oldest undo step. It gives false when there
-      // is no undo step. It is not a draft change, so onChange does not run.
-      dropOldest() { if (!past.length) return false; past.shift(); return true; },
-      redo() { if (!future.length) return false; past.push(present); present = future.pop(); return changed(); },
-      reset(next) { past = []; present = freezeDraft(clone(next)); future = []; changed(); },
-    };
-  }
-
   // networkBounds gives the box around the nodes and the background image. It
   // gives null when the map has nothing to show.
   function networkBounds(config, background) {
@@ -2927,7 +2857,7 @@
       if (restored && page.decode) await page.decode(restored);
     } catch (error) { page.warn(`${error.message} ${STORED_BACKGROUND_KEPT_TEXT}`); return false; }
     if (!restored) return false;
-    page.install(restored);
+    await page.install(restored);
     return true;
   }
 
@@ -2953,82 +2883,79 @@
   // mibText gives a byte count in MiB with one decimal.
   function mibText(bytes) { return (bytes / MIB).toFixed(1); }
 
-  // createBackgroundModel keeps the draft history of an editor tab with the
-  // images of its backgrounds. options.initial is the first history value
-  // and the Reset draft baseline, options.onChange runs after each change
-  // of the draft, and options.cap is the byte limit of the image table,
-  // IMAGE_TABLE_BYTES when not given.
-  //
-  // A history entry and the baseline hold the image key of a background,
-  // and the table maps each key to its frozen descriptor. A key stays in
-  // the table while an entry of the history, the baseline or a pin refers
-  // to it. The background keeper pins the key of each queued write, so a
-  // write keeps its image until it settles. Each history change and each
-  // unpin removes the images with no reference.
-  //
-  // The model also keeps the edit counter, which each history change and
-  // each move of a drag increments, the open drag and opacity gestures,
-  // and the ticket of the one open acquisition or import. publish adds an
-  // image only after the final check of publishError, in the same task.
-  function createBackgroundModel(options) {
+  // Go owns history. The browser owns image bytes, pins, and local previews.
+  function createGoBackgroundModel(options) {
     const cap = options.cap ?? IMAGE_TABLE_BYTES;
-    const images = new Map(); const pins = new Map();
-    let loaded = clone(options.initial);
-    // edits counts the draft changes, also the moves of a drag that the
-    // history does not have yet. dragChanged tells if an open drag moved.
-    let edits = 0; let dragChanged = false;
-    // gesture is the open opacity gesture, with entry, the history value
-    // at its start, and changed, set at its first opacity step. own is true
-    // while the gesture changes the history.
-    let gesture = null; let own = false;
-    // ticket is the open acquisition or import, or null.
-    let ticket = null;
-    const history = createHistory(options.initial, (checksUnchanged) => {
-      edits += 1;
-      // A history change that the gesture did not make starts the gesture
-      // again from the new value, so its pointer up cannot record an old
-      // entry.
-      if (gesture && !own) gesture = { entry: history.value, changed: false };
-      prune();
-      if (options.onChange) options.onChange(checksUnchanged);
-    });
-    const keyOf = (background) => (background && background.imageKey) || "";
-    const sizeOf = (keys) => { let total = 0; for (const key of keys) { const image = images.get(key); if (image) total += image.bytes.byteLength; } return total; };
-    // pinnedKeys gives the keys that the table must keep for a publish: the
-    // present image, the baseline image and the pinned images.
+    const images = new Map(), pins = new Map();
+    let loaded = clone(options.initial), edits = 0, dragChanged = false;
+    let gesture = null, own = false, ticket = null;
+    const history = options.historyFactory(options.initial, (checksUnchanged) => {
+      edits++;
+      if (gesture && !own) gesture = { entry: history.snapshot, changed: false };
+      prune(); options.onChange?.(checksUnchanged);
+    }, () => { prune(); options.onAcknowledged?.(); });
+    const keyOf = (background) => background?.imageKey || "";
+    const sizeOf = (keys) => { let total = 0; for (const key of keys) total += images.get(key)?.bytes.byteLength || 0; return total; };
     const pinnedKeys = () => new Set([...pins.keys(), keyOf(history.background), keyOf(loaded.background)].filter(Boolean));
     function prune() {
+      if (history.failed) return;
       const keys = history.keys();
       for (const key of pinnedKeys()) keys.add(key);
-      for (const key of [...images.keys()]) if (!keys.has(key)) images.delete(key);
+      for (const key of images.keys()) if (!keys.has(key)) images.delete(key);
     }
-    // bound drops the oldest undo steps until the table holds at most cap
-    // bytes. It never drops the present image, the baseline image or a
-    // pinned image. It gives the number of dropped steps.
-    function bound() {
-      let dropped = 0;
-      while (sizeOf(images.keys()) > cap && history.dropOldest()) { dropped += 1; prune(); }
-      return dropped;
+    const keySignature = (keys) => [...keys].sort().join("|");
+    function imageBytes(keys, image) {
+      let total = 0;
+      for (const key of keys) {
+        const descriptor = key === image?.key ? image : images.get(key);
+        if (!descriptor) throw new Error("A retained history image is missing.");
+        total += descriptor.bytes.byteLength;
+      }
+      return total;
     }
-    // publishError gives the reason why a publish of image, or of no
-    // image, for the ticket request cannot go on, or an empty text.
-    // abort aborts the open acquisition or import.
-    function abort() { if (ticket) { const { controller } = ticket; ticket = null; controller.abort(); } }
+    function planImageAdmission(image, view, lookup) {
+      const protectedKeys = pinnedKeys(), references = new Map();
+      for (const id of view.retained) {
+        const entry = lookup(id);
+        if (!entry) throw new Error("A retained history snapshot is missing.");
+        const key = keyOf(entry.background);
+        if (key) references.set(key, (references.get(key) || 0) + 1);
+      }
+      const keys = new Set([...protectedKeys, ...references.keys(), image.key]);
+      let total = imageBytes(keys, image), trim = 0;
+      while (total > cap && view.retained[trim] !== view.head) {
+        const key = keyOf(lookup(view.retained[trim++]).background);
+        if (!key) continue;
+        const remaining = references.get(key) - 1;
+        references.set(key, remaining);
+        if (!remaining && !protectedKeys.has(key) && key !== image.key) {
+          keys.delete(key); total -= images.get(key).bytes.byteLength;
+        }
+      }
+      if (total > cap) throw new Error("The image does not fit with the protected images of this tab.");
+      return { trim, protectedKeys, signature: keySignature(protectedKeys), keys };
+    }
+    function installImage(image, view, protectedKeys) {
+      const keys = new Set([...view.imageKeys, ...protectedKeys, image.key]);
+      if (imageBytes(keys, image) > cap) throw new Error("The image admission exceeds the image limit of this tab.");
+      for (const key of images.keys()) if (!keys.has(key)) images.delete(key);
+      images.set(image.key, image);
+    }
+    function abort() { if (ticket) { const controller = ticket.controller; ticket = null; controller.abort(); } }
     function publishError(request, image) {
       if (!request || request !== ticket || request.signal.aborted) return "A newer action stopped the import.";
       if (edits !== request.edits) return "The draft changed during the import.";
-      if (dragChanged || (gesture && gesture.changed)) return "A drag or an opacity change was open at the end of the import. Finish it and import again.";
+      if (dragChanged || gesture?.changed) return "A drag or an opacity change was open at the end of the import. Finish it and import again.";
       if (image) {
-        const keys = pinnedKeys(); const held = sizeOf(keys);
-        if (held + image.bytes.byteLength > cap) return `The image does not fit in the ${mibText(cap)} MiB image limit of this tab. The images that the tab must keep use ${mibText(held)} MiB, with ${mibText(sizeOf(pins.keys()))} MiB for writes to the browser store.`;
+        const keys = pinnedKeys(), held = sizeOf(keys);
+        keys.add(image.key);
+        if (imageBytes(keys, image) > cap) return `The image does not fit in the ${mibText(cap)} MiB image limit of this tab. The images that the tab must keep use ${mibText(held)} MiB, with ${mibText(sizeOf(pins.keys()))} MiB for writes to the browser store.`;
       }
       return "";
     }
     return {
-      history,
-      cap,
+      history, cap,
       get loaded() { return clone(loaded); },
-      // setLoaded makes value the Reset draft baseline.
       setLoaded(value) { loaded = clone(value); prune(); },
       image(key) { return images.get(key) || null; },
       keys() { return [...images.keys()]; },
@@ -3036,77 +2963,62 @@
       get keeperBytes() { return sizeOf(pins.keys()); },
       pinCount(key) { return pins.get(key) || 0; },
       pin(key) { pins.set(key, (pins.get(key) || 0) + 1); },
-      unpin(key) {
-        const count = (pins.get(key) || 0) - 1;
-        if (count > 0) pins.set(key, count); else pins.delete(key);
-        prune();
-      },
+      unpin(key) { const count = (pins.get(key) || 0) - 1; if (count > 0) pins.set(key, count); else pins.delete(key); prune(); },
       get edits() { return edits; },
-      // moveDrag tells the model that an open drag changed its working
-      // copy, and endDrag that the drag ended.
-      moveDrag() { edits += 1; dragChanged = true; },
+      moveDrag() { edits++; dragChanged = true; },
       endDrag() { dragChanged = false; },
       get gestureOpen() { return Boolean(gesture); },
-      get gestureChanged() { return Boolean(gesture && gesture.changed); },
-      // pressOpacity starts an opacity gesture at the present value.
-      pressOpacity() { gesture = { entry: history.value, changed: false }; },
-      // setOpacity sets the opacity of the present background with no undo
-      // step. It gives false when there is no background or no change.
+      get gestureChanged() { return Boolean(gesture?.changed); },
+      pressOpacity() { gesture = { entry: history.snapshot, changed: false }; },
       setOpacity(opacity) {
         const background = history.background;
         if (!background) return false;
         background.opacity = opacity;
+        let changed;
         own = true;
-        let changed = false;
-        try { changed = history.replace({ scenario: history.snapshot.scenario, background }, false); } finally { own = false; }
+        try { changed = history.preview({ scenario: history.snapshot.scenario, background }); } finally { own = false; }
         if (changed && gesture) gesture.changed = true;
         return changed;
       },
-      // endOpacity ends the opacity gesture at a pointer up, a
-      // pointercancel or a lost pointer capture. A change since the start
-      // of the gesture becomes one undo step. With no open gesture it does
-      // nothing, so a second end event changes nothing.
       endOpacity() {
-        if (!gesture) return false;
-        const { entry } = gesture; gesture = null;
-        return history.commitFrom(entry, history.value);
+        if (!gesture) return Promise.resolve(false);
+        const before = gesture.entry; gesture = null;
+        return history.commitFrom(before, history.snapshot);
       },
-      // takeOpacity ends a preview and returns its entry for a Go commit.
       takeOpacity() { const ended = gesture; gesture = null; return ended; },
-      // start opens a new acquisition or import, and aborts the open one.
-      // The ticket has signal, an AbortSignal, and the edit counter.
-      start() {
-        abort();
-        const controller = new AbortController();
-        ticket = { signal: controller.signal, controller, edits };
-        return ticket;
-      },
+      start() { abort(); const controller = new AbortController(); ticket = { signal: controller.signal, controller, edits }; return ticket; },
       abort,
       current(request) { return request === ticket && !request.signal.aborted; },
       publishError,
-      // publish runs the final check of publishError, and then, with no
-      // wait, adds image to the table and makes value the draft in one
-      // history step. With baseline set, value also becomes the Reset draft
-      // baseline. Then it drops the oldest undo steps past the cap. It
-      // gives error, the reason of a failed check, and dropped, the number
-      // of dropped undo steps. The ticket closes in both cases.
-      publish(request) {
+      async publish(request) {
         const error = publishError(request.ticket, request.image);
-        if (request.ticket === ticket) ticket = null;
-        if (error) return { error, dropped: 0 };
-        if (request.image) images.set(request.image.key, request.image);
-        if (request.baseline) loaded = clone(request.value);
-        history.replace(request.value);
-        prune();
-        return { error: "", dropped: bound() };
+        if (error) { if (request.ticket === ticket) ticket = null; return { error, dropped: 0 }; }
+        let published = false, admission = null;
+        try {
+          await history.replace(request.value, true, false, {
+            current: () => !publishError(request.ticket, request.image) && (!admission || admission.signature === keySignature(pinnedKeys()) && imageBytes(admission.keys, request.image) <= cap),
+            planTrim: request.image ? (view, lookup) => { admission = planImageAdmission(request.image, view, lookup); return admission.trim; } : undefined,
+            beforePublish: (_changed, view) => {
+              if (request.image) installImage(request.image, view, admission.protectedKeys);
+              if (request.baseline) loaded = clone(request.value);
+              ticket = null; published = true;
+              request.beforePublish?.();
+            },
+          });
+          if (!published) return { error: publishError(request.ticket, request.image) || "The draft changed during the import.", dropped: 0 };
+          prune(); return { error: "", dropped: admission?.trim || 0 };
+        } finally { if (request.ticket === ticket) ticket = null; }
       },
-      // restore installs the image and the background of the stored
-      // record, with no undo step, and makes the background part of the
-      // baseline.
-      restore(image, background) {
-        images.set(image.key, image);
-        loaded = { scenario: loaded.scenario, background: clone(background) };
-        history.reset({ scenario: history.value.scenario, background });
+      async restore(image, background) {
+        const protectedKeys = pinnedKeys(), signature = keySignature(protectedKeys);
+        if (imageBytes(new Set([...protectedKeys, image.key]), image) > cap) throw new Error("The restored image does not fit with the protected images of this tab.");
+        await history.reset({ scenario: history.snapshot.scenario, background }, {
+          current: () => signature === keySignature(pinnedKeys()),
+          beforePublish: (_changed, view) => {
+            installImage(image, view, protectedKeys);
+            loaded = { scenario: loaded.scenario, background: clone(background) };
+          },
+        });
       },
     };
   }
@@ -3486,14 +3398,15 @@
     laneLength, curveLength, reachable, stationNodeOwners, dragTargets, checkSelector, checkSelection, selectionPoint, focusView,
     GEO_PROJECTION, GEO_RADIUS, GEO_MAX_LATITUDE, MAX_COORDINATE, FRAME_SOURCES, SCALE_TOLERANCE, ALIGN_TOLERANCE, RESAMPLE_MAX_SIDE, makeGeo, geoError, projectPoint, unprojectPoint, frameError, scaleError, framePlacement, placementError, frameAligned, anchorGeo, resampleSize, mercatorY, resampleRows,
     problemCountText, createCheckTimer, validationSummary, checkFocusKey, IMAGE_FILE_BYTES, IMAGE_MAX_SIDE, IMAGE_MAX_PIXELS, imageFacts, imageBytesFacts, dataURLToBytes, bytesToDataURL, checkImageSize,
-    IMAGE_KEY_PATTERN, newImageKey, FRAME_STATES, LICENSE_LIMITS, licenseError, assetError, backgroundRecordText, STORED_BACKGROUND_KEPT_TEXT, SERVER_PROJECT_BYTES, PROJECT_FILE_BYTES, SERVER_COMMAND_BYTES, SERVER_COMMAND_JSON_BYTES, GZIP_COMMAND_BYTES, SERVER_TOO_LARGE_TEXT, postCommand, dataURLBytes, serializeDocument, parseDocument, createHistory,
+    IMAGE_KEY_PATTERN, newImageKey, FRAME_STATES, LICENSE_LIMITS, licenseError, assetError, backgroundRecordText, STORED_BACKGROUND_KEPT_TEXT, SERVER_PROJECT_BYTES, PROJECT_FILE_BYTES, SERVER_COMMAND_BYTES, SERVER_COMMAND_JSON_BYTES, GZIP_COMMAND_BYTES, SERVER_TOO_LARGE_TEXT, postCommand, dataURLBytes, serializeDocument, parseDocument,
     networkBounds, fitView, zoomScale, nodeLabelSize, pairedLaneIDs, showsChevron, laneOffset, laneCurve, lanePathData, SNAPSHOT_ATTEMPTS, snapshotConsistent, draftBeforeRestart, readState, readSnapshot, applyToServer, applyFailureText, applyFailureStatus, applyToast,
     readLive, readConflict, CONFLICT_UNLOADED_TEXT, conflictView, LOAD_LIVE_QUESTION, applyOverQuestion, loadLive, liveDraft, applyOverBase,
     DRAFT_SAVE_DELAY, DRAFT_STORE_TEXT, DRAFT_UNSAVED_TEXT, DRAFT_DISPLACED_TEXT, DRAFT_STORE, BACKGROUND_STORE, openRecordStore, createDraftKeeper, draftChanged, draftRecordFor, draftOffer, backgroundRecordFor, storedBackground, restoreStoredBackground,
-    IMAGE_TABLE_BYTES, DEFAULT_OPACITY, freezeImage, createBackgroundModel, createDecoderSlot, checkImageBytes, resampleImage, frameCenterGeo, referenceFor, framedValue, detachFrame, FRAME_WARNING_TEXT, frameView, attributionParts, BACKGROUND_DURABLE_TEXT, backgroundFacts, exportBackground, documentAsset, STARTUP_EVENTS, createStartupGate, blockInput, startupExempt, startEditor, BACKGROUND_STORE_TEXT, checkBackground, DRAFT_RESTART_TEXT, draftOfferText, RESTORED_RESTART_TEXT, restoreStatusText, shellPage,
+    IMAGE_TABLE_BYTES, DEFAULT_OPACITY, freezeImage, createGoBackgroundModel, createDecoderSlot, checkImageBytes, resampleImage, frameCenterGeo, referenceFor, framedValue, detachFrame, FRAME_WARNING_TEXT, frameView, attributionParts, BACKGROUND_DURABLE_TEXT, backgroundFacts, exportBackground, documentAsset, STARTUP_EVENTS, createStartupGate, blockInput, startupExempt, startEditor, BACKGROUND_STORE_TEXT, checkBackground, DRAFT_RESTART_TEXT, draftOfferText, RESTORED_RESTART_TEXT, restoreStatusText, shellPage,
   };
   if (typeof module !== "undefined" && module.exports) {
     Object.assign(API, require("./editor-checks-reference.cjs")(API));
+    Object.assign(API, require("./editor-history-reference.cjs")({ ...API, clone, freezeDraft, ownDraft, editDraft, MIB, mibText }));
     module.exports = API;
   }
   root.PodsimEditorModel = API;
@@ -3509,9 +3422,23 @@
   // Reset draft baseline, the edit counter, the open gestures and the open
   // acquisition. Each draft change schedules both keepers. Changes that can
   // affect validation also schedule the checks.
-  const model = createBackgroundModel({
+  const model = createGoBackgroundModel({
     initial: { scenario: emptyConfig(), background: null },
-    onChange: (checksUnchanged) => { if (!checksUnchanged) checks.schedule(); keeper.schedule(); backgroundKeeper.schedule(); },
+    historyFactory: (initial, onChange, onAcknowledged) => root.PodsimGoEditor.createHistory({
+      initial, own: ownDraft, clone, onChange, onAcknowledged,
+      call: (...args) => goModel.call(...args), accept: (config, token) => goModel.acceptHistory(config, token),
+      captureGuard: (kind) => {
+        const generation = model.edits;
+        return () => generation === model.edits && (kind === "dropOldest" || !(state.drag && state.drag.type !== "pan") && !model.gestureOpen);
+      },
+      onFatal: (error) => {
+        goModel.close(); model.abort(); renderHistoryButtons(); renderApply();
+        updateStatus("The Go editor history stopped. Export the draft before reloading.");
+        toast(`${error.message} The visible draft and images are kept for export. Reload the editor to continue.`, true);
+      },
+    }),
+    onAcknowledged: () => { renderHistoryButtons(); renderApply(); },
+    onChange: (checksUnchanged) => { state.background = state.history.background; if (!checksUnchanged) checks.schedule(); keeper.schedule(); backgroundKeeper.schedule(); },
   });
   // slot is the decoder slot of the tab. Each check decode, the restore and
   // each resample run in it. decoder gives the browser functions to the
@@ -3647,9 +3574,11 @@
     return index.get(id);
   }
   function stationForNode(config, id) { const stationID = stationNodeOwners(config).get(id); return config.network.Stations.find((station) => station.ID === stationID); }
-  function setDraft(next, record = true) { if (state.history.replace({ scenario: next, background: state.background }, record)) render(); }
-  function setBackground(next, record = true) { if (state.history.replace({ scenario: draft(), background: next }, record)) render(); }
-  function mutate(change) { if (state.history.edit(change)) render(); }
+  function setDraft(next, record = true, current = () => true) {
+    return state.history.replace({ scenario: next, background: state.background }, record, false, {
+      current, beforePublish: (changed) => { if (changed) render(); },
+    });
+  }
   function toast(message, error) {
     const element = $("#toast"); element.textContent = message; element.className = error ? "show error" : "show";
     clearTimeout(state.toastTimer); state.toastTimer = setTimeout(() => { element.className = ""; }, 4000);
@@ -3949,17 +3878,22 @@
   // render made again gets the focus back.
   function stepHistory(redo) {
     model.abort();
-    editQueue.submit((current) => { if (current()) stepHistoryNow(redo); return current(); }).catch((error) => toast(error.message, true));
+    editQueue.submit(async (current) => { if (current()) await stepHistoryNow(redo, current); return current(); }).catch((error) => toast(error.message, true));
   }
-  function stepHistoryNow(redo) {
+  async function stepHistoryNow(redo, current) {
     model.abort();
     const panel = $("#selectionContent"); const focused = document.activeElement; const before = draft();
     const control = panel.contains(focused) ? { action: focused.dataset.action || "", id: focused.dataset.id || "" } : null;
-    if (!(redo ? state.history.redo() : state.history.undo())) return;
-    const next = undoFocus({ before, after: draft(), selection: state.selection, control });
-    state.selection = next.selection; render();
-    if (next.focus === "map") focusMap();
-    else if (next.focus) [...panel.querySelectorAll("button[data-action]")].find((button) => button.dataset.action === next.focus.action && (button.dataset.id || "") === next.focus.id)?.focus();
+    const options = { current, beforePublish: (changed) => {
+      if (!changed) return;
+      const ownsFocus = document.activeElement === focused;
+      const next = undoFocus({ before, after: draft(), selection: state.selection, control: ownsFocus ? control : null });
+      state.selection = next.selection; render();
+      if (!ownsFocus) return;
+      if (next.focus === "map") focusMap();
+      else if (next.focus) [...panel.querySelectorAll("button[data-action]")].find((button) => button.dataset.action === next.focus.action && (button.dataset.id || "") === next.focus.id)?.focus();
+    } };
+    await (redo ? state.history.redo(options) : state.history.undo(options));
   }
 
   // renderFleet shows a pod count field for each station. An arrow key in a
@@ -4088,10 +4022,6 @@
     const select = $("#demandDestination"); select.replaceChildren();
     const passenger = config.network.Stations.filter((station) => !station.ParkingOnly);
     for (const station of passenger) { const option = document.createElement("option"); option.value = station.ID; option.textContent = station.Name; select.append(option); }
-    if (passenger.length && !passenger.some((station) => station.ID === demand.destination)) {
-      const next = { ...config, demand: { ...demand, destination: passenger[0].ID } };
-      state.history.replace({ scenario: next, background: state.background }, false);
-    }
     select.value = draft().demand.destination; $("#destinationLabel").hidden = demand.pattern !== "destination";
     const profiles = config.demandProfiles || []; const profileSelect = $("#demandProfile"); profileSelect.replaceChildren();
     for (const profile of profiles) { const option = document.createElement("option"); option.value = profile.id; option.textContent = profile.name; profileSelect.append(option); }
@@ -4156,7 +4086,8 @@
       const result = await goModel.call(config, "park-ride", plan);
       if (result.error) throw new Error(result.error);
       if (config !== draft() || editGeneration !== model.edits || inputRevision !== editRevision() || state.drag && state.drag.type !== "pan" || model.gestureOpen) throw new Error("The draft changed or a gesture is open. Finish the gesture and create the profile again.");
-      setDraft({ ...config, demandProfiles: [...(config.demandProfiles || []), result.profile], demand: result.demand });
+      const current = () => config === draft() && editGeneration === model.edits && inputRevision === editRevision();
+      if (!await setDraft({ ...config, demandProfiles: [...(config.demandProfiles || []), result.profile], demand: result.demand }, true, current)) throw new Error("The settings changed. Create the profile again.");
       status.textContent = `Created ${result.profile.name}. Pause and apply to use it.`;
     } catch (error) { status.textContent = error.message; toast(error.message, true); }
     finally { parkRideBusy = false; renderParkRide(draft(), draft().network.Stations.filter((station) => !station.ParkingOnly)); }
@@ -4260,9 +4191,9 @@
   // apply or a conflict action runs.
   function renderApply() {
     const changed = Boolean(state.live) && !sameDraft(draft(), state.live.snapshot);
-    const button = $("#applyButton"); button.disabled = state.applying || !changed && !editQueue.pending;
+    const button = $("#applyButton"); button.disabled = Boolean(state.history.failed) || state.applying || !changed && !editQueue.pending && !state.history.pending;
     button.title = changed || state.applying || editQueue.pending ? "" : "The draft has no changes to apply.";
-    $("#loadLiveButton").disabled = state.applying; $("#applyOverButton").disabled = state.applying;
+    $("#loadLiveButton").disabled = state.applying || Boolean(state.history.failed); $("#applyOverButton").disabled = state.applying || Boolean(state.history.failed);
   }
 
   // setLive keeps the scenario of value as the live baseline, with the live
@@ -4319,9 +4250,9 @@
     return restoreStoredBackground(record, {
       warn: (message) => { state.restoreFailed = true; toast(message, true); renderBackgroundInfo(); },
       decode: (restored) => slot.run((signal) => checkImageBytes(restored.image.bytes, decoder, signal)),
-      install: (restored) => {
+      install: async (restored) => {
         const image = freezeImage({ key: restored.background.imageKey, ...restored.image });
-        model.restore(image, restored.background); storedBytes = image.bytes.byteLength;
+        await model.restore(image, restored.background); storedBytes = image.bytes.byteLength;
         render(); fitNetwork();
         console.info("podsim editor: restored background", { key: image.key, bytes: image.bytes.byteLength, width: image.pixelWidth, height: image.pixelHeight, frameState: restored.background.frameState });
       },
@@ -4403,10 +4334,13 @@
       if (!model.current(ticket) || state.offer !== offer) return;
       const stale = model.publishError(ticket, null);
       if (stale || inputRevision !== editRevision() || state.drag && state.drag.type !== "pan" || model.gestureOpen) throw new Error(stale || "The draft changed during restoration. Restore it again.");
-      model.abort(); closeOffer(event);
-      state.draftBase = { revision, epoch, serverStart };
-      state.history.reset({ scenario, background: state.background });
-      state.selection = null; render(); fitNetwork(); checks.run(); keeper.arm();
+      const restored = await state.history.reset({ scenario, background: state.background }, {
+        current: () => model.current(ticket) && state.offer === offer && inputRevision === editRevision(),
+        beforePublish: () => { model.abort(); closeOffer(event); state.draftBase = { revision, epoch, serverStart }; state.selection = null; },
+      });
+      if (!restored) return;
+      if (!(state.drag && state.drag.type !== "pan") && !model.gestureOpen) { render(); fitNetwork(); }
+      checks.run(); keeper.arm();
       updateStatus(restoreStatusText({ revision, live: state.live.revision, serverStart, liveStart: state.liveStart }));
       toast("The saved draft is restored.");
     } catch (error) {
@@ -4544,8 +4478,9 @@
   function fitNetwork() { state.view = fitView(state.map.bounds, $("#networkMap").getBoundingClientRect()); setView(); }
 
   const goModel = root.PodsimGoEditor.createClient({ makeWorker: () => new Worker("./editor-model.js") });
+  function editorProposal(config, command) { return goModel.call(config, "edit", { ...command, editor: true }); }
   async function normalizeWithGo(config) {
-    const result = await goModel.call(config, "edit", { field: "normalize", value: true });
+    const result = await editorProposal(config, { field: "normalize", value: true });
     if (result.error) throw new Error(result.error);
     const patch = result.change?.patch;
     if (!patch || typeof patch !== "object" || Array.isArray(patch)) throw new Error("The Go editor model did not return a normalized draft.");
@@ -4565,11 +4500,11 @@
   }
   function markTyping(input) { typingRevision++; model.abort(); typingInputs.add(input); }
   function renderHistoryButtons() {
-    $("#undoButton").disabled = !state.history.canUndo && !editQueue.pending;
-    $("#redoButton").disabled = !state.history.canRedo;
+    $("#undoButton").disabled = Boolean(state.history.failed) || !state.history.canUndo && !editQueue.pending && !state.history.pending;
+    $("#redoButton").disabled = Boolean(state.history.failed) || !state.history.canRedo;
   }
   function cancelPendingEdits() {
-    editQueue.cancel();
+    editQueue.cancel(); state.history.cancel();
     for (const rollback of pendingBackgroundPreviews) rollback();
     pendingInputs.clear(); typingInputs.clear(); railStructuralEdits.clear();
     pendingMapEnables.clear();
@@ -4584,11 +4519,11 @@
       if (state.drag && state.drag.type !== "pan" || model.gestureOpen) throw new Error("Finish the open gesture before editing settings.");
       const command = { field, value: pending.value };
       if (target !== undefined) command.target = target;
-      const result = await goModel.call(config, "edit", command);
+      const result = await editorProposal(config, command);
       if (result.error) throw new Error(result.error);
       if (!current()) return false;
       if (config !== draft() || generation !== model.edits || state.drag && state.drag.type !== "pan" || model.gestureOpen) throw new Error("The draft changed during the edit. Enter the setting again.");
-      state.history.replace({ scenario: { ...config, ...result.change.patch }, background: state.background }, true, Boolean(result.change.flag));
+      await state.history.replace({ scenario: { ...config, ...result.change.patch }, background: state.background }, true, Boolean(result.change.flag), { current });
       return true;
     }).catch((error) => toast(error.message, true)).finally(() => {
       if (pendingInputs.get(input) === pending) pendingInputs.delete(input);
@@ -4610,12 +4545,13 @@
       if (epoch !== railEpoch(kind)) throw new Error("The rail rows changed. Enter the edit again.");
       const config = draft(), generation = model.edits;
       if (state.drag && state.drag.type !== "pan" || model.gestureOpen) throw new Error("Finish the open gesture before editing rail plans.");
-      const result = await goModel.call(config, "edit", { field: kind === "departure" ? "railDeparture" : "railArrival", value: command });
+      const result = await editorProposal(config, { field: kind === "departure" ? "railDeparture" : "railArrival", value: command });
       if (result.error) throw new Error(result.error);
       if (!current()) return false;
       if (config !== draft() || generation !== model.edits || state.drag && state.drag.type !== "pan" || model.gestureOpen) throw new Error("The draft changed during the edit. Enter the rail setting again.");
-      state.history.replace({ scenario: { ...config, ...result.change.patch }, background: state.background }, true);
-      if (structural && Object.keys(result.change.patch).length) railEpochs.set(kind, railEpoch(kind) + 1);
+      await state.history.replace({ scenario: { ...config, ...result.change.patch }, background: state.background }, true, false, {
+        current, beforePublish: (changed) => { if (changed && structural && Object.keys(result.change.patch).length) railEpochs.set(kind, railEpoch(kind) + 1); },
+      });
       return true;
     }).catch((error) => toast(error.message, true)).finally(() => {
       if (pendingInputs.get(control) === pending) pendingInputs.delete(control);
@@ -4636,12 +4572,13 @@
       const config = draft(), generation = model.edits;
       if (source && (source !== config || sourceEdits !== generation)) throw new Error("The draft changed after the drag. Move the item again.");
       if (state.drag && state.drag.type !== "pan" || model.gestureOpen) throw new Error("Finish the open gesture before editing geometry.");
-      const result = await goModel.call(config, "edit", { field: "geometry", value: command });
+      const result = await editorProposal(config, { field: "geometry", value: command });
       if (result.error) throw new Error(result.error);
       if (!current()) return false;
       if (config !== draft() || generation !== model.edits || state.drag && state.drag.type !== "pan" || model.gestureOpen) throw new Error("The draft changed during the edit. Enter the geometry change again.");
-      state.history.replace({ scenario: { ...config, ...result.change.patch }, background: state.background }, true);
-      if (accepted) accepted(config);
+      await state.history.replace({ scenario: { ...config, ...result.change.patch }, background: state.background }, true, false, {
+        current, beforePublish: (changed) => { if (changed && accepted) accepted(config); },
+      });
       return true;
     }).catch((error) => { toast(error.message, true); return false; }).finally(() => {
       for (const { input, value } of pending) if (pendingInputs.get(input) === value) pendingInputs.delete(input);
@@ -4660,13 +4597,13 @@
       if (!current()) return false;
       const config = draft(), generation = model.edits;
       if (state.drag && state.drag.type !== "pan" || model.gestureOpen) throw new Error("Finish the open gesture before editing the map.");
-      const result = await goModel.call(config, "edit", { field: "map", value: command });
+      const result = await editorProposal(config, { field: "map", value: command });
       if (result.error) throw new Error(result.error);
       if (!current()) return false;
       if (config !== draft() || generation !== model.edits || state.drag && state.drag.type !== "pan" || model.gestureOpen) throw new Error("The draft changed during the edit. Enter the map change again.");
       const scenario = { ...config, ...result.change.patch };
       if (command.action === "remove") delete scenario.map;
-      state.history.replace({ scenario, background: state.background }, true);
+      await state.history.replace({ scenario, background: state.background }, true, false, { current });
       if (command.action === "enable") toast("Live map enabled. Pause and apply to show it in the simulation.");
       return true;
     }, { key: command.action === "opacity" ? "mapOpacity" : undefined }).catch((error) => { toast(error.message, true); return false; }).finally(() => {
@@ -4677,7 +4614,7 @@
     });
   }
   async function backgroundProposal(config, command) {
-    const result = await goModel.call(config, "edit", { field: "background", value: command });
+    const result = await editorProposal(config, { field: "background", value: command });
     if (result.error) throw new Error(result.error);
     if (!result.change?.background || !Object.hasOwn(result.change.background, "value")) throw new Error("The Go background proposal is missing.");
     return { value: { scenario: { ...config, ...result.change.patch }, background: result.change.background.value }, note: result.change.note };
@@ -4690,7 +4627,7 @@
     const previewSource = before ? draft() : null;
     let committed = false;
     const rollbackPreview = () => {
-      if (!committed && before && previewSource === draft() && sourceEdits === model.edits && !model.gestureOpen && !(state.drag && state.drag.type !== "pan")) state.history.replace(before, false);
+      if (!committed && before && previewSource === draft() && sourceEdits === model.edits && !model.gestureOpen && !(state.drag && state.drag.type !== "pan")) state.history.preview(before);
     };
     if (before) pendingBackgroundPreviews.add(rollbackPreview);
     return editQueue.submit(async (current) => {
@@ -4703,12 +4640,17 @@
       const result = await backgroundProposal(config, { ...command, background });
       if (!current() || !acceptIf()) return false;
       if (config !== draft() || generation !== model.edits || state.drag && state.drag.type !== "pan" || model.gestureOpen) throw new Error("The draft changed during the edit. Enter the background change again.");
-      if (before) state.history.commitFrom(before, result.value);
-      else state.history.replace(result.value, true);
-      committed = true;
-      if (accepted) { render(); accepted(); }
-      if (result.note) updateStatus(result.note);
-      return true;
+      const options = {
+        current: () => current() && acceptIf(),
+        beforePublish: () => {
+          committed = true;
+          if (accepted) { render(); accepted(); }
+          if (result.note) updateStatus(result.note);
+        },
+      };
+      if (before) await state.history.commitFrom(before, result.value, options);
+      else await state.history.replace(result.value, true, false, options);
+      return committed;
     }, { key: command.action === "opacity" && !before ? "backgroundOpacity" : undefined }).catch((error) => {
       toast(error.message, true); return false;
     }).finally(() => {
@@ -4811,8 +4753,8 @@
   }
 
   // loadServerProject loads the live scenario as the draft, as startEditor
-  // calls it. The live baseline is the draft after the first render,
-  // because renderDemand can set the demand destination. When the live
+  // calls it. Go normalizes the live baseline before the first render.
+  // When the live
   // scenario cannot load, the local fallback draft is the baseline. Then
   // the editor offers a saved draft that is different. readLive gives the
   // live scenario with the revision, the epoch and the server start ID of
@@ -4825,7 +4767,7 @@
       state.loadedRevision = live.revision; state.connection.epoch = live.epoch; state.loadedStart = live.serverStart;
       state.draftBase = { revision: live.revision, epoch: live.epoch, serverStart: live.serverStart };
       model.setLoaded({ scenario: clone(live.project), background: null });
-      state.history.reset(model.loaded); state.background = null; state.selection = null;
+      await state.history.reset(model.loaded); state.background = null; state.selection = null;
       render(); setLive(state.history.value, state.loadedRevision); fitNetwork();
       updateStatus(`Live revision ${state.loadedRevision}. ${DRAFT_STORE_TEXT[keeper.status]}`);
       // Keep a server scenario that fails the editor checks, and list the
@@ -4833,7 +4775,9 @@
       const { errors } = await checks.run();
       if (errors.length) toast(`The server scenario has ${errors.length} validation problem${errors.length === 1 ? "" : "s"}. See Checks.`, true);
     } catch (error) {
-      model.setLoaded({ scenario: fallbackConfig(), background: null }); state.history.reset(model.loaded);
+      if (state.history.failed) throw error;
+      const fallback = { scenario: fallbackConfig(), background: null };
+      await state.history.reset(fallback, { beforePublish: () => model.setLoaded(fallback) });
       updateStatus("The live scenario could not load. This draft is local."); render(); setLive(state.history.value, null); fitNetwork(); toast(`Load failed. ${error.message}`, true);
     }
   }
@@ -4852,6 +4796,7 @@
     const inputRevision = editRevision();
     const button = $("#applyButton"); state.applying = true; renderApply(); button.textContent = "Checking…";
     try {
+      await state.history.flush();
       if (!await editQueue.flush() || inputRevision !== editRevision()) { toast("The settings changed or an edit failed. Apply the current draft again.", true); return; }
       const project = draft();
       if (!await readyToApply(project)) return;
@@ -4881,7 +4826,7 @@
   async function readyToApply(config = draft()) {
     const editGeneration = model.edits, inputRevision = editRevision();
     const { errors, valid } = await checks.run();
-    if (config !== draft() || editGeneration !== model.edits || inputRevision !== editRevision() || editQueue.pending || state.drag && state.drag.type !== "pan" || model.gestureOpen) { toast("The draft changed during validation. Apply the current draft again.", true); return false; }
+    if (state.history.failed || state.history.pending || config !== draft() || editGeneration !== model.edits || inputRevision !== editRevision() || editQueue.pending || state.drag && state.drag.type !== "pan" || model.gestureOpen) { toast("The draft changed during validation. Apply the current draft again.", true); return false; }
     if (errors.length) { showChecks(); toast("Fix the listed problems before you apply the scenario.", true); }
     return valid === true && !errors.length;
   }
@@ -4910,7 +4855,7 @@
     let next = null;
     try { next = await action(); } catch (error) { toast(`The live scenario could not load. ${error.message}`, true); }
     state.applying = false; renderApply();
-    if (next) await next();
+    try { if (next) await next(); } catch (error) { toast(`The live scenario could not load. ${error.message}`, true); }
     if (!state.conflict && event && event.detail === 0) focusMap();
   }
 
@@ -4924,13 +4869,21 @@
       const config = draft(), generation = model.edits, inputRevision = editRevision();
       const live = await loadLive({ connection: { ...state.connection }, changed: draftChanged(state.history.value, state.live), confirm: (text) => root.confirm(text), normalize: normalizeWithGo });
       if (live && (config !== draft() || generation !== model.edits || inputRevision !== editRevision() || state.drag && state.drag.type !== "pan" || model.gestureOpen)) throw new Error("The draft changed during loading. Load the live scenario again.");
-      return live && (() => {
+      return live && (async () => {
         cancelPendingEdits(); model.abort();
-        state.connection.epoch = live.epoch;
-        const { value, loaded, ...page } = liveDraft(live, { loaded: model.loaded, background: state.background }); Object.assign(state, page); model.setLoaded(loaded);
-        state.history.replace(value); state.selection = null;
-        render(); setLive({ scenario: draft() }, live.revision);
-        showConflict(null); renderOffer(); fitNetwork(); checks.run(); keeper.flush();
+        const publicationRevision = editRevision();
+        const { value, loaded, ...page } = liveDraft(live, { loaded: model.loaded, background: state.history.background });
+        let published = false;
+        await state.history.replace(value, true, false, {
+          current: () => publicationRevision === editRevision(),
+          beforePublish: () => {
+            Object.assign(state, page); state.connection.epoch = live.epoch; model.setLoaded(loaded); state.selection = null;
+            setLive({ scenario: value.scenario }, live.revision); showConflict(null); renderOffer(); published = true;
+          },
+        });
+        if (!published) return;
+        if (!(state.drag && state.drag.type !== "pan") && !model.gestureOpen) { render(); fitNetwork(); }
+        checks.run(); keeper.flush();
         updateStatus(`Live revision ${live.revision}. The draft is the live scenario.`); toast("The live scenario replaced the draft.");
       });
     });
@@ -4986,10 +4939,11 @@
         background = { imageKey: image.key, ...placement, frameState: asset.frameState };
       }
       if (!model.current(ticket)) return;
-      const result = model.publish({ ticket, image, value: { scenario: imported.scenario, background }, baseline: true });
+      const result = await model.publish({ ticket, image, value: { scenario: imported.scenario, background }, baseline: true,
+        beforePublish: () => { state.selection = null; state.draftBase = { ...state.draftBase, serverStart: state.loadedStart }; render(); fitNetwork(); },
+      });
       if (result.error) { toast(`${result.error} The draft is unchanged.`, true); return; }
-      state.selection = null; state.draftBase = { ...state.draftBase, serverStart: state.loadedStart };
-      render(); fitNetwork(); checks.run(); toast("The project was imported into the draft.");
+      checks.run(); toast("The project was imported into the draft.");
       reportPublish("project import", image, result.dropped);
     } catch (error) {
       if (error.name === "AbortError" || !model.current(ticket)) return;
@@ -5010,11 +4964,12 @@
   // After pending edits finish, it takes the image and makes its data URL
   // in one task, so no later change drops the image first.
   async function exportProject() {
-    await editQueue.flush();
-    const background = state.background ? exportBackground(state.background, model.image(state.background.imageKey)) : null;
-    const blob = new Blob([serializeDocument(draft(), background)], { type: "application/json" });
+    await editQueue.flush(); await state.history.flush().catch(() => {});
+    const snapshot = state.history.snapshot;
+    const background = snapshot.background ? exportBackground(snapshot.background, model.image(snapshot.background.imageKey)) : null;
+    const blob = new Blob([serializeDocument(snapshot.scenario, background)], { type: "application/json" });
     const url = URL.createObjectURL(blob); const link = document.createElement("a");
-    const safe = (draft().name || "scenario").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "scenario";
+    const safe = (snapshot.scenario.name || "scenario").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "scenario";
     link.href = url; link.download = `${safe}.podsim.json`; document.body.append(link); link.click(); link.remove(); URL.revokeObjectURL(url);
   }
 
@@ -5054,7 +5009,7 @@
       const image = freezeImage({ key: newImageKey(root.crypto), bytes, mime: facts.mime, pixelWidth: facts.width, pixelHeight: facts.height, frame: null, license: null });
       if (!model.current(ticket)) return;
       const proposed = await backgroundProposal(draft(), { action: "initialize", imageKey: image.key, width: facts.width, height: facts.height, background: state.history.background });
-      publishBackground(ticket, image, proposed.value, "image import");
+      await publishBackground(ticket, image, proposed.value, "image import");
     } catch (error) {
       if (error.name === "AbortError" || !model.current(ticket)) return;
       model.abort(); toast(`${error.message} The background is unchanged.`, true);
@@ -5063,11 +5018,11 @@
 
   // publishBackground publishes image with value for the ticket of an
   // acquisition, and tells the user of the result.
-  function publishBackground(ticket, image, value, kind) {
+  async function publishBackground(ticket, image, value, kind) {
     if (!model.current(ticket)) return;
-    const result = model.publish({ ticket, image, value });
+    const result = await model.publish({ ticket, image, value, beforePublish: () => { render(); fitNetwork(); } });
     if (result.error) { toast(`${result.error} The background is unchanged.`, true); return result; }
-    render(); fitNetwork(); toast(...keptToast());
+    toast(...keptToast());
     reportPublish(kind, image, result.dropped);
     return result;
   }
@@ -5128,7 +5083,7 @@
         ? await slot.run((signal) => resampleImage({ bytes, frame, geo: proposed.value.scenario.geo, metersPerPixel: Number($("#geoMeters").value) }, decoder, signal), ticket.signal)
         : { bytes, facts: await slot.run((signal) => checkImageBytes(bytes, decoder, signal), ticket.signal) };
       const image = freezeImage({ key, bytes: result.bytes, mime: result.facts.mime, pixelWidth: result.facts.width, pixelHeight: result.facts.height, frame, license });
-      const published = publishBackground(ticket, image, proposed.value, "georeferenced image import");
+      const published = await publishBackground(ticket, image, proposed.value, "georeferenced image import");
       if (published && !published.error && proposed.note) updateStatus(proposed.note);
     } catch (error) {
       if (error.name === "AbortError" || !model.current(ticket)) return;
@@ -5164,6 +5119,19 @@
     });
   }
 
+  async function resetDraft() {
+    model.abort(); cancelPendingEdits();
+    try {
+      let published = false;
+      await state.history.replace(model.loaded, true, false, {
+        beforePublish: () => { state.draftBase = { revision: state.loadedRevision, epoch: state.connection.epoch, serverStart: state.loadedStart }; state.selection = null; showConflict(null); published = true; },
+      });
+      if (!published) return;
+      if (!(state.drag && state.drag.type !== "pan") && !model.gestureOpen) { render(); fitNetwork(); }
+      toast("The draft matches the last loaded project.");
+    } catch (error) { toast(error.message, true); }
+  }
+
   function bindEvents() {
     document.querySelectorAll(".tool").forEach((button) => button.addEventListener("click", () => setTool(button.dataset.tool)));
     $("#networkMap").addEventListener("pointerdown", onPointerDown); $("#networkMap").addEventListener("pointermove", onPointerMove); $("#networkMap").addEventListener("pointerup", onPointerUp); $("#networkMap").addEventListener("pointercancel", onPointerUp);
@@ -5173,12 +5141,10 @@
     $("#zoomOutButton").addEventListener("click", () => { const rect = $("#networkMap").getBoundingClientRect(); zoomAt(.8, rect.left + rect.width / 2, rect.top + rect.height / 2); });
     $("#fitButton").addEventListener("click", fitNetwork); $("#cancelLinkButton").addEventListener("click", () => { state.linkFrom = ""; render(); });
     $("#undoButton").addEventListener("click", () => stepHistory(false)); $("#redoButton").addEventListener("click", () => stepHistory(true));
-    $("#resetButton").addEventListener("click", () => { model.abort(); cancelPendingEdits(); state.draftBase = { revision: state.loadedRevision, epoch: state.connection.epoch, serverStart: state.loadedStart }; state.history.replace(model.loaded); state.selection = null; render(); fitNetwork(); toast("The draft matches the last loaded project."); });
+    $("#resetButton").addEventListener("click", resetDraft);
     $("#validateButton").addEventListener("click", async () => { if (await editQueue.flush()) checks.run(); }); $("#applyButton").addEventListener("click", () => applyProject());
     $("#restoreDraftButton").addEventListener("click", restoreDraft); $("#discardDraftButton").addEventListener("click", discardDraft);
     $("#loadLiveButton").addEventListener("click", loadLiveScenario); $("#applyOverButton").addEventListener("click", applyOver);
-    // Reset draft also hides the apply conflict actions.
-    $("#resetButton").addEventListener("click", () => showConflict(null));
     // In the shell page, the return link asks the shell to show the game.
     // The game then keeps its map view and its selection. When the editor is
     // the top page, or a modifier key opens the link elsewhere, the link

@@ -5224,9 +5224,9 @@ test("each abort event of the page aborts the open acquisition, and each import 
     assert.ok(match, `the page has ${name}`);
     return source.slice(match.index, source.indexOf("\n  }\n", match.index));
   };
-  for (const name of ["stepHistory", "restoreDraft", "loadLiveScenario", "closeGeoPanel", "queueBackgroundEdit"]) assert.match(body(name), /model\.abort\(\)/, `${name} aborts`);
+  for (const name of ["stepHistory", "resetDraft", "restoreDraft", "loadLiveScenario", "closeGeoPanel", "queueBackgroundEdit"]) assert.match(body(name), /model\.abort\(\)/, `${name} aborts`);
   for (const name of ["importProject", "importBackground", "importFramedImage"]) assert.match(body(name), /model\.start\(\)/, `${name} starts a new acquisition`);
-  for (const event of ['\\$\\("#resetButton"\\)\\.addEventListener\\("click", \\(\\) => \\{ model\\.abort\\(\\);', 'root\\.addEventListener\\("beforeunload", \\(event\\) => \\{ model\\.abort\\(\\);']) {
+  for (const event of ['\\$\\("#resetButton"\\)\\.addEventListener\\("click", resetDraft\\);', 'root\\.addEventListener\\("beforeunload", \\(event\\) => \\{ model\\.abort\\(\\);']) {
     assert.match(source, new RegExp(event));
   }
 });

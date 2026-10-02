@@ -19,6 +19,7 @@ type editCommand struct {
 	Field  string         `json:"field"`
 	Value  jsontext.Value `json:"value"`
 	Target jsontext.Value `json:"target,omitempty"`
+	Editor jsontext.Value `json:"editor,omitzero"`
 }
 
 type projectChange struct {
@@ -40,6 +41,17 @@ func editProject(draft any, raw jsontext.Value) (projectChange, error) {
 	if err := json.Unmarshal(raw, &command, json.RejectUnknownMembers(true)); err != nil {
 		return projectChange{}, fmt.Errorf("decode editor change: %w", err)
 	}
+	if len(command.Editor) != 0 && command.Editor.Kind() != 't' && command.Editor.Kind() != 'f' {
+		return projectChange{}, errors.New("the editor defaults flag must be boolean")
+	}
+	change, err := proposeProjectEdit(draft, command)
+	if err == nil && command.Editor.Kind() == 't' {
+		repairDemandDestination(draft, &change)
+	}
+	return change, err
+}
+
+func proposeProjectEdit(draft any, command editCommand) (projectChange, error) {
 	if command.Field == "geometry" {
 		if len(command.Target) != 0 {
 			return projectChange{}, errors.New("a geometry edit does not accept a target")

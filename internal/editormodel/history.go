@@ -20,6 +20,7 @@ type historyCommand struct {
 	Token      string         `json:"token,omitempty"`
 	Before     string         `json:"before,omitempty"`
 	Record     *bool          `json:"record,omitempty"`
+	TrimOldest *uint64        `json:"trimOldest,omitempty"`
 	Background jsontext.Value `json:"background,omitzero"`
 }
 
@@ -129,6 +130,10 @@ func decodeHistoryCommand(raw jsontext.Value) (historyCommand, error) {
 		}
 		if command.Kind == "replace" {
 			allowed["record"] = true
+			allowed["trimOldest"] = true
+			if value, exists := fields["trimOldest"]; exists && value.Kind() != '0' {
+				return command, errors.New("the history trim count must be an unsigned integer")
+			}
 			if value, exists := fields["record"]; exists && value.Kind() != 't' && value.Kind() != 'f' {
 				return command, errors.New("the history recording flag must be boolean")
 			}
@@ -182,6 +187,9 @@ func checkHistoryParameters(command historyCommand) error {
 	if command.Kind != "replace" && command.Record != nil {
 		return errors.New("the history action does not accept a recording flag")
 	}
+	if command.TrimOldest != nil && (command.Kind != "replace" || command.Record != nil && !*command.Record) {
+		return errors.New("history trimming needs a recorded replacement")
+	}
 	if command.Kind == "commitFrom" {
 		if command.Before == "" {
 			return errors.New("a history gesture needs its starting snapshot")
@@ -210,12 +218,21 @@ func (h *historyTimeline) transition(e *engine, command historyCommand) (history
 			return historyState{present: entry}, true, nil
 		}
 		if sameHistoryEntry(next.present, entry) {
+			if command.TrimOldest != nil && *command.TrimOldest > 0 {
+				return historyState{}, false, errors.New("an unchanged history replacement cannot trim entries")
+			}
 			return next, false, nil
 		}
 		if command.Record == nil || *command.Record {
 			next.past = append(slices.Clone(next.past), next.present)
 		}
 		next.present, next.future = entry, nil
+		if command.TrimOldest != nil {
+			if *command.TrimOldest > uint64(len(next.past)) {
+				return historyState{}, false, errors.New("the history trim count exceeds the candidate past stack")
+			}
+			next.past = slices.Clone(next.past[*command.TrimOldest:])
+		}
 	case "undo":
 		if len(next.past) == 0 {
 			return next, false, nil

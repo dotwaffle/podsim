@@ -190,11 +190,11 @@ test("queued acceptance supersedes validation of older branches and preserves ch
 
 test("a newer local preview discards preparation without overwriting the visible preview", async () => {
   const f = fixture(); const initial = await initialize(f, draft("Initial", "a"));
-  const work = f.history.replace(draft("Settings")); await turn();
+  const work = assert.rejects(f.history.replace(draft("Settings")), /draft changed/); await turn();
   const preview = f.history.value; preview.background.opacity = .8; f.history.preview(preview);
   f.calls.at(-1).resolve(prepared(metadata("s2", 2))); await turn();
   assert.equal(f.calls.at(-1).command.action, "discard"); f.calls.at(-1).resolve({ history: initial });
-  assert.equal(await work, false); assert.equal(f.history.value.scenario.name, "Initial"); assert.equal(f.history.background.opacity, .8);
+  await work; assert.equal(f.history.value.scenario.name, "Initial"); assert.equal(f.history.background.opacity, .8);
 });
 
 test("an external gesture generation invalidates preparation without a render-copy change", async () => {
@@ -204,7 +204,58 @@ test("an external gesture generation invalidates preparation without a render-co
     call: (_config, _op, command) => command.action === "prepare" ? pending.promise : (discarded.push(command), Promise.resolve({ history: {} })),
     accept: (...args) => { accepted.push(args); return Promise.resolve({ history: {} }); },
   });
-  const work = history.reset(draft("Loaded")); await turn(); edits++;
-  pending.resolve(prepared(metadata("s1", 1))); assert.equal(await work, false);
+  const work = assert.rejects(history.reset(draft("Loaded")), /draft changed/); await turn(); edits++;
+  pending.resolve(prepared(metadata("s1", 1))); await work;
   assert.equal(accepted.length, 0); assert.equal(discarded.length, 1); assert.equal(history.value.scenario.name, "Initial");
+});
+
+test("image admission re-prepares one native replacement and publishes only the trimmed proposal", async () => {
+  const f = fixture(); await initialize(f, draft("Initial", "a")); let published;
+  const candidate = draft("Incoming", "b");
+  const work = f.history.replace(candidate, true, false, {
+    planTrim(view, lookup) { assert.equal(lookup("s1").background.imageKey, "a"); assert.equal(lookup(view.head).background.imageKey, "b"); return 1; },
+    beforePublish(changed, view) { published = { changed, head: view.head }; },
+  });
+  await turn(); f.calls.at(-1).resolve(prepared(metadata("s2", 2, { retained: ["s1", "s2"], imageKeys: ["a", "b"], canUndo: true, background: candidate.background }), "p2"));
+  await turn(); assert.equal(f.accepts.length, 1); assert.equal(f.history.snapshot.scenario.name, "Initial");
+  assert.equal(f.calls.at(-1).command.trimOldest, 1); assert.equal(f.calls.at(-1).command.revision, "1");
+  const view = metadata("s3", 2, { imageKeys: ["b"], background: candidate.background });
+  f.calls.at(-1).resolve(prepared(view, "p3")); await turn(); assert.equal(f.accepts.at(-1).token, "p3");
+  assert.deepEqual(published, { changed: true, head: "s3" });
+  f.accepts.at(-1).resolve({ history: view }); assert.equal(await work, true); assert.equal(f.history.canUndo, false);
+});
+
+test("canceling the trimmed proposal keeps the old timeline and never registers the image", async () => {
+  const f = fixture(); const initial = await initialize(f); let published = false;
+  const work = f.history.replace(draft("Incoming", "b"), true, false, { planTrim: () => 1, beforePublish: () => { published = true; } });
+  await turn(); f.calls.at(-1).resolve(prepared(metadata("s2", 2, { retained: ["s1", "s2"], canUndo: true })));
+  await turn(); f.history.cancel(); f.calls.at(-1).resolve(prepared(metadata("s3", 2), "p3")); await turn();
+  assert.deepEqual(f.calls.at(-1).command, { action: "discard", token: "p3" });
+  f.calls.at(-1).resolve({ history: initial }); assert.equal(await work, false); assert.equal(published, false); assert.equal(f.accepts.length, 1);
+});
+
+test("an image admission error discards the untrimmed proposal without failing history", async () => {
+  const f = fixture(); const initial = await initialize(f);
+  const work = assert.rejects(f.history.replace(draft("Incoming"), true, false, { planTrim() { throw new Error("Protected images exceed the limit"); } }), /Protected images/);
+  await turn(); f.calls.at(-1).resolve(prepared(metadata("s2", 2))); await turn();
+  assert.equal(f.calls.at(-1).command.action, "discard"); f.calls.at(-1).resolve({ history: initial }); await work;
+  assert.equal(f.history.failed, null); assert.equal(f.history.snapshot.scenario.name, "Initial");
+});
+
+test("a failed preparation transport stops history and preserves the visible draft", async () => {
+  const f = fixture(); await initialize(f);
+  const work = assert.rejects(f.history.replace(draft("Unpublished")), /Worker stopped/); await turn();
+  f.calls.at(-1).reject(new Error("Worker stopped")); await work;
+  assert.equal(f.history.snapshot.scenario.name, "Initial"); assert.equal(f.fatals.length, 1);
+  await assert.rejects(f.history.flush(), /Worker stopped/);
+});
+
+test("a newer interaction after publication survives a delayed acknowledgment", async () => {
+  const f = fixture(); await initialize(f, draft("Initial", "a")); let renders = 0;
+  const work = f.history.replace(draft("Published", "a"), true, false, { beforePublish: () => { renders++; } });
+  await turn(); const view = metadata("s2", 2, { retained: ["s1", "s2"], canUndo: true, imageKeys: ["a"], background: { imageKey: "a", opacity: .45 } });
+  f.calls.at(-1).resolve(prepared(view)); await turn();
+  const newer = f.history.value; newer.background.opacity = .8; f.history.preview(newer);
+  f.accepts.at(-1).resolve({ history: view }); await work;
+  assert.equal(renders, 1); assert.equal(f.history.snapshot.background.opacity, .8); assert.equal(f.history.canUndo, true);
 });

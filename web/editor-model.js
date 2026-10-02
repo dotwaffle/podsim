@@ -117,7 +117,13 @@
         if (result.error) throw new Error(result.error);
       } catch (error) { throw fatal(error); }
     }
-    function run(kind, target, extra = {}, { current = () => true, beforePublish = () => {} } = {}, checksUnchanged = false) {
+    async function prepare(config, command) {
+      let result;
+      try { result = await call(config, "history", command); } catch (error) { throw fatal(error); }
+      if (result.error) return result;
+      try { return { history: checkedHistory(result, true) }; } catch (error) { throw fatal(error); }
+    }
+    function run(kind, target, extra = {}, { current = () => true, beforePublish = () => {}, planTrim } = {}, checksUnchanged = false) {
       const ticket = generation;
       const candidate = target === undefined ? null : own(target, present);
       pending++;
@@ -129,13 +135,34 @@
         if (!unchanged()) return false;
         const command = { action: "prepare", kind, revision: view?.revision || "0", ...extra };
         if (candidate) command.background = candidate.background;
-        const result = await call(candidate?.scenario || present.scenario, "history", command);
+        const result = await prepare(candidate?.scenario || present.scenario, command);
         if (result.error) throw new Error(result.error);
         let prepared;
         try { prepared = checkedHistory(result, true); } catch (error) { throw fatal(error); }
-        if (ticket !== generation || source !== present || !current() || !unchanged()) {
+        if (ticket !== generation || !current()) {
           await discard(prepared.proposal);
           return false;
+        }
+        if (source !== present || !unchanged()) {
+          await discard(prepared.proposal);
+          throw new Error("The draft changed while history was prepared. Try the action again.");
+        }
+        if (planTrim) {
+          let trim;
+          try {
+            trim = planTrim(prepared, (id) => id === prepared.head ? candidate : cache.get(id));
+            if (!Number.isSafeInteger(trim) || trim < 0) throw new Error("The history trim count is invalid.");
+          } catch (error) { await discard(prepared.proposal); throw error; }
+          if (trim) {
+            const trimmed = await prepare(candidate.scenario, { ...command, trimOldest: trim });
+            if (trimmed.error) { await discard(prepared.proposal); throw new Error(trimmed.error); }
+            try { prepared = checkedHistory(trimmed, true); } catch (error) { throw fatal(error); }
+          }
+          if (ticket !== generation || !current()) { await discard(prepared.proposal); return false; }
+          if (source !== present || !unchanged()) {
+            await discard(prepared.proposal);
+            throw new Error("The draft changed while history was prepared. Try the action again.");
+          }
         }
         const next = cache.get(prepared.head) || candidate;
         if (!next) throw fatal(new Error("The Go history snapshot is missing from the render cache."));
@@ -145,13 +172,13 @@
           await discard(prepared.proposal);
           throw error;
         }
-        // Acceptance is irrevocable. Keep both image sets until acknowledgment.
+        // Acceptance is irrevocable. Image admission can release excluded bytes.
         heldKeys = [...new Set([...heldKeys, ...prepared.imageKeys])];
         cache.set(prepared.head, next); present = next;
         view = { ...prepared }; delete view.proposal;
         identify(present);
         try {
-          beforePublish();
+          beforePublish(prepared.changed, prepared);
           if (prepared.changed && kind !== "dropOldest") notify(checksUnchanged);
           const accepted = checkedHistory(await acknowledgment, false);
           if (historySignature(accepted) !== historySignature(prepared)) throw new Error("The Go history acknowledgment does not match its proposal.");

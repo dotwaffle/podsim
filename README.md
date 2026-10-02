@@ -844,6 +844,10 @@ The Go/WASM editor worker checks the draft and imported projects off the main br
 It retains project branches and reuses topology and demand flow checks until their inputs change.
 The worker computes changes for scenario names, demand controls, fleet counts, sharing, platoons, and operating flags.
 It also adds, edits, and removes rail events and their weighted stations.
+Go owns the undo and redo timeline, including background metadata.
+The browser retains immutable drawing copies by Go snapshot ID and owns image bytes and storage pins.
+Image imports prepare any required history trim before publication and keep the image table within 128 MiB.
+If a worker acknowledgment fails, apply stops and the visible draft remains available for export.
 The browser keeps queued input and waits for pending edits before apply, export, undo, or redo.
 Validation checks routes between passenger stations, berth routes, pod placement, resource IDs, and the 24-meter minimum lane length.
 A route between passenger stations goes from each berth of one station to each berth of the other station.

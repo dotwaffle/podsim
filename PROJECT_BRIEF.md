@@ -279,7 +279,10 @@ Go computes each completed geometry edit.
 Go normalizes live, imported, and restored drafts.
 Go proposes live-map metadata and geographic-reference edits.
 Go also proposes image placement, frame attachment, opacity, and scale calibration.
-JavaScript still holds undo history, image bytes, image decoding, and license metadata.
+Go owns undo and redo snapshots and prepares background metadata with each history change.
+JavaScript retains drawing copies by Go snapshot ID, image bytes, storage pins, image decoding, and license metadata.
+Image admission prepares replacement and oldest-history trimming together before publication.
+Worker failure blocks apply and keeps the visible draft available for export.
 Move these model operations into Go in stages.
 
 Define a clear boundary between user commands, simulation updates, and state exposed for display.
