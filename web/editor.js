@@ -3433,6 +3433,7 @@
       },
       onFatal: (error) => {
         goModel.close(); model.abort(); renderHistoryButtons(); renderApply();
+        showValidation(draft(), { errors: [{ text: error.message }], warnings: [], valid: false });
         updateStatus("The Go editor history stopped. Export the draft before reloading.");
         toast(`${error.message} The visible draft and images are kept for export. Reload the editor to continue.`, true);
       },
