@@ -274,7 +274,8 @@ Its Go/WASM worker computes project checks, settings, fleet and rail edits, geom
 The worker retains changed project branches and caches checks for unchanged topology and demand flows.
 JavaScript handles browser controls, drawing, storage, and image decoding.
 It orders asynchronous edits and keeps newer typing when an older worker reply arrives.
-JavaScript still commits drag previews, normalizes loaded drafts, and holds undo history.
+JavaScript previews drags. Go computes each completed geometry edit.
+JavaScript still normalizes loaded drafts and holds undo history.
 Move these model operations and geographic metadata edits into Go in stages.
 
 Define a clear boundary between user commands, simulation updates, and state exposed for display.

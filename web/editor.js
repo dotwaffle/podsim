@@ -4439,8 +4439,8 @@
       const field = document.activeElement;
       if (field && field.matches("input, select, textarea")) field.blur();
       // The drag changes a working copy of the draft and redraws only its
-      // targets. The pointer up records the result in the history.
-      drag.working = clone(draft()); drag.targets = dragTargets(drag.working, { type, id }); drag.moved = new Set(drag.targets.nodeIDs); drag.last = worldPoint(event);
+      // targets. Go computes the committed edit after the pointer up.
+      drag.source = draft(); drag.working = clone(drag.source); drag.targets = dragTargets(drag.working, { type, id }); drag.moved = new Set(drag.targets.nodeIDs); drag.last = worldPoint(event); drag.delta = { X: 0, Y: 0 };
     }
     state.drag = drag;
     $("#networkMap").setPointerCapture(event.pointerId);
@@ -4497,9 +4497,18 @@
     // A move of the working copy is an edit, so an acquisition that ends
     // during the drag does not publish over it.
     model.moveDrag();
-    if (drag.type === "station") { shiftNodes(config, { ids: drag.moved, dx: location.X - drag.last.X, dy: location.Y - drag.last.Y }); drag.last = location; }
-    else if (drag.type === "node") { const node = nodeFor(config, drag.id); if (node) node.Position = { X: location.X, Y: location.Y }; }
-    else if (drag.type === "control") { const lane = config.network.Lanes.find((item) => item.ID === drag.id); if (lane) lane.Control = location; }
+    if (drag.type === "station") {
+      const dx = location.X - drag.last.X, dy = location.Y - drag.last.Y;
+      shiftNodes(config, { ids: drag.moved, dx, dy }); drag.last = location;
+      drag.delta.X += dx; drag.delta.Y += dy;
+      drag.command = { action: "moveStation", id: drag.id, delta: drag.delta };
+    } else if (drag.type === "node") {
+      const node = nodeFor(config, drag.id); if (node) node.Position = { X: location.X, Y: location.Y };
+      drag.command = { action: "moveNode", id: drag.id, point: location };
+    } else if (drag.type === "control") {
+      const lane = config.network.Lanes.find((item) => item.ID === drag.id); if (lane) lane.Control = location;
+      drag.command = { action: "moveControl", id: drag.id, point: location };
+    }
     // The selection panel shows the new values after the pointer up. A panel
     // change during the drag would make the browser lay out the whole map again.
     drawDragTargets(config, drag.targets);
@@ -4510,7 +4519,12 @@
     if (!drag) return;
     state.drag = null; model.endDrag();
     try { $("#networkMap").releasePointerCapture(event.pointerId); } catch (_) {}
-    if (drag.type !== "pan") setDraft(drag.working);
+    if (drag.type !== "pan") {
+      // Redraw the committed network even when Go rejects the preview.
+      drawnNetwork = null;
+      if (drag.command) queueGeometryEdit(drag.command, { source: drag.source, sourceEdits: model.edits });
+      else render();
+    }
   }
 
   function fitNetwork() { state.view = fitView(state.map.bounds, $("#networkMap").getBoundingClientRect()); setView(); }
@@ -4586,7 +4600,7 @@
       renderRailArrivals(draft(), kind); renderDemand(); renderHistoryButtons(); renderApply(); restorePendingInputs();
     });
   }
-  function queueGeometryEdit(command, { controls = [], accepted } = {}) {
+  function queueGeometryEdit(command, { controls = [], accepted, source, sourceEdits } = {}) {
     const pending = controls.map((input) => {
       const value = { value: input.type === "checkbox" ? input.checked : input.value };
       typingInputs.delete(input); pendingInputs.set(input, value);
@@ -4596,6 +4610,7 @@
     return editQueue.submit(async (current) => {
       if (!current()) return false;
       const config = draft(), generation = model.edits;
+      if (source && (source !== config || sourceEdits !== generation)) throw new Error("The draft changed after the drag. Move the item again.");
       if (state.drag && state.drag.type !== "pan" || model.gestureOpen) throw new Error("Finish the open gesture before editing geometry.");
       const result = await goModel.call(config, "edit", { field: "geometry", value: command });
       if (result.error) throw new Error(result.error);
