@@ -1,0 +1,689 @@
+{
+  "decision": "No consistent service gain. Keep all defaults unchanged. Do not advance to broader qualification.",
+  "native_commit": "7707dc2",
+  "source_proof": {
+    "committed_native_source": "7707dc2",
+    "build_head": "847911a",
+    "build_dirty": true,
+    "observer_sources": {
+      "/home/dotwaffle/.cache/agents/podsim/independent-banks-20261002/observer-main.go": "2a07808150bc0fb86aefc1b881dff5627445b325e41f7593829ff6999b16bf33",
+      "/home/dotwaffle/.cache/agents/podsim/independent-banks-20261002/observer_test.go": "1d8c8c400acdebbd23023902cb042ae60dd0904da0ffc0180937750391105cd7"
+    },
+    "runs": {
+      "independent-banks-pilot-s1": {
+        "native_source_matches_commit": true,
+        "binary_sha256": "d88231185ff18f4087c0ad3a0d7e69e7b111922e14bbffea013a56a7a19127a4",
+        "result_sha256": "9b359f884721f287e2d5d9c2a52b26d148fd5e23943f4673efd53ef0e29e1580",
+        "run_manifest_sha256": "b048c61325080c0cbfcc5af1d1461054726f9a05cef5171ebf03a01642dcaa1c"
+      },
+      "baseline-heavy-s1": {
+        "native_source_matches_commit": true,
+        "binary_sha256": "d88231185ff18f4087c0ad3a0d7e69e7b111922e14bbffea013a56a7a19127a4",
+        "result_sha256": "c90340a3f59b778cadf43fb4a1477edc7bdb36806caf729c08d7ae54baa66f93",
+        "run_manifest_sha256": "67bb9b8a61b63b42f47bf24554fe0865f14cb0fe79b17852404abced7b096078"
+      },
+      "baseline-heavy-s2": {
+        "native_source_matches_commit": true,
+        "binary_sha256": "d88231185ff18f4087c0ad3a0d7e69e7b111922e14bbffea013a56a7a19127a4",
+        "result_sha256": "24de9a0c34dd3e94e1552d1917a73799e2157511cce13f215642c9fa64742ca2",
+        "run_manifest_sha256": "620901a770a17fc4b4c553020243b03852c7a29cfed856fcb6e7d35ac2ca58af"
+      },
+      "independent-banks-s1": {
+        "native_source_matches_commit": true,
+        "binary_sha256": "d88231185ff18f4087c0ad3a0d7e69e7b111922e14bbffea013a56a7a19127a4",
+        "result_sha256": "e99ed7f2b8e017c72935f29a96ca04767357a4ec76a04d62de59d5c99f9d7f6e",
+        "run_manifest_sha256": "b422a62ebbd6ca22707c2eaafa758da8c6db58efc2589e4e30241297afd932f3"
+      },
+      "independent-banks-s2": {
+        "native_source_matches_commit": true,
+        "binary_sha256": "d88231185ff18f4087c0ad3a0d7e69e7b111922e14bbffea013a56a7a19127a4",
+        "result_sha256": "70f699bc675ebb9189b49d0e12ff95e80a24966b42307bca496bca61fbb898e8",
+        "run_manifest_sha256": "a7d0328e9993ce7e96b5b578f31b4739da770dd9081c5716951bd6efafc405a3"
+      }
+    }
+  },
+  "worker": {
+    "GOGC": 400,
+    "GOMAXPROCS": 1,
+    "sequential": true,
+    "cpu_comparison": false
+  },
+  "fixture_hashes": {
+    "screen.project.json": "e59d9ffdeacc7984b4315734a5715319087f5f4ca24c13b3947e85914e8c3ee8",
+    "pilot.project.json": "f00820ee84437d02f029e3182ea422caeb08f6c13dfcb0c5e0ff8cabe91fa608",
+    "browser-example.project.json": "8e9a9aa81874937548168e4d14345357a3e5dbee52431e755ceba040edca22e8"
+  },
+  "static_audit": {
+    "lanes": 128,
+    "segments": 5420,
+    "eligible_nonincident_lane_pairs": 7566,
+    "lane_hazards": [],
+    "berths": 48,
+    "eligible_berth_pairs": 1128,
+    "minimum_berth_pair": [
+      29.999999999999847,
+      "parking-02",
+      "parking-03"
+    ],
+    "berth_lane_hazards": [],
+    "fixture_sha256": "e59d9ffdeacc7984b4315734a5715319087f5f4ca24c13b3947e85914e8c3ee8",
+    "helper_sha256": "2a4931a94f35a025a027217a33f4f3ecdd8bc756aff77b1896706d72adb854b8",
+    "clearance_meters": 12,
+    "separation_tolerance_meters": 1e-06
+  },
+  "arms": {
+    "independent-banks-pilot-s1": {
+      "scheduled": 12,
+      "served": 12,
+      "skipped": 0,
+      "remaining": 0,
+      "actual_end_seconds": 3900,
+      "wait_average_seconds": 0,
+      "wait_p95_seconds": 0,
+      "wait_maximum_seconds": 0,
+      "journey_average_seconds": 331.23333333333335,
+      "journey_p95_seconds": 444.23333333333335,
+      "journey_maximum_seconds": 444.23333333333335,
+      "queue_cleared": true,
+      "queue_clear_seconds": 0,
+      "drained": true,
+      "drain_seconds": 299.98333333333335,
+      "empty_distance_meters": 0,
+      "track_wait_seconds": 0,
+      "junction_wait_seconds": 0,
+      "stopped_pod_seconds": 0,
+      "peak_pending": 0,
+      "peak_active_vehicles": 2,
+      "completed_at_arrival_end": 11,
+      "backlog_at_arrival_end": 1,
+      "arrival_throughput_per_minute": 0.1833324675966808,
+      "connections": {
+        "made": 6,
+        "missed": 0,
+        "unserved": 0,
+        "unresolved": 0
+      },
+      "future_offers": 0,
+      "censored_accepted": 0,
+      "pickup_receipts": {
+        "count": 12,
+        "mean": 0.0,
+        "p95": 0.0,
+        "max": 0.0
+      },
+      "journey_receipts": {
+        "count": 12,
+        "mean": 331.23333333333335,
+        "p95": 444.23333333333335,
+        "max": 444.23333333333335
+      },
+      "pending_request_seconds_by_origin": {},
+      "pending_sample_totals": {
+        "total": 0,
+        "unassigned": 0,
+        "unassigned_percent": 0,
+        "assigned_stationary_traffic": 0,
+        "assigned_stationary_traffic_percent": 0,
+        "exact_pickup_wait_seconds": 0.0
+      },
+      "focus_station_totals": {
+        "Occupied": 9318,
+        "ReservedEmpty": 79,
+        "TotalReserved": 9397,
+        "Free": 14003,
+        "Approaching": 171,
+        "EntranceStopped": 0,
+        "ExitStopped": 0
+      },
+      "focus_station_samples": 3900,
+      "focus_mean_free_berths": 3.5905128205128207,
+      "gate_attributed_pending_request_seconds": {
+        "bank-a-entry": 0,
+        "bank-b-entry": 0
+      },
+      "bank_local_lane_pod_seconds": {
+        "bank-a-entry": 395,
+        "bank-b-entry": 0
+      },
+      "checks": {
+        "checked_ticks": 234000,
+        "contract_checks": 3900,
+        "restore_checks": 13,
+        "restore_reservation_changes": 0,
+        "max_float_delta_meters": 0
+      },
+      "exit_code": 0,
+      "result_sha256": "9b359f884721f287e2d5d9c2a52b26d148fd5e23943f4673efd53ef0e29e1580",
+      "manifest_sha256": "b048c61325080c0cbfcc5af1d1461054726f9a05cef5171ebf03a01642dcaa1c"
+    },
+    "baseline-heavy-s1": {
+      "scheduled": 1440,
+      "served": 363,
+      "skipped": 1077,
+      "remaining": 0,
+      "actual_end_seconds": 7601,
+      "wait_average_seconds": 2688.465105601469,
+      "wait_p95_seconds": 3862.0333333333333,
+      "wait_maximum_seconds": 4135.5,
+      "journey_average_seconds": 3013.25404040404,
+      "journey_p95_seconds": 4250.816666666667,
+      "journey_maximum_seconds": 4479.833333333333,
+      "queue_cleared": true,
+      "queue_clear_seconds": 3566,
+      "drained": true,
+      "drain_seconds": 4000.983333333333,
+      "empty_distance_meters": 1170966.1163957051,
+      "track_wait_seconds": 1468,
+      "junction_wait_seconds": 2682,
+      "stopped_pod_seconds": 4151,
+      "peak_pending": 200,
+      "peak_active_vehicles": 30,
+      "completed_at_arrival_end": 145,
+      "backlog_at_arrival_end": 218,
+      "arrival_throughput_per_minute": 2.4166552546835196,
+      "connections": {
+        "made": 0,
+        "missed": 151,
+        "unserved": 569,
+        "unresolved": 0
+      },
+      "future_offers": 0,
+      "censored_accepted": 0,
+      "pickup_receipts": {
+        "count": 363,
+        "mean": 2688.4651056014695,
+        "p95": 3862.0333333333333,
+        "max": 4135.5
+      },
+      "journey_receipts": {
+        "count": 363,
+        "mean": 3013.25404040404,
+        "p95": 4250.816666666667,
+        "max": 4479.833333333333
+      },
+      "pending_request_seconds_by_origin": {
+        "station-01": {
+          "assigned_moving_or_dwell": 50054,
+          "assigned_stationary_traffic": 2294,
+          "unassigned": 422518,
+          "total": 474866,
+          "unassigned_percent": 88.97625856557428
+        },
+        "station-02": {
+          "assigned_stationary_traffic": 59,
+          "assigned_moving_or_dwell": 2872,
+          "unassigned": 83110,
+          "total": 86041,
+          "unassigned_percent": 96.59348450157484
+        },
+        "station-03": {
+          "assigned_moving_or_dwell": 6656,
+          "assigned_stationary_traffic": 178,
+          "unassigned": 112754,
+          "total": 119588,
+          "unassigned_percent": 94.2853798039937
+        },
+        "station-04": {
+          "assigned_moving_or_dwell": 5684,
+          "assigned_stationary_traffic": 63,
+          "unassigned": 95697,
+          "total": 101444,
+          "unassigned_percent": 94.33480540988131
+        },
+        "station-05": {
+          "assigned_moving_or_dwell": 6212,
+          "assigned_stationary_traffic": 114,
+          "unassigned": 102696,
+          "total": 109022,
+          "unassigned_percent": 94.19750142173139
+        },
+        "station-06": {
+          "assigned_stationary_traffic": 76,
+          "assigned_moving_or_dwell": 5920,
+          "unassigned": 79044,
+          "total": 85040,
+          "unassigned_percent": 92.9492003762935
+        }
+      },
+      "pending_sample_totals": {
+        "total": 976001,
+        "unassigned": 895819,
+        "unassigned_percent": 91.78463956491848,
+        "assigned_stationary_traffic": 2784,
+        "assigned_stationary_traffic_percent": 0.2852456093794986,
+        "exact_pickup_wait_seconds": 975912.8333333334
+      },
+      "focus_station_totals": {
+        "Occupied": 6009,
+        "ReservedEmpty": 3619,
+        "TotalReserved": 9628,
+        "Free": 35978,
+        "Approaching": 68901,
+        "EntranceStopped": 2104,
+        "ExitStopped": 1023
+      },
+      "focus_station_samples": 7601,
+      "focus_mean_free_berths": 4.733324562557558,
+      "gate_attributed_pending_request_seconds": {
+        "bank-a-entry": 0,
+        "bank-b-entry": 0
+      },
+      "bank_local_lane_pod_seconds": {
+        "bank-a-entry": 0,
+        "bank-b-entry": 0
+      },
+      "checks": {
+        "checked_ticks": 456060,
+        "contract_checks": 7601,
+        "restore_checks": 25,
+        "restore_reservation_changes": 9,
+        "max_float_delta_meters": 2.2737367544323206e-13
+      },
+      "exit_code": 0,
+      "result_sha256": "c90340a3f59b778cadf43fb4a1477edc7bdb36806caf729c08d7ae54baa66f93",
+      "manifest_sha256": "67bb9b8a61b63b42f47bf24554fe0865f14cb0fe79b17852404abced7b096078",
+      "frozen_result_and_receipt_parity": true,
+      "frozen_sha256": "6f2c28d1b192b7e10b1be90c0460e6ef13fcfc19a0b6e21604dd34bbdbc4fff4"
+    },
+    "baseline-heavy-s2": {
+      "scheduled": 1440,
+      "served": 366,
+      "skipped": 1074,
+      "remaining": 0,
+      "actual_end_seconds": 7541,
+      "wait_average_seconds": 2645.4551001821496,
+      "wait_p95_seconds": 3768.266666666667,
+      "wait_maximum_seconds": 4217.333333333333,
+      "journey_average_seconds": 2960.8478142076506,
+      "journey_p95_seconds": 4157.883333333333,
+      "journey_maximum_seconds": 4439.233333333334,
+      "queue_cleared": true,
+      "queue_clear_seconds": 3434,
+      "drained": true,
+      "drain_seconds": 3940.983333333333,
+      "empty_distance_meters": 1185630.8952532515,
+      "track_wait_seconds": 1480,
+      "junction_wait_seconds": 2727,
+      "stopped_pod_seconds": 4210,
+      "peak_pending": 200,
+      "peak_active_vehicles": 30,
+      "completed_at_arrival_end": 151,
+      "backlog_at_arrival_end": 215,
+      "arrival_throughput_per_minute": 2.5166547824635273,
+      "connections": {
+        "made": 0,
+        "missed": 151,
+        "unserved": 569,
+        "unresolved": 0
+      },
+      "future_offers": 0,
+      "censored_accepted": 0,
+      "pickup_receipts": {
+        "count": 366,
+        "mean": 2645.455100182149,
+        "p95": 3768.266666666667,
+        "max": 4217.333333333333
+      },
+      "journey_receipts": {
+        "count": 366,
+        "mean": 2960.8478142076506,
+        "p95": 4157.883333333333,
+        "max": 4439.233333333334
+      },
+      "pending_request_seconds_by_origin": {
+        "station-01": {
+          "assigned_moving_or_dwell": 53069,
+          "assigned_stationary_traffic": 2354,
+          "unassigned": 419283,
+          "total": 474706,
+          "unassigned_percent": 88.32477364937456
+        },
+        "station-02": {
+          "assigned_stationary_traffic": 123,
+          "assigned_moving_or_dwell": 4169,
+          "unassigned": 98221,
+          "total": 102513,
+          "unassigned_percent": 95.81321393384253
+        },
+        "station-03": {
+          "assigned_stationary_traffic": 109,
+          "assigned_moving_or_dwell": 5307,
+          "unassigned": 90783,
+          "total": 96199,
+          "unassigned_percent": 94.37000384619382
+        },
+        "station-04": {
+          "assigned_stationary_traffic": 26,
+          "assigned_moving_or_dwell": 2845,
+          "unassigned": 73065,
+          "total": 75936,
+          "unassigned_percent": 96.21918457648546
+        },
+        "station-05": {
+          "assigned_stationary_traffic": 100,
+          "assigned_moving_or_dwell": 6450,
+          "unassigned": 97581,
+          "total": 104131,
+          "unassigned_percent": 93.70984625135647
+        },
+        "station-06": {
+          "assigned_stationary_traffic": 121,
+          "assigned_moving_or_dwell": 6716,
+          "unassigned": 108008,
+          "total": 114845,
+          "unassigned_percent": 94.04675867473551
+        }
+      },
+      "pending_sample_totals": {
+        "total": 968330,
+        "unassigned": 886941,
+        "unassigned_percent": 91.59491082585483,
+        "assigned_stationary_traffic": 2833,
+        "assigned_stationary_traffic_percent": 0.29256555100017556,
+        "exact_pickup_wait_seconds": 968236.5666666667
+      },
+      "focus_station_totals": {
+        "Occupied": 5348,
+        "ReservedEmpty": 3564,
+        "TotalReserved": 8912,
+        "Free": 36334,
+        "Approaching": 72777,
+        "EntranceStopped": 2134,
+        "ExitStopped": 1176
+      },
+      "focus_station_samples": 7541,
+      "focus_mean_free_berths": 4.8181938734915795,
+      "gate_attributed_pending_request_seconds": {
+        "bank-a-entry": 0,
+        "bank-b-entry": 0
+      },
+      "bank_local_lane_pod_seconds": {
+        "bank-a-entry": 0,
+        "bank-b-entry": 0
+      },
+      "checks": {
+        "checked_ticks": 452460,
+        "contract_checks": 7541,
+        "restore_checks": 25,
+        "restore_reservation_changes": 3,
+        "max_float_delta_meters": 3.126388037344441e-13
+      },
+      "exit_code": 0,
+      "result_sha256": "24de9a0c34dd3e94e1552d1917a73799e2157511cce13f215642c9fa64742ca2",
+      "manifest_sha256": "620901a770a17fc4b4c553020243b03852c7a29cfed856fcb6e7d35ac2ca58af",
+      "frozen_result_and_receipt_parity": true,
+      "frozen_sha256": "749131b8ec55ca3c9556246a5d9cc8d0e3177166dd5ae4b996169a9eabd08f5f"
+    },
+    "independent-banks-s1": {
+      "scheduled": 1440,
+      "served": 365,
+      "skipped": 1075,
+      "remaining": 0,
+      "actual_end_seconds": 7513,
+      "wait_average_seconds": 2667.0313698630134,
+      "wait_p95_seconds": 3877.883333333333,
+      "wait_maximum_seconds": 4153,
+      "journey_average_seconds": 2999.031506849315,
+      "journey_p95_seconds": 4253.216666666666,
+      "journey_maximum_seconds": 4437.183333333333,
+      "queue_cleared": true,
+      "queue_clear_seconds": 3537,
+      "drained": true,
+      "drain_seconds": 3912.983333333333,
+      "empty_distance_meters": 1116407.6095653167,
+      "track_wait_seconds": 1087,
+      "junction_wait_seconds": 1624,
+      "stopped_pod_seconds": 2726,
+      "peak_pending": 200,
+      "peak_active_vehicles": 30,
+      "completed_at_arrival_end": 147,
+      "backlog_at_arrival_end": 218,
+      "arrival_throughput_per_minute": 2.4499884306101887,
+      "connections": {
+        "made": 0,
+        "missed": 151,
+        "unserved": 569,
+        "unresolved": 0
+      },
+      "future_offers": 0,
+      "censored_accepted": 0,
+      "pickup_receipts": {
+        "count": 365,
+        "mean": 2667.0313698630134,
+        "p95": 3877.883333333333,
+        "max": 4153.0
+      },
+      "journey_receipts": {
+        "count": 365,
+        "mean": 2999.031506849315,
+        "p95": 4253.216666666666,
+        "max": 4437.183333333333
+      },
+      "pending_request_seconds_by_origin": {
+        "station-01": {
+          "assigned_moving_or_dwell": 50384,
+          "assigned_stationary_traffic": 2061,
+          "unassigned": 425318,
+          "total": 477763,
+          "unassigned_percent": 89.02280000753511
+        },
+        "station-02": {
+          "assigned_moving_or_dwell": 3385,
+          "assigned_stationary_traffic": 12,
+          "unassigned": 88380,
+          "total": 91777,
+          "unassigned_percent": 96.29863691338788
+        },
+        "station-03": {
+          "assigned_stationary_traffic": 35,
+          "assigned_moving_or_dwell": 5047,
+          "unassigned": 108270,
+          "total": 113352,
+          "unassigned_percent": 95.51662079186957
+        },
+        "station-04": {
+          "assigned_moving_or_dwell": 5668,
+          "assigned_stationary_traffic": 29,
+          "unassigned": 90324,
+          "total": 96021,
+          "unassigned_percent": 94.06692286062423
+        },
+        "station-05": {
+          "assigned_stationary_traffic": 67,
+          "assigned_moving_or_dwell": 6525,
+          "unassigned": 95691,
+          "total": 102283,
+          "unassigned_percent": 93.55513623964882
+        },
+        "station-06": {
+          "assigned_moving_or_dwell": 5660,
+          "assigned_stationary_traffic": 29,
+          "unassigned": 86682,
+          "total": 92371,
+          "unassigned_percent": 93.84114061772634
+        }
+      },
+      "pending_sample_totals": {
+        "total": 973567,
+        "unassigned": 894665,
+        "unassigned_percent": 91.89557575390292,
+        "assigned_stationary_traffic": 2233,
+        "assigned_stationary_traffic_percent": 0.22936274545049287,
+        "exact_pickup_wait_seconds": 973466.45
+      },
+      "focus_station_totals": {
+        "Occupied": 5363,
+        "ReservedEmpty": 3594,
+        "TotalReserved": 8957,
+        "Free": 36121,
+        "Approaching": 57187,
+        "EntranceStopped": 24,
+        "ExitStopped": 216
+      },
+      "focus_station_samples": 7513,
+      "focus_mean_free_berths": 4.807799813656329,
+      "gate_attributed_pending_request_seconds": {
+        "bank-a-entry": 5422,
+        "bank-b-entry": 3165
+      },
+      "bank_local_lane_pod_seconds": {
+        "bank-a-entry": 13756,
+        "bank-b-entry": 7522
+      },
+      "checks": {
+        "checked_ticks": 450780,
+        "contract_checks": 7513,
+        "restore_checks": 25,
+        "restore_reservation_changes": 3,
+        "max_float_delta_meters": 2.2737367544323206e-13
+      },
+      "exit_code": 0,
+      "result_sha256": "e99ed7f2b8e017c72935f29a96ca04767357a4ec76a04d62de59d5c99f9d7f6e",
+      "manifest_sha256": "b422a62ebbd6ca22707c2eaafa758da8c6db58efc2589e4e30241297afd932f3"
+    },
+    "independent-banks-s2": {
+      "scheduled": 1440,
+      "served": 360,
+      "skipped": 1080,
+      "remaining": 0,
+      "actual_end_seconds": 7676,
+      "wait_average_seconds": 2758.4933796296295,
+      "wait_p95_seconds": 3915.8166666666666,
+      "wait_maximum_seconds": 4232.016666666666,
+      "journey_average_seconds": 3087.077731481482,
+      "journey_p95_seconds": 4349.966666666666,
+      "journey_maximum_seconds": 4514.316666666667,
+      "queue_cleared": true,
+      "queue_clear_seconds": 3642,
+      "drained": true,
+      "drain_seconds": 4075.983333333333,
+      "empty_distance_meters": 1223990.7966578042,
+      "track_wait_seconds": 1166,
+      "junction_wait_seconds": 1731,
+      "stopped_pod_seconds": 2898,
+      "peak_pending": 200,
+      "peak_active_vehicles": 30,
+      "completed_at_arrival_end": 146,
+      "backlog_at_arrival_end": 214,
+      "arrival_throughput_per_minute": 2.433321842646854,
+      "connections": {
+        "made": 0,
+        "missed": 145,
+        "unserved": 575,
+        "unresolved": 0
+      },
+      "future_offers": 0,
+      "censored_accepted": 0,
+      "pickup_receipts": {
+        "count": 360,
+        "mean": 2758.4933796296295,
+        "p95": 3915.8166666666666,
+        "max": 4232.016666666666
+      },
+      "journey_receipts": {
+        "count": 360,
+        "mean": 3087.077731481482,
+        "p95": 4349.966666666666,
+        "max": 4514.316666666667
+      },
+      "pending_request_seconds_by_origin": {
+        "station-01": {
+          "assigned_moving_or_dwell": 54673,
+          "assigned_stationary_traffic": 2062,
+          "unassigned": 441503,
+          "total": 498238,
+          "unassigned_percent": 88.61287176008253
+        },
+        "station-02": {
+          "assigned_stationary_traffic": 49,
+          "assigned_moving_or_dwell": 6050,
+          "unassigned": 124717,
+          "total": 130816,
+          "unassigned_percent": 95.33772627201566
+        },
+        "station-03": {
+          "assigned_stationary_traffic": 23,
+          "assigned_moving_or_dwell": 4822,
+          "unassigned": 84206,
+          "total": 89051,
+          "unassigned_percent": 94.55929748121862
+        },
+        "station-04": {
+          "assigned_moving_or_dwell": 3047,
+          "unassigned": 64524,
+          "total": 67571,
+          "unassigned_percent": 95.49066907401104
+        },
+        "station-05": {
+          "assigned_stationary_traffic": 32,
+          "assigned_moving_or_dwell": 6835,
+          "unassigned": 105951,
+          "total": 112818,
+          "unassigned_percent": 93.91320533957347
+        },
+        "station-06": {
+          "assigned_stationary_traffic": 63,
+          "assigned_moving_or_dwell": 6582,
+          "unassigned": 88016,
+          "total": 94661,
+          "unassigned_percent": 92.98021360433547
+        }
+      },
+      "pending_sample_totals": {
+        "total": 993155,
+        "unassigned": 908917,
+        "unassigned_percent": 91.51814167979822,
+        "assigned_stationary_traffic": 2229,
+        "assigned_stationary_traffic_percent": 0.22443626624242943,
+        "exact_pickup_wait_seconds": 993057.6166666667
+      },
+      "focus_station_totals": {
+        "Occupied": 5188,
+        "ReservedEmpty": 3793,
+        "TotalReserved": 8981,
+        "Free": 37075,
+        "Approaching": 61564,
+        "EntranceStopped": 4,
+        "ExitStopped": 149
+      },
+      "focus_station_samples": 7676,
+      "focus_mean_free_berths": 4.829989577905159,
+      "gate_attributed_pending_request_seconds": {
+        "bank-a-entry": 5663,
+        "bank-b-entry": 3305
+      },
+      "bank_local_lane_pod_seconds": {
+        "bank-a-entry": 14070,
+        "bank-b-entry": 7727
+      },
+      "checks": {
+        "checked_ticks": 460560,
+        "contract_checks": 7676,
+        "restore_checks": 25,
+        "restore_reservation_changes": 3,
+        "max_float_delta_meters": 3.126388037344441e-13
+      },
+      "exit_code": 0,
+      "result_sha256": "70f699bc675ebb9189b49d0e12ff95e80a24966b42307bca496bca61fbb898e8",
+      "manifest_sha256": "a7d0328e9993ce7e96b5b578f31b4739da770dd9081c5716951bd6efafc405a3"
+    }
+  },
+  "matched_project_fields": [
+    "name",
+    "fleet",
+    "demand",
+    "redistribution",
+    "railArrivals",
+    "railDepartures"
+  ],
+  "baseline_fixture_sha256": "c85e87a0c0a538d4e05e9bfc4304da8702aec6d7ab90ede77d28f7c3c0444ad5",
+  "matched_offer_arrays": true,
+  "limits": [
+    "Two-seed functional screen only.",
+    "Means and tails cover completed accepted passengers, exclude skipped offers.",
+    "One-second samples do not establish exact assignment timestamps.",
+    "Gate attribution can follow a distant committed route and does not prove simultaneous gate service.",
+    "Physical restore resets speed and can rebuild reservations. No identical-future claim.",
+    "No CPU comparison, broader qualification, default adoption, push, deployment, or demo restart."
+  ]
+}

@@ -75,3 +75,5 @@ Geometry changes start a new stream chain and send the full network.
 This fixture does not change any default layout or controller setting.
 Independent gates do not establish a service improvement.
 See the [station diagnosis](station-service-diagnosis.md) for the measured pickup delays and prior geometry failures.
+
+The [matched bank service screen](station-banks-screen.md) measures the implemented gates against the frozen heavy workload.
