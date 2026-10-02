@@ -2337,10 +2337,10 @@
   // revision, epoch, the session epoch, and serverStart, the server start
   // ID or an empty string. All four are of the same server state. It does
   // not change the connection.
-  async function readLive(connection) {
+  async function readLive(connection, normalize = normalizeConfig) {
     const { project: projectReply, state: liveState } = await readSnapshot(connection);
     return {
-      project: normalizeConfig(projectReply.project || projectReply.Project),
+      project: await normalize(projectReply.project || projectReply.Project),
       revision: Number(liveState.projectRevision ?? liveState.ProjectRevision),
       epoch: liveState.epoch || liveState.Epoch || "",
       serverStart: liveState.serverStart || liveState.ServerStart || "",
@@ -2509,10 +2509,10 @@
   // read. revision is null when the live state did not load. readConflict
   // does not change the epoch of the connection. Only the conflict actions
   // do, after the user agrees.
-  async function readConflict(connection, error) {
+  async function readConflict(connection, error, normalize = normalizeConfig) {
     if (!APPLY_FAILURE.has(error.errorCode)) return null;
     try {
-      const live = await readLive(connection);
+      const live = await readLive(connection, normalize);
       return { code: error.errorCode, revision: live.revision, serverStart: live.serverStart };
     } catch (_) { return { code: error.errorCode, revision: null, serverStart: "" }; }
   }
@@ -2552,7 +2552,7 @@
   // has the epoch of the current session, also after a server restart.
   async function takeLive(take) {
     if (take.question && !take.confirm(take.question)) return null;
-    const live = await readLive(take.connection);
+    const live = await readLive(take.connection, take.normalize);
     take.connection.epoch = live.epoch;
     return live;
   }
@@ -2563,7 +2563,7 @@
   // takeLive gives it, or null when the user cancels. The page then makes
   // the live project the draft and its base, as liveDraft gives.
   function loadLive(load) {
-    return takeLive({ connection: load.connection, question: load.changed ? LOAD_LIVE_QUESTION : "", confirm: load.confirm });
+    return takeLive({ connection: load.connection, question: load.changed ? LOAD_LIVE_QUESTION : "", confirm: load.confirm, normalize: load.normalize });
   }
 
   // liveDraft gives the page values after Load live scenario. live is the
@@ -2592,7 +2592,7 @@
   // "stale_project". When the server restarted again, it fails with
   // "session_changed". Then the page shows the new revision.
   async function applyOverBase(over) {
-    const live = await takeLive({ connection: over.connection, question: applyOverQuestion(over.revision), confirm: over.confirm });
+    const live = await takeLive({ connection: over.connection, question: applyOverQuestion(over.revision), confirm: over.confirm, normalize: over.normalize });
     return live && { revision: over.revision, epoch: live.epoch, serverStart: over.serverStart };
   }
 
@@ -4389,22 +4389,33 @@
   // sends the server start ID of the draft, so the server rejects a draft
   // from before a server restart. The draft is not the live baseline, so it
   // counts as changed.
-  function restoreDraft(event) {
+  async function restoreDraft(event) {
     if (!state.offer) return;
+    const offer = state.offer;
     cancelPendingEdits();
-    model.abort();
-    const { draft: saved, revision, epoch, serverStart } = state.offer; closeOffer(event);
-    state.draftBase = { revision, epoch, serverStart };
-    state.history.reset({ scenario: normalizeConfig(saved.scenario), background: state.background });
-    state.selection = null; render(); fitNetwork(); checks.run(); keeper.arm();
-    updateStatus(restoreStatusText({ revision, live: state.live.revision, serverStart, liveStart: state.liveStart }));
-    toast("The saved draft is restored.");
+    const ticket = model.start(), inputRevision = editRevision();
+    try {
+      const { draft: saved, revision, epoch, serverStart } = offer;
+      const scenario = await normalizeWithGo(saved.scenario);
+      if (!model.current(ticket) || state.offer !== offer) return;
+      const stale = model.publishError(ticket, null);
+      if (stale || inputRevision !== editRevision() || state.drag && state.drag.type !== "pan" || model.gestureOpen) throw new Error(stale || "The draft changed during restoration. Restore it again.");
+      model.abort(); closeOffer(event);
+      state.draftBase = { revision, epoch, serverStart };
+      state.history.reset({ scenario, background: state.background });
+      state.selection = null; render(); fitNetwork(); checks.run(); keeper.arm();
+      updateStatus(restoreStatusText({ revision, live: state.live.revision, serverStart, liveStart: state.liveStart }));
+      toast("The saved draft is restored.");
+    } catch (error) {
+      if (!model.current(ticket)) return;
+      model.abort(); toast(`${error.message} The draft is unchanged.`, true);
+    }
   }
 
   // discardDraft replaces the saved draft with the current draft in one
   // write: a delete, or a put when the draft has changes.
   function discardDraft(event) {
-    closeOffer(event); keeper.replace(); toast("The saved draft is discarded.");
+    model.abort(); closeOffer(event); keeper.replace(); toast("The saved draft is discarded.");
   }
 
   // renderTools marks the button of the active tool as pressed. The
@@ -4530,6 +4541,13 @@
   function fitNetwork() { state.view = fitView(state.map.bounds, $("#networkMap").getBoundingClientRect()); setView(); }
 
   const goModel = root.PodsimGoEditor.createClient({ makeWorker: () => new Worker("./editor-model.js") });
+  async function normalizeWithGo(config) {
+    const result = await goModel.call(config, "edit", { field: "normalize", value: true });
+    if (result.error) throw new Error(result.error);
+    const patch = result.change?.patch;
+    if (!patch || typeof patch !== "object" || Array.isArray(patch)) throw new Error("The Go editor model did not return a normalized draft.");
+    return { ...config, ...patch };
+  }
   const pendingInputs = new Map();
   const typingInputs = new Set();
   let typingRevision = 0;
@@ -4728,7 +4746,7 @@
   async function loadServerProject() {
     updateStatus("Loading the live scenario…");
     try {
-      const live = await readLive(state.connection);
+      const live = await readLive(state.connection, normalizeWithGo);
       state.loadedRevision = live.revision; state.connection.epoch = live.epoch; state.loadedStart = live.serverStart;
       state.draftBase = { revision: live.revision, epoch: live.epoch, serverStart: live.serverStart };
       model.setLoaded({ scenario: clone(live.project), background: null });
@@ -4776,7 +4794,7 @@
       // note tells the user when a reload loses the draft. Another failure
       // keeps the conflict that the page shows.
       const note = keeper.status !== "ok" ? DRAFT_STORE_TEXT[keeper.status] : keeper.unsaved ? DRAFT_UNSAVED_TEXT : "";
-      const conflict = await readConflict(state.connection, error);
+      const conflict = await readConflict(state.connection, error, normalizeWithGo);
       if (conflict) showConflict(conflict.revision === null ? null : conflict);
       const unloaded = conflict && conflict.revision === null ? CONFLICT_UNLOADED_TEXT : "";
       updateStatus([applyFailureStatus(error, note), unloaded].filter(Boolean).join(" ")); toast(applyFailureText(error, note), true);
@@ -4828,9 +4846,12 @@
   // replaced draft.
   function loadLiveScenario(event) {
     return runConflictAction(event, async () => {
-      const live = await loadLive({ connection: state.connection, changed: draftChanged(state.history.value, state.live), confirm: (text) => root.confirm(text) });
+      const config = draft(), generation = model.edits, inputRevision = editRevision();
+      const live = await loadLive({ connection: { ...state.connection }, changed: draftChanged(state.history.value, state.live), confirm: (text) => root.confirm(text), normalize: normalizeWithGo });
+      if (live && (config !== draft() || generation !== model.edits || inputRevision !== editRevision() || state.drag && state.drag.type !== "pan" || model.gestureOpen)) throw new Error("The draft changed during loading. Load the live scenario again.");
       return live && (() => {
         cancelPendingEdits(); model.abort();
+        state.connection.epoch = live.epoch;
         const { value, loaded, ...page } = liveDraft(live, { loaded: model.loaded, background: state.background }); Object.assign(state, page); model.setLoaded(loaded);
         state.history.replace(value); state.selection = null;
         render(); setLive({ scenario: draft() }, live.revision);
@@ -4846,8 +4867,10 @@
   function applyOver(event) {
     if (!state.conflict || state.applying) return Promise.resolve();
     return runConflictAction(event, async () => {
-      const base = await applyOverBase({ connection: state.connection, revision: state.conflict.revision, serverStart: state.conflict.serverStart, confirm: (text) => root.confirm(text) });
-      return base && (() => applyProject(base));
+      const config = draft(), generation = model.edits, inputRevision = editRevision();
+      const base = await applyOverBase({ connection: { ...state.connection }, revision: state.conflict.revision, serverStart: state.conflict.serverStart, confirm: (text) => root.confirm(text), normalize: normalizeWithGo });
+      if (base && (config !== draft() || generation !== model.edits || inputRevision !== editRevision() || state.drag && state.drag.type !== "pan" || model.gestureOpen)) throw new Error("The draft changed during loading. Apply the current draft again.");
+      return base && (() => { state.connection.epoch = base.epoch; return applyProject(base); });
     });
   }
 
@@ -4876,7 +4899,8 @@
         const errors = verdict.errors || [{ text: "The Go editor model could not validate the project." }];
         throw new Error(`The project has ${errors.length} error${errors.length === 1 ? "" : "s"}. ${errors.slice(0, 3).map((item) => item.text).join(" ")}`);
       }
-      imported.scenario = normalizeConfig(imported.scenario);
+      imported.scenario = await normalizeWithGo(imported.scenario);
+      if (!model.current(ticket)) return;
       let image = null; let background = null;
       if (imported.background) {
         const { bytes, placement } = takeBackgroundBytes(imported);

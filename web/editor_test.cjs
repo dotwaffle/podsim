@@ -3063,6 +3063,32 @@ test("snapshotConsistent accepts only reads of one server state", () => {
   for (const item of cases) assert.equal(editor.snapshotConsistent(item.before, item.project, item.after ?? state), item.want, item.name);
 });
 
+test("live reads and conflict actions await their supplied normalizer", async () => {
+  const cases = [
+    (connection, normalize) => editor.readLive(connection, normalize),
+    (connection, normalize) => editor.loadLive({ connection, normalize, changed: false }),
+    (connection, normalize) => editor.readConflict(connection, { errorCode: "stale_project" }, normalize),
+    (connection, normalize) => editor.applyOverBase({ connection, normalize, revision: 3, serverStart: "start-1", confirm: () => true }),
+  ];
+  for (const read of cases) {
+    const server = snapshotServer();
+    let release, called = 0, settled = false;
+    const normalization = new Promise((resolve) => { release = resolve; });
+    const result = read(server.connection, async (project) => {
+      called++;
+      assert.equal(project.name, "Old");
+      await normalization;
+      return { ...project, name: "Normalized" };
+    }).then((value) => { settled = true; return value; });
+    while (!called) await new Promise((resolve) => setImmediate(resolve));
+    assert.equal(settled, false);
+    release();
+    const value = await result;
+    assert.equal(called, 1);
+    if (value.project) assert.equal(value.project.name, "Normalized");
+  }
+});
+
 test("readLive and the conflict actions never pair the old project with the new server start ID", async () => {
   for (const number of [2, 3]) {
     const name = `a restart before read ${number}`;
