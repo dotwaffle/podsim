@@ -111,11 +111,11 @@ func (s *Simulation) directDistance(from, stationID string, berth Berth) float64
 	if !ok || from == "" || berth.Node == "" {
 		return -1
 	}
-	approach, err := s.route(from, station.Entry)
+	approach, err := s.route(from, station.berthEntry(berth))
 	if err != nil {
 		return -1
 	}
-	path, err := s.stationPath(station.Entry, berth.Node)
+	path, err := s.stationPath(station.berthEntry(berth), berth.Node)
 	if err != nil {
 		return -1
 	}

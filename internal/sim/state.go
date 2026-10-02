@@ -238,6 +238,9 @@ func RestoreState(input RestoreStateInput) (*Simulation, RestoreResult, error) {
 }
 
 func restoreState(input RestoreStateInput, newFleet func() (*Simulation, error)) (*Simulation, RestoreResult, error) {
+	if err := checkSavedBankRoutes(input); err != nil {
+		return nil, RestoreResult{}, err
+	}
 	if err := checkBufferLinkFields(input); err != nil {
 		return nil, RestoreResult{}, err
 	}

@@ -89,13 +89,13 @@ func (c *Client) receiveStream(ctx context.Context) error {
 	}
 	err = json.Unmarshal(data, &hello)
 	c.noteBuild(hello.Build)
-	if err != nil || hello.Kind != "hello" || hello.Version != session.StreamVersion || hello.ServerStart == "" {
+	if err != nil || hello.Kind != "hello" || (hello.Version != 1 && hello.Version != session.StreamVersion) || hello.ServerStart == "" {
 		return errors.New("unsupported state stream protocol")
 	}
 	var frame session.StreamFrame
 	var stream string
 	var sequence uint64
-	var cache streamTopology
+	cache := streamTopology{version: hello.Version}
 	for {
 		kind, data, err = read()
 		if err != nil {
@@ -189,6 +189,7 @@ func writeControl(ctx context.Context, conn *websocket.Conn, value any) error {
 
 // streamTopology belongs to one connection and retains immutable geometry.
 type streamTopology struct {
+	version   int
 	topology  session.TopologySnapshot
 	assembler *session.StreamAssembler
 }
@@ -201,6 +202,13 @@ func (cache *streamTopology) state(ctx context.Context, c *Client, candidate ses
 		topology = session.TopologySnapshot{}
 		if err := c.exchange(ctx, http.MethodGet, "/api/topology", nil, &topology); err != nil {
 			return session.State{}, err
+		}
+		if cache.version == 1 {
+			for _, station := range topology.Network.Stations {
+				if station.Banks != nil {
+					return session.State{}, errors.New("version 1 stream cannot contain Banks")
+				}
+			}
 		}
 		if topology.ServerStart != identity.ServerStart || topology.Epoch != identity.Epoch || topology.ProjectRevision != identity.ProjectRevision {
 			return session.State{}, errors.New("topology changed while reading stream")

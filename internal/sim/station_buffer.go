@@ -64,7 +64,7 @@ func (s *Simulation) bufferPlan(v *vehicle) (stationBufferPlan, bool) {
 	index := len(v.Route) - 1
 	lane := v.Route[index]
 	station, ok := s.station(v.destinationStation)
-	if !ok || station.ParkingOnly || lane.StationRole != StationEntryRole || lane.StationID != station.ID || lane.To != station.Entry {
+	if !ok || station.ParkingOnly || lane.StationRole != StationEntryRole || lane.StationID != station.ID || !station.isEntry(lane.To) {
 		return stationBufferPlan{}, false
 	}
 	cells := s.laneCells[lane.ID]
@@ -141,6 +141,9 @@ func (s *Simulation) grantBufferedHead(in intent, plan stationBufferPlan) {
 	v.bufferBerth = ""
 	blockedBerth, blockedOwner := "", ""
 	for _, berth := range station.Berths {
+		if station.Banks != nil && station.berthEntry(berth) != plan.lane.To {
+			continue
+		}
 		// A following pickup may target this berth without owning it.
 		// Deferring to that assignment would prevent either pod advancing.
 		// The complete-path grant below protects all actual reservations.
@@ -153,7 +156,7 @@ func (s *Simulation) grantBufferedHead(in intent, plan stationBufferPlan) {
 			}
 			continue
 		}
-		suffix, err := s.stationPath(station.Entry, berth.Node)
+		suffix, err := s.stationPath(plan.lane.To, berth.Node)
 		if err != nil || len(suffix) == 0 {
 			continue
 		}

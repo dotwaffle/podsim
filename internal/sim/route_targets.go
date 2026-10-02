@@ -166,6 +166,9 @@ type preferredNearestInput struct {
 // preferredNearestIndexed ranks each goal by its own preferred or fallback
 // free-flow cost. Rank breaks ties. A preferred route is not a global tier.
 func (n Network) preferredNearestIndexed(input preferredNearestInput, graph routeGraph) (int, bool) {
+	if len(graph.banks.banks) > 0 {
+		return n.bankNearest(input, graph)
+	}
 	var goals []string
 	for node, rank := range input.rank {
 		if rank >= 0 {

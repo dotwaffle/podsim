@@ -765,13 +765,18 @@ func TestStateFileWorstCaseSize(t *testing.T) {
 	// an array, so each other pod or trip adds its size and 1.
 	unrouted := trip
 	unrouted.Route = nil
-	for _, version := range []int{stateVersion, bufferStateVersion, bufferPlatoonStateVersion} {
+	for _, version := range []int{stateVersion, bufferStateVersion, bufferPlatoonStateVersion, bankStateVersion} {
 		t.Run(strconv.Itoa(version), func(t *testing.T) {
 			t.Parallel()
 			maxFile, maxPod := file, pod
 			maxFile.Version = version
+			if version == bankStateVersion {
+				maxFile.Project = withBankMetadata(maxFile.Project)
+				maxFile.Project.Name = ""
+				maxFile.Project.Name = strings.Repeat("n", project.MaxFileBytes-jsonSize(t, maxFile.Project))
+			}
 			maxPod.StationBuffered = version >= bufferStateVersion
-			if version == bufferPlatoonStateVersion {
+			if version >= bufferPlatoonStateVersion {
 				link := *maxPod.Platoon
 				terminal := math.MaxInt
 				link.Kind, link.Lanes, link.TerminalCell = "buffer", 1, &terminal
@@ -869,6 +874,7 @@ func TestStateFileMembers(t *testing.T) {
 	t.Parallel()
 	legacy := withoutMember(reflect.TypeFor[stateFile](), reflect.TypeFor[sim.SavedPod](), "stationBuffered")
 	legacy = withoutMember(legacy, reflect.TypeFor[sim.SavedPlatoonLink](), "kind", "terminalCell")
+	legacy = withoutMember(legacy, reflect.TypeFor[sim.Station](), "Banks")
 	got := stateMembers(t, "", legacy, nil)
 	if *update {
 		if err := os.WriteFile(stateMembersPath, []byte(stateMembersHeader+strings.Join(got, "\n")+"\n"), 0o600); err != nil {

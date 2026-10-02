@@ -27,6 +27,7 @@ const (
 	stateVersion              = 2
 	bufferStateVersion        = 3
 	bufferPlatoonStateVersion = 4
+	bankStateVersion          = 5
 	// maxEpochBytes is the largest saved epoch.
 	maxEpochBytes = 100
 	// buildIDLength is the number of lowercase hex digits in a build ID.
@@ -98,21 +99,23 @@ type jsonLimits struct {
 var stateJSONLimits = jsonLimits{
 	depth: 64, elements: 65_536, members: 256,
 	arrays: map[string]int64{
-		"/project/network/Nodes":                    project.MaxNodes,
-		"/project/network/Lanes":                    project.MaxLanes,
-		"/project/network/Stations":                 project.MaxStations,
-		"/project/network/Stations/*/Berths":        project.MaxBerths,
-		"/project/fleet":                            maxSavedPods,
-		"/railConnections":                          project.MaxRailDeparturePassengers,
-		"/project/railArrivals":                     project.MaxRailArrivals,
-		"/project/railArrivals/*/destinations":      project.MaxRailDestinations,
-		"/project/railDepartures":                   project.MaxRailArrivals,
-		"/project/railDepartures/*/origins":         project.MaxRailDestinations,
-		"/project/demandProfiles":                   project.MaxProfiles,
-		"/project/demandProfiles/*/bands":           project.MaxBands,
-		"/project/demandProfiles/*/flows":           project.MaxFlows,
-		"/project/demandProfiles/*/flows/*/weights": project.MaxBands,
-		"/simulation/pods":                          maxSavedPods,
+		"/project/network/Nodes":                       project.MaxNodes,
+		"/project/network/Lanes":                       project.MaxLanes,
+		"/project/network/Stations":                    project.MaxStations,
+		"/project/network/Stations/*/Berths":           project.MaxBerths,
+		"/project/network/Stations/*/Banks":            sim.MaxStationBanks,
+		"/project/network/Stations/*/Banks/*/BerthIDs": project.MaxBerths,
+		"/project/fleet":                               maxSavedPods,
+		"/railConnections":                             project.MaxRailDeparturePassengers,
+		"/project/railArrivals":                        project.MaxRailArrivals,
+		"/project/railArrivals/*/destinations":         project.MaxRailDestinations,
+		"/project/railDepartures":                      project.MaxRailArrivals,
+		"/project/railDepartures/*/origins":            project.MaxRailDestinations,
+		"/project/demandProfiles":                      project.MaxProfiles,
+		"/project/demandProfiles/*/bands":              project.MaxBands,
+		"/project/demandProfiles/*/flows":              project.MaxFlows,
+		"/project/demandProfiles/*/flows/*/weights":    project.MaxBands,
+		"/simulation/pods":                             maxSavedPods,
 		// A saved pod route has at most as many lanes as the network has
 		// lanes and nodes.
 		"/simulation/pods/*/route": project.MaxLanes + project.MaxNodes,
@@ -128,8 +131,9 @@ var stateJSONLimits = jsonLimits{
 	},
 }
 
-// stateFile holds versions 2, 3, and 4 of the saved session state. Version 3
+// stateFile holds versions 2 through 5 of the saved session state. Version 3
 // adds explicit station buffer membership. Version 4 adds fixed entry links.
+// Version 5 requires a version 2 project with explicit station banks.
 // Earlier versions reject these fields, including explicit empty or null values.
 // The file on disk is
 // the JSON form of stateFile, compressed with gzip. Each change to a member,
@@ -310,7 +314,7 @@ func decodeStateFile(data []byte) (stateFile, error) {
 	if err := json.Unmarshal(raw, &header); err != nil {
 		return stateFile{}, invalidState(fmt.Errorf("decode session state header: %w", err))
 	}
-	if header.Format != stateFormat || header.Version != stateVersion && header.Version != bufferStateVersion && header.Version != bufferPlatoonStateVersion {
+	if header.Format != stateFormat || header.Version < stateVersion || header.Version > bankStateVersion {
 		return stateFile{}, &stateError{
 			reason: reasonUnsupportedVersion,
 			err: fmt.Errorf("session state format %.20q version %d is not %q version %d",
@@ -333,7 +337,21 @@ func decodeStateFile(data []byte) (stateFile, error) {
 	if err := json.Unmarshal(raw, &file, options); err != nil {
 		return stateFile{}, invalidState(fmt.Errorf("decode session state: %w", err))
 	}
+	if err := file.validateProjectVersion(); err != nil {
+		return stateFile{}, invalidState(err)
+	}
 	return file, nil
+}
+
+func (file *stateFile) validateProjectVersion() error {
+	expected := 1
+	if file.Version == bankStateVersion {
+		expected = project.BankVersion
+	}
+	if file.Project.Version != expected {
+		return fmt.Errorf("saved version %d requires project version %d", file.Version, expected)
+	}
+	return nil
 }
 
 type savedPlatoonFields sim.SavedPlatoonLink
@@ -547,6 +565,9 @@ func decodeSavedProject(decoder *jsontext.Decoder, config *project.Config) error
 // project, so the caller checks the project first. The revision can be 0,
 // because a new session has revision 0 until its first change.
 func (file *stateFile) validate() error {
+	if err := file.validateProjectVersion(); err != nil {
+		return err
+	}
 	switch {
 	case file.Epoch == "" || len(file.Epoch) > maxEpochBytes:
 		return fmt.Errorf("epoch has %d bytes, not 1 to %d", len(file.Epoch), maxEpochBytes)

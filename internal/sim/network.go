@@ -53,14 +53,26 @@ type Berth struct {
 	SeparationGroup string `json:"SeparationGroup,omitempty"`
 }
 
+// StationBank groups berths behind one independent entry and exit.
+type StationBank struct {
+	ID       string   `json:"ID"`
+	Entry    string   `json:"Entry"`
+	Exit     string   `json:"Exit"`
+	BerthIDs []string `json:"BerthIDs"`
+}
+
+// MaxStationBanks bounds the banks of one station.
+const MaxStationBanks = 8
+
 // Station keeps passenger access separate from through traffic.
 type Station struct {
-	ID          string  `json:"ID"`
-	Name        string  `json:"Name"`
-	Entry       string  `json:"Entry"`
-	Exit        string  `json:"Exit"`
-	Berths      []Berth `json:"Berths"`
-	ParkingOnly bool    `json:"ParkingOnly"`
+	ID          string        `json:"ID"`
+	Name        string        `json:"Name"`
+	Entry       string        `json:"Entry"`
+	Exit        string        `json:"Exit"`
+	Berths      []Berth       `json:"Berths"`
+	ParkingOnly bool          `json:"ParkingOnly"`
+	Banks       []StationBank `json:"Banks,omitempty"`
 }
 
 // Network describes immutable geometry and connectivity during a run.
@@ -166,6 +178,10 @@ type networkRouteInput struct {
 	ownBerthsOnly bool
 	// terminalBerthsOnly allows a berth only at an exact route endpoint.
 	terminalBerthsOnly bool
+	allowedLanes       map[int]bool
+	bankRaw            bool
+	startCost          float64
+	bankExternal       bool
 }
 
 func (n Network) route(input networkRouteInput) ([]Lane, error) {
@@ -179,6 +195,12 @@ func (n Network) routeIndexed(input networkRouteInput, graph routeGraph) ([]Lane
 }
 
 func (n Network) routeIndexedWithWork(input networkRouteInput, graph routeGraph, work *routeSearchWork) ([]Lane, error) {
+	if !input.bankRaw && len(graph.banks.banks) > 0 {
+		return n.bankRoute(input, graph, work)
+	}
+	if graph.banks.err != nil {
+		return nil, graph.banks.err
+	}
 	from, ok := graph.nodes[input.from]
 	if !ok {
 		return nil, fmt.Errorf("unknown origin %q", input.from)
@@ -189,8 +211,8 @@ func (n Network) routeIndexedWithWork(input networkRouteInput, graph routeGraph,
 	}
 	work.reset(len(n.Nodes))
 	distance, previous, visited := work.distance, work.previous, work.visited
-	distance[from] = 0
-	work.queue = append(work.queue, routeQueueItem{node: from})
+	distance[from] = input.startCost
+	work.queue = append(work.queue, routeQueueItem{node: from, distance: input.startCost})
 	queue := work.queue
 	for len(queue) > 0 {
 		item := queue.pop()
@@ -206,6 +228,12 @@ func (n Network) routeIndexedWithWork(input networkRouteInput, graph routeGraph,
 		}
 		for _, laneIndex := range graph.outgoing[item.node] {
 			edge := graph.edges[laneIndex]
+			if input.bankExternal && graph.banks.lanes[laneIndex] >= 0 && n.Lanes[laneIndex].StationRole != StationThroughRole {
+				continue
+			}
+			if input.allowedLanes != nil && !input.allowedLanes[laneIndex] {
+				continue
+			}
 			// The node indexes are equal only when the node IDs are equal.
 			if input.forbidden != nil && edge.to != from && edge.to != to && input.forbidden[n.Lanes[laneIndex].To] {
 				continue
@@ -404,6 +432,7 @@ func (n Network) nearestWithin(input nearestWithinInput, graph routeGraph) (int,
 }
 
 type routeGraph struct {
+	banks    bankIndex
 	nodes    map[string]int
 	lanes    map[string]int
 	outgoing [][]int
@@ -463,6 +492,7 @@ func newRouteGraph(network Network) routeGraph {
 		graph.lengths[index] = indexedLaneLength(lane, network.Nodes[from].Position, network.Nodes[to].Position)
 		graph.edges[index] = routeEdge{from: from, to: to, seconds: graph.lengths[index] / lane.SpeedLimit}
 	}
+	graph.banks = indexStationBanks(network, graph)
 	return graph
 }
 
@@ -577,8 +607,14 @@ func (n Network) validate() error {
 		}
 	}
 	graph := newRouteGraph(n)
+	if graph.banks.err != nil {
+		return graph.banks.err
+	}
 	forbidden := n.stationForbidden()
 	for _, station := range n.Stations {
+		if station.Banks != nil {
+			continue
+		}
 		if !n.connected(station.Entry, station.Exit) {
 			return fmt.Errorf("station %q needs entry, exit, and through lanes", station.ID)
 		}
@@ -599,6 +635,9 @@ func (n Network) stationForbidden() map[string]bool {
 	for _, candidate := range n.Stations {
 		forbidden[candidate.Entry] = true
 		forbidden[candidate.Exit] = true
+		for _, bank := range candidate.Banks {
+			forbidden[bank.Entry], forbidden[bank.Exit] = true, true
+		}
 		for _, berth := range candidate.Berths {
 			forbidden[berth.Node] = true
 		}
@@ -626,6 +665,10 @@ func (n Network) clone() Network {
 	n.Nodes, n.Lanes, n.Stations = slices.Clone(n.Nodes), cloneLanes(n.Lanes), slices.Clone(n.Stations)
 	for i := range n.Stations {
 		n.Stations[i].Berths = slices.Clone(n.Stations[i].Berths)
+		n.Stations[i].Banks = slices.Clone(n.Stations[i].Banks)
+		for j := range n.Stations[i].Banks {
+			n.Stations[i].Banks[j].BerthIDs = slices.Clone(n.Stations[i].Banks[j].BerthIDs)
+		}
 	}
 	return n
 }

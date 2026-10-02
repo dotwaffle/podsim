@@ -560,7 +560,7 @@ func (r *physicalRestore) routeEndsMatch(v *vehicle, route []Lane) bool {
 		return r.berths[v.destination.ID].station == v.destinationStation && end == v.destination.Node
 	}
 	station, ok := r.s.station(v.destinationStation)
-	return ok && end == station.Entry
+	return ok && station.isEntry(end)
 }
 
 func berthResources(berth Berth) [2]resource {
@@ -1062,7 +1062,8 @@ func (r *physicalRestore) boardAgain(v *vehicle, berth Berth) bool {
 	if err != nil {
 		return false
 	}
-	if r.s.cappedDetours() && r.s.plannedDetour(berth.Node, v.Stops, detourStart{ridden: r.s.lanesMeters(route)}) > maxSharedRideDetour {
+	station, _ := r.s.station(v.Stops[0])
+	if r.s.cappedDetours() && r.s.plannedDetour(berth.Node, v.Stops, detourStart{ridden: r.s.lanesMeters(route), entry: station.routeEntry(route, Berth{})}) > maxSharedRideDetour {
 		return false
 	}
 	cost := 0

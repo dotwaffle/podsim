@@ -20,6 +20,9 @@ func inferStationLaneRoles(n *Network) {
 	graph := newRouteGraph(*n)
 	forbidden := n.stationForbidden()
 	for _, station := range n.Stations {
+		if station.Banks != nil {
+			continue
+		}
 		for _, lane := range n.Lanes {
 			if lane.From == station.Entry && lane.To == station.Exit {
 				setStationLaneRole(n, graph, lane.ID, station.ID, StationThroughRole)

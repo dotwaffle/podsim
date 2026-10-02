@@ -44,7 +44,7 @@ func (s *Simulation) bufferHasDischarge(v *vehicle) bool {
 		return false
 	}
 	for _, berth := range station.Berths {
-		suffix, err := s.stationPath(station.Entry, berth.Node)
+		suffix, err := s.stationPath(station.routeEntry(v.Route, v.destination), berth.Node)
 		if err == nil && s.bufferSuffixValid(v, suffix, berth) {
 			return true
 		}

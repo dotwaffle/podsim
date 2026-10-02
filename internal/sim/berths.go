@@ -8,7 +8,11 @@ func (s *Simulation) stationApproachRoute(fromNode, stationID string) ([]Lane, e
 	if !ok {
 		return nil, fmt.Errorf("unknown station %q", stationID)
 	}
-	route, err := s.route(fromNode, station.Entry)
+	entry, err := s.stationBankEntry(fromNode, station, s.berthLoad)
+	if err != nil {
+		return nil, err
+	}
+	route, err := s.route(fromNode, entry)
 	if err != nil {
 		return nil, fmt.Errorf("route to %s: %w", stationID, err)
 	}
@@ -22,7 +26,11 @@ func (s *Simulation) assignedApproachRoute(v *vehicle, fromNode, stationID strin
 	if !ok {
 		return nil, fmt.Errorf("unknown station %q", stationID)
 	}
-	route, err := s.assignedRoute(v, fromNode, station.Entry)
+	entry, err := s.stationBankEntry(fromNode, station, s.berthLoad)
+	if err != nil {
+		return nil, err
+	}
+	route, err := s.assignedRoute(v, fromNode, entry)
 	if err != nil {
 		return nil, fmt.Errorf("route to %s: %w", stationID, err)
 	}
@@ -55,13 +63,20 @@ func (s *Simulation) stationRouteByLoad(input stationRouteInput) ([]Lane, Berth,
 	if input.load != nil {
 		loadOf = input.load
 	}
+	entry, err := s.stationBankEntry(input.from, station, loadOf)
+	if err != nil {
+		return nil, Berth{}, err
+	}
 	s.cacheStationRoutes(input.from, station.Berths)
 	var bestRoute []Lane
 	var bestBerth Berth
 	bestLoad, found := 0, false
 	for _, berth := range station.Berths {
+		if station.Banks != nil && station.berthEntry(berth) != entry {
+			continue
+		}
 		route, err := s.route(input.from, berth.Node)
-		if input.from == station.Entry {
+		if station.isEntry(input.from) {
 			route, err = s.stationPath(input.from, berth.Node)
 		}
 		if err != nil {

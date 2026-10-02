@@ -18,6 +18,7 @@ import (
 	"strings"
 
 	"github.com/dotwaffle/podsim/internal/project"
+	"github.com/dotwaffle/podsim/internal/sim"
 )
 
 const (
@@ -79,19 +80,21 @@ var errContentEncoding = errors.New("use the gzip content encoding or no content
 var commandJSONLimits = jsonLimits{
 	depth: 64, elements: 0, members: 256, stringBytes: 1024, foldNames: true, allowInvalidUTF8: true,
 	arrays: map[string]int64{
-		"/project/network/Nodes":                    project.MaxNodes,
-		"/project/network/Lanes":                    project.MaxLanes,
-		"/project/network/Stations":                 project.MaxStations,
-		"/project/network/Stations/*/Berths":        project.MaxBerths,
-		"/project/fleet":                            project.MaxPods,
-		"/project/railArrivals":                     project.MaxRailArrivals,
-		"/project/railArrivals/*/destinations":      project.MaxRailDestinations,
-		"/project/railDepartures":                   project.MaxRailArrivals,
-		"/project/railDepartures/*/origins":         project.MaxRailDestinations,
-		"/project/demandProfiles":                   project.MaxProfiles,
-		"/project/demandProfiles/*/bands":           project.MaxBands,
-		"/project/demandProfiles/*/flows":           project.MaxFlows,
-		"/project/demandProfiles/*/flows/*/weights": project.MaxBands,
+		"/project/network/Nodes":                       project.MaxNodes,
+		"/project/network/Lanes":                       project.MaxLanes,
+		"/project/network/Stations":                    project.MaxStations,
+		"/project/network/Stations/*/Berths":           project.MaxBerths,
+		"/project/network/Stations/*/Banks":            sim.MaxStationBanks,
+		"/project/network/Stations/*/Banks/*/BerthIDs": project.MaxBerths,
+		"/project/fleet":                               project.MaxPods,
+		"/project/railArrivals":                        project.MaxRailArrivals,
+		"/project/railArrivals/*/destinations":         project.MaxRailDestinations,
+		"/project/railDepartures":                      project.MaxRailArrivals,
+		"/project/railDepartures/*/origins":            project.MaxRailDestinations,
+		"/project/demandProfiles":                      project.MaxProfiles,
+		"/project/demandProfiles/*/bands":              project.MaxBands,
+		"/project/demandProfiles/*/flows":              project.MaxFlows,
+		"/project/demandProfiles/*/flows/*/weights":    project.MaxBands,
 	},
 }
 

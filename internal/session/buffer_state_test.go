@@ -12,11 +12,14 @@ import (
 
 func TestBufferStateVersions(t *testing.T) {
 	t.Parallel()
-	for _, version := range []int{stateVersion, bufferStateVersion, bufferPlatoonStateVersion, bufferPlatoonStateVersion + 1} {
+	for _, version := range []int{stateVersion, bufferStateVersion, bufferPlatoonStateVersion, bankStateVersion, bankStateVersion + 1} {
 		file := newTestStateFile(t)
 		file.Version = version
+		if version == bankStateVersion {
+			file.Project = withBankMetadata(file.Project)
+		}
 		got, err := decodeCheckedState(encodeTestState(t, file))
-		if version > bufferPlatoonStateVersion {
+		if version > bankStateVersion {
 			if stateReason(err) != reasonUnsupportedVersion {
 				t.Fatalf("future version accepted: %v", err)
 			}

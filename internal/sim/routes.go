@@ -142,7 +142,7 @@ func (s *Simulation) congestionCosts() []float64 {
 // the routes. Later route calls do not search again. The cache holds only routes
 // that route returns, so this changes no result.
 func (s *Simulation) cacheStationRoutes(from string, berths []Berth) {
-	if len(berths) < 2 {
+	if len(berths) < 2 || s.network.hasStationBanks() {
 		return
 	}
 	s.ensureNetworkIndexes()

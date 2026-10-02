@@ -19,7 +19,7 @@ import (
 
 // Stream limits are independent of the smaller delivery and history windows.
 const (
-	StreamVersion    = 1
+	StreamVersion    = 2
 	MaxStreamJSON    = 64 << 20
 	MaxStreamMessage = 65 << 20
 )

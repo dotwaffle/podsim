@@ -49,6 +49,23 @@ func TestRunRejectsUnknownPreset(t *testing.T) {
 	}
 }
 
+func TestRunWritesIndependentBankFixture(t *testing.T) {
+	var output bytes.Buffer
+	if err := run([]string{"-preset", "independent-banks"}, &output, io.Discard); err != nil {
+		t.Fatal(err)
+	}
+	var config project.Config
+	if err := json.Unmarshal(output.Bytes(), &config); err != nil {
+		t.Fatal(err)
+	}
+	if config.Version != project.BankVersion || len(config.Network.Stations[1].Banks) != 2 {
+		t.Fatal("fixture lost independent banks")
+	}
+	if err := run([]string{"-preset", "independent-banks", "-station-berths", "4"}, &bytes.Buffer{}, io.Discard); err == nil {
+		t.Fatal("fixture accepted a whole-station generation flag")
+	}
+}
+
 func TestRunWritesRailHubPreset(t *testing.T) {
 	t.Parallel()
 	var output bytes.Buffer

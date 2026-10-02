@@ -34,7 +34,7 @@ func (s *Simulation) assignTerminalBerth(v *vehicle) bool {
 	if !ok {
 		return false
 	}
-	suffix, berth, err := s.stationRoute(station.Entry, station.ID)
+	suffix, berth, err := s.stationRoute(station.routeEntry(v.Route, v.destination), station.ID)
 	if err != nil {
 		return false
 	}
@@ -141,7 +141,7 @@ func (s *Simulation) findTerminalLane(v *vehicle) (eligible, through int) {
 	if !ok {
 		return -1, 0
 	}
-	stationStart := stationRouteStart(v.Route, station.Entry)
+	stationStart := stationRouteStart(v.Route, station.routeEntry(v.Route, v.destination))
 	through = reservationEnd(&v.blocks, v.reservedThrough+1)
 	for routeIndex := stationStart; routeIndex < len(v.Route); routeIndex++ {
 		first := v.firstBlockForLane(v.Route[routeIndex].ID)

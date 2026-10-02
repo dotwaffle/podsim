@@ -13,7 +13,7 @@ func (s *Simulation) bufferPickup(v *vehicle) {
 		return
 	}
 	for index, lane := range slices.Backward(v.Route) {
-		if lane.To != station.Entry {
+		if !station.isEntry(lane.To) {
 			continue
 		}
 		candidate := *v

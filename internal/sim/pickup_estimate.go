@@ -190,8 +190,7 @@ func (s *Simulation) finishEstimate(v *vehicle) (string, float64, bool) {
 			if !ok {
 				return "", 0, false
 			}
-			berth := station.Berths[0]
-			suffix, err := s.stationPath(station.Entry, berth.Node)
+			suffix, berth, err := s.stationRouteByLoad(stationRouteInput{from: station.routeEntry(v.Route, v.destination), station: station.ID, load: noBerthLoad})
 			if err != nil {
 				return "", 0, false
 			}
@@ -210,6 +209,13 @@ func (s *Simulation) finishEstimate(v *vehicle) (string, float64, bool) {
 		}
 		destination, _ := s.station(trip.request.To)
 		seconds += float64(boardingTicks+unloadingTicks)/TicksPerSecond + s.routeSeconds(trip.route, motionEstimate{})
+		if destination.Banks != nil {
+			suffix, berth, err := s.stationRouteByLoad(stationRouteInput{from: destination.routeEntry(trip.route, Berth{}), station: destination.ID, load: noBerthLoad})
+			if err != nil {
+				return "", 0, false
+			}
+			return berth.Node, seconds + s.routeSeconds(suffix, motionEstimate{}), true
+		}
 		return destination.Berths[0].Node, seconds, true
 	}
 	return v.destination.Node, seconds, true
@@ -227,8 +233,7 @@ func (s *Simulation) laterStops(node string, seconds float64, stops []string) (s
 			return "", 0, false
 		}
 		station, _ := s.station(stop)
-		berth := station.Berths[0]
-		suffix, err := s.stationPath(station.Entry, berth.Node)
+		suffix, berth, err := s.stationRouteByLoad(stationRouteInput{from: station.routeEntry(route, Berth{}), station: station.ID, load: noBerthLoad})
 		if err != nil {
 			return "", 0, false
 		}

@@ -17,10 +17,11 @@ import (
 
 	"github.com/dotwaffle/podsim/internal/project"
 	"github.com/dotwaffle/podsim/internal/scenarios"
+	"github.com/dotwaffle/podsim/internal/sim"
 )
 
 // presets lists the preset names in help order.
-var presets = []string{"small", "busy", "parking-constrained", "rail-hub", "scale100", "london-central", "london-full"}
+var presets = []string{"small", "busy", "parking-constrained", "rail-hub", "scale100", "london-central", "london-full", "independent-banks"}
 
 func main() {
 	if err := run(os.Args[1:], os.Stdout, os.Stderr); err != nil && !errors.Is(err, flag.ErrHelp) {
@@ -127,6 +128,17 @@ func scenarioJSON(config project.Config, limit int) ([]byte, error) {
 func presetConfig(name string, options capacity) (project.Config, error) {
 	if !slices.Contains(presets, name) {
 		return project.Config{}, fmt.Errorf("unknown preset %q", name)
+	}
+	if name == "independent-banks" {
+		for _, key := range []string{"station-berths", "parking-berths", "station-pods", "parking-pods", "berths", "berth-pitch"} {
+			if options.set[key] {
+				return project.Config{}, fmt.Errorf("-%s does not apply to the independent bank fixture", key)
+			}
+		}
+		config := project.Default()
+		config.Version, config.Name, config.Network = project.BankVersion, "Independent station banks", sim.BankExample()
+		config.Fleet = []sim.Placement{{ID: "01", StationID: "origin", BerthID: "origin-1"}, {ID: "02", StationID: "hub", BerthID: "bank-a-1"}, {ID: "03", StationID: "parking", BerthID: "parking-1"}}
+		return config, nil
 	}
 	if name == "london-central" || name == "london-full" {
 		return londonPresetConfig(name, options)

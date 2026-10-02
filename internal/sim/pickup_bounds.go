@@ -15,6 +15,9 @@ func (s *Simulation) stationPickupBounds(stationID string) []float64 {
 		return nil
 	}
 	bounds := s.graph.berthTravelBounds(station.Berths)
+	if len(s.graph.banks.banks) > 0 {
+		bounds = s.bankTravelBounds(station)
+	}
 	if s.pickupBounds == nil {
 		s.pickupBounds = make(map[string][]float64)
 	}

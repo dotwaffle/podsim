@@ -38,6 +38,9 @@ func prepareNetwork(network Network) (Network, routeGraph, error) {
 	if err := network.validate(); err != nil {
 		return Network{}, routeGraph{}, err
 	}
+	if err := network.ValidateBankGeometry(); err != nil {
+		return Network{}, routeGraph{}, err
+	}
 	owned := network.clone()
 	inferStationLaneRoles(&owned)
 	graph := newRouteGraph(owned)

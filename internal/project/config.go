@@ -234,8 +234,8 @@ func Default() Config {
 // also checks that the canonical encoding of config has at most MaxFileBytes
 // with any demand settings that ValidateDemand accepts.
 func Validate(config Config) error {
-	if config.Version != currentVersion {
-		return fmt.Errorf("project version must be %d", currentVersion)
+	if err := validateBankVersion(config); err != nil {
+		return err
 	}
 	if strings.TrimSpace(config.Name) == "" || len(config.Name) > maxNameLength {
 		return fmt.Errorf("project name must contain 1 to %d characters", maxNameLength)
@@ -574,6 +574,9 @@ func validateNames(config Config) error {
 				return fmt.Errorf("berth separation groups must contain at most %d characters", maxIDLength)
 			}
 		}
+		if err := validateBankNames(station); err != nil {
+			return err
+		}
 	}
 	for _, placement := range config.Fleet {
 		if !validID(placement.ID) || !validID(placement.StationID) || placement.BerthID != "" && !validID(placement.BerthID) {
@@ -871,6 +874,10 @@ func CloneNetwork(network sim.Network) sim.Network {
 	clone.Stations = append([]sim.Station(nil), network.Stations...)
 	for i := range clone.Stations {
 		clone.Stations[i].Berths = append([]sim.Berth(nil), network.Stations[i].Berths...)
+		clone.Stations[i].Banks = slices.Clone(network.Stations[i].Banks)
+		for j := range clone.Stations[i].Banks {
+			clone.Stations[i].Banks[j].BerthIDs = slices.Clone(network.Stations[i].Banks[j].BerthIDs)
+		}
 	}
 	return clone
 }

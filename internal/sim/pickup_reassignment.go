@@ -106,7 +106,7 @@ func (s *Simulation) assignedPickupSeconds(v *vehicle) float64 {
 	if !ok {
 		return math.Inf(1)
 	}
-	suffix, _, err := s.stationRouteByLoad(stationRouteInput{from: station.Entry, station: station.ID, load: noBerthLoad})
+	suffix, _, err := s.stationRouteByLoad(stationRouteInput{from: station.routeEntry(v.Route, v.destination), station: station.ID, load: noBerthLoad})
 	if err != nil {
 		return math.Inf(1)
 	}

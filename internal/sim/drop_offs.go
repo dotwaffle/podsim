@@ -125,7 +125,16 @@ func (s *Simulation) cappedStops(v *vehicle, stops []string) ([]string, bool) {
 	if stops[0] != v.Stops[0] {
 		ridden, ok = s.routeMeters(v.origin.Node, stops[0])
 	}
-	if !ok || s.plannedDetour(v.journeyOrigin.Node, stops, detourStart{ridden: ridden}) > maxSharedRideDetour {
+	entry := ""
+	if ok && s.network.hasStationBanks() {
+		station, _ := s.station(stops[0])
+		route := v.Route
+		if stops[0] != v.Stops[0] {
+			route, _ = s.stationApproachRoute(v.origin.Node, stops[0])
+		}
+		entry = station.routeEntry(route, Berth{})
+	}
+	if !ok || s.plannedDetour(v.journeyOrigin.Node, stops, detourStart{ridden: ridden, entry: entry}) > maxSharedRideDetour {
 		return nil, false
 	}
 	return stops, true
@@ -159,7 +168,8 @@ func (s *Simulation) legRoute(v *vehicle, next leg) ([]Lane, error) {
 	if err != nil || !s.cappedDetours() || !s.costedRouting() {
 		return route, err
 	}
-	start := detourStart{ridden: next.ridden + s.lanesMeters(route)}
+	station, _ := s.station(next.stops[0])
+	start := detourStart{ridden: next.ridden + s.lanesMeters(route), entry: station.routeEntry(route, Berth{})}
 	if s.plannedDetour(next.origin, next.stops, start) <= maxSharedRideDetour {
 		return route, nil
 	}
@@ -187,6 +197,7 @@ func (s *Simulation) rerouteKeepsDetours(v *vehicle, route []Lane, berth Berth) 
 type detourStart struct {
 	ridden float64
 	berth  Berth
+	entry  string
 }
 
 // plannedDetour returns the largest planned detour ratio of the riders of
@@ -203,6 +214,9 @@ type detourStart struct {
 // path, as for a route of assignTerminalBerth. It returns +Inf when a route
 // that the plan needs does not exist.
 func (s *Simulation) plannedDetour(origin string, stops []string, start detourStart) float64 {
+	if s.network.hasStationBanks() {
+		return s.plannedBankDetour(origin, stops, start)
+	}
 	largest, ridden := 1.0, start.ridden
 	for index, stop := range stops {
 		station, _ := s.station(stop)
@@ -218,7 +232,7 @@ func (s *Simulation) plannedDetour(origin string, stops []string, start detourSt
 		// stop.
 		next, found := math.Inf(-1), false
 		for _, berth := range berths {
-			path, err := s.stationPath(station.Entry, berth.Node)
+			path, err := s.stationPath(station.berthEntry(berth), berth.Node)
 			if err != nil {
 				continue
 			}

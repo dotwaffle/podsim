@@ -118,7 +118,7 @@ func (s *Simulation) divertStart(v *vehicle) (int, string, bool) {
 	for i, lane := range v.Route {
 		// A new route inside the arrival chain could cross another berth
 		// that a following pod reserved, leaving both pods blocked.
-		if lane.From == station.Entry || lane.To == v.destination.Node {
+		if station.isEntry(lane.From) || lane.To == v.destination.Node {
 			return 0, "", false
 		}
 		distance += s.laneLength(lane)
@@ -130,8 +130,8 @@ func (s *Simulation) divertStart(v *vehicle) (int, string, bool) {
 	// A restored route can omit the entry lane already behind the pod.
 	// Check whether the remaining endpoint is inside the arrival chain.
 	// stationPath cannot pass a berth or a station boundary.
-	if from != station.Entry && from != station.Exit {
-		if _, err := s.stationPath(station.Entry, from); err == nil {
+	if !station.isEntry(from) && !station.isExit(from) {
+		if _, err := s.stationPath(station.routeEntry(v.Route, v.destination), from); err == nil {
 			return 0, "", false
 		}
 	}
@@ -168,7 +168,7 @@ func (s *Simulation) sendPickup(v *vehicle, stationID string) error {
 	// pickupRoute chose the berth with free-flow routes, as pickupPod did.
 	// The pod keeps that berth. Only the route from the divert node to the
 	// berth can change. Inside the station, the route has no alternative.
-	if prefix, from, _ := s.divertStart(v); s.costedRouting() && from != station.Entry {
+	if prefix, from, _ := s.divertStart(v); s.costedRouting() && !station.isEntry(from) {
 		if suffix, err := s.assignedRoute(v, from, berth.Node); err == nil {
 			route = append(slices.Clone(v.Route[:prefix]), suffix...)
 		}
