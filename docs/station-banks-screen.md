@@ -85,7 +85,7 @@ The observer sources and overlays remain in the cache artifact directory named b
 Elapsed times do not support CPU comparisons.
 
 Every simulation tick checks physical separation and lane speed.
-Each simulated second checks ownership contracts.
+Each simulated second checks saved-state route, phase, and request contracts.
 Each heavy arm passes 25 physical restore probes and 60 continuation ticks per probe.
 The pilot passes 13 restore probes.
 Restore preserves discrete state and berth occupants within existing position tolerances.

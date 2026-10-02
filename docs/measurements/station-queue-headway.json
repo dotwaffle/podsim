@@ -1,0 +1,1416 @@
+{
+  "head": "d86c254",
+  "defaults_changed": false,
+  "braking_or_junction_rules_changed": false,
+  "clearance_meters": 12,
+  "workers": {
+    "GOGC": 400,
+    "GOMAXPROCS": 1,
+    "sequential": true,
+    "cpu_comparison": false
+  },
+  "paired_bank_tail_analysis": {
+    "1": {
+      "source_sha256": {
+        "baseline": "c90340a3f59b778cadf43fb4a1477edc7bdb36806caf729c08d7ae54baa66f93",
+        "banks": "e99ed7f2b8e017c72935f29a96ca04767357a4ec76a04d62de59d5c99f9d7f6e"
+      },
+      "common_accepted": 309,
+      "baseline_only_accepted": 54,
+      "banks_only_accepted": 56,
+      "both_skipped": 1021,
+      "common_pickup_baseline_mean": 2532.4270226537215,
+      "common_pickup_banks_mean": 2516.6032362459546,
+      "common_pickup_baseline_p95": 3851.9333333333334,
+      "common_pickup_banks_p95": 3854.766666666667,
+      "mean_pickup_change": -15.823786407766999,
+      "faster": 174,
+      "unchanged": 3,
+      "slower": 132,
+      "mean_sample_component_changes": {
+        "unassigned": -12.184466019417476,
+        "assigned_moving_dwell": -2.0614886731391584,
+        "assigned_stationary_traffic": -1.5210355987055015
+      },
+      "common_pickup_by_direction": {
+        "arrival": {
+          "count": 212,
+          "baseline_mean": 2239.452358490566,
+          "banks_mean": 2219.2178459119496,
+          "baseline_p95": 3760.766666666667,
+          "banks_p95": 3706.233333333333,
+          "mean_post_boarding_change": 16.808411949685535
+        },
+        "departure": {
+          "count": 97,
+          "baseline_mean": 3172.7427835051544,
+          "banks_mean": 3166.558934707904,
+          "baseline_p95": 3949.3333333333335,
+          "banks_p95": 3950.733333333333,
+          "mean_post_boarding_change": -9.162886597938146
+        }
+      },
+      "worst_regressions": [
+        {
+          "offer": {
+            "Tick": 25351,
+            "Event": "outbound-1",
+            "Passenger": 32,
+            "From": "station-06",
+            "To": "station-01",
+            "Kind": "departure",
+            "DepartureTick": 54000,
+            "WalkingTicks": 3600
+          },
+          "wait_change_seconds": 396.38333333333367,
+          "baseline_samples": {
+            "unassigned": 2415,
+            "assigned_moving_dwell": 29,
+            "assigned_stationary_traffic": 0
+          },
+          "banks_samples": {
+            "unassigned": 2755,
+            "assigned_moving_dwell": 86,
+            "assigned_stationary_traffic": 0
+          }
+        },
+        {
+          "offer": {
+            "Tick": 26803,
+            "Event": "outbound-1",
+            "Passenger": 44,
+            "From": "station-05",
+            "To": "station-01",
+            "Kind": "departure",
+            "DepartureTick": 54000,
+            "WalkingTicks": 3600
+          },
+          "wait_change_seconds": 168.9000000000001,
+          "baseline_samples": {
+            "unassigned": 2873,
+            "assigned_moving_dwell": 297,
+            "assigned_stationary_traffic": 3
+          },
+          "banks_samples": {
+            "unassigned": 2927,
+            "assigned_moving_dwell": 415,
+            "assigned_stationary_traffic": 0
+          }
+        },
+        {
+          "offer": {
+            "Tick": 27166,
+            "Event": "outbound-1",
+            "Passenger": 47,
+            "From": "station-05",
+            "To": "station-01",
+            "Kind": "departure",
+            "DepartureTick": 54000,
+            "WalkingTicks": 3600
+          },
+          "wait_change_seconds": 159.5333333333333,
+          "baseline_samples": {
+            "unassigned": 2941,
+            "assigned_moving_dwell": 285,
+            "assigned_stationary_traffic": 0
+          },
+          "banks_samples": {
+            "unassigned": 2948,
+            "assigned_moving_dwell": 432,
+            "assigned_stationary_traffic": 5
+          }
+        },
+        {
+          "offer": {
+            "Tick": 26198,
+            "Event": "outbound-1",
+            "Passenger": 39,
+            "From": "station-05",
+            "To": "station-01",
+            "Kind": "departure",
+            "DepartureTick": 54000,
+            "WalkingTicks": 3600
+          },
+          "wait_change_seconds": 153.08333333333348,
+          "baseline_samples": {
+            "unassigned": 2804,
+            "assigned_moving_dwell": 153,
+            "assigned_stationary_traffic": 0
+          },
+          "banks_samples": {
+            "unassigned": 2805,
+            "assigned_moving_dwell": 305,
+            "assigned_stationary_traffic": 0
+          }
+        },
+        {
+          "offer": {
+            "Tick": 22326,
+            "Event": "outbound-1",
+            "Passenger": 7,
+            "From": "station-05",
+            "To": "station-01",
+            "Kind": "departure",
+            "DepartureTick": 54000,
+            "WalkingTicks": 3600
+          },
+          "wait_change_seconds": 152.8166666666666,
+          "baseline_samples": {
+            "unassigned": 2254,
+            "assigned_moving_dwell": 190,
+            "assigned_stationary_traffic": 0
+          },
+          "banks_samples": {
+            "unassigned": 2316,
+            "assigned_moving_dwell": 273,
+            "assigned_stationary_traffic": 8
+          }
+        }
+      ]
+    },
+    "2": {
+      "source_sha256": {
+        "baseline": "24de9a0c34dd3e94e1552d1917a73799e2157511cce13f215642c9fa64742ca2",
+        "banks": "70f699bc675ebb9189b49d0e12ff95e80a24966b42307bca496bca61fbb898e8"
+      },
+      "common_accepted": 312,
+      "baseline_only_accepted": 54,
+      "banks_only_accepted": 48,
+      "both_skipped": 1026,
+      "common_pickup_baseline_mean": 2496.0111645299144,
+      "common_pickup_banks_mean": 2607.774465811966,
+      "common_pickup_baseline_p95": 3768.266666666667,
+      "common_pickup_banks_p95": 3897.05,
+      "mean_pickup_change": 111.76330128205129,
+      "faster": 69,
+      "unchanged": 3,
+      "slower": 240,
+      "mean_sample_component_changes": {
+        "unassigned": 99.25641025641026,
+        "assigned_moving_dwell": 14.073717948717949,
+        "assigned_stationary_traffic": -1.5673076923076923
+      },
+      "common_pickup_by_direction": {
+        "arrival": {
+          "count": 212,
+          "baseline_mean": 2189.645911949686,
+          "banks_mean": 2294.2739779874214,
+          "baseline_p95": 3627.8166666666666,
+          "banks_p95": 3861.0333333333333,
+          "mean_post_boarding_change": 15.257232704402515
+        },
+        "departure": {
+          "count": 100,
+          "baseline_mean": 3145.5054999999998,
+          "banks_mean": 3272.3955,
+          "baseline_p95": 3851.4333333333334,
+          "banks_p95": 3986.0,
+          "mean_post_boarding_change": -4.188833333333338
+        }
+      },
+      "worst_regressions": [
+        {
+          "offer": {
+            "Tick": 55800,
+            "Event": "train-2",
+            "Passenger": 2,
+            "From": "station-01",
+            "To": "station-02",
+            "Kind": "arrival",
+            "DepartureTick": 0,
+            "WalkingTicks": 0
+          },
+          "wait_change_seconds": 1046.6166666666668,
+          "baseline_samples": {
+            "unassigned": 2493,
+            "assigned_moving_dwell": 0,
+            "assigned_stationary_traffic": 0
+          },
+          "banks_samples": {
+            "unassigned": 3539,
+            "assigned_moving_dwell": 0,
+            "assigned_stationary_traffic": 0
+          }
+        },
+        {
+          "offer": {
+            "Tick": 27166,
+            "Event": "outbound-1",
+            "Passenger": 47,
+            "From": "station-06",
+            "To": "station-01",
+            "Kind": "departure",
+            "DepartureTick": 54000,
+            "WalkingTicks": 3600
+          },
+          "wait_change_seconds": 638.4000000000001,
+          "baseline_samples": {
+            "unassigned": 2624,
+            "assigned_moving_dwell": 190,
+            "assigned_stationary_traffic": 0
+          },
+          "banks_samples": {
+            "unassigned": 2997,
+            "assigned_moving_dwell": 449,
+            "assigned_stationary_traffic": 6
+          }
+        },
+        {
+          "offer": {
+            "Tick": 169956,
+            "Event": "outbound-5",
+            "Passenger": 37,
+            "From": "station-02",
+            "To": "station-01",
+            "Kind": "departure",
+            "DepartureTick": 198000,
+            "WalkingTicks": 3600
+          },
+          "wait_change_seconds": 592.4833333333336,
+          "baseline_samples": {
+            "unassigned": 3252,
+            "assigned_moving_dwell": 106,
+            "assigned_stationary_traffic": 0
+          },
+          "banks_samples": {
+            "unassigned": 3641,
+            "assigned_moving_dwell": 310,
+            "assigned_stationary_traffic": 0
+          }
+        },
+        {
+          "offer": {
+            "Tick": 93600,
+            "Event": "outbound-3",
+            "Passenger": 1,
+            "From": "station-02",
+            "To": "station-01",
+            "Kind": "departure",
+            "DepartureTick": 126000,
+            "WalkingTicks": 3600
+          },
+          "wait_change_seconds": 466.9499999999998,
+          "baseline_samples": {
+            "unassigned": 3396,
+            "assigned_moving_dwell": 124,
+            "assigned_stationary_traffic": 0
+          },
+          "banks_samples": {
+            "unassigned": 3666,
+            "assigned_moving_dwell": 320,
+            "assigned_stationary_traffic": 0
+          }
+        },
+        {
+          "offer": {
+            "Tick": 165600,
+            "Event": "outbound-5",
+            "Passenger": 1,
+            "From": "station-06",
+            "To": "station-01",
+            "Kind": "departure",
+            "DepartureTick": 198000,
+            "WalkingTicks": 3600
+          },
+          "wait_change_seconds": 405.9666666666667,
+          "baseline_samples": {
+            "unassigned": 3233,
+            "assigned_moving_dwell": 0,
+            "assigned_stationary_traffic": 0
+          },
+          "banks_samples": {
+            "unassigned": 3504,
+            "assigned_moving_dwell": 135,
+            "assigned_stationary_traffic": 0
+          }
+        }
+      ]
+    }
+  },
+  "arms": {
+    "banks-off-s2": {
+      "served": 360,
+      "skipped": 1080,
+      "scheduled": 1440,
+      "remaining": 0,
+      "wait_average_seconds": 2758.4933796296295,
+      "wait_p95_seconds": 3915.8166666666666,
+      "wait_maximum_seconds": 4232.016666666666,
+      "journey_average_seconds": 3087.077731481482,
+      "journey_p95_seconds": 4349.966666666666,
+      "journey_maximum_seconds": 4514.316666666667,
+      "actual_end_seconds": 7676,
+      "queue_clear_seconds": 3642,
+      "empty_distance_meters": 1223990.7966578042,
+      "junction_wait_seconds": 1731,
+      "track_wait_seconds": 1166,
+      "stopped_pod_seconds": 2898,
+      "peak_pending": 200,
+      "peak_active_vehicles": 30,
+      "connections": {
+        "made": 0,
+        "missed": 145,
+        "unserved": 575,
+        "unresolved": 0
+      },
+      "future_offers": 0,
+      "censored_accepted": 0,
+      "result_sha256": "68d91154cb876f645a0e4c4b129f23e2c8d0116a385b12b2f81481e9c437fbf5",
+      "manifest_sha256": "cf3b8cb4111403525ea1c62b0477f3e6aae7d3c08fc9793b9604a6f1dcd6adf0",
+      "fixture_sha256": "e59d9ffdeacc7984b4315734a5715319087f5f4ca24c13b3947e85914e8c3ee8",
+      "binary_sha256": "be213bd833897cc96917c3cf7b47efc05908a19773a1f17c1281c5512dfd8e47",
+      "observer_parity": false,
+      "queue": {
+        "coupled_pod_seconds": {},
+        "largest_platoon": 0,
+        "slow_lane_gap_minimum_meters": 26.66666666666606,
+        "minimum_physical_gap_meters": 13.963100132586174
+      },
+      "coupled_pods": 0,
+      "coupled_pod_seconds": 0,
+      "slow_lane_gap_buckets": {
+        "//under-36m": 150,
+        "parking/through/under-36m": 541,
+        "station-02/through/under-36m": 22,
+        "station-03/through/under-36m": 9,
+        "station-04/through/under-36m": 25,
+        "station-05/through/under-36m": 30,
+        "station-06/through/under-36m": 87
+      },
+      "checks": {
+        "checked_ticks": 460560,
+        "contract_checks": 7676,
+        "restore_checks": 25,
+        "restore_reservation_changes": 3,
+        "max_float_delta_meters": 3.126388037344441e-13
+      },
+      "frozen_result_and_receipt_parity": true
+    },
+    "banks-pilot-virtual-s1": {
+      "served": 12,
+      "skipped": 0,
+      "scheduled": 12,
+      "remaining": 0,
+      "wait_average_seconds": 0,
+      "wait_p95_seconds": 0,
+      "wait_maximum_seconds": 0,
+      "journey_average_seconds": 331.23333333333335,
+      "journey_p95_seconds": 444.23333333333335,
+      "journey_maximum_seconds": 444.23333333333335,
+      "actual_end_seconds": 3900,
+      "queue_clear_seconds": 0,
+      "empty_distance_meters": 0,
+      "junction_wait_seconds": 0,
+      "track_wait_seconds": 0,
+      "stopped_pod_seconds": 0,
+      "peak_pending": 0,
+      "peak_active_vehicles": 2,
+      "connections": {
+        "made": 6,
+        "missed": 0,
+        "unserved": 0,
+        "unresolved": 0
+      },
+      "future_offers": 0,
+      "censored_accepted": 0,
+      "result_sha256": "06ce3a9da3a427c627b32c8929f6cd2ccb43ce0904badf2f25f1a30ae6cc1bb1",
+      "manifest_sha256": "73c15dcd3d7c07b32719049bcd03fb19ded9270ed87b838b65088512078d5819",
+      "fixture_sha256": "f00820ee84437d02f029e3182ea422caeb08f6c13dfcb0c5e0ff8cabe91fa608",
+      "binary_sha256": "be213bd833897cc96917c3cf7b47efc05908a19773a1f17c1281c5512dfd8e47",
+      "observer_parity": true,
+      "queue": {
+        "coupled_pod_seconds": {},
+        "largest_platoon": 0,
+        "slow_lane_gap_minimum_meters": 0,
+        "minimum_physical_gap_meters": 28.334559080707226
+      },
+      "coupled_pods": 0,
+      "coupled_pod_seconds": 0,
+      "slow_lane_gap_buckets": {},
+      "checks": {
+        "checked_ticks": 234000,
+        "contract_checks": 3900,
+        "restore_checks": 13,
+        "restore_reservation_changes": 0,
+        "max_float_delta_meters": 0
+      }
+    },
+    "banks-station-local-pilot-s1": {
+      "served": 12,
+      "skipped": 0,
+      "scheduled": 12,
+      "remaining": 0,
+      "wait_average_seconds": 0,
+      "wait_p95_seconds": 0,
+      "wait_maximum_seconds": 0,
+      "journey_average_seconds": 331.23333333333335,
+      "journey_p95_seconds": 444.23333333333335,
+      "journey_maximum_seconds": 444.23333333333335,
+      "actual_end_seconds": 3900,
+      "queue_clear_seconds": 0,
+      "empty_distance_meters": 0,
+      "junction_wait_seconds": 0,
+      "track_wait_seconds": 0,
+      "stopped_pod_seconds": 0,
+      "peak_pending": 0,
+      "peak_active_vehicles": 2,
+      "connections": {
+        "made": 6,
+        "missed": 0,
+        "unserved": 0,
+        "unresolved": 0
+      },
+      "future_offers": 0,
+      "censored_accepted": 0,
+      "result_sha256": "06ce3a9da3a427c627b32c8929f6cd2ccb43ce0904badf2f25f1a30ae6cc1bb1",
+      "manifest_sha256": "44c14417210d35056167c0dce79326228e6c2811b65ffec835baafc934823940",
+      "fixture_sha256": "f00820ee84437d02f029e3182ea422caeb08f6c13dfcb0c5e0ff8cabe91fa608",
+      "binary_sha256": "b88afdcb8bf87514a14749bd4e4a2b5d0a03926a797976204b6dd957d3c18348",
+      "observer_parity": true,
+      "queue": {
+        "coupled_pod_seconds": {},
+        "largest_platoon": 0,
+        "slow_lane_gap_minimum_meters": 0,
+        "minimum_physical_gap_meters": 28.334559080707226
+      },
+      "coupled_pods": 0,
+      "coupled_pod_seconds": 0,
+      "slow_lane_gap_buckets": {},
+      "checks": {
+        "checked_ticks": 234000,
+        "contract_checks": 3900,
+        "restore_checks": 13,
+        "restore_reservation_changes": 0,
+        "max_float_delta_meters": 0
+      }
+    },
+    "banks-station-local-s1": {
+      "served": 358,
+      "skipped": 1082,
+      "scheduled": 1440,
+      "remaining": 0,
+      "wait_average_seconds": 2755.6901303538175,
+      "wait_p95_seconds": 3991.383333333333,
+      "wait_maximum_seconds": 4287.366666666667,
+      "journey_average_seconds": 3082.739059590316,
+      "journey_p95_seconds": 4365.633333333333,
+      "journey_maximum_seconds": 4568.383333333333,
+      "actual_end_seconds": 7505,
+      "queue_clear_seconds": 3439,
+      "empty_distance_meters": 1193302.4374974591,
+      "junction_wait_seconds": 1810,
+      "track_wait_seconds": 933,
+      "stopped_pod_seconds": 2750,
+      "peak_pending": 200,
+      "peak_active_vehicles": 30,
+      "connections": {
+        "made": 0,
+        "missed": 148,
+        "unserved": 572,
+        "unresolved": 0
+      },
+      "future_offers": 0,
+      "censored_accepted": 0,
+      "result_sha256": "4b8964845e9334d7aa1cd406ca89e2c63650ebf94a309baabf11928271c29b3e",
+      "manifest_sha256": "a51a1add700787d610a9a49019398652eb925b8165c0b6bd5dccf5fa74694a4f",
+      "fixture_sha256": "e59d9ffdeacc7984b4315734a5715319087f5f4ca24c13b3947e85914e8c3ee8",
+      "binary_sha256": "b88afdcb8bf87514a14749bd4e4a2b5d0a03926a797976204b6dd957d3c18348",
+      "observer_parity": false,
+      "queue": {
+        "coupled_pod_seconds": {
+          "//": 7102,
+          "//Approaching station": 3201,
+          "parking/through/Passing station": 1128,
+          "station-01/exit/Exiting station": 36,
+          "station-02/through/Passing station": 222,
+          "station-03/through/Passing station": 311,
+          "station-04/through/Passing station": 269,
+          "station-05/through/Passing station": 265,
+          "station-06/through/Passing station": 159
+        },
+        "largest_platoon": 4,
+        "slow_lane_gap_minimum_meters": 12.31860235926979,
+        "minimum_physical_gap_meters": 12.31860235926979
+      },
+      "coupled_pods": 26,
+      "coupled_pod_seconds": 12693,
+      "slow_lane_gap_buckets": {
+        "//under-18m": 94,
+        "//under-24m": 11,
+        "//under-36m": 50,
+        "//under-48m": 2,
+        "parking/through/under-18m": 644,
+        "parking/through/under-24m": 1,
+        "station-02/through/under-18m": 5,
+        "station-03/through/under-18m": 3,
+        "station-04/through/under-18m": 4,
+        "station-06/through/under-18m": 9
+      },
+      "checks": {
+        "checked_ticks": 450300,
+        "contract_checks": 7505,
+        "restore_checks": 25,
+        "restore_reservation_changes": 3,
+        "max_float_delta_meters": 1.1368683772161603e-13
+      }
+    },
+    "banks-station-local-s2": {
+      "served": 363,
+      "skipped": 1077,
+      "scheduled": 1440,
+      "remaining": 0,
+      "wait_average_seconds": 2713.6995408631774,
+      "wait_p95_seconds": 3859.4,
+      "wait_maximum_seconds": 4209.25,
+      "journey_average_seconds": 3038.3999081726356,
+      "journey_p95_seconds": 4286.35,
+      "journey_maximum_seconds": 4505.816666666667,
+      "actual_end_seconds": 7892,
+      "queue_clear_seconds": 3777,
+      "empty_distance_meters": 1225625.2681104236,
+      "junction_wait_seconds": 1547,
+      "track_wait_seconds": 841,
+      "stopped_pod_seconds": 2393,
+      "peak_pending": 200,
+      "peak_active_vehicles": 30,
+      "connections": {
+        "made": 0,
+        "missed": 147,
+        "unserved": 573,
+        "unresolved": 0
+      },
+      "future_offers": 0,
+      "censored_accepted": 0,
+      "result_sha256": "43033e73656c8df87e06f384d51cf6ab22d9499b483a911d5dc9c105a70c2766",
+      "manifest_sha256": "c00a6da98bcfa2dcef64c7f3d596e3cbd2eeb56701b26c14dc89f5e86592c15b",
+      "fixture_sha256": "e59d9ffdeacc7984b4315734a5715319087f5f4ca24c13b3947e85914e8c3ee8",
+      "binary_sha256": "b88afdcb8bf87514a14749bd4e4a2b5d0a03926a797976204b6dd957d3c18348",
+      "observer_parity": false,
+      "queue": {
+        "coupled_pod_seconds": {
+          "//": 2762,
+          "//Approaching station": 2129,
+          "parking/through/Passing station": 1013,
+          "station-01/departure/Departing berth": 38,
+          "station-01/exit/Exiting station": 49,
+          "station-02/through/Passing station": 38,
+          "station-03/through/Passing station": 144,
+          "station-04/through/Passing station": 186,
+          "station-05/through/Passing station": 96,
+          "station-06/through/Passing station": 84
+        },
+        "largest_platoon": 4,
+        "slow_lane_gap_minimum_meters": 12.079946298278173,
+        "minimum_physical_gap_meters": 12.038579944023247
+      },
+      "coupled_pods": 21,
+      "coupled_pod_seconds": 6539,
+      "slow_lane_gap_buckets": {
+        "//under-18m": 47,
+        "//under-24m": 7,
+        "//under-36m": 20,
+        "//under-48m": 2,
+        "parking/through/under-18m": 644,
+        "parking/through/under-24m": 1,
+        "station-03/through/under-18m": 14,
+        "station-04/through/under-18m": 8,
+        "station-05/through/under-18m": 2,
+        "station-06/through/under-18m": 4
+      },
+      "checks": {
+        "checked_ticks": 473520,
+        "contract_checks": 7892,
+        "restore_checks": 26,
+        "restore_reservation_changes": 7,
+        "max_float_delta_meters": 3.126388037344441e-13
+      }
+    },
+    "banks-under10-pilot-s1": {
+      "served": 12,
+      "skipped": 0,
+      "scheduled": 12,
+      "remaining": 0,
+      "wait_average_seconds": 0,
+      "wait_p95_seconds": 0,
+      "wait_maximum_seconds": 0,
+      "journey_average_seconds": 331.23333333333335,
+      "journey_p95_seconds": 444.23333333333335,
+      "journey_maximum_seconds": 444.23333333333335,
+      "actual_end_seconds": 3900,
+      "queue_clear_seconds": 0,
+      "empty_distance_meters": 0,
+      "junction_wait_seconds": 0,
+      "track_wait_seconds": 0,
+      "stopped_pod_seconds": 0,
+      "peak_pending": 0,
+      "peak_active_vehicles": 2,
+      "connections": {
+        "made": 6,
+        "missed": 0,
+        "unserved": 0,
+        "unresolved": 0
+      },
+      "future_offers": 0,
+      "censored_accepted": 0,
+      "result_sha256": "06ce3a9da3a427c627b32c8929f6cd2ccb43ce0904badf2f25f1a30ae6cc1bb1",
+      "manifest_sha256": "5fc7d41d2055b66e3139d9ef9cd2dcd242cd7e240439d4fe46e1456d13515e2f",
+      "fixture_sha256": "f00820ee84437d02f029e3182ea422caeb08f6c13dfcb0c5e0ff8cabe91fa608",
+      "binary_sha256": "c9ef50b73e298f06c49cc02203a52fcf727ae396ac57fa2f5b61cd35c94451ec",
+      "observer_parity": true,
+      "queue": {
+        "coupled_pod_seconds": {},
+        "largest_platoon": 0,
+        "slow_lane_gap_minimum_meters": 0,
+        "minimum_physical_gap_meters": 28.334559080707226
+      },
+      "coupled_pods": 0,
+      "coupled_pod_seconds": 0,
+      "slow_lane_gap_buckets": {},
+      "checks": {
+        "checked_ticks": 234000,
+        "contract_checks": 3900,
+        "restore_checks": 13,
+        "restore_reservation_changes": 0,
+        "max_float_delta_meters": 0
+      }
+    },
+    "banks-under10-s1": {
+      "served": 360,
+      "skipped": 1080,
+      "scheduled": 1440,
+      "remaining": 0,
+      "wait_average_seconds": 2731.532638888889,
+      "wait_p95_seconds": 3976.35,
+      "wait_maximum_seconds": 4233.566666666667,
+      "journey_average_seconds": 3062.843703703704,
+      "journey_p95_seconds": 4322.616666666667,
+      "journey_maximum_seconds": 4524.183333333333,
+      "actual_end_seconds": 7580,
+      "queue_clear_seconds": 3649,
+      "empty_distance_meters": 1175054.105311069,
+      "junction_wait_seconds": 1734,
+      "track_wait_seconds": 861,
+      "stopped_pod_seconds": 2598,
+      "peak_pending": 200,
+      "peak_active_vehicles": 30,
+      "connections": {
+        "made": 0,
+        "missed": 148,
+        "unserved": 572,
+        "unresolved": 0
+      },
+      "future_offers": 0,
+      "censored_accepted": 0,
+      "result_sha256": "9ae26034f2fcf91b619f3b3feffc7a23fe15ad6ccc27614bfb5f8acdee189aa6",
+      "manifest_sha256": "9d9564db9fd35decb3eb39beac4766159b637210e6b4414c853033117b637f67",
+      "fixture_sha256": "e59d9ffdeacc7984b4315734a5715319087f5f4ca24c13b3947e85914e8c3ee8",
+      "binary_sha256": "c9ef50b73e298f06c49cc02203a52fcf727ae396ac57fa2f5b61cd35c94451ec",
+      "observer_parity": false,
+      "queue": {
+        "coupled_pod_seconds": {
+          "//": 5875,
+          "//Approaching station": 2685,
+          "parking/through/Passing station": 1077,
+          "station-01/exit/Exiting station": 60,
+          "station-02/through/Passing station": 214,
+          "station-03/through/Passing station": 245,
+          "station-04/through/Passing station": 223,
+          "station-05/through/Passing station": 262,
+          "station-06/through/Passing station": 163
+        },
+        "largest_platoon": 4,
+        "slow_lane_gap_minimum_meters": 12.009999999999991,
+        "minimum_physical_gap_meters": 12.010000000000025
+      },
+      "coupled_pods": 23,
+      "coupled_pod_seconds": 10804,
+      "slow_lane_gap_buckets": {
+        "//under-18m": 64,
+        "//under-24m": 7,
+        "//under-36m": 4,
+        "parking/through/under-18m": 638,
+        "parking/through/under-24m": 1,
+        "station-01/exit/under-18m": 13,
+        "station-02/through/under-18m": 9,
+        "station-03/through/under-18m": 7,
+        "station-04/through/under-18m": 5,
+        "station-05/through/under-18m": 18
+      },
+      "checks": {
+        "checked_ticks": 454800,
+        "contract_checks": 7580,
+        "restore_checks": 25,
+        "restore_reservation_changes": 4,
+        "max_float_delta_meters": 1.1368683772161603e-13
+      }
+    },
+    "banks-under10-s2": {
+      "served": 365,
+      "skipped": 1075,
+      "scheduled": 1440,
+      "remaining": 0,
+      "wait_average_seconds": 2678.716529680365,
+      "wait_p95_seconds": 3825.7166666666667,
+      "wait_maximum_seconds": 4133.766666666666,
+      "journey_average_seconds": 3009.279817351598,
+      "journey_p95_seconds": 4218.65,
+      "journey_maximum_seconds": 4464.4,
+      "actual_end_seconds": 7541,
+      "queue_clear_seconds": 3436,
+      "empty_distance_meters": 1138098.9899339678,
+      "junction_wait_seconds": 1561,
+      "track_wait_seconds": 839,
+      "stopped_pod_seconds": 2402,
+      "peak_pending": 200,
+      "peak_active_vehicles": 30,
+      "connections": {
+        "made": 0,
+        "missed": 148,
+        "unserved": 572,
+        "unresolved": 0
+      },
+      "future_offers": 0,
+      "censored_accepted": 0,
+      "result_sha256": "8daab3cc61f3e80162fa9e3943e0e33edcd9826e35b5d539879c45b889b9f84a",
+      "manifest_sha256": "b102bb9afdefd018c3c88f09492b7f9b9f5264c48c6091b78d21be6bc167b7b0",
+      "fixture_sha256": "e59d9ffdeacc7984b4315734a5715319087f5f4ca24c13b3947e85914e8c3ee8",
+      "binary_sha256": "c9ef50b73e298f06c49cc02203a52fcf727ae396ac57fa2f5b61cd35c94451ec",
+      "observer_parity": false,
+      "queue": {
+        "coupled_pod_seconds": {
+          "//": 1880,
+          "//Approaching station": 1322,
+          "parking/through/Passing station": 917,
+          "station-01/exit/Exiting station": 9,
+          "station-02/through/Passing station": 237,
+          "station-03/through/Passing station": 92,
+          "station-04/through/Passing station": 19,
+          "station-05/through/Passing station": 40,
+          "station-06/through/Passing station": 42
+        },
+        "largest_platoon": 4,
+        "slow_lane_gap_minimum_meters": 12.009999999999764,
+        "minimum_physical_gap_meters": 12.009999999999714
+      },
+      "coupled_pods": 24,
+      "coupled_pod_seconds": 4558,
+      "slow_lane_gap_buckets": {
+        "//under-18m": 64,
+        "//under-24m": 7,
+        "//under-36m": 4,
+        "parking/through/under-18m": 638,
+        "parking/through/under-24m": 1,
+        "station-02/through/under-18m": 47,
+        "station-06/through/under-18m": 2
+      },
+      "checks": {
+        "checked_ticks": 452460,
+        "contract_checks": 7541,
+        "restore_checks": 25,
+        "restore_reservation_changes": 4,
+        "max_float_delta_meters": 3.126388037344441e-13
+      }
+    },
+    "banks-virtual-s1": {
+      "served": 362,
+      "skipped": 1078,
+      "scheduled": 1440,
+      "remaining": 0,
+      "wait_average_seconds": 2714.16864640884,
+      "wait_p95_seconds": 3928.9666666666667,
+      "wait_maximum_seconds": 4178.866666666667,
+      "journey_average_seconds": 3049.3020257826884,
+      "journey_p95_seconds": 4270.266666666666,
+      "journey_maximum_seconds": 4501.716666666666,
+      "actual_end_seconds": 7685,
+      "queue_clear_seconds": 3574,
+      "empty_distance_meters": 1179802.7081779873,
+      "junction_wait_seconds": 1958,
+      "track_wait_seconds": 959,
+      "stopped_pod_seconds": 2924,
+      "peak_pending": 200,
+      "peak_active_vehicles": 30,
+      "connections": {
+        "made": 0,
+        "missed": 150,
+        "unserved": 570,
+        "unresolved": 0
+      },
+      "future_offers": 0,
+      "censored_accepted": 0,
+      "result_sha256": "12ca096852154a07f2938f525afbf6d83b46de248ea5cc30e362085586220b77",
+      "manifest_sha256": "264d219b03e8aa71c3d668a66f602e6c1782d9b2b492f10c6e5580491484083c",
+      "fixture_sha256": "e59d9ffdeacc7984b4315734a5715319087f5f4ca24c13b3947e85914e8c3ee8",
+      "binary_sha256": "be213bd833897cc96917c3cf7b47efc05908a19773a1f17c1281c5512dfd8e47",
+      "observer_parity": false,
+      "queue": {
+        "coupled_pod_seconds": {
+          "//": 7384,
+          "//Approaching station": 3988,
+          "parking/through/Passing station": 1185,
+          "station-01/exit/Exiting station": 23,
+          "station-02/through/Passing station": 158,
+          "station-03/through/Passing station": 395,
+          "station-04/through/Passing station": 396,
+          "station-05/through/Passing station": 294,
+          "station-06/through/Passing station": 282
+        },
+        "largest_platoon": 4,
+        "slow_lane_gap_minimum_meters": 12.009999999999764,
+        "minimum_physical_gap_meters": 12.009999999999735
+      },
+      "coupled_pods": 29,
+      "coupled_pod_seconds": 14105,
+      "slow_lane_gap_buckets": {
+        "//under-18m": 205,
+        "//under-24m": 8,
+        "//under-36m": 4,
+        "parking/through/under-18m": 644,
+        "parking/through/under-24m": 1,
+        "station-03/through/under-18m": 25,
+        "station-04/through/under-18m": 45,
+        "station-05/through/under-18m": 7,
+        "station-06/through/under-18m": 10
+      },
+      "checks": {
+        "checked_ticks": 461100,
+        "contract_checks": 7685,
+        "restore_checks": 25,
+        "restore_reservation_changes": 6,
+        "max_float_delta_meters": 1.4210854715202004e-13
+      }
+    },
+    "banks-virtual-s2": {
+      "served": 359,
+      "skipped": 1081,
+      "scheduled": 1440,
+      "remaining": 0,
+      "wait_average_seconds": 2742.619173630455,
+      "wait_p95_seconds": 3933.6666666666665,
+      "wait_maximum_seconds": 4273.283333333334,
+      "journey_average_seconds": 3069.658681522748,
+      "journey_p95_seconds": 4365.5,
+      "journey_maximum_seconds": 4568.216666666666,
+      "actual_end_seconds": 7624,
+      "queue_clear_seconds": 3499,
+      "empty_distance_meters": 1212120.6363919128,
+      "junction_wait_seconds": 1589,
+      "track_wait_seconds": 851,
+      "stopped_pod_seconds": 2442,
+      "peak_pending": 200,
+      "peak_active_vehicles": 30,
+      "connections": {
+        "made": 0,
+        "missed": 147,
+        "unserved": 573,
+        "unresolved": 0
+      },
+      "future_offers": 0,
+      "censored_accepted": 0,
+      "result_sha256": "f4a169eb52cf97fee2e1ac3510548128b7a5ccd40e70572b41ac6062c77291f0",
+      "manifest_sha256": "fbe15bf94975cf65508a481ebaa65c67a97ffe6092a71738fae55c1eaef5a407",
+      "fixture_sha256": "e59d9ffdeacc7984b4315734a5715319087f5f4ca24c13b3947e85914e8c3ee8",
+      "binary_sha256": "be213bd833897cc96917c3cf7b47efc05908a19773a1f17c1281c5512dfd8e47",
+      "observer_parity": false,
+      "queue": {
+        "coupled_pod_seconds": {
+          "//": 5812,
+          "//Approaching station": 2782,
+          "parking/through/Passing station": 1198,
+          "station-02/through/Passing station": 192,
+          "station-03/through/Passing station": 190,
+          "station-04/through/Passing station": 147,
+          "station-05/through/Passing station": 310,
+          "station-06/through/Passing station": 265
+        },
+        "largest_platoon": 4,
+        "slow_lane_gap_minimum_meters": 12.010000000001128,
+        "minimum_physical_gap_meters": 12.01000000000117
+      },
+      "coupled_pods": 28,
+      "coupled_pod_seconds": 10896,
+      "slow_lane_gap_buckets": {
+        "//under-18m": 72,
+        "//under-24m": 7,
+        "//under-36m": 4,
+        "parking/through/under-18m": 644,
+        "parking/through/under-24m": 1,
+        "station-02/through/under-18m": 15,
+        "station-03/through/under-18m": 9,
+        "station-05/through/under-18m": 22,
+        "station-06/through/under-18m": 11
+      },
+      "checks": {
+        "checked_ticks": 457440,
+        "contract_checks": 7624,
+        "restore_checks": 25,
+        "restore_reservation_changes": 2,
+        "max_float_delta_meters": 3.126388037344441e-13
+      }
+    },
+    "baseline-off-s2": {
+      "served": 366,
+      "skipped": 1074,
+      "scheduled": 1440,
+      "remaining": 0,
+      "wait_average_seconds": 2645.4551001821496,
+      "wait_p95_seconds": 3768.266666666667,
+      "wait_maximum_seconds": 4217.333333333333,
+      "journey_average_seconds": 2960.8478142076506,
+      "journey_p95_seconds": 4157.883333333333,
+      "journey_maximum_seconds": 4439.233333333334,
+      "actual_end_seconds": 7541,
+      "queue_clear_seconds": 3434,
+      "empty_distance_meters": 1185630.8952532515,
+      "junction_wait_seconds": 2727,
+      "track_wait_seconds": 1480,
+      "stopped_pod_seconds": 4210,
+      "peak_pending": 200,
+      "peak_active_vehicles": 30,
+      "connections": {
+        "made": 0,
+        "missed": 151,
+        "unserved": 569,
+        "unresolved": 0
+      },
+      "future_offers": 0,
+      "censored_accepted": 0,
+      "result_sha256": "9e1f5a8e1975481aaa92446297187a1b3beb572246f162c2bda930046bc61e6f",
+      "manifest_sha256": "509b6e1d0252a77aea9695523a2ca41eac61b0bbf89524ef0020e84db5b7157f",
+      "fixture_sha256": "c85e87a0c0a538d4e05e9bfc4304da8702aec6d7ab90ede77d28f7c3c0444ad5",
+      "binary_sha256": "be213bd833897cc96917c3cf7b47efc05908a19773a1f17c1281c5512dfd8e47",
+      "observer_parity": false,
+      "queue": {
+        "coupled_pod_seconds": {},
+        "largest_platoon": 0,
+        "slow_lane_gap_minimum_meters": 26.66666666666606,
+        "minimum_physical_gap_meters": 13.963100132586174
+      },
+      "coupled_pods": 0,
+      "coupled_pod_seconds": 0,
+      "slow_lane_gap_buckets": {
+        "//under-36m": 368,
+        "parking/through/under-36m": 541,
+        "station-01/departure/at-least-60m": 15,
+        "station-01/departure/under-36m": 20,
+        "station-01/through/under-36m": 14,
+        "station-02/through/under-36m": 30,
+        "station-03/through/under-36m": 41,
+        "station-05/through/under-36m": 3,
+        "station-06/through/under-36m": 12
+      },
+      "checks": {
+        "checked_ticks": 452460,
+        "contract_checks": 7541,
+        "restore_checks": 25,
+        "restore_reservation_changes": 3,
+        "max_float_delta_meters": 3.126388037344441e-13
+      },
+      "frozen_result_and_receipt_parity": true
+    },
+    "baseline-pilot-virtual-s1": {
+      "served": 12,
+      "skipped": 0,
+      "scheduled": 12,
+      "remaining": 0,
+      "wait_average_seconds": 0,
+      "wait_p95_seconds": 0,
+      "wait_maximum_seconds": 0,
+      "journey_average_seconds": 316.0180555555556,
+      "journey_p95_seconds": 437.76666666666665,
+      "journey_maximum_seconds": 437.76666666666665,
+      "actual_end_seconds": 3900,
+      "queue_clear_seconds": 0,
+      "empty_distance_meters": 0,
+      "junction_wait_seconds": 0,
+      "track_wait_seconds": 0,
+      "stopped_pod_seconds": 0,
+      "peak_pending": 0,
+      "peak_active_vehicles": 2,
+      "connections": {
+        "made": 6,
+        "missed": 0,
+        "unserved": 0,
+        "unresolved": 0
+      },
+      "future_offers": 0,
+      "censored_accepted": 0,
+      "result_sha256": "ebeec0d31d446299c8b673e84a2a843924af701281aa4cd3c1055a8c6f7a221d",
+      "manifest_sha256": "5ef5352f97bf7b9a4d484eb6e4c77d6da1474920555620aa417d60408b12ae5a",
+      "fixture_sha256": "8d7146626a447210cc77b38691fb5b864a4acabb1491853830665ae7d361268c",
+      "binary_sha256": "be213bd833897cc96917c3cf7b47efc05908a19773a1f17c1281c5512dfd8e47",
+      "observer_parity": true,
+      "queue": {
+        "coupled_pod_seconds": {},
+        "largest_platoon": 0,
+        "slow_lane_gap_minimum_meters": 0,
+        "minimum_physical_gap_meters": 28.334538449231584
+      },
+      "coupled_pods": 0,
+      "coupled_pod_seconds": 0,
+      "slow_lane_gap_buckets": {},
+      "checks": {
+        "checked_ticks": 234000,
+        "contract_checks": 3900,
+        "restore_checks": 13,
+        "restore_reservation_changes": 1,
+        "max_float_delta_meters": 0
+      }
+    },
+    "baseline-virtual-s1": {
+      "served": 364,
+      "skipped": 1076,
+      "scheduled": 1440,
+      "remaining": 0,
+      "wait_average_seconds": 2688.506547619048,
+      "wait_p95_seconds": 3912.7166666666667,
+      "wait_maximum_seconds": 4197.666666666667,
+      "journey_average_seconds": 3013.7049450549453,
+      "journey_p95_seconds": 4309.55,
+      "journey_maximum_seconds": 4678.233333333334,
+      "actual_end_seconds": 7589,
+      "queue_clear_seconds": 3637,
+      "empty_distance_meters": 1160933.9345444345,
+      "junction_wait_seconds": 2951,
+      "track_wait_seconds": 1299,
+      "stopped_pod_seconds": 4250,
+      "peak_pending": 200,
+      "peak_active_vehicles": 30,
+      "connections": {
+        "made": 0,
+        "missed": 150,
+        "unserved": 570,
+        "unresolved": 0
+      },
+      "future_offers": 0,
+      "censored_accepted": 0,
+      "result_sha256": "802f9e444b35de025ef38ec772f383a2605091568a6bee45779176fb29c451b2",
+      "manifest_sha256": "580128d6d80b06a420e5db6033c3a213484b6435a1135d40b41e95454b2c9582",
+      "fixture_sha256": "c85e87a0c0a538d4e05e9bfc4304da8702aec6d7ab90ede77d28f7c3c0444ad5",
+      "binary_sha256": "be213bd833897cc96917c3cf7b47efc05908a19773a1f17c1281c5512dfd8e47",
+      "observer_parity": false,
+      "queue": {
+        "coupled_pod_seconds": {
+          "//": 4374,
+          "//Approaching station": 2530,
+          "parking/through/Passing station": 1038,
+          "station-01/through/Passing station": 155,
+          "station-02/through/Passing station": 126,
+          "station-03/through/Passing station": 144,
+          "station-04/through/Passing station": 93,
+          "station-05/through/Passing station": 102,
+          "station-06/through/Passing station": 131
+        },
+        "largest_platoon": 4,
+        "slow_lane_gap_minimum_meters": 12.009999999999309,
+        "minimum_physical_gap_meters": 12.00999999999934
+      },
+      "coupled_pods": 24,
+      "coupled_pod_seconds": 8693,
+      "slow_lane_gap_buckets": {
+        "//under-18m": 508,
+        "//under-24m": 26,
+        "//under-36m": 42,
+        "//under-48m": 2,
+        "parking/through/under-18m": 644,
+        "parking/through/under-24m": 1,
+        "station-01/departure/at-least-60m": 5,
+        "station-01/departure/under-36m": 20,
+        "station-01/through/under-18m": 19,
+        "station-02/through/under-18m": 4,
+        "station-03/through/under-18m": 13
+      },
+      "checks": {
+        "checked_ticks": 455340,
+        "contract_checks": 7589,
+        "restore_checks": 25,
+        "restore_reservation_changes": 4,
+        "max_float_delta_meters": 1.1368683772161603e-13
+      }
+    },
+    "baseline-virtual-s2": {
+      "served": 365,
+      "skipped": 1075,
+      "scheduled": 1440,
+      "remaining": 0,
+      "wait_average_seconds": 2626.9519634703197,
+      "wait_p95_seconds": 3794.3166666666666,
+      "wait_maximum_seconds": 4230.65,
+      "journey_average_seconds": 2942.3803652968036,
+      "journey_p95_seconds": 4161.916666666667,
+      "journey_maximum_seconds": 4452.483333333334,
+      "actual_end_seconds": 7371,
+      "queue_clear_seconds": 3419,
+      "empty_distance_meters": 1134799.047436045,
+      "junction_wait_seconds": 2746,
+      "track_wait_seconds": 1277,
+      "stopped_pod_seconds": 4023,
+      "peak_pending": 200,
+      "peak_active_vehicles": 30,
+      "connections": {
+        "made": 0,
+        "missed": 152,
+        "unserved": 568,
+        "unresolved": 0
+      },
+      "future_offers": 0,
+      "censored_accepted": 0,
+      "result_sha256": "692cff36cd22412a47b7952d32fdc1d2cf90c53dd21cdb2e9d73189b97468b8b",
+      "manifest_sha256": "37ee86898336b55820fc5ed815adc6275a53b013c84fea97b4cba8ad0435d40b",
+      "fixture_sha256": "c85e87a0c0a538d4e05e9bfc4304da8702aec6d7ab90ede77d28f7c3c0444ad5",
+      "binary_sha256": "be213bd833897cc96917c3cf7b47efc05908a19773a1f17c1281c5512dfd8e47",
+      "observer_parity": false,
+      "queue": {
+        "coupled_pod_seconds": {
+          "//": 2905,
+          "//Approaching station": 2352,
+          "parking/through/Passing station": 991,
+          "station-02/through/Passing station": 10,
+          "station-03/through/Passing station": 152,
+          "station-04/through/Passing station": 151,
+          "station-05/through/Passing station": 146,
+          "station-06/through/Passing station": 95
+        },
+        "largest_platoon": 4,
+        "slow_lane_gap_minimum_meters": 12.009999999999309,
+        "minimum_physical_gap_meters": 12.00999999999934
+      },
+      "coupled_pods": 29,
+      "coupled_pod_seconds": 6802,
+      "slow_lane_gap_buckets": {
+        "//under-18m": 501,
+        "//under-24m": 26,
+        "//under-36m": 42,
+        "//under-48m": 2,
+        "parking/through/under-18m": 644,
+        "parking/through/under-24m": 1,
+        "station-01/departure/at-least-60m": 6,
+        "station-03/through/under-18m": 22,
+        "station-04/through/under-18m": 3
+      },
+      "checks": {
+        "checked_ticks": 442260,
+        "contract_checks": 7371,
+        "restore_checks": 24,
+        "restore_reservation_changes": 3,
+        "max_float_delta_meters": 3.694822225952521e-13
+      }
+    }
+  },
+  "held_queue_stock": [
+    {
+      "name": "ordinary-14mps",
+      "speed_limit_mps": 14,
+      "queue_span_meters": 90,
+      "minimum_physical_gap_meters": 30,
+      "coupled_pods": 0,
+      "settled_seconds": 92.75,
+      "restore_tier": "physical"
+    },
+    {
+      "name": "virtual-14mps",
+      "speed_limit_mps": 14,
+      "queue_span_meters": 54.020000000002256,
+      "minimum_physical_gap_meters": 12.010000000000218,
+      "coupled_pods": 3,
+      "settled_seconds": 92.1,
+      "restore_tier": "physical"
+    },
+    {
+      "name": "ordinary-9kmh",
+      "speed_limit_mps": 2.5,
+      "queue_span_meters": 90,
+      "minimum_physical_gap_meters": 30,
+      "coupled_pods": 0,
+      "settled_seconds": 144.28333333333333,
+      "restore_tier": "physical"
+    },
+    {
+      "name": "virtual-9kmh",
+      "speed_limit_mps": 2.5,
+      "queue_span_meters": 90,
+      "minimum_physical_gap_meters": 30,
+      "coupled_pods": 0,
+      "settled_seconds": 144.28333333333333,
+      "restore_tier": "physical"
+    }
+  ],
+  "held_queue_recruit60": [
+    {
+      "name": "ordinary-14mps",
+      "speed_limit_mps": 14,
+      "queue_span_meters": 90,
+      "minimum_physical_gap_meters": 30,
+      "coupled_pods": 0,
+      "settled_seconds": 92.75,
+      "restore_tier": "physical"
+    },
+    {
+      "name": "virtual-14mps",
+      "speed_limit_mps": 14,
+      "queue_span_meters": 54.020000000002256,
+      "minimum_physical_gap_meters": 12.010000000000218,
+      "coupled_pods": 3,
+      "settled_seconds": 92.1,
+      "restore_tier": "physical"
+    },
+    {
+      "name": "ordinary-9kmh",
+      "speed_limit_mps": 2.5,
+      "queue_span_meters": 90,
+      "minimum_physical_gap_meters": 30,
+      "coupled_pods": 0,
+      "settled_seconds": 144.28333333333333,
+      "restore_tier": "physical"
+    },
+    {
+      "name": "virtual-9kmh",
+      "speed_limit_mps": 2.5,
+      "queue_span_meters": 54.020000000002256,
+      "minimum_physical_gap_meters": 12.010000000000218,
+      "coupled_pods": 3,
+      "settled_seconds": 161.03333333333333,
+      "restore_tier": "physical"
+    }
+  ],
+  "artifact_directory": "/home/dotwaffle/.cache/agents/podsim/queue-headway-20261002",
+  "proposals": [
+    "Test wider recruitment restricted to fixed-entry buffers with the same12m floor. The60m prototype is not production qualification.",
+    "Do not adopt speed-band or station-local formation restrictions on this two-seed screen.",
+    "Any below12m spacing requires a pair-specific low-speed certificate, bounded transition to ordinary clearance, and reviewed safety/save contracts."
+  ],
+  "limitations": [
+    "Samples are1Hz and do not give exact assignment timestamps.",
+    "Moving/dwell combines travel and dwell.",
+    "Formation restrictions do not reduce the physical gap floor and do not end existing links.",
+    "All heavy means and tails exclude skipped offers.",
+    "Synthetic held berth uses an external reservation absent from saved state. Restore tests certificate placement, not persistence of that blocker.",
+    "Synthetic restored continuation is one second, not full discharge qualification.",
+    "Physical restore resets speed and may rebuild reservations. No identical-future claim.",
+    "A two-seed functional screen cannot establish production capacity gain."
+  ],
+  "native_source_hashes": {
+    "internal/sim/ownership.go": "ac4084f287660a3eeaffd5f7c1b1f9b009fc89a1a2838e85b0059d8d46dfa1f8",
+    "internal/sim/bank_geometry.go": "0786fca0694fbab046d54d5a7e0da67cd33d38804bf8faf732f8a871eac2420c",
+    "internal/sim/geometry.go": "5ce356e0ed0be10bb91f7d378cbe03659d58bbbb1bc44283fd201e9eb46405ec",
+    "internal/sim/pickup_estimate.go": "67134fdc96e1c0fadee1f7b9b9ea38036ba68d32bd87cae960cc00e7edd823ee",
+    "internal/sim/bank_detours.go": "163c9b6e3181dda9a7fe8198ac031ac29c22dceabb53485c523a08d2cb82ae01",
+    "internal/sim/riders.go": "fcd3ab339a7c170f209a91c669cdd45296d074d4b7afaa51f56adf78d1ad61f0",
+    "internal/sim/route_targets.go": "021aef424a31bef9c694ebdbb0265bd80d082fff0ca30e37362a0d7bb8240764",
+    "internal/sim/wait_stats.go": "3ef840030cef4fabfae4bae910fd225fb412b80a2aca8d7170129784549af0b4",
+    "internal/sim/clone.go": "52ce98cc4cd1f351b4a28ffa7301fc116b9397923f4bffb5a010261cd56b0c33",
+    "internal/sim/state.go": "c5c9b240c6e05928205cdd4da3f195cd0917841d698dc4252061c709ec70416e",
+    "internal/sim/demo.go": "63cceb8b79732887a241758ac5a88390a13d99e0d083017e3c42cc7ab43e7fea",
+    "internal/sim/presentation.go": "cdd8ffacfe710baa296d20c27e6204080a147aa73b1fd99f5e5b4b6f5803ae7e",
+    "internal/sim/pickup_reassignment.go": "4e0b68afe9abf3cdd2c9d83b529bdb017811f3c7ac51a0c1aeaa52c0e392284f",
+    "internal/sim/safety.go": "ebaa23315cf8bf6bfa011327ea9c854f06ab06043417232bb33129735124dd65",
+    "internal/sim/simulation.go": "69bfd1074b525de24794476948e8257170072820622a212750601f3f45a30f82",
+    "internal/sim/pickup_bounds.go": "147563fa11dcbdb9fe34dcc88b8526e668c4bfab2fc5b63d96e36a8b3828d964",
+    "internal/sim/routes.go": "9536ec690e4194b030853771e19dd27e9a5d883ae456aae881132d8d35ff7cc0",
+    "internal/sim/bank_bounds.go": "99cd86bec300774b2396f421c2ba0ff15f278593aaf34246719fe5910897fbad",
+    "internal/sim/parking.go": "5fa488d573fb6637bb5889648e6f147baecc8ba2e4769507efd1b209b36458e1",
+    "internal/sim/metrics_snapshot.go": "c23f8e3ac63aeb7f7aadb17e6adb5a5c6f531c758aaec1aa1a195a2427a551cf",
+    "internal/sim/bank_restore.go": "7f1526535cd4d25a5b9f0e1cd8c27277cfe41682e058389254faa0dd5b181c75",
+    "internal/sim/status.go": "d6ba51149559144e9396d5dc06eed342be0353472c40d18c2e53788a5f92dc71",
+    "internal/sim/step_completions.go": "93b8a6a59120b69aed425b608c16b6509aba7a169ce07b92f0716b293a67a6b7",
+    "internal/sim/diversion.go": "af99a834d9f94043a01318bc51cf55189a488109865393008f1956e938630a88",
+    "internal/sim/station_buffer.go": "42f87efff514debf739d892449a1778ec39eed8fc07a1797a2eb23cb5908eb89",
+    "internal/sim/junction_conflicts.go": "de3d37085b34e18a1b40837452d50ee7e0b8cfad9093d18b612295415664e468",
+    "internal/sim/dispatch.go": "fcd327c435872d71fee1b852b7bf496f113ee28b6569709d2d987b2c7f651b48",
+    "internal/sim/station_maneuvers.go": "e93e8d85e3f6790ec4b91b24f9767f5e86501968e9690fb46cd37af8f99f514d",
+    "internal/sim/station_banks.go": "9133d911ff6ae7ae35260839bf254d9e4b6254589a6a36ca71e6db34c6e6755d",
+    "internal/sim/pickup_swaps.go": "ddd24d084ec3afed92faac692aa49b7d4d01cc9399a2887e83d4ec0d58d2bb6a",
+    "internal/sim/berth_choice.go": "a38534fbefd748ae5aa037718b7b224432ab128f08c9e95a8e247ce485db3cde",
+    "internal/sim/state_logical.go": "34f854b889ff0574049129d4bd9b506c982b717e67bf056208e7976977882af7",
+    "internal/sim/redistribution.go": "7cabd5cc908b8645ff748ee8384af23693e4ba2fd95fd73ab486a4f7f2db9050",
+    "internal/sim/prepared.go": "8caf052ff24dfea03d3b32c963ea267f93c2dd182d56b0a11352814f142d3772",
+    "internal/sim/station_buffer_claim.go": "7c4b44d568ba7da0390526908fa600f561ff8802af8b29824c8b7712aac1a825",
+    "internal/sim/bank_example.go": "b897d2fb30d4102d3bde0e9f5d0beb5adb44f76a435c2aa438ce3ae822579684",
+    "internal/sim/positioning.go": "aabd6b51cb7349945a3000478c58534459ac13bb11227a6acde6e57fba4787c5",
+    "internal/sim/traffic.go": "82bbe62663c0b926fe5321fd7762c0596d669e052a32a82ead3ee56f661b4994",
+    "internal/sim/route_work.go": "5d7cac30a8f3b112790b71126294a6b53c0d08b0e9353831274da00cbdd05e08",
+    "internal/sim/working.go": "cbcf8752454e9b250b6b0622c3825b91ff63660cd4f47edd3c60f0c46c538ed9",
+    "internal/sim/bank_routes.go": "69d852ea1fd889d5bc6266f13d6c4e01fd5440a88bacc39a40d5399b521e8916",
+    "internal/sim/sharing.go": "e0a4a687ed21e7eaaa5d2df437afaff234dc29501ca5de1993f946102d4514a0",
+    "internal/sim/pickup_buffer.go": "e28404572f6d71c207bea0945078774552efeebc410ae502358f55244446d909",
+    "internal/sim/predictive_routing.go": "290733e591887230a273b8ad3a2f74165c6da1cc3a8e14b19a6aed814015ca25",
+    "internal/sim/state_buffer_platoon.go": "e0d6892e5424e3543c42778c2fd2be38f3f27598c78808f72833bd62f44dfc1f",
+    "internal/sim/station_buffer_platoon.go": "5a2e7fb22d01ce1395135519c53d02ee92bbc5a14209dfdc19cdc498fc48fcda",
+    "internal/sim/drop_offs.go": "a2e36de62df4a626532d447bd3bff74b2a0ac53f4e161172a9f3683fb3d4096c",
+    "internal/sim/routing_policy.go": "0f9ba8cc48de8ab447c272e1303ed58e270c3029ea1901631161d28d3e54aa29",
+    "internal/sim/released.go": "bcd25111f146902fad244e0bd43d9c44c11eb52345e2b44ad0c3d62e5e0d20e0",
+    "internal/sim/experiment_records.go": "de95bc23026dbe96cfe3c39afd35a1ef6464943bdea3c2805e118f4e5483a534",
+    "internal/sim/network.go": "3b06589cdd3a2d47bad1b6af2beb3f6b5378df62f12086348207114319e1df9b",
+    "internal/sim/state_contract.go": "cf94edd3ceda89aa3521453b5ac524fbadd6075e9019ba8f773ef597d3dc3c81",
+    "internal/sim/rail_forecast.go": "c5401b7d3762ae92180601fedd8ad70b445691f63e4753453766b3dc52b230f1",
+    "internal/sim/seat_screen.go": "9adbc4c53e948f790cb661e05156f58228095b4fdc45428ce71e688836f8936f",
+    "internal/sim/platoon.go": "6039ed1df74d95e3002de429b979fbf0e9b2f592696a0f52e34d95f8a89dd006",
+    "internal/sim/berths.go": "2e161f1a5b2557e64cfb47f3088ec75d3843052372466f6d76b7909d60baed95",
+    "internal/sim/state_physical.go": "9b45fc4e9af9091aa91e297c3519d38d68bbd175e48d8401a1985595d6f58d07",
+    "internal/sim/example.go": "76cedf3fbea7989f9f6979da7cc188fe220bb8d9250ff8a47ff8d46321282359",
+    "internal/project/config.go": "748bc362f840e80b9bc669ab39efebbf1e417b7933dd0cbf13e776ad02842c3f",
+    "internal/project/rail_departures.go": "67ce927c2c474e508980fba67167c9b6e97c40261efe8d9abd65992cfc53124a",
+    "internal/project/rail_arrivals.go": "512768ade2b265c483a47a010faa4db9980ba86a12446ff75d80b6dbc359fa23",
+    "internal/project/experimental.go": "9cfb5c12427aa4e4d923767d3734351db9fd0e322065986ebf19f8aaae553457",
+    "internal/project/daily.go": "8095187bbeaefb35d270afd50d3996fb2e4aa3172614b94df332812838315e0a",
+    "internal/project/banks.go": "ac8d29e71c3ecd81701863ab364c53fd027f6dc016a500d7a63b19f80152a913",
+    "cmd/compare/adaptive.go": "e18b8fbdb0e38c8fa5cde1f7402e616fd08e3016330f86677a92a76745680f70",
+    "cmd/compare/traffic.go": "6db89d16341a467f96f854c963ce8df2d7dd1a87211cb8c38166a71a272bae1e",
+    "cmd/compare/daily.go": "7e64d51ade877bebaed2dde34b8c20ec72bc9119568c0b9cffa909d031a6d31a",
+    "cmd/compare/rail.go": "a781f98be5c685880e4fd545c3a327b444d0530b972693792b5509f694396262",
+    "cmd/compare/experimental.go": "5a31c652edde986797d686b86e7bb16c31baa54f7e872b548a2a1f8437769a63",
+    "cmd/compare/journeys.go": "d382f61c7a2283a3b3f3857d0da1f214d951015570e2fc58254d5b43db02d33d",
+    "cmd/compare/main.go": "2a1b4165b895babd22b5994323c6fddd8d2db16cb29b409abf394601cd2f76d8"
+  },
+  "build_receipts": {
+    "build-receipt.json": {
+      "sha256": "e5e164095cd206519cccb939fa3b519df38ad80046349c1a77b4d4c73f043e4f",
+      "receipt": {
+        "head": "d86c254474ad64efcdf3dc3acd2f8a43ae1a712a",
+        "dirty": false,
+        "observer_sources": {
+          "observer-main.go": "2a07808150bc0fb86aefc1b881dff5627445b325e41f7593829ff6999b16bf33",
+          "observer_test.go": "fc0ef99dba7bbabfd61bf36c88c620c2831a71cc210e206c95df3d1f102ba390",
+          "observer-overlay.json": "55f5fc767f57b650f20ad07708fd8de3bc1b14f55f2215900881bfc0c0f7aa2d"
+        },
+        "binary_sha256": "be213bd833897cc96917c3cf7b47efc05908a19773a1f17c1281c5512dfd8e47",
+        "go_version": "go version go1.27.1 linux/amd64"
+      }
+    },
+    "under10-build-receipt.json": {
+      "sha256": "5e5a896e1c9442f3ee235573750aad1ced4acfc51ae97b3d52d6c68f95979732",
+      "receipt": {
+        "head": "d86c254474ad64efcdf3dc3acd2f8a43ae1a712a",
+        "dirty": false,
+        "observer_sources": {
+          "observer-main.go": "2a07808150bc0fb86aefc1b881dff5627445b325e41f7593829ff6999b16bf33",
+          "observer_test.go": "fc0ef99dba7bbabfd61bf36c88c620c2831a71cc210e206c95df3d1f102ba390",
+          "under10-overlay.json": "5a94ab4f221b68272835e9625e4679fcb4d7d2592445b6b2d6421e869e7f8429",
+          "platoon-under10.go": "9e97d3a9d099ed352a55cf439232f2f2229d4a467f35c518623fd20212715157"
+        },
+        "binary_sha256": "c9ef50b73e298f06c49cc02203a52fcf727ae396ac57fa2f5b61cd35c94451ec",
+        "go_version": "go version go1.27.1 linux/amd64"
+      }
+    },
+    "station-local-build-receipt.json": {
+      "sha256": "2d0dcd4618c635db7fa5debf60e7cda9ebcd64be1fde9c2e4bd4e33bae3d4b81",
+      "receipt": {
+        "head": "d86c254474ad64efcdf3dc3acd2f8a43ae1a712a",
+        "dirty": false,
+        "observer_sources": {
+          "observer-main.go": "2a07808150bc0fb86aefc1b881dff5627445b325e41f7593829ff6999b16bf33",
+          "observer_test.go": "fc0ef99dba7bbabfd61bf36c88c620c2831a71cc210e206c95df3d1f102ba390",
+          "station-local-overlay.json": "31bc4443e1a1168e57a9ea98cb3b7382323f88778eb46696c233a4efc9c830be",
+          "platoon-station-local.go": "ec1a01bc1588bf4ef79154abdd3583b8af22f9024bd32b58bac00d76ac068110"
+        },
+        "binary_sha256": "b88afdcb8bf87514a14749bd4e4a2b5d0a03926a797976204b6dd957d3c18348",
+        "go_version": "go version go1.27.1 linux/amd64"
+      }
+    }
+  },
+  "private_prototype_hashes": {
+    "platoon-recruit60.go": "a093f6a9288ad19b1df41ec7aaa2a16311ab8afd7496c02b04fb429d961e22db",
+    "queue_fixture_test.go": "f0ee5a8cd35eb940f345aef2c0568b620c80a9a2b8a6949763cc4aafe510ba44",
+    "recruit60-overlay.json": "a966031373df12795688d5f6dc70e91c91bbe9817e23645e873b5386a898cebb"
+  }
+}
