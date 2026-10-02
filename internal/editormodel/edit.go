@@ -24,7 +24,9 @@ type editCommand struct {
 type projectChange struct {
 	Patch map[string]any `json:"patch"`
 	// Flag names a valid boolean edit that preserves the existing checks.
-	Flag string `json:"flag,omitempty"`
+	Flag       string            `json:"flag,omitempty"`
+	Background *backgroundChange `json:"background,omitempty"`
+	Note       string            `json:"note,omitempty"`
 }
 
 // editProject proposes owned replacement branches. The caller commits them
@@ -49,6 +51,12 @@ func editProject(draft any, raw jsontext.Value) (projectChange, error) {
 			return projectChange{}, errors.New("a map edit does not accept a target")
 		}
 		return editMap(draft, command.Value)
+	}
+	if command.Field == "background" {
+		if len(command.Target) != 0 {
+			return projectChange{}, errors.New("a background edit does not accept a target")
+		}
+		return editBackground(draft, command.Value)
 	}
 	if command.Field == "railArrival" || command.Field == "railDeparture" {
 		if len(command.Target) != 0 {

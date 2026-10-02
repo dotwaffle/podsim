@@ -5039,8 +5039,16 @@ function pageImports() {
   const noop = () => {};
   const deps = {
     ...editor, model, decoder: fake.deps, root: globalThis, MIB: 1024 * 1024,
+    backgroundProposal: async (config, command) => {
+      if (command.action === "initialize") return { value: { scenario: config, background: { imageKey: command.imageKey, x: 0, y: 0, width: command.width, height: command.height, opacity: command.background ? command.background.opacity : editor.DEFAULT_OPACITY, frameState: "none" } } };
+      const problem = editor.frameError(command.frame);
+      if (problem) throw new Error(problem);
+      const reference = editor.referenceFor({ config, frame: command.frame, choice: command.choice });
+      if (reference.error) throw new Error(reference.error);
+      return { value: editor.framedValue({ scenario: config, background: command.background }, { key: command.imageKey, frame: command.frame }, reference.geo), note: reference.note };
+    },
     slot: { get busy() { return slot.busy; }, run(...args) { queued += 1; return slot.run(...args); } },
-    state: { get background() { return model.history.background; }, draftBase: {}, loadedStart: "test" },
+    state: { history: model.history, get background() { return model.history.background; }, draftBase: {}, loadedStart: "test" },
     $: (selector) => { assert.ok(controls[selector], selector); return controls[selector]; },
     draft: () => model.history.value.scenario, referenceChoice: () => null,
     toast: (message) => messages.push(message), updateStatus: (message) => messages.push(message),
@@ -5060,7 +5068,7 @@ test("out-of-order file reads cannot queue an older import behind a blocked deco
       const readFile = () => { reads += 1; return read.promise; };
       const file = { type: "image/png", size: bytes.byteLength, text: readFile, arrayBuffer: readFile };
       page.controls["#geoFile"].files = [file];
-      const older = page[kind](file);
+      const older = page[kind](file); await tick();
       assert.equal(reads, 1, "the older import has started its read");
       const newer = page.importBackground({ ...file, arrayBuffer: async () => bytes }); await tick();
       assert.equal(page.queued(), 1, "the newer import waits for the decoder");
@@ -5216,9 +5224,9 @@ test("each abort event of the page aborts the open acquisition, and each import 
     assert.ok(match, `the page has ${name}`);
     return source.slice(match.index, source.indexOf("\n  }\n", match.index));
   };
-  for (const name of ["stepHistory", "restoreDraft", "loadLiveScenario", "closeGeoPanel"]) assert.match(body(name), /model\.abort\(\)/, `${name} aborts`);
+  for (const name of ["stepHistory", "restoreDraft", "loadLiveScenario", "closeGeoPanel", "queueBackgroundEdit"]) assert.match(body(name), /model\.abort\(\)/, `${name} aborts`);
   for (const name of ["importProject", "importBackground", "importFramedImage"]) assert.match(body(name), /model\.start\(\)/, `${name} starts a new acquisition`);
-  for (const event of ['\\$\\("#resetButton"\\)\\.addEventListener\\("click", \\(\\) => \\{ model\\.abort\\(\\);', '\\$\\("#removeBackgroundButton"\\)\\.addEventListener\\("click", \\(\\) => \\{ model\\.abort\\(\\);', 'root\\.addEventListener\\("beforeunload", \\(event\\) => \\{ model\\.abort\\(\\);']) {
+  for (const event of ['\\$\\("#resetButton"\\)\\.addEventListener\\("click", \\(\\) => \\{ model\\.abort\\(\\);', 'root\\.addEventListener\\("beforeunload", \\(event\\) => \\{ model\\.abort\\(\\);']) {
     assert.match(source, new RegExp(event));
   }
 });
@@ -5595,4 +5603,36 @@ test("departure edits, origins, deletion, and undo retain owned plans", () => {
   added.railDepartures[0].origins[0].weight = 99;
   assert.equal(config.railDepartures[0].origins[0].weight, 1);
   assert.deepEqual(editor.removeRailDeparture(config, id).railDepartures, []);
+});
+
+test("a canceled Go opacity proposal rolls back its owned preview", async () => {
+  const source = fs.readFileSync(path.join(__dirname, "editor.js"), "utf8");
+  const names = ["backgroundProposal", "queueBackgroundEdit"];
+  const functions = names.map((name) => {
+    const match = new RegExp(`\\n  (?:async )?function ${name}\\(`).exec(source);
+    assert.ok(match);
+    return source.slice(match.index, source.indexOf("\n  }\n", match.index) + 5);
+  }).join("\n");
+  const initial = { scenario: connectedScenario(), background: { imageKey: TEST_KEY, x: 0, y: 0, width: 40, height: 20, opacity: .45, frameState: "none" } };
+  const model = editor.createBackgroundModel({ initial });
+  const editQueue = require("./editor-model.js").createEditQueue();
+  const state = { history: model.history, drag: null };
+  const response = Promise.withResolvers();
+  const noop = () => {};
+  const deps = {
+    model, state, editQueue, pendingInputs: new Map(), pendingBackgroundPreviews: new Set(),
+    draft: () => model.history.snapshot.scenario,
+    goModel: { call: () => response.promise },
+    render: noop, renderHistoryButtons: noop, renderApply: noop, restorePendingInputs: noop, toast: noop, updateStatus: noop,
+  };
+  const queue = new Function(...Object.keys(deps), `${functions}\nreturn queueBackgroundEdit;`)(...Object.values(deps));
+  model.pressOpacity(); model.setOpacity(.8);
+  const ended = model.takeOpacity();
+  const job = queue({ action: "opacity", opacity: .8 }, { before: ended.entry, sourceEdits: model.edits });
+  await tick();
+  editQueue.cancel();
+  response.resolve({ change: { patch: {}, background: { value: { ...initial.background, opacity: .8 } } } });
+  assert.equal(await job, false);
+  assert.equal(model.history.background.opacity, .45);
+  assert.equal(model.history.canUndo, false);
 });

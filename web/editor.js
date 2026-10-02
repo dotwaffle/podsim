@@ -3071,6 +3071,8 @@
         const { entry } = gesture; gesture = null;
         return history.commitFrom(entry, history.value);
       },
+      // takeOpacity ends a preview and returns its entry for a Go commit.
+      takeOpacity() { const ended = gesture; gesture = null; return ended; },
       // start opens a new acquisition or import, and aborts the open one.
       // The ticket has signal, an AbortSignal, and the edit counter.
       start() {
@@ -4166,7 +4168,7 @@
     // copy, so that a pointer up cannot record that copy over a newer draft.
     if (state.drag && state.drag.working) { state.drag = null; model.endDrag(); drawnNetwork = null; }
     state.background = state.history.background;
-    const config = draft(); setScalarValue("#scenarioName", config.name); $("#backgroundOpacity").value = state.background ? state.background.opacity : .45; $("#opacityValue").value = `${Math.round(Number($("#backgroundOpacity").value) * 100)}%`;
+    const config = draft(); setScalarValue("#scenarioName", config.name); $("#backgroundOpacity").value = pendingInputs.get($("#backgroundOpacity"))?.value ?? (state.background ? state.background.opacity : .45); $("#opacityValue").value = `${Math.round(Number($("#backgroundOpacity").value) * 100)}%`;
     renderHistoryButtons();
     $("#networkMap").dataset.tool = state.tool; $("#cancelLinkButton").hidden = !state.linkFrom;
     renderTools();
@@ -4567,7 +4569,9 @@
     $("#redoButton").disabled = !state.history.canRedo;
   }
   function cancelPendingEdits() {
-    editQueue.cancel(); pendingInputs.clear(); typingInputs.clear(); railStructuralEdits.clear();
+    editQueue.cancel();
+    for (const rollback of pendingBackgroundPreviews) rollback();
+    pendingInputs.clear(); typingInputs.clear(); railStructuralEdits.clear();
     pendingMapEnables.clear();
     for (const kind of ["arrival", "departure"]) railEpochs.set(kind, railEpoch(kind) + 1);
   }
@@ -4670,6 +4674,49 @@
       if (pending && pendingInputs.get(control) === pending) pendingInputs.delete(control);
       if (!(state.drag && state.drag.type !== "pan") && !model.gestureOpen) render();
       else { renderBackground(); renderHistoryButtons(); renderApply(); restorePendingInputs(); }
+    });
+  }
+  async function backgroundProposal(config, command) {
+    const result = await goModel.call(config, "edit", { field: "background", value: command });
+    if (result.error) throw new Error(result.error);
+    if (!result.change?.background || !Object.hasOwn(result.change.background, "value")) throw new Error("The Go background proposal is missing.");
+    return { value: { scenario: { ...config, ...result.change.patch }, background: result.change.background.value }, note: result.change.note };
+  }
+  const pendingBackgroundPreviews = new Set();
+  function queueBackgroundEdit(command, { accepted, before, sourceEdits, imageKey, acceptIf = () => true, control } = {}) {
+    const pending = control ? { value: control.value } : null;
+    if (pending) pendingInputs.set(control, pending);
+    model.abort();
+    const previewSource = before ? draft() : null;
+    let committed = false;
+    const rollbackPreview = () => {
+      if (!committed && before && previewSource === draft() && sourceEdits === model.edits && !model.gestureOpen && !(state.drag && state.drag.type !== "pan")) state.history.replace(before, false);
+    };
+    if (before) pendingBackgroundPreviews.add(rollbackPreview);
+    return editQueue.submit(async (current) => {
+      if (!current() || !acceptIf()) return false;
+      const config = draft(), generation = model.edits;
+      if (before && sourceEdits !== generation) throw new Error("The draft changed after the opacity gesture. Set the opacity again.");
+      if (state.drag && state.drag.type !== "pan" || model.gestureOpen) throw new Error("Finish the open gesture before editing the background.");
+      const background = state.history.background;
+      if (imageKey && imageKey !== background?.imageKey) throw new Error("The background changed. Place the current image again.");
+      const result = await backgroundProposal(config, { ...command, background });
+      if (!current() || !acceptIf()) return false;
+      if (config !== draft() || generation !== model.edits || state.drag && state.drag.type !== "pan" || model.gestureOpen) throw new Error("The draft changed during the edit. Enter the background change again.");
+      if (before) state.history.commitFrom(before, result.value);
+      else state.history.replace(result.value, true);
+      committed = true;
+      if (accepted) { render(); accepted(); }
+      if (result.note) updateStatus(result.note);
+      return true;
+    }, { key: command.action === "opacity" && !before ? "backgroundOpacity" : undefined }).catch((error) => {
+      toast(error.message, true); return false;
+    }).finally(() => {
+      // A rejected or canceled preview can roll back only its own draft.
+      rollbackPreview(); pendingBackgroundPreviews.delete(rollbackPreview);
+      if (pending && pendingInputs.get(control) === pending) pendingInputs.delete(control);
+      if (!(state.drag && state.drag.type !== "pan") && !model.gestureOpen) render();
+      else { renderHistoryButtons(); renderApply(); restorePendingInputs(); }
     });
   }
   function deleteSelectedItem(selection, { keyboard = false } = {}) {
@@ -5005,8 +5052,9 @@
       if (slot.busy) updateStatus("The image waits for the decoder.");
       const facts = await slot.run((signal) => checkImageBytes(bytes, decoder, signal), ticket.signal);
       const image = freezeImage({ key: newImageKey(root.crypto), bytes, mime: facts.mime, pixelWidth: facts.width, pixelHeight: facts.height, frame: null, license: null });
-      const opacity = state.background ? state.background.opacity : DEFAULT_OPACITY;
-      publishBackground(ticket, image, { scenario: draft(), background: { imageKey: image.key, x: 0, y: 0, width: facts.width, height: facts.height, opacity, frameState: "none" } }, "image import");
+      if (!model.current(ticket)) return;
+      const proposed = await backgroundProposal(draft(), { action: "initialize", imageKey: image.key, width: facts.width, height: facts.height, background: state.history.background });
+      publishBackground(ticket, image, proposed.value, "image import");
     } catch (error) {
       if (error.name === "AbortError" || !model.current(ticket)) return;
       model.abort(); toast(`${error.message} The background is unchanged.`, true);
@@ -5064,21 +5112,24 @@
     };
     // A frame or a license that is not valid stops the new import before
     // any file read. The previous acquisition stays canceled.
-    const checked = frameError(frame) || licenseError(license);
+    const checked = licenseError(license);
     if (checked) { toast(`${checked} The background is unchanged.`, true); return; }
     const ticket = model.start();
-    const reference = referenceFor({ config: draft(), frame, choice: referenceChoice() });
-    if (reference.error) { model.abort(); toast(`${reference.error} The background is unchanged.`, true); return; }
     try {
+      const key = newImageKey(root.crypto);
+      const proposed = await backgroundProposal(draft(), { action: "place", imageKey: key, frame, choice: referenceChoice(), background: state.history.background });
+      if (!model.current(ticket)) return;
+      const changed = model.publishError(ticket, null);
+      if (changed) throw new Error(changed);
       const bytes = await file.arrayBuffer();
       if (!model.current(ticket)) return;
       if (slot.busy) updateStatus("The image waits for the decoder.");
       const result = frame.source === "web-mercator"
-        ? await slot.run((signal) => resampleImage({ bytes, frame, geo: reference.geo, metersPerPixel: Number($("#geoMeters").value) }, decoder, signal), ticket.signal)
+        ? await slot.run((signal) => resampleImage({ bytes, frame, geo: proposed.value.scenario.geo, metersPerPixel: Number($("#geoMeters").value) }, decoder, signal), ticket.signal)
         : { bytes, facts: await slot.run((signal) => checkImageBytes(bytes, decoder, signal), ticket.signal) };
-      const image = freezeImage({ key: newImageKey(root.crypto), bytes: result.bytes, mime: result.facts.mime, pixelWidth: result.facts.width, pixelHeight: result.facts.height, frame, license });
-      publishBackground(ticket, image, framedValue({ scenario: draft(), background: state.background }, image, reference.geo), "georeferenced image import");
-      if (reference.note) updateStatus(reference.note);
+      const image = freezeImage({ key, bytes: result.bytes, mime: result.facts.mime, pixelWidth: result.facts.width, pixelHeight: result.facts.height, frame, license });
+      const published = publishBackground(ticket, image, proposed.value, "georeferenced image import");
+      if (published && !published.error && proposed.note) updateStatus(proposed.note);
     } catch (error) {
       if (error.name === "AbortError" || !model.current(ticket)) return;
       model.abort();
@@ -5098,20 +5149,19 @@
   function placeFromFrame() {
     const image = state.background ? model.image(state.background.imageKey) : null;
     if (!image || !image.frame) return;
-    const reference = referenceFor({ config: draft(), frame: image.frame, choice: referenceChoice() });
-    if (reference.error) { toast(reference.error, true); return; }
-    state.history.replace(framedValue({ scenario: draft(), background: state.background }, image, reference.geo)); render(); fitNetwork();
-    if (reference.note) updateStatus(reference.note);
+    queueBackgroundEdit({ action: "place", imageKey: image.key, frame: image.frame, choice: referenceChoice() }, { imageKey: image.key, accepted: fitNetwork });
   }
 
   function finishCalibration() {
     if (!state.background || state.calibrationPoints.length !== 2) return;
-    const meters = Number($("#calibrationDistance").value); const [a, b] = state.calibrationPoints; const current = Math.hypot(b.X - a.X, b.Y - a.Y);
-    if (!Number.isFinite(meters) || meters <= 0 || current <= 0) { toast("Enter a positive distance and select two different points.", true); return; }
-    if (state.background.frameState === "attached") { toast("Detach the frame before you calibrate the scale.", true); return; }
-    const factor = meters / current; const background = clone(state.background);
-    background.x = a.X + (background.x - a.X) * factor; background.y = a.Y + (background.y - a.Y) * factor; background.width *= factor; background.height *= factor;
-    state.calibrating = false; state.calibrationPoints = []; $("#calibrationPanel").hidden = true; setBackground(background); fitNetwork(); toast("The background scale is set. New network geometry uses meters.");
+    const points = state.calibrationPoints, [a, b] = points;
+    queueBackgroundEdit({ action: "calibrate", a, b, meters: Number($("#calibrationDistance").value) }, {
+      acceptIf: () => state.calibrating && state.calibrationPoints === points,
+      accepted: () => {
+        state.calibrating = false; state.calibrationPoints = []; $("#calibrationPanel").hidden = true;
+        fitNetwork(); toast("The background scale is set. New network geometry uses meters.");
+      },
+    });
   }
 
   function bindEvents() {
@@ -5151,12 +5201,20 @@
     // The opacity gesture of the model runs from pointer down to pointer
     // up, pointercancel or a lost pointer capture. Each of the three ends
     // it in the same way, and records a change as one undo step.
-    const endOpacity = () => { model.endOpacity(); render(); };
+    const endOpacity = () => {
+      const ended = model.takeOpacity();
+      if (ended?.changed) queueBackgroundEdit({ action: "opacity", opacity: state.history.background.opacity }, { before: ended.entry, sourceEdits: model.edits, control: $("#backgroundOpacity") });
+      else render();
+    };
     $("#backgroundOpacity").addEventListener("pointerdown", () => model.pressOpacity());
-    $("#backgroundOpacity").addEventListener("input", (event) => { const value = Number(event.target.value); $("#opacityValue").value = `${Math.round(value * 100)}%`; if (model.setOpacity(value)) { state.background = state.history.background; renderMap(); } });
+    $("#backgroundOpacity").addEventListener("input", (event) => {
+      const value = Number(event.target.value); $("#opacityValue").value = `${Math.round(value * 100)}%`;
+      if (model.gestureOpen) {
+        if (model.setOpacity(value)) { state.background = state.history.background; renderMap(); }
+      } else if (state.background) queueBackgroundEdit({ action: "opacity", opacity: value }, { control: event.target });
+    });
     for (const name of ["pointerup", "pointercancel", "lostpointercapture"]) $("#backgroundOpacity").addEventListener(name, endOpacity);
-    $("#backgroundOpacity").addEventListener("change", (event) => { if (model.gestureOpen || !state.background) return; const background = clone(state.background); background.opacity = Number(event.target.value); setBackground(background); });
-    $("#removeBackgroundButton").addEventListener("click", () => { model.abort(); setBackground(null); state.calibrating = false; state.calibrationPoints = []; $("#calibrationPanel").hidden = true; render(); });
+    $("#removeBackgroundButton").addEventListener("click", () => queueBackgroundEdit({ action: "remove" }, { accepted: () => { state.calibrating = false; state.calibrationPoints = []; $("#calibrationPanel").hidden = true; } }));
     $("#mapOpenButton").addEventListener("click", () => { state.mapOpen = !state.mapOpen; if (!state.mapOpen) model.abort(); renderBackground(); });
     $("#mapEnableButton").addEventListener("click", enableTileMap);
     $("#mapRemoveButton").addEventListener("click", () => queueMapEdit({ action: "remove" }));
@@ -5175,7 +5233,7 @@
     $("#geoFile").addEventListener("change", (event) => { const file = event.target.files[0]; $("#geoFileName").textContent = file ? file.name : "No image chosen."; });
     $("#referencePanel").addEventListener("change", renderBackground);
     $("#placeFrameButton").addEventListener("click", placeFromFrame);
-    $("#detachFrameButton").addEventListener("click", () => { state.history.replace(detachFrame({ scenario: draft(), background: state.background })); render(); });
+    $("#detachFrameButton").addEventListener("click", () => queueBackgroundEdit({ action: "detach" }));
     $("#calibrateButton").addEventListener("click", () => {
       if (!state.background) { toast("Choose a background image first.", true); return; }
       if (state.background.frameState === "attached") { toast("Detach the frame before you calibrate the scale.", true); return; }

@@ -278,7 +278,8 @@ JavaScript previews drags.
 Go computes each completed geometry edit.
 Go normalizes live, imported, and restored drafts.
 Go proposes live-map metadata and geographic-reference edits.
-JavaScript still holds undo history and image-background metadata edits.
+Go also proposes image placement, frame attachment, opacity, and scale calibration.
+JavaScript still holds undo history, image bytes, image decoding, and license metadata.
 Move these model operations into Go in stages.
 
 Define a clear boundary between user commands, simulation updates, and state exposed for display.
