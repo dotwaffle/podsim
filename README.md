@@ -441,6 +441,9 @@ The traffic patterns:
   Both select AM peak by default.
   For a profile, the pattern label shows the band ID first and then the profile ID, for example **am-peak / tfl-numbat-2019-midweek**.
   The selected band remains active until the demand settings change.
+- Daily profiles repeat authored bands across simulated days.
+  Gaps and zero-rate bands generate no traffic.
+  See [repeating daily demand](docs/daily-demand.md) for rates, authoring, and restart behavior.
 
 Starting demand or changing enabled settings restarts the stream and its counters.
 Pause stops both movement and arrivals.
@@ -549,6 +552,9 @@ The draft stays local until you select **Pause and apply**.
   The editor gets the bearing from the entry and exit positions.
 - Set the passenger generation option, rate, pattern, destination, OD profile, time band, party limit, shared ride mode, stop limit, platoon limit, seed, and redistribution option.
   The stop limit shows only for the drop-offs mode.
+- Use **Create a park-and-ride profile** for weighted morning departures and evening returns.
+  The creator records one undo step and selects daily demand.
+  See [repeating daily demand](docs/daily-demand.md).
 - Use **Rail arrivals** to set train passenger counts, arrival times, walking delays, and weighted destinations.
   Select its demand pattern to release the fixed plan instead of rate-based traffic.
   See [scheduled rail arrivals](docs/rail-arrivals.md) for bounds, restart behavior, and comparison evidence.
@@ -940,6 +946,8 @@ The synthetic patterns are balanced, destination, hotspot, bursty-hotspot, and h
 | `-format json` or `-format csv` | Machine-readable results. |
 | `-output` | Write the report to a file. |
 | `-pattern profile -bands all` | Run the origin-destination bands of a project demand profile. |
+| `-pattern profile-daily` | Repeat the project profile with its authored clock and rates. See [daily demand](docs/daily-demand.md). |
+| `-daily-start-minute 420` | Start a daily comparison at 07:00 simulated time. |
 | `-focus` | Select the station of the focus metrics in the report, and the station that the destination, hotspot, bursty-hotspot, and hub-burst patterns favor. |
 | `-duration` | The length of the measurement window. Default 30m. |
 | `-request-every` | The interval between requests without `-loads`. Default 45s. |

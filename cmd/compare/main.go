@@ -39,7 +39,7 @@ const (
 )
 
 var syntheticPatterns = []string{"balanced", "destination", "hotspot", "bursty-hotspot", "hub-burst"}
-var knownPatterns = append(append([]string(nil), syntheticPatterns...), "profile", "rail-arrivals", "rail-services")
+var knownPatterns = append(append([]string(nil), syntheticPatterns...), "profile", "profile-daily", "rail-arrivals", "rail-services")
 
 // waitRuleValues maps each -wait-rules name to its simulation rule.
 var waitRuleValues = map[string]sim.FinishingPodWait{
@@ -87,6 +87,7 @@ type options struct {
 	seedsText              string
 	pattern                string
 	patternsText           string
+	dailyStartMinute       int
 	bandsText              string
 	loadsText              string
 	sharingLimitsText      string
@@ -160,6 +161,7 @@ type result struct {
 	Pattern                        string             `json:"pattern"`
 	DemandProfile                  string             `json:"demand_profile,omitempty"`
 	DemandBand                     string             `json:"demand_band,omitempty"`
+	DailyStartMinute               *int               `json:"daily_start_minute,omitempty"`
 	RequestEverySeconds            float64            `json:"request_every_seconds"`
 	OfferedPerMinute               float64            `json:"offered_per_minute"`
 	BurstSize                      int                `json:"burst_size"`
@@ -324,6 +326,7 @@ func parseOptions(args []string, stderr io.Writer) (options, error) {
 	flags.StringVar(&opts.seedsText, "seeds", "", "comma-separated demand schedule seeds")
 	flags.StringVar(&opts.pattern, "pattern", "hotspot", "demand pattern")
 	flags.StringVar(&opts.patternsText, "patterns", "", "comma-separated demand patterns or all")
+	flags.IntVar(&opts.dailyStartMinute, "daily-start-minute", -1, "initial daily profile clock minute; default is the project value")
 	flags.StringVar(&opts.bandsText, "bands", "", "comma-separated profile bands or all")
 	flags.StringVar(&opts.loadsText, "loads", "", "comma-separated request intervals")
 	flags.StringVar(&opts.sharingLimitsText, "sharing-limits", "1", "comma-separated shared ride party limits")
@@ -399,10 +402,13 @@ func parseOptions(args []string, stderr io.Writer) (options, error) {
 			}
 		}
 	}
+	if dailyErr := validateDailyOptions(opts, given); dailyErr != nil {
+		return options{}, dailyErr
+	}
 	if railErr := validateRailOptions(opts, given); railErr != nil {
 		return options{}, railErr
 	}
-	if len(opts.patterns) == 1 && (opts.patterns[0] == "rail-arrivals" || opts.patterns[0] == "rail-services") {
+	if len(opts.patterns) == 1 && (opts.patterns[0] == "rail-arrivals" || opts.patterns[0] == "rail-services" || opts.patterns[0] == "profile-daily") {
 		opts.loads = []time.Duration{0}
 	} else {
 		opts.loads, err = parseLoads(parseLoadsInput{single: opts.requestEvery, list: opts.loadsText, duration: opts.arrivalsFor})
@@ -806,6 +812,8 @@ func readProject(path string) (project.Config, error) {
 type demandArm struct {
 	pattern, profile, band string
 	flows                  []weightedDemandFlow
+	daily                  *project.DailyProfile
+	dailyStartMinute       int
 }
 
 type weightedDemandFlow struct {
@@ -845,14 +853,20 @@ func compare(opts options, scenario scenario) ([]result, error) {
 	if err := validateRailMatrix(opts, arms, scenario, armsPerSchedule); err != nil {
 		return nil, err
 	}
+	if err := validateDailyMatrix(opts, arms, armsPerSchedule); err != nil {
+		return nil, err
+	}
 	inputs := make([]runInput, 0, len(arms)*len(opts.loads)*len(opts.seeds)*armsPerSchedule*2)
 	for _, arm := range arms {
 		for _, load := range opts.loads {
+			if arm.daily != nil {
+				load = 0
+			}
 			for _, seed := range opts.seeds {
 				schedule := demandSchedule(scheduleInput{
 					seed: seed, durationTicks: durationTicks(opts.arrivalsFor), intervalTicks: durationTicks(load), pattern: arm.pattern,
 					burstSize:  opts.burstSize,
-					passengers: scenario.passengers, focus: scenario.focus, profileFlows: arm.flows, railArrivals: scenario.railArrivals, railDepartures: scenario.railDepartures,
+					passengers: scenario.passengers, focus: scenario.focus, profileFlows: arm.flows, daily: arm.daily, railArrivals: scenario.railArrivals, railDepartures: scenario.railDepartures,
 				})
 				id := scheduleID(schedule)
 				for _, sharingArm := range sharing {
@@ -863,7 +877,7 @@ func compare(opts options, scenario scenario) ([]result, error) {
 									for _, policy := range opts.redistributionPolicies {
 										inputs = append(inputs, runInput{
 											railForecast: opts.railForecast, policy: policy, duration: opts.duration, requestEvery: load, seed: seed,
-											pattern: arm.pattern, profile: arm.profile, band: arm.band,
+											pattern: arm.pattern, profile: arm.profile, band: arm.band, daily: arm.daily, dailyStartMinute: arm.dailyStartMinute,
 											scheduleID: id, queueLimit: opts.queueLimit, arrivalsFor: opts.arrivalsFor,
 											burstSize: opts.burstSize, sharingLimit: sharingArm.limit, sharingMode: sharingArm.mode,
 											sharingMaxStops: opts.sharingMaxStops, sharingJoin: sharingJoin, routingPolicy: routingPolicy,
@@ -919,6 +933,14 @@ func runComparisons(inputs []runInput, workers int) ([]result, error) {
 func demandArms(opts options, scenario scenario) ([]demandArm, error) {
 	arms := make([]demandArm, 0, len(opts.patterns))
 	for _, pattern := range opts.patterns {
+		if pattern == "profile-daily" {
+			arm, err := dailyArm(opts, scenario)
+			if err != nil {
+				return nil, err
+			}
+			arms = append(arms, arm)
+			continue
+		}
 		if pattern == "rail-arrivals" || pattern == "rail-services" {
 			if err := project.ValidateDemand(project.DemandConfig{Pattern: pattern, PerMinute: 12}, project.DemandContext{Network: scenario.network, RailArrivals: scenario.railArrivals, RailDepartures: scenario.railDepartures}); err != nil {
 				return nil, fmt.Errorf("rail demand: %w", err)
@@ -1019,11 +1041,15 @@ type scheduleInput struct {
 	pattern, focus               string
 	passengers                   []string
 	profileFlows                 []weightedDemandFlow
+	daily                        *project.DailyProfile
 	railArrivals                 []project.RailArrival
 	railDepartures               []project.RailDeparture
 }
 
 func demandSchedule(input scheduleInput) []scheduledRequest {
+	if input.pattern == "profile-daily" {
+		return dailyDemandSchedule(input)
+	}
 	if input.pattern == "rail-services" {
 		return railServiceSchedule(input)
 	}
@@ -1152,6 +1178,8 @@ type runInput struct {
 	scenario           scenario
 	stopWhenDrained    bool
 	railForecast       bool
+	daily              *project.DailyProfile
+	dailyStartMinute   int
 }
 
 // sharingSettings returns the sharing mode and the stop limit of an arm,
@@ -1179,7 +1207,10 @@ func run(input runInput) (result, error) {
 	}
 	weightScenario := input.scenario
 	weightScenario.demand.Seed = uint64(input.seed) // #nosec G115 -- Match the offered schedule.
-	weights, err := demandWeights(input.pattern, input.band, weightScenario)
+	var weights map[string]float64
+	if input.daily == nil {
+		weights, err = demandWeights(input.pattern, input.band, weightScenario)
+	}
 	if err != nil {
 		return result{}, err
 	}
@@ -1251,8 +1282,18 @@ func run(input runInput) (result, error) {
 	arrivalMidpointTicks := arrivalWindowTicks / 2
 	midpointState := simulation.MetricsSnapshot()
 	arrivalState := simulation.MetricsSnapshot()
+	previousBand, previousDay := -2, int64(-2)
 	for tick := range durationTicks(input.duration) {
-		service := input.pattern == "rail-services"
+		if input.daily != nil {
+			band, day := input.daily.BandOccurrence(simulation.Tick() + 1)
+			if band != previousBand || day != previousDay {
+				if err := configureDailyPositioning(simulation, input.daily, simulation.Tick()+1, mode, skipped); err != nil {
+					return result{}, fmt.Errorf("daily positioning: %w", err)
+				}
+				previousBand, previousDay = band, day
+			}
+		}
+		service := input.pattern == "rail-services" || input.daily != nil
 		if service {
 			simulation.Step()
 			tick = simulation.Tick()
@@ -1349,7 +1390,7 @@ func run(input runInput) (result, error) {
 		burstSize = input.burstSize
 	}
 	requestEvery := input.requestEvery.Seconds()
-	if input.pattern == "rail-arrivals" || input.pattern == "rail-services" {
+	if input.pattern == "rail-arrivals" || input.pattern == "rail-services" || input.daily != nil {
 		burstSize, requestEvery = 0, 0
 	}
 	arrivalEnd := 0.0
@@ -1365,8 +1406,13 @@ func run(input runInput) (result, error) {
 	lateArrivalMinutes := float64(arrivalWindowTicks-arrivalMidpointTicks) / sim.TicksPerSecond / 60
 	midpointBacklog := midpointState.Submitted - midpointState.Completed
 	arrivalBacklog := arrivalState.Submitted - arrivalState.Completed
+	var dailyStart *int
+	if input.daily != nil {
+		dailyStart = new(input.dailyStartMinute)
+	}
 	return result{
-		Pattern: input.pattern, DemandProfile: input.profile, DemandBand: input.band,
+		DailyStartMinute: dailyStart,
+		Pattern:          input.pattern, DemandProfile: input.profile, DemandBand: input.band,
 		RequestEverySeconds: requestEvery, OfferedPerMinute: float64(len(input.schedule)) / arrivalMinutes, Seed: input.seed,
 		BurstSize: burstSize, Policy: input.policy, SharedRidePartyLimit: input.sharingLimit, SharingMode: string(sharingMode),
 		SharingJoin:   input.sharingJoin,
@@ -1546,6 +1592,13 @@ func writeTable(input writeReportInput) error {
 	if _, err := fmt.Fprintf(output, "window: %.2fs to %.2fs / arrivals end: %.2fs / focus: %s\n", results[0].WindowStartSeconds, results[0].WindowEndSeconds, results[0].ArrivalEndSeconds, results[0].FocusStation); err != nil {
 		return fmt.Errorf("write table window: %w", err)
 	}
+	for _, outcome := range results {
+		if outcome.DailyStartMinute != nil {
+			if _, err := fmt.Fprintf(output, "daily profile: %s / start minute: %d / seed: %d / policy: %s\n", outcome.DemandProfile, *outcome.DailyStartMinute, outcome.Seed, outcome.Policy); err != nil {
+				return fmt.Errorf("write daily clock: %w", err)
+			}
+		}
+	}
 	w := tabwriter.NewWriter(output, 0, 4, 2, ' ', 0)
 	policyHeader := "POLICY"
 	if input.waitRuleColumn {
@@ -1612,6 +1665,7 @@ func writeTable(input writeReportInput) error {
 // as before them.
 func writeCSV(input writeReportInput) error {
 	w := csv.NewWriter(input.output)
+	dailyColumn := slices.ContainsFunc(input.results, func(r result) bool { return r.DailyStartMinute != nil })
 	header := []string{
 		"pattern", "demand_profile", "demand_band", "request_every_seconds", "offered_per_minute", "burst_size", "seed", "policy", "routing_policy",
 	}
@@ -1649,6 +1703,9 @@ func writeCSV(input writeReportInput) error {
 		"rider_distance_meters", "direct_distance_meters", "detour_ratio_mean", "detour_ratio_max", "intermediate_stops", "positioning_moves",
 		"coupled_time_percent",
 	)
+	if dailyColumn {
+		header = append(header, "daily_start_minute")
+	}
 	if err := w.Write(header); err != nil {
 		return fmt.Errorf("write CSV header: %w", err)
 	}
@@ -1700,6 +1757,13 @@ func writeCSV(input writeReportInput) error {
 			floatText(outcome.DetourRatioMean), floatText(outcome.DetourRatioMax), strconv.Itoa(outcome.IntermediateStops),
 			strconv.Itoa(outcome.PositioningMoveCount), floatText(outcome.CoupledTimePercent),
 		)
+		if dailyColumn {
+			value := ""
+			if outcome.DailyStartMinute != nil {
+				value = strconv.Itoa(*outcome.DailyStartMinute)
+			}
+			row = append(row, value)
+		}
 		if err := w.Write(row); err != nil {
 			return fmt.Errorf("write CSV row: %w", err)
 		}
