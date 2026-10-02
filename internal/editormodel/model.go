@@ -21,6 +21,7 @@ type request struct {
 	Keys     []string       `json:"keys,omitempty"`
 	Patch    jsontext.Value `json:"patch,omitempty"`
 	Edit     jsontext.Value `json:"edit,omitempty"`
+	History  jsontext.Value `json:"history,omitempty"`
 }
 
 type response struct {
@@ -31,6 +32,7 @@ type response struct {
 	View    *mapView               `json:"view,omitempty"`
 	Checks  *checkReport           `json:"checks,omitempty"`
 	Change  *projectChange         `json:"change,omitempty"`
+	History *historyView           `json:"history,omitempty"`
 }
 
 // Call handles one bounded JSON request without retaining caller data.
@@ -55,6 +57,9 @@ func execute(input string) (response, error) {
 	command, err := decodeRequest(input)
 	if err != nil {
 		return response{}, err
+	}
+	if command.Op == "history" || len(command.History) != 0 {
+		return response{}, errors.New("history needs a stateful editor handler")
 	}
 	if command.Keys != nil || len(command.Patch) != 0 {
 		return response{}, errors.New("a project operation cannot include synchronization fields")
@@ -111,7 +116,7 @@ func decodeRequest(input string) (request, error) {
 }
 
 func operate(config project.Config, command request) (response, error) {
-	if len(command.Edit) != 0 || command.Op != "place-view" && len(command.View) != 0 || command.Op != "park-ride" && len(command.ParkRide) != 0 {
+	if len(command.Edit) != 0 || len(command.History) != 0 || command.Op != "place-view" && len(command.View) != 0 || command.Op != "park-ride" && len(command.ParkRide) != 0 {
 		return response{}, errors.New("editor operation has unrelated parameters")
 	}
 	switch command.Op {

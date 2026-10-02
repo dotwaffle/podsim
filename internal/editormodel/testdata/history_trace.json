@@ -1,0 +1,1450 @@
+[
+  {
+    "kind": "reset",
+    "target": {
+      "scenario": {
+        "version": 1,
+        "name": "Untitled scenario",
+        "network": {
+          "Nodes": [],
+          "Lanes": [],
+          "Stations": []
+        },
+        "fleet": [],
+        "demand": {
+          "enabled": false,
+          "perMinute": 2,
+          "pattern": "balanced",
+          "destination": "",
+          "profile": "",
+          "band": "",
+          "seed": 1
+        },
+        "demandProfiles": [],
+        "sharedRidePartyLimit": 1,
+        "sharedRideMode": "drop-offs",
+        "sharedRideJoin": "unassigned",
+        "sharedRideMaxStops": 3,
+        "platoonLimit": 0,
+        "stationBuffers": false,
+        "pickupReassignment": false,
+        "redistribution": false
+      },
+      "background": null
+    },
+    "changed": true,
+    "value": {
+      "scenario": {
+        "version": 1,
+        "name": "Untitled scenario",
+        "network": {
+          "Nodes": [],
+          "Lanes": [],
+          "Stations": []
+        },
+        "fleet": [],
+        "demand": {
+          "enabled": false,
+          "perMinute": 2,
+          "pattern": "balanced",
+          "destination": "",
+          "profile": "",
+          "band": "",
+          "seed": 1
+        },
+        "demandProfiles": [],
+        "sharedRidePartyLimit": 1,
+        "sharedRideMode": "drop-offs",
+        "sharedRideJoin": "unassigned",
+        "sharedRideMaxStops": 3,
+        "platoonLimit": 0,
+        "stationBuffers": false,
+        "pickupReassignment": false,
+        "redistribution": false
+      },
+      "background": null
+    },
+    "canUndo": false,
+    "canRedo": false,
+    "imageKeys": []
+  },
+  {
+    "kind": "replace",
+    "target": {
+      "scenario": {
+        "version": 1,
+        "name": "A",
+        "network": {
+          "Nodes": [],
+          "Lanes": [],
+          "Stations": []
+        },
+        "fleet": [],
+        "demand": {
+          "enabled": false,
+          "perMinute": 2,
+          "pattern": "balanced",
+          "destination": "",
+          "profile": "",
+          "band": "",
+          "seed": 1
+        },
+        "demandProfiles": [],
+        "sharedRidePartyLimit": 1,
+        "sharedRideMode": "drop-offs",
+        "sharedRideJoin": "unassigned",
+        "sharedRideMaxStops": 3,
+        "platoonLimit": 0,
+        "stationBuffers": false,
+        "pickupReassignment": false,
+        "redistribution": false
+      },
+      "background": {
+        "imageKey": "a",
+        "x": 0,
+        "y": 0,
+        "width": 10,
+        "height": 20,
+        "opacity": 0.4,
+        "frameState": "none"
+      }
+    },
+    "changed": true,
+    "value": {
+      "scenario": {
+        "version": 1,
+        "name": "A",
+        "network": {
+          "Nodes": [],
+          "Lanes": [],
+          "Stations": []
+        },
+        "fleet": [],
+        "demand": {
+          "enabled": false,
+          "perMinute": 2,
+          "pattern": "balanced",
+          "destination": "",
+          "profile": "",
+          "band": "",
+          "seed": 1
+        },
+        "demandProfiles": [],
+        "sharedRidePartyLimit": 1,
+        "sharedRideMode": "drop-offs",
+        "sharedRideJoin": "unassigned",
+        "sharedRideMaxStops": 3,
+        "platoonLimit": 0,
+        "stationBuffers": false,
+        "pickupReassignment": false,
+        "redistribution": false
+      },
+      "background": {
+        "imageKey": "a",
+        "x": 0,
+        "y": 0,
+        "width": 10,
+        "height": 20,
+        "opacity": 0.4,
+        "frameState": "none"
+      }
+    },
+    "canUndo": true,
+    "canRedo": false,
+    "imageKeys": [
+      "a"
+    ]
+  },
+  {
+    "kind": "replace",
+    "target": {
+      "scenario": {
+        "version": 1,
+        "name": "B",
+        "network": {
+          "Nodes": [],
+          "Lanes": [],
+          "Stations": []
+        },
+        "fleet": [],
+        "demand": {
+          "enabled": false,
+          "perMinute": 2,
+          "pattern": "balanced",
+          "destination": "",
+          "profile": "",
+          "band": "",
+          "seed": 1
+        },
+        "demandProfiles": [],
+        "sharedRidePartyLimit": 1,
+        "sharedRideMode": "drop-offs",
+        "sharedRideJoin": "unassigned",
+        "sharedRideMaxStops": 3,
+        "platoonLimit": 0,
+        "stationBuffers": false,
+        "pickupReassignment": false,
+        "redistribution": false,
+        "geo": {
+          "latitude": 51.5,
+          "longitude": -0.1,
+          "projection": "equirectangular",
+          "radius": 6371000
+        }
+      },
+      "background": {
+        "imageKey": "b",
+        "x": 0,
+        "y": 0,
+        "width": 10,
+        "height": 20,
+        "opacity": 0.4,
+        "frameState": "none"
+      }
+    },
+    "changed": true,
+    "value": {
+      "scenario": {
+        "version": 1,
+        "name": "B",
+        "network": {
+          "Nodes": [],
+          "Lanes": [],
+          "Stations": []
+        },
+        "fleet": [],
+        "demand": {
+          "enabled": false,
+          "perMinute": 2,
+          "pattern": "balanced",
+          "destination": "",
+          "profile": "",
+          "band": "",
+          "seed": 1
+        },
+        "demandProfiles": [],
+        "sharedRidePartyLimit": 1,
+        "sharedRideMode": "drop-offs",
+        "sharedRideJoin": "unassigned",
+        "sharedRideMaxStops": 3,
+        "platoonLimit": 0,
+        "stationBuffers": false,
+        "pickupReassignment": false,
+        "redistribution": false,
+        "geo": {
+          "latitude": 51.5,
+          "longitude": -0.1,
+          "projection": "equirectangular",
+          "radius": 6371000
+        }
+      },
+      "background": {
+        "imageKey": "b",
+        "x": 0,
+        "y": 0,
+        "width": 10,
+        "height": 20,
+        "opacity": 0.4,
+        "frameState": "none"
+      }
+    },
+    "canUndo": true,
+    "canRedo": false,
+    "imageKeys": [
+      "a",
+      "b"
+    ]
+  },
+  {
+    "kind": "commitFrom",
+    "target": {
+      "scenario": {
+        "version": 1,
+        "name": "B",
+        "network": {
+          "Nodes": [],
+          "Lanes": [],
+          "Stations": []
+        },
+        "fleet": [],
+        "demand": {
+          "enabled": false,
+          "perMinute": 2,
+          "pattern": "balanced",
+          "destination": "",
+          "profile": "",
+          "band": "",
+          "seed": 1
+        },
+        "demandProfiles": [],
+        "sharedRidePartyLimit": 1,
+        "sharedRideMode": "drop-offs",
+        "sharedRideJoin": "unassigned",
+        "sharedRideMaxStops": 3,
+        "platoonLimit": 0,
+        "stationBuffers": false,
+        "pickupReassignment": false,
+        "redistribution": false,
+        "geo": {
+          "latitude": 51.5,
+          "longitude": -0.1,
+          "projection": "equirectangular",
+          "radius": 6371000
+        }
+      },
+      "background": {
+        "imageKey": "b",
+        "x": 0,
+        "y": 0,
+        "width": 10,
+        "height": 20,
+        "opacity": 0.9,
+        "frameState": "none"
+      }
+    },
+    "changed": true,
+    "value": {
+      "scenario": {
+        "version": 1,
+        "name": "B",
+        "network": {
+          "Nodes": [],
+          "Lanes": [],
+          "Stations": []
+        },
+        "fleet": [],
+        "demand": {
+          "enabled": false,
+          "perMinute": 2,
+          "pattern": "balanced",
+          "destination": "",
+          "profile": "",
+          "band": "",
+          "seed": 1
+        },
+        "demandProfiles": [],
+        "sharedRidePartyLimit": 1,
+        "sharedRideMode": "drop-offs",
+        "sharedRideJoin": "unassigned",
+        "sharedRideMaxStops": 3,
+        "platoonLimit": 0,
+        "stationBuffers": false,
+        "pickupReassignment": false,
+        "redistribution": false,
+        "geo": {
+          "latitude": 51.5,
+          "longitude": -0.1,
+          "projection": "equirectangular",
+          "radius": 6371000
+        }
+      },
+      "background": {
+        "imageKey": "b",
+        "x": 0,
+        "y": 0,
+        "width": 10,
+        "height": 20,
+        "opacity": 0.9,
+        "frameState": "none"
+      }
+    },
+    "canUndo": true,
+    "canRedo": false,
+    "imageKeys": [
+      "a",
+      "b"
+    ]
+  },
+  {
+    "kind": "undo",
+    "changed": true,
+    "value": {
+      "scenario": {
+        "version": 1,
+        "name": "B",
+        "network": {
+          "Nodes": [],
+          "Lanes": [],
+          "Stations": []
+        },
+        "fleet": [],
+        "demand": {
+          "enabled": false,
+          "perMinute": 2,
+          "pattern": "balanced",
+          "destination": "",
+          "profile": "",
+          "band": "",
+          "seed": 1
+        },
+        "demandProfiles": [],
+        "sharedRidePartyLimit": 1,
+        "sharedRideMode": "drop-offs",
+        "sharedRideJoin": "unassigned",
+        "sharedRideMaxStops": 3,
+        "platoonLimit": 0,
+        "stationBuffers": false,
+        "pickupReassignment": false,
+        "redistribution": false,
+        "geo": {
+          "latitude": 51.5,
+          "longitude": -0.1,
+          "projection": "equirectangular",
+          "radius": 6371000
+        }
+      },
+      "background": {
+        "imageKey": "b",
+        "x": 0,
+        "y": 0,
+        "width": 10,
+        "height": 20,
+        "opacity": 0.4,
+        "frameState": "none"
+      }
+    },
+    "canUndo": true,
+    "canRedo": true,
+    "imageKeys": [
+      "a",
+      "b"
+    ]
+  },
+  {
+    "kind": "replace",
+    "target": {
+      "scenario": {
+        "version": 1,
+        "name": "B",
+        "network": {
+          "Nodes": [],
+          "Lanes": [],
+          "Stations": []
+        },
+        "fleet": [],
+        "demand": {
+          "enabled": false,
+          "perMinute": 2,
+          "pattern": "balanced",
+          "destination": "",
+          "profile": "",
+          "band": "",
+          "seed": 1
+        },
+        "demandProfiles": [],
+        "sharedRidePartyLimit": 1,
+        "sharedRideMode": "drop-offs",
+        "sharedRideJoin": "unassigned",
+        "sharedRideMaxStops": 3,
+        "platoonLimit": 0,
+        "stationBuffers": false,
+        "pickupReassignment": false,
+        "redistribution": false,
+        "geo": {
+          "radius": 6371000,
+          "projection": "equirectangular",
+          "longitude": -0.1,
+          "latitude": 51.5
+        }
+      },
+      "background": {
+        "imageKey": "b",
+        "x": 0,
+        "y": 0,
+        "width": 10,
+        "height": 20,
+        "opacity": 0.4,
+        "frameState": "none"
+      }
+    },
+    "changed": false,
+    "value": {
+      "scenario": {
+        "version": 1,
+        "name": "B",
+        "network": {
+          "Nodes": [],
+          "Lanes": [],
+          "Stations": []
+        },
+        "fleet": [],
+        "demand": {
+          "enabled": false,
+          "perMinute": 2,
+          "pattern": "balanced",
+          "destination": "",
+          "profile": "",
+          "band": "",
+          "seed": 1
+        },
+        "demandProfiles": [],
+        "sharedRidePartyLimit": 1,
+        "sharedRideMode": "drop-offs",
+        "sharedRideJoin": "unassigned",
+        "sharedRideMaxStops": 3,
+        "platoonLimit": 0,
+        "stationBuffers": false,
+        "pickupReassignment": false,
+        "redistribution": false,
+        "geo": {
+          "latitude": 51.5,
+          "longitude": -0.1,
+          "projection": "equirectangular",
+          "radius": 6371000
+        }
+      },
+      "background": {
+        "imageKey": "b",
+        "x": 0,
+        "y": 0,
+        "width": 10,
+        "height": 20,
+        "opacity": 0.4,
+        "frameState": "none"
+      }
+    },
+    "canUndo": true,
+    "canRedo": true,
+    "imageKeys": [
+      "a",
+      "b"
+    ]
+  },
+  {
+    "kind": "redo",
+    "changed": true,
+    "value": {
+      "scenario": {
+        "version": 1,
+        "name": "B",
+        "network": {
+          "Nodes": [],
+          "Lanes": [],
+          "Stations": []
+        },
+        "fleet": [],
+        "demand": {
+          "enabled": false,
+          "perMinute": 2,
+          "pattern": "balanced",
+          "destination": "",
+          "profile": "",
+          "band": "",
+          "seed": 1
+        },
+        "demandProfiles": [],
+        "sharedRidePartyLimit": 1,
+        "sharedRideMode": "drop-offs",
+        "sharedRideJoin": "unassigned",
+        "sharedRideMaxStops": 3,
+        "platoonLimit": 0,
+        "stationBuffers": false,
+        "pickupReassignment": false,
+        "redistribution": false,
+        "geo": {
+          "latitude": 51.5,
+          "longitude": -0.1,
+          "projection": "equirectangular",
+          "radius": 6371000
+        }
+      },
+      "background": {
+        "imageKey": "b",
+        "x": 0,
+        "y": 0,
+        "width": 10,
+        "height": 20,
+        "opacity": 0.9,
+        "frameState": "none"
+      }
+    },
+    "canUndo": true,
+    "canRedo": false,
+    "imageKeys": [
+      "a",
+      "b"
+    ]
+  },
+  {
+    "kind": "replace",
+    "target": {
+      "scenario": {
+        "version": 1,
+        "name": "Preview repair",
+        "network": {
+          "Nodes": [],
+          "Lanes": [],
+          "Stations": []
+        },
+        "fleet": [],
+        "demand": {
+          "enabled": false,
+          "perMinute": 2,
+          "pattern": "balanced",
+          "destination": "",
+          "profile": "",
+          "band": "",
+          "seed": 1
+        },
+        "demandProfiles": [],
+        "sharedRidePartyLimit": 1,
+        "sharedRideMode": "drop-offs",
+        "sharedRideJoin": "unassigned",
+        "sharedRideMaxStops": 3,
+        "platoonLimit": 0,
+        "stationBuffers": false,
+        "pickupReassignment": false,
+        "redistribution": false,
+        "geo": {
+          "latitude": 51.5,
+          "longitude": -0.1,
+          "projection": "equirectangular",
+          "radius": 6371000
+        }
+      },
+      "background": {
+        "imageKey": "b",
+        "x": 0,
+        "y": 0,
+        "width": 10,
+        "height": 20,
+        "opacity": 0.9,
+        "frameState": "none"
+      }
+    },
+    "record": false,
+    "changed": true,
+    "value": {
+      "scenario": {
+        "version": 1,
+        "name": "Preview repair",
+        "network": {
+          "Nodes": [],
+          "Lanes": [],
+          "Stations": []
+        },
+        "fleet": [],
+        "demand": {
+          "enabled": false,
+          "perMinute": 2,
+          "pattern": "balanced",
+          "destination": "",
+          "profile": "",
+          "band": "",
+          "seed": 1
+        },
+        "demandProfiles": [],
+        "sharedRidePartyLimit": 1,
+        "sharedRideMode": "drop-offs",
+        "sharedRideJoin": "unassigned",
+        "sharedRideMaxStops": 3,
+        "platoonLimit": 0,
+        "stationBuffers": false,
+        "pickupReassignment": false,
+        "redistribution": false,
+        "geo": {
+          "latitude": 51.5,
+          "longitude": -0.1,
+          "projection": "equirectangular",
+          "radius": 6371000
+        }
+      },
+      "background": {
+        "imageKey": "b",
+        "x": 0,
+        "y": 0,
+        "width": 10,
+        "height": 20,
+        "opacity": 0.9,
+        "frameState": "none"
+      }
+    },
+    "canUndo": true,
+    "canRedo": false,
+    "imageKeys": [
+      "a",
+      "b"
+    ]
+  },
+  {
+    "kind": "replace",
+    "target": {
+      "scenario": {
+        "version": 1,
+        "name": false,
+        "network": {
+          "Nodes": [],
+          "Lanes": [],
+          "Stations": []
+        },
+        "fleet": [],
+        "demand": {
+          "enabled": false,
+          "perMinute": 2,
+          "pattern": "balanced",
+          "destination": "",
+          "profile": "",
+          "band": "",
+          "seed": 1
+        },
+        "demandProfiles": [],
+        "sharedRidePartyLimit": 1,
+        "sharedRideMode": "drop-offs",
+        "sharedRideJoin": "unassigned",
+        "sharedRideMaxStops": 3,
+        "platoonLimit": 0,
+        "stationBuffers": false,
+        "pickupReassignment": false,
+        "redistribution": false,
+        "geo": {
+          "latitude": 51.5,
+          "longitude": -0.1,
+          "projection": "equirectangular",
+          "radius": 6371000
+        }
+      },
+      "background": {
+        "imageKey": "b",
+        "x": 0,
+        "y": 0,
+        "width": 10,
+        "height": 20,
+        "opacity": 0.9,
+        "frameState": "none"
+      }
+    },
+    "changed": true,
+    "value": {
+      "scenario": {
+        "version": 1,
+        "name": false,
+        "network": {
+          "Nodes": [],
+          "Lanes": [],
+          "Stations": []
+        },
+        "fleet": [],
+        "demand": {
+          "enabled": false,
+          "perMinute": 2,
+          "pattern": "balanced",
+          "destination": "",
+          "profile": "",
+          "band": "",
+          "seed": 1
+        },
+        "demandProfiles": [],
+        "sharedRidePartyLimit": 1,
+        "sharedRideMode": "drop-offs",
+        "sharedRideJoin": "unassigned",
+        "sharedRideMaxStops": 3,
+        "platoonLimit": 0,
+        "stationBuffers": false,
+        "pickupReassignment": false,
+        "redistribution": false,
+        "geo": {
+          "latitude": 51.5,
+          "longitude": -0.1,
+          "projection": "equirectangular",
+          "radius": 6371000
+        }
+      },
+      "background": {
+        "imageKey": "b",
+        "x": 0,
+        "y": 0,
+        "width": 10,
+        "height": 20,
+        "opacity": 0.9,
+        "frameState": "none"
+      }
+    },
+    "canUndo": true,
+    "canRedo": false,
+    "imageKeys": [
+      "a",
+      "b"
+    ]
+  },
+  {
+    "kind": "undo",
+    "changed": true,
+    "value": {
+      "scenario": {
+        "version": 1,
+        "name": "Preview repair",
+        "network": {
+          "Nodes": [],
+          "Lanes": [],
+          "Stations": []
+        },
+        "fleet": [],
+        "demand": {
+          "enabled": false,
+          "perMinute": 2,
+          "pattern": "balanced",
+          "destination": "",
+          "profile": "",
+          "band": "",
+          "seed": 1
+        },
+        "demandProfiles": [],
+        "sharedRidePartyLimit": 1,
+        "sharedRideMode": "drop-offs",
+        "sharedRideJoin": "unassigned",
+        "sharedRideMaxStops": 3,
+        "platoonLimit": 0,
+        "stationBuffers": false,
+        "pickupReassignment": false,
+        "redistribution": false,
+        "geo": {
+          "latitude": 51.5,
+          "longitude": -0.1,
+          "projection": "equirectangular",
+          "radius": 6371000
+        }
+      },
+      "background": {
+        "imageKey": "b",
+        "x": 0,
+        "y": 0,
+        "width": 10,
+        "height": 20,
+        "opacity": 0.9,
+        "frameState": "none"
+      }
+    },
+    "canUndo": true,
+    "canRedo": true,
+    "imageKeys": [
+      "a",
+      "b"
+    ]
+  },
+  {
+    "kind": "redo",
+    "changed": true,
+    "value": {
+      "scenario": {
+        "version": 1,
+        "name": false,
+        "network": {
+          "Nodes": [],
+          "Lanes": [],
+          "Stations": []
+        },
+        "fleet": [],
+        "demand": {
+          "enabled": false,
+          "perMinute": 2,
+          "pattern": "balanced",
+          "destination": "",
+          "profile": "",
+          "band": "",
+          "seed": 1
+        },
+        "demandProfiles": [],
+        "sharedRidePartyLimit": 1,
+        "sharedRideMode": "drop-offs",
+        "sharedRideJoin": "unassigned",
+        "sharedRideMaxStops": 3,
+        "platoonLimit": 0,
+        "stationBuffers": false,
+        "pickupReassignment": false,
+        "redistribution": false,
+        "geo": {
+          "latitude": 51.5,
+          "longitude": -0.1,
+          "projection": "equirectangular",
+          "radius": 6371000
+        }
+      },
+      "background": {
+        "imageKey": "b",
+        "x": 0,
+        "y": 0,
+        "width": 10,
+        "height": 20,
+        "opacity": 0.9,
+        "frameState": "none"
+      }
+    },
+    "canUndo": true,
+    "canRedo": false,
+    "imageKeys": [
+      "a",
+      "b"
+    ]
+  },
+  {
+    "kind": "dropOldest",
+    "changed": true,
+    "value": {
+      "scenario": {
+        "version": 1,
+        "name": false,
+        "network": {
+          "Nodes": [],
+          "Lanes": [],
+          "Stations": []
+        },
+        "fleet": [],
+        "demand": {
+          "enabled": false,
+          "perMinute": 2,
+          "pattern": "balanced",
+          "destination": "",
+          "profile": "",
+          "band": "",
+          "seed": 1
+        },
+        "demandProfiles": [],
+        "sharedRidePartyLimit": 1,
+        "sharedRideMode": "drop-offs",
+        "sharedRideJoin": "unassigned",
+        "sharedRideMaxStops": 3,
+        "platoonLimit": 0,
+        "stationBuffers": false,
+        "pickupReassignment": false,
+        "redistribution": false,
+        "geo": {
+          "latitude": 51.5,
+          "longitude": -0.1,
+          "projection": "equirectangular",
+          "radius": 6371000
+        }
+      },
+      "background": {
+        "imageKey": "b",
+        "x": 0,
+        "y": 0,
+        "width": 10,
+        "height": 20,
+        "opacity": 0.9,
+        "frameState": "none"
+      }
+    },
+    "canUndo": true,
+    "canRedo": false,
+    "imageKeys": [
+      "a",
+      "b"
+    ]
+  },
+  {
+    "kind": "undo",
+    "changed": true,
+    "value": {
+      "scenario": {
+        "version": 1,
+        "name": "Preview repair",
+        "network": {
+          "Nodes": [],
+          "Lanes": [],
+          "Stations": []
+        },
+        "fleet": [],
+        "demand": {
+          "enabled": false,
+          "perMinute": 2,
+          "pattern": "balanced",
+          "destination": "",
+          "profile": "",
+          "band": "",
+          "seed": 1
+        },
+        "demandProfiles": [],
+        "sharedRidePartyLimit": 1,
+        "sharedRideMode": "drop-offs",
+        "sharedRideJoin": "unassigned",
+        "sharedRideMaxStops": 3,
+        "platoonLimit": 0,
+        "stationBuffers": false,
+        "pickupReassignment": false,
+        "redistribution": false,
+        "geo": {
+          "latitude": 51.5,
+          "longitude": -0.1,
+          "projection": "equirectangular",
+          "radius": 6371000
+        }
+      },
+      "background": {
+        "imageKey": "b",
+        "x": 0,
+        "y": 0,
+        "width": 10,
+        "height": 20,
+        "opacity": 0.9,
+        "frameState": "none"
+      }
+    },
+    "canUndo": true,
+    "canRedo": true,
+    "imageKeys": [
+      "a",
+      "b"
+    ]
+  },
+  {
+    "kind": "undo",
+    "changed": true,
+    "value": {
+      "scenario": {
+        "version": 1,
+        "name": "B",
+        "network": {
+          "Nodes": [],
+          "Lanes": [],
+          "Stations": []
+        },
+        "fleet": [],
+        "demand": {
+          "enabled": false,
+          "perMinute": 2,
+          "pattern": "balanced",
+          "destination": "",
+          "profile": "",
+          "band": "",
+          "seed": 1
+        },
+        "demandProfiles": [],
+        "sharedRidePartyLimit": 1,
+        "sharedRideMode": "drop-offs",
+        "sharedRideJoin": "unassigned",
+        "sharedRideMaxStops": 3,
+        "platoonLimit": 0,
+        "stationBuffers": false,
+        "pickupReassignment": false,
+        "redistribution": false,
+        "geo": {
+          "latitude": 51.5,
+          "longitude": -0.1,
+          "projection": "equirectangular",
+          "radius": 6371000
+        }
+      },
+      "background": {
+        "imageKey": "b",
+        "x": 0,
+        "y": 0,
+        "width": 10,
+        "height": 20,
+        "opacity": 0.4,
+        "frameState": "none"
+      }
+    },
+    "canUndo": true,
+    "canRedo": true,
+    "imageKeys": [
+      "a",
+      "b"
+    ]
+  },
+  {
+    "kind": "redo",
+    "changed": true,
+    "value": {
+      "scenario": {
+        "version": 1,
+        "name": "Preview repair",
+        "network": {
+          "Nodes": [],
+          "Lanes": [],
+          "Stations": []
+        },
+        "fleet": [],
+        "demand": {
+          "enabled": false,
+          "perMinute": 2,
+          "pattern": "balanced",
+          "destination": "",
+          "profile": "",
+          "band": "",
+          "seed": 1
+        },
+        "demandProfiles": [],
+        "sharedRidePartyLimit": 1,
+        "sharedRideMode": "drop-offs",
+        "sharedRideJoin": "unassigned",
+        "sharedRideMaxStops": 3,
+        "platoonLimit": 0,
+        "stationBuffers": false,
+        "pickupReassignment": false,
+        "redistribution": false,
+        "geo": {
+          "latitude": 51.5,
+          "longitude": -0.1,
+          "projection": "equirectangular",
+          "radius": 6371000
+        }
+      },
+      "background": {
+        "imageKey": "b",
+        "x": 0,
+        "y": 0,
+        "width": 10,
+        "height": 20,
+        "opacity": 0.9,
+        "frameState": "none"
+      }
+    },
+    "canUndo": true,
+    "canRedo": true,
+    "imageKeys": [
+      "a",
+      "b"
+    ]
+  },
+  {
+    "kind": "replace",
+    "target": {
+      "scenario": {
+        "version": 1,
+        "name": "Preview repair",
+        "network": {
+          "Nodes": [],
+          "Lanes": [],
+          "Stations": []
+        },
+        "fleet": [],
+        "demand": {
+          "enabled": false,
+          "perMinute": 2,
+          "pattern": "balanced",
+          "destination": "",
+          "profile": "",
+          "band": "",
+          "seed": 1
+        },
+        "demandProfiles": [],
+        "sharedRidePartyLimit": 1,
+        "sharedRideMode": "drop-offs",
+        "sharedRideJoin": "unassigned",
+        "sharedRideMaxStops": 3,
+        "platoonLimit": 0,
+        "stationBuffers": false,
+        "pickupReassignment": false,
+        "redistribution": false
+      },
+      "background": null
+    },
+    "changed": true,
+    "value": {
+      "scenario": {
+        "version": 1,
+        "name": "Preview repair",
+        "network": {
+          "Nodes": [],
+          "Lanes": [],
+          "Stations": []
+        },
+        "fleet": [],
+        "demand": {
+          "enabled": false,
+          "perMinute": 2,
+          "pattern": "balanced",
+          "destination": "",
+          "profile": "",
+          "band": "",
+          "seed": 1
+        },
+        "demandProfiles": [],
+        "sharedRidePartyLimit": 1,
+        "sharedRideMode": "drop-offs",
+        "sharedRideJoin": "unassigned",
+        "sharedRideMaxStops": 3,
+        "platoonLimit": 0,
+        "stationBuffers": false,
+        "pickupReassignment": false,
+        "redistribution": false
+      },
+      "background": null
+    },
+    "canUndo": true,
+    "canRedo": false,
+    "imageKeys": [
+      "a",
+      "b"
+    ]
+  },
+  {
+    "kind": "undo",
+    "changed": true,
+    "value": {
+      "scenario": {
+        "version": 1,
+        "name": "Preview repair",
+        "network": {
+          "Nodes": [],
+          "Lanes": [],
+          "Stations": []
+        },
+        "fleet": [],
+        "demand": {
+          "enabled": false,
+          "perMinute": 2,
+          "pattern": "balanced",
+          "destination": "",
+          "profile": "",
+          "band": "",
+          "seed": 1
+        },
+        "demandProfiles": [],
+        "sharedRidePartyLimit": 1,
+        "sharedRideMode": "drop-offs",
+        "sharedRideJoin": "unassigned",
+        "sharedRideMaxStops": 3,
+        "platoonLimit": 0,
+        "stationBuffers": false,
+        "pickupReassignment": false,
+        "redistribution": false,
+        "geo": {
+          "latitude": 51.5,
+          "longitude": -0.1,
+          "projection": "equirectangular",
+          "radius": 6371000
+        }
+      },
+      "background": {
+        "imageKey": "b",
+        "x": 0,
+        "y": 0,
+        "width": 10,
+        "height": 20,
+        "opacity": 0.9,
+        "frameState": "none"
+      }
+    },
+    "canUndo": true,
+    "canRedo": true,
+    "imageKeys": [
+      "a",
+      "b"
+    ]
+  },
+  {
+    "kind": "redo",
+    "changed": true,
+    "value": {
+      "scenario": {
+        "version": 1,
+        "name": "Preview repair",
+        "network": {
+          "Nodes": [],
+          "Lanes": [],
+          "Stations": []
+        },
+        "fleet": [],
+        "demand": {
+          "enabled": false,
+          "perMinute": 2,
+          "pattern": "balanced",
+          "destination": "",
+          "profile": "",
+          "band": "",
+          "seed": 1
+        },
+        "demandProfiles": [],
+        "sharedRidePartyLimit": 1,
+        "sharedRideMode": "drop-offs",
+        "sharedRideJoin": "unassigned",
+        "sharedRideMaxStops": 3,
+        "platoonLimit": 0,
+        "stationBuffers": false,
+        "pickupReassignment": false,
+        "redistribution": false
+      },
+      "background": null
+    },
+    "canUndo": true,
+    "canRedo": false,
+    "imageKeys": [
+      "a",
+      "b"
+    ]
+  },
+  {
+    "kind": "reset",
+    "target": {
+      "scenario": {
+        "version": 1,
+        "name": "Preview repair",
+        "network": {
+          "Nodes": [],
+          "Lanes": [],
+          "Stations": []
+        },
+        "fleet": [],
+        "demand": {
+          "enabled": false,
+          "perMinute": 2,
+          "pattern": "balanced",
+          "destination": "",
+          "profile": "",
+          "band": "",
+          "seed": 1
+        },
+        "demandProfiles": [],
+        "sharedRidePartyLimit": 1,
+        "sharedRideMode": "drop-offs",
+        "sharedRideJoin": "unassigned",
+        "sharedRideMaxStops": 3,
+        "platoonLimit": 0,
+        "stationBuffers": false,
+        "pickupReassignment": false,
+        "redistribution": false
+      },
+      "background": null
+    },
+    "changed": true,
+    "value": {
+      "scenario": {
+        "version": 1,
+        "name": "Preview repair",
+        "network": {
+          "Nodes": [],
+          "Lanes": [],
+          "Stations": []
+        },
+        "fleet": [],
+        "demand": {
+          "enabled": false,
+          "perMinute": 2,
+          "pattern": "balanced",
+          "destination": "",
+          "profile": "",
+          "band": "",
+          "seed": 1
+        },
+        "demandProfiles": [],
+        "sharedRidePartyLimit": 1,
+        "sharedRideMode": "drop-offs",
+        "sharedRideJoin": "unassigned",
+        "sharedRideMaxStops": 3,
+        "platoonLimit": 0,
+        "stationBuffers": false,
+        "pickupReassignment": false,
+        "redistribution": false
+      },
+      "background": null
+    },
+    "canUndo": false,
+    "canRedo": false,
+    "imageKeys": []
+  },
+  {
+    "kind": "undo",
+    "changed": false,
+    "value": {
+      "scenario": {
+        "version": 1,
+        "name": "Preview repair",
+        "network": {
+          "Nodes": [],
+          "Lanes": [],
+          "Stations": []
+        },
+        "fleet": [],
+        "demand": {
+          "enabled": false,
+          "perMinute": 2,
+          "pattern": "balanced",
+          "destination": "",
+          "profile": "",
+          "band": "",
+          "seed": 1
+        },
+        "demandProfiles": [],
+        "sharedRidePartyLimit": 1,
+        "sharedRideMode": "drop-offs",
+        "sharedRideJoin": "unassigned",
+        "sharedRideMaxStops": 3,
+        "platoonLimit": 0,
+        "stationBuffers": false,
+        "pickupReassignment": false,
+        "redistribution": false
+      },
+      "background": null
+    },
+    "canUndo": false,
+    "canRedo": false,
+    "imageKeys": []
+  },
+  {
+    "kind": "redo",
+    "changed": false,
+    "value": {
+      "scenario": {
+        "version": 1,
+        "name": "Preview repair",
+        "network": {
+          "Nodes": [],
+          "Lanes": [],
+          "Stations": []
+        },
+        "fleet": [],
+        "demand": {
+          "enabled": false,
+          "perMinute": 2,
+          "pattern": "balanced",
+          "destination": "",
+          "profile": "",
+          "band": "",
+          "seed": 1
+        },
+        "demandProfiles": [],
+        "sharedRidePartyLimit": 1,
+        "sharedRideMode": "drop-offs",
+        "sharedRideJoin": "unassigned",
+        "sharedRideMaxStops": 3,
+        "platoonLimit": 0,
+        "stationBuffers": false,
+        "pickupReassignment": false,
+        "redistribution": false
+      },
+      "background": null
+    },
+    "canUndo": false,
+    "canRedo": false,
+    "imageKeys": []
+  },
+  {
+    "kind": "dropOldest",
+    "changed": false,
+    "value": {
+      "scenario": {
+        "version": 1,
+        "name": "Preview repair",
+        "network": {
+          "Nodes": [],
+          "Lanes": [],
+          "Stations": []
+        },
+        "fleet": [],
+        "demand": {
+          "enabled": false,
+          "perMinute": 2,
+          "pattern": "balanced",
+          "destination": "",
+          "profile": "",
+          "band": "",
+          "seed": 1
+        },
+        "demandProfiles": [],
+        "sharedRidePartyLimit": 1,
+        "sharedRideMode": "drop-offs",
+        "sharedRideJoin": "unassigned",
+        "sharedRideMaxStops": 3,
+        "platoonLimit": 0,
+        "stationBuffers": false,
+        "pickupReassignment": false,
+        "redistribution": false
+      },
+      "background": null
+    },
+    "canUndo": false,
+    "canRedo": false,
+    "imageKeys": []
+  }
+]

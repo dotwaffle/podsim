@@ -11,10 +11,11 @@ import (
 )
 
 type projectBranch struct {
-	raw     jsontext.Value
-	decoded project.Config
-	value   any
-	err     error
+	raw        jsontext.Value
+	decoded    project.Config
+	value      any
+	needsValue bool
+	err        error
 }
 
 type engine struct {
@@ -25,6 +26,7 @@ type engine struct {
 	checks   *preparedChecks
 	profiles any
 	size     int
+	timeline *historyTimeline
 }
 
 // NewCall returns a private editor-worker handler with owned project state.
@@ -42,6 +44,15 @@ func (e *engine) handle(input string) (response, error) {
 	command, err := decodeRequest(input)
 	if err != nil {
 		return response{}, err
+	}
+	if command.Op == "history" {
+		if len(command.Project) != 0 || len(command.ParkRide) != 0 || len(command.View) != 0 || len(command.Edit) != 0 || command.Keys != nil || len(command.Patch) != 0 {
+			return response{}, errors.New("history cannot include other operation parameters")
+		}
+		return e.historyOperation(command.History)
+	}
+	if len(command.History) != 0 {
+		return response{}, errors.New("the editor operation cannot include history parameters")
 	}
 	if command.Op == "sync" {
 		if len(command.Project) != 0 || len(command.ParkRide) != 0 || len(command.View) != 0 || len(command.Edit) != 0 {

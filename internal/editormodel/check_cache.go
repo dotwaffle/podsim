@@ -6,6 +6,9 @@ import (
 )
 
 func (e *engine) draftChecks() (checkReport, error) {
+	if err := e.ensureNetworkValue(); err != nil {
+		return checkReport{}, err
+	}
 	draft := make(map[string]any, len(e.branches))
 	for key, branch := range e.branches {
 		draft[key] = branch.value

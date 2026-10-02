@@ -311,6 +311,9 @@ func cloneEditValue(value any) any {
 }
 
 func (e *engine) edit(raw jsontext.Value) (response, error) {
+	if err := e.ensureNetworkValue(); err != nil {
+		return response{}, err
+	}
 	draft := make(map[string]any, len(e.branches))
 	for key, branch := range e.branches {
 		draft[key] = branch.value
