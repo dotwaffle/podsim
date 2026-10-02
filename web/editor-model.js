@@ -72,7 +72,7 @@
 
   async function startWorker() {
     if (typeof DecompressionStream !== "function" || typeof WebAssembly !== "object") throw new Error("This browser needs WebAssembly and native gzip decompression.");
-    root.importScripts("./wasm_exec.js", "./editor.js");
+    root.importScripts("./wasm_exec.js");
     const go = new root.Go();
     const response = await fetch("./editor-model.wasm.gz");
     if (!response.ok || !response.body) throw new Error("The Go editor module could not be downloaded.");
@@ -96,12 +96,12 @@
     if (!result || typeof result !== "object" || Array.isArray(result) || result.fatal) throw new Error("Invalid or fatal Go response");
     return result;
   }
-  // Set the handler after startWorker imports the old model reference.
+  // The worker initializes Go before it accepts model operations.
   const starting = startWorker();
   root.onmessage = async ({ data }) => {
     try {
       await starting;
-      let result;
+      let result, synchronized = false;
       if (data.op === "place-view") result = invoke({ op: data.op, project: data.project, view: data.view });
       else {
         config = Object.fromEntries(data.keys.map((key) => [key, Object.hasOwn(data.patch, key) ? data.patch[key] : config[key]]));
@@ -109,6 +109,7 @@
         if (result.valid !== true && typeof result.error !== "string") throw new Error("Missing Go synchronization verdict");
         needsFullSync = !!result.error;
         if (!result.error) {
+          synchronized = true;
           const command = { op: data.op };
           if (data.parkRide !== undefined) command.parkRide = data.parkRide;
           result = invoke(command);
@@ -116,7 +117,9 @@
       }
       if (data.op === "validate") {
         if (result.valid !== true && typeof result.error !== "string") throw new Error("Missing Go validation verdict");
-        const checks = root.PodsimEditorModel.checkResults(config);
+        const checked = invoke(synchronized ? { op: "checks" } : { op: "checks", project: config });
+        const checks = checked.checks || { errors: [{ text: checked.error || "The Go editor checks failed.", target: null }], warnings: [] };
+        if (!Array.isArray(checks.errors) || !Array.isArray(checks.warnings) || ![...checks.errors, ...checks.warnings].every((row) => row && typeof row.text === "string" && row.text.length > 0)) throw new Error("Invalid Go check response");
         if (result.error && !checks.errors.some((item) => item.text === result.error)) checks.errors.push({ text: result.error });
         root.postMessage({ id: data.id, result: { ...checks, valid: result.valid === true } });
       } else if (data.op === "place-view") {

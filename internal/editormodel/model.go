@@ -28,6 +28,7 @@ type response struct {
 	Profile *project.DemandProfile `json:"profile,omitempty"`
 	Demand  *project.DemandConfig  `json:"demand,omitempty"`
 	View    *mapView               `json:"view,omitempty"`
+	Checks  *checkReport           `json:"checks,omitempty"`
 }
 
 // Call handles one bounded JSON request without retaining caller data.
@@ -61,6 +62,17 @@ func execute(input string) (response, error) {
 	}
 	if command.Project.Kind() != '{' {
 		return response{}, errors.New("editor request needs a project object")
+	}
+	if command.Op == "checks" {
+		if len(command.ParkRide) != 0 || len(command.View) != 0 {
+			return response{}, errors.New("checks do not accept operation parameters")
+		}
+		var draft any
+		if err := json.Unmarshal(command.Project, &draft); err != nil {
+			return response{}, fmt.Errorf("decode editor draft: %w", err)
+		}
+		checks := draftChecks(draft)
+		return response{Checks: &checks}, nil
 	}
 	var config project.Config
 	if err := json.Unmarshal(command.Project, &config, json.RejectUnknownMembers(true)); err != nil {

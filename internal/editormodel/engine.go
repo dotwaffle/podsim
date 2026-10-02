@@ -13,6 +13,7 @@ import (
 type projectBranch struct {
 	raw     jsontext.Value
 	decoded project.Config
+	value   any
 	err     error
 }
 
@@ -21,6 +22,8 @@ type engine struct {
 	config   project.Config
 	err      error
 	ready    bool
+	checks   *preparedChecks
+	profiles any
 }
 
 // NewCall returns a private editor-worker handler with owned project state.
@@ -53,6 +56,16 @@ func (e *engine) handle(input string) (response, error) {
 	}
 	if !e.ready {
 		return response{}, errors.New("the editor project is not synchronized")
+	}
+	if command.Op == "checks" {
+		if len(command.ParkRide) != 0 || len(command.View) != 0 {
+			return response{}, errors.New("checks do not accept operation parameters")
+		}
+		checks, err := e.draftChecks()
+		if err != nil {
+			return response{}, err
+		}
+		return response{Checks: &checks}, nil
 	}
 	if e.err != nil {
 		return response{}, e.err
@@ -106,6 +119,11 @@ func (e *engine) sync(command request) (response, error) {
 		branch := next[key]
 		previous, exists := e.branches[key]
 		if !exists || !bytes.Equal(previous.raw, branch.raw) {
+			if key != "demandProfiles" {
+				if err := json.Unmarshal(branch.raw, &branch.value); err != nil {
+					return response{}, fmt.Errorf("decode editor draft branch: %w", err)
+				}
+			}
 			encoded, err := json.Marshal(map[string]jsontext.Value{key: branch.raw})
 			if err != nil {
 				return response{}, fmt.Errorf("encode project branch: %w", err)
@@ -122,6 +140,13 @@ func (e *engine) sync(command request) (response, error) {
 		if !copyBranch(&config, key, branch.decoded) && firstError == nil {
 			firstError = fmt.Errorf("unsupported editor project field %s", key)
 		}
+	}
+	if !bytes.Equal(e.branches["network"].raw, next["network"].raw) {
+		e.checks = nil
+	} else if e.checks != nil && !bytes.Equal(e.branches["demandProfiles"].raw, next["demandProfiles"].raw) {
+		e.checks.profiles = nil
+		e.checks.profilesReady = false
+		e.profiles = nil
 	}
 	e.branches, e.config, e.err, e.ready = next, config, firstError, true
 	if firstError != nil {
