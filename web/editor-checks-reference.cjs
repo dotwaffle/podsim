@@ -455,8 +455,10 @@ module.exports = function (editor) {
 
   const parse = editor.parseDocument;
   return { validateConfig, configWarnings, checkResults, cutOffStations,
-    parseDocument(text) {
-      const out = parse(text), errors = validateConfig(out.scenario);
+    parseDocument(text, options) {
+      const out = parse(text, options);
+      if (options?.deferMetadata) return out;
+      const errors = validateConfig(out.scenario);
       if (errors.length) throw new Error(`The project has ${errors.length} error${errors.length === 1 ? "" : "s"}. ${errors.slice(0, 3).join(" ")}`);
       return { ...out, scenario: editor.normalizeConfig(out.scenario) };
     },

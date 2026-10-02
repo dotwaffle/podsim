@@ -5039,6 +5039,11 @@ function pageImports() {
   const noop = () => {};
   const deps = {
     ...editor, model, decoder: fake.deps, root: globalThis, MIB: 1024 * 1024,
+    metadataWithGo: async (metadata) => {
+      const asset = metadata.asset || { frameState: "none", frame: null, license: null };
+      const problem = editor.assetError(asset); if (problem) throw new Error(problem);
+      return { ...metadata, asset };
+    },
     backgroundProposal: async (config, command) => {
       if (command.action === "initialize") return { value: { scenario: config, background: { imageKey: command.imageKey, x: 0, y: 0, width: command.width, height: command.height, opacity: command.background ? command.background.opacity : editor.DEFAULT_OPACITY, frameState: "none" } } };
       const problem = editor.frameError(command.frame);
@@ -5708,4 +5713,74 @@ test("bank station pointer previews include every gate and local row once", () =
   for (const id of ["entry", "exit", "b-entry", "b-exit", "b-a0", "b-b0", "b-d0"]) assert.ok(targets.nodeIDs.includes(id), id);
   assert.equal(new Set(targets.nodeIDs).size, targets.nodeIDs.length);
   assert.ok(!targets.nodeIDs.includes("diverge")); assert.ok(!targets.nodeIDs.includes("b-diverge"));
+});
+
+test("browser URL facts retain exact text and current URL acceptance", () => {
+  for (const value of ["https://example.com", " HTTPS://example.com/path ", "https:example.com", "http://example.com", "relative", "https://example.com/\ud800"]) {
+    const metadata = { asset: { frameState: "none", license: { licenseURL: value, copyrightURL: "" } } };
+    const facts = editor.metadataURLFacts(metadata);
+    assert.strictEqual(facts.asset, metadata.asset);
+    assert.equal(facts.urlFacts.licenseURL.text, value);
+    let https; try { https = new URL(value).protocol === "https:"; } catch (_) { https = false; }
+    assert.equal(facts.urlFacts.licenseURL.https, https);
+    assert.equal(Object.hasOwn(facts.urlFacts, "copyrightURL"), false);
+  }
+});
+
+test("deferred import retains PNG and JPEG data URL prefix admission", () => {
+  const scenario = connectedScenario(), bytes = pngBytes(4, 2), base64 = Buffer.from(bytes).toString("base64");
+  for (const prefix of ["data:image/gif;base64,", "garbage,", "", "data:image/png,", "DATA:image/png;base64,"]) {
+    const background = { ...TEST_BACKGROUND, dataURL: prefix + base64 };
+    const document = JSON.stringify({ format: "podsim", version: 1, scenario, background });
+    for (const deferMetadata of [false, true]) assert.throws(() => editor.parseDocument(document, { deferMetadata }), /PNG or JPEG data URL/);
+  }
+  for (const type of ["png", "jpeg"]) {
+    const background = { ...TEST_BACKGROUND, dataURL: dataURL(bytes, type) };
+    const document = JSON.stringify({ format: "podsim", version: 1, scenario, background });
+    assert.equal(editor.parseDocument(document, { deferMetadata: true }).background.dataURL, background.dataURL);
+  }
+});
+
+test("deferred import preserves raw compatibility and metadata until Go verdict", () => {
+  const scenario = { ...connectedScenario(), fleet: [{ StationID: "missing", BerthID: false }], demand: { pattern: "market", destination: false } };
+  const background = { ...TEST_BACKGROUND, dataURL: dataURL(pngBytes(4, 2)), opacity: 5, asset: null };
+  const parsed = editor.parseDocument(JSON.stringify({ format: "podsim", version: 1, scenario, background }), { deferMetadata: true });
+  assert.deepEqual(parsed.scenario.fleet, scenario.fleet);
+  assert.deepEqual(parsed.scenario.demand, scenario.demand);
+  assert.equal(parsed.metadata.placement.opacity, 5);
+  assert.equal(parsed.metadata.asset, null);
+  assert.equal(Object.hasOwn(parsed.metadata, "dataURL"), false);
+  assert.throws(() => editor.parseDocument(JSON.stringify({ format: "podsim", version: 1, scenario, background })), /opacity/);
+});
+
+test("station layout rendering rejects older selection and geometry replies", async (t) => {
+  const source = fs.readFileSync(path.join(__dirname, "editor.js"), "utf8");
+  const start = source.indexOf("\n  function renderStationLayout("), end = source.indexOf("\n  }\n", start) + 5;
+  assert.ok(start >= 0 && end > start);
+  for (const change of ["selection", "geometry"]) await t.test(change, async () => {
+    const inputs = Object.fromEntries(["pitch", "spacing", "setback", "approachLength", "departureLength"].map((key) => [key, { value: "", disabled: false, dataset: {} }]));
+    const controls = new Map();
+    const panel = { isConnected: true, querySelector(selector) {
+      const layout = /^\[data-layout="([^"]+)"\]$/.exec(selector);
+      if (layout) return inputs[layout[1]];
+      if (!controls.has(selector)) controls.set(selector, { value: "", textContent: "", replaceChildren() {} });
+      return controls.get(selector);
+    }, querySelectorAll() { return Object.values(inputs); } };
+    let config = { network: { Stations: [{ ID: "alpha" }, { ID: "beta" }] } };
+    const state = { selection: { id: "alpha" } }, calls = [];
+    const deps = { state, draft: () => config, selectedBank: () => undefined, setControlValue: (control, value) => { control.value = value; },
+      goModel: { call(project, op, layout) { const pending = Promise.withResolvers(); calls.push({ project, op, layout, pending }); return pending.promise; } },
+    };
+    const render = new Function(...Object.keys(deps), `${source.slice(start, end)}\nreturn renderStationLayout;`)(...Object.values(deps));
+    render(panel, config, "alpha");
+    if (change === "selection") state.selection = { id: "beta" };
+    else config = { network: { Stations: config.network.Stations } };
+    render(panel, config, state.selection.id);
+    const summary = (pitch) => ({ layout: { pitch: { value: pitch, reason: "" }, spacing: { value: 200, reason: "" }, setback: { value: 120, reason: "" }, approachLength: { value: null, reason: "No bank" }, departureLength: { value: null, reason: "No bank" } } });
+    calls[0].pending.resolve(summary(75)); await tick();
+    assert.ok(Object.values(inputs).every((input) => input.disabled && input.value === ""), "stale layout must not enable the current controls");
+    calls[1].pending.resolve(summary(40)); await tick();
+    assert.equal(inputs.pitch.disabled, false); assert.equal(inputs.pitch.value, "40");
+    assert.equal(calls[1].op, "stationLayout");assert.equal(calls[1].layout.stationID, state.selection.id);
+  });
 });

@@ -182,3 +182,75 @@ test("proposed edits use edit parameters and retain the transfer baseline until 
   assert.deepEqual(f.sent[2].patch, { name: "Proposed" });
   f.worker.onmessage({ data: { id: f.sent[2].id, result: { valid: true } } }); await accepted;
 });
+
+test("helper client bypasses synchronization and leaves branch transport unchanged", async () => {
+  const f = fixture(), config = { network: {}, name: "kept" };
+  const initial = f.client.call(config);
+  f.worker.onmessage({ data: { id: f.sent.at(-1).id, result: { valid: true } } }); await initial;
+  for (const [op, project, plan, parameter] of [
+    ["backgroundMetadata", null, { asset: null }, "metadata"],
+    ["importCompatibility", { fleet: [null], version: 99 }, undefined, null],
+    ["stationLayout", { network: {} }, { stationID: "missing" }, "layout"],
+  ]) {
+    const pending = f.client.call(project, op, plan), sent = f.sent.at(-1);
+    assert.equal(sent.op, op); assert.equal(sent.keys, undefined); assert.equal(sent.patch, undefined);
+    if (op === "backgroundMetadata") assert.equal(Object.hasOwn(sent, "project"), false); else assert.strictEqual(sent.project, project);
+    if (parameter) assert.strictEqual(sent[parameter], plan);
+    f.worker.onmessage({ data: { id: sent.id, result: { error: "helper rejection" } } });
+    assert.deepEqual(await pending, { error: "helper rejection" });
+  }
+  const after = f.client.call(config);
+  assert.deepEqual(f.sent.at(-1).patch, {});
+  f.worker.onmessage({ data: { id: f.sent.at(-1).id, result: { valid: true } } }); await after;
+});
+
+test("helper operations send raw requests before any synchronization or checks", () => {
+  const { createOperations } = require("./editor-model.js"), calls = [];
+  const operations = createOperations((request) => { calls.push(request); return { change: { patch: {} } }; });
+  const raw = { version: 99, fleet: "invalid" };
+  assert.deepEqual(operations.handle({ id: 5, op: "importCompatibility", project: raw }), { change: { patch: {} } });
+  assert.deepEqual(calls, [{ op: "importCompatibility", project: raw }]);
+  assert.strictEqual(calls[0].project, raw);
+});
+
+test("helper responses reject missing, unrelated and malformed result fields", () => {
+  const { checkedHelper } = require("./editor-model.js");
+  const metadata = { valid: true, metadata: { asset: { frameState: "none", frame: null, license: null } } };
+  assert.strictEqual(checkedHelper(metadata, "backgroundMetadata"), metadata);
+  const field = { value: null, reason: "Unavailable" };
+  const layout = { layout: Object.fromEntries(["pitch", "spacing", "setback", "approachLength", "departureLength"].map((key) => [key, field])) };
+  assert.strictEqual(checkedHelper(layout, "stationLayout"), layout);
+  for (const [op, result] of [
+    ["backgroundMetadata", { valid: true }],
+    ["backgroundMetadata", { ...metadata, checks: {} }],
+    ["backgroundMetadata", { valid: true, metadata: { asset: { frameState: "none", frame: null, license: {} } } }],
+    ["backgroundMetadata", { valid: true, metadata: { ...metadata.metadata, urlFacts: {} } }],
+    ["importCompatibility", { change: { patch: { network: {} } } }],
+    ["importCompatibility", { change: { patch: {} }, valid: true }],
+    ["stationLayout", { layout: { ...layout.layout, pitch: { value: null, reason: "" } } }],
+    ["stationLayout", { layout: { ...layout.layout, spacing: { value: 75, reason: "unavailable" } } }],
+    ["stationLayout", { layout: { ...layout.layout, spacing: { value: "75", reason: "" } } }],
+    ["stationLayout", { error: "failure", layout: {} }],
+  ]) assert.throws(() => checkedHelper(result, op), /Invalid Go/);
+});
+
+test("helper outer-limit errors retain the existing bounded error envelope", () => {
+  const { checkedHelper } = require("./editor-model.js"), result = { valid: false, error: "editor model request is too large" };
+  assert.strictEqual(checkedHelper(result, "backgroundMetadata"), result);
+  assert.throws(() => checkedHelper({ valid: true, error: "invalid" }, "backgroundMetadata"), /Invalid Go/);
+});
+
+test("layout inspections coalesce pending selections and preserve queued edits", async () => {
+  const f = fixture(), config = { network: {} };
+  const active = f.client.call(config, "stationLayout", { stationID: "first" });
+  const edit = f.client.call(config, "edit", { field: "name", value: "kept" });
+  const pending = [];
+  for (let index = 0; index < 20; index++) pending.push(f.client.call(config, "stationLayout", { stationID: "station"+index }).catch((error) => error));
+  f.worker.onmessage({ data: { id: f.sent.at(-1).id, result: { error: "first unavailable" } } }); await active;
+  assert.equal(f.sent.at(-1).op, "edit");
+  f.worker.onmessage({ data: { id: f.sent.at(-1).id, result: { change: { patch: { name: "kept" } } } } }); await edit;
+  assert.equal(f.sent.at(-1).op, "stationLayout");assert.deepEqual(f.sent.at(-1).layout, { stationID: "station19" });
+  f.worker.onmessage({ data: { id: f.sent.at(-1).id, result: { error: "last unavailable" } } });
+  const results = await Promise.all(pending);
+  assert.ok(results.slice(0, -1).every((error) => error.name === "AbortError"));assert.deepEqual(results.at(-1), { error: "last unavailable" });
+});

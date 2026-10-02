@@ -244,7 +244,7 @@ func (g geometryDraft) setBankLayout(id string, raw jsontext.Value) error {
 	return nil
 }
 
-func (g geometryDraft) setBankLaneLength(station, bank map[string]any, key string, length float64) error {
+func (g geometryDraft) bankLengthAnchor(station, bank map[string]any, key string) (string, geometryPoint, geometryPoint, float64, error) {
 	gate, role := text(bank["Entry"]), "entry"
 	if key == "departureLength" {
 		gate, role = text(bank["Exit"]), "exit"
@@ -256,7 +256,7 @@ func (g geometryDraft) setBankLaneLength(station, bank map[string]any, key strin
 		}
 	}
 	if len(lanes) != 1 || member(lanes[0], "Control") != nil {
-		return errors.New("bank length requires one straight entry or exit lane")
+		return "", geometryPoint{}, geometryPoint{}, 0, errors.New("bank length requires one straight entry or exit lane")
 	}
 	anchor := text(member(lanes[0], "From"))
 	if role == "exit" {
@@ -269,16 +269,16 @@ func (g geometryDraft) setBankLaneLength(station, bank map[string]any, key strin
 		}
 	}
 	if len(incident) != 2 {
-		return errors.New("bank length requires a dedicated anchor with two incident lanes")
+		return "", geometryPoint{}, geometryPoint{}, 0, errors.New("bank length requires a dedicated anchor with two incident lanes")
 	}
 	for _, other := range items(g.network["Stations"]) {
 		if stationCoreNodes(other)[anchor] {
-			return errors.New("a bank anchor cannot be a station node")
+			return "", geometryPoint{}, geometryPoint{}, 0, errors.New("a bank anchor cannot be a station node")
 		}
 	}
 	for _, lane := range incident {
 		if member(lane, "Control") != nil {
-			return errors.New("bank length requires straight anchor lanes")
+			return "", geometryPoint{}, geometryPoint{}, 0, errors.New("bank length requires straight anchor lanes")
 		}
 		if member(lane, "ID") == member(lanes[0], "ID") {
 			continue
@@ -289,21 +289,29 @@ func (g geometryDraft) setBankLaneLength(station, bank map[string]any, key strin
 			otherRole = "exit"
 		}
 		if otherStation != "" && (otherStation != station["ID"] || member(lane, "StationRole") != otherRole) || member(lane, "From") == gate || member(lane, "To") == gate {
-			return errors.New("a bank anchor cannot serve another station lane")
+			return "", geometryPoint{}, geometryPoint{}, 0, errors.New("a bank anchor cannot serve another station lane")
 		}
 	}
 	at, err := g.point(anchor)
 	if err != nil {
-		return err
+		return "", geometryPoint{}, geometryPoint{}, 0, err
 	}
 	fixed, err := g.point(gate)
 	if err != nil {
-		return err
+		return "", geometryPoint{}, geometryPoint{}, 0, err
 	}
 	ray := geometryPoint{at.X - fixed.X, at.Y - fixed.Y}
 	oldLength := math.Hypot(ray.X, ray.Y)
 	if oldLength == 0 {
-		return errors.New("a bank anchor needs a nonzero lane ray")
+		return "", geometryPoint{}, geometryPoint{}, 0, errors.New("a bank anchor needs a nonzero lane ray")
+	}
+	return anchor, fixed, ray, oldLength, nil
+}
+
+func (g geometryDraft) setBankLaneLength(station, bank map[string]any, key string, length float64) error {
+	anchor, fixed, ray, oldLength, err := g.bankLengthAnchor(station, bank, key)
+	if err != nil {
+		return err
 	}
 	target := geometryPoint{fixed.X + ray.X*length/oldLength, fixed.Y + ray.Y*length/oldLength}
 	// Keep a requested minimum length above 24 after coordinate rounding.

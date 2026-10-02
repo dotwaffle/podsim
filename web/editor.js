@@ -729,36 +729,43 @@
   // and the background fields. For a background, it also gives asset, the
   // frame state, the frame and the license of its asset member, as
   // documentAsset checks them.
-  function parseDocument(text) {
+  function parseDocument(text, { deferMetadata = false } = {}) {
     let document;
     try { document = JSON.parse(text); } catch (error) { throw new Error(`The file is not valid JSON. ${error.message}`); }
     const { scenario, background } = unwrapDocument(document);
-    const banked = (scenario.network?.Stations || []).filter((station) => station && Object.hasOwn(station, "Banks"));
-    if (scenario.version === 1 && banked.length) throw new Error("Version 1 projects cannot contain station banks.");
-    if (scenario.version === 2 && !banked.length) throw new Error("Version 2 projects need a banked station.");
-    for (const station of banked) {
-      if (!Array.isArray(station.Banks) || !station.Banks.length || station.Banks.length > 8) throw new Error("A station needs 1 to 8 banks.");
-      for (const bank of station.Banks) if (!Array.isArray(bank?.BerthIDs) || !bank.BerthIDs.length || bank.BerthIDs.length > MAX_BERTHS) throw new Error("A bank needs 1 to 200 berth IDs.");
+    if (deferMetadata && background) {
+      if (typeof background !== "object" || Array.isArray(background)) throw new Error("The background must be an object.");
+      if (typeof background.dataURL !== "string" || !/^data:image\/(png|jpeg);base64,/.test(background.dataURL)) throw new Error("The background must be a PNG or JPEG data URL.");
+      imageFacts(background.dataURL);
     }
-    if (background) checkBackground(background);
-    const asset = background ? documentAsset(background.asset) : null;
-    for (const pod of Array.isArray(scenario.fleet) ? scenario.fleet : []) {
-      if (pod && !pod.BerthID) {
-        const station = scenario.network?.Stations?.find((item) => item && item.ID === pod.StationID);
-        pod.BerthID = station?.Berths?.[0]?.ID || "";
+    if (!deferMetadata) {
+      const banked = (scenario.network?.Stations || []).filter((station) => station && Object.hasOwn(station, "Banks"));
+      if (scenario.version === 1 && banked.length) throw new Error("Version 1 projects cannot contain station banks.");
+      if (scenario.version === 2 && !banked.length) throw new Error("Version 2 projects need a banked station.");
+      for (const station of banked) {
+        if (!Array.isArray(station.Banks) || !station.Banks.length || station.Banks.length > 8) throw new Error("A station needs 1 to 8 banks.");
+        for (const bank of station.Banks) if (!Array.isArray(bank?.BerthIDs) || !bank.BerthIDs.length || bank.BerthIDs.length > MAX_BERTHS) throw new Error("A bank needs 1 to 200 berth IDs.");
       }
-    }
-    if (scenario.demand && scenario.demand.pattern === "market") {
-      scenario.demand.pattern = "destination";
-      if (!scenario.demand.destination && scenario.network && Array.isArray(scenario.network.Stations)) {
-        const market = scenario.network.Stations.find((station) => station && !station.ParkingOnly && station.ID === "market");
-        const first = scenario.network.Stations.filter((station) => station && !station.ParkingOnly).at(-1);
-        scenario.demand.destination = (market || first || {}).ID || "";
+      if (background) checkBackground(background);
+      for (const pod of Array.isArray(scenario.fleet) ? scenario.fleet : []) {
+        if (pod && !pod.BerthID) {
+          const station = scenario.network?.Stations?.find((item) => item && item.ID === pod.StationID);
+          pod.BerthID = station?.Berths?.[0]?.ID || "";
+        }
+      }
+      if (scenario.demand && scenario.demand.pattern === "market") {
+        scenario.demand.pattern = "destination";
+        if (!scenario.demand.destination && scenario.network && Array.isArray(scenario.network.Stations)) {
+          const market = scenario.network.Stations.find((station) => station && !station.ParkingOnly && station.ID === "market");
+          const first = scenario.network.Stations.filter((station) => station && !station.ParkingOnly).at(-1);
+          scenario.demand.destination = (market || first || {}).ID || "";
+        }
       }
     }
     // Go checks the raw scenario before defaults can replace invalid values.
     const out = { scenario, background: background ? backgroundFields(background) : null };
-    if (asset) out.asset = asset;
+    if (!deferMetadata && background) out.asset = documentAsset(background.asset);
+    if (deferMetadata) out.metadata = { ...(background ? { placement: Object.fromEntries(["x", "y", "width", "height", "opacity"].map((key) => [key, background[key]])), ...(Object.hasOwn(background, "asset") ? { asset: background.asset } : {}) } : {}) };
     return out;
   }
 
@@ -1885,19 +1892,18 @@
   // the frame state. image has bytes, mime, pixelWidth and pixelHeight from
   // the image header, frame and license. It throws an error when the
   // record is not valid.
-  function storedBackground(record) {
+  function storedBackground(record, { deferMetadata = false } = {}) {
     if (record === null || record === undefined) return null;
     if (typeof record !== "object" || Array.isArray(record)) throw new Error("The stored background is not a record.");
     const item = record.background;
     if (item === null || typeof item !== "object" || Array.isArray(item)) throw new Error("The background must be an object.");
     if (typeof item.imageKey !== "string" || !IMAGE_KEY_PATTERN.test(item.imageKey)) throw new Error("The stored background has no valid image key.");
-    checkPlacement(item);
+    if (!deferMetadata) checkPlacement(item);
     const image = item.image;
     if (image === null || typeof image !== "object" || Array.isArray(image)) throw new Error("The stored background has no image.");
     const facts = imageBytesFacts(image.bytes);
     const asset = { frameState: item.frameState, frame: image.frame ?? null, license: image.license ?? null };
-    const error = assetError(asset);
-    if (error) throw new Error(error);
+    if (!deferMetadata) { const error = assetError(asset); if (error) throw new Error(error); }
     const { imageKey, x, y, width, height, opacity } = item;
     return {
       background: { imageKey, x, y, width, height, opacity, frameState: asset.frameState },
@@ -1923,7 +1929,12 @@
   async function restoreStoredBackground(record, page) {
     let restored = null;
     try {
-      restored = storedBackground(record);
+      restored = storedBackground(record, { deferMetadata: Boolean(page.metadata) });
+      if (restored && page.metadata) {
+        const metadata = await page.metadata({ placement: Object.fromEntries(["x", "y", "width", "height", "opacity"].map((key) => [key, restored.background[key]])), asset: { frameState: restored.background.frameState, frame: restored.image.frame, license: restored.image.license } });
+        restored.background = { imageKey: restored.background.imageKey, ...metadata.placement, frameState: metadata.asset.frameState };
+        restored.image = { ...restored.image, frame: metadata.asset.frame, license: metadata.asset.license };
+      }
       if (restored && page.decode) await page.decode(restored);
     } catch (error) { page.warn(`${error.message} ${STORED_BACKGROUND_KEPT_TEXT}`); return false; }
     if (!restored) return false;
@@ -2386,6 +2397,14 @@
     try { return win.parent !== win && win.parent.podsimShell === true ? win.parent : null; } catch (_) { return null; }
   }
 
+  function metadataURLFacts(metadata) {
+    const facts = {}, license = metadata.asset?.license;
+    if (license && typeof license === "object" && !Array.isArray(license)) for (const key of ["licenseURL", "copyrightURL"]) {
+      if (typeof license[key] === "string" && license[key]) facts[key] = { text: license[key], https: httpsURL(license[key]) };
+    }
+    return { ...metadata, urlFacts: facts };
+  }
+
   const API = {
 
     MIN_LANE_LENGTH, MAX_PODS, MAX_STATIONS, MAX_NODES, MAX_LANES, MAX_NODE_LANES, MAX_FLOWS, MIN_ZOOM, NODE_LABEL_SCALE, NODE_LABEL_SIZE, LANE_PAIR_OFFSET, CHEVRON_LANE_LENGTH, BERTH_PITCH, STATION_PADDING, CLEARANCE, CHECK_DELAY, emptyConfig, fallbackConfig,
@@ -2393,7 +2412,7 @@
     laneLength, curveLength, stationNodeOwners, dragTargets, checkSelector, checkSelection, selectionPoint, focusView,
     GEO_PROJECTION, GEO_RADIUS, GEO_MAX_LATITUDE, MAX_COORDINATE, FRAME_SOURCES, SCALE_TOLERANCE, ALIGN_TOLERANCE, RESAMPLE_MAX_SIDE, projectPoint, frameError, framePlacement, frameAligned, resampleSize, mercatorY, resampleRows,
     problemCountText, createCheckTimer, validationSummary, checkFocusKey, IMAGE_FILE_BYTES, IMAGE_MAX_SIDE, IMAGE_MAX_PIXELS, imageFacts, imageBytesFacts, dataURLToBytes, bytesToDataURL, checkImageSize,
-    IMAGE_KEY_PATTERN, newImageKey, FRAME_STATES, LICENSE_LIMITS, licenseError, assetError, backgroundRecordText, STORED_BACKGROUND_KEPT_TEXT, SERVER_PROJECT_BYTES, PROJECT_FILE_BYTES, SERVER_COMMAND_BYTES, SERVER_COMMAND_JSON_BYTES, GZIP_COMMAND_BYTES, SERVER_TOO_LARGE_TEXT, postCommand, dataURLBytes, serializeDocument, parseDocument,
+    metadataURLFacts, IMAGE_KEY_PATTERN, newImageKey, FRAME_STATES, LICENSE_LIMITS, licenseError, assetError, backgroundRecordText, STORED_BACKGROUND_KEPT_TEXT, SERVER_PROJECT_BYTES, PROJECT_FILE_BYTES, SERVER_COMMAND_BYTES, SERVER_COMMAND_JSON_BYTES, GZIP_COMMAND_BYTES, SERVER_TOO_LARGE_TEXT, postCommand, dataURLBytes, serializeDocument, parseDocument,
     networkBounds, fitView, zoomScale, nodeLabelSize, pairedLaneIDs, showsChevron, laneOffset, laneCurve, lanePathData, SNAPSHOT_ATTEMPTS, snapshotConsistent, draftBeforeRestart, readState, readSnapshot, applyToServer, applyFailureText, applyFailureStatus, applyToast,
     readLive, readConflict, CONFLICT_UNLOADED_TEXT, conflictView, LOAD_LIVE_QUESTION, applyOverQuestion, loadLive, liveDraft, applyOverBase,
     DRAFT_SAVE_DELAY, DRAFT_STORE_TEXT, DRAFT_UNSAVED_TEXT, DRAFT_DISPLACED_TEXT, DRAFT_STORE, BACKGROUND_STORE, openRecordStore, createDraftKeeper, draftChanged, draftRecordFor, draftOffer, backgroundRecordFor, storedBackground, restoreStoredBackground,
@@ -2829,7 +2848,7 @@
   function renderStationLayout(panel, config, stationID) {
     const station = config.network.Stations.find((item) => item.ID === stationID);
     const bankID = selectedBank(station, state.selection)?.ID || "";
-    if (panel.layoutNetwork === config.network && panel.layoutBank === bankID) return;
+    if (panel.layoutNetwork === config.network && panel.layoutBank === bankID && panel.layoutStation === station.ID) return;
     panel.layoutNetwork = config.network; panel.layoutBank = bankID;
     const select = panel.querySelector('[data-edit="station-bank"]');
     panel.querySelector('[data-field="bank-selection"]').hidden = !station.Banks;
@@ -2839,16 +2858,25 @@
     setControlValue(membership, JSON.stringify(station.Banks || [], null, 2));
     panel.querySelector('[data-action="station-legacy"]').disabled = !Object.hasOwn(station, "Banks");
     for (const field of ["approach-length", "departure-length"]) panel.querySelector(`[data-field="${field}"]`).hidden = !station.Banks;
-    const layout = stationLayout(config, stationID, bankID);
-    for (const key of ["pitch", "spacing", "setback", "approachLength", "departureLength"]) {
-      const input = panel.querySelector(`[data-layout="${key}"]`);
-      input.disabled = (!["approachLength", "departureLength"].includes(key) && Boolean(layout.error)) || layout[key] == null;
-      const value = input.disabled ? "" : String(Number(layout[key].toFixed(3)));
-      setControlValue(input, value); input.dataset.layoutValue = value;
-    }
-    const note = layout.error || [layout.pitch === null ? "Pitch requires two berth rows." : "", layout.setback === null ? "Setback requires an aligned entry/exit throat." : ""].filter(Boolean).join(" ");
-    panel.querySelector('[data-field="layout-hint"]').textContent = note || "Preview updates the draft map in one undo step. Apply the project to change the simulation.";
-    panel.querySelector('[data-action="station-layout"]').disabled = [...panel.querySelectorAll("input[data-layout]")].every((input) => input.disabled);
+    panel.layoutStation = stationID;
+    for (const input of panel.querySelectorAll("input[data-layout]")) { input.disabled = true; setControlValue(input, ""); }
+    panel.querySelector('[data-action="station-layout"]').disabled = true;
+    panel.querySelector('[data-field="layout-hint"]').textContent = "Inspecting station layout.";
+    const current = () => panel.isConnected && draft().network === config.network && state.selection?.id === stationID && (selectedBank(station, state.selection)?.ID || "") === bankID && panel.layoutNetwork === config.network && panel.layoutBank === bankID;
+    goModel.call(config, "stationLayout", { stationID, ...(bankID ? { bankID } : {}) }).then((result) => {
+      if (!current()) return;
+      if (result.error) throw new Error(result.error);
+      const reasons = new Set();
+      for (const [key, field] of Object.entries(result.layout)) {
+        const input = panel.querySelector(`[data-layout="${key}"]`);
+        input.disabled = field.value === null;
+        const value = input.disabled ? "" : String(Number(field.value.toFixed(3)));
+        setControlValue(input, value); input.dataset.layoutValue = value;
+        if (field.reason && (!["approachLength", "departureLength"].includes(key) || station.Banks)) reasons.add(field.reason);
+      }
+      panel.querySelector('[data-field="layout-hint"]').textContent = [...reasons].join(" ") || "Preview updates the draft map in one undo step. Apply the project to change the simulation.";
+      panel.querySelector('[data-action="station-layout"]').disabled = [...panel.querySelectorAll("input[data-layout]")].every((input) => input.disabled);
+    }).catch((error) => { if (current()) { panel.layoutNetwork = null; panel.querySelector('[data-field="layout-hint"]').textContent = error.message; } });
   }
 
   // renderBerths shows a row with a Remove button for each berth of the
@@ -3262,6 +3290,7 @@
   function restoreBackground(record) {
     return restoreStoredBackground(record, {
       warn: (message) => { state.restoreFailed = true; toast(message, true); renderBackgroundInfo(); },
+      metadata: metadataWithGo,
       decode: (restored) => slot.run((signal) => checkImageBytes(restored.image.bytes, decoder, signal)),
       install: async (restored) => {
         const image = freezeImage({ key: restored.background.imageKey, ...restored.image });
@@ -3491,6 +3520,12 @@
   function fitNetwork() { state.view = fitView(state.map.bounds, $("#networkMap").getBoundingClientRect()); setView(); }
 
   const goModel = root.PodsimGoEditor.createClient({ makeWorker: () => new Worker("./editor-model.js") });
+  async function metadataWithGo(metadata) {
+    const result = await goModel.call(null, "backgroundMetadata", metadataURLFacts(metadata));
+    if (result.error) throw new Error(result.error);
+    return result.metadata;
+  }
+
   function editorProposal(config, command) { return goModel.call(config, "edit", { ...command, editor: true }); }
   async function normalizeWithGo(config) {
     const result = await editorProposal(config, { field: "normalize", value: true });
@@ -3933,7 +3968,16 @@
     try {
       let text = await file.text();
       if (!model.current(ticket)) return;
-      const imported = parseDocument(text); text = "";
+      const imported = parseDocument(text, { deferMetadata: true }); text = "";
+      const compatibility = await goModel.call(imported.scenario, "importCompatibility");
+      if (!model.current(ticket)) return;
+      if (compatibility.error) throw new Error(compatibility.error);
+      imported.scenario = ownDraft({ ...imported.scenario, ...compatibility.change.patch });
+      const metadata = await metadataWithGo(imported.metadata);
+      if (!model.current(ticket)) return;
+      imported.asset = metadata.asset;
+      if (imported.background) imported.background = { dataURL: imported.background.dataURL, ...metadata.placement };
+      delete imported.metadata;
       const verdict = await goModel.call(imported.scenario);
       if (!model.current(ticket)) return;
       if (verdict.valid !== true || !Array.isArray(verdict.errors) || verdict.errors.length) {
@@ -4073,17 +4117,18 @@
     if (!/^image\/(png|jpeg)$/.test(file.type)) { toast("Choose a PNG or JPEG image.", true); return; }
     if (file.size > IMAGE_FILE_BYTES) { toast(`The background image must be ${IMAGE_FILE_BYTES / MIB} MiB or smaller.`, true); return; }
     const bound = (selector) => { const text = $(selector).value.trim(); return text === "" ? NaN : Number(text); };
-    const frame = { south: bound("#geoSouth"), north: bound("#geoNorth"), west: bound("#geoWest"), east: bound("#geoEast"), source: $("#geoSource").value };
-    const license = {
+    let frame = { south: bound("#geoSouth"), north: bound("#geoNorth"), west: bound("#geoWest"), east: bound("#geoEast"), source: $("#geoSource").value };
+    let license = {
       source: $("#geoLicenseSource").value.trim(), attribution: $("#geoAttribution").value.trim(), license: $("#geoLicense").value.trim(),
       licenseURL: $("#geoLicenseURL").value.trim(), copyrightURL: $("#geoCopyrightURL").value.trim(), retrieved: new Date().toISOString(), method: "user supplied", notice: $("#geoNotice").value.trim(),
     };
     // A frame or a license that is not valid stops the new import before
     // any file read. The previous acquisition stays canceled.
-    const checked = licenseError(license);
-    if (checked) { toast(`${checked} The background is unchanged.`, true); return; }
     const ticket = model.start();
     try {
+      const metadata = await metadataWithGo({ asset: { frameState: "attached", frame, license } });
+      if (!model.current(ticket)) return;
+      frame = metadata.asset.frame; license = metadata.asset.license;
       const key = newImageKey(root.crypto);
       const proposed = await backgroundProposal(draft(), { action: "place", imageKey: key, frame, choice: referenceChoice(), background: state.history.background });
       if (!model.current(ticket)) return;

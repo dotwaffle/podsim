@@ -33,6 +33,11 @@
         active.timer = clock.setTimeout(() => fail(new Error("The Go editor model timed out. Reload the editor to try again.")), timeout);
         if (active.op === "history" && !historyCreates(active.plan)) {
           worker.postMessage({ id: active.id, op: active.op, history: active.plan });
+        } else if (helperOperation(active.op)) {
+          const message = { id: active.id, op: active.op };
+          if (active.op === "backgroundMetadata") message.metadata = active.plan;
+          else { message.project = active.config; if (active.op === "stationLayout") message.layout = active.plan; }
+          worker.postMessage(message);
         } else if (active.op === "place-view") {
           worker.postMessage({ id: active.id, op: active.op, project: active.config, view: active.plan });
         } else {
@@ -53,6 +58,9 @@
         for (let index = queue.length - 1; index >= 0; index--) if (queue[index].background) {
           queue.splice(index, 1)[0].reject(new DOMException("A newer draft replaced this validation.", "AbortError"));
         }
+      }
+      if (op === "stationLayout") for (let index = queue.length - 1; index >= 0; index--) {
+        if (queue[index].op === "stationLayout") queue.splice(index, 1)[0].reject(new DOMException("A newer selection replaced this layout inspection.", "AbortError"));
       }
       if (queue.length >= 8) throw new Error("The Go editor model is busy. Try the action again.");
       return new Promise((resolve, reject) => {
@@ -78,6 +86,36 @@
       },
       close() { fail(new Error("The Go editor model has stopped.")); },
     };
+  }
+
+  function helperOperation(op) { return ["backgroundMetadata", "importCompatibility", "stationLayout"].includes(op); }
+
+  function checkedHelper(result, op) {
+    if (!result || typeof result !== "object" || Array.isArray(result)) throw new Error("Invalid Go helper response");
+    if (result.error !== undefined) {
+      if (typeof result.error !== "string" || !result.error || Object.keys(result).some((key) => !["error", "valid"].includes(key)) || (Object.hasOwn(result, "valid") && result.valid !== false)) throw new Error("Invalid Go helper error");
+      return result;
+    }
+    const object = (value) => value !== null && typeof value === "object" && !Array.isArray(value);
+    const exact = (value, keys) => object(value) && Object.keys(value).length === keys.length && keys.every((key) => Object.hasOwn(value, key));
+    if (op === "backgroundMetadata") {
+      const metadata = result.metadata;
+      if (!exact(result, ["valid", "metadata"]) || result.valid !== true || !object(metadata) || Object.keys(metadata).some((key) => !["placement", "asset"].includes(key)) ||
+          !exact(metadata.asset, ["frameState", "frame", "license"]) || !["none", "attached", "detached"].includes(metadata.asset.frameState) ||
+          !(metadata.asset.frame === null || exact(metadata.asset.frame, ["source", "south", "north", "west", "east"]) && ["equirectangular", "web-mercator"].includes(metadata.asset.frame.source) && ["south", "north", "west", "east"].every((key) => Number.isFinite(metadata.asset.frame[key]))) ||
+          (metadata.asset.frameState === "none") !== (metadata.asset.frame === null) ||
+          !(metadata.asset.license === null || exact(metadata.asset.license, ["source", "attribution", "license", "licenseURL", "copyrightURL", "retrieved", "method", "notice"]) && Object.values(metadata.asset.license).every((value) => typeof value === "string")) ||
+          (metadata.placement !== undefined && (!exact(metadata.placement, ["x", "y", "width", "height", "opacity"]) || !Object.values(metadata.placement).every(Number.isFinite) || metadata.placement.width <= 0 || metadata.placement.height <= 0 || metadata.placement.opacity < 0 || metadata.placement.opacity > 1))) throw new Error("Invalid Go metadata response");
+    } else if (op === "importCompatibility") {
+      if (!exact(result, ["change"]) || !exact(result.change, ["patch"]) || !object(result.change.patch) || Object.keys(result.change.patch).some((key) => !["fleet", "demand"].includes(key))) throw new Error("Invalid Go compatibility response");
+    } else {
+      const keys = ["pitch", "spacing", "setback", "approachLength", "departureLength"];
+      if (!exact(result, ["layout"]) || !exact(result.layout, keys) || !keys.every((key) => {
+        const field = result.layout[key];
+        return exact(field, ["value", "reason"]) && typeof field.reason === "string" && (field.value === null ? field.reason.length > 0 : Number.isFinite(field.value) && field.value > 0 && field.reason === "");
+      })) throw new Error("Invalid Go layout response");
+    }
+    return result;
   }
 
   function historyCreates(command) {
@@ -317,6 +355,10 @@
       return result;
     }
     return { handle(data) {
+      if (helperOperation(data.op)) {
+        const command = { ...data }; delete command.id;
+        return checkedHelper(invoke(command), data.op);
+      }
       if (data.op === "history") return historyOperation(data);
       let result, synchronized = false;
       if (data.op === "place-view") result = invoke({ op: data.op, project: data.project, view: data.view });
@@ -356,7 +398,7 @@
     } };
   }
 
-  const api = { createClient, createEditQueue, createHistory, createOperations, bounded };
+  const api = { createClient, createEditQueue, createHistory, createOperations, checkedHelper, bounded };
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   root.PodsimGoEditor = api;
   if (typeof document !== "undefined" || typeof root.importScripts !== "function") return;

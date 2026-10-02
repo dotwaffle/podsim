@@ -43,7 +43,12 @@ func NewCall() func(string) string {
 func (e *engine) handle(input string) (response, error) {
 	command, err := decodeRequest(input)
 	if err != nil {
-		return response{}, err
+		return response{helper: helperOperation(command.Op)}, err
+	}
+	if helperOperation(command.Op) {
+		result, helperErr := executeHelper(command, input)
+		result.helper = true
+		return result, helperErr
 	}
 	if command.Op == "history" {
 		if len(command.Project) != 0 || len(command.ParkRide) != 0 || len(command.View) != 0 || len(command.Edit) != 0 || command.Keys != nil || len(command.Patch) != 0 {

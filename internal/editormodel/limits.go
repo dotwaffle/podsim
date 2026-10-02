@@ -12,7 +12,11 @@ import (
 
 // scanRequest checks container counts before typed decoding allocates their contents.
 func scanRequest(data []byte) error {
-	decoder := jsontext.NewDecoder(bytes.NewReader(data))
+	return scanRequestOptions(data, false)
+}
+
+func scanRequestOptions(data []byte, metadata bool) error {
+	decoder := jsontext.NewDecoder(bytes.NewReader(data), jsontext.AllowInvalidUTF8(metadata))
 	var arrayLimits [65]int64
 	for {
 		var kind jsontext.Kind
@@ -21,7 +25,7 @@ func scanRequest(data []byte) error {
 			if err != nil {
 				return err
 			}
-			if len(value) > 1024 {
+			if len(value) > 1024 && (!metadata || !strings.HasPrefix(string(decoder.StackPointer()), "/metadata/")) {
 				return errors.New("editor request string is too long")
 			}
 			kind = jsontext.KindString

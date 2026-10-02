@@ -22,18 +22,23 @@ type request struct {
 	Patch    jsontext.Value `json:"patch,omitempty"`
 	Edit     jsontext.Value `json:"edit,omitempty"`
 	History  jsontext.Value `json:"history,omitempty"`
+	Metadata jsontext.Value `json:"metadata,omitempty"`
+	Layout   jsontext.Value `json:"layout,omitempty"`
 }
 
 type response struct {
-	Valid   bool                   `json:"valid,omitempty"`
-	Synced  bool                   `json:"synced,omitzero"`
-	Error   string                 `json:"error,omitempty"`
-	Profile *project.DemandProfile `json:"profile,omitempty"`
-	Demand  *project.DemandConfig  `json:"demand,omitempty"`
-	View    *mapView               `json:"view,omitempty"`
-	Checks  *checkReport           `json:"checks,omitempty"`
-	Change  *projectChange         `json:"change,omitempty"`
-	History *historyView           `json:"history,omitempty"`
+	helper   bool
+	Valid    bool                   `json:"valid,omitempty"`
+	Synced   bool                   `json:"synced,omitzero"`
+	Error    string                 `json:"error,omitempty"`
+	Profile  *project.DemandProfile `json:"profile,omitempty"`
+	Demand   *project.DemandConfig  `json:"demand,omitempty"`
+	View     *mapView               `json:"view,omitempty"`
+	Checks   *checkReport           `json:"checks,omitempty"`
+	Change   *projectChange         `json:"change,omitempty"`
+	History  *historyView           `json:"history,omitempty"`
+	Metadata jsontext.Value         `json:"metadata,omitempty"`
+	Layout   *layoutSummary         `json:"layout,omitempty"`
 }
 
 // Call handles one bounded JSON request without retaining caller data.
@@ -44,6 +49,35 @@ func Call(input string) string {
 }
 
 func encodeResponse(result response, err error) string {
+	if err == nil && len(result.Metadata) != 0 {
+		return `{"valid":true,"metadata":` + string(result.Metadata) + `}`
+	}
+	if result.helper && err != nil {
+		encoded, encodeErr := json.Marshal(struct {
+			Error string `json:"error"`
+		}{err.Error()})
+		if encodeErr != nil {
+			return `{"error":"Cannot encode the editor helper error."}`
+		}
+		return string(encoded)
+	}
+	if err == nil && result.helper {
+		var payload any
+		if result.Layout != nil {
+			payload = struct {
+				Layout *layoutSummary `json:"layout"`
+			}{result.Layout}
+		} else {
+			payload = struct {
+				Change *projectChange `json:"change"`
+			}{result.Change}
+		}
+		encoded, encodeErr := json.Marshal(payload)
+		if encodeErr != nil {
+			return `{"error":"The editor helper response could not be encoded."}`
+		}
+		return string(encoded)
+	}
 	if err != nil {
 		result = response{Error: err.Error(), Synced: result.Synced}
 	}
@@ -57,7 +91,12 @@ func encodeResponse(result response, err error) string {
 func execute(input string) (response, error) {
 	command, err := decodeRequest(input)
 	if err != nil {
-		return response{}, err
+		return response{helper: helperOperation(command.Op)}, err
+	}
+	if helperOperation(command.Op) {
+		result, helperErr := executeHelper(command, input)
+		result.helper = true
+		return result, helperErr
 	}
 	if command.Op == "history" || len(command.History) != 0 {
 		return response{}, errors.New("history needs a stateful editor handler")
@@ -106,12 +145,28 @@ func decodeRequest(input string) (request, error) {
 	if len(input) > MaxRequestBytes {
 		return request{}, errors.New("editor model request is too large")
 	}
-	if err := scanRequest([]byte(input)); err != nil {
-		return request{}, fmt.Errorf("check editor request: %w", err)
+	var header struct {
+		Op string `json:"op"`
+	}
+	if err := json.Unmarshal([]byte(input), &header, jsontext.AllowInvalidUTF8(true)); err != nil {
+		return request{Op: header.Op}, fmt.Errorf("decode editor operation: %w", err)
+	}
+	metadata := header.Op == "backgroundMetadata"
+	var scanErr error
+	if metadata {
+		scanErr = scanRequestOptions([]byte(input), true)
+	} else {
+		scanErr = scanRequest([]byte(input))
+	}
+	if scanErr != nil {
+		return request{Op: header.Op}, fmt.Errorf("check editor request: %w", scanErr)
 	}
 	var command request
-	if err := json.Unmarshal([]byte(input), &command, json.RejectUnknownMembers(true)); err != nil {
-		return request{}, fmt.Errorf("decode editor request: %w", err)
+	if err := json.Unmarshal([]byte(input), &command, json.RejectUnknownMembers(true), jsontext.AllowInvalidUTF8(metadata)); err != nil {
+		return request{Op: header.Op}, fmt.Errorf("decode editor request: %w", err)
+	}
+	if !helperOperation(command.Op) && (len(command.Metadata) != 0 || len(command.Layout) != 0) {
+		return request{}, errors.New("editor operation has unrelated helper parameters")
 	}
 	return command, nil
 }
