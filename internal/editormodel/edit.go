@@ -296,15 +296,24 @@ func (e *engine) edit(raw jsontext.Value) (response, error) {
 	for key, branch := range e.branches {
 		draft[key] = branch.value
 	}
+	needsFlows := editNeedsProfileFlows(raw)
 	// Keep raw selection IDs unchanged, including missing IDs in drafts.
-	if e.profiles == nil && len(e.branches["demandProfiles"].raw) != 0 {
+	// Full flows are temporary and only supplied to edits that change them.
+	if (e.profiles == nil || needsFlows) && len(e.branches["demandProfiles"].raw) != 0 {
 		var value any
 		if err := json.Unmarshal(e.branches["demandProfiles"].raw, &value); err != nil {
-			return response{}, fmt.Errorf("decode editor profile selections: %w", err)
+			return response{}, fmt.Errorf("decode editor profiles: %w", err)
 		}
-		e.profiles = profileSelections(value)
+		if e.profiles == nil {
+			e.profiles = profileSelections(value)
+		}
+		if needsFlows {
+			draft["demandProfiles"] = value
+		}
 	}
-	draft["demandProfiles"] = e.profiles
+	if !needsFlows {
+		draft["demandProfiles"] = e.profiles
+	}
 	change, err := editProject(draft, raw)
 	if err == nil {
 		branches := make(map[string]jsontext.Value, len(e.branches))
@@ -314,6 +323,15 @@ func (e *engine) edit(raw jsontext.Value) (response, error) {
 		err = checkEditSize(e.size, branches, change.Patch)
 	}
 	return response{Change: &change}, err
+}
+
+func editNeedsProfileFlows(raw jsontext.Value) bool {
+	var command editCommand
+	if json.Unmarshal(raw, &command) != nil || command.Field != "geometry" {
+		return false
+	}
+	geometry, err := decodeGeometryEdit(command.Value)
+	return err == nil && geometry.Action == "deleteStation"
 }
 
 func checkEditSize(size int, branches map[string]jsontext.Value, patch map[string]any) error {

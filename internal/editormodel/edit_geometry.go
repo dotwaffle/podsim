@@ -33,7 +33,8 @@ var geometryFields = map[string][]string{
 	"stationBearing": {"id", "value"}, "stationName": {"id", "value"}, "stationParking": {"id", "value"},
 	"laneSpeed": {"id", "value"}, "toggleCurve": {"id"},
 	"deleteNode": {"id"}, "deleteLane": {"id"},
-	"addBerth": {"id"}, "removeBerth": {"id", "value"},
+	"deleteStation": {"id"},
+	"addBerth":      {"id"}, "removeBerth": {"id", "value"},
 	"stationLayout": {"id", "value"},
 }
 
@@ -261,6 +262,8 @@ func (g geometryDraft) change(command geometryEdit) error {
 		return nil
 	case "deleteNode":
 		return g.deleteNode(command.ID)
+	case "deleteStation":
+		return g.deleteStation(command.ID)
 	case "addBerth":
 		return g.addBerth(command.ID)
 	case "removeBerth":
