@@ -20,8 +20,8 @@ type ServiceChoice string
 
 // Service choices select ordinary demand or an explicit directed express pair.
 const (
-	OnDemandService ServiceChoice = "on-demand"
-	ExpressService  ServiceChoice = "express"
+	OnDemandService      ServiceChoice = "on-demand"
+	ExpressServiceChoice ServiceChoice = "express"
 )
 
 const (
@@ -79,7 +79,7 @@ func NormalizeTripOptions(options TripOptions) (TripOptions, error) {
 		if options.ServiceID != "" {
 			return TripOptions{}, fmt.Errorf("on-demand orders cannot name an express service: %w", ErrInvalidTripOptions)
 		}
-	case ExpressService:
+	case ExpressServiceChoice:
 		if options.SharingConsent != SharedConsent || !validOrderID(options.ServiceID) {
 			return TripOptions{}, fmt.Errorf("express needs shared consent and a bounded service ID: %w", ErrInvalidTripOptions)
 		}
@@ -124,7 +124,7 @@ func CheckPartyAdmission(input PartyAdmissionInput) error {
 		return fmt.Errorf("party does not fit class %s: %w", profile.Class, ErrPartyAdmission)
 	}
 	limit := MaxSharedRideParties
-	if request.Service == ExpressService {
+	if request.Service == ExpressServiceChoice {
 		if profile.Class != ExpressClass {
 			return fmt.Errorf("express service needs the express class: %w", ErrPartyAdmission)
 		}
@@ -170,7 +170,7 @@ func checkActiveParty(request, party TripOptions, profile VehicleClassSpec) erro
 	if effective.Service != request.Service || effective.ServiceID != request.ServiceID {
 		return fmt.Errorf("active party has a different service: %w", ErrPartyAdmission)
 	}
-	if request.Service == ExpressService && (effective.From != request.From || effective.To != request.To) {
+	if request.Service == ExpressServiceChoice && (effective.From != request.From || effective.To != request.To) {
 		return fmt.Errorf("active party has a different express pair: %w", ErrPartyAdmission)
 	}
 	return nil

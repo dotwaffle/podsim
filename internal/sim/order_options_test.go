@@ -20,8 +20,8 @@ func TestNormalizeTripOptions(t *testing.T) {
 		{"explicit shared group", sharedOrder(8), sharedOrder(8)},
 		{"express", expressOrder(1), expressOrder(1)},
 		{"express group", expressOrder(8), expressOrder(8)},
-		{"whitespace IDs preserve project acceptance", TripOptions{From: " ", To: "\t", SharingConsent: SharedConsent, Service: ExpressService, ServiceID: " \t"}, TripOptions{From: " ", To: "\t", PartySize: 1, SharingConsent: SharedConsent, Service: ExpressService, ServiceID: " \t"}},
-		{"bounded express ID", TripOptions{From: "harbor", To: "market", PartySize: 1, SharingConsent: SharedConsent, Service: ExpressService, ServiceID: strings.Repeat("e", 64)}, TripOptions{From: "harbor", To: "market", PartySize: 1, SharingConsent: SharedConsent, Service: ExpressService, ServiceID: strings.Repeat("e", 64)}},
+		{"whitespace IDs preserve project acceptance", TripOptions{From: " ", To: "\t", SharingConsent: SharedConsent, Service: ExpressServiceChoice, ServiceID: " \t"}, TripOptions{From: " ", To: "\t", PartySize: 1, SharingConsent: SharedConsent, Service: ExpressServiceChoice, ServiceID: " \t"}},
+		{"bounded express ID", TripOptions{From: "harbor", To: "market", PartySize: 1, SharingConsent: SharedConsent, Service: ExpressServiceChoice, ServiceID: strings.Repeat("e", 64)}, TripOptions{From: "harbor", To: "market", PartySize: 1, SharingConsent: SharedConsent, Service: ExpressServiceChoice, ServiceID: strings.Repeat("e", 64)}},
 		{"bounded IDs", TripOptions{From: strings.Repeat("a", 64), To: strings.Repeat("b", 64)}, TripOptions{From: strings.Repeat("a", 64), To: strings.Repeat("b", 64), PartySize: 1, SharingConsent: PrivateConsent, Service: OnDemandService}},
 	} {
 		t.Run(test.name, func(t *testing.T) {
@@ -56,11 +56,11 @@ func TestNormalizeTripOptionsRejectsInvalid(t *testing.T) {
 		{"legacy consent", func(o *TripOptions) { o.SharingConsent = LegacyUnknownConsent }},
 		{"unknown service", func(o *TripOptions) { o.Service = "hub" }},
 		{"on-demand service ID", func(o *TripOptions) { o.ServiceID = "express-1" }},
-		{"express without service ID", func(o *TripOptions) { o.Service, o.SharingConsent = ExpressService, SharedConsent }},
+		{"express without service ID", func(o *TripOptions) { o.Service, o.SharingConsent = ExpressServiceChoice, SharedConsent }},
 		{"express long service ID", func(o *TripOptions) {
-			o.Service, o.ServiceID, o.SharingConsent = ExpressService, strings.Repeat("a", 65), SharedConsent
+			o.Service, o.ServiceID, o.SharingConsent = ExpressServiceChoice, strings.Repeat("a", 65), SharedConsent
 		}},
-		{"private express", func(o *TripOptions) { o.Service, o.ServiceID = ExpressService, "express-1" }},
+		{"private express", func(o *TripOptions) { o.Service, o.ServiceID = ExpressServiceChoice, "express-1" }},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
@@ -126,9 +126,9 @@ func TestCheckPartyAdmission(t *testing.T) {
 		{"group cannot serve express", GroupClass, expressOrder(1), nil, 20, ErrPartyAdmission},
 		{"express cap above twenty", ExpressClass, expressOrder(1), nil, 21, ErrPartyAdmission},
 		{"express same pair", ExpressClass, expressOrder(1), facts(expressOrder(1)), 20, nil},
-		{"express different service", ExpressClass, expressOrder(1), facts(TripOptions{From: "harbor", To: "market", PartySize: 1, SharingConsent: SharedConsent, Service: ExpressService, ServiceID: "express-2"}), 20, ErrPartyAdmission},
-		{"express different origin", ExpressClass, expressOrder(1), facts(TripOptions{From: "garden", To: "market", PartySize: 1, SharingConsent: SharedConsent, Service: ExpressService, ServiceID: "express-1"}), 20, ErrPartyAdmission},
-		{"express different destination", ExpressClass, expressOrder(1), facts(TripOptions{From: "harbor", To: "garden", PartySize: 1, SharingConsent: SharedConsent, Service: ExpressService, ServiceID: "express-1"}), 20, ErrPartyAdmission},
+		{"express different service", ExpressClass, expressOrder(1), facts(TripOptions{From: "harbor", To: "market", PartySize: 1, SharingConsent: SharedConsent, Service: ExpressServiceChoice, ServiceID: "express-2"}), 20, ErrPartyAdmission},
+		{"express different origin", ExpressClass, expressOrder(1), facts(TripOptions{From: "garden", To: "market", PartySize: 1, SharingConsent: SharedConsent, Service: ExpressServiceChoice, ServiceID: "express-1"}), 20, ErrPartyAdmission},
+		{"express different destination", ExpressClass, expressOrder(1), facts(TripOptions{From: "harbor", To: "garden", PartySize: 1, SharingConsent: SharedConsent, Service: ExpressServiceChoice, ServiceID: "express-1"}), 20, ErrPartyAdmission},
 		{"express cannot join on-demand", ExpressClass, expressOrder(1), facts(sharedOrder(1)), 20, ErrPartyAdmission},
 		{"on-demand cannot join express", ExpressClass, sharedOrder(1), facts(expressOrder(1)), 8, ErrPartyAdmission},
 		{"on-demand routes checked by caller", CompactClass, sharedOrder(1), facts(TripOptions{From: "garden", To: "harbor", PartySize: 1, SharingConsent: SharedConsent, Service: OnDemandService}), 8, nil},
@@ -185,7 +185,7 @@ func sharedOrder(size int) TripOptions {
 
 func expressOrder(size int) TripOptions {
 	options := sharedOrder(size)
-	options.Service, options.ServiceID = ExpressService, "express-1"
+	options.Service, options.ServiceID = ExpressServiceChoice, "express-1"
 	return options
 }
 
