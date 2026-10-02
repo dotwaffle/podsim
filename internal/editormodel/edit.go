@@ -16,8 +16,9 @@ import (
 )
 
 type editCommand struct {
-	Field string         `json:"field"`
-	Value jsontext.Value `json:"value"`
+	Field  string         `json:"field"`
+	Value  jsontext.Value `json:"value"`
+	Target jsontext.Value `json:"target,omitempty"`
 }
 
 type projectChange struct {
@@ -40,12 +41,34 @@ func editProject(draft any, raw jsontext.Value) (projectChange, error) {
 	if command.Field == "" || len(command.Value) == 0 || command.Value.Kind() == 'n' || command.Value.Kind() == '{' || command.Value.Kind() == '[' {
 		return projectChange{}, errors.New("a project edit needs a field and a scalar value")
 	}
+	if len(command.Target) != 0 && command.Field != "fleetCount" {
+		return projectChange{}, errors.New("the editor field does not accept a target")
+	}
 	var value any
 	if err := json.Unmarshal(command.Value, &value); err != nil {
 		return projectChange{}, fmt.Errorf("decode editor value: %w", err)
 	}
 	change := projectChange{Patch: make(map[string]any)}
 	switch command.Field {
+	case "fleetCount":
+		if command.Target.Kind() != '"' {
+			return projectChange{}, errors.New("a fleet edit needs a station ID string")
+		}
+		var stationID string
+		if err := json.Unmarshal(command.Target, &stationID); err != nil {
+			return projectChange{}, fmt.Errorf("decode fleet station ID: %w", err)
+		}
+		if err := change.fleetCount(draft, stationID, value); err != nil {
+			return projectChange{}, err
+		}
+	case "dailyStartTime":
+		minute, err := editClock(value)
+		if err != nil {
+			return projectChange{}, err
+		}
+		if err := change.demand(draft, "dailyStartMinute", minute); err != nil {
+			return projectChange{}, err
+		}
 	case "name":
 		name, ok := value.(string)
 		if !ok {
@@ -121,6 +144,24 @@ func editProject(draft any, raw jsontext.Value) (projectChange, error) {
 		return projectChange{}, errors.New("unknown editor field")
 	}
 	return change, nil
+}
+
+func editClock(value any) (float64, error) {
+	clock, ok := value.(string)
+	if !ok || len(clock) != 5 || clock[2] != ':' {
+		return 0, errors.New("the daily clock must use HH:MM")
+	}
+	for _, index := range []int{0, 1, 3, 4} {
+		if clock[index] < '0' || clock[index] > '9' {
+			return 0, errors.New("the daily clock must use HH:MM")
+		}
+	}
+	hour := int(clock[0]-'0')*10 + int(clock[1]-'0')
+	minute := int(clock[3]-'0')*10 + int(clock[4]-'0')
+	if hour > 23 || minute > 59 {
+		return 0, errors.New("the daily clock is outside the day")
+	}
+	return float64(hour*60 + minute), nil
 }
 
 func trimEditorSpace(value string) string {

@@ -242,7 +242,13 @@ func TestEditProtocolAndDiscardedProposal(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, command := range []string{`{"field":"name","value":"New name"}`, `{"field":"demandPattern","value":"profile"}`, `{"field":"stationBuffers","value":true}`} {
+	for _, command := range []string{
+		`{"field":"name","value":"New name"}`,
+		`{"field":"demandPattern","value":"profile"}`,
+		`{"field":"stationBuffers","value":true}`,
+		`{"field":"fleetCount","target":"harbor","value":"0"}`,
+		`{"field":"dailyStartTime","value":"23:59"}`,
+	} {
 		cached, editErr := model.handle(`{"op":"edit","edit":` + command + `}`)
 		if editErr != nil || cached.Change == nil {
 			t.Fatal("cached edit failed", editErr)

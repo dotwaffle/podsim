@@ -3964,7 +3964,7 @@
       const [name, input] = parent.children[index].children;
       name.textContent = row.name; input.max = String(row.max); input.setAttribute("aria-label", `Initial pods at ${row.name}`);
       // Set only a changed value. This keeps the caret in a focused field.
-      if (input.value !== String(row.count)) input.value = String(row.count);
+      setControlValue(input, row.count);
     });
   }
 
@@ -4045,7 +4045,7 @@
     $("#demandPattern").querySelector('option[value="profile-daily"]').disabled = profiles.length === 0;
     $("#dailyClockLabel").hidden = $("#dailyClockHint").hidden = demand.pattern !== "profile-daily";
     const dailyMinute = demand.dailyStartMinute || 0;
-    $("#dailyStartTime").value = `${String(Math.floor(dailyMinute / 60)).padStart(2, "0")}:${String(dailyMinute % 60).padStart(2, "0")}`;
+    setScalarValue("#dailyStartTime", `${String(Math.floor(dailyMinute / 60)).padStart(2, "0")}:${String(dailyMinute % 60).padStart(2, "0")}`);
     renderParkRide(config, passenger);
     $("#demandPattern").querySelector('option[value="rail-arrivals"]').disabled = !(config.railArrivals || []).length;
     $("#demandPattern").querySelector('option[value="rail-services"]').disabled = !(config.railArrivals || []).length && !(config.railDepartures || []).length;
@@ -4128,7 +4128,9 @@
     }
   }
   function setScalarValue(selector, value) {
-    const input = $(selector);
+    setControlValue($(selector), value);
+  }
+  function setControlValue(input, value) {
     // A number field can hold partial text that its value getter cannot read.
     if (!typingInputs.has(input) && input.value !== String(value)) input.value = String(value);
   }
@@ -4459,24 +4461,26 @@
   function bindScalarInput(id, field = id) {
     const input = $("#" + id);
     input.addEventListener("input", () => {
-      typingRevision++; model.abort();
-      typingInputs.add(input);
+      markTyping(input);
     });
     input.addEventListener("change", () => queueScalarEdit(field, input));
   }
+  function markTyping(input) { typingRevision++; model.abort(); typingInputs.add(input); }
   function renderHistoryButtons() {
     $("#undoButton").disabled = !state.history.canUndo && !editQueue.pending;
     $("#redoButton").disabled = !state.history.canRedo;
   }
   function cancelPendingEdits() { editQueue.cancel(); pendingInputs.clear(); typingInputs.clear(); }
-  function queueScalarEdit(field, input) {
+  function queueScalarEdit(field, input, target) {
     const pending = { value: input.type === "checkbox" ? input.checked : input.value };
     typingInputs.delete(input); pendingInputs.set(input, pending); model.abort();
     editQueue.submit(async (current) => {
       if (!current()) return false;
       const config = draft(), generation = model.edits;
       if (state.drag && state.drag.type !== "pan" || model.gestureOpen) throw new Error("Finish the open gesture before editing settings.");
-      const result = await goModel.call(config, "edit", { field, value: pending.value });
+      const command = { field, value: pending.value };
+      if (target !== undefined) command.target = target;
+      const result = await goModel.call(config, "edit", command);
       if (result.error) throw new Error(result.error);
       if (!current()) return false;
       if (config !== draft() || generation !== model.edits || state.drag && state.drag.type !== "pan" || model.gestureOpen) throw new Error("The draft changed during the edit. Enter the setting again.");
@@ -4486,6 +4490,7 @@
       if (pendingInputs.get(input) === pending) pendingInputs.delete(input);
       // Settings replies must not end or redraw a newer map gesture.
       setScalarValue("#scenarioName", draft().name); renderDemand();
+      if (field === "fleetCount") renderFleet();
       renderHistoryButtons(); renderApply(); restorePendingInputs();
     });
   }
@@ -4989,7 +4994,7 @@
     $("#parkRideHub").addEventListener("change", () => { parkRideStations = null; renderParkRide(draft(), draft().network.Stations.filter((station) => !station.ParkingOnly)); });
     $("#parkRideAddDestination").addEventListener("click", addParkRideDestination);
     $("#parkRideCreate").addEventListener("click", createParkRideProfile);
-    $("#dailyStartTime").addEventListener("change", () => { if ($("#dailyStartTime").reportValidity()) mutate((config) => { config.demand.dailyStartMinute = inputMinute("#dailyStartTime"); return config; }); });
+    bindScalarInput("dailyStartTime");
     for (const departure of [false, true]) {
       const addID = departure ? "#addRailDeparture" : "#addRailArrival", rowsID = departure ? "#railDepartureRows" : "#railArrivalRows", choices = departure ? "origins" : "destinations";
       const add = departure ? addRailDeparture : addRailArrival, edit = departure ? editRailDeparture : editRailArrival, remove = departure ? removeRailDeparture : removeRailArrival, addChoice = departure ? addRailOrigin : addRailDestination;
@@ -5010,7 +5015,8 @@
     }
     for (const id of ["demandEnabled", "demandRate", "demandPattern", "demandDestination", "demandProfile", "demandBand", "sharedRidePartyLimit", "sharedRideMode", "sharedRideJoin", "sharedRideMaxStops", "platoonLimit", "demandSeed", "redistribution", "stationBuffers", "pickupReassignment"]) bindScalarInput(id);
     bindScalarInput("scenarioName", "name");
-    $("#fleetControls").addEventListener("change", (event) => { if (event.target.dataset.station) setDraft(setFleetCount(draft(), event.target.dataset.station, event.target.value)); });
+    $("#fleetControls").addEventListener("input", (event) => { if (event.target.dataset.station) markTyping(event.target); });
+    $("#fleetControls").addEventListener("change", (event) => { if (event.target.dataset.station) queueScalarEdit("fleetCount", event.target, event.target.dataset.station); });
     $("#selectionContent").addEventListener("change", (event) => {
       if (!state.selection) return;
       if (event.target.dataset.edit === "station-name") mutate((config) => { config.network.Stations.find((item) => item.ID === state.selection.id).Name = event.target.value.trim(); return config; });
