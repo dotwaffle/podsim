@@ -362,6 +362,8 @@ func demandPatternLabel(config session.DemandConfig, destination string) string 
 		pattern = "Rail services"
 	case "profile":
 		pattern = config.Band + " / " + config.Profile
+	case "profile-daily":
+		pattern = "Daily / " + config.Profile
 	}
 	return "Pattern: " + pattern
 }
@@ -430,24 +432,28 @@ func (g *Game) changeDemand(action string) {
 	case "demand-rate":
 		config.PerMinute = nextDemandRate(config.PerMinute)
 	case "demand-pattern":
-		switch {
-		case config.Pattern == "balanced":
-			config.Pattern = "destination"
-			config.Destination = g.destination
-		case config.Pattern == "destination" && config.Profile != "":
-			config.Pattern = "profile"
-		case config.Pattern == "profile":
-			config.Pattern = "balanced"
-			config.Destination = ""
-		default:
-			config.Pattern = "balanced"
-		}
+		config = nextDemandPattern(config, g.destination)
 	case "demand-seed":
 		config.Seed = nextDemandSeed(config.Seed)
 	case "demand-toggle":
 		config.Enabled = !config.Enabled
 	}
 	g.submit(session.Command{Action: "demand", Demand: config})
+}
+
+func nextDemandPattern(config session.DemandConfig, destination string) session.DemandConfig {
+	config.DailyStartMinute = 0
+	switch {
+	case config.Pattern == "balanced":
+		config.Pattern, config.Destination = "destination", destination
+	case config.Pattern == "destination" && config.Profile != "" && config.Band != "":
+		config.Pattern = "profile"
+	case config.Pattern == "profile":
+		config.Pattern, config.Destination = "balanced", ""
+	default:
+		config.Pattern = "balanced"
+	}
+	return config
 }
 
 // nextDemandRate returns the rate in orders per simulated minute that the

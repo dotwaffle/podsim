@@ -42,6 +42,8 @@ Evening flows return to the hub.
 The editor selects the new daily profile and records one undo step.
 It preserves the generation switch, seed, and fallback rate.
 Select **Pause and apply** to use the edited project in the simulation.
+The simulation labels the pattern **Daily / profile ID**.
+Switching to an ordinary pattern clears the daily clock setting.
 
 Creation uses Go/WASM validation in a browser worker.
 An unavailable worker blocks apply and keeps export available.

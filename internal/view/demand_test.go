@@ -209,12 +209,53 @@ func TestDemandPatternLabel(t *testing.T) {
 		{name: "market", config: session.DemandConfig{Pattern: "market"}, want: "Pattern: Market-bound"},
 		{name: "destination", config: session.DemandConfig{Pattern: "destination", Destination: "garden"}, destination: "Garden", want: "Pattern: Garden-bound"},
 		{name: "profile gives the band first", config: session.DemandConfig{Pattern: "profile", Profile: "tfl-numbat-2019-midweek", Band: "am-peak"}, want: "Pattern: am-peak / tfl-numbat-2019-midweek"},
+		{name: "daily profile", config: session.DemandConfig{Pattern: "profile-daily", Profile: "park-ride-1", DailyStartMinute: 420}, want: "Pattern: Daily / park-ride-1"},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
 			if got := demandPatternLabel(test.config, test.destination); got != test.want {
 				t.Fatalf("demandPatternLabel() = %q, want %q", got, test.want)
+			}
+		})
+	}
+}
+
+func TestNextDemandPattern(t *testing.T) {
+	t.Parallel()
+	for _, row := range []struct {
+		name    string
+		pattern string
+		profile string
+		band    string
+		want    string
+	}{
+		{"balanced to destination", "balanced", "", "", "destination"},
+		{"destination to manual profile", "destination", "od", "am", "profile"},
+		{"destination without profile", "destination", "", "", "balanced"},
+		{"daily profile without manual band", "destination", "od", "", "balanced"},
+		{"manual profile to balanced", "profile", "od", "am", "balanced"},
+		{"daily profile to balanced", "profile-daily", "od", "", "balanced"},
+		{"rail services to balanced", "rail-services", "", "", "balanced"},
+	} {
+		t.Run(row.name, func(t *testing.T) {
+			t.Parallel()
+			before := session.DemandConfig{Enabled: true, Destination: "market", Pattern: row.pattern, Profile: row.profile, Band: row.band, DailyStartMinute: 420, PerMinute: 7, Seed: 19}
+			got := nextDemandPattern(before, "garden")
+			if got.Pattern != row.want || got.DailyStartMinute != 0 || got.Seed != before.Seed || got.Enabled != before.Enabled || got.PerMinute != before.PerMinute || got.Profile != before.Profile || got.Band != before.Band {
+				t.Fatalf("next demand: %+v", got)
+			}
+			if row.want == "destination" && got.Destination != "garden" {
+				t.Fatal("destination choice was lost")
+			}
+			if row.pattern == "profile" && got.Destination != "" {
+				t.Fatal("manual profile cycle retained a destination")
+			}
+			if row.want == "balanced" && row.pattern != "profile" && got.Destination != before.Destination {
+				t.Fatal("changed legacy destination retention")
+			}
+			if before.DailyStartMinute != 420 {
+				t.Fatal("changed the caller's settings")
 			}
 		})
 	}
