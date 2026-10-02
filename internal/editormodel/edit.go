@@ -38,6 +38,12 @@ func editProject(draft any, raw jsontext.Value) (projectChange, error) {
 	if err := json.Unmarshal(raw, &command, json.RejectUnknownMembers(true)); err != nil {
 		return projectChange{}, fmt.Errorf("decode editor change: %w", err)
 	}
+	if command.Field == "geometry" {
+		if len(command.Target) != 0 {
+			return projectChange{}, errors.New("a geometry edit does not accept a target")
+		}
+		return editGeometry(draft, command.Value)
+	}
 	if command.Field == "railArrival" || command.Field == "railDeparture" {
 		if len(command.Target) != 0 {
 			return projectChange{}, errors.New("a rail edit does not accept a target")
