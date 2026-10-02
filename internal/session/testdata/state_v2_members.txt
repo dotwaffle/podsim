@@ -41,6 +41,7 @@ demand.state.config.seed number
 demand.state.config.destination string
 demand.state.config.profile string
 demand.state.config.band string
+demand.state.config.dailyStartMinute number
 demand.state.generated number
 demand.state.skipped number
 demand.state.connections object
@@ -189,6 +190,7 @@ project.demand.seed number
 project.demand.destination string
 project.demand.profile string
 project.demand.band string
+project.demand.dailyStartMinute number
 project.demandProfiles array
 project.demandProfiles[] object
 project.demandProfiles[].id string
@@ -199,6 +201,7 @@ project.demandProfiles[].bands[].id string
 project.demandProfiles[].bands[].name string
 project.demandProfiles[].bands[].startMinute number
 project.demandProfiles[].bands[].durationMinutes number
+project.demandProfiles[].bands[].perMinute number
 project.demandProfiles[].flows array
 project.demandProfiles[].flows[] object
 project.demandProfiles[].flows[].from string

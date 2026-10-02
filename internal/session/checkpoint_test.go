@@ -1016,6 +1016,7 @@ const (
 
 // demandRunRules gives a rule for each demandRun field that holds references.
 var demandRunRules = map[string]demandCloneRule{
+	"daily":      demandShare,
 	"railOffers": demandShare, "serviceOffers": demandShare, "connections": demandCopy,
 	"pcg": demandCopy, "rng": demandCopy,
 	"passenger": demandShare, "profileFlows": demandShare, "pickupWeights": demandShare,
@@ -1083,8 +1084,8 @@ func TestDemandRunFieldsHaveCloneRules(t *testing.T) {
 			continue
 		}
 		from, to := source.FieldByIndex(field.Index), copied.FieldByIndex(field.Index)
-		if from.IsNil() && (name == "railOffers" || name == "serviceOffers" || name == "connections") {
-			// The rail clone fixtures check these fields with populated plans.
+		if from.IsNil() && (name == "railOffers" || name == "serviceOffers" || name == "connections" || name == "daily") {
+			// The rail and daily fixtures check populated plans.
 			continue
 		}
 		if from.IsNil() {

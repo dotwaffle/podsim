@@ -40,6 +40,9 @@ type demandRun struct {
 	serviceOffers []project.RailServiceOffer
 	serviceCursor int
 	connections   *rail.Connections
+	daily         *project.DailyProfile
+	dailyBand     int
+	dailyDay      int64
 }
 
 type demandInput struct {
@@ -85,6 +88,15 @@ func newDemand(input demandInput) demandRun {
 	run.prepareLegacyWeights()
 	if input.config.Pattern == "profile" {
 		run.prepareProfile(input.profiles)
+	}
+	if input.config.Pattern == "profile-daily" {
+		var err error
+		run.daily, err = project.NewDailyProfile(input.config, input.profiles)
+		if err != nil {
+			panic(err) // Demand validation precedes construction.
+		}
+		run.dailyBand = -2
+		run.activateDaily(input.tick)
 	}
 	if input.config.Pattern == "rail-arrivals" {
 		run.railOffers = project.RailSchedule(input.arrivals, input.config.Seed)
@@ -192,7 +204,12 @@ func (d *demandRun) step(simulation *sim.Simulation) {
 		d.releaseRail(simulation)
 		return
 	}
-	d.budget += d.state.Config.PerMinute
+	rate := d.state.Config.PerMinute
+	if d.daily != nil {
+		d.activateDaily(simulation.Tick())
+		rate = d.daily.Rate(d.dailyBand)
+	}
+	d.budget += rate
 	if d.budget < 60*sim.TicksPerSecond {
 		return
 	}
@@ -227,6 +244,10 @@ func (d *demandRun) releaseRail(simulation *sim.Simulation) {
 }
 
 func (d *demandRun) nextPair() (string, string) {
+	if d.daily != nil {
+		from, to, _ := d.daily.Pair(d.dailyBand, d.rng.Float64())
+		return from, to
+	}
 	if d.state.Config.Pattern == "profile" {
 		target := d.rng.Float64() * d.profileTotal
 		index := sort.Search(len(d.profileFlows), func(index int) bool {
@@ -250,6 +271,21 @@ func (d *demandRun) nextPair() (string, string) {
 		}
 	}
 	return d.passenger[from], d.passenger[to]
+}
+
+// activateDaily replaces immutable pickup weights at a band boundary.
+// A boundary discards only the fractional offer budget, not the random stream.
+func (d *demandRun) activateDaily(tick int64) bool {
+	if d.daily == nil || d.state.Config.Pattern != "profile-daily" {
+		return false
+	}
+	band, day := d.daily.BandOccurrence(tick)
+	if band == d.dailyBand && day == d.dailyDay {
+		return false
+	}
+	d.dailyBand, d.dailyDay, d.budget = band, day, 0
+	d.pickupWeights = d.daily.Weights(band)
+	return true
 }
 
 // releaseServices issues offers after physics and retains rejected identities.

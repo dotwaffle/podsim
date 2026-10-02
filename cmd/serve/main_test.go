@@ -583,6 +583,7 @@ func limitProject(t *testing.T, demand project.DemandConfig) project.Config {
 	t.Helper()
 	reserve := widestDemand()
 	reserve.Pattern = "rail-arrivals"
+	reserve.DailyStartMinute = 1439
 	size := project.MaxFileBytes - len(canonicalJSON(t, reserve)) + len(canonicalJSON(t, demand))
 	sized := func(length int) project.Config {
 		config := weightedProject()

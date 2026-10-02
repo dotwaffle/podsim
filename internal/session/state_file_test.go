@@ -723,6 +723,9 @@ func TestStateFileWorstCaseSize(t *testing.T) {
 	demand := config.Demand
 	demand.Enabled, demand.PerMinute, demand.Seed = true, 120, math.MaxUint64
 	demand.Pattern = "rail-services"
+	// The conservative bound includes the optional daily clock, even
+	// though rail-services does not accept that field in a valid project.
+	demand.DailyStartMinute = 1439
 	demand.Destination, demand.Profile, demand.Band = id("d", 0), id("p", 0), id("b", 0)
 	random, err := newDemand(demandInput{config: demand, network: config.Network}).pcg.MarshalBinary()
 	if err != nil {
@@ -791,6 +794,7 @@ func TestStateFileWorstCaseSize(t *testing.T) {
 			physical.RailConnections = nil
 			physical.Demand.State.Connections = rail.Counts{}
 			physical.Demand.State.Config.Pattern = project.Default().Demand.Pattern
+			physical.Demand.State.Config.DailyStartMinute = 0
 			if _, err := decodeCheckedState(encodeTestState(t, physical)); err != nil {
 				t.Fatal(err)
 			}

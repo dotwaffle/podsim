@@ -811,7 +811,10 @@ func (s *Session) save(config project.Config) error {
 // stream and not the project, because after the demo the stream is off
 // while the project can keep demand on.
 func (s *Session) configureRedistribution() {
-	demand := newDemand(demandInput{config: s.project.Demand, network: s.project.Network, profiles: s.project.DemandProfiles, arrivals: s.project.RailArrivals, departures: s.project.RailDepartures})
+	demand := s.demand
+	if demand.daily == nil || demand.state.Config.Pattern != "profile-daily" {
+		demand = newDemand(demandInput{config: s.project.Demand, network: s.project.Network, profiles: s.project.DemandProfiles, arrivals: s.project.RailArrivals, departures: s.project.RailDepartures, tick: s.simulation.Tick()})
+	}
 	// Project validation guarantees at least two passenger stations and valid settings.
 	if err := s.simulation.SetDemandWeights(demand.pickupWeights); err != nil {
 		panic(err)
@@ -823,6 +826,14 @@ func (s *Session) configureRedistribution() {
 	rate := 0
 	if live := s.demand.state.Config; live.Enabled && live.Pattern != "rail-arrivals" && live.Pattern != "rail-services" {
 		rate = live.PerMinute
+		if demand.daily != nil {
+			rate = demand.daily.Rate(demand.dailyBand)
+		}
+	}
+	if demand.daily != nil && rate == 0 {
+		// Zero SetDemandRate selects the historical mean. Turn positioning
+		// off so a daily gap does not use that fallback to start moves.
+		mode = sim.PositioningOff
 	}
 	// The mode is valid, and demand validation rejects a negative rate.
 	if err := s.simulation.SetPositioning(mode); err != nil {

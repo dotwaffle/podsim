@@ -193,6 +193,9 @@ func (s *Session) liveBatch(version uint64, remaining int) int {
 
 // step advances physics and demand together. The caller holds mu.
 func (s *Session) step() {
+	if s.demand.activateDaily(s.simulation.Tick() + 1) {
+		s.configureRedistribution()
+	}
 	wasDemo := s.simulation.DemoRunning()
 	s.simulation.Step()
 	if wasDemo && !s.simulation.DemoRunning() {

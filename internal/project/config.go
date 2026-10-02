@@ -122,23 +122,25 @@ var errTooLarge = fmt.Errorf("encoded project must have at most %d bytes with an
 // the largest length, and each byte is a control character, which JSON
 // writes as a 6-byte escape. Keep this value in step with ValidateDemand.
 var widestDemand = DemandConfig{
-	PerMinute:   120,
-	Pattern:     "rail-arrivals",
-	Seed:        math.MaxUint64,
-	Destination: strings.Repeat("\x01", maxIDLength),
-	Profile:     strings.Repeat("\x01", maxIDLength),
-	Band:        strings.Repeat("\x01", maxIDLength),
+	PerMinute:        120,
+	Pattern:          "rail-arrivals",
+	Seed:             math.MaxUint64,
+	Destination:      strings.Repeat("\x01", maxIDLength),
+	Profile:          strings.Repeat("\x01", maxIDLength),
+	Band:             strings.Repeat("\x01", maxIDLength),
+	DailyStartMinute: 1439,
 }
 
 // DemandConfig controls deterministic arrivals per simulated minute.
 type DemandConfig struct {
-	Enabled     bool   `json:"enabled"`
-	PerMinute   int    `json:"perMinute"`
-	Pattern     string `json:"pattern"`
-	Seed        uint64 `json:"seed"`
-	Destination string `json:"destination,omitempty"`
-	Profile     string `json:"profile,omitempty"`
-	Band        string `json:"band,omitempty"`
+	Enabled          bool   `json:"enabled"`
+	PerMinute        int    `json:"perMinute"`
+	Pattern          string `json:"pattern"`
+	Seed             uint64 `json:"seed"`
+	Destination      string `json:"destination,omitempty"`
+	Profile          string `json:"profile,omitempty"`
+	Band             string `json:"band,omitempty"`
+	DailyStartMinute int    `json:"dailyStartMinute,omitzero"`
 }
 
 // DemandProfile contains a portable origin-destination demand matrix.
@@ -155,6 +157,7 @@ type DemandBand struct {
 	Name            string `json:"name"`
 	StartMinute     int    `json:"startMinute"`
 	DurationMinutes int    `json:"durationMinutes"`
+	PerMinute       *int   `json:"perMinute,omitempty"`
 }
 
 // DemandFlow contains one origin-destination pair and one weight per band.
@@ -662,8 +665,11 @@ func ValidateDemand(config DemandConfig, context DemandContext) error {
 	if config.PerMinute < 1 || config.PerMinute > 120 {
 		return errors.New("demand rate must be 1 to 120 orders per simulated minute")
 	}
-	if config.Pattern != "balanced" && config.Pattern != "market" && config.Pattern != "destination" && config.Pattern != "profile" && config.Pattern != "rail-arrivals" && config.Pattern != "rail-services" {
-		return errors.New("demand pattern must be balanced, market, destination, profile, rail-arrivals, or rail-services")
+	if config.Pattern != "balanced" && config.Pattern != "market" && config.Pattern != "destination" && config.Pattern != "profile" && config.Pattern != "profile-daily" && config.Pattern != "rail-arrivals" && config.Pattern != "rail-services" {
+		return errors.New("demand pattern must be balanced, market, destination, profile, profile-daily, rail-arrivals, or rail-services")
+	}
+	if config.DailyStartMinute < 0 || config.DailyStartMinute >= 1440 || config.Pattern != "profile-daily" && config.DailyStartMinute != 0 {
+		return errors.New("daily start minute must be 0 to 1439 and requires profile-daily")
 	}
 	if len(config.Destination) > maxIDLength || len(config.Profile) > maxIDLength || len(config.Band) > maxIDLength {
 		return fmt.Errorf("demand references must contain at most %d characters", maxIDLength)
@@ -680,10 +686,13 @@ func ValidateDemand(config DemandConfig, context DemandContext) error {
 		}
 		return validateRailArrivals(context.RailArrivals, context.Network)
 	}
-	if config.Pattern == "profile" {
+	if config.Pattern == "profile" || config.Pattern == "profile-daily" {
 		profile, ok := demandProfile(context.Profiles, config.Profile)
 		if !ok {
 			return fmt.Errorf("unknown demand profile %s", quoteID(config.Profile))
+		}
+		if config.Pattern == "profile-daily" {
+			return validateDailyBands(profile)
 		}
 		if _, ok := demandBand(profile, config.Band); !ok {
 			return fmt.Errorf("unknown demand band %s", quoteID(config.Band))
@@ -741,6 +750,9 @@ func validateDemandProfile(profile DemandProfile, passenger map[string]bool) err
 		}
 		if strings.TrimSpace(band.Name) == "" || len(band.Name) > maxNameLength || band.StartMinute < 0 || band.StartMinute >= 24*60 || band.DurationMinutes < 1 || band.DurationMinutes > 24*60 {
 			return fmt.Errorf("demand profile %s has an invalid band %s", quoteID(profile.ID), quoteID(band.ID))
+		}
+		if band.PerMinute != nil && (*band.PerMinute < 0 || *band.PerMinute > 120) {
+			return fmt.Errorf("demand profile %s band %s rate must be 0 to 120", quoteID(profile.ID), quoteID(band.ID))
 		}
 		bandIDs[band.ID] = true
 	}
@@ -833,6 +845,11 @@ func cloneDemandProfiles(profiles []DemandProfile) []DemandProfile {
 	cloned := append([]DemandProfile(nil), profiles...)
 	for index := range cloned {
 		cloned[index].Bands = append([]DemandBand(nil), profiles[index].Bands...)
+		for bandIndex := range cloned[index].Bands {
+			if rate := cloned[index].Bands[bandIndex].PerMinute; rate != nil {
+				cloned[index].Bands[bandIndex].PerMinute = new(*rate)
+			}
+		}
 		cloned[index].Flows = append([]DemandFlow(nil), profiles[index].Flows...)
 		for flowIndex := range cloned[index].Flows {
 			cloned[index].Flows[flowIndex].Weights = append([]float64(nil), profiles[index].Flows[flowIndex].Weights...)
