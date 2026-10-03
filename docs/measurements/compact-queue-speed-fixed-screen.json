@@ -1,0 +1,4438 @@
+{
+  "status": "bounded loaded compact comparison; no adoption qualification",
+  "provenance": {
+    "native_source": {
+      "head": "30d8e34c6368c3dbb382b314cecf6bff61cf40ac",
+      "sources": {
+        "generate.go": "cfb6e99ec1b6a2bb702200f48039db80499dd1bc47c91e635ddb74fdeb14707d",
+        "assets_external.go": "73afb5b07810b3aaf8aa89b9cad08a273ef45555aeb68e92055014477f789cf8",
+        "assets_embedded_test.go": "53844b6557989dfb5d3f16563909d672aaed62eb779ca38d6e63cedba3c161cb",
+        "assets_embedded.go": "0da011fc8f6b5f7411e97ff470e1bcd3fce9bd7359a54f26177cc932b5e0d7c7",
+        "cmd/serve/state_test.go": "aa4a10f105c35a9d48e00420953f53abe1996803e33b91bacc594627e77af07b",
+        "cmd/serve/state.go": "272969085b2a5ba6e9f0fc6f9e230d0ef77efadf189faff6880376346564d6f4",
+        "cmd/serve/pprof.go": "0340aaa60328f17d5fc0e9d4ed9b3444902d4dbe4e49e555c86340dd054942be",
+        "cmd/serve/main_test.go": "6b3a912a75422fd1fe5c0804f258d92903d43912b5319816fc25f27bc44707c3",
+        "cmd/serve/main.go": "fe454fb20e64cfd02da8905eec12fc5064144e107e915e1f3dec98982e5bbe54",
+        "cmd/serve/build_id_test.go": "58dd8a81ffed0309acab7bb8f1ced6c8bfd784c3f0bb409f0c435cb7316f0a0b",
+        "cmd/serve/build_id.go": "b6c942c4142cbb749d329bd3260788301f5b6e45c1c0b9acc077c5e52da960f7",
+        "cmd/serve/apply_test.go": "dfad6f9e85193475bfeb3c9c770508460b546d3c5a636c7077d8ff6009e89c44",
+        "cmd/scenario/main_test.go": "e76d0a17cffe613927b8f5287e6922c57617a508b464316c3931936cd47971fb",
+        "cmd/scenario/main.go": "2db5ba60c094020fa7f04c9ba3502da395954a6f2b2a12c9410e20a67e11f15a",
+        "cmd/projectcheck/main_test.go": "519f3c602f35f842fac9d7452ffaf9b4429a2e7f9f0e89eb949f544301126784",
+        "cmd/projectcheck/main.go": "20e7af2f4bbf17de5408701269f3243cb14809f4154dd48c95571802c3f6a81f",
+        "cmd/podsim/server_native.go": "9cd84a1430cd1a27bbf3c55eff146823819b6935662b8bef220a129b47ed50f6",
+        "cmd/podsim/server_js.go": "e3ace9d3445414a2e728efe26340acbcab434224f49a973cf205d1f8c2883d3d",
+        "cmd/podsim/main.go": "e3761c91c40fdc8b63afec6d64f5f4f439985369161dcab9d8ae711ded87f1a9",
+        "cmd/parkride/main_test.go": "ead64af89eaab9a47f6a24b6ece837fd2776fc192f07662b8a1c31876f263c80",
+        "cmd/parkride/main.go": "7297f4723ce873250f25760809484fa6501493dc9e6fc7601acd4bd7788b7532",
+        "cmd/editormodel/main_js.go": "a3660946acefb42dbbb9a68db912acc7d29f3d565efa790e7ec3de3a5db89771",
+        "cmd/compare/traffic_test.go": "8761283373734128e79f8b1ef2c542b81d6097073833ac8fcf96d34653c96383",
+        "cmd/compare/traffic.go": "6db89d16341a467f96f854c963ce8df2d7dd1a87211cb8c38166a71a272bae1e",
+        "cmd/compare/rail_test.go": "7402e2f8b334ebdbd08e0735deb2b9f715e558cac9ce8fdc2afd197be5a584e1",
+        "cmd/compare/rail_services_test.go": "252951138113c8dd7d609611ecc656497a796aa46899a059034eab5b07bb80fc",
+        "cmd/compare/rail.go": "a781f98be5c685880e4fd545c3a327b444d0530b972693792b5509f694396262",
+        "cmd/compare/onboard_test.go": "51aca6e6bfd8658aa5268b5aec49c4cc247230450373b2e5f459eb34eb7e8964",
+        "cmd/compare/onboard.go": "dedc540d7af64054c02130fe813d9b480100915f92b529e605b55fe5b22ce5f2",
+        "cmd/compare/metrics_snapshot_test.go": "2da989ee443ad27a19301648ea7b249884bb460e808b0033d88affa7df990c2b",
+        "cmd/compare/main_test.go": "0450e366e272efe2e5f020df4bb2aa64e53c328cd1b23deca6ef8a8909ecaf26",
+        "cmd/compare/main.go": "36a8def2f3d753b0b7a03a7181fa95b8c8ca2af2a4b6ef4df44784af7ccb341a",
+        "cmd/compare/journeys_test.go": "f8837854e0d8824e921b5366cb7f24539e2d7a0a0f8115ebec70d1d76210d388",
+        "cmd/compare/journeys.go": "d382f61c7a2283a3b3f3857d0da1f214d951015570e2fc58254d5b43db02d33d",
+        "cmd/compare/group_test.go": "bbed10502578955d01a8d0108ff948e2c94304fee3e7e1010cb8b8c87ae89435",
+        "cmd/compare/experimental_test.go": "aca06fc6494ddd85b5d3d793a2f6f3bf415482f7c7c92c32efc81291670300c1",
+        "cmd/compare/experimental.go": "42ba1558f099b39b939b523482494f4457e34cfa2fa5c047877fca017255d37b",
+        "cmd/compare/energy_test.go": "f8b63ca45a02905ba48a11ff8e77a5d6a514263f75bfc3c66f74300545c7943b",
+        "cmd/compare/energy.go": "8dbfd185c89c86a9fea9e2f9d56697995c4990a0ae1ec410f8b3c81fbfd29bab",
+        "cmd/compare/daily_test.go": "8dd5538f278ff4b265edb4a76e21ef22f661989a088be7445e3aa6155a79d2e7",
+        "cmd/compare/daily.go": "7e64d51ade877bebaed2dde34b8c20ec72bc9119568c0b9cffa909d031a6d31a",
+        "cmd/compare/consent_test.go": "07ea3937735dc640ad81ae9f2090f3571cf37532ddd23eb7a8449150339114e5",
+        "cmd/compare/consent.go": "29b1bc6a219c81cb7b891ad8dcb3b97ab84deca61f11d3c0d8cd30e74daa8a59",
+        "cmd/compare/compact_test.go": "5241c41f40c3d774929af316aa7bb6407141091821925350b8075ffb713d78f6",
+        "cmd/compare/compact.go": "c65821340c2dfbb2dc18aab6d7a4fa7d2b29289ef7f529a235e60211067d3936",
+        "cmd/compare/adaptive_test.go": "013c4b1010046820007bfb837a724b39a233d9a97cb7492581fd1c8b4d0bac3f",
+        "cmd/compare/adaptive.go": "afc066dcb29a7ee21ea4e841ea16fff03ba531ff60c01678b58a152a04e05670",
+        "internal/view/touchcancel_native.go": "2dcbcb74550103cacbdf75d4a12b5486a15fa7849c0a971b55911301eced892c",
+        "internal/view/touchcancel_js.go": "aafe16cbcf65ce8edb04e04b949216fcd2852df3397651c2d7f141ca49a65ba7",
+        "internal/view/touch_test.go": "fcfb532756dcb88488ea2966d8484c415b5f3dcec739ebb4f59e824656c512cc",
+        "internal/view/touch.go": "c1ba9374a97cbd14bbd8141b8a2bc0a8c7c8fd59f31acdcf61b768c5ab8093d3",
+        "internal/view/status_test.go": "ed9e845768b0164267e29af946169846682ae66470fde176bc441147bad75c04",
+        "internal/view/status.go": "15f9ebd5b99e2af77cafa1b860a77b5054557e7fcc8231b65ecf4b6f4d3dfa46",
+        "internal/view/stationtext_test.go": "4e3cab53f1dd723273e06eec7ad1ab9635b5e12996c42f6ea6a46ff256ef2413",
+        "internal/view/stationtext.go": "aac4fc081338576ffc5d8ac2621dd12116819a8a473403812b1c9517a5daecc8",
+        "internal/view/sprite_test.go": "f5478d95f5c099d15e8b4cbf58f39dd20bad59284b4255080fa5eca03c568423",
+        "internal/view/sprite.go": "f03aca8c8ad71c8d4afe5900d785a54e8692960589437b73127a0a6eba300042",
+        "internal/view/speed_test.go": "398e6d1e585ef8020cc80cd7178578afbbf29f40e04d6ee327da496398f98989",
+        "internal/view/speed_input_test.go": "bf33ab28a0d6b07575e5c72fb53d66af306ec095c70e5166771c9378b45b813b",
+        "internal/view/speed_input.go": "de1c89af9f2ce17c57d510f312e2f9e046d0b6139e605b0fe2a0c54b3b00ec8f",
+        "internal/view/shell_test.go": "8e01f0c171544c5e433823e4dae65549d8abcd9b33e2119a09f49c6a0098d0b5",
+        "internal/view/shell.go": "cfd68464a8eb993e2538211bc66caa4c5725b814709f17bf6d0aae2ddf0ea282",
+        "internal/view/shared.go": "55cb060d38bd38858a04ca3462a20b395adfdbb1bf641303462cfb1e0106c815",
+        "internal/view/sessionchange_test.go": "30dfe7f62d2509643f6c201186218583560b6798989ce136e5bb1b6741fc751f",
+        "internal/view/savepoint_test.go": "b53b1e2d1e07d8b5107eccccebc0e80f1bd31028ef04449ae76f8252d0570fbe",
+        "internal/view/reset_test.go": "d8d8e12e6a7275a73e09eb312fafb5ec0128d0990f8afe9a1a9cb12a0339d5b1",
+        "internal/view/reload_test.go": "bd7c9df2799f6546773426051e1b020465538b78bc5173c77365840846db5ebf",
+        "internal/view/pointertransform_test.go": "caad3544e62eb9b918e74784fd90813232594896181f3f0fac75cbf6085e85f6",
+        "internal/view/pointertransform_native.go": "3d92d69fae526f775344623aa160779d7a02e1793636dac9e454734ccefcdbad",
+        "internal/view/pointertransform_js.go": "03395dc04d7610c8ac0f28b9a91720fcb4a8ff711d0e86fab56fec3c9f774c81",
+        "internal/view/pointertransform.go": "66cbdbff97fc6d2e75825e48573981f2d94f7504ad380c8ac8ddcc19730494be",
+        "internal/view/pointershift_native.go": "153fab48bf62294c90062d1bcee006334f60dae75d4642ce5c32e371830e217b",
+        "internal/view/pointershift_js.go": "5c62a31ed8a439307ed4bf701821bcff9be837a232fa1c731ba3503b8ef912db",
+        "internal/view/podtag_test.go": "cde475b0ddeeda63440c954ef9d8fea848f48f550035bbe634aafb005acf839c",
+        "internal/view/podtag.go": "b9d93ff0729a1dcc6e7c8df8a2e3c23d2c892f0de504bcb1c5be0dd8d411b40f",
+        "internal/view/platoon_test.go": "aa36dca761950cb19c0c380f33ef99e175555b679bc7ce780614c74b141d99df",
+        "internal/view/platoon.go": "9ecbc3756eab681311207cbc93630efaa6500d7cd78d9c5ea41b85f4a58a56a1",
+        "internal/view/orders_test.go": "57aa6cb9b3ed647482929d673eef6bb1ef9839775fdea0d7d740f0f6b43f57e8",
+        "internal/view/orders.go": "e56406cfaf97f6ffa32cbf39fcd9057b4bc796273280c881ce053e3409c167a7",
+        "internal/view/order_choices_test.go": "c3d5304ec91b923d1fc39134567b74a388f35fb6bfceeaddf336f167cc4c4b6d",
+        "internal/view/order_choices.go": "f424dea8342369791b3f9d69980ed945d506311e62b7fea3005f2c805457589b",
+        "internal/view/names_test.go": "9759c73b175b44e819c53a8f9c096d4f1f34abce1918ad395b5a30970cf9c624",
+        "internal/view/mapstyle_test.go": "dca242964e9bb03f0ca69a1fdde130d67cd03db75c9b684bb397d2c190d69266",
+        "internal/view/mapstyle.go": "febd9dfbf7650481536761bd03875916db4642a7ed8d4a614d7980a89f44abbd",
+        "internal/view/mappick_test.go": "cad2ba770e8a4160c65adedea02b7889e368f5dc93bbfa9ef69a0a3a37821c30",
+        "internal/view/mappick.go": "0bb0e95ba95dcbca21393b33bf0651cda56d7b035f42e537b39cd05b1264eb4c",
+        "internal/view/mapbackground_test.go": "5569e5f7ddbe5c4ea2e45a20a73d86de6868d9a7027caf989cf600a1fa76c767",
+        "internal/view/mapbackground_native.go": "7f338dfd411c413b93a055f37ddfd589aa0a7e0b42325e1a2f0d56deec73c89f",
+        "internal/view/mapbackground_js.go": "289102512a99cd9529f85baa9a2ac96dc924934e59dfc91799d79e989340ed38",
+        "internal/view/mapbackground.go": "b8c6442f51cd14c6e17db5f39c41c2fe2784e520f362d587381fafe95152e2b9",
+        "internal/view/layout_test.go": "dd9ffe86c5345b444f091d497792ed800e26b03946695d5e477b8e15b3bae44e",
+        "internal/view/layout.go": "fcdae9badda1ba710138f7338475221458861d9d9b1acf66293053c1a7fb4714",
+        "internal/view/labels_test.go": "2af310ba2b16440f4ee3636f9229f06a43eb5ba687da5a3b0b65ef4e1dac91b6",
+        "internal/view/label_measure_test.go": "c9a6c565884a7f827db6323438b15ca6770e113013239f129ba5ec4af480aeb3",
+        "internal/view/label_measure.go": "075b5206c898b64260c5ed27595ac2e36034e786eb58cfa7656a3c667b191b2a",
+        "internal/view/journey_test.go": "8bfbc62657a78baffade45c61cbffe7f264c9ed3759c43292f48adb6c3c29225",
+        "internal/view/journey_search_test.go": "c567d480fec0ddfc1a09fba5a04dafbbcea6a24b4ce1784badfa7354d904fe1f",
+        "internal/view/journey_search.go": "341051c41c99aea36217dc5d65053c63bd34f7afbb4e4c090752530954c82823",
+        "internal/view/journey_pages_test.go": "90bf44b49798ab359a723c926d4303ad29e6e8882d1305dbd54053a92b271089",
+        "internal/view/journey_input_native.go": "b5fed3044b9220044b9ea1367138611264b4af6d91100f6cd9e3e7f6f8193fa2",
+        "internal/view/journey_input_js.go": "d2ade06ba1d9b31d043f4c2ea894b93dd6c0c9bbd416d38098225602f9e93031",
+        "internal/view/journey_catalog_test.go": "055179d856e37c0d5b670b7523a2c2a3247fc98c9560a5dbc0e70f95f0f93a34",
+        "internal/view/journey.go": "e80fba79c51fde11f222a01c9bfe6251c51357e6a937c817f9077d2745019cc8",
+        "internal/view/inspector_test.go": "69d475db8a64f5b6f8428755be09a6f490f35b85ccd21f4ea0066b8f956362cc",
+        "internal/view/imagelimit_test.go": "225cdbf03d4ac07d23b22a3a0a1b6c931c32564950b532ab9f7ab9c65c82924a",
+        "internal/view/imagelimit.go": "36a571150a64499d305bd069055db90f19addecdbe61244dca545e3822b9f249",
+        "internal/view/header_test.go": "e82100b789d0959230c7179b5dadf0cc69c3a4d0cdf02a916381be1fe11f97d6",
+        "internal/view/game.go": "8cf749bfed611214fa7d7294a6d0a71fc2d892db121912cb13767e9182bd5b0f",
+        "internal/view/displayindex_test.go": "c39c8d28ef9accf21da54aba5718b4af2ae722eaf22c3785af17e1e06937b0db",
+        "internal/view/displayindex.go": "44a5d54b6d3230b9bb2b37b8b92165e18753d3b02c56f2e52ef6ea89b60d4b80",
+        "internal/view/demo_test.go": "c5ee915c121fc0c84d7b66306d0b04a359e9608bfb306abb9758947f40d3f8b9",
+        "internal/view/demand_test.go": "6192c5c8edd7ce7128ad3b3a6bfc901dfac6e4485bc24e2ddeee092d9418328f",
+        "internal/view/connection_test.go": "f06a522b757940b4985815680ebb26a59ea7c4d9f894e6de200ef04d44762197",
+        "internal/view/command_test.go": "58e73487b6a9ab1df9357575cedf91c56af43364491082989804145294161d27",
+        "internal/view/camera_test.go": "4a2affb5e28f067a77fa7712162ec516258a39895aa9e5e310b47f2c88ad055d",
+        "internal/view/camera.go": "872cf6fd7cd4bddc0b099098ac84aae0964521ec08986c25aa6eb838230fa0cd",
+        "internal/view/anchor_test.go": "c8e389c98a56bbc8b32d04dd477a3d599721a64792b400a53fa5a6e5be82dc99",
+        "internal/view/anchor.go": "bcf0e46c844179ffc974504fa7d4f10301cd68a4e0fc1c7f1420038315e38b89",
+        "internal/telemetry/telemetry_test.go": "258edda80d3a72e1bd81d50aea9203fa994d34984fb33184c4f7cfa07ab95700",
+        "internal/telemetry/telemetry.go": "a08faddf82d72e983c0815619acd12a010f8b7a40e019884cee86e7fe2f1be30",
+        "internal/statestore/statestore_test.go": "450780f22b2c01bd2a4cd812f11ddb9a587791ab82112e8288b8950bf9b3cb4e",
+        "internal/statestore/statestore.go": "299c6372bdebb5235572a1ce06fab377a42b891a1bd2f8e3f8b3322a795f9a3a",
+        "internal/statestore/policy_restart_test.go": "8bdf673056a1cdc32e0cd23129ee94fbe8712bb9bab418f1e1790cd7b462e979",
+        "internal/statestore/interrupted_linux_test.go": "b92680eb52a2142462a0259adb7161c3985156dedcec5fb8ab5bc7b2da1224e5",
+        "internal/statestore/fsize_linux_test.go": "fe81db60f0faf24f6436b87a48d60ef885e1ef4cb984cc99a35e6dde0f7c65df",
+        "internal/sim/working_test.go": "9628ea099699fb7c7e81072da430bb833f6cb18c35133ebd162f1f0e7848a6b1",
+        "internal/sim/working.go": "cbcf8752454e9b250b6b0622c3825b91ff63660cd4f47edd3c60f0c46c538ed9",
+        "internal/sim/wait_stats.go": "3ef840030cef4fabfae4bae910fd225fb412b80a2aca8d7170129784549af0b4",
+        "internal/sim/vehicle_class_test.go": "627f1d067682d5855db2898a823c6eee33a8b5480a753f046da30176b1440a59",
+        "internal/sim/vehicle_class.go": "9ecf9f1ba03e63eb4325b88363364e7add167fd63054493a5e892328a022ba81",
+        "internal/sim/trip_admission.go": "0fa085ac14076dc5e47032cf3b6af02a43a307afeb2f1d0b3b4059e74380661b",
+        "internal/sim/traffic_test.go": "2db6c1fc81c0b5ed4195d38da82ca19253a43c2ae2f40355ab79821f4509635a",
+        "internal/sim/traffic.go": "8f3a4defae8ffc296524bb2156b1cc0bcc7fa6794b7c6270016249cc7e263151",
+        "internal/sim/step_completions_test.go": "577e7c58f14dfc4ea3fb4367b2002529496edad56d30cb1663ff4e310fc4157d",
+        "internal/sim/step_completions.go": "93b8a6a59120b69aed425b608c16b6509aba7a169ce07b92f0716b293a67a6b7",
+        "internal/sim/status_test.go": "54034a387aafc0c2c2751844f693823fbc652f978373db370cd6294586455682",
+        "internal/sim/status.go": "d6ba51149559144e9396d5dc06eed342be0353472c40d18c2e53788a5f92dc71",
+        "internal/sim/station_paths_test.go": "cf360e4c77dd026c023043c58037d830cacd0e5e4c84328832f4c6df1219ce5a",
+        "internal/sim/station_maneuvers_test.go": "fcadd598dcfe75e628b9dc70e1ac730dabaefc3120520e4889c4d6f03f90af23",
+        "internal/sim/station_maneuvers.go": "c97172ac6a3da685d1b7588b3f9e3083987f3c5ddc6e23a028200e9fb8aec106",
+        "internal/sim/station_lane_roles_test.go": "644ab63c4b5f07f0b0bc5b5a5ecc8708199f6fa0033f81032f693d4f4e824b25",
+        "internal/sim/station_compact_queue_test.go": "01fd4e2c663ba8f939a5f9fbc274536754028b497b547a5c556b4c959ddb4d1a",
+        "internal/sim/station_compact_queue_safety_test.go": "d8c1503c89399d9444e8201728cd7d889b44ec1d5b38393142a33cb1c80cbfc7",
+        "internal/sim/station_compact_queue_approach_test.go": "1888123e848d077c3bece459500eb70b1976a45b7b604ee63aa692371298eb93",
+        "internal/sim/station_compact_queue.go": "0eac6c0422576343a9ca52ecda9cc2ba381572cbb23f26fca8a23b4deee8717c",
+        "internal/sim/station_buffer_test.go": "3794b19a330dbe2da8f328b0b548bf513954097a0df1d582feccfeec38d98e6f",
+        "internal/sim/station_buffer_recruitment_test.go": "bf6723227a0967d05b7c08943b879c04e288518b727421bc469b0e6929d44e7b",
+        "internal/sim/station_buffer_platoon_test.go": "f3442f3e66ba7f4855057010607798badf4e7fd8221c9bd914597af05eb683fd",
+        "internal/sim/station_buffer_platoon.go": "d8387e97546aea888f0bff8a1631dc8bf30128ef86009513d51e7a146b82d7e9",
+        "internal/sim/station_buffer_claim_test.go": "44eb82a36148681a293d23dd3bd1b1d780ca7bf8ba1e603c14344b43191d52ad",
+        "internal/sim/station_buffer_claim.go": "7c4b44d568ba7da0390526908fa600f561ff8802af8b29824c8b7712aac1a825",
+        "internal/sim/station_buffer.go": "2a6145324afb5e307726894f75c4646d56e737757187a4e0e88a92e1a38ce305",
+        "internal/sim/station_banks_test.go": "2e9c8ba6afa15643832d2e19a2521e4c93eac9e48098d4ff1c4e648794f5f25e",
+        "internal/sim/station_banks.go": "9133d911ff6ae7ae35260839bf254d9e4b6254589a6a36ca71e6db34c6e6755d",
+        "internal/sim/state_test.go": "3a8ca7f45299a29ab6279e0b0ecc36bc35c2c583158da041760211fa3b680978",
+        "internal/sim/state_physical_test.go": "11ef0b5dbc77e21871306432e8c4bd1ef2d9c31380ce5ea87f918ac6fb895bf0",
+        "internal/sim/state_physical.go": "f7d7caa6e427846f04b2740ad719c77acb03c572993901c64a028937baa9a647",
+        "internal/sim/state_logical_test.go": "98f7a20364ebfd960131e47a009303cca84528d294f3cde2629fc7b9f39fa62b",
+        "internal/sim/state_logical.go": "6a9976962d106dc2c6444cad663a74f2ad3612602fe43e6a1392fea8a146e3de",
+        "internal/sim/state_contract_test.go": "cb6113fff7c1e3b2c6dd42f413df223a5342621b334628c06330402c44701347",
+        "internal/sim/state_contract.go": "a0191285b98531e5c6d87b6d905ed101d2de739aa336543b5ad0d29cfc7477eb",
+        "internal/sim/state_compact_queue_test.go": "f764cab7067f542b36ce75b22e65b77164490c8e4958bf7a621581622e2064bc",
+        "internal/sim/state_compact_queue.go": "cea9cf0bb126d46ab53c04ed3898e91d2aeebeb28bb45ceb4e3d2c9a28a3c3f3",
+        "internal/sim/state_buffer_platoon.go": "11a2799de227e0a56e3cfd9004f79576c1a279a8a2e5138e8f38cd396496834c",
+        "internal/sim/state_boarding_test.go": "4010c9397c886a09202b17083ab6650cc36810d2777f48595db2cedd3e270646",
+        "internal/sim/state_boarding.go": "2968a1f8890e2536133a9ca14f6a39d6cd9c3fad0f26b7e84b53d77b73ef552b",
+        "internal/sim/state.go": "a42b4cc256b8de576a7d9196575a90eba375cfa0c4a6fb3c7ab3b49797e24454",
+        "internal/sim/simulation_test.go": "e6c197600d5cc39e4f85bc44eeb0964e57265a7b20bfc427d350fb65eedd3519",
+        "internal/sim/simulation.go": "f29dc9861e1dd35e7172970ad95b6634a6fd78f3e2d2741ea38cbe98f3aef9bf",
+        "internal/sim/sharing_test.go": "d4b1f6f1a4c65fef9005b376e1b92454644efbe87e51468a9e55bfabdab9ba88",
+        "internal/sim/sharing.go": "e0a4a687ed21e7eaaa5d2df437afaff234dc29501ca5de1993f946102d4514a0",
+        "internal/sim/seat_screen_test.go": "ea255e01bf7ab3227b1fe01f25b2fa81545f189cd22976368021e19ef636a9c6",
+        "internal/sim/seat_screen.go": "b0c95371fbf49724d36538b8218e6d4da8675dfe6ad989e0271ae07446b71b38",
+        "internal/sim/safety_test.go": "31e743dd1432047e5f6874f3d38a7e11e58552592565d1836a832fcd27b4d124",
+        "internal/sim/safety.go": "01ec78b60c622ca38f340bc9ebe384e10de32c61caac9ccd4e5751fd473b6618",
+        "internal/sim/routing_policy_test.go": "db140210c16248eb55b3dce2a417aa785de0fdf1c7dea310c324fce20e3225cc",
+        "internal/sim/routing_policy.go": "78a085a714aadff0eade191ff81157bcddfe20e7bd37464c85ad5fe4a7ecbee3",
+        "internal/sim/routes_test.go": "0134a83d68683bdf9b83a79a2e929f3d443d9e68af26d9134d32a8db9bdf072f",
+        "internal/sim/routes.go": "8ddaf09b902309585da759273ecc040a0373094cb1c31b5dc90f8dddbaee725c",
+        "internal/sim/route_work_test.go": "e542975d274cac5420190bd61109f9461db25c779147a5b06fecc0cdaf7e3d84",
+        "internal/sim/route_work_reference_test.go": "f531c9f7d3747e70423e39e25f934b03bc2769e96f8dc69125825d6394e56f4b",
+        "internal/sim/route_work.go": "5d7cac30a8f3b112790b71126294a6b53c0d08b0e9353831274da00cbdd05e08",
+        "internal/sim/route_targets.go": "6bfc83429738141076e28cdfde4938ef7124d73f3dafba3f9094f67e183fefd5",
+        "internal/sim/route_blocks_reference_test.go": "9c8a966fc05dd4e30958a9dae66a5d800a8297ffa0590cc6a19e2b9feb2796d5",
+        "internal/sim/riders_test.go": "eed278f7461faa81826be26a3bc25fe4c4efb068100d6cc5b0c68b9c822bc1e8",
+        "internal/sim/riders.go": "0401825d98b910571c67a94155b65e6653ba01e4c7d75301e880cfb34df51ab5",
+        "internal/sim/rider_detours_test.go": "ee496152a5f1191ea41581cacdf426f4ce32371c589505551576dffc97cd7eac",
+        "internal/sim/rider_detours.go": "8fff5b49956406c0ca6ecd92ef9aafa75d381956902e78a5055da987d140ada0",
+        "internal/sim/released_test.go": "ba9d682cf64ef9a5c9ddd0f2178bc83f0ecfe00b93f8764cd5a1f414d9aeafa3",
+        "internal/sim/released.go": "2ada7fcdb2409cfd2f4b4b0d6c9d90809503f50beaa9e97d0556d51b2846374f",
+        "internal/sim/redistribution_yield_test.go": "a69b9c50fad48567abd88e1d608e660e8edfad45610cfe5647fde6e9939c002b",
+        "internal/sim/redistribution_test.go": "eebe0ee7da00bfd99f9e791442a463c501bb739c279f72c09dece5985fd6072d",
+        "internal/sim/redistribution_claim_test.go": "a6315ddd330e1f6d3702b90a5f9f03d68ea72da90fd905380649d16a1378d5fd",
+        "internal/sim/redistribution.go": "40f32f741c1312f02da255b263b321a93155cf22a36c857c735ad5e8abb17713",
+        "internal/sim/rebalance_clearing_test.go": "75f9a614ff2f54d096c28a230f8ae852785f4a86fb6b7a0f0485cebdcb62de93",
+        "internal/sim/reassign_test.go": "be7ab5b5e3ff0cbaa99e82250b20c4289ebfc8e795f5b1e7a8c9031149a00263",
+        "internal/sim/rail_forecast_test.go": "eed7b656b5df71c110c70ab8137d127698abfd9750f435fd677a01772a744948",
+        "internal/sim/rail_forecast.go": "1ad900f9c1ccdd4c0ed4c01d0d3a6551a3b38c29a685548bb56c76fef773919d",
+        "internal/sim/profile_geometry.go": "04b993c17cd15e315629fba2fdd627ac069a2e5747f6fbef22abe0e51e44010d",
+        "internal/sim/presentation_test.go": "a2b577e7a5fb03140f05a6921f4e59d6b7036bc6140d286f40ff419dfb6327bf",
+        "internal/sim/presentation.go": "cdd8ffacfe710baa296d20c27e6204080a147aa73b1fd99f5e5b4b6f5803ae7e",
+        "internal/sim/prepared_test.go": "2d8c554d8a9d48b09294be0498bfd66309117200e33ef20d857425532c1c710c",
+        "internal/sim/prepared.go": "a805b1e432426085d311b0edff3bd554e484dce4e4a0a1c5b3e783d53b4547b1",
+        "internal/sim/preferred_routes_test.go": "e40e569c1c9233de7c10a44177d228eee4e699c1712fa41383d054b1009baa16",
+        "internal/sim/predictive_routing_test.go": "4786a838850329ff3aa735dfd71905dcaf1746fac90d7a69c71b7d809bf3784a",
+        "internal/sim/predictive_routing.go": "12f575f64284733053fccef6c0a91521bdadc01ec5b65c043e4ee2f41f5299be",
+        "internal/sim/positioning_test.go": "a87f824af9dede05ab21b511a0c9743ac9e1d96e2ab42fb56d34c3ee8e517ce8",
+        "internal/sim/positioning.go": "a396420def86f9bef67000e300a35ed4fe6e055d980614f40c75f8efd5781faa",
+        "internal/sim/platoon_test.go": "73db359cf7eda58c31129b08aade7ae11c5c03c7ea03d84231095f458ecd5b51",
+        "internal/sim/platoon_geometry_test.go": "c00fe6ac4b5a903924918d0c433ac44f2db73cf35a8f663f0f1e976544551a67",
+        "internal/sim/platoon.go": "11cac4498b0d4a6146c6d68e0351beba3c379039ea19569b2ed525a720eb7d0f",
+        "internal/sim/pickup_swaps_test.go": "4bec7fe20e27d1e90f704fb0ac580ba0ae3cde873eacf3ee0fca34b29216aad2",
+        "internal/sim/pickup_swaps.go": "43f9b7d48cbf347ce8b8f1af5d05e274d3ef3c8552994869c9d34a24b5234317",
+        "internal/sim/pickup_reassignment_test.go": "55d15196d1d0f51923d0ddd00de61dce5b46226a4f9f0238b2875c0b84ad44a6",
+        "internal/sim/pickup_reassignment.go": "7a590653fe25c7a9000f829732fdcaaaeb2977f259d0aa94e37cc105c552712d",
+        "internal/sim/pickup_estimate_test.go": "460cf39ac1977011285a770439188697ebcc65faad6b01ea6328fccd48ad968a",
+        "internal/sim/pickup_estimate.go": "c01665ae86068158fce7d66e976b7c6cca967129b66eb216962fb83ba15412b9",
+        "internal/sim/pickup_buffer_test.go": "d6f7d2717e6b121a0ee6c82e95eb37a87c1b2237b43fe88168193119a5fc097e",
+        "internal/sim/pickup_buffer.go": "e28404572f6d71c207bea0945078774552efeebc410ae502358f55244446d909",
+        "internal/sim/pickup_bounds_test.go": "aa13b64bf9301d483895b99368fef29b3fa2eb2e207fd909c6be9d92bce53768",
+        "internal/sim/pickup_bounds.go": "147563fa11dcbdb9fe34dcc88b8526e668c4bfab2fc5b63d96e36a8b3828d964",
+        "internal/sim/parking_test.go": "ec0218199a09db91e0f4e5ec023abb9a1fd8c5954595f8421657022c058afca5",
+        "internal/sim/parking.go": "7cceb43978a8a7a00fb6f5a37f8c4472f31ec10b1c67dbd8d1b748d9c08fa002",
+        "internal/sim/ownership.go": "110aead4e19e1c0b8fe5a36e0fb91a2cf3d84d8b62368b717a2caf0f57af3dd6",
+        "internal/sim/order_options_test.go": "5625d431d7cc4cecf1764cac5c8475b3e33415f8ab678557c9f3a1374650ea9e",
+        "internal/sim/order_options.go": "3abce7be6315b7b65bf7046abb0201dea959dca5e9feec5e205b52de65a3f4f4",
+        "internal/sim/order_migration.go": "ca77bc947cff158c2793d6dc68b8e1e491136c394bef03b85681b24dbd7a6a1c",
+        "internal/sim/order_foundation_test.go": "cac9b350a26a1a77647b5bfc0d74211064bf196602262e7b815a1604e9ab4589",
+        "internal/sim/onboard_pickups_test.go": "3bacb65004cb4dd738d00f8753e5dd230bd049edec969ef2cf10866a5f2ccee7",
+        "internal/sim/onboard_pickups.go": "054f015d847058b0f821c495f31d5cc011a2ac395f7e006285c4533c9cc28d1e",
+        "internal/sim/onboard_adversarial_test.go": "5c4f8d6b08286b1e28950b0fa54ad808c538c49be9e4e906f2ac2f50a03ee08c",
+        "internal/sim/network_test.go": "34b469e2f6586b3f3f15b2c57fcaf6ec75c01be07ed748e5dd46f067e11fd99d",
+        "internal/sim/network.go": "1e63223692543c1b58f1885f6298990956362e30993ae26ad74943e0daa2da4f",
+        "internal/sim/motion_test.go": "ef00bebd8be5075423dd17a61fa714c874003502877aed98244f328102a0a6c3",
+        "internal/sim/motion.go": "0434cdb64739e7d958b45266e28af2cbcadb73960da79bac2c845274632eee44",
+        "internal/sim/metrics_snapshot_test.go": "7f5d936d07eeb163787b7f600b8b4f364be67cd7f9cca02a2f50f858a39793ca",
+        "internal/sim/metrics_snapshot.go": "c23f8e3ac63aeb7f7aadb17e6adb5a5c6f531c758aaec1aa1a195a2427a551cf",
+        "internal/sim/merge_corridor_test.go": "33b93601caf08b0d1c6805b29186ea068454e75bc64bfdab6212204f93335655",
+        "internal/sim/large_restore_test.go": "9bd38a2fd91d73621e088c5dc60b6fa314c3fd3c1bad6424f2e875a77f0f4db1",
+        "internal/sim/large_profile_test.go": "1949fde573ac7aa59b52e1faf7572e91817052dac151343b551777a6f43ba16e",
+        "internal/sim/large_motion_test.go": "90748629bb458d517c981d40a1c32a675f98224424c6e4dcc6e2db071447c7dc",
+        "internal/sim/large_geometry_test.go": "7f2bc757167860a10494834a598e73bd14ccab0cb5a3ff9410e7e78b61fdf4bc",
+        "internal/sim/large_adversarial_test.go": "696f5a0d174ea8fdcad842c77722405e8fdabf43a047066c1777839f2bf48103",
+        "internal/sim/lane_speed_test.go": "b6a6854da798e70ed8935054c696f736a7455b8b9012893afb1524bd8b337ac9",
+        "internal/sim/lane_polyline_test.go": "5e0639fef5c0a2f0fecfeffca6110eb28e274712fb1155ed5568ff7806b01564",
+        "internal/sim/junction_conflicts_test.go": "1ab74598a38166f18802cbba5ffaeef3fe7c8e1772d000f9749fbf3de7cdb5ba",
+        "internal/sim/junction_conflicts_reference_test.go": "527ecd7ca2a4c8f087f142eaf7788f86b065f038deeb1813e6caa09fd64ecec0",
+        "internal/sim/junction_conflicts.go": "62d897c45f9721914a2164e6e5be0ef67deee88c92d9d206169046f3d82bbd1c",
+        "internal/sim/hold_check_test.go": "7bbd1970eb9c35f78ca23f398f8690a164d26ac0339200538727fdc7feea9d94",
+        "internal/sim/hold_bounds_test.go": "44e0b99381c2a89a3f62e22dbd18e5ab7df4d0d4eaf60d10782bd91e0fba90da",
+        "internal/sim/geometry_test.go": "bae6de119ca6615e28bed669faed9d2d369bc1e9814d7673cd7ea9d4215315fd",
+        "internal/sim/geometry.go": "5ce356e0ed0be10bb91f7d378cbe03659d58bbbb1bc44283fd201e9eb46405ec",
+        "internal/sim/experiment_records_test.go": "d582e05d006d82e23b33d854b435166e34ad3be1efff8910b5feffd4ff1d3e03",
+        "internal/sim/experiment_records.go": "de95bc23026dbe96cfe3c39afd35a1ef6464943bdea3c2805e118f4e5483a534",
+        "internal/sim/example.go": "76cedf3fbea7989f9f6979da7cc188fe220bb8d9250ff8a47ff8d46321282359",
+        "internal/sim/envelope_safety.go": "21c6a8f7d60a9652e4e0e3b050db05f4c2fdc7dcdc0bd25bcda6001df01b8bfd",
+        "internal/sim/drop_offs_test.go": "9f99fe01b4180dc363acf66a27ad25dca9f3f15eb77b7f34ccf7bc7b0cd1e507",
+        "internal/sim/drop_offs.go": "7297f5dcba4fb5a3929fcd116355b50b5853795f05cccb89a3a4843b8e13951e",
+        "internal/sim/diversion_test.go": "2cc06cbd007b0b50cf55c02f53d926a720baf04499a4a4d66db288ef531f1f17",
+        "internal/sim/diversion.go": "8a6671b7dc8da01d6febd73d6925b4643b3218f8e74d780c3ae9ee8d72c3ddb2",
+        "internal/sim/dispatch_test.go": "19c87d77d134c1db49f0f0b79dcb9b86893bd51290514c721e45bb895b0c31f3",
+        "internal/sim/dispatch.go": "7227de1f2a146fdf06da209693d4cf0f01e6ecc5d0b7c53557086a21aeea7136",
+        "internal/sim/demo.go": "63cceb8b79732887a241758ac5a88390a13d99e0d083017e3c42cc7ab43e7fea",
+        "internal/sim/compact_queue_recovery_test.go": "047a43ecfcbee7a9e866b3bedaee641e7e285f924670fa1ea78c5497bcc288d2",
+        "internal/sim/compact_queue_recovery.go": "3988d3b669fa46c6b405da13c2123f573eb651c5109669fc9ce736dc4a2cbcd9",
+        "internal/sim/compact_queue_motion_test.go": "3fa7836c13c26a74b3feb50bcbd4a2fd5e378683353b55e13e5eb19d73cbd1b8",
+        "internal/sim/compact_queue_motion.go": "9b74863c8ac030d130e5886e14194f5ab33194cf84ed0e0e2781f63a2e25b815",
+        "internal/sim/compact_queue_discharge_test.go": "9ba8ac5a1d4025667feaa8bb59e5df01652beb3b6cd266726157ef6c65dfc2c8",
+        "internal/sim/compact_queue_discharge.go": "2769908e123b88512bf1d700ec103ec3a631d8e5df87884addf322935dfe951a",
+        "internal/sim/clone_test.go": "16b7110a70cbd63881c6e60a601780e5a923ab6f55ff7b8448d6b8ce7ef6fe93",
+        "internal/sim/clone.go": "c30f2dc53afeb5cc9cce97c27d2f6886ec17ca50535c5937b937a48426653a63",
+        "internal/sim/class_set_test.go": "4c73388cf8c9cf0684d3e33c35bf500d13258e36d604eaf83222ef683375783f",
+        "internal/sim/class_set.go": "65d6822650fac7b696a199b3a9c17a78d75e4dba20c65725a59e6521ab13a39f",
+        "internal/sim/class_routes.go": "df9739b57297419786adbe96c8cc623970ca601e4aff05e8a5b87f15a993bdbb",
+        "internal/sim/candidate_parts_test.go": "46324ce5e6ba0b68da14cd563155a2bc2a8e363b49cdc2040ff3df83c5e48946",
+        "internal/sim/boarding_records_test.go": "0718ff2ae9b6d6039af396f60b49cd4cf74c2ac487d28c94dac85f78582762c6",
+        "internal/sim/boarding_records.go": "13abfc5f04fa5574ca343eb42e1a3cfe73eb11f81fdf12ae048ea8cc33e2951b",
+        "internal/sim/berths_test.go": "4c72b5d453a322b0129708b52df71914bba1c7722729caab86bd670e6e2268b5",
+        "internal/sim/berths.go": "6f022336cc4ed2dd4f71494a1a836015a98942d23efe3af3560c539b43ece1bf",
+        "internal/sim/berth_continuation_test.go": "fcb6090875dc5e8c980ddca68dd68bf6ca5a8c7e4aade3f0741029e0e9d9129f",
+        "internal/sim/berth_continuation.go": "b22ea860fd4e8f5c1fe271cad90133c2bbac6b99f17232abf0f737780a1cf31e",
+        "internal/sim/berth_choice_test.go": "9b0384da14e9a622093a68529a8adafb5cc6adb9233fe623f6b1270a875dd5af",
+        "internal/sim/berth_choice.go": "a22f4e3381b621d3a2f9332c1d7ae41998c6a4a589f72e223fc13f9f3284f8b8",
+        "internal/sim/bank_routes.go": "b6e12d933bab75e6f2c26aeaaacf900d8ed9ccccd7efceda9d120cf4180324d4",
+        "internal/sim/bank_restore.go": "7f1526535cd4d25a5b9f0e1cd8c27277cfe41682e058389254faa0dd5b181c75",
+        "internal/sim/bank_geometry.go": "2035a7613a289b6cde4eadfdbb537265f1bdbe4b9cc5d8513458455c55a2bc56",
+        "internal/sim/bank_example.go": "b897d2fb30d4102d3bde0e9f5d0beb5adb44f76a435c2aa438ce3ae822579684",
+        "internal/sim/bank_detours.go": "2f4cf6eb0e9f19a582996997c4c002e4972a93d24a4c614eaf1298076fe13474",
+        "internal/sim/bank_bounds.go": "99cd86bec300774b2396f421c2ba0ff15f278593aaf34246719fe5910897fbad",
+        "internal/sim/admission_work_test.go": "167db96854820f8e9e20e0099cc5e33d99f36cf20031644ca36ba75fbf7aa0df",
+        "internal/sim/admission_priority_test.go": "3bf89f6be80256cb9ec9079b830e2ef2fae1df559ba581b004d260d0569c24df",
+        "internal/session/topology_decode.go": "9b3e46b938a8ed90230559ca41151d56a0937d8949a47e1517abde6648b9cbc8",
+        "internal/session/stream_test.go": "9e55c27fc6b4ee335fc87d28815ebc54e2069a45e5a7cfd6b5886a61856a4790",
+        "internal/session/stream_service_test.go": "d59aa5cbb9a66fd3ee9f0e65d32f3e25c8be091660a8165914e254663badbeb4",
+        "internal/session/stream_service.go": "004486bdf100e2920253ae403d08414fdfc10ae0d1593890dfe2fd7f965ed0d2",
+        "internal/session/stream_recovery_test.go": "cd8ba03297c6fa305acf2048d97121ffe6caddd0b39d4b3c4b1b9bb87f109cb3",
+        "internal/session/stream_measure_test.go": "3f88273ef63c19a7758e8e8d12e06f68523a2440a930a7592454fe7b1e3fb3d5",
+        "internal/session/stream_group_test.go": "15971ad3baa8fe559f0e51454e3336e3f6c65f95a90c5783c8eed89e06fdf9c2",
+        "internal/session/stream_group.go": "baa0f003b8575b33d5f9384f25de35388f9112f80ff0d954a57c26fe73ed7ce5",
+        "internal/session/stream_frame.go": "1fdb215ff55a0d946afc7ce0b61255619738e4c43c3ff22b23da52b4e868dc03",
+        "internal/session/stream_encoder_test.go": "656e3614979508622f7cdc60385097fcc6834ab74f3b6ec6b632dda0c8867d46",
+        "internal/session/stream_decoder_test.go": "1a470142b6956cdea82586699ea27c34e5d72a4b1c6bef1e162f6f027e584aa8",
+        "internal/session/stream_codec.go": "d773eefe2158630a6c5071a41ead71c8e5d30112e46cc30988f29f39b116cfd3",
+        "internal/session/stream_cadence_test.go": "750a4dac13d4bb122e1b71ad91bad9280929d5d0e4cb236fcd12ee869c805b38",
+        "internal/session/stream_boardings_test.go": "2acbecb6e88e8c14df5909485a64b05798b7d9829591246a048479474a41ac73",
+        "internal/session/stream_boardings.go": "e04a5a32cc8600a44914d62c4050a8a4fc096e11aa3c19a249b92d00234f0e87",
+        "internal/session/stream.go": "db4d27434814fa669fbbbdb9e4b7585967d4326dca6e87b14ee56322d10c0899",
+        "internal/session/state_file_test.go": "d1992c96c4b96e53e74d1c64f8ccdc27fe7a932880facb24ae3c8ff4707aa045",
+        "internal/session/state_file.go": "29c51f2b517f091279a55c548a02e1d9707ada8dede9bf6e6f25ba423f8e148e",
+        "internal/session/speed_test.go": "8c089d529d1b961695946307efd2fbf4db4478b06443382b0b1b444132e69ad6",
+        "internal/session/speed.go": "77526f8d8adbf6033c075d529604c83cdb1a3f79c87c747af2735e95791dfa40",
+        "internal/session/session_test.go": "494c695a4b3a14f6b72fe1d4e377e4844d0031a6ee64c026675203b61bf5af19",
+        "internal/session/session.go": "328b59fb2523374af7e16471022056085790cd7e8cb2bfa9e0c4c65eb4079328",
+        "internal/session/receipt.go": "c6ed7cf2bae2df2357e2c1f483fffa12fb6b583fb229ddd65be431d057d8cfb8",
+        "internal/session/rail_state_test.go": "ce1ac6d51a946ec986e3709bfb0ac561833e615801bbd09075898fc7ffaa03c1",
+        "internal/session/rail_services_test.go": "896be502f1b34914f6cdae874ec23786481295947c9de95caf69859ad3f06d17",
+        "internal/session/rail_departure_state_test.go": "556ee8f3b4db233362c9f3ec0f03b21f76bf9da86cc1f4251d843c89fa145a8e",
+        "internal/session/rail_demand_test.go": "594f46bb7f9c73e3b4e5dddca1bd9aaa86fd07d9b7e678aafbfd896158f2ebcb",
+        "internal/session/protocol_test.go": "627cc8b03fb96a67ced2fa02b1cfe570526caa948d025661abdfdad650beb7a7",
+        "internal/session/protocol.go": "f09599c549e105fb87d823532daf3b7d633c4fe28cb13bf30409570f784b7298",
+        "internal/session/project_test.go": "b37838c120f40201c3a18656adae3956ffbe4e38b8ffbd69eff6ad0afec6c7ef",
+        "internal/session/places_test.go": "460153ac311c2069dd5583539c9c45bd4fc3467242cddb9b2425dd25a36b2ad4",
+        "internal/session/places.go": "34303248053f890334ab698880b076623aee12ce9ca1bdb47fc163d32c00cd18",
+        "internal/session/persist_test.go": "fd3750a071f983158e171d69abc06a729e4328c39b290c2478c62d9defd90d4b",
+        "internal/session/persist.go": "f010b057bdb263b82c8db11dda0025ceab69a2b6d952c79d9bfb98241785df20",
+        "internal/session/origin_test.go": "e3581d618d3b0aea5278bf7a98f432e276a17cbfc0336eb8791fc6957cbd57f4",
+        "internal/session/origin.go": "d83fdf9170f1add1c37c8689e4c6be614c5565be8054f6977a7a8d7918b83ccf",
+        "internal/session/order_state_test.go": "454dea08bba2ed6aab3472014446ae17a07bd190bbdd15bdf7f71b1b255ed776",
+        "internal/session/order_state.go": "223390979cc823e99641179d8f52c18a8c95f9d538bb12db9309aed2a709a7c9",
+        "internal/session/order_command_test.go": "259ce4a65a09462179b23774063cef09b0c2e419475d9cfa6019dd7be7e96552",
+        "internal/session/order_command.go": "53a218480333ccbe9f3d280701f41abd2ae8cd8ff8d7661b55845da776cfee19",
+        "internal/session/onboard_policy_test.go": "9cc3ec493c33fd360dd30597e6dd2dbb583fe5f4e321f1cfa6a38324c64beaab",
+        "internal/session/onboard_integration_test.go": "d0aec758fcc615c5e5477733ab2231d0b86be22eaf181949c0c4dee6da22505a",
+        "internal/session/london_profile_test.go": "d189735b2e662814c22ab863a4217b27e2c203d0c76f45561f4aed18b7f70201",
+        "internal/session/log_test.go": "ff760e8acf553e8d1fd30d4a23edbf015996b08270ee69d33a8ede33c98383a0",
+        "internal/session/http_test.go": "8cf8363f13f50c54500b5168c75183e190178968bf82f0d3206350c3503a303f",
+        "internal/session/http.go": "34d893569fd55c0848ad7d0ee287c224df14da799e57633a1e4cee9f5765e415",
+        "internal/session/group_state_test.go": "2cf1bbd8fada0f41142cd86137859d827c1eb5665929c25d565be2742216cbf6",
+        "internal/session/experimental_test.go": "0a597480ca000c9b78de10abf602c5fe9ada64fefd769c35d687b82e2a7b20b5",
+        "internal/session/editor_test.go": "6f67219a546e3410d82a46e009692b2d1c9b47b4ec239d0daece4854c357cfe2",
+        "internal/session/demand.go": "ec0a49dfff2090777dc8aabf52277ff150d48e125e35227fe59d5b862ea23bf7",
+        "internal/session/daily_demand_test.go": "5f16055e9abd88f50eaa3c12cde65646b4ccff9f75b7fd4ddac7ff43210fba9c",
+        "internal/session/compression_test.go": "dc02cfe73765a278ba88e2e2c48db7c734cfdf4a7f385d50925ec93f4297bda7",
+        "internal/session/compression.go": "f4d602179e9f182844aad5bc36de04cdc77d0b3bc54ba42bad00038c009fbff6",
+        "internal/session/compact_state_test.go": "6c19403f49caaf4a15b524ff3d53f6e7da1a13b853ce4919fc01a37be205145b",
+        "internal/session/compact_state_bytes_test.go": "d9daa3542068436b98b1227206f8eca4c8b4347df2a9975c4b72cfc060e7e94f",
+        "internal/session/compact_state.go": "db041e8c0c6337f7a2da78ea2a1ec2622586b5dd64efa54ef9cb91e1dd052e00",
+        "internal/session/command_limits_test.go": "89c5ca7ba4edab0d243218c365d56c7bf69014f9ec87dafc280f3e09ff1ce075",
+        "internal/session/command_body_test.go": "ba84d410ffaebf70640a8d227ddc83bff27cff5bd8bcbb9db845e16f97eb0f41",
+        "internal/session/close_test.go": "33ad8607a079ded331bcb2ab1cd0228705581596ba290b730947524edabdf9b4",
+        "internal/session/checkpoint_test.go": "1ee8dca1aec354bf31627f560c794c4303d63866df9c2cb6043277c7133febc2",
+        "internal/session/checkpoint.go": "1e4003c557b17d93107d4cdc50ea990c73bbf62bc77104836ea7d8b532b95cf9",
+        "internal/session/buffer_state_test.go": "7ae0e8b24170f569580b88fad12341e7955f97aa40dcfc1a0adc47b5720e27e4",
+        "internal/session/buffer_platoon_state_test.go": "17f1435bdae01013730bed93349285595e0325228af219c215b6d5177001ecc8",
+        "internal/session/boarding_state_test.go": "3aa0b9d2eb8e147328c2ccd3cf072f928b21cf38d2c3a83a9f3d6a36b393aff2",
+        "internal/session/boarding_state.go": "12bb7248d4214a9bdb01c3c2cb1b0c9a27361a2e2794eb343c091229dff066ad",
+        "internal/session/banks_test.go": "bbd19582a2116c3c44a7eeed054e0f5ff29c4f0d4c8938d20e3c125ae5cf1e3c",
+        "internal/session/assets_test.go": "ab15a1a56ed6636ac451314f30fe570bc917b2586d3799569a9797bd07c54a6c",
+        "internal/session/assets.go": "123b7238fd5233cbf2c5ce06a0b53cdcfe55d19d2e96a98c95fa186b493d492f",
+        "internal/session/advance_test.go": "d81a89e5eb2199de60d373b1760e33ed49b53e0b2ef767bc12570f8019bffc13",
+        "internal/scenarios/scenarios_test.go": "f1c0d7bcfabe5d4e15ced2beca4ce4d94b56435fb2b5f14627c0344a588c757d",
+        "internal/scenarios/scenarios.go": "bae92d7b81159f0b21af6c26a848dc3dc783980894469d9225fa7f6deedfa5e3",
+        "internal/scenarios/ring_startup_benchmark_test.go": "dd02fa11093c52369473187e65f0294c3d019333238e8c65c491dca2314ab3c6",
+        "internal/scenarios/restore_test.go": "9bc9f7bcef2e4bfb918c6508fe555a6bd54094400825b4557dc62feefe891c04",
+        "internal/scenarios/race_test.go": "96a7a45110ef833a8ea63c924e94c5b338740798bc5b0c8c8c07f8319384179a",
+        "internal/scenarios/qualification_test.go": "3d6fbb6bd57521214ef9b4b94c42303f00079ff47ab715348d5564f3e19aaa0a",
+        "internal/scenarios/preset_options_test.go": "5d6b03165c3a848e2b17c766c7ae3e21176cc7ba63a1cd90475cb3c1293a8340",
+        "internal/scenarios/positioning_test.go": "d05cf495c434d97f5be72477e34882a36a9c6d6b5297f1852f43d3ae8010fc4a",
+        "internal/scenarios/norace_test.go": "d403c7598408b1e150eb801f8797077fc65d43fc64e4874fe4fad6c365b25ecb",
+        "internal/scenarios/mesh_station.go": "39cb989da9a4347ab8b8152457e400e3e849c7f4864ec248f7a9050a8d917ef4",
+        "internal/scenarios/lookahead_benchmark_test.go": "1a90cceb430fcfe7a55b58ec432619c6f80f0aeb7c4efcc5c848ef510f6ef8d5",
+        "internal/scenarios/london_points_test.go": "750a1813eaf72a49693f92f441c3072e9975a4f0fa07a54e4cef4378af7063df",
+        "internal/scenarios/london_options_test.go": "417ee8762ab1373bc8670bc9690a75cf380cb94f386ab9e9259e0144eb1330be",
+        "internal/scenarios/london_mirror_test.go": "e993213c0661ab797522c22cdfac01be50c8dc491b913f1a4c5203729dbb7c30",
+        "internal/scenarios/london_mirror.go": "13efb976082d4ae8120a3321ddc36dfbcb5ae44de30b966d170b261b8ec46b1c",
+        "internal/scenarios/london_heading_test.go": "f04c907a122c980d7e74d32c41ad2a5ad8cf0421ec0ddaa2b6c90bba6fef04fd",
+        "internal/scenarios/london_heading.go": "5d573509d3bb964be72d10c060aba24486fac7a27e4ff89363948bcdc7f8fba3",
+        "internal/scenarios/london_full_test.go": "895df25974864763ce0bdad4ab25f80626cda6b6e65cfdcb7f4a6b1a1ecc9f93",
+        "internal/scenarios/london_full_restore_test.go": "45c2500b9a8fd69d395bfc212a37077395059d8c7338f79945c223f61d86b0ea",
+        "internal/scenarios/london_full_demand_test.go": "896afdf6c5da1d975e784540390d0d34579a07c4d2de15512588761c6a26bdf2",
+        "internal/scenarios/london_full_demand.go": "bb96cfac5bfa66e91b3c3c334414d851ba47980baca84bd77b9eae6c002f84d7",
+        "internal/scenarios/london_full.go": "97b7c1e59c8012a2c132440ab39be4333f3651cd80da29932070d8ea0878a939",
+        "internal/scenarios/london_demand_test.go": "ab3e61176100151dbcd18cd3d793848386cbf3bb81048c5f698c23086f1ea866",
+        "internal/scenarios/london_demand.go": "9f1c66ae413b8f881c809482f60c393c5e01356eee560faaf4f25af027547d06",
+        "internal/scenarios/london.go": "5124ffd4cec8c5888ad5161914b3f3e944d052e8bf07a9694735296397c4df7c",
+        "internal/scenarios/layout_audit_test.go": "fed1a05a77ed98d5bec7a07af57d5a3c2cc6b4f2880a6f83708436573ca9fa32",
+        "internal/scenarios/layout_audit.go": "e822eefa2467e7699a4a2569edd44059fa5ae68871dc9e7f008aa5280860a463",
+        "internal/scenarios/conflict_fixture_test.go": "15a0ab2eb75819dd8684ad24c59cba8252cdfb71be9aebe7e09d4b40b996bb97",
+        "internal/scenarios/clone_test.go": "03aa5b39e7890735c39b9feb24d2af63a15341e72584cfaa7ffcf4694f5114cc",
+        "internal/scenarios/access_capacity_test.go": "6be038a60b108dcf794081d310b3f67ff695c13ce210744d382edd83279c069f",
+        "internal/remote/stream_test.go": "61c2f794413bf49cd234d07bb802a668efc7c01571173548535d550acd09bf26",
+        "internal/remote/stream.go": "41ca48eea3e3bac813cb48c839e89a351fc9f2dc4370be796bb7357a3c78a4c6",
+        "internal/remote/service_stream_test.go": "3009e6c2de4e8eab1e019781e7b3a38eba3de34e02dd4f781d549514eb43b03b",
+        "internal/remote/motion_test.go": "4d32bdfe6eb1dc8bfd0243ea0f7610300bdef7df2ccad7b540b25c20900dff6b",
+        "internal/remote/motion.go": "90a84402854c6afc7564b1aa2e5c0091e82263937e1901fc76f540d868b410b4",
+        "internal/remote/inflate_native.go": "b217548282238022f3e219fa5ce976350abd9b77467cb5b27fe602712c018315",
+        "internal/remote/inflate_js.go": "e2663cfa5c268eccd6b01275107bf851eaf867c14f5931008bdcf8c0853bf67f",
+        "internal/remote/group_stream_test.go": "3516f6cc5e813333a5ff3fdb8a1ea612bc6e76235ba0516d7dd25ce370a0883d",
+        "internal/remote/diagnostics_native.go": "e0de752c1b09ff88d0744f21a99972d797b67e9e48f4129ee3481a9e96872a40",
+        "internal/remote/diagnostics_js.go": "c2cfd0569490dce11c51117a63a6e73b7d8eeeca8b9d9456df5cd7894c8efcc5",
+        "internal/remote/client_test.go": "b7cd5eb471433af3e49fe1a1515767001928aa2d73543774a90c275ee5899d45",
+        "internal/remote/client.go": "9945e62fd69a5e829bde627eb619a04f63b15bd03d2911dfd126286aa4d1cbe9",
+        "internal/remote/banks_test.go": "2160ba1c7e42a4be42e3daeb71d7e8ab6bad7aed3bbf161a3491b870711eb40a",
+        "internal/rail/connections_test.go": "69f289fa6010a4a8515614e2e382c231a5ced9a9f07d065e5fb6eaa672f8d2df",
+        "internal/rail/connections.go": "7e83b432b0c00c1c345c676d17c8187d482b544e676f5a776733d37ea51daee8",
+        "internal/project/station_queue_test.go": "721b1b143357fe4956363de78c27149c52645f08eb5f40908aab1281a9cab629",
+        "internal/project/station_queue.go": "2bac3e5d77386a860d451d1dff6167d21a06d3fd77200716d17c84e38c51eba2",
+        "internal/project/service_test.go": "29fba843247d2d5b7ac4f872cb6e4055a4e46ccd1ea9d63e19f8294dceebaa51",
+        "internal/project/service.go": "1899d446a41b2454648849eb152d4592d5274cc7a8ad384e626e8297672d7c6d",
+        "internal/project/rail_departures_test.go": "e84f0b59082d705902db42490f85b3d06af7596429d3520482c6968f49e2fc3f",
+        "internal/project/rail_departures.go": "67ce927c2c474e508980fba67167c9b6e97c40261efe8d9abd65992cfc53124a",
+        "internal/project/rail_arrivals_test.go": "61f1c4f3ab6e0c710d10899e389947ff72c6347f4c1a34f6b258e61de09ea88c",
+        "internal/project/rail_arrivals.go": "512768ade2b265c483a47a010faa4db9980ba86a12446ff75d80b6dbc359fa23",
+        "internal/project/passenger_routes_test.go": "00a469a9bb5aa8a0d8cdc7e1aee53263cb0aa537f17b86c46e218cd1886f3c6a",
+        "internal/project/passenger_routes_presets_test.go": "416e70b8465527ef85869498f86196d1b31a30866393a98e1f81f06cdea91bde",
+        "internal/project/onboard_test.go": "65da2a472869b4d06ff6e3712fab30b0f351d572f1683b4434b90d7eb305d0a1",
+        "internal/project/node_lanes_test.go": "969a950c32569cbd4f43d781547c1c5cd6053e659eb67f1af273e3c652f0a472",
+        "internal/project/long_routes_test.go": "4f08f96e880bf2f97645359a06abc1d5af97a224b074b1dc50083a6b18f6baad",
+        "internal/project/london_test.go": "8e38ecb2e0a9cc01982774d5295ef42f9b11e7aa1444477565cb955af842dc9e",
+        "internal/project/group_test.go": "ec3f752bcf401e0a9e03cb5a6f7e1fe075103dd9035ce38221570ab13a443f9d",
+        "internal/project/experimental_test.go": "fa2e9d31d02b70b2adf5bea7d07e98b1a84626202607ed263e65a357cf2e4aba",
+        "internal/project/experimental.go": "d4cd21e7ef3cdb1600bf5411241b23d8d38a5be4ee89415a30418f21e785b9bd",
+        "internal/project/editor_test.go": "caf475e5b8e1fbd5460ee2965d96533a4a077b1fe800d74f2cf686b13fe1e3a6",
+        "internal/project/daily_test.go": "ca02737d081ed08298ad163381acc3c830aa3e74a073e2a4ea956c13e7748522",
+        "internal/project/daily.go": "8095187bbeaefb35d270afd50d3996fb2e4aa3172614b94df332812838315e0a",
+        "internal/project/config_test.go": "b2fb7fb80fcb30cea425aa41b1e2fa07292f28fe7230e060e6fc65754a95a1ae",
+        "internal/project/config.go": "5d265e16394b6b3e2559cd6e81f14431599f69e4d63dbe9f6b6df6886478c868",
+        "internal/project/banks_test.go": "f68a9840d04551d12e54cc8cc05856deb785a57615f1e40f74df2a7382656c89",
+        "internal/project/banks.go": "233432c76c7e06fb20d28f31ac45f036260da2fc33cf30c356309ffec6d7bf41",
+        "internal/parkride/run_test.go": "f1f58c6b80c14b0a788b703f7178f08345ccb71558ddac4216c70db3086b17f2",
+        "internal/parkride/run.go": "43de4ed69f6f7fede89e3b9a00c23ea8146472be835c1e40a1682a9d87d8d232",
+        "internal/parkride/plan_test.go": "4654e8ac6016a7f3372308c8f5e1de3d43ea9964da8b8042bd1e7dbdabd1f978",
+        "internal/parkride/plan.go": "bc2ff30c1022c890c45e1473ec1cacd93b3b0fe5f2a9f7cf4ebd1c3d37f2f663",
+        "internal/parkride/ledger_test.go": "a92ac2d2b53b1c1fc7348b212966f7ddc56a9c639cf393d0fd3a249396bdcf24",
+        "internal/parkride/ledger.go": "c94a9617ade59082db995c78ce90439c5f207eea330f6f8c3d79b94fc06a9f53",
+        "internal/observe/station_test.go": "725c0bc2899e6b04805830710a6e527011addc0f7053148dfe3626ddfb1f9881",
+        "internal/observe/station.go": "36a701dfa3b5f9145fe663cafe34ce17fd25a02ed5e8201b7f24e99ae4622bef",
+        "internal/observe/network_test.go": "e2c92a596cb1ef9a69f9892042c54428e7494d65d54f7f1998a7808ae2d509a9",
+        "internal/observe/network.go": "56e74babfaae8f489aefca3f6ddb61a30650f47277fe37b423a2d54d0ed05746",
+        "internal/editormodel/station_queue_test.go": "9fe67f35f4c3f0debe6807e297da1c3eafbf97731dc16f9a5394d9c8a2d57819",
+        "internal/editormodel/station_queue.go": "3e8c7135204b812138461f0af1e0d247fa1dae5b4bc6bb112bea137d21e900f3",
+        "internal/editormodel/service_test.go": "0c74ac1cb2c69b6bbf71a6773449fc8b6ab0fe167b6ca33f323219fb8224c29f",
+        "internal/editormodel/service_checks_test.go": "1a716950ff90a4e8f9d0f054a9e456a98370b11bf1c308cc9143c9b30a374ccd",
+        "internal/editormodel/service.go": "c6878fbf3d5c4db887571b600e8f22d7d6dd8771215211841f6c7950833574c8",
+        "internal/editormodel/place_view_test.go": "369a6b9a7c74042e73a8784efe536f9b2b537287202d3e7afb5fad8c9940a00e",
+        "internal/editormodel/place_view.go": "6a5151ca0916d5f72983bcb5e6c8f3e15952377dab3df5b1079dd7a6b0f493bd",
+        "internal/editormodel/park_ride.go": "e959cc7de00061ea6a5a8817587eb618d1a5756ca58687e3b144661f082a445c",
+        "internal/editormodel/onboard_test.go": "19911ae7f3706469cf823728783568ac8811c619064b3e06f75d4acd9690a365",
+        "internal/editormodel/onboard.go": "90fee0832a0cba8c431cd27b97591380cfc697865c041cfc9fa08dbd5d0751f8",
+        "internal/editormodel/normalize_test.go": "d2835ce43a9920bc5e7c99b76101926bf06431bb9de1b25777a851837b5227a4",
+        "internal/editormodel/normalize_roles.go": "76729a495b7b9f77f512e4e72c9389787f35e25279a0516fdf31e030453830f2",
+        "internal/editormodel/normalize.go": "2dad7aa6ff4d9c6ab3d9925de40a2cfaaed58b558c0acdce5a035fa3bc16a8a1",
+        "internal/editormodel/model_test.go": "bb900dba45dae92d1f9ddfab58fd6dc9130997e9a45bf1b1e4afcd3ac8f5c3d1",
+        "internal/editormodel/model.go": "ce5fabad561d828926648b7b3e0b98bca959fe42cf991f1102eb6f9851aea3b6",
+        "internal/editormodel/limits.go": "cccdb0e99bcd2829e45f4d1a3016a409e462f48847af79ce709c76933d84fc70",
+        "internal/editormodel/large_geometry_test.go": "c72bc67051cf6cc07f93923a81fd3e481d4e392be3bd1227021c0d8e53e56719",
+        "internal/editormodel/large_geometry.go": "7ff3b360c36c767a9a118284ca73772ea3eec3ad1b1467bf0bf377e006303be9",
+        "internal/editormodel/history_trim_test.go": "4fc4a60214ccb5858ddbbd4d8195a582edfec87f9a8230c74971a918ea9d8092",
+        "internal/editormodel/history_test.go": "ec4ad08d0aa18a321978804d0a9f71f8a90e85cfd7a412e6188070f4bb093f66",
+        "internal/editormodel/history.go": "a15fb89e26243f2f5d705ec4561ff90c23f400f0b4c11a9c1efc0ab5f55da876",
+        "internal/editormodel/helpers_test.go": "ca848975c37adba297498079248f73529567d990b856a9e014ea778d648c3c46",
+        "internal/editormodel/helpers.go": "02ac57f48b0ae35aa99bc5122ec320bc8aaf453b460cc9c719d951b0af1d11a3",
+        "internal/editormodel/helper_metadata.go": "b7b04eb9d6cd33b7ac6a246c6252c5bd0e3d56fee4bd6b992a96846acba7be27",
+        "internal/editormodel/engine_test.go": "6b595da767c9876e738fbf6a922875e1cbaefd6e7bd497f53043f5e0b21bc0f1",
+        "internal/editormodel/engine.go": "c94c42d78b4bc55328b2503e3e36236fd208dfe8883b14ed609e448c0d74b084",
+        "internal/editormodel/edit_test.go": "b87f75938a7e1307ab5e605e8f1c5de226da77b59e846cb9b90ea7c7c1738f88",
+        "internal/editormodel/edit_station_layout.go": "b4b8daa6adb87812f03ecd81195e955713ecd57604f725728db0b433ddbf5700",
+        "internal/editormodel/edit_station_delete_test.go": "cd0dabbd9bc7a7fb253b374479b6e53a2020fc18c018bf05420af4ee9a82a53f",
+        "internal/editormodel/edit_station_delete.go": "fc5f2a2d475036c946366d6eb5ed145c61b49c8763599e1ab7516ab6249002a2",
+        "internal/editormodel/edit_rail_test.go": "e64d23cf0f9452376cf0f4fe5e32327175fdf024fa8e422d699195c91195be0f",
+        "internal/editormodel/edit_rail.go": "aa2ee010d673f37f22e03881ecdb57a6f4ae0602df00447e4ddcbba381319edf",
+        "internal/editormodel/edit_map_test.go": "9b3cddaf57f641b6f320c13bd47a6f392d94f34671b887c98491c95b23a0c4d8",
+        "internal/editormodel/edit_map.go": "e306de3d87e35e45ba858487693f56b645ccf0158d75477ab15227eed5d50561",
+        "internal/editormodel/edit_geometry_test.go": "a4ac999b1c68f9bd7fc2ea9c34b78a4815187847013ee30db758ad6c3c4c212a",
+        "internal/editormodel/edit_geometry.go": "fc878021415656f904ba5d397c1bed598b4c65b616aae37d782b3e9ce8563e5c",
+        "internal/editormodel/edit_fleet_test.go": "81f017f66a4ac07288e026901256f016aa83173268a0fb1d424c8427f5aaf7d2",
+        "internal/editormodel/edit_fleet.go": "05164609b8abd4fc0d5b0244a9bab20fa3101ac92828f543eda1c0b55cc02782",
+        "internal/editormodel/edit_defaults_test.go": "8209c773f3d94dee1f1da3c46198142906cf74dd73ac9a1a87cbcce513abcddd",
+        "internal/editormodel/edit_defaults.go": "2260e3a168d3fd5471904a5b0a8d2a0ac47cfab581c3c6d1556470ebfa5eb1c2",
+        "internal/editormodel/edit_collision.go": "3a23ee4b36e6ffe5af73a777633e162de71ad5a2ad2f8b1ac3b907792dea0b49",
+        "internal/editormodel/edit_berths.go": "35c83e03e5542163ba30155edc05b448bc099d248805ad9f473ea896e1052ae2",
+        "internal/editormodel/edit_banks_test.go": "64e8f20ca4b8aecca7bcdf7d8338231408f12cff6f46ecd874352ffd4788ebb6",
+        "internal/editormodel/edit_banks.go": "81e06e60309f0858cfa2e99c20f3108ab353ad30e493b29efdc35b921a05a8e4",
+        "internal/editormodel/edit_background_test.go": "89f5c9d7fe54307d217f2cbf904f82ff4b0b51e779449e4c58c98f6f9a53086d",
+        "internal/editormodel/edit_background.go": "d1fda1ef20bb2c7eb0f7e7212f040834d2bd7d9bcdab31a7e7c3d4445ae43732",
+        "internal/editormodel/edit.go": "bf2f530c454e135c65575463fe09afca69f53f7ed34ed1afd624dab65bc57012",
+        "internal/editormodel/checks_test.go": "d2812d37cee9df6da8849167a116eb29fee41e05e12ee71e023f5b7dfbf0433b",
+        "internal/editormodel/checks.go": "8510a0c0ce9bd90fe5c7f3f95208cb738293a5f6d7cf92eaa48b3b59c8ab917c",
+        "internal/editormodel/check_routes.go": "8a014d6b1dc3201c9e58092385d443623d4c5495fe103550530e2303ed69e514",
+        "internal/editormodel/check_rail.go": "59d27ba4afc363408d2d43623d3ab9d37a388205951581a4f51ad8eace17a23c",
+        "internal/editormodel/check_demand.go": "4b9ba33a398f4537d1d8affba144c86f767bdf55fece254a220cb89f4ed764f1",
+        "internal/editormodel/check_cache.go": "966737a25d419ed05efbc0d258747ad0c8894d4211c7ec4982ee6e108277bf64",
+        "internal/cmd/buildweb/main_test.go": "2ade1f260283ff66b58f4e61bc0c6b5d3681ef7c4b1dc9f29e017b2a34e433c7",
+        "internal/cmd/buildweb/main.go": "bb480448434d75d6d96564380ec806f9e541b7880922cbdc50e331511b0b9853"
+      }
+    },
+    "private_source": {
+      "study_test.go": "22d6d2e905dd962639d578a5fd71161a230c2bef3e00dc629210e5023e923f0b",
+      "restore_proof_test.go": "909a5d725c191b7e912ff17014795834025bf30900c7ca9706d4da43a31dd42d",
+      "disabled_restore_test.go": "43f932fad190760e1ff6fa1c98e94c9395ca0ec14f17478efc101f3489019265"
+    },
+    "binary": {
+      "sha256": "2e887c7ba6106877a84bcde33a014265e40f1c37bc9441ef1aa24fa5edea3adc",
+      "bytes": 12348995,
+      "native_commit": "30d8e34",
+      "GOMAXPROCS": 2,
+      "GOGC": 400,
+      "toolchain": "go1.27.1",
+      "experiment": "jsonv2",
+      "private_revision": 3
+    },
+    "evidence_directory": "/home/dotwaffle/.cache/agents/podsim/speed-energy-batch-20261003/root/compact",
+    "ordinary_private_revision": 1,
+    "compact_private_revision": 3,
+    "source_change": "Native files and fixture bytes unchanged between observer revisions",
+    "observer_corrections": [
+      {
+        "classification": "Private observer omitted RestoreStateInput.StationQueueSpacing. Default ordinary policy intentionally changes compact certificate phase to recovering; native restore is correct. Set fixture spacing explicitly for policy-preserving fidelity probes. Disabled continuations intentionally ordinary and remain valid.",
+        "native_evidence": [
+          "internal/sim/state_compact_queue.go:finishCompactRestore",
+          "internal/sim/state_compact_queue_test.go:TestStationCompactPreparedRestore",
+          "docs/compact-recovery-state-contract-proposal.md"
+        ],
+        "native_changes": false,
+        "preserve_original_runs": "/home/dotwaffle/.cache/agents/podsim/speed-energy-batch-20261003/root/compact/setup-v1"
+      },
+      {
+        "classification": "Independent observer used only published start/end speeds. Ordinary movement can accelerate, advance and snap the final residual below1e-5m at its owned target, publishing zero speed. At65590 former Compact member01 has no compact certificate before/after, distance advances0.0000509112m. Correct only ordinary at-owned-end published-zero bound using authored2m/s2 command and existing1e-5 endpoint allowance. Compact-group bound remains unchanged.",
+        "native_evidence": [
+          "internal/sim/traffic.go:Simulation.move",
+          "internal/sim/station_compact_queue.go:Simulation.applyCompactMotion"
+        ],
+        "native_changes": false,
+        "preserved_outputs": "/home/dotwaffle/.cache/agents/podsim/speed-energy-batch-20261003/root/compact/setup-v2"
+      }
+    ],
+    "validation_private_sources": {
+      "study_test.go": "22d6d2e905dd962639d578a5fd71161a230c2bef3e00dc629210e5023e923f0b",
+      "restore_proof_test.go": "3bd9e73e2973314027fd4b19638b7913facea76ce1e4998348662e35e04bb350",
+      "disabled_restore_test.go": "41f69a5f7ef12554627e7e8eef589f0a2f2e77adc1239d8a02c323c1643d5cf7"
+    },
+    "validation_source_differences": {
+      "executed_sources": "/home/dotwaffle/.cache/agents/podsim/speed-energy-batch-20261003/root/compact/executed-private-source",
+      "validation_changes": [
+        "Rename local json decode error to avoid shadow lint; no runtime behavior change.",
+        "Restore consent guard flips original private singleton to shared, so the existing negative assertion exercises a real mutation. Study proof unchanged."
+      ],
+      "no_native_changes": true,
+      "no_screen_repeat_required": true
+    }
+  },
+  "frozen_plan": {
+    "scope": "Approved2b; fixed source released only after2a commit and qualification",
+    "original_fixture_manifest": "/home/dotwaffle/.cache/agents/podsim/service-workflow-batch-20261003/fleet/freeze-manifest.json",
+    "fixtures": {
+      "compact-v1-ordinary.fixture.json": "94e240dc044a7f3ba12ec7195e1df80a54bbb5ce0e10c995e1c55b2c6b666e2f",
+      "compact-v1-compact-v1.fixture.json": "ce93b9a176d358c61a990ea848fb51d7705da5e1cafc2015ba0377eb52ef2fc7",
+      "compact-v2-ordinary.fixture.json": "43ba583065f020cfe3c6da8bab22d712741dc86fe4122d87f55c7cd9d6bb00f9",
+      "compact-v2-compact-v1.fixture.json": "85ecc7414b25e8afeb2d49cef37ffea4b61e5d06e2bf001bf00f9439addf00c2"
+    },
+    "service_cap_ticks": 144000,
+    "pilot_cap_ticks": 60000,
+    "offer_window": "[0,cap)",
+    "restore_continuation_cap_ticks": 144000,
+    "gates": "docs/experimental-adoption.md; exact tick rational scoring, all identical offered identities, queue/refused/censored/future retention",
+    "observer": "prior final archived study/restore helpers; root will add checkpoint/final discrete-current lane assertions if missing",
+    "source_freeze": "30d8e34c6368c3dbb382b314cecf6bff61cf40ac",
+    "no_default_claim": true,
+    "disabled_restore": "Separate fresh physical restore from each captured checkpoint, ordinary spacing/platooning off/station buffers off; no new offers; frozen144000 continuationticks; require all accepted checkpoint IDs drain and every-tick safety/accounting",
+    "root_private_sources_prepared": [
+      "study_test.go: prior final archived observer/fixture runtime with evidence path replaced",
+      "restore_proof_test.go: prior final archived proof with evidence path replaced",
+      "disabled_restore_test.go: separate fully disabled continuation checks"
+    ]
+  },
+  "reports": [
+    {
+      "Name": "compact-v1-ordinary",
+      "Study": "compact",
+      "Cap": 144000,
+      "EndTick": 144000,
+      "CheckedTicks": 144000,
+      "Failure": "",
+      "FleetCount": 7,
+      "Seats": 28,
+      "Accepted": 28,
+      "Refused": 0,
+      "Skipped": 0,
+      "Future": 2,
+      "Completed": 4,
+      "Pending": 19,
+      "Aboard": 5,
+      "EmptyMeters": 16026.767059271042,
+      "CompactTicks": 0,
+      "LargestCompact": 0,
+      "LoadedCompactMembers": 0,
+      "PeakPassengers": 1,
+      "PeakParties": 1,
+      "MinimumLargeGap": 0,
+      "Events": [
+        {
+          "Event": "initial-00",
+          "Tick": 0,
+          "Pod": "01",
+          "Options": {
+            "From": "harbor",
+            "To": "market",
+            "PartySize": 1,
+            "SharingConsent": "private",
+            "Service": "",
+            "ServiceID": ""
+          },
+          "Status": "completed",
+          "Refusal": "",
+          "RequestID": 1,
+          "BoardedTick": 0,
+          "CompletedTick": 133291,
+          "PodAtBoarding": "01"
+        },
+        {
+          "Event": "initial-01",
+          "Tick": 0,
+          "Pod": "02",
+          "Options": {
+            "From": "garden",
+            "To": "market",
+            "PartySize": 1,
+            "SharingConsent": "private",
+            "Service": "",
+            "ServiceID": ""
+          },
+          "Status": "completed",
+          "Refusal": "",
+          "RequestID": 2,
+          "BoardedTick": 0,
+          "CompletedTick": 62290,
+          "PodAtBoarding": "02"
+        },
+        {
+          "Event": "initial-02",
+          "Tick": 0,
+          "Pod": "03",
+          "Options": {
+            "From": "harbor",
+            "To": "market",
+            "PartySize": 1,
+            "SharingConsent": "private",
+            "Service": "",
+            "ServiceID": ""
+          },
+          "Status": "completed",
+          "Refusal": "",
+          "RequestID": 3,
+          "BoardedTick": 0,
+          "CompletedTick": 86017,
+          "PodAtBoarding": "03"
+        },
+        {
+          "Event": "initial-03",
+          "Tick": 0,
+          "Pod": "04",
+          "Options": {
+            "From": "garden",
+            "To": "market",
+            "PartySize": 1,
+            "SharingConsent": "private",
+            "Service": "",
+            "ServiceID": ""
+          },
+          "Status": "completed",
+          "Refusal": "",
+          "RequestID": 4,
+          "BoardedTick": 0,
+          "CompletedTick": 109744,
+          "PodAtBoarding": "04"
+        },
+        {
+          "Event": "queue-00",
+          "Tick": 10800,
+          "Pod": "",
+          "Options": {
+            "From": "market",
+            "To": "harbor",
+            "PartySize": 1,
+            "SharingConsent": "private",
+            "Service": "",
+            "ServiceID": ""
+          },
+          "Status": "aboard",
+          "Refusal": "",
+          "RequestID": 5,
+          "BoardedTick": 10800,
+          "CompletedTick": -1,
+          "PodAtBoarding": "05"
+        },
+        {
+          "Event": "queue-01",
+          "Tick": 14400,
+          "Pod": "",
+          "Options": {
+            "From": "harbor",
+            "To": "market",
+            "PartySize": 1,
+            "SharingConsent": "private",
+            "Service": "",
+            "ServiceID": ""
+          },
+          "Status": "aboard",
+          "Refusal": "",
+          "RequestID": 6,
+          "BoardedTick": 110679,
+          "CompletedTick": -1,
+          "PodAtBoarding": "06"
+        },
+        {
+          "Event": "queue-02",
+          "Tick": 18000,
+          "Pod": "",
+          "Options": {
+            "From": "market",
+            "To": "garden",
+            "PartySize": 1,
+            "SharingConsent": "private",
+            "Service": "",
+            "ServiceID": ""
+          },
+          "Status": "aboard",
+          "Refusal": "",
+          "RequestID": 7,
+          "BoardedTick": 62290,
+          "CompletedTick": -1,
+          "PodAtBoarding": "02"
+        },
+        {
+          "Event": "queue-03",
+          "Tick": 21600,
+          "Pod": "",
+          "Options": {
+            "From": "garden",
+            "To": "market",
+            "PartySize": 1,
+            "SharingConsent": "private",
+            "Service": "",
+            "ServiceID": ""
+          },
+          "Status": "pending",
+          "Refusal": "",
+          "RequestID": 8,
+          "BoardedTick": -1,
+          "CompletedTick": -1,
+          "PodAtBoarding": ""
+        },
+        {
+          "Event": "queue-04",
+          "Tick": 25200,
+          "Pod": "",
+          "Options": {
+            "From": "market",
+            "To": "harbor",
+            "PartySize": 1,
+            "SharingConsent": "private",
+            "Service": "",
+            "ServiceID": ""
+          },
+          "Status": "aboard",
+          "Refusal": "",
+          "RequestID": 9,
+          "BoardedTick": 86017,
+          "CompletedTick": -1,
+          "PodAtBoarding": "03"
+        },
+        {
+          "Event": "queue-05",
+          "Tick": 28800,
+          "Pod": "",
+          "Options": {
+            "From": "harbor",
+            "To": "market",
+            "PartySize": 1,
+            "SharingConsent": "private",
+            "Service": "",
+            "ServiceID": ""
+          },
+          "Status": "pending",
+          "Refusal": "",
+          "RequestID": 10,
+          "BoardedTick": -1,
+          "CompletedTick": -1,
+          "PodAtBoarding": ""
+        },
+        {
+          "Event": "queue-06",
+          "Tick": 32400,
+          "Pod": "",
+          "Options": {
+            "From": "market",
+            "To": "garden",
+            "PartySize": 1,
+            "SharingConsent": "private",
+            "Service": "",
+            "ServiceID": ""
+          },
+          "Status": "aboard",
+          "Refusal": "",
+          "RequestID": 11,
+          "BoardedTick": 133291,
+          "CompletedTick": -1,
+          "PodAtBoarding": "01"
+        },
+        {
+          "Event": "queue-07",
+          "Tick": 36000,
+          "Pod": "",
+          "Options": {
+            "From": "garden",
+            "To": "market",
+            "PartySize": 1,
+            "SharingConsent": "private",
+            "Service": "",
+            "ServiceID": ""
+          },
+          "Status": "pending",
+          "Refusal": "",
+          "RequestID": 12,
+          "BoardedTick": -1,
+          "CompletedTick": -1,
+          "PodAtBoarding": ""
+        },
+        {
+          "Event": "queue-08",
+          "Tick": 39600,
+          "Pod": "",
+          "Options": {
+            "From": "market",
+            "To": "harbor",
+            "PartySize": 1,
+            "SharingConsent": "private",
+            "Service": "",
+            "ServiceID": ""
+          },
+          "Status": "pending",
+          "Refusal": "",
+          "RequestID": 13,
+          "BoardedTick": -1,
+          "CompletedTick": -1,
+          "PodAtBoarding": ""
+        },
+        {
+          "Event": "queue-09",
+          "Tick": 43200,
+          "Pod": "",
+          "Options": {
+            "From": "harbor",
+            "To": "market",
+            "PartySize": 1,
+            "SharingConsent": "private",
+            "Service": "",
+            "ServiceID": ""
+          },
+          "Status": "pending",
+          "Refusal": "",
+          "RequestID": 14,
+          "BoardedTick": -1,
+          "CompletedTick": -1,
+          "PodAtBoarding": ""
+        },
+        {
+          "Event": "queue-10",
+          "Tick": 46800,
+          "Pod": "",
+          "Options": {
+            "From": "market",
+            "To": "garden",
+            "PartySize": 1,
+            "SharingConsent": "private",
+            "Service": "",
+            "ServiceID": ""
+          },
+          "Status": "pending",
+          "Refusal": "",
+          "RequestID": 15,
+          "BoardedTick": -1,
+          "CompletedTick": -1,
+          "PodAtBoarding": ""
+        },
+        {
+          "Event": "queue-11",
+          "Tick": 50400,
+          "Pod": "",
+          "Options": {
+            "From": "garden",
+            "To": "market",
+            "PartySize": 1,
+            "SharingConsent": "private",
+            "Service": "",
+            "ServiceID": ""
+          },
+          "Status": "pending",
+          "Refusal": "",
+          "RequestID": 16,
+          "BoardedTick": -1,
+          "CompletedTick": -1,
+          "PodAtBoarding": ""
+        },
+        {
+          "Event": "queue-12",
+          "Tick": 54000,
+          "Pod": "",
+          "Options": {
+            "From": "market",
+            "To": "harbor",
+            "PartySize": 1,
+            "SharingConsent": "private",
+            "Service": "",
+            "ServiceID": ""
+          },
+          "Status": "pending",
+          "Refusal": "",
+          "RequestID": 17,
+          "BoardedTick": -1,
+          "CompletedTick": -1,
+          "PodAtBoarding": ""
+        },
+        {
+          "Event": "queue-13",
+          "Tick": 57600,
+          "Pod": "",
+          "Options": {
+            "From": "harbor",
+            "To": "market",
+            "PartySize": 1,
+            "SharingConsent": "private",
+            "Service": "",
+            "ServiceID": ""
+          },
+          "Status": "pending",
+          "Refusal": "",
+          "RequestID": 18,
+          "BoardedTick": -1,
+          "CompletedTick": -1,
+          "PodAtBoarding": ""
+        },
+        {
+          "Event": "queue-14",
+          "Tick": 61200,
+          "Pod": "",
+          "Options": {
+            "From": "market",
+            "To": "garden",
+            "PartySize": 1,
+            "SharingConsent": "private",
+            "Service": "",
+            "ServiceID": ""
+          },
+          "Status": "pending",
+          "Refusal": "",
+          "RequestID": 19,
+          "BoardedTick": -1,
+          "CompletedTick": -1,
+          "PodAtBoarding": ""
+        },
+        {
+          "Event": "queue-15",
+          "Tick": 64800,
+          "Pod": "",
+          "Options": {
+            "From": "garden",
+            "To": "market",
+            "PartySize": 1,
+            "SharingConsent": "private",
+            "Service": "",
+            "ServiceID": ""
+          },
+          "Status": "pending",
+          "Refusal": "",
+          "RequestID": 20,
+          "BoardedTick": -1,
+          "CompletedTick": -1,
+          "PodAtBoarding": ""
+        },
+        {
+          "Event": "queue-16",
+          "Tick": 68400,
+          "Pod": "",
+          "Options": {
+            "From": "market",
+            "To": "harbor",
+            "PartySize": 1,
+            "SharingConsent": "private",
+            "Service": "",
+            "ServiceID": ""
+          },
+          "Status": "pending",
+          "Refusal": "",
+          "RequestID": 21,
+          "BoardedTick": -1,
+          "CompletedTick": -1,
+          "PodAtBoarding": ""
+        },
+        {
+          "Event": "queue-17",
+          "Tick": 72000,
+          "Pod": "",
+          "Options": {
+            "From": "harbor",
+            "To": "market",
+            "PartySize": 1,
+            "SharingConsent": "private",
+            "Service": "",
+            "ServiceID": ""
+          },
+          "Status": "pending",
+          "Refusal": "",
+          "RequestID": 22,
+          "BoardedTick": -1,
+          "CompletedTick": -1,
+          "PodAtBoarding": ""
+        },
+        {
+          "Event": "queue-18",
+          "Tick": 75600,
+          "Pod": "",
+          "Options": {
+            "From": "market",
+            "To": "garden",
+            "PartySize": 1,
+            "SharingConsent": "private",
+            "Service": "",
+            "ServiceID": ""
+          },
+          "Status": "pending",
+          "Refusal": "",
+          "RequestID": 23,
+          "BoardedTick": -1,
+          "CompletedTick": -1,
+          "PodAtBoarding": ""
+        },
+        {
+          "Event": "queue-19",
+          "Tick": 79200,
+          "Pod": "",
+          "Options": {
+            "From": "garden",
+            "To": "market",
+            "PartySize": 1,
+            "SharingConsent": "private",
+            "Service": "",
+            "ServiceID": ""
+          },
+          "Status": "pending",
+          "Refusal": "",
+          "RequestID": 24,
+          "BoardedTick": -1,
+          "CompletedTick": -1,
+          "PodAtBoarding": ""
+        },
+        {
+          "Event": "queue-20",
+          "Tick": 82800,
+          "Pod": "",
+          "Options": {
+            "From": "market",
+            "To": "harbor",
+            "PartySize": 1,
+            "SharingConsent": "private",
+            "Service": "",
+            "ServiceID": ""
+          },
+          "Status": "pending",
+          "Refusal": "",
+          "RequestID": 25,
+          "BoardedTick": -1,
+          "CompletedTick": -1,
+          "PodAtBoarding": ""
+        },
+        {
+          "Event": "queue-21",
+          "Tick": 86400,
+          "Pod": "",
+          "Options": {
+            "From": "harbor",
+            "To": "market",
+            "PartySize": 1,
+            "SharingConsent": "private",
+            "Service": "",
+            "ServiceID": ""
+          },
+          "Status": "pending",
+          "Refusal": "",
+          "RequestID": 26,
+          "BoardedTick": -1,
+          "CompletedTick": -1,
+          "PodAtBoarding": ""
+        },
+        {
+          "Event": "queue-22",
+          "Tick": 90000,
+          "Pod": "",
+          "Options": {
+            "From": "market",
+            "To": "garden",
+            "PartySize": 1,
+            "SharingConsent": "private",
+            "Service": "",
+            "ServiceID": ""
+          },
+          "Status": "pending",
+          "Refusal": "",
+          "RequestID": 27,
+          "BoardedTick": -1,
+          "CompletedTick": -1,
+          "PodAtBoarding": ""
+        },
+        {
+          "Event": "queue-23",
+          "Tick": 93600,
+          "Pod": "",
+          "Options": {
+            "From": "garden",
+            "To": "market",
+            "PartySize": 1,
+            "SharingConsent": "private",
+            "Service": "",
+            "ServiceID": ""
+          },
+          "Status": "pending",
+          "Refusal": "",
+          "RequestID": 28,
+          "BoardedTick": -1,
+          "CompletedTick": -1,
+          "PodAtBoarding": ""
+        },
+        {
+          "Event": "future-boundary-0",
+          "Tick": 144000,
+          "Pod": "",
+          "Options": {
+            "From": "market",
+            "To": "harbor",
+            "PartySize": 1,
+            "SharingConsent": "private",
+            "Service": "",
+            "ServiceID": ""
+          },
+          "Status": "future",
+          "Refusal": "",
+          "RequestID": 0,
+          "BoardedTick": -1,
+          "CompletedTick": -1,
+          "PodAtBoarding": ""
+        },
+        {
+          "Event": "future-boundary-1",
+          "Tick": 144001,
+          "Pod": "",
+          "Options": {
+            "From": "market",
+            "To": "harbor",
+            "PartySize": 1,
+            "SharingConsent": "private",
+            "Service": "",
+            "ServiceID": ""
+          },
+          "Status": "future",
+          "Refusal": "",
+          "RequestID": 0,
+          "BoardedTick": -1,
+          "CompletedTick": -1,
+          "PodAtBoarding": ""
+        }
+      ],
+      "Restores": [
+        {
+          "Trigger": "occupied-origin",
+          "Tick": 180,
+          "Tier": "physical",
+          "Demoted": 0,
+          "Requeued": 0,
+          "Dropped": 0,
+          "ActiveAtRestore": 4,
+          "CompletedAtRestore": 0,
+          "CompletedAtEnd": 4,
+          "PendingAtEnd": 0,
+          "AboardAtEnd": 0,
+          "ContinuationTicks": 133492,
+          "FutureGrantChanges": 0,
+          "InitialDiscreteMatch": true,
+          "MaximumPositionDelta": 0
+        },
+        {
+          "Trigger": "fixed-300",
+          "Tick": 18000,
+          "Tier": "physical",
+          "Demoted": 0,
+          "Requeued": 0,
+          "Dropped": 0,
+          "ActiveAtRestore": 6,
+          "CompletedAtRestore": 0,
+          "CompletedAtEnd": 4,
+          "PendingAtEnd": 0,
+          "AboardAtEnd": 2,
+          "ContinuationTicks": 144000,
+          "FutureGrantChanges": 3,
+          "InitialDiscreteMatch": true,
+          "MaximumPositionDelta": 0
+        },
+        {
+          "Trigger": "fixed-900",
+          "Tick": 54000,
+          "Tier": "physical",
+          "Demoted": 0,
+          "Requeued": 0,
+          "Dropped": 0,
+          "ActiveAtRestore": 16,
+          "CompletedAtRestore": 0,
+          "CompletedAtEnd": 6,
+          "PendingAtEnd": 5,
+          "AboardAtEnd": 5,
+          "ContinuationTicks": 144000,
+          "FutureGrantChanges": 16,
+          "InitialDiscreteMatch": true,
+          "MaximumPositionDelta": 0
+        }
+      ],
+      "RestoreTriggersAbsent": [
+        "intermediate-unloading",
+        "compact-certificate"
+      ],
+      "status_event_ids": {
+        "completed": [
+          "initial-00",
+          "initial-01",
+          "initial-02",
+          "initial-03"
+        ],
+        "aboard": [
+          "queue-00",
+          "queue-01",
+          "queue-02",
+          "queue-04",
+          "queue-06"
+        ],
+        "pending": [
+          "queue-03",
+          "queue-05",
+          "queue-07",
+          "queue-08",
+          "queue-09",
+          "queue-10",
+          "queue-11",
+          "queue-12",
+          "queue-13",
+          "queue-14",
+          "queue-15",
+          "queue-16",
+          "queue-17",
+          "queue-18",
+          "queue-19",
+          "queue-20",
+          "queue-21",
+          "queue-22",
+          "queue-23"
+        ],
+        "future": [
+          "future-boundary-0",
+          "future-boundary-1"
+        ]
+      },
+      "future_boundary_event_ids": [
+        "future-boundary-0",
+        "future-boundary-1"
+      ],
+      "unoffered_before_cap_at_early_stop": [],
+      "native_final_metrics": {
+        "passengerDistanceMeters": 45941.23333151216,
+        "emptyDistanceMeters": 16026.767059271042,
+        "riderDistanceMeters": 19390.14431035319,
+        "directDistanceMeters": 19390.14431035319,
+        "maxDetourRatio": 1,
+        "totalWaitTicks": 302277,
+        "maxWaitTicks": 100891
+      },
+      "completed_entire_declared_window": true,
+      "full_ledger_usable_for_service_comparison": true
+    },
+    {
+      "Name": "compact-v1-compact-v1",
+      "Study": "compact",
+      "Cap": 144000,
+      "EndTick": 144000,
+      "CheckedTicks": 144000,
+      "Failure": "",
+      "FleetCount": 7,
+      "Seats": 28,
+      "Accepted": 28,
+      "Refused": 0,
+      "Skipped": 0,
+      "Future": 2,
+      "Completed": 4,
+      "Pending": 19,
+      "Aboard": 5,
+      "EmptyMeters": 14884.84205927144,
+      "CompactTicks": 22948,
+      "LargestCompact": 3,
+      "LoadedCompactMembers": 3,
+      "PeakPassengers": 1,
+      "PeakParties": 1,
+      "MinimumLargeGap": 0,
+      "Events": [
+        {
+          "Event": "initial-00",
+          "Tick": 0,
+          "Pod": "01",
+          "Options": {
+            "From": "harbor",
+            "To": "market",
+            "PartySize": 1,
+            "SharingConsent": "private",
+            "Service": "",
+            "ServiceID": ""
+          },
+          "Status": "completed",
+          "Refusal": "",
+          "RequestID": 1,
+          "BoardedTick": 0,
+          "CompletedTick": 135823,
+          "PodAtBoarding": "01"
+        },
+        {
+          "Event": "initial-01",
+          "Tick": 0,
+          "Pod": "02",
+          "Options": {
+            "From": "garden",
+            "To": "market",
+            "PartySize": 1,
+            "SharingConsent": "private",
+            "Service": "",
+            "ServiceID": ""
+          },
+          "Status": "completed",
+          "Refusal": "",
+          "RequestID": 2,
+          "BoardedTick": 0,
+          "CompletedTick": 62365,
+          "PodAtBoarding": "02"
+        },
+        {
+          "Event": "initial-02",
+          "Tick": 0,
+          "Pod": "03",
+          "Options": {
+            "From": "harbor",
+            "To": "market",
+            "PartySize": 1,
+            "SharingConsent": "private",
+            "Service": "",
+            "ServiceID": ""
+          },
+          "Status": "completed",
+          "Refusal": "",
+          "RequestID": 3,
+          "BoardedTick": 0,
+          "CompletedTick": 88549,
+          "PodAtBoarding": "03"
+        },
+        {
+          "Event": "initial-03",
+          "Tick": 0,
+          "Pod": "04",
+          "Options": {
+            "From": "garden",
+            "To": "market",
+            "PartySize": 1,
+            "SharingConsent": "private",
+            "Service": "",
+            "ServiceID": ""
+          },
+          "Status": "completed",
+          "Refusal": "",
+          "RequestID": 4,
+          "BoardedTick": 0,
+          "CompletedTick": 112276,
+          "PodAtBoarding": "04"
+        },
+        {
+          "Event": "queue-00",
+          "Tick": 10800,
+          "Pod": "",
+          "Options": {
+            "From": "market",
+            "To": "harbor",
+            "PartySize": 1,
+            "SharingConsent": "private",
+            "Service": "",
+            "ServiceID": ""
+          },
+          "Status": "aboard",
+          "Refusal": "",
+          "RequestID": 5,
+          "BoardedTick": 10800,
+          "CompletedTick": -1,
+          "PodAtBoarding": "05"
+        },
+        {
+          "Event": "queue-01",
+          "Tick": 14400,
+          "Pod": "",
+          "Options": {
+            "From": "harbor",
+            "To": "market",
+            "PartySize": 1,
+            "SharingConsent": "private",
+            "Service": "",
+            "ServiceID": ""
+          },
+          "Status": "aboard",
+          "Refusal": "",
+          "RequestID": 6,
+          "BoardedTick": 110679,
+          "CompletedTick": -1,
+          "PodAtBoarding": "06"
+        },
+        {
+          "Event": "queue-02",
+          "Tick": 18000,
+          "Pod": "",
+          "Options": {
+            "From": "market",
+            "To": "garden",
+            "PartySize": 1,
+            "SharingConsent": "private",
+            "Service": "",
+            "ServiceID": ""
+          },
+          "Status": "aboard",
+          "Refusal": "",
+          "RequestID": 7,
+          "BoardedTick": 62365,
+          "CompletedTick": -1,
+          "PodAtBoarding": "02"
+        },
+        {
+          "Event": "queue-03",
+          "Tick": 21600,
+          "Pod": "",
+          "Options": {
+            "From": "garden",
+            "To": "market",
+            "PartySize": 1,
+            "SharingConsent": "private",
+            "Service": "",
+            "ServiceID": ""
+          },
+          "Status": "pending",
+          "Refusal": "",
+          "RequestID": 8,
+          "BoardedTick": -1,
+          "CompletedTick": -1,
+          "PodAtBoarding": ""
+        },
+        {
+          "Event": "queue-04",
+          "Tick": 25200,
+          "Pod": "",
+          "Options": {
+            "From": "market",
+            "To": "harbor",
+            "PartySize": 1,
+            "SharingConsent": "private",
+            "Service": "",
+            "ServiceID": ""
+          },
+          "Status": "aboard",
+          "Refusal": "",
+          "RequestID": 9,
+          "BoardedTick": 88549,
+          "CompletedTick": -1,
+          "PodAtBoarding": "03"
+        },
+        {
+          "Event": "queue-05",
+          "Tick": 28800,
+          "Pod": "",
+          "Options": {
+            "From": "harbor",
+            "To": "market",
+            "PartySize": 1,
+            "SharingConsent": "private",
+            "Service": "",
+            "ServiceID": ""
+          },
+          "Status": "pending",
+          "Refusal": "",
+          "RequestID": 10,
+          "BoardedTick": -1,
+          "CompletedTick": -1,
+          "PodAtBoarding": ""
+        },
+        {
+          "Event": "queue-06",
+          "Tick": 32400,
+          "Pod": "",
+          "Options": {
+            "From": "market",
+            "To": "garden",
+            "PartySize": 1,
+            "SharingConsent": "private",
+            "Service": "",
+            "ServiceID": ""
+          },
+          "Status": "aboard",
+          "Refusal": "",
+          "RequestID": 11,
+          "BoardedTick": 135823,
+          "CompletedTick": -1,
+          "PodAtBoarding": "01"
+        },
+        {
+          "Event": "queue-07",
+          "Tick": 36000,
+          "Pod": "",
+          "Options": {
+            "From": "garden",
+            "To": "market",
+            "PartySize": 1,
+            "SharingConsent": "private",
+            "Service": "",
+            "ServiceID": ""
+          },
+          "Status": "pending",
+          "Refusal": "",
+          "RequestID": 12,
+          "BoardedTick": -1,
+          "CompletedTick": -1,
+          "PodAtBoarding": ""
+        },
+        {
+          "Event": "queue-08",
+          "Tick": 39600,
+          "Pod": "",
+          "Options": {
+            "From": "market",
+            "To": "harbor",
+            "PartySize": 1,
+            "SharingConsent": "private",
+            "Service": "",
+            "ServiceID": ""
+          },
+          "Status": "pending",
+          "Refusal": "",
+          "RequestID": 13,
+          "BoardedTick": -1,
+          "CompletedTick": -1,
+          "PodAtBoarding": ""
+        },
+        {
+          "Event": "queue-09",
+          "Tick": 43200,
+          "Pod": "",
+          "Options": {
+            "From": "harbor",
+            "To": "market",
+            "PartySize": 1,
+            "SharingConsent": "private",
+            "Service": "",
+            "ServiceID": ""
+          },
+          "Status": "pending",
+          "Refusal": "",
+          "RequestID": 14,
+          "BoardedTick": -1,
+          "CompletedTick": -1,
+          "PodAtBoarding": ""
+        },
+        {
+          "Event": "queue-10",
+          "Tick": 46800,
+          "Pod": "",
+          "Options": {
+            "From": "market",
+            "To": "garden",
+            "PartySize": 1,
+            "SharingConsent": "private",
+            "Service": "",
+            "ServiceID": ""
+          },
+          "Status": "pending",
+          "Refusal": "",
+          "RequestID": 15,
+          "BoardedTick": -1,
+          "CompletedTick": -1,
+          "PodAtBoarding": ""
+        },
+        {
+          "Event": "queue-11",
+          "Tick": 50400,
+          "Pod": "",
+          "Options": {
+            "From": "garden",
+            "To": "market",
+            "PartySize": 1,
+            "SharingConsent": "private",
+            "Service": "",
+            "ServiceID": ""
+          },
+          "Status": "pending",
+          "Refusal": "",
+          "RequestID": 16,
+          "BoardedTick": -1,
+          "CompletedTick": -1,
+          "PodAtBoarding": ""
+        },
+        {
+          "Event": "queue-12",
+          "Tick": 54000,
+          "Pod": "",
+          "Options": {
+            "From": "market",
+            "To": "harbor",
+            "PartySize": 1,
+            "SharingConsent": "private",
+            "Service": "",
+            "ServiceID": ""
+          },
+          "Status": "pending",
+          "Refusal": "",
+          "RequestID": 17,
+          "BoardedTick": -1,
+          "CompletedTick": -1,
+          "PodAtBoarding": ""
+        },
+        {
+          "Event": "queue-13",
+          "Tick": 57600,
+          "Pod": "",
+          "Options": {
+            "From": "harbor",
+            "To": "market",
+            "PartySize": 1,
+            "SharingConsent": "private",
+            "Service": "",
+            "ServiceID": ""
+          },
+          "Status": "pending",
+          "Refusal": "",
+          "RequestID": 18,
+          "BoardedTick": -1,
+          "CompletedTick": -1,
+          "PodAtBoarding": ""
+        },
+        {
+          "Event": "queue-14",
+          "Tick": 61200,
+          "Pod": "",
+          "Options": {
+            "From": "market",
+            "To": "garden",
+            "PartySize": 1,
+            "SharingConsent": "private",
+            "Service": "",
+            "ServiceID": ""
+          },
+          "Status": "pending",
+          "Refusal": "",
+          "RequestID": 19,
+          "BoardedTick": -1,
+          "CompletedTick": -1,
+          "PodAtBoarding": ""
+        },
+        {
+          "Event": "queue-15",
+          "Tick": 64800,
+          "Pod": "",
+          "Options": {
+            "From": "garden",
+            "To": "market",
+            "PartySize": 1,
+            "SharingConsent": "private",
+            "Service": "",
+            "ServiceID": ""
+          },
+          "Status": "pending",
+          "Refusal": "",
+          "RequestID": 20,
+          "BoardedTick": -1,
+          "CompletedTick": -1,
+          "PodAtBoarding": ""
+        },
+        {
+          "Event": "queue-16",
+          "Tick": 68400,
+          "Pod": "",
+          "Options": {
+            "From": "market",
+            "To": "harbor",
+            "PartySize": 1,
+            "SharingConsent": "private",
+            "Service": "",
+            "ServiceID": ""
+          },
+          "Status": "pending",
+          "Refusal": "",
+          "RequestID": 21,
+          "BoardedTick": -1,
+          "CompletedTick": -1,
+          "PodAtBoarding": ""
+        },
+        {
+          "Event": "queue-17",
+          "Tick": 72000,
+          "Pod": "",
+          "Options": {
+            "From": "harbor",
+            "To": "market",
+            "PartySize": 1,
+            "SharingConsent": "private",
+            "Service": "",
+            "ServiceID": ""
+          },
+          "Status": "pending",
+          "Refusal": "",
+          "RequestID": 22,
+          "BoardedTick": -1,
+          "CompletedTick": -1,
+          "PodAtBoarding": ""
+        },
+        {
+          "Event": "queue-18",
+          "Tick": 75600,
+          "Pod": "",
+          "Options": {
+            "From": "market",
+            "To": "garden",
+            "PartySize": 1,
+            "SharingConsent": "private",
+            "Service": "",
+            "ServiceID": ""
+          },
+          "Status": "pending",
+          "Refusal": "",
+          "RequestID": 23,
+          "BoardedTick": -1,
+          "CompletedTick": -1,
+          "PodAtBoarding": ""
+        },
+        {
+          "Event": "queue-19",
+          "Tick": 79200,
+          "Pod": "",
+          "Options": {
+            "From": "garden",
+            "To": "market",
+            "PartySize": 1,
+            "SharingConsent": "private",
+            "Service": "",
+            "ServiceID": ""
+          },
+          "Status": "pending",
+          "Refusal": "",
+          "RequestID": 24,
+          "BoardedTick": -1,
+          "CompletedTick": -1,
+          "PodAtBoarding": ""
+        },
+        {
+          "Event": "queue-20",
+          "Tick": 82800,
+          "Pod": "",
+          "Options": {
+            "From": "market",
+            "To": "harbor",
+            "PartySize": 1,
+            "SharingConsent": "private",
+            "Service": "",
+            "ServiceID": ""
+          },
+          "Status": "pending",
+          "Refusal": "",
+          "RequestID": 25,
+          "BoardedTick": -1,
+          "CompletedTick": -1,
+          "PodAtBoarding": ""
+        },
+        {
+          "Event": "queue-21",
+          "Tick": 86400,
+          "Pod": "",
+          "Options": {
+            "From": "harbor",
+            "To": "market",
+            "PartySize": 1,
+            "SharingConsent": "private",
+            "Service": "",
+            "ServiceID": ""
+          },
+          "Status": "pending",
+          "Refusal": "",
+          "RequestID": 26,
+          "BoardedTick": -1,
+          "CompletedTick": -1,
+          "PodAtBoarding": ""
+        },
+        {
+          "Event": "queue-22",
+          "Tick": 90000,
+          "Pod": "",
+          "Options": {
+            "From": "market",
+            "To": "garden",
+            "PartySize": 1,
+            "SharingConsent": "private",
+            "Service": "",
+            "ServiceID": ""
+          },
+          "Status": "pending",
+          "Refusal": "",
+          "RequestID": 27,
+          "BoardedTick": -1,
+          "CompletedTick": -1,
+          "PodAtBoarding": ""
+        },
+        {
+          "Event": "queue-23",
+          "Tick": 93600,
+          "Pod": "",
+          "Options": {
+            "From": "garden",
+            "To": "market",
+            "PartySize": 1,
+            "SharingConsent": "private",
+            "Service": "",
+            "ServiceID": ""
+          },
+          "Status": "pending",
+          "Refusal": "",
+          "RequestID": 28,
+          "BoardedTick": -1,
+          "CompletedTick": -1,
+          "PodAtBoarding": ""
+        },
+        {
+          "Event": "future-boundary-0",
+          "Tick": 144000,
+          "Pod": "",
+          "Options": {
+            "From": "market",
+            "To": "harbor",
+            "PartySize": 1,
+            "SharingConsent": "private",
+            "Service": "",
+            "ServiceID": ""
+          },
+          "Status": "future",
+          "Refusal": "",
+          "RequestID": 0,
+          "BoardedTick": -1,
+          "CompletedTick": -1,
+          "PodAtBoarding": ""
+        },
+        {
+          "Event": "future-boundary-1",
+          "Tick": 144001,
+          "Pod": "",
+          "Options": {
+            "From": "market",
+            "To": "harbor",
+            "PartySize": 1,
+            "SharingConsent": "private",
+            "Service": "",
+            "ServiceID": ""
+          },
+          "Status": "future",
+          "Refusal": "",
+          "RequestID": 0,
+          "BoardedTick": -1,
+          "CompletedTick": -1,
+          "PodAtBoarding": ""
+        }
+      ],
+      "Restores": [
+        {
+          "Trigger": "occupied-origin",
+          "Tick": 180,
+          "Tier": "physical",
+          "Demoted": 0,
+          "Requeued": 0,
+          "Dropped": 0,
+          "ActiveAtRestore": 4,
+          "CompletedAtRestore": 0,
+          "CompletedAtEnd": 4,
+          "PendingAtEnd": 0,
+          "AboardAtEnd": 0,
+          "ContinuationTicks": 133492,
+          "FutureGrantChanges": 0,
+          "InitialDiscreteMatch": true,
+          "MaximumPositionDelta": 0
+        },
+        {
+          "Trigger": "fixed-300",
+          "Tick": 18000,
+          "Tier": "physical",
+          "Demoted": 0,
+          "Requeued": 0,
+          "Dropped": 0,
+          "ActiveAtRestore": 6,
+          "CompletedAtRestore": 0,
+          "CompletedAtEnd": 4,
+          "PendingAtEnd": 0,
+          "AboardAtEnd": 2,
+          "ContinuationTicks": 144000,
+          "FutureGrantChanges": 3,
+          "InitialDiscreteMatch": true,
+          "MaximumPositionDelta": 0
+        },
+        {
+          "Trigger": "compact-certificate",
+          "Tick": 30159,
+          "Tier": "physical",
+          "Demoted": 0,
+          "Requeued": 0,
+          "Dropped": 0,
+          "ActiveAtRestore": 10,
+          "CompletedAtRestore": 0,
+          "CompletedAtEnd": 5,
+          "PendingAtEnd": 1,
+          "AboardAtEnd": 4,
+          "ContinuationTicks": 144000,
+          "FutureGrantChanges": 3,
+          "InitialDiscreteMatch": true,
+          "MaximumPositionDelta": 0
+        },
+        {
+          "Trigger": "fixed-900",
+          "Tick": 54000,
+          "Tier": "physical",
+          "Demoted": 0,
+          "Requeued": 0,
+          "Dropped": 0,
+          "ActiveAtRestore": 16,
+          "CompletedAtRestore": 0,
+          "CompletedAtEnd": 6,
+          "PendingAtEnd": 5,
+          "AboardAtEnd": 5,
+          "ContinuationTicks": 144000,
+          "FutureGrantChanges": 16,
+          "InitialDiscreteMatch": true,
+          "MaximumPositionDelta": 0
+        }
+      ],
+      "RestoreTriggersAbsent": [
+        "intermediate-unloading"
+      ],
+      "status_event_ids": {
+        "completed": [
+          "initial-00",
+          "initial-01",
+          "initial-02",
+          "initial-03"
+        ],
+        "aboard": [
+          "queue-00",
+          "queue-01",
+          "queue-02",
+          "queue-04",
+          "queue-06"
+        ],
+        "pending": [
+          "queue-03",
+          "queue-05",
+          "queue-07",
+          "queue-08",
+          "queue-09",
+          "queue-10",
+          "queue-11",
+          "queue-12",
+          "queue-13",
+          "queue-14",
+          "queue-15",
+          "queue-16",
+          "queue-17",
+          "queue-18",
+          "queue-19",
+          "queue-20",
+          "queue-21",
+          "queue-22",
+          "queue-23"
+        ],
+        "future": [
+          "future-boundary-0",
+          "future-boundary-1"
+        ]
+      },
+      "future_boundary_event_ids": [
+        "future-boundary-0",
+        "future-boundary-1"
+      ],
+      "unoffered_before_cap_at_early_stop": [],
+      "native_final_metrics": {
+        "passengerDistanceMeters": 45727.1083315011,
+        "emptyDistanceMeters": 14884.84205927144,
+        "riderDistanceMeters": 19390.14431035319,
+        "directDistanceMeters": 19390.14431035319,
+        "maxDetourRatio": 1,
+        "totalWaitTicks": 307416,
+        "maxWaitTicks": 103423
+      },
+      "completed_entire_declared_window": true,
+      "full_ledger_usable_for_service_comparison": true
+    },
+    {
+      "Name": "compact-v2-ordinary",
+      "Study": "compact",
+      "Cap": 144000,
+      "EndTick": 144000,
+      "CheckedTicks": 144000,
+      "Failure": "",
+      "FleetCount": 7,
+      "Seats": 28,
+      "Accepted": 28,
+      "Refused": 0,
+      "Skipped": 0,
+      "Future": 2,
+      "Completed": 4,
+      "Pending": 19,
+      "Aboard": 5,
+      "EmptyMeters": 16026.76705927173,
+      "CompactTicks": 0,
+      "LargestCompact": 0,
+      "LoadedCompactMembers": 0,
+      "PeakPassengers": 1,
+      "PeakParties": 1,
+      "MinimumLargeGap": 0,
+      "Events": [
+        {
+          "Event": "initial-00",
+          "Tick": 0,
+          "Pod": "01",
+          "Options": {
+            "From": "harbor",
+            "To": "market",
+            "PartySize": 1,
+            "SharingConsent": "private",
+            "Service": "",
+            "ServiceID": ""
+          },
+          "Status": "completed",
+          "Refusal": "",
+          "RequestID": 1,
+          "BoardedTick": 0,
+          "CompletedTick": 133291,
+          "PodAtBoarding": "01"
+        },
+        {
+          "Event": "initial-01",
+          "Tick": 0,
+          "Pod": "02",
+          "Options": {
+            "From": "garden",
+            "To": "market",
+            "PartySize": 1,
+            "SharingConsent": "private",
+            "Service": "",
+            "ServiceID": ""
+          },
+          "Status": "completed",
+          "Refusal": "",
+          "RequestID": 2,
+          "BoardedTick": 0,
+          "CompletedTick": 62290,
+          "PodAtBoarding": "02"
+        },
+        {
+          "Event": "initial-02",
+          "Tick": 0,
+          "Pod": "03",
+          "Options": {
+            "From": "harbor",
+            "To": "market",
+            "PartySize": 1,
+            "SharingConsent": "private",
+            "Service": "",
+            "ServiceID": ""
+          },
+          "Status": "completed",
+          "Refusal": "",
+          "RequestID": 3,
+          "BoardedTick": 0,
+          "CompletedTick": 86017,
+          "PodAtBoarding": "03"
+        },
+        {
+          "Event": "initial-03",
+          "Tick": 0,
+          "Pod": "04",
+          "Options": {
+            "From": "garden",
+            "To": "market",
+            "PartySize": 1,
+            "SharingConsent": "private",
+            "Service": "",
+            "ServiceID": ""
+          },
+          "Status": "completed",
+          "Refusal": "",
+          "RequestID": 4,
+          "BoardedTick": 0,
+          "CompletedTick": 109744,
+          "PodAtBoarding": "04"
+        },
+        {
+          "Event": "queue-00",
+          "Tick": 10800,
+          "Pod": "",
+          "Options": {
+            "From": "market",
+            "To": "harbor",
+            "PartySize": 1,
+            "SharingConsent": "private",
+            "Service": "",
+            "ServiceID": ""
+          },
+          "Status": "aboard",
+          "Refusal": "",
+          "RequestID": 5,
+          "BoardedTick": 10800,
+          "CompletedTick": -1,
+          "PodAtBoarding": "05"
+        },
+        {
+          "Event": "queue-01",
+          "Tick": 14820,
+          "Pod": "",
+          "Options": {
+            "From": "harbor",
+            "To": "market",
+            "PartySize": 1,
+            "SharingConsent": "private",
+            "Service": "",
+            "ServiceID": ""
+          },
+          "Status": "aboard",
+          "Refusal": "",
+          "RequestID": 6,
+          "BoardedTick": 111099,
+          "CompletedTick": -1,
+          "PodAtBoarding": "06"
+        },
+        {
+          "Event": "queue-02",
+          "Tick": 18840,
+          "Pod": "",
+          "Options": {
+            "From": "market",
+            "To": "garden",
+            "PartySize": 1,
+            "SharingConsent": "private",
+            "Service": "",
+            "ServiceID": ""
+          },
+          "Status": "aboard",
+          "Refusal": "",
+          "RequestID": 7,
+          "BoardedTick": 62290,
+          "CompletedTick": -1,
+          "PodAtBoarding": "02"
+        },
+        {
+          "Event": "queue-03",
+          "Tick": 21600,
+          "Pod": "",
+          "Options": {
+            "From": "garden",
+            "To": "market",
+            "PartySize": 1,
+            "SharingConsent": "private",
+            "Service": "",
+            "ServiceID": ""
+          },
+          "Status": "pending",
+          "Refusal": "",
+          "RequestID": 8,
+          "BoardedTick": -1,
+          "CompletedTick": -1,
+          "PodAtBoarding": ""
+        },
+        {
+          "Event": "queue-04",
+          "Tick": 25620,
+          "Pod": "",
+          "Options": {
+            "From": "market",
+            "To": "harbor",
+            "PartySize": 1,
+            "SharingConsent": "private",
+            "Service": "",
+            "ServiceID": ""
+          },
+          "Status": "aboard",
+          "Refusal": "",
+          "RequestID": 9,
+          "BoardedTick": 86017,
+          "CompletedTick": -1,
+          "PodAtBoarding": "03"
+        },
+        {
+          "Event": "queue-05",
+          "Tick": 29640,
+          "Pod": "",
+          "Options": {
+            "From": "harbor",
+            "To": "market",
+            "PartySize": 1,
+            "SharingConsent": "private",
+            "Service": "",
+            "ServiceID": ""
+          },
+          "Status": "pending",
+          "Refusal": "",
+          "RequestID": 10,
+          "BoardedTick": -1,
+          "CompletedTick": -1,
+          "PodAtBoarding": ""
+        },
+        {
+          "Event": "queue-06",
+          "Tick": 32400,
+          "Pod": "",
+          "Options": {
+            "From": "market",
+            "To": "garden",
+            "PartySize": 1,
+            "SharingConsent": "private",
+            "Service": "",
+            "ServiceID": ""
+          },
+          "Status": "aboard",
+          "Refusal": "",
+          "RequestID": 11,
+          "BoardedTick": 133291,
+          "CompletedTick": -1,
+          "PodAtBoarding": "01"
+        },
+        {
+          "Event": "queue-07",
+          "Tick": 36420,
+          "Pod": "",
+          "Options": {
+            "From": "garden",
+            "To": "market",
+            "PartySize": 1,
+            "SharingConsent": "private",
+            "Service": "",
+            "ServiceID": ""
+          },
+          "Status": "pending",
+          "Refusal": "",
+          "RequestID": 12,
+          "BoardedTick": -1,
+          "CompletedTick": -1,
+          "PodAtBoarding": ""
+        },
+        {
+          "Event": "queue-08",
+          "Tick": 40440,
+          "Pod": "",
+          "Options": {
+            "From": "market",
+            "To": "harbor",
+            "PartySize": 1,
+            "SharingConsent": "private",
+            "Service": "",
+            "ServiceID": ""
+          },
+          "Status": "pending",
+          "Refusal": "",
+          "RequestID": 13,
+          "BoardedTick": -1,
+          "CompletedTick": -1,
+          "PodAtBoarding": ""
+        },
+        {
+          "Event": "queue-09",
+          "Tick": 43200,
+          "Pod": "",
+          "Options": {
+            "From": "harbor",
+            "To": "market",
+            "PartySize": 1,
+            "SharingConsent": "private",
+            "Service": "",
+            "ServiceID": ""
+          },
+          "Status": "pending",
+          "Refusal": "",
+          "RequestID": 14,
+          "BoardedTick": -1,
+          "CompletedTick": -1,
+          "PodAtBoarding": ""
+        },
+        {
+          "Event": "queue-10",
+          "Tick": 47220,
+          "Pod": "",
+          "Options": {
+            "From": "market",
+            "To": "garden",
+            "PartySize": 1,
+            "SharingConsent": "private",
+            "Service": "",
+            "ServiceID": ""
+          },
+          "Status": "pending",
+          "Refusal": "",
+          "RequestID": 15,
+          "BoardedTick": -1,
+          "CompletedTick": -1,
+          "PodAtBoarding": ""
+        },
+        {
+          "Event": "queue-11",
+          "Tick": 51240,
+          "Pod": "",
+          "Options": {
+            "From": "garden",
+            "To": "market",
+            "PartySize": 1,
+            "SharingConsent": "private",
+            "Service": "",
+            "ServiceID": ""
+          },
+          "Status": "pending",
+          "Refusal": "",
+          "RequestID": 16,
+          "BoardedTick": -1,
+          "CompletedTick": -1,
+          "PodAtBoarding": ""
+        },
+        {
+          "Event": "queue-12",
+          "Tick": 54000,
+          "Pod": "",
+          "Options": {
+            "From": "market",
+            "To": "harbor",
+            "PartySize": 1,
+            "SharingConsent": "private",
+            "Service": "",
+            "ServiceID": ""
+          },
+          "Status": "pending",
+          "Refusal": "",
+          "RequestID": 17,
+          "BoardedTick": -1,
+          "CompletedTick": -1,
+          "PodAtBoarding": ""
+        },
+        {
+          "Event": "queue-13",
+          "Tick": 58020,
+          "Pod": "",
+          "Options": {
+            "From": "harbor",
+            "To": "market",
+            "PartySize": 1,
+            "SharingConsent": "private",
+            "Service": "",
+            "ServiceID": ""
+          },
+          "Status": "pending",
+          "Refusal": "",
+          "RequestID": 18,
+          "BoardedTick": -1,
+          "CompletedTick": -1,
+          "PodAtBoarding": ""
+        },
+        {
+          "Event": "queue-14",
+          "Tick": 62040,
+          "Pod": "",
+          "Options": {
+            "From": "market",
+            "To": "garden",
+            "PartySize": 1,
+            "SharingConsent": "private",
+            "Service": "",
+            "ServiceID": ""
+          },
+          "Status": "pending",
+          "Refusal": "",
+          "RequestID": 19,
+          "BoardedTick": -1,
+          "CompletedTick": -1,
+          "PodAtBoarding": ""
+        },
+        {
+          "Event": "queue-15",
+          "Tick": 64800,
+          "Pod": "",
+          "Options": {
+            "From": "garden",
+            "To": "market",
+            "PartySize": 1,
+            "SharingConsent": "private",
+            "Service": "",
+            "ServiceID": ""
+          },
+          "Status": "pending",
+          "Refusal": "",
+          "RequestID": 20,
+          "BoardedTick": -1,
+          "CompletedTick": -1,
+          "PodAtBoarding": ""
+        },
+        {
+          "Event": "queue-16",
+          "Tick": 68820,
+          "Pod": "",
+          "Options": {
+            "From": "market",
+            "To": "harbor",
+            "PartySize": 1,
+            "SharingConsent": "private",
+            "Service": "",
+            "ServiceID": ""
+          },
+          "Status": "pending",
+          "Refusal": "",
+          "RequestID": 21,
+          "BoardedTick": -1,
+          "CompletedTick": -1,
+          "PodAtBoarding": ""
+        },
+        {
+          "Event": "queue-17",
+          "Tick": 72840,
+          "Pod": "",
+          "Options": {
+            "From": "harbor",
+            "To": "market",
+            "PartySize": 1,
+            "SharingConsent": "private",
+            "Service": "",
+            "ServiceID": ""
+          },
+          "Status": "pending",
+          "Refusal": "",
+          "RequestID": 22,
+          "BoardedTick": -1,
+          "CompletedTick": -1,
+          "PodAtBoarding": ""
+        },
+        {
+          "Event": "queue-18",
+          "Tick": 75600,
+          "Pod": "",
+          "Options": {
+            "From": "market",
+            "To": "garden",
+            "PartySize": 1,
+            "SharingConsent": "private",
+            "Service": "",
+            "ServiceID": ""
+          },
+          "Status": "pending",
+          "Refusal": "",
+          "RequestID": 23,
+          "BoardedTick": -1,
+          "CompletedTick": -1,
+          "PodAtBoarding": ""
+        },
+        {
+          "Event": "queue-19",
+          "Tick": 79620,
+          "Pod": "",
+          "Options": {
+            "From": "garden",
+            "To": "market",
+            "PartySize": 1,
+            "SharingConsent": "private",
+            "Service": "",
+            "ServiceID": ""
+          },
+          "Status": "pending",
+          "Refusal": "",
+          "RequestID": 24,
+          "BoardedTick": -1,
+          "CompletedTick": -1,
+          "PodAtBoarding": ""
+        },
+        {
+          "Event": "queue-20",
+          "Tick": 83640,
+          "Pod": "",
+          "Options": {
+            "From": "market",
+            "To": "harbor",
+            "PartySize": 1,
+            "SharingConsent": "private",
+            "Service": "",
+            "ServiceID": ""
+          },
+          "Status": "pending",
+          "Refusal": "",
+          "RequestID": 25,
+          "BoardedTick": -1,
+          "CompletedTick": -1,
+          "PodAtBoarding": ""
+        },
+        {
+          "Event": "queue-21",
+          "Tick": 86400,
+          "Pod": "",
+          "Options": {
+            "From": "harbor",
+            "To": "market",
+            "PartySize": 1,
+            "SharingConsent": "private",
+            "Service": "",
+            "ServiceID": ""
+          },
+          "Status": "pending",
+          "Refusal": "",
+          "RequestID": 26,
+          "BoardedTick": -1,
+          "CompletedTick": -1,
+          "PodAtBoarding": ""
+        },
+        {
+          "Event": "queue-22",
+          "Tick": 90420,
+          "Pod": "",
+          "Options": {
+            "From": "market",
+            "To": "garden",
+            "PartySize": 1,
+            "SharingConsent": "private",
+            "Service": "",
+            "ServiceID": ""
+          },
+          "Status": "pending",
+          "Refusal": "",
+          "RequestID": 27,
+          "BoardedTick": -1,
+          "CompletedTick": -1,
+          "PodAtBoarding": ""
+        },
+        {
+          "Event": "queue-23",
+          "Tick": 94440,
+          "Pod": "",
+          "Options": {
+            "From": "garden",
+            "To": "market",
+            "PartySize": 1,
+            "SharingConsent": "private",
+            "Service": "",
+            "ServiceID": ""
+          },
+          "Status": "pending",
+          "Refusal": "",
+          "RequestID": 28,
+          "BoardedTick": -1,
+          "CompletedTick": -1,
+          "PodAtBoarding": ""
+        },
+        {
+          "Event": "future-boundary-0",
+          "Tick": 144000,
+          "Pod": "",
+          "Options": {
+            "From": "market",
+            "To": "harbor",
+            "PartySize": 1,
+            "SharingConsent": "private",
+            "Service": "",
+            "ServiceID": ""
+          },
+          "Status": "future",
+          "Refusal": "",
+          "RequestID": 0,
+          "BoardedTick": -1,
+          "CompletedTick": -1,
+          "PodAtBoarding": ""
+        },
+        {
+          "Event": "future-boundary-1",
+          "Tick": 144001,
+          "Pod": "",
+          "Options": {
+            "From": "market",
+            "To": "harbor",
+            "PartySize": 1,
+            "SharingConsent": "private",
+            "Service": "",
+            "ServiceID": ""
+          },
+          "Status": "future",
+          "Refusal": "",
+          "RequestID": 0,
+          "BoardedTick": -1,
+          "CompletedTick": -1,
+          "PodAtBoarding": ""
+        }
+      ],
+      "Restores": [
+        {
+          "Trigger": "occupied-origin",
+          "Tick": 180,
+          "Tier": "physical",
+          "Demoted": 0,
+          "Requeued": 0,
+          "Dropped": 0,
+          "ActiveAtRestore": 4,
+          "CompletedAtRestore": 0,
+          "CompletedAtEnd": 4,
+          "PendingAtEnd": 0,
+          "AboardAtEnd": 0,
+          "ContinuationTicks": 133492,
+          "FutureGrantChanges": 0,
+          "InitialDiscreteMatch": true,
+          "MaximumPositionDelta": 0
+        },
+        {
+          "Trigger": "fixed-300",
+          "Tick": 18000,
+          "Tier": "physical",
+          "Demoted": 0,
+          "Requeued": 0,
+          "Dropped": 0,
+          "ActiveAtRestore": 6,
+          "CompletedAtRestore": 0,
+          "CompletedAtEnd": 4,
+          "PendingAtEnd": 0,
+          "AboardAtEnd": 2,
+          "ContinuationTicks": 144000,
+          "FutureGrantChanges": 2,
+          "InitialDiscreteMatch": true,
+          "MaximumPositionDelta": 0
+        },
+        {
+          "Trigger": "fixed-900",
+          "Tick": 54000,
+          "Tier": "physical",
+          "Demoted": 0,
+          "Requeued": 0,
+          "Dropped": 0,
+          "ActiveAtRestore": 16,
+          "CompletedAtRestore": 0,
+          "CompletedAtEnd": 6,
+          "PendingAtEnd": 5,
+          "AboardAtEnd": 5,
+          "ContinuationTicks": 144000,
+          "FutureGrantChanges": 14,
+          "InitialDiscreteMatch": true,
+          "MaximumPositionDelta": 0
+        }
+      ],
+      "RestoreTriggersAbsent": [
+        "intermediate-unloading",
+        "compact-certificate"
+      ],
+      "status_event_ids": {
+        "completed": [
+          "initial-00",
+          "initial-01",
+          "initial-02",
+          "initial-03"
+        ],
+        "aboard": [
+          "queue-00",
+          "queue-01",
+          "queue-02",
+          "queue-04",
+          "queue-06"
+        ],
+        "pending": [
+          "queue-03",
+          "queue-05",
+          "queue-07",
+          "queue-08",
+          "queue-09",
+          "queue-10",
+          "queue-11",
+          "queue-12",
+          "queue-13",
+          "queue-14",
+          "queue-15",
+          "queue-16",
+          "queue-17",
+          "queue-18",
+          "queue-19",
+          "queue-20",
+          "queue-21",
+          "queue-22",
+          "queue-23"
+        ],
+        "future": [
+          "future-boundary-0",
+          "future-boundary-1"
+        ]
+      },
+      "future_boundary_event_ids": [
+        "future-boundary-0",
+        "future-boundary-1"
+      ],
+      "unoffered_before_cap_at_early_stop": [],
+      "native_final_metrics": {
+        "passengerDistanceMeters": 45843.233331510506,
+        "emptyDistanceMeters": 16026.76705927173,
+        "riderDistanceMeters": 19390.14431035319,
+        "directDistanceMeters": 19390.14431035319,
+        "maxDetourRatio": 1,
+        "totalWaitTicks": 301017,
+        "maxWaitTicks": 100891
+      },
+      "completed_entire_declared_window": true,
+      "full_ledger_usable_for_service_comparison": true
+    },
+    {
+      "Name": "compact-v2-compact-v1",
+      "Study": "compact",
+      "Cap": 144000,
+      "EndTick": 144000,
+      "CheckedTicks": 144000,
+      "Failure": "",
+      "FleetCount": 7,
+      "Seats": 28,
+      "Accepted": 28,
+      "Refused": 0,
+      "Skipped": 0,
+      "Future": 2,
+      "Completed": 4,
+      "Pending": 19,
+      "Aboard": 5,
+      "EmptyMeters": 14884.842059272487,
+      "CompactTicks": 22948,
+      "LargestCompact": 3,
+      "LoadedCompactMembers": 3,
+      "PeakPassengers": 1,
+      "PeakParties": 1,
+      "MinimumLargeGap": 0,
+      "Events": [
+        {
+          "Event": "initial-00",
+          "Tick": 0,
+          "Pod": "01",
+          "Options": {
+            "From": "harbor",
+            "To": "market",
+            "PartySize": 1,
+            "SharingConsent": "private",
+            "Service": "",
+            "ServiceID": ""
+          },
+          "Status": "completed",
+          "Refusal": "",
+          "RequestID": 1,
+          "BoardedTick": 0,
+          "CompletedTick": 135823,
+          "PodAtBoarding": "01"
+        },
+        {
+          "Event": "initial-01",
+          "Tick": 0,
+          "Pod": "02",
+          "Options": {
+            "From": "garden",
+            "To": "market",
+            "PartySize": 1,
+            "SharingConsent": "private",
+            "Service": "",
+            "ServiceID": ""
+          },
+          "Status": "completed",
+          "Refusal": "",
+          "RequestID": 2,
+          "BoardedTick": 0,
+          "CompletedTick": 62365,
+          "PodAtBoarding": "02"
+        },
+        {
+          "Event": "initial-02",
+          "Tick": 0,
+          "Pod": "03",
+          "Options": {
+            "From": "harbor",
+            "To": "market",
+            "PartySize": 1,
+            "SharingConsent": "private",
+            "Service": "",
+            "ServiceID": ""
+          },
+          "Status": "completed",
+          "Refusal": "",
+          "RequestID": 3,
+          "BoardedTick": 0,
+          "CompletedTick": 88549,
+          "PodAtBoarding": "03"
+        },
+        {
+          "Event": "initial-03",
+          "Tick": 0,
+          "Pod": "04",
+          "Options": {
+            "From": "garden",
+            "To": "market",
+            "PartySize": 1,
+            "SharingConsent": "private",
+            "Service": "",
+            "ServiceID": ""
+          },
+          "Status": "completed",
+          "Refusal": "",
+          "RequestID": 4,
+          "BoardedTick": 0,
+          "CompletedTick": 112276,
+          "PodAtBoarding": "04"
+        },
+        {
+          "Event": "queue-00",
+          "Tick": 10800,
+          "Pod": "",
+          "Options": {
+            "From": "market",
+            "To": "harbor",
+            "PartySize": 1,
+            "SharingConsent": "private",
+            "Service": "",
+            "ServiceID": ""
+          },
+          "Status": "aboard",
+          "Refusal": "",
+          "RequestID": 5,
+          "BoardedTick": 10800,
+          "CompletedTick": -1,
+          "PodAtBoarding": "05"
+        },
+        {
+          "Event": "queue-01",
+          "Tick": 14820,
+          "Pod": "",
+          "Options": {
+            "From": "harbor",
+            "To": "market",
+            "PartySize": 1,
+            "SharingConsent": "private",
+            "Service": "",
+            "ServiceID": ""
+          },
+          "Status": "aboard",
+          "Refusal": "",
+          "RequestID": 6,
+          "BoardedTick": 111099,
+          "CompletedTick": -1,
+          "PodAtBoarding": "06"
+        },
+        {
+          "Event": "queue-02",
+          "Tick": 18840,
+          "Pod": "",
+          "Options": {
+            "From": "market",
+            "To": "garden",
+            "PartySize": 1,
+            "SharingConsent": "private",
+            "Service": "",
+            "ServiceID": ""
+          },
+          "Status": "aboard",
+          "Refusal": "",
+          "RequestID": 7,
+          "BoardedTick": 62365,
+          "CompletedTick": -1,
+          "PodAtBoarding": "02"
+        },
+        {
+          "Event": "queue-03",
+          "Tick": 21600,
+          "Pod": "",
+          "Options": {
+            "From": "garden",
+            "To": "market",
+            "PartySize": 1,
+            "SharingConsent": "private",
+            "Service": "",
+            "ServiceID": ""
+          },
+          "Status": "pending",
+          "Refusal": "",
+          "RequestID": 8,
+          "BoardedTick": -1,
+          "CompletedTick": -1,
+          "PodAtBoarding": ""
+        },
+        {
+          "Event": "queue-04",
+          "Tick": 25620,
+          "Pod": "",
+          "Options": {
+            "From": "market",
+            "To": "harbor",
+            "PartySize": 1,
+            "SharingConsent": "private",
+            "Service": "",
+            "ServiceID": ""
+          },
+          "Status": "aboard",
+          "Refusal": "",
+          "RequestID": 9,
+          "BoardedTick": 88549,
+          "CompletedTick": -1,
+          "PodAtBoarding": "03"
+        },
+        {
+          "Event": "queue-05",
+          "Tick": 29640,
+          "Pod": "",
+          "Options": {
+            "From": "harbor",
+            "To": "market",
+            "PartySize": 1,
+            "SharingConsent": "private",
+            "Service": "",
+            "ServiceID": ""
+          },
+          "Status": "pending",
+          "Refusal": "",
+          "RequestID": 10,
+          "BoardedTick": -1,
+          "CompletedTick": -1,
+          "PodAtBoarding": ""
+        },
+        {
+          "Event": "queue-06",
+          "Tick": 32400,
+          "Pod": "",
+          "Options": {
+            "From": "market",
+            "To": "garden",
+            "PartySize": 1,
+            "SharingConsent": "private",
+            "Service": "",
+            "ServiceID": ""
+          },
+          "Status": "aboard",
+          "Refusal": "",
+          "RequestID": 11,
+          "BoardedTick": 135823,
+          "CompletedTick": -1,
+          "PodAtBoarding": "01"
+        },
+        {
+          "Event": "queue-07",
+          "Tick": 36420,
+          "Pod": "",
+          "Options": {
+            "From": "garden",
+            "To": "market",
+            "PartySize": 1,
+            "SharingConsent": "private",
+            "Service": "",
+            "ServiceID": ""
+          },
+          "Status": "pending",
+          "Refusal": "",
+          "RequestID": 12,
+          "BoardedTick": -1,
+          "CompletedTick": -1,
+          "PodAtBoarding": ""
+        },
+        {
+          "Event": "queue-08",
+          "Tick": 40440,
+          "Pod": "",
+          "Options": {
+            "From": "market",
+            "To": "harbor",
+            "PartySize": 1,
+            "SharingConsent": "private",
+            "Service": "",
+            "ServiceID": ""
+          },
+          "Status": "pending",
+          "Refusal": "",
+          "RequestID": 13,
+          "BoardedTick": -1,
+          "CompletedTick": -1,
+          "PodAtBoarding": ""
+        },
+        {
+          "Event": "queue-09",
+          "Tick": 43200,
+          "Pod": "",
+          "Options": {
+            "From": "harbor",
+            "To": "market",
+            "PartySize": 1,
+            "SharingConsent": "private",
+            "Service": "",
+            "ServiceID": ""
+          },
+          "Status": "pending",
+          "Refusal": "",
+          "RequestID": 14,
+          "BoardedTick": -1,
+          "CompletedTick": -1,
+          "PodAtBoarding": ""
+        },
+        {
+          "Event": "queue-10",
+          "Tick": 47220,
+          "Pod": "",
+          "Options": {
+            "From": "market",
+            "To": "garden",
+            "PartySize": 1,
+            "SharingConsent": "private",
+            "Service": "",
+            "ServiceID": ""
+          },
+          "Status": "pending",
+          "Refusal": "",
+          "RequestID": 15,
+          "BoardedTick": -1,
+          "CompletedTick": -1,
+          "PodAtBoarding": ""
+        },
+        {
+          "Event": "queue-11",
+          "Tick": 51240,
+          "Pod": "",
+          "Options": {
+            "From": "garden",
+            "To": "market",
+            "PartySize": 1,
+            "SharingConsent": "private",
+            "Service": "",
+            "ServiceID": ""
+          },
+          "Status": "pending",
+          "Refusal": "",
+          "RequestID": 16,
+          "BoardedTick": -1,
+          "CompletedTick": -1,
+          "PodAtBoarding": ""
+        },
+        {
+          "Event": "queue-12",
+          "Tick": 54000,
+          "Pod": "",
+          "Options": {
+            "From": "market",
+            "To": "harbor",
+            "PartySize": 1,
+            "SharingConsent": "private",
+            "Service": "",
+            "ServiceID": ""
+          },
+          "Status": "pending",
+          "Refusal": "",
+          "RequestID": 17,
+          "BoardedTick": -1,
+          "CompletedTick": -1,
+          "PodAtBoarding": ""
+        },
+        {
+          "Event": "queue-13",
+          "Tick": 58020,
+          "Pod": "",
+          "Options": {
+            "From": "harbor",
+            "To": "market",
+            "PartySize": 1,
+            "SharingConsent": "private",
+            "Service": "",
+            "ServiceID": ""
+          },
+          "Status": "pending",
+          "Refusal": "",
+          "RequestID": 18,
+          "BoardedTick": -1,
+          "CompletedTick": -1,
+          "PodAtBoarding": ""
+        },
+        {
+          "Event": "queue-14",
+          "Tick": 62040,
+          "Pod": "",
+          "Options": {
+            "From": "market",
+            "To": "garden",
+            "PartySize": 1,
+            "SharingConsent": "private",
+            "Service": "",
+            "ServiceID": ""
+          },
+          "Status": "pending",
+          "Refusal": "",
+          "RequestID": 19,
+          "BoardedTick": -1,
+          "CompletedTick": -1,
+          "PodAtBoarding": ""
+        },
+        {
+          "Event": "queue-15",
+          "Tick": 64800,
+          "Pod": "",
+          "Options": {
+            "From": "garden",
+            "To": "market",
+            "PartySize": 1,
+            "SharingConsent": "private",
+            "Service": "",
+            "ServiceID": ""
+          },
+          "Status": "pending",
+          "Refusal": "",
+          "RequestID": 20,
+          "BoardedTick": -1,
+          "CompletedTick": -1,
+          "PodAtBoarding": ""
+        },
+        {
+          "Event": "queue-16",
+          "Tick": 68820,
+          "Pod": "",
+          "Options": {
+            "From": "market",
+            "To": "harbor",
+            "PartySize": 1,
+            "SharingConsent": "private",
+            "Service": "",
+            "ServiceID": ""
+          },
+          "Status": "pending",
+          "Refusal": "",
+          "RequestID": 21,
+          "BoardedTick": -1,
+          "CompletedTick": -1,
+          "PodAtBoarding": ""
+        },
+        {
+          "Event": "queue-17",
+          "Tick": 72840,
+          "Pod": "",
+          "Options": {
+            "From": "harbor",
+            "To": "market",
+            "PartySize": 1,
+            "SharingConsent": "private",
+            "Service": "",
+            "ServiceID": ""
+          },
+          "Status": "pending",
+          "Refusal": "",
+          "RequestID": 22,
+          "BoardedTick": -1,
+          "CompletedTick": -1,
+          "PodAtBoarding": ""
+        },
+        {
+          "Event": "queue-18",
+          "Tick": 75600,
+          "Pod": "",
+          "Options": {
+            "From": "market",
+            "To": "garden",
+            "PartySize": 1,
+            "SharingConsent": "private",
+            "Service": "",
+            "ServiceID": ""
+          },
+          "Status": "pending",
+          "Refusal": "",
+          "RequestID": 23,
+          "BoardedTick": -1,
+          "CompletedTick": -1,
+          "PodAtBoarding": ""
+        },
+        {
+          "Event": "queue-19",
+          "Tick": 79620,
+          "Pod": "",
+          "Options": {
+            "From": "garden",
+            "To": "market",
+            "PartySize": 1,
+            "SharingConsent": "private",
+            "Service": "",
+            "ServiceID": ""
+          },
+          "Status": "pending",
+          "Refusal": "",
+          "RequestID": 24,
+          "BoardedTick": -1,
+          "CompletedTick": -1,
+          "PodAtBoarding": ""
+        },
+        {
+          "Event": "queue-20",
+          "Tick": 83640,
+          "Pod": "",
+          "Options": {
+            "From": "market",
+            "To": "harbor",
+            "PartySize": 1,
+            "SharingConsent": "private",
+            "Service": "",
+            "ServiceID": ""
+          },
+          "Status": "pending",
+          "Refusal": "",
+          "RequestID": 25,
+          "BoardedTick": -1,
+          "CompletedTick": -1,
+          "PodAtBoarding": ""
+        },
+        {
+          "Event": "queue-21",
+          "Tick": 86400,
+          "Pod": "",
+          "Options": {
+            "From": "harbor",
+            "To": "market",
+            "PartySize": 1,
+            "SharingConsent": "private",
+            "Service": "",
+            "ServiceID": ""
+          },
+          "Status": "pending",
+          "Refusal": "",
+          "RequestID": 26,
+          "BoardedTick": -1,
+          "CompletedTick": -1,
+          "PodAtBoarding": ""
+        },
+        {
+          "Event": "queue-22",
+          "Tick": 90420,
+          "Pod": "",
+          "Options": {
+            "From": "market",
+            "To": "garden",
+            "PartySize": 1,
+            "SharingConsent": "private",
+            "Service": "",
+            "ServiceID": ""
+          },
+          "Status": "pending",
+          "Refusal": "",
+          "RequestID": 27,
+          "BoardedTick": -1,
+          "CompletedTick": -1,
+          "PodAtBoarding": ""
+        },
+        {
+          "Event": "queue-23",
+          "Tick": 94440,
+          "Pod": "",
+          "Options": {
+            "From": "garden",
+            "To": "market",
+            "PartySize": 1,
+            "SharingConsent": "private",
+            "Service": "",
+            "ServiceID": ""
+          },
+          "Status": "pending",
+          "Refusal": "",
+          "RequestID": 28,
+          "BoardedTick": -1,
+          "CompletedTick": -1,
+          "PodAtBoarding": ""
+        },
+        {
+          "Event": "future-boundary-0",
+          "Tick": 144000,
+          "Pod": "",
+          "Options": {
+            "From": "market",
+            "To": "harbor",
+            "PartySize": 1,
+            "SharingConsent": "private",
+            "Service": "",
+            "ServiceID": ""
+          },
+          "Status": "future",
+          "Refusal": "",
+          "RequestID": 0,
+          "BoardedTick": -1,
+          "CompletedTick": -1,
+          "PodAtBoarding": ""
+        },
+        {
+          "Event": "future-boundary-1",
+          "Tick": 144001,
+          "Pod": "",
+          "Options": {
+            "From": "market",
+            "To": "harbor",
+            "PartySize": 1,
+            "SharingConsent": "private",
+            "Service": "",
+            "ServiceID": ""
+          },
+          "Status": "future",
+          "Refusal": "",
+          "RequestID": 0,
+          "BoardedTick": -1,
+          "CompletedTick": -1,
+          "PodAtBoarding": ""
+        }
+      ],
+      "Restores": [
+        {
+          "Trigger": "occupied-origin",
+          "Tick": 180,
+          "Tier": "physical",
+          "Demoted": 0,
+          "Requeued": 0,
+          "Dropped": 0,
+          "ActiveAtRestore": 4,
+          "CompletedAtRestore": 0,
+          "CompletedAtEnd": 4,
+          "PendingAtEnd": 0,
+          "AboardAtEnd": 0,
+          "ContinuationTicks": 133492,
+          "FutureGrantChanges": 0,
+          "InitialDiscreteMatch": true,
+          "MaximumPositionDelta": 0
+        },
+        {
+          "Trigger": "fixed-300",
+          "Tick": 18000,
+          "Tier": "physical",
+          "Demoted": 0,
+          "Requeued": 0,
+          "Dropped": 0,
+          "ActiveAtRestore": 6,
+          "CompletedAtRestore": 0,
+          "CompletedAtEnd": 4,
+          "PendingAtEnd": 0,
+          "AboardAtEnd": 2,
+          "ContinuationTicks": 144000,
+          "FutureGrantChanges": 2,
+          "InitialDiscreteMatch": true,
+          "MaximumPositionDelta": 0
+        },
+        {
+          "Trigger": "compact-certificate",
+          "Tick": 30159,
+          "Tier": "physical",
+          "Demoted": 0,
+          "Requeued": 0,
+          "Dropped": 0,
+          "ActiveAtRestore": 10,
+          "CompletedAtRestore": 0,
+          "CompletedAtEnd": 5,
+          "PendingAtEnd": 1,
+          "AboardAtEnd": 4,
+          "ContinuationTicks": 144000,
+          "FutureGrantChanges": 3,
+          "InitialDiscreteMatch": true,
+          "MaximumPositionDelta": 0
+        },
+        {
+          "Trigger": "fixed-900",
+          "Tick": 54000,
+          "Tier": "physical",
+          "Demoted": 0,
+          "Requeued": 0,
+          "Dropped": 0,
+          "ActiveAtRestore": 16,
+          "CompletedAtRestore": 0,
+          "CompletedAtEnd": 6,
+          "PendingAtEnd": 5,
+          "AboardAtEnd": 5,
+          "ContinuationTicks": 144000,
+          "FutureGrantChanges": 14,
+          "InitialDiscreteMatch": true,
+          "MaximumPositionDelta": 0
+        }
+      ],
+      "RestoreTriggersAbsent": [
+        "intermediate-unloading"
+      ],
+      "status_event_ids": {
+        "completed": [
+          "initial-00",
+          "initial-01",
+          "initial-02",
+          "initial-03"
+        ],
+        "aboard": [
+          "queue-00",
+          "queue-01",
+          "queue-02",
+          "queue-04",
+          "queue-06"
+        ],
+        "pending": [
+          "queue-03",
+          "queue-05",
+          "queue-07",
+          "queue-08",
+          "queue-09",
+          "queue-10",
+          "queue-11",
+          "queue-12",
+          "queue-13",
+          "queue-14",
+          "queue-15",
+          "queue-16",
+          "queue-17",
+          "queue-18",
+          "queue-19",
+          "queue-20",
+          "queue-21",
+          "queue-22",
+          "queue-23"
+        ],
+        "future": [
+          "future-boundary-0",
+          "future-boundary-1"
+        ]
+      },
+      "future_boundary_event_ids": [
+        "future-boundary-0",
+        "future-boundary-1"
+      ],
+      "unoffered_before_cap_at_early_stop": [],
+      "native_final_metrics": {
+        "passengerDistanceMeters": 45629.10833149947,
+        "emptyDistanceMeters": 14884.842059272487,
+        "riderDistanceMeters": 19390.14431035319,
+        "directDistanceMeters": 19390.14431035319,
+        "maxDetourRatio": 1,
+        "totalWaitTicks": 306156,
+        "maxWaitTicks": 103423
+      },
+      "completed_entire_declared_window": true,
+      "full_ledger_usable_for_service_comparison": true
+    }
+  ],
+  "comparisons": [
+    {
+      "baseline": "compact-v1-ordinary",
+      "candidate": "compact-v1-compact-v1",
+      "status": "bounded matched screen",
+      "matched_pickup_wait_baseline": {
+        "count": 9,
+        "mean_seconds": 559.7722222222222,
+        "p95_seconds": 1681.5166666666667,
+        "maximum_seconds": 1681.5166666666667
+      },
+      "matched_pickup_wait_candidate": {
+        "count": 9,
+        "mean_seconds": 569.2888888888889,
+        "p95_seconds": 1723.7166666666667,
+        "maximum_seconds": 1723.7166666666667
+      },
+      "matched_journey_baseline": {
+        "count": 4,
+        "mean_seconds": 1630.5916666666667,
+        "p95_seconds": 2221.516666666667,
+        "maximum_seconds": 2221.516666666667
+      },
+      "matched_journey_candidate": {
+        "count": 4,
+        "mean_seconds": 1662.5541666666666,
+        "p95_seconds": 2263.7166666666667,
+        "maximum_seconds": 2263.7166666666667
+      },
+      "pickup_exceedances": [],
+      "journey_exceedances": [],
+      "censored_pickup_pairs": [
+        {
+          "event": "queue-03",
+          "baseline_status": "pending",
+          "candidate_status": "pending"
+        },
+        {
+          "event": "queue-05",
+          "baseline_status": "pending",
+          "candidate_status": "pending"
+        },
+        {
+          "event": "queue-07",
+          "baseline_status": "pending",
+          "candidate_status": "pending"
+        },
+        {
+          "event": "queue-08",
+          "baseline_status": "pending",
+          "candidate_status": "pending"
+        },
+        {
+          "event": "queue-09",
+          "baseline_status": "pending",
+          "candidate_status": "pending"
+        },
+        {
+          "event": "queue-10",
+          "baseline_status": "pending",
+          "candidate_status": "pending"
+        },
+        {
+          "event": "queue-11",
+          "baseline_status": "pending",
+          "candidate_status": "pending"
+        },
+        {
+          "event": "queue-12",
+          "baseline_status": "pending",
+          "candidate_status": "pending"
+        },
+        {
+          "event": "queue-13",
+          "baseline_status": "pending",
+          "candidate_status": "pending"
+        },
+        {
+          "event": "queue-14",
+          "baseline_status": "pending",
+          "candidate_status": "pending"
+        },
+        {
+          "event": "queue-15",
+          "baseline_status": "pending",
+          "candidate_status": "pending"
+        },
+        {
+          "event": "queue-16",
+          "baseline_status": "pending",
+          "candidate_status": "pending"
+        },
+        {
+          "event": "queue-17",
+          "baseline_status": "pending",
+          "candidate_status": "pending"
+        },
+        {
+          "event": "queue-18",
+          "baseline_status": "pending",
+          "candidate_status": "pending"
+        },
+        {
+          "event": "queue-19",
+          "baseline_status": "pending",
+          "candidate_status": "pending"
+        },
+        {
+          "event": "queue-20",
+          "baseline_status": "pending",
+          "candidate_status": "pending"
+        },
+        {
+          "event": "queue-21",
+          "baseline_status": "pending",
+          "candidate_status": "pending"
+        },
+        {
+          "event": "queue-22",
+          "baseline_status": "pending",
+          "candidate_status": "pending"
+        },
+        {
+          "event": "queue-23",
+          "baseline_status": "pending",
+          "candidate_status": "pending"
+        }
+      ],
+      "censored_journey_pairs": [
+        {
+          "event": "queue-00",
+          "baseline_status": "aboard",
+          "candidate_status": "aboard"
+        },
+        {
+          "event": "queue-01",
+          "baseline_status": "aboard",
+          "candidate_status": "aboard"
+        },
+        {
+          "event": "queue-02",
+          "baseline_status": "aboard",
+          "candidate_status": "aboard"
+        },
+        {
+          "event": "queue-03",
+          "baseline_status": "pending",
+          "candidate_status": "pending"
+        },
+        {
+          "event": "queue-04",
+          "baseline_status": "aboard",
+          "candidate_status": "aboard"
+        },
+        {
+          "event": "queue-05",
+          "baseline_status": "pending",
+          "candidate_status": "pending"
+        },
+        {
+          "event": "queue-06",
+          "baseline_status": "aboard",
+          "candidate_status": "aboard"
+        },
+        {
+          "event": "queue-07",
+          "baseline_status": "pending",
+          "candidate_status": "pending"
+        },
+        {
+          "event": "queue-08",
+          "baseline_status": "pending",
+          "candidate_status": "pending"
+        },
+        {
+          "event": "queue-09",
+          "baseline_status": "pending",
+          "candidate_status": "pending"
+        },
+        {
+          "event": "queue-10",
+          "baseline_status": "pending",
+          "candidate_status": "pending"
+        },
+        {
+          "event": "queue-11",
+          "baseline_status": "pending",
+          "candidate_status": "pending"
+        },
+        {
+          "event": "queue-12",
+          "baseline_status": "pending",
+          "candidate_status": "pending"
+        },
+        {
+          "event": "queue-13",
+          "baseline_status": "pending",
+          "candidate_status": "pending"
+        },
+        {
+          "event": "queue-14",
+          "baseline_status": "pending",
+          "candidate_status": "pending"
+        },
+        {
+          "event": "queue-15",
+          "baseline_status": "pending",
+          "candidate_status": "pending"
+        },
+        {
+          "event": "queue-16",
+          "baseline_status": "pending",
+          "candidate_status": "pending"
+        },
+        {
+          "event": "queue-17",
+          "baseline_status": "pending",
+          "candidate_status": "pending"
+        },
+        {
+          "event": "queue-18",
+          "baseline_status": "pending",
+          "candidate_status": "pending"
+        },
+        {
+          "event": "queue-19",
+          "baseline_status": "pending",
+          "candidate_status": "pending"
+        },
+        {
+          "event": "queue-20",
+          "baseline_status": "pending",
+          "candidate_status": "pending"
+        },
+        {
+          "event": "queue-21",
+          "baseline_status": "pending",
+          "candidate_status": "pending"
+        },
+        {
+          "event": "queue-22",
+          "baseline_status": "pending",
+          "candidate_status": "pending"
+        },
+        {
+          "event": "queue-23",
+          "baseline_status": "pending",
+          "candidate_status": "pending"
+        }
+      ],
+      "baseline_completed_candidate_censored": [],
+      "additional_lost_event_ids": [],
+      "gates": {
+        "aggregate_two_percent": true,
+        "individual_pickup": false,
+        "individual_journey": false,
+        "finite_recovery": true,
+        "no_additional_offer_loss": true,
+        "mean_five_percent_benefit": false
+      },
+      "qualification": false
+    },
+    {
+      "baseline": "compact-v2-ordinary",
+      "candidate": "compact-v2-compact-v1",
+      "status": "bounded matched screen",
+      "matched_pickup_wait_baseline": {
+        "count": 9,
+        "mean_seconds": 557.4388888888889,
+        "p95_seconds": 1681.5166666666667,
+        "maximum_seconds": 1681.5166666666667
+      },
+      "matched_pickup_wait_candidate": {
+        "count": 9,
+        "mean_seconds": 566.9555555555555,
+        "p95_seconds": 1723.7166666666667,
+        "maximum_seconds": 1723.7166666666667
+      },
+      "matched_journey_baseline": {
+        "count": 4,
+        "mean_seconds": 1630.5916666666667,
+        "p95_seconds": 2221.516666666667,
+        "maximum_seconds": 2221.516666666667
+      },
+      "matched_journey_candidate": {
+        "count": 4,
+        "mean_seconds": 1662.5541666666666,
+        "p95_seconds": 2263.7166666666667,
+        "maximum_seconds": 2263.7166666666667
+      },
+      "pickup_exceedances": [],
+      "journey_exceedances": [],
+      "censored_pickup_pairs": [
+        {
+          "event": "queue-03",
+          "baseline_status": "pending",
+          "candidate_status": "pending"
+        },
+        {
+          "event": "queue-05",
+          "baseline_status": "pending",
+          "candidate_status": "pending"
+        },
+        {
+          "event": "queue-07",
+          "baseline_status": "pending",
+          "candidate_status": "pending"
+        },
+        {
+          "event": "queue-08",
+          "baseline_status": "pending",
+          "candidate_status": "pending"
+        },
+        {
+          "event": "queue-09",
+          "baseline_status": "pending",
+          "candidate_status": "pending"
+        },
+        {
+          "event": "queue-10",
+          "baseline_status": "pending",
+          "candidate_status": "pending"
+        },
+        {
+          "event": "queue-11",
+          "baseline_status": "pending",
+          "candidate_status": "pending"
+        },
+        {
+          "event": "queue-12",
+          "baseline_status": "pending",
+          "candidate_status": "pending"
+        },
+        {
+          "event": "queue-13",
+          "baseline_status": "pending",
+          "candidate_status": "pending"
+        },
+        {
+          "event": "queue-14",
+          "baseline_status": "pending",
+          "candidate_status": "pending"
+        },
+        {
+          "event": "queue-15",
+          "baseline_status": "pending",
+          "candidate_status": "pending"
+        },
+        {
+          "event": "queue-16",
+          "baseline_status": "pending",
+          "candidate_status": "pending"
+        },
+        {
+          "event": "queue-17",
+          "baseline_status": "pending",
+          "candidate_status": "pending"
+        },
+        {
+          "event": "queue-18",
+          "baseline_status": "pending",
+          "candidate_status": "pending"
+        },
+        {
+          "event": "queue-19",
+          "baseline_status": "pending",
+          "candidate_status": "pending"
+        },
+        {
+          "event": "queue-20",
+          "baseline_status": "pending",
+          "candidate_status": "pending"
+        },
+        {
+          "event": "queue-21",
+          "baseline_status": "pending",
+          "candidate_status": "pending"
+        },
+        {
+          "event": "queue-22",
+          "baseline_status": "pending",
+          "candidate_status": "pending"
+        },
+        {
+          "event": "queue-23",
+          "baseline_status": "pending",
+          "candidate_status": "pending"
+        }
+      ],
+      "censored_journey_pairs": [
+        {
+          "event": "queue-00",
+          "baseline_status": "aboard",
+          "candidate_status": "aboard"
+        },
+        {
+          "event": "queue-01",
+          "baseline_status": "aboard",
+          "candidate_status": "aboard"
+        },
+        {
+          "event": "queue-02",
+          "baseline_status": "aboard",
+          "candidate_status": "aboard"
+        },
+        {
+          "event": "queue-03",
+          "baseline_status": "pending",
+          "candidate_status": "pending"
+        },
+        {
+          "event": "queue-04",
+          "baseline_status": "aboard",
+          "candidate_status": "aboard"
+        },
+        {
+          "event": "queue-05",
+          "baseline_status": "pending",
+          "candidate_status": "pending"
+        },
+        {
+          "event": "queue-06",
+          "baseline_status": "aboard",
+          "candidate_status": "aboard"
+        },
+        {
+          "event": "queue-07",
+          "baseline_status": "pending",
+          "candidate_status": "pending"
+        },
+        {
+          "event": "queue-08",
+          "baseline_status": "pending",
+          "candidate_status": "pending"
+        },
+        {
+          "event": "queue-09",
+          "baseline_status": "pending",
+          "candidate_status": "pending"
+        },
+        {
+          "event": "queue-10",
+          "baseline_status": "pending",
+          "candidate_status": "pending"
+        },
+        {
+          "event": "queue-11",
+          "baseline_status": "pending",
+          "candidate_status": "pending"
+        },
+        {
+          "event": "queue-12",
+          "baseline_status": "pending",
+          "candidate_status": "pending"
+        },
+        {
+          "event": "queue-13",
+          "baseline_status": "pending",
+          "candidate_status": "pending"
+        },
+        {
+          "event": "queue-14",
+          "baseline_status": "pending",
+          "candidate_status": "pending"
+        },
+        {
+          "event": "queue-15",
+          "baseline_status": "pending",
+          "candidate_status": "pending"
+        },
+        {
+          "event": "queue-16",
+          "baseline_status": "pending",
+          "candidate_status": "pending"
+        },
+        {
+          "event": "queue-17",
+          "baseline_status": "pending",
+          "candidate_status": "pending"
+        },
+        {
+          "event": "queue-18",
+          "baseline_status": "pending",
+          "candidate_status": "pending"
+        },
+        {
+          "event": "queue-19",
+          "baseline_status": "pending",
+          "candidate_status": "pending"
+        },
+        {
+          "event": "queue-20",
+          "baseline_status": "pending",
+          "candidate_status": "pending"
+        },
+        {
+          "event": "queue-21",
+          "baseline_status": "pending",
+          "candidate_status": "pending"
+        },
+        {
+          "event": "queue-22",
+          "baseline_status": "pending",
+          "candidate_status": "pending"
+        },
+        {
+          "event": "queue-23",
+          "baseline_status": "pending",
+          "candidate_status": "pending"
+        }
+      ],
+      "baseline_completed_candidate_censored": [],
+      "additional_lost_event_ids": [],
+      "gates": {
+        "aggregate_two_percent": true,
+        "individual_pickup": false,
+        "individual_journey": false,
+        "finite_recovery": true,
+        "no_additional_offer_loss": true,
+        "mean_five_percent_benefit": false
+      },
+      "qualification": false
+    }
+  ],
+  "observer_parity": {
+    "ordinary": {
+      "checked_ticks": 7200,
+      "equal_exported_state": true,
+      "equal_metrics": true,
+      "equal_timings": true
+    },
+    "compact-v1": {
+      "checked_ticks": 7200,
+      "equal_exported_state": true,
+      "equal_metrics": true,
+      "equal_timings": true
+    }
+  },
+  "disabled_continuations": [
+    {
+      "completed": 5,
+      "pending": 1,
+      "continuation_ticks": 144000,
+      "all_checkpoint_requests_drained": false,
+      "checkpoint_tick": 30159,
+      "cap_ticks": 144000,
+      "station_buffers": false,
+      "platooning": 0,
+      "station_spacing": "ordinary",
+      "failure": true,
+      "fixture": "compact-v1-compact-v1",
+      "trigger": "compact-certificate",
+      "physical_receipt": {
+        "Tier": "physical",
+        "Demoted": [],
+        "Requeued": [],
+        "LogicalCompleted": [],
+        "Dropped": [],
+        "DroppedParties": 0,
+        "Unaccounted": 0,
+        "OverCap": 0,
+        "OverBudget": 0,
+        "PhysicalError": null
+      },
+      "target_request_count": 10,
+      "evidence_file": "compact-v1-compact-v1.disabled-compact-certificate.json",
+      "checkpoint_sha256": "5113f67aee58fd38e07e22d458f709c90e8b927a069458f4aaae0a5a3a11bfed",
+      "disabled_input_unchanged_across_observer_revisions": true
+    },
+    {
+      "completed": 4,
+      "cap_ticks": 144000,
+      "station_buffers": false,
+      "all_checkpoint_requests_drained": false,
+      "fixture": "compact-v1-compact-v1",
+      "pending": 0,
+      "continuation_ticks": 144000,
+      "platooning": 0,
+      "station_spacing": "ordinary",
+      "failure": true,
+      "trigger": "fixed-300",
+      "checkpoint_tick": 18000,
+      "physical_receipt": {
+        "Tier": "physical",
+        "Demoted": [],
+        "Requeued": [],
+        "LogicalCompleted": [],
+        "Dropped": [],
+        "DroppedParties": 0,
+        "Unaccounted": 0,
+        "OverCap": 0,
+        "OverBudget": 0,
+        "PhysicalError": null
+      },
+      "target_request_count": 6,
+      "evidence_file": "compact-v1-compact-v1.disabled-fixed-300.json",
+      "checkpoint_sha256": "17e547b69056f02e8e5fee81d6e44b0750a388ea57a4fa4753be906733bcecef",
+      "disabled_input_unchanged_across_observer_revisions": true
+    },
+    {
+      "trigger": "fixed-900",
+      "checkpoint_tick": 54000,
+      "pending": 5,
+      "cap_ticks": 144000,
+      "platooning": 0,
+      "all_checkpoint_requests_drained": false,
+      "failure": true,
+      "physical_receipt": {
+        "Tier": "physical",
+        "Demoted": [],
+        "Requeued": [],
+        "LogicalCompleted": [],
+        "Dropped": [],
+        "DroppedParties": 0,
+        "Unaccounted": 0,
+        "OverCap": 0,
+        "OverBudget": 0,
+        "PhysicalError": null
+      },
+      "target_request_count": 16,
+      "completed": 6,
+      "continuation_ticks": 144000,
+      "station_buffers": false,
+      "station_spacing": "ordinary",
+      "fixture": "compact-v1-compact-v1",
+      "evidence_file": "compact-v1-compact-v1.disabled-fixed-900.json",
+      "checkpoint_sha256": "151267e400e94bd1fde45b3a97c9ec0ae1920ccc4950394fcfb1ad8b1a33a681",
+      "disabled_input_unchanged_across_observer_revisions": true
+    },
+    {
+      "continuation_ticks": 133492,
+      "cap_ticks": 144000,
+      "physical_receipt": {
+        "Tier": "physical",
+        "Demoted": [],
+        "Requeued": [],
+        "LogicalCompleted": [],
+        "Dropped": [],
+        "DroppedParties": 0,
+        "Unaccounted": 0,
+        "OverCap": 0,
+        "OverBudget": 0,
+        "PhysicalError": null
+      },
+      "station_buffers": false,
+      "platooning": 0,
+      "station_spacing": "ordinary",
+      "all_checkpoint_requests_drained": true,
+      "failure": false,
+      "fixture": "compact-v1-compact-v1",
+      "trigger": "occupied-origin",
+      "checkpoint_tick": 180,
+      "target_request_count": 4,
+      "completed": 4,
+      "pending": 0,
+      "evidence_file": "compact-v1-compact-v1.disabled-occupied-origin.json",
+      "checkpoint_sha256": "acad0ab411e0e35e5009fbc9aac6d086c4d0d5a1ca8acadaa5bac6d3e3578183",
+      "disabled_input_unchanged_across_observer_revisions": true
+    },
+    {
+      "trigger": "fixed-300",
+      "checkpoint_tick": 18000,
+      "completed": 4,
+      "continuation_ticks": 144000,
+      "cap_ticks": 144000,
+      "platooning": 0,
+      "station_spacing": "ordinary",
+      "failure": true,
+      "fixture": "compact-v1-ordinary",
+      "physical_receipt": {
+        "Tier": "physical",
+        "Demoted": [],
+        "Requeued": [],
+        "LogicalCompleted": [],
+        "Dropped": [],
+        "DroppedParties": 0,
+        "Unaccounted": 0,
+        "OverCap": 0,
+        "OverBudget": 0,
+        "PhysicalError": null
+      },
+      "target_request_count": 6,
+      "pending": 0,
+      "station_buffers": false,
+      "all_checkpoint_requests_drained": false,
+      "evidence_file": "compact-v1-ordinary.disabled-fixed-300.json",
+      "checkpoint_sha256": "17e547b69056f02e8e5fee81d6e44b0750a388ea57a4fa4753be906733bcecef",
+      "disabled_input_unchanged_across_observer_revisions": "ordinary checkpoint not rerun"
+    },
+    {
+      "fixture": "compact-v1-ordinary",
+      "trigger": "fixed-900",
+      "checkpoint_tick": 54000,
+      "target_request_count": 16,
+      "pending": 5,
+      "continuation_ticks": 144000,
+      "cap_ticks": 144000,
+      "station_buffers": false,
+      "physical_receipt": {
+        "Tier": "physical",
+        "Demoted": [],
+        "Requeued": [],
+        "LogicalCompleted": [],
+        "Dropped": [],
+        "DroppedParties": 0,
+        "Unaccounted": 0,
+        "OverCap": 0,
+        "OverBudget": 0,
+        "PhysicalError": null
+      },
+      "completed": 6,
+      "platooning": 0,
+      "station_spacing": "ordinary",
+      "all_checkpoint_requests_drained": false,
+      "failure": true,
+      "evidence_file": "compact-v1-ordinary.disabled-fixed-900.json",
+      "checkpoint_sha256": "ef71f935c9ec7f1a3ce395cdb30bc71dd2396b99fa1a74168d55c26c54d20a3c",
+      "disabled_input_unchanged_across_observer_revisions": "ordinary checkpoint not rerun"
+    },
+    {
+      "physical_receipt": {
+        "Tier": "physical",
+        "Demoted": [],
+        "Requeued": [],
+        "LogicalCompleted": [],
+        "Dropped": [],
+        "DroppedParties": 0,
+        "Unaccounted": 0,
+        "OverCap": 0,
+        "OverBudget": 0,
+        "PhysicalError": null
+      },
+      "target_request_count": 4,
+      "pending": 0,
+      "platooning": 0,
+      "station_spacing": "ordinary",
+      "trigger": "occupied-origin",
+      "checkpoint_tick": 180,
+      "completed": 4,
+      "continuation_ticks": 133492,
+      "cap_ticks": 144000,
+      "station_buffers": false,
+      "all_checkpoint_requests_drained": true,
+      "failure": false,
+      "fixture": "compact-v1-ordinary",
+      "evidence_file": "compact-v1-ordinary.disabled-occupied-origin.json",
+      "checkpoint_sha256": "acad0ab411e0e35e5009fbc9aac6d086c4d0d5a1ca8acadaa5bac6d3e3578183",
+      "disabled_input_unchanged_across_observer_revisions": "ordinary checkpoint not rerun"
+    },
+    {
+      "completed": 5,
+      "pending": 1,
+      "continuation_ticks": 144000,
+      "cap_ticks": 144000,
+      "platooning": 0,
+      "trigger": "compact-certificate",
+      "target_request_count": 10,
+      "station_buffers": false,
+      "station_spacing": "ordinary",
+      "all_checkpoint_requests_drained": false,
+      "failure": true,
+      "fixture": "compact-v2-compact-v1",
+      "checkpoint_tick": 30159,
+      "physical_receipt": {
+        "Tier": "physical",
+        "Demoted": [],
+        "Requeued": [],
+        "LogicalCompleted": [],
+        "Dropped": [],
+        "DroppedParties": 0,
+        "Unaccounted": 0,
+        "OverCap": 0,
+        "OverBudget": 0,
+        "PhysicalError": null
+      },
+      "evidence_file": "compact-v2-compact-v1.disabled-compact-certificate.json",
+      "checkpoint_sha256": "6731078a43bb3a1245e27acbd79a03711d29e80c291191f2ed67934b7774d038",
+      "disabled_input_unchanged_across_observer_revisions": true
+    },
+    {
+      "pending": 0,
+      "continuation_ticks": 144000,
+      "cap_ticks": 144000,
+      "platooning": 0,
+      "all_checkpoint_requests_drained": false,
+      "fixture": "compact-v2-compact-v1",
+      "trigger": "fixed-300",
+      "checkpoint_tick": 18000,
+      "target_request_count": 6,
+      "station_buffers": false,
+      "station_spacing": "ordinary",
+      "failure": true,
+      "physical_receipt": {
+        "Tier": "physical",
+        "Demoted": [],
+        "Requeued": [],
+        "LogicalCompleted": [],
+        "Dropped": [],
+        "DroppedParties": 0,
+        "Unaccounted": 0,
+        "OverCap": 0,
+        "OverBudget": 0,
+        "PhysicalError": null
+      },
+      "completed": 4,
+      "evidence_file": "compact-v2-compact-v1.disabled-fixed-300.json",
+      "checkpoint_sha256": "b868cd0bed3b77496f434c464d1090eee84a141e3b9d0eabdc46984a149388c1",
+      "disabled_input_unchanged_across_observer_revisions": true
+    },
+    {
+      "continuation_ticks": 144000,
+      "platooning": 0,
+      "target_request_count": 16,
+      "completed": 6,
+      "cap_ticks": 144000,
+      "station_buffers": false,
+      "station_spacing": "ordinary",
+      "all_checkpoint_requests_drained": false,
+      "failure": true,
+      "fixture": "compact-v2-compact-v1",
+      "trigger": "fixed-900",
+      "checkpoint_tick": 54000,
+      "physical_receipt": {
+        "Tier": "physical",
+        "Demoted": [],
+        "Requeued": [],
+        "LogicalCompleted": [],
+        "Dropped": [],
+        "DroppedParties": 0,
+        "Unaccounted": 0,
+        "OverCap": 0,
+        "OverBudget": 0,
+        "PhysicalError": null
+      },
+      "pending": 5,
+      "evidence_file": "compact-v2-compact-v1.disabled-fixed-900.json",
+      "checkpoint_sha256": "b9521a270f20a0adc836f90489ff764014378546f6014e2ffb86ab43d8517e70",
+      "disabled_input_unchanged_across_observer_revisions": true
+    },
+    {
+      "platooning": 0,
+      "station_spacing": "ordinary",
+      "failure": false,
+      "fixture": "compact-v2-compact-v1",
+      "trigger": "occupied-origin",
+      "checkpoint_tick": 180,
+      "completed": 4,
+      "pending": 0,
+      "cap_ticks": 144000,
+      "all_checkpoint_requests_drained": true,
+      "physical_receipt": {
+        "Tier": "physical",
+        "Demoted": [],
+        "Requeued": [],
+        "LogicalCompleted": [],
+        "Dropped": [],
+        "DroppedParties": 0,
+        "Unaccounted": 0,
+        "OverCap": 0,
+        "OverBudget": 0,
+        "PhysicalError": null
+      },
+      "target_request_count": 4,
+      "continuation_ticks": 133492,
+      "station_buffers": false,
+      "evidence_file": "compact-v2-compact-v1.disabled-occupied-origin.json",
+      "checkpoint_sha256": "acad0ab411e0e35e5009fbc9aac6d086c4d0d5a1ca8acadaa5bac6d3e3578183",
+      "disabled_input_unchanged_across_observer_revisions": true
+    },
+    {
+      "all_checkpoint_requests_drained": false,
+      "failure": true,
+      "fixture": "compact-v2-ordinary",
+      "trigger": "fixed-300",
+      "checkpoint_tick": 18000,
+      "target_request_count": 6,
+      "completed": 4,
+      "pending": 0,
+      "continuation_ticks": 144000,
+      "platooning": 0,
+      "physical_receipt": {
+        "Tier": "physical",
+        "Demoted": [],
+        "Requeued": [],
+        "LogicalCompleted": [],
+        "Dropped": [],
+        "DroppedParties": 0,
+        "Unaccounted": 0,
+        "OverCap": 0,
+        "OverBudget": 0,
+        "PhysicalError": null
+      },
+      "cap_ticks": 144000,
+      "station_buffers": false,
+      "station_spacing": "ordinary",
+      "evidence_file": "compact-v2-ordinary.disabled-fixed-300.json",
+      "checkpoint_sha256": "b868cd0bed3b77496f434c464d1090eee84a141e3b9d0eabdc46984a149388c1",
+      "disabled_input_unchanged_across_observer_revisions": "ordinary checkpoint not rerun"
+    },
+    {
+      "physical_receipt": {
+        "Tier": "physical",
+        "Demoted": [],
+        "Requeued": [],
+        "LogicalCompleted": [],
+        "Dropped": [],
+        "DroppedParties": 0,
+        "Unaccounted": 0,
+        "OverCap": 0,
+        "OverBudget": 0,
+        "PhysicalError": null
+      },
+      "completed": 6,
+      "pending": 5,
+      "continuation_ticks": 144000,
+      "cap_ticks": 144000,
+      "platooning": 0,
+      "station_spacing": "ordinary",
+      "fixture": "compact-v2-ordinary",
+      "checkpoint_tick": 54000,
+      "target_request_count": 16,
+      "station_buffers": false,
+      "all_checkpoint_requests_drained": false,
+      "failure": true,
+      "trigger": "fixed-900",
+      "evidence_file": "compact-v2-ordinary.disabled-fixed-900.json",
+      "checkpoint_sha256": "ed0d33de41182bd2f63bbfda4d3dd460d836e8e6489adedfdad6e387c13f8303",
+      "disabled_input_unchanged_across_observer_revisions": "ordinary checkpoint not rerun"
+    },
+    {
+      "completed": 4,
+      "cap_ticks": 144000,
+      "station_buffers": false,
+      "failure": false,
+      "target_request_count": 4,
+      "pending": 0,
+      "continuation_ticks": 133492,
+      "platooning": 0,
+      "station_spacing": "ordinary",
+      "all_checkpoint_requests_drained": true,
+      "fixture": "compact-v2-ordinary",
+      "trigger": "occupied-origin",
+      "checkpoint_tick": 180,
+      "physical_receipt": {
+        "Tier": "physical",
+        "Demoted": [],
+        "Requeued": [],
+        "LogicalCompleted": [],
+        "Dropped": [],
+        "DroppedParties": 0,
+        "Unaccounted": 0,
+        "OverCap": 0,
+        "OverBudget": 0,
+        "PhysicalError": null
+      },
+      "evidence_file": "compact-v2-ordinary.disabled-occupied-origin.json",
+      "checkpoint_sha256": "acad0ab411e0e35e5009fbc9aac6d086c4d0d5a1ca8acadaa5bac6d3e3578183",
+      "disabled_input_unchanged_across_observer_revisions": "ordinary checkpoint not rerun"
+    }
+  ],
+  "qualification": {
+    "defaults": false,
+    "sustained_capacity": false,
+    "broader_coverage": false,
+    "cpu_cost": "not measured with concurrent studies",
+    "restore_disabled_drain": false
+  },
+  "limitations": [
+    "Two finite timing variants do not qualify London demand bands or sustained capacity.",
+    "Censored individual pairs cannot pass by omission.",
+    "Preserving restore probes select fixture spacing explicitly. New formations/buffer admissions stay disabled after native restore. Separate fully disabled continuations use ordinary spacing and no new offers.",
+    "Private setup failures remain separate from final native results."
+  ],
+  "validation": {
+    "private_race_guards": "pass: valid/current-node/origin-berth/position/party/consent",
+    "private_lint": "pass after local decodeErr rename",
+    "fresh_diagnostics": "pass",
+    "root_full_go": "pass at30d8e34",
+    "browser_javascript": {
+      "tests": 386,
+      "pass": 386,
+      "skipped": 0
+    },
+    "simulation_and_editor_wasm": "both build",
+    "cpu_comparison": "not measured"
+  }
+}
