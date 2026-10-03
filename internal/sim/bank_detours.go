@@ -3,6 +3,10 @@ package sim
 import "math"
 
 func (s *Simulation) plannedBankDetour(origin string, stops []string, start detourStart) float64 {
+	return s.plannedRiderBankDetour(riderDetour{origin: origin}, stops, start)
+}
+
+func (s *Simulation) plannedRiderBankDetour(rider riderDetour, stops []string, start detourStart) float64 {
 	if len(stops) == 0 {
 		return 1
 	}
@@ -13,7 +17,11 @@ func (s *Simulation) plannedBankDetour(origin string, stops []string, start deto
 	}
 	if entry == "" {
 		var err error
-		entry, err = s.stationBankEntryMatching(origin, first, s.berthLoad, start.class, s.berthFilterForStops(start.class, stops[1:]))
+		from := start.from
+		if from == "" {
+			from = rider.origin
+		}
+		entry, err = s.stationBankEntryMatching(from, first, s.berthLoad, start.class, s.berthFilterForStops(start.class, stops[1:]))
 		if err != nil {
 			return math.Inf(1)
 		}
@@ -27,6 +35,9 @@ func (s *Simulation) plannedBankDetour(origin string, stops []string, start deto
 		accept := s.berthFilterForStops(start.class, stops[index+1:])
 		for gate, ridden := range states {
 			for _, berth := range station.Berths {
+				if rider.destination != "" && !berthAllows(station, berth, start.class) {
+					continue
+				}
 				if accept != nil && !accept(berth) {
 					continue
 				}
@@ -41,11 +52,15 @@ func (s *Simulation) plannedBankDetour(origin string, stops []string, start deto
 				if index != 0 || start.berth.ID == "" {
 					arrival += s.lanesMeters(path)
 				}
-				direct := s.directDistanceForClass(origin, station.ID, berth, start.class)
-				if direct <= 0 {
-					return math.Inf(1)
+				direct := 0.0
+				if rider.destination == "" {
+					direct = s.directDistanceForClass(rider.origin, station.ID, berth, start.class)
+					if direct <= 0 {
+						return math.Inf(1)
+					}
 				}
-				largest, found = max(largest, arrival/direct), true
+				ratio := s.plannedArrivalDetour(rider, stop, berth, start.class, arrival, direct)
+				largest, found = max(largest, ratio), true
 				if index+1 < len(stops) {
 					route, err := s.stationApproachForStops(berth.Node, stops[index+1:], start.class)
 					if err != nil {

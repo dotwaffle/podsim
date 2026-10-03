@@ -201,9 +201,10 @@ func (s *Simulation) rerouteKeepsDetours(v *vehicle, route []Lane, berth Berth) 
 // detourStart is the start of a plan of plannedDetour. ridden is the
 // distance that the riders ride to the entry of the first stop. When berth
 // is set, the pod goes to that berth at the first stop, and ridden is the
-// distance to that berth.
+// distance to that berth. from is the actual source node for bank selection.
 type detourStart struct {
 	class  VehicleClass
+	from   string
 	ridden float64
 	berth  Berth
 	entry  string
@@ -226,12 +227,20 @@ func (s *Simulation) plannedDetour(origin string, stops []string, start detourSt
 	if s.network.hasStationBanks() {
 		return s.plannedBankDetour(origin, stops, start)
 	}
+	return s.plannedBerthDetour(riderDetour{origin: origin}, stops, start)
+}
+
+func (s *Simulation) plannedBerthDetour(rider riderDetour, stops []string, start detourStart) float64 {
 	largest, ridden := 1.0, start.ridden
 	for index, stop := range stops {
 		station, _ := s.station(stop)
-		direct, ok := s.routeMetersForClass(origin, stop, start.class)
-		if !ok {
-			return math.Inf(1)
+		direct := 0.0
+		if rider.destination == "" {
+			var ok bool
+			direct, ok = s.routeMetersForClass(rider.origin, stop, start.class)
+			if !ok {
+				return math.Inf(1)
+			}
 		}
 		berths, known := station.Berths, index == 0 && start.berth.ID != ""
 		if known {
@@ -242,6 +251,9 @@ func (s *Simulation) plannedDetour(origin string, stops []string, start detourSt
 		next, found := math.Inf(-1), false
 		accept := s.berthFilterForStops(start.class, stops[index+1:])
 		for _, berth := range berths {
+			if rider.destination != "" && !berthAllows(station, berth, start.class) {
+				continue
+			}
 			if accept != nil && !accept(berth) {
 				continue
 			}
@@ -254,7 +266,8 @@ func (s *Simulation) plannedDetour(origin string, stops []string, start detourSt
 			if known {
 				arrival = ridden
 			}
-			largest, found = max(largest, arrival/(direct+meters)), true
+			ratio := s.plannedArrivalDetour(rider, stop, berth, start.class, arrival, direct+meters)
+			largest, found = max(largest, ratio), true
 			if index+1 < len(stops) {
 				if onward, err := s.stationApproachForStops(berth.Node, stops[index+1:], start.class); err == nil {
 					next = max(next, arrival+s.lanesMeters(onward))
