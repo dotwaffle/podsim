@@ -25,6 +25,7 @@ const (
 // the other fields by value.
 var cloneRules = map[reflect.Type]map[string]cloneRule{
 	reflect.TypeFor[Simulation](): {
+		"motion":            cloneCopy,
 		"junctionConflicts": cloneShare, "lengths": cloneDrop, "routes": cloneDrop, "routeOrder": cloneDrop,
 		"graph": cloneShare, "stationIndexes": cloneShare, "stationForbidden": cloneShare, "pickupBounds": cloneDrop, "routeWork": cloneDrop, "admissionWork": cloneDrop,
 		"geometry": cloneShare, "network": cloneShare, "initial": cloneShare,
@@ -48,10 +49,13 @@ var cloneRules = map[reflect.Type]map[string]cloneRule{
 	reflect.TypeFor[pickupSwapController](): {"cooldown": cloneCopy, "records": cloneCopy},
 	reflect.TypeFor[compactBufferGroup]():   {"members": cloneCopy, "recovery": cloneCopy},
 	reflect.TypeFor[compactQueueRecovery](): {"targets": cloneCopy, "landingSpeeds": cloneCopy},
+	reflect.TypeFor[motionRecorder]():       {"frame": cloneCopy, "pending": cloneCopy},
+	reflect.TypeFor[MotionFrame]():          {"Samples": cloneCopy},
 }
 
 // clonePlainTypes hold only plain values, so a value copy of them is deep.
 var clonePlainTypes = []reflect.Type{
+	reflect.TypeFor[MotionSample](),
 	reflect.TypeFor[RiderBoarding](),
 	reflect.TypeFor[Request](), reflect.TypeFor[Pod](), reflect.TypeFor[Berth](),
 	reflect.TypeFor[resource](), reflect.TypeFor[demoRun](), reflect.TypeFor[routeKey](),
@@ -171,6 +175,7 @@ const (
 // it.
 var persistRules = map[reflect.Type]map[string]persistRule{
 	reflect.TypeFor[Simulation](): {
+		"motion":          persistReset,
 		"expressServices": persistSession, "junctionConflicts": persistDerive, "lengths": persistReset, "routes": persistReset, "routeOrder": persistReset,
 		"graph": persistDerive, "stationIndexes": persistDerive, "stationForbidden": persistDerive, "pickupBounds": persistReset, "routeWork": persistReset, "admissionWork": persistReset,
 		"geometry": persistDerive, "network": persistSession, "initial": persistSession,
@@ -440,7 +445,9 @@ func TestCloneFollowsRules(t *testing.T) {
 			uncovered: []string{"routeResult.err", "Simulation.requestCompletions", "Simulation.monitor", "Vehicle.Presentation",
 				// Real compact clone storage is covered by TestStationCompactCloneStorage.
 				"Simulation.compactGroups", "Simulation.compactNextGroups", "Simulation.compactMotions", "Simulation.compactFault",
-				"compactBufferGroup.members", "compactBufferGroup.recovery", "compactQueueRecovery.targets", "compactQueueRecovery.landingSpeeds"},
+				"compactBufferGroup.members", "compactBufferGroup.recovery", "compactQueueRecovery.targets", "compactQueueRecovery.landingSpeeds",
+				// Recorder ownership is covered by TestMotionLifecycle.
+				"Simulation.motion", "motionRecorder.frame", "motionRecorder.pending", "MotionFrame.Samples"},
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {

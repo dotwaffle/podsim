@@ -81,6 +81,7 @@ var routingPolicyValues = map[string]sim.RoutingPolicy{
 }
 
 type options struct {
+	energyPath              string
 	duration, arrivalsFor   time.Duration
 	requestEvery            time.Duration
 	seed                    int64
@@ -165,6 +166,7 @@ type scenario struct {
 }
 
 type result struct {
+	Energy                         *energyReport      `json:"energy,omitempty"`
 	SharingConsent                 sim.SharingConsent `json:"sharing_consent"`
 	Pattern                        string             `json:"pattern"`
 	DemandProfile                  string             `json:"demand_profile,omitempty"`
@@ -355,6 +357,7 @@ func parseOptions(args []string, stderr io.Writer) (options, error) {
 	flags.StringVar(&opts.pickupReassignmentText, "pickup-reassignment", "off", "comma-separated experimental pickup reassignment policies: off, on")
 	flags.StringVar(&opts.focus, "focus", "", "passenger station used by focused patterns")
 	flags.StringVar(&opts.format, "format", "table", "output format: table, json, or csv")
+	flags.StringVar(&opts.energyPath, "energy-file", "", "authored flat-v1 energy model file (adds energy estimates)")
 	flags.StringVar(&opts.projectPath, "project", "", "raw project configuration path")
 	flags.StringVar(&opts.outputPath, "output", "", "write the report to this path")
 	flags.IntVar(&opts.queueLimit, "queue-limit", 200, "maximum pending requests before arrivals are skipped")
@@ -850,6 +853,17 @@ type weightedDemandFlow struct {
 }
 
 func compare(opts options, scenario scenario) ([]result, error) {
+	var energy *energyModel
+	if opts.energyPath != "" {
+		var err error
+		energy, err = readEnergyModel(opts.energyPath)
+		if err != nil {
+			return nil, err
+		}
+		if _, err := newEnergyMeter(energy, scenario.fleet, 0); err != nil {
+			return nil, err
+		}
+	}
 	if err := validateOnboardOptions(opts); err != nil {
 		return nil, err
 	}
@@ -914,7 +928,7 @@ func compare(opts options, scenario scenario) ([]result, error) {
 								for _, platoonPolicy := range platoonPolicies {
 									for _, policy := range opts.redistributionPolicies {
 										inputs = append(inputs, runInput{
-											railForecast: opts.railForecast, policy: policy, duration: opts.duration, requestEvery: load, seed: seed,
+											energy: energy, railForecast: opts.railForecast, policy: policy, duration: opts.duration, requestEvery: load, seed: seed,
 											pattern: arm.pattern, profile: arm.profile, band: arm.band, daily: arm.daily, dailyStartMinute: arm.dailyStartMinute,
 											scheduleID: id, queueLimit: opts.queueLimit, arrivalsFor: opts.arrivalsFor,
 											burstSize: opts.burstSize, sharingConsent: consent, sharingLimit: sharingArm.limit, sharingMode: sharingArm.mode,
@@ -1188,6 +1202,7 @@ func scheduleID(schedule []scheduledRequest) string {
 }
 
 type runInput struct {
+	energy *energyModel
 	// policy names a redistributionPolicyValues key.
 	policy                              string
 	duration, arrivalsFor, requestEvery time.Duration
@@ -1242,6 +1257,10 @@ func (input *runInput) sharingSettings() (sim.SharedRideMode, int) {
 }
 
 func run(input runInput) (result, error) {
+	meter, err := newEnergyMeter(input.energy, input.scenario.fleet, 0)
+	if err != nil {
+		return result{}, err
+	}
 	consent, err := comparisonConsent(input.sharingConsent)
 	if err != nil {
 		return result{}, err
@@ -1285,6 +1304,9 @@ func run(input runInput) (result, error) {
 		return result{}, fmt.Errorf("set routing policy: %w", routingErr)
 	}
 	simulation.SetExperimentRecords(true)
+	if meter != nil {
+		simulation.SetMotionRecording(true)
+	}
 	if input.waitRule != "" {
 		rule, ok := waitRuleValues[input.waitRule]
 		if !ok {
@@ -1402,6 +1424,9 @@ func run(input runInput) (result, error) {
 				return result{}, err
 			}
 		}
+		if err := consumeEnergy(meter, simulation); err != nil {
+			return result{}, err
+		}
 		advancedTick := simulation.Tick()
 		if input.railForecast && advancedTick%(5*sim.TicksPerSecond) == 0 {
 			if _, err := simulation.PositionForForecast(futureRailTargets(input.schedule, next, connections, advancedTick)); err != nil {
@@ -1463,6 +1488,7 @@ func run(input runInput) (result, error) {
 		dailyStart = new(input.dailyStartMinute)
 	}
 	return result{
+		Energy:         meter.snapshot(),
 		SharingConsent: consent, DailyStartMinute: dailyStart, OnboardPickups: input.onboardPickups,
 		Pattern: input.pattern, DemandProfile: input.profile, DemandBand: input.band,
 		RequestEverySeconds: requestEvery, OfferedPerMinute: float64(len(input.schedule)) / arrivalMinutes, Seed: input.seed,
@@ -1637,6 +1663,9 @@ func writeReport(input writeReportInput) error {
 		if slices.ContainsFunc(input.results, func(outcome result) bool { return outcome.OnboardPickups != "" }) {
 			version = 14
 		}
+		if slices.ContainsFunc(input.results, func(outcome result) bool { return outcome.Energy != nil }) {
+			version = 15
+		}
 		if err := encoder.Encode(report{SchemaVersion: version, Results: input.results}); err != nil {
 			return fmt.Errorf("write JSON report: %w", err)
 		}
@@ -1739,7 +1768,7 @@ func writeTable(input writeReportInput) error {
 	if err := w.Flush(); err != nil {
 		return fmt.Errorf("flush table report: %w", err)
 	}
-	return nil
+	return writeTableEnergy(output, results)
 }
 
 // writeCSV writes a header and one row for each result. When
@@ -1751,6 +1780,7 @@ func writeTable(input writeReportInput) error {
 // as before them.
 func writeCSV(input writeReportInput) error {
 	w := csv.NewWriter(input.output)
+	energyColumn := slices.ContainsFunc(input.results, func(r result) bool { return r.Energy != nil })
 	dailyColumn := slices.ContainsFunc(input.results, func(r result) bool { return r.DailyStartMinute != nil })
 	header := []string{
 		"pattern", "demand_profile", "demand_band", "request_every_seconds", "offered_per_minute", "burst_size", "seed", "policy", "routing_policy",
@@ -1800,6 +1830,9 @@ func writeCSV(input writeReportInput) error {
 	)
 	if dailyColumn {
 		header = append(header, "daily_start_minute")
+	}
+	if energyColumn {
+		header = append(header, energyCSVHeader...)
 	}
 	if err := w.Write(header); err != nil {
 		return fmt.Errorf("write CSV header: %w", err)
@@ -1867,6 +1900,13 @@ func writeCSV(input writeReportInput) error {
 				value = strconv.Itoa(*outcome.DailyStartMinute)
 			}
 			row = append(row, value)
+		}
+		if energyColumn {
+			values, err := energyCSVRow(outcome.Energy)
+			if err != nil {
+				return err
+			}
+			row = append(row, values...)
 		}
 		if err := w.Write(row); err != nil {
 			return fmt.Errorf("write CSV row: %w", err)

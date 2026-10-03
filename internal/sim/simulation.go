@@ -277,6 +277,7 @@ type vehicle struct {
 // shared field whole. It must not write into a shared field in place,
 // because that change also changes the clones.
 type Simulation struct {
+	motion          *motionRecorder
 	expressServices map[string]ExpressService
 	// NewFleet builds junctionConflicts from the network. No code writes to it
 	// in place. ensureNetworkIndexes replaces it only when the network changes.
@@ -434,6 +435,9 @@ func (s *Simulation) Reset() {
 	defer s.observe()
 	s.admissionWork = nil
 	s.tick, s.completed, s.requestID, s.unaccountedOrders = 0, 0, 0, 0
+	if s.motion != nil {
+		s.motion = &motionRecorder{}
+	}
 	s.paused, s.demo, s.demoError = false, nil, ""
 	s.waiting = nil
 	s.boarded, s.totalWaitTicks, s.maxWaitTicks = 0, 0, 0
@@ -670,6 +674,7 @@ func (s *Simulation) Step() {
 		return
 	}
 	s.platoonCaps()
+	s.beginMotionFrame()
 	for i := range s.vehicles {
 		v := &s.vehicles[i]
 		if departs(v.Pod.Activity) && v.phaseTicks == 0 && v.reservedThrough >= 0 {
@@ -693,6 +698,7 @@ func (s *Simulation) Step() {
 	for i := range s.vehicles {
 		s.updateStationPhase(&s.vehicles[i])
 	}
+	s.publishMotionFrame()
 }
 
 func (s *Simulation) arrive(v *vehicle) {

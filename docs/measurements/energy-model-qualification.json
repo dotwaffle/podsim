@@ -1,0 +1,172 @@
+{
+  "integration_base": "4bab5c3e9dc3db0e12d0216bbc7e2f1b55c47f4e",
+  "evidence_directory": "/home/dotwaffle/.cache/agents/podsim/roadmap-service-20261002/car-energy-integration-evidence",
+  "manifest_sha256": "1a97d75cf4efcabdd1545663666d642cf9bbb50eabef9777e538f409b53c3e64",
+  "verified_artifacts": 386,
+  "integration_validation": {
+    "full-go-tests": {
+      "command": [
+        "/home/dotwaffle/.local/share/mise/installs/go/1.27.1/bin/go",
+        "test",
+        "./...",
+        "-count=1"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 173.918,
+      "log_sha256": "35209097a1b0f764dde5c613480bae62452d97cd4a2228e2a96abc34daf16730"
+    },
+    "root-lint": {
+      "command": [
+        "/home/dotwaffle/.local/share/mise/installs/golangci-lint/2.14.0/golangci-lint-2.14.0-linux-amd64/golangci-lint",
+        "run",
+        "./internal/sim",
+        "./cmd/compare",
+        "./internal/parkride",
+        "./cmd/parkride"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 8.564,
+      "log_sha256": "e92606b0bf483111dff0a120c315ea165821348f31365020e2468a0059095c47"
+    },
+    "root-diagnostics": {
+      "command": [
+        "/usr/bin/python3",
+        "/home/dotwaffle/.cache/agents/podsim/service-access-20261002/gopls-call.py",
+        "go_diagnostics",
+        "{\"files\":[\"/home/dotwaffle/Code/podsim/internal/sim/motion.go\",\"/home/dotwaffle/Code/podsim/cmd/compare/energy.go\",\"/home/dotwaffle/Code/podsim/cmd/compare/main.go\",\"/home/dotwaffle/Code/podsim/internal/parkride/plan.go\",\"/home/dotwaffle/Code/podsim/internal/parkride/ledger.go\",\"/home/dotwaffle/Code/podsim/internal/parkride/run.go\",\"/home/dotwaffle/Code/podsim/cmd/parkride/main.go\"]}"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 2.118,
+      "log_sha256": "a2bf56a4b7a884f102915b9eeec1e838749999017b2590134e83a8d6d40a8ee6"
+    },
+    "wasm-build": {
+      "command": [
+        "env",
+        "GOOS=js",
+        "GOARCH=wasm",
+        "/home/dotwaffle/.local/share/mise/installs/go/1.27.1/bin/go",
+        "build",
+        "-o",
+        "/tmp/build/podsim/car-energy/root-evidence/podsim.wasm",
+        "./cmd/podsim"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 6.783,
+      "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "node-tests": {
+      "command": [
+        "env",
+        "PODSIM_REQUIRE_GO=1",
+        "/home/dotwaffle/.local/share/mise/installs/node/24.21.0/bin/node",
+        "--test",
+        "web/editor-model_test.cjs",
+        "web/editor-history_test.cjs",
+        "web/place-search_test.cjs",
+        "web/tiles_test.cjs",
+        "web/simulation-map_test.cjs",
+        "web/editor_test.cjs",
+        "web/loader_test.cjs",
+        "web/shell_test.cjs",
+        "web/stream_test.cjs"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 12.984,
+      "log_sha256": "0f6bbb1eec782c2d2aafbb6fbca8dd2ca1b55839c3a7779ed27728a9cc47a839"
+    },
+    "compatibility": {
+      "command": [
+        "/usr/bin/python3",
+        "/tmp/build/podsim/car-energy/root-evidence/compatibility.py"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 1.076,
+      "log_sha256": "c151cb697129dbe73e08aeb6c07d49902917b1ec46efd2f64a46e947e574de3c"
+    }
+  },
+  "browser_tests": {
+    "passed": 378,
+    "skipped": 0,
+    "failed": 0
+  },
+  "full_repository_race_claim": false,
+  "worker_receipt_sha256": "b5685661bb072a18bdeaa25d62bb2a41e03d51c1d86dcc62f4514d2dfdd3e272",
+  "sources": {
+    "internal/sim/motion.go": "0434cdb64739e7d958b45266e28af2cbcadb73960da79bac2c845274632eee44",
+    "internal/sim/motion_test.go": "ef00bebd8be5075423dd17a61fa714c874003502877aed98244f328102a0a6c3",
+    "internal/sim/simulation.go": "f29dc9861e1dd35e7172970ad95b6634a6fd78f3e2d2741ea38cbe98f3aef9bf",
+    "internal/sim/redistribution.go": "40f32f741c1312f02da255b263b321a93155cf22a36c857c735ad5e8abb17713",
+    "internal/sim/clone.go": "c30f2dc53afeb5cc9cce97c27d2f6886ec17ca50535c5937b937a48426653a63",
+    "internal/sim/clone_test.go": "16b7110a70cbd63881c6e60a601780e5a923ab6f55ff7b8448d6b8ce7ef6fe93",
+    "cmd/compare/energy.go": "8dbfd185c89c86a9fea9e2f9d56697995c4990a0ae1ec410f8b3c81fbfd29bab",
+    "cmd/compare/energy_test.go": "f8b63ca45a02905ba48a11ff8e77a5d6a514263f75bfc3c66f74300545c7943b",
+    "cmd/compare/main.go": "36a8def2f3d753b0b7a03a7181fa95b8c8ca2af2a4b6ef4df44784af7ccb341a",
+    "docs/energy-model-design.md": "1bca0732a2136ad8e244cfcbce5bbc26f07520b73d70c705856d30ce82a123d8"
+  },
+  "caller_mutations": {
+    "control": {
+      "package": "./internal/sim",
+      "test": "TestMotion",
+      "compile_exit": 0,
+      "test_exit": 0,
+      "binary_sha256": "d6c75a35dd8f528fffa817e6c99e9f957358c653732f219963ae20c11d7d16a2",
+      "assertion_kill": false
+    },
+    "zero-path-distance": {
+      "package": "./internal/sim",
+      "test": "TestMotionActualJourneyParity",
+      "compile_exit": 0,
+      "test_exit": 1,
+      "binary_sha256": "f0fc3f5cfdc89fd97e79c9fa9a3fd436b2bd433bb75b885f293549fd1d5e90f1",
+      "assertion_kill": true
+    },
+    "legacy-class-only": {
+      "package": "./internal/sim",
+      "test": "TestMotionNativeClasses",
+      "compile_exit": 0,
+      "test_exit": 1,
+      "binary_sha256": "3b06656a58e4fe0e18d98be8d702a09e8497b5e41160ef87792447691fbf0434",
+      "assertion_kill": true
+    },
+    "skip-meter-step": {
+      "package": "./cmd/compare",
+      "test": "TestEnergyRunAndReportParity",
+      "compile_exit": 0,
+      "test_exit": 1,
+      "binary_sha256": "d15301ae63a5f2a2a94c817744228638be13ecae37b60d4d54bded97e855ccf9",
+      "assertion_kill": true
+    },
+    "omit-auxiliary": {
+      "package": "./cmd/compare",
+      "test": "TestEnergyClockAuxiliaryAndOwnership",
+      "compile_exit": 0,
+      "test_exit": 1,
+      "binary_sha256": "9e17d6e7a86dc9b559ae276cb6bbb02664b09122734ac2bd07b451eee9b4384e",
+      "assertion_kill": true
+    },
+    "duplicate-bypass": {
+      "package": "./cmd/compare",
+      "test": "TestEnergyDuplicateFrameValidation",
+      "compile_exit": 0,
+      "test_exit": 1,
+      "binary_sha256": "76b097383ad66f6f5b0d912b04874645b48996a3bd9200f99442013c9c8d23b0",
+      "assertion_kill": true
+    },
+    "accept-profile-domain": {
+      "package": "./cmd/compare",
+      "test": "TestEnergyAuthoredModel",
+      "compile_exit": 0,
+      "test_exit": 1,
+      "binary_sha256": "5cc62f537f12258c64ff4217fb4b3eeefc38ad6b076b6b11a09414716155c09b",
+      "assertion_kill": true
+    }
+  },
+  "compiled_assertion_kills": 6,
+  "scope": "Comparison-only authored flat-v1 estimate; optional successful-tick native motion recorder; no energy control or physical defaults.",
+  "limits": [
+    "Fixed authored mass includes payload assumption. No grade, battery, charging, drafting, or empirical efficiency claim.",
+    "StartDemo replaces simulation and drops recording. Enable recording after creating the demo.",
+    "Six production caller mutations match final production pins. Final test-local rename and stronger clone assertion are covered by final focused race.",
+    "Nine disabled report samples retain exact historical schema12/13/14 JSON/CSV/table bytes."
+  ]
+}

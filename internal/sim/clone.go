@@ -10,6 +10,7 @@ import (
 // state, and drops pure route and length caches.
 func (s *Simulation) Clone() *Simulation {
 	c := *s
+	s.cloneMotion(&c)
 	s.cloneCompactQueues(&c)
 	// Lookups refill these caches with identical results, and dispatch
 	// makes a new pass.

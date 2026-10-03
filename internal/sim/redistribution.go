@@ -181,6 +181,7 @@ func (s *Simulation) relocationDestinationAdmitted(v *vehicle) bool {
 }
 
 func (s *Simulation) moveAndMeasure(v *vehicle) {
+	sample := MotionSample{ID: v.Pod.ID, Class: v.Pod.Class, StartSpeed: v.Pod.Speed}
 	before := v.distance
 	beforeLocal := v.Pod.LaneDistance
 	compact := s.compactGroup(v) != nil
@@ -190,6 +191,8 @@ func (s *Simulation) moveAndMeasure(v *vehicle) {
 	if compact {
 		travel = v.Pod.LaneDistance - beforeLocal
 	}
+	sample.DistanceMeters, sample.EndSpeed = travel, v.Pod.Speed
+	s.recordMotion(sample)
 	if occupied {
 		s.passengerDistanceMeters += travel
 	} else {

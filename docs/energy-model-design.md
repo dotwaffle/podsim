@@ -1,6 +1,7 @@
 # Offline energy estimate
 
-Status: first implementation contract under the October 2 compatible-contract grant.
+Status: implemented and checked on October 3, 2026, under the October 2 compatible-contract grant.
+The [qualification record](measurements/energy-model-qualification.json) identifies the source and verification evidence.
 The comparison command gains an opt-in `flat-v1` estimate.
 Energy does not control native physics, routes, or dispatch.
 Project, save, snapshot, session, and stream schemas stay unchanged.
@@ -79,3 +80,41 @@ Tests cover constant speed, acceleration and braking, resistance-reduced recover
 They also cover empty frames, pauses, departure ticks, arrival braking, compact distance, missed frames, and arithmetic overflow.
 Clone, reset, and restore tests cover ownership and window boundaries.
 Disabled runs must preserve motion, ownership, saved bytes, and comparison reports.
+
+## File and report interface
+
+Use `compare -energy-file PATH` to enable the estimate.
+The file has this shape.
+The numbers below describe an analytic test, not physical defaults.
+
+```json
+{
+  "model": "flat-v1",
+  "profiles": {
+    "legacy": {
+      "mass_kg": 100,
+      "constant_resistance_n": 0,
+      "quadratic_resistance_n_per_mps2": 0,
+      "drive_efficiency": 1,
+      "recovery_fraction": 0,
+      "auxiliary_watts": 0
+    }
+  }
+}
+```
+
+Native callers use `SetMotionRecording(bool)` and `MotionFrame() (MotionFrame, bool)`.
+Enable supplies an empty baseline frame at the current tick.
+Reset keeps recording enabled, clears storage, and supplies a tick-zero baseline.
+The caller creates a new meter window after reset.
+Restore starts with recording disabled.
+`StartDemo` creates a replacement simulation and drops recording.
+Enable recording after creating a demo.
+Duplicate frame reads still validate samples before they add no energy.
+
+Enabled JSON reports use schema version 15 and an `energy` object in each result.
+Disabled JSON reports keep their existing schema version and members.
+CSV adds energy columns only when a result contains energy.
+Table output adds an energy record for each enabled result.
+Report windows use start and end ticks at `sim.TicksPerSecond`.
+The measurement window covers successful advanced ticks through the actual end of the run.
