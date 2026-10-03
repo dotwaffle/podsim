@@ -169,6 +169,7 @@ func checkSettings(value any, errors *checkList) {
 			}
 		}
 	}
+	checkStationQueueSetting(value, errors)
 }
 
 func checkGeo(value any, errors *checkList) {

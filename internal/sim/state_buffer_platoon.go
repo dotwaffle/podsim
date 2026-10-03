@@ -10,7 +10,7 @@ import (
 var errBufferCertificate = errors.New("invalid fixed buffer certificate")
 
 func hasBufferCertificate(state SavedState) bool {
-	return slices.ContainsFunc(state.Pods, func(p SavedPod) bool {
+	return hasCompactCertificate(state) || slices.ContainsFunc(state.Pods, func(p SavedPod) bool {
 		return p.Platoon != nil && p.Platoon.Kind == "buffer"
 	})
 }
@@ -18,6 +18,13 @@ func hasBufferCertificate(state SavedState) bool {
 // checkRestoredBufferMembers rejects partial physical recovery of a certificate.
 func checkRestoredBufferMembers(state SavedState, result RestoreResult) error {
 	for _, pod := range state.Pods {
+		if pod.CompactQueue != nil {
+			for _, id := range pod.CompactQueue.Members {
+				if slices.Contains(result.Demoted, id) {
+					return fmt.Errorf("compact member %s lost its physical placement", id)
+				}
+			}
+		}
 		if pod.Platoon == nil || pod.Platoon.Kind != "buffer" {
 			continue
 		}
@@ -33,6 +40,9 @@ func checkBufferLinkFields(input RestoreStateInput) error {
 	for _, pod := range input.State.Pods {
 		link := pod.Platoon
 		if link == nil {
+			continue
+		}
+		if link.Kind == "compact-buffer-v1" {
 			continue
 		}
 		if link.Kind == "" && link.TerminalCell == nil {

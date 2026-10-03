@@ -35,6 +35,7 @@ var cloneRules = map[reflect.Type]map[string]cloneRule{
 		"requestBoardings": cloneCopy, "requestCompletions": cloneCopy, "stepCompletions": cloneCopy, "nodePasses": cloneCopy, "monitor": cloneShare,
 		"pass": cloneDrop, "platoonData": cloneShare, "platoonOrder": cloneDrop, "platoonAhead": cloneDrop,
 		"platoonLanes": cloneDrop, "pickupSwaps": cloneCopy,
+		"compactGroups": cloneCopy, "compactNextGroups": cloneCopy, "compactMotions": cloneCopy, "compactFault": cloneShare,
 	},
 	reflect.TypeFor[vehicle](): {
 		"Vehicle": cloneCopy, "blocks": cloneShare, "blockStarts": cloneShare, "routeReleases": cloneCopy,
@@ -45,6 +46,8 @@ var cloneRules = map[reflect.Type]map[string]cloneRule{
 	reflect.TypeFor[routeResult]():          {"lanes": cloneShare, "err": cloneShare},
 	reflect.TypeFor[podQueueHistory]():      {"lanes": cloneCopy},
 	reflect.TypeFor[pickupSwapController](): {"cooldown": cloneCopy, "records": cloneCopy},
+	reflect.TypeFor[compactBufferGroup]():   {"members": cloneCopy, "recovery": cloneCopy},
+	reflect.TypeFor[compactQueueRecovery](): {"targets": cloneCopy, "landingSpeeds": cloneCopy},
 }
 
 // clonePlainTypes hold only plain values, so a value copy of them is deep.
@@ -79,7 +82,11 @@ func holdsReferences(t reflect.Type) bool {
 func clonedElements(t reflect.Type) []reflect.Type {
 	switch t.Kind() {
 	case reflect.Pointer, reflect.Slice:
-		return []reflect.Type{t.Elem()}
+		element := t.Elem()
+		if element.Kind() == reflect.Pointer {
+			element = element.Elem()
+		}
+		return []reflect.Type{element}
 	case reflect.Map:
 		return []reflect.Type{t.Key(), t.Elem()}
 	default:
@@ -187,6 +194,8 @@ var persistRules = map[reflect.Type]map[string]persistRule{
 		"platooning": persistSession, "platoonLimit": persistSession, "platoonLinks": persistDerive,
 		"platoonData": persistDerive, "platoonOrder": persistReset, "platoonAhead": persistReset,
 		"platoonLanes": persistReset, "stationBuffers": persistUnsupported, "pickupSwaps": persistUnsupported,
+		"stationQueueSpacing": persistSession, "compactGroups": persistSave,
+		"compactMotions": persistReset, "compactNextGroups": persistReset, "compactFault": persistReset,
 	},
 	reflect.TypeFor[vehicle](): {
 		"Vehicle": persistSave, "phaseTicks": persistSave, "blocks": persistDerive, "blockStarts": persistDerive,
@@ -314,11 +323,20 @@ func checkCopiedStorage(t *testing.T, check cloneStorageCheck) {
 	if holdsData(source) && source.Pointer() == clone.Pointer() {
 		t.Errorf("%s shares storage with the source", check.path)
 	}
-	if _, ruled := cloneRules[source.Type().Elem()]; !ruled || !holdsData(source) {
+	elementType := source.Type().Elem()
+	if elementType.Kind() == reflect.Pointer {
+		elementType = elementType.Elem()
+	}
+	if _, ruled := cloneRules[elementType]; !ruled || !holdsData(source) {
 		return
 	}
 	element := func(path string, source, clone reflect.Value) {
-		checkCloneStorage(t, cloneStorageCheck{path: path, source: source, clone: clone, checked: check.checked})
+		nested := cloneStorageCheck{path: path, source: source, clone: clone, checked: check.checked}
+		if source.Kind() == reflect.Pointer {
+			checkCopiedStorage(t, nested)
+		} else {
+			checkCloneStorage(t, nested)
+		}
 	}
 	switch source.Kind() {
 	case reflect.Pointer:
@@ -410,7 +428,10 @@ func TestCloneFollowsRules(t *testing.T) {
 			// No congestion route fails in the example network, no
 			// journey ends in the first 35 seconds, and no test monitor
 			// runs. Presentation exists only in remote snapshots.
-			uncovered: []string{"routeResult.err", "Simulation.requestCompletions", "Simulation.monitor", "Vehicle.Presentation"},
+			uncovered: []string{"routeResult.err", "Simulation.requestCompletions", "Simulation.monitor", "Vehicle.Presentation",
+				// Real compact clone storage is covered by TestStationCompactCloneStorage.
+				"Simulation.compactGroups", "Simulation.compactNextGroups", "Simulation.compactMotions", "Simulation.compactFault",
+				"compactBufferGroup.members", "compactBufferGroup.recovery", "compactQueueRecovery.targets", "compactQueueRecovery.landingSpeeds"},
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {

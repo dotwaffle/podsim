@@ -259,6 +259,8 @@
         <label class="check"><input id="redistribution" type="checkbox"> Redistribute empty pods</label>
         <p class="hint">Moves an idle empty pod to a busy station that has no pod, only while demand is below one trip per minute for each 20 pods.</p>
         <label class="check"><input id="stationBuffers" type="checkbox"> Station buffers (experimental)</label>
+        <label>Station queue spacing<select id="stationQueueSpacing"><option value="ordinary">Ordinary</option><option value="compact-v1">Compact (experimental)</option></select></label>
+        <p class="hint">Compact queues need station buffers and platoons. They apply only to straight station entries at speeds up to 9 km/h. Lane speeds stay unchanged.</p>
         <label class="check"><input id="pickupReassignment" type="checkbox"> Pickup reassignment (experimental)</label>
         <p class="hint">Use Apply draft to activate these settings. Both are off by default and can change passenger waits.</p>
       </section>

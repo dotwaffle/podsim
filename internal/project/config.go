@@ -203,6 +203,8 @@ type Config struct {
 	SharedRideJoin sim.SharedRideJoin `json:"sharedRideJoin,omitempty"`
 	// StationBuffers enables experimental berthless station queues.
 	StationBuffers PolicyFlag `json:"stationBuffers,omitzero"`
+	// StationQueueSpacing selects opt-in compact queues. Omission keeps ordinary spacing.
+	StationQueueSpacing sim.StationQueueSpacing `json:"stationQueueSpacing,omitzero"`
 	// PickupReassignment enables experimental empty-pod pickup replacement.
 	PickupReassignment PolicyFlag `json:"pickupReassignment,omitzero"`
 	// PlatoonLimit is the largest number of pods in one virtual platoon,
@@ -271,6 +273,9 @@ func Validate(config Config) error {
 	}
 	if limit := config.PlatoonLimit; limit != 0 && (limit < sim.MinPlatoonLimit || limit > sim.MaxPlatoonLimit) {
 		return fmt.Errorf("platoon limit must be %d to %d, or 0 for no platoons", sim.MinPlatoonLimit, sim.MaxPlatoonLimit)
+	}
+	if err := validateStationQueueSpacing(config); err != nil {
+		return err
 	}
 	if err := validateGeo(config.Geo); err != nil {
 		return err

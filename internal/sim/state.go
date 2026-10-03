@@ -1,6 +1,7 @@
 package sim
 
 import (
+	"errors"
 	"fmt"
 	"slices"
 )
@@ -133,6 +134,8 @@ type SavedPod struct {
 	// platoon, or nil. The restore couples the pods again before it places
 	// them, because a follower can hold cells of its predecessor.
 	Platoon *SavedPlatoonLink `json:"platoon,omitzero"`
+	// CompactQueue is the head-only retained compact-v1 physical certificate.
+	CompactQueue *SavedCompactQueue `json:"compactQueue,omitzero"`
 }
 
 // SavedPlatoonLink is the saved link of a traveling pod to its predecessor
@@ -200,6 +203,12 @@ type RestoreStateInput struct {
 	// BufferPlatoons selects the version 4 fixed entry certificate contract.
 	// It does not enable formations or buffer admissions after restoration.
 	BufferPlatoons bool
+	// CompactQueues selects the save-6 compact certificate contract.
+	CompactQueues bool
+	// StationQueueSpacing selects the restored runtime policy, ordinary by default.
+	StationQueueSpacing StationQueueSpacing
+	// PlatoonLimit validates anticipatory capacity. Zero selects the default.
+	PlatoonLimit int
 }
 
 // RestoreResult tells how RestoreState rebuilt the simulation.
@@ -242,6 +251,7 @@ type RestoreResult struct {
 // that it tries fails. The error then wraps the error of each tier that it
 // tried. Invalid version 4 buffer certificates return an error without a
 // logical fallback. LogicalOnly still validates those certificates physically.
+// Compact certificates require physical restore and reject logical conversion.
 func RestoreState(input RestoreStateInput) (*Simulation, RestoreResult, error) {
 	return restoreState(input, func() (*Simulation, error) { return NewFleet(input.Network, input.Fleet) })
 }
@@ -266,6 +276,9 @@ func restoreState(input RestoreStateInput, newFleet func() (*Simulation, error))
 	if err := checkSavedBankRoutes(input); err != nil {
 		return nil, RestoreResult{}, err
 	}
+	if err := checkCompactFields(input); err != nil {
+		return nil, RestoreResult{}, err
+	}
 	if err := checkBufferLinkFields(input); err != nil {
 		return nil, RestoreResult{}, err
 	}
@@ -275,6 +288,9 @@ func restoreState(input RestoreStateInput, newFleet func() (*Simulation, error))
 		s, result, err := restorePhysical(input, newFleet)
 		if err == nil && bufferCertificate {
 			err = checkRestoredBufferMembers(input.State, result)
+		}
+		if err == nil && input.LogicalOnly && hasCompactCertificate(input.State) {
+			err = errors.New("compact certificate cannot preserve physical recovery in a logical-only conversion")
 		}
 		if err == nil && !input.LogicalOnly {
 			return s, result, nil
@@ -383,10 +399,14 @@ func (s *Simulation) exportPod(v *vehicle, limits routeLimits) SavedPod {
 		if pod.Route = s.laneIndexes(v.Route[start:], limits.pod); pod.Route != nil {
 			pod.RouteIndex = current - start
 			pod.Distance = v.distance - offset
+			if s.compactGroup(v) != nil {
+				pod.Distance = v.Pod.LaneDistance
+			}
 			if v.carriesPassengers() {
 				pod.RiddenMeters = v.riddenBase + offset
 			}
 			pod.Platoon = s.savedLink(v, start)
+			pod.CompactQueue = s.savedCompactQueue(v)
 		}
 	default:
 		// An idle or unloading pod keeps the route of its last journey only
@@ -415,6 +435,9 @@ func (s *Simulation) savedLink(v *vehicle, start int) *SavedPlatoonLink {
 	}
 	if v.link.buffer {
 		saved.Kind = "buffer"
+		if v.link.compact {
+			saved.Kind, saved.Draining = "compact-buffer-v1", false
+		}
 		saved.TerminalCell = new(v.link.terminalCell)
 	}
 	return saved

@@ -66,9 +66,10 @@ func TestBufferPlatoonFieldPresence(t *testing.T) {
 
 func TestBufferV4MemberList(t *testing.T) {
 	t.Parallel()
-	v3Type := withoutMember(reflect.TypeFor[stateFile](), reflect.TypeFor[sim.SavedPlatoonLink](), "kind", "terminalCell")
+	currentType := withoutMember(reflect.TypeFor[stateFile](), reflect.TypeFor[sim.SavedPod](), "compactQueue")
+	v3Type := withoutMember(currentType, reflect.TypeFor[sim.SavedPlatoonLink](), "kind", "terminalCell")
 	v3 := stateMembers(t, "", v3Type, nil)
-	v4 := stateMembers(t, "", reflect.TypeFor[stateFile](), nil)
+	v4 := stateMembers(t, "", currentType, nil)
 	var extra []string
 	for _, member := range v4 {
 		if !slices.Contains(v3, member) {

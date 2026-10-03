@@ -10,6 +10,7 @@ import (
 // state, and drops pure route and length caches.
 func (s *Simulation) Clone() *Simulation {
 	c := *s
+	s.cloneCompactQueues(&c)
 	// Lookups refill these caches with identical results, and dispatch
 	// makes a new pass.
 	c.lengths, c.routes, c.routeOrder, c.routeStations, c.pass = nil, nil, nil, nil, nil

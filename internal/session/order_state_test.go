@@ -55,8 +55,8 @@ func legacyTestState(file stateFile, version int) stateFile {
 }
 
 func legacyStateMembersType(typ reflect.Type) reflect.Type {
-	typ = withoutMember(typ, reflect.TypeFor[project.Config](), "expressServices")
-	typ = withoutMember(typ, reflect.TypeFor[sim.SavedPod](), "class", "legacyCohort", "stationBuffered")
+	typ = withoutMember(typ, reflect.TypeFor[project.Config](), "expressServices", "stationQueueSpacing")
+	typ = withoutMember(typ, reflect.TypeFor[sim.SavedPod](), "class", "legacyCohort", "stationBuffered", "compactQueue")
 	typ = withoutMember(typ, reflect.TypeFor[sim.SavedRequest](), "sharingConsent", "service", "serviceID", "legacyPartySize")
 	typ = withoutMember(typ, reflect.TypeFor[sim.SavedPlatoonLink](), "kind", "terminalCell")
 	typ = withoutMember(typ, reflect.TypeFor[sim.Placement](), "Class")

@@ -179,12 +179,14 @@ type Snapshot struct {
 
 // SafetyObservation is the state needed to check fleet separation and berth use.
 type SafetyObservation struct {
-	Tick      int64
-	Completed int
-	Pending   int
-	Pods      []Pod
-	Berths    []BerthState
-	Locations map[string]SafetyLocation
+	Tick         int64
+	Completed    int
+	Pending      int
+	Pods         []Pod
+	Berths       []BerthState
+	Locations    map[string]SafetyLocation
+	compactPairs map[[2]string]compactSafetyPair
+	compactError error
 }
 
 // SafetyLocation identifies the physical plane and endpoints occupied by a pod.
@@ -324,6 +326,11 @@ type Simulation struct {
 	predictiveQueueTick         int64
 	finishingPodWait            FinishingPodWait
 	stationBuffers              bool
+	stationQueueSpacing         StationQueueSpacing
+	compactGroups               []*compactBufferGroup
+	compactMotions              []compactBufferMotion
+	compactNextGroups           []*compactBufferGroup
+	compactFault                error
 	pickupSwaps                 *pickupSwapController
 	congestionRouteCosts        []float64
 	congestionRoutes            map[routeKey]routeResult
@@ -438,6 +445,7 @@ func (s *Simulation) Reset() {
 		s.pickupSwaps = &pickupSwapController{enabled: s.pickupSwaps.enabled, right: 1, cooldown: make(map[string]int64)}
 	}
 	s.platoonLinks = 0
+	s.compactGroups, s.compactMotions, s.compactNextGroups, s.compactFault = nil, nil, nil, nil
 	s.owners = make(map[resource]string)
 	s.vehicles = nil
 	for _, p := range s.initial {
@@ -524,6 +532,7 @@ func (s *Simulation) SafetyObservation() SafetyObservation {
 			state.Locations[pod.ID] = s.berthSafety[pod.BerthID]
 		}
 	}
+	s.compactSafety(&state)
 	return state
 }
 
@@ -644,6 +653,11 @@ func (s *Simulation) Step() {
 	s.formPlatoons()
 	s.admit()
 	s.clearBlockedBerths()
+	s.formCompactQueues()
+	if err := s.planCompactQueues(); err != nil {
+		s.compactFault, s.paused = err, true
+		return
+	}
 	s.platoonCaps()
 	for i := range s.vehicles {
 		v := &s.vehicles[i]
@@ -660,6 +674,9 @@ func (s *Simulation) Step() {
 			s.moveAndMeasure(v)
 		}
 	}
+	s.compactGroups = s.compactNextGroups
+	s.compactNextGroups = nil
+	s.finishCompactQueues()
 	// No pod can reuse resources released during this tick until the next tick.
 	s.releaseCleared()
 	for i := range s.vehicles {

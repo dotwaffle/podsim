@@ -62,6 +62,25 @@ function serviceScenario() {
   return config;
 }
 
+
+test("compact station queue drafts require explicit version and dependencies", () => {
+  for (const value of [null, "ordinary", "compact-v1"]) {
+    for (const version of [1, 2]) {
+      const config = serviceScenario(); config.version = version; config.stationQueueSpacing = value;
+      assert.throws(() => editor.normalizeConfig(config), /version 3/);
+    }
+  }
+  for (const value of [null, "", "other", true, "ordinary", "compact-v1"]) {
+    for (const buffers of [false, true]) for (const limit of [0, 2, 3, 4]) {
+      const config = serviceScenario(); config.stationQueueSpacing = value; config.stationBuffers = buffers; config.platoonLimit = limit;
+      const errors = editor.validateConfig(config);
+      const invalid = errors.filter((error) => /[Ss]tation queue|Compact station/.test(error));
+      const valid = value === "ordinary" || value === "compact-v1" && buffers && limit >= 2;
+      assert.equal(invalid.length === 0, valid, JSON.stringify({value, buffers, limit, errors}));
+      assert.deepEqual(editor.normalizeConfig(config).stationQueueSpacing, value);
+    }
+  }
+});
 test("project 3 imports bare or wrapper 1 and preserves authored class and registry metadata", () => {
   const config = serviceScenario(), before = structuredClone(config);
   assert.deepEqual(editor.parseDocument(JSON.stringify(config)).scenario, config);

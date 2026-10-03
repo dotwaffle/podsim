@@ -10,7 +10,7 @@ import (
 const separationTolerance = 1e-6
 
 // SeparationError reports two pods on one plane that are closer than
-// Clearance.
+// their validated separation requirement.
 type SeparationError struct {
 	Tick          int64
 	First, Second string
@@ -27,8 +27,12 @@ func (e *SeparationError) Error() string {
 // separation and berth use. It returns the smallest gap in meters between two
 // pods on one plane. The gap is +Inf when no two pods share a plane. When two
 // pods are too close, the error is a *SeparationError. Check does not apply a
-// speed limit, because each lane has its own limit.
+// speed limit, because each lane has its own limit. Only certified direct
+// compact neighbors may use their validated envelope below Clearance.
 func (o SafetyObservation) Check() (float64, error) {
+	if o.compactError != nil {
+		return 0, o.compactError
+	}
 	for _, pod := range o.Pods {
 		if !finite(pod.Position.X) || !finite(pod.Position.Y) || !finite(pod.Speed) || pod.Speed < 0 {
 			return 0, fmt.Errorf("invalid pod at tick %d: %+v", o.Tick, pod)
@@ -47,7 +51,6 @@ func (o SafetyObservation) Check() (float64, error) {
 // checkSeparation returns the smallest gap between two pods on one plane.
 // It reads the location of each pod once, before it compares the pairs.
 func (o SafetyObservation) checkSeparation() (float64, error) {
-	const minimumGapSquared = (Clearance - separationTolerance) * (Clearance - separationTolerance)
 	locations := make([]SafetyLocation, len(o.Pods))
 	for index, pod := range o.Pods {
 		locations[index] = o.Locations[pod.ID]
@@ -62,7 +65,13 @@ func (o SafetyObservation) checkSeparation() (float64, error) {
 			dy := first.Position.Y - second.Position.Y
 			gapSquared := dx*dx + dy*dy
 			smallestSquared = min(smallestSquared, gapSquared)
-			if gapSquared < minimumGapSquared {
+			minimum := Clearance
+			if certified, ok := o.compactPairs[[2]string{first.ID, second.ID}]; ok && certified.first == first && certified.second == second {
+				minimum = certified.minimum
+			} else if certified, ok := o.compactPairs[[2]string{second.ID, first.ID}]; ok && certified.first == second && certified.second == first {
+				minimum = certified.minimum
+			}
+			if gapSquared < (minimum-separationTolerance)*(minimum-separationTolerance) {
 				return 0, &SeparationError{Tick: o.Tick, First: first.ID, Second: second.ID, Gap: math.Sqrt(gapSquared)}
 			}
 		}

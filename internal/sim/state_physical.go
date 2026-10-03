@@ -71,6 +71,8 @@ type physicalRestore struct {
 	leaders        []int
 	stationBuffers bool
 	bufferPlatoons bool
+	compactMembers map[int]restoredCompactMember
+	compactGroups  []*compactBufferGroup
 }
 
 // restorePhysical rebuilds a running simulation with each pod where the saved
@@ -103,6 +105,11 @@ func restorePhysical(input RestoreStateInput, newFleet func() (*Simulation, erro
 	r := newPhysicalRestore(s, input.State)
 	r.stationBuffers = input.StationBuffers
 	r.bufferPlatoons = input.BufferPlatoons
+	if input.PlatoonLimit != 0 {
+		if err := s.SetPlatoonLimit(input.PlatoonLimit); err != nil {
+			return nil, RestoreResult{}, err
+		}
+	}
 	r.restoreCounters()
 	if err := r.decodePods(); err != nil {
 		return nil, RestoreResult{}, err
@@ -116,6 +123,9 @@ func restorePhysical(input RestoreStateInput, newFleet func() (*Simulation, erro
 	if err := r.buildRoutes(); err != nil {
 		return nil, RestoreResult{}, err
 	}
+	if err := r.prepareCompactGroups(); err != nil {
+		return nil, RestoreResult{}, err
+	}
 	if err := r.checkLinks(); err != nil {
 		return nil, RestoreResult{}, err
 	}
@@ -123,6 +133,9 @@ func restorePhysical(input RestoreStateInput, newFleet func() (*Simulation, erro
 		return nil, RestoreResult{}, err
 	}
 	if err := r.placeTraveling(); err != nil {
+		return nil, RestoreResult{}, err
+	}
+	if err := r.finishCompactRestore(input); err != nil {
 		return nil, RestoreResult{}, err
 	}
 	r.claimDestinations()
@@ -662,6 +675,9 @@ func (r *physicalRestore) checkSavedLink(index int) error {
 	v, leader := &r.s.vehicles[index], &r.s.vehicles[r.leaders[index]-1]
 	saved := r.state.Pods[index]
 	link := saved.Platoon
+	if link.Kind == "compact-buffer-v1" {
+		return r.checkSavedCompactLink(index)
+	}
 	if link.Kind == "buffer" {
 		if err := r.checkSavedBufferLink(index); err != nil {
 			return fmt.Errorf("%w: %w", errBufferCertificate, err)
@@ -775,10 +791,15 @@ func (r *physicalRestore) placeTravelingPod(index, leader int) (bool, error) {
 	if distance < Clearance && (v.origin.ID == "" || v.Route[0].From != v.origin.Node) {
 		return false, nil
 	}
+	if member, ok := r.compactMembers[index]; ok {
+		laneDistance = saved.LaneDistance
+		distance = v.blocks.lanes[saved.RouteIndex].start + laneDistance
+		through = v.blocks.laneFirst(saved.RouteIndex) + member.saved.StopCells[member.offset]
+	}
 	// A pod that has no berth yet chooses one before it reserves the last lane.
 	if lastLane, _ := routeLaneBlocks(&v.blocks, len(v.Route)-1); v.destination.ID == "" && through >= lastLane {
 		plan, ok := r.s.bufferPlan(v)
-		bufferLink := leader >= 0 && r.bufferPlatoons && saved.Platoon != nil && saved.Platoon.Kind == "buffer"
+		bufferLink := leader >= 0 && r.bufferPlatoons && saved.Platoon != nil && (saved.Platoon.Kind == "buffer" || saved.Platoon.Kind == "compact-buffer-v1")
 		if !r.stationBuffers || !v.buffered || !ok || leader >= 0 && !bufferLink || through > plan.frontier || distance > v.blocks.end(plan.frontier)+restoreTolerance {
 			return false, nil
 		}
@@ -813,6 +834,9 @@ func (r *physicalRestore) placeTravelingPod(index, leader int) (bool, error) {
 	}
 	v.reservedThrough = through
 	v.originReleased = distance >= Clearance
+	if member, ok := r.compactMembers[index]; ok {
+		v.Pod.Speed = member.saved.Speeds[member.offset]
+	}
 	v.Pod.LaneDistance = laneDistance
 	v.Pod.Position = r.s.position(lane, laneDistance)
 	if saved.LaneID != "" {
@@ -835,12 +859,15 @@ func (r *physicalRestore) savedLink(index, leader int) (platoonLink, error) {
 		lane: saved.Lane, leaderLane: saved.LeaderLane, lanes: saved.Lanes,
 		turn: saved.Turn, clearance: linkClearance(saved.Turn), draining: saved.Draining,
 	}
-	if saved.Kind == "buffer" {
+	if saved.Kind == "buffer" || saved.Kind == "compact-buffer-v1" {
 		plan, ok := r.s.bufferPlan(v)
 		if !ok {
 			return platoonLink{}, fmt.Errorf("%w: invalid restored buffer plan", errBufferCertificate)
 		}
 		link.buffer, link.terminalCell, link.first = true, *saved.TerminalCell, plan.entryStop+1
+		if saved.Kind == "compact-buffer-v1" {
+			link.compact, link.clearance, link.draining = true, compactQueueStandstillGap, false
+		}
 	}
 	_, link.end = linkEnds(&v.blocks, link)
 	if gap := leaderPosition(v, ahead, link) - v.distance; gap < link.clearance-3*restoreTolerance {

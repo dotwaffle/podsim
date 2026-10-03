@@ -516,13 +516,20 @@ func (s *Simulation) admit() {
 		// A denied extension leaves the existing stopping boundary intact.
 		speed := math.Max(v.Pod.Speed, v.blocks.currentLane(v.blockIndex).SpeedLimit)
 		horizon := speed*speed/(2*acceleration) + speed*s.reservationLookaheadSeconds
-		if v.reservedThrough >= 0 && v.blocks.end(v.reservedThrough)-v.distance >= horizon {
+		if v.reservedThrough >= 0 && v.blocks.end(v.reservedThrough)-v.distance >= horizon && !v.link.compact {
 			continue
 		}
 		if v.pending != next {
 			v.pending, v.waitSince = next, s.tick
 		}
-		intents = append(intents, intent{index: i, block: next, since: v.waitSince, id: v.Pod.ID})
+		through := 0
+		if v.link.compact {
+			if next > v.link.end {
+				continue
+			}
+			through = v.link.end
+		}
+		intents = append(intents, intent{index: i, block: next, through: through, since: v.waitSince, id: v.Pod.ID})
 	}
 	pickups := work.pickups
 	for _, trip := range s.waiting {
@@ -594,6 +601,9 @@ func (s *Simulation) grant(in intent) {
 		}
 		if through >= plan.first {
 			through = max(through, plan.entryStop)
+			if s.compactEnabled() && s.compactFrontierCandidate(v, plan) && v.reservedThrough < plan.frontier {
+				through = plan.frontier
+			}
 		}
 		if through > plan.frontier {
 			s.grantBufferedHead(in, plan)
@@ -707,6 +717,9 @@ func reservationEnd(blocks *blockList, start int) int {
 }
 
 func (s *Simulation) move(v *vehicle) {
+	if s.moveCompact(v) {
+		return
+	}
 	limit := v.blocks.end(v.reservedThrough)
 	if v.link.leader != 0 && v.platoonCap < limit {
 		limit = v.platoonCap

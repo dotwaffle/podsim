@@ -798,6 +798,9 @@ func TestStateFileWorstCaseSize(t *testing.T) {
 			}
 			maxFile.Simulation.Pods = []sim.SavedPod{maxPod}
 			maxFile.Simulation.Waiting = []sim.SavedTrip{maxTrip}
+			if version == serviceStateVersion {
+				testCompactWorstCaseSize(t, maxFile, maxPod, maxTrip)
+			}
 			maxUnrouted := maxTrip
 			maxUnrouted.Route = nil
 			size := jsonSize(t, maxFile) + (maxSavedPods-1)*(jsonSize(t, maxPod)+1) + (maxSavedPods-1)*(jsonSize(t, maxTrip)+1) +

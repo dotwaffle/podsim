@@ -26,7 +26,15 @@ func (flag *PolicyFlag) UnmarshalJSON(data []byte) error {
 
 // ConfigureExperiments applies the project's experimental controllers.
 // Disabling buffers keeps existing saved members draining.
-func ConfigureExperiments(simulation *sim.Simulation, config Config) {
+// ConfigurePlatoons must run first for a compact queue project.
+func ConfigureExperiments(simulation *sim.Simulation, config Config) error {
+	if err := validateStationQueueSpacing(config); err != nil {
+		return err
+	}
 	simulation.SetStationBuffers(bool(config.StationBuffers))
+	if err := simulation.SetStationQueueSpacing(EffectiveStationQueueSpacing(config)); err != nil {
+		return err
+	}
 	simulation.SetPickupSwaps(bool(config.PickupReassignment))
+	return nil
 }

@@ -130,7 +130,7 @@ func replayDiff(got, want replayObservation) string {
 	switch {
 	case !reflect.DeepEqual(got.state, want.state):
 		return "state"
-	case !reflect.DeepEqual(got.safety, want.safety):
+	case !reflect.DeepEqual(got.safety, want.safety): //nolint:govet // Compare complete observations, including retained controller state.
 		return "safety observation"
 	case !reflect.DeepEqual(got.demand, want.demand):
 		return "demand stream"

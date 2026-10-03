@@ -323,7 +323,9 @@ func (s *Session) startProject(config project.Config) error {
 	if err := project.ConfigurePlatoons(simulation, owned); err != nil {
 		return fmt.Errorf("configure platoons: %w", err)
 	}
-	project.ConfigureExperiments(simulation, owned)
+	if err := project.ConfigureExperiments(simulation, owned); err != nil {
+		return fmt.Errorf("configure experimental policies: %w", err)
+	}
 	s.simulation, s.project, s.epoch = simulation, owned, rand.Text()
 	s.projectRevision, s.projectOrigin, s.generation, s.speed = 1, 1, 1, 1
 	s.demand = newDemand(demandInput{config: owned.Demand, network: owned.Network, profiles: owned.DemandProfiles, arrivals: owned.RailArrivals, departures: owned.RailDepartures})
@@ -684,7 +686,9 @@ func (s *Session) apply(command Command) (outcome, error) {
 	case "reset":
 		paused := s.simulation.Snapshot().Paused
 		s.simulation.Reset()
-		project.ConfigureExperiments(s.simulation, s.project)
+		if err := project.ConfigureExperiments(s.simulation, s.project); err != nil {
+			return outcome{}, fmt.Errorf("configure experimental policies: %w", err)
+		}
 		s.simulation.SetPaused(paused)
 		s.speed = 1
 		s.demand = newDemand(demandInput{config: s.project.Demand, network: s.project.Network, profiles: s.project.DemandProfiles, arrivals: s.project.RailArrivals, departures: s.project.RailDepartures})
@@ -707,7 +711,9 @@ func (s *Session) apply(command Command) (outcome, error) {
 		if err := project.ConfigurePlatoons(s.simulation, s.project); err != nil {
 			return outcome{}, fmt.Errorf("configure platoons: %w", err)
 		}
-		project.ConfigureExperiments(s.simulation, s.project)
+		if err := project.ConfigureExperiments(s.simulation, s.project); err != nil {
+			return outcome{}, fmt.Errorf("configure experimental policies: %w", err)
+		}
 		s.speed = 1
 		disabled := s.project.Demand
 		disabled.Enabled = false
@@ -791,7 +797,9 @@ func (s *Session) applyProject(command Command) error {
 	if err := project.ConfigurePlatoons(candidate, config); err != nil {
 		return fmt.Errorf("configure platoons: %w", err)
 	}
-	project.ConfigureExperiments(candidate, config)
+	if err := project.ConfigureExperiments(candidate, config); err != nil {
+		return fmt.Errorf("configure experimental policies: %w", err)
+	}
 	candidate.SetPaused(true)
 	if err := s.save(config); err != nil {
 		return err

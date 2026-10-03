@@ -8,7 +8,7 @@ const has = (value, key) => record(value) && Object.keys(value).some((name) => n
 const topology = (draft) => [...rows(draft?.network?.Lanes), ...rows(draft?.network?.Stations), ...rows(draft?.network?.Stations).flatMap((station) => rows(station?.Berths))];
 
 function hasServiceMetadata(draft) {
-  return has(draft, "expressServices") || rows(draft?.fleet).some((pod) => has(pod, "Class")) || topology(draft).some((item) => has(item, "VehicleClasses"));
+  return has(draft, "expressServices") || has(draft, "stationQueueSpacing") || rows(draft?.fleet).some((pod) => has(pod, "Class")) || topology(draft).some((item) => has(item, "VehicleClasses"));
 }
 
 function classSet(item) {

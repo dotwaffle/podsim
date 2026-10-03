@@ -131,10 +131,11 @@ var stateJSONLimits = jsonLimits{
 	},
 }
 
-// stateFile holds versions 2 through 5 of the saved session state. Version 3
+// stateFile holds versions 2 through 6 of the saved session state. Version 3
 // adds explicit station buffer membership. Version 4 adds fixed entry links.
 // Version 5 requires a version 2 project with explicit station banks.
-// Earlier versions reject these fields, including explicit empty or null values.
+// Version 6 adds service metadata and retained compact queue certificates.
+// Earlier versions reject later fields, including explicit empty or null values.
 // The file on disk is
 // the JSON form of stateFile, compressed with gzip. Each change to a member,
 // also in the simulation and in the project, needs a new version. Until the
@@ -303,7 +304,7 @@ func decodeStateFile(data []byte) (stateFile, error) {
 		return stateFile{}, err
 	}
 	// Check the largest recognized shapes before even the small header decode.
-	if err := prescanJSON(raw, serviceStateLimits()); err != nil {
+	if err := prescanJSON(raw, compactStateLimits(serviceStateLimits())); err != nil {
 		return stateFile{}, invalidState(fmt.Errorf("scan session state: %w", err))
 	}
 	// The header decode ignores the other members, so that a file from a
@@ -324,16 +325,22 @@ func decodeStateFile(data []byte) (stateFile, error) {
 	}
 	limits := stateJSONLimits
 	if header.Version == serviceStateVersion {
-		limits = serviceStateLimits()
+		limits = compactStateLimits(serviceStateLimits())
 	}
 	if err := prescanJSON(raw, limits); err != nil {
 		return stateFile{}, invalidState(fmt.Errorf("scan session state: %w", err))
+	}
+	if err := scanStateCompactFields(raw, header.Version); err != nil {
+		return stateFile{}, invalidState(err)
 	}
 	if err := scanStateOrderFields(raw, header.Version); err != nil {
 		return stateFile{}, invalidState(err)
 	}
 	options := strictStateOptions
 	switch header.Version {
+	case serviceStateVersion:
+		options = json.JoinOptions(options, json.WithUnmarshalers(json.JoinUnmarshalers(
+			json.UnmarshalFromFunc(decodeSavedProject), json.UnmarshalFromFunc(decodeV6Platoon), json.UnmarshalFromFunc(decodeCompactQueue))))
 	case stateVersion:
 		options = json.JoinOptions(options, json.WithUnmarshalers(json.JoinUnmarshalers(
 			json.UnmarshalFromFunc(decodeSavedProject), json.UnmarshalFromFunc(decodeV2Pod), json.UnmarshalFromFunc(decodeLegacyPlatoon))))
@@ -347,6 +354,9 @@ func decodeStateFile(data []byte) (stateFile, error) {
 	var file stateFile
 	if err := json.Unmarshal(raw, &file, options); err != nil {
 		return stateFile{}, invalidState(fmt.Errorf("decode session state: %w", err))
+	}
+	if err := validateSavedCompactMembers(file.Simulation); err != nil {
+		return stateFile{}, invalidState(err)
 	}
 	if err := file.validateProjectVersion(); err != nil {
 		return stateFile{}, invalidState(err)
@@ -405,6 +415,33 @@ func decodeLegacyPlatoon(decoder *jsontext.Decoder, link *sim.SavedPlatoonLink) 
 
 // decodeV4Platoon checks explicit kinds and the fixed endpoint field.
 func decodeV4Platoon(decoder *jsontext.Decoder, link *sim.SavedPlatoonLink) error {
+	return decodeFixedPlatoon(decoder, link, false)
+}
+
+func decodeV6Platoon(decoder *jsontext.Decoder, link *sim.SavedPlatoonLink) error {
+	value, err := decoder.ReadValue()
+	if err != nil {
+		return err
+	}
+	var fields map[string]jsontext.Value
+	if err := json.Unmarshal(value, &fields); err != nil {
+		return err
+	}
+	var kind string
+	if err := json.Unmarshal(fields["kind"], &kind); err != nil && fields["kind"] != nil {
+		return err
+	}
+	if kind == "compact-buffer-v1" {
+		for _, field := range fields {
+			if bytes.Equal(bytes.TrimSpace(field), []byte("null")) {
+				return errors.New("compact platoon link contains null")
+			}
+		}
+	}
+	return decodeFixedPlatoon(jsontext.NewDecoder(bytes.NewReader(value)), link, true)
+}
+
+func decodeFixedPlatoon(decoder *jsontext.Decoder, link *sim.SavedPlatoonLink, compact bool) error {
 	saved, kind, terminal, err := decodePlatoonFields(decoder)
 	if err != nil {
 		return err
@@ -422,7 +459,10 @@ func decodeV4Platoon(decoder *jsontext.Decoder, link *sim.SavedPlatoonLink) erro
 		if terminal != nil {
 			return errors.New("complete-lane platoon contains terminalCell")
 		}
-	case "buffer":
+	case "buffer", "compact-buffer-v1":
+		if saved.Kind == "compact-buffer-v1" && (!compact || saved.Turn != 0 || saved.Draining) {
+			return errors.New("invalid compact platoon link")
+		}
 		if terminal == nil || bytes.Equal(bytes.TrimSpace(terminal), []byte("null")) || saved.Lanes != 1 {
 			return errors.New("buffer platoon has no integer terminalCell or is not one lane")
 		}

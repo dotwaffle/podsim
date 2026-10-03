@@ -134,6 +134,9 @@ func (s *Simulation) bufferHead(v *vehicle, plan stationBufferPlan) bool {
 // assignment. A denied trial changes no ownership or committed route.
 func (s *Simulation) grantBufferedHead(in intent, plan stationBufferPlan) {
 	v := &s.vehicles[in.index]
+	if group := s.compactGroup(v); group != nil {
+		return
+	}
 	if !s.bufferHead(v, plan) || v.link.leader != 0 || v.follower != 0 && !s.vehicles[v.follower-1].link.buffer {
 		return
 	}

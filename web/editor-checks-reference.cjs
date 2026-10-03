@@ -405,6 +405,10 @@ module.exports = function (editor) {
     if ("platoonLimit" in value && !platoonLimits.includes(value.platoonLimit)) errors.push("The platoon limit must be 2 to 4, or 0 for no platoons.");
     if ("stationBuffers" in value && typeof value.stationBuffers !== "boolean") errors.push("The station buffer setting must be true or false.");
     if ("pickupReassignment" in value && typeof value.pickupReassignment !== "boolean") errors.push("The pickup reassignment setting must be true or false.");
+    if (Object.hasOwn(value, "stationQueueSpacing")) {
+      if (!["ordinary", "compact-v1"].includes(value.stationQueueSpacing)) errors.push("Station queue spacing must be ordinary or compact-v1.");
+      else if (value.stationQueueSpacing === "compact-v1" && (value.stationBuffers !== true || ![2, 3, 4].includes(value.platoonLimit))) errors.push("Compact station queues require station buffers and a platoon limit from 2 to 4.");
+    }
     return [...new Set(errors)];
   }
 

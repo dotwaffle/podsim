@@ -499,6 +499,8 @@ func (s *Session) loadState(input loadInput) (loaded loadedState, err error) {
 	loaded.simulation, loaded.result, err = input.steps.restoreSimulation(sim.RestoreStateInput{
 		Network: loaded.config.Network, Fleet: loaded.config.Fleet, State: file.Simulation, LogicalOnly: loaded.logicalOnly,
 		StationBuffers: file.Version >= bufferStateVersion, BufferPlatoons: file.Version >= bufferPlatoonStateVersion,
+		CompactQueues:       file.Version >= serviceStateVersion,
+		StationQueueSpacing: project.EffectiveStationQueueSpacing(loaded.config), PlatoonLimit: loaded.config.PlatoonLimit,
 		ExpressServices: loaded.config.ExpressServices,
 	})
 	if err != nil {
@@ -510,7 +512,9 @@ func (s *Session) loadState(input loadInput) (loaded loadedState, err error) {
 	if err = project.ConfigurePlatoons(loaded.simulation, loaded.config); err != nil {
 		return loaded, invalidState(err)
 	}
-	project.ConfigureExperiments(loaded.simulation, loaded.config)
+	if err = project.ConfigureExperiments(loaded.simulation, loaded.config); err != nil {
+		return loaded, invalidState(err)
+	}
 	// The demand command refuses a change while the traffic demo runs, so
 	// a restored demo cannot apply other demand settings. The restore then
 	// rejects the saved state, as for a different project. The saved state
@@ -557,6 +561,7 @@ func restoreProject(input loadInput, saved project.Config) (project.Config, erro
 	config.Demand = saved.Demand
 	comparison := config
 	comparison.StationBuffers = saved.StationBuffers
+	comparison.StationQueueSpacing = saved.StationQueueSpacing
 	comparison.PickupReassignment = saved.PickupReassignment
 	same, err := sameProject(comparison, saved)
 	switch {

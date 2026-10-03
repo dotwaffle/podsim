@@ -197,7 +197,14 @@ func (s *Session) step() {
 		s.configureRedistribution()
 	}
 	wasDemo := s.simulation.DemoRunning()
+	hadCompactFault := s.simulation.CompactQueueError() != nil
 	s.simulation.Step()
+	if err := s.simulation.CompactQueueError(); err != nil {
+		if !hadCompactFault {
+			s.logger.Error("Compact station queue paused", slog.Any("error", err), slog.Int64("tick", s.simulation.Tick()))
+		}
+		return
+	}
 	if wasDemo && !s.simulation.DemoRunning() {
 		s.configureRedistribution()
 	}

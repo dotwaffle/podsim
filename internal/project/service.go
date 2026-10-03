@@ -21,7 +21,7 @@ func validateServiceVersion(config Config) error {
 	if config.Version == ServiceVersion {
 		return nil
 	}
-	present := config.ExpressServices != nil
+	present := config.ExpressServices != nil || config.StationQueueSpacing != ""
 	for _, placement := range config.Fleet {
 		present = present || placement.Class != ""
 	}
@@ -61,6 +61,15 @@ func scanProjectService(data []byte) (bool, error) {
 			continue
 		}
 		switch {
+		case len(path) == 2 && path[1] == "stationqueuespacing":
+			present = true
+			value, err := decoder.ReadToken()
+			if err != nil {
+				return false, err
+			}
+			if value.Kind() != jsontext.KindString || !validStationQueueSpacing(sim.StationQueueSpacing(value.String())) {
+				return false, errors.New("station queue spacing must be ordinary or compact-v1")
+			}
 		case serviceClassListPath(path):
 			present = true
 			var classes sim.ClassSet
