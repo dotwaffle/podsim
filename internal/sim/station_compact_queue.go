@@ -271,39 +271,7 @@ func (s *Simulation) compactHoldingState(group *compactBufferGroup, state compac
 
 // compactCanDischarge checks suffix availability without changing claims.
 func (s *Simulation) compactCanDischarge(group *compactBufferGroup) bool {
-	head := &s.vehicles[group.members[0]]
-	station, ok := s.station(head.destinationStation)
-	if !ok {
-		return false
-	}
-	for _, berth := range station.Berths {
-		if station.Banks != nil && station.berthEntry(berth) != head.Route[len(head.Route)-1].To {
-			continue
-		}
-		claims, available := s.bufferBerthClaims(head, berth)
-		if !available {
-			continue
-		}
-		suffix, err := s.stationPathForClass(head.Route[len(head.Route)-1].To, berth.Node, head.Pod.Class)
-		if err != nil || !s.bufferSuffixValid(head, suffix, berth) {
-			continue
-		}
-		blocks, _ := s.routeBlocks(suffix)
-		free := true
-		for resources := range blocks.spanResources(0, blocks.len()) {
-			for _, r := range resources {
-				owner := s.owners[r]
-				yielded := slices.ContainsFunc(claims[:], func(c bufferBerthClaim) bool { return c.resource == r && c.owner != nil && c.owner.Pod.ID == owner })
-				if owner != "" && owner != head.Pod.ID && !yielded {
-					free = false
-				}
-			}
-		}
-		if free {
-			return true
-		}
-	}
-	return false
+	return s.probeCompactDischarge(group).available
 }
 
 func (s *Simulation) planCompactQueues() error {

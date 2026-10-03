@@ -385,6 +385,7 @@ func TestStationCompactSuffixDeniedBeforeRecovery(t *testing.T) {
 			break
 		}
 	}
+	s = compactReleaseDepartureQueue(t, s, StationQueueCompactV1)
 	if err := s.RequestJourney("05", "harbor"); err != nil {
 		t.Fatal(err)
 	}

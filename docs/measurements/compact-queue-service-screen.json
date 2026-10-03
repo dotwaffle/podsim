@@ -1,0 +1,565 @@
+{
+  "runtime_commit": "a01ec3e26ec4f1abf29bf9447366e8c50fbe59fe",
+  "source_sha256": "681375e2ae6275708a5fe36ff79c3fb58bcd99b029ff94b766f06d053d7d382e",
+  "fixture": "fresh occupiedBufferQueue network and original fleet plus Example return lane; no saved-pose staging",
+  "controls": {
+    "station_speed_mps": 2.5,
+    "platooning": "virtual",
+    "platoon_limit": 4,
+    "station_buffers": true,
+    "positioning": "off",
+    "consent": "private",
+    "party_size": 1,
+    "initial_pinned_journeys": 4,
+    "queued_fifth_offer_seconds": 900,
+    "observation_cap_seconds": 2000,
+    "fleet": 7
+  },
+  "all_steps_safety_checked": true,
+  "conservation": true,
+  "baseline_results": [
+    {
+      "road_speed_mps": 2.5,
+      "queue_spacing": "ordinary",
+      "offered": 5,
+      "submitted": 5,
+      "completed": 2,
+      "pending": 0,
+      "aboard": 3,
+      "observation_seconds": 2000.0,
+      "compact_active_ticks": 0,
+      "largest_compact_group": 0,
+      "four_member_stopped_span_m": null,
+      "fifth_offer_pickup_seconds": 0.0,
+      "timings": [
+        {
+          "RequestID": 1,
+          "RequestedTick": 0,
+          "BoardedTick": 0,
+          "CompletedTick": -1,
+          "RiddenMeters": 0,
+          "DirectMeters": 0,
+          "SharedWith": 0,
+          "Reassigned": false
+        },
+        {
+          "RequestID": 2,
+          "RequestedTick": 0,
+          "BoardedTick": 0,
+          "CompletedTick": 85452,
+          "RiddenMeters": 3544.7534061681745,
+          "DirectMeters": 3544.7534061681745,
+          "SharedWith": 0,
+          "Reassigned": false
+        },
+        {
+          "RequestID": 3,
+          "RequestedTick": 0,
+          "BoardedTick": 0,
+          "CompletedTick": -1,
+          "RiddenMeters": 0,
+          "DirectMeters": 0,
+          "SharedWith": 0,
+          "Reassigned": false
+        },
+        {
+          "RequestID": 4,
+          "RequestedTick": 0,
+          "BoardedTick": 0,
+          "CompletedTick": 109000,
+          "RiddenMeters": 3846.3369039321424,
+          "DirectMeters": 3846.3369039321424,
+          "SharedWith": 0,
+          "Reassigned": false
+        },
+        {
+          "RequestID": 5,
+          "RequestedTick": 54000,
+          "BoardedTick": 54000,
+          "CompletedTick": -1,
+          "RiddenMeters": 0,
+          "DirectMeters": 0,
+          "SharedWith": 0,
+          "Reassigned": false
+        }
+      ]
+    },
+    {
+      "road_speed_mps": 2.5,
+      "queue_spacing": "compact-v1",
+      "offered": 5,
+      "submitted": 5,
+      "completed": 1,
+      "pending": 0,
+      "aboard": 4,
+      "observation_seconds": 2000.0,
+      "compact_active_ticks": 56759,
+      "largest_compact_group": 3,
+      "four_member_stopped_span_m": null,
+      "fifth_offer_pickup_seconds": 0.0,
+      "timings": [
+        {
+          "RequestID": 1,
+          "RequestedTick": 0,
+          "BoardedTick": 0,
+          "CompletedTick": -1,
+          "RiddenMeters": 0,
+          "DirectMeters": 0,
+          "SharedWith": 0,
+          "Reassigned": false
+        },
+        {
+          "RequestID": 2,
+          "RequestedTick": 0,
+          "BoardedTick": 0,
+          "CompletedTick": 86368,
+          "RiddenMeters": 3544.7534061681745,
+          "DirectMeters": 3544.7534061681745,
+          "SharedWith": 0,
+          "Reassigned": false
+        },
+        {
+          "RequestID": 3,
+          "RequestedTick": 0,
+          "BoardedTick": 0,
+          "CompletedTick": -1,
+          "RiddenMeters": 0,
+          "DirectMeters": 0,
+          "SharedWith": 0,
+          "Reassigned": false
+        },
+        {
+          "RequestID": 4,
+          "RequestedTick": 0,
+          "BoardedTick": 0,
+          "CompletedTick": -1,
+          "RiddenMeters": 0,
+          "DirectMeters": 0,
+          "SharedWith": 0,
+          "Reassigned": false
+        },
+        {
+          "RequestID": 5,
+          "RequestedTick": 54000,
+          "BoardedTick": 54000,
+          "CompletedTick": -1,
+          "RiddenMeters": 0,
+          "DirectMeters": 0,
+          "SharedWith": 0,
+          "Reassigned": false
+        }
+      ]
+    },
+    {
+      "road_speed_mps": 14,
+      "queue_spacing": "ordinary",
+      "offered": 5,
+      "submitted": 5,
+      "completed": 3,
+      "pending": 0,
+      "aboard": 2,
+      "observation_seconds": 2000.0,
+      "compact_active_ticks": 0,
+      "largest_compact_group": 0,
+      "four_member_stopped_span_m": null,
+      "fifth_offer_pickup_seconds": 148.03333333333333,
+      "timings": [
+        {
+          "RequestID": 1,
+          "RequestedTick": 0,
+          "BoardedTick": 0,
+          "CompletedTick": -1,
+          "RiddenMeters": 0,
+          "DirectMeters": 0,
+          "SharedWith": 0,
+          "Reassigned": false
+        },
+        {
+          "RequestID": 2,
+          "RequestedTick": 0,
+          "BoardedTick": 0,
+          "CompletedTick": 62882,
+          "RiddenMeters": 3544.7534061681745,
+          "DirectMeters": 3544.7534061681745,
+          "SharedWith": 0,
+          "Reassigned": false
+        },
+        {
+          "RequestID": 3,
+          "RequestedTick": 0,
+          "BoardedTick": 0,
+          "CompletedTick": 86609,
+          "RiddenMeters": 5865.947140018724,
+          "DirectMeters": 5865.947140018724,
+          "SharedWith": 0,
+          "Reassigned": false
+        },
+        {
+          "RequestID": 4,
+          "RequestedTick": 0,
+          "BoardedTick": 0,
+          "CompletedTick": 110157,
+          "RiddenMeters": 3846.3369039321424,
+          "DirectMeters": 3846.3369039321424,
+          "SharedWith": 0,
+          "Reassigned": false
+        },
+        {
+          "RequestID": 5,
+          "RequestedTick": 54000,
+          "BoardedTick": 62882,
+          "CompletedTick": -1,
+          "RiddenMeters": 0,
+          "DirectMeters": 0,
+          "SharedWith": 0,
+          "Reassigned": false
+        }
+      ]
+    },
+    {
+      "road_speed_mps": 14,
+      "queue_spacing": "compact-v1",
+      "offered": 5,
+      "submitted": 5,
+      "completed": 2,
+      "pending": 0,
+      "aboard": 3,
+      "observation_seconds": 2000.0,
+      "compact_active_ticks": 25995,
+      "largest_compact_group": 4,
+      "four_member_stopped_span_m": 18.0300000000027,
+      "fifth_offer_pickup_seconds": 0.0,
+      "timings": [
+        {
+          "RequestID": 1,
+          "RequestedTick": 0,
+          "BoardedTick": 0,
+          "CompletedTick": -1,
+          "RiddenMeters": 0,
+          "DirectMeters": 0,
+          "SharedWith": 0,
+          "Reassigned": false
+        },
+        {
+          "RequestID": 2,
+          "RequestedTick": 0,
+          "BoardedTick": 0,
+          "CompletedTick": 79537,
+          "RiddenMeters": 3544.7534061681745,
+          "DirectMeters": 3544.7534061681745,
+          "SharedWith": 0,
+          "Reassigned": false
+        },
+        {
+          "RequestID": 3,
+          "RequestedTick": 0,
+          "BoardedTick": 0,
+          "CompletedTick": 103085,
+          "RiddenMeters": 5865.947140018724,
+          "DirectMeters": 5865.947140018724,
+          "SharedWith": 0,
+          "Reassigned": false
+        },
+        {
+          "RequestID": 4,
+          "RequestedTick": 0,
+          "BoardedTick": 0,
+          "CompletedTick": -1,
+          "RiddenMeters": 0,
+          "DirectMeters": 0,
+          "SharedWith": 0,
+          "Reassigned": false
+        },
+        {
+          "RequestID": 5,
+          "RequestedTick": 54000,
+          "BoardedTick": 54000,
+          "CompletedTick": -1,
+          "RiddenMeters": 0,
+          "DirectMeters": 0,
+          "SharedWith": 0,
+          "Reassigned": false
+        }
+      ]
+    }
+  ],
+  "diagnosis": "Confirmed: compact head stops before normal admission horizon, so an idle occupied destination berth receives no BerthOccupied/BlockedBy signal. Existing clearBlockedBerths cannot evict its idle occupant. Cold endpoint restore plus manual signal reproduces the missing bridge.",
+  "qualification": "Clearing regression repaired at unchanged2000s cap. Compact matches ordinary completion counts; no aggregate service gain or default-adoption qualification.",
+  "corrected_runtime": {
+    "base_commit": "b77c5eba6ee0d1693849944e0565199b7ec43e4f",
+    "production_sha256": {
+      "internal/sim/compact_queue_discharge.go": "2769908e123b88512bf1d700ec103ec3a631d8e5df87884addf322935dfe951a",
+      "internal/sim/station_compact_queue.go": "e6b5f4afdb5b377e6336537eb6dff5b8f5ede84bf4e7b8dc94498739889c16cf",
+      "internal/sim/parking.go": "7cceb43978a8a7a00fb6f5a37f8c4472f31ec10b1c67dbd8d1b748d9c08fa002"
+    },
+    "source_sha256": "cf1717fb2caa382c1c2ce93bd42c26f31609babaaa9556c029e2435b20dd62e5",
+    "changes_to_source": "Only artifact output paths changed from the baseline screen source."
+  },
+  "corrected_results": [
+    {
+      "road_speed_mps": 2.5,
+      "queue_spacing": "ordinary",
+      "offered": 5,
+      "submitted": 5,
+      "completed": 2,
+      "pending": 0,
+      "aboard": 3,
+      "observation_seconds": 2000.0,
+      "compact_active_ticks": 0,
+      "largest_compact_group": 0,
+      "four_member_stopped_span_m": null,
+      "fifth_offer_pickup_seconds": 0.0,
+      "timings": [
+        {
+          "RequestID": 1,
+          "RequestedTick": 0,
+          "BoardedTick": 0,
+          "CompletedTick": -1,
+          "RiddenMeters": 0,
+          "DirectMeters": 0,
+          "SharedWith": 0,
+          "Reassigned": false
+        },
+        {
+          "RequestID": 2,
+          "RequestedTick": 0,
+          "BoardedTick": 0,
+          "CompletedTick": 85452,
+          "RiddenMeters": 3544.7534061681745,
+          "DirectMeters": 3544.7534061681745,
+          "SharedWith": 0,
+          "Reassigned": false
+        },
+        {
+          "RequestID": 3,
+          "RequestedTick": 0,
+          "BoardedTick": 0,
+          "CompletedTick": -1,
+          "RiddenMeters": 0,
+          "DirectMeters": 0,
+          "SharedWith": 0,
+          "Reassigned": false
+        },
+        {
+          "RequestID": 4,
+          "RequestedTick": 0,
+          "BoardedTick": 0,
+          "CompletedTick": 109000,
+          "RiddenMeters": 3846.3369039321424,
+          "DirectMeters": 3846.3369039321424,
+          "SharedWith": 0,
+          "Reassigned": false
+        },
+        {
+          "RequestID": 5,
+          "RequestedTick": 54000,
+          "BoardedTick": 54000,
+          "CompletedTick": -1,
+          "RiddenMeters": 0,
+          "DirectMeters": 0,
+          "SharedWith": 0,
+          "Reassigned": false
+        }
+      ]
+    },
+    {
+      "road_speed_mps": 2.5,
+      "queue_spacing": "compact-v1",
+      "offered": 5,
+      "submitted": 5,
+      "completed": 2,
+      "pending": 0,
+      "aboard": 3,
+      "observation_seconds": 2000.0,
+      "compact_active_ticks": 29885,
+      "largest_compact_group": 2,
+      "four_member_stopped_span_m": null,
+      "fifth_offer_pickup_seconds": 525.45,
+      "timings": [
+        {
+          "RequestID": 1,
+          "RequestedTick": 0,
+          "BoardedTick": 0,
+          "CompletedTick": -1,
+          "RiddenMeters": 0,
+          "DirectMeters": 0,
+          "SharedWith": 0,
+          "Reassigned": false
+        },
+        {
+          "RequestID": 2,
+          "RequestedTick": 0,
+          "BoardedTick": 0,
+          "CompletedTick": 85527,
+          "RiddenMeters": 3544.7534061681745,
+          "DirectMeters": 3544.7534061681745,
+          "SharedWith": 0,
+          "Reassigned": false
+        },
+        {
+          "RequestID": 3,
+          "RequestedTick": 0,
+          "BoardedTick": 0,
+          "CompletedTick": -1,
+          "RiddenMeters": 0,
+          "DirectMeters": 0,
+          "SharedWith": 0,
+          "Reassigned": false
+        },
+        {
+          "RequestID": 4,
+          "RequestedTick": 0,
+          "BoardedTick": 0,
+          "CompletedTick": 115017,
+          "RiddenMeters": 3846.3369039321424,
+          "DirectMeters": 3846.3369039321424,
+          "SharedWith": 0,
+          "Reassigned": false
+        },
+        {
+          "RequestID": 5,
+          "RequestedTick": 54000,
+          "BoardedTick": 85527,
+          "CompletedTick": -1,
+          "RiddenMeters": 0,
+          "DirectMeters": 0,
+          "SharedWith": 0,
+          "Reassigned": false
+        }
+      ]
+    },
+    {
+      "road_speed_mps": 14,
+      "queue_spacing": "ordinary",
+      "offered": 5,
+      "submitted": 5,
+      "completed": 3,
+      "pending": 0,
+      "aboard": 2,
+      "observation_seconds": 2000.0,
+      "compact_active_ticks": 0,
+      "largest_compact_group": 0,
+      "four_member_stopped_span_m": null,
+      "fifth_offer_pickup_seconds": 148.03333333333333,
+      "timings": [
+        {
+          "RequestID": 1,
+          "RequestedTick": 0,
+          "BoardedTick": 0,
+          "CompletedTick": -1,
+          "RiddenMeters": 0,
+          "DirectMeters": 0,
+          "SharedWith": 0,
+          "Reassigned": false
+        },
+        {
+          "RequestID": 2,
+          "RequestedTick": 0,
+          "BoardedTick": 0,
+          "CompletedTick": 62882,
+          "RiddenMeters": 3544.7534061681745,
+          "DirectMeters": 3544.7534061681745,
+          "SharedWith": 0,
+          "Reassigned": false
+        },
+        {
+          "RequestID": 3,
+          "RequestedTick": 0,
+          "BoardedTick": 0,
+          "CompletedTick": 86609,
+          "RiddenMeters": 5865.947140018724,
+          "DirectMeters": 5865.947140018724,
+          "SharedWith": 0,
+          "Reassigned": false
+        },
+        {
+          "RequestID": 4,
+          "RequestedTick": 0,
+          "BoardedTick": 0,
+          "CompletedTick": 110157,
+          "RiddenMeters": 3846.3369039321424,
+          "DirectMeters": 3846.3369039321424,
+          "SharedWith": 0,
+          "Reassigned": false
+        },
+        {
+          "RequestID": 5,
+          "RequestedTick": 54000,
+          "BoardedTick": 62882,
+          "CompletedTick": -1,
+          "RiddenMeters": 0,
+          "DirectMeters": 0,
+          "SharedWith": 0,
+          "Reassigned": false
+        }
+      ]
+    },
+    {
+      "road_speed_mps": 14,
+      "queue_spacing": "compact-v1",
+      "offered": 5,
+      "submitted": 5,
+      "completed": 3,
+      "pending": 0,
+      "aboard": 2,
+      "observation_seconds": 2000.0,
+      "compact_active_ticks": 23630,
+      "largest_compact_group": 3,
+      "four_member_stopped_span_m": null,
+      "fifth_offer_pickup_seconds": 136.98333333333332,
+      "timings": [
+        {
+          "RequestID": 1,
+          "RequestedTick": 0,
+          "BoardedTick": 0,
+          "CompletedTick": -1,
+          "RiddenMeters": 0,
+          "DirectMeters": 0,
+          "SharedWith": 0,
+          "Reassigned": false
+        },
+        {
+          "RequestID": 2,
+          "RequestedTick": 0,
+          "BoardedTick": 0,
+          "CompletedTick": 62219,
+          "RiddenMeters": 3544.7534061681745,
+          "DirectMeters": 3544.7534061681745,
+          "SharedWith": 0,
+          "Reassigned": false
+        },
+        {
+          "RequestID": 3,
+          "RequestedTick": 0,
+          "BoardedTick": 0,
+          "CompletedTick": 88403,
+          "RiddenMeters": 5865.947140018724,
+          "DirectMeters": 5865.947140018724,
+          "SharedWith": 0,
+          "Reassigned": false
+        },
+        {
+          "RequestID": 4,
+          "RequestedTick": 0,
+          "BoardedTick": 0,
+          "CompletedTick": 111951,
+          "RiddenMeters": 3846.3369039321424,
+          "DirectMeters": 3846.3369039321424,
+          "SharedWith": 0,
+          "Reassigned": false
+        },
+        {
+          "RequestID": 5,
+          "RequestedTick": 54000,
+          "BoardedTick": 62219,
+          "CompletedTick": -1,
+          "RiddenMeters": 0,
+          "DirectMeters": 0,
+          "SharedWith": 0,
+          "Reassigned": false
+        }
+      ]
+    }
+  ],
+  "ordinary_per_request_timings_unchanged": true
+}

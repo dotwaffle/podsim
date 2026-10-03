@@ -176,11 +176,14 @@ func TestStationCompactRecoveringSnapshot(t *testing.T) {
 	}
 }
 
-// compactHeldDepartureQueue keeps a real idle pod at the berth until the test
-// requests its passenger journey. The four incoming trips have real riders.
+// compactHeldDepartureQueue prevents idle clearing by omitting outgoing roads.
+// The four incoming trips have real riders. Release restores the same prefix.
 func compactHeldDepartureQueue(t *testing.T) *Simulation {
 	t.Helper()
 	geometry := departingBufferQueue(t)
+	geometry.network.Lanes = slices.DeleteFunc(slices.Clone(geometry.network.Lanes), func(lane Lane) bool {
+		return lane.From == "market-exit" && lane.StationRole == ""
+	})
 	s := stageBufferFleet(t, geometry.network, geometry.initial, 4, false)
 	s.owners[resource{kind: berthResource, id: "market-1"}] = "05"
 	state := s.ExportState()
@@ -191,6 +194,23 @@ func compactHeldDepartureQueue(t *testing.T) *Simulation {
 		pod.LaneDistance = position
 	}
 	return compactRestore(t, s, state, StationQueueCompactV1)
+}
+
+func compactReleaseDepartureQueue(t *testing.T, s *Simulation, mode StationQueueSpacing) *Simulation {
+	t.Helper()
+	state := roundTripState(t, s.ExportState())
+	template := s.Clone()
+	template.network.Lanes = slices.Clone(s.network.Lanes)
+	for _, lane := range Example().Lanes {
+		if lane.From == "market-exit" && lane.StationRole == "" {
+			template.network.Lanes = append(template.network.Lanes, lane)
+		}
+	}
+	r := compactRestore(t, template, state, mode)
+	if !reflect.DeepEqual(state, r.ExportState()) {
+		t.Fatal("opening departure roads changed the physical prefix, proof, or riders")
+	}
+	return r
 }
 
 // Every checkpoint comes from the same real boarding and departure run.
@@ -240,6 +260,7 @@ func TestStationCompactColdDeparturePhases(t *testing.T) {
 				stopped = stopped && s.vehicles[index].Pod.Speed == 0
 			}
 			if stopped && s.vehicles[0].Pod.LaneDistance-s.vehicles[3].Pod.LaneDistance <= 3*compactQueueStandstillGap+1e-9 {
+				s = compactReleaseDepartureQueue(t, s, StationQueueCompactV1)
 				if err := s.RequestJourney("05", "harbor"); err != nil {
 					t.Fatal(err)
 				}
@@ -263,6 +284,9 @@ func TestStationCompactColdDeparturePhases(t *testing.T) {
 			t.Run(fmt.Sprintf("%s_%s", phase, mode), func(t *testing.T) {
 				t.Parallel()
 				r := compactRestore(t, checkpoint, state, mode)
+				if r.findVehicle("05").Pod.Activity == Idle {
+					r = compactReleaseDepartureQueue(t, r, mode)
+				}
 				if r.findVehicle("05").Pod.Activity == Idle {
 					if err := r.RequestJourney("05", "harbor"); err != nil {
 						t.Fatal(err)
