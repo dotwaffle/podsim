@@ -752,7 +752,8 @@ func (s *Simulation) move(v *vehicle) {
 	if v.Pod.LaneID == "" {
 		entered = current.lane
 	}
-	v.Pod.Speed = math.Min(v.Pod.Speed+acceleration*dt, math.Min(blocks.route[current.lane].SpeedLimit, math.Max(0, safe)))
+	speed := math.Min(v.Pod.Speed+acceleration*dt, math.Min(blocks.route[current.lane].SpeedLimit, math.Max(0, safe)))
+	v.Pod.Speed = blocks.speedBeforeLane(current.lane, v.distance, speed)
 	travel := math.Min(available, v.Pod.Speed*dt)
 	v.distance += travel
 	if limit-v.distance < 1e-5 {
@@ -780,6 +781,30 @@ func (s *Simulation) move(v *vehicle) {
 	s.recordLaneEntries(v, entered, lane)
 	v.Pod.LaneID, v.Pod.LaneDistance = blocks.route[lane].ID, v.distance-blocks.lanes[lane].start
 	v.Pod.Position = s.lanePosition(blocks.lanes[lane].geometry, &blocks.route[lane], v.Pod.LaneDistance)
+}
+
+// speedBeforeLane limits the next speed so a pod can brake before each
+// lower-speed lane. It checks lane starts, including lanes that one tick
+// can cross. Reservation cells do not bound this scan.
+func (l *blockList) speedBeforeLane(current int, distance, speed float64) float64 {
+	dt := 1.0 / TicksPerSecond
+	reach := speed*speed/(2*acceleration) + speed*dt
+	for lane := current + 1; lane < len(l.route); lane++ {
+		remaining := l.lanes[lane].start - distance
+		if remaining > reach {
+			break
+		}
+		limit := l.route[lane].SpeedLimit
+		if limit >= speed {
+			continue
+		}
+		// Above limit, the next stop point must stay before the lane start
+		// plus the stopping distance at limit. At limit, entry is allowed.
+		step := acceleration * dt
+		safe := math.Sqrt(step*step+limit*limit+2*acceleration*math.Max(0, remaining)) - step
+		speed = math.Min(speed, math.Max(limit, safe))
+	}
+	return speed
 }
 
 func (s *Simulation) releaseCleared() {
