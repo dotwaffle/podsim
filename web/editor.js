@@ -434,6 +434,7 @@
   }
 
   function fleetClassNotice(config) {
+    if (config.version === 4) return "New pods use legacy class. Express operation requires a qualified express-v1 runtime.";
     return config.version === 3 ? "New pods use legacy class. Import a project to set vehicle classes and express services. Express pods cannot start yet." : "";
   }
 
@@ -725,7 +726,7 @@
     }
     if (!("network" in document)) throw new Error("The file has no format field and no network field.");
     if (!isObject(document.network)) throw new Error("The network field must be an object.");
-    if (![1, 2, 3].includes(document.version)) throw new Error("The version field must be 1, 2, or 3.");
+    if (![1, 2, 3, 4].includes(document.version)) throw new Error("The version field must be 1, 2, 3, or 4.");
     return { scenario: clone(document), background: null };
   }
 
@@ -744,8 +745,9 @@
     }
     if (!deferMetadata) {
       if (typeof module !== "undefined" && module.exports) {
-        const { hasServiceMetadata } = require("./editor-service-reference.cjs");
-        if (hasServiceMetadata(scenario) && scenario.version !== 3) throw new Error("Vehicle and service fields require project version 3.");
+        const { serviceContractError } = require("./editor-service-reference.cjs");
+        const contractError = serviceContractError(scenario);
+        if (contractError) throw new Error(contractError);
       }
       const banked = (scenario.network?.Stations || []).filter((station) => station && Object.hasOwn(station, "Banks"));
       if (scenario.version === 1 && banked.length) throw new Error("Version 1 projects cannot contain station banks.");

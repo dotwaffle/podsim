@@ -36,7 +36,7 @@ func (command *Command) UnmarshalJSON(data []byte) error {
 	if err := decoder.Decode(new(any)); !errors.Is(err, io.EOF) {
 		return errors.New("send one command only")
 	}
-	if present && next.Action != "trip" {
+	if (present || next.OrderContract != "") && next.Action != "trip" {
 		return errors.New("order fields require a trip command")
 	}
 	if present {
@@ -44,7 +44,7 @@ func (command *Command) UnmarshalJSON(data []byte) error {
 		// command reply and does not change legacy HTTP rejection behavior.
 		options := sim.TripOptions{From: "origin", To: "destination", PartySize: next.PartySize,
 			SharingConsent: next.SharingConsent, Service: next.Service, ServiceID: next.ServiceID}
-		if _, err := sim.NormalizeTripOptions(options); err != nil {
+		if _, err := sim.NormalizeTripOptionsWithOrderContract(options, next.OrderContract); err != nil {
 			return err
 		}
 	}
@@ -62,7 +62,16 @@ func scanOrderFields(data []byte) (bool, error) {
 		// The typed decoder retains the existing non-object behavior.
 		return false, nil
 	}
-	seen := make(map[string]bool, 4)
+	seen := make(map[string]bool, 5)
+	var marker struct {
+		OrderContract sim.OrderContract `json:"orderContract"`
+	}
+	if err := json.Unmarshal(data, &marker); err != nil {
+		return false, err
+	}
+	if err := sim.ValidateOrderContract(marker.OrderContract); err != nil {
+		return false, err
+	}
 	for decoder.PeekKind() != jsontext.KindEndObject {
 		token, err := decoder.ReadToken()
 		if err != nil {
@@ -74,11 +83,25 @@ func scanOrderFields(data []byte) (bool, error) {
 			return false, err
 		}
 		switch name {
-		case "partysize", "sharingconsent", "service", "serviceid":
+		case "ordercontract", "partysize", "sharingconsent", "service", "serviceid":
 			if seen[name] {
 				return false, fmt.Errorf("duplicate order field %s", name)
 			}
 			seen[name] = true
+			if name == "ordercontract" {
+				var contract sim.OrderContract
+				if string(raw) == "null" || json.Unmarshal(raw, &contract) != nil || contract != sim.ExpressOrderContract {
+					return false, errors.New("invalid trip order contract")
+				}
+				continue
+			}
+			if name == "partysize" && marker.OrderContract == sim.ExpressOrderContract {
+				var size int
+				if json.Unmarshal(raw, &size) != nil || size < 1 || size > 20 {
+					return false, errors.New("party size must be 1 to 20")
+				}
+				continue
+			}
 			if err := validateExplicitOrderField(name, raw); err != nil {
 				return false, err
 			}

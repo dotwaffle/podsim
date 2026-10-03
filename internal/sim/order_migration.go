@@ -4,12 +4,16 @@ import (
 	"errors"
 	"fmt"
 	"slices"
+	"unicode/utf8"
 )
 
 // MigrateLegacyOrderState copies an old save's orders without inventing consent.
 // Call only for formats that predate effective order options. Native restore
 // requires effective options and does not perform this migration implicitly.
 func MigrateLegacyOrderState(state SavedState) (SavedState, error) {
+	if state.OrderContract != "" {
+		return SavedState{}, errors.New("legacy migration cannot accept an order contract")
+	}
 	next := state
 	if state.Demo != nil {
 		next.Demo = new(*state.Demo)
@@ -62,11 +66,17 @@ func legacyRequest(request SavedRequest) error {
 	return nil
 }
 
-func validSavedOptions(request SavedRequest) bool {
+func validSavedOptionsWithOrderContract(request SavedRequest, contract OrderContract) bool {
+	if contract == ExpressOrderContract && (!utf8.ValidString(request.From) || !utf8.ValidString(request.To) || !utf8.ValidString(request.ServiceID) || !utf8.ValidString(request.PodID) || !utf8.ValidString(request.DispatchReason)) {
+		return false
+	}
+	if ValidateOrderContract(contract) != nil {
+		return false
+	}
 	if request.SharingConsent != PrivateConsent && request.SharingConsent != SharedConsent && request.SharingConsent != LegacyUnknownConsent {
 		return false
 	}
-	if request.LegacyPartySize != (request.PartySize > MaxNewPartySize) {
+	if request.LegacyPartySize && request.PartySize <= MaxNewPartySize || !request.LegacyPartySize && request.PartySize > newPartyLimit(contract) {
 		return false
 	}
 	if request.LegacyPartySize && request.SharingConsent == SharedConsent {
@@ -78,8 +88,8 @@ func validSavedOptions(request SavedRequest) bool {
 	return request.Service == ExpressServiceChoice && request.SharingConsent == SharedConsent && validOrderID(request.ServiceID)
 }
 
-func checkSavedAdmission(pod SavedPod, active []SavedRequest) error {
-	if err := ValidateVehicleClassProfile(pod.Class); err != nil {
+func checkSavedAdmissionWithOrderContract(pod SavedPod, active []SavedRequest, contract OrderContract) error {
+	if err := ValidateVehicleClassProfileWithOrderContract(pod.Class, contract); err != nil {
 		return err
 	}
 	if pod.LegacyCohort {
@@ -94,6 +104,12 @@ func checkSavedAdmission(pod SavedPod, active []SavedRequest) error {
 		return nil
 	}
 	for _, rider := range pod.Riders {
+		if contract == ExpressOrderContract {
+			profile, _ := LookupVehicleClassWithOrderContract(pod.Class, contract)
+			if rider.PartySize > profile.MaxNewPartySize || rider.LegacyPartySize {
+				return ErrPartyAdmission
+			}
+		}
 		if rider.SharingConsent == LegacyUnknownConsent {
 			return errors.New("historical unknown consent needs a closed legacy cohort")
 		}
@@ -106,14 +122,18 @@ func checkSavedAdmission(pod SavedPod, active []SavedRequest) error {
 		facts = append(facts, PartyFacts{TripOptions: Request(rider).options()})
 	}
 	last := Request(active[len(active)-1])
-	return CheckPartyAdmission(PartyAdmissionInput{Class: pod.Class, Request: last.options(), Active: facts, PartyLimit: MaxSharedRideParties})
+	limit := MaxSharedRideParties
+	if last.Service == ExpressServiceChoice {
+		limit = MaxExpressParties
+	}
+	return CheckPartyAdmissionWithOrderContract(PartyAdmissionInput{Class: pod.Class, Request: last.options(), Active: facts, PartyLimit: limit}, contract)
 }
 
 // checkSavedClasses prevents logical fallback from accepting an unapproved
 // profile, a changed immutable class, or a declared incompatible endpoint.
 func (s *Simulation) checkSavedClasses(state SavedState) error {
 	for _, pod := range state.Pods {
-		if err := ValidateVehicleClassProfile(pod.Class); err != nil {
+		if err := ValidateVehicleClassProfileWithOrderContract(pod.Class, s.orderContract); err != nil {
 			return err
 		}
 		if v := s.findVehicle(pod.ID); v != nil && effectiveClass(v.Pod.Class) != effectiveClass(pod.Class) {

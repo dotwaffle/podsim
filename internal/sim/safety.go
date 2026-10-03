@@ -38,7 +38,7 @@ func (o SafetyObservation) Check() (float64, error) {
 			return 0, fmt.Errorf("invalid pod at tick %d: %+v", o.Tick, pod)
 		}
 		if largeVehicleClass(pod.Class) {
-			if err := ValidateVehicleClassProfile(pod.Class); err != nil {
+			if err := ValidateVehicleClassProfileWithOrderContract(pod.Class, o.OrderContract); err != nil {
 				return 0, fmt.Errorf("invalid pod at tick %d: %w", o.Tick, err)
 			}
 		}

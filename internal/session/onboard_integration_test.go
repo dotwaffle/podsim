@@ -332,7 +332,7 @@ func onboardConsumerEnvelope(t *testing.T, envelope StreamEnvelope) StreamEnvelo
 	if err != nil {
 		t.Fatal(err)
 	}
-	decoded, err := DecodeStreamJSONVersion(raw, StreamVersion)
+	decoded, err := DecodeStreamJSONVersion(raw, FoundationStreamVersion)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -342,8 +342,8 @@ func onboardConsumerEnvelope(t *testing.T, envelope StreamEnvelope) StreamEnvelo
 func TestOnboardConsumerStreamLifecycle(t *testing.T) {
 	t.Parallel()
 	s, prior := newOnboardConsumerRide(t)
-	assembler, err := NewStreamAssemblerVersion(s.Topology(), StreamVersion)
-	if err != nil || StreamVersion != 3 {
+	assembler, err := NewStreamAssemblerVersion(s.Topology(), FoundationStreamVersion)
+	if err != nil || FoundationStreamVersion != 3 {
 		t.Fatalf("hello3 topology: %v", err)
 	}
 	envelope := onboardConsumerEnvelope(t, StreamEnvelope{Kind: "full", Stream: "occupied", Sequence: 1, Source: sourceOf(prior), Build: prior.State.Build, Full: &prior})

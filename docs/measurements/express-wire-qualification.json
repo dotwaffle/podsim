@@ -1,0 +1,1360 @@
+{
+  "format": "podsim-express-wire-qualification-v1",
+  "created_utc": "2026-10-03T21:58:02.056754+00:00",
+  "base": "27981fe35c9f2a7644327033405fcbf1a1130338",
+  "scope": [
+    "internal/session",
+    "internal/remote"
+  ],
+  "status": "qualified wire behavior; resource limitations disclosed; physical qualification separate",
+  "versions": {
+    "foundation_project": [
+      1,
+      2,
+      3
+    ],
+    "foundation_save": [
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "foundation_hello": [
+      1,
+      2,
+      3
+    ],
+    "express_project": 4,
+    "express_save": 7,
+    "express_hello": 4,
+    "order_contract": "express-v1",
+    "text_encoding": "order-text-base64-v1",
+    "http_media_type": "application/vnd.podsim.express-v1+json"
+  },
+  "caps": {
+    "save_raw_bytes": 83886080,
+    "save_gzip_bytes": 83886080,
+    "stream_raw_bytes": 67108864,
+    "stream_binary_bytes": 68157440,
+    "topology_entire_bytes": 10489856,
+    "project_bytes": 10485760,
+    "session_admission_queue": 200,
+    "fleet": 300,
+    "registry": 300,
+    "foundation_saved_pending": 2600,
+    "express_pending": 8600,
+    "express_aggregate_outstanding": 8600,
+    "express_stored_riders": 20,
+    "other_stored_riders": 8
+  },
+  "text_bounds": {
+    "From": 64,
+    "To": 64,
+    "PodID": 64,
+    "DispatchReason": 1024,
+    "ServiceID": 64,
+    "encoded_id_token_characters": 88,
+    "encoded_reason_token_characters": 1368,
+    "encoding": "strict standard-alphabet RFC4648 padded base64, literal JSON strings, valid decoded UTF-8; no raw fallback"
+  },
+  "source_pins": {
+    "internal/remote/client.go": "29bc0e19c19fc3dfb56276202110e6fabb7ddb065cd03182ab0ac5904bf76a5a",
+    "internal/remote/client_test.go": "64dc9ea5ef193767c46c7d2d6d0d24dc631e65697c93f7a16e9749b1f789490b",
+    "internal/remote/express_http.go": "8dd03c109f3fe6411f6ef9ebd03e8f7ab56c1c103338e3cbc582fc087fe6fa2f",
+    "internal/remote/express_http_test.go": "5261ee557ea8fad3a6f2c2844e63a11bf84ab41e793fa8591542144ddaa5f3ad",
+    "internal/remote/express_stream_test.go": "fc6d6e677a62d311a45753852827705da1fd8bee9603a8f514e23a9b85eaafeb",
+    "internal/remote/stream.go": "24c0667226878c70fe56d599b11136f1a4630269629da23952d9b30cbd54661b",
+    "internal/remote/stream_test.go": "093c1fa151669d8ef9746d4c9e559a87538cf7db7bbcfcd1c73221c18736a0db",
+    "internal/session/boarding_state.go": "94ed8a95163fece1d6b03ee4df694aaff373c6514d32894b5c576aaea6fcddac",
+    "internal/session/buffer_state_test.go": "b6fa4aba84f01ddd11c9e6c887b6ed0cfd8262a300184818a93b40762c5f7ccb",
+    "internal/session/express_bytes_test.go": "5f4eab15a945ec4766db6d234f93624fc2c8acf48a84552bf22165b4822e9cff",
+    "internal/session/express_entropy_test.go": "7f4c06e581d227a530c5f9eaeeb19cbee7335fa91f1294a30a404bbe806e5631",
+    "internal/session/express_guards_test.go": "be7415e5937fe571d683042a8a594a5df70f98e67dc81aa19ae292391150e995",
+    "internal/session/express_orders.go": "93a1fae2d5e2dd84fcaace5a10eeec8511843507b5113035de6d61037112ec48",
+    "internal/session/express_text.go": "9648508ab90c080ab41738f941cae3d07d8058bbaa7e0281b11c797c9147f4e7",
+    "internal/session/express_text_test.go": "fb92b0d11054e9fd2606e8268d095f7113ec47f4f3fbb93b7acb7c99c59c7f95",
+    "internal/session/express_wire.go": "96b8ed60dfdd3b50b8714588d004282cf601aa2d0ac4cce384161ea0878fa9d6",
+    "internal/session/express_wire_test.go": "c1fb58d94d4a28b2829ec35ce5b2a192b2754a221355eae4d0ac50838ab93fd0",
+    "internal/session/http.go": "1c751b6b0f887161caee536cfb0591cb10299de4cb7158757e64bfeeb47560a3",
+    "internal/session/onboard_integration_test.go": "151d34e350e8b3ab95e2c4b34e51c6b05be83fed2c52a491ecbce119e70f881e",
+    "internal/session/order_command.go": "305bfae3e368b1700dfd7c15291a2f6db12ff1b0fc4bb10a743f4f02d12129b5",
+    "internal/session/order_state.go": "7dd55a15d5dc5c58cf6202433286505582529219aafbb0257f7b6a6c5c99220e",
+    "internal/session/order_state_test.go": "087c354065d6bdb69ca51d6a364215cc9724fcb55840cb8a62d7fed16cad49f1",
+    "internal/session/origin_test.go": "09eb575aebecc03b6bbee007e4c62f2917f22c6bab4fa44ce6e6f67309ef7af7",
+    "internal/session/persist.go": "1d2855744861b16547116d4d367441222e3badbdd9384cb716593d31625cf1ce",
+    "internal/session/persist_test.go": "cb92718df2725577a3eb20d989a9477c2aa80829e52b7207df3425b0dc1df909",
+    "internal/session/protocol.go": "03c714b2c528cc41ad347651dba3f9887170970d5dab6035fd269aec87381f16",
+    "internal/session/session.go": "05cbeada9c486d8f7876ff3a245c5ddb0602f9b0c2dd491794c7f890959fc2b1",
+    "internal/session/state_file.go": "7360132516df36671b37540b3fa4b10e5051b839fc4f9f5de8be250940cfb157",
+    "internal/session/state_file_test.go": "018e4fd8c4a2f0a61d429bceeb2d082204b02224c830cb06bb089a642f01317a",
+    "internal/session/stream.go": "9a9e18a32b307aaa0ef7115a7784ab2b9bc1772d528b914f7867dca07b30bc8d",
+    "internal/session/stream_boardings.go": "c91839893b2263b84a6addabf5c17449a4b8bd39f9268b893d6628530d8418d4",
+    "internal/session/stream_codec.go": "d2c6f7732b8beb079eccdd5692078e97d071d581849de3fb4bd96e09d9e21251",
+    "internal/session/stream_frame.go": "5aacc5adcc33f79aa1814d8812f447964bd1f85a8baab6896c410683ef1b0195",
+    "internal/session/stream_group.go": "686f030595808aab770296fb3e6ca505b9afd9770f32dadb5038d79dd4f65a8c",
+    "internal/session/stream_service.go": "1a4908f50a777a822933c40a8f697171166e4938a3f2405f46d3d4b5ba365038",
+    "internal/session/stream_test.go": "45b24f91ebe1c72d46ea8dceedce84e0c19c354347d52db3673bf666bc33a91c",
+    "internal/session/topology_decode.go": "9b13da100064578fbc85c963b0da831f9defa0fd0f864cdcb92e723ed706b326"
+  },
+  "native_dependency": {
+    "version": "v6",
+    "patch_sha256": "23dce88beff75fa15ef7b8f065be25a0e9740fcb51bbfc5078c6bcd583810cc1",
+    "source_pins": {
+      "internal/project/banks.go": "4f1d9d3c2b32b080c6a43d56ac5af697ad9a430012bcbb059d37563a86afaa94",
+      "internal/project/config.go": "c65775a4535f4676e15a9b61c3c353d7b3e116ce02835e6b7fa3a2967ce8a78a",
+      "internal/project/service.go": "bcabd3a792a995ed30948e9d23b07ee7c2af2af3b8627f118060cbdb0dd78c82",
+      "internal/sim/dispatch.go": "ee1d58c3c7e35bf961d6f6faabf3b01ce4d3c5c984aff35ac2989717ca80e954",
+      "internal/sim/onboard_pickups.go": "0b714b6c9fddd3774901da8e071de88c3b203640994d103d07654f655aa8b4c0",
+      "internal/sim/order_contract.go": "13611c74d3749b2e6aade7e6b7c6b50fabe0e32e716c27faaef5607244c580a9",
+      "internal/sim/order_contract_bounds.go": "69552469444d014898d0071976f51559f18a93898f02c7bbbfba9cdddbf74d4d",
+      "internal/sim/order_contract_restore.go": "d079fadd8f47436f10258bbd63afed45ee7028c19f1e3d0a7f6fbf5cd2803d12",
+      "internal/sim/order_migration.go": "9375664b17987d178dd815b3fa537678dd87dae5bcb6e36eb5a167d7fbc6c9ed",
+      "internal/sim/order_options.go": "a22bbb4a4a1f0e6fdc361ed4a9bbf7df7667cf3e0afd3729adb8f1724af3e998",
+      "internal/sim/prepared.go": "5a6b1dd8082aa74a1923827cb958193b32ae3d8d342793e2410e51f698ddee6f",
+      "internal/sim/safety.go": "8d62346cac729aed5c57037c7db661e95949efd56984b477343d5366f6ee5f0d",
+      "internal/sim/simulation.go": "ae457e25a2c1e7d853ba428a99e6df862487f0bc2b87438f94b9f000d620cc45",
+      "internal/sim/state.go": "219dc6b92de4ead0fedbe8c411e5d609ebaafe13f9cd4dfee38c40bfbf998922",
+      "internal/sim/state_boarding.go": "c6803cc7ed8887520d45e90f09a09ef72814f5eab7f4320539885bf6eedaf283",
+      "internal/sim/state_contract.go": "e04ea8bae97a6907efd5bb1969fbe3a3cd89e6a10920139fae830798160406ac",
+      "internal/sim/state_physical.go": "48d08eb953d12aed219961ec036708a41876c75aa622c02583c660549ca8ca7f",
+      "internal/sim/step_completions.go": "9b93d87ac086c771c749a388c1c4465b7c2e70c0781091bb5097cc91207ccc72",
+      "internal/sim/trip_admission.go": "dac6a47c16b293c9b26edc7ea1a0f01dd49f5b38869bbaa0fccba6054e40d30c"
+    },
+    "unowned_excluded_from_patch": true,
+    "patch_path": "/home/dotwaffle/.cache/agents/podsim/continuation-express-batch-20261003/native/dependency-v6.patch",
+    "canonical_helper_prerequisite_commit": "d95137591209f9f279546b9b200e5b950b1c9193"
+  },
+  "compatibility_bridge": {
+    "measured_native_dependency": "v3",
+    "measured_native_patch_sha256": "715e1bd29743c5defb7d2b3e8c11b826de62e640a23049e3121d9fea4b3985ef",
+    "browser_session_overlay": "v2",
+    "browser_session_patch_sha256": "c06c6e581452d2a31f16350606596d885c913ee6dbda7f8b385b5f64d94fd5a7",
+    "final_native_dependency": "v6",
+    "native_semantic_delta": "none; lint/error text/comments/unused private wrappers and canonical decoder helper prerequisite",
+    "owned_runtime_delta_since_browser": "lint formatting, error case, equivalent explicit foundation wrapper calls; public API and decoder semantics unchanged",
+    "final_gate_names": [
+      "bridge-final-v6",
+      "foundation-bytes-final-v6",
+      "diagnostics-final-v6",
+      "vet-final-v6",
+      "lint-final-v6"
+    ]
+  },
+  "assets": [
+    {
+      "path": "assets/delta-entropy.json",
+      "bytes": 31412372,
+      "sha256": "efd73595016cf636e48853a6cb9d15715a318f02a7c4657109c3aa329cfe2048",
+      "native_dependency": "v3",
+      "identity_reachability": "independent wire-field shape; not a unique accepted-identity or reachable physical proof"
+    },
+    {
+      "path": "assets/delta-entropy.json.gz",
+      "bytes": 14976785,
+      "sha256": "0ca63adc5da485126dee28731d74f209a1af975d1e65ca2c6cb732aadcc2dcef",
+      "native_dependency": "v3",
+      "identity_reachability": "independent wire-field shape; not a unique accepted-identity or reachable physical proof"
+    },
+    {
+      "path": "assets/delta.json",
+      "bytes": 54774741,
+      "sha256": "590c1a66fd387659598fc267fcfa695c71c9b4ec2fd7a911787d1587392012d7",
+      "native_dependency": "v3",
+      "identity_reachability": "independent wire-field shape; not a unique accepted-identity or reachable physical proof"
+    },
+    {
+      "path": "assets/delta.json.gz",
+      "bytes": 568027,
+      "sha256": "0cc7640ad4f102f32a1165e976bbd77e61d6823efa15819b84c7caadb0acb6e9",
+      "native_dependency": "v3",
+      "identity_reachability": "independent wire-field shape; not a unique accepted-identity or reachable physical proof"
+    },
+    {
+      "path": "assets/full-entropy.json",
+      "bytes": 54641672,
+      "sha256": "a5dd62d3a3d9fe0ec4c1172d1356a8444861a905c66e99b1d07bf95f61011281",
+      "native_dependency": "v3",
+      "identity_reachability": "independent wire-field shape; not a unique accepted-identity or reachable physical proof"
+    },
+    {
+      "path": "assets/full-entropy.json.gz",
+      "bytes": 15255169,
+      "sha256": "da040eaea05e23c850fab5e1e6ba3cc0ec76090a2414af5cb11ee47c82a11fe4",
+      "native_dependency": "v3",
+      "identity_reachability": "independent wire-field shape; not a unique accepted-identity or reachable physical proof"
+    },
+    {
+      "path": "assets/full.json",
+      "bytes": 54641672,
+      "sha256": "1ec643d40d8bc676a44f7843f67a03a821829d50a2e96f43ff5ad5c940876126",
+      "native_dependency": "v3",
+      "identity_reachability": "independent wire-field shape; not a unique accepted-identity or reachable physical proof"
+    },
+    {
+      "path": "assets/full.json.gz",
+      "bytes": 574732,
+      "sha256": "f9c739b405992e73bd13acf086a1c3092ac139690e3eeea2ea9bd49f393ece71",
+      "native_dependency": "v3",
+      "identity_reachability": "independent wire-field shape; not a unique accepted-identity or reachable physical proof"
+    },
+    {
+      "path": "assets/http-entropy.json",
+      "bytes": 63279337,
+      "sha256": "0fb15d55b4deeab00463d8e3f3e874d80067a94bd76ef0db6a0b6caffe5c5a51",
+      "native_dependency": "v3",
+      "identity_reachability": "independent wire-field shape; not a unique accepted-identity or reachable physical proof"
+    },
+    {
+      "path": "assets/http-entropy.json.gz",
+      "bytes": 25381458,
+      "sha256": "de2879a0a0bf5e02d32b82e98d06178b46e938715556573aaf5376c7cbfb3899",
+      "native_dependency": "v3",
+      "identity_reachability": "independent wire-field shape; not a unique accepted-identity or reachable physical proof"
+    },
+    {
+      "path": "assets/http.json",
+      "bytes": 63279337,
+      "sha256": "da19b598bb3dbc2470504fa9e2a731faa8cc9cf6285dba76497098e0ac703626",
+      "native_dependency": "v3",
+      "identity_reachability": "independent wire-field shape; not a unique accepted-identity or reachable physical proof"
+    },
+    {
+      "path": "assets/http.json.gz",
+      "bytes": 10689140,
+      "sha256": "69e2c51782b41efcb3022a470023010b658b3ceb7fbd6fbe55854b879c977651",
+      "native_dependency": "v3",
+      "identity_reachability": "independent wire-field shape; not a unique accepted-identity or reachable physical proof"
+    },
+    {
+      "path": "assets/reference-full.json",
+      "bytes": 52879647,
+      "sha256": "dc3e35bf479e4af520bfaaffce9271674b020efac4feba946297951a7a0c2ab6",
+      "native_dependency": "v3",
+      "identity_reachability": "independent wire-field shape; not a unique accepted-identity or reachable physical proof"
+    },
+    {
+      "path": "assets/save-entropy.json",
+      "bytes": 77043290,
+      "sha256": "624b674f7f0e78c82cef7eb18f4821369541f8e01df30c5d68638a867c222cba",
+      "native_dependency": "v3",
+      "identity_reachability": "independent wire-field shape; not a unique accepted-identity or reachable physical proof"
+    },
+    {
+      "path": "assets/save-entropy.json.gz",
+      "bytes": 15628684,
+      "sha256": "41608431a0204274680d3458e0e01bd97c03768f5bfbdb15e5def9895e794e83",
+      "native_dependency": "v3",
+      "identity_reachability": "independent wire-field shape; not a unique accepted-identity or reachable physical proof"
+    },
+    {
+      "path": "assets/save-mixed.json",
+      "bytes": 77020430,
+      "sha256": "5df66d96afaa82f1741c102e595465f5f185f37daeb41c0e731bdca9a82e7a5a",
+      "native_dependency": "v3",
+      "identity_reachability": "independent wire-field shape; not a unique accepted-identity or reachable physical proof"
+    },
+    {
+      "path": "assets/save-mixed.json.gz",
+      "bytes": 817967,
+      "sha256": "cc18d3df9b062aad74d41147fe1fd55c2c6dfda7960fcd646adab6b3a396e553",
+      "native_dependency": "v3",
+      "identity_reachability": "independent wire-field shape; not a unique accepted-identity or reachable physical proof"
+    },
+    {
+      "path": "assets/save-modern.json",
+      "bytes": 77043290,
+      "sha256": "31e6a571a0eaa30b70c02cebb47b2c847e42533764145e7c77463c43cf017305",
+      "native_dependency": "v3",
+      "identity_reachability": "independent wire-field shape; not a unique accepted-identity or reachable physical proof"
+    },
+    {
+      "path": "assets/save-modern.json.gz",
+      "bytes": 818840,
+      "sha256": "5fb9b9684cfbebf9e898b5c3084ed435c92d1c0ff66b3fcf79bdef9977c08be1",
+      "native_dependency": "v3",
+      "identity_reachability": "independent wire-field shape; not a unique accepted-identity or reachable physical proof"
+    },
+    {
+      "path": "assets/successor-delta.json",
+      "bytes": 16909033,
+      "sha256": "690a8dfb81d494b3db516f5f0ebbf2d3d83f55243a826add79899da1fe7bed04",
+      "native_dependency": "v3",
+      "identity_reachability": "independent wire-field shape; not a unique accepted-identity or reachable physical proof"
+    },
+    {
+      "path": "assets/topology.json",
+      "bytes": 10399903,
+      "sha256": "8e5cc6c79216f2807d470aa876d38d4c23fc33762c2307ab9cee9e43b3041413",
+      "native_dependency": "v3",
+      "identity_reachability": "independent wire-field shape; not a unique accepted-identity or reachable physical proof"
+    }
+  ],
+  "foundation_fixture_parity": {
+    "base": "27981fe35c9f2a7644327033405fcbf1a1130338",
+    "fixtures": [
+      {
+        "path": "internal/project/testdata/group_public.json",
+        "bytes": 6543,
+        "sha256": "f3cb1e4b4a6f3ed30be0dc638af22eec5c7f076ce70b3651b199b6184454a6c9",
+        "unchanged_from_base": true
+      },
+      {
+        "path": "internal/session/testdata/state_v2.json",
+        "bytes": 11464,
+        "sha256": "fdcab65f027df569127af12f235f57e54f160fd615a8db6ab6de2b41eeb258a7",
+        "unchanged_from_base": true
+      },
+      {
+        "path": "internal/session/testdata/state_v2_members.txt",
+        "bytes": 8808,
+        "sha256": "ca00bef8ffc6bf523c413e87f1e57919c4d533915b57430f220caca7ad0267d2",
+        "unchanged_from_base": true
+      },
+      {
+        "path": "internal/session/testdata/state_v6.json",
+        "bytes": 11691,
+        "sha256": "30aa5f3be8459fb43ea6b676dfb21589d0f1bc06f856941cb4e1d64ed729e58e",
+        "unchanged_from_base": true
+      },
+      {
+        "path": "internal/session/testdata/state_v6_members.txt",
+        "bytes": 10829,
+        "sha256": "56aa6d950de293f89820f5b750fd19f82df8a5062718b5c20600da752f62b8af",
+        "unchanged_from_base": true
+      }
+    ],
+    "count": 5
+  },
+  "native_resources": [
+    {
+      "gate": "widest-adapters-05",
+      "wall_seconds": 23.35,
+      "peak_rss_kib": 1623612
+    },
+    {
+      "gate": "retained-native-01",
+      "wall_seconds": 7.09,
+      "peak_rss_kib": 2684492
+    },
+    {
+      "gate": "entropy-production-02",
+      "wall_seconds": 20.72,
+      "peak_rss_kib": 1695560
+    }
+  ],
+  "browser": {
+    "chromium": "143.0.7499.4",
+    "playwright": "1.57.0",
+    "gogc": 100,
+    "platform": "linux",
+    "architecture": "x64",
+    "peakBrowserRSSKiB": 2760204,
+    "stages": [
+      {
+        "name": "topology",
+        "millis": 2054.000128,
+        "heapAlloc": 168687368,
+        "heapSys": 171245568,
+        "totalAlloc": 306694432
+      },
+      {
+        "name": "full",
+        "millis": 9385.299968,
+        "heapAlloc": 1004516744,
+        "heapSys": 1107623936,
+        "totalAlloc": 2760273072
+      },
+      {
+        "name": "replacement",
+        "millis": 2363.099648,
+        "heapAlloc": 1110586920,
+        "heapSys": 1153761280,
+        "totalAlloc": 3058380336
+      },
+      {
+        "name": "http",
+        "millis": 14434.4,
+        "heapAlloc": 2282777360,
+        "heapSys": 2433024000,
+        "totalAlloc": 5833818328
+      }
+    ],
+    "heartbeat": {
+      "count": 14,
+      "maxGap": 14136.099999427795,
+      "over50": 8,
+      "over250": 4,
+      "over1000": 4
+    },
+    "wasm_memory_bytes": 2457337856,
+    "wire_bytes": {
+      "topology": 10399903,
+      "full": 52879647,
+      "delta": 16909033,
+      "http": 63279337
+    },
+    "errors": [],
+    "source_pins": {
+      "/wasm_exec.js": {
+        "bytes": 16992,
+        "sha256": "0c949f4996f9a89698e4b5c586de32249c3b69b7baadb64d220073cc04acba14"
+      },
+      "/driver.wasm": {
+        "bytes": 12658050,
+        "sha256": "ec06985e5e7f7de505de6f41e0c21e6b4e452049801b8d1cb872568dd82cc69b"
+      },
+      "/assets/topology.json": {
+        "bytes": 10399903,
+        "sha256": "8e5cc6c79216f2807d470aa876d38d4c23fc33762c2307ab9cee9e43b3041413"
+      },
+      "/assets/reference-full.json": {
+        "bytes": 52879647,
+        "sha256": "dc3e35bf479e4af520bfaaffce9271674b020efac4feba946297951a7a0c2ab6"
+      },
+      "/assets/successor-delta.json": {
+        "bytes": 16909033,
+        "sha256": "690a8dfb81d494b3db516f5f0ebbf2d3d83f55243a826add79899da1fe7bed04"
+      },
+      "/assets/http.json": {
+        "bytes": 63279337,
+        "sha256": "da19b598bb3dbc2470504fa9e2a731faa8cc9cf6285dba76497098e0ac703626"
+      }
+    },
+    "classification": "functional pass with blocking cost; no responsive-use or deployment claim"
+  },
+  "node_wasm": {
+    "production_gogc": 100,
+    "production_result": "PASS",
+    "production_seconds": 29.204,
+    "high_gc_gogc": 400,
+    "high_gc_result": "OOM during HTTP assembly",
+    "high_gc_wasm_memory_bytes": 4251254784,
+    "different_retention_shape": "Node public test retains raw and generated successor plus multiple owned states; Chromium fetches preencoded successor"
+  },
+  "root_receipts": {
+    "chromium-public-v1/receipt.json": {
+      "path": "/home/dotwaffle/.cache/agents/podsim/continuation-express-batch-20261003/root/chromium-public-v1/receipt.json",
+      "sha256": "0436438b5f73810d49de32d80643526716cd81fe35817b5ffc674a1ce5b446b8",
+      "bytes": 53434
+    },
+    "chromium-public-v1/manifest.json": {
+      "path": "/home/dotwaffle/.cache/agents/podsim/continuation-express-batch-20261003/root/chromium-public-v1/manifest.json",
+      "sha256": "06a00d3fec04059e3bdd8edf29eab0d4bb9436e0bd0dcd418f218c5a549cda13",
+      "bytes": 2014
+    },
+    "wasm-public-retention-v2.run.json": {
+      "path": "/home/dotwaffle/.cache/agents/podsim/continuation-express-batch-20261003/root/wasm-public-retention-v2.run.json",
+      "sha256": "272c1fac2768854e39b1cfe6eb32eacf8ad9ccc4e793e7ca442f49b9df73298f",
+      "bytes": 1480
+    },
+    "wasm-public-retention-v2.log": {
+      "path": "/home/dotwaffle/.cache/agents/podsim/continuation-express-batch-20261003/root/wasm-public-retention-v2.log",
+      "sha256": "fabd81a55638933fc5f7161b2d76c052b158ddc8a55845f5a54dbff4ce464f20",
+      "bytes": 11138
+    },
+    "wasm-public-retention-v2-production-gc.run.json": {
+      "path": "/home/dotwaffle/.cache/agents/podsim/continuation-express-batch-20261003/root/wasm-public-retention-v2-production-gc.run.json",
+      "sha256": "f718352f43e098eb58c39900366d926f09555837d4ab61b05bd2b35511c7941e",
+      "bytes": 1547
+    },
+    "wasm-public-retention-v2-production-gc.log": {
+      "path": "/home/dotwaffle/.cache/agents/podsim/continuation-express-batch-20261003/root/wasm-public-retention-v2-production-gc.log",
+      "sha256": "12a03fba71d061fa5811d4fe50cdfdcc5fff8e7a52523ac0a173b1ca076237a7",
+      "bytes": 579
+    },
+    "live-express-ui-v6/receipt.json": {
+      "path": "/home/dotwaffle/.cache/agents/podsim/continuation-express-batch-20261003/root/live-express-ui-v6/receipt.json",
+      "sha256": "23eaed917074a6d89a07970fea486bf67e3179b53a4ed77c47b404221bdcd287",
+      "bytes": 2337
+    },
+    "live-express-ui-v6/source-pins.json": {
+      "path": "/home/dotwaffle/.cache/agents/podsim/continuation-express-batch-20261003/root/live-express-ui-v6/source-pins.json",
+      "sha256": "e54741db9b2d8e314a7df847412fbc1943c1e64a98b68a799e684c983a74d82f",
+      "bytes": 56067
+    },
+    "live-express-ui-v6/manifest.json": {
+      "path": "/home/dotwaffle/.cache/agents/podsim/continuation-express-batch-20261003/root/live-express-ui-v6/manifest.json",
+      "sha256": "5fab648776d109256eb2324059954e4d71d800527521eddcc48aac2ff16f9146",
+      "bytes": 13449
+    }
+  },
+  "gates": [
+    {
+      "name": "ack-baseline-02",
+      "exit": 0,
+      "status": "terminal",
+      "elapsed_seconds": 0.715153,
+      "start_utc": "2026-10-03T21:40:37.655733+00:00",
+      "end_utc": "2026-10-03T21:40:38.370886+00:00",
+      "watchdog_deadline_utc": "2026-10-03T21:43:37.655733+00:00",
+      "pid_namespace": "pid:[4026533976]"
+    },
+    {
+      "name": "bridge-final-v6",
+      "exit": 0,
+      "status": "terminal",
+      "elapsed_seconds": 3.721559,
+      "start_utc": "2026-10-03T21:53:27.372695+00:00",
+      "end_utc": "2026-10-03T21:53:31.094254+00:00",
+      "watchdog_deadline_utc": "2026-10-03T21:56:27.372695+00:00",
+      "pid_namespace": "pid:[4026532943]"
+    },
+    {
+      "name": "compatibility-02",
+      "exit": 0,
+      "status": "terminal",
+      "elapsed_seconds": 6.424266,
+      "start_utc": "2026-10-03T20:41:10.580436+00:00",
+      "end_utc": "2026-10-03T20:41:17.004702+00:00",
+      "watchdog_deadline_utc": "2026-10-03T20:44:10.580436+00:00",
+      "pid_namespace": "pid:[4026534351]"
+    },
+    {
+      "name": "dependency-export-v1",
+      "exit": 0,
+      "status": "terminal",
+      "elapsed_seconds": 0.466172,
+      "start_utc": "2026-10-03T21:04:06.903663+00:00",
+      "end_utc": "2026-10-03T21:04:07.369835+00:00",
+      "watchdog_deadline_utc": "2026-10-03T21:06:06.903663+00:00",
+      "pid_namespace": "pid:[4026534041]"
+    },
+    {
+      "name": "diagnostics-final-v3",
+      "exit": 0,
+      "status": "terminal",
+      "elapsed_seconds": 2.169722,
+      "start_utc": "2026-10-03T21:42:45.292438+00:00",
+      "end_utc": "2026-10-03T21:42:47.462160+00:00",
+      "watchdog_deadline_utc": "2026-10-03T21:46:45.292438+00:00",
+      "pid_namespace": "pid:[4026533970]"
+    },
+    {
+      "name": "diagnostics-final-v6",
+      "exit": 0,
+      "status": "terminal",
+      "elapsed_seconds": 2.771981,
+      "start_utc": "2026-10-03T21:52:25.362828+00:00",
+      "end_utc": "2026-10-03T21:52:28.134809+00:00",
+      "watchdog_deadline_utc": "2026-10-03T21:56:25.362828+00:00",
+      "pid_namespace": "pid:[4026532944]"
+    },
+    {
+      "name": "diagnostics-v3-01",
+      "exit": 0,
+      "status": "terminal",
+      "elapsed_seconds": 2.718607,
+      "start_utc": "2026-10-03T21:32:13.263195+00:00",
+      "end_utc": "2026-10-03T21:32:15.981802+00:00",
+      "watchdog_deadline_utc": "2026-10-03T21:36:13.263195+00:00",
+      "pid_namespace": "pid:[4026532947]"
+    },
+    {
+      "name": "entropy-adapters-01",
+      "exit": 0,
+      "status": "terminal",
+      "elapsed_seconds": 15.238333,
+      "start_utc": "2026-10-03T21:31:45.525554+00:00",
+      "end_utc": "2026-10-03T21:32:00.763887+00:00",
+      "watchdog_deadline_utc": "2026-10-03T21:41:45.525554+00:00",
+      "pid_namespace": "pid:[4026532949]"
+    },
+    {
+      "name": "entropy-production-02",
+      "exit": 0,
+      "status": "terminal",
+      "elapsed_seconds": 20.750572,
+      "start_utc": "2026-10-03T21:49:05.791233+00:00",
+      "end_utc": "2026-10-03T21:49:26.541805+00:00",
+      "watchdog_deadline_utc": "2026-10-03T21:59:05.791233+00:00",
+      "pid_namespace": "pid:[4026534043]"
+    },
+    {
+      "name": "express-integration-01",
+      "exit": 1,
+      "status": "terminal",
+      "elapsed_seconds": 0.464675,
+      "start_utc": "2026-10-03T20:35:49.525048+00:00",
+      "end_utc": "2026-10-03T20:35:49.989723+00:00",
+      "watchdog_deadline_utc": "2026-10-03T20:38:49.525048+00:00",
+      "pid_namespace": "pid:[4026532941]"
+    },
+    {
+      "name": "express-integration-02",
+      "exit": 1,
+      "status": "terminal",
+      "elapsed_seconds": 3.31942,
+      "start_utc": "2026-10-03T20:36:19.620192+00:00",
+      "end_utc": "2026-10-03T20:36:22.939612+00:00",
+      "watchdog_deadline_utc": "2026-10-03T20:39:19.620192+00:00",
+      "pid_namespace": "pid:[4026532946]"
+    },
+    {
+      "name": "express-integration-03",
+      "exit": 0,
+      "status": "terminal",
+      "elapsed_seconds": 2.568241,
+      "start_utc": "2026-10-03T20:37:07.073678+00:00",
+      "end_utc": "2026-10-03T20:37:09.641919+00:00",
+      "watchdog_deadline_utc": "2026-10-03T20:40:07.073678+00:00",
+      "pid_namespace": "pid:[4026532945]"
+    },
+    {
+      "name": "final-focused-01",
+      "exit": 0,
+      "status": "terminal",
+      "elapsed_seconds": 3.119255,
+      "start_utc": "2026-10-03T21:38:05.101656+00:00",
+      "end_utc": "2026-10-03T21:38:08.220911+00:00",
+      "watchdog_deadline_utc": "2026-10-03T21:41:05.101656+00:00",
+      "pid_namespace": "pid:[4026534107]"
+    },
+    {
+      "name": "final-text-alias-01",
+      "exit": 0,
+      "status": "terminal",
+      "elapsed_seconds": 0.564898,
+      "start_utc": "2026-10-03T21:43:08.118948+00:00",
+      "end_utc": "2026-10-03T21:43:08.683846+00:00",
+      "watchdog_deadline_utc": "2026-10-03T21:45:08.118948+00:00",
+      "pid_namespace": "pid:[4026533968]"
+    },
+    {
+      "name": "focused-compile-02",
+      "exit": 0,
+      "status": "terminal",
+      "elapsed_seconds": 3.169119,
+      "start_utc": "2026-10-03T20:34:30.576485+00:00",
+      "end_utc": "2026-10-03T20:34:33.745604+00:00",
+      "watchdog_deadline_utc": "2026-10-03T20:37:30.576485+00:00",
+      "pid_namespace": "pid:[4026532941]"
+    },
+    {
+      "name": "foundation-bytes-final-v6",
+      "exit": 0,
+      "status": "terminal",
+      "elapsed_seconds": 0.765173,
+      "start_utc": "2026-10-03T21:54:19.996637+00:00",
+      "end_utc": "2026-10-03T21:54:20.761810+00:00",
+      "watchdog_deadline_utc": "2026-10-03T21:57:19.996637+00:00",
+      "pid_namespace": "pid:[4026532942]"
+    },
+    {
+      "name": "fuzz-public-v3-01",
+      "exit": 0,
+      "status": "terminal",
+      "elapsed_seconds": 21.348741,
+      "start_utc": "2026-10-03T21:39:07.158427+00:00",
+      "end_utc": "2026-10-03T21:39:28.507168+00:00",
+      "watchdog_deadline_utc": "2026-10-03T21:40:37.158427+00:00",
+      "pid_namespace": "pid:[4026533905]"
+    },
+    {
+      "name": "fuzz-text-v3-01",
+      "exit": 0,
+      "status": "terminal",
+      "elapsed_seconds": 43.421268,
+      "start_utc": "2026-10-03T21:35:06.526809+00:00",
+      "end_utc": "2026-10-03T21:35:49.948077+00:00",
+      "watchdog_deadline_utc": "2026-10-03T21:36:36.526809+00:00",
+      "pid_namespace": "pid:[4026533898]"
+    },
+    {
+      "name": "gopls-tools",
+      "exit": 0,
+      "status": "terminal",
+      "elapsed_seconds": 0.564681,
+      "start_utc": "2026-10-03T20:18:54.798404+00:00",
+      "end_utc": "2026-10-03T20:18:55.363085+00:00",
+      "watchdog_deadline_utc": "2026-10-03T20:20:54.798404+00:00",
+      "pid_namespace": "pid:[4026532941]"
+    },
+    {
+      "name": "guard-focused-01",
+      "exit": 1,
+      "status": "terminal",
+      "elapsed_seconds": 0.21554,
+      "start_utc": "2026-10-03T21:29:21.085096+00:00",
+      "end_utc": "2026-10-03T21:29:21.300636+00:00",
+      "watchdog_deadline_utc": "2026-10-03T21:32:21.085096+00:00",
+      "pid_namespace": "pid:[4026532945]"
+    },
+    {
+      "name": "guard-focused-02",
+      "exit": 1,
+      "status": "terminal",
+      "elapsed_seconds": 1.672225,
+      "start_utc": "2026-10-03T21:29:38.471878+00:00",
+      "end_utc": "2026-10-03T21:29:40.144103+00:00",
+      "watchdog_deadline_utc": "2026-10-03T21:32:38.471878+00:00",
+      "pid_namespace": "pid:[4026532944]"
+    },
+    {
+      "name": "guard-focused-03",
+      "exit": 0,
+      "status": "terminal",
+      "elapsed_seconds": 2.818408,
+      "start_utc": "2026-10-03T21:30:33.104423+00:00",
+      "end_utc": "2026-10-03T21:30:35.922831+00:00",
+      "watchdog_deadline_utc": "2026-10-03T21:33:33.104423+00:00",
+      "pid_namespace": "pid:[4026532944]"
+    },
+    {
+      "name": "guards-remote-stream-01",
+      "exit": 0,
+      "status": "terminal",
+      "elapsed_seconds": 3.719367,
+      "start_utc": "2026-10-03T21:34:37.690644+00:00",
+      "end_utc": "2026-10-03T21:34:41.410011+00:00",
+      "watchdog_deadline_utc": "2026-10-03T21:37:37.690644+00:00",
+      "pid_namespace": "pid:[4026533897]"
+    },
+    {
+      "name": "lint-final-v3",
+      "exit": 0,
+      "status": "terminal",
+      "elapsed_seconds": 7.179143,
+      "start_utc": "2026-10-03T21:42:46.457166+00:00",
+      "end_utc": "2026-10-03T21:42:53.636309+00:00",
+      "watchdog_deadline_utc": "2026-10-03T21:52:46.457166+00:00",
+      "pid_namespace": "pid:[4026533972]"
+    },
+    {
+      "name": "lint-final-v6",
+      "exit": 0,
+      "status": "terminal",
+      "elapsed_seconds": 9.231506,
+      "start_utc": "2026-10-03T21:52:26.531454+00:00",
+      "end_utc": "2026-10-03T21:52:35.762960+00:00",
+      "watchdog_deadline_utc": "2026-10-03T22:02:26.531454+00:00",
+      "pid_namespace": "pid:[4026532948]"
+    },
+    {
+      "name": "lint-v3-01",
+      "exit": 1,
+      "status": "terminal",
+      "elapsed_seconds": 5.423128,
+      "start_utc": "2026-10-03T21:24:25.690088+00:00",
+      "end_utc": "2026-10-03T21:24:31.113216+00:00",
+      "watchdog_deadline_utc": "2026-10-03T21:34:25.690088+00:00",
+      "pid_namespace": "pid:[4026532942]"
+    },
+    {
+      "name": "lint-v3-02",
+      "exit": 1,
+      "status": "terminal",
+      "elapsed_seconds": 4.67482,
+      "start_utc": "2026-10-03T21:32:12.061226+00:00",
+      "end_utc": "2026-10-03T21:32:16.736046+00:00",
+      "watchdog_deadline_utc": "2026-10-03T21:42:12.061226+00:00",
+      "pid_namespace": "pid:[4026532942]"
+    },
+    {
+      "name": "lint-v3-03",
+      "exit": 0,
+      "status": "terminal",
+      "elapsed_seconds": 6.056199,
+      "start_utc": "2026-10-03T21:34:51.982848+00:00",
+      "end_utc": "2026-10-03T21:34:58.039047+00:00",
+      "watchdog_deadline_utc": "2026-10-03T21:44:51.982848+00:00",
+      "pid_namespace": "pid:[4026533902]"
+    },
+    {
+      "name": "mutation-aggregate-consumer",
+      "exit": 1,
+      "status": "terminal",
+      "elapsed_seconds": 3.789159,
+      "start_utc": "2026-10-03T21:38:40.653141+00:00",
+      "end_utc": "2026-10-03T21:38:44.442300+00:00",
+      "watchdog_deadline_utc": "2026-10-03T21:41:40.653141+00:00",
+      "pid_namespace": "pid:[4026533946]"
+    },
+    {
+      "name": "mutation-allowlist-consumer",
+      "exit": 1,
+      "status": "terminal",
+      "elapsed_seconds": 2.769911,
+      "start_utc": "2026-10-03T21:44:59.160662+00:00",
+      "end_utc": "2026-10-03T21:45:01.930573+00:00",
+      "watchdog_deadline_utc": "2026-10-03T21:47:59.160662+00:00",
+      "pid_namespace": "pid:[4026534053]"
+    },
+    {
+      "name": "mutation-contract-caller",
+      "exit": 1,
+      "status": "terminal",
+      "elapsed_seconds": 3.582414,
+      "start_utc": "2026-10-03T21:38:40.588243+00:00",
+      "end_utc": "2026-10-03T21:38:44.170657+00:00",
+      "watchdog_deadline_utc": "2026-10-03T21:41:40.588243+00:00",
+      "pid_namespace": "pid:[4026533926]"
+    },
+    {
+      "name": "mutation-final-v6-aggregate-consumer",
+      "exit": 1,
+      "status": "terminal",
+      "elapsed_seconds": 5.849695,
+      "start_utc": "2026-10-03T21:55:01.739574+00:00",
+      "end_utc": "2026-10-03T21:55:07.589269+00:00",
+      "watchdog_deadline_utc": "2026-10-03T21:58:01.739574+00:00",
+      "pid_namespace": "pid:[4026532969]"
+    },
+    {
+      "name": "mutation-final-v6-allowlist-consumer",
+      "exit": 1,
+      "status": "terminal",
+      "elapsed_seconds": 5.825897,
+      "start_utc": "2026-10-03T21:55:01.743178+00:00",
+      "end_utc": "2026-10-03T21:55:07.569075+00:00",
+      "watchdog_deadline_utc": "2026-10-03T21:58:01.743178+00:00",
+      "pid_namespace": "pid:[4026532944]"
+    },
+    {
+      "name": "mutation-final-v6-contract-caller",
+      "exit": 1,
+      "status": "terminal",
+      "elapsed_seconds": 5.590965,
+      "start_utc": "2026-10-03T21:55:01.654244+00:00",
+      "end_utc": "2026-10-03T21:55:07.245209+00:00",
+      "watchdog_deadline_utc": "2026-10-03T21:58:01.654244+00:00",
+      "pid_namespace": "pid:[4026532986]"
+    },
+    {
+      "name": "mutation-final-v6-invalid-ack-consumer",
+      "exit": 1,
+      "status": "terminal",
+      "elapsed_seconds": 1.537618,
+      "start_utc": "2026-10-03T21:55:01.699977+00:00",
+      "end_utc": "2026-10-03T21:55:03.237595+00:00",
+      "watchdog_deadline_utc": "2026-10-03T21:58:01.699977+00:00",
+      "pid_namespace": "pid:[4026532987]"
+    },
+    {
+      "name": "mutation-final-v6-large-link-consumer",
+      "exit": 1,
+      "status": "terminal",
+      "elapsed_seconds": 5.396032,
+      "start_utc": "2026-10-03T21:55:01.745034+00:00",
+      "end_utc": "2026-10-03T21:55:07.141066+00:00",
+      "watchdog_deadline_utc": "2026-10-03T21:58:01.745034+00:00",
+      "pid_namespace": "pid:[4026532993]"
+    },
+    {
+      "name": "mutation-final-v6-media-caller",
+      "exit": 1,
+      "status": "terminal",
+      "elapsed_seconds": 1.485149,
+      "start_utc": "2026-10-03T21:55:01.786259+00:00",
+      "end_utc": "2026-10-03T21:55:03.271408+00:00",
+      "watchdog_deadline_utc": "2026-10-03T21:58:01.786259+00:00",
+      "pid_namespace": "pid:[4026533882]"
+    },
+    {
+      "name": "mutation-final-v6-packed-literal-caller",
+      "exit": 1,
+      "status": "terminal",
+      "elapsed_seconds": 5.922603,
+      "start_utc": "2026-10-03T21:55:01.679164+00:00",
+      "end_utc": "2026-10-03T21:55:07.601767+00:00",
+      "watchdog_deadline_utc": "2026-10-03T21:58:01.679164+00:00",
+      "pid_namespace": "pid:[4026532974]"
+    },
+    {
+      "name": "mutation-final-v6-shape-prescan-caller",
+      "exit": 1,
+      "status": "terminal",
+      "elapsed_seconds": 5.916807,
+      "start_utc": "2026-10-03T21:55:01.723062+00:00",
+      "end_utc": "2026-10-03T21:55:07.639869+00:00",
+      "watchdog_deadline_utc": "2026-10-03T21:58:01.723062+00:00",
+      "pid_namespace": "pid:[4026533885]"
+    },
+    {
+      "name": "mutation-final-v6-whole-party-caller",
+      "exit": 1,
+      "status": "terminal",
+      "elapsed_seconds": 5.392261,
+      "start_utc": "2026-10-03T21:55:01.758783+00:00",
+      "end_utc": "2026-10-03T21:55:07.151044+00:00",
+      "watchdog_deadline_utc": "2026-10-03T21:58:01.758783+00:00",
+      "pid_namespace": "pid:[4026533880]"
+    },
+    {
+      "name": "mutation-invalid-ack-consumer-02",
+      "exit": 1,
+      "status": "terminal",
+      "elapsed_seconds": 0.614834,
+      "start_utc": "2026-10-03T21:41:00.417052+00:00",
+      "end_utc": "2026-10-03T21:41:01.031886+00:00",
+      "watchdog_deadline_utc": "2026-10-03T21:44:00.417052+00:00",
+      "pid_namespace": "pid:[4026533968]"
+    },
+    {
+      "name": "mutation-invalid-ack-consumer",
+      "exit": 0,
+      "status": "terminal",
+      "elapsed_seconds": 0.979524,
+      "start_utc": "2026-10-03T21:38:40.635983+00:00",
+      "end_utc": "2026-10-03T21:38:41.615507+00:00",
+      "watchdog_deadline_utc": "2026-10-03T21:41:40.635983+00:00",
+      "pid_namespace": "pid:[4026533944]"
+    },
+    {
+      "name": "mutation-large-link-consumer",
+      "exit": 1,
+      "status": "terminal",
+      "elapsed_seconds": 3.68378,
+      "start_utc": "2026-10-03T21:38:40.653344+00:00",
+      "end_utc": "2026-10-03T21:38:44.337124+00:00",
+      "watchdog_deadline_utc": "2026-10-03T21:41:40.653344+00:00",
+      "pid_namespace": "pid:[4026533932]"
+    },
+    {
+      "name": "mutation-media-caller",
+      "exit": 1,
+      "status": "terminal",
+      "elapsed_seconds": 0.975716,
+      "start_utc": "2026-10-03T21:38:40.658255+00:00",
+      "end_utc": "2026-10-03T21:38:41.633971+00:00",
+      "watchdog_deadline_utc": "2026-10-03T21:41:40.658255+00:00",
+      "pid_namespace": "pid:[4026533942]"
+    },
+    {
+      "name": "mutation-packed-literal-caller",
+      "exit": 1,
+      "status": "terminal",
+      "elapsed_seconds": 3.81016,
+      "start_utc": "2026-10-03T21:38:40.623691+00:00",
+      "end_utc": "2026-10-03T21:38:44.433851+00:00",
+      "watchdog_deadline_utc": "2026-10-03T21:41:40.623691+00:00",
+      "pid_namespace": "pid:[4026533916]"
+    },
+    {
+      "name": "mutation-shape-prescan-caller",
+      "exit": 1,
+      "status": "terminal",
+      "elapsed_seconds": 3.019246,
+      "start_utc": "2026-10-03T21:44:59.148449+00:00",
+      "end_utc": "2026-10-03T21:45:02.167695+00:00",
+      "watchdog_deadline_utc": "2026-10-03T21:47:59.148449+00:00",
+      "pid_namespace": "pid:[4026534043]"
+    },
+    {
+      "name": "mutation-whole-party-caller",
+      "exit": 1,
+      "status": "terminal",
+      "elapsed_seconds": 3.679199,
+      "start_utc": "2026-10-03T21:38:40.661896+00:00",
+      "end_utc": "2026-10-03T21:38:44.341095+00:00",
+      "watchdog_deadline_utc": "2026-10-03T21:41:40.661896+00:00",
+      "pid_namespace": "pid:[4026533934]"
+    },
+    {
+      "name": "package-final-v3",
+      "exit": 0,
+      "status": "terminal",
+      "elapsed_seconds": 109.418325,
+      "start_utc": "2026-10-03T21:43:22.015296+00:00",
+      "end_utc": "2026-10-03T21:45:11.433621+00:00",
+      "watchdog_deadline_utc": "2026-10-03T21:53:22.015296+00:00",
+      "pid_namespace": "pid:[4026533973]"
+    },
+    {
+      "name": "package-suite-01",
+      "exit": 1,
+      "status": "terminal",
+      "elapsed_seconds": 86.701387,
+      "start_utc": "2026-10-03T20:38:02.022240+00:00",
+      "end_utc": "2026-10-03T20:39:28.723627+00:00",
+      "watchdog_deadline_utc": "2026-10-03T20:48:02.022240+00:00",
+      "pid_namespace": "pid:[4026532941]"
+    },
+    {
+      "name": "package-suite-v3-02",
+      "exit": 0,
+      "status": "terminal",
+      "elapsed_seconds": 101.920818,
+      "start_utc": "2026-10-03T21:24:04.809489+00:00",
+      "end_utc": "2026-10-03T21:25:46.730307+00:00",
+      "watchdog_deadline_utc": "2026-10-03T21:34:04.809489+00:00",
+      "pid_namespace": "pid:[4026533974]"
+    },
+    {
+      "name": "prose-final-02",
+      "exit": 0,
+      "status": "terminal",
+      "elapsed_seconds": 0.032059,
+      "start_utc": "2026-10-03T22:00:56.896318+00:00",
+      "end_utc": "2026-10-03T22:00:56.928377+00:00",
+      "watchdog_deadline_utc": "2026-10-03T22:01:56.896318+00:00",
+      "pid_namespace": "pid:[4026534060]"
+    },
+    {
+      "name": "prose-final",
+      "exit": 1,
+      "status": "terminal",
+      "elapsed_seconds": 0.015787,
+      "start_utc": "2026-10-03T22:00:03.889808+00:00",
+      "end_utc": "2026-10-03T22:00:03.905595+00:00",
+      "watchdog_deadline_utc": "2026-10-03T22:01:03.889808+00:00",
+      "pid_namespace": "pid:[4026532955]"
+    },
+    {
+      "name": "race-final-v3",
+      "exit": 0,
+      "status": "terminal",
+      "elapsed_seconds": 9.984961,
+      "start_utc": "2026-10-03T21:43:23.205671+00:00",
+      "end_utc": "2026-10-03T21:43:33.190632+00:00",
+      "watchdog_deadline_utc": "2026-10-03T21:48:23.205671+00:00",
+      "pid_namespace": "pid:[4026533977]"
+    },
+    {
+      "name": "race-scoped-v3-01",
+      "exit": 0,
+      "status": "terminal",
+      "elapsed_seconds": 12.740703,
+      "start_utc": "2026-10-03T21:39:05.997880+00:00",
+      "end_utc": "2026-10-03T21:39:18.738583+00:00",
+      "watchdog_deadline_utc": "2026-10-03T21:44:05.997880+00:00",
+      "pid_namespace": "pid:[4026533895]"
+    },
+    {
+      "name": "refs-before",
+      "exit": 0,
+      "status": "terminal",
+      "elapsed_seconds": 9.229541,
+      "start_utc": "2026-10-03T20:25:50.159584+00:00",
+      "end_utc": "2026-10-03T20:25:59.389125+00:00",
+      "watchdog_deadline_utc": "2026-10-03T20:28:50.159584+00:00",
+      "pid_namespace": "pid:[4026534352]"
+    },
+    {
+      "name": "refs-send-boundary",
+      "exit": 0,
+      "status": "terminal",
+      "elapsed_seconds": 1.316131,
+      "start_utc": "2026-10-03T21:16:14.574076+00:00",
+      "end_utc": "2026-10-03T21:16:15.890207+00:00",
+      "watchdog_deadline_utc": "2026-10-03T21:19:14.574076+00:00",
+      "pid_namespace": "pid:[4026532947]"
+    },
+    {
+      "name": "retained-native-01",
+      "exit": 0,
+      "status": "terminal",
+      "elapsed_seconds": 7.130433,
+      "start_utc": "2026-10-03T21:21:55.815770+00:00",
+      "end_utc": "2026-10-03T21:22:02.946203+00:00",
+      "watchdog_deadline_utc": "2026-10-03T21:31:55.815770+00:00",
+      "pid_namespace": "pid:[4026533973]"
+    },
+    {
+      "name": "review-fixes-focused",
+      "exit": 0,
+      "status": "terminal",
+      "elapsed_seconds": 3.369329,
+      "start_utc": "2026-10-03T21:11:26.011817+00:00",
+      "end_utc": "2026-10-03T21:11:29.381146+00:00",
+      "watchdog_deadline_utc": "2026-10-03T21:14:26.011817+00:00",
+      "pid_namespace": "pid:[4026533968]"
+    },
+    {
+      "name": "review-v3-focused",
+      "exit": 0,
+      "status": "terminal",
+      "elapsed_seconds": 1.366073,
+      "start_utc": "2026-10-03T21:22:22.891886+00:00",
+      "end_utc": "2026-10-03T21:22:24.257959+00:00",
+      "watchdog_deadline_utc": "2026-10-03T21:25:22.891886+00:00",
+      "pid_namespace": "pid:[4026533974]"
+    },
+    {
+      "name": "samples-01",
+      "exit": 0,
+      "status": "terminal",
+      "elapsed_seconds": 2.568878,
+      "start_utc": "2026-10-03T20:42:02.471543+00:00",
+      "end_utc": "2026-10-03T20:42:05.040421+00:00",
+      "watchdog_deadline_utc": "2026-10-03T20:45:02.471543+00:00",
+      "pid_namespace": "pid:[4026533895]"
+    },
+    {
+      "name": "sdk-read-doc-01",
+      "exit": 0,
+      "status": "terminal",
+      "elapsed_seconds": 0.214273,
+      "start_utc": "2026-10-03T21:34:51.611235+00:00",
+      "end_utc": "2026-10-03T21:34:51.825508+00:00",
+      "watchdog_deadline_utc": "2026-10-03T21:35:51.611235+00:00",
+      "pid_namespace": "pid:[4026533900]"
+    },
+    {
+      "name": "stable-overlay-focused",
+      "exit": 0,
+      "status": "terminal",
+      "elapsed_seconds": 1.366043,
+      "start_utc": "2026-10-03T21:02:04.006270+00:00",
+      "end_utc": "2026-10-03T21:02:05.372313+00:00",
+      "watchdog_deadline_utc": "2026-10-03T21:05:04.006270+00:00",
+      "pid_namespace": "pid:[4026534036]"
+    },
+    {
+      "name": "successor-export-01",
+      "exit": 0,
+      "status": "terminal",
+      "elapsed_seconds": 6.72757,
+      "start_utc": "2026-10-03T21:26:35.002094+00:00",
+      "end_utc": "2026-10-03T21:26:41.729664+00:00",
+      "watchdog_deadline_utc": "2026-10-03T21:29:35.002094+00:00",
+      "pid_namespace": "pid:[4026532942]"
+    },
+    {
+      "name": "text-first",
+      "exit": 1,
+      "status": "terminal",
+      "elapsed_seconds": 1.96655,
+      "start_utc": "2026-10-03T20:33:52.411857+00:00",
+      "end_utc": "2026-10-03T20:33:54.378407+00:00",
+      "watchdog_deadline_utc": "2026-10-03T20:36:52.411857+00:00",
+      "pid_namespace": "pid:[4026532943]"
+    },
+    {
+      "name": "vet-final-v3",
+      "exit": 0,
+      "status": "terminal",
+      "elapsed_seconds": 0.464843,
+      "start_utc": "2026-10-03T21:42:47.611805+00:00",
+      "end_utc": "2026-10-03T21:42:48.076648+00:00",
+      "watchdog_deadline_utc": "2026-10-03T21:45:47.611805+00:00",
+      "pid_namespace": "pid:[4026533977]"
+    },
+    {
+      "name": "vet-final-v6",
+      "exit": 0,
+      "status": "terminal",
+      "elapsed_seconds": 2.2179,
+      "start_utc": "2026-10-03T21:52:27.702436+00:00",
+      "end_utc": "2026-10-03T21:52:29.920336+00:00",
+      "watchdog_deadline_utc": "2026-10-03T21:55:27.702436+00:00",
+      "pid_namespace": "pid:[4026532954]"
+    },
+    {
+      "name": "vet-v3-01",
+      "exit": 0,
+      "status": "terminal",
+      "elapsed_seconds": 0.615348,
+      "start_utc": "2026-10-03T21:24:24.877504+00:00",
+      "end_utc": "2026-10-03T21:24:25.492852+00:00",
+      "watchdog_deadline_utc": "2026-10-03T21:28:24.877504+00:00",
+      "pid_namespace": "pid:[4026532942]"
+    },
+    {
+      "name": "widest-adapters-01",
+      "exit": 1,
+      "status": "terminal",
+      "elapsed_seconds": 0.288289,
+      "start_utc": "2026-10-03T20:46:25.720565+00:00",
+      "end_utc": "2026-10-03T20:46:26.008854+00:00",
+      "watchdog_deadline_utc": "2026-10-03T20:56:25.720565+00:00",
+      "pid_namespace": "pid:[4026532942]"
+    },
+    {
+      "name": "widest-adapters-02",
+      "exit": 130,
+      "status": "terminal",
+      "elapsed_seconds": null,
+      "start_utc": "2026-10-03T20:48:25.773770+00:00",
+      "end_utc": "2026-10-03T20:52:50.759607+00:00",
+      "watchdog_deadline_utc": "2026-10-03T20:58:25.773770+00:00",
+      "pid_namespace": "pid:[4026533893]"
+    },
+    {
+      "name": "widest-adapters-03",
+      "exit": 0,
+      "status": "terminal",
+      "elapsed_seconds": 21.614178,
+      "start_utc": "2026-10-03T20:53:42.303940+00:00",
+      "end_utc": "2026-10-03T20:54:03.918118+00:00",
+      "watchdog_deadline_utc": "2026-10-03T21:03:42.303940+00:00",
+      "pid_namespace": "pid:[4026532942]"
+    },
+    {
+      "name": "widest-adapters-04",
+      "exit": 0,
+      "status": "terminal",
+      "elapsed_seconds": 20.896704,
+      "start_utc": "2026-10-03T21:00:41.033640+00:00",
+      "end_utc": "2026-10-03T21:01:01.930344+00:00",
+      "watchdog_deadline_utc": "2026-10-03T21:10:41.033640+00:00",
+      "pid_namespace": "pid:[4026534036]"
+    },
+    {
+      "name": "widest-adapters-05",
+      "exit": 0,
+      "status": "terminal",
+      "elapsed_seconds": 23.404125,
+      "start_utc": "2026-10-03T21:17:46.145068+00:00",
+      "end_utc": "2026-10-03T21:18:09.549193+00:00",
+      "watchdog_deadline_utc": "2026-10-03T21:27:46.145068+00:00",
+      "pid_namespace": "pid:[4026532947]"
+    }
+  ],
+  "fuzz": {
+    "text_cases": 68904,
+    "public_decode_cases": 69502,
+    "seconds_each": 15
+  },
+  "mutations": {
+    "native_dependency": "v6",
+    "rows": [
+      {
+        "name": "contract-caller",
+        "path": "internal/session/stream_service.go",
+        "call_site": "if err := scanContractMarkers(data, version == StreamVersion, version == StreamVersion); err != nil {",
+        "replacement": "if err := scanContractMarkers(data, version == StreamVersion, version == StreamVersion); false && err != nil {",
+        "overlay": "/tmp/build/podsim/continuation-express-batch/session/mutations/contract-caller.overlay.json",
+        "package": "./internal/session",
+        "test": "TestExpressMarkersAndAtomicAssembly",
+        "source_sha256": "1a4908f50a777a822933c40a8f697171166e4938a3f2405f46d3d4b5ba365038",
+        "mutant_sha256": "96c1085519547da3d70e946757e636cb3083ba836940daf7b096c4a5c8217a87",
+        "gate": "mutation-final-v6-contract-caller",
+        "exit": 1,
+        "compiled": true,
+        "status": "killed"
+      },
+      {
+        "name": "packed-literal-caller",
+        "path": "internal/session/stream_service.go",
+        "call_site": "if err := scanPackedOrders(data); err != nil {",
+        "replacement": "if err := scanPackedOrders(data); false && err != nil {",
+        "overlay": "/tmp/build/podsim/continuation-express-batch/session/mutations/packed-literal-caller.overlay.json",
+        "package": "./internal/session",
+        "test": "TestExpressPublicTextAndShapeGuards/escaped-canonical",
+        "source_sha256": "1a4908f50a777a822933c40a8f697171166e4938a3f2405f46d3d4b5ba365038",
+        "mutant_sha256": "43a134f155a800dab9e7be99afc4a67ab11f781a40469de9aba75fb75e60e59d",
+        "gate": "mutation-final-v6-packed-literal-caller",
+        "exit": 1,
+        "compiled": true,
+        "status": "killed"
+      },
+      {
+        "name": "whole-party-caller",
+        "path": "internal/session/express_orders.go",
+        "call_site": "Active: facts, PartyLimit: limit}, a.topology.OrderContract); err != nil {",
+        "replacement": "Active: facts, PartyLimit: limit}, a.topology.OrderContract); false && err != nil {",
+        "overlay": "/tmp/build/podsim/continuation-express-batch/session/mutations/whole-party-caller.overlay.json",
+        "package": "./internal/session",
+        "test": "TestExpressPublicOrderGuards/whole-party-seats",
+        "source_sha256": "93a1fae2d5e2dd84fcaace5a10eeec8511843507b5113035de6d61037112ec48",
+        "mutant_sha256": "31558013744b8ad1a2eff76c76e8be48ec94a96be023530128a17cc2a1686876",
+        "gate": "mutation-final-v6-whole-party-caller",
+        "exit": 1,
+        "compiled": true,
+        "status": "killed"
+      },
+      {
+        "name": "aggregate-consumer",
+        "path": "internal/session/stream_frame.go",
+        "call_site": "if err := a.serviceOrders(f); err != nil {",
+        "replacement": "if err := a.serviceOrders(f); false && err != nil {",
+        "overlay": "/tmp/build/podsim/continuation-express-batch/session/mutations/aggregate-consumer.overlay.json",
+        "package": "./internal/session",
+        "test": "TestExpressPublicOrderGuards/outstanding-8601",
+        "source_sha256": "5aacc5adcc33f79aa1814d8812f447964bd1f85a8baab6896c410683ef1b0195",
+        "mutant_sha256": "f9177f96912d5819a0e7640ce3151f2929b65504bb11139defb6e41dbd24dcd2",
+        "gate": "mutation-final-v6-aggregate-consumer",
+        "exit": 1,
+        "compiled": true,
+        "status": "killed"
+      },
+      {
+        "name": "large-link-consumer",
+        "path": "internal/session/stream_frame.go",
+        "call_site": "if err := a.groupBindings(f); err != nil {",
+        "replacement": "if err := a.groupBindings(f); false && err != nil {",
+        "overlay": "/tmp/build/podsim/continuation-express-batch/session/mutations/large-link-consumer.overlay.json",
+        "package": "./internal/session",
+        "test": "TestExpressPublicOrderGuards/large-virtual",
+        "source_sha256": "5aacc5adcc33f79aa1814d8812f447964bd1f85a8baab6896c410683ef1b0195",
+        "mutant_sha256": "c94b68197a91dce737381bd9c3f661de8eee485ac6222f83b5629f5063f254bc",
+        "gate": "mutation-final-v6-large-link-consumer",
+        "exit": 1,
+        "compiled": true,
+        "status": "killed"
+      },
+      {
+        "name": "media-caller",
+        "path": "internal/remote/client.go",
+        "call_site": "if err := rejectUnqualifiedStateMarkers(raw); err != nil {",
+        "replacement": "if err := rejectUnqualifiedStateMarkers(raw); false && err != nil {",
+        "overlay": "/tmp/build/podsim/continuation-express-batch/session/mutations/media-caller.overlay.json",
+        "package": "./internal/remote",
+        "test": "TestExpressHTTPMediaFailClosed",
+        "source_sha256": "29bc0e19c19fc3dfb56276202110e6fabb7ddb065cd03182ab0ac5904bf76a5a",
+        "mutant_sha256": "892dfe55e14d53d5ebf423fcf51fbb967d89a9ebf476785d92e8bb9814799a7e",
+        "gate": "mutation-final-v6-media-caller",
+        "exit": 1,
+        "compiled": true,
+        "status": "killed"
+      },
+      {
+        "name": "invalid-ack-consumer",
+        "path": "internal/remote/stream.go",
+        "call_site": "if err != nil {\n\t\t\treturn err\n\t\t}\n\t\tif ctx.Err() != nil {",
+        "replacement": "if false && err != nil {\n\t\t\treturn err\n\t\t}\n\t\tif ctx.Err() != nil {",
+        "overlay": "/tmp/build/podsim/continuation-express-batch/session/mutations/invalid-ack-consumer.overlay.json",
+        "package": "./internal/remote",
+        "test": "TestExpressRemoteInvalidStateHasNoACK",
+        "source_sha256": "24c0667226878c70fe56d599b11136f1a4630269629da23952d9b30cbd54661b",
+        "mutant_sha256": "a7d7a8f3923a56c3d3e880a7c952edaa3c8dd4cde24897030c96e344a2c22ea0",
+        "gate": "mutation-final-v6-invalid-ack-consumer",
+        "exit": 1,
+        "compiled": true,
+        "status": "killed"
+      },
+      {
+        "name": "allowlist-consumer",
+        "path": "internal/session/stream_frame.go",
+        "call_site": "if err := a.groupBindings(f); err != nil {",
+        "replacement": "if err := a.groupBindings(f); false && err != nil {",
+        "overlay": "/tmp/build/podsim/continuation-express-batch/session/mutations/large-link-consumer.overlay.json",
+        "package": "./internal/session",
+        "test": "TestExpressPublicClassBindings",
+        "source_sha256": "5aacc5adcc33f79aa1814d8812f447964bd1f85a8baab6896c410683ef1b0195",
+        "mutant_sha256": "c94b68197a91dce737381bd9c3f661de8eee485ac6222f83b5629f5063f254bc",
+        "gate": "mutation-final-v6-allowlist-consumer",
+        "exit": 1,
+        "compiled": true,
+        "status": "killed"
+      },
+      {
+        "name": "shape-prescan-caller",
+        "path": "internal/session/stream_service.go",
+        "call_site": "if err := prescanJSON(data, expressStreamLimits()); err != nil {",
+        "replacement": "if err := prescanJSON(data, expressStreamLimits()); false && err != nil {",
+        "overlay": "/tmp/build/podsim/continuation-express-batch/session/mutations/shape-prescan-caller.overlay.json",
+        "package": "./internal/session",
+        "test": "TestExpressPublicTextAndShapeGuards",
+        "source_sha256": "1a4908f50a777a822933c40a8f697171166e4938a3f2405f46d3d4b5ba365038",
+        "mutant_sha256": "c96a159af282d5c0efdd7fc2d0c57dc1f80f3bc6d4f1367b01aee15ed4c1de6d",
+        "gate": "mutation-final-v6-shape-prescan-caller",
+        "exit": 1,
+        "compiled": true,
+        "status": "killed"
+      }
+    ],
+    "prior_survivor": "mutation-invalid-ack-consumer",
+    "prior_survivor_reason": "Negative test sent raw JSON to a gzip-only binary transport; corrected test requires semantic rejection after valid gzip."
+  },
+  "limitations": [
+    "Independent width fixtures repeat request IDs and occupancy; native unique identity/conservation is separate.",
+    "Physical restore resets ordinary speed and reconstructs forward grants; exact trajectory is not claimed.",
+    "Chromium heartbeat gap14.136s and2.46GB WASM memory preclude a responsive-use or general memory-bound claim.",
+    "GOGC400 Node retention test OOM retained as failure.",
+    "No full-repository race, deployment, default enablement, or cap extension is claimed."
+  ],
+  "evidence_directory": "/home/dotwaffle/.cache/agents/podsim/continuation-express-batch-20261003/session/evidence",
+  "root_browser_final_patch_sha256": "dfba231733adf1a8a4a290ee2a13e50a6d39faf3846c9675d362b83724727086"
+}

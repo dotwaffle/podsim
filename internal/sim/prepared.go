@@ -121,6 +121,13 @@ func (p *PreparedNetwork) NewFleet(placements []Placement) (*Simulation, error) 
 }
 
 func validatePlacements(network Network, placements []Placement) error {
+	return validatePlacementsWithOrderContract(network, placements, "")
+}
+
+func validatePlacementsWithOrderContract(network Network, placements []Placement, contract OrderContract) error {
+	if err := validateContractFleetBounds(network, placements, contract); err != nil {
+		return err
+	}
 	if len(placements) == 0 {
 		return errors.New("the fleet needs at least one pod")
 	}
@@ -128,7 +135,7 @@ func validatePlacements(network Network, placements []Placement) error {
 	geometry := make([]initialPlacementGeometry, 0, len(placements))
 	incident := incidentLanes(network)
 	for _, placement := range placements {
-		if err := ValidateVehicleClassProfile(placement.Class); err != nil {
+		if err := ValidateVehicleClassProfileWithOrderContract(placement.Class, contract); err != nil {
 			return err
 		}
 		if placement.ID == "" || ids[placement.ID] {
@@ -218,6 +225,7 @@ func (p *PreparedNetwork) newFleet(placements []Placement) *Simulation {
 // PreparedRestoreInput supplies the fleet and saved state for a prepared network.
 // The network must be the one that the saved simulation used.
 type PreparedRestoreInput struct {
+	OrderContract OrderContract
 	// BoardingRecords selects the current save contract for native records.
 	BoardingRecords bool
 	// OnboardPickups enables new occupied pickups after restoration.
@@ -240,6 +248,6 @@ func (p *PreparedNetwork) RestoreState(input PreparedRestoreInput) (*Simulation,
 	if err := p.check(); err != nil {
 		return nil, RestoreResult{}, err
 	}
-	stateInput := RestoreStateInput{BoardingRecords: input.BoardingRecords, OnboardPickups: input.OnboardPickups, ExpressServices: input.ExpressServices, Network: p.network, Fleet: input.Fleet, State: input.State, LogicalOnly: input.LogicalOnly, StationBuffers: input.StationBuffers, BufferPlatoons: input.BufferPlatoons, CompactQueues: input.CompactQueues, StationQueueSpacing: input.StationQueueSpacing, PlatoonLimit: input.PlatoonLimit}
-	return restoreState(stateInput, func() (*Simulation, error) { return p.NewFleet(input.Fleet) })
+	stateInput := RestoreStateInput{OrderContract: input.OrderContract, BoardingRecords: input.BoardingRecords, OnboardPickups: input.OnboardPickups, ExpressServices: input.ExpressServices, Network: p.network, Fleet: input.Fleet, State: input.State, LogicalOnly: input.LogicalOnly, StationBuffers: input.StationBuffers, BufferPlatoons: input.BufferPlatoons, CompactQueues: input.CompactQueues, StationQueueSpacing: input.StationQueueSpacing, PlatoonLimit: input.PlatoonLimit}
+	return restoreState(stateInput, func() (*Simulation, error) { return p.NewFleetWithOrderContract(input.Fleet, input.OrderContract) })
 }

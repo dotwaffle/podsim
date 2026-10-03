@@ -19,9 +19,10 @@ import (
 
 // Stream limits are independent of the smaller delivery and history windows.
 const (
-	StreamVersion    = 3
-	MaxStreamJSON    = 64 << 20
-	MaxStreamMessage = 65 << 20
+	StreamVersion           = 4
+	FoundationStreamVersion = 3
+	MaxStreamJSON           = 64 << 20
+	MaxStreamMessage        = 65 << 20
 )
 
 // StreamSource identifies one coherent authoritative state.
@@ -95,14 +96,16 @@ type StreamDelta struct {
 
 // StreamEnvelope is one publication. Sequences use decimal strings on the wire.
 type StreamEnvelope struct {
-	Kind     string       `json:"kind"`
-	Stream   string       `json:"stream"`
-	Sequence uint64       `json:"sequence,string"`
-	Base     uint64       `json:"base,string,omitempty"`
-	Build    string       `json:"build"`
-	Source   StreamSource `json:"source"`
-	Full     *StreamFrame `json:"full,omitempty"`
-	Delta    *StreamDelta `json:"delta,omitempty"`
+	OrderContract sim.OrderContract `json:"orderContract,omitzero"`
+	TextEncoding  string            `json:"textEncoding,omitzero"`
+	Kind          string            `json:"kind"`
+	Stream        string            `json:"stream"`
+	Sequence      uint64            `json:"sequence,string"`
+	Base          uint64            `json:"base,string,omitempty"`
+	Build         string            `json:"build"`
+	Source        StreamSource      `json:"source"`
+	Full          *StreamFrame      `json:"full,omitempty"`
+	Delta         *StreamDelta      `json:"delta,omitempty"`
 }
 
 func sourceOf(f StreamFrame) StreamSource {
@@ -110,6 +113,9 @@ func sourceOf(f StreamFrame) StreamSource {
 	return StreamSource{s.ServerStart, s.Epoch, s.ProjectRevision, s.Generation, s.Revision}
 }
 func sameChain(a, b StreamFrame) bool {
+	if a.State.Simulation.OrderContract != b.State.Simulation.OrderContract {
+		return false
+	}
 	x, y := sourceOf(a), sourceOf(b)
 	x.Revision, y.Revision = 0, 0
 	if (a.Routes == nil) != (b.Routes == nil) || (a.State.Simulation.Vehicles == nil) != (b.State.Simulation.Vehicles == nil) || (a.State.Simulation.Berths == nil) != (b.State.Simulation.Berths == nil) {
@@ -177,7 +183,11 @@ func frameGroups(f StreamFrame) (map[string]json.RawMessage, error) {
 	groups := make(map[string]json.RawMessage, len(values))
 	for key, value := range values {
 		var err error
-		groups[key], err = json.Marshal(value)
+		if key == "pending" && state.Simulation.OrderContract == sim.ExpressOrderContract {
+			groups[key], err = jsonv2.Marshal(value, json.DefaultOptionsV1(), packedRequestOptions())
+		} else {
+			groups[key], err = json.Marshal(value)
+		}
 		if err != nil {
 			return nil, err
 		}
@@ -275,7 +285,13 @@ func applyGroups(f *StreamFrame, groups map[string]json.RawMessage) error {
 		default:
 			return fmt.Errorf("unknown stream group %q", key)
 		}
-		if err := decodeStreamJSON(raw, target); err != nil {
+		var err error
+		if key == "pending" && f.State.Simulation.OrderContract == sim.ExpressOrderContract {
+			err = jsonv2.Unmarshal(raw, target, json.DefaultOptionsV1(), jsonv2.RejectUnknownMembers(true), packedDecodeOptions())
+		} else {
+			err = decodeStreamJSON(raw, target)
+		}
+		if err != nil {
 			return err
 		}
 	}
@@ -285,6 +301,9 @@ func applyGroups(f *StreamFrame, groups map[string]json.RawMessage) error {
 // ApplyStream applies an envelope to exactly its stated predecessor.
 // The returned containers do not mutate a previous accepted frame.
 func ApplyStream(previous StreamFrame, stream string, sequence uint64, e StreamEnvelope) (StreamFrame, error) {
+	if err := validateEnvelopeContract(e, previous); err != nil {
+		return StreamFrame{}, err
+	}
 	if e.Stream == "" || e.Sequence == 0 || e.Source.ServerStart == "" || e.Source.Epoch == "" {
 		return StreamFrame{}, errors.New("invalid stream identity")
 	}
@@ -381,7 +400,7 @@ func ApplyStream(previous StreamFrame, stream string, sequence uint64, e StreamE
 		return StreamFrame{}, errors.New("invalid presentation counts")
 	}
 	for i, v := range f.State.Simulation.Vehicles {
-		if err := validateVehicleBoardings(v); err != nil {
+		if err := validateVehicleBoardingsContract(v, f.State.Simulation.OrderContract); err != nil {
 			return StreamFrame{}, err
 		}
 		if len(v.RouteLaneIDs) != 0 || len(f.Routes[i].Display) > project.MaxLanes || len(f.Routes[i].Lanes) > sim.MotionRouteLimit {
@@ -405,12 +424,7 @@ func decodeStreamJSON(data []byte, target any) error {
 
 // DecodeStreamJSON validates one inflated envelope.
 func DecodeStreamJSON(data []byte) (StreamEnvelope, error) {
-	var e StreamEnvelope
-	if err := scanStreamBoardingMembers(data, StreamVersion); err != nil {
-		return e, err
-	}
-	err := decodeStreamJSON(data, &e)
-	return e, err
+	return DecodeStreamJSONVersion(data, FoundationStreamVersion)
 }
 
 func encodeStream(e StreamEnvelope) ([]byte, error) {
@@ -425,7 +439,7 @@ type streamEncoder struct {
 }
 
 func (c *streamEncoder) encode(e StreamEnvelope) ([]byte, error) {
-	data, err := json.Marshal(e)
+	data, err := EncodeStreamJSON(e)
 	if err != nil {
 		return nil, err
 	}

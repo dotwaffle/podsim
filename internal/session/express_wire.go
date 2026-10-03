@@ -1,0 +1,254 @@
+package session
+
+import (
+	"encoding/json"
+	jsonv2 "encoding/json/v2"
+	"errors"
+	"maps"
+	"net/http"
+	"strings"
+
+	"github.com/dotwaffle/podsim/internal/project"
+	"github.com/dotwaffle/podsim/internal/sim"
+)
+
+// ExpressStateEnvelope binds packed dynamic state to its topology.
+type ExpressStateEnvelope struct {
+	OrderContract sim.OrderContract `json:"orderContract"`
+	TextEncoding  string            `json:"textEncoding"`
+	Topology      TopologySnapshot  `json:"topology"`
+	Frame         StreamFrame       `json:"frame"`
+}
+
+// EncodeStreamJSON encodes a publication under its explicit field contract.
+func EncodeStreamJSON(e StreamEnvelope) ([]byte, error) {
+	if e.OrderContract == "" {
+		if e.TextEncoding != "" {
+			return nil, errors.New("foundation envelope contains text encoding")
+		}
+		data, err := json.Marshal(e)
+		if err == nil && len(data) > MaxStreamJSON {
+			err = errors.New("state JSON exceeds supported limit")
+		}
+		return data, err
+	}
+	if e.OrderContract != sim.ExpressOrderContract || e.TextEncoding != ExpressTextEncoding {
+		return nil, errors.New("invalid Express envelope markers")
+	}
+	data, err := jsonv2.Marshal(e, json.DefaultOptionsV1(), packedRequestOptions())
+	if err == nil && len(data) > MaxStreamJSON {
+		err = errors.New("state JSON exceeds supported limit")
+	}
+	return data, err
+}
+
+func validateEnvelopeContract(e StreamEnvelope, previous StreamFrame) error {
+	contract := previous.State.Simulation.OrderContract
+	if e.Full != nil {
+		contract = e.Full.State.Simulation.OrderContract
+	}
+	if err := sim.ValidateOrderContract(contract); err != nil {
+		return err
+	}
+	if e.OrderContract != contract || (contract == sim.ExpressOrderContract && e.TextEncoding != ExpressTextEncoding) || (contract == "" && e.TextEncoding != "") {
+		return errors.New("publication order contract mismatch")
+	}
+	return nil
+}
+
+func expressSavedLimits() jsonLimits {
+	limits := boardingStateLimits(compactStateLimits(serviceStateLimits()))
+	limits.arrays = maps.Clone(limits.arrays)
+	limits.arrays["/simulation/waiting"] = sim.MaxExpressWaitingTrips
+	limits.arrays["/simulation/pods/*/boardings"] = 20
+	return limits
+}
+
+func expressStreamLimits() jsonLimits {
+	limits := jsonLimits{depth: 64, elements: 65536, members: 256, foldNames: true, arrays: map[string]int64{}}
+	for _, prefix := range []string{"/full", "/frame"} {
+		limits.arrays[prefix+"/routes"] = project.MaxPods
+		limits.arrays[prefix+"/routes/*/Display"] = project.MaxLanes
+		limits.arrays[prefix+"/routes/*/Lanes"] = sim.MotionRouteLimit
+		limits.arrays[prefix+"/state/simulation/Vehicles"] = project.MaxPods
+		limits.arrays[prefix+"/state/simulation/Berths"] = project.MaxNodes
+		limits.arrays[prefix+"/state/simulation/Pending"] = sim.MaxExpressWaitingTrips
+		limits.arrays[prefix+"/state/simulation/Vehicles/*/Riders"] = 20
+		limits.arrays[prefix+"/state/simulation/Vehicles/*/Boardings"] = 20
+		limits.arrays[prefix+"/state/simulation/Vehicles/*/Stops"] = 8
+		limits.arrays[prefix+"/state/simulation/Vehicles/*/RouteLaneIDs"] = 0
+	}
+	limits.arrays["/delta/vehicles"] = project.MaxPods
+	limits.arrays["/delta/berths"] = project.MaxNodes
+	limits.arrays["/delta/groups/pending"] = sim.MaxExpressWaitingTrips
+	limits.arrays["/delta/vehicles/*/riders/value"] = 20
+	limits.arrays["/delta/vehicles/*/boardings/value"] = 20
+	limits.arrays["/delta/vehicles/*/stops/value"] = 8
+	limits.arrays["/delta/vehicles/*/route/value/Display"] = project.MaxLanes
+	limits.arrays["/delta/vehicles/*/route/value/Lanes"] = sim.MotionRouteLimit
+	for path, bound := range topologyJSONLimits.arrays {
+		limits.arrays["/topology"+path] = bound
+	}
+	return limits
+}
+
+func maxStreamProjectVersion(version int) int {
+	if version == StreamVersion {
+		return project.ExpressVersion
+	}
+	return project.ServiceVersion
+}
+
+func (file *stateFile) validateWireContract() error {
+	if file.Version == expressStateVersion {
+		if file.OrderContract != sim.ExpressOrderContract || file.TextEncoding != ExpressTextEncoding || file.Simulation.OrderContract != file.OrderContract || file.Project.OrderContract != file.OrderContract {
+			return errors.New("saved Express contract markers disagree")
+		}
+	} else if file.OrderContract != "" || file.TextEncoding != "" || file.Simulation.OrderContract != "" || file.Project.OrderContract != "" {
+		return errors.New("legacy saved version contains Express contract")
+	}
+	return nil
+}
+
+func preflightExpressTopology(config project.Config, serverStart, epoch string, revision uint64) error {
+	if config.OrderContract != sim.ExpressOrderContract {
+		return nil
+	}
+	topology := TopologySnapshot{ProjectVersion: config.Version, OrderContract: config.OrderContract, ExpressServices: config.ExpressServices, Network: config.Network, Geo: config.Geo, Map: config.Map, ServerStart: serverStart, Epoch: epoch, ProjectRevision: revision}
+	data, err := json.Marshal(topology)
+	if err != nil {
+		return err
+	}
+	if len(data) > project.MaxFileBytes+4096 {
+		return errors.New("express topology exceeds supported limit")
+	}
+	return nil
+}
+
+// EncodeExpressStateJSON encodes a compact same-source HTTP state.
+func EncodeExpressStateJSON(topology TopologySnapshot, frame StreamFrame) ([]byte, error) {
+	if topology.OrderContract != sim.ExpressOrderContract || frame.State.Simulation.OrderContract != topology.OrderContract {
+		return nil, errors.New("HTTP state requires Express contract")
+	}
+	assembler, err := NewStreamAssemblerVersion(topology, StreamVersion)
+	if err != nil {
+		return nil, err
+	}
+	if _, err = assembler.State(frame); err != nil {
+		return nil, err
+	}
+	topologyBytes, err := json.Marshal(topology)
+	if err != nil {
+		return nil, err
+	}
+	if len(topologyBytes) > project.MaxFileBytes+4096 {
+		return nil, errors.New("HTTP topology exceeds supported limit")
+	}
+	data, err := jsonv2.Marshal(ExpressStateEnvelope{sim.ExpressOrderContract, ExpressTextEncoding, topology, frame}, json.DefaultOptionsV1(), packedRequestOptions())
+	if err == nil && len(data) > MaxStreamJSON {
+		err = errors.New("HTTP state exceeds supported limit")
+	}
+	return data, err
+}
+
+// DecodeExpressStateJSON validates packed HTTP state before publishing native data.
+func DecodeExpressStateJSON(raw []byte) (State, error) {
+	if len(raw) > MaxStreamJSON {
+		return State{}, errors.New("HTTP state exceeds supported limit")
+	}
+	if err := prescanJSON(raw, expressStreamLimits()); err != nil {
+		return State{}, err
+	}
+	if err := scanContractMarkers(raw, true, true); err != nil {
+		return State{}, err
+	}
+	if err := scanStreamBoardingMembers(raw, StreamVersion); err != nil {
+		return State{}, err
+	}
+	if err := scanStreamServiceMembers(raw, StreamVersion); err != nil {
+		return State{}, err
+	}
+	if err := scanPackedOrders(raw); err != nil {
+		return State{}, err
+	}
+	var envelope ExpressStateEnvelope
+	if err := jsonv2.Unmarshal(raw, &envelope, json.DefaultOptionsV1(), jsonv2.RejectUnknownMembers(true), packedDecodeOptions()); err != nil {
+		return State{}, err
+	}
+	assembler, err := NewStreamAssemblerVersion(envelope.Topology, StreamVersion)
+	if err != nil {
+		return State{}, err
+	}
+	return assembler.State(envelope.Frame)
+}
+
+func (s *Session) stateHTTP(w http.ResponseWriter, r *http.Request) {
+	s.mu.Lock()
+	if s.project.OrderContract != sim.ExpressOrderContract {
+		frame := stateFrame(s.state())
+		s.mu.Unlock()
+		writeJSON(w, frame)
+		return
+	}
+	accepted := false
+	for part := range strings.SplitSeq(r.Header.Get("Accept"), ",") {
+		if strings.TrimSpace(part) == ExpressMediaType {
+			accepted = true
+		}
+	}
+	if !accepted {
+		s.mu.Unlock()
+		writeError(w, "use the Express state media type", http.StatusNotAcceptable)
+		return
+	}
+	topology := s.topologyLocked()
+	frame, err := s.presentationFrameLocked()
+	s.mu.Unlock()
+	if err != nil {
+		writeError(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	data, err := EncodeExpressStateJSON(topology, frame)
+	if err != nil {
+		writeError(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	w.Header().Set("Content-Type", ExpressMediaType)
+	w.Header().Set("Vary", "Accept")
+	_, _ = w.Write(data)
+}
+
+// StreamHello selects one field contract for the connection.
+type StreamHello struct {
+	Kind          string            `json:"kind"`
+	Version       int               `json:"version"`
+	Build         string            `json:"build"`
+	ServerStart   string            `json:"serverStart"`
+	OrderContract sim.OrderContract `json:"orderContract,omitzero"`
+	TextEncoding  string            `json:"textEncoding,omitzero"`
+}
+
+// DecodeStreamHello rejects unknown, duplicate, and contradictory negotiation.
+func DecodeStreamHello(raw []byte) (StreamHello, error) {
+	var hello StreamHello
+	if len(raw) > 4096 {
+		return hello, errors.New("state hello exceeds supported limit")
+	}
+	if err := decodeStreamJSON(raw, &hello); err != nil {
+		return hello, err
+	}
+	if hello.Kind != "hello" || hello.Version < 1 || hello.Version > StreamVersion || hello.ServerStart == "" {
+		return hello, errors.New("unsupported state stream protocol")
+	}
+	if err := scanContractMarkers(raw, hello.Version == StreamVersion, hello.Version == StreamVersion); err != nil {
+		return hello, err
+	}
+	return hello, nil
+}
+
+func streamTextEncoding(contract sim.OrderContract) string {
+	if contract == sim.ExpressOrderContract {
+		return ExpressTextEncoding
+	}
+	return ""
+}

@@ -158,6 +158,15 @@ func savedRiders(pod SavedPod) (active, history []SavedRequest) {
 // state submitted but that are not complete, not in the queue and not
 // aboard a pod. A live simulation has none.
 func (state SavedState) checkContract() (int, error) {
+	if err := ValidateOrderContract(state.OrderContract); err != nil {
+		return 0, err
+	}
+	if state.OrderContract == ExpressOrderContract && len(state.Waiting) > MaxExpressWaitingTrips {
+		return 0, errors.New("too many saved waiting trips")
+	}
+	if err := state.checkContractRoutes(); err != nil {
+		return 0, err
+	}
 	if len(state.Pods) == 0 || len(state.Pods) > maxSavedPods {
 		return 0, fmt.Errorf("the saved state has %d pods, want 1 to %d", len(state.Pods), maxSavedPods)
 	}
@@ -196,13 +205,16 @@ func (state SavedState) checkContract() (int, error) {
 	// A queued order that is not valid does not stop the restore. Each tier
 	// drops it and reports it. See validTrip.
 	for _, trip := range state.Waiting {
-		if !validSavedOptions(trip.Request) || trip.Request.SharingConsent == LegacyUnknownConsent {
+		if !validSavedOptionsWithOrderContract(trip.Request, state.OrderContract) || trip.Request.SharingConsent == LegacyUnknownConsent {
 			return 0, errors.New("pending order lacks valid effective options")
 		}
 		if err := use(trip.Request.ID, "in the queue"); err != nil {
 			return 0, err
 		}
 		held++
+	}
+	if state.OrderContract == ExpressOrderContract && held > MaxExpressWaitingTrips {
+		return 0, errors.New("too many outstanding Express orders")
 	}
 	unaccounted := state.RequestID - state.Completed - held
 	if unaccounted < 0 {
@@ -222,7 +234,7 @@ func (state SavedState) validTrip(request SavedRequest, boarded bool) bool {
 
 // checkPod checks a saved pod against the rule of its phase.
 func (state SavedState) checkPod(pod SavedPod) error {
-	if err := checkSavedBoardings(pod); err != nil {
+	if err := checkSavedBoardingsWithOrderContract(pod, state.OrderContract); err != nil {
 		return err
 	}
 	phase, err := phaseOf(pod)
@@ -231,7 +243,7 @@ func (state SavedState) checkPod(pod SavedPod) error {
 	}
 	rule := ruleForPod(pod, phase)
 	active, history := savedRiders(pod)
-	if err := checkSavedAdmission(pod, active); err != nil {
+	if err := checkSavedAdmissionWithOrderContract(pod, active, state.OrderContract); err != nil {
 		return err
 	}
 	if err := state.checkPodRiders(pod, rule, active, history); err != nil {
@@ -250,7 +262,7 @@ func (state SavedState) checkPod(pod SavedPod) error {
 // one station unless boarding records prove their origins. Each names the pod.
 func (state SavedState) checkPodRiders(pod SavedPod, rule phaseRule, active, history []SavedRequest) error {
 	switch {
-	case len(pod.Riders) > MaxSharedRideParties || len(pod.Stops) > MaxSharedRideParties:
+	case len(pod.Riders) > MaxStoredRidersForOrderContract(pod.Class, state.OrderContract) || len(pod.Stops) > MaxSharedRideParties:
 		return fmt.Errorf("the pod has %d riders and %d stops", len(pod.Riders), len(pod.Stops))
 	case rule.active && len(active) == 0:
 		return errors.New("the pod has no active rider")

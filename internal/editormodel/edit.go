@@ -185,11 +185,13 @@ func proposeProjectEdit(draft any, command editCommand) (projectChange, error) {
 		if !ok || setting != "ordinary" && setting != "compact-v1" {
 			return projectChange{}, errors.New("station queue spacing must be ordinary or compact-v1")
 		}
-		if version := number(member(draft, "version")); version != 1 && version != 2 && version != 3 {
-			return projectChange{}, errors.New("station queue selection needs project version 1, 2, or 3")
+		if version := number(member(draft, "version")); version != 1 && version != 2 && version != 3 && version != 4 {
+			return projectChange{}, errors.New("station queue selection needs project version 1, 2, 3, or 4")
 		}
 		change.set(draft, "stationQueueSpacing", setting)
-		change.set(draft, "version", float64(project.ServiceVersion))
+		if number(member(draft, "version")) != 4 {
+			change.set(draft, "version", float64(project.ServiceVersion))
+		}
 	case "platoonLimit":
 		x, err := editNumber(value)
 		if err != nil || !slices.Contains([]float64{0, 2, 3, 4}, x) {

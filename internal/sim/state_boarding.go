@@ -9,7 +9,7 @@ import (
 func checkBoardingFields(input RestoreStateInput) error {
 	for _, pod := range input.State.Pods {
 		if pod.Boardings == nil {
-			if err := checkSavedBoardings(pod); err != nil {
+			if err := checkSavedBoardingsWithOrderContract(pod, input.OrderContract); err != nil {
 				return fmt.Errorf("pod %s boarding records: %w", pod.ID, err)
 			}
 			continue
@@ -28,14 +28,14 @@ func checkBoardingFields(input RestoreStateInput) error {
 }
 
 // checkSavedBoardings checks the aligned records and their passenger distance.
-func checkSavedBoardings(pod SavedPod) error {
+func checkSavedBoardingsWithOrderContract(pod SavedPod, contract OrderContract) error {
 	if pod.Boardings == nil {
 		if pod.Activity == activityCode(Boarding) && pod.Occupied {
 			return errors.New("occupied boarding needs boarding records")
 		}
 		return nil
 	}
-	if len(pod.Boardings) == 0 || len(pod.Boardings) > MaxSharedRideParties || len(pod.Boardings) != len(pod.Riders) {
+	if len(pod.Boardings) == 0 || len(pod.Boardings) > MaxStoredRidersForOrderContract(pod.Class, contract) || len(pod.Boardings) != len(pod.Riders) {
 		return errors.New("boarding records do not match the stored riders")
 	}
 	if pod.LegacyCohort {

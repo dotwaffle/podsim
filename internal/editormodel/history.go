@@ -340,7 +340,7 @@ func (e *engine) restoreHistory(state historySnapshot) {
 		}
 	}
 	if e.checks != nil {
-		for _, key := range []string{"version", "fleet", "expressServices", "stationQueueSpacing", "onboardPickups", "sharedRidePartyLimit", "sharedRideMode"} {
+		for _, key := range []string{"version", "orderContract", "fleet", "expressServices", "stationQueueSpacing", "onboardPickups", "sharedRidePartyLimit", "sharedRideMode"} {
 			if !bytes.Equal(e.branches[key].raw, state.branches[key].raw) {
 				e.checks.servicesReady = false
 				break

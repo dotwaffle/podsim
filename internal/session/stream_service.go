@@ -2,7 +2,9 @@ package session
 
 import (
 	"bytes"
+	"encoding/json"
 	"encoding/json/jsontext"
+	jsonv2 "encoding/json/v2"
 	"errors"
 	"fmt"
 	"io"
@@ -18,6 +20,17 @@ func DecodeStreamJSONVersion(data []byte, version int) (StreamEnvelope, error) {
 	if version < 1 || version > StreamVersion || len(data) > MaxStreamJSON {
 		return StreamEnvelope{}, errors.New("unsupported stream version or size")
 	}
+	if err := scanContractMarkers(data, version == StreamVersion, version == StreamVersion); err != nil {
+		return StreamEnvelope{}, err
+	}
+	if version == StreamVersion {
+		if err := prescanJSON(data, expressStreamLimits()); err != nil {
+			return StreamEnvelope{}, err
+		}
+		if err := scanPackedOrders(data); err != nil {
+			return StreamEnvelope{}, err
+		}
+	}
 	if err := scanStreamBoardingMembers(data, version); err != nil {
 		return StreamEnvelope{}, err
 	}
@@ -25,7 +38,12 @@ func DecodeStreamJSONVersion(data []byte, version int) (StreamEnvelope, error) {
 		return StreamEnvelope{}, err
 	}
 	var envelope StreamEnvelope
-	err := decodeStreamJSON(data, &envelope)
+	var err error
+	if version == StreamVersion {
+		err = jsonv2.Unmarshal(data, &envelope, json.DefaultOptionsV1(), jsonv2.RejectUnknownMembers(true), packedDecodeOptions())
+	} else {
+		err = decodeStreamJSON(data, &envelope)
+	}
 	return envelope, err
 }
 
@@ -49,7 +67,7 @@ func scanStreamServiceMembers(data []byte, version int) error {
 		default:
 			continue
 		}
-		if version < StreamVersion {
+		if version < FoundationStreamVersion {
 			return errors.New("legacy stream contains version 3 service fields")
 		}
 		if name == "vehicleclasses" {
@@ -70,7 +88,7 @@ func scanStreamServiceMembers(data []byte, version int) error {
 				return errors.New("stream project version must be an integer")
 			}
 			projectVersion, numberErr := value.Int()
-			if numberErr != nil || projectVersion < 1 || projectVersion > project.ServiceVersion {
+			if numberErr != nil || projectVersion < 1 || projectVersion > int64(maxStreamProjectVersion(version)) {
 				return errors.New("invalid stream project version")
 			}
 		default:
@@ -92,7 +110,7 @@ func scanStreamServiceMembers(data []byte, version int) error {
 					return errors.New("invalid stream service")
 				}
 			case "serviceid":
-				if len(value.String()) > 64 {
+				if len(value.String()) > 64 && version != StreamVersion {
 					return errors.New("stream service ID is too long")
 				}
 			}
@@ -117,6 +135,15 @@ func NewStreamAssemblerVersion(topology TopologySnapshot, version int) (*StreamA
 }
 
 func validateStreamTopology(topology TopologySnapshot, version int) error {
+	if version == StreamVersion {
+		if topology.ProjectVersion != project.ExpressVersion || topology.OrderContract != sim.ExpressOrderContract {
+			return errors.New("express topology needs project 4 and contract")
+		}
+		return sim.ValidateExpressServicesWithOrderContract(topology.Network, topology.ExpressServices, topology.OrderContract)
+	}
+	if topology.OrderContract != "" || len(topology.ExpressServices) != 0 {
+		return errors.New("legacy topology contains Express metadata")
+	}
 	classes := false
 	banks := false
 	for _, lane := range topology.Network.Lanes {
@@ -132,7 +159,7 @@ func validateStreamTopology(topology TopologySnapshot, version int) error {
 			classes = classes || berth.VehicleClasses != 0
 		}
 	}
-	if version < StreamVersion {
+	if version < FoundationStreamVersion {
 		if topology.ProjectVersion != 0 || classes {
 			return errors.New("legacy stream topology contains service metadata")
 		}
@@ -147,7 +174,10 @@ func validateStreamTopology(topology TopologySnapshot, version int) error {
 }
 
 func (a *StreamAssembler) serviceOrders(frame StreamFrame) error {
-	if a.version < StreamVersion {
+	if a.version == StreamVersion {
+		return a.expressOrders(frame)
+	}
+	if a.version < FoundationStreamVersion {
 		return nil
 	}
 	for _, request := range frame.State.Simulation.Pending {
@@ -156,7 +186,7 @@ func (a *StreamAssembler) serviceOrders(frame StreamFrame) error {
 		}
 	}
 	for _, vehicle := range frame.State.Simulation.Vehicles {
-		profile, known := sim.LookupVehicleClass(vehicle.Pod.Class)
+		profile, known := sim.LookupVehicleClassWithOrderContract(vehicle.Pod.Class, a.topology.OrderContract)
 		if !known || sim.ValidateVehicleClassProfile(vehicle.Pod.Class) != nil {
 			return errors.New("unsupported stream vehicle profile")
 		}
@@ -195,13 +225,13 @@ func (a *StreamAssembler) serviceOrders(frame StreamFrame) error {
 }
 
 func (a *StreamAssembler) rememberClasses(frame StreamFrame) error {
-	if a.version < StreamVersion {
+	if a.version < FoundationStreamVersion {
 		return nil
 	}
 	next := make(map[string]sim.VehicleClass, len(a.classes))
 	maps.Copy(next, a.classes)
 	for _, vehicle := range frame.State.Simulation.Vehicles {
-		profile, _ := sim.LookupVehicleClass(vehicle.Pod.Class)
+		profile, _ := sim.LookupVehicleClassWithOrderContract(vehicle.Pod.Class, a.topology.OrderContract)
 		next[vehicle.Pod.ID] = profile.Class
 	}
 	if len(next) > project.MaxPods {

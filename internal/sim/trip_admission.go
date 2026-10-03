@@ -43,6 +43,11 @@ func (s *Simulation) SetExpressServices(services []ExpressService) error {
 			}
 		}
 	}
+	if s.orderContract == ExpressOrderContract {
+		if err := checkSavedServiceLimits(RestoreStateInput{OrderContract: s.orderContract, Network: s.network, State: s.ExportState(), ExpressServices: services}); err != nil {
+			return err
+		}
+	}
 	s.expressServices = next
 	return nil
 }
@@ -112,9 +117,12 @@ func (s *Simulation) validateTripOptions(options TripOptions) (TripOptions, erro
 	if options.From == options.To && options.From != "" {
 		return TripOptions{}, ErrSameStation
 	}
-	options, err := NormalizeTripOptions(options)
+	options, err := NormalizeTripOptionsWithOrderContract(options, s.orderContract)
 	if err != nil {
 		return TripOptions{}, err
+	}
+	if s.orderContract == ExpressOrderContract && (len(s.waiting) >= MaxExpressWaitingTrips || s.outstandingOrders() >= MaxExpressWaitingTrips) {
+		return TripOptions{}, ErrPartyAdmission
 	}
 	from, ok := s.station(options.From)
 	if !ok || from.ParkingOnly {
@@ -135,7 +143,7 @@ func (s *Simulation) validateTripOptions(options TripOptions) (TripOptions, erro
 	}
 	for i := range s.vehicles {
 		v := &s.vehicles[i]
-		if ValidateVehicleClassProfile(v.Pod.Class) == nil && CheckPartyAdmission(PartyAdmissionInput{Class: v.Pod.Class, Request: options, PartyLimit: s.partyLimit(request)}) == nil {
+		if ValidateVehicleClassProfileWithOrderContract(v.Pod.Class, s.orderContract) == nil && CheckPartyAdmissionWithOrderContract(PartyAdmissionInput{Class: v.Pod.Class, Request: options, PartyLimit: s.partyLimit(request)}, s.orderContract) == nil {
 			return TripOptions{}, fmt.Errorf("passenger route %s to %s: %w", options.From, options.To, ErrUnreachable)
 		}
 	}
@@ -161,13 +169,13 @@ func (s *Simulation) partyLimit(request Request) int {
 }
 
 func (s *Simulation) podFitsRequest(v *vehicle, request Request) bool {
-	if request.LegacyPartySize || ValidateVehicleClassProfile(v.Pod.Class) != nil {
+	if request.LegacyPartySize || ValidateVehicleClassProfileWithOrderContract(v.Pod.Class, s.orderContract) != nil {
 		return false
 	}
 	if err := serviceMatches(s.expressServices, request.options()); err != nil {
 		return false
 	}
-	if err := CheckPartyAdmission(PartyAdmissionInput{Class: v.Pod.Class, Request: request.options(), PartyLimit: s.partyLimit(request)}); err != nil {
+	if err := CheckPartyAdmissionWithOrderContract(PartyAdmissionInput{Class: v.Pod.Class, Request: request.options(), PartyLimit: s.partyLimit(request)}, s.orderContract); err != nil {
 		return false
 	}
 	from, fromOK := s.station(request.From)
@@ -226,7 +234,7 @@ func (s *Simulation) canJoin(v *vehicle, request Request) bool {
 	for _, rider := range v.Riders {
 		active = append(active, PartyFacts{TripOptions: rider.options(), Completed: rider.Completed})
 	}
-	return CheckPartyAdmission(PartyAdmissionInput{Class: v.Pod.Class, Request: request.options(), Active: active, PartyLimit: s.partyLimit(request)}) == nil
+	return CheckPartyAdmissionWithOrderContract(PartyAdmissionInput{Class: v.Pod.Class, Request: request.options(), Active: active, PartyLimit: s.partyLimit(request)}, s.orderContract) == nil
 }
 
 func (s *Simulation) consentCompatible(v *vehicle, request Request) bool {
@@ -248,4 +256,19 @@ func (s *Simulation) hasFittingPod(request Request) bool {
 		}
 	}
 	return false
+}
+
+// ValidateExpressServicesWithOrderContract checks the registry and explicit contract.
+func ValidateExpressServicesWithOrderContract(network Network, services []ExpressService, contract OrderContract) error {
+	if err := ValidateOrderContract(contract); err != nil {
+		return err
+	}
+	if contract == ExpressOrderContract {
+		for _, service := range services {
+			if !boundedContractID(service.ID) || !boundedContractID(service.From) || !boundedContractID(service.To) {
+				return errors.New("the Express service IDs need bounded UTF-8")
+			}
+		}
+	}
+	return ValidateExpressServices(network, services)
 }

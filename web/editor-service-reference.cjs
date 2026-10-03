@@ -8,7 +8,13 @@ const has = (value, key) => record(value) && Object.keys(value).some((name) => n
 const topology = (draft) => [...rows(draft?.network?.Lanes), ...rows(draft?.network?.Stations), ...rows(draft?.network?.Stations).flatMap((station) => rows(station?.Berths))];
 
 function hasServiceMetadata(draft) {
-  return has(draft, "expressServices") || has(draft, "stationQueueSpacing") || rows(draft?.fleet).some((pod) => has(pod, "Class")) || topology(draft).some((item) => has(item, "VehicleClasses"));
+  return has(draft, "orderContract") || has(draft, "expressServices") || has(draft, "stationQueueSpacing") || rows(draft?.fleet).some((pod) => has(pod, "Class")) || topology(draft).some((item) => has(item, "VehicleClasses"));
+}
+
+function serviceContractError(draft) {
+  if (draft?.version === 4) return draft.orderContract === "express-v1" ? "" : "Project version 4 requires orderContract express-v1.";
+  if (has(draft, "orderContract")) return "The order contract requires project version 4.";
+  return hasServiceMetadata(draft) && draft?.version !== 3 ? "Vehicle and service fields require project version 3." : "";
 }
 
 function classSet(item) {
@@ -18,15 +24,16 @@ function classSet(item) {
 }
 
 function serviceMetadataChecks(draft, report) {
+  const contractError = serviceContractError(draft);
+  if (contractError) report(contractError);
   if (!hasServiceMetadata(draft)) return;
-  if (draft.version !== 3) report("Vehicle and service fields require project version 3.");
   if (topology(draft).some((item) => classSet(item) === null)) report("VehicleClasses must contain 1 to 4 distinct known classes.");
   for (const pod of rows(draft.fleet)) {
     const id = typeof pod?.ID === "string" && pod.ID || "?";
     const target = typeof pod?.StationID === "string" && pod.StationID ? { type: "station", id: pod.StationID } : null;
     const classID = Object.hasOwn(pod || {}, "Class") ? pod.Class : "legacy";
     if (!classes.includes(classID)) { report(`Pod ${id} has an invalid vehicle class.`, target); continue; }
-    if (classID === "express") { report(`Pod ${id} has no approved physical profile.`, target); continue; }
+    if (classID === "express" && (draft.version !== 4 || draft.orderContract !== "express-v1")) { report(`Pod ${id} has no approved physical profile.`, target); continue; }
     const station = rows(draft.network?.Stations).find((item) => item?.ID === pod?.StationID);
     const berth = rows(station?.Berths).find((item) => item?.ID === pod?.BerthID);
     if (berth && classSet(station) && classSet(berth) && (!classSet(station).includes(classID) || !classSet(berth).includes(classID))) report(`Pod ${id} has an incompatible station or berth.`, target);
@@ -82,4 +89,4 @@ function laneMinimumLength(lane) {
   return allowed && (allowed.includes("group") || allowed.includes("express")) ? 40 : 24;
 }
 
-module.exports = { hasServiceMetadata, serviceMetadataChecks, laneMinimumLength };
+module.exports = { hasServiceMetadata, serviceContractError, serviceMetadataChecks, laneMinimumLength };

@@ -65,10 +65,10 @@ func (config *Config) decodeJSONLimit(data []byte, options jsonv2.Options, rawLi
 	if err := jsonv2.Unmarshal(data, &decoded, options, jsonv2.RejectUnknownMembers(true)); err != nil {
 		return err
 	}
-	if present && decoded.Version != BankVersion && decoded.Version != ServiceVersion {
+	if present && decoded.Version != BankVersion && decoded.Version != ServiceVersion && decoded.Version != ExpressVersion {
 		return errors.New("station Banks requires project version 2 or 3")
 	}
-	if servicePresent && decoded.Version != ServiceVersion {
+	if servicePresent && decoded.Version != ServiceVersion && decoded.Version != ExpressVersion {
 		return errors.New("vehicle and service fields require project version 3")
 	}
 	// Partial project updates can omit the version. Validate checks complete projects.
@@ -90,8 +90,8 @@ func (config *Config) decodeJSONLimit(data []byte, options jsonv2.Options, rawLi
 }
 
 func validateBankVersion(config Config) error {
-	if config.Version != currentVersion && config.Version != BankVersion && config.Version != ServiceVersion {
-		return errors.New("project version must be 1, 2, or 3")
+	if config.Version != currentVersion && config.Version != BankVersion && config.Version != ServiceVersion && config.Version != ExpressVersion {
+		return errors.New("project version must be 1, 2, 3, or 4")
 	}
 	banked := false
 	for _, station := range config.Network.Stations {

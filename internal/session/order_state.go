@@ -81,7 +81,7 @@ func scanStateOrderFields(data []byte, version int) error {
 				return errors.New("invalid saved service choice")
 			}
 		case "serviceID":
-			if len(value.String()) > 64 {
+			if len(value.String()) > 64 && version != expressStateVersion {
 				return errors.New("saved service ID is too long")
 			}
 		}

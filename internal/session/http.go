@@ -139,7 +139,7 @@ func (s *Session) HandlerFS(files fs.FS, routes ...func(*http.ServeMux)) http.Ha
 	api := http.NewServeMux()
 	api.HandleFunc("GET /api/topology", func(w http.ResponseWriter, _ *http.Request) { writeJSON(w, s.Topology()) })
 	api.HandleFunc("GET /api/state/stream", s.streamHTTP)
-	api.HandleFunc("GET /api/state", func(w http.ResponseWriter, _ *http.Request) { writeJSON(w, s.Frame()) })
+	api.HandleFunc("GET /api/state", s.stateHTTP)
 	api.HandleFunc("GET /api/places", s.placesHTTP)
 	api.HandleFunc("GET /api/project", func(w http.ResponseWriter, _ *http.Request) { writeJSON(w, s.Project()) })
 	api.HandleFunc("POST /api/command", s.commandHTTP)

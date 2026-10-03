@@ -12,7 +12,7 @@ import (
 
 func TestBufferStateVersions(t *testing.T) {
 	t.Parallel()
-	for _, version := range []int{stateVersion, bufferStateVersion, bufferPlatoonStateVersion, bankStateVersion, serviceStateVersion, serviceStateVersion + 1} {
+	for _, version := range []int{stateVersion, bufferStateVersion, bufferPlatoonStateVersion, bankStateVersion, serviceStateVersion, expressStateVersion + 1} {
 		file := legacyTestState(newTestStateFile(t), version)
 		if version == serviceStateVersion {
 			file = newTestStateFile(t)

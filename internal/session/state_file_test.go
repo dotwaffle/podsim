@@ -894,7 +894,7 @@ func TestEncodeStateFileTooLarge(t *testing.T) {
 func TestStateFileMembers(t *testing.T) {
 	t.Parallel()
 	legacy := legacyStateMembersType(reflect.TypeFor[stateFile]())
-	got := stateMembers(t, "", legacy, nil)
+	got := foundationMemberLines(stateMembers(t, "", legacy, nil))
 	if *update {
 		if err := os.WriteFile(stateMembersPath, []byte(stateMembersHeader+strings.Join(got, "\n")+"\n"), 0o600); err != nil {
 			t.Fatal(err)

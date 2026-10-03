@@ -81,7 +81,7 @@ func (s *Simulation) onboardPickupCandidate(v *vehicle, request Request) (vehicl
 	if !ok || !finite(v.riddenMeters()) || v.riddenMeters() < 0 {
 		return vehicle{}, false
 	}
-	if len(candidate.Riders) >= MaxSharedRideParties {
+	if len(candidate.Riders) >= MaxStoredRidersForOrderContract(v.Pod.Class, s.orderContract) {
 		oldest := slices.IndexFunc(candidate.Riders, func(rider Request) bool { return rider.Completed })
 		if oldest < 0 {
 			return vehicle{}, false

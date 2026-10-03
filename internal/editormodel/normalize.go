@@ -16,13 +16,13 @@ func normalizeProject(draft any) (projectChange, error) {
 		return projectChange{}, errors.New("normalization needs a project object")
 	}
 	out := maps.Clone(object(draft))
-	if hasServiceMetadata(draft) && number(member(draft, "version")) != 3 {
-		return projectChange{}, errors.New("vehicle and service fields require project version 3")
+	if problem := draftContractError(draft); problem != "" {
+		return projectChange{}, errors.New(problem)
 	}
 	if problem := onboardSettingError(draft); problem != "" {
 		return projectChange{}, errors.New(problem)
 	}
-	if number(out["version"]) != 3 {
+	if number(out["version"]) != 3 && number(out["version"]) != 4 {
 		out["version"] = float64(1)
 		if hasBanks(member(out, "network")) {
 			out["version"] = float64(2)

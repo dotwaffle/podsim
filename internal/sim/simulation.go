@@ -145,6 +145,7 @@ type BerthState struct {
 
 // Snapshot is a copy of the fleet, clock, and station resources.
 type Snapshot struct {
+	OrderContract OrderContract `json:"orderContract,omitzero"`
 
 	// Submitted counts accepted passenger orders since reset.
 	Submitted int          `json:"Submitted"`
@@ -183,15 +184,16 @@ type Snapshot struct {
 
 // SafetyObservation is the state needed to check fleet separation and berth use.
 type SafetyObservation struct {
-	Tick         int64
-	Completed    int
-	Pending      int
-	Pods         []Pod
-	Berths       []BerthState
-	Locations    map[string]SafetyLocation
-	compactPairs map[[2]string]compactSafetyPair
-	compactError error
-	envelopes    map[string]safetyEnvelope
+	OrderContract OrderContract `json:"orderContract,omitzero"`
+	Tick          int64
+	Completed     int
+	Pending       int
+	Pods          []Pod
+	Berths        []BerthState
+	Locations     map[string]SafetyLocation
+	compactPairs  map[[2]string]compactSafetyPair
+	compactError  error
+	envelopes     map[string]safetyEnvelope
 }
 
 // SafetyLocation identifies the physical plane and endpoints occupied by a pod.
@@ -277,6 +279,7 @@ type vehicle struct {
 // shared field whole. It must not write into a shared field in place,
 // because that change also changes the clones.
 type Simulation struct {
+	orderContract   OrderContract
 	motion          *motionRecorder
 	expressServices map[string]ExpressService
 	// NewFleet builds junctionConflicts from the network. No code writes to it
@@ -489,7 +492,8 @@ func (s *Simulation) Snapshot() Snapshot { return s.snapshot(true) }
 
 func (s *Simulation) snapshot(routes bool) Snapshot {
 	state := Snapshot{
-		Submitted: s.requestID, Tick: s.tick, Paused: s.paused,
+		OrderContract: s.orderContract,
+		Submitted:     s.requestID, Tick: s.tick, Paused: s.paused,
 		Completed: s.completed, Demo: s.demo != nil, DemoError: s.demoError,
 		Wait: s.waitStats(), Journey: s.journeyStats(), PassengerDistanceMeters: s.passengerDistanceMeters,
 		RiderDistanceMeters: s.riderDistanceMeters, DirectDistanceMeters: s.directDistanceMeters,
@@ -533,7 +537,8 @@ func (s *Simulation) snapshot(routes bool) Snapshot {
 // SafetyObservation does not expose mutable simulation storage.
 func (s *Simulation) SafetyObservation() SafetyObservation {
 	state := SafetyObservation{
-		Tick: s.tick, Completed: s.completed, Pending: len(s.waiting),
+		OrderContract: s.orderContract,
+		Tick:          s.tick, Completed: s.completed, Pending: len(s.waiting),
 		Pods: make([]Pod, len(s.vehicles)), Berths: s.berthStates(),
 		Locations: make(map[string]SafetyLocation, len(s.vehicles)),
 	}

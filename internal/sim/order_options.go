@@ -3,6 +3,7 @@ package sim
 import (
 	"errors"
 	"fmt"
+	"unicode/utf8"
 )
 
 // SharingConsent records one party's order-time sharing choice.
@@ -53,6 +54,17 @@ type TripOptions struct {
 // Wire decoders must reject explicit null and empty values before this call.
 // This function does not check station existence or express registry membership.
 func NormalizeTripOptions(options TripOptions) (TripOptions, error) {
+	return NormalizeTripOptionsWithOrderContract(options, "")
+}
+
+// NormalizeTripOptionsWithOrderContract validates options under a valid explicit contract.
+func NormalizeTripOptionsWithOrderContract(options TripOptions, contract OrderContract) (TripOptions, error) {
+	if err := ValidateOrderContract(contract); err != nil {
+		return TripOptions{}, err
+	}
+	if contract == ExpressOrderContract && (!utf8.ValidString(options.From) || !utf8.ValidString(options.To) || !utf8.ValidString(options.ServiceID)) {
+		return TripOptions{}, fmt.Errorf("order IDs need valid UTF-8: %w", ErrInvalidTripOptions)
+	}
 	if options.PartySize == 0 {
 		options.PartySize = 1
 	}
@@ -68,8 +80,8 @@ func NormalizeTripOptions(options TripOptions) (TripOptions, error) {
 	if options.From == options.To {
 		return TripOptions{}, fmt.Errorf("trip endpoints must differ: %w", ErrInvalidTripOptions)
 	}
-	if options.PartySize < 1 || options.PartySize > MaxNewPartySize {
-		return TripOptions{}, fmt.Errorf("party size must be 1 to %d: %w", MaxNewPartySize, ErrInvalidTripOptions)
+	if options.PartySize < 1 || options.PartySize > newPartyLimit(contract) {
+		return TripOptions{}, fmt.Errorf("party size must be 1 to %d: %w", newPartyLimit(contract), ErrInvalidTripOptions)
 	}
 	if options.SharingConsent != PrivateConsent && options.SharingConsent != SharedConsent {
 		return TripOptions{}, fmt.Errorf("new orders need private or shared consent: %w", ErrInvalidTripOptions)
@@ -112,11 +124,16 @@ type PartyAdmissionInput struct {
 // Callers must also validate physical approval, route, berth, and service registry.
 // On-demand route and stop policies remain the caller's responsibility.
 func CheckPartyAdmission(input PartyAdmissionInput) error {
-	request, err := NormalizeTripOptions(input.Request)
+	return CheckPartyAdmissionWithOrderContract(input, "")
+}
+
+// CheckPartyAdmissionWithOrderContract checks whole-party fit for the explicit contract.
+func CheckPartyAdmissionWithOrderContract(input PartyAdmissionInput, contract OrderContract) error {
+	request, err := NormalizeTripOptionsWithOrderContract(input.Request, contract)
 	if err != nil {
 		return err
 	}
-	profile, ok := LookupVehicleClass(input.Class)
+	profile, ok := LookupVehicleClassWithOrderContract(input.Class, contract)
 	if !ok {
 		return ErrUnknownVehicleClass
 	}
@@ -138,7 +155,7 @@ func CheckPartyAdmission(input PartyAdmissionInput) error {
 		if party.Completed {
 			continue
 		}
-		if err := checkActiveParty(request, party.TripOptions, profile); err != nil {
+		if err := checkActiveParty(request, party.TripOptions, profile, contract); err != nil {
 			return err
 		}
 		parties++
@@ -153,14 +170,14 @@ func CheckPartyAdmission(input PartyAdmissionInput) error {
 	return nil
 }
 
-func checkActiveParty(request, party TripOptions, profile VehicleClassSpec) error {
+func checkActiveParty(request, party TripOptions, profile VehicleClassSpec, contract OrderContract) error {
 	if request.SharingConsent != SharedConsent || party.SharingConsent != SharedConsent {
 		return fmt.Errorf("all active parties must consent to sharing: %w", ErrPartyAdmission)
 	}
-	if party.PartySize < 1 || party.PartySize > MaxNewPartySize {
+	if party.PartySize < 1 || party.PartySize > newPartyLimit(contract) {
 		return fmt.Errorf("active party size is invalid: %w", ErrInvalidTripOptions)
 	}
-	effective, err := NormalizeTripOptions(party)
+	effective, err := NormalizeTripOptionsWithOrderContract(party, contract)
 	if err != nil {
 		return fmt.Errorf("active party: %w", err)
 	}

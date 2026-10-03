@@ -16,6 +16,7 @@ import (
 var topologyJSONLimits = jsonLimits{
 	depth: 64, elements: 0, members: 256, foldNames: true,
 	arrays: map[string]int64{
+		"/expressServices":                            project.MaxExpressServices,
 		"/network/Lanes/*/VehicleClasses":             4,
 		"/network/Stations/*/VehicleClasses":          4,
 		"/network/Stations/*/Berths/*/VehicleClasses": 4,
@@ -39,7 +40,20 @@ func (topology *TopologySnapshot) UnmarshalJSON(data []byte) error {
 	if err := scanTopologyBanks(data); err != nil {
 		return err
 	}
-	if err := scanStreamServiceMembers(data, StreamVersion); err != nil {
+	version := FoundationStreamVersion
+	var header struct {
+		ProjectVersion int `json:"projectVersion"`
+	}
+	if err := jsonv2.Unmarshal(data, &header, json.DefaultOptionsV1()); err != nil {
+		return err
+	}
+	if header.ProjectVersion == project.ExpressVersion {
+		version = StreamVersion
+	}
+	if err := scanContractMarkers(data, version == StreamVersion, false); err != nil {
+		return err
+	}
+	if err := scanStreamServiceMembers(data, version); err != nil {
 		return err
 	}
 	type plainTopology TopologySnapshot
@@ -49,6 +63,11 @@ func (topology *TopologySnapshot) UnmarshalJSON(data []byte) error {
 	}
 	if err := decoded.Network.ValidateStationBanks(); err != nil {
 		return err
+	}
+	if version == StreamVersion {
+		if err := validateStreamTopology(TopologySnapshot(decoded), version); err != nil {
+			return err
+		}
 	}
 	*topology = TopologySnapshot(decoded)
 	return nil

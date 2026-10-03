@@ -75,7 +75,7 @@ func editGeometry(draft any, raw jsontext.Value) (projectChange, error) {
 			return projectChange{}, err
 		}
 	}
-	if number(member(draft, "version")) != 3 && (hasBanks(original) || command.Action == "stationBanks" || command.Action == "stationLegacy") {
+	if number(member(draft, "version")) != 3 && number(member(draft, "version")) != 4 && (hasBanks(original) || command.Action == "stationBanks" || command.Action == "stationLegacy") {
 		version := float64(1)
 		if hasBanks(geometry.network) {
 			version = 2

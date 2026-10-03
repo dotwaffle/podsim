@@ -81,16 +81,10 @@ func (c *Client) receiveStream(ctx context.Context) error {
 	if kind != websocket.MessageText || len(data) > 4096 {
 		return errors.New("missing state stream hello")
 	}
-	var hello struct {
-		Kind        string `json:"kind"`
-		Version     int    `json:"version"`
-		Build       string `json:"build"`
-		ServerStart string `json:"serverStart"`
-	}
-	err = json.Unmarshal(data, &hello)
+	hello, err := session.DecodeStreamHello(data)
 	c.noteBuild(hello.Build)
-	if err != nil || hello.Kind != "hello" || hello.Version < 1 || hello.Version > session.StreamVersion || hello.ServerStart == "" {
-		return errors.New("unsupported state stream protocol")
+	if err != nil {
+		return err
 	}
 	var frame session.StreamFrame
 	var stream string
@@ -138,6 +132,9 @@ func (c *Client) receiveStream(ctx context.Context) error {
 		c.noteBuild(envelope.Build)
 		if err != nil {
 			return err
+		}
+		if envelope.OrderContract != hello.OrderContract || envelope.TextEncoding != hello.TextEncoding {
+			return errors.New("stream publication contract differs from hello")
 		}
 		if envelope.Source.ServerStart != hello.ServerStart {
 			return errors.New("state server identity changed within connection")

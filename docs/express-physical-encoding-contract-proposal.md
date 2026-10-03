@@ -1,15 +1,17 @@
 # Express physical and encoding contract proposal
 
-Status: **approved on October 3, 2026; implementation and qualification in progress**.
+Status: **approved, implemented, and qualified on October 3, 2026**.
 The user approved item 8b and the contract below with the 6b/8b batch.
 Deployment, runtime enablement, and default changes require a separate batch.
-Implementation must pass the physical, storage, and public-consumer gates before qualification.
+The [native](express-native-qualification.md), [wire](express-wire-qualification.md), and [browser](express-browser-qualification.md) records contain qualification evidence.
 
-The source base is `53321e4c5decc6c661df64a40378ee37614dcffc`.
+The source descriptions below refer to the reviewed baseline, `53321e4c5decc6c661df64a40378ee37614dcffc`.
 The [large-body proposal](large-body-physics-proposal.md) approved the dimensions and common conservative candidate.
 The [service contract](service-contract-proposals.md) and [byte contract](service-byte-contract-proposal.md) approved metadata and parser recognition.
 Group passed its applicable gates in [qualification](qualification.md).
-Express still needs its own physical, storage, and public-consumer gates.
+The qualification records cover the opt-in contract and retain its resource limits.
+The combined Go suite, web tests, static checks, and production builds passed.
+See [the integration measurement](measurements/continuation-express-integration.json).
 
 ## Recommended decisions
 

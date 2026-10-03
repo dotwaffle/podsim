@@ -11,7 +11,7 @@ import (
 
 // Metadata presence includes null so normalization cannot grant a new version.
 func hasServiceMetadata(draft any) bool {
-	if hasFold(draft, "expressServices") || hasFold(draft, "stationQueueSpacing") || hasFold(draft, "onboardPickups") {
+	if hasFold(draft, "orderContract") || hasFold(draft, "expressServices") || hasFold(draft, "stationQueueSpacing") || hasFold(draft, "onboardPickups") {
 		return true
 	}
 	for _, pod := range items(member(draft, "fleet")) {
@@ -57,11 +57,11 @@ func draftClassSet(value any) (sim.ClassSet, bool) {
 }
 
 func checkServiceMetadata(draft any, errors *checkList) {
+	if problem := draftContractError(draft); problem != "" {
+		errors.add(problem, nil)
+	}
 	if !hasServiceMetadata(draft) {
 		return
-	}
-	if number(member(draft, "version")) != 3 {
-		errors.add("Vehicle and service fields require project version 3.", nil)
 	}
 	network := member(draft, "network")
 	for _, key := range []string{"Lanes", "Stations"} {
@@ -73,7 +73,7 @@ func checkServiceMetadata(draft any, errors *checkList) {
 		}
 	}
 	for _, pod := range items(member(draft, "fleet")) {
-		checkPodClass(pod, network, errors)
+		checkPodClass(pod, network, draftOrderContract(draft), errors)
 	}
 	if has(draft, "expressServices") {
 		checkExpressRegistry(draft, errors)
@@ -86,19 +86,19 @@ func checkDraftClassSet(value any, errors *checkList) {
 	}
 }
 
-func checkPodClass(pod, network any, errors *checkList) {
+func checkPodClass(pod, network any, contract sim.OrderContract, errors *checkList) {
 	class := sim.VehicleClass(text(member(pod, "Class")))
 	if has(pod, "Class") {
 		if class == "" {
 			errors.add(fmt.Sprintf("Pod %s has an invalid vehicle class.", label(member(pod, "ID"))), target("station", member(pod, "StationID")))
 			return
 		}
-		if _, valid := sim.LookupVehicleClass(class); !valid {
+		if _, valid := sim.LookupVehicleClassWithOrderContract(class, contract); !valid {
 			errors.add(fmt.Sprintf("Pod %s has an invalid vehicle class.", label(member(pod, "ID"))), target("station", member(pod, "StationID")))
 			return
 		}
 	}
-	if sim.ValidateVehicleClassProfile(class) != nil {
+	if sim.ValidateVehicleClassProfileWithOrderContract(class, contract) != nil {
 		errors.add(fmt.Sprintf("Pod %s has no approved physical profile.", label(member(pod, "ID"))), target("station", member(pod, "StationID")))
 		return
 	}
@@ -135,7 +135,30 @@ func checkExpressRegistry(draft any, errors *checkList) {
 		errors.add("Express services or their network have invalid fields.", nil)
 		return
 	}
-	if err := sim.ValidateExpressServices(decoded.Network, decoded.ExpressServices); err != nil {
+	if err := sim.ValidateExpressServicesWithOrderContract(decoded.Network, decoded.ExpressServices, draftOrderContract(draft)); err != nil {
 		errors.add("Express services: "+err.Error()+".", nil)
 	}
+}
+
+func draftOrderContract(draft any) sim.OrderContract {
+	if number(member(draft, "version")) == 4 && text(member(draft, "orderContract")) == string(sim.ExpressOrderContract) {
+		return sim.ExpressOrderContract
+	}
+	return ""
+}
+
+func draftContractError(draft any) string {
+	if number(member(draft, "version")) == 4 {
+		if draftOrderContract(draft) != sim.ExpressOrderContract {
+			return "Project version 4 requires orderContract express-v1."
+		}
+		return ""
+	}
+	if hasFold(draft, "orderContract") {
+		return "The order contract requires project version 4."
+	}
+	if hasServiceMetadata(draft) && number(member(draft, "version")) != 3 {
+		return "Vehicle and service fields require project version 3."
+	}
+	return ""
 }

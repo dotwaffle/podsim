@@ -94,7 +94,7 @@ func TestCurrentStateGolden(t *testing.T) {
 		t.Fatalf("version 6 golden decode: %v", err)
 	}
 	membersType := withoutMember(reflect.TypeFor[stateFile](), reflect.TypeFor[sim.SavedPod](), "boardings")
-	lines := stateMembers(t, "", membersType, nil)
+	lines := foundationMemberLines(stateMembers(t, "", membersType, nil))
 	// The session adapter writes tuples instead of native boarding objects.
 	lines = append(lines, stateMembers(t, "simulation.pods[].boardings", reflect.TypeFor[[][2]float64](), nil)...)
 	members := strings.Join(lines, "\n") + "\n"
@@ -524,4 +524,11 @@ func savedTestArray(t *testing.T, value any) []any {
 		t.Fatalf("saved fixture needs a nonempty array, got %T", value)
 	}
 	return array
+}
+
+// foundationMemberLines excludes only the optional fields introduced by save 7.
+func foundationMemberLines(lines []string) []string {
+	return slices.DeleteFunc(lines, func(line string) bool {
+		return line == "orderContract string" || line == "textEncoding string" || line == "simulation.orderContract string" || line == "project.orderContract string"
+	})
 }

@@ -94,6 +94,7 @@ func (s *Simulation) SubmitTripOptions(options TripOptions) (int, error) {
 // pods and changes no decision. It runs before the join, so it also counts
 // the trips that join. See recordJoinEligible.
 func (s *Simulation) dispatch() {
+	defer s.clearUnboundWaitingRoutes()
 	if s.pass == nil {
 		s.pass = new(dispatchPass)
 	}
@@ -112,6 +113,10 @@ func (s *Simulation) dispatch() {
 			delete(assigned, v.Pod.ID)
 			s.releasePickup(v)
 			trip.request.PodID = ""
+			if s.orderContract == ExpressOrderContract {
+				trip.route = nil
+				trip.destination = Berth{}
+			}
 			v = nil
 			pass.reset()
 		}
@@ -159,6 +164,9 @@ func (s *Simulation) dispatch() {
 				}
 				i++
 				continue
+			}
+			if s.orderContract == ExpressOrderContract && trip.request.PodID != v.Pod.ID {
+				trip.route, trip.destination = nil, Berth{}
 			}
 			away := v.Pod.StationID != trip.request.From || v.Pod.Activity != Idle
 			if away && s.waitForFinishingPod(trip, v, assigned) {
@@ -505,7 +513,7 @@ func (s *Simulation) boardingRider(trip waitingTrip, v *vehicle, sharedWith int)
 // When a full pod could take the party and no pod takes it, the seat
 // screen counts a refusal. See refusedByFullPod.
 func (s *Simulation) joinSharedRide(trip *waitingTrip, pass *dispatchPass) bool {
-	if s.sharedRidePartyLimit <= 1 {
+	if s.partyLimit(trip.request) <= 1 {
 		return false
 	}
 	request := trip.request

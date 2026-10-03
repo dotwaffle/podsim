@@ -1,0 +1,153 @@
+{
+  "qualified_utc": "2026-10-03T22:31:42.165792+00:00",
+  "scope": "Approved car continuation and Express implementations in the combined main tree. Additional car qualification is recorded separately.",
+  "source_base": "d52e31d0b5192998984086a1021252e264003040",
+  "express_owned_paths": 87,
+  "source_pins": "~/.cache/agents/podsim/continuation-express-batch-20261003/root/integrated-source-audit.json",
+  "evidence_directory": "/home/dotwaffle/.cache/agents/podsim/continuation-express-batch-20261003/root/integration-gates",
+  "manifest_sha256": "676758b9ecdeed4e26031ead83511c5523e55130168753f4841893b7bbc4d61d",
+  "toolchain": {
+    "go": "1.27.1",
+    "experiment": "jsonv2",
+    "GOGC": 400,
+    "GOMAXPROCS": 1
+  },
+  "web_tests": 363,
+  "runs": [
+    {
+      "name": "integrated-go-suite",
+      "command": [
+        "go",
+        "test",
+        "./...",
+        "-timeout=12m"
+      ],
+      "started": "2026-10-03T22:21:37.245073+00:00",
+      "ended": "2026-10-03T22:30:42.882735+00:00",
+      "exit_code": 0,
+      "metadata_sha256": "98bd9837ed5c72913519d262406c6c191ecbf0bda361021c0518403fea358658"
+    },
+    {
+      "name": "integrated-web",
+      "command": [
+        "env",
+        "PODSIM_REQUIRE_GO=1",
+        "/home/dotwaffle/.local/share/mise/installs/node/24.21.0/bin/node",
+        "--test",
+        "web/editor-model_test.cjs",
+        "web/place-search_test.cjs",
+        "web/tiles_test.cjs",
+        "web/simulation-map_test.cjs",
+        "web/editor_test.cjs",
+        "web/loader_test.cjs",
+        "web/shell_test.cjs",
+        "web/stream_test.cjs",
+        "web/offline_test.cjs"
+      ],
+      "started": "2026-10-03T22:20:12.973786+00:00",
+      "ended": "2026-10-03T22:20:28.469270+00:00",
+      "exit_code": 0,
+      "metadata_sha256": "37a253b16cc3d07ee1ea3a3c2a51f11031f9eecb91f05681b712a22d6bb7d8e9"
+    },
+    {
+      "name": "integrated-diagnostics",
+      "command": [
+        "python3",
+        "/home/dotwaffle/.cache/agents/podsim/service-access-20261002/gopls-call.py",
+        "go_diagnostics",
+        "{\"files\":[\"/home/dotwaffle/Code/podsim/internal/session/express_wire.go\",\"/home/dotwaffle/Code/podsim/internal/remote/client.go\",\"/home/dotwaffle/Code/podsim/internal/editormodel/express_test.go\",\"/home/dotwaffle/Code/podsim/internal/sim/order_contract.go\",\"/home/dotwaffle/Code/podsim/internal/parkride/checkpoint_restore.go\",\"/home/dotwaffle/Code/podsim/internal/view/order_choices.go\"]}"
+      ],
+      "started": "2026-10-03T22:21:37.249472+00:00",
+      "ended": "2026-10-03T22:21:41.170163+00:00",
+      "exit_code": 0,
+      "metadata_sha256": "3f5608f388291d41987371b1cbb61fb90d6daf3aa9889b904c81ae9438515f06"
+    },
+    {
+      "name": "integrated-static-v2",
+      "command": [
+        "golangci-lint",
+        "run",
+        "./..."
+      ],
+      "started": "2026-10-03T22:21:54.242855+00:00",
+      "ended": "2026-10-03T22:22:37.923337+00:00",
+      "exit_code": 0,
+      "metadata_sha256": "9f1ba1f176fb33bbadd5dc16e4b3c2a51cb2ccb0fbe919ba9eec6f01a3ce072b"
+    },
+    {
+      "name": "integrated-vet",
+      "command": [
+        "go",
+        "vet",
+        "./..."
+      ],
+      "started": "2026-10-03T22:22:17.184992+00:00",
+      "ended": "2026-10-03T22:22:22.661243+00:00",
+      "exit_code": 0,
+      "metadata_sha256": "3f7242729a83b8530ce93ed1f682060b374e6aaf71456a6b46a589aa3ba23831"
+    },
+    {
+      "name": "integrated-web-build",
+      "command": [
+        "go",
+        "generate",
+        "./..."
+      ],
+      "started": "2026-10-03T22:22:17.179684+00:00",
+      "ended": "2026-10-03T22:22:27.470670+00:00",
+      "exit_code": 0,
+      "metadata_sha256": "914e2a0b5226040519f6b393de666c77ce403f4f5ed973860af759eeb4a664c1"
+    },
+    {
+      "name": "integrated-embedded",
+      "command": [
+        "go",
+        "test",
+        "-tags=embed_assets",
+        ".",
+        "./cmd/serve",
+        "./internal/session",
+        "-run",
+        "Test(WebAssets|Embedded|Express|StateGolden)",
+        "-timeout=4m"
+      ],
+      "started": "2026-10-03T22:23:15.151209+00:00",
+      "ended": "2026-10-03T22:23:38.657463+00:00",
+      "exit_code": 0,
+      "metadata_sha256": "cad6cb4a0148e3d130bc8d005d487b97b27a49d37809289d6ff074eded58f310"
+    },
+    {
+      "name": "integrated-wasm-dependencies",
+      "command": [
+        "env",
+        "GOOS=js",
+        "GOARCH=wasm",
+        "go",
+        "list",
+        "-deps",
+        "./cmd/podsim",
+        "./cmd/editormodel"
+      ],
+      "started": "2026-10-03T22:23:16.316134+00:00",
+      "ended": "2026-10-03T22:23:16.486795+00:00",
+      "exit_code": 0,
+      "metadata_sha256": "e47871767ef037dbf21cbc2361103078168b0a99a1ff756524c9c56865fc9c96"
+    },
+    {
+      "name": "integrated-prose",
+      "command": [
+        "rumdl",
+        "check",
+        "docs/express-physical-encoding-contract-proposal.md",
+        "docs/express-native-qualification.md",
+        "docs/express-wire-qualification.md",
+        "docs/express-browser-qualification.md"
+      ],
+      "started": "2026-10-03T22:23:48.631496+00:00",
+      "ended": "2026-10-03T22:23:48.695471+00:00",
+      "exit_code": 0,
+      "metadata_sha256": "e15661a288457d8fff395eeae1057fac4f4c9efc7fd54dfc6c3f7c65b4fc9cf1"
+    }
+  ],
+  "deployment_authorized": false
+}

@@ -14,10 +14,22 @@ import (
 // ServiceVersion identifies projects with authored vehicle and service metadata.
 const ServiceVersion = 3
 
+// ExpressVersion identifies explicit Express operating projects.
+const ExpressVersion = 4
+
 // MaxExpressServices bounds the directed service registry of a project.
 const MaxExpressServices = 300
 
 func validateServiceVersion(config Config) error {
+	if config.Version == ExpressVersion {
+		if config.OrderContract != sim.ExpressOrderContract {
+			return errors.New("project version 4 requires express-v1")
+		}
+		return nil
+	}
+	if config.OrderContract != "" {
+		return errors.New("order contract requires project version 4")
+	}
 	if config.Version == ServiceVersion {
 		return nil
 	}
@@ -61,6 +73,15 @@ func scanProjectService(data []byte) (bool, error) {
 			continue
 		}
 		switch {
+		case len(path) == 2 && path[1] == "ordercontract":
+			present = true
+			value, err := decoder.ReadToken()
+			if err != nil {
+				return false, err
+			}
+			if value.Kind() != jsontext.KindString || value.String() != string(sim.ExpressOrderContract) {
+				return false, errors.New("order contract must be express-v1")
+			}
 		case len(path) == 2 && path[1] == "onboardpickups":
 			present = true
 			value, err := decoder.ReadToken()

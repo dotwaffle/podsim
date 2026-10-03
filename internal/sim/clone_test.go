@@ -175,6 +175,7 @@ const (
 // it.
 var persistRules = map[reflect.Type]map[string]persistRule{
 	reflect.TypeFor[Simulation](): {
+		"orderContract":   persistSave,
 		"motion":          persistReset,
 		"expressServices": persistSession, "junctionConflicts": persistDerive, "lengths": persistReset, "routes": persistReset, "routeOrder": persistReset,
 		"graph": persistDerive, "stationIndexes": persistDerive, "stationForbidden": persistDerive, "pickupBounds": persistReset, "routeWork": persistReset, "admissionWork": persistReset,

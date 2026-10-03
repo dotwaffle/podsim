@@ -2,7 +2,7 @@
 
 // These former model helpers run only in Node parity tests.
 module.exports = (helpers) => {
-  const { hasServiceMetadata, laneMinimumLength } = require("./editor-service-reference.cjs");
+  const { hasServiceMetadata, serviceContractError, laneMinimumLength } = require("./editor-service-reference.cjs");
   const {
     ANCHOR_MAX_RESIDUAL, ANCHOR_MIN_DISTANCE, BERTH_PITCH, DEFAULT_OPACITY, DEFAULT_SPEED,
     DEGREE, GEO_MAX_LATITUDE, GEO_PROJECTION, GEO_RADIUS, MAX_BERTHS, MAX_COORDINATE,
@@ -68,8 +68,9 @@ module.exports = (helpers) => {
 
   function normalizeConfig(input) {
     const config = clone(input || emptyConfig());
-    if (hasServiceMetadata(config) && config.version !== 3) throw new Error("Vehicle and service fields require project version 3.");
-    if (config.version !== 3) config.version = config.network?.Stations?.some((station) => station && Object.hasOwn(station, "Banks")) ? 2 : 1;
+    const contractError = serviceContractError(config);
+    if (contractError) throw new Error(contractError);
+    if (![3, 4].includes(config.version)) config.version = config.network?.Stations?.some((station) => station && Object.hasOwn(station, "Banks")) ? 2 : 1;
     config.name = typeof config.name === "string" ? config.name : "Untitled scenario";
     config.network = config.network || {};
     config.network.Nodes = Array.isArray(config.network.Nodes) ? config.network.Nodes : [];

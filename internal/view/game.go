@@ -581,7 +581,7 @@ func (g *Game) click(point sim.Point) bool {
 		case "party-less":
 			g.orderPartySize = max(1, g.selectedPartySize()-1)
 		case "party-more":
-			g.orderPartySize = min(sim.MaxNewPartySize, g.selectedPartySize()+1)
+			g.orderPartySize = min(g.orderPartyLimit(), g.selectedPartySize()+1)
 		case "order-sharing":
 			if g.orderSharingConsent == sim.SharedConsent {
 				g.orderSharingConsent = sim.PrivateConsent

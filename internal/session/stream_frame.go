@@ -13,6 +13,10 @@ import (
 func (s *Session) presentationFrame() (StreamFrame, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	return s.presentationFrameLocked()
+}
+
+func (s *Session) presentationFrameLocked() (StreamFrame, error) {
 	snapshot, routes, err := s.simulation.PresentationSnapshot()
 	if err != nil {
 		return StreamFrame{}, err
@@ -29,6 +33,8 @@ func (s *Session) presentationFrame() (StreamFrame, error) {
 // StreamAssembler caches verified topology and immutable expanded route data.
 type StreamAssembler struct {
 	version        int
+	passengerPaths map[passengerPathKey]bool
+	classLanes     map[sim.VehicleClass]map[string]bool
 	classes        map[string]sim.VehicleClass
 	topology       TopologySnapshot
 	lanes          map[string]bool
@@ -42,10 +48,22 @@ type StreamAssembler struct {
 
 // NewStreamAssembler takes ownership of a detached topology snapshot.
 func NewStreamAssembler(topology TopologySnapshot) (*StreamAssembler, error) {
+	if err := sim.ValidateOrderContract(topology.OrderContract); err != nil {
+		return nil, err
+	}
+	if topology.OrderContract == sim.ExpressOrderContract {
+		if err := validateStreamTopology(topology, StreamVersion); err != nil {
+			return nil, err
+		}
+	}
 	if len(topology.Network.Lanes) > project.MaxLanes || len(topology.Network.Nodes) > project.MaxNodes {
 		return nil, errors.New("topology exceeds supported limits")
 	}
 	a := &StreamAssembler{topology: topology, lanes: make(map[string]bool, len(topology.Network.Lanes)), groupLanes: make(map[string]bool, len(topology.Network.Lanes)), stations: map[string]bool{}, berths: map[string]bool{}, boardingBerths: map[string]boardingBerth{}}
+	if topology.OrderContract == sim.ExpressOrderContract {
+		a.version = StreamVersion
+		a.passengerPaths = map[passengerPathKey]bool{}
+	}
 	nodes := map[string]bool{}
 	stationClasses := map[string]sim.ClassSet{}
 	for _, node := range topology.Network.Nodes {
@@ -79,6 +97,9 @@ func NewStreamAssembler(topology TopologySnapshot) (*StreamAssembler, error) {
 			admitted = admitted && found && classes.Allows(string(sim.GroupClass))
 		}
 		a.groupLanes[l.ID] = admitted
+	}
+	if topology.OrderContract == sim.ExpressOrderContract {
+		a.indexClassLanes()
 	}
 	return a, nil
 }
@@ -157,6 +178,9 @@ func (a *StreamAssembler) State(f StreamFrame) (State, error) {
 	}
 	a.previous = ownStreamBoardings(f)
 	a.state = state
+	if a.topology.OrderContract == sim.ExpressOrderContract {
+		a.state = ownAssemblerState(state)
+	}
 	// Only private containers are retained. The geometry and routes are immutable.
 	a.previous.Routes = slices.Clone(f.Routes)
 	return state, nil
@@ -182,7 +206,11 @@ func (a *StreamAssembler) references(f StreamFrame) error {
 	}
 	snapshot := f.State.Simulation
 	pods := map[string]bool{}
-	if len(snapshot.Pending) > maxSavedTrips {
+	pendingLimit := maxSavedTrips
+	if a.topology.OrderContract == sim.ExpressOrderContract {
+		pendingLimit = sim.MaxExpressWaitingTrips
+	}
+	if len(snapshot.Pending) > pendingLimit {
 		return errors.New("too many pending requests")
 	}
 	for _, v := range snapshot.Vehicles {
@@ -202,7 +230,7 @@ func (a *StreamAssembler) references(f StreamFrame) error {
 		if !optionalReference(a.stations, p.StationID) || !optionalReference(a.stations, p.ManeuverStationID) || !optionalReference(a.stations, v.RelocatingTo) || !optionalReference(a.berths, p.BerthID) || !optionalReference(pods, p.BlockedBy) || !optionalReference(pods, v.PlatoonID) {
 			return errors.New("invalid pod reference")
 		}
-		if len(v.Riders) > 8 || len(v.Stops) > 8 {
+		if len(v.Riders) > sim.MaxStoredRidersForOrderContract(v.Pod.Class, a.topology.OrderContract) || len(v.Stops) > 8 {
 			return errors.New("too many riders or stops")
 		}
 		for _, r := range v.Riders {

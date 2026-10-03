@@ -132,11 +132,12 @@ var stateJSONLimits = jsonLimits{
 	},
 }
 
-// stateFile holds versions 2 through 6 of the saved session state. Version 3
+// stateFile holds versions 2 through 7 of the saved session state. Version 3
 // adds explicit station buffer membership. Version 4 adds fixed entry links.
 // Version 5 requires a version 2 project with explicit station banks.
 // Version 6 adds service metadata, boarding references, and retained compact
 // queue certificates.
+// Version 7 packs order text under the Express contract.
 // Earlier versions reject later fields, including explicit empty or null values.
 // The file on disk is
 // the JSON form of stateFile, compressed with gzip. Each change to a member,
@@ -150,6 +151,8 @@ var stateJSONLimits = jsonLimits{
 // returns a simulation that shares no storage with the session. The session
 // replaces its project whole and does not change it in place.
 type stateFile struct {
+	OrderContract sim.OrderContract `json:"orderContract,omitzero"`
+	TextEncoding  string            `json:"textEncoding,omitzero"`
 	// boardingTuples retains unresolved references in saved pod order.
 	boardingTuples  [][]boardingTuple
 	RailConnections []rail.Connection `json:"railConnections,omitempty"`
@@ -239,9 +242,15 @@ func (e *stateEncoder) encode(file stateFile) ([]byte, error) {
 		writer: e.zw, limit: MaxStateBytes,
 		err: fmt.Errorf("session state has more than %d bytes: %w", MaxStateBytes, ErrStateTooLarge),
 	}
+	if err := file.validateWireContract(); err != nil {
+		return nil, err
+	}
 	source := bindBoardingSource(file.Project)
 	options := json.JoinOptions(json.Deterministic(true), json.WithMarshalers(json.JoinMarshalers(
 		json.MarshalToFunc(e.encodeProject), json.MarshalToFunc(source.encodePod))))
+	if file.Version == expressStateVersion {
+		options = json.JoinOptions(json.Deterministic(true), json.WithMarshalers(json.JoinMarshalers(json.MarshalToFunc(e.encodeProject), json.MarshalToFunc(source.encodeExpressPod), json.MarshalToFunc(encodePackedSavedRequest))))
+	}
 	if err := json.MarshalWrite(limited, file, options); err != nil {
 		return nil, fmt.Errorf("encode session state: %w", err)
 	}
@@ -310,7 +319,7 @@ func decodeStateFile(data []byte) (stateFile, error) {
 		return stateFile{}, err
 	}
 	// Check the largest recognized shapes before even the small header decode.
-	if err := prescanJSON(raw, boardingStateLimits(compactStateLimits(serviceStateLimits()))); err != nil {
+	if err := prescanJSON(raw, expressSavedLimits()); err != nil {
 		return stateFile{}, invalidState(fmt.Errorf("scan session state: %w", err))
 	}
 	// The header decode ignores the other members, so that a file from a
@@ -322,16 +331,27 @@ func decodeStateFile(data []byte) (stateFile, error) {
 	if err := json.Unmarshal(raw, &header); err != nil {
 		return stateFile{}, invalidState(fmt.Errorf("decode session state header: %w", err))
 	}
-	if header.Format != stateFormat || header.Version < stateVersion || header.Version > serviceStateVersion {
+	if header.Format != stateFormat || header.Version < stateVersion || header.Version > expressStateVersion {
 		return stateFile{}, &stateError{
 			reason: reasonUnsupportedVersion,
 			err: fmt.Errorf("session state format %.20q version %d is not %q version %d",
 				header.Format, header.Version, stateFormat, stateVersion),
 		}
 	}
+	if err := scanContractMarkers(raw, header.Version == expressStateVersion, header.Version == expressStateVersion); err != nil {
+		return stateFile{}, invalidState(err)
+	}
+	if header.Version == expressStateVersion {
+		if err := scanPackedOrders(raw); err != nil {
+			return stateFile{}, invalidState(err)
+		}
+	}
 	limits := stateJSONLimits
 	if header.Version == serviceStateVersion {
 		limits = boardingStateLimits(compactStateLimits(serviceStateLimits()))
+	}
+	if header.Version == expressStateVersion {
+		limits = expressSavedLimits()
 	}
 	if err := prescanJSON(raw, limits); err != nil {
 		return stateFile{}, invalidState(fmt.Errorf("scan session state: %w", err))
@@ -347,7 +367,13 @@ func decodeStateFile(data []byte) (stateFile, error) {
 	}
 	var boardingTuples [][]boardingTuple
 	decodePod := func(decoder *jsontext.Decoder, pod *sim.SavedPod) error {
-		tuples, err := decodeBoardingPod(decoder, pod)
+		var tuples []boardingTuple
+		var err error
+		if header.Version == expressStateVersion {
+			tuples, err = decodeExpressBoardingPod(decoder, pod)
+		} else {
+			tuples, err = decodeBoardingPod(decoder, pod)
+		}
 		if err == nil {
 			boardingTuples = append(boardingTuples, tuples)
 		}
@@ -355,6 +381,8 @@ func decodeStateFile(data []byte) (stateFile, error) {
 	}
 	options := strictStateOptions
 	switch header.Version {
+	case expressStateVersion:
+		options = json.JoinOptions(options, json.WithUnmarshalers(json.JoinUnmarshalers(json.UnmarshalFromFunc(decodeSavedProject), json.UnmarshalFromFunc(decodeV6Platoon), json.UnmarshalFromFunc(decodeCompactQueue), json.UnmarshalFromFunc(decodePod), json.UnmarshalFromFunc(decodePackedSavedRequest))))
 	case serviceStateVersion:
 		options = json.JoinOptions(options, json.WithUnmarshalers(json.JoinUnmarshalers(
 			json.UnmarshalFromFunc(decodeSavedProject), json.UnmarshalFromFunc(decodeV6Platoon), json.UnmarshalFromFunc(decodeCompactQueue), json.UnmarshalFromFunc(decodePod))))
@@ -385,6 +413,15 @@ func decodeStateFile(data []byte) (stateFile, error) {
 }
 
 func (file *stateFile) validateProjectVersion() error {
+	if err := file.validateWireContract(); err != nil {
+		return err
+	}
+	if file.Version == expressStateVersion {
+		if file.Project.Version != project.ExpressVersion {
+			return errors.New("saved version 7 requires project 4")
+		}
+		return nil
+	}
 	if file.Version == serviceStateVersion {
 		if file.Project.Version < 1 || file.Project.Version > project.ServiceVersion {
 			return errors.New("saved version 6 requires project version 1, 2, or 3")

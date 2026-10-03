@@ -25,7 +25,9 @@ func finiteNonnegative(value float64) bool {
 	return !math.IsNaN(value) && !math.IsInf(value, 0) && value >= 0
 }
 
-func validateVehicleBoardings(v VehicleFrame) error {
+func validateVehicleBoardings(v VehicleFrame) error { return validateVehicleBoardingsContract(v, "") }
+
+func validateVehicleBoardingsContract(v VehicleFrame, contract sim.OrderContract) error {
 	if !finiteNonnegative(v.RiddenMeters) {
 		return errors.New("invalid passenger chain distance")
 	}
@@ -38,7 +40,7 @@ func validateVehicleBoardings(v VehicleFrame) error {
 		}
 		return nil
 	}
-	if v.LegacyCohort || len(v.Boardings) > 8 || len(v.Boardings) != len(v.Riders) {
+	if v.LegacyCohort || len(v.Boardings) > sim.MaxStoredRidersForOrderContract(v.Pod.Class, contract) || len(v.Boardings) != len(v.Riders) {
 		return errors.New("invalid boarding record alignment or cohort")
 	}
 	for i, record := range v.Boardings {
@@ -46,7 +48,7 @@ func validateVehicleBoardings(v VehicleFrame) error {
 			return errors.New("invalid boarding record")
 		}
 		rider := v.Riders[i]
-		if rider.SharingConsent == sim.LegacyUnknownConsent || !validStreamOrder(rider) {
+		if rider.SharingConsent == sim.LegacyUnknownConsent || !validStreamOrderContract(rider, contract) {
 			return errors.New("boarding record needs a known service order")
 		}
 		if !rider.Completed && rider.SharingConsent != sim.SharedConsent {
@@ -57,10 +59,16 @@ func validateVehicleBoardings(v VehicleFrame) error {
 }
 
 func (a *StreamAssembler) vehicleBoardings(v VehicleFrame) error {
-	if err := validateVehicleBoardings(v); err != nil {
+	var err error
+	if a.topology.OrderContract == "" {
+		err = validateVehicleBoardings(v)
+	} else {
+		err = validateVehicleBoardingsContract(v, a.topology.OrderContract)
+	}
+	if err != nil {
 		return err
 	}
-	if len(v.Boardings) > 0 && a.version > 0 && a.version < StreamVersion {
+	if len(v.Boardings) > 0 && a.version > 0 && a.version < FoundationStreamVersion {
 		return errors.New("legacy stream contains boarding records")
 	}
 	for i, record := range v.Boardings {
@@ -73,9 +81,15 @@ func (a *StreamAssembler) vehicleBoardings(v VehicleFrame) error {
 }
 
 func ownStreamBoardings(f StreamFrame) StreamFrame {
+	if f.State.Simulation.OrderContract == sim.ExpressOrderContract {
+		f.State.Simulation.Pending = slices.Clone(f.State.Simulation.Pending)
+	}
 	f.State.Simulation.Vehicles = slices.Clone(f.State.Simulation.Vehicles)
 	for i := range f.State.Simulation.Vehicles {
 		v := &f.State.Simulation.Vehicles[i]
+		if f.State.Simulation.OrderContract == sim.ExpressOrderContract {
+			v.Stops = slices.Clone(v.Stops)
+		}
 		v.Riders = slices.Clone(v.Riders)
 		v.Boardings = slices.Clone(v.Boardings)
 	}
@@ -102,7 +116,7 @@ func scanStreamBoardingMembers(data []byte, version int) error {
 			continue
 		}
 		path := strings.Split(strings.ToLower(string(decoder.StackPointer())), "/")
-		full := len(path) == 7 && path[1] == "full" && path[2] == "state" && path[3] == "simulation" && path[4] == "vehicles" && streamArrayIndex(path[5])
+		full := len(path) == 7 && (path[1] == "full" || path[1] == "frame") && path[2] == "state" && path[3] == "simulation" && path[4] == "vehicles" && streamArrayIndex(path[5])
 		delta := len(path) == 5 && path[1] == "delta" && path[2] == "vehicles" && streamArrayIndex(path[3])
 		metadata := len(path) == 7 && path[1] == "delta" && path[2] == "vehicles" && streamArrayIndex(path[3]) && path[4] == "metadata" && path[5] == "value"
 		records := name == "boardings" && (full || delta)
@@ -110,7 +124,7 @@ func scanStreamBoardingMembers(data []byte, version int) error {
 		if !records && !distance {
 			continue
 		}
-		if version < StreamVersion {
+		if version < FoundationStreamVersion {
 			return errors.New("legacy stream contains boarding fields")
 		}
 		raw, err := decoder.ReadValue()
@@ -125,13 +139,18 @@ func scanStreamBoardingMembers(data []byte, version int) error {
 			continue
 		}
 		if delta {
-			members, err := boardingMembers(raw)
-			if err != nil || len(members) != 1 || members["value"] == nil {
+			members, memberErr := boardingMembers(raw)
+			if memberErr != nil || len(members) != 1 || members["value"] == nil {
 				return errors.New("boarding replacement needs exactly one value")
 			}
 			raw = members["value"]
 		}
-		if err := scanBoardingRecords(raw, delta); err != nil {
+		if version == StreamVersion {
+			err = scanBoardingRecordsLimit(raw, delta, 20)
+		} else {
+			err = scanBoardingRecords(raw, delta)
+		}
+		if err != nil {
 			return err
 		}
 	}
@@ -162,6 +181,10 @@ func boardingMembers(raw []byte) (map[string]json.RawMessage, error) {
 }
 
 func scanBoardingRecords(raw []byte, allowEmpty bool) error {
+	return scanBoardingRecordsLimit(raw, allowEmpty, 8)
+}
+
+func scanBoardingRecordsLimit(raw []byte, allowEmpty bool, limit int) error {
 	if len(raw) == 0 || raw[0] != '[' {
 		return errors.New("boarding records need an array")
 	}
@@ -169,7 +192,7 @@ func scanBoardingRecords(raw []byte, allowEmpty bool) error {
 	if err := decodeStreamJSON(raw, &records); err != nil {
 		return err
 	}
-	if len(records) > 8 || len(records) == 0 && !allowEmpty {
+	if len(records) > limit || len(records) == 0 && !allowEmpty {
 		return errors.New("boarding records need 1 to 8 entries")
 	}
 	for _, record := range records {

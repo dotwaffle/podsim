@@ -7,6 +7,9 @@ import (
 )
 
 func (a *StreamAssembler) groupBindings(frame StreamFrame) error {
+	if a.topology.OrderContract == sim.ExpressOrderContract {
+		return a.expressBindings(frame)
+	}
 	classes := make(map[string]sim.VehicleClass, len(frame.State.Simulation.Vehicles))
 	for _, vehicle := range frame.State.Simulation.Vehicles {
 		classes[vehicle.Pod.ID] = vehicle.Pod.Class

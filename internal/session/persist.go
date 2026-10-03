@@ -487,6 +487,9 @@ func (s *Session) loadState(input loadInput) (loaded loadedState, err error) {
 	case input.project.Demand != file.Project.Demand:
 		loaded.projectDemand = new(input.project.Demand)
 	}
+	if err = preflightExpressTopology(loaded.config, s.serverStart, file.Epoch, file.ProjectRevision+1); err != nil {
+		return loaded, invalidState(err)
+	}
 	if err = file.validate(); err != nil {
 		return loaded, invalidState(err)
 	}
@@ -500,7 +503,8 @@ func (s *Session) loadState(input loadInput) (loaded loadedState, err error) {
 		}
 	}
 	loaded.simulation, loaded.result, err = input.steps.restoreSimulation(sim.RestoreStateInput{
-		Network: loaded.config.Network, Fleet: loaded.config.Fleet, State: file.Simulation, LogicalOnly: loaded.logicalOnly,
+		OrderContract: loaded.config.OrderContract,
+		Network:       loaded.config.Network, Fleet: loaded.config.Fleet, State: file.Simulation, LogicalOnly: loaded.logicalOnly,
 		StationBuffers: file.Version >= bufferStateVersion, BufferPlatoons: file.Version >= bufferPlatoonStateVersion,
 		CompactQueues:       file.Version >= serviceStateVersion,
 		BoardingRecords:     file.Version >= serviceStateVersion,
@@ -802,6 +806,11 @@ func (s *Session) captureState(kind SaveKind) (stateFile, bool, error) {
 		Demand:     savedDemand{State: s.demand.state, Random: random, Budget: s.demand.budget},
 		Simulation: s.simulation.ExportState(),
 		Project:    s.project,
+	}
+	if s.project.OrderContract == sim.ExpressOrderContract {
+		file.Version = expressStateVersion
+		file.OrderContract = sim.ExpressOrderContract
+		file.TextEncoding = ExpressTextEncoding
 	}
 	if s.demand.connections != nil {
 		file.RailConnections = s.demand.connections.Records()

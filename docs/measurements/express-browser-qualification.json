@@ -1,0 +1,153 @@
+{
+  "date": "2026-10-03",
+  "contract": "express-v1",
+  "qualification": "functional acceptance; maximum fixture browser responsiveness not established",
+  "deployment_authorized": false,
+  "toolchain": {
+    "go": "1.27.1",
+    "goExperiment": "jsonv2",
+    "chromium": "143.0.7499.4",
+    "gogc": 100
+  },
+  "source_boundaries": {
+    "native_dependency_v3_sha256": "715e1bd29743c5defb7d2b3e8c11b826de62e640a23049e3121d9fea4b3985ef",
+    "wire_dependency_v2_sha256": "c06c6e581452d2a31f16350606596d885c913ee6dbda7f8b385b5f64d94fd5a7",
+    "final_native_dependency_v6_sha256": "23dce88beff75fa15ef7b8f065be25a0e9740fcb51bbfc5078c6bcd583810cc1",
+    "final_bridge_gate": "browser-final-native-bridge"
+  },
+  "browser_controls": [
+    "actual hello4 canvas limits party to20 and submits intact private Express command",
+    "actual Express-to-foundation transition renegotiates hello3, clamps8 and omits marker; captured20 remains intact",
+    "actual Go editor worker import/export/undo/redo preserves v4 marker/classes/registry and rejects null marker without history mutation"
+  ],
+  "widest_browser": {
+    "chromium": "143.0.7499.4",
+    "playwright": "1.57.0",
+    "gogc": 100,
+    "result": {
+      "receipt": {
+        "stages": [
+          {
+            "name": "topology",
+            "millis": 2054.000128,
+            "heapAlloc": 168687368,
+            "heapSys": 171245568,
+            "totalAlloc": 306694432
+          },
+          {
+            "name": "full",
+            "millis": 9385.299968,
+            "heapAlloc": 1004516744,
+            "heapSys": 1107623936,
+            "totalAlloc": 2760273072
+          },
+          {
+            "name": "replacement",
+            "millis": 2363.099648,
+            "heapAlloc": 1110586920,
+            "heapSys": 1153761280,
+            "totalAlloc": 3058380336
+          },
+          {
+            "name": "http",
+            "millis": 14434.4,
+            "heapAlloc": 2282777360,
+            "heapSys": 2433024000,
+            "totalAlloc": 5833818328
+          }
+        ],
+        "checks": [
+          "actual Go/WASM full decode and native assembly",
+          "actual replacement delta preserves predecessor and cache ownership",
+          "actual widest HTTP decode while predecessor retained"
+        ],
+        "bytes": {
+          "topology": 10399903,
+          "full": 52879647,
+          "delta": 16909033,
+          "http": 63279337
+        }
+      },
+      "heartbeat": {
+        "count": 14,
+        "maxGap": 14136.099999427795,
+        "over50": 8,
+        "over250": 4,
+        "over1000": 4
+      },
+      "stages": [
+        {
+          "name": "topology",
+          "now": 2260.3999996185303,
+          "wasmMemory": 180355072
+        },
+        {
+          "name": "full",
+          "now": 11647.099999427795,
+          "wasmMemory": 1120403456
+        },
+        {
+          "name": "replacement",
+          "now": 14010.39999961853,
+          "wasmMemory": 1169424384
+        },
+        {
+          "name": "http",
+          "now": 28445.099999427795,
+          "wasmMemory": 2457337856
+        }
+      ],
+      "wasmMemory": 2457337856
+    },
+    "peakBrowserRSSKiB": 2760204,
+    "errors": []
+  },
+  "numeric_decoder": {
+    "integers_above_2_53": true,
+    "maximum_uint64": true,
+    "maximum_finite_float64": true,
+    "subnormal_float64": true,
+    "control_and_multibyte_text": true,
+    "javascript_parses_wire_numbers": false
+  },
+  "public_node_wasm": {
+    "gogc100": {
+      "status": "pass",
+      "wall_seconds": 29.204,
+      "gate": "wasm-public-retention-v2-production-gc"
+    },
+    "gogc400": {
+      "status": "fail",
+      "reason": "WASM out of memory during HTTP assembly",
+      "heap_bytes": 4251254784,
+      "gate": "wasm-public-retention-v2"
+    }
+  },
+  "evidence_root": "/home/dotwaffle/.cache/agents/podsim/continuation-express-batch-20261003/root",
+  "evidence": {
+    "browser_controls": {
+      "path": "/home/dotwaffle/.cache/agents/podsim/continuation-express-batch-20261003/root/live-express-ui-v6/manifest.json",
+      "sha256": "5fab648776d109256eb2324059954e4d71d800527521eddcc48aac2ff16f9146"
+    },
+    "widest_browser": {
+      "path": "/home/dotwaffle/.cache/agents/podsim/continuation-express-batch-20261003/root/chromium-public-v1/manifest.json",
+      "sha256": "06a00d3fec04059e3bdd8edf29eab0d4bb9436e0bd0dcd418f218c5a549cda13"
+    },
+    "editor_wasm": {
+      "path": "/home/dotwaffle/.cache/agents/podsim/continuation-express-batch-20261003/root/wasm-editor-receipt.json",
+      "sha256": "719390dce5133fffab6dfa6d06caa64ad15d1e554ee9af3288098eb942732f77"
+    },
+    "normalizer_mutation": {
+      "path": "/home/dotwaffle/.cache/agents/podsim/continuation-express-batch-20261003/root/browser-mutation-control.json",
+      "sha256": "3d559ab7d93e3efeaa2494e87e8d3fc99f6a3befd5af311f366526eca392c335"
+    },
+    "http_media_mutation": {
+      "path": "/home/dotwaffle/.cache/agents/podsim/continuation-express-batch-20261003/root/remote-mutations/mutation.json",
+      "sha256": "742601692f21f565ffbe6030d2a82e2b0463b94f5cf7f99f36f3d36ae8ebff23"
+    },
+    "native_bridge": {
+      "path": "/home/dotwaffle/.cache/agents/podsim/continuation-express-batch-20261003/root/native-constructor-v6-bridge.json",
+      "sha256": "b1c394e34b41944a9f3a5b5e4331a4248f81a688374dffbc4d4c48378e4690e7"
+    }
+  }
+}

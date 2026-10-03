@@ -165,7 +165,7 @@ func restorePhysical(input RestoreStateInput, newFleet func() (*Simulation, erro
 // validateSavedState checks the rules that do not need the network. See
 // checkContract. It returns the unaccounted orders of the saved state.
 func validateSavedState(state SavedState) (int, error) {
-	if len(state.Waiting) > MaxSavedWaitingTrips {
+	if len(state.Waiting) > MaxWaitingTripsForOrderContract(state.OrderContract) {
 		return 0, errors.New("too many saved waiting trips")
 	}
 	return state.checkContract()
@@ -203,7 +203,7 @@ func (state SavedState) validateCounters() error {
 }
 
 func (state SavedState) validRequest(request SavedRequest) bool {
-	return validSavedOptions(request) && request.ID >= 1 && request.ID <= state.RequestID && request.PartySize >= 1 &&
+	return validSavedOptionsWithOrderContract(request, state.OrderContract) && request.ID >= 1 && request.ID <= state.RequestID && request.PartySize >= 1 &&
 		request.RequestedTick >= 0 && request.RequestedTick <= state.Tick && len(request.DispatchReason) <= maxSavedText &&
 		request.BoardedTick >= 0 && request.BoardedTick <= state.Tick
 }

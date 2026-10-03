@@ -69,3 +69,31 @@ func TestOrderChoiceLayoutDoesNotOverlap(t *testing.T) {
 		}
 	}
 }
+
+func TestExpressOrderChoicesAndContractSwitch(t *testing.T) {
+	t.Parallel()
+	game := controlTestGame(t, controlLayouts[0].input)
+	game.connected = true
+	game.state.Simulation.OrderContract = sim.ExpressOrderContract
+	for range 25 {
+		game.click(centerOfButton(findButton(t, game.buttons(), "party-more")))
+	}
+	if game.selectedPartySize() != 20 || !findButton(t, game.buttons(), "party-more").disabled {
+		t.Fatal("Express party controls do not enforce the whole-party bound")
+	}
+	command := game.orderCommand()
+	if command.PartySize != 20 || command.SharingConsent != sim.PrivateConsent || command.OrderContract != sim.ExpressOrderContract {
+		t.Fatal("Express selection changed consent or party size", command)
+	}
+	game.state.Simulation.OrderContract = ""
+	if game.selectedPartySize() != 8 || game.orderCommand().PartySize != 8 || game.orderCommand().OrderContract != "" {
+		t.Fatal("a foundation project retained the Express party selection")
+	}
+	if command.PartySize != 20 || command.OrderContract != sim.ExpressOrderContract {
+		t.Fatal("a contract switch changed an already captured order")
+	}
+	game.state.Simulation.OrderContract = "future"
+	if game.orderPartyLimit() != 8 || game.orderCommand().OrderContract != "" {
+		t.Fatal("an unknown contract enabled Express orders")
+	}
+}

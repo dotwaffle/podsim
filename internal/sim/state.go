@@ -20,19 +20,20 @@ const (
 // does not hold the network, the fleet or the settings that the session
 // applies again.
 type SavedState struct {
-	Tick                    int64   `json:"tick"`
-	Paused                  bool    `json:"paused,omitzero"`
-	Completed               int     `json:"completed"`
-	RequestID               int     `json:"requestID"`
-	Boarded                 int     `json:"boarded"`
-	TotalWaitTicks          int64   `json:"totalWaitTicks"`
-	MaxWaitTicks            int64   `json:"maxWaitTicks"`
-	NextRedistributionTick  int64   `json:"nextRedistributionTick"`
-	PassengerDistanceMeters float64 `json:"passengerDistanceMeters"`
-	EmptyDistanceMeters     float64 `json:"emptyDistanceMeters"`
-	RebalanceMoves          int     `json:"rebalanceMoves"`
-	SharedParties           int     `json:"sharedParties"`
-	SharedRidePartyLimit    int     `json:"sharedRidePartyLimit"`
+	OrderContract           OrderContract `json:"orderContract,omitzero"`
+	Tick                    int64         `json:"tick"`
+	Paused                  bool          `json:"paused,omitzero"`
+	Completed               int           `json:"completed"`
+	RequestID               int           `json:"requestID"`
+	Boarded                 int           `json:"boarded"`
+	TotalWaitTicks          int64         `json:"totalWaitTicks"`
+	MaxWaitTicks            int64         `json:"maxWaitTicks"`
+	NextRedistributionTick  int64         `json:"nextRedistributionTick"`
+	PassengerDistanceMeters float64       `json:"passengerDistanceMeters"`
+	EmptyDistanceMeters     float64       `json:"emptyDistanceMeters"`
+	RebalanceMoves          int           `json:"rebalanceMoves"`
+	SharedParties           int           `json:"sharedParties"`
+	SharedRidePartyLimit    int           `json:"sharedRidePartyLimit"`
 	// SharedRideMode and SharedRideMaxStops are the settings of
 	// SetSharedRideMode. An empty mode restores as DefaultSharedRideMode,
 	// and a zero limit restores as DefaultSharedRideMaxStops.
@@ -193,6 +194,7 @@ const (
 // RestoreStateInput holds the network and the fleet of the saved simulation,
 // and its saved state.
 type RestoreStateInput struct {
+	OrderContract OrderContract
 	// BoardingRecords permits native boarding records under the save-6 contract.
 	BoardingRecords bool
 	// OnboardPickups permits new occupied pickups after restoration.
@@ -259,10 +261,29 @@ type RestoreResult struct {
 // logical fallback. LogicalOnly still validates those certificates physically.
 // Compact certificates require physical restore and reject logical conversion.
 func RestoreState(input RestoreStateInput) (*Simulation, RestoreResult, error) {
-	return restoreState(input, func() (*Simulation, error) { return NewFleet(input.Network, input.Fleet) })
+	return restoreState(input, func() (*Simulation, error) {
+		return NewFleetWithOrderContract(input.Network, input.Fleet, input.OrderContract)
+	})
 }
 
 func restoreState(input RestoreStateInput, newFleet func() (*Simulation, error)) (*Simulation, RestoreResult, error) {
+	if err := ValidateOrderContract(input.OrderContract); err != nil {
+		return nil, RestoreResult{}, err
+	}
+	if input.OrderContract != input.State.OrderContract {
+		return nil, RestoreResult{}, errors.New("saved and input order contracts differ")
+	}
+	if input.OrderContract == ExpressOrderContract {
+		if _, err := validateSavedState(input.State); err != nil {
+			return nil, RestoreResult{}, err
+		}
+	}
+	if err := checkContractRestoreSemantics(input); err != nil {
+		return nil, RestoreResult{}, err
+	}
+	if err := checkSavedServiceLimits(input); err != nil {
+		return nil, RestoreResult{}, err
+	}
 	if err := checkLargeLinkFields(input); err != nil {
 		return nil, RestoreResult{}, err
 	}
@@ -336,7 +357,8 @@ func restoreState(input RestoreStateInput, newFleet func() (*Simulation, error))
 // released.
 func (s *Simulation) ExportState() SavedState {
 	state := SavedState{
-		Tick: s.tick, Paused: s.paused, Completed: s.completed, RequestID: s.requestID, Boarded: s.boarded,
+		OrderContract: s.orderContract,
+		Tick:          s.tick, Paused: s.paused, Completed: s.completed, RequestID: s.requestID, Boarded: s.boarded,
 		TotalWaitTicks: s.totalWaitTicks, MaxWaitTicks: s.maxWaitTicks, NextRedistributionTick: s.nextRedistributionTick,
 		PassengerDistanceMeters: s.passengerDistanceMeters, EmptyDistanceMeters: s.emptyDistanceMeters,
 		RebalanceMoves: s.rebalanceMoves, SharedParties: s.sharedParties, SharedRidePartyLimit: s.sharedRidePartyLimit,

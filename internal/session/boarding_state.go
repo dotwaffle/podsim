@@ -94,10 +94,18 @@ type boardingWirePod struct {
 }
 
 func (source boardingSource) encodePod(encoder *jsontext.Encoder, pod sim.SavedPod) error {
+	return source.encodePodContract(encoder, pod, "")
+}
+
+func (source boardingSource) encodeExpressPod(encoder *jsontext.Encoder, pod sim.SavedPod) error {
+	return source.encodePodContract(encoder, pod, sim.ExpressOrderContract)
+}
+
+func (source boardingSource) encodePodContract(encoder *jsontext.Encoder, pod sim.SavedPod, contract sim.OrderContract) error {
 	if len(pod.Boardings) == 0 {
 		return json.MarshalEncode(encoder, savedPodFields(pod))
 	}
-	if len(pod.Boardings) != len(pod.Riders) || len(pod.Boardings) > sim.MaxSharedRideParties || pod.LegacyCohort {
+	if len(pod.Boardings) != len(pod.Riders) || len(pod.Boardings) > sim.MaxStoredRidersForOrderContract(pod.Class, contract) || pod.LegacyCohort {
 		return errors.New("invalid native boarding record alignment")
 	}
 	meters, err := savedPassengerMeters(pod)
@@ -121,6 +129,14 @@ func (source boardingSource) encodePod(encoder *jsontext.Encoder, pod sim.SavedP
 }
 
 func decodeBoardingPod(decoder *jsontext.Decoder, pod *sim.SavedPod) ([]boardingTuple, error) {
+	return decodeBoardingPodContract(decoder, pod, "")
+}
+
+func decodeExpressBoardingPod(decoder *jsontext.Decoder, pod *sim.SavedPod) ([]boardingTuple, error) {
+	return decodeBoardingPodContract(decoder, pod, sim.ExpressOrderContract)
+}
+
+func decodeBoardingPodContract(decoder *jsontext.Decoder, pod *sim.SavedPod, contract sim.OrderContract) ([]boardingTuple, error) {
 	value, err := decoder.ReadValue()
 	if err != nil {
 		return nil, err
@@ -141,10 +157,13 @@ func decodeBoardingPod(decoder *jsontext.Decoder, pod *sim.SavedPod) ([]boarding
 	var wire boardingWirePod
 	options := json.JoinOptions(json.RejectUnknownMembers(true), json.WithUnmarshalers(json.JoinUnmarshalers(
 		json.UnmarshalFromFunc(decodeV6Platoon), json.UnmarshalFromFunc(decodeCompactQueue))))
+	if contract == sim.ExpressOrderContract {
+		options = json.JoinOptions(json.RejectUnknownMembers(true), json.WithUnmarshalers(json.JoinUnmarshalers(json.UnmarshalFromFunc(decodeV6Platoon), json.UnmarshalFromFunc(decodeCompactQueue), json.UnmarshalFromFunc(decodePackedSavedRequest))))
+	}
 	if err := json.Unmarshal(value, &wire, options); err != nil {
 		return nil, err
 	}
-	if present && (len(wire.Boardings) < 1 || len(wire.Boardings) > sim.MaxSharedRideParties || len(wire.Boardings) != len(wire.Riders) || wire.LegacyCohort) {
+	if present && (len(wire.Boardings) < 1 || len(wire.Boardings) > sim.MaxStoredRidersForOrderContract(wire.Class, contract) || len(wire.Boardings) != len(wire.Riders) || wire.LegacyCohort) {
 		return nil, errors.New("invalid saved boarding tuple alignment")
 	}
 	*pod = sim.SavedPod(wire.savedPodFields)
@@ -166,7 +185,7 @@ func (file *stateFile) resolveBoardings() error {
 			continue
 		}
 		pod := &file.Simulation.Pods[position]
-		if len(tuples) != len(pod.Riders) || len(tuples) > sim.MaxSharedRideParties || pod.LegacyCohort {
+		if len(tuples) != len(pod.Riders) || len(tuples) > sim.MaxStoredRidersForOrderContract(pod.Class, file.OrderContract) || pod.LegacyCohort {
 			return errors.New("invalid saved boarding record alignment")
 		}
 		meters, err := savedPassengerMeters(*pod)

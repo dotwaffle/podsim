@@ -172,10 +172,10 @@ func (e *engine) sync(command request) (response, error) {
 			firstError = fmt.Errorf("unsupported editor project field %s", key)
 		}
 	}
-	servicePresent := next["network"].services || next["fleet"].services || next["expressServices"].services || next["stationQueueSpacing"].services || next["onboardPickups"].services
-	if firstError == nil && (next["network"].banked || config.Version == 2 || config.Version == 3 || servicePresent) {
+	servicePresent := next["orderContract"].services || next["network"].services || next["fleet"].services || next["expressServices"].services || next["stationQueueSpacing"].services || next["onboardPickups"].services
+	if firstError == nil && (next["network"].banked || config.Version == 2 || config.Version == 3 || config.Version == 4 || servicePresent) {
 		fields := make(map[string]jsontext.Value, 4)
-		for _, key := range []string{"version", "network", "fleet", "expressServices", "stationQueueSpacing", "onboardPickups"} {
+		for _, key := range []string{"version", "orderContract", "network", "fleet", "expressServices", "stationQueueSpacing", "onboardPickups"} {
 			if branch, present := next[key]; present {
 				fields[key] = branch.raw
 			}
@@ -198,7 +198,7 @@ func (e *engine) sync(command request) (response, error) {
 		e.checks = nil
 	}
 	if e.checks != nil {
-		for _, key := range []string{"version", "fleet", "expressServices", "stationQueueSpacing", "onboardPickups", "sharedRidePartyLimit", "sharedRideMode"} {
+		for _, key := range []string{"version", "orderContract", "fleet", "expressServices", "stationQueueSpacing", "onboardPickups", "sharedRidePartyLimit", "sharedRideMode"} {
 			if !bytes.Equal(e.branches[key].raw, next[key].raw) {
 				e.checks.servicesReady = false
 				break
@@ -216,6 +216,8 @@ func copyBranch(dst *project.Config, key string, src project.Config) bool {
 	switch key {
 	case "version":
 		dst.Version = src.Version
+	case "orderContract":
+		dst.OrderContract = src.OrderContract
 	case "name":
 		dst.Name = src.Name
 	case "network":

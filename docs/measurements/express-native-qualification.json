@@ -1,0 +1,2773 @@
+{
+  "schema": "express-native-qualification-v1",
+  "qualifiedNativeAndProject": true,
+  "contract": "express-v1",
+  "projectVersion": 4,
+  "base": "27981fe35c9f2a7644327033405fcbf1a1130338",
+  "finalNativeSourcePins": {
+    "internal/project/banks.go": "4f1d9d3c2b32b080c6a43d56ac5af697ad9a430012bcbb059d37563a86afaa94",
+    "internal/project/canonical_decode_test.go": "d21e149f2f19798c43dd7cad2ddd58fc5f7887f5029d12eda21617c3e66d0d54",
+    "internal/project/config.go": "c65775a4535f4676e15a9b61c3c353d7b3e116ce02835e6b7fa3a2967ce8a78a",
+    "internal/project/express_test.go": "f2d12d39318004be0cd9534c875607e6e8f560715a20257a83101f8c0468506c",
+    "internal/project/service.go": "bcabd3a792a995ed30948e9d23b07ee7c2af2af3b8627f118060cbdb0dd78c82",
+    "internal/sim/clone_test.go": "c54ff376167fba1faac35dd1db0682060c88af483ce58c7db5181e7f8db3061c",
+    "internal/sim/dispatch.go": "ee1d58c3c7e35bf961d6f6faabf3b01ce4d3c5c984aff35ac2989717ca80e954",
+    "internal/sim/express_evidence_test.go": "c3609eadf22e9cca12d7c2e47a08fa625e71582d08b9cd75effd5382c12b4856",
+    "internal/sim/express_history_test.go": "00c79f52dbf4808b4e45f2e1e9e5f80bdf40c7c51848cbf50f5cdba8445fa52f",
+    "internal/sim/express_physical_test.go": "5e69f7cebdf29071b636dddd71dd19f626c50ab456bb9999122a2f2c9783cee4",
+    "internal/sim/express_restore_test.go": "7c8fb8ed635a2d395e6c203643a1220f6ba49328445958bc3023e22a0451e240",
+    "internal/sim/express_routes_test.go": "52421431855806088a00aba03f9d3edf9364bdda1a5a08b049bb8b39fefbe762",
+    "internal/sim/express_speed_test.go": "84207a47b4a994670714e33cc2382a6442773975baaf9a37cbf560eb1e8a953b",
+    "internal/sim/onboard_pickups.go": "0b714b6c9fddd3774901da8e071de88c3b203640994d103d07654f655aa8b4c0",
+    "internal/sim/order_contract.go": "13611c74d3749b2e6aade7e6b7c6b50fabe0e32e716c27faaef5607244c580a9",
+    "internal/sim/order_contract_bounds.go": "69552469444d014898d0071976f51559f18a93898f02c7bbbfba9cdddbf74d4d",
+    "internal/sim/order_contract_restore.go": "d079fadd8f47436f10258bbd63afed45ee7028c19f1e3d0a7f6fbf5cd2803d12",
+    "internal/sim/order_contract_test.go": "d07f054892ef3cfbe64bd0c9dee92aef05cf433e6640b40ac3df0af13d48934b",
+    "internal/sim/order_migration.go": "9375664b17987d178dd815b3fa537678dd87dae5bcb6e36eb5a167d7fbc6c9ed",
+    "internal/sim/order_options.go": "a22bbb4a4a1f0e6fdc361ed4a9bbf7df7667cf3e0afd3729adb8f1724af3e998",
+    "internal/sim/prepared.go": "5a6b1dd8082aa74a1923827cb958193b32ae3d8d342793e2410e51f698ddee6f",
+    "internal/sim/safety.go": "8d62346cac729aed5c57037c7db661e95949efd56984b477343d5366f6ee5f0d",
+    "internal/sim/simulation.go": "ae457e25a2c1e7d853ba428a99e6df862487f0bc2b87438f94b9f000d620cc45",
+    "internal/sim/state.go": "219dc6b92de4ead0fedbe8c411e5d609ebaafe13f9cd4dfee38c40bfbf998922",
+    "internal/sim/state_boarding.go": "c6803cc7ed8887520d45e90f09a09ef72814f5eab7f4320539885bf6eedaf283",
+    "internal/sim/state_contract.go": "e04ea8bae97a6907efd5bb1969fbe3a3cd89e6a10920139fae830798160406ac",
+    "internal/sim/state_physical.go": "48d08eb953d12aed219961ec036708a41876c75aa622c02583c660549ca8ca7f",
+    "internal/sim/step_completions.go": "9b93d87ac086c771c749a388c1c4465b7c2e70c0781091bb5097cc91207ccc72",
+    "internal/sim/trip_admission.go": "dac6a47c16b293c9b26edc7ea1a0f01dd49f5b38869bbaa0fccba6054e40d30c"
+  },
+  "plan": {
+    "frozen_at": "2026-10-03T21:48:10.392040+00:00",
+    "base": "27981fe35c9f2a7644327033405fcbf1a1130338",
+    "native_paths_sha256": {
+      "internal/project/banks.go": "4f1d9d3c2b32b080c6a43d56ac5af697ad9a430012bcbb059d37563a86afaa94",
+      "internal/project/canonical_decode_test.go": "d21e149f2f19798c43dd7cad2ddd58fc5f7887f5029d12eda21617c3e66d0d54",
+      "internal/project/config.go": "c65775a4535f4676e15a9b61c3c353d7b3e116ce02835e6b7fa3a2967ce8a78a",
+      "internal/project/express_test.go": "f2d12d39318004be0cd9534c875607e6e8f560715a20257a83101f8c0468506c",
+      "internal/project/service.go": "bcabd3a792a995ed30948e9d23b07ee7c2af2af3b8627f118060cbdb0dd78c82",
+      "internal/sim/clone_test.go": "c54ff376167fba1faac35dd1db0682060c88af483ce58c7db5181e7f8db3061c",
+      "internal/sim/dispatch.go": "ee1d58c3c7e35bf961d6f6faabf3b01ce4d3c5c984aff35ac2989717ca80e954",
+      "internal/sim/express_evidence_test.go": "c3609eadf22e9cca12d7c2e47a08fa625e71582d08b9cd75effd5382c12b4856",
+      "internal/sim/express_history_test.go": "00c79f52dbf4808b4e45f2e1e9e5f80bdf40c7c51848cbf50f5cdba8445fa52f",
+      "internal/sim/express_physical_test.go": "5e69f7cebdf29071b636dddd71dd19f626c50ab456bb9999122a2f2c9783cee4",
+      "internal/sim/express_restore_test.go": "7c8fb8ed635a2d395e6c203643a1220f6ba49328445958bc3023e22a0451e240",
+      "internal/sim/express_routes_test.go": "52421431855806088a00aba03f9d3edf9364bdda1a5a08b049bb8b39fefbe762",
+      "internal/sim/express_speed_test.go": "84207a47b4a994670714e33cc2382a6442773975baaf9a37cbf560eb1e8a953b",
+      "internal/sim/onboard_pickups.go": "0b714b6c9fddd3774901da8e071de88c3b203640994d103d07654f655aa8b4c0",
+      "internal/sim/order_contract.go": "13611c74d3749b2e6aade7e6b7c6b50fabe0e32e716c27faaef5607244c580a9",
+      "internal/sim/order_contract_bounds.go": "69552469444d014898d0071976f51559f18a93898f02c7bbbfba9cdddbf74d4d",
+      "internal/sim/order_contract_restore.go": "d079fadd8f47436f10258bbd63afed45ee7028c19f1e3d0a7f6fbf5cd2803d12",
+      "internal/sim/order_contract_test.go": "d07f054892ef3cfbe64bd0c9dee92aef05cf433e6640b40ac3df0af13d48934b",
+      "internal/sim/order_migration.go": "9375664b17987d178dd815b3fa537678dd87dae5bcb6e36eb5a167d7fbc6c9ed",
+      "internal/sim/order_options.go": "a22bbb4a4a1f0e6fdc361ed4a9bbf7df7667cf3e0afd3729adb8f1724af3e998",
+      "internal/sim/prepared.go": "5a6b1dd8082aa74a1923827cb958193b32ae3d8d342793e2410e51f698ddee6f",
+      "internal/sim/safety.go": "8d62346cac729aed5c57037c7db661e95949efd56984b477343d5366f6ee5f0d",
+      "internal/sim/simulation.go": "ae457e25a2c1e7d853ba428a99e6df862487f0bc2b87438f94b9f000d620cc45",
+      "internal/sim/state.go": "219dc6b92de4ead0fedbe8c411e5d609ebaafe13f9cd4dfee38c40bfbf998922",
+      "internal/sim/state_boarding.go": "c6803cc7ed8887520d45e90f09a09ef72814f5eab7f4320539885bf6eedaf283",
+      "internal/sim/state_contract.go": "e04ea8bae97a6907efd5bb1969fbe3a3cd89e6a10920139fae830798160406ac",
+      "internal/sim/state_physical.go": "48d08eb953d12aed219961ec036708a41876c75aa622c02583c660549ca8ca7f",
+      "internal/sim/step_completions.go": "9b93d87ac086c771c749a388c1c4465b7c2e70c0781091bb5097cc91207ccc72",
+      "internal/sim/trip_admission.go": "dac6a47c16b293c9b26edc7ea1a0f01dd49f5b38869bbaa0fccba6054e40d30c"
+    },
+    "iteration": 6,
+    "api": "frozen approved express-v1 and project4",
+    "physical_numbers_changed": false,
+    "gates": {
+      "packages": "go test ./internal/sim ./internal/project -count=1",
+      "scoped_race": "Express physical/order/history/restore + foundation order/profile tests, excludes maximum recovery shape",
+      "vet": "go vet ./internal/sim ./internal/project",
+      "lint": "golangci-lint run ./internal/sim/... ./internal/project/..."
+    },
+    "watchdog_seconds": 900,
+    "runtime_caps": {
+      "following_merge": 36000,
+      "bank_parking": 36000,
+      "curved_following": 60000,
+      "plane_transitions": 60000,
+      "compact_neighbor": 60000,
+      "stopped_following": 36000,
+      "restore_continuation_absolute": 36000,
+      "braking_restore_prefix": 12000,
+      "whole_parties_and_service": 36000,
+      "history_rollover_each_leg": 36000,
+      "foundation_parity": 12000,
+      "observation_parity": 1200
+    },
+    "workloads": "Deterministic native fixtures, no randomness or retuning. Seven class pairs x two curves x two buffer choices; mixed curved/stopped, bank/parking, occupied planes, compact neighbors, all native restore phases, 20 singleton service riders plus pending, mixed12/9/8 whole parties, 20-record history rollover, 300-pod8600 recovery.",
+    "safety": "Every runtime step checks authored current lane speed, literal 2m/s2 acceleration/braking, position increment, literal20m large center separation on common-plane fixtures, owned stopping distance speed^2/4, track owner identities,20m retained tails, no large links, native conservation. Stop arm on first failure.",
+    "ordinary_restore": "Current/past state retained. Speed zero and future grants reconstructed, no exact-live-future claim. Disabled new policy admissions retain accepted orders to original cap.",
+    "mutation_callers": [
+      "root NewFleetWithOrderContract branch",
+      "Simulation.canJoin CheckPartyAdmissionWithOrderContract",
+      "Simulation.validateTripOptions aggregate branch",
+      "Simulation.podFitsRequest stationsConnectedForClass",
+      "Simulation.releaseVehicleResources originTail",
+      "Simulation.move speedBeforeLane",
+      "restoreState and SavedState.checkContract checkLargeLinkFields"
+    ],
+    "export": "Relevant sources/tests, raw native states/snapshots, frozen plans/source/binary pins, exact run metadata, logs/exits/mutations, owned explicit-path patch and SHA256 manifest. No binaries durable.",
+    "corrections_after_v1": [
+      "Keep foundation live pending acceptance and per-tier restore errors unchanged",
+      "Use existing scale2 large geometry for300-pod recovery within block budget",
+      "Independent small-resource delegation requires actual nonlarge certificate membership or leader chain; large owners remain exact"
+    ],
+    "corrections_after_v2": [
+      "Recovery fixture uses existing unscaled300 one-berth station loop within all unchanged budgets, avoids invalid50-berth fan/return geometry;2600pending+6000active unchanged"
+    ],
+    "changes_after_v3": [
+      "Lint fixes; unused private wrappers removed after fresh references proved no callers; public foundation helpers unchanged",
+      "Canonical virtual/buffer certificate spellings in caller controls",
+      "Separate per-simulation runtime order/tick/resource-owner ledger, including cold/warm variants"
+    ],
+    "changes_after_v4": [
+      "Root-approved canonical project helper shared typed path:raw80MiB,canonical10MiB,ordinary raw object10MiB unchanged",
+      "Correct interior-whitespace fixture; JSON v1 trims outer whitespace before custom unmarshal",
+      "Step completion comment reflects20 singleton service parties"
+    ],
+    "changes_after_v5": [
+      "Canonical helper tests standalone foundation prerequisite, no Express-specific raw cases"
+    ]
+  },
+  "analysis": {
+    "runtimeSimulations": 84,
+    "checkedTicksAcrossIndependentSimulations": 985214,
+    "evidenceFiles": 178,
+    "evidenceBytes": 1946987,
+    "minimumReportedLargeGapMeters": 53.69444,
+    "packagePasses": [
+      {
+        "Time": "2026-10-03T21:53:25.939482415Z",
+        "Action": "pass",
+        "Package": "github.com/dotwaffle/podsim/internal/sim",
+        "Elapsed": 221.932
+      },
+      {
+        "Time": "2026-10-03T21:53:39.72844716Z",
+        "Action": "pass",
+        "Package": "github.com/dotwaffle/podsim/internal/project",
+        "Elapsed": 13.461
+      }
+    ],
+    "failures": [],
+    "runtimeLedgers": [
+      {
+        "file": "TestExpressAdversarialCompactQueueBesideGroup-runtime-0-first-tick-1.json",
+        "sha256": "1b7088eabd6b3dfcdd7d95fdad4b5d94e92c200a895459fb7be66d051035c606",
+        "checks": 13745,
+        "firstTick": 1,
+        "lastTick": 13745,
+        "submitted": 4,
+        "boarded": 4,
+        "completed": 0,
+        "waiting": 0,
+        "recordedOffers": 4,
+        "recordedCompleted": 0,
+        "unresolvedAtObservationEndIDs": [
+          1,
+          2,
+          3,
+          4
+        ],
+        "historicalCompletedWithoutAlightingTickIDs": [],
+        "completedPassengers": 0,
+        "classes": [
+          "compact",
+          "express",
+          "legacy"
+        ],
+        "endpointClassification": "blocked safety phase, unresolved accepted orders retained"
+      },
+      {
+        "file": "TestExpressAdversarialCurvedFollowing_compact-express-runtime-0-first-tick-1.json",
+        "sha256": "5a59549886dfae149d025effd06dae3cc2e1505b7cbad7936452c2e618e22511",
+        "checks": 26427,
+        "firstTick": 1,
+        "lastTick": 26427,
+        "submitted": 2,
+        "boarded": 2,
+        "completed": 2,
+        "waiting": 0,
+        "recordedOffers": 2,
+        "recordedCompleted": 2,
+        "unresolvedAtObservationEndIDs": [],
+        "historicalCompletedWithoutAlightingTickIDs": [],
+        "completedPassengers": 2,
+        "classes": [
+          "compact",
+          "express"
+        ],
+        "endpointClassification": "completed accepted continuation"
+      },
+      {
+        "file": "TestExpressAdversarialCurvedFollowing_express-compact-runtime-0-first-tick-1.json",
+        "sha256": "62e02f57e7590119f1db030b76a0d6f5c49a92face62650820232866c612698a",
+        "checks": 26427,
+        "firstTick": 1,
+        "lastTick": 26427,
+        "submitted": 2,
+        "boarded": 2,
+        "completed": 2,
+        "waiting": 0,
+        "recordedOffers": 2,
+        "recordedCompleted": 2,
+        "unresolvedAtObservationEndIDs": [],
+        "historicalCompletedWithoutAlightingTickIDs": [],
+        "completedPassengers": 2,
+        "classes": [
+          "compact",
+          "express"
+        ],
+        "endpointClassification": "completed accepted continuation"
+      },
+      {
+        "file": "TestExpressAdversarialCurvedFollowing_express-express-runtime-0-first-tick-1.json",
+        "sha256": "ea49f398ba0b9ed19b9f0bc5511ffe2e0e3a516997de231b435437dfac135d26",
+        "checks": 26427,
+        "firstTick": 1,
+        "lastTick": 26427,
+        "submitted": 2,
+        "boarded": 2,
+        "completed": 2,
+        "waiting": 0,
+        "recordedOffers": 2,
+        "recordedCompleted": 2,
+        "unresolvedAtObservationEndIDs": [],
+        "historicalCompletedWithoutAlightingTickIDs": [],
+        "completedPassengers": 2,
+        "classes": [
+          "express"
+        ],
+        "endpointClassification": "completed accepted continuation"
+      },
+      {
+        "file": "TestExpressAdversarialCurvedFollowing_express-group-runtime-0-first-tick-1.json",
+        "sha256": "d6dfcbb174c1c3851a2827a35c05d9ca9fa073faf8e373e06142b5e111c145bc",
+        "checks": 26427,
+        "firstTick": 1,
+        "lastTick": 26427,
+        "submitted": 2,
+        "boarded": 2,
+        "completed": 2,
+        "waiting": 0,
+        "recordedOffers": 2,
+        "recordedCompleted": 2,
+        "unresolvedAtObservationEndIDs": [],
+        "historicalCompletedWithoutAlightingTickIDs": [],
+        "completedPassengers": 2,
+        "classes": [
+          "express",
+          "group"
+        ],
+        "endpointClassification": "completed accepted continuation"
+      },
+      {
+        "file": "TestExpressAdversarialCurvedFollowing_express-legacy-runtime-0-first-tick-1.json",
+        "sha256": "186f235d84606359ea780327b221c7ef1671e05614ea2709a027b3166ebe21ea",
+        "checks": 26427,
+        "firstTick": 1,
+        "lastTick": 26427,
+        "submitted": 2,
+        "boarded": 2,
+        "completed": 2,
+        "waiting": 0,
+        "recordedOffers": 2,
+        "recordedCompleted": 2,
+        "unresolvedAtObservationEndIDs": [],
+        "historicalCompletedWithoutAlightingTickIDs": [],
+        "completedPassengers": 2,
+        "classes": [
+          "express",
+          "legacy"
+        ],
+        "endpointClassification": "completed accepted continuation"
+      },
+      {
+        "file": "TestExpressAdversarialCurvedFollowing_group-express-runtime-0-first-tick-1.json",
+        "sha256": "1274ebd6716d598c9e9940d09b885630cb03e4238c030edf68a032ec164f147d",
+        "checks": 26427,
+        "firstTick": 1,
+        "lastTick": 26427,
+        "submitted": 2,
+        "boarded": 2,
+        "completed": 2,
+        "waiting": 0,
+        "recordedOffers": 2,
+        "recordedCompleted": 2,
+        "unresolvedAtObservationEndIDs": [],
+        "historicalCompletedWithoutAlightingTickIDs": [],
+        "completedPassengers": 2,
+        "classes": [
+          "express",
+          "group"
+        ],
+        "endpointClassification": "completed accepted continuation"
+      },
+      {
+        "file": "TestExpressAdversarialCurvedFollowing_legacy-express-runtime-0-first-tick-1.json",
+        "sha256": "f3c84f198480c8e7b5e79a5597c612ca57ac2e10fbe5ccbe0a81ddbd2c6b0c7f",
+        "checks": 26427,
+        "firstTick": 1,
+        "lastTick": 26427,
+        "submitted": 2,
+        "boarded": 2,
+        "completed": 2,
+        "waiting": 0,
+        "recordedOffers": 2,
+        "recordedCompleted": 2,
+        "unresolvedAtObservationEndIDs": [],
+        "historicalCompletedWithoutAlightingTickIDs": [],
+        "completedPassengers": 2,
+        "classes": [
+          "express",
+          "legacy"
+        ],
+        "endpointClassification": "completed accepted continuation"
+      },
+      {
+        "file": "TestExpressAdversarialCurvedStoppedFollowing_compact-express-runtime-0-first-tick-1.json",
+        "sha256": "c410b9e720ad1af84465cb28ddd5d05e187e5174ce4fc7c98f33e04f4f0cb737",
+        "checks": 13564,
+        "firstTick": 1,
+        "lastTick": 13564,
+        "submitted": 2,
+        "boarded": 2,
+        "completed": 0,
+        "waiting": 0,
+        "recordedOffers": 2,
+        "recordedCompleted": 0,
+        "unresolvedAtObservationEndIDs": [
+          1,
+          2
+        ],
+        "historicalCompletedWithoutAlightingTickIDs": [],
+        "completedPassengers": 0,
+        "classes": [
+          "compact",
+          "express"
+        ],
+        "endpointClassification": "blocked safety phase, unresolved accepted orders retained"
+      },
+      {
+        "file": "TestExpressAdversarialCurvedStoppedFollowing_express-compact-runtime-0-first-tick-1.json",
+        "sha256": "0401a0c9dc926b8e82f579edb414df58fccb90a3db3a678d76f1ce077ffb6fba",
+        "checks": 13564,
+        "firstTick": 1,
+        "lastTick": 13564,
+        "submitted": 2,
+        "boarded": 2,
+        "completed": 0,
+        "waiting": 0,
+        "recordedOffers": 2,
+        "recordedCompleted": 0,
+        "unresolvedAtObservationEndIDs": [
+          1,
+          2
+        ],
+        "historicalCompletedWithoutAlightingTickIDs": [],
+        "completedPassengers": 0,
+        "classes": [
+          "compact",
+          "express"
+        ],
+        "endpointClassification": "blocked safety phase, unresolved accepted orders retained"
+      },
+      {
+        "file": "TestExpressAdversarialCurvedStoppedFollowing_express-express-runtime-0-first-tick-1.json",
+        "sha256": "954f1df55a926ec7c259a1d32318ca498b3ac2c65e47e4493843ae9ddcc75628",
+        "checks": 13564,
+        "firstTick": 1,
+        "lastTick": 13564,
+        "submitted": 2,
+        "boarded": 2,
+        "completed": 0,
+        "waiting": 0,
+        "recordedOffers": 2,
+        "recordedCompleted": 0,
+        "unresolvedAtObservationEndIDs": [
+          1,
+          2
+        ],
+        "historicalCompletedWithoutAlightingTickIDs": [],
+        "completedPassengers": 0,
+        "classes": [
+          "express"
+        ],
+        "endpointClassification": "blocked safety phase, unresolved accepted orders retained"
+      },
+      {
+        "file": "TestExpressAdversarialCurvedStoppedFollowing_express-group-runtime-0-first-tick-1.json",
+        "sha256": "7cd3e569e58d0a981fd711fd5f549cf4205644cab12b3c37377de59e678f1c23",
+        "checks": 13564,
+        "firstTick": 1,
+        "lastTick": 13564,
+        "submitted": 2,
+        "boarded": 2,
+        "completed": 0,
+        "waiting": 0,
+        "recordedOffers": 2,
+        "recordedCompleted": 0,
+        "unresolvedAtObservationEndIDs": [
+          1,
+          2
+        ],
+        "historicalCompletedWithoutAlightingTickIDs": [],
+        "completedPassengers": 0,
+        "classes": [
+          "express",
+          "group"
+        ],
+        "endpointClassification": "blocked safety phase, unresolved accepted orders retained"
+      },
+      {
+        "file": "TestExpressAdversarialCurvedStoppedFollowing_express-legacy-runtime-0-first-tick-1.json",
+        "sha256": "fb843905930a6d2ac4c1a08eb1a0b9239773a70debdfd795a90764aedf1331b0",
+        "checks": 13564,
+        "firstTick": 1,
+        "lastTick": 13564,
+        "submitted": 2,
+        "boarded": 2,
+        "completed": 0,
+        "waiting": 0,
+        "recordedOffers": 2,
+        "recordedCompleted": 0,
+        "unresolvedAtObservationEndIDs": [
+          1,
+          2
+        ],
+        "historicalCompletedWithoutAlightingTickIDs": [],
+        "completedPassengers": 0,
+        "classes": [
+          "express",
+          "legacy"
+        ],
+        "endpointClassification": "blocked safety phase, unresolved accepted orders retained"
+      },
+      {
+        "file": "TestExpressAdversarialCurvedStoppedFollowing_group-express-runtime-0-first-tick-1.json",
+        "sha256": "d22b7af480a75e2eabb06a5c6b3c1849f4872e16d19817afc93353f9b749b9e9",
+        "checks": 13564,
+        "firstTick": 1,
+        "lastTick": 13564,
+        "submitted": 2,
+        "boarded": 2,
+        "completed": 0,
+        "waiting": 0,
+        "recordedOffers": 2,
+        "recordedCompleted": 0,
+        "unresolvedAtObservationEndIDs": [
+          1,
+          2
+        ],
+        "historicalCompletedWithoutAlightingTickIDs": [],
+        "completedPassengers": 0,
+        "classes": [
+          "express",
+          "group"
+        ],
+        "endpointClassification": "blocked safety phase, unresolved accepted orders retained"
+      },
+      {
+        "file": "TestExpressAdversarialCurvedStoppedFollowing_legacy-express-runtime-0-first-tick-1.json",
+        "sha256": "958aad5b5be6bb1ef280abd8ba8051846b4c684f80d23318f5d5413379da6190",
+        "checks": 13564,
+        "firstTick": 1,
+        "lastTick": 13564,
+        "submitted": 2,
+        "boarded": 2,
+        "completed": 0,
+        "waiting": 0,
+        "recordedOffers": 2,
+        "recordedCompleted": 0,
+        "unresolvedAtObservationEndIDs": [
+          1,
+          2
+        ],
+        "historicalCompletedWithoutAlightingTickIDs": [],
+        "completedPassengers": 0,
+        "classes": [
+          "express",
+          "legacy"
+        ],
+        "endpointClassification": "blocked safety phase, unresolved accepted orders retained"
+      },
+      {
+        "file": "TestExpressAdversarialLivePlaneTransitions-runtime-0-first-tick-1.json",
+        "sha256": "6230cddfeca47c8dd41ebc1e94a2db260a622403be779fceeb51a02b0d23f947",
+        "checks": 25299,
+        "firstTick": 1,
+        "lastTick": 25299,
+        "submitted": 1,
+        "boarded": 1,
+        "completed": 0,
+        "waiting": 0,
+        "recordedOffers": 1,
+        "recordedCompleted": 0,
+        "unresolvedAtObservationEndIDs": [
+          1
+        ],
+        "historicalCompletedWithoutAlightingTickIDs": [],
+        "completedPassengers": 0,
+        "classes": [
+          "express"
+        ],
+        "endpointClassification": "body-plane phase prefix, completion not measured"
+      },
+      {
+        "file": "TestExpressAdversarialStationaryEndpoint_curved-60m-runtime-0-first-tick-1.json",
+        "sha256": "b45e74839e8842358587f39a0ca1a0125e65d84479ed3f1b1dfa5a9acee1c29a",
+        "checks": 11997,
+        "firstTick": 1,
+        "lastTick": 11997,
+        "submitted": 1,
+        "boarded": 1,
+        "completed": 0,
+        "waiting": 0,
+        "recordedOffers": 1,
+        "recordedCompleted": 0,
+        "unresolvedAtObservationEndIDs": [
+          1
+        ],
+        "historicalCompletedWithoutAlightingTickIDs": [],
+        "completedPassengers": 0,
+        "classes": [
+          "compact",
+          "express"
+        ],
+        "endpointClassification": "blocked safety phase, unresolved accepted orders retained"
+      },
+      {
+        "file": "TestExpressAdversarialStationaryEndpoint_old-24m-runtime-0-first-tick-1.json",
+        "sha256": "d523797af68e0d051c7fb170a117e21f06e4ac91e54b9f7a21538ca074906613",
+        "checks": 11783,
+        "firstTick": 1,
+        "lastTick": 11783,
+        "submitted": 1,
+        "boarded": 1,
+        "completed": 0,
+        "waiting": 0,
+        "recordedOffers": 1,
+        "recordedCompleted": 0,
+        "unresolvedAtObservationEndIDs": [
+          1
+        ],
+        "historicalCompletedWithoutAlightingTickIDs": [],
+        "completedPassengers": 0,
+        "classes": [
+          "compact",
+          "express"
+        ],
+        "endpointClassification": "blocked safety phase, unresolved accepted orders retained"
+      },
+      {
+        "file": "TestExpressFoundationAndObservationParity-runtime-0-first-tick-1.json",
+        "sha256": "1ebf26680994f842298650e6f0c642bde06002248efe054246d5ccd62478d9e3",
+        "checks": 12000,
+        "firstTick": 1,
+        "lastTick": 12000,
+        "submitted": 40,
+        "boarded": 6,
+        "completed": 3,
+        "waiting": 34,
+        "recordedOffers": 40,
+        "recordedCompleted": 3,
+        "unresolvedAtObservationEndIDs": [
+          3,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10,
+          11,
+          12,
+          13,
+          14,
+          15,
+          16,
+          17,
+          18,
+          19,
+          20,
+          21,
+          22,
+          23,
+          24,
+          25,
+          26,
+          27,
+          28,
+          29,
+          30,
+          31,
+          32,
+          33,
+          34,
+          35,
+          36,
+          37,
+          38,
+          39,
+          40
+        ],
+        "historicalCompletedWithoutAlightingTickIDs": [],
+        "completedPassengers": 3,
+        "classes": [
+          "legacy"
+        ],
+        "endpointClassification": "fixed-cap parity, unresolved accepted orders retained"
+      },
+      {
+        "file": "TestExpressFoundationAndObservationParity-runtime-1-first-tick-12001.json",
+        "sha256": "9bc6363e3625b5ce8c780e039a845197f67dc76776dbda77b72bd8106514e159",
+        "checks": 1200,
+        "firstTick": 12001,
+        "lastTick": 13200,
+        "submitted": 40,
+        "boarded": 7,
+        "completed": 4,
+        "waiting": 33,
+        "recordedOffers": 37,
+        "recordedCompleted": 1,
+        "unresolvedAtObservationEndIDs": [
+          5,
+          6,
+          7,
+          8,
+          9,
+          10,
+          11,
+          12,
+          13,
+          14,
+          15,
+          16,
+          17,
+          18,
+          19,
+          20,
+          21,
+          22,
+          23,
+          24,
+          25,
+          26,
+          27,
+          28,
+          29,
+          30,
+          31,
+          32,
+          33,
+          34,
+          35,
+          36,
+          37,
+          38,
+          39,
+          40
+        ],
+        "historicalCompletedWithoutAlightingTickIDs": [],
+        "completedPassengers": 1,
+        "classes": [
+          "legacy"
+        ],
+        "endpointClassification": "fixed-cap parity, unresolved accepted orders retained"
+      },
+      {
+        "file": "TestExpressLaneSpeedMixedRestore_compact-express-runtime-0-first-tick-1.json",
+        "sha256": "5ebc507ebc05b588a8741b8cf22dcd53cd98cc77180e9ffe5b44f37fb8b788bb",
+        "checks": 888,
+        "firstTick": 1,
+        "lastTick": 888,
+        "submitted": 2,
+        "boarded": 2,
+        "completed": 0,
+        "waiting": 0,
+        "recordedOffers": 2,
+        "recordedCompleted": 0,
+        "unresolvedAtObservationEndIDs": [
+          1,
+          2
+        ],
+        "historicalCompletedWithoutAlightingTickIDs": [],
+        "completedPassengers": 0,
+        "classes": [
+          "compact",
+          "express"
+        ],
+        "endpointClassification": "braking/entry phase prefix, completion not measured"
+      },
+      {
+        "file": "TestExpressLaneSpeedMixedRestore_compact-express-runtime-1-first-tick-889.json",
+        "sha256": "9fe5a6a23c17ab41fb7f1c1578e54679465303eb43135b1c4d710f560f0f03cb",
+        "checks": 2915,
+        "firstTick": 889,
+        "lastTick": 3803,
+        "submitted": 2,
+        "boarded": 2,
+        "completed": 0,
+        "waiting": 0,
+        "recordedOffers": 2,
+        "recordedCompleted": 0,
+        "unresolvedAtObservationEndIDs": [
+          1,
+          2
+        ],
+        "historicalCompletedWithoutAlightingTickIDs": [],
+        "completedPassengers": 0,
+        "classes": [
+          "compact",
+          "express"
+        ],
+        "endpointClassification": "braking/entry phase prefix, completion not measured"
+      },
+      {
+        "file": "TestExpressLaneSpeedMixedRestore_express-compact-runtime-0-first-tick-1.json",
+        "sha256": "6960ea141855532a378718981c0af711a75f4ed38daa6b9b654ee819c327c1fd",
+        "checks": 1010,
+        "firstTick": 1,
+        "lastTick": 1010,
+        "submitted": 2,
+        "boarded": 2,
+        "completed": 0,
+        "waiting": 0,
+        "recordedOffers": 2,
+        "recordedCompleted": 0,
+        "unresolvedAtObservationEndIDs": [
+          1,
+          2
+        ],
+        "historicalCompletedWithoutAlightingTickIDs": [],
+        "completedPassengers": 0,
+        "classes": [
+          "compact",
+          "express"
+        ],
+        "endpointClassification": "braking/entry phase prefix, completion not measured"
+      },
+      {
+        "file": "TestExpressLaneSpeedMixedRestore_express-compact-runtime-1-first-tick-1011.json",
+        "sha256": "e816be3f1661b96ea11cce00e7f21c8dc592399312e8db68755f48495b3adc7e",
+        "checks": 2282,
+        "firstTick": 1011,
+        "lastTick": 3292,
+        "submitted": 2,
+        "boarded": 2,
+        "completed": 0,
+        "waiting": 0,
+        "recordedOffers": 2,
+        "recordedCompleted": 0,
+        "unresolvedAtObservationEndIDs": [
+          1,
+          2
+        ],
+        "historicalCompletedWithoutAlightingTickIDs": [],
+        "completedPassengers": 0,
+        "classes": [
+          "compact",
+          "express"
+        ],
+        "endpointClassification": "braking/entry phase prefix, completion not measured"
+      },
+      {
+        "file": "TestExpressLaneSpeedMixedRestore_express-group-runtime-0-first-tick-1.json",
+        "sha256": "e30d66582fb81dfbc0c2c381af743278422447ece4ae2b6132f954c2425df189",
+        "checks": 1010,
+        "firstTick": 1,
+        "lastTick": 1010,
+        "submitted": 2,
+        "boarded": 2,
+        "completed": 0,
+        "waiting": 0,
+        "recordedOffers": 2,
+        "recordedCompleted": 0,
+        "unresolvedAtObservationEndIDs": [
+          1,
+          2
+        ],
+        "historicalCompletedWithoutAlightingTickIDs": [],
+        "completedPassengers": 0,
+        "classes": [
+          "express",
+          "group"
+        ],
+        "endpointClassification": "braking/entry phase prefix, completion not measured"
+      },
+      {
+        "file": "TestExpressLaneSpeedMixedRestore_express-group-runtime-1-first-tick-1011.json",
+        "sha256": "ad4d221fdabc82fe4bd4e28978b3c2d3c0d55aa5267893a7b45275c80bd3c523",
+        "checks": 2282,
+        "firstTick": 1011,
+        "lastTick": 3292,
+        "submitted": 2,
+        "boarded": 2,
+        "completed": 0,
+        "waiting": 0,
+        "recordedOffers": 2,
+        "recordedCompleted": 0,
+        "unresolvedAtObservationEndIDs": [
+          1,
+          2
+        ],
+        "historicalCompletedWithoutAlightingTickIDs": [],
+        "completedPassengers": 0,
+        "classes": [
+          "express",
+          "group"
+        ],
+        "endpointClassification": "braking/entry phase prefix, completion not measured"
+      },
+      {
+        "file": "TestExpressLaneSpeedMixedRestore_group-express-runtime-0-first-tick-1.json",
+        "sha256": "e5af522921e36ec9ee5c0f5e59596c5e7e1a91d40f5c5c1aafda03f449433cbe",
+        "checks": 888,
+        "firstTick": 1,
+        "lastTick": 888,
+        "submitted": 2,
+        "boarded": 2,
+        "completed": 0,
+        "waiting": 0,
+        "recordedOffers": 2,
+        "recordedCompleted": 0,
+        "unresolvedAtObservationEndIDs": [
+          1,
+          2
+        ],
+        "historicalCompletedWithoutAlightingTickIDs": [],
+        "completedPassengers": 0,
+        "classes": [
+          "express",
+          "group"
+        ],
+        "endpointClassification": "braking/entry phase prefix, completion not measured"
+      },
+      {
+        "file": "TestExpressLaneSpeedMixedRestore_group-express-runtime-1-first-tick-889.json",
+        "sha256": "4f445ddb441ab434808f5ed7d19e8692b763c174a4290ea4e52964d6b465b920",
+        "checks": 2915,
+        "firstTick": 889,
+        "lastTick": 3803,
+        "submitted": 2,
+        "boarded": 2,
+        "completed": 0,
+        "waiting": 0,
+        "recordedOffers": 2,
+        "recordedCompleted": 0,
+        "unresolvedAtObservationEndIDs": [
+          1,
+          2
+        ],
+        "historicalCompletedWithoutAlightingTickIDs": [],
+        "completedPassengers": 0,
+        "classes": [
+          "express",
+          "group"
+        ],
+        "endpointClassification": "braking/entry phase prefix, completion not measured"
+      },
+      {
+        "file": "TestExpressMixedPartyWholeCapacity-runtime-0-first-tick-1.json",
+        "sha256": "46b7be8bb7ce5c1c59b078c86704053fd037b6aee083435a6cb7bb1273e38fd4",
+        "checks": 30849,
+        "firstTick": 1,
+        "lastTick": 30849,
+        "submitted": 3,
+        "boarded": 3,
+        "completed": 3,
+        "waiting": 0,
+        "recordedOffers": 3,
+        "recordedCompleted": 3,
+        "unresolvedAtObservationEndIDs": [],
+        "historicalCompletedWithoutAlightingTickIDs": [],
+        "completedPassengers": 29,
+        "classes": [
+          "express"
+        ],
+        "endpointClassification": "completed accepted continuation"
+      },
+      {
+        "file": "TestExpressMotionBankAndParking-runtime-0-first-tick-1.json",
+        "sha256": "f4c8432d417d0329d7b9cb88fba7f05d258503d384c673d56b80d0668f2d3b7b",
+        "checks": 9318,
+        "firstTick": 1,
+        "lastTick": 9318,
+        "submitted": 1,
+        "boarded": 1,
+        "completed": 1,
+        "waiting": 0,
+        "recordedOffers": 1,
+        "recordedCompleted": 1,
+        "unresolvedAtObservationEndIDs": [],
+        "historicalCompletedWithoutAlightingTickIDs": [],
+        "completedPassengers": 20,
+        "classes": [
+          "express"
+        ],
+        "endpointClassification": "completed accepted continuation"
+      },
+      {
+        "file": "TestExpressMotionFollowingAndMerge_compact-express_curvefalse_bufferfalse-runtime-0-first-tick-1.json",
+        "sha256": "db415395b2522569af1516cae391a7b8303f187c2f38b4230aa69e9202b43e73",
+        "checks": 4316,
+        "firstTick": 1,
+        "lastTick": 4316,
+        "submitted": 2,
+        "boarded": 2,
+        "completed": 2,
+        "waiting": 0,
+        "recordedOffers": 2,
+        "recordedCompleted": 2,
+        "unresolvedAtObservationEndIDs": [],
+        "historicalCompletedWithoutAlightingTickIDs": [],
+        "completedPassengers": 24,
+        "classes": [
+          "compact",
+          "express"
+        ],
+        "endpointClassification": "completed accepted continuation"
+      },
+      {
+        "file": "TestExpressMotionFollowingAndMerge_compact-express_curvefalse_buffertrue-runtime-0-first-tick-1.json",
+        "sha256": "e9963a73e94d6f551515c191aad103b2b13dbcfcc86ebb55a93ef32edb59664d",
+        "checks": 4445,
+        "firstTick": 1,
+        "lastTick": 4445,
+        "submitted": 2,
+        "boarded": 2,
+        "completed": 2,
+        "waiting": 0,
+        "recordedOffers": 2,
+        "recordedCompleted": 2,
+        "unresolvedAtObservationEndIDs": [],
+        "historicalCompletedWithoutAlightingTickIDs": [],
+        "completedPassengers": 24,
+        "classes": [
+          "compact",
+          "express",
+          "group"
+        ],
+        "endpointClassification": "completed accepted continuation"
+      },
+      {
+        "file": "TestExpressMotionFollowingAndMerge_compact-express_curvetrue_bufferfalse-runtime-0-first-tick-1.json",
+        "sha256": "ad1cc6f47dcb57b44676eda2508275b9115841ed34411921c21d88c8a0f6cfd9",
+        "checks": 4346,
+        "firstTick": 1,
+        "lastTick": 4346,
+        "submitted": 2,
+        "boarded": 2,
+        "completed": 2,
+        "waiting": 0,
+        "recordedOffers": 2,
+        "recordedCompleted": 2,
+        "unresolvedAtObservationEndIDs": [],
+        "historicalCompletedWithoutAlightingTickIDs": [],
+        "completedPassengers": 24,
+        "classes": [
+          "compact",
+          "express"
+        ],
+        "endpointClassification": "completed accepted continuation"
+      },
+      {
+        "file": "TestExpressMotionFollowingAndMerge_compact-express_curvetrue_buffertrue-runtime-0-first-tick-1.json",
+        "sha256": "a2d3c97fd9b3067e35668e9a2b834189525b4e0bb72512788006f18230655a00",
+        "checks": 4468,
+        "firstTick": 1,
+        "lastTick": 4468,
+        "submitted": 2,
+        "boarded": 2,
+        "completed": 2,
+        "waiting": 0,
+        "recordedOffers": 2,
+        "recordedCompleted": 2,
+        "unresolvedAtObservationEndIDs": [],
+        "historicalCompletedWithoutAlightingTickIDs": [],
+        "completedPassengers": 24,
+        "classes": [
+          "compact",
+          "express",
+          "group"
+        ],
+        "endpointClassification": "completed accepted continuation"
+      },
+      {
+        "file": "TestExpressMotionFollowingAndMerge_express-compact_curvefalse_bufferfalse-runtime-0-first-tick-1.json",
+        "sha256": "ab032e935a0319bf07740d9bd07e25a2294aca4eb03b473a72e32c807894da33",
+        "checks": 4316,
+        "firstTick": 1,
+        "lastTick": 4316,
+        "submitted": 2,
+        "boarded": 2,
+        "completed": 2,
+        "waiting": 0,
+        "recordedOffers": 2,
+        "recordedCompleted": 2,
+        "unresolvedAtObservationEndIDs": [],
+        "historicalCompletedWithoutAlightingTickIDs": [],
+        "completedPassengers": 24,
+        "classes": [
+          "compact",
+          "express"
+        ],
+        "endpointClassification": "completed accepted continuation"
+      },
+      {
+        "file": "TestExpressMotionFollowingAndMerge_express-compact_curvefalse_buffertrue-runtime-0-first-tick-1.json",
+        "sha256": "5e6dbfb2f8199f092a218ac8d7cd9855e42828f5b5fdd2c07d3071b2bfc39c9b",
+        "checks": 4445,
+        "firstTick": 1,
+        "lastTick": 4445,
+        "submitted": 2,
+        "boarded": 2,
+        "completed": 2,
+        "waiting": 0,
+        "recordedOffers": 2,
+        "recordedCompleted": 2,
+        "unresolvedAtObservationEndIDs": [],
+        "historicalCompletedWithoutAlightingTickIDs": [],
+        "completedPassengers": 24,
+        "classes": [
+          "compact",
+          "express",
+          "group"
+        ],
+        "endpointClassification": "completed accepted continuation"
+      },
+      {
+        "file": "TestExpressMotionFollowingAndMerge_express-compact_curvetrue_bufferfalse-runtime-0-first-tick-1.json",
+        "sha256": "44ed4f4d5e207d7b3e4ba1c3e42b8d6e70efb5f2388e9f84c207f9c5fcadcd9a",
+        "checks": 4346,
+        "firstTick": 1,
+        "lastTick": 4346,
+        "submitted": 2,
+        "boarded": 2,
+        "completed": 2,
+        "waiting": 0,
+        "recordedOffers": 2,
+        "recordedCompleted": 2,
+        "unresolvedAtObservationEndIDs": [],
+        "historicalCompletedWithoutAlightingTickIDs": [],
+        "completedPassengers": 24,
+        "classes": [
+          "compact",
+          "express"
+        ],
+        "endpointClassification": "completed accepted continuation"
+      },
+      {
+        "file": "TestExpressMotionFollowingAndMerge_express-compact_curvetrue_buffertrue-runtime-0-first-tick-1.json",
+        "sha256": "0e02dbdadb6220ccd8302ad08671cc3163cba2b81102c3f1657c56da496723d1",
+        "checks": 4468,
+        "firstTick": 1,
+        "lastTick": 4468,
+        "submitted": 2,
+        "boarded": 2,
+        "completed": 2,
+        "waiting": 0,
+        "recordedOffers": 2,
+        "recordedCompleted": 2,
+        "unresolvedAtObservationEndIDs": [],
+        "historicalCompletedWithoutAlightingTickIDs": [],
+        "completedPassengers": 24,
+        "classes": [
+          "compact",
+          "express",
+          "group"
+        ],
+        "endpointClassification": "completed accepted continuation"
+      },
+      {
+        "file": "TestExpressMotionFollowingAndMerge_express-express_curvefalse_bufferfalse-runtime-0-first-tick-1.json",
+        "sha256": "4d9977d19b064b1b3f2db4fdf5a07330d7d69b4b2951ddc77b9d4ccf85fd9204",
+        "checks": 4316,
+        "firstTick": 1,
+        "lastTick": 4316,
+        "submitted": 2,
+        "boarded": 2,
+        "completed": 2,
+        "waiting": 0,
+        "recordedOffers": 2,
+        "recordedCompleted": 2,
+        "unresolvedAtObservationEndIDs": [],
+        "historicalCompletedWithoutAlightingTickIDs": [],
+        "completedPassengers": 40,
+        "classes": [
+          "express"
+        ],
+        "endpointClassification": "completed accepted continuation"
+      },
+      {
+        "file": "TestExpressMotionFollowingAndMerge_express-express_curvefalse_buffertrue-runtime-0-first-tick-1.json",
+        "sha256": "02845e61ded7221ef8fcaa7b110739e2c2691879921cffc22da7eaa5f33c0402",
+        "checks": 4445,
+        "firstTick": 1,
+        "lastTick": 4445,
+        "submitted": 2,
+        "boarded": 2,
+        "completed": 2,
+        "waiting": 0,
+        "recordedOffers": 2,
+        "recordedCompleted": 2,
+        "unresolvedAtObservationEndIDs": [],
+        "historicalCompletedWithoutAlightingTickIDs": [],
+        "completedPassengers": 40,
+        "classes": [
+          "compact",
+          "express",
+          "group"
+        ],
+        "endpointClassification": "completed accepted continuation"
+      },
+      {
+        "file": "TestExpressMotionFollowingAndMerge_express-express_curvetrue_bufferfalse-runtime-0-first-tick-1.json",
+        "sha256": "54079274a14661860f097cfb6576ac7b6c8ffdf15ea2aad93d3d73bcfa64915b",
+        "checks": 4346,
+        "firstTick": 1,
+        "lastTick": 4346,
+        "submitted": 2,
+        "boarded": 2,
+        "completed": 2,
+        "waiting": 0,
+        "recordedOffers": 2,
+        "recordedCompleted": 2,
+        "unresolvedAtObservationEndIDs": [],
+        "historicalCompletedWithoutAlightingTickIDs": [],
+        "completedPassengers": 40,
+        "classes": [
+          "express"
+        ],
+        "endpointClassification": "completed accepted continuation"
+      },
+      {
+        "file": "TestExpressMotionFollowingAndMerge_express-express_curvetrue_buffertrue-runtime-0-first-tick-1.json",
+        "sha256": "55f0acedd996d6eb0776192d29a33f02a8c6c231a58495f726c6c672113ecab5",
+        "checks": 4468,
+        "firstTick": 1,
+        "lastTick": 4468,
+        "submitted": 2,
+        "boarded": 2,
+        "completed": 2,
+        "waiting": 0,
+        "recordedOffers": 2,
+        "recordedCompleted": 2,
+        "unresolvedAtObservationEndIDs": [],
+        "historicalCompletedWithoutAlightingTickIDs": [],
+        "completedPassengers": 40,
+        "classes": [
+          "compact",
+          "express",
+          "group"
+        ],
+        "endpointClassification": "completed accepted continuation"
+      },
+      {
+        "file": "TestExpressMotionFollowingAndMerge_express-group_curvefalse_bufferfalse-runtime-0-first-tick-1.json",
+        "sha256": "3ecb3e07bc174858fabb5fc43af6acf303c8a40b5f78a463a2977ba60be87f0a",
+        "checks": 4316,
+        "firstTick": 1,
+        "lastTick": 4316,
+        "submitted": 2,
+        "boarded": 2,
+        "completed": 2,
+        "waiting": 0,
+        "recordedOffers": 2,
+        "recordedCompleted": 2,
+        "unresolvedAtObservationEndIDs": [],
+        "historicalCompletedWithoutAlightingTickIDs": [],
+        "completedPassengers": 28,
+        "classes": [
+          "express",
+          "group"
+        ],
+        "endpointClassification": "completed accepted continuation"
+      },
+      {
+        "file": "TestExpressMotionFollowingAndMerge_express-group_curvefalse_buffertrue-runtime-0-first-tick-1.json",
+        "sha256": "8a0eff90b38eea24817f0ff57a2762994fe1ebb33c4d7327c1be4e4a7be4849e",
+        "checks": 4445,
+        "firstTick": 1,
+        "lastTick": 4445,
+        "submitted": 2,
+        "boarded": 2,
+        "completed": 2,
+        "waiting": 0,
+        "recordedOffers": 2,
+        "recordedCompleted": 2,
+        "unresolvedAtObservationEndIDs": [],
+        "historicalCompletedWithoutAlightingTickIDs": [],
+        "completedPassengers": 28,
+        "classes": [
+          "compact",
+          "express",
+          "group"
+        ],
+        "endpointClassification": "completed accepted continuation"
+      },
+      {
+        "file": "TestExpressMotionFollowingAndMerge_express-group_curvetrue_bufferfalse-runtime-0-first-tick-1.json",
+        "sha256": "98ea96a5ae316fd2f502f225f132820d00de3e6f0b2068b55c347c10208bb3c8",
+        "checks": 4346,
+        "firstTick": 1,
+        "lastTick": 4346,
+        "submitted": 2,
+        "boarded": 2,
+        "completed": 2,
+        "waiting": 0,
+        "recordedOffers": 2,
+        "recordedCompleted": 2,
+        "unresolvedAtObservationEndIDs": [],
+        "historicalCompletedWithoutAlightingTickIDs": [],
+        "completedPassengers": 28,
+        "classes": [
+          "express",
+          "group"
+        ],
+        "endpointClassification": "completed accepted continuation"
+      },
+      {
+        "file": "TestExpressMotionFollowingAndMerge_express-group_curvetrue_buffertrue-runtime-0-first-tick-1.json",
+        "sha256": "ea6cbb66e6317761aa4ed5975fa9db2749ecd278d46338ae4b756f78f7660391",
+        "checks": 4468,
+        "firstTick": 1,
+        "lastTick": 4468,
+        "submitted": 2,
+        "boarded": 2,
+        "completed": 2,
+        "waiting": 0,
+        "recordedOffers": 2,
+        "recordedCompleted": 2,
+        "unresolvedAtObservationEndIDs": [],
+        "historicalCompletedWithoutAlightingTickIDs": [],
+        "completedPassengers": 28,
+        "classes": [
+          "compact",
+          "express",
+          "group"
+        ],
+        "endpointClassification": "completed accepted continuation"
+      },
+      {
+        "file": "TestExpressMotionFollowingAndMerge_express-legacy_curvefalse_bufferfalse-runtime-0-first-tick-1.json",
+        "sha256": "ffa9b141204819962acb52130880577e827f70893778056980362649033ac8a9",
+        "checks": 4316,
+        "firstTick": 1,
+        "lastTick": 4316,
+        "submitted": 2,
+        "boarded": 2,
+        "completed": 2,
+        "waiting": 0,
+        "recordedOffers": 2,
+        "recordedCompleted": 2,
+        "unresolvedAtObservationEndIDs": [],
+        "historicalCompletedWithoutAlightingTickIDs": [],
+        "completedPassengers": 21,
+        "classes": [
+          "express",
+          "legacy"
+        ],
+        "endpointClassification": "completed accepted continuation"
+      },
+      {
+        "file": "TestExpressMotionFollowingAndMerge_express-legacy_curvefalse_buffertrue-runtime-0-first-tick-1.json",
+        "sha256": "9df2ab8302cca1c4ea8a77c16953242f7e8cf9e5add628156f0cf54feb6aee83",
+        "checks": 4445,
+        "firstTick": 1,
+        "lastTick": 4445,
+        "submitted": 2,
+        "boarded": 2,
+        "completed": 2,
+        "waiting": 0,
+        "recordedOffers": 2,
+        "recordedCompleted": 2,
+        "unresolvedAtObservationEndIDs": [],
+        "historicalCompletedWithoutAlightingTickIDs": [],
+        "completedPassengers": 21,
+        "classes": [
+          "compact",
+          "express",
+          "group",
+          "legacy"
+        ],
+        "endpointClassification": "completed accepted continuation"
+      },
+      {
+        "file": "TestExpressMotionFollowingAndMerge_express-legacy_curvetrue_bufferfalse-runtime-0-first-tick-1.json",
+        "sha256": "ea8b93ea4eb746ee1d16b4418648bd90b5615826c997d313425030d54f85e092",
+        "checks": 4346,
+        "firstTick": 1,
+        "lastTick": 4346,
+        "submitted": 2,
+        "boarded": 2,
+        "completed": 2,
+        "waiting": 0,
+        "recordedOffers": 2,
+        "recordedCompleted": 2,
+        "unresolvedAtObservationEndIDs": [],
+        "historicalCompletedWithoutAlightingTickIDs": [],
+        "completedPassengers": 21,
+        "classes": [
+          "express",
+          "legacy"
+        ],
+        "endpointClassification": "completed accepted continuation"
+      },
+      {
+        "file": "TestExpressMotionFollowingAndMerge_express-legacy_curvetrue_buffertrue-runtime-0-first-tick-1.json",
+        "sha256": "17c6d741f53d0f0daaf61580c4976e623580424a255ddd7150015d5e67d63627",
+        "checks": 4468,
+        "firstTick": 1,
+        "lastTick": 4468,
+        "submitted": 2,
+        "boarded": 2,
+        "completed": 2,
+        "waiting": 0,
+        "recordedOffers": 2,
+        "recordedCompleted": 2,
+        "unresolvedAtObservationEndIDs": [],
+        "historicalCompletedWithoutAlightingTickIDs": [],
+        "completedPassengers": 21,
+        "classes": [
+          "compact",
+          "express",
+          "group",
+          "legacy"
+        ],
+        "endpointClassification": "completed accepted continuation"
+      },
+      {
+        "file": "TestExpressMotionFollowingAndMerge_group-express_curvefalse_bufferfalse-runtime-0-first-tick-1.json",
+        "sha256": "29e0b65ae92a01fe98f18d8ee0771d90577e6a08c2257be97546f2b04ed2db56",
+        "checks": 4316,
+        "firstTick": 1,
+        "lastTick": 4316,
+        "submitted": 2,
+        "boarded": 2,
+        "completed": 2,
+        "waiting": 0,
+        "recordedOffers": 2,
+        "recordedCompleted": 2,
+        "unresolvedAtObservationEndIDs": [],
+        "historicalCompletedWithoutAlightingTickIDs": [],
+        "completedPassengers": 28,
+        "classes": [
+          "express",
+          "group"
+        ],
+        "endpointClassification": "completed accepted continuation"
+      },
+      {
+        "file": "TestExpressMotionFollowingAndMerge_group-express_curvefalse_buffertrue-runtime-0-first-tick-1.json",
+        "sha256": "cdcc1488f57aff92795f75b59fe95cae7bdcde75e57ad8408853c39dd3c536fd",
+        "checks": 4445,
+        "firstTick": 1,
+        "lastTick": 4445,
+        "submitted": 2,
+        "boarded": 2,
+        "completed": 2,
+        "waiting": 0,
+        "recordedOffers": 2,
+        "recordedCompleted": 2,
+        "unresolvedAtObservationEndIDs": [],
+        "historicalCompletedWithoutAlightingTickIDs": [],
+        "completedPassengers": 28,
+        "classes": [
+          "compact",
+          "express",
+          "group"
+        ],
+        "endpointClassification": "completed accepted continuation"
+      },
+      {
+        "file": "TestExpressMotionFollowingAndMerge_group-express_curvetrue_bufferfalse-runtime-0-first-tick-1.json",
+        "sha256": "ed6fa16098d8a3f9ccad8840ba70a19da873a14f3370206848f46a64515f1fe6",
+        "checks": 4346,
+        "firstTick": 1,
+        "lastTick": 4346,
+        "submitted": 2,
+        "boarded": 2,
+        "completed": 2,
+        "waiting": 0,
+        "recordedOffers": 2,
+        "recordedCompleted": 2,
+        "unresolvedAtObservationEndIDs": [],
+        "historicalCompletedWithoutAlightingTickIDs": [],
+        "completedPassengers": 28,
+        "classes": [
+          "express",
+          "group"
+        ],
+        "endpointClassification": "completed accepted continuation"
+      },
+      {
+        "file": "TestExpressMotionFollowingAndMerge_group-express_curvetrue_buffertrue-runtime-0-first-tick-1.json",
+        "sha256": "86065636fdb17b30b917d36b928b145cc9d2abdc10e2a352393360329f0e58f1",
+        "checks": 4468,
+        "firstTick": 1,
+        "lastTick": 4468,
+        "submitted": 2,
+        "boarded": 2,
+        "completed": 2,
+        "waiting": 0,
+        "recordedOffers": 2,
+        "recordedCompleted": 2,
+        "unresolvedAtObservationEndIDs": [],
+        "historicalCompletedWithoutAlightingTickIDs": [],
+        "completedPassengers": 28,
+        "classes": [
+          "compact",
+          "express",
+          "group"
+        ],
+        "endpointClassification": "completed accepted continuation"
+      },
+      {
+        "file": "TestExpressMotionFollowingAndMerge_legacy-express_curvefalse_bufferfalse-runtime-0-first-tick-1.json",
+        "sha256": "644c3a462e498c90ace39adc5271434b58122c38580ab057b3c37496d573c537",
+        "checks": 4316,
+        "firstTick": 1,
+        "lastTick": 4316,
+        "submitted": 2,
+        "boarded": 2,
+        "completed": 2,
+        "waiting": 0,
+        "recordedOffers": 2,
+        "recordedCompleted": 2,
+        "unresolvedAtObservationEndIDs": [],
+        "historicalCompletedWithoutAlightingTickIDs": [],
+        "completedPassengers": 21,
+        "classes": [
+          "express",
+          "legacy"
+        ],
+        "endpointClassification": "completed accepted continuation"
+      },
+      {
+        "file": "TestExpressMotionFollowingAndMerge_legacy-express_curvefalse_buffertrue-runtime-0-first-tick-1.json",
+        "sha256": "939544433a195040ece3de573db8baff3abad096b3493ec9df429d36a7b74e0f",
+        "checks": 4445,
+        "firstTick": 1,
+        "lastTick": 4445,
+        "submitted": 2,
+        "boarded": 2,
+        "completed": 2,
+        "waiting": 0,
+        "recordedOffers": 2,
+        "recordedCompleted": 2,
+        "unresolvedAtObservationEndIDs": [],
+        "historicalCompletedWithoutAlightingTickIDs": [],
+        "completedPassengers": 21,
+        "classes": [
+          "compact",
+          "express",
+          "group",
+          "legacy"
+        ],
+        "endpointClassification": "completed accepted continuation"
+      },
+      {
+        "file": "TestExpressMotionFollowingAndMerge_legacy-express_curvetrue_bufferfalse-runtime-0-first-tick-1.json",
+        "sha256": "4debd248c9a79877ead1a98759be94bdccc4478226b6293bb4c409ee4c27734a",
+        "checks": 4346,
+        "firstTick": 1,
+        "lastTick": 4346,
+        "submitted": 2,
+        "boarded": 2,
+        "completed": 2,
+        "waiting": 0,
+        "recordedOffers": 2,
+        "recordedCompleted": 2,
+        "unresolvedAtObservationEndIDs": [],
+        "historicalCompletedWithoutAlightingTickIDs": [],
+        "completedPassengers": 21,
+        "classes": [
+          "express",
+          "legacy"
+        ],
+        "endpointClassification": "completed accepted continuation"
+      },
+      {
+        "file": "TestExpressMotionFollowingAndMerge_legacy-express_curvetrue_buffertrue-runtime-0-first-tick-1.json",
+        "sha256": "13adbc70f38a80fde64cf9ead5915f17d4fcc10edc315999281947e66034a3bb",
+        "checks": 4468,
+        "firstTick": 1,
+        "lastTick": 4468,
+        "submitted": 2,
+        "boarded": 2,
+        "completed": 2,
+        "waiting": 0,
+        "recordedOffers": 2,
+        "recordedCompleted": 2,
+        "unresolvedAtObservationEndIDs": [],
+        "historicalCompletedWithoutAlightingTickIDs": [],
+        "completedPassengers": 21,
+        "classes": [
+          "compact",
+          "express",
+          "group",
+          "legacy"
+        ],
+        "endpointClassification": "completed accepted continuation"
+      },
+      {
+        "file": "TestExpressRegistryBoundAndRuntime-runtime-0-first-tick-1.json",
+        "sha256": "9d6133dc60b36d6a7649c9d0da2f1d11ea171d2c39dd499acc2fbb586c3d6b81",
+        "checks": 180,
+        "firstTick": 1,
+        "lastTick": 180,
+        "submitted": 21,
+        "boarded": 20,
+        "completed": 0,
+        "waiting": 1,
+        "recordedOffers": 21,
+        "recordedCompleted": 0,
+        "unresolvedAtObservationEndIDs": [
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10,
+          11,
+          12,
+          13,
+          14,
+          15,
+          16,
+          17,
+          18,
+          19,
+          20,
+          21
+        ],
+        "historicalCompletedWithoutAlightingTickIDs": [],
+        "completedPassengers": 0,
+        "classes": [
+          "express"
+        ],
+        "endpointClassification": "native-to-cold handoff, continued in separate runtime ledger"
+      },
+      {
+        "file": "TestExpressRegistryBoundAndRuntime-runtime-1-first-tick-181.json",
+        "sha256": "753544df32a67f70814c20409eabcaf3a270baf5c8f88539cae27c184215ac49",
+        "checks": 30669,
+        "firstTick": 181,
+        "lastTick": 30849,
+        "submitted": 21,
+        "boarded": 21,
+        "completed": 21,
+        "waiting": 0,
+        "recordedOffers": 21,
+        "recordedCompleted": 21,
+        "unresolvedAtObservationEndIDs": [],
+        "historicalCompletedWithoutAlightingTickIDs": [],
+        "completedPassengers": 21,
+        "classes": [
+          "express"
+        ],
+        "endpointClassification": "completed accepted continuation"
+      },
+      {
+        "file": "TestExpressRepeatedHistoryRetirement-runtime-0-first-tick-1.json",
+        "sha256": "ec54180a54f4f70190a858787d0eeaad26471e6fb0fa4ffab610d80b0419e7ef",
+        "checks": 225354,
+        "firstTick": 1,
+        "lastTick": 225354,
+        "submitted": 26,
+        "boarded": 26,
+        "completed": 26,
+        "waiting": 0,
+        "recordedOffers": 26,
+        "recordedCompleted": 26,
+        "unresolvedAtObservationEndIDs": [],
+        "historicalCompletedWithoutAlightingTickIDs": [],
+        "completedPassengers": 26,
+        "classes": [
+          "express"
+        ],
+        "endpointClassification": "completed accepted continuation"
+      },
+      {
+        "file": "TestExpressRestoreContinuingAuthored-runtime-0-first-tick-601.json",
+        "sha256": "007c473093a83af99dea0b815027eac9eadbf38d501224f9569f79d1109ecdfe",
+        "checks": 3477,
+        "firstTick": 601,
+        "lastTick": 4077,
+        "submitted": 2,
+        "boarded": 2,
+        "completed": 2,
+        "waiting": 0,
+        "recordedOffers": 2,
+        "recordedCompleted": 1,
+        "unresolvedAtObservationEndIDs": [],
+        "historicalCompletedWithoutAlightingTickIDs": [
+          1
+        ],
+        "completedPassengers": 10,
+        "classes": [
+          "express"
+        ],
+        "endpointClassification": "completed accepted continuation"
+      },
+      {
+        "file": "TestExpressRestoreIntermediateProduction-runtime-0-first-tick-1.json",
+        "sha256": "a4fc10554ef6917fc19f73cfe8d2500a7e7bd9cdd49a7b519660fd9ed93ca765",
+        "checks": 7132,
+        "firstTick": 1,
+        "lastTick": 7132,
+        "submitted": 2,
+        "boarded": 2,
+        "completed": 2,
+        "waiting": 0,
+        "recordedOffers": 2,
+        "recordedCompleted": 2,
+        "unresolvedAtObservationEndIDs": [],
+        "historicalCompletedWithoutAlightingTickIDs": [],
+        "completedPassengers": 20,
+        "classes": [
+          "express"
+        ],
+        "endpointClassification": "completed accepted continuation"
+      },
+      {
+        "file": "TestExpressRestoreIntermediateProduction_intermediate_unloading-runtime-0-first-tick-3537.json",
+        "sha256": "26419a012693a6368abfd9dcd162e83869657392dee74d420b5cbfad768f3813",
+        "checks": 3596,
+        "firstTick": 3537,
+        "lastTick": 7132,
+        "submitted": 2,
+        "boarded": 2,
+        "completed": 2,
+        "waiting": 0,
+        "recordedOffers": 2,
+        "recordedCompleted": 2,
+        "unresolvedAtObservationEndIDs": [],
+        "historicalCompletedWithoutAlightingTickIDs": [],
+        "completedPassengers": 20,
+        "classes": [
+          "express"
+        ],
+        "endpointClassification": "completed accepted continuation"
+      },
+      {
+        "file": "TestExpressRestoreIntermediateProduction_intermediate_unloading-runtime-1-first-tick-3537.json",
+        "sha256": "c16564595b20877c848a04dc8761e573002014f424fc24047924d5386d79abf2",
+        "checks": 3596,
+        "firstTick": 3537,
+        "lastTick": 7132,
+        "submitted": 2,
+        "boarded": 2,
+        "completed": 2,
+        "waiting": 0,
+        "recordedOffers": 2,
+        "recordedCompleted": 2,
+        "unresolvedAtObservationEndIDs": [],
+        "historicalCompletedWithoutAlightingTickIDs": [],
+        "completedPassengers": 20,
+        "classes": [
+          "express"
+        ],
+        "endpointClassification": "completed accepted continuation"
+      },
+      {
+        "file": "TestExpressRestoreProductionPhases-runtime-0-first-tick-1.json",
+        "sha256": "9ef6afed897eedd0c5233411562573569f4cac0c4354d998ddc1dc3d8f4dad64",
+        "checks": 28279,
+        "firstTick": 1,
+        "lastTick": 28279,
+        "submitted": 2,
+        "boarded": 2,
+        "completed": 2,
+        "waiting": 0,
+        "recordedOffers": 2,
+        "recordedCompleted": 2,
+        "unresolvedAtObservationEndIDs": [],
+        "historicalCompletedWithoutAlightingTickIDs": [],
+        "completedPassengers": 40,
+        "classes": [
+          "express"
+        ],
+        "endpointClassification": "completed accepted continuation"
+      },
+      {
+        "file": "TestExpressRestoreProductionPhases_boarding-runtime-0-first-tick-1.json",
+        "sha256": "7382590260bc7db3dccd82a273f38f4824a907afdd8ad926125bd439ccbc4450",
+        "checks": 6227,
+        "firstTick": 1,
+        "lastTick": 6227,
+        "submitted": 1,
+        "boarded": 1,
+        "completed": 1,
+        "waiting": 0,
+        "recordedOffers": 1,
+        "recordedCompleted": 1,
+        "unresolvedAtObservationEndIDs": [],
+        "historicalCompletedWithoutAlightingTickIDs": [],
+        "completedPassengers": 20,
+        "classes": [
+          "express"
+        ],
+        "endpointClassification": "completed accepted continuation"
+      },
+      {
+        "file": "TestExpressRestoreProductionPhases_boarding-runtime-1-first-tick-1.json",
+        "sha256": "4a2f784ebdda43bd3955dc5033f0e46d172506f362f40695b59701731e4e45dc",
+        "checks": 6227,
+        "firstTick": 1,
+        "lastTick": 6227,
+        "submitted": 1,
+        "boarded": 1,
+        "completed": 1,
+        "waiting": 0,
+        "recordedOffers": 1,
+        "recordedCompleted": 1,
+        "unresolvedAtObservationEndIDs": [],
+        "historicalCompletedWithoutAlightingTickIDs": [],
+        "completedPassengers": 20,
+        "classes": [
+          "express"
+        ],
+        "endpointClassification": "completed accepted continuation"
+      },
+      {
+        "file": "TestExpressRestoreProductionPhases_empty_boarding-runtime-0-first-tick-24624.json",
+        "sha256": "06f6ab78ca71a6c97f052617f5686d60d535f085e174cd828e752a5be3feaee8",
+        "checks": 3656,
+        "firstTick": 24624,
+        "lastTick": 28279,
+        "submitted": 2,
+        "boarded": 2,
+        "completed": 2,
+        "waiting": 0,
+        "recordedOffers": 1,
+        "recordedCompleted": 1,
+        "unresolvedAtObservationEndIDs": [],
+        "historicalCompletedWithoutAlightingTickIDs": [],
+        "completedPassengers": 20,
+        "classes": [
+          "express"
+        ],
+        "endpointClassification": "completed accepted continuation"
+      },
+      {
+        "file": "TestExpressRestoreProductionPhases_empty_boarding-runtime-1-first-tick-24624.json",
+        "sha256": "64e05bf95d2422942ca08eeb8186544e1edb64e8598022cc7bd4a79dff0d50fa",
+        "checks": 3656,
+        "firstTick": 24624,
+        "lastTick": 28279,
+        "submitted": 2,
+        "boarded": 2,
+        "completed": 2,
+        "waiting": 0,
+        "recordedOffers": 1,
+        "recordedCompleted": 1,
+        "unresolvedAtObservationEndIDs": [],
+        "historicalCompletedWithoutAlightingTickIDs": [],
+        "completedPassengers": 20,
+        "classes": [
+          "express"
+        ],
+        "endpointClassification": "completed accepted continuation"
+      },
+      {
+        "file": "TestExpressRestoreProductionPhases_empty_departing-runtime-0-first-tick-6228.json",
+        "sha256": "325827ed031b20ab7c96fca1ff9ee09bc655441f9218cebd73fa8ba3429ea8ec",
+        "checks": 22052,
+        "firstTick": 6228,
+        "lastTick": 28279,
+        "submitted": 2,
+        "boarded": 2,
+        "completed": 2,
+        "waiting": 0,
+        "recordedOffers": 2,
+        "recordedCompleted": 1,
+        "unresolvedAtObservationEndIDs": [],
+        "historicalCompletedWithoutAlightingTickIDs": [
+          1
+        ],
+        "completedPassengers": 20,
+        "classes": [
+          "express"
+        ],
+        "endpointClassification": "completed accepted continuation"
+      },
+      {
+        "file": "TestExpressRestoreProductionPhases_empty_departing-runtime-1-first-tick-6228.json",
+        "sha256": "41af8293e81068f8fc1a78b100edb928ae87f9ffbde6048156357783e979a0d4",
+        "checks": 22052,
+        "firstTick": 6228,
+        "lastTick": 28279,
+        "submitted": 2,
+        "boarded": 2,
+        "completed": 2,
+        "waiting": 0,
+        "recordedOffers": 2,
+        "recordedCompleted": 1,
+        "unresolvedAtObservationEndIDs": [],
+        "historicalCompletedWithoutAlightingTickIDs": [
+          1
+        ],
+        "completedPassengers": 20,
+        "classes": [
+          "express"
+        ],
+        "endpointClassification": "completed accepted continuation"
+      },
+      {
+        "file": "TestExpressRestoreProductionPhases_empty_idle-runtime-0-first-tick-24623.json",
+        "sha256": "c2e14a1c2f8d3d638b9a29ddbb07999f737b7cb59fe4867922fc307436314ebd",
+        "checks": 3657,
+        "firstTick": 24623,
+        "lastTick": 28279,
+        "submitted": 2,
+        "boarded": 2,
+        "completed": 2,
+        "waiting": 0,
+        "recordedOffers": 1,
+        "recordedCompleted": 1,
+        "unresolvedAtObservationEndIDs": [],
+        "historicalCompletedWithoutAlightingTickIDs": [],
+        "completedPassengers": 20,
+        "classes": [
+          "express"
+        ],
+        "endpointClassification": "completed accepted continuation"
+      },
+      {
+        "file": "TestExpressRestoreProductionPhases_empty_idle-runtime-1-first-tick-24623.json",
+        "sha256": "c1bee922e7d1647685873a1cff23ac47e2eabb2e8547ee0f61f58ea564aeaeec",
+        "checks": 3657,
+        "firstTick": 24623,
+        "lastTick": 28279,
+        "submitted": 2,
+        "boarded": 2,
+        "completed": 2,
+        "waiting": 0,
+        "recordedOffers": 1,
+        "recordedCompleted": 1,
+        "unresolvedAtObservationEndIDs": [],
+        "historicalCompletedWithoutAlightingTickIDs": [],
+        "completedPassengers": 20,
+        "classes": [
+          "express"
+        ],
+        "endpointClassification": "completed accepted continuation"
+      },
+      {
+        "file": "TestExpressRestoreProductionPhases_empty_traveling-runtime-0-first-tick-6229.json",
+        "sha256": "592c1a6209165a8364400726049cad10556fc1c4ea93ab1e28682d0d6116aad2",
+        "checks": 22051,
+        "firstTick": 6229,
+        "lastTick": 28279,
+        "submitted": 2,
+        "boarded": 2,
+        "completed": 2,
+        "waiting": 0,
+        "recordedOffers": 2,
+        "recordedCompleted": 1,
+        "unresolvedAtObservationEndIDs": [],
+        "historicalCompletedWithoutAlightingTickIDs": [
+          1
+        ],
+        "completedPassengers": 20,
+        "classes": [
+          "express"
+        ],
+        "endpointClassification": "completed accepted continuation"
+      },
+      {
+        "file": "TestExpressRestoreProductionPhases_empty_traveling-runtime-1-first-tick-6229.json",
+        "sha256": "21d54c10254f248a115abc9ba7f5a6c7be348f4dd378b752069dcd0d567e9295",
+        "checks": 22051,
+        "firstTick": 6229,
+        "lastTick": 28279,
+        "submitted": 2,
+        "boarded": 2,
+        "completed": 2,
+        "waiting": 0,
+        "recordedOffers": 2,
+        "recordedCompleted": 1,
+        "unresolvedAtObservationEndIDs": [],
+        "historicalCompletedWithoutAlightingTickIDs": [
+          1
+        ],
+        "completedPassengers": 20,
+        "classes": [
+          "express"
+        ],
+        "endpointClassification": "completed accepted continuation"
+      },
+      {
+        "file": "TestExpressRestoreProductionPhases_occupied_origin_tail-runtime-0-first-tick-389.json",
+        "sha256": "4f553f590147486066fbb86f68efdb85884d2164fce893a7dd62a8580559ba5a",
+        "checks": 5995,
+        "firstTick": 389,
+        "lastTick": 6383,
+        "submitted": 1,
+        "boarded": 1,
+        "completed": 1,
+        "waiting": 0,
+        "recordedOffers": 1,
+        "recordedCompleted": 1,
+        "unresolvedAtObservationEndIDs": [],
+        "historicalCompletedWithoutAlightingTickIDs": [],
+        "completedPassengers": 20,
+        "classes": [
+          "express"
+        ],
+        "endpointClassification": "completed accepted continuation"
+      },
+      {
+        "file": "TestExpressRestoreProductionPhases_occupied_origin_tail-runtime-1-first-tick-389.json",
+        "sha256": "fc3036fe6173903d604ddbd80ccf0e1920d2ff096ca1307c574fcdf818bfde20",
+        "checks": 5839,
+        "firstTick": 389,
+        "lastTick": 6227,
+        "submitted": 1,
+        "boarded": 1,
+        "completed": 1,
+        "waiting": 0,
+        "recordedOffers": 1,
+        "recordedCompleted": 1,
+        "unresolvedAtObservationEndIDs": [],
+        "historicalCompletedWithoutAlightingTickIDs": [],
+        "completedPassengers": 20,
+        "classes": [
+          "express"
+        ],
+        "endpointClassification": "completed accepted continuation"
+      },
+      {
+        "file": "TestExpressRestoreProductionPhases_occupied_trim_tail-runtime-0-first-tick-1266.json",
+        "sha256": "3ff56ee729afb1d04fe0f925bbaabfb7af338213dcbba65f56138ea9778d64a3",
+        "checks": 5172,
+        "firstTick": 1266,
+        "lastTick": 6437,
+        "submitted": 1,
+        "boarded": 1,
+        "completed": 1,
+        "waiting": 0,
+        "recordedOffers": 1,
+        "recordedCompleted": 1,
+        "unresolvedAtObservationEndIDs": [],
+        "historicalCompletedWithoutAlightingTickIDs": [],
+        "completedPassengers": 20,
+        "classes": [
+          "express"
+        ],
+        "endpointClassification": "completed accepted continuation"
+      },
+      {
+        "file": "TestExpressRestoreProductionPhases_occupied_trim_tail-runtime-1-first-tick-1266.json",
+        "sha256": "9a9ba2a86276c58c852789ac27dd3354a214fc4b964623b83f9f62b07b79a3ae",
+        "checks": 4962,
+        "firstTick": 1266,
+        "lastTick": 6227,
+        "submitted": 1,
+        "boarded": 1,
+        "completed": 1,
+        "waiting": 0,
+        "recordedOffers": 1,
+        "recordedCompleted": 1,
+        "unresolvedAtObservationEndIDs": [],
+        "historicalCompletedWithoutAlightingTickIDs": [],
+        "completedPassengers": 20,
+        "classes": [
+          "express"
+        ],
+        "endpointClassification": "completed accepted continuation"
+      },
+      {
+        "file": "TestExpressRestoreProductionPhases_traveling-runtime-0-first-tick-181.json",
+        "sha256": "4989e926db7d53a72a5092887e83348451b706eb0527c717c55a315afc9651cf",
+        "checks": 6047,
+        "firstTick": 181,
+        "lastTick": 6227,
+        "submitted": 1,
+        "boarded": 1,
+        "completed": 1,
+        "waiting": 0,
+        "recordedOffers": 1,
+        "recordedCompleted": 1,
+        "unresolvedAtObservationEndIDs": [],
+        "historicalCompletedWithoutAlightingTickIDs": [],
+        "completedPassengers": 20,
+        "classes": [
+          "express"
+        ],
+        "endpointClassification": "completed accepted continuation"
+      },
+      {
+        "file": "TestExpressRestoreProductionPhases_traveling-runtime-1-first-tick-181.json",
+        "sha256": "a0096fea132695c2359999a4e7477e31b83a63dbddaafa845b4c1fd0078a9a3b",
+        "checks": 6047,
+        "firstTick": 181,
+        "lastTick": 6227,
+        "submitted": 1,
+        "boarded": 1,
+        "completed": 1,
+        "waiting": 0,
+        "recordedOffers": 1,
+        "recordedCompleted": 1,
+        "unresolvedAtObservationEndIDs": [],
+        "historicalCompletedWithoutAlightingTickIDs": [],
+        "completedPassengers": 20,
+        "classes": [
+          "express"
+        ],
+        "endpointClassification": "completed accepted continuation"
+      },
+      {
+        "file": "TestExpressRestoreProductionPhases_unloading-runtime-0-first-tick-6108.json",
+        "sha256": "ea666c1e0eea16943934b3cb0f9fdb13a2d36579508855be076d64077f256a27",
+        "checks": 120,
+        "firstTick": 6108,
+        "lastTick": 6227,
+        "submitted": 1,
+        "boarded": 1,
+        "completed": 1,
+        "waiting": 0,
+        "recordedOffers": 1,
+        "recordedCompleted": 1,
+        "unresolvedAtObservationEndIDs": [],
+        "historicalCompletedWithoutAlightingTickIDs": [],
+        "completedPassengers": 20,
+        "classes": [
+          "express"
+        ],
+        "endpointClassification": "completed accepted continuation"
+      },
+      {
+        "file": "TestExpressRestoreProductionPhases_unloading-runtime-1-first-tick-6108.json",
+        "sha256": "4a16c3e2fcc6dbc25e29ea16dda1384a9f1bd318cbdb22041552309810b32d4d",
+        "checks": 120,
+        "firstTick": 6108,
+        "lastTick": 6227,
+        "submitted": 1,
+        "boarded": 1,
+        "completed": 1,
+        "waiting": 0,
+        "recordedOffers": 1,
+        "recordedCompleted": 1,
+        "unresolvedAtObservationEndIDs": [],
+        "historicalCompletedWithoutAlightingTickIDs": [],
+        "completedPassengers": 20,
+        "classes": [
+          "express"
+        ],
+        "endpointClassification": "completed accepted continuation"
+      }
+    ],
+    "followingGaps": [
+      {
+        "test": "TestLargeMotionFollowingAndMerge/group-legacy/curvefalse/bufferfalse",
+        "meters": 57.420207
+      },
+      {
+        "test": "TestLargeMotionFollowingAndMerge/group-group/curvetrue/buffertrue",
+        "meters": 53.69444
+      },
+      {
+        "test": "TestLargeMotionFollowingAndMerge/group-group/curvetrue/bufferfalse",
+        "meters": 57.420207
+      },
+      {
+        "test": "TestLargeMotionFollowingAndMerge/group-group/curvefalse/buffertrue",
+        "meters": 53.69444
+      },
+      {
+        "test": "TestLargeMotionFollowingAndMerge/group-group/curvefalse/bufferfalse",
+        "meters": 57.420207
+      },
+      {
+        "test": "TestLargeMotionFollowingAndMerge/compact-group/curvetrue/buffertrue",
+        "meters": 53.69444
+      },
+      {
+        "test": "TestLargeMotionFollowingAndMerge/compact-group/curvetrue/bufferfalse",
+        "meters": 57.420207
+      },
+      {
+        "test": "TestLargeMotionFollowingAndMerge/compact-group/curvefalse/buffertrue",
+        "meters": 53.69444
+      },
+      {
+        "test": "TestLargeMotionFollowingAndMerge/compact-group/curvefalse/bufferfalse",
+        "meters": 57.420207
+      },
+      {
+        "test": "TestLargeMotionFollowingAndMerge/group-legacy/curvetrue/buffertrue",
+        "meters": 53.69444
+      },
+      {
+        "test": "TestLargeMotionFollowingAndMerge/group-legacy/curvetrue/bufferfalse",
+        "meters": 57.420207
+      },
+      {
+        "test": "TestLargeMotionFollowingAndMerge/group-legacy/curvefalse/buffertrue",
+        "meters": 53.69444
+      },
+      {
+        "test": "TestExpressMotionFollowingAndMerge/express-legacy/curvefalse/bufferfalse",
+        "meters": 57.420207
+      },
+      {
+        "test": "TestExpressMotionFollowingAndMerge/express-express/curvetrue/buffertrue",
+        "meters": 53.69444
+      },
+      {
+        "test": "TestExpressMotionFollowingAndMerge/express-express/curvetrue/bufferfalse",
+        "meters": 57.420207
+      },
+      {
+        "test": "TestExpressMotionFollowingAndMerge/express-express/curvefalse/buffertrue",
+        "meters": 53.69444
+      },
+      {
+        "test": "TestExpressMotionFollowingAndMerge/express-express/curvefalse/bufferfalse",
+        "meters": 57.420207
+      },
+      {
+        "test": "TestExpressMotionFollowingAndMerge/group-express/curvetrue/buffertrue",
+        "meters": 53.69444
+      },
+      {
+        "test": "TestExpressMotionFollowingAndMerge/group-express/curvetrue/bufferfalse",
+        "meters": 57.420207
+      },
+      {
+        "test": "TestExpressMotionFollowingAndMerge/group-express/curvefalse/buffertrue",
+        "meters": 53.69444
+      },
+      {
+        "test": "TestExpressMotionFollowingAndMerge/group-express/curvefalse/bufferfalse",
+        "meters": 57.420207
+      },
+      {
+        "test": "TestExpressMotionFollowingAndMerge/express-group/curvetrue/buffertrue",
+        "meters": 53.69444
+      },
+      {
+        "test": "TestExpressMotionFollowingAndMerge/express-group/curvetrue/bufferfalse",
+        "meters": 57.420207
+      },
+      {
+        "test": "TestExpressMotionFollowingAndMerge/express-group/curvefalse/buffertrue",
+        "meters": 53.69444
+      },
+      {
+        "test": "TestExpressMotionFollowingAndMerge/express-group/curvefalse/bufferfalse",
+        "meters": 57.420207
+      },
+      {
+        "test": "TestExpressMotionFollowingAndMerge/compact-express/curvetrue/buffertrue",
+        "meters": 53.69444
+      },
+      {
+        "test": "TestExpressMotionFollowingAndMerge/compact-express/curvetrue/bufferfalse",
+        "meters": 57.420207
+      },
+      {
+        "test": "TestExpressMotionFollowingAndMerge/compact-express/curvefalse/buffertrue",
+        "meters": 53.69444
+      },
+      {
+        "test": "TestExpressMotionFollowingAndMerge/compact-express/curvefalse/bufferfalse",
+        "meters": 57.420207
+      },
+      {
+        "test": "TestExpressMotionFollowingAndMerge/express-compact/curvetrue/buffertrue",
+        "meters": 53.69444
+      },
+      {
+        "test": "TestExpressMotionFollowingAndMerge/express-compact/curvetrue/bufferfalse",
+        "meters": 57.420207
+      },
+      {
+        "test": "TestExpressMotionFollowingAndMerge/express-compact/curvefalse/buffertrue",
+        "meters": 53.69444
+      },
+      {
+        "test": "TestExpressMotionFollowingAndMerge/express-compact/curvefalse/bufferfalse",
+        "meters": 57.420207
+      },
+      {
+        "test": "TestExpressMotionFollowingAndMerge/legacy-express/curvetrue/buffertrue",
+        "meters": 53.69444
+      },
+      {
+        "test": "TestExpressMotionFollowingAndMerge/legacy-express/curvetrue/bufferfalse",
+        "meters": 57.420207
+      },
+      {
+        "test": "TestExpressMotionFollowingAndMerge/legacy-express/curvefalse/buffertrue",
+        "meters": 53.69444
+      },
+      {
+        "test": "TestExpressMotionFollowingAndMerge/legacy-express/curvefalse/bufferfalse",
+        "meters": 57.420207
+      },
+      {
+        "test": "TestExpressMotionFollowingAndMerge/express-legacy/curvetrue/buffertrue",
+        "meters": 53.69444
+      },
+      {
+        "test": "TestExpressMotionFollowingAndMerge/express-legacy/curvetrue/bufferfalse",
+        "meters": 57.420207
+      },
+      {
+        "test": "TestExpressMotionFollowingAndMerge/express-legacy/curvefalse/buffertrue",
+        "meters": 53.69444
+      }
+    ],
+    "maxRecovery": {
+      "file": "recovery-2600-plus-6000.state.json",
+      "nativeJSONBytes": 1319069,
+      "active": 6000,
+      "pending": 2600,
+      "aggregate": 8600,
+      "source": "authored native seeded boarding cohort, no generated request replays",
+      "completedHistoryExcludedFromAggregate": true
+    }
+  },
+  "gates": {
+    "canonical-prerequisite-diagnostics": {
+      "command": [
+        "python3",
+        "/tmp/build/podsim/continuation-express-batch/native/gopls-batch.py",
+        "go_diagnostics",
+        "[{\"files\":[\"/tmp/build/podsim/continuation-express-batch/wt/native/internal/project/canonical_decode_test.go\"]}]"
+      ],
+      "cwd": "/tmp/build/podsim/continuation-express-batch/wt/native",
+      "supervisor_pid": 2,
+      "pid": 3,
+      "pid_namespace": "pid:[4026534038]",
+      "started": "2026-10-03T21:47:07.494192+00:00",
+      "watchdog_deadline": "2026-10-03T21:49:07.494192+00:00",
+      "log": "/tmp/build/podsim/continuation-express-batch/native/canonical-prerequisite-diagnostics.log",
+      "exit_marker": "/tmp/build/podsim/continuation-express-batch/native/canonical-prerequisite-diagnostics.exit",
+      "stop_command": "kill -TERM -- -3",
+      "relaunch_command": "env /usr/bin/python3 /tmp/build/podsim/continuation-express-batch/native/run.py canonical-prerequisite-diagnostics 120 python3 /tmp/build/podsim/continuation-express-batch/native/gopls-batch.py go_diagnostics '[{\"files\":[\"/tmp/build/podsim/continuation-express-batch/wt/native/internal/project/canonical_decode_test.go\"]}]'",
+      "environment": {
+        "GOTOOLCHAIN": "local",
+        "GOEXPERIMENT": "jsonv2",
+        "GOROOT": "/home/dotwaffle/.local/share/mise/installs/go/1.27.1",
+        "GOGC": "400",
+        "GOMAXPROCS": "1",
+        "TMPDIR": "/tmp/build/podsim/continuation-express-batch/native/tmp"
+      },
+      "study_environment": {},
+      "peak_child_rss_kib": 409936,
+      "exit_code": 0,
+      "ended": "2026-10-03T21:47:08.709907+00:00"
+    },
+    "canonical-prerequisite-suite": {
+      "command": [
+        "go",
+        "test",
+        "-overlay=/tmp/build/podsim/continuation-express-batch/native/canonical-prerequisite/overlay.json",
+        "-count=1",
+        "./internal/project"
+      ],
+      "cwd": "/tmp/build/podsim/continuation-express-batch/wt/native",
+      "supervisor_pid": 2,
+      "pid": 3,
+      "pid_namespace": "pid:[4026534036]",
+      "started": "2026-10-03T21:47:22.347996+00:00",
+      "watchdog_deadline": "2026-10-03T21:52:22.347996+00:00",
+      "log": "/tmp/build/podsim/continuation-express-batch/native/canonical-prerequisite-suite.log",
+      "exit_marker": "/tmp/build/podsim/continuation-express-batch/native/canonical-prerequisite-suite.exit",
+      "stop_command": "kill -TERM -- -3",
+      "relaunch_command": "env /usr/bin/python3 /tmp/build/podsim/continuation-express-batch/native/run.py canonical-prerequisite-suite 300 go test -overlay=/tmp/build/podsim/continuation-express-batch/native/canonical-prerequisite/overlay.json -count=1 ./internal/project",
+      "environment": {
+        "GOTOOLCHAIN": "local",
+        "GOEXPERIMENT": "jsonv2",
+        "GOROOT": "/home/dotwaffle/.local/share/mise/installs/go/1.27.1",
+        "GOGC": "400",
+        "GOMAXPROCS": "1",
+        "TMPDIR": "/tmp/build/podsim/continuation-express-batch/native/tmp"
+      },
+      "study_environment": {},
+      "peak_child_rss_kib": 336864,
+      "exit_code": 0,
+      "ended": "2026-10-03T21:47:38.435897+00:00"
+    },
+    "lint-final-v6": {
+      "command": [
+        "golangci-lint",
+        "run",
+        "./internal/sim/...",
+        "./internal/project/..."
+      ],
+      "cwd": "/tmp/build/podsim/continuation-express-batch/wt/native",
+      "supervisor_pid": 2,
+      "pid": 6,
+      "pid_namespace": "pid:[4026534036]",
+      "started": "2026-10-03T21:48:10.514195+00:00",
+      "watchdog_deadline": "2026-10-03T21:53:10.514195+00:00",
+      "log": "/tmp/build/podsim/continuation-express-batch/native/lint-final-v6.log",
+      "exit_marker": "/tmp/build/podsim/continuation-express-batch/native/lint-final-v6.exit",
+      "stop_command": "kill -TERM -- -6",
+      "relaunch_command": "env /usr/bin/python3 /tmp/build/podsim/continuation-express-batch/native/run.py lint-final-v6 300 golangci-lint run ./internal/sim/... ./internal/project/...",
+      "environment": {
+        "GOTOOLCHAIN": "local",
+        "GOEXPERIMENT": "jsonv2",
+        "GOROOT": "/home/dotwaffle/.local/share/mise/installs/go/1.27.1",
+        "GOGC": "400",
+        "GOMAXPROCS": "1",
+        "TMPDIR": "/tmp/build/podsim/continuation-express-batch/native/tmp"
+      },
+      "study_environment": {},
+      "peak_child_rss_kib": 1845240,
+      "exit_code": 0,
+      "ended": "2026-10-03T21:48:30.461318+00:00"
+    },
+    "package-final-v6-relaunch": {
+      "command": [
+        "go",
+        "test",
+        "-json",
+        "-count=1",
+        "./internal/sim",
+        "./internal/project"
+      ],
+      "cwd": "/tmp/build/podsim/continuation-express-batch/wt/native",
+      "supervisor_pid": 2,
+      "pid": 5,
+      "pid_namespace": "pid:[4026534036]",
+      "started": "2026-10-03T21:49:43.639406+00:00",
+      "watchdog_deadline": "2026-10-03T22:04:43.639406+00:00",
+      "log": "/tmp/build/podsim/continuation-express-batch/native/package-final-v6-relaunch.log",
+      "exit_marker": "/tmp/build/podsim/continuation-express-batch/native/package-final-v6-relaunch.exit",
+      "stop_command": "kill -TERM -- -5",
+      "relaunch_command": "env EXPRESS_EVIDENCE_DIR=/tmp/build/podsim/continuation-express-batch/native/evidence-v6 /usr/bin/python3 /tmp/build/podsim/continuation-express-batch/native/run.py package-final-v6-relaunch 900 go test -json -count=1 ./internal/sim ./internal/project",
+      "environment": {
+        "GOTOOLCHAIN": "local",
+        "GOEXPERIMENT": "jsonv2",
+        "GOROOT": "/home/dotwaffle/.local/share/mise/installs/go/1.27.1",
+        "GOGC": "400",
+        "GOMAXPROCS": "1",
+        "TMPDIR": "/tmp/build/podsim/continuation-express-batch/native/tmp"
+      },
+      "study_environment": {
+        "EXPRESS_EVIDENCE_DIR": "/tmp/build/podsim/continuation-express-batch/native/evidence-v6"
+      },
+      "peak_child_rss_kib": 344940,
+      "exit_code": 0,
+      "ended": "2026-10-03T21:53:39.785505+00:00"
+    },
+    "vet-final-v6": {
+      "command": [
+        "go",
+        "vet",
+        "./internal/sim",
+        "./internal/project"
+      ],
+      "cwd": "/tmp/build/podsim/continuation-express-batch/wt/native",
+      "supervisor_pid": 2,
+      "pid": 3,
+      "pid_namespace": "pid:[4026532947]",
+      "started": "2026-10-03T21:54:00.389125+00:00",
+      "watchdog_deadline": "2026-10-03T21:59:00.389125+00:00",
+      "log": "/tmp/build/podsim/continuation-express-batch/native/vet-final-v6.log",
+      "exit_marker": "/tmp/build/podsim/continuation-express-batch/native/vet-final-v6.exit",
+      "stop_command": "kill -TERM -- -3",
+      "relaunch_command": "env /usr/bin/python3 /tmp/build/podsim/continuation-express-batch/native/run.py vet-final-v6 300 go vet ./internal/sim ./internal/project",
+      "environment": {
+        "GOTOOLCHAIN": "local",
+        "GOEXPERIMENT": "jsonv2",
+        "GOROOT": "/home/dotwaffle/.local/share/mise/installs/go/1.27.1",
+        "GOGC": "400",
+        "GOMAXPROCS": "1",
+        "TMPDIR": "/tmp/build/podsim/continuation-express-batch/native/tmp"
+      },
+      "study_environment": {},
+      "peak_child_rss_kib": 158412,
+      "exit_code": 0,
+      "ended": "2026-10-03T21:54:01.606562+00:00"
+    },
+    "mutation-control-compile": {
+      "command": [
+        "go",
+        "test",
+        "-c",
+        "-o",
+        "/tmp/build/podsim/continuation-express-batch/native/sim-control.test",
+        "./internal/sim"
+      ],
+      "cwd": "/tmp/build/podsim/continuation-express-batch/wt/native",
+      "supervisor_pid": 2,
+      "pid": 3,
+      "pid_namespace": "pid:[4026532940]",
+      "started": "2026-10-03T21:54:17.869552+00:00",
+      "watchdog_deadline": "2026-10-03T21:59:17.869552+00:00",
+      "log": "/tmp/build/podsim/continuation-express-batch/native/mutation-control-compile.log",
+      "exit_marker": "/tmp/build/podsim/continuation-express-batch/native/mutation-control-compile.exit",
+      "stop_command": "kill -TERM -- -3",
+      "relaunch_command": "env /usr/bin/python3 /tmp/build/podsim/continuation-express-batch/native/run.py mutation-control-compile 300 go test -c -o /tmp/build/podsim/continuation-express-batch/native/sim-control.test ./internal/sim",
+      "environment": {
+        "GOTOOLCHAIN": "local",
+        "GOEXPERIMENT": "jsonv2",
+        "GOROOT": "/home/dotwaffle/.local/share/mise/installs/go/1.27.1",
+        "GOGC": "400",
+        "GOMAXPROCS": "1",
+        "TMPDIR": "/tmp/build/podsim/continuation-express-batch/native/tmp"
+      },
+      "study_environment": {},
+      "peak_child_rss_kib": 159868,
+      "exit_code": 0,
+      "ended": "2026-10-03T21:54:18.384917+00:00"
+    },
+    "mutation-control-run": {
+      "command": [
+        "/tmp/build/podsim/continuation-express-batch/native/sim-control.test",
+        "-test.v",
+        "-test.count=1",
+        "-test.run=^TestExpress(ContractProfilesAndFoundation|MixedPartyWholeCapacity|MaximumRecoveryAndAggregate|RouteAdmissionAndRestore|MotionBankAndParking|LaneSpeedMixedRestore|RestoreLinksRejectBeforeTiers)$"
+      ],
+      "cwd": "/tmp/build/podsim/continuation-express-batch/wt/native",
+      "supervisor_pid": 2,
+      "pid": 3,
+      "pid_namespace": "pid:[4026532942]",
+      "started": "2026-10-03T21:54:28.856529+00:00",
+      "watchdog_deadline": "2026-10-03T21:59:28.856529+00:00",
+      "log": "/tmp/build/podsim/continuation-express-batch/native/mutation-control-run.log",
+      "exit_marker": "/tmp/build/podsim/continuation-express-batch/native/mutation-control-run.exit",
+      "stop_command": "kill -TERM -- -3",
+      "relaunch_command": "env /usr/bin/python3 /tmp/build/podsim/continuation-express-batch/native/run.py mutation-control-run 300 /tmp/build/podsim/continuation-express-batch/native/sim-control.test -test.v -test.count=1 '-test.run=^TestExpress(ContractProfilesAndFoundation|MixedPartyWholeCapacity|MaximumRecoveryAndAggregate|RouteAdmissionAndRestore|MotionBankAndParking|LaneSpeedMixedRestore|RestoreLinksRejectBeforeTiers)$'",
+      "environment": {
+        "GOTOOLCHAIN": "local",
+        "GOEXPERIMENT": "jsonv2",
+        "GOROOT": "/home/dotwaffle/.local/share/mise/installs/go/1.27.1",
+        "GOGC": "400",
+        "GOMAXPROCS": "1",
+        "TMPDIR": "/tmp/build/podsim/continuation-express-batch/native/tmp"
+      },
+      "study_environment": {},
+      "peak_child_rss_kib": 111720,
+      "exit_code": 0,
+      "ended": "2026-10-03T21:54:29.772072+00:00"
+    },
+    "race-final-v6": {
+      "command": [
+        "go",
+        "test",
+        "-race",
+        "-json",
+        "-count=1",
+        "-run=^(TestDecodeCanonicalJSONUsesTypedChecks|TestExpressAdmissionCountsSeatsAndParties|TestExpressAdversarialCompactQueueBesideGroup|TestExpressAdversarialCurvedFollowing|TestExpressAdversarialCurvedStoppedFollowing|TestExpressAdversarialLivePlaneTransitions|TestExpressAdversarialStationaryEndpoint|TestExpressContractProfilesAndFoundation|TestExpressFoundationAndObservationParity|TestExpressLaneSpeedMixedRestore|TestExpressMixedPartyWholeCapacity|TestExpressMotionBankAndParking|TestExpressMotionFollowingAndMerge|TestExpressNativeBoundPreflight|TestExpressNativeGeometryBudgets|TestExpressOnDemandPartyAndStopBounds|TestExpressRegistryBoundAndRuntime|TestExpressRegistryIsOwnedAndAtomic|TestExpressRepeatedHistoryRetirement|TestExpressRestoreContinuingAuthored|TestExpressRestoreIntermediateProduction|TestExpressRestoreLinksRejectBeforeTiers|TestExpressRestoreMarkersAndRouteBindings|TestExpressRestoreProductionPhases|TestExpressRouteAdmissionAndRestore|TestExpressServicePoolingAndRegistryAtomicity|TestExpressUTF8AdmissionAndService|TestExpressWholePartyAdmission|TestNormalizeTripOptions|TestPartyAdmission|TestVehicleClassProfiles)$",
+        "./internal/sim",
+        "./internal/project"
+      ],
+      "cwd": "/tmp/build/podsim/continuation-express-batch/wt/native",
+      "supervisor_pid": 3,
+      "pid": 4,
+      "pid_namespace": "pid:[4026533973]",
+      "started": "2026-10-03T21:57:32.275160+00:00",
+      "watchdog_deadline": "2026-10-03T22:12:32.275160+00:00",
+      "log": "/tmp/build/podsim/continuation-express-batch/native/race-final-v6.log",
+      "exit_marker": "/tmp/build/podsim/continuation-express-batch/native/race-final-v6.exit",
+      "stop_command": "kill -TERM -- -4",
+      "relaunch_command": "env /usr/bin/python3 /tmp/build/podsim/continuation-express-batch/native/run.py race-final-v6 900 go test -race -json -count=1 '-run=^(TestDecodeCanonicalJSONUsesTypedChecks|TestExpressAdmissionCountsSeatsAndParties|TestExpressAdversarialCompactQueueBesideGroup|TestExpressAdversarialCurvedFollowing|TestExpressAdversarialCurvedStoppedFollowing|TestExpressAdversarialLivePlaneTransitions|TestExpressAdversarialStationaryEndpoint|TestExpressContractProfilesAndFoundation|TestExpressFoundationAndObservationParity|TestExpressLaneSpeedMixedRestore|TestExpressMixedPartyWholeCapacity|TestExpressMotionBankAndParking|TestExpressMotionFollowingAndMerge|TestExpressNativeBoundPreflight|TestExpressNativeGeometryBudgets|TestExpressOnDemandPartyAndStopBounds|TestExpressRegistryBoundAndRuntime|TestExpressRegistryIsOwnedAndAtomic|TestExpressRepeatedHistoryRetirement|TestExpressRestoreContinuingAuthored|TestExpressRestoreIntermediateProduction|TestExpressRestoreLinksRejectBeforeTiers|TestExpressRestoreMarkersAndRouteBindings|TestExpressRestoreProductionPhases|TestExpressRouteAdmissionAndRestore|TestExpressServicePoolingAndRegistryAtomicity|TestExpressUTF8AdmissionAndService|TestExpressWholePartyAdmission|TestNormalizeTripOptions|TestPartyAdmission|TestVehicleClassProfiles)$' ./internal/sim ./internal/project",
+      "environment": {
+        "GOTOOLCHAIN": "local",
+        "GOEXPERIMENT": "jsonv2",
+        "GOROOT": "/home/dotwaffle/.local/share/mise/installs/go/1.27.1",
+        "GOGC": "400",
+        "GOMAXPROCS": "1",
+        "TMPDIR": "/tmp/build/podsim/continuation-express-batch/native/tmp"
+      },
+      "study_environment": {},
+      "peak_child_rss_kib": 750672,
+      "exit_code": 0,
+      "ended": "2026-10-03T22:00:07.508873+00:00"
+    },
+    "recovery-isolated-cost-v6": {
+      "command": [
+        "/tmp/build/podsim/continuation-express-batch/native/sim-control.test",
+        "-test.v",
+        "-test.count=1",
+        "-test.run=^TestExpressMaximumRecoveryAndAggregate$"
+      ],
+      "cwd": "/tmp/build/podsim/continuation-express-batch/wt/native",
+      "supervisor_pid": 2,
+      "pid": 4,
+      "pid_namespace": "pid:[4026534351]",
+      "started": "2026-10-03T22:01:49.243031+00:00",
+      "watchdog_deadline": "2026-10-03T22:03:49.243031+00:00",
+      "log": "/tmp/build/podsim/continuation-express-batch/native/recovery-isolated-cost-v6.log",
+      "exit_marker": "/tmp/build/podsim/continuation-express-batch/native/recovery-isolated-cost-v6.exit",
+      "stop_command": "kill -TERM -- -4",
+      "relaunch_command": "env /usr/bin/python3 /tmp/build/podsim/continuation-express-batch/native/run.py recovery-isolated-cost-v6 120 /tmp/build/podsim/continuation-express-batch/native/sim-control.test -test.v -test.count=1 '-test.run=^TestExpressMaximumRecoveryAndAggregate$'",
+      "environment": {
+        "GOTOOLCHAIN": "local",
+        "GOEXPERIMENT": "jsonv2",
+        "GOROOT": "/home/dotwaffle/.local/share/mise/installs/go/1.27.1",
+        "GOGC": "400",
+        "GOMAXPROCS": "1",
+        "TMPDIR": "/tmp/build/podsim/continuation-express-batch/native/tmp"
+      },
+      "study_environment": {},
+      "peak_child_rss_kib": 129488,
+      "exit_code": 0,
+      "ended": "2026-10-03T22:01:49.607401+00:00"
+    },
+    "native-report-lint-final": {
+      "command": [
+        "rumdl",
+        "check",
+        "docs/express-native-qualification.md"
+      ],
+      "cwd": "/tmp/build/podsim/continuation-express-batch/wt/native",
+      "supervisor_pid": 2,
+      "pid": 4,
+      "pid_namespace": "pid:[4026534351]",
+      "started": "2026-10-03T22:04:46.096927+00:00",
+      "watchdog_deadline": "2026-10-03T22:06:46.096927+00:00",
+      "log": "/tmp/build/podsim/continuation-express-batch/native/native-report-lint-final.log",
+      "exit_marker": "/tmp/build/podsim/continuation-express-batch/native/native-report-lint-final.exit",
+      "stop_command": "kill -TERM -- -4",
+      "relaunch_command": "env /usr/bin/python3 /tmp/build/podsim/continuation-express-batch/native/run.py native-report-lint-final 120 rumdl check docs/express-native-qualification.md",
+      "environment": {
+        "GOTOOLCHAIN": "local",
+        "GOEXPERIMENT": "jsonv2",
+        "GOROOT": "/home/dotwaffle/.local/share/mise/installs/go/1.27.1",
+        "GOGC": "400",
+        "GOMAXPROCS": "1",
+        "TMPDIR": "/tmp/build/podsim/continuation-express-batch/native/tmp"
+      },
+      "study_environment": {},
+      "peak_child_rss_kib": 12088,
+      "exit_code": 0,
+      "ended": "2026-10-03T22:04:46.128740+00:00"
+    }
+  },
+  "compiledActualCallerMutations": [
+    {
+      "name": "whole-party",
+      "test": "^TestExpressMixedPartyWholeCapacity$",
+      "expected_assertion": "whole-party mixed capacity split or overfilled",
+      "overlay": "/tmp/build/podsim/continuation-express-batch/native/mutations/whole-party/overlay.json",
+      "binary": "/tmp/build/podsim/continuation-express-batch/native/mutations/whole-party/sim.test",
+      "pins": {
+        "internal/sim/trip_admission.go": {
+          "control_sha256": "dac6a47c16b293c9b26edc7ea1a0f01dd49f5b38869bbaa0fccba6054e40d30c",
+          "mutant_sha256": "0f9756e51d202f09757f43c612e1154a05463a77228a660b99c8cfa84262c898",
+          "before": "return CheckPartyAdmissionWithOrderContract(PartyAdmissionInput{Class: v.Pod.Class, Request: request.options(), Active: active, PartyLimit: s.partyLimit(request)}, s.orderContract) == nil",
+          "after": "return true"
+        }
+      },
+      "binary_sha256": "59d839f3a6fe94721049a5a47109f99b6f9f9a9046637c5e747ced02e088c203",
+      "exit_code": 1,
+      "compiled": true,
+      "assertion_detected": true,
+      "classification": "compiled assertion kill",
+      "control_source_unchanged": true
+    },
+    {
+      "name": "aggregate",
+      "test": "^TestExpressMaximumRecoveryAndAggregate$",
+      "expected_assertion": "outstanding aggregate bypass",
+      "overlay": "/tmp/build/podsim/continuation-express-batch/native/mutations/aggregate/overlay.json",
+      "binary": "/tmp/build/podsim/continuation-express-batch/native/mutations/aggregate/sim.test",
+      "pins": {
+        "internal/sim/trip_admission.go": {
+          "control_sha256": "dac6a47c16b293c9b26edc7ea1a0f01dd49f5b38869bbaa0fccba6054e40d30c",
+          "mutant_sha256": "191848aa89ff0930eef0a28c25d924a7ed34b4230db88ed24b692a277b3a04a1",
+          "before": "if s.orderContract == ExpressOrderContract && (len(s.waiting) >= MaxExpressWaitingTrips || s.outstandingOrders() >= MaxExpressWaitingTrips) {",
+          "after": "if false && s.orderContract == ExpressOrderContract && (len(s.waiting) >= MaxExpressWaitingTrips || s.outstandingOrders() >= MaxExpressWaitingTrips) {"
+        }
+      },
+      "binary_sha256": "6aeaf60a3347bb7e7d29c5bba6fafac3c3426b3c471619b020b8ea58c2d618b4",
+      "exit_code": 1,
+      "compiled": true,
+      "assertion_detected": true,
+      "classification": "compiled assertion kill",
+      "control_source_unchanged": true
+    },
+    {
+      "name": "path",
+      "test": "^TestExpressRouteAdmissionAndRestore$",
+      "expected_assertion": "incompatible whole party admitted",
+      "overlay": "/tmp/build/podsim/continuation-express-batch/native/mutations/path/overlay.json",
+      "binary": "/tmp/build/podsim/continuation-express-batch/native/mutations/path/sim.test",
+      "pins": {
+        "internal/sim/trip_admission.go": {
+          "control_sha256": "dac6a47c16b293c9b26edc7ea1a0f01dd49f5b38869bbaa0fccba6054e40d30c",
+          "mutant_sha256": "90f993389476cf67c15845d3943a1a374125425ca83bb51b8b5d7359baa6f7a0",
+          "before": "return fromOK && toOK && !from.ParkingOnly && !to.ParkingOnly && s.stationsConnectedForClass(from, to, v.Pod.Class)",
+          "after": "return fromOK && toOK && !from.ParkingOnly && !to.ParkingOnly"
+        }
+      },
+      "binary_sha256": "57f9c151bb3db3e7722fd7b7b4adb4e88b9d2b04465e34dd63be92dde559f02a",
+      "exit_code": 1,
+      "compiled": true,
+      "assertion_detected": true,
+      "classification": "compiled assertion kill",
+      "control_source_unchanged": true
+    },
+    {
+      "name": "ownership-release",
+      "test": "^TestExpressMotionBankAndParking$",
+      "expected_assertion": "incremental owners differ from retention scan",
+      "overlay": "/tmp/build/podsim/continuation-express-batch/native/mutations/ownership-release/overlay.json",
+      "binary": "/tmp/build/podsim/continuation-express-batch/native/mutations/ownership-release/sim.test",
+      "pins": {
+        "internal/sim/traffic.go": {
+          "control_sha256": "8f3a4defae8ffc296524bb2156b1cc0bcc7fa6794b7c6270016249cc7e263151",
+          "mutant_sha256": "51c49c29a9c20372b1ac74d1125e8b870350ea05aff9558b4f9af49822708206",
+          "before": "if !v.originReleased && v.distance >= v.originTail() {",
+          "after": "if !v.originReleased && v.distance >= Clearance {"
+        }
+      },
+      "binary_sha256": "f1e0ad9cdc4b778bcee091c38833ab55e432b2f5e1ba18583a05290579d0b40d",
+      "exit_code": 1,
+      "compiled": true,
+      "assertion_detected": true,
+      "classification": "compiled assertion kill",
+      "control_source_unchanged": true,
+      "observed_assertion": "Existing owner-retention scan catches early berth release before later literal20m oracle assertion. Both controls passed."
+    },
+    {
+      "name": "current-speed",
+      "test": "^TestExpressLaneSpeedMixedRestore$",
+      "expected_assertion": "lane a-link speed",
+      "overlay": "/tmp/build/podsim/continuation-express-batch/native/mutations/current-speed/overlay.json",
+      "binary": "/tmp/build/podsim/continuation-express-batch/native/mutations/current-speed/sim.test",
+      "pins": {
+        "internal/sim/traffic.go": {
+          "control_sha256": "8f3a4defae8ffc296524bb2156b1cc0bcc7fa6794b7c6270016249cc7e263151",
+          "mutant_sha256": "d0c54570f621a74b7a65c5f8f77d500766b2d92d0c2777b8a0875757aca080f0",
+          "before": "v.Pod.Speed = blocks.speedBeforeLane(current.lane, v.distance, speed)",
+          "after": "v.Pod.Speed = speed"
+        }
+      },
+      "binary_sha256": "6e104a2a72728ed2f90c62388b4f19c09074f5202c19d054eb5a07a272be209e",
+      "exit_code": 1,
+      "compiled": true,
+      "assertion_detected": true,
+      "classification": "compiled assertion kill",
+      "control_source_unchanged": true
+    },
+    {
+      "name": "large-link-one-caller",
+      "test": "^TestExpressRestoreLinksRejectBeforeTiers$",
+      "expected_assertion": "masked by SavedState.checkContract",
+      "overlay": "/tmp/build/podsim/continuation-express-batch/native/mutations/large-link-one-caller/overlay.json",
+      "binary": "/tmp/build/podsim/continuation-express-batch/native/mutations/large-link-one-caller/sim.test",
+      "pins": {
+        "internal/sim/state.go": {
+          "control_sha256": "219dc6b92de4ead0fedbe8c411e5d609ebaafe13f9cd4dfee38c40bfbf998922",
+          "mutant_sha256": "09dd9f576ded01f0c89e2bd8dc9251181dc9167dfc98f28df2d31e3ffecfcf3d",
+          "before": "if err := checkLargeLinkFields(input); err != nil {",
+          "after": "if err := checkLargeLinkFields(input); false && err != nil {"
+        }
+      },
+      "binary_sha256": "f3251bede3bf359052113e187a493bfd9aba9b68e36d6f23caefb097d7c822b7",
+      "exit_code": 0,
+      "compiled": true,
+      "assertion_detected": false,
+      "classification": "survived, independent saved-contract caller still rejects",
+      "control_source_unchanged": true
+    },
+    {
+      "name": "large-link-two-callers",
+      "test": "^TestExpressRestoreLinksRejectBeforeTiers$",
+      "expected_assertion": "large link reached restore tier",
+      "overlay": "/tmp/build/podsim/continuation-express-batch/native/mutations/large-link-two-callers/overlay.json",
+      "binary": "/tmp/build/podsim/continuation-express-batch/native/mutations/large-link-two-callers/sim.test",
+      "pins": {
+        "internal/sim/state.go": {
+          "control_sha256": "219dc6b92de4ead0fedbe8c411e5d609ebaafe13f9cd4dfee38c40bfbf998922",
+          "mutant_sha256": "09dd9f576ded01f0c89e2bd8dc9251181dc9167dfc98f28df2d31e3ffecfcf3d",
+          "before": "if err := checkLargeLinkFields(input); err != nil {",
+          "after": "if err := checkLargeLinkFields(input); false && err != nil {"
+        },
+        "internal/sim/state_contract.go": {
+          "control_sha256": "e04ea8bae97a6907efd5bb1969fbe3a3cd89e6a10920139fae830798160406ac",
+          "mutant_sha256": "604ef1a599cb77c7434670771813d0bde829468679a9df7d7c905ce6f9733bd3",
+          "before": "if err := checkLargeLinkFields(RestoreStateInput{State: state}); err != nil {",
+          "after": "if err := checkLargeLinkFields(RestoreStateInput{State: state}); false && err != nil {"
+        }
+      },
+      "binary_sha256": "d0ba43a9f16053b33abf38f017055d43f1d1c1f2451c87476d9f331a75b17863",
+      "exit_code": 1,
+      "compiled": true,
+      "assertion_detected": true,
+      "classification": "compiled assertion kill",
+      "control_source_unchanged": true
+    }
+  ],
+  "independentRootContractSelection": {
+    "review": "Root independent actual-caller mutation performed on v2 overlay, finalv6fullfile differs only lint error text",
+    "rootEvidence": "/home/dotwaffle/.cache/agents/podsim/continuation-express-batch-20261003/root/native-mutation-control.json",
+    "wholeFileControlSHA256": "9c27b19e817767f35b5589d233817540786504037fb1606bb7f085db937747c6",
+    "finalSHA256": "13611c74d3749b2e6aade7e6b7c6b50fabe0e32e716c27faaef5607244c580a9",
+    "callerIdentical": true,
+    "callerSHA256": "2559723988590b79f9631fbce5896af67bae880e68c37b02cbb20f4bccfbdd6e"
+  },
+  "nativeRecoveryResourceSample": {
+    "testSeconds": 0.3,
+    "peakProcessRSSKiB": 129488,
+    "rawNativeJSONBytes": 1319069,
+    "binarySHA256": "92ec91cadfe05fd2d59c62483d60243700f8e880dc689d228c6ec94580309e3f",
+    "scope": "One isolated precompiled native recovery sample, not a packed/wire checkpoint or browser retention measurement"
+  },
+  "foundationParity": {
+    "offVsOptInOldOnlyTicks": 12000,
+    "offers": 40,
+    "savedStateIdenticalExceptExplicitMarker": true,
+    "plainVsObservedTicks": 1200,
+    "savedStateIdentical": true
+  },
+  "restoreScope": {
+    "livePhases": [
+      "initial idle",
+      "boarding",
+      "traveling",
+      "unloading",
+      "occupied origin tail",
+      "occupied trim tail",
+      "completed idle",
+      "empty departing",
+      "empty traveling",
+      "empty idle",
+      "empty boarding",
+      "intermediate unloading"
+    ],
+    "continuing": "Authored accepted-state fixture, not observed live Continuing",
+    "ordinary": "Speed resets to zero and future grants reconstruct. Current/past pose, retained owners, party facts and distance totals checked. Twin continuations do not imply identical live futures.",
+    "disabledPolicies": "Station buffers, platooning and occupied pickups disabled before cold and warm accepted-cohort continuation, same absolute36000tick cap",
+    "acceptedCohortsCompleted": true
+  },
+  "failureReceipts": [
+    {
+      "gate": "package-qualification-v1",
+      "reason": "Foundation pending/error receipt regressions, over-budget recovery fixture, small-owner oracle missing certified delegation; corrected without physical limit changes"
+    },
+    {
+      "gate": "correction-focused-v2",
+      "reason": "Tall50berth recovery fixture has unsafe return/arrival geometry, rejected and replaced with existing physically valid300one-berth loop"
+    },
+    {
+      "gate": "canonical-focused",
+      "reason": "Outer JSON whitespace gets removed before custom unmarshal, corrected fixture to interior whitespace"
+    },
+    {
+      "gate": "package-final-v6",
+      "reason": "Evidence output directory missing, stopped exact child SIGTERM(-15), retained failed write receipts, identical frozen sources relaunched"
+    },
+    {
+      "gate": "mutation-batch-v6",
+      "reason": "Ownership mutant killed earlier retained-owner assertion, result classifier expected later literal tail assertion. Recorded actual kill and continued remaining overlays without rerunning completed arms"
+    }
+  ],
+  "durableDirectory": "/home/dotwaffle/.cache/agents/podsim/continuation-express-batch-20261003/native",
+  "durableManifest": "MANIFEST.sha256",
+  "durableEvidence": "evidence-v6",
+  "remainingScope": "Session/save7/packed encoding/browser/WASM/checkpoint consumers qualified in separate owned reports. No deployment or default activation."
+}

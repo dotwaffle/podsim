@@ -110,6 +110,7 @@ type Metrics struct {
 // is based on. When it is not empty and it is not the ID of this session,
 // the project command gets SessionChanged. Other actions ignore it.
 type Command struct {
+	OrderContract   sim.OrderContract  `json:"orderContract,omitzero"`
 	Client          string             `json:"client"`
 	Sequence        uint64             `json:"sequence"`
 	Epoch           string             `json:"epoch"`
@@ -313,7 +314,7 @@ func newServerStart() string {
 // config must be valid.
 func (s *Session) startProject(config project.Config) error {
 	owned := project.Clone(config)
-	simulation, err := sim.NewFleet(owned.Network, owned.Fleet)
+	simulation, err := sim.NewFleetWithOrderContract(owned.Network, owned.Fleet, owned.OrderContract)
 	if err != nil {
 		return fmt.Errorf("create shared fleet: %w", err)
 	}
@@ -326,7 +327,11 @@ func (s *Session) startProject(config project.Config) error {
 	if err := project.ConfigureExperiments(simulation, owned); err != nil {
 		return fmt.Errorf("configure experimental policies: %w", err)
 	}
-	s.simulation, s.project, s.epoch = simulation, owned, rand.Text()
+	epoch := rand.Text()
+	if err := preflightExpressTopology(owned, s.serverStart, epoch, 1); err != nil {
+		return err
+	}
+	s.simulation, s.project, s.epoch = simulation, owned, epoch
 	s.projectRevision, s.projectOrigin, s.generation, s.speed = 1, 1, 1, 1
 	s.demand = newDemand(demandInput{config: owned.Demand, network: owned.Network, profiles: owned.DemandProfiles, arrivals: owned.RailArrivals, departures: owned.RailDepartures})
 	s.configureRedistribution()
@@ -376,10 +381,17 @@ func (s *Session) State() State { s.mu.Lock(); defer s.mu.Unlock(); return s.sta
 func (s *Session) Topology() TopologySnapshot {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	return s.topologyLocked()
+}
+
+func (s *Session) topologyLocked() TopologySnapshot {
 	topology := TopologySnapshot{
-		ProjectVersion: s.project.Version,
-		ServerStart:    s.serverStart, Epoch: s.epoch, ProjectRevision: s.projectRevision,
+		ProjectVersion: s.project.Version, OrderContract: s.project.OrderContract,
+		ServerStart: s.serverStart, Epoch: s.epoch, ProjectRevision: s.projectRevision,
 		Network: project.CloneNetwork(s.project.Network),
+	}
+	if s.project.OrderContract == sim.ExpressOrderContract {
+		topology.ExpressServices = slices.Clone(s.project.ExpressServices)
 	}
 	if s.project.Geo != nil {
 		topology.Geo = new(*s.project.Geo)
@@ -657,12 +669,21 @@ func (e *sessionEvent) args() []any {
 }
 
 func (s *Session) apply(command Command) (outcome, error) {
+	if err := sim.ValidateOrderContract(command.OrderContract); err != nil {
+		return outcome{}, err
+	}
+	if command.OrderContract != "" && command.Action != "trip" {
+		return outcome{}, errors.New("order contract requires a trip command")
+	}
 	switch command.Action {
 	case "pause", "speed", "reset", "demo", "project", "rewind":
 		defer s.clock.reset()
 	}
 	switch command.Action {
 	case "trip":
+		if command.OrderContract != s.project.OrderContract {
+			return outcome{}, errors.New("trip order contract does not match project")
+		}
 		state := s.simulation.Snapshot()
 		if state.Demo {
 			return outcome{}, errors.New("wait for the demo to finish before requesting a journey")
@@ -787,7 +808,7 @@ func (s *Session) applyProject(command Command) error {
 	if err := project.Validate(config); err != nil {
 		return err
 	}
-	candidate, err := sim.NewFleet(config.Network, config.Fleet)
+	candidate, err := sim.NewFleetWithOrderContract(config.Network, config.Fleet, config.OrderContract)
 	if err != nil {
 		return fmt.Errorf("create project fleet: %w", err)
 	}
@@ -799,6 +820,9 @@ func (s *Session) applyProject(command Command) error {
 	}
 	if err := project.ConfigureExperiments(candidate, config); err != nil {
 		return fmt.Errorf("configure experimental policies: %w", err)
+	}
+	if err := preflightExpressTopology(config, s.serverStart, s.epoch, s.projectRevision+1); err != nil {
+		return err
 	}
 	candidate.SetPaused(true)
 	if err := s.save(config); err != nil {

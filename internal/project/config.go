@@ -177,14 +177,15 @@ type DemandContext struct {
 
 // Config is the versioned, portable scenario configuration.
 type Config struct {
-	Version        int             `json:"version"`
-	Name           string          `json:"name"`
-	Network        sim.Network     `json:"network"`
-	Fleet          []sim.Placement `json:"fleet"`
-	Demand         DemandConfig    `json:"demand"`
-	DemandProfiles []DemandProfile `json:"demandProfiles,omitempty"`
-	RailArrivals   []RailArrival   `json:"railArrivals,omitempty"`
-	RailDepartures []RailDeparture `json:"railDepartures,omitempty"`
+	OrderContract  sim.OrderContract `json:"orderContract,omitzero"`
+	Version        int               `json:"version"`
+	Name           string            `json:"name"`
+	Network        sim.Network       `json:"network"`
+	Fleet          []sim.Placement   `json:"fleet"`
+	Demand         DemandConfig      `json:"demand"`
+	DemandProfiles []DemandProfile   `json:"demandProfiles,omitempty"`
+	RailArrivals   []RailArrival     `json:"railArrivals,omitempty"`
+	RailDepartures []RailDeparture   `json:"railDepartures,omitempty"`
 	// ExpressServices declares directed hub pairs without a fill or timetable rule.
 	ExpressServices []sim.ExpressService `json:"expressServices,omitempty"`
 	// SharedRidePartyLimit caps the parties per pod. Zero loads as one.
@@ -306,10 +307,10 @@ func Validate(config Config) error {
 	if err := ValidateDemand(config.Demand, DemandContext{Network: config.Network, Profiles: config.DemandProfiles, RailArrivals: config.RailArrivals, RailDepartures: config.RailDepartures}); err != nil {
 		return err
 	}
-	if err := sim.ValidateFleet(config.Network, config.Fleet); err != nil {
+	if err := sim.ValidateFleetWithOrderContract(config.Network, config.Fleet, config.OrderContract); err != nil {
 		return fmt.Errorf("invalid project scenario: %w", err)
 	}
-	if err := sim.ValidateExpressServices(config.Network, config.ExpressServices); err != nil {
+	if err := sim.ValidateExpressServicesWithOrderContract(config.Network, config.ExpressServices, config.OrderContract); err != nil {
 		return fmt.Errorf("invalid express registry: %w", err)
 	}
 	passenger := PassengerStations(config.Network)

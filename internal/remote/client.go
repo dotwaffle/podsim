@@ -9,6 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"mime"
 	"net/http"
 	"strings"
 	"sync"
@@ -98,6 +99,9 @@ func (c *Client) Submit(command session.Command) error {
 	if command.Project != nil {
 		command.Project = new(project.Clone(*command.Project))
 	}
+	if command.Action == "trip" {
+		command.OrderContract = c.state.Simulation.OrderContract
+	}
 	c.sequence++
 	command.Client, command.Sequence, command.Epoch = c.client, c.sequence, c.state.Epoch
 	c.pending = true
@@ -180,6 +184,9 @@ func (c *Client) exchange(ctx context.Context, method, path string, body []byte,
 	if body != nil {
 		req.Header.Set("Content-Type", "application/json")
 	}
+	if path == "/api/state" {
+		req.Header.Set("Accept", session.ExpressMediaType)
+	}
 	response, err := c.http.Do(req)
 	if err != nil {
 		return err
@@ -188,7 +195,35 @@ func (c *Client) exchange(ctx context.Context, method, path string, body []byte,
 	if response.StatusCode != http.StatusOK && response.StatusCode != http.StatusConflict {
 		return &statusError{code: response.StatusCode}
 	}
-	decoder := json.NewDecoder(response.Body)
+	var input io.Reader = response.Body
+	if path == "/api/state" {
+		media, _, mediaErr := mime.ParseMediaType(response.Header.Get("Content-Type"))
+		if mediaErr == nil && media == session.ExpressMediaType {
+			raw, readErr := io.ReadAll(io.LimitReader(response.Body, session.MaxStreamJSON+1))
+			if readErr != nil {
+				return readErr
+			}
+			state, decodeErr := session.DecodeExpressStateJSON(raw)
+			if decodeErr != nil {
+				return decodeErr
+			}
+			destination, ok := target.(*session.State)
+			if !ok {
+				return errors.New("express HTTP state needs a native state target")
+			}
+			*destination = state
+			return nil
+		}
+		raw, readErr := io.ReadAll(response.Body)
+		if readErr != nil {
+			return readErr
+		}
+		if err := rejectUnqualifiedStateMarkers(raw); err != nil {
+			return err
+		}
+		input = bytes.NewReader(raw)
+	}
+	decoder := json.NewDecoder(input)
 	if err := decoder.Decode(target); err != nil {
 		return fmt.Errorf("read server state: %w", err)
 	}

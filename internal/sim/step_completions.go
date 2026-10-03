@@ -3,7 +3,8 @@ package sim
 import "slices"
 
 // StepCompletion identifies a party that finished unloading during a tick.
-// A tick completes at most fleet size times MaxSharedRideParties parties.
+// An Express-contract tick completes at most 20 parties per Express pod.
+// Other classes complete at most MaxSharedRideParties parties per pod.
 type StepCompletion struct {
 	RequestID    int
 	AlightedTick int64

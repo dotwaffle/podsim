@@ -17,7 +17,7 @@ import (
 )
 
 func TestStreamBuildBeforeIncompatiblePayload(t *testing.T) {
-	for _, version := range []int{999, session.StreamVersion} {
+	for _, version := range []int{999, session.FoundationStreamVersion} {
 		t.Run(string(rune('a'+version%10)), func(t *testing.T) {
 			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				conn, err := websocket.Accept(w, r, nil)
@@ -27,7 +27,7 @@ func TestStreamBuildBeforeIncompatiblePayload(t *testing.T) {
 				defer func() { _ = conn.CloseNow() }()
 				hello := streamJSON(t, map[string]any{"kind": "hello", "version": version, "build": "b", "serverStart": "new"})
 				_ = conn.Write(r.Context(), websocket.MessageText, hello)
-				if version == session.StreamVersion {
+				if version == session.FoundationStreamVersion {
 					_ = conn.Write(r.Context(), websocket.MessageBinary, []byte("future state format"))
 				}
 			}))

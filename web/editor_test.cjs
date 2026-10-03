@@ -63,6 +63,36 @@ function serviceScenario() {
 }
 
 
+test("Express project round trips retain the explicit contract and whole service metadata", () => {
+  const config = serviceScenario();
+  config.version = 4; config.orderContract = "express-v1"; config.fleet[0].Class = "express";
+  const before = structuredClone(config);
+  const document = JSON.parse(editor.serializeDocument(config));
+  assert.equal(document.format, "podsim"); assert.equal(document.version, 1);
+  assert.deepEqual(document.scenario, before);
+  assert.deepEqual(editor.parseDocument(JSON.stringify(config)).scenario, before);
+  assert.deepEqual(editor.parseDocument(JSON.stringify(document)).scenario, before);
+  const normalized = editor.normalizeConfig(config);
+  assert.equal(normalized.version, 4); assert.equal(normalized.orderContract, "express-v1");
+  assert.deepEqual(normalized.fleet, before.fleet); assert.deepEqual(normalized.expressServices, before.expressServices);
+  assert.deepEqual(config, before);
+  assert.match(editor.fleetClassNotice(config), /qualified express-v1 runtime/);
+});
+
+test("Express project contract selection rejects missing, null, unknown, and old-version markers", () => {
+  for (const version of [1, 2, 3, 4]) {
+    for (const contract of [undefined, null, "", "future", "express-v1"]) {
+      if (version !== 4 && contract === undefined || version === 4 && contract === "express-v1") continue;
+      const config = serviceScenario(); config.version = version;
+      if (contract !== undefined) config.orderContract = contract;
+      for (const wrapped of [config, {format: "podsim", version: 1, scenario: config}]) {
+        assert.throws(() => editor.parseDocument(JSON.stringify(wrapped)), /contract|version 4/);
+      }
+      assert.throws(() => editor.normalizeConfig(config), /contract|version 4/);
+    }
+  }
+});
+
 test("compact station queue drafts require explicit version and dependencies", () => {
   for (const value of [null, "ordinary", "compact-v1"]) {
     for (const version of [1, 2]) {
@@ -2080,7 +2110,7 @@ test("import names the missing or wrong field", () => {
     { name: "an API reply", file: { revision: 3, project: scenario }, message: "The file has no format field and no network field." },
     { name: "a project with a network list", file: { ...scenario, network: [] }, message: "The network field must be an object." },
     { name: "a version 2 project without banks", file: { ...scenario, version: 2 }, message: "Version 2 projects need a banked station." },
-    { name: "a project with no version", file: { ...scenario, version: undefined }, message: "The version field must be 1, 2, or 3." },
+    { name: "a project with no version", file: { ...scenario, version: undefined }, message: "The version field must be 1, 2, 3, or 4." },
   ];
   for (const item of cases) {
     assert.throws(() => editor.parseDocument(JSON.stringify(item.file)), { message: item.message }, item.name);
