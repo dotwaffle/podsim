@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Podsim offline car and energy workflow</title>
+  <link rel="stylesheet" href="editor.css">
+  <style>
+    body { display: block; height: auto; }
+    main { max-width: 1200px; margin: auto; padding: 18px; }
+    main > section { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; margin-bottom: 18px; padding: 16px; }
+    h2 { margin-top: 0; font-size: 18px; }
+    h3 { font-size: 15px; }
+    .editors { display: grid; grid-template-columns: repeat(auto-fit, minmax(270px, 1fr)); gap: 20px; }
+    .fields { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 0 12px; }
+    .actions { justify-content: flex-start; }
+    pre { white-space: pre-wrap; overflow-wrap: anywhere; background: var(--bg); padding: 12px; }
+    table { border-collapse: collapse; width: 100%; margin: 14px 0; }
+    caption { text-align: left; font-weight: bold; margin-bottom: 8px; }
+    td, th { text-align: left; vertical-align: top; padding: 7px; border: 1px solid var(--line); overflow-wrap: anywhere; }
+    #reportView { overflow-x: auto; }
+    #status { position: sticky; top: 0; background: var(--bg); padding: 12px 18px; border-bottom: 1px solid var(--line); z-index: 1; margin: 0; }
+    #status[data-error="true"] { color: var(--danger); }
+    dd { margin: 0 0 8px; font-variant-numeric: tabular-nums; }
+    a { color: var(--cyan); }
+  </style>
+  <script src="offline.js" defer></script>
+</head>
+<body>
+  <header class="topbar"><div class="brand"><a href="editor.html">Scenario editor</a><div><h1>Offline car and energy workflow</h1><p>Author local files. Run the CLI. Import its report.</p></div></div></header>
+  <p id="status" role="status" aria-live="polite">Values start empty. Download your files before you close this page.</p>
+  <main>
+    <section aria-labelledby="projectTitle">
+      <h2 id="projectTitle">Associate a project</h2>
+      <p>Select the same project JSON that you will supply to the CLI. This supplies passenger hub suggestions and fleet class coverage.</p>
+      <label for="projectImport">Local project JSON<input id="projectImport" type="file" accept="application/json,.json"></label>
+      <button id="projectClear" type="button">Clear project association</button>
+      <p id="projectInfo">No project associated. Enter passenger station IDs from your project.</p>
+      <p class="hint">Files stay in this page. The page does not contact a server or change a simulation.</p>
+      <datalist id="hubs"></datalist><datalist id="lotIDs"></datalist>
+    </section>
+    <section aria-labelledby="planTitle">
+      <h2 id="planTitle">Car plan</h2>
+      <p>Car capacity is separate from pod berths. Each itinerary owns one car and one whole party.</p>
+      <p>Supply all times in integer seconds. Zero means an authored zero duration. Shared consent applies to both pod legs.</p>
+      <label for="planImport">Load car plan JSON<input id="planImport" type="file" accept="application/json,.json"></label>
+      <div class="editors">
+        <section aria-labelledby="lotsTitle"><h3 id="lotsTitle">Car lots</h3><label for="lotsList">Edit lot<select id="lotsList"></select></label><div class="actions"><button id="lotsAdd" type="button">Add lot</button><button id="lotsRemove" type="button">Remove selected lot</button></div><div id="lotsFields" class="fields"></div></section>
+        <section aria-labelledby="itinerariesTitle"><h3 id="itinerariesTitle">Itineraries</h3><label for="itinerariesList">Edit itinerary<select id="itinerariesList"></select></label><div class="actions"><button id="itinerariesAdd" type="button">Add itinerary</button><button id="itinerariesRemove" type="button">Remove selected itinerary</button></div><div id="itinerariesFields" class="fields"></div></section>
+      </div>
+      <p class="hint">A full lot refuses the itinerary. Outward queue refusal uses drive-home. Return refusal uses retain-car and leaves the party stranded.</p>
+      <button id="planExport" class="primary" type="button">Download car-plan.json</button>
+    </section>
+    <section aria-labelledby="energyTitle">
+      <h2 id="energyTitle">Energy profiles</h2>
+      <p>Supply one flat-v1 profile for every fleet class. Include assumed payload in fixed mass. No physical coefficients are prefilled.</p>
+      <p>The estimate has no grade, battery, charging, or drafting model. All vehicles use auxiliary power, including idle vehicles.</p>
+      <label for="energyImport">Load energy JSON<input id="energyImport" type="file" accept="application/json,.json"></label>
+      <label for="profilesList">Edit class profile<select id="profilesList"></select></label>
+      <div class="actions"><button id="profilesAdd" type="button">Add profile</button><button id="profilesRemove" type="button">Remove selected profile</button></div>
+      <div id="profilesFields" class="fields"></div>
+      <button id="energyExport" class="primary" type="button">Download energy.json</button>
+    </section>
+    <section aria-labelledby="runTitle">
+      <h2 id="runTitle">Run locally</h2>
+      <p>Place the exported files beside your project.json. Run these commands from the Podsim repository.</p>
+      <p>Replace HORIZON and QUEUE_LIMIT with your authored controls. The horizon must be positive and at most 24h.</p>
+      <pre>go run ./cmd/parkride -project project.json -plan car-plan.json -duration HORIZON -queue-limit QUEUE_LIMIT -output car-report.json
+
+go run ./cmd/compare -project project.json -energy-file energy.json -duration HORIZON -queue-limit QUEUE_LIMIT -format json -output energy-report.json</pre>
+      <p>Compare uses its own demand and policy flags. These commands run separate models. Compare does not consume the car plan.</p>
+      <p>Use <code>go run ./cmd/compare -h</code> to select comparison demand and policies. Preserve the inputs and command with each report.</p>
+    </section>
+    <section aria-labelledby="reportTitle">
+      <h2 id="reportTitle">View a report</h2>
+      <p>Import car-report.json (version 1) or energy-report.json (schema 15). Refused, stranded, and censored itineraries remain visible.</p>
+      <label for="reportImport">Local CLI report JSON<input id="reportImport" type="file" accept="application/json,.json"></label>
+      <p class="hint">Browser limits: inputs 10 MiB, reports 32 MiB, JSON depth 32, and 300,000 values. Integers must fit JavaScript's exact range. Use the CLI for larger files.</p>
+      <div id="reportView"></div>
+    </section>
+  </main>
+</body>
+</html>

@@ -1,0 +1,119 @@
+{
+  "version": 1,
+  "projectHash": "144aedbf9dab50edfbe4cf22c70ced62488cc40e41b51fe065e5c56988c3725f",
+  "planHash": "cc5360dd18dac868fb7a79e856c147d6d0da281dbff71fe2693faad2583e9c7d",
+  "build": "go1.27.1 github.com/dotwaffle/podsim (devel)",
+  "horizonTicks": 72000,
+  "endpointTick": 23558,
+  "queueLimit": 1,
+  "policies": {
+    "partyLimit": 1,
+    "sharingMode": "drop-offs",
+    "maxStops": 3,
+    "sharingJoin": "unassigned",
+    "onboardPickups": false,
+    "platoonLimit": 0,
+    "stationBuffers": false,
+    "stationQueueSpacing": "ordinary",
+    "pickupReassignment": false,
+    "positioning": 0,
+    "positioningWeights": "one outward and one return origin per itinerary"
+  },
+  "itineraries": [
+    {
+      "itinerary": {
+        "id": "party-1",
+        "carID": "car-1",
+        "lot": "harbor-cars",
+        "destination": "station-2",
+        "carSeats": 2,
+        "partySize": 1,
+        "sharingConsent": "private",
+        "departureSeconds": 0,
+        "outwardSeconds": 0,
+        "returnNotBeforeSeconds": 0,
+        "activitySeconds": 120,
+        "retrievalSeconds": 1,
+        "homeboundSeconds": 3,
+        "outwardRefusal": "drive-home",
+        "returnRefusal": "retain-car"
+      },
+      "stage": "terminal",
+      "outcome": "stranded",
+      "held": true,
+      "carArrivalTick": 0,
+      "outward": {
+        "requestID": 1,
+        "offeredTick": 0,
+        "alightedTick": 1972
+      },
+      "return": {
+        "requestID": 0,
+        "offeredTick": 9172,
+        "alightedTick": -1,
+        "reason": "queue-limit"
+      },
+      "returnEligibleTick": 9172,
+      "carReleaseTick": -1,
+      "homeArrivalTick": -1
+    },
+    {
+      "itinerary": {
+        "id": "party-2",
+        "carID": "car-2",
+        "lot": "harbor-cars",
+        "destination": "station-2",
+        "carSeats": 2,
+        "partySize": 1,
+        "sharingConsent": "private",
+        "departureSeconds": 151,
+        "outwardSeconds": 0,
+        "returnNotBeforeSeconds": 0,
+        "activitySeconds": 120,
+        "retrievalSeconds": 1,
+        "homeboundSeconds": 3,
+        "outwardRefusal": "drive-home",
+        "returnRefusal": "retain-car"
+      },
+      "stage": "terminal",
+      "outcome": "completed",
+      "held": false,
+      "carArrivalTick": 9060,
+      "outward": {
+        "requestID": 2,
+        "offeredTick": 9060,
+        "alightedTick": 13426
+      },
+      "return": {
+        "requestID": 3,
+        "offeredTick": 20626,
+        "alightedTick": 23318
+      },
+      "returnEligibleTick": 20626,
+      "carReleaseTick": 23378,
+      "homeArrivalTick": 23558,
+      "doorToDoorTicks": 14498
+    }
+  ],
+  "lots": [
+    {
+      "lot": {
+        "id": "harbor-cars",
+        "hub": "station-1",
+        "capacity": 2
+      },
+      "occupancy": 1,
+      "peak": 2
+    }
+  ],
+  "pods": {
+    "submitted": 3,
+    "completed": 3,
+    "pending": 0,
+    "passengerDistanceMeters": 929.1689883327203,
+    "emptyDistanceMeters": 405.7229961108799,
+    "riderDistanceMeters": 929.1689883326396,
+    "directDistanceMeters": 929.1689883326396,
+    "sharedParties": 0
+  }
+}

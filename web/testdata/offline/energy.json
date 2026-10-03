@@ -1,0 +1,13 @@
+{
+  "model": "flat-v1",
+  "profiles": {
+    "legacy": {
+      "mass_kg": 100,
+      "constant_resistance_n": 0,
+      "quadratic_resistance_n_per_mps2": 0,
+      "drive_efficiency": 1,
+      "recovery_fraction": 0,
+      "auxiliary_watts": 0
+    }
+  }
+}

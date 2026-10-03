@@ -1,0 +1,34 @@
+{
+  "version": 1,
+  "projectHash": "144aedbf9dab50edfbe4cf22c70ced62488cc40e41b51fe065e5c56988c3725f",
+  "planHash": "2429e40ee3bdd485cbe4ae6faf276fad7982370826c5200625a744193cc00205",
+  "build": "go1.27.1 github.com/dotwaffle/podsim (devel)",
+  "horizonTicks": 60,
+  "endpointTick": 0,
+  "queueLimit": 200,
+  "policies": {
+    "partyLimit": 1,
+    "sharingMode": "drop-offs",
+    "maxStops": 3,
+    "sharingJoin": "unassigned",
+    "onboardPickups": false,
+    "platoonLimit": 0,
+    "stationBuffers": false,
+    "stationQueueSpacing": "ordinary",
+    "pickupReassignment": false,
+    "positioning": 0,
+    "positioningWeights": "one outward and one return origin per itinerary"
+  },
+  "itineraries": [],
+  "lots": [],
+  "pods": {
+    "submitted": 0,
+    "completed": 0,
+    "pending": 0,
+    "passengerDistanceMeters": 0,
+    "emptyDistanceMeters": 0,
+    "riderDistanceMeters": 0,
+    "directDistanceMeters": 0,
+    "sharedParties": 0
+  }
+}

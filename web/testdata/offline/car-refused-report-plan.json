@@ -1,0 +1,59 @@
+{
+  "lots": [
+    {
+      "id": "harbor-cars",
+      "hub": "station-1",
+      "capacity": 3
+    }
+  ],
+  "itineraries": [
+    {
+      "id": "party-1",
+      "carID": "car-1",
+      "lot": "harbor-cars",
+      "destination": "station-2",
+      "carSeats": 2,
+      "partySize": 1,
+      "departureSeconds": 0,
+      "outwardSeconds": 0,
+      "returnNotBeforeSeconds": 0,
+      "activitySeconds": 2,
+      "retrievalSeconds": 1,
+      "homeboundSeconds": 3,
+      "outwardRefusal": "drive-home",
+      "returnRefusal": "retain-car"
+    },
+    {
+      "id": "party-2",
+      "carID": "car-2",
+      "lot": "harbor-cars",
+      "destination": "station-2",
+      "carSeats": 2,
+      "partySize": 1,
+      "departureSeconds": 0,
+      "outwardSeconds": 0,
+      "returnNotBeforeSeconds": 0,
+      "activitySeconds": 2,
+      "retrievalSeconds": 1,
+      "homeboundSeconds": 3,
+      "outwardRefusal": "drive-home",
+      "returnRefusal": "retain-car"
+    },
+    {
+      "id": "party-3",
+      "carID": "car-3",
+      "lot": "harbor-cars",
+      "destination": "station-2",
+      "carSeats": 2,
+      "partySize": 1,
+      "departureSeconds": 0,
+      "outwardSeconds": 0,
+      "returnNotBeforeSeconds": 0,
+      "activitySeconds": 2,
+      "retrievalSeconds": 1,
+      "homeboundSeconds": 3,
+      "outwardRefusal": "drive-home",
+      "returnRefusal": "retain-car"
+    }
+  ]
+}
