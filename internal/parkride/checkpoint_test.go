@@ -590,3 +590,95 @@ func TestCheckpointCompactQueueFuture(t *testing.T) {
 	}
 	t.Fatal("authored native buffer origin did not produce a compact certificate")
 }
+
+// This directed loop follows the native positioning and pickup test geometry.
+func checkpointPickupLoop() sim.Network {
+	var network sim.Network
+	node := func(id string, x, y float64) {
+		network.Nodes = append(network.Nodes, sim.Node{ID: id, Position: sim.Point{X: x, Y: y}})
+	}
+	lane := func(id, from, to string) {
+		network.Lanes = append(network.Lanes, sim.Lane{ID: id, From: from, To: to, SpeedLimit: 14})
+	}
+	for i := range 5 {
+		id := fmt.Sprintf("s%d", i)
+		x := float64(i) * 300
+		station := sim.Station{ID: id, Name: id, Entry: id + "-entry", Exit: id + "-exit"}
+		node(station.Entry, x, 0)
+		node(station.Exit, x+150, 0)
+		lane(id+"-through", station.Entry, station.Exit)
+		for berth := range 2 {
+			berthID := fmt.Sprintf("%s-%d", id, berth+1)
+			y := 60.0
+			if berth == 1 {
+				y = -y
+			}
+			node(berthID, x+75, y)
+			lane(berthID+"-in", station.Entry, berthID)
+			lane(berthID+"-out", berthID, station.Exit)
+			station.Berths = append(station.Berths, sim.Berth{ID: berthID, Node: berthID})
+		}
+		network.Stations = append(network.Stations, station)
+		if i > 0 {
+			lane(fmt.Sprintf("s%d-link", i-1), fmt.Sprintf("s%d-exit", i-1), station.Entry)
+		}
+	}
+	node("return-east", 1500, 400)
+	node("return-west", -150, 400)
+	lane("return-down", "s4-exit", "return-east")
+	lane("return", "return-east", "return-west")
+	lane("return-up", "return-west", "s0-entry")
+	return network
+}
+func TestCheckpointPickupCooldownFuture(t *testing.T) {
+	t.Parallel()
+	input := continuationInput()
+	input.Project.Version = 3
+	input.Project.Redistribution = false
+	input.Project.PickupReassignment = true
+	input.Project.Network = checkpointPickupLoop()
+	input.Project.Fleet = []sim.Placement{{ID: "01", StationID: "s0", BerthID: "s0-1"}, {ID: "02", StationID: "s2", BerthID: "s2-1"}}
+	input.HorizonTicks = 600 * sim.TicksPerSecond
+	input.Plan.Lots = []Lot{{ID: "cars-s2", Hub: "s2", Capacity: 1}, {ID: "cars-s4", Hub: "s4", Capacity: 1}}
+	base := input.Plan.Itineraries[0]
+	base.DepartureSeconds, base.OutwardSeconds = 0, 0
+	base.ReturnNotBeforeSeconds = 3600
+	first, second := base, base
+	first.ID, first.CarID, first.Lot, first.Destination = "a-busy", "car-a", "cars-s2", "s3"
+	second.ID, second.CarID, second.Lot, second.Destination = "b-pickup", "car-b", "cars-s4", "s0"
+	input.Plan.Itineraries = []Itinerary{first, second}
+	run, err := NewRun(input)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for !run.Done() {
+		if run.pods.PickupSwapStats().Transfers+run.pods.PickupSwapStats().Swaps > 0 {
+			t.Logf("pickup replacement at tick %d stats=%+v", run.pods.Tick(), run.pods.PickupSwapStats())
+			restored := restoreCheckpoint(t, encodeCheckpoint(t, run))
+			clone := run.Clone()
+			for range 1200 {
+				if clone.Done() {
+					break
+				}
+				if stepErr := clone.Step(); stepErr != nil {
+					t.Fatal(stepErr)
+				}
+				if stepErr := restored.Step(); stepErr != nil {
+					t.Fatal(stepErr)
+				}
+				assertJointEqual(t, clone, restored)
+				if clone.pods.PickupSwapStats() != restored.pods.PickupSwapStats() {
+					t.Fatal("pickup cooldown continuation diverged")
+				}
+			}
+			if restored.pods.PickupSwapStats().CooldownPairs == 0 {
+				t.Fatal("actual cooldown guard was not exercised")
+			}
+			return
+		}
+		if stepErr := run.Step(); stepErr != nil {
+			t.Fatal(stepErr)
+		}
+	}
+	t.Fatalf("authored pickup loop did not replace assignment: %+v", run.pods.PickupSwapStats())
+}

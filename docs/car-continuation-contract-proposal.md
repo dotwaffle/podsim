@@ -1,10 +1,12 @@
 # Durable offline car continuation proposal
 
-Status: **approved on October 3, 2026; implementation and qualification in progress**.
+Status: **approved on October 3, 2026; implemented and qualified**.
 The user approved item 6b and the decisions below with the 6b/8b batch.
 Item 6a used source revision `53321e4c5decc6c661df64a40378ee37614dcffc`.
 That revision identifies the original audit, not a checkpoint-capable executable.
-An identified implementation can create version-1 files only after its qualification passes.
+The [qualification](car-continuation-qualification.md) records the tested implementation, scope, and limits.
+The [measurement receipt](measurements/car-continuation-qualification.json) records its source and executable identities.
+The approved design below preserves the original proposal and acceptance conditions.
 The project, session, stream, plan, and report formats retain their existing contracts.
 
 ## Recommendation and source constraints
@@ -415,9 +417,9 @@ Use package tests, race tests for ownership and cancellation, CLI round trips, f
 Pin Go, executable, source, input hashes, commands, logs, exit markers, watchdogs, and output hashes in its evidence.
 A selected service or continuation fixture does not qualify physical defaults, every project, or live persistence.
 
-## Decisions required before item 6b
+## Approved decisions for item 6b
 
-| Decision | Recommended approval |
+| Decision | Approved scope |
 | --- | --- |
 | Continuation method | Qualified same-executable replay with independent native, ledger, full observable, and per-tick trace comparisons. Differential future continuation against Clone. No permissive restore path. |
 | Schema | Separate uncompressed `podsim-car-continuation` version 1 with the origin and snapshot members above. |
@@ -428,6 +430,5 @@ A selected service or continuation fixture does not qualify physical defaults, e
 | Failure policy | Preserve input and prior complete output before rename. Reject partial/faulted state. Disclose uncertain durability after rename. |
 | Scope | Offline finite plans only. No live session, stream, browser checkpoint, comparison-arm, or dynamic-offer persistence. |
 
-All rows remain proposed.
-Approval must explicitly accept replay cost and checkpoint eligibility limits.
+The user approved all rows on October 3, 2026, including replay cost and checkpoint eligibility limits.
 Any request for fast snapshot restore, live offers, larger files, horizon extension, or cross-build migration requires a revised contract.

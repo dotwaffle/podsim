@@ -1,0 +1,2615 @@
+{
+  "receipt_version": 1,
+  "measured_utc": "2026-10-03T22:52:38.597034+00:00",
+  "scope": "Selected same-executable foundation finite-plan checkpoint/replay qualification; no cross-build migration, live persistence, universal determinism, or physical admission claim.",
+  "build": {
+    "source_revision": "d52e31d0b5192998984086a1021252e264003040",
+    "executable_sha256": "c285d53e41475cd96159982cbba3e218bb66bf3d1650c58caaff4fb2735d2ce7",
+    "executable_bytes": 6753305,
+    "go_version": "go1.27.1",
+    "go_experiment": "jsonv2",
+    "os": "linux",
+    "arch": "amd64",
+    "vcs_modified": false,
+    "runtime": {
+      "GOGC": 400,
+      "GOMAXPROCS": 2
+    }
+  },
+  "source_pins": [
+    {
+      "path": "cmd/parkride/main.go",
+      "sha256": "33c4f3928700419e848208e3eb93d32b47e3978905b978cb4ef06310a7a1e770",
+      "bytes": 9534
+    },
+    {
+      "path": "internal/parkride/run.go",
+      "sha256": "feafc8888c640a93bf089130408c0112cc238b2f6d15a587220a4c588bcf1ab9",
+      "bytes": 9422
+    },
+    {
+      "path": "cmd/parkride/checkpoint_file.go",
+      "sha256": "22f034991562549ad60d73ec97594e223505f7d2f764f8a2694b9ee9341afdc9",
+      "bytes": 4972
+    },
+    {
+      "path": "cmd/parkride/checkpoint_identity.go",
+      "sha256": "dab29e64ae0a1a0dee3f1bbad0edbaf934dec8aca913e4207a67662e70cea241",
+      "bytes": 1923
+    },
+    {
+      "path": "cmd/parkride/checkpoint_test.go",
+      "sha256": "21ffa6c3328e32f48a6cc0170956b6f1824de2fcf98c5e87440437309e44dfab",
+      "bytes": 11822
+    },
+    {
+      "path": "internal/parkride/checkpoint.go",
+      "sha256": "d294fdf22bda50dabf1f8b5dce45b460f508c6616a55649e6a2534d53b472ad5",
+      "bytes": 13057
+    },
+    {
+      "path": "internal/parkride/checkpoint_restore.go",
+      "sha256": "8ef5fb142cd9ce4fd73be353558696fadd5dd591a2cf24f375099186d3cef33b",
+      "bytes": 12935
+    },
+    {
+      "path": "internal/parkride/checkpoint_scan.go",
+      "sha256": "7f49cfd052b669f943776ee94d4bc6b7211ea5e822e24d4b38bd4c5a1888347a",
+      "bytes": 14066
+    },
+    {
+      "path": "internal/parkride/checkpoint_scan_test.go",
+      "sha256": "108ac26bd232a74315d3d6620189d4d7e48d8d050fa9ba19046b3c5b09ca40e9",
+      "bytes": 7770
+    },
+    {
+      "path": "internal/parkride/checkpoint_test.go",
+      "sha256": "40feccea798c7ec2b1974d526b015702145eab3a1516a061124c8502399e193a",
+      "bytes": 20135
+    },
+    {
+      "path": "internal/parkride/foundation.go",
+      "sha256": "2824ef6c53ba41b836fe3e0c64859a95f139b516d1c14af8a7635011add97665",
+      "bytes": 1191
+    }
+  ],
+  "bounds": {
+    "checkpoint_transport_bytes": 83886080,
+    "canonical_project_bytes": 10485760,
+    "canonical_plan_bytes": 10485760,
+    "retained_charge_limit_bytes": 268435456,
+    "retained_charge": "4096*N + 512*L",
+    "file_preflight": "P + A + S + 1024*N + 128*L + 8192",
+    "streamed_observation_limit_bytes": 83886080,
+    "observation_in_file": "Two fixed64hex hashes only; no full observation/trace array",
+    "ledger_record_integer_fields": 13,
+    "widest_record_encoded_bytes": 609,
+    "widest_lot_encoded_bytes": 62,
+    "widest_envelope_encoded_bytes": 3503,
+    "positive_extrema_record_encoded_bytes": 596,
+    "positive_extrema_lot_encoded_bytes": 60,
+    "negative_extrema_envelope_bytes": 3491
+  },
+  "studies": {
+    "process-study-v2": {
+      "evidence": {
+        "binary": "/tmp/build/podsim/continuation-express-batch/car/parkride-v2",
+        "binary_sha256": "c285d53e41475cd96159982cbba3e218bb66bf3d1650c58caaff4fb2735d2ce7",
+        "source": "/tmp/build/podsim/continuation-express-batch/wt/car-qualified-v2",
+        "cases": [
+          {
+            "name": "compact-private",
+            "project_sha256": "bf775160f507ab18eea2357699d126e72c71ebb34bd1e20af6b791150db26a92",
+            "plan_sha256": "f61ca8e94dca6083bb1a42f951a383a409f50fd0438a190df6600efa1160cd15",
+            "horizon": "20m",
+            "queue_limit": 200,
+            "final_tick": 25401,
+            "final_checkpoint_bytes": 6359,
+            "final_checkpoint_sha256": "8a59134985036428dead0a708c5e9281df61cc1412ed3a1ea2bde3bdba3ebf70",
+            "outcomes": [
+              "completed"
+            ],
+            "boundaries": [
+              {
+                "requested_tick": 0,
+                "actual_tick": 0,
+                "bytes": 5877,
+                "checkpoint_sha256": "2226b7a5c8901b36ddea12a6a02a21c60398f3f901ccc0250765011e7fbbb7f5",
+                "native_hash": "0ddd1834d1c45708172f10fe7785316e1e0ca6fff48a6aac641f25fc68f8ce21",
+                "ledger_hash": "ae721c557e41858108e4789546b775e4401fcba2db70354e67ebfb02e16eef5b",
+                "observation_hash": "0fb193dc8848006fc9ffc5995b11df97e0f08aa52f6d16ce8852f0b14e60a5d4",
+                "trace_hash": "2d32479dd0228d551c4fd9a3b270fbdfaad0839cfb4534398583ec9b35b68180"
+              },
+              {
+                "requested_tick": 1,
+                "actual_tick": 1,
+                "bytes": 5877,
+                "checkpoint_sha256": "0615f939a5387ffc5e74fa1e3c3e3b51bef7db3b3d98fe6ea0eef86f2c779dbe",
+                "native_hash": "d35734e239c58aec76ca4f6271445606ba154bc89c388fa143d2d1692ac49c8c",
+                "ledger_hash": "8193c3ab72871828e87180c59b4d90562b42f4e45db34586ac04c53522b6f156",
+                "observation_hash": "a7dd57819b062a261e79c783fd3a53088a2756c0ba09ae67fe651fd547817f91",
+                "trace_hash": "8c16eef061c122c2906744be26fa3fd8a91729dd18e5d2c37b08e856f054859a"
+              },
+              {
+                "requested_tick": 60,
+                "actual_tick": 60,
+                "bytes": 5880,
+                "checkpoint_sha256": "abceae4608377a04a430d94248776fae763f0077ecf3310d9cb96afe5aaec512",
+                "native_hash": "6c508a24d8e9410e400c68065c0b392076da5151507770e49d0b2d02b2c8fb45",
+                "ledger_hash": "70ea6302b0da703273d5aae61433706e6c5e3b36b57fca4c63c6bedcbf3c5181",
+                "observation_hash": "a75e00f6a1fa59352d653275430b0d98b90bc76e2727c3c8f635631f86c8e6bb",
+                "trace_hash": "11ca2de8c75e3dc6f59d5437cf98832ce92416960c6566c5d97b95c0f8a13233"
+              },
+              {
+                "requested_tick": 120,
+                "actual_tick": 120,
+                "bytes": 6162,
+                "checkpoint_sha256": "88f47230181ad4269c7540022022ea5708dbab40fbca5e32345b7614392a2757",
+                "native_hash": "5265ac3350722e6d19db925bbf56c31d528fd94e7357255f36cfe1fb608ab8bd",
+                "ledger_hash": "c36e9b88168013f6ac2dacf2ea39a1809c3627de9ea790d38fe97e02e634e48b",
+                "observation_hash": "703b66b20bd747fed971a873628f9ee01ce3950f3b5b95565dcd4b5739f812d6",
+                "trace_hash": "9713e22e8b28057766d33aca74a3fc7cdecbb3fb03537b44ca6d9eaaee8cd6fc"
+              },
+              {
+                "requested_tick": 6347,
+                "actual_tick": 6347,
+                "bytes": 6326,
+                "checkpoint_sha256": "de2fa53a0ea15fe7278d85dc2fb4026546bf0d4a9a7025da3ef3e1f440762ef9",
+                "native_hash": "a0fd53188bac4226f6187e77b5af5fc188d97c1c8de437e1a47886eb20b4300c",
+                "ledger_hash": "44f0caccbc7e05ff0766447e7bfe2a2fa0449590df58b207eba21dacc0fc1d50",
+                "observation_hash": "c46b097bc9e8c455f0c07a8d5ec463f49c2522e4837c6d1a81bd6602830a0f20",
+                "trace_hash": "17300d5e40d33259a53fe7e6653ae1f7cf6e63206dc3b4f85beec5a6dead84d7"
+              },
+              {
+                "requested_tick": 6467,
+                "actual_tick": 6467,
+                "bytes": 6353,
+                "checkpoint_sha256": "7b1b45c667e1afea6db2c85f52f37ec3e35b37101c31ea0fc0eaf97f74c38e07",
+                "native_hash": "812442863f030dd465bb85bbc8065053aea7b53205e53a89ce5d9b25027d45cb",
+                "ledger_hash": "f6feca5fe9fede7fd8782a26001ab497ec3b793bf5a9f02596930d826bda9fe4",
+                "observation_hash": "05f198ba0964240d95b5b4092511552beeb7caa80d8820afb1fb64dcd95bbaa8",
+                "trace_hash": "bfa670ba3b0627fc1a55b1bcafbc110e112757eb8bbc4ed85deb6ac3a6933543"
+              },
+              {
+                "requested_tick": 25161,
+                "actual_tick": 25161,
+                "bytes": 6341,
+                "checkpoint_sha256": "143b570cd320afa4bad5b7d9038c2b53c14572285929007eddd275f8f1bda137",
+                "native_hash": "4354f464aea0552b1c62c9821173059fe450ba81b36c75cf69ae25e2bd32988b",
+                "ledger_hash": "6537d4a9bf7b88b64d7a2603a5a00cbcf87eaf9fcae59e171a2d2922f1c99c01",
+                "observation_hash": "25a2d99be0908ffb0de6262177f7fe956df4a5c4591dd8e6d41628a049f4602d",
+                "trace_hash": "23447b0fa8ee2bd0486d96af0edaa7dc89a7f18b46316301182307400b897a6d"
+              },
+              {
+                "requested_tick": 25221,
+                "actual_tick": 25221,
+                "bytes": 6344,
+                "checkpoint_sha256": "32d346c9bbdfb02489834767427ba64c27c5ab68e49a5e5cdad75916a25cd87b",
+                "native_hash": "6626ffd9576cddfb46f15de94399dbd1ac23566598e6fe70c39e3329202a6061",
+                "ledger_hash": "ff0a3bbdcc0f3fbf7e6883adda9d87491c3f3a6429fc02265f3fc441dbe624c4",
+                "observation_hash": "dabf757216e7bca90f30eeff9a669364a219425f13d637d0c7665a338212fe52",
+                "trace_hash": "2233d55cb612eac614b4e050157a4782c4e8357f35d72b22fcca2d59b3ad9265"
+              },
+              {
+                "requested_tick": 25401,
+                "actual_tick": 25401,
+                "bytes": 6359,
+                "checkpoint_sha256": "8a59134985036428dead0a708c5e9281df61cc1412ed3a1ea2bde3bdba3ebf70",
+                "native_hash": "c4897e9f57f4696ad65969632dca8d6bd0be380fe2460212bdacc2530ea2c85c",
+                "ledger_hash": "4b4b3f44ff728d8b568f242c7dda2f2614e10aaf8664f3c67037c4c029f6391f",
+                "observation_hash": "60baecf733f4f825ba984c1b13e6bc4504bb7dfa38991b2afd5786a1c87d9fba",
+                "trace_hash": "b8467eb2b864ac9fd996b639586416d8eadfd3c0a208bc32be65a93c7f47f724"
+              }
+            ]
+          },
+          {
+            "name": "compact-shared",
+            "project_sha256": "bf775160f507ab18eea2357699d126e72c71ebb34bd1e20af6b791150db26a92",
+            "plan_sha256": "17f69beac124234a410729241d09e4a8feef03abd667a578d33f17e295a03325",
+            "horizon": "20m",
+            "queue_limit": 200,
+            "final_tick": 25401,
+            "final_checkpoint_bytes": 6357,
+            "final_checkpoint_sha256": "5a2307020a13a68acd962587763b6346a4eccddb04358ca39242e48eee405012",
+            "outcomes": [
+              "completed"
+            ],
+            "boundaries": [
+              {
+                "requested_tick": 0,
+                "actual_tick": 0,
+                "bytes": 5876,
+                "checkpoint_sha256": "fdbedefc550f0cd88cecb6b767835707e6cd56fb9642b9352c7fe0941c2f865c",
+                "native_hash": "0ddd1834d1c45708172f10fe7785316e1e0ca6fff48a6aac641f25fc68f8ce21",
+                "ledger_hash": "ae721c557e41858108e4789546b775e4401fcba2db70354e67ebfb02e16eef5b",
+                "observation_hash": "f5529c472542fe6b22cfb40574e6b5a721089b9575d75c44ec31d5b1191b2835",
+                "trace_hash": "15befffbed8b57d27acff0159564a867d4d35a7acdc41f6851494f93f8b99e36"
+              },
+              {
+                "requested_tick": 1,
+                "actual_tick": 1,
+                "bytes": 5876,
+                "checkpoint_sha256": "f678251b6a7f207c492ec15269f639097ebfffc56eb8a452224d6630feae3fd4",
+                "native_hash": "d35734e239c58aec76ca4f6271445606ba154bc89c388fa143d2d1692ac49c8c",
+                "ledger_hash": "8193c3ab72871828e87180c59b4d90562b42f4e45db34586ac04c53522b6f156",
+                "observation_hash": "324c9589201fb949d8d7b4898b402b25f78f2c854492e2fb51ccc9e1643661eb",
+                "trace_hash": "3b9e4e96e0415c5467913664589f4e668e6f94c4108342dabd71f5769dc4a78a"
+              },
+              {
+                "requested_tick": 60,
+                "actual_tick": 60,
+                "bytes": 5879,
+                "checkpoint_sha256": "62c6b4f67a9b25712c10c9dd25149614651f0be0c48eeaf024afe89e1ccf4dbf",
+                "native_hash": "6c508a24d8e9410e400c68065c0b392076da5151507770e49d0b2d02b2c8fb45",
+                "ledger_hash": "70ea6302b0da703273d5aae61433706e6c5e3b36b57fca4c63c6bedcbf3c5181",
+                "observation_hash": "3d7662137b9936a539f85affeb78090cf170f83220c86a0e0c18a04f3c1a3f67",
+                "trace_hash": "0eca5e6789475fb60bc475d303de55e5fd63e515b9b649bf003c0575318a0bb1"
+              },
+              {
+                "requested_tick": 120,
+                "actual_tick": 120,
+                "bytes": 6160,
+                "checkpoint_sha256": "44b7037190b8b2c4bd78da5d03316c86cd5ece28f04ca2efd5ac8e3d65bc46b5",
+                "native_hash": "8bfc55f1fced2f8bc82bc23ef5c9a54de2d3c4891c997670302f9cd3e79c8473",
+                "ledger_hash": "c36e9b88168013f6ac2dacf2ea39a1809c3627de9ea790d38fe97e02e634e48b",
+                "observation_hash": "82faa824879f84d377e64e86c87ea2c9937a7603089ee2487b2385308f5802a3",
+                "trace_hash": "e2e2e349538d8bd39627aaef8bcf436319fae66ec410e096f0dc7ee1c520091f"
+              },
+              {
+                "requested_tick": 6347,
+                "actual_tick": 6347,
+                "bytes": 6324,
+                "checkpoint_sha256": "1f57a2bc73ea894ca341f31644ba9118db3badf2f350abcdede6286ff7a8f12b",
+                "native_hash": "74c7670f93b47531c63747b92c4bd8351fd8db195682ef22bc2341804612849a",
+                "ledger_hash": "44f0caccbc7e05ff0766447e7bfe2a2fa0449590df58b207eba21dacc0fc1d50",
+                "observation_hash": "5dc5fae0eadede37622f98618ecc9249f86d89b1589f69e99588c05a8c14b011",
+                "trace_hash": "8238a6308fb0a7ee356e90ba029cee3211bb9275203a809f04ff538f2df04065"
+              },
+              {
+                "requested_tick": 6467,
+                "actual_tick": 6467,
+                "bytes": 6351,
+                "checkpoint_sha256": "8d751df987fdfff86bea34be33d790542c1ece30dafa9fee9adada21008bda6b",
+                "native_hash": "7ec20c72602b11c660e259bd9360841bb991a7d1cfea96361dc0216a238e7be9",
+                "ledger_hash": "f6feca5fe9fede7fd8782a26001ab497ec3b793bf5a9f02596930d826bda9fe4",
+                "observation_hash": "3d9726153ea2021bffcb7583f58bfbd33b808bc4eae519e9a38db8aa4b0513ba",
+                "trace_hash": "2f211d9022d30deee059936ce183cb0b8f13aa730b0b5d0a09e049d4e93088c5"
+              },
+              {
+                "requested_tick": 25161,
+                "actual_tick": 25161,
+                "bytes": 6339,
+                "checkpoint_sha256": "45d843db678fcf37887f8222e747769ebee1a7affbff986b6d66a54467a0d298",
+                "native_hash": "66845483d6862710de8fa43b1518b04c09fc59a460d0e54750981f4df25737b8",
+                "ledger_hash": "6537d4a9bf7b88b64d7a2603a5a00cbcf87eaf9fcae59e171a2d2922f1c99c01",
+                "observation_hash": "0968c5ab342f67ccd8674fb4400f7acfa270b9c8a34d7adba0f433a70396b05d",
+                "trace_hash": "273d66a67d69ee254dad01766bbd7fc43c73b06c312c3224f9092dd79a923412"
+              },
+              {
+                "requested_tick": 25221,
+                "actual_tick": 25221,
+                "bytes": 6342,
+                "checkpoint_sha256": "b6d8869b0766b7fe52f0667295be35cfb5ae0f651d0b78a0fc2a1c007c18c8f4",
+                "native_hash": "bd0c9bcc8289c939dfa785e01af5f59e6db9bcfccabb4556b2b32c35a5bc4f86",
+                "ledger_hash": "ff0a3bbdcc0f3fbf7e6883adda9d87491c3f3a6429fc02265f3fc441dbe624c4",
+                "observation_hash": "cdb17e8141fe3984a64f70650bdba0a0b122424599febd9b1169fecfaf00aa4b",
+                "trace_hash": "9f3588917b59a19433105e14e5a49f3adad8c9fa54e29ffc231678522345819b"
+              },
+              {
+                "requested_tick": 25401,
+                "actual_tick": 25401,
+                "bytes": 6357,
+                "checkpoint_sha256": "5a2307020a13a68acd962587763b6346a4eccddb04358ca39242e48eee405012",
+                "native_hash": "648111fe7b8666661e83668a7125480f7a0793ae0a4dc7df3b350b70b989a149",
+                "ledger_hash": "4b4b3f44ff728d8b568f242c7dda2f2614e10aaf8664f3c67037c4c029f6391f",
+                "observation_hash": "d7761b03115dc39173311a670587fc0ef745bdafccb1be2d5fed053350f7d6fa",
+                "trace_hash": "befa0eeab26a7db6ba7245a95435ae69a05cfedf4b91f5913225a184569a52aa"
+              }
+            ]
+          },
+          {
+            "name": "group-private",
+            "project_sha256": "f3cb1e4b4a6f3ed30be0dc638af22eec5c7f076ce70b3651b199b6184454a6c9",
+            "plan_sha256": "6ac05360f85daf473a65cb17f4c7bfdc49c4078a66c42f56e886df2814de344f",
+            "horizon": "20m",
+            "queue_limit": 200,
+            "final_tick": 25401,
+            "final_checkpoint_bytes": 6355,
+            "final_checkpoint_sha256": "a474040cdcdb617ccb59ca93fad271f70d40b5b5a0654d7715c9d9de1ebe817c",
+            "outcomes": [
+              "completed"
+            ],
+            "boundaries": [
+              {
+                "requested_tick": 0,
+                "actual_tick": 0,
+                "bytes": 5873,
+                "checkpoint_sha256": "06b9761d3e9fa34ecc1762b9ab637ea3951b8ce57b9f158b2020cf17d3f46aec",
+                "native_hash": "63e5777311d895342631da735caf83b59ad4838b9b63e23b62b2c98aecd86313",
+                "ledger_hash": "ae721c557e41858108e4789546b775e4401fcba2db70354e67ebfb02e16eef5b",
+                "observation_hash": "f4f2797cc395165898cd21d5d587c4cec57b13ebde923c6c49ee60ab24efeafd",
+                "trace_hash": "2b7bd186c8b690886e6eb386a53c96703434cd6a79d8ea06ac7e1152e0fecb21"
+              },
+              {
+                "requested_tick": 1,
+                "actual_tick": 1,
+                "bytes": 5873,
+                "checkpoint_sha256": "77d86642065d79a90623fbaadf225998250a62f681b808032cf389cb13f89cbf",
+                "native_hash": "30abe1002e0452ad39490f69c47ddd8acd10d5e8d417bb3c6155261ebad0b4bd",
+                "ledger_hash": "8193c3ab72871828e87180c59b4d90562b42f4e45db34586ac04c53522b6f156",
+                "observation_hash": "b1a9cb8f50a395082ba5d4c84d985159cdea488457cd3501b79baf32c790e2bc",
+                "trace_hash": "c17f9f285af8db1e55813d69536721780ab68fd0afc0bb9f922f24cd76d55b29"
+              },
+              {
+                "requested_tick": 60,
+                "actual_tick": 60,
+                "bytes": 5876,
+                "checkpoint_sha256": "1b62d399a21ec596e406bed265e9083e96b70cfcded2500cb928abba3ead9943",
+                "native_hash": "0fbd263543de538c6e28b7ed113874faf7770574bf7d0d890bc75e1964e167a1",
+                "ledger_hash": "70ea6302b0da703273d5aae61433706e6c5e3b36b57fca4c63c6bedcbf3c5181",
+                "observation_hash": "d5d1cac63bcb6ab268bc044386abfe84fbc86d8c2026fb31ae2a6da16620b112",
+                "trace_hash": "0ba193de1a9fdd8ae3e48183ca72d630ae6e48c3890af27d37cd2d2d2ddcc419"
+              },
+              {
+                "requested_tick": 120,
+                "actual_tick": 120,
+                "bytes": 6158,
+                "checkpoint_sha256": "37f7a162a661caa651fbde34d35fb0c5e7bae9673eec8c82779e5873db5fab98",
+                "native_hash": "73d0dc9f391a89f78d1850ebfeabf64841ec9a4251924dba3ce2ba85ec207a31",
+                "ledger_hash": "c36e9b88168013f6ac2dacf2ea39a1809c3627de9ea790d38fe97e02e634e48b",
+                "observation_hash": "e7c31a6d5a87a29940a807ff58f8e5e33411278856aee93fde8856f5591d4bf1",
+                "trace_hash": "5c879cbe84ab4df4d21665ce3f45227aa8d817119cd5fccd3828ac5bb921b2a8"
+              },
+              {
+                "requested_tick": 6347,
+                "actual_tick": 6347,
+                "bytes": 6322,
+                "checkpoint_sha256": "44bdc6f514555058fd5ec753727c7bc014bd06c72a2a58c84afd23cbe71ad957",
+                "native_hash": "257c6b9268b56ed700e0094545a0b8fb41005c27864eca385f279a3c3982cf8d",
+                "ledger_hash": "44f0caccbc7e05ff0766447e7bfe2a2fa0449590df58b207eba21dacc0fc1d50",
+                "observation_hash": "d11336c74b966a76d47556b48fbf3263311325f1c8441b4fca1495aa5596936d",
+                "trace_hash": "e0c668324878d0cbc160d6ce2e214ea3e74a9530d1e295d09dd6b67c3c0bec45"
+              },
+              {
+                "requested_tick": 6467,
+                "actual_tick": 6467,
+                "bytes": 6349,
+                "checkpoint_sha256": "482d95d8f22da5f3b77e3f395330908fa0f96c9e626b59eb9094f973786a47d0",
+                "native_hash": "347f2921811f4aca3e7a2644412f6a8e625c7a74582103e952379a963d52f92f",
+                "ledger_hash": "f6feca5fe9fede7fd8782a26001ab497ec3b793bf5a9f02596930d826bda9fe4",
+                "observation_hash": "08ad32c05be085084fadd62cca6a94cfa88c9f3e36dd965131d51a1a425b3315",
+                "trace_hash": "b9ddee70964ad6e7e94a34841225ab597f6e0c995dc843c75775daa7bbb87f94"
+              },
+              {
+                "requested_tick": 25161,
+                "actual_tick": 25161,
+                "bytes": 6337,
+                "checkpoint_sha256": "904636d1b41510c0636188d413443cfeb98a8de215eee5617621a3f7196f1fd9",
+                "native_hash": "90d7cfdc354cefe15fe3a6f9170dc5afd44c0e3614a32ddc54c4ff5098cce643",
+                "ledger_hash": "6537d4a9bf7b88b64d7a2603a5a00cbcf87eaf9fcae59e171a2d2922f1c99c01",
+                "observation_hash": "a05150f9f7a99af1cf652d5973232bca3250f2c85befe4203aa0ee69110c5774",
+                "trace_hash": "a99a2fb31fadf19703bc50bf36c786e15197e2b9139d138d5f235ace633c9b8b"
+              },
+              {
+                "requested_tick": 25221,
+                "actual_tick": 25221,
+                "bytes": 6340,
+                "checkpoint_sha256": "0993c361e9f73f2587950e9ac9c4dec8d2d3b3ceb47a0ddb3d9b0dc9ed111225",
+                "native_hash": "e8cdf41953958b0f7a7306dc2399331624a6d2350be1a19e1e32ec3690fef7b1",
+                "ledger_hash": "ff0a3bbdcc0f3fbf7e6883adda9d87491c3f3a6429fc02265f3fc441dbe624c4",
+                "observation_hash": "4598bacc178a1971ca35f59dbb962b58473333885a46c5b37230d787ae064716",
+                "trace_hash": "a68d4e3a9a0ad33c5b0e78237e56320570cd831dbd30ffb76c33e5256ff5c6fb"
+              },
+              {
+                "requested_tick": 25401,
+                "actual_tick": 25401,
+                "bytes": 6355,
+                "checkpoint_sha256": "a474040cdcdb617ccb59ca93fad271f70d40b5b5a0654d7715c9d9de1ebe817c",
+                "native_hash": "dcf21b16791038d0c59d16f0da967fde36bd78d8c202a0dd33ce47b779497995",
+                "ledger_hash": "4b4b3f44ff728d8b568f242c7dda2f2614e10aaf8664f3c67037c4c029f6391f",
+                "observation_hash": "b70e0a66eef86c6b0acf03a6aa8f08a591d1b13e089cb7de8c3746cca6cf8bbc",
+                "trace_hash": "fc155b9a6c76b7aab494f1cadcd6f14e2eaf27719b4f694efd2c44877d14a6ea"
+              }
+            ]
+          },
+          {
+            "name": "group-shared",
+            "project_sha256": "f3cb1e4b4a6f3ed30be0dc638af22eec5c7f076ce70b3651b199b6184454a6c9",
+            "plan_sha256": "69cc2472564425357125c223ab77ce5703c3f27497a9b64a1e5da86ac833ceb4",
+            "horizon": "20m",
+            "queue_limit": 200,
+            "final_tick": 25401,
+            "final_checkpoint_bytes": 6353,
+            "final_checkpoint_sha256": "be0c14f011cc4024d47971337751ddd76e205c6f4b1c07b289f7b1c370128fec",
+            "outcomes": [
+              "completed"
+            ],
+            "boundaries": [
+              {
+                "requested_tick": 0,
+                "actual_tick": 0,
+                "bytes": 5872,
+                "checkpoint_sha256": "dd604e919862c9bab145f758f65534fc2261ddd7f1f6d529b429cccbc2794049",
+                "native_hash": "63e5777311d895342631da735caf83b59ad4838b9b63e23b62b2c98aecd86313",
+                "ledger_hash": "ae721c557e41858108e4789546b775e4401fcba2db70354e67ebfb02e16eef5b",
+                "observation_hash": "0606914c873e3d536b9eef1a35c061e3f1750e9e0c383cf9025dfae706fb7f2f",
+                "trace_hash": "8dba2e65323ca65fb17d2156f72658c9cf9d22b007eeea99effedf27dd47502f"
+              },
+              {
+                "requested_tick": 1,
+                "actual_tick": 1,
+                "bytes": 5872,
+                "checkpoint_sha256": "fbbe5f8a7846c99b2c408c076e97ed178b21b213cdef63e7ed7997b057f067fe",
+                "native_hash": "30abe1002e0452ad39490f69c47ddd8acd10d5e8d417bb3c6155261ebad0b4bd",
+                "ledger_hash": "8193c3ab72871828e87180c59b4d90562b42f4e45db34586ac04c53522b6f156",
+                "observation_hash": "a8e68da22a22c549ba7796b1efa996dbe7370c9deaee901e1a36a77f2cc93b69",
+                "trace_hash": "f0d8544cffbc014ee1bc677eb4230c0d10142b88e90d04e4d54f1b238daa634c"
+              },
+              {
+                "requested_tick": 60,
+                "actual_tick": 60,
+                "bytes": 5875,
+                "checkpoint_sha256": "954465f06c1512f2899d19a908e695b549a9535f1ee3f7f47fd3a38e022a68e1",
+                "native_hash": "0fbd263543de538c6e28b7ed113874faf7770574bf7d0d890bc75e1964e167a1",
+                "ledger_hash": "70ea6302b0da703273d5aae61433706e6c5e3b36b57fca4c63c6bedcbf3c5181",
+                "observation_hash": "6370f4ce3012e8d71f69ff010ba301875afc931abb5452436e13f6ac93fc2765",
+                "trace_hash": "04c57334452f70bc9887c16d803ffb9314fabea52a29129ae7089b42357ea95f"
+              },
+              {
+                "requested_tick": 120,
+                "actual_tick": 120,
+                "bytes": 6156,
+                "checkpoint_sha256": "19ab1aa46c4db5b957494277005108124fa88360990789543ab7932d2230e8d8",
+                "native_hash": "bbf3e39a513f028daaf09cf09303a95e46eee2dfebc5b9ff19f6c2b6c2b1cd1c",
+                "ledger_hash": "c36e9b88168013f6ac2dacf2ea39a1809c3627de9ea790d38fe97e02e634e48b",
+                "observation_hash": "9f3bc75ecdaf2e21cfa1f1db0771bfebc62b7f1f4feb01a153310ca59dab57ed",
+                "trace_hash": "c63689419370d3e04564b4b485f043e19f96029b6a69101ae28c5d3f0a62fb8c"
+              },
+              {
+                "requested_tick": 6347,
+                "actual_tick": 6347,
+                "bytes": 6320,
+                "checkpoint_sha256": "6fd91647aa37bdc80ca30843df1c8adb1c07fda05623f9cc4bb2eb674ad11eef",
+                "native_hash": "a6dce8e3b4fc068f8923b8a930c9924b02ed2a814cf66b2003d81e77b7794c25",
+                "ledger_hash": "44f0caccbc7e05ff0766447e7bfe2a2fa0449590df58b207eba21dacc0fc1d50",
+                "observation_hash": "ea13a9520d320293d796e5b6a5c1ac9b5f87c87ba826b1251f0104e12a148d35",
+                "trace_hash": "ebebf42b4fbe58094443fff3b8c994c6ace64bf1c5f3ac149e3e9feabf7a3881"
+              },
+              {
+                "requested_tick": 6467,
+                "actual_tick": 6467,
+                "bytes": 6347,
+                "checkpoint_sha256": "928d16823a8d8aa9281f5c02e96519a43784e52ae57a98deb60e2994d7739105",
+                "native_hash": "372a09c43c69e50db5db558d7d1d66e084eefe0fb20d60ae7cff9fecb9c2f177",
+                "ledger_hash": "f6feca5fe9fede7fd8782a26001ab497ec3b793bf5a9f02596930d826bda9fe4",
+                "observation_hash": "d56bef335209780f996cbf6665a94259e5257b6b1c503a5932cc2e982c605902",
+                "trace_hash": "eae1d30014d4a2e3924113b4531256072bd25d0988ee1957c0430107702513f3"
+              },
+              {
+                "requested_tick": 25161,
+                "actual_tick": 25161,
+                "bytes": 6335,
+                "checkpoint_sha256": "e91bb2993d08d57b4d1ffff1d4208ed38f052ea63e9261622f0888de8f29788b",
+                "native_hash": "eceeed83e0f9cafb8a890dd807394a3089ea12710beb4add4fbf070cec7f216d",
+                "ledger_hash": "6537d4a9bf7b88b64d7a2603a5a00cbcf87eaf9fcae59e171a2d2922f1c99c01",
+                "observation_hash": "6d90fd2ae5a06a4b83f8a573008e2d731ab069bc657a583eaff2feffc597a359",
+                "trace_hash": "f6eb9a0c61b5dae02cf83c251c2b4e0b2bb64018edef60948f3d2cf651f81c0f"
+              },
+              {
+                "requested_tick": 25221,
+                "actual_tick": 25221,
+                "bytes": 6338,
+                "checkpoint_sha256": "fe527bb8f4726ff17e46f19f8c3693fd4d87785e4972fd0daa0554970a80f5ae",
+                "native_hash": "bea9c8d72563ca927111220aaf589c595f4f0d67b0ce0c9bd59a4508f49a94f4",
+                "ledger_hash": "ff0a3bbdcc0f3fbf7e6883adda9d87491c3f3a6429fc02265f3fc441dbe624c4",
+                "observation_hash": "c7ad53b36fae7be63d8248e8b2749e9d41b14c653677ed38b93cdf44866bc2fa",
+                "trace_hash": "088585fe832c33b7ff012b1cd9c25a06a6166a25275f3b51880a9465e0308344"
+              },
+              {
+                "requested_tick": 25401,
+                "actual_tick": 25401,
+                "bytes": 6353,
+                "checkpoint_sha256": "be0c14f011cc4024d47971337751ddd76e205c6f4b1c07b289f7b1c370128fec",
+                "native_hash": "4c3483d121bd1227cb09a0c99b63656f0b0cac522d8dd4472a487e39388c0761",
+                "ledger_hash": "4b4b3f44ff728d8b568f242c7dda2f2614e10aaf8664f3c67037c4c029f6391f",
+                "observation_hash": "1abdb941f1c038eb159af0c44535e403d4c93a2330679f6375a18a9bf0f9f786",
+                "trace_hash": "82402ab3c0eadcfd866563b82a669016052b1c03f4927ceb38e3859ecf39afb3"
+              }
+            ]
+          },
+          {
+            "name": "completed-full-lot",
+            "project_sha256": "e7cf9ca6c2f37513bb75d22c43b1b8e4ad888a143f55001e56dee26d67702211",
+            "plan_sha256": "678ebe156298b2c7862899d66a3c16ac6725ae1632ccba34c16bcaa277463e4d",
+            "horizon": "20m",
+            "queue_limit": 200,
+            "final_tick": 5024,
+            "final_checkpoint_bytes": 5788,
+            "final_checkpoint_sha256": "1cc2fefd4928dfe7da17147f6fe27fdfb9d2719da0dcb72d3c153f499b31da79",
+            "outcomes": [
+              "completed",
+              "full-lot"
+            ],
+            "boundaries": [
+              {
+                "requested_tick": 0,
+                "actual_tick": 0,
+                "bytes": 5564,
+                "checkpoint_sha256": "56a4ef0349c2f797e1c370848e70750452c93d896b85922eb7857d3f13e825e3",
+                "native_hash": "c0118e04795457d5e09cb52576ef5b98ef0eddc0ea24ae958f69b239344739be",
+                "ledger_hash": "4289aaf6ebeb47d189304fdb50677769cb159a638fcd1c7c44f248dc822e7462",
+                "observation_hash": "b8c4d9977aabd00d6b748347c712f44d6082e10ca10ab3ec4cb376cc2a4658b3",
+                "trace_hash": "6fdb2e712c2a62fff53344ea5922cfd22bd61d76b7551b6cd5a979554b0baecf"
+              },
+              {
+                "requested_tick": 1,
+                "actual_tick": 1,
+                "bytes": 5564,
+                "checkpoint_sha256": "adc0e6d3786e2cc09dee47a9830ab49ce043001fd09917a8eb1395a8ab337ce5",
+                "native_hash": "2d07078c3a6bb72f45fcda7f517bebf9a72012689d16a34afca505b6ccf7cd84",
+                "ledger_hash": "534b6d82a858df8163e4ee92360b43db57a07ae22625f59252568f6b556dfc6b",
+                "observation_hash": "ba47636416aa5ef9c0e61cf6bcde865e5166633eb73a9a3b8340d7584fa2ac6c",
+                "trace_hash": "08db31cdecf175c1f627fdc60497445f3a7daa935376d7a2beca38a9de43e595"
+              },
+              {
+                "requested_tick": 60,
+                "actual_tick": 60,
+                "bytes": 5567,
+                "checkpoint_sha256": "731ea2b562d5a0e95152b697255d705763d45d61830c0f1a6aed5a4f283b03ef",
+                "native_hash": "87e3505e8c8032d4a26ef7153f216da7897aedbc161ad891814c2645b15353f1",
+                "ledger_hash": "fa13240c0ba4422c4bb2e26ecfeb0e90adf3655bb157cff171325286517b3592",
+                "observation_hash": "9d62ce12a8f089e8d5426a5c802128b54c7e9af72eb284e2f03294129d675705",
+                "trace_hash": "2a83ddfae9fea5a8ef25968777231db5059b6034d9524f221b46c35de8587035"
+              },
+              {
+                "requested_tick": 1800,
+                "actual_tick": 1800,
+                "bytes": 5682,
+                "checkpoint_sha256": "ee95ea45273e2fa93ed2a789576f1dd53760da957838c8a53a054733ff09dfa2",
+                "native_hash": "93a8132661129a72196f0bb798d34bba8c91479a93798a018a85f22c80df93ce",
+                "ledger_hash": "16cd3575bf3393096b6e525141d017e59a6ee00188217d5a5b401b50842f8eff",
+                "observation_hash": "308df487f295724d882fe41780940a87046c9a47127b8c36e329ef4176f30bad",
+                "trace_hash": "63d06c4f97d6f0e90b6dfc8396e99c5b2436c6572655baa022cfe64ff2cce9f0"
+              },
+              {
+                "requested_tick": 1920,
+                "actual_tick": 1920,
+                "bytes": 5636,
+                "checkpoint_sha256": "cf8c6c257f45c57ce057966f4bbf3f8acaa27356e8b70ceafada1b627f1bf520",
+                "native_hash": "d67a2efb33b498e07902de12317b82cb3f9459b71a8df41e3738675450ba91f8",
+                "ledger_hash": "52d92bda00bb079282d1b24deff0d2b0becb7aab141a4f23cbc03ce6e2ed9bee",
+                "observation_hash": "3e4558ef02ea2c9fb07161a52314a6bbfef686344cb79a9761a9fa48bed80cd5",
+                "trace_hash": "db9308683581cdedf729948b41831c923eda539d348b4ad6b7aa6bc93c5f50f0"
+              },
+              {
+                "requested_tick": 1980,
+                "actual_tick": 1980,
+                "bytes": 5745,
+                "checkpoint_sha256": "dbc4aa141945da23f2c372009d1e6c02ae9b88e415dfac5f016d11f2eb74422d",
+                "native_hash": "5087f8d377043648aeec752cacf0a6ece8ac14816f8884b72215c75ae244216e",
+                "ledger_hash": "418942030d7698bc8d55f2722522d042a294f2e7d34f38f2dd532b9dc3482527",
+                "observation_hash": "836027266271bdb7ce3a8c064361cea0181055f91e5520204f7ea0db8ea4442c",
+                "trace_hash": "a807ab812fe89ec896aa39bcababa1f5a7e0ab5e8943db02c2db47a496fad594"
+              },
+              {
+                "requested_tick": 3700,
+                "actual_tick": 3700,
+                "bytes": 5874,
+                "checkpoint_sha256": "3cf6aa651618fb08a4badfb0eaa606fd35151b148b7c55e653fdc149b2175f50",
+                "native_hash": "b84561f99b484793f1a0ceea6dc34171aba30c61bdfd021ba9bf2b3eaeff3dc2",
+                "ledger_hash": "4b80c87624cb5f46e816070b3b34382f6e506bafff799ac610a5baca2cac49a3",
+                "observation_hash": "56bb19b5ceae5d6d08db4d2ad238bbbd1001d9895ffcf74f7377a2289a398ed0",
+                "trace_hash": "2957872f5c64edfd9a2194fb14985e81a3f521933da0250db86ad87cf7452424"
+              }
+            ]
+          },
+          {
+            "name": "refusal",
+            "project_sha256": "e7cf9ca6c2f37513bb75d22c43b1b8e4ad888a143f55001e56dee26d67702211",
+            "plan_sha256": "f0525d0d97dadba059cffb024421f46abe89dcf34f0409375cb322932be86f01",
+            "horizon": "20m",
+            "queue_limit": 1,
+            "final_tick": 9389,
+            "final_checkpoint_bytes": 6418,
+            "final_checkpoint_sha256": "4463e4a28615bf0d191ccdbe9b8a899aaa539152e597b2477725405ae03c4270",
+            "outcomes": [
+              "stranded",
+              "completed",
+              "recovered-refusal"
+            ],
+            "boundaries": [
+              {
+                "requested_tick": 0,
+                "actual_tick": 0,
+                "bytes": 6326,
+                "checkpoint_sha256": "b865df9d6a7354e242543acf8e92c727addbc7c659bd594fb28865f8e3b164c0",
+                "native_hash": "418cdeb05678ff6f901066081765bc8673b0a92ebc1f05f9d91aea2d12989ad5",
+                "ledger_hash": "01cdc41b2354ede6855fb15dae2e2271a0b89fac2f8feea531f051c8da3b54d8",
+                "observation_hash": "f82d2c56340189297ec72a2280d3c6ce870515737e92502c7eac7cbb699954df",
+                "trace_hash": "7a86826743471e31444d45779faf265d535587ba103178e5836f26c383a5bbea"
+              },
+              {
+                "requested_tick": 1,
+                "actual_tick": 1,
+                "bytes": 6326,
+                "checkpoint_sha256": "7a321b7ce0a4068b916bb35ca35601321fd8b53e98eba3ab911d0d3c005dad04",
+                "native_hash": "e573e2a14fd67ecb0145134a8307d08aae09ac58363c56f4d12871aad11a78e2",
+                "ledger_hash": "42abf4b7cde2cb5a952a92f65b50e13e53fd0693733e7f9312b07fbafeb8451a",
+                "observation_hash": "c8680e21be59cd0187c8423c7e96195300acd9b73044c1eb09efa7cc7a5e99ac",
+                "trace_hash": "7bbb07b6865f5b0eb13464a570f8ecc7de868dfd5da63a45ee3034f22f03e469"
+              },
+              {
+                "requested_tick": 1800,
+                "actual_tick": 1800,
+                "bytes": 6462,
+                "checkpoint_sha256": "737316c4a5a4240cccec7b4d37d7bbaa717fb64689d6e6eb21ba6da57a4373c2",
+                "native_hash": "f6bf40b86e4fa2f19c37318d356532302ded091f1cb9afb971c5fe212c48e4c7",
+                "ledger_hash": "4d0484e5a04745d80b8c2b6c90e3285cfa36983446535a806698b44a3640c7e4",
+                "observation_hash": "e400ec97a71f7e69f810cb73f5b54da12da080b355db621adce26028fa02006a",
+                "trace_hash": "0639eaebf1a0e194ace5343acbe62bbf19ceb1a90b9aec099fb7db9385816c0a"
+              }
+            ]
+          },
+          {
+            "name": "stranded",
+            "project_sha256": "e7cf9ca6c2f37513bb75d22c43b1b8e4ad888a143f55001e56dee26d67702211",
+            "plan_sha256": "af224f2c5230d01cc901dc78ab58d32c10de8e3aa300e73ecd6eff483355ad56",
+            "horizon": "20m",
+            "queue_limit": 1,
+            "final_tick": 23558,
+            "final_checkpoint_bytes": 5763,
+            "final_checkpoint_sha256": "a8111b66694d96e206098f6a1d0cfaa1c9a157d850b1dd8e2a791ecbf7dd4402",
+            "outcomes": [
+              "stranded",
+              "completed"
+            ],
+            "boundaries": [
+              {
+                "requested_tick": 0,
+                "actual_tick": 0,
+                "bytes": 5471,
+                "checkpoint_sha256": "b2e2d50b6a725b507c138212195fd82c7b9a938f484be67dcce08169f1cd6134",
+                "native_hash": "c0118e04795457d5e09cb52576ef5b98ef0eddc0ea24ae958f69b239344739be",
+                "ledger_hash": "238235692c65321510e1b399407ed42ff49c2ff721b0713404f3d6b4947c4a25",
+                "observation_hash": "6d7e671737fbea0703078d6ee9ec826bc7e66d0e3a33a1a2ce18a0ac30ac674a",
+                "trace_hash": "724ea79a115c9e4868bb4634ae7d7a0300c7c532c01896748167ece26f3fe825"
+              },
+              {
+                "requested_tick": 9060,
+                "actual_tick": 9060,
+                "bytes": 5933,
+                "checkpoint_sha256": "f8f3fe5d6bcf00397e478341998ec21ea0dabf2c7b02ccb853b496b095b244e5",
+                "native_hash": "57f66cd4fc4dc539853aec94bc6ac94d0f6b77fe7211d31e841fd2f6d369e41a",
+                "ledger_hash": "688ecd2d420b0b5d8c2051bc77149bee090be31cb99796fa352c55ea384cb56e",
+                "observation_hash": "34fb9c948f10a14f6571f3c76450f01701a776e29e0230b604819968a61f4981",
+                "trace_hash": "e9470cca4bc3576c9ad3f19ca1222999f85b940d850b8ce9b4f5d61445d706a0"
+              },
+              {
+                "requested_tick": 9300,
+                "actual_tick": 9300,
+                "bytes": 5999,
+                "checkpoint_sha256": "300e1f55a4cb58cf2b2e6f1066dde78a287551823abfea8f68b7df829beee539",
+                "native_hash": "f6ce2b97288bef9e1b7f0f0d32e983ae43879415c25aad230de41605e2adbaf1",
+                "ledger_hash": "895e6db9dbe61a4bb5a810fc3172ae9873bfa1107713e875103dca6efcffd13f",
+                "observation_hash": "244c6def2dd52f89b6fbc5517d517efe85171b51716bcea96d87129405f60df1",
+                "trace_hash": "54e2b783778c52d2a214817f4abf849bf1d3c49d286696ef3d1c9458249221a3"
+              },
+              {
+                "requested_tick": 10000,
+                "actual_tick": 10000,
+                "bytes": 6000,
+                "checkpoint_sha256": "8e0743f4510ab1977c8e378f44d73d5a0d531af52caf20cdca796f38cd4c4b7f",
+                "native_hash": "75b7e542cee2b54844e011682b3b1c1d43cefb78548f37276d4a6ea4dae241a3",
+                "ledger_hash": "a6df6ca6ec84bccd450fd50fd827877e6660f434bf0bf9a2f2ab9e7ae7f25510",
+                "observation_hash": "cd700db6d1592d69bce2dbe9d28ff1cc75684edcf7dbaecd2f79ad26ad4f6019",
+                "trace_hash": "980658e09e2db8e86cb326e66bdb9b7efa8972f925fb04103e3b670e997fc53d"
+              }
+            ]
+          },
+          {
+            "name": "censored",
+            "project_sha256": "e7cf9ca6c2f37513bb75d22c43b1b8e4ad888a143f55001e56dee26d67702211",
+            "plan_sha256": "d0a49a35bac9e7367b17b66c1837807a0ff8544411eff97e8dc1677afb072ce4",
+            "horizon": "1s",
+            "queue_limit": 200,
+            "final_tick": 60,
+            "final_checkpoint_bytes": 4815,
+            "final_checkpoint_sha256": "cae4ebd63e46667e49c6045d5e76e38d1fe5c647182669b97bde7b6727038bb0",
+            "outcomes": [
+              "censored"
+            ],
+            "boundaries": [
+              {
+                "requested_tick": 0,
+                "actual_tick": 0,
+                "bytes": 4812,
+                "checkpoint_sha256": "50bba4b930ae8514ae8b076854772cc6a4ba35054179e6e5b394576c78cdb220",
+                "native_hash": "c0118e04795457d5e09cb52576ef5b98ef0eddc0ea24ae958f69b239344739be",
+                "ledger_hash": "a9505b5934e60baa116a5ac6f02d81f319b231d310cbdd3bcf91f3b357383ed4",
+                "observation_hash": "81d490984fafaf2d3723a1c2a218f9978059f8e314fec552607434de65b97293",
+                "trace_hash": "f2a192cce682cfbfb9e7183a3430efd06f873f83e558cd4c3aee7434b47db345"
+              },
+              {
+                "requested_tick": 1,
+                "actual_tick": 1,
+                "bytes": 4812,
+                "checkpoint_sha256": "9f9e5b2255c50ffaf0543a4acad0f1475d4b72a5e4be224d68649c1dfab112b9",
+                "native_hash": "2d07078c3a6bb72f45fcda7f517bebf9a72012689d16a34afca505b6ccf7cd84",
+                "ledger_hash": "16f41a1290f3a379240ae2134d03b6c7c47ad404a7ac86e46217743c765a02e0",
+                "observation_hash": "9c9c2d9501a77052aafb246140857c247d852417e35e1c78c582388b249c3f69",
+                "trace_hash": "ce724de7e00286061b19f0b102760676f6ab826f508b198ee6f5c3efe0cac16c"
+              },
+              {
+                "requested_tick": 60,
+                "actual_tick": 60,
+                "bytes": 4815,
+                "checkpoint_sha256": "cae4ebd63e46667e49c6045d5e76e38d1fe5c647182669b97bde7b6727038bb0",
+                "native_hash": "87e3505e8c8032d4a26ef7153f216da7897aedbc161ad891814c2645b15353f1",
+                "ledger_hash": "feacfe53f53ca522e74489eef383af7be5e48bbe3d9c6f77d20d7c31c64593f3",
+                "observation_hash": "a3e87f5cf5b990b41f0a57bce56a1cb8def8842d094a752cc4c56a7f38b756cc",
+                "trace_hash": "72846322f774005eaf45e142d14efdcae0363e8a84f59e3930c1b956039caa67"
+              }
+            ]
+          },
+          {
+            "name": "empty",
+            "project_sha256": "e7cf9ca6c2f37513bb75d22c43b1b8e4ad888a143f55001e56dee26d67702211",
+            "plan_sha256": "cd26aaf46a7819f5d0d5b9da03c6ea6db9a753bae1fbfbb43282ca680b548e30",
+            "horizon": "1s",
+            "queue_limit": 200,
+            "final_tick": 0,
+            "final_checkpoint_bytes": 3818,
+            "final_checkpoint_sha256": "d8fa2136a43163a52b6e1e4b6fded04dda045af037213ca5206e9445847ccd24",
+            "outcomes": [],
+            "boundaries": []
+          }
+        ],
+        "scope": "Selected source-grounded CLI fixtures; same identified executable and host only. Native/ledger/observation/trace hashes compare through independent processes and full future checkpoint bytes."
+      },
+      "cli_calls": 187,
+      "total_observed_call_elapsed_seconds": 80.33090921957046,
+      "peak_rss": {
+        "max_rss_kib": 24204,
+        "file": "group-private-25161-future.time.txt"
+      },
+      "cancellation": [],
+      "raw_run_metadata": "artifacts/process-study-v2/*.run.json"
+    },
+    "controller-study-v2": {
+      "evidence": {
+        "binary_sha256": "c285d53e41475cd96159982cbba3e218bb66bf3d1650c58caaff4fb2735d2ce7",
+        "source_revision": "d52e31d0b5192998984086a1021252e264003040",
+        "case": {
+          "name": "actual-compact",
+          "project_sha256": "37c287bcca40bc1ed9ceb1bbc4f1b64f32d0e94beeaad80a914d9c8e3db7d26b",
+          "plan_sha256": "47bf2ae457ede71c90a37b751f8e60beb3c03d073be51aacfd10978e5979c91b",
+          "horizon": "20m",
+          "queue_limit": 200,
+          "final_tick": 72000,
+          "final_checkpoint_bytes": 12237,
+          "final_checkpoint_sha256": "78f9a8fd13814f62e937c53b608c0f0ff887229d6d20752ff879af24f4d3fe0e",
+          "outcomes": [
+            "censored",
+            "censored",
+            "censored",
+            "censored"
+          ],
+          "boundaries": [
+            {
+              "requested_tick": 53321,
+              "actual_tick": 53321,
+              "bytes": 12172,
+              "checkpoint_sha256": "ff8f205ea6289cf99f9f6e20ef930ed556faf5949c5d347ed82754824fab2826",
+              "native_hash": "70362ccddc281cba3797a4e87854f42a8dee85a427bfe18df641a4830c9f71b1",
+              "ledger_hash": "6fb5283d5815a0dfed9a0ab768743572d91f13635c74115fa32e34a341ad04ea",
+              "observation_hash": "d72ea83bc98da71bf60a69d99baadd5efdb0ee7073a4d607778d0f56b6ee1e0e",
+              "trace_hash": "8bd8f93fb6f664d579c210add68ebc5452191e85ba133479c670014590b2dcef"
+            }
+          ]
+        },
+        "certificate_tick": 53321,
+        "certificates": [
+          {
+            "kind": "compact-buffer-v1",
+            "phase": "compact",
+            "lane": "market-approach",
+            "members": [
+              "02"
+            ],
+            "start": 60,
+            "frontier": 450,
+            "stopCells": [
+              14
+            ],
+            "speeds": [
+              2.5
+            ],
+            "targets": [
+              61.59526724536029
+            ],
+            "landingSpeeds": [
+              0
+            ]
+          }
+        ]
+      },
+      "cli_calls": 7,
+      "total_observed_call_elapsed_seconds": 29.67645162437111,
+      "peak_rss": {
+        "max_rss_kib": 24324,
+        "file": "actual-compact-53321-b.time.txt"
+      },
+      "cancellation": [
+        {
+          "name": "compact-active-replay-sigint",
+          "signal_to_exit_seconds": 0.00513655599206686
+        }
+      ],
+      "raw_run_metadata": "artifacts/controller-study-v2/*.run.json"
+    },
+    "cooldown-study-v2": {
+      "evidence": {
+        "binary_sha256": "c285d53e41475cd96159982cbba3e218bb66bf3d1650c58caaff4fb2735d2ce7",
+        "source_revision": "d52e31d0b5192998984086a1021252e264003040",
+        "case": {
+          "name": "actual-cooldown",
+          "project_sha256": "6daf2640363ceaf9c515cfb08e31d8ac463f7cae3bb03ac0eb39f493b6fc9f45",
+          "plan_sha256": "c59988f6e91f129daaa66321260982b2da97427bb4a9b950bdb371947e627ad6",
+          "horizon": "10m",
+          "queue_limit": 200,
+          "final_tick": 36000,
+          "final_checkpoint_bytes": 7895,
+          "final_checkpoint_sha256": "a600c58f50e52bb703119deb34ec9f2454c50ce5afd9c456b0dfe67813155542",
+          "outcomes": [
+            "censored",
+            "censored"
+          ],
+          "boundaries": [
+            {
+              "requested_tick": 2221,
+              "actual_tick": 2221,
+              "bytes": 8149,
+              "checkpoint_sha256": "da934d9a61b0bcfeaab128e8875b08aae13ffb04dd91899ebd626bb1edf30408",
+              "native_hash": "e4feeeaf6619f5fac6ef9f1e241e8fb6aeda6fb021e462c239c4d1233f3c315e",
+              "ledger_hash": "962a19356ce48e58bfa584b158d8cc0ef20120c5a9be58a32b4b9b658b57069c",
+              "observation_hash": "42f176beb8e3f35c23504a8954b2ed762ae90d4adc919462a93632ff169a411c",
+              "trace_hash": "34d76f3e02f9847b38bd11569a0c3636674a948f684b8f2d79c6032f9fda7a91"
+            },
+            {
+              "requested_tick": 3000,
+              "actual_tick": 3000,
+              "bytes": 8271,
+              "checkpoint_sha256": "cb8de4f70aca8afdf9644aab842ce23a714e7a3fa39400309ddf590fa6a8b51c",
+              "native_hash": "62720fff4e775fd904aa4a0f62f1533c85448dbb9f3e9589002ddfac13b35406",
+              "ledger_hash": "2326b30516fe128fff3c0d7c66e692595ca563175adb9082b5cf07dc205cabe2",
+              "observation_hash": "4fb7915a1d7ae1f5c9750a005097060219fe46eebb7aff20b9413c14c356abf3",
+              "trace_hash": "5e5930dee52d7fcab104b3ac634aea3c4009308b3aaad88b92fe23368b25bf87"
+            },
+            {
+              "requested_tick": 4021,
+              "actual_tick": 4021,
+              "bytes": 8162,
+              "checkpoint_sha256": "21cf36d95be921d5312739eba9374bd210534be376d728392c4967002d1bd71f",
+              "native_hash": "57b35186690f25816156c86d0c03014d61ba106b02ddcad74e89bd6b5fba35bd",
+              "ledger_hash": "f5256ec3db4707a5618593e59bcff16d65a7fdcc49e2f91647231b2dc33ebafc",
+              "observation_hash": "600452300f8c24ef95fabe868ef98a1907503075aa9832a02b59493463660a5b",
+              "trace_hash": "7566fbe7782c800a5258fe929ef0db4201deb207637b36215799d42f2f3c6a30"
+            }
+          ]
+        },
+        "transfer_tick": 2221,
+        "source_cooldown_expires_tick": 4021,
+        "actual_public_api_stats_evidence": "cooldown-native-schedule.log; transfers1 at2221 then actualCooldownPairs>0 plusClone/replayfuture1200"
+      },
+      "cli_calls": 12,
+      "total_observed_call_elapsed_seconds": 9.435490956529975,
+      "peak_rss": {
+        "max_rss_kib": 24076,
+        "file": "actual-cooldown-final-resume.time.txt"
+      },
+      "cancellation": [],
+      "raw_run_metadata": "artifacts/cooldown-study-v2/*.run.json"
+    },
+    "width-study-v2": {
+      "evidence": {
+        "binary_sha256": "c285d53e41475cd96159982cbba3e218bb66bf3d1650c58caaff4fb2735d2ce7",
+        "plans": [
+          {
+            "name": "count",
+            "records": 29873,
+            "raw_plan_bytes": 10485519,
+            "plan_sha256": "8d8676389d326aca1989f7d6f6e266eb87c4290e10dc26ec8008bfe38a525ef7",
+            "checkpoint_bytes": 20377304,
+            "checkpoint_sha256": "2fd52a91a4afb80be90b2f0eb76181a2aaef5696864b3f2f6cc77a9a41b15b6e",
+            "retained_ledger_charge_bytes": 122360320,
+            "next_record_raw_bytes": 10485870
+          },
+          {
+            "name": "escaped64",
+            "records": 14462,
+            "raw_plan_bytes": 10485046,
+            "plan_sha256": "18d948bc4f4e12c0fcfc7d08d1ee3bc5e5b123596bfbd1bc310abc2f7f4653fe",
+            "checkpoint_bytes": 15275790,
+            "checkpoint_sha256": "0782ca028d38d2e0d8a09a22447ef136015b369e3f11fb0aae1251b3dce09414",
+            "retained_ledger_charge_bytes": 59236864,
+            "next_record_raw_bytes": 10485771
+          }
+        ],
+        "normalized_origin_reject": {
+          "records": 32363,
+          "raw_bytes": 10485708,
+          "raw_sha256": "98d8b9f54a362c02fa3c483855bb399a7f5fbc412fefd770da096c37c3e06fcc",
+          "expected": "continuation origin: bounded checkpoint encoding exceeded"
+        },
+        "offline_queue": {
+          "pending": 2999,
+          "checkpoint_bytes": 2614802,
+          "checkpoint_sha256": "5e3c4d9efb56efcf57cb20719791029c79dad5e4f24eb392277f3c4ddedb7cc8"
+        },
+        "boundaries": [
+          {
+            "bytes": 83886080,
+            "sha256": "ceb661850b0385d3416a86aacf7fe960ef7aa7e427890dd45989825899599572",
+            "failure": "{\"time\":\"2026-10-03T22:21:01.974641579Z\",\"level\":\"ERROR\",\"msg\":\"Car continuation failed\",\"error\":\"scan checkpoint: EOF\"}\nscan checkpoint: EOF\n"
+          },
+          {
+            "bytes": 83886081,
+            "sha256": "b85f0e934379abce7dd7bbaa93b57225e3c958707616d554fa1c96985173711d",
+            "failure": "{\"time\":\"2026-10-03T22:21:02.26798842Z\",\"level\":\"ERROR\",\"msg\":\"Car continuation failed\",\"error\":\"checkpoint exceeds 80 MiB\"}\ncheckpoint exceeds 80 MiB\n"
+          }
+        ]
+      },
+      "cli_calls": 10,
+      "total_observed_call_elapsed_seconds": 10.382617039605975,
+      "peak_rss": {
+        "max_rss_kib": 396044,
+        "file": "boundary-83886080.time.txt"
+      },
+      "cancellation": [
+        {
+          "name": "sigint-replay",
+          "signal_to_exit_seconds": 0.020362790673971176
+        }
+      ],
+      "raw_run_metadata": "artifacts/width-study-v2/*.run.json"
+    },
+    "transport-study-v2": {
+      "evidence": {
+        "binary_sha256": "c285d53e41475cd96159982cbba3e218bb66bf3d1650c58caaff4fb2735d2ce7",
+        "canonical_original_sha256": "2fd52a91a4afb80be90b2f0eb76181a2aaef5696864b3f2f6cc77a9a41b15b6e",
+        "canonical_plan_bytes": 10485519,
+        "whitespace_transport_bytes": 30864088,
+        "canonical_reencoded_sha256": "2fd52a91a4afb80be90b2f0eb76181a2aaef5696864b3f2f6cc77a9a41b15b6e",
+        "member_order_reencoded_sha256": "2fd52a91a4afb80be90b2f0eb76181a2aaef5696864b3f2f6cc77a9a41b15b6e",
+        "foreign_identity_rejected": true
+      },
+      "cli_calls": 3,
+      "total_observed_call_elapsed_seconds": 3.184730939567089,
+      "peak_rss": {
+        "max_rss_kib": 267404,
+        "file": "canonical-interior-whitespace.time.txt"
+      },
+      "cancellation": [],
+      "raw_run_metadata": "artifacts/transport-study-v2/*.run.json"
+    }
+  },
+  "mutation_receipts": [
+    {
+      "guard": "identity",
+      "control_exit": 0,
+      "mutant_exit": 1,
+      "assertion_kill": true,
+      "restored_sha256": "8ef5fb142cd9ce4fd73be353558696fadd5dd591a2cf24f375099186d3cef33b"
+    },
+    {
+      "guard": "held-slot",
+      "control_exit": 0,
+      "mutant_exit": 1,
+      "assertion_kill": true,
+      "restored_sha256": "8ef5fb142cd9ce4fd73be353558696fadd5dd591a2cf24f375099186d3cef33b"
+    },
+    {
+      "guard": "half-open",
+      "control": {
+        "report_sha256": "1b1003c46df369e114ba6b1be3c1f33d195588cfa63488b1924d7a52b895e12b",
+        "observed_offered_tick": -1,
+        "submitted": 0,
+        "contract_assertion_pass": true
+      },
+      "mutant": {
+        "report_sha256": "be3ab9be8dac4136ff7ea57ee2cd376ddb2be9dc469082982f9f0b381561e8ba",
+        "observed_offered_tick": 60,
+        "submitted": 1,
+        "contract_assertion_pass": false
+      },
+      "compiled": true,
+      "assertion_kill": true,
+      "restored_sha256": "c94a9617ade59082db995c78ce90439c5f207eea330f6f8c3d79b94fc06a9f53",
+      "scope": "ordinary CLI; dirty checkpoint build is not bypassed",
+      "contract_assertion_exit_codes": {
+        "control": 0,
+        "mutant": 1
+      },
+      "assertion_log": "caller-half-open-assert-mutant.log",
+      "mutant_binary_sha256": "66eaebae4981f44f02102fea440d33c04b90f759b3d932936aadaa97c1f152cf",
+      "binary_retention": "Obsolete mutated binary removed at final cleanup; exact source mutation/build/log retained"
+    }
+  ],
+  "root_native_mutation": {
+    "source": "internal/parkride/checkpoint_restore.go",
+    "caller": "DecodeCheckpoint",
+    "control_sha256": "bd639a9a2d451e3dd8f221803f15092b0152b821d8d98943dda6d466b3523014",
+    "mutant_sha256": "9cbd662201c1ae57408a2b7bce3fb90d5ef91ffbf848dd7c6cef24d5607c3a91",
+    "test": "TestCheckpointIndependentAcceptanceGuards/native_metric",
+    "mutation": "if !reflect.DeepEqual(candidate.pods.ExportState(), payload.Native) { -> if false && !reflect.DeepEqual(candidate.pods.ExportState(), payload.Native) {",
+    "compiled_assertion_kill": true,
+    "mutant_exit_code": 1,
+    "restored": true
+  },
+  "guard_map": [
+    {
+      "guard": "foundation",
+      "path": "internal/parkride/run.go",
+      "line": 87,
+      "anchor": "validateFoundationConfig(input.Project)",
+      "assertion": "TestFoundationRawPresence",
+      "disposition": "All ordinary and continuation constructors reject project4 and effective future orderContract.",
+      "mutation_status": "Mapped to meaningful acceptance assertion; no caller mutation performed for this row."
+    },
+    {
+      "guard": "lineage identity",
+      "path": "internal/parkride/checkpoint.go",
+      "line": 114,
+      "anchor": "validateImplementation(identity",
+      "assertion": "TestCheckpointParserAndLineage",
+      "disposition": "Valid source/executable/compiled identity and bounded UTF8 metadata; old runs cannot upgrade.",
+      "mutation_status": "Mapped to meaningful acceptance assertion; no caller mutation performed for this row."
+    },
+    {
+      "guard": "clean executable",
+      "path": "cmd/parkride/checkpoint_identity.go",
+      "line": 28,
+      "anchor": "vcs.modified",
+      "assertion": "TestCheckpointBuildFacts",
+      "disposition": "Runtime executable must identify clean VCS and jsonv2 build; unit helper does not bypass production main.",
+      "mutation_status": "Mapped to meaningful acceptance assertion; no caller mutation performed for this row."
+    },
+    {
+      "guard": "origin/raw input bound",
+      "path": "internal/parkride/checkpoint_restore.go",
+      "line": 38,
+      "anchor": "MaxCheckpointBytes+1",
+      "assertion": "TestCheckpointParserAndLineage",
+      "disposition": "80 MiB transport cap before scanner and typed allocation; project/normalized plan10 MiB separately.",
+      "mutation_status": "Mapped to meaningful acceptance assertion; no caller mutation performed for this row."
+    },
+    {
+      "guard": "raw shape",
+      "path": "internal/parkride/checkpoint_scan.go",
+      "line": 62,
+      "anchor": "scanCheckpoint",
+      "assertion": "TestCheckpointPreallocationBounds",
+      "disposition": "UTF8 duplicate unknown/null required/types depth members text frozen native shape and path-specific arrays.",
+      "mutation_status": "Mapped to meaningful acceptance assertion; no caller mutation performed for this row."
+    },
+    {
+      "guard": "native finite records",
+      "path": "internal/parkride/checkpoint_scan.go",
+      "line": 77,
+      "anchor": "s.counts[\"/payload/native/waiting\"]+s.counts",
+      "assertion": "TestCheckpointCombinedPreallocationBounds/retained_request_total",
+      "disposition": "Completed display riders plus pending <=2*N before typed allocation; no2600 live limit.",
+      "mutation_status": "Mapped to meaningful acceptance assertion; no caller mutation performed for this row."
+    },
+    {
+      "guard": "native actual route",
+      "path": "internal/parkride/checkpoint_scan.go",
+      "line": 82,
+      "anchor": "native route exceeds origin",
+      "assertion": "TestCheckpointCombinedPreallocationBounds/actual_pod_route_bound",
+      "disposition": "Largest pod/queued route compared with actual origin network node/lane counts.",
+      "mutation_status": "Mapped to meaningful acceptance assertion; no caller mutation performed for this row."
+    },
+    {
+      "guard": "compact disjoint",
+      "path": "internal/parkride/checkpoint_scan.go",
+      "line": 114,
+      "anchor": "s.compactMembers[id]",
+      "assertion": "TestCheckpointCombinedPreallocationBounds/disjoint_compact_members",
+      "disposition": "No repeated compact member across certificates and <=300 retained members.",
+      "mutation_status": "Mapped to meaningful acceptance assertion; no caller mutation performed for this row."
+    },
+    {
+      "guard": "payload integrity",
+      "path": "internal/parkride/checkpoint_restore.go",
+      "line": 73,
+      "anchor": "hash != file.CheckpointID",
+      "assertion": "TestCheckpointParserAndLineage",
+      "disposition": "Deterministic typed-payload SHA verifies transport; repaired hashes still face semantic guards.",
+      "mutation_status": "Mapped to meaningful acceptance assertion; no caller mutation performed for this row."
+    },
+    {
+      "guard": "same executable",
+      "path": "internal/parkride/checkpoint_restore.go",
+      "line": 77,
+      "anchor": "payload.Origin.Implementation != input.Implementation",
+      "assertion": "TestCheckpointIndependentAcceptanceGuards/executable",
+      "disposition": "All exact implementation members compare before replay.",
+      "mutation_status": "Compiled omission target executable assertion killed; later origin-hash rejection remains. caller-mutations/results.json; source restored."
+    },
+    {
+      "guard": "joint clock/control",
+      "path": "internal/parkride/checkpoint_restore.go",
+      "line": 181,
+      "anchor": "p.Tick != p.Native.Tick",
+      "assertion": "TestCheckpointIndependentAcceptanceGuards/joint_clock",
+      "disposition": "Phase encoding absolute clock horizon queue immutable and no paused/demo states.",
+      "mutation_status": "Mapped to meaningful acceptance assertion; no caller mutation performed for this row."
+    },
+    {
+      "guard": "conservation",
+      "path": "internal/parkride/checkpoint_restore.go",
+      "line": 267,
+      "anchor": "lot.Occupancy != held[i]",
+      "assertion": "TestCheckpointIndependentAcceptanceGuards/held_slot",
+      "disposition": "Held cars conserve authored lot slots separately from native storage.",
+      "mutation_status": "Compiled omission target held_slot assertion killed; later replay-ledger rejection remains. caller-mutations/results.json; source restored."
+    },
+    {
+      "guard": "whole party/request",
+      "path": "internal/parkride/checkpoint_restore.go",
+      "line": 277,
+      "anchor": "request.PartySize != expected.PartySize",
+      "assertion": "TestCheckpointRefusalsAndConsent",
+      "disposition": "Finite leg bindings consent party service receipt identity match active native retained requests.",
+      "mutation_status": "Mapped to meaningful acceptance assertion; no caller mutation performed for this row."
+    },
+    {
+      "guard": "origin ownership",
+      "path": "internal/parkride/checkpoint_restore.go",
+      "line": 83,
+      "anchor": "validateOrigin(ctx, payload)",
+      "assertion": "TestCheckpointIndependentAcceptanceGuards/future_project",
+      "disposition": "Native project.Validate and normalized plan plus origin hashes/runID validated before isolated replay.",
+      "mutation_status": "Mapped to meaningful acceptance assertion; no caller mutation performed for this row."
+    },
+    {
+      "guard": "native independent comparison",
+      "path": "internal/parkride/checkpoint_restore.go",
+      "line": 123,
+      "anchor": "if !reflect.DeepEqual(candidate.pods.ExportState(), payload.Native)",
+      "assertion": "TestCheckpointIndependentAcceptanceGuards/native_metric",
+      "disposition": "Recommended root mutation: remove this entire if at actual DecodeCheckpoint call site. Repaired EmptyDistance++ otherwise returns accepted candidate, so intended native snapshot assertion must fail; build failure invalid.",
+      "mutation_status": "Root independently compiled false&& omission target native_metric assertion killed at93a5569; accepted candidate returned; comparison callsite unchanged in d52e31d. root/car-mutation-control.json."
+    },
+    {
+      "guard": "ledger independent comparison",
+      "path": "internal/parkride/checkpoint_restore.go",
+      "line": 126,
+      "anchor": "if !reflect.DeepEqual(candidate.checkpointLedger(), payload.Ledger)",
+      "assertion": "TestCheckpointIndependentAcceptanceGuards/car_derived_time",
+      "disposition": "Independent compact ledger equality catches changed future eligibility even with repaired payload+ledger hashes.",
+      "mutation_status": "Mapped to meaningful acceptance assertion; no caller mutation performed for this row."
+    },
+    {
+      "guard": "observation independent comparison",
+      "path": "internal/parkride/checkpoint_restore.go",
+      "line": 133,
+      "anchor": "if observation != payload.ObservationHash",
+      "assertion": "TestCheckpointIndependentAcceptanceGuards/observation",
+      "disposition": "Runtime Snapshot/Policies/Report canonical bounded streamed hash, includes native speed.",
+      "mutation_status": "Mapped to meaningful acceptance assertion; no caller mutation performed for this row."
+    },
+    {
+      "guard": "trace independent comparison",
+      "path": "internal/parkride/checkpoint_restore.go",
+      "line": 136,
+      "anchor": "if hex.EncodeToString(candidate.continuation.trace[:]) != payload.TraceHash",
+      "assertion": "TestCheckpointIndependentAcceptanceGuards/trace",
+      "disposition": "Tick0 and every stable boundary rolling chain compared independently.",
+      "mutation_status": "Mapped to meaningful acceptance assertion; no caller mutation performed for this row."
+    },
+    {
+      "guard": "capture and encode eligibility",
+      "path": "internal/parkride/checkpoint.go",
+      "line": 322,
+      "anchor": "r.fault != \"\"",
+      "assertion": "TestCheckpointParserAndLineage",
+      "disposition": "Fault/partial/no-lineage reject; current native+ledger+observable hashes compare before encoding.",
+      "mutation_status": "Mapped to meaningful acceptance assertion; no caller mutation performed for this row."
+    },
+    {
+      "guard": "joint byte budget",
+      "path": "internal/parkride/checkpoint.go",
+      "line": 377,
+      "anchor": "sizes > MaxCheckpointBytes",
+      "assertion": "TestCheckpointNamedEncodingCharges",
+      "disposition": "P+A+S+1024N+128L+8192 conservative budget; observation O separately streaming bounded at80 MiB.",
+      "mutation_status": "Mapped to meaningful acceptance assertion; no caller mutation performed for this row."
+    },
+    {
+      "guard": "boarding receipt",
+      "path": "internal/parkride/checkpoint.go",
+      "line": 201,
+      "anchor": "p.continuation.observeBoardings(p.pods)",
+      "assertion": "TestCheckpointTickZeroAndEndpoint",
+      "disposition": "Actual native rider membership after synchronous offers and every Step captures tick0 distinct from absent -1.",
+      "mutation_status": "Mapped to meaningful acceptance assertion; no caller mutation performed for this row."
+    },
+    {
+      "guard": "half-open endpoint",
+      "path": "internal/parkride/ledger.go",
+      "line": 137,
+      "anchor": "offers := tick < l.horizon",
+      "assertion": "TestCheckpointTickZeroAndEndpoint",
+      "disposition": "Existing authoritative offer guard remains unchanged; endpoint car/completion events inclusive.",
+      "mutation_status": "Compiled actual ordinary CLI endpoint offer assertion killed; mutant offeredTick60/submitted1 versus control-1/0. caller-mutations/results.json; source restored."
+    },
+    {
+      "guard": "cancel/watchdog",
+      "path": "internal/parkride/checkpoint_restore.go",
+      "line": 115,
+      "anchor": "candidate.StepContext(ctx)",
+      "assertion": "TestCheckpointCancellationAndWriteFailure",
+      "disposition": "Checks at parse/encode writes and replay steps; candidate withheld on cancellation.",
+      "mutation_status": "Mapped to meaningful acceptance assertion; no caller mutation performed for this row."
+    },
+    {
+      "guard": "resume CLI controls",
+      "path": "cmd/parkride/main.go",
+      "line": 70,
+      "anchor": "resume controls come from",
+      "assertion": "TestCheckpointCLIResumeAndControls",
+      "disposition": "Explicit origin flag overrides including empty/zero reject; positive resume timeout and stopinterval required.",
+      "mutation_status": "Mapped to meaningful acceptance assertion; no caller mutation performed for this row."
+    },
+    {
+      "guard": "path aliases/regular parents",
+      "path": "cmd/parkride/checkpoint_file.go",
+      "line": 96,
+      "anchor": "samePath(opts.output, opts.checkpointOutput)",
+      "assertion": "TestCheckpointSymlinkedParentAliases",
+      "disposition": "Resolve existing parents for absent leaves; hardlinks/regular inputs/output/source aliases reject before encode.",
+      "mutation_status": "Mapped to meaningful acceptance assertion; no caller mutation performed for this row."
+    },
+    {
+      "guard": "exclusive publication",
+      "path": "cmd/parkride/checkpoint_file.go",
+      "line": 121,
+      "anchor": "os.O_EXCL",
+      "assertion": "TestCheckpointAliasesAndExclusiveClaim",
+      "disposition": "Exclusive sibling claim; temp0600/fsync/close/recheck/rename/dirsync; injected failures keep old target before rename.",
+      "mutation_status": "Mapped to meaningful acceptance assertion; no caller mutation performed for this row."
+    },
+    {
+      "guard": "postrename uncertainty",
+      "path": "cmd/parkride/checkpoint_file.go",
+      "line": 160,
+      "anchor": "ops.syncDir(dir)",
+      "assertion": "TestCheckpointAtomicPublicationFailures",
+      "disposition": "After rename, directory-sync failure reports crash durability uncertainty; never reports pre-rename rollback.",
+      "mutation_status": "Mapped to meaningful acceptance assertion; no caller mutation performed for this row."
+    },
+    {
+      "guard": "canonical project transport adapter",
+      "path": "internal/parkride/checkpoint_restore.go",
+      "line": 53,
+      "anchor": "project.DecodeCanonicalJSON(raw)",
+      "assertion": "TestCheckpointCanonicalComponentWhitespace/project",
+      "disposition": "Whole checkpoint80MiB/path prescan before typed allocation; native raw-presence checks retained, canonical project10MiB through approved native helper. Existing public project raw10MiB unchanged.",
+      "mutation_status": "Mapped to meaningful acceptance assertion; no caller mutation performed for this row."
+    }
+  ],
+  "gates": [
+    {
+      "name": "v2-full-suite",
+      "exit_code": 0,
+      "ended": "2026-10-03T21:54:04.323535+00:00",
+      "command": [
+        "go",
+        "test",
+        "./internal/parkride",
+        "./cmd/parkride",
+        "./internal/project"
+      ],
+      "raw_log": "artifacts/v2-full-suite.log",
+      "exit_marker": "artifacts/v2-full-suite.exit",
+      "disposition": "passed"
+    },
+    {
+      "name": "v2-race",
+      "exit_code": 0,
+      "ended": "2026-10-03T21:57:40.320996+00:00",
+      "command": [
+        "go",
+        "test",
+        "-race",
+        "./internal/parkride",
+        "./cmd/parkride"
+      ],
+      "raw_log": "artifacts/v2-race.log",
+      "exit_marker": "artifacts/v2-race.exit",
+      "disposition": "passed"
+    },
+    {
+      "name": "v2-vet",
+      "exit_code": 0,
+      "ended": "2026-10-03T21:54:43.750504+00:00",
+      "command": [
+        "go",
+        "vet",
+        "./internal/parkride",
+        "./cmd/parkride"
+      ],
+      "raw_log": "artifacts/v2-vet.log",
+      "exit_marker": "artifacts/v2-vet.exit",
+      "disposition": "passed"
+    },
+    {
+      "name": "v2-lint",
+      "exit_code": 1,
+      "ended": "2026-10-03T21:54:46.220477+00:00",
+      "command": [
+        "/home/dotwaffle/.local/share/mise/installs/golangci-lint/2.14.0/golangci-lint-2.14.0-linux-amd64/golangci-lint",
+        "run",
+        "./internal/parkride/...",
+        "./cmd/parkride/..."
+      ],
+      "raw_log": "artifacts/v2-lint.log",
+      "exit_marker": "artifacts/v2-lint.exit",
+      "disposition": "initial failed gate, superseded by passing final gate; raw evidence retained"
+    },
+    {
+      "name": "v2-final-diagnostics",
+      "exit_code": 0,
+      "ended": "2026-10-03T22:00:10.691557+00:00",
+      "command": [
+        "python3",
+        "/home/dotwaffle/.cache/agents/podsim/service-access-20261002/gopls-call.py",
+        "go_diagnostics",
+        "{\"files\":[\"/tmp/build/podsim/continuation-express-batch/wt/car/internal/parkride/checkpoint_restore.go\",\"/tmp/build/podsim/continuation-express-batch/wt/car/internal/parkride/checkpoint_scan.go\",\"/tmp/build/podsim/continuation-express-batch/wt/car/internal/parkride/checkpoint_scan_test.go\",\"/tmp/build/podsim/continuation-express-batch/wt/car/internal/parkride/checkpoint_test.go\"]}"
+      ],
+      "raw_log": "artifacts/v2-final-diagnostics.log",
+      "exit_marker": "artifacts/v2-final-diagnostics.exit",
+      "disposition": "passed"
+    },
+    {
+      "name": "v2-bounded-fuzz",
+      "exit_code": 0,
+      "ended": "2026-10-03T22:00:03.706361+00:00",
+      "command": [
+        "go",
+        "test",
+        "./internal/parkride",
+        "-run",
+        "^$",
+        "-fuzz",
+        "^FuzzCheckpointBoundedDecode$",
+        "-fuzztime=10s",
+        "-parallel=2"
+      ],
+      "raw_log": "artifacts/v2-bounded-fuzz.log",
+      "exit_marker": "artifacts/v2-bounded-fuzz.exit",
+      "disposition": "passed"
+    },
+    {
+      "name": "final-cooldown-package",
+      "exit_code": 0,
+      "ended": "2026-10-03T22:47:26.252094+00:00",
+      "command": [
+        "go",
+        "test",
+        "./internal/parkride",
+        "./cmd/parkride",
+        "-count=1"
+      ],
+      "raw_log": "artifacts/final-cooldown-package.log",
+      "exit_marker": "artifacts/final-cooldown-package.exit",
+      "disposition": "passed"
+    },
+    {
+      "name": "final-cooldown-race",
+      "exit_code": 0,
+      "ended": "2026-10-03T22:47:19.349598+00:00",
+      "command": [
+        "go",
+        "test",
+        "-race",
+        "./internal/parkride",
+        "-run",
+        "^TestCheckpointPickupCooldownFuture$",
+        "-count=1"
+      ],
+      "raw_log": "artifacts/final-cooldown-race.log",
+      "exit_marker": "artifacts/final-cooldown-race.exit",
+      "disposition": "passed"
+    },
+    {
+      "name": "final-cooldown-vet",
+      "exit_code": 0,
+      "ended": "2026-10-03T22:47:13.053713+00:00",
+      "command": [
+        "go",
+        "vet",
+        "./internal/parkride",
+        "./cmd/parkride"
+      ],
+      "raw_log": "artifacts/final-cooldown-vet.log",
+      "exit_marker": "artifacts/final-cooldown-vet.exit",
+      "disposition": "passed"
+    },
+    {
+      "name": "final-cooldown-lint",
+      "exit_code": 0,
+      "ended": "2026-10-03T22:47:14.961293+00:00",
+      "command": [
+        "/home/dotwaffle/.local/share/mise/installs/golangci-lint/2.14.0/golangci-lint-2.14.0-linux-amd64/golangci-lint",
+        "run",
+        "./internal/parkride/...",
+        "./cmd/parkride/..."
+      ],
+      "raw_log": "artifacts/final-cooldown-lint.log",
+      "exit_marker": "artifacts/final-cooldown-lint.exit",
+      "disposition": "passed"
+    },
+    {
+      "name": "final-cooldown-diagnostics",
+      "exit_code": 0,
+      "ended": "2026-10-03T22:47:13.854203+00:00",
+      "command": [
+        "python3",
+        "/home/dotwaffle/.cache/agents/podsim/service-access-20261002/gopls-call.py",
+        "go_diagnostics",
+        "{\"files\":[\"/tmp/build/podsim/continuation-express-batch/wt/car/internal/parkride/checkpoint_test.go\"]}"
+      ],
+      "raw_log": "artifacts/final-cooldown-diagnostics.log",
+      "exit_marker": "artifacts/final-cooldown-diagnostics.exit",
+      "disposition": "passed"
+    }
+  ],
+  "durable_evidence": "/home/dotwaffle/.cache/agents/podsim/continuation-express-batch-20261003/car/qualification-final",
+  "status": "Selected same-executable foundation qualification complete; later integrated identity bridge is a separate root receipt.",
+  "historical_24h": {
+    "harness_correction": "Original postprocess assertion assumed unsorted itinerary order. Native normalization sorts midnight-party before party-1. Replaced only receipt check with source-ID lookup; actual complete file/report equality assertions already passed. No native rerun or source edit.",
+    "binary_sha256": "165bb7e2b46c83731493eb50deb0e9c9c140044bc4544adcc55a1a36789e2d96",
+    "source_revision": "93a556903c4ea0826a4a5a8ee55365554027071e",
+    "plan_sha256": "365c82a9ac22c3511fb3b9a3bbda1ad26a9df979fe6677c4f67dbdfa115ab4f2",
+    "checkpoint_sha256": "aba2e2923ba3a4208de7790fb335dd3fe327c315f22c37e24dda3ad83a756d84",
+    "checkpoint_bytes": 6446,
+    "tick": 5184000,
+    "native_hash": "bc96650f14a402663ce32d4ce410d941433d92a66249e8aab3bf8ede8e3bbe3e",
+    "ledger_hash": "cccb36685db210fc3689aa6d049b695e805bf433844f11b7c9097b278464d1bd",
+    "observation_hash": "eee89dfc10f7dd6b880f5d8b3fe7d0e83f1272baa74c631947b46d8a7edd9b61",
+    "trace_hash": "3461345c4ceab92e11007c429e960c2e56d94b828bc77ab19bec93d25aad28f2",
+    "held_slots": 2,
+    "outcomes": {
+      "midnight-party": "censored",
+      "party-1": "stranded",
+      "party-2": "completed"
+    },
+    "scope": "Historical93a5569 24h temporal proof; not a new d52binary measurement; identical Run source hash",
+    "elapsed_seconds": [
+      {
+        "name": "midnight-ordinary",
+        "elapsed": 0.8145083598792553
+      },
+      {
+        "name": "midnight-replay",
+        "elapsed": 184.9422214468941
+      },
+      {
+        "name": "midnight-traced",
+        "elapsed": 183.8665231987834
+      }
+    ]
+  },
+  "ordinary_indivisible_run_steps": {
+    "source_revision": "93a556903c4ea0826a4a5a8ee55365554027071e",
+    "scope": "Upper bound native StepResult plus ledger; no checkpoint executable identity claim",
+    "singleton": {
+      "steps": 5024,
+      "totalNanoseconds": 1537477,
+      "maxOrdinaryRunStepNanoseconds": 13396,
+      "maxTick": 2843,
+      "scope": "Upper bound on indivisible native StepResult plus ledger work; ordinary origin run, no checkpoint identity assertion."
+    },
+    "queue3000": {
+      "steps": 2000,
+      "totalNanoseconds": 1856154621,
+      "maxOrdinaryRunStepNanoseconds": 2587515,
+      "maxTick": 614,
+      "scope": "Upper bound on indivisible native StepResult plus ledger work; ordinary origin run, no checkpoint identity assertion."
+    }
+  },
+  "final_integrated_bridge_receipt": "/home/dotwaffle/.cache/agents/podsim/continuation-express-batch-20261003/root/final-main",
+  "final_integrated_bridge_scope": "Separate later source/executable identity; no cross-build acceptance claim",
+  "maximum_shapes": {
+    "metrics": {
+      "version": 1,
+      "base": "1ba2ffa3dbb4f918d546a43e6aa232087c6ee1e9",
+      "test_sha256": "da6675e73b3465574ca48b20e4fdb769c4f62c4ffcd710b507762fd0b9ddf650",
+      "owned_paths": [
+        "internal/parkride/checkpoint_shapes_test.go"
+      ],
+      "measurement_method": "Actual json/v2 deterministic named-type streaming serializer into bounded counting sinks; no raw checkpoint retained. Run.EncodeCheckpoint called on the valid initial-boundary run.",
+      "scope": {
+        "public": "Version2 foundation project, tick0 initialization and complete EncodeCheckpoint only. No physical traffic or DecodeCheckpoint/replay claim. Authored distinct separation groups per path and berth; unused remote component.",
+        "fitting_envelope": "Frozen named checkpoint types only; compatible collection byte budgets, incompatible native activities/times/counters/identities. No semantic admission, physics, or replay claim.",
+        "rejected_envelopes": "Frozen named checkpoint types only. Independent storage extrema are incompatible. Native riders2400 plus waiting respects2N whenN>=1200; independent-lot-maximum armN1 is additionally incompatible with2400riders. All origin/storage/native/conservation incompatibilities remain explicit.",
+        "maximum_project": "5000nodes/8000lanes/300stations/300pods; one200berth8bankstation,499totalberths;8profiles,24bands/profile,2450flows/profile with24weights. All24band65000flow maxima do not jointly fit10MiB. 60000distinctberths exceed5000nodes. Allnode+laneendpointIDs six-escaped64 exceed10MiB before other fields.",
+        "plan": "14705 future privateparty1 itineraries, one64six-escapedIDlot, MaxInt64 capacity/carSeats. Maximal canonical-fit count for these frozen field widths, not globalmaximum itinerarycount.",
+        "work_bound": "Each test counting sink capped at8*existing256MiB ledgerstorage=2GiB. This only bounds measurement work; actual production preflight/output remains10MiB origins/80MiB checkpoint. No output artifact."
+      },
+      "limits": {
+        "project_and_plan_canonical_bytes": 10485760,
+        "checkpoint_bytes": 83886080,
+        "test_counter_work_bytes": 2147483648
+      },
+      "measurements": [
+        {
+          "name": "public-initial-tick-only",
+          "kind": "public-initial-tick-only",
+          "bytes": 25974736,
+          "project": 10484518,
+          "plan": 10485129,
+          "native": 135018,
+          "ledger": 4867415,
+          "nodes": 5000,
+          "lanes": 8000,
+          "stations": 300,
+          "pods": 300,
+          "records": 14705,
+          "lots": 1,
+          "max-station-berths": 200,
+          "max-station-banks": 8,
+          "profiles": 8,
+          "bands": 24,
+          "flows-per-profile": 2450,
+          "envelope-overhead": 2656
+        },
+        {
+          "name": "impossible-all-escaped-node-lane-ids",
+          "kind": "impossible-all-escaped-node-lane-ids",
+          "lower-bound": 11194000,
+          "project-cap": 10485760
+        },
+        {
+          "name": "impossible-independent-project-maxima",
+          "kind": "impossible-independent-project-maxima",
+          "berth-nodes": 60000,
+          "node-cap": 5000,
+          "full-band-flow-lower-bound": 42120000,
+          "project-cap": 10485760
+        },
+        {
+          "name": "signed-envelope-widths",
+          "kind": "signed-envelope-widths",
+          "record": 609,
+          "lot": 62,
+          "signed-integer-fields": 13
+        },
+        {
+          "name": "encoding-envelope-only-fitting",
+          "kind": "encoding-envelope-only-fitting",
+          "bytes": 72104395,
+          "project": 10484518,
+          "plan": 10485129,
+          "native": 42161090,
+          "ledger": 8970167,
+          "records": 14705,
+          "lots": 1,
+          "waiting": 0,
+          "pods": 300,
+          "pod-route": 13000,
+          "boardings": "300x8",
+          "compact-heads": 75,
+          "compact-members": 300,
+          "envelope-overhead": 3491
+        },
+        {
+          "name": "canonical-origin-combined-envelope",
+          "kind": "encoding-envelope-only",
+          "bytes": 297507537,
+          "project": 10484518,
+          "plan": 10485129,
+          "native": 267564232,
+          "ledger": 8970167,
+          "records": 14705,
+          "lots": 1,
+          "waiting": 27010,
+          "pods": 300,
+          "pod-route": 13000,
+          "bound-waiting-routes": "300x5000",
+          "boardings": "300x8",
+          "compact-heads": 75,
+          "compact-members": 300,
+          "emitted-before-rejection": 83881481,
+          "storage-fits": true,
+          "envelope-overhead": 3491
+        },
+        {
+          "name": "independent-itinerary-maximum-envelope",
+          "kind": "encoding-envelope-only",
+          "bytes": 1265591604,
+          "project": 10484518,
+          "plan": 127861580,
+          "native": 1087264938,
+          "ledger": 39977077,
+          "records": 65536,
+          "lots": 1,
+          "waiting": 128672,
+          "pods": 300,
+          "pod-route": 13000,
+          "bound-waiting-routes": "300x5000",
+          "boardings": "300x8",
+          "compact-heads": 75,
+          "compact-members": 300,
+          "emitted-before-rejection": 83883012,
+          "storage-fits": false,
+          "envelope-overhead": 3491
+        },
+        {
+          "name": "independent-lot-maximum-envelope",
+          "kind": "encoding-envelope-only",
+          "bytes": 514549468,
+          "project": 10484518,
+          "plan": 428869561,
+          "native": 42161090,
+          "ledger": 33030808,
+          "records": 1,
+          "lots": 524288,
+          "waiting": 0,
+          "pods": 300,
+          "pod-route": 13000,
+          "bound-waiting-routes": "0x5000",
+          "boardings": "300x8",
+          "compact-heads": 75,
+          "compact-members": 300,
+          "emitted-before-rejection": 83878152,
+          "storage-fits": false,
+          "envelope-overhead": 3491
+        },
+        {
+          "name": "joint-storage-bound-envelope",
+          "kind": "encoding-envelope-only",
+          "bytes": 884203971,
+          "project": 10484518,
+          "plan": 278364186,
+          "native": 558848170,
+          "ledger": 36503606,
+          "records": 32768,
+          "lots": 262144,
+          "waiting": 63136,
+          "pods": 300,
+          "pod-route": 13000,
+          "bound-waiting-routes": "300x5000",
+          "boardings": "300x8",
+          "compact-heads": 75,
+          "compact-members": 300,
+          "emitted-before-rejection": 83880213,
+          "storage-fits": true,
+          "envelope-overhead": 3491
+        }
+      ],
+      "widths": {
+        "checkpointRecordBytes": 609,
+        "checkpointLotBytes": 62,
+        "integerFieldsPerRecord": 13,
+        "signedInt64MinimumDigits": 20,
+        "positiveInt64MaximumDigits": 19,
+        "escaped64IDJSONBytes": 386,
+        "planNextRecordBytes": 713
+      },
+      "validation": {
+        "focused": "shapes-full-v9",
+        "full_package": "shapes-full-v9",
+        "diagnostics": "shapes-diagnostics-v9",
+        "vet": "shapes-vet-v9",
+        "lint": "shapes-lint-v9",
+        "race": "Not run: test-only synchronous counting and fixture construction; no ownership or cancellation changes.",
+        "first_failed_receipts": [
+          "shapes-focused-v1",
+          "shapes-focused-v3",
+          "shapes-focused-v4",
+          "shapes-lint-v4"
+        ]
+      },
+      "gates": [
+        {
+          "command": [
+            "python3",
+            "/tmp/build/podsim/continuation-express-batch/shapes/gopls-batch.py",
+            "go_diagnostics",
+            "[{\"files\":[\"/tmp/build/podsim/continuation-express-batch/wt/shapes/internal/parkride/checkpoint_shapes_test.go\"]}]"
+          ],
+          "cwd": "/tmp/build/podsim/continuation-express-batch/wt/shapes",
+          "supervisor_pid": 2,
+          "pid": 3,
+          "pid_namespace": "pid:[4026532946]",
+          "started": "2026-10-03T22:53:52.501712+00:00",
+          "watchdog_deadline": "2026-10-03T22:56:52.501712+00:00",
+          "log": "/tmp/build/podsim/continuation-express-batch/shapes/shapes-diagnostics-v2.log",
+          "exit_marker": "/tmp/build/podsim/continuation-express-batch/shapes/shapes-diagnostics-v2.exit",
+          "stop_command": "kill -TERM -- -3",
+          "relaunch_command": "env /usr/bin/python3 /tmp/build/podsim/continuation-express-batch/shapes/run.py shapes-diagnostics-v2 180 python3 /tmp/build/podsim/continuation-express-batch/shapes/gopls-batch.py go_diagnostics '[{\"files\":[\"/tmp/build/podsim/continuation-express-batch/wt/shapes/internal/parkride/checkpoint_shapes_test.go\"]}]'",
+          "environment": {
+            "GOTOOLCHAIN": "local",
+            "GOEXPERIMENT": "jsonv2",
+            "GOROOT": "/home/dotwaffle/.local/share/mise/installs/go/1.27.1",
+            "GOGC": "400",
+            "GOMAXPROCS": "2",
+            "TMPDIR": "/tmp/build/podsim/continuation-express-batch/shapes/tmp"
+          },
+          "study_environment": {},
+          "peak_child_rss_kib": 472508,
+          "exit_code": 0,
+          "ended": "2026-10-03T22:53:53.667566+00:00"
+        },
+        {
+          "command": [
+            "python3",
+            "/tmp/build/podsim/continuation-express-batch/shapes/gopls-batch.py",
+            "go_diagnostics",
+            "[{\"files\":[\"/tmp/build/podsim/continuation-express-batch/wt/shapes/internal/parkride/checkpoint_shapes_test.go\"]}]"
+          ],
+          "cwd": "/tmp/build/podsim/continuation-express-batch/wt/shapes",
+          "supervisor_pid": 2,
+          "pid": 3,
+          "pid_namespace": "pid:[4026532947]",
+          "started": "2026-10-03T22:57:27.978874+00:00",
+          "watchdog_deadline": "2026-10-03T23:00:27.978874+00:00",
+          "log": "/tmp/build/podsim/continuation-express-batch/shapes/shapes-diagnostics-v4.log",
+          "exit_marker": "/tmp/build/podsim/continuation-express-batch/shapes/shapes-diagnostics-v4.exit",
+          "stop_command": "kill -TERM -- -3",
+          "relaunch_command": "env /usr/bin/python3 /tmp/build/podsim/continuation-express-batch/shapes/run.py shapes-diagnostics-v4 180 python3 /tmp/build/podsim/continuation-express-batch/shapes/gopls-batch.py go_diagnostics '[{\"files\":[\"/tmp/build/podsim/continuation-express-batch/wt/shapes/internal/parkride/checkpoint_shapes_test.go\"]}]'",
+          "environment": {
+            "GOTOOLCHAIN": "local",
+            "GOEXPERIMENT": "jsonv2",
+            "GOROOT": "/home/dotwaffle/.local/share/mise/installs/go/1.27.1",
+            "GOGC": "400",
+            "GOMAXPROCS": "2",
+            "TMPDIR": "/tmp/build/podsim/continuation-express-batch/shapes/tmp"
+          },
+          "study_environment": {},
+          "peak_child_rss_kib": 467032,
+          "exit_code": 0,
+          "ended": "2026-10-03T22:57:29.403637+00:00"
+        },
+        {
+          "command": [
+            "python3",
+            "/tmp/build/podsim/continuation-express-batch/shapes/gopls-batch.py",
+            "go_diagnostics",
+            "[{\"files\":[\"/tmp/build/podsim/continuation-express-batch/wt/shapes/internal/parkride/checkpoint_shapes_test.go\"]}]"
+          ],
+          "cwd": "/tmp/build/podsim/continuation-express-batch/wt/shapes",
+          "supervisor_pid": 2,
+          "pid": 6,
+          "pid_namespace": "pid:[4026532947]",
+          "started": "2026-10-03T23:00:31.703276+00:00",
+          "watchdog_deadline": "2026-10-03T23:03:31.703276+00:00",
+          "log": "/tmp/build/podsim/continuation-express-batch/shapes/shapes-diagnostics-v6.log",
+          "exit_marker": "/tmp/build/podsim/continuation-express-batch/shapes/shapes-diagnostics-v6.exit",
+          "stop_command": "kill -TERM -- -6",
+          "relaunch_command": "env /usr/bin/python3 /tmp/build/podsim/continuation-express-batch/shapes/run.py shapes-diagnostics-v6 180 python3 /tmp/build/podsim/continuation-express-batch/shapes/gopls-batch.py go_diagnostics '[{\"files\":[\"/tmp/build/podsim/continuation-express-batch/wt/shapes/internal/parkride/checkpoint_shapes_test.go\"]}]'",
+          "environment": {
+            "GOTOOLCHAIN": "local",
+            "GOEXPERIMENT": "jsonv2",
+            "GOROOT": "/home/dotwaffle/.local/share/mise/installs/go/1.27.1",
+            "GOGC": "400",
+            "GOMAXPROCS": "2",
+            "TMPDIR": "/tmp/build/podsim/continuation-express-batch/shapes/tmp"
+          },
+          "study_environment": {},
+          "peak_child_rss_kib": 405084,
+          "exit_code": 0,
+          "ended": "2026-10-03T23:00:32.568497+00:00"
+        },
+        {
+          "command": [
+            "python3",
+            "/tmp/build/podsim/continuation-express-batch/shapes/gopls-batch.py",
+            "go_diagnostics",
+            "[{\"files\":[\"/tmp/build/podsim/continuation-express-batch/wt/shapes/internal/parkride/checkpoint_shapes_test.go\"]}]"
+          ],
+          "cwd": "/tmp/build/podsim/continuation-express-batch/wt/shapes",
+          "supervisor_pid": 2,
+          "pid": 8,
+          "pid_namespace": "pid:[4026532941]",
+          "started": "2026-10-03T23:04:53.850712+00:00",
+          "watchdog_deadline": "2026-10-03T23:07:53.850712+00:00",
+          "log": "/tmp/build/podsim/continuation-express-batch/shapes/shapes-diagnostics-v7.log",
+          "exit_marker": "/tmp/build/podsim/continuation-express-batch/shapes/shapes-diagnostics-v7.exit",
+          "stop_command": "kill -TERM -- -8",
+          "relaunch_command": "env /usr/bin/python3 /tmp/build/podsim/continuation-express-batch/shapes/run.py shapes-diagnostics-v7 180 python3 /tmp/build/podsim/continuation-express-batch/shapes/gopls-batch.py go_diagnostics '[{\"files\":[\"/tmp/build/podsim/continuation-express-batch/wt/shapes/internal/parkride/checkpoint_shapes_test.go\"]}]'",
+          "environment": {
+            "GOTOOLCHAIN": "local",
+            "GOEXPERIMENT": "jsonv2",
+            "GOROOT": "/home/dotwaffle/.local/share/mise/installs/go/1.27.1",
+            "GOGC": "400",
+            "GOMAXPROCS": "2",
+            "TMPDIR": "/tmp/build/podsim/continuation-express-batch/shapes/tmp"
+          },
+          "study_environment": {},
+          "peak_child_rss_kib": 448548,
+          "exit_code": 0,
+          "ended": "2026-10-03T23:04:54.816117+00:00"
+        },
+        {
+          "command": [
+            "python3",
+            "/tmp/build/podsim/continuation-express-batch/shapes/gopls-batch.py",
+            "go_diagnostics",
+            "[{\"files\":[\"/tmp/build/podsim/continuation-express-batch/wt/shapes/internal/parkride/checkpoint_shapes_test.go\"]}]"
+          ],
+          "cwd": "/tmp/build/podsim/continuation-express-batch/wt/shapes",
+          "supervisor_pid": 2,
+          "pid": 3,
+          "pid_namespace": "pid:[4026532949]",
+          "started": "2026-10-03T23:07:34.073783+00:00",
+          "watchdog_deadline": "2026-10-03T23:10:34.073783+00:00",
+          "log": "/tmp/build/podsim/continuation-express-batch/shapes/shapes-diagnostics-v8.log",
+          "exit_marker": "/tmp/build/podsim/continuation-express-batch/shapes/shapes-diagnostics-v8.exit",
+          "stop_command": "kill -TERM -- -3",
+          "relaunch_command": "env /usr/bin/python3 /tmp/build/podsim/continuation-express-batch/shapes/run.py shapes-diagnostics-v8 180 python3 /tmp/build/podsim/continuation-express-batch/shapes/gopls-batch.py go_diagnostics '[{\"files\":[\"/tmp/build/podsim/continuation-express-batch/wt/shapes/internal/parkride/checkpoint_shapes_test.go\"]}]'",
+          "environment": {
+            "GOTOOLCHAIN": "local",
+            "GOEXPERIMENT": "jsonv2",
+            "GOROOT": "/home/dotwaffle/.local/share/mise/installs/go/1.27.1",
+            "GOGC": "400",
+            "GOMAXPROCS": "2",
+            "TMPDIR": "/tmp/build/podsim/continuation-express-batch/shapes/tmp"
+          },
+          "study_environment": {},
+          "peak_child_rss_kib": 403524,
+          "exit_code": 0,
+          "ended": "2026-10-03T23:07:34.989293+00:00"
+        },
+        {
+          "command": [
+            "python3",
+            "/tmp/build/podsim/continuation-express-batch/shapes/gopls-batch.py",
+            "go_diagnostics",
+            "[{\"files\":[\"/tmp/build/podsim/continuation-express-batch/wt/shapes/internal/parkride/checkpoint_shapes_test.go\"]}]"
+          ],
+          "cwd": "/tmp/build/podsim/continuation-express-batch/wt/shapes",
+          "supervisor_pid": 2,
+          "pid": 3,
+          "pid_namespace": "pid:[4026532953]",
+          "started": "2026-10-03T23:10:52.528552+00:00",
+          "watchdog_deadline": "2026-10-03T23:13:52.528552+00:00",
+          "log": "/tmp/build/podsim/continuation-express-batch/shapes/shapes-diagnostics-v9.log",
+          "exit_marker": "/tmp/build/podsim/continuation-express-batch/shapes/shapes-diagnostics-v9.exit",
+          "stop_command": "kill -TERM -- -3",
+          "relaunch_command": "env /usr/bin/python3 /tmp/build/podsim/continuation-express-batch/shapes/run.py shapes-diagnostics-v9 180 python3 /tmp/build/podsim/continuation-express-batch/shapes/gopls-batch.py go_diagnostics '[{\"files\":[\"/tmp/build/podsim/continuation-express-batch/wt/shapes/internal/parkride/checkpoint_shapes_test.go\"]}]'",
+          "environment": {
+            "GOTOOLCHAIN": "local",
+            "GOEXPERIMENT": "jsonv2",
+            "GOROOT": "/home/dotwaffle/.local/share/mise/installs/go/1.27.1",
+            "GOGC": "400",
+            "GOMAXPROCS": "2",
+            "TMPDIR": "/tmp/build/podsim/continuation-express-batch/shapes/tmp"
+          },
+          "study_environment": {},
+          "peak_child_rss_kib": 405344,
+          "exit_code": 0,
+          "ended": "2026-10-03T23:10:53.443803+00:00"
+        },
+        {
+          "command": [
+            "go",
+            "test",
+            "./internal/parkride",
+            "-run",
+            "^TestCheckpointCombinedEncodingShapes$",
+            "-count=1",
+            "-v"
+          ],
+          "cwd": "/tmp/build/podsim/continuation-express-batch/wt/shapes",
+          "supervisor_pid": 2,
+          "pid": 9,
+          "pid_namespace": "pid:[4026533960]",
+          "started": "2026-10-03T22:53:00.610026+00:00",
+          "watchdog_deadline": "2026-10-03T23:03:00.610026+00:00",
+          "log": "/tmp/build/podsim/continuation-express-batch/shapes/shapes-focused-v1.log",
+          "exit_marker": "/tmp/build/podsim/continuation-express-batch/shapes/shapes-focused-v1.exit",
+          "stop_command": "kill -TERM -- -9",
+          "relaunch_command": "env /usr/bin/python3 /tmp/build/podsim/continuation-express-batch/shapes/run.py shapes-focused-v1 600 go test ./internal/parkride -run '^TestCheckpointCombinedEncodingShapes$' -count=1 -v",
+          "environment": {
+            "GOTOOLCHAIN": "local",
+            "GOEXPERIMENT": "jsonv2",
+            "GOROOT": "/home/dotwaffle/.local/share/mise/installs/go/1.27.1",
+            "GOGC": "400",
+            "GOMAXPROCS": "2",
+            "TMPDIR": "/tmp/build/podsim/continuation-express-batch/shapes/tmp"
+          },
+          "study_environment": {},
+          "peak_child_rss_kib": 332216,
+          "exit_code": 1,
+          "ended": "2026-10-03T22:53:03.078502+00:00"
+        },
+        {
+          "command": [
+            "go",
+            "test",
+            "./internal/parkride",
+            "-run",
+            "^TestCheckpointCombinedEncodingShapes$",
+            "-count=1",
+            "-v"
+          ],
+          "cwd": "/tmp/build/podsim/continuation-express-batch/wt/shapes",
+          "supervisor_pid": 2,
+          "pid": 9,
+          "pid_namespace": "pid:[4026532941]",
+          "started": "2026-10-03T22:53:42.589165+00:00",
+          "watchdog_deadline": "2026-10-03T23:03:42.589165+00:00",
+          "log": "/tmp/build/podsim/continuation-express-batch/shapes/shapes-focused-v2.log",
+          "exit_marker": "/tmp/build/podsim/continuation-express-batch/shapes/shapes-focused-v2.exit",
+          "stop_command": "kill -TERM -- -9",
+          "relaunch_command": "env /usr/bin/python3 /tmp/build/podsim/continuation-express-batch/shapes/run.py shapes-focused-v2 600 go test ./internal/parkride -run '^TestCheckpointCombinedEncodingShapes$' -count=1 -v",
+          "environment": {
+            "GOTOOLCHAIN": "local",
+            "GOEXPERIMENT": "jsonv2",
+            "GOROOT": "/home/dotwaffle/.local/share/mise/installs/go/1.27.1",
+            "GOGC": "400",
+            "GOMAXPROCS": "2",
+            "TMPDIR": "/tmp/build/podsim/continuation-express-batch/shapes/tmp"
+          },
+          "study_environment": {},
+          "peak_child_rss_kib": 402080,
+          "exit_code": 0,
+          "ended": "2026-10-03T22:53:55.022689+00:00"
+        },
+        {
+          "command": [
+            "go",
+            "test",
+            "./internal/parkride",
+            "-run",
+            "^TestCheckpointCombinedEncodingShapes$",
+            "-count=1",
+            "-v"
+          ],
+          "cwd": "/tmp/build/podsim/continuation-express-batch/wt/shapes",
+          "supervisor_pid": 2,
+          "pid": 8,
+          "pid_namespace": "pid:[4026532943]",
+          "started": "2026-10-03T22:56:51.463270+00:00",
+          "watchdog_deadline": "2026-10-03T23:06:51.463270+00:00",
+          "log": "/tmp/build/podsim/continuation-express-batch/shapes/shapes-focused-v3.log",
+          "exit_marker": "/tmp/build/podsim/continuation-express-batch/shapes/shapes-focused-v3.exit",
+          "stop_command": "kill -TERM -- -8",
+          "relaunch_command": "env /usr/bin/python3 /tmp/build/podsim/continuation-express-batch/shapes/run.py shapes-focused-v3 600 go test ./internal/parkride -run '^TestCheckpointCombinedEncodingShapes$' -count=1 -v",
+          "environment": {
+            "GOTOOLCHAIN": "local",
+            "GOEXPERIMENT": "jsonv2",
+            "GOROOT": "/home/dotwaffle/.local/share/mise/installs/go/1.27.1",
+            "GOGC": "400",
+            "GOMAXPROCS": "2",
+            "TMPDIR": "/tmp/build/podsim/continuation-express-batch/shapes/tmp"
+          },
+          "study_environment": {},
+          "peak_child_rss_kib": 116516,
+          "exit_code": 1,
+          "ended": "2026-10-03T22:56:52.328773+00:00"
+        },
+        {
+          "command": [
+            "go",
+            "test",
+            "./internal/parkride",
+            "-run",
+            "^TestCheckpointCombinedEncodingShapes$",
+            "-count=1",
+            "-v"
+          ],
+          "cwd": "/tmp/build/podsim/continuation-express-batch/wt/shapes",
+          "supervisor_pid": 2,
+          "pid": 9,
+          "pid_namespace": "pid:[4026532939]",
+          "started": "2026-10-03T22:57:08.577909+00:00",
+          "watchdog_deadline": "2026-10-03T23:07:08.577909+00:00",
+          "log": "/tmp/build/podsim/continuation-express-batch/shapes/shapes-focused-v4.log",
+          "exit_marker": "/tmp/build/podsim/continuation-express-batch/shapes/shapes-focused-v4.exit",
+          "stop_command": "kill -TERM -- -9",
+          "relaunch_command": "env /usr/bin/python3 /tmp/build/podsim/continuation-express-batch/shapes/run.py shapes-focused-v4 600 go test ./internal/parkride -run '^TestCheckpointCombinedEncodingShapes$' -count=1 -v",
+          "environment": {
+            "GOTOOLCHAIN": "local",
+            "GOEXPERIMENT": "jsonv2",
+            "GOROOT": "/home/dotwaffle/.local/share/mise/installs/go/1.27.1",
+            "GOGC": "400",
+            "GOMAXPROCS": "2",
+            "TMPDIR": "/tmp/build/podsim/continuation-express-batch/shapes/tmp"
+          },
+          "study_environment": {},
+          "peak_child_rss_kib": 116936,
+          "exit_code": 1,
+          "ended": "2026-10-03T22:57:09.847427+00:00"
+        },
+        {
+          "command": [
+            "go",
+            "test",
+            "./internal/parkride",
+            "-run",
+            "^TestCheckpointCombinedEncodingShapes$",
+            "-count=1",
+            "-v"
+          ],
+          "cwd": "/tmp/build/podsim/continuation-express-batch/wt/shapes",
+          "supervisor_pid": 2,
+          "pid": 9,
+          "pid_namespace": "pid:[4026533972]",
+          "started": "2026-10-03T22:58:58.540582+00:00",
+          "watchdog_deadline": "2026-10-03T23:08:58.540582+00:00",
+          "log": "/tmp/build/podsim/continuation-express-batch/shapes/shapes-focused-v5.log",
+          "exit_marker": "/tmp/build/podsim/continuation-express-batch/shapes/shapes-focused-v5.exit",
+          "stop_command": "kill -TERM -- -9",
+          "relaunch_command": "env /usr/bin/python3 /tmp/build/podsim/continuation-express-batch/shapes/run.py shapes-focused-v5 600 go test ./internal/parkride -run '^TestCheckpointCombinedEncodingShapes$' -count=1 -v",
+          "environment": {
+            "GOTOOLCHAIN": "local",
+            "GOEXPERIMENT": "jsonv2",
+            "GOROOT": "/home/dotwaffle/.local/share/mise/installs/go/1.27.1",
+            "GOGC": "400",
+            "GOMAXPROCS": "2",
+            "TMPDIR": "/tmp/build/podsim/continuation-express-batch/shapes/tmp"
+          },
+          "study_environment": {},
+          "peak_child_rss_kib": 501260,
+          "exit_code": 0,
+          "ended": "2026-10-03T22:59:11.523773+00:00"
+        },
+        {
+          "command": [
+            "go",
+            "test",
+            "./internal/parkride",
+            "-run",
+            "^TestCheckpointCombinedEncodingShapes$",
+            "-count=1",
+            "-v"
+          ],
+          "cwd": "/tmp/build/podsim/continuation-express-batch/wt/shapes",
+          "supervisor_pid": 2,
+          "pid": 8,
+          "pid_namespace": "pid:[4026532949]",
+          "started": "2026-10-03T23:00:10.810800+00:00",
+          "watchdog_deadline": "2026-10-03T23:10:10.810800+00:00",
+          "log": "/tmp/build/podsim/continuation-express-batch/shapes/shapes-focused-v6.log",
+          "exit_marker": "/tmp/build/podsim/continuation-express-batch/shapes/shapes-focused-v6.exit",
+          "stop_command": "kill -TERM -- -8",
+          "relaunch_command": "env /usr/bin/python3 /tmp/build/podsim/continuation-express-batch/shapes/run.py shapes-focused-v6 600 go test ./internal/parkride -run '^TestCheckpointCombinedEncodingShapes$' -count=1 -v",
+          "environment": {
+            "GOTOOLCHAIN": "local",
+            "GOEXPERIMENT": "jsonv2",
+            "GOROOT": "/home/dotwaffle/.local/share/mise/installs/go/1.27.1",
+            "GOGC": "400",
+            "GOMAXPROCS": "2",
+            "TMPDIR": "/tmp/build/podsim/continuation-express-batch/shapes/tmp"
+          },
+          "study_environment": {},
+          "peak_child_rss_kib": 477616,
+          "exit_code": 0,
+          "ended": "2026-10-03T23:00:24.195369+00:00"
+        },
+        {
+          "command": [
+            "go",
+            "test",
+            "./internal/parkride",
+            "-run",
+            "^TestCheckpointCombinedEncodingShapes$",
+            "-count=1",
+            "-v"
+          ],
+          "cwd": "/tmp/build/podsim/continuation-express-batch/wt/shapes",
+          "supervisor_pid": 2,
+          "pid": 8,
+          "pid_namespace": "pid:[4026533963]",
+          "started": "2026-10-03T23:04:09.535296+00:00",
+          "watchdog_deadline": "2026-10-03T23:14:09.535296+00:00",
+          "log": "/tmp/build/podsim/continuation-express-batch/shapes/shapes-focused-v7.log",
+          "exit_marker": "/tmp/build/podsim/continuation-express-batch/shapes/shapes-focused-v7.exit",
+          "stop_command": "kill -TERM -- -8",
+          "relaunch_command": "env /usr/bin/python3 /tmp/build/podsim/continuation-express-batch/shapes/run.py shapes-focused-v7 600 go test ./internal/parkride -run '^TestCheckpointCombinedEncodingShapes$' -count=1 -v",
+          "environment": {
+            "GOTOOLCHAIN": "local",
+            "GOEXPERIMENT": "jsonv2",
+            "GOROOT": "/home/dotwaffle/.local/share/mise/installs/go/1.27.1",
+            "GOGC": "400",
+            "GOMAXPROCS": "2",
+            "TMPDIR": "/tmp/build/podsim/continuation-express-batch/shapes/tmp"
+          },
+          "study_environment": {},
+          "peak_child_rss_kib": 515316,
+          "exit_code": 0,
+          "ended": "2026-10-03T23:04:22.916881+00:00"
+        },
+        {
+          "command": [
+            "go",
+            "test",
+            "./internal/parkride",
+            "-run",
+            "^TestCheckpointCombinedEncodingShapes$",
+            "-count=1",
+            "-v"
+          ],
+          "cwd": "/tmp/build/podsim/continuation-express-batch/wt/shapes",
+          "supervisor_pid": 2,
+          "pid": 12,
+          "pid_namespace": "pid:[4026532941]",
+          "started": "2026-10-03T23:06:57.268150+00:00",
+          "watchdog_deadline": "2026-10-03T23:16:57.268150+00:00",
+          "log": "/tmp/build/podsim/continuation-express-batch/shapes/shapes-focused-v8.log",
+          "exit_marker": "/tmp/build/podsim/continuation-express-batch/shapes/shapes-focused-v8.exit",
+          "stop_command": "kill -TERM -- -12",
+          "relaunch_command": "env /usr/bin/python3 /tmp/build/podsim/continuation-express-batch/shapes/run.py shapes-focused-v8 600 go test ./internal/parkride -run '^TestCheckpointCombinedEncodingShapes$' -count=1 -v",
+          "environment": {
+            "GOTOOLCHAIN": "local",
+            "GOEXPERIMENT": "jsonv2",
+            "GOROOT": "/home/dotwaffle/.local/share/mise/installs/go/1.27.1",
+            "GOGC": "400",
+            "GOMAXPROCS": "2",
+            "TMPDIR": "/tmp/build/podsim/continuation-express-batch/shapes/tmp"
+          },
+          "study_environment": {},
+          "peak_child_rss_kib": 313000,
+          "exit_code": 0,
+          "ended": "2026-10-03T23:07:10.551749+00:00"
+        },
+        {
+          "command": [
+            "go",
+            "test",
+            "./internal/parkride",
+            "-count=1"
+          ],
+          "cwd": "/tmp/build/podsim/continuation-express-batch/wt/shapes",
+          "supervisor_pid": 2,
+          "pid": 3,
+          "pid_namespace": "pid:[4026532947]",
+          "started": "2026-10-03T23:01:28.272460+00:00",
+          "watchdog_deadline": "2026-10-03T23:16:28.272460+00:00",
+          "log": "/tmp/build/podsim/continuation-express-batch/shapes/shapes-full-v6.log",
+          "exit_marker": "/tmp/build/podsim/continuation-express-batch/shapes/shapes-full-v6.exit",
+          "stop_command": "kill -TERM -- -3",
+          "relaunch_command": "env /usr/bin/python3 /tmp/build/podsim/continuation-express-batch/shapes/run.py shapes-full-v6 900 go test ./internal/parkride -count=1",
+          "environment": {
+            "GOTOOLCHAIN": "local",
+            "GOEXPERIMENT": "jsonv2",
+            "GOROOT": "/home/dotwaffle/.local/share/mise/installs/go/1.27.1",
+            "GOGC": "400",
+            "GOMAXPROCS": "2",
+            "TMPDIR": "/tmp/build/podsim/continuation-express-batch/shapes/tmp"
+          },
+          "study_environment": {},
+          "peak_child_rss_kib": 710760,
+          "exit_code": 0,
+          "ended": "2026-10-03T23:01:54.176460+00:00"
+        },
+        {
+          "command": [
+            "go",
+            "test",
+            "./internal/parkride",
+            "-count=1"
+          ],
+          "cwd": "/tmp/build/podsim/continuation-express-batch/wt/shapes",
+          "supervisor_pid": 2,
+          "pid": 3,
+          "pid_namespace": "pid:[4026532941]",
+          "started": "2026-10-03T23:05:30.941578+00:00",
+          "watchdog_deadline": "2026-10-03T23:20:30.941578+00:00",
+          "log": "/tmp/build/podsim/continuation-express-batch/shapes/shapes-full-v7.log",
+          "exit_marker": "/tmp/build/podsim/continuation-express-batch/shapes/shapes-full-v7.exit",
+          "stop_command": "kill -TERM -- -3",
+          "relaunch_command": "env /usr/bin/python3 /tmp/build/podsim/continuation-express-batch/shapes/run.py shapes-full-v7 900 go test ./internal/parkride -count=1",
+          "environment": {
+            "GOTOOLCHAIN": "local",
+            "GOEXPERIMENT": "jsonv2",
+            "GOROOT": "/home/dotwaffle/.local/share/mise/installs/go/1.27.1",
+            "GOGC": "400",
+            "GOMAXPROCS": "2",
+            "TMPDIR": "/tmp/build/podsim/continuation-express-batch/shapes/tmp"
+          },
+          "study_environment": {},
+          "peak_child_rss_kib": 663572,
+          "exit_code": 0,
+          "ended": "2026-10-03T23:05:56.492618+00:00"
+        },
+        {
+          "command": [
+            "go",
+            "test",
+            "./internal/parkride",
+            "-count=1"
+          ],
+          "cwd": "/tmp/build/podsim/continuation-express-batch/wt/shapes",
+          "supervisor_pid": 2,
+          "pid": 3,
+          "pid_namespace": "pid:[4026532943]",
+          "started": "2026-10-03T23:08:14.169291+00:00",
+          "watchdog_deadline": "2026-10-03T23:23:14.169291+00:00",
+          "log": "/tmp/build/podsim/continuation-express-batch/shapes/shapes-full-v8.log",
+          "exit_marker": "/tmp/build/podsim/continuation-express-batch/shapes/shapes-full-v8.exit",
+          "stop_command": "kill -TERM -- -3",
+          "relaunch_command": "env /usr/bin/python3 /tmp/build/podsim/continuation-express-batch/shapes/run.py shapes-full-v8 900 go test ./internal/parkride -count=1",
+          "environment": {
+            "GOTOOLCHAIN": "local",
+            "GOEXPERIMENT": "jsonv2",
+            "GOROOT": "/home/dotwaffle/.local/share/mise/installs/go/1.27.1",
+            "GOGC": "400",
+            "GOMAXPROCS": "2",
+            "TMPDIR": "/tmp/build/podsim/continuation-express-batch/shapes/tmp"
+          },
+          "study_environment": {},
+          "peak_child_rss_kib": 672744,
+          "exit_code": 0,
+          "ended": "2026-10-03T23:08:41.746647+00:00"
+        },
+        {
+          "command": [
+            "go",
+            "test",
+            "./internal/parkride",
+            "-count=1",
+            "-v"
+          ],
+          "cwd": "/tmp/build/podsim/continuation-express-batch/wt/shapes",
+          "supervisor_pid": 2,
+          "pid": 12,
+          "pid_namespace": "pid:[4026532941]",
+          "started": "2026-10-03T23:10:08.851159+00:00",
+          "watchdog_deadline": "2026-10-03T23:25:08.851159+00:00",
+          "log": "/tmp/build/podsim/continuation-express-batch/shapes/shapes-full-v9.log",
+          "exit_marker": "/tmp/build/podsim/continuation-express-batch/shapes/shapes-full-v9.exit",
+          "stop_command": "kill -TERM -- -12",
+          "relaunch_command": "env /usr/bin/python3 /tmp/build/podsim/continuation-express-batch/shapes/run.py shapes-full-v9 900 go test ./internal/parkride -count=1 -v",
+          "environment": {
+            "GOTOOLCHAIN": "local",
+            "GOEXPERIMENT": "jsonv2",
+            "GOROOT": "/home/dotwaffle/.local/share/mise/installs/go/1.27.1",
+            "GOGC": "400",
+            "GOMAXPROCS": "2",
+            "TMPDIR": "/tmp/build/podsim/continuation-express-batch/shapes/tmp"
+          },
+          "study_environment": {},
+          "peak_child_rss_kib": 974884,
+          "exit_code": 0,
+          "ended": "2026-10-03T23:10:37.319560+00:00"
+        },
+        {
+          "command": [
+            "golangci-lint",
+            "run",
+            "./internal/parkride/..."
+          ],
+          "cwd": "/tmp/build/podsim/continuation-express-batch/wt/shapes",
+          "supervisor_pid": 2,
+          "pid": 3,
+          "pid_namespace": "pid:[4026532949]",
+          "started": "2026-10-03T22:57:27.971927+00:00",
+          "watchdog_deadline": "2026-10-03T23:07:27.971927+00:00",
+          "log": "/tmp/build/podsim/continuation-express-batch/shapes/shapes-lint-v4.log",
+          "exit_marker": "/tmp/build/podsim/continuation-express-batch/shapes/shapes-lint-v4.exit",
+          "stop_command": "kill -TERM -- -3",
+          "relaunch_command": "env /usr/bin/python3 /tmp/build/podsim/continuation-express-batch/shapes/run.py shapes-lint-v4 600 golangci-lint run ./internal/parkride/...",
+          "environment": {
+            "GOTOOLCHAIN": "local",
+            "GOEXPERIMENT": "jsonv2",
+            "GOROOT": "/home/dotwaffle/.local/share/mise/installs/go/1.27.1",
+            "GOGC": "400",
+            "GOMAXPROCS": "2",
+            "TMPDIR": "/tmp/build/podsim/continuation-express-batch/shapes/tmp"
+          },
+          "study_environment": {},
+          "peak_child_rss_kib": 384672,
+          "exit_code": 1,
+          "ended": "2026-10-03T22:57:31.055285+00:00"
+        },
+        {
+          "command": [
+            "golangci-lint",
+            "run",
+            "./internal/parkride/..."
+          ],
+          "cwd": "/tmp/build/podsim/continuation-express-batch/wt/shapes",
+          "supervisor_pid": 2,
+          "pid": 3,
+          "pid_namespace": "pid:[4026532949]",
+          "started": "2026-10-03T23:00:32.719859+00:00",
+          "watchdog_deadline": "2026-10-03T23:10:32.719859+00:00",
+          "log": "/tmp/build/podsim/continuation-express-batch/shapes/shapes-lint-v6.log",
+          "exit_marker": "/tmp/build/podsim/continuation-express-batch/shapes/shapes-lint-v6.exit",
+          "stop_command": "kill -TERM -- -3",
+          "relaunch_command": "env /usr/bin/python3 /tmp/build/podsim/continuation-express-batch/shapes/run.py shapes-lint-v6 600 golangci-lint run ./internal/parkride/...",
+          "environment": {
+            "GOTOOLCHAIN": "local",
+            "GOEXPERIMENT": "jsonv2",
+            "GOROOT": "/home/dotwaffle/.local/share/mise/installs/go/1.27.1",
+            "GOGC": "400",
+            "GOMAXPROCS": "2",
+            "TMPDIR": "/tmp/build/podsim/continuation-express-batch/shapes/tmp"
+          },
+          "study_environment": {},
+          "peak_child_rss_kib": 406812,
+          "exit_code": 0,
+          "ended": "2026-10-03T23:00:34.586860+00:00"
+        },
+        {
+          "command": [
+            "golangci-lint",
+            "run",
+            "./internal/parkride/..."
+          ],
+          "cwd": "/tmp/build/podsim/continuation-express-batch/wt/shapes",
+          "supervisor_pid": 2,
+          "pid": 3,
+          "pid_namespace": "pid:[4026532946]",
+          "started": "2026-10-03T23:04:54.849849+00:00",
+          "watchdog_deadline": "2026-10-03T23:14:54.849849+00:00",
+          "log": "/tmp/build/podsim/continuation-express-batch/shapes/shapes-lint-v7.log",
+          "exit_marker": "/tmp/build/podsim/continuation-express-batch/shapes/shapes-lint-v7.exit",
+          "stop_command": "kill -TERM -- -3",
+          "relaunch_command": "env /usr/bin/python3 /tmp/build/podsim/continuation-express-batch/shapes/run.py shapes-lint-v7 600 golangci-lint run ./internal/parkride/...",
+          "environment": {
+            "GOTOOLCHAIN": "local",
+            "GOEXPERIMENT": "jsonv2",
+            "GOROOT": "/home/dotwaffle/.local/share/mise/installs/go/1.27.1",
+            "GOGC": "400",
+            "GOMAXPROCS": "2",
+            "TMPDIR": "/tmp/build/podsim/continuation-express-batch/shapes/tmp"
+          },
+          "study_environment": {},
+          "peak_child_rss_kib": 489460,
+          "exit_code": 0,
+          "ended": "2026-10-03T23:04:56.716691+00:00"
+        },
+        {
+          "command": [
+            "golangci-lint",
+            "run",
+            "./internal/parkride/..."
+          ],
+          "cwd": "/tmp/build/podsim/continuation-express-batch/wt/shapes",
+          "supervisor_pid": 2,
+          "pid": 3,
+          "pid_namespace": "pid:[4026532957]",
+          "started": "2026-10-03T23:07:34.101034+00:00",
+          "watchdog_deadline": "2026-10-03T23:17:34.101034+00:00",
+          "log": "/tmp/build/podsim/continuation-express-batch/shapes/shapes-lint-v8.log",
+          "exit_marker": "/tmp/build/podsim/continuation-express-batch/shapes/shapes-lint-v8.exit",
+          "stop_command": "kill -TERM -- -3",
+          "relaunch_command": "env /usr/bin/python3 /tmp/build/podsim/continuation-express-batch/shapes/run.py shapes-lint-v8 600 golangci-lint run ./internal/parkride/...",
+          "environment": {
+            "GOTOOLCHAIN": "local",
+            "GOEXPERIMENT": "jsonv2",
+            "GOROOT": "/home/dotwaffle/.local/share/mise/installs/go/1.27.1",
+            "GOGC": "400",
+            "GOMAXPROCS": "2",
+            "TMPDIR": "/tmp/build/podsim/continuation-express-batch/shapes/tmp"
+          },
+          "study_environment": {},
+          "peak_child_rss_kib": 453240,
+          "exit_code": 0,
+          "ended": "2026-10-03T23:07:35.967929+00:00"
+        },
+        {
+          "command": [
+            "golangci-lint",
+            "run",
+            "./internal/parkride/..."
+          ],
+          "cwd": "/tmp/build/podsim/continuation-express-batch/wt/shapes",
+          "supervisor_pid": 2,
+          "pid": 3,
+          "pid_namespace": "pid:[4026532949]",
+          "started": "2026-10-03T23:10:52.522859+00:00",
+          "watchdog_deadline": "2026-10-03T23:20:52.522859+00:00",
+          "log": "/tmp/build/podsim/continuation-express-batch/shapes/shapes-lint-v9.log",
+          "exit_marker": "/tmp/build/podsim/continuation-express-batch/shapes/shapes-lint-v9.exit",
+          "stop_command": "kill -TERM -- -3",
+          "relaunch_command": "env /usr/bin/python3 /tmp/build/podsim/continuation-express-batch/shapes/run.py shapes-lint-v9 600 golangci-lint run ./internal/parkride/...",
+          "environment": {
+            "GOTOOLCHAIN": "local",
+            "GOEXPERIMENT": "jsonv2",
+            "GOROOT": "/home/dotwaffle/.local/share/mise/installs/go/1.27.1",
+            "GOGC": "400",
+            "GOMAXPROCS": "2",
+            "TMPDIR": "/tmp/build/podsim/continuation-express-batch/shapes/tmp"
+          },
+          "study_environment": {},
+          "peak_child_rss_kib": 369208,
+          "exit_code": 0,
+          "ended": "2026-10-03T23:10:54.393092+00:00"
+        },
+        {
+          "command": [
+            "python3",
+            "/tmp/build/podsim/continuation-express-batch/shapes/gopls-batch.py",
+            "go_symbol_references",
+            "[{\"file\":\"/tmp/build/podsim/continuation-express-batch/wt/shapes/internal/parkride/checkpoint.go\",\"symbol\":\"Run.EncodeCheckpoint\"},{\"file\":\"/tmp/build/podsim/continuation-express-batch/wt/shapes/internal/parkride/checkpoint.go\",\"symbol\":\"checkByteBudget\"},{\"file\":\"/tmp/build/podsim/continuation-express-batch/wt/shapes/internal/parkride/checkpoint.go\",\"symbol\":\"boundedWriter.Write\"}]"
+          ],
+          "cwd": "/tmp/build/podsim/continuation-express-batch/wt/shapes",
+          "supervisor_pid": 2,
+          "pid": 4,
+          "pid_namespace": "pid:[4026533967]",
+          "started": "2026-10-03T22:45:00.911796+00:00",
+          "watchdog_deadline": "2026-10-03T22:47:00.911796+00:00",
+          "log": "/tmp/build/podsim/continuation-express-batch/shapes/shapes-refs.log",
+          "exit_marker": "/tmp/build/podsim/continuation-express-batch/shapes/shapes-refs.exit",
+          "stop_command": "kill -TERM -- -4",
+          "relaunch_command": "env /usr/bin/python3 /tmp/build/podsim/continuation-express-batch/shapes/run.py shapes-refs 120 python3 /tmp/build/podsim/continuation-express-batch/shapes/gopls-batch.py go_symbol_references '[{\"file\":\"/tmp/build/podsim/continuation-express-batch/wt/shapes/internal/parkride/checkpoint.go\",\"symbol\":\"Run.EncodeCheckpoint\"},{\"file\":\"/tmp/build/podsim/continuation-express-batch/wt/shapes/internal/parkride/checkpoint.go\",\"symbol\":\"checkByteBudget\"},{\"file\":\"/tmp/build/podsim/continuation-express-batch/wt/shapes/internal/parkride/checkpoint.go\",\"symbol\":\"boundedWriter.Write\"}]'",
+          "environment": {
+            "GOTOOLCHAIN": "local",
+            "GOEXPERIMENT": "jsonv2",
+            "GOROOT": "/home/dotwaffle/.local/share/mise/installs/go/1.27.1",
+            "GOGC": "400",
+            "GOMAXPROCS": "2",
+            "TMPDIR": "/tmp/build/podsim/continuation-express-batch/shapes/tmp"
+          },
+          "study_environment": {},
+          "peak_child_rss_kib": 689596,
+          "exit_code": 0,
+          "ended": "2026-10-03T22:45:02.478161+00:00"
+        },
+        {
+          "command": [
+            "go",
+            "vet",
+            "./internal/parkride/..."
+          ],
+          "cwd": "/tmp/build/podsim/continuation-express-batch/wt/shapes",
+          "supervisor_pid": 2,
+          "pid": 3,
+          "pid_namespace": "pid:[4026532952]",
+          "started": "2026-10-03T23:01:29.435302+00:00",
+          "watchdog_deadline": "2026-10-03T23:06:29.435302+00:00",
+          "log": "/tmp/build/podsim/continuation-express-batch/shapes/shapes-vet-v6.log",
+          "exit_marker": "/tmp/build/podsim/continuation-express-batch/shapes/shapes-vet-v6.exit",
+          "stop_command": "kill -TERM -- -3",
+          "relaunch_command": "env /usr/bin/python3 /tmp/build/podsim/continuation-express-batch/shapes/run.py shapes-vet-v6 300 go vet ./internal/parkride/...",
+          "environment": {
+            "GOTOOLCHAIN": "local",
+            "GOEXPERIMENT": "jsonv2",
+            "GOROOT": "/home/dotwaffle/.local/share/mise/installs/go/1.27.1",
+            "GOGC": "400",
+            "GOMAXPROCS": "2",
+            "TMPDIR": "/tmp/build/podsim/continuation-express-batch/shapes/tmp"
+          },
+          "study_environment": {},
+          "peak_child_rss_kib": 50656,
+          "exit_code": 0,
+          "ended": "2026-10-03T23:01:29.749676+00:00"
+        },
+        {
+          "command": [
+            "go",
+            "vet",
+            "./internal/parkride/..."
+          ],
+          "cwd": "/tmp/build/podsim/continuation-express-batch/wt/shapes",
+          "supervisor_pid": 2,
+          "pid": 3,
+          "pid_namespace": "pid:[4026532946]",
+          "started": "2026-10-03T23:05:32.101895+00:00",
+          "watchdog_deadline": "2026-10-03T23:10:32.101895+00:00",
+          "log": "/tmp/build/podsim/continuation-express-batch/shapes/shapes-vet-v7.log",
+          "exit_marker": "/tmp/build/podsim/continuation-express-batch/shapes/shapes-vet-v7.exit",
+          "stop_command": "kill -TERM -- -3",
+          "relaunch_command": "env /usr/bin/python3 /tmp/build/podsim/continuation-express-batch/shapes/run.py shapes-vet-v7 300 go vet ./internal/parkride/...",
+          "environment": {
+            "GOTOOLCHAIN": "local",
+            "GOEXPERIMENT": "jsonv2",
+            "GOROOT": "/home/dotwaffle/.local/share/mise/installs/go/1.27.1",
+            "GOGC": "400",
+            "GOMAXPROCS": "2",
+            "TMPDIR": "/tmp/build/podsim/continuation-express-batch/shapes/tmp"
+          },
+          "study_environment": {},
+          "peak_child_rss_kib": 32780,
+          "exit_code": 0,
+          "ended": "2026-10-03T23:05:32.265969+00:00"
+        },
+        {
+          "command": [
+            "go",
+            "vet",
+            "./internal/parkride/..."
+          ],
+          "cwd": "/tmp/build/podsim/continuation-express-batch/wt/shapes",
+          "supervisor_pid": 2,
+          "pid": 3,
+          "pid_namespace": "pid:[4026532955]",
+          "started": "2026-10-03T23:07:34.088458+00:00",
+          "watchdog_deadline": "2026-10-03T23:12:34.088458+00:00",
+          "log": "/tmp/build/podsim/continuation-express-batch/shapes/shapes-vet-v8.log",
+          "exit_marker": "/tmp/build/podsim/continuation-express-batch/shapes/shapes-vet-v8.exit",
+          "stop_command": "kill -TERM -- -3",
+          "relaunch_command": "env /usr/bin/python3 /tmp/build/podsim/continuation-express-batch/shapes/run.py shapes-vet-v8 300 go vet ./internal/parkride/...",
+          "environment": {
+            "GOTOOLCHAIN": "local",
+            "GOEXPERIMENT": "jsonv2",
+            "GOROOT": "/home/dotwaffle/.local/share/mise/installs/go/1.27.1",
+            "GOGC": "400",
+            "GOMAXPROCS": "2",
+            "TMPDIR": "/tmp/build/podsim/continuation-express-batch/shapes/tmp"
+          },
+          "study_environment": {},
+          "peak_child_rss_kib": 32848,
+          "exit_code": 0,
+          "ended": "2026-10-03T23:07:34.252620+00:00"
+        },
+        {
+          "command": [
+            "go",
+            "vet",
+            "./internal/parkride/..."
+          ],
+          "cwd": "/tmp/build/podsim/continuation-express-batch/wt/shapes",
+          "supervisor_pid": 2,
+          "pid": 3,
+          "pid_namespace": "pid:[4026532957]",
+          "started": "2026-10-03T23:10:52.522312+00:00",
+          "watchdog_deadline": "2026-10-03T23:15:52.522312+00:00",
+          "log": "/tmp/build/podsim/continuation-express-batch/shapes/shapes-vet-v9.log",
+          "exit_marker": "/tmp/build/podsim/continuation-express-batch/shapes/shapes-vet-v9.exit",
+          "stop_command": "kill -TERM -- -3",
+          "relaunch_command": "env /usr/bin/python3 /tmp/build/podsim/continuation-express-batch/shapes/run.py shapes-vet-v9 300 go vet ./internal/parkride/...",
+          "environment": {
+            "GOTOOLCHAIN": "local",
+            "GOEXPERIMENT": "jsonv2",
+            "GOROOT": "/home/dotwaffle/.local/share/mise/installs/go/1.27.1",
+            "GOGC": "400",
+            "GOMAXPROCS": "2",
+            "TMPDIR": "/tmp/build/podsim/continuation-express-batch/shapes/tmp"
+          },
+          "study_environment": {},
+          "peak_child_rss_kib": 32392,
+          "exit_code": 0,
+          "ended": "2026-10-03T23:10:52.686501+00:00"
+        }
+      ]
+    },
+    "metrics_sha256": "be79cab29f6eae534a790a64018141cb7ae5b44ef92d1f536cbd2c95e32d8869",
+    "source_pin_path": "/home/dotwaffle/.cache/agents/podsim/continuation-express-batch-20261003/shapes/source-pins-v9.json",
+    "source_pin_sha256": "815e2e738cf6b5e7c543d2ec9eb9e4f12a93d77eb6464d36628955e3a465ef37",
+    "manifest_sha256": "a2005921a7de59c1fbef6a381be51d18b11e1464ab9489ba5836763efd921238",
+    "full_package_gate": {
+      "command": [
+        "go",
+        "test",
+        "./internal/parkride",
+        "-count=1",
+        "-v"
+      ],
+      "cwd": "/tmp/build/podsim/continuation-express-batch/wt/shapes",
+      "supervisor_pid": 2,
+      "pid": 12,
+      "pid_namespace": "pid:[4026532941]",
+      "started": "2026-10-03T23:10:08.851159+00:00",
+      "watchdog_deadline": "2026-10-03T23:25:08.851159+00:00",
+      "log": "/tmp/build/podsim/continuation-express-batch/shapes/shapes-full-v9.log",
+      "exit_marker": "/tmp/build/podsim/continuation-express-batch/shapes/shapes-full-v9.exit",
+      "stop_command": "kill -TERM -- -12",
+      "relaunch_command": "env /usr/bin/python3 /tmp/build/podsim/continuation-express-batch/shapes/run.py shapes-full-v9 900 go test ./internal/parkride -count=1 -v",
+      "environment": {
+        "GOTOOLCHAIN": "local",
+        "GOEXPERIMENT": "jsonv2",
+        "GOROOT": "/home/dotwaffle/.local/share/mise/installs/go/1.27.1",
+        "GOGC": "400",
+        "GOMAXPROCS": "2",
+        "TMPDIR": "/tmp/build/podsim/continuation-express-batch/shapes/tmp"
+      },
+      "study_environment": {},
+      "peak_child_rss_kib": 974884,
+      "exit_code": 0,
+      "ended": "2026-10-03T23:10:37.319560+00:00"
+    },
+    "scope": "External native expert isolated test; public encoder tick0 only; named-type incompatible maxima cannot establish physical admission or replay."
+  },
+  "final_cooldown_test_sha256": "2be6b31bdc8575d78a12f57b70bc70ed7a06080fd2720fc9f9f33327e06410d0",
+  "determinism_source_audit_sha256": "d55a2c421ec548b9ae7e473dba6afb246058f36a92ea4054b38f108def7c4c5a"
+}
