@@ -1,6 +1,7 @@
 package parkride
 
 import (
+	"context"
 	"errors"
 	"fmt"
 
@@ -15,6 +16,8 @@ type RunInput struct {
 	HorizonTicks int64
 	QueueLimit   int
 	Build        string
+	// Continuation enables version-1 receipts and replay evidence from initialization.
+	Continuation *Implementation
 }
 
 // Policies identifies the effective native policies of this run.
@@ -63,15 +66,35 @@ type Report struct {
 // Run owns a simulation and car ledger. Use it from one goroutine at a time.
 // Clone copies both states. Native saved-state restoration cannot restore cars.
 type Run struct {
-	pods       *sim.Simulation
-	ledger     *ledger
-	provenance Report
-	fault      string
+	pods         *sim.Simulation
+	ledger       *ledger
+	provenance   Report
+	fault        string
+	continuation *continuation
 }
 
 // NewRun validates and owns inputs before issuing any itinerary order.
 // A runtime error can return a partial run for its report.
 func NewRun(input RunInput) (*Run, error) {
+	return NewRunContext(context.Background(), input)
+}
+
+// NewRunContext constructs a run and permits cancellation of checkpoint capture.
+func NewRunContext(ctx context.Context, input RunInput) (*Run, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+	if err := validateFoundationConfig(input.Project); err != nil {
+		return nil, err
+	}
+	if input.Continuation != nil {
+		if err := validateImplementation(*input.Continuation); err != nil {
+			return nil, err
+		}
+		if input.Project.Version < 1 || input.Project.Version > 3 {
+			return nil, errors.New("car continuation requires a foundation project version 1 through 3")
+		}
+	}
 	if input.HorizonTicks < 1 || input.HorizonTicks > MaxHorizonTicks {
 		return nil, errors.New("horizon must be 1 tick through 24 hours")
 	}
@@ -139,8 +162,16 @@ func NewRun(input RunInput) (*Run, error) {
 			MaxStops: project.EffectiveSharedRideMaxStops(config), SharingJoin: project.EffectiveSharedRideJoin(config), OnboardPickups: config.OnboardPickups,
 			PlatoonLimit: config.PlatoonLimit, StationBuffers: bool(config.StationBuffers), StationQueueSpacing: project.EffectiveStationQueueSpacing(config),
 			PickupReassignment: bool(config.PickupReassignment), Positioning: mode, PositioningWeights: "one outward and one return origin per itinerary"}}}
-	if err := run.ledger.advance(0, nil, pods); err != nil {
+	if input.Continuation != nil {
+		if err := run.enableContinuation(ctx, config, plan, *input.Continuation); err != nil {
+			return nil, err
+		}
+	}
+	if err := run.ledger.advance(0, nil, run.service()); err != nil {
 		run.fault = err.Error()
+		return run, err
+	}
+	if err := run.captureBoundary(ctx); err != nil {
 		return run, err
 	}
 	return run, nil
@@ -168,6 +199,7 @@ func preflight(pods *sim.Simulation, plan Plan, lots map[string]Lot) error {
 func (r *Run) Clone() *Run {
 	clone := *r
 	clone.pods, clone.ledger = r.pods.Clone(), r.ledger.clone()
+	clone.continuation = r.continuation.clone()
 	return &clone
 }
 
@@ -178,6 +210,14 @@ func (r *Run) Done() bool {
 
 // Step advances one native tick and then applies ordered car events.
 func (r *Run) Step() error {
+	return r.StepContext(context.Background())
+}
+
+// StepContext advances a tick and permits cancellation of checkpoint hashing.
+func (r *Run) StepContext(ctx context.Context) error {
+	if err := ctx.Err(); err != nil {
+		return err
+	}
 	if r.fault != "" {
 		return errors.New(r.fault)
 	}
@@ -194,11 +234,14 @@ func (r *Run) Step() error {
 		r.fault = "native simulation did not advance one tick"
 		return errors.New(r.fault)
 	}
-	if err := r.ledger.advance(r.pods.Tick(), r.pods.StepCompletions(), r.pods); err != nil {
+	if r.continuation != nil {
+		r.continuation.observeBoardings(r.pods)
+	}
+	if err := r.ledger.advance(r.pods.Tick(), r.pods.StepCompletions(), r.service()); err != nil {
 		r.fault = err.Error()
 		return err
 	}
-	return nil
+	return r.captureBoundary(ctx)
 }
 
 // Report returns owned partial or final evidence. It does not change the run.
