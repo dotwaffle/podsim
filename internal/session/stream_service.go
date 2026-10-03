@@ -18,10 +18,15 @@ func DecodeStreamJSONVersion(data []byte, version int) (StreamEnvelope, error) {
 	if version < 1 || version > StreamVersion || len(data) > MaxStreamJSON {
 		return StreamEnvelope{}, errors.New("unsupported stream version or size")
 	}
+	if err := scanStreamBoardingMembers(data, version); err != nil {
+		return StreamEnvelope{}, err
+	}
 	if err := scanStreamServiceMembers(data, version); err != nil {
 		return StreamEnvelope{}, err
 	}
-	return DecodeStreamJSON(data)
+	var envelope StreamEnvelope
+	err := decodeStreamJSON(data, &envelope)
+	return envelope, err
 }
 
 func scanStreamServiceMembers(data []byte, version int) error {

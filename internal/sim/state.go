@@ -82,9 +82,11 @@ type SavedRequest struct {
 
 // SavedPod is a saved pod. A route holds indexes into Network.Lanes.
 type SavedPod struct {
-	Class        VehicleClass `json:"class,omitempty"`
-	LegacyCohort bool         `json:"legacyCohort,omitzero"`
-	ID           string       `json:"id"`
+	// Boardings contains native berth IDs. The session adapter encodes source indexes.
+	Boardings    []RiderBoarding `json:"boardings,omitempty"`
+	Class        VehicleClass    `json:"class,omitempty"`
+	LegacyCohort bool            `json:"legacyCohort,omitzero"`
+	ID           string          `json:"id"`
 	// Activity is idle, departing, boarding, traveling, unloading or
 	// continuing.
 	Activity           string `json:"activity"`
@@ -191,6 +193,10 @@ const (
 // RestoreStateInput holds the network and the fleet of the saved simulation,
 // and its saved state.
 type RestoreStateInput struct {
+	// BoardingRecords permits native boarding records under the save-6 contract.
+	BoardingRecords bool
+	// OnboardPickups permits new occupied pickups after restoration.
+	OnboardPickups  bool
 	ExpressServices []ExpressService
 	Network         Network
 	Fleet           []Placement
@@ -257,6 +263,9 @@ func RestoreState(input RestoreStateInput) (*Simulation, RestoreResult, error) {
 }
 
 func restoreState(input RestoreStateInput, newFleet func() (*Simulation, error)) (*Simulation, RestoreResult, error) {
+	if err := checkBoardingFields(input); err != nil {
+		return nil, RestoreResult{}, err
+	}
 	registry, serviceErr := validatedExpressServices(input.Network, newRouteGraph(input.Network), input.ExpressServices)
 	if serviceErr != nil {
 		return nil, RestoreResult{}, serviceErr
@@ -384,6 +393,10 @@ func (s *Simulation) exportPod(v *vehicle, limits routeLimits) SavedPod {
 		if v.journeyOrigin.ID != v.origin.ID {
 			pod.JourneyOrigin = v.journeyOrigin.ID
 		}
+	}
+	if !v.legacyBoardingRecords() {
+		pod.Boardings = slices.Clone(v.Boardings)
+		pod.RiddenMeters, pod.JourneyOrigin = v.riddenMeters(), ""
 	}
 	if pod.Waiting {
 		pod.WaitSince = v.waitSince

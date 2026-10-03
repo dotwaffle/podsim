@@ -105,6 +105,10 @@ type Pod struct {
 // Vehicle is an independent display copy of a pod and its assigned journey.
 type Vehicle struct {
 	LegacyCohort bool `json:"LegacyCohort,omitzero"`
+	// Boardings aligns with Riders when the original journey fields are insufficient.
+	Boardings []RiderBoarding `json:"Boardings,omitempty"`
+	// RiddenMeters is cumulative passenger distance when Boardings is present.
+	RiddenMeters float64 `json:"RiddenMeters,omitzero"`
 	// Presentation is set only for bounded stream views.
 	Presentation *RoutePresentation `json:"-"`
 	Pod          Pod                `json:"Pod"`
@@ -221,8 +225,8 @@ type vehicle struct {
 	// distance: the earlier legs of the journey, and the start of the route
 	// that a restore cut.
 	riddenBase float64
-	// journeyOrigin is the berth where the riders boarded. origin is the
-	// berth where the current leg of the journey started.
+	// journeyOrigin is the common boarding berth of an old-form journey.
+	// Recorded parties use Boardings. origin starts the current leg.
 	journeyOrigin       Berth
 	pending             int
 	waitSince           int64
@@ -315,6 +319,7 @@ type Simulation struct {
 	sharedRideMode                            SharedRideMode
 	sharedRideMaxStops                        int
 	sharedRideJoin                            SharedRideJoin
+	onboardPickups                            bool
 	// approachStations and routeStations belong to stationsOnRoute.
 	approachStations            map[string][]string
 	routeStations               map[stopKey][]string
@@ -502,6 +507,10 @@ func (s *Simulation) snapshot(routes bool) Snapshot {
 			cloned.Route = cloneLanes(v.Route)
 		}
 		cloned.Riders, cloned.Stops = slices.Clone(cloned.Riders), slices.Clone(cloned.Stops)
+		cloned.Boardings, cloned.RiddenMeters = nil, 0
+		if !v.legacyBoardingRecords() {
+			cloned.Boardings, cloned.RiddenMeters = slices.Clone(v.Boardings), v.riddenMeters()
+		}
 		state.Vehicles = append(state.Vehicles, cloned)
 	}
 	if s.platoonLinks > 0 {

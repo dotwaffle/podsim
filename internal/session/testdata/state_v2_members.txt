@@ -236,6 +236,7 @@ project.sharedRidePartyLimit number
 project.sharedRideMode string
 project.sharedRideMaxStops number
 project.sharedRideJoin string
+project.onboardPickups boolean
 project.stationBuffers boolean
 project.pickupReassignment boolean
 project.platoonLimit number

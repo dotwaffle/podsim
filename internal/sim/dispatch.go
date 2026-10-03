@@ -118,7 +118,7 @@ func (s *Simulation) dispatch() {
 		if v != nil && s.screensSeats() {
 			s.recordJoinEligible(trip, v, pass)
 		}
-		if (trip.request.PodID == "" || s.reassigns(v)) && s.joinSharedRide(trip, pass) {
+		if (trip.request.PodID == "" || s.reassigns(v)) && (s.joinOnboardPickup(trip) || s.joinSharedRide(trip, pass)) {
 			pass.reset()
 			if v != nil {
 				delete(assigned, v.Pod.ID)
@@ -467,6 +467,7 @@ func (s *Simulation) board(v *vehicle, trip waitingTrip) error {
 	}
 	trip.route, trip.destination = route, Berth{}
 	v.LegacyCohort = false
+	v.Boardings, v.RiddenMeters = nil, 0
 	v.Riders = []Request{s.boardingRider(trip, v, 0)}
 	v.Stops = []string{trip.request.To}
 	v.origin, v.destination, v.destinationStation = origin, trip.destination, trip.request.To
@@ -511,6 +512,9 @@ func (s *Simulation) joinSharedRide(trip *waitingTrip, pass *dispatchPass) bool 
 	existingStop := request.PodID != ""
 	refused := false
 	for _, v := range s.boardingPods(pass)[request.From] {
+		if v.Pod.Occupied || len(v.Boardings) > 0 {
+			continue
+		}
 		if !s.canJoin(v, request) {
 			refused = refused || s.refusedByFullPod(trip, v)
 			continue

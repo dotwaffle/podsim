@@ -21,7 +21,7 @@ func validateServiceVersion(config Config) error {
 	if config.Version == ServiceVersion {
 		return nil
 	}
-	present := config.ExpressServices != nil || config.StationQueueSpacing != ""
+	present := config.ExpressServices != nil || config.StationQueueSpacing != "" || config.OnboardPickups
 	for _, placement := range config.Fleet {
 		present = present || placement.Class != ""
 	}
@@ -61,6 +61,15 @@ func scanProjectService(data []byte) (bool, error) {
 			continue
 		}
 		switch {
+		case len(path) == 2 && path[1] == "onboardpickups":
+			present = true
+			value, err := decoder.ReadToken()
+			if err != nil {
+				return false, err
+			}
+			if value.Kind() != jsontext.KindTrue && value.Kind() != jsontext.KindFalse {
+				return false, errors.New("onboard pickups must be Boolean")
+			}
 		case len(path) == 2 && path[1] == "stationqueuespacing":
 			present = true
 			value, err := decoder.ReadToken()
@@ -103,4 +112,11 @@ func serviceClassListPath(path []string) bool {
 	}
 	return len(path) == 7 && path[1] == "network" && path[2] == "stations" &&
 		path[4] == "berths" && path[6] == "vehicleclasses"
+}
+
+func validateOnboardPickups(config Config) error {
+	if config.OnboardPickups && (EffectiveSharedRidePartyLimit(config) <= 1 || EffectiveSharedRideMode(config) != sim.SharedRideDropOffs) {
+		return errors.New("onboard pickups require shared ride party limit above one and drop-offs mode")
+	}
+	return nil
 }

@@ -56,7 +56,7 @@ func legacyTestState(file stateFile, version int) stateFile {
 
 func legacyStateMembersType(typ reflect.Type) reflect.Type {
 	typ = withoutMember(typ, reflect.TypeFor[project.Config](), "expressServices", "stationQueueSpacing")
-	typ = withoutMember(typ, reflect.TypeFor[sim.SavedPod](), "class", "legacyCohort", "stationBuffered", "compactQueue")
+	typ = withoutMember(typ, reflect.TypeFor[sim.SavedPod](), "class", "legacyCohort", "stationBuffered", "compactQueue", "boardings")
 	typ = withoutMember(typ, reflect.TypeFor[sim.SavedRequest](), "sharingConsent", "service", "serviceID", "legacyPartySize")
 	typ = withoutMember(typ, reflect.TypeFor[sim.SavedPlatoonLink](), "kind", "terminalCell")
 	typ = withoutMember(typ, reflect.TypeFor[sim.Placement](), "Class")
@@ -93,7 +93,11 @@ func TestCurrentStateGolden(t *testing.T) {
 	if err != nil || decoded.Version != serviceStateVersion {
 		t.Fatalf("version 6 golden decode: %v", err)
 	}
-	members := strings.Join(stateMembers(t, "", reflect.TypeFor[stateFile](), nil), "\n") + "\n"
+	membersType := withoutMember(reflect.TypeFor[stateFile](), reflect.TypeFor[sim.SavedPod](), "boardings")
+	lines := stateMembers(t, "", membersType, nil)
+	// The session adapter writes tuples instead of native boarding objects.
+	lines = append(lines, stateMembers(t, "simulation.pods[].boardings", reflect.TypeFor[[][2]float64](), nil)...)
+	members := strings.Join(lines, "\n") + "\n"
 	const path = "testdata/state_v6_members.txt"
 	if *update {
 		if writeErr := os.WriteFile(path, []byte(members), 0o600); writeErr != nil {

@@ -10,6 +10,7 @@ import (
 	"io"
 	"math"
 	"math/rand/v2"
+	"slices"
 	"strings"
 	"time"
 
@@ -134,7 +135,8 @@ var stateJSONLimits = jsonLimits{
 // stateFile holds versions 2 through 6 of the saved session state. Version 3
 // adds explicit station buffer membership. Version 4 adds fixed entry links.
 // Version 5 requires a version 2 project with explicit station banks.
-// Version 6 adds service metadata and retained compact queue certificates.
+// Version 6 adds service metadata, boarding references, and retained compact
+// queue certificates.
 // Earlier versions reject later fields, including explicit empty or null values.
 // The file on disk is
 // the JSON form of stateFile, compressed with gzip. Each change to a member,
@@ -148,6 +150,8 @@ var stateJSONLimits = jsonLimits{
 // returns a simulation that shares no storage with the session. The session
 // replaces its project whole and does not change it in place.
 type stateFile struct {
+	// boardingTuples retains unresolved references in saved pod order.
+	boardingTuples  [][]boardingTuple
 	RailConnections []rail.Connection `json:"railConnections,omitempty"`
 	Format          string            `json:"format"`
 	Version         int               `json:"version"`
@@ -235,7 +239,9 @@ func (e *stateEncoder) encode(file stateFile) ([]byte, error) {
 		writer: e.zw, limit: MaxStateBytes,
 		err: fmt.Errorf("session state has more than %d bytes: %w", MaxStateBytes, ErrStateTooLarge),
 	}
-	options := json.JoinOptions(json.Deterministic(true), json.WithMarshalers(json.MarshalToFunc(e.encodeProject)))
+	source := bindBoardingSource(file.Project)
+	options := json.JoinOptions(json.Deterministic(true), json.WithMarshalers(json.JoinMarshalers(
+		json.MarshalToFunc(e.encodeProject), json.MarshalToFunc(source.encodePod))))
 	if err := json.MarshalWrite(limited, file, options); err != nil {
 		return nil, fmt.Errorf("encode session state: %w", err)
 	}
@@ -304,7 +310,7 @@ func decodeStateFile(data []byte) (stateFile, error) {
 		return stateFile{}, err
 	}
 	// Check the largest recognized shapes before even the small header decode.
-	if err := prescanJSON(raw, compactStateLimits(serviceStateLimits())); err != nil {
+	if err := prescanJSON(raw, boardingStateLimits(compactStateLimits(serviceStateLimits()))); err != nil {
 		return stateFile{}, invalidState(fmt.Errorf("scan session state: %w", err))
 	}
 	// The header decode ignores the other members, so that a file from a
@@ -325,7 +331,7 @@ func decodeStateFile(data []byte) (stateFile, error) {
 	}
 	limits := stateJSONLimits
 	if header.Version == serviceStateVersion {
-		limits = compactStateLimits(serviceStateLimits())
+		limits = boardingStateLimits(compactStateLimits(serviceStateLimits()))
 	}
 	if err := prescanJSON(raw, limits); err != nil {
 		return stateFile{}, invalidState(fmt.Errorf("scan session state: %w", err))
@@ -336,11 +342,22 @@ func decodeStateFile(data []byte) (stateFile, error) {
 	if err := scanStateOrderFields(raw, header.Version); err != nil {
 		return stateFile{}, invalidState(err)
 	}
+	if err := scanStateBoardingFields(raw, header.Version); err != nil {
+		return stateFile{}, invalidState(err)
+	}
+	var boardingTuples [][]boardingTuple
+	decodePod := func(decoder *jsontext.Decoder, pod *sim.SavedPod) error {
+		tuples, err := decodeBoardingPod(decoder, pod)
+		if err == nil {
+			boardingTuples = append(boardingTuples, tuples)
+		}
+		return err
+	}
 	options := strictStateOptions
 	switch header.Version {
 	case serviceStateVersion:
 		options = json.JoinOptions(options, json.WithUnmarshalers(json.JoinUnmarshalers(
-			json.UnmarshalFromFunc(decodeSavedProject), json.UnmarshalFromFunc(decodeV6Platoon), json.UnmarshalFromFunc(decodeCompactQueue))))
+			json.UnmarshalFromFunc(decodeSavedProject), json.UnmarshalFromFunc(decodeV6Platoon), json.UnmarshalFromFunc(decodeCompactQueue), json.UnmarshalFromFunc(decodePod))))
 	case stateVersion:
 		options = json.JoinOptions(options, json.WithUnmarshalers(json.JoinUnmarshalers(
 			json.UnmarshalFromFunc(decodeSavedProject), json.UnmarshalFromFunc(decodeV2Pod), json.UnmarshalFromFunc(decodeLegacyPlatoon))))
@@ -354,6 +371,9 @@ func decodeStateFile(data []byte) (stateFile, error) {
 	var file stateFile
 	if err := json.Unmarshal(raw, &file, options); err != nil {
 		return stateFile{}, invalidState(fmt.Errorf("decode session state: %w", err))
+	}
+	if slices.ContainsFunc(boardingTuples, func(tuples []boardingTuple) bool { return len(tuples) != 0 }) {
+		file.boardingTuples = boardingTuples
 	}
 	if err := validateSavedCompactMembers(file.Simulation); err != nil {
 		return stateFile{}, invalidState(err)
@@ -576,10 +596,8 @@ func (limits jsonLimits) readToken(decoder *jsontext.Decoder) (jsontext.Kind, er
 // arrayLimit returns the element limit of the array that the last token of
 // decoder started.
 func (limits jsonLimits) arrayLimit(decoder *jsontext.Decoder) int64 {
-	// Each path in limits.arrays ends with a name. Thus an array that is not
-	// the value of an object member has no path limit.
-	depth := decoder.StackDepth()
-	if parent, _ := decoder.StackIndex(depth - 1); parent != jsontext.KindBeginObject || len(limits.arrays) == 0 {
+	// Paths can name object members or nested array items.
+	if len(limits.arrays) == 0 {
 		return limits.elements
 	}
 	// tokens[level] is the name or the index of a value in the object or

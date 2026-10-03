@@ -148,6 +148,10 @@ func (p *PreparedNetwork) newFleet(placements []Placement) *Simulation {
 // PreparedRestoreInput supplies the fleet and saved state for a prepared network.
 // The network must be the one that the saved simulation used.
 type PreparedRestoreInput struct {
+	// BoardingRecords selects the current save contract for native records.
+	BoardingRecords bool
+	// OnboardPickups enables new occupied pickups after restoration.
+	OnboardPickups      bool
 	ExpressServices     []ExpressService
 	Fleet               []Placement
 	State               SavedState
@@ -166,6 +170,6 @@ func (p *PreparedNetwork) RestoreState(input PreparedRestoreInput) (*Simulation,
 	if err := p.check(); err != nil {
 		return nil, RestoreResult{}, err
 	}
-	stateInput := RestoreStateInput{ExpressServices: input.ExpressServices, Network: p.network, Fleet: input.Fleet, State: input.State, LogicalOnly: input.LogicalOnly, StationBuffers: input.StationBuffers, BufferPlatoons: input.BufferPlatoons, CompactQueues: input.CompactQueues, StationQueueSpacing: input.StationQueueSpacing, PlatoonLimit: input.PlatoonLimit}
+	stateInput := RestoreStateInput{BoardingRecords: input.BoardingRecords, OnboardPickups: input.OnboardPickups, ExpressServices: input.ExpressServices, Network: p.network, Fleet: input.Fleet, State: input.State, LogicalOnly: input.LogicalOnly, StationBuffers: input.StationBuffers, BufferPlatoons: input.BufferPlatoons, CompactQueues: input.CompactQueues, StationQueueSpacing: input.StationQueueSpacing, PlatoonLimit: input.PlatoonLimit}
 	return restoreState(stateInput, func() (*Simulation, error) { return p.NewFleet(input.Fleet) })
 }

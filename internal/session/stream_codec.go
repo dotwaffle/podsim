@@ -46,19 +46,21 @@ type Replacement[T any] struct {
 
 // VehicleDelta replaces independent groups of one vehicle.
 type VehicleDelta struct {
-	ID       string                              `json:"id"`
-	Pod      *Replacement[sim.Pod]               `json:"pod,omitempty"`
-	Route    *Replacement[sim.RoutePresentation] `json:"route,omitempty"`
-	Riders   *Replacement[[]sim.Request]         `json:"riders,omitempty"`
-	Stops    *Replacement[[]string]              `json:"stops,omitempty"`
-	Metadata *Replacement[vehicleMetadata]       `json:"metadata,omitempty"`
+	ID        string                              `json:"id"`
+	Pod       *Replacement[sim.Pod]               `json:"pod,omitempty"`
+	Route     *Replacement[sim.RoutePresentation] `json:"route,omitempty"`
+	Boardings *Replacement[[]sim.RiderBoarding]   `json:"boardings,omitempty"`
+	Riders    *Replacement[[]sim.Request]         `json:"riders,omitempty"`
+	Stops     *Replacement[[]string]              `json:"stops,omitempty"`
+	Metadata  *Replacement[vehicleMetadata]       `json:"metadata,omitempty"`
 }
 type vehicleMetadata struct {
-	LegacyCohort bool   `json:"LegacyCohort,omitzero"`
-	RelocatingTo string `json:"RelocatingTo"`
-	Rebalancing  bool   `json:"Rebalancing"`
-	PlatoonID    string `json:"PlatoonID"`
-	PlatoonIndex int    `json:"PlatoonIndex"`
+	RiddenMeters float64 `json:"RiddenMeters,omitzero"`
+	LegacyCohort bool    `json:"LegacyCohort,omitzero"`
+	RelocatingTo string  `json:"RelocatingTo"`
+	Rebalancing  bool    `json:"Rebalancing"`
+	PlatoonID    string  `json:"PlatoonID"`
+	PlatoonIndex int     `json:"PlatoonIndex"`
 }
 
 type streamStatistics struct {
@@ -129,7 +131,7 @@ func sameChain(a, b StreamFrame) bool {
 	return true
 }
 func meta(v VehicleFrame) vehicleMetadata {
-	return vehicleMetadata{LegacyCohort: v.LegacyCohort, RelocatingTo: v.RelocatingTo, Rebalancing: v.Rebalancing, PlatoonID: v.PlatoonID, PlatoonIndex: v.PlatoonIndex}
+	return vehicleMetadata{RiddenMeters: v.RiddenMeters, LegacyCohort: v.LegacyCohort, RelocatingTo: v.RelocatingTo, Rebalancing: v.Rebalancing, PlatoonID: v.PlatoonID, PlatoonIndex: v.PlatoonIndex}
 }
 func changed[T any](a, b T) *Replacement[T] {
 	if reflect.DeepEqual(a, b) {
@@ -199,8 +201,16 @@ func makeDelta(a, b StreamFrame) (StreamDelta, error) {
 	}
 	for i, v := range b.State.Simulation.Vehicles {
 		p := a.State.Simulation.Vehicles[i]
-		item := VehicleDelta{ID: v.Pod.ID, Pod: changedValue(p.Pod, v.Pod), Route: changed(a.Routes[i], b.Routes[i]), Riders: changedSlice(p.Riders, v.Riders), Stops: changedSlice(p.Stops, v.Stops), Metadata: changedValue(meta(p), meta(v))}
-		if item.Pod != nil || item.Route != nil || item.Riders != nil || item.Stops != nil || item.Metadata != nil {
+		item := VehicleDelta{ID: v.Pod.ID, Pod: changedValue(p.Pod, v.Pod), Route: changed(a.Routes[i], b.Routes[i]), Riders: changedSlice(p.Riders, v.Riders), Boardings: changedSlice(p.Boardings, v.Boardings), Stops: changedSlice(p.Stops, v.Stops), Metadata: changedValue(meta(p), meta(v))}
+		if (len(p.Boardings) > 0 || len(v.Boardings) > 0) && (item.Riders != nil || item.Boardings != nil) {
+			item.Riders = &Replacement[[]sim.Request]{v.Riders}
+			records := v.Boardings
+			if len(records) == 0 {
+				records = []sim.RiderBoarding{}
+			}
+			item.Boardings = &Replacement[[]sim.RiderBoarding]{records}
+		}
+		if item.Boardings != nil || item.Pod != nil || item.Route != nil || item.Riders != nil || item.Stops != nil || item.Metadata != nil {
 			d.Vehicles = append(d.Vehicles, item)
 		}
 	}
@@ -315,6 +325,19 @@ func ApplyStream(previous StreamFrame, stream string, sequence uint64, e StreamE
 			}
 			seen[v.ID] = true
 			dst := &f.State.Simulation.Vehicles[i]
+			hasRecords := len(dst.Boardings) > 0 || v.Boardings != nil && len(v.Boardings.Value) > 0
+			if hasRecords && (v.Riders != nil || v.Boardings != nil) && (v.Riders == nil || v.Boardings == nil) {
+				return StreamFrame{}, errors.New("boarding records and riders need paired replacements")
+			}
+			if v.Boardings != nil {
+				if v.Boardings.Value == nil {
+					return StreamFrame{}, errors.New("boarding replacement needs an array")
+				}
+				dst.Boardings = v.Boardings.Value
+				if len(dst.Boardings) == 0 {
+					dst.Boardings = nil
+				}
+			}
 			if v.Pod != nil {
 				if v.Pod.Value.ID != v.ID {
 					return StreamFrame{}, errors.New("changed pod ID")
@@ -333,6 +356,7 @@ func ApplyStream(previous StreamFrame, stream string, sequence uint64, e StreamE
 			if v.Metadata != nil {
 				m := v.Metadata.Value
 				dst.LegacyCohort = m.LegacyCohort
+				dst.RiddenMeters = m.RiddenMeters
 				dst.RelocatingTo, dst.Rebalancing, dst.PlatoonID, dst.PlatoonIndex = m.RelocatingTo, m.Rebalancing, m.PlatoonID, m.PlatoonIndex
 			}
 		}
@@ -357,11 +381,14 @@ func ApplyStream(previous StreamFrame, stream string, sequence uint64, e StreamE
 		return StreamFrame{}, errors.New("invalid presentation counts")
 	}
 	for i, v := range f.State.Simulation.Vehicles {
+		if err := validateVehicleBoardings(v); err != nil {
+			return StreamFrame{}, err
+		}
 		if len(v.RouteLaneIDs) != 0 || len(f.Routes[i].Display) > project.MaxLanes || len(f.Routes[i].Lanes) > sim.MotionRouteLimit {
 			return StreamFrame{}, errors.New("unbounded stream route")
 		}
 	}
-	return f, nil
+	return ownStreamBoardings(f), nil
 }
 
 func decodeStreamJSON(data []byte, target any) error {
@@ -379,6 +406,9 @@ func decodeStreamJSON(data []byte, target any) error {
 // DecodeStreamJSON validates one inflated envelope.
 func DecodeStreamJSON(data []byte) (StreamEnvelope, error) {
 	var e StreamEnvelope
+	if err := scanStreamBoardingMembers(data, StreamVersion); err != nil {
+		return e, err
+	}
 	err := decodeStreamJSON(data, &e)
 	return e, err
 }

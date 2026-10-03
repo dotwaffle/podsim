@@ -49,9 +49,8 @@ func (v *Vehicle) PassengersAboard() int {
 	return passengers
 }
 
-// boardingStation returns the origin station of the riders aboard a pod.
-// All riders of a pod board at one station. It returns "" for a pod with no
-// rider aboard.
+// boardingStation returns the first active party's origin station.
+// It returns "" when no party remains aboard.
 func (v *vehicle) boardingStation() string {
 	for _, rider := range v.Riders {
 		if !rider.Completed {
@@ -61,9 +60,14 @@ func (v *vehicle) boardingStation() string {
 	return ""
 }
 
-// riddenMeters returns the distance that the riders of the pod rode since
-// they boarded.
-func (v *vehicle) riddenMeters() float64 { return v.riddenBase + v.distance }
+// riddenMeters returns the passenger chain's cumulative distance.
+// A recorded party's distance excludes its boarding baseline.
+func (v *vehicle) riddenMeters() float64 {
+	if len(v.Boardings) > 0 && v.RidersAboard() == 0 {
+		return v.riddenBase
+	}
+	return v.riddenBase + v.distance
+}
 
 // alight completes each rider of a pod that unloaded at a stop. A rider
 // leaves the pod when the pod has no later stop for it. alight adds the
@@ -79,6 +83,11 @@ func (s *Simulation) alight(v *vehicle) {
 		if !directKnown {
 			direct, directKnown = s.directDistanceForClass(v.journeyOrigin.Node, rider.To, v.destination, v.Pod.Class), true
 		}
+		partyRidden, partyDirect := ridden, direct
+		if len(v.Boardings) > 0 {
+			partyRidden -= v.Boardings[index].MetersAtBoarding
+			partyDirect = s.directDistanceForClass(s.riderOrigin(v, index), rider.To, v.destination, v.Pod.Class)
+		}
 		rider.Completed = true
 		s.stepCompletions = append(s.stepCompletions, StepCompletion{RequestID: rider.ID, AlightedTick: s.tick})
 		s.completed++
@@ -86,16 +95,19 @@ func (s *Simulation) alight(v *vehicle) {
 		s.journeys++
 		s.totalJourneyTicks += journey
 		s.maxJourneyTicks = max(s.maxJourneyTicks, journey)
-		s.riderDistanceMeters += ridden
-		if direct > 0 {
-			s.directDistanceMeters += direct
-			s.maxDetourRatio = max(s.maxDetourRatio, ridden/direct)
+		s.riderDistanceMeters += partyRidden
+		if partyDirect > 0 {
+			s.directDistanceMeters += partyDirect
+			s.maxDetourRatio = max(s.maxDetourRatio, partyRidden/partyDirect)
 		}
 		if s.recordExperiments {
 			s.requestCompletions = append(s.requestCompletions, requestCompletion{
-				requestID: rider.ID, tick: s.tick, riddenMeters: ridden, directMeters: max(direct, 0),
+				requestID: rider.ID, tick: s.tick, riddenMeters: partyRidden, directMeters: max(partyDirect, 0),
 			})
 		}
+	}
+	if len(v.Boardings) > 0 && v.RidersAboard() == 0 {
+		v.riddenBase = ridden
 	}
 }
 

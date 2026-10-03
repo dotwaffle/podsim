@@ -69,13 +69,15 @@ type SimulationFrame struct {
 
 // VehicleFrame contains dynamic vehicle data and its ordered route IDs.
 type VehicleFrame struct {
-	LegacyCohort bool          `json:"LegacyCohort,omitzero"`
-	Pod          sim.Pod       `json:"Pod"`
-	Riders       []sim.Request `json:"Riders,omitempty"`
-	Stops        []string      `json:"Stops,omitempty"`
-	RouteLaneIDs []string      `json:"RouteLaneIDs"`
-	RelocatingTo string        `json:"RelocatingTo"`
-	Rebalancing  bool          `json:"Rebalancing"`
+	Boardings    []sim.RiderBoarding `json:"Boardings,omitempty"`
+	RiddenMeters float64             `json:"RiddenMeters,omitzero"`
+	LegacyCohort bool                `json:"LegacyCohort,omitzero"`
+	Pod          sim.Pod             `json:"Pod"`
+	Riders       []sim.Request       `json:"Riders,omitempty"`
+	Stops        []string            `json:"Stops,omitempty"`
+	RouteLaneIDs []string            `json:"RouteLaneIDs"`
+	RelocatingTo string              `json:"RelocatingTo"`
+	Rebalancing  bool                `json:"Rebalancing"`
 	// PlatoonID and PlatoonIndex are the platoon of a coupled pod. See
 	// sim.Vehicle.
 	PlatoonID    string `json:"PlatoonID,omitempty"`
@@ -112,7 +114,8 @@ func frameState(topology TopologySnapshot, frame StateFrame, immutable bool) (St
 		}
 		vehicles[index] = sim.Vehicle{
 			LegacyCohort: vehicle.LegacyCohort,
-			Pod:          vehicle.Pod, Riders: vehicle.Riders, Stops: vehicle.Stops, Route: route,
+			Boardings:    slices.Clone(vehicle.Boardings), RiddenMeters: vehicle.RiddenMeters,
+			Pod: vehicle.Pod, Riders: slices.Clone(vehicle.Riders), Stops: slices.Clone(vehicle.Stops), Route: route,
 			RelocatingTo: vehicle.RelocatingTo, Rebalancing: vehicle.Rebalancing,
 			PlatoonID: vehicle.PlatoonID, PlatoonIndex: vehicle.PlatoonIndex,
 		}
@@ -160,7 +163,8 @@ func stateFrame(state State) StateFrame {
 		}
 		vehicles[index] = VehicleFrame{
 			LegacyCohort: vehicle.LegacyCohort,
-			Pod:          vehicle.Pod, Riders: vehicle.Riders, Stops: vehicle.Stops, RouteLaneIDs: routeIDs,
+			Boardings:    slices.Clone(vehicle.Boardings), RiddenMeters: vehicle.RiddenMeters,
+			Pod: vehicle.Pod, Riders: slices.Clone(vehicle.Riders), Stops: slices.Clone(vehicle.Stops), RouteLaneIDs: routeIDs,
 			RelocatingTo: vehicle.RelocatingTo, Rebalancing: vehicle.Rebalancing,
 			PlatoonID: vehicle.PlatoonID, PlatoonIndex: vehicle.PlatoonIndex,
 		}

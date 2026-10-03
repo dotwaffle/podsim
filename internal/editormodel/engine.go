@@ -172,10 +172,10 @@ func (e *engine) sync(command request) (response, error) {
 			firstError = fmt.Errorf("unsupported editor project field %s", key)
 		}
 	}
-	servicePresent := next["network"].services || next["fleet"].services || next["expressServices"].services || next["stationQueueSpacing"].services
+	servicePresent := next["network"].services || next["fleet"].services || next["expressServices"].services || next["stationQueueSpacing"].services || next["onboardPickups"].services
 	if firstError == nil && (next["network"].banked || config.Version == 2 || config.Version == 3 || servicePresent) {
 		fields := make(map[string]jsontext.Value, 4)
-		for _, key := range []string{"version", "network", "fleet", "expressServices", "stationQueueSpacing"} {
+		for _, key := range []string{"version", "network", "fleet", "expressServices", "stationQueueSpacing", "onboardPickups"} {
 			if branch, present := next[key]; present {
 				fields[key] = branch.raw
 			}
@@ -198,7 +198,7 @@ func (e *engine) sync(command request) (response, error) {
 		e.checks = nil
 	}
 	if e.checks != nil {
-		for _, key := range []string{"version", "fleet", "expressServices", "stationQueueSpacing"} {
+		for _, key := range []string{"version", "fleet", "expressServices", "stationQueueSpacing", "onboardPickups", "sharedRidePartyLimit", "sharedRideMode"} {
 			if !bytes.Equal(e.branches[key].raw, next[key].raw) {
 				e.checks.servicesReady = false
 				break
@@ -240,6 +240,8 @@ func copyBranch(dst *project.Config, key string, src project.Config) bool {
 		dst.SharedRideMaxStops = src.SharedRideMaxStops
 	case "sharedRideJoin":
 		dst.SharedRideJoin = src.SharedRideJoin
+	case "onboardPickups":
+		dst.OnboardPickups = src.OnboardPickups
 	case "stationBuffers":
 		dst.StationBuffers = src.StationBuffers
 	case "stationQueueSpacing":

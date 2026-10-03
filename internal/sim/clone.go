@@ -21,6 +21,7 @@ func (s *Simulation) Clone() *Simulation {
 	for i := range c.vehicles {
 		v := &c.vehicles[i]
 		v.Riders, v.Stops = slices.Clone(v.Riders), slices.Clone(v.Stops)
+		v.Boardings = slices.Clone(v.Boardings)
 		v.routeReleases = maps.Clone(v.routeReleases)
 	}
 	c.owners = maps.Clone(s.owners)

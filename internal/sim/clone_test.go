@@ -41,7 +41,7 @@ var cloneRules = map[reflect.Type]map[string]cloneRule{
 		"Vehicle": cloneCopy, "blocks": cloneShare, "blockStarts": cloneShare, "routeReleases": cloneCopy,
 		"routeLengths": cloneShare,
 	},
-	reflect.TypeFor[Vehicle]():              {"Riders": cloneCopy, "Stops": cloneCopy, "Route": cloneShare, "Presentation": cloneShare},
+	reflect.TypeFor[Vehicle]():              {"Riders": cloneCopy, "Boardings": cloneCopy, "Stops": cloneCopy, "Route": cloneShare, "Presentation": cloneShare},
 	reflect.TypeFor[waitingTrip]():          {"route": cloneShare},
 	reflect.TypeFor[routeResult]():          {"lanes": cloneShare, "err": cloneShare},
 	reflect.TypeFor[podQueueHistory]():      {"lanes": cloneCopy},
@@ -52,6 +52,7 @@ var cloneRules = map[reflect.Type]map[string]cloneRule{
 
 // clonePlainTypes hold only plain values, so a value copy of them is deep.
 var clonePlainTypes = []reflect.Type{
+	reflect.TypeFor[RiderBoarding](),
 	reflect.TypeFor[Request](), reflect.TypeFor[Pod](), reflect.TypeFor[Berth](),
 	reflect.TypeFor[resource](), reflect.TypeFor[demoRun](), reflect.TypeFor[routeKey](),
 	reflect.TypeFor[PickupReassignment](),
@@ -179,7 +180,7 @@ var persistRules = map[reflect.Type]map[string]persistRule{
 		"positioning": persistSession, "demandRate": persistSession, "demandWeights": persistSession, "nextRedistributionTick": persistSave,
 		"passengerDistanceMeters": persistSave, "emptyDistanceMeters": persistSave, "rebalanceMoves": persistSave,
 		"sharedRidePartyLimit": persistSave, "sharedParties": persistSave, "unaccountedOrders": persistDerive, "monitor": persistReset,
-		"sharedRideMode": persistSave, "sharedRideMaxStops": persistSave, "sharedRideJoin": persistSave,
+		"sharedRideMode": persistSave, "sharedRideMaxStops": persistSave, "sharedRideJoin": persistSave, "onboardPickups": persistSession,
 		"approachStations": persistDerive, "routeStations": persistReset,
 		"journeys": persistSave, "totalJourneyTicks": persistSave, "maxJourneyTicks": persistSave,
 		"riderDistanceMeters": persistSave, "directDistanceMeters": persistSave, "maxDetourRatio": persistSave,
@@ -208,7 +209,7 @@ var persistRules = map[reflect.Type]map[string]persistRule{
 		"routeVersion": persistReset, "stationPhase": persistDerive, "routeLengths": persistDerive, "link": persistSave, "follower": persistDerive, "platoonCap": persistReset,
 	},
 	reflect.TypeFor[Vehicle](): {
-		"LegacyCohort": persistSave, "Pod": persistSave, "Riders": persistSave, "Stops": persistSave, "Route": persistSave, "Presentation": persistReset,
+		"LegacyCohort": persistSave, "Pod": persistSave, "Riders": persistSave, "Boardings": persistSave, "RiddenMeters": persistDerive, "Stops": persistSave, "Route": persistSave, "Presentation": persistReset,
 		"RelocatingTo": persistSave, "Rebalancing": persistSave, "PlatoonID": persistDerive, "PlatoonIndex": persistDerive,
 	},
 	reflect.TypeFor[Pod](): {
@@ -221,6 +222,7 @@ var persistRules = map[reflect.Type]map[string]persistRule{
 		"SharingConsent": persistSave, "Service": persistSave, "ServiceID": persistSave, "LegacyPartySize": persistSave, "ID": persistSave, "From": persistSave, "To": persistSave, "PartySize": persistSave, "PodID": persistSave,
 		"Completed": persistSave, "RequestedTick": persistSave, "BoardedTick": persistSave, "DispatchReason": persistSave,
 	},
+	reflect.TypeFor[RiderBoarding](): {"BerthID": persistSave, "MetersAtBoarding": persistSave},
 	reflect.TypeFor[waitingTrip](): {
 		"request": persistSave, "route": persistSave, "destination": persistReset, "deferUntil": persistSave,
 		"deferCheck": persistSave, "deferPodID": persistSave, "boarded": persistSave, "fullPodRefused": persistReset,
@@ -410,6 +412,13 @@ func activeCloneSimulation(t *testing.T) *Simulation {
 	s.expressServices = map[string]ExpressService{"storage": {ID: "storage", From: "harbor", To: "market", Class: ExpressClass, PartyLimit: 20}}
 	s.stepCompletions = []StepCompletion{{RequestID: 1, AlightedTick: s.tick}}
 	s.pickupSwaps.records = []PickupReassignment{{Tick: s.tick, RequestID: 1, OldPod: "01", NewPod: "02", OldSeconds: 30, NewSeconds: 10}}
+	// Storage coverage uses aligned records without enabling occupied pickup.
+	for index := range s.vehicles {
+		v := &s.vehicles[index]
+		for range v.Riders {
+			v.Boardings = append(v.Boardings, RiderBoarding{BerthID: v.journeyOrigin.ID})
+		}
+	}
 	return s
 }
 

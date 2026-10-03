@@ -81,7 +81,7 @@ func (s *Simulation) refusedByFullPod(trip *waitingTrip, v *vehicle) bool {
 // recordDeparture counts a boarding pod that departs now in the seat
 // screen. The pod is still at its origin berth.
 func (s *Simulation) recordDeparture(v *vehicle) {
-	aboard, backlog := len(v.Riders), 0
+	aboard, backlog := v.RidersAboard(), 0
 	for index := range s.waiting {
 		if request := s.waiting[index].request; request.From == v.Pod.StationID && s.consentCompatible(v, request) && s.backlogParty(v, request.To) {
 			backlog++

@@ -201,6 +201,8 @@ type Config struct {
 	// their pickup state: "unassigned" or "reassign-existing". An empty
 	// policy loads as sim.DefaultSharedRideJoin, which is "unassigned".
 	SharedRideJoin sim.SharedRideJoin `json:"sharedRideJoin,omitempty"`
+	// OnboardPickups permits shared parties to join an occupied pod at a passenger berth.
+	OnboardPickups bool `json:"onboardPickups,omitzero"`
 	// StationBuffers enables experimental berthless station queues.
 	StationBuffers PolicyFlag `json:"stationBuffers,omitzero"`
 	// StationQueueSpacing selects opt-in compact queues. Omission keeps ordinary spacing.
@@ -270,6 +272,9 @@ func Validate(config Config) error {
 	}
 	if join := config.SharedRideJoin; join != "" && join != sim.SharedRideJoinUnassigned && join != sim.SharedRideJoinReassignExisting {
 		return fmt.Errorf("shared ride join policy must be %q or %q", sim.SharedRideJoinUnassigned, sim.SharedRideJoinReassignExisting)
+	}
+	if err := validateOnboardPickups(config); err != nil {
+		return err
 	}
 	if limit := config.PlatoonLimit; limit != 0 && (limit < sim.MinPlatoonLimit || limit > sim.MaxPlatoonLimit) {
 		return fmt.Errorf("platoon limit must be %d to %d, or 0 for no platoons", sim.MinPlatoonLimit, sim.MaxPlatoonLimit)
@@ -367,7 +372,10 @@ func ConfigureSharedRides(simulation *sim.Simulation, config Config) error {
 	if err := simulation.SetSharedRideMode(EffectiveSharedRideMode(config), EffectiveSharedRideMaxStops(config)); err != nil {
 		return err
 	}
-	return simulation.SetSharedRideJoin(EffectiveSharedRideJoin(config))
+	if err := simulation.SetSharedRideJoin(EffectiveSharedRideJoin(config)); err != nil {
+		return err
+	}
+	return simulation.SetOnboardPickups(config.OnboardPickups)
 }
 
 // ConfigurePlatoons applies the platoon limit of a project to a

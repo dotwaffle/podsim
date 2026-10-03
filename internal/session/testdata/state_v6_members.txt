@@ -280,6 +280,7 @@ project.sharedRidePartyLimit number
 project.sharedRideMode string
 project.sharedRideMaxStops number
 project.sharedRideJoin string
+project.onboardPickups boolean
 project.stationBuffers boolean
 project.stationQueueSpacing string
 project.pickupReassignment boolean
@@ -293,3 +294,6 @@ project.geo.radius number
 project.map object
 project.map.provider string
 project.map.opacity number
+simulation.pods[].boardings array
+simulation.pods[].boardings[] array
+simulation.pods[].boardings[][] number

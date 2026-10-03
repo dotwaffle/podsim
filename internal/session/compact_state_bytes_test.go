@@ -4,9 +4,12 @@ import (
 	"bytes"
 	"encoding/json/v2"
 	"math"
+	"slices"
 	"strconv"
 	"strings"
 	"testing"
+
+	"github.com/dotwaffle/podsim/internal/project"
 
 	"github.com/dotwaffle/podsim/internal/sim"
 )
@@ -83,9 +86,85 @@ func testCompactWorstCaseSize(t *testing.T, base stateFile, pod sim.SavedPod, tr
 			if encoded := decompressTestJSON(t, data); !bytes.Equal(encoded, raw) {
 				t.Fatal("typed compact fixture differs from the bounded state encoder")
 			}
+			testBoardingWorstCaseSize(t, file, count)
 			decoded, err := decodeStateFile(data)
 			if err != nil || len(decoded.Simulation.Pods) != maxSavedPods || len(decoded.Simulation.Waiting) != sim.MaxSavedWaitingTrips {
 				t.Fatalf("typed compact save decode: %v", err)
+			}
+		})
+	}
+}
+
+// testBoardingWorstCaseSize sends modern and mixed maxima through the save adapter.
+func testBoardingWorstCaseSize(t *testing.T, base stateFile, count int) {
+	t.Helper()
+	const wide = 0.0000010000000000000002
+	for _, mixed := range []bool{false, true} {
+		name := "modern"
+		if mixed {
+			name = "mixed"
+		}
+		t.Run(name, func(t *testing.T) {
+			file := base
+			file.Project = project.Clone(base.Project)
+			stationID := base.Simulation.Pods[0].Riders[0].From
+			berths := make([]sim.Berth, project.MaxBerths)
+			alphabet := []byte{1, 2, 3, 4, 5, 6, 7, 11, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31}
+			for i := range berths {
+				berths[i] = sim.Berth{ID: strings.Repeat("\x01", 62) + string([]byte{alphabet[i/len(alphabet)], alphabet[i%len(alphabet)]}), Node: file.Project.Network.Nodes[i].ID}
+			}
+			file.Project.Network.Stations[0].ID = stationID
+			file.Project.Network.Stations[0].Berths = berths
+			file.Project.Network.Stations[0].Banks = nil
+			file.Project.Name = ""
+			file.Project.Name = strings.Repeat("n", project.MaxFileBytes-jsonSize(t, file.Project))
+			file.Simulation.Pods = slices.Clone(base.Simulation.Pods)
+			for i := range file.Simulation.Pods {
+				if mixed && i%2 == 0 {
+					continue
+				}
+				pod := &file.Simulation.Pods[i]
+				pod.Riders = slices.Clone(pod.Riders)
+				pod.LegacyCohort = false
+				pod.RiddenMeters = wide
+				for j := range pod.Riders {
+					pod.Riders[j].SharingConsent = sim.SharedConsent
+					if pod.Riders[j].Completed {
+						pod.Riders[j].SharingConsent = sim.PrivateConsent
+					}
+					pod.Riders[j].LegacyPartySize = false
+					pod.Riders[j].PartySize = 4
+				}
+				pod.Boardings = slices.Repeat([]sim.RiderBoarding{{BerthID: berths[len(berths)-1].ID, MetersAtBoarding: wide}}, sim.MaxSharedRideParties)
+			}
+			data := encodeTestState(t, file)
+			raw := decompressTestJSON(t, data)
+			t.Logf("typed boarding %s compact members=%d: %d JSON bytes, limit %d, headroom %d", name, count, len(raw), MaxStateBytes, MaxStateBytes-len(raw))
+			if len(raw) > MaxStateBytes || len(file.Simulation.Pods) != 300 || len(file.Simulation.Waiting) != 2600 {
+				t.Fatal("boarding byte maximum exceeded an unchanged cap")
+			}
+			if err := prescanJSON(raw, boardingStateLimits(compactStateLimits(stateJSONLimits))); err != nil {
+				t.Fatal("boarding operating shape", err)
+			}
+			decoded, err := decodeStateFile(data)
+			if err != nil {
+				t.Fatal("boarding maximum decode", err)
+			}
+			if err := decoded.resolveBoardings(); err != nil {
+				t.Fatal("boarding maximum source binding", err)
+			}
+			for i, pod := range file.Simulation.Pods {
+				if len(pod.Riders) != 8 || !slices.Equal(decoded.Simulation.Pods[i].Boardings, pod.Boardings) {
+					t.Fatal("boarding maximum lost aligned rider history")
+				}
+			}
+			if !mixed {
+				// A direct native-ID encoding exceeds the save cap.
+				bypass, err := json.Marshal(file, json.Deterministic(true))
+				if err != nil || len(bypass) <= MaxStateBytes {
+					t.Fatalf("direct native-ID overflow fixture changed: bytes=%d error=%v", len(bypass), err)
+				}
+				t.Logf("direct native-ID maximum: %d JSON bytes, excess %d", len(bypass), len(bypass)-MaxStateBytes)
 			}
 		})
 	}

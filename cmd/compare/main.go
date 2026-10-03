@@ -100,6 +100,7 @@ type options struct {
 	waitRulesText           string
 	platoonPoliciesText     string
 	sharingJoinsText        string
+	onboardPickupsText      string
 	stationBuffersText      string
 	stationQueueSpacingText string
 	pickupReassignmentText  string
@@ -129,6 +130,7 @@ type options struct {
 	// uses the default join policy and the report has no join policy
 	// column.
 	sharingJoins        []string
+	onboardPickups      []string
 	stationBuffers      []string
 	stationQueueSpacing []string
 	pickupReassignment  []string
@@ -176,6 +178,7 @@ type result struct {
 	SharedRidePartyLimit           int                `json:"shared_ride_party_limit"`
 	SharingMode                    string             `json:"sharing_mode"`
 	SharingJoin                    string             `json:"sharing_join,omitempty"`
+	OnboardPickups                 string             `json:"onboard_pickups,omitempty"`
 	SharedParties                  int                `json:"shared_parties"`
 	FullPodRefusals                int                `json:"full_pod_refusals"`
 	FullDepartures                 int                `json:"full_departures"`
@@ -310,7 +313,7 @@ func runCLI(input cliInput) int {
 		waitRuleColumn: opts.waitRules != nil, platoonColumn: opts.platoonPolicies != nil, sharingJoinColumn: opts.sharingJoins != nil,
 		seatColumns:         slices.ContainsFunc(opts.sharingLimits, func(limit int) bool { return limit > 1 }),
 		stationBufferColumn: opts.stationBuffers != nil, pickupReassignmentColumn: opts.pickupReassignment != nil,
-		stationQueueSpacingColumn: opts.stationQueueSpacing != nil,
+		stationQueueSpacingColumn: opts.stationQueueSpacing != nil, onboardPickupsColumn: opts.onboardPickups != nil,
 	}); err != nil {
 		_ = closeOutput()
 		_, _ = fmt.Fprintln(input.stderr, err)
@@ -342,6 +345,7 @@ func parseOptions(args []string, stderr io.Writer) (options, error) {
 	flags.StringVar(&opts.sharingModesText, "sharing-modes", string(sim.DefaultSharedRideMode), "comma-separated shared ride modes: drop-offs, destination")
 	flags.IntVar(&opts.sharingMaxStops, "sharing-max-stops", sim.DefaultSharedRideMaxStops, "intermediate stops of a pod in drop-offs mode")
 	flags.StringVar(&opts.sharingJoinsText, "sharing-joins", string(sim.DefaultSharedRideJoin), "comma-separated shared ride join policies: unassigned, reassign-existing (adds a sharing_join column)")
+	flags.StringVar(&opts.onboardPickupsText, "onboard-pickups", "off", "comma-separated occupied pickup policies: off, on (on requires sharing above one party and drop-offs mode; adds an onboard_pickups column)")
 	flags.StringVar(&opts.routingPoliciesText, "routing-policies", "free-flow", "comma-separated routing policies: free-flow, congestion, queue, predictive")
 	flags.StringVar(&opts.redistributionText, "redistribution-policies", "off,on", "comma-separated redistribution policies: off, on")
 	flags.StringVar(&opts.waitRulesText, "wait-rules", "current", "comma-separated finishing-pod wait rules: current, strict, none (adds a wait_rule column)")
@@ -471,6 +475,9 @@ func parseOptions(args []string, stderr io.Writer) (options, error) {
 			return options{}, err
 		}
 	}
+	if err := parseOnboardOptions(&opts, given["onboard-pickups"]); err != nil {
+		return options{}, err
+	}
 	if err := parseExperimentalOptions(&opts, given); err != nil {
 		return options{}, err
 	}
@@ -478,7 +485,7 @@ func parseOptions(args []string, stderr io.Writer) (options, error) {
 		return options{}, err
 	}
 	if len(opts.seeds)*len(opts.patterns)*len(opts.loads)*len(sharingArms(opts))*max(1, len(opts.sharingJoins))*len(opts.routingPolicies)*
-		max(1, len(opts.waitRules))*max(1, len(opts.platoonPolicies))*experimentalArmCount(opts) > maxComparisons {
+		max(1, len(opts.waitRules))*max(1, len(opts.platoonPolicies))*experimentalArmCount(opts)*onboardArmCount(opts) > maxComparisons {
 		return options{}, fmt.Errorf("the matrix must contain at most %d comparisons", maxComparisons)
 	}
 	return opts, nil
@@ -843,6 +850,9 @@ type weightedDemandFlow struct {
 }
 
 func compare(opts options, scenario scenario) ([]result, error) {
+	if err := validateOnboardOptions(opts); err != nil {
+		return nil, err
+	}
 	if err := validateStationQueueOptions(opts); err != nil {
 		return nil, err
 	}
@@ -874,7 +884,7 @@ func compare(opts options, scenario scenario) ([]result, error) {
 	if platoonPolicies == nil {
 		platoonPolicies = []string{""}
 	}
-	armsPerSchedule := len(sharing) * len(sharingJoins) * len(opts.routingPolicies) * len(waitRules) * len(platoonPolicies) * experimentalArmCount(opts)
+	armsPerSchedule := len(sharing) * len(sharingJoins) * len(opts.routingPolicies) * len(waitRules) * len(platoonPolicies) * experimentalArmCount(opts) * onboardArmCount(opts)
 	if len(opts.seeds)*len(arms)*len(opts.loads)*armsPerSchedule > maxComparisons {
 		return nil, fmt.Errorf("the expanded matrix must contain at most %d comparisons", maxComparisons)
 	}
@@ -921,7 +931,7 @@ func compare(opts options, scenario scenario) ([]result, error) {
 			}
 		}
 	}
-	inputs = experimentalInputs(inputs, opts)
+	inputs = onboardInputs(experimentalInputs(inputs, opts), opts)
 	if opts.adaptiveLimit {
 		return runAdaptive(adaptiveRun{inputs: inputs, workers: opts.workers, pastLimit: opts.pastLimit, run: run})
 	}
@@ -1194,8 +1204,9 @@ type runInput struct {
 	sharingMaxStops int
 	// sharingJoin names a sharingJoinValues key. Empty selects the default
 	// join policy.
-	sharingJoin   string
-	routingPolicy string
+	sharingJoin    string
+	onboardPickups string
+	routingPolicy  string
 	// waitRule names a waitRuleValues key. Empty selects the default rule.
 	waitRule string
 	// platoonPolicy names a platoonPolicyValues key. Empty runs without
@@ -1266,6 +1277,9 @@ func run(input runInput) (result, error) {
 		if joinErr := simulation.SetSharedRideJoin(join); joinErr != nil {
 			return result{}, fmt.Errorf("set sharing join policy: %w", joinErr)
 		}
+	}
+	if policyErr := configureOnboardPickups(simulation, input.onboardPickups); policyErr != nil {
+		return result{}, policyErr
 	}
 	if routingErr := simulation.SetRoutingPolicy(routingPolicyValues[input.routingPolicy]); routingErr != nil {
 		return result{}, fmt.Errorf("set routing policy: %w", routingErr)
@@ -1449,7 +1463,7 @@ func run(input runInput) (result, error) {
 		dailyStart = new(input.dailyStartMinute)
 	}
 	return result{
-		SharingConsent: consent, DailyStartMinute: dailyStart,
+		SharingConsent: consent, DailyStartMinute: dailyStart, OnboardPickups: input.onboardPickups,
 		Pattern: input.pattern, DemandProfile: input.profile, DemandBand: input.band,
 		RequestEverySeconds: requestEvery, OfferedPerMinute: float64(len(input.schedule)) / arrivalMinutes, Seed: input.seed,
 		BurstSize: burstSize, Policy: input.policy, SharedRidePartyLimit: input.sharingLimit, SharingMode: string(sharingMode),
@@ -1591,7 +1605,8 @@ type writeReportInput struct {
 	// sharingJoinColumn adds the join policy to table and CSV output. JSON
 	// output has the sharing_join field only when a result has a join
 	// policy.
-	sharingJoinColumn bool
+	sharingJoinColumn    bool
+	onboardPickupsColumn bool
 	// seatColumns adds the seat screen columns to CSV output. JSON output
 	// always has them.
 	seatColumns               bool
@@ -1618,6 +1633,9 @@ func writeReport(input writeReportInput) error {
 			return outcome.StationBuffers != "" || outcome.PickupReassignment != "" || outcome.StationQueueSpacing != ""
 		}) {
 			version = 13
+		}
+		if slices.ContainsFunc(input.results, func(outcome result) bool { return outcome.OnboardPickups != "" }) {
+			version = 14
 		}
 		if err := encoder.Encode(report{SchemaVersion: version, Results: input.results}); err != nil {
 			return fmt.Errorf("write JSON report: %w", err)
@@ -1663,6 +1681,9 @@ func writeTable(input writeReportInput) error {
 	if input.sharingJoinColumn {
 		policyHeader += "\tJOIN"
 	}
+	if input.onboardPickupsColumn {
+		policyHeader += "\tONBOARD PICKUPS"
+	}
 	if input.stationBufferColumn {
 		policyHeader += "\tBUFFERS"
 	}
@@ -1688,6 +1709,9 @@ func writeTable(input writeReportInput) error {
 		}
 		if input.sharingJoinColumn {
 			policy += "\t" + outcome.SharingJoin
+		}
+		if input.onboardPickupsColumn {
+			policy += "\t" + outcome.OnboardPickups
 		}
 		if input.stationBufferColumn {
 			policy += "\t" + outcome.StationBuffers
@@ -1753,6 +1777,9 @@ func writeCSV(input writeReportInput) error {
 	if input.sharingJoinColumn {
 		header = append(header, "sharing_join")
 	}
+	if input.onboardPickupsColumn {
+		header = append(header, "onboard_pickups")
+	}
 	header = append(header, "shared_parties")
 	if input.seatColumns {
 		header = append(header, "full_pod_refusals", "full_departures", "departure_backlog", "departures_demand_over_four", "departures_over_four_aboard",
@@ -1802,6 +1829,9 @@ func writeCSV(input writeReportInput) error {
 		row = append(row, strconv.Itoa(outcome.SharedRidePartyLimit), outcome.SharingMode)
 		if input.sharingJoinColumn {
 			row = append(row, outcome.SharingJoin)
+		}
+		if input.onboardPickupsColumn {
+			row = append(row, outcome.OnboardPickups)
 		}
 		row = append(row, strconv.Itoa(outcome.SharedParties))
 		if input.seatColumns {

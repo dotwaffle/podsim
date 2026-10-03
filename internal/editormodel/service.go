@@ -11,7 +11,7 @@ import (
 
 // Metadata presence includes null so normalization cannot grant a new version.
 func hasServiceMetadata(draft any) bool {
-	if hasFold(draft, "expressServices") || hasFold(draft, "stationQueueSpacing") {
+	if hasFold(draft, "expressServices") || hasFold(draft, "stationQueueSpacing") || hasFold(draft, "onboardPickups") {
 		return true
 	}
 	for _, pod := range items(member(draft, "fleet")) {

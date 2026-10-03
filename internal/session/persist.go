@@ -490,6 +490,9 @@ func (s *Session) loadState(input loadInput) (loaded loadedState, err error) {
 	if err = file.validate(); err != nil {
 		return loaded, invalidState(err)
 	}
+	if err = file.resolveBoardings(); err != nil {
+		return loaded, invalidState(err)
+	}
 	if file.Version < serviceStateVersion {
 		file.Simulation, err = sim.MigrateLegacyOrderState(file.Simulation)
 		if err != nil {
@@ -500,8 +503,9 @@ func (s *Session) loadState(input loadInput) (loaded loadedState, err error) {
 		Network: loaded.config.Network, Fleet: loaded.config.Fleet, State: file.Simulation, LogicalOnly: loaded.logicalOnly,
 		StationBuffers: file.Version >= bufferStateVersion, BufferPlatoons: file.Version >= bufferPlatoonStateVersion,
 		CompactQueues:       file.Version >= serviceStateVersion,
+		BoardingRecords:     file.Version >= serviceStateVersion,
 		StationQueueSpacing: project.EffectiveStationQueueSpacing(loaded.config), PlatoonLimit: loaded.config.PlatoonLimit,
-		ExpressServices: loaded.config.ExpressServices,
+		ExpressServices: loaded.config.ExpressServices, OnboardPickups: loaded.config.OnboardPickups,
 	})
 	if err != nil {
 		return loaded, invalidState(err)
@@ -563,6 +567,7 @@ func restoreProject(input loadInput, saved project.Config) (project.Config, erro
 	comparison.StationBuffers = saved.StationBuffers
 	comparison.StationQueueSpacing = saved.StationQueueSpacing
 	comparison.PickupReassignment = saved.PickupReassignment
+	comparison.OnboardPickups = saved.OnboardPickups
 	same, err := sameProject(comparison, saved)
 	switch {
 	case err != nil:

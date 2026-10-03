@@ -220,7 +220,8 @@ func TestStreamBaselineAndShutdown(t *testing.T) {
 	}
 }
 
-func TestStreamMaximumEncoding(t *testing.T) {
+func maximumStreamFrame(t *testing.T) StreamFrame {
+	t.Helper()
 	_, f := streamFixture(t)
 	fillStreamScalars(reflect.ValueOf(&f.State).Elem())
 	escaped := strings.Repeat("\x01", 64)
@@ -243,48 +244,75 @@ func TestStreamMaximumEncoding(t *testing.T) {
 	for i := range f.State.Checkpoints {
 		fillStreamScalars(reflect.ValueOf(&f.State.Checkpoints[i]).Elem())
 	}
-	e := StreamEnvelope{Kind: "full", Stream: strings.Repeat("x", 32), Sequence: math.MaxUint64, Source: sourceOf(f), Build: f.State.Build, Full: &f}
-	data, err := json.Marshal(e)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(data) > MaxStreamJSON {
-		t.Fatalf("full allowance exceeded: %d", len(data))
-	}
-	t.Logf("conservative full encoder fixture: %d bytes", len(data))
-	compressed, err := encodeStream(e)
-	if err != nil {
-		t.Fatal(err)
-	}
-	out, err := InflateStream(compressed)
-	if err != nil || !bytes.Equal(out, data) {
-		t.Fatal("maximum gzip round trip", err)
-	}
-	// Force all vehicle groups and global groups to change.
-	_, empty := streamFixture(t)
-	empty.State.Simulation.Vehicles = make([]VehicleFrame, project.MaxPods)
-	empty.Routes = make([]sim.RoutePresentation, project.MaxPods)
-	empty.State.Simulation.Berths = make([]sim.BerthState, project.MaxNodes)
-	d, err := makeDelta(empty, f)
-	if err != nil {
-		t.Fatal(err)
-	}
-	e.Kind = "delta"
-	e.Full = nil
-	e.Delta = &d
-	e.Base = math.MaxUint64 - 1
-	data, err = json.Marshal(e)
-	if err != nil || len(data) > MaxStreamJSON {
-		t.Fatal("maximum delta exceeds cap", len(data), err)
-	}
-	t.Logf("conservative delta encoder fixture: %s bytes", strconv.Itoa(len(data)))
-	compressed, err = encodeStream(e)
-	if err != nil {
-		t.Fatal(err)
-	}
-	out, err = InflateStream(compressed)
-	if err != nil || !bytes.Equal(out, data) {
-		t.Fatal("maximum delta gzip round trip", err)
+	return f
+}
+
+func TestStreamMaximumEncoding(t *testing.T) {
+	for _, representation := range []string{"historical", "modern", "mixed"} {
+		t.Run(representation, func(t *testing.T) {
+			f := maximumStreamFrame(t)
+			if representation != "historical" {
+				for i := range f.State.Simulation.Vehicles {
+					if representation == "mixed" && i%2 == 0 {
+						continue
+					}
+					v := &f.State.Simulation.Vehicles[i]
+					v.LegacyCohort = false
+					v.Pod.Class = sim.CompactClass
+					v.RiddenMeters = 0.0000010000000000000002
+					v.Boardings = slices.Repeat([]sim.RiderBoarding{{BerthID: strings.Repeat("\x01", 64), MetersAtBoarding: 0.0000010000000000000002}}, 8)
+					for j := range v.Riders {
+						v.Riders[j].LegacyPartySize = false
+						v.Riders[j].PartySize = sim.MaxNewPartySize
+						v.Riders[j].SharingConsent = sim.SharedConsent
+					}
+				}
+			}
+
+			e := StreamEnvelope{Kind: "full", Stream: strings.Repeat("x", 32), Sequence: math.MaxUint64, Source: sourceOf(f), Build: f.State.Build, Full: &f}
+			data, err := json.Marshal(e)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if len(data) > MaxStreamJSON {
+				t.Fatalf("full allowance exceeded: %d", len(data))
+			}
+			t.Logf("conservative full encoder fixture: %d bytes", len(data))
+			compressed, err := encodeStream(e)
+			if err != nil {
+				t.Fatal(err)
+			}
+			out, err := InflateStream(compressed)
+			if err != nil || !bytes.Equal(out, data) {
+				t.Fatal("maximum gzip round trip", err)
+			}
+			// Force all vehicle groups and global groups to change.
+			_, empty := streamFixture(t)
+			empty.State.Simulation.Vehicles = make([]VehicleFrame, project.MaxPods)
+			empty.Routes = make([]sim.RoutePresentation, project.MaxPods)
+			empty.State.Simulation.Berths = make([]sim.BerthState, project.MaxNodes)
+			d, err := makeDelta(empty, f)
+			if err != nil {
+				t.Fatal(err)
+			}
+			e.Kind = "delta"
+			e.Full = nil
+			e.Delta = &d
+			e.Base = math.MaxUint64 - 1
+			data, err = json.Marshal(e)
+			if err != nil || len(data) > MaxStreamJSON {
+				t.Fatal("maximum delta exceeds cap", len(data), err)
+			}
+			t.Logf("conservative delta encoder fixture: %s bytes", strconv.Itoa(len(data)))
+			compressed, err = encodeStream(e)
+			if err != nil {
+				t.Fatal(err)
+			}
+			out, err = InflateStream(compressed)
+			if err != nil || !bytes.Equal(out, data) {
+				t.Fatal("maximum delta gzip round trip", err)
+			}
+		})
 	}
 }
 
@@ -502,7 +530,7 @@ func TestStreamFieldOwnership(t *testing.T) {
 			"global": {"Submitted", "Tick", "Paused", "Completed", "Demo", "DemoError"}, "vehicles": {"Vehicles"}, "berths": {"Berths"}, "pending": {"Pending"},
 			"statistics": {"Wait", "Journey", "PassengerDistanceMeters", "RiderDistanceMeters", "DirectDistanceMeters", "MaxDetourRatio", "SharedParties", "SharedRidePartyLimit", "EmptyDistanceMeters", "RebalanceMoves"},
 		}},
-		{reflect.TypeFor[VehicleFrame](), map[string][]string{"pod": {"Pod"}, "riders": {"Riders"}, "stops": {"Stops"}, "presentation replaces route": {"RouteLaneIDs"}, "metadata": {"LegacyCohort", "RelocatingTo", "Rebalancing", "PlatoonID", "PlatoonIndex"}}},
+		{reflect.TypeFor[VehicleFrame](), map[string][]string{"pod": {"Pod"}, "riders": {"Riders"}, "boardings": {"Boardings"}, "stops": {"Stops"}, "presentation replaces route": {"RouteLaneIDs"}, "metadata": {"RiddenMeters", "LegacyCohort", "RelocatingTo", "Rebalancing", "PlatoonID", "PlatoonIndex"}}},
 	}
 	for _, check := range checks {
 		seen := map[string]string{}

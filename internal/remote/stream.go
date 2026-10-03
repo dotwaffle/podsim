@@ -217,7 +217,12 @@ func (cache *streamTopology) state(ctx context.Context, c *Client, candidate ses
 		if err != nil {
 			return session.State{}, err
 		}
+		state, err := assembler.State(candidate)
+		if err != nil {
+			return session.State{}, err
+		}
 		cache.topology, cache.assembler = topology, assembler
+		return state, nil
 	}
 	return cache.assembler.State(candidate)
 }

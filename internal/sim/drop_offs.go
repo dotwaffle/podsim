@@ -105,6 +105,9 @@ func (s *Simulation) addedStops(v *vehicle, to string) ([]string, bool) {
 		return nil, false
 	}
 	from := v.journeyOrigin.Node
+	if len(v.Boardings) > 0 {
+		from = v.origin.Node
+	}
 	plan := s.stationsOnRouteForClass(from, v.lastStop(), v.Pod.Class)
 	if at := slices.Index(plan, to); at >= 0 {
 		insert := slices.IndexFunc(v.Stops, func(stop string) bool {
@@ -142,7 +145,10 @@ func (s *Simulation) cappedStops(v *vehicle, stops []string) ([]string, bool) {
 		}
 		entry = station.routeEntry(route, Berth{})
 	}
-	if !ok || s.plannedDetour(v.journeyOrigin.Node, stops, detourStart{class: v.Pod.Class, ridden: ridden, entry: entry}) > maxSharedRideDetour {
+	if len(v.Boardings) > 0 {
+		ridden += v.riddenBase
+	}
+	if !ok || !s.keepsRiderDetours(v, stops, detourStart{class: v.Pod.Class, from: v.origin.Node, ridden: ridden, entry: entry}) {
 		return nil, false
 	}
 	return stops, true
@@ -173,12 +179,17 @@ type leg struct {
 // continueJourney and reevaluateTerminalBerth.
 func (s *Simulation) legRoute(v *vehicle, next leg) ([]Lane, error) {
 	route, err := s.assignedApproachRouteMatching(v, next.from, next.stops[0], s.berthFilterForStops(v.Pod.Class, next.stops[1:]))
-	if err != nil || !s.cappedDetours() || !s.costedRouting() {
+	recordedActive := len(v.Boardings) > 0 && v.RidersAboard() > 0
+	if err != nil || (!s.cappedDetours() && !recordedActive) || !s.costedRouting() {
 		return route, err
 	}
 	station, _ := s.station(next.stops[0])
-	start := detourStart{class: v.Pod.Class, ridden: next.ridden + s.lanesMeters(route), entry: station.routeEntry(route, Berth{})}
-	if s.plannedDetour(next.origin, next.stops, start) <= maxSharedRideDetour {
+	start := detourStart{class: v.Pod.Class, from: next.from, ridden: next.ridden + s.lanesMeters(route), entry: station.routeEntry(route, Berth{})}
+	if len(v.Boardings) == 0 || v.RidersAboard() == 0 {
+		if s.plannedDetour(next.origin, next.stops, start) <= maxSharedRideDetour {
+			return route, nil
+		}
+	} else if s.keepsRiderDetours(v, next.stops, start) {
 		return route, nil
 	}
 	return s.stationApproachForStops(next.from, next.stops, v.Pod.Class)
@@ -191,11 +202,11 @@ func (s *Simulation) legRoute(v *vehicle, next leg) ([]Lane, error) {
 // it. When the pod refuses the berth, it keeps its route, which an earlier
 // check planned.
 func (s *Simulation) rerouteKeepsDetours(v *vehicle, route []Lane, berth Berth) bool {
-	if !s.cappedDetours() || v.RidersAboard() == 0 {
+	if (!s.cappedDetours() && len(v.Boardings) == 0) || v.RidersAboard() == 0 {
 		return true
 	}
-	start := detourStart{class: v.Pod.Class, ridden: v.riddenBase + s.lanesMeters(route), berth: berth}
-	return s.plannedDetour(v.journeyOrigin.Node, v.Stops, start) <= maxSharedRideDetour
+	start := detourStart{class: v.Pod.Class, from: v.origin.Node, ridden: v.riddenBase + s.lanesMeters(route), berth: berth}
+	return s.keepsRiderDetours(v, v.Stops, start)
 }
 
 // detourStart is the start of a plan of plannedDetour. ridden is the
@@ -322,7 +333,7 @@ func isSubsequence(part, whole []string) bool {
 // reports false and does not change the pod when that route does not exist.
 func (s *Simulation) setBoardingStops(v *vehicle, stops []string) bool {
 	if s.boardingRouteNeedsChange(v, stops) {
-		route, err := s.legRoute(v, leg{origin: v.journeyOrigin.Node, from: v.origin.Node, stops: stops})
+		route, err := s.legRoute(v, leg{origin: v.journeyOrigin.Node, from: v.origin.Node, stops: stops, ridden: v.riddenBase})
 		if err != nil {
 			return false
 		}

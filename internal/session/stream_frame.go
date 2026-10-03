@@ -28,14 +28,15 @@ func (s *Session) presentationFrame() (StreamFrame, error) {
 
 // StreamAssembler caches verified topology and immutable expanded route data.
 type StreamAssembler struct {
-	version  int
-	classes  map[string]sim.VehicleClass
-	topology TopologySnapshot
-	lanes    map[string]bool
-	stations map[string]bool
-	berths   map[string]bool
-	previous StreamFrame
-	state    State
+	version        int
+	classes        map[string]sim.VehicleClass
+	topology       TopologySnapshot
+	lanes          map[string]bool
+	stations       map[string]bool
+	berths         map[string]bool
+	boardingBerths map[string]boardingBerth
+	previous       StreamFrame
+	state          State
 }
 
 // NewStreamAssembler takes ownership of a detached topology snapshot.
@@ -43,7 +44,7 @@ func NewStreamAssembler(topology TopologySnapshot) (*StreamAssembler, error) {
 	if len(topology.Network.Lanes) > project.MaxLanes || len(topology.Network.Nodes) > project.MaxNodes {
 		return nil, errors.New("topology exceeds supported limits")
 	}
-	a := &StreamAssembler{topology: topology, lanes: make(map[string]bool, len(topology.Network.Lanes)), stations: map[string]bool{}, berths: map[string]bool{}}
+	a := &StreamAssembler{topology: topology, lanes: make(map[string]bool, len(topology.Network.Lanes)), stations: map[string]bool{}, berths: map[string]bool{}, boardingBerths: map[string]boardingBerth{}}
 	nodes := map[string]bool{}
 	for _, node := range topology.Network.Nodes {
 		if node.ID == "" || nodes[node.ID] {
@@ -61,6 +62,7 @@ func NewStreamAssembler(topology TopologySnapshot) (*StreamAssembler, error) {
 				return nil, errors.New("invalid topology berth")
 			}
 			a.berths[berth.ID] = true
+			a.boardingBerths[berth.ID] = boardingBerth{station: station.ID, stationClasses: station.VehicleClasses, classes: berth.VehicleClasses, parkingOnly: station.ParkingOnly}
 		}
 	}
 	for _, l := range topology.Network.Lanes {
@@ -144,7 +146,7 @@ func (a *StreamAssembler) State(f StreamFrame) (State, error) {
 	if err := a.rememberClasses(f); err != nil {
 		return State{}, err
 	}
-	a.previous = f
+	a.previous = ownStreamBoardings(f)
 	a.state = state
 	// Only private containers are retained. The geometry and routes are immutable.
 	a.previous.Routes = slices.Clone(f.Routes)
@@ -182,6 +184,9 @@ func (a *StreamAssembler) references(f StreamFrame) error {
 	}
 	for _, v := range snapshot.Vehicles {
 		p := v.Pod
+		if err := a.vehicleBoardings(v); err != nil {
+			return err
+		}
 		if !optionalReference(a.stations, p.StationID) || !optionalReference(a.stations, p.ManeuverStationID) || !optionalReference(a.stations, v.RelocatingTo) || !optionalReference(a.berths, p.BerthID) || !optionalReference(pods, p.BlockedBy) || !optionalReference(pods, v.PlatoonID) {
 			return errors.New("invalid pod reference")
 		}

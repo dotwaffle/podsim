@@ -43,6 +43,9 @@ func restoreLogical(input RestoreStateInput, newFleet func() (*Simulation, error
 		return nil, RestoreResult{}, err
 	}
 	s.setSavedCounters(state)
+	if err := s.SetOnboardPickups(input.OnboardPickups); err != nil {
+		return nil, RestoreResult{}, err
+	}
 	var completed []int
 	trips := make([]logicalTrip, 0, len(state.Pods)+len(state.Waiting))
 	for _, pod := range state.Pods {

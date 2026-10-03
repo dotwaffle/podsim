@@ -111,6 +111,9 @@ func restorePhysical(input RestoreStateInput, newFleet func() (*Simulation, erro
 		}
 	}
 	r.restoreCounters()
+	if err := s.SetOnboardPickups(input.OnboardPickups); err != nil {
+		return nil, RestoreResult{}, err
+	}
 	if err := r.decodePods(); err != nil {
 		return nil, RestoreResult{}, err
 	}
@@ -330,8 +333,8 @@ func (r *physicalRestore) decodePod(index int, saved SavedPod) error {
 	}
 	v := &r.s.vehicles[index]
 	*v = vehicle{
-		Pod:          Pod{ID: saved.ID, Class: saved.Class, Activity: activity, Occupied: saved.Occupied},
-		LegacyCohort: saved.LegacyCohort, Stops: slices.Clone(saved.Stops), RelocatingTo: saved.RelocatingTo, Rebalancing: saved.Rebalancing,
+		Pod:       Pod{ID: saved.ID, Class: saved.Class, Activity: activity, Occupied: saved.Occupied},
+		Boardings: slices.Clone(saved.Boardings), LegacyCohort: saved.LegacyCohort, Stops: slices.Clone(saved.Stops), RelocatingTo: saved.RelocatingTo, Rebalancing: saved.Rebalancing,
 		phaseTicks: saved.PhaseTicks, rebalanceAfter: saved.RebalanceAfter, destinationStation: saved.DestinationStation,
 		pending: -1, reservedThrough: -1,
 	}
@@ -339,7 +342,7 @@ func (r *physicalRestore) decodePod(index int, saved SavedPod) error {
 	for _, rider := range saved.Riders {
 		v.Riders = append(v.Riders, Request(rider))
 	}
-	if v.RidersAboard() > 0 {
+	if v.RidersAboard() > 0 || len(v.Boardings) > 0 {
 		v.riddenBase = saved.RiddenMeters
 	}
 	if !r.passengerRiders(v) {
@@ -352,7 +355,7 @@ func (r *physicalRestore) decodePod(index int, saved SavedPod) error {
 	if journeyOriginOK {
 		v.journeyOrigin = journeyOrigin.berth
 	}
-	if boarded := v.boardingStation(); boarded != "" && (v.journeyOrigin.ID == "" || r.berths[v.journeyOrigin.ID].station != boarded) {
+	if boarded := v.boardingStation(); len(v.Boardings) == 0 && boarded != "" && (v.journeyOrigin.ID == "" || r.berths[v.journeyOrigin.ID].station != boarded) {
 		return errors.New("the journey origin is not at the station where the riders boarded")
 	}
 	valid := (originOK || saved.Origin == "") && (destinationOK || saved.Destination == "") &&
@@ -1032,8 +1035,9 @@ func (r *physicalRestore) separate() error {
 }
 
 // placeDemoted moves a demoted pod to a free berth. A berth that the pod
-// holds counts as free. A pod with passengers boards again at a berth of
-// their origin with a route as in board. When no such berth is free, when
+// holds counts as free. Recorded passengers return to the request queue.
+// Other passengers board again at an origin berth with a route as in board.
+// When no such berth is free, when
 // the route does not fit in the block budget, or when the stops from that
 // berth take a rider over maxSharedRideDetour, the request goes back to the
 // queue with its party count and the pod waits empty. An empty pod goes to
@@ -1043,7 +1047,7 @@ func (r *physicalRestore) placeDemoted(index int) error {
 	v := &r.s.vehicles[index]
 	if v.RidersAboard() > 0 {
 		from, _ := r.s.station(v.boardingStation())
-		if berth, ok := r.freeBerth(v, from.Berths); ok && r.boardAgain(v, berth) {
+		if berth, ok := r.freeBerth(v, from.Berths); len(v.Boardings) == 0 && ok && r.boardAgain(v, berth) {
 			return nil
 		}
 		r.requeue(v)
@@ -1140,7 +1144,10 @@ func (r *physicalRestore) requeue(v *vehicle) {
 			r.result.Requeued = append(r.result.Requeued, rider.ID)
 		}
 	}
-	v.Riders, v.Stops = nil, nil
+	if len(v.Boardings) > 0 {
+		v.riddenBase = 0
+	}
+	v.Riders, v.Stops, v.Boardings = nil, nil, nil
 	v.LegacyCohort = false
 }
 
