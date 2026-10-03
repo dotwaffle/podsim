@@ -1,11 +1,11 @@
 # Durable offline car continuation proposal
 
-Status: **not approved and not implemented**.
-This document proposes roadmap item 6a at source revision `53321e4c5decc6c661df64a40378ee37614dcffc`.
-Item 6b needs approval of the decisions below before implementation.
-The source revision identifies this audit, not a checkpoint-capable executable.
-Only a later identified implementation can create the proposed version-1 files after its qualification passes.
-No project, session, stream, plan, or report contract changes through this proposal.
+Status: **approved on October 3, 2026; implementation and qualification in progress**.
+The user approved item 6b and the decisions below with the 6b/8b batch.
+Item 6a used source revision `53321e4c5decc6c661df64a40378ee37614dcffc`.
+That revision identifies the original audit, not a checkpoint-capable executable.
+An identified implementation can create version-1 files only after its qualification passes.
+The project, session, stream, plan, and report formats retain their existing contracts.
 
 ## Recommendation and source constraints
 

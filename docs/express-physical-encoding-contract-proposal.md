@@ -1,9 +1,9 @@
 # Express physical and encoding contract proposal
 
-Status: proposed on October 3, 2026.
-Not approved or implemented.
-This document requests an Express-specific contract extension for a later batch.
-It does not enable Express, change defaults, or qualify any vehicle or route.
+Status: **approved on October 3, 2026; implementation and qualification in progress**.
+The user approved item 8b and the contract below with the 6b/8b batch.
+Deployment, runtime enablement, and default changes require a separate batch.
+Implementation must pass the physical, storage, and public-consumer gates before qualification.
 
 The source base is `53321e4c5decc6c661df64a40378ee37614dcffc`.
 The [large-body proposal](large-body-physics-proposal.md) approved the dimensions and common conservative candidate.
@@ -13,7 +13,7 @@ Express still needs its own physical, storage, and public-consumer gates.
 
 ## Recommended decisions
 
-Approve the following contract together, then authorize implementation and qualification separately.
+The approved batch covers implementation and qualification of the following contract.
 
 | Decision | Proposed bound or rule |
 | --- | --- |
