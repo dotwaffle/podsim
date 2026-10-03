@@ -81,6 +81,7 @@ type rateGroupKey struct {
 	platoonPolicy                      string
 	policy                             string
 	stationBuffers, pickupReassignment string
+	stationQueueSpacing                string
 }
 
 func rateGroupKeyOf(input *runInput) rateGroupKey {
@@ -96,6 +97,7 @@ func rateGroupKeyOf(input *runInput) rateGroupKey {
 		routingPolicy: input.routingPolicy,
 		waitRule:      input.waitRule, platoonPolicy: input.platoonPolicy, policy: input.policy,
 		stationBuffers: input.stationBuffers, pickupReassignment: input.pickupReassignment,
+		stationQueueSpacing: input.stationQueueSpacing,
 	}
 }
 

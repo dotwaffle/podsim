@@ -81,42 +81,43 @@ var routingPolicyValues = map[string]sim.RoutingPolicy{
 }
 
 type options struct {
-	duration, arrivalsFor  time.Duration
-	requestEvery           time.Duration
-	seed                   int64
-	seedsText              string
-	pattern                string
-	patternsText           string
-	dailyStartMinute       int
-	bandsText              string
-	loadsText              string
-	sharingConsentText     string
-	sharingConsent         sim.SharingConsent
-	sharingConsentColumn   bool
-	sharingLimitsText      string
-	sharingModesText       string
-	routingPoliciesText    string
-	redistributionText     string
-	waitRulesText          string
-	platoonPoliciesText    string
-	sharingJoinsText       string
-	stationBuffersText     string
-	pickupReassignmentText string
-	focus                  string
-	format                 string
-	projectPath            string
-	outputPath             string
-	queueLimit             int
-	burstSize              int
-	workers                int
-	seeds                  []int64
-	patterns               []string
-	loads                  []time.Duration
-	sharingLimits          []int
-	sharingModes           []sim.SharedRideMode
-	sharingMaxStops        int
-	routingPolicies        []string
-	redistributionPolicies []string
+	duration, arrivalsFor   time.Duration
+	requestEvery            time.Duration
+	seed                    int64
+	seedsText               string
+	pattern                 string
+	patternsText            string
+	dailyStartMinute        int
+	bandsText               string
+	loadsText               string
+	sharingConsentText      string
+	sharingConsent          sim.SharingConsent
+	sharingConsentColumn    bool
+	sharingLimitsText       string
+	sharingModesText        string
+	routingPoliciesText     string
+	redistributionText      string
+	waitRulesText           string
+	platoonPoliciesText     string
+	sharingJoinsText        string
+	stationBuffersText      string
+	stationQueueSpacingText string
+	pickupReassignmentText  string
+	focus                   string
+	format                  string
+	projectPath             string
+	outputPath              string
+	queueLimit              int
+	burstSize               int
+	workers                 int
+	seeds                   []int64
+	patterns                []string
+	loads                   []time.Duration
+	sharingLimits           []int
+	sharingModes            []sim.SharedRideMode
+	sharingMaxStops         int
+	routingPolicies         []string
+	redistributionPolicies  []string
 	// waitRules is nil when -wait-rules is not given. Then each arm uses the
 	// default rule and the report has no wait rule column.
 	waitRules []string
@@ -127,11 +128,12 @@ type options struct {
 	// sharingJoins is nil when -sharing-joins is not given. Then each arm
 	// uses the default join policy and the report has no join policy
 	// column.
-	sharingJoins       []string
-	stationBuffers     []string
-	pickupReassignment []string
-	stopWhenDrained    bool
-	railForecast       bool
+	sharingJoins        []string
+	stationBuffers      []string
+	stationQueueSpacing []string
+	pickupReassignment  []string
+	stopWhenDrained     bool
+	railForecast        bool
 	// adaptiveLimit skips the rates of a group more than pastLimit rates
 	// above the first rate at which a seed does not drain.
 	adaptiveLimit bool
@@ -188,6 +190,7 @@ type result struct {
 	WaitRule                       string             `json:"wait_rule,omitempty"`
 	PlatoonPolicy                  string             `json:"platoon_policy,omitempty"`
 	StationBuffers                 string             `json:"station_buffers,omitempty"`
+	StationQueueSpacing            string             `json:"station_queue_spacing,omitempty"`
 	PickupReassignment             string             `json:"pickup_reassignment,omitempty"`
 	PickupReassignmentStats        *pickupPolicyStats `json:"pickup_reassignment_stats,omitempty"`
 	FocusStation                   string             `json:"focus_station"`
@@ -307,6 +310,7 @@ func runCLI(input cliInput) int {
 		waitRuleColumn: opts.waitRules != nil, platoonColumn: opts.platoonPolicies != nil, sharingJoinColumn: opts.sharingJoins != nil,
 		seatColumns:         slices.ContainsFunc(opts.sharingLimits, func(limit int) bool { return limit > 1 }),
 		stationBufferColumn: opts.stationBuffers != nil, pickupReassignmentColumn: opts.pickupReassignment != nil,
+		stationQueueSpacingColumn: opts.stationQueueSpacing != nil,
 	}); err != nil {
 		_ = closeOutput()
 		_, _ = fmt.Fprintln(input.stderr, err)
@@ -343,6 +347,7 @@ func parseOptions(args []string, stderr io.Writer) (options, error) {
 	flags.StringVar(&opts.waitRulesText, "wait-rules", "current", "comma-separated finishing-pod wait rules: current, strict, none (adds a wait_rule column)")
 	flags.StringVar(&opts.platoonPoliciesText, "platoon-policies", "off", "comma-separated platoon policies: off, virtual (adds a platoon_policy column)")
 	flags.StringVar(&opts.stationBuffersText, "station-buffers", "off", "comma-separated experimental station buffer policies: off, on")
+	flags.StringVar(&opts.stationQueueSpacingText, "station-queue-spacing", "ordinary", "comma-separated station queue spacing policies: ordinary, compact-v1 (compact-v1 requires station-buffers on and platoon-policies virtual)")
 	flags.StringVar(&opts.pickupReassignmentText, "pickup-reassignment", "off", "comma-separated experimental pickup reassignment policies: off, on")
 	flags.StringVar(&opts.focus, "focus", "", "passenger station used by focused patterns")
 	flags.StringVar(&opts.format, "format", "table", "output format: table, json, or csv")
@@ -467,6 +472,9 @@ func parseOptions(args []string, stderr io.Writer) (options, error) {
 		}
 	}
 	if err := parseExperimentalOptions(&opts, given); err != nil {
+		return options{}, err
+	}
+	if err := validateStationQueueOptions(opts); err != nil {
 		return options{}, err
 	}
 	if len(opts.seeds)*len(opts.patterns)*len(opts.loads)*len(sharingArms(opts))*max(1, len(opts.sharingJoins))*len(opts.routingPolicies)*
@@ -835,6 +843,9 @@ type weightedDemandFlow struct {
 }
 
 func compare(opts options, scenario scenario) ([]result, error) {
+	if err := validateStationQueueOptions(opts); err != nil {
+		return nil, err
+	}
 	consent, err := comparisonConsent(opts.sharingConsent)
 	if err != nil {
 		return nil, err
@@ -1189,15 +1200,16 @@ type runInput struct {
 	waitRule string
 	// platoonPolicy names a platoonPolicyValues key. Empty runs without
 	// platoons.
-	platoonPolicy      string
-	stationBuffers     string
-	pickupReassignment string
-	schedule           []scheduledRequest
-	scenario           scenario
-	stopWhenDrained    bool
-	railForecast       bool
-	daily              *project.DailyProfile
-	dailyStartMinute   int
+	platoonPolicy       string
+	stationBuffers      string
+	stationQueueSpacing string
+	pickupReassignment  string
+	schedule            []scheduledRequest
+	scenario            scenario
+	stopWhenDrained     bool
+	railForecast        bool
+	daily               *project.DailyProfile
+	dailyStartMinute    int
 }
 
 // sharingSettings returns the sharing mode and the stop limit of an arm,
@@ -1259,9 +1271,6 @@ func run(input runInput) (result, error) {
 		return result{}, fmt.Errorf("set routing policy: %w", routingErr)
 	}
 	simulation.SetExperimentRecords(true)
-	if policyErr := configureExperimentalPolicies(simulation, input); policyErr != nil {
-		return result{}, policyErr
-	}
 	if input.waitRule != "" {
 		rule, ok := waitRuleValues[input.waitRule]
 		if !ok {
@@ -1279,6 +1288,9 @@ func run(input runInput) (result, error) {
 		if platoonErr := simulation.SetPlatooning(platooning); platoonErr != nil {
 			return result{}, fmt.Errorf("set platoon policy: %w", platoonErr)
 		}
+	}
+	if policyErr := configureExperimentalPolicies(simulation, input); policyErr != nil {
+		return result{}, policyErr
 	}
 	mode, ok := redistributionPolicyValues[input.policy]
 	if !ok {
@@ -1317,7 +1329,9 @@ func run(input runInput) (result, error) {
 		}
 		service := input.pattern == "rail-services" || input.daily != nil
 		if service {
-			simulation.Step()
+			if err := stepComparison(simulation); err != nil {
+				return result{}, err
+			}
 			tick = simulation.Tick()
 			if connections != nil {
 				connections.Advance(tick, simulation.StepCompletions())
@@ -1370,7 +1384,9 @@ func run(input runInput) (result, error) {
 			metrics.observe(simulation.MetricsSnapshot())
 		}
 		if !service {
-			simulation.Step()
+			if err := stepComparison(simulation); err != nil {
+				return result{}, err
+			}
 		}
 		advancedTick := simulation.Tick()
 		if input.railForecast && advancedTick%(5*sim.TicksPerSecond) == 0 {
@@ -1443,7 +1459,7 @@ func run(input runInput) (result, error) {
 		JoinEligibleAssigned: seats.JoinEligibleAssigned, JoinEligibleExistingStop: seats.JoinEligibleExistingStop, JoinEligibleAddedStopOnly: seats.addedStopOnly,
 		ReassignedParties: seats.ReassignedParties,
 		RoutingPolicy:     input.routingPolicy, WaitRule: input.waitRule, PlatoonPolicy: input.platoonPolicy,
-		StationBuffers: input.stationBuffers, PickupReassignment: input.pickupReassignment,
+		StationBuffers: input.stationBuffers, StationQueueSpacing: input.stationQueueSpacing, PickupReassignment: input.pickupReassignment,
 		PickupReassignmentStats: pickupStatsForReport(simulation, input.pickupReassignment),
 		FocusStation:            input.scenario.focus,
 		WindowStartSeconds:      0, WindowEndSeconds: input.duration.Seconds(), ActualEndSeconds: float64(state.Tick) / sim.TicksPerSecond,
@@ -1578,9 +1594,10 @@ type writeReportInput struct {
 	sharingJoinColumn bool
 	// seatColumns adds the seat screen columns to CSV output. JSON output
 	// always has them.
-	seatColumns              bool
-	stationBufferColumn      bool
-	pickupReassignmentColumn bool
+	seatColumns               bool
+	stationBufferColumn       bool
+	pickupReassignmentColumn  bool
+	stationQueueSpacingColumn bool
 }
 
 func writeReport(input writeReportInput) error {
@@ -1597,7 +1614,9 @@ func writeReport(input writeReportInput) error {
 		encoder := json.NewEncoder(input.output)
 		encoder.SetIndent("", "  ")
 		version := 12
-		if slices.ContainsFunc(input.results, func(outcome result) bool { return outcome.StationBuffers != "" || outcome.PickupReassignment != "" }) {
+		if slices.ContainsFunc(input.results, func(outcome result) bool {
+			return outcome.StationBuffers != "" || outcome.PickupReassignment != "" || outcome.StationQueueSpacing != ""
+		}) {
 			version = 13
 		}
 		if err := encoder.Encode(report{SchemaVersion: version, Results: input.results}); err != nil {
@@ -1647,6 +1666,9 @@ func writeTable(input writeReportInput) error {
 	if input.stationBufferColumn {
 		policyHeader += "\tBUFFERS"
 	}
+	if input.stationQueueSpacingColumn {
+		policyHeader += "\tQUEUE SPACING"
+	}
 	if input.pickupReassignmentColumn {
 		policyHeader += "\tREASSIGN"
 	}
@@ -1669,6 +1691,9 @@ func writeTable(input writeReportInput) error {
 		}
 		if input.stationBufferColumn {
 			policy += "\t" + outcome.StationBuffers
+		}
+		if input.stationQueueSpacingColumn {
+			policy += "\t" + outcome.StationQueueSpacing
 		}
 		if input.pickupReassignmentColumn {
 			policy += "\t" + outcome.PickupReassignment
@@ -1718,6 +1743,9 @@ func writeCSV(input writeReportInput) error {
 	if input.stationBufferColumn {
 		header = append(header, "station_buffers")
 	}
+	if input.stationQueueSpacingColumn {
+		header = append(header, "station_queue_spacing")
+	}
 	if input.pickupReassignmentColumn {
 		header = append(header, "pickup_reassignment")
 	}
@@ -1764,6 +1792,9 @@ func writeCSV(input writeReportInput) error {
 		}
 		if input.stationBufferColumn {
 			row = append(row, outcome.StationBuffers)
+		}
+		if input.stationQueueSpacingColumn {
+			row = append(row, outcome.StationQueueSpacing)
 		}
 		if input.pickupReassignmentColumn {
 			row = append(row, outcome.PickupReassignment)

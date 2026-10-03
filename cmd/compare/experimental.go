@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"slices"
 	"strings"
@@ -30,17 +31,30 @@ func parseExperimentalOptions(opts *options, given map[string]bool) error {
 			*option.policies = append(*option.policies, policy)
 		}
 	}
+	if given["station-queue-spacing"] {
+		for part := range strings.SplitSeq(opts.stationQueueSpacingText, ",") {
+			policy := strings.TrimSpace(part)
+			if policy != string(sim.StationQueueOrdinary) && policy != string(sim.StationQueueCompactV1) {
+				return fmt.Errorf("unknown station queue spacing %q", policy)
+			}
+			if slices.Contains(opts.stationQueueSpacing, policy) {
+				return fmt.Errorf("station queue spacing %q appears more than once", policy)
+			}
+			opts.stationQueueSpacing = append(opts.stationQueueSpacing, policy)
+		}
+	}
 	return nil
 }
 
 func experimentalArmCount(opts options) int {
-	return max(1, len(opts.stationBuffers)) * max(1, len(opts.pickupReassignment))
+	return max(1, len(opts.stationBuffers)) * max(1, len(opts.pickupReassignment)) * max(1, len(opts.stationQueueSpacing))
 }
 
 // experimentalInputs expands each schedule across the independent policies.
-// An omitted option keeps the policy off and leaves its report field absent.
+// An omitted option keeps ordinary spacing or disables the other policies.
+// Its report field stays absent.
 func experimentalInputs(inputs []runInput, opts options) []runInput {
-	if opts.stationBuffers == nil && opts.pickupReassignment == nil {
+	if opts.stationBuffers == nil && opts.pickupReassignment == nil && opts.stationQueueSpacing == nil {
 		return inputs
 	}
 	buffers, reassignment := opts.stationBuffers, opts.pickupReassignment
@@ -50,13 +64,20 @@ func experimentalInputs(inputs []runInput, opts options) []runInput {
 	if reassignment == nil {
 		reassignment = []string{""}
 	}
+	spacing := opts.stationQueueSpacing
+	if spacing == nil {
+		spacing = []string{""}
+	}
 	expanded := make([]runInput, 0, len(inputs)*experimentalArmCount(opts))
 	for _, input := range inputs {
 		for _, bufferPolicy := range buffers {
 			for _, pickupPolicy := range reassignment {
-				arm := input
-				arm.stationBuffers, arm.pickupReassignment = bufferPolicy, pickupPolicy
-				expanded = append(expanded, arm)
+				for _, queueSpacing := range spacing {
+					arm := input
+					arm.stationBuffers, arm.pickupReassignment = bufferPolicy, pickupPolicy
+					arm.stationQueueSpacing = queueSpacing
+					expanded = append(expanded, arm)
+				}
 			}
 		}
 	}
@@ -69,8 +90,18 @@ func configureExperimentalPolicies(simulation *sim.Simulation, input runInput) e
 			return fmt.Errorf("unknown experimental policy %q", policy)
 		}
 	}
+	spacing := sim.StationQueueSpacing(input.stationQueueSpacing)
+	if spacing == "" {
+		spacing = sim.StationQueueOrdinary
+	}
+	if spacing == sim.StationQueueCompactV1 && (input.stationBuffers != "on" || input.platoonPolicy != "virtual" || simulation.Platooning() != sim.PlatooningVirtual || simulation.PlatoonLimit() < 2 || simulation.PlatoonLimit() > 4) {
+		return errors.New("compact-v1 requires station buffers on and virtual platoons with a limit from 2 to 4")
+	}
 	simulation.SetStationBuffers(input.stationBuffers == "on")
 	simulation.SetPickupSwaps(input.pickupReassignment == "on")
+	if err := simulation.SetStationQueueSpacing(spacing); err != nil {
+		return fmt.Errorf("set station queue spacing: %w", err)
+	}
 	return nil
 }
 

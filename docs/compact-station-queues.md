@@ -58,3 +58,17 @@ The worst case exceeds the earlier estimate by 6,905 bytes but fits the existing
 The complete typed certificate adds 502 bytes per head, compared with the estimated 483 bytes.
 Wider existing float encodings and compact class metadata account for the remaining 1,205 bytes.
 No queue, rider, save, or stream limit changes.
+
+Compare ordinary and compact policies with explicit dependencies:
+
+```sh
+go run ./cmd/compare -station-queue-spacing ordinary,compact-v1 \
+  -station-buffers on -platoon-policies virtual
+```
+
+The selector adds queue policy provenance to JSON and a policy column to table or CSV output.
+Omitting it keeps the existing ordinary comparison and report columns.
+Compact arms require buffers and virtual platoons in every arm.
+The comparison rejects invalid combinations before loading a project or creating offers.
+It stops immediately when the controller retains a fault.
+The selector does not change authored lane speeds or enable other policies.
