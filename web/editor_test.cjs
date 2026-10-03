@@ -97,14 +97,16 @@ test("project 3 imports bare or wrapper 1 and preserves authored class and regis
   normalized.network.Stations[0].VehicleClasses.pop();
   assert.deepEqual(config, before);
   assert.match(editor.fleetClassNotice(config), /New pods use legacy class/);
-  assert.match(editor.fleetClassNotice(config), /Group and express pods cannot start/);
+  assert.match(editor.fleetClassNotice(config), /Express pods cannot start/);
   assert.equal(editor.fleetClassNotice({ version: 1 }), "");
   for (const version of [1, 2]) {
     const invalid = { ...config, version };
     assert.throws(() => editor.normalizeConfig(invalid), /version 3/);
     assert.throws(() => editor.parseDocument(JSON.stringify(invalid)), /version 3/);
   }
-  for (const classID of ["group", "express", "unknown", null, ""]) {
+  const group = structuredClone(config); group.fleet[0].Class = "group";
+  assert.deepEqual(editor.validateConfig(group), []);
+  for (const classID of ["express", "unknown", null, ""]) {
     const invalid = structuredClone(config); invalid.fleet[0].Class = classID;
     assert.ok(editor.validateConfig(invalid).some((text) => /vehicle class|physical profile/.test(text)));
   }
@@ -5876,4 +5878,22 @@ test("station layout rendering rejects older selection and geometry replies", as
     assert.equal(inputs.pitch.disabled, false); assert.equal(inputs.pitch.value, "40");
     assert.equal(calls[1].op, "stationLayout");assert.equal(calls[1].layout.stationID, state.selection.id);
   });
+});
+
+test("large lane masks select bounds without changing ordinary constants", () => {
+  const { laneMinimumLength } = require("./editor-service-reference.cjs");
+  assert.equal(editor.MIN_LANE_LENGTH, 24);
+  assert.equal(editor.CLEARANCE, 12);
+  for (const [VehicleClasses, minimum] of [[undefined, 24], [["compact"], 24], [["group"], 40], [["express"], 40], [["legacy", "group"], 40]]) {
+    const lane = VehicleClasses ? { VehicleClasses } : {};
+    assert.equal(laneMinimumLength(lane), minimum);
+  }
+  for (const [large, gap, conflict] of [[false, 12, false], [false, 11, true], [true, 19, true], [true, 20, false]]) {
+    const config = { network: { Nodes: [
+      { ID: "a", Position: { X: 0, Y: 0 } }, { ID: "b", Position: { X: 100, Y: 0 } },
+      { ID: "c", Position: { X: 0, Y: gap } }, { ID: "d", Position: { X: 100, Y: gap } },
+    ], Lanes: [{ ID: "first", From: "a", To: "b", SpeedLimit: 14 }, { ID: "second", From: "c", To: "d", SpeedLimit: 14 }] } };
+    if (large) config.network.Lanes[0].VehicleClasses = ["group"];
+    assert.equal(Boolean(editor.laneConflict(config, ["second"])), conflict);
+  }
 });

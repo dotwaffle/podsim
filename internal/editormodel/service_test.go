@@ -245,7 +245,7 @@ func TestServiceDraftChecksAndPhysicalGuards(t *testing.T) {
 	if report := draftChecks(draft); len(report.Errors) != 0 {
 		t.Fatal("valid project-3 checks", report.Errors)
 	}
-	for _, class := range []string{"group", "express", "unknown"} {
+	for _, class := range []string{"express", "unknown"} {
 		bad := object(cloneEditValue(draft))
 		object(items(bad["fleet"])[0])["Class"] = class
 		if report := draftChecks(bad); len(report.Errors) == 0 {

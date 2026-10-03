@@ -22,6 +22,9 @@ func (s *Simulation) bufferRecruitmentDistance(v, leader *vehicle, link platoonL
 // planBufferLink keeps both pods inside one fixed entry certificate.
 func (s *Simulation) planBufferLink(plan linkPlan) (platoonLink, bool) {
 	v, leader := plan.v, plan.leader
+	if largeVehicleClass(v.Pod.Class) || largeVehicleClass(leader.Pod.Class) {
+		return platoonLink{}, false
+	}
 	if !s.stationBuffers || !v.buffered || !leader.buffered || v.destinationStation != leader.destinationStation ||
 		plan.lane != len(v.Route)-1 || plan.leaderLane != len(leader.Route)-1 ||
 		v.Route[plan.lane].ID != leader.Route[plan.leaderLane].ID ||

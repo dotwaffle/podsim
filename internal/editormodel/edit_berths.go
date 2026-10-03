@@ -90,7 +90,7 @@ func (g geometryDraft) addBerth(id string) error {
 		}
 	}
 	if conflict := g.laneConflict(newLanes, false); conflict != nil {
-		return fmt.Errorf("new lane %s would come within 12 meters of lane %s", conflict.lane, conflict.other)
+		return fmt.Errorf("new lane %s would come within %g meters of lane %s", conflict.lane, conflict.minimum, conflict.other)
 	}
 	return nil
 }

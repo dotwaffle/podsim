@@ -65,12 +65,12 @@ func editGeometry(draft any, raw jsontext.Value) (projectChange, error) {
 			return projectChange{}, fmt.Errorf("the edit exceeds the %s count limit", key)
 		}
 	}
-	if hasBanks(original) || hasBanks(geometry.network) {
+	if hasBanks(original) || hasBanks(geometry.network) || hasLargeGeometry(original) || hasLargeGeometry(geometry.network) {
 		if err := geometry.validateBankChanges(original); err != nil {
 			return projectChange{}, err
 		}
 	}
-	if hasBanks(geometry.network) {
+	if hasBanks(geometry.network) || hasLargeGeometry(geometry.network) {
 		if err := validateBankDraft(geometry.network); err != nil {
 			return projectChange{}, err
 		}

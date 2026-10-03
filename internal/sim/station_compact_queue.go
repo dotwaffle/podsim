@@ -211,10 +211,14 @@ func (s *Simulation) compactOutsideFits(group *compactBufferGroup, states []comp
 			if other.BerthID != "" {
 				location = s.berthSafety[other.BerthID]
 			}
-			if safetyLocationsSeparated(s.laneSafety[lane.ID], location) {
+			separated := safetyLocationsSeparated(s.laneSafety[lane.ID], location)
+			if largeVehicleClass(other.Class) {
+				separated = envelopeLocationsSeparated(s.vehicleSafetyLocations(v, v.blocks.lanes[len(v.Route)-1].start+states[member].position), s.vehicleSafetyLocations(&s.vehicles[otherIndex], s.vehicles[otherIndex].distance))
+			}
+			if separated {
 				continue
 			}
-			if math.Hypot(position.X-other.Position.X, position.Y-other.Position.Y) < Clearance {
+			if math.Hypot(position.X-other.Position.X, position.Y-other.Position.Y) < classPairClearance(v.Pod.Class, other.Class) {
 				return false
 			}
 		}

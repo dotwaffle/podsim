@@ -486,6 +486,9 @@ func (s *Simulation) sharedLane(v, leader *vehicle, lane, leaderLane int) bool {
 // canLink reports whether platooning is on and the traveling pod v is
 // slow, below platoonSlowFraction of the speed limit of its lane.
 func (s *Simulation) canLink(v *vehicle) bool {
+	if largeVehicleClass(v.Pod.Class) {
+		return false
+	}
 	lane := v.blocks.find(v.blockIndex, &v.blocks.cursors[podCursor]).lane
 	return s.platooning != PlatooningOff && v.Pod.Speed < platoonSlowFraction*v.Route[lane].SpeedLimit
 }
@@ -503,6 +506,9 @@ func (s *Simulation) canLink(v *vehicle) bool {
 // limit. Inside a fixed entry buffer, one holding-cell pitch also qualifies.
 func (s *Simulation) tryLink(i, ahead int) {
 	v, leader := &s.vehicles[i], &s.vehicles[ahead]
+	if largeVehicleClass(v.Pod.Class) || largeVehicleClass(leader.Pod.Class) {
+		return
+	}
 	if s.compactGroup(v) != nil || s.compactGroup(leader) != nil || s.compactEnabled() && v.buffered {
 		return
 	}
@@ -601,6 +607,9 @@ func (plan linkPlan) turnBound() float64 {
 // the cap of the follower is not behind its stop point.
 func (s *Simulation) planLink(plan linkPlan) (platoonLink, bool) {
 	v, leader := plan.v, plan.leader
+	if largeVehicleClass(v.Pod.Class) || largeVehicleClass(leader.Pod.Class) {
+		return platoonLink{}, false
+	}
 	if v.Route[plan.lane].StationRole == StationEntryRole {
 		return s.planBufferLink(plan)
 	}

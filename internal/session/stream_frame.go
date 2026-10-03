@@ -32,6 +32,7 @@ type StreamAssembler struct {
 	classes        map[string]sim.VehicleClass
 	topology       TopologySnapshot
 	lanes          map[string]bool
+	groupLanes     map[string]bool
 	stations       map[string]bool
 	berths         map[string]bool
 	boardingBerths map[string]boardingBerth
@@ -44,8 +45,9 @@ func NewStreamAssembler(topology TopologySnapshot) (*StreamAssembler, error) {
 	if len(topology.Network.Lanes) > project.MaxLanes || len(topology.Network.Nodes) > project.MaxNodes {
 		return nil, errors.New("topology exceeds supported limits")
 	}
-	a := &StreamAssembler{topology: topology, lanes: make(map[string]bool, len(topology.Network.Lanes)), stations: map[string]bool{}, berths: map[string]bool{}, boardingBerths: map[string]boardingBerth{}}
+	a := &StreamAssembler{topology: topology, lanes: make(map[string]bool, len(topology.Network.Lanes)), groupLanes: make(map[string]bool, len(topology.Network.Lanes)), stations: map[string]bool{}, berths: map[string]bool{}, boardingBerths: map[string]boardingBerth{}}
 	nodes := map[string]bool{}
+	stationClasses := map[string]sim.ClassSet{}
 	for _, node := range topology.Network.Nodes {
 		if node.ID == "" || nodes[node.ID] {
 			return nil, errors.New("invalid topology node")
@@ -57,6 +59,7 @@ func NewStreamAssembler(topology TopologySnapshot) (*StreamAssembler, error) {
 			return nil, errors.New("invalid topology station")
 		}
 		a.stations[station.ID] = true
+		stationClasses[station.ID] = station.VehicleClasses
 		for _, berth := range station.Berths {
 			if berth.ID == "" || a.berths[berth.ID] || !nodes[berth.Node] {
 				return nil, errors.New("invalid topology berth")
@@ -70,6 +73,12 @@ func NewStreamAssembler(topology TopologySnapshot) (*StreamAssembler, error) {
 			return nil, errors.New("duplicate topology lane")
 		}
 		a.lanes[l.ID] = true
+		admitted := l.VehicleClasses.Allows(string(sim.GroupClass))
+		if l.StationID != "" {
+			classes, found := stationClasses[l.StationID]
+			admitted = admitted && found && classes.Allows(string(sim.GroupClass))
+		}
+		a.groupLanes[l.ID] = admitted
 	}
 	return a, nil
 }
@@ -168,6 +177,9 @@ func (a *StreamAssembler) motionPod(r sim.RoutePresentation, p sim.Pod) error {
 }
 func optionalReference(index map[string]bool, id string) bool { return id == "" || index[id] }
 func (a *StreamAssembler) references(f StreamFrame) error {
+	if err := a.groupBindings(f); err != nil {
+		return err
+	}
 	snapshot := f.State.Simulation
 	pods := map[string]bool{}
 	if len(snapshot.Pending) > maxSavedTrips {

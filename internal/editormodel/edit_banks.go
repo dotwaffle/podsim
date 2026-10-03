@@ -41,6 +41,12 @@ func validateBankDraft(network any) error {
 	if err := typed.ValidateStationBanks(); err != nil {
 		return fmt.Errorf("validate station banks: %w", err)
 	}
+	if hasLargeGeometry(network) {
+		if _, err := sim.PrepareNetwork(typed); err != nil {
+			return fmt.Errorf("validate large geometry: %w", err)
+		}
+		return nil
+	}
 	if err := typed.ValidateBankGeometry(); err != nil {
 		return fmt.Errorf("validate bank geometry: %w", err)
 	}
@@ -396,8 +402,9 @@ func (g geometryDraft) validateBankChanges(original map[string]any) error {
 		for index := 1; index < len(points); index++ {
 			length += math.Hypot(points[index].X-points[index-1].X, points[index].Y-points[index-1].Y)
 		}
-		if length < 24 {
-			return fmt.Errorf("lane %s would be shorter than 24 meters", text(member(lane, "ID")))
+		minimum := draftLaneMinimum(lane)
+		if length < minimum {
+			return fmt.Errorf("lane %s would be shorter than %g meters", text(member(lane, "ID")), minimum)
 		}
 	}
 	return nil

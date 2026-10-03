@@ -176,6 +176,7 @@ type draftNetwork struct {
 }
 
 func checkNetwork(value any, errors *checkList) *draftNetwork {
+	previousErrors := len(errors.items)
 	g := &draftNetwork{
 		nodes: items(member(value, "Nodes")), lanes: items(member(value, "Lanes")), stations: items(member(value, "Stations")),
 		nodeIDs: make(map[string]bool), stationIDs: make(map[string]bool), berthIDs: make(map[string]bool),
@@ -188,7 +189,7 @@ func checkNetwork(value any, errors *checkList) *draftNetwork {
 	g.checkStations(ids, pairs, errors)
 	g.checkBerthRoutes(errors)
 	g.checkStationRoles(errors)
-	if hasBanks(value) {
+	if hasBanks(value) || hasLargeGeometry(value) && draftGeometryClassesValid(value) && len(errors.items) == previousErrors {
 		if err := validateBankDraft(value); err != nil {
 			errors.add(err.Error(), nil)
 		}
@@ -254,8 +255,9 @@ func (g *draftNetwork) checkLanes(ids draftIDs, errors *checkList) map[[2]string
 		if object(lane) == nil {
 			continue
 		}
-		if g.nodeIDs[from] && g.nodeIDs[to] && draftLaneLength(g.positions[from], g.positions[to], control) < 24 {
-			errors.add("Lane "+label(id)+" is shorter than 24 m.", at)
+		minimum := draftLaneMinimum(lane)
+		if g.nodeIDs[from] && g.nodeIDs[to] && draftLaneLength(g.positions[from], g.positions[to], control) < minimum {
+			errors.add(fmt.Sprintf("Lane %s is shorter than %g m.", label(id), minimum), at)
 		}
 		pair := [2]string{from, to}
 		path := from + "\x00" + to

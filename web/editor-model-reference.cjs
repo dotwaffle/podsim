@@ -2,9 +2,9 @@
 
 // These former model helpers run only in Node parity tests.
 module.exports = (helpers) => {
-  const { hasServiceMetadata } = require("./editor-service-reference.cjs");
+  const { hasServiceMetadata, laneMinimumLength } = require("./editor-service-reference.cjs");
   const {
-    ANCHOR_MAX_RESIDUAL, ANCHOR_MIN_DISTANCE, BERTH_PITCH, CLEARANCE, DEFAULT_OPACITY, DEFAULT_SPEED,
+    ANCHOR_MAX_RESIDUAL, ANCHOR_MIN_DISTANCE, BERTH_PITCH, DEFAULT_OPACITY, DEFAULT_SPEED,
     DEGREE, GEO_MAX_LATITUDE, GEO_PROJECTION, GEO_RADIUS, MAX_BERTHS, MAX_COORDINATE,
     MAX_LANES, MAX_NODES, MAX_NODE_LANES, MAX_STATIONS, MIN_LANE_LENGTH, SCALE_TOLERANCE,
     Tiles, berthChain, clone, emptyConfig, flowNamesStation, frameError,
@@ -461,7 +461,7 @@ module.exports = (helpers) => {
   // empty error, or the same config and an error that names the station.
   // On a berth chain station, as berthChain finds it, the new berth is the
   // row that nextChainRow gives. When a lane of that row crosses another
-  // lane, or comes nearer than CLEARANCE to it, the editor does not add the
+  // lane, or violates the class clearance, the editor does not add the
   // berth. On another station, the new berth goes to the position that
   // nextBerthPosition gives. It gets a lane from the station entry and a
   // lane to the station exit.
@@ -527,7 +527,7 @@ module.exports = (helpers) => {
     if (busy) return { config, error: busyText(station, busy) };
     const conflict = laneConflict(out, row.lanes.map((lane) => lane.ID));
     if (!conflict) return { config: out, error: "" };
-    const problem = conflict.gap === 0 ? "cross" : `be nearer than ${CLEARANCE} m to`;
+    const problem = conflict.gap === 0 ? "cross" : `be nearer than ${conflict.minimum} m to`;
     return { config, error: `No space for another berth at ${station.Name || station.ID}. New lane ${conflict.lane} would ${problem} lane ${conflict.other}.` };
   }
 
@@ -566,8 +566,8 @@ module.exports = (helpers) => {
       if (![node.Position.X, node.Position.Y].every((value) => Number.isFinite(value) && Math.abs(value) <= MAX_COORDINATE)) return reject(`Node ${node.ID} exceeds the coordinate limit.`);
     }
     const lanes = out.network.Lanes.filter((lane) => moved.has(lane.From) || moved.has(lane.To));
-    const short = lanes.find((lane) => laneLength(out, lane) < MIN_LANE_LENGTH);
-    if (short) return reject(`Lane ${short.ID} would be shorter than ${MIN_LANE_LENGTH} m.`);
+    const short = lanes.find((lane) => laneLength(out, lane) < laneMinimumLength(lane));
+    if (short) return reject(`Lane ${short.ID} would be shorter than ${laneMinimumLength(short)} m.`);
     const conflict = laneConflict(out, lanes.map((lane) => lane.ID), true);
     if (conflict) return reject(`Lane ${conflict.lane} would ${conflict.gap === 0 ? "cross" : `come within ${conflict.gap.toFixed(1)} m of`} lane ${conflict.other}.`);
     return { config: out, error: "" };
@@ -669,7 +669,7 @@ module.exports = (helpers) => {
   }
 
   // laneConflict finds a lane that crosses one of the lanes in ids, or
-  // comes nearer than CLEARANCE to it. It compares the lane paths that
+  // comes nearer than the class clearance to it. It compares the lane paths that
   // lanePolyline gives. It compares each lane in ids with all other lanes,
   // also with the other lanes in ids. It does not compare two lanes that
   // share a node, because junction control holds the pods of such lanes
@@ -685,17 +685,18 @@ module.exports = (helpers) => {
       const xs = path.map((at) => at.X); const ys = path.map((at) => at.Y);
       paths.set(lane.ID, { lane, path, low: { X: Math.min(...xs), Y: Math.min(...ys) }, high: { X: Math.max(...xs), Y: Math.max(...ys) } });
     }
-    const apart = (a, b) => a.low.X - b.high.X >= CLEARANCE || b.low.X - a.high.X >= CLEARANCE || a.low.Y - b.high.Y >= CLEARANCE || b.low.Y - a.high.Y >= CLEARANCE;
+    const apart = (a, b, minimum) => a.low.X - b.high.X >= minimum || b.low.X - a.high.X >= minimum || a.low.Y - b.high.Y >= minimum || b.low.Y - a.high.Y >= minimum;
     for (const id of ids) {
       const item = paths.get(id);
       if (!item) continue;
       for (const other of paths.values()) {
-        if (other.lane.ID === id || apart(item, other)) continue;
+        const minimum = Math.max(laneMinimumLength(item.lane), laneMinimumLength(other.lane)) / 2;
+        if (other.lane.ID === id || apart(item, other, minimum)) continue;
         const ends = [other.lane.From, other.lane.To];
         if (ends.includes(item.lane.From) || ends.includes(item.lane.To)) continue;
         if (separationGroups && item.lane.SeparationGroup && other.lane.SeparationGroup && item.lane.SeparationGroup !== other.lane.SeparationGroup) continue;
         const gap = pathGap(item.path, other.path);
-        if (gap < CLEARANCE) return { lane: id, other: other.lane.ID, gap };
+        if (gap < minimum) return { lane: id, other: other.lane.ID, gap, minimum };
       }
     }
     return null;

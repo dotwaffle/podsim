@@ -800,6 +800,7 @@ func TestStateFileWorstCaseSize(t *testing.T) {
 			maxFile.Simulation.Waiting = []sim.SavedTrip{maxTrip}
 			if version == serviceStateVersion {
 				testCompactWorstCaseSize(t, maxFile, maxPod, maxTrip)
+				testGroupWorstCaseSize(t, maxFile, maxPod, maxTrip)
 			}
 			maxUnrouted := maxTrip
 			maxUnrouted.Route = nil

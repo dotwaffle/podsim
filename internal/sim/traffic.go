@@ -36,6 +36,8 @@ type block struct {
 	// geometry is the geometry of lane, or nil when the geometry index did
 	// not have lane when newLaneCells made the cells of lane.
 	geometry *laneGeometry
+	// Larger immutable geometry bounds apply to every owner of the cell.
+	tail, fromTail float64
 }
 
 type laneConflict struct {
@@ -84,6 +86,7 @@ func indexBerthResources(network Network) map[string][]resource {
 // each route through the lane shares. NewFleet and ensureNetworkIndexes
 // build the cells of each network lane, and no code writes to them.
 type laneCells struct {
+	tail, fromTail float64
 	// geometry is the geometry of the lane, or nil when the geometry index
 	// does not have the lane.
 	geometry *laneGeometry
@@ -122,29 +125,34 @@ func cellOffset(cell, count int, length float64) float64 {
 // laneCellsInput holds the lane data that newLaneCells uses. berths holds
 // the berth resources at the To node of the lane.
 type laneCellsInput struct {
-	lane      Lane
-	length    float64
-	geometry  *laneGeometry
-	berths    []resource
-	conflicts []laneConflict
+	tail, fromTail float64
+	lane           Lane
+	length         float64
+	geometry       *laneGeometry
+	berths         []resource
+	conflicts      []laneConflict
 }
 
 // newLaneCells divides a lane into laneBlockCount cells of equal length.
 func newLaneCells(input laneCellsInput) *laneCells {
 	lane, length := input.lane, input.length
 	count := laneBlockCount(length)
-	var cells laneCells
+	cells := laneCells{tail: input.tail, fromTail: input.fromTail}
+	if largeClassSet(lane.VehicleClasses) {
+		cells.tail, cells.fromTail = max(largeClearance, cells.tail), max(largeClearance, cells.fromTail)
+	}
 	var resources []resource
 	for cell := range count {
 		last := cell == count-1
+		start, end := cellOffset(cell, count, length), cellOffset(cell+1, count, length)
 		resources = resources[:0]
 		if last {
 			resources = append(resources, input.berths...)
 		}
-		if cell == 0 {
+		if cell == 0 || start < cells.fromTail {
 			resources = append(resources, resource{kind: nodeResource, id: lane.From})
 		}
-		if last {
+		if last || end > length-cells.tail && cells.tail > 0 {
 			resources = append(resources, resource{kind: nodeResource, id: lane.To})
 		}
 		// A lane has conflicts only at its From and To nodes, so a cell gets
@@ -152,7 +160,6 @@ func newLaneCells(input laneCellsInput) *laneCells {
 		// lane at one node, but a second copy of a resource does not change
 		// a reservation, so the cell keeps only the first. Thus a cell has
 		// at most six resources.
-		start, end := cellOffset(cell, count, length), cellOffset(cell+1, count, length)
 		for _, conflict := range input.conflicts {
 			junction := resource{kind: junctionResource, id: conflict.junction}
 			if start < conflict.end && conflict.start < end && !slices.Contains(resources, junction) {
@@ -162,7 +169,7 @@ func newLaneCells(input laneCellsInput) *laneCells {
 		cells.add(append(resources, resource{kind: trackResource, id: lane.ID, cell: cell}))
 	}
 	// The cells keep only the memory that they use.
-	return &laneCells{geometry: input.geometry, resources: slices.Clone(cells.resources), ends: slices.Clone(cells.ends)}
+	return &laneCells{tail: cells.tail, fromTail: cells.fromTail, geometry: input.geometry, resources: slices.Clone(cells.resources), ends: slices.Clone(cells.ends)}
 }
 
 // indexLaneCells returns the cells of each network lane. The cells of all
@@ -170,6 +177,7 @@ func newLaneCells(input laneCellsInput) *laneCells {
 // project validation bounds them.
 func indexLaneCells(input laneCellsIndexInput) map[string]*laneCells {
 	network := input.network
+	tails := indexGeometryTails(network)
 	positions := make(map[string]Point, len(network.Nodes))
 	for _, node := range network.Nodes {
 		if _, ok := positions[node.ID]; !ok {
@@ -182,6 +190,7 @@ func indexLaneCells(input laneCellsIndexInput) map[string]*laneCells {
 			continue
 		}
 		cells[lane.ID] = newLaneCells(laneCellsInput{
+			tail: tails[lane.ID].tail, fromTail: tails[lane.ID].fromTail,
 			lane: lane, length: indexedLaneLength(lane, positions[lane.From], positions[lane.To]), geometry: input.geometry[lane.ID],
 			berths: input.berths[lane.To], conflicts: input.conflicts[lane.ID],
 		})
@@ -358,6 +367,7 @@ func (l *blockList) block(lane, cell int) block {
 	return block{
 		lane: l.route[lane], geometry: entry.geometry, cell: cell, start: start, end: end,
 		laneStart: entry.start, resources: entry.cells.cell(cell), last: cell == count-1,
+		tail: entry.cells.tail, fromTail: entry.cells.fromTail,
 	}
 }
 
@@ -420,12 +430,17 @@ func (s *Simulation) routeBlocks(route []Lane) (blockList, []float64) {
 	blocks := blockList{route: route, lanes: make([]routeLaneCells, len(route)+1)}
 	lengths = make([]float64, 0, len(route))
 	distance := 0.0
+	var fallbackTails map[string]geometryTails
 	for index, lane := range route {
 		length := s.laneLength(lane)
 		lengths = append(lengths, length)
 		cells := s.laneCells[lane.ID]
 		if cells == nil {
+			if fallbackTails == nil {
+				fallbackTails = indexGeometryTails(s.network)
+			}
 			cells = newLaneCells(laneCellsInput{
+				tail: fallbackTails[lane.ID].tail, fromTail: fallbackTails[lane.ID].fromTail,
 				lane: lane, length: length, geometry: s.geometry[lane.ID],
 				berths: s.berthResources[lane.To], conflicts: s.junctionConflicts[lane.ID],
 			})
@@ -655,11 +670,12 @@ func (s *Simulation) grant(in intent) {
 		lane = blocks.next(lane, index)
 		cell := index - blocks.lanes[lane].first
 		start, end := blocks.cellBounds(lane, cell)
-		for _, r := range blocks.lanes[lane].cells.cell(cell) {
+		cells := blocks.lanes[lane].cells
+		for _, r := range cells.cell(cell) {
 			if !coupled || s.owners[r] == "" {
 				s.owners[r] = v.Pod.ID
 			}
-			v.retainRouteResource(r, releaseDistance(r, releaseInput{from: blocks.route[lane].From, start: start, end: end}))
+			v.retainRouteResource(r, releaseDistance(r, releaseInput{from: blocks.route[lane].From, start: start, end: end, tail: cells.tail, fromTail: cells.fromTail}))
 		}
 	}
 	v.reservedThrough = through
@@ -773,15 +789,29 @@ func (s *Simulation) releaseCleared() {
 }
 
 func resourceReleaseDistance(b block, r resource) float64 {
-	return releaseDistance(r, releaseInput{from: b.lane.From, start: b.start, end: b.end})
+	return releaseDistance(r, releaseInput{from: b.lane.From, start: b.start, end: b.end, tail: b.tail, fromTail: b.fromTail})
+}
+
+func blockTail(b block) float64 { return max(Clearance, b.tail) }
+
+func (v *vehicle) originTail() float64 {
+	minimum := Clearance
+	if largeVehicleClass(v.Pod.Class) {
+		minimum = largeClearance
+	}
+	if len(v.blocks.lanes) > 1 && v.blocks.lanes[0].cells != nil {
+		return max(minimum, v.blocks.lanes[0].cells.fromTail)
+	}
+	return minimum
 }
 
 // releaseInput holds the block values that releaseDistance uses. from is
 // the From node of the lane of the block. start and end are route
 // distances.
 type releaseInput struct {
-	from       string
-	start, end float64
+	from           string
+	start, end     float64
+	tail, fromTail float64
 }
 
 // releaseDistance returns the route distance at which a pod releases r of
@@ -792,9 +822,9 @@ func releaseDistance(r resource, b releaseInput) float64 {
 	}
 	// A departure clears the node before it clears the first downstream cell.
 	if r.kind == nodeResource && r.id == b.from {
-		return b.start + Clearance
+		return b.start + max(Clearance, b.fromTail)
 	}
-	return b.end + Clearance
+	return b.end + max(Clearance, b.tail)
 }
 
 // retainRouteResource keeps r until the pod is at releaseAt. The pod or a
@@ -821,7 +851,7 @@ func (s *Simulation) releaseVehicleResources(v *vehicle) {
 		return
 	}
 	s.releasePassedResources(v)
-	if !v.originReleased && v.distance >= Clearance {
+	if !v.originReleased && v.distance >= v.originTail() {
 		for _, r := range []resource{
 			{kind: berthResource, id: v.origin.ID},
 			{kind: nodeResource, id: v.origin.Node},

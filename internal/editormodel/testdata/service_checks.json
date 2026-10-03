@@ -716,15 +716,7 @@
         }
       ],
       "checks": {
-        "errors": [
-          {
-            "text": "Pod 01 has no approved physical profile.",
-            "target": {
-              "type": "station",
-              "id": "harbor"
-            }
-          }
-        ],
+        "errors": [],
         "warnings": []
       }
     },

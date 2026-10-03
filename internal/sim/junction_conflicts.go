@@ -33,7 +33,7 @@ func buildJunctionConflicts(network Network) map[string][]laneConflict {
 		polylines[lane.ID] = newConflictPolyline(network.lanePoints(lane, make([]Point, 0, 65)))
 	}
 	forEachJunctionPair(network, func(node string, lane, other Lane) {
-		start, end := conflictExtent(polylines[lane.ID], polylines[other.ID])
+		start, end := conflictExtentWithClearance(polylines[lane.ID], polylines[other.ID], classSetPairClearance(lane.VehicleClasses, other.VehicleClasses))
 		if !math.IsInf(start, 1) {
 			conflicts[lane.ID] = append(conflicts[lane.ID], laneConflict{junction: node, start: start, end: end})
 		}
@@ -94,7 +94,11 @@ func incidentLanes(network Network) map[string][]Lane {
 }
 
 func conflictExtent(lane, other *conflictPolyline) (float64, float64) {
-	const limit = Clearance + conflictSampleStep
+	return conflictExtentWithClearance(lane, other, Clearance)
+}
+
+func conflictExtentWithClearance(lane, other *conflictPolyline, clearance float64) (float64, float64) {
+	limit := clearance + conflictSampleStep
 	points := lane.points
 	scale := max(lane.scale, other.scale)
 	margin := conflictSlack * (1 + scale)
@@ -125,7 +129,7 @@ func conflictExtent(lane, other *conflictPolyline) (float64, float64) {
 			}
 			// Skip only distances that cannot reach the padded conflict threshold.
 			// Each separation within the limit gives the minimum step.
-			step := max(conflictSampleStep, separation-Clearance-conflictSampleStep)
+			step := max(conflictSampleStep, separation-clearance-conflictSampleStep)
 			offset = min(length, offset+step)
 		}
 		distance += length

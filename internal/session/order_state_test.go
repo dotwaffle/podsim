@@ -416,7 +416,7 @@ func TestCurrentSavedClassAndServiceRejections(t *testing.T) {
 		name   string
 		change func(*stateFile)
 	}{
-		{"unsupported group", func(file *stateFile) { file.Simulation.Pods[0].Class = sim.GroupClass }},
+		{"group class differs from saved fleet", func(file *stateFile) { file.Simulation.Pods[0].Class = sim.GroupClass }},
 		{"unsupported express", func(file *stateFile) { file.Simulation.Pods[0].Class = sim.ExpressClass }},
 		{"unknown class", func(file *stateFile) { file.Simulation.Pods[0].Class = "unknown" }},
 		{"immutable class mismatch", func(file *stateFile) { file.Simulation.Pods[0].Class = sim.CompactClass }},

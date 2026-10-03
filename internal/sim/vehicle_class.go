@@ -42,7 +42,7 @@ func LookupVehicleClass(class VehicleClass) (VehicleClassSpec, bool) {
 	case CompactClass:
 		return VehicleClassSpec{CompactClass, 4, 4, 4, true}, true
 	case GroupClass:
-		return VehicleClassSpec{GroupClass, 8, 8, 0, false}, true
+		return VehicleClassSpec{GroupClass, 8, 8, 6, true}, true
 	case ExpressClass:
 		return VehicleClassSpec{ExpressClass, 20, 8, 0, false}, true
 	default:

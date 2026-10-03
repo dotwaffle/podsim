@@ -434,7 +434,7 @@
   }
 
   function fleetClassNotice(config) {
-    return config.version === 3 ? "New pods use legacy class. Import a project to set vehicle classes and express services. Group and express pods cannot start yet." : "";
+    return config.version === 3 ? "New pods use legacy class. Import a project to set vehicle classes and express services. Express pods cannot start yet." : "";
   }
 
   // selectionCard gives the data of the Selection panel for the selected

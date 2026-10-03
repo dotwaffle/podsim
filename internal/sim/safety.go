@@ -37,6 +37,11 @@ func (o SafetyObservation) Check() (float64, error) {
 		if !finite(pod.Position.X) || !finite(pod.Position.Y) || !finite(pod.Speed) || pod.Speed < 0 {
 			return 0, fmt.Errorf("invalid pod at tick %d: %+v", o.Tick, pod)
 		}
+		if largeVehicleClass(pod.Class) {
+			if err := ValidateVehicleClassProfile(pod.Class); err != nil {
+				return 0, fmt.Errorf("invalid pod at tick %d: %w", o.Tick, err)
+			}
+		}
 	}
 	gap, err := o.checkSeparation()
 	if err != nil {
@@ -58,17 +63,21 @@ func (o SafetyObservation) checkSeparation() (float64, error) {
 	smallestSquared := math.Inf(1)
 	for index, first := range o.Pods {
 		for offset, second := range o.Pods[index+1:] {
-			if safetyLocationsSeparated(locations[index], locations[index+1+offset]) {
+			minimum := classPairClearance(first.Class, second.Class)
+			separated := safetyLocationsSeparated(locations[index], locations[index+1+offset])
+			if minimum > Clearance {
+				separated = o.largePairSeparated(first, second)
+			}
+			if separated {
 				continue
 			}
 			dx := first.Position.X - second.Position.X
 			dy := first.Position.Y - second.Position.Y
 			gapSquared := dx*dx + dy*dy
 			smallestSquared = min(smallestSquared, gapSquared)
-			minimum := Clearance
-			if certified, ok := o.compactPairs[[2]string{first.ID, second.ID}]; ok && certified.first == first && certified.second == second {
+			if certified, ok := o.compactPairs[[2]string{first.ID, second.ID}]; minimum == Clearance && ok && certified.first == first && certified.second == second {
 				minimum = certified.minimum
-			} else if certified, ok := o.compactPairs[[2]string{second.ID, first.ID}]; ok && certified.first == second && certified.second == first {
+			} else if certified, ok := o.compactPairs[[2]string{second.ID, first.ID}]; minimum == Clearance && ok && certified.first == second && certified.second == first {
 				minimum = certified.minimum
 			}
 			if gapSquared < (minimum-separationTolerance)*(minimum-separationTolerance) {

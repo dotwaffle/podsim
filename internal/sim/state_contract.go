@@ -161,6 +161,9 @@ func (state SavedState) checkContract() (int, error) {
 	if len(state.Pods) == 0 || len(state.Pods) > maxSavedPods {
 		return 0, fmt.Errorf("the saved state has %d pods, want 1 to %d", len(state.Pods), maxSavedPods)
 	}
+	if err := checkLargeLinkFields(RestoreStateInput{State: state}); err != nil {
+		return 0, err
+	}
 	if err := state.validateCounters(); err != nil {
 		return 0, err
 	}
@@ -454,6 +457,42 @@ func (s *Simulation) reconcileOrders(state SavedState, completed, dropped []int)
 	if s.requestID != state.RequestID || s.completed != state.Completed+len(completed) {
 		return fmt.Errorf("the restore has %d submitted and %d completed orders, want %d and %d",
 			s.requestID, s.completed, state.RequestID, state.Completed+len(completed))
+	}
+	return nil
+}
+
+// checkLargeLinkFields rejects large physical links before either restore tier.
+// Both saved and fleet classes count, so a class mismatch cannot hide a link.
+func checkLargeLinkFields(input RestoreStateInput) error {
+	largeIDs := make(map[string]bool)
+	for _, pod := range input.State.Pods {
+		if largeVehicleClass(pod.Class) {
+			largeIDs[pod.ID] = true
+		}
+	}
+	for _, pod := range input.Fleet {
+		if largeVehicleClass(pod.Class) {
+			largeIDs[pod.ID] = true
+		}
+	}
+	if len(largeIDs) == 0 {
+		return nil
+	}
+	for _, pod := range input.State.Pods {
+		if pod.Platoon != nil && (largeIDs[pod.ID] || largeIDs[pod.Platoon.Leader]) {
+			return fmt.Errorf("pod %s: large vehicle classes cannot have platoon links", pod.ID)
+		}
+		if pod.CompactQueue == nil {
+			continue
+		}
+		if largeIDs[pod.ID] {
+			return fmt.Errorf("pod %s: large vehicle classes cannot have compact queue certificates", pod.ID)
+		}
+		for _, member := range pod.CompactQueue.Members {
+			if largeIDs[member] {
+				return fmt.Errorf("pod %s: compact queue includes large pod %s", pod.ID, member)
+			}
+		}
 	}
 	return nil
 }

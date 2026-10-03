@@ -44,12 +44,32 @@ func prepareNetwork(network Network) (Network, routeGraph, error) {
 	owned := network.clone()
 	inferStationLaneRoles(&owned)
 	graph := newRouteGraph(owned)
+	tails := indexGeometryTails(owned)
 	for index, lane := range owned.Lanes {
-		if graph.lengths[index] < 2*Clearance {
-			return Network{}, routeGraph{}, fmt.Errorf("lane %q must be at least %.0f meters long", lane.ID, 2*Clearance)
+		if bounds := tails[lane.ID]; !finite(bounds.tail) || !finite(bounds.fromTail) {
+			return Network{}, routeGraph{}, fmt.Errorf("lane %q has an unsupported large-vehicle path shape", lane.ID)
+		}
+		length, minimum := graph.lengths[index], LaneMinimumLength(lane)
+		if length < minimum {
+			return Network{}, routeGraph{}, fmt.Errorf("lane %q must be at least %.0f meters long", lane.ID, minimum)
+		}
+		if largeClassSet(lane.VehicleClasses) {
+			if err := validateLargeLaneCells(lane.ID, length, laneBlockCount(length)); err != nil {
+				return Network{}, routeGraph{}, err
+			}
 		}
 	}
 	return owned, graph, nil
+}
+
+func validateLargeLaneCells(id string, length float64, count int) error {
+	for cell := range count {
+		start, end := cellOffset(cell, count, length), cellOffset(cell+1, count, length)
+		if end-start < largeClearance {
+			return fmt.Errorf("lane %q needs actual track cells of at least %.0f meters", id, largeClearance)
+		}
+	}
+	return nil
 }
 
 func newPreparedNetwork(owned Network, graph routeGraph) *PreparedNetwork {
@@ -105,6 +125,8 @@ func validatePlacements(network Network, placements []Placement) error {
 		return errors.New("the fleet needs at least one pod")
 	}
 	ids, berths := make(map[string]bool), make(map[string]bool)
+	geometry := make([]initialPlacementGeometry, 0, len(placements))
+	incident := incidentLanes(network)
 	for _, placement := range placements {
 		if err := ValidateVehicleClassProfile(placement.Class); err != nil {
 			return err
@@ -124,6 +146,54 @@ func validatePlacements(network Network, placements []Placement) error {
 			return fmt.Errorf("pod %s class is incompatible with its initial berth", placement.ID)
 		}
 		ids[placement.ID], berths[berth.ID] = true, true
+		node, _ := network.Node(berth.Node)
+		geometry = append(geometry, initialPlacementGeometry{id: placement.ID, class: placement.Class, position: node.Position,
+			locations: berthGeometryLocations(berth, incident[berth.Node])})
+	}
+	return validateInitialSeparation(geometry)
+}
+
+type initialPlacementGeometry struct {
+	id        string
+	class     VehicleClass
+	position  Point
+	locations []SafetyLocation
+}
+
+func berthGeometryLocations(berth Berth, incident []Lane) []SafetyLocation {
+	locations := make([]SafetyLocation, 0, 1+len(incident))
+	locations = append(locations, SafetyLocation{SeparationGroup: berth.SeparationGroup, From: berth.Node, To: berth.Node})
+	for _, lane := range incident {
+		locations = append(locations, SafetyLocation{SeparationGroup: lane.SeparationGroup, From: lane.From, To: lane.To})
+	}
+	return locations
+}
+
+func geometryPlanesSeparated(first, second []SafetyLocation) bool {
+	if len(first) == 0 || len(second) == 0 {
+		return false
+	}
+	for _, a := range first {
+		for _, b := range second {
+			if !safetyLocationsSeparated(a, b) {
+				return false
+			}
+		}
+	}
+	return true
+}
+
+func validateInitialSeparation(placements []initialPlacementGeometry) error {
+	for i, first := range placements {
+		for _, second := range placements[i+1:] {
+			if !largeVehicleClass(first.class) && !largeVehicleClass(second.class) || geometryPlanesSeparated(first.locations, second.locations) {
+				continue
+			}
+			clearance := classPairClearance(first.class, second.class)
+			if pointDistance(first.position, second.position) < clearance-separationTolerance {
+				return fmt.Errorf("initial pods %q and %q need at least %.0f meters of separation", first.id, second.id, clearance)
+			}
+		}
 	}
 	return nil
 }

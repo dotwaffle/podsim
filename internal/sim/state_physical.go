@@ -791,7 +791,7 @@ func (r *physicalRestore) placeTravelingPod(index, leader int) (bool, error) {
 		}
 	}
 	through := reservationEnd(&v.blocks, current)
-	if distance < Clearance && (v.origin.ID == "" || v.Route[0].From != v.origin.Node) {
+	if distance < v.originTail() && (v.origin.ID == "" || v.Route[0].From != v.origin.Node) {
 		return false, nil
 	}
 	if member, ok := r.compactMembers[index]; ok {
@@ -836,7 +836,7 @@ func (r *physicalRestore) placeTravelingPod(index, leader int) (bool, error) {
 		}
 	}
 	v.reservedThrough = through
-	v.originReleased = distance >= Clearance
+	v.originReleased = distance >= v.originTail()
 	if member, ok := r.compactMembers[index]; ok {
 		v.Pod.Speed = member.saved.Speeds[member.offset]
 	}
@@ -950,7 +950,7 @@ func routeLaneBlocks(blocks *blockList, routeIndex int) (first, last int) {
 // footprint returns the resources that a traveling pod holds when it has
 // reserved blocks 0 to through and is at a route distance. These are the
 // resources of those blocks that the pod has not passed by their release
-// distance. Before the pod is Clearance from its origin, it also holds the
+// distance. Before the pod passes its origin retention tail, it also holds the
 // origin berth and node. A set finds the repeated resources, because a
 // saved route can reserve many blocks.
 func (v *vehicle) footprint(through int, distance float64) []resource {
@@ -969,7 +969,7 @@ func (v *vehicle) footprint(through int, distance float64) []resource {
 			}
 		}
 	}
-	if distance < Clearance {
+	if distance < v.originTail() {
 		for _, claimed := range berthResources(v.origin) {
 			add(claimed)
 		}

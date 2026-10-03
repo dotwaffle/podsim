@@ -2,8 +2,8 @@
 
 // This reference runs only in Node tests. The browser uses Go checks.
 module.exports = function (editor) {
-  const { serviceMetadataChecks } = require("./editor-service-reference.cjs");
-  const { MIN_LANE_LENGTH, MAX_NODE_LANES, MAX_STATIONS, MAX_NODES, MAX_LANES, MAX_PODS, MAX_FLOWS, laneLength, geoError } = editor;
+  const { serviceMetadataChecks, laneMinimumLength } = require("./editor-service-reference.cjs");
+  const { MAX_NODE_LANES, MAX_STATIONS, MAX_NODES, MAX_LANES, MAX_PODS, MAX_FLOWS, laneLength, geoError } = editor;
   const Tiles = require("./tiles.js");
   const STATION_LANE_ROLES = new Set(["approach", "entry", "berth-access", "through", "departure", "exit"]);
   const sharedRideModes = ["drop-offs", "destination"], sharedRideJoins = ["unassigned", "reassign-existing"], platoonLimits = [0, 2, 3, 4];
@@ -256,7 +256,7 @@ module.exports = function (editor) {
       if (!isRecord(lane) || !nodeIDs.has(lane.From) || !nodeIDs.has(lane.To) || lane.From === lane.To) report(`Lane ${(lane && lane.ID) || "?"} has invalid endpoints.`, laneTarget);
       if (!isRecord(lane) || !Number.isFinite(lane.SpeedLimit) || lane.SpeedLimit <= 0) report(`Lane ${(lane && lane.ID) || "?"} needs a positive speed limit.`, laneTarget);
       if (isRecord(lane) && lane.Control && (!isRecord(lane.Control) || !Number.isFinite(lane.Control.X) || !Number.isFinite(lane.Control.Y))) report(`Lane ${lane.ID} has an invalid control point.`, laneTarget);
-      if (isRecord(lane) && nodeIDs.has(lane.From) && nodeIDs.has(lane.To) && laneLength(value, lane) < MIN_LANE_LENGTH) report(`Lane ${lane.ID} is shorter than ${MIN_LANE_LENGTH} m.`, laneTarget);
+      if (isRecord(lane) && nodeIDs.has(lane.From) && nodeIDs.has(lane.To) && laneLength(value, lane) < laneMinimumLength(lane)) report(`Lane ${lane.ID} is shorter than ${laneMinimumLength(lane)} m.`, laneTarget);
       if (isRecord(lane)) {
         const pair = `${lane.From}\u0000${lane.To}`;
         for (const node of [lane.From, lane.To]) nodeLanes.set(node, (nodeLanes.get(node) || 0) + 1);

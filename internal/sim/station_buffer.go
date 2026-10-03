@@ -68,7 +68,7 @@ func (s *Simulation) bufferPlan(v *vehicle) (stationBufferPlan, bool) {
 		return stationBufferPlan{}, false
 	}
 	cells := s.laneCells[lane.ID]
-	if cells == nil || cells.count() < 4 || s.laneLength(lane)/float64(cells.count()) < Clearance {
+	if cells == nil || cells.count() < 4 || s.laneLength(lane)/float64(cells.count()) < max(Clearance, cells.tail) {
 		return stationBufferPlan{}, false
 	}
 	first, last := -1, -1
@@ -121,7 +121,8 @@ func (s *Simulation) bufferHead(v *vehicle, plan stationBufferPlan) bool {
 				continue
 			}
 			distance := other.distance - other.blocks.lanes[laneIndex].start
-			if distance > position && distance < s.laneLength(lane)+Clearance {
+			tail := max(classPairClearance(v.Pod.Class, other.Pod.Class), blockTail(other.blocks.at(other.blocks.laneFirst(laneIndex))))
+			if distance > position && distance < s.laneLength(lane)+tail {
 				v.Pod.BlockedBy, v.Pod.WaitReason = other.Pod.ID, TrackOccupied
 				return false
 			}

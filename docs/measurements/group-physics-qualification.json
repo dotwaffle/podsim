@@ -1,0 +1,157 @@
+{
+  "status": "Group6 candidate qualified; Express physical operation remains unsupported. No default adoption.",
+  "base": "4f65b5bd9c05f68de884a04224a02b9262c96b06",
+  "reviewed_proposal_sha256": "6c2f9ae2636cc91386896d543249980d5a5eb490a2322ba57602e9faf29f10a0",
+  "native_production_sha256": {
+    "internal/sim/profile_geometry.go": "04b993c17cd15e315629fba2fdd627ac069a2e5747f6fbef22abe0e51e44010d",
+    "internal/sim/traffic.go": "8f48614495769bb184a10921e0edbf4a245f49fe5793f7e8878bf1b14a07ad8c",
+    "internal/sim/envelope_safety.go": "21c6a8f7d60a9652e4e0e3b050db05f4c2fdc7dcdc0bd25bcda6001df01b8bfd",
+    "internal/sim/simulation.go": "eb203c3a8d1c341353149972d4c64c0c6f4e1aae30f625f265269ba6aaa35888",
+    "internal/sim/safety.go": "01ec78b60c622ca38f340bc9ebe384e10de32c61caac9ccd4e5751fd473b6618",
+    "internal/sim/platoon.go": "11cac4498b0d4a6146c6d68e0351beba3c379039ea19569b2ed525a720eb7d0f",
+    "internal/sim/station_buffer.go": "2a6145324afb5e307726894f75c4646d56e737757187a4e0e88a92e1a38ce305",
+    "internal/sim/station_buffer_platoon.go": "d8387e97546aea888f0bff8a1631dc8bf30128ef86009513d51e7a146b82d7e9",
+    "internal/sim/station_compact_queue.go": "0eac6c0422576343a9ca52ecda9cc2ba381572cbb23f26fca8a23b4deee8717c",
+    "internal/sim/vehicle_class.go": "9ecf9f1ba03e63eb4325b88363364e7add167fd63054493a5e892328a022ba81",
+    "internal/sim/prepared.go": "a805b1e432426085d311b0edff3bd554e484dce4e4a0a1c5b3e783d53b4547b1",
+    "internal/sim/bank_geometry.go": "2035a7613a289b6cde4eadfdbb537265f1bdbe4b9cc5d8513458455c55a2bc56",
+    "internal/sim/junction_conflicts.go": "62d897c45f9721914a2164e6e5be0ef67deee88c92d9d206169046f3d82bbd1c",
+    "internal/sim/ownership.go": "110aead4e19e1c0b8fe5a36e0fb91a2cf3d84d8b62368b717a2caf0f57af3dd6",
+    "internal/sim/state.go": "a42b4cc256b8de576a7d9196575a90eba375cfa0c4a6fb3c7ab3b49797e24454",
+    "internal/sim/state_contract.go": "a0191285b98531e5c6d87b6d905ed101d2de739aa336543b5ad0d29cfc7477eb",
+    "internal/sim/state_physical.go": "f7d7caa6e427846f04b2740ad719c77acb03c572993901c64a028937baa9a647"
+  },
+  "checks": {
+    "coupled-full": {
+      "exit": 0,
+      "elapsed_seconds": 161.51
+    },
+    "race-native-remaining": {
+      "exit": 0,
+      "elapsed_seconds": 800.577
+    },
+    "race-group-consumers": {
+      "exit": 0,
+      "elapsed_seconds": 41.231
+    },
+    "coupled-web": {
+      "exit": 0,
+      "elapsed_seconds": 20.67
+    },
+    "coupled-vet": {
+      "exit": 0,
+      "elapsed_seconds": 3.008
+    },
+    "coupled-lint": {
+      "exit": 0,
+      "elapsed_seconds": 17.397
+    },
+    "coupled-wasm": {
+      "exit": 0,
+      "elapsed_seconds": 21.496
+    },
+    "coupled-diagnostics": {
+      "exit": 0,
+      "elapsed_seconds": 2.084
+    },
+    "coupled-wasm-deps": {
+      "exit": 0,
+      "elapsed_seconds": 0.433
+    }
+  },
+  "mutation_assertion_kills": {
+    "native": 6,
+    "geometry": 11,
+    "restore": 8,
+    "independent_review": 3,
+    "public_consumers": 15
+  },
+  "ordinary_full_snapshot_parity": {
+    "ticks_per_arm": 36000,
+    "arms": 4,
+    "traces": [
+      [
+        "a8360847f31f3b8f16d0ae843e900592d1a81d0361c8accdfd52e250fcd27244",
+        "4"
+      ],
+      [
+        "da2887108396eaf0252f9a931d4a18d1f848b7796ebb40674d1408768d581320",
+        "4"
+      ],
+      [
+        "c630e4d3573cc7c5882dd2065a3b751ab93998ae99a1c7ce51475d1be29fb5ca",
+        "4"
+      ],
+      [
+        "c630e4d3573cc7c5882dd2065a3b751ab93998ae99a1c7ce51475d1be29fb5ca",
+        "4"
+      ]
+    ],
+    "baseline_traces": [
+      [
+        "a8360847f31f3b8f16d0ae843e900592d1a81d0361c8accdfd52e250fcd27244",
+        "4"
+      ],
+      [
+        "da2887108396eaf0252f9a931d4a18d1f848b7796ebb40674d1408768d581320",
+        "4"
+      ],
+      [
+        "c630e4d3573cc7c5882dd2065a3b751ab93998ae99a1c7ce51475d1be29fb5ca",
+        "4"
+      ],
+      [
+        "c630e4d3573cc7c5882dd2065a3b751ab93998ae99a1c7ce51475d1be29fb5ca",
+        "4"
+      ]
+    ],
+    "exact_match": true
+  },
+  "save_maximum_bytes": {
+    "historical": {
+      "raw": 83270696,
+      "gzip": 802330
+    },
+    "modern": {
+      "raw": 83240396,
+      "gzip": 806632
+    },
+    "mixed": {
+      "raw": 83255546,
+      "gzip": 805668
+    },
+    "cap": 83886080
+  },
+  "stream_maximum_bytes": {
+    "full": 62173518,
+    "replacement_delta": 62306597,
+    "cap": 67108864
+  },
+  "encoding_scope": "Independent typed encoding maxima. Not a physically reachable combined state. Counts and byte caps unchanged.",
+  "race_validation_limit": "Full save race timed out after 14 minutes while decoding the existing 80 MiB compact modern fixture. Regular full-suite maximum encodings and coupled Group consumer races passed. No complete full-repository race claim.",
+  "race_retries": {
+    "parallel_full": {
+      "exit": 124,
+      "watchdog_seconds": 600,
+      "http_apply_eof": true
+    },
+    "isolated_http_apply": {
+      "exit": 0,
+      "request_seconds": 7.135615109,
+      "production_write_deadline_seconds": 30
+    },
+    "sequential_full": {
+      "exit": 124,
+      "watchdog_seconds": 600,
+      "packages_through_scenarios": "passed"
+    },
+    "save_package_full": {
+      "exit": 1,
+      "go_timeout_seconds": 840,
+      "active_test": "TestStateFileWorstCaseSize/6/compact-members-4/modern",
+      "stack": "Runnable JSON decoding, not a lock wait.",
+      "data_race_reports": 0
+    }
+  },
+  "evidence_directory": "~/.cache/agents/podsim/roadmap-service-20261002/"
+}

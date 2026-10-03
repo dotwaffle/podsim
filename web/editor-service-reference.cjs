@@ -26,7 +26,7 @@ function serviceMetadataChecks(draft, report) {
     const target = typeof pod?.StationID === "string" && pod.StationID ? { type: "station", id: pod.StationID } : null;
     const classID = Object.hasOwn(pod || {}, "Class") ? pod.Class : "legacy";
     if (!classes.includes(classID)) { report(`Pod ${id} has an invalid vehicle class.`, target); continue; }
-    if (["group", "express"].includes(classID)) { report(`Pod ${id} has no approved physical profile.`, target); continue; }
+    if (classID === "express") { report(`Pod ${id} has no approved physical profile.`, target); continue; }
     const station = rows(draft.network?.Stations).find((item) => item?.ID === pod?.StationID);
     const berth = rows(station?.Berths).find((item) => item?.ID === pod?.BerthID);
     if (berth && classSet(station) && classSet(berth) && (!classSet(station).includes(classID) || !classSet(berth).includes(classID))) report(`Pod ${id} has an incompatible station or berth.`, target);
@@ -77,4 +77,9 @@ function expressPath(network, from, to) {
   return false;
 }
 
-module.exports = { hasServiceMetadata, serviceMetadataChecks };
+function laneMinimumLength(lane) {
+  const allowed = classSet(lane);
+  return allowed && (allowed.includes("group") || allowed.includes("express")) ? 40 : 24;
+}
+
+module.exports = { hasServiceMetadata, serviceMetadataChecks, laneMinimumLength };

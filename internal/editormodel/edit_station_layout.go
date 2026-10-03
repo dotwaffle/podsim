@@ -262,8 +262,9 @@ func (g geometryDraft) setLayoutDimensions(layout stationDimensions, raw jsontex
 		if err != nil {
 			return err
 		}
-		if length := draftLaneLength(map[string]any{"X": a.X, "Y": a.Y}, map[string]any{"X": b.X, "Y": b.Y}, member(lane, "Control")); check && length < 24 {
-			return fmt.Errorf("lane %s would be shorter than 24 meters", text(member(lane, "ID")))
+		minimum := draftLaneMinimum(lane)
+		if length := draftLaneLength(map[string]any{"X": a.X, "Y": a.Y}, map[string]any{"X": b.X, "Y": b.Y}, member(lane, "Control")); check && length < minimum {
+			return fmt.Errorf("lane %s would be shorter than %g meters", text(member(lane, "ID")), minimum)
 		}
 		lanes = append(lanes, text(member(lane, "ID")))
 	}
@@ -271,7 +272,7 @@ func (g geometryDraft) setLayoutDimensions(layout stationDimensions, raw jsontex
 		return nil
 	}
 	if conflict := g.laneConflict(lanes, true); conflict != nil {
-		return fmt.Errorf("lane %s would come within 12 meters of lane %s", conflict.lane, conflict.other)
+		return fmt.Errorf("lane %s would come within %g meters of lane %s", conflict.lane, conflict.minimum, conflict.other)
 	}
 	return nil
 }

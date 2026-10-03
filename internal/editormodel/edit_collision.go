@@ -9,8 +9,8 @@ type geometryPath struct {
 }
 
 type geometryConflict struct {
-	lane, other string
-	gap         float64
+	lane, other  string
+	gap, minimum float64
 }
 
 func geometryPolyline(from, to geometryPoint, control *geometryPoint) []geometryPoint {
@@ -99,7 +99,8 @@ func (g geometryDraft) laneConflict(ids []string, separationGroups bool) *geomet
 			continue
 		}
 		for _, other := range paths {
-			if other.lane["ID"] == id || path.low.X-other.high.X >= 12 || other.low.X-path.high.X >= 12 || path.low.Y-other.high.Y >= 12 || other.low.Y-path.high.Y >= 12 {
+			minimum := draftPairClearance(path.lane, other.lane)
+			if other.lane["ID"] == id || path.low.X-other.high.X >= minimum || other.low.X-path.high.X >= minimum || path.low.Y-other.high.Y >= minimum || other.low.Y-path.high.Y >= minimum {
 				continue
 			}
 			if path.lane["From"] == other.lane["From"] || path.lane["From"] == other.lane["To"] || path.lane["To"] == other.lane["From"] || path.lane["To"] == other.lane["To"] {
@@ -109,8 +110,8 @@ func (g geometryDraft) laneConflict(ids []string, separationGroups bool) *geomet
 			if separationGroups && first != "" && second != "" && first != second {
 				continue
 			}
-			if gap := geometryPathGap(path.points, other.points); gap < 12 {
-				return &geometryConflict{id, text(other.lane["ID"]), gap}
+			if gap := geometryPathGap(path.points, other.points); gap < minimum {
+				return &geometryConflict{id, text(other.lane["ID"]), gap, minimum}
 			}
 		}
 	}

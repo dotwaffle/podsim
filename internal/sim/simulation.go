@@ -191,6 +191,7 @@ type SafetyObservation struct {
 	Locations    map[string]SafetyLocation
 	compactPairs map[[2]string]compactSafetyPair
 	compactError error
+	envelopes    map[string]safetyEnvelope
 }
 
 // SafetyLocation identifies the physical plane and endpoints occupied by a pod.
@@ -542,6 +543,7 @@ func (s *Simulation) SafetyObservation() SafetyObservation {
 		}
 	}
 	s.compactSafety(&state)
+	s.largeSafety(&state)
 	return state
 }
 

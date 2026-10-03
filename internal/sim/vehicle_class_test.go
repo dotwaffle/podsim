@@ -15,7 +15,7 @@ func TestVehicleClassRegistry(t *testing.T) {
 		{"", VehicleClassSpec{LegacyClass, 8, 1, 4, true}, true},
 		{LegacyClass, VehicleClassSpec{LegacyClass, 8, 1, 4, true}, true},
 		{CompactClass, VehicleClassSpec{CompactClass, 4, 4, 4, true}, true},
-		{GroupClass, VehicleClassSpec{GroupClass, 8, 8, 0, false}, true},
+		{GroupClass, VehicleClassSpec{GroupClass, 8, 8, 6, true}, true},
 		{ExpressClass, VehicleClassSpec{ExpressClass, 20, 8, 0, false}, true},
 		{"large", VehicleClassSpec{}, false},
 		{"Legacy", VehicleClassSpec{}, false},
@@ -45,7 +45,7 @@ func TestVehicleClassPhysicalValidation(t *testing.T) {
 		{"", nil},
 		{LegacyClass, nil},
 		{CompactClass, nil},
-		{GroupClass, ErrUnsupportedVehicleProfile},
+		{GroupClass, nil},
 		{ExpressClass, ErrUnsupportedVehicleProfile},
 		{"large", ErrUnknownVehicleClass},
 	} {

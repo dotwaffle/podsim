@@ -263,6 +263,9 @@ func RestoreState(input RestoreStateInput) (*Simulation, RestoreResult, error) {
 }
 
 func restoreState(input RestoreStateInput, newFleet func() (*Simulation, error)) (*Simulation, RestoreResult, error) {
+	if err := checkLargeLinkFields(input); err != nil {
+		return nil, RestoreResult{}, err
+	}
 	if err := checkBoardingFields(input); err != nil {
 		return nil, RestoreResult{}, err
 	}
@@ -500,14 +503,14 @@ func (s *Simulation) savedStart(v *vehicle) (start int, offset float64, current 
 // savedRouteStart returns the first route index that a restore of a traveling
 // pod needs, the route distance at the start of that lane, and the route
 // index of the current block. A pod releases each resource of a lane at most
-// Clearance past the lane end, so an earlier lane holds no resource.
+// the retention tail past the lane end, so an earlier lane holds no resource.
 func (v *vehicle) savedRouteStart() (start int, offset float64, current int) {
 	start = -1
 	for index, b := range v.blocks.span(0, v.blockIndex+1) {
 		if index > 0 && b.cell == 0 {
 			current++
 		}
-		if start < 0 && b.last && b.end+Clearance > v.distance {
+		if start < 0 && b.last && b.end+blockTail(b) > v.distance {
 			start, offset = current, b.laneStart
 		}
 	}
