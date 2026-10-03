@@ -1,0 +1,169 @@
+{
+  "integration_base": "4bab5c3e9dc3db0e12d0216bbc7e2f1b55c47f4e",
+  "evidence_directory": "/home/dotwaffle/.cache/agents/podsim/roadmap-service-20261002/car-energy-integration-evidence",
+  "manifest_sha256": "1a97d75cf4efcabdd1545663666d642cf9bbb50eabef9777e538f409b53c3e64",
+  "verified_artifacts": 386,
+  "integration_validation": {
+    "full-go-tests": {
+      "command": [
+        "/home/dotwaffle/.local/share/mise/installs/go/1.27.1/bin/go",
+        "test",
+        "./...",
+        "-count=1"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 173.918,
+      "log_sha256": "35209097a1b0f764dde5c613480bae62452d97cd4a2228e2a96abc34daf16730"
+    },
+    "root-lint": {
+      "command": [
+        "/home/dotwaffle/.local/share/mise/installs/golangci-lint/2.14.0/golangci-lint-2.14.0-linux-amd64/golangci-lint",
+        "run",
+        "./internal/sim",
+        "./cmd/compare",
+        "./internal/parkride",
+        "./cmd/parkride"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 8.564,
+      "log_sha256": "e92606b0bf483111dff0a120c315ea165821348f31365020e2468a0059095c47"
+    },
+    "root-diagnostics": {
+      "command": [
+        "/usr/bin/python3",
+        "/home/dotwaffle/.cache/agents/podsim/service-access-20261002/gopls-call.py",
+        "go_diagnostics",
+        "{\"files\":[\"/home/dotwaffle/Code/podsim/internal/sim/motion.go\",\"/home/dotwaffle/Code/podsim/cmd/compare/energy.go\",\"/home/dotwaffle/Code/podsim/cmd/compare/main.go\",\"/home/dotwaffle/Code/podsim/internal/parkride/plan.go\",\"/home/dotwaffle/Code/podsim/internal/parkride/ledger.go\",\"/home/dotwaffle/Code/podsim/internal/parkride/run.go\",\"/home/dotwaffle/Code/podsim/cmd/parkride/main.go\"]}"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 2.118,
+      "log_sha256": "a2bf56a4b7a884f102915b9eeec1e838749999017b2590134e83a8d6d40a8ee6"
+    },
+    "wasm-build": {
+      "command": [
+        "env",
+        "GOOS=js",
+        "GOARCH=wasm",
+        "/home/dotwaffle/.local/share/mise/installs/go/1.27.1/bin/go",
+        "build",
+        "-o",
+        "/tmp/build/podsim/car-energy/root-evidence/podsim.wasm",
+        "./cmd/podsim"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 6.783,
+      "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "node-tests": {
+      "command": [
+        "env",
+        "PODSIM_REQUIRE_GO=1",
+        "/home/dotwaffle/.local/share/mise/installs/node/24.21.0/bin/node",
+        "--test",
+        "web/editor-model_test.cjs",
+        "web/editor-history_test.cjs",
+        "web/place-search_test.cjs",
+        "web/tiles_test.cjs",
+        "web/simulation-map_test.cjs",
+        "web/editor_test.cjs",
+        "web/loader_test.cjs",
+        "web/shell_test.cjs",
+        "web/stream_test.cjs"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 12.984,
+      "log_sha256": "0f6bbb1eec782c2d2aafbb6fbca8dd2ca1b55839c3a7779ed27728a9cc47a839"
+    },
+    "compatibility": {
+      "command": [
+        "/usr/bin/python3",
+        "/tmp/build/podsim/car-energy/root-evidence/compatibility.py"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 1.076,
+      "log_sha256": "c151cb697129dbe73e08aeb6c07d49902917b1ec46efd2f64a46e947e574de3c"
+    }
+  },
+  "browser_tests": {
+    "passed": 378,
+    "skipped": 0,
+    "failed": 0
+  },
+  "full_repository_race_claim": false,
+  "worker_receipt_sha256": "870debc87145e2d870291aad79925cf78b57cc92e5713de94bce3f9ca8a177a1",
+  "sources": {
+    "cmd/parkride/main.go": "7297f4723ce873250f25760809484fa6501493dc9e6fc7601acd4bd7788b7532",
+    "cmd/parkride/main_test.go": "ead64af89eaab9a47f6a24b6ece837fd2776fc192f07662b8a1c31876f263c80",
+    "cmd/parkride/testdata/plan.json": "ccfbbfd1ea526bb495a85f927163d0e717dc064e86e52acd24857468740a7b25",
+    "internal/parkride/README.md": "0883df996f17692952d0cfdb3ce9f751150ac53806e287aea53e40023fde59c1",
+    "internal/parkride/ledger.go": "c94a9617ade59082db995c78ce90439c5f207eea330f6f8c3d79b94fc06a9f53",
+    "internal/parkride/ledger_test.go": "a92ac2d2b53b1c1fc7348b212966f7ddc56a9c639cf393d0fd3a249396bdcf24",
+    "internal/parkride/plan.go": "bc2ff30c1022c890c45e1473ec1cacd93b3b0fe5f2a9f7cf4ebd1c3d37f2f663",
+    "internal/parkride/plan_test.go": "4654e8ac6016a7f3372308c8f5e1de3d43ea9964da8b8042bd1e7dbdabd1f978",
+    "internal/parkride/run.go": "43de4ed69f6f7fede89e3b9a00c23ea8146472be835c1e40a1682a9d87d8d232",
+    "internal/parkride/run_test.go": "f1f58c6b80c14b0a788b703f7178f08345ccb71558ddac4216c70db3086b17f2"
+  },
+  "caller_mutations": {
+    "car-control": {
+      "test": "TestLedger",
+      "compile_exit": 0,
+      "test_exit": 0,
+      "binary_sha256": null,
+      "binary_note": "removed after execution before setup stopped at next case; frozen source and build/test receipts retained",
+      "assertion_kill": false
+    },
+    "car-full-lot": {
+      "test": "TestLedgerCapacityAndRefusalRecovery",
+      "compile_exit": 0,
+      "test_exit": 1,
+      "binary_sha256": null,
+      "binary_note": "removed after execution before setup stopped at next case; frozen source and build/test receipts retained",
+      "assertion_kill": true
+    },
+    "car-horizon-offer": {
+      "test": "TestLedgerHorizonTransitions",
+      "compile_exit": 0,
+      "test_exit": 1,
+      "binary_sha256": null,
+      "binary_note": "removed after execution before setup stopped at next case; frozen source and build/test receipts retained",
+      "assertion_kill": true
+    },
+    "car-wrong-return": {
+      "test": "TestLedgerReturnBeforeArrivalAndStranding",
+      "compile_exit": 0,
+      "test_exit": 1,
+      "binary_sha256": null,
+      "binary_note": "removed after execution before setup stopped at next case; frozen source and build/test receipts retained",
+      "assertion_kill": true
+    },
+    "car-early-return": {
+      "test": "TestLedgerReturnRequiresActualCompletion",
+      "compile_exit": 0,
+      "test_exit": 1,
+      "binary_sha256": "7fad486f68cc93c1d39a766857fea4bf0a2ff6750bdeed795785cb6852cd9134",
+      "assertion_kill": true
+    },
+    "car-late-refusal-release": {
+      "test": "TestLedgerCapacityAndRefusalRecovery",
+      "compile_exit": 0,
+      "test_exit": 1,
+      "binary_sha256": "3f5b6979ca1ee59389399e4f3187b05ed463211a8ae928fe5ad431b18c58ba5a",
+      "assertion_kill": true
+    },
+    "car-one-way-preflight": {
+      "test": "TestPreflightChecksReturnDirection",
+      "compile_exit": 0,
+      "test_exit": 1,
+      "binary_sha256": "9eeb3b66ed20cede75829ff01f047ec0723b51f1c6908927c9080d3209b70548",
+      "assertion_kill": true
+    }
+  },
+  "compiled_assertion_kills": 6,
+  "scope": "Offline finite paired car itineraries and separate lot ledger; actual unloading controls activity and slot release; project policies retained.",
+  "limits": [
+    "No durable car continuation or road traffic model. Clone simulation and ledger together.",
+    "Legacy singleton and Compact two-person private/shared fixtures complete paired native journeys with physical checks and clone parity. This is not a network capacity claim.",
+    "Early terminal stranded/refused outcomes remain distinct from successful round trips and horizon censoring.",
+    "The control and first three mutant binaries were removed before the script encountered a later setup mismatch. Their source/build/assertion logs remain verified; no binary digest is claimed for those cases."
+  ]
+}

@@ -1,6 +1,7 @@
 # Offline car journeys and parking
 
-Status: first implementation contract under the October 2 compatible-contract grant.
+Status: implemented and checked on October 3, 2026, under the October 2 compatible-contract grant.
+The [qualification record](measurements/car-journey-qualification.json) identifies the source and verification evidence.
 This adds an offline `cmd/parkride` command and a separate car ledger.
 Project, session, saved simulation, and stream schemas stay at their current versions.
 
@@ -78,7 +79,9 @@ Early stopping requires that every itinerary has a terminal outcome.
 It does not label stranded or refused itineraries as successful round trips.
 The existing 24-hour offline horizon bounds a run.
 Process completions and car transitions at the horizon, but admit no new pod offers there.
-Due offers at the horizon remain censored.
+Due car arrivals at the horizon can enter a lot or receive a full-lot refusal.
+An admitted car holds its slot with the outward pod leg unissued.
+Due pod offers at the horizon remain censored.
 Unfinished stages remain censored with their identities and held slots.
 
 The ledger owns its plan and records.
@@ -104,3 +107,8 @@ Tick-zero events, same-tick refusal release, return/outward queue competition, a
 Real native journeys must complete both pod legs and preserve car identity.
 Physical checks and clone continuations cover the selected native fixtures.
 The first model makes no road-capacity, battery, or empirical travel-time claim.
+
+Use the [command instructions](../internal/parkride/README.md) and supplied plan fixture to run this model.
+The command honors project redistribution with itinerary-origin weights and the existing observed-rate fallback.
+Native experiment histories remain off.
+The ledger retains its own bounded request bindings and actual unloading times.
