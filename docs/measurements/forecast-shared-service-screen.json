@@ -1,0 +1,168 @@
+{
+  "base": "9113bb3d1d931d46da8c00b652cc7e03fff30c54",
+  "evidence_directory": "/home/dotwaffle/.cache/agents/podsim/roadmap-service-20261002/shared-forecast-screen-evidence",
+  "manifest_sha256": "622dd6ffcb7a95be1ac5c5ef8e467e4450096e08e870cb1c45d3a4e43f5a4f46",
+  "validation": {
+    "base": "9113bb3d1d931d46da8c00b652cc7e03fff30c54",
+    "source_files_verified": 475,
+    "observer_unchanged_sha256": {
+      "observer.go": "8b9433fc5fb0eec886954f7d69ae7ee5ffbe10cc293578f4a8aa773952b10a76",
+      "observer_test.go": "354755cc6b9d8e163bab645c27c8cfc7c063cbe0c0603cea5ba5d0e52d27d218"
+    },
+    "reused_observer_tests_race_and_mutations": "/home/dotwaffle/.cache/agents/podsim/roadmap-service-20261002/shared-pickup-screen-evidence/receipt.json",
+    "pilot_plain_parity": "both arms, exact result and every request timing",
+    "baseline_bridge": "pilot and both heavy seeds, exact result and every passenger record",
+    "compiled_study_and_vet": "pass",
+    "heavy_checks": 1275840,
+    "heavy_contract_checks": 21264,
+    "heavy_restore_probes": 69,
+    "minimum_gap_meters": 13.963100132586174,
+    "qualification": "Both selected service gates fail. No live integration or default adoption."
+  },
+  "pairs": {
+    "1": {
+      "source_sha256": {
+        "heavy-s1-off.json": "efe47fbba1d56a70813c9071b7818e08d7172b6ef330e9d64dfc3404dedd25c2",
+        "heavy-s1-on.json": "f6549269a69d0522a2af0310406bd61eaa1994f714c062fa4af1906a3888c323"
+      },
+      "results": {
+        "off": {
+          "scheduled": 1440,
+          "served": 862,
+          "skipped": 578,
+          "remaining": 0,
+          "wait_average_seconds": 804.7305684454756,
+          "wait_p95_seconds": 1407.55,
+          "journey_average_seconds": 1130.395475638051,
+          "journey_p95_seconds": 1800.95,
+          "empty_distance_meters": 848351.8734264645,
+          "detour_ratio_max": 1.0000000000000002,
+          "shared_parties": 607,
+          "occupancy": 3.3335411881023194,
+          "rail_connections": {
+            "made": 8,
+            "missed": 446,
+            "unserved": 266,
+            "unresolved": 0
+          },
+          "actual_end_seconds": 5713,
+          "positioning_moves": 0
+        },
+        "on": {
+          "scheduled": 1440,
+          "served": 877,
+          "skipped": 563,
+          "remaining": 0,
+          "wait_average_seconds": 762.5639300646143,
+          "wait_p95_seconds": 1301.0166666666667,
+          "journey_average_seconds": 1092.3695362979856,
+          "journey_p95_seconds": 1728.45,
+          "empty_distance_meters": 666913.0284536461,
+          "detour_ratio_max": 1.0000000000000002,
+          "shared_parties": 626,
+          "occupancy": 3.5162797920283997,
+          "rail_connections": {
+            "made": 12,
+            "missed": 411,
+            "unserved": 297,
+            "unresolved": 0
+          },
+          "actual_end_seconds": 5131,
+          "positioning_moves": 7
+        }
+      },
+      "occupied_pickups": {
+        "off": 0,
+        "on": 0
+      },
+      "individual_gates": {
+        "common_boarded": 708,
+        "common_completed": 708,
+        "mean_common_pickup_change_seconds": -48.41443032015066,
+        "mean_common_journey_change_seconds": -46.26304143126177,
+        "censored_not_assumed_pass": true,
+        "pickup_exceedances_count": 165,
+        "journey_exceedances_count": 142,
+        "censored_count": 732
+      },
+      "aggregate_exceedances": [],
+      "selected_service_gates_pass": false,
+      "extra_skipped_offers_count": 154,
+      "baseline_completions_lost_count": 154
+    },
+    "2": {
+      "source_sha256": {
+        "heavy-s2-off.json": "ef20b6a9dfdf9bf541464e6b58175d7a4c93a48fd9c745333fdfd8c95dd357b6",
+        "heavy-s2-on.json": "584b0c06b6c6e7678ddcdc6b2c60edcaeef50683dca92f6dd66eb1f801f90253"
+      },
+      "results": {
+        "off": {
+          "scheduled": 1440,
+          "served": 920,
+          "skipped": 520,
+          "remaining": 0,
+          "wait_average_seconds": 696.0359963768116,
+          "wait_p95_seconds": 1176.4333333333334,
+          "journey_average_seconds": 1020.8081521739131,
+          "journey_p95_seconds": 1583.6666666666667,
+          "empty_distance_meters": 638710.3579379658,
+          "detour_ratio_max": 1.0000000000000002,
+          "shared_parties": 661,
+          "occupancy": 3.5944233035704833,
+          "rail_connections": {
+            "made": 5,
+            "missed": 393,
+            "unserved": 322,
+            "unresolved": 0
+          },
+          "actual_end_seconds": 5339,
+          "positioning_moves": 0
+        },
+        "on": {
+          "scheduled": 1440,
+          "served": 916,
+          "skipped": 524,
+          "remaining": 0,
+          "wait_average_seconds": 716.7641557496361,
+          "wait_p95_seconds": 1198.4166666666667,
+          "journey_average_seconds": 1049.2504366812227,
+          "journey_p95_seconds": 1615.9333333333334,
+          "empty_distance_meters": 648150.8405870954,
+          "detour_ratio_max": 1.0000000000000002,
+          "shared_parties": 658,
+          "occupancy": 3.6014106589288826,
+          "rail_connections": {
+            "made": 5,
+            "missed": 438,
+            "unserved": 277,
+            "unresolved": 0
+          },
+          "actual_end_seconds": 5081,
+          "positioning_moves": 7
+        }
+      },
+      "occupied_pickups": {
+        "off": 0,
+        "on": 0
+      },
+      "individual_gates": {
+        "common_boarded": 742,
+        "common_completed": 742,
+        "mean_common_pickup_change_seconds": 36.20938903863432,
+        "mean_common_journey_change_seconds": 38.62877358490566,
+        "censored_not_assumed_pass": true,
+        "pickup_exceedances_count": 342,
+        "journey_exceedances_count": 293,
+        "censored_count": 698
+      },
+      "aggregate_exceedances": [
+        "wait_average_seconds",
+        "journey_average_seconds",
+        "journey_p95_seconds"
+      ],
+      "selected_service_gates_pass": false,
+      "extra_skipped_offers_count": 178,
+      "baseline_completions_lost_count": 178
+    }
+  }
+}
