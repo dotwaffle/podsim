@@ -696,13 +696,17 @@ That station is not always the nearest one.
 A station entry queue on the path can make a farther station faster.
 Estimate the arrival time from current reservations and queues, not only from distance.
 
-Design questions:
+Decisions (user, 2026-10-04):
 
-- Priority of the pod at junctions, station entry, and berths, and the effect on other pods.
-- Other parties in a shared pod: unload them with the rider, or continue their trips with a new pod.
-- A pod in a physical train: the group must split safely before the pod changes route.
-- Cancel the pod's pickups and give them to other pods.
-- Record the event and show it in the game and in the metrics.
+- All parties in the pod unload at that station.
+  Each other party gets a new pod from there to its original destination and keeps its order identity.
+- The pod wins contention at junctions, station entry, and berths, and moves ahead of entry queues.
+  It never forces another pod to reverse or to leave a committed path.
+- A pod in a physical train stays in the train to the next split site that the coupling contract allows.
+  The train separates there, and then the pod changes route.
+- A game control on an occupied pod, a scenario rate, and a protocol command can each start an emergency.
+
+Open questions: what happens to the pod's pickups, and how the game and the metrics show the event.
 
 ### Vehicle fault or accident
 
@@ -715,15 +719,18 @@ The stopped pod blocks its lane.
 Other pods must route around it.
 Pods behind it can be stuck with no forward path, so they can need to reverse to the previous junction.
 
-Design questions:
+Decisions (user, 2026-10-04):
 
-- The simulator moves pods only forward on directed lanes.
+- A fault can have a duration.
+  It clears when the duration ends or when the user clears it in the game, whichever is first.
+- After a delay, riders leave the stopped pod, and their trips end as interrupted.
+- A pod behind the fault that has no forward path reverses at low speed along its lane to the previous junction, and then gets a new route.
+  The simulator moves pods only forward on directed lanes today.
   Reverse movement needs new motion, reservation, and safety rules.
-- How long the fault lasts, and how the operator clears it.
-- Riders in the stopped pod: wait, or leave at a safe point.
-- Routes, pickups, and berth reservations that use the blocked lane.
-- A fault in a physical train, a station berth, or a station entry queue.
-- Record the event and its effect on service in the metrics.
+- A game control on a pod, a scenario rate with a duration distribution, and a protocol command can each start a fault.
+- A fault can also block a lane segment with no pod in it, for example debris.
+
+Open questions: the evacuation delay, routes, pickups, and berth reservations that use the blocked lane, a fault in a physical train, a station berth, or a station entry queue, and how the metrics show the effect on service.
 
 ## 7. Research and reference tools
 
