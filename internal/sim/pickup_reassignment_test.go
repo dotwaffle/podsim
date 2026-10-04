@@ -80,7 +80,7 @@ func TestPickupReassignmentEmptyAlternatives(t *testing.T) {
 					t.Fatal("transfer changed admitted track owners")
 				}
 			}
-			if alternative == "idle" && s.owners[resource{kind: berthResource, id: "s2-1"}] != "02" {
+			if alternative == "idle" && s.owners[resource{kind: berthResource, id: "s2-1"}] != podResourceOwner("02") {
 				t.Fatal("idle replacement lost its origin claim")
 			}
 			if s.waiting[0].request.ID != control.waiting[0].request.ID || s.waiting[0].request.RequestedTick != control.waiting[0].request.RequestedTick {

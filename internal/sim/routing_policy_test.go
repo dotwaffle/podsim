@@ -43,7 +43,7 @@ func TestCongestionCostsTrackClaimsAndStoppedPods(t *testing.T) {
 	t.Parallel()
 	s := newSharingSimulation(t)
 	lane := s.network.Lanes[0]
-	s.owners[resource{kind: trackResource, id: lane.ID, cell: 0}] = "01"
+	s.owners[resource{kind: trackResource, id: lane.ID, cell: 0}] = podResourceOwner("01")
 	s.vehicles[0].Pod = Pod{ID: "01", Activity: Traveling, LaneID: lane.ID, WaitReason: TrackOccupied}
 	costs := s.congestionCosts()
 	if got := costs[s.graph.lanes[lane.ID]]; got != ownedTrackCongestionSeconds+stoppedVehicleCongestionSeconds {
@@ -111,7 +111,7 @@ func TestCongestionRouteAvoidsThirdStationBerths(t *testing.T) {
 	s := &Simulation{network: berthGuardNetwork()}
 	s.SetCongestionRouting(true)
 	s.ensureNetworkIndexes()
-	s.owners = map[resource]string{{kind: trackResource, id: "b-through"}: "01"}
+	s.owners = map[resource]resourceOwner{{kind: trackResource, id: "b-through"}: podResourceOwner("01")}
 	route, err := s.route("a-berth", "c-berth")
 	if err != nil {
 		t.Fatal(err)

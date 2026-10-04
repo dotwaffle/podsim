@@ -255,8 +255,8 @@ func checkSharing(t *testing.T, s *Simulation) int {
 		v := &s.vehicles[index]
 		owners := make(map[string]bool)
 		for r := range v.routeReleases {
-			if owner := s.owners[r]; owner != v.Pod.ID {
-				owners[owner] = true
+			if owner := s.owners[r]; owner != podResourceOwner(v.Pod.ID) {
+				owners[owner.podID()] = true
 			}
 		}
 		var chain []*vehicle

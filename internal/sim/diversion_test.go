@@ -44,7 +44,7 @@ func TestParkingDiversionPreservesMotion(t *testing.T) {
 			if len(reserved) > 0 && !reflect.DeepEqual(reserved, v.blocks.all()[:v.reservedThrough+1]) {
 				t.Fatal("diversion changed committed track")
 			}
-			if s.owners[resource{kind: berthResource, id: oldDestination.ID}] != "" || s.owners[resource{kind: nodeResource, id: oldDestination.Node}] != "" {
+			if !s.owners[resource{kind: berthResource, id: oldDestination.ID}].isZero() || !s.owners[resource{kind: nodeResource, id: oldDestination.Node}].isZero() {
 				t.Fatal("diversion retained unused parking claim")
 			}
 			for range 400 * TicksPerSecond {
@@ -119,7 +119,7 @@ func TestParkingDepartureCanceledForLocalOrder(t *testing.T) {
 	if v.Pod.Activity != Boarding || v.RelocatingTo != "" || len(v.Riders) == 0 || v.Riders[0].From != "market" || len(s.waiting) != 0 {
 		t.Fatalf("local order did not cancel unstarted parking move: %+v", s.Snapshot())
 	}
-	if s.owners[resource{kind: berthResource, id: "parking-1"}] != "" {
+	if !s.owners[resource{kind: berthResource, id: "parking-1"}].isZero() {
 		t.Fatal("local pickup retained unused parking berth")
 	}
 	for range 360 * TicksPerSecond {
@@ -236,7 +236,7 @@ func testCommittedStationAccessChainFinishesBeforePickup(t *testing.T, parkingOn
 				t.Fatal("pickup changed the parking pod's motion")
 			}
 			for _, claim := range berthResources(station.Berths[1]) {
-				if s.owners[claim] != "01" {
+				if s.owners[claim] != podResourceOwner("01") {
 					t.Fatal("pickup released the committed parking destination")
 				}
 			}

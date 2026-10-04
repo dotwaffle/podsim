@@ -15,10 +15,10 @@ func (s *Simulation) bufferBerthClaims(head *vehicle, berth Berth) ([2]bufferBer
 	var claims [2]bufferBerthClaim
 	for index, r := range berthResources(berth) {
 		owner := s.owners[r]
-		if owner == "" || owner == head.Pod.ID {
+		if owner.isZero() || owner.isPod(head.Pod.ID) {
 			continue
 		}
-		remote := s.findVehicle(owner)
+		remote := s.ownerVehicle(owner)
 		if !s.bufferClaimCanYield(head, remote, berth, r) {
 			return claims, false
 		}

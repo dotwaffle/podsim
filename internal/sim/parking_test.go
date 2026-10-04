@@ -39,12 +39,12 @@ func TestAutomaticBerthClearing(t *testing.T) {
 					if occupied && !blocker.Riders[0].Completed {
 						t.Fatal("relocation interrupted unloading")
 					}
-					if s.owners[resource{kind: berthResource, id: blocker.destination.ID}] != "02" {
+					if s.owners[resource{kind: berthResource, id: blocker.destination.ID}] != podResourceOwner("02") {
 						t.Fatal("lost parking reservation")
 					}
 					if blocker.Pod.Activity == Traveling && blocker.distance < Clearance {
 						retainedOrigin = true
-						if s.owners[resource{kind: berthResource, id: "market-1"}] != "02" {
+						if s.owners[resource{kind: berthResource, id: "market-1"}] != podResourceOwner("02") {
 							t.Fatal("released occupied origin early")
 						}
 					}
@@ -220,8 +220,8 @@ func TestBerthClearingUsesFreePassengerBerthWhenParkingIsFull(t *testing.T) {
 	blocker := s.findVehicle("02")
 	delete(s.owners, resource{kind: berthResource, id: "market-2"})
 	delete(s.owners, resource{kind: nodeResource, id: "market-berth-2"})
-	s.owners[resource{kind: berthResource, id: "market-1"}] = blocker.Pod.ID
-	s.owners[resource{kind: nodeResource, id: "market-berth"}] = blocker.Pod.ID
+	s.owners[resource{kind: berthResource, id: "market-1"}] = podResourceOwner(blocker.Pod.ID)
+	s.owners[resource{kind: nodeResource, id: "market-berth"}] = podResourceOwner(blocker.Pod.ID)
 	blocker.Pod.BerthID = "market-1"
 	blocker.Pod.Position = Point{X: 800, Y: 350}
 	for range 300 * TicksPerSecond {

@@ -127,7 +127,7 @@ func (s *Simulation) refreshCongestionCosts() {
 func (s *Simulation) congestionCosts() []float64 {
 	costs := make([]float64, len(s.network.Lanes))
 	for claimed, owner := range s.owners {
-		if owner == "" || claimed.kind != trackResource {
+		if owner.isZero() || claimed.kind != trackResource {
 			continue
 		}
 		if index, ok := s.graph.lanes[claimed.id]; ok {

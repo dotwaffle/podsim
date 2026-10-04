@@ -69,8 +69,8 @@ func (s *Simulation) onboardPickupReady(v *vehicle, request Request) bool {
 	if !ok || berth != v.origin || !s.pickupBerthFitsRequest(v, request, berth) {
 		return false
 	}
-	return s.owners[resource{kind: berthResource, id: berth.ID}] == v.Pod.ID &&
-		s.owners[resource{kind: nodeResource, id: berth.Node}] == v.Pod.ID
+	return s.owners[resource{kind: berthResource, id: berth.ID}] == podResourceOwner(v.Pod.ID) &&
+		s.owners[resource{kind: nodeResource, id: berth.Node}] == podResourceOwner(v.Pod.ID)
 }
 
 func (s *Simulation) onboardPickupCandidate(v *vehicle, request Request) (vehicle, bool) {

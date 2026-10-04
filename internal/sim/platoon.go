@@ -251,10 +251,13 @@ func (s *Simulation) aheadInPlatoon(v *vehicle, id string) bool {
 // in its platoon that reserved r and has not passed it gets r. When no such
 // pod exists, r becomes free. The caller must check that v owns r.
 func (s *Simulation) releaseRouteResource(v *vehicle, r resource) {
+	if !s.owners[r].isPod(v.Pod.ID) {
+		return
+	}
 	for follower := v.follower; follower != 0; follower = s.vehicles[follower-1].follower {
 		member := &s.vehicles[follower-1]
 		if releaseAt, ok := member.routeReleases[r]; ok && releaseAt > member.distance {
-			s.owners[r] = member.Pod.ID
+			s.owners[r] = podResourceOwner(member.Pod.ID)
 			return
 		}
 	}
@@ -329,7 +332,7 @@ func leaderBlock(v, leader *vehicle, link platoonLink, index int) int {
 // still owns.
 func (s *Simulation) holdsPending(v *vehicle) bool {
 	for r := range v.routeReleases {
-		if s.owners[r] != v.Pod.ID {
+		if s.owners[r] != podResourceOwner(v.Pod.ID) {
 			return true
 		}
 	}

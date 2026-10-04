@@ -75,8 +75,8 @@ func TestAdmissionWorkMatchesTerminalAndBufferGrants(t *testing.T) {
 			t.Helper()
 			s := berthChoiceSimulation(t)
 			addMarketBerth(s)
-			s.owners[resource{kind: berthResource, id: "market-1"}] = "02"
-			s.owners[resource{kind: nodeResource, id: "market-berth"}] = "02"
+			s.owners[resource{kind: berthResource, id: "market-1"}] = podResourceOwner("02")
+			s.owners[resource{kind: nodeResource, id: "market-berth"}] = podResourceOwner("02")
 			positionBeforeTerminalInlet(t, terminalInletPosition{simulation: s, vehicle: s.findVehicle("01")})
 			return s
 		}, wantBerth: "market-2"},
@@ -121,7 +121,7 @@ func TestAdmissionWorkMatchesCoupledCorridor(t *testing.T) {
 }
 
 func admissionWorkContention() *Simulation {
-	s := &Simulation{owners: make(map[resource]string)}
+	s := &Simulation{owners: make(map[resource]resourceOwner)}
 	for _, id := range []string{"02", "01"} {
 		v := vehicle{Pod: Pod{ID: id, Activity: Traveling}, reservedThrough: -1, pending: -1}
 		v.blocks = blockListOf([]block{{lane: Lane{ID: id, SpeedLimit: 14}, end: 30, resources: []resource{{kind: junctionResource, id: "merge"}}}})
@@ -144,7 +144,7 @@ func TestAdmissionWorkDropsStalePickupPriority(t *testing.T) {
 		want := got.Clone()
 		got.admit()
 		want.admitBeforeWork()
-		if !sameState(got, want) || got.owners[resource{kind: junctionResource, id: "merge"}] != tc.winner {
+		if !sameState(got, want) || got.owners[resource{kind: junctionResource, id: "merge"}] != podResourceOwner(tc.winner) {
 			t.Fatal("a previous pickup assignment changed priority")
 		}
 		checkAdmissionWorkCleared(t, got.admissionWork)
@@ -153,7 +153,7 @@ func TestAdmissionWorkDropsStalePickupPriority(t *testing.T) {
 
 func TestAdmissionWorkClearsLargeThenEmptyPass(t *testing.T) {
 	t.Parallel()
-	s := &Simulation{owners: make(map[resource]string)}
+	s := &Simulation{owners: make(map[resource]resourceOwner)}
 	for i := range 64 {
 		id := strconv.Itoa(i)
 		v := vehicle{Pod: Pod{ID: id, Activity: Traveling}, reservedThrough: -1, pending: -1}

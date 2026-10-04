@@ -186,7 +186,7 @@ func TestLargeAdversarialStationaryEndpoint(t *testing.T) {
 					}
 				}
 			}
-			if s.owners[resource{kind: nodeResource, id: "market-berth"}] != "group" {
+			if s.owners[resource{kind: nodeResource, id: "market-berth"}] != podResourceOwner("group") {
 				t.Fatal("stationary Group lost endpoint node ownership")
 			}
 		})

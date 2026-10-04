@@ -145,7 +145,7 @@ func occupiedBufferQueue(t *testing.T, mode Platooning) *Simulation {
 		{ID: "07", StationID: "parking", BerthID: "parking-2"},
 	}
 	s := stageBufferFleet(t, network, fleet, 4, false)
-	s.owners[resource{kind: berthResource, id: "market-1"}] = "05"
+	s.owners[resource{kind: berthResource, id: "market-1"}] = podResourceOwner("05")
 	if err := s.SetPlatooning(mode); err != nil {
 		t.Fatal(err)
 	}
@@ -265,7 +265,7 @@ func departingBufferQueue(t *testing.T) *Simulation {
 		{ID: "03", StationID: "parking", BerthID: "parking-1"}, {ID: "04", StationID: "parking", BerthID: "parking-2"},
 		{ID: "05", StationID: "market"}}
 	s := stageBufferFleet(t, network, fleet, 4, false)
-	s.owners[resource{kind: berthResource, id: "market-1"}] = "05"
+	s.owners[resource{kind: berthResource, id: "market-1"}] = podResourceOwner("05")
 	state := s.ExportState()
 	for i := range 4 {
 		pod := &state.Pods[i]

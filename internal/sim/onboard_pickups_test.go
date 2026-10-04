@@ -136,9 +136,11 @@ func TestOnboardPickupsRejectAtomically(t *testing.T) {
 		{"elapsed dwell", func(s *Simulation, _ *waitingTrip) { s.vehicles[0].phaseTicks = 0 }},
 		{"committed departure", func(s *Simulation, _ *waitingTrip) { s.vehicles[0].reservedThrough = 0 }},
 		{"destination berth", func(s *Simulation, _ *waitingTrip) { s.vehicles[0].destination = Berth{ID: "market-1"} }},
-		{"wrong berth owner", func(s *Simulation, _ *waitingTrip) { s.owners[resource{kind: berthResource, id: "garden-1"}] = "other" }},
+		{"wrong berth owner", func(s *Simulation, _ *waitingTrip) {
+			s.owners[resource{kind: berthResource, id: "garden-1"}] = podResourceOwner("other")
+		}},
 		{"wrong node owner", func(s *Simulation, _ *waitingTrip) {
-			s.owners[resource{kind: nodeResource, id: "garden-berth"}] = "other"
+			s.owners[resource{kind: nodeResource, id: "garden-berth"}] = podResourceOwner("other")
 		}},
 		{"moving", func(s *Simulation, _ *waitingTrip) { s.vehicles[0].Pod.Speed = 0.1 }},
 		{"incompatible actual berth", func(s *Simulation, _ *waitingTrip) {

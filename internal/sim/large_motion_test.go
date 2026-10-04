@@ -94,7 +94,7 @@ func checkLargeMotionTick(t *testing.T, s *Simulation, before []Pod) float64 {
 			t.Fatal("Group lost its continuously owned stopping bound")
 		}
 		for _, b := range v.blocks.span(v.blockIndex, v.reservedThrough+1) {
-			if s.owners[resource{kind: trackResource, id: b.lane.ID, cell: b.cell}] != pod.ID {
+			if s.owners[resource{kind: trackResource, id: b.lane.ID, cell: b.cell}] != podResourceOwner(pod.ID) {
 				t.Fatal("Group stopping path contains unowned track")
 			}
 		}

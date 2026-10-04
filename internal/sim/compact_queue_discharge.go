@@ -33,9 +33,9 @@ func (s *Simulation) probeCompactDischarge(group *compactBufferGroup) compactDis
 		claims, available := s.bufferBerthClaims(head, berth)
 		if !available {
 			owner := s.owners[resource{kind: berthResource, id: berth.ID}]
-			blocker := s.findVehicle(owner)
-			if owner != "" && (probe.blockedOwner == "" || blocker != nil && blocker.Pod.Activity == Idle) {
-				probe.blockedBerth, probe.blockedOwner = berth.ID, owner
+			blocker := s.ownerVehicle(owner)
+			if !owner.isZero() && (probe.blockedOwner == "" || blocker != nil && blocker.Pod.Activity == Idle) {
+				probe.blockedBerth, probe.blockedOwner = berth.ID, owner.String()
 			}
 			continue
 		}
@@ -44,8 +44,8 @@ func (s *Simulation) probeCompactDischarge(group *compactBufferGroup) compactDis
 		for resources := range blocks.spanResources(0, blocks.len()) {
 			for _, r := range resources {
 				owner := s.owners[r]
-				yielded := slices.ContainsFunc(claims[:], func(c bufferBerthClaim) bool { return c.resource == r && c.owner != nil && c.owner.Pod.ID == owner })
-				if owner != "" && owner != head.Pod.ID && !yielded {
+				yielded := slices.ContainsFunc(claims[:], func(c bufferBerthClaim) bool { return c.resource == r && c.owner != nil && owner.isPod(c.owner.Pod.ID) })
+				if !owner.isZero() && !owner.isPod(head.Pod.ID) && !yielded {
 					free = false
 				}
 			}

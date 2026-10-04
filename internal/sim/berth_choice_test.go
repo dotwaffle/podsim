@@ -26,8 +26,8 @@ func TestBerthChoiceAtTerminalBranch(t *testing.T) {
 			if tc.addAlternate {
 				addMarketBerth(s)
 			}
-			s.owners[resource{kind: berthResource, id: "market-1"}] = "02"
-			s.owners[resource{kind: nodeResource, id: "market-berth"}] = "02"
+			s.owners[resource{kind: berthResource, id: "market-1"}] = podResourceOwner("02")
+			s.owners[resource{kind: nodeResource, id: "market-berth"}] = podResourceOwner("02")
 			positionBeforeTerminalInlet(t, terminalInletPosition{simulation: s, vehicle: v})
 
 			s.admit()
@@ -44,8 +44,8 @@ func TestCommittedTerminalBranchDoesNotReroute(t *testing.T) {
 	s := berthChoiceSimulation(t)
 	addMarketBerth(s)
 	v := s.findVehicle("01")
-	s.owners[resource{kind: berthResource, id: "market-1"}] = "02"
-	s.owners[resource{kind: nodeResource, id: "market-berth"}] = "02"
+	s.owners[resource{kind: berthResource, id: "market-1"}] = podResourceOwner("02")
+	s.owners[resource{kind: nodeResource, id: "market-berth"}] = podResourceOwner("02")
 	positionBeforeTerminalInlet(t, terminalInletPosition{simulation: s, vehicle: v, committed: true})
 	route, blocks := slices.Clone(v.Route), v.blocks.all()
 	owners := maps.Clone(s.owners)
@@ -73,8 +73,8 @@ func TestBerthChoiceAtMultiLaneBranch(t *testing.T) {
 	}
 	v := s.findVehicle("01")
 	assignPassengerBerthForTest(t, assignPassengerBerthInput{simulation: s, vehicle: v})
-	s.owners[resource{kind: berthResource, id: "market-1"}] = "02"
-	s.owners[resource{kind: nodeResource, id: "market-berth"}] = "02"
+	s.owners[resource{kind: berthResource, id: "market-1"}] = podResourceOwner("02")
+	s.owners[resource{kind: nodeResource, id: "market-berth"}] = podResourceOwner("02")
 	positionBeforeTerminalInlet(t, terminalInletPosition{simulation: s, vehicle: v})
 	granted := slices.Clone(v.blocks.all()[:v.reservedThrough+1])
 	version := v.routeVersion
@@ -103,8 +103,8 @@ func TestCommittedMultiLaneBranchDoesNotReroute(t *testing.T) {
 	}
 	v := s.findVehicle("01")
 	assignPassengerBerthForTest(t, assignPassengerBerthInput{simulation: s, vehicle: v})
-	s.owners[resource{kind: berthResource, id: "market-1"}] = "02"
-	s.owners[resource{kind: nodeResource, id: "market-berth"}] = "02"
+	s.owners[resource{kind: berthResource, id: "market-1"}] = podResourceOwner("02")
+	s.owners[resource{kind: nodeResource, id: "market-berth"}] = podResourceOwner("02")
 	positionBeforeTerminalInlet(t, terminalInletPosition{simulation: s, vehicle: v, committed: true})
 	route, blocks := slices.Clone(v.Route), v.blocks.all()
 
@@ -205,7 +205,7 @@ func positionBeforeTerminalInlet(t *testing.T, position terminalInletPosition) {
 	}
 	for _, b := range v.blocks.all()[:v.reservedThrough+1] {
 		for _, r := range b.resources {
-			s.owners[r] = v.Pod.ID
+			s.owners[r] = podResourceOwner(v.Pod.ID)
 		}
 	}
 }
@@ -215,8 +215,8 @@ func TestTerminalLaneFollowsReservation(t *testing.T) {
 	s := berthChoiceSimulation(t)
 	addMarketBerth(s)
 	v := s.findVehicle("01")
-	s.owners[resource{kind: berthResource, id: "market-1"}] = "02"
-	s.owners[resource{kind: nodeResource, id: "market-berth"}] = "02"
+	s.owners[resource{kind: berthResource, id: "market-1"}] = podResourceOwner("02")
+	s.owners[resource{kind: nodeResource, id: "market-berth"}] = podResourceOwner("02")
 	positionBeforeTerminalInlet(t, terminalInletPosition{simulation: s, vehicle: v})
 	near := v.reservedThrough
 	v.blockIndex, v.reservedThrough, v.distance = 0, 0, v.blocks.at(0).start
@@ -275,8 +275,8 @@ func TestTerminalBranchRerouteResetsTerminalLane(t *testing.T) {
 	s := berthChoiceSimulation(t)
 	addMarketBerth(s)
 	v := s.findVehicle("01")
-	s.owners[resource{kind: berthResource, id: "market-1"}] = "02"
-	s.owners[resource{kind: nodeResource, id: "market-berth"}] = "02"
+	s.owners[resource{kind: berthResource, id: "market-1"}] = podResourceOwner("02")
+	s.owners[resource{kind: nodeResource, id: "market-berth"}] = podResourceOwner("02")
 	positionBeforeTerminalInlet(t, terminalInletPosition{simulation: s, vehicle: v})
 
 	s.reevaluateTerminalBerth(v)
@@ -355,7 +355,7 @@ func TestBerthChoiceOnShortFinalLane(t *testing.T) {
 					break
 				}
 			}
-			if v.Pod.Activity != Unloading || v.Pod.BerthID != "dest-1" || s.owners[resource{kind: berthResource, id: "dest-1"}] != v.Pod.ID {
+			if v.Pod.Activity != Unloading || v.Pod.BerthID != "dest-1" || s.owners[resource{kind: berthResource, id: "dest-1"}] != podResourceOwner(v.Pod.ID) {
 				t.Fatalf("pod %s did not arrive at berth dest-1: %+v", v.Pod.ID, v.Pod)
 			}
 		})

@@ -272,7 +272,7 @@ func (r *physicalRestore) restoreCounters() {
 	if state.Demo != nil {
 		s.demo = &demoRun{secondSent: state.Demo.SecondSent, followupsSent: state.Demo.FollowupsSent}
 	}
-	s.owners = make(map[resource]string)
+	s.owners = make(map[resource]resourceOwner)
 	s.vehicles = make([]vehicle, len(state.Pods))
 }
 
@@ -517,7 +517,7 @@ func (r *physicalRestore) demote(index int) {
 	v.buffered, v.bufferBerth = false, ""
 	v.replaceRoute(nil)
 	v.blocks, v.routeLengths, v.blockStarts, v.terminal = blockList{}, nil, nil, terminalCheck{}
-	maps.DeleteFunc(r.s.owners, func(_ resource, owner string) bool { return owner == v.Pod.ID })
+	maps.DeleteFunc(r.s.owners, func(_ resource, owner resourceOwner) bool { return owner.isPod(v.Pod.ID) })
 	clear(v.routeReleases)
 }
 
@@ -602,10 +602,10 @@ func (r *physicalRestore) claimBerths() error {
 		}
 		berth := r.berths[v.Pod.BerthID].berth
 		for _, claimed := range berthResources(berth) {
-			if owner := r.s.owners[claimed]; owner != "" {
+			if owner := r.s.owners[claimed]; !owner.isZero() {
 				return fmt.Errorf("pods %s and %s are at berth %s", owner, v.Pod.ID, berth.ID)
 			}
-			r.s.owners[claimed] = v.Pod.ID
+			r.s.owners[claimed] = podResourceOwner(v.Pod.ID)
 		}
 		node, _ := r.s.network.Node(berth.Node)
 		v.Pod.Position = node.Position
@@ -820,12 +820,12 @@ func (r *physicalRestore) placeTravelingPod(index, leader int) (bool, error) {
 			return false, nil
 		}
 		r.s.link(index, leader, link)
-	} else if slices.ContainsFunc(footprint, func(claimed resource) bool { return r.s.owners[claimed] != "" }) {
+	} else if slices.ContainsFunc(footprint, func(claimed resource) bool { return !r.s.owners[claimed].isZero() }) {
 		return false, nil
 	}
 	for _, claimed := range footprint {
-		if r.s.owners[claimed] == "" {
-			r.s.owners[claimed] = v.Pod.ID
+		if r.s.owners[claimed].isZero() {
+			r.s.owners[claimed] = podResourceOwner(v.Pod.ID)
 		}
 	}
 	for _, b := range v.blocks.span(0, through+1) {
@@ -889,11 +889,11 @@ func (r *physicalRestore) linkClaims(v, leader *vehicle, link platoonLink, throu
 	for block, b := range v.blocks.span(0, through+1) {
 		for _, claimed := range b.resources {
 			owner := r.s.owners[claimed]
-			if owner == "" || resourceReleaseDistance(b, claimed) <= v.distance {
+			if owner.isZero() || resourceReleaseDistance(b, claimed) <= v.distance {
 				continue
 			}
 			if block < v.blocks.laneFirst(link.lane) || claimed.kind == berthResource ||
-				owner != leader.Pod.ID && !r.s.aheadInPlatoon(leader, owner) {
+				!owner.isPod(leader.Pod.ID) && !r.s.ownerAheadInPlatoon(leader, owner) {
 				return false
 			}
 			if link.buffer && (block < link.first || claimed.kind != trackResource) {
@@ -989,12 +989,12 @@ func (r *physicalRestore) claimDestinations() {
 		claims := berthResources(v.destination)
 		if slices.ContainsFunc(claims[:], func(claimed resource) bool {
 			owner := r.s.owners[claimed]
-			return owner != "" && owner != v.Pod.ID
+			return !owner.isZero() && !owner.isPod(v.Pod.ID)
 		}) {
 			continue
 		}
 		for _, claimed := range claims {
-			r.s.owners[claimed] = v.Pod.ID
+			r.s.owners[claimed] = podResourceOwner(v.Pod.ID)
 		}
 	}
 }
@@ -1083,7 +1083,7 @@ func (r *physicalRestore) freeBerth(v *vehicle, candidates []Berth) (Berth, bool
 		claims := berthResources(berth)
 		if !slices.ContainsFunc(claims[:], func(claimed resource) bool {
 			owner := r.s.owners[claimed]
-			return owner != "" && owner != v.Pod.ID
+			return !owner.isZero() && !owner.isPod(v.Pod.ID)
 		}) {
 			return berth, true
 		}
@@ -1163,10 +1163,10 @@ func requeuedTrip(rider Request) waitingTrip {
 
 // moveTo puts a pod at rest at a berth. The pod releases each other resource.
 func (r *physicalRestore) moveTo(v *vehicle, berth Berth) {
-	maps.DeleteFunc(r.s.owners, func(_ resource, owner string) bool { return owner == v.Pod.ID })
+	maps.DeleteFunc(r.s.owners, func(_ resource, owner resourceOwner) bool { return owner.isPod(v.Pod.ID) })
 	clear(v.routeReleases)
 	for _, claimed := range berthResources(berth) {
-		r.s.owners[claimed] = v.Pod.ID
+		r.s.owners[claimed] = podResourceOwner(v.Pod.ID)
 	}
 	node, _ := r.s.network.Node(berth.Node)
 	v.Pod = Pod{ID: v.Pod.ID, Class: v.Pod.Class, Position: node.Position, BerthID: berth.ID}

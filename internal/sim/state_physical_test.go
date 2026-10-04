@@ -196,7 +196,7 @@ func checkAtBerth(t *testing.T, s *Simulation, id string, activity Activity, ber
 }
 
 func berthOwner(s *Simulation, berthID string) string {
-	return s.owners[resource{kind: berthResource, id: berthID}]
+	return s.owners[resource{kind: berthResource, id: berthID}].podID()
 }
 
 func TestRestoreDemotesTravelingPods(t *testing.T) {
@@ -465,7 +465,7 @@ func TestRestoreSeparatesTravelingPods(t *testing.T) {
 		alone[pods[0].ID] = s
 	}
 	for r, owner := range alone["03"].owners {
-		if owner == "03" && alone["05"].owners[r] == "05" {
+		if owner == podResourceOwner("03") && alone["05"].owners[r] == podResourceOwner("05") {
 			t.Fatalf("pods 03 and 05 both need %+v", r)
 		}
 	}
@@ -574,12 +574,12 @@ func TestRestoreSnapsToBlockEnds(t *testing.T) {
 			if v.distance != tc.want || v.blockIndex != tc.index || v.reservedThrough != reservationEnd(&v.blocks, tc.index) {
 				t.Fatalf("pod 01 at %v in block %d through %d, want %v in block %d", v.distance, v.blockIndex, v.reservedThrough, tc.want, tc.index)
 			}
-			held := make(map[resource]string)
+			held := make(map[resource]resourceOwner)
 			for _, claimed := range v.footprint(v.reservedThrough, tc.want) {
-				held[claimed] = "01"
+				held[claimed] = podResourceOwner("01")
 			}
 			owned := maps.Clone(s.owners)
-			maps.DeleteFunc(owned, func(_ resource, owner string) bool { return owner != "01" })
+			maps.DeleteFunc(owned, func(_ resource, owner resourceOwner) bool { return owner != podResourceOwner("01") })
 			if !maps.Equal(owned, held) {
 				t.Fatalf("pod 01 holds %v, want %v", owned, held)
 			}

@@ -63,7 +63,7 @@ func TestPickupBufferDispatch(t *testing.T) {
 			} else if v.destination.ID != "market-1" {
 				t.Fatal("ordinary pickup lost its berth assignment")
 			}
-			if s.owners[resource{kind: berthResource, id: "harbor-1"}] != v.Pod.ID {
+			if s.owners[resource{kind: berthResource, id: "harbor-1"}] != podResourceOwner(v.Pod.ID) {
 				t.Fatal("pickup departure released its origin before movement")
 			}
 			if _, err := s.ExportState().checkContract(); err != nil {
@@ -81,7 +81,7 @@ func TestPickupBufferRestore(t *testing.T) {
 			t.Parallel()
 			s := pickupBufferFixture(t, true, 4)
 			barrier := resource{kind: berthResource, id: "market-1"}
-			s.owners[barrier] = "external"
+			s.owners[barrier] = podResourceOwner("external")
 			switch phase {
 			case "upstream":
 				stepUntil(t, s, phase, func() bool {

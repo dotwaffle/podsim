@@ -214,7 +214,7 @@ func TestMotionCompactAndFault(t *testing.T) {
 	}
 	head := &s.vehicles[s.compactGroups[0].members[0]]
 	plan, _ := s.bufferPlan(head)
-	s.owners[head.blocks.at(plan.frontier).resources[0]] = "05"
+	s.owners[head.blocks.at(plan.frontier).resources[0]] = podResourceOwner("05")
 	before, _ := s.MotionFrame()
 	s.Step()
 	if s.CompactQueueError() == nil {

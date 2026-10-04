@@ -172,8 +172,8 @@ func TestRouteLengthsFollowTerminalBerthChoice(t *testing.T) {
 	s := berthChoiceSimulation(t)
 	v := s.findVehicle("01")
 	addMarketBerth(s)
-	s.owners[resource{kind: berthResource, id: "market-1"}] = "02"
-	s.owners[resource{kind: nodeResource, id: "market-berth"}] = "02"
+	s.owners[resource{kind: berthResource, id: "market-1"}] = podResourceOwner("02")
+	s.owners[resource{kind: nodeResource, id: "market-berth"}] = podResourceOwner("02")
 	positionBeforeTerminalInlet(t, terminalInletPosition{simulation: s, vehicle: v})
 	checkRouteLengths(t, s)
 

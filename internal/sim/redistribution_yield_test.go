@@ -33,7 +33,7 @@ func scanYieldRelocationClaims(s *Simulation) {
 			{kind: berthResource, id: relocating.destination.ID},
 			{kind: nodeResource, id: relocating.destination.Node},
 		} {
-			if s.owners[claimed] == relocating.Pod.ID {
+			if s.owners[claimed] == podResourceOwner(relocating.Pod.ID) {
 				s.releaseOwned(relocating, claimed)
 				yielded = true
 			}
@@ -170,8 +170,8 @@ func yieldFixture(t *testing.T) (s *Simulation, relocating, other *vehicle) {
 	s.Step()
 	relocating, other = s.findVehicle("01"), s.findVehicle("02")
 	if !relocating.Rebalancing || relocating.destination.ID != "market-1" ||
-		s.owners[resource{kind: berthResource, id: "market-1"}] != "01" ||
-		s.owners[resource{kind: nodeResource, id: "market-berth"}] != "01" {
+		s.owners[resource{kind: berthResource, id: "market-1"}] != podResourceOwner("01") ||
+		s.owners[resource{kind: nodeResource, id: "market-berth"}] != podResourceOwner("01") {
 		t.Fatalf("pod 01 is not on a rebalancing move to Market: %+v", s.Snapshot())
 	}
 	return s, relocating, other
@@ -295,7 +295,7 @@ func TestYieldRelocationClaimsYieldsNodeClaim(t *testing.T) {
 		t.Fatal("the full scan did not yield the node claim")
 	}
 	s.yieldRelocationClaims()
-	if owner := s.owners[resource{kind: nodeResource, id: "market-berth"}]; owner != "" {
+	if owner := s.owners[resource{kind: nodeResource, id: "market-berth"}]; !owner.isZero() {
 		t.Fatalf("pod %q holds the Market berth node", owner)
 	}
 }
@@ -321,7 +321,7 @@ func TestYieldRelocationClaimsReadsPodsAfterPark(t *testing.T) {
 	pickup.Pod.Activity, pickup.RelocatingTo = Traveling, "market"
 	pickup.destination, pickup.destinationStation = released.destination, "market"
 	assign(s, pickup)
-	s.owners[resource{kind: nodeResource, id: "market-berth"}] = "02"
+	s.owners[resource{kind: nodeResource, id: "market-berth"}] = podResourceOwner("02")
 
 	if !checkYieldMatchesScan(t, s) {
 		t.Fatal("the full scan did not change the state")
@@ -330,7 +330,7 @@ func TestYieldRelocationClaimsReadsPodsAfterPark(t *testing.T) {
 	if released.destination.ID == "market-1" {
 		t.Fatal("pod 01 did not park at another berth")
 	}
-	if owner := s.owners[resource{kind: nodeResource, id: "market-berth"}]; owner != "02" {
+	if owner := s.owners[resource{kind: nodeResource, id: "market-berth"}]; owner != podResourceOwner("02") {
 		t.Fatalf("the Market berth node has owner %q, want 02", owner)
 	}
 }

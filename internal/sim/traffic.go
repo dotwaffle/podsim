@@ -645,9 +645,9 @@ func (s *Simulation) grant(in intent) {
 	}
 	for resources := range v.blocks.spanResources(in.block, through+1) {
 		for _, r := range resources {
-			if owner := s.owners[r]; owner != "" && owner != v.Pod.ID &&
-				(!coupled || r.kind == berthResource || !s.aheadInPlatoon(v, owner)) {
-				v.Pod.BlockedBy = owner
+			if owner := s.owners[r]; !owner.isZero() && !owner.isPod(v.Pod.ID) &&
+				(!coupled || r.kind == berthResource || !s.ownerAheadInPlatoon(v, owner)) {
+				v.Pod.BlockedBy = owner.String()
 				switch r.kind {
 				case berthResource:
 					v.Pod.WaitReason = BerthOccupied
@@ -672,8 +672,8 @@ func (s *Simulation) grant(in intent) {
 		start, end := blocks.cellBounds(lane, cell)
 		cells := blocks.lanes[lane].cells
 		for _, r := range cells.cell(cell) {
-			if !coupled || s.owners[r] == "" {
-				s.owners[r] = v.Pod.ID
+			if !coupled || s.owners[r].isZero() {
+				s.owners[r] = podResourceOwner(v.Pod.ID)
 			}
 			v.retainRouteResource(r, releaseDistance(r, releaseInput{from: blocks.route[lane].From, start: start, end: end, tail: cells.tail, fromTail: cells.fromTail}))
 		}
@@ -903,12 +903,12 @@ func (s *Simulation) releasePassedResources(v *vehicle) {
 	}
 	next := math.Inf(1)
 	for r, releaseAt := range v.routeReleases {
-		if owner := s.owners[r]; checkOwners && owner != v.Pod.ID && !s.aheadInPlatoon(v, owner) {
+		if owner := s.owners[r]; checkOwners && !owner.isPod(v.Pod.ID) && !s.ownerAheadInPlatoon(v, owner) {
 			delete(v.routeReleases, r)
 			continue
 		}
 		if releaseAt <= v.distance {
-			if s.owners[r] == v.Pod.ID {
+			if s.owners[r] == podResourceOwner(v.Pod.ID) {
 				s.releaseRouteResource(v, r)
 			}
 			delete(v.routeReleases, r)
@@ -932,7 +932,7 @@ func (s *Simulation) releaseRouteResourcesExcept(v *vehicle, retained ...resourc
 // does. An entry for r in v.routeReleases then names a resource that v does
 // not own, so releaseOwned sets v.nextRelease to 0.
 func (s *Simulation) releaseOwned(v *vehicle, r resource) {
-	if s.owners[r] == v.Pod.ID {
+	if s.owners[r] == podResourceOwner(v.Pod.ID) {
 		s.releaseRouteResource(v, r)
 		v.nextRelease = 0
 	}

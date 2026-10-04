@@ -75,7 +75,9 @@ func TestForecastEligibilityAndReserves(t *testing.T) {
 				s.waiting = append(s.waiting, waitingTrip{request: Request{SharingConsent: SharedConsent, Service: OnDemandService, ID: i + 1, From: "other", To: "target", PodID: s.vehicles[i].Pod.ID}})
 			}
 		}},
-		{name: "target claim", parking: true, pods: 4, berths: 2, prepare: func(s *Simulation) { s.owners[resource{kind: berthResource, id: "target-1"}] = "external" }},
+		{name: "target claim", parking: true, pods: 4, berths: 2, prepare: func(s *Simulation) {
+			s.owners[resource{kind: berthResource, id: "target-1"}] = podResourceOwner("external")
+		}},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
@@ -188,7 +190,7 @@ func TestForecastPolicyRouteLeadAndSpareBerth(t *testing.T) {
 		t.Fatal(routingErr)
 	}
 	for cell := range 10 {
-		s.owners[resource{kind: trackResource, id: "source-link", cell: cell}] = "external"
+		s.owners[resource{kind: trackResource, id: "source-link", cell: cell}] = podResourceOwner("external")
 	}
 	from, _ := s.station("source")
 	to, _ := s.station("target")

@@ -15,7 +15,7 @@ import (
 // owners of the step before, so that it can check each change of owner.
 type platoonMonitor struct {
 	s      *Simulation
-	owners map[resource]string
+	owners map[resource]resourceOwner
 	// coupled holds each pod that was in a platoon, and largest is the
 	// largest platoon.
 	coupled map[string]bool
@@ -106,10 +106,10 @@ func (m *platoonMonitor) check(t *testing.T) {
 	}
 	for r, owner := range s.owners {
 		before := m.owners[r]
-		if before == "" || before == owner || r.kind != trackResource && r.kind != junctionResource {
+		if before.isZero() || before == owner || r.kind != trackResource && r.kind != junctionResource {
 			continue
 		}
-		if v := s.findVehicle(owner); v == nil || !s.aheadInPlatoon(v, before) {
+		if v := s.ownerVehicle(owner); v == nil || !s.ownerAheadInPlatoon(v, before) {
 			t.Fatalf("tick %d: %v went from pod %s to pod %s", s.tick, r, before, owner)
 		}
 	}
@@ -137,13 +137,13 @@ func (m *platoonMonitor) checkCertificate(t *testing.T, v, leader *vehicle) {
 	geometry, _ := linkEnds(&v.blocks, *link)
 	for r := range v.routeReleases {
 		owner := s.owners[r]
-		if owner == v.Pod.ID {
+		if owner == podResourceOwner(v.Pod.ID) {
 			continue
 		}
-		if !s.aheadInPlatoon(v, owner) {
+		if !s.ownerAheadInPlatoon(v, owner) {
 			t.Fatalf("tick %d: pod %s holds %v of pod %s, which is not ahead of it in its platoon", s.tick, v.Pod.ID, r, owner)
 		}
-		o := s.findVehicle(owner)
+		o := s.ownerVehicle(owner)
 		lane := o.blocks.routeLane(o.blockIndex)
 		position := math.Inf(1)
 		for index := max(current, link.lane); index <= last; index++ {
@@ -205,7 +205,7 @@ func checkNoOvertake(t *testing.T, s *Simulation) {
 		}
 		cell := ahead.blocks.at(ahead.blockIndex).cell
 		for r := range v.routeReleases {
-			if r.kind == trackResource && r.id == v.Pod.LaneID && r.cell > cell && s.owners[r] == v.Pod.ID {
+			if r.kind == trackResource && r.id == v.Pod.LaneID && r.cell > cell && s.owners[r] == podResourceOwner(v.Pod.ID) {
 				t.Fatalf("tick %d: pod %s owns %v after the cell %d of pod %s ahead of it", s.tick, v.Pod.ID, r, cell, ahead.Pod.ID)
 			}
 		}
@@ -754,8 +754,8 @@ func linkCertificate(v *vehicle, first int) string {
 func pendingOwners(s *Simulation, v *vehicle) map[resource]string {
 	owners := make(map[resource]string)
 	for r := range v.routeReleases {
-		if owner := s.owners[r]; owner != v.Pod.ID {
-			owners[r] = owner
+		if owner := s.owners[r]; owner != podResourceOwner(v.Pod.ID) {
+			owners[r] = owner.podID()
 		}
 	}
 	return owners
@@ -887,7 +887,7 @@ func TestPlatoonDrainExtends(t *testing.T) {
 			for _, r := range b.resources {
 				if r.kind == trackResource {
 					stop = append(stop, r)
-					s.owners[r] = "blocker"
+					s.owners[r] = podResourceOwner("blocker")
 				}
 			}
 			break
@@ -1154,7 +1154,7 @@ func TestPlatoonBraking(t *testing.T) {
 	// The main lane has cells of 30 m. Cell 11 holds the follower until
 	// the link forms, and cell 40 stops the predecessor at 1,200 m.
 	wait, stop := resource{kind: trackResource, id: "main", cell: 11}, resource{kind: trackResource, id: "main", cell: 40}
-	s.owners[wait], s.owners[stop] = "blocker", "blocker"
+	s.owners[wait], s.owners[stop] = podResourceOwner("blocker"), podResourceOwner("blocker")
 	monitor := newPlatoonMonitor(s)
 	// The pod outside the fleet is not in the retention rules.
 	monitor.ownerTicks = math.MaxInt64

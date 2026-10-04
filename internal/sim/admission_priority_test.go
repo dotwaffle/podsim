@@ -50,7 +50,7 @@ func TestAdmissionContention(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 			junction := resource{kind: junctionResource, id: "merge"}
-			s := &Simulation{tick: admissionAgeTicks, owners: make(map[resource]string)}
+			s := &Simulation{tick: admissionAgeTicks, owners: make(map[resource]resourceOwner)}
 			for _, id := range []string{"02", "01"} {
 				v := vehicle{Pod: Pod{ID: id, Activity: Traveling}, reservedThrough: -1}
 				v.blocks = blockListOf([]block{{lane: Lane{ID: id, SpeedLimit: 14}, end: 30, resources: []resource{junction}}})
@@ -67,11 +67,11 @@ func TestAdmissionContention(t *testing.T) {
 				s.waiting = []waitingTrip{{request: Request{PodID: "02"}}}
 			}
 			if tc.existing {
-				s.owners[junction] = "01"
+				s.owners[junction] = podResourceOwner("01")
 				s.vehicles[1].reservedThrough = 0
 			}
 			s.admit()
-			if got := s.owners[junction]; got != tc.want {
+			if got := s.owners[junction]; got != podResourceOwner(tc.want) {
 				t.Fatalf("junction owner = %q, want %q", got, tc.want)
 			}
 		})

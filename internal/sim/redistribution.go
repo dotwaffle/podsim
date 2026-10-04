@@ -80,7 +80,7 @@ func (s *Simulation) yieldRelocationClaims() {
 		}
 		// A pod that holds no claim has nothing to yield. This check comes
 		// before the admission check, because it costs less.
-		holds := s.owners[claims[0]] == relocating.Pod.ID || s.owners[claims[1]] == relocating.Pod.ID
+		holds := s.owners[claims[0]] == podResourceOwner(relocating.Pod.ID) || s.owners[claims[1]] == podResourceOwner(relocating.Pod.ID)
 		if !holds || s.relocationDestinationAdmitted(relocating) {
 			continue
 		}

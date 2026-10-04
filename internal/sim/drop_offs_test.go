@@ -300,8 +300,8 @@ func TestDropOffsBerthRerouteKeepsCap(t *testing.T) {
 			}
 			v := s.findVehicle("01")
 			assignPassengerBerthForTest(t, assignPassengerBerthInput{simulation: s, vehicle: v})
-			s.owners[resource{kind: berthResource, id: "market-1"}] = "02"
-			s.owners[resource{kind: nodeResource, id: "market-berth"}] = "02"
+			s.owners[resource{kind: berthResource, id: "market-1"}] = podResourceOwner("02")
+			s.owners[resource{kind: nodeResource, id: "market-berth"}] = podResourceOwner("02")
 			positionBeforeTerminalInlet(t, terminalInletPosition{simulation: s, vehicle: v})
 
 			s.reevaluateTerminalBerth(v)

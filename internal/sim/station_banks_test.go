@@ -83,7 +83,7 @@ func TestBankRoutesUseOwningGates(t *testing.T) {
 	if err != nil || entry != "bank-b-entry" {
 		t.Fatalf("tie selection: %s %v", entry, err)
 	}
-	s.owners[resource{kind: berthResource, id: "bank-a-1"}] = "busy"
+	s.owners[resource{kind: berthResource, id: "bank-a-1"}] = podResourceOwner("busy")
 	route, berth, err := s.stationRoute("bank-a-entry", "hub")
 	if err != nil || berth.ID != "bank-a-1" || len(route) != 2 {
 		t.Fatalf("committed bank switched: %v %v %v", route, berth, err)
@@ -182,7 +182,7 @@ func TestBankIndependentGatesAndSharedMerge(t *testing.T) {
 				if _, err := s.SafetyObservation().Check(); err != nil {
 					t.Fatal(err)
 				}
-				if s.owners[resource{kind: nodeResource, id: "bank-a-exit"}] != "" && s.owners[resource{kind: nodeResource, id: "bank-b-exit"}] != "" {
+				if !s.owners[resource{kind: nodeResource, id: "bank-a-exit"}].isZero() && !s.owners[resource{kind: nodeResource, id: "bank-b-exit"}].isZero() {
 					overlap = true
 				}
 				for _, v := range s.vehicles {

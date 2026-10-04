@@ -43,7 +43,7 @@ func stoppedBufferFixture(t *testing.T) *Simulation {
 	s := stationBufferFixture(t)
 	// An external berth reservation holds the head while it reaches its
 	// stopping frontier. It has no pod that the clearing controller can move.
-	s.owners[resource{kind: berthResource, id: "market-1"}] = "external"
+	s.owners[resource{kind: berthResource, id: "market-1"}] = podResourceOwner("external")
 	for range 600 * TicksPerSecond {
 		s.Step()
 		checkTraffic(t, s.Snapshot())
@@ -226,7 +226,7 @@ func TestStationBufferQueueRestoreAndHeadOrder(t *testing.T) {
 					t.Fatal(requestErr)
 				}
 			}
-			s.owners[resource{kind: berthResource, id: "market-1"}] = "external"
+			s.owners[resource{kind: berthResource, id: "market-1"}] = podResourceOwner("external")
 			stepUntil(t, s, "two-pod stopped queue", func() bool {
 				return slices.ContainsFunc(s.vehicles, func(v vehicle) bool { return v.Pod.LaneID == "market-approach" && v.Pod.Speed == 0 }) &&
 					s.vehicles[0].Pod.Activity == Traveling && s.vehicles[1].Pod.Activity == Traveling && s.vehicles[0].Pod.Speed == 0 && s.vehicles[1].Pod.Speed == 0
@@ -297,7 +297,7 @@ func TestStationBufferWaitsForBlockedDeparture(t *testing.T) {
 	}
 	// Hold the departure path, so the real idle berth owner cannot clear.
 	barrier := s.laneCells["market-out"].cell(0)[0]
-	s.owners[barrier] = "external"
+	s.owners[barrier] = podResourceOwner("external")
 	stepUntil(t, s, "buffer head behind blocked departure", func() bool {
 		arrival := s.findVehicle("01")
 		plan, ok := s.bufferPlan(arrival)
@@ -337,7 +337,7 @@ func TestStationBufferCompetingArrivalAge(t *testing.T) {
 			}
 			s.SetStationBuffers(true)
 			barrier := resource{kind: nodeResource, id: "merge"}
-			s.owners[barrier] = "external"
+			s.owners[barrier] = podResourceOwner("external")
 			stepUntil(t, s, "competing buffer arrivals", func() bool {
 				return slices.ContainsFunc(s.vehicles, func(v vehicle) bool { return v.Pod.ID == "01" && v.Pod.Speed == 0 && v.Pod.BlockedBy == "external" }) &&
 					slices.ContainsFunc(s.vehicles, func(v vehicle) bool { return v.Pod.ID == "02" && v.Pod.Speed == 0 && v.Pod.BlockedBy == "external" })
@@ -356,13 +356,13 @@ func TestStationBufferCompetingArrivalAge(t *testing.T) {
 			if aged {
 				want = "02"
 			}
-			if got := s.owners[barrier]; got != want {
+			if got := s.owners[barrier]; got != podResourceOwner(want) {
 				t.Fatalf("merge owner = %q, want %q", got, want)
 			}
 			// Existing ownership must survive a later priority change.
 			passenger.waitSince, pickup.waitSince = 0, 0
 			s.admit()
-			if got := s.owners[barrier]; got != want {
+			if got := s.owners[barrier]; got != podResourceOwner(want) {
 				t.Fatalf("buffer admission revoked the existing merge owner: %q", got)
 			}
 		})
@@ -383,7 +383,7 @@ func TestStationBufferMixedBerthBlockers(t *testing.T) {
 	// must still identify its idle blocker for the clearing controller.
 	cells := s.laneCells["market-in-2"]
 	blocker := cells.cell(cells.count() - 1)[0]
-	s.owners[blocker] = "external"
+	s.owners[blocker] = podResourceOwner("external")
 	sawClearing := false
 	stepUntil(t, s, "mixed-blocker completion", func() bool {
 		sawClearing = sawClearing || s.findVehicle("02").Pod.Activity != Idle
@@ -422,7 +422,7 @@ func TestStationBufferConflictingRestore(t *testing.T) {
 			t.Fatal(requestErr)
 		}
 	}
-	s.owners[resource{kind: berthResource, id: "market-1"}] = "external"
+	s.owners[resource{kind: berthResource, id: "market-1"}] = podResourceOwner("external")
 	stepUntil(t, s, "stopped queue", func() bool {
 		return s.vehicles[0].Pod.LaneID == "market-approach" && s.vehicles[1].Pod.LaneID == "market-approach" && s.vehicles[0].Pod.Speed == 0 && s.vehicles[1].Pod.Speed == 0
 	})
@@ -451,14 +451,14 @@ func TestStationBufferFullQueueAndUpstreamPlatoon(t *testing.T) {
 	if err := s.SetPlatooning(PlatooningVirtual); err != nil {
 		t.Fatal(err)
 	}
-	s.owners[resource{kind: berthResource, id: "dest-1"}] = "external"
+	s.owners[resource{kind: berthResource, id: "dest-1"}] = podResourceOwner("external")
 	monitor := newPlatoonMonitor(s)
 	for range 60 * TicksPerSecond {
 		s.Step()
 		// The synthetic berth barrier is outside the modeled fleet.
 		delete(s.owners, resource{kind: berthResource, id: "dest-1"})
 		monitor.check(t)
-		s.owners[resource{kind: berthResource, id: "dest-1"}] = "external"
+		s.owners[resource{kind: berthResource, id: "dest-1"}] = podResourceOwner("external")
 		if _, err := s.SafetyObservation().Check(); err != nil {
 			t.Fatal(err)
 		}
@@ -589,7 +589,7 @@ func bufferedHeadWithPickup(t *testing.T) *Simulation {
 		t.Fatal(err)
 	}
 	barrier := resource{kind: berthResource, id: "market-1"}
-	s.owners[barrier] = "external"
+	s.owners[barrier] = podResourceOwner("external")
 	stepUntil(t, s, "head at holding frontier", func() bool {
 		v := s.findVehicle("01")
 		plan, ok := s.bufferPlan(v)
@@ -657,7 +657,7 @@ func TestStationBufferHeadBeforeAssignedPickup(t *testing.T) {
 					if s.findVehicle("02").destination.ID != "market-1" || !s.assigned("02") {
 						t.Fatal("head admission revoked the following pickup assignment")
 					}
-					if s.owners[resource{kind: berthResource, id: "market-1"}] != "01" {
+					if s.owners[resource{kind: berthResource, id: "market-1"}] != podResourceOwner("01") {
 						t.Fatal("head destination committed without berth ownership")
 					}
 					if restore {
@@ -693,7 +693,7 @@ func TestStationBufferHeadHonorsOwnedPath(t *testing.T) {
 		t.Run(fmt.Sprint(blocked), func(t *testing.T) {
 			t.Parallel()
 			s := bufferedHeadWithPickup(t)
-			s.owners[blocked] = "02"
+			s.owners[blocked] = podResourceOwner("02")
 			head := s.findVehicle("01")
 			before := s.ExportState().Pods[0]
 			distance := head.distance
@@ -743,7 +743,7 @@ func TestStationBufferCompetingBerthAdmission(t *testing.T) {
 			s.SetStationBuffers(true)
 			barrier := resource{kind: nodeResource, id: "market-entry"}
 			berth := resource{kind: berthResource, id: "market-1"}
-			s.owners[barrier] = "external"
+			s.owners[barrier] = podResourceOwner("external")
 			stepUntil(t, s, "two independent station approaches", func() bool {
 				head, pickup := s.findVehicle("01"), s.findVehicle("02")
 				return head.Pod.Speed == 0 && pickup.Pod.Speed == 0 && head.Pod.BlockedBy == "external" && pickup.Pod.BlockedBy == "external"
@@ -762,7 +762,7 @@ func TestStationBufferCompetingBerthAdmission(t *testing.T) {
 			if aged {
 				want = "02"
 			}
-			if s.owners[barrier] != want {
+			if s.owners[barrier] != podResourceOwner(want) {
 				t.Fatalf("entry owner=%q, want %q", s.owners[barrier], want)
 			}
 			firstBerthOwner := s.owners[berth]
@@ -771,23 +771,23 @@ func TestStationBufferCompetingBerthAdmission(t *testing.T) {
 			}
 			head.waitSince, pickup.waitSince = 0, 0
 			s.admit()
-			if s.owners[barrier] != want {
+			if s.owners[barrier] != podResourceOwner(want) {
 				t.Fatal("later priority change revoked committed entry")
 			}
-			if firstBerthOwner != "" && s.owners[berth] != firstBerthOwner {
+			if !firstBerthOwner.isZero() && s.owners[berth] != firstBerthOwner {
 				t.Fatal("later priority change revoked committed berth")
 			}
 			for range 600 * TicksPerSecond {
 				s.Step()
 				checkBufferOrders(t, s)
-				if firstBerthOwner == "" {
+				if firstBerthOwner.isZero() {
 					firstBerthOwner = s.owners[berth]
 				}
 				if s.completed == 2 {
 					break
 				}
 			}
-			if s.completed != 2 || firstBerthOwner != want {
+			if s.completed != 2 || firstBerthOwner != podResourceOwner(want) {
 				t.Fatalf("competing arrivals: completed=%d first berth owner=%q, want %q", s.completed, firstBerthOwner, want)
 			}
 		})

@@ -157,9 +157,9 @@ func (s *Simulation) grantBufferedHead(in intent, plan stationBufferPlan) {
 		// The complete-path grant below protects all actual reservations.
 		claims, available := s.bufferBerthClaims(v, berth)
 		if !available {
-			if owner := s.owners[resource{kind: berthResource, id: berth.ID}]; owner != "" {
-				if blockedOwner == "" || s.findVehicle(owner) != nil && s.findVehicle(owner).Pod.Activity == Idle {
-					blockedBerth, blockedOwner = berth.ID, owner
+			if owner := s.owners[resource{kind: berthResource, id: berth.ID}]; !owner.isZero() {
+				if blockedOwner == "" || s.ownerVehicle(owner) != nil && s.ownerVehicle(owner).Pod.Activity == Idle {
+					blockedBerth, blockedOwner = berth.ID, owner.String()
 				}
 			}
 			continue
@@ -199,7 +199,7 @@ func (s *Simulation) grantBufferedHead(in intent, plan stationBufferPlan) {
 		}
 		for _, claim := range claims {
 			if claim.owner != nil {
-				s.owners[claim.resource] = claim.owner.Pod.ID
+				s.owners[claim.resource] = podResourceOwner(claim.owner.Pod.ID)
 			}
 		}
 		reason, blocker := v.Pod.WaitReason, v.Pod.BlockedBy

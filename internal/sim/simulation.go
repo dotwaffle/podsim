@@ -298,7 +298,7 @@ type Simulation struct {
 	network                      Network
 	initial                      []Placement
 	vehicles                     []vehicle
-	owners                       map[resource]string
+	owners                       map[resource]resourceOwner
 	tick                         int64
 	paused                       bool
 	completed, requestID         int
@@ -459,7 +459,7 @@ func (s *Simulation) Reset() {
 	}
 	s.platoonLinks = 0
 	s.compactGroups, s.compactMotions, s.compactNextGroups, s.compactFault = nil, nil, nil, nil
-	s.owners = make(map[resource]string)
+	s.owners = make(map[resource]resourceOwner)
 	s.vehicles = nil
 	for _, p := range s.initial {
 		station, _ := s.station(p.StationID)
@@ -471,8 +471,8 @@ func (s *Simulation) Reset() {
 			StationPhase: AtBerth, ManeuverStationID: station.ID,
 		}
 		s.vehicles = append(s.vehicles, vehicle{Pod: pod, pending: -1, reservedThrough: -1})
-		s.owners[resource{kind: berthResource, id: berth.ID}] = p.ID
-		s.owners[resource{kind: nodeResource, id: berth.Node}] = p.ID
+		s.owners[resource{kind: berthResource, id: berth.ID}] = podResourceOwner(p.ID)
+		s.owners[resource{kind: nodeResource, id: berth.Node}] = podResourceOwner(p.ID)
 	}
 	s.vehicleIndexes = indexVehicles(s.vehicles)
 }
@@ -573,7 +573,7 @@ func (s *Simulation) berthStates() []BerthState {
 			states = append(states, BerthState{
 				ID:         berth.ID,
 				Occupant:   occupants[berth.ID],
-				ReservedBy: s.owners[resource{kind: berthResource, id: berth.ID}],
+				ReservedBy: s.owners[resource{kind: berthResource, id: berth.ID}].podID(),
 			})
 		}
 	}

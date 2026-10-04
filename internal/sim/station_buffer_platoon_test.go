@@ -66,7 +66,7 @@ func stageBufferFleet(t *testing.T, network Network, placements []Placement, cou
 	if err := s.SetPlatooning(PlatooningVirtual); err != nil {
 		t.Fatal(err)
 	}
-	s.owners[resource{kind: berthResource, id: "market-1"}] = "external"
+	s.owners[resource{kind: berthResource, id: "market-1"}] = podResourceOwner("external")
 	if form {
 		s.formPlatoons()
 	}
@@ -81,9 +81,9 @@ func TestStationBufferPlatoonBlockedDeparture(t *testing.T) {
 	t.Parallel()
 	fleet := []Placement{{ID: "01", StationID: "harbor"}, {ID: "02", StationID: "garden"}, {ID: "05", StationID: "market"}}
 	s := stageBufferFleet(t, stationBufferNetwork(Example(), 8), fleet, 2, true)
-	s.owners[resource{kind: berthResource, id: "market-1"}] = "05"
+	s.owners[resource{kind: berthResource, id: "market-1"}] = podResourceOwner("05")
 	barrier := s.laneCells["market-out"].cell(0)[0]
-	s.owners[barrier] = "external"
+	s.owners[barrier] = podResourceOwner("external")
 	sawStopped, restores := false, 0
 	for range 300 * TicksPerSecond {
 		s.Step()
@@ -238,7 +238,7 @@ func checkBufferPlatoonRestoreTransitions(t *testing.T, count int) {
 				}
 				for _, claimed := range v.footprint(v.reservedThrough, v.distance) {
 					owner := s.owners[claimed]
-					if owner != "" && owner != v.Pod.ID && s.aheadInPlatoon(&s.vehicles[i], owner) {
+					if !owner.isZero() && owner != podResourceOwner(v.Pod.ID) && s.ownerAheadInPlatoon(&s.vehicles[i], owner) {
 						if restored.owners[claimed] != owner {
 							t.Fatal("restore changed a required ancestor holding")
 						}
@@ -251,7 +251,7 @@ func checkBufferPlatoonRestoreTransitions(t *testing.T, count int) {
 		owners := maps.Clone(s.owners)
 		s.Step()
 		for claimed, previous := range owners {
-			if owner := s.owners[claimed]; claimed.kind == trackResource && claimed.id == "market-approach" && owner != "" && owner != previous {
+			if owner := s.owners[claimed]; claimed.kind == trackResource && claimed.id == "market-approach" && !owner.isZero() && owner != previous {
 				transfers++
 			}
 		}
@@ -379,7 +379,7 @@ func TestStationBufferPlatoonFailedSuffixKeepsPrefix(t *testing.T) {
 		t.Fatal("no head with retained shared holdings")
 	}
 	delete(s.owners, resource{kind: berthResource, id: "market-1"})
-	s.owners[resource{kind: trackResource, id: "market-in", cell: 0}] = "external"
+	s.owners[resource{kind: trackResource, id: "market-in", cell: 0}] = podResourceOwner("external")
 	v := &s.vehicles[headIndex]
 	plan, _ := s.bufferPlan(v)
 	before := *v

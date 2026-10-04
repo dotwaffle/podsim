@@ -535,7 +535,7 @@ func checkGuardedMove(t *testing.T, s *Simulation, podID, berthID string) {
 		t.Fatalf("pod %s is not on a guarded move to %s: %+v, destination %s", podID, berthID, v.Vehicle, v.destination.ID)
 	}
 	for _, r := range berthResources(v.destination) {
-		if s.owners[r] != podID {
+		if s.owners[r] != podResourceOwner(podID) {
 			t.Fatalf("pod %s does not hold %v", podID, r)
 		}
 	}
@@ -742,7 +742,7 @@ func TestGuardedClear(t *testing.T) {
 				t.Fatalf("guardedClear = %v, pod 01 %+v goes to %s, want %s", ok, blocker.Vehicle, blocker.destination.ID, tc.berth)
 			}
 			for _, r := range berthResources(blocker.destination) {
-				if s.owners[r] != "01" {
+				if s.owners[r] != podResourceOwner("01") {
 					t.Fatalf("pod 01 does not hold %v", r)
 				}
 			}
@@ -894,7 +894,7 @@ func TestGuardedYieldInCommittedInlet(t *testing.T) {
 		t.Fatalf("pod 01 is not a released pod on its route to Market-1: %+v, released %v", v.Vehicle, v.released)
 	}
 	for _, r := range berthResources(v.destination) {
-		if s.owners[r] == "01" {
+		if s.owners[r] == podResourceOwner("01") {
 			t.Fatalf("pod 01 still holds %v", r)
 		}
 	}
@@ -910,7 +910,7 @@ func guardedClaims(s *Simulation) map[string]string {
 	claims := make(map[string]string)
 	for index := range s.vehicles {
 		v := &s.vehicles[index]
-		if v.Rebalancing && s.owners[resource{kind: berthResource, id: v.destination.ID}] == v.Pod.ID {
+		if v.Rebalancing && s.owners[resource{kind: berthResource, id: v.destination.ID}] == podResourceOwner(v.Pod.ID) {
 			claims[v.Pod.ID] = v.destination.ID
 		}
 	}
@@ -959,7 +959,7 @@ func checkNewClaimsLeaveABerth(t *testing.T, s *Simulation, before claimState) i
 			}
 			taken := false
 			for _, r := range berthResources(berth) {
-				if owner := s.findVehicle(s.owners[r]); owner != nil && !chose(owner, berth.ID) {
+				if owner := s.ownerVehicle(s.owners[r]); owner != nil && !chose(owner, berth.ID) {
 					taken = true
 				}
 			}

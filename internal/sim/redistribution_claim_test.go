@@ -62,7 +62,7 @@ func TestRedistributionKeepsClaimWhenPassengerUsesAnotherBerth(t *testing.T) {
 	s.Step()
 	rebalancing := s.findVehicle("01")
 	claimed := resource{kind: berthResource, id: rebalancing.destination.ID}
-	if rebalancing.destination.ID != "market-1" || s.owners[claimed] != "01" {
+	if rebalancing.destination.ID != "market-1" || s.owners[claimed] != podResourceOwner("01") {
 		t.Fatalf("unexpected redistribution destination: %+v", rebalancing.Vehicle)
 	}
 	if err := s.RequestTrip("market", "garden"); err != nil {
@@ -73,7 +73,7 @@ func TestRedistributionKeepsClaimWhenPassengerUsesAnotherBerth(t *testing.T) {
 	if pickup == nil || pickup.destination.ID != "market-2" {
 		t.Fatalf("pickup did not use the free berth: %+v", s.Snapshot())
 	}
-	if s.owners[claimed] != "01" {
+	if s.owners[claimed] != podResourceOwner("01") {
 		t.Fatal("redistribution yielded a claim that did not conflict")
 	}
 }
@@ -113,7 +113,7 @@ func TestRedistributionKeepsClaimForCompletedPassenger(t *testing.T) {
 	completed.destination = rebalancing.destination
 	completed.Riders = []Request{{SharingConsent: SharedConsent, Service: OnDemandService, ID: 1, From: "garden", To: "market", Completed: true}}
 	s.yieldRelocationClaims()
-	if s.owners[claimed] != "01" {
+	if s.owners[claimed] != podResourceOwner("01") {
 		t.Fatal("completed passenger caused a remote redistribution claim to yield")
 	}
 }
@@ -130,11 +130,11 @@ func TestRedistributionDoesNotDeleteAnotherPodsClaim(t *testing.T) {
 		{kind: berthResource, id: rebalancing.destination.ID},
 		{kind: nodeResource, id: rebalancing.destination.Node},
 	} {
-		s.owners[claimed] = "02"
+		s.owners[claimed] = podResourceOwner("02")
 	}
 	s.yieldRelocationClaims()
-	if s.owners[resource{kind: berthResource, id: rebalancing.destination.ID}] != "02" ||
-		s.owners[resource{kind: nodeResource, id: rebalancing.destination.Node}] != "02" {
+	if s.owners[resource{kind: berthResource, id: rebalancing.destination.ID}] != podResourceOwner("02") ||
+		s.owners[resource{kind: nodeResource, id: rebalancing.destination.Node}] != podResourceOwner("02") {
 		t.Fatal("redistribution deleted another pod's destination claim")
 	}
 }
@@ -168,7 +168,7 @@ func rebalanceToMarket(s *Simulation) bool {
 		return false
 	}
 	for _, berth := range station.Berths {
-		if s.owners[resource{kind: berthResource, id: berth.ID}] != "" || s.owners[resource{kind: nodeResource, id: berth.Node}] != "" {
+		if !s.owners[resource{kind: berthResource, id: berth.ID}].isZero() || !s.owners[resource{kind: nodeResource, id: berth.Node}].isZero() {
 			continue
 		}
 		for index := range s.vehicles {

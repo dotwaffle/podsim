@@ -185,7 +185,7 @@ func compactHeldDepartureQueue(t *testing.T) *Simulation {
 		return lane.From == "market-exit" && lane.StationRole == ""
 	})
 	s := stageBufferFleet(t, geometry.network, geometry.initial, 4, false)
-	s.owners[resource{kind: berthResource, id: "market-1"}] = "05"
+	s.owners[resource{kind: berthResource, id: "market-1"}] = podResourceOwner("05")
 	state := s.ExportState()
 	for i := range 4 {
 		pod := &state.Pods[i]

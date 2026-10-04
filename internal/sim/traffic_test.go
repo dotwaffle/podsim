@@ -79,21 +79,21 @@ func TestIncrementalResourceRelease(t *testing.T) {
 		},
 	}
 	s := &Simulation{
-		owners: map[resource]string{
-			junction: "01", clearedTrack: "01", futureOrigin: "01", originBerth: "01",
+		owners: map[resource]resourceOwner{
+			junction: podResourceOwner("01"), clearedTrack: podResourceOwner("01"), futureOrigin: podResourceOwner("01"), originBerth: podResourceOwner("01"),
 		},
 		vehicles: []vehicle{v},
 	}
 	s.releaseCleared()
-	if s.owners[clearedTrack] != "" {
+	if !s.owners[clearedTrack].isZero() {
 		t.Fatal("cleared track remains owned")
 	}
 	for _, retained := range []resource{junction, futureOrigin} {
-		if s.owners[retained] != "01" {
+		if s.owners[retained] != podResourceOwner("01") {
 			t.Fatalf("future resource %+v was released", retained)
 		}
 	}
-	if s.owners[originBerth] != "" {
+	if !s.owners[originBerth].isZero() {
 		t.Fatal("cleared origin berth remains owned")
 	}
 }
@@ -108,17 +108,17 @@ func TestArrivalReleasesRouteAndKeepsBerth(t *testing.T) {
 			Nodes:    []Node{{ID: node.id}},
 			Stations: []Station{{ID: "destination", Berths: []Berth{{ID: berth.id, Node: node.id}}}},
 		},
-		owners: map[resource]string{berth: "01", node: "01", track: "01"},
+		owners: map[resource]resourceOwner{berth: podResourceOwner("01"), node: podResourceOwner("01"), track: podResourceOwner("01")},
 		vehicles: []vehicle{{
 			Pod:           Pod{ID: "01", Activity: Unloading, StationID: "destination", BerthID: berth.id},
 			routeReleases: map[resource]float64{berth: 100, node: 100, track: 100},
 		}},
 	}
 	s.releaseCleared()
-	if s.owners[berth] != "01" || s.owners[node] != "01" {
+	if s.owners[berth] != podResourceOwner("01") || s.owners[node] != podResourceOwner("01") {
 		t.Fatalf("arrival berth was released: %v", s.owners)
 	}
-	if s.owners[track] != "" {
+	if !s.owners[track].isZero() {
 		t.Fatal("arrival retained old track")
 	}
 	if len(s.vehicles[0].routeReleases) != 0 {
@@ -137,7 +137,7 @@ func checkRouteReleaseBound(t *testing.T, s *Simulation) {
 			continue
 		}
 		for r, releaseAt := range v.routeReleases {
-			if owner := s.owners[r]; owner != v.Pod.ID || releaseAt < v.nextRelease {
+			if owner := s.owners[r]; owner != podResourceOwner(v.Pod.ID) || releaseAt < v.nextRelease {
 				t.Fatalf("tick %d: pod %s has bound %v, but it keeps %+v to %v and the owner is %q",
 					s.tick, v.Pod.ID, v.nextRelease, r, releaseAt, owner)
 			}
@@ -188,7 +188,7 @@ func TestRouteReleaseBoundAtReleaseDistance(t *testing.T) {
 	t.Parallel()
 	track := resource{kind: trackResource, id: "lane", cell: 1}
 	s := &Simulation{
-		owners: map[resource]string{track: "01"},
+		owners: map[resource]resourceOwner{track: podResourceOwner("01")},
 		vehicles: []vehicle{{
 			Pod:            Pod{ID: "01", Activity: Traveling},
 			distance:       60,
@@ -198,7 +198,7 @@ func TestRouteReleaseBoundAtReleaseDistance(t *testing.T) {
 		}},
 	}
 	s.releaseCleared()
-	if s.owners[track] != "" || len(s.vehicles[0].routeReleases) != 0 {
+	if !s.owners[track].isZero() || len(s.vehicles[0].routeReleases) != 0 {
 		t.Fatalf("pod at the release distance kept the track: owners %v, releases %v", s.owners, s.vehicles[0].routeReleases)
 	}
 	if s.vehicles[0].nextRelease != math.Inf(1) {
@@ -214,7 +214,7 @@ func TestRouteReleaseBoundFollowsNewResource(t *testing.T) {
 	track := resource{kind: trackResource, id: "lane", cell: 1}
 	junction := resource{kind: junctionResource, id: "junction"}
 	s := &Simulation{
-		owners:   map[resource]string{track: "01", junction: "01"},
+		owners:   map[resource]resourceOwner{track: podResourceOwner("01"), junction: podResourceOwner("01")},
 		vehicles: []vehicle{{Pod: Pod{ID: "01", Activity: Traveling}, distance: 40, originReleased: true}},
 	}
 	v := &s.vehicles[0]
@@ -226,7 +226,7 @@ func TestRouteReleaseBoundFollowsNewResource(t *testing.T) {
 	v.retainRouteResource(junction, 50)
 	v.distance = 60
 	s.releaseCleared()
-	if s.owners[junction] != "" || s.owners[track] != "01" {
+	if !s.owners[junction].isZero() || s.owners[track] != podResourceOwner("01") {
 		t.Fatalf("owners after the junction = %v, want only the track", s.owners)
 	}
 }
@@ -264,9 +264,9 @@ func TestRouteReleaseBoundDroppedWithOwner(t *testing.T) {
 			v := s.findVehicle("01")
 			claims := berthResources(v.destination)
 			track := resource{kind: trackResource, id: "held", cell: 0}
-			s.owners[track] = v.Pod.ID
+			s.owners[track] = podResourceOwner(v.Pod.ID)
 			for index, claimed := range append(claims[:], track) {
-				if s.owners[claimed] != v.Pod.ID {
+				if s.owners[claimed] != podResourceOwner(v.Pod.ID) {
 					t.Fatalf("pod 01 does not own %+v", claimed)
 				}
 				v.retainRouteResource(claimed, 1000+float64(index))
@@ -277,14 +277,14 @@ func TestRouteReleaseBoundDroppedWithOwner(t *testing.T) {
 			}
 			test.drop(s, v)
 			for _, claimed := range claims {
-				if s.owners[claimed] != "" {
+				if !s.owners[claimed].isZero() {
 					t.Fatalf("claim %+v has owner %q", claimed, s.owners[claimed])
 				}
 			}
 			// A new resource must not end the check, also when its release
 			// distance is not a number.
 			extra := resource{kind: trackResource, id: "held", cell: 1}
-			s.owners[extra] = v.Pod.ID
+			s.owners[extra] = podResourceOwner(v.Pod.ID)
 			v.retainRouteResource(extra, math.NaN())
 			checkRouteReleaseBound(t, s)
 			s.releasePassedResources(v)

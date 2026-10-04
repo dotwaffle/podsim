@@ -169,7 +169,7 @@ func TestStationCompactDischargeProbeResources(t *testing.T) {
 	if !found {
 		t.Fatal("suffix has no track resource")
 	}
-	s.owners[barrier] = "external"
+	s.owners[barrier] = podResourceOwner("external")
 	before, owners := s.ExportState(), maps.Clone(s.owners)
 	if probe := s.probeCompactDischarge(s.compactGroup(head)); probe.available {
 		t.Fatal("occupied suffix reported free")
@@ -207,7 +207,7 @@ func TestStationCompactDischargeFaultNoMotion(t *testing.T) {
 	s := compactDischargeEndpoint(t, StationQueueCompactV1)
 	head := s.findVehicle("04")
 	plan, _ := s.bufferPlan(head)
-	s.owners[head.blocks.at(plan.frontier).resources[0]] = "external"
+	s.owners[head.blocks.at(plan.frontier).resources[0]] = podResourceOwner("external")
 	before := s.Snapshot()
 	owners := maps.Clone(s.owners)
 	s.Step()

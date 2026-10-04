@@ -57,7 +57,7 @@ func (s *Simulation) parkReleased(v *vehicle) {
 		return
 	}
 	for _, r := range berthResources(berth) {
-		s.owners[r] = v.Pod.ID
+		s.owners[r] = podResourceOwner(v.Pod.ID)
 	}
 }
 
@@ -69,7 +69,7 @@ func (s *Simulation) parkReleased(v *vehicle) {
 func (s *Simulation) parkUnclaimedReleased() {
 	for i := range s.vehicles {
 		v := &s.vehicles[i]
-		if v.released && s.owners[resource{kind: berthResource, id: v.destination.ID}] != v.Pod.ID {
+		if v.released && s.owners[resource{kind: berthResource, id: v.destination.ID}] != podResourceOwner(v.Pod.ID) {
 			s.parkReleased(v)
 		}
 	}
@@ -155,7 +155,7 @@ func (s *Simulation) berthAvailableTo(v *vehicle, berth Berth) bool {
 		return false
 	}
 	for _, r := range berthResources(berth) {
-		if owner := s.owners[r]; owner != "" && owner != v.Pod.ID {
+		if owner := s.owners[r]; !owner.isZero() && !owner.isPod(v.Pod.ID) {
 			return false
 		}
 	}

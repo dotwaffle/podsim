@@ -123,7 +123,7 @@ func TestNearestFreeBerthUsesPerDestinationRouteCost(t *testing.T) {
 	t.Parallel()
 	s := &Simulation{
 		network: intermediateBerthNetwork(),
-		owners:  map[resource]string{{kind: berthResource, id: "b"}: "other"},
+		owners:  map[resource]resourceOwner{{kind: berthResource, id: "b"}: podResourceOwner("other")},
 	}
 	v := &vehicle{Pod: Pod{ID: "moving", Activity: Traveling}}
 	berth, station, ok := s.nearestFreeBerth(v, "a")

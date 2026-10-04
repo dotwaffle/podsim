@@ -103,7 +103,7 @@ func TestStationCompactFaultStepNoMotion(t *testing.T) {
 	s := compactStateFixture(t)
 	head := &s.vehicles[s.compactGroups[0].members[0]]
 	plan, _ := s.bufferPlan(head)
-	s.owners[head.blocks.at(plan.frontier).resources[0]] = "05"
+	s.owners[head.blocks.at(plan.frontier).resources[0]] = podResourceOwner("05")
 	before := s.Snapshot()
 	s.Step()
 	if s.CompactQueueError() == nil || !s.paused {

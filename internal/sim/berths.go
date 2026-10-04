@@ -129,7 +129,7 @@ func (s *Simulation) berthLoads() func(Berth) int {
 }
 
 func (s *Simulation) berthLoad(berth Berth) int {
-	owners := [2]string{
+	owners := [2]resourceOwner{
 		s.owners[resource{kind: berthResource, id: berth.ID}],
 		s.owners[resource{kind: nodeResource, id: berth.Node}],
 	}
@@ -141,8 +141,8 @@ func (s *Simulation) berthLoad(berth Berth) int {
 		}
 		load++
 		for index := range owners {
-			if owners[index] == v.Pod.ID {
-				owners[index] = ""
+			if owners[index] == podResourceOwner(v.Pod.ID) {
+				owners[index] = resourceOwner{}
 			}
 		}
 	}
@@ -152,13 +152,13 @@ func (s *Simulation) berthLoad(berth Berth) int {
 		}
 	}
 	for index, owner := range owners {
-		if owner == "" {
+		if owner.isZero() {
 			continue
 		}
 		load++
 		for duplicate := index + 1; duplicate < len(owners); duplicate++ {
 			if owners[duplicate] == owner {
-				owners[duplicate] = ""
+				owners[duplicate] = resourceOwner{}
 			}
 		}
 	}
@@ -166,8 +166,8 @@ func (s *Simulation) berthLoad(berth Berth) int {
 }
 
 func (s *Simulation) berthAvailable(berth Berth) bool {
-	if s.owners[resource{kind: berthResource, id: berth.ID}] != "" ||
-		s.owners[resource{kind: nodeResource, id: berth.Node}] != "" {
+	if !s.owners[resource{kind: berthResource, id: berth.ID}].isZero() ||
+		!s.owners[resource{kind: nodeResource, id: berth.Node}].isZero() {
 		return false
 	}
 	for i := range s.vehicles {

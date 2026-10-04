@@ -116,12 +116,12 @@ func TestBerthContinuationPickupRefusesUnsafeReselection(t *testing.T) {
 		t.Run(map[bool]string{false: "terminal", true: "buffered"}[buffered], func(t *testing.T) {
 			t.Parallel()
 			s := continuationFleet(t, buffered)
-			s.owners[resource{kind: berthResource, id: "garden-1"}] = "external"
+			s.owners[resource{kind: berthResource, id: "garden-1"}] = podResourceOwner("external")
 			if _, err := s.SubmitTrip("garden", "market"); err != nil {
 				t.Fatal(err)
 			}
 			delete(s.owners, resource{kind: berthResource, id: "garden-1"})
-			s.owners[resource{kind: berthResource, id: "garden-2"}] = "external"
+			s.owners[resource{kind: berthResource, id: "garden-2"}] = podResourceOwner("external")
 			for range 300 * TicksPerSecond {
 				s.Step()
 				if s.vehicles[0].destination.ID == "garden-1" || s.vehicles[0].Pod.BerthID == "garden-1" {
@@ -248,7 +248,7 @@ func TestBerthContinuationBanksRefuseUnsafeReselection(t *testing.T) {
 			if station.routeEntry(s.vehicles[0].Route, s.vehicles[0].destination) != "bank-a-entry" {
 				t.Fatal("expected the bank with a usable local alternate")
 			}
-			s.owners[resource{kind: berthResource, id: "bank-a-2"}] = "external"
+			s.owners[resource{kind: berthResource, id: "bank-a-2"}] = podResourceOwner("external")
 			for range 300 * TicksPerSecond {
 				s.Step()
 				if s.vehicles[0].destination.ID == "bank-a-1" || s.vehicles[0].Pod.BerthID == "bank-a-1" || s.vehicles[0].Pod.BerthID == "bank-b-1" {

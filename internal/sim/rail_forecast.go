@@ -92,7 +92,7 @@ func (s *Simulation) PositionForForecast(targets []ForecastTarget) (ForecastPosi
 		station := s.network.Stations[index]
 		var available []Berth
 		for _, berth := range station.Berths {
-			if !busy[berth.ID] && s.owners[resource{kind: berthResource, id: berth.ID}] == "" && s.owners[resource{kind: nodeResource, id: berth.Node}] == "" {
+			if !busy[berth.ID] && s.owners[resource{kind: berthResource, id: berth.ID}].isZero() && s.owners[resource{kind: nodeResource, id: berth.Node}].isZero() {
 				available = append(available, berth)
 			}
 		}

@@ -220,11 +220,11 @@ func TestLaneSpeedLargeMixedRestore(t *testing.T) {
 						if v.Pod.Class == GroupClass {
 							owner := s.owners[resource{kind: nodeResource, id: "a-exit"}]
 							if v.Pod.LaneDistance < 20 {
-								if owner != v.Pod.ID {
+								if owner != podResourceOwner(v.Pod.ID) {
 									t.Fatal("Group released the entry node before its 20-meter tail")
 								}
 								retained = true
-							} else if owner != v.Pod.ID {
+							} else if owner != podResourceOwner(v.Pod.ID) {
 								released = true
 							}
 						}

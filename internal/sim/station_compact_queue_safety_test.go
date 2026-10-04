@@ -70,7 +70,7 @@ func TestStationCompactLostResourceRejectsUnchanged(t *testing.T) {
 	head := &s.vehicles[s.compactGroups[0].members[0]]
 	plan, _ := s.bufferPlan(head)
 	r := head.blocks.at(plan.frontier).resources[0]
-	s.owners[r] = "05"
+	s.owners[r] = podResourceOwner("05")
 	before := s.ExportState()
 	if err := s.planCompactQueues(); err == nil {
 		t.Fatal("numeric frontier granted unowned track")
@@ -141,7 +141,7 @@ func TestStationCompactSingletonDischarge(t *testing.T) {
 	}
 	fleet := []Placement{{ID: "01", StationID: "harbor"}, {ID: "05", StationID: "market"}}
 	s := stageBufferFleet(t, network, fleet, 1, false)
-	s.owners[resource{kind: berthResource, id: "market-1"}] = "05"
+	s.owners[resource{kind: berthResource, id: "market-1"}] = podResourceOwner("05")
 	if err := s.SetStationQueueSpacing(StationQueueCompactV1); err != nil {
 		t.Fatal(err)
 	}

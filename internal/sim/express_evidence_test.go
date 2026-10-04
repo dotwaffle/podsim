@@ -80,7 +80,7 @@ func recordExpressTick(t *testing.T, s *Simulation) {
 			record.State = s.ExportState()
 			record.Snapshot = s.Snapshot()
 			for r, owner := range s.owners {
-				record.Owners = append(record.Owners, expressOwnerEvidence{int(r.kind), r.id, r.cell, owner})
+				record.Owners = append(record.Owners, expressOwnerEvidence{int(r.kind), r.id, r.cell, owner.podID()})
 			}
 			slices.SortFunc(record.Owners, func(a, b expressOwnerEvidence) int {
 				if n := cmp.Compare(a.Kind, b.Kind); n != 0 {

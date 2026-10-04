@@ -226,10 +226,10 @@ func (s *Simulation) compactOwned(v *vehicle) bool {
 				return false
 			}
 			owner := s.owners[r]
-			if owner == v.Pod.ID {
+			if owner.isPod(v.Pod.ID) {
 				continue
 			}
-			if owner == "" || !v.link.compact || r.kind != trackResource || block < v.link.first || block > v.link.end || !s.aheadInPlatoon(v, owner) {
+			if owner.isZero() || !v.link.compact || r.kind != trackResource || block < v.link.first || block > v.link.end || !s.ownerAheadInPlatoon(v, owner) {
 				return false
 			}
 		}

@@ -355,7 +355,7 @@ func assertSafetyObservation(t *testing.T, input safetyObservationInput) {
 	}
 	for _, station := range s.network.Stations {
 		for _, berth := range station.Berths {
-			state := BerthState{ID: berth.ID, ReservedBy: s.owners[resource{kind: berthResource, id: berth.ID}]}
+			state := BerthState{ID: berth.ID, ReservedBy: s.owners[resource{kind: berthResource, id: berth.ID}].podID()}
 			for _, vehicle := range s.vehicles {
 				if vehicle.Pod.BerthID == berth.ID {
 					state.Occupant = vehicle.Pod.ID

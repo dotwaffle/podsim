@@ -406,7 +406,7 @@ func (s *Simulation) exportPod(v *vehicle, limits routeLimits) SavedPod {
 		RebalanceAfter: v.rebalanceAfter, PhaseTicks: v.phaseTicks, Origin: v.origin.ID,
 		Destination: v.destination.ID, DestinationStation: v.destinationStation,
 		ClaimsDestination: v.RelocatingTo != "" && v.destination.ID != "" &&
-			s.owners[resource{kind: berthResource, id: v.destination.ID}] == v.Pod.ID,
+			s.owners[resource{kind: berthResource, id: v.destination.ID}] == podResourceOwner(v.Pod.ID),
 		LaneID: v.Pod.LaneID, LaneDistance: v.Pod.LaneDistance, Waiting: v.pending >= 0, Released: v.released, StationBuffered: v.buffered,
 	}
 	for _, rider := range v.Riders {

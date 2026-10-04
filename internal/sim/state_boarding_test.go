@@ -114,7 +114,7 @@ func TestBoardingRecordsPhysicalRestore(t *testing.T) {
 					t.Fatalf("lost accepted phase: %+v", v)
 				}
 				for _, claim := range berthResources(f.berth(t, "garden-1").berth) {
-					if s.owners[claim] != "01" {
+					if s.owners[claim] != podResourceOwner("01") {
 						t.Fatalf("lost berth ownership: %+v", s.owners)
 					}
 				}

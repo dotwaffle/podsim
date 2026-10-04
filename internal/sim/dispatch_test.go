@@ -290,7 +290,7 @@ func TestPickupWaitsForIncomingPassengerPod(t *testing.T) {
 			break
 		}
 	}
-	if s.findVehicle("01").Pod.LaneID != "market-in" || s.owners[resource{kind: berthResource, id: "market-1"}] != "" {
+	if s.findVehicle("01").Pod.LaneID != "market-in" || !s.owners[resource{kind: berthResource, id: "market-1"}].isZero() {
 		t.Fatal("fixture needs an incoming pod before berth admission")
 	}
 	if err := submitSharedTrip(s, "market", "garden"); err != nil {
@@ -359,7 +359,7 @@ func TestPickupDepartsBeforeBerthClears(t *testing.T) {
 	if pickup.RelocatingTo != "garden" || pickup.Pod.Activity != DepartingEmpty {
 		t.Fatal("pickup did not leave for occupied berth")
 	}
-	if s.owners[resource{kind: berthResource, id: "garden-1"}] != "01" {
+	if s.owners[resource{kind: berthResource, id: "garden-1"}] != podResourceOwner("01") {
 		t.Fatal("pickup stole occupied berth")
 	}
 	queued := false

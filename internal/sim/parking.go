@@ -111,7 +111,7 @@ func (s *Simulation) startEmptyMove(v *vehicle, to emptyDestination) error {
 func (s *Simulation) prepareEmptyMove(v *vehicle, to emptyDestination) ([]Lane, error) {
 	space := resource{kind: berthResource, id: to.berth.ID}
 	node := resource{kind: nodeResource, id: to.berth.Node}
-	if to.reserveBerth && (s.owners[space] != "" || s.owners[node] != "") {
+	if to.reserveBerth && (!s.owners[space].isZero() || !s.owners[node].isZero()) {
 		return nil, ErrBerthUnavailable
 	}
 	from, _ := s.station(v.Pod.StationID)
@@ -127,7 +127,7 @@ func (s *Simulation) installEmptyMove(v *vehicle, to emptyDestination, route []L
 	from, _ := s.station(v.Pod.StationID)
 	origin, _ := from.berth(v.Pod.BerthID)
 	if to.reserveBerth {
-		s.owners[resource{kind: berthResource, id: to.berth.ID}], s.owners[resource{kind: nodeResource, id: to.berth.Node}] = v.Pod.ID, v.Pod.ID
+		s.owners[resource{kind: berthResource, id: to.berth.ID}], s.owners[resource{kind: nodeResource, id: to.berth.Node}] = podResourceOwner(v.Pod.ID), podResourceOwner(v.Pod.ID)
 	}
 	v.origin, v.destination, v.destinationStation = origin, to.berth, to.station
 	s.setVehicleRoute(v, route)

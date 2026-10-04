@@ -321,7 +321,7 @@ func TestReassignedPodRoutes(t *testing.T) {
 				t.Fatalf("divertStart reports %v, want %v", ok, !test.committed)
 			}
 			claim := resource{kind: berthResource, id: "harbor-2"}
-			if held := s.owners[claim] == "02"; held != test.claims {
+			if held := s.owners[claim] == podResourceOwner("02"); held != test.claims {
 				t.Fatalf("pod 02 holds harbor-2: %v", held)
 			}
 			route := slices.Clone(v.Route)

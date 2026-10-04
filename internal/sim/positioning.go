@@ -270,8 +270,8 @@ func (s *Simulation) guardedView(gate guardedGate) guardedView {
 		}
 		var available []Berth
 		for _, berth := range station.Berths {
-			if !busy[berth.ID] && s.owners[resource{kind: berthResource, id: berth.ID}] == "" &&
-				s.owners[resource{kind: nodeResource, id: berth.Node}] == "" {
+			if !busy[berth.ID] && s.owners[resource{kind: berthResource, id: berth.ID}].isZero() &&
+				s.owners[resource{kind: nodeResource, id: berth.Node}].isZero() {
 				available = append(available, berth)
 			}
 		}
@@ -540,7 +540,7 @@ func (s *Simulation) guardedBumpToParking(bump guardedBump) bool {
 			continue
 		}
 		for _, berth := range station.Berths {
-			if s.owners[resource{kind: berthResource, id: berth.ID}] != "" || s.owners[resource{kind: nodeResource, id: berth.Node}] != "" {
+			if !s.owners[resource{kind: berthResource, id: berth.ID}].isZero() || !s.owners[resource{kind: nodeResource, id: berth.Node}].isZero() {
 				continue
 			}
 			if node, ok := s.graph.nodes[berth.Node]; ok && rank[node] < 0 {

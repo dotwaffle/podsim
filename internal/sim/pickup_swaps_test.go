@@ -261,7 +261,7 @@ func TestPickupSwapRedirectPreservesOnlySamePendingAge(t *testing.T) {
 			if changed {
 				// The pending group crosses the S1 entry. Its through-lane
 				// suffix changes to a berth inlet for the replacement pickup.
-				s.owners[resource{kind: nodeResource, id: "s1-entry"}] = "external"
+				s.owners[resource{kind: nodeResource, id: "s1-entry"}] = podResourceOwner("external")
 				stepUntil(t, s, "pickup stopped before the entry fork", func() bool {
 					return v.Pod.Speed == 0 && v.Pod.BlockedBy == "external"
 				})
@@ -285,7 +285,7 @@ func TestPickupSwapRedirectPreservesOnlySamePendingAge(t *testing.T) {
 			}
 			// Deny the replacement's next block, making admission record
 			// the new group's age instead of the unrelated old wait.
-			s.owners[v.blocks.at(v.reservedThrough + 1).resources[0]] = "external"
+			s.owners[v.blocks.at(v.reservedThrough + 1).resources[0]] = podResourceOwner("external")
 			s.admit()
 			if v.pending != first || v.waitSince != s.tick {
 				t.Fatalf("changed group's wait did not restart: pending%d since%d tick%d", v.pending, v.waitSince, s.tick)

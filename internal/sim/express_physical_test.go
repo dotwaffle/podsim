@@ -99,20 +99,20 @@ func checkExpressMotionTick(t *testing.T, s *Simulation, before []Pod) float64 {
 		}
 		for _, b := range v.blocks.span(v.blockIndex, v.reservedThrough+1) {
 			held := resource{kind: trackResource, id: b.lane.ID, cell: b.cell}
-			if s.owners[held] != pod.ID && !expressCertifiedSmallOwner(s, v, s.owners[held]) {
+			if s.owners[held] != podResourceOwner(pod.ID) && !expressCertifiedSmallOwner(s, v, s.owners[held].podID()) {
 				t.Fatalf("tick %d pod %s track %+v owner %s", s.tick, pod.ID, held, s.owners[held])
 			}
 		}
 		if !large {
 			continue
 		}
-		if v.distance < 20-1e-6 && (v.originReleased || s.owners[resource{kind: berthResource, id: v.origin.ID}] != pod.ID) {
+		if v.distance < 20-1e-6 && (v.originReleased || s.owners[resource{kind: berthResource, id: v.origin.ID}] != podResourceOwner(pod.ID)) {
 			t.Fatal("origin released before 20 meters")
 		}
 		for _, b := range v.blocks.span(0, v.blockIndex) {
 			if b.end+20 > v.distance+1e-6 {
 				held := resource{kind: trackResource, id: b.lane.ID, cell: b.cell}
-				if s.owners[held] != pod.ID {
+				if s.owners[held] != podResourceOwner(pod.ID) {
 					t.Fatalf("tick %d pod %s lost 20-meter tail %+v owner %s", s.tick, pod.ID, held, s.owners[held])
 				}
 			}
@@ -361,7 +361,7 @@ func TestExpressAdversarialStationaryEndpoint(t *testing.T) {
 					}
 				}
 			}
-			if s.owners[resource{kind: nodeResource, id: "market-berth"}] != "group" {
+			if s.owners[resource{kind: nodeResource, id: "market-berth"}] != podResourceOwner("group") {
 				t.Fatal("stationary Group lost endpoint node ownership")
 			}
 		})

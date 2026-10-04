@@ -209,7 +209,7 @@ func TestJunctionAdmissionWaitsForWholeConflictZone(t *testing.T) {
 	junction := resource{kind: junctionResource, id: "merge"}
 	exit := resource{kind: trackResource, id: "out", cell: 1}
 	s := &Simulation{
-		owners: map[resource]string{exit: "leader"},
+		owners: map[resource]resourceOwner{exit: podResourceOwner("leader")},
 		vehicles: []vehicle{{
 			Pod:             Pod{ID: "follower", Activity: Traveling},
 			reservedThrough: -1,
@@ -218,12 +218,12 @@ func TestJunctionAdmissionWaitsForWholeConflictZone(t *testing.T) {
 	}
 	s.grant(intent{index: 0, block: 0})
 	v := &s.vehicles[0]
-	if v.reservedThrough != -1 || s.owners[junction] != "" || v.Pod.BlockedBy != "leader" {
+	if v.reservedThrough != -1 || !s.owners[junction].isZero() || v.Pod.BlockedBy != "leader" {
 		t.Fatalf("pod entered conflict without its exit: reserved=%d owners=%v blocker=%s", v.reservedThrough, s.owners, v.Pod.BlockedBy)
 	}
 	delete(s.owners, exit)
 	s.grant(intent{index: 0, block: 0})
-	if v.reservedThrough != 1 || s.owners[junction] != "follower" || s.owners[exit] != "follower" {
+	if v.reservedThrough != 1 || s.owners[junction] != podResourceOwner("follower") || s.owners[exit] != podResourceOwner("follower") {
 		t.Fatalf("pod did not acquire cleared conflict atomically: reserved=%d owners=%v", v.reservedThrough, s.owners)
 	}
 }

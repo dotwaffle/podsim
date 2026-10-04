@@ -85,7 +85,7 @@ func checkReleasedTo(t *testing.T, s *Simulation, v *vehicle, berthID string) {
 			v.Pod.ID, berthID, v.Vehicle, v.released, v.destination.ID)
 	}
 	for _, r := range berthResources(v.destination) {
-		if s.owners[r] != v.Pod.ID {
+		if s.owners[r] != podResourceOwner(v.Pod.ID) {
 			t.Fatalf("pod %s does not hold %v", v.Pod.ID, r)
 		}
 	}
@@ -232,7 +232,7 @@ func TestReleasedPodFallbackBerth(t *testing.T) {
 			setup: func(s *Simulation) func() {
 				// Pod 02 seems to hold the inlet of Market 1.
 				track := resource{kind: trackResource, id: "market-in"}
-				s.owners[track], s.congestionRouteCosts = "02", nil
+				s.owners[track], s.congestionRouteCosts = podResourceOwner("02"), nil
 				return func() { delete(s.owners, track) }
 			},
 		},

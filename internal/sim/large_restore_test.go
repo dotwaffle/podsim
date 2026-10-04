@@ -70,10 +70,10 @@ func TestLargeRestoreOriginRetention(t *testing.T) {
 				t.Fatalf("originReleased=%v, want %v (tail %v)", v.originReleased, !test.held, v.originTail())
 			}
 			berth := resource{kind: berthResource, id: "harbor-1"}
-			if got := s.owners[berth] == "01"; got != test.held {
+			if got := s.owners[berth] == podResourceOwner("01"); got != test.held {
 				t.Fatalf("incremental origin owner=%v, want %v", got, test.held)
 			}
-			if got := s.retainedOwners()[berth] == "01"; got != test.held {
+			if got := s.retainedOwners()[berth] == podResourceOwner("01"); got != test.held {
 				t.Fatalf("reconstructed origin owner=%v, want %v", got, test.held)
 			}
 			if got := slices.Contains(v.footprint(v.reservedThrough, v.distance), berth); got != test.held {
@@ -483,7 +483,7 @@ func checkLargeColdRetainedOwners(t *testing.T, live, cold *Simulation) {
 			}
 		}
 		for held, owner := range live.owners {
-			if owner == v.Pod.ID && (required[held] || held.kind != trackResource) && cold.owners[held] != owner {
+			if owner == podResourceOwner(v.Pod.ID) && (required[held] || held.kind != trackResource) && cold.owners[held] != owner {
 				t.Fatalf("cold restore lost retained resource %+v of %s at tick %d", held, owner, live.tick)
 			}
 		}

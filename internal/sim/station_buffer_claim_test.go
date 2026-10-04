@@ -25,7 +25,7 @@ func bufferedHeadWithClaim(t *testing.T, departing bool) *Simulation {
 		t.Fatal(err)
 	}
 	barrier := resource{kind: berthResource, id: "market-1"}
-	s.owners[barrier] = "external"
+	s.owners[barrier] = podResourceOwner("external")
 	stepUntil(t, s, "passenger head at frontier", func() bool {
 		v := s.findVehicle("01")
 		plan, ok := s.bufferPlan(v)
@@ -50,7 +50,7 @@ func bufferedHeadWithClaim(t *testing.T, departing bool) *Simulation {
 	empty := s.findVehicle("02")
 	empty.released = true
 	s.parkReleased(empty)
-	if empty.destination.ID != "market-1" || s.owners[barrier] != "02" || s.relocationDestinationAdmitted(empty) {
+	if empty.destination.ID != "market-1" || s.owners[barrier] != podResourceOwner("02") || s.relocationDestinationAdmitted(empty) {
 		t.Fatal("fixture did not claim the unadmitted berth behind the head")
 	}
 	return s
@@ -64,9 +64,9 @@ func TestStationBufferDefersReleasedClaimantReroute(t *testing.T) {
 		t.Fatal("claimant has already entered its route")
 	}
 	route := slices.Clone(empty.Route)
-	s.owners[resource{kind: trackResource, id: route[0].ID, cell: 0}] = "external"
+	s.owners[resource{kind: trackResource, id: route[0].ID, cell: 0}] = podResourceOwner("external")
 	s.admit()
-	if s.owners[resource{kind: berthResource, id: "market-1"}] != "01" {
+	if s.owners[resource{kind: berthResource, id: "market-1"}] != podResourceOwner("01") {
 		t.Fatal("head did not acquire the remote berth claim")
 	}
 	if empty.Pod.Activity != DepartingEmpty || !slices.Equal(empty.Route, route) {
@@ -120,7 +120,7 @@ func TestStationBufferYieldsUnadmittedRelocationClaim(t *testing.T) {
 func TestStationBufferFailedPathKeepsRemoteClaims(t *testing.T) {
 	t.Parallel()
 	s := bufferedHeadWithRelocation(t)
-	s.owners[resource{kind: trackResource, id: "market-in", cell: 0}] = "external"
+	s.owners[resource{kind: trackResource, id: "market-in", cell: 0}] = podResourceOwner("external")
 	head, empty := s.findVehicle("01"), s.findVehicle("02")
 	owners := maps.Clone(s.owners)
 	before := s.ExportState()
