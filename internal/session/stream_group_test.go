@@ -287,6 +287,9 @@ func TestGroupStreamMaximumEncoding(t *testing.T) {
 		if err != nil || !bytes.Equal(raw, inflated) {
 			t.Fatal("typed group maximum gzip round trip", err)
 		}
+		if scanErr := prescanJSON(inflated, unpackedStreamLimits()); scanErr != nil {
+			t.Fatal("typed group maximum failed the bounded scan", scanErr)
+		}
 		decoded, err := DecodeStreamJSONVersion(inflated, 3)
 		if err != nil {
 			t.Fatal(err)

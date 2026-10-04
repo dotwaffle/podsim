@@ -74,14 +74,7 @@ func scanCouplingOrderContract(data []byte) (bool, error) {
 func couplingStreamLimits(packed bool) jsonLimits {
 	limits := expressStreamLimits()
 	if !packed {
-		for _, prefix := range []string{"/full", "/frame"} {
-			limits.arrays[prefix+"/state/simulation/Pending"] = maxSavedTrips
-			limits.arrays[prefix+"/state/simulation/Vehicles/*/Riders"] = 8
-			limits.arrays[prefix+"/state/simulation/Vehicles/*/Boardings"] = 8
-		}
-		limits.arrays["/delta/groups/pending"] = maxSavedTrips
-		limits.arrays["/delta/vehicles/*/riders/value"] = 8
-		limits.arrays["/delta/vehicles/*/boardings/value"] = 8
+		limits = unpackedStreamLimits()
 	}
 	for _, prefix := range []string{"/full/state/simulation", "/frame/state/simulation", "/delta/groups/coupling", ""} {
 		path := prefix + "/couplingGroups"

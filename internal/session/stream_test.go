@@ -282,6 +282,7 @@ func TestStreamMaximumEncoding(t *testing.T) {
 				t.Fatalf("full allowance exceeded: %d", len(data))
 			}
 			t.Logf("conservative full encoder fixture: %d bytes", len(data))
+			assertUnpackedStreamMaximum(t, data, representation == "historical")
 			compressed, err := encodeStream(e)
 			if err != nil {
 				t.Fatal(err)
@@ -308,6 +309,7 @@ func TestStreamMaximumEncoding(t *testing.T) {
 				t.Fatal("maximum delta exceeds cap", len(data), err)
 			}
 			t.Logf("conservative delta encoder fixture: %s bytes", strconv.Itoa(len(data)))
+			assertUnpackedStreamMaximum(t, data, representation == "historical")
 			compressed, err = encodeStream(e)
 			if err != nil {
 				t.Fatal(err)

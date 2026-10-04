@@ -23,13 +23,18 @@ func DecodeStreamJSONVersion(data []byte, version int) (StreamEnvelope, error) {
 	if version == CouplingStreamVersion {
 		return decodeCouplingStreamJSON(data)
 	}
+	// Bound the document before the token scans and the typed decode read it.
+	limits := unpackedStreamLimits()
+	if version == ExpressStreamVersion {
+		limits = expressStreamLimits()
+	}
+	if err := prescanJSON(data, limits); err != nil {
+		return StreamEnvelope{}, err
+	}
 	if err := scanContractMarkers(data, version == ExpressStreamVersion, version == ExpressStreamVersion); err != nil {
 		return StreamEnvelope{}, err
 	}
 	if version == ExpressStreamVersion {
-		if err := prescanJSON(data, expressStreamLimits()); err != nil {
-			return StreamEnvelope{}, err
-		}
 		if err := scanPackedOrders(data); err != nil {
 			return StreamEnvelope{}, err
 		}
@@ -48,6 +53,24 @@ func DecodeStreamJSONVersion(data []byte, version int) (StreamEnvelope, error) {
 		err = decodeStreamJSON(data, &envelope)
 	}
 	return envelope, err
+}
+
+// unpackedStreamLimits bound stream families 1 to 3 and unpacked coupling
+// documents. They narrow the Express limits to the order bounds of the
+// unpacked contract. The assembler accepts at most maxSavedTrips pending
+// orders, and at most sim.MaxSharedRideParties riders and boarding records
+// for each vehicle. Earlier encoders had the same or smaller caps.
+func unpackedStreamLimits() jsonLimits {
+	limits := expressStreamLimits()
+	for _, prefix := range []string{"/full", "/frame"} {
+		limits.arrays[prefix+"/state/simulation/Pending"] = maxSavedTrips
+		limits.arrays[prefix+"/state/simulation/Vehicles/*/Riders"] = sim.MaxSharedRideParties
+		limits.arrays[prefix+"/state/simulation/Vehicles/*/Boardings"] = sim.MaxSharedRideParties
+	}
+	limits.arrays["/delta/groups/pending"] = maxSavedTrips
+	limits.arrays["/delta/vehicles/*/riders/value"] = sim.MaxSharedRideParties
+	limits.arrays["/delta/vehicles/*/boardings/value"] = sim.MaxSharedRideParties
+	return limits
 }
 
 func scanStreamServiceMembers(data []byte, version int) error {

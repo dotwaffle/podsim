@@ -291,6 +291,9 @@ func TestExpressWidestStreamAdapters(t *testing.T) {
 		if err != nil || !bytes.Equal(raw, inflated) {
 			t.Fatal("stream gzip changed", err)
 		}
+		if scanErr := prescanJSON(inflated, expressStreamLimits()); scanErr != nil {
+			t.Fatal("maximum stream failed the bounded scan", scanErr)
+		}
 		decoded, err := DecodeStreamJSONVersion(inflated, 4)
 		if err != nil {
 			t.Fatal(err)
