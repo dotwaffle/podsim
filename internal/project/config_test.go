@@ -124,6 +124,7 @@ func TestValidateRejectsMalformedProjects(t *testing.T) {
 		{"duplicate station", func(config *Config) { config.Network.Stations[1].ID = config.Network.Stations[0].ID }},
 		{"duplicate pod", func(config *Config) { config.Fleet[1].ID = config.Fleet[0].ID }},
 		{"occupied berth", func(config *Config) { config.Fleet[1].StationID = config.Fleet[0].StationID }},
+		{"pod with no berth ID", func(config *Config) { config.Fleet[0].BerthID = "" }},
 		{"rate low", func(config *Config) { config.Demand.PerMinute = 0 }},
 		{"rate high", func(config *Config) { config.Demand.PerMinute = 121 }},
 		{"sharing limit", func(config *Config) { config.SharedRidePartyLimit = sim.MaxSharedRideParties + 1 }},
@@ -278,7 +279,7 @@ func TestValidateLimitsGeometry(t *testing.T) {
 	}
 }
 
-// TestEditorMirrorsLimits checks that the editor uses the limits of
+// TestEditorMirrorsLimits checks that the editor uses the lane limit of
 // Validate.
 func TestEditorMirrorsLimits(t *testing.T) {
 	t.Parallel()
@@ -286,15 +287,7 @@ func TestEditorMirrorsLimits(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for name, want := range map[string]int{
-		"MAX_PODS": MaxPods, "MAX_STATIONS": MaxStations, "MAX_BERTHS": MaxBerths, "MAX_NODES": MaxNodes, "MAX_LANES": MaxLanes, "MAX_NODE_LANES": MaxNodeLanes, "MAX_FLOWS": MaxFlows,
-		"MAX_COORDINATE": MaxCoordinate, "GEO_RADIUS": GeoRadius, "GEO_MAX_LATITUDE": MaxGeoLatitude,
-	} {
-		if !strings.Contains(string(source), fmt.Sprintf("const %s = %d;", name, want)) {
-			t.Errorf("web/editor.js does not set %s to %d", name, want)
-		}
-	}
-	if want := fmt.Sprintf("const GEO_PROJECTION = %q;", GeoProjection); !strings.Contains(string(source), want) {
+	if want := fmt.Sprintf("const MAX_LANES = %d;", MaxLanes); !strings.Contains(string(source), want) {
 		t.Errorf("web/editor.js does not have %s", want)
 	}
 }

@@ -433,7 +433,8 @@ func TestImportMatchesServerDecoder(t *testing.T) {
 }
 
 // importedDraft follows the browser import: JSON.parse keeps both names of a
-// case pair, then the Go import helper repairs or replaces the draft.
+// case pair, then the Go import helper replaces the draft when the server
+// decoder reads such names.
 func importedDraft(t *testing.T, text string) map[string]any {
 	t.Helper()
 	var draft map[string]any
@@ -441,19 +442,15 @@ func importedDraft(t *testing.T, text string) map[string]any {
 		t.Fatal(err)
 	}
 	var result struct {
-		Change struct {
-			Patch   map[string]any `json:"patch"`
-			Replace map[string]any `json:"replace"`
-		} `json:"change"`
-		Error string `json:"error"`
+		Replace map[string]any `json:"replace"`
+		Error   string         `json:"error"`
 	}
-	if err := json.Unmarshal([]byte(Call(`{"op":"importCompatibility","project":`+text+`}`)), &result); err != nil || result.Error != "" {
+	if err := json.Unmarshal([]byte(Call(`{"op":"canonicalImport","project":`+text+`}`)), &result); err != nil || result.Error != "" {
 		t.Fatal("import helper failed", err, result.Error)
 	}
-	if result.Change.Replace != nil {
-		draft = result.Change.Replace
+	if result.Replace != nil {
+		draft = result.Replace
 	}
-	maps.Copy(draft, result.Change.Patch)
 	return draft
 }
 

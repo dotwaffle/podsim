@@ -21,8 +21,9 @@ const (
 )
 
 // These are the largest counts that Validate accepts. The saved session
-// decoder and web/editor.js use the same limits. The maximum saved-state
-// fixture includes the widest routes and a MaxFileBytes project member.
+// decoder uses the same limits, and web/editor.js has a copy of MaxLanes.
+// The maximum saved-state fixture includes the widest routes and a
+// MaxFileBytes project member.
 // TestStateFileWorstCaseSize must pass after any count or byte limit changes.
 const (
 	// MaxPods is the largest fleet.
@@ -79,7 +80,7 @@ const (
 // is the one projection that Validate accepts. GeoRadius is the sphere
 // radius in meters of that projection, the radius of the London preset.
 // MaxGeoLatitude is the largest absolute latitude in degrees of the
-// reference. web/editor.js has a copy of these values.
+// reference.
 const (
 	GeoProjection  = "equirectangular"
 	GeoRadius      = 6_371_000
@@ -615,8 +616,13 @@ func validateNames(config Config) error {
 			return err
 		}
 	}
+	// Each pod names its berth. The editor checks reject a pod with no
+	// berth ID, so the server does not select a berth for one.
 	for _, placement := range config.Fleet {
-		if !validID(placement.ID) || !validID(placement.StationID) || placement.BerthID != "" && !validID(placement.BerthID) {
+		if placement.BerthID == "" {
+			return fmt.Errorf("pod %s has no berth ID", quoteID(placement.ID))
+		}
+		if !validID(placement.ID) || !validID(placement.StationID) || !validID(placement.BerthID) {
 			return fmt.Errorf("fleet IDs must contain 1 to %d characters", maxIDLength)
 		}
 	}

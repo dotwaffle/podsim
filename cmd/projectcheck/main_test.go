@@ -277,8 +277,11 @@ func TestServerDecoderParity(t *testing.T) {
 	var fixture struct {
 		Bases map[string]string `json:"bases"`
 		Cases []struct {
-			Name, Base, Find, Replace string
-			Valid                     bool
+			Name    string `json:"name"`
+			Base    string `json:"base"`
+			Find    string `json:"find"`
+			Replace string `json:"replace"`
+			Valid   bool   `json:"valid"`
 		} `json:"cases"`
 	}
 	if err := json.Unmarshal(raw, &fixture); err != nil {
@@ -288,7 +291,7 @@ func TestServerDecoderParity(t *testing.T) {
 		t.Run(item.Name, func(t *testing.T) {
 			t.Parallel()
 			base := fixture.Bases[item.Base]
-			if !strings.Contains(base, item.Find) {
+			if base == "" || !strings.Contains(base, item.Find) {
 				t.Fatal("fixture text is missing")
 			}
 			data := []byte(strings.Replace(base, item.Find, item.Replace, 1))

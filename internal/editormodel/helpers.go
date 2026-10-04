@@ -6,13 +6,12 @@ import (
 	"encoding/json/v2"
 	"errors"
 	"fmt"
-	"reflect"
 
 	"github.com/dotwaffle/podsim/internal/project"
 )
 
 func helperOperation(op string) bool {
-	return op == "backgroundMetadata" || op == "importCompatibility" || op == "stationLayout"
+	return op == "backgroundMetadata" || op == "canonicalImport" || op == "stationLayout"
 }
 
 func executeHelper(command request, input string) (response, error) {
@@ -20,7 +19,7 @@ func executeHelper(command request, input string) (response, error) {
 	switch command.Op {
 	case "backgroundMetadata":
 		allowed["metadata"] = true
-	case "importCompatibility":
+	case "canonicalImport":
 		allowed["project"] = true
 	case "stationLayout":
 		allowed["project"], allowed["layout"] = true, true
@@ -48,98 +47,34 @@ func executeHelper(command request, input string) (response, error) {
 	if err := json.Unmarshal(command.Project, &draft); err != nil {
 		return response{}, fmt.Errorf("decode helper draft: %w", err)
 	}
-	if command.Op == "importCompatibility" {
-		change, err := importChange(draft, command.Project)
-		return response{Change: &change, helper: true}, err
+	if command.Op == "canonicalImport" {
+		return response{Replace: canonicalProject(command.Project), helper: true}, nil
 	}
 	summary, err := inspectStationLayout(draft, command.Layout)
 	return response{Layout: &summary, helper: true}, err
-}
-
-// importChange gives the import repairs. When the server decoder reads
-// member names that differ only in case, the repairs apply to the canonical
-// replacement of the project.
-func importChange(draft any, raw jsontext.Value) (projectChange, error) {
-	canonical, found := canonicalProject(raw)
-	if !found {
-		return importCompatibility(draft)
-	}
-	var replaced any
-	if err := json.Unmarshal(canonical, &replaced); err != nil {
-		return projectChange{}, fmt.Errorf("decode canonical project: %w", err)
-	}
-	change, err := importCompatibility(replaced)
-	change.Replace = canonical
-	return change, err
-}
-
-func importCompatibility(draft any) (projectChange, error) {
-	change := projectChange{Patch: map[string]any{}}
-	fleet := cloneEditValue(member(draft, "fleet"))
-	for _, pod := range items(fleet) {
-		if !editorTruthy(pod) || editorTruthy(member(pod, "BerthID")) {
-			continue
-		}
-		if _, array := pod.([]any); array {
-			continue
-		}
-		if object(pod) == nil {
-			return projectChange{}, errors.New("a pod must be an object before import repair")
-		}
-		berthID := any("")
-		for _, station := range items(member(member(draft, "network"), "Stations")) {
-			if editorTruthy(station) && sameOptionalMember(station, "ID", pod, "StationID") {
-				if berths := items(member(station, "Berths")); len(berths) != 0 && editorTruthy(member(berths[0], "ID")) {
-					berthID = member(berths[0], "ID")
-				}
-				break
-			}
-		}
-		object(pod)["BerthID"] = berthID
-	}
-	if !reflect.DeepEqual(fleet, member(draft, "fleet")) {
-		change.Patch["fleet"] = fleet
-	}
-	demand := object(cloneEditValue(member(draft, "demand")))
-	if member(demand, "pattern") == "market" {
-		demand["pattern"] = "destination"
-		if stations, ok := member(member(draft, "network"), "Stations").([]any); !editorTruthy(demand["destination"]) && ok {
-			demand["destination"] = ""
-			for _, station := range stations {
-				if !editorTruthy(station) || editorTruthy(member(station, "ParkingOnly")) {
-					continue
-				}
-				demand["destination"] = member(station, "ID")
-				if !editorTruthy(demand["destination"]) {
-					demand["destination"] = ""
-				}
-				if member(station, "ID") == "market" {
-					break
-				}
-			}
-		}
-		change.Patch["demand"] = demand
-	}
-	return change, nil
 }
 
 // canonicalProject gives the project with canonical member names when the
 // server decoder accepts member names that differ only in case. The server
 // decodes with encoding/json, which matches names without case and keeps the
 // last of two such names. The canonical encoding keeps the member order of
-// project.Config. Without such names, the imported draft stays unchanged.
-func canonicalProject(raw jsontext.Value) (jsontext.Value, bool) {
+// project.Config. Without such names, it gives nil and the imported draft
+// stays unchanged.
+func canonicalProject(raw jsontext.Value) jsontext.Value {
 	type plainConfig project.Config
 	var strict plainConfig
 	if !errors.Is(json.Unmarshal(raw, &strict, json.RejectUnknownMembers(true)), json.ErrUnknownName) {
-		return nil, false
+		return nil
 	}
 	var config project.Config
 	if jsonv1.Unmarshal(raw, &config) != nil {
-		return nil, false
+		return nil
 	}
 	encoded, err := json.Marshal(config)
-	return encoded, err == nil
+	if err != nil {
+		return nil
+	}
+	return encoded
 }
 
 type layoutField struct {

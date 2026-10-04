@@ -210,7 +210,7 @@ test("helper client bypasses synchronization and leaves branch transport unchang
   f.worker.onmessage({ data: { id: f.sent.at(-1).id, result: { valid: true } } }); await initial;
   for (const [op, project, plan, parameter] of [
     ["backgroundMetadata", null, { asset: null }, "metadata"],
-    ["importCompatibility", { fleet: [null], version: 99 }, undefined, null],
+    ["canonicalImport", { fleet: [null], version: 99 }, undefined, null],
     ["stationLayout", { network: {} }, { stationID: "missing" }, "layout"],
   ]) {
     const pending = f.client.call(project, op, plan), sent = f.sent.at(-1);
@@ -227,10 +227,10 @@ test("helper client bypasses synchronization and leaves branch transport unchang
 
 test("helper operations send raw requests before any synchronization or checks", () => {
   const { createOperations } = require("./editor-model.js"), calls = [];
-  const operations = createOperations((request) => { calls.push(request); return { change: { patch: {} } }; });
+  const operations = createOperations((request) => { calls.push(request); return {}; });
   const raw = { version: 99, fleet: "invalid" };
-  assert.deepEqual(operations.handle({ id: 5, op: "importCompatibility", project: raw }), { change: { patch: {} } });
-  assert.deepEqual(calls, [{ op: "importCompatibility", project: raw }]);
+  assert.deepEqual(operations.handle({ id: 5, op: "canonicalImport", project: raw }), {});
+  assert.deepEqual(calls, [{ op: "canonicalImport", project: raw }]);
   assert.strictEqual(calls[0].project, raw);
 });
 
@@ -246,8 +246,8 @@ test("helper responses reject missing, unrelated and malformed result fields", (
     ["backgroundMetadata", { ...metadata, checks: {} }],
     ["backgroundMetadata", { valid: true, metadata: { asset: { frameState: "none", frame: null, license: {} } } }],
     ["backgroundMetadata", { valid: true, metadata: { ...metadata.metadata, urlFacts: {} } }],
-    ["importCompatibility", { change: { patch: { network: {} } } }],
-    ["importCompatibility", { change: { patch: {} }, valid: true }],
+    ["canonicalImport", { change: { patch: {} } }],
+    ["canonicalImport", { valid: true }],
     ["stationLayout", { layout: { ...layout.layout, pitch: { value: null, reason: "" } } }],
     ["stationLayout", { layout: { ...layout.layout, spacing: { value: 75, reason: "unavailable" } } }],
     ["stationLayout", { layout: { ...layout.layout, spacing: { value: "75", reason: "" } } }],
@@ -255,12 +255,14 @@ test("helper responses reject missing, unrelated and malformed result fields", (
   ]) assert.throws(() => checkedHelper(result, op), /Invalid Go/);
 });
 
-test("import helper replacements must be one project object with the usual repair keys", () => {
+test("an import replacement must be one project object with no other member", () => {
   const { checkedHelper } = require("./editor-model.js");
-  const replaced = { change: { patch: { fleet: [] }, replace: { version: 1, name: "Canonical" } } };
-  assert.strictEqual(checkedHelper(replaced, "importCompatibility"), replaced);
-  for (const change of [{ patch: {}, replace: null }, { patch: {}, replace: [] }, { patch: { name: "x" }, replace: {} }, { patch: {}, replace: {}, flag: "x" }]) {
-    assert.throws(() => checkedHelper({ change }, "importCompatibility"), /Invalid Go/);
+  const replaced = { replace: { version: 1, name: "Canonical" } };
+  assert.strictEqual(checkedHelper(replaced, "canonicalImport"), replaced);
+  const unchanged = {};
+  assert.strictEqual(checkedHelper(unchanged, "canonicalImport"), unchanged);
+  for (const result of [{ replace: null }, { replace: [] }, { replace: "{}" }, { replace: {}, patch: {} }, { replace: {}, valid: true }]) {
+    assert.throws(() => checkedHelper(result, "canonicalImport"), /Invalid Go/);
   }
 });
 

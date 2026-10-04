@@ -88,7 +88,7 @@
     };
   }
 
-  function helperOperation(op) { return ["backgroundMetadata", "importCompatibility", "stationLayout"].includes(op); }
+  function helperOperation(op) { return ["backgroundMetadata", "canonicalImport", "stationLayout"].includes(op); }
 
   function checkedHelper(result, op) {
     if (!result || typeof result !== "object" || Array.isArray(result)) throw new Error("Invalid Go helper response");
@@ -106,9 +106,8 @@
           (metadata.asset.frameState === "none") !== (metadata.asset.frame === null) ||
           !(metadata.asset.license === null || exact(metadata.asset.license, ["source", "attribution", "license", "licenseURL", "copyrightURL", "retrieved", "method", "notice"]) && Object.values(metadata.asset.license).every((value) => typeof value === "string")) ||
           (metadata.placement !== undefined && (!exact(metadata.placement, ["x", "y", "width", "height", "opacity"]) || !Object.values(metadata.placement).every(Number.isFinite) || metadata.placement.width <= 0 || metadata.placement.height <= 0 || metadata.placement.opacity < 0 || metadata.placement.opacity > 1))) throw new Error("Invalid Go metadata response");
-    } else if (op === "importCompatibility") {
-      const replaced = Object.hasOwn(result.change || {}, "replace");
-      if (!exact(result, ["change"]) || !exact(result.change, replaced ? ["patch", "replace"] : ["patch"]) || replaced && !object(result.change.replace) || !object(result.change.patch) || Object.keys(result.change.patch).some((key) => !["fleet", "demand"].includes(key))) throw new Error("Invalid Go compatibility response");
+    } else if (op === "canonicalImport") {
+      if (!exact(result, []) && !(exact(result, ["replace"]) && object(result.replace))) throw new Error("Invalid Go import response");
     } else {
       const keys = ["pitch", "spacing", "setback", "approachLength", "departureLength"];
       if (!exact(result, ["layout"]) || !exact(result.layout, keys) || !keys.every((key) => {

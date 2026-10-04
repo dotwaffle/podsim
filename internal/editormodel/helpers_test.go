@@ -78,42 +78,19 @@ func TestBackgroundMetadataGuards(t *testing.T) {
 	}
 }
 
-func TestImportCompatibilityPreservesRawDraft(t *testing.T) {
+func TestCanonicalImportReplacesOnlyCaseVariants(t *testing.T) {
 	t.Parallel()
-	input := `{"network":{"Stations":[{"ID":"origin","Berths":[{"ID":"berth"}]},{"ID":"last"},{"ID":"market","ParkingOnly":true}]},"fleet":[{"StationID":"origin","BerthID":false},{"StationID":"unknown","BerthID":0},{"StationID":"origin","BerthID":"kept"},null],"demand":{"pattern":"market","destination":null,"rate":"invalid"},"version":99,"unknown":true}`
-	result := helperResult(t, `{"op":"importCompatibility","project":`+input+`}`)
-	if result.Error != "" {
-		t.Fatal(result.Error)
-	}
-	patch := result.Change.Patch
-	if len(patch) != 2 || member(patch["demand"], "destination") != "last" || member(patch["demand"], "rate") != "invalid" {
-		t.Fatalf("patch: %#v", patch)
-	}
-	pods := items(patch["fleet"])
-	if member(pods[0], "BerthID") != "berth" || member(pods[1], "BerthID") != "" || member(pods[2], "BerthID") != "kept" || pods[3] != nil {
-		t.Fatalf("fleet: %#v", pods)
-	}
-	for _, draft := range []string{`{}`, `{"fleet":null}`, `{"fleet":[[]]}`, `{"fleet":[{"BerthID":true}],"demand":{"pattern":"destination"}}`} {
-		if r := helperResult(t, `{"op":"importCompatibility","project":`+draft+`}`); r.Error != "" || len(r.Change.Patch) != 0 {
-			t.Fatalf("unexpected defaults: %+v", r)
+	// The helper does not repair a draft: a pod without BerthID and the
+	// market pattern stay as they are.
+	for _, draft := range []string{`{}`, `{"fleet":[{"StationID":"origin"}],"demand":{"pattern":"market"}}`, `{"version":99,"fleet":"invalid"}`} {
+		if output := Call(`{"op":"canonicalImport","project":` + draft + `}`); output != `{}` {
+			t.Fatalf("%s: %s", draft, output)
 		}
 	}
-	noStations := helperResult(t, `{"op":"importCompatibility","project":{"demand":{"pattern":"market","destination":false}}}`)
-	if member(noStations.Change.Patch["demand"], "destination") != false {
-		t.Fatal("repair changed destination without station array")
-	}
-	var draft any
-	if err := json.Unmarshal([]byte(input), &draft); err != nil {
-		t.Fatal(err)
-	}
-	before := cloneEditValue(draft)
-	change, err := importCompatibility(draft)
-	if err != nil {
-		t.Fatal(err)
-	}
-	object(items(change.Patch["fleet"])[0])["StationID"] = "changed"
-	if !reflect.DeepEqual(draft, before) {
-		t.Fatal("returned compatibility branches alias draft")
+	result := helperResult(t, `{"op":"canonicalImport","project":{"NAME":"Old","version":1}}`)
+	var replaced map[string]any
+	if err := json.Unmarshal(result.Replace, &replaced); err != nil || replaced["name"] != "Old" || replaced["version"] != float64(1) || replaced["NAME"] != nil {
+		t.Fatalf("replace: %s %v", result.Replace, err)
 	}
 }
 
@@ -149,7 +126,7 @@ func TestHelpersDoNotMutateEngine(t *testing.T) {
 	inputs := []string{
 		`{"op":"backgroundMetadata","metadata":{}}`,
 		`{"op":"backgroundMetadata","metadata":{"asset":null}}`,
-		`{"op":"importCompatibility","project":{"version":99,"fleet":[{}]}}`,
+		`{"op":"canonicalImport","project":{"version":99,"fleet":[{}]}}`,
 		`{"op":"stationLayout","project":{"network":{"Stations":[{"ID":"station"}]}},"layout":{"stationID":"station"}}`,
 		`{"op":"stationLayout","project":{},"layout":{"stationID":"missing"}}`,
 	}
@@ -179,7 +156,7 @@ func TestHelpersDoNotMutateEngine(t *testing.T) {
 	for _, input := range []string{
 		`{"op":"backgroundMetadata","metadata":{},"project":null}`,
 		`{"op":"backgroundMetadata","metadata":{},"keys":null}`,
-		`{"op":"importCompatibility","project":{},"layout":null}`,
+		`{"op":"canonicalImport","project":{},"layout":null}`,
 		`{"op":"stationLayout","project":{},"layout":{},"patch":null}`,
 		`{"op":"validate","project":{},"metadata":{}}`,
 	} {
@@ -201,7 +178,7 @@ func TestHelpersPreservePendingHistory(t *testing.T) {
 		t.Fatal(err)
 	}
 	revision, pending := timeline.revision, timeline.pending
-	for _, input := range []string{`{"op":"backgroundMetadata","metadata":{}}`, `{"op":"backgroundMetadata","metadata":{"asset":null}}`, `{"op":"importCompatibility","project":{}}`, `{"op":"stationLayout","project":{},"layout":{"stationID":"missing"}}`} {
+	for _, input := range []string{`{"op":"backgroundMetadata","metadata":{}}`, `{"op":"backgroundMetadata","metadata":{"asset":null}}`, `{"op":"canonicalImport","project":{}}`, `{"op":"stationLayout","project":{},"layout":{"stationID":"missing"}}`} {
 		_, _ = e.handle(input)
 	}
 	after, err := json.Marshal(historyMetadata(e.timeline.state, e.timeline.revision, false))
@@ -229,7 +206,7 @@ func TestMetadataBoundsAndSurrogateURLFacts(t *testing.T) {
 	if r := helperResult(t, `{"op":"backgroundMetadata","metadata":{`+strings.Repeat(" ", metadataBytes)+`}}`); r.Error == "" {
 		t.Fatal("oversized metadata accepted")
 	}
-	if r := helperResult(t, `{"op":"importCompatibility","project":{`+strings.Repeat(" ", MaxRequestBytes-metadataBytes)+`}}`); r.Error == "" {
+	if r := helperResult(t, `{"op":"canonicalImport","project":{`+strings.Repeat(" ", MaxRequestBytes-metadataBytes)+`}}`); r.Error == "" {
 		t.Fatal("oversized raw helper project accepted")
 	}
 	if r := helperResult(t, `{"op":"backgroundMetadata","metadata":{},"extra":"`+strings.Repeat("x", MaxRequestBytes)+`"}`); r.Error == "" {
@@ -244,10 +221,10 @@ func TestHelperWireShapes(t *testing.T) {
 		keys  []string
 	}{
 		{`{"op":"backgroundMetadata","metadata":{}}`, []string{"valid", "metadata"}},
-		{`{"op":"importCompatibility","project":{}}`, []string{"change"}},
+		{`{"op":"canonicalImport","project":{}}`, []string{}},
 		{`{"op":"stationLayout","project":{"network":{"Stations":[{"ID":"station"}]}},"layout":{"stationID":"station"}}`, []string{"layout"}},
 		{`{"op":"backgroundMetadata","metadata":null}`, []string{"error"}},
-		{`{"op":"importCompatibility","project":null}`, []string{"error"}},
+		{`{"op":"canonicalImport","project":null}`, []string{"error"}},
 		{`{"op":"stationLayout","project":{},"layout":null}`, []string{"error"}},
 		{`{"op":"backgroundMetadata","metadata":{},"keys":null}`, []string{"error"}},
 		{`{"op":"backgroundMetadata","metadata":{},"extra":null}`, []string{"error"}},

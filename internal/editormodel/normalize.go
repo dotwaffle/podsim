@@ -45,22 +45,9 @@ func normalizeProject(draft any) (projectChange, error) {
 	out["network"] = network
 	fleet := normalizeArray(out["fleet"])
 	for _, pod := range fleet {
-		if !editorTruthy(pod) || editorTruthy(member(pod, "BerthID")) {
-			continue
-		}
-		if object(pod) == nil {
+		if editorTruthy(pod) && object(pod) == nil {
 			return projectChange{}, errors.New("a pod must be an object before normalization")
 		}
-		berthID := any("")
-		for _, station := range items(network["Stations"]) {
-			if object(station) != nil && sameOptionalMember(station, "ID", pod, "StationID") {
-				if berths := items(member(station, "Berths")); len(berths) != 0 && editorTruthy(member(berths[0], "ID")) {
-					berthID = member(berths[0], "ID")
-				}
-				break
-			}
-		}
-		object(pod)["BerthID"] = berthID
 	}
 	out["fleet"] = fleet
 	if _, ok := out["demandProfiles"].([]any); !ok {

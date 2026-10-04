@@ -11,9 +11,6 @@ import (
 
 // stationLaneRolesPath holds the station lane roles that
 // inferStationLaneRoles gives for each network of stationLaneRoleCases.
-// The editor test web/editor_test.cjs reads the file and compares the
-// roles that the editor infers on import with it, so that the editor and
-// the simulation give a legacy project the same station lanes.
 const stationLaneRolesPath = "testdata/station_lane_roles.json"
 
 // stationLaneRolesFile is the form of the file at stationLaneRolesPath.
@@ -183,8 +180,8 @@ func inferredStationLaneRoles(network Network) []stationLaneRoles {
 	return roles
 }
 
-// TestStationLaneRolesGolden fixes the station lane roles that the editor
-// test compares with. Run the test with -update to write the file again.
+// TestStationLaneRolesGolden fixes the station lane roles of
+// stationLaneRoleCases. Run the test with -update to write the file again.
 func TestStationLaneRolesGolden(t *testing.T) {
 	t.Parallel()
 	cases := stationLaneRoleCases()

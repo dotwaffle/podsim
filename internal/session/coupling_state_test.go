@@ -144,7 +144,16 @@ func couplingPhaseInput(t *testing.T, data couplingPhaseData, frame couplingPhas
 func couplingProject(input sim.RestoreStateInput) project.Config {
 	config := project.Default()
 	config.Version, config.Name = project.CouplingVersion, "Private coupling certificate"
-	config.Network, config.Fleet = input.Network, input.Fleet
+	config.Network, config.Fleet = input.Network, slices.Clone(input.Fleet)
+	// The certificate fleet names stations only, and the native restore
+	// selects the first berth. A project names the berth of each pod.
+	for index, pod := range config.Fleet {
+		for _, station := range input.Network.Stations {
+			if pod.BerthID == "" && station.ID == pod.StationID && len(station.Berths) > 0 {
+				config.Fleet[index].BerthID = station.Berths[0].ID
+			}
+		}
+	}
 	// Add return connections for project passenger reachability. The private
 	// certificate network and all saved lane indices remain unchanged.
 	config.Network.Lanes = slices.Clone(input.Network.Lanes)

@@ -4,7 +4,6 @@
   const Tiles = typeof module !== "undefined" && module.exports ? require("./tiles.js") : root.PodsimTiles;
 
   const MIN_LANE_LENGTH = 24;
-  const DEFAULT_SPEED = 12;
   // A view scale is in screen pixels per meter. Fit keeps FIT_MARGIN pixels of
   // the map free, half on each side of the network.
   const MIN_ZOOM = 0.15;
@@ -22,31 +21,16 @@
   // CHEVRON_LANE_LENGTH is the shortest length in screen pixels of a lane that
   // shows its direction chevron.
   const CHEVRON_LANE_LENGTH = 24;
-  // BERTH_PITCH is the distance in meters from a new station to its first
-  // berth, and from the last berth to the berth that addBerth adds to a
-  // station that is not a berth chain. A berth chain uses its own pitch. See
-  // nextChainRow. STATION_PADDING is the distance in meters from the outer
-  // station nodes to the edge of the drawn station shape.
-  const BERTH_PITCH = 30;
+  // STATION_PADDING is the distance in meters from the outer station nodes
+  // to the edge of the drawn station shape.
   const STATION_PADDING = 12;
-  // CLEARANCE is the clearance in meters around a pod, sim.Clearance in the
-  // Go code. A new berth chain row must keep this distance from other lanes.
-  const CLEARANCE = 12;
-  // MAX_STATIONS, MAX_BERTHS, MAX_NODES, MAX_LANES, MAX_NODE_LANES, and
-  // MAX_FLOWS are limits of the server (internal/project/config.go). Keep
-  // them the same. MAX_BERTHS applies to each station. MAX_NODE_LANES
-  // counts each lane at its From node and at its To node.
-  const MAX_PODS = 300;
-  const MAX_STATIONS = 300;
-  const MAX_BERTHS = 200;
-  const MAX_NODES = 5000;
+  // MAX_LANES is project.MaxLanes, the lane limit of the server. A Go test
+  // in internal/project checks the mirror.
   const MAX_LANES = 8000;
-  const MAX_NODE_LANES = 64;
   // LANE_CLASSES gives the vehicle classes in the native order.
   const LANE_CLASSES = ["legacy", "compact", "group", "express"];
   // MAX_COUPLING_ROWS is sim.MaxCouplingSites and sim.MaxCouplingCorridors.
   const MAX_COUPLING_ROWS = 300;
-  const MAX_FLOWS = 65000;
   // IMAGE_FILE_BYTES is the largest background image file that the editor
   // imports. SERVER_PROJECT_BYTES mirrors project.MaxFileBytes on the server,
   // the largest compact project. A Go test in internal/project checks the
@@ -79,16 +63,6 @@
   // one gzip command at a time. The compression makes a project command
   // about 6 times smaller, so a slow link sends it in less time.
   const SERVER_COMMAND_BYTES = 4 * MIB;
-  // GEO_PROJECTION, GEO_RADIUS and GEO_MAX_LATITUDE mirror
-  // project.GeoProjection, project.GeoRadius and project.MaxGeoLatitude,
-  // the limits of the geo reference of a project. MAX_COORDINATE mirrors
-  // project.MaxCoordinate, the largest absolute value in meters of each
-  // coordinate of a node. A Go test in internal/project checks the
-  // mirrors.
-  const GEO_PROJECTION = "equirectangular";
-  const GEO_RADIUS = 6371000;
-  const GEO_MAX_LATITUDE = 80;
-  const MAX_COORDINATE = 100000;
   const SERVER_COMMAND_JSON_BYTES = SERVER_PROJECT_BYTES + 64 * 1024;
   const GZIP_COMMAND_BYTES = 64 * 1024;
 
@@ -226,9 +200,9 @@
   // previous row, or from the station entry for the first row, to the
   // arrival node. A departure link goes from the departure node to the
   // departure node of the previous row, or to the station exit. The arrival
-  // and departure nodes are not entry, exit or berth nodes. A station that
-  // addStation makes is not a chain, because its berth lanes go directly to
-  // the entry and the exit. Each row has berth, the berth, arrival and
+  // and departure nodes are not entry, exit or berth nodes. A new station
+  // is not a chain, because its berth lanes go directly to the entry and the
+  // exit. Each row has berth, the berth, arrival and
   // departure, the node IDs, and arrivalLink, departureLink, inLane and
   // outLane, the lanes.
   function berthChain(config, station) {
@@ -714,8 +688,8 @@
   // focus after the checks run again. before and after hold the links
   // before and after the run, in list order. A link has text, its message,
   // and type and id, its check target. The key of a link is its text. The
-  // text is unique in the list, because validateConfig and configWarnings
-  // remove a repeated text. focused is the index in before of the link that
+  // text is unique in the list, because the Go checks remove a repeated
+  // text. focused is the index in before of the link that
   // had the focus, or null when the focus was not in the list. Then the
   // function gives null, and the focus does not move.
   // The new link of an old link is the link of after with the same text.
@@ -774,20 +748,6 @@
     const out = { dataURL: bytesToDataURL(image.bytes, image.mime), x, y, width, height, opacity };
     if (background.frameState !== "none" || image.license) out.asset = { frameState: background.frameState, frame: image.frame, license: image.license };
     return out;
-  }
-
-  // documentAsset gives the frame state, the frame and the license of the
-  // asset member of an imported background. An absent asset is the state
-  // "none" with no frame and no license. It throws an error for an asset
-  // that assetError rejects. A missing alignment is not an error.
-  function documentAsset(asset) {
-    if (asset === undefined) return { frameState: "none", frame: null, license: null };
-    if (asset === null || typeof asset !== "object" || Array.isArray(asset)) throw new Error("The background asset must be an object.");
-    for (const key of Object.keys(asset)) if (!["frameState", "frame", "license"].includes(key)) throw new Error("The background asset has an unknown member.");
-    const out = { frameState: asset.frameState, frame: asset.frame ?? null, license: asset.license ?? null };
-    const error = assetError(out);
-    if (error) throw new Error(error);
-    return clone(out);
   }
 
   // foldName gives an ASCII member name in the case fold of the server
@@ -858,73 +818,23 @@
     return { scenario: clone(document), background: null };
   }
 
-  // importedScenario gives the scenario after the Go import repairs. A
-  // replacement has the canonical member names of a server project.
-  function importedScenario(scenario, change) {
-    return { ...(change.replace || scenario), ...change.patch };
-  }
-
-  // parseDocument checks the text of an import file and gives the scenario
-  // and the background fields. For a background, it also gives asset, the
-  // frame state, the frame and the license of its asset member, as
-  // documentAsset checks them.
-  function parseDocument(text, { deferMetadata = false } = {}) {
+  // parseDocument checks the text of an import file and gives the scenario,
+  // the background fields and metadata, the placement and the asset member
+  // of the background. Go checks the scenario and the metadata, so the
+  // scenario stays as the file gives it.
+  function parseDocument(text) {
     let document;
     try { document = JSON.parse(text); } catch (error) { throw new Error(`The file is not valid JSON. ${error.message}`); }
     const repeated = repeatedMember(text);
     if (repeated !== null) throw new Error(`The file repeats the member name ${JSON.stringify(repeated)} in one object.`);
     const { scenario, background } = unwrapDocument(document);
-    if (deferMetadata && background) {
+    if (background) {
       if (typeof background !== "object" || Array.isArray(background)) throw new Error("The background must be an object.");
       if (typeof background.dataURL !== "string" || !/^data:image\/(png|jpeg);base64,/.test(background.dataURL)) throw new Error("The background must be a PNG or JPEG data URL.");
       imageFacts(background.dataURL);
     }
-    if (!deferMetadata) {
-      if (typeof module !== "undefined" && module.exports) {
-        const { serviceContractError } = require("./editor-service-reference.cjs");
-        const contractError = serviceContractError(scenario);
-        if (contractError) throw new Error(contractError);
-      }
-      const banked = (scenario.network?.Stations || []).filter((station) => station && Object.hasOwn(station, "Banks"));
-      if (scenario.version === 1 && banked.length) throw new Error("Version 1 projects cannot contain station banks.");
-      if (scenario.version === 2 && !banked.length) throw new Error("Version 2 projects need a banked station.");
-      for (const station of banked) {
-        if (!Array.isArray(station.Banks) || !station.Banks.length || station.Banks.length > 8) throw new Error("A station needs 1 to 8 banks.");
-        for (const bank of station.Banks) if (!Array.isArray(bank?.BerthIDs) || !bank.BerthIDs.length || bank.BerthIDs.length > MAX_BERTHS) throw new Error("A bank needs 1 to 200 berth IDs.");
-      }
-      if (background) checkBackground(background);
-      for (const pod of Array.isArray(scenario.fleet) ? scenario.fleet : []) {
-        if (pod && !pod.BerthID) {
-          const station = scenario.network?.Stations?.find((item) => item && item.ID === pod.StationID);
-          pod.BerthID = station?.Berths?.[0]?.ID || "";
-        }
-      }
-      if (scenario.demand && scenario.demand.pattern === "market") {
-        scenario.demand.pattern = "destination";
-        if (!scenario.demand.destination && scenario.network && Array.isArray(scenario.network.Stations)) {
-          const market = scenario.network.Stations.find((station) => station && !station.ParkingOnly && station.ID === "market");
-          const first = scenario.network.Stations.filter((station) => station && !station.ParkingOnly).at(-1);
-          scenario.demand.destination = (market || first || {}).ID || "";
-        }
-      }
-    }
-    // Go checks the raw scenario before defaults can replace invalid values.
-    const out = { scenario, background: background ? backgroundFields(background) : null };
-    if (!deferMetadata && background) out.asset = documentAsset(background.asset);
-    if (deferMetadata) out.metadata = { ...(background ? { placement: Object.fromEntries(["x", "y", "width", "height", "opacity"].map((key) => [key, background[key]])), ...(Object.hasOwn(background, "asset") ? { asset: background.asset } : {}) } : {}) };
-    return out;
-  }
-
-  // checkBackground throws an error when item is not a valid background: a
-  // PNG or JPEG data URL with image data that imageFacts accepts, a finite
-  // position, a positive size, and an opacity from 0 to 1. The project
-  // import and the restore of the stored background use it. It does not
-  // decode the image, so parseDocument stays synchronous.
-  function checkBackground(item) {
-    if (item === null || typeof item !== "object" || Array.isArray(item)) throw new Error("The background must be an object.");
-    if (typeof item.dataURL !== "string" || !/^data:image\/(png|jpeg);base64,/.test(item.dataURL)) throw new Error("The background must be a PNG or JPEG data URL.");
-    checkPlacement(item);
-    imageFacts(item.dataURL);
+    const metadata = background ? { placement: Object.fromEntries(["x", "y", "width", "height", "opacity"].map((key) => [key, background[key]])), ...(Object.hasOwn(background, "asset") ? { asset: background.asset } : {}) } : {};
+    return { scenario, background: background ? backgroundFields(background) : null, metadata };
   }
 
   // checkPlacement throws an error when item does not have a finite
@@ -1118,19 +1028,9 @@
   // latitude in degrees of a frame edge.
   const FRAME_SOURCES = ["equirectangular", "web-mercator"];
   const FRAME_MAX_LATITUDE = 80;
-  // SCALE_TOLERANCE is the accuracy budget of a frame. The projection of
-  // the project is exact north to south, and its east-west scale at
-  // latitude lat is cos(lat0) / cos(lat) of the true scale. A frame edge
-  // with a scale error of more than SCALE_TOLERANCE is not accepted.
-  const SCALE_TOLERANCE = 0.005;
   // ALIGN_TOLERANCE is the largest difference in meters of each placement
   // value from the placement of the frame, for an aligned background.
   const ALIGN_TOLERANCE = 0.5;
-  // ANCHOR_MIN_DISTANCE is the smallest distance in meters between the two
-  // anchor nodes, and ANCHOR_MAX_RESIDUAL is the largest residual of the
-  // second node as a part of that distance.
-  const ANCHOR_MIN_DISTANCE = 100;
-  const ANCHOR_MAX_RESIDUAL = 0.02;
   // RESAMPLE_MAX_SIDE is the largest side in pixels of a resampled image.
   const RESAMPLE_MAX_SIDE = 4096;
   const DEGREE = Math.PI / 180;
@@ -1328,17 +1228,17 @@
   async function getJSON(connection, url, accept = "application/json") {
     const response = await connection.fetch(url, { headers: { Accept: accept } });
     let body = null; try { body = await response.json(); } catch (_) {}
-    if (!response.ok || (body && (body.error || body.Error))) throw new Error((body && (body.error || body.Error)) || `HTTP ${response.status}`);
+    if (!response.ok || body?.error) throw new Error(body?.error || `HTTP ${response.status}`);
     return body;
   }
 
   // readState gets the live state from /api/state. It gives the server
-  // start ID of the reply, or an empty string, to connection.onServerStart
-  // when it is set. Each read of the live state uses readState, so the page
-  // knows the server start ID of the latest read.
+  // start ID of the reply to connection.onServerStart when it is set. Each
+  // read of the live state uses readState, so the page knows the server
+  // start ID of the latest read.
   async function readState(connection) {
     const live = liveStateFrame(await getJSON(connection, "/api/state", LIVE_STATE_ACCEPT));
-    if (connection.onServerStart) connection.onServerStart((live && (live.serverStart || live.ServerStart)) || "");
+    if (connection.onServerStart) connection.onServerStart(live.serverStart);
     return live;
   }
 
@@ -1464,12 +1364,11 @@
     if (response.status === 413) throw tooLargeError(SERVER_TOO_LARGE_TEXT);
     let text = ""; try { text = await response.text(); } catch (_) {}
     let body = null; try { body = JSON.parse(text); } catch (_) {}
-    if (!response.ok || (body && (body.error || body.Error))) {
-      const error = new Error((body && (body.error || body.Error)) || replyText(text, response.status));
-      error.status = response.status; error.errorCode = (body && body.errorCode) || ""; error.retryAfter = retryAfterSeconds(response); throw error;
+    if (!response.ok || body?.error) {
+      const error = new Error(body?.error || replyText(text, response.status));
+      error.status = response.status; error.errorCode = body?.errorCode || ""; error.retryAfter = retryAfterSeconds(response); throw error;
     }
-    const replyState = body && (body.state || body.State || body);
-    if (replyState && (replyState.epoch || replyState.Epoch)) connection.epoch = replyState.epoch || replyState.Epoch;
+    if (body?.epoch) connection.epoch = body.epoch;
     return body;
   }
 
@@ -1477,7 +1376,7 @@
   // epoch. A reset, a demo, a rewind and a project apply give a new
   // generation.
   function simulationID(frame) {
-    return `${frame.epoch || frame.Epoch || ""} ${frame.generation ?? frame.Generation ?? 0}`;
+    return `${frame.epoch} ${frame.generation}`;
   }
 
   // SNAPSHOT_ATTEMPTS is the maximum number of read passes of readSnapshot.
@@ -1488,10 +1387,7 @@
   // Both state reads must have the same server start ID and epoch, and the
   // project revision must be the project revision of after.
   function snapshotConsistent(before, project, after) {
-    const start = (state) => state.serverStart || state.ServerStart || "";
-    const epoch = (state) => state.epoch || state.Epoch || "";
-    const revision = project.revision ?? project.Revision;
-    return start(before) === start(after) && epoch(before) === epoch(after) && revision !== undefined && Number(revision) === Number(after.projectRevision ?? after.ProjectRevision);
+    return before.serverStart === after.serverStart && before.epoch === after.epoch && project.revision !== undefined && Number(project.revision) === Number(after.projectRevision);
   }
 
   // draftBeforeRestart tells if a draft is from before a server restart.
@@ -1517,7 +1413,7 @@
       const before = await readState(connection);
       const project = await getJSON(connection, "/api/project");
       const state = await readState(connection);
-      if (!project || !(project.project || project.Project)) throw new Error("The server returned no scenario.");
+      if (!project?.project) throw new Error("The server returned no scenario.");
       if (before && state && snapshotConsistent(before, project, state)) return { project, state };
     }
     throw new Error("The live scenario changed during each read.");
@@ -1526,15 +1422,15 @@
   // readLive gets the live project and the live state with readSnapshot. It
   // gives project, the normalized live project, revision, the live project
   // revision, epoch, the session epoch, and serverStart, the server start
-  // ID or an empty string. All four are of the same server state. It does
+  // ID. All four are of the same server state. It does
   // not change the connection.
   async function readLive(connection, normalize) {
     const { project: projectReply, state: liveState } = await readSnapshot(connection);
     return {
-      project: await normalize(projectReply.project || projectReply.Project),
-      revision: Number(liveState.projectRevision ?? liveState.ProjectRevision),
-      epoch: liveState.epoch || liveState.Epoch || "",
-      serverStart: liveState.serverStart || liveState.ServerStart || "",
+      project: await normalize(projectReply.project),
+      revision: liveState.projectRevision,
+      epoch: liveState.epoch,
+      serverStart: liveState.serverStart,
     };
   }
 
@@ -1580,23 +1476,22 @@
         throw tooLargeError(`The scenario has ${mebibytes(projectBytes, Math.ceil)} of JSON. The server accepts at most ${mebibytes(SERVER_PROJECT_BYTES)}.`);
       }
       const { project: current, state: live } = await readSnapshot(connection);
-      const liveStart = live.serverStart || live.ServerStart || "";
+      const liveStart = live.serverStart;
       if (draftBeforeRestart(apply.serverStart, liveStart)) {
         const error = new Error("The server session changed."); error.status = 409; error.errorCode = "session_changed"; throw error;
       }
-      if (Number(current.revision ?? current.Revision ?? 0) !== apply.revision) {
+      if (Number(current.revision ?? 0) !== apply.revision) {
         const error = new Error("The live scenario changed."); error.status = 409; error.errorCode = "stale_project"; throw error;
       }
-      if (!connection.epoch) connection.epoch = live.epoch || live.Epoch || "";
-      wasPaused = Boolean(live.simulation && live.simulation.Paused);
+      if (!connection.epoch) connection.epoch = live.epoch;
+      wasPaused = live.simulation.Paused;
       simulation = simulationID(live);
       step = "pause";
       await postCommand(connection, { action: "pause", paused: true });
       step = "project";
       if (apply.onApplying) apply.onApplying();
       const reply = await postCommand(connection, { action: "project", projectRevision: apply.revision, project: apply.project, ...(apply.serverStart ? { serverStart: apply.serverStart } : {}) });
-      const replyState = reply && (reply.state || reply.State || reply);
-      const revision = Number(reply?.projectRevision ?? reply?.ProjectRevision ?? (replyState && (replyState.projectRevision ?? replyState.ProjectRevision)) ?? apply.revision + 1);
+      const revision = Number(reply?.projectRevision ?? apply.revision + 1);
       return { revision, stateSaved: reply?.stateSaved, serverStart: liveStart };
     } catch (error) {
       error.pause = await pauseAfterFailure({ connection, error, step, wasPaused, simulation });
@@ -2591,29 +2486,18 @@
 
   const API = {
 
-    MIN_LANE_LENGTH, MAX_PODS, MAX_STATIONS, MAX_NODES, MAX_LANES, MAX_NODE_LANES, MAX_FLOWS, MIN_ZOOM, NODE_LABEL_SCALE, NODE_LABEL_SIZE, LANE_PAIR_OFFSET, CHEVRON_LANE_LENGTH, BERTH_PITCH, STATION_PADDING, CLEARANCE, CHECK_DELAY, emptyConfig, fallbackConfig,
+    MIN_LANE_LENGTH, MIN_ZOOM, NODE_LABEL_SCALE, NODE_LABEL_SIZE, LANE_PAIR_OFFSET, CHEVRON_LANE_LENGTH, STATION_PADDING, CHECK_DELAY, emptyConfig, fallbackConfig,
     stationBearing, stationShape, stationLayout, stationGeometryCommand, berthChain, stationFlowCount, stationRailReferences, fleetRows, fleetClassNotice, selectionCard, berthFocusID, couplingFocusID, couplingUndoFocusID, corridorLaneFocus, couplingLayout, laneClassState, convertTrainsState, trainsScenario, undoFocus,
     laneLength, curveLength, stationNodeOwners, dragTargets, checkSelector, checkSelection, selectionPoint, focusView,
-    GEO_PROJECTION, GEO_RADIUS, GEO_MAX_LATITUDE, MAX_COORDINATE, FRAME_SOURCES, SCALE_TOLERANCE, ALIGN_TOLERANCE, RESAMPLE_MAX_SIDE, projectPoint, frameError, framePlacement, frameAligned, resampleSize, mercatorY, resampleRows,
+    FRAME_SOURCES, ALIGN_TOLERANCE, RESAMPLE_MAX_SIDE, projectPoint, frameError, framePlacement, frameAligned, resampleSize, mercatorY, resampleRows,
     problemCountText, createCheckTimer, validationSummary, checkFocusKey, IMAGE_FILE_BYTES, IMAGE_MAX_SIDE, IMAGE_MAX_PIXELS, imageFacts, imageBytesFacts, dataURLToBytes, bytesToDataURL, checkImageSize,
-    metadataURLFacts, IMAGE_KEY_PATTERN, newImageKey, FRAME_STATES, LICENSE_LIMITS, licenseError, assetError, backgroundRecordText, STORED_BACKGROUND_KEPT_TEXT, SERVER_PROJECT_BYTES, PROJECT_FILE_BYTES, SERVER_COMMAND_BYTES, SERVER_COMMAND_JSON_BYTES, GZIP_COMMAND_BYTES, SERVER_TOO_LARGE_TEXT, postCommand, dataURLBytes, serializeDocument, parseDocument, repeatedMember, importedScenario, foldName,
+    metadataURLFacts, IMAGE_KEY_PATTERN, newImageKey, FRAME_STATES, LICENSE_LIMITS, licenseError, assetError, backgroundRecordText, STORED_BACKGROUND_KEPT_TEXT, SERVER_PROJECT_BYTES, PROJECT_FILE_BYTES, SERVER_COMMAND_BYTES, SERVER_COMMAND_JSON_BYTES, GZIP_COMMAND_BYTES, SERVER_TOO_LARGE_TEXT, postCommand, dataURLBytes, serializeDocument, parseDocument, repeatedMember, foldName,
     networkBounds, fitView, zoomScale, nodeLabelSize, pairedLaneIDs, showsChevron, laneOffset, laneCurve, lanePathData, SNAPSHOT_ATTEMPTS, snapshotConsistent, draftBeforeRestart, LIVE_STATE_ACCEPT, liveStateFrame, readState, readSnapshot, applyToServer, applyFailureText, applyFailureStatus, applyToast,
     readLive, readConflict, CONFLICT_UNLOADED_TEXT, conflictView, LOAD_LIVE_QUESTION, applyOverQuestion, loadLive, liveDraft, applyOverBase,
     DRAFT_SAVE_DELAY, DRAFT_STORE_TEXT, DRAFT_UNSAVED_TEXT, DRAFT_DISPLACED_TEXT, DRAFT_STORE, BACKGROUND_STORE, openRecordStore, createDraftKeeper, draftChanged, draftRecordFor, draftOffer, backgroundRecordFor, storedBackground, restoreStoredBackground,
-    IMAGE_TABLE_BYTES, DEFAULT_OPACITY, freezeImage, createGoBackgroundModel, createDecoderSlot, checkImageBytes, resampleImage, FRAME_WARNING_TEXT, frameView, attributionParts, BACKGROUND_DURABLE_TEXT, backgroundFacts, exportBackground, documentAsset, STARTUP_EVENTS, createStartupGate, blockInput, startupExempt, startEditor, BACKGROUND_STORE_TEXT, checkBackground, DRAFT_RESTART_TEXT, draftOfferText, RESTORED_RESTART_TEXT, restoreStatusText, shellPage,
+    IMAGE_TABLE_BYTES, DEFAULT_OPACITY, freezeImage, createGoBackgroundModel, createDecoderSlot, checkImageBytes, resampleImage, FRAME_WARNING_TEXT, frameView, attributionParts, BACKGROUND_DURABLE_TEXT, backgroundFacts, exportBackground, STARTUP_EVENTS, createStartupGate, blockInput, startupExempt, startEditor, BACKGROUND_STORE_TEXT, DRAFT_RESTART_TEXT, draftOfferText, RESTORED_RESTART_TEXT, restoreStatusText, shellPage,
   };
   if (typeof module !== "undefined" && module.exports) {
-    const reference = require("./editor-model-reference.cjs")({
-      ...API, ANCHOR_MAX_RESIDUAL, ANCHOR_MIN_DISTANCE, BERTH_PITCH, CLEARANCE, DEFAULT_OPACITY,
-      DEFAULT_SPEED, DEGREE, GEO_MAX_LATITUDE, GEO_PROJECTION, GEO_RADIUS, MAX_BERTHS,
-      MAX_COORDINATE, MAX_LANES, MAX_NODES, MAX_NODE_LANES, MAX_STATIONS, MIN_LANE_LENGTH,
-      SCALE_TOLERANCE, Tiles, berthChain, clone, emptyConfig, flowNamesStation,
-      frameError, framePlacement, frozenDrafts, laneLength, point, projectPoint,
-      shiftNodes, stationAxes, stationBearing, stationLayout, stationNodeIDs, stationNodeOwners,
-    });
-    Object.assign(API, reference);
-    Object.assign(API, require("./editor-checks-reference.cjs")(API));
-    Object.assign(API, require("./editor-history-reference.cjs")({ ...API, clone, freezeDraft: reference.freezeDraft, ownDraft, editDraft: reference.editDraft, MIB, mibText }));
     module.exports = API;
   }
   root.PodsimEditorModel = API;
@@ -2784,7 +2668,6 @@
     }
     return index.get(id);
   }
-  function stationForNode(config, id) { const stationID = stationNodeOwners(config).get(id); return config.network.Stations.find((station) => station.ID === stationID); }
   function setDraft(next, record = true, current = () => true) {
     return state.history.replace({ scenario: next, background: state.background }, record, false, {
       current, beforePublish: (changed) => { if (changed) render(); },
@@ -4349,11 +4232,11 @@
     try {
       let text = await file.text();
       if (!model.current(ticket)) return;
-      const imported = parseDocument(text, { deferMetadata: true }); text = "";
-      const compatibility = await goModel.call(imported.scenario, "importCompatibility");
+      const imported = parseDocument(text); text = "";
+      const canonical = await goModel.call(imported.scenario, "canonicalImport");
       if (!model.current(ticket)) return;
-      if (compatibility.error) throw new Error(compatibility.error);
-      imported.scenario = ownDraft(importedScenario(imported.scenario, compatibility.change));
+      if (canonical.error) throw new Error(canonical.error);
+      imported.scenario = ownDraft(canonical.replace || imported.scenario);
       const metadata = await metadataWithGo(imported.metadata);
       if (!model.current(ticket)) return;
       imported.asset = metadata.asset;
@@ -4466,7 +4349,7 @@
   }
 
   // referenceChoice gives the reference choice of the reference panel for
-  // referenceFor, or null when the user did not choose.
+  // the Go background proposal, or null when the user did not choose.
   function referenceChoice() {
     const mode = $("#referenceMode").value;
     const number = (selector) => { const text = $(selector).value.trim(); return text === "" ? NaN : Number(text); };

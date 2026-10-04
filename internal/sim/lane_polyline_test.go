@@ -9,10 +9,7 @@ import (
 	"testing"
 )
 
-// lanePolylinePath holds the lane polylines of polylineNetwork. The editor
-// test web/editor_test.cjs reads the file and compares its own lane
-// polylines with it, so that the editor clearance check follows the path
-// of a pod.
+// lanePolylinePath holds the lane polylines of polylineNetwork.
 const lanePolylinePath = "testdata/lane_polylines.json"
 
 // lanePolylineFile is the form of the file at lanePolylinePath. Points
@@ -42,8 +39,8 @@ func polylineNetwork() Network {
 	}
 }
 
-// TestLanePolylineGolden fixes the lane polylines that the editor test
-// compares with. Run the test with -update to write the file again.
+// TestLanePolylineGolden fixes the lane polylines of polylineNetwork. Run
+// the test with -update to write the file again.
 func TestLanePolylineGolden(t *testing.T) {
 	t.Parallel()
 	network := polylineNetwork()

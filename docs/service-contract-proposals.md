@@ -87,9 +87,9 @@ Approve these private worker extensions, with current acceptance rules preserved
   Browser URL parsing supplies protocol facts so this move does not replace current URL acceptance with a stricter Go parser.
   Go retains original attribution text.
   Browser link construction still checks HTTPS.
-- `importCompatibility` repairs only historical missing berth placements and the old market demand form before raw Go validation.
-  It does not apply full defaults before validation.
-  Preserve JavaScript truthiness where the old repair used it, null/member distinctions, and import rejection behavior.
+- `canonicalImport` gives the canonical project of an import when the server decoder reads member names that differ only in case.
+  It does not repair the draft or apply defaults before validation.
+  The Go checks and the server reject a pod without a berth ID.
 - `stationLayout` returns selected station/bank dimensions and separate unavailable reasons for each control.
   It tolerates incomplete drafts and does not require a startable simulation.
   Browser rendering rejects stale selection or geometry replies.
@@ -99,7 +99,7 @@ The private operation shapes are:
 | Operation | Request members beyond `op` | Successful result |
 | --- | --- | --- |
 | `backgroundMetadata` | `metadata` with optional `placement`, optional `asset`, and bounded `urlFacts` | `valid: true` and owned effective `metadata` |
-| `importCompatibility` | Raw `project` object | `change.patch` with only changed `fleet` or `demand` branches |
+| `canonicalImport` | Raw `project` object | Optional `replace` with the canonical project |
 | `stationLayout` | Raw `project` and `layout` with `stationID` and optional `bankID` | `layout` with field-specific value and unavailable reason |
 
 Placement contains `x`, `y`, `width`, `height`, and `opacity`.

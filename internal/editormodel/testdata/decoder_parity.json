@@ -365,6 +365,22 @@
       "replace": "\"couplingSiteſ\":[],\"couplingCorridors\":",
       "duplicate": false,
       "valid": false
+    },
+    {
+      "name": "empty berth ID",
+      "base": "v1",
+      "find": "\"BerthID\":\"harbor-1\"",
+      "replace": "\"BerthID\":\"\"",
+      "duplicate": false,
+      "valid": false
+    },
+    {
+      "name": "missing berth ID",
+      "base": "v1",
+      "find": ",\"BerthID\":\"harbor-1\"",
+      "replace": "",
+      "duplicate": false,
+      "valid": false
     }
   ]
 }

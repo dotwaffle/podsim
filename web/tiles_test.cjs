@@ -66,45 +66,22 @@ test("Mercator row reprojection matches independent geographic positions", () =>
   }
 });
 
-test("map metadata round trips, does not embed tiles, and undo preserves images", () => {
-  let original = editor.fallbackConfig();
-  const [a, b] = original.network.Stations;
-  original = editor.addLane(original, b.Exit, a.Entry, false);
-  original = editor.setFleetCount(original, a.ID, 1);
-  const config = editor.withTileMap(original, { latitude: 51.5, longitude: -.1, opacity: .6, choice: { mode: "adopt", confirmed: true } });
-  assert.equal(original.geo, undefined);
-  assert.deepEqual(config.geo, geo(51.5, -.1));
+test("map metadata round trips and does not embed tiles", () => {
+  const config = { ...editor.fallbackConfig(), geo: geo(51.5, -.1), map: { provider: "osm", opacity: .6 } };
   const restored = editor.parseDocument(editor.serializeDocument(config, null));
   assert.deepEqual(restored.scenario.map, { provider: "osm", opacity: .6 });
+  assert.deepEqual(restored.scenario.geo, geo(51.5, -.1));
   assert.equal(restored.background, null);
   assert.ok(!editor.serializeDocument(config, null).includes("data:image"));
-  const image = { imageKey: "abc", width: 1, height: 1, x: 0, y: 0, opacity: .5 };
-  const history = editor.createHistory({ scenario: original, background: image });
-  history.replace({ scenario: config, background: image }); history.undo();
-  assert.equal(history.value.scenario.map, undefined);
-  assert.deepEqual(history.background, image);
-  history.redo(); assert.deepEqual(history.value.scenario.map, config.map);
 });
 
-test("map validation rejects missing reference, unknown providers and unsafe opacity", () => {
-  const config = editor.emptyConfig(); config.geo = geo();
+test("the tile layer needs the OSM provider, a safe opacity and a geographic reference", () => {
   for (const map of [{ provider: "other", opacity: .4 }, { provider: "osm", opacity: -1 }, { provider: "osm", opacity: 2 }, { provider: "osm", opacity: NaN }, { provider: "osm", opacity: "0.4" }, { provider: "osm", opacity: .4, url: "https://example.com" }]) {
-    assert.ok(editor.validateConfig({ ...config, map }).some((s) => s.includes("map needs")));
+    assert.ok(!tiles.validMap(map, geo()), JSON.stringify(map));
   }
   assert.ok(!tiles.validMap({ provider: "osm", opacity: .4 }, null));
   assert.ok(tiles.validMap({ provider: "osm", opacity: 0 }, geo()));
   assert.ok(tiles.validMap({ provider: "osm" }, geo()));
-  assert.equal(editor.normalizeConfig({ ...config, map: { provider: "osm" } }).map.opacity, 0);
-});
-
-test("existing network requires explicit reference and keeps its coordinates", () => {
-  const config = editor.fallbackConfig();
-  assert.throws(() => editor.withTileMap(config, { latitude: 1, longitude: 2 }), /Anchor two nodes/);
-  assert.throws(() => editor.withTileMap(config, { latitude: 1, longitude: 2, choice: { mode: "adopt", confirmed: false } }), /confirm/);
-  const adopted = editor.withTileMap(config, { latitude: 1, longitude: 2, choice: { mode: "adopt", confirmed: true } });
-  assert.deepEqual(adopted.network, config.network);
-  const again = editor.withTileMap(adopted, { latitude: 70, longitude: 80 });
-  assert.deepEqual(again.geo, adopted.geo);
 });
 
 function fixture() {

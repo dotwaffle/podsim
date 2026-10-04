@@ -39,6 +39,9 @@ type response struct {
 	History  *historyView           `json:"history,omitempty"`
 	Metadata jsontext.Value         `json:"metadata,omitempty"`
 	Layout   *layoutSummary         `json:"layout,omitempty"`
+	// Replace is the canonical project of an import, or nil when the
+	// import needs no replacement.
+	Replace jsontext.Value `json:"replace,omitzero"`
 }
 
 // Call handles one bounded JSON request without retaining caller data.
@@ -69,8 +72,8 @@ func encodeResponse(result response, err error) string {
 			}{result.Layout}
 		} else {
 			payload = struct {
-				Change *projectChange `json:"change"`
-			}{result.Change}
+				Replace jsontext.Value `json:"replace,omitzero"`
+			}{result.Replace}
 		}
 		encoded, encodeErr := json.Marshal(payload)
 		if encodeErr != nil {

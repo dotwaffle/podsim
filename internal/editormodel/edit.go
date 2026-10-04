@@ -28,8 +28,6 @@ type projectChange struct {
 	Flag       string            `json:"flag,omitempty"`
 	Background *backgroundChange `json:"background,omitempty"`
 	Note       string            `json:"note,omitempty"`
-	// Replace is a complete canonical project from an import. Patch applies to it.
-	Replace jsontext.Value `json:"replace,omitzero"`
 }
 
 // editProject proposes owned replacement branches. The caller commits them

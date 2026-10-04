@@ -50,37 +50,35 @@ func TestOnboardEditorPreservation(t *testing.T) {
 	t.Parallel()
 	draft := onboardEditorDraft(t)
 	before := cloneEditValue(draft)
-	for _, repair := range []func(any) (projectChange, error){importCompatibility, normalizeProject} {
-		change, err := repair(draft)
-		if err != nil {
-			t.Fatal(err)
-		}
-		out := object(cloneEditValue(draft))
-		maps.Copy(out, change.Patch)
-		if out["onboardPickups"] != true || number(out["version"]) != 3 || !reflect.DeepEqual(draft, before) {
-			t.Fatal("repair changed the opt-in or its source")
-		}
-		model := new(engine)
-		if syncErr := syncOnboardDraft(t, model, out); syncErr != nil {
-			t.Fatal(syncErr)
-		}
-		if !model.config.OnboardPickups {
-			t.Fatal("sync lost the opt-in")
-		}
-		if _, validateErr := model.handle(`{"op":"validate"}`); validateErr != nil {
-			t.Fatal(validateErr)
-		}
-		if report, checkErr := model.draftChecks(); checkErr != nil || len(report.Errors) != 0 {
-			t.Fatal("valid draft failed checks", checkErr, report.Errors)
-		}
-		exported, err := json.Marshal(model.config)
-		if err != nil {
-			t.Fatal(err)
-		}
-		var config project.Config
-		if decodeErr := json.Unmarshal(exported, &config); decodeErr != nil || !config.OnboardPickups {
-			t.Fatal("export lost the opt-in", decodeErr)
-		}
+	change, err := normalizeProject(draft)
+	if err != nil {
+		t.Fatal(err)
+	}
+	out := object(cloneEditValue(draft))
+	maps.Copy(out, change.Patch)
+	if out["onboardPickups"] != true || number(out["version"]) != 3 || !reflect.DeepEqual(draft, before) {
+		t.Fatal("normalization changed the opt-in or its source")
+	}
+	model := new(engine)
+	if syncErr := syncOnboardDraft(t, model, out); syncErr != nil {
+		t.Fatal(syncErr)
+	}
+	if !model.config.OnboardPickups {
+		t.Fatal("sync lost the opt-in")
+	}
+	if _, validateErr := model.handle(`{"op":"validate"}`); validateErr != nil {
+		t.Fatal(validateErr)
+	}
+	if report, checkErr := model.draftChecks(); checkErr != nil || len(report.Errors) != 0 {
+		t.Fatal("valid draft failed checks", checkErr, report.Errors)
+	}
+	exported, err := json.Marshal(model.config)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var config project.Config
+	if decodeErr := json.Unmarshal(exported, &config); decodeErr != nil || !config.OnboardPickups {
+		t.Fatal("export lost the opt-in", decodeErr)
 	}
 }
 
