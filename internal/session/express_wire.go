@@ -26,20 +26,79 @@ func EncodeStreamJSON(e StreamEnvelope) ([]byte, error) {
 		if e.TextEncoding != "" {
 			return nil, errors.New("foundation envelope contains text encoding")
 		}
-		data, err := json.Marshal(e)
-		if err == nil && len(data) > MaxStreamJSON {
-			err = errors.New("state JSON exceeds supported limit")
-		}
-		return data, err
-	}
-	if e.OrderContract != sim.ExpressOrderContract || e.TextEncoding != ExpressTextEncoding {
+	} else if e.OrderContract != sim.ExpressOrderContract || e.TextEncoding != ExpressTextEncoding {
 		return nil, errors.New("invalid Express envelope markers")
 	}
-	data, err := jsonv2.Marshal(e, json.DefaultOptionsV1(), packedRequestOptions())
+	if err := validateEncodedContract(e); err != nil {
+		return nil, err
+	}
+	var data []byte
+	var err error
+	if e.OrderContract == "" {
+		data, err = json.Marshal(e)
+	} else {
+		data, err = jsonv2.Marshal(e, json.DefaultOptionsV1(), packedRequestOptions())
+	}
 	if err == nil && len(data) > MaxStreamJSON {
 		err = errors.New("state JSON exceeds supported limit")
 	}
 	return data, err
+}
+
+// validateEncodedContract binds the envelope markers to the frame before
+// the publisher writes them. It does not parse the raw delta replacement
+// groups. frameGroups builds them from the same frame, so the check trusts
+// their members and examines only the coupling group key.
+func validateEncodedContract(e StreamEnvelope) error {
+	if e.CouplingContract != "" {
+		if _, known := sim.LookupCouplingProfile(e.CouplingContract); !known {
+			return sim.ErrUnknownCouplingContract
+		}
+	}
+	if e.Full != nil {
+		if e.OrderContract != e.Full.State.Simulation.OrderContract {
+			return errors.New("publication order contract mismatch")
+		}
+		if e.CouplingContract != e.Full.State.Simulation.CouplingContract {
+			return errors.New("publication coupling contract mismatch")
+		}
+	}
+	if e.CouplingContract != "" {
+		return nil
+	}
+	if e.Full != nil && hasCouplingFrameFields(e.Full.State.Simulation) {
+		return errors.New("unmarked publication contains coupling fields")
+	}
+	if e.Delta != nil && hasCouplingDeltaFields(*e.Delta) {
+		return errors.New("unmarked publication contains coupling fields")
+	}
+	return nil
+}
+
+// hasCouplingFrameFields reports the fields that couplingFrameBinding
+// rejects in an unmarked frame.
+func hasCouplingFrameFields(frame SimulationFrame) bool {
+	if frame.CouplingEnabled || frame.CouplingGroups != nil {
+		return true
+	}
+	for _, cabin := range frame.Vehicles {
+		if cabin.CouplingID != "" {
+			return true
+		}
+	}
+	return false
+}
+
+func hasCouplingDeltaFields(delta StreamDelta) bool {
+	if _, replaced := delta.Groups["coupling"]; replaced {
+		return true
+	}
+	for _, vehicle := range delta.Vehicles {
+		if vehicle.Metadata != nil && vehicle.Metadata.Value.CouplingID != "" {
+			return true
+		}
+	}
+	return false
 }
 
 func validateEnvelopeContract(e StreamEnvelope, previous StreamFrame) error {

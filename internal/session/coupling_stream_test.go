@@ -3,6 +3,7 @@ package session
 import (
 	"bytes"
 	"encoding/json"
+	jsonv2 "encoding/json/v2"
 	"errors"
 	"fmt"
 	"maps"
@@ -259,6 +260,166 @@ func TestCouplingStreamReservedFieldsAndShape(t *testing.T) {
 
 // streamFamilyFrames returns one frame of each stream family and a changed
 // successor for deltas.
+func streamFamilyFrames(t *testing.T) map[string][2]StreamFrame {
+	t.Helper()
+	frames := map[string][2]StreamFrame{}
+	advance := func(s *Session, frame StreamFrame) [2]StreamFrame {
+		t.Helper()
+		s.Apply(Command{Client: "family", Sequence: 1, Epoch: frame.State.Epoch, Action: "pause", Paused: !frame.State.Simulation.Paused})
+		next, err := s.presentationFrame()
+		if err != nil {
+			t.Fatal(err)
+		}
+		return [2]StreamFrame{frame, next}
+	}
+	foundation, frame := streamFixture(t)
+	t.Cleanup(foundation.Close)
+	frames["foundation"] = advance(foundation, frame)
+	express := expressSession(t)
+	frame, err := express.presentationFrame()
+	if err != nil {
+		t.Fatal(err)
+	}
+	frames["express"] = advance(express, frame)
+	data := couplingPhaseFixtures(t)
+	for name, order := range map[string]sim.OrderContract{"coupling raw": "", "coupling packed": sim.ExpressOrderContract} {
+		s, _, frame := couplingStreamFixture(t, data.Frames[0], order)
+		frames[name] = advance(s, frame)
+	}
+	return frames
+}
+
+func streamFamilyEnvelope(t *testing.T, frames [2]StreamFrame, kind string) StreamEnvelope {
+	t.Helper()
+	e := couplingFullEnvelope(frames[0])
+	if kind == "full" {
+		return e
+	}
+	delta, err := makeDelta(frames[0], frames[1])
+	if err != nil {
+		t.Fatal(err)
+	}
+	e.Kind, e.Full, e.Delta, e.Sequence, e.Base, e.Source = "delta", nil, &delta, 2, 1, sourceOf(frames[1])
+	return e
+}
+
+func TestEncodeStreamJSONKeepsFamilyBytes(t *testing.T) {
+	frames := streamFamilyFrames(t)
+	for _, family := range slices.Sorted(maps.Keys(frames)) {
+		for _, kind := range []string{"full", "delta"} {
+			t.Run(family+"/"+kind, func(t *testing.T) {
+				e := streamFamilyEnvelope(t, frames[family], kind)
+				want, err := json.Marshal(e)
+				if e.OrderContract == sim.ExpressOrderContract {
+					want, err = jsonv2.Marshal(e, json.DefaultOptionsV1(), packedRequestOptions())
+				}
+				if err != nil {
+					t.Fatal(err)
+				}
+				got, err := EncodeStreamJSON(e)
+				if err != nil || !bytes.Equal(got, want) {
+					t.Fatal("encoder changed a valid publication", err)
+				}
+				if family == "foundation" || family == "express" {
+					for _, member := range []string{"couplingContract", "couplingEnabled", "couplingGroups", "couplingID"} {
+						if e.CouplingContract != "" || bytes.Contains(got, []byte(`"`+member+`"`)) {
+							t.Fatal("unmarked family carries coupling fields", member)
+						}
+					}
+				} else if e.CouplingContract != sim.CompactPairV1CouplingContract {
+					t.Fatal("coupling family lost its marker")
+				}
+			})
+		}
+	}
+}
+
+func TestEncodeStreamJSONBindsCouplingMarker(t *testing.T) {
+	frames := streamFamilyFrames(t)
+	couplingGroup := json.RawMessage(`{"couplingContract":"compact-pair-v1","couplingEnabled":false,"couplingGroups":[]}`)
+	tests := []struct {
+		name   string
+		family string
+		kind   string
+		edit   func(*StreamEnvelope)
+		want   string
+	}{
+		{"unknown profile/full", "coupling raw", "full", func(e *StreamEnvelope) {
+			e.CouplingContract = "unknown"
+			e.Full.State.Simulation.CouplingContract = "unknown"
+		}, sim.ErrUnknownCouplingContract.Error()},
+		{"unknown profile/delta", "coupling packed", "delta", func(e *StreamEnvelope) { e.CouplingContract = "unknown" }, sim.ErrUnknownCouplingContract.Error()},
+		{"marked envelope/unmarked raw full", "foundation", "full", func(e *StreamEnvelope) { e.CouplingContract = sim.CompactPairV1CouplingContract }, "publication coupling contract mismatch"},
+		{"marked envelope/unmarked packed full", "express", "full", func(e *StreamEnvelope) { e.CouplingContract = sim.CompactPairV1CouplingContract }, "publication coupling contract mismatch"},
+		{"unmarked envelope/marked raw full", "coupling raw", "full", func(e *StreamEnvelope) { e.CouplingContract = "" }, "publication coupling contract mismatch"},
+		{"unmarked envelope/marked packed full", "coupling packed", "full", func(e *StreamEnvelope) { e.CouplingContract = "" }, "publication coupling contract mismatch"},
+		{"unmarked envelope/raw delta coupling group", "coupling raw", "delta", func(e *StreamEnvelope) {
+			e.CouplingContract = ""
+			e.Delta.Groups["coupling"] = couplingGroup
+		}, "unmarked publication contains coupling fields"},
+		{"unmarked envelope/packed delta coupling group", "coupling packed", "delta", func(e *StreamEnvelope) {
+			e.CouplingContract = ""
+			e.Delta.Groups["coupling"] = couplingGroup
+		}, "unmarked publication contains coupling fields"},
+		{"unmarked envelope/raw delta cabin binding", "foundation", "delta", func(e *StreamEnvelope) {
+			metadata := Replacement[vehicleMetadata]{vehicleMetadata{CouplingID: "train"}}
+			e.Delta.Vehicles = append(e.Delta.Vehicles, VehicleDelta{ID: "cabin", Metadata: &metadata})
+		}, "unmarked publication contains coupling fields"},
+		{"unmarked envelope/packed delta cabin binding", "express", "delta", func(e *StreamEnvelope) {
+			metadata := Replacement[vehicleMetadata]{vehicleMetadata{CouplingID: "train"}}
+			e.Delta.Vehicles = append(e.Delta.Vehicles, VehicleDelta{ID: "cabin", Metadata: &metadata})
+		}, "unmarked publication contains coupling fields"},
+		{"unmarked full/enabled", "foundation", "full", func(e *StreamEnvelope) { e.Full.State.Simulation.CouplingEnabled = true }, "unmarked publication contains coupling fields"},
+		{"unmarked full/empty groups", "express", "full", func(e *StreamEnvelope) {
+			e.Full.State.Simulation.CouplingGroups = []sim.CouplingGroupView{}
+		}, "unmarked publication contains coupling fields"},
+		{"unmarked full/cabin binding", "foundation", "full", func(e *StreamEnvelope) {
+			e.Full.State.Simulation.Vehicles[0].CouplingID = "train"
+		}, "unmarked publication contains coupling fields"},
+		{"marker cleared with frame/groups", "coupling raw", "full", func(e *StreamEnvelope) {
+			e.CouplingContract = ""
+			e.Full.State.Simulation.CouplingContract = ""
+		}, "unmarked publication contains coupling fields"},
+		{"raw envelope/packed full", "express", "full", func(e *StreamEnvelope) { e.OrderContract, e.TextEncoding = "", "" }, "publication order contract mismatch"},
+		{"packed envelope/raw full", "foundation", "full", func(e *StreamEnvelope) {
+			e.OrderContract, e.TextEncoding = sim.ExpressOrderContract, ExpressTextEncoding
+		}, "publication order contract mismatch"},
+		{"packed envelope/raw coupling full", "coupling raw", "full", func(e *StreamEnvelope) {
+			e.OrderContract, e.TextEncoding = sim.ExpressOrderContract, ExpressTextEncoding
+		}, "publication order contract mismatch"},
+		{"marked raw delta", "coupling raw", "delta", func(*StreamEnvelope) {}, ""},
+		{"marked packed delta", "coupling packed", "delta", func(*StreamEnvelope) {}, ""},
+		{"unmarked delta without coupling fields", "coupling raw", "delta", func(e *StreamEnvelope) {
+			e.CouplingContract = ""
+			delete(e.Delta.Groups, "coupling")
+			for i := range e.Delta.Vehicles {
+				e.Delta.Vehicles[i].Metadata = nil
+			}
+		}, ""},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			e := streamFamilyEnvelope(t, frames[test.family], test.kind)
+			if e.Full != nil {
+				frame := ownStreamBoardings(*e.Full)
+				frame.State.Simulation.Vehicles = slices.Clone(frame.State.Simulation.Vehicles)
+				e.Full = &frame
+			}
+			test.edit(&e)
+			_, err := EncodeStreamJSON(e)
+			if test.want == "" {
+				if err != nil {
+					t.Fatal("rejected a consistent publication", err)
+				}
+				return
+			}
+			if err == nil || err.Error() != test.want {
+				t.Fatalf("got %v, want %s", err, test.want)
+			}
+		})
+	}
+}
+
 func TestCouplingStreamLimitsPackedContainUnpacked(t *testing.T) {
 	t.Parallel()
 	wide, exact := couplingStreamLimits(true), couplingStreamLimits(false)
