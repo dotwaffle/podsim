@@ -143,6 +143,9 @@ func exportExpressAsset(t *testing.T, name string, data []byte) {
 }
 
 func TestExpressWidestSaveAdapters(t *testing.T) {
+	if raceEnabled {
+		t.Skip("maximum codec proof runs in the required test:embedded task")
+	}
 	const wide = 0.0000010000000000000002
 	base := widestSavedBase(t)
 	base.Version, base.OrderContract, base.TextEncoding = expressStateVersion, sim.ExpressOrderContract, ExpressTextEncoding
@@ -241,6 +244,9 @@ func TestExpressWidestSaveAdapters(t *testing.T) {
 }
 
 func TestExpressWidestStreamAdapters(t *testing.T) {
+	if raceEnabled {
+		t.Skip("maximum codec proof runs in the required test:embedded task")
+	}
 	frame := maximumStreamFrame(t)
 	frame.State.Simulation.OrderContract = sim.ExpressOrderContract
 	request := frame.State.Simulation.Pending[0]
@@ -347,6 +353,9 @@ func widestTopology(t *testing.T, escapes int) TopologySnapshot {
 // These topology and HTTP assets combine independent bounded fields.
 // Their parser acceptance does not qualify physical placement or motion.
 func TestExpressWidestTopologyHTTPAdapters(t *testing.T) {
+	if raceEnabled {
+		t.Skip("maximum codec proof runs in the required test:embedded task")
+	}
 	var topology TopologySnapshot
 	lo, hi := 0, 58
 	for lo <= hi {

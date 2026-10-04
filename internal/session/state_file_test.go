@@ -655,6 +655,9 @@ func TestDecodeStateFileBombs(t *testing.T) {
 // large.
 func TestStateFileWorstCaseSize(t *testing.T) {
 	t.Parallel()
+	if raceEnabled {
+		t.Skip("maximum codec proof runs in the required test:embedded task")
+	}
 	const nodes, lanes = project.MaxNodes, project.MaxLanes
 	id := func(prefix string, index int) string {
 		return prefix + strings.Repeat("0", 64-len(prefix)-len(strconv.Itoa(index))) + strconv.Itoa(index)
