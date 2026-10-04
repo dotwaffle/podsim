@@ -704,8 +704,12 @@ Decisions (user, 2026-10-04):
 - A pod in a physical train stays in the train to the next split site that the coupling contract allows.
   The train separates there, and then the pod changes route.
 - A game control on an occupied pod, a scenario rate, and a protocol command can each start an emergency.
+- The pod drops all of its later work.
+  Its pending pickups go back to dispatch as ordinary orders and keep their original request times.
+- The feature is off by default.
+  When a scenario does not enable it, the protocol command is refused with `command_rejected`.
 
-Open questions: what happens to the pod's pickups, and how the game and the metrics show the event.
+Open question: how the game and the metrics show the event.
 
 ### Vehicle fault or accident
 
@@ -729,7 +733,18 @@ Decisions (user, 2026-10-04):
 - A game control on a pod, a scenario rate with a duration distribution, and a protocol command can each start a fault.
 - A fault can also block a lane segment with no pod in it, for example debris.
 
-Open questions: the evacuation delay, routes, pickups, and berth reservations that use the blocked lane, a fault in a physical train, a station berth, or a station entry queue, and how the metrics show the effect on service.
+Decisions (user, 2026-10-04, later):
+
+- Riders leave the stopped pod after 300 simulated seconds by default.
+  A scenario can set another delay.
+- A fault can occur anywhere.
+  In a physical train, both cabins stop and their riders leave.
+  At a station berth, the berth is blocked.
+  In a station entry queue, the pods behind it reverse or change route.
+- The feature is off by default.
+  When a scenario does not enable it, the protocol command is refused with `command_rejected`.
+
+Open questions: routes, pickups, and berth reservations that use the blocked lane, and how the metrics show the effect on service.
 
 ## 7. Research and reference tools
 
