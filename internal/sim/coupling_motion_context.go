@@ -16,18 +16,23 @@ type couplingMotionLeg struct {
 }
 
 type couplingMotionContext struct {
-	reservation    couplingReservationPlan
-	owner          resourceOwner
-	claims         []couplingClaim
-	dependencies   []couplingDependency
-	through        [2]int
-	terminal       [2]float64
-	legs           [5]couplingMotionLeg
-	drainOrder     [2]int
-	ticks          uint64
-	foreignIDs     []string
-	events         []couplingOwnerEvent
-	drainageProved bool
+	reservation      couplingReservationPlan
+	owner            resourceOwner
+	claims           []couplingClaim
+	dependencies     []couplingDependency
+	through          [2]int
+	terminal         [2]float64
+	legs             [5]couplingMotionLeg
+	drainOrder       [2]int
+	ticks            uint64
+	foreignIDs       []string
+	events           []couplingOwnerEvent
+	drainageProved   bool
+	formationTick    int64
+	firstLeg         int
+	initialDwell     int
+	initialPhase     couplingReservationPhase
+	initialDistances [2]float64
 }
 
 type couplingMotionContextInput struct {
@@ -45,7 +50,7 @@ func prepareCouplingMotionContext(input couplingMotionContextInput) (*couplingMo
 	if _, err := revalidateCouplingReservation(input.Reservation, input.Current); err != nil {
 		return nil, err
 	}
-	c := &couplingMotionContext{reservation: input.Reservation, owner: resourceOwner{kind: groupOwnerKind, id: input.GroupID}, foreignIDs: slices.Clone(input.ForeignIDs)}
+	c := &couplingMotionContext{reservation: input.Reservation, owner: resourceOwner{kind: groupOwnerKind, id: input.GroupID}, foreignIDs: slices.Clone(input.ForeignIDs), formationTick: input.Current.Tick}
 	for i := range c.reservation.members {
 		c.reservation.members[i] = cloneCouplingMember(c.reservation.members[i])
 		blocks, err := c.reservation.network.routeBlocks(c.reservation.members[i].Vehicle.Route)
@@ -54,7 +59,7 @@ func prepareCouplingMotionContext(input couplingMotionContextInput) (*couplingMo
 		}
 		c.reservation.routes[i] = blocks
 	}
-	c.reservation.waiting = slices.Clone(c.reservation.waiting)
+	c.reservation.waiting = nil
 	c.reservation.Claims = slices.Clone(c.reservation.Claims)
 	c.reservation.PreservedClaims = slices.Clone(c.reservation.PreservedClaims)
 	c.reservation.Dependencies = slices.Clone(c.reservation.Dependencies)
@@ -117,6 +122,21 @@ func couplingJointDependency(d couplingDependency) bool {
 
 // Each extension visits new canonical cells. Shared occurrences only extend bounds.
 func (c *couplingMotionContext) closeExits(owners map[resource]resourceOwner) error {
+	if err := c.bindExits(); err != nil {
+		return err
+	}
+	for i, claim := range c.claims {
+		owner := owners[claim.Resource]
+		if !owner.isZero() && !owner.isPod(c.reservation.members[0].Vehicle.Pod.ID) && !owner.isPod(c.reservation.members[1].Vehicle.Pod.ID) {
+			return couplingDenied("complete closure has a foreign typed owner")
+		}
+		c.claims[i].Expected = owner
+	}
+	return nil
+}
+
+// Static closure has no owner checks. Restore filters it at the current phase.
+func (c *couplingMotionContext) bindExits() error {
 	p := &c.reservation
 	dependencies := make(map[resource]couplingDependency, len(p.Dependencies))
 	for _, d := range p.Dependencies {
@@ -181,10 +201,6 @@ func (c *couplingMotionContext) closeExits(owners map[resource]resourceOwner) er
 			corridor := p.network.corridors[p.corridorID]
 			for _, b := range blocks.span(old+1, c.through[i]+1) {
 				for _, r := range b.resources {
-					owner := owners[r]
-					if !owner.isZero() && !owner.isPod(p.members[0].Vehicle.Pod.ID) && !owner.isPod(p.members[1].Vehicle.Pod.ID) {
-						return couplingDenied("exit closure has a foreign typed owner")
-					}
 					addCouplingDependency(dependencies, r, i, resourceReleaseDistance(b, r), p.axisOrigins[i], b.lane.ID, corridor.LaneIDs)
 					d := dependencies[r]
 					if couplingJointDependency(d) {
@@ -202,11 +218,7 @@ func (c *couplingMotionContext) closeExits(owners map[resource]resourceOwner) er
 		}
 	}
 	for r, d := range dependencies {
-		owner := owners[r]
-		if !owner.isZero() && !owner.isPod(p.members[0].Vehicle.Pod.ID) && !owner.isPod(p.members[1].Vehicle.Pod.ID) {
-			return couplingDenied("complete closure has a foreign typed owner")
-		}
-		c.claims = append(c.claims, couplingClaim{Resource: r, Expected: owner})
+		c.claims = append(c.claims, couplingClaim{Resource: r})
 		c.dependencies = append(c.dependencies, d)
 	}
 	slices.SortFunc(c.claims, func(a, b couplingClaim) int { return compareCouplingResource(a.Resource, b.Resource) })

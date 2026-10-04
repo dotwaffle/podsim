@@ -186,6 +186,7 @@ func (c *Client) exchange(ctx context.Context, method, path string, body []byte,
 	}
 	if path == "/api/state" {
 		req.Header.Set("Accept", session.ExpressMediaType)
+		req.Header.Add("Accept", session.CouplingMediaType)
 	}
 	response, err := c.http.Do(req)
 	if err != nil {
@@ -198,18 +199,24 @@ func (c *Client) exchange(ctx context.Context, method, path string, body []byte,
 	var input io.Reader = response.Body
 	if path == "/api/state" {
 		media, _, mediaErr := mime.ParseMediaType(response.Header.Get("Content-Type"))
-		if mediaErr == nil && media == session.ExpressMediaType {
+		if mediaErr == nil && (media == session.ExpressMediaType || media == session.CouplingMediaType) {
 			raw, readErr := io.ReadAll(io.LimitReader(response.Body, session.MaxStreamJSON+1))
 			if readErr != nil {
 				return readErr
 			}
-			state, decodeErr := session.DecodeExpressStateJSON(raw)
+			var state session.State
+			var decodeErr error
+			if media == session.CouplingMediaType {
+				state, decodeErr = session.DecodeCouplingStateJSON(raw)
+			} else {
+				state, decodeErr = session.DecodeExpressStateJSON(raw)
+			}
 			if decodeErr != nil {
 				return decodeErr
 			}
 			destination, ok := target.(*session.State)
 			if !ok {
-				return errors.New("express HTTP state needs a native state target")
+				return errors.New("qualified HTTP state needs a native state target")
 			}
 			*destination = state
 			return nil

@@ -17,7 +17,7 @@ func (s *Simulation) releasePickup(v *vehicle) bool {
 // releasable reports whether v is an empty pod on its way to a station that
 // is not a rebalancing move.
 func releasable(v *vehicle) bool {
-	return !v.Pod.Occupied && v.RelocatingTo != "" && !v.Rebalancing &&
+	return v.couplingID == "" && !v.Pod.Occupied && v.RelocatingTo != "" && !v.Rebalancing &&
 		(v.Pod.Activity == Traveling || v.Pod.Activity == DepartingEmpty)
 }
 

@@ -514,6 +514,9 @@ func (s *Simulation) admit() {
 	intents := work.intents[:0]
 	for i := range s.vehicles {
 		v := &s.vehicles[i]
+		if v.couplingID != "" {
+			continue
+		}
 		ready := departs(v.Pod.Activity) && v.phaseTicks == 0
 		if !ready && v.Pod.Activity != Traveling {
 			continue
@@ -608,6 +611,9 @@ func compareAdmission(a, b intent, tick int64) int {
 func (s *Simulation) grant(in intent) {
 	v := &s.vehicles[in.index]
 	through := max(reservationEnd(&v.blocks, in.block), in.through)
+	if !s.couplingApproachGrant(v, through) {
+		return
+	}
 	if v.buffered && v.destination.ID == "" {
 		plan, ok := s.bufferPlan(v)
 		if !ok {
@@ -740,10 +746,13 @@ func (s *Simulation) move(v *vehicle) {
 	if v.link.leader != 0 && v.platoonCap < limit {
 		limit = v.platoonCap
 	}
-	available := math.Max(0, limit-v.distance)
-	dt := 1.0 / TicksPerSecond
-	// Semi-implicit integration preserves enough owned track to stop on the next tick.
-	safe := math.Sqrt(acceleration*acceleration*dt*dt+2*acceleration*available) - acceleration*dt
+	blocks := &v.blocks
+	current := blocks.find(v.blockIndex, &blocks.cursors[podCursor])
+	next := ordinaryMoveStep(blocks, current.lane, v.distance, v.Pod.Speed, limit)
+	s.publishVehicleTravel(v, next.distance, next.speed)
+}
+
+func (s *Simulation) publishVehicleTravel(v *vehicle, distance, speed float64) {
 	blocks := &v.blocks
 	current := blocks.find(v.blockIndex, &blocks.cursors[podCursor])
 	// A pod with no lane has left its berth, so it enters its current lane
@@ -752,14 +761,7 @@ func (s *Simulation) move(v *vehicle) {
 	if v.Pod.LaneID == "" {
 		entered = current.lane
 	}
-	speed := math.Min(v.Pod.Speed+acceleration*dt, math.Min(blocks.route[current.lane].SpeedLimit, math.Max(0, safe)))
-	v.Pod.Speed = blocks.speedBeforeLane(current.lane, v.distance, speed)
-	travel := math.Min(available, v.Pod.Speed*dt)
-	v.distance += travel
-	if limit-v.distance < 1e-5 {
-		v.distance = limit
-		v.Pod.Speed = 0
-	}
+	v.distance, v.Pod.Speed = distance, speed
 	for v.distance >= current.end {
 		if v.blockIndex+1 == blocks.len() {
 			s.recordLaneEntries(v, entered, current.lane)
@@ -865,6 +867,9 @@ func (v *vehicle) retainRouteResource(r resource, releaseAt float64) {
 }
 
 func (s *Simulation) releaseVehicleResources(v *vehicle) {
+	if v.couplingID != "" {
+		return
+	}
 	if v.Pod.Activity != Traveling {
 		if len(v.routeReleases) == 0 {
 			return

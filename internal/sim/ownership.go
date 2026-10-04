@@ -15,6 +15,9 @@ func (s *Simulation) retainedOwners() map[resource]resourceOwner {
 	owners := make(map[resource]resourceOwner, len(s.owners))
 	for i := range s.vehicles {
 		v := &s.vehicles[i]
+		if s.couplingMember(v.Pod.ID) {
+			continue
+		}
 		if v.Pod.Activity == Traveling {
 			s.addRouteOwners(owners, v)
 		} else {
@@ -33,6 +36,17 @@ func (s *Simulation) retainedOwners() map[resource]resourceOwner {
 			if s.owners[r] == podResourceOwner(v.Pod.ID) {
 				owners[r] = podResourceOwner(v.Pod.ID)
 			}
+		}
+	}
+	for _, group := range s.couplingGroups {
+		c := group.context
+		for _, dependency := range c.dependencies {
+			if owner := c.dependencyOwner(dependency, group.state); !owner.isZero() {
+				owners[dependency.Resource] = owner
+			}
+		}
+		for _, claim := range c.reservation.PreservedClaims {
+			owners[claim.Resource] = claim.Expected
 		}
 	}
 	return owners

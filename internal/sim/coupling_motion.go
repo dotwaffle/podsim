@@ -67,7 +67,9 @@ func initialCouplingMotion(c *couplingMotionContext, current couplingReservation
 	if c == nil {
 		return step, couplingDenied("missing immutable motion context")
 	}
-	if _, err := revalidateCouplingReservation(c.reservation, current); err != nil {
+	commitment := c.reservation
+	commitment.waiting = current.Waiting
+	if _, err := revalidateCouplingReservation(commitment, current); err != nil {
 		return step, err
 	}
 	owners := current.Owners
@@ -149,7 +151,15 @@ func (c *couplingMotionContext) stateAt(elapsed uint64) (couplingMotionState, er
 	}
 	state.Tick = c.reservation.tick + ticks
 	remaining := elapsed
-	for i, leg := range &c.legs {
+	if c.initialDwell > 0 {
+		if remaining < uint64(c.initialDwell) {
+			state.Phase, state.Distances, state.Dwell = c.initialPhase, c.initialDistances, c.initialDwell-int(remaining)
+			return c.poseState(state)
+		}
+		remaining -= uint64(c.initialDwell)
+	}
+	for i := c.firstLeg; i < len(c.legs); i++ {
+		leg := c.legs[i]
 		if remaining <= leg.ticks {
 			state.Phase, state.Leg, state.Cursor = leg.phase, i, remaining
 			state.Distances = leg.start
@@ -167,8 +177,14 @@ func (c *couplingMotionContext) stateAt(elapsed uint64) (couplingMotionState, er
 				switch i {
 				case 0:
 					state.Phase, state.Leg, state.Cursor, state.Dwell = couplingLatching, -1, 0, c.reservation.LatchTicks
+					if state.Dwell == 0 {
+						state.Phase, state.Leg = couplingConnected, 1
+					}
 				case 1:
 					state.Phase, state.Leg, state.Cursor, state.Dwell = couplingUnlatching, -1, 0, c.reservation.UnlatchTicks
+					if state.Dwell == 0 {
+						state.Phase, state.Leg = couplingOpening, 2
+					}
 				case 2, 3:
 					state.Phase, state.Leg, state.Cursor = couplingDraining, i+1, 0
 				case 4:
@@ -305,9 +321,7 @@ func (c *couplingMotionContext) membersAt(state couplingMotionState) [2]coupling
 		blocks := c.reservation.routes[i]
 		lane := blocks.routeLane(state.Cells[i])
 		member.Pod.LaneDistance = state.Distances[i] - blocks.lanes[lane].start
-		if v.PassengersAboard() > 0 {
-			member.RiddenMeters += state.Distances[i] - m.Distance
-		}
+		member.RiddenMeters = m.cabinMeters(state.Distances[i])
 		members[i] = member
 	}
 	return members

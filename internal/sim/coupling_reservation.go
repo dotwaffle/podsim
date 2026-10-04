@@ -17,6 +17,7 @@ type couplingMemberSnapshot struct {
 	DestinationStation                                            string
 	Retained                                                      map[resource]float64
 	VirtualLeader, VirtualFollower, CompactQueue, StationManeuver bool
+	nativeRiddenBase                                              *float64
 }
 
 type couplingReservationInput struct {
@@ -67,7 +68,29 @@ func cloneCouplingMember(member couplingMemberSnapshot) couplingMemberSnapshot {
 	member.Vehicle.Stops = slices.Clone(member.Vehicle.Stops)
 	member.Vehicle.Boardings = slices.Clone(member.Vehicle.Boardings)
 	member.Retained = maps.Clone(member.Retained)
+	if member.nativeRiddenBase != nil {
+		member.nativeRiddenBase = new(*member.nativeRiddenBase)
+	}
 	return member
+}
+
+// Native cabins keep the existing mileage clock's operation order.
+func (member couplingMemberSnapshot) cabinMeters(distance float64) float64 {
+	v := member.Vehicle
+	if member.nativeRiddenBase != nil {
+		if v.PassengersAboard() > 0 {
+			return *member.nativeRiddenBase + distance
+		}
+		if len(v.Boardings) > 0 {
+			return *member.nativeRiddenBase
+		}
+		return 0
+	}
+	meters := v.RiddenMeters
+	if v.PassengersAboard() > 0 {
+		meters += distance - member.Distance
+	}
+	return meters
 }
 
 // This function prepares a certificate. It never changes the input or owners.
@@ -175,6 +198,9 @@ func couplingMemberEligibility(input couplingReservationInput) error {
 		}
 		if (v.PassengersAboard() > 0) != occupied || v.Pod.Occupied != occupied {
 			return couplingDenied("mixed or inconsistent occupancy")
+		}
+		if member.nativeRiddenBase != nil && (!finite(*member.nativeRiddenBase) || member.cabinMeters(member.Distance) != v.RiddenMeters) {
+			return couplingDenied("native cabin mileage differs from its history baseline")
 		}
 		for _, request := range input.Waiting {
 			if request.PodID == v.Pod.ID {
@@ -462,7 +488,18 @@ func (plan *couplingReservationPlan) preserveReceivingClaims(input couplingReser
 		if member.Destination.ID == "" {
 			continue
 		}
-		for _, r := range berthResources(member.Destination) {
+		claims := berthResources(member.Destination)
+		if member.Vehicle.PassengersAboard() > 0 {
+			berthHeld := input.Owners[claims[0]].isPod(member.Vehicle.Pod.ID)
+			nodeHeld := input.Owners[claims[1]].isPod(member.Vehicle.Pod.ID)
+			if !berthHeld && !nodeHeld {
+				continue
+			}
+			if berthHeld != nodeHeld {
+				return couplingDenied("passenger receiving claim is incomplete")
+			}
+		}
+		for _, r := range claims {
 			if !input.Owners[r].isPod(member.Vehicle.Pod.ID) {
 				return couplingDenied("existing receiving claim lost its individual owner")
 			}

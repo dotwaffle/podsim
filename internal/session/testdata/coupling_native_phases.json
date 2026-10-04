@@ -1,0 +1,2064 @@
+{
+  "provenance": "Private native certificate-derived saved phases. Not live recruitment. Exact ROOT fixture State records and common cohort inputs.",
+  "sourceManifestSha256": "23eb4b9e0121e6e028e99e662393f8b099922501380953f75fdf8fbcbc4bc78f",
+  "cohorts": {
+    "empty": {
+      "OrderContract": "",
+      "CouplingContract": "compact-pair-v1",
+      "CouplingEnabled": false,
+      "CouplingSites": [
+        {
+          "id": "assembly",
+          "laneId": "ab",
+          "startMeters": 20,
+          "endMeters": 120,
+          "frontStagingMeters": 72,
+          "rearStagingMeters": 60
+        },
+        {
+          "id": "split",
+          "laneId": "bc",
+          "startMeters": 50,
+          "endMeters": 140,
+          "frontStagingMeters": 82,
+          "rearStagingMeters": 70
+        }
+      ],
+      "CouplingCorridors": [
+        {
+          "id": "corridor",
+          "assemblySiteId": "assembly",
+          "splitSiteId": "split",
+          "laneIds": [
+            "ab",
+            "bc"
+          ]
+        }
+      ],
+      "BoardingRecords": false,
+      "OnboardPickups": false,
+      "ExpressServices": null,
+      "Network": {
+        "Nodes": [
+          {
+            "ID": "a",
+            "Position": {
+              "X": 0,
+              "Y": 0
+            }
+          },
+          {
+            "ID": "b",
+            "Position": {
+              "X": 210,
+              "Y": 0
+            }
+          },
+          {
+            "ID": "c",
+            "Position": {
+              "X": 420,
+              "Y": 0
+            }
+          },
+          {
+            "ID": "origin-entry",
+            "Position": {
+              "X": -60,
+              "Y": 50
+            }
+          },
+          {
+            "ID": "origin-exit",
+            "Position": {
+              "X": -60,
+              "Y": -50
+            }
+          },
+          {
+            "ID": "front-entry",
+            "Position": {
+              "X": 620,
+              "Y": 150
+            }
+          },
+          {
+            "ID": "rear-entry",
+            "Position": {
+              "X": 620,
+              "Y": -150
+            }
+          },
+          {
+            "ID": "front-berth",
+            "Position": {
+              "X": 670,
+              "Y": 175
+            }
+          },
+          {
+            "ID": "rear-berth",
+            "Position": {
+              "X": 670,
+              "Y": -175
+            }
+          },
+          {
+            "ID": "front-exit",
+            "Position": {
+              "X": 730,
+              "Y": 175
+            }
+          },
+          {
+            "ID": "rear-exit",
+            "Position": {
+              "X": 730,
+              "Y": -175
+            }
+          }
+        ],
+        "Lanes": [
+          {
+            "VehicleClasses": [
+              "compact"
+            ],
+            "ID": "ab",
+            "From": "a",
+            "To": "b",
+            "SpeedLimit": 7.123456789
+          },
+          {
+            "VehicleClasses": [
+              "compact"
+            ],
+            "ID": "bc",
+            "From": "b",
+            "To": "c",
+            "SpeedLimit": 7.123456789
+          },
+          {
+            "VehicleClasses": [
+              "compact"
+            ],
+            "ID": "origin-in",
+            "From": "origin-entry",
+            "To": "a",
+            "SpeedLimit": 7.123456789,
+            "StationID": "origin",
+            "StationRole": "berth-access"
+          },
+          {
+            "VehicleClasses": [
+              "compact"
+            ],
+            "ID": "origin-out",
+            "From": "a",
+            "To": "origin-exit",
+            "SpeedLimit": 7.123456789,
+            "StationID": "origin",
+            "StationRole": "departure"
+          },
+          {
+            "VehicleClasses": [
+              "compact"
+            ],
+            "ID": "origin-through",
+            "From": "origin-entry",
+            "To": "origin-exit",
+            "SpeedLimit": 7.123456789,
+            "StationID": "origin",
+            "StationRole": "through"
+          },
+          {
+            "VehicleClasses": [
+              "compact"
+            ],
+            "ID": "front-road",
+            "From": "c",
+            "To": "front-entry",
+            "SpeedLimit": 7.123456789
+          },
+          {
+            "VehicleClasses": [
+              "compact"
+            ],
+            "ID": "rear-road",
+            "From": "c",
+            "To": "rear-entry",
+            "SpeedLimit": 7.123456789
+          },
+          {
+            "VehicleClasses": [
+              "compact"
+            ],
+            "ID": "front-in",
+            "From": "front-entry",
+            "To": "front-berth",
+            "SpeedLimit": 7.123456789,
+            "StationID": "front-goal",
+            "StationRole": "berth-access"
+          },
+          {
+            "VehicleClasses": [
+              "compact"
+            ],
+            "ID": "rear-in",
+            "From": "rear-entry",
+            "To": "rear-berth",
+            "SpeedLimit": 7.123456789,
+            "StationID": "rear-goal",
+            "StationRole": "berth-access"
+          },
+          {
+            "VehicleClasses": [
+              "compact"
+            ],
+            "ID": "front-through",
+            "From": "front-entry",
+            "To": "front-exit",
+            "SpeedLimit": 7.123456789,
+            "StationID": "front-goal",
+            "StationRole": "through"
+          },
+          {
+            "VehicleClasses": [
+              "compact"
+            ],
+            "ID": "rear-through",
+            "From": "rear-entry",
+            "To": "rear-exit",
+            "SpeedLimit": 7.123456789,
+            "StationID": "rear-goal",
+            "StationRole": "through"
+          },
+          {
+            "VehicleClasses": [
+              "compact"
+            ],
+            "ID": "front-out",
+            "From": "front-berth",
+            "To": "front-exit",
+            "SpeedLimit": 7.123456789,
+            "StationID": "front-goal",
+            "StationRole": "departure"
+          },
+          {
+            "VehicleClasses": [
+              "compact"
+            ],
+            "ID": "rear-out",
+            "From": "rear-berth",
+            "To": "rear-exit",
+            "SpeedLimit": 7.123456789,
+            "StationID": "rear-goal",
+            "StationRole": "departure"
+          }
+        ],
+        "Stations": [
+          {
+            "VehicleClasses": [
+              "compact"
+            ],
+            "ID": "origin",
+            "Name": "Origin",
+            "Entry": "origin-entry",
+            "Exit": "origin-exit",
+            "Berths": [
+              {
+                "VehicleClasses": [
+                  "compact"
+                ],
+                "ID": "origin-1",
+                "Node": "a"
+              }
+            ],
+            "ParkingOnly": false
+          },
+          {
+            "VehicleClasses": [
+              "compact"
+            ],
+            "ID": "front-goal",
+            "Name": "Front goal",
+            "Entry": "front-entry",
+            "Exit": "front-exit",
+            "Berths": [
+              {
+                "VehicleClasses": [
+                  "compact"
+                ],
+                "ID": "front-goal-1",
+                "Node": "front-berth"
+              }
+            ],
+            "ParkingOnly": false
+          },
+          {
+            "VehicleClasses": [
+              "compact"
+            ],
+            "ID": "rear-goal",
+            "Name": "Rear goal",
+            "Entry": "rear-entry",
+            "Exit": "rear-exit",
+            "Berths": [
+              {
+                "VehicleClasses": [
+                  "compact"
+                ],
+                "ID": "rear-goal-1",
+                "Node": "rear-berth"
+              }
+            ],
+            "ParkingOnly": false
+          }
+        ]
+      },
+      "Fleet": [
+        {
+          "Class": "compact",
+          "ID": "front",
+          "StationID": "origin",
+          "BerthID": ""
+        },
+        {
+          "Class": "compact",
+          "ID": "rear",
+          "StationID": "front-goal",
+          "BerthID": ""
+        }
+      ],
+      "LogicalOnly": false,
+      "StationBuffers": false,
+      "BufferPlatoons": false,
+      "CompactQueues": false,
+      "StationQueueSpacing": "",
+      "PlatoonLimit": 0
+    },
+    "occupied": {
+      "OrderContract": "",
+      "CouplingContract": "compact-pair-v1",
+      "CouplingEnabled": false,
+      "CouplingSites": [
+        {
+          "id": "assembly",
+          "laneId": "ab",
+          "startMeters": 20,
+          "endMeters": 120,
+          "frontStagingMeters": 72,
+          "rearStagingMeters": 60
+        },
+        {
+          "id": "split",
+          "laneId": "bc",
+          "startMeters": 50,
+          "endMeters": 140,
+          "frontStagingMeters": 82,
+          "rearStagingMeters": 70
+        }
+      ],
+      "CouplingCorridors": [
+        {
+          "id": "corridor",
+          "assemblySiteId": "assembly",
+          "splitSiteId": "split",
+          "laneIds": [
+            "ab",
+            "bc"
+          ]
+        }
+      ],
+      "BoardingRecords": false,
+      "OnboardPickups": false,
+      "ExpressServices": null,
+      "Network": {
+        "Nodes": [
+          {
+            "ID": "a",
+            "Position": {
+              "X": 0,
+              "Y": 0
+            }
+          },
+          {
+            "ID": "b",
+            "Position": {
+              "X": 210,
+              "Y": 0
+            }
+          },
+          {
+            "ID": "c",
+            "Position": {
+              "X": 420,
+              "Y": 0
+            }
+          },
+          {
+            "ID": "origin-entry",
+            "Position": {
+              "X": -60,
+              "Y": 50
+            }
+          },
+          {
+            "ID": "origin-exit",
+            "Position": {
+              "X": -60,
+              "Y": -50
+            }
+          },
+          {
+            "ID": "front-entry",
+            "Position": {
+              "X": 620,
+              "Y": 150
+            }
+          },
+          {
+            "ID": "rear-entry",
+            "Position": {
+              "X": 620,
+              "Y": -150
+            }
+          },
+          {
+            "ID": "front-berth",
+            "Position": {
+              "X": 670,
+              "Y": 175
+            }
+          },
+          {
+            "ID": "rear-berth",
+            "Position": {
+              "X": 670,
+              "Y": -175
+            }
+          },
+          {
+            "ID": "front-exit",
+            "Position": {
+              "X": 730,
+              "Y": 175
+            }
+          },
+          {
+            "ID": "rear-exit",
+            "Position": {
+              "X": 730,
+              "Y": -175
+            }
+          }
+        ],
+        "Lanes": [
+          {
+            "VehicleClasses": [
+              "compact"
+            ],
+            "ID": "ab",
+            "From": "a",
+            "To": "b",
+            "SpeedLimit": 7.123456789
+          },
+          {
+            "VehicleClasses": [
+              "compact"
+            ],
+            "ID": "bc",
+            "From": "b",
+            "To": "c",
+            "SpeedLimit": 7.123456789
+          },
+          {
+            "VehicleClasses": [
+              "compact"
+            ],
+            "ID": "origin-in",
+            "From": "origin-entry",
+            "To": "a",
+            "SpeedLimit": 7.123456789,
+            "StationID": "origin",
+            "StationRole": "berth-access"
+          },
+          {
+            "VehicleClasses": [
+              "compact"
+            ],
+            "ID": "origin-out",
+            "From": "a",
+            "To": "origin-exit",
+            "SpeedLimit": 7.123456789,
+            "StationID": "origin",
+            "StationRole": "departure"
+          },
+          {
+            "VehicleClasses": [
+              "compact"
+            ],
+            "ID": "origin-through",
+            "From": "origin-entry",
+            "To": "origin-exit",
+            "SpeedLimit": 7.123456789,
+            "StationID": "origin",
+            "StationRole": "through"
+          },
+          {
+            "VehicleClasses": [
+              "compact"
+            ],
+            "ID": "front-road",
+            "From": "c",
+            "To": "front-entry",
+            "SpeedLimit": 7.123456789
+          },
+          {
+            "VehicleClasses": [
+              "compact"
+            ],
+            "ID": "rear-road",
+            "From": "c",
+            "To": "rear-entry",
+            "SpeedLimit": 7.123456789
+          },
+          {
+            "VehicleClasses": [
+              "compact"
+            ],
+            "ID": "front-in",
+            "From": "front-entry",
+            "To": "front-berth",
+            "SpeedLimit": 7.123456789,
+            "StationID": "front-goal",
+            "StationRole": "berth-access"
+          },
+          {
+            "VehicleClasses": [
+              "compact"
+            ],
+            "ID": "rear-in",
+            "From": "rear-entry",
+            "To": "rear-berth",
+            "SpeedLimit": 7.123456789,
+            "StationID": "rear-goal",
+            "StationRole": "berth-access"
+          },
+          {
+            "VehicleClasses": [
+              "compact"
+            ],
+            "ID": "front-through",
+            "From": "front-entry",
+            "To": "front-exit",
+            "SpeedLimit": 7.123456789,
+            "StationID": "front-goal",
+            "StationRole": "through"
+          },
+          {
+            "VehicleClasses": [
+              "compact"
+            ],
+            "ID": "rear-through",
+            "From": "rear-entry",
+            "To": "rear-exit",
+            "SpeedLimit": 7.123456789,
+            "StationID": "rear-goal",
+            "StationRole": "through"
+          },
+          {
+            "VehicleClasses": [
+              "compact"
+            ],
+            "ID": "front-out",
+            "From": "front-berth",
+            "To": "front-exit",
+            "SpeedLimit": 7.123456789,
+            "StationID": "front-goal",
+            "StationRole": "departure"
+          },
+          {
+            "VehicleClasses": [
+              "compact"
+            ],
+            "ID": "rear-out",
+            "From": "rear-berth",
+            "To": "rear-exit",
+            "SpeedLimit": 7.123456789,
+            "StationID": "rear-goal",
+            "StationRole": "departure"
+          }
+        ],
+        "Stations": [
+          {
+            "VehicleClasses": [
+              "compact"
+            ],
+            "ID": "origin",
+            "Name": "Origin",
+            "Entry": "origin-entry",
+            "Exit": "origin-exit",
+            "Berths": [
+              {
+                "VehicleClasses": [
+                  "compact"
+                ],
+                "ID": "origin-1",
+                "Node": "a"
+              }
+            ],
+            "ParkingOnly": false
+          },
+          {
+            "VehicleClasses": [
+              "compact"
+            ],
+            "ID": "front-goal",
+            "Name": "Front goal",
+            "Entry": "front-entry",
+            "Exit": "front-exit",
+            "Berths": [
+              {
+                "VehicleClasses": [
+                  "compact"
+                ],
+                "ID": "front-goal-1",
+                "Node": "front-berth"
+              }
+            ],
+            "ParkingOnly": false
+          },
+          {
+            "VehicleClasses": [
+              "compact"
+            ],
+            "ID": "rear-goal",
+            "Name": "Rear goal",
+            "Entry": "rear-entry",
+            "Exit": "rear-exit",
+            "Berths": [
+              {
+                "VehicleClasses": [
+                  "compact"
+                ],
+                "ID": "rear-goal-1",
+                "Node": "rear-berth"
+              }
+            ],
+            "ParkingOnly": false
+          }
+        ]
+      },
+      "Fleet": [
+        {
+          "Class": "compact",
+          "ID": "front",
+          "StationID": "origin",
+          "BerthID": ""
+        },
+        {
+          "Class": "compact",
+          "ID": "rear",
+          "StationID": "front-goal",
+          "BerthID": ""
+        }
+      ],
+      "LogicalOnly": false,
+      "StationBuffers": false,
+      "BufferPlatoons": false,
+      "CompactQueues": false,
+      "StationQueueSpacing": "",
+      "PlatoonLimit": 0
+    }
+  },
+  "frames": [
+    {
+      "name": "occupied-false-phase-1-leg-0.json",
+      "sha256": "825b3b64b15a0d77e21bbae2aded2ae1ac47f0008142e63dfdfa95d500d7d3cf",
+      "cohort": "empty",
+      "state": {
+        "couplingContract": "compact-pair-v1",
+        "couplingGroups": [
+          {
+            "id": "physical-pair",
+            "members": [
+              "front",
+              "rear"
+            ],
+            "formationTick": 10,
+            "corridorID": "corridor",
+            "assemblySiteID": "assembly",
+            "splitSiteID": "split",
+            "phase": "closing",
+            "dwellTicks": 0,
+            "progress": {
+              "leg": 0,
+              "drainFirstMember": 0
+            }
+          }
+        ],
+        "tick": 491,
+        "completed": 0,
+        "requestID": 0,
+        "boarded": 0,
+        "totalWaitTicks": 0,
+        "maxWaitTicks": 0,
+        "nextRedistributionTick": 0,
+        "passengerDistanceMeters": 0,
+        "emptyDistanceMeters": 0,
+        "rebalanceMoves": 0,
+        "sharedParties": 0,
+        "sharedRidePartyLimit": 1,
+        "sharedRideMode": "drop-offs",
+        "sharedRideMaxStops": 3,
+        "sharedRideJoin": "unassigned",
+        "pods": [
+          {
+            "class": "compact",
+            "id": "front",
+            "activity": "traveling",
+            "relocatingTo": "front-goal",
+            "origin": "origin-1",
+            "destination": "front-goal-1",
+            "destinationStation": "front-goal",
+            "claimsDestination": true,
+            "route": [
+              0,
+              1,
+              5,
+              7
+            ],
+            "laneID": "ab",
+            "laneDistance": 72,
+            "distance": 72
+          },
+          {
+            "class": "compact",
+            "id": "rear",
+            "activity": "traveling",
+            "relocatingTo": "rear-goal",
+            "origin": "origin-1",
+            "destination": "rear-goal-1",
+            "destinationStation": "rear-goal",
+            "claimsDestination": true,
+            "route": [
+              0,
+              1,
+              6,
+              8
+            ],
+            "laneID": "ab",
+            "laneDistance": 63.758324084350846,
+            "distance": 63.758324084350846
+          }
+        ]
+      }
+    },
+    {
+      "name": "occupied-false-phase-2-leg--1.json",
+      "sha256": "686f7a1b07e6f81d718003a09bfa2b73265761966fe8f0a699f6375a076c2cd9",
+      "cohort": "empty",
+      "state": {
+        "couplingContract": "compact-pair-v1",
+        "couplingGroups": [
+          {
+            "id": "physical-pair",
+            "members": [
+              "front",
+              "rear"
+            ],
+            "formationTick": 10,
+            "corridorID": "corridor",
+            "assemblySiteID": "assembly",
+            "splitSiteID": "split",
+            "phase": "latching",
+            "dwellTicks": 43,
+            "progress": {
+              "leg": 0,
+              "drainFirstMember": 0
+            }
+          }
+        ],
+        "tick": 1048,
+        "completed": 0,
+        "requestID": 0,
+        "boarded": 0,
+        "totalWaitTicks": 0,
+        "maxWaitTicks": 0,
+        "nextRedistributionTick": 0,
+        "passengerDistanceMeters": 0,
+        "emptyDistanceMeters": 0,
+        "rebalanceMoves": 0,
+        "sharedParties": 0,
+        "sharedRidePartyLimit": 1,
+        "sharedRideMode": "drop-offs",
+        "sharedRideMaxStops": 3,
+        "sharedRideJoin": "unassigned",
+        "pods": [
+          {
+            "class": "compact",
+            "id": "front",
+            "activity": "traveling",
+            "relocatingTo": "front-goal",
+            "origin": "origin-1",
+            "destination": "front-goal-1",
+            "destinationStation": "front-goal",
+            "claimsDestination": true,
+            "route": [
+              0,
+              1,
+              5,
+              7
+            ],
+            "laneID": "ab",
+            "laneDistance": 72,
+            "distance": 72
+          },
+          {
+            "class": "compact",
+            "id": "rear",
+            "activity": "traveling",
+            "relocatingTo": "rear-goal",
+            "origin": "origin-1",
+            "destination": "rear-goal-1",
+            "destinationStation": "rear-goal",
+            "claimsDestination": true,
+            "route": [
+              0,
+              1,
+              6,
+              8
+            ],
+            "laneID": "ab",
+            "laneDistance": 67.5,
+            "distance": 67.5
+          }
+        ]
+      }
+    },
+    {
+      "name": "occupied-false-phase-3-leg-1.json",
+      "sha256": "d7b1eb792c2342f7140c4ed1d12ebce4924b72a554964bf8d310dc2be4b195e9",
+      "cohort": "empty",
+      "state": {
+        "couplingContract": "compact-pair-v1",
+        "couplingGroups": [
+          {
+            "id": "physical-pair",
+            "members": [
+              "front",
+              "rear"
+            ],
+            "formationTick": 10,
+            "corridorID": "corridor",
+            "assemblySiteID": "assembly",
+            "splitSiteID": "split",
+            "phase": "connected",
+            "dwellTicks": 0,
+            "progress": {
+              "leg": 1,
+              "drainFirstMember": 0
+            }
+          }
+        ],
+        "tick": 2125,
+        "completed": 0,
+        "requestID": 0,
+        "boarded": 0,
+        "totalWaitTicks": 0,
+        "maxWaitTicks": 0,
+        "nextRedistributionTick": 0,
+        "passengerDistanceMeters": 0,
+        "emptyDistanceMeters": 0,
+        "rebalanceMoves": 0,
+        "sharedParties": 0,
+        "sharedRidePartyLimit": 1,
+        "sharedRideMode": "drop-offs",
+        "sharedRideMaxStops": 3,
+        "sharedRideJoin": "unassigned",
+        "pods": [
+          {
+            "class": "compact",
+            "id": "front",
+            "activity": "traveling",
+            "relocatingTo": "front-goal",
+            "origin": "origin-1",
+            "destination": "front-goal-1",
+            "destinationStation": "front-goal",
+            "claimsDestination": true,
+            "route": [
+              0,
+              1,
+              5,
+              7
+            ],
+            "laneID": "ab",
+            "laneDistance": 182.11870747071652,
+            "distance": 182.11870747071652
+          },
+          {
+            "class": "compact",
+            "id": "rear",
+            "activity": "traveling",
+            "relocatingTo": "rear-goal",
+            "origin": "origin-1",
+            "destination": "rear-goal-1",
+            "destinationStation": "rear-goal",
+            "claimsDestination": true,
+            "route": [
+              0,
+              1,
+              6,
+              8
+            ],
+            "laneID": "ab",
+            "laneDistance": 177.61870747071652,
+            "distance": 177.61870747071652
+          }
+        ]
+      }
+    },
+    {
+      "name": "occupied-false-phase-4-leg--1.json",
+      "sha256": "c854f9e90502a6a2ff38ae0e1a5ce9bb5474a599b96b618ebef181923d7b7e7d",
+      "cohort": "empty",
+      "state": {
+        "couplingContract": "compact-pair-v1",
+        "couplingGroups": [
+          {
+            "id": "physical-pair",
+            "members": [
+              "front",
+              "rear"
+            ],
+            "formationTick": 10,
+            "corridorID": "corridor",
+            "assemblySiteID": "assembly",
+            "splitSiteID": "split",
+            "phase": "unlatching",
+            "dwellTicks": 43,
+            "progress": {
+              "leg": 1,
+              "drainFirstMember": 0
+            }
+          }
+        ],
+        "tick": 3235,
+        "completed": 0,
+        "requestID": 0,
+        "boarded": 0,
+        "totalWaitTicks": 0,
+        "maxWaitTicks": 0,
+        "nextRedistributionTick": 0,
+        "passengerDistanceMeters": 0,
+        "emptyDistanceMeters": 0,
+        "rebalanceMoves": 0,
+        "sharedParties": 0,
+        "sharedRidePartyLimit": 1,
+        "sharedRideMode": "drop-offs",
+        "sharedRideMaxStops": 3,
+        "sharedRideJoin": "unassigned",
+        "pods": [
+          {
+            "class": "compact",
+            "id": "front",
+            "activity": "traveling",
+            "relocatingTo": "front-goal",
+            "origin": "origin-1",
+            "destination": "front-goal-1",
+            "destinationStation": "front-goal",
+            "claimsDestination": true,
+            "route": [
+              0,
+              1,
+              5,
+              7
+            ],
+            "routeIndex": 1,
+            "laneID": "bc",
+            "laneDistance": 82,
+            "distance": 292
+          },
+          {
+            "class": "compact",
+            "id": "rear",
+            "activity": "traveling",
+            "relocatingTo": "rear-goal",
+            "origin": "origin-1",
+            "destination": "rear-goal-1",
+            "destinationStation": "rear-goal",
+            "claimsDestination": true,
+            "route": [
+              0,
+              1,
+              6,
+              8
+            ],
+            "routeIndex": 1,
+            "laneID": "bc",
+            "laneDistance": 77.5,
+            "distance": 287.5
+          }
+        ]
+      }
+    },
+    {
+      "name": "occupied-false-phase-5-leg-2.json",
+      "sha256": "cd2f3e8d0a50ae69f74bec3e49e9012716f7d71b09a998e3491451cc3a09b80a",
+      "cohort": "empty",
+      "state": {
+        "couplingContract": "compact-pair-v1",
+        "couplingGroups": [
+          {
+            "id": "physical-pair",
+            "members": [
+              "front",
+              "rear"
+            ],
+            "formationTick": 10,
+            "corridorID": "corridor",
+            "assemblySiteID": "assembly",
+            "splitSiteID": "split",
+            "phase": "opening",
+            "dwellTicks": 0,
+            "progress": {
+              "leg": 2,
+              "drainFirstMember": 0
+            }
+          }
+        ],
+        "tick": 3759,
+        "completed": 0,
+        "requestID": 0,
+        "boarded": 0,
+        "totalWaitTicks": 0,
+        "maxWaitTicks": 0,
+        "nextRedistributionTick": 0,
+        "passengerDistanceMeters": 0,
+        "emptyDistanceMeters": 0,
+        "rebalanceMoves": 0,
+        "sharedParties": 0,
+        "sharedRidePartyLimit": 1,
+        "sharedRideMode": "drop-offs",
+        "sharedRideMaxStops": 3,
+        "sharedRideJoin": "unassigned",
+        "pods": [
+          {
+            "class": "compact",
+            "id": "front",
+            "activity": "traveling",
+            "relocatingTo": "front-goal",
+            "origin": "origin-1",
+            "destination": "front-goal-1",
+            "destinationStation": "front-goal",
+            "claimsDestination": true,
+            "route": [
+              0,
+              1,
+              5,
+              7
+            ],
+            "routeIndex": 1,
+            "laneID": "bc",
+            "laneDistance": 85.75832408435133,
+            "distance": 295.75832408435133
+          },
+          {
+            "class": "compact",
+            "id": "rear",
+            "activity": "traveling",
+            "relocatingTo": "rear-goal",
+            "origin": "origin-1",
+            "destination": "rear-goal-1",
+            "destinationStation": "rear-goal",
+            "claimsDestination": true,
+            "route": [
+              0,
+              1,
+              6,
+              8
+            ],
+            "routeIndex": 1,
+            "laneID": "bc",
+            "laneDistance": 77.5,
+            "distance": 287.5
+          }
+        ]
+      }
+    },
+    {
+      "name": "occupied-false-phase-6-leg-3.json",
+      "sha256": "7f3263b016749830e66943068eded4c023ce319b4e2ab5daf2a075064ef8b0c2",
+      "cohort": "empty",
+      "state": {
+        "couplingContract": "compact-pair-v1",
+        "couplingGroups": [
+          {
+            "id": "physical-pair",
+            "members": [
+              "front",
+              "rear"
+            ],
+            "formationTick": 10,
+            "corridorID": "corridor",
+            "assemblySiteID": "assembly",
+            "splitSiteID": "split",
+            "phase": "draining",
+            "dwellTicks": 0,
+            "progress": {
+              "leg": 3,
+              "drainFirstMember": 0
+            }
+          }
+        ],
+        "tick": 4971,
+        "completed": 0,
+        "requestID": 0,
+        "boarded": 0,
+        "totalWaitTicks": 0,
+        "maxWaitTicks": 0,
+        "nextRedistributionTick": 0,
+        "passengerDistanceMeters": 0,
+        "emptyDistanceMeters": 0,
+        "rebalanceMoves": 0,
+        "sharedParties": 0,
+        "sharedRidePartyLimit": 1,
+        "sharedRideMode": "drop-offs",
+        "sharedRideMaxStops": 3,
+        "sharedRideJoin": "unassigned",
+        "pods": [
+          {
+            "class": "compact",
+            "id": "front",
+            "activity": "traveling",
+            "relocatingTo": "front-goal",
+            "origin": "origin-1",
+            "destination": "front-goal-1",
+            "destinationStation": "front-goal",
+            "claimsDestination": true,
+            "route": [
+              0,
+              1,
+              5,
+              7
+            ],
+            "routeIndex": 1,
+            "laneID": "bc",
+            "laneDistance": 163.75757802133978,
+            "distance": 373.7575780213398
+          },
+          {
+            "class": "compact",
+            "id": "rear",
+            "activity": "traveling",
+            "relocatingTo": "rear-goal",
+            "origin": "origin-1",
+            "destination": "rear-goal-1",
+            "destinationStation": "rear-goal",
+            "claimsDestination": true,
+            "route": [
+              0,
+              1,
+              6,
+              8
+            ],
+            "routeIndex": 1,
+            "laneID": "bc",
+            "laneDistance": 77.5,
+            "distance": 287.5
+          }
+        ]
+      }
+    },
+    {
+      "name": "occupied-false-phase-6-leg-4.json",
+      "sha256": "906f186ff12a75ad62754fb6a556ec72c9c574d8d602f852cd60271fcb6af5d6",
+      "cohort": "empty",
+      "state": {
+        "couplingContract": "compact-pair-v1",
+        "couplingGroups": [
+          {
+            "id": "physical-pair",
+            "members": [
+              "front",
+              "rear"
+            ],
+            "formationTick": 10,
+            "corridorID": "corridor",
+            "assemblySiteID": "assembly",
+            "splitSiteID": "split",
+            "phase": "draining",
+            "dwellTicks": 0,
+            "progress": {
+              "leg": 4,
+              "drainFirstMember": 0
+            }
+          }
+        ],
+        "tick": 6485,
+        "completed": 0,
+        "requestID": 0,
+        "boarded": 0,
+        "totalWaitTicks": 0,
+        "maxWaitTicks": 0,
+        "nextRedistributionTick": 0,
+        "passengerDistanceMeters": 0,
+        "emptyDistanceMeters": 0,
+        "rebalanceMoves": 0,
+        "sharedParties": 0,
+        "sharedRidePartyLimit": 1,
+        "sharedRideMode": "drop-offs",
+        "sharedRideMaxStops": 3,
+        "sharedRideJoin": "unassigned",
+        "pods": [
+          {
+            "class": "compact",
+            "id": "front",
+            "activity": "traveling",
+            "relocatingTo": "front-goal",
+            "origin": "origin-1",
+            "destination": "front-goal-1",
+            "destinationStation": "front-goal",
+            "claimsDestination": true,
+            "route": [
+              0,
+              1,
+              5,
+              7
+            ],
+            "routeIndex": 2,
+            "laneID": "front-road",
+            "laneDistance": 27.77777777777777,
+            "distance": 447.77777777777777
+          },
+          {
+            "class": "compact",
+            "id": "rear",
+            "activity": "traveling",
+            "relocatingTo": "rear-goal",
+            "origin": "origin-1",
+            "destination": "rear-goal-1",
+            "destinationStation": "rear-goal",
+            "claimsDestination": true,
+            "route": [
+              0,
+              1,
+              6,
+              8
+            ],
+            "routeIndex": 1,
+            "laneID": "bc",
+            "laneDistance": 157.81693635968855,
+            "distance": 367.81693635968855
+          }
+        ]
+      }
+    },
+    {
+      "name": "occupied-true-phase-1-leg-0.json",
+      "sha256": "f553936e3b94ad9cbb84f5cbe679c415aaec0728af5f91d0b3e982da8e76219d",
+      "cohort": "occupied",
+      "state": {
+        "couplingContract": "compact-pair-v1",
+        "couplingGroups": [
+          {
+            "id": "physical-pair",
+            "members": [
+              "front",
+              "rear"
+            ],
+            "formationTick": 10,
+            "corridorID": "corridor",
+            "assemblySiteID": "assembly",
+            "splitSiteID": "split",
+            "phase": "closing",
+            "dwellTicks": 0,
+            "progress": {
+              "leg": 0,
+              "drainFirstMember": 0
+            }
+          }
+        ],
+        "tick": 491,
+        "completed": 0,
+        "requestID": 2,
+        "boarded": 2,
+        "totalWaitTicks": 0,
+        "maxWaitTicks": 0,
+        "nextRedistributionTick": 0,
+        "passengerDistanceMeters": 0,
+        "emptyDistanceMeters": 0,
+        "rebalanceMoves": 0,
+        "sharedParties": 0,
+        "sharedRidePartyLimit": 1,
+        "sharedRideMode": "drop-offs",
+        "sharedRideMaxStops": 3,
+        "sharedRideJoin": "unassigned",
+        "pods": [
+          {
+            "class": "compact",
+            "id": "front",
+            "activity": "traveling",
+            "occupied": true,
+            "origin": "origin-1",
+            "destination": "front-goal-1",
+            "destinationStation": "front-goal",
+            "riders": [
+              {
+                "sharingConsent": "private",
+                "service": "on-demand",
+                "id": 1,
+                "from": "origin",
+                "to": "front-goal",
+                "partySize": 1,
+                "podID": "front",
+                "requestedTick": 1,
+                "boardedTick": 2
+              }
+            ],
+            "stops": [
+              "front-goal"
+            ],
+            "claimsDestination": true,
+            "route": [
+              0,
+              1,
+              5,
+              7
+            ],
+            "laneID": "ab",
+            "laneDistance": 72,
+            "distance": 72
+          },
+          {
+            "class": "compact",
+            "id": "rear",
+            "activity": "traveling",
+            "occupied": true,
+            "origin": "origin-1",
+            "destination": "rear-goal-1",
+            "destinationStation": "rear-goal",
+            "riders": [
+              {
+                "sharingConsent": "private",
+                "service": "on-demand",
+                "id": 2,
+                "from": "origin",
+                "to": "rear-goal",
+                "partySize": 2,
+                "podID": "rear",
+                "requestedTick": 1,
+                "boardedTick": 2
+              }
+            ],
+            "stops": [
+              "rear-goal"
+            ],
+            "claimsDestination": true,
+            "route": [
+              0,
+              1,
+              6,
+              8
+            ],
+            "laneID": "ab",
+            "laneDistance": 63.758324084350846,
+            "distance": 63.758324084350846
+          }
+        ]
+      }
+    },
+    {
+      "name": "occupied-true-phase-2-leg--1.json",
+      "sha256": "2008fd562af5bd19a3c611f67b0e7b9f1ab19f0cf763d82553c68f38b8d7752e",
+      "cohort": "occupied",
+      "state": {
+        "couplingContract": "compact-pair-v1",
+        "couplingGroups": [
+          {
+            "id": "physical-pair",
+            "members": [
+              "front",
+              "rear"
+            ],
+            "formationTick": 10,
+            "corridorID": "corridor",
+            "assemblySiteID": "assembly",
+            "splitSiteID": "split",
+            "phase": "latching",
+            "dwellTicks": 43,
+            "progress": {
+              "leg": 0,
+              "drainFirstMember": 0
+            }
+          }
+        ],
+        "tick": 1048,
+        "completed": 0,
+        "requestID": 2,
+        "boarded": 2,
+        "totalWaitTicks": 0,
+        "maxWaitTicks": 0,
+        "nextRedistributionTick": 0,
+        "passengerDistanceMeters": 0,
+        "emptyDistanceMeters": 0,
+        "rebalanceMoves": 0,
+        "sharedParties": 0,
+        "sharedRidePartyLimit": 1,
+        "sharedRideMode": "drop-offs",
+        "sharedRideMaxStops": 3,
+        "sharedRideJoin": "unassigned",
+        "pods": [
+          {
+            "class": "compact",
+            "id": "front",
+            "activity": "traveling",
+            "occupied": true,
+            "origin": "origin-1",
+            "destination": "front-goal-1",
+            "destinationStation": "front-goal",
+            "riders": [
+              {
+                "sharingConsent": "private",
+                "service": "on-demand",
+                "id": 1,
+                "from": "origin",
+                "to": "front-goal",
+                "partySize": 1,
+                "podID": "front",
+                "requestedTick": 1,
+                "boardedTick": 2
+              }
+            ],
+            "stops": [
+              "front-goal"
+            ],
+            "claimsDestination": true,
+            "route": [
+              0,
+              1,
+              5,
+              7
+            ],
+            "laneID": "ab",
+            "laneDistance": 72,
+            "distance": 72
+          },
+          {
+            "class": "compact",
+            "id": "rear",
+            "activity": "traveling",
+            "occupied": true,
+            "origin": "origin-1",
+            "destination": "rear-goal-1",
+            "destinationStation": "rear-goal",
+            "riders": [
+              {
+                "sharingConsent": "private",
+                "service": "on-demand",
+                "id": 2,
+                "from": "origin",
+                "to": "rear-goal",
+                "partySize": 2,
+                "podID": "rear",
+                "requestedTick": 1,
+                "boardedTick": 2
+              }
+            ],
+            "stops": [
+              "rear-goal"
+            ],
+            "claimsDestination": true,
+            "route": [
+              0,
+              1,
+              6,
+              8
+            ],
+            "laneID": "ab",
+            "laneDistance": 67.5,
+            "distance": 67.5
+          }
+        ]
+      }
+    },
+    {
+      "name": "occupied-true-phase-3-leg-1.json",
+      "sha256": "f2b94c41008c6af01cfa5b87e4b2713ac9d176aa19ebafe182b9904862b18c9a",
+      "cohort": "occupied",
+      "state": {
+        "couplingContract": "compact-pair-v1",
+        "couplingGroups": [
+          {
+            "id": "physical-pair",
+            "members": [
+              "front",
+              "rear"
+            ],
+            "formationTick": 10,
+            "corridorID": "corridor",
+            "assemblySiteID": "assembly",
+            "splitSiteID": "split",
+            "phase": "connected",
+            "dwellTicks": 0,
+            "progress": {
+              "leg": 1,
+              "drainFirstMember": 0
+            }
+          }
+        ],
+        "tick": 2125,
+        "completed": 0,
+        "requestID": 2,
+        "boarded": 2,
+        "totalWaitTicks": 0,
+        "maxWaitTicks": 0,
+        "nextRedistributionTick": 0,
+        "passengerDistanceMeters": 0,
+        "emptyDistanceMeters": 0,
+        "rebalanceMoves": 0,
+        "sharedParties": 0,
+        "sharedRidePartyLimit": 1,
+        "sharedRideMode": "drop-offs",
+        "sharedRideMaxStops": 3,
+        "sharedRideJoin": "unassigned",
+        "pods": [
+          {
+            "class": "compact",
+            "id": "front",
+            "activity": "traveling",
+            "occupied": true,
+            "origin": "origin-1",
+            "destination": "front-goal-1",
+            "destinationStation": "front-goal",
+            "riders": [
+              {
+                "sharingConsent": "private",
+                "service": "on-demand",
+                "id": 1,
+                "from": "origin",
+                "to": "front-goal",
+                "partySize": 1,
+                "podID": "front",
+                "requestedTick": 1,
+                "boardedTick": 2
+              }
+            ],
+            "stops": [
+              "front-goal"
+            ],
+            "claimsDestination": true,
+            "route": [
+              0,
+              1,
+              5,
+              7
+            ],
+            "laneID": "ab",
+            "laneDistance": 182.11870747071652,
+            "distance": 182.11870747071652
+          },
+          {
+            "class": "compact",
+            "id": "rear",
+            "activity": "traveling",
+            "occupied": true,
+            "origin": "origin-1",
+            "destination": "rear-goal-1",
+            "destinationStation": "rear-goal",
+            "riders": [
+              {
+                "sharingConsent": "private",
+                "service": "on-demand",
+                "id": 2,
+                "from": "origin",
+                "to": "rear-goal",
+                "partySize": 2,
+                "podID": "rear",
+                "requestedTick": 1,
+                "boardedTick": 2
+              }
+            ],
+            "stops": [
+              "rear-goal"
+            ],
+            "claimsDestination": true,
+            "route": [
+              0,
+              1,
+              6,
+              8
+            ],
+            "laneID": "ab",
+            "laneDistance": 177.61870747071652,
+            "distance": 177.61870747071652
+          }
+        ]
+      }
+    },
+    {
+      "name": "occupied-true-phase-4-leg--1.json",
+      "sha256": "4e3d041cc5edbfc83069c10aea18e58fa5247fdf30579698ddf03b35e9c73cc0",
+      "cohort": "occupied",
+      "state": {
+        "couplingContract": "compact-pair-v1",
+        "couplingGroups": [
+          {
+            "id": "physical-pair",
+            "members": [
+              "front",
+              "rear"
+            ],
+            "formationTick": 10,
+            "corridorID": "corridor",
+            "assemblySiteID": "assembly",
+            "splitSiteID": "split",
+            "phase": "unlatching",
+            "dwellTicks": 43,
+            "progress": {
+              "leg": 1,
+              "drainFirstMember": 0
+            }
+          }
+        ],
+        "tick": 3235,
+        "completed": 0,
+        "requestID": 2,
+        "boarded": 2,
+        "totalWaitTicks": 0,
+        "maxWaitTicks": 0,
+        "nextRedistributionTick": 0,
+        "passengerDistanceMeters": 0,
+        "emptyDistanceMeters": 0,
+        "rebalanceMoves": 0,
+        "sharedParties": 0,
+        "sharedRidePartyLimit": 1,
+        "sharedRideMode": "drop-offs",
+        "sharedRideMaxStops": 3,
+        "sharedRideJoin": "unassigned",
+        "pods": [
+          {
+            "class": "compact",
+            "id": "front",
+            "activity": "traveling",
+            "occupied": true,
+            "origin": "origin-1",
+            "destination": "front-goal-1",
+            "destinationStation": "front-goal",
+            "riders": [
+              {
+                "sharingConsent": "private",
+                "service": "on-demand",
+                "id": 1,
+                "from": "origin",
+                "to": "front-goal",
+                "partySize": 1,
+                "podID": "front",
+                "requestedTick": 1,
+                "boardedTick": 2
+              }
+            ],
+            "stops": [
+              "front-goal"
+            ],
+            "claimsDestination": true,
+            "route": [
+              0,
+              1,
+              5,
+              7
+            ],
+            "routeIndex": 1,
+            "laneID": "bc",
+            "laneDistance": 82,
+            "distance": 292
+          },
+          {
+            "class": "compact",
+            "id": "rear",
+            "activity": "traveling",
+            "occupied": true,
+            "origin": "origin-1",
+            "destination": "rear-goal-1",
+            "destinationStation": "rear-goal",
+            "riders": [
+              {
+                "sharingConsent": "private",
+                "service": "on-demand",
+                "id": 2,
+                "from": "origin",
+                "to": "rear-goal",
+                "partySize": 2,
+                "podID": "rear",
+                "requestedTick": 1,
+                "boardedTick": 2
+              }
+            ],
+            "stops": [
+              "rear-goal"
+            ],
+            "claimsDestination": true,
+            "route": [
+              0,
+              1,
+              6,
+              8
+            ],
+            "routeIndex": 1,
+            "laneID": "bc",
+            "laneDistance": 77.5,
+            "distance": 287.5
+          }
+        ]
+      }
+    },
+    {
+      "name": "occupied-true-phase-5-leg-2.json",
+      "sha256": "937a823fee0d66b6d268ee5edc7337383dcce5e740314e3a28c2690728720ded",
+      "cohort": "occupied",
+      "state": {
+        "couplingContract": "compact-pair-v1",
+        "couplingGroups": [
+          {
+            "id": "physical-pair",
+            "members": [
+              "front",
+              "rear"
+            ],
+            "formationTick": 10,
+            "corridorID": "corridor",
+            "assemblySiteID": "assembly",
+            "splitSiteID": "split",
+            "phase": "opening",
+            "dwellTicks": 0,
+            "progress": {
+              "leg": 2,
+              "drainFirstMember": 0
+            }
+          }
+        ],
+        "tick": 3759,
+        "completed": 0,
+        "requestID": 2,
+        "boarded": 2,
+        "totalWaitTicks": 0,
+        "maxWaitTicks": 0,
+        "nextRedistributionTick": 0,
+        "passengerDistanceMeters": 0,
+        "emptyDistanceMeters": 0,
+        "rebalanceMoves": 0,
+        "sharedParties": 0,
+        "sharedRidePartyLimit": 1,
+        "sharedRideMode": "drop-offs",
+        "sharedRideMaxStops": 3,
+        "sharedRideJoin": "unassigned",
+        "pods": [
+          {
+            "class": "compact",
+            "id": "front",
+            "activity": "traveling",
+            "occupied": true,
+            "origin": "origin-1",
+            "destination": "front-goal-1",
+            "destinationStation": "front-goal",
+            "riders": [
+              {
+                "sharingConsent": "private",
+                "service": "on-demand",
+                "id": 1,
+                "from": "origin",
+                "to": "front-goal",
+                "partySize": 1,
+                "podID": "front",
+                "requestedTick": 1,
+                "boardedTick": 2
+              }
+            ],
+            "stops": [
+              "front-goal"
+            ],
+            "claimsDestination": true,
+            "route": [
+              0,
+              1,
+              5,
+              7
+            ],
+            "routeIndex": 1,
+            "laneID": "bc",
+            "laneDistance": 85.75832408435133,
+            "distance": 295.75832408435133
+          },
+          {
+            "class": "compact",
+            "id": "rear",
+            "activity": "traveling",
+            "occupied": true,
+            "origin": "origin-1",
+            "destination": "rear-goal-1",
+            "destinationStation": "rear-goal",
+            "riders": [
+              {
+                "sharingConsent": "private",
+                "service": "on-demand",
+                "id": 2,
+                "from": "origin",
+                "to": "rear-goal",
+                "partySize": 2,
+                "podID": "rear",
+                "requestedTick": 1,
+                "boardedTick": 2
+              }
+            ],
+            "stops": [
+              "rear-goal"
+            ],
+            "claimsDestination": true,
+            "route": [
+              0,
+              1,
+              6,
+              8
+            ],
+            "routeIndex": 1,
+            "laneID": "bc",
+            "laneDistance": 77.5,
+            "distance": 287.5
+          }
+        ]
+      }
+    },
+    {
+      "name": "occupied-true-phase-6-leg-3.json",
+      "sha256": "311495bf6ee019ade44a0af3d6c09af3ea75befcf93e1e101fec63cd488b0161",
+      "cohort": "occupied",
+      "state": {
+        "couplingContract": "compact-pair-v1",
+        "couplingGroups": [
+          {
+            "id": "physical-pair",
+            "members": [
+              "front",
+              "rear"
+            ],
+            "formationTick": 10,
+            "corridorID": "corridor",
+            "assemblySiteID": "assembly",
+            "splitSiteID": "split",
+            "phase": "draining",
+            "dwellTicks": 0,
+            "progress": {
+              "leg": 3,
+              "drainFirstMember": 0
+            }
+          }
+        ],
+        "tick": 4971,
+        "completed": 0,
+        "requestID": 2,
+        "boarded": 2,
+        "totalWaitTicks": 0,
+        "maxWaitTicks": 0,
+        "nextRedistributionTick": 0,
+        "passengerDistanceMeters": 0,
+        "emptyDistanceMeters": 0,
+        "rebalanceMoves": 0,
+        "sharedParties": 0,
+        "sharedRidePartyLimit": 1,
+        "sharedRideMode": "drop-offs",
+        "sharedRideMaxStops": 3,
+        "sharedRideJoin": "unassigned",
+        "pods": [
+          {
+            "class": "compact",
+            "id": "front",
+            "activity": "traveling",
+            "occupied": true,
+            "origin": "origin-1",
+            "destination": "front-goal-1",
+            "destinationStation": "front-goal",
+            "riders": [
+              {
+                "sharingConsent": "private",
+                "service": "on-demand",
+                "id": 1,
+                "from": "origin",
+                "to": "front-goal",
+                "partySize": 1,
+                "podID": "front",
+                "requestedTick": 1,
+                "boardedTick": 2
+              }
+            ],
+            "stops": [
+              "front-goal"
+            ],
+            "claimsDestination": true,
+            "route": [
+              0,
+              1,
+              5,
+              7
+            ],
+            "routeIndex": 1,
+            "laneID": "bc",
+            "laneDistance": 163.75757802133978,
+            "distance": 373.7575780213398
+          },
+          {
+            "class": "compact",
+            "id": "rear",
+            "activity": "traveling",
+            "occupied": true,
+            "origin": "origin-1",
+            "destination": "rear-goal-1",
+            "destinationStation": "rear-goal",
+            "riders": [
+              {
+                "sharingConsent": "private",
+                "service": "on-demand",
+                "id": 2,
+                "from": "origin",
+                "to": "rear-goal",
+                "partySize": 2,
+                "podID": "rear",
+                "requestedTick": 1,
+                "boardedTick": 2
+              }
+            ],
+            "stops": [
+              "rear-goal"
+            ],
+            "claimsDestination": true,
+            "route": [
+              0,
+              1,
+              6,
+              8
+            ],
+            "routeIndex": 1,
+            "laneID": "bc",
+            "laneDistance": 77.5,
+            "distance": 287.5
+          }
+        ]
+      }
+    },
+    {
+      "name": "occupied-true-phase-6-leg-4.json",
+      "sha256": "2fa5650eacaf0ef257c2c48ad4a37bdf90d82ea7df3235bce89d59732754519a",
+      "cohort": "occupied",
+      "state": {
+        "couplingContract": "compact-pair-v1",
+        "couplingGroups": [
+          {
+            "id": "physical-pair",
+            "members": [
+              "front",
+              "rear"
+            ],
+            "formationTick": 10,
+            "corridorID": "corridor",
+            "assemblySiteID": "assembly",
+            "splitSiteID": "split",
+            "phase": "draining",
+            "dwellTicks": 0,
+            "progress": {
+              "leg": 4,
+              "drainFirstMember": 0
+            }
+          }
+        ],
+        "tick": 6485,
+        "completed": 0,
+        "requestID": 2,
+        "boarded": 2,
+        "totalWaitTicks": 0,
+        "maxWaitTicks": 0,
+        "nextRedistributionTick": 0,
+        "passengerDistanceMeters": 0,
+        "emptyDistanceMeters": 0,
+        "rebalanceMoves": 0,
+        "sharedParties": 0,
+        "sharedRidePartyLimit": 1,
+        "sharedRideMode": "drop-offs",
+        "sharedRideMaxStops": 3,
+        "sharedRideJoin": "unassigned",
+        "pods": [
+          {
+            "class": "compact",
+            "id": "front",
+            "activity": "traveling",
+            "occupied": true,
+            "origin": "origin-1",
+            "destination": "front-goal-1",
+            "destinationStation": "front-goal",
+            "riders": [
+              {
+                "sharingConsent": "private",
+                "service": "on-demand",
+                "id": 1,
+                "from": "origin",
+                "to": "front-goal",
+                "partySize": 1,
+                "podID": "front",
+                "requestedTick": 1,
+                "boardedTick": 2
+              }
+            ],
+            "stops": [
+              "front-goal"
+            ],
+            "claimsDestination": true,
+            "route": [
+              0,
+              1,
+              5,
+              7
+            ],
+            "routeIndex": 2,
+            "laneID": "front-road",
+            "laneDistance": 27.77777777777777,
+            "distance": 447.77777777777777
+          },
+          {
+            "class": "compact",
+            "id": "rear",
+            "activity": "traveling",
+            "occupied": true,
+            "origin": "origin-1",
+            "destination": "rear-goal-1",
+            "destinationStation": "rear-goal",
+            "riders": [
+              {
+                "sharingConsent": "private",
+                "service": "on-demand",
+                "id": 2,
+                "from": "origin",
+                "to": "rear-goal",
+                "partySize": 2,
+                "podID": "rear",
+                "requestedTick": 1,
+                "boardedTick": 2
+              }
+            ],
+            "stops": [
+              "rear-goal"
+            ],
+            "claimsDestination": true,
+            "route": [
+              0,
+              1,
+              6,
+              8
+            ],
+            "routeIndex": 1,
+            "laneID": "bc",
+            "laneDistance": 157.81693635968855,
+            "distance": 367.81693635968855
+          }
+        ]
+      }
+    }
+  ]
+}

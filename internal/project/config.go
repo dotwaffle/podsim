@@ -177,15 +177,21 @@ type DemandContext struct {
 
 // Config is the versioned, portable scenario configuration.
 type Config struct {
-	OrderContract  sim.OrderContract `json:"orderContract,omitzero"`
-	Version        int               `json:"version"`
-	Name           string            `json:"name"`
-	Network        sim.Network       `json:"network"`
-	Fleet          []sim.Placement   `json:"fleet"`
-	Demand         DemandConfig      `json:"demand"`
-	DemandProfiles []DemandProfile   `json:"demandProfiles,omitempty"`
-	RailArrivals   []RailArrival     `json:"railArrivals,omitempty"`
-	RailDepartures []RailDeparture   `json:"railDepartures,omitempty"`
+	OrderContract sim.OrderContract `json:"orderContract,omitzero"`
+	// CouplingContract selects the authored physical coupling profile.
+	CouplingContract sim.CouplingContract `json:"couplingContract,omitzero"`
+	// CouplingEnabled authorizes empty and passenger trains. Cabin consent stays unchanged.
+	CouplingEnabled   bool                   `json:"couplingEnabled,omitzero"`
+	CouplingSites     []sim.CouplingSite     `json:"couplingSites,omitzero"`
+	CouplingCorridors []sim.CouplingCorridor `json:"couplingCorridors,omitzero"`
+	Version           int                    `json:"version"`
+	Name              string                 `json:"name"`
+	Network           sim.Network            `json:"network"`
+	Fleet             []sim.Placement        `json:"fleet"`
+	Demand            DemandConfig           `json:"demand"`
+	DemandProfiles    []DemandProfile        `json:"demandProfiles,omitempty"`
+	RailArrivals      []RailArrival          `json:"railArrivals,omitempty"`
+	RailDepartures    []RailDeparture        `json:"railDepartures,omitempty"`
 	// ExpressServices declares directed hub pairs without a fill or timetable rule.
 	ExpressServices []sim.ExpressService `json:"expressServices,omitempty"`
 	// SharedRidePartyLimit caps the parties per pod. Zero loads as one.
@@ -247,6 +253,9 @@ func Validate(config Config) error {
 	if err := validateServiceVersion(config); err != nil {
 		return err
 	}
+	if err := validateCouplingVersion(config); err != nil {
+		return err
+	}
 	if strings.TrimSpace(config.Name) == "" || len(config.Name) > maxNameLength {
 		return fmt.Errorf("project name must contain 1 to %d characters", maxNameLength)
 	}
@@ -296,6 +305,9 @@ func Validate(config Config) error {
 		return err
 	}
 	if err := validateGeometry(config.Network); err != nil {
+		return err
+	}
+	if err := validateCouplingGeometry(config); err != nil {
 		return err
 	}
 	if err := validateDemandProfiles(config.DemandProfiles, config.Network); err != nil {
@@ -861,6 +873,11 @@ func Clone(config Config) Config {
 	clone.RailArrivals = cloneRailArrivals(config.RailArrivals)
 	clone.RailDepartures = cloneRailDepartures(config.RailDepartures)
 	clone.ExpressServices = slices.Clone(config.ExpressServices)
+	clone.CouplingSites = slices.Clone(config.CouplingSites)
+	clone.CouplingCorridors = slices.Clone(config.CouplingCorridors)
+	for index := range clone.CouplingCorridors {
+		clone.CouplingCorridors[index].LaneIDs = slices.Clone(config.CouplingCorridors[index].LaneIDs)
+	}
 	if config.Geo != nil {
 		clone.Geo = new(*config.Geo)
 	}

@@ -252,7 +252,7 @@ var (
 	invalidBudget  = func(file *stateFile) { file.Demand.Budget = demandBudgetLimit }
 	invalidProject = func(file *stateFile) { file.Project.Name = "" }
 	bothTiersFail  = func(file *stateFile) { file.Simulation.Completed = file.Simulation.RequestID + 1 }
-	newerVersion   = func(file *stateFile) { file.Version = expressStateVersion + 1 }
+	newerVersion   = func(file *stateFile) { file.Version = couplingStateVersion + 1 }
 	pausedAtSpeed4 = func(file *stateFile) { file.Simulation.Paused, file.Speed = true, 4 }
 	// sharedBerth puts the first two pods at one berth. The physical tier
 	// then fails. The active riders of the two pods go to the queue, so the
@@ -529,10 +529,11 @@ func TestNewFromStoreRejects(t *testing.T) {
 	other := customProject()
 	tooLarge := fmt.Errorf("read fake state: %w", ErrStateTooLarge)
 	tests := []struct {
-		name    string
-		data    []byte
-		readErr error
-		project *project.Config
+		name     string
+		data     []byte
+		readErr  error
+		preserve bool
+		project  *project.Config
 		// panics makes the restore of the simulation panic.
 		panics bool
 		reason string
@@ -558,7 +559,7 @@ func TestNewFromStoreRejects(t *testing.T) {
 		},
 		{name: "newer version", data: run.edited(t, newerVersion), reason: reasonUnsupportedVersion},
 		{name: "truncated file", data: run.data[:len(run.data)/2], reason: reasonInvalidState},
-		{name: "too large to read", data: run.data, readErr: tooLarge, reason: reasonTooLarge},
+		{name: "too large to read", data: run.data, readErr: tooLarge, reason: reasonTooLarge, preserve: true},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -573,6 +574,12 @@ func TestNewFromStoreRejects(t *testing.T) {
 			s, err := newFromStore(t.Context(), StoreInput{
 				Store: store, Project: test.project, Options: []Option{WithLogger(slog.New(handler))},
 			}, steps)
+			if test.preserve {
+				if s != nil || !errors.Is(err, ErrStateTooLarge) || !bytes.Equal(store.data, test.data) || !slices.Equal(store.callList(), []string{"read"}) {
+					t.Fatal("opaque oversized save was not preserved", store.callList(), err)
+				}
+				return
+			}
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -2560,6 +2567,7 @@ var sessionPersistRules = map[string]persistRule{
 	// projectOrigin is projectRevision after a restore. restore tells how
 	// the restore went. restoredSequences comes from the sequences member.
 	"projectOrigin": persistDerive, "restore": persistDerive, "restoredSequences": persistDerive,
+	"couplingObservation": persistDerive, "couplingViewError": persistReset,
 	// A receipt can hold a large project, so the state file keeps only its
 	// sequence. Save points stay in memory only.
 	"receipts": persistReset, "checkpoints": persistReset, "clock": persistReset, "speedReduction": persistReset,

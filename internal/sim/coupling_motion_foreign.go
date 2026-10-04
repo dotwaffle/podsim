@@ -24,6 +24,7 @@ type couplingForeignSweep struct {
 	Distance, Speed, NextDistance, NextSpeed float64
 	ReservedThrough                          int
 	Owners                                   *couplingForeignOwnerView
+	native                                   *nativeForeignProof
 }
 
 func prepareCouplingForeignPath(n *couplingReservationNetwork, contract OrderContract, id string, class VehicleClass, route []Lane) (*couplingForeignPath, error) {
@@ -72,12 +73,20 @@ func (c *couplingMotionContext) checkForeignSweeps(previous, next couplingMotion
 			return couplingMotionInvariant("unknown, duplicate, or stale foreign sweep")
 		}
 		seen[path.id] = true
+		if sweep.native != nil && (sweep.native.frame == nil || sweep.native.frame.fleet == nil || !nativeForeignHasContext(sweep.native.frame.fleet, c)) {
+			return couplingMotionInvariant("native foreign certificate belongs to another motion context")
+		}
 		if err := couplingCheckForeignMotion(sweep); err != nil {
 			return err
 		}
 		foreign, err := couplingForeignSegments(sweep)
 		if err != nil {
 			return err
+		}
+		if sweep.native != nil && sweep.native.pair.proof != nil && sweep.native.pair.member == 0 {
+			if err := c.checkNativePairConnector(previous, next, sweep.native.pair.proof, memberSegments); err != nil {
+				return err
+			}
 		}
 		clearance := classPairClearance(CompactClass, path.class)
 		for _, member := range memberSegments {
@@ -101,6 +110,9 @@ func (c *couplingMotionContext) checkForeignSweeps(previous, next couplingMotion
 // This inactive certificate excludes ordinary stopping snaps and compact queue motion.
 // A live adapter must prove the native next sweep before runtime activation.
 func couplingCheckForeignMotion(sweep couplingForeignSweep) error {
+	if sweep.native != nil {
+		return checkNativeForeignSweep(sweep)
+	}
 	view := sweep.Owners
 	if view == nil || view.path != sweep.Path || view.through != sweep.ReservedThrough || sweep.Distance < view.distance {
 		return couplingMotionInvariant("foreign grant view has a stale path or bounds")
@@ -233,4 +245,12 @@ func couplingForeignSegments(sweep couplingForeignSweep) ([]laneSegment, error) 
 func couplingDeclaredForeign(ids []string, id string) bool {
 	_, found := slices.BinarySearch(ids, id)
 	return found
+}
+
+func nativeForeignHasContext(f *nativeForeignFleet, c *couplingMotionContext) bool {
+	if f.context == c {
+		return true
+	}
+	_, ok := f.pairs[c]
+	return ok
 }

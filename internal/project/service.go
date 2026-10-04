@@ -27,6 +27,9 @@ func validateServiceVersion(config Config) error {
 		}
 		return nil
 	}
+	if config.Version == CouplingVersion {
+		return sim.ValidateOrderContract(config.OrderContract)
+	}
 	if config.OrderContract != "" {
 		return errors.New("order contract requires project version 4")
 	}
@@ -54,74 +57,106 @@ func validateServiceVersion(config Config) error {
 
 // scanProjectService checks new field presence and shape before typed allocation.
 func scanProjectService(data []byte) (bool, error) {
+	fields, err := scanProjectFields(data)
+	return fields.service, err
+}
+
+type projectFields struct {
+	service     bool
+	coupling    bool
+	versionFive bool
+}
+
+func scanProjectFields(data []byte) (projectFields, error) {
 	decoder := jsontext.NewDecoder(bytes.NewReader(data))
-	present := false
+	fields := projectFields{}
+	var couplingMembers uint8
 	for {
 		token, err := decoder.ReadToken()
 		if errors.Is(err, io.EOF) {
-			return present, nil
+			return fields, nil
 		}
 		if err != nil {
-			return false, err
+			return projectFields{}, err
 		}
 		path := strings.Split(strings.ToLower(string(decoder.StackPointer())), "/")
 		kind, length := decoder.StackIndex(decoder.StackDepth())
 		if kind == jsontext.KindBeginArray && len(path) == 3 && path[1] == "expressservices" && length > MaxExpressServices {
-			return false, fmt.Errorf("express registry has more than %d services", MaxExpressServices)
+			return projectFields{}, fmt.Errorf("express registry has more than %d services", MaxExpressServices)
 		}
 		if token.Kind() != jsontext.KindString || kind != jsontext.KindBeginObject || length%2 != 1 {
 			continue
 		}
 		switch {
-		case len(path) == 2 && path[1] == "ordercontract":
-			present = true
+		case len(path) == 2 && path[1] == "version":
 			value, err := decoder.ReadToken()
 			if err != nil {
-				return false, err
+				return projectFields{}, err
+			}
+			if value.Kind() == jsontext.KindNumber {
+				version, err := value.Int()
+				fields.versionFive = fields.versionFive || err == nil && version == CouplingVersion
+			}
+		case len(path) == 2 && couplingMemberBit(path[1]) != 0:
+			fields.coupling = true
+			bit := couplingMemberBit(path[1])
+			if couplingMembers&bit != 0 {
+				return projectFields{}, errors.New("duplicate coupling member")
+			}
+			couplingMembers |= bit
+			if err := scanCouplingMember(decoder, path[1]); err != nil {
+				return projectFields{}, err
+			}
+
+		case len(path) == 2 && path[1] == "ordercontract":
+			fields.service = true
+			value, err := decoder.ReadToken()
+			if err != nil {
+				return projectFields{}, err
 			}
 			if value.Kind() != jsontext.KindString || value.String() != string(sim.ExpressOrderContract) {
-				return false, errors.New("order contract must be express-v1")
+				return projectFields{}, errors.New("order contract must be express-v1")
 			}
 		case len(path) == 2 && path[1] == "onboardpickups":
-			present = true
+			fields.service = true
 			value, err := decoder.ReadToken()
 			if err != nil {
-				return false, err
+				return projectFields{}, err
 			}
 			if value.Kind() != jsontext.KindTrue && value.Kind() != jsontext.KindFalse {
-				return false, errors.New("onboard pickups must be Boolean")
+				return projectFields{}, errors.New("onboard pickups must be Boolean")
 			}
 		case len(path) == 2 && path[1] == "stationqueuespacing":
-			present = true
+			fields.service = true
 			value, err := decoder.ReadToken()
 			if err != nil {
-				return false, err
+				return projectFields{}, err
 			}
 			if value.Kind() != jsontext.KindString || !validStationQueueSpacing(sim.StationQueueSpacing(value.String())) {
-				return false, errors.New("station queue spacing must be ordinary or compact-v1")
+				return projectFields{}, errors.New("station queue spacing must be ordinary or compact-v1")
 			}
 		case serviceClassListPath(path):
-			present = true
+			fields.service = true
 			var classes sim.ClassSet
 			if err := classes.UnmarshalJSONFrom(decoder); err != nil {
-				return false, err
+				return projectFields{}, err
 			}
 		case len(path) == 4 && path[1] == "fleet" && path[3] == "class":
-			present = true
+			fields.service = true
 			value, err := decoder.ReadToken()
 			if err != nil {
-				return false, err
+				return projectFields{}, err
 			}
 			if value.Kind() != jsontext.KindString || value.String() == "" {
-				return false, errors.New("explicit fleet class needs nonempty text")
+				return projectFields{}, errors.New("explicit fleet class needs nonempty text")
 			}
 			if _, known := sim.LookupVehicleClass(sim.VehicleClass(value.String())); !known {
-				return false, sim.ErrUnknownVehicleClass
+				return projectFields{}, sim.ErrUnknownVehicleClass
 			}
 		case len(path) == 2 && path[1] == "expressservices":
-			present = true
+			fields.service = true
 			if decoder.PeekKind() != jsontext.KindBeginArray {
-				return false, errors.New("express registry must be an array")
+				return projectFields{}, errors.New("express registry must be an array")
 			}
 		}
 	}

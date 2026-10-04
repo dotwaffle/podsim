@@ -42,7 +42,7 @@ func (s *Simulation) pickupRouteWithAssignments(input pickupRouteInput) ([]Lane,
 // or claimed, or when it is not idle and cannot divert. assigned is as in
 // pickupRouteInput. pickupCandidate only reads the simulation.
 func (s *Simulation) pickupCandidate(v *vehicle, assigned map[string]bool) bool {
-	if v.Pod.Occupied {
+	if v.couplingID != "" || v.Pod.Occupied {
 		return false
 	}
 	claimed := assigned[v.Pod.ID]
@@ -113,7 +113,7 @@ func (s *Simulation) candidateRoutePartsMatching(v *vehicle, stationID string, l
 // once it reserves a lane leaving the destination station's entry.
 // Pods in a platoon cannot divert because their links depend on the routes.
 func (s *Simulation) divertStart(v *vehicle) (int, string, bool) {
-	if v.Pod.Activity != Traveling && v.Pod.Activity != DepartingEmpty || v.coupled() || s.compactGroup(v) != nil {
+	if v.couplingID != "" || v.Pod.Activity != Traveling && v.Pod.Activity != DepartingEmpty || v.coupled() || s.compactGroup(v) != nil {
 		return 0, "", false
 	}
 	prefix, from := 0, v.origin.Node

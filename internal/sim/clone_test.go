@@ -25,6 +25,9 @@ const (
 // the other fields by value.
 var cloneRules = map[reflect.Type]map[string]cloneRule{
 	reflect.TypeFor[Simulation](): {
+		"couplingNetwork": cloneShare, "couplingGroups": cloneCopy,
+		"couplingFault": cloneShare, "couplingFleet": cloneDrop,
+		"couplingApproaches": cloneCopy, "couplingAttempts": cloneCopy,
 		"motion":            cloneCopy,
 		"junctionConflicts": cloneShare, "lengths": cloneDrop, "routes": cloneDrop, "routeOrder": cloneDrop,
 		"graph": cloneShare, "stationIndexes": cloneShare, "stationForbidden": cloneShare, "pickupBounds": cloneDrop, "routeWork": cloneDrop, "admissionWork": cloneDrop,
@@ -42,15 +45,18 @@ var cloneRules = map[reflect.Type]map[string]cloneRule{
 		"Vehicle": cloneCopy, "blocks": cloneShare, "blockStarts": cloneShare, "routeReleases": cloneCopy,
 		"routeLengths": cloneShare,
 	},
-	reflect.TypeFor[Vehicle]():              {"Riders": cloneCopy, "Boardings": cloneCopy, "Stops": cloneCopy, "Route": cloneShare, "Presentation": cloneShare},
-	reflect.TypeFor[waitingTrip]():          {"route": cloneShare},
-	reflect.TypeFor[routeResult]():          {"lanes": cloneShare, "err": cloneShare},
-	reflect.TypeFor[podQueueHistory]():      {"lanes": cloneCopy},
-	reflect.TypeFor[pickupSwapController](): {"cooldown": cloneCopy, "records": cloneCopy},
-	reflect.TypeFor[compactBufferGroup]():   {"members": cloneCopy, "recovery": cloneCopy},
-	reflect.TypeFor[compactQueueRecovery](): {"targets": cloneCopy, "landingSpeeds": cloneCopy},
-	reflect.TypeFor[motionRecorder]():       {"frame": cloneCopy, "pending": cloneCopy},
-	reflect.TypeFor[MotionFrame]():          {"Samples": cloneCopy},
+	reflect.TypeFor[Vehicle]():                 {"Riders": cloneCopy, "Boardings": cloneCopy, "Stops": cloneCopy, "Route": cloneShare, "Presentation": cloneShare},
+	reflect.TypeFor[waitingTrip]():             {"route": cloneShare},
+	reflect.TypeFor[routeResult]():             {"lanes": cloneShare, "err": cloneShare},
+	reflect.TypeFor[podQueueHistory]():         {"lanes": cloneCopy},
+	reflect.TypeFor[pickupSwapController]():    {"cooldown": cloneCopy, "records": cloneCopy},
+	reflect.TypeFor[compactBufferGroup]():      {"members": cloneCopy, "recovery": cloneCopy},
+	reflect.TypeFor[compactQueueRecovery]():    {"targets": cloneCopy, "landingSpeeds": cloneCopy},
+	reflect.TypeFor[motionRecorder]():          {"frame": cloneCopy, "pending": cloneCopy},
+	reflect.TypeFor[MotionFrame]():             {"Samples": cloneCopy},
+	reflect.TypeFor[couplingNativeGroup]():     {"context": cloneShare, "state": cloneShare},
+	reflect.TypeFor[couplingNativeApproach]():  {"context": cloneShare, "state": cloneShare},
+	reflect.TypeFor[couplingApproachAttempt](): {"context": cloneShare},
 }
 
 // clonePlainTypes hold only plain values, so a value copy of them is deep.
@@ -175,6 +181,9 @@ const (
 // it.
 var persistRules = map[reflect.Type]map[string]persistRule{
 	reflect.TypeFor[Simulation](): {
+		"couplingNetwork": persistSession, "couplingEnabled": persistSession, "couplingGroups": persistSave,
+		"couplingFault": persistReset, "couplingFleet": persistReset,
+		"couplingApproaches": persistReset, "couplingAttempts": persistReset,
 		"orderContract":   persistSave,
 		"motion":          persistReset,
 		"expressServices": persistSession, "junctionConflicts": persistDerive, "lengths": persistReset, "routes": persistReset, "routeOrder": persistReset,
@@ -205,7 +214,8 @@ var persistRules = map[reflect.Type]map[string]persistRule{
 		"compactMotions": persistReset, "compactNextGroups": persistReset, "compactFault": persistReset,
 	},
 	reflect.TypeFor[vehicle](): {
-		"Vehicle": persistSave, "phaseTicks": persistSave, "blocks": persistDerive, "blockStarts": persistDerive,
+		"couplingID": persistDerive,
+		"Vehicle":    persistSave, "phaseTicks": persistSave, "blocks": persistDerive, "blockStarts": persistDerive,
 		"routeReleases": persistDerive, "nextRelease": persistReset, "blockIndex": persistDerive, "reservedThrough": persistDerive,
 		"originReleased": persistDerive, "distance": persistSave, "riddenBase": persistSave, "journeyOrigin": persistSave, "pending": persistDerive,
 		"waitSince":      persistSave,
@@ -215,6 +225,7 @@ var persistRules = map[reflect.Type]map[string]persistRule{
 		"routeVersion": persistReset, "stationPhase": persistDerive, "routeLengths": persistDerive, "link": persistSave, "follower": persistDerive, "platoonCap": persistReset,
 	},
 	reflect.TypeFor[Vehicle](): {
+		"CouplingID":   persistDerive,
 		"LegacyCohort": persistSave, "Pod": persistSave, "Riders": persistSave, "Boardings": persistSave, "RiddenMeters": persistDerive, "Stops": persistSave, "Route": persistSave, "Presentation": persistReset,
 		"RelocatingTo": persistSave, "Rebalancing": persistSave, "PlatoonID": persistDerive, "PlatoonIndex": persistDerive,
 	},
@@ -436,6 +447,7 @@ func TestCloneFollowsRules(t *testing.T) {
 		// covered requires data in the source for every rule except uncovered.
 		covered   bool
 		uncovered []string
+		required  []string
 	}{
 		{name: "new fleet", build: newTraffic},
 		{
@@ -448,7 +460,49 @@ func TestCloneFollowsRules(t *testing.T) {
 				"Simulation.compactGroups", "Simulation.compactNextGroups", "Simulation.compactMotions", "Simulation.compactFault",
 				"compactBufferGroup.members", "compactBufferGroup.recovery", "compactQueueRecovery.targets", "compactQueueRecovery.landingSpeeds",
 				// Recorder ownership is covered by TestMotionLifecycle.
-				"Simulation.motion", "motionRecorder.frame", "motionRecorder.pending", "MotionFrame.Samples"},
+				"Simulation.motion", "motionRecorder.frame", "motionRecorder.pending", "MotionFrame.Samples",
+				// The committed pair case covers physical group storage.
+				"Simulation.couplingNetwork", "Simulation.couplingGroups", "Simulation.couplingFault", "Simulation.couplingFleet",
+				"couplingNativeGroup.context", "couplingNativeGroup.state",
+				"Simulation.couplingApproaches", "Simulation.couplingAttempts",
+				"couplingNativeApproach.context", "couplingNativeApproach.state", "couplingApproachAttempt.context"},
+		},
+		{
+			name: "controlled approach storage",
+			build: func(t *testing.T) *Simulation {
+				t.Helper()
+				input := couplingApproachFixture(t, false)
+				c, state, err := prepareCouplingApproach(input)
+				if err != nil {
+					t.Fatal(err)
+				}
+				s := input.Simulation
+				s.couplingApproaches = []couplingNativeApproach{{context: c, state: state}}
+				s.couplingAttempts = map[string]couplingApproachAttempt{c.members[0].id: {context: c}}
+				return s
+			},
+			required: []string{"Simulation.couplingApproaches", "Simulation.couplingAttempts",
+				"couplingNativeApproach.context", "couplingNativeApproach.state", "couplingApproachAttempt.context"},
+		},
+		{
+			name: "committed pair",
+			build: func(t *testing.T) *Simulation {
+				t.Helper()
+				input := nativeCouplingSavedFixture(t, true, couplingConnected, 1)
+				s, _, err := RestoreState(input)
+				if err != nil {
+					t.Fatal(err)
+				}
+				s.SetPaused(false)
+				s.Step()
+				if s.CouplingError() != nil || s.couplingFleet == nil {
+					t.Fatal("committed clone fixture did not fill its native cache", s.CouplingError())
+				}
+				s.couplingFault = errors.New("clone fault storage")
+				return s
+			},
+			required: []string{"Simulation.couplingNetwork", "Simulation.couplingGroups", "Simulation.couplingFault", "Simulation.couplingFleet",
+				"couplingNativeGroup.context", "couplingNativeGroup.state"},
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
@@ -462,6 +516,11 @@ func TestCloneFollowsRules(t *testing.T) {
 			checkCloneStorage(t, cloneStorageCheck{
 				path: "Simulation", source: reflect.ValueOf(source).Elem(), clone: reflect.ValueOf(clone).Elem(), checked: checked,
 			})
+			for _, key := range tc.required {
+				if !checked[key] {
+					t.Errorf("the fixture has no data in %s", key)
+				}
+			}
 			if !tc.covered {
 				return
 			}

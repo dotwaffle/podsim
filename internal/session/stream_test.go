@@ -224,6 +224,10 @@ func maximumStreamFrame(t *testing.T) StreamFrame {
 	t.Helper()
 	_, f := streamFixture(t)
 	fillStreamScalars(reflect.ValueOf(&f.State).Elem())
+	// Keep the maximum fixture in its original stream family.
+	f.State.Simulation.CouplingContract = ""
+	f.State.Simulation.CouplingEnabled = false
+	f.State.Simulation.CouplingGroups = nil
 	escaped := strings.Repeat("\x01", 64)
 	reason := strings.Repeat("\x01", 1024)
 	request := sim.Request{ID: math.MaxInt, From: escaped, To: escaped, PodID: escaped, PartySize: math.MaxInt, LegacyPartySize: true, SharingConsent: sim.LegacyUnknownConsent, Service: sim.OnDemandService, RequestedTick: math.MaxInt64, BoardedTick: math.MaxInt64, DispatchReason: reason}
@@ -527,10 +531,10 @@ func TestStreamFieldOwnership(t *testing.T) {
 			"identity": {"Epoch", "Revision", "ProjectRevision", "Generation", "Build", "ServerStart"}, "controls": {"Speed", "Redistribution", "SpeedReduction"}, "demand": {"Demand"}, "restore": {"Restore"}, "checkpoints": {"Checkpoints"}, "simulation": {"Simulation"},
 		}},
 		{reflect.TypeFor[SimulationFrame](), map[string][]string{
-			"contract identity": {"OrderContract"}, "global": {"Submitted", "Tick", "Paused", "Completed", "Demo", "DemoError"}, "vehicles": {"Vehicles"}, "berths": {"Berths"}, "pending": {"Pending"},
+			"contract identity": {"OrderContract", "CouplingContract"}, "coupling": {"CouplingEnabled", "CouplingGroups"}, "global": {"Submitted", "Tick", "Paused", "Completed", "Demo", "DemoError"}, "vehicles": {"Vehicles"}, "berths": {"Berths"}, "pending": {"Pending"},
 			"statistics": {"Wait", "Journey", "PassengerDistanceMeters", "RiderDistanceMeters", "DirectDistanceMeters", "MaxDetourRatio", "SharedParties", "SharedRidePartyLimit", "EmptyDistanceMeters", "RebalanceMoves"},
 		}},
-		{reflect.TypeFor[VehicleFrame](), map[string][]string{"pod": {"Pod"}, "riders": {"Riders"}, "boardings": {"Boardings"}, "stops": {"Stops"}, "presentation replaces route": {"RouteLaneIDs"}, "metadata": {"RiddenMeters", "LegacyCohort", "RelocatingTo", "Rebalancing", "PlatoonID", "PlatoonIndex"}}},
+		{reflect.TypeFor[VehicleFrame](), map[string][]string{"pod": {"Pod"}, "riders": {"Riders"}, "boardings": {"Boardings"}, "stops": {"Stops"}, "presentation replaces route": {"RouteLaneIDs"}, "metadata": {"CouplingID", "RiddenMeters", "LegacyCohort", "RelocatingTo", "Rebalancing", "PlatoonID", "PlatoonIndex"}}},
 	}
 	for _, check := range checks {
 		seen := map[string]string{}

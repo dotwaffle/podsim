@@ -225,7 +225,11 @@ func (p *PreparedNetwork) newFleet(placements []Placement) *Simulation {
 // PreparedRestoreInput supplies the fleet and saved state for a prepared network.
 // The network must be the one that the saved simulation used.
 type PreparedRestoreInput struct {
-	OrderContract OrderContract
+	OrderContract     OrderContract
+	CouplingContract  CouplingContract
+	CouplingEnabled   bool
+	CouplingSites     []CouplingSite
+	CouplingCorridors []CouplingCorridor
 	// BoardingRecords selects the current save contract for native records.
 	BoardingRecords bool
 	// OnboardPickups enables new occupied pickups after restoration.
@@ -248,6 +252,16 @@ func (p *PreparedNetwork) RestoreState(input PreparedRestoreInput) (*Simulation,
 	if err := p.check(); err != nil {
 		return nil, RestoreResult{}, err
 	}
-	stateInput := RestoreStateInput{OrderContract: input.OrderContract, BoardingRecords: input.BoardingRecords, OnboardPickups: input.OnboardPickups, ExpressServices: input.ExpressServices, Network: p.network, Fleet: input.Fleet, State: input.State, LogicalOnly: input.LogicalOnly, StationBuffers: input.StationBuffers, BufferPlatoons: input.BufferPlatoons, CompactQueues: input.CompactQueues, StationQueueSpacing: input.StationQueueSpacing, PlatoonLimit: input.PlatoonLimit}
-	return restoreState(stateInput, func() (*Simulation, error) { return p.NewFleetWithOrderContract(input.Fleet, input.OrderContract) })
+	stateInput := RestoreStateInput{
+		OrderContract: input.OrderContract, CouplingContract: input.CouplingContract,
+		CouplingEnabled: input.CouplingEnabled, CouplingSites: input.CouplingSites, CouplingCorridors: input.CouplingCorridors,
+		BoardingRecords: input.BoardingRecords, OnboardPickups: input.OnboardPickups,
+		ExpressServices: input.ExpressServices, Network: p.network, Fleet: input.Fleet,
+		State: input.State, LogicalOnly: input.LogicalOnly, StationBuffers: input.StationBuffers,
+		BufferPlatoons: input.BufferPlatoons, CompactQueues: input.CompactQueues,
+		StationQueueSpacing: input.StationQueueSpacing, PlatoonLimit: input.PlatoonLimit,
+	}
+	return restoreState(stateInput, func() (*Simulation, error) {
+		return p.NewFleetWithContracts(input.Fleet, stateInput.fleetContracts())
+	})
 }

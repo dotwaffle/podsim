@@ -249,7 +249,17 @@ func (state SavedState) checkPod(pod SavedPod) error {
 	if err := state.checkPodRiders(pod, rule, active, history); err != nil {
 		return err
 	}
-	if err := checkPodFlags(pod, rule); err != nil {
+	flags := pod
+	// Committed passengers can retain an individual receiving claim.
+	// Validate that flag before checking the ordinary phase flags.
+	if pod.ClaimsDestination && phase == phaseTravelingOccupied &&
+		state.CouplingContract == CompactPairV1CouplingContract && state.couplingMember(pod.ID) {
+		if pod.Destination == "" {
+			return errors.New("committed receiving claim lacks a berth")
+		}
+		flags.ClaimsDestination = false
+	}
+	if err := checkPodFlags(flags, rule); err != nil {
 		return err
 	}
 	if err := checkPodPlace(pod, rule); err != nil {

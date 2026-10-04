@@ -10,6 +10,10 @@ import (
 // state, and drops pure route and length caches.
 func (s *Simulation) Clone() *Simulation {
 	c := *s
+	c.couplingGroups = slices.Clone(s.couplingGroups)
+	c.couplingFleet = nil
+	c.couplingApproaches = slices.Clone(s.couplingApproaches)
+	c.couplingAttempts = maps.Clone(s.couplingAttempts)
 	s.cloneMotion(&c)
 	s.cloneCompactQueues(&c)
 	// Lookups refill these caches with identical results, and dispatch

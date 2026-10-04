@@ -133,7 +133,7 @@ func (c *Client) receiveStream(ctx context.Context) error {
 		if err != nil {
 			return err
 		}
-		if envelope.OrderContract != hello.OrderContract || envelope.TextEncoding != hello.TextEncoding {
+		if envelope.OrderContract != hello.OrderContract || envelope.TextEncoding != hello.TextEncoding || envelope.CouplingContract != hello.CouplingContract {
 			return errors.New("stream publication contract differs from hello")
 		}
 		if envelope.Source.ServerStart != hello.ServerStart {

@@ -8,20 +8,20 @@ import (
 // CouplingSite declares one protected assembly or split interval on a lane.
 // Positions use meters from the lane's directed start. A site is not a berth.
 type CouplingSite struct {
-	ID                 string
-	LaneID             string
-	StartMeters        float64
-	EndMeters          float64
-	FrontStagingMeters float64
-	RearStagingMeters  float64
+	ID                 string  `json:"id"`
+	LaneID             string  `json:"laneId"`
+	StartMeters        float64 `json:"startMeters"`
+	EndMeters          float64 `json:"endMeters"`
+	FrontStagingMeters float64 `json:"frontStagingMeters"`
+	RearStagingMeters  float64 `json:"rearStagingMeters"`
 }
 
 // CouplingCorridor declares an ordered directed path between two protected sites.
 type CouplingCorridor struct {
-	ID             string
-	AssemblySiteID string
-	SplitSiteID    string
-	LaneIDs        []string
+	ID             string   `json:"id"`
+	AssemblySiteID string   `json:"assemblySiteId"`
+	SplitSiteID    string   `json:"splitSiteId"`
+	LaneIDs        []string `json:"laneIds"`
 }
 
 // CouplingGeometryInput keeps the marker independent from the order contract.

@@ -20,7 +20,7 @@ import (
 // Stream limits are independent of the smaller delivery and history windows.
 const (
 	// StreamVersion is the latest supported stream family.
-	StreamVersion = 4
+	StreamVersion = 5
 	// ExpressStreamVersion identifies the fixed express-v1 stream family.
 	ExpressStreamVersion    = 4
 	FoundationStreamVersion = 3
@@ -59,6 +59,7 @@ type VehicleDelta struct {
 	Metadata  *Replacement[vehicleMetadata]       `json:"metadata,omitempty"`
 }
 type vehicleMetadata struct {
+	CouplingID   string  `json:"couplingID,omitzero"`
 	RiddenMeters float64 `json:"RiddenMeters,omitzero"`
 	LegacyCohort bool    `json:"LegacyCohort,omitzero"`
 	RelocatingTo string  `json:"RelocatingTo"`
@@ -99,16 +100,17 @@ type StreamDelta struct {
 
 // StreamEnvelope is one publication. Sequences use decimal strings on the wire.
 type StreamEnvelope struct {
-	OrderContract sim.OrderContract `json:"orderContract,omitzero"`
-	TextEncoding  string            `json:"textEncoding,omitzero"`
-	Kind          string            `json:"kind"`
-	Stream        string            `json:"stream"`
-	Sequence      uint64            `json:"sequence,string"`
-	Base          uint64            `json:"base,string,omitempty"`
-	Build         string            `json:"build"`
-	Source        StreamSource      `json:"source"`
-	Full          *StreamFrame      `json:"full,omitempty"`
-	Delta         *StreamDelta      `json:"delta,omitempty"`
+	CouplingContract sim.CouplingContract `json:"couplingContract,omitzero"`
+	OrderContract    sim.OrderContract    `json:"orderContract,omitzero"`
+	TextEncoding     string               `json:"textEncoding,omitzero"`
+	Kind             string               `json:"kind"`
+	Stream           string               `json:"stream"`
+	Sequence         uint64               `json:"sequence,string"`
+	Base             uint64               `json:"base,string,omitempty"`
+	Build            string               `json:"build"`
+	Source           StreamSource         `json:"source"`
+	Full             *StreamFrame         `json:"full,omitempty"`
+	Delta            *StreamDelta         `json:"delta,omitempty"`
 }
 
 func sourceOf(f StreamFrame) StreamSource {
@@ -116,7 +118,7 @@ func sourceOf(f StreamFrame) StreamSource {
 	return StreamSource{s.ServerStart, s.Epoch, s.ProjectRevision, s.Generation, s.Revision}
 }
 func sameChain(a, b StreamFrame) bool {
-	if a.State.Simulation.OrderContract != b.State.Simulation.OrderContract {
+	if a.State.Simulation.OrderContract != b.State.Simulation.OrderContract || a.State.Simulation.CouplingContract != b.State.Simulation.CouplingContract {
 		return false
 	}
 	x, y := sourceOf(a), sourceOf(b)
@@ -140,7 +142,7 @@ func sameChain(a, b StreamFrame) bool {
 	return true
 }
 func meta(v VehicleFrame) vehicleMetadata {
-	return vehicleMetadata{RiddenMeters: v.RiddenMeters, LegacyCohort: v.LegacyCohort, RelocatingTo: v.RelocatingTo, Rebalancing: v.Rebalancing, PlatoonID: v.PlatoonID, PlatoonIndex: v.PlatoonIndex}
+	return vehicleMetadata{CouplingID: v.CouplingID, RiddenMeters: v.RiddenMeters, LegacyCohort: v.LegacyCohort, RelocatingTo: v.RelocatingTo, Rebalancing: v.Rebalancing, PlatoonID: v.PlatoonID, PlatoonIndex: v.PlatoonIndex}
 }
 func changed[T any](a, b T) *Replacement[T] {
 	if reflect.DeepEqual(a, b) {
@@ -183,6 +185,13 @@ func frameGroups(f StreamFrame) (map[string]json.RawMessage, error) {
 		}{state.Simulation.Submitted, state.Simulation.Tick, state.Simulation.Paused, state.Simulation.Completed, state.Simulation.Demo, state.Simulation.DemoError},
 	}
 	values["statistics"] = statisticsOf(state.Simulation)
+	if state.Simulation.CouplingContract != "" {
+		members := state.Simulation.CouplingGroups
+		if members == nil {
+			members = []sim.CouplingGroupView{}
+		}
+		values["coupling"] = couplingReplacement{state.Simulation.CouplingContract, state.Simulation.CouplingEnabled, members}
+	}
 	groups := make(map[string]json.RawMessage, len(values))
 	for key, value := range values {
 		var err error
@@ -239,6 +248,11 @@ func applyGroups(f *StreamFrame, groups map[string]json.RawMessage) error {
 	for key, raw := range groups {
 		var target any
 		switch key {
+		case "coupling":
+			if err := applyCouplingReplacement(&f.State.Simulation, raw); err != nil {
+				return err
+			}
+			continue
 		case "controls":
 			var v struct {
 				Speed          int
@@ -377,6 +391,7 @@ func ApplyStream(previous StreamFrame, stream string, sequence uint64, e StreamE
 			}
 			if v.Metadata != nil {
 				m := v.Metadata.Value
+				dst.CouplingID = m.CouplingID
 				dst.LegacyCohort = m.LegacyCohort
 				dst.RiddenMeters = m.RiddenMeters
 				dst.RelocatingTo, dst.Rebalancing, dst.PlatoonID, dst.PlatoonIndex = m.RelocatingTo, m.Rebalancing, m.PlatoonID, m.PlatoonIndex

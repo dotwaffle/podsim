@@ -529,6 +529,12 @@ func savedTestArray(t *testing.T, value any) []any {
 // foundationMemberLines excludes only the optional fields introduced by save 7.
 func foundationMemberLines(lines []string) []string {
 	return slices.DeleteFunc(lines, func(line string) bool {
+		path, _, _ := strings.Cut(line, " ")
+		for part := range strings.SplitSeq(path, ".") {
+			if couplingMember(strings.TrimSuffix(part, "[]")) {
+				return true
+			}
+		}
 		return line == "orderContract string" || line == "textEncoding string" || line == "simulation.orderContract string" || line == "project.orderContract string"
 	})
 }

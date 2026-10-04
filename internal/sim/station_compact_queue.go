@@ -80,6 +80,9 @@ func (s *Simulation) compactGroup(v *vehicle) *compactBufferGroup {
 
 // compactEntry accepts only a physically supported straight plain holding region.
 func (s *Simulation) compactEntry(v *vehicle) (stationBufferPlan, compactQueueBounds, bool) {
+	if v.couplingID != "" {
+		return stationBufferPlan{}, compactQueueBounds{}, false
+	}
 	plan, ok := s.bufferPlan(v)
 	if !ok || v.Pod.Activity != Traveling || !v.buffered || v.Pod.LaneID != plan.lane.ID ||
 		v.link.leader != 0 && !v.link.compact || v.follower != 0 && !s.vehicles[v.follower-1].link.compact {

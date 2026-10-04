@@ -11,15 +11,19 @@ import (
 
 // TopologySnapshot contains geometry that changes only with the project.
 type TopologySnapshot struct {
-	OrderContract   sim.OrderContract      `json:"orderContract,omitzero"`
-	ExpressServices []sim.ExpressService   `json:"expressServices,omitempty"`
-	ProjectVersion  int                    `json:"projectVersion,omitzero"`
-	ServerStart     string                 `json:"serverStart"`
-	Epoch           string                 `json:"epoch"`
-	ProjectRevision uint64                 `json:"projectRevision"`
-	Network         sim.Network            `json:"network"`
-	Geo             *project.Geo           `json:"geo,omitzero"`
-	Map             *project.MapBackground `json:"map,omitzero"`
+	CouplingContract  sim.CouplingContract   `json:"couplingContract,omitzero"`
+	CouplingEnabled   bool                   `json:"couplingEnabled,omitzero"`
+	CouplingSites     []sim.CouplingSite     `json:"couplingSites,omitzero"`
+	CouplingCorridors []sim.CouplingCorridor `json:"couplingCorridors,omitzero"`
+	OrderContract     sim.OrderContract      `json:"orderContract,omitzero"`
+	ExpressServices   []sim.ExpressService   `json:"expressServices,omitempty"`
+	ProjectVersion    int                    `json:"projectVersion,omitzero"`
+	ServerStart       string                 `json:"serverStart"`
+	Epoch             string                 `json:"epoch"`
+	ProjectRevision   uint64                 `json:"projectRevision"`
+	Network           sim.Network            `json:"network"`
+	Geo               *project.Geo           `json:"geo,omitzero"`
+	Map               *project.MapBackground `json:"map,omitzero"`
 }
 
 // StateFrame contains the recurring state without network geometry.
@@ -48,30 +52,34 @@ type StateFrame struct {
 
 // SimulationFrame replaces repeated route lane objects with stable lane IDs.
 type SimulationFrame struct {
-	OrderContract           sim.OrderContract `json:"orderContract,omitzero"`
-	Submitted               int               `json:"Submitted"`
-	Tick                    int64             `json:"Tick"`
-	Paused                  bool              `json:"Paused"`
-	Vehicles                []VehicleFrame    `json:"Vehicles"`
-	Berths                  []sim.BerthState  `json:"Berths"`
-	Completed               int               `json:"Completed"`
-	Demo                    bool              `json:"Demo"`
-	DemoError               string            `json:"DemoError"`
-	Pending                 []sim.Request     `json:"Pending"`
-	Wait                    sim.WaitStats     `json:"Wait"`
-	Journey                 sim.JourneyStats  `json:"Journey"`
-	PassengerDistanceMeters float64           `json:"PassengerDistanceMeters"`
-	RiderDistanceMeters     float64           `json:"RiderDistanceMeters"`
-	DirectDistanceMeters    float64           `json:"DirectDistanceMeters"`
-	MaxDetourRatio          float64           `json:"MaxDetourRatio"`
-	SharedParties           int               `json:"SharedParties"`
-	SharedRidePartyLimit    int               `json:"SharedRidePartyLimit"`
-	EmptyDistanceMeters     float64           `json:"EmptyDistanceMeters"`
-	RebalanceMoves          int               `json:"RebalanceMoves"`
+	CouplingContract        sim.CouplingContract    `json:"couplingContract,omitzero"`
+	CouplingEnabled         bool                    `json:"couplingEnabled,omitzero"`
+	CouplingGroups          []sim.CouplingGroupView `json:"couplingGroups,omitzero"`
+	OrderContract           sim.OrderContract       `json:"orderContract,omitzero"`
+	Submitted               int                     `json:"Submitted"`
+	Tick                    int64                   `json:"Tick"`
+	Paused                  bool                    `json:"Paused"`
+	Vehicles                []VehicleFrame          `json:"Vehicles"`
+	Berths                  []sim.BerthState        `json:"Berths"`
+	Completed               int                     `json:"Completed"`
+	Demo                    bool                    `json:"Demo"`
+	DemoError               string                  `json:"DemoError"`
+	Pending                 []sim.Request           `json:"Pending"`
+	Wait                    sim.WaitStats           `json:"Wait"`
+	Journey                 sim.JourneyStats        `json:"Journey"`
+	PassengerDistanceMeters float64                 `json:"PassengerDistanceMeters"`
+	RiderDistanceMeters     float64                 `json:"RiderDistanceMeters"`
+	DirectDistanceMeters    float64                 `json:"DirectDistanceMeters"`
+	MaxDetourRatio          float64                 `json:"MaxDetourRatio"`
+	SharedParties           int                     `json:"SharedParties"`
+	SharedRidePartyLimit    int                     `json:"SharedRidePartyLimit"`
+	EmptyDistanceMeters     float64                 `json:"EmptyDistanceMeters"`
+	RebalanceMoves          int                     `json:"RebalanceMoves"`
 }
 
 // VehicleFrame contains dynamic vehicle data and its ordered route IDs.
 type VehicleFrame struct {
+	CouplingID   string              `json:"couplingID,omitzero"`
 	Boardings    []sim.RiderBoarding `json:"Boardings,omitempty"`
 	RiddenMeters float64             `json:"RiddenMeters,omitzero"`
 	LegacyCohort bool                `json:"LegacyCohort,omitzero"`
@@ -93,6 +101,9 @@ func FrameState(topology TopologySnapshot, frame StateFrame) (State, error) {
 }
 
 func frameState(topology TopologySnapshot, frame StateFrame, immutable bool) (State, error) {
+	if err := couplingFrameBinding(topology, frame.Simulation); err != nil {
+		return State{}, err
+	}
 	if topology.OrderContract != frame.Simulation.OrderContract {
 		return State{}, errors.New("topology order contract does not match state")
 	}
@@ -119,8 +130,8 @@ func frameState(topology TopologySnapshot, frame StateFrame, immutable bool) (St
 			route[routeIndex] = lane
 		}
 		vehicles[index] = sim.Vehicle{
-			LegacyCohort: vehicle.LegacyCohort,
-			Boardings:    slices.Clone(vehicle.Boardings), RiddenMeters: vehicle.RiddenMeters,
+			LegacyCohort: vehicle.LegacyCohort, CouplingID: vehicle.CouplingID,
+			Boardings: slices.Clone(vehicle.Boardings), RiddenMeters: vehicle.RiddenMeters,
 			Pod: vehicle.Pod, Riders: slices.Clone(vehicle.Riders), Stops: slices.Clone(vehicle.Stops), Route: route,
 			RelocatingTo: vehicle.RelocatingTo, Rebalancing: vehicle.Rebalancing,
 			PlatoonID: vehicle.PlatoonID, PlatoonIndex: vehicle.PlatoonIndex,
@@ -141,13 +152,15 @@ func frameState(topology TopologySnapshot, frame StateFrame, immutable bool) (St
 			background = new(*background)
 		}
 	}
-	return State{
+	state := State{
 		Epoch: frame.Epoch, Revision: frame.Revision, ProjectRevision: frame.ProjectRevision,
 		Generation: frame.Generation, Redistribution: frame.Redistribution,
 		Network: network, Geo: geo, Map: background,
 		Simulation: sim.Snapshot{
-			OrderContract: snapshot.OrderContract,
-			Submitted:     snapshot.Submitted, Tick: snapshot.Tick, Paused: snapshot.Paused,
+			CouplingContract: snapshot.CouplingContract, CouplingEnabled: snapshot.CouplingEnabled,
+			CouplingGroups: cloneCouplingGroups(snapshot.CouplingGroups),
+			OrderContract:  snapshot.OrderContract,
+			Submitted:      snapshot.Submitted, Tick: snapshot.Tick, Paused: snapshot.Paused,
 			Vehicles: vehicles, Berths: snapshot.Berths, Completed: snapshot.Completed,
 			Demo: snapshot.Demo, DemoError: snapshot.DemoError, Pending: snapshot.Pending,
 			Wait: snapshot.Wait, Journey: snapshot.Journey, PassengerDistanceMeters: snapshot.PassengerDistanceMeters,
@@ -158,7 +171,17 @@ func frameState(topology TopologySnapshot, frame StateFrame, immutable bool) (St
 		},
 		Speed: frame.Speed, SpeedReduction: frame.SpeedReduction, Demand: frame.Demand, Checkpoints: slices.Clone(frame.Checkpoints),
 		Build: frame.Build, ServerStart: frame.ServerStart, Restore: frame.Restore,
-	}, nil
+	}
+	if !immutable && topology.CouplingContract != "" {
+		validator, err := newCouplingFrameValidator(topology)
+		if err != nil {
+			return State{}, err
+		}
+		if err := validator.Validate(state.Simulation); err != nil {
+			return State{}, err
+		}
+	}
+	return state, nil
 }
 
 func stateFrame(state State) StateFrame {
@@ -172,8 +195,8 @@ func stateFrame(state State) StateFrame {
 			routeIDs[routeIndex] = lane.ID
 		}
 		vehicles[index] = VehicleFrame{
-			LegacyCohort: vehicle.LegacyCohort,
-			Boardings:    slices.Clone(vehicle.Boardings), RiddenMeters: vehicle.RiddenMeters,
+			LegacyCohort: vehicle.LegacyCohort, CouplingID: vehicle.CouplingID,
+			Boardings: slices.Clone(vehicle.Boardings), RiddenMeters: vehicle.RiddenMeters,
 			Pod: vehicle.Pod, Riders: slices.Clone(vehicle.Riders), Stops: slices.Clone(vehicle.Stops), RouteLaneIDs: routeIDs,
 			RelocatingTo: vehicle.RelocatingTo, Rebalancing: vehicle.Rebalancing,
 			PlatoonID: vehicle.PlatoonID, PlatoonIndex: vehicle.PlatoonIndex,
@@ -184,8 +207,10 @@ func stateFrame(state State) StateFrame {
 		Epoch: state.Epoch, Revision: state.Revision, ProjectRevision: state.ProjectRevision,
 		Generation: state.Generation, Redistribution: state.Redistribution,
 		Simulation: SimulationFrame{
-			OrderContract: snapshot.OrderContract,
-			Submitted:     snapshot.Submitted, Tick: snapshot.Tick, Paused: snapshot.Paused,
+			CouplingContract: snapshot.CouplingContract, CouplingEnabled: snapshot.CouplingEnabled,
+			CouplingGroups: cloneCouplingGroups(snapshot.CouplingGroups),
+			OrderContract:  snapshot.OrderContract,
+			Submitted:      snapshot.Submitted, Tick: snapshot.Tick, Paused: snapshot.Paused,
 			Vehicles: vehicles, Berths: snapshot.Berths, Completed: snapshot.Completed,
 			Demo: snapshot.Demo, DemoError: snapshot.DemoError, Pending: snapshot.Pending,
 			Wait: snapshot.Wait, Journey: snapshot.Journey, PassengerDistanceMeters: snapshot.PassengerDistanceMeters,

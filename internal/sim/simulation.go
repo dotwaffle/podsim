@@ -105,6 +105,8 @@ type Pod struct {
 // Vehicle is an independent display copy of a pod and its assigned journey.
 type Vehicle struct {
 	LegacyCohort bool `json:"LegacyCohort,omitzero"`
+	// CouplingID binds a checked cabin to its physical train registry record.
+	CouplingID string `json:"couplingID,omitzero"`
 	// Boardings aligns with Riders when the original journey fields are insufficient.
 	Boardings []RiderBoarding `json:"Boardings,omitempty"`
 	// RiddenMeters is cumulative passenger distance when Boardings is present.
@@ -145,7 +147,10 @@ type BerthState struct {
 
 // Snapshot is a copy of the fleet, clock, and station resources.
 type Snapshot struct {
-	OrderContract OrderContract `json:"orderContract,omitzero"`
+	CouplingContract CouplingContract    `json:"couplingContract,omitzero"`
+	CouplingEnabled  bool                `json:"couplingEnabled,omitzero"`
+	CouplingGroups   []CouplingGroupView `json:"couplingGroups,omitempty"`
+	OrderContract    OrderContract       `json:"orderContract,omitzero"`
 
 	// Submitted counts accepted passenger orders since reset.
 	Submitted int          `json:"Submitted"`
@@ -193,6 +198,8 @@ type SafetyObservation struct {
 	Locations     map[string]SafetyLocation
 	compactPairs  map[[2]string]compactSafetyPair
 	compactError  error
+	couplingPairs map[[2]string]couplingSafetyPair
+	couplingError error
 	envelopes     map[string]safetyEnvelope
 }
 
@@ -212,6 +219,7 @@ type Placement struct {
 }
 
 type vehicle struct {
+	couplingID string
 	// buffered keeps pending buffer admissions until berth commitment.
 	buffered     bool
 	bufferBerth  string
@@ -279,9 +287,16 @@ type vehicle struct {
 // shared field whole. It must not write into a shared field in place,
 // because that change also changes the clones.
 type Simulation struct {
-	orderContract   OrderContract
-	motion          *motionRecorder
-	expressServices map[string]ExpressService
+	orderContract      OrderContract
+	couplingNetwork    *couplingReservationNetwork
+	couplingEnabled    bool
+	couplingGroups     []couplingNativeGroup
+	couplingFault      error
+	couplingFleet      *nativeForeignFleet
+	couplingApproaches []couplingNativeApproach
+	couplingAttempts   map[string]couplingApproachAttempt
+	motion             *motionRecorder
+	expressServices    map[string]ExpressService
 	// NewFleet builds junctionConflicts from the network. No code writes to it
 	// in place. ensureNetworkIndexes replaces it only when the network changes.
 	junctionConflicts            map[string][]laneConflict
@@ -458,6 +473,11 @@ func (s *Simulation) Reset() {
 		s.pickupSwaps = &pickupSwapController{enabled: s.pickupSwaps.enabled, right: 1, cooldown: make(map[string]int64)}
 	}
 	s.platoonLinks = 0
+	s.couplingGroups = nil
+	s.couplingApproaches = nil
+	s.couplingAttempts = nil
+	s.couplingFleet = nil
+	s.couplingFault = nil
 	s.compactGroups, s.compactMotions, s.compactNextGroups, s.compactFault = nil, nil, nil, nil
 	s.owners = make(map[resource]resourceOwner)
 	s.vehicles = nil
@@ -553,6 +573,7 @@ func (s *Simulation) SafetyObservation() SafetyObservation {
 	}
 	s.compactSafety(&state)
 	s.largeSafety(&state)
+	s.couplingSafety(&state)
 	return state
 }
 
@@ -647,9 +668,14 @@ func (s *Simulation) findVehicle(id string) *vehicle {
 // Step plans admission from pre-movement state, arbitrates, then moves every pod.
 func (s *Simulation) Step() {
 	defer s.observe()
+	if s.couplingFault != nil {
+		s.paused = true
+		return
+	}
 	if s.paused {
 		return
 	}
+	s.discoverCouplingApproaches()
 	s.stepCompletions = s.stepCompletions[:0]
 	s.tick++
 	s.stepDemo()
@@ -679,9 +705,22 @@ func (s *Simulation) Step() {
 		return
 	}
 	s.platoonCaps()
+	coupling, err := s.planNativeCouplingTick()
+	if err != nil {
+		s.couplingFault, s.paused = err, true
+		return
+	}
 	s.beginMotionFrame()
+	if coupling != nil {
+		for i := range s.couplingGroups {
+			s.moveNativeCoupling(coupling, i)
+		}
+	}
 	for i := range s.vehicles {
 		v := &s.vehicles[i]
+		if v.couplingID != "" {
+			continue
+		}
 		if departs(v.Pod.Activity) && v.phaseTicks == 0 && v.reservedThrough >= 0 {
 			if v.Pod.Activity == Boarding && s.screensSeats() {
 				s.recordDeparture(v)
@@ -692,14 +731,22 @@ func (s *Simulation) Step() {
 			continue
 		}
 		if v.Pod.Activity == Traveling {
+			if s.moveCouplingApproach(coupling, v) {
+				continue
+			}
 			s.moveAndMeasure(v)
 		}
+	}
+	if err := s.finishNativeCoupling(coupling); err != nil {
+		s.couplingFault, s.paused = err, true
+		return
 	}
 	s.compactGroups = s.compactNextGroups
 	s.compactNextGroups = nil
 	s.finishCompactQueues()
 	// No pod can reuse resources released during this tick until the next tick.
 	s.releaseCleared()
+	s.finishCouplingApproachLinks()
 	for i := range s.vehicles {
 		s.updateStationPhase(&s.vehicles[i])
 	}

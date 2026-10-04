@@ -1,0 +1,251 @@
+package sim
+
+import (
+	"maps"
+	"math"
+	"slices"
+)
+
+// This immutable cache binds actual fleet identities and immutable route storage.
+// A route or berth change requires new preparation, including saturated versions.
+type nativeForeignFleet struct {
+	source        *Simulation
+	context       *couplingMotionContext
+	network       *couplingReservationNetwork
+	orderContract OrderContract
+	entries       []nativeForeignEntry
+	pairs         map[*couplingMotionContext][2]int
+}
+
+type nativeForeignEntry struct {
+	id           string
+	class        VehicleClass
+	route        []Lane
+	routeVersion uint64
+	path         *couplingForeignPath
+	parked       *couplingForeignPath
+	maxTail      float64
+}
+
+// One frame captures the complete fleet and ledger before any member moves.
+// Step captures this frame after admission and before movement.
+type nativeForeignTick struct {
+	fleet          *nativeForeignFleet
+	tick           int64
+	facts          []nativeForeignFact
+	owners         map[resource]resourceOwner
+	proofs         map[string]*nativeForeignProof
+	pairMembers    map[int]nativeForeignPairMember
+	approachFronts map[int]*nativeApproachProof
+}
+
+type nativeForeignFact struct {
+	pod                             Pod
+	cabin                           couplingCabinMotion
+	distance                        float64
+	blockIndex, through, phaseTicks int
+	origin, destination             Berth
+	retained                        map[resource]float64
+	link                            platoonLink
+	follower                        int
+	cap                             float64
+	compact                         compactBufferMotion
+}
+
+func prepareNativeForeignFleet(s *Simulation, c *couplingMotionContext, pairs ...*couplingMotionContext) (*nativeForeignFleet, error) {
+	if c == nil {
+		return nil, couplingMotionInvariant("native fleet has no reference context")
+	}
+	f, err := prepareNativeForeignFleetBound(s, c.reservation.network, c.reservation.orderContract, pairs...)
+	if err != nil {
+		return nil, err
+	}
+	f.context = c
+	var foreign []string
+	members := 0
+	for _, entry := range f.entries {
+		if entry.id == c.reservation.members[0].Vehicle.Pod.ID || entry.id == c.reservation.members[1].Vehicle.Pod.ID {
+			if entry.class != CompactClass {
+				return nil, couplingMotionInvariant("native pair member changed its class")
+			}
+			members++
+		} else {
+			foreign = append(foreign, entry.id)
+		}
+	}
+	slices.Sort(foreign)
+	if members != 2 || !slices.Equal(foreign, c.foreignIDs) {
+		return nil, couplingMotionInvariant("context excludes a different actual fleet")
+	}
+	return f, nil
+}
+
+func prepareNativeForeignFleetBound(s *Simulation, n *couplingReservationNetwork, contract OrderContract, pairs ...*couplingMotionContext) (*nativeForeignFleet, error) {
+	if s == nil || n == nil || len(s.vehicles) < 2 || len(s.vehicles) > expressMaxPods || s.orderContract != contract || !nativeForeignPreparedIdentity(s, n.prepared) {
+		return nil, couplingMotionInvariant("native fleet or contract is invalid")
+	}
+	f := &nativeForeignFleet{source: s, network: n, orderContract: contract}
+	seen := make(map[string]bool, len(s.vehicles))
+	for i := range s.vehicles {
+		v := &s.vehicles[i]
+		if !boundedContractID(v.Pod.ID) || seen[v.Pod.ID] {
+			return nil, couplingMotionInvariant("native fleet identities are invalid")
+		}
+		seen[v.Pod.ID] = true
+		entry := nativeForeignEntry{id: v.Pod.ID, class: v.Pod.Class, route: v.Route, routeVersion: v.routeVersion}
+		var err error
+		if len(v.Route) != 0 {
+			entry.path, err = prepareCouplingForeignPath(n, contract, v.Pod.ID, v.Pod.Class, v.Route)
+			if err != nil {
+				return nil, err
+			}
+			if !nativeForeignRouteCells(v, &entry.path.blocks) {
+				return nil, couplingMotionInvariant("native route cells differ from prepared geometry")
+			}
+			for _, lane := range entry.path.blocks.lanes {
+				if lane.cells != nil {
+					entry.maxTail = max(entry.maxTail, Clearance, lane.cells.tail, lane.cells.fromTail)
+				}
+			}
+		}
+		if v.Pod.BerthID != "" {
+			entry.parked, err = prepareCouplingParkedForeign(n, contract, v.Pod.ID, v.Pod.Class, v.Pod.StationID, v.Pod.BerthID)
+			if err != nil {
+				return nil, err
+			}
+		}
+		f.entries = append(f.entries, entry)
+	}
+	if err := f.preparePairRoutes(pairs); err != nil {
+		return nil, err
+	}
+	return f, nil
+}
+
+func nativeForeignPreparedIdentity(s *Simulation, p *PreparedNetwork) bool {
+	if p == nil || len(p.network.Nodes) == 0 || len(p.network.Lanes) == 0 || len(s.network.Nodes) != len(p.network.Nodes) || len(s.network.Lanes) != len(p.network.Lanes) || len(s.network.Stations) != len(p.network.Stations) {
+		return false
+	}
+	if &s.network.Nodes[0] != &p.network.Nodes[0] || &s.network.Lanes[0] != &p.network.Lanes[0] {
+		return false
+	}
+	return len(s.network.Stations) == 0 || &s.network.Stations[0] == &p.network.Stations[0]
+}
+
+func nativeForeignRouteCells(v *vehicle, blocks *blockList) bool {
+	if v.blocks.len() != blocks.len() || len(v.blocks.lanes) != len(blocks.lanes) {
+		return false
+	}
+	for i, lane := range blocks.lanes {
+		actual := v.blocks.lanes[i]
+		if actual.cells != lane.cells || actual.geometry != lane.geometry || actual.first != lane.first || i < len(blocks.route) && (actual.start != lane.start || actual.length != lane.length) {
+			return false
+		}
+	}
+	return true
+}
+
+func nativeForeignSameRoute(a, b []Lane) bool {
+	return len(a) == len(b) && (len(a) == 0 || &a[0] == &b[0])
+}
+
+// The caller invokes this once after native planning and before all movement.
+// Later consumers read this frame, never the partly moved Simulation.
+func buildNativeForeignTick(s *Simulation, f *nativeForeignFleet, pairs ...couplingNativeForeignPair) (*nativeForeignTick, error) {
+	return buildNativeForeignApproachTick(s, f, nil, pairs...)
+}
+
+func buildNativeForeignApproachTick(s *Simulation, f *nativeForeignFleet, approaches []couplingApproachTransition, pairs ...couplingNativeForeignPair) (*nativeForeignTick, error) {
+	if s == nil || f == nil || f.source != s || f.network == nil || s.tick <= 0 || len(s.vehicles) != len(f.entries) || s.orderContract != f.orderContract || !nativeForeignPreparedIdentity(s, f.network.prepared) {
+		return nil, couplingMotionInvariant("native frame has a stale fleet, geometry, or tick")
+	}
+	frame := &nativeForeignTick{fleet: f, tick: s.tick, owners: maps.Clone(s.owners), proofs: make(map[string]*nativeForeignProof, len(f.entries))}
+	frame.facts = make([]nativeForeignFact, len(s.vehicles))
+	for i := range s.vehicles {
+		v := &s.vehicles[i]
+		entry := &f.entries[i]
+		if v.Pod.ID != entry.id || v.Pod.Class != entry.class || v.routeVersion != entry.routeVersion || !nativeForeignSameRoute(v.Route, entry.route) {
+			return nil, couplingMotionInvariant("native frame requires new immutable route preparation")
+		}
+		fact := nativeForeignFact{pod: v.Pod, cabin: nativeForeignCabin(v), distance: v.distance, blockIndex: v.blockIndex, through: v.reservedThrough, phaseTicks: v.phaseTicks, origin: v.origin, destination: v.destination, retained: maps.Clone(v.routeReleases), link: v.link, follower: v.follower, cap: v.platoonCap}
+		if len(s.compactMotions) > 0 {
+			if len(s.compactMotions) != len(s.vehicles) {
+				return nil, couplingMotionInvariant("native compact plan omits fleet members")
+			}
+			fact.compact = s.compactMotions[i]
+		}
+		if !finite(fact.distance) || !finite(fact.pod.Speed) || fact.distance < 0 || fact.pod.Speed < 0 || !finite(fact.pod.Position.X) || !finite(fact.pod.Position.Y) {
+			return nil, couplingMotionInvariant("native previous pose is invalid")
+		}
+		frame.facts[i] = fact
+	}
+	if err := frame.preparePairs(pairs); err != nil {
+		return nil, err
+	}
+	compact, err := frame.compactCertificates(s.compactGroups, s.compactNextGroups)
+	if err != nil {
+		return nil, err
+	}
+	if err := frame.prepareApproaches(approaches); err != nil {
+		return nil, err
+	}
+	for i := range frame.facts {
+		if f.context != nil && !couplingDeclaredForeign(f.context.foreignIDs, frame.facts[i].pod.ID) {
+			continue
+		}
+		proof, proofErr := frame.prepareProof(i, compact[i])
+		if proofErr != nil {
+			return nil, proofErr
+		}
+		frame.proofs[proof.raw.Path.id] = proof
+	}
+	return frame, nil
+}
+
+func (frame *nativeForeignTick) sweeps() []couplingForeignSweep {
+	result := make([]couplingForeignSweep, 0, len(frame.proofs))
+	for _, id := range frame.foreignIDs() {
+		proof := frame.proofs[id]
+		sweep := proof.raw
+		sweep.native = proof
+		result = append(result, sweep)
+	}
+	return result
+}
+
+// Body sweep geometry is unchanged by a published ordinary endpoint snap.
+func nativeForeignLimit(fact nativeForeignFact, blocks *blockList) (float64, error) {
+	if fact.through < 0 || fact.through >= blocks.len() || fact.blockIndex < 0 || fact.blockIndex > fact.through || fact.distance > blocks.at(fact.through).end {
+		return 0, couplingMotionInvariant("native ordinary grants are invalid")
+	}
+	limit := blocks.at(fact.through).end
+	if fact.link.leader != 0 && fact.cap < limit {
+		limit = fact.cap
+	}
+	if !finite(limit) || limit < fact.distance {
+		return 0, couplingMotionInvariant("native ordinary stopping cap is behind its pose")
+	}
+	return limit, nil
+}
+
+func nativeForeignSameFloat(a, b float64) bool { return math.Float64bits(a) == math.Float64bits(b) }
+
+func nativeForeignCabin(v *vehicle) couplingCabinMotion {
+	ridden := 0.0
+	if v.RidersAboard() > 0 || len(v.Boardings) > 0 {
+		ridden = v.riddenMeters()
+	}
+	return couplingCabinMotion{Pod: v.Pod, Riders: slices.Clone(v.Riders), Stops: slices.Clone(v.Stops), Boardings: slices.Clone(v.Boardings), RiddenMeters: ridden, RelocatingTo: v.RelocatingTo, RouteVersion: v.routeVersion}
+}
+
+func (frame *nativeForeignTick) foreignIDs() []string {
+	if frame.fleet.context != nil {
+		return frame.fleet.context.foreignIDs
+	}
+	ids := make([]string, 0, len(frame.fleet.entries))
+	for _, entry := range frame.fleet.entries {
+		ids = append(ids, entry.id)
+	}
+	slices.Sort(ids)
+	return ids
+}

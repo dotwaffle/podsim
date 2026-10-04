@@ -32,6 +32,12 @@ Group and Express remain valid individual vehicles under their existing contract
 They cannot join a mechanical pair under this proposal.
 An existing virtual link or compact queue certificate also prevents recruitment.
 
+The first release requires the user to enable ordinary virtual platooning before a pair approaches an assembly site.
+The approach uses the existing virtual ownership rules.
+The link must drain and retire before mechanical recruitment.
+Both cabins can be empty or occupied.
+The five-second intentional partner deadline remains unchanged.
+
 ### Candidate numerical model
 
 These values define a proposed simulation model.

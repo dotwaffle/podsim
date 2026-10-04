@@ -16,6 +16,9 @@ import (
 var topologyJSONLimits = jsonLimits{
 	depth: 64, elements: 0, members: 256, foldNames: true,
 	arrays: map[string]int64{
+		"/couplingSites":                              sim.MaxCouplingSites,
+		"/couplingCorridors":                          sim.MaxCouplingCorridors,
+		"/couplingCorridors/*/laneIds":                project.MaxLanes,
 		"/expressServices":                            project.MaxExpressServices,
 		"/network/Lanes/*/VehicleClasses":             4,
 		"/network/Stations/*/VehicleClasses":          4,
@@ -47,6 +50,14 @@ func (topology *TopologySnapshot) UnmarshalJSON(data []byte) error {
 	if err := jsonv2.Unmarshal(data, &header, json.DefaultOptionsV1()); err != nil {
 		return err
 	}
+	if header.ProjectVersion == project.CouplingVersion {
+		decoded, err := decodeCouplingTopology(data)
+		if err != nil {
+			return err
+		}
+		*topology = decoded
+		return nil
+	}
 	if header.ProjectVersion == project.ExpressVersion {
 		version = ExpressStreamVersion
 	}
@@ -75,9 +86,14 @@ func (topology *TopologySnapshot) UnmarshalJSON(data []byte) error {
 
 func scanTopologyBanks(data []byte) error {
 	decoder := jsontext.NewDecoder(bytes.NewReader(data))
+	var coupling bool
+	var version int64
 	for {
 		token, err := decoder.ReadToken()
 		if errors.Is(err, io.EOF) {
+			if coupling && version != project.CouplingVersion {
+				return errors.New("legacy topology contains coupling fields")
+			}
 			return nil
 		}
 		if err != nil {
@@ -85,10 +101,23 @@ func scanTopologyBanks(data []byte) error {
 		}
 		tokenKind := token.Kind()
 		path := strings.Split(strings.ToLower(string(decoder.StackPointer())), "/")
+		kind, length := decoder.StackIndex(decoder.StackDepth())
+		member := tokenKind == jsontext.KindString && kind == jsontext.KindBeginObject && length%2 == 1
+		if len(path) == 2 && member {
+			coupling = coupling || couplingMember(token.String())
+			if path[1] == "projectversion" {
+				value, err := decoder.ReadToken()
+				if err != nil {
+					return err
+				}
+				if value.Kind() == jsontext.KindNumber {
+					version, _ = value.Int()
+				}
+			}
+		}
 		if len(path) != 5 || path[1] != "network" || path[2] != "stations" || path[4] != "banks" {
 			continue
 		}
-		kind, length := decoder.StackIndex(decoder.StackDepth())
 		if kind == jsontext.KindBeginObject && length%2 == 1 && decoder.PeekKind() != jsontext.KindBeginArray {
 			return errors.New("station Banks must be a nonempty array")
 		}

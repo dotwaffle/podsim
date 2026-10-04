@@ -167,12 +167,20 @@ func TestStationQueueSpacingAdaptiveGroupsAndMatrixLimit(t *testing.T) {
 }
 
 type faultStepper struct {
-	steps int
-	fault error
+	steps         int
+	fault         error
+	couplingFault error
+	onStep        func()
 }
 
-func (s *faultStepper) Step()                    { s.steps++ }
+func (s *faultStepper) Step() {
+	s.steps++
+	if s.onStep != nil {
+		s.onStep()
+	}
+}
 func (s *faultStepper) CompactQueueError() error { return s.fault }
+func (s *faultStepper) CouplingError() error     { return s.couplingFault }
 
 func TestComparisonStepFault(t *testing.T) {
 	t.Parallel()
@@ -184,6 +192,32 @@ func TestComparisonStepFault(t *testing.T) {
 	s.fault = nil
 	if err := stepComparison(s); err != nil || s.steps != 2 {
 		t.Fatalf("healthy step failed: steps=%d error=%v", s.steps, err)
+	}
+}
+
+func TestComparisonCouplingFault(t *testing.T) {
+	t.Parallel()
+	for _, duringStep := range []bool{false, true} {
+		t.Run(map[bool]string{false: "retained", true: "during step"}[duringStep], func(t *testing.T) {
+			t.Parallel()
+			fault := errors.New("unproved physical tick")
+			s := &faultStepper{}
+			if duringStep {
+				s.onStep = func() { s.couplingFault = fault }
+			} else {
+				s.couplingFault = fault
+			}
+			if err := stepComparison(s); !errors.Is(err, fault) || !strings.Contains(err.Error(), "physical coupling controller") {
+				t.Fatal("comparison accepted a coupling fault", err)
+			}
+			want := 0
+			if duringStep {
+				want = 1
+			}
+			if s.steps != want {
+				t.Fatal("comparison advanced a retained coupling fault", s.steps)
+			}
+		})
 	}
 }
 

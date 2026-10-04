@@ -430,7 +430,9 @@ func (s *Simulation) maintainLink(i, ahead int) {
 	over := s.platooning == PlatooningOff || v.Pod.Activity != Traveling || leader.Pod.Activity != Traveling ||
 		ahead != 0 && ahead != v.link.leader
 	if !over {
-		s.extendLink(v, leader)
+		if !s.couplingApproachMember(v.Pod.ID) {
+			s.extendLink(v, leader)
+		}
 		geometry, _ := linkEnds(&v.blocks, v.link)
 		v.link.draining = v.link.draining || v.reservedThrough >= v.link.end
 		over = v.link.draining || leaderPosition(v, leader, v.link) >= geometry+Clearance
@@ -455,6 +457,9 @@ func (s *Simulation) unlink(v *vehicle) {
 // of the link do not change. When the end block moves, the link stops
 // draining.
 func (s *Simulation) extendLink(v, leader *vehicle) {
+	if s.couplingApproachMember(v.Pod.ID) || s.couplingApproachMember(leader.Pod.ID) {
+		return
+	}
 	if v.link.buffer {
 		return
 	}
@@ -489,7 +494,7 @@ func (s *Simulation) sharedLane(v, leader *vehicle, lane, leaderLane int) bool {
 // canLink reports whether platooning is on and the traveling pod v is
 // slow, below platoonSlowFraction of the speed limit of its lane.
 func (s *Simulation) canLink(v *vehicle) bool {
-	if largeVehicleClass(v.Pod.Class) {
+	if v.couplingID != "" || largeVehicleClass(v.Pod.Class) {
 		return false
 	}
 	lane := v.blocks.find(v.blockIndex, &v.blocks.cursors[podCursor]).lane
@@ -509,6 +514,9 @@ func (s *Simulation) canLink(v *vehicle) bool {
 // limit. Inside a fixed entry buffer, one holding-cell pitch also qualifies.
 func (s *Simulation) tryLink(i, ahead int) {
 	v, leader := &s.vehicles[i], &s.vehicles[ahead]
+	if s.couplingApproachMember(v.Pod.ID) || s.couplingApproachMember(leader.Pod.ID) {
+		return
+	}
 	if largeVehicleClass(v.Pod.Class) || largeVehicleClass(leader.Pod.Class) {
 		return
 	}

@@ -20,6 +20,9 @@ func DecodeStreamJSONVersion(data []byte, version int) (StreamEnvelope, error) {
 	if version < 1 || version > StreamVersion || len(data) > MaxStreamJSON {
 		return StreamEnvelope{}, errors.New("unsupported stream version or size")
 	}
+	if version == CouplingStreamVersion {
+		return decodeCouplingStreamJSON(data)
+	}
 	if err := scanContractMarkers(data, version == ExpressStreamVersion, version == ExpressStreamVersion); err != nil {
 		return StreamEnvelope{}, err
 	}
@@ -48,6 +51,10 @@ func DecodeStreamJSONVersion(data []byte, version int) (StreamEnvelope, error) {
 }
 
 func scanStreamServiceMembers(data []byte, version int) error {
+	return scanStreamServiceMembersContract(data, version, false)
+}
+
+func scanStreamServiceMembersContract(data []byte, version int, coupling bool) error {
 	decoder := jsontext.NewDecoder(bytes.NewReader(data))
 	for {
 		token, err := decoder.ReadToken()
@@ -59,6 +66,12 @@ func scanStreamServiceMembers(data []byte, version int) error {
 		}
 		kind, length := decoder.StackIndex(decoder.StackDepth())
 		if token.Kind() != jsontext.KindString || kind != jsontext.KindBeginObject || length%2 != 1 {
+			continue
+		}
+		if couplingMember(token.String()) || strings.EqualFold(token.String(), "couplingID") {
+			if !coupling {
+				return errors.New("current stream family contains coupling fields")
+			}
 			continue
 		}
 		name := strings.ToLower(token.String())
@@ -88,7 +101,11 @@ func scanStreamServiceMembers(data []byte, version int) error {
 				return errors.New("stream project version must be an integer")
 			}
 			projectVersion, numberErr := value.Int()
-			if numberErr != nil || projectVersion < 1 || projectVersion > int64(maxStreamProjectVersion(version)) {
+			maximum := maxStreamProjectVersion(version)
+			if coupling {
+				maximum = project.CouplingVersion
+			}
+			if numberErr != nil || projectVersion < 1 || projectVersion > int64(maximum) {
 				return errors.New("invalid stream project version")
 			}
 		default:
@@ -135,6 +152,22 @@ func NewStreamAssemblerVersion(topology TopologySnapshot, version int) (*StreamA
 }
 
 func validateStreamTopology(topology TopologySnapshot, version int) error {
+	if version == CouplingStreamVersion {
+		if topology.ProjectVersion != project.CouplingVersion || topology.CouplingContract != sim.CompactPairV1CouplingContract {
+			return errors.New("coupling topology needs project 5 and contract")
+		}
+		if err := sim.ValidateCouplingGeometry(sim.CouplingGeometryInput{Contract: topology.CouplingContract,
+			Network: topology.Network, Sites: topology.CouplingSites, Corridors: topology.CouplingCorridors}); err != nil {
+			return err
+		}
+		if topology.OrderContract == "" && len(topology.ExpressServices) != 0 {
+			return errors.New("unmarked coupling topology contains Express services")
+		}
+		return sim.ValidateExpressServicesWithOrderContract(topology.Network, topology.ExpressServices, topology.OrderContract)
+	}
+	if hasCouplingTopology(topology) {
+		return errors.New("coupling topology requires a qualified stream family")
+	}
 	if version == ExpressStreamVersion {
 		if topology.ProjectVersion != project.ExpressVersion || topology.OrderContract != sim.ExpressOrderContract {
 			return errors.New("express topology needs project 4 and contract")
@@ -174,7 +207,7 @@ func validateStreamTopology(topology TopologySnapshot, version int) error {
 }
 
 func (a *StreamAssembler) serviceOrders(frame StreamFrame) error {
-	if a.version == ExpressStreamVersion {
+	if a.topology.OrderContract == sim.ExpressOrderContract {
 		return a.expressOrders(frame)
 	}
 	if a.version < FoundationStreamVersion {

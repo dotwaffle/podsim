@@ -42,21 +42,22 @@ type streamSent struct {
 	bytes    int
 }
 type streamSubscriber struct {
-	orderContract sim.OrderContract
-	conn          *websocket.Conn
-	wake          chan struct{}
-	sent          []streamSent
-	bytes         int
-	stream        string
-	sequence      uint64
-	progress      time.Time
-	heartbeat     uint64
-	heartbeatAt   time.Time
-	lastACK       streamSent
-	writing       *streamPayload
-	writingAt     time.Time
-	cancel        context.CancelFunc
-	shed          bool
+	couplingContract sim.CouplingContract
+	orderContract    sim.OrderContract
+	conn             *websocket.Conn
+	wake             chan struct{}
+	sent             []streamSent
+	bytes            int
+	stream           string
+	sequence         uint64
+	progress         time.Time
+	heartbeat        uint64
+	heartbeatAt      time.Time
+	lastACK          streamSent
+	writing          *streamPayload
+	writingAt        time.Time
+	cancel           context.CancelFunc
+	shed             bool
 }
 
 // StreamMetrics exposes bounded aggregate transport measurements.
@@ -368,7 +369,7 @@ func (p *statePublisher) publish(ctx context.Context, need, capture bool) error 
 			stream = rand.Text()
 			seq = 1
 		}
-		e := StreamEnvelope{OrderContract: frame.State.Simulation.OrderContract, TextEncoding: streamTextEncoding(frame.State.Simulation.OrderContract), Kind: "delta", Stream: stream, Sequence: seq, Base: p.sequence, Source: sourceOf(frame), Build: frame.State.Build}
+		e := StreamEnvelope{CouplingContract: frame.State.Simulation.CouplingContract, OrderContract: frame.State.Simulation.OrderContract, TextEncoding: streamTextEncoding(frame.State.Simulation.OrderContract), Kind: "delta", Stream: stream, Sequence: seq, Base: p.sequence, Source: sourceOf(frame), Build: frame.State.Build}
 		if reset {
 			e.Kind = "full"
 			e.Base = 0
@@ -426,7 +427,7 @@ func (p *statePublisher) publish(ctx context.Context, need, capture bool) error 
 	}
 	p.mu.Unlock()
 	if need && !hasFull {
-		e := StreamEnvelope{OrderContract: p.frame.State.Simulation.OrderContract, TextEncoding: streamTextEncoding(p.frame.State.Simulation.OrderContract), Kind: "full", Stream: p.stream, Sequence: p.sequence, Source: sourceOf(p.frame), Build: p.frame.State.Build, Full: &p.frame}
+		e := StreamEnvelope{CouplingContract: p.frame.State.Simulation.CouplingContract, OrderContract: p.frame.State.Simulation.OrderContract, TextEncoding: streamTextEncoding(p.frame.State.Simulation.OrderContract), Kind: "full", Stream: p.stream, Sequence: p.sequence, Source: sourceOf(p.frame), Build: p.frame.State.Build, Full: &p.frame}
 		b, err := p.retain(ctx, e)
 		if err != nil {
 			return err
@@ -498,15 +499,21 @@ func (s *Session) streamHTTP(w http.ResponseWriter, r *http.Request) {
 	defer func() { cancel(); _ = conn.CloseNow(); <-readerDone }()
 	s.mu.Lock()
 	contract := s.project.OrderContract
+	coupling := s.project.CouplingContract
 	hello := StreamHello{Kind: "hello", Version: FoundationStreamVersion, Build: s.build, ServerStart: s.serverStart}
 	s.mu.Unlock()
 	p.mu.Lock()
 	c.orderContract = contract
+	c.couplingContract = coupling
 	p.mu.Unlock()
 	if contract == sim.ExpressOrderContract {
 		hello.Version = ExpressStreamVersion
 		hello.OrderContract = contract
 		hello.TextEncoding = ExpressTextEncoding
+	}
+	if coupling != "" {
+		hello.Version = CouplingStreamVersion
+		hello.CouplingContract = coupling
 	}
 	helloData, marshalErr := json.Marshal(hello)
 	if marshalErr != nil {
@@ -521,8 +528,9 @@ func (s *Session) streamHTTP(w http.ResponseWriter, r *http.Request) {
 	for {
 		s.mu.Lock()
 		currentContract := s.project.OrderContract
+		currentCoupling := s.project.CouplingContract
 		s.mu.Unlock()
-		if currentContract != contract {
+		if currentContract != contract || currentCoupling != coupling {
 			return
 		}
 		if err := p.sendAvailable(ctx, c); err != nil {
@@ -601,7 +609,7 @@ func (p *statePublisher) sendAvailable(ctx context.Context, c *streamSubscriber)
 			p.mu.Unlock()
 			return errors.New("stream stopped")
 		}
-		if p.sequence != 0 && p.frame.State.Simulation.OrderContract != c.orderContract {
+		if p.sequence != 0 && (p.frame.State.Simulation.OrderContract != c.orderContract || p.frame.State.Simulation.CouplingContract != c.couplingContract) {
 			p.mu.Unlock()
 			return errors.New("stream contract changed; negotiate a new hello")
 		}

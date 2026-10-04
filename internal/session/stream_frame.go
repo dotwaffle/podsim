@@ -17,8 +17,14 @@ func (s *Session) presentationFrame() (StreamFrame, error) {
 }
 
 func (s *Session) presentationFrameLocked() (StreamFrame, error) {
+	if err := s.couplingError(); err != nil {
+		return StreamFrame{}, err
+	}
 	snapshot, routes, err := s.simulation.PresentationSnapshot()
 	if err != nil {
+		if s.project.Version == project.CouplingVersion {
+			return StreamFrame{}, s.retainCouplingViewError(err)
+		}
 		return StreamFrame{}, err
 	}
 	if len(s.build) > 64 {
@@ -32,6 +38,7 @@ func (s *Session) presentationFrameLocked() (StreamFrame, error) {
 
 // StreamAssembler caches verified topology and immutable expanded route data.
 type StreamAssembler struct {
+	coupling       *sim.CouplingViewValidator
 	version        int
 	passengerPaths map[passengerPathKey]bool
 	classLanes     map[sim.VehicleClass]map[string]bool
@@ -51,8 +58,12 @@ func NewStreamAssembler(topology TopologySnapshot) (*StreamAssembler, error) {
 	if err := sim.ValidateOrderContract(topology.OrderContract); err != nil {
 		return nil, err
 	}
-	if topology.OrderContract == sim.ExpressOrderContract {
-		if err := validateStreamTopology(topology, ExpressStreamVersion); err != nil {
+	version := ExpressStreamVersion
+	if hasCouplingTopology(topology) {
+		version = CouplingStreamVersion
+	}
+	if topology.OrderContract == sim.ExpressOrderContract || hasCouplingTopology(topology) {
+		if err := validateStreamTopology(topology, version); err != nil {
 			return nil, err
 		}
 	}
@@ -60,8 +71,15 @@ func NewStreamAssembler(topology TopologySnapshot) (*StreamAssembler, error) {
 		return nil, errors.New("topology exceeds supported limits")
 	}
 	a := &StreamAssembler{topology: topology, lanes: make(map[string]bool, len(topology.Network.Lanes)), groupLanes: make(map[string]bool, len(topology.Network.Lanes)), stations: map[string]bool{}, berths: map[string]bool{}, boardingBerths: map[string]boardingBerth{}}
+	if hasCouplingTopology(topology) {
+		validator, err := newCouplingFrameValidator(topology)
+		if err != nil {
+			return nil, err
+		}
+		a.coupling, a.version = validator, CouplingStreamVersion
+	}
 	if topology.OrderContract == sim.ExpressOrderContract {
-		a.version = ExpressStreamVersion
+		a.version = version
 		a.passengerPaths = map[passengerPathKey]bool{}
 	}
 	nodes := map[string]bool{}
@@ -173,13 +191,18 @@ func (a *StreamAssembler) State(f StreamFrame) (State, error) {
 		}
 		v.Presentation = &r
 	}
+	if err := a.couplingView(state); err != nil {
+		return State{}, err
+	}
 	if err := a.rememberClasses(f); err != nil {
 		return State{}, err
 	}
 	a.previous = ownStreamBoardings(f)
 	a.state = state
-	if a.topology.OrderContract == sim.ExpressOrderContract {
+	if a.topology.OrderContract == sim.ExpressOrderContract || a.coupling != nil {
 		a.state = ownAssemblerState(state)
+		a.state.Simulation.Berths = slices.Clone(state.Simulation.Berths)
+		a.state.Simulation.CouplingGroups = cloneCouplingGroups(state.Simulation.CouplingGroups)
 	}
 	// Only private containers are retained. The geometry and routes are immutable.
 	a.previous.Routes = slices.Clone(f.Routes)

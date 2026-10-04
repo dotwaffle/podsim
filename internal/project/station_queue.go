@@ -23,7 +23,7 @@ func validateStationQueueSpacing(config Config) error {
 	if !validStationQueueSpacing(mode) {
 		return errors.New("station queue spacing must be ordinary or compact-v1")
 	}
-	if config.StationQueueSpacing != "" && config.Version != ServiceVersion {
+	if config.StationQueueSpacing != "" && config.Version != ServiceVersion && config.Version != CouplingVersion {
 		return errors.New("station queue spacing requires project version 3")
 	}
 	if mode == sim.StationQueueCompactV1 && (!config.StationBuffers || config.PlatoonLimit < sim.MinPlatoonLimit || config.PlatoonLimit > sim.MaxPlatoonLimit) {

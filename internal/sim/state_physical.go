@@ -103,6 +103,9 @@ func restorePhysical(input RestoreStateInput, newFleet func() (*Simulation, erro
 		return nil, RestoreResult{}, err
 	}
 	r := newPhysicalRestore(s, input.State)
+	if err := r.checkCouplingRestoreWork(); err != nil {
+		return nil, RestoreResult{}, err
+	}
 	r.stationBuffers = input.StationBuffers
 	r.bufferPlatoons = input.BufferPlatoons
 	if input.PlatoonLimit != 0 {
@@ -138,10 +141,13 @@ func restorePhysical(input RestoreStateInput, newFleet func() (*Simulation, erro
 	if err := r.placeTraveling(); err != nil {
 		return nil, RestoreResult{}, err
 	}
+	r.claimDestinations()
+	if err := r.restoreCouplingGroups(); err != nil {
+		return nil, RestoreResult{}, err
+	}
 	if err := r.finishCompactRestore(input); err != nil {
 		return nil, RestoreResult{}, err
 	}
-	r.claimDestinations()
 	if err := r.separate(); err != nil {
 		return nil, RestoreResult{}, err
 	}
@@ -249,20 +255,25 @@ func newPhysicalRestore(s *Simulation, state SavedState) *physicalRestore {
 		s: s, state: state, berths: make(map[string]berthRef),
 		demoted: make([]bool, len(state.Pods)), routes: make([][]int, len(state.Pods)), costs: make([]int, len(state.Pods)),
 		tripRoutes: make([][]int, len(state.Waiting)), unbound: make([]bool, len(state.Waiting)),
-		laneBlocks: make([]int, len(s.network.Lanes)),
 	}
-	networkBlocks := 0
-	for index, lane := range s.network.Lanes {
-		r.laneBlocks[index] = laneBlockCount(s.laneLength(lane))
-		networkBlocks += r.laneBlocks[index]
-	}
-	r.budget = min(budgetNetworkMultiple*networkBlocks+budgetLaneBlocks*len(s.network.Lanes), budgetMaxBlocks)
+	r.laneBlocks, r.budget = physicalBlockBudget(s)
 	for _, station := range s.network.Stations {
 		for _, berth := range station.Berths {
 			r.berths[berth.ID] = berthRef{station: station.ID, berth: berth}
 		}
 	}
 	return r
+}
+
+func physicalBlockBudget(s *Simulation) ([]int, int) {
+	laneBlocks := make([]int, len(s.network.Lanes))
+	networkBlocks := 0
+	for index, lane := range s.network.Lanes {
+		laneBlocks[index] = laneBlockCount(s.laneLength(lane))
+		networkBlocks += laneBlocks[index]
+	}
+	budget := min(budgetNetworkMultiple*networkBlocks+budgetLaneBlocks*len(s.network.Lanes), budgetMaxBlocks)
+	return laneBlocks, budget
 }
 
 func (r *physicalRestore) restoreCounters() {
@@ -737,6 +748,9 @@ func (r *physicalRestore) placeTraveling() error {
 	order := make([]int, 0, len(r.state.Pods))
 	for index := range r.state.Pods {
 		if r.s.vehicles[index].Pod.Activity == Traveling {
+			if r.state.couplingMember(r.state.Pods[index].ID) {
+				continue
+			}
 			order = append(order, index)
 		}
 	}
@@ -1015,6 +1029,9 @@ func (r *physicalRestore) separate() error {
 		_, err := observation.Check()
 		if err == nil {
 			return nil
+		}
+		if len(r.state.CouplingGroups) != 0 {
+			return fmt.Errorf("committed coupling restore conflicts with physical traffic: %w", err)
 		}
 		separation, ok := errors.AsType[*SeparationError](err)
 		if !ok {

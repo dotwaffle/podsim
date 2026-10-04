@@ -221,6 +221,10 @@ type Session struct {
 	closed     atomic.Bool
 	mu         sync.Mutex
 	simulation *sim.Simulation
+	// couplingObservation retains the last valid read or command boundary.
+	// Failed native ticks never replace it. The caller holds mu.
+	couplingObservation *State
+	couplingViewError   error
 	// project is the current project. Code replaces it whole and never
 	// writes to it in place. Save points share it, and a state save encodes
 	// it after it releases mu.
@@ -314,7 +318,7 @@ func newServerStart() string {
 // config must be valid.
 func (s *Session) startProject(config project.Config) error {
 	owned := project.Clone(config)
-	simulation, err := sim.NewFleetWithOrderContract(owned.Network, owned.Fleet, owned.OrderContract)
+	simulation, err := sim.NewFleetWithContracts(owned.Network, owned.Fleet, fleetContracts(owned))
 	if err != nil {
 		return fmt.Errorf("create shared fleet: %w", err)
 	}
@@ -332,9 +336,11 @@ func (s *Session) startProject(config project.Config) error {
 		return err
 	}
 	s.simulation, s.project, s.epoch = simulation, owned, epoch
+	s.couplingViewError = nil
 	s.projectRevision, s.projectOrigin, s.generation, s.speed = 1, 1, 1, 1
 	s.demand = newDemand(demandInput{config: owned.Demand, network: owned.Network, profiles: owned.DemandProfiles, arrivals: owned.RailArrivals, departures: owned.RailDepartures})
 	s.configureRedistribution()
+	s.refreshCouplingObservation()
 	return nil
 }
 
@@ -368,13 +374,21 @@ func (s *Session) advance() {
 	if s.closed.Load() || s.simulation.Paused() {
 		return
 	}
+	completed := 0
 	for range s.speed {
-		s.step()
+		if err := s.step(); err != nil {
+			break
+		}
+		completed++
 	}
-	s.revision++
+	if completed > 0 {
+		s.revision++
+	}
 }
 
 // State returns a detached snapshot safe for concurrent observers.
+// After a coupling fault it returns the last valid observation. CouplingError
+// reports why the session cannot publish a new observation.
 func (s *Session) State() State { s.mu.Lock(); defer s.mu.Unlock(); return s.state() }
 
 // Topology returns detached geometry for the active project revision.
@@ -387,6 +401,8 @@ func (s *Session) Topology() TopologySnapshot {
 func (s *Session) topologyLocked() TopologySnapshot {
 	topology := TopologySnapshot{
 		ProjectVersion: s.project.Version, OrderContract: s.project.OrderContract,
+		CouplingContract: s.project.CouplingContract, CouplingEnabled: s.project.CouplingEnabled,
+		CouplingSites: slices.Clone(s.project.CouplingSites), CouplingCorridors: cloneCouplingCorridors(s.project.CouplingCorridors),
 		ServerStart: s.serverStart, Epoch: s.epoch, ProjectRevision: s.projectRevision,
 		Network: project.CloneNetwork(s.project.Network),
 	}
@@ -403,6 +419,7 @@ func (s *Session) topologyLocked() TopologySnapshot {
 }
 
 // Frame returns recurring state without network geometry or complete route lanes.
+// After a coupling fault it retains the same observation as State.
 func (s *Session) Frame() StateFrame {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -414,7 +431,8 @@ func (s *Session) Frame() StateFrame {
 func (s *Session) Metrics() Metrics {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	state := s.simulation.Snapshot()
+	observation := s.stateWithoutNetwork()
+	state := observation.Simulation
 	metrics := Metrics{
 		Stream:                  s.StreamStats(),
 		Tick:                    state.Tick,
@@ -426,7 +444,7 @@ func (s *Session) Metrics() Metrics {
 		EmptyDistanceMeters:     state.EmptyDistanceMeters,
 		AverageWaitSeconds:      state.Wait.AverageSeconds,
 		MaximumWaitSeconds:      state.Wait.MaxSeconds,
-		Checkpoints:             len(s.checkpoints),
+		Checkpoints:             len(observation.Checkpoints),
 	}
 	metrics.ActiveVehicles = state.WorkingVehicles()
 	for _, vehicle := range state.Vehicles {
@@ -445,6 +463,9 @@ func (s *Session) Metrics() Metrics {
 
 func (s *Session) state() State {
 	state := s.stateWithoutNetwork()
+	if state.ServerStart == "" {
+		return state
+	}
 	state.Network = project.CloneNetwork(s.project.Network)
 	if s.project.Geo != nil {
 		state.Geo = new(*s.project.Geo)
@@ -456,13 +477,21 @@ func (s *Session) state() State {
 }
 
 func (s *Session) stateWithoutNetwork() State {
-	return State{
+	if s.couplingError() != nil {
+		return s.lastCouplingObservation()
+	}
+	snapshot, err := s.simulation.CheckedSnapshot()
+	if err != nil {
+		_ = s.retainCouplingViewError(err)
+		return s.lastCouplingObservation()
+	}
+	state := State{
 		Epoch:           s.epoch,
 		Revision:        s.revision,
 		ProjectRevision: s.projectRevision,
 		Generation:      s.generation,
-		Redistribution:  s.project.Redistribution && !s.simulation.Snapshot().Demo,
-		Simulation:      s.simulation.Snapshot(),
+		Redistribution:  s.project.Redistribution && !snapshot.Demo,
+		Simulation:      snapshot,
 		Speed:           s.speed,
 		SpeedReduction:  s.speedReduction,
 		Demand:          s.demand.state,
@@ -471,6 +500,11 @@ func (s *Session) stateWithoutNetwork() State {
 		ServerStart:     s.serverStart,
 		Restore:         s.restore,
 	}
+	if s.project.Version == project.CouplingVersion {
+		owned := cloneCouplingObservation(state)
+		s.couplingObservation = &owned
+	}
+	return state
 }
 
 // Project returns a detached project safe for concurrent observers.
@@ -585,6 +619,10 @@ func (s *Session) applyCommand(command Command, digest commandDigest) commandRes
 			result, err := s.apply(command)
 			if err == nil {
 				s.revision++
+				if command.Action == "reset" || command.Action == "project" || command.Action == "rewind" {
+					s.couplingViewError = nil
+				}
+				s.refreshCouplingObservation()
 			}
 			reply = s.reply()
 			reply.OrderID, reply.Checkpoint, reply.ProjectRestored = result.orderID, result.checkpoint, result.projectRestored
@@ -669,6 +707,11 @@ func (e *sessionEvent) args() []any {
 }
 
 func (s *Session) apply(command Command) (outcome, error) {
+	if command.Action != "reset" && command.Action != "project" && command.Action != "rewind" {
+		if err := s.couplingError(); err != nil {
+			return outcome{}, err
+		}
+	}
 	if err := sim.ValidateOrderContract(command.OrderContract); err != nil {
 		return outcome{}, err
 	}
@@ -808,7 +851,7 @@ func (s *Session) applyProject(command Command) error {
 	if err := project.Validate(config); err != nil {
 		return err
 	}
-	candidate, err := sim.NewFleetWithOrderContract(config.Network, config.Fleet, config.OrderContract)
+	candidate, err := sim.NewFleetWithContracts(config.Network, config.Fleet, fleetContracts(config))
 	if err != nil {
 		return fmt.Errorf("create project fleet: %w", err)
 	}

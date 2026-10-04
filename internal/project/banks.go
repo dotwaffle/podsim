@@ -56,20 +56,28 @@ func (config *Config) decodeJSONLimit(data []byte, options jsonv2.Options, rawLi
 	if err != nil {
 		return err
 	}
-	servicePresent, err := scanProjectService(data)
+	fields, err := scanProjectFields(data)
 	if err != nil {
 		return err
+	}
+	if fields.coupling || fields.versionFive || config.Version == CouplingVersion {
+		if err := scanCouplingProjectBounds(data); err != nil {
+			return err
+		}
 	}
 	type plainConfig Config
 	decoded := plainConfig(Clone(*config))
 	if err := jsonv2.Unmarshal(data, &decoded, options, jsonv2.RejectUnknownMembers(true)); err != nil {
 		return err
 	}
-	if present && decoded.Version != BankVersion && decoded.Version != ServiceVersion && decoded.Version != ExpressVersion {
+	if present && decoded.Version != BankVersion && decoded.Version != ServiceVersion && decoded.Version != ExpressVersion && decoded.Version != CouplingVersion {
 		return errors.New("station Banks requires project version 2 or 3")
 	}
-	if servicePresent && decoded.Version != ServiceVersion && decoded.Version != ExpressVersion {
+	if fields.service && decoded.Version != ServiceVersion && decoded.Version != ExpressVersion && decoded.Version != CouplingVersion {
 		return errors.New("vehicle and service fields require project version 3")
+	}
+	if fields.coupling && decoded.Version != CouplingVersion {
+		return errors.New("coupling fields require project version 5")
 	}
 	// Partial project updates can omit the version. Validate checks complete projects.
 	if decoded.Version != 0 {
@@ -79,6 +87,12 @@ func (config *Config) decodeJSONLimit(data []byte, options jsonv2.Options, rawLi
 		if err := validateServiceVersion(Config(decoded)); err != nil {
 			return err
 		}
+	}
+	if err := validateCouplingVersion(Config(decoded)); err != nil {
+		return err
+	}
+	if err := validateCouplingGeometry(Config(decoded)); err != nil {
+		return err
 	}
 	for _, station := range decoded.Network.Stations {
 		if err := validateBankNames(station); err != nil {
@@ -90,8 +104,8 @@ func (config *Config) decodeJSONLimit(data []byte, options jsonv2.Options, rawLi
 }
 
 func validateBankVersion(config Config) error {
-	if config.Version != currentVersion && config.Version != BankVersion && config.Version != ServiceVersion && config.Version != ExpressVersion {
-		return errors.New("project version must be 1, 2, 3, or 4")
+	if config.Version != currentVersion && config.Version != BankVersion && config.Version != ServiceVersion && config.Version != ExpressVersion && config.Version != CouplingVersion {
+		return errors.New("project version must be 1, 2, 3, 4, or 5")
 	}
 	banked := false
 	for _, station := range config.Network.Stations {

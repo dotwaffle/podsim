@@ -33,6 +33,9 @@ func (o SafetyObservation) Check() (float64, error) {
 	if o.compactError != nil {
 		return 0, o.compactError
 	}
+	if err := o.checkCouplingSafety(); err != nil {
+		return 0, err
+	}
 	for _, pod := range o.Pods {
 		if !finite(pod.Position.X) || !finite(pod.Position.Y) || !finite(pod.Speed) || pod.Speed < 0 {
 			return 0, fmt.Errorf("invalid pod at tick %d: %+v", o.Tick, pod)
@@ -64,6 +67,11 @@ func (o SafetyObservation) checkSeparation() (float64, error) {
 	for index, first := range o.Pods {
 		for offset, second := range o.Pods[index+1:] {
 			minimum := classPairClearance(first.Class, second.Class)
+			if o.certifiedCouplingPair(first, second) {
+				dx, dy := first.Position.X-second.Position.X, first.Position.Y-second.Position.Y
+				smallestSquared = min(smallestSquared, dx*dx+dy*dy)
+				continue
+			}
 			separated := safetyLocationsSeparated(locations[index], locations[index+1+offset])
 			if minimum > Clearance {
 				separated = o.largePairSeparated(first, second)

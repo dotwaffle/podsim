@@ -44,14 +44,24 @@ func EncodeStreamJSON(e StreamEnvelope) ([]byte, error) {
 
 func validateEnvelopeContract(e StreamEnvelope, previous StreamFrame) error {
 	contract := previous.State.Simulation.OrderContract
+	coupling := previous.State.Simulation.CouplingContract
 	if e.Full != nil {
 		contract = e.Full.State.Simulation.OrderContract
+		coupling = e.Full.State.Simulation.CouplingContract
 	}
 	if err := sim.ValidateOrderContract(contract); err != nil {
 		return err
 	}
 	if e.OrderContract != contract || (contract == sim.ExpressOrderContract && e.TextEncoding != ExpressTextEncoding) || (contract == "" && e.TextEncoding != "") {
 		return errors.New("publication order contract mismatch")
+	}
+	if coupling != "" {
+		if _, known := sim.LookupCouplingProfile(coupling); !known {
+			return sim.ErrUnknownCouplingContract
+		}
+	}
+	if e.CouplingContract != coupling {
+		return errors.New("publication coupling contract mismatch")
 	}
 	return nil
 }
@@ -100,7 +110,10 @@ func maxStreamProjectVersion(version int) int {
 }
 
 func (file *stateFile) validateWireContract() error {
-	if file.Version == expressStateVersion {
+	if err := file.validateCouplingContract(); err != nil {
+		return err
+	}
+	if file.packedOrders() {
 		if file.OrderContract != sim.ExpressOrderContract || file.TextEncoding != ExpressTextEncoding || file.Simulation.OrderContract != file.OrderContract || file.Project.OrderContract != file.OrderContract {
 			return errors.New("saved Express contract markers disagree")
 		}
@@ -111,10 +124,10 @@ func (file *stateFile) validateWireContract() error {
 }
 
 func preflightExpressTopology(config project.Config, serverStart, epoch string, revision uint64) error {
-	if config.OrderContract != sim.ExpressOrderContract {
+	if config.Version != project.CouplingVersion && config.OrderContract != sim.ExpressOrderContract {
 		return nil
 	}
-	topology := TopologySnapshot{ProjectVersion: config.Version, OrderContract: config.OrderContract, ExpressServices: config.ExpressServices, Network: config.Network, Geo: config.Geo, Map: config.Map, ServerStart: serverStart, Epoch: epoch, ProjectRevision: revision}
+	topology := TopologySnapshot{CouplingContract: config.CouplingContract, CouplingEnabled: config.CouplingEnabled, CouplingSites: config.CouplingSites, CouplingCorridors: config.CouplingCorridors, ProjectVersion: config.Version, OrderContract: config.OrderContract, ExpressServices: config.ExpressServices, Network: config.Network, Geo: config.Geo, Map: config.Map, ServerStart: serverStart, Epoch: epoch, ProjectRevision: revision}
 	data, err := json.Marshal(topology)
 	if err != nil {
 		return err
@@ -184,9 +197,23 @@ func DecodeExpressStateJSON(raw []byte) (State, error) {
 
 func (s *Session) stateHTTP(w http.ResponseWriter, r *http.Request) {
 	s.mu.Lock()
+	if err := s.couplingError(); err != nil {
+		s.mu.Unlock()
+		writeError(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	if s.project.Version == project.CouplingVersion {
+		s.couplingStateHTTP(w, r)
+		return
+	}
 	if s.project.OrderContract != sim.ExpressOrderContract {
 		frame := stateFrame(s.state())
+		err := s.couplingError()
 		s.mu.Unlock()
+		if err != nil {
+			writeError(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
 		writeJSON(w, frame)
 		return
 	}
@@ -220,12 +247,13 @@ func (s *Session) stateHTTP(w http.ResponseWriter, r *http.Request) {
 
 // StreamHello selects one field contract for the connection.
 type StreamHello struct {
-	Kind          string            `json:"kind"`
-	Version       int               `json:"version"`
-	Build         string            `json:"build"`
-	ServerStart   string            `json:"serverStart"`
-	OrderContract sim.OrderContract `json:"orderContract,omitzero"`
-	TextEncoding  string            `json:"textEncoding,omitzero"`
+	Kind             string               `json:"kind"`
+	Version          int                  `json:"version"`
+	Build            string               `json:"build"`
+	ServerStart      string               `json:"serverStart"`
+	OrderContract    sim.OrderContract    `json:"orderContract,omitzero"`
+	TextEncoding     string               `json:"textEncoding,omitzero"`
+	CouplingContract sim.CouplingContract `json:"couplingContract,omitzero"`
 }
 
 // DecodeStreamHello rejects unknown, duplicate, and contradictory negotiation.
@@ -240,7 +268,15 @@ func DecodeStreamHello(raw []byte) (StreamHello, error) {
 	if hello.Kind != "hello" || hello.Version < 1 || hello.Version > StreamVersion || hello.ServerStart == "" {
 		return hello, errors.New("unsupported state stream protocol")
 	}
-	if err := scanContractMarkers(raw, hello.Version == ExpressStreamVersion, hello.Version == ExpressStreamVersion); err != nil {
+	if hello.Version == CouplingStreamVersion {
+		if err := scanCouplingStreamJSON(raw); err != nil {
+			return hello, err
+		}
+	} else if err := scanStreamServiceMembers(raw, hello.Version); err != nil {
+		return hello, err
+	}
+	packed := hello.Version == ExpressStreamVersion || hello.Version == CouplingStreamVersion && hello.OrderContract == sim.ExpressOrderContract
+	if err := scanContractMarkers(raw, packed, packed); err != nil {
 		return hello, err
 	}
 	return hello, nil

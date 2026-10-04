@@ -80,6 +80,9 @@ var errContentEncoding = errors.New("use the gzip content encoding or no content
 var commandJSONLimits = jsonLimits{
 	depth: 64, elements: 0, members: 256, stringBytes: 1024, foldNames: true, allowInvalidUTF8: true,
 	arrays: map[string]int64{
+		"/project/couplingSites":                              sim.MaxCouplingSites,
+		"/project/couplingCorridors":                          sim.MaxCouplingCorridors,
+		"/project/couplingCorridors/*/laneIds":                project.MaxLanes,
 		"/project/expressServices":                            project.MaxExpressServices,
 		"/project/network/Lanes/*/VehicleClasses":             4,
 		"/project/network/Stations/*/VehicleClasses":          4,

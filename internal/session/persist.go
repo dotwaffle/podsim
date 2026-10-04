@@ -313,13 +313,16 @@ func (s *Session) start(ctx context.Context, input startInput) (*loadedState, er
 		s.logger.Info("No saved session state")
 		return nil, s.startProject(emptyProject(input.project, nil))
 	case errors.Is(input.readErr, ErrStateTooLarge):
-		return nil, s.startRejected(ctx, rejectInput{
-			err: input.readErr, reason: reasonTooLarge, project: emptyProject(input.project, nil),
-		})
+		return nil, preserveStateError(input.readErr)
 	case input.readErr != nil:
 		return nil, s.startUnreadable(emptyProject(input.project, nil), input.readErr)
 	}
 	loaded, err := s.loadState(loadInput{data: input.data, project: input.project, steps: input.steps})
+	if _, protected := errors.AsType[*preservedStateError](err); protected {
+		s.persist.enabled.Store(false)
+		s.logger.Error("Preserved saved session state", slog.Any("error", err), slog.Bool("saving", false))
+		return nil, err
+	}
 	if stateErr, ok := errors.AsType[*stateError](err); ok {
 		return nil, s.startRejected(ctx, rejectInput{
 			err: stateErr.err, reason: stateErr.reason, project: emptyProject(input.project, loaded.validProject),
@@ -457,17 +460,26 @@ type loadedState struct {
 // valid. Each error is a *stateError. A saved state can be damaged or made
 // by an attacker, so a panic also gives an error with reason invalid_state.
 func (s *Session) loadState(input loadInput) (loaded loadedState, err error) {
+	decoded := false
 	defer func() {
 		if recovered := recover(); recovered != nil {
 			s.logger.Error("Restore failed with a panic",
 				slog.Any("panic", recovered), slog.String("stack", string(debug.Stack())))
 			err = invalidState(fmt.Errorf("restore panicked: %v", recovered))
+			if !loaded.file.protected && !decoded {
+				raw, _ := decompressStatePrefix(input.data)
+				err = protectCouplingDecodeError(raw, err)
+			}
+		}
+		if loaded.file.protected && err != nil {
+			err = preserveStateError(err)
 		}
 	}()
 	loaded.file, err = decodeStateFile(input.data)
 	if err != nil {
 		return loadedState{}, err
 	}
+	decoded = true
 	file := loaded.file
 	if file.RestoreAttempts >= restoreLoopAttempts {
 		return loaded, &stateError{
@@ -478,6 +490,9 @@ func (s *Session) loadState(input loadInput) (loaded loadedState, err error) {
 	// One restore without a save can be the cause of a crash. Do not put the
 	// pods back where they were.
 	loaded.logicalOnly = file.RestoreAttempts == restoreLoopAttempts-1
+	if loaded.logicalOnly && len(file.Simulation.CouplingGroups) != 0 {
+		return loaded, invalidState(errors.New("committed coupling state cannot use logical recovery"))
+	}
 	if loaded.config, err = restoreProject(input, file.Project); err != nil {
 		return loaded, err
 	}
@@ -503,8 +518,10 @@ func (s *Session) loadState(input loadInput) (loaded loadedState, err error) {
 		}
 	}
 	loaded.simulation, loaded.result, err = input.steps.restoreSimulation(sim.RestoreStateInput{
-		OrderContract: loaded.config.OrderContract,
-		Network:       loaded.config.Network, Fleet: loaded.config.Fleet, State: file.Simulation, LogicalOnly: loaded.logicalOnly,
+		OrderContract:    loaded.config.OrderContract,
+		CouplingContract: loaded.config.CouplingContract, CouplingEnabled: loaded.config.CouplingEnabled,
+		CouplingSites: loaded.config.CouplingSites, CouplingCorridors: loaded.config.CouplingCorridors,
+		Network: loaded.config.Network, Fleet: loaded.config.Fleet, State: file.Simulation, LogicalOnly: loaded.logicalOnly,
 		StationBuffers: file.Version >= bufferStateVersion, BufferPlatoons: file.Version >= bufferPlatoonStateVersion,
 		CompactQueues:       file.Version >= serviceStateVersion,
 		BoardingRecords:     file.Version >= serviceStateVersion,
@@ -512,6 +529,14 @@ func (s *Session) loadState(input loadInput) (loaded loadedState, err error) {
 		ExpressServices: loaded.config.ExpressServices, OnboardPickups: loaded.config.OnboardPickups,
 	})
 	if err != nil {
+		return loaded, invalidState(err)
+	}
+	if len(file.Simulation.CouplingGroups) != 0 {
+		if err = validateCouplingRestoreResult(loaded.result); err != nil {
+			return loaded, invalidState(err)
+		}
+	}
+	if err = loaded.simulation.CouplingError(); err != nil {
 		return loaded, invalidState(err)
 	}
 	// The saved state does not keep the platooning mode. The project gives
@@ -572,6 +597,7 @@ func restoreProject(input loadInput, saved project.Config) (project.Config, erro
 	comparison.StationQueueSpacing = saved.StationQueueSpacing
 	comparison.PickupReassignment = saved.PickupReassignment
 	comparison.OnboardPickups = saved.OnboardPickups
+	comparison.CouplingEnabled = saved.CouplingEnabled
 	same, err := sameProject(comparison, saved)
 	switch {
 	case err != nil:
@@ -624,6 +650,7 @@ func restoreDemand(saved savedDemand, config project.Config, tick int64) (demand
 func (s *Session) installRestored(loaded loadedState) {
 	file, result := loaded.file, loaded.result
 	s.project, s.simulation, s.demand = loaded.config, loaded.simulation, loaded.demand
+	s.couplingViewError = nil
 	s.epoch = rand.Text()
 	if file.Final && len(file.Sequences) < clientLimit &&
 		(result.Tier == sim.RestorePhysical || result.Tier == sim.RestoreLogical) {
@@ -651,6 +678,7 @@ func (s *Session) installRestored(loaded loadedState) {
 	if !s.simulation.Snapshot().Demo {
 		s.configureRedistribution()
 	}
+	s.refreshCouplingObservation()
 }
 
 // backUpDegraded copies the saved state to the backup key before the
@@ -786,6 +814,12 @@ func (s *Session) SaveState(ctx context.Context, kind SaveKind) error {
 func (s *Session) captureState(kind SaveKind) (stateFile, bool, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	if err := s.couplingError(); err != nil {
+		return stateFile{}, false, err
+	}
+	if _, err := s.simulation.CouplingPresentation(); err != nil {
+		return stateFile{}, false, s.retainCouplingViewError(err)
+	}
 	closed := s.closed.Load()
 	switch {
 	case kind == SaveFinal && !closed:
@@ -811,6 +845,10 @@ func (s *Session) captureState(kind SaveKind) (stateFile, bool, error) {
 		file.Version = expressStateVersion
 		file.OrderContract = sim.ExpressOrderContract
 		file.TextEncoding = ExpressTextEncoding
+	}
+	if s.project.Version == project.CouplingVersion {
+		file.Version = couplingStateVersion
+		file.CouplingContract = s.project.CouplingContract
 	}
 	if s.demand.connections != nil {
 		file.RailConnections = s.demand.connections.Records()

@@ -20,20 +20,22 @@ const (
 // does not hold the network, the fleet or the settings that the session
 // applies again.
 type SavedState struct {
-	OrderContract           OrderContract `json:"orderContract,omitzero"`
-	Tick                    int64         `json:"tick"`
-	Paused                  bool          `json:"paused,omitzero"`
-	Completed               int           `json:"completed"`
-	RequestID               int           `json:"requestID"`
-	Boarded                 int           `json:"boarded"`
-	TotalWaitTicks          int64         `json:"totalWaitTicks"`
-	MaxWaitTicks            int64         `json:"maxWaitTicks"`
-	NextRedistributionTick  int64         `json:"nextRedistributionTick"`
-	PassengerDistanceMeters float64       `json:"passengerDistanceMeters"`
-	EmptyDistanceMeters     float64       `json:"emptyDistanceMeters"`
-	RebalanceMoves          int           `json:"rebalanceMoves"`
-	SharedParties           int           `json:"sharedParties"`
-	SharedRidePartyLimit    int           `json:"sharedRidePartyLimit"`
+	CouplingContract        CouplingContract     `json:"couplingContract,omitzero"`
+	CouplingGroups          []SavedCouplingGroup `json:"couplingGroups,omitzero"`
+	OrderContract           OrderContract        `json:"orderContract,omitzero"`
+	Tick                    int64                `json:"tick"`
+	Paused                  bool                 `json:"paused,omitzero"`
+	Completed               int                  `json:"completed"`
+	RequestID               int                  `json:"requestID"`
+	Boarded                 int                  `json:"boarded"`
+	TotalWaitTicks          int64                `json:"totalWaitTicks"`
+	MaxWaitTicks            int64                `json:"maxWaitTicks"`
+	NextRedistributionTick  int64                `json:"nextRedistributionTick"`
+	PassengerDistanceMeters float64              `json:"passengerDistanceMeters"`
+	EmptyDistanceMeters     float64              `json:"emptyDistanceMeters"`
+	RebalanceMoves          int                  `json:"rebalanceMoves"`
+	SharedParties           int                  `json:"sharedParties"`
+	SharedRidePartyLimit    int                  `json:"sharedRidePartyLimit"`
 	// SharedRideMode and SharedRideMaxStops are the settings of
 	// SetSharedRideMode. An empty mode restores as DefaultSharedRideMode,
 	// and a zero limit restores as DefaultSharedRideMaxStops.
@@ -110,8 +112,8 @@ type SavedPod struct {
 	// JourneyOrigin is the berth where the riders boarded. It is empty when
 	// the riders boarded at Origin.
 	JourneyOrigin string `json:"journeyOrigin,omitempty"`
-	// ClaimsDestination is true when a relocating pod holds its destination
-	// berth.
+	// ClaimsDestination records a relocation claim or a committed pair
+	// member's individual receiving claim.
 	ClaimsDestination bool `json:"claimsDestination,omitzero"`
 	// Released is true for an empty pod that dispatch released from a
 	// pickup order. Such a pod can divert at once. A restore ignores it for
@@ -194,7 +196,11 @@ const (
 // RestoreStateInput holds the network and the fleet of the saved simulation,
 // and its saved state.
 type RestoreStateInput struct {
-	OrderContract OrderContract
+	OrderContract     OrderContract
+	CouplingContract  CouplingContract
+	CouplingEnabled   bool
+	CouplingSites     []CouplingSite
+	CouplingCorridors []CouplingCorridor
 	// BoardingRecords permits native boarding records under the save-6 contract.
 	BoardingRecords bool
 	// OnboardPickups permits new occupied pickups after restoration.
@@ -262,7 +268,7 @@ type RestoreResult struct {
 // Compact certificates require physical restore and reject logical conversion.
 func RestoreState(input RestoreStateInput) (*Simulation, RestoreResult, error) {
 	return restoreState(input, func() (*Simulation, error) {
-		return NewFleetWithOrderContract(input.Network, input.Fleet, input.OrderContract)
+		return NewFleetWithContracts(input.Network, input.Fleet, input.fleetContracts())
 	})
 }
 
@@ -272,6 +278,9 @@ func restoreState(input RestoreStateInput, newFleet func() (*Simulation, error))
 	}
 	if input.OrderContract != input.State.OrderContract {
 		return nil, RestoreResult{}, errors.New("saved and input order contracts differ")
+	}
+	if err := checkCouplingRestoreInput(input); err != nil {
+		return nil, RestoreResult{}, err
 	}
 	if input.OrderContract == ExpressOrderContract {
 		if _, err := validateSavedState(input.State); err != nil {
@@ -326,9 +335,17 @@ func restoreState(input RestoreStateInput, newFleet func() (*Simulation, error))
 			err = errors.New("compact certificate cannot preserve physical recovery in a logical-only conversion")
 		}
 		if err == nil && !input.LogicalOnly {
+			if len(input.State.CouplingGroups) != 0 {
+				if strictErr := checkCouplingRestoreResult(result); strictErr != nil {
+					return nil, RestoreResult{}, strictErr
+				}
+			}
 			return s, result, nil
 		}
 		physicalErr = err
+		if err != nil && len(input.State.CouplingGroups) != 0 {
+			return nil, RestoreResult{PhysicalError: err}, err
+		}
 		if err != nil && bufferCertificate {
 			err = fmt.Errorf("%w: %w", errBufferCertificate, err)
 			return nil, RestoreResult{PhysicalError: err}, err
@@ -357,8 +374,10 @@ func restoreState(input RestoreStateInput, newFleet func() (*Simulation, error))
 // released.
 func (s *Simulation) ExportState() SavedState {
 	state := SavedState{
-		OrderContract: s.orderContract,
-		Tick:          s.tick, Paused: s.paused, Completed: s.completed, RequestID: s.requestID, Boarded: s.boarded,
+		CouplingContract: s.CouplingContract(),
+		CouplingGroups:   s.savedCouplingGroups(),
+		OrderContract:    s.orderContract,
+		Tick:             s.tick, Paused: s.paused, Completed: s.completed, RequestID: s.requestID, Boarded: s.boarded,
 		TotalWaitTicks: s.totalWaitTicks, MaxWaitTicks: s.maxWaitTicks, NextRedistributionTick: s.nextRedistributionTick,
 		PassengerDistanceMeters: s.passengerDistanceMeters, EmptyDistanceMeters: s.emptyDistanceMeters,
 		RebalanceMoves: s.rebalanceMoves, SharedParties: s.sharedParties, SharedRidePartyLimit: s.sharedRidePartyLimit,
@@ -400,14 +419,19 @@ func (s *Simulation) ExportState() SavedState {
 }
 
 func (s *Simulation) exportPod(v *vehicle, limits routeLimits) SavedPod {
+	claimsDestination := v.RelocatingTo != "" && v.destination.ID != "" &&
+		s.owners[resource{kind: berthResource, id: v.destination.ID}] == podResourceOwner(v.Pod.ID)
+	if s.couplingMember(v.Pod.ID) && v.destination.ID != "" {
+		claims := berthResources(v.destination)
+		claimsDestination = s.owners[claims[0]].isPod(v.Pod.ID) && s.owners[claims[1]].isPod(v.Pod.ID)
+	}
 	pod := SavedPod{
 		ID: v.Pod.ID, Class: v.Pod.Class, LegacyCohort: v.LegacyCohort, Activity: activityCode(v.Pod.Activity), StationID: v.Pod.StationID, BerthID: v.Pod.BerthID,
 		Occupied: v.Pod.Occupied, RelocatingTo: v.RelocatingTo, Rebalancing: v.Rebalancing,
 		RebalanceAfter: v.rebalanceAfter, PhaseTicks: v.phaseTicks, Origin: v.origin.ID,
 		Destination: v.destination.ID, DestinationStation: v.destinationStation,
-		ClaimsDestination: v.RelocatingTo != "" && v.destination.ID != "" &&
-			s.owners[resource{kind: berthResource, id: v.destination.ID}] == podResourceOwner(v.Pod.ID),
-		LaneID: v.Pod.LaneID, LaneDistance: v.Pod.LaneDistance, Waiting: v.pending >= 0, Released: v.released, StationBuffered: v.buffered,
+		ClaimsDestination: claimsDestination,
+		LaneID:            v.Pod.LaneID, LaneDistance: v.Pod.LaneDistance, Waiting: v.pending >= 0, Released: v.released, StationBuffered: v.buffered,
 	}
 	for _, rider := range v.Riders {
 		pod.Riders = append(pod.Riders, SavedRequest(rider))
@@ -434,6 +458,9 @@ func (s *Simulation) exportPod(v *vehicle, limits routeLimits) SavedPod {
 			break
 		}
 		start, offset, current := s.savedStart(v)
+		if s.couplingMember(v.Pod.ID) {
+			start, offset = 0, 0
+		}
 		if pod.Route = s.laneIndexes(v.Route[start:], limits.pod); pod.Route != nil {
 			pod.RouteIndex = current - start
 			pod.Distance = v.distance - offset

@@ -33,6 +33,10 @@ func serviceStateLimits() jsonLimits {
 }
 
 func scanStateOrderFields(data []byte, version int) error {
+	return scanStateOrderFieldsContract(data, version, version == expressStateVersion)
+}
+
+func scanStateOrderFieldsContract(data []byte, version int, packed bool) error {
 	decoder := jsontext.NewDecoder(bytes.NewReader(data))
 	for {
 		token, err := decoder.ReadToken()
@@ -45,6 +49,9 @@ func scanStateOrderFields(data []byte, version int) error {
 		kind, length := decoder.StackIndex(decoder.StackDepth())
 		if token.Kind() != jsontext.KindString || kind != jsontext.KindBeginObject || length%2 != 1 {
 			continue
+		}
+		if version < couplingStateVersion && couplingMember(token.String()) {
+			return errors.New("legacy saved state contains coupling fields")
 		}
 		path := strings.Split(string(decoder.StackPointer()), "/")
 		if !savedOrderFieldPath(path) {
@@ -81,7 +88,7 @@ func scanStateOrderFields(data []byte, version int) error {
 				return errors.New("invalid saved service choice")
 			}
 		case "serviceID":
-			if len(value.String()) > 64 && version != expressStateVersion {
+			if len(value.String()) > 64 && !packed {
 				return errors.New("saved service ID is too long")
 			}
 		}
