@@ -47,21 +47,19 @@ func checkContractRestoreSemantics(input RestoreStateInput) error {
 	}
 	for _, trip := range input.State.Waiting {
 		options := Request(trip.Request).options()
-		if !trip.Request.LegacyPartySize {
-			normalized, err := NormalizeTripOptionsWithOrderContract(options, input.OrderContract)
-			if err != nil {
-				return err
+		normalized, err := NormalizeTripOptionsWithOrderContract(options, input.OrderContract)
+		if err != nil {
+			return err
+		}
+		fit := false
+		for _, class := range classes {
+			if fits(class, normalized) {
+				fit = true
+				break
 			}
-			fit := false
-			for _, class := range classes {
-				if fits(class, normalized) {
-					fit = true
-					break
-				}
-			}
-			if !fit {
-				return errors.New("saved Express order has no compatible vehicle path")
-			}
+		}
+		if !fit {
+			return errors.New("saved Express order has no compatible vehicle path")
 		}
 		if len(trip.Route) > 0 {
 			class, ok := classes[trip.Request.PodID]
@@ -79,9 +77,6 @@ func checkContractRestoreSemantics(input RestoreStateInput) error {
 			return errors.New("saved Express pod route is incompatible")
 		}
 		for _, rider := range pod.Riders {
-			if pod.LegacyCohort {
-				continue
-			}
 			if !fits(class, Request(rider).options()) {
 				return errors.New("saved Express rider has incompatible endpoints or path")
 			}

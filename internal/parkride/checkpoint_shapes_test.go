@@ -203,7 +203,7 @@ func shapePlan(t *testing.T) Plan {
 // simulation, a physical state, or a replay witness.
 func shapeNative(waiting int) sim.SavedState {
 	const wideFloat = -0.0000010000000000000002
-	request := sim.SavedRequest{SharingConsent: sim.SharedConsent, Service: sim.OnDemandService, ServiceID: shapeID(0), LegacyPartySize: true,
+	request := sim.SavedRequest{SharingConsent: sim.SharedConsent, Service: sim.OnDemandService, ServiceID: shapeID(0),
 		ID: math.MaxInt, From: shapeID(0), To: shapeID(1), PartySize: math.MaxInt, PodID: shapeID(0), Completed: true,
 		RequestedTick: math.MinInt64, BoardedTick: math.MinInt64, DispatchReason: strings.Repeat("\x01", 1024)}
 	podRoute, waitingRoute := make([]int, project.MaxLanes+project.MaxNodes), make([]int, project.MaxNodes)
@@ -221,7 +221,7 @@ func shapeNative(waiting int) sim.SavedState {
 		RiderDistanceMeters: wideFloat, DirectDistanceMeters: wideFloat, MaxDetourRatio: wideFloat,
 		Demo: &sim.SavedDemo{SecondSent: true, FollowupsSent: true}, DemoError: strings.Repeat("\x01", 1024), Pods: make([]sim.SavedPod, project.MaxPods), Waiting: make([]sim.SavedTrip, waiting)}
 	for i := range state.Pods {
-		pod := sim.SavedPod{ID: shapeID(i), Class: sim.LegacyClass, LegacyCohort: true, Activity: "continuing", StationID: shapeID(0), BerthID: shapeID(0),
+		pod := sim.SavedPod{ID: shapeID(i), Class: sim.LegacyClass, Activity: "continuing", StationID: shapeID(0), BerthID: shapeID(0),
 			Occupied: true, RelocatingTo: shapeID(0), Rebalancing: true, RebalanceAfter: math.MinInt64, PhaseTicks: math.MaxInt,
 			Origin: shapeID(0), Destination: shapeID(1), DestinationStation: shapeID(1), RiddenMeters: wideFloat, JourneyOrigin: shapeID(0),
 			ClaimsDestination: true, Released: true, StationBuffered: true, Route: podRoute, RouteIndex: math.MaxInt, LaneID: shapeID(0),

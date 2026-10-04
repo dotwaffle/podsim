@@ -474,7 +474,6 @@ func (s *Simulation) board(v *vehicle, trip waitingTrip) error {
 		return err
 	}
 	trip.route, trip.destination = route, Berth{}
-	v.LegacyCohort = false
 	v.Boardings, v.RiddenMeters = nil, 0
 	v.Riders = []Request{s.boardingRider(trip, v, 0)}
 	v.Stops = []string{trip.request.To}

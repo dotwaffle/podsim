@@ -54,24 +54,17 @@ Approve these data and compatibility rules as one foundation:
   Keep on-demand at 8 parties, stops at 8, manual admission at 200, fleet at 300, and current byte and history caps.
   Bound the express registry at 300 services.
   Prove worst-case saves and frames fit existing byte limits before landing.
-- Legacy pending orders become private.
-  Preserve validated historical onboard shared parties as a closed cohort with unknown recorded consent.
-  Add no riders or pickup stops to that cohort.
-  A logical requeue makes its parties private.
-  Persist the closed-cohort marker in save 6 so a second restart retains the same restriction.
-  New trip commands cannot create legacy markers or unknown consent.
-  Never invent historical consent, split a party, or truncate passenger counts.
-  Legacy pending or requeued parties without a suitable certified class remain private and unassigned.
-  This includes sizes 2 through 8 in a legacy-only fleet, and historical sizes above 8.
+- Each saved and streamed order has explicit `private` or `shared` consent.
+  Restore and new trip commands reject all other consent values.
+  The server does not migrate saves older than version 6.
+  Never invent consent, split a party, or truncate passenger counts.
+  Pending or requeued parties without a suitable certified class remain unassigned.
+  This includes sizes 2 through 8 in a legacy-only fleet.
   Preserve their identity, timing, rail binding, and conservation counts.
   Report why assignment cannot proceed.
-  A persisted legacy-size marker permits this historical record, not a new oversized command.
   Do not drop such orders or reject a whole otherwise valid save silently.
 
 Observable and saved requests add `SharingConsent`, `Service`, and `ServiceID` with the effective values above.
-Historical onboard riders alone may use `legacy-unknown` consent with a validated closed cohort.
-Saved migration markers are `LegacyCohort` on the vehicle and `LegacyPartySize` on the historical request.
-A closed cohort retains its recorded route and stops and cannot admit another party.
 Observable pods and placements add `Class`.
 Topology preserves the project version and class allowlists.
 New express records use `ID`, `From`, `To`, `Class`, and `PartyLimit`.

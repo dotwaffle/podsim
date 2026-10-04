@@ -117,12 +117,12 @@ func (s *Simulation) pickupBoardingRecords(v *vehicle) ([]RiderBoarding, bool) {
 	if len(v.Boardings) > 0 {
 		return slices.Clone(v.Boardings), len(v.Boardings) == len(v.Riders)
 	}
-	if v.LegacyCohort || v.journeyOrigin.ID == "" || v.RidersAboard() == 0 {
+	if v.journeyOrigin.ID == "" || v.RidersAboard() == 0 {
 		return nil, false
 	}
 	records := make([]RiderBoarding, len(v.Riders))
 	for index, rider := range v.Riders {
-		if rider.LegacyPartySize || rider.SharingConsent != SharedConsent && (!rider.Completed || rider.SharingConsent != PrivateConsent) {
+		if rider.SharingConsent != SharedConsent && (!rider.Completed || rider.SharingConsent != PrivateConsent) {
 			return nil, false
 		}
 		station, ok := s.station(rider.From)

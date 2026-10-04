@@ -40,15 +40,15 @@ func validateVehicleBoardingsContract(v VehicleFrame, contract sim.OrderContract
 		}
 		return nil
 	}
-	if v.LegacyCohort || len(v.Boardings) > sim.MaxStoredRidersForOrderContract(v.Pod.Class, contract) || len(v.Boardings) != len(v.Riders) {
-		return errors.New("invalid boarding record alignment or cohort")
+	if len(v.Boardings) > sim.MaxStoredRidersForOrderContract(v.Pod.Class, contract) || len(v.Boardings) != len(v.Riders) {
+		return errors.New("invalid boarding record alignment")
 	}
 	for i, record := range v.Boardings {
 		if record.BerthID == "" || len(record.BerthID) > 64 || !finiteNonnegative(record.MetersAtBoarding) || record.MetersAtBoarding > v.RiddenMeters {
 			return errors.New("invalid boarding record")
 		}
 		rider := v.Riders[i]
-		if rider.SharingConsent == sim.LegacyUnknownConsent || !validStreamOrderContract(rider, contract) {
+		if !validStreamOrderContract(rider, contract) {
 			return errors.New("boarding record needs a known service order")
 		}
 		if !rider.Completed && rider.SharingConsent != sim.SharedConsent {

@@ -190,7 +190,7 @@ func couplingMemberEligibility(input couplingReservationInput) error {
 	for _, member := range &input.Members {
 		v := member.Vehicle
 		if v.Pod.Class != CompactClass || v.Presentation != nil || member.VirtualLeader || member.VirtualFollower || member.CompactQueue || member.StationManeuver ||
-			v.PlatoonID != "" || v.PlatoonIndex != 0 || v.Pod.StationPhase != "" || v.Pod.ManeuverStationID != "" || v.LegacyCohort {
+			v.PlatoonID != "" || v.PlatoonIndex != 0 || v.Pod.StationPhase != "" || v.Pod.ManeuverStationID != "" {
 			return couplingDenied("member has incompatible class or maneuver")
 		}
 		if v.Pod.Speed != 0 || v.Pod.BerthID != "" || v.Pod.StationID != "" || !finite(member.Distance) || member.Distance < 0 || v.Pod.Activity != Traveling {

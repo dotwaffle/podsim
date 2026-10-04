@@ -93,8 +93,8 @@ They do not claim that every combined maximum is physically reachable.
 | Historical save | 83,270,696 | 802,330 | 83,886,080 |
 | Modern save | 83,240,396 | 806,632 | 83,886,080 |
 | Mixed save | 83,255,546 | 805,668 | 83,886,080 |
-| Full stream | 62,173,518 | Not applicable | 67,108,864 |
-| Replacement delta | 62,306,597 | Not applicable | 67,108,864 |
+| Full stream | 62,095,518 | Not applicable | 67,108,864 |
+| Replacement delta | 62,228,597 | Not applicable | 67,108,864 |
 
 The save fixtures pass gzip, inflate, decode, source-index resolution, and re-encode checks.
 The queue, stored rider, manual submission, fleet, registry, save-byte, and stream-byte limits stay unchanged.

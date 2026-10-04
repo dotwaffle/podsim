@@ -146,12 +146,12 @@ func testGroupWorstCaseSize(t *testing.T, base stateFile, pod sim.SavedPod, trip
 			for i := range file.Simulation.Pods {
 				saved := pod
 				saved.ID = strings.Repeat("\x01", 62) + string([]byte{alphabet[i/len(alphabet)], alphabet[i%len(alphabet)]})
-				saved.Class, saved.LegacyCohort = sim.GroupClass, false
+				saved.Class = sim.GroupClass
 				saved.Platoon, saved.CompactQueue, saved.Boardings = nil, nil, nil
 				saved.RiddenMeters = 0
 				saved.Riders = slices.Clone(pod.Riders)
 				for j := range saved.Riders {
-					saved.Riders[j].PartySize, saved.Riders[j].LegacyPartySize = 8, false
+					saved.Riders[j].PartySize = 8
 					saved.Riders[j].SharingConsent = sim.PrivateConsent
 				}
 				if representation == "modern" || representation == "mixed" && i%2 != 0 {
@@ -166,7 +166,7 @@ func testGroupWorstCaseSize(t *testing.T, base stateFile, pod sim.SavedPod, trip
 			file.Simulation.Waiting = make([]sim.SavedTrip, sim.MaxSavedWaitingTrips)
 			for i := range file.Simulation.Waiting {
 				file.Simulation.Waiting[i] = trip
-				file.Simulation.Waiting[i].Request.PartySize, file.Simulation.Waiting[i].Request.LegacyPartySize = 8, false
+				file.Simulation.Waiting[i].Request.PartySize = 8
 				if i >= project.MaxPods {
 					file.Simulation.Waiting[i].Route = nil
 				}

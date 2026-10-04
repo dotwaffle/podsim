@@ -125,14 +125,12 @@ func testBoardingWorstCaseSize(t *testing.T, base stateFile, count int) {
 				}
 				pod := &file.Simulation.Pods[i]
 				pod.Riders = slices.Clone(pod.Riders)
-				pod.LegacyCohort = false
 				pod.RiddenMeters = wide
 				for j := range pod.Riders {
 					pod.Riders[j].SharingConsent = sim.SharedConsent
 					if pod.Riders[j].Completed {
 						pod.Riders[j].SharingConsent = sim.PrivateConsent
 					}
-					pod.Riders[j].LegacyPartySize = false
 					pod.Riders[j].PartySize = 4
 				}
 				pod.Boardings = slices.Repeat([]sim.RiderBoarding{{BerthID: berths[len(berths)-1].ID, MetersAtBoarding: wide}}, sim.MaxSharedRideParties)

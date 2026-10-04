@@ -21,7 +21,7 @@ Pickup occurs only at a compatible passenger berth while the pod is stationary.
 Complete eligible alighting before admitting another party.
 Keep the berth and its ordinary resource protection during the existing boarding interval.
 Each active party and the new party must have explicit shared consent.
-Private parties and historical closed cohorts cannot admit another party.
+Private parties cannot admit another party.
 Use whole parties and the actual vehicle's class, seats, berth, and onward route.
 
 Keep the existing join policy's assignment restriction.
@@ -41,7 +41,7 @@ A rejected candidate leaves those values unchanged.
 Create native boarding records only during the first successful occupied-pickup admission.
 An existing active modern chain must prove one exact journey-origin berth and zero baselines for all retained riders.
 Those retained riders may include completed display history from the same active chain.
-Never promote a closed cohort or completed-only old history.
+Never promote completed-only old history.
 Prepare this promotion and the new rider's record in one transaction.
 Ordinary no-record journeys retain their existing getters, exports, and bytes.
 
@@ -84,7 +84,6 @@ Its first number is an integer from zero through the referenced station's berth 
 Its second number is finite, nonnegative, and no greater than the restored chain's cumulative distance.
 Validate station membership, berth compatibility, consent, and the selected physical placement.
 Reject unknown members, mismatched lengths, dangling references, and contradictory origin representations.
-Historical closed cohorts cannot carry these new records.
 Old save versions reject `boardings` presence, including null.
 
 Reuse the existing `riddenMeters` field with explicit phase rules.
@@ -114,7 +113,6 @@ Do not rebase positive baselines after history retirement to shorten the encodin
 Canonical encoding does not remove authoritative native records.
 A logical requeue retains the original order's consent and whole party.
 It clears physical boarding metadata before a future boarding records a new baseline.
-Historical unknown-consent requeues remain private under the approved migration rule.
 
 The combined rider and history array remains bounded at eight.
 Before a new admission needs space, retire only completed display history, oldest first.
@@ -137,9 +135,10 @@ A policy-off restore preserves an accepted boarding interval and its records whi
 ## Byte and stream checks
 
 A Go JSON-v2 overlay measured the widest eight-tuple representation against the existing save-6 fixture.
-It removes `journeyOrigin` and the mutually exclusive closed-cohort marker.
+It removes `journeyOrigin` and the mutually exclusive closed-cohort marker of that fixture.
+Saved state no longer has that marker.
 The hypothetical pod is 169 bytes smaller than the historical maximum pod.
-The final compact typed fixture measures 83,836,301 bytes, leaving 49,779 bytes.
+The final compact typed fixture measures 83,698,501 bytes, leaving 187,579 bytes.
 The tuple estimate does not replace a combined typed fixture.
 The existing cap is 83,886,080 bytes.
 These independent maxima bound encoding size.
@@ -196,7 +195,7 @@ Measure both full and delta frames against the existing 64 MiB cap.
 ## Required tests
 
 Test two actual origins, intermediate alighting, per-rider distances, detour rejection, and eventual completion.
-Test private orders, closed cohorts, class-incompatible berths, full seats, and assignment restrictions.
+Test private orders, class-incompatible berths, full seats, and assignment restrictions.
 Check route, binding, ownership, and rider arrays before and after a rejected candidate.
 Test eight stored riders with completed history and repeated pickups without history growth.
 Restore during boarding, travel, and intermediate unloading, then compare continued runs.

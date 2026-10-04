@@ -52,10 +52,10 @@ Its independent field maxima do not describe a physically reachable state.
 
 | Members per certificate | Encoded bytes | Space below the 83,886,080-byte cap |
 | --- | ---: | ---: |
-| 1 | 83,836,301 | 49,779 |
-| 2 | 83,829,101 | 56,979 |
-| 3 | 83,826,701 | 59,379 |
-| 4 | 83,825,501 | 60,579 |
+| 1 | 83,698,501 | 187,579 |
+| 2 | 83,691,301 | 194,779 |
+| 3 | 83,688,901 | 197,179 |
+| 4 | 83,687,701 | 198,379 |
 
 The worst case exceeds the earlier estimate by 6,905 bytes but fits the existing cap.
 The complete typed certificate adds 502 bytes per head, compared with the estimated 483 bytes.

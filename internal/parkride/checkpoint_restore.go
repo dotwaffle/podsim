@@ -274,7 +274,7 @@ func validateConservation(p checkpointPayload) error {
 	retained := make(map[int]bool)
 	check := func(request sim.SavedRequest) error {
 		expected, ok := requests[request.ID]
-		if !ok || retained[request.ID] || request.LegacyPartySize || request.ServiceID != "" || request.From != expected.From || request.To != expected.To || request.PartySize != expected.PartySize || request.SharingConsent != expected.SharingConsent || request.Service != expected.Service || request.RequestedTick != expected.RequestedTick || request.Completed != expected.Completed {
+		if !ok || retained[request.ID] || request.ServiceID != "" || request.From != expected.From || request.To != expected.To || request.PartySize != expected.PartySize || request.SharingConsent != expected.SharingConsent || request.Service != expected.Service || request.RequestedTick != expected.RequestedTick || request.Completed != expected.Completed {
 			return errors.New("checkpoint immutable native request mismatch")
 		}
 		if expected.BoardedTick >= 0 && request.BoardedTick != expected.BoardedTick {
@@ -292,8 +292,8 @@ func validateConservation(p checkpointPayload) error {
 		}
 	}
 	for _, pod := range p.Native.Pods {
-		if pod.LegacyCohort || pod.Class == sim.ExpressClass {
-			return errors.New("checkpoint contains unsupported native cohort or class")
+		if pod.Class == sim.ExpressClass {
+			return errors.New("checkpoint contains unsupported native class")
 		}
 		for _, rider := range pod.Riders {
 			if err := check(rider); err != nil {

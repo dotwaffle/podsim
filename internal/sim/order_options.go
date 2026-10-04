@@ -9,11 +9,10 @@ import (
 // SharingConsent records one party's order-time sharing choice.
 type SharingConsent string
 
-// LegacyUnknownConsent is restricted to closed historical onboard cohorts.
+// The sharing consents of an order.
 const (
-	PrivateConsent       SharingConsent = "private"
-	SharedConsent        SharingConsent = "shared"
-	LegacyUnknownConsent SharingConsent = "legacy-unknown"
+	PrivateConsent SharingConsent = "private"
+	SharedConsent  SharingConsent = "shared"
 )
 
 // ServiceChoice distinguishes service from the vehicle's physical class.

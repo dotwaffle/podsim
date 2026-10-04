@@ -644,14 +644,14 @@ func TestStateFileWorstCaseSize(t *testing.T) {
 	request := sim.SavedRequest{
 		ID: widest, From: id("f", 0), To: id("t", 0), PartySize: math.MaxInt64, PodID: id("p", 0),
 		Completed: true, RequestedTick: widest, BoardedTick: widest, DispatchReason: text,
-		SharingConsent: sim.LegacyUnknownConsent, Service: sim.OnDemandService, LegacyPartySize: true,
+		SharingConsent: sim.PrivateConsent, Service: sim.OnDemandService,
 	}
 	riders, stops := make([]sim.SavedRequest, sim.MaxSharedRideParties), make([]string, sim.MaxSharedRideParties)
 	for index := range riders {
 		riders[index], stops[index] = request, id("t", index)
 	}
 	pod := sim.SavedPod{
-		ID: id("p", 0), Class: sim.LegacyClass, LegacyCohort: true, Activity: "continuing", StationID: id("s", 0), BerthID: id("b", 0),
+		ID: id("p", 0), Class: sim.LegacyClass, Activity: "continuing", StationID: id("s", 0), BerthID: id("b", 0),
 		Occupied: true, Riders: riders, Stops: stops, RiddenMeters: -math.MaxFloat64, JourneyOrigin: id("j", 0), RelocatingTo: id("r", 0),
 		Rebalancing: true, RebalanceAfter: widest, PhaseTicks: widest, Origin: id("o", 0),
 		Destination: id("d", 0), DestinationStation: id("e", 0), ClaimsDestination: true, Released: true, StationBuffered: true,

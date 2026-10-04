@@ -102,8 +102,8 @@ func TestExpressWholePartyAdmission(t *testing.T) {
 			if !valid && !reflect.DeepEqual(before, s.ExportState()) {
 				t.Fatal("refusal changed state")
 			}
-			if valid && (len(s.vehicles[0].Riders) != 1 || s.vehicles[0].PassengersAboard() != size || s.vehicles[0].Riders[0].LegacyPartySize) {
-				t.Fatal("whole party or provenance changed")
+			if valid && (len(s.vehicles[0].Riders) != 1 || s.vehicles[0].PassengersAboard() != size) {
+				t.Fatal("whole party changed")
 			}
 			if err := s.CheckContract(); err != nil {
 				t.Fatal(err)
@@ -409,5 +409,28 @@ func TestExpressUTF8AdmissionAndService(t *testing.T) {
 	}
 	if !reflect.DeepEqual(before, s.ExportState()) {
 		t.Fatal("failed UTF-8 admission changed state")
+	}
+}
+
+// TestRestoreRejectsPartyAboveContractBound checks that a saved order
+// above the party bound of its contract does not restore.
+func TestRestoreRejectsPartyAboveContractBound(t *testing.T) {
+	t.Parallel()
+	for _, contract := range []OrderContract{"", ExpressOrderContract} {
+		s, network, fleet := newTraffic(t), Example(), []Placement{{ID: "01", StationID: "harbor"}, {ID: "02", StationID: "garden"}}
+		if contract == ExpressOrderContract {
+			s, network, fleet = expressTestFleet(t)
+		}
+		state := s.ExportState()
+		state.RequestID = 1
+		options := TripOptions{From: "harbor", To: "market", PartySize: 1, SharingConsent: PrivateConsent, Service: OnDemandService}
+		state.Waiting = []SavedTrip{{Request: SavedRequest(requestFromOptions(options, 1, 0))}}
+		for _, size := range []int{newPartyLimit(contract), newPartyLimit(contract) + 1} {
+			state.Waiting[0].Request.PartySize = size
+			_, _, err := RestoreState(RestoreStateInput{OrderContract: contract, Network: network, Fleet: fleet, State: state, LogicalOnly: true})
+			if valid := size == newPartyLimit(contract); (err == nil) != valid {
+				t.Errorf("contract %q party %d: %v", contract, size, err)
+			}
+		}
 	}
 }

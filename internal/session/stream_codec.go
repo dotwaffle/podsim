@@ -61,7 +61,6 @@ type VehicleDelta struct {
 type vehicleMetadata struct {
 	CouplingID   string  `json:"couplingID,omitzero"`
 	RiddenMeters float64 `json:"RiddenMeters,omitzero"`
-	LegacyCohort bool    `json:"LegacyCohort,omitzero"`
 	RelocatingTo string  `json:"RelocatingTo"`
 	Rebalancing  bool    `json:"Rebalancing"`
 	PlatoonID    string  `json:"PlatoonID"`
@@ -142,7 +141,7 @@ func sameChain(a, b StreamFrame) bool {
 	return true
 }
 func meta(v VehicleFrame) vehicleMetadata {
-	return vehicleMetadata{CouplingID: v.CouplingID, RiddenMeters: v.RiddenMeters, LegacyCohort: v.LegacyCohort, RelocatingTo: v.RelocatingTo, Rebalancing: v.Rebalancing, PlatoonID: v.PlatoonID, PlatoonIndex: v.PlatoonIndex}
+	return vehicleMetadata{CouplingID: v.CouplingID, RiddenMeters: v.RiddenMeters, RelocatingTo: v.RelocatingTo, Rebalancing: v.Rebalancing, PlatoonID: v.PlatoonID, PlatoonIndex: v.PlatoonIndex}
 }
 func changed[T any](a, b T) *Replacement[T] {
 	if reflect.DeepEqual(a, b) {
@@ -392,7 +391,6 @@ func ApplyStream(previous StreamFrame, stream string, sequence uint64, e StreamE
 			if v.Metadata != nil {
 				m := v.Metadata.Value
 				dst.CouplingID = m.CouplingID
-				dst.LegacyCohort = m.LegacyCohort
 				dst.RiddenMeters = m.RiddenMeters
 				dst.RelocatingTo, dst.Rebalancing, dst.PlatoonID, dst.PlatoonIndex = m.RelocatingTo, m.Rebalancing, m.PlatoonID, m.PlatoonIndex
 			}

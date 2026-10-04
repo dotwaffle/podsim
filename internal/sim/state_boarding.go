@@ -38,9 +38,6 @@ func checkSavedBoardingsWithOrderContract(pod SavedPod, contract OrderContract) 
 	if len(pod.Boardings) == 0 || len(pod.Boardings) > MaxStoredRidersForOrderContract(pod.Class, contract) || len(pod.Boardings) != len(pod.Riders) {
 		return errors.New("boarding records do not match the stored riders")
 	}
-	if pod.LegacyCohort {
-		return errors.New("a closed legacy cohort cannot have boarding records")
-	}
 	if pod.JourneyOrigin != "" {
 		return errors.New("boarding records cannot declare a journey origin")
 	}

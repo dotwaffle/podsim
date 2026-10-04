@@ -24,6 +24,8 @@
       "destinationStation": "market",
       "riders": [
         {
+          "sharingConsent": "private",
+          "service": "on-demand",
           "id": 1,
           "from": "harbor",
           "to": "market",

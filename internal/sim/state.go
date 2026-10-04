@@ -68,28 +68,26 @@ type SavedDemo struct {
 
 // SavedRequest is a saved passenger order. It has the same fields as Request.
 type SavedRequest struct {
-	SharingConsent  SharingConsent `json:"sharingConsent,omitempty"`
-	Service         ServiceChoice  `json:"service,omitempty"`
-	ServiceID       string         `json:"serviceID,omitempty"`
-	LegacyPartySize bool           `json:"legacyPartySize,omitzero"`
-	ID              int            `json:"id"`
-	From            string         `json:"from"`
-	To              string         `json:"to"`
-	PartySize       int            `json:"partySize"`
-	PodID           string         `json:"podID,omitempty"`
-	Completed       bool           `json:"completed,omitzero"`
-	RequestedTick   int64          `json:"requestedTick"`
-	BoardedTick     int64          `json:"boardedTick,omitzero"`
-	DispatchReason  string         `json:"dispatchReason,omitempty"`
+	SharingConsent SharingConsent `json:"sharingConsent,omitempty"`
+	Service        ServiceChoice  `json:"service,omitempty"`
+	ServiceID      string         `json:"serviceID,omitempty"`
+	ID             int            `json:"id"`
+	From           string         `json:"from"`
+	To             string         `json:"to"`
+	PartySize      int            `json:"partySize"`
+	PodID          string         `json:"podID,omitempty"`
+	Completed      bool           `json:"completed,omitzero"`
+	RequestedTick  int64          `json:"requestedTick"`
+	BoardedTick    int64          `json:"boardedTick,omitzero"`
+	DispatchReason string         `json:"dispatchReason,omitempty"`
 }
 
 // SavedPod is a saved pod. A route holds indexes into Network.Lanes.
 type SavedPod struct {
 	// Boardings contains native berth IDs. The session adapter encodes source indexes.
-	Boardings    []RiderBoarding `json:"boardings,omitempty"`
-	Class        VehicleClass    `json:"class,omitempty"`
-	LegacyCohort bool            `json:"legacyCohort,omitzero"`
-	ID           string          `json:"id"`
+	Boardings []RiderBoarding `json:"boardings,omitempty"`
+	Class     VehicleClass    `json:"class,omitempty"`
+	ID        string          `json:"id"`
 	// Activity is idle, departing, boarding, traveling, unloading or
 	// continuing.
 	Activity           string `json:"activity"`
@@ -426,7 +424,7 @@ func (s *Simulation) exportPod(v *vehicle, limits routeLimits) SavedPod {
 		claimsDestination = s.owners[claims[0]].isPod(v.Pod.ID) && s.owners[claims[1]].isPod(v.Pod.ID)
 	}
 	pod := SavedPod{
-		ID: v.Pod.ID, Class: v.Pod.Class, LegacyCohort: v.LegacyCohort, Activity: activityCode(v.Pod.Activity), StationID: v.Pod.StationID, BerthID: v.Pod.BerthID,
+		ID: v.Pod.ID, Class: v.Pod.Class, Activity: activityCode(v.Pod.Activity), StationID: v.Pod.StationID, BerthID: v.Pod.BerthID,
 		Occupied: v.Pod.Occupied, RelocatingTo: v.RelocatingTo, Rebalancing: v.Rebalancing,
 		RebalanceAfter: v.rebalanceAfter, PhaseTicks: v.phaseTicks, Origin: v.origin.ID,
 		Destination: v.destination.ID, DestinationStation: v.destinationStation,

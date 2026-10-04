@@ -306,7 +306,7 @@ Require a new review for migration to a different executable.
 
 Historical project versions 1 and 2 remain valid origins when native validation accepts them.
 Version 3 retains current service, bank, class, and experiment rules.
-Car continuation does not import session saves or manufacture their closed-cohort markers.
+Car continuation does not import session saves.
 Bare native snapshots, session versions 2 through 6, report version 1, and plans are not car checkpoints.
 Reject them with a format-specific error.
 No automatic migration can recover missing car events from those files.

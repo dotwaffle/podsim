@@ -221,12 +221,10 @@ func TestGroupStreamActualFullAndDelta(t *testing.T) {
 			repaired := ownStreamBoardings(candidate)
 			repaired.State.Revision++
 			repaired.State.Simulation.Vehicles[0].Riders[0].PartySize = 9
-			repaired.State.Simulation.Vehicles[0].Riders[0].LegacyPartySize = true
 			if _, stateErr := assembler.State(repaired); stateErr == nil {
 				t.Fatal("group party limit widened")
 			}
 			repaired.State.Simulation.Vehicles[0].Riders[0].PartySize = 8
-			repaired.State.Simulation.Vehicles[0].Riders[0].LegacyPartySize = false
 			pooled := ownStreamBoardings(repaired)
 			pooled.State.Simulation.Vehicles[0].Riders[0].PartySize = 5
 			pooled.State.Simulation.Vehicles[0].Riders = append(pooled.State.Simulation.Vehicles[0].Riders, sim.Request{ID: 2, From: "harbor", To: "market", PartySize: 4, SharingConsent: sim.SharedConsent, Service: sim.OnDemandService})
@@ -247,12 +245,12 @@ func TestGroupStreamMaximumEncoding(t *testing.T) {
 	frame := maximumStreamFrame(t)
 	for i := range frame.State.Simulation.Vehicles {
 		vehicle := &frame.State.Simulation.Vehicles[i]
-		vehicle.Pod.Class, vehicle.LegacyCohort = sim.GroupClass, false
+		vehicle.Pod.Class = sim.GroupClass
 		vehicle.PlatoonID, vehicle.PlatoonIndex = "", 0
 		vehicle.RiddenMeters = 0.0000010000000000000002
 		vehicle.Boardings = make([]sim.RiderBoarding, sim.MaxSharedRideParties)
 		for j := range vehicle.Riders {
-			vehicle.Riders[j].PartySize, vehicle.Riders[j].LegacyPartySize = 1, false
+			vehicle.Riders[j].PartySize = 1
 			vehicle.Riders[j].SharingConsent, vehicle.Riders[j].Service = sim.SharedConsent, sim.OnDemandService
 			vehicle.Riders[j].ServiceID = ""
 			vehicle.Boardings[j] = sim.RiderBoarding{BerthID: strings.Repeat("\x01", 64), MetersAtBoarding: vehicle.RiddenMeters}

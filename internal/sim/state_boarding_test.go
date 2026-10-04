@@ -61,8 +61,7 @@ func TestBoardingRecordsRejectBeforeFallback(t *testing.T) {
 		{"infinite cumulative", func(i *RestoreStateInput) { i.State.Pods[0].RiddenMeters = math.Inf(1) }},
 		{"negative cumulative", func(i *RestoreStateInput) { i.State.Pods[0].RiddenMeters = -1 }},
 		{"journey origin", func(i *RestoreStateInput) { i.State.Pods[0].JourneyOrigin = "harbor-1" }},
-		{"closed cohort", func(i *RestoreStateInput) { i.State.Pods[0].LegacyCohort = true }},
-		{"unknown consent", func(i *RestoreStateInput) { i.State.Pods[0].Riders[0].SharingConsent = LegacyUnknownConsent }},
+		{"unknown consent", func(i *RestoreStateInput) { i.State.Pods[0].Riders[0].SharingConsent = "legacy-unknown" }},
 		{"private active party", func(i *RestoreStateInput) { i.State.Pods[0].Riders[0].SharingConsent = PrivateConsent }},
 		{"single private active party", func(i *RestoreStateInput) {
 			i.State.Pods[0].Riders[0].Completed = true
@@ -70,7 +69,7 @@ func TestBoardingRecordsRejectBeforeFallback(t *testing.T) {
 		}},
 		{"unknown completed consent", func(i *RestoreStateInput) {
 			i.State.Pods[0].Riders[0].Completed = true
-			i.State.Pods[0].Riders[0].SharingConsent = LegacyUnknownConsent
+			i.State.Pods[0].Riders[0].SharingConsent = "legacy-unknown"
 		}},
 		{"boarding dwell", func(i *RestoreStateInput) { i.State.Pods[0].PhaseTicks = boardingTicks + 1 }},
 		{"missing occupied records", func(i *RestoreStateInput) { i.State.Pods[0].Boardings = nil }},

@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"reflect"
+	"strings"
 	"testing"
 
 	"github.com/dotwaffle/podsim/internal/project"
@@ -15,9 +16,8 @@ func TestStreamServiceMemberVersions(t *testing.T) {
 	for _, member := range []string{
 		`"Class":null`, `"Class":""`, `"Class":"unknown"`,
 		`"SharingConsent":null`, `"SharingConsent":""`, `"SharingConsent":true`,
-		`"Service":"unknown"`, `"ServiceID":""`, `"LegacyCohort":null`,
-		`"LegacyPartySize":1`, `"projectVersion":null`, `"projectVersion":"3"`,
-		`"projectVersion":3.5`, `"projectVersion":4`,
+		`"Service":"unknown"`, `"ServiceID":""`, `"projectVersion":null`,
+		`"projectVersion":"3"`, `"projectVersion":3.5`, `"projectVersion":4`,
 	} {
 		if err := scanStreamServiceMembers([]byte(`{`+member+`}`), 3); err == nil {
 			t.Errorf("hello3 accepted %s", member)
@@ -55,18 +55,16 @@ func TestStreamServiceTopologyVersions(t *testing.T) {
 	}
 }
 
-func TestStreamServiceOrdersAndCohortDelta(t *testing.T) {
+func TestStreamServiceOrdersDelta(t *testing.T) {
 	shared, frame := streamFixture(t)
 	assembler, err := NewStreamAssemblerVersion(shared.Topology(), 3)
 	if err != nil {
 		t.Fatal(err)
 	}
-	rider := sim.Request{ID: 1, From: "harbor", To: "market", PartySize: 1, SharingConsent: sim.LegacyUnknownConsent, Service: sim.OnDemandService}
+	rider := sim.Request{ID: 1, From: "harbor", To: "market", PartySize: 1, SharingConsent: sim.SharedConsent, Service: sim.OnDemandService}
 	frame.State.Simulation.Vehicles[0].Riders = []sim.Request{rider}
-	frame.State.Simulation.Vehicles[0].LegacyCohort = true
-	state, err := assembler.State(frame)
-	if err != nil || !state.Simulation.Vehicles[0].LegacyCohort {
-		t.Fatalf("closed cohort lost: %v", err)
+	if _, err = assembler.State(frame); err != nil {
+		t.Fatal(err)
 	}
 	before, err := json.Marshal(frame)
 	if err != nil {
@@ -74,19 +72,15 @@ func TestStreamServiceOrdersAndCohortDelta(t *testing.T) {
 	}
 	next := frame
 	next.State.Simulation.Vehicles = append([]VehicleFrame(nil), frame.State.Simulation.Vehicles...)
-	next.State.Simulation.Vehicles[0].LegacyCohort = false
 	next.State.Simulation.Vehicles[0].Riders = nil
 	next.State.Revision++
 	delta, err := makeDelta(frame, next)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if delta.Vehicles[0].Metadata == nil || delta.Vehicles[0].Metadata.Value.LegacyCohort {
-		t.Fatal("cohort clear missing from metadata")
-	}
 	got, err := ApplyStream(frame, "service", 1, StreamEnvelope{Kind: "delta", Stream: "service", Sequence: 2, Base: 1, Source: sourceOf(next), Delta: &delta})
 	if err != nil || !reflect.DeepEqual(got, next) {
-		t.Fatalf("cohort delta mismatch: %v", err)
+		t.Fatalf("rider delta mismatch: %v", err)
 	}
 	after, err := json.Marshal(frame)
 	if err != nil {
@@ -97,8 +91,8 @@ func TestStreamServiceOrdersAndCohortDelta(t *testing.T) {
 	}
 	for _, request := range []sim.Request{
 		{From: "harbor", To: "market", PartySize: 1},
-		{From: "harbor", To: "market", PartySize: 1, SharingConsent: sim.LegacyUnknownConsent, Service: sim.OnDemandService},
-		{From: "harbor", To: "market", PartySize: 9, SharingConsent: sim.SharedConsent, Service: sim.OnDemandService, LegacyPartySize: true},
+		{From: "harbor", To: "market", PartySize: 1, SharingConsent: "legacy-unknown", Service: sim.OnDemandService},
+		{From: "harbor", To: "market", PartySize: 9, SharingConsent: sim.SharedConsent, Service: sim.OnDemandService},
 	} {
 		bad := next
 		bad.State.Simulation.Pending = []sim.Request{request}
@@ -176,5 +170,28 @@ func TestStreamClassIsImmutableWithinProject(t *testing.T) {
 	}
 	if _, err := other.State(frame); err != nil {
 		t.Fatalf("new project could not change authored class: %v", err)
+	}
+}
+
+// TestStreamRejectsLegacyOrderMembers checks that hello 3 rejects the
+// removed legacy order members in full frames and metadata deltas.
+func TestStreamRejectsLegacyOrderMembers(t *testing.T) {
+	t.Parallel()
+	for _, test := range []struct{ wrapper, control string }{
+		{`{"full":{"state":{"simulation":{"Vehicles":[{%s}]}}}}`, `"Rebalancing":true`},
+		{`{"full":{"state":{"simulation":{"Vehicles":[{"Riders":[{%s}]}]}}}}`, `"ID":1`},
+		{`{"full":{"state":{"simulation":{"Pending":[{%s}]}}}}`, `"ID":1`},
+		{`{"delta":{"vehicles":[{"metadata":{"value":{%s}}}]}}`, `"Rebalancing":true`},
+	} {
+		control := []byte(strings.Replace(test.wrapper, "%s", test.control, 1))
+		if _, err := DecodeStreamJSONVersion(control, 3); err != nil {
+			t.Fatalf("control %s: %v", control, err)
+		}
+		for _, name := range []string{"LegacyCohort", "LegacyPartySize"} {
+			raw := []byte(strings.Replace(test.wrapper, "%s", `"`+name+`":true`, 1))
+			if _, err := DecodeStreamJSONVersion(raw, 3); err == nil || !strings.Contains(err.Error(), name) {
+				t.Errorf("removed member %s: %v", raw, err)
+			}
+		}
 	}
 }

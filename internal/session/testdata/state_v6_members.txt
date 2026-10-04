@@ -76,7 +76,6 @@ simulation.demoError string
 simulation.pods array
 simulation.pods[] object
 simulation.pods[].class string
-simulation.pods[].legacyCohort boolean
 simulation.pods[].id string
 simulation.pods[].activity string
 simulation.pods[].stationID string
@@ -94,7 +93,6 @@ simulation.pods[].riders[] object
 simulation.pods[].riders[].sharingConsent string
 simulation.pods[].riders[].service string
 simulation.pods[].riders[].serviceID string
-simulation.pods[].riders[].legacyPartySize boolean
 simulation.pods[].riders[].id number
 simulation.pods[].riders[].from string
 simulation.pods[].riders[].to string
@@ -150,7 +148,6 @@ simulation.waiting[].request object
 simulation.waiting[].request.sharingConsent string
 simulation.waiting[].request.service string
 simulation.waiting[].request.serviceID string
-simulation.waiting[].request.legacyPartySize boolean
 simulation.waiting[].request.id number
 simulation.waiting[].request.from string
 simulation.waiting[].request.to string

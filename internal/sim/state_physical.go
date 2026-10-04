@@ -345,7 +345,7 @@ func (r *physicalRestore) decodePod(index int, saved SavedPod) error {
 	v := &r.s.vehicles[index]
 	*v = vehicle{
 		Pod:       Pod{ID: saved.ID, Class: saved.Class, Activity: activity, Occupied: saved.Occupied},
-		Boardings: slices.Clone(saved.Boardings), LegacyCohort: saved.LegacyCohort, Stops: slices.Clone(saved.Stops), RelocatingTo: saved.RelocatingTo, Rebalancing: saved.Rebalancing,
+		Boardings: slices.Clone(saved.Boardings), Stops: slices.Clone(saved.Stops), RelocatingTo: saved.RelocatingTo, Rebalancing: saved.Rebalancing,
 		phaseTicks: saved.PhaseTicks, rebalanceAfter: saved.RebalanceAfter, destinationStation: saved.DestinationStation,
 		pending: -1, reservedThrough: -1,
 	}
@@ -1115,9 +1115,6 @@ func (r *physicalRestore) freeBerth(v *vehicle, candidates []Berth) (Berth, bool
 // returns false when the plan of the stops from the berth takes a rider
 // over maxSharedRideDetour.
 func (r *physicalRestore) boardAgain(v *vehicle, berth Berth) bool {
-	if v.LegacyCohort {
-		return false
-	}
 	route, err := r.s.stationApproachRouteForClass(berth.Node, v.Stops[0], v.Pod.Class)
 	if err != nil {
 		return false
@@ -1165,16 +1162,12 @@ func (r *physicalRestore) requeue(v *vehicle) {
 		v.riddenBase = 0
 	}
 	v.Riders, v.Stops, v.Boardings = nil, nil, nil
-	v.LegacyCohort = false
 }
 
 // requeuedTrip returns the queued trip for a rider of a pod. The trip is
 // boarded, so board and joinSharedRide do not record the boarding again.
 func requeuedTrip(rider Request) waitingTrip {
 	rider.PodID, rider.DispatchReason = "", ""
-	if rider.SharingConsent == LegacyUnknownConsent {
-		rider.SharingConsent = PrivateConsent
-	}
 	return waitingTrip{request: rider, boarded: true}
 }
 

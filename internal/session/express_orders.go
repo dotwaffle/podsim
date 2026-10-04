@@ -15,9 +15,6 @@ func validStreamOrderContract(r sim.Request, contract sim.OrderContract) bool {
 	if contract == "" {
 		return validStreamOrder(r)
 	}
-	if r.LegacyPartySize || r.SharingConsent == sim.LegacyUnknownConsent {
-		return validStreamOrder(r)
-	}
 	options, err := sim.NormalizeTripOptionsWithOrderContract(orderOptions(r), contract)
 	return err == nil && options == orderOptions(r)
 }
@@ -40,7 +37,7 @@ func (a *StreamAssembler) expressOrders(frame StreamFrame) error {
 	}
 	outstanding := len(frame.State.Simulation.Pending)
 	for _, r := range frame.State.Simulation.Pending {
-		if !validStreamOrderContract(r, a.topology.OrderContract) || r.LegacyPartySize || r.SharingConsent == sim.LegacyUnknownConsent {
+		if !validStreamOrderContract(r, a.topology.OrderContract) {
 			return errors.New("invalid Express pending order")
 		}
 		if _, err := a.expressService(r); err != nil {
@@ -67,41 +64,29 @@ func (a *StreamAssembler) expressOrders(frame StreamFrame) error {
 		if old, exists := a.classes[v.Pod.ID]; exists && old != profile.Class {
 			return errors.New("stream vehicle class changed within project")
 		}
-		if v.LegacyCohort && (profile.Class != sim.LegacyClass || len(v.Riders) == 0) {
-			return errors.New("invalid closed legacy cohort")
-		}
 		if len(v.Riders) > sim.MaxStoredRidersForOrderContract(v.Pod.Class, a.topology.OrderContract) {
 			return errors.New("too many stored riders")
 		}
 		facts := []sim.PartyFacts{}
 		for _, r := range v.Riders {
-			if !validStreamOrderContract(r, a.topology.OrderContract) || (r.SharingConsent == sim.LegacyUnknownConsent) != v.LegacyCohort {
+			if !validStreamOrderContract(r, a.topology.OrderContract) {
 				return errors.New("invalid Express rider order")
 			}
 			if _, err := a.expressService(r); err != nil {
 				return err
 			}
 			if r.Completed {
-				if r.LegacyPartySize || r.SharingConsent == sim.LegacyUnknownConsent {
-					if profile.Class != sim.LegacyClass {
-						return errors.New("historical order requires legacy class")
-					}
-				} else {
-					limit, err := a.expressService(r)
-					if err != nil {
-						return err
-					}
-					if err := sim.CheckPartyAdmissionWithOrderContract(sim.PartyAdmissionInput{Class: profile.Class, Request: orderOptions(r), PartyLimit: limit}, a.topology.OrderContract); err != nil {
-						return err
-					}
+				limit, err := a.expressService(r)
+				if err != nil {
+					return err
+				}
+				if err := sim.CheckPartyAdmissionWithOrderContract(sim.PartyAdmissionInput{Class: profile.Class, Request: orderOptions(r), PartyLimit: limit}, a.topology.OrderContract); err != nil {
+					return err
 				}
 				continue
 			}
 			outstanding++
-			if v.LegacyCohort {
-				continue
-			}
-			if r.LegacyPartySize || !a.passengerPath(r, profile.Class) {
+			if !a.passengerPath(r, profile.Class) {
 				return errors.New("active rider has incompatible profile or passenger path")
 			}
 			limit, err := a.expressService(r)

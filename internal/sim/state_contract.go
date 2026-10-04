@@ -205,7 +205,7 @@ func (state SavedState) checkContract() (int, error) {
 	// A queued order that is not valid does not stop the restore. Each tier
 	// drops it and reports it. See validTrip.
 	for _, trip := range state.Waiting {
-		if !validSavedOptionsWithOrderContract(trip.Request, state.OrderContract) || trip.Request.SharingConsent == LegacyUnknownConsent {
+		if !validSavedOptionsWithOrderContract(trip.Request, state.OrderContract) {
 			return 0, errors.New("pending order lacks valid effective options")
 		}
 		if err := use(trip.Request.ID, "in the queue"); err != nil {

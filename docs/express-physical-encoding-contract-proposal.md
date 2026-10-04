@@ -172,12 +172,10 @@ The original lookup continues to describe the unsupported foundation Express pro
 
 Existing submission method signatures need not change because the simulation owns its explicit contract.
 
-`LegacyPartySize` remains a historical provenance marker, not a comparison against the new party bound.
-Old-save migration still marks historical parties larger than eight under the existing rules.
-An authorized new party of nine through 20 uses `LegacyPartySize=false` under `express-v1`.
-A migrated historical party retains its original marker and consent restrictions.
-Historical unknown consent remains confined to closed legacy cohorts.
-Migration cannot create a shared Express party or infer consent.
+A new party of nine through 20 is valid only under `express-v1`.
+Saved state has no historical party marker and no unknown consent.
+Restore rejects a party above the bound of its contract and a consent other than `private` or `shared`.
+Restore cannot create a shared Express party or infer consent.
 
 ## Physical contract and limits of the proof
 
@@ -313,8 +311,11 @@ Its maximum order includes combinations that semantic admission rejects, so it o
 | Existing Group fixture | Measured raw bytes |
 | --- | ---: |
 | Historical save | 83,270,696 |
-| Full stream | 62,173,518 |
-| Replacement delta | 62,306,597 |
+| Full stream | 62,095,518 |
+| Replacement delta | 62,228,597 |
+
+The bounds below use the earlier baseline of 83,270,696, 62,173,518, and 62,306,597 bytes.
+The earlier stream baseline included legacy order markers on its 2,600 pending requests.
 
 | Record contribution | Measured bytes |
 | --- | ---: |
@@ -454,7 +455,7 @@ Parser acceptance alone cannot pass a physical or operating gate.
 | Save bytes and shape | Actual save-7 widest-shape files, escaped and multibyte text, both boarding forms, optional history, exponents, malformed base64, UTF-8 and decoded limits, exact gzip caps, parser prescan, and atomic rejection. |
 | Stream and public consumers | Full and replacement delta assets, pending replacement groups, sequence and epoch recovery, topology and registry binding, normalized class lane caches, raw and gzip caps, Go remote consumer, compact HTTP negotiation, browser/WASM roundtrip, and fail-closed old readers. |
 | Resource and consumer cost | Measure encoding and decode time, actual raw and gzip sizes, peak resident memory, previous-frame retention during replacement, and browser responsiveness with widest-shape assets. Do not infer decoded-memory bounds from wire size. |
-| Foundation parity | Old-only trajectories, Group journeys, compact protected arithmetic, ordinary save and stream bytes, default settings, legacy migrations, and unsupported Express behavior under foundation APIs. |
+| Foundation parity | Old-only trajectories, Group journeys, compact protected arithmetic, ordinary save and stream bytes, default settings, and unsupported Express behavior under foundation APIs. |
 | Independent mutations | Compiled actual-caller mutations of contract selection, whole-party capacity, aggregate bound, allowlist/path validation, ownership release, current speed, large-link rejection, and packed discriminator checks. A compile failure is not a kill. |
 
 Run the relevant package suites, scoped races, vet, lint, and fresh Go diagnostics for the later implementation.

@@ -14,13 +14,10 @@ func validSavedOptionsWithOrderContract(request SavedRequest, contract OrderCont
 	if ValidateOrderContract(contract) != nil {
 		return false
 	}
-	if request.SharingConsent != PrivateConsent && request.SharingConsent != SharedConsent && request.SharingConsent != LegacyUnknownConsent {
+	if request.SharingConsent != PrivateConsent && request.SharingConsent != SharedConsent {
 		return false
 	}
-	if request.LegacyPartySize && request.PartySize <= MaxNewPartySize || !request.LegacyPartySize && request.PartySize > newPartyLimit(contract) {
-		return false
-	}
-	if request.LegacyPartySize && request.SharingConsent == SharedConsent {
+	if request.PartySize > newPartyLimit(contract) {
 		return false
 	}
 	if request.Service == OnDemandService {
@@ -33,26 +30,12 @@ func checkSavedAdmissionWithOrderContract(pod SavedPod, active []SavedRequest, c
 	if err := ValidateVehicleClassProfileWithOrderContract(pod.Class, contract); err != nil {
 		return err
 	}
-	if pod.LegacyCohort {
-		if effectiveClass(pod.Class) != LegacyClass || len(pod.Riders) == 0 {
-			return errors.New("invalid closed legacy cohort")
-		}
+	if contract == ExpressOrderContract {
+		profile, _ := LookupVehicleClassWithOrderContract(pod.Class, contract)
 		for _, rider := range pod.Riders {
-			if rider.SharingConsent != LegacyUnknownConsent || rider.Service != OnDemandService {
-				return errors.New("closed legacy cohort needs historical unknown consent")
-			}
-		}
-		return nil
-	}
-	for _, rider := range pod.Riders {
-		if contract == ExpressOrderContract {
-			profile, _ := LookupVehicleClassWithOrderContract(pod.Class, contract)
-			if rider.PartySize > profile.MaxNewPartySize || rider.LegacyPartySize {
+			if rider.PartySize > profile.MaxNewPartySize {
 				return ErrPartyAdmission
 			}
-		}
-		if rider.SharingConsent == LegacyUnknownConsent {
-			return errors.New("historical unknown consent needs a closed legacy cohort")
 		}
 	}
 	if len(active) == 0 {

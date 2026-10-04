@@ -65,15 +65,12 @@ func TestSavedOrderFieldNullGates(t *testing.T) {
 		name, object, value string
 	}{
 		{"class", "pod", `"legacy"`},
-		{"legacyCohort", "pod", "false"},
 		{"sharingConsent", "rider", `"shared"`},
 		{"service", "rider", `"on-demand"`},
 		{"serviceID", "rider", `"hub-pair"`},
-		{"legacyPartySize", "rider", "false"},
 		{"sharingConsent", "waiting", `"private"`},
 		{"service", "waiting", `"on-demand"`},
 		{"serviceID", "waiting", `"hub-pair"`},
-		{"legacyPartySize", "waiting", "false"},
 	} {
 		t.Run(field.object+"/"+field.name, func(t *testing.T) {
 			t.Parallel()
@@ -195,7 +192,7 @@ func TestCurrentSavedClassAndServiceRejections(t *testing.T) {
 			file.Simulation.Waiting[0].Request.Service = sim.ExpressServiceChoice
 			file.Simulation.Waiting[0].Request.ServiceID = "hub-pair"
 		}},
-		{"unknown pending consent", func(file *stateFile) { file.Simulation.Waiting[0].Request.SharingConsent = sim.LegacyUnknownConsent }},
+		{"unknown pending consent", func(file *stateFile) { file.Simulation.Waiting[0].Request.SharingConsent = "legacy-unknown" }},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
@@ -288,4 +285,33 @@ func foundationMemberLines(lines []string) []string {
 		}
 		return line == "orderContract string" || line == "textEncoding string" || line == "simulation.orderContract string" || line == "project.orderContract string"
 	})
+}
+
+// TestSavedLegacyOrderMembersRejected checks that version 6 rejects the
+// removed legacy order members. Earlier executables wrote them only as true.
+func TestSavedLegacyOrderMembersRejected(t *testing.T) {
+	t.Parallel()
+	file := boardingTestFile(t)
+	file.Simulation.Waiting = newTestStateFile(t).Simulation.Waiting
+	raw := decompressTestJSON(t, encodeTestState(t, file))
+	if _, err := decodeStateFile(compressTestJSON(t, raw)); err != nil {
+		t.Fatal("control", err)
+	}
+	for _, test := range []struct{ name, anchor, member string }{
+		{"pod", `"pods":[{`, `"legacyCohort":true,`},
+		{"rider", `"riders":[{`, `"legacyPartySize":true,`},
+		{"waiting", `"request":{`, `"legacyPartySize":true,`},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			if !bytes.Contains(raw, []byte(test.anchor)) {
+				t.Fatal("fixture lacks", test.anchor)
+			}
+			changed := bytes.Replace(raw, []byte(test.anchor), []byte(test.anchor+test.member), 1)
+			name := strings.Split(test.member, `"`)[1]
+			if _, err := decodeStateFile(compressTestJSON(t, changed)); err == nil || !strings.Contains(err.Error(), name) {
+				t.Fatalf("removed member %s: %v", name, err)
+			}
+		})
+	}
 }

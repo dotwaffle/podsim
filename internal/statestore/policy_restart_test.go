@@ -269,11 +269,10 @@ func TestLegacyFileArchivedAtStartup(t *testing.T) {
 	}
 	strip := func(request *sim.SavedRequest) {
 		request.SharingConsent, request.Service, request.ServiceID = "", "", ""
-		request.LegacyPartySize = false
 	}
 	for index := range saved.Pods {
 		pod := &saved.Pods[index]
-		pod.Class, pod.LegacyCohort, pod.StationBuffered, pod.Platoon = "", false, false, nil
+		pod.Class, pod.StationBuffered, pod.Platoon = "", false, nil
 		for rider := range pod.Riders {
 			strip(&pod.Riders[rider])
 		}

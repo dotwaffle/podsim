@@ -46,7 +46,7 @@ func TestComparisonConsentOptions(t *testing.T) {
 
 func TestComparisonConsentRejectsRawBeforeRun(t *testing.T) {
 	t.Parallel()
-	for _, consent := range []sim.SharingConsent{sim.LegacyUnknownConsent, "future", " shared"} {
+	for _, consent := range []sim.SharingConsent{sim.SharingConsent("legacy-unknown"), "future", " shared"} {
 		t.Run(string(consent), func(t *testing.T) {
 			t.Parallel()
 			// The empty scenario would fail construction if validation ran later.
@@ -262,7 +262,7 @@ func TestComparisonConsentReportDefaultsAreOwned(t *testing.T) {
 		t.Fatal("private synthetic fixture default changed its caller")
 	}
 	output.Reset()
-	if err := writeReport(writeReportInput{output: &output, format: "json", results: []result{{SharingConsent: sim.LegacyUnknownConsent}}}); err == nil || output.Len() != 0 {
+	if err := writeReport(writeReportInput{output: &output, format: "json", results: []result{{SharingConsent: sim.SharingConsent("legacy-unknown")}}}); err == nil || output.Len() != 0 {
 		t.Fatal("report published invalid consent")
 	}
 }

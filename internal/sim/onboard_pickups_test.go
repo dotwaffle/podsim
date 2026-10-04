@@ -131,7 +131,6 @@ func TestOnboardPickupsRejectAtomically(t *testing.T) {
 		{"policy off", func(s *Simulation, _ *waitingTrip) { s.onboardPickups = false }},
 		{"new private", func(_ *Simulation, trip *waitingTrip) { trip.request.SharingConsent = PrivateConsent }},
 		{"existing private", func(s *Simulation, _ *waitingTrip) { s.vehicles[0].Riders[0].SharingConsent = PrivateConsent }},
-		{"closed cohort", func(s *Simulation, _ *waitingTrip) { s.vehicles[0].LegacyCohort = true }},
 		{"full seats", func(s *Simulation, _ *waitingTrip) { s.vehicles[0].Riders[0].PartySize = 3 }},
 		{"elapsed dwell", func(s *Simulation, _ *waitingTrip) { s.vehicles[0].phaseTicks = 0 }},
 		{"committed departure", func(s *Simulation, _ *waitingTrip) { s.vehicles[0].reservedThrough = 0 }},

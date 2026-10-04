@@ -18,7 +18,7 @@ var update = flag.Bool("update", false, "write the golden files in testdata agai
 const (
 	// goldenStatePath holds the saved state of the traffic demo at
 	// goldenStateTick.
-	goldenStatePath = "testdata/saved_state_v2.json"
+	goldenStatePath = "testdata/saved_state.json"
 	goldenStateTick = 1500
 	// demoTickLimit is more ticks than the traffic demo needs.
 	demoTickLimit = 30000
@@ -341,10 +341,6 @@ func TestSavedStateGolden(t *testing.T) {
 		!slices.ContainsFunc(state.Pods, func(pod SavedPod) bool { return pod.Activity == activityCode(Traveling) }) {
 		t.Fatalf("the golden state has no demo or traveling pod: %+v", savedCounters(state))
 	}
-	if len(state.Pods[0].Riders) > 0 && state.Pods[0].Riders[0].SharingConsent == "" {
-		addGoldenOrderOptions(&state)
-		data = encodeGolden(t, state)
-	}
 	restored, result, err := RestoreState(RestoreStateInput{Network: Example(), Fleet: demoFleet(), State: state})
 	if err != nil {
 		t.Fatal(err)
@@ -354,27 +350,6 @@ func TestSavedStateGolden(t *testing.T) {
 	}
 	if got := encodeGolden(t, restored.ExportState()); !bytes.Equal(got, data) {
 		t.Fatalf("the restored state encodes differently:\n%s", got)
-	}
-}
-
-// addGoldenOrderOptions gives the orders of the golden state the order
-// options that version 6 needs. The golden file has orders without these
-// options. Riders get unknown consent in a closed legacy cohort, and
-// waiting orders become private.
-func addGoldenOrderOptions(state *SavedState) {
-	for i := range state.Pods {
-		pod := &state.Pods[i]
-		for j := range pod.Riders {
-			rider := &pod.Riders[j]
-			rider.SharingConsent, rider.Service = LegacyUnknownConsent, OnDemandService
-			rider.LegacyPartySize = rider.PartySize > MaxNewPartySize
-			pod.LegacyCohort = true
-		}
-	}
-	for i := range state.Waiting {
-		request := &state.Waiting[i].Request
-		request.SharingConsent, request.Service = PrivateConsent, OnDemandService
-		request.LegacyPartySize = request.PartySize > MaxNewPartySize
 	}
 }
 

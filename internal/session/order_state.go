@@ -62,12 +62,6 @@ func scanStateOrderFieldsContract(data []byte, version int, packed bool) error {
 		if err != nil {
 			return err
 		}
-		if name == "legacyCohort" || name == "legacyPartySize" {
-			if value.Kind() != jsontext.KindTrue && value.Kind() != jsontext.KindFalse {
-				return errors.New("saved legacy marker must be Boolean")
-			}
-			continue
-		}
 		if value.Kind() != jsontext.KindString || value.String() == "" {
 			return fmt.Errorf("saved order field %s needs nonempty text", name)
 		}
@@ -77,7 +71,7 @@ func scanStateOrderFieldsContract(data []byte, version int, packed bool) error {
 				return sim.ErrUnknownVehicleClass
 			}
 		case "sharingConsent":
-			if consent := sim.SharingConsent(value.String()); consent != sim.PrivateConsent && consent != sim.SharedConsent && consent != sim.LegacyUnknownConsent {
+			if consent := sim.SharingConsent(value.String()); consent != sim.PrivateConsent && consent != sim.SharedConsent {
 				return errors.New("invalid saved sharing consent")
 			}
 		case "service":
@@ -94,7 +88,7 @@ func scanStateOrderFieldsContract(data []byte, version int, packed bool) error {
 
 func savedOrderFieldPath(path []string) bool {
 	if len(path) == 5 && path[1] == "simulation" && path[2] == "pods" {
-		return path[4] == "class" || path[4] == "legacyCohort"
+		return path[4] == "class"
 	}
 	request := len(path) == 7 && path[1] == "simulation" && path[2] == "pods" && path[4] == "riders" ||
 		len(path) == 6 && path[1] == "simulation" && path[2] == "waiting" && path[4] == "request"
@@ -102,7 +96,7 @@ func savedOrderFieldPath(path []string) bool {
 		return false
 	}
 	switch path[len(path)-1] {
-	case "sharingConsent", "service", "serviceID", "legacyPartySize":
+	case "sharingConsent", "service", "serviceID":
 		return true
 	}
 	return false

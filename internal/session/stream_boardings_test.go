@@ -136,7 +136,7 @@ func TestStreamBoardingDeltaPairing(t *testing.T) {
 
 func TestStreamBoardingBindingAndRollback(t *testing.T) {
 	topology, frame := boardingStreamFixture(t)
-	for _, defect := range []string{"station", "unknown", "class", "closed", "unknown-consent", "alignment", "count", "baseline", "nan", "distance", "id"} {
+	for _, defect := range []string{"station", "unknown", "class", "unknown-consent", "alignment", "count", "baseline", "nan", "distance", "id"} {
 		t.Run(defect, func(t *testing.T) {
 			a, err := NewStreamAssemblerVersion(topology, 3)
 			if err != nil {
@@ -152,10 +152,8 @@ func TestStreamBoardingBindingAndRollback(t *testing.T) {
 			case "class":
 				v.Pod.Class = sim.CompactClass
 				a.boardingBerths[v.Boardings[0].BerthID] = boardingBerth{station: v.Riders[0].From, classes: 1}
-			case "closed":
-				v.LegacyCohort = true
 			case "unknown-consent":
-				v.Riders[0].SharingConsent = sim.LegacyUnknownConsent
+				v.Riders[0].SharingConsent = "legacy-unknown"
 			case "alignment":
 				v.Boardings = append(v.Boardings, v.Boardings[0])
 			case "count":
@@ -237,7 +235,6 @@ func TestStreamBoardingFrameCopies(t *testing.T) {
 func TestStreamOrdinaryBoardingBytes(t *testing.T) {
 	// Keep the pre-boarding wire shape to detect ordinary encoding changes.
 	type oldVehicle struct {
-		LegacyCohort bool          `json:"LegacyCohort,omitzero"`
 		Pod          sim.Pod       `json:"Pod"`
 		Riders       []sim.Request `json:"Riders,omitempty"`
 		Stops        []string      `json:"Stops,omitempty"`
@@ -248,7 +245,6 @@ func TestStreamOrdinaryBoardingBytes(t *testing.T) {
 		PlatoonIndex int           `json:"PlatoonIndex,omitzero"`
 	}
 	type oldMetadata struct {
-		LegacyCohort bool   `json:"LegacyCohort,omitzero"`
 		RelocatingTo string `json:"RelocatingTo"`
 		Rebalancing  bool   `json:"Rebalancing"`
 		PlatoonID    string `json:"PlatoonID"`
@@ -257,11 +253,11 @@ func TestStreamOrdinaryBoardingBytes(t *testing.T) {
 	_, frame := streamFixture(t)
 	historical := maximumStreamFrame(t)
 	for _, v := range []VehicleFrame{frame.State.Simulation.Vehicles[0], historical.State.Simulation.Vehicles[0]} {
-		old := oldVehicle{v.LegacyCohort, v.Pod, v.Riders, v.Stops, v.RouteLaneIDs, v.RelocatingTo, v.Rebalancing, v.PlatoonID, v.PlatoonIndex}
+		old := oldVehicle{v.Pod, v.Riders, v.Stops, v.RouteLaneIDs, v.RelocatingTo, v.Rebalancing, v.PlatoonID, v.PlatoonIndex}
 		if !bytes.Equal(streamJSON(t, v), streamJSON(t, old)) {
 			t.Fatal("ordinary vehicle bytes changed")
 		}
-		metadata := oldMetadata{v.LegacyCohort, v.RelocatingTo, v.Rebalancing, v.PlatoonID, v.PlatoonIndex}
+		metadata := oldMetadata{v.RelocatingTo, v.Rebalancing, v.PlatoonID, v.PlatoonIndex}
 		if !bytes.Equal(streamJSON(t, meta(v)), streamJSON(t, metadata)) {
 			t.Fatal("ordinary metadata bytes changed")
 		}
@@ -312,7 +308,7 @@ func TestStreamRecordedRiderConsent(t *testing.T) {
 		{"active-private", sim.PrivateConsent, false, true},
 		{"active-shared", sim.SharedConsent, false, false},
 		{"completed-private", sim.PrivateConsent, true, false},
-		{"completed-unknown", sim.LegacyUnknownConsent, true, true},
+		{"completed-unknown", "legacy-unknown", true, true},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			candidate := ownStreamBoardings(frame)

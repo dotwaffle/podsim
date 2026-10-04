@@ -127,7 +127,7 @@ func scanStreamServiceMembersContract(data []byte, version int, coupling bool) e
 		}
 		name := strings.ToLower(token.String())
 		switch name {
-		case "projectversion", "vehicleclasses", "class", "sharingconsent", "service", "serviceid", "legacycohort", "legacypartysize":
+		case "projectversion", "vehicleclasses", "class", "sharingconsent", "service", "serviceid":
 		default:
 			continue
 		}
@@ -140,10 +140,6 @@ func scanStreamServiceMembersContract(data []byte, version int, coupling bool) e
 			return err
 		}
 		switch name {
-		case "legacycohort", "legacypartysize":
-			if value.Kind() != jsontext.KindTrue && value.Kind() != jsontext.KindFalse {
-				return errors.New("stream legacy marker must be Boolean")
-			}
 		case "projectversion":
 			if value.Kind() != jsontext.KindNumber {
 				return errors.New("stream project version must be an integer")
@@ -167,7 +163,7 @@ func scanStreamServiceMembersContract(data []byte, version int, coupling bool) e
 				}
 			case "sharingconsent":
 				consent := sim.SharingConsent(value.String())
-				if consent != sim.PrivateConsent && consent != sim.SharedConsent && consent != sim.LegacyUnknownConsent {
+				if consent != sim.PrivateConsent && consent != sim.SharedConsent {
 					return errors.New("invalid stream sharing consent")
 				}
 			case "service":
@@ -250,7 +246,7 @@ func (a *StreamAssembler) serviceOrders(frame StreamFrame) error {
 		return a.expressOrders(frame)
 	}
 	for _, request := range frame.State.Simulation.Pending {
-		if !validStreamOrder(request) || request.SharingConsent == sim.LegacyUnknownConsent {
+		if !validStreamOrder(request) {
 			return errors.New("invalid pending service order")
 		}
 	}
@@ -265,15 +261,12 @@ func (a *StreamAssembler) serviceOrders(frame StreamFrame) error {
 		if previous, recorded := a.classes[vehicle.Pod.ID]; recorded && previous != profile.Class {
 			return errors.New("stream vehicle class changed within project")
 		}
-		if vehicle.LegacyCohort && (profile.Class != sim.LegacyClass || len(vehicle.Riders) == 0) {
-			return errors.New("invalid closed legacy cohort")
-		}
 		active, seats := 0, 0
 		for _, rider := range vehicle.Riders {
-			if !validStreamOrder(rider) || (rider.SharingConsent == sim.LegacyUnknownConsent) != vehicle.LegacyCohort {
+			if !validStreamOrder(rider) {
 				return errors.New("invalid rider service order")
 			}
-			if rider.Completed || vehicle.LegacyCohort {
+			if rider.Completed {
 				continue
 			}
 			active++
@@ -308,12 +301,12 @@ func (a *StreamAssembler) rememberClasses(frame StreamFrame) error {
 }
 
 func validStreamOrder(request sim.Request) bool {
-	if request.PartySize < 1 || request.LegacyPartySize != (request.PartySize > sim.MaxNewPartySize) {
+	if request.PartySize < 1 || request.PartySize > sim.MaxNewPartySize {
 		return false
 	}
-	if request.SharingConsent != sim.PrivateConsent && request.SharingConsent != sim.SharedConsent && request.SharingConsent != sim.LegacyUnknownConsent {
+	if request.SharingConsent != sim.PrivateConsent && request.SharingConsent != sim.SharedConsent {
 		return false
 	}
 	// Current operating profiles have no express service certificate.
-	return request.Service == sim.OnDemandService && request.ServiceID == "" && (!request.LegacyPartySize || request.SharingConsent != sim.SharedConsent)
+	return request.Service == sim.OnDemandService && request.ServiceID == ""
 }

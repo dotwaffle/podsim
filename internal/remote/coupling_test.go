@@ -63,7 +63,7 @@ func remoteCouplingFrame(t *testing.T, order sim.OrderContract) (session.Topolog
 		Submitted: snapshot.Submitted, Completed: snapshot.Completed, SharedRidePartyLimit: snapshot.SharedRidePartyLimit}
 	for _, cabin := range snapshot.Vehicles {
 		frame.State.Simulation.Vehicles = append(frame.State.Simulation.Vehicles, session.VehicleFrame{Pod: cabin.Pod,
-			Riders: cabin.Riders, Boardings: cabin.Boardings, RiddenMeters: cabin.RiddenMeters, LegacyCohort: cabin.LegacyCohort, CouplingID: cabin.CouplingID,
+			Riders: cabin.Riders, Boardings: cabin.Boardings, RiddenMeters: cabin.RiddenMeters, CouplingID: cabin.CouplingID,
 			Stops: cabin.Stops, RelocatingTo: cabin.RelocatingTo, Rebalancing: cabin.Rebalancing, PlatoonID: cabin.PlatoonID, PlatoonIndex: cabin.PlatoonIndex})
 	}
 	topology := session.TopologySnapshot{ProjectVersion: project.CouplingVersion, CouplingContract: input.CouplingContract,

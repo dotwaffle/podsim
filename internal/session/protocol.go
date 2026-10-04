@@ -82,7 +82,6 @@ type VehicleFrame struct {
 	CouplingID   string              `json:"couplingID,omitzero"`
 	Boardings    []sim.RiderBoarding `json:"Boardings,omitempty"`
 	RiddenMeters float64             `json:"RiddenMeters,omitzero"`
-	LegacyCohort bool                `json:"LegacyCohort,omitzero"`
 	Pod          sim.Pod             `json:"Pod"`
 	Riders       []sim.Request       `json:"Riders,omitempty"`
 	Stops        []string            `json:"Stops,omitempty"`
@@ -130,8 +129,8 @@ func frameState(topology TopologySnapshot, frame StateFrame, immutable bool) (St
 			route[routeIndex] = lane
 		}
 		vehicles[index] = sim.Vehicle{
-			LegacyCohort: vehicle.LegacyCohort, CouplingID: vehicle.CouplingID,
-			Boardings: slices.Clone(vehicle.Boardings), RiddenMeters: vehicle.RiddenMeters,
+			CouplingID: vehicle.CouplingID,
+			Boardings:  slices.Clone(vehicle.Boardings), RiddenMeters: vehicle.RiddenMeters,
 			Pod: vehicle.Pod, Riders: slices.Clone(vehicle.Riders), Stops: slices.Clone(vehicle.Stops), Route: route,
 			RelocatingTo: vehicle.RelocatingTo, Rebalancing: vehicle.Rebalancing,
 			PlatoonID: vehicle.PlatoonID, PlatoonIndex: vehicle.PlatoonIndex,
@@ -195,8 +194,8 @@ func stateFrame(state State) StateFrame {
 			routeIDs[routeIndex] = lane.ID
 		}
 		vehicles[index] = VehicleFrame{
-			LegacyCohort: vehicle.LegacyCohort, CouplingID: vehicle.CouplingID,
-			Boardings: slices.Clone(vehicle.Boardings), RiddenMeters: vehicle.RiddenMeters,
+			CouplingID: vehicle.CouplingID,
+			Boardings:  slices.Clone(vehicle.Boardings), RiddenMeters: vehicle.RiddenMeters,
 			Pod: vehicle.Pod, Riders: slices.Clone(vehicle.Riders), Stops: slices.Clone(vehicle.Stops), RouteLaneIDs: routeIDs,
 			RelocatingTo: vehicle.RelocatingTo, Rebalancing: vehicle.Rebalancing,
 			PlatoonID: vehicle.PlatoonID, PlatoonIndex: vehicle.PlatoonIndex,

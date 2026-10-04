@@ -65,16 +65,15 @@ var (
 
 // Request describes a party's journey separately from the vehicle.
 type Request struct {
-	SharingConsent  SharingConsent `json:"SharingConsent"`
-	Service         ServiceChoice  `json:"Service"`
-	ServiceID       string         `json:"ServiceID,omitempty"`
-	LegacyPartySize bool           `json:"LegacyPartySize,omitzero"`
-	ID              int            `json:"ID"`
-	From            string         `json:"From"`
-	To              string         `json:"To"`
-	PartySize       int            `json:"PartySize"`
-	PodID           string         `json:"PodID"`
-	Completed       bool           `json:"Completed"`
+	SharingConsent SharingConsent `json:"SharingConsent"`
+	Service        ServiceChoice  `json:"Service"`
+	ServiceID      string         `json:"ServiceID,omitempty"`
+	ID             int            `json:"ID"`
+	From           string         `json:"From"`
+	To             string         `json:"To"`
+	PartySize      int            `json:"PartySize"`
+	PodID          string         `json:"PodID"`
+	Completed      bool           `json:"Completed"`
 	// RequestedTick marks submission, before any pickup travel.
 	RequestedTick int64 `json:"RequestedTick"`
 	// BoardedTick is the tick at which the party boarded a pod. It is 0 for
@@ -104,7 +103,6 @@ type Pod struct {
 
 // Vehicle is an independent display copy of a pod and its assigned journey.
 type Vehicle struct {
-	LegacyCohort bool `json:"LegacyCohort,omitzero"`
 	// CouplingID binds a checked cabin to its physical train registry record.
 	CouplingID string `json:"couplingID,omitzero"`
 	// Boardings aligns with Riders when the original journey fields are insufficient.

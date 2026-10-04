@@ -225,8 +225,8 @@ var persistRules = map[reflect.Type]map[string]persistRule{
 		"routeVersion": persistReset, "stationPhase": persistDerive, "routeLengths": persistDerive, "link": persistSave, "follower": persistDerive, "platoonCap": persistReset,
 	},
 	reflect.TypeFor[Vehicle](): {
-		"CouplingID":   persistDerive,
-		"LegacyCohort": persistSave, "Pod": persistSave, "Riders": persistSave, "Boardings": persistSave, "RiddenMeters": persistDerive, "Stops": persistSave, "Route": persistSave, "Presentation": persistReset,
+		"CouplingID": persistDerive,
+		"Pod":        persistSave, "Riders": persistSave, "Boardings": persistSave, "RiddenMeters": persistDerive, "Stops": persistSave, "Route": persistSave, "Presentation": persistReset,
 		"RelocatingTo": persistSave, "Rebalancing": persistSave, "PlatoonID": persistDerive, "PlatoonIndex": persistDerive,
 	},
 	reflect.TypeFor[Pod](): {
@@ -236,7 +236,7 @@ var persistRules = map[reflect.Type]map[string]persistRule{
 		"StationPhase": persistDerive, "ManeuverStationID": persistDerive,
 	},
 	reflect.TypeFor[Request](): {
-		"SharingConsent": persistSave, "Service": persistSave, "ServiceID": persistSave, "LegacyPartySize": persistSave, "ID": persistSave, "From": persistSave, "To": persistSave, "PartySize": persistSave, "PodID": persistSave,
+		"SharingConsent": persistSave, "Service": persistSave, "ServiceID": persistSave, "ID": persistSave, "From": persistSave, "To": persistSave, "PartySize": persistSave, "PodID": persistSave,
 		"Completed": persistSave, "RequestedTick": persistSave, "BoardedTick": persistSave, "DispatchReason": persistSave,
 	},
 	reflect.TypeFor[RiderBoarding](): {"BerthID": persistSave, "MetersAtBoarding": persistSave},

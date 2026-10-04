@@ -94,7 +94,7 @@ func TestBoardingStateMalformed(t *testing.T) {
 		{"duplicate member", `[[0,0],[0,60]],"boardings":[[0,0],[0,60]]`},
 		{"origin", `[[0,0],[0,60]],"journeyOrigin":""`},
 		{"null origin", `[[0,0],[0,60]],"journeyOrigin":null`},
-		{"closed cohort", `[[0,0],[0,60]],"legacyCohort":true`},
+		{"removed cohort member", `[[0,0],[0,60]],"legacyCohort":false`},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
@@ -130,7 +130,6 @@ func TestBoardingStateNativeGuards(t *testing.T) {
 		change func(*sim.SavedPod)
 	}{
 		{"alignment", func(p *sim.SavedPod) { p.Riders = p.Riders[:1] }},
-		{"closed cohort", func(p *sim.SavedPod) { p.LegacyCohort = true }},
 		{"source ownership", func(p *sim.SavedPod) { p.Boardings[0].BerthID = p.Boardings[1].BerthID }},
 		{"unknown source", func(p *sim.SavedPod) { p.Riders[0].From = "unknown" }},
 		{"baseline above C", func(p *sim.SavedPod) { p.Boardings[1].MetersAtBoarding = 101 }},
@@ -257,8 +256,8 @@ func TestBoardingStateConsent(t *testing.T) {
 		{"active shared", false, sim.SharedConsent, true},
 		{"completed private", true, sim.PrivateConsent, true},
 		{"completed shared", true, sim.SharedConsent, true},
-		{"completed unknown", true, sim.LegacyUnknownConsent, false},
-		{"active unknown", false, sim.LegacyUnknownConsent, false},
+		{"completed unknown", true, sim.SharingConsent("legacy-unknown"), false},
+		{"active unknown", false, sim.SharingConsent("legacy-unknown"), false},
 		{"completed missing", true, "", false},
 	}
 	for _, tc := range tests {

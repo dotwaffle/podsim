@@ -58,14 +58,14 @@ func widestSavedBase(t *testing.T) stateFile {
 	request := sim.SavedRequest{
 		ID: widest, From: id("f", 0), To: id("t", 0), PartySize: math.MaxInt64, PodID: id("p", 0),
 		Completed: true, RequestedTick: widest, BoardedTick: widest, DispatchReason: text,
-		SharingConsent: sim.LegacyUnknownConsent, Service: sim.OnDemandService, LegacyPartySize: true,
+		SharingConsent: sim.PrivateConsent, Service: sim.OnDemandService,
 	}
 	riders, stops := make([]sim.SavedRequest, sim.MaxSharedRideParties), make([]string, sim.MaxSharedRideParties)
 	for index := range riders {
 		riders[index], stops[index] = request, id("t", index)
 	}
 	pod := sim.SavedPod{
-		ID: id("p", 0), Class: sim.LegacyClass, LegacyCohort: true, Activity: "continuing", StationID: id("s", 0), BerthID: id("b", 0),
+		ID: id("p", 0), Class: sim.LegacyClass, Activity: "continuing", StationID: id("s", 0), BerthID: id("b", 0),
 		Occupied: true, Riders: riders, Stops: stops, RiddenMeters: -math.MaxFloat64, JourneyOrigin: id("j", 0), RelocatingTo: id("r", 0),
 		Rebalancing: true, RebalanceAfter: widest, PhaseTicks: widest, Origin: id("o", 0),
 		Destination: id("d", 0), DestinationStation: id("e", 0), ClaimsDestination: true, Released: true, StationBuffered: true,
@@ -166,7 +166,7 @@ func TestExpressWidestSaveAdapters(t *testing.T) {
 	}
 	base.Project.Fleet = make([]sim.Placement, 300)
 	pod := base.Simulation.Pods[0]
-	pod.Class, pod.LegacyCohort = sim.ExpressClass, false
+	pod.Class = sim.ExpressClass
 	pod.Platoon, pod.CompactQueue = nil, nil
 	pod.RiddenMeters, pod.Distance, pod.LaneDistance = wide, wide, -wide
 	pod.Riders = slices.Repeat(pod.Riders[:1], 20)
@@ -174,7 +174,7 @@ func TestExpressWidestSaveAdapters(t *testing.T) {
 	for i := range pod.Riders {
 		r := &pod.Riders[i]
 		r.From, r.To = from, to
-		r.PartySize, r.LegacyPartySize = 20, false
+		r.PartySize = 20
 		r.SharingConsent, r.Service = sim.SharedConsent, sim.ExpressServiceChoice
 		r.ServiceID = strings.Repeat("\x03", 64)
 	}
@@ -251,13 +251,13 @@ func TestExpressWidestStreamAdapters(t *testing.T) {
 	frame.State.Simulation.OrderContract = sim.ExpressOrderContract
 	request := frame.State.Simulation.Pending[0]
 	request.From, request.To = strings.Repeat("\x01", 64), strings.Repeat("\x02", 64)
-	request.PartySize, request.LegacyPartySize = 20, false
+	request.PartySize = 20
 	request.SharingConsent, request.Service = sim.SharedConsent, sim.ExpressServiceChoice
 	request.ServiceID = strings.Repeat("\x03", 64)
 	frame.State.Simulation.Pending = slices.Repeat([]sim.Request{request}, 8600)
 	for i := range frame.State.Simulation.Vehicles {
 		v := &frame.State.Simulation.Vehicles[i]
-		v.Pod.Class, v.LegacyCohort = sim.ExpressClass, false
+		v.Pod.Class = sim.ExpressClass
 		v.PlatoonID, v.PlatoonIndex = "", 0
 		v.RiddenMeters = 0.0000010000000000000002
 		r := request

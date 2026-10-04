@@ -169,7 +169,7 @@ func (s *Simulation) partyLimit(request Request) int {
 }
 
 func (s *Simulation) podFitsRequest(v *vehicle, request Request) bool {
-	if request.LegacyPartySize || ValidateVehicleClassProfileWithOrderContract(v.Pod.Class, s.orderContract) != nil {
+	if ValidateVehicleClassProfileWithOrderContract(v.Pod.Class, s.orderContract) != nil {
 		return false
 	}
 	if err := serviceMatches(s.expressServices, request.options()); err != nil {
@@ -230,7 +230,7 @@ func (s *Simulation) canJoin(v *vehicle, request Request) bool {
 	if v.couplingID != "" {
 		return false
 	}
-	if v.LegacyCohort || !s.podFitsRequest(v, request) {
+	if !s.podFitsRequest(v, request) {
 		return false
 	}
 	active := make([]PartyFacts, 0, len(v.Riders))
@@ -241,7 +241,7 @@ func (s *Simulation) canJoin(v *vehicle, request Request) bool {
 }
 
 func (s *Simulation) consentCompatible(v *vehicle, request Request) bool {
-	if v.LegacyCohort || request.SharingConsent != SharedConsent || request.LegacyPartySize {
+	if request.SharingConsent != SharedConsent {
 		return false
 	}
 	for _, rider := range v.Riders {

@@ -148,6 +148,19 @@ func TestCheckpointCombinedPreallocationBounds(t *testing.T) {
 	if _, err := DecodeCheckpoint(t.Context(), bytes.NewReader(unknown), ResumeInput{Implementation: testImplementation()}); err == nil || !strings.Contains(err.Error(), "unknown checkpoint member") {
 		t.Fatal("future demo member accepted", err)
 	}
+	// The frozen scan rules no longer list the removed legacy order members.
+	for _, insert := range []string{
+		`"legacyCohort":true,`,
+		`"riders":[{"legacyPartySize":true}],`,
+	} {
+		legacy := bytes.Replace(data, []byte(`"pods":[{`), []byte(`"pods":[{`+insert), 1)
+		if bytes.Equal(legacy, data) {
+			t.Fatal("fixture has no pods")
+		}
+		if _, err := DecodeCheckpoint(t.Context(), bytes.NewReader(legacy), ResumeInput{Implementation: testImplementation()}); err == nil || !strings.Contains(err.Error(), "unknown checkpoint member") {
+			t.Fatal("removed legacy member accepted", insert, err)
+		}
+	}
 }
 
 func TestCheckpointCanonicalComponentWhitespace(t *testing.T) {

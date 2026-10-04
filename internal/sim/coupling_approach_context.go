@@ -67,7 +67,7 @@ func prepareCouplingApproach(input couplingApproachPrepareInput) (*couplingAppro
 	for i, v := range []*vehicle{front, rear} {
 		if !boundedContractID(v.Pod.ID) || v.Pod.Class != CompactClass || v.Pod.Activity != Traveling || v.Pod.Speed != 0 ||
 			v.Pod.StationPhase != "" || v.Pod.ManeuverStationID != "" || v.Pod.BerthID != "" || v.Pod.StationID != "" ||
-			v.Pod.LaneID != assembly.LaneID || s.compactGroup(v) != nil || v.Pod.Occupied != (v.PassengersAboard() > 0) || v.LegacyCohort ||
+			v.Pod.LaneID != assembly.LaneID || s.compactGroup(v) != nil || v.Pod.Occupied != (v.PassengersAboard() > 0) ||
 			v.Pod.Occupied != front.Pod.Occupied || v.Presentation != nil || v.PlatoonID != "" || v.PlatoonIndex != 0 {
 			return nil, couplingApproachState{}, couplingDenied("approach member has incompatible occupancy or maneuver")
 		}

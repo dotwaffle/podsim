@@ -58,7 +58,6 @@ func TestExpressPublicOrderGuards(t *testing.T) {
 		}},
 		{"registry-pair", func(f *StreamFrame) { f.State.Simulation.Vehicles[0].Riders[0].To = "harbor" }},
 		{"registry-id", func(f *StreamFrame) { f.State.Simulation.Vehicles[0].Riders[0].ServiceID = "unknown" }},
-		{"historic-express", func(f *StreamFrame) { f.State.Simulation.Vehicles[0].Riders[0].LegacyPartySize = true }},
 		{"boarding-source", func(f *StreamFrame) {
 			f.State.Simulation.Vehicles[0].Boardings[0].BerthID = topology.Network.Stations[1].Berths[0].ID
 		}},
