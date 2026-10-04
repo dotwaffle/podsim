@@ -9,6 +9,8 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+
+	"github.com/dotwaffle/podsim/internal/project"
 )
 
 func normalizeProject(draft any) (projectChange, error) {
@@ -22,7 +24,7 @@ func normalizeProject(draft any) (projectChange, error) {
 	if problem := onboardSettingError(draft); problem != "" {
 		return projectChange{}, errors.New(problem)
 	}
-	if number(out["version"]) != 3 && number(out["version"]) != 4 {
+	if version := number(out["version"]); version != 3 && version != 4 && version != project.CouplingVersion {
 		out["version"] = float64(1)
 		if hasBanks(member(out, "network")) {
 			out["version"] = float64(2)

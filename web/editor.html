@@ -264,6 +264,8 @@
         <p class="hint">Compact queues need station buffers and platoons. They apply only to straight station entries at speeds up to 9 km/h. Lane speeds stay unchanged.</p>
         <label class="check"><input id="pickupReassignment" type="checkbox"> Pickup reassignment (experimental)</label>
         <p class="hint">Use Apply draft to activate these settings. Both are off by default and can change passenger waits.</p>
+        <label class="check" id="couplingEnabledLabel" hidden><input id="couplingEnabled" type="checkbox"> Coupled trains (experimental)</label>
+        <p class="hint" id="couplingEnabledHint" hidden>Lets two Compact pods couple into one train, empty or with passengers, at the coupling sites of this project. Off stops new trains and keeps the sites and corridors.</p>
       </section>
       <section>
         <div class="section-title"><h2>Rail arrivals</h2><button id="addRailArrival" type="button">Add arrival</button></div>

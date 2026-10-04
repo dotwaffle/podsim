@@ -11,7 +11,22 @@ function hasServiceMetadata(draft) {
   return has(draft, "orderContract") || has(draft, "expressServices") || has(draft, "stationQueueSpacing") || rows(draft?.fleet).some((pod) => has(pod, "Class")) || topology(draft).some((item) => has(item, "VehicleClasses"));
 }
 
+// Coupling presence includes null and empty values, as native project decoding counts them.
+const couplingKeys = ["couplingContract", "couplingEnabled", "couplingSites", "couplingCorridors"];
+
+function couplingContractError(draft) {
+  if (draft?.version !== 5) return couplingKeys.some((key) => has(draft, key)) ? "Coupling fields require project version 5." : "";
+  if (draft.couplingContract !== "compact-pair-v1") return "Project version 5 requires couplingContract compact-pair-v1.";
+  if (Object.hasOwn(draft, "couplingEnabled") && typeof draft.couplingEnabled !== "boolean") return "The train setting must be true or false.";
+  if (["couplingSites", "couplingCorridors"].some((key) => Object.hasOwn(draft, key) && !Array.isArray(draft[key]))) return "Coupling sites and corridors must be arrays.";
+  return "";
+}
+
 function serviceContractError(draft) {
+  const couplingError = couplingContractError(draft);
+  if (couplingError) return couplingError;
+  // Version 5 accepts service metadata. Its order contract stays optional.
+  if (draft?.version === 5) return has(draft, "orderContract") && draft.orderContract !== "express-v1" ? "Project version 5 accepts only orderContract express-v1." : "";
   if (draft?.version === 4) return draft.orderContract === "express-v1" ? "" : "Project version 4 requires orderContract express-v1.";
   if (has(draft, "orderContract")) return "The order contract requires project version 4.";
   return hasServiceMetadata(draft) && draft?.version !== 3 ? "Vehicle and service fields require project version 3." : "";
@@ -33,7 +48,7 @@ function serviceMetadataChecks(draft, report) {
     const target = typeof pod?.StationID === "string" && pod.StationID ? { type: "station", id: pod.StationID } : null;
     const classID = Object.hasOwn(pod || {}, "Class") ? pod.Class : "legacy";
     if (!classes.includes(classID)) { report(`Pod ${id} has an invalid vehicle class.`, target); continue; }
-    if (classID === "express" && (draft.version !== 4 || draft.orderContract !== "express-v1")) { report(`Pod ${id} has no approved physical profile.`, target); continue; }
+    if (classID === "express" && (![4, 5].includes(draft.version) || draft.orderContract !== "express-v1")) { report(`Pod ${id} has no approved physical profile.`, target); continue; }
     const station = rows(draft.network?.Stations).find((item) => item?.ID === pod?.StationID);
     const berth = rows(station?.Berths).find((item) => item?.ID === pod?.BerthID);
     if (berth && classSet(station) && classSet(berth) && (!classSet(station).includes(classID) || !classSet(berth).includes(classID))) report(`Pod ${id} has an incompatible station or berth.`, target);

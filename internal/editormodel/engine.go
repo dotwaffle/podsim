@@ -6,6 +6,7 @@ import (
 	"encoding/json/v2"
 	"errors"
 	"fmt"
+	"slices"
 
 	"github.com/dotwaffle/podsim/internal/project"
 )
@@ -173,9 +174,11 @@ func (e *engine) sync(command request) (response, error) {
 		}
 	}
 	servicePresent := next["orderContract"].services || next["network"].services || next["fleet"].services || next["expressServices"].services || next["stationQueueSpacing"].services || next["onboardPickups"].services
-	if firstError == nil && (next["network"].banked || config.Version == 2 || config.Version == 3 || config.Version == 4 || servicePresent) {
+	// Branch decoding skips the native field scan, which rejects null coupling members.
+	couplingPresent := slices.ContainsFunc(couplingKeys, func(key string) bool { _, present := next[key]; return present })
+	if firstError == nil && (next["network"].banked || config.Version == 2 || config.Version == 3 || config.Version == 4 || servicePresent || couplingPresent) {
 		fields := make(map[string]jsontext.Value, 4)
-		for _, key := range []string{"version", "orderContract", "network", "fleet", "expressServices", "stationQueueSpacing", "onboardPickups"} {
+		for _, key := range []string{"version", "orderContract", "network", "fleet", "expressServices", "stationQueueSpacing", "onboardPickups", "couplingContract", "couplingEnabled", "couplingSites", "couplingCorridors"} {
 			if branch, present := next[key]; present {
 				fields[key] = branch.raw
 			}
@@ -198,7 +201,7 @@ func (e *engine) sync(command request) (response, error) {
 		e.checks = nil
 	}
 	if e.checks != nil {
-		for _, key := range []string{"version", "orderContract", "fleet", "expressServices", "stationQueueSpacing", "onboardPickups", "sharedRidePartyLimit", "sharedRideMode"} {
+		for _, key := range serviceCheckKeys {
 			if !bytes.Equal(e.branches[key].raw, next[key].raw) {
 				e.checks.servicesReady = false
 				break
@@ -212,12 +215,23 @@ func (e *engine) sync(command request) (response, error) {
 	return response{Valid: true, Synced: true}, nil
 }
 
+// serviceCheckKeys are the branches that the cached service and contract checks read.
+var serviceCheckKeys = []string{"version", "orderContract", "fleet", "expressServices", "stationQueueSpacing", "onboardPickups", "sharedRidePartyLimit", "sharedRideMode", "couplingContract", "couplingEnabled", "couplingSites", "couplingCorridors"}
+
 func copyBranch(dst *project.Config, key string, src project.Config) bool {
 	switch key {
 	case "version":
 		dst.Version = src.Version
 	case "orderContract":
 		dst.OrderContract = src.OrderContract
+	case "couplingContract":
+		dst.CouplingContract = src.CouplingContract
+	case "couplingEnabled":
+		dst.CouplingEnabled = src.CouplingEnabled
+	case "couplingSites":
+		dst.CouplingSites = src.CouplingSites
+	case "couplingCorridors":
+		dst.CouplingCorridors = src.CouplingCorridors
 	case "name":
 		dst.Name = src.Name
 	case "network":

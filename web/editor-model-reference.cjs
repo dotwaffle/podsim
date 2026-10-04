@@ -70,7 +70,7 @@ module.exports = (helpers) => {
     const config = clone(input || emptyConfig());
     const contractError = serviceContractError(config);
     if (contractError) throw new Error(contractError);
-    if (![3, 4].includes(config.version)) config.version = config.network?.Stations?.some((station) => station && Object.hasOwn(station, "Banks")) ? 2 : 1;
+    if (![3, 4, 5].includes(config.version)) config.version = config.network?.Stations?.some((station) => station && Object.hasOwn(station, "Banks")) ? 2 : 1;
     config.name = typeof config.name === "string" ? config.name : "Untitled scenario";
     config.network = config.network || {};
     config.network.Nodes = Array.isArray(config.network.Nodes) ? config.network.Nodes : [];

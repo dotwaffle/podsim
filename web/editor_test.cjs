@@ -493,6 +493,96 @@ test("experimental flags keep independent undo history and graph ownership", () 
   assert.equal(history.snapshot.scenario.pickupReassignment, true);
 });
 
+// couplingScenario gives the version 5 project that the Go model tests
+// check against native validation.
+function couplingScenario() {
+  return JSON.parse(fs.readFileSync(path.join(__dirname, "../internal/editormodel/testdata/coupling_project.json"), "utf8"));
+}
+
+const COUPLING_KEYS = ["couplingContract", "couplingEnabled", "couplingSites", "couplingCorridors"];
+const couplingText = (scenario) => JSON.stringify(Object.fromEntries(Object.entries(scenario).filter(([key]) => COUPLING_KEYS.includes(key))));
+
+test("a version 5 project keeps its coupling members through wrapped and bare import and export", () => {
+  for (const enabled of [true, false, undefined]) {
+    const config = couplingScenario();
+    if (enabled === undefined) delete config.couplingEnabled; else config.couplingEnabled = enabled;
+    const exported = editor.serializeDocument(config);
+    assert.deepEqual(JSON.parse(exported).scenario, config, `export ${enabled}`);
+    assert.deepEqual(Object.keys(JSON.parse(exported).scenario), Object.keys(config), `export order ${enabled}`);
+    for (const [name, text] of [["wrapped", exported], ["bare", JSON.stringify(config)]]) {
+      const imported = editor.parseDocument(text).scenario;
+      assert.equal(imported.version, 5, name);
+      assert.equal(couplingText(imported), couplingText(config), `${name} ${enabled}`);
+      assert.equal(Object.hasOwn(imported, "orderContract"), false, name);
+      assert.equal(couplingText(JSON.parse(editor.serializeDocument(imported)).scenario), couplingText(config), `${name} re-export ${enabled}`);
+      assert.deepEqual(editor.parseDocument(text, { deferMetadata: true }).scenario, config, `${name} deferred`);
+    }
+  }
+  const express = { ...couplingScenario(), orderContract: "express-v1" };
+  assert.equal(editor.parseDocument(JSON.stringify(express)).scenario.orderContract, "express-v1");
+});
+
+test("a version 5 project rejects a missing marker and malformed coupling members", () => {
+  const cases = [
+    [(config) => { delete config.couplingContract; }, /requires couplingContract compact-pair-v1/],
+    [(config) => { config.couplingContract = "compact-pair-v2"; }, /requires couplingContract compact-pair-v1/],
+    [(config) => { config.couplingEnabled = null; }, /train setting must be true or false/],
+    [(config) => { config.couplingSites = null; }, /sites and corridors must be arrays/],
+    [(config) => { config.couplingCorridors = {}; }, /sites and corridors must be arrays/],
+    [(config) => { config.orderContract = ""; }, /accepts only orderContract express-v1/],
+  ];
+  for (const [change, message] of cases) {
+    const config = couplingScenario(); change(config);
+    for (const text of [JSON.stringify(config), editor.serializeDocument(config)]) assert.throws(() => editor.parseDocument(text), message);
+  }
+});
+
+test("versions 1 to 4 reject coupling members, including null and empty values, and keep their own version", () => {
+  const scenarios = { 1: connectedScenario(), 3: serviceScenario() };
+  scenarios[4] = { ...serviceScenario(), version: 4, orderContract: "express-v1" };
+  scenarios[2] = connectedScenario(); scenarios[2].version = 2;
+  const station = scenarios[2].network.Stations[0];
+  station.Banks = [{ ID: "a", Entry: station.Entry, Exit: station.Exit, BerthIDs: station.Berths.map((berth) => berth.ID) }];
+  for (const [version, config] of Object.entries(scenarios)) {
+    const imported = editor.parseDocument(JSON.stringify(config)).scenario;
+    assert.equal(imported.version, Number(version), `version ${version}`);
+    assert.equal(COUPLING_KEYS.some((key) => Object.hasOwn(imported, key)), false, `version ${version} gained a coupling member`);
+    assert.equal(editor.serializeDocument(config), JSON.stringify({ format: "podsim", version: 1, scenario: config }), `version ${version} export`);
+    for (const key of COUPLING_KEYS) {
+      for (const value of [null, "", false, true, [], "compact-pair-v1"]) {
+        const text = JSON.stringify({ ...config, [key]: value });
+        assert.throws(() => editor.parseDocument(text), /Coupling fields require project version 5/, `version ${version} ${key} ${JSON.stringify(value)}`);
+      }
+    }
+  }
+  assert.throws(() => editor.parseDocument(JSON.stringify({ ...couplingScenario(), version: 6 })), /The version field must be 1, 2, 3, 4, or 5/);
+});
+
+test("the train option is one version 5 control, and off keeps the sites and corridors", async () => {
+  const html = fs.readFileSync(path.join(__dirname, "editor.html"), "utf8");
+  assert.match(html, /<label class="check" id="couplingEnabledLabel" hidden><input id="couplingEnabled" type="checkbox"> Coupled trains \(experimental\)<\/label>/);
+  assert.deepEqual([...html.matchAll(/id="(coupling[^"]*)"/g)].map((match) => match[1]), ["couplingEnabledLabel", "couplingEnabled", "couplingEnabledHint"]);
+  const source = fs.readFileSync(path.join(__dirname, "editor.js"), "utf8");
+  assert.match(source, /\$\("#couplingEnabledLabel"\)\.hidden = \$\("#couplingEnabledHint"\)\.hidden = config\.version !== 5;/);
+  assert.match(source, /\$\("#couplingEnabled"\)\.checked = config\.couplingEnabled === true;/);
+  assert.match(source, /"pickupReassignment", "couplingEnabled"\]\) bindScalarInput\(id\);/);
+  // The Go model proposes only the flag. The page merges the patch into the draft.
+  const config = couplingScenario();
+  const off = { ...config, couplingEnabled: false };
+  assert.deepEqual(Object.keys(off), Object.keys(config));
+  assert.equal(JSON.stringify(off.couplingSites), JSON.stringify(config.couplingSites));
+  assert.equal(JSON.stringify(off.couplingCorridors), JSON.stringify(config.couplingCorridors));
+  assert.equal(off.couplingContract, "compact-pair-v1");
+  const imported = editor.parseDocument(editor.serializeDocument(off)).scenario;
+  assert.equal(imported.couplingEnabled, false);
+  assert.equal(couplingText(imported), couplingText(off));
+  // The saved draft keeps the members for a restore.
+  const store = editor.openRecordStore(fakeIndexedDB(), editor.DRAFT_STORE);
+  const record = editor.draftRecordFor({ scenario: off }, { scenario: JSON.stringify(config) }, { revision: 1, epoch: "e", serverStart: "s" });
+  await store.put(DRAFT_KEY, record);
+  assert.equal(couplingText((await store.get(DRAFT_KEY)).scenario), couplingText(off));
+});
+
 test("experimental project flags round trip and reject non-Boolean values", () => {
   for (const field of ["stationBuffers", "pickupReassignment"]) {
     const config = connectedScenario();
@@ -2110,7 +2200,7 @@ test("import names the missing or wrong field", () => {
     { name: "an API reply", file: { revision: 3, project: scenario }, message: "The file has no format field and no network field." },
     { name: "a project with a network list", file: { ...scenario, network: [] }, message: "The network field must be an object." },
     { name: "a version 2 project without banks", file: { ...scenario, version: 2 }, message: "Version 2 projects need a banked station." },
-    { name: "a project with no version", file: { ...scenario, version: undefined }, message: "The version field must be 1, 2, 3, or 4." },
+    { name: "a project with no version", file: { ...scenario, version: undefined }, message: "The version field must be 1, 2, 3, 4, or 5." },
   ];
   for (const item of cases) {
     assert.throws(() => editor.parseDocument(JSON.stringify(item.file)), { message: item.message }, item.name);

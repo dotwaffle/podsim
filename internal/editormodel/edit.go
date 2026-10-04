@@ -185,13 +185,25 @@ func proposeProjectEdit(draft any, command editCommand) (projectChange, error) {
 		if !ok || setting != "ordinary" && setting != "compact-v1" {
 			return projectChange{}, errors.New("station queue spacing must be ordinary or compact-v1")
 		}
-		if version := number(member(draft, "version")); version != 1 && version != 2 && version != 3 && version != 4 {
-			return projectChange{}, errors.New("station queue selection needs project version 1, 2, 3, or 4")
+		version := number(member(draft, "version"))
+		if version != 1 && version != 2 && version != 3 && version != 4 && version != project.CouplingVersion {
+			return projectChange{}, errors.New("station queue selection needs project version 1, 2, 3, 4, or 5")
 		}
 		change.set(draft, "stationQueueSpacing", setting)
-		if number(member(draft, "version")) != 4 {
+		// Version 5 keeps its coupling members, and version 4 keeps its order contract.
+		if version != 4 && version != project.CouplingVersion {
 			change.set(draft, "version", float64(project.ServiceVersion))
 		}
+	case "couplingEnabled":
+		enabled, ok := value.(bool)
+		if !ok {
+			return projectChange{}, errors.New("the train setting must be true or false")
+		}
+		if number(member(draft, "version")) != project.CouplingVersion {
+			return projectChange{}, errors.New("the train setting needs project version 5")
+		}
+		// Off only stops new trains. The marker, sites, and corridors stay.
+		change.set(draft, "couplingEnabled", enabled)
 	case "platoonLimit":
 		x, err := editNumber(value)
 		if err != nil || !slices.Contains([]float64{0, 2, 3, 4}, x) {

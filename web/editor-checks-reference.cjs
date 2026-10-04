@@ -217,7 +217,7 @@ module.exports = function (editor) {
     const report = (text, target) => { errors.push(text); if (targets && target && !targets.has(text)) targets.set(text, target); };
     if (!value || typeof value !== "object" || Array.isArray(value)) return ["The scenario must be a JSON object."];
     const banked = value.network?.Stations?.some((station) => station && Object.hasOwn(station, "Banks"));
-    if (![1, 2, 3, 4].includes(value.version)) errors.push("The scenario version must be 1, 2, 3, or 4.");
+    if (![1, 2, 3, 4, 5].includes(value.version)) errors.push("The scenario version must be 1, 2, 3, 4, or 5.");
     else if (value.version === 1 && banked || value.version === 2 && !banked) errors.push("The scenario version does not match its station banks.");
     serviceMetadataChecks(value, report);
     if (typeof value.name !== "string" || !value.name.trim()) errors.push("The scenario needs a name.");

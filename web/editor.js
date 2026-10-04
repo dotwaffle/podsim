@@ -726,7 +726,7 @@
     }
     if (!("network" in document)) throw new Error("The file has no format field and no network field.");
     if (!isObject(document.network)) throw new Error("The network field must be an object.");
-    if (![1, 2, 3, 4].includes(document.version)) throw new Error("The version field must be 1, 2, 3, or 4.");
+    if (![1, 2, 3, 4, 5].includes(document.version)) throw new Error("The version field must be 1, 2, 3, 4, or 5.");
     return { scenario: clone(document), background: null };
   }
 
@@ -3104,6 +3104,9 @@
     $("#stationBuffers").checked = config.stationBuffers;
     setScalarValue("#stationQueueSpacing", config.stationQueueSpacing || "ordinary");
     $("#pickupReassignment").checked = config.pickupReassignment;
+    // Only a version 5 project has the train option. Off keeps its sites and corridors.
+    $("#couplingEnabledLabel").hidden = $("#couplingEnabledHint").hidden = config.version !== 5;
+    $("#couplingEnabled").checked = config.couplingEnabled === true;
   }
 
   let parkRideStations = null, parkRideBusy = false;
@@ -4311,7 +4314,7 @@
         queueRailEdit(kind, command, control);
       });
     }
-    for (const id of ["demandEnabled", "demandRate", "demandPattern", "demandDestination", "demandProfile", "demandBand", "sharedRidePartyLimit", "sharedRideMode", "sharedRideJoin", "sharedRideMaxStops", "platoonLimit", "demandSeed", "redistribution", "stationBuffers", "stationQueueSpacing", "pickupReassignment"]) bindScalarInput(id);
+    for (const id of ["demandEnabled", "demandRate", "demandPattern", "demandDestination", "demandProfile", "demandBand", "sharedRidePartyLimit", "sharedRideMode", "sharedRideJoin", "sharedRideMaxStops", "platoonLimit", "demandSeed", "redistribution", "stationBuffers", "stationQueueSpacing", "pickupReassignment", "couplingEnabled"]) bindScalarInput(id);
     bindScalarInput("scenarioName", "name");
     $("#fleetControls").addEventListener("input", (event) => { if (event.target.dataset.station) markTyping(event.target); });
     $("#fleetControls").addEventListener("change", (event) => { if (event.target.dataset.station) queueScalarEdit("fleetCount", event.target, event.target.dataset.station); });

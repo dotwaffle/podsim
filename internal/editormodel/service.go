@@ -141,13 +141,24 @@ func checkExpressRegistry(draft any, errors *checkList) {
 }
 
 func draftOrderContract(draft any) sim.OrderContract {
-	if number(member(draft, "version")) == 4 && text(member(draft, "orderContract")) == string(sim.ExpressOrderContract) {
+	version := number(member(draft, "version"))
+	if (version == 4 || version == project.CouplingVersion) && text(member(draft, "orderContract")) == string(sim.ExpressOrderContract) {
 		return sim.ExpressOrderContract
 	}
 	return ""
 }
 
 func draftContractError(draft any) string {
+	if problem := couplingContractError(draft); problem != "" {
+		return problem
+	}
+	// Version 5 accepts service metadata. Its order contract stays optional.
+	if number(member(draft, "version")) == project.CouplingVersion {
+		if hasFold(draft, "orderContract") && draftOrderContract(draft) != sim.ExpressOrderContract {
+			return "Project version 5 accepts only orderContract express-v1."
+		}
+		return ""
+	}
 	if number(member(draft, "version")) == 4 {
 		if draftOrderContract(draft) != sim.ExpressOrderContract {
 			return "Project version 4 requires orderContract express-v1."

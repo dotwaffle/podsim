@@ -981,6 +981,320 @@
         ],
         "warnings": []
       }
+    },
+    {
+      "name": "coupling project 5",
+      "changes": [
+        {
+          "path": [
+            "version"
+          ],
+          "value": 5
+        },
+        {
+          "path": [
+            "couplingContract"
+          ],
+          "value": "compact-pair-v1"
+        },
+        {
+          "path": [
+            "couplingEnabled"
+          ],
+          "value": true
+        },
+        {
+          "path": [
+            "couplingSites"
+          ],
+          "value": []
+        },
+        {
+          "path": [
+            "couplingCorridors"
+          ],
+          "value": []
+        }
+      ],
+      "checks": {
+        "errors": [],
+        "warnings": []
+      }
+    },
+    {
+      "name": "coupling project 5 express order",
+      "changes": [
+        {
+          "path": [
+            "version"
+          ],
+          "value": 5
+        },
+        {
+          "path": [
+            "couplingContract"
+          ],
+          "value": "compact-pair-v1"
+        },
+        {
+          "path": [
+            "orderContract"
+          ],
+          "value": "express-v1"
+        },
+        {
+          "path": [
+            "fleet",
+            "0",
+            "Class"
+          ],
+          "value": "express"
+        }
+      ],
+      "checks": {
+        "errors": [],
+        "warnings": []
+      }
+    },
+    {
+      "name": "coupling project 5 empty order contract",
+      "changes": [
+        {
+          "path": [
+            "version"
+          ],
+          "value": 5
+        },
+        {
+          "path": [
+            "couplingContract"
+          ],
+          "value": "compact-pair-v1"
+        },
+        {
+          "path": [
+            "orderContract"
+          ],
+          "value": ""
+        }
+      ],
+      "checks": {
+        "errors": [
+          {
+            "text": "Project version 5 accepts only orderContract express-v1.",
+            "target": null
+          }
+        ],
+        "warnings": []
+      }
+    },
+    {
+      "name": "coupling project 5 without marker",
+      "changes": [
+        {
+          "path": [
+            "version"
+          ],
+          "value": 5
+        }
+      ],
+      "checks": {
+        "errors": [
+          {
+            "text": "Project version 5 requires couplingContract compact-pair-v1.",
+            "target": null
+          }
+        ],
+        "warnings": []
+      }
+    },
+    {
+      "name": "coupling unknown marker",
+      "changes": [
+        {
+          "path": [
+            "version"
+          ],
+          "value": 5
+        },
+        {
+          "path": [
+            "couplingContract"
+          ],
+          "value": "compact-pair-v2"
+        }
+      ],
+      "checks": {
+        "errors": [
+          {
+            "text": "Project version 5 requires couplingContract compact-pair-v1.",
+            "target": null
+          }
+        ],
+        "warnings": []
+      }
+    },
+    {
+      "name": "coupling option null",
+      "changes": [
+        {
+          "path": [
+            "version"
+          ],
+          "value": 5
+        },
+        {
+          "path": [
+            "couplingContract"
+          ],
+          "value": "compact-pair-v1"
+        },
+        {
+          "path": [
+            "couplingEnabled"
+          ],
+          "value": null
+        }
+      ],
+      "checks": {
+        "errors": [
+          {
+            "text": "The train setting must be true or false.",
+            "target": null
+          }
+        ],
+        "warnings": []
+      }
+    },
+    {
+      "name": "coupling sites null",
+      "changes": [
+        {
+          "path": [
+            "version"
+          ],
+          "value": 5
+        },
+        {
+          "path": [
+            "couplingContract"
+          ],
+          "value": "compact-pair-v1"
+        },
+        {
+          "path": [
+            "couplingSites"
+          ],
+          "value": null
+        }
+      ],
+      "checks": {
+        "errors": [
+          {
+            "text": "Coupling sites and corridors must be arrays.",
+            "target": null
+          }
+        ],
+        "warnings": []
+      }
+    },
+    {
+      "name": "coupling corridors object",
+      "changes": [
+        {
+          "path": [
+            "version"
+          ],
+          "value": 5
+        },
+        {
+          "path": [
+            "couplingContract"
+          ],
+          "value": "compact-pair-v1"
+        },
+        {
+          "path": [
+            "couplingCorridors"
+          ],
+          "value": {}
+        }
+      ],
+      "checks": {
+        "errors": [
+          {
+            "text": "Coupling sites and corridors must be arrays.",
+            "target": null
+          }
+        ],
+        "warnings": []
+      }
+    },
+    {
+      "name": "coupling option on project 3",
+      "changes": [
+        {
+          "path": [
+            "couplingEnabled"
+          ],
+          "value": false
+        }
+      ],
+      "checks": {
+        "errors": [
+          {
+            "text": "Coupling fields require project version 5.",
+            "target": null
+          }
+        ],
+        "warnings": []
+      }
+    },
+    {
+      "name": "coupling null marker on project 3",
+      "changes": [
+        {
+          "path": [
+            "couplingContract"
+          ],
+          "value": null
+        }
+      ],
+      "checks": {
+        "errors": [
+          {
+            "text": "Coupling fields require project version 5.",
+            "target": null
+          }
+        ],
+        "warnings": []
+      }
+    },
+    {
+      "name": "coupling empty corridors on project 1",
+      "changes": [
+        {
+          "path": [
+            "version"
+          ],
+          "value": 1
+        },
+        {
+          "path": [
+            "couplingCorridors"
+          ],
+          "value": []
+        }
+      ],
+      "checks": {
+        "errors": [
+          {
+            "text": "Coupling fields require project version 5.",
+            "target": null
+          }
+        ],
+        "warnings": []
+      }
     }
   ]
 }
