@@ -685,6 +685,46 @@ In a three-seed alternate-route experiment, the first occupied-track snapshot-co
 It also increased mean wait and added empty travel.
 Free-flow routing remains the default.
 
+### Rider emergency stop
+
+**Status:** Not started.
+The user noted this idea on 2026-10-04.
+
+A rider in a pod presses an emergency button, for example for a medical emergency.
+The pod then goes at once to the station where it can unload soonest.
+That station is not always the nearest one.
+A station entry queue on the path can make a farther station faster.
+Estimate the arrival time from current reservations and queues, not only from distance.
+
+Design questions:
+
+- Priority of the pod at junctions, station entry, and berths, and the effect on other pods.
+- Other parties in a shared pod: unload them with the rider, or continue their trips with a new pod.
+- A pod in a physical train: the group must split safely before the pod changes route.
+- Cancel the pod's pickups and give them to other pods.
+- Record the event and show it in the game and in the metrics.
+
+### Vehicle fault or accident
+
+**Status:** Not started.
+The user noted this idea on 2026-10-04.
+
+A pod stops and cannot move until an operator clears it.
+The cause can be a collision with debris, a vehicle fault, or another failure.
+The stopped pod blocks its lane.
+Other pods must route around it.
+Pods behind it can be stuck with no forward path, so they can need to reverse to the previous junction.
+
+Design questions:
+
+- The simulator moves pods only forward on directed lanes.
+  Reverse movement needs new motion, reservation, and safety rules.
+- How long the fault lasts, and how the operator clears it.
+- Riders in the stopped pod: wait, or leave at a safe point.
+- Routes, pickups, and berth reservations that use the blocked lane.
+- A fault in a physical train, a station berth, or a station entry queue.
+- Record the event and its effect on service in the metrics.
+
 ## 7. Research and reference tools
 
 Research to date covers documentation, papers, and archive metadata.
