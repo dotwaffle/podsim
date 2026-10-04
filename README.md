@@ -87,7 +87,7 @@ Before the server applies a setting change, it saves the file with an atomic rep
 If the save fails, the server rejects the change.
 A rewind that restores the project of a save point also rewrites this file.
 
-Validation limits each project to 8 MiB in this compact form, also after a demand change.
+Validation limits each project to 10 MiB in this compact form, also after a demand change.
 This limit lets the server read the file at the next start.
 
 The browser export wraps the `project` object as `scenario` and can also contain a background image.
@@ -593,8 +593,9 @@ The draft stays local until you select **Pause and apply**.
 - Export JSON to save the scenario and optional background.
   Import JSON to restore a draft.
   The export is compact JSON.
-  The project file must be 19 MiB or smaller.
-  This limit is the image limit in base64 form plus the 8 MiB project limit of the server, a small allowance for the other fields, and 128 KiB for the frame and the license of the image, rounded up to a whole MiB.
+  The project file must be 21 MiB or smaller.
+  This limit includes the image in base64 form, the server's 10 MiB project limit, and an allowance for other fields.
+  It also includes 128 KiB for the image frame and license, rounded up to a whole MiB.
   Thus the editor can import an export with the largest project and the largest background image.
 - The editor keeps the images of the undo history in the memory of the tab, up to 128 MiB.
   When a new image makes the images larger than 128 MiB, the editor removes the oldest undo steps and says how many.
