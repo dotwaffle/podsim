@@ -13,6 +13,11 @@ import (
 	"github.com/dotwaffle/podsim/internal/sim"
 )
 
+// MaxTopologyJSON is the largest topology document that a client decodes.
+// The topology holds the network of a project file and a few identity
+// members.
+const MaxTopologyJSON = project.MaxFileBytes + 4096
+
 var topologyJSONLimits = jsonLimits{
 	depth: 64, elements: 0, members: 256, foldNames: true,
 	arrays: map[string]int64{
@@ -34,7 +39,7 @@ var topologyJSONLimits = jsonLimits{
 
 // UnmarshalJSON rejects unbounded or invalid topology members before allocation.
 func (topology *TopologySnapshot) UnmarshalJSON(data []byte) error {
-	if len(data) > project.MaxFileBytes+4096 {
+	if len(data) > MaxTopologyJSON {
 		return errors.New("topology JSON is too large")
 	}
 	if err := prescanJSON(data, topologyJSONLimits); err != nil {

@@ -73,6 +73,38 @@ func unpackedStreamLimits() jsonLimits {
 	return limits
 }
 
+// PrescanStateFrameJSON bounds the document of the plain HTTP state
+// endpoint before a client reads it. It reads the tokens only and makes no
+// values.
+func PrescanStateFrameJSON(data []byte) error {
+	return prescanJSON(data, stateFrameLimits())
+}
+
+// stateFrameLimits bound the state frame that the plain HTTP state endpoint
+// sends for families 1 to 3. The frame is the full frame of those stream
+// families, so it gets their limits without the "/full/state" prefix.
+// Servers before the topology endpoint sent the network in the state, so
+// the network gets the topology limits. Plain JSON decoding replaces
+// invalid UTF-8, so the scan accepts it.
+func stateFrameLimits() jsonLimits {
+	stream := unpackedStreamLimits()
+	limits := stream
+	limits.allowInvalidUTF8 = true
+	limits.arrays = map[string]int64{}
+	for path, bound := range stream.arrays {
+		for _, prefix := range []string{"/full/state/", "/topology/"} {
+			if rest, found := strings.CutPrefix(path, prefix); found {
+				limits.arrays["/"+rest] = bound
+			}
+		}
+	}
+	// The frame has the complete route of each vehicle, not a route window.
+	// The simulation bounds only saved routes, so a live route has the
+	// general element limit.
+	limits.arrays["/simulation/Vehicles/*/RouteLaneIDs"] = limits.elements
+	return limits
+}
+
 func scanStreamServiceMembers(data []byte, version int) error {
 	return scanStreamServiceMembersContract(data, version, false)
 }

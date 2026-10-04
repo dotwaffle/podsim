@@ -223,3 +223,80 @@ func TestStreamDecodeMatchesUnboundedDecoder(t *testing.T) {
 		}
 	}
 }
+
+// The plain HTTP state endpoint sends the full state frame with complete
+// routes. Its widest shape passes the bounded scan. Servers before the
+// topology endpoint sent the network and lane routes in the state, and
+// their widest shape passes too.
+func TestPrescanStateFrameJSONAcceptsServerMaximum(t *testing.T) {
+	if raceEnabled {
+		t.Skip("maximum state frame proof runs without the race detector")
+	}
+	route := project.MaxLanes + project.MaxNodes
+	frame := maximumStreamFrame(t).State
+	for i := range frame.Simulation.Vehicles {
+		v := &frame.Simulation.Vehicles[i]
+		v.Boardings = slices.Repeat([]sim.RiderBoarding{{BerthID: "b"}}, sim.MaxSharedRideParties)
+		v.RouteLaneIDs = slices.Repeat([]string{"l"}, route)
+	}
+	raw, err := json.Marshal(frame)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err = PrescanStateFrameJSON(append(raw, '\n')); err != nil {
+		t.Fatal("widest state frame failed the bounded scan", err)
+	}
+	t.Logf("widest state frame with one-byte lane IDs: %d bytes", len(raw)+1)
+
+	classes, err := sim.NewClassSet("legacy", "compact", "group", "express")
+	if err != nil {
+		t.Fatal(err)
+	}
+	state := State{Simulation: sim.Snapshot{Vehicles: make([]sim.Vehicle, project.MaxPods), Pending: make([]sim.Request, maxSavedTrips)}}
+	state.Network.Nodes = make([]sim.Node, project.MaxNodes)
+	state.Network.Lanes = make([]sim.Lane, project.MaxLanes)
+	state.Network.Lanes[0].VehicleClasses = classes
+	state.Network.Stations = make([]sim.Station, project.MaxStations)
+	station := &state.Network.Stations[0]
+	station.VehicleClasses = classes
+	station.Berths = make([]sim.Berth, project.MaxBerths)
+	station.Berths[0].VehicleClasses = classes
+	station.Banks = make([]sim.StationBank, sim.MaxStationBanks)
+	station.Banks[0].BerthIDs = make([]string, project.MaxBerths)
+	state.Simulation.Vehicles[0].Route = make([]sim.Lane, route)
+	state.Simulation.Vehicles[0].Riders = make([]sim.Request, sim.MaxSharedRideParties)
+	state.Simulation.Vehicles[0].Stops = make([]string, sim.MaxSharedRideParties)
+	raw, err = json.Marshal(state)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err = PrescanStateFrameJSON(append(raw, '\n')); err != nil {
+		t.Fatal("widest earlier state failed the bounded scan", err)
+	}
+}
+
+func TestPrescanStateFrameJSONBounds(t *testing.T) {
+	t.Parallel()
+	zeros := func(n int) string { return "[" + strings.TrimSuffix(strings.Repeat("0,", n), ",") + "]" }
+	tests := []struct {
+		name string
+		raw  string
+		want error
+	}{
+		{"deeper than the stream limit", `{"x":` + strings.Repeat("[", 65) + strings.Repeat("]", 65) + `}`, errJSONTooDeep},
+		{"vehicles past the fleet bound", `{"simulation":{"Vehicles":` + zeros(project.MaxPods+1) + `}}`, errJSONArrayTooLong},
+		{"folded pending past the order bound", `{"SIMULATION":{"pending":` + zeros(maxSavedTrips+1) + `}}`, errJSONArrayTooLong},
+		{"riders past the order bound", `{"simulation":{"Vehicles":[{"Riders":` + zeros(sim.MaxSharedRideParties+1) + `}]}}`, errJSONArrayTooLong},
+		{"route past the element limit", `{"simulation":{"Vehicles":[{"RouteLaneIDs":` + zeros(65537) + `}]}}`, errJSONArrayTooLong},
+		{"lanes past the network bound", `{"network":{"Lanes":` + zeros(project.MaxLanes+1) + `}}`, errJSONArrayTooLong},
+		{"invalid UTF-8", "{\"epoch\":\"\xff\"}", nil},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			if err := PrescanStateFrameJSON([]byte(test.raw)); !errors.Is(err, test.want) {
+				t.Fatalf("got %v, want %v", err, test.want)
+			}
+		})
+	}
+}
