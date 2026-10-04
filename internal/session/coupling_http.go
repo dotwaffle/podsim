@@ -58,15 +58,9 @@ func DecodeCouplingStateJSON(raw []byte) (State, error) {
 	if len(raw) > MaxStreamJSON {
 		return State{}, errors.New("HTTP state exceeds supported limit")
 	}
-	var header struct {
-		OrderContract sim.OrderContract `json:"orderContract"`
-	}
-	if err := jsonv2.Unmarshal(raw, &header, json.DefaultOptionsV1()); err != nil {
-		return State{}, err
-	}
-	packed := header.OrderContract == sim.ExpressOrderContract
-	if err := prescanJSON(raw, couplingStreamLimits(packed)); err != nil {
-		return State{}, err
+	packed, scanErr := scanCouplingOrderContract(raw)
+	if scanErr != nil {
+		return State{}, scanErr
 	}
 	if err := scanCouplingPublicJSON(raw, true); err != nil {
 		return State{}, err

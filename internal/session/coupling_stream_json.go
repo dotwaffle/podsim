@@ -15,15 +15,9 @@ import (
 )
 
 func decodeCouplingStreamJSON(data []byte) (StreamEnvelope, error) {
-	var header struct {
-		OrderContract sim.OrderContract `json:"orderContract"`
-	}
-	if err := jsonv2.Unmarshal(data, &header, json.DefaultOptionsV1()); err != nil {
-		return StreamEnvelope{}, err
-	}
-	packed := header.OrderContract == sim.ExpressOrderContract
-	if err := prescanJSON(data, couplingStreamLimits(packed)); err != nil {
-		return StreamEnvelope{}, err
+	packed, scanErr := scanCouplingOrderContract(data)
+	if scanErr != nil {
+		return StreamEnvelope{}, scanErr
 	}
 	if err := scanCouplingStreamJSON(data); err != nil {
 		return StreamEnvelope{}, err
@@ -52,6 +46,29 @@ func decodeCouplingStreamJSON(data []byte) (StreamEnvelope, error) {
 		err = decodeStreamJSON(data, &envelope)
 	}
 	return envelope, err
+}
+
+// scanCouplingOrderContract reads the order marker of a coupling document
+// and bounds the document with the limits of that marker. The packed limits
+// contain the unpacked limits, so the first scan bounds the header decode
+// without rejecting a document that the exact scan accepts.
+func scanCouplingOrderContract(data []byte) (bool, error) {
+	if err := prescanJSON(data, couplingStreamLimits(true)); err != nil {
+		return false, err
+	}
+	var header struct {
+		OrderContract sim.OrderContract `json:"orderContract"`
+	}
+	if err := jsonv2.Unmarshal(data, &header, json.DefaultOptionsV1()); err != nil {
+		return false, err
+	}
+	packed := header.OrderContract == sim.ExpressOrderContract
+	if !packed {
+		if err := prescanJSON(data, couplingStreamLimits(false)); err != nil {
+			return false, err
+		}
+	}
+	return packed, nil
 }
 
 func couplingStreamLimits(packed bool) jsonLimits {

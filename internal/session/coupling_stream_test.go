@@ -3,8 +3,12 @@ package session
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"maps"
 	"reflect"
+	"slices"
+	"strings"
 	"testing"
 
 	"github.com/dotwaffle/podsim/internal/sim"
@@ -248,6 +252,196 @@ func TestCouplingStreamReservedFieldsAndShape(t *testing.T) {
 			t.Parallel()
 			if _, err := DecodeStreamJSONVersion(test.edit(raw), CouplingStreamVersion); err == nil {
 				t.Fatal("accepted an incomplete mechanical wire shape")
+			}
+		})
+	}
+}
+
+// streamFamilyFrames returns one frame of each stream family and a changed
+// successor for deltas.
+func TestCouplingStreamLimitsPackedContainUnpacked(t *testing.T) {
+	t.Parallel()
+	wide, exact := couplingStreamLimits(true), couplingStreamLimits(false)
+	if wide.depth != exact.depth || wide.elements != exact.elements || wide.members != exact.members ||
+		wide.stringBytes != exact.stringBytes || wide.foldNames != exact.foldNames || wide.allowInvalidUTF8 != exact.allowInvalidUTF8 {
+		t.Fatal("packed and unpacked coupling limits differ outside array bounds")
+	}
+	if !maps.Equal(maps.Collect(func(yield func(string, bool) bool) {
+		for path := range wide.arrays {
+			if !yield(path, true) {
+				return
+			}
+		}
+	}), maps.Collect(func(yield func(string, bool) bool) {
+		for path := range exact.arrays {
+			if !yield(path, true) {
+				return
+			}
+		}
+	})) {
+		t.Fatal("packed and unpacked coupling limits bound different paths")
+	}
+	for path, bound := range exact.arrays {
+		if wide.arrays[path] < bound {
+			t.Fatalf("packed bound %d of %s is below unpacked bound %d", wide.arrays[path], path, bound)
+		}
+	}
+}
+
+func couplingDecoders() map[string]func([]byte) error {
+	return map[string]func([]byte) error{
+		"stream": func(raw []byte) error {
+			_, err := DecodeStreamJSONVersion(raw, CouplingStreamVersion)
+			return err
+		},
+		"http": func(raw []byte) error {
+			_, err := DecodeCouplingStateJSON(raw)
+			return err
+		},
+	}
+}
+
+// The bounded scan runs before the header decode, so a document deeper than
+// the jsontext decoder's own cap fails with the scan error.
+func TestCouplingDecodeBoundsBeforeHeader(t *testing.T) {
+	t.Parallel()
+	zeros := func(n int) string { return "[" + strings.TrimSuffix(strings.Repeat("0,", n), ",") + "]" }
+	members := func(n int) string {
+		var b strings.Builder
+		for i := range n {
+			fmt.Fprintf(&b, `,"m%d":0`, i)
+		}
+		return b.String()
+	}
+	packed := `"orderContract":"` + string(sim.ExpressOrderContract) + `","textEncoding":"` + ExpressTextEncoding + `",`
+	tests := []struct {
+		name string
+		raw  string
+		want error
+	}{
+		{"deeper than the decoder cap", `{"couplingContract":"compact-pair-v1","x":` + strings.Repeat("[", 20000) + strings.Repeat("]", 20000) + `}`, errJSONTooDeep},
+		{"deeper than the decoder cap under the marker", `{"orderContract":` + strings.Repeat("[", 20000) + strings.Repeat("]", 20000) + `}`, errJSONTooDeep},
+		{"deeper than the stream limit", `{"x":` + strings.Repeat("[", 65) + strings.Repeat("]", 65) + `}`, errJSONTooDeep},
+		{"array past the element limit", `{"x":` + zeros(65537) + `}`, errJSONArrayTooLong},
+		{"object past the member limit", `{"x":0` + members(256) + `}`, errJSONObjectTooLong},
+		{"unpacked full pending past the unpacked bound", `{"full":{"state":{"simulation":{"Pending":` + zeros(maxSavedTrips+1) + `}}}}`, errJSONArrayTooLong},
+		{"unpacked frame pending past the unpacked bound", `{"frame":{"state":{"simulation":{"Pending":` + zeros(maxSavedTrips+1) + `}}}}`, errJSONArrayTooLong},
+		{"unpacked delta riders past the unpacked bound", `{"delta":{"vehicles":[{"riders":{"value":` + zeros(9) + `}}]}}`, errJSONArrayTooLong},
+		{"packed full pending past the packed bound", `{` + packed + `"full":{"state":{"simulation":{"Pending":` + zeros(sim.MaxExpressWaitingTrips+1) + `}}}}`, errJSONArrayTooLong},
+		{"packed frame pending past the packed bound", `{` + packed + `"frame":{"state":{"simulation":{"Pending":` + zeros(sim.MaxExpressWaitingTrips+1) + `}}}}`, errJSONArrayTooLong},
+		{"folded marker pending past the packed bound", `{"ORDERCONTRACT":"` + string(sim.ExpressOrderContract) + `","full":{"state":{"simulation":{"Pending":` + zeros(sim.MaxExpressWaitingTrips+1) + `}}}}`, errJSONArrayTooLong},
+		{"groups past the coupling bound", `{"couplingGroups":` + zeros(151) + `}`, errJSONArrayTooLong},
+	}
+	for name, decode := range couplingDecoders() {
+		for _, test := range tests {
+			t.Run(name+"/"+test.name, func(t *testing.T) {
+				t.Parallel()
+				if err := decode([]byte(test.raw)); !errors.Is(err, test.want) {
+					t.Fatalf("got %v, want %v", err, test.want)
+				}
+			})
+		}
+	}
+}
+
+func TestScanCouplingOrderContract(t *testing.T) {
+	t.Parallel()
+	express := string(sim.ExpressOrderContract)
+	tests := []struct {
+		name   string
+		raw    string
+		packed bool
+		err    bool
+	}{
+		{"absent", `{"kind":"full"}`, false, false},
+		{"express", `{"orderContract":"` + express + `"}`, true, false},
+		{"folded express", `{"ORDERCONTRACT":"` + express + `"}`, true, false},
+		{"escaped express", `{"order\u0043ontract":"` + express + `"}`, true, false},
+		{"other contract", `{"orderContract":"other"}`, false, false},
+		{"null", `{"orderContract":null}`, false, false},
+		{"nested", `{"full":{"orderContract":"` + express + `"}}`, false, false},
+		{"duplicate last wins", `{"orderContract":"` + express + `","orderContract":"other"}`, false, false},
+		{"duplicate last wins express", `{"orderContract":"other","orderContract":"` + express + `"}`, true, false},
+		{"number", `{"orderContract":1}`, false, true},
+		{"array document", `[]`, false, true},
+		{"too deep", `{"a":` + strings.Repeat("[", 65) + strings.Repeat("]", 65) + `}`, false, true},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			packed, err := scanCouplingOrderContract([]byte(test.raw))
+			if (err != nil) != test.err || packed != test.packed {
+				t.Fatalf("got packed=%t err=%v, want packed=%t err=%t", packed, err, test.packed, test.err)
+			}
+		})
+	}
+}
+
+func TestCouplingDecodeMarkerNamesAndRoundTrip(t *testing.T) {
+	t.Parallel()
+	data := couplingPhaseFixtures(t)
+	for _, order := range []sim.OrderContract{"", sim.ExpressOrderContract} {
+		t.Run(string(order), func(t *testing.T) {
+			t.Parallel()
+			_, topology, frame := couplingStreamFixture(t, data.Frames[0], order)
+			stream, err := EncodeStreamJSON(couplingFullEnvelope(frame))
+			if err != nil {
+				t.Fatal(err)
+			}
+			http, err := EncodeCouplingStateJSON(topology, frame)
+			if err != nil {
+				t.Fatal(err)
+			}
+			marker := []byte(`"orderContract":"` + string(order) + `"`)
+			if order == "" {
+				marker = []byte(`"couplingContract":"compact-pair-v1"`)
+			}
+			for name, raw := range map[string][]byte{"stream": stream, "http": http} {
+				if !bytes.Contains(raw, marker) {
+					t.Fatal("fixture lost its root marker", name)
+				}
+				wantStream, streamErr := DecodeStreamJSONVersion(raw, CouplingStreamVersion)
+				wantHTTP, httpErr := DecodeCouplingStateJSON(raw)
+				if name == "stream" && streamErr != nil || name == "http" && httpErr != nil {
+					t.Fatal("canonical document rejected", streamErr, httpErr)
+				}
+				for _, test := range []struct {
+					name   string
+					edit   func([]byte) []byte
+					accept bool
+				}{
+					{"duplicate marker", func(raw []byte) []byte {
+						return bytes.Replace(raw, marker, append(append(append([]byte{}, marker...), ','), marker...), 1)
+					}, false},
+					{"folded duplicate marker", func(raw []byte) []byte {
+						folded := bytes.ToUpper(marker[:bytes.IndexByte(marker, ':')])
+						return bytes.Replace(raw, marker, append(append(append(append([]byte{}, marker...), ','), folded...), marker[bytes.IndexByte(marker, ':'):]...), 1)
+					}, false},
+					{"folded marker name", func(raw []byte) []byte {
+						folded := bytes.ToUpper(marker[:bytes.IndexByte(marker, ':')])
+						return bytes.Replace(raw, marker, append(folded, marker[bytes.IndexByte(marker, ':'):]...), 1)
+					}, true},
+					{"null marker", func(raw []byte) []byte {
+						return bytes.Replace(raw, marker, append(slices.Clone(marker[:bytes.IndexByte(marker, ':')+1]), []byte("null")...), 1)
+					}, false},
+				} {
+					edited := test.edit(raw)
+					if bytes.Equal(edited, raw) {
+						t.Fatal("edit missed the marker", name, test.name)
+					}
+					gotStream, streamErr := DecodeStreamJSONVersion(edited, CouplingStreamVersion)
+					gotHTTP, httpErr := DecodeCouplingStateJSON(edited)
+					err := httpErr
+					if name == "stream" {
+						err = streamErr
+					}
+					if (err == nil) != test.accept {
+						t.Fatalf("%s %s: accept=%t err=%v", name, test.name, test.accept, err)
+					}
+					if test.accept && (name == "stream" && !reflect.DeepEqual(gotStream, wantStream) || name == "http" && !reflect.DeepEqual(gotHTTP, wantHTTP)) {
+						t.Fatal("folded marker changed decoded values", name)
+					}
+				}
 			}
 		})
 	}
