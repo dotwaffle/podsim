@@ -1652,10 +1652,11 @@ mise run check
 
 | Task | What it runs |
 | --- | --- |
-| `mise run check` | Workflow validation, Markdown checks, race tests, the qualification tests without the race detector, the `test:web` tests, vet, lint, vulnerability checks, the native and browser builds, and the embedded server tests. |
+| `mise run check` | Workflow validation, Markdown checks, race tests, the tests that skip under the race detector, the `test:web` tests, vet, lint, vulnerability checks, the native and browser builds, and the embedded server tests. |
 | `mise run format` | Formats the Go sources and the Markdown files. |
 | `mise run test:web` | Only the editor, loader, and page tests. |
-| `mise run qualify` | The `internal/scenarios` qualification tests for scale, safety, and repeatability, without the race detector. The two Station 19 drain tests skip under the race detector, so in `mise run check` only this task runs them. |
+| `mise run qualify` | The two Station 19 drain tests in `internal/scenarios`, without the race detector. These tests skip under the race detector, so in `mise run check` only this task runs them. The `test:race` task runs the other scenario tests. |
+| `mise run test:embedded` | The root and `cmd/serve` tests with the `embed_assets` tag. It also runs the session tests that skip under the race detector or check more without it. The `test:race` task runs the other session tests. |
 | `mise run benchmark` | 6,000 simulation steps on the 100-pod ring fixture, not on the current `scale100` mesh. |
 
 `mise.toml` tracks Go 1.27, rumdl 0.2, and major versions for the other development tools.

@@ -68,7 +68,14 @@ run = "go generate ./..."
 [tasks."test:embedded"]
 description = "Check the embedded production server"
 depends = ["web"]
-run = "go test -tags=embed_assets . ./cmd/serve ./internal/session"
+# The session package does not use the embed_assets tag, and test:race
+# runs its other tests. The second command runs only the session tests
+# that skip under -race or check more without it. Add such a test to
+# this pattern, because a pattern that matches no test passes.
+run = '''
+go test -tags=embed_assets . ./cmd/serve
+go test -tags=embed_assets ./internal/session -run '^(TestStateFileWorstCaseSize|TestExpressWidestSaveAdapters|TestExpressWidestStreamAdapters|TestExpressWidestTopologyHTTPAdapters|TestStreamMaximumEncoding)$'
+'''
 
 [tasks.serve]
 description = "Build and serve the browser application"
@@ -96,12 +103,12 @@ description = "Run repeatable demand and policy experiments"
 run = "go run ./cmd/compare"
 
 [tasks.qualify]
-description = "Check scale, safety, and repeatability"
+description = "Run the Station 19 scale and safety tests without the race detector"
 # A long test that runs one simulation on one goroutine skips under -race,
 # because the race detector finds nothing there and makes it 10 times
 # slower. The check task runs this task, so such a test must be in
-# internal/scenarios.
-run = "go test ./internal/scenarios -count=1 -v"
+# internal/scenarios and in this pattern. test:race runs the other tests.
+run = "go test ./internal/scenarios -count=1 -v -run '^TestScale100Station19(Queue|Burst)DrainsSafely$'"
 
 [tasks.benchmark]
 description = "Measure 6000 simulation steps on the 100-pod scenario"

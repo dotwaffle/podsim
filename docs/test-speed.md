@@ -52,3 +52,24 @@ The final deadline tests also passed five repetitions under the race detector.
 
 Raw timing events, profiles, source hashes, and validation logs remain in `~/.cache/agents/podsim/test-speed-20260930/`.
 The cache's `analysis.json` records individual stages and their limits.
+
+## CI test selection
+
+The October 4 CI review found two plain commands that repeated tests of the race task.
+The `test:embedded` task ran the full session suite with the `embed_assets` tag.
+The session package and its test dependencies compile the same files with and without that tag.
+The `qualify` task ran the full scenario suite without the race detector.
+
+The `test:race` task still runs every test.
+The `qualify` task now runs only the two Station 19 drain tests, which skip under the race detector.
+The `test:embedded` task runs the full root and `cmd/serve` suites with the tag.
+In the session package, it runs only the four maximum codec tests that skip under the race detector and `TestStreamMaximumEncoding`.
+That test does its bounded-scan checks only without the race detector.
+A new test that skips under the race detector must be added to the `-run` pattern of one of these tasks.
+A pattern that matches no test passes.
+
+`TestStreamLargeRouteWire` checked 20 publications of the same shape, with 200 pods and 8,000-lane routes.
+Now it checks five publications: the first, the sequences where the width changes from 1 to 2, 9 to 10, and 19 to 20 decimal digits, and the largest sequence.
+Each publication must have a smaller delta than the legacy HTTP state.
+`BenchmarkStreamLargeRouteWire` repeats the publication and reports bytes and encode time for each publication.
+On a local race run, the test took 20.1 seconds, compared with 81.8 seconds before.

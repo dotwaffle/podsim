@@ -47,7 +47,7 @@ The legal 65 MiB payload, production 30-second deadline, stalled-reader error, a
 The required plain `test:bounds` task retains every maximum checkpoint shape assertion.
 The unchanged 80 MiB guard rejects the 1,265,591,604-byte counting envelope and accepts the 72,104,395-byte fitting envelope.
 Only this serial shape proof excludes race instrumentation in its package.
-Four maximum session codec proofs and the maximum gzip application proof run in the required plain embedded suite.
+Four maximum session codec proofs, the bounded-scan checks of the maximum stream encoding, and the maximum gzip application proof run without race instrumentation in the required `test:embedded` task.
 Bounded application tests and concurrency controls remain under the complete race command.
 The source audit and qualification retain exact assertion-body comparisons and the prior tool failures.
 
