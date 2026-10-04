@@ -17,7 +17,7 @@ import (
 
 // DecodeStreamJSONVersion applies the connection's negotiated field contract.
 func DecodeStreamJSONVersion(data []byte, version int) (StreamEnvelope, error) {
-	if version < 1 || version > StreamVersion || len(data) > MaxStreamJSON {
+	if version < FoundationStreamVersion || version > StreamVersion || len(data) > MaxStreamJSON {
 		return StreamEnvelope{}, errors.New("unsupported stream version or size")
 	}
 	if version == CouplingStreamVersion {
@@ -55,11 +55,11 @@ func DecodeStreamJSONVersion(data []byte, version int) (StreamEnvelope, error) {
 	return envelope, err
 }
 
-// unpackedStreamLimits bound stream families 1 to 3 and unpacked coupling
+// unpackedStreamLimits bound stream family 3 and unpacked coupling
 // documents. They narrow the Express limits to the order bounds of the
 // unpacked contract. The assembler accepts at most maxSavedTrips pending
 // orders, and at most sim.MaxSharedRideParties riders and boarding records
-// for each vehicle. Earlier encoders had the same or smaller caps.
+// for each vehicle.
 func unpackedStreamLimits() jsonLimits {
 	limits := expressStreamLimits()
 	for _, prefix := range []string{"/full", "/frame"} {
@@ -81,21 +81,17 @@ func PrescanStateFrameJSON(data []byte) error {
 }
 
 // stateFrameLimits bound the state frame that the plain HTTP state endpoint
-// sends for families 1 to 3. The frame is the full frame of those stream
-// families, so it gets their limits without the "/full/state" prefix.
-// Servers before the topology endpoint sent the network in the state, so
-// the network gets the topology limits. Plain JSON decoding replaces
-// invalid UTF-8, so the scan accepts it.
+// sends for family 3. The frame is the full frame of that stream family, so
+// it gets its limits without the "/full/state" prefix. Plain JSON decoding
+// replaces invalid UTF-8, so the scan accepts it.
 func stateFrameLimits() jsonLimits {
 	stream := unpackedStreamLimits()
 	limits := stream
 	limits.allowInvalidUTF8 = true
 	limits.arrays = map[string]int64{}
 	for path, bound := range stream.arrays {
-		for _, prefix := range []string{"/full/state/", "/topology/"} {
-			if rest, found := strings.CutPrefix(path, prefix); found {
-				limits.arrays["/"+rest] = bound
-			}
+		if rest, found := strings.CutPrefix(path, "/full/state/"); found {
+			limits.arrays["/"+rest] = bound
 		}
 	}
 	// The frame has the complete route of each vehicle, not a route window.
@@ -134,9 +130,6 @@ func scanStreamServiceMembersContract(data []byte, version int, coupling bool) e
 		case "projectversion", "vehicleclasses", "class", "sharingconsent", "service", "serviceid", "legacycohort", "legacypartysize":
 		default:
 			continue
-		}
-		if version < FoundationStreamVersion {
-			return errors.New("legacy stream contains version 3 service fields")
 		}
 		if name == "vehicleclasses" {
 			// ClassSet checks the array's shape and values during typed decoding.
@@ -192,7 +185,7 @@ func scanStreamServiceMembersContract(data []byte, version int, coupling bool) e
 
 // NewStreamAssemblerVersion verifies topology against a negotiated hello.
 func NewStreamAssemblerVersion(topology TopologySnapshot, version int) (*StreamAssembler, error) {
-	if version < 1 || version > StreamVersion {
+	if version < FoundationStreamVersion || version > StreamVersion {
 		return nil, errors.New("unsupported stream version")
 	}
 	if err := validateStreamTopology(topology, version); err != nil {
@@ -239,19 +232,10 @@ func validateStreamTopology(topology TopologySnapshot, version int) error {
 	}
 	for _, station := range topology.Network.Stations {
 		banks = banks || station.Banks != nil
-		if version == 1 && station.Banks != nil {
-			return errors.New("version 1 stream cannot contain Banks")
-		}
 		classes = classes || station.VehicleClasses != 0
 		for _, berth := range station.Berths {
 			classes = classes || berth.VehicleClasses != 0
 		}
-	}
-	if version < FoundationStreamVersion {
-		if topology.ProjectVersion != 0 || classes {
-			return errors.New("legacy stream topology contains service metadata")
-		}
-		return nil
 	}
 	if topology.ProjectVersion < 1 || topology.ProjectVersion > project.ServiceVersion ||
 		classes && topology.ProjectVersion < project.ServiceVersion || banks && topology.ProjectVersion < project.BankVersion ||
@@ -264,9 +248,6 @@ func validateStreamTopology(topology TopologySnapshot, version int) error {
 func (a *StreamAssembler) serviceOrders(frame StreamFrame) error {
 	if a.topology.OrderContract == sim.ExpressOrderContract {
 		return a.expressOrders(frame)
-	}
-	if a.version < FoundationStreamVersion {
-		return nil
 	}
 	for _, request := range frame.State.Simulation.Pending {
 		if !validStreamOrder(request) || request.SharingConsent == sim.LegacyUnknownConsent {
@@ -313,9 +294,6 @@ func (a *StreamAssembler) serviceOrders(frame StreamFrame) error {
 }
 
 func (a *StreamAssembler) rememberClasses(frame StreamFrame) error {
-	if a.version < FoundationStreamVersion {
-		return nil
-	}
 	next := make(map[string]sim.VehicleClass, len(a.classes))
 	maps.Copy(next, a.classes)
 	for _, vehicle := range frame.State.Simulation.Vehicles {

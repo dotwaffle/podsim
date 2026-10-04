@@ -3,7 +3,6 @@ package session
 import (
 	"bytes"
 	"encoding/json"
-	"fmt"
 	"reflect"
 	"testing"
 
@@ -13,25 +12,6 @@ import (
 
 func TestStreamServiceMemberVersions(t *testing.T) {
 	t.Parallel()
-	for _, member := range []string{
-		`"Class":"compact"`, `"Class":null`,
-		`"SharingConsent":"private"`, `"SharingConsent":null`,
-		`"Service":"on-demand"`, `"Service":null`,
-		`"ServiceID":"route"`, `"ServiceID":null`,
-		`"LegacyCohort":false`, `"LegacyCohort":null`,
-		`"LegacyPartySize":false`, `"LegacyPartySize":null`,
-	} {
-		for _, version := range []int{1, 2} {
-			for _, wrapper := range []string{
-				`{"full":{"state":{"simulation":{"Vehicles":[{"Pod":{%s}}]}}}}`,
-				`{"delta":{"vehicles":[{"pod":{"value":{%s}}}]}}`,
-			} {
-				if _, err := DecodeStreamJSONVersion(fmt.Appendf(nil, wrapper, member), version); err == nil {
-					t.Errorf("hello%d accepted %s", version, member)
-				}
-			}
-		}
-	}
 	for _, member := range []string{
 		`"Class":null`, `"Class":""`, `"Class":"unknown"`,
 		`"SharingConsent":null`, `"SharingConsent":""`, `"SharingConsent":true`,
@@ -51,16 +31,6 @@ func TestStreamServiceTopologyVersions(t *testing.T) {
 	topology := shared.Topology()
 	if topology.ProjectVersion != project.Default().Version {
 		t.Fatalf("project version lost: %d", topology.ProjectVersion)
-	}
-	for _, version := range []int{1, 2} {
-		if _, err := NewStreamAssemblerVersion(topology, version); err == nil {
-			t.Errorf("hello%d accepted projectVersion", version)
-		}
-		legacy := topology
-		legacy.ProjectVersion = 0
-		if _, err := NewStreamAssemblerVersion(legacy, version); err != nil {
-			t.Errorf("hello%d rejected legacy: %v", version, err)
-		}
 	}
 	if _, err := NewStreamAssemblerVersion(topology, 3); err != nil {
 		t.Fatal(err)

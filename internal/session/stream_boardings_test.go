@@ -27,25 +27,9 @@ func boardingStreamFixture(t *testing.T) (TopologySnapshot, StreamFrame) {
 }
 
 func TestStreamBoardingPresence(t *testing.T) {
-	for _, member := range []string{`"Boardings":null`, `"Boardings":[]`, `"RiddenMeters":0`, `"rIdDeNmEtErS":null`} {
-		raw := []byte(`{"FuLl":{"StAtE":{"SiMuLaTiOn":{"vEhIcLeS":[{` + member + `}]}}}}`)
-		for _, version := range []int{1, 2} {
-			if _, err := DecodeStreamJSONVersion(raw, version); err == nil {
-				t.Errorf("hello%d accepted %s", version, member)
-			}
-		}
-	}
-	for _, raw := range []string{
-		`{"delta":{"vehicles":[{"bOaRdInGs":{"value":[]}}]}}`,
-		`{"delta":{"vehicles":[{"metadata":{"value":{"rIdDeNmEtErS":0}}}]}}`,
-	} {
-		if _, err := DecodeStreamJSONVersion([]byte(raw), 2); err == nil {
-			t.Errorf("legacy accepted %s", raw)
-		}
-	}
 	for _, raw := range []string{`{"full":{"state":{"simulation":{"Vehicles":[{"Pod":{"BerthID":"old"}}]}}}}`, `{"delta":{"vehicles":[{"pod":{"value":{"BerthID":"old"}}}]}}`} {
-		if _, err := DecodeStreamJSONVersion([]byte(raw), 2); err != nil {
-			t.Fatal("old berth path rejected", err)
+		if _, err := DecodeStreamJSONVersion([]byte(raw), FoundationStreamVersion); err != nil {
+			t.Fatal("pod berth path rejected", err)
 		}
 	}
 	for _, record := range []string{`null`, `[]`, `[null]`, `[{}]`, `[{"BerthID":"b"}]`, `[{"BerthID":null,"MetersAtBoarding":0}]`, `[{"BerthID":"b","MetersAtBoarding":null}]`, `[{"BerthID":"b","MetersAtBoarding":-1}]`, `[{"BerthID":"b","MetersAtBoarding":0,"extra":0}]`, `[{"BerthID":"b","berthid":"b","MetersAtBoarding":0}]`} {

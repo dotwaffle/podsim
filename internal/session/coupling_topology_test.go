@@ -38,7 +38,7 @@ func TestCouplingTopologyStandalone(t *testing.T) {
 			if err := json.Unmarshal(raw, &decoded); err != nil || !reflect.DeepEqual(topology, decoded) {
 				t.Fatal("standalone topology5 facts changed", err)
 			}
-			for version := 1; version < CouplingStreamVersion; version++ {
+			for version := FoundationStreamVersion; version < CouplingStreamVersion; version++ {
 				if _, err := NewStreamAssemblerVersion(decoded, version); err == nil {
 					t.Fatal("standalone topology5 enabled a live stream family", version)
 				}

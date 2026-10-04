@@ -200,13 +200,6 @@ func (cache *streamTopology) state(ctx context.Context, c *Client, candidate ses
 		if err := c.exchange(ctx, http.MethodGet, "/api/topology", nil, &topology); err != nil {
 			return session.State{}, err
 		}
-		if cache.version == 1 {
-			for _, station := range topology.Network.Stations {
-				if station.Banks != nil {
-					return session.State{}, errors.New("version 1 stream cannot contain Banks")
-				}
-			}
-		}
 		if topology.ServerStart != identity.ServerStart || topology.Epoch != identity.Epoch || topology.ProjectRevision != identity.ProjectRevision {
 			return session.State{}, errors.New("topology changed while reading stream")
 		}

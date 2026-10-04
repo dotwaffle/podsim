@@ -169,7 +169,7 @@ func TestCouplingPublisherFullDeltaAndResync(t *testing.T) {
 
 func TestCouplingHelloRequiresQualifiedMarkers(t *testing.T) {
 	t.Parallel()
-	for version := 1; version <= CouplingStreamVersion; version++ {
+	for version := FoundationStreamVersion; version <= CouplingStreamVersion; version++ {
 		for _, literal := range []string{"null", "false", "[]", `"unknown"`} {
 			raw := fmt.Appendf(nil, `{"kind":"hello","version":%d,"serverStart":"source","COUPLINGCONTRACT":%s}`, version, literal)
 			if _, err := DecodeStreamHello(raw); err == nil {

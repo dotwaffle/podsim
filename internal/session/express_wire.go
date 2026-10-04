@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	jsonv2 "encoding/json/v2"
 	"errors"
+	"fmt"
 	"maps"
 	"net/http"
 	"strings"
@@ -324,8 +325,11 @@ func DecodeStreamHello(raw []byte) (StreamHello, error) {
 	if err := decodeStreamJSON(raw, &hello); err != nil {
 		return hello, err
 	}
-	if hello.Kind != "hello" || hello.Version < 1 || hello.Version > StreamVersion || hello.ServerStart == "" {
+	if hello.Kind != "hello" || hello.ServerStart == "" {
 		return hello, errors.New("unsupported state stream protocol")
+	}
+	if hello.Version < FoundationStreamVersion || hello.Version > StreamVersion {
+		return hello, fmt.Errorf("unsupported state stream version %d", hello.Version)
 	}
 	if hello.Version == CouplingStreamVersion {
 		if err := scanCouplingStreamJSON(raw); err != nil {

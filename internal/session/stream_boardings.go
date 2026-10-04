@@ -68,9 +68,6 @@ func (a *StreamAssembler) vehicleBoardings(v VehicleFrame) error {
 	if err != nil {
 		return err
 	}
-	if len(v.Boardings) > 0 && a.version > 0 && a.version < FoundationStreamVersion {
-		return errors.New("legacy stream contains boarding records")
-	}
 	for i, record := range v.Boardings {
 		berth, ok := a.boardingBerths[record.BerthID]
 		if !ok || berth.station != v.Riders[i].From || berth.parkingOnly || !berth.stationClasses.Allows(string(v.Pod.Class)) || !berth.classes.Allows(string(v.Pod.Class)) {
@@ -124,9 +121,6 @@ func scanStreamBoardingMembers(data []byte, version int) error {
 		distance := name == "riddenmeters" && (full || metadata)
 		if !records && !distance {
 			continue
-		}
-		if version < FoundationStreamVersion {
-			return errors.New("legacy stream contains boarding fields")
 		}
 		raw, err := decoder.ReadValue()
 		if err != nil {

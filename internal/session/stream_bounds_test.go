@@ -1,13 +1,10 @@
 package session
 
 import (
-	"bytes"
 	"encoding/json"
-	"encoding/json/jsontext"
 	jsonv2 "encoding/json/v2"
 	"errors"
 	"fmt"
-	"io"
 	"reflect"
 	"slices"
 	"strings"
@@ -17,58 +14,18 @@ import (
 	"github.com/dotwaffle/podsim/internal/sim"
 )
 
-// foundationOnlyMembers are the members that families 1 and 2 reject.
-var foundationOnlyMembers = []string{"class", "sharingconsent", "service", "serviceid", "legacycohort", "legacypartysize", "boardings", "riddenmeters"}
-
-// stripStreamMembers removes the object members with the given lowercase
-// names. The result is the document that an encoder without those members
-// writes.
-func stripStreamMembers(t *testing.T, raw []byte, names []string) []byte {
-	t.Helper()
-	decoder := jsontext.NewDecoder(bytes.NewReader(raw))
-	var output bytes.Buffer
-	encoder := jsontext.NewEncoder(&output)
-	for {
-		token, err := decoder.ReadToken()
-		if errors.Is(err, io.EOF) {
-			return output.Bytes()
-		}
-		if err != nil {
-			t.Fatal(err)
-		}
-		kind, length := decoder.StackIndex(decoder.StackDepth())
-		if token.Kind() == jsontext.KindString && kind == jsontext.KindBeginObject && length%2 == 1 && slices.Contains(names, strings.ToLower(token.String())) {
-			if err := decoder.SkipValue(); err != nil {
-				t.Fatal(err)
-			}
-			continue
-		}
-		if err := encoder.WriteToken(token); err != nil {
-			t.Fatal(err)
-		}
-	}
-}
-
 // assertUnpackedStreamMaximum shows that the bounded scan accepts an
-// encoder maximum of families 1 to 3. Families 1 and 2 have no version 3
-// members, so their maximum is the historical document without them.
-func assertUnpackedStreamMaximum(t *testing.T, raw []byte, historical bool) {
+// encoder maximum of family 3.
+func assertUnpackedStreamMaximum(t *testing.T, raw []byte) {
 	t.Helper()
 	if raceEnabled {
 		return
 	}
-	documents := map[int][]byte{FoundationStreamVersion: raw}
-	if historical {
-		stripped := stripStreamMembers(t, raw, foundationOnlyMembers)
-		documents[1], documents[2] = stripped, stripped
+	if err := prescanJSON(raw, unpackedStreamLimits()); err != nil {
+		t.Fatalf("version %d maximum failed the bounded scan: %v", FoundationStreamVersion, err)
 	}
-	for version, document := range documents {
-		if err := prescanJSON(document, unpackedStreamLimits()); err != nil {
-			t.Fatalf("version %d maximum failed the bounded scan: %v", version, err)
-		}
-		if _, err := DecodeStreamJSONVersion(document, version); err != nil {
-			t.Fatalf("version %d maximum: %v", version, err)
-		}
+	if _, err := DecodeStreamJSONVersion(raw, FoundationStreamVersion); err != nil {
+		t.Fatalf("version %d maximum: %v", FoundationStreamVersion, err)
 	}
 }
 
@@ -87,7 +44,7 @@ func TestStreamDecodeBoundsBeforeTokenScans(t *testing.T) {
 		return b.String()
 	}
 	deep := strings.Repeat("[", 20000) + strings.Repeat("]", 20000)
-	for version := 1; version <= ExpressStreamVersion; version++ {
+	for version := FoundationStreamVersion; version <= ExpressStreamVersion; version++ {
 		pending, riders := maxSavedTrips, sim.MaxSharedRideParties
 		if version == ExpressStreamVersion {
 			pending, riders = sim.MaxExpressWaitingTrips, sim.MaxExpressParties
@@ -153,8 +110,8 @@ func decodeStreamJSONVersionUnbounded(data []byte, version int) (StreamEnvelope,
 	return envelope, err
 }
 
-// streamFamilyDocuments returns a full and a delta publication of each
-// family before version 5.
+// streamFamilyDocuments returns a full and a delta publication of
+// families 3 and 4.
 func streamFamilyDocuments(t *testing.T) map[int][][]byte {
 	t.Helper()
 	encode := func(e StreamEnvelope) []byte {
@@ -185,10 +142,6 @@ func streamFamilyDocuments(t *testing.T) map[int][][]byte {
 		t.Fatal(err)
 	}
 	foundation := publications(a, b, "")
-	var legacy [][]byte
-	for _, raw := range foundation {
-		legacy = append(legacy, stripStreamMembers(t, raw, foundationOnlyMembers))
-	}
 
 	_, express := expressGuardFrame(t)
 	next := ownStreamBoardings(express)
@@ -196,17 +149,12 @@ func streamFamilyDocuments(t *testing.T) map[int][][]byte {
 	next.State.Simulation.Tick++
 	vehicle := &next.State.Simulation.Vehicles[0]
 	vehicle.Riders, vehicle.Boardings = vehicle.Riders[1:], vehicle.Boardings[1:]
-	return map[int][][]byte{1: legacy, 2: legacy, FoundationStreamVersion: foundation, ExpressStreamVersion: publications(express, next, sim.ExpressOrderContract)}
+	return map[int][][]byte{FoundationStreamVersion: foundation, ExpressStreamVersion: publications(express, next, sim.ExpressOrderContract)}
 }
 
 func TestStreamDecodeMatchesUnboundedDecoder(t *testing.T) {
 	t.Parallel()
 	families := streamFamilyDocuments(t)
-	// The current encoder writes version 3 members, so the documents of
-	// families 1 and 2 leave them out.
-	if _, err := DecodeStreamJSONVersion(families[FoundationStreamVersion][1], 1); err == nil {
-		t.Fatal("family 1 accepted version 3 members")
-	}
 	for version, documents := range families {
 		for _, raw := range documents {
 			want, wantErr := decodeStreamJSONVersionUnbounded(raw, version)
@@ -225,9 +173,7 @@ func TestStreamDecodeMatchesUnboundedDecoder(t *testing.T) {
 }
 
 // The plain HTTP state endpoint sends the full state frame with complete
-// routes. Its widest shape passes the bounded scan. Servers before the
-// topology endpoint sent the network and lane routes in the state, and
-// their widest shape passes too.
+// routes. Its widest shape passes the bounded scan.
 func TestPrescanStateFrameJSONAcceptsServerMaximum(t *testing.T) {
 	if raceEnabled {
 		t.Skip("maximum state frame proof runs without the race detector")
@@ -247,32 +193,6 @@ func TestPrescanStateFrameJSONAcceptsServerMaximum(t *testing.T) {
 		t.Fatal("widest state frame failed the bounded scan", err)
 	}
 	t.Logf("widest state frame with one-byte lane IDs: %d bytes", len(raw)+1)
-
-	classes, err := sim.NewClassSet("legacy", "compact", "group", "express")
-	if err != nil {
-		t.Fatal(err)
-	}
-	state := State{Simulation: sim.Snapshot{Vehicles: make([]sim.Vehicle, project.MaxPods), Pending: make([]sim.Request, maxSavedTrips)}}
-	state.Network.Nodes = make([]sim.Node, project.MaxNodes)
-	state.Network.Lanes = make([]sim.Lane, project.MaxLanes)
-	state.Network.Lanes[0].VehicleClasses = classes
-	state.Network.Stations = make([]sim.Station, project.MaxStations)
-	station := &state.Network.Stations[0]
-	station.VehicleClasses = classes
-	station.Berths = make([]sim.Berth, project.MaxBerths)
-	station.Berths[0].VehicleClasses = classes
-	station.Banks = make([]sim.StationBank, sim.MaxStationBanks)
-	station.Banks[0].BerthIDs = make([]string, project.MaxBerths)
-	state.Simulation.Vehicles[0].Route = make([]sim.Lane, route)
-	state.Simulation.Vehicles[0].Riders = make([]sim.Request, sim.MaxSharedRideParties)
-	state.Simulation.Vehicles[0].Stops = make([]string, sim.MaxSharedRideParties)
-	raw, err = json.Marshal(state)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err = PrescanStateFrameJSON(append(raw, '\n')); err != nil {
-		t.Fatal("widest earlier state failed the bounded scan", err)
-	}
 }
 
 func TestPrescanStateFrameJSONBounds(t *testing.T) {
@@ -288,7 +208,6 @@ func TestPrescanStateFrameJSONBounds(t *testing.T) {
 		{"folded pending past the order bound", `{"SIMULATION":{"pending":` + zeros(maxSavedTrips+1) + `}}`, errJSONArrayTooLong},
 		{"riders past the order bound", `{"simulation":{"Vehicles":[{"Riders":` + zeros(sim.MaxSharedRideParties+1) + `}]}}`, errJSONArrayTooLong},
 		{"route past the element limit", `{"simulation":{"Vehicles":[{"RouteLaneIDs":` + zeros(65537) + `}]}}`, errJSONArrayTooLong},
-		{"lanes past the network bound", `{"network":{"Lanes":` + zeros(project.MaxLanes+1) + `}}`, errJSONArrayTooLong},
 		{"invalid UTF-8", "{\"epoch\":\"\xff\"}", nil},
 	}
 	for _, test := range tests {

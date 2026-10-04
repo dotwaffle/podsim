@@ -224,10 +224,8 @@ func TestExpressPublicClassBindings(t *testing.T) {
 
 func TestExpressNegotiatedVersions(t *testing.T) {
 	topology, _ := expressGuardFrame(t)
-	for version := 1; version <= 3; version++ {
-		if _, err := NewStreamAssemblerVersion(topology, version); err == nil {
-			t.Fatal("foundation negotiation accepted Express topology", version)
-		}
+	if _, err := NewStreamAssemblerVersion(topology, FoundationStreamVersion); err == nil {
+		t.Fatal("foundation negotiation accepted Express topology")
 	}
 	for _, raw := range []string{
 		`{"kind":"hello","version":4,"serverStart":"source"}`,

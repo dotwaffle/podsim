@@ -66,10 +66,8 @@ A retained route that disagrees with its bank rejects the file before either res
 Existing missing-route and route-budget demotions remain.
 Physical restore retains position tolerances, resets speed, and rebuilds ordinary reservations.
 
-All sessions send stream hello version 2.
-Updated clients accept hello versions 1 and 2.
-Version 1 topology cannot contain banks.
-Older clients reject hello version 2.
+Sessions send stream hello version 3, 4, or 5, as the project selects.
+Clients reject hello versions 1 and 2.
 Geometry changes start a new stream chain and send the full network.
 
 This fixture does not change any default layout or controller setting.

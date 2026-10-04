@@ -31,14 +31,9 @@ func TestStreamBankProtocolVersions(t *testing.T) {
 				}
 				t.Cleanup(shared.Close)
 				topology := shared.Topology()
-				if version < 3 {
-					topology.ProjectVersion = 0
-				}
 				if banks == "valid" {
 					topology.Network = sim.BankExample()
-					if version == 3 {
-						topology.ProjectVersion = 2
-					}
+					topology.ProjectVersion = 2
 				}
 				topologyJSON := streamJSON(t, topology)
 				if banks == "empty" || banks == "null" {
@@ -93,15 +88,17 @@ func TestStreamBankProtocolVersions(t *testing.T) {
 				ctx, cancel := context.WithTimeout(t.Context(), 3*time.Second)
 				defer cancel()
 				err = client.receiveStream(ctx)
-				valid := version <= 3 && (banks == "omitted" || version >= 2 && banks == "valid")
+				valid := version == session.FoundationStreamVersion && (banks == "omitted" || banks == "valid")
 				_, connected, _ := client.View()
 				if connected != valid {
 					t.Fatalf("published=%t want=%t: %v", connected, valid, err)
 				}
-				if version == 1 && banks == "valid" && (err == nil || !strings.Contains(err.Error(), "version 1")) {
+				// The client rejects hello 1 and 2 from servers older than
+				// the version 3 service fields.
+				if version < session.FoundationStreamVersion && (err == nil || !strings.Contains(err.Error(), fmt.Sprintf("unsupported state stream version %d", version))) {
 					t.Fatalf("wrong rejection: %v", err)
 				}
-				if version == 4 && fetches.Load() != 0 {
+				if version != session.FoundationStreamVersion && fetches.Load() != 0 {
 					t.Fatal("unsupported hello fetched topology")
 				}
 			})

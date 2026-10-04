@@ -73,7 +73,8 @@ Older executables cannot restore a save with a new speed value they do not recog
 ## Shared state stream
 
 The server sends a text hello with `version`, `build`, and `serverStart` before any binary state message.
-The current stream version is 1.
+The version is 3 for a project without an order or coupling contract, 4 for the Express order contract without coupling, and 5 for the coupling contract.
+Clients reject versions 1 and 2, which servers sent before the version 3 service fields.
 Each binary message contains one gzip member and one JSON envelope.
 The envelope contains `kind`, `stream`, `sequence`, `base`, `build`, and `source`.
 Sequence and base use decimal strings.

@@ -411,20 +411,8 @@ func TestOnboardConsumerStreamLifecycle(t *testing.T) {
 		t.Fatal("consumer accepted unpaired same-length record replacement")
 	}
 	onboardConsumerStreamGuards(t, assembler, current)
-	full := onboardConsumerEnvelope(t, StreamEnvelope{Kind: "full", Stream: "occupied", Sequence: 1, Source: sourceOf(current), Build: current.State.Build, Full: &current})
-	encoded, err := encodeStream(full)
-	if err != nil {
-		t.Fatal(err)
-	}
-	raw, err := InflateStream(encoded)
-	if err != nil {
-		t.Fatal(err)
-	}
-	for _, version := range []int{1, 2} {
-		if _, err := DecodeStreamJSONVersion(raw, version); err == nil {
-			t.Fatalf("hello%d accepted occupied records", version)
-		}
-	}
+	// The occupied full frame decodes under hello 3.
+	onboardConsumerEnvelope(t, StreamEnvelope{Kind: "full", Stream: "occupied", Sequence: 1, Source: sourceOf(current), Build: current.State.Build, Full: &current})
 	for range 300 * sim.TicksPerSecond {
 		s.advance()
 		v := s.simulation.Snapshot().Vehicles[0]

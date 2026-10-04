@@ -71,7 +71,7 @@ func TestCouplingStreamRejectsPartialMemberDelta(t *testing.T) {
 
 func TestCouplingStreamOldFieldPresence(t *testing.T) {
 	t.Parallel()
-	for _, version := range []int{1, 2, 3, 4} {
+	for _, version := range []int{FoundationStreamVersion, ExpressStreamVersion} {
 		for _, name := range []string{"couplingContract", "couplingEnabled", "couplingGroups", "COUPLINGSITES", "couplingCorridors", "COUPLINGID"} {
 			for _, literal := range []string{"null", "false", "[]"} {
 				raw := fmt.Appendf(nil, `{"full":{"state":{"simulation":{"%s":%s}}}}`, name, literal)

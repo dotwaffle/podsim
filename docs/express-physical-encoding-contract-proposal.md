@@ -237,7 +237,7 @@ Every payload must validate before the assembler changes its current state or ac
 Recovery and a full-frame replacement must retain the negotiated contract.
 A project change that changes the contract closes the current stream and requires a new hello.
 
-Project 1 through 3, save 2 through 6, and stream hello 1 through 3 retain raw text meanings and their current limits.
+Project 1 through 3, save 2 through 6, and stream hello 3 retain raw text meanings and their current limits.
 Reject new markers, packed fields, new operating Express certificates, or larger semantic states under old versions.
 Do not infer base64 from a string's appearance.
 A raw old ID such as `YWJj` still means those four characters.

@@ -163,10 +163,8 @@ func TestExpressMarkersAndAtomicAssembly(t *testing.T) {
 			t.Fatal("accepted bad markers")
 		}
 	}
-	for version := 1; version <= 3; version++ {
-		if _, decodeErr := DecodeStreamJSONVersion(raw, version); decodeErr == nil {
-			t.Fatal("legacy accepted Express", version)
-		}
+	if _, decodeErr := DecodeStreamJSONVersion(raw, FoundationStreamVersion); decodeErr == nil {
+		t.Fatal("foundation family accepted Express")
 	}
 	assembler, err := NewStreamAssemblerVersion(shared.Topology(), 4)
 	if err != nil {

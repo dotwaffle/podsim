@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http/httptest"
 	"reflect"
 	"strings"
@@ -121,5 +122,34 @@ func TestStreamFutureFamilyRejected(t *testing.T) {
 	}
 	if _, err := NewStreamAssemblerVersion(TopologySnapshot{}, 5); err == nil {
 		t.Fatal("accepted unqualified stream5 assembler")
+	}
+}
+
+// Servers older than the version 3 service fields sent hello 1 or 2. The
+// client rejects those families at each entry point.
+func TestStreamLegacyFamiliesRejected(t *testing.T) {
+	t.Parallel()
+	shared, frame := streamFixture(t)
+	raw, err := EncodeStreamJSON(StreamEnvelope{Kind: "full", Stream: "s", Sequence: 1, Source: sourceOf(frame), Build: frame.State.Build, Full: &frame})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err = DecodeStreamJSONVersion(raw, FoundationStreamVersion); err != nil {
+		t.Fatal("hello3 publication", err)
+	}
+	if _, err = NewStreamAssemblerVersion(shared.Topology(), FoundationStreamVersion); err != nil {
+		t.Fatal("hello3 assembler", err)
+	}
+	for version := 1; version < FoundationStreamVersion; version++ {
+		hello := fmt.Appendf(nil, `{"kind":"hello","version":%d,"serverStart":"source"}`, version)
+		if _, err := DecodeStreamHello(hello); err == nil || !strings.Contains(err.Error(), fmt.Sprintf("unsupported state stream version %d", version)) {
+			t.Errorf("hello%d negotiation: %v", version, err)
+		}
+		if _, err := DecodeStreamJSONVersion(raw, version); err == nil {
+			t.Errorf("stream%d accepted a publication", version)
+		}
+		if _, err := NewStreamAssemblerVersion(shared.Topology(), version); err == nil {
+			t.Errorf("stream%d accepted an assembler", version)
+		}
 	}
 }

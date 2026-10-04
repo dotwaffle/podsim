@@ -195,7 +195,7 @@ func TestCouplingStreamReservedFieldsAndShape(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for version := 1; version < CouplingStreamVersion; version++ {
+	for version := FoundationStreamVersion; version < CouplingStreamVersion; version++ {
 		if _, err := DecodeStreamJSONVersion(raw, version); err == nil {
 			t.Fatal("old stream accepted physical train fields", version)
 		}
