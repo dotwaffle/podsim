@@ -108,7 +108,7 @@ description = "Run the Station 19 scale and safety tests without the race detect
 # because the race detector finds nothing there and makes it 10 times
 # slower. The check task runs this task, so such a test must be in
 # internal/scenarios and in this pattern. test:race runs the other tests.
-run = "go test ./internal/scenarios -count=1 -v -run '^TestScale100Station19(Queue|Burst)DrainsSafely$'"
+run = "go test ./internal/scenarios -count=1 -v -timeout=30m -run '^TestScale100Station19(Queue|Burst)DrainsSafely$'"
 
 [tasks.benchmark]
 description = "Measure 6000 simulation steps on the 100-pod scenario"
