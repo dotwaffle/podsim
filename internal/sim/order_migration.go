@@ -7,65 +7,6 @@ import (
 	"unicode/utf8"
 )
 
-// MigrateLegacyOrderState copies an old save's orders without inventing consent.
-// Call only for formats that predate effective order options. Native restore
-// requires effective options and does not perform this migration implicitly.
-func MigrateLegacyOrderState(state SavedState) (SavedState, error) {
-	if state.OrderContract != "" {
-		return SavedState{}, errors.New("legacy migration cannot accept an order contract")
-	}
-	next := state
-	if state.Demo != nil {
-		next.Demo = new(*state.Demo)
-	}
-	next.Pods = slices.Clone(state.Pods)
-	next.Waiting = slices.Clone(state.Waiting)
-	for i := range next.Pods {
-		pod := &next.Pods[i]
-		if pod.Class != "" || pod.LegacyCohort {
-			return SavedState{}, errors.New("legacy migration cannot accept new vehicle metadata")
-		}
-		pod.Riders = slices.Clone(pod.Riders)
-		pod.Stops = slices.Clone(pod.Stops)
-		pod.Route = slices.Clone(pod.Route)
-		if pod.Platoon != nil {
-			pod.Platoon = new(*pod.Platoon)
-			if pod.Platoon.TerminalCell != nil {
-				pod.Platoon.TerminalCell = new(*pod.Platoon.TerminalCell)
-			}
-		}
-		for j := range pod.Riders {
-			rider := &pod.Riders[j]
-			if err := legacyRequest(*rider); err != nil {
-				return SavedState{}, err
-			}
-			rider.SharingConsent, rider.Service = LegacyUnknownConsent, OnDemandService
-			rider.LegacyPartySize = rider.PartySize > MaxNewPartySize
-			pod.LegacyCohort = true
-		}
-	}
-	for i := range next.Waiting {
-		trip := &next.Waiting[i]
-		if err := legacyRequest(trip.Request); err != nil {
-			return SavedState{}, err
-		}
-		trip.Request.SharingConsent, trip.Request.Service = PrivateConsent, OnDemandService
-		trip.Request.LegacyPartySize = trip.Request.PartySize > MaxNewPartySize
-		trip.Route = slices.Clone(trip.Route)
-	}
-	if _, err := next.checkContract(); err != nil {
-		return SavedState{}, fmt.Errorf("legacy orders: %w", err)
-	}
-	return next, nil
-}
-
-func legacyRequest(request SavedRequest) error {
-	if request.SharingConsent != "" || request.Service != "" || request.ServiceID != "" || request.LegacyPartySize {
-		return errors.New("legacy migration cannot accept effective order metadata")
-	}
-	return nil
-}
-
 func validSavedOptionsWithOrderContract(request SavedRequest, contract OrderContract) bool {
 	if contract == ExpressOrderContract && (!utf8.ValidString(request.From) || !utf8.ValidString(request.To) || !utf8.ValidString(request.ServiceID) || !utf8.ValidString(request.PodID) || !utf8.ValidString(request.DispatchReason)) {
 		return false

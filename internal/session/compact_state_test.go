@@ -19,7 +19,7 @@ import (
 
 const compactShapeJSON = `{"kind":"compact-buffer-v1","phase":"compact","lane":"entry","members":["01"],"start":1,"frontier":100,"stopCells":[3],"speeds":[0],"targets":[20],"landingSpeeds":[1]}`
 
-func TestCompactQueueVersionAndShape(t *testing.T) {
+func TestCompactQueueShape(t *testing.T) {
 	t.Parallel()
 	fields := []string{"kind", "phase", "lane", "members", "start", "frontier", "stopCells", "speeds", "targets", "landingSpeeds"}
 	cases := []struct {
@@ -83,63 +83,49 @@ func TestCompactQueueVersionAndShape(t *testing.T) {
 			}{field + "/" + value, string(data), false})
 		}
 	}
-	for _, version := range []int{2, 3, 4, 5, 6} {
-		for _, tc := range cases {
-			t.Run(fmt.Sprintf("v%d/%s", version, tc.name), func(t *testing.T) {
-				t.Parallel()
-				file := legacyTestState(newTestStateFile(t), version)
-				if version == serviceStateVersion {
-					file = newTestStateFile(t)
-				}
-				if version == bankStateVersion {
-					file.Project = withBankMetadata(file.Project)
-				}
-				raw := decompressTestJSON(t, encodeTestState(t, file))
-				raw = bytes.Replace(raw, []byte(`"pods":[{`), []byte(`"pods":[{"compactQueue":`+tc.value+`,`), 1)
-				_, err := decodeStateFile(compressTestJSON(t, raw))
-				if accepted := err == nil; accepted != (version == serviceStateVersion && tc.valid) {
-					t.Fatalf("compact shape accepted=%t: %v", accepted, err)
-				}
-			})
-		}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			raw := decompressTestJSON(t, encodeTestState(t, newTestStateFile(t)))
+			raw = bytes.Replace(raw, []byte(`"pods":[{`), []byte(`"pods":[{"compactQueue":`+tc.value+`,`), 1)
+			_, err := decodeStateFile(compressTestJSON(t, raw))
+			if accepted := err == nil; accepted != tc.valid {
+				t.Fatalf("compact shape accepted=%t: %v", accepted, err)
+			}
+		})
 	}
 }
 
-func TestCompactFollowerVersionGate(t *testing.T) {
+func TestCompactFollowerShape(t *testing.T) {
 	t.Parallel()
-	for _, version := range []int{2, 3, 4, 5, 6} {
-		for _, tc := range []struct {
-			name, fields string
-			valid        bool
-		}{
-			{"valid", `"kind":"compact-buffer-v1","terminalCell":4,`, true},
-			{"missing terminal", `"kind":"compact-buffer-v1",`, false},
-			{"null terminal", `"kind":"compact-buffer-v1","terminalCell":null,`, false},
-			{"draining", `"kind":"compact-buffer-v1","terminalCell":4,"draining":true,`, false},
-			{"turned", `"kind":"compact-buffer-v1","terminalCell":4,"turn":0.1,`, false},
-			{"null turn", `"kind":"compact-buffer-v1","terminalCell":4,"turn":null,`, false},
-			{"escaped kind null turn", `"kind":"compact-\u0062uffer-v1","terminalCell":4,"turn":null,`, false},
-			{"null draining", `"kind":"compact-buffer-v1","terminalCell":4,"draining":null,`, false},
-		} {
-			t.Run(fmt.Sprintf("v%d/%s", version, tc.name), func(t *testing.T) {
-				t.Parallel()
-				file := legacyTestState(platoonStateFile(t), version)
-				if version == 5 {
-					file.Project = withBankMetadata(file.Project)
-				}
-				link := file.Simulation.Pods[1].Platoon
-				link.Lanes, link.Turn, link.Draining = 1, 0, false
-				raw := decompressTestJSON(t, encodeTestState(t, file))
-				if strings.Contains(tc.fields, `"turn":`) {
-					raw = bytes.Replace(raw, []byte(`,"turn":0`), nil, 1)
-				}
-				raw = bytes.Replace(raw, []byte(`"platoon":{`), []byte(`"platoon":{`+tc.fields), 1)
-				_, err := decodeStateFile(compressTestJSON(t, raw))
-				if (err == nil) != (version == serviceStateVersion && tc.valid) {
-					t.Fatalf("compact link accepted=%t: %v", err == nil, err)
-				}
-			})
-		}
+	for _, tc := range []struct {
+		name, fields string
+		valid        bool
+	}{
+		{"valid", `"kind":"compact-buffer-v1","terminalCell":4,`, true},
+		{"missing terminal", `"kind":"compact-buffer-v1",`, false},
+		{"null terminal", `"kind":"compact-buffer-v1","terminalCell":null,`, false},
+		{"draining", `"kind":"compact-buffer-v1","terminalCell":4,"draining":true,`, false},
+		{"turned", `"kind":"compact-buffer-v1","terminalCell":4,"turn":0.1,`, false},
+		{"null turn", `"kind":"compact-buffer-v1","terminalCell":4,"turn":null,`, false},
+		{"escaped kind null turn", `"kind":"compact-\u0062uffer-v1","terminalCell":4,"turn":null,`, false},
+		{"null draining", `"kind":"compact-buffer-v1","terminalCell":4,"draining":null,`, false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			file := platoonStateFile(t)
+			link := file.Simulation.Pods[1].Platoon
+			link.Lanes, link.Turn, link.Draining = 1, 0, false
+			raw := decompressTestJSON(t, encodeTestState(t, file))
+			if strings.Contains(tc.fields, `"turn":`) {
+				raw = bytes.Replace(raw, []byte(`,"turn":0`), nil, 1)
+			}
+			raw = bytes.Replace(raw, []byte(`"platoon":{`), []byte(`"platoon":{`+tc.fields), 1)
+			_, err := decodeStateFile(compressTestJSON(t, raw))
+			if (err == nil) != tc.valid {
+				t.Fatalf("compact link accepted=%t: %v", err == nil, err)
+			}
+		})
 	}
 }
 

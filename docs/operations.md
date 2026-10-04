@@ -256,23 +256,18 @@ It reports them as unaccounted orders at each restore, together with the orders 
 - `empty`: The server does not use the saved state and starts a new session.
   Except after a read failure, it moves `session.json.gz` to a rejected file.
 
-Ordinary sessions write saved-state version 2.
-An experimental station buffer session writes version 3 while admissions are enabled or buffer members remain.
-This server accepts versions 2, 3, 4, and 5.
-Version 3 adds the optional pod field `stationBuffered` and permits validated berthless occupancy of a station holding lane.
+A session without an order or coupling contract writes saved-state version 6.
+An Express session writes version 7, and a coupling session writes version 8.
+This server accepts versions 6, 7, and 8.
+Version 6 accepts project versions 1, 2, and 3.
+The server rejects versions 2 through 5 with reason `unsupported_version` and does not migrate them.
+A file with coupling markers is an exception at any version number: as for a damaged version 8 file, the server keeps the file, turns saving off, and fails to start.
+The optional pod field `stationBuffered` permits validated berthless occupancy of a station holding lane.
 Restore keeps those members draining, then applies the project's experimental policy settings.
-Version 2 rejects the field, including an explicit `false` value.
-The writer returns to version 2 after buffers are disabled and all members drain.
-Fixed station-entry platoons write version 4 until their certificates and shared ownership drain.
-Version 4 adds `kind` and `terminalCell` to buffer certificates.
-Versions 2 and 3 reject any occurrence of these fields, including empty or null values.
+Buffer certificates of fixed station-entry platoons have the fields `kind` and `terminalCell`.
 Invalid buffer certificates fail restoration without a logical fallback or partial member demotion.
 Explicit logical recovery validates those certificates physically before it requeues orders.
-The writer returns to the existing version 3 or version 2 rules after the links drain.
 See the [fixed entry contract](station-entry-platoons.md) for field and restore checks.
-Banked projects use project version 2 and saved-state version 5.
-Saved-state versions 2, 3, and 4 require project version 1.
-Version 5 requires project version 2 and retains the buffer and fixed entry fields.
 Bank-inconsistent retained routes reject restoration before either tier.
 See [independent station banks](station-banks.md) for bank membership, routing, and browser editing.
 An older server rejects an unsupported version and moves the file aside.
@@ -291,7 +286,7 @@ Reassignment cursors, cooldowns, counters, and experiment records reset after fi
 The saved routes and request bindings remain valid, but future experimental decisions can differ after restart.
 Older strict project readers reject exports that include these settings.
 See the [station buffer contract](station-buffer-state-proposal.md) for the experimental limits.
-The [file restart checks](experimental-policy-restarts.md) cover combined policies, version 2 loading, and canceled or failed-sync saves.
+The [file restart checks](experimental-policy-restarts.md) cover combined policies, the rejection of a version 2 file, and canceled or failed-sync saves.
 They do not simulate power loss.
 The optional project settings do not change command or WebSocket envelope formats.
 

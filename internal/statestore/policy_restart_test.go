@@ -10,7 +10,10 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"os"
+	"path/filepath"
 	"reflect"
+	"strings"
 	"testing"
 	"testing/synctest"
 	"time"
@@ -240,9 +243,12 @@ func TestCombinedPoliciesFileRestart(t *testing.T) {
 	}
 }
 
-func TestLegacyFileRestartWithExperimentalPolicies(t *testing.T) {
+// A version 2 save comes from a server before version 6. Startup moves it
+// aside as a rejected state and starts a new session that saves version 6.
+func TestLegacyFileArchivedAtStartup(t *testing.T) {
 	t.Parallel()
-	store := openStore(t, "file://"+t.TempDir())
+	dir := t.TempDir()
+	store := openStore(t, "file://"+dir)
 	config := project.Default()
 	shared := startPolicySession(t, store, &config)
 	reply := shared.Apply(session.Command{Client: "legacy", Sequence: 1, Epoch: shared.State().Epoch, Action: "trip", Origin: "garden", Destination: "market"})
@@ -280,17 +286,28 @@ func TestLegacyFileRestartWithExperimentalPolicies(t *testing.T) {
 		t.Fatal(err)
 	}
 	file["simulation"], file["version"] = raw, json.RawMessage("2")
-	mustWrite(t, store, encodePolicyState(t, file))
-	if string(policyStateJSON(t, mustRead(t, store))["version"]) != "2" {
-		t.Fatal("legacy fixture is not a version 2 save")
+	legacy := encodePolicyState(t, file)
+	mustWrite(t, store, legacy)
+
+	restarted := startPolicySession(t, store, &config)
+	if info := restarted.State().Restore; info.Tier != "empty" || info.Reason != "unsupported_version" {
+		t.Fatalf("legacy restore = %+v, want an empty session for an unsupported version", info)
 	}
-	config.StationBuffers, config.PickupReassignment = true, true
-	restored := startPolicySession(t, store, &config)
-	checkPolicyPhysicalRestore(t, restored)
-	if got := restored.Project().Project; !got.StationBuffers || !got.PickupReassignment {
-		t.Fatal("legacy restore lost the selected policy controls")
+	var archived []string
+	for _, name := range files(t, dir) {
+		if strings.HasPrefix(name, rejectedPrefix) {
+			archived = append(archived, name)
+		}
 	}
-	finishPolicyRun(t, restored, 1)
+	if len(archived) != 1 {
+		t.Fatalf("rejected files = %q, want one", archived)
+	}
+	if data, err := os.ReadFile(filepath.Join(dir, archived[0])); err != nil || !bytes.Equal(data, legacy) {
+		t.Fatal("the rejected file is not the version 2 save", err)
+	}
+	if got := string(policyStateJSON(t, mustRead(t, store))["version"]); got != "6" {
+		t.Fatalf("startup save version=%s, want 6", got)
+	}
 }
 
 func TestCombinedPolicyFailedFileSave(t *testing.T) {

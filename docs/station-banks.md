@@ -57,9 +57,8 @@ An explicit null or empty `Banks` member is invalid.
 Version 1 rejects any explicit `Banks` member.
 Both project readers and nested transport decoders bound banks and berth membership before typed allocation.
 
-Banked sessions write saved-state version 5.
-Versions 2, 3, and 4 require project version 1.
-Version 5 requires project version 2 and supports existing buffer fields and fixed entry certificates.
+Banked sessions write saved-state version 6, as other sessions without an order or coupling contract do.
+Version 6 accepts project versions 1, 2, and 3 and supports buffer fields and fixed entry certificates.
 No saved pod bank field is added.
 Restore infers the bank from retained gates, local lanes, and berth assignments.
 A retained route that disagrees with its bank rejects the file before either restore tier.

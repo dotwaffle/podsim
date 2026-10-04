@@ -12,7 +12,6 @@ import (
 	"io"
 	"maps"
 	"math"
-	"os"
 	"reflect"
 	"runtime"
 	"runtime/debug"
@@ -30,18 +29,6 @@ import (
 var update = flag.Bool("update", false, "write the golden files in testdata again")
 
 const (
-	// goldenStatePath holds the JSON form of newTestStateFile, indented.
-	goldenStatePath = "testdata/state_v2.json"
-	// stateMembersPath lists the members of the state file.
-	stateMembersPath = "testdata/state_v2_members.txt"
-	// stateMembersHeader starts the member list.
-	stateMembersHeader = `# Members of the session state file, version 2.
-# A change here needs a version bump: change stateVersion in state_file.go.
-# Until the first release, an added optional member with a safe zero value
-# keeps the version.
-# Each line is a member path and its JSON kind. "[]" is an array element.
-# TestStateFileMembers compares this list with the Go types.
-`
 	// testStateEpoch is a fixed epoch, so that the golden file does not
 	// change with each run.
 	testStateEpoch = "N4ZDMYDG2PQ6QJ5MIH3DTWMF7U"
@@ -215,49 +202,6 @@ func TestStateFileRoundTrip(t *testing.T) {
 	}
 }
 
-// TestStateFileGolden fixes the JSON form of the state file. The golden file
-// is indented, and the test removes the indentation before it compares. Run
-// the test with -update to write the file again.
-func TestStateFileGolden(t *testing.T) {
-	t.Parallel()
-	var encoder stateEncoder
-	if *update {
-		data, err := encoder.encode(legacyTestState(newTestStateFile(t), stateVersion))
-		if err != nil {
-			t.Fatal(err)
-		}
-		indented := jsontext.Value(decompressTestJSON(t, data))
-		if err := indented.Indent(jsontext.WithIndent("  ")); err != nil {
-			t.Fatal(err)
-		}
-		if err := os.WriteFile(goldenStatePath, append(indented, '\n'), 0o600); err != nil {
-			t.Fatal(err)
-		}
-	}
-	golden, err := os.ReadFile(goldenStatePath)
-	if err != nil {
-		t.Fatal(err)
-	}
-	want := jsontext.Value(golden)
-	if err = want.Compact(); err != nil {
-		t.Fatal(err)
-	}
-	file, err := decodeStateFile(compressTestJSON(t, want))
-	if err != nil {
-		t.Fatal(err)
-	}
-	if file.Demand.State.Generated == 0 || len(file.Simulation.Waiting) == 0 {
-		t.Fatalf("the golden state has no generated or queued order: %+v", file.Demand.State)
-	}
-	data, err := encoder.encode(file)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if got := decompressTestJSON(t, data); !bytes.Equal(got, want) {
-		t.Fatalf("the golden state encodes differently:\n%s", got)
-	}
-}
-
 func TestDecodeStateFileRejects(t *testing.T) {
 	t.Parallel()
 	valid := newTestStateFile(t)
@@ -295,6 +239,12 @@ func TestDecodeStateFileRejects(t *testing.T) {
 		{"not gzip", raw, reasonInvalidState, gzip.ErrHeader},
 		{"empty", nil, reasonInvalidState, io.EOF},
 		{"version 1", edit(func(file *stateFile) { file.Version = 1 }), reasonUnsupportedVersion, nil},
+		{"version 2", edit(func(file *stateFile) { file.Version = 2 }), reasonUnsupportedVersion, nil},
+		{"version 3", edit(func(file *stateFile) { file.Version = 3 }), reasonUnsupportedVersion, nil},
+		{"version 4", edit(func(file *stateFile) { file.Version = 4 }), reasonUnsupportedVersion, nil},
+		{"version 5", edit(func(file *stateFile) { file.Version = 5 }), reasonUnsupportedVersion, nil},
+		{"version 2 with old orders", compressTestJSON(t, []byte(`{"format":"podsim-session","version":2,"simulation":{"pods":[{"riders":[{"partySize":12}]}]}}`)), reasonUnsupportedVersion, nil},
+		{"version 9", edit(func(file *stateFile) { file.Version = 9 }), reasonUnsupportedVersion, nil},
 		{"format x", edit(func(file *stateFile) { file.Format = "x" }), reasonUnsupportedVersion, nil},
 		{"unknown member at the top", insert(`{`, `"extra":1,`), reasonInvalidState, json.ErrUnknownName},
 		{"unknown member in the project", insert(`"project":{`, `"extra":1,`), reasonInvalidState, json.ErrUnknownName},
@@ -743,7 +693,7 @@ func TestStateFileWorstCaseSize(t *testing.T) {
 
 	file := stateFile{
 		RailConnections: connections,
-		Format:          stateFormat, Version: stateVersion, Final: true,
+		Format:          stateFormat, Version: serviceStateVersion, Final: true,
 		SavedAt: time.Date(2026, time.September, 23, 9, 0, 0, 123456789, time.FixedZone("", -12*60*60)),
 		Build:   testBuildID, Epoch: strings.Repeat("\x01", maxEpochBytes),
 		Revision: math.MaxUint64 - 1, ProjectRevision: math.MaxUint64 - 1, Generation: math.MaxUint64 - 1,
@@ -768,68 +718,49 @@ func TestStateFileWorstCaseSize(t *testing.T) {
 	// A file with all pods and trips takes too long to encode with the race
 	// detector. The file has one of each. A comma separates the elements of
 	// an array, so each other pod or trip adds its size and 1.
-	for _, version := range []int{stateVersion, bufferStateVersion, bufferPlatoonStateVersion, bankStateVersion, serviceStateVersion} {
-		t.Run(strconv.Itoa(version), func(t *testing.T) {
-			t.Parallel()
-			maxFile, maxPod, maxTrip := file, pod, trip
-			maxFile.Version = version
-			if version < serviceStateVersion {
-				maxFile = legacyTestState(maxFile, version)
-				maxPod, maxTrip = maxFile.Simulation.Pods[0], maxFile.Simulation.Waiting[0]
-				maxTrip.Request.PartySize = widest
-				for i := range maxPod.Riders {
-					maxPod.Riders[i].PartySize = widest
-				}
-			}
-			if version >= bankStateVersion {
-				maxFile.Project = withBankMetadata(maxFile.Project)
-				if version == serviceStateVersion {
-					maxFile.Project.Version = 3
-					for i := range maxFile.Project.Fleet {
-						maxFile.Project.Fleet[i].Class = sim.LegacyClass
-					}
-				}
-				maxFile.Project.Name = ""
-				maxFile.Project.Name = strings.Repeat("n", project.MaxFileBytes-jsonSize(t, maxFile.Project))
-			}
-			maxPod.StationBuffered = version >= bufferStateVersion
-			if version >= bufferPlatoonStateVersion {
-				link := *maxPod.Platoon
-				terminal := math.MaxInt
-				link.Kind, link.Lanes, link.TerminalCell = "buffer", 1, &terminal
-				maxPod.Platoon = &link
-			}
-			maxFile.Simulation.Pods = []sim.SavedPod{maxPod}
-			maxFile.Simulation.Waiting = []sim.SavedTrip{maxTrip}
-			if version == serviceStateVersion {
-				testCompactWorstCaseSize(t, maxFile, maxPod, maxTrip)
-				testGroupWorstCaseSize(t, maxFile, maxPod, maxTrip)
-			}
-			maxUnrouted := maxTrip
-			maxUnrouted.Route = nil
-			size := jsonSize(t, maxFile) + (maxSavedPods-1)*(jsonSize(t, maxPod)+1) + (maxSavedPods-1)*(jsonSize(t, maxTrip)+1) +
-				(maxSavedTrips-maxSavedPods)*(jsonSize(t, maxUnrouted)+1)
-			t.Logf("worst case: %d JSON bytes, limit %d, headroom %d", size, MaxStateBytes, MaxStateBytes-size)
-			if size > MaxStateBytes {
-				t.Fatalf("the largest state has %d JSON bytes, more than %d", size, MaxStateBytes)
-			}
-			// The size fixture uses maximal numeric values, including invalid IDs.
-			// Decode its full shape, then retain the original physical validation fixture.
-			decoded, err := decodeStateFile(encodeTestState(t, maxFile))
-			if err != nil || len(decoded.RailConnections) != project.MaxRailDeparturePassengers {
-				t.Fatalf("maximal saved shape: %v", err)
-			}
-			physical := maxFile
-			physical.RailConnections = nil
-			physical.Demand.State.Connections = rail.Counts{}
-			physical.Demand.State.Config.Pattern = project.Default().Demand.Pattern
-			physical.Demand.State.Config.DailyStartMinute = 0
-			if _, err := decodeCheckedState(encodeTestState(t, physical)); err != nil {
-				t.Fatal(err)
-			}
-		})
-	}
-
+	// The subtest name records the saved version.
+	t.Run(strconv.Itoa(serviceStateVersion), func(t *testing.T) {
+		t.Parallel()
+		maxFile, maxPod, maxTrip := file, pod, trip
+		maxFile.Project = withBankMetadata(maxFile.Project)
+		maxFile.Project.Version = 3
+		for i := range maxFile.Project.Fleet {
+			maxFile.Project.Fleet[i].Class = sim.LegacyClass
+		}
+		maxFile.Project.Name = ""
+		maxFile.Project.Name = strings.Repeat("n", project.MaxFileBytes-jsonSize(t, maxFile.Project))
+		maxPod.StationBuffered = true
+		link := *maxPod.Platoon
+		terminal := math.MaxInt
+		link.Kind, link.Lanes, link.TerminalCell = "buffer", 1, &terminal
+		maxPod.Platoon = &link
+		maxFile.Simulation.Pods = []sim.SavedPod{maxPod}
+		maxFile.Simulation.Waiting = []sim.SavedTrip{maxTrip}
+		testCompactWorstCaseSize(t, maxFile, maxPod, maxTrip)
+		testGroupWorstCaseSize(t, maxFile, maxPod, maxTrip)
+		maxUnrouted := maxTrip
+		maxUnrouted.Route = nil
+		size := jsonSize(t, maxFile) + (maxSavedPods-1)*(jsonSize(t, maxPod)+1) + (maxSavedPods-1)*(jsonSize(t, maxTrip)+1) +
+			(maxSavedTrips-maxSavedPods)*(jsonSize(t, maxUnrouted)+1)
+		t.Logf("worst case: %d JSON bytes, limit %d, headroom %d", size, MaxStateBytes, MaxStateBytes-size)
+		if size > MaxStateBytes {
+			t.Fatalf("the largest state has %d JSON bytes, more than %d", size, MaxStateBytes)
+		}
+		// The size fixture uses maximal numeric values, including invalid IDs.
+		// Decode its full shape, then retain the original physical validation fixture.
+		decoded, err := decodeStateFile(encodeTestState(t, maxFile))
+		if err != nil || len(decoded.RailConnections) != project.MaxRailDeparturePassengers {
+			t.Fatalf("maximal saved shape: %v", err)
+		}
+		physical := maxFile
+		physical.RailConnections = nil
+		physical.Demand.State.Connections = rail.Counts{}
+		physical.Demand.State.Config.Pattern = project.Default().Demand.Pattern
+		physical.Demand.State.Config.DailyStartMinute = 0
+		if _, err := decodeCheckedState(encodeTestState(t, physical)); err != nil {
+			t.Fatal(err)
+		}
+	})
 }
 
 // jsonSize returns the size of the state file encoding of value.
@@ -887,55 +818,6 @@ func TestEncodeStateFileTooLarge(t *testing.T) {
 				t.Fatal(err)
 			}
 		})
-	}
-}
-
-// TestStateFileMembers makes sure that each change to the members of the
-// state file is seen. Such a change needs a new stateVersion. Until the
-// first release, an added optional member with a safe zero value keeps the
-// version. Run the test with -update to write the member list again.
-func TestStateFileMembers(t *testing.T) {
-	t.Parallel()
-	legacy := legacyStateMembersType(reflect.TypeFor[stateFile]())
-	got := foundationMemberLines(stateMembers(t, "", legacy, nil))
-	if *update {
-		if err := os.WriteFile(stateMembersPath, []byte(stateMembersHeader+strings.Join(got, "\n")+"\n"), 0o600); err != nil {
-			t.Fatal(err)
-		}
-	}
-	data, err := os.ReadFile(stateMembersPath)
-	if err != nil {
-		t.Fatal(err)
-	}
-	var want []string
-	for line := range strings.Lines(string(data)) {
-		if line = strings.TrimSpace(line); line != "" && !strings.HasPrefix(line, "#") {
-			want = append(want, line)
-		}
-	}
-	if !slices.Equal(got, want) {
-		t.Fatalf("the state file members changed. Change stateVersion, unless the change adds an optional member with a safe zero value before the first release. Then run the test with -update.\ngot:\n%s", strings.Join(got, "\n"))
-	}
-}
-
-// TestReleasedMemberBreaksOlderReader checks the rule in the operations
-// guide for the pod member released, which kept the version. A reader from
-// before the member restores a file with a zero value. It rejects a file
-// with a nonzero value as an unknown member, and so gets invalid_state.
-func TestReleasedMemberBreaksOlderReader(t *testing.T) {
-	t.Parallel()
-	older := withoutMember(reflect.TypeFor[stateFile](), reflect.TypeFor[sim.SavedPod](), "released")
-	if older == reflect.TypeFor[stateFile]() {
-		t.Fatal("the state file has no pod member released")
-	}
-	for _, released := range []bool{false, true} {
-		file := newTestStateFile(t)
-		file.Simulation.Pods[0].Released = released
-		raw := decompressTestJSON(t, encodeTestState(t, file))
-		err := json.Unmarshal(raw, reflect.New(older).Interface(), strictStateOptions)
-		if released && !errors.Is(err, json.ErrUnknownName) || !released && err != nil {
-			t.Errorf("released %v: the older reader got %v", released, err)
-		}
 	}
 }
 

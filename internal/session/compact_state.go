@@ -13,7 +13,7 @@ import (
 	"github.com/dotwaffle/podsim/internal/sim"
 )
 
-func scanStateCompactFields(data []byte, version int) error {
+func scanStateCompactFields(data []byte) error {
 	decoder := jsontext.NewDecoder(bytes.NewReader(data))
 	for {
 		token, err := decoder.ReadToken()
@@ -30,9 +30,6 @@ func scanStateCompactFields(data []byte, version int) error {
 		path := strings.Split(string(decoder.StackPointer()), "/")
 		if len(path) != 5 || path[1] != "simulation" || path[2] != "pods" || path[4] != "compactQueue" {
 			continue
-		}
-		if version < serviceStateVersion {
-			return errors.New("legacy saved state contains compactQueue")
 		}
 		value, err := decoder.ReadValue()
 		if err != nil {

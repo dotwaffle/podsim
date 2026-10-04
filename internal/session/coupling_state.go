@@ -64,13 +64,10 @@ func decodeCouplingState(raw []byte) (file stateFile, err error) {
 			return file, invalidState(err)
 		}
 	}
-	if err := scanStateCompactFields(raw, couplingStateVersion); err != nil {
+	if err := scanStateCompactFields(raw); err != nil {
 		return file, invalidState(err)
 	}
 	if err := scanStateOrderFieldsContract(raw, couplingStateVersion, scan.packed); err != nil {
-		return file, invalidState(err)
-	}
-	if err := scanStateBoardingFields(raw, couplingStateVersion); err != nil {
 		return file, invalidState(err)
 	}
 	var tuples [][]boardingTuple

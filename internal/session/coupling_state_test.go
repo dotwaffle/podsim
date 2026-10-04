@@ -283,14 +283,8 @@ func mustCouplingJSON(t *testing.T, value any) []byte {
 
 func TestCouplingSavedOldFamiliesRejectPresence(t *testing.T) {
 	base := newTestStateFile(t)
-	for version := stateVersion; version <= expressStateVersion; version++ {
-		file := legacyTestState(base, version)
-		if version == bankStateVersion {
-			file.Project = withBankMetadata(file.Project)
-		}
-		if version == serviceStateVersion {
-			file = base
-		}
+	for version := serviceStateVersion; version <= expressStateVersion; version++ {
+		file := base
 		if version == expressStateVersion {
 			s := expressSession(t)
 			file = sessionStateFile(t, s)

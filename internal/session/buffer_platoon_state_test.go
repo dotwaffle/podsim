@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"fmt"
 	"reflect"
-	"slices"
 	"testing"
 	"time"
 
@@ -18,7 +17,7 @@ func TestBufferPlatoonFieldPresence(t *testing.T) {
 	t.Parallel()
 	cases := []struct {
 		name, fields string
-		validV4      bool
+		valid        bool
 	}{
 		{"omitted", "", true},
 		{"empty kind", `"kind":"",`, true},
@@ -37,48 +36,27 @@ func TestBufferPlatoonFieldPresence(t *testing.T) {
 		{"duplicate kind", `"kind":"buffer","kind":"buffer","terminalCell":4,`, false},
 		{"duplicate endpoint", `"kind":"buffer","terminalCell":4,"terminalCell":4,`, false},
 	}
-	for _, version := range []int{stateVersion, bufferStateVersion, bufferPlatoonStateVersion} {
-		for _, tc := range cases {
-			t.Run(fmt.Sprintf("v%d/%s", version, tc.name), func(t *testing.T) {
-				t.Parallel()
-				file := legacyTestState(platoonStateFile(t), version)
-				file.Simulation.Pods[1].Platoon.Lanes = 1
-				raw, err := json.Marshal(file)
-				if err != nil {
-					t.Fatal(err)
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			file := platoonStateFile(t)
+			file.Simulation.Pods[1].Platoon.Lanes = 1
+			raw, err := json.Marshal(file)
+			if err != nil {
+				t.Fatal(err)
+			}
+			raw = bytes.Replace(raw, []byte(`"platoon":{`), []byte(`"platoon":{`+tc.fields), 1)
+			got, err := decodeStateFile(compressTestJSON(t, raw))
+			if (err == nil) != tc.valid {
+				t.Fatalf("decode accepted=%t want=%t: %v", err == nil, tc.valid, err)
+			}
+			if tc.valid && tc.name == "buffer" {
+				link := got.Simulation.Pods[1].Platoon
+				if link.Kind != "buffer" || link.TerminalCell == nil || *link.TerminalCell != 4 {
+					t.Fatal("decoded certificate fields differ")
 				}
-				raw = bytes.Replace(raw, []byte(`"platoon":{`), []byte(`"platoon":{`+tc.fields), 1)
-				got, err := decodeStateFile(compressTestJSON(t, raw))
-				valid := tc.fields == "" || version == bufferPlatoonStateVersion && tc.validV4
-				if (err == nil) != valid {
-					t.Fatalf("decode accepted=%t want=%t: %v", err == nil, valid, err)
-				}
-				if valid && tc.name == "buffer" {
-					link := got.Simulation.Pods[1].Platoon
-					if link.Kind != "buffer" || link.TerminalCell == nil || *link.TerminalCell != 4 {
-						t.Fatal("decoded certificate fields differ")
-					}
-				}
-			})
-		}
-	}
-}
-
-func TestBufferV4MemberList(t *testing.T) {
-	t.Parallel()
-	currentType := withoutMember(reflect.TypeFor[stateFile](), reflect.TypeFor[sim.SavedPod](), "compactQueue")
-	v3Type := withoutMember(currentType, reflect.TypeFor[sim.SavedPlatoonLink](), "kind", "terminalCell")
-	v3 := stateMembers(t, "", v3Type, nil)
-	v4 := stateMembers(t, "", currentType, nil)
-	var extra []string
-	for _, member := range v4 {
-		if !slices.Contains(v3, member) {
-			extra = append(extra, member)
-		}
-	}
-	want := []string{"simulation.pods[].platoon.kind string", "simulation.pods[].platoon.terminalCell number"}
-	if !slices.Equal(extra, want) {
-		t.Fatalf("unexpected v4 extension: %v", extra)
+			}
+		})
 	}
 }
 

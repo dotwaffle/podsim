@@ -1458,7 +1458,7 @@ The 12 m separation check does not change.
 With experimental station buffers enabled, eligible entry queues can form [fixed local links](docs/station-entry-platoons.md).
 These links share only complete interior track cells and cannot grow onto berth branches.
 A head can append an exclusive berth suffix while inherited ownership drains.
-They require saved-state version 4, and their service benefit remains unqualified.
+Saved state keeps these links, and their service benefit remains unqualified.
 
 A saved state keeps each link in the `platoon` field of the follower.
 The field gives the predecessor, the run as indexes into the two saved routes, the turn, and whether the link drains.

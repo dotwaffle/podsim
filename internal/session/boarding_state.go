@@ -1,15 +1,12 @@
 package session
 
 import (
-	"bytes"
 	"encoding/json/jsontext"
 	"encoding/json/v2"
 	"errors"
 	"fmt"
-	"io"
 	"maps"
 	"slices"
-	"strings"
 
 	"github.com/dotwaffle/podsim/internal/project"
 	"github.com/dotwaffle/podsim/internal/sim"
@@ -211,25 +208,4 @@ func boardingStateLimits(limits jsonLimits) jsonLimits {
 	limits.arrays["/simulation/pods/*/boardings"] = sim.MaxSharedRideParties
 	limits.arrays["/simulation/pods/*/boardings/*"] = 2
 	return limits
-}
-
-func scanStateBoardingFields(data []byte, version int) error {
-	decoder := jsontext.NewDecoder(bytes.NewReader(data))
-	for {
-		token, err := decoder.ReadToken()
-		if errors.Is(err, io.EOF) {
-			return nil
-		}
-		if err != nil {
-			return err
-		}
-		kind, length := decoder.StackIndex(decoder.StackDepth())
-		if token.Kind() != jsontext.KindString || kind != jsontext.KindBeginObject || length%2 != 1 {
-			continue
-		}
-		path := strings.Split(string(decoder.StackPointer()), "/")
-		if len(path) == 5 && path[1] == "simulation" && path[2] == "pods" && path[4] == "boardings" && version < serviceStateVersion {
-			return errors.New("legacy saved state contains boardings")
-		}
-	}
 }

@@ -122,7 +122,7 @@ type SavedPod struct {
 	// traveling or departing empty.
 	Released bool `json:"released,omitzero"`
 	// StationBuffered preserves a pending or physical buffer membership.
-	// Versions 3 and 4 accept this flag.
+	// Each supported save version accepts this flag.
 	StationBuffered bool `json:"stationBuffered,omitzero"`
 	// Route holds the lanes that the pod still needs. The route of a traveling
 	// pod starts at the first lane that can still hold a resource, and

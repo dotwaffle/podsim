@@ -511,20 +511,12 @@ func (s *Session) loadState(input loadInput) (loaded loadedState, err error) {
 	if err = file.resolveBoardings(); err != nil {
 		return loaded, invalidState(err)
 	}
-	if file.Version < serviceStateVersion {
-		file.Simulation, err = sim.MigrateLegacyOrderState(file.Simulation)
-		if err != nil {
-			return loaded, invalidState(err)
-		}
-	}
 	loaded.simulation, loaded.result, err = input.steps.restoreSimulation(sim.RestoreStateInput{
 		OrderContract:    loaded.config.OrderContract,
 		CouplingContract: loaded.config.CouplingContract, CouplingEnabled: loaded.config.CouplingEnabled,
 		CouplingSites: loaded.config.CouplingSites, CouplingCorridors: loaded.config.CouplingCorridors,
 		Network: loaded.config.Network, Fleet: loaded.config.Fleet, State: file.Simulation, LogicalOnly: loaded.logicalOnly,
-		StationBuffers: file.Version >= bufferStateVersion, BufferPlatoons: file.Version >= bufferPlatoonStateVersion,
-		CompactQueues:       file.Version >= serviceStateVersion,
-		BoardingRecords:     file.Version >= serviceStateVersion,
+		StationBuffers: true, BufferPlatoons: true, CompactQueues: true, BoardingRecords: true,
 		StationQueueSpacing: project.EffectiveStationQueueSpacing(loaded.config), PlatoonLimit: loaded.config.PlatoonLimit,
 		ExpressServices: loaded.config.ExpressServices, OnboardPickups: loaded.config.OnboardPickups,
 	})

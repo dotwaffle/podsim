@@ -140,12 +140,9 @@ func TestRailServicesCheckpointAndRestart(t *testing.T) {
 	}
 	saved = sessionStateFile(t, s)
 	saved.RestoreAttempts = 0
-	for _, version := range []int{stateVersion, bufferStateVersion, bufferPlatoonStateVersion} {
-		saved = legacyTestState(saved, version)
-		loaded, err := s.loadState(loadInput{data: encodeTestState(t, saved), steps: realRestoreSteps()})
-		if err != nil || !slices.Equal(want, loaded.demand.connectionRecords()) {
-			t.Fatalf("version %d: %v", version, err)
-		}
+	loaded, err := s.loadState(loadInput{data: encodeTestState(t, saved), steps: realRestoreSteps()})
+	if err != nil || !slices.Equal(want, loaded.demand.connectionRecords()) {
+		t.Fatal("saved connections changed", err)
 	}
 }
 
@@ -228,17 +225,14 @@ func TestRailServicesMaximumValidLedger(t *testing.T) {
 	s.demand.state.Connections = s.demand.connections.Counts()
 	file := sessionStateFile(t, s)
 	file.RestoreAttempts = 0
-	for _, version := range []int{stateVersion, bufferStateVersion, bufferPlatoonStateVersion} {
-		file = legacyTestState(file, version)
-		data := encodeTestState(t, file)
-		decoded, err := decodeCheckedState(data)
-		if err != nil || len(decoded.RailConnections) != project.MaxRailDeparturePassengers {
-			t.Fatalf("max valid version%d: %v", version, err)
-		}
-		loaded, err := s.loadState(loadInput{data: data, steps: realRestoreSteps()})
-		if err != nil || loaded.result.Tier != sim.RestorePhysical || !slices.Equal(s.demand.connectionRecords(), loaded.demand.connectionRecords()) {
-			t.Fatalf("max physical version%d: %v", version, err)
-		}
+	data := encodeTestState(t, file)
+	decoded, err := decodeCheckedState(data)
+	if err != nil || len(decoded.RailConnections) != project.MaxRailDeparturePassengers {
+		t.Fatal("max valid ledger", err)
+	}
+	loaded, err := s.loadState(loadInput{data: data, steps: realRestoreSteps()})
+	if err != nil || loaded.result.Tier != sim.RestorePhysical || !slices.Equal(s.demand.connectionRecords(), loaded.demand.connectionRecords()) {
+		t.Fatal("max physical ledger", err)
 	}
 }
 

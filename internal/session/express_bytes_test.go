@@ -107,7 +107,7 @@ func widestSavedBase(t *testing.T) stateFile {
 
 	file := stateFile{
 		RailConnections: connections,
-		Format:          stateFormat, Version: stateVersion, Final: true,
+		Format:          stateFormat, Version: serviceStateVersion, Final: true,
 		SavedAt: time.Date(2026, time.September, 23, 9, 0, 0, 123456789, time.FixedZone("", -12*60*60)),
 		Build:   testBuildID, Epoch: strings.Repeat("\x01", maxEpochBytes),
 		Revision: math.MaxUint64 - 1, ProjectRevision: math.MaxUint64 - 1, Generation: math.MaxUint64 - 1,

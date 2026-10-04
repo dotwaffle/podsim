@@ -537,6 +537,8 @@ func TestNewFromStoreRejects(t *testing.T) {
 		// panics makes the restore of the simulation panic.
 		panics bool
 		reason string
+		// errText is text that the logged rejection error must contain.
+		errText string
 		// logs lists the records before the rejection record.
 		logs []wantRecord
 	}{
@@ -558,6 +560,11 @@ func TestNewFromStoreRejects(t *testing.T) {
 			}}},
 		},
 		{name: "newer version", data: run.edited(t, newerVersion), reason: reasonUnsupportedVersion},
+		// The decoder rejects versions 2 through 5 before a restore step.
+		{name: "version 2", data: run.edited(t, func(file *stateFile) { file.Version = 2 }), reason: reasonUnsupportedVersion, errText: "version 2 is older than version 6"},
+		{name: "version 3", data: run.edited(t, func(file *stateFile) { file.Version = 3 }), reason: reasonUnsupportedVersion, errText: "version 3 is older than version 6"},
+		{name: "version 4", data: run.edited(t, func(file *stateFile) { file.Version = 4 }), reason: reasonUnsupportedVersion, errText: "version 4 is older than version 6"},
+		{name: "version 5", data: run.edited(t, func(file *stateFile) { file.Version = 5 }), reason: reasonUnsupportedVersion, errText: "version 5 is older than version 6"},
 		{name: "truncated file", data: run.data[:len(run.data)/2], reason: reasonInvalidState},
 		{name: "too large to read", data: run.data, readErr: tooLarge, reason: reasonTooLarge, preserve: true},
 	}
@@ -566,6 +573,12 @@ func TestNewFromStoreRejects(t *testing.T) {
 			t.Parallel()
 			store, handler := &fakeStore{data: test.data, readErr: test.readErr}, &recordHandler{}
 			steps := realRestoreSteps()
+			if test.errText != "" {
+				// A rejected version must stop before the restore steps.
+				steps.restoreSimulation = func(sim.RestoreStateInput) (*sim.Simulation, sim.RestoreResult, error) {
+					panic("restore step ran for a rejected version")
+				}
+			}
 			if test.panics {
 				steps.restoreSimulation = func(sim.RestoreStateInput) (*sim.Simulation, sim.RestoreResult, error) {
 					panic("restore test panic")
@@ -597,8 +610,12 @@ func TestNewFromStoreRejects(t *testing.T) {
 			if startup := store.lastWrite(t); startup.RestoreAttempts != 0 || startup.Epoch != state.Epoch {
 				t.Fatalf("startup save has %d restores and epoch %q", startup.RestoreAttempts, startup.Epoch)
 			}
+			errCheck := nonEmpty
+			if test.errText != "" {
+				errCheck = func(value any) bool { return strings.Contains(fmt.Sprint(value), test.errText) }
+			}
 			checkRecords(t, handler, append(test.logs,
-				wantRecord{slog.LevelWarn, "Rejected saved session state", map[string]any{"reason": test.reason, "error": nonEmpty}},
+				wantRecord{slog.LevelWarn, "Rejected saved session state", map[string]any{"reason": test.reason, "error": errCheck}},
 				startupSaved))
 		})
 	}

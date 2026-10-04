@@ -57,9 +57,6 @@ func scanStateOrderFieldsContract(data []byte, version int, packed bool) error {
 		if !savedOrderFieldPath(path) {
 			continue
 		}
-		if version < serviceStateVersion {
-			return errors.New("legacy saved state contains version 6 order fields")
-		}
 		name := path[len(path)-1]
 		value, err := decoder.ReadToken()
 		if err != nil {

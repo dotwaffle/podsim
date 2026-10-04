@@ -268,7 +268,7 @@ Expose mechanical membership, phases, and counts separately.
 | Project | Version 5 | Coupling marker, enabled option, bounded site and corridor descriptors. Express order selection remains independent. |
 | Native constructors and restore | Additive contract-aware inputs | Validate both markers before geometry. Preserve all current foundation and Express helpers. |
 | Native saved state | Optional marker and bounded group records | No new per-party option. Existing pods and orders keep their identities. |
-| Session save | Version 8 | Strict group recognition and atomic physical reconstruction. Preserve versions 2 through 7. |
+| Session save | Version 8 | Strict group recognition and atomic physical reconstruction. Preserve versions 6 and 7. |
 | Stream and browser assembler | Hello version 5 | Coherent group membership, phase, geometry profile, common speed, and ownership presentation. Preserve hello 3 and 4. |
 | Offline car checkpoint | Existing version 1 stays unchanged | Reject the new project family. Its frozen native member list does not silently accept train fields. |
 

@@ -32,9 +32,9 @@ The next head can select its own exclusive berth suffix after its predecessor re
 Disabling buffers or virtual platoons also keeps existing ownership dependencies until they drain.
 A full buffer retains ordinary upstream waiting.
 
-## Saved state version 4
+## Saved link fields
 
-Version 4 adds two optional fields to a saved platoon link:
+A saved platoon link has two optional fields:
 
 | Field | Meaning |
 | --- | --- |
@@ -46,8 +46,6 @@ The cell must equal the validated buffer frontier for the saved network and rout
 It is not the last shareable cell.
 A complete-lane certificate cannot contain `terminalCell`.
 Unknown kinds, null fields, wrong types, invalid indexes, cycles, duplicate followers, and mixed certificate kinds are invalid.
-Versions 2 and 3 reject any occurrence of either new field, including empty or null values.
-Their existing member sets and restore behavior remain unchanged.
 
 Save trimming retains the certified entry lane, original turn, and terminal cell until the link drains.
 A follower must retain buffer membership and physically occupy its certified entry.
@@ -59,10 +57,9 @@ The session applies project settings after physical restoration.
 Invalid buffer certificates fail restoration without a logical fallback or partial member demotion.
 An explicit logical recovery first validates those certificates physically, then requeues the orders under the existing logical recovery rules.
 It does not retain their physical links.
-This rule prevents logical recovery from accepting malformed version 4 certificates.
+This rule prevents logical recovery from accepting malformed buffer certificates.
 
-The writer uses version 4 while a fixed certificate or its draining ownership dependency remains.
-After those links drain, the existing buffer rules select version 3 or version 2.
+The saved state keeps a fixed certificate while it or its draining ownership dependency remains.
 The project, command, and WebSocket formats do not change.
 Keep a copy of the state file before using an older server.
 
@@ -70,8 +67,7 @@ Keep a copy of the state file before using an older server.
 
 Deterministic tests cover two to four pods, curved entries, unequal speeds, blocked berth departures, different berth choices, and failed suffix rollback.
 Transition tests restore every saved field, check required ancestor holdings, and observe ownership transfer.
-Session tests cover gzip JSON, native restoration, disabled policies, and version downgrade after drain.
-The existing version 2 golden member list remains unchanged.
+Session tests cover gzip JSON, native restoration, disabled policies, and the saved state after drain.
 
 The [selected service screen](station-entry-service.md) runs matched Acton, LondonCentral, and LondonFull trials.
 All eight pairs have identical boarding and completion ticks, with no measured service benefit.

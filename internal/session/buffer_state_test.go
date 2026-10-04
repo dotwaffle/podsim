@@ -1,37 +1,12 @@
 package session
 
 import (
-	"bytes"
-	"reflect"
 	"slices"
 	"testing"
 
 	"github.com/dotwaffle/podsim/internal/project"
 	"github.com/dotwaffle/podsim/internal/sim"
 )
-
-func TestBufferStateVersions(t *testing.T) {
-	t.Parallel()
-	for _, version := range []int{stateVersion, bufferStateVersion, bufferPlatoonStateVersion, bankStateVersion, serviceStateVersion, couplingStateVersion + 1} {
-		file := legacyTestState(newTestStateFile(t), version)
-		if version == serviceStateVersion {
-			file = newTestStateFile(t)
-		}
-		if version == bankStateVersion {
-			file.Project = withBankMetadata(file.Project)
-		}
-		got, err := decodeCheckedState(encodeTestState(t, file))
-		if version > serviceStateVersion {
-			if stateReason(err) != reasonUnsupportedVersion {
-				t.Fatalf("future version accepted: %v", err)
-			}
-			continue
-		}
-		if err != nil || !reflect.DeepEqual(got, file) {
-			t.Fatalf("version %d failed: %v", version, err)
-		}
-	}
-}
 
 func TestBufferStateCaptureUsesV6(t *testing.T) {
 	t.Parallel()
@@ -169,43 +144,4 @@ func TestPickupBufferSessionDepartureRoundTrip(t *testing.T) {
 		}
 	}
 	t.Fatal("restored pickup did not complete its passenger journey")
-}
-
-func TestBufferMemberRequiresV3(t *testing.T) {
-	t.Parallel()
-	for _, value := range []string{"true", "false"} {
-		file := legacyTestState(newTestStateFile(t), stateVersion)
-		raw := decompressTestJSON(t, encodeTestState(t, file))
-		raw = bytes.Replace(raw, []byte(`"pods":[{`), []byte(`"pods":[{"stationBuffered":`+value+`,`), 1)
-		if !bytes.Contains(raw, []byte(`"stationBuffered"`)) {
-			t.Fatal("failed to insert member")
-		}
-		_, err := decodeStateFile(compressTestJSON(t, raw))
-		if stateReason(err) != reasonInvalidState {
-			t.Fatalf("v2 accepted stationBuffered=%s: %v", value, err)
-		}
-		file.Version = bufferStateVersion
-		raw = bytes.Replace(raw, []byte(`"version":2`), []byte(`"version":3`), 1)
-		if _, err := decodeStateFile(compressTestJSON(t, raw)); err != nil {
-			t.Fatalf("v3 decode rejected member: %v", err)
-		}
-	}
-}
-
-func TestBufferV3MemberList(t *testing.T) {
-	t.Parallel()
-	legacy := withoutMember(reflect.TypeFor[stateFile](), reflect.TypeFor[sim.SavedPod](), "stationBuffered")
-	legacy = withoutMember(legacy, reflect.TypeFor[sim.SavedPlatoonLink](), "kind", "terminalCell")
-	v3Type := withoutMember(reflect.TypeFor[stateFile](), reflect.TypeFor[sim.SavedPlatoonLink](), "kind", "terminalCell")
-	v2 := stateMembers(t, "", legacy, nil)
-	v3 := stateMembers(t, "", v3Type, nil)
-	extra := []string{}
-	for _, member := range v3 {
-		if !slices.Contains(v2, member) {
-			extra = append(extra, member)
-		}
-	}
-	if !slices.Equal(extra, []string{"simulation.pods[].stationBuffered boolean"}) {
-		t.Fatalf("unexpected v3 extension: %v", extra)
-	}
 }

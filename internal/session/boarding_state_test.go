@@ -105,16 +105,6 @@ func TestBoardingStateMalformed(t *testing.T) {
 			}
 		})
 	}
-	for _, version := range []int{stateVersion, bufferStateVersion, bufferPlatoonStateVersion, bankStateVersion} {
-		for _, value := range []string{"null", "[]", "[[0,0]]"} {
-			legacy := legacyTestState(newTestStateFile(t), version)
-			legacyRaw := decompressTestJSON(t, encodeTestState(t, legacy))
-			legacyRaw = bytes.Replace(legacyRaw, []byte(`"pods":[{`), []byte(`"pods":[{"boardings":`+value+`,`), 1)
-			if _, err := decodeStateFile(compressTestJSON(t, legacyRaw)); err == nil {
-				t.Fatalf("version %d accepted boardings %s", version, value)
-			}
-		}
-	}
 }
 
 func TestBoardingStateLimits(t *testing.T) {

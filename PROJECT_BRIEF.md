@@ -70,9 +70,8 @@ The [publisher timer](docs/publisher-cadence-performance.md) restores measured d
 
 Experimental [station approach buffers](docs/station-buffer-state-proposal.md) and [pickup swaps](docs/pickup-reassignment.md) remain disabled by default.
 Separate saved project and editor controls permit opt-in testing, and explicit comparison flags select independent policy combinations.
-Buffered sessions use saved-state version 3 with explicit membership.
-[Fixed station-entry platoons](docs/station-entry-platoons.md) require version 4 until their ownership dependencies drain.
-Unbuffered sessions can retain version 2.
+Saved state keeps explicit buffer membership.
+It also keeps [fixed station-entry platoons](docs/station-entry-platoons.md) until their ownership dependencies drain.
 The [terminus burst fixture](docs/terminus-flow.md) measures berth claims, pickup supply, and finite outbound service.
 Buffers increase waits in its selected Central comparisons, so throughput benefits remain unqualified.
 Broader adoption requires separate qualification and a decision.
@@ -416,7 +415,7 @@ Status notes record the parts that Podsim now implements.
 ### Station approach buffers
 
 **Status:** An experimental implementation is available through `Simulation.SetStationBuffers` and remains disabled by default.
-Version 3 saved states preserve existing buffer membership, while version 2 loading remains supported.
+Saved states preserve existing buffer membership.
 The editor and comparison tool expose separate, saved opt-in controls for buffers and pickup reassignment.
 New pickup dispatch can defer berth choice at an eligible buffer approach without changing existing commitments.
 Fixed station-entry platoons use the separately tested version 4 contract.

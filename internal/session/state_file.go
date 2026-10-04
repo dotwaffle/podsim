@@ -20,15 +20,10 @@ import (
 )
 
 const (
-	// stateFormat and stateVersion identify the state file. Until the first
-	// release, an added optional member with a safe zero value keeps the
-	// version. Each other change to the members of the file needs a new
-	// version.
-	stateFormat               = "podsim-session"
-	stateVersion              = 2
-	bufferStateVersion        = 3
-	bufferPlatoonStateVersion = 4
-	bankStateVersion          = 5
+	// stateFormat identifies the state file. Until the first release, an
+	// added optional member with a safe zero value keeps the version. Each
+	// other change to the members of the file needs a new version.
+	stateFormat = "podsim-session"
 	// maxEpochBytes is the largest saved epoch.
 	maxEpochBytes = 100
 	// buildIDLength is the number of lowercase hex digits in a build ID.
@@ -132,20 +127,19 @@ var stateJSONLimits = jsonLimits{
 	},
 }
 
-// stateFile holds versions 2 through 8 of the saved session state. Version 3
-// adds explicit station buffer membership. Version 4 adds fixed entry links.
-// Version 5 requires a version 2 project with explicit station banks.
-// Version 6 adds service metadata, boarding references, and retained compact
+// stateFile holds versions 6 through 8 of the saved session state.
+// Version 6 has service metadata, boarding references, and retained compact
 // queue certificates.
 // Version 7 packs order text under the Express contract.
 // Version 8 preserves physical groups under an independent coupling contract.
 // Earlier versions reject later fields, including explicit empty or null values.
+// The decoder rejects versions 2 through 5 before it reads their members.
 // The file on disk is
 // the JSON form of stateFile, compressed with gzip. Each change to a member,
 // also in the simulation and in the project, needs a new version. Until the
 // first release, an added optional member with a safe zero value is an
 // exception. It keeps the version.
-// testdata/state_v2_members.txt lists the members.
+// testdata/state_v6_members.txt lists the members.
 //
 // A saver can copy the values into a stateFile while it holds the session
 // lock, and encode the stateFile after it releases the lock. ExportState
@@ -354,11 +348,18 @@ func decodeStateFile(data []byte) (result stateFile, err error) {
 	if header.Format == stateFormat && header.Version == couplingStateVersion {
 		return decodeCouplingState(raw)
 	}
-	if header.Format != stateFormat || header.Version < stateVersion || header.Version > expressStateVersion {
+	// Versions 2 through 5 came before the service metadata of version 6.
+	if header.Format == stateFormat && header.Version >= 2 && header.Version < serviceStateVersion {
+		return stateFile{}, &stateError{
+			reason: reasonUnsupportedVersion,
+			err:    fmt.Errorf("session state version %d is older than version %d and is not supported", header.Version, serviceStateVersion),
+		}
+	}
+	if header.Format != stateFormat || header.Version < serviceStateVersion || header.Version > expressStateVersion {
 		versionErr := &stateError{
 			reason: reasonUnsupportedVersion,
-			err: fmt.Errorf("session state format %.20q version %d is not %q version %d",
-				header.Format, header.Version, stateFormat, stateVersion),
+			err: fmt.Errorf("session state format %.20q version %d is not %q version %d to %d",
+				header.Format, header.Version, stateFormat, serviceStateVersion, couplingStateVersion),
 		}
 		if header.Version == couplingStateVersion {
 			return stateFile{}, protectCouplingDecodeError(raw, versionErr)
@@ -373,23 +374,17 @@ func decodeStateFile(data []byte) (result stateFile, err error) {
 			return stateFile{}, invalidState(err)
 		}
 	}
-	limits := stateJSONLimits
-	if header.Version == serviceStateVersion {
-		limits = boardingStateLimits(compactStateLimits(serviceStateLimits()))
-	}
+	limits := boardingStateLimits(compactStateLimits(serviceStateLimits()))
 	if header.Version == expressStateVersion {
 		limits = expressSavedLimits()
 	}
 	if err := prescanJSON(raw, limits); err != nil {
 		return stateFile{}, invalidState(fmt.Errorf("scan session state: %w", err))
 	}
-	if err := scanStateCompactFields(raw, header.Version); err != nil {
+	if err := scanStateCompactFields(raw); err != nil {
 		return stateFile{}, invalidState(err)
 	}
 	if err := scanStateOrderFields(raw, header.Version); err != nil {
-		return stateFile{}, invalidState(err)
-	}
-	if err := scanStateBoardingFields(raw, header.Version); err != nil {
 		return stateFile{}, invalidState(err)
 	}
 	var boardingTuples [][]boardingTuple
@@ -410,18 +405,9 @@ func decodeStateFile(data []byte) (result stateFile, err error) {
 	switch header.Version {
 	case expressStateVersion:
 		options = json.JoinOptions(options, json.WithUnmarshalers(json.JoinUnmarshalers(json.UnmarshalFromFunc(decodeSavedProject), json.UnmarshalFromFunc(decodeV6Platoon), json.UnmarshalFromFunc(decodeCompactQueue), json.UnmarshalFromFunc(decodePod), json.UnmarshalFromFunc(decodePackedSavedRequest))))
-	case serviceStateVersion:
-		options = json.JoinOptions(options, json.WithUnmarshalers(json.JoinUnmarshalers(
-			json.UnmarshalFromFunc(decodeSavedProject), json.UnmarshalFromFunc(decodeV6Platoon), json.UnmarshalFromFunc(decodeCompactQueue), json.UnmarshalFromFunc(decodePod))))
-	case stateVersion:
-		options = json.JoinOptions(options, json.WithUnmarshalers(json.JoinUnmarshalers(
-			json.UnmarshalFromFunc(decodeSavedProject), json.UnmarshalFromFunc(decodeV2Pod), json.UnmarshalFromFunc(decodeLegacyPlatoon))))
-	case bufferStateVersion:
-		options = json.JoinOptions(options, json.WithUnmarshalers(json.JoinUnmarshalers(
-			json.UnmarshalFromFunc(decodeSavedProject), json.UnmarshalFromFunc(decodeLegacyPlatoon))))
 	default:
 		options = json.JoinOptions(options, json.WithUnmarshalers(json.JoinUnmarshalers(
-			json.UnmarshalFromFunc(decodeSavedProject), json.UnmarshalFromFunc(decodeV4Platoon))))
+			json.UnmarshalFromFunc(decodeSavedProject), json.UnmarshalFromFunc(decodeV6Platoon), json.UnmarshalFromFunc(decodeCompactQueue), json.UnmarshalFromFunc(decodePod))))
 	}
 	var file stateFile
 	if err := json.Unmarshal(raw, &file, options); err != nil {
@@ -443,29 +429,22 @@ func (file *stateFile) validateProjectVersion() error {
 	if err := file.validateWireContract(); err != nil {
 		return err
 	}
-	if file.Version == couplingStateVersion {
+	switch file.Version {
+	case couplingStateVersion:
 		return nil
-	}
-	if file.Version == expressStateVersion {
+	case expressStateVersion:
 		if file.Project.Version != project.ExpressVersion {
 			return errors.New("saved version 7 requires project 4")
 		}
 		return nil
-	}
-	if file.Version == serviceStateVersion {
+	case serviceStateVersion:
 		if file.Project.Version < 1 || file.Project.Version > project.ServiceVersion {
 			return errors.New("saved version 6 requires project version 1, 2, or 3")
 		}
 		return nil
+	default:
+		return fmt.Errorf("saved version %d is not supported", file.Version)
 	}
-	expected := 1
-	if file.Version == bankStateVersion {
-		expected = project.BankVersion
-	}
-	if file.Project.Version != expected {
-		return fmt.Errorf("saved version %d requires project version %d", file.Version, expected)
-	}
-	return nil
 }
 
 type savedPlatoonFields sim.SavedPlatoonLink
@@ -485,24 +464,6 @@ func decodePlatoonFields(decoder *jsontext.Decoder) (sim.SavedPlatoonLink, jsont
 		return sim.SavedPlatoonLink{}, nil, nil, err
 	}
 	return sim.SavedPlatoonLink(saved.savedPlatoonFields), saved.Kind, saved.Terminal, nil
-}
-
-// decodeLegacyPlatoon rejects any occurrence of the version 4 fields.
-func decodeLegacyPlatoon(decoder *jsontext.Decoder, link *sim.SavedPlatoonLink) error {
-	saved, kind, terminal, err := decodePlatoonFields(decoder)
-	if err != nil {
-		return err
-	}
-	if kind != nil || terminal != nil {
-		return errors.New("legacy platoon contains version 4 fields")
-	}
-	*link = saved
-	return nil
-}
-
-// decodeV4Platoon checks explicit kinds and the fixed endpoint field.
-func decodeV4Platoon(decoder *jsontext.Decoder, link *sim.SavedPlatoonLink) error {
-	return decodeFixedPlatoon(decoder, link, false)
 }
 
 func decodeV6Platoon(decoder *jsontext.Decoder, link *sim.SavedPlatoonLink) error {
@@ -525,10 +486,10 @@ func decodeV6Platoon(decoder *jsontext.Decoder, link *sim.SavedPlatoonLink) erro
 			}
 		}
 	}
-	return decodeFixedPlatoon(jsontext.NewDecoder(bytes.NewReader(value)), link, true)
+	return decodeFixedPlatoon(jsontext.NewDecoder(bytes.NewReader(value)), link)
 }
 
-func decodeFixedPlatoon(decoder *jsontext.Decoder, link *sim.SavedPlatoonLink, compact bool) error {
+func decodeFixedPlatoon(decoder *jsontext.Decoder, link *sim.SavedPlatoonLink) error {
 	saved, kind, terminal, err := decodePlatoonFields(decoder)
 	if err != nil {
 		return err
@@ -547,7 +508,7 @@ func decodeFixedPlatoon(decoder *jsontext.Decoder, link *sim.SavedPlatoonLink, c
 			return errors.New("complete-lane platoon contains terminalCell")
 		}
 	case "buffer", "compact-buffer-v1":
-		if saved.Kind == "compact-buffer-v1" && (!compact || saved.Turn != 0 || saved.Draining) {
+		if saved.Kind == "compact-buffer-v1" && (saved.Turn != 0 || saved.Draining) {
 			return errors.New("invalid compact platoon link")
 		}
 		if terminal == nil || bytes.Equal(bytes.TrimSpace(terminal), []byte("null")) || saved.Lanes != 1 {
@@ -565,27 +526,6 @@ func decodeFixedPlatoon(decoder *jsontext.Decoder, link *sim.SavedPlatoonLink, c
 		return errors.New("unknown platoon kind")
 	}
 	*link = saved
-	return nil
-}
-
-// decodeV2Pod rejects the version 3 member even when its value is false.
-func decodeV2Pod(decoder *jsontext.Decoder, pod *sim.SavedPod) error {
-	type legacyPod sim.SavedPod
-	var saved struct {
-		legacyPod
-		Buffer jsontext.Value `json:"stationBuffered"`
-	}
-	value, err := decoder.ReadValue()
-	if err != nil {
-		return err
-	}
-	if err := json.Unmarshal(value, &saved, json.RejectUnknownMembers(true), json.WithUnmarshalers(json.UnmarshalFromFunc(decodeLegacyPlatoon))); err != nil {
-		return err
-	}
-	if saved.Buffer != nil {
-		return errors.New("version 2 pod contains stationBuffered")
-	}
-	*pod = sim.SavedPod(saved.legacyPod)
 	return nil
 }
 
