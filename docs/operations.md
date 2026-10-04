@@ -55,7 +55,8 @@ Then the simulation view reloads after each server restart.
 
 ## Container image
 
-The container workflow publishes `ghcr.io/dotwaffle/podsim` from `main`, version tags, and manual workflow runs.
+The Check workflow publishes `ghcr.io/dotwaffle/podsim` from `main`, version tags, and manual workflow runs.
+It publishes only after every check job passes.
 It builds `linux/amd64` and `linux/arm64` images with ko.
 Each image gets the commit SHA as a tag.
 Images from `main` also get the `latest` tag.

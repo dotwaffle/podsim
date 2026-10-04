@@ -1691,9 +1691,10 @@ The `test:web` task sets `PODSIM_REQUIRE_GO=1`, so a missing Go makes the task a
 
 ### Continuous integration
 
-GitHub Actions runs the same check on pull requests and pushes to `main`.
+GitHub Actions runs the same check on pull requests, pushes to `main`, and version tags.
 The workflow also supports a manual trigger.
 It splits the check into five parallel jobs: `test:race:sim`, `test:race:session`, `test:race:other`, `qualify`, and `check:static`.
+After all five pass, a push or a manual run publishes the container image.
 New pull-request updates cancel older runs.
 Each `main` push keeps its own run.
 The workflow uses major-version action tags and installs tools from `mise.lock`.
