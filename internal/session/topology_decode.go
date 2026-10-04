@@ -48,9 +48,9 @@ func (topology *TopologySnapshot) UnmarshalJSON(data []byte) error {
 		return err
 	}
 	if header.ProjectVersion == project.ExpressVersion {
-		version = StreamVersion
+		version = ExpressStreamVersion
 	}
-	if err := scanContractMarkers(data, version == StreamVersion, false); err != nil {
+	if err := scanContractMarkers(data, version == ExpressStreamVersion, false); err != nil {
 		return err
 	}
 	if err := scanStreamServiceMembers(data, version); err != nil {
@@ -64,7 +64,7 @@ func (topology *TopologySnapshot) UnmarshalJSON(data []byte) error {
 	if err := decoded.Network.ValidateStationBanks(); err != nil {
 		return err
 	}
-	if version == StreamVersion {
+	if version == ExpressStreamVersion {
 		if err := validateStreamTopology(TopologySnapshot(decoded), version); err != nil {
 			return err
 		}

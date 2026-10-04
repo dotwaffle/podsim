@@ -19,7 +19,10 @@ import (
 
 // Stream limits are independent of the smaller delivery and history windows.
 const (
-	StreamVersion           = 4
+	// StreamVersion is the latest supported stream family.
+	StreamVersion = 4
+	// ExpressStreamVersion identifies the fixed express-v1 stream family.
+	ExpressStreamVersion    = 4
 	FoundationStreamVersion = 3
 	MaxStreamJSON           = 64 << 20
 	MaxStreamMessage        = 65 << 20

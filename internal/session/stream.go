@@ -504,7 +504,7 @@ func (s *Session) streamHTTP(w http.ResponseWriter, r *http.Request) {
 	c.orderContract = contract
 	p.mu.Unlock()
 	if contract == sim.ExpressOrderContract {
-		hello.Version = StreamVersion
+		hello.Version = ExpressStreamVersion
 		hello.OrderContract = contract
 		hello.TextEncoding = ExpressTextEncoding
 	}

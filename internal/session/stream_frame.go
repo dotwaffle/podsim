@@ -52,7 +52,7 @@ func NewStreamAssembler(topology TopologySnapshot) (*StreamAssembler, error) {
 		return nil, err
 	}
 	if topology.OrderContract == sim.ExpressOrderContract {
-		if err := validateStreamTopology(topology, StreamVersion); err != nil {
+		if err := validateStreamTopology(topology, ExpressStreamVersion); err != nil {
 			return nil, err
 		}
 	}
@@ -61,7 +61,7 @@ func NewStreamAssembler(topology TopologySnapshot) (*StreamAssembler, error) {
 	}
 	a := &StreamAssembler{topology: topology, lanes: make(map[string]bool, len(topology.Network.Lanes)), groupLanes: make(map[string]bool, len(topology.Network.Lanes)), stations: map[string]bool{}, berths: map[string]bool{}, boardingBerths: map[string]boardingBerth{}}
 	if topology.OrderContract == sim.ExpressOrderContract {
-		a.version = StreamVersion
+		a.version = ExpressStreamVersion
 		a.passengerPaths = map[passengerPathKey]bool{}
 	}
 	nodes := map[string]bool{}

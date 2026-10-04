@@ -20,10 +20,10 @@ func DecodeStreamJSONVersion(data []byte, version int) (StreamEnvelope, error) {
 	if version < 1 || version > StreamVersion || len(data) > MaxStreamJSON {
 		return StreamEnvelope{}, errors.New("unsupported stream version or size")
 	}
-	if err := scanContractMarkers(data, version == StreamVersion, version == StreamVersion); err != nil {
+	if err := scanContractMarkers(data, version == ExpressStreamVersion, version == ExpressStreamVersion); err != nil {
 		return StreamEnvelope{}, err
 	}
-	if version == StreamVersion {
+	if version == ExpressStreamVersion {
 		if err := prescanJSON(data, expressStreamLimits()); err != nil {
 			return StreamEnvelope{}, err
 		}
@@ -39,7 +39,7 @@ func DecodeStreamJSONVersion(data []byte, version int) (StreamEnvelope, error) {
 	}
 	var envelope StreamEnvelope
 	var err error
-	if version == StreamVersion {
+	if version == ExpressStreamVersion {
 		err = jsonv2.Unmarshal(data, &envelope, json.DefaultOptionsV1(), jsonv2.RejectUnknownMembers(true), packedDecodeOptions())
 	} else {
 		err = decodeStreamJSON(data, &envelope)
@@ -110,7 +110,7 @@ func scanStreamServiceMembers(data []byte, version int) error {
 					return errors.New("invalid stream service")
 				}
 			case "serviceid":
-				if len(value.String()) > 64 && version != StreamVersion {
+				if len(value.String()) > 64 && version != ExpressStreamVersion {
 					return errors.New("stream service ID is too long")
 				}
 			}
@@ -135,7 +135,7 @@ func NewStreamAssemblerVersion(topology TopologySnapshot, version int) (*StreamA
 }
 
 func validateStreamTopology(topology TopologySnapshot, version int) error {
-	if version == StreamVersion {
+	if version == ExpressStreamVersion {
 		if topology.ProjectVersion != project.ExpressVersion || topology.OrderContract != sim.ExpressOrderContract {
 			return errors.New("express topology needs project 4 and contract")
 		}
@@ -174,7 +174,7 @@ func validateStreamTopology(topology TopologySnapshot, version int) error {
 }
 
 func (a *StreamAssembler) serviceOrders(frame StreamFrame) error {
-	if a.version == StreamVersion {
+	if a.version == ExpressStreamVersion {
 		return a.expressOrders(frame)
 	}
 	if a.version < FoundationStreamVersion {

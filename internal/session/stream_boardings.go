@@ -145,7 +145,7 @@ func scanStreamBoardingMembers(data []byte, version int) error {
 			}
 			raw = members["value"]
 		}
-		if version == StreamVersion {
+		if version == ExpressStreamVersion {
 			err = scanBoardingRecordsLimit(raw, delta, 20)
 		} else {
 			err = scanBoardingRecords(raw, delta)

@@ -93,7 +93,7 @@ func expressStreamLimits() jsonLimits {
 }
 
 func maxStreamProjectVersion(version int) int {
-	if version == StreamVersion {
+	if version == ExpressStreamVersion {
 		return project.ExpressVersion
 	}
 	return project.ServiceVersion
@@ -130,7 +130,7 @@ func EncodeExpressStateJSON(topology TopologySnapshot, frame StreamFrame) ([]byt
 	if topology.OrderContract != sim.ExpressOrderContract || frame.State.Simulation.OrderContract != topology.OrderContract {
 		return nil, errors.New("HTTP state requires Express contract")
 	}
-	assembler, err := NewStreamAssemblerVersion(topology, StreamVersion)
+	assembler, err := NewStreamAssemblerVersion(topology, ExpressStreamVersion)
 	if err != nil {
 		return nil, err
 	}
@@ -162,10 +162,10 @@ func DecodeExpressStateJSON(raw []byte) (State, error) {
 	if err := scanContractMarkers(raw, true, true); err != nil {
 		return State{}, err
 	}
-	if err := scanStreamBoardingMembers(raw, StreamVersion); err != nil {
+	if err := scanStreamBoardingMembers(raw, ExpressStreamVersion); err != nil {
 		return State{}, err
 	}
-	if err := scanStreamServiceMembers(raw, StreamVersion); err != nil {
+	if err := scanStreamServiceMembers(raw, ExpressStreamVersion); err != nil {
 		return State{}, err
 	}
 	if err := scanPackedOrders(raw); err != nil {
@@ -175,7 +175,7 @@ func DecodeExpressStateJSON(raw []byte) (State, error) {
 	if err := jsonv2.Unmarshal(raw, &envelope, json.DefaultOptionsV1(), jsonv2.RejectUnknownMembers(true), packedDecodeOptions()); err != nil {
 		return State{}, err
 	}
-	assembler, err := NewStreamAssemblerVersion(envelope.Topology, StreamVersion)
+	assembler, err := NewStreamAssemblerVersion(envelope.Topology, ExpressStreamVersion)
 	if err != nil {
 		return State{}, err
 	}
@@ -240,7 +240,7 @@ func DecodeStreamHello(raw []byte) (StreamHello, error) {
 	if hello.Kind != "hello" || hello.Version < 1 || hello.Version > StreamVersion || hello.ServerStart == "" {
 		return hello, errors.New("unsupported state stream protocol")
 	}
-	if err := scanContractMarkers(raw, hello.Version == StreamVersion, hello.Version == StreamVersion); err != nil {
+	if err := scanContractMarkers(raw, hello.Version == ExpressStreamVersion, hello.Version == ExpressStreamVersion); err != nil {
 		return hello, err
 	}
 	return hello, nil

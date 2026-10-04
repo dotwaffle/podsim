@@ -57,7 +57,7 @@ func TestExpressSaveStreamHTTPRoundTrip(t *testing.T) {
 	if reply.ErrorCode != "" {
 		t.Fatal(reply)
 	}
-	assembler, err := NewStreamAssemblerVersion(shared.Topology(), StreamVersion)
+	assembler, err := NewStreamAssemblerVersion(shared.Topology(), ExpressStreamVersion)
 	if err != nil {
 		t.Fatal(err)
 	}
