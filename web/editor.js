@@ -42,6 +42,10 @@
   const MAX_NODES = 5000;
   const MAX_LANES = 8000;
   const MAX_NODE_LANES = 64;
+  // LANE_CLASSES gives the vehicle classes in the native order.
+  const LANE_CLASSES = ["legacy", "compact", "group", "express"];
+  // MAX_COUPLING_ROWS is sim.MaxCouplingSites and sim.MaxCouplingCorridors.
+  const MAX_COUPLING_ROWS = 300;
   const MAX_FLOWS = 65000;
   // IMAGE_FILE_BYTES is the largest background image file that the editor
   // imports. SERVER_PROJECT_BYTES mirrors project.MaxFileBytes on the server,
@@ -435,7 +439,7 @@
 
   function fleetClassNotice(config) {
     if (config.version === 4) return "New pods use legacy class. Express operation requires a qualified express-v1 runtime.";
-    return config.version === 3 ? "New pods use legacy class. Import a project to set vehicle classes and express services. Express pods cannot start yet." : "";
+    return config.version === 3 ? "New pods use legacy class. Import a project to set pod classes and express services. Express pods cannot start yet." : "";
   }
 
   // selectionCard gives the data of the Selection panel for the selected
@@ -469,6 +473,20 @@
     return node ? { type: "node", id: node.ID, x: node.Position.X, y: node.Position.Y } : null;
   }
 
+  // laneClassState gives the vehicle classes that a lane allows, in native
+  // order, and the state of the class options. A lane with no
+  // VehicleClasses allows Legacy and Compact pods, as native reads it.
+  // Native accepts lane classes on versions 3, 4, and 5 only.
+  function laneClassState(config, laneID) {
+    const lane = config.network.Lanes.find((item) => item.ID === laneID);
+    const set = Array.isArray(lane?.VehicleClasses), classes = set ? LANE_CLASSES.filter((name) => lane.VehicleClasses.includes(name)) : ["legacy", "compact"];
+    if (![3, 4, 5].includes(config.version)) return { classes, disabled: true, hint: "Vehicle classes need project version 3, 4, or 5." };
+    const hints = [];
+    if (!set) hints.push("The guideway has no class list, so Legacy and Compact pods can use it.");
+    if (config.version === 5) hints.push("A coupling site needs a straight guideway with Compact only.");
+    return { classes, disabled: false, hint: hints.join(" ") };
+  }
+
   // berthFocusID gives the berth row that gets the keyboard focus after a
   // berth remove from the keyboard. berthIDs holds the berths of the station
   // before the remove. The row is the next row after the removed berth, or
@@ -480,6 +498,66 @@
   function berthFocusID(berthIDs, removedID) {
     const index = berthIDs.indexOf(removedID); const rest = berthIDs.filter((id) => id !== removedID);
     return index >= 0 && rest.length > 1 ? rest[Math.min(index, rest.length - 1)] : "";
+  }
+
+  // couplingLayout gives the parts of the coupling rows that the row
+  // elements show as fixed text and buttons: the site IDs, and the ID and
+  // guideways of each corridor. The rows are built again when it changes.
+  function couplingLayout(sites, corridors) {
+    return JSON.stringify([sites.map((site) => site.id), corridors.map((corridor) => [corridor.id, Array.isArray(corridor.laneIds) ? corridor.laneIds : []])]);
+  }
+
+  // couplingFocusID gives the coupling site or corridor row that gets the
+  // keyboard focus after a row remove from the keyboard. ids holds the rows
+  // before the remove. The row is the next row, or the previous row when the
+  // removed row was the last row. The focus goes to the Remove button of that
+  // row. With no row left, the function gives an empty ID, and the focus goes
+  // to the Add button of the list.
+  function couplingFocusID(ids, removedID) {
+    const index = ids.indexOf(removedID); const rest = ids.filter((id) => id !== removedID);
+    return index >= 0 && rest.length ? rest[Math.min(index, rest.length - 1)] : "";
+  }
+
+  // couplingUndoFocusID gives the coupling row that gets the keyboard focus
+  // after an undo or a redo removes the focused control. beforeIDs and
+  // afterIDs are the row IDs of the list before and after the step. The row
+  // is the same row when it stays, else the next row that stays, else the
+  // previous row that stays. With no such row, the function gives an empty
+  // ID, and the focus goes to Add or to the list heading.
+  function couplingUndoFocusID(beforeIDs, afterIDs, id) {
+    if (afterIDs.includes(id)) return id;
+    const index = beforeIDs.indexOf(id), stays = (item) => afterIDs.includes(item);
+    if (index < 0) return "";
+    return beforeIDs.slice(index + 1).find(stays) ?? beforeIDs.slice(0, index).findLast(stays) ?? "";
+  }
+
+  // corridorLaneFocus gives the index of the guideway that gets the keyboard
+  // focus after a guideway remove from the keyboard. count is the length of
+  // the corridor path before the remove. The guideway is the next guideway,
+  // which moves to index, or the previous guideway when the removed guideway
+  // was the last. With no guideway left, the function gives -1.
+  function corridorLaneFocus(count, index) {
+    return count > 1 ? Math.min(index, count - 2) : -1;
+  }
+
+  // convertTrainsState gives the state of the Convert to trains button. The
+  // conversion needs a project of version 1 to 4 whose last checks, in
+  // verdict, have no errors. A null verdict means that the checks did not
+  // run after the last change. busy is true while the draft cannot change.
+  function convertTrainsState(config, verdict, busy) {
+    if (![1, 2, 3, 4].includes(config.version)) return { hidden: true, disabled: true, hint: "" };
+    if (busy) return { hidden: false, disabled: true, hint: "Wait until the present action ends." };
+    if (!verdict) return { hidden: false, disabled: true, hint: "The checks must run before the project can convert to trains." };
+    if (!verdict.valid) return { hidden: false, disabled: true, hint: "Fix the errors in Checks before the project converts to trains." };
+    return { hidden: false, disabled: false, hint: `Changes the project to version 5 with trains off and no coupling sites. Undo goes back to version ${config.version}.` };
+  }
+
+  // trainsScenario gives the converted draft. The new members follow the
+  // existing members in a fixed order, so each conversion exports the same
+  // bytes.
+  function trainsScenario(config, patch) {
+    const { version, couplingContract, couplingEnabled, couplingSites, couplingCorridors } = patch;
+    return { ...config, version, couplingContract, couplingEnabled, couplingSites, couplingCorridors };
   }
 
   // undoFocus gives the selection and the keyboard focus after an undo or a
@@ -712,9 +790,55 @@
     return clone(out);
   }
 
+  // foldName gives an ASCII member name in the case fold of the server
+  // decoder, which matches names as Go strings.EqualFold does. Only two
+  // other runes fold to an ASCII letter: U+017F to S and U+212A to K. Other
+  // runes stay, so they match only themselves. Use it to compare a name
+  // with an ASCII name.
+  function foldName(name) {
+    return name.replace(/[a-z\u017f\u212a]/g, (letter) => ({ "\u017f": "S", "\u212a": "K" })[letter] || letter.toUpperCase());
+  }
+
+  // foldedKeys gives the member names of value that the server decoder
+  // matches with the ASCII name, in file order.
+  function foldedKeys(value, name) {
+    return Object.keys(value).filter((key) => foldName(key) === foldName(name));
+  }
+
+  // repeatedMember gives the first member name that an object of the JSON
+  // text repeats, or null. The server decoder rejects a repeated name, but
+  // JSON.parse keeps the last value. The text must be valid JSON.
+  function repeatedMember(text) {
+    const stack = [];
+    for (let index = 0; index < text.length; index++) {
+      const character = text[index], top = stack.at(-1);
+      if (character === '"') {
+        let end = text.indexOf('"', index + 1);
+        // An odd count of backslashes before a quote escapes it.
+        for (;;) {
+          let slashes = 0;
+          while (text[end - 1 - slashes] === "\\") slashes++;
+          if (slashes % 2 === 0) break;
+          end = text.indexOf('"', end + 1);
+        }
+        if (top?.keys && top.expectKey) {
+          const name = JSON.parse(text.slice(index, end + 1));
+          if (top.keys.has(name)) return name;
+          top.keys.add(name); top.expectKey = false;
+        }
+        index = end;
+      } else if (character === "{") stack.push({ keys: new Set(), expectKey: true });
+      else if (character === "[") stack.push({});
+      else if (character === "}" || character === "]") stack.pop();
+      else if (character === "," && top?.keys) top.expectKey = true;
+    }
+    return null;
+  }
+
   // unwrapDocument gets the scenario from an import file. A browser export has
   // a format field and wraps the scenario. A server project file, such as the
-  // -project file or the scenario command output, is a bare scenario.
+  // -project file or the scenario command output, is a bare scenario. The
+  // server matches its member names without case.
   function unwrapDocument(document) {
     const isObject = (value) => value !== null && typeof value === "object" && !Array.isArray(value);
     if (!isObject(document)) throw new Error("The file must contain a JSON object.");
@@ -724,10 +848,20 @@
       if (!isObject(document.scenario)) throw new Error("The scenario field must be an object.");
       return { scenario: clone(document.scenario), background: document.background };
     }
-    if (!("network" in document)) throw new Error("The file has no format field and no network field.");
-    if (!isObject(document.network)) throw new Error("The network field must be an object.");
-    if (![1, 2, 3, 4, 5].includes(document.version)) throw new Error("The version field must be 1, 2, 3, 4, or 5.");
+    const networkKeys = foldedKeys(document, "network"), versionKeys = foldedKeys(document, "version");
+    if (!networkKeys.length) throw new Error("The file has no format field and no network field.");
+    // A null member keeps the earlier value, and the last of two names that
+    // differ in case applies. Go decodes such a file as the server does.
+    const canonical = networkKeys.join() === "network" && ["", "version"].includes(versionKeys.join());
+    if (canonical && !isObject(document.network)) throw new Error("The network field must be an object.");
+    if (canonical && ![1, 2, 3, 4, 5].includes(document.version)) throw new Error("The version field must be 1, 2, 3, 4, or 5.");
     return { scenario: clone(document), background: null };
+  }
+
+  // importedScenario gives the scenario after the Go import repairs. A
+  // replacement has the canonical member names of a server project.
+  function importedScenario(scenario, change) {
+    return { ...(change.replace || scenario), ...change.patch };
   }
 
   // parseDocument checks the text of an import file and gives the scenario
@@ -737,6 +871,8 @@
   function parseDocument(text, { deferMetadata = false } = {}) {
     let document;
     try { document = JSON.parse(text); } catch (error) { throw new Error(`The file is not valid JSON. ${error.message}`); }
+    const repeated = repeatedMember(text);
+    if (repeated !== null) throw new Error(`The file repeats the member name ${JSON.stringify(repeated)} in one object.`);
     const { scenario, background } = unwrapDocument(document);
     if (deferMetadata && background) {
       if (typeof background !== "object" || Array.isArray(background)) throw new Error("The background must be an object.");
@@ -2418,11 +2554,11 @@
   const API = {
 
     MIN_LANE_LENGTH, MAX_PODS, MAX_STATIONS, MAX_NODES, MAX_LANES, MAX_NODE_LANES, MAX_FLOWS, MIN_ZOOM, NODE_LABEL_SCALE, NODE_LABEL_SIZE, LANE_PAIR_OFFSET, CHEVRON_LANE_LENGTH, BERTH_PITCH, STATION_PADDING, CLEARANCE, CHECK_DELAY, emptyConfig, fallbackConfig,
-    stationBearing, stationShape, stationLayout, stationGeometryCommand, berthChain, stationFlowCount, stationRailReferences, fleetRows, fleetClassNotice, selectionCard, berthFocusID, undoFocus,
+    stationBearing, stationShape, stationLayout, stationGeometryCommand, berthChain, stationFlowCount, stationRailReferences, fleetRows, fleetClassNotice, selectionCard, berthFocusID, couplingFocusID, couplingUndoFocusID, corridorLaneFocus, couplingLayout, laneClassState, convertTrainsState, trainsScenario, undoFocus,
     laneLength, curveLength, stationNodeOwners, dragTargets, checkSelector, checkSelection, selectionPoint, focusView,
     GEO_PROJECTION, GEO_RADIUS, GEO_MAX_LATITUDE, MAX_COORDINATE, FRAME_SOURCES, SCALE_TOLERANCE, ALIGN_TOLERANCE, RESAMPLE_MAX_SIDE, projectPoint, frameError, framePlacement, frameAligned, resampleSize, mercatorY, resampleRows,
     problemCountText, createCheckTimer, validationSummary, checkFocusKey, IMAGE_FILE_BYTES, IMAGE_MAX_SIDE, IMAGE_MAX_PIXELS, imageFacts, imageBytesFacts, dataURLToBytes, bytesToDataURL, checkImageSize,
-    metadataURLFacts, IMAGE_KEY_PATTERN, newImageKey, FRAME_STATES, LICENSE_LIMITS, licenseError, assetError, backgroundRecordText, STORED_BACKGROUND_KEPT_TEXT, SERVER_PROJECT_BYTES, PROJECT_FILE_BYTES, SERVER_COMMAND_BYTES, SERVER_COMMAND_JSON_BYTES, GZIP_COMMAND_BYTES, SERVER_TOO_LARGE_TEXT, postCommand, dataURLBytes, serializeDocument, parseDocument,
+    metadataURLFacts, IMAGE_KEY_PATTERN, newImageKey, FRAME_STATES, LICENSE_LIMITS, licenseError, assetError, backgroundRecordText, STORED_BACKGROUND_KEPT_TEXT, SERVER_PROJECT_BYTES, PROJECT_FILE_BYTES, SERVER_COMMAND_BYTES, SERVER_COMMAND_JSON_BYTES, GZIP_COMMAND_BYTES, SERVER_TOO_LARGE_TEXT, postCommand, dataURLBytes, serializeDocument, parseDocument, repeatedMember, importedScenario, foldName,
     networkBounds, fitView, zoomScale, nodeLabelSize, pairedLaneIDs, showsChevron, laneOffset, laneCurve, lanePathData, SNAPSHOT_ATTEMPTS, snapshotConsistent, draftBeforeRestart, readState, readSnapshot, applyToServer, applyFailureText, applyFailureStatus, applyToast,
     readLive, readConflict, CONFLICT_UNLOADED_TEXT, conflictView, LOAD_LIVE_QUESTION, applyOverQuestion, loadLive, liveDraft, applyOverBase,
     DRAFT_SAVE_DELAY, DRAFT_STORE_TEXT, DRAFT_UNSAVED_TEXT, DRAFT_DISPLACED_TEXT, DRAFT_STORE, BACKGROUND_STORE, openRecordStore, createDraftKeeper, draftChanged, draftRecordFor, draftOffer, backgroundRecordFor, storedBackground, restoreStoredBackground,
@@ -2451,6 +2587,9 @@
   // checks runs the checks CHECK_DELAY milliseconds after the last draft
   // change. The history schedules it for each change.
   const checks = createCheckTimer({ delay: CHECK_DELAY, run: runValidation, scheduled: scheduleValidation, clock: root });
+  // trainsVerdict is the result of the last checks of the draft, or null
+  // after a change that the checks must see. Convert to trains uses it.
+  let trainsVerdict = null;
   // model keeps the draft history with the images of its backgrounds, the
   // Reset draft baseline, the edit counter, the open gestures and the open
   // acquisition. Each draft change schedules both keepers. Changes that can
@@ -2472,7 +2611,7 @@
       },
     }),
     onAcknowledged: () => { renderHistoryButtons(); renderApply(); },
-    onChange: (checksUnchanged) => { state.background = state.history.background; if (!checksUnchanged) checks.schedule(); keeper.schedule(); backgroundKeeper.schedule(); },
+    onChange: (checksUnchanged) => { state.background = state.history.background; if (!checksUnchanged) { trainsVerdict = null; checks.schedule(); } keeper.schedule(); backgroundKeeper.schedule(); },
   });
   // slot is the decoder slot of the tab. Each check decode, the restore and
   // each resample run in it. decoder gives the browser functions to the
@@ -2823,7 +2962,7 @@
   // inputs.
   const SELECTION_FORMS = {
     station: '<label>Name<input data-edit="station-name" maxlength="80"></label><p class="id" data-field="id"></p><label class="check"><input data-edit="parking-only" type="checkbox"> Parking station</label><label>Bearing (degrees)<input data-edit="station-bearing" type="number" step="1"></label><p class="hint">The bearing is the direction from the entry to the exit, clockwise from up. The square marks the entry, and the triangle marks the exit. Drag the shape to move the station, or drag a node to move only that node.</p><label data-field="bank-selection" hidden>Bank<select data-edit="station-bank"></select></label><fieldset data-field="layout"><legend>Station layout</legend><label>Berth pitch (m)<input data-layout="pitch" type="number" min="25" step="1"></label><label>Entry/exit spacing (m)<input data-layout="spacing" type="number" min="48" step="1"></label><label>Approach setback (m)<input data-layout="setback" type="number" min="1" step="1"></label><label data-field="approach-length" hidden>Approach length (m)<input data-layout="approachLength" type="number" min="24" step="1"></label><label data-field="departure-length" hidden>Departure length (m)<input data-layout="departureLength" type="number" min="24" step="1"></label><p class="hint" data-field="layout-hint"></p><button data-action="station-layout" type="button">Preview in draft</button></fieldset><details><summary>Bank membership</summary><label>Complete bank array<textarea data-edit="station-banks" rows="5" spellcheck="false"></textarea></label><p class="hint">Import or edit the physical nodes and lanes first. Each bank needs distinct gates and its own berth paths.</p><button data-action="station-banks" type="button">Preview bank membership</button><button data-action="station-legacy" type="button">Use legacy station gates</button></details><div class="berth-list" data-field="berths"><strong>Physical berths</strong></div><button data-action="add-berth" type="button">Add physical berth</button><button data-action="delete-station" class="danger" type="button">Delete station and connections</button>',
-    lane: '<p class="id" data-field="id"></p><p data-field="route"></p><label>Speed limit (km/h)<input data-edit="lane-speed" type="number" min="1" step="1"></label><p class="hint" data-field="length"></p><button data-action="toggle-curve" type="button"></button><button data-action="delete-lane" class="danger" type="button">Delete guideway</button>',
+    lane: '<p class="id" data-field="id"></p><p data-field="route"></p><label>Speed limit (km/h)<input data-edit="lane-speed" type="number" min="1" step="1"></label><p class="hint" data-field="length"></p><fieldset><legend>Vehicle classes</legend><label class="check"><input data-edit="lane-class" data-class="legacy" type="checkbox"> Legacy</label><label class="check"><input data-edit="lane-class" data-class="compact" type="checkbox"> Compact</label><label class="check"><input data-edit="lane-class" data-class="group" type="checkbox"> Group</label><label class="check"><input data-edit="lane-class" data-class="express" type="checkbox"> Express</label><p class="hint" data-field="classes-hint"></p></fieldset><button data-action="toggle-curve" type="button"></button><button data-action="delete-lane" class="danger" type="button">Delete guideway</button>',
     node: '<p class="id" data-field="id"></p><p data-field="position"></p><button data-action="delete-node" class="danger" type="button">Delete junction and connections</button>',
   };
 
@@ -2848,6 +2987,9 @@
       field("route").textContent = `${card.from} → ${card.to}`; setValue(input("lane-speed"), String(card.speed));
       field("length").textContent = `Length: ${card.length.toFixed(1)} m`;
       panel.querySelector('[data-action="toggle-curve"]').textContent = card.curved ? "Make straight" : "Add curve";
+      const classes = laneClassState(draft(), card.id);
+      for (const box of panel.querySelectorAll('[data-edit="lane-class"]')) { box.checked = classes.classes.includes(box.dataset.class); box.disabled = classes.disabled; }
+      field("classes-hint").textContent = classes.hint;
     } else field("position").textContent = `Junction at ${card.x.toFixed(1)}, ${card.y.toFixed(1)} m`;
     for (const control of panel.querySelectorAll("input, button, select, textarea")) { control.dataset.item = card.id; control.dataset.kind = card.type; }
   }
@@ -2936,12 +3078,21 @@
     model.abort();
     const panel = $("#selectionContent"); const focused = document.activeElement; const before = draft();
     const control = panel.contains(focused) ? { action: focused.dataset.action || "", id: focused.dataset.id || "" } : null;
+    const couplingKind = $("#couplingSiteRows").contains(focused) ? "site" : $("#couplingCorridorRows").contains(focused) ? "corridor" : "";
     const options = { current, beforePublish: (changed) => {
       if (!changed) return;
       const ownsFocus = document.activeElement === focused;
       const next = undoFocus({ before, after: draft(), selection: state.selection, control: ownsFocus ? control : null });
       state.selection = next.selection; render();
       if (!ownsFocus) return;
+      // A coupling row control that the step removed gives the focus to a near row.
+      if (couplingKind) {
+        if (focused.isConnected || document.activeElement !== document.body) return;
+        const key = couplingKind === "site" ? "couplingSites" : "couplingCorridors";
+        const ids = (config) => (Array.isArray(config[key]) ? config[key] : []).map((row) => row?.id);
+        focusCouplingRow(couplingKind, couplingUndoFocusID(ids(before), ids(draft()), focused.dataset.couplingId));
+        return;
+      }
       if (next.focus === "map") focusMap();
       else if (next.focus) [...panel.querySelectorAll("button[data-action]")].find((button) => button.dataset.action === next.focus.action && (button.dataset.id || "") === next.focus.id)?.focus();
     } };
@@ -3103,10 +3254,14 @@
     setScalarValue("#platoonLimit", String(config.platoonLimit));
     $("#stationBuffers").checked = config.stationBuffers;
     setScalarValue("#stationQueueSpacing", config.stationQueueSpacing || "ordinary");
+    // Native accepts the setting on versions 3 and 5. The edit changes a version 1 or 2 draft to version 3.
+    const queueLocked = config.version === 4;
+    $("#stationQueueSpacing").disabled = queueLocked; $("#stationQueueSpacingHint").hidden = !queueLocked;
     $("#pickupReassignment").checked = config.pickupReassignment;
     // Only a version 5 project has the train option. Off keeps its sites and corridors.
     $("#couplingEnabledLabel").hidden = $("#couplingEnabledHint").hidden = config.version !== 5;
     $("#couplingEnabled").checked = config.couplingEnabled === true;
+    renderConvertTrains(config);
   }
 
   let parkRideStations = null, parkRideBusy = false;
@@ -3168,7 +3323,7 @@
     if (config.network !== drawnNetwork || backgroundKey !== drawnBackground || selectionKey !== drawnSelection) {
       renderMap(); drawnNetwork = config.network; drawnBackground = backgroundKey; drawnSelection = selectionKey;
     } else { renderTiles(); }
-    renderSelection(); renderFleet(); renderDemand(); renderRailArrivals(config); renderRailArrivals(config, "departure"); updatePrompt(); renderBackground(); renderApply();
+    renderSelection(); renderFleet(); renderDemand(); renderRailArrivals(config); renderRailArrivals(config, "departure"); renderCoupling(config); updatePrompt(); renderBackground(); renderApply();
     restorePendingInputs();
   }
   function restorePendingInputs() {
@@ -3254,6 +3409,7 @@
     const button = $("#applyButton"); button.disabled = Boolean(state.history.failed) || state.applying || !changed && !editQueue.pending && !state.history.pending;
     button.title = changed || state.applying || editQueue.pending ? "" : "The draft has no changes to apply.";
     $("#loadLiveButton").disabled = state.applying || Boolean(state.history.failed); $("#applyOverButton").disabled = state.applying || Boolean(state.history.failed);
+    renderConvertTrains(draft());
   }
 
   // setLive keeps the scenario of value as the live baseline, with the live
@@ -3627,6 +3783,172 @@
       renderRailArrivals(draft(), kind); renderDemand(); renderHistoryButtons(); renderApply(); restorePendingInputs();
     });
   }
+  function renderConvertTrains(config) {
+    const view = convertTrainsState(config, trainsVerdict, Boolean(state.history.failed) || state.applying);
+    const button = $("#convertTrains"), hint = $("#convertTrainsHint");
+    button.hidden = hint.hidden = view.hidden; button.disabled = view.disabled; hint.textContent = view.hint;
+  }
+  // convertToTrains records the conversion as one undo step. The button
+  // then hides, so the keyboard focus goes to the train option.
+  function convertToTrains() {
+    const button = $("#convertTrains");
+    model.abort();
+    editQueue.submit(async (current) => {
+      if (!current()) return false;
+      const config = draft(), generation = model.edits;
+      if (state.drag && state.drag.type !== "pan" || model.gestureOpen) throw new Error("Finish the open gesture before converting to trains.");
+      const result = await editorProposal(config, { field: "convertToTrains", value: true });
+      if (result.error) throw new Error(result.error);
+      if (!current()) return false;
+      if (config !== draft() || generation !== model.edits || state.drag && state.drag.type !== "pan" || model.gestureOpen) throw new Error("The draft changed during the conversion. Convert again.");
+      await state.history.replace({ scenario: trainsScenario(config, result.change.patch), background: state.background }, true, false, { current });
+      return true;
+    }).catch((error) => toast(error.message, true)).finally(() => {
+      const ownsFocus = document.activeElement === button;
+      render();
+      if (ownsFocus && button.hidden) $("#couplingEnabled").focus();
+    });
+  }
+
+  // selectedLaneID gives the guideway that the map selects, or an empty ID.
+  function selectedLaneID() {
+    const config = draft();
+    return state.selection?.type === "lane" && config.network.Lanes.some((lane) => lane.ID === state.selection.id) ? state.selection.id : "";
+  }
+  const COUPLING_SITE_FIELDS = [["startMeters", "Start (m)"], ["endMeters", "End (m)"], ["rearStagingMeters", "Rear staging (m)"], ["frontStagingMeters", "Front staging (m)"]];
+  function couplingButton(text, action, id, index) {
+    const button = document.createElement("button"); button.type = "button"; button.textContent = text;
+    button.dataset.couplingAction = action; button.dataset.couplingId = id;
+    if (index !== undefined) button.dataset.couplingIndex = String(index);
+    return button;
+  }
+  function couplingField(text, control, id, field) {
+    control.dataset.couplingId = id; control.dataset.couplingField = field;
+    const label = document.createElement("label"); label.append(document.createTextNode(text), control); return label;
+  }
+  function couplingSiteRow(site) {
+    const row = document.createElement("div"); row.className = "subpanel"; row.dataset.couplingId = site.id;
+    row.append(document.createElement("p"), couplingButton("Use selected guideway", "setSiteLane", site.id));
+    for (const [field, text] of COUPLING_SITE_FIELDS) {
+      const input = document.createElement("input"); input.type = "number"; input.step = "any";
+      row.append(couplingField(text, input, site.id, field));
+    }
+    const remove = couplingButton("Remove", "removeSite", site.id); remove.setAttribute("aria-label", `Remove ${site.id}`); row.append(remove);
+    return row;
+  }
+  function couplingCorridorRow(corridor, sites) {
+    const row = document.createElement("div"); row.className = "subpanel"; row.dataset.couplingId = corridor.id;
+    row.append(document.createElement("p"));
+    for (const [field, text] of [["assemblySiteId", "Assembly site"], ["splitSiteId", "Split site"]]) {
+      const select = document.createElement("select");
+      for (const site of sites) { const option = document.createElement("option"); option.value = site.id; option.textContent = site.id; select.append(option); }
+      row.append(couplingField(text, select, corridor.id, field));
+    }
+    (Array.isArray(corridor.laneIds) ? corridor.laneIds : []).forEach((laneID, index) => {
+      const lane = document.createElement("div"); lane.className = "berth-row";
+      const name = document.createElement("span"); name.textContent = `${index + 1}. ${laneID}`;
+      const remove = couplingButton("Remove", "removeCorridorLane", corridor.id, index); remove.setAttribute("aria-label", `Remove guideway ${index + 1} of ${corridor.id}`);
+      remove.dataset.couplingLane = String(laneID); remove.dataset.couplingCount = String(corridor.laneIds.length);
+      lane.append(name, remove); row.append(lane);
+    });
+    const remove = couplingButton("Remove", "removeCorridor", corridor.id); remove.setAttribute("aria-label", `Remove ${corridor.id}`);
+    row.append(couplingButton("Add selected guideway", "addCorridorLane", corridor.id), remove);
+    return row;
+  }
+  // renderCoupling shows the coupling site and corridor rows of a version 5
+  // project. It replaces the rows only when couplingLayout changes, and
+  // keeps a field that has input in progress.
+  let drawnCoupling = "";
+  function renderCoupling(config) {
+    const shown = config.version === 5, laneID = selectedLaneID();
+    $("#couplingSitesPanel").hidden = $("#couplingCorridorsPanel").hidden = !shown;
+    if (!shown) return;
+    const sites = (Array.isArray(config.couplingSites) ? config.couplingSites : []).filter((site) => site && typeof site === "object");
+    const corridors = (Array.isArray(config.couplingCorridors) ? config.couplingCorridors : []).filter((corridor) => corridor && typeof corridor === "object");
+    $("#addCouplingSite").disabled = !laneID || sites.length >= MAX_COUPLING_ROWS;
+    $("#addCouplingCorridor").disabled = sites.length < 2 || corridors.length >= MAX_COUPLING_ROWS;
+    const siteRows = $("#couplingSiteRows"), corridorRows = $("#couplingCorridorRows");
+    const layout = couplingLayout(sites, corridors);
+    if (layout !== drawnCoupling && ![...typingInputs].some((input) => siteRows.contains(input) || corridorRows.contains(input))) {
+      const active = siteRows.contains(document.activeElement) || corridorRows.contains(document.activeElement) ? { ...document.activeElement.dataset } : null;
+      siteRows.replaceChildren(...sites.map(couplingSiteRow));
+      corridorRows.replaceChildren(...corridors.map((corridor) => couplingCorridorRow(corridor, sites)));
+      drawnCoupling = layout;
+      const same = (control) => Object.keys(active).every((key) => control.dataset[key] === active[key]);
+      if (active && Object.keys(active).length) [...siteRows.querySelectorAll("button, input"), ...corridorRows.querySelectorAll("button, select")].find(same)?.focus({ preventScroll: true });
+    }
+    for (const row of siteRows.children) {
+      const site = sites.find((item) => item.id === row.dataset.couplingId);
+      if (!site) continue;
+      row.querySelector("p").textContent = `${site.id} on guideway ${site.laneId}`;
+      row.querySelector('[data-coupling-action="setSiteLane"]').disabled = !laneID || laneID === site.laneId;
+      for (const input of row.querySelectorAll("input")) setControlValue(input, site[input.dataset.couplingField]);
+    }
+    for (const row of corridorRows.children) {
+      const corridor = corridors.find((item) => item.id === row.dataset.couplingId);
+      if (!corridor) continue;
+      row.querySelector("p").textContent = corridor.id;
+      row.querySelector('[data-coupling-action="addCorridorLane"]').disabled = !laneID || !Array.isArray(corridor.laneIds) || corridor.laneIds.length >= MAX_LANES;
+      for (const select of row.querySelectorAll("select")) setControlValue(select, corridor[select.dataset.couplingField]);
+    }
+  }
+  // focusCouplingRow gives the keyboard focus to the Remove button of a site
+  // or corridor row. With no such row, the focus goes to the Add button of
+  // the list, or to the list heading when Add is not available.
+  function focusCouplingRow(kind, id) {
+    const rows = $(kind === "site" ? "#couplingSiteRows" : "#couplingCorridorRows");
+    const row = [...rows.children].find((item) => item.dataset.couplingId === id);
+    const remove = kind === "site" ? "removeSite" : "removeCorridor";
+    const add = $(kind === "site" ? "#addCouplingSite" : "#addCouplingCorridor");
+    if (row) row.querySelector(`[data-coupling-action="${remove}"]`).focus();
+    else if (!add.disabled) add.focus();
+    else $(kind === "site" ? "#couplingSitesHeading" : "#couplingCorridorsHeading").focus();
+  }
+  // focusCorridorLane gives the keyboard focus to the Remove button of the
+  // guideway at index in a corridor path. With no such guideway, the focus
+  // goes to Add selected guideway of the corridor, or to Remove of the
+  // corridor when Add is not available.
+  function focusCorridorLane(id, index) {
+    const row = [...$("#couplingCorridorRows").children].find((item) => item.dataset.couplingId === id);
+    if (!row) { focusCouplingRow("corridor", ""); return; }
+    const lane = row.querySelector(`[data-coupling-action="removeCorridorLane"][data-coupling-index="${index}"]`);
+    const add = row.querySelector('[data-coupling-action="addCorridorLane"]');
+    (lane || (add.disabled ? row.querySelector('[data-coupling-action="removeCorridor"]') : add)).focus();
+  }
+  // queueCouplingEdit sends one site or corridor change to the Go model and
+  // records it as one undo step. After Remove of a row from the keyboard,
+  // the focus moves as couplingFocusID gives, and after Remove of a guideway
+  // of a corridor path, as corridorLaneFocus gives.
+  function queueCouplingEdit(command, { control, button, keyboard = false } = {}) {
+    const pending = control ? { value: control.value } : null;
+    if (pending) { typingInputs.delete(control); pendingInputs.set(control, pending); }
+    const kind = ["addSite", "setSite", "setSiteLane", "removeSite"].includes(command.action) ? "site" : "corridor";
+    const rows = draft()[kind === "site" ? "couplingSites" : "couplingCorridors"];
+    const ids = Array.isArray(rows) ? rows.map((row) => row?.id) : [];
+    let removed = false;
+    model.abort();
+    editQueue.submit(async (current) => {
+      if (!current()) return false;
+      const config = draft(), generation = model.edits;
+      if (state.drag && state.drag.type !== "pan" || model.gestureOpen) throw new Error("Finish the open gesture before editing coupling sites.");
+      const result = await editorProposal(config, { field: "coupling", value: command });
+      if (result.error) throw new Error(result.error);
+      if (!current()) return false;
+      if (config !== draft() || generation !== model.edits || state.drag && state.drag.type !== "pan" || model.gestureOpen) throw new Error("The draft changed during the edit. Enter the coupling change again.");
+      await state.history.replace({ scenario: { ...config, ...result.change.patch }, background: state.background }, true, false, {
+        current, beforePublish: (changed) => { removed = changed && ["removeSite", "removeCorridor", "removeCorridorLane"].includes(command.action); },
+      });
+      return true;
+    }).catch((error) => toast(error.message, true)).finally(() => {
+      if (pending && pendingInputs.get(control) === pending) pendingInputs.delete(control);
+      const ownsFocus = Boolean(button) && document.activeElement === button;
+      renderCoupling(draft()); renderHistoryButtons(); renderApply(); restorePendingInputs();
+      if (removed && keyboard && ownsFocus && !button.isConnected) {
+        if (command.action === "removeCorridorLane") focusCorridorLane(command.id, corridorLaneFocus(command.count, command.index));
+        else focusCouplingRow(kind, couplingFocusID(ids, command.id));
+      }
+    });
+  }
   function queueGeometryEdit(command, { controls = [], accepted, source, sourceEdits } = {}) {
     const pending = controls.map((input) => {
       const value = { value: input.type === "checkbox" ? input.checked : input.value };
@@ -3786,6 +4108,8 @@
     const index = buttons().indexOf(document.activeElement); const focused = index < 0 ? null : index; const before = links();
     list.replaceChildren();
     const { tone, text } = validationSummary(results.errors, results.warnings); summary.className = `validation ${tone}`; summary.textContent = text;
+    if (config === draft()) trainsVerdict = { valid: results.valid === true && !results.errors.length };
+    renderConvertTrains(draft());
     const count = $("#problemCount"); count.textContent = problemCountText(results.errors.length); count.hidden = !results.errors.length;
     const rows = [...results.errors.map((result) => ({ result, text: result.text })), ...results.warnings.map((result) => ({ result, text: `Warning: ${result.text}`, warning: true }))];
     const select = checkSelector(config);
@@ -3991,7 +4315,7 @@
       const compatibility = await goModel.call(imported.scenario, "importCompatibility");
       if (!model.current(ticket)) return;
       if (compatibility.error) throw new Error(compatibility.error);
-      imported.scenario = ownDraft({ ...imported.scenario, ...compatibility.change.patch });
+      imported.scenario = ownDraft(importedScenario(imported.scenario, compatibility.change));
       const metadata = await metadataWithGo(imported.metadata);
       if (!model.current(ticket)) return;
       imported.asset = metadata.asset;
@@ -4316,6 +4640,25 @@
     }
     for (const id of ["demandEnabled", "demandRate", "demandPattern", "demandDestination", "demandProfile", "demandBand", "sharedRidePartyLimit", "sharedRideMode", "sharedRideJoin", "sharedRideMaxStops", "platoonLimit", "demandSeed", "redistribution", "stationBuffers", "stationQueueSpacing", "pickupReassignment", "couplingEnabled"]) bindScalarInput(id);
     bindScalarInput("scenarioName", "name");
+    $("#convertTrains").addEventListener("click", convertToTrains);
+    $("#addCouplingSite").addEventListener("click", () => queueCouplingEdit({ action: "addSite", laneId: selectedLaneID() }));
+    $("#addCouplingCorridor").addEventListener("click", () => queueCouplingEdit({ action: "addCorridor" }));
+    for (const rows of [$("#couplingSiteRows"), $("#couplingCorridorRows")]) {
+      rows.addEventListener("input", (event) => { if (event.target.dataset.couplingField) markTyping(event.target); });
+      rows.addEventListener("change", (event) => {
+        const control = event.target, { couplingId: id, couplingField: field } = control.dataset;
+        if (field) queueCouplingEdit({ action: control.tagName === "SELECT" ? "setCorridor" : "setSite", id, field, value: control.value }, { control });
+      });
+      rows.addEventListener("click", (event) => {
+        const button = event.target.closest("button[data-coupling-action]");
+        if (!button) return;
+        const { couplingAction: action, couplingId: id, couplingIndex: index } = button.dataset, command = { action, id };
+        if (action === "setSiteLane" || action === "addCorridorLane") command.laneId = selectedLaneID();
+        // The index, the count, and the guideway are those that the row shows, so Go refuses a stale row.
+        if (action === "removeCorridorLane") Object.assign(command, { index: Number(index), count: Number(button.dataset.couplingCount), laneId: button.dataset.couplingLane });
+        queueCouplingEdit(command, { button, keyboard: event.detail === 0 });
+      });
+    }
     $("#fleetControls").addEventListener("input", (event) => { if (event.target.dataset.station) markTyping(event.target); });
     $("#fleetControls").addEventListener("change", (event) => { if (event.target.dataset.station) queueScalarEdit("fleetCount", event.target, event.target.dataset.station); });
     $("#selectionContent").addEventListener("input", (event) => {
@@ -4326,6 +4669,10 @@
       if (control.dataset.edit === "station-bank" && state.selection?.id === id) {
         for (const input of $("#selectionContent").querySelectorAll("input[data-layout]")) { typingInputs.delete(input); pendingInputs.delete(input); }
         state.selection.bank = control.value; render(); return;
+      }
+      if (control.dataset.edit === "lane-class" && id) {
+        const value = [...$("#selectionContent").querySelectorAll('[data-edit="lane-class"]')].filter((box) => box.checked).map((box) => box.dataset.class);
+        queueGeometryEdit({ action: "laneClasses", id, value }, { controls: [control] }); return;
       }
       const action = { "station-name": "stationName", "parking-only": "stationParking", "station-bearing": "stationBearing", "lane-speed": "laneSpeed" }[control.dataset.edit];
       if (!action || !id) return;

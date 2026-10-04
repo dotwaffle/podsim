@@ -60,6 +60,7 @@ func checkServiceMetadata(draft any, errors *checkList) {
 	if problem := draftContractError(draft); problem != "" {
 		errors.add(problem, nil)
 	}
+	checkCouplingGeometry(draft, errors)
 	if !hasServiceMetadata(draft) {
 		return
 	}

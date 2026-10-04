@@ -17,8 +17,11 @@ An argument, read, decode, validation, or summary write error produces a nonzero
 Errors identify the failed stage.
 
 The reader accepts at most 10 MiB, the existing local project limit.
-The command uses the native JSON decoder and `project.Validate`.
-It rejects unknown and duplicate members.
+The command decodes the file as the server does: as `serve -project` reads its file and as the session project command reads its project.
+It then runs `project.Validate`.
+Member names match without case, as Go `strings.EqualFold` matches them.
+When two names differ only in case, the last of them applies, but two such coupling members are an error.
+The command rejects unknown members, a name that repeats exactly in one object, and a second JSON value.
 It retains native version, class, bank, and null rules.
 Historical optional null values keep their existing meaning.
 It does not add a separate browser validator or new project defaults.

@@ -7,7 +7,10 @@ It retains the reaction and braking allowance while the pods move.
 
 Enable station buffers and a platoon limit from two to four before applying the compact setting.
 The editor checks these dependencies.
-Selecting the setting changes the draft to project version 3.
+Native validation accepts the setting in project versions 3 and 5.
+In a version 1 or 2 draft, selecting the setting changes the draft to project version 3.
+A version 5 draft keeps its version.
+A version 4 project cannot use the setting, so the editor disables it.
 It does not change lane speeds, geometry, buffers, or the platoon limit.
 
 ```json

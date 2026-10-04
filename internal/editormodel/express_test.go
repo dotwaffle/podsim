@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"maps"
 	"reflect"
+	"strings"
 	"testing"
 
 	"github.com/dotwaffle/podsim/internal/project"
@@ -75,12 +76,9 @@ func TestExpressEditorNormalizationAndQueueEdits(t *testing.T) {
 	if number(out["version"]) != 4 || out["orderContract"] != "express-v1" || !reflect.DeepEqual(out["fleet"], draft["fleet"]) || !reflect.DeepEqual(out["expressServices"], draft["expressServices"]) {
 		t.Fatal("normalization changed the contract, fleet, or registry")
 	}
-	change, err = editProject(draft, jsontext.Value(`{"field":"stationQueueSpacing","value":"ordinary"}`))
-	if err != nil {
-		t.Fatal(err)
-	}
-	if _, replaced := change.Patch["version"]; replaced {
-		t.Fatal("queue edit downgraded project version")
+	// Native rejects station queue spacing on version 4, so the editor refuses the edit.
+	if _, err = editProject(draft, jsontext.Value(`{"field":"stationQueueSpacing","value":"ordinary"}`)); err == nil || !strings.Contains(err.Error(), "version 4 project cannot use it") {
+		t.Fatal("queue edit accepted on project version 4", err)
 	}
 	if !reflect.DeepEqual(draft, before) {
 		t.Fatal("edit changed its owned input")

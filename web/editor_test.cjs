@@ -128,6 +128,8 @@ test("project 3 imports bare or wrapper 1 and preserves authored class and regis
   assert.deepEqual(config, before);
   assert.match(editor.fleetClassNotice(config), /New pods use legacy class/);
   assert.match(editor.fleetClassNotice(config), /Express pods cannot start/);
+  // The lane Selection card sets guideway classes, so only pod classes need an import.
+  assert.match(editor.fleetClassNotice(config), /Import a project to set pod classes and express services\./);
   assert.equal(editor.fleetClassNotice({ version: 1 }), "");
   for (const version of [1, 2]) {
     const invalid = { ...config, version };
@@ -561,7 +563,8 @@ test("versions 1 to 4 reject coupling members, including null and empty values, 
 test("the train option is one version 5 control, and off keeps the sites and corridors", async () => {
   const html = fs.readFileSync(path.join(__dirname, "editor.html"), "utf8");
   assert.match(html, /<label class="check" id="couplingEnabledLabel" hidden><input id="couplingEnabled" type="checkbox"> Coupled trains \(experimental\)<\/label>/);
-  assert.deepEqual([...html.matchAll(/id="(coupling[^"]*)"/g)].map((match) => match[1]), ["couplingEnabledLabel", "couplingEnabled", "couplingEnabledHint"]);
+  // The site and corridor lists have their own sections. The train option is the only coupling input of the page.
+  assert.deepEqual([...html.matchAll(/<input id="(coupling[^"]*)"/g)].map((match) => match[1]), ["couplingEnabled"]);
   const source = fs.readFileSync(path.join(__dirname, "editor.js"), "utf8");
   assert.match(source, /\$\("#couplingEnabledLabel"\)\.hidden = \$\("#couplingEnabledHint"\)\.hidden = config\.version !== 5;/);
   assert.match(source, /\$\("#couplingEnabled"\)\.checked = config\.couplingEnabled === true;/);
@@ -581,6 +584,183 @@ test("the train option is one version 5 control, and off keeps the sites and cor
   const record = editor.draftRecordFor({ scenario: off }, { scenario: JSON.stringify(config) }, { revision: 1, epoch: "e", serverStart: "s" });
   await store.put(DRAFT_KEY, record);
   assert.equal(couplingText((await store.get(DRAFT_KEY)).scenario), couplingText(off));
+});
+
+// decoderParity gives the shared table that the Go tests check against the
+// server decoders: cmd/serve and the session project command.
+function decoderParity() {
+  const fixture = JSON.parse(fs.readFileSync(path.join(__dirname, "../internal/editormodel/testdata/decoder_parity.json"), "utf8"));
+  return fixture.cases.map((item) => {
+    const base = fixture.bases[item.base];
+    assert.ok(base.includes(item.find), item.name);
+    return { ...item, text: base.replace(item.find, () => item.replace) };
+  });
+}
+
+test("import rejects a repeated member name as the server decoders do, and passes case variants to Go", () => {
+  for (const item of decoderParity()) {
+    const wrapped = `{"format":"podsim","version":1,"scenario":${item.text}}`;
+    for (const text of [item.text, wrapped]) {
+      assert.equal(editor.repeatedMember(text) !== null, item.duplicate, `${item.name} scan`);
+      if (item.duplicate) assert.throws(() => editor.parseDocument(text, { deferMetadata: true }), /repeats the member name/, item.name);
+      // A file that the server accepts goes to Go unchanged. Go or the page rejects the others.
+      else if (item.valid) assert.deepEqual(editor.parseDocument(text, { deferMetadata: true }).scenario, JSON.parse(item.text), item.name);
+    }
+  }
+  // The page keeps its own messages for a file with canonical names only.
+  const config = JSON.parse(decoderParity()[0].text);
+  for (const [change, message] of [
+    [(file) => { file.version = 6; }, /The version field must be 1, 2, 3, 4, or 5/],
+    [(file) => { delete file.version; }, /The version field must be 1, 2, 3, 4, or 5/],
+    [(file) => { file.network = null; }, /The network field must be an object/],
+    [(file) => { delete file.network; file["vers\u0131on"] = 1; }, /no format field and no network field/],
+  ]) {
+    const file = structuredClone(config); change(file);
+    assert.throws(() => editor.parseDocument(JSON.stringify(file), { deferMetadata: true }), message);
+  }
+  const deferred = { ...config, Network: null, Version: null };
+  assert.deepEqual(editor.parseDocument(JSON.stringify(deferred), { deferMetadata: true }).scenario, deferred);
+});
+
+test("the import folds a member name as Go strings.EqualFold does", () => {
+  for (const [name, other, same] of [["network", "NETWORK", true], ["network", "networ\u212a", true], ["Nodes", "Node\u017f", true], ["version", "vers\u0131on", false], ["Class", "Cla\u00df", false], ["a_b", "a-b", false], ["versions", "version", false]]) {
+    assert.equal(editor.foldName(name) === editor.foldName(other), same, `${name} ${other}`);
+  }
+});
+
+test("the repeated member scan reads names after escapes and ignores values", () => {
+  const cases = [
+    ['{"a":1,"b":{"a":2},"c":[{"a":3},{"a":4}]}', null],
+    ['{"a":"\\"a\\":","b":"x\\\\","a":2}', "a"],
+    ['{"a":[],"b":{},"c":[[{"d":1,"d":2}]]}', "d"],
+    ['{"\\u0062":1,"b":2}', "b"],
+    ['{"a":"{\\"b\\":1,\\"b\\":2}"}', null],
+    ['[{"x":1},{"x":2}]', null],
+    ['{"A":1,"a":2}', null],
+    ['{"k":"a\\",\\"k\\":1"}', null],
+  ];
+  for (const [text, name] of cases) {
+    JSON.parse(text);
+    assert.equal(editor.repeatedMember(text), name, text);
+  }
+});
+
+test("a Go replacement gives the imported scenario its canonical member names", () => {
+  const scenario = { NAME: "Old", version: 1, network: {} };
+  assert.deepEqual(editor.importedScenario(scenario, { patch: { fleet: [] } }), { NAME: "Old", version: 1, network: {}, fleet: [] });
+  const replaced = editor.importedScenario(scenario, { replace: { version: 1, name: "Old", network: {}, fleet: [{ ID: "01" }] }, patch: { fleet: [{ ID: "01", BerthID: "a" }] } });
+  assert.deepEqual(Object.keys(replaced), ["version", "name", "network", "fleet"]);
+  assert.deepEqual(replaced.fleet, [{ ID: "01", BerthID: "a" }]);
+});
+
+test("Convert to trains shows for versions 1 to 4 only after checks pass, and keeps one undo step", () => {
+  const config = connectedScenario();
+  assert.deepEqual(editor.convertTrainsState(couplingScenario(), null, false), { hidden: true, disabled: true, hint: "" });
+  assert.equal(editor.convertTrainsState({ ...config, version: 6 }, null, false).hidden, true);
+  assert.match(editor.convertTrainsState(config, null, false).hint, /checks must run/);
+  assert.match(editor.convertTrainsState(config, { valid: false }, false).hint, /Fix the errors/);
+  assert.match(editor.convertTrainsState(config, { valid: true }, true).hint, /Wait/);
+  const ready = editor.convertTrainsState(config, { valid: true }, false);
+  assert.equal(ready.disabled, false); assert.match(ready.hint, /Undo goes back to version 1/);
+  // The Go patch arrives with an unspecified member order.
+  const patch = { couplingSites: [], version: 5, couplingCorridors: [], couplingEnabled: false, couplingContract: "compact-pair-v1" };
+  const converted = editor.trainsScenario(config, patch);
+  assert.deepEqual(Object.keys(converted), [...Object.keys(config), "couplingContract", "couplingEnabled", "couplingSites", "couplingCorridors"]);
+  assert.equal(editor.serializeDocument(converted), editor.serializeDocument(editor.trainsScenario(config, { ...patch })));
+  const before = editor.serializeDocument(config);
+  const history = editor.createHistory({ scenario: config, background: null });
+  history.replace({ scenario: converted, background: null }, true);
+  assert.equal(history.snapshot.scenario.version, 5);
+  history.undo();
+  assert.equal(editor.serializeDocument(history.value.scenario), before);
+  history.redo();
+  assert.equal(editor.serializeDocument(history.value.scenario), editor.serializeDocument(converted));
+});
+
+test("coupling site and corridor rows follow the berth row focus and show only for version 5", () => {
+  for (const [ids, removed, focus] of [[["a", "b", "c"], "a", "b"], [["a", "b", "c"], "b", "c"], [["a", "b", "c"], "c", "b"], [["a", "b"], "b", "a"], [["a"], "a", ""], [["a"], "x", ""]]) {
+    assert.equal(editor.couplingFocusID(ids, removed), focus, `${ids} ${removed}`);
+  }
+  const html = fs.readFileSync(path.join(__dirname, "editor.html"), "utf8");
+  assert.match(html, /<button id="convertTrains" class="wide" type="button" hidden>Convert to trains<\/button>/);
+  for (const [panel, button, rows] of [["couplingSitesPanel", "addCouplingSite", "couplingSiteRows"], ["couplingCorridorsPanel", "addCouplingCorridor", "couplingCorridorRows"]]) {
+    assert.match(html, new RegExp(`<section id="${panel}" hidden>\\s*<div class="section-title"><h2 id="${panel.replace("Panel", "Heading")}" tabindex="-1">[^<]+</h2><button id="${button}" type="button">Add [a-z]+</button></div>`));
+    assert.match(html, new RegExp(`<div id="${rows}"></div>`));
+  }
+  const source = fs.readFileSync(path.join(__dirname, "editor.js"), "utf8");
+  assert.match(source, /\$\("#couplingSitesPanel"\)\.hidden = \$\("#couplingCorridorsPanel"\)\.hidden = !shown;/);
+  assert.match(source, /const shown = config\.version === 5, laneID = selectedLaneID\(\);/);
+  assert.match(source, /if \(removed && keyboard && ownsFocus && !button\.isConnected\) \{\n[^\n]+\n\s*else focusCouplingRow\(kind, couplingFocusID\(ids, command\.id\)\);/);
+  assert.match(source, /queueCouplingEdit\(command, \{ button, keyboard: event\.detail === 0 \}\);/);
+  assert.match(source, /if \(config === draft\(\)\) trainsVerdict = \{ valid: results\.valid === true && !results\.errors\.length \};/);
+  assert.match(source, /if \(!checksUnchanged\) \{ trainsVerdict = null; checks\.schedule\(\); \}/);
+  assert.match(source, /renderRailArrivals\(config, "departure"\); renderCoupling\(config\);/);
+});
+
+test("corridor rows are built again when a guideway changes, and Remove names the guideway it shows", () => {
+  const sites = [{ id: "a" }, { id: "b" }];
+  const corridor = (laneIds) => [{ id: "c", assemblySiteId: "a", splitSiteId: "b", laneIds }];
+  // The same IDs and path lengths with other guideways need new rows.
+  assert.notEqual(editor.couplingLayout(sites, corridor(["x", "y"])), editor.couplingLayout(sites, corridor(["x", "z"])));
+  assert.notEqual(editor.couplingLayout(sites, corridor(["x", "y"])), editor.couplingLayout(sites, corridor(["y", "x"])));
+  assert.notEqual(editor.couplingLayout(sites, corridor(["x"])), editor.couplingLayout([{ id: "a" }, { id: "d" }], corridor(["x"])));
+  assert.equal(editor.couplingLayout(sites, corridor(["x"])), editor.couplingLayout(structuredClone(sites), corridor(["x"])));
+  assert.equal(editor.couplingLayout(sites, corridor(null)), editor.couplingLayout(sites, corridor([])));
+  const source = fs.readFileSync(path.join(__dirname, "editor.js"), "utf8");
+  assert.match(source, /const layout = couplingLayout\(sites, corridors\);\n\s*if \(layout !== drawnCoupling/);
+  assert.match(source, /remove\.dataset\.couplingLane = String\(laneID\); remove\.dataset\.couplingCount = String\(corridor\.laneIds\.length\);/);
+  // The page sends the count that the row shows, not the count of the live draft.
+  assert.match(source, /Object\.assign\(command, \{ index: Number\(index\), count: Number\(button\.dataset\.couplingCount\), laneId: button\.dataset\.couplingLane \}\);/);
+});
+
+test("guideway Remove in a corridor path moves the focus to the next or previous guideway", () => {
+  for (const [count, index, focus] of [[3, 0, 0], [3, 1, 1], [3, 2, 1], [2, 1, 0], [2, 0, 0], [1, 0, -1]]) {
+    assert.equal(editor.corridorLaneFocus(count, index), focus, `${count} ${index}`);
+  }
+  const source = fs.readFileSync(path.join(__dirname, "editor.js"), "utf8");
+  assert.match(source, /removed = changed && \["removeSite", "removeCorridor", "removeCorridorLane"\]\.includes\(command\.action\);/);
+  assert.match(source, /if \(command\.action === "removeCorridorLane"\) focusCorridorLane\(command\.id, corridorLaneFocus\(command\.count, command\.index\)\);/);
+  // With Add not available, the focus goes to an element that can take it.
+  assert.match(source, /else if \(!add\.disabled\) add\.focus\(\);\n\s*else \$\(kind === "site" \? "#couplingSitesHeading" : "#couplingCorridorsHeading"\)\.focus\(\);/);
+  assert.match(source, /\(lane \|\| \(add\.disabled \? row\.querySelector\('\[data-coupling-action="removeCorridor"\]'\) : add\)\)\.focus\(\);/);
+});
+
+test("undo and redo move the focus from a removed coupling row to a near row", () => {
+  for (const [before, after, id, focus] of [
+    [["a", "b"], ["b"], "a", "b"], [["a", "b", "c"], ["a", "c"], "b", "c"], [["a", "b"], ["a"], "b", "a"],
+    [["a"], [], "a", ""], [["a", "b"], ["a", "b"], "b", "b"], [["a"], ["a"], "x", ""], [["a", "b", "c"], ["a"], "b", "a"],
+  ]) assert.equal(editor.couplingUndoFocusID(before, after, id), focus, `${before} ${after} ${id}`);
+  const source = fs.readFileSync(path.join(__dirname, "editor.js"), "utf8");
+  assert.match(source, /const couplingKind = \$\("#couplingSiteRows"\)\.contains\(focused\) \? "site" : \$\("#couplingCorridorRows"\)\.contains\(focused\) \? "corridor" : "";/);
+  assert.match(source, /if \(focused\.isConnected \|\| document\.activeElement !== document\.body\) return;/);
+  assert.match(source, /focusCouplingRow\(couplingKind, couplingUndoFocusID\(ids\(before\), ids\(draft\(\)\), focused\.dataset\.couplingId\)\);/);
+});
+
+test("the lane class options show the classes that native allows and need version 3, 4, or 5", () => {
+  const config = connectedScenario();
+  const lane = config.network.Lanes[0].ID;
+  for (const version of [1, 2]) {
+    assert.deepEqual(editor.laneClassState({ ...config, version }, lane), { classes: ["legacy", "compact"], disabled: true, hint: "Vehicle classes need project version 3, 4, or 5." });
+  }
+  for (const version of [3, 4]) {
+    const state = editor.laneClassState({ ...config, version }, lane);
+    assert.deepEqual(state.classes, ["legacy", "compact"]); assert.equal(state.disabled, false);
+    assert.match(state.hint, /no class list, so Legacy and Compact pods can use it/); assert.doesNotMatch(state.hint, /coupling/);
+  }
+  const classed = structuredClone(config);
+  classed.version = 5; classed.network.Lanes[0].VehicleClasses = ["express", "compact"];
+  assert.deepEqual(editor.laneClassState(classed, lane), { classes: ["compact", "express"], disabled: false, hint: "A coupling site needs a straight guideway with Compact only." });
+  const source = fs.readFileSync(path.join(__dirname, "editor.js"), "utf8");
+  for (const name of ["legacy", "compact", "group", "express"]) assert.match(source, new RegExp(`<input data-edit="lane-class" data-class="${name}" type="checkbox">`));
+  assert.match(source, /queueGeometryEdit\(\{ action: "laneClasses", id, value \}, \{ controls: \[control\] \}\);/);
+  assert.match(source, /box\.checked = classes\.classes\.includes\(box\.dataset\.class\); box\.disabled = classes\.disabled;/);
+});
+
+test("station queue spacing is not available in a version 4 project", () => {
+  const html = fs.readFileSync(path.join(__dirname, "editor.html"), "utf8");
+  assert.match(html, /<p class="hint" id="stationQueueSpacingHint" hidden>Station queue spacing needs project version 3 or 5\. A version 4 project cannot use it\.<\/p>/);
+  const source = fs.readFileSync(path.join(__dirname, "editor.js"), "utf8");
+  assert.match(source, /const queueLocked = config\.version === 4;\n\s*\$\("#stationQueueSpacing"\)\.disabled = queueLocked; \$\("#stationQueueSpacingHint"\)\.hidden = !queueLocked;/);
 });
 
 test("experimental project flags round trip and reject non-Boolean values", () => {

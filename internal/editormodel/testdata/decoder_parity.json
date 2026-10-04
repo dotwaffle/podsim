@@ -1,0 +1,370 @@
+{
+  "bases": {
+    "v1": "{\"version\":1,\"name\":\"Podsim example\",\"network\":{\"Nodes\":[{\"ID\":\"harbor-entry\",\"Position\":{\"X\":80,\"Y\":260}},{\"ID\":\"harbor-berth\",\"Position\":{\"X\":130,\"Y\":350}},{\"ID\":\"harbor-exit\",\"Position\":{\"X\":200,\"Y\":260}},{\"ID\":\"branch\",\"Position\":{\"X\":300,\"Y\":260}},{\"ID\":\"garden-entry\",\"Position\":{\"X\":400,\"Y\":150}},{\"ID\":\"garden-berth\",\"Position\":{\"X\":480,\"Y\":70}},{\"ID\":\"garden-exit\",\"Position\":{\"X\":570,\"Y\":150}},{\"ID\":\"bypass\",\"Position\":{\"X\":470,\"Y\":300}},{\"ID\":\"merge\",\"Position\":{\"X\":670,\"Y\":260}},{\"ID\":\"market-entry\",\"Position\":{\"X\":730,\"Y\":260}},{\"ID\":\"market-berth\",\"Position\":{\"X\":800,\"Y\":350}},{\"ID\":\"market-exit\",\"Position\":{\"X\":880,\"Y\":260}},{\"ID\":\"return-east\",\"Position\":{\"X\":900,\"Y\":460}},{\"ID\":\"parking-entry\",\"Position\":{\"X\":620,\"Y\":460}},{\"ID\":\"parking-exit\",\"Position\":{\"X\":340,\"Y\":460}},{\"ID\":\"parking-berth-1\",\"Position\":{\"X\":480,\"Y\":420}},{\"ID\":\"parking-berth-2\",\"Position\":{\"X\":480,\"Y\":365}},{\"ID\":\"return-west\",\"Position\":{\"X\":60,\"Y\":460}}],\"Lanes\":[{\"ID\":\"harbor-through\",\"From\":\"harbor-entry\",\"To\":\"harbor-exit\",\"SpeedLimit\":14,\"StationID\":\"harbor\",\"StationRole\":\"through\"},{\"ID\":\"harbor-in\",\"From\":\"harbor-entry\",\"To\":\"harbor-berth\",\"SpeedLimit\":14,\"StationID\":\"harbor\",\"StationRole\":\"berth-access\"},{\"ID\":\"harbor-out\",\"From\":\"harbor-berth\",\"To\":\"harbor-exit\",\"SpeedLimit\":14,\"StationID\":\"harbor\",\"StationRole\":\"departure\"},{\"ID\":\"approach-branch\",\"From\":\"harbor-exit\",\"To\":\"branch\",\"SpeedLimit\":14},{\"ID\":\"garden-approach\",\"From\":\"branch\",\"To\":\"garden-entry\",\"SpeedLimit\":14,\"StationID\":\"garden\",\"StationRole\":\"approach\"},{\"ID\":\"garden-through\",\"From\":\"garden-entry\",\"To\":\"garden-exit\",\"SpeedLimit\":14,\"StationID\":\"garden\",\"StationRole\":\"through\"},{\"ID\":\"garden-in\",\"From\":\"garden-entry\",\"To\":\"garden-berth\",\"SpeedLimit\":14,\"StationID\":\"garden\",\"StationRole\":\"berth-access\"},{\"ID\":\"garden-out\",\"From\":\"garden-berth\",\"To\":\"garden-exit\",\"SpeedLimit\":14,\"StationID\":\"garden\",\"StationRole\":\"departure\"},{\"ID\":\"garden-merge\",\"From\":\"garden-exit\",\"To\":\"merge\",\"SpeedLimit\":14},{\"ID\":\"bypass-in\",\"From\":\"branch\",\"To\":\"bypass\",\"SpeedLimit\":14},{\"ID\":\"bypass-merge\",\"From\":\"bypass\",\"To\":\"merge\",\"SpeedLimit\":14},{\"ID\":\"market-approach\",\"From\":\"merge\",\"To\":\"market-entry\",\"SpeedLimit\":14,\"StationID\":\"market\",\"StationRole\":\"approach\"},{\"ID\":\"market-through\",\"From\":\"market-entry\",\"To\":\"market-exit\",\"SpeedLimit\":14,\"StationID\":\"market\",\"StationRole\":\"through\"},{\"ID\":\"market-in\",\"From\":\"market-entry\",\"To\":\"market-berth\",\"SpeedLimit\":14,\"StationID\":\"market\",\"StationRole\":\"berth-access\"},{\"ID\":\"market-out\",\"From\":\"market-berth\",\"To\":\"market-exit\",\"SpeedLimit\":14,\"StationID\":\"market\",\"StationRole\":\"departure\"},{\"ID\":\"return-start\",\"From\":\"market-exit\",\"To\":\"return-east\",\"SpeedLimit\":14},{\"ID\":\"return-to-parking\",\"From\":\"return-east\",\"To\":\"parking-entry\",\"SpeedLimit\":14},{\"ID\":\"parking-through\",\"From\":\"parking-entry\",\"To\":\"parking-exit\",\"SpeedLimit\":14,\"StationID\":\"parking\",\"StationRole\":\"through\"},{\"ID\":\"parking-in-1\",\"From\":\"parking-entry\",\"To\":\"parking-berth-1\",\"SpeedLimit\":14,\"StationID\":\"parking\",\"StationRole\":\"berth-access\"},{\"ID\":\"parking-out-1\",\"From\":\"parking-berth-1\",\"To\":\"parking-exit\",\"SpeedLimit\":14,\"StationID\":\"parking\",\"StationRole\":\"departure\"},{\"ID\":\"parking-in-2\",\"From\":\"parking-entry\",\"To\":\"parking-berth-2\",\"SpeedLimit\":14,\"StationID\":\"parking\",\"StationRole\":\"berth-access\"},{\"ID\":\"parking-out-2\",\"From\":\"parking-berth-2\",\"To\":\"parking-exit\",\"SpeedLimit\":14,\"StationID\":\"parking\",\"StationRole\":\"departure\"},{\"ID\":\"return\",\"From\":\"parking-exit\",\"To\":\"return-west\",\"SpeedLimit\":14},{\"ID\":\"harbor-approach\",\"From\":\"return-west\",\"To\":\"harbor-entry\",\"SpeedLimit\":14,\"StationID\":\"harbor\",\"StationRole\":\"approach\"}],\"Stations\":[{\"ID\":\"harbor\",\"Name\":\"Harbor\",\"Entry\":\"harbor-entry\",\"Exit\":\"harbor-exit\",\"Berths\":[{\"ID\":\"harbor-1\",\"Node\":\"harbor-berth\"}],\"ParkingOnly\":false},{\"ID\":\"garden\",\"Name\":\"Garden\",\"Entry\":\"garden-entry\",\"Exit\":\"garden-exit\",\"Berths\":[{\"ID\":\"garden-1\",\"Node\":\"garden-berth\"}],\"ParkingOnly\":false},{\"ID\":\"market\",\"Name\":\"Market\",\"Entry\":\"market-entry\",\"Exit\":\"market-exit\",\"Berths\":[{\"ID\":\"market-1\",\"Node\":\"market-berth\"}],\"ParkingOnly\":false},{\"ID\":\"parking\",\"Name\":\"Parking\",\"Entry\":\"parking-entry\",\"Exit\":\"parking-exit\",\"Berths\":[{\"ID\":\"parking-1\",\"Node\":\"parking-berth-1\"},{\"ID\":\"parking-2\",\"Node\":\"parking-berth-2\"}],\"ParkingOnly\":true}]},\"fleet\":[{\"ID\":\"01\",\"StationID\":\"harbor\",\"BerthID\":\"harbor-1\"},{\"ID\":\"02\",\"StationID\":\"garden\",\"BerthID\":\"garden-1\"}],\"demand\":{\"enabled\":false,\"perMinute\":2,\"pattern\":\"balanced\",\"seed\":1},\"sharedRidePartyLimit\":1,\"sharedRideMaxStops\":0,\"redistribution\":false}",
+    "v5": "{\"couplingContract\":\"compact-pair-v1\",\"couplingEnabled\":true,\"couplingSites\":[{\"id\":\"split\",\"laneId\":\"coupling-bc\",\"startMeters\":50,\"endMeters\":140,\"frontStagingMeters\":82,\"rearStagingMeters\":70},{\"id\":\"assembly\",\"laneId\":\"coupling-ab\",\"startMeters\":20,\"endMeters\":100,\"frontStagingMeters\":52,\"rearStagingMeters\":40}],\"couplingCorridors\":[{\"id\":\"corridor\",\"assemblySiteId\":\"assembly\",\"splitSiteId\":\"split\",\"laneIds\":[\"coupling-ab\",\"coupling-bc\"]}],\"version\":5,\"name\":\"Podsim example\",\"network\":{\"Nodes\":[{\"ID\":\"harbor-entry\",\"Position\":{\"X\":80,\"Y\":260}},{\"ID\":\"harbor-berth\",\"Position\":{\"X\":130,\"Y\":350}},{\"ID\":\"harbor-exit\",\"Position\":{\"X\":200,\"Y\":260}},{\"ID\":\"branch\",\"Position\":{\"X\":300,\"Y\":260}},{\"ID\":\"garden-entry\",\"Position\":{\"X\":400,\"Y\":150}},{\"ID\":\"garden-berth\",\"Position\":{\"X\":480,\"Y\":70}},{\"ID\":\"garden-exit\",\"Position\":{\"X\":570,\"Y\":150}},{\"ID\":\"bypass\",\"Position\":{\"X\":470,\"Y\":300}},{\"ID\":\"merge\",\"Position\":{\"X\":670,\"Y\":260}},{\"ID\":\"market-entry\",\"Position\":{\"X\":730,\"Y\":260}},{\"ID\":\"market-berth\",\"Position\":{\"X\":800,\"Y\":350}},{\"ID\":\"market-exit\",\"Position\":{\"X\":880,\"Y\":260}},{\"ID\":\"return-east\",\"Position\":{\"X\":900,\"Y\":460}},{\"ID\":\"parking-entry\",\"Position\":{\"X\":620,\"Y\":460}},{\"ID\":\"parking-exit\",\"Position\":{\"X\":340,\"Y\":460}},{\"ID\":\"parking-berth-1\",\"Position\":{\"X\":480,\"Y\":420}},{\"ID\":\"parking-berth-2\",\"Position\":{\"X\":480,\"Y\":365}},{\"ID\":\"return-west\",\"Position\":{\"X\":60,\"Y\":460}},{\"ID\":\"coupling-a\",\"Position\":{\"X\":0,\"Y\":1000}},{\"ID\":\"coupling-b\",\"Position\":{\"X\":200,\"Y\":1000}},{\"ID\":\"coupling-c\",\"Position\":{\"X\":400,\"Y\":1000}}],\"Lanes\":[{\"ID\":\"harbor-through\",\"From\":\"harbor-entry\",\"To\":\"harbor-exit\",\"SpeedLimit\":14,\"StationID\":\"harbor\",\"StationRole\":\"through\"},{\"ID\":\"harbor-in\",\"From\":\"harbor-entry\",\"To\":\"harbor-berth\",\"SpeedLimit\":14,\"StationID\":\"harbor\",\"StationRole\":\"berth-access\"},{\"ID\":\"harbor-out\",\"From\":\"harbor-berth\",\"To\":\"harbor-exit\",\"SpeedLimit\":14,\"StationID\":\"harbor\",\"StationRole\":\"departure\"},{\"ID\":\"approach-branch\",\"From\":\"harbor-exit\",\"To\":\"branch\",\"SpeedLimit\":14},{\"ID\":\"garden-approach\",\"From\":\"branch\",\"To\":\"garden-entry\",\"SpeedLimit\":14,\"StationID\":\"garden\",\"StationRole\":\"approach\"},{\"ID\":\"garden-through\",\"From\":\"garden-entry\",\"To\":\"garden-exit\",\"SpeedLimit\":14,\"StationID\":\"garden\",\"StationRole\":\"through\"},{\"ID\":\"garden-in\",\"From\":\"garden-entry\",\"To\":\"garden-berth\",\"SpeedLimit\":14,\"StationID\":\"garden\",\"StationRole\":\"berth-access\"},{\"ID\":\"garden-out\",\"From\":\"garden-berth\",\"To\":\"garden-exit\",\"SpeedLimit\":14,\"StationID\":\"garden\",\"StationRole\":\"departure\"},{\"ID\":\"garden-merge\",\"From\":\"garden-exit\",\"To\":\"merge\",\"SpeedLimit\":14},{\"ID\":\"bypass-in\",\"From\":\"branch\",\"To\":\"bypass\",\"SpeedLimit\":14},{\"ID\":\"bypass-merge\",\"From\":\"bypass\",\"To\":\"merge\",\"SpeedLimit\":14},{\"ID\":\"market-approach\",\"From\":\"merge\",\"To\":\"market-entry\",\"SpeedLimit\":14,\"StationID\":\"market\",\"StationRole\":\"approach\"},{\"ID\":\"market-through\",\"From\":\"market-entry\",\"To\":\"market-exit\",\"SpeedLimit\":14,\"StationID\":\"market\",\"StationRole\":\"through\"},{\"ID\":\"market-in\",\"From\":\"market-entry\",\"To\":\"market-berth\",\"SpeedLimit\":14,\"StationID\":\"market\",\"StationRole\":\"berth-access\"},{\"ID\":\"market-out\",\"From\":\"market-berth\",\"To\":\"market-exit\",\"SpeedLimit\":14,\"StationID\":\"market\",\"StationRole\":\"departure\"},{\"ID\":\"return-start\",\"From\":\"market-exit\",\"To\":\"return-east\",\"SpeedLimit\":14},{\"ID\":\"return-to-parking\",\"From\":\"return-east\",\"To\":\"parking-entry\",\"SpeedLimit\":14},{\"ID\":\"parking-through\",\"From\":\"parking-entry\",\"To\":\"parking-exit\",\"SpeedLimit\":14,\"StationID\":\"parking\",\"StationRole\":\"through\"},{\"ID\":\"parking-in-1\",\"From\":\"parking-entry\",\"To\":\"parking-berth-1\",\"SpeedLimit\":14,\"StationID\":\"parking\",\"StationRole\":\"berth-access\"},{\"ID\":\"parking-out-1\",\"From\":\"parking-berth-1\",\"To\":\"parking-exit\",\"SpeedLimit\":14,\"StationID\":\"parking\",\"StationRole\":\"departure\"},{\"ID\":\"parking-in-2\",\"From\":\"parking-entry\",\"To\":\"parking-berth-2\",\"SpeedLimit\":14,\"StationID\":\"parking\",\"StationRole\":\"berth-access\"},{\"ID\":\"parking-out-2\",\"From\":\"parking-berth-2\",\"To\":\"parking-exit\",\"SpeedLimit\":14,\"StationID\":\"parking\",\"StationRole\":\"departure\"},{\"ID\":\"return\",\"From\":\"parking-exit\",\"To\":\"return-west\",\"SpeedLimit\":14},{\"ID\":\"harbor-approach\",\"From\":\"return-west\",\"To\":\"harbor-entry\",\"SpeedLimit\":14,\"StationID\":\"harbor\",\"StationRole\":\"approach\"},{\"VehicleClasses\":[\"compact\"],\"ID\":\"coupling-ab\",\"From\":\"coupling-a\",\"To\":\"coupling-b\",\"SpeedLimit\":14},{\"VehicleClasses\":[\"compact\"],\"ID\":\"coupling-bc\",\"From\":\"coupling-b\",\"To\":\"coupling-c\",\"SpeedLimit\":7}],\"Stations\":[{\"ID\":\"harbor\",\"Name\":\"Harbor\",\"Entry\":\"harbor-entry\",\"Exit\":\"harbor-exit\",\"Berths\":[{\"ID\":\"harbor-1\",\"Node\":\"harbor-berth\"}],\"ParkingOnly\":false},{\"ID\":\"garden\",\"Name\":\"Garden\",\"Entry\":\"garden-entry\",\"Exit\":\"garden-exit\",\"Berths\":[{\"ID\":\"garden-1\",\"Node\":\"garden-berth\"}],\"ParkingOnly\":false},{\"ID\":\"market\",\"Name\":\"Market\",\"Entry\":\"market-entry\",\"Exit\":\"market-exit\",\"Berths\":[{\"ID\":\"market-1\",\"Node\":\"market-berth\"}],\"ParkingOnly\":false},{\"ID\":\"parking\",\"Name\":\"Parking\",\"Entry\":\"parking-entry\",\"Exit\":\"parking-exit\",\"Berths\":[{\"ID\":\"parking-1\",\"Node\":\"parking-berth-1\"},{\"ID\":\"parking-2\",\"Node\":\"parking-berth-2\"}],\"ParkingOnly\":true}]},\"fleet\":[{\"ID\":\"01\",\"StationID\":\"harbor\",\"BerthID\":\"harbor-1\"},{\"ID\":\"02\",\"StationID\":\"garden\",\"BerthID\":\"garden-1\"}],\"demand\":{\"enabled\":false,\"perMinute\":2,\"pattern\":\"balanced\",\"seed\":1},\"sharedRidePartyLimit\":1,\"sharedRideMaxStops\":0,\"redistribution\":false}",
+    "v2": "{\"version\":2,\"name\":\"Podsim example\",\"network\":{\"Nodes\":[{\"ID\":\"origin-entry\",\"Position\":{\"X\":0,\"Y\":0}},{\"ID\":\"origin-berth\",\"Position\":{\"X\":100,\"Y\":-60}},{\"ID\":\"origin-exit\",\"Position\":{\"X\":200,\"Y\":0}},{\"ID\":\"bank-a-entry\",\"Position\":{\"X\":500,\"Y\":0}},{\"ID\":\"bank-a-berth\",\"Position\":{\"X\":600,\"Y\":-60}},{\"ID\":\"bank-a-exit\",\"Position\":{\"X\":700,\"Y\":0}},{\"ID\":\"bank-b-entry\",\"Position\":{\"X\":500,\"Y\":240}},{\"ID\":\"bank-b-berth\",\"Position\":{\"X\":600,\"Y\":180}},{\"ID\":\"bank-b-exit\",\"Position\":{\"X\":700,\"Y\":240}},{\"ID\":\"bank-a-arrival\",\"Position\":{\"X\":500,\"Y\":-60}},{\"ID\":\"bank-a-departure\",\"Position\":{\"X\":700,\"Y\":-60}},{\"ID\":\"bank-b-arrival\",\"Position\":{\"X\":500,\"Y\":180}},{\"ID\":\"bank-b-departure\",\"Position\":{\"X\":700,\"Y\":180}},{\"ID\":\"parking-entry\",\"Position\":{\"X\":600,\"Y\":480}},{\"ID\":\"parking-berth\",\"Position\":{\"X\":500,\"Y\":540}},{\"ID\":\"parking-exit\",\"Position\":{\"X\":400,\"Y\":480}},{\"ID\":\"split\",\"Position\":{\"X\":300,\"Y\":120}},{\"ID\":\"merge\",\"Position\":{\"X\":900,\"Y\":120}},{\"ID\":\"east\",\"Position\":{\"X\":1000,\"Y\":480}},{\"ID\":\"west\",\"Position\":{\"X\":-100,\"Y\":480}},{\"ID\":\"a-approach\",\"Position\":{\"X\":420,\"Y\":0}},{\"ID\":\"b-approach\",\"Position\":{\"X\":420,\"Y\":240}},{\"ID\":\"a-departure\",\"Position\":{\"X\":780,\"Y\":0}},{\"ID\":\"b-departure\",\"Position\":{\"X\":780,\"Y\":240}}],\"Lanes\":[{\"ID\":\"origin-through\",\"From\":\"origin-entry\",\"To\":\"origin-exit\",\"SpeedLimit\":14,\"StationID\":\"origin\",\"StationRole\":\"through\"},{\"ID\":\"origin-in\",\"From\":\"origin-entry\",\"To\":\"origin-berth\",\"SpeedLimit\":14,\"StationID\":\"origin\",\"StationRole\":\"berth-access\"},{\"ID\":\"origin-out\",\"From\":\"origin-berth\",\"To\":\"origin-exit\",\"SpeedLimit\":14,\"StationID\":\"origin\",\"StationRole\":\"departure\"},{\"ID\":\"bank-a-through\",\"From\":\"bank-a-entry\",\"To\":\"bank-a-exit\",\"SpeedLimit\":14,\"StationID\":\"hub\",\"StationRole\":\"through\"},{\"ID\":\"bank-a-in\",\"From\":\"bank-a-arrival\",\"To\":\"bank-a-berth\",\"SpeedLimit\":14,\"StationID\":\"hub\",\"StationRole\":\"berth-access\"},{\"ID\":\"bank-a-out\",\"From\":\"bank-a-berth\",\"To\":\"bank-a-departure\",\"SpeedLimit\":14,\"StationID\":\"hub\",\"StationRole\":\"departure\"},{\"ID\":\"bank-b-through\",\"From\":\"bank-b-entry\",\"To\":\"bank-b-exit\",\"SpeedLimit\":14,\"StationID\":\"hub\",\"StationRole\":\"through\"},{\"ID\":\"bank-b-in\",\"From\":\"bank-b-arrival\",\"To\":\"bank-b-berth\",\"SpeedLimit\":14,\"StationID\":\"hub\",\"StationRole\":\"berth-access\"},{\"ID\":\"bank-b-out\",\"From\":\"bank-b-berth\",\"To\":\"bank-b-departure\",\"SpeedLimit\":14,\"StationID\":\"hub\",\"StationRole\":\"departure\"},{\"ID\":\"bank-a-arrival\",\"From\":\"bank-a-entry\",\"To\":\"bank-a-arrival\",\"SpeedLimit\":14,\"StationID\":\"hub\",\"StationRole\":\"berth-access\"},{\"ID\":\"bank-a-departure\",\"From\":\"bank-a-departure\",\"To\":\"bank-a-exit\",\"SpeedLimit\":14,\"StationID\":\"hub\",\"StationRole\":\"departure\"},{\"ID\":\"bank-b-arrival\",\"From\":\"bank-b-entry\",\"To\":\"bank-b-arrival\",\"SpeedLimit\":14,\"StationID\":\"hub\",\"StationRole\":\"berth-access\"},{\"ID\":\"bank-b-departure\",\"From\":\"bank-b-departure\",\"To\":\"bank-b-exit\",\"SpeedLimit\":14,\"StationID\":\"hub\",\"StationRole\":\"departure\"},{\"ID\":\"parking-through\",\"From\":\"parking-entry\",\"To\":\"parking-exit\",\"SpeedLimit\":14,\"StationID\":\"parking\",\"StationRole\":\"through\"},{\"ID\":\"parking-in\",\"From\":\"parking-entry\",\"To\":\"parking-berth\",\"SpeedLimit\":14,\"StationID\":\"parking\",\"StationRole\":\"berth-access\"},{\"ID\":\"parking-out\",\"From\":\"parking-berth\",\"To\":\"parking-exit\",\"SpeedLimit\":14,\"StationID\":\"parking\",\"StationRole\":\"departure\"},{\"ID\":\"origin-exit\",\"From\":\"origin-exit\",\"To\":\"split\",\"SpeedLimit\":14,\"StationID\":\"origin\",\"StationRole\":\"exit\"},{\"ID\":\"a-approach\",\"From\":\"split\",\"To\":\"a-approach\",\"SpeedLimit\":14,\"StationID\":\"hub\",\"StationRole\":\"approach\"},{\"ID\":\"a-entry\",\"From\":\"a-approach\",\"To\":\"bank-a-entry\",\"SpeedLimit\":14,\"StationID\":\"hub\",\"StationRole\":\"entry\"},{\"ID\":\"a-exit\",\"From\":\"bank-a-exit\",\"To\":\"a-departure\",\"SpeedLimit\":14,\"StationID\":\"hub\",\"StationRole\":\"exit\"},{\"ID\":\"a-merge\",\"From\":\"a-departure\",\"To\":\"merge\",\"SpeedLimit\":14},{\"ID\":\"b-approach\",\"From\":\"split\",\"To\":\"b-approach\",\"SpeedLimit\":14,\"StationID\":\"hub\",\"StationRole\":\"approach\"},{\"ID\":\"b-entry\",\"From\":\"b-approach\",\"To\":\"bank-b-entry\",\"SpeedLimit\":14,\"StationID\":\"hub\",\"StationRole\":\"entry\"},{\"ID\":\"b-exit\",\"From\":\"bank-b-exit\",\"To\":\"b-departure\",\"SpeedLimit\":14,\"StationID\":\"hub\",\"StationRole\":\"exit\"},{\"ID\":\"b-merge\",\"From\":\"b-departure\",\"To\":\"merge\",\"SpeedLimit\":14},{\"ID\":\"return-east\",\"From\":\"merge\",\"To\":\"east\",\"SpeedLimit\":14},{\"ID\":\"parking-entry\",\"From\":\"east\",\"To\":\"parking-entry\",\"SpeedLimit\":14,\"StationID\":\"parking\",\"StationRole\":\"entry\"},{\"ID\":\"return-west\",\"From\":\"parking-exit\",\"To\":\"west\",\"SpeedLimit\":14,\"StationID\":\"parking\",\"StationRole\":\"exit\"},{\"ID\":\"origin-entry\",\"From\":\"west\",\"To\":\"origin-entry\",\"SpeedLimit\":14,\"StationID\":\"origin\",\"StationRole\":\"entry\"}],\"Stations\":[{\"ID\":\"origin\",\"Name\":\"origin\",\"Entry\":\"origin-entry\",\"Exit\":\"origin-exit\",\"Berths\":[{\"ID\":\"origin-1\",\"Node\":\"origin-berth\"}],\"ParkingOnly\":false},{\"ID\":\"hub\",\"Name\":\"Hub\",\"Entry\":\"bank-a-entry\",\"Exit\":\"bank-a-exit\",\"Berths\":[{\"ID\":\"bank-a-1\",\"Node\":\"bank-a-berth\"},{\"ID\":\"bank-b-1\",\"Node\":\"bank-b-berth\"}],\"ParkingOnly\":false,\"Banks\":[{\"ID\":\"a\",\"Entry\":\"bank-a-entry\",\"Exit\":\"bank-a-exit\",\"BerthIDs\":[\"bank-a-1\"]},{\"ID\":\"b\",\"Entry\":\"bank-b-entry\",\"Exit\":\"bank-b-exit\",\"BerthIDs\":[\"bank-b-1\"]}]},{\"ID\":\"parking\",\"Name\":\"parking\",\"Entry\":\"parking-entry\",\"Exit\":\"parking-exit\",\"Berths\":[{\"ID\":\"parking-1\",\"Node\":\"parking-berth\"}],\"ParkingOnly\":true}]},\"fleet\":[{\"ID\":\"01\",\"StationID\":\"origin\",\"BerthID\":\"origin-1\"}],\"demand\":{\"enabled\":false,\"perMinute\":2,\"pattern\":\"balanced\",\"seed\":1},\"sharedRidePartyLimit\":1,\"sharedRideMaxStops\":0,\"redistribution\":false}",
+    "v4": "{\"orderContract\":\"express-v1\",\"version\":4,\"name\":\"Podsim example\",\"network\":{\"Nodes\":[{\"ID\":\"harbor-entry\",\"Position\":{\"X\":80,\"Y\":260}},{\"ID\":\"harbor-berth\",\"Position\":{\"X\":130,\"Y\":350}},{\"ID\":\"harbor-exit\",\"Position\":{\"X\":200,\"Y\":260}},{\"ID\":\"branch\",\"Position\":{\"X\":300,\"Y\":260}},{\"ID\":\"garden-entry\",\"Position\":{\"X\":400,\"Y\":150}},{\"ID\":\"garden-berth\",\"Position\":{\"X\":480,\"Y\":70}},{\"ID\":\"garden-exit\",\"Position\":{\"X\":570,\"Y\":150}},{\"ID\":\"bypass\",\"Position\":{\"X\":470,\"Y\":300}},{\"ID\":\"merge\",\"Position\":{\"X\":670,\"Y\":260}},{\"ID\":\"market-entry\",\"Position\":{\"X\":730,\"Y\":260}},{\"ID\":\"market-berth\",\"Position\":{\"X\":800,\"Y\":350}},{\"ID\":\"market-exit\",\"Position\":{\"X\":880,\"Y\":260}},{\"ID\":\"return-east\",\"Position\":{\"X\":900,\"Y\":460}},{\"ID\":\"parking-entry\",\"Position\":{\"X\":620,\"Y\":460}},{\"ID\":\"parking-exit\",\"Position\":{\"X\":340,\"Y\":460}},{\"ID\":\"parking-berth-1\",\"Position\":{\"X\":480,\"Y\":420}},{\"ID\":\"parking-berth-2\",\"Position\":{\"X\":480,\"Y\":365}},{\"ID\":\"return-west\",\"Position\":{\"X\":60,\"Y\":460}}],\"Lanes\":[{\"VehicleClasses\":[\"legacy\",\"compact\",\"group\",\"express\"],\"ID\":\"harbor-through\",\"From\":\"harbor-entry\",\"To\":\"harbor-exit\",\"SpeedLimit\":14,\"StationID\":\"harbor\",\"StationRole\":\"through\"},{\"VehicleClasses\":[\"legacy\",\"compact\",\"group\",\"express\"],\"ID\":\"harbor-in\",\"From\":\"harbor-entry\",\"To\":\"harbor-berth\",\"SpeedLimit\":14,\"StationID\":\"harbor\",\"StationRole\":\"berth-access\"},{\"VehicleClasses\":[\"legacy\",\"compact\",\"group\",\"express\"],\"ID\":\"harbor-out\",\"From\":\"harbor-berth\",\"To\":\"harbor-exit\",\"SpeedLimit\":14,\"StationID\":\"harbor\",\"StationRole\":\"departure\"},{\"VehicleClasses\":[\"legacy\",\"compact\",\"group\",\"express\"],\"ID\":\"approach-branch\",\"From\":\"harbor-exit\",\"To\":\"branch\",\"SpeedLimit\":14},{\"VehicleClasses\":[\"legacy\",\"compact\",\"group\",\"express\"],\"ID\":\"garden-approach\",\"From\":\"branch\",\"To\":\"garden-entry\",\"SpeedLimit\":14,\"StationID\":\"garden\",\"StationRole\":\"approach\"},{\"VehicleClasses\":[\"legacy\",\"compact\",\"group\",\"express\"],\"ID\":\"garden-through\",\"From\":\"garden-entry\",\"To\":\"garden-exit\",\"SpeedLimit\":14,\"StationID\":\"garden\",\"StationRole\":\"through\"},{\"VehicleClasses\":[\"legacy\",\"compact\",\"group\",\"express\"],\"ID\":\"garden-in\",\"From\":\"garden-entry\",\"To\":\"garden-berth\",\"SpeedLimit\":14,\"StationID\":\"garden\",\"StationRole\":\"berth-access\"},{\"VehicleClasses\":[\"legacy\",\"compact\",\"group\",\"express\"],\"ID\":\"garden-out\",\"From\":\"garden-berth\",\"To\":\"garden-exit\",\"SpeedLimit\":14,\"StationID\":\"garden\",\"StationRole\":\"departure\"},{\"VehicleClasses\":[\"legacy\",\"compact\",\"group\",\"express\"],\"ID\":\"garden-merge\",\"From\":\"garden-exit\",\"To\":\"merge\",\"SpeedLimit\":14},{\"VehicleClasses\":[\"legacy\",\"compact\",\"group\",\"express\"],\"ID\":\"bypass-in\",\"From\":\"branch\",\"To\":\"bypass\",\"SpeedLimit\":14},{\"VehicleClasses\":[\"legacy\",\"compact\",\"group\",\"express\"],\"ID\":\"bypass-merge\",\"From\":\"bypass\",\"To\":\"merge\",\"SpeedLimit\":14},{\"VehicleClasses\":[\"legacy\",\"compact\",\"group\",\"express\"],\"ID\":\"market-approach\",\"From\":\"merge\",\"To\":\"market-entry\",\"SpeedLimit\":14,\"StationID\":\"market\",\"StationRole\":\"approach\"},{\"VehicleClasses\":[\"legacy\",\"compact\",\"group\",\"express\"],\"ID\":\"market-through\",\"From\":\"market-entry\",\"To\":\"market-exit\",\"SpeedLimit\":14,\"StationID\":\"market\",\"StationRole\":\"through\"},{\"VehicleClasses\":[\"legacy\",\"compact\",\"group\",\"express\"],\"ID\":\"market-in\",\"From\":\"market-entry\",\"To\":\"market-berth\",\"SpeedLimit\":14,\"StationID\":\"market\",\"StationRole\":\"berth-access\"},{\"VehicleClasses\":[\"legacy\",\"compact\",\"group\",\"express\"],\"ID\":\"market-out\",\"From\":\"market-berth\",\"To\":\"market-exit\",\"SpeedLimit\":14,\"StationID\":\"market\",\"StationRole\":\"departure\"},{\"VehicleClasses\":[\"legacy\",\"compact\",\"group\",\"express\"],\"ID\":\"return-start\",\"From\":\"market-exit\",\"To\":\"return-east\",\"SpeedLimit\":14},{\"VehicleClasses\":[\"legacy\",\"compact\",\"group\",\"express\"],\"ID\":\"return-to-parking\",\"From\":\"return-east\",\"To\":\"parking-entry\",\"SpeedLimit\":14},{\"VehicleClasses\":[\"legacy\",\"compact\",\"group\",\"express\"],\"ID\":\"parking-through\",\"From\":\"parking-entry\",\"To\":\"parking-exit\",\"SpeedLimit\":14,\"StationID\":\"parking\",\"StationRole\":\"through\"},{\"VehicleClasses\":[\"legacy\",\"compact\",\"group\",\"express\"],\"ID\":\"parking-in-1\",\"From\":\"parking-entry\",\"To\":\"parking-berth-1\",\"SpeedLimit\":14,\"StationID\":\"parking\",\"StationRole\":\"berth-access\"},{\"VehicleClasses\":[\"legacy\",\"compact\",\"group\",\"express\"],\"ID\":\"parking-out-1\",\"From\":\"parking-berth-1\",\"To\":\"parking-exit\",\"SpeedLimit\":14,\"StationID\":\"parking\",\"StationRole\":\"departure\"},{\"VehicleClasses\":[\"legacy\",\"compact\",\"group\",\"express\"],\"ID\":\"parking-in-2\",\"From\":\"parking-entry\",\"To\":\"parking-berth-2\",\"SpeedLimit\":14,\"StationID\":\"parking\",\"StationRole\":\"berth-access\"},{\"VehicleClasses\":[\"legacy\",\"compact\",\"group\",\"express\"],\"ID\":\"parking-out-2\",\"From\":\"parking-berth-2\",\"To\":\"parking-exit\",\"SpeedLimit\":14,\"StationID\":\"parking\",\"StationRole\":\"departure\"},{\"VehicleClasses\":[\"legacy\",\"compact\",\"group\",\"express\"],\"ID\":\"return\",\"From\":\"parking-exit\",\"To\":\"return-west\",\"SpeedLimit\":14},{\"VehicleClasses\":[\"legacy\",\"compact\",\"group\",\"express\"],\"ID\":\"harbor-approach\",\"From\":\"return-west\",\"To\":\"harbor-entry\",\"SpeedLimit\":14,\"StationID\":\"harbor\",\"StationRole\":\"approach\"}],\"Stations\":[{\"VehicleClasses\":[\"legacy\",\"compact\",\"group\",\"express\"],\"ID\":\"harbor\",\"Name\":\"Harbor\",\"Entry\":\"harbor-entry\",\"Exit\":\"harbor-exit\",\"Berths\":[{\"VehicleClasses\":[\"legacy\",\"compact\",\"group\",\"express\"],\"ID\":\"harbor-1\",\"Node\":\"harbor-berth\"}],\"ParkingOnly\":false},{\"VehicleClasses\":[\"legacy\",\"compact\",\"group\",\"express\"],\"ID\":\"garden\",\"Name\":\"Garden\",\"Entry\":\"garden-entry\",\"Exit\":\"garden-exit\",\"Berths\":[{\"VehicleClasses\":[\"legacy\",\"compact\",\"group\",\"express\"],\"ID\":\"garden-1\",\"Node\":\"garden-berth\"}],\"ParkingOnly\":false},{\"VehicleClasses\":[\"legacy\",\"compact\",\"group\",\"express\"],\"ID\":\"market\",\"Name\":\"Market\",\"Entry\":\"market-entry\",\"Exit\":\"market-exit\",\"Berths\":[{\"VehicleClasses\":[\"legacy\",\"compact\",\"group\",\"express\"],\"ID\":\"market-1\",\"Node\":\"market-berth\"}],\"ParkingOnly\":false},{\"VehicleClasses\":[\"legacy\",\"compact\",\"group\",\"express\"],\"ID\":\"parking\",\"Name\":\"Parking\",\"Entry\":\"parking-entry\",\"Exit\":\"parking-exit\",\"Berths\":[{\"VehicleClasses\":[\"legacy\",\"compact\",\"group\",\"express\"],\"ID\":\"parking-1\",\"Node\":\"parking-berth-1\"},{\"VehicleClasses\":[\"legacy\",\"compact\",\"group\",\"express\"],\"ID\":\"parking-2\",\"Node\":\"parking-berth-2\"}],\"ParkingOnly\":true}]},\"fleet\":[{\"Class\":\"express\",\"ID\":\"01\",\"StationID\":\"harbor\",\"BerthID\":\"harbor-1\"},{\"ID\":\"02\",\"StationID\":\"garden\",\"BerthID\":\"garden-1\"}],\"demand\":{\"enabled\":false,\"perMinute\":2,\"pattern\":\"balanced\",\"seed\":1},\"expressServices\":[{\"ID\":\"express\",\"From\":\"harbor\",\"To\":\"garden\",\"Class\":\"express\",\"PartyLimit\":20}],\"sharedRidePartyLimit\":1,\"sharedRideMaxStops\":0,\"redistribution\":false}"
+  },
+  "cases": [
+    {
+      "name": "canonical project 1",
+      "base": "v1",
+      "find": "\"version\":1",
+      "replace": "\"version\":1",
+      "duplicate": false,
+      "valid": true
+    },
+    {
+      "name": "upper version",
+      "base": "v1",
+      "find": "\"version\":1",
+      "replace": "\"Version\":1",
+      "duplicate": false,
+      "valid": true
+    },
+    {
+      "name": "upper name",
+      "base": "v1",
+      "find": "\"name\":\"Podsim example\"",
+      "replace": "\"NAME\":\"Podsim example\"",
+      "duplicate": false,
+      "valid": true
+    },
+    {
+      "name": "lower nodes",
+      "base": "v1",
+      "find": "\"Nodes\":",
+      "replace": "\"nodes\":",
+      "duplicate": false,
+      "valid": true
+    },
+    {
+      "name": "lower position member",
+      "base": "v1",
+      "find": "\"X\":80",
+      "replace": "\"x\":80",
+      "duplicate": false,
+      "valid": true
+    },
+    {
+      "name": "Kelvin sign network",
+      "base": "v1",
+      "find": "\"network\":",
+      "replace": "\"networK\":",
+      "duplicate": false,
+      "valid": true
+    },
+    {
+      "name": "long s version",
+      "base": "v1",
+      "find": "\"version\":1",
+      "replace": "\"verſion\":1",
+      "duplicate": false,
+      "valid": true
+    },
+    {
+      "name": "delimiter is not case",
+      "base": "v1",
+      "find": "\"sharedRidePartyLimit\":1",
+      "replace": "\"shared_ride_party_limit\":1",
+      "duplicate": false,
+      "valid": false
+    },
+    {
+      "name": "case pair keeps last name",
+      "base": "v1",
+      "find": "\"name\":\"Podsim example\"",
+      "replace": "\"Name\":\"Other\",\"name\":\"Podsim example\"",
+      "duplicate": false,
+      "valid": true
+    },
+    {
+      "name": "case pair keeps last upper name",
+      "base": "v1",
+      "find": "\"name\":\"Podsim example\"",
+      "replace": "\"name\":\"Other\",\"NAME\":\"Podsim example\"",
+      "duplicate": false,
+      "valid": true
+    },
+    {
+      "name": "case pair keeps last version",
+      "base": "v1",
+      "find": "\"version\":1",
+      "replace": "\"version\":1,\"Version\":5",
+      "duplicate": false,
+      "valid": false
+    },
+    {
+      "name": "unknown member",
+      "base": "v1",
+      "find": "\"version\":1",
+      "replace": "\"version\":1,\"unknown\":1",
+      "duplicate": false,
+      "valid": false
+    },
+    {
+      "name": "coupling member on project 1",
+      "base": "v1",
+      "find": "\"version\":1",
+      "replace": "\"version\":1,\"CouplingEnabled\":false",
+      "duplicate": false,
+      "valid": false
+    },
+    {
+      "name": "exact repeated name",
+      "base": "v1",
+      "find": "\"name\":\"Podsim example\"",
+      "replace": "\"name\":\"Other\",\"name\":\"Podsim example\"",
+      "duplicate": true,
+      "valid": false
+    },
+    {
+      "name": "escaped repeated name",
+      "base": "v1",
+      "find": "\"name\":\"Podsim example\"",
+      "replace": "\"name\":\"Other\",\"n\\u0061me\":\"Podsim example\"",
+      "duplicate": true,
+      "valid": false
+    },
+    {
+      "name": "repeated nested member",
+      "base": "v1",
+      "find": "\"X\":80",
+      "replace": "\"X\":1,\"X\":80",
+      "duplicate": true,
+      "valid": false
+    },
+    {
+      "name": "repeated fleet member",
+      "base": "v1",
+      "find": "\"StationID\":\"harbor\"",
+      "replace": "\"StationID\":\"garden\",\"StationID\":\"harbor\"",
+      "duplicate": true,
+      "valid": false
+    },
+    {
+      "name": "quoted name in a value",
+      "base": "v1",
+      "find": "\"name\":\"Podsim example\"",
+      "replace": "\"name\":\"say \\\"name\\\":\\\"x\\\" twice \\\\\"",
+      "duplicate": false,
+      "valid": true
+    },
+    {
+      "name": "canonical project 5",
+      "base": "v5",
+      "find": "\"version\":5",
+      "replace": "\"version\":5",
+      "duplicate": false,
+      "valid": true
+    },
+    {
+      "name": "upper train option",
+      "base": "v5",
+      "find": "\"couplingEnabled\":true",
+      "replace": "\"CouplingEnabled\":true",
+      "duplicate": false,
+      "valid": true
+    },
+    {
+      "name": "upper site registry",
+      "base": "v5",
+      "find": "\"couplingSites\":",
+      "replace": "\"COUPLINGSITES\":",
+      "duplicate": false,
+      "valid": true
+    },
+    {
+      "name": "site member case",
+      "base": "v5",
+      "find": "\"laneId\":\"coupling-bc\"",
+      "replace": "\"LaneID\":\"coupling-bc\"",
+      "duplicate": false,
+      "valid": true
+    },
+    {
+      "name": "case pair of train options",
+      "base": "v5",
+      "find": "\"couplingEnabled\":true",
+      "replace": "\"couplingEnabled\":true,\"CouplingEnabled\":false",
+      "duplicate": false,
+      "valid": false
+    },
+    {
+      "name": "repeated train option",
+      "base": "v5",
+      "find": "\"couplingEnabled\":true",
+      "replace": "\"couplingEnabled\":true,\"couplingEnabled\":false",
+      "duplicate": true,
+      "valid": false
+    },
+    {
+      "name": "repeated corridor lane member",
+      "base": "v5",
+      "find": "\"laneIds\":[",
+      "replace": "\"laneIds\":[],\"laneIds\":[",
+      "duplicate": true,
+      "valid": false
+    },
+    {
+      "name": "canonical project 2",
+      "base": "v2",
+      "find": "\"version\":2",
+      "replace": "\"version\":2",
+      "duplicate": false,
+      "valid": true
+    },
+    {
+      "name": "lower banks",
+      "base": "v2",
+      "find": "\"Banks\":",
+      "replace": "\"banks\":",
+      "duplicate": false,
+      "valid": true
+    },
+    {
+      "name": "upper bank berths",
+      "base": "v2",
+      "find": "\"BerthIDs\":",
+      "replace": "\"BERTHIDS\":",
+      "duplicate": false,
+      "valid": true
+    },
+    {
+      "name": "repeated bank member",
+      "base": "v2",
+      "find": "\"Banks\":[{\"ID\":\"a\"",
+      "replace": "\"Banks\":[{\"ID\":\"b\",\"ID\":\"a\"",
+      "duplicate": true,
+      "valid": false
+    },
+    {
+      "name": "canonical project 4",
+      "base": "v4",
+      "find": "\"version\":4",
+      "replace": "\"version\":4",
+      "duplicate": false,
+      "valid": true
+    },
+    {
+      "name": "upper order contract",
+      "base": "v4",
+      "find": "\"orderContract\":\"express-v1\"",
+      "replace": "\"OrderContract\":\"express-v1\"",
+      "duplicate": false,
+      "valid": true
+    },
+    {
+      "name": "case pair of order contracts",
+      "base": "v4",
+      "find": "\"orderContract\":\"express-v1\"",
+      "replace": "\"orderContract\":\"other\",\"ORDERCONTRACT\":\"express-v1\"",
+      "duplicate": false,
+      "valid": false
+    },
+    {
+      "name": "lower vehicle classes",
+      "base": "v4",
+      "find": "\"VehicleClasses\":",
+      "replace": "\"vehicleclasses\":",
+      "duplicate": false,
+      "valid": true
+    },
+    {
+      "name": "lower pod class",
+      "base": "v4",
+      "find": "\"Class\":\"express\"",
+      "replace": "\"class\":\"express\"",
+      "duplicate": false,
+      "valid": true
+    },
+    {
+      "name": "repeated order contract",
+      "base": "v4",
+      "find": "\"orderContract\":\"express-v1\"",
+      "replace": "\"orderContract\":\"express-v1\",\"orderContract\":\"express-v1\"",
+      "duplicate": true,
+      "valid": false
+    },
+    {
+      "name": "long s nodes",
+      "base": "v1",
+      "find": "\"Nodes\":",
+      "replace": "\"Nodeſ\":",
+      "duplicate": false,
+      "valid": true
+    },
+    {
+      "name": "long s lanes",
+      "base": "v1",
+      "find": "\"Lanes\":",
+      "replace": "\"Laneſ\":",
+      "duplicate": false,
+      "valid": true
+    },
+    {
+      "name": "long s stations",
+      "base": "v1",
+      "find": "\"Stations\":",
+      "replace": "\"Stationſ\":",
+      "duplicate": false,
+      "valid": true
+    },
+    {
+      "name": "long s coupling sites",
+      "base": "v5",
+      "find": "\"couplingSites\":",
+      "replace": "\"couplingSiteſ\":",
+      "duplicate": false,
+      "valid": true
+    },
+    {
+      "name": "dotless i is not case",
+      "base": "v1",
+      "find": "\"version\":1",
+      "replace": "\"versıon\":1",
+      "duplicate": false,
+      "valid": false
+    },
+    {
+      "name": "sharp s is not case",
+      "base": "v4",
+      "find": "\"Class\":\"express\"",
+      "replace": "\"Claß\":\"express\"",
+      "duplicate": false,
+      "valid": false
+    },
+    {
+      "name": "null version keeps the version",
+      "base": "v1",
+      "find": "\"version\":1",
+      "replace": "\"version\":1,\"Version\":null",
+      "duplicate": false,
+      "valid": true
+    },
+    {
+      "name": "null network keeps the network",
+      "base": "v1",
+      "find": "\"fleet\":",
+      "replace": "\"Network\":null,\"fleet\":",
+      "duplicate": false,
+      "valid": true
+    },
+    {
+      "name": "null train option after the option",
+      "base": "v5",
+      "find": "\"couplingEnabled\":true",
+      "replace": "\"couplingEnabled\":true,\"CouplingEnabled\":null",
+      "duplicate": false,
+      "valid": false
+    },
+    {
+      "name": "long s pair of site registries",
+      "base": "v5",
+      "find": "\"couplingCorridors\":",
+      "replace": "\"couplingSiteſ\":[],\"couplingCorridors\":",
+      "duplicate": false,
+      "valid": false
+    }
+  ]
+}

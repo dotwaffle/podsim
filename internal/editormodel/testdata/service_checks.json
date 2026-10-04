@@ -1295,6 +1295,1155 @@
         ],
         "warnings": []
       }
+    },
+    {
+      "name": "coupling long s member on project 3",
+      "changes": [
+        {
+          "path": [
+            "couplingSiteſ"
+          ],
+          "value": []
+        }
+      ],
+      "checks": {
+        "errors": [
+          {
+            "text": "Coupling fields require project version 5.",
+            "target": null
+          }
+        ],
+        "warnings": []
+      }
+    },
+    {
+      "name": "coupling geometry valid",
+      "changes": [
+        {
+          "path": [
+            "version"
+          ],
+          "value": 5
+        },
+        {
+          "path": [
+            "couplingContract"
+          ],
+          "value": "compact-pair-v1"
+        },
+        {
+          "path": [
+            "network",
+            "Lanes",
+            "22",
+            "VehicleClasses"
+          ],
+          "value": [
+            "compact"
+          ]
+        },
+        {
+          "path": [
+            "couplingSites"
+          ],
+          "value": [
+            {
+              "id": "a",
+              "laneId": "return",
+              "startMeters": 0,
+              "endMeters": 60,
+              "rearStagingMeters": 20,
+              "frontStagingMeters": 32
+            },
+            {
+              "id": "b",
+              "laneId": "return",
+              "startMeters": 100,
+              "endMeters": 160,
+              "rearStagingMeters": 120,
+              "frontStagingMeters": 132
+            }
+          ]
+        },
+        {
+          "path": [
+            "couplingCorridors"
+          ],
+          "value": [
+            {
+              "id": "c",
+              "assemblySiteId": "a",
+              "splitSiteId": "b",
+              "laneIds": [
+                "return"
+              ]
+            }
+          ]
+        }
+      ],
+      "checks": {
+        "errors": [],
+        "warnings": []
+      }
+    },
+    {
+      "name": "coupling geometry one site",
+      "changes": [
+        {
+          "path": [
+            "version"
+          ],
+          "value": 5
+        },
+        {
+          "path": [
+            "couplingContract"
+          ],
+          "value": "compact-pair-v1"
+        },
+        {
+          "path": [
+            "network",
+            "Lanes",
+            "22",
+            "VehicleClasses"
+          ],
+          "value": [
+            "compact"
+          ]
+        },
+        {
+          "path": [
+            "couplingSites"
+          ],
+          "value": [
+            {
+              "id": "a",
+              "laneId": "return",
+              "startMeters": 0,
+              "endMeters": 60,
+              "rearStagingMeters": 20,
+              "frontStagingMeters": 32
+            }
+          ]
+        },
+        {
+          "path": [
+            "couplingCorridors"
+          ],
+          "value": []
+        }
+      ],
+      "checks": {
+        "errors": [
+          {
+            "text": "coupling collections exceed bounds: invalid coupling geometry",
+            "target": null
+          }
+        ],
+        "warnings": []
+      }
+    },
+    {
+      "name": "coupling geometry short site",
+      "changes": [
+        {
+          "path": [
+            "version"
+          ],
+          "value": 5
+        },
+        {
+          "path": [
+            "couplingContract"
+          ],
+          "value": "compact-pair-v1"
+        },
+        {
+          "path": [
+            "network",
+            "Lanes",
+            "22",
+            "VehicleClasses"
+          ],
+          "value": [
+            "compact"
+          ]
+        },
+        {
+          "path": [
+            "couplingSites"
+          ],
+          "value": [
+            {
+              "id": "a",
+              "laneId": "return",
+              "startMeters": 0,
+              "endMeters": 1,
+              "rearStagingMeters": 20,
+              "frontStagingMeters": 32
+            },
+            {
+              "id": "b",
+              "laneId": "return",
+              "startMeters": 100,
+              "endMeters": 160,
+              "rearStagingMeters": 120,
+              "frontStagingMeters": 132
+            }
+          ]
+        },
+        {
+          "path": [
+            "couplingCorridors"
+          ],
+          "value": [
+            {
+              "id": "c",
+              "assemblySiteId": "a",
+              "splitSiteId": "b",
+              "laneIds": [
+                "return"
+              ]
+            }
+          ]
+        }
+      ],
+      "checks": {
+        "errors": [
+          {
+            "text": "site \"a\" lacks staging, maneuver, or stopping room: invalid coupling geometry",
+            "target": null
+          }
+        ],
+        "warnings": []
+      }
+    },
+    {
+      "name": "coupling geometry mixed lane",
+      "changes": [
+        {
+          "path": [
+            "version"
+          ],
+          "value": 5
+        },
+        {
+          "path": [
+            "couplingContract"
+          ],
+          "value": "compact-pair-v1"
+        },
+        {
+          "path": [
+            "network",
+            "Lanes",
+            "22",
+            "VehicleClasses"
+          ],
+          "value": [
+            "compact"
+          ]
+        },
+        {
+          "path": [
+            "couplingSites"
+          ],
+          "value": [
+            {
+              "id": "a",
+              "laneId": "approach-branch",
+              "startMeters": 0,
+              "endMeters": 60,
+              "rearStagingMeters": 20,
+              "frontStagingMeters": 32
+            },
+            {
+              "id": "b",
+              "laneId": "return",
+              "startMeters": 100,
+              "endMeters": 160,
+              "rearStagingMeters": 120,
+              "frontStagingMeters": 132
+            }
+          ]
+        },
+        {
+          "path": [
+            "couplingCorridors"
+          ],
+          "value": [
+            {
+              "id": "c",
+              "assemblySiteId": "a",
+              "splitSiteId": "b",
+              "laneIds": [
+                "return"
+              ]
+            }
+          ]
+        }
+      ],
+      "checks": {
+        "errors": [
+          {
+            "text": "lane \"approach-branch\" must be straight and explicitly Compact-only: invalid coupling geometry",
+            "target": null
+          }
+        ],
+        "warnings": []
+      }
+    },
+    {
+      "name": "coupling geometry unknown lane",
+      "changes": [
+        {
+          "path": [
+            "version"
+          ],
+          "value": 5
+        },
+        {
+          "path": [
+            "couplingContract"
+          ],
+          "value": "compact-pair-v1"
+        },
+        {
+          "path": [
+            "network",
+            "Lanes",
+            "22",
+            "VehicleClasses"
+          ],
+          "value": [
+            "compact"
+          ]
+        },
+        {
+          "path": [
+            "couplingSites"
+          ],
+          "value": [
+            {
+              "id": "a",
+              "laneId": "missing",
+              "startMeters": 0,
+              "endMeters": 60,
+              "rearStagingMeters": 20,
+              "frontStagingMeters": 32
+            },
+            {
+              "id": "b",
+              "laneId": "return",
+              "startMeters": 100,
+              "endMeters": 160,
+              "rearStagingMeters": 120,
+              "frontStagingMeters": 132
+            }
+          ]
+        },
+        {
+          "path": [
+            "couplingCorridors"
+          ],
+          "value": [
+            {
+              "id": "c",
+              "assemblySiteId": "a",
+              "splitSiteId": "b",
+              "laneIds": [
+                "return"
+              ]
+            }
+          ]
+        }
+      ],
+      "checks": {
+        "errors": [
+          {
+            "text": "unknown or invalid site lane ID: invalid coupling geometry",
+            "target": null
+          }
+        ],
+        "warnings": []
+      }
+    },
+    {
+      "name": "coupling geometry repeated site",
+      "changes": [
+        {
+          "path": [
+            "version"
+          ],
+          "value": 5
+        },
+        {
+          "path": [
+            "couplingContract"
+          ],
+          "value": "compact-pair-v1"
+        },
+        {
+          "path": [
+            "network",
+            "Lanes",
+            "22",
+            "VehicleClasses"
+          ],
+          "value": [
+            "compact"
+          ]
+        },
+        {
+          "path": [
+            "couplingSites"
+          ],
+          "value": [
+            {
+              "id": "a",
+              "laneId": "return",
+              "startMeters": 0,
+              "endMeters": 60,
+              "rearStagingMeters": 20,
+              "frontStagingMeters": 32
+            },
+            {
+              "id": "a",
+              "laneId": "return",
+              "startMeters": 100,
+              "endMeters": 160,
+              "rearStagingMeters": 120,
+              "frontStagingMeters": 132
+            }
+          ]
+        },
+        {
+          "path": [
+            "couplingCorridors"
+          ],
+          "value": [
+            {
+              "id": "c",
+              "assemblySiteId": "a",
+              "splitSiteId": "b",
+              "laneIds": [
+                "return"
+              ]
+            }
+          ]
+        }
+      ],
+      "checks": {
+        "errors": [
+          {
+            "text": "invalid or duplicate site ID: invalid coupling geometry",
+            "target": null
+          }
+        ],
+        "warnings": []
+      }
+    },
+    {
+      "name": "coupling geometry overlap",
+      "changes": [
+        {
+          "path": [
+            "version"
+          ],
+          "value": 5
+        },
+        {
+          "path": [
+            "couplingContract"
+          ],
+          "value": "compact-pair-v1"
+        },
+        {
+          "path": [
+            "network",
+            "Lanes",
+            "22",
+            "VehicleClasses"
+          ],
+          "value": [
+            "compact"
+          ]
+        },
+        {
+          "path": [
+            "couplingSites"
+          ],
+          "value": [
+            {
+              "id": "a",
+              "laneId": "return",
+              "startMeters": 0,
+              "endMeters": 60,
+              "rearStagingMeters": 20,
+              "frontStagingMeters": 32
+            },
+            {
+              "id": "b",
+              "laneId": "return",
+              "startMeters": 50,
+              "endMeters": 110,
+              "rearStagingMeters": 70,
+              "frontStagingMeters": 82
+            }
+          ]
+        },
+        {
+          "path": [
+            "couplingCorridors"
+          ],
+          "value": [
+            {
+              "id": "c",
+              "assemblySiteId": "a",
+              "splitSiteId": "b",
+              "laneIds": [
+                "return"
+              ]
+            }
+          ]
+        }
+      ],
+      "checks": {
+        "errors": [
+          {
+            "text": "protected sites overlap on \"return\": invalid coupling geometry",
+            "target": null
+          }
+        ],
+        "warnings": []
+      }
+    },
+    {
+      "name": "coupling geometry unbound corridor",
+      "changes": [
+        {
+          "path": [
+            "version"
+          ],
+          "value": 5
+        },
+        {
+          "path": [
+            "couplingContract"
+          ],
+          "value": "compact-pair-v1"
+        },
+        {
+          "path": [
+            "network",
+            "Lanes",
+            "22",
+            "VehicleClasses"
+          ],
+          "value": [
+            "compact"
+          ]
+        },
+        {
+          "path": [
+            "couplingSites"
+          ],
+          "value": [
+            {
+              "id": "a",
+              "laneId": "return",
+              "startMeters": 0,
+              "endMeters": 60,
+              "rearStagingMeters": 20,
+              "frontStagingMeters": 32
+            },
+            {
+              "id": "b",
+              "laneId": "return",
+              "startMeters": 100,
+              "endMeters": 160,
+              "rearStagingMeters": 120,
+              "frontStagingMeters": 132
+            }
+          ]
+        },
+        {
+          "path": [
+            "couplingCorridors"
+          ],
+          "value": [
+            {
+              "id": "c",
+              "assemblySiteId": "a",
+              "splitSiteId": "b",
+              "laneIds": [
+                "harbor-through"
+              ]
+            }
+          ]
+        }
+      ],
+      "checks": {
+        "errors": [
+          {
+            "text": "corridor \"c\" does not bind distinct endpoint sites: invalid coupling geometry",
+            "target": null
+          }
+        ],
+        "warnings": []
+      }
+    },
+    {
+      "name": "coupling geometry reversed corridor",
+      "changes": [
+        {
+          "path": [
+            "version"
+          ],
+          "value": 5
+        },
+        {
+          "path": [
+            "couplingContract"
+          ],
+          "value": "compact-pair-v1"
+        },
+        {
+          "path": [
+            "network",
+            "Lanes",
+            "22",
+            "VehicleClasses"
+          ],
+          "value": [
+            "compact"
+          ]
+        },
+        {
+          "path": [
+            "couplingSites"
+          ],
+          "value": [
+            {
+              "id": "a",
+              "laneId": "return",
+              "startMeters": 0,
+              "endMeters": 60,
+              "rearStagingMeters": 20,
+              "frontStagingMeters": 32
+            },
+            {
+              "id": "b",
+              "laneId": "return",
+              "startMeters": 100,
+              "endMeters": 160,
+              "rearStagingMeters": 120,
+              "frontStagingMeters": 132
+            }
+          ]
+        },
+        {
+          "path": [
+            "couplingCorridors"
+          ],
+          "value": [
+            {
+              "id": "c",
+              "assemblySiteId": "b",
+              "splitSiteId": "a",
+              "laneIds": [
+                "return"
+              ]
+            }
+          ]
+        }
+      ],
+      "checks": {
+        "errors": [
+          {
+            "text": "corridor \"c\" reverses its site order: invalid coupling geometry",
+            "target": null
+          }
+        ],
+        "warnings": []
+      }
+    },
+    {
+      "name": "coupling geometry unused site",
+      "changes": [
+        {
+          "path": [
+            "version"
+          ],
+          "value": 5
+        },
+        {
+          "path": [
+            "couplingContract"
+          ],
+          "value": "compact-pair-v1"
+        },
+        {
+          "path": [
+            "network",
+            "Lanes",
+            "22",
+            "VehicleClasses"
+          ],
+          "value": [
+            "compact"
+          ]
+        },
+        {
+          "path": [
+            "couplingSites"
+          ],
+          "value": [
+            {
+              "id": "a",
+              "laneId": "return",
+              "startMeters": 0,
+              "endMeters": 60,
+              "rearStagingMeters": 20,
+              "frontStagingMeters": 32
+            },
+            {
+              "id": "b",
+              "laneId": "return",
+              "startMeters": 100,
+              "endMeters": 160,
+              "rearStagingMeters": 120,
+              "frontStagingMeters": 132
+            },
+            {
+              "id": "x",
+              "laneId": "return",
+              "startMeters": 200,
+              "endMeters": 260,
+              "rearStagingMeters": 220,
+              "frontStagingMeters": 232
+            }
+          ]
+        },
+        {
+          "path": [
+            "couplingCorridors"
+          ],
+          "value": [
+            {
+              "id": "c",
+              "assemblySiteId": "a",
+              "splitSiteId": "b",
+              "laneIds": [
+                "return"
+              ]
+            }
+          ]
+        }
+      ],
+      "checks": {
+        "errors": [
+          {
+            "text": "site \"x\" has no corridor: invalid coupling geometry",
+            "target": null
+          }
+        ],
+        "warnings": []
+      }
+    },
+    {
+      "name": "coupling geometry text position",
+      "changes": [
+        {
+          "path": [
+            "version"
+          ],
+          "value": 5
+        },
+        {
+          "path": [
+            "couplingContract"
+          ],
+          "value": "compact-pair-v1"
+        },
+        {
+          "path": [
+            "network",
+            "Lanes",
+            "22",
+            "VehicleClasses"
+          ],
+          "value": [
+            "compact"
+          ]
+        },
+        {
+          "path": [
+            "couplingSites"
+          ],
+          "value": [
+            {
+              "id": "a",
+              "laneId": "return",
+              "startMeters": "0",
+              "endMeters": 60,
+              "rearStagingMeters": 20,
+              "frontStagingMeters": 32
+            },
+            {
+              "id": "b",
+              "laneId": "return",
+              "startMeters": 100,
+              "endMeters": 160,
+              "rearStagingMeters": 120,
+              "frontStagingMeters": 132
+            }
+          ]
+        },
+        {
+          "path": [
+            "couplingCorridors"
+          ],
+          "value": [
+            {
+              "id": "c",
+              "assemblySiteId": "a",
+              "splitSiteId": "b",
+              "laneIds": [
+                "return"
+              ]
+            }
+          ]
+        }
+      ],
+      "checks": {
+        "errors": [
+          {
+            "text": "Coupling sites, corridors, or their network have invalid fields.",
+            "target": null
+          }
+        ],
+        "warnings": []
+      }
+    },
+    {
+      "name": "coupling geometry unknown site member",
+      "changes": [
+        {
+          "path": [
+            "version"
+          ],
+          "value": 5
+        },
+        {
+          "path": [
+            "couplingContract"
+          ],
+          "value": "compact-pair-v1"
+        },
+        {
+          "path": [
+            "network",
+            "Lanes",
+            "22",
+            "VehicleClasses"
+          ],
+          "value": [
+            "compact"
+          ]
+        },
+        {
+          "path": [
+            "couplingSites"
+          ],
+          "value": [
+            {
+              "id": "a",
+              "laneId": "return",
+              "startMeters": 0,
+              "endMeters": 60,
+              "rearStagingMeters": 20,
+              "frontStagingMeters": 32,
+              "LaneID": "return"
+            },
+            {
+              "id": "b",
+              "laneId": "return",
+              "startMeters": 100,
+              "endMeters": 160,
+              "rearStagingMeters": 120,
+              "frontStagingMeters": 132
+            }
+          ]
+        },
+        {
+          "path": [
+            "couplingCorridors"
+          ],
+          "value": [
+            {
+              "id": "c",
+              "assemblySiteId": "a",
+              "splitSiteId": "b",
+              "laneIds": [
+                "return"
+              ]
+            }
+          ]
+        }
+      ],
+      "checks": {
+        "errors": [
+          {
+            "text": "Coupling sites, corridors, or their network have invalid fields.",
+            "target": null
+          }
+        ],
+        "warnings": []
+      }
+    },
+    {
+      "name": "coupling geometry null site",
+      "changes": [
+        {
+          "path": [
+            "version"
+          ],
+          "value": 5
+        },
+        {
+          "path": [
+            "couplingContract"
+          ],
+          "value": "compact-pair-v1"
+        },
+        {
+          "path": [
+            "network",
+            "Lanes",
+            "22",
+            "VehicleClasses"
+          ],
+          "value": [
+            "compact"
+          ]
+        },
+        {
+          "path": [
+            "couplingSites"
+          ],
+          "value": [
+            null,
+            {
+              "id": "b",
+              "laneId": "return",
+              "startMeters": 100,
+              "endMeters": 160,
+              "rearStagingMeters": 120,
+              "frontStagingMeters": 132
+            }
+          ]
+        },
+        {
+          "path": [
+            "couplingCorridors"
+          ],
+          "value": [
+            {
+              "id": "c",
+              "assemblySiteId": "a",
+              "splitSiteId": "b",
+              "laneIds": [
+                "return"
+              ]
+            }
+          ]
+        }
+      ],
+      "checks": {
+        "errors": [
+          {
+            "text": "invalid site or lane ID: invalid coupling geometry",
+            "target": null
+          }
+        ],
+        "warnings": []
+      }
+    },
+    {
+      "name": "coupling geometry bent path",
+      "changes": [
+        {
+          "path": [
+            "version"
+          ],
+          "value": 5
+        },
+        {
+          "path": [
+            "couplingContract"
+          ],
+          "value": "compact-pair-v1"
+        },
+        {
+          "path": [
+            "network",
+            "Lanes",
+            "22",
+            "VehicleClasses"
+          ],
+          "value": [
+            "compact"
+          ]
+        },
+        {
+          "path": [
+            "network",
+            "Lanes",
+            "23",
+            "VehicleClasses"
+          ],
+          "value": [
+            "compact"
+          ]
+        },
+        {
+          "path": [
+            "couplingSites"
+          ],
+          "value": [
+            {
+              "id": "a",
+              "laneId": "return",
+              "startMeters": 0,
+              "endMeters": 60,
+              "rearStagingMeters": 20,
+              "frontStagingMeters": 32
+            },
+            {
+              "id": "b",
+              "laneId": "harbor-approach",
+              "startMeters": 0,
+              "endMeters": 60,
+              "rearStagingMeters": 20,
+              "frontStagingMeters": 32
+            }
+          ]
+        },
+        {
+          "path": [
+            "couplingCorridors"
+          ],
+          "value": [
+            {
+              "id": "c",
+              "assemblySiteId": "a",
+              "splitSiteId": "b",
+              "laneIds": [
+                "return",
+                "harbor-approach"
+              ]
+            }
+          ]
+        }
+      ],
+      "checks": {
+        "errors": [
+          {
+            "text": "corridor \"c\" is disconnected or reversed: invalid coupling geometry",
+            "target": null
+          }
+        ],
+        "warnings": []
+      }
+    },
+    {
+      "name": "coupling geometry curved lane",
+      "changes": [
+        {
+          "path": [
+            "version"
+          ],
+          "value": 5
+        },
+        {
+          "path": [
+            "couplingContract"
+          ],
+          "value": "compact-pair-v1"
+        },
+        {
+          "path": [
+            "network",
+            "Lanes",
+            "22",
+            "VehicleClasses"
+          ],
+          "value": [
+            "compact"
+          ]
+        },
+        {
+          "path": [
+            "network",
+            "Lanes",
+            "22",
+            "Control"
+          ],
+          "value": {
+            "X": 200,
+            "Y": 470
+          }
+        },
+        {
+          "path": [
+            "couplingSites"
+          ],
+          "value": [
+            {
+              "id": "a",
+              "laneId": "return",
+              "startMeters": 0,
+              "endMeters": 60,
+              "rearStagingMeters": 20,
+              "frontStagingMeters": 32
+            },
+            {
+              "id": "b",
+              "laneId": "return",
+              "startMeters": 100,
+              "endMeters": 160,
+              "rearStagingMeters": 120,
+              "frontStagingMeters": 132
+            }
+          ]
+        },
+        {
+          "path": [
+            "couplingCorridors"
+          ],
+          "value": [
+            {
+              "id": "c",
+              "assemblySiteId": "a",
+              "splitSiteId": "b",
+              "laneIds": [
+                "return"
+              ]
+            }
+          ]
+        }
+      ],
+      "checks": {
+        "errors": [
+          {
+            "text": "lane \"return\" must be straight and explicitly Compact-only: invalid coupling geometry",
+            "target": null
+          }
+        ],
+        "warnings": []
+      }
     }
   ]
 }

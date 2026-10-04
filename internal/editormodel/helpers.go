@@ -1,6 +1,7 @@
 package editormodel
 
 import (
+	jsonv1 "encoding/json"
 	"encoding/json/jsontext"
 	"encoding/json/v2"
 	"errors"
@@ -48,11 +49,28 @@ func executeHelper(command request, input string) (response, error) {
 		return response{}, fmt.Errorf("decode helper draft: %w", err)
 	}
 	if command.Op == "importCompatibility" {
-		change, err := importCompatibility(draft)
+		change, err := importChange(draft, command.Project)
 		return response{Change: &change, helper: true}, err
 	}
 	summary, err := inspectStationLayout(draft, command.Layout)
 	return response{Layout: &summary, helper: true}, err
+}
+
+// importChange gives the import repairs. When the server decoder reads
+// member names that differ only in case, the repairs apply to the canonical
+// replacement of the project.
+func importChange(draft any, raw jsontext.Value) (projectChange, error) {
+	canonical, found := canonicalProject(raw)
+	if !found {
+		return importCompatibility(draft)
+	}
+	var replaced any
+	if err := json.Unmarshal(canonical, &replaced); err != nil {
+		return projectChange{}, fmt.Errorf("decode canonical project: %w", err)
+	}
+	change, err := importCompatibility(replaced)
+	change.Replace = canonical
+	return change, err
 }
 
 func importCompatibility(draft any) (projectChange, error) {
@@ -103,6 +121,25 @@ func importCompatibility(draft any) (projectChange, error) {
 		change.Patch["demand"] = demand
 	}
 	return change, nil
+}
+
+// canonicalProject gives the project with canonical member names when the
+// server decoder accepts member names that differ only in case. The server
+// decodes with encoding/json, which matches names without case and keeps the
+// last of two such names. The canonical encoding keeps the member order of
+// project.Config. Without such names, the imported draft stays unchanged.
+func canonicalProject(raw jsontext.Value) (jsontext.Value, bool) {
+	type plainConfig project.Config
+	var strict plainConfig
+	if !errors.Is(json.Unmarshal(raw, &strict, json.RejectUnknownMembers(true)), json.ErrUnknownName) {
+		return nil, false
+	}
+	var config project.Config
+	if jsonv1.Unmarshal(raw, &config) != nil {
+		return nil, false
+	}
+	encoded, err := json.Marshal(config)
+	return encoded, err == nil
 }
 
 type layoutField struct {

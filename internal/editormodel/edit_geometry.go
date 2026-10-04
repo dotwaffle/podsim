@@ -11,6 +11,7 @@ import (
 	"strconv"
 
 	"github.com/dotwaffle/podsim/internal/project"
+	"github.com/dotwaffle/podsim/internal/sim"
 )
 
 type geometryPoint struct{ X, Y float64 }
@@ -31,7 +32,7 @@ var geometryFields = map[string][]string{
 	"moveNode": {"id", "point"}, "moveControl": {"id", "point"},
 	"moveStation":    {"id", "delta"},
 	"stationBearing": {"id", "value"}, "stationName": {"id", "value"}, "stationParking": {"id", "value"},
-	"laneSpeed": {"id", "value"}, "toggleCurve": {"id"},
+	"laneSpeed": {"id", "value"}, "laneClasses": {"id", "value"}, "toggleCurve": {"id"},
 	"deleteNode": {"id"}, "deleteLane": {"id"},
 	"deleteStation": {"id"},
 	"addBerth":      {"id"}, "removeBerth": {"id", "value"},
@@ -271,6 +272,8 @@ func (g geometryDraft) change(command geometryEdit) error {
 		return g.moveStation(command)
 	case "stationName", "stationParking", "laneSpeed":
 		return g.setField(command)
+	case "laneClasses":
+		return g.setLaneClasses(command)
 	case "toggleCurve":
 		return g.toggleCurve(command.ID)
 	case "deleteLane":
@@ -401,6 +404,39 @@ func (g geometryDraft) setField(command geometryEdit) error {
 		}
 		item["SpeedLimit"] = speed / 3.6
 	}
+	return nil
+}
+
+// setLaneClasses sets the vehicle classes that a lane allows. The value is
+// a list of 1 to 4 distinct known classes, and the lane gets them in the
+// native order. Native validation accepts lane classes on versions 3, 4,
+// and 5 only, so the edit does not change the version of an older project.
+func (g geometryDraft) setLaneClasses(command geometryEdit) error {
+	version := number(member(g.draft, "version"))
+	if version != project.ServiceVersion && version != project.ExpressVersion && version != project.CouplingVersion {
+		return errors.New("vehicle classes need project version 3, 4, or 5")
+	}
+	lane, err := g.find("Lanes", command.ID)
+	if err != nil {
+		return err
+	}
+	var names []string
+	if json.Unmarshal(command.Value, &names) != nil {
+		return errors.New("vehicle classes must be a list of class names")
+	}
+	classes, err := sim.NewClassSet(names...)
+	if err != nil {
+		return err
+	}
+	ordered, err := json.Marshal(classes)
+	if err != nil {
+		return err
+	}
+	var value any
+	if err := json.Unmarshal(ordered, &value); err != nil {
+		return err
+	}
+	lane["VehicleClasses"] = value
 	return nil
 }
 

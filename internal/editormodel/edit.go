@@ -28,6 +28,8 @@ type projectChange struct {
 	Flag       string            `json:"flag,omitempty"`
 	Background *backgroundChange `json:"background,omitempty"`
 	Note       string            `json:"note,omitempty"`
+	// Replace is a complete canonical project from an import. Patch applies to it.
+	Replace jsontext.Value `json:"replace,omitzero"`
 }
 
 // editProject proposes owned replacement branches. The caller commits them
@@ -69,6 +71,12 @@ func proposeProjectEdit(draft any, command editCommand) (projectChange, error) {
 			return projectChange{}, errors.New("a background edit does not accept a target")
 		}
 		return editBackground(draft, command.Value)
+	}
+	if command.Field == "coupling" {
+		if len(command.Target) != 0 {
+			return projectChange{}, errors.New("a coupling edit does not accept a target")
+		}
+		return editCoupling(draft, command.Value)
 	}
 	if command.Field == "railArrival" || command.Field == "railDeparture" {
 		if len(command.Target) != 0 {
@@ -186,12 +194,17 @@ func proposeProjectEdit(draft any, command editCommand) (projectChange, error) {
 			return projectChange{}, errors.New("station queue spacing must be ordinary or compact-v1")
 		}
 		version := number(member(draft, "version"))
-		if version != 1 && version != 2 && version != 3 && version != 4 && version != project.CouplingVersion {
-			return projectChange{}, errors.New("station queue selection needs project version 1, 2, 3, 4, or 5")
+		// Native accepts the setting on versions 3 and 5 only. A version 4
+		// project keeps its order contract, so it cannot change to version 3.
+		if version == project.ExpressVersion {
+			return projectChange{}, errors.New("station queue spacing needs project version 3 or 5, so a version 4 project cannot use it")
+		}
+		if version != 1 && version != 2 && version != 3 && version != project.CouplingVersion {
+			return projectChange{}, errors.New("station queue selection needs project version 1, 2, 3, or 5")
 		}
 		change.set(draft, "stationQueueSpacing", setting)
-		// Version 5 keeps its coupling members, and version 4 keeps its order contract.
-		if version != 4 && version != project.CouplingVersion {
+		// Version 5 keeps its coupling members.
+		if version != project.CouplingVersion {
 			change.set(draft, "version", float64(project.ServiceVersion))
 		}
 	case "couplingEnabled":
@@ -204,6 +217,11 @@ func proposeProjectEdit(draft any, command editCommand) (projectChange, error) {
 		}
 		// Off only stops new trains. The marker, sites, and corridors stay.
 		change.set(draft, "couplingEnabled", enabled)
+	case "convertToTrains":
+		if value != true {
+			return projectChange{}, errors.New("the conversion to trains requires a true value")
+		}
+		return convertToTrains(draft)
 	case "platoonLimit":
 		x, err := editNumber(value)
 		if err != nil || !slices.Contains([]float64{0, 2, 3, 4}, x) {
@@ -391,7 +409,7 @@ func editNeedsFullProfiles(raw jsontext.Value) bool {
 	if json.Unmarshal(raw, &command) != nil {
 		return false
 	}
-	if command.Field == "normalize" {
+	if command.Field == "normalize" || command.Field == "convertToTrains" {
 		return true
 	}
 	if command.Field != "geometry" {

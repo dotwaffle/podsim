@@ -12,8 +12,22 @@ import (
 	"testing"
 
 	"github.com/dotwaffle/podsim/internal/project"
+	"github.com/dotwaffle/podsim/internal/session"
 	"github.com/dotwaffle/podsim/internal/sim"
 )
+
+// sessionVerdict decodes raw as the session project command does, which is
+// the second server path that reads a project.
+func sessionVerdict(raw []byte) error {
+	var command session.Command
+	if err := command.UnmarshalJSON([]byte(`{"action":"project","projectRevision":1,"project":` + string(raw) + `}`)); err != nil {
+		return err
+	}
+	if command.Project == nil {
+		return errors.New("the command has no project")
+	}
+	return project.Validate(*command.Project)
+}
 
 func projectData(t *testing.T, config project.Config) []byte {
 	t.Helper()
@@ -39,8 +53,8 @@ func groupProject(t *testing.T) project.Config {
 	if err != nil {
 		t.Fatal(err)
 	}
-	var config project.Config
-	if err := json.Unmarshal(data, &config, json.RejectUnknownMembers(true)); err != nil {
+	config, err := decodeProject(data)
+	if err != nil {
 		t.Fatal(err)
 	}
 	return config
@@ -114,15 +128,15 @@ func TestNativeValidationCaller(t *testing.T) {
 			config := project.Clone(test.config)
 			test.change(&config)
 			data := projectData(t, config)
-			var decoded project.Config
-			if err := json.Unmarshal(data, &decoded, json.RejectUnknownMembers(true)); err != nil {
+			decoded, err := decodeProject(data)
+			if err != nil {
 				t.Fatal("fixture must reach native validation", err)
 			}
-			if err := project.Validate(decoded); err == nil {
+			if project.Validate(decoded) == nil {
 				t.Fatal("native validator accepted invalid fixture")
 			}
 			var output bytes.Buffer
-			err := command([]string{"-project", projectFile(t, data)}, &output)
+			err = command([]string{"-project", projectFile(t, data)}, &output)
 			if err == nil || !strings.Contains(err.Error(), "validate project:") {
 				t.Fatalf("invalid project bypassed native validation: output=%q error=%v", &output, err)
 			}
@@ -166,20 +180,24 @@ func TestRawProjectRules(t *testing.T) {
 		{"historical optional null", strings.Replace(add(`"geo":null`), `"version":3`, `"version":1`, 1), true},
 		{"trailing value", base + " {}", false},
 		{"invalid UTF-8", strings.Replace(base, current.Name, string([]byte{0xff}), 1), false},
+		{"upper version name", strings.Replace(base, `"version":3`, `"VERSION":3`, 1), true},
+		{"long s stations name", strings.Replace(base, `"Stations":`, "\"Station\u017f\":", 1), true},
+		{"Cyrillic letter is not case", strings.Replace(base, `"fleet":`, "\"flee\u0442\":", 1), false},
+		{"Kelvin sign network name", strings.Replace(base, `"network":`, "\"networ\u212a\":", 1), true},
+		{"case pair keeps last name", strings.Replace(base, `"version":3`, `"Version":1,"version":3`, 1), true},
+		{"case pair keeps last version", strings.Replace(base, `"version":3`, `"version":3,"Version":6`, 1), false},
+		{"null keeps the version", strings.Replace(base, `"version":3`, `"version":3,"Version":null`, 1), true},
+		{"delimiter is not case", strings.Replace(base, `"version":3`, `"version":3,"ver_sion":3`, 1), false},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
-			var config project.Config
-			nativeErr := json.Unmarshal([]byte(test.raw), &config, json.RejectUnknownMembers(true))
-			if nativeErr == nil {
-				nativeErr = project.Validate(config)
-			}
+			nativeErr := sessionVerdict([]byte(test.raw))
 			if (nativeErr == nil) != test.valid {
-				t.Fatalf("raw fixture differs from intended native rule: %v", nativeErr)
+				t.Fatalf("raw fixture differs from intended server rule: %v", nativeErr)
 			}
 			err := command([]string{"-project", projectFile(t, []byte(test.raw))}, io.Discard)
 			if (err == nil) != test.valid {
-				t.Fatalf("helper differs from native rule: %v", err)
+				t.Fatalf("helper differs from server rule: %v", err)
 			}
 		})
 	}
@@ -244,5 +262,41 @@ func TestInputByteBound(t *testing.T) {
 		if extra == 1 && !strings.Contains(err.Error(), "read project:") {
 			t.Fatalf("oversized input reached decoding: %v", err)
 		}
+	}
+}
+
+// The editor decoder table holds server verdicts for member names that
+// differ in case and for repeated names. The command must give the same
+// verdicts.
+func TestServerDecoderParity(t *testing.T) {
+	t.Parallel()
+	raw, err := os.ReadFile("../../internal/editormodel/testdata/decoder_parity.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var fixture struct {
+		Bases map[string]string `json:"bases"`
+		Cases []struct {
+			Name, Base, Find, Replace string
+			Valid                     bool
+		} `json:"cases"`
+	}
+	if err := json.Unmarshal(raw, &fixture); err != nil {
+		t.Fatal(err)
+	}
+	for _, item := range fixture.Cases {
+		t.Run(item.Name, func(t *testing.T) {
+			t.Parallel()
+			base := fixture.Bases[item.Base]
+			if !strings.Contains(base, item.Find) {
+				t.Fatal("fixture text is missing")
+			}
+			data := []byte(strings.Replace(base, item.Find, item.Replace, 1))
+			sessionErr := sessionVerdict(data)
+			err := command([]string{"-project", projectFile(t, data)}, io.Discard)
+			if (err == nil) != item.Valid || (sessionErr == nil) != item.Valid {
+				t.Fatalf("valid=%v command=%v session=%v", item.Valid, err, sessionErr)
+			}
+		})
 	}
 }

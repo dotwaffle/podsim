@@ -255,6 +255,15 @@ test("helper responses reject missing, unrelated and malformed result fields", (
   ]) assert.throws(() => checkedHelper(result, op), /Invalid Go/);
 });
 
+test("import helper replacements must be one project object with the usual repair keys", () => {
+  const { checkedHelper } = require("./editor-model.js");
+  const replaced = { change: { patch: { fleet: [] }, replace: { version: 1, name: "Canonical" } } };
+  assert.strictEqual(checkedHelper(replaced, "importCompatibility"), replaced);
+  for (const change of [{ patch: {}, replace: null }, { patch: {}, replace: [] }, { patch: { name: "x" }, replace: {} }, { patch: {}, replace: {}, flag: "x" }]) {
+    assert.throws(() => checkedHelper({ change }, "importCompatibility"), /Invalid Go/);
+  }
+});
+
 test("helper outer-limit errors retain the existing bounded error envelope", () => {
   const { checkedHelper } = require("./editor-model.js"), result = { valid: false, error: "editor model request is too large" };
   assert.strictEqual(checkedHelper(result, "backgroundMetadata"), result);

@@ -562,18 +562,39 @@ The draft stays local until you select **Pause and apply**.
   Select **Rail arrivals and departures** to run both plans.
   The demand inspector shows made, missed, unserved, and unresolved connections.
   See [scheduled train connections](docs/rail-connections.md) for bounds and comparison controls.
+- Use **Convert to trains** to change a project of version 1 to 4 to version 5, for coupled Compact pod pairs.
+  The button is available when the checks have no errors.
+  The conversion keeps all other settings, turns trains off, and records one undo step.
+  The editor does not convert a project in other ways.
+- In a version 5 project, use **Coupled trains** to permit trains with or without passengers.
+  Off stops new trains and keeps the coupling sites and corridors.
+- Select a guideway to set the pod classes that can use it in **Vehicle classes**.
+  Projects of version 3, 4, and 5 have vehicle classes.
+  A guideway with no class list allows Legacy and Compact pods.
+- Use **Coupling sites** and **Coupling corridors** to set where pods couple and separate.
+  A site needs a straight guideway that allows only Compact pods.
+  Select the guideway on the map, and set **Compact** as its only option in **Vehicle classes** in the **Selection** section.
+  Then select **Add site**, **Use selected guideway**, or **Add selected guideway**.
+  A corridor path starts on the guideway of its assembly site and ends on the guideway of its split site.
+  The Checks section shows the geometry errors that the server reports.
 - Use undo and redo for draft changes.
   See [Editor keyboard shortcuts](#editor-keyboard-shortcuts).
 - Drag empty space to pan, and use the wheel to zoom.
 - When you use a button in the **Selection** section with the keyboard to delete an item, the keyboard focus goes to a control near the deleted item.
   After **Remove** on a berth row, the focus goes to **Remove** on the next row, or on the previous row when you removed the last row.
   When the station has one berth left, its **Remove** button is disabled, so the focus goes to **Add physical berth**.
+  After **Remove** on a coupling site or corridor row, the focus goes to **Remove** on the next row, or on the previous row when you removed the last row.
+  When no row is left, the focus goes to the **Add** button of the list, or to the list heading when that button is not available.
+  After **Remove** on a guideway of a corridor path, the focus goes to **Remove** on the next guideway, or on the previous guideway when you removed the last guideway.
+  When the path has no guideway left, the focus goes to **Add selected guideway** of the corridor, or to **Remove** of the corridor when that button is not available.
   After **Delete station and connections**, **Delete guideway**, or **Delete junction and connections**, the focus goes to the map.
   The Delete key does the same when a button in the **Selection** section has the focus.
   After a delete with the pointer, the editor does not move the focus.
 - Undo and redo keep the selection when the draft still has the selected item.
   When a button in the **Selection** section has the keyboard focus, the focus stays on that button.
   When the button is **Remove** on a berth row, and the berth is gone or the station has one berth left, the focus moves as after **Remove** on that row.
+  When a control of a coupling site or corridor row has the focus and the step removes it, the focus goes to **Remove** on that row when it stays, or on the next or previous row that stays.
+  When no row stays, the focus goes to the **Add** button of the list, or to the list heading when that button is not available.
   When the draft no longer has the selected item, the editor clears the selection, and the focus goes from the **Selection** section to the map.
   Undo and redo do not move the focus when it is not in the **Selection** section.
 - Select **Fit network** to show the whole network, also a large network such as London.
@@ -592,6 +613,8 @@ The draft stays local until you select **Pause and apply**.
   See [Georeferenced background](#georeferenced-background).
 - Export JSON to save the scenario and optional background.
   Import JSON to restore a draft.
+  Like the server, the import matches member names that differ only in case, and the last of them applies.
+  A file that repeats a member name in one object is not valid.
   The export is compact JSON.
   The project file must be 21 MiB or smaller.
   This limit includes the image in base64 form, the server's 10 MiB project limit, and an allowance for other fields.

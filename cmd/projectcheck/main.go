@@ -2,7 +2,8 @@
 package main
 
 import (
-	"encoding/json/v2"
+	"bytes"
+	"encoding/json"
 	"errors"
 	"flag"
 	"fmt"
@@ -48,6 +49,23 @@ func readProject(path string) ([]byte, error) {
 	return data, nil
 }
 
+// decodeProject decodes data as cmd/serve reads a -project file and as the
+// session project command reads its project. Member names match without
+// case, the last of two such names applies, and unknown members and a
+// second JSON value are errors.
+func decodeProject(data []byte) (project.Config, error) {
+	decoder := json.NewDecoder(bytes.NewReader(data))
+	decoder.DisallowUnknownFields()
+	var config project.Config
+	if err := decoder.Decode(&config); err != nil {
+		return project.Config{}, err
+	}
+	if err := decoder.Decode(new(any)); !errors.Is(err, io.EOF) {
+		return project.Config{}, errors.New("expected one JSON value")
+	}
+	return config, nil
+}
+
 func command(args []string, stdout io.Writer) error {
 	path, err := projectPath(args, stdout)
 	if errors.Is(err, flag.ErrHelp) {
@@ -60,8 +78,8 @@ func command(args []string, stdout io.Writer) error {
 	if err != nil {
 		return fmt.Errorf("read project: %w", err)
 	}
-	var config project.Config
-	if err := json.Unmarshal(data, &config, json.RejectUnknownMembers(true)); err != nil {
+	config, err := decodeProject(data)
+	if err != nil {
 		return fmt.Errorf("decode project: %w", err)
 	}
 	if err := project.Validate(config); err != nil {

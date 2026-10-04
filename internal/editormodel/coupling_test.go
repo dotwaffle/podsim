@@ -2,17 +2,22 @@ package editormodel
 
 import (
 	"bytes"
+	jsonv1 "encoding/json"
 	"encoding/json/jsontext"
 	"encoding/json/v2"
+	"errors"
 	"fmt"
+	"io"
 	"maps"
 	"os"
 	"reflect"
 	"slices"
 	"strconv"
+	"strings"
 	"testing"
 
 	"github.com/dotwaffle/podsim/internal/project"
+	"github.com/dotwaffle/podsim/internal/session"
 	"github.com/dotwaffle/podsim/internal/sim"
 )
 
@@ -81,13 +86,40 @@ func couplingMembers(draft map[string]any) map[string]any {
 	return members
 }
 
-// nativeVerdict decodes and validates a complete project as the server does.
-func nativeVerdict(raw []byte) error {
+// nativeVerdict decodes and validates a complete project with the server
+// decoders. cmd/serve reads a project file with an encoding/json Decoder that
+// disallows unknown fields. The session decodes the project command with
+// session.Command. Both use encoding/json options, and the two must agree.
+func nativeVerdict(t *testing.T, raw []byte) error {
+	t.Helper()
+	_, err := serverDecode(t, raw)
+	return err
+}
+
+func serverDecode(t *testing.T, raw []byte) (project.Config, error) {
+	t.Helper()
+	file := jsonv1.NewDecoder(bytes.NewReader(raw))
+	file.DisallowUnknownFields()
 	var config project.Config
-	if err := json.Unmarshal(raw, &config); err != nil {
-		return err
+	fileErr := file.Decode(&config)
+	if fileErr == nil {
+		if file.Decode(new(any)) != io.EOF {
+			fileErr = errors.New("expected one JSON value")
+		} else {
+			fileErr = project.Validate(config)
+		}
 	}
-	return project.Validate(config)
+	body := jsonv1.NewDecoder(strings.NewReader(`{"action":"project","projectRevision":1,"project":` + string(raw) + `}`))
+	body.DisallowUnknownFields()
+	var command session.Command
+	commandErr := body.Decode(&command)
+	if commandErr == nil {
+		commandErr = project.Validate(*command.Project)
+	}
+	if (fileErr == nil) != (commandErr == nil) || fileErr == nil && !reflect.DeepEqual(config, *command.Project) {
+		t.Fatalf("server decoders disagree: file=%v command=%v", fileErr, commandErr)
+	}
+	return config, fileErr
 }
 
 // syncDraft sends a complete draft through the bounded worker request path.
@@ -140,7 +172,7 @@ func TestCouplingEditorFixtureIsNative(t *testing.T) {
 	if err := fixture.Compact(); err != nil || !bytes.Equal(fixture, want) {
 		t.Fatal("coupling fixture differs from the native writer", err)
 	}
-	if err := nativeVerdict(raw); err != nil {
+	if err := nativeVerdict(t, raw); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -232,12 +264,14 @@ func TestCouplingEditorQueueEditsKeepVersion(t *testing.T) {
 	for _, test := range []struct {
 		version float64
 		want    any
+		refused bool
 	}{
-		{1, float64(project.ServiceVersion)},
-		{2, float64(project.ServiceVersion)},
-		{3, nil},
-		{4, nil},
-		{5, nil},
+		{1, float64(project.ServiceVersion), false},
+		{2, float64(project.ServiceVersion), false},
+		{3, nil, false},
+		// Native rejects station queue spacing on version 4.
+		{4, nil, true},
+		{5, nil, false},
 	} {
 		t.Run(fmt.Sprint(test.version), func(t *testing.T) {
 			t.Parallel()
@@ -250,6 +284,12 @@ func TestCouplingEditorQueueEditsKeepVersion(t *testing.T) {
 			draft["version"] = test.version
 			before := cloneEditValue(draft)
 			change, err := editProject(draft, jsontext.Value(`{"field":"stationQueueSpacing","value":"ordinary"}`))
+			if test.refused {
+				if err == nil {
+					t.Fatal("queue edit accepted", change.Patch)
+				}
+				return
+			}
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -447,14 +487,14 @@ func TestCouplingEditorRejectsMembersOnOlderVersions(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if err := nativeVerdict(base); err != nil {
+		if err := nativeVerdict(t, base); err != nil {
 			t.Fatal("base project is invalid", version, err)
 		}
 		for _, item := range members {
 			t.Run(fmt.Sprintf("%d %s %s", version, item.key, item.value), func(t *testing.T) {
 				t.Parallel()
 				raw := append(bytes.TrimSuffix(slices.Clone(base), []byte("}")), []byte(`,"`+item.key+`":`+item.value+`}`)...)
-				if nativeVerdict(raw) == nil || engineVerdict(raw) == nil || callVerdict(raw) == nil {
+				if nativeVerdict(t, raw) == nil || engineVerdict(raw) == nil || callVerdict(raw) == nil {
 					t.Fatal("a historical project accepted a coupling member")
 				}
 				var draft map[string]any
@@ -513,7 +553,7 @@ func TestCouplingEditorNativeParity(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			native, model, call := nativeVerdict(raw), engineVerdict(raw), callVerdict(raw)
+			native, model, call := nativeVerdict(t, raw), engineVerdict(raw), callVerdict(raw)
 			if (native == nil) != test.valid || (model == nil) != test.valid || (call == nil) != test.valid {
 				t.Fatalf("verdicts differ: native=%v model=%v call=%v", native, model, call)
 			}

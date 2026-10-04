@@ -4,7 +4,10 @@
 const classes = ["legacy", "compact", "group", "express"];
 const record = (value) => value !== null && typeof value === "object" && !Array.isArray(value);
 const rows = (value) => Array.isArray(value) ? value : [];
-const has = (value, key) => record(value) && Object.keys(value).some((name) => name.toLowerCase() === key.toLowerCase());
+// fold matches Go strings.EqualFold for an ASCII key. Only U+017F and U+212A
+// fold to an ASCII letter.
+const fold = (name) => name.replace(/[a-z\u017f\u212a]/g, (letter) => ({ "\u017f": "S", "\u212a": "K" })[letter] || letter.toUpperCase());
+const has = (value, key) => record(value) && Object.keys(value).some((name) => fold(name) === fold(key));
 const topology = (draft) => [...rows(draft?.network?.Lanes), ...rows(draft?.network?.Stations), ...rows(draft?.network?.Stations).flatMap((station) => rows(station?.Berths))];
 
 function hasServiceMetadata(draft) {
@@ -41,6 +44,7 @@ function classSet(item) {
 function serviceMetadataChecks(draft, report) {
   const contractError = serviceContractError(draft);
   if (contractError) report(contractError);
+  couplingGeometryChecks(draft, report);
   if (!hasServiceMetadata(draft)) return;
   if (topology(draft).some((item) => classSet(item) === null)) report("VehicleClasses must contain 1 to 4 distinct known classes.");
   for (const pod of rows(draft.fleet)) {
@@ -97,6 +101,117 @@ function expressPath(network, from, to) {
     for (const next of adjacency.get(queue[i]) || []) if (!seen.has(next)) { seen.add(next); queue.push(next); }
   }
   return false;
+}
+
+// COUPLING_ROOM is sim.CouplingSiteRoom of compact-pair-v1, in meters.
+const COUPLING_ROOM = { spacing: 12, opening: 7.5, margin: 14.258333333333333, required: 48.016666666666666 };
+const COUPLING_SLACK = 1e-9;
+const invalidGeometry = (text) => `${text}: invalid coupling geometry`;
+
+// couplingRecords gives the sites or corridors as Go decodes them into
+// their records, or null when a record has an unknown member or a value of
+// the wrong type. Null gives the zero value.
+function couplingRecords(list, fields) {
+  const out = [];
+  for (const item of list) {
+    if (item === null) { out.push(Object.fromEntries(Object.entries(fields).map(([key, kind]) => [key, kind === "number" ? 0 : kind === "string" ? "" : []]))); continue; }
+    if (!record(item) || Object.keys(item).some((key) => !Object.hasOwn(fields, key))) return null;
+    const decoded = {};
+    for (const [key, kind] of Object.entries(fields)) {
+      const value = item[key];
+      if (kind === "list") {
+        if (value != null && (!Array.isArray(value) || value.some((id) => id !== null && typeof id !== "string"))) return null;
+        decoded[key] = rows(value).map((id) => id ?? "");
+      } else if (value == null) decoded[key] = kind === "number" ? 0 : "";
+      else if (typeof value !== kind) return null;
+      else decoded[key] = value;
+    }
+    out.push(decoded);
+  }
+  return out;
+}
+
+// couplingGeometryChecks follows sim.ValidateCouplingGeometry for a version
+// 5 draft. It does not repeat the native network record checks, which
+// the other checks report.
+function couplingGeometryChecks(draft, report) {
+  if (draft?.version !== 5 || couplingContractError(draft)) return;
+  if (!rows(draft.couplingSites).length && !rows(draft.couplingCorridors).length) return;
+  const sites = couplingRecords(rows(draft.couplingSites), { id: "string", laneId: "string", startMeters: "number", endMeters: "number", frontStagingMeters: "number", rearStagingMeters: "number" });
+  const corridors = couplingRecords(rows(draft.couplingCorridors), { id: "string", assemblySiteId: "string", splitSiteId: "string", laneIds: "list" });
+  if (!sites || !corridors) { report("Coupling sites, corridors, or their network have invalid fields."); return; }
+  const problem = couplingGeometryError(draft.network, sites, corridors);
+  if (problem) report(problem);
+}
+
+function couplingGeometryError(network, sites, corridors) {
+  const nodes = rows(network?.Nodes), lanes = rows(network?.Lanes);
+  if (sites.length < 2 || sites.length > 300 || corridors.length < 1 || corridors.length > 300 || nodes.length < 1 || nodes.length > 5000 || lanes.length < 1 || lanes.length > 8000 || rows(network?.Stations).length > 300) return invalidGeometry("coupling collections exceed bounds");
+  const positions = new Map(nodes.map((node) => [node?.ID, node?.Position]));
+  const geometry = new Map();
+  for (const lane of lanes) {
+    const from = positions.get(lane?.From) || { X: 0, Y: 0 }, to = positions.get(lane?.To) || { X: 0, Y: 0 };
+    const length = Math.hypot(to.X - from.X, to.Y - from.Y);
+    geometry.set(lane?.ID, { lane, from, to, length, direction: length > 0 ? { X: (to.X - from.X) / length, Y: (to.Y - from.Y) / length } : { X: 0, Y: 0 } });
+  }
+  const bounded = (id) => id !== "" && new TextEncoder().encode(id).length <= 64;
+  const laneError = (lane) => lane.Control != null || JSON.stringify(classSet(lane)) !== '["compact"]' ? invalidGeometry(`lane ${JSON.stringify(lane.ID)} must be straight and explicitly Compact-only`) : "";
+  const placed = new Map();
+  for (const site of sites) {
+    if (!bounded(site.id) || !bounded(site.laneId)) return invalidGeometry("invalid site or lane ID");
+    if (placed.has(site.id)) return invalidGeometry("invalid or duplicate site ID");
+    const lane = geometry.get(site.laneId);
+    if (!lane) return invalidGeometry("unknown or invalid site lane ID");
+    const error = laneError(lane.lane);
+    if (error) return error;
+    const values = [site.startMeters, site.endMeters, site.frontStagingMeters, site.rearStagingMeters];
+    if (values.some((value) => !Number.isFinite(value))) return invalidGeometry(`nonfinite site ${JSON.stringify(site.id)}`);
+    if (site.startMeters < 0 || site.endMeters > lane.length || site.endMeters - site.startMeters < COUPLING_ROOM.required ||
+      Math.abs(site.frontStagingMeters - site.rearStagingMeters - COUPLING_ROOM.spacing) > COUPLING_SLACK ||
+      site.rearStagingMeters - COUPLING_ROOM.margin < site.startMeters ||
+      site.frontStagingMeters + COUPLING_ROOM.opening + COUPLING_ROOM.margin > site.endMeters) return invalidGeometry(`site ${JSON.stringify(site.id)} lacks staging, maneuver, or stopping room`);
+    for (const previous of placed.values()) {
+      if (site.laneId === previous.laneId && site.startMeters < previous.endMeters && previous.startMeters < site.endMeters) return invalidGeometry(`protected sites overlap on ${JSON.stringify(site.laneId)}`);
+    }
+    placed.set(site.id, site);
+  }
+  const seen = new Set(), used = new Set();
+  for (const corridor of corridors) {
+    const path = corridor.laneIds;
+    if (!bounded(corridor.id) || seen.has(corridor.id) || path.length < 1 || path.length > 8000) return invalidGeometry("invalid corridor identity or path");
+    seen.add(corridor.id);
+    if (!bounded(corridor.assemblySiteId) || !bounded(corridor.splitSiteId)) return invalidGeometry("invalid endpoint site ID");
+    const assembly = placed.get(corridor.assemblySiteId), split = placed.get(corridor.splitSiteId);
+    if (!assembly || !split || assembly.id === split.id || path[0] !== assembly.laneId || path.at(-1) !== split.laneId) return invalidGeometry(`corridor ${JSON.stringify(corridor.id)} does not bind distinct endpoint sites`);
+    if (path.length === 1 && assembly.endMeters > split.startMeters) return invalidGeometry(`corridor ${JSON.stringify(corridor.id)} reverses its site order`);
+    const error = couplingPathError(corridor, geometry, bounded, laneError);
+    if (error) return error;
+    used.add(assembly.id); used.add(split.id);
+  }
+  for (const id of placed.keys()) if (!used.has(id)) return invalidGeometry(`site ${JSON.stringify(id)} has no corridor`);
+  return "";
+}
+
+function couplingPathError(corridor, geometry, bounded, laneError) {
+  const seen = new Set();
+  let previous = null, direction = null, origin = null;
+  for (const id of corridor.laneIds) {
+    if (!bounded(id)) return invalidGeometry("invalid corridor lane ID");
+    const lane = geometry.get(id);
+    if (!lane || seen.has(id)) return invalidGeometry("invalid corridor lane ID");
+    seen.add(id);
+    const error = laneError(lane.lane);
+    if (error) return error;
+    if (!Number.isFinite(lane.length) || lane.length <= 0) return invalidGeometry("zero or nonfinite corridor segment");
+    if (!previous) { direction = lane.direction; origin = lane.from; }
+    else if (previous.To !== lane.lane.From || direction.X * lane.direction.X + direction.Y * lane.direction.Y <= 0) return invalidGeometry(`corridor ${JSON.stringify(corridor.id)} is disconnected or reversed`);
+    for (const point of [lane.from, lane.to]) {
+      const distance = Math.abs((point.X - origin.X) * direction.Y - (point.Y - origin.Y) * direction.X);
+      if (!Number.isFinite(distance) || distance > COUPLING_SLACK) return invalidGeometry("corridor endpoint leaves its fixed XY axis");
+    }
+    previous = lane.lane;
+  }
+  return "";
 }
 
 function laneMinimumLength(lane) {
