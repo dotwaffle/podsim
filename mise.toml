@@ -46,6 +46,10 @@ run = "go test ./..."
 description = "Run tests with the race detector"
 run = "go test -race ./... -timeout=30m"
 
+[tasks."test:bounds"]
+description = "Check the maximum checkpoint encoding without race instrumentation"
+run = "go test ./internal/parkride -run '^TestCheckpointCombinedEncodingShapes$' -count=1 -v"
+
 [tasks.vulncheck]
 description = "Check dependencies for known vulnerabilities"
 run = """
@@ -81,7 +85,7 @@ run = "node --test web/editor-model_test.cjs web/place-search_test.cjs web/tiles
 
 [tasks.check]
 description = "Run tests, static analysis, and native and browser builds"
-depends = ["test:race", "qualify", "test:web", "lint", "vulncheck", "build", "test:embedded"]
+depends = ["test:race", "test:bounds", "qualify", "test:web", "lint", "vulncheck", "build", "test:embedded"]
 
 [tasks.scenario]
 description = "Write a generated scenario JSON file"
