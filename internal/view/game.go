@@ -967,6 +967,11 @@ func (g *Game) drawNetwork(screen *ebiten.Image, state sim.Snapshot) {
 			g.label(mapScreen, podLabel)
 		}
 	}
+	// Mechanical trains come from the train registry. They go on top of the
+	// pods, so that a pod sprite cannot hide a train at any zoom.
+	for _, line := range g.mapCouplingLines(state) {
+		vector.StrokeLine(mapScreen, float32(line.from.X), float32(line.from.Y), float32(line.to.X), float32(line.to.Y), float32(line.width), rgb(line.color), style.antialias)
+	}
 	// Without a network, the map has no scale.
 	if bar, ok := newScaleBar(g.mapScale, g.layout.unit); ok && len(g.network.Nodes) > 0 {
 		vector.StrokeLine(screen, float32(g.layout.x(48)), float32(g.layout.bottom(508)), float32(g.layout.x(48+bar.length)), float32(g.layout.bottom(508)), float32(2*g.layout.unit), rgb(muted), style.antialias)
@@ -1688,7 +1693,7 @@ func (g *Game) drawInspection(screen *ebiten.Image, state sim.Snapshot) {
 	}
 	journey = g.fitText(journey, 17, inspectionRight-inspectionLeft)
 	g.label(screen, label{x: inspectionLeft, y: 192, size: 17, value: journey, color: foreground})
-	for i, row := range g.inspectionRows(state.Vehicles[g.selected]) {
+	for i, row := range g.podInspectionRows(state, g.selected) {
 		y := inspectionRowsTop + float64(i)*inspectionRowSpacing
 		if row.name != "" {
 			g.label(screen, label{x: inspectionLeft, y: y, size: 14, value: row.name, color: muted})

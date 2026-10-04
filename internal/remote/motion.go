@@ -58,11 +58,11 @@ func (m *Motion) Sample(at time.Time) sim.Snapshot {
 	}
 	latest := m.frames[len(m.frames)-1]
 	if latest.state.Simulation.Paused {
-		return latest.state.Simulation
+		return detachCoupling(latest.state.Simulation)
 	}
 	target := at.Add(-motionDelay)
 	if !target.After(m.frames[0].at) {
-		return m.frames[0].state.Simulation
+		return detachCoupling(m.frames[0].state.Simulation)
 	}
 	for i := 1; i < len(m.frames); i++ {
 		next := m.frames[i]
@@ -72,7 +72,7 @@ func (m *Motion) Sample(at time.Time) sim.Snapshot {
 			return interpolateFrames(previous, next, fraction, m.geometry)
 		}
 	}
-	return latest.state.Simulation
+	return detachCoupling(latest.state.Simulation)
 }
 
 func interpolate(a, b session.State, fraction float64) sim.Snapshot {
@@ -114,6 +114,14 @@ func interpolateFrames(a, b motionFrame, fraction float64, geometry *motionGeome
 		if position, ok := geometry.interpolatePosition(*before, after, fraction, maxTravel); ok {
 			before.Pod.Position = position
 			before.Pod.Speed += (after.Pod.Speed - before.Pod.Speed) * fraction
+		}
+	}
+	// A mechanical train moves as one group. An unmarked state skips this
+	// step and keeps the cabin motion above.
+	if couplingMarked(a.state.Simulation) || couplingMarked(b.state.Simulation) {
+		step := couplingStep{a: a, b: b, fraction: fraction, maxTravel: maxTravel, geometry: geometry}
+		if !interpolateCoupling(&snapshot, step) {
+			return detachCoupling(b.state.Simulation)
 		}
 	}
 	return snapshot

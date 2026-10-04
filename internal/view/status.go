@@ -2,6 +2,7 @@ package view
 
 import (
 	"github.com/hajimehoshi/ebiten/v2"
+	"github.com/hajimehoshi/ebiten/v2/vector"
 
 	"github.com/dotwaffle/podsim/internal/sim"
 )
@@ -181,4 +182,47 @@ func (g *Game) drawPodLegend(screen *ebiten.Image, scale spriteScale) {
 		g.sprites.draw(screen, spriteDraw{center: center, key: ringSprite(7*g.layout.unit, 1.5*g.layout.unit, marker.color), scale: scale})
 		g.label(screen, label{x: g.layout.x(marker.x + 9), y: g.layout.bottom(516), size: 10, value: marker.value, color: marker.color, physical: true})
 	}
+	// The Train entry shows the map mark of a latched train around two idle
+	// pods.
+	centers := g.trainLegendCenters()
+	for _, center := range centers {
+		g.sprites.draw(screen, spriteDraw{center: center, key: podMarkSprite(purposeIdle, g.layout.unit), scale: scale})
+	}
+	for _, line := range trainLegendLines(centers, g.layout.unit) {
+		vector.StrokeLine(screen, float32(line.from.X), float32(line.from.Y), float32(line.to.X), float32(line.to.Y), float32(line.width), rgb(line.color), true)
+	}
+	g.label(screen, g.trainLegendLabel())
+}
+
+const (
+	// trainLegendX is the center in design units of the Train entry of the
+	// legend, after the Selected entry in the same row.
+	trainLegendX = 684.0
+	// trainLegendSpacing is the distance in display units between the
+	// two pods of the Train entry.
+	trainLegendSpacing = 6.0
+)
+
+// trainLegendCenters returns the screen centers of the two pods of the
+// Train entry of the legend.
+func (g *Game) trainLegendCenters() [2]sim.Point {
+	x, y, half := g.layout.x(trainLegendX), g.layout.bottom(522), trainLegendSpacing/2*g.layout.unit
+	return [2]sim.Point{{X: x + half, Y: y}, {X: x - half, Y: y}}
+}
+
+// trainLegendLabel returns the label of the Train entry of the legend. It
+// starts after the right side of the train mark.
+func (g *Game) trainLegendLabel() label {
+	x := trainLegendX + trainLegendSpacing/2 + couplingMarkPadding + couplingMarkWidth + 3
+	return label{x: g.layout.x(x), y: g.layout.bottom(516), size: 10, value: "Train", color: couplingTrainColor, physical: true}
+}
+
+// trainLegendLines returns a closed train mark around two pods at the screen
+// centers. It is the mark that the map shows for a small latched train.
+func trainLegendLines(centers [2]sim.Point, unit float64) []couplingLine {
+	point := func(p sim.Point) sim.CouplingRectangle {
+		return sim.CouplingRectangle{Corners: [4]sim.Point{p, p, p, p}}
+	}
+	group := sim.CouplingGroupView{Bodies: [2]sim.CouplingRectangle{point(centers[0]), point(centers[1])}, Connector: &sim.CouplingRectangle{}}
+	return couplingLines(couplingDrawInput{groups: []sim.CouplingGroupView{group}, screen: func(p sim.Point) sim.Point { return p }, unit: unit})
 }
