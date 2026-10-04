@@ -110,7 +110,9 @@ func prepareCouplingApproach(input couplingApproachPrepareInput) (*couplingAppro
 		origin := blocks.lanes[first].start
 		if i == 0 {
 			c.start, c.target = origin+assembly.RearStagingMeters, origin+assembly.FrontStagingMeters
-			if v.distance != c.start || v.Pod.LaneDistance != assembly.RearStagingMeters {
+			// The route distance binds exactly. Its lane-local copy can differ
+			// from the authored offset by rounding, as in the reservation check.
+			if v.distance != c.start || math.Abs(v.Pod.LaneDistance-assembly.RearStagingMeters) > conflictSlack {
 				return nil, couplingApproachState{}, couplingDenied("approach front is not at its original ordinary frontier")
 			}
 		} else {

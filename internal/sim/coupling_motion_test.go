@@ -6,6 +6,7 @@ import (
 	"math"
 	"reflect"
 	"slices"
+	"strconv"
 	"testing"
 )
 
@@ -277,5 +278,73 @@ func TestCouplingMotionCommittedFailuresAreAtomic(t *testing.T) {
 				t.Fatalf("non-atomic committed refusal: %v %+v", err, out)
 			}
 		})
+	}
+}
+
+// Route distances whose lane prefixes are not exact in float must keep their
+// exact sweep ends. The observed case is a native foreign pod on lane ab.
+func TestCouplingMotionSegmentsInexactPrefix(t *testing.T) {
+	t.Parallel()
+	straight := func(lengths ...float64) blockList {
+		blocks := blockList{lanes: make([]routeLaneCells, len(lengths)+1)}
+		for i, length := range lengths {
+			blocks.route = append(blocks.route, Lane{ID: strconv.Itoa(i)})
+			from := Point{X: blocks.lanes[i].start}
+			blocks.lanes[i].length = length
+			blocks.lanes[i].geometry = &laneGeometry{segments: []laneSegment{{from: from, to: Point{X: from.X + length}, end: length}}}
+			blocks.lanes[i+1].start = blocks.lanes[i].start + length
+		}
+		return blocks
+	}
+	feed := math.Hypot(145, 90)
+	for _, tc := range []struct {
+		name       string
+		blocks     blockList
+		start, end func(blockList) float64
+	}{
+		{"observed foreign sweep", straight(202.67610284592436, 600),
+			func(blockList) float64 { return 458.61666666667276 }, func(blockList) float64 { return 458.8500000000061 }},
+		{"inexact start", straight(202.67610284592436, 600),
+			func(blockList) float64 { return 458.8500000000061 }, func(blockList) float64 { return 459.08333333333945 }},
+		{"end at lane boundary below", straight(98.86863694964386, feed, 100),
+			func(b blockList) float64 { return b.lanes[1].start + 100 }, func(b blockList) float64 { return b.lanes[2].start }},
+		{"end at lane boundary above", straight(258.80710897305283, feed, 100),
+			func(b blockList) float64 { return b.lanes[1].start + 100 }, func(b blockList) float64 { return b.lanes[2].start }},
+		{"crossing lane boundary", straight(202.67610284592436, feed, 100),
+			func(b blockList) float64 { return b.lanes[2].start - 0.1 }, func(b blockList) float64 { return b.lanes[2].start + 0.13333333333333333 }},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			start, end := tc.start(tc.blocks), tc.end(tc.blocks)
+			segments, err := couplingMotionSegments(&tc.blocks, start, end)
+			if err != nil {
+				t.Fatalf("sweep %.17g..%.17g failed: %v", start, end, err)
+			}
+			if segments[0].start != start || segments[len(segments)-1].end != end {
+				t.Fatalf("sweep ends %.17g..%.17g differ from %.17g..%.17g", segments[0].start, segments[len(segments)-1].end, start, end)
+			}
+			for i := 1; i < len(segments); i++ {
+				if segments[i].start != segments[i-1].end {
+					t.Fatal("sweep has a gap at a lane boundary", segments)
+				}
+			}
+		})
+	}
+	// A sweep that ends one step past a lane end must not take its end
+	// from the lane, even when the local end rounds to the lane length.
+	overrun := math.Nextafter(800, math.Inf(1))
+	if _, err := couplingMotionSegments(new(straight(200.00000000000006, 600)), 799, overrun); err == nil {
+		t.Fatal("sweep accepted an end past its route")
+	}
+	if segments, err := couplingMotionSegments(new(straight(200.00000000000006, 600, 100)), 799, overrun); err != nil {
+		t.Fatalf("sweep into the next lane failed: %v", err)
+	} else if len(segments) != 2 || segments[0].end != segments[1].start || segments[0].end > segments[1].end || segments[1].end != overrun {
+		t.Fatal("sweep into the next lane overlaps its lane boundary", segments)
+	}
+	// The final check still rejects geometry that does not reach the end.
+	short := straight(202.67610284592436, 600)
+	short.lanes[1].geometry.segments[0].end = 590
+	if _, err := couplingMotionSegments(&short, 400, 795); err == nil {
+		t.Fatal("sweep accepted a real gap before its end")
 	}
 }

@@ -386,7 +386,18 @@ func couplingMotionSegments(blocks *blockList, start, end float64) ([]laneSegmen
 		for _, s := range entry.geometry.segments {
 			a, b := max(lo, s.start), min(hi, s.end)
 			if a < b {
-				result = append(result, laneSegment{from: couplingSegmentPoint(s, a), to: couplingSegmentPoint(s, b), start: a + entry.start, end: b + entry.start})
+				segment := laneSegment{from: couplingSegmentPoint(s, a), to: couplingSegmentPoint(s, b), start: a + entry.start, end: b + entry.start}
+				// A local coordinate plus a lane start does not always round back
+				// to the route distance. Keep the exact sweep ends where they clamp.
+				// A local end can round to the lane length when the sweep ends
+				// past the lane, so the end must also be inside the lane.
+				if a == start-entry.start {
+					segment.start = start
+				}
+				if b == end-entry.start && end <= blocks.lanes[i+1].start {
+					segment.end = end
+				}
+				result = append(result, segment)
 			}
 		}
 	}
