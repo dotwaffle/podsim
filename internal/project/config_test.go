@@ -782,3 +782,27 @@ func TestValidateMapBackground(t *testing.T) {
 		t.Fatal("absent map was encoded")
 	}
 }
+
+func TestProjectRefusesEarlierVersions(t *testing.T) {
+	t.Parallel()
+	for _, version := range []int{2, 3, 4, 5} {
+		config := Default()
+		config.Version = version
+		err := Validate(config)
+		if err == nil || !strings.Contains(err.Error(), fmt.Sprintf("project version %d is not supported", version)) {
+			t.Fatalf("version %d: %v", version, err)
+		}
+		raw := fmt.Appendf(nil, `{"version":%d}`, version)
+		got := Default()
+		if err := json.Unmarshal(raw, &got); err == nil || !strings.Contains(err.Error(), "use version 1") {
+			t.Fatalf("decode version %d: %v", version, err)
+		}
+	}
+	for _, version := range []int{0, 6} {
+		config := Default()
+		config.Version = version
+		if err := Validate(config); err == nil || !strings.Contains(err.Error(), "project version must be 1") {
+			t.Fatalf("version %d: %v", version, err)
+		}
+	}
+}

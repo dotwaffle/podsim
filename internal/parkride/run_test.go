@@ -44,7 +44,6 @@ func TestNativePairedJourneyAndClone(t *testing.T) {
 			input := runInput()
 			consent := tc.consent
 			input.Plan.Itineraries[0].PartySize = tc.size
-			input.Project.Version = project.ServiceVersion
 			for index := range input.Project.Fleet {
 				input.Project.Fleet[index].Class = tc.class
 			}
@@ -210,7 +209,6 @@ func TestRunSourcesAndPausedFault(t *testing.T) {
 func TestPreflightChecksReturnDirection(t *testing.T) {
 	t.Parallel()
 	input := runInput()
-	input.Project.Version = project.ServiceVersion
 	input.Plan.Itineraries[0].PartySize = 2
 	for index := range input.Project.Fleet {
 		input.Project.Fleet[index].Class = sim.CompactClass

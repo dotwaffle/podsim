@@ -103,6 +103,9 @@ func frameState(topology TopologySnapshot, frame StateFrame, immutable bool) (St
 	if !validSpeed(frame.Speed) {
 		return State{}, fmt.Errorf("state frame speed %d is not 1, 2, 5, 15 or 60", frame.Speed)
 	}
+	if err := checkTopologyProjectVersion(topology); err != nil {
+		return State{}, err
+	}
 	if err := couplingFrameBinding(topology, frame.Simulation); err != nil {
 		return State{}, err
 	}

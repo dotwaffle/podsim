@@ -28,7 +28,7 @@ func TestCouplingSavedVersionSelection(t *testing.T) {
 				if packed {
 					config = expressConsumerProject(t)
 				}
-				config.Version, config.CouplingContract, config.CouplingEnabled = project.CouplingVersion, sim.CompactPairV1CouplingContract, enabled
+				config.CouplingContract, config.CouplingEnabled = sim.CompactPairV1CouplingContract, enabled
 				store := &fakeStore{}
 				s, err := NewFromStore(t.Context(), StoreInput{Store: store, Project: &config})
 				if err != nil {
@@ -143,7 +143,7 @@ func couplingPhaseInput(t *testing.T, data couplingPhaseData, frame couplingPhas
 
 func couplingProject(input sim.RestoreStateInput) project.Config {
 	config := project.Default()
-	config.Version, config.Name = project.CouplingVersion, "Private coupling certificate"
+	config.Name = "Private coupling certificate"
 	config.Network, config.Fleet = input.Network, slices.Clone(input.Fleet)
 	// The certificate fleet names stations only, and the native restore
 	// selects the first berth. A project names the berth of each pod.

@@ -838,7 +838,7 @@ func (s *Session) captureState(kind SaveKind) (stateFile, bool, error) {
 		file.OrderContract = sim.ExpressOrderContract
 		file.TextEncoding = ExpressTextEncoding
 	}
-	if s.project.Version == project.CouplingVersion {
+	if project.HasCouplingContract(s.project) {
 		file.Version = couplingStateVersion
 		file.CouplingContract = s.project.CouplingContract
 	}

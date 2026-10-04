@@ -24,12 +24,12 @@ func normalizeProject(draft any) (projectChange, error) {
 	if problem := onboardSettingError(draft); problem != "" {
 		return projectChange{}, errors.New(problem)
 	}
-	if version := number(out["version"]); version != 3 && version != 4 && version != project.CouplingVersion {
-		out["version"] = float64(1)
-		if hasBanks(member(out, "network")) {
-			out["version"] = float64(2)
-		}
+	// The earlier versions 2 to 5 do not migrate. Another value becomes the
+	// current version.
+	if _, found := earlierVersion(out); found {
+		return projectChange{}, errors.New(draftVersionError(out))
 	}
+	out["version"] = float64(project.CurrentVersion)
 	if _, ok := out["name"].(string); !ok {
 		out["name"] = "Untitled scenario"
 	}

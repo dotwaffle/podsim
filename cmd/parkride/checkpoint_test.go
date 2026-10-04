@@ -239,9 +239,11 @@ func TestCheckpointAliasesAndExclusiveClaim(t *testing.T) {
 }
 func TestFoundationRawPresence(t *testing.T) {
 	t.Parallel()
-	for _, value := range []string{"null", "0", `""`, "1"} {
-		if err := parkride.CheckFoundationProject([]byte(`{"version":3,"orderContract":` + value + `}`)); err == nil {
-			t.Fatal("future contract presence accepted")
+	for _, member := range []string{"orderContract", "couplingContract"} {
+		for _, value := range []string{"null", "0", `""`, "1"} {
+			if err := parkride.CheckFoundationProject([]byte(`{"version":1,"` + member + `":` + value + `}`)); err == nil {
+				t.Fatal("contract marker presence accepted", member)
+			}
 		}
 	}
 	args := commandInputs(t)

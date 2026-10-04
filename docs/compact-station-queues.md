@@ -1,21 +1,20 @@
 # Compact station queues
 
-`compact-v1` is an experimental project-3 setting.
+`compact-v1` is an experimental project setting.
 Ordinary spacing remains the default.
 The pilot reduces stopped station queue spacing to 6.01 meters for supported four-meter pods.
 It retains the reaction and braking allowance while the pods move.
 
 Enable station buffers and a platoon limit from two to four before applying the compact setting.
 The editor checks these dependencies.
-Native validation accepts the setting in project versions 3 and 5.
-In a version 1 or 2 draft, selecting the setting changes the draft to project version 3.
-A version 5 draft keeps its version.
-A version 4 project cannot use the setting, so the editor disables it.
+Native validation accepts the setting without `orderContract`, or with both `orderContract` and `couplingContract`.
+Selecting the setting does not change the project version.
+An Express project without `couplingContract` cannot use the setting, so the editor disables it.
 It does not change lane speeds, geometry, buffers, or the platoon limit.
 
 ```json
 {
-  "version": 3,
+  "version": 1,
   "stationBuffers": true,
   "platoonLimit": 4,
   "stationQueueSpacing": "compact-v1"
@@ -25,7 +24,7 @@ It does not change lane speeds, geometry, buffers, or the platoon limit.
 This fragment contains only the settings.
 A complete project must also contain its network, fleet, and demand settings.
 Omit `stationQueueSpacing`, or select `ordinary`, to keep ordinary spacing.
-Explicit queue fields in earlier project versions fail validation, including `null`.
+An explicit `null` queue field fails validation.
 
 The controller admits a group only on a straight station entry with a speed limit at most 2.5 m/s, or 9 km/h.
 Both members of each adjacent pair must stay within that speed band.

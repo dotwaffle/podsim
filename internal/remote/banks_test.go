@@ -33,7 +33,6 @@ func TestStreamBankProtocolVersions(t *testing.T) {
 				topology := shared.Topology()
 				if banks == "valid" {
 					topology.Network = sim.BankExample()
-					topology.ProjectVersion = 2
 				}
 				topologyJSON := streamJSON(t, topology)
 				if banks == "empty" || banks == "null" {

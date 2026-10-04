@@ -61,7 +61,7 @@ func TestCouplingTopologyStandalone(t *testing.T) {
 
 func TestCouplingTopologyOldPresence(t *testing.T) {
 	banked := project.Default()
-	banked.Version, banked.Network = project.BankVersion, sim.BankExample()
+	banked.Network = sim.BankExample()
 	banked.Fleet = []sim.Placement{{ID: "01", StationID: "origin", BerthID: "origin-1"}}
 	configs := []project.Config{project.Default(), banked, groupConsumerProject(t), expressConsumerProject(t)}
 	for _, config := range configs {
@@ -99,7 +99,7 @@ func TestCouplingTopologyOldPresence(t *testing.T) {
 func TestCouplingTopologyBoundsAndRequired(t *testing.T) {
 	data := couplingPhaseFixtures(t)
 	input := couplingPhaseInput(t, data, data.Frames[0])
-	topology := TopologySnapshot{ProjectVersion: project.CouplingVersion, CouplingContract: input.CouplingContract,
+	topology := TopologySnapshot{ProjectVersion: project.CurrentVersion, CouplingContract: input.CouplingContract,
 		CouplingSites: input.CouplingSites, CouplingCorridors: input.CouplingCorridors, Network: input.Network,
 		ServerStart: "source", Epoch: "epoch", ProjectRevision: 1}
 	base := mustCouplingJSON(t, topology)
@@ -108,6 +108,14 @@ func TestCouplingTopologyBoundsAndRequired(t *testing.T) {
 		edit       func(map[string]jsontext.Value)
 		arrayBound bool
 	}{
+		{"missing version", func(m map[string]jsontext.Value) { delete(m, "projectVersion") }, false},
+		{"version 0", func(m map[string]jsontext.Value) { m["projectVersion"] = jsontext.Value("0") }, false},
+		{"version 2", func(m map[string]jsontext.Value) { m["projectVersion"] = jsontext.Value("2") }, false},
+		{"version 5", func(m map[string]jsontext.Value) { m["projectVersion"] = jsontext.Value("5") }, false},
+		{"folded version 2", func(m map[string]jsontext.Value) {
+			delete(m, "projectVersion")
+			m["projectVerſion"] = jsontext.Value("2")
+		}, false},
 		{"null version", func(m map[string]jsontext.Value) { m["projectVersion"] = jsontext.Value("null") }, false},
 		{"string version", func(m map[string]jsontext.Value) { m["projectVersion"] = jsontext.Value(`"5"`) }, false},
 		{"object version", func(m map[string]jsontext.Value) { m["projectVersion"] = jsontext.Value("{}") }, false},

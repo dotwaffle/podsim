@@ -2,7 +2,7 @@
 
 Status: implemented and qualified as an opt-in feature under the user's autonomous decision grant.
 Native analysis and independent contract review identified the phase and stream rules below.
-Project version 3 accepts `onboardPickups: true` with compatible drop-off sharing.
+A project accepts `onboardPickups: true` with compatible drop-off sharing.
 The omitted policy remains false.
 The [matched service screen](onboard-pickup-service-screen.md) records the bounded result and qualification scope.
 The user approved this feature and permits reviewed, noncontroversial contract details.
@@ -10,9 +10,8 @@ The foundation requires each rider's boarding berth and distance baseline before
 
 ## Behavior
 
-Add an opt-in project-3 `onboardPickups` boolean, false when omitted.
-An explicit member must be a Boolean.
-Older project versions reject its presence, including false and null.
+Add an opt-in project `onboardPickups` boolean, false when omitted.
+An explicit member must be a Boolean, so null is refused.
 It requires sharing above one party and drop-off mode.
 Keep the existing party, seat, stop, detour, queue, and byte limits.
 Do not change default dispatch or enable this policy automatically.

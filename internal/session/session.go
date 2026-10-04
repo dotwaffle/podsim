@@ -501,7 +501,7 @@ func (s *Session) stateWithoutNetwork() State {
 		ServerStart:     s.serverStart,
 		Restore:         s.restore,
 	}
-	if s.project.Version == project.CouplingVersion {
+	if project.HasCouplingContract(s.project) {
 		owned := cloneCouplingObservation(state)
 		s.couplingObservation = &owned
 	}
@@ -843,8 +843,8 @@ var errStaleProject = errors.New("the project changed; reload it before applying
 // applyProject applies the project of command. It returns true when it
 // saved a changed project. A project that is the same as the current
 // project changes nothing. A project that changes only CouplingEnabled of a
-// version 5 project changes the policy in place. Each other project
-// replaces the simulation.
+// project with the coupling marker changes the policy in place. Each other
+// project replaces the simulation.
 func (s *Session) applyProject(command Command) (bool, error) {
 	if !s.simulation.Snapshot().Paused {
 		return false, errors.New("pause the simulation before applying a project")
@@ -869,7 +869,7 @@ func (s *Session) applyProject(command Command) (bool, error) {
 		}
 		// The demo fleet has no coupling contract, so the demo takes the
 		// full path.
-		if s.project.Version == project.CouplingVersion && s.simulation.CouplingContract() == config.CouplingContract {
+		if project.HasCouplingContract(s.project) && s.simulation.CouplingContract() == config.CouplingContract {
 			if err := s.applyCouplingToggle(config); err != nil {
 				return false, err
 			}

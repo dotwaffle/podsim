@@ -30,9 +30,9 @@ async function initialize(f, value = draft("Initial")) {
   const work = f.history.reset(value); await turn(); await finish(f, work, view); return view;
 }
 
-test("browser history preserves owned project-3 class and registry snapshots through undo and redo", async () => {
+test("browser history preserves owned class and registry snapshots through undo and redo", async () => {
   const f = fixture(), first = draft("Service");
-  first.scenario.version = 3;
+  first.scenario.version = 1;
   first.scenario.fleet = [{ ID: "pod", Class: "compact" }];
   first.scenario.network.Stations = [{ ID: "hub", VehicleClasses: ["compact", "express"] }];
   first.scenario.expressServices = [{ ID: "express", Class: "express", PartyLimit: 20 }];
@@ -52,7 +52,7 @@ test("browser history preserves owned project-3 class and registry snapshots thr
   const redo = f.history.redo(); await turn();
   await finish(f, redo, metadata("s2", 4, { retained: ["s1", "s2"], canUndo: true }));
   assert.deepEqual(f.history.snapshot.scenario.expressServices, []);
-  assert.equal(f.history.snapshot.scenario.version, 3);
+  assert.equal(f.history.snapshot.scenario.version, 1);
 });
 
 test("history publishes queued acceptance and waits before pruning images or starting the next transition", async () => {

@@ -3,7 +3,7 @@
 Status: approved by the user on October 2, 2026.
 Numeric compact-v1 approval remains unchanged.
 This proposal adds bounded save-6 fields needed to preserve actual recovery through a cold restore.
-Project 3, save 6, and hello 3 versions remain unchanged.
+Project version 1 without contract markers, save 6, and hello 3 remain unchanged.
 Older versions reject these fields and certificate kinds.
 
 ## Saved representation

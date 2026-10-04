@@ -26,11 +26,11 @@ type toggleSession struct {
 	saveErr error
 }
 
-// couplingExample returns the example project as a version 5 project with
+// couplingExample returns the example project with the coupling marker,
 // no coupling sites and no coupling corridors.
 func couplingExample() project.Config {
 	config := project.Default()
-	config.Version, config.CouplingContract = project.CouplingVersion, sim.CompactPairV1CouplingContract
+	config.CouplingContract = sim.CompactPairV1CouplingContract
 	return config
 }
 
@@ -239,18 +239,10 @@ func setViewFault(_ *testing.T, s *Session) {
 }
 
 // TestProjectApplySameProjectIsNoOp checks that an apply of the current
-// project of each version changes nothing and saves nothing. A nil and an
-// empty list of coupling sites are the same project.
+// project of each feature family changes nothing and saves nothing. A nil
+// and an empty list of coupling sites are the same project.
 func TestProjectApplySameProjectIsNoOp(t *testing.T) {
 	t.Parallel()
-	versioned := func(version int) func(*testing.T) *toggleSession {
-		return func(t *testing.T) *toggleSession {
-			t.Helper()
-			config := project.Default()
-			config.Version = version
-			return newProjectSession(t, config)
-		}
-	}
 	emptySites := func(t *testing.T) *toggleSession {
 		t.Helper()
 		config := couplingExample()
@@ -262,18 +254,17 @@ func TestProjectApplySameProjectIsNoOp(t *testing.T) {
 		start func(*testing.T) *toggleSession
 		edit  func(*project.Config)
 	}{
-		{"version 1", versioned(1), nil},
-		{"version 2", func(t *testing.T) *toggleSession {
+		{"no markers", func(t *testing.T) *toggleSession { t.Helper(); return newProjectSession(t, project.Default()) }, nil},
+		{"station banks", func(t *testing.T) *toggleSession {
 			t.Helper()
 			config := project.Default()
-			config.Version, config.Network = project.BankVersion, sim.BankExample()
+			config.Network = sim.BankExample()
 			config.Fleet = []sim.Placement{{ID: "01", StationID: "origin", BerthID: "origin-1"}}
 			return newProjectSession(t, config)
 		}, nil},
-		{"version 3", versioned(project.ServiceVersion), nil},
-		{"version 4", func(t *testing.T) *toggleSession { t.Helper(); return newProjectSession(t, expressConsumerProject(t)) }, nil},
-		{"version 5 without groups", func(t *testing.T) *toggleSession { t.Helper(); return newToggleSession(t, "") }, nil},
-		{"version 5 with a group", func(t *testing.T) *toggleSession { t.Helper(); return newToggleSession(t, connectedPhase) }, nil},
+		{"Express marker", func(t *testing.T) *toggleSession { t.Helper(); return newProjectSession(t, expressConsumerProject(t)) }, nil},
+		{"coupling marker without groups", func(t *testing.T) *toggleSession { t.Helper(); return newToggleSession(t, "") }, nil},
+		{"coupling marker with a group", func(t *testing.T) *toggleSession { t.Helper(); return newToggleSession(t, connectedPhase) }, nil},
 		{"nil sites to empty sites", func(t *testing.T) *toggleSession { t.Helper(); return newToggleSession(t, "") },
 			func(c *project.Config) { c.CouplingSites = []sim.CouplingSite{} }},
 		{"empty sites to nil sites", emptySites, func(c *project.Config) { c.CouplingSites = nil }},

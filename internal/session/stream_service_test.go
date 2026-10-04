@@ -17,7 +17,8 @@ func TestStreamServiceMemberVersions(t *testing.T) {
 		`"Class":null`, `"Class":""`, `"Class":"unknown"`,
 		`"SharingConsent":null`, `"SharingConsent":""`, `"SharingConsent":true`,
 		`"Service":"unknown"`, `"ServiceID":""`, `"projectVersion":null`,
-		`"projectVersion":"3"`, `"projectVersion":3.5`, `"projectVersion":4`,
+		`"projectVersion":"3"`, `"projectVersion":3.5`, `"projectVersion":2`, `"projectVersion":3`,
+		`"projectVersion":4`, `"projectVersion":5`,
 	} {
 		if err := scanStreamServiceMembers([]byte(`{`+member+`}`), 3); err == nil {
 			t.Errorf("hello3 accepted %s", member)
@@ -46,12 +47,14 @@ func TestStreamServiceTopologyVersions(t *testing.T) {
 		t.Fatal(err)
 	}
 	topology.Network.Lanes[0].VehicleClasses = classes
-	if _, err := NewStreamAssemblerVersion(topology, 3); err == nil {
-		t.Fatal("old project accepted class metadata")
-	}
-	topology.ProjectVersion = project.ServiceVersion
 	if _, err := NewStreamAssemblerVersion(topology, 3); err != nil {
-		t.Fatal(err)
+		t.Fatal("current project refused class metadata", err)
+	}
+	for _, version := range []int{0, 2, 3, 4, 5} {
+		topology.ProjectVersion = version
+		if _, err := NewStreamAssemblerVersion(topology, 3); err == nil {
+			t.Fatal("stream accepted refused project version", version)
+		}
 	}
 }
 
@@ -110,26 +113,21 @@ func TestStreamServiceOrdersDelta(t *testing.T) {
 	}
 }
 
-func TestStreamProjectVersionMatchesMetadata(t *testing.T) {
+func TestStreamProjectFeaturesByPresence(t *testing.T) {
 	t.Parallel()
 	shared, frame := streamFixture(t)
 	banked := shared.Topology()
 	banked.Network = sim.BankExample()
-	if _, err := NewStreamAssemblerVersion(banked, 3); err == nil {
-		t.Fatal("project 1 topology accepted banks")
-	}
-	unbanked := shared.Topology()
-	unbanked.ProjectVersion = project.BankVersion
-	if _, err := NewStreamAssemblerVersion(unbanked, 3); err == nil {
-		t.Fatal("project 2 topology omitted its required banks")
+	if _, err := NewStreamAssemblerVersion(banked, 3); err != nil {
+		t.Fatal("topology refused banks", err)
 	}
 	assembler, err := NewStreamAssemblerVersion(shared.Topology(), 3)
 	if err != nil {
 		t.Fatal(err)
 	}
 	frame.State.Simulation.Vehicles[0].Pod.Class = sim.CompactClass
-	if _, err := assembler.State(frame); err == nil {
-		t.Fatal("project 1 frame accepted compact fleet class")
+	if _, err := assembler.State(frame); err != nil {
+		t.Fatal("frame refused compact fleet class", err)
 	}
 }
 
@@ -137,7 +135,6 @@ func TestStreamClassIsImmutableWithinProject(t *testing.T) {
 	t.Parallel()
 	shared, frame := streamFixture(t)
 	topology := shared.Topology()
-	topology.ProjectVersion = project.ServiceVersion
 	assembler, err := NewStreamAssemblerVersion(topology, 3)
 	if err != nil {
 		t.Fatal(err)

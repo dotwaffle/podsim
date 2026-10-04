@@ -354,7 +354,7 @@ func TestVehicleFramePlatoonJSON(t *testing.T) {
 			t.Fatalf("pod %d has platoon members %s, want %s", index+1, got, want)
 		}
 	}
-	got, err := FrameState(TopologySnapshot{}, frame)
+	got, err := FrameState(TopologySnapshot{ProjectVersion: project.CurrentVersion}, frame)
 	if err != nil {
 		t.Fatal(err)
 	}

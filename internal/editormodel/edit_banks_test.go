@@ -64,7 +64,7 @@ func bankEditorFixture(count int) map[string]any {
 		station["Banks"] = append(items(station["Banks"]), map[string]any{"ID": prefix, "Entry": prefix + "-entry", "Exit": prefix + "-exit", "BerthIDs": ids})
 	}
 	network["Stations"] = []any{station}
-	return map[string]any{"version": float64(2), "name": "Banks", "network": network, "fleet": []any{map[string]any{"ID": "pod", "BerthID": "a-berth-0"}}}
+	return map[string]any{"version": float64(1), "name": "Banks", "network": network, "fleet": []any{map[string]any{"ID": "pod", "BerthID": "a-berth-0"}}}
 }
 
 func applyBankEdit(t *testing.T, draft map[string]any, raw string) map[string]any {
@@ -194,11 +194,11 @@ func TestBankBerthMembershipAndTransforms(t *testing.T) {
 	}
 	deleted := applyBankEdit(t, grown, `{"action":"deleteStation","id":"station"}`)
 	if len(items(member(deleted["network"], "Stations"))) != 0 || deleted["version"] != float64(1) || len(items(deleted["fleet"])) != 0 {
-		t.Fatal("bank delete did not restore legacy project version")
+		t.Fatal("bank delete changed the project version or kept the station")
 	}
 }
 
-func TestBankMembershipAndLegacyVersion(t *testing.T) {
+func TestBankMembershipKeepsVersion(t *testing.T) {
 	t.Parallel()
 	draft := bankEditorFixture(1)
 	network := object(draft["network"])
@@ -218,15 +218,15 @@ func TestBankMembershipAndLegacyVersion(t *testing.T) {
 		t.Fatal(err)
 	}
 	banked := applyBankEdit(t, legacy, `{"action":"stationBanks","id":"station","value":`+string(banks)+`}`)
-	if banked["version"] != float64(2) {
-		t.Fatal("bank membership did not upgrade the project")
+	if banked["version"] != float64(project.CurrentVersion) {
+		t.Fatal("bank membership changed the project version")
 	}
 	normalized, err := normalizeProject(banked)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if _, exists := normalized.Patch["version"]; exists {
-		t.Fatal("normalization downgraded the project")
+		t.Fatal("normalization changed the project version")
 	}
 }
 
@@ -264,7 +264,7 @@ func TestEditorBankArrayLimits(t *testing.T) {
 	}
 }
 
-func TestBankHistoryRestoresVersionAndTopology(t *testing.T) {
+func TestBankHistoryRestoresTopology(t *testing.T) {
 	t.Parallel()
 	draft := bankEditorFixture(2)
 	model := new(engine)
@@ -285,11 +285,11 @@ func TestBankHistoryRestoresVersionAndTopology(t *testing.T) {
 	}
 	undo := acceptedHistory(t, model, historyCommand{Kind: "undo"})
 	if !reflect.DeepEqual(historyValue(t, model, undo.Background), initial) {
-		t.Fatal("undo did not restore bank topology and version")
+		t.Fatal("undo did not restore bank topology")
 	}
 	redo := acceptedHistory(t, model, historyCommand{Kind: "redo"})
 	if !reflect.DeepEqual(historyValue(t, model, redo.Background), next) {
-		t.Fatal("redo did not restore the legacy version")
+		t.Fatal("redo did not restore the deleted station")
 	}
 }
 
@@ -365,7 +365,7 @@ func TestBankExampleEditorControls(t *testing.T) {
 	if decodeErr := json.Unmarshal(raw, &network); decodeErr != nil {
 		t.Fatal(decodeErr)
 	}
-	draft := map[string]any{"version": float64(2), "network": network, "fleet": []any{}}
+	draft := map[string]any{"version": float64(1), "network": network, "fleet": []any{}}
 	grown := applyBankEdit(t, draft, `{"action":"addBankBerth","id":"hub","value":"b"}`)
 	changed := applyBankEdit(t, grown, `{"action":"bankLayout","id":"hub","value":{"bank":"b","pitch":80,"spacing":240,"approachLength":100,"departureLength":100}}`)
 	g := geometryDraft{network: object(changed["network"])}
@@ -415,7 +415,6 @@ func TestBankStationRotationAndLastBerth(t *testing.T) {
 func TestBankEditorSynchronizationChecksCombinedVersion(t *testing.T) {
 	t.Parallel()
 	config := project.Default()
-	config.Version = 2
 	config.Network = sim.BankExample()
 	config.Fleet = []sim.Placement{{ID: "pod", StationID: "origin", BerthID: "origin-1"}}
 	config.Demand.Enabled = false
@@ -437,17 +436,17 @@ func TestBankEditorSynchronizationChecksCombinedVersion(t *testing.T) {
 	}
 	acceptedHistory(t, model, historyCommand{Kind: "reset", Background: background})
 	keys := slices.Sorted(maps.Keys(draft))
-	sync, err := json.Marshal(map[string]any{"op": "sync", "keys": keys, "patch": map[string]any{"version": float64(1)}})
+	sync, err := json.Marshal(map[string]any{"op": "sync", "keys": keys, "patch": map[string]any{"version": float64(2)}})
 	if err != nil {
 		t.Fatal(err)
 	}
 	if _, syncErr := model.handle(string(sync)); syncErr == nil {
-		t.Fatal("version-only downgrade retained Banks")
+		t.Fatal("version-only change to a refused version synchronized")
 	}
 	if _, validateErr := model.handle(`{"op":"validate"}`); validateErr == nil {
-		t.Fatal("typed operation ignored invalid bank version")
+		t.Fatal("typed operation ignored the refused version")
 	}
-	sync, err = json.Marshal(map[string]any{"op": "sync", "keys": keys, "patch": map[string]any{"version": float64(2)}})
+	sync, err = json.Marshal(map[string]any{"op": "sync", "keys": keys, "patch": map[string]any{"version": float64(1)}})
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -22,7 +22,7 @@ Completed rider history does not count as an outstanding order, so an outstandin
 
 Approve this qualification scope:
 
-- Complete project 3, save 6, hello 3, order consent, whole parties, and class compatibility for supported legacy and compact profiles.
+- Complete project version 1 without contract markers, save 6, hello 3, order consent, whole parties, and class compatibility for supported legacy and compact profiles.
 - Keep the current maximum saved queue of 2,600 records for states with supported legacy and compact profiles.
   Keep each such pod's existing bound of eight stored riders, including completed history.
   Compact admission still respects its four seats.

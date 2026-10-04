@@ -212,7 +212,11 @@ func TestCheckpointIndependentAcceptanceGuards(t *testing.T) {
 		{"executable", "checkpoint executable identity mismatch", func(f *checkpointFile) { f.Payload.Origin.Implementation.ExecutableSHA256 = strings.Repeat("d", 64) }},
 		{"held slot", "held-slot conservation", func(f *checkpointFile) { f.Payload.Ledger.Records[0].Held = true }},
 		{"joint clock", "joint clock", func(f *checkpointFile) { f.Payload.Native.Tick++ }},
-		{"future project", "foundation project", func(f *checkpointFile) { f.Payload.Origin.Project.Version = 4 }},
+		{"refused project version", "foundation project", func(f *checkpointFile) { f.Payload.Origin.Project.Version = 4 }},
+		{"express marker", "does not support orderContract", func(f *checkpointFile) { f.Payload.Origin.Project.OrderContract = sim.ExpressOrderContract }},
+		{"coupling marker", "does not support couplingContract", func(f *checkpointFile) {
+			f.Payload.Origin.Project.CouplingContract = sim.CompactPairV1CouplingContract
+		}},
 		{"censored outcome", "invalid checkpoint car stage", func(f *checkpointFile) { f.Payload.Ledger.Records[0].Outcome = "censored" }},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
@@ -229,6 +233,42 @@ func TestCheckpointIndependentAcceptanceGuards(t *testing.T) {
 		})
 	}
 }
+
+// The project decoder folds member case, but the scan matches exact names.
+// The origin check refuses a case-variant marker after decoding.
+func TestCheckpointOriginRefusesFoldedMarkers(t *testing.T) {
+	t.Parallel()
+	r, err := NewRun(continuationInput())
+	if err != nil {
+		t.Fatal(err)
+	}
+	data := encodeCheckpoint(t, r)
+	for _, tc := range []struct {
+		name, member string
+		mutate       func(*checkpointFile)
+	}{
+		{"express", "orderContract", func(f *checkpointFile) { f.Payload.Origin.Project.OrderContract = sim.ExpressOrderContract }},
+		{"coupling", "couplingContract", func(f *checkpointFile) {
+			f.Payload.Origin.Project.CouplingContract = sim.CompactPairV1CouplingContract
+		}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			var file checkpointFile
+			if err := json.Unmarshal(data, &file); err != nil {
+				t.Fatal(err)
+			}
+			tc.mutate(&file)
+			folded := strings.ToUpper(tc.member[:1]) + tc.member[1:]
+			raw := bytes.Replace(rehashCheckpoint(t, file), []byte(`"`+tc.member+`"`), []byte(`"`+folded+`"`), 1)
+			candidate, err := DecodeCheckpoint(t.Context(), bytes.NewReader(raw), ResumeInput{Implementation: testImplementation()})
+			if candidate != nil || err == nil || !strings.Contains(err.Error(), "foundation project") {
+				t.Fatalf("candidate %v error %v", candidate, err)
+			}
+		})
+	}
+}
+
 func TestCheckpointParserAndLineage(t *testing.T) {
 	t.Parallel()
 	r, err := NewRun(continuationInput())
@@ -447,7 +487,6 @@ func TestCheckpointTerminalCarOutcomes(t *testing.T) {
 func TestCheckpointOccupiedPickupReceipts(t *testing.T) {
 	t.Parallel()
 	input := continuationInput()
-	input.Project.Version = 3
 	input.Project.Fleet = input.Project.Fleet[:1]
 	input.Project.SharedRidePartyLimit = 4
 	input.Project.OnboardPickups = true
@@ -505,7 +544,6 @@ func TestCheckpointOccupiedPickupReceipts(t *testing.T) {
 func TestCheckpointCompactQueueFuture(t *testing.T) {
 	t.Parallel()
 	input := continuationInput()
-	input.Project.Version = 3
 	input.Project.Redistribution = false
 	input.Project.StationBuffers = true
 	input.Project.StationQueueSpacing = sim.StationQueueCompactV1
@@ -633,7 +671,6 @@ func checkpointPickupLoop() sim.Network {
 func TestCheckpointPickupCooldownFuture(t *testing.T) {
 	t.Parallel()
 	input := continuationInput()
-	input.Project.Version = 3
 	input.Project.Redistribution = false
 	input.Project.PickupReassignment = true
 	input.Project.Network = checkpointPickupLoop()

@@ -43,7 +43,7 @@ func TestGroupProjectExplicitAdmission(t *testing.T) {
 		name   string
 		mutate func(*Config)
 	}{
-		{"old version", func(config *Config) { config.Version = 1 }},
+		{"refused version", func(config *Config) { config.Version = 3 }},
 		{"default station", func(config *Config) { config.Network.Stations[0].VehicleClasses = 0 }},
 		{"default berth", func(config *Config) { config.Network.Stations[0].Berths[0].VehicleClasses = 0 }},
 		{"express unsupported", func(config *Config) { config.Fleet[0].Class = sim.ExpressClass }},

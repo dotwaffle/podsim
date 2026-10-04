@@ -9,7 +9,7 @@ import (
 	"github.com/dotwaffle/podsim/internal/sim"
 )
 
-// Metadata presence includes null so normalization cannot grant a new version.
+// Metadata presence includes null, as native project decoding counts it.
 func hasServiceMetadata(draft any) bool {
 	if hasFold(draft, "orderContract") || hasFold(draft, "expressServices") || hasFold(draft, "stationQueueSpacing") || hasFold(draft, "onboardPickups") {
 		return true
@@ -142,35 +142,41 @@ func checkExpressRegistry(draft any, errors *checkList) {
 }
 
 func draftOrderContract(draft any) sim.OrderContract {
-	version := number(member(draft, "version"))
-	if (version == 4 || version == project.CouplingVersion) && text(member(draft, "orderContract")) == string(sim.ExpressOrderContract) {
+	if text(member(draft, "orderContract")) == string(sim.ExpressOrderContract) {
 		return sim.ExpressOrderContract
 	}
 	return ""
 }
 
+// earlierVersion returns an earlier project version from 2 to 5. These
+// versions do not migrate.
+func earlierVersion(draft any) (int, bool) {
+	version := number(member(draft, "version"))
+	return int(version), version >= 2 && version <= 5 && version == float64(int(version))
+}
+
+// draftVersionError refuses each version except project.CurrentVersion,
+// with the native text for the earlier versions.
+func draftVersionError(draft any) string {
+	version := number(member(draft, "version"))
+	if earlier, found := earlierVersion(draft); found {
+		return fmt.Sprintf("Project version %d is not supported: use version %d with feature markers.", earlier, project.CurrentVersion)
+	}
+	if version != project.CurrentVersion {
+		return fmt.Sprintf("The scenario version must be %d.", project.CurrentVersion)
+	}
+	return ""
+}
+
+// draftContractError checks the contract markers. Service metadata needs
+// no marker. Express features need orderContract express-v1, and the
+// coupling fields need couplingContract compact-pair-v1.
 func draftContractError(draft any) string {
 	if problem := couplingContractError(draft); problem != "" {
 		return problem
 	}
-	// Version 5 accepts service metadata. Its order contract stays optional.
-	if number(member(draft, "version")) == project.CouplingVersion {
-		if hasFold(draft, "orderContract") && draftOrderContract(draft) != sim.ExpressOrderContract {
-			return "Project version 5 accepts only orderContract express-v1."
-		}
-		return ""
-	}
-	if number(member(draft, "version")) == 4 {
-		if draftOrderContract(draft) != sim.ExpressOrderContract {
-			return "Project version 4 requires orderContract express-v1."
-		}
-		return ""
-	}
-	if hasFold(draft, "orderContract") {
-		return "The order contract requires project version 4."
-	}
-	if hasServiceMetadata(draft) && number(member(draft, "version")) != 3 {
-		return "Vehicle and service fields require project version 3."
+	if hasFold(draft, "orderContract") && draftOrderContract(draft) != sim.ExpressOrderContract {
+		return "The order contract must be express-v1."
 	}
 	return ""
 }

@@ -131,7 +131,6 @@ func TestLargeDraftMinimumEditsAtomic(t *testing.T) {
 func TestLargeDraftMaskCacheInvalidation(t *testing.T) {
 	t.Parallel()
 	config := project.Default()
-	config.Version = project.ServiceVersion
 	model := new(engine)
 	keys := synchronize(t, model, config)
 	for _, large := range []bool{true, false, true} {

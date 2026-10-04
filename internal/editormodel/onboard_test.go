@@ -16,7 +16,6 @@ import (
 
 func onboardEditorConfig() project.Config {
 	config := project.Default()
-	config.Version = project.ServiceVersion
 	config.SharedRidePartyLimit = 2
 	config.SharedRideMode = sim.SharedRideDropOffs
 	config.OnboardPickups = true
@@ -56,7 +55,7 @@ func TestOnboardEditorPreservation(t *testing.T) {
 	}
 	out := object(cloneEditValue(draft))
 	maps.Copy(out, change.Patch)
-	if out["onboardPickups"] != true || number(out["version"]) != 3 || !reflect.DeepEqual(draft, before) {
+	if out["onboardPickups"] != true || number(out["version"]) != project.CurrentVersion || !reflect.DeepEqual(draft, before) {
 		t.Fatal("normalization changed the opt-in or its source")
 	}
 	model := new(engine)
@@ -91,7 +90,7 @@ func TestOnboardEditorPresence(t *testing.T) {
 				draft := onboardEditorDraft(t)
 				draft["version"], draft["onboardPickups"] = version, value
 				_, boolean := value.(bool)
-				valid := version == 3 && boolean
+				valid := version == project.CurrentVersion && boolean
 				model := new(engine)
 				if err := syncOnboardDraft(t, model, draft); (err == nil) != valid || !model.ready {
 					t.Fatal("sync presence validation or raw draft retention failed", err)
@@ -109,18 +108,18 @@ func TestOnboardEditorPresence(t *testing.T) {
 			})
 		}
 	}
-	for _, version := range []float64{1, 2} {
+	for _, version := range []float64{2, 3} {
 		draft := onboardEditorDraft(t)
 		draft["version"], draft["ONBOARDPICKUPS"] = version, false
 		delete(draft, "onboardPickups")
 		if _, err := normalizeProject(draft); err == nil {
-			t.Fatal("normalization upgraded case-variant legacy presence")
+			t.Fatal("normalization accepted case-variant presence in an earlier version")
 		}
 	}
 	model := new(engine)
 	keys := synchronize(t, model, onboardEditorConfig())
-	if _, err := model.sync(request{Keys: keys, Patch: jsontext.Value(`{"version":1}`)}); err == nil {
-		t.Fatal("unchanged flag branch allowed a version downgrade")
+	if _, err := model.sync(request{Keys: keys, Patch: jsontext.Value(`{"version":3}`)}); err == nil {
+		t.Fatal("unchanged flag branch allowed an earlier version")
 	}
 }
 

@@ -19,7 +19,6 @@ import (
 func expressConsumerProject(t *testing.T) project.Config {
 	t.Helper()
 	config := groupConsumerProject(t)
-	config.Version = project.ExpressVersion
 	config.OrderContract = sim.ExpressOrderContract
 	classes, err := sim.NewClassSet("group", "express")
 	if err != nil {

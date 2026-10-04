@@ -91,8 +91,8 @@ func NewRunContext(ctx context.Context, input RunInput) (*Run, error) {
 		if err := validateImplementation(*input.Continuation); err != nil {
 			return nil, err
 		}
-		if input.Project.Version < 1 || input.Project.Version > 3 {
-			return nil, errors.New("car continuation requires a foundation project version 1 through 3")
+		if !foundationProject(input.Project) {
+			return nil, errFoundationProject
 		}
 	}
 	if input.HorizonTicks < 1 || input.HorizonTicks > MaxHorizonTicks {

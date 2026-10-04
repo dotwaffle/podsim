@@ -191,27 +191,17 @@ func proposeProjectEdit(draft any, command editCommand) (projectChange, error) {
 		if !ok || setting != "ordinary" && setting != "compact-v1" {
 			return projectChange{}, errors.New("station queue spacing must be ordinary or compact-v1")
 		}
-		version := number(member(draft, "version"))
-		// Native accepts the setting on versions 3 and 5 only. A version 4
-		// project keeps its order contract, so it cannot change to version 3.
-		if version == project.ExpressVersion {
-			return projectChange{}, errors.New("station queue spacing needs project version 3 or 5, so a version 4 project cannot use it")
-		}
-		if version != 1 && version != 2 && version != 3 && version != project.CouplingVersion {
-			return projectChange{}, errors.New("station queue selection needs project version 1, 2, 3, or 5")
+		if problem := stationQueueContractError(draft); problem != "" {
+			return projectChange{}, errors.New(problem)
 		}
 		change.set(draft, "stationQueueSpacing", setting)
-		// Version 5 keeps its coupling members.
-		if version != project.CouplingVersion {
-			change.set(draft, "version", float64(project.ServiceVersion))
-		}
 	case "couplingEnabled":
 		enabled, ok := value.(bool)
 		if !ok {
 			return projectChange{}, errors.New("the train setting must be true or false")
 		}
-		if number(member(draft, "version")) != project.CouplingVersion {
-			return projectChange{}, errors.New("the train setting needs project version 5")
+		if !couplingMarked(draft) {
+			return projectChange{}, errors.New("the train setting needs couplingContract compact-pair-v1")
 		}
 		// Off only stops new trains. The marker, sites, and corridors stay.
 		change.set(draft, "couplingEnabled", enabled)

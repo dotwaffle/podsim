@@ -133,7 +133,6 @@ func TestOrderConsentAndClassSurviveTwoRestarts(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
 			config := project.Default()
-			config.Version = 3
 			config.SharedRidePartyLimit = 4
 			config.Fleet = config.Fleet[:1]
 			config.Fleet[0].Class = test.class

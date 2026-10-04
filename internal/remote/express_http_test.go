@@ -56,7 +56,7 @@ func remoteExpressProject(t *testing.T) project.Config {
 	if err = json.Unmarshal(raw, &config); err != nil {
 		t.Fatal(err)
 	}
-	config.Version, config.OrderContract = project.ExpressVersion, sim.ExpressOrderContract
+	config.OrderContract = sim.ExpressOrderContract
 	classes, err := sim.NewClassSet("group", "express")
 	if err != nil {
 		t.Fatal(err)

@@ -13,7 +13,6 @@ func TestRestoreOnboardPolicyCompatibility(t *testing.T) {
 	for _, savedPolicy := range []bool{false, true} {
 		for _, selectedPolicy := range []bool{false, true} {
 			saved := project.Default()
-			saved.Version = project.ServiceVersion
 			saved.SharedRidePartyLimit = 2
 			saved.OnboardPickups = savedPolicy
 			selected := project.Clone(saved)
@@ -35,7 +34,6 @@ func TestRestoreOnboardPolicyCompatibility(t *testing.T) {
 
 func TestRestoreOnboardUsesSelectedRuntimePolicy(t *testing.T) {
 	config := project.Default()
-	config.Version = project.ServiceVersion
 	config.SharedRidePartyLimit = 2
 	config.OnboardPickups = true
 	shared, err := NewWithProject(config)

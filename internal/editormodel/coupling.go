@@ -20,17 +20,20 @@ func hasCouplingMetadata(draft any) bool {
 	return slices.ContainsFunc(couplingKeys, func(key string) bool { return hasFold(draft, key) })
 }
 
+// couplingMarked reports whether the draft has the coupling marker. Only a
+// marked draft has the train option, coupling sites, and corridors.
+func couplingMarked(draft any) bool {
+	return text(member(draft, "couplingContract")) == string(sim.CompactPairV1CouplingContract)
+}
+
 // couplingContractError checks the coupling members that native decoding
 // rejects before geometry. Native validation checks the site and corridor records.
 func couplingContractError(draft any) string {
-	if number(member(draft, "version")) != project.CouplingVersion {
-		if hasCouplingMetadata(draft) {
-			return "Coupling fields require project version 5."
-		}
+	if !hasCouplingMetadata(draft) {
 		return ""
 	}
-	if text(member(draft, "couplingContract")) != string(sim.CompactPairV1CouplingContract) {
-		return "Project version 5 requires couplingContract compact-pair-v1."
+	if !couplingMarked(draft) {
+		return "Coupling fields require couplingContract compact-pair-v1."
 	}
 	if _, valid := member(draft, "couplingEnabled").(bool); has(draft, "couplingEnabled") && !valid {
 		return "The train setting must be true or false."
@@ -43,19 +46,19 @@ func couplingContractError(draft any) string {
 	return ""
 }
 
-// convertToTrains proposes the explicit one-way conversion of a version 1
-// to 4 project. Trains stay off, and the project has no sites or corridors.
-// The server decoder must accept the project before and after the change.
+// convertToTrains proposes the explicit one-way conversion of a project
+// without coupling members. It adds the coupling marker. Trains stay off,
+// and the project has no sites or corridors. The server decoder must
+// accept the project before and after the change.
 func convertToTrains(draft any) (projectChange, error) {
-	if !slices.Contains([]float64{1, 2, 3, 4}, number(member(draft, "version"))) {
-		return projectChange{}, errors.New("only a project of version 1 to 4 can convert to trains")
-	}
-	if problem := couplingContractError(draft); problem != "" {
-		return projectChange{}, errors.New(problem)
+	if hasCouplingMetadata(draft) {
+		return projectChange{}, errors.New("only a project without coupling fields can convert to trains")
 	}
 	patch := map[string]any{
-		"version": float64(project.CouplingVersion), "couplingContract": string(sim.CompactPairV1CouplingContract),
-		"couplingEnabled": false, "couplingSites": []any{}, "couplingCorridors": []any{},
+		"couplingContract":  string(sim.CompactPairV1CouplingContract),
+		"couplingEnabled":   false,
+		"couplingSites":     []any{},
+		"couplingCorridors": []any{},
 	}
 	if err := serverValidation(draft); err != nil {
 		return projectChange{}, fmt.Errorf("fix the project before it converts to trains: %w", err)
@@ -83,10 +86,11 @@ func serverValidation(draft any) error {
 }
 
 // checkCouplingGeometry reports the native geometry verdict for the sites and
-// corridors of a version 5 draft. The text is the native error, so the worker
-// shows it once when native validation reports the same error.
+// corridors of a draft with the coupling marker. The text is the native
+// error, so the worker shows it once when native validation reports the
+// same error.
 func checkCouplingGeometry(draft any, report *checkList) {
-	if number(member(draft, "version")) != project.CouplingVersion || couplingContractError(draft) != "" {
+	if !couplingMarked(draft) || couplingContractError(draft) != "" {
 		return
 	}
 	// Native validation accepts empty registries without reading the network.

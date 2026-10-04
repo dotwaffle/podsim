@@ -27,7 +27,7 @@ func TestStationQueueProjectVersionAndShape(t *testing.T) {
 					config := Default()
 					before := Clone(config)
 					err := codec.decode(fmt.Appendf(nil, `{"version":%d,"stationQueueSpacing":%s}`, version, raw), &config)
-					accepted := version == ServiceVersion && (raw == `"ordinary"` || raw == `"compact-v1"`)
+					accepted := version == CurrentVersion && (raw == `"ordinary"` || raw == `"compact-v1"`)
 					if (err == nil) != accepted {
 						t.Fatalf("version %d spacing %s: %v", version, raw, err)
 					}
@@ -45,7 +45,7 @@ func TestStationQueueProjectLimitsAndConfiguration(t *testing.T) {
 	for _, buffers := range []bool{false, true} {
 		for _, limit := range []int{0, 1, 2, 3, 4, 5} {
 			config := Default()
-			config.Version, config.StationQueueSpacing = ServiceVersion, sim.StationQueueCompactV1
+			config.StationQueueSpacing = sim.StationQueueCompactV1
 			config.StationBuffers, config.PlatoonLimit = PolicyFlag(buffers), limit
 			valid := buffers && limit >= sim.MinPlatoonLimit && limit <= sim.MaxPlatoonLimit
 			if err := Validate(config); (err == nil) != valid {
@@ -116,7 +116,7 @@ func TestStationQueueOmissionAndRejectedConfiguration(t *testing.T) {
 		t.Fatal(err)
 	}
 	before := s.ExportState()
-	config.Version, config.StationBuffers, config.StationQueueSpacing = ServiceVersion, true, sim.StationQueueCompactV1
+	config.StationBuffers, config.StationQueueSpacing = true, sim.StationQueueCompactV1
 	if err := ConfigureExperiments(s, config); err == nil || !reflect.DeepEqual(before, s.ExportState()) || s.NeedsBufferState() {
 		t.Fatal("invalid zero-limit configuration mutated the controller", err)
 	}

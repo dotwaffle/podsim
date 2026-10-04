@@ -142,7 +142,7 @@ func (file *stateFile) validateCouplingContract() error {
 		}
 		return nil
 	}
-	if file.Project.Version != project.CouplingVersion || file.CouplingContract != sim.CompactPairV1CouplingContract ||
+	if file.CouplingContract != sim.CompactPairV1CouplingContract ||
 		file.Project.CouplingContract != file.CouplingContract || file.Simulation.CouplingContract != file.CouplingContract {
 		return errors.New("saved coupling contract markers disagree")
 	}
@@ -166,7 +166,7 @@ func cloneCouplingCorridors(corridors []sim.CouplingCorridor) []sim.CouplingCorr
 }
 
 func hasCouplingTopology(topology TopologySnapshot) bool {
-	return topology.ProjectVersion == project.CouplingVersion || topology.CouplingContract != "" || topology.CouplingEnabled ||
+	return topology.CouplingContract != "" || topology.CouplingEnabled ||
 		topology.CouplingSites != nil || topology.CouplingCorridors != nil
 }
 

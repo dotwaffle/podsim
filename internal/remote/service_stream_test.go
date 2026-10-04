@@ -17,7 +17,6 @@ func TestBoardingTopologyCacheRollbackAndInvalidation(t *testing.T) {
 	}
 	t.Cleanup(shared.Close)
 	topology := shared.Topology()
-	topology.ProjectVersion = 3
 	frame := session.StreamFrame{State: shared.Frame()}
 	frame.Routes = make([]sim.RoutePresentation, len(frame.State.Simulation.Vehicles))
 	for i := range frame.Routes {

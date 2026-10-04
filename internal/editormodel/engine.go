@@ -176,7 +176,7 @@ func (e *engine) sync(command request) (response, error) {
 	servicePresent := next["orderContract"].services || next["network"].services || next["fleet"].services || next["expressServices"].services || next["stationQueueSpacing"].services || next["onboardPickups"].services
 	// Branch decoding skips the native field scan, which rejects null coupling members.
 	couplingPresent := slices.ContainsFunc(couplingKeys, func(key string) bool { _, present := next[key]; return present })
-	if firstError == nil && (next["network"].banked || config.Version == 2 || config.Version == 3 || config.Version == 4 || servicePresent || couplingPresent) {
+	if firstError == nil && (next["network"].banked || config.Version != project.CurrentVersion || servicePresent || couplingPresent) {
 		fields := make(map[string]jsontext.Value, 4)
 		for _, key := range []string{"version", "orderContract", "network", "fleet", "expressServices", "stationQueueSpacing", "onboardPickups", "couplingContract", "couplingEnabled", "couplingSites", "couplingCorridors"} {
 			if branch, present := next[key]; present {

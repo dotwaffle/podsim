@@ -248,7 +248,7 @@ func TestCouplingProjectEnabledRestoreOverride(t *testing.T) {
 
 func TestCouplingStoreGroupFreeRecovery(t *testing.T) {
 	config := project.Default()
-	config.Version, config.CouplingContract = project.CouplingVersion, sim.CompactPairV1CouplingContract
+	config.CouplingContract = sim.CompactPairV1CouplingContract
 	store := &fakeStore{}
 	s, err := NewFromStore(t.Context(), StoreInput{Store: store, Project: &config})
 	if err != nil {
@@ -270,7 +270,7 @@ func TestCouplingStoreGroupFreeRecovery(t *testing.T) {
 
 func TestCouplingStoreGroupFreePanic(t *testing.T) {
 	config := project.Default()
-	config.Version, config.CouplingContract = project.CouplingVersion, sim.CompactPairV1CouplingContract
+	config.CouplingContract = sim.CompactPairV1CouplingContract
 	s, err := NewWithProject(config)
 	if err != nil {
 		t.Fatal(err)
@@ -311,7 +311,7 @@ func TestCouplingProjectApplyAtomic(t *testing.T) {
 	saves := 0
 	s, err := NewWithProject(project.Default(), WithProjectSaver(func(c project.Config) error {
 		saves++
-		if c.Version != project.CouplingVersion || c.CouplingContract != sim.CompactPairV1CouplingContract {
+		if c.Version != project.CurrentVersion || c.CouplingContract != sim.CompactPairV1CouplingContract {
 			return errors.New("project contract changed")
 		}
 		return nil
@@ -323,7 +323,7 @@ func TestCouplingProjectApplyAtomic(t *testing.T) {
 	client := newTestClient(s, "coupling-apply")
 	client.mustApply(t, Command{Action: "pause", Paused: true})
 	config := project.Default()
-	config.Version, config.CouplingContract, config.CouplingEnabled = project.CouplingVersion, sim.CompactPairV1CouplingContract, true
+	config.CouplingContract, config.CouplingEnabled = sim.CompactPairV1CouplingContract, true
 	client.mustApply(t, Command{Action: "project", Project: &config, ProjectRevision: s.projectRevision})
 	if saves != 1 || s.simulation.CouplingContract() != config.CouplingContract || !s.simulation.CouplingEnabled() {
 		t.Fatal("project apply lost native coupling contract")

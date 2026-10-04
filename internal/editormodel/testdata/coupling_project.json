@@ -30,7 +30,7 @@
       ]
     }
   ],
-  "version": 5,
+  "version": 1,
   "name": "Podsim example",
   "network": {
     "Nodes": [

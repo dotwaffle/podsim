@@ -12,7 +12,6 @@ import (
 func expressProject(t *testing.T) Config {
 	t.Helper()
 	config := Default()
-	config.Version = ExpressVersion
 	config.OrderContract = sim.ExpressOrderContract
 	classes, err := sim.NewClassSet("legacy", "compact", "group", "express")
 	if err != nil {
@@ -55,7 +54,7 @@ func TestExpressProjectRoundTrip(t *testing.T) {
 		t.Fatal(err)
 	}
 	if !reflect.DeepEqual(config, got) {
-		t.Fatal("project4 changed authored facts")
+		t.Fatal("Express project changed authored facts")
 	}
 	if err = Validate(got); err != nil {
 		t.Fatal(err)
@@ -76,7 +75,7 @@ func TestExpressProjectRoundTrip(t *testing.T) {
 }
 
 func TestExpressProjectMarkersFailAtomically(t *testing.T) {
-	for _, raw := range []string{`{"version":4}`, `{"version":4,"orderContract":null}`, `{"version":4,"orderContract":""}`, `{"version":4,"orderContract":"unknown"}`, `{"version":3,"orderContract":"express-v1"}`, `{"version":2,"orderContract":"express-v1"}`, `{"version":1,"orderContract":"express-v1"}`, `{"version":4,"orderContract":"express-v1","orderContract":"express-v1"}`} {
+	for _, raw := range []string{`{"version":1,"orderContract":null}`, `{"version":1,"orderContract":""}`, `{"version":1,"orderContract":"unknown"}`, `{"version":4,"orderContract":"express-v1"}`, `{"version":3,"orderContract":"express-v1"}`, `{"version":2,"orderContract":"express-v1"}`, `{"version":1,"orderContract":"express-v1","orderContract":"express-v1"}`} {
 		got := Default()
 		before := Clone(got)
 		if err := json.Unmarshal([]byte(raw), &got); err == nil {
@@ -86,15 +85,17 @@ func TestExpressProjectMarkersFailAtomically(t *testing.T) {
 			t.Fatal("failed decode mutated project")
 		}
 	}
-	for _, version := range []int{1, 2, 3, 4} {
+	for _, version := range []int{2, 3, 4, 5} {
 		config := expressProject(t)
 		config.Version = version
-		if version == 4 {
-			config.OrderContract = ""
-		}
 		if err := Validate(config); err == nil {
-			t.Fatal("version/contract mismatch", version)
+			t.Fatal("refused project version accepted", version)
 		}
+	}
+	unmarked := expressProject(t)
+	unmarked.OrderContract = ""
+	if err := Validate(unmarked); err == nil {
+		t.Fatal("Express features accepted without the order contract")
 	}
 	raw, err := json.Marshal(Default())
 	if err != nil {

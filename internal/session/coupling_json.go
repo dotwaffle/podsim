@@ -112,7 +112,7 @@ func scanCouplingJSON(data []byte, topology bool) (scan couplingScan, err error)
 						return scan, errors.New("saved coupling contract marker is missing")
 					}
 				}
-			} else if topology && family == project.CouplingVersion && !seen["/couplingcontract"] {
+			} else if topology && scan.recognized && !seen["/couplingcontract"] {
 				return scan, errors.New("topology coupling contract marker is missing")
 			}
 			scan.complete = true
@@ -153,7 +153,7 @@ func scanCouplingJSON(data []byte, topology bool) (scan couplingScan, err error)
 		if token.Kind() != jsontext.KindString || kind != jsontext.KindBeginObject || n%2 != 1 {
 			continue
 		}
-		if path == "/version" || topology && path == "/projectversion" {
+		if path == "/version" {
 			value, e := d.ReadToken()
 			if e != nil {
 				return scan, e
@@ -165,7 +165,7 @@ func scanCouplingJSON(data []byte, topology bool) (scan couplingScan, err error)
 			if e == nil {
 				family = version
 			}
-			if e == nil && (path == "/version" && version == couplingStateVersion || topology && version == project.CouplingVersion) {
+			if e == nil && version == couplingStateVersion {
 				scan.recognized = true
 			}
 			continue

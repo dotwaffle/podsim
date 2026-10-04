@@ -17,7 +17,7 @@ test("model synchronization transfers authored service branches and removals wit
   const network = { Stations: [{ ID: "hub", VehicleClasses: ["compact", "express"] }] };
   const fleet = [{ ID: "pod", Class: "compact" }];
   const services = [{ ID: "one", Class: "express", PartyLimit: 20 }];
-  const first = { version: 3, network, fleet, expressServices: services };
+  const first = { version: 1, network, fleet, expressServices: services };
   const one = f.client.call(first);
   assert.deepEqual(f.sent[0].patch, first);
   f.worker.onmessage({ data: { id: f.sent[0].id, result: { valid: true } } }); await one;

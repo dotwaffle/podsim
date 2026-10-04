@@ -52,7 +52,6 @@ function connectedScenario() {
 
 function serviceScenario() {
   const config = connectedScenario();
-  config.version = 3;
   const classes = ["legacy", "compact", "group", "express"];
   for (const lane of config.network.Lanes) lane.VehicleClasses = [...classes];
   for (const station of config.network.Stations) {
@@ -67,7 +66,7 @@ function serviceScenario() {
 
 test("Express project round trips retain the explicit contract and whole service metadata", () => {
   const config = serviceScenario();
-  config.version = 4; config.orderContract = "express-v1"; config.fleet[0].Class = "express";
+  config.orderContract = "express-v1"; config.fleet[0].Class = "express";
   const before = structuredClone(config);
   const document = JSON.parse(editor.serializeDocument(config));
   assert.equal(document.format, "podsim"); assert.equal(document.version, 1);
@@ -78,12 +77,12 @@ test("Express project round trips retain the explicit contract and whole service
   assert.match(editor.fleetClassNotice(config), /qualified express-v1 runtime/);
 });
 
-test("project 3 imports bare or wrapper 1 and preserves authored class and registry metadata", () => {
+test("a service project imports bare or wrapped and preserves authored class and registry metadata", () => {
   const config = serviceScenario(), before = structuredClone(config);
   assert.deepEqual(editor.parseDocument(JSON.stringify(config)).scenario, config);
   const exported = JSON.parse(editor.serializeDocument(config, null));
   assert.equal(exported.version, 1);
-  assert.equal(exported.scenario.version, 3);
+  assert.equal(exported.scenario.version, 1);
   assert.deepEqual(editor.parseDocument(JSON.stringify(exported)).scenario, config);
   assert.deepEqual(config, before);
   assert.match(editor.fleetClassNotice(config), /New pods use legacy class/);
@@ -91,6 +90,7 @@ test("project 3 imports bare or wrapper 1 and preserves authored class and regis
   // The lane Selection card sets guideway classes, so only pod classes need an import.
   assert.match(editor.fleetClassNotice(config), /Import a project to set pod classes and express services\./);
   assert.equal(editor.fleetClassNotice({ version: 1 }), "");
+  assert.equal(editor.fleetClassNotice(connectedScenario()), "");
 });
 
 // chainScenario gives Alpha a berth chain like the generated stations use:
@@ -143,7 +143,7 @@ function generatedProject(preset, ...flags) {
   return JSON.parse(generatedFile(preset, ...flags));
 }
 
-// couplingScenario gives the version 5 project that the Go model tests
+// couplingScenario gives the coupling project that the Go model tests
 // check against native validation.
 function couplingScenario() {
   return JSON.parse(fs.readFileSync(path.join(__dirname, "../internal/editormodel/testdata/coupling_project.json"), "utf8"));
@@ -152,7 +152,7 @@ function couplingScenario() {
 const COUPLING_KEYS = ["couplingContract", "couplingEnabled", "couplingSites", "couplingCorridors"];
 const couplingText = (scenario) => JSON.stringify(Object.fromEntries(Object.entries(scenario).filter(([key]) => COUPLING_KEYS.includes(key))));
 
-test("a version 5 project keeps its coupling members through wrapped and bare import and export", () => {
+test("a coupling project keeps its coupling members through wrapped and bare import and export", () => {
   for (const enabled of [true, false, undefined]) {
     const config = couplingScenario();
     if (enabled === undefined) delete config.couplingEnabled; else config.couplingEnabled = enabled;
@@ -161,7 +161,7 @@ test("a version 5 project keeps its coupling members through wrapped and bare im
     assert.deepEqual(Object.keys(JSON.parse(exported).scenario), Object.keys(config), `export order ${enabled}`);
     for (const [name, text] of [["wrapped", exported], ["bare", JSON.stringify(config)]]) {
       const imported = editor.parseDocument(text).scenario;
-      assert.equal(imported.version, 5, name);
+      assert.equal(imported.version, 1, name);
       assert.equal(couplingText(imported), couplingText(config), `${name} ${enabled}`);
       assert.equal(Object.hasOwn(imported, "orderContract"), false, name);
       assert.equal(couplingText(JSON.parse(editor.serializeDocument(imported)).scenario), couplingText(config), `${name} re-export ${enabled}`);
@@ -172,28 +172,30 @@ test("a version 5 project keeps its coupling members through wrapped and bare im
   assert.equal(editor.parseDocument(JSON.stringify(express)).scenario.orderContract, "express-v1");
 });
 
-test("versions 1 to 4 keep their own version and export no coupling members", () => {
-  const scenarios = { 1: connectedScenario(), 3: serviceScenario() };
-  scenarios[4] = { ...serviceScenario(), version: 4, orderContract: "express-v1" };
-  scenarios[2] = connectedScenario(); scenarios[2].version = 2;
-  const station = scenarios[2].network.Stations[0];
+test("projects without the coupling marker keep version 1 and export no coupling members", () => {
+  const scenarios = { plain: connectedScenario(), service: serviceScenario(), banks: connectedScenario() };
+  scenarios.express = { ...serviceScenario(), orderContract: "express-v1" };
+  const station = scenarios.banks.network.Stations[0];
   station.Banks = [{ ID: "a", Entry: station.Entry, Exit: station.Exit, BerthIDs: station.Berths.map((berth) => berth.ID) }];
-  for (const [version, config] of Object.entries(scenarios)) {
+  for (const [name, config] of Object.entries(scenarios)) {
     const imported = editor.parseDocument(JSON.stringify(config)).scenario;
-    assert.equal(imported.version, Number(version), `version ${version}`);
-    assert.equal(COUPLING_KEYS.some((key) => Object.hasOwn(imported, key)), false, `version ${version} gained a coupling member`);
-    assert.equal(editor.serializeDocument(config), JSON.stringify({ format: "podsim", version: 1, scenario: config }), `version ${version} export`);
+    assert.equal(imported.version, 1, name);
+    assert.equal(COUPLING_KEYS.some((key) => Object.hasOwn(imported, key)), false, `${name} gained a coupling member`);
+    assert.equal(editor.serializeDocument(config), JSON.stringify({ format: "podsim", version: 1, scenario: config }), `${name} export`);
   }
-  assert.throws(() => editor.parseDocument(JSON.stringify({ ...couplingScenario(), version: 6 })), /The version field must be 1, 2, 3, 4, or 5/);
+  for (const version of [2, 3, 4, 5]) {
+    assert.throws(() => editor.parseDocument(JSON.stringify({ ...couplingScenario(), version })), new RegExp(`Project version ${version} is not supported: use version 1 with feature markers`));
+  }
+  assert.throws(() => editor.parseDocument(JSON.stringify({ ...couplingScenario(), version: 6 })), /The version field must be 1\./);
 });
 
-test("the train option is one version 5 control, and off keeps the sites and corridors", async () => {
+test("the train option is one control of a coupling project, and off keeps the sites and corridors", async () => {
   const html = fs.readFileSync(path.join(__dirname, "editor.html"), "utf8");
   assert.match(html, /<label class="check" id="couplingEnabledLabel" hidden><input id="couplingEnabled" type="checkbox"> Coupled trains \(experimental\)<\/label>/);
   // The site and corridor lists have their own sections. The train option is the only coupling input of the page.
   assert.deepEqual([...html.matchAll(/<input id="(coupling[^"]*)"/g)].map((match) => match[1]), ["couplingEnabled"]);
   const source = fs.readFileSync(path.join(__dirname, "editor.js"), "utf8");
-  assert.match(source, /\$\("#couplingEnabledLabel"\)\.hidden = \$\("#couplingEnabledHint"\)\.hidden = config\.version !== 5;/);
+  assert.match(source, /\$\("#couplingEnabledLabel"\)\.hidden = \$\("#couplingEnabledHint"\)\.hidden = config\.couplingContract !== "compact-pair-v1";/);
   assert.match(source, /\$\("#couplingEnabled"\)\.checked = config\.couplingEnabled === true;/);
   assert.match(source, /"pickupReassignment", "couplingEnabled"\]\) bindScalarInput\(id\);/);
   // The Go model proposes only the flag. The page merges the patch into the draft.
@@ -237,8 +239,9 @@ test("import rejects a repeated member name as the server decoders do, and passe
   // The page keeps its own messages for a file with canonical names only.
   const config = JSON.parse(decoderParity()[0].text);
   for (const [change, message] of [
-    [(file) => { file.version = 6; }, /The version field must be 1, 2, 3, 4, or 5/],
-    [(file) => { delete file.version; }, /The version field must be 1, 2, 3, 4, or 5/],
+    [(file) => { file.version = 6; }, /The version field must be 1\./],
+    [(file) => { file.version = 5; }, /Project version 5 is not supported: use version 1 with feature markers\./],
+    [(file) => { delete file.version; }, /The version field must be 1\./],
     [(file) => { file.network = null; }, /The network field must be an object/],
     [(file) => { delete file.network; file["vers\u0131on"] = 1; }, /no format field and no network field/],
   ]) {
@@ -272,23 +275,26 @@ test("the repeated member scan reads names after escapes and ignores values", ()
   }
 });
 
-test("Convert to trains shows for versions 1 to 4 only after checks pass", () => {
+test("Convert to trains shows for a project without coupling members only after checks pass", () => {
   const config = connectedScenario();
   assert.deepEqual(editor.convertTrainsState(couplingScenario(), null, false), { hidden: true, disabled: true, hint: "" });
+  for (const key of COUPLING_KEYS) assert.equal(editor.convertTrainsState({ ...config, [key]: couplingScenario()[key] }, null, false).hidden, true, key);
   assert.equal(editor.convertTrainsState({ ...config, version: 6 }, null, false).hidden, true);
+  assert.equal(editor.convertTrainsState({ ...config, orderContract: "express-v1" }, null, false).hidden, false);
   assert.match(editor.convertTrainsState(config, null, false).hint, /checks must run/);
   assert.match(editor.convertTrainsState(config, { valid: false }, false).hint, /Fix the errors/);
   assert.match(editor.convertTrainsState(config, { valid: true }, true).hint, /Wait/);
   const ready = editor.convertTrainsState(config, { valid: true }, false);
-  assert.equal(ready.disabled, false); assert.match(ready.hint, /Undo goes back to version 1/);
+  assert.equal(ready.disabled, false); assert.match(ready.hint, /Sets couplingContract compact-pair-v1/);
   // The Go patch arrives with an unspecified member order.
-  const patch = { couplingSites: [], version: 5, couplingCorridors: [], couplingEnabled: false, couplingContract: "compact-pair-v1" };
+  const patch = { couplingSites: [], couplingCorridors: [], couplingEnabled: false, couplingContract: "compact-pair-v1" };
   const converted = editor.trainsScenario(config, patch);
   assert.deepEqual(Object.keys(converted), [...Object.keys(config), "couplingContract", "couplingEnabled", "couplingSites", "couplingCorridors"]);
+  assert.equal(converted.version, 1);
   assert.equal(editor.serializeDocument(converted), editor.serializeDocument(editor.trainsScenario(config, { ...patch })));
 });
 
-test("coupling site and corridor rows follow the berth row focus and show only for version 5", () => {
+test("coupling site and corridor rows follow the berth row focus and show only with the coupling marker", () => {
   for (const [ids, removed, focus] of [[["a", "b", "c"], "a", "b"], [["a", "b", "c"], "b", "c"], [["a", "b", "c"], "c", "b"], [["a", "b"], "b", "a"], [["a"], "a", ""], [["a"], "x", ""]]) {
     assert.equal(editor.couplingFocusID(ids, removed), focus, `${ids} ${removed}`);
   }
@@ -300,7 +306,7 @@ test("coupling site and corridor rows follow the berth row focus and show only f
   }
   const source = fs.readFileSync(path.join(__dirname, "editor.js"), "utf8");
   assert.match(source, /\$\("#couplingSitesPanel"\)\.hidden = \$\("#couplingCorridorsPanel"\)\.hidden = !shown;/);
-  assert.match(source, /const shown = config\.version === 5, laneID = selectedLaneID\(\);/);
+  assert.match(source, /const shown = config\.couplingContract === "compact-pair-v1", laneID = selectedLaneID\(\);/);
   assert.match(source, /if \(removed && keyboard && ownsFocus && !button\.isConnected\) \{\n[^\n]+\n\s*else focusCouplingRow\(kind, couplingFocusID\(ids, command\.id\)\);/);
   assert.match(source, /queueCouplingEdit\(command, \{ button, keyboard: event\.detail === 0 \}\);/);
   assert.match(source, /if \(config === draft\(\)\) trainsVerdict = \{ valid: results\.valid === true && !results\.errors\.length \};/);
@@ -347,19 +353,16 @@ test("undo and redo move the focus from a removed coupling row to a near row", (
   assert.match(source, /focusCouplingRow\(couplingKind, couplingUndoFocusID\(ids\(before\), ids\(draft\(\)\), focused\.dataset\.couplingId\)\);/);
 });
 
-test("the lane class options show the classes that native allows and need version 3, 4, or 5", () => {
+test("the lane class options show the classes that native allows on each project", () => {
   const config = connectedScenario();
   const lane = config.network.Lanes[0].ID;
-  for (const version of [1, 2]) {
-    assert.deepEqual(editor.laneClassState({ ...config, version }, lane), { classes: ["legacy", "compact"], disabled: true, hint: "Vehicle classes need project version 3, 4, or 5." });
-  }
-  for (const version of [3, 4]) {
-    const state = editor.laneClassState({ ...config, version }, lane);
+  for (const project of [config, { ...config, orderContract: "express-v1" }]) {
+    const state = editor.laneClassState(project, lane);
     assert.deepEqual(state.classes, ["legacy", "compact"]); assert.equal(state.disabled, false);
     assert.match(state.hint, /no class list, so Legacy and Compact pods can use it/); assert.doesNotMatch(state.hint, /coupling/);
   }
   const classed = structuredClone(config);
-  classed.version = 5; classed.network.Lanes[0].VehicleClasses = ["express", "compact"];
+  classed.couplingContract = "compact-pair-v1"; classed.network.Lanes[0].VehicleClasses = ["express", "compact"];
   assert.deepEqual(editor.laneClassState(classed, lane), { classes: ["compact", "express"], disabled: false, hint: "A coupling site needs a straight guideway with Compact only." });
   const source = fs.readFileSync(path.join(__dirname, "editor.js"), "utf8");
   for (const name of ["legacy", "compact", "group", "express"]) assert.match(source, new RegExp(`<input data-edit="lane-class" data-class="${name}" type="checkbox">`));
@@ -367,11 +370,11 @@ test("the lane class options show the classes that native allows and need versio
   assert.match(source, /box\.checked = classes\.classes\.includes\(box\.dataset\.class\); box\.disabled = classes\.disabled;/);
 });
 
-test("station queue spacing is not available in a version 4 project", () => {
+test("station queue spacing is not available with Express but without the coupling marker", () => {
   const html = fs.readFileSync(path.join(__dirname, "editor.html"), "utf8");
-  assert.match(html, /<p class="hint" id="stationQueueSpacingHint" hidden>Station queue spacing needs project version 3 or 5\. A version 4 project cannot use it\.<\/p>/);
+  assert.match(html, /<p class="hint" id="stationQueueSpacingHint" hidden>Station queue spacing with express-v1 requires couplingContract compact-pair-v1\. Convert the project to trains first\.<\/p>/);
   const source = fs.readFileSync(path.join(__dirname, "editor.js"), "utf8");
-  assert.match(source, /const queueLocked = config\.version === 4;\n\s*\$\("#stationQueueSpacing"\)\.disabled = queueLocked; \$\("#stationQueueSpacingHint"\)\.hidden = !queueLocked;/);
+  assert.match(source, /const queueLocked = config\.orderContract === "express-v1" && config\.couplingContract !== "compact-pair-v1";\n\s*\$\("#stationQueueSpacing"\)\.disabled = queueLocked; \$\("#stationQueueSpacingHint"\)\.hidden = !queueLocked;/);
 });
 
 function nodePosition(config, id) {
@@ -952,7 +955,8 @@ test("import names the missing or wrong field", () => {
     { name: "an export with a scenario list", file: { format: "podsim", version: 1, scenario: [scenario] }, message: "The scenario field must be an object." },
     { name: "an API reply", file: { revision: 3, project: scenario }, message: "The file has no format field and no network field." },
     { name: "a project with a network list", file: { ...scenario, network: [] }, message: "The network field must be an object." },
-    { name: "a project with no version", file: { ...scenario, version: undefined }, message: "The version field must be 1, 2, 3, 4, or 5." },
+    { name: "a project with no version", file: { ...scenario, version: undefined }, message: "The version field must be 1." },
+    { name: "a project of an earlier version", file: { ...scenario, version: 3 }, message: "Project version 3 is not supported: use version 1 with feature markers." },
   ];
   for (const item of cases) {
     assert.throws(() => editor.parseDocument(JSON.stringify(item.file)), { message: item.message }, item.name);
@@ -3990,7 +3994,6 @@ function independentBankFixture() {
     config.network.Nodes.push({ ID: `${prefix}road-in`, Position: { X: prefix ? 540 : -60, Y: -100 } }, { ID: `${prefix}road-out`, Position: { X: prefix ? 660 : 60, Y: -100 } });
     config.network.Lanes.push({ ID: `${prefix}road-in`, From: `${prefix}road-in`, To: `${prefix}diverge`, SpeedLimit: 14 }, { ID: `${prefix}road-out`, From: `${prefix}merge`, To: `${prefix}road-out`, SpeedLimit: 14 });
   }
-  config.version = 2;
   return config;
 }
 

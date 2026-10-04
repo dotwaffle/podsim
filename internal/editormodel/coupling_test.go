@@ -28,7 +28,6 @@ func couplingEditorConfig(t *testing.T, express bool) project.Config {
 	if express {
 		config = expressEditorConfig(t)
 	}
-	config.Version = project.CouplingVersion
 	config.CouplingContract = sim.CompactPairV1CouplingContract
 	config.CouplingEnabled = true
 	compact, err := sim.NewClassSet("compact")
@@ -57,7 +56,6 @@ func couplingEditorConfig(t *testing.T, express bool) project.Config {
 
 func bankEditorConfig() project.Config {
 	config := project.Default()
-	config.Version = project.BankVersion
 	config.Network = sim.BankExample()
 	config.Fleet = []sim.Placement{{ID: "01", StationID: "origin", BerthID: "origin-1"}}
 	return config
@@ -259,29 +257,27 @@ func TestCouplingEditorSynchronizationMatchesNative(t *testing.T) {
 	}
 }
 
-func TestCouplingEditorQueueEditsKeepVersion(t *testing.T) {
+func TestCouplingEditorQueueEditsByMarker(t *testing.T) {
 	t.Parallel()
 	for _, test := range []struct {
-		version float64
-		want    any
-		refused bool
+		name              string
+		express, coupling bool
+		refused           bool
 	}{
-		{1, float64(project.ServiceVersion), false},
-		{2, float64(project.ServiceVersion), false},
-		{3, nil, false},
-		// Native rejects station queue spacing on version 4.
-		{4, nil, true},
-		{5, nil, false},
+		{"no markers", false, false, false},
+		{"coupling", false, true, false},
+		// Native refuses station queue spacing with Express but without coupling.
+		{"express", true, false, true},
+		{"express and coupling", true, true, false},
 	} {
-		t.Run(fmt.Sprint(test.version), func(t *testing.T) {
+		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
-			draft := configDraft(t, couplingEditorConfig(t, false))
-			if test.version != project.CouplingVersion {
+			draft := configDraft(t, couplingEditorConfig(t, test.express))
+			if !test.coupling {
 				for _, key := range couplingKeys {
 					delete(draft, key)
 				}
 			}
-			draft["version"] = test.version
 			before := cloneEditValue(draft)
 			change, err := editProject(draft, jsontext.Value(`{"field":"stationQueueSpacing","value":"ordinary"}`))
 			if test.refused {
@@ -294,9 +290,6 @@ func TestCouplingEditorQueueEditsKeepVersion(t *testing.T) {
 				t.Fatal(err)
 			}
 			want := map[string]any{"stationQueueSpacing": "ordinary"}
-			if test.want != nil {
-				want["version"] = test.want
-			}
 			if !reflect.DeepEqual(change.Patch, want) {
 				t.Fatalf("queue edit patch %v", change.Patch)
 			}
@@ -318,7 +311,7 @@ func TestCouplingEditorQueueEditsKeepVersion(t *testing.T) {
 	if _, err := model.sync(request{Keys: append(keys, "stationQueueSpacing"), Patch: patch}); err != nil {
 		t.Fatal(err)
 	}
-	if model.config.Version != project.CouplingVersion || model.config.CouplingContract != sim.CompactPairV1CouplingContract || len(model.config.CouplingSites) != 2 {
+	if model.config.Version != project.CurrentVersion || model.config.CouplingContract != sim.CompactPairV1CouplingContract || len(model.config.CouplingSites) != 2 {
 		t.Fatal("queue edit dropped the coupling project")
 	}
 }
@@ -333,7 +326,7 @@ func TestCouplingEditorBankEditsKeepVersion(t *testing.T) {
 	station["Banks"] = items(station["Banks"])[:1]
 	network["Nodes"] = slices.DeleteFunc(items(network["Nodes"]), func(node any) bool { return len(text(member(node, "ID"))) > 2 && text(member(node, "ID"))[:2] == "b-" })
 	network["Lanes"] = slices.DeleteFunc(items(network["Lanes"]), func(lane any) bool { return len(text(member(lane, "ID"))) > 2 && text(member(lane, "ID"))[:2] == "b-" })
-	draft["version"] = float64(project.CouplingVersion)
+	draft["version"] = float64(project.CurrentVersion)
 	draft["couplingContract"] = string(sim.CompactPairV1CouplingContract)
 	banks, err := json.Marshal(station["Banks"])
 	if err != nil {
@@ -342,7 +335,7 @@ func TestCouplingEditorBankEditsKeepVersion(t *testing.T) {
 	legacy := applyBankEdit(t, draft, `{"action":"stationLegacy","id":"station"}`)
 	banked := applyBankEdit(t, legacy, `{"action":"stationBanks","id":"station","value":`+string(banks)+`}`)
 	for _, edited := range []map[string]any{legacy, banked} {
-		if edited["version"] != float64(project.CouplingVersion) || edited["couplingContract"] != draft["couplingContract"] {
+		if edited["version"] != float64(project.CurrentVersion) || edited["couplingContract"] != draft["couplingContract"] {
 			t.Fatal("bank edit changed the coupling project version")
 		}
 	}
@@ -447,7 +440,7 @@ func TestCouplingEditorHistoryPreservesMembers(t *testing.T) {
 	historyRequest(t, model, historyCommand{Action: "accept", Token: view.Proposal})
 	check := func(step string, enabled bool) {
 		t.Helper()
-		if model.config.Version != project.CouplingVersion || model.config.CouplingEnabled != enabled || model.config.OrderContract != sim.ExpressOrderContract ||
+		if model.config.Version != project.CurrentVersion || model.config.CouplingEnabled != enabled || model.config.OrderContract != sim.ExpressOrderContract ||
 			!reflect.DeepEqual(model.config.CouplingSites, config.CouplingSites) || !reflect.DeepEqual(model.config.CouplingCorridors, config.CouplingCorridors) {
 			t.Fatal("history changed the coupling project", step)
 		}
@@ -473,29 +466,36 @@ func TestCouplingEditorHistoryPreservesMembers(t *testing.T) {
 	}
 }
 
-func TestCouplingEditorRejectsMembersOnOlderVersions(t *testing.T) {
+// Each coupling member needs the coupling marker. The marker alone is valid.
+func TestCouplingEditorRejectsMembersWithoutMarker(t *testing.T) {
 	t.Parallel()
-	bases := map[int]project.Config{1: project.Default(), 2: bankEditorConfig(), 3: serviceEditorConfig(t), 4: expressEditorConfig(t)}
+	bases := map[string]project.Config{"plain": project.Default(), "banks": bankEditorConfig(), "service": serviceEditorConfig(t), "express": expressEditorConfig(t)}
 	members := []struct{ key, value string }{
 		{"couplingContract", `"compact-pair-v1"`}, {"couplingContract", `null`}, {"couplingContract", `""`},
 		{"couplingEnabled", `false`}, {"couplingEnabled", `true`}, {"couplingEnabled", `null`},
 		{"couplingSites", `[]`}, {"couplingSites", `null`},
 		{"couplingCorridors", `[]`}, {"couplingCorridors", `null`},
 	}
-	for version, config := range bases {
+	for name, config := range bases {
 		base, err := json.Marshal(config)
 		if err != nil {
 			t.Fatal(err)
 		}
 		if err := nativeVerdict(t, base); err != nil {
-			t.Fatal("base project is invalid", version, err)
+			t.Fatal("base project is invalid", name, err)
 		}
 		for _, item := range members {
-			t.Run(fmt.Sprintf("%d %s %s", version, item.key, item.value), func(t *testing.T) {
+			t.Run(fmt.Sprintf("%s %s %s", name, item.key, item.value), func(t *testing.T) {
 				t.Parallel()
 				raw := append(bytes.TrimSuffix(slices.Clone(base), []byte("}")), []byte(`,"`+item.key+`":`+item.value+`}`)...)
+				if item.key == "couplingContract" && item.value == `"compact-pair-v1"` {
+					if err := errors.Join(nativeVerdict(t, raw), engineVerdict(raw), callVerdict(raw)); err != nil {
+						t.Fatal("the marker alone was refused", err)
+					}
+					return
+				}
 				if nativeVerdict(t, raw) == nil || engineVerdict(raw) == nil || callVerdict(raw) == nil {
-					t.Fatal("a historical project accepted a coupling member")
+					t.Fatal("a project without the marker accepted a coupling member")
 				}
 				var draft map[string]any
 				if err := json.Unmarshal(raw, &draft); err != nil {
@@ -504,7 +504,7 @@ func TestCouplingEditorRejectsMembersOnOlderVersions(t *testing.T) {
 				if _, err := normalizeProject(draft); err == nil {
 					t.Fatal("normalization accepted a coupling member")
 				}
-				if checks := draftChecks(draft); !slices.ContainsFunc(checks.Errors, func(item check) bool { return item.Text == "Coupling fields require project version 5." }) {
+				if checks := draftChecks(draft); !slices.ContainsFunc(checks.Errors, func(item check) bool { return item.Text == "Coupling fields require couplingContract compact-pair-v1." }) {
 					t.Fatalf("checks missed the coupling member: %v", checks.Errors)
 				}
 			})

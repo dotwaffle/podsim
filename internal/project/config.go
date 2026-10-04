@@ -14,10 +14,13 @@ import (
 	"github.com/dotwaffle/podsim/internal/sim"
 )
 
+// CurrentVersion is the only supported project version. Field presence
+// and the contract markers select the optional features of a project.
+const CurrentVersion = 1
+
 const (
-	currentVersion = 1
-	maxIDLength    = 64
-	maxNameLength  = 80
+	maxIDLength   = 64
+	maxNameLength = 80
 )
 
 // These are the largest counts that Validate accepts. The saved session
@@ -232,7 +235,7 @@ type Config struct {
 // Default returns the supplied example project.
 func Default() Config {
 	return Config{
-		Version: currentVersion,
+		Version: CurrentVersion,
 		Name:    "Podsim example",
 		Network: sim.Example(),
 		Fleet: []sim.Placement{
@@ -248,13 +251,10 @@ func Default() Config {
 // also checks that the canonical encoding of config has at most MaxFileBytes
 // with any demand settings that ValidateDemand accepts.
 func Validate(config Config) error {
-	if err := validateBankVersion(config); err != nil {
+	if err := validateVersion(config); err != nil {
 		return err
 	}
-	if err := validateServiceVersion(config); err != nil {
-		return err
-	}
-	if err := validateCouplingVersion(config); err != nil {
+	if err := validateCouplingContract(config); err != nil {
 		return err
 	}
 	if strings.TrimSpace(config.Name) == "" || len(config.Name) > maxNameLength {

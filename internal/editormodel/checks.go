@@ -104,12 +104,8 @@ func preparedDraftChecks(value any, prepared *preparedChecks) checkReport {
 		errors.add("The scenario must be a JSON object.", nil)
 		return checkReport{Errors: errors.items}
 	}
-	version := number(member(value, "version"))
-	banked := hasBanks(member(value, "network"))
-	if version != 1 && version != 2 && version != 3 && version != 4 && version != project.CouplingVersion {
-		errors.add("The scenario version must be 1, 2, 3, 4, or 5.", nil)
-	} else if version == 1 && banked || version == 2 && !banked {
-		errors.add("The scenario version does not match its station banks.", nil)
+	if problem := draftVersionError(value); problem != "" {
+		errors.add(problem, nil)
 	}
 	if prepared == nil {
 		checkServiceMetadata(value, &errors)

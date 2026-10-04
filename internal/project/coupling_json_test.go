@@ -11,23 +11,30 @@ import (
 	"github.com/dotwaffle/podsim/internal/sim"
 )
 
-func TestCouplingOldVersionRawPresence(t *testing.T) {
-	for _, version := range []int{1, 2, 3, 4} {
+func TestCouplingRawPresenceRequiresMarker(t *testing.T) {
+	for _, family := range []struct {
+		version int
+		express bool
+	}{{CurrentVersion, false}, {CurrentVersion, true}, {2, false}, {3, false}, {4, true}} {
 		for _, member := range []string{
 			`"couplingContract":"compact-pair-v1"`, `"couplingContract":null`, `"couplingContract":""`,
 			`"couplingEnabled":true`, `"couplingEnabled":false`, `"couplingEnabled":null`,
 			`"couplingSites":[]`, `"couplingSites":null`, `"couplingCorridors":[]`, `"couplingCorridors":null`,
 		} {
 			for _, rawMember := range []string{member, strings.ToUpper(strings.SplitN(member, ":", 2)[0]) + ":" + strings.SplitN(member, ":", 2)[1]} {
+				if family.version == CurrentVersion && member == `"couplingContract":"compact-pair-v1"` {
+					// The marker is the only member that a project can add alone.
+					continue
+				}
 				for _, decode := range []func([]byte, any) error{json.Unmarshal, func(data []byte, value any) error { return jsonv2.Unmarshal(data, value) }} {
 					got := Default()
 					before := Clone(got)
-					raw := fmt.Sprintf(`{"version":%d,"name":"Changed",%s}`, version, rawMember)
-					if version == ExpressVersion {
+					raw := fmt.Sprintf(`{"version":%d,"name":"Changed",%s}`, family.version, rawMember)
+					if family.express {
 						raw = strings.Replace(raw, `"name":`, `"orderContract":"express-v1","name":`, 1)
 					}
 					if err := decode([]byte(raw), &got); err == nil {
-						t.Fatal("historical family accepted new member", raw)
+						t.Fatal("project accepted an unmarked or refused coupling member", raw)
 					}
 					if !reflect.DeepEqual(got, before) {
 						t.Fatal("failed parse changed prior project", raw)
@@ -46,10 +53,10 @@ func TestCouplingProjectRawShapesAtomic(t *testing.T) {
 		{"marker unknown", `"couplingContract":"compact-pair-v1"`, `"couplingContract":"other"`},
 		{"marker duplicate", `"couplingContract":"compact-pair-v1"`, `"couplingContract":"compact-pair-v1","couplingContract":"compact-pair-v1"`},
 		{"marker case duplicate", `"couplingContract":"compact-pair-v1"`, `"couplingContract":"compact-pair-v1","CouplingContract":"compact-pair-v1"`},
-		{"enabled null", `"version":5`, `"version":5,"couplingEnabled":null`},
-		{"enabled number", `"version":5`, `"version":5,"couplingEnabled":0`},
-		{"enabled text", `"version":5`, `"version":5,"couplingEnabled":"false"`},
-		{"enabled case duplicate", `"version":5`, `"version":5,"couplingEnabled":false,"CouplingEnabled":false`},
+		{"enabled null", `"version":1`, `"version":1,"couplingEnabled":null`},
+		{"enabled number", `"version":1`, `"version":1,"couplingEnabled":0`},
+		{"enabled text", `"version":1`, `"version":1,"couplingEnabled":"false"`},
+		{"enabled case duplicate", `"version":1`, `"version":1,"couplingEnabled":false,"CouplingEnabled":false`},
 		{"sites null", `"couplingSites":[`, `"couplingSites":null,"ignored":[`},
 		{"sites shape", `"couplingSites":[`, `"couplingSites":{},"ignored":[`},
 		{"corridors null", `"couplingCorridors":[`, `"couplingCorridors":null,"ignored":[`},
@@ -89,7 +96,7 @@ func TestCouplingProjectRawShapesAtomic(t *testing.T) {
 			for _, decode := range []func([]byte, any) error{json.Unmarshal, func(data []byte, value any) error { return jsonv2.Unmarshal(data, value) }} {
 				got := couplingProject(t, false)
 				before := Clone(got)
-				// A missing marker must not inherit one from a prior valid version 5.
+				// A missing marker must not inherit one from a prior coupling project.
 				if test.name == "marker omitted" {
 					got = Default()
 					before = Clone(got)
@@ -156,7 +163,7 @@ func TestCouplingProjectRawBounds(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			for _, count := range []int{test.limit, test.limit + 1} {
 				elements := strings.TrimSuffix(strings.Repeat(test.element+",", count), ",")
-				raw := `{"version":5,"couplingContract":"compact-pair-v1",` + fmt.Sprintf(test.format, elements) + `}`
+				raw := `{"version":1,"couplingContract":"compact-pair-v1",` + fmt.Sprintf(test.format, elements) + `}`
 				if err := scanCouplingProjectBounds([]byte(raw)); (err == nil) != (count <= test.limit) {
 					t.Fatalf("count %d: %v", count, err)
 				}
@@ -179,7 +186,7 @@ func TestCouplingProjectRawBounds(t *testing.T) {
 	for _, total := range []int{MaxRailArrivals, MaxRailArrivals + 1} {
 		arrivals := strings.TrimSuffix(strings.Repeat(`{},`, 128), ",")
 		departures := strings.TrimSuffix(strings.Repeat(`{},`, total-128), ",")
-		raw := fmt.Sprintf(`{"version":5,"couplingContract":"compact-pair-v1","railArrivals":[%s],"railDepartures":[%s]}`, arrivals, departures)
+		raw := fmt.Sprintf(`{"version":1,"couplingContract":"compact-pair-v1","railArrivals":[%s],"railDepartures":[%s]}`, arrivals, departures)
 		got := Default()
 		before := Clone(got)
 		err := json.Unmarshal([]byte(raw), &got)
@@ -188,6 +195,13 @@ func TestCouplingProjectRawBounds(t *testing.T) {
 		}
 		if err != nil && !reflect.DeepEqual(got, before) {
 			t.Fatal("oversize combined rail plan changed prior project")
+		}
+		// A partial update of a marked project has no coupling member.
+		// The marker of the destination selects the bound scan.
+		partial := fmt.Sprintf(`{"railArrivals":[%s],"railDepartures":[%s]}`, arrivals, departures)
+		marked := couplingProject(t, false)
+		if err := json.Unmarshal([]byte(partial), &marked); (err == nil) != (total <= MaxRailArrivals) {
+			t.Fatalf("partial combined rail count %d: %v", total, err)
 		}
 	}
 }

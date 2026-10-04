@@ -48,14 +48,14 @@ func TestConvertToTrainsKeepsTheProject(t *testing.T) {
 	t.Parallel()
 	queue := serviceEditorConfig(t)
 	queue.StationQueueSpacing, queue.StationBuffers, queue.PlatoonLimit = sim.StationQueueOrdinary, true, 2
-	for _, config := range []project.Config{project.Default(), bankEditorConfig(), serviceEditorConfig(t), queue, expressEditorConfig(t)} {
-		t.Run(fmt.Sprint(config.Version, config.StationQueueSpacing), func(t *testing.T) {
+	for name, config := range map[string]project.Config{"plain": project.Default(), "banks": bankEditorConfig(), "service": serviceEditorConfig(t), "queue": queue, "express": expressEditorConfig(t)} {
+		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 			draft := configDraft(t, config)
 			converted := applyEdit(t, draft, `{"field":"convertToTrains","value":true}`)
-			want := map[string]any{"version": float64(5), "couplingContract": "compact-pair-v1", "couplingEnabled": false, "couplingSites": []any{}, "couplingCorridors": []any{}}
+			want := map[string]any{"version": float64(project.CurrentVersion), "couplingContract": "compact-pair-v1", "couplingEnabled": false, "couplingSites": []any{}, "couplingCorridors": []any{}}
 			for key, value := range draft {
-				if key != "version" && !reflect.DeepEqual(converted[key], value) {
+				if !reflect.DeepEqual(converted[key], value) {
 					t.Fatal("conversion changed", key)
 				}
 			}
@@ -98,10 +98,10 @@ func TestConvertToTrainsRefusals(t *testing.T) {
 		command string
 		want    string
 	}{
-		{"version 4 queue spacing", invalidQueue, `true`, "station queue spacing requires project version 3"},
+		{"Express queue spacing", invalidQueue, `true`, "fix the project before it converts to trains"},
 		{"invalid project", unnamed, `true`, "fix the project before it converts to trains"},
-		{"coupling member", member, `true`, "Coupling fields require project version 5."},
-		{"version 5", configDraft(t, couplingEditorConfig(t, false)), `true`, "only a project of version 1 to 4"},
+		{"coupling member", member, `true`, "only a project without coupling fields"},
+		{"coupling project", configDraft(t, couplingEditorConfig(t, false)), `true`, "only a project without coupling fields"},
 		{"false value", configDraft(t, project.Default()), `false`, "requires a true value"},
 	} {
 		t.Run(test.name, func(t *testing.T) {
@@ -112,7 +112,7 @@ func TestConvertToTrainsRefusals(t *testing.T) {
 			}
 		})
 	}
-	for _, version := range []float64{0, 6, 2.5} {
+	for _, version := range []float64{0, 2, 5, 6, 2.5} {
 		draft := configDraft(t, project.Default())
 		draft["version"] = version
 		if _, err := editProject(draft, jsontext.Value(`{"field":"convertToTrains","value":true}`)); err == nil {
@@ -147,7 +147,7 @@ func TestConvertToTrainsIsOneUndoStep(t *testing.T) {
 		t.Fatal(err)
 	}
 	acceptedHistory(t, model, historyCommand{Kind: "replace", Background: jsontext.Value(`null`)})
-	if _, err := model.handle(`{"op":"validate"}`); err != nil || model.config.Version != project.CouplingVersion || model.config.OrderContract != sim.ExpressOrderContract {
+	if _, err := model.handle(`{"op":"validate"}`); err != nil || model.config.Version != project.CurrentVersion || model.config.OrderContract != sim.ExpressOrderContract {
 		t.Fatal("converted project is not valid", err)
 	}
 	acceptedHistory(t, model, historyCommand{Kind: "undo"})
@@ -160,7 +160,7 @@ func TestConvertToTrainsIsOneUndoStep(t *testing.T) {
 		}
 	}
 	acceptedHistory(t, model, historyCommand{Kind: "redo"})
-	if model.config.Version != project.CouplingVersion || model.config.CouplingSites == nil {
+	if model.config.Version != project.CurrentVersion || model.config.CouplingSites == nil {
 		t.Fatal("redo lost the conversion")
 	}
 }
@@ -384,7 +384,7 @@ func TestImportMatchesServerDecoder(t *testing.T) {
 	if err := json.Unmarshal(raw, &fixture); err != nil {
 		t.Fatal(err)
 	}
-	bases := map[string]any{"v1": project.Default(), "v2": bankEditorConfig(), "v4": expressEditorConfig(t), "v5": couplingEditorConfig(t, false)}
+	bases := map[string]any{"plain": project.Default(), "banks": bankEditorConfig(), "express": expressEditorConfig(t), "coupling": couplingEditorConfig(t, false)}
 	for name, config := range bases {
 		if fixture.Bases[name] != string(encodeDraft(t, config)) {
 			t.Fatal("decoder fixture base differs from the native writer", name)
@@ -584,29 +584,21 @@ func TestLaneClassesMakeCouplingLanes(t *testing.T) {
 	}
 }
 
-// Native validation accepts lane classes on versions 3, 4, and 5. The edit
-// refuses an older project and does not change any version.
-func TestLaneClassesNeedVersionThree(t *testing.T) {
+// Native validation accepts lane classes on each project. The edit does not
+// change the version.
+func TestLaneClassesKeepVersion(t *testing.T) {
 	t.Parallel()
-	older := configDraft(t, project.Default())
-	banked := configDraft(t, bankEditorConfig())
-	service := configDraft(t, project.Default())
-	service["version"] = float64(project.ServiceVersion)
-	express := configDraft(t, expressEditorConfig(t))
 	for _, test := range []struct {
 		draft map[string]any
 		lane  string
-		valid bool
-	}{{older, "approach-branch", false}, {banked, "a-merge", false}, {service, "approach-branch", true}, {express, "approach-branch", true}} {
+	}{
+		{configDraft(t, project.Default()), "approach-branch"},
+		{configDraft(t, bankEditorConfig()), "a-merge"},
+		{configDraft(t, expressEditorConfig(t)), "approach-branch"},
+	} {
 		change, err := editProject(test.draft, jsontext.Value(`{"field":"geometry","value":{"action":"laneClasses","id":"`+test.lane+`","value":["compact"]}}`))
-		if (err == nil) != test.valid {
-			t.Fatal("version", test.draft["version"], err)
-		}
 		if err != nil {
-			if !strings.Contains(err.Error(), "version 3, 4, or 5") {
-				t.Fatal(err)
-			}
-			continue
+			t.Fatal(test.lane, err)
 		}
 		if _, changed := change.Patch["version"]; changed || len(change.Patch) != 1 {
 			t.Fatal("lane class edit changed more than the network", change.Patch)

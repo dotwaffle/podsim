@@ -16,7 +16,6 @@ import (
 func serviceEditorConfig(t *testing.T) project.Config {
 	t.Helper()
 	config := project.Default()
-	config.Version = project.ServiceVersion
 	classes, err := sim.NewClassSet("legacy", "compact", "group", "express")
 	if err != nil {
 		t.Fatal(err)
@@ -69,7 +68,7 @@ func TestServiceEditorBranchesHistoryAndOwnership(t *testing.T) {
 	}
 	acceptedHistory(t, model, historyCommand{Kind: "replace", Background: jsontext.Value(`null`)})
 	acceptedHistory(t, model, historyCommand{Kind: "undo"})
-	if len(model.config.ExpressServices) != 1 || model.config.ExpressServices[0].PartyLimit != 20 || model.config.Version != 3 || model.config.Fleet[0].Class != sim.CompactClass {
+	if len(model.config.ExpressServices) != 1 || model.config.ExpressServices[0].PartyLimit != 20 || model.config.Version != project.CurrentVersion || model.config.Fleet[0].Class != sim.CompactClass {
 		t.Fatal("undo lost service metadata")
 	}
 	acceptedHistory(t, model, historyCommand{Kind: "redo"})
@@ -82,7 +81,7 @@ func TestServiceEditorBranchesHistoryAndOwnership(t *testing.T) {
 	}
 }
 
-func TestServiceEditorLegacyPresenceAndRepair(t *testing.T) {
+func TestServiceEditorEarlierVersionsAndRepair(t *testing.T) {
 	t.Parallel()
 	for _, field := range []string{
 		`"expressServices":null`, `"expressServices":[]`,
@@ -91,7 +90,7 @@ func TestServiceEditorLegacyPresenceAndRepair(t *testing.T) {
 		`"network":{"Lanes":[{"VehicleClasses":["legacy"]}]}`,
 		`"network":{"Stations":[{"Berths":[{"VehicleClasses":["compact"]}]}]}`,
 	} {
-		for _, version := range []string{"1", "2"} {
+		for _, version := range []string{"2", "3"} {
 			var branches map[string]jsontext.Value
 			if err := json.Unmarshal([]byte(`{"version":`+version+`,`+field+`}`), &branches); err != nil {
 				t.Fatal(err)
@@ -99,7 +98,7 @@ func TestServiceEditorLegacyPresenceAndRepair(t *testing.T) {
 			model := new(engine)
 			raw, _ := json.Marshal(branches)
 			if _, err := model.sync(request{Keys: slices.Sorted(maps.Keys(branches)), Patch: raw}); err == nil || !model.ready {
-				t.Fatalf("legacy field accepted or raw draft lost: %s %s", version, field)
+				t.Fatalf("earlier version accepted or raw draft lost: %s %s", version, field)
 			}
 			if _, err := model.handle(`{"op":"validate"}`); err == nil {
 				t.Fatal("invalid metadata became startable")
@@ -113,11 +112,11 @@ func TestServiceEditorLegacyPresenceAndRepair(t *testing.T) {
 	model := new(engine)
 	config := serviceEditorConfig(t)
 	keys := synchronize(t, model, config)
-	if _, err := model.sync(request{Keys: keys, Patch: jsontext.Value(`{"version":1}`)}); err == nil {
-		t.Fatal("cached service presence allowed a legacy downgrade")
+	if _, err := model.sync(request{Keys: keys, Patch: jsontext.Value(`{"version":3}`)}); err == nil {
+		t.Fatal("service metadata accepted project version 3")
 	}
-	if _, err := model.sync(request{Keys: keys, Patch: jsontext.Value(`{"version":3}`)}); err != nil {
-		t.Fatal("explicit version repair failed", err)
+	if _, err := model.sync(request{Keys: keys, Patch: jsontext.Value(`{"version":1}`)}); err != nil {
+		t.Fatal("version 1 repair failed", err)
 	}
 }
 
@@ -144,18 +143,20 @@ func TestServicePresenceSurvivesReleasedHistoryNetwork(t *testing.T) {
 	if !model.branches["network"].needsValue || model.branches["network"].value != nil {
 		t.Fatal("fixture did not release history network")
 	}
-	if _, err := model.sync(request{Keys: keys, Patch: jsontext.Value(`{"version":1}`)}); err == nil {
-		t.Fatal("released network lost raw service presence")
+	if _, err := model.sync(request{Keys: keys, Patch: jsontext.Value(`{"version":3}`)}); err == nil {
+		t.Fatal("released network accepted project version 3")
 	}
-	if _, err := model.sync(request{Keys: keys, Patch: jsontext.Value(`{"version":3}`)}); err != nil {
-		t.Fatal("version repair failed", err)
+	if _, err := model.sync(request{Keys: keys, Patch: jsontext.Value(`{"version":1}`)}); err != nil {
+		t.Fatal("version 1 repair failed", err)
+	}
+	if model.config.Network.Lanes[0].VehicleClasses != config.Network.Lanes[0].VehicleClasses {
+		t.Fatal("released network lost raw service presence")
 	}
 }
 
-func TestProjectThreeBanksSurviveReleasedHistoryNetwork(t *testing.T) {
+func TestBanksSurviveReleasedHistoryNetwork(t *testing.T) {
 	t.Parallel()
 	draft := bankEditorFixture(1)
-	draft["version"] = float64(3)
 	model := new(engine)
 	background := historyTarget(t, model, map[string]any{"scenario": draft, "background": nil})
 	if model.err != nil {
@@ -169,8 +170,15 @@ func TestProjectThreeBanksSurviveReleasedHistoryNetwork(t *testing.T) {
 	if !model.branches["network"].needsValue {
 		t.Fatal("fixture did not release network")
 	}
-	if _, err := model.sync(request{Keys: slices.Sorted(maps.Keys(model.branches)), Patch: jsontext.Value(`{"version":1}`)}); err == nil {
-		t.Fatal("restored banks were admitted in project-1")
+	keys := slices.Sorted(maps.Keys(model.branches))
+	if _, err := model.sync(request{Keys: keys, Patch: jsontext.Value(`{"version":2}`)}); err == nil {
+		t.Fatal("restored banks were admitted in project version 2")
+	}
+	if _, err := model.sync(request{Keys: keys, Patch: jsontext.Value(`{"version":1}`)}); err != nil {
+		t.Fatal("version 1 repair failed", err)
+	}
+	if len(model.config.Network.Stations) != 1 || len(model.config.Network.Stations[0].Banks) != 2 {
+		t.Fatal("released network lost its banks")
 	}
 }
 
@@ -214,24 +222,23 @@ func TestServiceNormalizationAndBankEditsPreserveVersion(t *testing.T) {
 	}
 	out := object(cloneEditValue(draft))
 	maps.Copy(out, change.Patch)
-	if number(out["version"]) != 3 || !reflect.DeepEqual(draft, before) || !reflect.DeepEqual(out["expressServices"], draft["expressServices"]) || !reflect.DeepEqual(member(items(out["fleet"])[0], "Class"), member(items(draft["fleet"])[0], "Class")) {
+	if number(out["version"]) != project.CurrentVersion || !reflect.DeepEqual(draft, before) || !reflect.DeepEqual(out["expressServices"], draft["expressServices"]) || !reflect.DeepEqual(member(items(out["fleet"])[0], "Class"), member(items(draft["fleet"])[0], "Class")) {
 		t.Fatal("normalization downgraded or changed service metadata")
 	}
-	for _, version := range []float64{1, 2} {
-		legacy := object(cloneEditValue(draft))
-		legacy["version"] = version
-		if _, err := normalizeProject(legacy); err == nil {
-			t.Fatal("normalization granted project-3 metadata to legacy draft")
+	for _, version := range []float64{2, 3, 4, 5} {
+		earlier := object(cloneEditValue(draft))
+		earlier["version"] = version
+		if _, err := normalizeProject(earlier); err == nil {
+			t.Fatal("normalization accepted an earlier project version", version)
 		}
 	}
 	banked := bankEditorFixture(1)
-	banked["version"] = float64(3)
 	station := items(member(banked["network"], "Stations"))[0]
 	object(station)["VehicleClasses"] = []any{"legacy", "compact", "express"}
 	for _, command := range []string{`{"action":"stationName","id":"station","value":"Renamed"}`, `{"action":"deleteStation","id":"station"}`} {
 		edited := applyBankEdit(t, banked, command)
-		if number(edited["version"]) != 3 {
-			t.Fatal("bank edit downgraded project-3")
+		if number(edited["version"]) != project.CurrentVersion {
+			t.Fatal("bank edit changed the project version")
 		}
 		if len(items(member(edited["network"], "Stations"))) != 0 && !reflect.DeepEqual(member(items(member(edited["network"], "Stations"))[0], "VehicleClasses"), member(station, "VehicleClasses")) {
 			t.Fatal("bank edit lost allowlist")
@@ -243,7 +250,7 @@ func TestServiceDraftChecksAndPhysicalGuards(t *testing.T) {
 	t.Parallel()
 	draft := serviceEditorDraft(t)
 	if report := draftChecks(draft); len(report.Errors) != 0 {
-		t.Fatal("valid project-3 checks", report.Errors)
+		t.Fatal("valid service checks", report.Errors)
 	}
 	for _, class := range []string{"express", "unknown"} {
 		bad := object(cloneEditValue(draft))
@@ -257,9 +264,9 @@ func TestServiceDraftChecksAndPhysicalGuards(t *testing.T) {
 		}
 	}
 	bad := object(cloneEditValue(draft))
-	bad["version"] = float64(1)
+	bad["version"] = float64(3)
 	if report := draftChecks(bad); len(report.Errors) == 0 {
-		t.Fatal("legacy raw service metadata accepted")
+		t.Fatal("service metadata accepted project version 3")
 	}
 	for _, replacement := range []any{nil, []any{}, []any{"compact", "compact"}, []any{"unknown"}, []any{float64(1)}} {
 		bad := object(cloneEditValue(draft))
@@ -270,14 +277,13 @@ func TestServiceDraftChecksAndPhysicalGuards(t *testing.T) {
 	}
 }
 
-func TestProjectThreePreservesOmittedClassesAndFleetCountDefaults(t *testing.T) {
+func TestProjectPreservesOmittedClassesAndFleetCountDefaults(t *testing.T) {
 	t.Parallel()
 	config := project.Default()
-	config.Version = 3
 	model := new(engine)
 	synchronize(t, model, config)
 	if result, err := model.handle(`{"op":"validate"}`); err != nil || !result.Valid {
-		t.Fatal("project 3 needs no banks or service metadata", err)
+		t.Fatal("a project needs no banks or service metadata", err)
 	}
 	raw, err := json.Marshal(config)
 	if err != nil {
@@ -293,11 +299,10 @@ func TestProjectThreePreservesOmittedClassesAndFleetCountDefaults(t *testing.T) 
 	}
 	out := object(cloneEditValue(draft))
 	maps.Copy(out, change.Patch)
-	if hasServiceMetadata(out) || number(out["version"]) != 3 {
+	if hasServiceMetadata(out) || number(out["version"]) != project.CurrentVersion {
 		t.Fatal("normalization invented class or service defaults")
 	}
 	fleet := fleetDraft()
-	fleet["version"] = float64(3)
 	object(items(fleet["fleet"])[0])["Class"] = "compact"
 	changed, err := editProject(fleet, jsontext.Value(`{"field":"fleetCount","target":"alpha","value":2}`))
 	if err != nil {

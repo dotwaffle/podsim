@@ -149,7 +149,7 @@ func TestCompactMemberTotal(t *testing.T) {
 func compactSessionFixture(t *testing.T) *Session {
 	t.Helper()
 	config := project.Default()
-	config.Version, config.StationBuffers, config.PlatoonLimit, config.StationQueueSpacing = 3, true, 4, sim.StationQueueCompactV1
+	config.StationBuffers, config.PlatoonLimit, config.StationQueueSpacing = true, 4, sim.StationQueueCompactV1
 	config.Fleet = []sim.Placement{{ID: "01", StationID: "harbor", BerthID: "harbor-1"}, {ID: "02", StationID: "garden", BerthID: "garden-1"}, {ID: "03", StationID: "market", BerthID: "market-1"}}
 	for i := range config.Network.Nodes {
 		config.Network.Nodes[i].Position.X *= 8

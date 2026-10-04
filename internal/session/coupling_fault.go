@@ -30,7 +30,7 @@ func (s *Session) CouplingError() error {
 // refreshCouplingObservation records a valid command or installation boundary.
 // Ordinary projects retain no extra fleet snapshot. The caller holds mu.
 func (s *Session) refreshCouplingObservation() {
-	if s.project.Version != project.CouplingVersion {
+	if !project.HasCouplingContract(s.project) {
 		s.couplingObservation = nil
 		return
 	}

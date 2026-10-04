@@ -22,7 +22,7 @@ func (s *Session) presentationFrameLocked() (StreamFrame, error) {
 	}
 	snapshot, routes, err := s.simulation.PresentationSnapshot()
 	if err != nil {
-		if s.project.Version == project.CouplingVersion {
+		if project.HasCouplingContract(s.project) {
 			return StreamFrame{}, s.retainCouplingViewError(err)
 		}
 		return StreamFrame{}, err
@@ -55,6 +55,9 @@ type StreamAssembler struct {
 
 // NewStreamAssembler takes ownership of a detached topology snapshot.
 func NewStreamAssembler(topology TopologySnapshot) (*StreamAssembler, error) {
+	if err := checkTopologyProjectVersion(topology); err != nil {
+		return nil, err
+	}
 	if err := sim.ValidateOrderContract(topology.OrderContract); err != nil {
 		return nil, err
 	}

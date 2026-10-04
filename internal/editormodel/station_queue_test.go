@@ -12,21 +12,21 @@ import (
 	"github.com/dotwaffle/podsim/internal/sim"
 )
 
-func TestStationQueueEditorLegacyPresence(t *testing.T) {
+func TestStationQueueEditorEarlierVersions(t *testing.T) {
 	t.Parallel()
 	for _, value := range []string{`null`, `"ordinary"`, `"compact-v1"`} {
-		for _, version := range []string{"1", "2"} {
+		for _, version := range []string{"2", "3", "4", "5"} {
 			var draft map[string]any
 			if err := json.Unmarshal([]byte(`{"version":`+version+`,"stationQueueSpacing":`+value+`}`), &draft); err != nil {
 				t.Fatal(err)
 			}
 			if _, err := normalizeProject(draft); err == nil {
-				t.Fatal("normalization granted compact contract to a legacy import")
+				t.Fatal("normalization accepted an earlier project version", version)
 			}
 			raw, _ := json.Marshal(draft)
 			model := new(engine)
 			if _, err := model.sync(request{Keys: slices.Sorted(maps.Keys(draft)), Patch: raw}); err == nil {
-				t.Fatal("legacy queue presence escaped branch validation")
+				t.Fatal("an earlier project version escaped branch validation", version)
 			}
 		}
 	}
@@ -45,7 +45,7 @@ func TestStationQueueEditorSelectionAndHistory(t *testing.T) {
 	}
 	before := cloneEditValue(draft)
 	change, err := editProject(draft, jsontext.Value(`{"field":"stationQueueSpacing","value":"compact-v1"}`))
-	if err != nil || change.Patch["version"] != float64(3) || change.Patch["stationQueueSpacing"] != "compact-v1" || change.Flag != "" {
+	if err != nil || has(change.Patch, "version") || change.Patch["stationQueueSpacing"] != "compact-v1" || change.Flag != "" {
 		t.Fatal("explicit queue selection did not grant only the requested contract", err, change)
 	}
 	if !reflect.DeepEqual(before, draft) || has(change.Patch, "platoonLimit") || has(change.Patch, "stationBuffers") || has(change.Patch, "network") {
@@ -61,11 +61,11 @@ func TestStationQueueEditorSelectionAndHistory(t *testing.T) {
 	}
 	acceptedHistory(t, model, historyCommand{Kind: "replace", Background: jsontext.Value(`null`)})
 	acceptedHistory(t, model, historyCommand{Kind: "undo"})
-	if model.config.Version != 1 || model.config.StationQueueSpacing != "" {
-		t.Fatal("undo retained the new policy or version")
+	if model.config.Version != project.CurrentVersion || model.config.StationQueueSpacing != "" {
+		t.Fatal("undo retained the new policy")
 	}
 	acceptedHistory(t, model, historyCommand{Kind: "redo"})
-	if model.config.Version != 3 || model.config.StationQueueSpacing != sim.StationQueueCompactV1 {
+	if model.config.Version != project.CurrentVersion || model.config.StationQueueSpacing != sim.StationQueueCompactV1 {
 		t.Fatal("redo lost compact metadata")
 	}
 }

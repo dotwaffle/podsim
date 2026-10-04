@@ -25,7 +25,7 @@ func TestOnboardProjectPresence(t *testing.T) {
 					before := Clone(config)
 					raw := fmt.Appendf(nil, `{"version":%d,"onboardPickups":%s}`, version, value)
 					err := decoder.decode(raw, &config)
-					valid := version == ServiceVersion && (value == "true" || value == "false")
+					valid := version == CurrentVersion && (value == "true" || value == "false")
 					if (err == nil) != valid {
 						t.Fatalf("presence validation: %v", err)
 					}
@@ -49,13 +49,13 @@ func TestOnboardProjectValidation(t *testing.T) {
 		enabled, valid bool
 	}{
 		{"legacy-default", 1, 1, "", false, true},
-		{"service-off", 3, 1, sim.SharedRideDestination, false, true},
-		{"default-sharing-mode", 3, 2, "", true, true},
-		{"drop-offs", 3, 8, sim.SharedRideDropOffs, true, true},
-		{"legacy-enabled", 1, 2, sim.SharedRideDropOffs, true, false},
-		{"sharing-one", 3, 1, sim.SharedRideDropOffs, true, false},
-		{"sharing-omitted", 3, 0, sim.SharedRideDropOffs, true, false},
-		{"destination", 3, 2, sim.SharedRideDestination, true, false},
+		{"service-off", 1, 1, sim.SharedRideDestination, false, true},
+		{"default-sharing-mode", 1, 2, "", true, true},
+		{"drop-offs", 1, 8, sim.SharedRideDropOffs, true, true},
+		{"refused-version", 3, 2, sim.SharedRideDropOffs, true, false},
+		{"sharing-one", 1, 1, sim.SharedRideDropOffs, true, false},
+		{"sharing-omitted", 1, 0, sim.SharedRideDropOffs, true, false},
+		{"destination", 1, 2, sim.SharedRideDestination, true, false},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			config := Default()
@@ -81,7 +81,6 @@ func TestOnboardProjectConfigurationOrder(t *testing.T) {
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			config := Default()
-			config.Version = ServiceVersion
 			config.OnboardPickups = true
 			config.SharedRidePartyLimit = test.limit
 			config.SharedRideMode = test.mode
@@ -105,7 +104,6 @@ func TestOnboardProjectCanonicalOmission(t *testing.T) {
 	if bytes.Contains(raw, []byte("onboardPickups")) {
 		t.Fatal("default project exports opt-in")
 	}
-	config.Version = ServiceVersion
 	config.SharedRidePartyLimit = 2
 	config.OnboardPickups = true
 	raw, err = jsonv2.Marshal(config)

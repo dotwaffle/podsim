@@ -146,8 +146,8 @@ func DecodeCheckpoint(ctx context.Context, reader io.Reader, input ResumeInput) 
 }
 func validateOrigin(ctx context.Context, payload checkpointPayload) error {
 	o := payload.Origin
-	if o.Project.Version < 1 || o.Project.Version > 3 {
-		return errors.New("car continuation requires a foundation project version 1 through 3")
+	if !foundationProject(o.Project) {
+		return errFoundationProject
 	}
 	if err := project.Validate(o.Project); err != nil {
 		return fmt.Errorf("checkpoint project: %w", err)

@@ -723,7 +723,6 @@ func TestStateFileWorstCaseSize(t *testing.T) {
 		t.Parallel()
 		maxFile, maxPod, maxTrip := file, pod, trip
 		maxFile.Project = withBankMetadata(maxFile.Project)
-		maxFile.Project.Version = 3
 		for i := range maxFile.Project.Fleet {
 			maxFile.Project.Fleet[i].Class = sim.LegacyClass
 		}

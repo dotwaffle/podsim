@@ -257,26 +257,30 @@ The proposed marker is `couplingContract:"compact-pair-v1"`.
 It selects immutable physical rules independently of `orderContract:"express-v1"`.
 The project exposes one explicit train option for both empty and passenger operation.
 Omission keeps current projects and request semantics unchanged.
-Existing projects do not migrate to the new family automatically.
+A project without the marker does not change to the new family automatically.
+All projects use version 1, and the marker selects the family.
+The decoder refuses project versions 2 through 5 and does not migrate them.
 Omit all new native, project, save, and stream members on current ordinary paths.
-Preserve exact existing foundation and Express golden bytes, including empty and disabled controls.
+Preserve exact existing foundation and Express save and stream bytes, including empty and disabled controls.
+The project version in these bytes is 1.
 Keep `PlatoonID`, `PlatoonIndex`, and current virtual-platoon counts tied to virtual links.
 Expose mechanical membership, phases, and counts separately.
 
 | Boundary | Proposed new family | Required distinction |
 | --- | --- | --- |
-| Project | Version 5 | Coupling marker, enabled option, bounded site and corridor descriptors. Express order selection remains independent. |
+| Project | Version 1 with the coupling marker | Coupling marker, enabled option, bounded site and corridor descriptors. Express order selection remains independent. |
 | Native constructors and restore | Additive contract-aware inputs | Validate both markers before geometry. Preserve all current foundation and Express helpers. |
 | Native saved state | Optional marker and bounded group records | No new per-party option. Existing pods and orders keep their identities. |
-| Session save | Version 8 | Strict group recognition and atomic physical reconstruction. Preserve versions 6 and 7. |
-| Stream and browser assembler | Hello version 5 | Coherent group membership, phase, geometry profile, common speed, and ownership presentation. Preserve hello 3 and 4. |
-| Offline car checkpoint | Existing version 1 stays unchanged | Reject the new project family. Its frozen native member list does not silently accept train fields. |
+| Session save | Version 8, selected by the coupling marker | Strict group recognition and atomic physical reconstruction. Preserve versions 6 and 7. |
+| Stream and browser assembler | Hello version 5, selected by the coupling marker | Coherent group membership, phase, geometry profile, common speed, and ownership presentation. Preserve hello 3 and 4. |
+| Offline car checkpoint | Existing version 1 stays unchanged | Reject the coupling marker. Its frozen native member list does not silently accept train fields. |
 
-Version numbers are proposed next allocations at the audited source.
+Save and hello version numbers are proposed next allocations at the audited source.
 Freeze them again at implementation review if another approved format has landed.
-Older families reject any new marker or train field, including explicit null or empty values.
+A project without the coupling marker rejects any train field, including explicit null or empty values.
+Save 6 and 7 and hello 3 and 4 reject the marker and any train field.
 Unknown markers, contradictory profile IDs, and unknown phases reject before state replacement.
-The new writer never downgrades while a coupling project or retained group requires the new family.
+The new writer never downgrades while the coupling marker or a retained group requires the new family.
 Keep foundation raw order text and Express packed order text under their existing independent discriminator.
 The coupling marker does not reinterpret either order encoding.
 

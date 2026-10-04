@@ -76,13 +76,6 @@ func editGeometry(draft any, raw jsontext.Value) (projectChange, error) {
 			return projectChange{}, err
 		}
 	}
-	if current := number(member(draft, "version")); current != 3 && current != 4 && current != project.CouplingVersion && (hasBanks(original) || command.Action == "stationBanks" || command.Action == "stationLegacy") {
-		version := float64(1)
-		if hasBanks(geometry.network) {
-			version = 2
-		}
-		geometry.replaceBranch("version", version)
-	}
 	if !reflect.DeepEqual(original, geometry.network) {
 		change.Patch["network"] = geometry.network
 	}
@@ -409,13 +402,8 @@ func (g geometryDraft) setField(command geometryEdit) error {
 
 // setLaneClasses sets the vehicle classes that a lane allows. The value is
 // a list of 1 to 4 distinct known classes, and the lane gets them in the
-// native order. Native validation accepts lane classes on versions 3, 4,
-// and 5 only, so the edit does not change the version of an older project.
+// native order.
 func (g geometryDraft) setLaneClasses(command geometryEdit) error {
-	version := number(member(g.draft, "version"))
-	if version != project.ServiceVersion && version != project.ExpressVersion && version != project.CouplingVersion {
-		return errors.New("vehicle classes need project version 3, 4, or 5")
-	}
 	lane, err := g.find("Lanes", command.ID)
 	if err != nil {
 		return err

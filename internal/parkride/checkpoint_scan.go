@@ -102,8 +102,8 @@ func (s *checkpointScanner) value(path string, depth int) error {
 			return errors.New("car continuation requires a numeric foundation project version")
 		}
 		version, numberErr := token.Int()
-		if numberErr != nil || version < 1 || version > 3 {
-			return errors.New("car continuation requires a foundation project version 1 through 3")
+		if numberErr != nil || version != project.CurrentVersion {
+			return errFoundationProject
 		}
 	}
 	if expected := nativeElementKind(path); expected != 0 && !matchesKind(expected, token.Kind()) {
@@ -160,6 +160,9 @@ func (s *checkpointScanner) object(path string, depth int) error {
 		seen[key] = true
 		if key == "orderContract" {
 			return errors.New("car continuation does not support orderContract")
+		}
+		if key == "couplingContract" {
+			return errors.New("car continuation does not support couplingContract")
 		}
 		if known {
 			kind, ok := r.fields[key]

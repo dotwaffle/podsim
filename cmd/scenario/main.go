@@ -136,7 +136,7 @@ func presetConfig(name string, options capacity) (project.Config, error) {
 			}
 		}
 		config := project.Default()
-		config.Version, config.Name, config.Network = project.BankVersion, "Independent station banks", sim.BankExample()
+		config.Name, config.Network = "Independent station banks", sim.BankExample()
 		config.Fleet = []sim.Placement{{ID: "01", StationID: "origin", BerthID: "origin-1"}, {ID: "02", StationID: "hub", BerthID: "bank-a-1"}, {ID: "03", StationID: "parking", BerthID: "parking-1"}}
 		return config, nil
 	}

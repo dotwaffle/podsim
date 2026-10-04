@@ -58,7 +58,6 @@ func shapeID(index int) string {
 func shapeProject(t *testing.T) project.Config {
 	t.Helper()
 	c := project.Default()
-	c.Version = project.BankVersion
 	c.Name = strings.Repeat("\x01", 80)
 	c.Network, c.Fleet, c.DemandProfiles = sim.Network{}, nil, nil
 	c.Redistribution = false

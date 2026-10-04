@@ -19,7 +19,6 @@ func couplingProject(t *testing.T, express bool) Config {
 	if express {
 		config = expressProject(t)
 	}
-	config.Version = CouplingVersion
 	config.CouplingContract = sim.CompactPairV1CouplingContract
 	compact, err := sim.NewClassSet("compact")
 	if err != nil {
@@ -78,7 +77,6 @@ func TestCouplingProjectRoundTrip(t *testing.T) {
 	}
 	for _, empty := range []bool{false, true} {
 		config := Default()
-		config.Version = CouplingVersion
 		config.CouplingContract = sim.CompactPairV1CouplingContract
 		config.CouplingEnabled = true
 		if empty {
@@ -101,16 +99,13 @@ func TestCouplingProjectRoundTrip(t *testing.T) {
 
 func couplingHistoricalBankProject() Config {
 	config := Default()
-	config.Version = BankVersion
 	config.Network = sim.BankExample()
 	config.Fleet = []sim.Placement{{ID: "01", StationID: "origin", BerthID: "origin-1"}}
 	return config
 }
 
 func TestCouplingHistoricalBytesAndInverseEdits(t *testing.T) {
-	service := Default()
-	service.Version = ServiceVersion
-	for _, config := range []Config{Default(), couplingHistoricalBankProject(), service, expressProject(t)} {
+	for _, config := range []Config{Default(), couplingHistoricalBankProject(), expressProject(t)} {
 		before, err := jsonv2.Marshal(config)
 		if err != nil {
 			t.Fatal(err)
@@ -119,7 +114,6 @@ func TestCouplingHistoricalBytesAndInverseEdits(t *testing.T) {
 			t.Fatal("historical writer added coupling members")
 		}
 		changed := Clone(config)
-		changed.Version = CouplingVersion
 		changed.CouplingContract = sim.CompactPairV1CouplingContract
 		changed.CouplingEnabled = true
 		if validationErr := Validate(changed); validationErr != nil {
@@ -221,7 +215,7 @@ func TestCouplingProjectIndependentPolicies(t *testing.T) {
 			invalid := Clone(config)
 			change(&invalid)
 			if err := Validate(invalid); err == nil {
-				t.Fatal("version 5 bypassed existing queue or shared-ride prerequisites")
+				t.Fatal("coupling marker bypassed existing queue or shared-ride prerequisites")
 			}
 		}
 	}
@@ -235,25 +229,25 @@ func TestCouplingProjectIndependentPolicies(t *testing.T) {
 	old.StationBuffers = true
 	old.PlatoonLimit = 2
 	if err := Validate(old); err == nil {
-		t.Fatal("project 4 queue capability changed")
+		t.Fatal("Express without the coupling marker accepted queue spacing")
 	}
 }
 
-func TestCouplingOldVersionTypedPresence(t *testing.T) {
-	for _, version := range []int{1, 2, 3, 4} {
-		for _, change := range []func(*Config){func(c *Config) { c.CouplingContract = sim.CompactPairV1CouplingContract }, func(c *Config) { c.CouplingEnabled = true }, func(c *Config) { c.CouplingSites = []sim.CouplingSite{} }, func(c *Config) { c.CouplingCorridors = []sim.CouplingCorridor{} }} {
-			config := Default()
-			if version == 2 {
-				config = couplingHistoricalBankProject()
-			}
-			if version == 4 {
-				config = expressProject(t)
-			}
-			config.Version = version
+func TestCouplingFieldsRequireMarker(t *testing.T) {
+	for _, base := range []Config{Default(), couplingHistoricalBankProject(), expressProject(t)} {
+		for _, change := range []func(*Config){func(c *Config) { c.CouplingEnabled = true }, func(c *Config) { c.CouplingSites = []sim.CouplingSite{} }, func(c *Config) { c.CouplingCorridors = []sim.CouplingCorridor{} }} {
+			config := Clone(base)
 			change(&config)
 			if err := Validate(config); err == nil {
-				t.Fatal("historical project accepted coupling presence", version)
+				t.Fatal("unmarked project accepted coupling presence")
 			}
+		}
+	}
+	for _, version := range []int{2, 3, 4, 5} {
+		config := couplingProject(t, false)
+		config.Version = version
+		if err := Validate(config); err == nil {
+			t.Fatal("refused project version accepted", version)
 		}
 	}
 }
@@ -269,14 +263,14 @@ func couplingRaw(t *testing.T) string {
 
 func TestCouplingExplicitZeroAndPartialUpdate(t *testing.T) {
 	got := Default()
-	if err := json.Unmarshal([]byte(`{"version":5,"couplingContract":"compact-pair-v1","couplingEnabled":false}`), &got); err != nil {
+	if err := json.Unmarshal([]byte(`{"version":1,"couplingContract":"compact-pair-v1","couplingEnabled":false}`), &got); err != nil {
 		t.Fatal(err)
 	}
-	if got.Version != CouplingVersion || got.CouplingEnabled || got.CouplingContract != sim.CompactPairV1CouplingContract {
+	if got.Version != CurrentVersion || got.CouplingEnabled || got.CouplingContract != sim.CompactPairV1CouplingContract {
 		t.Fatal("explicit false changed")
 	}
 	if err := json.Unmarshal([]byte(`{"couplingEnabled":true}`), &got); err != nil || !got.CouplingEnabled {
-		t.Fatal("version 5 partial update failed", err)
+		t.Fatal("coupling partial update failed", err)
 	}
 	before := Clone(got)
 	if err := json.Unmarshal([]byte(`{"version":3}`), &got); err == nil || !reflect.DeepEqual(before, got) {
@@ -296,7 +290,7 @@ func TestCouplingExplicitZeroAndPartialUpdate(t *testing.T) {
 func TestCouplingFileBound(t *testing.T) {
 	got := Default()
 	before := Clone(got)
-	raw := fmt.Sprintf(`{"version":5,"couplingContract":"compact-pair-v1","name":%q}`, strings.Repeat("x", MaxFileBytes))
+	raw := fmt.Sprintf(`{"version":1,"couplingContract":"compact-pair-v1","name":%q}`, strings.Repeat("x", MaxFileBytes))
 	if err := json.Unmarshal([]byte(raw), &got); err == nil || !reflect.DeepEqual(got, before) {
 		t.Fatal("oversize parse changed project")
 	}
@@ -304,15 +298,15 @@ func TestCouplingFileBound(t *testing.T) {
 
 func TestCouplingKnownEmptyRequiresMarker(t *testing.T) {
 	config := Default()
-	config.Version = CouplingVersion
+	config.CouplingSites = []sim.CouplingSite{}
 	if err := Validate(config); err == nil {
-		t.Fatal("complete project 5 accepted an absent marker with empty registries")
+		t.Fatal("complete project accepted an absent marker with empty registries")
 	}
 	for _, decode := range []func([]byte, any) error{json.Unmarshal, func(data []byte, value any) error { return jsonv2.Unmarshal(data, value) }} {
 		got := Default()
 		before := Clone(got)
-		if err := decode([]byte(`{"version":5}`), &got); err == nil {
-			t.Fatal("public decoder accepted an absent marker with empty registries")
+		if err := decode([]byte(`{"version":1,"couplingEnabled":false}`), &got); err == nil {
+			t.Fatal("public decoder accepted an absent marker with explicit false")
 		}
 		if !reflect.DeepEqual(got, before) {
 			t.Fatal("missing marker changed prior project")

@@ -45,11 +45,11 @@ Approve these data and compatibility rules as one foundation:
   Do not wait to fill seats or invent a departure interval.
   A large pod can separately serve one private on-demand group when all compatibility checks pass.
   Fare calculation and a fixed timetable require later contracts.
-- Use project version 3, save version 6, and stream hello version 3.
-  Project 3 permits banks and service metadata independently.
+- Use project version 1, save version 6, and stream hello version 3.
+  A project permits banks and service metadata independently, by their presence.
   Browser file wrapper version 1 stays unchanged.
-  Old versions reject new members instead of ignoring them.
-  Save 6 can contain an old project with new effective request state.
+  The decoder refuses project versions 2 through 5 and does not migrate them.
+  Save 6 can contain a project with new effective request state.
 - Raise only the new express rider array bound to 20 and save-6 restore queue bound to 6,200.
   Keep on-demand at 8 parties, stops at 8, manual admission at 200, fleet at 300, and current byte and history caps.
   Bound the express registry at 300 services.
@@ -167,7 +167,8 @@ Approve an opt-in `compact-v1` profile with these limits:
 - Reserve recovery room of `6*(members-1)` meters inside the existing entry frontier, at most 18 meters.
   Keep certificates and speed caps while recovering, including after feature disable.
   Recover every pair to stopped ordinary 12.01-meter spacing before suffix commitment or rerouting.
-- Project 3 adds `stationQueueSpacing`, either `ordinary` or `compact-v1`, default ordinary.
+- The project adds `stationQueueSpacing`, either `ordinary` or `compact-v1`, default ordinary.
+  With `orderContract: "express-v1"`, the setting also requires the coupling marker.
   Compact requires station buffers and a valid platoon limit.
   It never changes lane speeds automatically.
   Save 6 uses distinct link kind `compact-buffer-v1` with phase `compact` or `recovering`.

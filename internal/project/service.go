@@ -11,48 +11,20 @@ import (
 	"github.com/dotwaffle/podsim/internal/sim"
 )
 
-// ServiceVersion identifies projects with authored vehicle and service metadata.
-const ServiceVersion = 3
-
-// ExpressVersion identifies explicit Express operating projects.
-const ExpressVersion = 4
-
 // MaxExpressServices bounds the directed service registry of a project.
 const MaxExpressServices = 300
 
-func validateServiceVersion(config Config) error {
-	if config.Version == ExpressVersion {
-		if config.OrderContract != sim.ExpressOrderContract {
-			return errors.New("project version 4 requires express-v1")
-		}
-		return nil
+// validateVersion accepts CurrentVersion and a known order contract.
+// The earlier project versions 2 to 5 get a clear refusal, because they
+// do not migrate.
+func validateVersion(config Config) error {
+	if config.Version >= 2 && config.Version <= 5 {
+		return fmt.Errorf("project version %d is not supported: use version %d with feature markers", config.Version, CurrentVersion)
 	}
-	if config.Version == CouplingVersion {
-		return sim.ValidateOrderContract(config.OrderContract)
+	if config.Version != CurrentVersion {
+		return fmt.Errorf("project version must be %d", CurrentVersion)
 	}
-	if config.OrderContract != "" {
-		return errors.New("order contract requires project version 4")
-	}
-	if config.Version == ServiceVersion {
-		return nil
-	}
-	present := config.ExpressServices != nil || config.StationQueueSpacing != "" || config.OnboardPickups
-	for _, placement := range config.Fleet {
-		present = present || placement.Class != ""
-	}
-	for _, lane := range config.Network.Lanes {
-		present = present || lane.VehicleClasses != 0
-	}
-	for _, station := range config.Network.Stations {
-		present = present || station.VehicleClasses != 0
-		for _, berth := range station.Berths {
-			present = present || berth.VehicleClasses != 0
-		}
-	}
-	if present {
-		return errors.New("vehicle and service fields require project version 3")
-	}
-	return nil
+	return sim.ValidateOrderContract(config.OrderContract)
 }
 
 // scanProjectService checks new field presence and shape before typed allocation.
@@ -62,9 +34,8 @@ func scanProjectService(data []byte) (bool, error) {
 }
 
 type projectFields struct {
-	service     bool
-	coupling    bool
-	versionFive bool
+	service  bool
+	coupling bool
 }
 
 func scanProjectFields(data []byte) (projectFields, error) {
@@ -88,15 +59,6 @@ func scanProjectFields(data []byte) (projectFields, error) {
 			continue
 		}
 		switch {
-		case len(path) == 2 && path[1] == "version":
-			value, err := decoder.ReadToken()
-			if err != nil {
-				return projectFields{}, err
-			}
-			if value.Kind() == jsontext.KindNumber {
-				version, err := value.Int()
-				fields.versionFive = fields.versionFive || err == nil && version == CouplingVersion
-			}
 		case len(path) == 2 && couplingMemberBit(path[1]) != 0:
 			fields.coupling = true
 			bit := couplingMemberBit(path[1])

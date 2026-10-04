@@ -13,9 +13,6 @@ import (
 	"github.com/dotwaffle/podsim/internal/sim"
 )
 
-// BankVersion identifies projects with explicit station banks.
-const BankVersion = 2
-
 // UnmarshalJSON checks bank field presence before decoding a project.
 func (config *Config) UnmarshalJSON(data []byte) error {
 	return config.decodeJSON(data, json.DefaultOptionsV1())
@@ -52,15 +49,14 @@ func (config *Config) decodeJSONLimit(data []byte, options jsonv2.Options, rawLi
 	if len(data) > rawLimit {
 		return errTooLarge
 	}
-	present, err := scanProjectBanks(data)
-	if err != nil {
+	if err := scanProjectBanks(data); err != nil {
 		return err
 	}
 	fields, err := scanProjectFields(data)
 	if err != nil {
 		return err
 	}
-	if fields.coupling || fields.versionFive || config.Version == CouplingVersion {
+	if fields.coupling || HasCouplingContract(*config) {
 		if err := scanCouplingProjectBounds(data); err != nil {
 			return err
 		}
@@ -70,25 +66,18 @@ func (config *Config) decodeJSONLimit(data []byte, options jsonv2.Options, rawLi
 	if err := jsonv2.Unmarshal(data, &decoded, options, jsonv2.RejectUnknownMembers(true)); err != nil {
 		return err
 	}
-	if present && decoded.Version != BankVersion && decoded.Version != ServiceVersion && decoded.Version != ExpressVersion && decoded.Version != CouplingVersion {
-		return errors.New("station Banks requires project version 2 or 3")
-	}
-	if fields.service && decoded.Version != ServiceVersion && decoded.Version != ExpressVersion && decoded.Version != CouplingVersion {
-		return errors.New("vehicle and service fields require project version 3")
-	}
-	if fields.coupling && decoded.Version != CouplingVersion {
-		return errors.New("coupling fields require project version 5")
-	}
 	// Partial project updates can omit the version. Validate checks complete projects.
 	if decoded.Version != 0 {
-		if err := validateBankVersion(Config(decoded)); err != nil {
-			return err
-		}
-		if err := validateServiceVersion(Config(decoded)); err != nil {
+		if err := validateVersion(Config(decoded)); err != nil {
 			return err
 		}
 	}
-	if err := validateCouplingVersion(Config(decoded)); err != nil {
+	// An explicit false or empty coupling member is presence. The typed
+	// check below cannot see it.
+	if fields.coupling && !HasCouplingContract(Config(decoded)) {
+		return errors.New("coupling fields require couplingContract compact-pair-v1")
+	}
+	if err := validateCouplingContract(Config(decoded)); err != nil {
 		return err
 	}
 	if err := validateCouplingGeometry(Config(decoded)); err != nil {
@@ -103,34 +92,16 @@ func (config *Config) decodeJSONLimit(data []byte, options jsonv2.Options, rawLi
 	return nil
 }
 
-func validateBankVersion(config Config) error {
-	if config.Version != currentVersion && config.Version != BankVersion && config.Version != ServiceVersion && config.Version != ExpressVersion && config.Version != CouplingVersion {
-		return errors.New("project version must be 1, 2, 3, 4, or 5")
-	}
-	banked := false
-	for _, station := range config.Network.Stations {
-		banked = banked || station.Banks != nil
-	}
-	if config.Version == currentVersion && banked {
-		return errors.New("project version 1 cannot contain Banks")
-	}
-	if config.Version == BankVersion && !banked {
-		return errors.New("project version 2 requires a banked station")
-	}
-	return nil
-}
-
 // scanProjectBanks bounds bank arrays without allocating their elements.
-func scanProjectBanks(data []byte) (bool, error) {
+func scanProjectBanks(data []byte) error {
 	decoder := jsontext.NewDecoder(bytes.NewReader(data))
-	present := false
 	for {
 		token, err := decoder.ReadToken()
 		if errors.Is(err, io.EOF) {
-			return present, nil
+			return nil
 		}
 		if err != nil {
-			return false, err
+			return err
 		}
 		tokenKind := token.Kind()
 		path := strings.Split(strings.ToLower(string(decoder.StackPointer())), "/")
@@ -140,13 +111,12 @@ func scanProjectBanks(data []byte) (bool, error) {
 		if len(path) == 5 {
 			kind, length := decoder.StackIndex(decoder.StackDepth())
 			if kind == jsontext.KindBeginObject && length%2 == 1 {
-				present = true
 				if decoder.PeekKind() != jsontext.KindBeginArray {
-					return false, errors.New("station Banks must be a nonempty array")
+					return errors.New("station Banks must be a nonempty array")
 				}
 			}
 			if tokenKind == jsontext.KindBeginArray && decoder.PeekKind() == jsontext.KindEndArray {
-				return false, errors.New("station Banks must be a nonempty array")
+				return errors.New("station Banks must be a nonempty array")
 			}
 		}
 		depth := decoder.StackDepth()
@@ -160,7 +130,7 @@ func scanProjectBanks(data []byte) (bool, error) {
 				limit = MaxBerths
 			}
 			if limit > 0 && length > limit {
-				return false, fmt.Errorf("bank array has more than %d elements", limit)
+				return fmt.Errorf("bank array has more than %d elements", limit)
 			}
 		}
 	}

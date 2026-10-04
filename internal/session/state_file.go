@@ -429,22 +429,18 @@ func (file *stateFile) validateProjectVersion() error {
 	if err := file.validateWireContract(); err != nil {
 		return err
 	}
+	// The wire contract check above binds each saved version to the
+	// project markers: 8 to the coupling marker, 7 to the Express marker
+	// alone, and 6 to neither marker.
 	switch file.Version {
-	case couplingStateVersion:
-		return nil
-	case expressStateVersion:
-		if file.Project.Version != project.ExpressVersion {
-			return errors.New("saved version 7 requires project 4")
-		}
-		return nil
-	case serviceStateVersion:
-		if file.Project.Version < 1 || file.Project.Version > project.ServiceVersion {
-			return errors.New("saved version 6 requires project version 1, 2, or 3")
-		}
-		return nil
+	case couplingStateVersion, expressStateVersion, serviceStateVersion:
 	default:
 		return fmt.Errorf("saved version %d is not supported", file.Version)
 	}
+	if file.Project.Version != project.CurrentVersion {
+		return fmt.Errorf("saved project version %d is not supported", file.Project.Version)
+	}
+	return nil
 }
 
 type savedPlatoonFields sim.SavedPlatoonLink

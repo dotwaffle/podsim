@@ -145,11 +145,7 @@ func scanStreamServiceMembersContract(data []byte, version int, coupling bool) e
 				return errors.New("stream project version must be an integer")
 			}
 			projectVersion, numberErr := value.Int()
-			maximum := maxStreamProjectVersion(version)
-			if coupling {
-				maximum = project.CouplingVersion
-			}
-			if numberErr != nil || projectVersion < 1 || projectVersion > int64(maximum) {
+			if numberErr != nil || projectVersion != project.CurrentVersion {
 				return errors.New("invalid stream project version")
 			}
 		default:
@@ -195,10 +191,26 @@ func NewStreamAssemblerVersion(topology TopologySnapshot, version int) (*StreamA
 	return assembler, nil
 }
 
+// checkTopologyProjectVersion refuses a topology of any project version
+// other than the current one, including a missing version. Every decoded
+// topology and every assembler checks it, with or without contract markers.
+func checkTopologyProjectVersion(topology TopologySnapshot) error {
+	if topology.ProjectVersion != project.CurrentVersion {
+		return errors.New("stream topology has an unsupported project version")
+	}
+	return nil
+}
+
+// validateStreamTopology checks that the contract markers of topology
+// select the negotiated stream family: the coupling marker for hello 5, the
+// Express marker alone for hello 4, and neither marker for hello 3.
 func validateStreamTopology(topology TopologySnapshot, version int) error {
+	if err := checkTopologyProjectVersion(topology); err != nil {
+		return err
+	}
 	if version == CouplingStreamVersion {
-		if topology.ProjectVersion != project.CouplingVersion || topology.CouplingContract != sim.CompactPairV1CouplingContract {
-			return errors.New("coupling topology needs project 5 and contract")
+		if topology.CouplingContract != sim.CompactPairV1CouplingContract {
+			return errors.New("coupling topology needs the coupling contract")
 		}
 		if err := sim.ValidateCouplingGeometry(sim.CouplingGeometryInput{Contract: topology.CouplingContract,
 			Network: topology.Network, Sites: topology.CouplingSites, Corridors: topology.CouplingCorridors}); err != nil {
@@ -213,30 +225,13 @@ func validateStreamTopology(topology TopologySnapshot, version int) error {
 		return errors.New("coupling topology requires a qualified stream family")
 	}
 	if version == ExpressStreamVersion {
-		if topology.ProjectVersion != project.ExpressVersion || topology.OrderContract != sim.ExpressOrderContract {
-			return errors.New("express topology needs project 4 and contract")
+		if topology.OrderContract != sim.ExpressOrderContract {
+			return errors.New("express topology needs the Express contract")
 		}
 		return sim.ValidateExpressServicesWithOrderContract(topology.Network, topology.ExpressServices, topology.OrderContract)
 	}
 	if topology.OrderContract != "" || len(topology.ExpressServices) != 0 {
 		return errors.New("legacy topology contains Express metadata")
-	}
-	classes := false
-	banks := false
-	for _, lane := range topology.Network.Lanes {
-		classes = classes || lane.VehicleClasses != 0
-	}
-	for _, station := range topology.Network.Stations {
-		banks = banks || station.Banks != nil
-		classes = classes || station.VehicleClasses != 0
-		for _, berth := range station.Berths {
-			classes = classes || berth.VehicleClasses != 0
-		}
-	}
-	if topology.ProjectVersion < 1 || topology.ProjectVersion > project.ServiceVersion ||
-		classes && topology.ProjectVersion < project.ServiceVersion || banks && topology.ProjectVersion < project.BankVersion ||
-		topology.ProjectVersion == project.BankVersion && !banks {
-		return errors.New("stream topology has incompatible project version")
 	}
 	return nil
 }
@@ -254,9 +249,6 @@ func (a *StreamAssembler) serviceOrders(frame StreamFrame) error {
 		profile, known := sim.LookupVehicleClassWithOrderContract(vehicle.Pod.Class, a.topology.OrderContract)
 		if !known || sim.ValidateVehicleClassProfile(vehicle.Pod.Class) != nil {
 			return errors.New("unsupported stream vehicle profile")
-		}
-		if profile.Class != sim.LegacyClass && a.topology.ProjectVersion < project.ServiceVersion {
-			return errors.New("stream vehicle class needs project version 3")
 		}
 		if previous, recorded := a.classes[vehicle.Pod.ID]; recorded && previous != profile.Class {
 			return errors.New("stream vehicle class changed within project")

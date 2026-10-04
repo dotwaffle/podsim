@@ -411,9 +411,13 @@
     }));
   }
 
+  // fleetClassNotice gives the notice about pod classes. An Express project
+  // gets the Express notice. A project with express services or a pod class
+  // gets the class notice. Another project gets no notice.
   function fleetClassNotice(config) {
-    if (config.version === 4) return "New pods use legacy class. Express operation requires a qualified express-v1 runtime.";
-    return config.version === 3 ? "New pods use legacy class. Import a project to set pod classes and express services. Express pods cannot start yet." : "";
+    if (config.orderContract === "express-v1") return "New pods use legacy class. Express operation requires a qualified express-v1 runtime.";
+    const classed = Object.hasOwn(config, "expressServices") || (Array.isArray(config.fleet) && config.fleet.some((pod) => pod && Object.hasOwn(pod, "Class")));
+    return classed ? "New pods use legacy class. Import a project to set pod classes and express services. Express pods cannot start yet." : "";
   }
 
   // selectionCard gives the data of the Selection panel for the selected
@@ -450,14 +454,13 @@
   // laneClassState gives the vehicle classes that a lane allows, in native
   // order, and the state of the class options. A lane with no
   // VehicleClasses allows Legacy and Compact pods, as native reads it.
-  // Native accepts lane classes on versions 3, 4, and 5 only.
+  // A project with the coupling marker gets the coupling site hint.
   function laneClassState(config, laneID) {
     const lane = config.network.Lanes.find((item) => item.ID === laneID);
     const set = Array.isArray(lane?.VehicleClasses), classes = set ? LANE_CLASSES.filter((name) => lane.VehicleClasses.includes(name)) : ["legacy", "compact"];
-    if (![3, 4, 5].includes(config.version)) return { classes, disabled: true, hint: "Vehicle classes need project version 3, 4, or 5." };
     const hints = [];
     if (!set) hints.push("The guideway has no class list, so Legacy and Compact pods can use it.");
-    if (config.version === 5) hints.push("A coupling site needs a straight guideway with Compact only.");
+    if (config.couplingContract === "compact-pair-v1") hints.push("A coupling site needs a straight guideway with Compact only.");
     return { classes, disabled: false, hint: hints.join(" ") };
   }
 
@@ -514,24 +517,28 @@
     return count > 1 ? Math.min(index, count - 2) : -1;
   }
 
+  // COUPLING_KEYS are the project members of the coupling contract.
+  const COUPLING_KEYS = ["couplingContract", "couplingEnabled", "couplingSites", "couplingCorridors"];
+
   // convertTrainsState gives the state of the Convert to trains button. The
-  // conversion needs a project of version 1 to 4 whose last checks, in
-  // verdict, have no errors. A null verdict means that the checks did not
-  // run after the last change. busy is true while the draft cannot change.
+  // conversion needs a project of version 1 without coupling members whose
+  // last checks, in verdict, have no errors. A null verdict means that the
+  // checks did not run after the last change. busy is true while the draft
+  // cannot change.
   function convertTrainsState(config, verdict, busy) {
-    if (![1, 2, 3, 4].includes(config.version)) return { hidden: true, disabled: true, hint: "" };
+    if (config.version !== 1 || COUPLING_KEYS.some((key) => Object.hasOwn(config, key))) return { hidden: true, disabled: true, hint: "" };
     if (busy) return { hidden: false, disabled: true, hint: "Wait until the present action ends." };
     if (!verdict) return { hidden: false, disabled: true, hint: "The checks must run before the project can convert to trains." };
     if (!verdict.valid) return { hidden: false, disabled: true, hint: "Fix the errors in Checks before the project converts to trains." };
-    return { hidden: false, disabled: false, hint: `Changes the project to version 5 with trains off and no coupling sites. Undo goes back to version ${config.version}.` };
+    return { hidden: false, disabled: false, hint: "Sets couplingContract compact-pair-v1 with trains off and no coupling sites. Undo removes the coupling members." };
   }
 
   // trainsScenario gives the converted draft. The new members follow the
   // existing members in a fixed order, so each conversion exports the same
   // bytes.
   function trainsScenario(config, patch) {
-    const { version, couplingContract, couplingEnabled, couplingSites, couplingCorridors } = patch;
-    return { ...config, version, couplingContract, couplingEnabled, couplingSites, couplingCorridors };
+    const { couplingContract, couplingEnabled, couplingSites, couplingCorridors } = patch;
+    return { ...config, couplingContract, couplingEnabled, couplingSites, couplingCorridors };
   }
 
   // undoFocus gives the selection and the keyboard focus after an undo or a
@@ -814,7 +821,9 @@
     // differ in case applies. Go decodes such a file as the server does.
     const canonical = networkKeys.join() === "network" && ["", "version"].includes(versionKeys.join());
     if (canonical && !isObject(document.network)) throw new Error("The network field must be an object.");
-    if (canonical && ![1, 2, 3, 4, 5].includes(document.version)) throw new Error("The version field must be 1, 2, 3, 4, or 5.");
+    // The earlier project versions 2 to 5 get the native refusal.
+    if (canonical && [2, 3, 4, 5].includes(document.version)) throw new Error(`Project version ${document.version} is not supported: use version 1 with feature markers.`);
+    if (canonical && document.version !== 1) throw new Error("The version field must be 1.");
     return { scenario: clone(document), background: null };
   }
 
@@ -1218,8 +1227,8 @@
 
   // LIVE_STATE_ACCEPT is the Accept header of a live state read. A project
   // without an order contract or train contract replies with plain JSON. An
-  // Express project replies only to session.ExpressMediaType, and a version
-  // 5 project only to session.CouplingMediaType. A Go test in
+  // Express project replies only to session.ExpressMediaType, and a project
+  // with the coupling marker only to session.CouplingMediaType. A Go test in
   // internal/session checks the media types.
   const LIVE_STATE_ACCEPT = "application/json, application/vnd.podsim.express-v1+json, application/vnd.podsim.compact-pair-v1+json";
 
@@ -1243,7 +1252,7 @@
   }
 
   // liveStateFrame gives the state of a live state reply. The reply is a
-  // plain state, or the envelope of an Express or version 5 project: an
+  // plain state, or the envelope of an Express or coupling project: an
   // object with an orderContract or couplingContract string and a frame
   // whose state member is the state. The state must have the values that
   // the page reads, with their types: epoch, serverStart, projectRevision,
@@ -3175,12 +3184,12 @@
     setScalarValue("#platoonLimit", String(config.platoonLimit));
     $("#stationBuffers").checked = config.stationBuffers;
     setScalarValue("#stationQueueSpacing", config.stationQueueSpacing || "ordinary");
-    // Native accepts the setting on versions 3 and 5. The edit changes a version 1 or 2 draft to version 3.
-    const queueLocked = config.version === 4;
+    // Native refuses the setting with express-v1 but without the coupling marker.
+    const queueLocked = config.orderContract === "express-v1" && config.couplingContract !== "compact-pair-v1";
     $("#stationQueueSpacing").disabled = queueLocked; $("#stationQueueSpacingHint").hidden = !queueLocked;
     $("#pickupReassignment").checked = config.pickupReassignment;
-    // Only a version 5 project has the train option. Off keeps its sites and corridors.
-    $("#couplingEnabledLabel").hidden = $("#couplingEnabledHint").hidden = config.version !== 5;
+    // Only a project with the coupling marker has the train option. Off keeps its sites and corridors.
+    $("#couplingEnabledLabel").hidden = $("#couplingEnabledHint").hidden = config.couplingContract !== "compact-pair-v1";
     $("#couplingEnabled").checked = config.couplingEnabled === true;
     renderConvertTrains(config);
   }
@@ -3776,12 +3785,12 @@
     row.append(couplingButton("Add selected guideway", "addCorridorLane", corridor.id), remove);
     return row;
   }
-  // renderCoupling shows the coupling site and corridor rows of a version 5
-  // project. It replaces the rows only when couplingLayout changes, and
+  // renderCoupling shows the coupling site and corridor rows of a project
+  // with the coupling marker. It replaces the rows only when couplingLayout changes, and
   // keeps a field that has input in progress.
   let drawnCoupling = "";
   function renderCoupling(config) {
-    const shown = config.version === 5, laneID = selectedLaneID();
+    const shown = config.couplingContract === "compact-pair-v1", laneID = selectedLaneID();
     $("#couplingSitesPanel").hidden = $("#couplingCorridorsPanel").hidden = !shown;
     if (!shown) return;
     const sites = (Array.isArray(config.couplingSites) ? config.couplingSites : []).filter((site) => site && typeof site === "object");

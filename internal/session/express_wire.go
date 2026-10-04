@@ -162,13 +162,6 @@ func expressStreamLimits() jsonLimits {
 	return limits
 }
 
-func maxStreamProjectVersion(version int) int {
-	if version == ExpressStreamVersion {
-		return project.ExpressVersion
-	}
-	return project.ServiceVersion
-}
-
 func (file *stateFile) validateWireContract() error {
 	if err := file.validateCouplingContract(); err != nil {
 		return err
@@ -184,7 +177,7 @@ func (file *stateFile) validateWireContract() error {
 }
 
 func preflightExpressTopology(config project.Config, serverStart, epoch string, revision uint64) error {
-	if config.Version != project.CouplingVersion && config.OrderContract != sim.ExpressOrderContract {
+	if !project.HasCouplingContract(config) && config.OrderContract != sim.ExpressOrderContract {
 		return nil
 	}
 	topology := TopologySnapshot{CouplingContract: config.CouplingContract, CouplingEnabled: config.CouplingEnabled, CouplingSites: config.CouplingSites, CouplingCorridors: config.CouplingCorridors, ProjectVersion: config.Version, OrderContract: config.OrderContract, ExpressServices: config.ExpressServices, Network: config.Network, Geo: config.Geo, Map: config.Map, ServerStart: serverStart, Epoch: epoch, ProjectRevision: revision}
@@ -262,7 +255,7 @@ func (s *Session) stateHTTP(w http.ResponseWriter, r *http.Request) {
 		writeError(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	if s.project.Version == project.CouplingVersion {
+	if project.HasCouplingContract(s.project) {
 		s.couplingStateHTTP(w, r)
 		return
 	}

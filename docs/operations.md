@@ -260,8 +260,9 @@ It reports them as unaccounted orders at each restore, together with the orders 
 A session without an order or coupling contract writes saved-state version 6.
 An Express session writes version 7, and a coupling session writes version 8.
 This server accepts versions 6, 7, and 8.
-Version 6 accepts project versions 1, 2, and 3.
-The server rejects versions 2 through 5 with reason `unsupported_version` and does not migrate them.
+Each saved version stores a version 1 project.
+A saved project of version 2 through 5 gets reason `invalid_state`, as other bad saves do.
+The server rejects saved-state versions 2 through 5 with reason `unsupported_version` and does not migrate them.
 A file with coupling markers is an exception at any version number: as for a damaged version 8 file, the server keeps the file, turns saving off, and fails to start.
 The optional pod field `stationBuffered` permits validated berthless occupancy of a station holding lane.
 Restore keeps those members draining, then applies the project's experimental policy settings.

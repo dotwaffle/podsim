@@ -16,7 +16,6 @@ func groupStreamFixture(t *testing.T) (TopologySnapshot, StreamFrame) {
 	shared, frame := streamFixture(t)
 	t.Cleanup(shared.Close)
 	topology := shared.Topology()
-	topology.ProjectVersion = project.ServiceVersion
 	classes, err := sim.NewClassSet("legacy", "group")
 	if err != nil {
 		t.Fatal(err)

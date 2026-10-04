@@ -66,7 +66,7 @@ func remoteCouplingFrame(t *testing.T, order sim.OrderContract) (session.Topolog
 			Riders: cabin.Riders, Boardings: cabin.Boardings, RiddenMeters: cabin.RiddenMeters, CouplingID: cabin.CouplingID,
 			Stops: cabin.Stops, RelocatingTo: cabin.RelocatingTo, Rebalancing: cabin.Rebalancing, PlatoonID: cabin.PlatoonID, PlatoonIndex: cabin.PlatoonIndex})
 	}
-	topology := session.TopologySnapshot{ProjectVersion: project.CouplingVersion, CouplingContract: input.CouplingContract,
+	topology := session.TopologySnapshot{ProjectVersion: project.CurrentVersion, CouplingContract: input.CouplingContract,
 		CouplingEnabled: input.CouplingEnabled, OrderContract: order, Network: input.Network, CouplingSites: input.CouplingSites,
 		CouplingCorridors: input.CouplingCorridors, ServerStart: frame.State.ServerStart, Epoch: frame.State.Epoch, ProjectRevision: frame.State.ProjectRevision}
 	return topology, frame

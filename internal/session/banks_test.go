@@ -15,7 +15,6 @@ import (
 
 func withBankMetadata(config project.Config) project.Config {
 	config = project.Clone(config)
-	config.Version = project.BankVersion
 	station := &config.Network.Stations[0]
 	bank := sim.StationBank{ID: "a", Entry: station.Entry, Exit: station.Exit}
 	for _, berth := range station.Berths {
@@ -27,27 +26,28 @@ func withBankMetadata(config project.Config) project.Config {
 
 // Versions 2 through 5 came before version 6. The decoder rejects them by
 // version before it reads the other members, also with a valid project.
+// A saved project with an earlier project version is also refused.
 func TestSavedBankVersionPairs(t *testing.T) {
 	t.Parallel()
 	base := newTestStateFile(t)
 	for _, savedVersion := range []int{2, 3, 4, 5, 6} {
-		for _, projectVersion := range []int{1, 2, 3} {
-			t.Run(fmt.Sprintf("saved%d/project%d", savedVersion, projectVersion), func(t *testing.T) {
+		for _, projectCase := range []string{"plain", "banks", "project3"} {
+			t.Run(fmt.Sprintf("saved%d/%s", savedVersion, projectCase), func(t *testing.T) {
 				t.Parallel()
 				file := base
 				file.Version = savedVersion
-				switch projectVersion {
-				case project.BankVersion:
+				switch projectCase {
+				case "banks":
 					file.Project = withBankMetadata(base.Project)
-				case project.ServiceVersion:
-					file.Project.Version = project.ServiceVersion
+				case "project3":
+					file.Project.Version = 3
 				}
 				raw, err := json.Marshal(file)
 				if err != nil {
 					t.Fatal(err)
 				}
 				got, err := decodeStateFile(compressTestJSON(t, raw))
-				valid := savedVersion == serviceStateVersion
+				valid := savedVersion == serviceStateVersion && projectCase != "project3"
 				if (err == nil) != valid {
 					t.Fatalf("accepted=%t want=%t: %v", err == nil, valid, err)
 				}
@@ -57,7 +57,10 @@ func TestSavedBankVersionPairs(t *testing.T) {
 				if !valid && file.validateProjectVersion() == nil {
 					t.Fatal("file validation accepted an old saved version")
 				}
-				if !valid && (stateReason(err) != reasonUnsupportedVersion || !strings.Contains(err.Error(), fmt.Sprintf("version %d is older than version 6", savedVersion))) {
+				if !valid && savedVersion == serviceStateVersion && stateReason(err) != reasonInvalidState {
+					t.Fatalf("saved project version reason %s: %v", stateReason(err), err)
+				}
+				if !valid && savedVersion != serviceStateVersion && (stateReason(err) != reasonUnsupportedVersion || !strings.Contains(err.Error(), fmt.Sprintf("version %d is older than version 6", savedVersion))) {
 					t.Fatalf("reason %s: %v", stateReason(err), err)
 				}
 			})
@@ -78,14 +81,14 @@ func TestCaptureBankStateVersion(t *testing.T) {
 		t.Fatalf("capture version=%d captured=%t: %v", file.Version, captured, err)
 	}
 	got, err := decodeStateFile(encodeTestState(t, file))
-	if err != nil || got.Project.Version != project.BankVersion {
+	if err != nil || got.Project.Version != project.CurrentVersion || got.Project.Network.Stations[0].Banks == nil {
 		t.Fatalf("decode captured bank state: %v", err)
 	}
 }
 
 func TestTopologyBankDecoding(t *testing.T) {
 	t.Parallel()
-	base := TopologySnapshot{Network: sim.BankExample()}
+	base := TopologySnapshot{ProjectVersion: project.CurrentVersion, Network: sim.BankExample()}
 	rawBase, err := json.Marshal(base)
 	if err != nil {
 		t.Fatal(err)

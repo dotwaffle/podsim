@@ -1,6 +1,6 @@
 {
   "base": {
-    "version": 3,
+    "version": 1,
     "demand": {
       "enabled": false,
       "perMinute": 2,
@@ -610,19 +610,19 @@
       }
     },
     {
-      "name": "old project 1",
+      "name": "refused project 3",
       "changes": [
         {
           "path": [
             "version"
           ],
-          "value": 1
+          "value": 3
         }
       ],
       "checks": {
         "errors": [
           {
-            "text": "Vehicle and service fields require project version 3.",
+            "text": "Project version 3 is not supported: use version 1 with feature markers.",
             "target": null
           }
         ],
@@ -630,7 +630,7 @@
       }
     },
     {
-      "name": "old project 2",
+      "name": "refused project 2",
       "changes": [
         {
           "path": [
@@ -642,11 +642,7 @@
       "checks": {
         "errors": [
           {
-            "text": "The scenario version does not match its station banks.",
-            "target": null
-          },
-          {
-            "text": "Vehicle and service fields require project version 3.",
+            "text": "Project version 2 is not supported: use version 1 with feature markers.",
             "target": null
           }
         ],
@@ -983,14 +979,8 @@
       }
     },
     {
-      "name": "coupling project 5",
+      "name": "coupling project",
       "changes": [
-        {
-          "path": [
-            "version"
-          ],
-          "value": 5
-        },
         {
           "path": [
             "couplingContract"
@@ -1022,14 +1012,8 @@
       }
     },
     {
-      "name": "coupling project 5 express order",
+      "name": "coupling project express order",
       "changes": [
-        {
-          "path": [
-            "version"
-          ],
-          "value": 5
-        },
         {
           "path": [
             "couplingContract"
@@ -1057,14 +1041,8 @@
       }
     },
     {
-      "name": "coupling project 5 empty order contract",
+      "name": "coupling project empty order contract",
       "changes": [
-        {
-          "path": [
-            "version"
-          ],
-          "value": 5
-        },
         {
           "path": [
             "couplingContract"
@@ -1081,7 +1059,7 @@
       "checks": {
         "errors": [
           {
-            "text": "Project version 5 accepts only orderContract express-v1.",
+            "text": "The order contract must be express-v1.",
             "target": null
           }
         ],
@@ -1089,34 +1067,23 @@
       }
     },
     {
-      "name": "coupling project 5 without marker",
+      "name": "coupling marker alone",
       "changes": [
         {
           "path": [
-            "version"
+            "couplingContract"
           ],
-          "value": 5
+          "value": "compact-pair-v1"
         }
       ],
       "checks": {
-        "errors": [
-          {
-            "text": "Project version 5 requires couplingContract compact-pair-v1.",
-            "target": null
-          }
-        ],
+        "errors": [],
         "warnings": []
       }
     },
     {
       "name": "coupling unknown marker",
       "changes": [
-        {
-          "path": [
-            "version"
-          ],
-          "value": 5
-        },
         {
           "path": [
             "couplingContract"
@@ -1127,7 +1094,7 @@
       "checks": {
         "errors": [
           {
-            "text": "Project version 5 requires couplingContract compact-pair-v1.",
+            "text": "Coupling fields require couplingContract compact-pair-v1.",
             "target": null
           }
         ],
@@ -1137,12 +1104,6 @@
     {
       "name": "coupling option null",
       "changes": [
-        {
-          "path": [
-            "version"
-          ],
-          "value": 5
-        },
         {
           "path": [
             "couplingContract"
@@ -1171,12 +1132,6 @@
       "changes": [
         {
           "path": [
-            "version"
-          ],
-          "value": 5
-        },
-        {
-          "path": [
             "couplingContract"
           ],
           "value": "compact-pair-v1"
@@ -1203,12 +1158,6 @@
       "changes": [
         {
           "path": [
-            "version"
-          ],
-          "value": 5
-        },
-        {
-          "path": [
             "couplingContract"
           ],
           "value": "compact-pair-v1"
@@ -1231,7 +1180,7 @@
       }
     },
     {
-      "name": "coupling option on project 3",
+      "name": "coupling option without marker",
       "changes": [
         {
           "path": [
@@ -1243,7 +1192,7 @@
       "checks": {
         "errors": [
           {
-            "text": "Coupling fields require project version 5.",
+            "text": "Coupling fields require couplingContract compact-pair-v1.",
             "target": null
           }
         ],
@@ -1251,7 +1200,7 @@
       }
     },
     {
-      "name": "coupling null marker on project 3",
+      "name": "coupling null marker without marker",
       "changes": [
         {
           "path": [
@@ -1263,7 +1212,7 @@
       "checks": {
         "errors": [
           {
-            "text": "Coupling fields require project version 5.",
+            "text": "Coupling fields require couplingContract compact-pair-v1.",
             "target": null
           }
         ],
@@ -1271,14 +1220,8 @@
       }
     },
     {
-      "name": "coupling empty corridors on project 1",
+      "name": "coupling empty corridors without marker",
       "changes": [
-        {
-          "path": [
-            "version"
-          ],
-          "value": 1
-        },
         {
           "path": [
             "couplingCorridors"
@@ -1289,7 +1232,7 @@
       "checks": {
         "errors": [
           {
-            "text": "Coupling fields require project version 5.",
+            "text": "Coupling fields require couplingContract compact-pair-v1.",
             "target": null
           }
         ],
@@ -1297,7 +1240,7 @@
       }
     },
     {
-      "name": "coupling long s member on project 3",
+      "name": "coupling long s member without marker",
       "changes": [
         {
           "path": [
@@ -1309,7 +1252,7 @@
       "checks": {
         "errors": [
           {
-            "text": "Coupling fields require project version 5.",
+            "text": "Coupling fields require couplingContract compact-pair-v1.",
             "target": null
           }
         ],
@@ -1319,12 +1262,6 @@
     {
       "name": "coupling geometry valid",
       "changes": [
-        {
-          "path": [
-            "version"
-          ],
-          "value": 5
-        },
         {
           "path": [
             "couplingContract"
@@ -1391,12 +1328,6 @@
       "changes": [
         {
           "path": [
-            "version"
-          ],
-          "value": 5
-        },
-        {
-          "path": [
             "couplingContract"
           ],
           "value": "compact-pair-v1"
@@ -1461,12 +1392,6 @@
       "changes": [
         {
           "path": [
-            "version"
-          ],
-          "value": 5
-        },
-        {
-          "path": [
             "couplingContract"
           ],
           "value": "compact-pair-v1"
@@ -1517,12 +1442,6 @@
     {
       "name": "coupling geometry short site",
       "changes": [
-        {
-          "path": [
-            "version"
-          ],
-          "value": 5
-        },
         {
           "path": [
             "couplingContract"
@@ -1594,12 +1513,6 @@
       "changes": [
         {
           "path": [
-            "version"
-          ],
-          "value": 5
-        },
-        {
-          "path": [
             "couplingContract"
           ],
           "value": "compact-pair-v1"
@@ -1667,12 +1580,6 @@
     {
       "name": "coupling geometry unknown lane",
       "changes": [
-        {
-          "path": [
-            "version"
-          ],
-          "value": 5
-        },
         {
           "path": [
             "couplingContract"
@@ -1744,12 +1651,6 @@
       "changes": [
         {
           "path": [
-            "version"
-          ],
-          "value": 5
-        },
-        {
-          "path": [
             "couplingContract"
           ],
           "value": "compact-pair-v1"
@@ -1817,12 +1718,6 @@
     {
       "name": "coupling geometry overlap",
       "changes": [
-        {
-          "path": [
-            "version"
-          ],
-          "value": 5
-        },
         {
           "path": [
             "couplingContract"
@@ -1894,12 +1789,6 @@
       "changes": [
         {
           "path": [
-            "version"
-          ],
-          "value": 5
-        },
-        {
-          "path": [
             "couplingContract"
           ],
           "value": "compact-pair-v1"
@@ -1969,12 +1858,6 @@
       "changes": [
         {
           "path": [
-            "version"
-          ],
-          "value": 5
-        },
-        {
-          "path": [
             "couplingContract"
           ],
           "value": "compact-pair-v1"
@@ -2042,12 +1925,6 @@
     {
       "name": "coupling geometry unused site",
       "changes": [
-        {
-          "path": [
-            "version"
-          ],
-          "value": 5
-        },
         {
           "path": [
             "couplingContract"
@@ -2127,12 +2004,6 @@
       "changes": [
         {
           "path": [
-            "version"
-          ],
-          "value": 5
-        },
-        {
-          "path": [
             "couplingContract"
           ],
           "value": "compact-pair-v1"
@@ -2200,12 +2071,6 @@
     {
       "name": "coupling geometry unknown site member",
       "changes": [
-        {
-          "path": [
-            "version"
-          ],
-          "value": 5
-        },
         {
           "path": [
             "couplingContract"
@@ -2278,12 +2143,6 @@
       "changes": [
         {
           "path": [
-            "version"
-          ],
-          "value": 5
-        },
-        {
-          "path": [
             "couplingContract"
           ],
           "value": "compact-pair-v1"
@@ -2344,12 +2203,6 @@
     {
       "name": "coupling geometry bent path",
       "changes": [
-        {
-          "path": [
-            "version"
-          ],
-          "value": 5
-        },
         {
           "path": [
             "couplingContract"
@@ -2433,12 +2286,6 @@
       "changes": [
         {
           "path": [
-            "version"
-          ],
-          "value": 5
-        },
-        {
-          "path": [
             "couplingContract"
           ],
           "value": "compact-pair-v1"
@@ -2512,6 +2359,75 @@
             "target": null
           }
         ],
+        "warnings": []
+      }
+    },
+    {
+      "name": "queue spacing with Express only",
+      "changes": [
+        {
+          "path": [
+            "orderContract"
+          ],
+          "value": "express-v1"
+        },
+        {
+          "path": [
+            "fleet",
+            "0",
+            "Class"
+          ],
+          "value": "express"
+        },
+        {
+          "path": [
+            "stationQueueSpacing"
+          ],
+          "value": "ordinary"
+        }
+      ],
+      "checks": {
+        "errors": [
+          {
+            "text": "Station queue spacing with express-v1 requires couplingContract compact-pair-v1.",
+            "target": null
+          }
+        ],
+        "warnings": []
+      }
+    },
+    {
+      "name": "queue spacing with Express and coupling",
+      "changes": [
+        {
+          "path": [
+            "couplingContract"
+          ],
+          "value": "compact-pair-v1"
+        },
+        {
+          "path": [
+            "orderContract"
+          ],
+          "value": "express-v1"
+        },
+        {
+          "path": [
+            "fleet",
+            "0",
+            "Class"
+          ],
+          "value": "express"
+        },
+        {
+          "path": [
+            "stationQueueSpacing"
+          ],
+          "value": "ordinary"
+        }
+      ],
+      "checks": {
+        "errors": [],
         "warnings": []
       }
     }

@@ -84,7 +84,7 @@ It stores `observationHash` and `traceHash` as two 64-digit lowercase SHA-256 st
 It never embeds a full `Snapshot`, `Policies`, `Report`, observation object, or per-tick record array.
 The decoder rejects those additional payload members.
 
-The origin project retains its supported historical or current project version.
+The origin project has version 1 without `orderContract` or `couplingContract`.
 Validate it with `project.Validate` and the current raw presence rules.
 The origin plan uses existing lot and itinerary members.
 Sort both arrays by ID and materialize effective private or shared consent before hashing.
@@ -304,8 +304,10 @@ Require a new review for migration to a different executable.
 
 ## Compatibility and byte qualification
 
-Historical project versions 1 and 2 remain valid origins when native validation accepts them.
-Version 3 retains current service, bank, class, and experiment rules.
+A version 1 project without a contract marker is a valid origin when native validation accepts it.
+It keeps the current service, bank, class, and experiment rules.
+The scan and the origin check refuse `orderContract`, `couplingContract`, and project versions 2 through 5.
+The frozen checkpoint member list does not change, because it does not name project members.
 Car continuation does not import session saves.
 Bare native snapshots, session versions 2 through 6, report version 1, and plans are not car checkpoints.
 Reject them with a format-specific error.

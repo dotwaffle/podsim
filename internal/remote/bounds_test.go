@@ -52,7 +52,7 @@ func boundsTarget(path string) any {
 
 func TestExchangeBoundsResponseBodies(t *testing.T) {
 	topology := func(size int) []byte {
-		return padded(`{"serverStart":"s","epoch":"`, `","projectRevision":1,"network":{}}`, size)
+		return padded(`{"projectVersion":1,"serverStart":"s","epoch":"`, `","projectRevision":1,"network":{}}`, size)
 	}
 	tests := []struct {
 		name  string

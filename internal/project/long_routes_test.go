@@ -16,7 +16,7 @@ func longRoutes() Config {
 		stations = 4
 		berths   = 50
 	)
-	config := Config{Version: currentVersion, Name: "Long routes", Demand: DemandConfig{PerMinute: 1, Pattern: "balanced", Seed: 1}}
+	config := Config{Version: CurrentVersion, Name: "Long routes", Demand: DemandConfig{PerMinute: 1, Pattern: "balanced", Seed: 1}}
 	network := &config.Network
 	node := func(id string, x, y float64) {
 		network.Nodes = append(network.Nodes, sim.Node{ID: id, Position: sim.Point{X: x, Y: y}})

@@ -123,13 +123,13 @@
   // STATE_ACCEPT is the Accept header of a debug capture read of /api/state.
   // A project without an order contract or train contract replies with
   // plain JSON. An Express project replies only to
-  // session.ExpressMediaType, and a version 5 project only to
-  // session.CouplingMediaType. LIVE_STATE_ACCEPT in editor.js has the same
+  // session.ExpressMediaType, and a project with the coupling marker only
+  // to session.CouplingMediaType. LIVE_STATE_ACCEPT in editor.js has the same
   // value. A Go test in internal/session checks the media types.
   const STATE_ACCEPT = "application/json, application/vnd.podsim.express-v1+json, application/vnd.podsim.compact-pair-v1+json";
 
   // captureState gives the state of a reply to STATE_ACCEPT. The reply is a
-  // plain state, or the envelope of an Express or version 5 project: an
+  // plain state, or the envelope of an Express or coupling project: an
   // object with an orderContract or couplingContract string and a frame
   // whose state member is the state. The state must have the values that
   // the capture reads, with their types: epoch, projectRevision and

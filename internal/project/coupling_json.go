@@ -215,8 +215,9 @@ func scanCouplingLaneIDs(decoder *jsontext.Decoder) error {
 	return nil
 }
 
-// Version 5 checks existing collection bounds before typed allocation.
-// Older projects retain their existing two scan passes.
+// scanCouplingProjectBounds checks the existing collection bounds of a
+// project with coupling fields before typed allocation. Other projects
+// retain their existing two scan passes.
 func scanCouplingProjectBounds(data []byte) error {
 	decoder := jsontext.NewDecoder(bytes.NewReader(data))
 	var arrivals, departures int64

@@ -23,8 +23,11 @@ func validateStationQueueSpacing(config Config) error {
 	if !validStationQueueSpacing(mode) {
 		return errors.New("station queue spacing must be ordinary or compact-v1")
 	}
-	if config.StationQueueSpacing != "" && config.Version != ServiceVersion && config.Version != CouplingVersion {
-		return errors.New("station queue spacing requires project version 3")
+	// Express without the coupling marker uses saved state 7 and stream
+	// hello 4. Those families do not carry a queue spacing selection.
+	// The planned merge of the save and stream families removes this rule.
+	if config.StationQueueSpacing != "" && config.OrderContract == sim.ExpressOrderContract && !HasCouplingContract(config) {
+		return errors.New("station queue spacing with express-v1 requires couplingContract compact-pair-v1")
 	}
 	if mode == sim.StationQueueCompactV1 && (!config.StationBuffers || config.PlatoonLimit < sim.MinPlatoonLimit || config.PlatoonLimit > sim.MaxPlatoonLimit) {
 		return errors.New("compact station queues require station buffers and a platoon limit from 2 to 4")

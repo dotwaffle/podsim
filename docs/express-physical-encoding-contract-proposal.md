@@ -19,7 +19,7 @@ The approved batch covers implementation and qualification of the following cont
 
 | Decision | Proposed bound or rule |
 | --- | --- |
-| Opt-in contract | `express-v1`, with project 4, save 7, and stream hello 4 |
+| Opt-in contract | `express-v1` in a version 1 project. Without the coupling marker, it selects save 7 and stream hello 4 |
 | Express profile under that contract | 20 seats, new whole-party size 1 through 20, centered 10 m body, maximum width 2.5 m |
 | Large interaction candidate | Existing 6 m envelope radius, 20 m separation and retention, lanes at least 40 m, actual cells at least 20 m |
 | Stored Express records | At most 20 rider records, including completed history, with at most 20 aligned boarding records |
@@ -217,14 +217,15 @@ Test the retained 20 m influence of a large neighbor without changing those comp
 
 ## Versions and lossless wire encoding
 
-Project 4 requires `orderContract: "express-v1"`.
+The project marker is `orderContract: "express-v1"` in a version 1 project.
+The decoder refuses project versions 2 through 5 and does not migrate them.
 Save 7 requires that marker and `textEncoding: "order-text-base64-v1"`.
 Stream hello 4 advertises both values and binds them to its source epoch and topology.
 Express topology carries `orderContract` and a bounded `expressServices` array, copied from the project registry.
 It retains project version, epoch, and revision binding.
 The entire topology, including the registry, must fit the existing 10 MiB plus 4 KiB cap.
 
-The producer must encode and preflight it before activating a project-4 session.
+The producer must encode and preflight it before activating an Express session.
 A failure rejects activation without dropping registry entries or raising the cap.
 Consumers must validate each service ID, normalized Express class, directed pair, party limit, and compatible path.
 A registry change requires a matching topology revision before consumers accept orders using that change.
@@ -235,12 +236,13 @@ Every payload must validate before the assembler changes its current state or ac
 Recovery and a full-frame replacement must retain the negotiated contract.
 A project change that changes the contract closes the current stream and requires a new hello.
 
-Project 1 through 3, save 6, and stream hello 3 retain raw text meanings and their current limits.
-Reject new markers, packed fields, new operating Express certificates, or larger semantic states under old versions.
+A project without the Express or coupling marker uses save 6 and stream hello 3.
+These keep raw text meanings and their current limits.
+Reject new markers, packed fields, new operating Express certificates, or larger semantic states in save 6 and hello 3.
 Do not infer base64 from a string's appearance.
 A raw old ID such as `YWJj` still means those four characters.
 Do not downgrade Express state to an old version, remove riders, or reinterpret valid private orders during export.
-Foundation projects and ordinary fixtures keep their current version and encoded bytes.
+Foundation projects and ordinary fixtures keep their encoded bytes, with project version 1.
 
 Encode five free-text fields inside each waiting or rider order record: `From`, `To`, `PodID`, `DispatchReason`, and `ServiceID`.
 Saved order records use their existing lowercase field names.
@@ -291,7 +293,7 @@ An Express session returns 406 to an unqualified state reader instead of a found
 Foundation HTTP state remains unchanged.
 
 Express trip commands require `orderContract: "express-v1"` and a matching project and epoch.
-Plain project and topology responses identify project 4 and its contract.
+Plain project and topology responses identify project version 1 and its contract.
 Existing clients must reject their unsupported version rather than operate an incomplete fleet.
 These endpoint, constructor, and version changes require explicit approval before implementation.
 
@@ -467,7 +469,7 @@ Keep source pins and the mutation table with the resulting qualification evidenc
 ## Browser and offline authoring
 
 Keep the browser file wrapper `format: "podsim", version: 1`.
-Its scenario member identifies project 4 and the explicit contract.
+Its scenario member identifies project version 1 and the explicit contract.
 An authoring roundtrip must retain class, allowlists, service entries, consent, party size, and the contract without rewriting omitted foundation fields.
 Show Express operation as unavailable until the opt-in capability and applicable qualification exist.
 The browser must use the matching native/WASM decoder for packed state and reject unknown capabilities.
@@ -475,7 +477,7 @@ Do not let a cached old worker accept partial topology or lose rider records.
 
 [`web/offline.js`](../web/offline.js) still limits its separate car itinerary contract to parties of eight.
 This proposal does not change car-plan, car-report, energy-report, comparison, or CLI schemas.
-Offline project authoring may preserve Express metadata and explicitly select project 4 after approval.
+Offline project authoring may preserve Express metadata and explicitly select the Express marker after approval.
 Do not automatically upgrade old projects or saves to the opt-in contract.
 Offline native validation must report unsupported physical operation until qualification enables the opt-in profile.
 Parkride and car checkpoint version 1 remain foundation-only and must reject an Express-contract project.

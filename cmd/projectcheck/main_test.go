@@ -63,22 +63,18 @@ func groupProject(t *testing.T) project.Config {
 func TestProjectCompatibility(t *testing.T) {
 	t.Parallel()
 	banked := project.Default()
-	banked.Version = project.BankVersion
 	banked.Network = sim.BankExample()
 	banked.Fleet = []sim.Placement{{ID: "01", StationID: "origin", BerthID: "origin-1"}}
-	current := project.Default()
-	current.Version = project.ServiceVersion
-	compact := project.Clone(current)
+	compact := project.Default()
 	compact.Fleet[0].Class = sim.CompactClass
 	for _, test := range []struct {
 		name   string
 		config project.Config
 	}{
-		{"historical version 1", project.Default()},
-		{"historical banked version 2", banked},
-		{"current version 3", current},
-		{"current compact class", compact},
-		{"current group class", groupProject(t)},
+		{"default project", project.Default()},
+		{"station banks", banked},
+		{"compact class", compact},
+		{"group class", groupProject(t)},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
@@ -150,7 +146,6 @@ func TestNativeValidationCaller(t *testing.T) {
 func TestRawProjectRules(t *testing.T) {
 	t.Parallel()
 	current := project.Default()
-	current.Version = project.ServiceVersion
 	base := string(projectData(t, current))
 	fleetData, err := json.Marshal(current.Fleet)
 	if err != nil {
@@ -165,29 +160,34 @@ func TestRawProjectRules(t *testing.T) {
 		{"duplicate name", add(`"name":"other"`), false},
 		{"duplicate escaped name", add(`"\u006eame":"other"`), false},
 		{"unknown nested member", strings.Replace(base, `"network":{`, `"network":{"unknown":1,`, 1), false},
-		{"unsupported version", strings.Replace(base, `"version":3`, `"version":4`, 1), false},
-		{"missing version", strings.Replace(base, `"version":3,`, "", 1), false},
+		{"refused version 2", strings.Replace(base, `"version":1`, `"version":2`, 1), false},
+		{"refused version 3", strings.Replace(base, `"version":1`, `"version":3`, 1), false},
+		{"refused version 4", strings.Replace(base, `"version":1`, `"version":4`, 1), false},
+		{"refused version 5", strings.Replace(base, `"version":1`, `"version":5`, 1), false},
+		{"unsupported version", strings.Replace(base, `"version":1`, `"version":6`, 1), false},
+		{"missing version", strings.Replace(base, `"version":1,`, "", 1), false},
 		{"null root", "null", false},
 		{"null fleet", strings.Replace(base, `"fleet":`+string(fleetData), `"fleet":null`, 1), false},
 		{"null class", strings.Replace(base, `"ID":"01"`, `"ID":"01","Class":null`, 1), false},
 		{"empty class", strings.Replace(base, `"ID":"01"`, `"ID":"01","Class":""`, 1), false},
 		{"unknown class", strings.Replace(base, `"ID":"01"`, `"ID":"01","Class":"future"`, 1), false},
-		{"old version new class", strings.Replace(strings.Replace(base, `"version":3`, `"version":1`, 1), `"ID":"01"`, `"ID":"01","Class":"compact"`, 1), false},
+		{"refused version new class", strings.Replace(strings.Replace(base, `"version":1`, `"version":3`, 1), `"ID":"01"`, `"ID":"01","Class":"compact"`, 1), false},
+		{"current version new class", strings.Replace(base, `"ID":"01"`, `"ID":"01","Class":"compact"`, 1), true},
 		{"null station classes", strings.Replace(base, `"Name":"Harbor"`, `"Name":"Harbor","VehicleClasses":null`, 1), false},
 		{"null registry", add(`"expressServices":null`), false},
 		{"null buffers", add(`"stationBuffers":null`), false},
 		{"null onboard pickups", add(`"onboardPickups":null`), false},
-		{"historical optional null", strings.Replace(add(`"geo":null`), `"version":3`, `"version":1`, 1), true},
+		{"optional null", add(`"geo":null`), true},
 		{"trailing value", base + " {}", false},
 		{"invalid UTF-8", strings.Replace(base, current.Name, string([]byte{0xff}), 1), false},
-		{"upper version name", strings.Replace(base, `"version":3`, `"VERSION":3`, 1), true},
+		{"upper version name", strings.Replace(base, `"version":1`, `"VERSION":1`, 1), true},
 		{"long s stations name", strings.Replace(base, `"Stations":`, "\"Station\u017f\":", 1), true},
 		{"Cyrillic letter is not case", strings.Replace(base, `"fleet":`, "\"flee\u0442\":", 1), false},
 		{"Kelvin sign network name", strings.Replace(base, `"network":`, "\"networ\u212a\":", 1), true},
-		{"case pair keeps last name", strings.Replace(base, `"version":3`, `"Version":1,"version":3`, 1), true},
-		{"case pair keeps last version", strings.Replace(base, `"version":3`, `"version":3,"Version":6`, 1), false},
-		{"null keeps the version", strings.Replace(base, `"version":3`, `"version":3,"Version":null`, 1), true},
-		{"delimiter is not case", strings.Replace(base, `"version":3`, `"version":3,"ver_sion":3`, 1), false},
+		{"case pair keeps last name", strings.Replace(base, `"version":1`, `"Version":3,"version":1`, 1), true},
+		{"case pair keeps last version", strings.Replace(base, `"version":1`, `"version":1,"Version":6`, 1), false},
+		{"null keeps the version", strings.Replace(base, `"version":1`, `"version":1,"Version":null`, 1), true},
+		{"delimiter is not case", strings.Replace(base, `"version":1`, `"version":1,"ver_sion":1`, 1), false},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()

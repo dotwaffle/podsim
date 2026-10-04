@@ -9,7 +9,6 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/dotwaffle/podsim/internal/project"
 	"github.com/dotwaffle/podsim/internal/sim"
 )
 
@@ -18,7 +17,6 @@ func boardingStreamFixture(t *testing.T) (TopologySnapshot, StreamFrame) {
 	shared, frame := streamFixture(t)
 	t.Cleanup(shared.Close)
 	topology := shared.Topology()
-	topology.ProjectVersion = project.ServiceVersion
 	v := &frame.State.Simulation.Vehicles[0]
 	v.Riders = []sim.Request{{ID: 1, From: topology.Network.Stations[0].ID, To: topology.Network.Stations[1].ID, PartySize: 1, SharingConsent: sim.SharedConsent, Service: sim.OnDemandService}}
 	v.Boardings = []sim.RiderBoarding{{BerthID: topology.Network.Stations[0].Berths[0].ID, MetersAtBoarding: 0}}

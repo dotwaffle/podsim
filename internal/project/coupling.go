@@ -6,13 +6,18 @@ import (
 	"github.com/dotwaffle/podsim/internal/sim"
 )
 
-// CouplingVersion identifies projects with an explicit physical coupling contract.
-const CouplingVersion = 5
+// HasCouplingContract reports whether config carries the physical coupling
+// marker. The marker selects saved state 8 and stream hello 5.
+func HasCouplingContract(config Config) bool {
+	return config.CouplingContract != ""
+}
 
-func validateCouplingVersion(config Config) error {
-	if config.Version != CouplingVersion {
-		if config.CouplingContract != "" || config.CouplingEnabled || config.CouplingSites != nil || config.CouplingCorridors != nil {
-			return errors.New("coupling fields require project version 5")
+// validateCouplingContract permits the coupling fields only with the
+// compact-pair-v1 marker. The marker forbids no other project field.
+func validateCouplingContract(config Config) error {
+	if !HasCouplingContract(config) {
+		if config.CouplingEnabled || config.CouplingSites != nil || config.CouplingCorridors != nil {
+			return errors.New("coupling fields require couplingContract compact-pair-v1")
 		}
 		return nil
 	}
@@ -23,7 +28,7 @@ func validateCouplingVersion(config Config) error {
 }
 
 func validateCouplingGeometry(config Config) error {
-	if config.Version != CouplingVersion {
+	if !HasCouplingContract(config) {
 		return nil
 	}
 	return sim.ValidateCouplingGeometry(sim.CouplingGeometryInput{

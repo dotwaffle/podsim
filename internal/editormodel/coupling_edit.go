@@ -37,16 +37,16 @@ var couplingEditFields = map[string][]string{
 	"removeCorridor":     {"id"},
 }
 
-// editCoupling proposes one change to the sites or corridors of a version 5
-// project. It does not check the geometry. The draft checks show the native
+// editCoupling proposes one change to the sites or corridors of a project
+// with the coupling marker. It does not check the geometry. The draft checks show the native
 // geometry verdict.
 func editCoupling(draft any, raw jsontext.Value) (projectChange, error) {
 	command, err := decodeCouplingEdit(raw)
 	if err != nil {
 		return projectChange{}, err
 	}
-	if number(member(draft, "version")) != project.CouplingVersion {
-		return projectChange{}, errors.New("coupling sites need project version 5, convert the project to trains first")
+	if !couplingMarked(draft) {
+		return projectChange{}, errors.New("coupling sites need couplingContract compact-pair-v1, convert the project to trains first")
 	}
 	sites, corridors := member(draft, "couplingSites"), member(draft, "couplingCorridors")
 	if _, valid := sites.([]any); has(draft, "couplingSites") && !valid {

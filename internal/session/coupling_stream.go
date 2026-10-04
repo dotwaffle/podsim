@@ -6,7 +6,6 @@ import (
 	"math"
 	"slices"
 
-	"github.com/dotwaffle/podsim/internal/project"
 	"github.com/dotwaffle/podsim/internal/sim"
 )
 
@@ -50,9 +49,6 @@ func couplingFrameBinding(topology TopologySnapshot, frame SimulationFrame) erro
 		return errors.New("topology coupling contract does not match state")
 	}
 	if topology.CouplingContract != "" {
-		if topology.ProjectVersion != project.CouplingVersion {
-			return errors.New("coupling state requires project 5")
-		}
 		return nil
 	}
 	if hasCouplingTopology(topology) || frame.CouplingEnabled || frame.CouplingGroups != nil {

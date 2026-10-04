@@ -562,14 +562,13 @@ The draft stays local until you select **Pause and apply**.
   Select **Rail arrivals and departures** to run both plans.
   The demand inspector shows made, missed, unserved, and unresolved connections.
   See [scheduled train connections](docs/rail-connections.md) for bounds and comparison controls.
-- Use **Convert to trains** to change a project of version 1 to 4 to version 5, for coupled Compact pod pairs.
+- Use **Convert to trains** to add `couplingContract` `compact-pair-v1` to a project without coupling fields, for coupled Compact pod pairs.
   The button is available when the checks have no errors.
   The conversion keeps all other settings, turns trains off, and records one undo step.
   The editor does not convert a project in other ways.
-- In a version 5 project, use **Coupled trains** to permit trains with or without passengers.
+- In a project with the coupling marker, use **Coupled trains** to permit trains with or without passengers.
   Off stops new trains and keeps the coupling sites and corridors.
 - Select a guideway to set the pod classes that can use it in **Vehicle classes**.
-  Projects of version 3, 4, and 5 have vehicle classes.
   A guideway with no class list allows Legacy and Compact pods.
 - Use **Coupling sites** and **Coupling corridors** to set where pods couple and separate.
   A site needs a straight guideway that allows only Compact pods.
@@ -821,7 +820,7 @@ Live map settings are part of the scenario and do enable it.
 Applying a valid draft resets the shared simulation and leaves it paused.
 Two drafts do not reset it.
 A draft that is the same as the live scenario changes nothing.
-A version 5 draft that changes only `couplingEnabled` keeps the pods, the trains, and the orders, and changes only the recruitment of new trains.
+A draft with `couplingContract` that changes only `couplingEnabled` keeps the pods, the trains, and the orders, and changes only the recruitment of new trains.
 During the traffic demo, this draft resets the simulation, because the demo fleet has no trains.
 See the `project` action in [the protocol](docs/protocol.md).
 If the apply fails after the editor paused the simulation, the editor resumes it.

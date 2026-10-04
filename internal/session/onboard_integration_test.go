@@ -23,7 +23,7 @@ import (
 
 func onboardConsumerProject() project.Config {
 	config := project.Default()
-	config.Version, config.OnboardPickups, config.SharedRidePartyLimit = project.ServiceVersion, true, 4
+	config.OnboardPickups, config.SharedRidePartyLimit = true, 4
 	config.Fleet = []sim.Placement{{ID: "01", StationID: "harbor", BerthID: "harbor-1"}}
 	config.RailDepartures = []project.RailDeparture{{ID: "authored-transfer", Station: "market", AtSeconds: 600,
 		Passengers: 1, Origins: []project.RailOrigin{{Station: "garden", Weight: 1}}}}

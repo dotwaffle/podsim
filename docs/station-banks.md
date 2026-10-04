@@ -51,21 +51,21 @@ Banked imports, edits, and simulation admission check the full network against t
 
 ## Formats and restore
 
-Projects without `Banks` retain version 1 and their existing behavior.
-Banked projects require version 2.
+Projects use version 1 with or without `Banks`.
+Projects without `Banks` keep their existing behavior.
 An explicit null or empty `Banks` member is invalid.
-Version 1 rejects any explicit `Banks` member.
+The decoder refuses project versions 2 through 5 and does not migrate them.
 Both project readers and nested transport decoders bound banks and berth membership before typed allocation.
 
 Banked sessions write saved-state version 6, as other sessions without an order or coupling contract do.
-Version 6 accepts project versions 1, 2, and 3 and supports buffer fields and fixed entry certificates.
+Version 6 stores a version 1 project and supports buffer fields and fixed entry certificates.
 No saved pod bank field is added.
 Restore infers the bank from retained gates, local lanes, and berth assignments.
 A retained route that disagrees with its bank rejects the file before either restore tier.
 Existing missing-route and route-budget demotions remain.
 Physical restore retains position tolerances, resets speed, and rebuilds ordinary reservations.
 
-Sessions send stream hello version 3, 4, or 5, as the project selects.
+Sessions send stream hello version 3, 4, or 5, as the contract markers of the project select.
 Clients reject hello versions 1 and 2.
 Geometry changes start a new stream chain and send the full network.
 

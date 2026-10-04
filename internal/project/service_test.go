@@ -10,12 +10,11 @@ import (
 	"github.com/dotwaffle/podsim/internal/sim"
 )
 
-func TestServiceProjectVersionPermitsIndependentBanks(t *testing.T) {
+func TestServiceProjectPermitsIndependentBanks(t *testing.T) {
 	banked := Default()
 	banked.Network = sim.BankExample()
 	banked.Fleet = []sim.Placement{{ID: "01", StationID: "origin", BerthID: "origin-1"}}
 	for _, config := range []Config{Default(), banked} {
-		config.Version = ServiceVersion
 		if err := Validate(config); err != nil {
 			t.Fatal(err)
 		}
@@ -28,7 +27,7 @@ func TestServiceProjectVersionPermitsIndependentBanks(t *testing.T) {
 			t.Fatal(err)
 		}
 		if !reflect.DeepEqual(config, got) {
-			t.Fatal("version 3 changed the bank or project branches")
+			t.Fatal("round trip changed the bank or project branches")
 		}
 	}
 }
@@ -72,8 +71,8 @@ func TestProjectServiceRawRegistryBound(t *testing.T) {
 	}
 }
 
-func TestOldProjectRejectsServicePresenceUnchanged(t *testing.T) {
-	for _, version := range []int{1, BankVersion} {
+func TestProjectServicePresenceFailsAtomically(t *testing.T) {
+	for _, version := range []int{CurrentVersion, 2, 3} {
 		for _, member := range []string{
 			`"fleet":[{"Class":"compact"}]`, `"fleet":[{"Class":null}]`,
 			`"expressServices":[]`, `"expressServices":null`,
@@ -83,10 +82,12 @@ func TestOldProjectRejectsServicePresenceUnchanged(t *testing.T) {
 			got := Default()
 			want := Clone(got)
 			raw := fmt.Sprintf(`{"version":%d,"name":"Changed",%s}`, version, member)
-			if err := json.Unmarshal([]byte(raw), &got); err == nil {
-				t.Fatalf("old version accepted %s", raw)
+			err := json.Unmarshal([]byte(raw), &got)
+			refused := version != CurrentVersion || strings.Contains(member, "null")
+			if (err != nil) != refused {
+				t.Fatalf("decode %s: %v", raw, err)
 			}
-			if !reflect.DeepEqual(got, want) {
+			if refused && !reflect.DeepEqual(got, want) {
 				t.Fatal("failed project decode changed previous storage")
 			}
 		}

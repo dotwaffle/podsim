@@ -149,7 +149,7 @@ func TestExpressWidestSaveAdapters(t *testing.T) {
 	const wide = 0.0000010000000000000002
 	base := widestSavedBase(t)
 	base.Version, base.OrderContract, base.TextEncoding = expressStateVersion, sim.ExpressOrderContract, ExpressTextEncoding
-	base.Project.Version, base.Project.OrderContract = project.ExpressVersion, sim.ExpressOrderContract
+	base.Project.OrderContract = sim.ExpressOrderContract
 	base.Simulation.OrderContract = sim.ExpressOrderContract
 	classes, err := sim.NewClassSet("express", "compact", "group")
 	if err != nil {
@@ -322,7 +322,7 @@ func widestTopology(t *testing.T, escapes int) TopologySnapshot {
 	if err != nil {
 		t.Fatal(err)
 	}
-	topology := TopologySnapshot{ProjectVersion: 4, OrderContract: sim.ExpressOrderContract, ServerStart: "server", Epoch: "epoch", ProjectRevision: math.MaxUint64}
+	topology := TopologySnapshot{ProjectVersion: project.CurrentVersion, OrderContract: sim.ExpressOrderContract, ServerStart: "server", Epoch: "epoch", ProjectRevision: math.MaxUint64}
 	topology.Network.Nodes = make([]sim.Node, 5000)
 	for i := range topology.Network.Nodes {
 		topology.Network.Nodes[i] = sim.Node{ID: id("n", i), Position: sim.Point{X: float64(i) * 40, Y: 0.0000010000000000000002}}
@@ -391,8 +391,13 @@ func TestExpressWidestTopologyHTTPAdapters(t *testing.T) {
 	if len(large) <= project.MaxFileBytes+4096 || json.Unmarshal(large, &decoded) == nil {
 		t.Fatal("topology cap failed")
 	}
-	if err = preflightExpressTopology(project.Config{Version: 4, OrderContract: sim.ExpressOrderContract, Network: oversized.Network, ExpressServices: oversized.ExpressServices}, "server", "epoch", math.MaxUint64); err == nil {
+	if err = preflightExpressTopology(project.Config{Version: project.CurrentVersion, OrderContract: sim.ExpressOrderContract, Network: oversized.Network, ExpressServices: oversized.ExpressServices}, "server", "epoch", math.MaxUint64); err == nil {
 		t.Fatal("producer topology preflight accepted overflow")
+	}
+	// The coupling marker also selects the preflight. The check measures
+	// bytes only, so the same oversized members serve here.
+	if err = preflightExpressTopology(project.Config{Version: project.CurrentVersion, CouplingContract: sim.CompactPairV1CouplingContract, Network: oversized.Network, ExpressServices: oversized.ExpressServices}, "server", "epoch", math.MaxUint64); err == nil {
+		t.Fatal("coupling topology preflight accepted overflow")
 	}
 	t.Logf("asset topology raw=%d cap=%d next-step-overflow=%d", len(raw), project.MaxFileBytes+4096, len(large))
 	exportExpressAsset(t, "topology.json", raw)

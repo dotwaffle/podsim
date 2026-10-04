@@ -15,7 +15,6 @@ import (
 
 func bankMetadataConfig() Config {
 	config := Default()
-	config.Version = BankVersion
 	station := &config.Network.Stations[0]
 	bank := sim.StationBank{ID: "a", Entry: station.Entry, Exit: station.Exit}
 	for _, berth := range station.Berths {
@@ -47,7 +46,7 @@ func TestBankProjectJSONVersions(t *testing.T) {
 				}
 			}
 			for _, banks := range []string{`null`, `[]`, `[{}]`, `[{"ID":"a","Entry":"in","Exit":"out","BerthIDs":["b"]}]`} {
-				for _, version := range []int{1, 3} {
+				for _, version := range []int{1, 2, 3} {
 					raw := fmt.Sprintf(`{"version":%d,"network":{"Stations":[{"Banks":%s}]}}`, version, banks)
 					var got Config
 					if err := decoder.decode([]byte(raw), &got); err == nil {
@@ -57,12 +56,12 @@ func TestBankProjectJSONVersions(t *testing.T) {
 			}
 			for _, raw := range []string{
 				`{"version":2,"network":{"Stations":[]}}`,
-				`{"version":2,"network":{"Stations":[{"Banks":null}]}}`,
-				`{"version":2,"network":{"Stations":[{"Banks":[]}]}}`,
-				`{"version":2,"network":{"Stations":[{"Banks":"invalid"}]}}`,
+				`{"version":1,"network":{"Stations":[{"Banks":null}]}}`,
+				`{"version":1,"network":{"Stations":[{"Banks":[]}]}}`,
+				`{"version":1,"network":{"Stations":[{"Banks":"invalid"}]}}`,
 				`{"version":1,"extra":1}`,
 				`{"version":1,"network":{"Stations":[{"extra":1}]}}`,
-				`{"version":2,"network":{"Stations":[{"Banks":[{"extra":1}]}]}}`,
+				`{"version":1,"network":{"Stations":[{"Banks":[{"extra":1}]}]}}`,
 			} {
 				var got Config
 				if err := decoder.decode([]byte(raw), &got); err == nil {
@@ -88,8 +87,8 @@ func TestBankProjectPrescanBounds(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
 			for _, member := range []string{"Banks", "banks"} {
-				raw := fmt.Sprintf(`{"version":2,"network":{"Stations":[{%q:%s}]}}`, member, test.value)
-				_, err := scanProjectBanks([]byte(raw))
+				raw := fmt.Sprintf(`{"version":1,"network":{"Stations":[{%q:%s}]}}`, member, test.value)
+				err := scanProjectBanks([]byte(raw))
 				if (err != nil) != test.bad {
 					t.Fatalf("scan error %v", err)
 				}
@@ -114,8 +113,7 @@ func TestBankMetadataValidation(t *testing.T) {
 		name   string
 		change func(*Config)
 	}{
-		{"version 1", func(c *Config) { c.Version = 1 }},
-		{"no banks", func(c *Config) { c.Network.Stations[0].Banks = nil }},
+		{"version 2", func(c *Config) { c.Version = 2 }},
 		{"empty banks", func(c *Config) { c.Network.Stations[0].Banks = []sim.StationBank{} }},
 		{"nine banks", func(c *Config) { c.Network.Stations[0].Banks = make([]sim.StationBank, 9) }},
 		{"long bank ID", func(c *Config) { c.Network.Stations[0].Banks[0].ID = strings.Repeat("x", 65) }},
@@ -153,6 +151,11 @@ func TestBankMetadataValidation(t *testing.T) {
 			raw, err := json.Marshal(config)
 			if err != nil {
 				t.Fatal(err)
+			}
+			// The encoder omits an empty Banks array, so the decoded
+			// project has no banks and is valid.
+			if test.name == "empty banks" {
+				return
 			}
 			var decoded Config
 			if err := json.Unmarshal(raw, &decoded); err == nil {
@@ -213,9 +216,9 @@ func TestBankProjectDecodeFailureKeepsStorage(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	raw := []byte(`{"network":{"Stations":[{"ID":"changed","Banks":[{"ID":"changed","BerthIDs":["changed"]}]}]},"version":1}`)
+	raw := []byte(`{"network":{"Stations":[{"ID":"changed","Banks":[{"ID":"changed","BerthIDs":["changed"]}]}]},"version":2}`)
 	if decodeErr := json.Unmarshal(raw, &config); decodeErr == nil {
-		t.Fatal("accepted bank metadata in project version 1")
+		t.Fatal("accepted bank metadata in project version 2")
 	}
 	after, err := json.Marshal(config)
 	if err != nil || !bytes.Equal(before, after) {
@@ -224,7 +227,7 @@ func TestBankProjectDecodeFailureKeepsStorage(t *testing.T) {
 	if err := json.Unmarshal([]byte(`{"demand":{"perMinute":6}}`), &config); err != nil {
 		t.Fatal(err)
 	}
-	if config.Version != BankVersion || config.Demand.PerMinute != 6 || config.Network.Stations[0].Banks[0].ID != "a" {
+	if config.Version != CurrentVersion || config.Demand.PerMinute != 6 || config.Network.Stations[0].Banks[0].ID != "a" {
 		t.Fatal("partial update lost project metadata")
 	}
 }

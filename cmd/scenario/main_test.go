@@ -58,7 +58,7 @@ func TestRunWritesIndependentBankFixture(t *testing.T) {
 	if err := json.Unmarshal(output.Bytes(), &config); err != nil {
 		t.Fatal(err)
 	}
-	if config.Version != project.BankVersion || len(config.Network.Stations[1].Banks) != 2 {
+	if config.Version != project.CurrentVersion || len(config.Network.Stations[1].Banks) != 2 {
 		t.Fatal("fixture lost independent banks")
 	}
 	if err := run([]string{"-preset", "independent-banks", "-station-berths", "4"}, &bytes.Buffer{}, io.Discard); err == nil {

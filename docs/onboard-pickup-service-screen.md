@@ -66,6 +66,6 @@ Saved records use source-bound berth-index tuples.
 The equivalent widest direct-ID save needs 84,722,402 bytes and exceeds the cap.
 The 2,600 saved waiting records, eight stored riders, and 300-pod bounds remain unchanged.
 
-The project-3 policy defaults to false and requires sharing above one party in drop-off mode.
+The project policy defaults to false and requires sharing above one party in drop-off mode.
 Comparison accepts `-onboard-pickups off,on` as an independent dimension with explicit policy provenance.
 A policy-off restore retains accepted riders and boarding time while refusing new occupied pickups.
