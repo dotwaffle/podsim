@@ -90,9 +90,9 @@ They do not claim that every combined maximum is physically reachable.
 
 | Encoding fixture | Raw bytes | Gzip bytes | Cap in bytes |
 | --- | ---: | ---: | ---: |
-| Historical save | 83,270,696 | 802,330 | 83,886,080 |
-| Modern save | 83,240,396 | 806,632 | 83,886,080 |
-| Mixed save | 83,255,546 | 805,668 | 83,886,080 |
+| Historical save | 83,270,697 | 835,937 | 83,886,080 |
+| Modern save | 83,240,397 | 840,550 | 83,886,080 |
+| Mixed save | 83,255,547 | 839,920 | 83,886,080 |
 | Full stream | 62,095,518 | Not applicable | 67,108,864 |
 | Replacement delta | 62,228,597 | Not applicable | 67,108,864 |
 

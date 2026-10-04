@@ -61,7 +61,7 @@ func TestCheckpointAndRewindCounters(t *testing.T) {
 	t.Parallel()
 	s := newTestSession(t)
 	client := newTestClient(s, "test")
-	client.mustApply(t, Command{Action: "speed", Speed: 4})
+	client.mustApply(t, Command{Action: "speed", Speed: 5})
 	saved := []Checkpoint{{ID: 1, Tick: 120}}
 	// Each step runs in order on the same session.
 	steps := []struct {
@@ -74,8 +74,8 @@ func TestCheckpointAndRewindCounters(t *testing.T) {
 		paused          bool
 		tick            int64
 	}{
-		{name: "checkpoint", advance: 30, command: Command{Action: "checkpoint"}, checkpoint: 1, tick: 120},
-		{name: "rewind", advance: 30, command: Command{Action: "rewind", Checkpoint: 1}, generationDelta: 1, paused: true, tick: 120},
+		{name: "checkpoint", advance: 24, command: Command{Action: "checkpoint"}, checkpoint: 1, tick: 120},
+		{name: "rewind", advance: 24, command: Command{Action: "rewind", Checkpoint: 1}, generationDelta: 1, paused: true, tick: 120},
 	}
 	for _, step := range steps {
 		advanceTicks(s, step.advance)
@@ -94,8 +94,8 @@ func TestCheckpointAndRewindCounters(t *testing.T) {
 		if reply.Checkpoint != step.checkpoint {
 			t.Errorf("%s: reply checkpoint %d, want %d", step.name, reply.Checkpoint, step.checkpoint)
 		}
-		if after.Simulation.Paused != step.paused || after.Speed != 4 || after.Simulation.Tick != step.tick {
-			t.Errorf("%s: paused %t, speed %d, tick %d; want %t, 4, %d",
+		if after.Simulation.Paused != step.paused || after.Speed != 5 || after.Simulation.Tick != step.tick {
+			t.Errorf("%s: paused %t, speed %d, tick %d; want %t, 5, %d",
 				step.name, after.Simulation.Paused, after.Speed, after.Simulation.Tick, step.paused, step.tick)
 		}
 		if !reflect.DeepEqual(after.Checkpoints, saved) {

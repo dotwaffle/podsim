@@ -58,12 +58,12 @@ These independent encoding maxima do not describe reachable physical placements.
 
 | Representation | Maximum saved JSON | Maximum full frame | Maximum replacement delta |
 | --- | ---: | ---: | ---: |
-| Historical | 83,698,501 bytes | 61,192,276 bytes | 61,312,774 bytes |
-| Modern recorded | 83,612,701 bytes | 62,226,376 bytes | 62,349,874 bytes |
-| Mixed | 83,655,601 bytes | 61,709,326 bytes | 61,831,324 bytes |
+| Historical | 83,698,502 bytes | 61,192,276 bytes | 61,312,774 bytes |
+| Modern recorded | 83,612,702 bytes | 62,226,376 bytes | 62,349,874 bytes |
+| Mixed | 83,655,602 bytes | 61,709,326 bytes | 61,831,324 bytes |
 
 Saved records use source-bound berth-index tuples.
-The equivalent widest direct-ID save needs 84,722,401 bytes and exceeds the cap.
+The equivalent widest direct-ID save needs 84,722,402 bytes and exceeds the cap.
 The 2,600 saved waiting records, eight stored riders, and 300-pod bounds remain unchanged.
 
 The project-3 policy defaults to false and requires sharing above one party in drop-off mode.

@@ -253,7 +253,7 @@ var (
 	invalidProject = func(file *stateFile) { file.Project.Name = "" }
 	bothTiersFail  = func(file *stateFile) { file.Simulation.Completed = file.Simulation.RequestID + 1 }
 	newerVersion   = func(file *stateFile) { file.Version = couplingStateVersion + 1 }
-	pausedAtSpeed4 = func(file *stateFile) { file.Simulation.Paused, file.Speed = true, 4 }
+	pausedAtSpeed5 = func(file *stateFile) { file.Simulation.Paused, file.Speed = true, 5 }
 	// sharedBerth puts the first two pods at one berth. The physical tier
 	// then fails. The active riders of the two pods go to the queue, so the
 	// state still holds each order.
@@ -550,6 +550,9 @@ func TestNewFromStoreRejects(t *testing.T) {
 			invalidSpeed(file)
 		}), reason: reasonRestoreLoop},
 		{name: "speed 3", data: run.edited(t, invalidSpeed), reason: reasonInvalidState},
+		// The server no longer accepts speeds 4 and 8.
+		{name: "speed 4", data: run.edited(t, func(file *stateFile) { file.Speed = 4 }), reason: reasonInvalidState, errText: "speed 4 is not 1, 2, 5, 15 or 60"},
+		{name: "speed 8", data: run.edited(t, func(file *stateFile) { file.Speed = 8 }), reason: reasonInvalidState, errText: "speed 8 is not 1, 2, 5, 15 or 60"},
 		{name: "budget 3600", data: run.edited(t, invalidBudget), reason: reasonInvalidState},
 		{name: "both tiers fail", data: run.edited(t, bothTiersFail), reason: reasonInvalidState},
 		{
@@ -776,7 +779,7 @@ func TestNewFromStoreRestoreAttempts(t *testing.T) {
 		backup   bool
 	}{
 		{"no restore before", run.data, RestoreInfo{Tier: "physical"}, 1, false},
-		{"paused at speed 4", run.edited(t, pausedAtSpeed4), RestoreInfo{Tier: "physical"}, 1, false},
+		{"paused at speed 5", run.edited(t, pausedAtSpeed5), RestoreInfo{Tier: "physical"}, 1, false},
 		{"one restore before", run.edited(t, logicalOnly), RestoreInfo{Tier: "logical", Reason: reasonRestoreLoop, Requeued: 1}, 2, true},
 		{"physical tier fails", run.edited(t, sharedBerth), RestoreInfo{Tier: "logical", Reason: reasonPhysicalFailed}, 1, true},
 		{"demoted pod", run.edited(t, demote), RestoreInfo{Tier: "physical", Demoted: 1}, 1, true},
@@ -2645,8 +2648,8 @@ func TestLondonStateSave(t *testing.T) {
 			store, handler := &fakeStore{}, &recordHandler{}
 			s := startFromStore(t, StoreInput{Store: store, Project: &config, Options: []Option{WithLogger(slog.New(handler))}})
 			client := newTestClient(s, "london")
-			client.mustApply(t, Command{Action: "speed", Speed: 8})
-			advanceTicks(s, 60*sim.TicksPerSecond/8)
+			client.mustApply(t, Command{Action: "speed", Speed: 15})
+			advanceTicks(s, 60*sim.TicksPerSecond/15)
 			handler.reset()
 			if err := s.SaveState(t.Context(), SavePeriodic); err != nil {
 				t.Fatal(err)
@@ -2681,10 +2684,10 @@ func TestLondonPlatoonRestore(t *testing.T) {
 	store := &fakeStore{}
 	s := startFromStore(t, StoreInput{Store: store, Project: &config})
 	client := newTestClient(s, "london")
-	client.mustApply(t, Command{Action: "speed", Speed: 8})
+	client.mustApply(t, Command{Action: "speed", Speed: 15})
 	// Links form after about 70 simulated seconds.
 	for advances := 0; s.simulation.CoupledPods() == 0; advances++ {
-		if advances == 3000 {
+		if advances == 1600 {
 			t.Fatal("no platoon formed in 400 simulated seconds")
 		}
 		s.advance()

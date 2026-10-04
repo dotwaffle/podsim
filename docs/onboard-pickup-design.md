@@ -138,7 +138,7 @@ A Go JSON-v2 overlay measured the widest eight-tuple representation against the 
 It removes `journeyOrigin` and the mutually exclusive closed-cohort marker of that fixture.
 Saved state no longer has that marker.
 The hypothetical pod is 169 bytes smaller than the historical maximum pod.
-The final compact typed fixture measures 83,698,501 bytes, leaving 187,579 bytes.
+The final compact typed fixture measures 83,698,502 bytes, leaving 187,578 bytes.
 The tuple estimate does not replace a combined typed fixture.
 The existing cap is 83,886,080 bytes.
 These independent maxima bound encoding size.

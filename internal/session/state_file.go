@@ -676,7 +676,7 @@ func (file *stateFile) validate() error {
 	case file.RestoreAttempts < 0:
 		return fmt.Errorf("restore attempts %d is negative", file.RestoreAttempts)
 	case !validSpeed(file.Speed):
-		return fmt.Errorf("speed %d is not 1, 2, 4, 5, 8, 15 or 60", file.Speed)
+		return fmt.Errorf("speed %d is not 1, 2, 5, 15 or 60", file.Speed)
 	}
 	if err := validateSequences(file.Sequences); err != nil {
 		return err

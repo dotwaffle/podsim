@@ -339,7 +339,7 @@ func TestServerStart(t *testing.T) {
 // is not coupled has neither. The frame gives the members back to the state.
 func TestVehicleFramePlatoonJSON(t *testing.T) {
 	t.Parallel()
-	state := State{Simulation: sim.Snapshot{Vehicles: []sim.Vehicle{
+	state := State{Speed: 1, Simulation: sim.Snapshot{Vehicles: []sim.Vehicle{
 		{Pod: sim.Pod{ID: "01"}, PlatoonID: "01", PlatoonIndex: 1},
 		{Pod: sim.Pod{ID: "02"}, PlatoonID: "01", PlatoonIndex: 2},
 		{Pod: sim.Pod{ID: "03"}},

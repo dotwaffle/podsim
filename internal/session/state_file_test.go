@@ -324,7 +324,7 @@ func TestDecodeStateFileAcceptsLimits(t *testing.T) {
 	}{
 		{"epoch of 100 bytes", func(file *stateFile) { file.Epoch = strings.Repeat("E", 100) }},
 		{"no build", func(file *stateFile) { file.Build = "" }},
-		{"speed 8", func(file *stateFile) { file.Speed = 8 }},
+		{"speed 60", func(file *stateFile) { file.Speed = 60 }},
 		{"demand error of 1 KiB", func(file *stateFile) { file.Demand.State.Error = strings.Repeat("x", 1<<10) }},
 		{"budget 0", func(file *stateFile) { file.Demand.Budget = 0 }},
 		{"budget 3599", func(file *stateFile) { file.Demand.Budget = 3599 }},
@@ -697,7 +697,7 @@ func TestStateFileWorstCaseSize(t *testing.T) {
 		SavedAt: time.Date(2026, time.September, 23, 9, 0, 0, 123456789, time.FixedZone("", -12*60*60)),
 		Build:   testBuildID, Epoch: strings.Repeat("\x01", maxEpochBytes),
 		Revision: math.MaxUint64 - 1, ProjectRevision: math.MaxUint64 - 1, Generation: math.MaxUint64 - 1,
-		LastCheckpoint: math.MaxUint64, Speed: 8, RestoreAttempts: math.MaxInt, Sequences: sequences,
+		LastCheckpoint: math.MaxUint64, Speed: 60, RestoreAttempts: math.MaxInt, Sequences: sequences,
 		Demand: savedDemand{
 			State:  DemandState{Config: demand, Generated: math.MaxInt, Skipped: math.MaxInt, Error: text, Connections: rail.Counts{Made: 10000, Missed: 10000, Unserved: 10000, Unresolved: 10000}},
 			Random: random, Budget: demandBudgetLimit - 1,

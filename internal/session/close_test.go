@@ -85,7 +85,7 @@ func TestCloseFreezesConcurrentClockAndCommands(t *testing.T) {
 			}
 		}
 	})
-	speeds := []int{1, 2, 4, 8}
+	speeds := []int{1, 2, 5, 15}
 	for i := range clients {
 		workers.Go(func() {
 			markStarted, markRejected := sync.OnceFunc(started.Done), sync.OnceFunc(rejected.Done)

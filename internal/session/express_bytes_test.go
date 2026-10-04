@@ -111,7 +111,7 @@ func widestSavedBase(t *testing.T) stateFile {
 		SavedAt: time.Date(2026, time.September, 23, 9, 0, 0, 123456789, time.FixedZone("", -12*60*60)),
 		Build:   testBuildID, Epoch: strings.Repeat("\x01", maxEpochBytes),
 		Revision: math.MaxUint64 - 1, ProjectRevision: math.MaxUint64 - 1, Generation: math.MaxUint64 - 1,
-		LastCheckpoint: math.MaxUint64, Speed: 8, RestoreAttempts: math.MaxInt, Sequences: sequences,
+		LastCheckpoint: math.MaxUint64, Speed: 60, RestoreAttempts: math.MaxInt, Sequences: sequences,
 		Demand: savedDemand{
 			State:  DemandState{Config: demand, Generated: math.MaxInt, Skipped: math.MaxInt, Error: text, Connections: rail.Counts{Made: 10000, Missed: 10000, Unserved: 10000, Unresolved: 10000}},
 			Random: random, Budget: demandBudgetLimit - 1,
@@ -435,6 +435,8 @@ func TestExpressWidestTopologyHTTPAdapters(t *testing.T) {
 	}
 	exportExpressAsset(t, "reference-full.json", fullRaw)
 	t.Logf("asset reference-full raw=%d", len(fullRaw))
+	// HTTP state conversion rejects a speed that is not a playback choice.
+	frame.State.Speed = 60
 	started := time.Now()
 	httpRaw, err := EncodeExpressStateJSON(topology, frame)
 	if err != nil {

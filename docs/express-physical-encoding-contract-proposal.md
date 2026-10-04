@@ -310,12 +310,13 @@ Its maximum order includes combinations that semantic admission rejects, so it o
 
 | Existing Group fixture | Measured raw bytes |
 | --- | ---: |
-| Historical save | 83,270,696 |
+| Historical save | 83,270,697 |
 | Full stream | 62,095,518 |
 | Replacement delta | 62,228,597 |
 
 The bounds below use the earlier baseline of 83,270,696, 62,173,518, and 62,306,597 bytes.
 The earlier stream baseline included legacy order markers on its 2,600 pending requests.
+The save fixture now stores playback speed 60, one byte wider than 8.
 
 | Record contribution | Measured bytes |
 | --- | ---: |

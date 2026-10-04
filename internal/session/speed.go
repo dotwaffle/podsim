@@ -15,8 +15,7 @@ const (
 	wakeBudget   = 20 * time.Millisecond
 )
 
-// NextSpeed cycles the visible playback choices. Legacy speeds move to the
-// next higher choice. Commands and saved sessions still accept 4x and 8x.
+// NextSpeed cycles the playback choices.
 func NextSpeed(speed int) int {
 	for _, next := range [...]int{1, 2, 5, 15, 60} {
 		if next > speed {
@@ -37,7 +36,7 @@ func lowerSpeed(speed int) int {
 
 func validSpeed(speed int) bool {
 	switch speed {
-	case 1, 2, 4, 5, 8, 15, 60:
+	case 1, 2, 5, 15, 60:
 		return true
 	}
 	return false

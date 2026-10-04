@@ -57,7 +57,7 @@ func remoteCouplingFrame(t *testing.T, order sim.OrderContract) (session.Topolog
 	if err != nil {
 		t.Fatal(err)
 	}
-	frame := session.StreamFrame{State: session.StateFrame{Epoch: "occupied", ServerStart: "coupling-source", Revision: 1, ProjectRevision: 1}, Routes: routes}
+	frame := session.StreamFrame{State: session.StateFrame{Epoch: "occupied", ServerStart: "coupling-source", Revision: 1, ProjectRevision: 1, Speed: 1}, Routes: routes}
 	frame.State.Simulation = session.SimulationFrame{CouplingContract: snapshot.CouplingContract, CouplingEnabled: snapshot.CouplingEnabled,
 		CouplingGroups: snapshot.CouplingGroups, OrderContract: snapshot.OrderContract, Tick: snapshot.Tick, Paused: snapshot.Paused, Berths: snapshot.Berths,
 		Submitted: snapshot.Submitted, Completed: snapshot.Completed, SharedRidePartyLimit: snapshot.SharedRidePartyLimit}

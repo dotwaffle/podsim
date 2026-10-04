@@ -2,7 +2,9 @@ package session
 
 import (
 	"context"
+	"fmt"
 	"reflect"
+	"strings"
 	"testing"
 	"time"
 
@@ -11,7 +13,7 @@ import (
 
 func TestPlaybackChoices(t *testing.T) {
 	t.Parallel()
-	for _, tc := range []struct{ speed, next, lower int }{{1, 2, 1}, {2, 5, 1}, {4, 5, 2}, {5, 15, 2}, {8, 15, 5}, {15, 60, 5}, {60, 1, 15}} {
+	for _, tc := range []struct{ speed, next, lower int }{{1, 2, 1}, {2, 5, 1}, {5, 15, 2}, {15, 60, 5}, {60, 1, 15}} {
 		if !validSpeed(tc.speed) || NextSpeed(tc.speed) != tc.next || lowerSpeed(tc.speed) != tc.lower {
 			t.Errorf("invalid choices for %d", tc.speed)
 		}
@@ -25,9 +27,18 @@ func TestPlaybackChoices(t *testing.T) {
 			t.Fatal("command did not set speed")
 		}
 	}
-	for _, speed := range []int{-1, 0, 3, 16, 61} {
+	for _, speed := range []int{-1, 0, 3, 4, 8, 16, 61} {
 		if validSpeed(speed) {
 			t.Errorf("accepted %d", speed)
+		}
+	}
+	for _, speed := range []int{4, 8} {
+		s := newTestSession(t)
+		c := commandFor(s, "speed")
+		c.Speed = speed
+		want := fmt.Sprintf("speed %d is not supported; use 1, 2, 5, 15, or 60", speed)
+		if reply := s.Apply(c); reply.Error != want || s.State().Speed != 1 {
+			t.Errorf("speed %d: reply %q, speed %d", speed, reply.Error, s.State().Speed)
 		}
 	}
 }
@@ -200,7 +211,7 @@ func TestAutomaticSpeedReduction(t *testing.T) {
 
 func TestSavedPlaybackSpeeds(t *testing.T) {
 	t.Parallel()
-	for _, speed := range []int{1, 2, 4, 5, 8, 15, 60} {
+	for _, speed := range []int{1, 2, 5, 15, 60} {
 		file := newTestStateFile(t)
 		file.Speed = speed
 		got, err := decodeCheckedState(encodeTestState(t, file))
@@ -209,6 +220,53 @@ func TestSavedPlaybackSpeeds(t *testing.T) {
 		}
 		if got.Speed != speed {
 			t.Fatalf("speed %d restored as %d", speed, got.Speed)
+		}
+	}
+	for _, speed := range []int{4, 8} {
+		file := newTestStateFile(t)
+		file.Speed = speed
+		_, err := decodeCheckedState(encodeTestState(t, file))
+		if want := fmt.Sprintf("speed %d is not 1, 2, 5, 15 or 60", speed); err == nil || !strings.Contains(err.Error(), want) {
+			t.Fatalf("speed %d restored: %v", speed, err)
+		}
+	}
+}
+
+// TestStateFramesRejectUnsupportedSpeed checks that a client rejects a
+// playback speed that the server cannot select, in an HTTP state frame, a
+// full stream frame, and a controls delta.
+func TestStateFramesRejectUnsupportedSpeed(t *testing.T) {
+	t.Parallel()
+	shared, frame := streamFixture(t)
+	topology := shared.Topology()
+	assembler, err := NewStreamAssemblerVersion(topology, 3)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err = assembler.State(frame); err != nil {
+		t.Fatal("control", err)
+	}
+	for _, speed := range []int{0, 4, 8, 61} {
+		want := fmt.Sprintf("state frame speed %d is not 1, 2, 5, 15 or 60", speed)
+		next := frame
+		next.State.Revision++
+		next.State.Speed = speed
+		if _, err := FrameState(topology, next.State); err == nil || err.Error() != want {
+			t.Errorf("HTTP frame at speed %d: %v", speed, err)
+		}
+		if _, err := assembler.State(next); err == nil || !strings.Contains(err.Error(), want) {
+			t.Errorf("full frame at speed %d: %v", speed, err)
+		}
+		delta, err := makeDelta(frame, next)
+		if err != nil {
+			t.Fatal(err)
+		}
+		applied, err := ApplyStream(frame, "speed", 1, StreamEnvelope{Kind: "delta", Stream: "speed", Sequence: 2, Base: 1, Source: sourceOf(next), Delta: &delta})
+		if err != nil || applied.State.Speed != speed {
+			t.Fatalf("controls delta at speed %d: %v", speed, err)
+		}
+		if _, err := assembler.State(applied); err == nil || !strings.Contains(err.Error(), want) {
+			t.Errorf("delta at speed %d: %v", speed, err)
 		}
 	}
 }

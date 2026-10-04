@@ -97,7 +97,7 @@ func TestMotionDiscontinuitiesSnap(t *testing.T) {
 			case "epoch":
 				b.Epoch = "two"
 			case "speed":
-				b.Speed = 8
+				b.Speed = 5
 			case "gap":
 				at = start.Add(time.Second)
 			case "demo":

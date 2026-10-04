@@ -746,7 +746,7 @@ func (s *Session) apply(command Command) (outcome, error) {
 		s.simulation.SetPaused(command.Paused)
 	case "speed":
 		if !validSpeed(command.Speed) {
-			return outcome{}, errors.New("speed must be 1, 2, 5, 15, or 60 (legacy 4 and 8 are also accepted)")
+			return outcome{}, fmt.Errorf("speed %d is not supported; use 1, 2, 5, 15, or 60", command.Speed)
 		}
 		s.speed = command.Speed
 	case "reset":

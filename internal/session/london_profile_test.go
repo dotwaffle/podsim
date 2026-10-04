@@ -76,8 +76,8 @@ func TestLondonRewindReplaysExactly(t *testing.T) {
 		t.Fatal(err)
 	}
 	client := newTestClient(shared, "test")
-	client.mustApply(t, Command{Action: "speed", Speed: 8})
-	advanceTicks(shared, londonRewindWarmupSeconds*sim.TicksPerSecond/8)
+	client.mustApply(t, Command{Action: "speed", Speed: 15})
+	advanceTicks(shared, londonRewindWarmupSeconds*sim.TicksPerSecond/15)
 	result := checkReplays(t, replayCheck{client: client, seconds: 60})
 	start, end := result.start.state, result.end.state
 	if len(result.start.demand.profileFlows) == 0 || end.Demand.Generated <= start.Demand.Generated {
