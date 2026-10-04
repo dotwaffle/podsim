@@ -87,6 +87,10 @@ func TestStreamWriteDeadline(t *testing.T) {
 }
 
 func TestStreamSlowWriteBudget(t *testing.T) {
+	type writeResult struct {
+		err      error
+		finished time.Time
+	}
 	t.Parallel()
 	for _, read := range []bool{true, false} {
 		name := "stalled"
@@ -97,12 +101,12 @@ func TestStreamSlowWriteBudget(t *testing.T) {
 		}
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
-			result := make(chan error, 1)
+			result := make(chan writeResult, 1)
 			entered := make(chan time.Time, 1)
 			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				conn, err := websocket.Accept(w, r, &websocket.AcceptOptions{CompressionMode: websocket.CompressionDisabled})
 				if err != nil {
-					result <- err
+					result <- writeResult{err: err, finished: time.Now()}
 					return
 				}
 				defer func() { _ = conn.CloseNow() }()
@@ -110,7 +114,8 @@ func TestStreamSlowWriteBudget(t *testing.T) {
 					entered <- time.Now()
 					return conn.Write(ctx, kind, data)
 				})
-				result <- streamWriteWithin(r.Context(), writer, websocket.MessageBinary, make([]byte, MaxStreamMessage), timeout)
+				err = streamWriteWithin(r.Context(), writer, websocket.MessageBinary, make([]byte, MaxStreamMessage), timeout)
+				result <- writeResult{err: err, finished: time.Now()}
 			}))
 			defer server.Close()
 			ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
@@ -135,8 +140,10 @@ func TestStreamSlowWriteBudget(t *testing.T) {
 				}
 			}
 			select {
-			case err := <-result:
-				elapsed := time.Since(started)
+			case write := <-result:
+				// Measure the server write before client draining or scheduling delays.
+				elapsed := write.finished.Sub(started)
+				err := write.err
 				if read && (err != nil || elapsed < 500*time.Millisecond || elapsed >= timeout) {
 					t.Fatal("slow write budget", elapsed, err)
 				}
