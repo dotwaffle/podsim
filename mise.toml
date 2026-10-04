@@ -44,7 +44,27 @@ run = "go test ./..."
 
 [tasks."test:race"]
 description = "Run tests with the race detector"
-run = "go test -race ./... -timeout=30m"
+depends = ["test:race:*"]
+
+# test:race runs every test:race:* task, and CI runs each of them on its
+# own runner. The sim and session packages take most of the race time,
+# so each has its own task. test:race:other runs every other package, so
+# a new package needs no change here. A new test:race:* task also needs
+# an entry in the CI matrix.
+[tasks."test:race:sim"]
+description = "Run the simulation tests with the race detector"
+run = "go test -race ./internal/sim -timeout=30m"
+
+[tasks."test:race:session"]
+description = "Run the session tests with the race detector"
+run = "go test -race ./internal/session -timeout=30m"
+
+[tasks."test:race:other"]
+description = "Run the tests of the other packages with the race detector"
+run = '''
+packages=$(go list ./... | grep -v -x -e github.com/dotwaffle/podsim/internal/sim -e github.com/dotwaffle/podsim/internal/session) || exit 1
+go test -race -timeout=30m $packages
+'''
 
 [tasks."test:bounds"]
 description = "Check the maximum checkpoint encoding without race instrumentation"
@@ -92,7 +112,11 @@ run = "node --test web/editor-model_test.cjs web/place-search_test.cjs web/tiles
 
 [tasks.check]
 description = "Run tests, static analysis, and native and browser builds"
-depends = ["test:race", "test:bounds", "qualify", "test:web", "lint", "vulncheck", "build", "test:embedded"]
+depends = ["test:race", "qualify", "check:static"]
+
+[tasks."check:static"]
+description = "Run the checks other than the race tests and qualify"
+depends = ["test:bounds", "test:web", "lint", "vulncheck", "build", "test:embedded"]
 
 [tasks.scenario]
 description = "Write a generated scenario JSON file"

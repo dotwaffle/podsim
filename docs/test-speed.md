@@ -68,6 +68,19 @@ That test does its bounded-scan checks only without the race detector.
 A new test that skips under the race detector must be added to the `-run` pattern of one of these tasks.
 A pattern that matches no test passes.
 
+## CI jobs
+
+On October 4, one Check run took 25 to 34 minutes on a 4-CPU runner.
+All eight tasks of `mise run check` ran at the same time on that runner.
+The race tests of `internal/sim` took 920 to 1,250 seconds, and those of `internal/session` took 720 to 987 seconds.
+Two runs of the same source differed by about 35 percent between Azure regions.
+
+The workflow now runs five jobs on separate runners.
+`test:race` depends on every `test:race:*` task: `test:race:sim`, `test:race:session`, and `test:race:other`.
+`test:race:other` runs every package except the first two, so a new package needs no task change.
+`check:static` runs the remaining tasks of `check`.
+`mise run check` still runs all of them on one machine.
+
 `TestStreamLargeRouteWire` checked 20 publications of the same shape, with 200 pods and 8,000-lane routes.
 Now it checks five publications: the first, the sequences where the width changes from 1 to 2, 9 to 10, and 19 to 20 decimal digits, and the largest sequence.
 Each publication must have a smaller delta than the legacy HTTP state.

@@ -1693,10 +1693,11 @@ The `test:web` task sets `PODSIM_REQUIRE_GO=1`, so a missing Go makes the task a
 
 GitHub Actions runs the same check on pull requests and pushes to `main`.
 The workflow also supports a manual trigger.
+It splits the check into five parallel jobs: `test:race:sim`, `test:race:session`, `test:race:other`, `qualify`, and `check:static`.
 New pull-request updates cancel older runs.
 Each `main` push keeps its own run.
 The workflow uses major-version action tags and installs tools from `mise.lock`.
-Go module, build, and lint analysis caches use job-specific keys and refresh after successful runs.
+Go module, build, and lint analysis caches use keys for each job and task, and refresh after successful runs.
 
 ### Lint and package boundaries
 

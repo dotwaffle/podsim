@@ -15,8 +15,13 @@ concurrency:
 
 jobs:
   check:
+    name: check (${{ matrix.task }})
     runs-on: ubuntu-26.04
     timeout-minutes: 40
+    strategy:
+      fail-fast: false
+      matrix:
+        task: ["test:race:sim", "test:race:session", "test:race:other", "qualify", "check:static"]
     steps:
       - uses: actions/checkout@v7
       - name: Install graphics runtime
@@ -36,8 +41,11 @@ jobs:
             ${{ steps.go-cache-paths.outputs.build }}
             ${{ steps.go-cache-paths.outputs.modules }}
             ~/.cache/golangci-lint
-          key: go-v1-${{ runner.os }}-${{ runner.arch }}-${{ github.job }}-${{ hashFiles('mise.lock', 'go.sum') }}-${{ github.run_id }}-${{ github.run_attempt }}
+          key: go-v1-${{ runner.os }}-${{ runner.arch }}-${{ github.job }}-${{ matrix.task }}-${{ hashFiles('mise.lock', 'go.sum') }}-${{ github.run_id }}-${{ github.run_attempt }}
           restore-keys: |
-            go-v1-${{ runner.os }}-${{ runner.arch }}-${{ github.job }}-${{ hashFiles('mise.lock', 'go.sum') }}-
+            go-v1-${{ runner.os }}-${{ runner.arch }}-${{ github.job }}-${{ matrix.task }}-${{ hashFiles('mise.lock', 'go.sum') }}-
       - name: Check
-        run: mise run check
+        env:
+          TASK: ${{ matrix.task }}
+        run: mise run "$TASK"
+
