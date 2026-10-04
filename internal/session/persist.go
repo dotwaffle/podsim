@@ -132,8 +132,8 @@ const (
 	// the saved state.
 	saveStartup
 	// saveCommand is the save of Apply before it replies to a project apply
-	// or to a rewind that restores a project. It follows the rules of a
-	// periodic save.
+	// that changes the project or to a rewind that restores a project. It
+	// follows the rules of a periodic save.
 	saveCommand
 )
 

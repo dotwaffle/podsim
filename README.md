@@ -112,13 +112,13 @@ The server saves the session state at these times:
 
 - At startup.
 - Every 60 seconds while the session changes.
-- Before it replies to a project apply, or to a rewind that restores a project.
+- Before it replies to a project apply that changes the project, or to a rewind that restores a project.
 - A final time at a graceful shutdown.
 
 The server waits at most 2 seconds for the save before a reply.
 If that save fails or takes more than 2 seconds, the reply tells the client.
 The simulation view or the editor then shows a warning.
-A demand change, a project apply, and a rewind that restores a project also start a save about 1 second later.
+A demand change, a project apply that changes the project, and a rewind that restores a project also start a save about 1 second later.
 
 The saved state holds the project, the pods, the order queue, the demand stream, and the statistics.
 It also holds the playback speed, the pause state, and the last command sequence of each client.
@@ -796,6 +796,11 @@ Tests use a local fake provider and make no public searches.
 An imported-image change does not enable it, because the server does not get the image.
 Live map settings are part of the scenario and do enable it.
 Applying a valid draft resets the shared simulation and leaves it paused.
+Two drafts do not reset it.
+A draft that is the same as the live scenario changes nothing.
+A version 5 draft that changes only `couplingEnabled` keeps the pods, the trains, and the orders, and changes only the recruitment of new trains.
+During the traffic demo, this draft resets the simulation, because the demo fleet has no trains.
+See the `project` action in [the protocol](docs/protocol.md).
 If the apply fails after the editor paused the simulation, the editor resumes it.
 A simulation that was paused before the apply stays paused.
 The editor does not resume a simulation that restarted after the pause, for example after a project apply from another browser.

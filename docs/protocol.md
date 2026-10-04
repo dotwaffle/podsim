@@ -128,7 +128,8 @@ Commands and editor or diagnostic reads keep HTTP.
 
 Each state frame also has a `revision` and a `generation`.
 The revision increases by one at each clock tick while the session runs, and with each accepted command.
-The generation increases by one with a reset, a demo, a project apply, a rewind, and a restore of the saved state at a restart.
+The generation increases by one with a reset, a demo, a project apply that replaces the fleet, a rewind, and a restore of the saved state at a restart.
+A train toggle does not change it, as the `project` action describes.
 A new generation makes the Go client clear its buffered motion.
 
 The `redistribution` member of a state frame is true when the project turns on redistribution and the demo does not run.
@@ -160,7 +161,7 @@ A state frame can contain a `restore` object.
 It tells how a server with `-state` started the current simulation and if it used its saved session state.
 A server without `-state` omits the key.
 A server that found no saved state also omits it.
-A reset, a demo, or a project apply removes the key.
+A reset, a demo, or a project apply that replaces the fleet removes the key.
 A rewind does not change it.
 
 | Member | Content |
@@ -207,7 +208,7 @@ The `simulation` object has these ride metrics:
 | `SharedParties` | The number of parties that joined the pod of another party. |
 | `SharedRidePartyLimit` | The maximum number of parties in one pod. |
 
-A reset, a demo, and a project apply set the metrics to 0.
+A reset, a demo, and a project apply that replaces the fleet set the metrics to 0.
 A rewind restores the metrics of the save point.
 A restore at a restart keeps them.
 
@@ -224,12 +225,12 @@ The other members depend on the action:
 | `reset` | None | Restores the project fleet and demand settings, and clears the orders. It sets the speed to 1 and keeps the pause state. |
 | `demo` | None | Resets the run, starts the traffic demo, disables automatic demand, and sets the speed to 1. It needs the unchanged example network and fleet. |
 | `demand` | `demand`: the `demand` object of a project | Replaces the demand settings of the project and increases the project revision. The server rejects it during the demo. |
-| `project` | `project`: the `project` object from `GET /api/project`. `projectRevision`: the `revision` from `GET /api/project`, an integer. `serverStart`: optional, the `serverStart` from `GET /api/state` when the project loaded, a string | Replaces the project and increases the project revision. The new fleet starts paused at speed 1. The session must be paused, and `projectRevision` must be the current project revision. When the session is paused and `projectRevision` is not the current project revision, the command gets `stale_project`. When `serverStart` is set and is not the `serverStart` of the server process, the command gets `session_changed`. |
+| `project` | `project`: the `project` object from `GET /api/project`. `projectRevision`: the `revision` from `GET /api/project`, an integer. `serverStart`: optional, the `serverStart` from `GET /api/state` when the project loaded, a string | Replaces the project and increases the project revision. The new fleet starts paused at speed 1. Two cases keep the fleet. A project that is the same as the current project changes nothing: the server keeps the project revision, the generation, and the simulation, and does not save. A train toggle is a version 5 project that changes only `couplingEnabled`. It changes only the recruitment of new trains and increases the project revision. The server keeps the fleet, its trains, the generation, the speed, the demand stream, and the `restore` key. For these two cases, a missing and an empty list of coupling sites, coupling corridors, or corridor lanes are the same. During a retained coupling fault, the server replaces the fleet in both cases. The demo fleet has no coupling contract, so a train toggle replaces the fleet until a reset ends the demo. The session must be paused, and `projectRevision` must be the current project revision. When the session is paused and `projectRevision` is not the current project revision, the command gets `stale_project`. When `serverStart` is set and is not the `serverStart` of the server process, the command gets `session_changed`. |
 | `checkpoint` | None | Makes a save point. |
 | `rewind` | `checkpoint`: save point ID, an integer | Restores the save point and pauses the session. |
 
 In the acknowledgment, `trip` sets `orderID`, `checkpoint` sets `checkpoint`, and a `rewind` that restores a project sets `projectRestored`.
-With `-state`, `project` and a `rewind` that restores a project also set `stateSaved`.
+With `-state`, a `project` command that changes the project and a `rewind` that restores a project also set `stateSaved`.
 
 Command acknowledgments contain the session epoch, state revision, project revision, generation, optional order ID, optional checkpoint ID, optional `projectRestored` flag, and optional `stateSaved` flag.
 They do not repeat a state frame.
@@ -251,7 +252,7 @@ See [session state](operations.md#session-state).
 The Go client sends an exact retry when a command request fails, gets no reply in 3 s, or gets an HTTP 5xx status.
 It sends a command at most three times.
 Exact retries return the original acknowledgment, except `stateSaved`.
-The server saves the state before each reply to an exact retry of a `project` command or of a `rewind` that restored a project.
+The server saves the state before each reply to an exact retry of a `project` command that changed the project, or of a `rewind` that restored a project.
 After that save, the server sets `stateSaved` with the rule above for the `revision` of the original acknowledgment.
 A sequence lower than the last sequence from the same client gets `expired_command`.
 The same sequence with a different command gets `sequence_conflict`.
@@ -329,7 +330,8 @@ At the limit, a new save point removes the oldest one.
 A frame without save points omits the `checkpoints` key, so the key adds no bytes until a save point exists.
 
 `restoresProject` is `true` when the project or demand configuration of the save point is different from the current one.
-Each project apply and each demand change counts as a change, even if the values stay the same.
+Each demand change and each project apply that changes the project counts as a change.
+A demand change counts also when its values stay the same.
 The server omits the key when the value is `false`.
 
 A rewind to such a save point restores its project and increases the project revision by one.
@@ -418,7 +420,7 @@ The client does not show a notice for its first frame.
 When one of the two frames has no `serverStart` ID, the server is older, and the client uses the epoch and the restore tier.
 Only a restart makes a new epoch.
 With a kept epoch, the first frame after the restart has a new generation, a `restore` tier of `physical` or `logical`, and no save points.
-A reset, a demo, and a project apply remove the `restore` key, and a rewind keeps the save points.
+A reset, a demo, and a project apply that replaces the fleet remove the `restore` key, a train toggle keeps the generation, and a rewind keeps the save points.
 Thus a command never makes a frame with all three of these properties.
 
 ## Payload measurements

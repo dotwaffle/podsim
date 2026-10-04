@@ -41,7 +41,7 @@ const (
 // simulation when it had a state store. Its tier is empty when the server
 // rejected or could not read the saved state. It is zero when no saved state
 // existed, when the server has no store, and after a reset, a demo or a
-// project apply.
+// project apply that replaces the fleet.
 type State struct {
 	Epoch           string                 `json:"epoch"`
 	Revision        uint64                 `json:"revision"`
@@ -153,8 +153,8 @@ const (
 // Only a rewind that restores a different project sets ProjectRestored.
 //
 // StateSaved is set only when Apply tried to save the session state before
-// the reply. This occurs for a project apply, for a rewind that restores a
-// project, and for exact retries of both, when the session saves its state.
+// the reply. This occurs for a project apply that changes the project, for
+// a rewind that restores a project, and for exact retries of both, when the session saves its state.
 // StateSaved is true when the last successful save holds the state at
 // Revision or at a later revision. A later state counts, because a restore
 // of it cannot go back to the state before the command. StateSaved is false
@@ -260,7 +260,8 @@ type Session struct {
 	// value. A save point with another origin holds another project.
 	projectOrigin uint64
 	// restore tells how NewFromStore started the simulation. A reset, a
-	// demo, and a project apply clear it. A rewind keeps it.
+	// demo, and a project apply that replaces the fleet clear it. A rewind
+	// keeps it.
 	restore RestoreInfo
 	// largeCommands is the large command guard. It has space for one
 	// value. A request puts a value in it before it decodes command JSON
@@ -521,7 +522,8 @@ func (s *Session) Project() ProjectState {
 // An exact retry still gets its stored reply.
 //
 // When the session saves its state, Apply saves it before it replies to a
-// project apply or to a rewind that restores a project. It waits at most
+// project apply that changes the project or to a rewind that restores a
+// project. It waits at most
 // 2 s for this save. A failed save does not reject the command, because the
 // session applied the command. After the save, StateSaved tells whether the
 // last successful save holds the state at the revision of the reply or at a
@@ -550,8 +552,8 @@ func (s *Session) Apply(command Command) Reply {
 	if result.event != nil {
 		s.logger.Info(result.event.message, result.event.args()...)
 	}
-	// A project apply and a rewind that restores a project write the project
-	// file at once. Save the state before the reply. Otherwise a crash after
+	// A project apply that changes the project and a rewind that restores a
+	// project write the project file at once. Save the state before the reply. Otherwise a crash after
 	// the reply can restore the state from before the command. An exact
 	// retry saves too, because the save of the first request can still run.
 	if result.saveState {
@@ -790,10 +792,11 @@ func (s *Session) apply(command Command) (outcome, error) {
 		}
 		return outcome{}, s.applyDemand(command.Demand, s.save)
 	case "project":
-		if err := s.applyProject(command); err != nil {
+		saved, err := s.applyProject(command)
+		if err != nil {
 			return outcome{}, err
 		}
-		return outcome{saveState: true}, nil
+		return outcome{saveState: saved}, nil
 	case "checkpoint":
 		return s.captureCheckpoint(), nil
 	case "rewind":
@@ -837,39 +840,61 @@ func (s *Session) applyDemand(config DemandConfig, save func(project.Config) err
 // error code.
 var errStaleProject = errors.New("the project changed; reload it before applying edits")
 
-func (s *Session) applyProject(command Command) error {
+// applyProject applies the project of command. It returns true when it
+// saved a changed project. A project that is the same as the current
+// project changes nothing. A project that changes only CouplingEnabled of a
+// version 5 project changes the policy in place. Each other project
+// replaces the simulation.
+func (s *Session) applyProject(command Command) (bool, error) {
 	if !s.simulation.Snapshot().Paused {
-		return errors.New("pause the simulation before applying a project")
+		return false, errors.New("pause the simulation before applying a project")
 	}
 	if command.ProjectRevision != s.projectRevision {
-		return errStaleProject
+		return false, errStaleProject
 	}
 	if command.Project == nil {
-		return errors.New("project command requires a project")
+		return false, errors.New("project command requires a project")
 	}
 	config := project.Clone(*command.Project)
 	if err := project.Validate(config); err != nil {
-		return err
+		return false, err
+	}
+	// A retained coupling fault takes the full path, also for the same
+	// project. The full path installs a new controller, and applyCommand
+	// then clears the fault. A no-op or a change in place keeps the failed
+	// controller.
+	if s.couplingError() == nil && sameExceptCouplingEnabled(s.project, config) {
+		if config.CouplingEnabled == s.project.CouplingEnabled {
+			return false, nil
+		}
+		// The demo fleet has no coupling contract, so the demo takes the
+		// full path.
+		if s.project.Version == project.CouplingVersion && s.simulation.CouplingContract() == config.CouplingContract {
+			if err := s.applyCouplingToggle(config); err != nil {
+				return false, err
+			}
+			return true, nil
+		}
 	}
 	candidate, err := sim.NewFleetWithContracts(config.Network, config.Fleet, fleetContracts(config))
 	if err != nil {
-		return fmt.Errorf("create project fleet: %w", err)
+		return false, fmt.Errorf("create project fleet: %w", err)
 	}
 	if err := project.ConfigureSharedRides(candidate, config); err != nil {
-		return fmt.Errorf("configure shared rides: %w", err)
+		return false, fmt.Errorf("configure shared rides: %w", err)
 	}
 	if err := project.ConfigurePlatoons(candidate, config); err != nil {
-		return fmt.Errorf("configure platoons: %w", err)
+		return false, fmt.Errorf("configure platoons: %w", err)
 	}
 	if err := project.ConfigureExperiments(candidate, config); err != nil {
-		return fmt.Errorf("configure experimental policies: %w", err)
+		return false, fmt.Errorf("configure experimental policies: %w", err)
 	}
 	if err := preflightExpressTopology(config, s.serverStart, s.epoch, s.projectRevision+1); err != nil {
-		return err
+		return false, err
 	}
 	candidate.SetPaused(true)
 	if err := s.save(config); err != nil {
-		return err
+		return false, err
 	}
 	s.project = config
 	s.simulation = candidate
@@ -880,6 +905,56 @@ func (s *Session) applyProject(command Command) error {
 	s.projectOrigin = s.projectRevision
 	s.generation++
 	s.restore = RestoreInfo{}
+	return true, nil
+}
+
+// sameExceptCouplingEnabled reports whether next is the same as current
+// when CouplingEnabled is not part of the comparison. It compares the
+// canonical JSON of the two projects, so a new project field is part of
+// the comparison without a change here. A nil and an empty list of
+// coupling sites, coupling corridors, or corridor lanes are the same. An
+// encoding error gives false.
+func sameExceptCouplingEnabled(current, next project.Config) bool {
+	current.CouplingEnabled = next.CouplingEnabled
+	same, err := sameProject(withoutEmptyCoupling(current), withoutEmptyCoupling(next))
+	return err == nil && same
+}
+
+// withoutEmptyCoupling returns config with nil in place of an empty list
+// of coupling sites or coupling corridors. JSON omits these fields only
+// when they are nil. For the other lists, which include the corridor lanes,
+// JSON writes nil and empty lists the same.
+func withoutEmptyCoupling(config project.Config) project.Config {
+	if len(config.CouplingSites) == 0 {
+		config.CouplingSites = nil
+	}
+	if len(config.CouplingCorridors) == 0 {
+		config.CouplingCorridors = nil
+	}
+	return config
+}
+
+// applyCouplingToggle installs config, which differs from the current
+// project only in CouplingEnabled. It keeps the simulation, the committed
+// coupling groups, the generation, the speed, the demand stream, and the
+// restore information. The simulation stops or starts new recruitment. If
+// the save fails, the session does not change.
+func (s *Session) applyCouplingToggle(config project.Config) error {
+	if err := preflightExpressTopology(config, s.serverStart, s.epoch, s.projectRevision+1); err != nil {
+		return err
+	}
+	previous := s.simulation.CouplingEnabled()
+	if err := s.simulation.SetCouplingEnabled(config.CouplingEnabled); err != nil {
+		return err
+	}
+	if err := s.save(config); err != nil {
+		// The previous value was valid, so this cannot fail.
+		_ = s.simulation.SetCouplingEnabled(previous)
+		return err
+	}
+	s.project = config
+	s.projectRevision++
+	s.projectOrigin = s.projectRevision
 	return nil
 }
 

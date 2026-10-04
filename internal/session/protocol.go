@@ -33,7 +33,7 @@ type TopologySnapshot struct {
 // simulation when it had a state store. Its tier is empty when the server
 // rejected or could not read the saved state. It is zero when no saved state
 // existed, when the server has no store, and after a reset, a demo or a
-// project apply.
+// project apply that replaces the fleet.
 type StateFrame struct {
 	Epoch           string          `json:"epoch"`
 	Revision        uint64          `json:"revision"`

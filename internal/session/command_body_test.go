@@ -233,7 +233,9 @@ func TestLargeCommandGuard(t *testing.T) {
 		if recorder := postEncoded(t, handler, pauseWithLanes(t, s, "pause", "Lanes", 0)); recorder.Code != http.StatusOK {
 			t.Fatalf("pause: status %d, reply %q", recorder.Code, recorder.Body.String())
 		}
+		// The current project is a no-op apply without a save, so change it.
 		config := project.Default()
+		config.Name = "Large command guard"
 		command, err := json.Marshal(Command{Client: "project", Sequence: 1, Epoch: s.State().Epoch, Action: "project", Project: &config, ProjectRevision: s.State().ProjectRevision})
 		if err != nil {
 			t.Fatal(err)
