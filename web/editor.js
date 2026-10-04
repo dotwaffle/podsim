@@ -1316,10 +1316,17 @@
   // optional. readState gives it the server start ID of each live state
   // that it reads.
 
+  // LIVE_STATE_ACCEPT is the Accept header of a live state read. A project
+  // without an order contract or train contract replies with plain JSON. An
+  // Express project replies only to session.ExpressMediaType, and a version
+  // 5 project only to session.CouplingMediaType. A Go test in
+  // internal/session checks the media types.
+  const LIVE_STATE_ACCEPT = "application/json, application/vnd.podsim.express-v1+json, application/vnd.podsim.compact-pair-v1+json";
+
   // getJSON gets one JSON document. It throws the server error or the HTTP
   // status.
-  async function getJSON(connection, url) {
-    const response = await connection.fetch(url, { headers: { Accept: "application/json" } });
+  async function getJSON(connection, url, accept = "application/json") {
+    const response = await connection.fetch(url, { headers: { Accept: accept } });
     let body = null; try { body = await response.json(); } catch (_) {}
     if (!response.ok || (body && (body.error || body.Error))) throw new Error((body && (body.error || body.Error)) || `HTTP ${response.status}`);
     return body;
@@ -1330,10 +1337,41 @@
   // when it is set. Each read of the live state uses readState, so the page
   // knows the server start ID of the latest read.
   async function readState(connection) {
-    const live = await getJSON(connection, "/api/state");
+    const live = liveStateFrame(await getJSON(connection, "/api/state", LIVE_STATE_ACCEPT));
     if (connection.onServerStart) connection.onServerStart((live && (live.serverStart || live.ServerStart)) || "");
     return live;
   }
+
+  // liveStateFrame gives the state of a live state reply. The reply is a
+  // plain state, or the envelope of an Express or version 5 project: an
+  // object with an orderContract or couplingContract string and a frame
+  // whose state member is the state. The state must have the values that
+  // the page reads, with their types: epoch, serverStart, projectRevision,
+  // generation and simulation.Paused. The page does not read the other
+  // values, such as the orders, so it does not check them.
+  function liveStateFrame(reply) {
+    const state = liveStateOf(reply);
+    if (!isObject(state) || typeof state.simulation?.Paused !== "boolean" ||
+      typeof state.epoch !== "string" || state.epoch === "" || typeof state.serverStart !== "string" || state.serverStart === "" ||
+      !isCount(state.projectRevision) || !isCount(state.generation)) {
+      throw new Error("The live state reply is not valid.");
+    }
+    return state;
+  }
+
+  // liveStateOf gives the state of a reply in a shape that liveStateFrame
+  // knows, or null.
+  function liveStateOf(reply) {
+    if (!isObject(reply) || !Object.hasOwn(reply, "frame")) return reply;
+    const marked = ["orderContract", "couplingContract"].some((key) => typeof reply[key] === "string" && reply[key] !== "");
+    return marked && isObject(reply.frame) ? reply.frame.state : null;
+  }
+
+  // isObject is true for a JSON object that is not an array.
+  function isObject(value) { return value !== null && typeof value === "object" && !Array.isArray(value); }
+
+  // isCount is true for an integer from 0 to Number.MAX_SAFE_INTEGER.
+  function isCount(value) { return Number.isSafeInteger(value) && value >= 0; }
 
   // mebibytes gives a size in MiB with at most two decimals. round is
   // Math.floor for a limit and Math.ceil for a size over a limit, so that
@@ -2559,7 +2597,7 @@
     GEO_PROJECTION, GEO_RADIUS, GEO_MAX_LATITUDE, MAX_COORDINATE, FRAME_SOURCES, SCALE_TOLERANCE, ALIGN_TOLERANCE, RESAMPLE_MAX_SIDE, projectPoint, frameError, framePlacement, frameAligned, resampleSize, mercatorY, resampleRows,
     problemCountText, createCheckTimer, validationSummary, checkFocusKey, IMAGE_FILE_BYTES, IMAGE_MAX_SIDE, IMAGE_MAX_PIXELS, imageFacts, imageBytesFacts, dataURLToBytes, bytesToDataURL, checkImageSize,
     metadataURLFacts, IMAGE_KEY_PATTERN, newImageKey, FRAME_STATES, LICENSE_LIMITS, licenseError, assetError, backgroundRecordText, STORED_BACKGROUND_KEPT_TEXT, SERVER_PROJECT_BYTES, PROJECT_FILE_BYTES, SERVER_COMMAND_BYTES, SERVER_COMMAND_JSON_BYTES, GZIP_COMMAND_BYTES, SERVER_TOO_LARGE_TEXT, postCommand, dataURLBytes, serializeDocument, parseDocument, repeatedMember, importedScenario, foldName,
-    networkBounds, fitView, zoomScale, nodeLabelSize, pairedLaneIDs, showsChevron, laneOffset, laneCurve, lanePathData, SNAPSHOT_ATTEMPTS, snapshotConsistent, draftBeforeRestart, readState, readSnapshot, applyToServer, applyFailureText, applyFailureStatus, applyToast,
+    networkBounds, fitView, zoomScale, nodeLabelSize, pairedLaneIDs, showsChevron, laneOffset, laneCurve, lanePathData, SNAPSHOT_ATTEMPTS, snapshotConsistent, draftBeforeRestart, LIVE_STATE_ACCEPT, liveStateFrame, readState, readSnapshot, applyToServer, applyFailureText, applyFailureStatus, applyToast,
     readLive, readConflict, CONFLICT_UNLOADED_TEXT, conflictView, LOAD_LIVE_QUESTION, applyOverQuestion, loadLive, liveDraft, applyOverBase,
     DRAFT_SAVE_DELAY, DRAFT_STORE_TEXT, DRAFT_UNSAVED_TEXT, DRAFT_DISPLACED_TEXT, DRAFT_STORE, BACKGROUND_STORE, openRecordStore, createDraftKeeper, draftChanged, draftRecordFor, draftOffer, backgroundRecordFor, storedBackground, restoreStoredBackground,
     IMAGE_TABLE_BYTES, DEFAULT_OPACITY, freezeImage, createGoBackgroundModel, createDecoderSlot, checkImageBytes, resampleImage, FRAME_WARNING_TEXT, frameView, attributionParts, BACKGROUND_DURABLE_TEXT, backgroundFacts, exportBackground, documentAsset, STARTUP_EVENTS, createStartupGate, blockInput, startupExempt, startEditor, BACKGROUND_STORE_TEXT, checkBackground, DRAFT_RESTART_TEXT, draftOfferText, RESTORED_RESTART_TEXT, restoreStatusText, shellPage,

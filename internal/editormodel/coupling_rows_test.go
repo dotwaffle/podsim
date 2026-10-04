@@ -190,8 +190,19 @@ func TestCouplingRowsBuildValidGeometry(t *testing.T) {
 		t.Fatal("a site edit added the corridor registry")
 	}
 	site := object(items(draft["couplingSites"])[0])
-	if site["id"] != "site-1" || site["startMeters"] != float64(0) || site["endMeters"] != room.RequiredLengthMeters || site["rearStagingMeters"] != room.BoundaryMarginMeters {
+	if site["id"] != "site-1" || site["laneId"] != "coupling-ab" {
 		t.Fatalf("site defaults %v", site)
+	}
+	// The fixture case runs through the Go and the JavaScript checks, and
+	// both accept its site as native geometry.
+	want := defaultSiteFixture(t)
+	for _, field := range []string{"startMeters", "endMeters", "rearStagingMeters", "frontStagingMeters"} {
+		if site[field] != want[field] {
+			t.Fatalf("site default %s is %v, the fixture has %v", field, site[field], want[field])
+		}
+	}
+	if end, ok := site["endMeters"].(float64); !ok || end-room.RequiredLengthMeters >= 0.01 {
+		t.Fatalf("site defaults %v are longer than the room needs", site)
 	}
 	if checks := report(draft); len(checks) != 1 || !strings.Contains(checks[0], "invalid coupling geometry") {
 		t.Fatal("one site did not report native geometry", checks)
@@ -621,4 +632,34 @@ func TestCorridorLaneRemoveRefusesAStaleRow(t *testing.T) {
 	if _, err := editProject(once, jsontext.Value(command)); err == nil {
 		t.Fatal("the second command from a stale row removed a guideway")
 	}
+}
+
+// defaultSiteFixture gives the first site of the "coupling geometry default
+// site" case in testdata/service_checks.json, which has the positions of a
+// new site.
+func defaultSiteFixture(t *testing.T) map[string]any {
+	t.Helper()
+	raw, err := os.ReadFile("testdata/service_checks.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var fixture serviceCheckFixture
+	if err := json.Unmarshal(raw, &fixture); err != nil {
+		t.Fatal(err)
+	}
+	for _, item := range fixture.Cases {
+		if item.Name != "coupling geometry default site" {
+			continue
+		}
+		if len(item.Checks.Errors) != 0 {
+			t.Fatal("the default site fixture has errors", item.Checks.Errors)
+		}
+		for _, edit := range item.Changes {
+			if slices.Equal(edit.Path, []string{"couplingSites"}) {
+				return object(items(edit.Value)[0])
+			}
+		}
+	}
+	t.Fatal("no default site fixture")
+	return nil
 }

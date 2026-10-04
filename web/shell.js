@@ -120,6 +120,35 @@
     return { text: String(text), error: failure, expiresAt: failure ? null : now + NOTICE_MS, sent: false };
   }
 
+  // STATE_ACCEPT is the Accept header of a debug capture read of /api/state.
+  // A project without an order contract or train contract replies with
+  // plain JSON. An Express project replies only to
+  // session.ExpressMediaType, and a version 5 project only to
+  // session.CouplingMediaType. LIVE_STATE_ACCEPT in editor.js has the same
+  // value. A Go test in internal/session checks the media types.
+  const STATE_ACCEPT = "application/json, application/vnd.podsim.express-v1+json, application/vnd.podsim.compact-pair-v1+json";
+
+  // captureState gives the state of a reply to STATE_ACCEPT. The reply is a
+  // plain state, or the envelope of an Express or version 5 project: an
+  // object with an orderContract or couplingContract string and a frame
+  // whose state member is the state. The state must have the values that
+  // the capture reads, with their types: epoch, projectRevision and
+  // simulation.Tick. The capture keeps the other values as the server sent
+  // them, and does not unpack or check the orders.
+  function captureState(reply) {
+    const record = (value) => value !== null && typeof value === "object" && !Array.isArray(value);
+    let state = reply;
+    if (record(reply) && Object.hasOwn(reply, "frame")) {
+      const marked = ["orderContract", "couplingContract"].some((key) => typeof reply[key] === "string" && reply[key] !== "");
+      state = marked && record(reply.frame) ? reply.frame.state : null;
+    }
+    if (!record(state) || typeof state.epoch !== "string" || state.epoch === "" || !Number.isSafeInteger(state.projectRevision) ||
+      !Number.isSafeInteger(state.simulation?.Tick)) {
+      throw new Error("Invalid server state reply");
+    }
+    return state;
+  }
+
   // reconcileResult gives the active result after a change of the result or
   // of the game, and the notice that the shell sends to the game. The notice
   // is null when the shell sends nothing. result is from debugResult, or null
@@ -151,7 +180,7 @@
     return view === "game" && keyboard ? "editorLink" : view;
   }
 
-  const API = { VIEWS, CONTROLS, SHELL_VERSION, NOTICE_MS, viewForHash, pageRequest, gameReady, controlsShow, reloadTarget, noticeMessage, debugResult, reconcileResult, focusTarget };
+  const API = { VIEWS, CONTROLS, SHELL_VERSION, NOTICE_MS, viewForHash, pageRequest, gameReady, controlsShow, reloadTarget, noticeMessage, debugResult, STATE_ACCEPT, captureState, reconcileResult, focusTarget };
   if (typeof module !== "undefined" && module.exports) module.exports = API;
   root.PodsimShell = API;
 })(typeof window !== "undefined" ? window : globalThis);

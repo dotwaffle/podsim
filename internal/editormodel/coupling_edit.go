@@ -5,6 +5,7 @@ import (
 	"encoding/json/v2"
 	"errors"
 	"fmt"
+	"math"
 	"reflect"
 	"slices"
 	"strconv"
@@ -161,8 +162,8 @@ func (r *couplingRegistries) checkLane(id string) error {
 	return errors.New("the selected guideway no longer exists")
 }
 
-// addSite adds a site on the lane with the shortest positions that the
-// contract room allows. The draft checks report a lane that is too short.
+// addSite adds a site on the lane with the positions of couplingSiteDefaults.
+// The draft checks report a lane that is too short.
 func (r *couplingRegistries) addSite(laneID string) error {
 	if len(r.sites) >= sim.MaxCouplingSites {
 		return fmt.Errorf("a project can have at most %d coupling sites", sim.MaxCouplingSites)
@@ -174,13 +175,28 @@ func (r *couplingRegistries) addSite(laneID string) error {
 	if err != nil {
 		return err
 	}
-	rear := room.BoundaryMarginMeters
-	r.sites = append(r.sites, map[string]any{
-		"id": nextCouplingID(r.sites, "site-"), "laneId": laneID,
-		"startMeters": float64(0), "endMeters": room.RequiredLengthMeters,
-		"frontStagingMeters": rear + room.StagingSpacingMeters, "rearStagingMeters": rear,
-	})
+	site := couplingSiteDefaults(room)
+	site["id"], site["laneId"] = nextCouplingID(r.sites, "site-"), laneID
+	r.sites = append(r.sites, site)
 	return nil
+}
+
+// couplingSiteDefaults gives the positions of a new site that starts at 0 m.
+// The rear staging point and the end are the smallest values in steps of
+// 0.01 m that room allows, so the site rows show short decimals. The front
+// staging point is the staging spacing after the rear staging point.
+func couplingSiteDefaults(room sim.CouplingRoom) map[string]any {
+	const start = 0.0
+	rear := ceilCentimeter(start + room.BoundaryMarginMeters)
+	front := math.Round((rear+room.StagingSpacingMeters)*100) / 100
+	end := ceilCentimeter(max(start+room.RequiredLengthMeters, front+room.OpeningTravelMeters+room.BoundaryMarginMeters))
+	return map[string]any{"startMeters": start, "endMeters": end, "frontStagingMeters": front, "rearStagingMeters": rear}
+}
+
+// ceilCentimeter gives the smallest value in steps of 0.01 m that is not
+// less than meters.
+func ceilCentimeter(meters float64) float64 {
+	return math.Ceil(meters*100) / 100
 }
 
 // addCorridor adds a corridor from the first site to the second site. Its

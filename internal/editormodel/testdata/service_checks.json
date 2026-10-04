@@ -1387,6 +1387,76 @@
       }
     },
     {
+      "name": "coupling geometry default site",
+      "changes": [
+        {
+          "path": [
+            "version"
+          ],
+          "value": 5
+        },
+        {
+          "path": [
+            "couplingContract"
+          ],
+          "value": "compact-pair-v1"
+        },
+        {
+          "path": [
+            "network",
+            "Lanes",
+            "22",
+            "VehicleClasses"
+          ],
+          "value": [
+            "compact"
+          ]
+        },
+        {
+          "path": [
+            "couplingSites"
+          ],
+          "value": [
+            {
+              "id": "a",
+              "laneId": "return",
+              "startMeters": 0,
+              "endMeters": 48.02,
+              "rearStagingMeters": 14.26,
+              "frontStagingMeters": 26.26
+            },
+            {
+              "id": "b",
+              "laneId": "return",
+              "startMeters": 100,
+              "endMeters": 160,
+              "rearStagingMeters": 120,
+              "frontStagingMeters": 132
+            }
+          ]
+        },
+        {
+          "path": [
+            "couplingCorridors"
+          ],
+          "value": [
+            {
+              "id": "c",
+              "assemblySiteId": "a",
+              "splitSiteId": "b",
+              "laneIds": [
+                "return"
+              ]
+            }
+          ]
+        }
+      ],
+      "checks": {
+        "errors": [],
+        "warnings": []
+      }
+    },
+    {
       "name": "coupling geometry one site",
       "changes": [
         {

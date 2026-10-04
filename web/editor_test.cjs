@@ -4669,6 +4669,55 @@ test("each live state read gives the latest server start ID, so the saved draft 
   assert.equal((await editor.readState(server.connection)).serverStart, "start-3");
 });
 
+test("readState accepts the reply of each project kind and gives its state", async () => {
+  const state = { epoch: "epoch-1", serverStart: "start-1", projectRevision: 3, generation: 5, simulation: { Paused: false }, orders: "packed" };
+  const without = (key) => Object.fromEntries(Object.entries(state).filter(([name]) => name !== key));
+  const invalid = "The live state reply is not valid.";
+  const cases = [
+    { name: "a plain project", body: state, want: state },
+    { name: "an Express project", body: { orderContract: "express-v1", textEncoding: {}, topology: {}, frame: { state, routes: [] } }, want: state },
+    { name: "a version 5 project", body: { couplingContract: "compact-pair-v1", topology: {}, frame: { state, routes: [] } }, want: state },
+    { name: "an envelope without a contract", body: { frame: { state } }, wantError: invalid },
+    { name: "an envelope with an empty contract", body: { orderContract: "", frame: { state } }, wantError: invalid },
+    { name: "an envelope with a null frame", body: { orderContract: "express-v1", frame: null }, wantError: invalid },
+    { name: "an envelope with a frame array", body: { couplingContract: "compact-pair-v1", frame: [state] }, wantError: invalid },
+    { name: "an envelope without a state", body: { couplingContract: "compact-pair-v1", frame: { routes: [] } }, wantError: invalid },
+    { name: "an envelope with a state array", body: { couplingContract: "compact-pair-v1", frame: { state: [] } }, wantError: invalid },
+    { name: "an envelope with a revision only", body: { couplingContract: "compact-pair-v1", frame: { state: { projectRevision: 3 } } }, wantError: invalid },
+    { name: "an envelope with a nested error", body: { orderContract: "express-v1", frame: { state: { error: "bad" } } }, wantError: invalid },
+    { name: "a plain reply that is not an object", body: [state], wantError: invalid },
+    { name: "no epoch", body: without("epoch"), wantError: invalid },
+    { name: "an empty epoch", body: { ...state, epoch: "" }, wantError: invalid },
+    { name: "no server start ID", body: without("serverStart"), wantError: invalid },
+    { name: "an empty server start ID", body: { ...state, serverStart: "" }, wantError: invalid },
+    { name: "a server start ID that is a number", body: { ...state, serverStart: 1 }, wantError: invalid },
+    { name: "a revision that is text", body: { ...state, projectRevision: "3" }, wantError: invalid },
+    { name: "a negative revision", body: { ...state, projectRevision: -1 }, wantError: invalid },
+    { name: "a fractional revision", body: { ...state, projectRevision: 3.5 }, wantError: invalid },
+    { name: "no generation", body: without("generation"), wantError: invalid },
+    { name: "no simulation", body: without("simulation"), wantError: invalid },
+    { name: "a pause flag that is text", body: { ...state, simulation: { Paused: "false" } }, wantError: invalid },
+  ];
+  for (const item of cases) {
+    const accepts = [], starts = [];
+    const connection = {
+      fetch: async (url, init) => { accepts.push(init.headers.Accept); return { ok: true, status: 200, json: async () => item.body }; },
+      onServerStart: (start) => starts.push(start),
+    };
+    if (item.wantError) {
+      await assert.rejects(editor.readState(connection), { message: item.wantError }, item.name);
+      assert.deepEqual(starts, [], `${item.name}: no server start ID before the check`);
+    } else {
+      assert.deepEqual(await editor.readState(connection), item.want, item.name);
+      assert.deepEqual(starts, ["start-1"], item.name);
+    }
+    assert.deepEqual(accepts, [editor.LIVE_STATE_ACCEPT], item.name);
+  }
+  // Each media type is one part of the header. See the Go test
+  // TestEditorReadsLiveStateOfEachProjectKind.
+  assert.deepEqual(editor.LIVE_STATE_ACCEPT.split(",").map((part) => part.trim()), ["application/json", "application/vnd.podsim.express-v1+json", "application/vnd.podsim.compact-pair-v1+json"]);
+});
+
 test("a failed apply tells the user to export a draft that the browser does not keep", () => {
   const off = editor.DRAFT_STORE_TEXT.off; const unsaved = editor.DRAFT_UNSAVED_TEXT;
   const stale = { errorCode: "stale_project", pause: "resumed", message: "stale" };

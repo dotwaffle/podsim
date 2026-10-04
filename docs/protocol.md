@@ -25,6 +25,14 @@ The client uses these message boundaries:
 | Project | `GET /api/project` | Complete editable scenario data. |
 | Command | `POST /api/command` | Retry-safe mutation and compact acknowledgment. |
 
+`GET /api/state` has one reply shape for each project kind.
+A project of version 1 to 3 gets the plain state and ignores `Accept`.
+A version 4 project needs `Accept: application/vnd.podsim.express-v1+json`, and a version 5 project needs `Accept: application/vnd.podsim.compact-pair-v1+json`.
+Both replies are envelopes with the topology and a `frame` member, and the state values are in `frame.state`.
+Without the media type, the request gets HTTP 406.
+A client that reads every project kind can send all three media types in one `Accept` header.
+The editor and the debug capture do this.
+
 A request for a different `/api` path gets HTTP 404.
 A request with a different method gets HTTP 405 and an `Allow` header with the methods of the endpoint.
 A `GET` endpoint also accepts `HEAD`, except the WebSocket upgrade.
@@ -226,7 +234,7 @@ The other members depend on the action:
 | `reset` | None | Restores the project fleet and demand settings, and clears the orders. It sets the speed to 1 and keeps the pause state. |
 | `demo` | None | Resets the run, starts the traffic demo, disables automatic demand, and sets the speed to 1. It needs the unchanged example network and fleet. |
 | `demand` | `demand`: the `demand` object of a project | Replaces the demand settings of the project and increases the project revision. The server rejects it during the demo. |
-| `project` | `project`: the `project` object from `GET /api/project`. `projectRevision`: the `revision` from `GET /api/project`, an integer. `serverStart`: optional, the `serverStart` from `GET /api/state` when the project loaded, a string | Replaces the project and increases the project revision. The new fleet starts paused at speed 1. Two cases keep the fleet. A project that is the same as the current project changes nothing: the server keeps the project revision, the generation, and the simulation, and does not save. A train toggle is a version 5 project that changes only `couplingEnabled`. It changes only the recruitment of new trains and increases the project revision. The server keeps the fleet, its trains, the generation, the speed, the demand stream, and the `restore` key. For these two cases, a missing and an empty list of coupling sites, coupling corridors, or corridor lanes are the same. During a retained coupling fault, the server replaces the fleet in both cases. The demo fleet has no coupling contract, so a train toggle replaces the fleet until a reset ends the demo. The session must be paused, and `projectRevision` must be the current project revision. When the session is paused and `projectRevision` is not the current project revision, the command gets `stale_project`. When `serverStart` is set and is not the `serverStart` of the server process, the command gets `session_changed`. |
+| `project` | `project`: the `project` object from `GET /api/project`. `projectRevision`: the `revision` from `GET /api/project`, an integer. `serverStart`: optional, the `serverStart` from `GET /api/state` (in `frame.state` for a version 4 or 5 project) when the project loaded, a string | Replaces the project and increases the project revision. The new fleet starts paused at speed 1. Two cases keep the fleet. A project that is the same as the current project changes nothing: the server keeps the project revision, the generation, and the simulation, and does not save. A train toggle is a version 5 project that changes only `couplingEnabled`. It changes only the recruitment of new trains and increases the project revision. The server keeps the fleet, its trains, the generation, the speed, the demand stream, and the `restore` key. For these two cases, a missing and an empty list of coupling sites, coupling corridors, or corridor lanes are the same. During a retained coupling fault, the server replaces the fleet in both cases. The demo fleet has no coupling contract, so a train toggle replaces the fleet until a reset ends the demo. The session must be paused, and `projectRevision` must be the current project revision. When the session is paused and `projectRevision` is not the current project revision, the command gets `stale_project`. When `serverStart` is set and is not the `serverStart` of the server process, the command gets `session_changed`. |
 | `checkpoint` | None | Makes a save point. |
 | `rewind` | `checkpoint`: save point ID, an integer | Restores the save point and pauses the session. |
 

@@ -281,6 +281,37 @@ test("the shell controls come first in the page, in the order of CONTROLS", () =
   assert.match(body, /<button id="debugButton" type="button"[^>]*>Download debug state<\/button>/);
 });
 
+test("the debug capture accepts the state reply of each project kind", () => {
+  const state = { epoch: "epoch-1", projectRevision: 3, simulation: { Tick: 7 }, orders: "packed" };
+  assert.equal(shell.captureState(state), state, "a plain project");
+  assert.equal(shell.captureState({ orderContract: "express-v1", frame: { state, routes: [] } }), state, "an Express project");
+  assert.equal(shell.captureState({ couplingContract: "compact-pair-v1", frame: { state, routes: [] } }), state, "a version 5 project");
+  const malformed = [
+    ["an envelope without a contract", { frame: { state } }],
+    ["an envelope with an empty contract", { couplingContract: "", frame: { state } }],
+    ["an envelope with a null frame", { orderContract: "express-v1", frame: null }],
+    ["an envelope with a frame array", { orderContract: "express-v1", frame: [state] }],
+    ["an envelope without a state", { couplingContract: "compact-pair-v1", frame: { routes: [] } }],
+    ["an envelope with a state array", { couplingContract: "compact-pair-v1", frame: { state: [] } }],
+    ["an envelope with a revision only", { couplingContract: "compact-pair-v1", frame: { state: { projectRevision: 3 } } }],
+    ["an envelope with a nested error", { orderContract: "express-v1", frame: { state: { error: "bad" } } }],
+    ["a reply that is not an object", null],
+    ["no epoch", { ...state, epoch: undefined }],
+    ["an empty epoch", { ...state, epoch: "" }],
+    ["a revision that is text", { ...state, projectRevision: "3" }],
+    ["no simulation", { ...state, simulation: undefined }],
+    ["a null simulation", { ...state, simulation: null }],
+    ["a tick that is text", { ...state, simulation: { Tick: "7" } }],
+  ];
+  for (const [name, reply] of malformed) assert.throws(() => shell.captureState(reply), { message: "Invalid server state reply" }, name);
+  // The editor reads the state with the same Accept header.
+  const editor = require("./editor.js");
+  assert.equal(shell.STATE_ACCEPT, editor.LIVE_STATE_ACCEPT);
+  const html = fs.readFileSync(path.join(__dirname, "index.html"), "utf8");
+  assert.match(html, /fetch\("\/api\/state", \{[^}]*headers: \{ Accept: PodsimShell\.STATE_ACCEPT \}/);
+  assert.match(html, /const frame = PodsimShell\.captureState\(await stateResponse\.json\(\)\);/);
+});
+
 test("the shell controls are hidden until they get the focus", () => {
   const html = fs.readFileSync(path.join(__dirname, "index.html"), "utf8");
   assert.match(html, /nav:not\(\.fallback\) a:not\(:focus\), nav:not\(\.fallback\) button:not\(:focus\), nav:not\(\.fallback\) #debugStatus, #debugStatus:empty \{[^}]*clip-path: inset\(50%\)/);
