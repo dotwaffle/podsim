@@ -23,6 +23,21 @@ func TestRunAppliesLargestProjectWithGzip(t *testing.T) {
 		t.Skip("the test starts the server and applies a project at the size limit")
 	}
 	t.Parallel()
+	if raceEnabled {
+		t.Skip("the required embedded tests apply the maximum project without race instrumentation")
+	}
+	testRunAppliesProjectWithGzip(t, limitProject(t, widestDemand()), 0)
+}
+
+func TestRunAppliesProjectWithGzip(t *testing.T) {
+	t.Parallel()
+	config := project.Default()
+	config.Name = "Gzip project application"
+	testRunAppliesProjectWithGzip(t, config, session.MaxCommandBytes+1)
+}
+
+func testRunAppliesProjectWithGzip(t *testing.T, config project.Config, minimumCommandBytes int) {
+	t.Helper()
 	address, stop := startRun(t, []string{"-addr", "127.0.0.1:0", "-dir", browserDirectory(t)})
 	defer stop()
 	client := &http.Client{Transport: &http.Transport{}}
@@ -32,13 +47,14 @@ func TestRunAppliesLargestProjectWithGzip(t *testing.T) {
 	if reply := postCommand(t, client, address, session.Command{Client: "apply-test", Sequence: 1, Epoch: epoch, Action: "pause", Paused: true}); reply.Error != "" {
 		t.Fatalf("pause reply = %+v", reply)
 	}
-	config := limitProject(t, widestDemand())
 	command, err := json.Marshal(session.Command{
 		Client: "apply-test", Sequence: 2, Epoch: epoch, Action: "project", Project: &config, ProjectRevision: 1,
 	})
 	if err != nil {
 		t.Fatal(err)
 	}
+	// Padding crosses the wire limit without a maximum project workload.
+	command = append(command, bytes.Repeat([]byte(" "), max(0, minimumCommandBytes-len(command)))...)
 	var compressed bytes.Buffer
 	writer := gzip.NewWriter(&compressed)
 	if _, err = writer.Write(command); err != nil {
