@@ -643,6 +643,7 @@ func (s *Session) installRestored(loaded loadedState) {
 		}
 	}
 	s.revision, s.generation = file.Revision+1, file.Generation+1
+	s.simulation.SetIncidentGeneration(s.generation)
 	s.projectRevision, s.projectOrigin = file.ProjectRevision, file.ProjectRevision
 	s.speed, s.lastCheckpoint = file.Speed, file.LastCheckpoint
 	s.restore = RestoreInfo{

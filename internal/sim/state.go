@@ -52,6 +52,9 @@ type SavedState struct {
 	RiderDistanceMeters  float64 `json:"riderDistanceMeters,omitzero"`
 	DirectDistanceMeters float64 `json:"directDistanceMeters,omitzero"`
 	MaxDetourRatio       float64 `json:"maxDetourRatio,omitzero"`
+	// IncidentSerial is the serial of the last incident record. It needs
+	// the incident marker.
+	IncidentSerial uint64 `json:"incidentSerial,omitzero"`
 	// Demo is nil when the traffic demo does not run.
 	Demo      *SavedDemo `json:"demo,omitzero"`
 	DemoError string     `json:"demoError,omitempty"`
@@ -274,6 +277,12 @@ func restoreState(input RestoreStateInput, newFleet func() (*Simulation, error))
 	if err := checkCouplingRestoreInput(input); err != nil {
 		return nil, RestoreResult{}, err
 	}
+	if err := ValidateIncidentContract(input.IncidentContract); err != nil {
+		return nil, RestoreResult{}, err
+	}
+	if input.IncidentContract == "" && input.State.IncidentSerial != 0 {
+		return nil, RestoreResult{}, errors.New("saved incident serial needs the incident contract")
+	}
 	if input.OrderContract == ExpressOrderContract {
 		if _, err := validateSavedState(input.State); err != nil {
 			return nil, RestoreResult{}, err
@@ -376,7 +385,7 @@ func (s *Simulation) ExportState() SavedState {
 		SharedRideMode: s.sharedRideMode, SharedRideMaxStops: s.sharedRideMaxStops, SharedRideJoin: s.sharedRideJoin,
 		Journeys: s.journeys, TotalJourneyTicks: s.totalJourneyTicks, MaxJourneyTicks: s.maxJourneyTicks,
 		RiderDistanceMeters: s.riderDistanceMeters, DirectDistanceMeters: s.directDistanceMeters, MaxDetourRatio: s.maxDetourRatio,
-		DemoError: s.demoError, Pods: make([]SavedPod, len(s.vehicles)),
+		IncidentSerial: s.incidentSerial, DemoError: s.demoError, Pods: make([]SavedPod, len(s.vehicles)),
 	}
 	if s.demo != nil {
 		state.Demo = &SavedDemo{SecondSent: s.demo.secondSent, FollowupsSent: s.demo.followupsSent}

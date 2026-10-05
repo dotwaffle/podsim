@@ -339,6 +339,7 @@ func (s *Session) startProject(config project.Config) error {
 	s.simulation, s.project, s.epoch = simulation, owned, epoch
 	s.couplingViewError = nil
 	s.projectRevision, s.projectOrigin, s.generation, s.speed = 1, 1, 1, 1
+	s.simulation.SetIncidentGeneration(s.generation)
 	s.demand = newDemand(demandInput{config: owned.Demand, network: owned.Network, profiles: owned.DemandProfiles, arrivals: owned.RailArrivals, departures: owned.RailDepartures})
 	s.configureRedistribution()
 	s.refreshCouplingObservation()
@@ -760,6 +761,7 @@ func (s *Session) apply(command Command) (outcome, error) {
 		s.demand = newDemand(demandInput{config: s.project.Demand, network: s.project.Network, profiles: s.project.DemandProfiles, arrivals: s.project.RailArrivals, departures: s.project.RailDepartures})
 		s.configureRedistribution()
 		s.generation++
+		s.simulation.SetIncidentGeneration(s.generation)
 		s.restore = RestoreInfo{}
 	case "demo":
 		defaults := project.Default()
@@ -785,6 +787,7 @@ func (s *Session) apply(command Command) (outcome, error) {
 		disabled.Enabled = false
 		s.demand = newDemand(demandInput{config: disabled, network: s.project.Network, profiles: s.project.DemandProfiles, arrivals: s.project.RailArrivals, departures: s.project.RailDepartures})
 		s.generation++
+		s.simulation.SetIncidentGeneration(s.generation)
 		s.restore = RestoreInfo{}
 	case "demand":
 		if s.simulation.Snapshot().Demo {
@@ -904,6 +907,7 @@ func (s *Session) applyProject(command Command) (bool, error) {
 	s.projectRevision++
 	s.projectOrigin = s.projectRevision
 	s.generation++
+	s.simulation.SetIncidentGeneration(s.generation)
 	s.restore = RestoreInfo{}
 	return true, nil
 }

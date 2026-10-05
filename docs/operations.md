@@ -265,6 +265,9 @@ The `orderContract` marker `express-v1` selects the Express order bounds.
 The `couplingContract` marker `compact-pair-v1` permits the coupling members.
 The project and the simulation must have the same markers as the root.
 A file without the coupling marker must not have a coupling member, also not an empty, null, or false value.
+The incident marker `incidentContract` `incident-v1` is only in the saved project.
+With it, the simulation can have `incidentSerial`, the serial of the last incident record, which the file omits at 0.
+Without it, the file must not have `incidentSerial`, also not 0 or null.
 The order text of each queued order and each rider is canonical base64 text, for each project kind.
 The file has no `textEncoding` member.
 Each saved version stores a version 1 project.

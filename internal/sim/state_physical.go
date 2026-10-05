@@ -335,6 +335,7 @@ func (s *Simulation) setSavedCounters(state SavedState) {
 	s.sharedRidePartyLimit = state.SharedRidePartyLimit
 	s.sharedRideMode, s.sharedRideMaxStops = savedSharedRideMode(state)
 	s.sharedRideJoin = savedSharedRideJoin(state)
+	s.incidentSerial = state.IncidentSerial
 }
 
 // decodePods fills a vehicle for each saved pod. It fails for a pod that Step

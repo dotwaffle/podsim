@@ -449,6 +449,9 @@ func decodeStateJSON(raw []byte, markers contractMarkers) (stateFile, error) {
 	if err := validateSavedCompactMembers(file.Simulation); err != nil {
 		return stateFile{}, err
 	}
+	if err := checkIncidentSerial(raw, file); err != nil {
+		return stateFile{}, err
+	}
 	if err := file.validateProjectVersion(); err != nil {
 		return stateFile{}, err
 	}

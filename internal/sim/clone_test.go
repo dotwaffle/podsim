@@ -185,6 +185,7 @@ var persistRules = map[reflect.Type]map[string]persistRule{
 		"couplingFault": persistReset, "couplingFleet": persistReset,
 		"couplingApproaches": persistReset, "couplingAttempts": persistReset,
 		"orderContract": persistSave, "incidentContract": persistSession,
+		"incidentSerial": persistSave, "incidentGeneration": persistSession,
 		"motion":          persistReset,
 		"expressServices": persistSession, "junctionConflicts": persistDerive, "lengths": persistReset, "routes": persistReset, "routeOrder": persistReset,
 		"graph": persistDerive, "stationIndexes": persistDerive, "stationForbidden": persistDerive, "pickupBounds": persistReset, "routeWork": persistReset, "admissionWork": persistReset,

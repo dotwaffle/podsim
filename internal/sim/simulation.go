@@ -289,8 +289,12 @@ type vehicle struct {
 // shared field whole. It must not write into a shared field in place,
 // because that change also changes the clones.
 type Simulation struct {
-	orderContract      OrderContract
-	incidentContract   IncidentContract
+	orderContract    OrderContract
+	incidentContract IncidentContract
+	// incidentSerial counts the incident records. It is saved, and a reset
+	// keeps it. incidentGeneration is the session generation of the IDs.
+	incidentSerial     uint64
+	incidentGeneration uint64
 	couplingNetwork    *couplingReservationNetwork
 	couplingEnabled    bool
 	couplingGroups     []couplingNativeGroup

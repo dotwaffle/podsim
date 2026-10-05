@@ -87,6 +87,7 @@ simulation.maxJourneyTicks number
 simulation.riderDistanceMeters number
 simulation.directDistanceMeters number
 simulation.maxDetourRatio number
+simulation.incidentSerial number
 simulation.demo object
 simulation.demo.secondSent boolean
 simulation.demo.followupsSent boolean

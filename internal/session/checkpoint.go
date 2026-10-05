@@ -113,6 +113,7 @@ func (s *Session) rewind(id uint64) (outcome, error) {
 		s.projectRevision++
 	}
 	s.generation++
+	s.simulation.SetIncidentGeneration(s.generation)
 	return outcome{projectRestored: restore, saveState: restore, event: &sessionEvent{message: "Rewound session", details: []any{
 		slog.Uint64("checkpoint", id),
 		slog.Int64("fromTick", fromTick),
