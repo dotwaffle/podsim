@@ -580,6 +580,24 @@ func TestDebrisClearOnPlanningError(t *testing.T) {
 	}
 }
 
+// TestDebrisCongestionCosts checks that the debris footprint adds no
+// congestion cost to its lane, so a cost does not outlive a timed clear.
+// The owned cells of a pod still add their cost.
+func TestDebrisCongestionCosts(t *testing.T) {
+	t.Parallel()
+	s := debrisFleet(t)
+	lane := laneIndex(t, s, "return")
+	before := s.congestionCosts()[lane]
+	startDebris(t, s, "return", 300, 310, 0)
+	if got := s.congestionCosts()[lane]; got != before {
+		t.Fatalf("the lane costs %g s with the debris, want %g s", got, before)
+	}
+	s.owners[track("return", 20)] = podResourceOwner("01")
+	if got := s.congestionCosts()[lane]; got != before+ownedTrackCongestionSeconds {
+		t.Fatalf("the lane costs %g s with a pod cell, want %g s", got, before+ownedTrackCongestionSeconds)
+	}
+}
+
 // TestDebrisDoesNotEvacuate checks that the fault stage evacuates no pod
 // for a debris record. With an evacuation delay of 10 seconds, debris
 // starts 5 seconds before a pod fault on pod 01, at index 0, which boards

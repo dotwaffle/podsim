@@ -124,10 +124,15 @@ func (s *Simulation) refreshCongestionCosts() {
 	}
 }
 
+// congestionCosts returns the congestion cost of each lane: each owned
+// track cell and each waiting pod adds seconds. A fault owner adds none.
+// The blocked set keeps the searches off an active footprint, and a timed
+// clear opens the lane before the end of the tick releases the footprint.
+// A cost of debris would stay in the cached costs after the clear.
 func (s *Simulation) congestionCosts() []float64 {
 	costs := make([]float64, len(s.network.Lanes))
 	for claimed, owner := range s.owners {
-		if owner.isZero() || claimed.kind != trackResource {
+		if owner.isZero() || owner.kind == faultOwnerKind || claimed.kind != trackResource {
 			continue
 		}
 		if index, ok := s.graph.lanes[claimed.id]; ok {
