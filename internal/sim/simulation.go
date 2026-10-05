@@ -167,6 +167,11 @@ type Snapshot struct {
 	Completed int          `json:"completed"`
 	Demo      bool         `json:"demo"`
 	DemoError string       `json:"demoError"`
+	// Interrupted counts the orders that ended interrupted since reset, and
+	// InterruptedPassengers is the sum of their party sizes. No stream
+	// frame carries them yet.
+	Interrupted           int `json:"interrupted,omitzero"`
+	InterruptedPassengers int `json:"interruptedPassengers,omitzero"`
 	// Pending holds passenger requests that have not started boarding.
 	Pending []Request `json:"pending"`
 	// Wait summarizes request-to-boarding delay, including elapsed pending waits.
@@ -378,9 +383,16 @@ type Simulation struct {
 	laneSafety                  map[string]SafetyLocation
 	berthSafety                 map[string]SafetyLocation
 	// unaccountedOrders counts the orders that the simulation submitted but
-	// that are not complete, not queued and not aboard a pod. It is 0 until
-	// a restore finds such orders in a saved state or drops orders.
+	// that are not complete, not interrupted, not queued and not aboard a
+	// pod. It is 0 until a restore finds such orders in a saved state or
+	// drops orders.
 	unaccountedOrders int
+	// interrupted counts the orders that ended interrupted, and
+	// interruptedPassengers is the sum of their party sizes. undelivered
+	// holds the IDs of the orders interrupted since the last
+	// DrainInterruptions call. Step does not clear it, and it is not saved.
+	interrupted, interruptedPassengers int
+	undelivered                        []int
 	// monitor runs after each tick and after each public command that
 	// changes the pods, the orders or the sharing settings. Tests use it to
 	// check the contract. See observe.
@@ -467,6 +479,7 @@ func (s *Simulation) Reset() {
 	defer s.observe()
 	s.admissionWork = nil
 	s.tick, s.completed, s.requestID, s.unaccountedOrders = 0, 0, 0, 0
+	s.interrupted, s.interruptedPassengers, s.undelivered = 0, 0, nil
 	if s.motion != nil {
 		s.motion = &motionRecorder{}
 	}
@@ -529,6 +542,7 @@ func (s *Simulation) snapshot(routes bool) Snapshot {
 		OrderContract: s.orderContract, IncidentContract: s.incidentContract,
 		Submitted: s.requestID, Tick: s.tick, Paused: s.paused,
 		Completed: s.completed, Demo: s.demo != nil, DemoError: s.demoError,
+		Interrupted: s.interrupted, InterruptedPassengers: s.interruptedPassengers,
 		Wait: s.waitStats(), Journey: s.journeyStats(), PassengerDistanceMeters: s.passengerDistanceMeters,
 		RiderDistanceMeters: s.riderDistanceMeters, DirectDistanceMeters: s.directDistanceMeters,
 		MaxDetourRatio: s.maxDetourRatio, EmptyDistanceMeters: s.emptyDistanceMeters, RebalanceMoves: s.rebalanceMoves,

@@ -157,7 +157,7 @@ func restorePhysical(input RestoreStateInput, newFleet func() (*Simulation, erro
 		r.result.Demoted = append(r.result.Demoted, s.vehicles[index].Pod.ID)
 	}
 	r.restoreWaiting()
-	if err := s.verifyRestore(input.State, nil, r.result.Dropped, unaccounted); err != nil {
+	if err := s.verifyRestore(input.State, nil, r.result.Interrupted, r.result.Dropped, unaccounted); err != nil {
 		return nil, RestoreResult{}, err
 	}
 	r.result.Tier, r.result.Unaccounted = RestorePhysical, unaccounted
@@ -194,6 +194,7 @@ func (state SavedState) validateCounters() error {
 		state.Tick, int64(state.Completed), int64(state.RequestID), int64(state.Boarded), state.TotalWaitTicks,
 		state.MaxWaitTicks, state.NextRedistributionTick, int64(state.RebalanceMoves), int64(state.SharedParties),
 		int64(state.Journeys), state.TotalJourneyTicks, state.MaxJourneyTicks,
+		int64(state.Interrupted), int64(state.InterruptedPassengers),
 	}
 	distances := []float64{
 		state.PassengerDistanceMeters, state.EmptyDistanceMeters, state.RiderDistanceMeters, state.DirectDistanceMeters,
@@ -205,6 +206,8 @@ func (state SavedState) validateCounters() error {
 		return errors.New("a saved counter is negative or not finite")
 	case state.Completed > state.RequestID || state.Boarded > state.RequestID:
 		return errors.New("the saved state completed or boarded more orders than it submitted")
+	case state.InterruptedPassengers < state.Interrupted || state.Completed > state.RequestID-state.Interrupted:
+		return errors.New("the saved interrupted orders are not valid")
 	case state.Journeys > state.Completed || state.MaxJourneyTicks > state.TotalJourneyTicks:
 		return errors.New("the saved journey totals are not valid")
 	case state.SharedRidePartyLimit < 1 || state.SharedRidePartyLimit > MaxSharedRideParties:
@@ -332,6 +335,7 @@ func (s *Simulation) setSavedCounters(state SavedState) {
 	s.journeys, s.totalJourneyTicks, s.maxJourneyTicks = state.Journeys, state.TotalJourneyTicks, state.MaxJourneyTicks
 	s.riderDistanceMeters, s.directDistanceMeters = state.RiderDistanceMeters, state.DirectDistanceMeters
 	s.maxDetourRatio = state.MaxDetourRatio
+	s.interrupted, s.interruptedPassengers = state.Interrupted, state.InterruptedPassengers
 	s.sharedRidePartyLimit = state.SharedRidePartyLimit
 	s.sharedRideMode, s.sharedRideMaxStops = savedSharedRideMode(state)
 	s.sharedRideJoin = savedSharedRideJoin(state)
@@ -1286,11 +1290,11 @@ func (r *physicalRestore) activePod(id string) bool {
 
 // verifyRestore derives the station phases of a restored simulation and
 // checks the result: pod separation and berth use, the retention rules for
-// each resource owner, the orders of state, and the contract. completed and
-// dropped list the orders that the restore completed and dropped.
-// unaccounted counts the unaccounted orders of state. The dropped orders add
-// to them.
-func (s *Simulation) verifyRestore(state SavedState, completed, dropped []int, unaccounted int) error {
+// each resource owner, the orders of state, and the contract. completed,
+// interrupted, and dropped list the orders that the restore completed,
+// interrupted, and dropped. unaccounted counts the unaccounted orders of
+// state. The dropped orders add to them.
+func (s *Simulation) verifyRestore(state SavedState, completed, interrupted, dropped []int, unaccounted int) error {
 	for index := range s.vehicles {
 		s.updateStationPhase(&s.vehicles[index])
 	}
@@ -1300,7 +1304,7 @@ func (s *Simulation) verifyRestore(state SavedState, completed, dropped []int, u
 	if !maps.Equal(s.owners, s.retainedOwners()) {
 		return errors.New("the resource owners differ from the retention rules")
 	}
-	if err := s.reconcileOrders(state, completed, dropped); err != nil {
+	if err := s.reconcileOrders(state, completed, interrupted, dropped); err != nil {
 		return fmt.Errorf("check the restored orders: %w", err)
 	}
 	s.unaccountedOrders = unaccounted + len(dropped)

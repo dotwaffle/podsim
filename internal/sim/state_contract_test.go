@@ -487,46 +487,68 @@ func TestReconcileOrdersFindsEachMismatch(t *testing.T) {
 	state := roundTripState(t, logicalState(t, f))
 	for _, tc := range []struct {
 		name string
-		// edit breaks the restored simulation and returns the completed and
-		// the dropped orders.
-		edit func(s *Simulation) (completed, dropped []int)
+		// edit breaks the restored simulation and returns the completed,
+		// the interrupted, and the dropped orders.
+		edit func(s *Simulation) (completed, interrupted, dropped []int)
 		want string
 	}{
 		{
 			name: "no change",
-			edit: func(*Simulation) ([]int, []int) { return nil, []int{10} },
+			edit: func(*Simulation) ([]int, []int, []int) { return nil, nil, []int{10} },
 		},
 		{
 			name: "lost order", want: "the restore lost order 9",
-			edit: func(s *Simulation) ([]int, []int) {
+			edit: func(s *Simulation) ([]int, []int, []int) {
 				s.waiting = nil
-				return nil, []int{10}
+				return nil, nil, []int{10}
 			},
 		},
 		{
 			name: "queued order that is also dropped", want: "order 9 is in the queue and dropped",
-			edit: func(*Simulation) ([]int, []int) { return nil, []int{9, 10} },
+			edit: func(*Simulation) ([]int, []int, []int) { return nil, nil, []int{9, 10} },
 		},
 		{
 			name: "order that the state does not hold", want: "order 11 is in the queue, but the saved state does not hold it",
-			edit: func(s *Simulation) ([]int, []int) {
+			edit: func(s *Simulation) ([]int, []int, []int) {
 				s.waiting = append(s.waiting, waitingTrip{request: Request{SharingConsent: SharedConsent, Service: OnDemandService, ID: 11, From: "harbor", To: "market", PartySize: 1}})
-				return nil, []int{10}
+				return nil, nil, []int{10}
 			},
 		},
 		{
 			name: "rider aboard and complete", want: "order 2 is in pod 03 and complete",
-			edit: func(*Simulation) ([]int, []int) { return []int{2}, []int{10} },
+			edit: func(*Simulation) ([]int, []int, []int) { return []int{2}, nil, []int{10} },
 		},
 		{
 			name: "completed order of the history", want: "order 1 is complete, but the saved state does not hold it",
-			edit: func(*Simulation) ([]int, []int) { return []int{1}, []int{10} },
+			edit: func(*Simulation) ([]int, []int, []int) { return []int{1}, nil, []int{10} },
+		},
+		{
+			name: "interrupted rider",
+			edit: func(s *Simulation) ([]int, []int, []int) {
+				s.interruptRider(s.findVehicle("03"), 0)
+				return nil, []int{2}, []int{10}
+			},
+		},
+		{
+			name: "rider aboard and interrupted", want: "order 2 is in pod 03 and interrupted",
+			edit: func(*Simulation) ([]int, []int, []int) { return nil, []int{2}, []int{10} },
+		},
+		{
+			name: "interrupted order of the history", want: "order 1 is interrupted, but the saved state does not hold it",
+			edit: func(*Simulation) ([]int, []int, []int) { return nil, []int{1}, []int{10} },
+		},
+		{
+			name: "interrupted count", want: "the restore has 1 interrupted orders, want 0",
+			edit: func(s *Simulation) ([]int, []int, []int) {
+				s.interrupted++
+				return nil, nil, []int{10}
+			},
 		},
 		{
 			name: "completed count", want: "the restore has 10 submitted and 3 completed orders, want 10 and 2",
-			edit: func(s *Simulation) ([]int, []int) {
+			edit: func(s *Simulation) ([]int, []int, []int) {
 				s.completed++
-				return nil, []int{10}
+				return nil, nil, []int{10}
 			},
 		},
 	} {
@@ -536,8 +558,8 @@ func TestReconcileOrdersFindsEachMismatch(t *testing.T) {
 			if err != nil || result.Tier != RestorePhysical {
 				t.Fatalf("%v, %+v", err, result)
 			}
-			completed, dropped := tc.edit(s)
-			err = s.reconcileOrders(state, completed, dropped)
+			completed, interrupted, dropped := tc.edit(s)
+			err = s.reconcileOrders(state, completed, interrupted, dropped)
 			if tc.want == "" && err != nil || tc.want != "" && (err == nil || err.Error() != tc.want) {
 				t.Fatalf("error %v, want %q", err, tc.want)
 			}

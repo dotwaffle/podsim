@@ -40,6 +40,7 @@ func (s *Simulation) Clone() *Simulation {
 		c.demo = new(*s.demo)
 	}
 	c.waiting = slices.Clone(s.waiting)
+	c.undelivered = slices.Clone(s.undelivered)
 	c.requestBoardings = slices.Clone(s.requestBoardings)
 	c.requestCompletions = slices.Clone(s.requestCompletions)
 	c.stepCompletions = slices.Clone(s.stepCompletions)

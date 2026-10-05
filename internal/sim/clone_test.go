@@ -32,7 +32,7 @@ var cloneRules = map[reflect.Type]map[string]cloneRule{
 		"junctionConflicts": cloneShare, "lengths": cloneDrop, "routes": cloneDrop, "routeOrder": cloneDrop,
 		"graph": cloneShare, "stationIndexes": cloneShare, "stationForbidden": cloneShare, "pickupBounds": cloneDrop, "routeWork": cloneDrop, "admissionWork": cloneDrop,
 		"geometry": cloneShare, "network": cloneShare, "initial": cloneShare,
-		"vehicles": cloneCopy, "expressServices": cloneCopy, "owners": cloneCopy, "demo": cloneCopy, "waiting": cloneCopy,
+		"vehicles": cloneCopy, "expressServices": cloneCopy, "owners": cloneCopy, "demo": cloneCopy, "waiting": cloneCopy, "undelivered": cloneCopy,
 		"demandWeights": cloneShare, "congestionRouteCosts": cloneShare, "congestionRoutes": cloneCopy, "predictiveQueues": cloneCopy, "predictivePodQueues": cloneCopy,
 		"laneSafety": cloneShare, "berthSafety": cloneShare, "vehicleIndexes": cloneShare,
 		"berthResources": cloneShare, "laneCells": cloneShare, "approachStations": cloneShare, "routeStations": cloneDrop,
@@ -186,6 +186,11 @@ var persistRules = map[reflect.Type]map[string]persistRule{
 		"couplingApproaches": persistReset, "couplingAttempts": persistReset,
 		"orderContract": persistSave, "incidentContract": persistSession,
 		"incidentSerial": persistSave, "incidentGeneration": persistSession,
+		// SavedState has the interrupted counters, so ExportState and
+		// RestoreState keep them. No session save writes them yet. Section
+		// 11 of the incident contract adds their members. undelivered is
+		// never saved: the session drains it before it saves.
+		"interrupted": persistSave, "interruptedPassengers": persistSave, "undelivered": persistReset,
 		"motion":          persistReset,
 		"expressServices": persistSession, "junctionConflicts": persistDerive, "lengths": persistReset, "routes": persistReset, "routeOrder": persistReset,
 		"graph": persistDerive, "stationIndexes": persistDerive, "stationForbidden": persistDerive, "pickupBounds": persistReset, "routeWork": persistReset, "admissionWork": persistReset,
@@ -439,6 +444,7 @@ func activeCloneSimulation(t *testing.T) *Simulation {
 	// This clone-storage fixture also covers the transient completion slice.
 	s.expressServices = map[string]ExpressService{"storage": {ID: "storage", From: "harbor", To: "market", Class: ExpressClass, PartyLimit: 20}}
 	s.stepCompletions = []StepCompletion{{RequestID: 1, AlightedTick: s.tick}}
+	s.undelivered = []int{1}
 	s.pickupSwaps.records = []PickupReassignment{{Tick: s.tick, RequestID: 1, OldPod: "01", NewPod: "02", OldSeconds: 30, NewSeconds: 10}}
 	// Storage coverage uses aligned records without enabling occupied pickup.
 	for index := range s.vehicles {

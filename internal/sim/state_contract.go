@@ -216,7 +216,7 @@ func (state SavedState) checkContract() (int, error) {
 	if state.OrderContract == ExpressOrderContract && held > MaxExpressWaitingTrips {
 		return 0, errors.New("too many outstanding Express orders")
 	}
-	unaccounted := state.RequestID - state.Completed - held
+	unaccounted := state.RequestID - state.Completed - state.Interrupted - held
 	if unaccounted < 0 {
 		return 0, fmt.Errorf("the saved state holds %d more orders than it submitted", -unaccounted)
 	}
@@ -420,10 +420,11 @@ func (s *Simulation) observe() {
 // reconcileOrders checks the orders of a restored simulation against its
 // saved state, by order ID. Each order that the saved state queues or that a
 // saved pod carries is in one place after the restore: in the queue, aboard
-// a pod, in completed or in dropped. A requeued order is in the queue. The
-// restore adds no order, keeps the submitted count, and adds completed to
-// the completed count.
-func (s *Simulation) reconcileOrders(state SavedState, completed, dropped []int) error {
+// a pod, in completed, in interrupted, or in dropped. A requeued order is
+// in the queue. The restore adds no order, keeps the submitted count, adds
+// completed to the completed count, and adds interrupted to the
+// interrupted count.
+func (s *Simulation) reconcileOrders(state SavedState, completed, interrupted, dropped []int) error {
 	saved := make(map[int]bool, len(state.Waiting))
 	for _, pod := range state.Pods {
 		active, _ := savedRiders(pod)
@@ -467,6 +468,11 @@ func (s *Simulation) reconcileOrders(state SavedState, completed, dropped []int)
 			return err
 		}
 	}
+	for _, id := range interrupted {
+		if err := place(id, "interrupted"); err != nil {
+			return err
+		}
+	}
 	for _, id := range dropped {
 		if err := place(id, "dropped"); err != nil {
 			return err
@@ -480,6 +486,9 @@ func (s *Simulation) reconcileOrders(state SavedState, completed, dropped []int)
 	if s.requestID != state.RequestID || s.completed != state.Completed+len(completed) {
 		return fmt.Errorf("the restore has %d submitted and %d completed orders, want %d and %d",
 			s.requestID, s.completed, state.RequestID, state.Completed+len(completed))
+	}
+	if s.interrupted != state.Interrupted+len(interrupted) {
+		return fmt.Errorf("the restore has %d interrupted orders, want %d", s.interrupted, state.Interrupted+len(interrupted))
 	}
 	return nil
 }

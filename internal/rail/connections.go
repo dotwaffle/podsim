@@ -217,6 +217,28 @@ func (c *Connections) Advance(tick int64, completions []sim.StepCompletion) {
 	}
 }
 
+// Interrupt ends the records of interrupted orders at tick. A pending
+// record becomes unserved with reason interrupted, and keeps no alighting
+// tick. A missed record does not change, and neither does a record with a
+// request time after tick. An order without a record changes nothing.
+// Advance later skips the deadline of the ended record, because its
+// outcome is not pending.
+func (c *Connections) Interrupt(tick int64, orders []int) {
+	for _, order := range orders {
+		index, ok := c.requests[order]
+		if !ok {
+			continue
+		}
+		record := &c.records[index]
+		if record.Outcome != "pending" || record.RequestedTick > tick {
+			continue
+		}
+		record.Outcome, record.Reason = "unserved", "interrupted"
+		c.counts.Unresolved--
+		c.counts.Unserved++
+	}
+}
+
 // RestoreConnections validates owned saved records against the saved project
 // and active requests. It never regenerates past origins from the current seed.
 func RestoreConnections(departures []project.RailDeparture, records []Connection, state sim.SavedState, counts Counts) (*Connections, error) {
@@ -295,7 +317,7 @@ func validateRecord(record Connection, departure project.RailDeparture, tick int
 		valid = record.RequestID > 0 && record.Reason == "" && tick >= departureTick && (record.AlightedTick == -1 || ready > departureTick)
 	case "unserved":
 		valid = record.AlightedTick == -1 && (record.RequestID == 0 && (record.Reason == "queue-limit" || record.Reason == "request-error") ||
-			record.RequestID > 0 && (record.Reason == "restore-drop" || record.Reason == "restore-degraded"))
+			record.RequestID > 0 && (record.Reason == "restore-drop" || record.Reason == "restore-degraded" || record.Reason == "interrupted"))
 	}
 	if !valid {
 		return fmt.Errorf("invalid outcome for connection %q", record.Event)
@@ -333,6 +355,8 @@ func (c *Connections) ReconcileRestore(state sim.SavedState, result sim.RestoreR
 			changes[index] = "restore-drop"
 		case slices.Contains(result.LogicalCompleted, record.RequestID):
 			changes[index] = "restore-degraded"
+		case slices.Contains(result.Interrupted, record.RequestID):
+			changes[index] = "interrupted"
 		default:
 			if err := validateRecord(record, c.departures[record.Event], state.Tick, state.RequestID, bindings); err != nil {
 				return err

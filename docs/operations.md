@@ -454,6 +454,7 @@ Other HTTP requests include route-based server traces and metrics.
 
 Runtime metrics report memory, allocations, goroutines, processor limits, and the Go memory limit.
 Session gauges report the simulation tick, journeys, pods, stopped pods, distance, pickup wait, and save points.
+`podsim.orders.interrupted` counts the orders that ended interrupted, without a completion.
 `podsim.pod.active` counts the pods with assigned work: a trip that is not complete, or a pickup that a pending request names.
 An empty move to parking or for redistribution is not work, and a pod that finished its trip is not active.
 The `podsim.stream.*` gauges expose connections, full and delta publication counts, compressed bytes, retained bytes, and history messages.
@@ -466,7 +467,7 @@ Clients reconnect with backoff and do not switch to polling.
 
 `podsim.checkpoint.retained` is the number of save points in memory.
 Compare it with the runtime memory metrics to see the memory that save points use.
-A reset, a demo, a project apply, or a rewind can decrease `podsim.simulation.tick`, `podsim.journey.submitted`, `podsim.journey.completed`, `podsim.travel.passenger.distance`, and `podsim.travel.empty.distance`.
+A reset, a demo, a project apply, or a rewind can decrease `podsim.simulation.tick`, `podsim.journey.submitted`, `podsim.journey.completed`, `podsim.orders.interrupted`, `podsim.travel.passenger.distance`, and `podsim.travel.empty.distance`.
 These metrics are gauges, not counters, so do not use `rate()` on them.
 
 With `-state`, the server also reports the saves of the session state.

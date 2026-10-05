@@ -1376,6 +1376,9 @@ func run(input runInput) (result, error) {
 			}
 			tick = simulation.Tick()
 			if connections != nil {
+				// Interruptions reach rail before Advance scores the
+				// departures of the tick, as in the session.
+				connections.Interrupt(tick, simulation.DrainInterruptions())
 				connections.Advance(tick, simulation.StepCompletions())
 			}
 		}

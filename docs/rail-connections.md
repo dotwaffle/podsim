@@ -72,6 +72,9 @@ Before departure, accepted passengers remain **unresolved**, including passenger
 The demand inspector shows all four counts.
 Its counts cover retained outbound offers since reset, independently of reconfigured Generated and Skipped counters.
 
+A pending passenger whose order ends interrupted counts as **unserved**, with reason `interrupted`.
+The session gives the interruption to the ledger before the departure of that tick counts, so the passenger does not count as missed.
+A missed passenger whose order ends interrupted stays missed.
 Missed passengers continue their pod journey.
 The feature does not cancel, rebook, or prioritize their orders.
 A generation switch does not stop existing connections from resolving.

@@ -797,6 +797,10 @@ func (s *Session) SaveState(ctx context.Context, kind SaveKind) error {
 func (s *Session) captureState(kind SaveKind) (stateFile, bool, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	// As for a publication, this call delivers nothing while the session
+	// keeps its delivery rule. A save then never holds a pending rail
+	// record of an order that is gone.
+	s.deliverInterruptions()
 	if err := s.couplingError(); err != nil {
 		return stateFile{}, false, err
 	}

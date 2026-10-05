@@ -84,6 +84,30 @@ func TestSessionMetricsReportRetainedCheckpoints(t *testing.T) {
 	}
 }
 
+// TestSessionMetricsReportInterruptedOrders checks the gauge of the
+// orders that ended interrupted (incident contract, section 8.4).
+func TestSessionMetricsReportInterruptedOrders(t *testing.T) {
+	t.Parallel()
+	reader := sdkmetric.NewManualReader()
+	meter := sdkmetric.NewMeterProvider(sdkmetric.WithReader(reader)).Meter(instrumentationName)
+	snapshot := func() session.Metrics { return session.Metrics{Pending: 4, Interrupted: 3} }
+	if _, err := registerSessionMetrics(meter, snapshot); err != nil {
+		t.Fatal(err)
+	}
+	var collected metricdata.ResourceMetrics
+	if err := reader.Collect(t.Context(), &collected); err != nil {
+		t.Fatal(err)
+	}
+	interrupted, ok := findMetric(collected, "podsim.orders.interrupted")
+	if !ok {
+		t.Fatal("podsim.orders.interrupted is missing")
+	}
+	gauge, ok := interrupted.Data.(metricdata.Gauge[int64])
+	if !ok || interrupted.Unit != "{order}" || len(gauge.DataPoints) != 1 || gauge.DataPoints[0].Value != 3 {
+		t.Fatalf("podsim.orders.interrupted = %+v, want one 3 {order} gauge point", interrupted)
+	}
+}
+
 func TestSessionMetricsReportStateSaves(t *testing.T) {
 	t.Parallel()
 	// saving returns the metrics of a session that saves its state.

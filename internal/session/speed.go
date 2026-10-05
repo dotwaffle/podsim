@@ -208,10 +208,16 @@ func (s *Session) step() error {
 	wasDemo := s.simulation.DemoRunning()
 	hadCompactFault := s.simulation.CompactQueueError() != nil
 	s.simulation.Step()
+	// Deliver before each return and before demand.step. Advance there
+	// scores the departures of this tick, and an interruption must reach
+	// rail first.
+	s.deliverInterruptions()
 	if err := s.couplingError(); err != nil {
 		if dailyChanged {
 			s.demand = previousDemand
 			s.configureRedistribution()
+			// previousDemand shares the rail ledger, but holds older counts.
+			s.demand.refreshConnections()
 		}
 		s.logger.Error("Physical coupling failed", slog.Any("error", err), slog.Int64("tick", s.simulation.Tick()))
 		return err

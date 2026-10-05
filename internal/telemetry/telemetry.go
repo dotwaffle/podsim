@@ -149,7 +149,7 @@ var (
 
 type sessionInstruments struct {
 	stream                                                     map[string]metric.Int64ObservableGauge
-	tick, submitted, completed, pending                        metric.Int64ObservableGauge
+	tick, submitted, completed, pending, interrupted           metric.Int64ObservableGauge
 	vehicles, activeVehicles, passengerVehicles, stoppedPods   metric.Int64ObservableGauge
 	checkpoints                                                metric.Int64ObservableGauge
 	passengerDistance, emptyDistance, averageWait, maximumWait metric.Float64ObservableGauge
@@ -177,6 +177,7 @@ func registerSessionMetrics(meter metric.Meter, snapshot func() session.Metrics)
 		observer.ObserveInt64(instruments.submitted, int64(state.Submitted))
 		observer.ObserveInt64(instruments.completed, int64(state.Completed))
 		observer.ObserveInt64(instruments.pending, int64(state.Pending))
+		observer.ObserveInt64(instruments.interrupted, int64(state.Interrupted))
 		observer.ObserveInt64(instruments.vehicles, int64(state.Vehicles))
 		observer.ObserveInt64(instruments.activeVehicles, int64(state.ActiveVehicles))
 		observer.ObserveInt64(instruments.passengerVehicles, int64(state.PassengerVehicles))
@@ -241,6 +242,9 @@ func newSessionInstruments(meter metric.Meter) (sessionInstruments, error) {
 	if instruments.pending, err = meter.Int64ObservableGauge("podsim.journey.pending", metric.WithUnit("{journey}")); err != nil {
 		return instruments, fmt.Errorf("create pending journey metric: %w", err)
 	}
+	if instruments.interrupted, err = meter.Int64ObservableGauge("podsim.orders.interrupted", metric.WithUnit("{order}")); err != nil {
+		return instruments, fmt.Errorf("create interrupted order metric: %w", err)
+	}
 	if instruments.vehicles, err = meter.Int64ObservableGauge("podsim.pod.total", metric.WithUnit("{pod}")); err != nil {
 		return instruments, fmt.Errorf("create total pod metric: %w", err)
 	}
@@ -299,7 +303,7 @@ func newStateInstruments(meter metric.Meter) (stateInstruments, error) {
 
 func (i sessionInstruments) observables() []metric.Observable {
 	all := []metric.Observable{
-		i.tick, i.submitted, i.completed, i.pending,
+		i.tick, i.submitted, i.completed, i.pending, i.interrupted,
 		i.vehicles, i.activeVehicles, i.passengerVehicles, i.stoppedPods,
 		i.passengerDistance, i.emptyDistance, i.averageWait, i.maximumWait,
 		i.checkpoints,

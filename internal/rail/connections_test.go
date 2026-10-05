@@ -247,3 +247,55 @@ func TestConnectionRestoreCompletedBindings(t *testing.T) {
 		}
 	}
 }
+
+// TestConnectionInterrupt checks the rail outcome of an interrupted order
+// (incident contract, section 8.5): a pending record becomes unserved with
+// reason interrupted, a missed record does not change, and a restore
+// accepts the outcome only without an active binding.
+func TestConnectionInterrupt(t *testing.T) {
+	t.Parallel()
+	c := NewConnections(connectionPlan())
+	addAccepted(t, c, 3)
+	// An interruption cannot end an order before its request.
+	c.Interrupt(c.Records()[1].RequestedTick-1, []int{2})
+	c.Interrupt(100, []int{1, 9})
+	c.Interrupt(100, []int{1})
+	got := c.Records()[0]
+	if got.Outcome != "unserved" || got.Reason != "interrupted" || got.AlightedTick != -1 || c.Counts() != (Counts{Unresolved: 2, Unserved: 1}) {
+		t.Fatalf("interrupted record %+v, counts %+v", got, c.Counts())
+	}
+	state := activeState(c.Records(), 100)
+	restored, err := RestoreConnections(connectionPlan(), c.Records(), state, c.Counts())
+	if err != nil || !slices.Equal(restored.Records(), c.Records()) {
+		t.Fatalf("restore of an interrupted record: %v", err)
+	}
+	if err := restored.ReconcileRestore(state, sim.RestoreResult{Tier: sim.RestorePhysical}); err != nil {
+		t.Fatal(err)
+	}
+	// An interrupted order is gone, so an active binding contradicts it.
+	bound := activeState(c.Records(), 100)
+	bound.Waiting = append(bound.Waiting, sim.SavedTrip{Request: sim.SavedRequest{ID: 1, From: got.From, To: got.To, RequestedTick: got.RequestedTick, PartySize: 1}})
+	if _, err := RestoreConnections(connectionPlan(), c.Records(), bound, c.Counts()); err == nil {
+		t.Fatal("an interrupted record with an active binding is accepted")
+	}
+	// The departure skips the interrupted record and scores the others.
+	c.Advance(600, nil)
+	if c.Counts() != (Counts{Missed: 2, Unserved: 1}) {
+		t.Fatalf("departure counts %+v", c.Counts())
+	}
+	before := c.Records()
+	c.Interrupt(601, []int{2})
+	if !slices.Equal(c.Records(), before) || c.Counts() != (Counts{Missed: 2, Unserved: 1}) {
+		t.Fatal("an interruption changed a missed record")
+	}
+	// A restore that interrupts an untimed pending order gives the same
+	// outcome.
+	pending := NewConnections(connectionPlan())
+	addAccepted(t, pending, 1)
+	state = activeState(pending.Records(), 100)
+	state.Waiting = nil
+	if err := pending.ReconcileRestore(state, sim.RestoreResult{Interrupted: []int{1}}); err != nil ||
+		pending.Records()[0].Outcome != "unserved" || pending.Records()[0].Reason != "interrupted" || pending.Counts() != (Counts{Unserved: 1}) {
+		t.Fatalf("restore-time interruption: %+v, %v", pending.Records(), err)
+	}
+}

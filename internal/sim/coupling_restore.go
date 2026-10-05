@@ -107,9 +107,9 @@ func checkSavedCouplingProgress(group SavedCouplingGroup) error {
 }
 
 func checkCouplingRestoreResult(result RestoreResult) error {
-	if len(result.Demoted) != 0 || len(result.Requeued) != 0 || len(result.Dropped) != 0 ||
+	if len(result.Demoted) != 0 || len(result.Requeued) != 0 || len(result.Dropped) != 0 || len(result.Interrupted) != 0 ||
 		len(result.LogicalCompleted) != 0 || result.DroppedParties != 0 || result.OverCap != 0 || result.OverBudget != 0 {
-		return errors.New("committed coupling restore cannot demote, requeue, drop, or omit saved routes")
+		return errors.New("committed coupling restore cannot demote, requeue, drop, interrupt, or omit saved routes")
 	}
 	return nil
 }

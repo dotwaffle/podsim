@@ -52,6 +52,12 @@ type SavedState struct {
 	RiderDistanceMeters  float64 `json:"riderDistanceMeters,omitzero"`
 	DirectDistanceMeters float64 `json:"directDistanceMeters,omitzero"`
 	MaxDetourRatio       float64 `json:"maxDetourRatio,omitzero"`
+	// Interrupted counts the orders that ended interrupted, and
+	// InterruptedPassengers is the sum of their party sizes. No session
+	// save writes them yet. Section 11 of the incident contract adds their
+	// members.
+	Interrupted           int `json:"-"`
+	InterruptedPassengers int `json:"-"`
 	// IncidentSerial is the serial of the last incident record. It needs
 	// the incident marker.
 	IncidentSerial uint64 `json:"incidentSerial,omitzero"`
@@ -231,6 +237,9 @@ type RestoreResult struct {
 	// LogicalCompleted lists logical auto-completions without an actual
 	// alighting tick. It does not include physical completions.
 	LogicalCompleted []int
+	// Interrupted lists the orders that the restore ended interrupted, in
+	// order ID order. No stage 1 restore interrupts an order.
+	Interrupted []int
 	// Dropped lists the requests that the restore removed because they were
 	// not valid.
 	Dropped []int
@@ -283,6 +292,9 @@ func restoreState(input RestoreStateInput, newFleet func() (*Simulation, error))
 	}
 	if input.IncidentContract == "" && input.State.IncidentSerial != 0 {
 		return nil, RestoreResult{}, errors.New("saved incident serial needs the incident contract")
+	}
+	if input.IncidentContract == "" && (input.State.Interrupted != 0 || input.State.InterruptedPassengers != 0) {
+		return nil, RestoreResult{}, errors.New("saved interrupted orders need the incident contract")
 	}
 	if input.OrderContract == ExpressOrderContract {
 		if _, err := validateSavedState(input.State); err != nil {
@@ -386,6 +398,7 @@ func (s *Simulation) ExportState() SavedState {
 		SharedRideMode: s.sharedRideMode, SharedRideMaxStops: s.sharedRideMaxStops, SharedRideJoin: s.sharedRideJoin,
 		Journeys: s.journeys, TotalJourneyTicks: s.totalJourneyTicks, MaxJourneyTicks: s.maxJourneyTicks,
 		RiderDistanceMeters: s.riderDistanceMeters, DirectDistanceMeters: s.directDistanceMeters, MaxDetourRatio: s.maxDetourRatio,
+		Interrupted: s.interrupted, InterruptedPassengers: s.interruptedPassengers,
 		IncidentSerial: s.incidentSerial, DemoError: s.demoError, Pods: make([]SavedPod, len(s.vehicles)),
 	}
 	if s.demo != nil {

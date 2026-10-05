@@ -76,6 +76,7 @@ type Metrics struct {
 	Submitted               int
 	Completed               int
 	Pending                 int
+	Interrupted             int
 	Vehicles                int
 	ActiveVehicles          int
 	PassengerVehicles       int
@@ -441,6 +442,7 @@ func (s *Session) Metrics() Metrics {
 		Submitted:               state.Submitted,
 		Completed:               state.Completed,
 		Pending:                 len(state.Pending),
+		Interrupted:             state.Interrupted,
 		Vehicles:                len(state.Vehicles),
 		PassengerDistanceMeters: state.PassengerDistanceMeters,
 		EmptyDistanceMeters:     state.EmptyDistanceMeters,
@@ -479,6 +481,10 @@ func (s *Session) state() State {
 }
 
 func (s *Session) stateWithoutNetwork() State {
+	// The session delivers each interruption before it releases mu, so
+	// this call delivers nothing. It keeps a publication from showing a
+	// pending rail record of an order that is gone.
+	s.deliverInterruptions()
 	if s.couplingError() != nil {
 		return s.lastCouplingObservation()
 	}
@@ -710,6 +716,9 @@ func (e *sessionEvent) args() []any {
 }
 
 func (s *Session) apply(command Command) (outcome, error) {
+	// A command can interrupt orders. Deliver them before the session
+	// releases mu, also when the command fails.
+	defer s.deliverInterruptions()
 	if command.Action != "reset" && command.Action != "project" && command.Action != "rewind" {
 		if err := s.couplingError(); err != nil {
 			return outcome{}, err
