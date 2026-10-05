@@ -1,6 +1,7 @@
 # Incident service transitions contract proposal
 
 Status: approved on 2026-10-05, with the proposed default for each open question in section 18.
+Revised for item 7: one save family (version 9) and one stream family (hello 6).
 
 This contract is stage 1 of the staged incident redesign.
 It defines the service transitions that vehicle faults and rider emergencies share.
@@ -9,7 +10,7 @@ Later stages call the operations below, and each later stage is a thin policy on
 
 The audited source is `069bafb`.
 Its Go sources are identical to `5c90c9f`, so line references from the parked fault and emergency reviews are valid here.
-Every `file:line` reference below is for `069bafb`.
+Every `file:line` reference below is for `069bafb`, except where a reference names another commit.
 
 Revision: round 3, after the Codex reviews of rounds 1 and 2.
 Sections 16 and 17 map each finding to its fix.
@@ -79,7 +80,7 @@ The format sections target the formats after three approved roadmap items land:
 
 - Item 4: one project version, with features gated by markers.
 - Item 5: exact-case JSON with lowerCamel members everywhere.
-- Item 7: one save family in the version 8 shape and one stream family in the hello version 5 shape.
+- Item 7: save version 9 and hello 6, in the version 8 and hello 5 member layouts without `textEncoding`, one HTTP state envelope and media type, and packed order text for every project kind.
 
 Member names below are the post-item-5 names.
 Implementation of section 11 starts after those items land.
@@ -698,7 +699,7 @@ Identity keys:
 | --- | --- |
 | Save encode | The session adapter writes `legFrom` as the index of `LegFrom` in the saved project `network.stations`, as it writes boarding berth indexes (`internal/session/boarding_state.go:118`). |
 | Save decode | The adapter maps the index back to the station ID before `RestoreState`. `RestoreState` never receives an index. Out of range is `invalid_state`. |
-| Stream and HTTP encode | `legFrom` is the station ID. Under the Express text contract, it is packed with the other order text (`internal/session/express_text.go:74`). |
+| Stream and HTTP encode | `legFrom` is the station ID. It is packed with the other order text (`encodePackedRequest`, `internal/session/express_text.go`). |
 | Stream decode | Unpacked with the other text (`:91`). The validator requires a passenger station (`internal/session/stream_frame.go:246`). |
 | Boarding tuples | Both directions resolve the berth index against `legOrigin()` of the rider. |
 
@@ -979,7 +980,7 @@ type operationalDestination struct {
 ```
 
 `vehicle` gets `op operationalDestination`.
-`interrupt` fits every class, because a pod stores at most 20 riders (`internal/session/express_wire.go:132`).
+`interrupt` fits every class, because a pod stores at most 20 riders (`orderBounds`, `internal/session/format_limits.go:18-23` at `475cc85`).
 The rider order is fixed while a purpose is set, because only the arrival action and `evacuate` remove riders, and both clear the purpose.
 
 ### 9.3 Operations
@@ -1184,8 +1185,11 @@ Composite operations order their internal steps so that the pod is valid at retu
 
 This section targets the formats after items 4, 5, and 7.
 Members use post-item-5 lowerCamel names.
-The save is the single version 8 shape, which still selects the Express limits by marker (`internal/session/express_wire.go:128-134`).
-The stream is the single hello version 5 shape.
+References in this section to item 7 code are for `475cc85`.
+The save is version 9.
+Its array limits come from `savedLimits` (`internal/session/format_limits.go:29`), which selects the order bounds by marker (`:18-23`).
+The stream is hello version 6, with limits from `streamLimits` (`:57`).
+The HTTP state has one envelope and one media type.
 
 ### 11.2 Marker and its propagation
 
@@ -1208,7 +1212,7 @@ The incident marker follows the same pattern:
 | Topology, stream hello and `GET /api/topology` (`internal/session/http.go:143`) | `TopologySnapshot.incidentContract` (`internal/session/protocol.go:13`) | Copied from the project. |
 | Full frame and `GET /api/state` (`internal/session/http.go:145`) | `SimulationFrame.incidentContract` (`internal/session/protocol.go:54`) | Copied from the simulation. |
 | Agreement | `frameState` (`internal/session/protocol.go:102-111`) | A new `incidentFrameBinding`, beside `couplingFrameBinding` (`:106`), rejects a frame whose marker differs from the topology marker. |
-| Raw presence | `DecodeStreamJSONVersion` (`internal/session/stream_service.go:19-55`) and `ApplyStream` (`internal/session/stream_codec.go:319`) | Typed decoding loses the difference between an absent member and `withdrawn: 0` or `legFrom: null`. So a raw token scan, `scanIncidentMembers`, runs beside `scanContractMarkers` (`internal/session/stream_service.go:34-36`), before the typed decode. It records in a field of `StreamEnvelope` that is not serialized whether any stage 1 member name or the `incident` group key appears, with any value. `ApplyStream` checks that record before it applies a delta (`internal/session/stream_codec.go:344`): it rejects a delta with a stage 1 member when the accepted base frame has no marker. A full envelope with a stage 1 member and no marker is rejected the same way. |
+| Raw presence | `DecodeStreamJSON` and the HTTP decoder `DecodeStateJSON`, which share `decodeMarkedJSON` (`internal/session/stream_service.go:31-58`), and `ApplyStream` (`internal/session/stream_codec.go:308`) | Typed decoding loses the difference between an absent member and `withdrawn: 0` or `legFrom: null`. So a raw token scan, `scanIncidentMembers`, runs beside the other scans of `decodeMarkedJSON` (`internal/session/stream_service.go:35-57`), before the typed decode. It records in a field of `StreamEnvelope` that is not serialized whether any stage 1 member name or the `incident` group key appears, with any value. `ApplyStream` checks that record before it applies a delta (`internal/session/stream_codec.go:344`): it rejects a delta with a stage 1 member when the accepted base frame has no marker. A full envelope with a stage 1 member and no marker is rejected the same way. |
 | Assembler | `StreamAssembler.State` (`internal/session/stream_frame.go:126`) | Rejects a marker change inside one stream. |
 | Delta | none | A delta carries no marker. A marker change is a project change, and a project change starts a new full baseline (`docs/protocol.md:94`). |
 
@@ -1266,7 +1270,8 @@ Nil and empty stay distinct, which agrees with `reflect.DeepEqual` and with the 
 Tests:
 
 - A baseline file pins the digest of one command per action, including `project` commands with the plain, Express, and coupling example projects.
-  It is created after items 4, 5, and 7, before the first tagged field.
+  Item 7 patch 0 created it (`internal/session/testdata/command_digests.txt`).
+  Stage 1 reuses it.
 - Each extension field set alone changes the digest.
 - Two commands that differ only in which extension field is set have different digests.
 - A nil and an empty tagged slice have different digests.
@@ -1297,7 +1302,7 @@ It makes no record.
 
 ### 11.5 Members
 
-Save members (single version 8 shape):
+Save members (version 9):
 
 | Path | Shape | Presence |
 | --- | --- | --- |
@@ -1321,7 +1326,7 @@ Stream and HTTP state members:
 | Path | Shape | Delta group |
 | --- | --- | --- |
 | `.../simulation/incidentContract` | `incident-v1` | None. Full frames only. |
-| `.../simulation/pending/*/legFrom` | Station ID, packed under the Express text contract | `pending` |
+| `.../simulation/pending/*/legFrom` | Station ID, packed | `pending` |
 | `.../simulation/vehicles/*/riders/*/legFrom` | Same | Vehicle `riders` |
 | `.../simulation/vehicles/*/withdrawn` | Integer | Vehicle `metadata` |
 | `.../simulation/vehicles/*/operational` | `emergency-unload`, `refuge`, or `empty-recovery` | Vehicle `metadata` |
@@ -1346,32 +1351,31 @@ It is dispatch state, as `deferPodID` is.
   Each failure is `invalid_state` for the whole save.
 - The stream decoder rejects an unknown purpose name, an unknown `legFrom` station, and a hold value with an unknown bit.
 - The only new array is `/simulation/pods/*/operational`, with an explicit limit of 3.
-  Without it, the array would get the fallback limit of 65,536 elements (`internal/session/state_file.go:95-98`, `:614-638`).
+  Without it, the array would get the fallback limit of 65,536 elements (`internal/session/state_file.go:96`, `:631-640`).
   The stream adds no array.
 - Prescan paths are derived from real envelopes.
   A test encodes the composed worst-case save and one full frame, one delta frame, and one HTTP state reply, walks every array in them, and fails when an array path has no explicit limit.
+  The array audit exists from item 7 patch 4 (`516b797`), and stage 1 extends it.
   This also checks the post-item-5 renames of existing paths.
 - Each new limit has a test at the limit, at the limit plus one before typed decoding, at a deeper nesting, and with a gzip body that expands past the byte cap.
 
 ### 11.7 Joint byte budget
 
-Measured headroom at `069bafb`, on October 4, 2026.
-The command was `go test -run 'TestStateFileWorstCaseSize|TestExpressWidestSaveAdapters|TestExpressWidestStreamAdapters|TestGroupSaveSourceClassRoundTrip' ./internal/session/` with `GOMAXPROCS=4`.
+Measured headroom at item 7 patch 8 (`7a8232c`), on October 5, 2026.
+The record is [docs/measurements/composed-worst-case-formats.json](measurements/composed-worst-case-formats.json), made by `TestComposedWorstCaseFormats` with `PODSIM_COMPOSED_FORMATS_RECORD` set.
 The fixtures use independent maxima, not reachable states.
+The save cap is 83,886,080 bytes (80 MiB), and the stream and HTTP cap is 67,108,864 bytes (64 MiB).
+The HTTP headroom includes the topology member at its cap of 10,489,856 bytes.
 
-| Shape | Fixture | Raw bytes | Headroom to 83,886,080 |
-| --- | --- | ---: | ---: |
-| Typed compact, 1 member per queue | `internal/session/compact_state_bytes_test.go:77` | 83,698,502 | 187,578 |
-| Typed compact, 2 to 4 members | same | 83,691,302 to 83,687,702 | 194,778 to 198,378 |
-| Typed boarding, modern | `internal/session/compact_state_bytes_test.go:140` | 83,612,702 | 273,378 |
-| Typed boarding, mixed | same | 83,655,602 | 230,478 |
-| Typed group, historical | `internal/session/group_state_test.go:198` | 83,270,697 | 615,383 |
-| Express save, modern | `internal/session/express_bytes_test.go:145` | 77,043,291 | 6,842,789 |
-| Express save, mixed | same | 77,020,431 | 6,865,649 |
-| Stream full, Express | `internal/session/express_bytes_test.go:246` | 54,641,672 | 12,467,192 to the 64 MiB stream cap |
-| Stream delta, Express | same | 54,774,741 | 12,334,123 to the 64 MiB stream cap |
+| Shape | Save headroom | Full frame headroom | Delta headroom | HTTP headroom |
+| --- | ---: | ---: | ---: | ---: |
+| Plain | 27,986,414 | 32,687,488 | 32,563,990 | 22,210,170 |
+| Coupling | 27,913,571 | 31,949,972 | 31,826,461 | 21,472,654 |
+| Express | 6,836,663 | 12,467,230 | 12,334,161 | 1,989,912 |
+| Express with coupling | 6,836,569 | 11,729,714 | 11,596,632 | 1,252,396 |
 
-The direct native-ID form of the typed compact fixture is already 836,322 bytes over the cap (`internal/session/compact_state_bytes_test.go:165`).
+Packed order text removed the escaped plain IDs, so the plain save is no longer the narrowest shape.
+The direct native-ID form of the typed compact fixture stays over the cap (`internal/session/compact_state_bytes_test.go`).
 That is why every stage 1 save member uses indexes.
 
 Stage 1 growth per shape, with the widest encodings:
@@ -1390,7 +1394,7 @@ Stage 1 growth per shape, with the widest encodings:
 Notes on the counts:
 
 - Plain: 300 pods with 8 riders each, and 2,600 waiting trips (`internal/session/state_file.go:44`).
-  Express: 20 stored riders per pod and 8,600 waiting trips (`internal/session/express_wire.go:128-134`).
+  Express: 20 stored riders per pod and 8,600 waiting trips (`orderBounds`, `internal/session/format_limits.go:18-23` at `475cc85`).
 - The station index has at most 3 digits, because a project has at most 300 stations (`internal/project/config.go:34`).
   The pod index has at most 3 digits for 300 pods (`:30`).
 - The exclusion adds 0 bytes to the envelope.
@@ -1399,40 +1403,46 @@ Notes on the counts:
   The composed fixture still includes trips with exclusions, to cover the decode path.
 - Rider counts include completed history, because history keeps `legFrom` (section 7.2).
 
-Headroom after stage 1:
+Headroom after stage 1, with the save totals above:
 
 | Shape | Before | Stage 1 | After |
 | --- | ---: | ---: | ---: |
-| Typed compact, 1 member | 187,578 | 82,716 | 104,862 |
-| Typed boarding, mixed | 230,478 | 82,716 | 147,762 |
-| Typed boarding, modern | 273,378 | 82,716 | 190,662 |
-| Typed group, historical | 615,383 | 82,716 | 532,667 |
-| Express save, modern | 6,842,789 | 218,316 | 6,624,473 |
+| Plain save | 27,986,414 | 82,716 | 27,903,698 |
+| Coupling save | 27,913,571 | 82,716 | 27,830,855 |
+| Express save | 6,836,663 | 218,316 | 6,618,347 |
+| Express with coupling save | 6,836,569 | 218,316 | 6,618,253 |
 
-Stage 1 fits under the current cap in every shape.
+Stage 1 fits under the save cap in every shape.
 
-Stream growth: plain order text worst case is about 397 bytes per `legFrom` with escaped 64-byte IDs, for 5,000 orders, about 1,985,000 bytes.
-Express packed text is about 101 bytes, for 14,600 orders, about 1,474,600 bytes.
+Stream growth: packed order text adds about 101 bytes for each `legFrom`.
+That is about 505,000 bytes for 5,000 plain orders, and about 1,474,600 bytes for 14,600 Express orders.
 Vehicle fields add about 15,000 bytes.
-The Express stream keeps more than 10.8 MB of headroom.
-No widest plain stream fixture exists today.
-Item 7 must add one, and the composed gate below measures it.
+`TestStreamMaximumEncoding` and the composed fixtures cover the plain stream.
 
-Joint allocation.
-The narrowest shape keeps 104,862 bytes after stage 1.
-Fault and emergency records need more than that once reverse state and records are indexed, so "raise the cap if needed" applies.
+| Shape | HTTP headroom before | Stage 1 | After |
+| --- | ---: | ---: | ---: |
+| Plain | 22,210,170 | about 520,000 | about 21,690,170 |
+| Coupling | 21,472,654 | about 520,000 | about 20,952,654 |
+| Express | 1,989,912 | about 1,489,600 | about 500,312 |
+| Express with coupling | 1,252,396 | about 1,489,600 | about 237,204 over the cap |
 
-| Allocation, narrowest plain shape | Under 80 MiB | Under 96 MiB |
-| --- | ---: | ---: |
-| Stage 1, this contract | 82,716 | 82,716 |
-| Emergency records, stage 3 | 16,384 | 65,536 |
-| Fault records and recovery state, stages 2, 4, 5, 6 | 65,536 | 4,194,304 |
-| Reserve | 22,942, too small for indexed fault records | 12,622,238 |
+The Express with coupling HTTP state does not fit after stage 1.
+By the maintainer decision of October 5, 2026, a composed shape over its cap raises that cap just enough to fit, with the composed measurement as evidence.
+Stage 1 patch 9 measures the composed shapes with its members, and raises the stream and HTTP cap if a shape is over it.
+Fault and emergency records of later stages get a stream and HTTP allocation at stage 0, beside the save allocation.
 
-Recommendation: decide the cap at stage 0, measured on the post-collapse composed fixture.
-96 MiB is the candidate.
-Stage 1 does not depend on the raise.
-A raise must also update the guard that proves the direct native-ID form is over the cap (`internal/session/compact_state_bytes_test.go:165`).
+Joint save allocation.
+The narrowest save shape, Express with coupling, keeps 6,836,569 bytes before stage 1.
+
+| Allocation, narrowest save shape | Bytes |
+| --- | ---: |
+| Stage 1, this contract | 218,316 |
+| Emergency records, stage 3 | 65,536 |
+| Fault records and recovery state, stages 2, 4, 5, 6 | 4,194,304 |
+| Reserve | 2,358,413 |
+
+The save keeps 80 MiB.
+A raise must also update the guard that proves the direct native-ID form is over the cap (`internal/session/compact_state_bytes_test.go`).
 
 Landing gate:
 
@@ -1661,7 +1671,8 @@ Each patch compiles and passes the full suite on its own.
 
 1. Claim classification and the coupling guard (section 6.3).
    Baseline fix.
-2. Digest extension registry, with no tagged field, and the digest baseline file.
+2. Digest extension registry, with no tagged field.
+   It reuses the item 7 digest baseline file.
 3. Incident marker, digest tag, marker propagation, and incident ID counter.
 4. Service withdrawal, its gates, and the yield exclusions of section 6.2.
 5. Pickup release, stale deferral clearing, and the exclusion.
@@ -1703,7 +1714,7 @@ Two major and four minor findings remained.
 | 2 | Major | Delivery after `demand.step` let `Advance` mark a departure-tick interruption `missed` (`internal/rail/connections.go:198`). | Delivery runs right after `Simulation.Step`, before `demand.step` and before both early returns. Counts are refreshed after delivery and after the coupling error restore. Departure-tick test. | 8.5, 14.1, 14.6 |
 | 3 | Minor | S1 to S3 missed `boarded`, `deferCheck`, the admitting-class scope, and on-demand Express orders. | S1 needs `boarded`. S2 needs `deferCheck == 0`. Infeasibility is over admitting classes. The service pair applies only to `ExpressServiceChoice`. | 7.6 |
 | 4 | Minor | A mask of two holds passed the `restoreService` preconditions. | Exactly one known bit. Atomic rejection test through `CheckContract`. | 4.2, 14.1 |
-| 5 | Minor | The assembler cannot see raw member presence in a markerless delta. | A raw scan in `DecodeStreamJSONVersion` records presence, and `ApplyStream` checks it before delta application. | 11.2, 14.3 |
+| 5 | Minor | The assembler cannot see raw member presence in a markerless delta. | A raw scan in `DecodeStreamJSON` records presence, and `ApplyStream` checks it before delta application. | 11.2, 14.3 |
 | 6 | Minor | A non-project command with a marked project also gets the trailer (`internal/session/session.go:538`). | Section 12 states that any command whose supplied project has the marker gets the trailer. The digest order does not change. | 12 |
 
 ## 18. Open questions
@@ -1720,7 +1731,7 @@ Two major and four minor findings remained.
 | 8 | Does an emergency unload or an empty recovery release its owner hold on arrival? | No. Arrival clears the purpose. The policy calls `restoreService`, so a faulted pod stays withdrawn until the fault clears. |
 | 9 | Do completed riders keep `legFrom`? | Yes. It is saved and never inferred. |
 | 10 | Do park-and-ride runs and `cmd/compare` accept the incident marker in stage 1? | No. The ledger outcome `interrupted` lands with the first policy that can interrupt a park-and-ride party. |
-| 11 | Is the save cap raised, and when? | Decide at stage 0 on the post-collapse composed fixture. 96 MiB is the candidate. Stage 1 fits without it. |
+| 11 | Is the save cap raised, and when? | Item 7 keeps 80 MiB. The item 7 patch 8 fixtures leave at least 6,618,253 save bytes after stage 1. Stage 0 decides the stream and HTTP allocation on the same fixtures. A composed shape over its cap raises that cap just enough (maintainer, October 5, 2026). |
 | 12 | Does a restore keep holds? | Yes. Each later stage releases its own hold when its records do not survive. |
 | 13 | Is the exclusion visible to clients? | No. The dispatch reason covers it. |
 | 14 | Can a refuge be a parking station? | Yes, when the berth allows the class. Emergency unloading needs a passenger station. |
