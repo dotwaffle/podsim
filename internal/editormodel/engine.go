@@ -176,11 +176,14 @@ func (e *engine) sync(command request) (response, error) {
 	servicePresent := next["orderContract"].services || next["network"].services || next["fleet"].services || next["expressServices"].services || next["stationQueueSpacing"].services || next["onboardPickups"].services
 	// Branch decoding skips the native field scan, which rejects null coupling members.
 	couplingPresent := slices.ContainsFunc(couplingKeys, func(key string) bool { _, present := next[key]; return present })
-	// Branch decoding also accepts an empty or null incident marker.
+	// Branch decoding also accepts an empty or null incident or fault
+	// marker, a null faults value, and faults without the fault marker.
 	_, incidentPresent := next["incidentContract"]
-	if firstError == nil && (next["network"].banked || config.Version != project.CurrentVersion || servicePresent || couplingPresent || incidentPresent) {
+	_, faultPresent := next["faultContract"]
+	_, faultsPresent := next["faults"]
+	if firstError == nil && (next["network"].banked || config.Version != project.CurrentVersion || servicePresent || couplingPresent || incidentPresent || faultPresent || faultsPresent) {
 		fields := make(map[string]jsontext.Value, 4)
-		for _, key := range []string{"version", "orderContract", "network", "fleet", "expressServices", "stationQueueSpacing", "onboardPickups", "couplingContract", "couplingEnabled", "couplingSites", "couplingCorridors", "incidentContract"} {
+		for _, key := range []string{"version", "orderContract", "network", "fleet", "expressServices", "stationQueueSpacing", "onboardPickups", "couplingContract", "couplingEnabled", "couplingSites", "couplingCorridors", "incidentContract", "faultContract", "faults"} {
 			if branch, present := next[key]; present {
 				fields[key] = branch.raw
 			}
@@ -236,6 +239,10 @@ func copyBranch(dst *project.Config, key string, src project.Config) bool {
 		dst.CouplingCorridors = src.CouplingCorridors
 	case "incidentContract":
 		dst.IncidentContract = src.IncidentContract
+	case "faultContract":
+		dst.FaultContract = src.FaultContract
+	case "faults":
+		dst.Faults = src.Faults
 	case "name":
 		dst.Name = src.Name
 	case "network":

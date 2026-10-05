@@ -80,6 +80,24 @@ func scanProjectFields(data []byte) (projectFields, error) {
 			if value.Kind() != jsontext.KindString || value.String() != string(sim.IncidentV1Contract) {
 				return projectFields{}, sim.ErrUnknownIncidentContract
 			}
+		case len(path) == 2 && path[1] == "faultContract":
+			// An explicit null or empty marker is presence, as for the
+			// incident marker.
+			value, err := decoder.ReadToken()
+			if err != nil {
+				return projectFields{}, err
+			}
+			if value.Kind() != jsontext.KindString || value.String() != string(FaultV1Contract) {
+				return projectFields{}, errUnknownFaultContract
+			}
+		case len(path) == 2 && path[1] == "faults":
+			value, err := decoder.ReadValue()
+			if err != nil {
+				return projectFields{}, err
+			}
+			if err := scanFaults(value); err != nil {
+				return projectFields{}, err
+			}
 		case len(path) == 2 && path[1] == "orderContract":
 			fields.service = true
 			value, err := decoder.ReadToken()

@@ -192,14 +192,18 @@ type Config struct {
 	// extension field of the command digest, so a command without it keeps
 	// its digest.
 	IncidentContract sim.IncidentContract `json:"incidentContract,omitzero" digest:"ext=1"`
-	Version          int                  `json:"version"`
-	Name             string               `json:"name"`
-	Network          sim.Network          `json:"network"`
-	Fleet            []sim.Placement      `json:"fleet"`
-	Demand           DemandConfig         `json:"demand"`
-	DemandProfiles   []DemandProfile      `json:"demandProfiles,omitempty"`
-	RailArrivals     []RailArrival        `json:"railArrivals,omitempty"`
-	RailDepartures   []RailDeparture      `json:"railDepartures,omitempty"`
+	// FaultContract selects the fault operations, and Faults holds their
+	// settings. Each one is an extension field of the command digest.
+	FaultContract  FaultContract   `json:"faultContract,omitzero" digest:"ext=2"`
+	Faults         *FaultConfig    `json:"faults,omitzero" digest:"ext=3"`
+	Version        int             `json:"version"`
+	Name           string          `json:"name"`
+	Network        sim.Network     `json:"network"`
+	Fleet          []sim.Placement `json:"fleet"`
+	Demand         DemandConfig    `json:"demand"`
+	DemandProfiles []DemandProfile `json:"demandProfiles,omitempty"`
+	RailArrivals   []RailArrival   `json:"railArrivals,omitempty"`
+	RailDepartures []RailDeparture `json:"railDepartures,omitempty"`
 	// ExpressServices declares directed hub pairs without a fill or timetable rule.
 	ExpressServices []sim.ExpressService `json:"expressServices,omitempty"`
 	// SharedRidePartyLimit caps the parties per pod. Zero loads as one.
@@ -262,6 +266,9 @@ func Validate(config Config) error {
 		return err
 	}
 	if err := sim.ValidateIncidentContract(config.IncidentContract); err != nil {
+		return err
+	}
+	if err := validateFaultContract(config); err != nil {
 		return err
 	}
 	if strings.TrimSpace(config.Name) == "" || len(config.Name) > maxNameLength {
@@ -342,9 +349,14 @@ func Validate(config Config) error {
 	}
 	// The size check runs last, because it encodes the full project. It
 	// measures the project with the widest demand settings, because the
-	// demand command checks new settings with ValidateDemand only.
+	// demand command checks new settings with ValidateDemand only. It also
+	// measures the faults settings of a project with the fault marker at
+	// their widest.
 	measured := config
 	measured.Demand = widestDemand
+	if config.FaultContract != "" {
+		measured.Faults = &widestFaults
+	}
 	_, err := encodedSize(measured)
 	return err
 }
@@ -897,6 +909,7 @@ func Clone(config Config) Config {
 	if config.Map != nil {
 		clone.Map = new(*config.Map)
 	}
+	clone.Faults = cloneFaults(config.Faults)
 	return clone
 }
 

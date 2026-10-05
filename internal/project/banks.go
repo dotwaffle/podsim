@@ -83,6 +83,12 @@ func (config *Config) decodeJSONLimit(data []byte, options jsonv2.Options, rawLi
 	if err := sim.ValidateIncidentContract(decoded.IncidentContract); err != nil {
 		return err
 	}
+	// The scan above refuses a null faults value, which the typed decode
+	// reads as no faults. The marker rules then hold for the decoded
+	// project.
+	if err := validateFaultContract(Config(decoded)); err != nil {
+		return err
+	}
 	if err := validateCouplingGeometry(Config(decoded)); err != nil {
 		return err
 	}

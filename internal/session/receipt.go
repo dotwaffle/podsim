@@ -29,6 +29,8 @@ type digestExtension struct {
 // TestDigestExtensionRegistry checks the table against the Command type.
 var digestExtensions = []digestExtension{
 	{n: 1, path: "Project.IncidentContract"},
+	{n: 2, path: "Project.FaultContract"},
+	{n: 3, path: "Project.Faults"},
 }
 
 // extensionTag returns N when field has the tag digest:"ext=N".
