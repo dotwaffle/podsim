@@ -31,7 +31,8 @@ func (s *Simulation) bufferClaimCanYield(head, remote *vehicle, berth Berth, r r
 	if !head.carriesPassengers() && !s.assigned(head.Pod.ID) {
 		return false
 	}
-	if remote == nil || remote.RelocatingTo == "" || remote.destination.ID != berth.ID ||
+	// A coupled member's receiving claim belongs to the committed train.
+	if remote == nil || remote.couplingID != "" || remote.RelocatingTo == "" || remote.destination.ID != berth.ID ||
 		remote.Pod.Occupied || remote.carriesPassengers() || s.assigned(remote.Pod.ID) ||
 		remote.Pod.BerthID == berth.ID || s.relocationDestinationAdmitted(remote) {
 		return false

@@ -65,7 +65,8 @@ func (s *Simulation) yieldRelocationClaims() {
 	var arrivals map[string]passengerArrival
 	for i := range s.vehicles {
 		relocating := &s.vehicles[i]
-		if relocating.RelocatingTo == "" {
+		// A coupled member's receiving claim belongs to the committed train.
+		if relocating.RelocatingTo == "" || relocating.couplingID != "" {
 			continue
 		}
 		if arrivals == nil {
