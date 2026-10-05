@@ -235,10 +235,16 @@ func (s *Simulation) assignedPickupFitsRequest(v *vehicle, request Request) bool
 		}
 	case berth.Node == "":
 		var err error
-		_, berth, err = s.stationRouteByLoad(stationRouteInput{class: v.Pod.Class, from: station.routeEntry(v.Route, berth), station: station.ID, accept: s.berthFilterForStops(v.Pod.Class, []string{request.To})})
+		_, berth, err = s.stationRouteByLoad(stationRouteInput{class: v.Pod.Class, from: station.routeEntry(v.Route, berth), station: station.ID, accept: s.pickupBerthFilter(v, request)})
 		if err != nil {
 			return false
 		}
+	}
+	// While the blocked set is not empty, a pod that must reach its pickup
+	// berth needs a compatible pickup berth. An idle pod at the origin
+	// boards where it is.
+	if v.Pod.Activity != Idle && s.blockedActive() {
+		return s.pickupBerthFilter(v, request)(berth)
 	}
 	return s.pickupBerthFitsRequest(v, request, berth)
 }

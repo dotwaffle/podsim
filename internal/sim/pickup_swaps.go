@@ -152,6 +152,10 @@ func (s *Simulation) tryPickupSwap(i, j int) bool {
 	if a == nil || b == nil || !s.podFitsRequest(a, s.waiting[j].request) || !s.podFitsRequest(b, s.waiting[i].request) {
 		return false
 	}
+	// Each receiving pod must have access to its new pickup.
+	if !s.pickupAccess(a, s.waiting[j].request) || !s.pickupAccess(b, s.waiting[i].request) {
+		return false
+	}
 	routeA, berthA, okA := s.candidateRouteForRequest(a, s.waiting[j].request, nil)
 	routeB, berthB, okB := s.candidateRouteForRequest(b, s.waiting[i].request, nil)
 	c := s.pickupSwaps

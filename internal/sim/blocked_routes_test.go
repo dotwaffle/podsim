@@ -511,9 +511,10 @@ func TestBlockedOrderAdmissionStaysStatic(t *testing.T) {
 		trip.request.PodID = "01"
 		s.waiting = append(s.waiting, trip)
 		blockLanes(t, s, "market-approach")
-		s.dispatch()
-		if len(s.waiting) != 1 || s.waiting[0].request.PodID != "01" {
-			t.Fatalf("dispatch unbound the trip: %+v", s.waiting)
+		// The static test keeps the binding. Pickup access is a separate
+		// test (section 9.4), and it unbinds this trip.
+		if s.vehicles[0].Pod.ID != "01" || !s.podFitsRequest(&s.vehicles[0], trip.request) {
+			t.Fatal("podFitsRequest refuses a trip to a cut-off station")
 		}
 	})
 }

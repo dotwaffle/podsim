@@ -40,9 +40,13 @@ func (s *Simulation) berthFilterForStops(class VehicleClass, stops []string) fun
 	return func(berth Berth) bool { return onward(berth.Node, 0) }
 }
 
+// berthFilterForVehicle returns the berth filter of the current work of v.
+// An assigned pickup pod uses pickupBerthFilter, so while the blocked set
+// is not empty it accepts only compatible pickup berths, also on a network
+// without class restrictions.
 func (s *Simulation) berthFilterForVehicle(v *vehicle) func(Berth) bool {
 	s.ensureNetworkIndexes()
-	if !s.graph.classRestrictions {
+	if !s.graph.classRestrictions && !s.blockedActive() {
 		return nil
 	}
 	if v.carriesPassengers() && len(v.Stops) > 0 && v.Stops[0] == v.destinationStation {
@@ -50,14 +54,14 @@ func (s *Simulation) berthFilterForVehicle(v *vehicle) func(Berth) bool {
 	}
 	for _, trip := range s.waiting {
 		if trip.request.PodID == v.Pod.ID && trip.request.legOrigin() == v.destinationStation {
-			return s.berthFilterForStops(v.Pod.Class, []string{trip.request.To})
+			return s.pickupBerthFilter(v, trip.request)
 		}
 	}
 	return nil
 }
 
 func (s *Simulation) candidateRouteForRequest(v *vehicle, request Request, load func(Berth) int) ([]Lane, Berth, bool) {
-	return s.candidateRouteMatching(v, request.legOrigin(), load, s.berthFilterForStops(v.Pod.Class, []string{request.To}))
+	return s.candidateRouteMatching(v, request.legOrigin(), load, s.pickupBerthFilter(v, request))
 }
 
 func (s *Simulation) stationApproachForStops(from string, stops []string, class VehicleClass) ([]Lane, error) {

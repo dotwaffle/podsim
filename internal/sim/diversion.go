@@ -96,7 +96,9 @@ func (s *Simulation) candidateRoutePartsMatching(v *vehicle, stationID string, l
 		return nil, route, destination, err == nil
 	}
 	prefix, from, ok := s.divertStart(v)
-	if !ok {
+	// A candidate whose kept lanes cross a blocked lane cannot reach the
+	// pickup.
+	if !ok || s.keptLaneBlocked(v, prefix) {
 		return nil, nil, Berth{}, false
 	}
 	suffix, berth, err := s.stationRouteByLoad(stationRouteInput{class: v.Pod.Class, from: from, station: stationID, load: load, accept: accept})
@@ -162,7 +164,7 @@ func (s *Simulation) sendPickup(v *vehicle, stationID string) error {
 }
 
 func (s *Simulation) sendPickupForRequest(v *vehicle, request Request) error {
-	return s.sendPickupMatching(v, request.legOrigin(), s.berthFilterForStops(v.Pod.Class, []string{request.To}))
+	return s.sendPickupMatching(v, request.legOrigin(), s.pickupBerthFilter(v, request))
 }
 
 func (s *Simulation) sendPickupMatching(v *vehicle, stationID string, accept func(Berth) bool) error {

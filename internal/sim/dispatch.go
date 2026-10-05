@@ -116,16 +116,22 @@ func (s *Simulation) dispatch() {
 		previousReason := trip.request.DispatchReason
 		trip.request.DispatchReason = ""
 		v := s.findVehicle(trip.request.PodID)
-		if v != nil && !s.podFitsRequest(v, trip.request) {
-			delete(assigned, v.Pod.ID)
-			s.releasePickup(v)
-			trip.request.PodID = ""
-			if s.orderContract == ExpressOrderContract {
-				trip.route = nil
-				trip.destination = Berth{}
+		if v != nil {
+			// A pod that fits the trip but has no access to its pickup
+			// loses it with no exclusion, and stays in service. The trip
+			// keeps its ID, queue position, deferral budget and exclusion.
+			fits := s.podFitsRequest(v, trip.request)
+			if !fits || !s.pickupAccess(v, trip.request) {
+				delete(assigned, v.Pod.ID)
+				s.releasePickup(v)
+				trip.request.PodID = ""
+				if fits || s.orderContract == ExpressOrderContract {
+					trip.route = nil
+					trip.destination = Berth{}
+				}
+				v = nil
+				pass.reset()
 			}
-			v = nil
-			pass.reset()
 		}
 		if v != nil && s.screensSeats() {
 			s.recordJoinEligible(trip, v, pass)

@@ -124,7 +124,7 @@ func (s *Simulation) assignedPickupSeconds(v *vehicle) float64 {
 func (s *Simulation) tryPickupTransfer(index int, replacement *vehicle) bool {
 	trip := &s.waiting[index]
 	old := s.findVehicle(trip.request.PodID)
-	if !s.podFitsRequest(replacement, trip.request) {
+	if !s.podFitsRequest(replacement, trip.request) || !s.pickupAccess(replacement, trip.request) {
 		return false
 	}
 	route, berth, ok := s.candidateRouteForRequest(replacement, trip.request, nil)

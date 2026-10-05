@@ -77,12 +77,8 @@ func (s *Simulation) endpointRoute(v *vehicle) ([]Lane, bool) {
 	default:
 		return nil, false
 	}
-	current := 0
-	if v.blocks.len() > 0 {
-		current = v.blocks.locate(v.blockIndex, 0)
-	}
 	// A blocked kept lane traps the pod. Reverse motion is a later stage.
-	if current < prefix && s.routeBlocked(v.Route[current:prefix]) {
+	if s.keptLaneBlocked(v, prefix) {
 		return nil, false
 	}
 	// The lane into a blocked berth holds the berth node in its last

@@ -67,14 +67,14 @@ func (s *Simulation) waitForFinishingPod(trip *waitingTrip, idle *vehicle, assig
 		return false
 	}
 	if trip.deferCheck > s.tick {
-		if v := s.findVehicle(trip.deferPodID); v == nil || !v.inService() || trip.excludes(v.Pod.ID) || !s.podFitsRequest(v, trip.request) {
+		if v := s.findVehicle(trip.deferPodID); v == nil || !v.inService() || trip.excludes(v.Pod.ID) || !s.podFitsRequest(v, trip.request) || !s.pickupAccess(v, trip.request) {
 			return false
 		}
 		trip.request.DispatchReason = "Waiting for pod " + trip.deferPodID + " to finish"
 		return true
 	}
 	station, _ := s.station(trip.request.legOrigin())
-	route, _, ok := s.pickupRouteWithAssignments(pickupRouteInput{pod: idle, station: trip.request.legOrigin(), assigned: assigned, accept: s.berthFilterForStops(idle.Pod.Class, []string{trip.request.To})})
+	route, _, ok := s.pickupRouteWithAssignments(pickupRouteInput{pod: idle, station: trip.request.legOrigin(), assigned: assigned, accept: s.pickupBerthFilter(idle, trip.request)})
 	if !ok {
 		return false
 	}
@@ -109,7 +109,11 @@ func (s *Simulation) waitForFinishingPod(trip *waitingTrip, idle *vehicle, assig
 			pickupCannotImprove(remaining+bounds[index], min(bestETA, holdSeconds)) {
 			continue
 		}
-		route, _, err := s.stationRouteByLoad(stationRouteInput{class: v.Pod.Class, from: node, station: station.ID, load: noBerthLoad, accept: s.berthFilterForStops(v.Pod.Class, []string{trip.request.To})})
+		// The held pod must have access to the pickup.
+		if !s.pickupAccess(v, trip.request) {
+			continue
+		}
+		route, _, err := s.stationRouteByLoad(stationRouteInput{class: v.Pod.Class, from: node, station: station.ID, load: noBerthLoad, accept: s.pickupBerthFilter(v, trip.request)})
 		if err != nil {
 			continue
 		}
@@ -144,7 +148,7 @@ func (s *Simulation) keepHold(trip *waitingTrip, pass *dispatchPass) bool {
 	if s.finishingPodWait == FinishingPodWaitNone || trip.deferUntil != 0 && s.tick >= trip.deferUntil || trip.deferCheck <= s.tick {
 		return false
 	}
-	if v := s.findVehicle(trip.deferPodID); v == nil || !v.inService() || trip.excludes(v.Pod.ID) || !s.podFitsRequest(v, trip.request) {
+	if v := s.findVehicle(trip.deferPodID); v == nil || !v.inService() || trip.excludes(v.Pod.ID) || !s.podFitsRequest(v, trip.request) || !s.pickupAccess(v, trip.request) {
 		return false
 	}
 	if s.localPickupForRequest(trip.request, trip.excludedPod, pass) != nil {
