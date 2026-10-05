@@ -308,7 +308,7 @@ func (s *Simulation) guardedSupply(input guardedSupplyInput) ([]bool, map[string
 	supplied := make([]bool, len(input.demand))
 	busy := make(map[string]bool)
 	for _, trip := range s.waiting {
-		if index, ok := s.stationIndex(trip.request.From); ok {
+		if index, ok := s.stationIndex(trip.request.legOrigin()); ok {
 			supplied[index] = true
 		}
 		if trip.destination.ID != "" {

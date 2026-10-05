@@ -224,11 +224,12 @@ func (state SavedState) checkContract() (int, error) {
 }
 
 // validTrip reports whether a queued order is valid. A queued order is not
-// complete, and its two stations differ. It has a boarding time only when a
+// complete, and its destination differs from its origin and from its leg
+// origin. It has a boarding time only when a
 // restore queued it again after it boarded, and then the boarding time is
 // not before the request time.
 func (state SavedState) validTrip(request SavedRequest, boarded bool) bool {
-	return state.validRequest(request) && request.From != request.To && !request.Completed &&
+	return state.validRequest(request) && request.From != request.To && request.LegFrom != request.To && !request.Completed &&
 		(boarded && request.BoardedTick >= request.RequestedTick || !boarded && request.BoardedTick == 0)
 }
 
@@ -269,7 +270,7 @@ func (state SavedState) checkPod(pod SavedPod) error {
 }
 
 // checkPodRiders checks the riders of a pod. The riders of a pod boarded at
-// one station unless boarding records prove their origins. Each names the pod.
+// one station unless boarding records prove their leg origins. Each names the pod.
 func (state SavedState) checkPodRiders(pod SavedPod, rule phaseRule, active, history []SavedRequest) error {
 	switch {
 	case len(pod.Riders) > MaxStoredRidersForOrderContract(pod.Class, state.OrderContract) || len(pod.Stops) > MaxSharedRideParties:
@@ -282,13 +283,13 @@ func (state SavedState) checkPodRiders(pod SavedPod, rule phaseRule, active, his
 		return fmt.Errorf("the pod has completed rider %d", history[0].ID)
 	}
 	for _, rider := range pod.Riders {
-		if !state.validRequest(rider) || rider.From == rider.To || rider.BoardedTick < rider.RequestedTick {
+		if !state.validRequest(rider) || rider.From == rider.To || rider.LegFrom == rider.To || rider.BoardedTick < rider.RequestedTick {
 			return fmt.Errorf("rider %d is not valid", rider.ID)
 		}
-		if rider.PodID != pod.ID || len(pod.Boardings) == 0 && rider.From != pod.Riders[0].From {
+		if rider.PodID != pod.ID || len(pod.Boardings) == 0 && rider.legOrigin() != pod.Riders[0].legOrigin() {
 			return fmt.Errorf("rider %d is not a rider of this journey", rider.ID)
 		}
-		if rule.boardsHere && rider.From != pod.StationID {
+		if rule.boardsHere && rider.legOrigin() != pod.StationID {
 			return fmt.Errorf("rider %d does not board at the station of the pod", rider.ID)
 		}
 	}

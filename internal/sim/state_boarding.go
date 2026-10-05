@@ -69,7 +69,7 @@ func checkSavedBoardingsWithOrderContract(pod SavedPod, contract OrderContract) 
 func checkBoardingBerths(network Network, pod SavedPod) error {
 	for index, boarding := range pod.Boardings {
 		rider := pod.Riders[index]
-		station, ok := network.Station(rider.From)
+		station, ok := network.Station(rider.legOrigin())
 		if !ok || station.ParkingOnly {
 			return fmt.Errorf("rider %d has no passenger boarding station", rider.ID)
 		}

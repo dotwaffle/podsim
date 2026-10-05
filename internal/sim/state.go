@@ -76,6 +76,7 @@ type SavedRequest struct {
 	ServiceID      string         `json:"serviceID,omitempty"`
 	ID             int            `json:"id"`
 	From           string         `json:"from"`
+	LegFrom        string         `json:"-"`
 	To             string         `json:"to"`
 	PartySize      int            `json:"partySize"`
 	PodID          string         `json:"podID,omitempty"`

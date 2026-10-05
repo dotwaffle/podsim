@@ -418,7 +418,7 @@ func maxPhaseTicks(activity Activity) int {
 // the pod use passenger stations.
 func (r *physicalRestore) passengerRiders(v *vehicle) bool {
 	for _, rider := range v.Riders {
-		if !rider.Completed && (!r.s.passengerStation(rider.From) || !r.s.passengerStation(rider.To)) {
+		if !rider.Completed && (!r.s.passengerStation(rider.From) || !r.s.passengerStation(rider.To) || !r.s.optionalPassengerStation(rider.LegFrom)) {
 			return false
 		}
 	}
@@ -428,6 +428,12 @@ func (r *physicalRestore) passengerRiders(v *vehicle) bool {
 func (s *Simulation) passengerStation(id string) bool {
 	station, ok := s.station(id)
 	return ok && !station.ParkingOnly
+}
+
+// optionalPassengerStation reports whether id is empty or a passenger
+// station. An order without a leg origin has an empty LegFrom.
+func (s *Simulation) optionalPassengerStation(id string) bool {
+	return id == "" || s.passengerStation(id)
 }
 
 // routed reports whether a pod at an activity uses its route.
@@ -570,7 +576,7 @@ func (r *physicalRestore) buildRoutes() error {
 		if r.state.Pods[index].StationBuffered {
 			_, eligible := r.s.bufferPlan(v)
 			pickup := slices.ContainsFunc(r.state.Waiting, func(trip SavedTrip) bool {
-				return trip.Request.PodID == v.Pod.ID && trip.Request.From == v.destinationStation
+				return trip.Request.PodID == v.Pod.ID && trip.Request.legOrigin() == v.destinationStation
 			})
 			if !eligible || !v.carriesPassengers() && !pickup && !v.released && v.Pod.Activity != Boarding && v.Pod.Activity != Continuing {
 				return fmt.Errorf("pod %s: invalid station buffer membership", v.Pod.ID)
@@ -1217,7 +1223,7 @@ func (r *physicalRestore) restoreWaiting() {
 		}
 		request := Request(saved.Request)
 		if !r.state.validTrip(saved.Request, saved.Boarded) ||
-			!s.passengerStation(request.From) || !s.passengerStation(request.To) {
+			!s.passengerStation(request.From) || !s.passengerStation(request.To) || !s.optionalPassengerStation(request.LegFrom) {
 			r.result.Dropped = append(r.result.Dropped, request.ID)
 			r.result.DroppedParties++
 			orphaned = append(orphaned, request.PodID)

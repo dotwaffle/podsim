@@ -1,6 +1,7 @@
 package sim
 
 import (
+	"cmp"
 	"errors"
 	"fmt"
 )
@@ -154,8 +155,24 @@ func requestFromOptions(options TripOptions, id int, tick int64) Request {
 	return Request{ID: id, From: options.From, To: options.To, PartySize: options.PartySize, SharingConsent: options.SharingConsent, Service: options.Service, ServiceID: options.ServiceID, RequestedTick: tick}
 }
 
+// options returns the options of the order. Identity checks use it: the
+// service pair, party admission, and option normalization.
 func (request Request) options() TripOptions {
 	return TripOptions{From: request.From, To: request.To, PartySize: request.PartySize, SharingConsent: request.SharingConsent, Service: request.Service, ServiceID: request.ServiceID}
+}
+
+// legOrigin returns the station where the party boards its current pod.
+func (request Request) legOrigin() string { return cmp.Or(request.LegFrom, request.From) }
+
+// legOrigin returns the station where the party boarded its current pod.
+func (request SavedRequest) legOrigin() string { return cmp.Or(request.LegFrom, request.From) }
+
+// dispatchOptions is options with the leg origin as From. Dispatch caches
+// and pickup tests use it. Identity checks keep options.
+func (request Request) dispatchOptions() TripOptions {
+	options := request.options()
+	options.From = request.legOrigin()
+	return options
 }
 
 func (s *Simulation) partyLimit(request Request) int {
@@ -178,14 +195,14 @@ func (s *Simulation) podFitsRequest(v *vehicle, request Request) bool {
 	if err := CheckPartyAdmissionWithOrderContract(PartyAdmissionInput{Class: v.Pod.Class, Request: request.options(), PartyLimit: s.partyLimit(request)}, s.orderContract); err != nil {
 		return false
 	}
-	from, fromOK := s.station(request.From)
+	from, fromOK := s.station(request.legOrigin())
 	to, toOK := s.station(request.To)
 	return fromOK && toOK && !from.ParkingOnly && !to.ParkingOnly && s.stationsConnectedForClass(from, to, v.Pod.Class)
 }
 
 // pickupBerthFitsRequest checks the passenger leg from the selected pickup berth.
 func (s *Simulation) pickupBerthFitsRequest(v *vehicle, request Request, berth Berth) bool {
-	station, ok := s.station(request.From)
+	station, ok := s.station(request.legOrigin())
 	if !ok || !berthAllows(station, berth, v.Pod.Class) {
 		return false
 	}
@@ -199,18 +216,18 @@ func (s *Simulation) pickupBerthFitsRequest(v *vehicle, request Request, berth B
 
 // assignedPickupFitsRequest checks the current or reachable pickup berth.
 func (s *Simulation) assignedPickupFitsRequest(v *vehicle, request Request) bool {
-	station, ok := s.station(request.From)
+	station, ok := s.station(request.legOrigin())
 	if !ok {
 		return false
 	}
 	berth := v.destination
 	switch {
 	case v.Pod.Activity == Idle:
-		if v.Pod.StationID != request.From {
+		if v.Pod.StationID != request.legOrigin() {
 			return false
 		}
 		berth, _ = station.berth(v.Pod.BerthID)
-	case v.destinationStation != request.From:
+	case v.destinationStation != request.legOrigin():
 		var reachable bool
 		_, berth, reachable = s.candidateRouteForRequest(v, request, nil)
 		if !reachable {

@@ -1100,16 +1100,22 @@ func (g *Game) drawCollapsedStationLabels(screen *ebiten.Image, input collapsedL
 func (g *Game) visibleCollapsedStationLabels(input collapsedLabelsInput) ([]boundedStationLabel, []bool) {
 	selected := input.selected
 	preferred := map[string]bool{g.origin: true, g.destination: true, selected.Pod.StationID: true, selected.RelocatingTo: true}
-	for _, rider := range selected.Riders {
-		preferred[rider.From] = true
-		preferred[rider.To] = true
-	}
+	addRiderStations(preferred, selected)
 	delete(preferred, "")
 	selection := collapsedLabelSelection{labels: g.boundedStationLabels(input), preferred: preferred, dense: len(g.network.Stations) > 30}
 	if selection.dense && input.selectedPodLabel.value != "" {
 		selection.occupied = append(selection.occupied, g.labelBounds(input.selectedPodLabel))
 	}
 	return selection.labels, selectCollapsedStationLabels(selection)
+}
+
+// addRiderStations adds the leg origin and the destination of each rider
+// of a pod to stations.
+func addRiderStations(stations map[string]bool, vehicle sim.Vehicle) {
+	for _, rider := range vehicle.Riders {
+		stations[cmp.Or(rider.LegFrom, rider.From)] = true
+		stations[rider.To] = true
+	}
 }
 
 // boundedStationLabels returns the screen areas of the overview labels and of
@@ -1757,14 +1763,14 @@ func (g *Game) inspectionRows(vehicle sim.Vehicle) []inspectionRow {
 }
 
 // journeyStations returns the stations of the current or last passenger
-// journey of a pod: the origin of its first rider, then the stops that the
-// pod still makes. When no stop remains, it gives the destinations of the
-// riders in rider order. It returns nil for a pod with no riders.
+// journey of a pod: the leg origin of its first rider, then the stops that
+// the pod still makes. When no stop remains, it gives the destinations of
+// the riders in rider order. It returns nil for a pod with no riders.
 func journeyStations(vehicle sim.Vehicle) []string {
 	if len(vehicle.Riders) == 0 {
 		return nil
 	}
-	stations := []string{vehicle.Riders[0].From}
+	stations := []string{cmp.Or(vehicle.Riders[0].LegFrom, vehicle.Riders[0].From)}
 	if len(vehicle.Stops) > 0 {
 		return append(stations, vehicle.Stops...)
 	}

@@ -109,7 +109,7 @@ func (s *Simulation) dispatch() {
 	pass.begin(s.waiting)
 	assigned := pass.assigned
 	for i := 0; i < len(s.waiting); {
-		if s.mayBeIdle(pass, s.waiting[i].request.From) && s.promoteReadyPickup(i) {
+		if s.mayBeIdle(pass, s.waiting[i].request.legOrigin()) && s.promoteReadyPickup(i) {
 			pass.reset()
 		}
 		trip := &s.waiting[i]
@@ -139,7 +139,7 @@ func (s *Simulation) dispatch() {
 			s.waiting = slices.Delete(s.waiting, i, i+1)
 			continue
 		}
-		if v != nil && (v.Pod.Activity != Idle || v.Pod.StationID != trip.request.From) && s.mayBeIdle(pass, trip.request.From) {
+		if v != nil && (v.Pod.Activity != Idle || v.Pod.StationID != trip.request.legOrigin()) && s.mayBeIdle(pass, trip.request.legOrigin()) {
 			if local := s.localPickupForRequest(trip.request, trip.excludedPod, pass); local != nil {
 				pass.reset()
 				delete(assigned, v.Pod.ID)
@@ -155,7 +155,7 @@ func (s *Simulation) dispatch() {
 			continue
 		}
 		if v == nil {
-			key := dispatchKey{options: trip.request.options(), excluded: trip.excludedPod}
+			key := dispatchKey{options: trip.request.dispatchOptions(), excluded: trip.excludedPod}
 			var known bool
 			if v, known = pass.optionPickups[key]; !known {
 				v = s.pickupPodForRequest(trip.request, trip.excludedPod, pass)
@@ -175,7 +175,7 @@ func (s *Simulation) dispatch() {
 			if s.orderContract == ExpressOrderContract && trip.request.PodID != v.Pod.ID {
 				trip.route, trip.destination = nil, Berth{}
 			}
-			away := v.Pod.StationID != trip.request.From || v.Pod.Activity != Idle
+			away := v.Pod.StationID != trip.request.legOrigin() || v.Pod.Activity != Idle
 			if away && s.waitForFinishingPod(trip, v, assigned) {
 				i++
 				continue
@@ -201,7 +201,7 @@ func (s *Simulation) dispatch() {
 				v = s.findVehicle(trip.request.PodID)
 			}
 		}
-		if v.Pod.Activity == Idle && v.Pod.StationID == trip.request.From {
+		if v.Pod.Activity == Idle && v.Pod.StationID == trip.request.legOrigin() {
 			pass.reset()
 			if err := s.board(v, *trip); err != nil {
 				trip.request.DispatchReason = "Waiting for destination access"
@@ -315,7 +315,8 @@ type dispatchPass struct {
 	boardingKnown bool
 }
 
-// dispatchKey selects a cached pickup pod. Two trips with the same options
+// dispatchKey selects a cached pickup pod. The pickup station is the leg
+// origin, so the key holds dispatchOptions. Two trips with the same options
 // and different exclusions can get different pods, so the key includes the
 // exclusion.
 type dispatchKey struct {
@@ -420,7 +421,7 @@ func (s *Simulation) localPickup(stationID string, pass *dispatchPass) *vehicle 
 // get.
 func (s *Simulation) localPickupForRequest(request Request, excluded string, pass *dispatchPass) *vehicle {
 	for _, v := range s.freePods(pass) {
-		if v.Pod.Activity == Idle && v.Pod.StationID == request.From && (excluded == "" || v.Pod.ID != excluded) && !pass.assigned[v.Pod.ID] && s.podFitsRequest(v, request) {
+		if v.Pod.Activity == Idle && v.Pod.StationID == request.legOrigin() && (excluded == "" || v.Pod.ID != excluded) && !pass.assigned[v.Pod.ID] && s.podFitsRequest(v, request) {
 			station, _ := s.station(v.Pod.StationID)
 			berth, _ := station.berth(v.Pod.BerthID)
 			if _, err := s.stationApproachRouteForClass(berth.Node, request.To, v.Pod.Class); err != nil {
@@ -452,7 +453,7 @@ func (s *Simulation) pickupPod(stationID string, pass *dispatchPass) *vehicle {
 // pickupPodForRequest chooses the pickup pod for a request as pickupPod
 // does. It skips the pod excluded, which a released trip must not get.
 func (s *Simulation) pickupPodForRequest(request Request, excluded string, pass *dispatchPass) *vehicle {
-	return s.pickupPodMatching(request.From, pass, &request, excluded)
+	return s.pickupPodMatching(request.legOrigin(), pass, &request, excluded)
 }
 
 func (s *Simulation) pickupPodMatching(stationID string, pass *dispatchPass, request *Request, excluded string) *vehicle {
@@ -501,7 +502,7 @@ func (s *Simulation) board(v *vehicle, trip waitingTrip) error {
 	if trip.excludes(v.Pod.ID) || !s.podFitsRequest(v, trip.request) {
 		return ErrPartyAdmission
 	}
-	from, _ := s.station(trip.request.From)
+	from, _ := s.station(trip.request.legOrigin())
 	origin, _ := from.berth(v.Pod.BerthID)
 	route, err := s.legRoute(v, leg{origin: origin.Node, from: origin.Node, stops: []string{trip.request.To}})
 	if err != nil {
@@ -553,7 +554,7 @@ func (s *Simulation) joinSharedRide(trip *waitingTrip, pass *dispatchPass) bool 
 	request := trip.request
 	existingStop := request.PodID != ""
 	refused := false
-	for _, v := range s.boardingPods(pass)[request.From] {
+	for _, v := range s.boardingPods(pass)[request.legOrigin()] {
 		if v.Pod.Occupied || len(v.Boardings) > 0 || trip.excludes(v.Pod.ID) {
 			continue
 		}
@@ -641,16 +642,16 @@ func (s *Simulation) recordBoarding(request Request, sharedWith int) {
 func (s *Simulation) promoteReadyPickup(index int) bool {
 	trip := &s.waiting[index]
 	current := s.findVehicle(trip.request.PodID)
-	if current != nil && current.Pod.Activity == Idle && current.Pod.StationID == trip.request.From {
+	if current != nil && current.Pod.Activity == Idle && current.Pod.StationID == trip.request.legOrigin() {
 		return false
 	}
 	for j := index + 1; j < len(s.waiting); j++ {
 		later := &s.waiting[j]
-		if later.request.From != trip.request.From {
+		if later.request.legOrigin() != trip.request.legOrigin() {
 			continue
 		}
 		ready := s.findVehicle(later.request.PodID)
-		if ready == nil || !ready.inService() || trip.excludes(ready.Pod.ID) || ready.Pod.Activity != Idle || ready.Pod.StationID != trip.request.From || !s.podFitsRequest(ready, trip.request) || !s.assignedPickupFitsRequest(ready, trip.request) {
+		if ready == nil || !ready.inService() || trip.excludes(ready.Pod.ID) || ready.Pod.Activity != Idle || ready.Pod.StationID != trip.request.legOrigin() || !s.podFitsRequest(ready, trip.request) || !s.assignedPickupFitsRequest(ready, trip.request) {
 			continue
 		}
 		if current != nil && (later.excludes(current.Pod.ID) || !s.podFitsRequest(current, later.request) || !s.assignedPickupFitsRequest(current, later.request)) {

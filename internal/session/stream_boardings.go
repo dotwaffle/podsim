@@ -2,6 +2,7 @@ package session
 
 import (
 	"bytes"
+	"cmp"
 	"encoding/json"
 	"encoding/json/jsontext"
 	"errors"
@@ -70,7 +71,7 @@ func (a *StreamAssembler) vehicleBoardings(v VehicleFrame) error {
 	}
 	for i, record := range v.Boardings {
 		berth, ok := a.boardingBerths[record.BerthID]
-		if !ok || berth.station != v.Riders[i].From || berth.parkingOnly || !berth.stationClasses.Allows(string(v.Pod.Class)) || !berth.classes.Allows(string(v.Pod.Class)) {
+		if !ok || berth.station != cmp.Or(v.Riders[i].LegFrom, v.Riders[i].From) || berth.parkingOnly || !berth.stationClasses.Allows(string(v.Pod.Class)) || !berth.classes.Allows(string(v.Pod.Class)) {
 			return errors.New("boarding berth does not match rider origin or vehicle class")
 		}
 	}

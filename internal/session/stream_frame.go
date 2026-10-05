@@ -249,7 +249,7 @@ func (a *StreamAssembler) references(f StreamFrame) error {
 		pods[v.Pod.ID] = true
 	}
 	request := func(r sim.Request) bool {
-		return a.stations[r.From] && a.stations[r.To] && optionalReference(pods, r.PodID)
+		return a.stations[r.From] && optionalReference(a.stations, r.LegFrom) && a.stations[r.To] && optionalReference(pods, r.PodID)
 	}
 	for _, v := range snapshot.Vehicles {
 		p := v.Pod

@@ -1,6 +1,7 @@
 package session
 
 import (
+	"cmp"
 	"errors"
 	"slices"
 
@@ -110,11 +111,14 @@ type passengerPathKey struct {
 	class    sim.VehicleClass
 }
 
+// passengerPath reports whether a class has a passenger path from the leg
+// origin of r to its destination.
 func (a *StreamAssembler) passengerPath(r sim.Request, class sim.VehicleClass) bool {
-	if !a.stations[r.From] || !a.stations[r.To] {
+	from := cmp.Or(r.LegFrom, r.From)
+	if !a.stations[from] || !a.stations[r.To] {
 		return false
 	}
-	key := passengerPathKey{r.From, r.To, class}
+	key := passengerPathKey{from, r.To, class}
 	if result, known := a.passengerPaths[key]; known {
 		return result
 	}
@@ -124,7 +128,7 @@ func (a *StreamAssembler) passengerPath(r sim.Request, class sim.VehicleClass) b
 }
 
 func (a *StreamAssembler) findPassengerPath(r sim.Request, class sim.VehicleClass) bool {
-	from, ok := a.topology.Network.Station(r.From)
+	from, ok := a.topology.Network.Station(cmp.Or(r.LegFrom, r.From))
 	if !ok || from.ParkingOnly || !from.VehicleClasses.Allows(string(class)) {
 		return false
 	}

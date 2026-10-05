@@ -101,7 +101,7 @@ func (s *Simulation) queueTrips(state SavedState, trips []logicalTrip) RestoreRe
 	for _, entry := range trips {
 		request := entry.trip.request
 		if !state.validTrip(SavedRequest(request), entry.trip.boarded) ||
-			!s.passengerStation(request.From) || !s.passengerStation(request.To) {
+			!s.passengerStation(request.From) || !s.passengerStation(request.To) || !s.optionalPassengerStation(request.LegFrom) {
 			result.Dropped = append(result.Dropped, request.ID)
 			result.DroppedParties++
 			continue

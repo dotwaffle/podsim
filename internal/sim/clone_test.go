@@ -242,6 +242,10 @@ var persistRules = map[reflect.Type]map[string]persistRule{
 	reflect.TypeFor[Request](): {
 		"SharingConsent": persistSave, "Service": persistSave, "ServiceID": persistSave, "ID": persistSave, "From": persistSave, "To": persistSave, "PartySize": persistSave, "PodID": persistSave,
 		"Completed": persistSave, "RequestedTick": persistSave, "BoardedTick": persistSave, "DispatchReason": persistSave,
+		// SavedRequest has LegFrom, so ExportState and RestoreState keep it.
+		// No session save or stream writes it yet. Section 11 of the
+		// incident contract adds its members.
+		"LegFrom": persistSave,
 	},
 	reflect.TypeFor[RiderBoarding](): {"BerthID": persistSave, "MetersAtBoarding": persistSave},
 	reflect.TypeFor[waitingTrip](): {

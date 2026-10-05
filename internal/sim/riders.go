@@ -49,12 +49,12 @@ func (v *Vehicle) PassengersAboard() int {
 	return passengers
 }
 
-// boardingStation returns the first active party's origin station.
+// boardingStation returns the leg origin of the first active party.
 // It returns "" when no party remains aboard.
 func (v *vehicle) boardingStation() string {
 	for _, rider := range v.Riders {
 		if !rider.Completed {
-			return rider.From
+			return rider.legOrigin()
 		}
 	}
 	return ""

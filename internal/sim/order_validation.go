@@ -8,7 +8,7 @@ import (
 )
 
 func validSavedOptionsWithOrderContract(request SavedRequest, contract OrderContract) bool {
-	if contract == ExpressOrderContract && (!utf8.ValidString(request.From) || !utf8.ValidString(request.To) || !utf8.ValidString(request.ServiceID) || !utf8.ValidString(request.PodID) || !utf8.ValidString(request.DispatchReason)) {
+	if contract == ExpressOrderContract && (!utf8.ValidString(request.From) || !utf8.ValidString(request.LegFrom) || !utf8.ValidString(request.To) || !utf8.ValidString(request.ServiceID) || !utf8.ValidString(request.PodID) || !utf8.ValidString(request.DispatchReason)) {
 		return false
 	}
 	if ValidateOrderContract(contract) != nil {

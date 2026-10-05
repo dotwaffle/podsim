@@ -49,7 +49,7 @@ func (s *Simulation) berthFilterForVehicle(v *vehicle) func(Berth) bool {
 		return s.berthFilterForStops(v.Pod.Class, v.Stops[1:])
 	}
 	for _, trip := range s.waiting {
-		if trip.request.PodID == v.Pod.ID && trip.request.From == v.destinationStation {
+		if trip.request.PodID == v.Pod.ID && trip.request.legOrigin() == v.destinationStation {
 			return s.berthFilterForStops(v.Pod.Class, []string{trip.request.To})
 		}
 	}
@@ -57,7 +57,7 @@ func (s *Simulation) berthFilterForVehicle(v *vehicle) func(Berth) bool {
 }
 
 func (s *Simulation) candidateRouteForRequest(v *vehicle, request Request, load func(Berth) int) ([]Lane, Berth, bool) {
-	return s.candidateRouteMatching(v, request.From, load, s.berthFilterForStops(v.Pod.Class, []string{request.To}))
+	return s.candidateRouteMatching(v, request.legOrigin(), load, s.berthFilterForStops(v.Pod.Class, []string{request.To}))
 }
 
 func (s *Simulation) stationApproachForStops(from string, stops []string, class VehicleClass) ([]Lane, error) {

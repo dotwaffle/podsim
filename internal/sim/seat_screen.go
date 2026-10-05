@@ -85,7 +85,7 @@ func (s *Simulation) recordDeparture(v *vehicle) {
 	aboard, backlog := v.RidersAboard(), 0
 	if v.inService() {
 		for index := range s.waiting {
-			if request := s.waiting[index].request; request.From == v.Pod.StationID && s.consentCompatible(v, request) && s.backlogParty(v, request.To) {
+			if request := s.waiting[index].request; request.legOrigin() == v.Pod.StationID && s.consentCompatible(v, request) && s.backlogParty(v, request.To) {
 				backlog++
 			}
 		}
@@ -128,7 +128,7 @@ func (s *Simulation) recordJoinEligible(trip *waitingTrip, v *vehicle, pass *dis
 		return
 	}
 	to := trip.request.To
-	for _, host := range s.boardingPods(pass)[trip.request.From] {
+	for _, host := range s.boardingPods(pass)[trip.request.legOrigin()] {
 		if !s.canJoin(host, trip.request) {
 			continue
 		}

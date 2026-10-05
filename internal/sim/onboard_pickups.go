@@ -55,14 +55,14 @@ func (s *Simulation) joinOnboardPickup(trip *waitingTrip) bool {
 }
 
 func (s *Simulation) onboardPickupReady(v *vehicle, request Request) bool {
-	if !v.inService() || !v.Pod.Occupied || v.Pod.Speed != 0 || v.RidersAboard() == 0 || v.Pod.StationID != request.From ||
+	if !v.inService() || !v.Pod.Occupied || v.Pod.Speed != 0 || v.RidersAboard() == 0 || v.Pod.StationID != request.legOrigin() ||
 		v.originReleased || v.reservedThrough >= 0 || v.destination.ID != "" || v.distance != 0 || v.pending >= 0 {
 		return false
 	}
 	if v.Pod.Activity != Continuing && (v.Pod.Activity != Boarding || v.phaseTicks <= 0) {
 		return false
 	}
-	station, ok := s.station(request.From)
+	station, ok := s.station(request.legOrigin())
 	if !ok || station.ParkingOnly || !s.canJoin(v, request) {
 		return false
 	}
@@ -126,7 +126,7 @@ func (s *Simulation) pickupBoardingRecords(v *vehicle) ([]RiderBoarding, bool) {
 		if rider.SharingConsent != SharedConsent && (!rider.Completed || rider.SharingConsent != PrivateConsent) {
 			return nil, false
 		}
-		station, ok := s.station(rider.From)
+		station, ok := s.station(rider.legOrigin())
 		if !ok || station.ParkingOnly {
 			return nil, false
 		}

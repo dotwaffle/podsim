@@ -27,23 +27,30 @@ func checkContractRestoreSemantics(input RestoreStateInput) error {
 	}
 	known := make(map[contractRouteKey]bool)
 	checked := make(map[contractRouteKey]bool)
-	fits := func(class VehicleClass, options TripOptions) bool {
+	// admits checks the profile, party, and Express-class tests of a class
+	// for the order options.
+	admits := func(class VehicleClass, options TripOptions) bool {
 		profile, ok := LookupVehicleClassWithOrderContract(class, input.OrderContract)
 		if !ok || !profile.PhysicalSupported || options.PartySize > profile.MaxNewPartySize {
 			return false
 		}
-		if options.Service == ExpressServiceChoice && class != ExpressClass {
-			return false
-		}
-		key := contractRouteKey{class, options.From, options.To}
+		return options.Service != ExpressServiceChoice || class == ExpressClass
+	}
+	// pathFits checks for a certified passenger path of a class from the
+	// leg origin to the destination.
+	pathFits := func(class VehicleClass, from, to string) bool {
+		key := contractRouteKey{class, from, to}
 		if checked[key] {
 			return known[key]
 		}
 		checked[key] = true
-		from, fromOK := input.Network.Station(options.From)
-		to, toOK := input.Network.Station(options.To)
-		known[key] = fromOK && toOK && !from.ParkingOnly && !to.ParkingOnly && networkStationsConnected(input.Network, graph, from, to, class)
+		fromStation, fromOK := input.Network.Station(from)
+		toStation, toOK := input.Network.Station(to)
+		known[key] = fromOK && toOK && !fromStation.ParkingOnly && !toStation.ParkingOnly && networkStationsConnected(input.Network, graph, fromStation, toStation, class)
 		return known[key]
+	}
+	fits := func(class VehicleClass, options TripOptions, from string) bool {
+		return admits(class, options) && pathFits(class, from, options.To)
 	}
 	for _, trip := range input.State.Waiting {
 		options := Request(trip.Request).options()
@@ -53,7 +60,7 @@ func checkContractRestoreSemantics(input RestoreStateInput) error {
 		}
 		fit := false
 		for _, class := range classes {
-			if fits(class, normalized) {
+			if fits(class, normalized, trip.Request.legOrigin()) {
 				fit = true
 				break
 			}
@@ -77,7 +84,7 @@ func checkContractRestoreSemantics(input RestoreStateInput) error {
 			return errors.New("saved Express pod route is incompatible")
 		}
 		for _, rider := range pod.Riders {
-			if !fits(class, Request(rider).options()) {
+			if !fits(class, Request(rider).options(), rider.legOrigin()) {
 				return errors.New("saved Express rider has incompatible endpoints or path")
 			}
 		}

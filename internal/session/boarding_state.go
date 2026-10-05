@@ -1,6 +1,7 @@
 package session
 
 import (
+	"cmp"
 	"encoding/json/jsontext"
 	"encoding/json/v2"
 	"errors"
@@ -107,7 +108,7 @@ func (source boardingSource) encodePodContract(encoder *jsontext.Encoder, pod si
 		if !finiteCompactNumber(record.MetersAtBoarding) || record.MetersAtBoarding < 0 || record.MetersAtBoarding > meters || !validBoardingConsent(pod.Riders[index]) {
 			return errors.New("invalid native boarding baseline or consent")
 		}
-		berths := source[pod.Riders[index].From]
+		berths := source[cmp.Or(pod.Riders[index].LegFrom, pod.Riders[index].From)]
 		berthIndex := slices.IndexFunc(berths, func(berth sim.Berth) bool { return berth.ID == record.BerthID })
 		if berthIndex < 0 {
 			return errors.New("boarding berth is outside the rider source station")
@@ -176,7 +177,7 @@ func (file *stateFile) resolveBoardings() error {
 		}
 		records := make([]sim.RiderBoarding, len(tuples))
 		for index, tuple := range tuples {
-			berths := source[pod.Riders[index].From]
+			berths := source[cmp.Or(pod.Riders[index].LegFrom, pod.Riders[index].From)]
 			if tuple.Index < 0 || tuple.Index >= len(berths) || !finiteCompactNumber(tuple.Meters) || tuple.Meters < 0 || tuple.Meters > meters || !validBoardingConsent(pod.Riders[index]) {
 				return errors.New("invalid saved source boarding reference or baseline")
 			}

@@ -67,7 +67,7 @@ func (s *Simulation) checkPickupPair(assigned map[string]int, left, right int) b
 		c.stats.CooldownPairs++
 		return false
 	}
-	if j >= 0 && s.waiting[i].request.From == s.waiting[j].request.From {
+	if j >= 0 && s.waiting[i].request.legOrigin() == s.waiting[j].request.legOrigin() {
 		c.stats.SameOriginPairs++
 		return false
 	}
@@ -138,16 +138,16 @@ func (s *Simulation) tryPickupTransfer(index int, replacement *vehicle) bool {
 		c.stats.NoBenefitPairs++
 		return false
 	}
-	if replacement.Pod.Activity == Idle && replacement.Pod.StationID != trip.request.From {
+	if replacement.Pod.Activity == Idle && replacement.Pod.StationID != trip.request.legOrigin() {
 		candidate := *replacement
-		if err := s.startEmptyMove(&candidate, emptyDestination{station: trip.request.From, berth: berth}); err != nil {
+		if err := s.startEmptyMove(&candidate, emptyDestination{station: trip.request.legOrigin(), berth: berth}); err != nil {
 			c.stats.RouteFailures++
 			return false
 		}
 		s.bufferPickup(&candidate)
 		*replacement = candidate
 	} else if replacement.Pod.Activity != Idle {
-		s.redirectPickupSwap(replacement, redirection{route: route, berth: berth, station: trip.request.From})
+		s.redirectPickupSwap(replacement, redirection{route: route, berth: berth, station: trip.request.legOrigin()})
 		s.bufferPickup(replacement)
 		replacement.released = false
 	}

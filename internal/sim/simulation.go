@@ -64,12 +64,19 @@ var (
 )
 
 // Request describes a party's journey separately from the vehicle.
+//
+// From and To never change after acceptance. LegFrom is the station where
+// the party boards its current pod. Only a transfer sets it, and then it
+// stays until the next transfer of the order, also after completion. It is
+// empty for every other order. See legOrigin. No save or stream writes
+// LegFrom yet: the format patch of the incident contract adds its members.
 type Request struct {
 	SharingConsent SharingConsent `json:"sharingConsent"`
 	Service        ServiceChoice  `json:"service"`
 	ServiceID      string         `json:"serviceID,omitempty"`
 	ID             int            `json:"id"`
 	From           string         `json:"from"`
+	LegFrom        string         `json:"-"`
 	To             string         `json:"to"`
 	PartySize      int            `json:"partySize"`
 	PodID          string         `json:"podID"`

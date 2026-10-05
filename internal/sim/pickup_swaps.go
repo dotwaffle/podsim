@@ -131,7 +131,7 @@ func (c *pickupSwapController) nextPair(n int) (int, int) {
 func (s *Simulation) swapEligible(v *vehicle, trip *waitingTrip) bool {
 	if !v.inService() || !releasable(v) || v.released || v.RidersAboard() != 0 ||
 		trip.request.Completed || trip.request.PodID != v.Pod.ID ||
-		v.RelocatingTo != trip.request.From || v.destinationStation != trip.request.From {
+		v.RelocatingTo != trip.request.legOrigin() || v.destinationStation != trip.request.legOrigin() {
 		return false
 	}
 	if v.buffered {
@@ -169,8 +169,8 @@ func (s *Simulation) tryPickupSwap(i, j int) bool {
 	s.recordPickupReassignment(s.waiting[j].request, a.Pod.ID, oldB, newA)
 	// Neither redirect can fail. Both prepared routes keep their pod's
 	// reserved lanes, and unused destination claims are released normally.
-	s.redirectPickupSwap(a, redirection{route: routeA, berth: berthA, station: s.waiting[j].request.From})
-	s.redirectPickupSwap(b, redirection{route: routeB, berth: berthB, station: s.waiting[i].request.From})
+	s.redirectPickupSwap(a, redirection{route: routeA, berth: berthA, station: s.waiting[j].request.legOrigin()})
+	s.redirectPickupSwap(b, redirection{route: routeB, berth: berthB, station: s.waiting[i].request.legOrigin()})
 	s.bufferPickup(a)
 	s.bufferPickup(b)
 	assignPickup(&s.waiting[i], b)

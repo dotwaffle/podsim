@@ -206,10 +206,21 @@ func (g *Game) orderLabels(state sim.Snapshot) []label {
 	for i, row := range rows[page.start:page.end] {
 		from, _ := g.network.Station(row.request.From)
 		to, _ := g.network.Station(row.request.To)
+		status := row.status
+		if row.request.LegFrom != "" {
+			// A transferred party keeps its order origin, and boards its
+			// current pod at the leg origin.
+			leg, _ := g.network.Station(row.request.LegFrom)
+			transfer := "Transfer at " + leg.Name
+			if status != "" {
+				transfer += " / " + status
+			}
+			status = transfer
+		}
 		y := orderRowsTop + float64(i)*orderRowSpacing
 		labels = append(labels,
 			panelLabel(y, 14, fmt.Sprintf("#%d  %s > %s", row.request.ID, from.Name, to.Name), foreground),
-			panelLabel(y+orderStatusOffset, 11, row.status, muted))
+			panelLabel(y+orderStatusOffset, 11, status, muted))
 	}
 	if page.pages > 1 {
 		unit := g.layout.unit

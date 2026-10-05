@@ -160,7 +160,7 @@ func (s *Simulation) sendPickup(v *vehicle, stationID string) error {
 }
 
 func (s *Simulation) sendPickupForRequest(v *vehicle, request Request) error {
-	return s.sendPickupMatching(v, request.From, s.berthFilterForStops(v.Pod.Class, []string{request.To}))
+	return s.sendPickupMatching(v, request.legOrigin(), s.berthFilterForStops(v.Pod.Class, []string{request.To}))
 }
 
 func (s *Simulation) sendPickupMatching(v *vehicle, stationID string, accept func(Berth) bool) error {

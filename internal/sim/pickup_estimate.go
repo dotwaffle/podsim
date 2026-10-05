@@ -73,8 +73,8 @@ func (s *Simulation) waitForFinishingPod(trip *waitingTrip, idle *vehicle, assig
 		trip.request.DispatchReason = "Waiting for pod " + trip.deferPodID + " to finish"
 		return true
 	}
-	station, _ := s.station(trip.request.From)
-	route, _, ok := s.pickupRouteWithAssignments(pickupRouteInput{pod: idle, station: trip.request.From, assigned: assigned, accept: s.berthFilterForStops(idle.Pod.Class, []string{trip.request.To})})
+	station, _ := s.station(trip.request.legOrigin())
+	route, _, ok := s.pickupRouteWithAssignments(pickupRouteInput{pod: idle, station: trip.request.legOrigin(), assigned: assigned, accept: s.berthFilterForStops(idle.Pod.Class, []string{trip.request.To})})
 	if !ok {
 		return false
 	}
@@ -151,7 +151,7 @@ func (s *Simulation) keepHold(trip *waitingTrip, pass *dispatchPass) bool {
 		return false
 	}
 	trip.request.DispatchReason = "Waiting for an available pod"
-	if s.pickupAvailable(trip.request.From, trip.excludedPod, pass) {
+	if s.pickupAvailable(trip.request.legOrigin(), trip.excludedPod, pass) {
 		trip.request.DispatchReason = "Waiting for pod " + trip.deferPodID + " to finish"
 	}
 	return true

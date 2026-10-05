@@ -22,7 +22,7 @@ func (v *vehicle) legacyBoardingRecords() bool {
 	}
 	for index, record := range v.Boardings {
 		if record.BerthID != v.journeyOrigin.ID || record.MetersAtBoarding != 0 ||
-			v.Riders[index].From != v.Riders[0].From ||
+			v.Riders[index].legOrigin() != v.Riders[0].legOrigin() ||
 			v.Riders[index].Completed && slices.Contains(v.Stops, v.Riders[index].To) {
 			return false
 		}
@@ -34,7 +34,7 @@ func (s *Simulation) riderOrigin(v *vehicle, index int) string {
 	if len(v.Boardings) == 0 {
 		return v.journeyOrigin.Node
 	}
-	station, ok := s.station(v.Riders[index].From)
+	station, ok := s.station(v.Riders[index].legOrigin())
 	if !ok {
 		return ""
 	}

@@ -230,10 +230,14 @@ func couplingCabinFacts(v Vehicle, contract OrderContract, tick int64, network N
 		if rider.ID <= 0 || ids[rider.ID] || rider.PodID != v.Pod.ID || rider.PartySize < 1 || rider.PartySize > 4 || !validSavedOptionsWithOrderContract(SavedRequest(rider), contract) {
 			return couplingDenied("invalid immutable party facts")
 		}
-		if rider.From == rider.To || rider.RequestedTick < 0 || rider.RequestedTick > tick || rider.BoardedTick < rider.RequestedTick || rider.BoardedTick > tick {
+		if rider.From == rider.To || rider.LegFrom == rider.To || rider.RequestedTick < 0 || rider.RequestedTick > tick || rider.BoardedTick < rider.RequestedTick || rider.BoardedTick > tick {
 			return couplingDenied("invalid party chronology or endpoints")
 		}
-		for _, id := range []string{rider.From, rider.To} {
+		ends := []string{rider.From, rider.To}
+		if rider.LegFrom != "" {
+			ends = append(ends, rider.LegFrom)
+		}
+		for _, id := range ends {
 			station, ok := network.Station(id)
 			if !ok || station.ParkingOnly || !station.VehicleClasses.Allows(string(CompactClass)) {
 				return couplingDenied("party station is incompatible")
