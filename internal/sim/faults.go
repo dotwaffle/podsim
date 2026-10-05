@@ -552,7 +552,7 @@ func (s *Simulation) checkDebrisOwners() error {
 		}
 	}
 	for r, owner := range s.owners {
-		if owner.kind == faultOwnerKind && held[r] != owner.id {
+		if id, ok := held[r]; owner.kind == faultOwnerKind && (!ok || id != owner.id) {
 			return fmt.Errorf("fault owner %s holds the resource %v outside the footprint of its debris", owner.id, r)
 		}
 	}

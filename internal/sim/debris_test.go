@@ -743,6 +743,7 @@ func TestCheckDebris(t *testing.T) {
 			s.owners[track("s3-link", 2)] = faultOwner(s.faults[0].id())
 		}, "outside the footprint"},
 		{"owner of a removed fault", func(s *Simulation) { s.owners[track("s3-link", 2)] = faultOwner("i9.9") }, "outside the footprint"},
+		{"fault owner with no ID", func(s *Simulation) { s.owners[track("s3-link", 2)] = faultOwner("") }, "outside the footprint"},
 		{"released resources at a boundary", func(s *Simulation) { s.faultReleased = []resource{track("s3-link", 2)} }, "released debris resources"},
 	}
 	for _, test := range tests {
