@@ -41,5 +41,10 @@ func (s *Simulation) SetIncidentGeneration(generation uint64) {
 // serial only, so a run does not depend on the generation.
 func (s *Simulation) nextIncidentID() string {
 	s.incidentSerial++
-	return "i" + strconv.FormatUint(s.incidentGeneration, 10) + "." + strconv.FormatUint(s.incidentSerial, 10)
+	return incidentID(s.incidentGeneration, s.incidentSerial)
+}
+
+// incidentID returns the ID i<generation>.<serial>.
+func incidentID(generation, serial uint64) string {
+	return "i" + strconv.FormatUint(generation, 10) + "." + strconv.FormatUint(serial, 10)
 }

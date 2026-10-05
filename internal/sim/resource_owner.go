@@ -7,6 +7,8 @@ const (
 	podOwnerKind ownerKind = iota + 1
 	// groupOwnerKind is reserved. No current simulation creates a group owner.
 	groupOwnerKind
+	// faultOwnerKind owns the resources of a fault. Its ID is the fault ID.
+	faultOwnerKind
 )
 
 // resourceOwner is comparable. Only its zero value represents a free resource.
@@ -28,7 +30,7 @@ func (o resourceOwner) isPod(id string) bool {
 	return o.kind == podOwnerKind && o.id != "" && o.id == id
 }
 
-// podID returns no identity for a group or an unknown owner kind.
+// podID returns no identity for a group, a fault, or an unknown owner kind.
 func (o resourceOwner) podID() string {
 	if o.kind != podOwnerKind {
 		return ""
@@ -45,6 +47,8 @@ func (o resourceOwner) String() string {
 		return o.id
 	case o.kind == groupOwnerKind:
 		return "mechanical group " + o.id
+	case o.kind == faultOwnerKind:
+		return o.id
 	default:
 		return "unknown resource owner " + o.id
 	}

@@ -307,6 +307,8 @@ type vehicle struct {
 	link       platoonLink
 	follower   int
 	platoonCap float64
+	// faulted is true while a fault record names the pod.
+	faulted bool
 }
 
 // Simulation owns a fixed fleet and local track, junction, and berth resources.
@@ -325,6 +327,14 @@ type Simulation struct {
 	// keeps it. incidentGeneration is the session generation of the IDs.
 	incidentSerial     uint64
 	incidentGeneration uint64
+	// faultsOn enables the fault operations and the fault stage, with the
+	// faultSettings. Reset keeps both.
+	faultsOn      bool
+	faultSettings faultSettings
+	// faults holds the active fault records in serial order. faultCounters
+	// counts the fault events. Reset clears both. See faults.go.
+	faults             []faultRecord
+	faultCounters      faultCounters
 	couplingNetwork    *couplingReservationNetwork
 	couplingEnabled    bool
 	couplingGroups     []couplingNativeGroup
@@ -504,10 +514,17 @@ func prepareFleet(network Network, placements []Placement) (Network, routeGraph,
 	return owned, graph, nil
 }
 
-// Reset restores the initial fleet, clock, and resources. It clears supplied demo requests.
+// Reset restores the initial fleet, clock, and resources. It clears supplied
+// demo requests and the fault records, counters and blocked set. It keeps
+// the incident serial and the fault settings.
 func (s *Simulation) Reset() {
 	defer s.observe()
 	s.admissionWork = nil
+	s.faults, s.faultCounters = nil, faultCounters{}
+	if s.blockedActive() {
+		s.setBlocked(nil)
+	}
+	s.rerouteDue = false
 	s.tick, s.completed, s.requestID, s.unaccountedOrders = 0, 0, 0, 0
 	s.interrupted, s.interruptedPassengers, s.undelivered = 0, 0, nil
 	if s.motion != nil {
@@ -762,6 +779,9 @@ func (s *Simulation) Step() {
 				v.Pod.Activity, v.Pod.Occupied, v.Stops = Idle, false, nil
 			}
 		}
+	}
+	if s.faultsOn {
+		s.faultStage()
 	}
 	s.dispatch()
 	s.swapPickups()

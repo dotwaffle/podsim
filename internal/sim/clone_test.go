@@ -37,6 +37,7 @@ var cloneRules = map[reflect.Type]map[string]cloneRule{
 		"laneSafety": cloneShare, "berthSafety": cloneShare, "vehicleIndexes": cloneShare,
 		"berthResources": cloneShare, "laneCells": cloneShare, "approachStations": cloneShare, "routeStations": cloneDrop,
 		"blocked": cloneShare, "resourceLanes": cloneShare, "staticConnected": cloneDrop, "staticRoutes": cloneDrop,
+		"faults":           cloneCopy,
 		"requestBoardings": cloneCopy, "requestCompletions": cloneCopy, "stepCompletions": cloneCopy, "nodePasses": cloneCopy, "monitor": cloneShare,
 		"pass": cloneDrop, "platoonData": cloneShare, "platoonOrder": cloneDrop, "platoonAhead": cloneDrop,
 		"platoonLanes": cloneDrop, "pickupSwaps": cloneCopy,
@@ -66,7 +67,7 @@ var clonePlainTypes = []reflect.Type{
 	reflect.TypeFor[RiderBoarding](),
 	reflect.TypeFor[Request](), reflect.TypeFor[Pod](), reflect.TypeFor[Berth](),
 	reflect.TypeFor[resource](), reflect.TypeFor[demoRun](), reflect.TypeFor[routeKey](),
-	reflect.TypeFor[PickupReassignment](),
+	reflect.TypeFor[PickupReassignment](), reflect.TypeFor[faultRecord](),
 }
 
 // holdsReferences reports whether a value copy of t shares storage with the
@@ -212,6 +213,9 @@ var persistRules = map[reflect.Type]map[string]persistRule{
 		// restore sets rerouteDue.
 		"blocked": persistDerive, "rerouteDue": persistDerive,
 		"resourceLanes": persistDerive, "staticConnected": persistReset, "staticRoutes": persistReset,
+		// No save writes the fault records or counters yet. Section 13.3 of
+		// the incident suspension contract adds their members.
+		"faultsOn": persistSession, "faultSettings": persistSession, "faults": persistReset, "faultCounters": persistReset,
 		"predictiveQueues": persistUnsupported, "predictivePodQueues": persistUnsupported, "predictiveQueueTick": persistUnsupported,
 		"routingPolicy": persistUnsupported, "congestionRouteCosts": persistUnsupported,
 		"congestionRoutes": persistUnsupported, "nextCongestionRouteRefresh": persistUnsupported,
@@ -237,6 +241,9 @@ var persistRules = map[reflect.Type]map[string]persistRule{
 		// SavedPod has the holds and the operational destination, so
 		// ExportState, RestoreState, and the session save keep them.
 		"withdrawn": persistSave, "op": persistSave,
+		// A restore derives faulted from the fault records, which no save
+		// writes yet.
+		"faulted": persistReset,
 	},
 	reflect.TypeFor[Vehicle](): {
 		"CouplingID": persistDerive,
@@ -490,8 +497,9 @@ func TestCloneFollowsRules(t *testing.T) {
 				"Simulation.couplingApproaches", "Simulation.couplingAttempts",
 				"couplingNativeApproach.context", "couplingNativeApproach.state", "couplingApproachAttempt.context",
 				// The blocked routing case covers the blocked set and the
-				// static caches.
-				"Simulation.blocked", "Simulation.staticConnected", "Simulation.staticRoutes"},
+				// static caches, and the fault case covers the records.
+				"Simulation.blocked", "Simulation.staticConnected", "Simulation.staticRoutes",
+				"Simulation.faults"},
 		},
 		{
 			name: "blocked routing storage",
@@ -506,6 +514,19 @@ func TestCloneFollowsRules(t *testing.T) {
 				return s
 			},
 			required: []string{"Simulation.blocked", "Simulation.resourceLanes", "Simulation.staticConnected", "Simulation.staticRoutes"},
+		},
+		{
+			name: "fault records",
+			build: func(t *testing.T) *Simulation {
+				t.Helper()
+				s := newTraffic(t)
+				s.faultsOn = true
+				if _, err := s.startPodFault(s.findVehicle("01"), 0); err != nil {
+					t.Fatal(err)
+				}
+				return s
+			},
+			required: []string{"Simulation.faults"},
 		},
 		{
 			name: "controlled approach storage",
