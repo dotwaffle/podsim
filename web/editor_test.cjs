@@ -3339,14 +3339,15 @@ function ownTestDraft(value, previous) {
 // testModel gives the background model of the page with the Go history
 // client and a fake Go side. The initial draft is options.initial, or the
 // scenario options.config, or the connected scenario, with no background.
-// options.onChange gets each draft change, as the page gets it. goEntries
+// options.onChange gets each draft change, as the page gets it.
+// options.wrapCall can wrap the Go history call, to hold a step. goEntries
 // gives the entries of its fake Go side.
 function testModel(options = {}) {
   const { createHistory } = require("./editor-model.js");
   const side = fakeGoSide();
   const model = editor.createGoBackgroundModel({
     initial: options.initial ?? { scenario: options.config ?? connectedScenario(), background: null }, cap: options.cap, onChange: options.onChange,
-    historyFactory: (initial, onChange, onAcknowledged) => createHistory({ initial, own: ownTestDraft, clone: structuredClone, onChange, onAcknowledged, call: side.call, accept: side.accept }),
+    historyFactory: (initial, onChange, onAcknowledged) => createHistory({ initial, own: ownTestDraft, clone: structuredClone, onChange, onAcknowledged, call: options.wrapCall ? options.wrapCall(side.call) : side.call, accept: side.accept }),
   });
   model.goEntries = () => side.entries;
   return model;
@@ -3566,6 +3567,69 @@ test("a keeper write and an export that start before a prune keep their bytes", 
   assert.deepEqual([model.pinCount(image.key), model.image(image.key), commits], [0, null, [true]], "the settled write releases the image");
   assert.deepEqual(new Uint8Array(store.records.get(DRAFT_KEY).background.image.bytes), new Uint8Array(bytes), "the store has the bytes");
   assert.equal(editor.parseDocument(exported).background.dataURL, dataURL(pngBytes(4, 2)), "the export has the bytes");
+});
+
+test("an abort, a newer acquisition or an edit drops the result of an acquisition", async () => {
+  const model = await readyModel();
+  // drop runs publish, which must fail with error and keep the draft, the
+  // Go history and the image table.
+  const drop = async (name, error, image, publish) => {
+    const value = model.history.value; const entries = model.goEntries().length; const keys = model.keys();
+    assert.deepEqual(await publish(), { error, dropped: 0 }, name);
+    assert.deepEqual([model.history.value, model.goEntries().length, model.keys()], [value, entries, keys], `${name}: the draft, the history and the table do not change`);
+    assert.equal(model.image(image.key), null, `${name}: the dropped image is not in the table`);
+  };
+  const request = (ticket, image) => ({ ticket, image, value: { scenario: model.history.value.scenario, background: placed(image) } });
+  // An abort event.
+  let ticket = model.start(); model.abort();
+  assert.equal(ticket.signal.aborted, true);
+  let image = testImage();
+  await drop("an abort", "A newer action stopped the import.", image, () => model.publish(request(ticket, image)));
+  // A new acquisition aborts the old one, and the new one still publishes.
+  const older = model.start(); ticket = model.start();
+  assert.deepEqual([older.signal.aborted, ticket.signal.aborted], [true, false], "a new acquisition aborts the old one");
+  image = testImage();
+  await drop("an older acquisition", "A newer action stopped the import.", image, () => model.publish(request(older, image)));
+  image = testImage();
+  assert.equal((await model.publish(request(ticket, image))).error, "", "the newer acquisition publishes");
+  assert.ok(model.image(image.key));
+  // Each check stops a publish alone: a current ticket whose own signal is
+  // aborted, and a ticket of no acquisition with a live signal.
+  ticket = model.start(); ticket.controller.abort(); image = testImage();
+  await drop("an aborted current ticket", "A newer action stopped the import.", image, () => model.publish(request(ticket, image)));
+  const foreign = { signal: new AbortController().signal, edits: model.edits };
+  image = testImage();
+  await drop("a ticket of no acquisition", "A newer action stopped the import.", image, () => model.publish(request(foreign, image)));
+  // A node move after the start of the acquisition drops the result. The
+  // Go place proposal checks the anchors, so the result has the draft of
+  // the start.
+  ticket = model.start(); image = testImage({ frame: LONDON_FRAME });
+  const stale = request(ticket, image);
+  const moved = model.history.value.scenario; moved.network.nodes[0].position = { x: 5, y: 0 };
+  await model.history.replace({ scenario: moved, background: model.history.background });
+  await drop("a node move", "The draft changed during the import.", image, () => model.publish(stale));
+});
+
+test("an abort while the Go history prepares a publish drops the result", async () => {
+  // The Go history is asynchronous. The prepare step of the publish is held
+  // until the abort, so the abort comes after the publish checks its ticket.
+  let held = null;
+  const wrapCall = (call) => async (config, op, command) => {
+    if (held && command.action === "prepare") { const step = held; held = null; step.started(); await step.release; }
+    return call(config, op, command);
+  };
+  const model = await readyModel({ wrapCall });
+  let started, release;
+  const startedStep = new Promise((resolve) => { started = resolve; });
+  held = { started, release: new Promise((resolve) => { release = resolve; }) };
+  const value = model.history.value; const entries = model.goEntries().length; const keys = model.keys();
+  const ticket = model.start(); const image = testImage();
+  const pending = model.publish({ ticket, image, value: { scenario: model.history.value.scenario, background: placed(image) } });
+  await startedStep;
+  model.abort(); release();
+  assert.deepEqual(await pending, { error: "A newer action stopped the import.", dropped: 0 });
+  assert.deepEqual([model.history.value, model.goEntries().length, model.keys()], [value, entries, keys], "the draft, the history and the table do not change");
+  assert.equal(model.image(image.key), null, "the dropped image is not in the table");
 });
 
 test("a scenario edit during the decode of a project import fails the import and keeps the draft", async () => {
