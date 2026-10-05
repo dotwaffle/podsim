@@ -426,11 +426,12 @@ type Simulation struct {
 	// rerouteDue at each new epoch of the set. See blocked_routes.go.
 	blocked    blockedSet
 	rerouteDue bool
-	// resourceLanes holds the lanes whose cells hold each resource. NewFleet
+	// resourceLanes holds the lanes whose cells hold each resource that is
+	// not a track resource. NewFleet
 	// and ensureNetworkIndexes build it from laneCells. No code writes to it
 	// in place. staticConnected and staticRoutes are caches of the network.
 	// See blocked_routes.go.
-	resourceLanes   map[resource][]int
+	resourceLanes   map[resource][]int32
 	staticConnected map[routeKey]bool
 	staticRoutes    map[routeKey]routeResult
 	// vehicleIndexes gives the position in vehicles of each pod ID. Reset

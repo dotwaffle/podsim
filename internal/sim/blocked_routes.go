@@ -66,7 +66,12 @@ func (s *Simulation) setBlocked(footprints []faultFootprint) {
 // footprints hold a resource, the first gives its fault ID.
 func (s *Simulation) blockedFrom(footprints []faultFootprint) blockedSet {
 	var next blockedSet
-	index := s.resourceLanes
+	block := func(lane int) {
+		if next.lanes == nil {
+			next.lanes = make([]bool, len(s.network.Lanes))
+		}
+		next.lanes[lane] = true
+	}
 	for _, footprint := range footprints {
 		for _, r := range footprint.resources {
 			if _, ok := next.by[r]; ok {
@@ -76,11 +81,14 @@ func (s *Simulation) blockedFrom(footprints []faultFootprint) blockedSet {
 				next.by = make(map[resource]string)
 			}
 			next.by[r] = footprint.id
-			for _, lane := range index[r] {
-				if next.lanes == nil {
-					next.lanes = make([]bool, len(s.network.Lanes))
+			if r.kind == trackResource {
+				if lane, ok := s.graph.lanes[r.id]; ok {
+					block(lane)
 				}
-				next.lanes[lane] = true
+				continue
+			}
+			for _, lane := range s.resourceLanes[r] {
+				block(int(lane))
 			}
 		}
 	}
@@ -114,19 +122,24 @@ func (s *Simulation) startRouteEpoch() {
 	s.rerouteDue = true
 }
 
-// indexResourceLanes returns, for each resource, the indexes of the lanes
-// whose cells hold it, in lane order. It is an index of the network, and
-// the other network indexes give its lane cells.
-func indexResourceLanes(network Network, cells map[string]*laneCells) map[resource][]int {
-	index := make(map[resource][]int)
+// indexResourceLanes returns, for each node, junction and berth resource,
+// the indexes of the lanes whose cells hold it, in lane order. It is an
+// index of the network, and the other network indexes give its lane
+// cells. A track resource is in the cells of its own lane only, so the
+// index leaves it out: it would add an entry for each block.
+func indexResourceLanes(network Network, cells map[string]*laneCells) map[resource][]int32 {
+	index := make(map[resource][]int32)
 	for laneIndex, lane := range network.Lanes {
 		held := cells[lane.ID]
 		if held == nil {
 			continue
 		}
 		for _, r := range held.resources {
-			if lanes := index[r]; len(lanes) == 0 || lanes[len(lanes)-1] != laneIndex {
-				index[r] = append(lanes, laneIndex)
+			if r.kind == trackResource {
+				continue
+			}
+			if lanes := index[r]; len(lanes) == 0 || lanes[len(lanes)-1] != int32(laneIndex) {
+				index[r] = append(lanes, int32(laneIndex))
 			}
 		}
 	}

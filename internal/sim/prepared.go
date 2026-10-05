@@ -20,7 +20,7 @@ type PreparedNetwork struct {
 	junctionConflicts map[string][]laneConflict
 	berthResources    map[string][]resource
 	laneCells         map[string]*laneCells
-	resourceLanes     map[resource][]int
+	resourceLanes     map[resource][]int32
 	laneSafety        map[string]SafetyLocation
 	berthSafety       map[string]SafetyLocation
 }
