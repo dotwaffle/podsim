@@ -1361,7 +1361,7 @@ It is dispatch state, as `deferPodID` is.
 
 ### 11.7 Joint byte budget
 
-Measured headroom at item 7 patch 8 (`7a8232c`), on October 5, 2026.
+Measured headroom at item 7 patch 8 (`ee5851f`), on October 5, 2026.
 The record is [docs/measurements/composed-worst-case-formats.json](measurements/composed-worst-case-formats.json), made by `TestComposedWorstCaseFormats` with `PODSIM_COMPOSED_FORMATS_RECORD` set.
 The fixtures use independent maxima, not reachable states.
 The save cap is 83,886,080 bytes (80 MiB), and the stream and HTTP cap is 67,108,864 bytes (64 MiB).
