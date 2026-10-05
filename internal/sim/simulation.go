@@ -884,8 +884,10 @@ func (s *Simulation) arrive(v *vehicle) {
 		v.op = operationalDestination{}
 	}
 	// The fault stays, and the gates hold the pod at the berth. Its
-	// footprint is now the berth.
+	// footprint is now the berth. The new pod has no report, so the
+	// fault report starts again, at rest.
 	if v.faulted {
 		s.rebuildBlocked()
+		s.reportFault(v)
 	}
 }

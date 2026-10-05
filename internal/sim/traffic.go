@@ -519,7 +519,7 @@ func (s *Simulation) admit() {
 		}
 		if v.faulted {
 			// A faulted pod requests no grant, also as a buffer head.
-			s.reportFault(i)
+			s.reportFault(v)
 			continue
 		}
 		ready := departs(v.Pod.Activity) && v.phaseTicks == 0
@@ -777,7 +777,10 @@ func (s *Simulation) publishVehicleTravel(v *vehicle, distance, speed float64) {
 			s.recordLaneEntries(v, entered, current.lane)
 			if v.destination.ID == "" {
 				v.Pod.Speed = 0
-				v.Pod.WaitReason = BerthOccupied
+				// A faulted pod keeps the fault report of admission.
+				if !v.faulted {
+					v.Pod.WaitReason = BerthOccupied
+				}
 				return
 			}
 			s.arrive(v)

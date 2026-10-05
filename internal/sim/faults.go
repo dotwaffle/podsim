@@ -178,16 +178,15 @@ const (
 	faultStopped WaitReason = "Fault stopped"
 )
 
-// reportFault writes the wait report of the faulted pod at index: "Fault
+// reportFault writes the wait report of the faulted pod v: "Fault
 // braking" while it moves, and "Fault stopped" at rest, with its fault ID.
-func (s *Simulation) reportFault(index int) {
-	v := &s.vehicles[index]
+func (s *Simulation) reportFault(v *vehicle) {
 	v.Pod.WaitReason, v.Pod.BlockedBy = faultStopped, ""
 	if v.Pod.Speed > 0 {
 		v.Pod.WaitReason = faultBraking
 	}
 	for _, record := range s.faults {
-		if record.kind == podFault && record.pod == index {
+		if record.kind == podFault && &s.vehicles[record.pod] == v {
 			v.Pod.BlockedBy = record.id()
 			return
 		}

@@ -380,7 +380,8 @@ func TestFaultAtBerth(t *testing.T) {
 
 // TestFaultArrivalDuringBraking faults a pod whose cap is the end of its
 // route. The pod arrives through arrive, and the fault stays. The berth is
-// blocked in place of the lane, and no rider alights.
+// blocked in place of the lane, no rider alights, and the arrival keeps
+// the fault report.
 func TestFaultArrivalDuringBraking(t *testing.T) {
 	t.Parallel()
 	s := faultLegFleet(t)
@@ -399,6 +400,9 @@ func TestFaultArrivalDuringBraking(t *testing.T) {
 	if v.Pod.Activity != Unloading || !v.faulted || len(s.faults) != 1 || !s.berthBlocked(berth) {
 		t.Fatalf("pod %+v, faulted %t, records %v, berth blocked %t", v.Pod, v.faulted, faultIDs(s), s.berthBlocked(berth))
 	}
+	if v.Pod.WaitReason != faultStopped || v.Pod.BlockedBy != id {
+		t.Fatalf("report %q by %q after the arrival", v.Pod.WaitReason, v.Pod.BlockedBy)
+	}
 	phase, aboard, completed := v.phaseTicks, v.RidersAboard(), s.completed
 	for range 30 * TicksPerSecond {
 		s.Step()
@@ -410,6 +414,37 @@ func TestFaultArrivalDuringBraking(t *testing.T) {
 		t.Fatal(err)
 	}
 	stepUntil(t, s, "the rider alights", func() bool { return s.completed == completed+1 })
+}
+
+// TestFaultReportAtEntryEnd faults a pod with no berth whose cap is the
+// end of its entry route. A faulted pod chooses no berth, so it comes to
+// rest there. Each publication at the entry end reports an occupied berth
+// for a pod in service, and the faulted pod keeps its fault report.
+func TestFaultReportAtEntryEnd(t *testing.T) {
+	t.Parallel()
+	s := faultLegFleet(t)
+	v := boardParties(t, s, "s2", "s2")
+	cruiseOn(t, s, v, "s0-link")
+	if v.destination.ID != "" {
+		t.Fatalf("the pod has the berth %s", v.destination.ID)
+	}
+	// With grants to the route end, the pod chooses no berth before it
+	// stops.
+	end := v.blocks.end(v.blocks.len() - 1)
+	s.grant(intent{index: s.vehicleIndexes[v.Pod.ID], block: v.reservedThrough + 1, through: v.blocks.len() - 1})
+	stepUntil(t, s, "pod 01 near its entry end", func() bool { return v.distance+stoppingDistance(v.Pod.Speed) >= end })
+	checkFaultsEachTick(t, s)
+	id := startFault(t, s, v, 0)
+	stepUntil(t, s, "rest", func() bool { return v.Pod.Speed == 0 })
+	if v.destination.ID != "" || v.distance != end {
+		t.Fatalf("the pod rests at %g m with the destination %q, want the entry end %g m", v.distance, v.destination.ID, end)
+	}
+	for range 10 * TicksPerSecond {
+		s.Step()
+		if v.Pod.WaitReason != faultStopped || v.Pod.BlockedBy != id {
+			t.Fatalf("tick %d: report %q by %q", s.tick, v.Pod.WaitReason, v.Pod.BlockedBy)
+		}
+	}
 }
 
 // bufferQueue returns a simulation with a station buffer at Market, where
@@ -439,8 +474,9 @@ func bufferQueue(t *testing.T) (s *Simulation, release func()) {
 
 // TestFaultInStationEntryQueue faults the head of a station buffer. The
 // head makes no berth-grant attempt when the berth is free, and it keeps
-// its buffer membership and its route. The pod behind it keeps its route
-// and does not pass it. Without the fault, the head takes the berth.
+// its buffer membership, its route, and its fault report. The pod behind
+// it keeps its route and does not pass it. Without the fault, the head
+// takes the berth.
 func TestFaultInStationEntryQueue(t *testing.T) {
 	t.Parallel()
 	for _, faulted := range []bool{false, true} {
@@ -448,11 +484,12 @@ func TestFaultInStationEntryQueue(t *testing.T) {
 		s.faultsOn = true
 		head, behind := s.findVehicle("02"), s.findVehicle("01")
 		route, behindRoute, bufferBerth := head.Route, behind.Route, head.bufferBerth
+		var id string
 		if faulted {
 			if head.pending < 0 {
 				t.Fatal("the head requests no grant")
 			}
-			startFault(t, s, head, 0)
+			id = startFault(t, s, head, 0)
 			if head.pending != -1 {
 				t.Fatalf("the faulted head keeps the request of block %d", head.pending)
 			}
@@ -461,6 +498,11 @@ func TestFaultInStationEntryQueue(t *testing.T) {
 		release()
 		for range 30 * TicksPerSecond {
 			s.Step()
+			// The head rests at the end of its entry route, where the
+			// publication reports an occupied berth for a pod in service.
+			if faulted && (head.Pod.WaitReason != faultStopped || head.Pod.BlockedBy != id) {
+				t.Fatalf("tick %d: the faulted head reports %q by %q", s.tick, head.Pod.WaitReason, head.Pod.BlockedBy)
+			}
 		}
 		if !faulted {
 			if head.destination.ID != "market-1" {
