@@ -232,17 +232,19 @@ func TestRouteReleaseBoundFollowsNewResource(t *testing.T) {
 }
 
 // TestRouteReleaseBoundDroppedWithOwner gives a relocating pod its
-// destination claims as route resources. A yield or a redirect then deletes
-// the claims. The pod must check its entries again at the next release, as
-// the code did before the bounds, and remove the entries of the claims.
+// destination claims as route resources. A redirect then deletes the
+// claims. The pod must check its entries again at the next release, as the
+// code did before the bounds, and remove the entries of the claims. A yield
+// keeps them, because a claim that the tail retains is not revocable.
 func TestRouteReleaseBoundDroppedWithOwner(t *testing.T) {
 	t.Parallel()
 	for _, test := range []struct {
-		name string
-		drop func(s *Simulation, v *vehicle)
+		name  string
+		drop  func(s *Simulation, v *vehicle)
+		keeps bool
 	}{
 		{
-			name: "yield",
+			name: "yield", keeps: true,
 			drop: func(s *Simulation, v *vehicle) {
 				pickup := s.findVehicle("02")
 				pickup.destination = v.destination
@@ -276,6 +278,15 @@ func TestRouteReleaseBoundDroppedWithOwner(t *testing.T) {
 				t.Fatalf("pod 01 at %v has bound %v, so the next release does not skip", v.distance, v.nextRelease)
 			}
 			test.drop(s, v)
+			if test.keeps {
+				for _, claimed := range claims {
+					if s.owners[claimed] != podResourceOwner(v.Pod.ID) {
+						t.Fatalf("the yield took retained claim %+v from pod 01: owner %q", claimed, s.owners[claimed])
+					}
+				}
+				checkRouteReleaseBound(t, s)
+				return
+			}
 			for _, claimed := range claims {
 				if !s.owners[claimed].isZero() {
 					t.Fatalf("claim %+v has owner %q", claimed, s.owners[claimed])

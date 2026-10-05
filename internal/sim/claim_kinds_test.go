@@ -215,3 +215,73 @@ func vehicleIndex(s *Simulation, v *vehicle) int {
 	}
 	return -1
 }
+
+// A group owner never reaches the classification from the two callers.
+// bufferClaimCanYield finds no remote pod for the owner, and
+// yieldRelocationClaims releases only a claim that the relocating pod owns.
+// The control case shows that the same state yields a pod-owned claim.
+func TestClaimYieldSkipsGroupOwner(t *testing.T) {
+	t.Parallel()
+	for _, group := range []bool{false, true} {
+		s, relocating, head := claimKindFixture(t)
+		head.destination = relocating.destination
+		assign(s, head)
+		claims := berthResources(relocating.destination)
+		if group {
+			for _, r := range claims {
+				s.owners[r] = resourceOwner{kind: groupOwnerKind, id: "pair"}
+			}
+		}
+		_, buffered := s.bufferBerthClaims(head, relocating.destination)
+		s.yieldRelocationClaims()
+		kept := s.owners[claims[0]].kind == groupOwnerKind && s.owners[claims[1]].kind == groupOwnerKind
+		if buffered == group || kept != group {
+			t.Fatalf("group=%t: buffer yield %t, claims %v %v", group, buffered, s.owners[claims[0]], s.owners[claims[1]])
+		}
+	}
+}
+
+// A released pod parks at another berth only after it yields a claim. When
+// it holds no revocable claim, it keeps its destination.
+func TestYieldRelocationClaimsKeepsReleasedPodWithoutRevocableClaim(t *testing.T) {
+	t.Parallel()
+	tests := []struct {
+		name  string
+		setup func(s *Simulation, relocating, other *vehicle)
+	}{
+		{"admitted", func(_ *Simulation, relocating, _ *vehicle) {
+			relocating.reservedThrough = relocating.blocks.len() - 1
+		}},
+		{"retention entry on another pod's claim", func(s *Simulation, relocating, other *vehicle) {
+			for _, r := range berthResources(relocating.destination) {
+				s.owners[r] = podResourceOwner(other.Pod.ID)
+				relocating.routeReleases[r] = relocating.distance
+			}
+		}},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			s, relocating, other := claimKindFixture(t)
+			relocating.Rebalancing, relocating.released = false, true
+			other.destination = relocating.destination
+			assign(s, other)
+			test.setup(s, relocating, other)
+			destination := relocating.destination
+			s.yieldRelocationClaims()
+			if relocating.destination != destination || !relocating.released {
+				t.Fatalf("pod 01 changed its destination from %s to %s", destination.ID, relocating.destination.ID)
+			}
+		})
+	}
+	// The control case: a released pod with a revocable claim yields it
+	// and parks at another berth.
+	s, relocating, other := claimKindFixture(t)
+	relocating.Rebalancing, relocating.released = false, true
+	other.destination = relocating.destination
+	assign(s, other)
+	s.yieldRelocationClaims()
+	if relocating.destination.ID == "market-1" {
+		t.Fatal("pod 01 did not park at another berth after the yield")
+	}
+}

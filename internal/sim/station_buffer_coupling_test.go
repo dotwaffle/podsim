@@ -19,15 +19,40 @@ import (
 // member must then take the berth and settle with no stale claim.
 func TestStationBufferKeepsCoupledReceivingBerth(t *testing.T) {
 	t.Parallel()
-	coupledReceivingBerthContest(t, true)
+	coupledReceivingBerthContest(t, true, contestCoupled)
 }
 
 func TestRedistributionKeepsCoupledReceivingBerth(t *testing.T) {
 	t.Parallel()
-	coupledReceivingBerthContest(t, false)
+	coupledReceivingBerthContest(t, false, contestCoupled)
 }
 
-func coupledReceivingBerthContest(t *testing.T, buffers bool) {
+// The same contest happens while the pair approaches. An approach member
+// has no coupling ID until adoption, but adoption needs the receiving claims
+// of an empty member. Before the claim kinds, the intruder took the berth,
+// adoption failed with "existing receiving claim lost its individual owner",
+// and the pair never formed.
+func TestStationBufferKeepsApproachReceivingBerth(t *testing.T) {
+	t.Parallel()
+	coupledReceivingBerthContest(t, true, contestApproach)
+}
+
+func TestRedistributionKeepsApproachReceivingBerth(t *testing.T) {
+	t.Parallel()
+	coupledReceivingBerthContest(t, false, contestApproach)
+}
+
+// berthContest selects the commitment that the intruder contests.
+type berthContest int
+
+const (
+	// contestCoupled requests the intruder trip 600 ticks after formation.
+	contestCoupled berthContest = iota
+	// contestApproach requests the intruder trip when the approach starts.
+	contestApproach
+)
+
+func coupledReceivingBerthContest(t *testing.T, buffers bool, contest berthContest) {
 	t.Helper()
 	network := couplingMultiBase(t)
 	compact := classBit(string(CompactClass))
@@ -73,7 +98,7 @@ func coupledReceivingBerthContest(t *testing.T, buffers bool) {
 	s.SetStationBuffers(buffers)
 	sc.request(t, s, false, map[string]int{})
 	berth := resource{kind: berthResource, id: "rear-goal-1"}
-	formed, retired, yielded, recovered := int64(-1), int64(-1), int64(-1), int64(-1)
+	approach, formed, retired, yielded, recovered := int64(-1), int64(-1), int64(-1), int64(-1), int64(-1)
 	contested, unsettled := false, "not started"
 	// The blocker drives slow lanes, so the fleet settles near tick 31000.
 	for s.tick < 40000 {
@@ -83,24 +108,31 @@ func coupledReceivingBerthContest(t *testing.T, buffers bool) {
 		}
 		checkIncrementalOwners(t, s)
 		rear, intruder := s.findVehicle("rear"), s.findVehicle("intruder")
+		approaching := s.couplingApproachMember("rear")
 		switch {
+		case approaching && approach < 0:
+			approach = s.tick
 		case rear.couplingID != "" && formed < 0:
 			formed = s.tick
 		case rear.couplingID == "" && formed >= 0 && retired < 0:
 			retired = s.tick
 		}
 		// The connected phase starts well after formation; this delay puts
-		// the intruder on the entry lane while the train is committed.
-		if formed >= 0 && s.tick == formed+600 {
+		// the intruder on the entry lane while the train is committed. The
+		// approach lasts long enough for the intruder to board and reach
+		// the entry lane.
+		if contest == contestCoupled && formed >= 0 && s.tick == formed+600 || contest == contestApproach && s.tick == approach {
 			if err := s.RequestJourneyOptions("intruder", TripOptions{To: "rear-goal", PartySize: 1, SharingConsent: PrivateConsent}); err != nil {
 				t.Fatal(err)
 			}
 		}
-		if rear.couplingID != "" {
+		if rear.couplingID != "" || approaching {
 			if !s.owners[berth].isPod("rear") {
-				t.Fatalf("coupled rear member lost its receiving berth to %v at tick %d", s.owners[berth], s.tick)
+				t.Fatalf("committed rear member lost its receiving berth to %v at tick %d (approaching=%t)", s.owners[berth], s.tick, approaching)
 			}
-			contested = contested || intruder.Pod.Occupied && (buffers && intruder.buffered || !buffers && intruder.destination.ID == berth.id)
+			if approaching == (contest == contestApproach) {
+				contested = contested || intruder.Pod.Occupied && (buffers && intruder.buffered || !buffers && intruder.destination.ID == berth.id)
+			}
 		}
 		if yielded < 0 && retired >= 0 && s.owners[berth].isPod("intruder") && rear.Pod.StationID != "rear-goal" {
 			yielded = s.tick
@@ -112,8 +144,8 @@ func coupledReceivingBerthContest(t *testing.T, buffers bool) {
 			break
 		}
 	}
-	if formed < 0 || retired < 0 || !contested {
-		t.Fatalf("fixture did not contest a coupled receiving berth: formed=%d retired=%d contested=%t", formed, retired, contested)
+	if approach < 0 || formed < 0 || retired < 0 || !contested {
+		t.Fatalf("fixture did not contest a committed receiving berth: approach=%d formed=%d retired=%d contested=%t", approach, formed, retired, contested)
 	}
 	if yielded < 0 || s.completed < 1 {
 		t.Fatalf("ordinary empty relocation did not yield after retirement: yielded=%d completed=%d tick=%d", yielded, s.completed, s.tick)
@@ -123,7 +155,7 @@ func coupledReceivingBerthContest(t *testing.T, buffers bool) {
 		t.Fatalf("pods did not settle after the yield: retired=%d yielded=%d recovered=%d tick=%d unsettled=%s rear=%+v",
 			retired, yielded, recovered, s.tick, unsettled, rear.Pod)
 	}
-	t.Logf("formed=%d retired=%d yielded=%d recovered=%d settled=%d", formed, retired, yielded, recovered, s.tick)
+	t.Logf("approach=%d formed=%d retired=%d yielded=%d recovered=%d settled=%d", approach, formed, retired, yielded, recovered, s.tick)
 	checkSettledOwners(t, s)
 	rear, intruder := s.findVehicle("rear"), s.findVehicle("intruder")
 	if rear.Pod.BerthID != berth.id || !s.owners[berth].isPod("rear") {

@@ -334,3 +334,126 @@ func TestYieldRelocationClaimsReadsPodsAfterPark(t *testing.T) {
 		t.Fatalf("the Market berth node has owner %q, want 02", owner)
 	}
 }
+
+// partialYieldFixture returns the claim conflict simulation on the example
+// network with a curved Market entry lane that admits Legacy and Group
+// pods. It stops at the first tick at which the reserved track of pod 01
+// holds the Market berth node but not the berth. Then a trip from Market
+// takes pod 02, which goes to the same berth. See checkPartialYield.
+func partialYieldFixture(t *testing.T) (*Simulation, *vehicle) {
+	t.Helper()
+	network := Example()
+	for i := range network.Lanes {
+		if network.Lanes[i].ID == "market-in" {
+			network.Lanes[i].VehicleClasses = classBit(string(LegacyClass)) | classBit(string(GroupClass))
+			network.Lanes[i].Control = &Point{X: 730, Y: 350}
+		}
+	}
+	s, err := NewFleet(network, []Placement{
+		{ID: "01", StationID: "parking", BerthID: "parking-1"},
+		{ID: "02", StationID: "garden", BerthID: "garden-1"},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	s.SetStationBuffers(false)
+	if err := s.SetFinishingPodWait(FinishingPodWaitNone); err != nil {
+		t.Fatal(err)
+	}
+	if !rebalanceToMarket(s) {
+		t.Fatal("pod 01 did not start a rebalancing move to Market")
+	}
+	relocating := s.findVehicle("01")
+	node := resource{kind: nodeResource, id: relocating.destination.Node}
+	for range 600 * TicksPerSecond {
+		if relocating.claimStopping(node) && !s.relocationDestinationAdmitted(relocating) {
+			if err := s.RequestTrip("market", "garden"); err != nil {
+				t.Fatal(err)
+			}
+			s.dispatch()
+			checkPartialYield(t, s, relocating)
+			return s, relocating
+		}
+		s.Step()
+	}
+	t.Fatal("the reserved track of pod 01 did not hold the Market berth node without the berth")
+	return nil, nil
+}
+
+// checkPartialYield checks the state of partialYieldFixture. Pod 01 owns
+// the Market berth as a service claim and the berth node as a stopping
+// claim, pod 02 brings a passenger to the berth, and the incremental owners
+// are correct.
+func checkPartialYield(t *testing.T, s *Simulation, relocating *vehicle) {
+	t.Helper()
+	berth := resource{kind: berthResource, id: relocating.destination.ID}
+	node := resource{kind: nodeResource, id: relocating.destination.Node}
+	owner := podResourceOwner(relocating.Pod.ID)
+	if s.owners[berth] != owner || s.owners[node] != owner ||
+		s.claimKind(relocating, berth) != claimService || s.claimKind(relocating, node) != claimStopping {
+		t.Fatalf("tick %d: pod 01 does not hold a service berth and a stopping node: %v %v", s.tick, s.owners[berth], s.owners[node])
+	}
+	if !s.passengerArrivals()[relocating.destination.ID].conflictsWith(relocating) {
+		t.Fatalf("tick %d: no pod brings a passenger to the Market berth", s.tick)
+	}
+	checkIncrementalOwners(t, s)
+}
+
+// TestYieldRelocationClaimsKeepsStoppingNode checks a partial yield. Pod 01
+// needs the Market berth node to stop, so only the berth is revocable. The
+// yield releases the berth and keeps the node, as retainedOwners requires.
+// The pod cannot divert inside its committed inlet, so a released pod and a
+// guarded rebalancing pod keep their route. Pod 01 then parks at Market,
+// and the trip completes.
+func TestYieldRelocationClaimsKeepsStoppingNode(t *testing.T) {
+	t.Parallel()
+	for _, test := range []struct {
+		name  string
+		setup func(s *Simulation, v *vehicle)
+		// released is the state of pod 01 after the yield. A released pod
+		// does not make a rebalancing move.
+		released bool
+	}{
+		{"off", func(*Simulation, *vehicle) {}, false},
+		{"guarded", func(s *Simulation, _ *vehicle) { s.positioning = PositioningGuarded }, true},
+		{"released", func(_ *Simulation, v *vehicle) { v.Rebalancing, v.released = false, true }, true},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			c, v := partialYieldFixture(t)
+			berth := resource{kind: berthResource, id: v.destination.ID}
+			node := resource{kind: nodeResource, id: v.destination.Node}
+			owner := podResourceOwner(v.Pod.ID)
+			test.setup(c, v)
+			c.yieldRelocationClaims()
+			if !c.owners[berth].isZero() || c.owners[node] != owner {
+				t.Fatalf("after the yield, the berth has owner %q and the node has owner %q", c.owners[berth], c.owners[node])
+			}
+			checkIncrementalOwners(t, c)
+			if _, _, divert := c.divertStart(v); divert || v.destination.ID != "market-1" ||
+				v.released != test.released || v.Rebalancing == test.released {
+				t.Fatalf("after the yield, pod 01 goes to %s: divert %t, released %t, rebalancing %t", v.destination.ID, divert, v.released, v.Rebalancing)
+			}
+			parked := false
+			for range 600 * TicksPerSecond {
+				c.Step()
+				checkIncrementalOwners(t, c)
+				if err := c.CheckContract(); err != nil {
+					t.Fatalf("tick %d: %v", c.tick, err)
+				}
+				if !parked && v.Pod.Activity == Idle {
+					if v.Pod.BerthID != "market-1" {
+						t.Fatalf("tick %d: pod 01 parked at %s", c.tick, v.Pod.BerthID)
+					}
+					parked = true
+				}
+				if c.completed > 0 {
+					break
+				}
+			}
+			if !parked || c.completed == 0 {
+				t.Fatalf("tick %d: pod 01 parked %t, %d trips complete", c.tick, parked, c.completed)
+			}
+		})
+	}
+}

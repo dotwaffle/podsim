@@ -50,8 +50,8 @@ func (s *Simulation) redistribute() {
 }
 
 // yieldRelocationClaims lets passenger traffic arbitrate a remote berth locally.
-// A relocating pod yields its destination claims when a different pod brings
-// a passenger to that berth. See passengerArrivals.
+// A relocating pod yields its revocable destination claims when a different
+// pod brings a passenger to that berth. See passengerArrivals and claimKind.
 // An empty pod keeps the claim after admission to the destination block.
 // A released pod that yields a claim goes to the nearest free berth at once.
 // See parkReleased. In guarded mode, a rebalancing pod that yields a claim
@@ -65,8 +65,7 @@ func (s *Simulation) yieldRelocationClaims() {
 	var arrivals map[string]passengerArrival
 	for i := range s.vehicles {
 		relocating := &s.vehicles[i]
-		// A coupled member's receiving claim belongs to the committed train.
-		if relocating.RelocatingTo == "" || relocating.couplingID != "" {
+		if relocating.RelocatingTo == "" {
 			continue
 		}
 		if arrivals == nil {
@@ -75,18 +74,15 @@ func (s *Simulation) yieldRelocationClaims() {
 		if !arrivals[relocating.destination.ID].conflictsWith(relocating) {
 			continue
 		}
-		claims := [...]resource{
-			{kind: berthResource, id: relocating.destination.ID},
-			{kind: nodeResource, id: relocating.destination.Node},
+		yielded := false
+		for _, claimed := range berthResources(relocating.destination) {
+			if s.owners[claimed] == podResourceOwner(relocating.Pod.ID) && s.revocable(relocating, claimed) {
+				s.releaseOwned(relocating, claimed)
+				yielded = true
+			}
 		}
-		// A pod that holds no claim has nothing to yield. This check comes
-		// before the admission check, because it costs less.
-		holds := s.owners[claims[0]] == podResourceOwner(relocating.Pod.ID) || s.owners[claims[1]] == podResourceOwner(relocating.Pod.ID)
-		if !holds || s.relocationDestinationAdmitted(relocating) {
+		if !yielded {
 			continue
-		}
-		for _, claimed := range claims {
-			s.releaseOwned(relocating, claimed)
 		}
 		if relocating.released {
 			s.parkReleased(relocating)
