@@ -702,6 +702,11 @@ func TestServiceHoldRefusals(t *testing.T) {
 				s.waiting = append(s.waiting, bound, held, stale)
 			}
 			v.withdrawn = test.holds
+			if test.holds != 0 {
+				// A withdrawn pod has no pending pickup (W2), as after
+				// withdrawService.
+				s.releasePickups(v)
+			}
 			approaches := len(s.couplingApproaches)
 			if test.coupling != nil {
 				test.coupling(s, v)

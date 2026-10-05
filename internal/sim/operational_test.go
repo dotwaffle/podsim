@@ -4,6 +4,7 @@ import (
 	"maps"
 	"reflect"
 	"slices"
+	"strings"
 	"testing"
 )
 
@@ -1370,5 +1371,40 @@ func TestEmptyRecoveryTakenBerth(t *testing.T) {
 	stepUntil(t, s, "recovery arrival", func() bool { return v.Pod.Activity == Idle })
 	if v.Pod.BerthID != "s1-2" || v.op != (operationalDestination{}) || v.withdrawn != emergencyHold || blocker.Pod.BerthID != "s1-1" {
 		t.Fatalf("recovery at %q with purpose %+v, blocker at %q", v.Pod.BerthID, v.op, blocker.Pod.BerthID)
+	}
+}
+
+// TestWithdrawnBindingRejected checks invariant W2 through the saved form:
+// a queued order that is bound to a withdrawn pod, or that holds for one,
+// fails the live contract and both restore tiers.
+func TestWithdrawnBindingRejected(t *testing.T) {
+	t.Parallel()
+	for _, binding := range []string{"pod", "hold"} {
+		t.Run(binding, func(t *testing.T) {
+			t.Parallel()
+			s := incidentLegFleet(t)
+			trip := newTrip(s, "s1", "s2")
+			s.waiting = []waitingTrip{trip}
+			checkNow(t, s)
+			v := s.findVehicle("02")
+			if err := s.withdrawService(v, faultHold); err != nil {
+				t.Fatal(err)
+			}
+			switch binding {
+			case "pod":
+				s.waiting[0].request.PodID = "02"
+			default:
+				s.waiting[0].deferPodID, s.waiting[0].deferUntil = "02", s.tick+TicksPerSecond
+			}
+			if err := s.CheckContract(); err == nil || !strings.Contains(err.Error(), "W2") {
+				t.Fatalf("the live contract: %v", err)
+			}
+			for _, logical := range []bool{false, true} {
+				_, _, err := RestoreState(RestoreStateInput{Network: s.network, Fleet: s.initial, State: s.ExportState(), IncidentContract: IncidentV1Contract, LogicalOnly: logical})
+				if err == nil || !strings.Contains(err.Error(), "W2") {
+					t.Fatalf("logical only %t: restore %v", logical, err)
+				}
+			}
+		})
 	}
 }

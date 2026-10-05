@@ -246,8 +246,9 @@ func savedRiders(pod SavedPod) (active, history []SavedRequest) {
 }
 
 // checkContract checks the rules of a saved state that do not need the
-// network: the counters, the phase contract of each pod, and the identity
-// of each order. It returns the unaccounted orders: the orders that the
+// network: the counters, the phase contract of each pod, the identity of
+// each order, and that no queued order is bound to or holds for a
+// withdrawn pod (invariant W2). Both restore tiers check it first. It returns the unaccounted orders: the orders that the
 // state submitted but that are not complete, not in the queue and not
 // aboard a pod. A live simulation has none.
 func (state SavedState) checkContract() (int, error) {
@@ -279,7 +280,12 @@ func (state SavedState) checkContract() (int, error) {
 		return nil
 	}
 	held := 0
+	// withdrawn holds the IDs of the pods with a service hold (W2).
+	withdrawn := make(map[string]bool)
 	for index, pod := range state.Pods {
+		if pod.Withdrawn != 0 {
+			withdrawn[pod.ID] = true
+		}
 		if pod.ID == "" || index > 0 && pod.ID <= state.Pods[index-1].ID {
 			return 0, fmt.Errorf("saved pod %q is empty or out of order", pod.ID)
 		}
@@ -303,6 +309,9 @@ func (state SavedState) checkContract() (int, error) {
 		}
 		if err := use(trip.Request.ID, "in the queue"); err != nil {
 			return 0, err
+		}
+		if withdrawn[trip.Request.PodID] || withdrawn[trip.DeferPodID] {
+			return 0, fmt.Errorf("W2: order %d names withdrawn pod %s", trip.Request.ID, cmp.Or(trip.Request.PodID, trip.DeferPodID))
 		}
 		held++
 	}
