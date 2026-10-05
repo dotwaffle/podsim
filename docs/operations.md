@@ -55,12 +55,12 @@ Then the simulation view reloads after each server restart.
 
 ## Container image
 
-The Check workflow publishes `ghcr.io/dotwaffle/podsim` from `main`, version tags, and manual workflow runs.
-It publishes only after every check job passes.
+The Check workflow publishes `ghcr.io/dotwaffle/podsim` from version tags and manual workflow runs.
+A push to `main` runs the checks and publishes no image.
+The workflow publishes only after every check job passes.
 It builds `linux/amd64` and `linux/arm64` images with ko.
 Each image gets the commit SHA as a tag.
-Images from `main` also get the `latest` tag.
-Images from a version tag also get the name of that tag.
+Images from a version tag also get the name of that tag and the `latest` tag.
 The image uses the Chainguard static base and runs as UID and GID 65532.
 Ko attaches an SPDX software bill of materials by default.
 
