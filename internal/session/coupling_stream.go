@@ -9,9 +9,6 @@ import (
 	"github.com/dotwaffle/podsim/internal/sim"
 )
 
-// CouplingStreamVersion identifies the independent compact-pair-v1 family.
-const CouplingStreamVersion = 5
-
 type couplingReplacement struct {
 	Contract sim.CouplingContract    `json:"couplingContract"`
 	Enabled  bool                    `json:"couplingEnabled"`

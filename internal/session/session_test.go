@@ -315,11 +315,14 @@ func TestHTTPValidationAndSharedObservers(t *testing.T) {
 			}
 		})
 	}
-	var observers [2]StateFrame
+	var observers [2]State
 	for i := range observers {
 		response := httptest.NewRecorder()
-		handler.ServeHTTP(response, httptest.NewRequestWithContext(t.Context(), http.MethodGet, "http://example.com/api/state", http.NoBody))
-		if err := json.NewDecoder(response.Body).Decode(&observers[i]); err != nil {
+		request := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "http://example.com/api/state", http.NoBody)
+		request.Header.Set("Accept", StateMediaType)
+		handler.ServeHTTP(response, request)
+		var err error
+		if observers[i], err = DecodeStateJSON(response.Body.Bytes()); err != nil {
 			t.Fatal(err)
 		}
 	}

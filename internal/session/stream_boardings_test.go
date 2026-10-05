@@ -26,27 +26,27 @@ func boardingStreamFixture(t *testing.T) (TopologySnapshot, StreamFrame) {
 
 func TestStreamBoardingPresence(t *testing.T) {
 	for _, raw := range []string{`{"full":{"state":{"simulation":{"vehicles":[{"pod":{"berthID":"old"}}]}}}}`, `{"delta":{"vehicles":[{"pod":{"value":{"berthID":"old"}}}]}}`} {
-		if _, err := DecodeStreamJSONVersion([]byte(raw), FoundationStreamVersion); err != nil {
+		if _, err := DecodeStreamJSON([]byte(raw)); err != nil {
 			t.Fatal("pod berth path rejected", err)
 		}
 	}
 	for _, record := range []string{`null`, `[]`, `[null]`, `[{}]`, `[{"berthID":"b"}]`, `[{"berthID":null,"metersAtBoarding":0}]`, `[{"berthID":"b","metersAtBoarding":null}]`, `[{"berthID":"b","metersAtBoarding":-1}]`, `[{"berthID":"b","metersAtBoarding":0,"extra":0}]`, `[{"berthID":"b","berthid":"b","metersAtBoarding":0}]`, `[{"bErThId":"b","mEtErSaTbOaRdInG":0}]`} {
 		raw := []byte(`{"full":{"state":{"simulation":{"vehicles":[{"boardings":` + record + `}]}}}}`)
-		if _, err := DecodeStreamJSONVersion(raw, 3); err == nil {
+		if _, err := DecodeStreamJSON(raw); err == nil {
 			t.Errorf("accepted records %s", record)
 		}
 	}
 	for _, wrapper := range []string{`null`, `{}`, `{"value":null}`, `{"value":[],"extra":0}`, `{"value":[],"Value":[]}`} {
 		raw := []byte(`{"delta":{"vehicles":[{"boardings":` + wrapper + `}]}}`)
-		if _, err := DecodeStreamJSONVersion(raw, 3); err == nil {
+		if _, err := DecodeStreamJSON(raw); err == nil {
 			t.Errorf("accepted wrapper %s", wrapper)
 		}
 	}
 	valid := `[{"berthID":"b","metersAtBoarding":0}]`
-	if _, err := DecodeStreamJSONVersion([]byte(`{"full":{"state":{"simulation":{"vehicles":[{"boardings":`+valid+`}]}}}}`), 3); err != nil {
+	if _, err := DecodeStreamJSON([]byte(`{"full":{"state":{"simulation":{"vehicles":[{"boardings":` + valid + `}]}}}}`)); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := DecodeStreamJSONVersion([]byte(`{"full":{"state":{"simulation":{"vehicles":[{"bOaRdInGs":`+valid+`}]}}}}`), 3); err == nil {
+	if _, err := DecodeStreamJSON([]byte(`{"full":{"state":{"simulation":{"vehicles":[{"bOaRdInGs":` + valid + `}]}}}}`)); err == nil {
 		t.Error("accepted a folded boardings name")
 	}
 }
@@ -137,7 +137,7 @@ func TestStreamBoardingBindingAndRollback(t *testing.T) {
 	topology, frame := boardingStreamFixture(t)
 	for _, defect := range []string{"station", "unknown", "class", "unknown-consent", "alignment", "count", "baseline", "nan", "distance", "id"} {
 		t.Run(defect, func(t *testing.T) {
-			a, err := NewStreamAssemblerVersion(topology, 3)
+			a, err := NewStreamAssembler(topology)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -187,7 +187,7 @@ func TestStreamBoardingBindingAndRollback(t *testing.T) {
 			}
 		})
 	}
-	a, err := NewStreamAssemblerVersion(topology, 3)
+	a, err := NewStreamAssembler(topology)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -267,11 +267,14 @@ func TestStreamBoardingZeroDistanceRoundTrip(t *testing.T) {
 	topology, frame := boardingStreamFixture(t)
 	frame.State.Simulation.Vehicles[0].RiddenMeters = 0
 	e := StreamEnvelope{Kind: "full", Stream: "zero", Sequence: 1, Build: frame.State.Build, Source: sourceOf(frame), Full: &frame}
-	raw := streamJSON(t, e)
+	raw, err := EncodeStreamJSON(e)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if bytes.Contains(raw, []byte(`"riddenMeters"`)) || !bytes.Contains(raw, []byte(`"metersAtBoarding":0`)) {
 		t.Fatal("zero baseline or cumulative omission changed")
 	}
-	decoded, err := DecodeStreamJSONVersion(raw, 3)
+	decoded, err := DecodeStreamJSON(raw)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -279,7 +282,7 @@ func TestStreamBoardingZeroDistanceRoundTrip(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	assembler, err := NewStreamAssemblerVersion(topology, 3)
+	assembler, err := NewStreamAssembler(topology)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -289,7 +292,7 @@ func TestStreamBoardingZeroDistanceRoundTrip(t *testing.T) {
 	for _, value := range []string{`null`, `-1`, `"0"`, `true`} {
 		for _, wrapper := range []string{`{"full":{"state":{"simulation":{"vehicles":[{"riddenMeters":%s}]}}}}`, `{"delta":{"vehicles":[{"metadata":{"value":{"riddenMeters":%s}}}]}}`} {
 			raw := []byte(strings.Replace(wrapper, "%s", value, 1))
-			if _, decodeErr := DecodeStreamJSONVersion(raw, 3); decodeErr == nil {
+			if _, decodeErr := DecodeStreamJSON(raw); decodeErr == nil {
 				t.Errorf("accepted distance %s", raw)
 			}
 		}
@@ -333,7 +336,7 @@ func TestStreamRecordedRiderConsent(t *testing.T) {
 					t.Fatal("candidate changed predecessor")
 				}
 			}
-			assembler, err := NewStreamAssemblerVersion(topology, 3)
+			assembler, err := NewStreamAssembler(topology)
 			if err != nil {
 				t.Fatal(err)
 			}

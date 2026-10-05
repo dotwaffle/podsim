@@ -13,37 +13,73 @@ import (
 	"github.com/dotwaffle/podsim/internal/sim"
 )
 
-func TestExpressHTTPMediaFailClosed(t *testing.T) {
-	for _, media := range []string{"", "application/json", "application/vnd.podsim.wrong+json"} {
+// The client reads only the state media type. The media types of earlier
+// servers fail, whatever the body.
+func TestStateHTTPMediaFailClosed(t *testing.T) {
+	valid := validStateBody(t)
+	exchangeState := func(t *testing.T, media, body string) (session.State, error) {
+		t.Helper()
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if r.Header.Get("Accept") != session.StateMediaType {
+				t.Error("missing negotiated Accept")
+			}
+			if media != "" {
+				w.Header().Set("Content-Type", media)
+			}
+			_, _ = w.Write([]byte(body))
+		}))
+		t.Cleanup(server.Close)
+		client := &Client{url: server.URL, http: server.Client()}
+		state := session.State{Epoch: "accepted", Simulation: sim.Snapshot{Pending: []sim.Request{{ID: 7, PartySize: 1}}}}
+		err := client.exchange(t.Context(), http.MethodGet, "/api/state", nil, &state)
+		return state, err
+	}
+	if _, err := exchangeState(t, session.StateMediaType, valid); err != nil {
+		t.Fatalf("refused a valid state of the state media type: %v", err)
+	}
+	for _, media := range []string{"", "application/json", "application/vnd.podsim.wrong+json", "application/vnd.podsim.express-v1+json", "application/vnd.podsim.compact-pair-v1+json"} {
 		for _, body := range []string{
+			valid,
 			`{"orderContract":"express-v1","textEncoding":"order-text-base64-v1","topology":{},"frame":{}}`,
 			`{"epoch":"new","simulation":{"orderContract":"express-v1"}}`,
 			`{"epoch":"new","simulation":{"orderContract":null}}`,
 			`{"epoch":"new","textEncoding":""}`,
 		} {
-			t.Run(media+body, func(t *testing.T) {
-				server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-					if r.Header.Get("Accept") != session.ExpressMediaType {
-						t.Error("missing negotiated Accept")
-					}
-					if media != "" {
-						w.Header().Set("Content-Type", media)
-					}
-					_, _ = w.Write([]byte(body))
-				}))
-				t.Cleanup(server.Close)
-				client := &Client{url: server.URL, http: server.Client()}
-				state := session.State{Epoch: "accepted", Simulation: sim.Snapshot{Pending: []sim.Request{{ID: 7, PartySize: 1}}}}
-				before := state
-				if err := client.exchange(t.Context(), http.MethodGet, "/api/state", nil, &state); err == nil {
-					t.Fatal("accepted unqualified Express state")
+			name := media + body
+			if body == valid {
+				name = media + "valid state"
+			}
+			t.Run(name, func(t *testing.T) {
+				state, err := exchangeState(t, media, body)
+				if err == nil {
+					t.Fatal("accepted a state of another media type")
 				}
+				before := session.State{Epoch: "accepted", Simulation: sim.Snapshot{Pending: []sim.Request{{ID: 7, PartySize: 1}}}}
 				if !reflect.DeepEqual(before, state) {
 					t.Fatal("invalid HTTP response mutated accepted state")
 				}
 			})
 		}
 	}
+}
+
+// validStateBody returns the HTTP state of an Express project, in the
+// state media type.
+func validStateBody(t *testing.T) string {
+	t.Helper()
+	shared, err := session.NewWithProject(remoteExpressProject(t))
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(shared.Close)
+	request := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/api/state", http.NoBody)
+	request.Header.Set("Accept", session.StateMediaType)
+	response := httptest.NewRecorder()
+	shared.HandlerFS(nil).ServeHTTP(response, request)
+	if response.Code != http.StatusOK {
+		t.Fatalf("state status %d", response.Code)
+	}
+	return response.Body.String()
 }
 
 func remoteExpressProject(t *testing.T) project.Config {

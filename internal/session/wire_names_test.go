@@ -17,8 +17,8 @@ import (
 func wireRoots() []any {
 	return []any{
 		stateFile{}, TopologySnapshot{}, StateFrame{}, State{}, ProjectState{},
-		Command{}, Reply{}, StreamEnvelope{}, StreamHello{}, ExpressStateEnvelope{},
-		CouplingStateEnvelope{}, couplingReplacement{},
+		Command{}, Reply{}, StreamEnvelope{}, StreamHello{}, StateEnvelope{},
+		couplingReplacement{},
 	}
 }
 
@@ -72,11 +72,8 @@ func TestScannerLimitPathsMatchTags(t *testing.T) {
 		"express save":    expressSavedLimits(),
 		"coupling save":   couplingSavedLimits(false),
 		"packed save":     couplingSavedLimits(true),
-		"express stream":  expressStreamLimits(),
-		"unpacked stream": unpackedStreamLimits(),
-		"state frame":     stateFrameLimits(),
-		"coupling stream": couplingStreamLimits(false),
-		"packed coupling": couplingStreamLimits(true),
+		"express stream":  streamLimits(contractMarkers{order: sim.ExpressOrderContract}),
+		"unpacked stream": streamLimits(contractMarkers{}),
 		"compact save":    compactStateLimits(serviceStateLimits()),
 		"boarding save":   boardingStateLimits(serviceStateLimits()),
 	}
@@ -99,11 +96,11 @@ func TestScannerLiteralsMatchTags(t *testing.T) {
 	t.Parallel()
 	_, members := wirePaths(t)
 	files := []string{
-		"boarding_state.go", "compact_state.go", "coupling_http.go", "coupling_json.go",
+		"boarding_state.go", "compact_state.go", "coupling_json.go",
 		"coupling_state.go", "coupling_stream.go", "coupling_stream_json.go", "express_text.go",
 		"express_wire.go", "http.go", "order_command.go", "order_state.go", "protocol.go",
 		"state_file.go", "stream_boardings.go", "stream_codec.go", "stream_frame.go",
-		"stream_service.go", "topology_decode.go", "../remote/express_http.go", "../remote/client.go", "../remote/stream.go",
+		"state_http.go", "stream_service.go", "topology_decode.go", "../remote/client.go", "../remote/stream.go",
 	}
 	found, err := wirename.Mismatch(files, wirename.Names(members))
 	if err != nil {

@@ -56,18 +56,22 @@ func TestCouplingArraysHaveExplicitLimits(t *testing.T) {
 		t.Run("order="+string(order), func(t *testing.T) {
 			t.Parallel()
 			packed := order == sim.ExpressOrderContract
+			stream := streamLimits(contractMarkers{order: order, coupling: sim.CompactPairV1CouplingContract})
 			for _, phase := range data.Frames {
 				_, topology, frame := couplingStreamFixture(t, phase, order)
 				input := couplingPhaseInput(t, data, phase)
 				input.OrderContract, input.State.OrderContract = order, order
 				file := couplingPhaseFile(t, input)
-				file.OrderContract, file.TextEncoding = order, streamTextEncoding(order)
+				file.OrderContract = order
+				if packed {
+					file.TextEncoding = ExpressTextEncoding
+				}
 				assertExplicitArrayBounds(t, phase.Name+" save", decompressTestJSON(t, encodeTestState(t, file)), couplingSavedLimits(packed))
 				full, err := EncodeStreamJSON(couplingFullEnvelope(frame))
 				if err != nil {
 					t.Fatal(err)
 				}
-				assertExplicitArrayBounds(t, phase.Name+" full", full, couplingStreamLimits(packed))
+				assertExplicitArrayBounds(t, phase.Name+" full", full, stream)
 				_, empty := streamFixture(t)
 				empty.State.Simulation.OrderContract = order
 				empty.State.Simulation.CouplingContract = frame.State.Simulation.CouplingContract
@@ -84,16 +88,31 @@ func TestCouplingArraysHaveExplicitLimits(t *testing.T) {
 				if err != nil {
 					t.Fatal(err)
 				}
-				assertExplicitArrayBounds(t, phase.Name+" delta", changed, couplingStreamLimits(packed))
-				assertExplicitArrayBounds(t, phase.Name+" coupling group", delta.Groups["coupling"], couplingStreamLimits(false))
-				http, err := EncodeCouplingStateJSON(topology, frame)
+				assertExplicitArrayBounds(t, phase.Name+" delta", changed, stream)
+				assertExplicitArrayBounds(t, phase.Name+" coupling group", delta.Groups["coupling"], streamLimits(contractMarkers{}))
+				http, err := EncodeStateJSON(topology, frame)
 				if err != nil {
 					t.Fatal(err)
 				}
-				assertExplicitArrayBounds(t, phase.Name+" HTTP", http, couplingStreamLimits(packed))
+				assertExplicitArrayBounds(t, phase.Name+" HTTP", http, stream)
 			}
 		})
 	}
+}
+
+// httpFrameLimits returns the stream limits of markers for the frame of an
+// HTTP state, without the "/frame/state" prefix. The plain HTTP state of
+// hello 3 sent that frame as the document root.
+func httpFrameLimits(markers contractMarkers) jsonLimits {
+	stream := streamLimits(markers)
+	limits := stream
+	limits.arrays = map[string]int64{}
+	for path, bound := range stream.arrays {
+		if rest, found := strings.CutPrefix(path, "/frame/state/"); found {
+			limits.arrays["/"+rest] = bound
+		}
+	}
+	return limits
 }
 
 // familyLimits is the JSON form of a jsonLimits value.
@@ -130,11 +149,11 @@ func TestLimitTablesNotLooser(t *testing.T) {
 		"save 8":          couplingSavedLimits(false),
 		"save 8 express":  couplingSavedLimits(true),
 		"save header":     expressSavedLimits(),
-		"hello 3":         unpackedStreamLimits(),
-		"hello 4":         expressStreamLimits(),
-		"hello 5":         couplingStreamLimits(false),
-		"hello 5 express": couplingStreamLimits(true),
-		"plain HTTP":      stateFrameLimits(),
+		"hello 3":         streamLimits(plain),
+		"hello 4":         streamLimits(express),
+		"hello 5":         streamLimits(coupling),
+		"hello 5 express": streamLimits(expressCoupling),
+		"plain HTTP":      httpFrameLimits(plain),
 	}
 	if !slices.Equal(slices.Sorted(maps.Keys(previous)), slices.Sorted(maps.Keys(merged))) {
 		t.Fatal("the families differ from the recorded families")
@@ -353,9 +372,9 @@ func markerFormats(t *testing.T) []markerFormat {
 	}
 	// decodeStream decodes an envelope and binds it to its frame, or to
 	// previous for a delta.
-	decodeStream := func(version int, previous StreamFrame) func([]byte) error {
+	decodeStream := func(previous StreamFrame) func([]byte) error {
 		return func(raw []byte) error {
-			envelope, err := DecodeStreamJSONVersion(raw, version)
+			envelope, err := DecodeStreamJSON(raw)
 			if err != nil {
 				return err
 			}
@@ -381,15 +400,16 @@ func markerFormats(t *testing.T) []markerFormat {
 		if err != nil {
 			t.Fatal(err)
 		}
-		return StreamEnvelope{CouplingContract: next.State.Simulation.CouplingContract, OrderContract: express, TextEncoding: ExpressTextEncoding,
+		return StreamEnvelope{CouplingContract: next.State.Simulation.CouplingContract, OrderContract: express,
 			Kind: "delta", Stream: "s", Sequence: 2, Base: 1, Source: sourceOf(next), Build: next.State.Build, Delta: &delta}
 	}
 	fullOf := func(frame StreamFrame) StreamEnvelope {
-		return StreamEnvelope{CouplingContract: frame.State.Simulation.CouplingContract, OrderContract: express, TextEncoding: ExpressTextEncoding,
+		return StreamEnvelope{CouplingContract: frame.State.Simulation.CouplingContract, OrderContract: express,
 			Kind: "full", Stream: "s", Sequence: 1, Source: sourceOf(frame), Build: frame.State.Build, Full: &frame}
 	}
 
-	// Version 7 and hello 4 require the marker.
+	// Version 7 requires the marker. The stream and HTTP state select the
+	// table by the marker.
 	shared := expressSession(t)
 	saved := sessionStateFile(t, shared)
 	saved.Version, saved.OrderContract, saved.TextEncoding = expressStateVersion, express, ExpressTextEncoding
@@ -398,12 +418,13 @@ func markerFormats(t *testing.T) []markerFormat {
 	topology, previous := expressGuardFrame(t)
 	frame := previous
 	frame.State.Simulation.Pending = pending(expressRequest)
-	full4 := encode(fullOf(frame))
-	delta4 := encode(deltaOf(previous, frame))
+	expressFull := encode(fullOf(frame))
+	expressDelta := encode(deltaOf(previous, frame))
 	frame.State.Speed = 60
-	http4 := marshal(ExpressStateEnvelope{express, ExpressTextEncoding, topology, frame})
+	expressHTTP := marshal(StateEnvelope{OrderContract: express, Topology: topology, Frame: frame})
 
-	// Version 8 and hello 5 select the table by the marker.
+	// Version 8 selects the table by the marker, as the stream and HTTP
+	// state with the coupling marker do.
 	data := couplingPhaseFixtures(t)
 	input := couplingPhaseInput(t, data, data.Frames[0])
 	input.OrderContract, input.State.OrderContract = express, express
@@ -414,26 +435,21 @@ func markerFormats(t *testing.T) []markerFormat {
 	_, couplingTopology, couplingPrevious := couplingStreamFixture(t, data.Frames[0], express)
 	couplingFrame := couplingPrevious
 	couplingFrame.State.Simulation.Pending = pending(couplingRequest)
-	full5 := encode(fullOf(couplingFrame))
-	delta5 := encode(deltaOf(couplingPrevious, couplingFrame))
-	http5 := marshal(CouplingStateEnvelope{couplingTopology.CouplingContract, express, ExpressTextEncoding, couplingTopology, couplingFrame})
+	couplingFull := encode(fullOf(couplingFrame))
+	couplingDelta := encode(deltaOf(couplingPrevious, couplingFrame))
+	couplingHTTP := marshal(StateEnvelope{couplingTopology.CouplingContract, express, couplingTopology, couplingFrame})
 
 	plainPrevious, plainCouplingPrevious := previous, couplingPrevious
 	plainPrevious.State.Simulation.OrderContract = ""
 	plainCouplingPrevious.State.Simulation.OrderContract = ""
-	decodeHTTP4 := func(raw []byte) error {
-		_, err := DecodeExpressStateJSON(raw)
-		return err
-	}
-	decodeHTTP5 := func(raw []byte) error {
-		_, err := DecodeCouplingStateJSON(raw)
+	decodeHTTP := func(raw []byte) error {
+		_, err := DecodeStateJSON(raw)
 		return err
 	}
 	drop := func(decode func([]byte) error, raw []byte, path ...string) func() error {
 		return func() error { return decode(dropMember(t, raw, path...)) }
 	}
-	full4Decode := decodeStream(ExpressStreamVersion, StreamFrame{})
-	full5Decode := decodeStream(CouplingStreamVersion, StreamFrame{})
+	fullDecode := decodeStream(StreamFrame{})
 	return []markerFormat{
 		{name: "save 7", raw: save7, decode: decodeSave, contradictions: map[string]func() error{
 			"project":    drop(decodeSave, save7, "project", "orderContract"),
@@ -443,33 +459,31 @@ func markerFormats(t *testing.T) []markerFormat {
 			"project":    drop(decodeSave, save8, "project", "orderContract"),
 			"simulation": drop(decodeSave, save8, "simulation", "orderContract"),
 		}},
-		{name: "hello 4 full", raw: full4, decode: full4Decode, contradictions: map[string]func() error{
-			"frame":   drop(full4Decode, full4, "full", "state", "simulation", "orderContract"),
-			"hello 3": func() error { return decodeStream(FoundationStreamVersion, StreamFrame{})(full4) },
+		{name: "Express full", raw: expressFull, decode: fullDecode, selected: true, contradictions: map[string]func() error{
+			"frame": drop(fullDecode, expressFull, "full", "state", "simulation", "orderContract"),
 		}},
-		{name: "hello 4 delta", raw: delta4, decode: decodeStream(ExpressStreamVersion, previous), contradictions: map[string]func() error{
-			"plain frame": func() error { return decodeStream(ExpressStreamVersion, plainPrevious)(delta4) },
+		{name: "Express delta", raw: expressDelta, decode: decodeStream(previous), selected: true, contradictions: map[string]func() error{
+			"plain frame": func() error { return decodeStream(plainPrevious)(expressDelta) },
 		}},
-		{name: "hello 5 full", raw: full5, decode: full5Decode, selected: true, contradictions: map[string]func() error{
-			"frame":   drop(full5Decode, full5, "full", "state", "simulation", "orderContract"),
-			"hello 4": func() error { return decodeStream(ExpressStreamVersion, StreamFrame{})(full5) },
+		{name: "Express coupling full", raw: couplingFull, decode: fullDecode, selected: true, contradictions: map[string]func() error{
+			"frame": drop(fullDecode, couplingFull, "full", "state", "simulation", "orderContract"),
 		}},
-		{name: "hello 5 delta", raw: delta5, decode: decodeStream(CouplingStreamVersion, couplingPrevious), selected: true, contradictions: map[string]func() error{
-			"plain frame": func() error { return decodeStream(CouplingStreamVersion, plainCouplingPrevious)(delta5) },
+		{name: "Express coupling delta", raw: couplingDelta, decode: decodeStream(couplingPrevious), selected: true, contradictions: map[string]func() error{
+			"plain frame": func() error { return decodeStream(plainCouplingPrevious)(couplingDelta) },
 		}},
-		{name: "Express HTTP", raw: http4, decode: decodeHTTP4, contradictions: map[string]func() error{
-			"frame":    drop(decodeHTTP4, http4, "frame", "state", "simulation", "orderContract"),
-			"topology": drop(decodeHTTP4, http4, "topology", "orderContract"),
+		{name: "Express HTTP", raw: expressHTTP, decode: decodeHTTP, selected: true, contradictions: map[string]func() error{
+			"frame":    drop(decodeHTTP, expressHTTP, "frame", "state", "simulation", "orderContract"),
+			"topology": drop(decodeHTTP, expressHTTP, "topology", "orderContract"),
 		}},
-		{name: "coupling HTTP", raw: http5, decode: decodeHTTP5, selected: true, contradictions: map[string]func() error{
-			"frame":    drop(decodeHTTP5, http5, "frame", "state", "simulation", "orderContract"),
-			"topology": drop(decodeHTTP5, http5, "topology", "orderContract"),
+		{name: "Express coupling HTTP", raw: couplingHTTP, decode: decodeHTTP, selected: true, contradictions: map[string]func() error{
+			"frame":    drop(decodeHTTP, couplingHTTP, "frame", "state", "simulation", "orderContract"),
+			"topology": drop(decodeHTTP, couplingHTTP, "topology", "orderContract"),
 		}},
 	}
 }
 
 // TestCheckpointArrayCeiling checks the checkpoints bound at each position
-// of each stream family and of the plain HTTP state: checkpointLimit
+// of the stream and HTTP state tables of each marker: checkpointLimit
 // entries pass the scan, and one more fails it.
 func TestCheckpointArrayCeiling(t *testing.T) {
 	t.Parallel()
@@ -478,8 +492,9 @@ func TestCheckpointArrayCeiling(t *testing.T) {
 	}
 	documents := []string{`{"full":{"state":{"checkpoints":%s}}}`, `{"frame":{"state":{"checkpoints":%s}}}`, `{"delta":{"groups":{"checkpoints":%s}}}`}
 	families := map[string]jsonLimits{
-		"hello 3": unpackedStreamLimits(), "hello 4": expressStreamLimits(),
-		"hello 5": couplingStreamLimits(false), "hello 5 express": couplingStreamLimits(true),
+		"plain": streamLimits(contractMarkers{}), "Express": streamLimits(contractMarkers{order: sim.ExpressOrderContract}),
+		"coupling":         streamLimits(contractMarkers{coupling: sim.CompactPairV1CouplingContract}),
+		"Express coupling": streamLimits(contractMarkers{order: sim.ExpressOrderContract, coupling: sim.CompactPairV1CouplingContract}),
 	}
 	for name, limits := range families {
 		for _, document := range documents {
@@ -489,12 +504,6 @@ func TestCheckpointArrayCeiling(t *testing.T) {
 					t.Errorf("%s %s with %d checkpoints: %v", name, document, count, err)
 				}
 			}
-		}
-	}
-	for _, count := range []int{checkpointLimit, checkpointLimit + 1} {
-		err := prescanJSON(fmt.Appendf(nil, `{"checkpoints":%s}`, list(count)), stateFrameLimits())
-		if (err == nil) != (count == checkpointLimit) || err != nil && !errors.Is(err, errJSONArrayTooLong) {
-			t.Errorf("plain HTTP with %d checkpoints: %v", count, err)
 		}
 	}
 }

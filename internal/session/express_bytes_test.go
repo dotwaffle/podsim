@@ -266,7 +266,7 @@ func TestExpressWidestStreamAdapters(t *testing.T) {
 		v.Riders = slices.Repeat([]sim.Request{r}, 20)
 		v.Boardings = slices.Repeat([]sim.RiderBoarding{{BerthID: strings.Repeat("\x01", 64), MetersAtBoarding: v.RiddenMeters}}, 20)
 	}
-	full := StreamEnvelope{OrderContract: sim.ExpressOrderContract, TextEncoding: ExpressTextEncoding, Kind: "full", Stream: strings.Repeat("x", 32), Sequence: math.MaxUint64, Source: sourceOf(frame), Build: frame.State.Build, Full: &frame}
+	full := StreamEnvelope{OrderContract: sim.ExpressOrderContract, Kind: "full", Stream: strings.Repeat("x", 32), Sequence: math.MaxUint64, Source: sourceOf(frame), Build: frame.State.Build, Full: &frame}
 	_, empty := streamFixture(t)
 	empty.State.Simulation.OrderContract = sim.ExpressOrderContract
 	empty.State.Simulation.Vehicles = make([]VehicleFrame, 300)
@@ -292,11 +292,11 @@ func TestExpressWidestStreamAdapters(t *testing.T) {
 		if err != nil || !bytes.Equal(raw, inflated) {
 			t.Fatal("stream gzip changed", err)
 		}
-		if scanErr := prescanJSON(inflated, expressStreamLimits()); scanErr != nil {
+		if scanErr := prescanJSON(inflated, streamLimits(contractMarkers{order: sim.ExpressOrderContract})); scanErr != nil {
 			t.Fatal("maximum stream failed the bounded scan", scanErr)
 		}
-		assertExplicitArrayBounds(t, "Express "+envelope.Kind, inflated, expressStreamLimits())
-		decoded, err := DecodeStreamJSONVersion(inflated, 4)
+		assertExplicitArrayBounds(t, "Express "+envelope.Kind, inflated, streamLimits(contractMarkers{order: sim.ExpressOrderContract}))
+		decoded, err := DecodeStreamJSON(inflated)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -432,29 +432,29 @@ func TestExpressWidestTopologyHTTPAdapters(t *testing.T) {
 	}
 	frame.State.Revision = 1
 	frame.State.Simulation.Tick = 9007199254740997
-	full := StreamEnvelope{OrderContract: sim.ExpressOrderContract, TextEncoding: ExpressTextEncoding, Kind: "full", Stream: "widest-reference-shape", Sequence: 1, Source: sourceOf(frame), Build: frame.State.Build, Full: &frame}
+	full := StreamEnvelope{OrderContract: sim.ExpressOrderContract, Kind: "full", Stream: "widest-reference-shape", Sequence: 1, Source: sourceOf(frame), Build: frame.State.Build, Full: &frame}
 	fullRaw, err := EncodeStreamJSON(full)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, decodeErr := DecodeStreamJSONVersion(fullRaw, 4); decodeErr != nil {
+	if _, decodeErr := DecodeStreamJSON(fullRaw); decodeErr != nil {
 		t.Fatal(decodeErr)
 	}
-	assertExplicitArrayBounds(t, "Express reference full", fullRaw, expressStreamLimits())
+	assertExplicitArrayBounds(t, "Express reference full", fullRaw, streamLimits(contractMarkers{order: sim.ExpressOrderContract}))
 	exportExpressAsset(t, "reference-full.json", fullRaw)
 	t.Logf("asset reference-full raw=%d", len(fullRaw))
 	// HTTP state conversion rejects a speed that is not a playback choice.
 	frame.State.Speed = 60
 	started := time.Now()
-	httpRaw, err := EncodeExpressStateJSON(topology, frame)
+	httpRaw, err := EncodeStateJSON(topology, frame)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if len(httpRaw) > MaxStreamJSON {
 		t.Fatal("HTTP cap exceeded")
 	}
-	assertExplicitArrayBounds(t, "Express HTTP state", httpRaw, expressStreamLimits())
-	state, err := DecodeExpressStateJSON(httpRaw)
+	assertExplicitArrayBounds(t, "Express HTTP state", httpRaw, streamLimits(contractMarkers{order: sim.ExpressOrderContract}))
+	state, err := DecodeStateJSON(httpRaw)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -472,7 +472,7 @@ func TestExpressWidestTopologyHTTPAdapters(t *testing.T) {
 	t.Logf("asset http raw=%d gzip=%d elapsed=%s", len(httpRaw), len(gzipData), time.Since(started))
 	exportExpressAsset(t, "http.json", httpRaw)
 	exportExpressAsset(t, "http.json.gz", gzipData)
-	var packed ExpressStateEnvelope
+	var packed StateEnvelope
 	if err = jsonv2.Unmarshal(httpRaw, &packed, json.DefaultOptionsV1(), packedDecodeOptions()); err != nil {
 		t.Fatal(err)
 	}

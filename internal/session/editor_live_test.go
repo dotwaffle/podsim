@@ -27,8 +27,7 @@ const base = process.argv[2];
 const shell = require(process.argv[3]);
 (async () => {
   const response = await fetch(base + "/api/state", { cache: "no-store", headers: { Accept: shell.STATE_ACCEPT } });
-  if (!response.ok) throw new Error("capture HTTP " + response.status);
-  const captured = shell.captureState(await response.json());
+  const captured = await shell.readCaptureState(response);
   const capture = { epoch: captured.epoch, revision: captured.projectRevision, tick: captured.simulation && captured.simulation.tick };
   const connection = { fetch: (url, init) => fetch(base + url, init), clientID: "editor-live-test", sequence: 0, epoch: "" };
   const live = await editor.readLive(connection, async (project) => project);
@@ -38,13 +37,13 @@ const shell = require(process.argv[3]);
   try { await editor.applyToServer({ connection, project: { ...live.project, name: "" }, revision: live.revision, serverStart: live.serverStart }); }
   catch (error) { failed = { status: error.status, code: error.errorCode || "", pause: error.pause }; }
   const applied = await editor.applyToServer({ connection, project: { ...live.project, name: live.project.name + " applied" }, revision: live.revision, serverStart: live.serverStart });
-  process.stdout.write(JSON.stringify({ capture, revision: live.revision, epoch: live.epoch, serverStart: live.serverStart, version: live.project.version, failed, applied: applied.revision }));
+  process.stdout.write(JSON.stringify({ accept: shell.STATE_ACCEPT, capture, revision: live.revision, epoch: live.epoch, serverStart: live.serverStart, version: live.project.version, failed, applied: applied.revision }));
 })().catch((error) => { process.stderr.write(String(error.stack || error)); process.exit(1); });
 `
 
 // The editor and the debug capture read the live state of a plain, an
-// Express, and a coupling project from a real server. The last two reply
-// only to their own media types, in an envelope.
+// Express, and a coupling project from a real server. The server replies
+// only to StateMediaType, with the state envelope of each project kind.
 func TestEditorReadsLiveStateOfEachProjectKind(t *testing.T) {
 	node, err := exec.LookPath("node")
 	if err != nil {
@@ -87,6 +86,7 @@ func TestEditorReadsLiveStateOfEachProjectKind(t *testing.T) {
 				t.Fatal(err, ctx.Err(), stderr.String())
 			}
 			var got struct {
+				Accept  string `json:"accept"`
 				Capture struct {
 					Epoch    string  `json:"epoch"`
 					Revision uint64  `json:"revision"`
@@ -108,6 +108,9 @@ func TestEditorReadsLiveStateOfEachProjectKind(t *testing.T) {
 			}
 			if got.Revision != topology.ProjectRevision || got.Epoch != topology.Epoch || got.ServerStart == "" || got.ServerStart != topology.ServerStart || got.Version != test.config.Version {
 				t.Fatalf("live read %+v, topology revision %d epoch %q start %q", got, topology.ProjectRevision, topology.Epoch, topology.ServerStart)
+			}
+			if got.Accept != StateMediaType {
+				t.Fatalf("debug capture Accept %q, want %q", got.Accept, StateMediaType)
 			}
 			if got.Capture.Epoch != topology.Epoch || got.Capture.Revision != topology.ProjectRevision || got.Capture.Tick == nil {
 				t.Fatalf("debug capture read %+v", got.Capture)

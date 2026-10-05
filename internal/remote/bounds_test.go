@@ -61,9 +61,8 @@ func TestExchangeBoundsResponseBodies(t *testing.T) {
 		body  []byte
 		ok    bool
 	}{
-		{"plain state at the limit", "/api/state", "application/json", append(padded(`{"epoch":"`, `"}`, session.MaxStreamJSON), '\n'), true},
-		{"plain state past the limit", "/api/state", "application/json", padded(`{"epoch":"`, `"}`, session.MaxStreamJSON+2), false},
-		{"Express state past the limit", "/api/state", session.ExpressMediaType, padded(`{"epoch":"`, `"}`, session.MaxStreamJSON+1), false},
+		{"state at the limit", "/api/state", session.StateMediaType, padded(`{"epoch":"`, `"}`, session.MaxStreamJSON), true},
+		{"state past the limit", "/api/state", session.StateMediaType, padded(`{"epoch":"`, `"}`, session.MaxStreamJSON+1), false},
 		{"topology at the limit", "/api/topology", "application/json", append(topology(session.MaxTopologyJSON), '\n'), true},
 		{"topology past the limit", "/api/topology", "application/json", topology(session.MaxTopologyJSON + 2), false},
 		{"command reply past the limit", "/api/command", "application/json", padded(`{"epoch":"`, `"}`, session.MaxCommandBytes+1), false},
@@ -75,7 +74,9 @@ func TestExchangeBoundsResponseBodies(t *testing.T) {
 			before := reflect.ValueOf(target).Elem().Interface()
 			err := client.exchange(t.Context(), http.MethodGet, test.path, nil, target)
 			if test.ok {
-				if err != nil {
+				// The state at the limit is not a valid state, so only the
+				// size must pass.
+				if errors.Is(err, errResponseTooLarge) || err != nil && test.path != "/api/state" {
 					t.Fatal("rejected a response at the limit", err)
 				}
 				return
@@ -112,7 +113,7 @@ func TestExchangeBoundsBeforeParsing(t *testing.T) {
 		want string
 	}{
 		{"/api/state", "deeper than the decoder cap", `{"epoch":"x","x":` + deep + `}`, tooDeep},
-		{"/api/state", "vehicles past the fleet bound", `{"simulation":{"vehicles":` + zeros(project.MaxPods+1) + `}}`, tooLong},
+		{"/api/state", "vehicles past the fleet bound", `{"frame":{"state":{"simulation":{"vehicles":` + zeros(project.MaxPods+1) + `}}}}`, tooLong},
 		{"/api/state", "object past the member limit", `{"x":0` + members(256) + `}`, tooMany},
 		{"/api/topology", "deeper than the decoder cap", `{"epoch":"x","x":` + deep + `}`, tooDeep},
 		{"/api/topology", "nodes past the network bound", `{"network":{"nodes":` + zeros(project.MaxNodes+1) + `}}`, tooLong},
@@ -121,7 +122,11 @@ func TestExchangeBoundsBeforeParsing(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.path+"/"+test.name, func(t *testing.T) {
 			t.Parallel()
-			client := boundsClient(t, "application/json", []byte(test.raw+"\n"))
+			media := "application/json"
+			if test.path == "/api/state" {
+				media = session.StateMediaType
+			}
+			client := boundsClient(t, media, []byte(test.raw+"\n"))
 			target := boundsTarget(test.path)
 			before := reflect.ValueOf(target).Elem().Interface()
 			err := client.exchange(t.Context(), http.MethodGet, test.path, nil, target)
@@ -135,18 +140,19 @@ func TestExchangeBoundsBeforeParsing(t *testing.T) {
 	}
 }
 
-// Plain JSON decoding replaced invalid UTF-8 before the bounded scan, so
-// the scan keeps that accepted.
-func TestExchangePlainStateKeepsInvalidUTF8(t *testing.T) {
+// The state decoder refuses invalid UTF-8. The plain state of earlier
+// servers replaced it.
+func TestExchangeStateRefusesInvalidUTF8(t *testing.T) {
 	t.Parallel()
-	client := boundsClient(t, "application/json", []byte("{\"epoch\":\"\xff\"}\n"))
-	var state session.State
-	if err := client.exchange(t.Context(), http.MethodGet, "/api/state", nil, &state); err != nil || state.Epoch != "�" {
-		t.Fatal("plain state with invalid UTF-8 changed", err, state.Epoch)
+	client := boundsClient(t, session.StateMediaType, []byte("{\"frame\":{\"state\":{\"epoch\":\"\xff\"}}}"))
+	state := session.State{Epoch: "kept"}
+	if err := client.exchange(t.Context(), http.MethodGet, "/api/state", nil, &state); err == nil || state.Epoch != "kept" {
+		t.Fatal("state with invalid UTF-8 accepted", err, state.Epoch)
 	}
 }
 
-// A real server's responses decode to the values of a plain JSON decode.
+// A real server's responses decode to the values of the reference
+// decoders: the state decoder for the state, plain JSON for the others.
 func TestExchangeServerResponsesMatchPlainDecode(t *testing.T) {
 	t.Parallel()
 	shared, err := session.New()
@@ -163,6 +169,7 @@ func TestExchangeServerResponsesMatchPlainDecode(t *testing.T) {
 		if requestErr != nil {
 			t.Fatal(requestErr)
 		}
+		request.Header.Set("Accept", session.StateMediaType)
 		response, getErr := server.Client().Do(request)
 		if getErr != nil {
 			t.Fatal(getErr)
@@ -171,6 +178,13 @@ func TestExchangeServerResponsesMatchPlainDecode(t *testing.T) {
 		raw, readErr := io.ReadAll(response.Body)
 		if readErr != nil {
 			t.Fatal(readErr)
+		}
+		if state, ok := target.(*session.State); ok {
+			var decodeErr error
+			if *state, decodeErr = session.DecodeStateJSON(raw); decodeErr != nil {
+				t.Fatal(decodeErr)
+			}
+			return
 		}
 		if decodeErr := json.Unmarshal(raw, target); decodeErr != nil {
 			t.Fatal(decodeErr)
@@ -184,7 +198,7 @@ func TestExchangeServerResponsesMatchPlainDecode(t *testing.T) {
 	var state, wantState session.State
 	reference("/api/state", &wantState)
 	if err = client.exchange(t.Context(), http.MethodGet, "/api/state", nil, &state); err != nil || !reflect.DeepEqual(state, wantState) {
-		t.Fatal("plain state response changed", err)
+		t.Fatal("state response changed", err)
 	}
 	command, err := json.Marshal(session.Command{Client: "bounds", Sequence: 1, Epoch: state.Epoch, Action: "trip", Origin: "harbor", Destination: "market"})
 	if err != nil {
@@ -239,7 +253,11 @@ func TestExchangeFailedDecodeKeepsTarget(t *testing.T) {
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
-			client := boundsClient(t, "application/json", []byte(test.body))
+			media := "application/json"
+			if test.path == "/api/state" {
+				media = session.StateMediaType
+			}
+			client := boundsClient(t, media, []byte(test.body))
 			var err error
 			var epoch string
 			if test.path == "/api/state" {
@@ -261,16 +279,22 @@ func TestExchangeFailedDecodeKeepsTarget(t *testing.T) {
 	}
 }
 
-// A response member whose case differs from the declared name is unknown,
-// so the client ignores it.
+// A command reply member whose case differs from the declared name is
+// unknown, so the client ignores it. The state decoder refuses unknown
+// members.
 func TestExchangeIgnoresCaseVariantMembers(t *testing.T) {
 	t.Parallel()
-	client := boundsClient(t, "application/json", []byte(`{"Epoch":"folded","epoch":"exact","simulation":{"Tick":9}}`))
-	var state session.State
-	if err := client.exchange(t.Context(), http.MethodGet, "/api/state", nil, &state); err != nil {
+	client := boundsClient(t, "application/json", []byte(`{"Epoch":"folded","epoch":"exact","Revision":9}`))
+	var reply session.Reply
+	if err := client.exchange(t.Context(), http.MethodPost, "/api/command", []byte("{}"), &reply); err != nil {
 		t.Fatal(err)
 	}
-	if state.Epoch != "exact" || state.Simulation.Tick != 0 {
-		t.Fatalf("case variant members decoded: epoch %q, tick %d", state.Epoch, state.Simulation.Tick)
+	if reply.Epoch != "exact" || reply.Revision != 0 {
+		t.Fatalf("case variant members decoded: epoch %q, revision %d", reply.Epoch, reply.Revision)
+	}
+	state := session.State{Epoch: "kept"}
+	client = boundsClient(t, session.StateMediaType, []byte(`{"FRAME":{}}`))
+	if err := client.exchange(t.Context(), http.MethodGet, "/api/state", nil, &state); err == nil || state.Epoch != "kept" {
+		t.Fatal("state with a case variant member accepted", err)
 	}
 }

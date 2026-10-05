@@ -19,13 +19,11 @@ import (
 
 // Stream limits are independent of the smaller delivery and history windows.
 const (
-	// StreamVersion is the latest supported stream family.
-	StreamVersion = 5
-	// ExpressStreamVersion identifies the fixed express-v1 stream family.
-	ExpressStreamVersion    = 4
-	FoundationStreamVersion = 3
-	MaxStreamJSON           = 64 << 20
-	MaxStreamMessage        = 65 << 20
+	// StreamVersion is the hello version of the one stream family. The
+	// contract markers of a connection select its optional sections.
+	StreamVersion    = 6
+	MaxStreamJSON    = 64 << 20
+	MaxStreamMessage = 65 << 20
 )
 
 // StreamSource identifies one coherent authoritative state.
@@ -118,7 +116,6 @@ type StreamDelta struct {
 type StreamEnvelope struct {
 	CouplingContract sim.CouplingContract `json:"couplingContract,omitzero"`
 	OrderContract    sim.OrderContract    `json:"orderContract,omitzero"`
-	TextEncoding     string               `json:"textEncoding,omitzero"`
 	Kind             string               `json:"kind"`
 	Stream           string               `json:"stream"`
 	Sequence         uint64               `json:"sequence,string"`
@@ -197,15 +194,12 @@ func frameGroups(f StreamFrame) (map[string]json.RawMessage, error) {
 		}
 		values["coupling"] = couplingReplacement{state.Simulation.CouplingContract, state.Simulation.CouplingEnabled, members}
 	}
+	// Each group is raw bytes, so the options of the envelope encoder do
+	// not reach the orders of the pending group. Pack them here.
 	groups := make(map[string]json.RawMessage, len(values))
 	for key, value := range values {
 		var err error
-		if key == "pending" && state.Simulation.OrderContract == sim.ExpressOrderContract {
-			groups[key], err = jsonv2.Marshal(value, json.DefaultOptionsV1(), packedRequestOptions())
-		} else {
-			groups[key], err = json.Marshal(value)
-		}
-		if err != nil {
+		if groups[key], err = jsonv2.Marshal(value, json.DefaultOptionsV1(), packedRequestOptions()); err != nil {
 			return nil, err
 		}
 	}
@@ -297,8 +291,8 @@ func applyGroups(f *StreamFrame, groups map[string]json.RawMessage) error {
 			return fmt.Errorf("unknown stream group %q", key)
 		}
 		var err error
-		if key == "pending" && f.State.Simulation.OrderContract == sim.ExpressOrderContract {
-			err = jsonv2.Unmarshal(raw, target, json.DefaultOptionsV1(), jsonv2.MatchCaseInsensitiveNames(false), jsonv2.RejectUnknownMembers(true), packedDecodeOptions())
+		if key == "pending" {
+			err = decodePackedStreamJSON(raw, target)
 		} else {
 			err = decodeStreamJSON(raw, target)
 		}
@@ -433,9 +427,10 @@ func decodeStreamJSON(data []byte, target any) error {
 	return jsonv2.Unmarshal(bytes.TrimSpace(data), target, json.DefaultOptionsV1(), jsonv2.MatchCaseInsensitiveNames(false), jsonv2.RejectUnknownMembers(true))
 }
 
-// DecodeStreamJSON validates one inflated envelope.
-func DecodeStreamJSON(data []byte) (StreamEnvelope, error) {
-	return DecodeStreamJSONVersion(data, FoundationStreamVersion)
+// decodePackedStreamJSON decodes data into target with packed order
+// text. The caller scans data first.
+func decodePackedStreamJSON(data []byte, target any) error {
+	return jsonv2.Unmarshal(data, target, json.DefaultOptionsV1(), jsonv2.MatchCaseInsensitiveNames(false), jsonv2.RejectUnknownMembers(true), packedDecodeOptions())
 }
 
 func encodeStream(e StreamEnvelope) ([]byte, error) {

@@ -3,7 +3,6 @@ package session
 import (
 	"bytes"
 	"compress/gzip"
-	"encoding/json"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -38,6 +37,7 @@ func TestCompressedSnapshotsAndAssets(t *testing.T) {
 			t.Parallel()
 			request := httptest.NewRequestWithContext(t.Context(), http.MethodGet, path, http.NoBody)
 			request.Header.Set("Accept-Encoding", "gzip")
+			request.Header.Set("Accept", StateMediaType)
 			response := httptest.NewRecorder()
 			handler.ServeHTTP(response, request)
 			if response.Code != 200 || response.Header().Get("Content-Encoding") != "gzip" || response.Header().Get("Vary") != "Accept-Encoding" {
@@ -58,8 +58,8 @@ func TestCompressedSnapshotsAndAssets(t *testing.T) {
 				t.Fatal(err)
 			}
 			if path == "/api/state" {
-				var state StateFrame
-				if err := json.Unmarshal(decoded, &state); err != nil {
+				state, err := DecodeStateJSON(decoded)
+				if err != nil {
 					t.Fatal(err)
 				}
 				if state.Epoch != shared.State().Epoch {

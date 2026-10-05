@@ -121,32 +121,81 @@
   }
 
   // STATE_ACCEPT is the Accept header of a debug capture read of /api/state.
-  // A project without an order contract or train contract replies with
-  // plain JSON. An Express project replies only to
-  // session.ExpressMediaType, and a project with the coupling marker only
-  // to session.CouplingMediaType. LIVE_STATE_ACCEPT in editor.js has the same
-  // value. A Go test in internal/session checks the media types.
-  const STATE_ACCEPT = "application/json, application/vnd.podsim.express-v1+json, application/vnd.podsim.compact-pair-v1+json";
+  // The server replies only to session.StateMediaType, with the envelope of
+  // the state. LIVE_STATE_ACCEPT in editor.js has the same value. A Go test
+  // in internal/session checks the media type.
+  const STATE_ACCEPT = "application/vnd.podsim.state-6+json";
 
-  // captureState gives the state of a reply to STATE_ACCEPT. The reply is a
-  // plain state, or the envelope of an Express or coupling project: an
-  // object with an orderContract or couplingContract string and a frame
-  // whose state member is the state. The state must have the values that
-  // the capture reads, with their types: epoch, projectRevision and
-  // simulation.tick. The capture keeps the other values as the server sent
-  // them, and does not unpack or check the orders.
-  function captureState(reply) {
-    const record = (value) => value !== null && typeof value === "object" && !Array.isArray(value);
-    let state = reply;
-    if (record(reply) && Object.hasOwn(reply, "frame")) {
-      const marked = ["orderContract", "couplingContract"].some((key) => typeof reply[key] === "string" && reply[key] !== "");
-      state = marked && record(reply.frame) ? reply.frame.state : null;
+  // MAX_STATE_DEPTH and MAX_STATE_ELEMENTS are the depth limit and the
+  // element limit of each array of a stream document of the server. See
+  // streamLimits in internal/session. A Go test checks the mirror, and
+  // editor.js has the same values.
+  const MAX_STATE_DEPTH = 64;
+  const MAX_STATE_ELEMENTS = 65536;
+
+  // isObject is true for a JSON object that is not an array. editor.js
+  // has the same function.
+  function isObject(value) { return value !== null && typeof value === "object" && !Array.isArray(value); }
+
+  // CONTRACT_MARKERS gives each contract marker of a state reply and the
+  // one value that the server sends.
+  const CONTRACT_MARKERS = [["orderContract", "express-v1"], ["couplingContract", "compact-pair-v1"]];
+
+  // plainStateTree is true when value has at most MAX_STATE_DEPTH levels
+  // of arrays and objects, no array with more than MAX_STATE_ELEMENTS
+  // elements, and no object with a textEncoding member. Earlier servers
+  // sent textEncoding. Its presence refuses the reply, whatever its value.
+  // The walk uses a stack, so a deep reply cannot overflow the call stack.
+  // editor.js has the same function.
+  function plainStateTree(value) {
+    const stack = [[value, 1]];
+    while (stack.length > 0) {
+      const [node, depth] = stack.pop();
+      if (node === null || typeof node !== "object") continue;
+      if (depth > MAX_STATE_DEPTH) return false;
+      if (Array.isArray(node) ? node.length > MAX_STATE_ELEMENTS : Object.hasOwn(node, "textEncoding")) return false;
+      for (const child of Object.values(node)) stack.push([child, depth + 1]);
     }
-    if (!record(state) || typeof state.epoch !== "string" || state.epoch === "" || !Number.isSafeInteger(state.projectRevision) ||
+    return true;
+  }
+
+  // markersAgree is true when the reply, its topology and the simulation
+  // of state have the same contract markers. Each marker that is present
+  // must have the value in CONTRACT_MARKERS. A topology that is not an
+  // object has no markers. editor.js has the same function.
+  function markersAgree(reply, state) {
+    const holders = [reply, isObject(reply.topology) ? reply.topology : {}, state.simulation];
+    return CONTRACT_MARKERS.every(([name, allowed]) => {
+      const values = holders.map((holder) => Object.hasOwn(holder, name) ? holder[name] : undefined);
+      return values.every((marker) => marker === values[0] && (marker === undefined || marker === allowed));
+    });
+  }
+
+  // captureState gives the state of a reply to STATE_ACCEPT. The reply is
+  // the envelope of the state: an object with a frame object whose state
+  // member is the state. The state must have the values that the capture
+  // reads, with their types: epoch, projectRevision and simulation.tick.
+  // The capture keeps the other values as the server sent them, and does
+  // not unpack or check the orders. The reply must pass plainStateTree
+  // and markersAgree.
+  function captureState(reply) {
+    const state = isObject(reply) && isObject(reply.frame) ? reply.frame.state : null;
+    if (!isObject(state) || !plainStateTree(reply) || !isObject(state.simulation) || !markersAgree(reply, state) ||
+      typeof state.epoch !== "string" || state.epoch === "" || !Number.isSafeInteger(state.projectRevision) ||
       !Number.isSafeInteger(state.simulation?.tick)) {
       throw new Error("Invalid server state reply");
     }
     return state;
+  }
+
+  // readCaptureState gives the state of a response to STATE_ACCEPT. See
+  // captureState. A server of another version replies with another media
+  // type, and readCaptureState refuses that reply before it reads the body.
+  async function readCaptureState(response) {
+    if (!response.ok) throw new Error(`State HTTP ${response.status}`);
+    const media = (response.headers.get("Content-Type") ?? "").split(";")[0].trim().toLowerCase();
+    if (media !== STATE_ACCEPT) throw new Error("Unsupported server state media type");
+    return captureState(await response.json());
   }
 
   // reconcileResult gives the active result after a change of the result or
@@ -180,7 +229,7 @@
     return view === "game" && keyboard ? "editorLink" : view;
   }
 
-  const API = { VIEWS, CONTROLS, SHELL_VERSION, NOTICE_MS, viewForHash, pageRequest, gameReady, controlsShow, reloadTarget, noticeMessage, debugResult, STATE_ACCEPT, captureState, reconcileResult, focusTarget };
+  const API = { VIEWS, CONTROLS, SHELL_VERSION, NOTICE_MS, viewForHash, pageRequest, gameReady, controlsShow, reloadTarget, noticeMessage, debugResult, STATE_ACCEPT, MAX_STATE_DEPTH, MAX_STATE_ELEMENTS, captureState, readCaptureState, reconcileResult, focusTarget };
   if (typeof module !== "undefined" && module.exports) module.exports = API;
   root.PodsimShell = API;
 })(typeof window !== "undefined" ? window : globalThis);

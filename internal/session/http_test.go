@@ -77,6 +77,7 @@ func TestStaticCacheControl(t *testing.T) {
 			t.Parallel()
 			request := httptest.NewRequestWithContext(t.Context(), http.MethodGet, tc.path, http.NoBody)
 			request.Header.Set("Accept-Encoding", tc.encoding)
+			request.Header.Set("Accept", StateMediaType)
 			if tc.revalidate {
 				request.Header.Set("If-Modified-Since", stamp)
 			}
@@ -105,9 +106,9 @@ func TestErrorsNotCacheable(t *testing.T) {
 	t.Parallel()
 	handler := newTestSession(t).HandlerFS(fstest.MapFS{"podsim.wasm.gz": {Data: []byte("not gzip")}})
 	for _, tc := range []struct {
-		name, method, path, body, origin, contentType string
-		wantStatus                                    int
-		wantAllow                                     string
+		name, method, path, body, origin, contentType, accept string
+		wantStatus                                            int
+		wantAllow                                             string
 	}{
 		{name: "cross origin", method: http.MethodPost, path: "/api/command", body: "{}", origin: "http://elsewhere", contentType: "application/json", wantStatus: http.StatusForbidden},
 		{name: "media type", method: http.MethodPost, path: "/api/command", body: "{}", contentType: "text/plain", wantStatus: http.StatusUnsupportedMediaType},
@@ -123,7 +124,8 @@ func TestErrorsNotCacheable(t *testing.T) {
 		{name: "read of command", method: http.MethodGet, path: "/api/command", wantStatus: http.StatusMethodNotAllowed, wantAllow: "POST"},
 		{name: "post to state", method: http.MethodPost, path: "/api/state", body: "{}", contentType: "application/json", wantStatus: http.StatusMethodNotAllowed, wantAllow: "GET, HEAD"},
 		{name: "delete of project", method: http.MethodDelete, path: "/api/project", wantStatus: http.StatusMethodNotAllowed, wantAllow: "GET, HEAD"},
-		{name: "head of state", method: http.MethodHead, path: "/api/state", wantStatus: http.StatusOK},
+		{name: "state without the media type", method: http.MethodGet, path: "/api/state", wantStatus: http.StatusNotAcceptable},
+		{name: "head of state", method: http.MethodHead, path: "/api/state", accept: StateMediaType, wantStatus: http.StatusOK},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
@@ -133,6 +135,9 @@ func TestErrorsNotCacheable(t *testing.T) {
 			}
 			if tc.contentType != "" {
 				request.Header.Set("Content-Type", tc.contentType)
+			}
+			if tc.accept != "" {
+				request.Header.Set("Accept", tc.accept)
 			}
 			response := httptest.NewRecorder()
 			handler.ServeHTTP(response, request)

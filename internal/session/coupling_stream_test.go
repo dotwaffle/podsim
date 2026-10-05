@@ -3,7 +3,6 @@ package session
 import (
 	"bytes"
 	"encoding/json"
-	jsonv2 "encoding/json/v2"
 	"errors"
 	"fmt"
 	"maps"
@@ -18,12 +17,21 @@ import (
 func couplingStreamFixture(t *testing.T, phase couplingPhaseFrame, order sim.OrderContract) (*Session, TopologySnapshot, StreamFrame) {
 	t.Helper()
 	data := couplingPhaseFixtures(t)
-	input := couplingPhaseInput(t, data, phase)
+	return couplingInputStreamFixture(t, couplingPhaseInput(t, data, phase), order)
+}
+
+// couplingInputStreamFixture restores a session from the saved state of
+// input with the order contract order. It returns the session, its
+// topology and its presentation frame.
+func couplingInputStreamFixture(t *testing.T, input sim.RestoreStateInput, order sim.OrderContract) (*Session, TopologySnapshot, StreamFrame) {
+	t.Helper()
 	input.OrderContract = order
 	input.State.OrderContract = order
 	file := couplingPhaseFile(t, input)
 	file.OrderContract = order
-	file.TextEncoding = streamTextEncoding(order)
+	if order == sim.ExpressOrderContract {
+		file.TextEncoding = ExpressTextEncoding
+	}
 	store := &fakeStore{data: encodeTestState(t, file)}
 	s, err := NewFromStore(t.Context(), StoreInput{Store: store})
 	if err != nil {
@@ -40,8 +48,8 @@ func couplingStreamFixture(t *testing.T, phase couplingPhaseFrame, order sim.Ord
 
 func couplingFullEnvelope(frame StreamFrame) StreamEnvelope {
 	return StreamEnvelope{CouplingContract: frame.State.Simulation.CouplingContract,
-		OrderContract: frame.State.Simulation.OrderContract, TextEncoding: streamTextEncoding(frame.State.Simulation.OrderContract),
-		Kind: "full", Stream: "coupling-test", Sequence: 1, Build: frame.State.Build, Source: sourceOf(frame), Full: &frame}
+		OrderContract: frame.State.Simulation.OrderContract,
+		Kind:          "full", Stream: "coupling-test", Sequence: 1, Build: frame.State.Build, Source: sourceOf(frame), Full: &frame}
 }
 
 func TestCouplingStreamPhaseRoundTrips(t *testing.T) {
@@ -52,7 +60,7 @@ func TestCouplingStreamPhaseRoundTrips(t *testing.T) {
 			t.Run(fmt.Sprintf("%s/order=%s", phase.Name, order), func(t *testing.T) {
 				t.Parallel()
 				s, topology, frame := couplingStreamFixture(t, phase, order)
-				assembler, err := NewStreamAssemblerVersion(topology, CouplingStreamVersion)
+				assembler, err := NewStreamAssembler(topology)
 				if err != nil {
 					t.Fatal(err)
 				}
@@ -61,7 +69,7 @@ func TestCouplingStreamPhaseRoundTrips(t *testing.T) {
 				if err != nil {
 					t.Fatal(err)
 				}
-				decoded, err := DecodeStreamJSONVersion(raw, CouplingStreamVersion)
+				decoded, err := DecodeStreamJSON(raw)
 				if err != nil {
 					t.Fatal("decode full", err)
 				}
@@ -77,11 +85,11 @@ func TestCouplingStreamPhaseRoundTrips(t *testing.T) {
 				if err != nil || !reflect.DeepEqual(state.Simulation.CouplingGroups, frame.State.Simulation.CouplingGroups) {
 					t.Fatal("assembled full lost coherent trains", err)
 				}
-				httpRaw, err := EncodeCouplingStateJSON(topology, frame)
+				httpRaw, err := EncodeStateJSON(topology, frame)
 				if err != nil {
 					t.Fatal("HTTP encoding", err)
 				}
-				httpState, err := DecodeCouplingStateJSON(httpRaw)
+				httpState, err := DecodeStateJSON(httpRaw)
 				if err != nil || !reflect.DeepEqual(httpState, state) {
 					t.Fatal("HTTP and stream states differ", err)
 				}
@@ -102,7 +110,7 @@ func TestCouplingStreamPhaseRoundTrips(t *testing.T) {
 				if err != nil {
 					t.Fatal(err)
 				}
-				decoded, err = DecodeStreamJSONVersion(raw, CouplingStreamVersion)
+				decoded, err = DecodeStreamJSON(raw)
 				if err != nil {
 					t.Fatal("decode delta", err)
 				}
@@ -132,7 +140,7 @@ func TestCouplingStreamAssemblerRetainsValidState(t *testing.T) { //nolint:tpara
 		}
 	}
 	_, topology, frame := couplingStreamFixture(t, phase, "")
-	assembler, err := NewStreamAssemblerVersion(topology, CouplingStreamVersion)
+	assembler, err := NewStreamAssembler(topology)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -195,11 +203,6 @@ func TestCouplingStreamReservedFieldsAndShape(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for version := FoundationStreamVersion; version < CouplingStreamVersion; version++ {
-		if _, err := DecodeStreamJSONVersion(raw, version); err == nil {
-			t.Fatal("old stream accepted physical train fields", version)
-		}
-	}
 	for _, test := range []struct {
 		name string
 		edit func([]byte) []byte
@@ -251,7 +254,7 @@ func TestCouplingStreamReservedFieldsAndShape(t *testing.T) {
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
-			if _, err := DecodeStreamJSONVersion(test.edit(raw), CouplingStreamVersion); err == nil {
+			if _, err := DecodeStreamJSON(test.edit(raw)); err == nil {
 				t.Fatal("accepted an incomplete mechanical wire shape")
 			}
 		})
@@ -303,37 +306,6 @@ func streamFamilyEnvelope(t *testing.T, frames [2]StreamFrame, kind string) Stre
 	return e
 }
 
-func TestEncodeStreamJSONKeepsFamilyBytes(t *testing.T) {
-	frames := streamFamilyFrames(t)
-	for _, family := range slices.Sorted(maps.Keys(frames)) {
-		for _, kind := range []string{"full", "delta"} {
-			t.Run(family+"/"+kind, func(t *testing.T) {
-				e := streamFamilyEnvelope(t, frames[family], kind)
-				want, err := json.Marshal(e)
-				if e.OrderContract == sim.ExpressOrderContract {
-					want, err = jsonv2.Marshal(e, json.DefaultOptionsV1(), packedRequestOptions())
-				}
-				if err != nil {
-					t.Fatal(err)
-				}
-				got, err := EncodeStreamJSON(e)
-				if err != nil || !bytes.Equal(got, want) {
-					t.Fatal("encoder changed a valid publication", err)
-				}
-				if family == "foundation" || family == "express" {
-					for _, member := range []string{"couplingContract", "couplingEnabled", "couplingGroups", "couplingID"} {
-						if e.CouplingContract != "" || bytes.Contains(got, []byte(`"`+member+`"`)) {
-							t.Fatal("unmarked family carries coupling fields", member)
-						}
-					}
-				} else if e.CouplingContract != sim.CompactPairV1CouplingContract {
-					t.Fatal("coupling family lost its marker")
-				}
-			})
-		}
-	}
-}
-
 func TestEncodeStreamJSONBindsCouplingMarker(t *testing.T) {
 	frames := streamFamilyFrames(t)
 	couplingGroup := json.RawMessage(`{"couplingContract":"compact-pair-v1","couplingEnabled":false,"couplingGroups":[]}`)
@@ -380,13 +352,13 @@ func TestEncodeStreamJSONBindsCouplingMarker(t *testing.T) {
 			e.CouplingContract = ""
 			e.Full.State.Simulation.CouplingContract = ""
 		}, "unmarked publication contains coupling fields"},
-		{"raw envelope/packed full", "express", "full", func(e *StreamEnvelope) { e.OrderContract, e.TextEncoding = "", "" }, "publication order contract mismatch"},
-		{"packed envelope/raw full", "foundation", "full", func(e *StreamEnvelope) {
-			e.OrderContract, e.TextEncoding = sim.ExpressOrderContract, ExpressTextEncoding
-		}, "publication order contract mismatch"},
-		{"packed envelope/raw coupling full", "coupling raw", "full", func(e *StreamEnvelope) {
-			e.OrderContract, e.TextEncoding = sim.ExpressOrderContract, ExpressTextEncoding
-		}, "publication order contract mismatch"},
+		{"unmarked envelope/Express full", "express", "full", func(e *StreamEnvelope) { e.OrderContract = "" }, "publication order contract mismatch"},
+		{"Express envelope/unmarked full", "foundation", "full", func(e *StreamEnvelope) { e.OrderContract = sim.ExpressOrderContract }, "publication order contract mismatch"},
+		{"Express envelope/unmarked coupling full", "coupling raw", "full", func(e *StreamEnvelope) { e.OrderContract = sim.ExpressOrderContract }, "publication order contract mismatch"},
+		{"unknown order marker", "foundation", "full", func(e *StreamEnvelope) {
+			e.OrderContract = "unknown"
+			e.Full.State.Simulation.OrderContract = "unknown"
+		}, "unknown order contract"},
 		{"marked raw delta", "coupling raw", "delta", func(*StreamEnvelope) {}, ""},
 		{"marked packed delta", "coupling packed", "delta", func(*StreamEnvelope) {}, ""},
 		{"unmarked delta without coupling fields", "coupling raw", "delta", func(e *StreamEnvelope) {
@@ -420,9 +392,11 @@ func TestEncodeStreamJSONBindsCouplingMarker(t *testing.T) {
 	}
 }
 
+// The Express limits, which bound the read of the root markers, contain
+// the limits of every other marker.
 func TestCouplingStreamLimitsPackedContainUnpacked(t *testing.T) {
 	t.Parallel()
-	wide, exact := couplingStreamLimits(true), couplingStreamLimits(false)
+	wide, exact := streamLimits(contractMarkers{order: sim.ExpressOrderContract}), streamLimits(contractMarkers{})
 	if wide.depth != exact.depth || wide.elements != exact.elements || wide.members != exact.members ||
 		wide.stringBytes != exact.stringBytes || wide.allowInvalidUTF8 != exact.allowInvalidUTF8 {
 		t.Fatal("packed and unpacked coupling limits differ outside array bounds")
@@ -452,11 +426,11 @@ func TestCouplingStreamLimitsPackedContainUnpacked(t *testing.T) {
 func couplingDecoders() map[string]func([]byte) error {
 	return map[string]func([]byte) error{
 		"stream": func(raw []byte) error {
-			_, err := DecodeStreamJSONVersion(raw, CouplingStreamVersion)
+			_, err := DecodeStreamJSON(raw)
 			return err
 		},
 		"http": func(raw []byte) error {
-			_, err := DecodeCouplingStateJSON(raw)
+			_, err := DecodeStateJSON(raw)
 			return err
 		},
 	}
@@ -474,7 +448,7 @@ func TestCouplingDecodeBoundsBeforeHeader(t *testing.T) {
 		}
 		return b.String()
 	}
-	packed := `"orderContract":"` + string(sim.ExpressOrderContract) + `","textEncoding":"` + ExpressTextEncoding + `",`
+	packed := `"orderContract":"` + string(sim.ExpressOrderContract) + `",`
 	tests := []struct {
 		name string
 		raw  string
@@ -505,34 +479,41 @@ func TestCouplingDecodeBoundsBeforeHeader(t *testing.T) {
 	}
 }
 
-func TestScanCouplingOrderContract(t *testing.T) {
+// scanRootMarkers reads the root markers with exact names. The last of
+// duplicate markers selects the limits, and scanContractMarkers or the
+// coupling scan then refuses the duplicate.
+func TestScanRootMarkers(t *testing.T) {
 	t.Parallel()
 	express := string(sim.ExpressOrderContract)
+	coupling := sim.CompactPairV1CouplingContract
 	tests := []struct {
-		name   string
-		raw    string
-		packed bool
-		err    bool
+		name string
+		raw  string
+		want contractMarkers
+		err  bool
 	}{
-		{"absent", `{"kind":"full"}`, false, false},
-		{"express", `{"orderContract":"` + express + `"}`, true, false},
-		{"folded express", `{"ORDERCONTRACT":"` + express + `"}`, false, false},
-		{"escaped express", `{"order\u0043ontract":"` + express + `"}`, true, false},
-		{"other contract", `{"orderContract":"other"}`, false, false},
-		{"null", `{"orderContract":null}`, false, false},
-		{"nested", `{"full":{"orderContract":"` + express + `"}}`, false, false},
-		{"duplicate last wins", `{"orderContract":"` + express + `","orderContract":"other"}`, false, false},
-		{"duplicate last wins express", `{"orderContract":"other","orderContract":"` + express + `"}`, true, false},
-		{"number", `{"orderContract":1}`, false, true},
-		{"array document", `[]`, false, true},
-		{"too deep", `{"a":` + strings.Repeat("[", 65) + strings.Repeat("]", 65) + `}`, false, true},
+		{"absent", `{"kind":"full"}`, contractMarkers{}, false},
+		{"express", `{"orderContract":"` + express + `"}`, contractMarkers{order: sim.ExpressOrderContract}, false},
+		{"express last", `{"kind":"full","full":{},"orderContract":"` + express + `"}`, contractMarkers{order: sim.ExpressOrderContract}, false},
+		{"coupling", `{"couplingContract":"` + string(coupling) + `"}`, contractMarkers{coupling: coupling}, false},
+		{"both last", `{"kind":"full","orderContract":"` + express + `","couplingContract":"` + string(coupling) + `"}`, contractMarkers{order: sim.ExpressOrderContract, coupling: coupling}, false},
+		{"folded express", `{"ORDERCONTRACT":"` + express + `"}`, contractMarkers{}, false},
+		{"escaped express", `{"order\u0043ontract":"` + express + `"}`, contractMarkers{order: sim.ExpressOrderContract}, false},
+		{"other contract", `{"orderContract":"other"}`, contractMarkers{order: "other"}, false},
+		{"null", `{"orderContract":null}`, contractMarkers{}, false},
+		{"nested", `{"full":{"orderContract":"` + express + `"}}`, contractMarkers{}, false},
+		{"duplicate last wins", `{"orderContract":"` + express + `","orderContract":"other"}`, contractMarkers{order: "other"}, false},
+		{"duplicate last wins express", `{"orderContract":"other","orderContract":"` + express + `"}`, contractMarkers{order: sim.ExpressOrderContract}, false},
+		{"number", `{"orderContract":1}`, contractMarkers{}, true},
+		{"array document", `[]`, contractMarkers{}, true},
+		{"too deep", `{"a":` + strings.Repeat("[", 65) + strings.Repeat("]", 65) + `}`, contractMarkers{}, true},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
-			packed, err := scanCouplingOrderContract([]byte(test.raw))
-			if (err != nil) != test.err || packed != test.packed {
-				t.Fatalf("got packed=%t err=%v, want packed=%t err=%t", packed, err, test.packed, test.err)
+			markers, err := scanRootMarkers([]byte(test.raw))
+			if (err != nil) != test.err || !test.err && markers != test.want {
+				t.Fatalf("got %+v err=%v, want %+v err=%t", markers, err, test.want, test.err)
 			}
 		})
 	}
@@ -549,7 +530,7 @@ func TestCouplingDecodeMarkerNamesAndRoundTrip(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			http, err := EncodeCouplingStateJSON(topology, frame)
+			http, err := EncodeStateJSON(topology, frame)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -561,8 +542,8 @@ func TestCouplingDecodeMarkerNamesAndRoundTrip(t *testing.T) {
 				if !bytes.Contains(raw, marker) {
 					t.Fatal("fixture lost its root marker", name)
 				}
-				wantStream, streamErr := DecodeStreamJSONVersion(raw, CouplingStreamVersion)
-				wantHTTP, httpErr := DecodeCouplingStateJSON(raw)
+				wantStream, streamErr := DecodeStreamJSON(raw)
+				wantHTTP, httpErr := DecodeStateJSON(raw)
 				if name == "stream" && streamErr != nil || name == "http" && httpErr != nil {
 					t.Fatal("canonical document rejected", streamErr, httpErr)
 				}
@@ -590,8 +571,8 @@ func TestCouplingDecodeMarkerNamesAndRoundTrip(t *testing.T) {
 					if bytes.Equal(edited, raw) {
 						t.Fatal("edit missed the marker", name, test.name)
 					}
-					gotStream, streamErr := DecodeStreamJSONVersion(edited, CouplingStreamVersion)
-					gotHTTP, httpErr := DecodeCouplingStateJSON(edited)
+					gotStream, streamErr := DecodeStreamJSON(edited)
+					gotHTTP, httpErr := DecodeStateJSON(edited)
 					err := httpErr
 					if name == "stream" {
 						err = streamErr

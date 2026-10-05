@@ -38,7 +38,7 @@ func TestStateForFrameCachesMatchingTopology(t *testing.T) {
 	if requests.Load() != 0 {
 		t.Fatal("fetched unchanged topology")
 	}
-	cache = streamTopology{version: session.FoundationStreamVersion}
+	cache = streamTopology{}
 	if _, err := testStreamState(t, &cache, client, shared.Frame()); err != nil {
 		t.Fatal(err)
 	}
@@ -150,7 +150,7 @@ func TestReturnedEpochUsesItsTopology(t *testing.T) {
 	}))
 	defer server.Close()
 	client := &Client{url: server.URL, http: server.Client()}
-	cache := streamTopology{version: session.FoundationStreamVersion}
+	cache := streamTopology{}
 	read := func(shared *session.Session) {
 		t.Helper()
 		serving.Store(shared)
@@ -434,11 +434,11 @@ func TestStateForFrameRefetchesTopologyForNewServerStart(t *testing.T) {
 
 func testStreamCache(t *testing.T, topology session.TopologySnapshot) streamTopology {
 	t.Helper()
-	assembler, err := session.NewStreamAssemblerVersion(topology, session.FoundationStreamVersion)
+	assembler, err := session.NewStreamAssembler(topology)
 	if err != nil {
 		t.Fatal(err)
 	}
-	return streamTopology{version: session.FoundationStreamVersion, topology: topology, assembler: assembler}
+	return streamTopology{topology: topology, assembler: assembler}
 }
 func testStreamState(t *testing.T, cache *streamTopology, client *Client, frame session.StateFrame) (session.State, error) {
 	t.Helper()

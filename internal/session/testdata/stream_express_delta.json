@@ -1,0 +1,29 @@
+{
+  "orderContract": "express-v1",
+  "kind": "delta",
+  "stream": "coupling-test",
+  "sequence": "2",
+  "base": "1",
+  "build": "golden-build",
+  "source": {
+    "serverStart": "golden-start",
+    "epoch": "golden-epoch",
+    "projectRevision": 1,
+    "generation": 1,
+    "revision": 1
+  },
+  "delta": {
+    "groups": {
+      "global": {
+        "submitted": 0,
+        "tick": 0,
+        "paused": true,
+        "completed": 0,
+        "demo": false,
+        "demoError": ""
+      }
+    },
+    "vehicles": null,
+    "berths": null
+  }
+}

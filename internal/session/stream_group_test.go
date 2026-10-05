@@ -2,7 +2,6 @@ package session
 
 import (
 	"bytes"
-	"encoding/json"
 	"reflect"
 	"strings"
 	"testing"
@@ -94,7 +93,7 @@ func TestGroupStreamSourceBindings(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			topology, frame := groupStreamFixture(t)
 			test.mutate(&topology, &frame)
-			assembler, err := NewStreamAssemblerVersion(topology, 3)
+			assembler, err := NewStreamAssembler(topology)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -119,7 +118,7 @@ func TestGroupStreamRetentionRollback(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	assembler, err := NewStreamAssemblerVersion(topology, 3)
+	assembler, err := NewStreamAssembler(topology)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -141,7 +140,7 @@ func TestGroupStreamRetentionRollback(t *testing.T) {
 	if _, stateErr := assembler.State(frame); stateErr != nil {
 		t.Fatal("rollback lost compatible predecessor", stateErr)
 	}
-	fresh, err := NewStreamAssemblerVersion(topology, 3)
+	fresh, err := NewStreamAssembler(topology)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -178,7 +177,7 @@ func TestGroupStreamActualFullAndDelta(t *testing.T) {
 				vehicle.Boardings = []sim.RiderBoarding{{BerthID: "harbor-1", MetersAtBoarding: 0}}
 				vehicle.RiddenMeters = 10
 			}
-			assembler, err := NewStreamAssemblerVersion(topology, 3)
+			assembler, err := NewStreamAssembler(topology)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -191,7 +190,7 @@ func TestGroupStreamActualFullAndDelta(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			decoded, err := DecodeStreamJSONVersion(inflated, 3)
+			decoded, err := DecodeStreamJSON(inflated)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -269,12 +268,9 @@ func TestGroupStreamMaximumEncoding(t *testing.T) {
 	}
 	changed := StreamEnvelope{Kind: "delta", Stream: "group-max", Sequence: 2, Base: 1, Source: sourceOf(frame), Delta: &delta}
 	for _, envelope := range []StreamEnvelope{full, changed} {
-		raw, err := json.Marshal(envelope)
+		raw, err := EncodeStreamJSON(envelope)
 		if err != nil {
-			t.Fatal(err)
-		}
-		if len(raw) > MaxStreamJSON {
-			t.Fatal("typed group maximum exceeds unchanged byte cap", len(raw))
+			t.Fatal("typed group maximum exceeds the byte cap", err)
 		}
 		compressed, err := encodeStream(envelope)
 		if err != nil {
@@ -284,10 +280,10 @@ func TestGroupStreamMaximumEncoding(t *testing.T) {
 		if err != nil || !bytes.Equal(raw, inflated) {
 			t.Fatal("typed group maximum gzip round trip", err)
 		}
-		if scanErr := prescanJSON(inflated, unpackedStreamLimits()); scanErr != nil {
+		if scanErr := prescanJSON(inflated, streamLimits(contractMarkers{})); scanErr != nil {
 			t.Fatal("typed group maximum failed the bounded scan", scanErr)
 		}
-		decoded, err := DecodeStreamJSONVersion(inflated, 3)
+		decoded, err := DecodeStreamJSON(inflated)
 		if err != nil {
 			t.Fatal(err)
 		}

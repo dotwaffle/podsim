@@ -69,7 +69,7 @@ func TestExpressIncompressibleAssetAdapters(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	envelope, err := DecodeStreamJSONVersion(raw, 4)
+	envelope, err := DecodeStreamJSON(raw)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -86,14 +86,14 @@ func TestExpressIncompressibleAssetAdapters(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	replacement := StreamEnvelope{OrderContract: sim.ExpressOrderContract, TextEncoding: ExpressTextEncoding, Kind: "delta", Stream: envelope.Stream, Sequence: 2, Base: 1, Source: envelope.Source, Build: envelope.Build, Delta: &delta}
+	replacement := StreamEnvelope{OrderContract: sim.ExpressOrderContract, Kind: "delta", Stream: envelope.Stream, Sequence: 2, Base: 1, Source: envelope.Source, Build: envelope.Build, Delta: &delta}
 	for name, value := range map[string]StreamEnvelope{"full-entropy": envelope, "delta-entropy": replacement} {
 		started = time.Now()
 		encoded, encodeErr := EncodeStreamJSON(value)
 		if encodeErr != nil {
 			t.Fatal(encodeErr)
 		}
-		if _, decodeErr := DecodeStreamJSONVersion(encoded, 4); decodeErr != nil {
+		if _, decodeErr := DecodeStreamJSON(encoded); decodeErr != nil {
 			t.Fatal(decodeErr)
 		}
 		zipped, zipErr := encodeStream(value)
@@ -115,7 +115,7 @@ func TestExpressIncompressibleAssetAdapters(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	var httpEnvelope ExpressStateEnvelope
+	var httpEnvelope StateEnvelope
 	if err = jsonv2.Unmarshal(httpRaw, &httpEnvelope, json.DefaultOptionsV1(), packedDecodeOptions()); err != nil {
 		t.Fatal(err)
 	}
@@ -128,11 +128,11 @@ func TestExpressIncompressibleAssetAdapters(t *testing.T) {
 		}
 	}
 	started = time.Now()
-	httpRaw, err = EncodeExpressStateJSON(httpEnvelope.Topology, httpEnvelope.Frame)
+	httpRaw, err = EncodeStateJSON(httpEnvelope.Topology, httpEnvelope.Frame)
 	if err != nil {
 		t.Fatal(err)
 	}
-	httpState, err := DecodeExpressStateJSON(httpRaw)
+	httpState, err := DecodeStateJSON(httpRaw)
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -53,8 +53,8 @@ func TestCouplingStreamHelloAndPublication(t *testing.T) {
 						t.Fatal("hello publication", err)
 					}
 					hello, err := DecodeStreamHello(raw)
-					if err != nil || hello.Version != CouplingStreamVersion || hello.CouplingContract != sim.CompactPairV1CouplingContract ||
-						hello.OrderContract != order || hello.TextEncoding != streamTextEncoding(order) {
+					if err != nil || hello.Version != StreamVersion || hello.CouplingContract != sim.CompactPairV1CouplingContract ||
+						hello.OrderContract != order {
 						t.Fatal("coupling hello changed independent contracts", err)
 					}
 					kind, raw, err = conn.Read(ctx)
@@ -65,7 +65,7 @@ func TestCouplingStreamHelloAndPublication(t *testing.T) {
 					if err != nil {
 						t.Fatal(err)
 					}
-					envelope, err := DecodeStreamJSONVersion(inflated, hello.Version)
+					envelope, err := DecodeStreamJSON(inflated)
 					if err != nil || envelope.CouplingContract != hello.CouplingContract {
 						t.Fatal("publication lost negotiated train contract", err)
 					}
@@ -73,28 +73,28 @@ func TestCouplingStreamHelloAndPublication(t *testing.T) {
 					if err != nil || frame.State.Simulation.CouplingEnabled != enabled {
 						t.Fatal("full lost recruitment setting", err)
 					}
-					assembler, err := NewStreamAssemblerVersion(s.Topology(), hello.Version)
+					assembler, err := NewStreamAssembler(s.Topology())
 					if err != nil {
 						t.Fatal(err)
 					}
 					if _, err := assembler.State(frame); err != nil {
 						t.Fatal("published frame rejected", err)
 					}
-					for _, accept := range []string{"", ExpressMediaType, CouplingMediaType} {
+					for _, accept := range []string{"", StateMediaType, StateMediaType} {
 						request := httptest.NewRequestWithContext(ctx, http.MethodGet, "/api/state", http.NoBody)
 						request.Header.Set("Accept", accept)
 						response := httptest.NewRecorder()
 						s.HandlerFS(nil).ServeHTTP(response, request)
-						if accept != CouplingMediaType {
+						if accept != StateMediaType {
 							if response.Code != http.StatusNotAcceptable {
 								t.Fatal("unqualified HTTP accepted trains", response.Code)
 							}
 							continue
 						}
-						if response.Code != http.StatusOK || response.Header().Get("Content-Type") != CouplingMediaType {
+						if response.Code != http.StatusOK || response.Header().Get("Content-Type") != StateMediaType {
 							t.Fatal("qualified HTTP rejected", response.Code, response.Body.String())
 						}
-						state, err := DecodeCouplingStateJSON(response.Body.Bytes())
+						state, err := DecodeStateJSON(response.Body.Bytes())
 						if err != nil || state.Simulation.CouplingEnabled != enabled || state.Simulation.CouplingContract != hello.CouplingContract {
 							t.Fatal("HTTP lost qualified empty/off train facts", err)
 						}
@@ -122,7 +122,7 @@ func TestCouplingPublisherFullDeltaAndResync(t *testing.T) {
 				if err != nil {
 					t.Fatal(err)
 				}
-				e, err := DecodeStreamJSONVersion(inflated, CouplingStreamVersion)
+				e, err := DecodeStreamJSON(inflated)
 				if err != nil {
 					t.Fatal(err)
 				}
@@ -169,11 +169,11 @@ func TestCouplingPublisherFullDeltaAndResync(t *testing.T) {
 
 func TestCouplingHelloRequiresQualifiedMarkers(t *testing.T) {
 	t.Parallel()
-	for version := FoundationStreamVersion; version <= CouplingStreamVersion; version++ {
-		for _, literal := range []string{"null", "false", "[]", `"unknown"`} {
-			raw := fmt.Appendf(nil, `{"kind":"hello","version":%d,"serverStart":"source","COUPLINGCONTRACT":%s}`, version, literal)
+	for _, name := range []string{"COUPLINGCONTRACT", "couplingContract"} {
+		for _, literal := range []string{"null", "false", "[]", `""`, `"unknown"`} {
+			raw := fmt.Appendf(nil, `{"kind":"hello","version":%d,"serverStart":"source","%s":%s}`, StreamVersion, name, literal)
 			if _, err := DecodeStreamHello(raw); err == nil {
-				t.Fatal("invalid hello marker accepted", version, literal)
+				t.Fatal("invalid hello marker accepted", name, literal)
 			}
 		}
 	}
@@ -183,8 +183,8 @@ func TestCouplingHelloRequiresQualifiedMarkers(t *testing.T) {
 		t.Fatal("old subscriber received coupling bytes or acquired credit")
 	}
 	for _, order := range []sim.OrderContract{"", sim.ExpressOrderContract} {
-		hello := StreamHello{Kind: "hello", Version: CouplingStreamVersion, ServerStart: "source", CouplingContract: sim.CompactPairV1CouplingContract,
-			OrderContract: order, TextEncoding: streamTextEncoding(order)}
+		hello := StreamHello{Kind: "hello", Version: StreamVersion, ServerStart: "source", CouplingContract: sim.CompactPairV1CouplingContract,
+			OrderContract: order}
 		raw, err := json.Marshal(hello)
 		if err != nil {
 			t.Fatal(err)

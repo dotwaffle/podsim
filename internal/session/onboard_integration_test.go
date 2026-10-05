@@ -332,7 +332,7 @@ func onboardConsumerEnvelope(t *testing.T, envelope StreamEnvelope) StreamEnvelo
 	if err != nil {
 		t.Fatal(err)
 	}
-	decoded, err := DecodeStreamJSONVersion(raw, FoundationStreamVersion)
+	decoded, err := DecodeStreamJSON(raw)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -342,9 +342,9 @@ func onboardConsumerEnvelope(t *testing.T, envelope StreamEnvelope) StreamEnvelo
 func TestOnboardConsumerStreamLifecycle(t *testing.T) {
 	t.Parallel()
 	s, prior := newOnboardConsumerRide(t)
-	assembler, err := NewStreamAssemblerVersion(s.Topology(), FoundationStreamVersion)
-	if err != nil || FoundationStreamVersion != 3 {
-		t.Fatalf("hello3 topology: %v", err)
+	assembler, err := NewStreamAssembler(s.Topology())
+	if err != nil {
+		t.Fatalf("plain topology: %v", err)
 	}
 	envelope := onboardConsumerEnvelope(t, StreamEnvelope{Kind: "full", Stream: "occupied", Sequence: 1, Source: sourceOf(prior), Build: prior.State.Build, Full: &prior})
 	current, err := ApplyStream(StreamFrame{}, "", 0, envelope)
@@ -503,8 +503,8 @@ func TestOnboardConsumerHello(t *testing.T) {
 	if err != nil || kind != websocket.MessageText {
 		t.Fatalf("hello: %v", err)
 	}
-	if helloErr := json.Unmarshal(raw, &hello); helloErr != nil || hello.Kind != "hello" || hello.Version != 3 || hello.ServerStart != s.serverStart {
-		t.Fatalf("hello3 contract: %s, %v", raw, helloErr)
+	if helloErr := json.Unmarshal(raw, &hello); helloErr != nil || hello.Kind != "hello" || hello.Version != StreamVersion || hello.ServerStart != s.serverStart {
+		t.Fatalf("hello contract: %s, %v", raw, helloErr)
 	}
 	kind, data, err := conn.Read(ctx)
 	if err != nil || kind != websocket.MessageBinary {
@@ -514,7 +514,7 @@ func TestOnboardConsumerHello(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	envelope, err := DecodeStreamJSONVersion(raw, hello.Version)
+	envelope, err := DecodeStreamJSON(raw)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -522,7 +522,7 @@ func TestOnboardConsumerHello(t *testing.T) {
 	if err != nil || envelope.Kind != "full" {
 		t.Fatalf("full: %v", err)
 	}
-	assembler, err := NewStreamAssemblerVersion(s.Topology(), hello.Version)
+	assembler, err := NewStreamAssembler(s.Topology())
 	if err != nil {
 		t.Fatal(err)
 	}

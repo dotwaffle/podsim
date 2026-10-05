@@ -16,18 +16,27 @@ import (
 	"github.com/dotwaffle/podsim/internal/session"
 )
 
+// A server of another build sends a hello of another version, or a
+// publication that the client cannot read. The client records the build
+// of the hello before it refuses the connection, so that the page reloads.
 func TestStreamBuildBeforeIncompatiblePayload(t *testing.T) {
-	for _, version := range []int{999, session.FoundationStreamVersion} {
-		t.Run(string(rune('a'+version%10)), func(t *testing.T) {
+	for name, hello := range map[string]map[string]any{
+		"hello 3":       {"kind": "hello", "version": 3, "build": "b", "serverStart": "new"},
+		"hello 4":       {"kind": "hello", "version": 4, "build": "b", "serverStart": "new", "orderContract": "express-v1", "textEncoding": "order-text-base64-v1"},
+		"hello 5":       {"kind": "hello", "version": 5, "build": "b", "serverStart": "new", "couplingContract": "compact-pair-v1"},
+		"hello 7":       {"kind": "hello", "version": 7, "build": "b", "serverStart": "new"},
+		"hello 999":     {"kind": "hello", "version": 999, "build": "b", "serverStart": "new"},
+		"current hello": {"kind": "hello", "version": session.StreamVersion, "build": "b", "serverStart": "new"},
+	} {
+		t.Run(name, func(t *testing.T) {
 			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				conn, err := websocket.Accept(w, r, nil)
 				if err != nil {
 					return
 				}
 				defer func() { _ = conn.CloseNow() }()
-				hello := streamJSON(t, map[string]any{"kind": "hello", "version": version, "build": "b", "serverStart": "new"})
-				_ = conn.Write(r.Context(), websocket.MessageText, hello)
-				if version == session.FoundationStreamVersion {
+				_ = conn.Write(r.Context(), websocket.MessageText, streamJSON(t, hello))
+				if hello["version"] == session.StreamVersion {
 					_ = conn.Write(r.Context(), websocket.MessageBinary, []byte("future state format"))
 				}
 			}))

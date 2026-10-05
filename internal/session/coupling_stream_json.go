@@ -2,9 +2,7 @@ package session
 
 import (
 	"bytes"
-	"encoding/json"
 	"encoding/json/jsontext"
-	jsonv2 "encoding/json/v2"
 	"errors"
 	"io"
 	"strconv"
@@ -13,39 +11,6 @@ import (
 	"github.com/dotwaffle/podsim/internal/project"
 	"github.com/dotwaffle/podsim/internal/sim"
 )
-
-// scanCouplingOrderContract reads the order marker of a coupling document
-// and bounds the document with the limits of that marker. The packed limits
-// contain the unpacked limits, so the first scan bounds the header decode
-// without rejecting a document that the exact scan accepts.
-func scanCouplingOrderContract(data []byte) (bool, error) {
-	if err := prescanJSON(data, couplingStreamLimits(true)); err != nil {
-		return false, err
-	}
-	var header struct {
-		OrderContract sim.OrderContract `json:"orderContract"`
-	}
-	if err := jsonv2.Unmarshal(data, &header, json.DefaultOptionsV1(), jsonv2.MatchCaseInsensitiveNames(false)); err != nil {
-		return false, err
-	}
-	packed := header.OrderContract == sim.ExpressOrderContract
-	if !packed {
-		if err := prescanJSON(data, couplingStreamLimits(false)); err != nil {
-			return false, err
-		}
-	}
-	return packed, nil
-}
-
-// couplingStreamLimits bound hello 5 documents and the coupling HTTP
-// state. packed reports the Express marker.
-func couplingStreamLimits(packed bool) jsonLimits {
-	markers := contractMarkers{coupling: sim.CompactPairV1CouplingContract}
-	if packed {
-		markers.order = sim.ExpressOrderContract
-	}
-	return streamLimits(markers)
-}
 
 func scanCouplingStreamJSON(data []byte) error {
 	return scanCouplingPublicJSON(data, false)
@@ -177,7 +142,7 @@ func scanCouplingStreamValue(d *jsontext.Decoder, name string) error {
 }
 
 func scanCouplingReplacement(raw []byte) error {
-	if err := prescanJSON(raw, couplingStreamLimits(false)); err != nil {
+	if err := prescanJSON(raw, streamLimits(contractMarkers{})); err != nil {
 		return err
 	}
 	d := jsontext.NewDecoder(bytes.NewReader(raw))

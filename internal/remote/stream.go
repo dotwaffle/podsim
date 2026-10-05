@@ -90,7 +90,7 @@ func (c *Client) receiveStream(ctx context.Context) error {
 	var frame session.StreamFrame
 	var stream string
 	var sequence uint64
-	cache := streamTopology{version: hello.Version}
+	cache := streamTopology{hello: hello}
 	for {
 		kind, data, err = read()
 		if err != nil {
@@ -129,12 +129,12 @@ func (c *Client) receiveStream(ctx context.Context) error {
 		if err != nil {
 			return err
 		}
-		envelope, err := session.DecodeStreamJSONVersion(inflated, hello.Version)
+		envelope, err := session.DecodeStreamJSON(inflated)
 		c.noteBuild(envelope.Build)
 		if err != nil {
 			return err
 		}
-		if envelope.OrderContract != hello.OrderContract || envelope.TextEncoding != hello.TextEncoding || envelope.CouplingContract != hello.CouplingContract {
+		if envelope.OrderContract != hello.OrderContract || envelope.CouplingContract != hello.CouplingContract {
 			return errors.New("stream publication contract differs from hello")
 		}
 		if envelope.Source.ServerStart != hello.ServerStart {
@@ -186,8 +186,9 @@ func writeControl(ctx context.Context, conn *websocket.Conn, value any) error {
 }
 
 // streamTopology belongs to one connection and retains immutable geometry.
+// The contract markers of each topology must be the markers of the hello.
 type streamTopology struct {
-	version   int
+	hello     session.StreamHello
 	topology  session.TopologySnapshot
 	assembler *session.StreamAssembler
 }
@@ -204,7 +205,10 @@ func (cache *streamTopology) state(ctx context.Context, c *Client, candidate ses
 		if topology.ServerStart != identity.ServerStart || topology.Epoch != identity.Epoch || topology.ProjectRevision != identity.ProjectRevision {
 			return session.State{}, errors.New("topology changed while reading stream")
 		}
-		assembler, err := session.NewStreamAssemblerVersion(topology, cache.version)
+		if topology.OrderContract != cache.hello.OrderContract || topology.CouplingContract != cache.hello.CouplingContract {
+			return session.State{}, errors.New("topology contract differs from hello")
+		}
+		assembler, err := session.NewStreamAssembler(topology)
 		if err != nil {
 			return session.State{}, err
 		}

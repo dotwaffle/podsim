@@ -32,7 +32,7 @@ func TestGroupTopologyCacheRollbackAndInvalidation(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { fetches++; _ = json.NewEncoder(w).Encode(topology) }))
 	t.Cleanup(server.Close)
 	client := &Client{url: server.URL, http: server.Client()}
-	cache := streamTopology{version: 3}
+	cache := streamTopology{}
 	accepted, err := cache.state(t.Context(), client, frame)
 	if err != nil {
 		t.Fatal(err)
@@ -58,7 +58,7 @@ func TestGroupTopologyCacheRollbackAndInvalidation(t *testing.T) {
 	if cache.assembler == first {
 		t.Fatal("new revision kept old assembler")
 	}
-	reconnected := streamTopology{version: 3}
+	reconnected := streamTopology{}
 	frame.State.Simulation.Vehicles[0].Pod.Class = sim.GroupClass
 	if _, err := reconnected.state(t.Context(), client, frame); err != nil {
 		t.Fatal("reconnect retained prior class binding", err)

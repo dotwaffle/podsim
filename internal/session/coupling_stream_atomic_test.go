@@ -19,7 +19,7 @@ func TestCouplingStreamRejectsPartialMemberDelta(t *testing.T) {
 			continue
 		}
 		s, topology, frame := couplingStreamFixture(t, phase, "")
-		a, err := NewStreamAssemblerVersion(topology, CouplingStreamVersion)
+		a, err := NewStreamAssembler(topology)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -69,17 +69,19 @@ func TestCouplingStreamRejectsPartialMemberDelta(t *testing.T) {
 	}
 }
 
+// Without the coupling marker, the decoder refuses each coupling member,
+// also with a null, false or empty value.
 func TestCouplingStreamOldFieldPresence(t *testing.T) {
 	t.Parallel()
-	for _, version := range []int{FoundationStreamVersion, ExpressStreamVersion} {
+	for _, order := range []sim.OrderContract{"", sim.ExpressOrderContract} {
 		for _, name := range []string{"couplingContract", "couplingEnabled", "couplingGroups", "COUPLINGSITES", "couplingCorridors", "COUPLINGID"} {
 			for _, literal := range []string{"null", "false", "[]"} {
 				raw := fmt.Appendf(nil, `{"full":{"state":{"simulation":{"%s":%s}}}}`, name, literal)
-				if version == ExpressStreamVersion {
-					raw = append(fmt.Appendf(nil, `{"orderContract":"express-v1","textEncoding":%q,`, ExpressTextEncoding), raw[1:]...)
+				if order != "" {
+					raw = append(fmt.Appendf(nil, `{"orderContract":%q,`, order), raw[1:]...)
 				}
-				if _, err := DecodeStreamJSONVersion(raw, version); err == nil {
-					t.Fatal("old family accepted reserved field presence", version, name, literal)
+				if _, err := DecodeStreamJSON(raw); err == nil {
+					t.Fatal("unmarked envelope accepted reserved field presence", order, name, literal)
 				}
 			}
 		}
@@ -99,7 +101,7 @@ func TestCouplingStreamArrayBounds(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, decodeErr := DecodeStreamJSONVersion(raw, CouplingStreamVersion); !errors.Is(decodeErr, errJSONArrayTooLong) {
+	if _, decodeErr := DecodeStreamJSON(raw); !errors.Is(decodeErr, errJSONArrayTooLong) {
 		t.Fatal("group array did not reach preallocation bound", decodeErr)
 	}
 	var replacement couplingReplacement
@@ -125,7 +127,7 @@ func TestCouplingStreamRetiresNativeMembers(t *testing.T) {
 			t.Run(phase.Cohort+"/"+string(order), func(t *testing.T) {
 				t.Parallel()
 				s, topology, frame := couplingStreamFixture(t, phase, order)
-				a, err := NewStreamAssemblerVersion(topology, CouplingStreamVersion)
+				a, err := NewStreamAssembler(topology)
 				if err != nil {
 					t.Fatal(err)
 				}

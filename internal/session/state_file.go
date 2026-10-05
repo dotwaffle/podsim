@@ -365,7 +365,7 @@ func decodeStateFile(data []byte) (result stateFile, err error) {
 		}
 		return stateFile{}, versionErr
 	}
-	if err := scanContractMarkers(raw, header.Version == expressStateVersion, header.Version == expressStateVersion); err != nil {
+	if err := scanContractMarkers(raw, header.Version == expressStateVersion, savedTextMarker(header.Version == expressStateVersion)); err != nil {
 		return stateFile{}, invalidState(err)
 	}
 	if header.Version == expressStateVersion {

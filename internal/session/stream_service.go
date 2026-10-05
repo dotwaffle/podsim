@@ -9,121 +9,83 @@ import (
 	"fmt"
 	"io"
 	"maps"
-	"strings"
 
 	"github.com/dotwaffle/podsim/internal/project"
 	"github.com/dotwaffle/podsim/internal/sim"
 )
 
-// DecodeStreamJSONVersion applies the connection's negotiated field contract.
-func DecodeStreamJSONVersion(data []byte, version int) (StreamEnvelope, error) {
-	if version < FoundationStreamVersion || version > StreamVersion || len(data) > MaxStreamJSON {
-		return StreamEnvelope{}, errors.New("unsupported stream version or size")
-	}
-	markers := streamVersionMarkers(version, "")
-	// Bound the document before the token scans and the typed decode read
-	// it. Hello 5 selects the coupling marker, and the document carries its
-	// order marker.
-	if markers.coupling != "" {
-		packed, err := scanCouplingOrderContract(data)
-		if err != nil {
-			return StreamEnvelope{}, err
-		}
-		if packed {
-			markers.order = sim.ExpressOrderContract
-		}
-	} else if err := prescanJSON(data, streamLimits(markers)); err != nil {
-		return StreamEnvelope{}, err
-	}
-	return decodeStreamEnvelope(data, markers)
-}
-
-// streamVersionMarkers returns the markers that a supported hello version
-// selects. Hello 5 selects the coupling marker with either order marker, so
-// order gives the order marker of its document or topology.
-func streamVersionMarkers(version int, order sim.OrderContract) contractMarkers {
-	switch version {
-	case CouplingStreamVersion:
-		return contractMarkers{order: order, coupling: sim.CompactPairV1CouplingContract}
-	case ExpressStreamVersion:
-		return contractMarkers{order: sim.ExpressOrderContract}
-	default:
-		return contractMarkers{}
-	}
-}
-
-// decodeStreamEnvelope decodes an envelope under the rules of markers. The
-// caller bounds data with the limits of markers first.
-func decodeStreamEnvelope(data []byte, markers contractMarkers) (StreamEnvelope, error) {
-	packed := markers.order == sim.ExpressOrderContract
-	if markers.coupling != "" {
-		if err := scanCouplingStreamJSON(data); err != nil {
-			return StreamEnvelope{}, err
-		}
-	}
-	if err := scanContractMarkers(data, packed, packed); err != nil {
-		return StreamEnvelope{}, err
-	}
-	if packed {
-		if err := scanPackedOrders(data); err != nil {
-			return StreamEnvelope{}, err
-		}
-	}
-	if err := scanStreamBoardingMembers(data, markers); err != nil {
-		return StreamEnvelope{}, err
-	}
-	if err := scanStreamServiceMembers(data, markers); err != nil {
-		return StreamEnvelope{}, err
-	}
+// DecodeStreamJSON validates one inflated envelope. The root contract
+// markers of the envelope select its rules. The client checks that they
+// are the markers of the hello, and ApplyStream checks that they are the
+// markers of the frame.
+func DecodeStreamJSON(data []byte) (StreamEnvelope, error) {
 	var envelope StreamEnvelope
-	var err error
-	if packed {
-		err = jsonv2.Unmarshal(data, &envelope, json.DefaultOptionsV1(), jsonv2.MatchCaseInsensitiveNames(false), jsonv2.RejectUnknownMembers(true), packedDecodeOptions())
-	} else {
-		err = decodeStreamJSON(data, &envelope)
-	}
+	err := decodeMarkedJSON(data, false, &envelope)
 	return envelope, err
 }
 
-// unpackedStreamLimits bound hello 3 documents. The assembler accepts at
-// most maxSavedTrips pending orders, and at most sim.MaxSharedRideParties
-// riders and boarding records for each vehicle.
-func unpackedStreamLimits() jsonLimits {
-	return streamLimits(contractMarkers{})
-}
-
-// PrescanStateFrameJSON bounds the document of the plain HTTP state
-// endpoint before a client reads it. It reads the tokens only and makes no
-// values.
-func PrescanStateFrameJSON(data []byte) error {
-	return prescanJSON(data, stateFrameLimits())
-}
-
-// stateFrameLimits bound the state frame that the plain HTTP state endpoint
-// sends for family 3. The frame is the full frame of that stream family, so
-// it gets its limits without the "/full/state" prefix. Plain JSON decoding
-// replaces invalid UTF-8, so the scan accepts it.
-func stateFrameLimits() jsonLimits {
-	stream := unpackedStreamLimits()
-	limits := stream
-	limits.allowInvalidUTF8 = true
-	limits.arrays = map[string]int64{}
-	for path, bound := range stream.arrays {
-		if rest, found := strings.CutPrefix(path, "/full/state/"); found {
-			limits.arrays["/"+rest] = bound
+// decodeMarkedJSON decodes a stream envelope, or an HTTP state when
+// httpState is true, into target. The root contract markers of the
+// document select the rules of the scans. Each scan reads the tokens only,
+// so it bounds the document before the typed decode makes values.
+func decodeMarkedJSON(data []byte, httpState bool, target any) error {
+	if len(data) > MaxStreamJSON {
+		return errors.New("state JSON too large")
+	}
+	markers, err := scanRootMarkers(data)
+	if err != nil {
+		return err
+	}
+	// Without the coupling marker, scanStreamServiceMembers refuses each
+	// coupling member.
+	if markers.coupling != "" {
+		if err := scanCouplingPublicJSON(data, httpState); err != nil {
+			return err
 		}
 	}
-	// The frame has the complete route of each vehicle, not a route window.
-	// The simulation bounds only saved routes, so a live route has the
-	// general element limit.
-	limits.arrays["/simulation/vehicles/*/routeLaneIDs"] = limits.elements
-	return limits
+	if err := scanContractMarkers(data, markers.order == sim.ExpressOrderContract, textRefused); err != nil {
+		return err
+	}
+	if err := scanPackedOrders(data); err != nil {
+		return err
+	}
+	if err := scanStreamBoardingMembers(data, markers); err != nil {
+		return err
+	}
+	if err := scanStreamServiceMembers(data, markers); err != nil {
+		return err
+	}
+	return decodePackedStreamJSON(data, target)
+}
+
+// scanRootMarkers bounds data with the limits of its root contract markers
+// and returns the markers. The Express limits contain the other limits, so
+// the first scan bounds the read of the markers without refusing a
+// document that the exact scan accepts. The other scans check the values
+// and the duplicates of the markers.
+func scanRootMarkers(data []byte) (contractMarkers, error) {
+	if err := prescanJSON(data, streamLimits(contractMarkers{order: sim.ExpressOrderContract})); err != nil {
+		return contractMarkers{}, err
+	}
+	var header struct {
+		OrderContract    sim.OrderContract    `json:"orderContract"`
+		CouplingContract sim.CouplingContract `json:"couplingContract"`
+	}
+	if err := jsonv2.Unmarshal(data, &header, json.DefaultOptionsV1(), jsonv2.MatchCaseInsensitiveNames(false)); err != nil {
+		return contractMarkers{}, err
+	}
+	markers := contractMarkers{order: header.OrderContract, coupling: header.CouplingContract}
+	if markers.order != sim.ExpressOrderContract {
+		if err := prescanJSON(data, streamLimits(markers)); err != nil {
+			return markers, err
+		}
+	}
+	return markers, nil
 }
 
 // scanStreamServiceMembers checks the service members of a stream
-// document. Coupling members need the coupling marker. The Express marker
-// packs the order text, so scanPackedOrders checks the length of its
-// service IDs.
+// document. Coupling members need the coupling marker. The order text is
+// packed, so scanPackedOrders checks the length of the service IDs.
 func scanStreamServiceMembers(data []byte, markers contractMarkers) error {
 	decoder := jsontext.NewDecoder(bytes.NewReader(data))
 	for {
@@ -185,25 +147,9 @@ func scanStreamServiceMembers(data []byte, markers contractMarkers) error {
 				if service := sim.ServiceChoice(value.String()); service != sim.OnDemandService && service != sim.ExpressServiceChoice {
 					return errors.New("invalid stream service")
 				}
-			case "serviceID":
-				if len(value.String()) > 64 && markers.order != sim.ExpressOrderContract {
-					return errors.New("stream service ID is too long")
-				}
 			}
 		}
 	}
-}
-
-// NewStreamAssemblerVersion verifies topology against a negotiated hello.
-// Hello 5 takes the order marker of the topology.
-func NewStreamAssemblerVersion(topology TopologySnapshot, version int) (*StreamAssembler, error) {
-	if version < FoundationStreamVersion || version > StreamVersion {
-		return nil, errors.New("unsupported stream version")
-	}
-	if err := validateStreamTopology(topology, streamVersionMarkers(version, topology.OrderContract)); err != nil {
-		return nil, err
-	}
-	return NewStreamAssembler(topology)
 }
 
 // checkTopologyProjectVersion refuses a topology of any project version

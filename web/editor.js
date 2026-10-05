@@ -1206,42 +1206,51 @@
   // optional. readState gives it the server start ID of each live state
   // that it reads.
 
-  // LIVE_STATE_ACCEPT is the Accept header of a live state read. A project
-  // without an order contract or train contract replies with plain JSON. An
-  // Express project replies only to session.ExpressMediaType, and a project
-  // with the coupling marker only to session.CouplingMediaType. A Go test in
-  // internal/session checks the media types.
-  const LIVE_STATE_ACCEPT = "application/json, application/vnd.podsim.express-v1+json, application/vnd.podsim.compact-pair-v1+json";
+  // LIVE_STATE_ACCEPT is the Accept header of a live state read. The server
+  // replies only to session.StateMediaType, with the envelope of the state.
+  // A Go test in internal/session checks the media type.
+  const LIVE_STATE_ACCEPT = "application/vnd.podsim.state-6+json";
 
   // getJSON gets one JSON document. It throws the server error or the HTTP
-  // status.
-  async function getJSON(connection, url, accept = "application/json") {
+  // status. When media is set, a successful reply must have that media
+  // type, or getJSON throws before it reads the body.
+  async function getJSON(connection, url, accept = "application/json", media = "") {
     const response = await connection.fetch(url, { headers: { Accept: accept } });
+    if (response.ok && media && mediaType(response) !== media) throw new Error("The server replied with an unsupported media type.");
     let body = null; try { body = await response.json(); } catch (_) {}
     if (!response.ok || body?.error) throw new Error(body?.error || `HTTP ${response.status}`);
     return body;
   }
 
+  // mediaType gives the media type of the Content-Type header of response,
+  // in lowercase and without parameters. It gives "" when the header is
+  // missing.
+  function mediaType(response) {
+    return (response.headers?.get("Content-Type") ?? "").split(";")[0].trim().toLowerCase();
+  }
+
   // readState gets the live state from /api/state. It gives the server
   // start ID of the reply to connection.onServerStart when it is set. Each
   // read of the live state uses readState, so the page knows the server
-  // start ID of the latest read.
+  // start ID of the latest read. A server of another version replies with
+  // another media type, and readState refuses that reply.
   async function readState(connection) {
-    const live = liveStateFrame(await getJSON(connection, "/api/state", LIVE_STATE_ACCEPT));
+    const live = liveStateFrame(await getJSON(connection, "/api/state", LIVE_STATE_ACCEPT, LIVE_STATE_ACCEPT));
     if (connection.onServerStart) connection.onServerStart(live.serverStart);
     return live;
   }
 
-  // liveStateFrame gives the state of a live state reply. The reply is a
-  // plain state, or the envelope of an Express or coupling project: an
-  // object with an orderContract or couplingContract string and a frame
-  // whose state member is the state. The state must have the values that
-  // the page reads, with their types: epoch, serverStart, projectRevision,
-  // generation and simulation.paused. The page does not read the other
-  // values, such as the orders, so it does not check them.
+  // liveStateFrame gives the state of a live state reply. The reply is the
+  // envelope of the state: an object with a frame object whose state member
+  // is the state. The state must have the values that the page reads, with
+  // their types: epoch, serverStart, projectRevision, generation and
+  // simulation.paused. The page does not read the other values, such as
+  // the orders, so it does not check them. The reply must pass
+  // plainStateTree and markersAgree.
   function liveStateFrame(reply) {
-    const state = liveStateOf(reply);
-    if (!isObject(state) || typeof state.simulation?.paused !== "boolean" ||
+    const state = isObject(reply) && isObject(reply.frame) ? reply.frame.state : null;
+    if (!isObject(state) || !plainStateTree(reply) || !isObject(state.simulation) || !markersAgree(reply, state) ||
+      typeof state.simulation.paused !== "boolean" ||
       typeof state.epoch !== "string" || state.epoch === "" || typeof state.serverStart !== "string" || state.serverStart === "" ||
       !isCount(state.projectRevision) || !isCount(state.generation)) {
       throw new Error("The live state reply is not valid.");
@@ -1249,12 +1258,45 @@
     return state;
   }
 
-  // liveStateOf gives the state of a reply in a shape that liveStateFrame
-  // knows, or null.
-  function liveStateOf(reply) {
-    if (!isObject(reply) || !Object.hasOwn(reply, "frame")) return reply;
-    const marked = ["orderContract", "couplingContract"].some((key) => typeof reply[key] === "string" && reply[key] !== "");
-    return marked && isObject(reply.frame) ? reply.frame.state : null;
+  // MAX_STATE_DEPTH and MAX_STATE_ELEMENTS are the depth limit and the
+  // element limit of each array of a stream document of the server. See
+  // streamLimits in internal/session. A Go test checks the mirror, and
+  // shell.js has the same values.
+  const MAX_STATE_DEPTH = 64;
+  const MAX_STATE_ELEMENTS = 65536;
+
+  // CONTRACT_MARKERS gives each contract marker of a state reply and the
+  // one value that the server sends.
+  const CONTRACT_MARKERS = [["orderContract", "express-v1"], ["couplingContract", "compact-pair-v1"]];
+
+  // plainStateTree is true when value has at most MAX_STATE_DEPTH levels
+  // of arrays and objects, no array with more than MAX_STATE_ELEMENTS
+  // elements, and no object with a textEncoding member. Earlier servers
+  // sent textEncoding. Its presence refuses the reply, whatever its value.
+  // The walk uses a stack, so a deep reply cannot overflow the call stack.
+  // shell.js has the same function.
+  function plainStateTree(value) {
+    const stack = [[value, 1]];
+    while (stack.length > 0) {
+      const [node, depth] = stack.pop();
+      if (node === null || typeof node !== "object") continue;
+      if (depth > MAX_STATE_DEPTH) return false;
+      if (Array.isArray(node) ? node.length > MAX_STATE_ELEMENTS : Object.hasOwn(node, "textEncoding")) return false;
+      for (const child of Object.values(node)) stack.push([child, depth + 1]);
+    }
+    return true;
+  }
+
+  // markersAgree is true when the reply, its topology and the simulation
+  // of state have the same contract markers. Each marker that is present
+  // must have the value in CONTRACT_MARKERS. A topology that is not an
+  // object has no markers. shell.js has the same function.
+  function markersAgree(reply, state) {
+    const holders = [reply, isObject(reply.topology) ? reply.topology : {}, state.simulation];
+    return CONTRACT_MARKERS.every(([name, allowed]) => {
+      const values = holders.map((holder) => Object.hasOwn(holder, name) ? holder[name] : undefined);
+      return values.every((marker) => marker === values[0] && (marker === undefined || marker === allowed));
+    });
   }
 
   // isObject is true for a JSON object that is not an array.
@@ -2482,7 +2524,7 @@
     FRAME_SOURCES, ALIGN_TOLERANCE, RESAMPLE_MAX_SIDE, projectPoint, frameError, framePlacement, frameAligned, resampleSize, mercatorY, resampleRows,
     problemCountText, createCheckTimer, validationSummary, checkFocusKey, IMAGE_FILE_BYTES, IMAGE_MAX_SIDE, IMAGE_MAX_PIXELS, imageFacts, imageBytesFacts, dataURLToBytes, bytesToDataURL, checkImageSize,
     metadataURLFacts, IMAGE_KEY_PATTERN, newImageKey, FRAME_STATES, LICENSE_LIMITS, licenseError, assetError, backgroundRecordText, STORED_BACKGROUND_KEPT_TEXT, SERVER_PROJECT_BYTES, PROJECT_FILE_BYTES, SERVER_COMMAND_BYTES, SERVER_COMMAND_JSON_BYTES, GZIP_COMMAND_BYTES, SERVER_TOO_LARGE_TEXT, postCommand, dataURLBytes, serializeDocument, parseDocument, repeatedMember,
-    networkBounds, fitView, zoomScale, nodeLabelSize, pairedLaneIDs, showsChevron, laneOffset, laneCurve, lanePathData, SNAPSHOT_ATTEMPTS, snapshotConsistent, draftBeforeRestart, LIVE_STATE_ACCEPT, liveStateFrame, readState, readSnapshot, applyToServer, applyFailureText, applyFailureStatus, applyToast,
+    networkBounds, fitView, zoomScale, nodeLabelSize, pairedLaneIDs, showsChevron, laneOffset, laneCurve, lanePathData, SNAPSHOT_ATTEMPTS, snapshotConsistent, draftBeforeRestart, LIVE_STATE_ACCEPT, MAX_STATE_DEPTH, MAX_STATE_ELEMENTS, liveStateFrame, readState, readSnapshot, applyToServer, applyFailureText, applyFailureStatus, applyToast,
     readLive, readConflict, CONFLICT_UNLOADED_TEXT, conflictView, LOAD_LIVE_QUESTION, applyOverQuestion, loadLive, liveDraft, applyOverBase,
     DRAFT_SAVE_DELAY, DRAFT_STORE_TEXT, DRAFT_UNSAVED_TEXT, DRAFT_DISPLACED_TEXT, DRAFT_STORE, BACKGROUND_STORE, openRecordStore, createDraftKeeper, draftChanged, draftRecordFor, draftOffer, backgroundRecordFor, storedBackground, restoreStoredBackground,
     IMAGE_TABLE_BYTES, DEFAULT_OPACITY, freezeImage, createGoBackgroundModel, createDecoderSlot, checkImageBytes, resampleImage, FRAME_WARNING_TEXT, frameView, attributionParts, BACKGROUND_DURABLE_TEXT, backgroundFacts, exportBackground, STARTUP_EVENTS, createStartupGate, blockInput, startupExempt, startEditor, BACKGROUND_STORE_TEXT, DRAFT_RESTART_TEXT, draftOfferText, RESTORED_RESTART_TEXT, restoreStatusText, shellPage,

@@ -66,7 +66,7 @@ func (topology *TopologySnapshot) UnmarshalJSON(data []byte) error {
 	if markers.express {
 		contract.order = sim.ExpressOrderContract
 	}
-	if err := scanContractMarkers(data, markers.express, false); err != nil {
+	if err := scanContractMarkers(data, markers.express, textRefused); err != nil {
 		return err
 	}
 	if err := scanStreamServiceMembers(data, contract); err != nil {

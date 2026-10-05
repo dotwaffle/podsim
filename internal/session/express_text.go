@@ -14,10 +14,10 @@ import (
 	"github.com/dotwaffle/podsim/internal/sim"
 )
 
-// Express wire markers select the packed order text contract.
+// ExpressTextEncoding is the textEncoding marker of an Express saved
+// state. expressStateVersion is the version of that saved state.
 const (
 	ExpressTextEncoding = "order-text-base64-v1"
-	ExpressMediaType    = "application/vnd.podsim.express-v1+json"
 	expressStateVersion = 7
 )
 
@@ -83,8 +83,15 @@ func encodePackedSavedRequest(e *jsontext.Encoder, r sim.SavedRequest) error {
 	return jsonv2.MarshalEncode(e, packedSavedRequest(r))
 }
 func decodePackedRequest(d *jsontext.Decoder, r *sim.Request) error {
+	// Read the whole order first. An error in the middle of an order that
+	// the decoder of the enclosing document reads makes that decoder report
+	// its own state in place of the cause, such as the unknown member.
+	raw, err := d.ReadValue()
+	if err != nil {
+		return err
+	}
 	var wire packedRequest
-	if err := jsonv2.UnmarshalDecode(d, &wire, json.DefaultOptionsV1(), jsonv2.MatchCaseInsensitiveNames(false), jsonv2.RejectUnknownMembers(true), jsontext.AllowDuplicateNames(false)); err != nil {
+	if err := jsonv2.Unmarshal(raw, &wire, json.DefaultOptionsV1(), jsonv2.MatchCaseInsensitiveNames(false), jsonv2.RejectUnknownMembers(true), jsontext.AllowDuplicateNames(false)); err != nil {
 		return err
 	}
 	next := sim.Request(wire)
@@ -152,8 +159,31 @@ func scanPackedOrders(data []byte) error {
 	}
 }
 
+// textMarker is the rule of a document for the textEncoding marker.
+type textMarker int
+
+const (
+	// textRefused refuses the marker. Streams, HTTP states and topologies
+	// do not carry it, because they always pack the order text.
+	textRefused textMarker = iota
+	// textRequired requires the marker at the root of an Express saved
+	// state.
+	textRequired
+)
+
+// savedTextMarker returns the textEncoding rule of a saved state. A saved
+// state with the Express marker requires the marker.
+func savedTextMarker(express bool) textMarker {
+	if express {
+		return textRequired
+	}
+	return textRefused
+}
+
 // scanContractMarkers keeps marker presence distinct from empty and null.
-func scanContractMarkers(data []byte, express, requireText bool) error {
+// express reports the Express marker of the document, and text gives the
+// rule for the textEncoding marker.
+func scanContractMarkers(data []byte, express bool, text textMarker) error {
 	d := jsontext.NewDecoder(bytes.NewReader(data))
 	seen := map[string]bool{}
 	for {
@@ -180,6 +210,9 @@ func scanContractMarkers(data []byte, express, requireText bool) error {
 		if !express {
 			return errors.New("legacy version contains Express marker")
 		}
+		if name == "textEncoding" && text == textRefused {
+			return errors.New("document contains a text encoding marker")
+		}
 		value, err := d.ReadToken()
 		if err != nil {
 			return err
@@ -192,7 +225,7 @@ func scanContractMarkers(data []byte, express, requireText bool) error {
 			return errors.New("invalid Express contract marker")
 		}
 	}
-	if express && (!seen["/orderContract"] || requireText && !seen["/textEncoding"]) {
+	if express && (!seen["/orderContract"] || text == textRequired && !seen["/textEncoding"]) {
 		return errors.New("missing Express contract marker")
 	}
 	return nil

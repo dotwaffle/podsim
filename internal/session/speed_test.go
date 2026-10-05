@@ -239,7 +239,7 @@ func TestStateFramesRejectUnsupportedSpeed(t *testing.T) {
 	t.Parallel()
 	shared, frame := streamFixture(t)
 	topology := shared.Topology()
-	assembler, err := NewStreamAssemblerVersion(topology, 3)
+	assembler, err := NewStreamAssembler(topology)
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -33,7 +33,7 @@ func TestStreamServiceTopologyVersions(t *testing.T) {
 	if topology.ProjectVersion != project.Default().Version {
 		t.Fatalf("project version lost: %d", topology.ProjectVersion)
 	}
-	if _, err := NewStreamAssemblerVersion(topology, 3); err != nil {
+	if _, err := NewStreamAssembler(topology); err != nil {
 		t.Fatal(err)
 	}
 	for _, value := range []string{`null`, `0`, `"3"`, `3.5`} {
@@ -47,12 +47,12 @@ func TestStreamServiceTopologyVersions(t *testing.T) {
 		t.Fatal(err)
 	}
 	topology.Network.Lanes[0].VehicleClasses = classes
-	if _, err := NewStreamAssemblerVersion(topology, 3); err != nil {
+	if _, err := NewStreamAssembler(topology); err != nil {
 		t.Fatal("current project refused class metadata", err)
 	}
 	for _, version := range []int{0, 2, 3, 4, 5} {
 		topology.ProjectVersion = version
-		if _, err := NewStreamAssemblerVersion(topology, 3); err == nil {
+		if _, err := NewStreamAssembler(topology); err == nil {
 			t.Fatal("stream accepted refused project version", version)
 		}
 	}
@@ -60,7 +60,7 @@ func TestStreamServiceTopologyVersions(t *testing.T) {
 
 func TestStreamServiceOrdersDelta(t *testing.T) {
 	shared, frame := streamFixture(t)
-	assembler, err := NewStreamAssemblerVersion(shared.Topology(), 3)
+	assembler, err := NewStreamAssembler(shared.Topology())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -118,10 +118,10 @@ func TestStreamProjectFeaturesByPresence(t *testing.T) {
 	shared, frame := streamFixture(t)
 	banked := shared.Topology()
 	banked.Network = sim.BankExample()
-	if _, err := NewStreamAssemblerVersion(banked, 3); err != nil {
+	if _, err := NewStreamAssembler(banked); err != nil {
 		t.Fatal("topology refused banks", err)
 	}
-	assembler, err := NewStreamAssemblerVersion(shared.Topology(), 3)
+	assembler, err := NewStreamAssembler(shared.Topology())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -135,7 +135,7 @@ func TestStreamClassIsImmutableWithinProject(t *testing.T) {
 	t.Parallel()
 	shared, frame := streamFixture(t)
 	topology := shared.Topology()
-	assembler, err := NewStreamAssemblerVersion(topology, 3)
+	assembler, err := NewStreamAssembler(topology)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -161,7 +161,7 @@ func TestStreamClassIsImmutableWithinProject(t *testing.T) {
 	topology.ProjectRevision++
 	frame.State.ProjectRevision++
 	frame.State.Simulation.Vehicles[0].Pod.Class = sim.CompactClass
-	other, err := NewStreamAssemblerVersion(topology, 3)
+	other, err := NewStreamAssembler(topology)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -181,12 +181,12 @@ func TestStreamRejectsLegacyOrderMembers(t *testing.T) {
 		{`{"delta":{"vehicles":[{"metadata":{"value":{%s}}}]}}`, `"rebalancing":true`},
 	} {
 		control := []byte(strings.Replace(test.wrapper, "%s", test.control, 1))
-		if _, err := DecodeStreamJSONVersion(control, 3); err != nil {
+		if _, err := DecodeStreamJSON(control); err != nil {
 			t.Fatalf("control %s: %v", control, err)
 		}
 		for _, name := range []string{"LegacyCohort", "LegacyPartySize"} {
 			raw := []byte(strings.Replace(test.wrapper, "%s", `"`+name+`":true`, 1))
-			if _, err := DecodeStreamJSONVersion(raw, 3); err == nil || !strings.Contains(err.Error(), name) {
+			if _, err := DecodeStreamJSON(raw); err == nil || !strings.Contains(err.Error(), name) {
 				t.Errorf("removed member %s: %v", raw, err)
 			}
 		}

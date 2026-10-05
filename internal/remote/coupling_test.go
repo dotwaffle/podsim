@@ -78,19 +78,19 @@ func TestCouplingRemoteHTTP(t *testing.T) {
 		t.Run(string(order), func(t *testing.T) {
 			t.Parallel()
 			topology, frame := remoteCouplingFrame(t, order)
-			raw, err := session.EncodeCouplingStateJSON(topology, frame)
+			raw, err := session.EncodeStateJSON(topology, frame)
 			if err != nil {
 				t.Fatal(err)
 			}
-			want, err := session.DecodeCouplingStateJSON(raw)
+			want, err := session.DecodeStateJSON(raw)
 			if err != nil {
 				t.Fatal(err)
 			}
 			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-				if !strings.Contains(strings.Join(r.Header.Values("Accept"), ","), session.CouplingMediaType) {
+				if !strings.Contains(strings.Join(r.Header.Values("Accept"), ","), session.StateMediaType) {
 					t.Error("missing coupling media negotiation")
 				}
-				w.Header().Set("Content-Type", session.CouplingMediaType)
+				w.Header().Set("Content-Type", session.StateMediaType)
 				_, _ = w.Write(raw)
 			}))
 			t.Cleanup(server.Close)
@@ -144,11 +144,7 @@ func TestCouplingRemoteInvalidUpdateHasNoACK(t *testing.T) {
 			t.Run(string(order)+"/"+refusal.name, func(t *testing.T) {
 				t.Parallel()
 				topology, frame := remoteCouplingFrame(t, order)
-				encoding := ""
-				if order != "" {
-					encoding = session.ExpressTextEncoding
-				}
-				e := session.StreamEnvelope{CouplingContract: sim.CompactPairV1CouplingContract, OrderContract: order, TextEncoding: encoding,
+				e := session.StreamEnvelope{CouplingContract: sim.CompactPairV1CouplingContract, OrderContract: order,
 					Kind: "full", Stream: "occupied-stream", Sequence: 1, Source: session.StreamSource{ServerStart: frame.State.ServerStart, Epoch: frame.State.Epoch,
 						ProjectRevision: frame.State.ProjectRevision, Revision: frame.State.Revision}, Full: &frame}
 				encode := func(envelope session.StreamEnvelope) []byte {
@@ -185,8 +181,8 @@ func TestCouplingRemoteInvalidUpdateHasNoACK(t *testing.T) {
 					defer func() { _ = conn.CloseNow() }()
 					ctx, cancel := context.WithTimeout(r.Context(), 3*time.Second)
 					defer cancel()
-					hello := session.StreamHello{Kind: "hello", Version: session.CouplingStreamVersion, ServerStart: topology.ServerStart,
-						CouplingContract: topology.CouplingContract, OrderContract: order, TextEncoding: encoding}
+					hello := session.StreamHello{Kind: "hello", Version: session.StreamVersion, ServerStart: topology.ServerStart,
+						CouplingContract: topology.CouplingContract, OrderContract: order}
 					var acknowledged [2]bool
 					defer func() { acks <- acknowledged }()
 					if err := conn.Write(ctx, websocket.MessageText, streamJSON(t, hello)); err != nil {

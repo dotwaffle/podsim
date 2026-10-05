@@ -120,9 +120,8 @@
           fetch("/api/state", { cache: "no-store", signal, headers: { Accept: PodsimShell.STATE_ACCEPT } }),
           fetch("/api/topology", { cache: "no-store", signal }),
         ]);
-        if (!stateResponse.ok) throw new Error(`State HTTP ${stateResponse.status}`);
+        const frame = await PodsimShell.readCaptureState(stateResponse);
         if (!topologyResponse.ok) throw new Error(`Topology HTTP ${topologyResponse.status}`);
-        const frame = PodsimShell.captureState(await stateResponse.json());
         const topology = await topologyResponse.json();
         if (frame.epoch !== topology.epoch || frame.projectRevision !== topology.projectRevision) {
           throw new Error("State changed while capturing");

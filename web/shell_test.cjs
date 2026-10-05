@@ -281,14 +281,87 @@ test("the shell controls come first in the page, in the order of CONTROLS", () =
   assert.match(body, /<button id="debugButton" type="button"[^>]*>Download debug state<\/button>/);
 });
 
+// nested gives levels objects, each in the member next of the one
+// before. A reply with nested(n) as its topology has n + 1 levels.
+function nested(levels) {
+  let value = {};
+  for (let level = 1; level < levels; level++) value = { next: value };
+  return value;
+}
+
+// stateReplyRefusals gives the state replies that the debug capture and
+// the editor refuse because of their contract markers, a textEncoding
+// member or their size. envelope(markers) gives a valid reply with those
+// contract markers at the root, in the topology and in the simulation.
+// editor_test.cjs has the same table.
+function stateReplyRefusals(envelope) {
+  const plain = envelope();
+  const express = envelope({ orderContract: "express-v1" });
+  const coupling = envelope({ couplingContract: "compact-pair-v1" });
+  const simulation = (reply, change) => ({ ...reply, frame: { ...reply.frame, state: { ...reply.frame.state, simulation: { ...reply.frame.state.simulation, ...change } } } });
+  const without = (value, name) => Object.fromEntries(Object.entries(value).filter(([key]) => key !== name));
+  const cases = [];
+  // Earlier servers sent a textEncoding member. Its presence anywhere in
+  // the reply refuses the reply, whatever its value.
+  for (const [kind, value] of [["", "order-text-base64-v1"], ["an empty ", ""], ["a null ", null]]) {
+    cases.push(
+      [`${kind}textEncoding member at the root`, { ...express, textEncoding: value }],
+      [`${kind}textEncoding member in the frame`, { ...plain, frame: { ...plain.frame, textEncoding: value } }],
+      [`${kind}textEncoding member in the state`, { ...plain, frame: { ...plain.frame, state: { ...plain.frame.state, textEncoding: value } } }],
+      [`${kind}textEncoding member in the topology`, { ...express, topology: { ...express.topology, textEncoding: value } }],
+      [`${kind}textEncoding member in the simulation`, simulation(express, { textEncoding: value })],
+      [`${kind}textEncoding member in a route`, { ...plain, frame: { ...plain.frame, routes: [{ lanes: [], textEncoding: value }] } }],
+    );
+  }
+  cases.push(
+    // The limits of a stream document of the server.
+    ["a reply over the depth limit", { ...plain, topology: nested(64) }],
+    ["a reply with an array over the element limit", { ...plain, topology: { lanes: new Array(65537).fill(0) } }],
+    // The root, the topology and the simulation have the same markers.
+    ["an Express root with an unmarked topology and simulation", { ...plain, orderContract: "express-v1" }],
+    ["an unmarked root with an Express topology and simulation", without(express, "orderContract")],
+    ["an Express root and topology with an unmarked simulation", { ...plain, orderContract: "express-v1", topology: { orderContract: "express-v1" } }],
+    ["an unmarked Express topology", { ...express, topology: {} }],
+    ["a coupling root with an unmarked topology and simulation", { ...plain, couplingContract: "compact-pair-v1" }],
+    ["an unmarked root with a coupling topology and simulation", without(coupling, "couplingContract")],
+    ["a coupling simulation in a plain reply", simulation(plain, { couplingContract: "compact-pair-v1" })],
+    // A marker has the one value that the server sends.
+    ["an unknown order contract", envelope({ orderContract: "express-v2" })],
+    ["an empty order contract", envelope({ orderContract: "" })],
+    ["a null order contract", envelope({ orderContract: null })],
+    ["an unknown coupling contract", envelope({ couplingContract: "compact-pair-v2" })],
+    ["an empty coupling contract", envelope({ couplingContract: "" })],
+    ["a null coupling contract", envelope({ couplingContract: null })],
+    ["an unknown order contract at the root only", { ...plain, orderContract: "express-v2" }],
+  );
+  return cases;
+}
+
+test("the debug capture and the editor have the same state reply limits", () => {
+  const editor = require("./editor.js");
+  assert.equal(shell.MAX_STATE_DEPTH, 64);
+  assert.equal(shell.MAX_STATE_ELEMENTS, 65536);
+  assert.equal(editor.MAX_STATE_DEPTH, shell.MAX_STATE_DEPTH);
+  assert.equal(editor.MAX_STATE_ELEMENTS, shell.MAX_STATE_ELEMENTS);
+});
+
 test("the debug capture accepts the state reply of each project kind", () => {
   const state = { epoch: "epoch-1", projectRevision: 3, simulation: { tick: 7 }, orders: "packed" };
-  assert.equal(shell.captureState(state), state, "a plain project");
-  assert.equal(shell.captureState({ orderContract: "express-v1", frame: { state, routes: [] } }), state, "an Express project");
-  assert.equal(shell.captureState({ couplingContract: "compact-pair-v1", frame: { state, routes: [] } }), state, "a version 5 project");
+  // envelope gives a reply with markers at the root, in the topology and
+  // in the simulation, as the server sends it.
+  const envelope = (markers = {}) => ({ ...markers, topology: { ...markers }, frame: { state: { ...state, simulation: { ...state.simulation, ...markers } }, routes: [] } });
+  const valid = [
+    ["a plain project", envelope()],
+    ["an Express project", envelope({ orderContract: "express-v1" })],
+    ["a coupling project", envelope({ couplingContract: "compact-pair-v1" })],
+    ["a reply without a topology", { frame: { state, routes: [] } }],
+    ["a reply of the depth limit", { ...envelope(), topology: nested(shell.MAX_STATE_DEPTH - 1) }],
+    ["a reply with an array of the element limit", { ...envelope(), topology: { lanes: new Array(shell.MAX_STATE_ELEMENTS).fill(0) } }],
+  ];
+  for (const [name, reply] of valid) assert.equal(shell.captureState(reply), reply.frame.state, name);
+  for (const [name, reply] of stateReplyRefusals(envelope)) assert.throws(() => shell.captureState(reply), { message: "Invalid server state reply" }, name);
   const malformed = [
-    ["an envelope without a contract", { frame: { state } }],
-    ["an envelope with an empty contract", { couplingContract: "", frame: { state } }],
+    ["a plain state without the envelope", state],
     ["an envelope with a null frame", { orderContract: "express-v1", frame: null }],
     ["an envelope with a frame array", { orderContract: "express-v1", frame: [state] }],
     ["an envelope without a state", { couplingContract: "compact-pair-v1", frame: { routes: [] } }],
@@ -296,20 +369,57 @@ test("the debug capture accepts the state reply of each project kind", () => {
     ["an envelope with a revision only", { couplingContract: "compact-pair-v1", frame: { state: { projectRevision: 3 } } }],
     ["an envelope with a nested error", { orderContract: "express-v1", frame: { state: { error: "bad" } } }],
     ["a reply that is not an object", null],
-    ["no epoch", { ...state, epoch: undefined }],
-    ["an empty epoch", { ...state, epoch: "" }],
-    ["a revision that is text", { ...state, projectRevision: "3" }],
-    ["no simulation", { ...state, simulation: undefined }],
-    ["a null simulation", { ...state, simulation: null }],
-    ["a tick that is text", { ...state, simulation: { tick: "7" } }],
+    ["no epoch", { frame: { state: { ...state, epoch: undefined } } }],
+    ["an empty epoch", { frame: { state: { ...state, epoch: "" } } }],
+    ["a revision that is text", { frame: { state: { ...state, projectRevision: "3" } } }],
+    ["no simulation", { frame: { state: { ...state, simulation: undefined } } }],
+    ["a null simulation", { frame: { state: { ...state, simulation: null } } }],
+    ["a tick that is text", { frame: { state: { ...state, simulation: { tick: "7" } } } }],
   ];
   for (const [name, reply] of malformed) assert.throws(() => shell.captureState(reply), { message: "Invalid server state reply" }, name);
   // The editor reads the state with the same Accept header.
   const editor = require("./editor.js");
   assert.equal(shell.STATE_ACCEPT, editor.LIVE_STATE_ACCEPT);
+  assert.equal(shell.STATE_ACCEPT, "application/vnd.podsim.state-6+json");
   const html = fs.readFileSync(path.join(__dirname, "index.html"), "utf8");
   assert.match(html, /fetch\("\/api\/state", \{[^}]*headers: \{ Accept: PodsimShell\.STATE_ACCEPT \}/);
-  assert.match(html, /const frame = PodsimShell\.captureState\(await stateResponse\.json\(\)\);/);
+  assert.match(html, /const frame = await PodsimShell\.readCaptureState\(stateResponse\);/);
+});
+
+test("the debug capture reads only a reply of the state media type", async () => {
+  const state = { epoch: "epoch-1", projectRevision: 3, simulation: { tick: 7 } };
+  const envelope = { topology: {}, frame: { state, routes: [] } };
+  // reply gives a response to the capture. It records each body read, so a
+  // test can check that a refused reply was not read.
+  const reads = [];
+  const reply = (name, body, headers, status = 200) => {
+    const response = new Response(JSON.stringify(body), { status, headers });
+    const json = response.json.bind(response);
+    response.json = () => { reads.push(name); return json(); };
+    return response;
+  };
+  const media = "Unsupported server state media type";
+  const cases = [
+    { name: "the state media type", body: envelope, headers: { "Content-Type": shell.STATE_ACCEPT }, want: state },
+    { name: "the state media type with a parameter", body: envelope, headers: { "Content-Type": "Application/VND.podsim.state-6+json ; charset=utf-8" }, want: state },
+    { name: "plain JSON", body: envelope, headers: { "Content-Type": "application/json" }, wantError: media },
+    { name: "the Express media type", body: { ...envelope, orderContract: "express-v1", textEncoding: "order-text-base64-v1" }, headers: { "Content-Type": "application/vnd.podsim.express-v1+json" }, wantError: media },
+    { name: "the coupling media type", body: { ...envelope, couplingContract: "compact-pair-v1" }, headers: { "Content-Type": "application/vnd.podsim.compact-pair-v1+json" }, wantError: media },
+    { name: "an earlier state media type", body: envelope, headers: { "Content-Type": "application/vnd.podsim.state-5+json" }, wantError: media },
+    { name: "no media type", body: envelope, headers: {}, wantError: media },
+    { name: "a textEncoding member", body: { ...envelope, textEncoding: "order-text-base64-v1" }, headers: { "Content-Type": shell.STATE_ACCEPT }, wantError: "Invalid server state reply" },
+    { name: "HTTP 406", body: { error: "use the state media type" }, headers: { "Content-Type": "text/plain; charset=utf-8" }, status: 406, wantError: "State HTTP 406" },
+  ];
+  for (const item of cases) {
+    reads.length = 0;
+    const response = reply(item.name, item.body, item.headers, item.status);
+    if (item.wantError) {
+      await assert.rejects(shell.readCaptureState(response), { message: item.wantError }, item.name);
+      if (item.wantError !== "Invalid server state reply") assert.deepEqual(reads, [], `${item.name}: the body was read`);
+    } else {
+      assert.deepEqual(await shell.readCaptureState(response), item.want, item.name);
+    }
+  }
 });
 
 test("the shell controls are hidden until they get the focus", () => {

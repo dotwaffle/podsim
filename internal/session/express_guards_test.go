@@ -73,7 +73,7 @@ func TestExpressPublicOrderGuards(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			assembler, err := NewStreamAssemblerVersion(topology, 4)
+			assembler, err := NewStreamAssembler(topology)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -83,12 +83,12 @@ func TestExpressPublicOrderGuards(t *testing.T) {
 			before := assembler.previous
 			bad := ownStreamBoardings(frame)
 			test.mutate(&bad)
-			envelope := StreamEnvelope{OrderContract: sim.ExpressOrderContract, TextEncoding: ExpressTextEncoding, Kind: "full", Stream: "guard", Sequence: 1, Source: sourceOf(bad), Full: &bad}
+			envelope := StreamEnvelope{OrderContract: sim.ExpressOrderContract, Kind: "full", Stream: "guard", Sequence: 1, Source: sourceOf(bad), Full: &bad}
 			raw, err := EncodeStreamJSON(envelope)
 			if err != nil {
 				t.Fatal(err)
 			}
-			decoded, decodeErr := DecodeStreamJSONVersion(raw, 4)
+			decoded, decodeErr := DecodeStreamJSON(raw)
 			rejected := decodeErr != nil
 			if !rejected {
 				candidate, applyErr := ApplyStream(StreamFrame{}, "", 0, decoded)
@@ -115,7 +115,7 @@ func TestExpressPublicTextAndShapeGuards(t *testing.T) {
 		t.Fatal(err)
 	}
 	frame.State.Simulation.Pending = []sim.Request{{ID: math.MaxInt, From: "harbor", To: "market", PartySize: 20, SharingConsent: sim.SharedConsent, Service: sim.ExpressServiceChoice, ServiceID: "harbor-market"}}
-	envelope := StreamEnvelope{OrderContract: sim.ExpressOrderContract, TextEncoding: ExpressTextEncoding, Kind: "full", Stream: "guard", Sequence: 1, Source: sourceOf(frame), Full: &frame}
+	envelope := StreamEnvelope{OrderContract: sim.ExpressOrderContract, Kind: "full", Stream: "guard", Sequence: 1, Source: sourceOf(frame), Full: &frame}
 	raw, err := EncodeStreamJSON(envelope)
 	if err != nil {
 		t.Fatal(err)
@@ -133,7 +133,7 @@ func TestExpressPublicTextAndShapeGuards(t *testing.T) {
 			if bytes.Equal(mutated, raw) {
 				t.Fatal("mutation missed field")
 			}
-			if _, decodeErr := DecodeStreamJSONVersion(mutated, 4); decodeErr == nil {
+			if _, decodeErr := DecodeStreamJSON(mutated); decodeErr == nil {
 				t.Fatal("accepted invalid packed field")
 			}
 		})
@@ -144,14 +144,14 @@ func TestExpressPublicTextAndShapeGuards(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, decodeErr := DecodeStreamJSONVersion(raw, 4); decodeErr == nil {
+	if _, decodeErr := DecodeStreamJSON(raw); decodeErr == nil {
 		t.Fatal("accepted 8601 pending records")
 	}
 }
 
 func TestExpressPublicHTTPBoardingPresence(t *testing.T) {
 	topology, frame := expressGuardFrame(t)
-	raw, err := EncodeExpressStateJSON(topology, frame)
+	raw, err := EncodeStateJSON(topology, frame)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -168,7 +168,7 @@ func TestExpressPublicHTTPBoardingPresence(t *testing.T) {
 			t.Fatal("missing boarding array")
 		}
 		mutated = append(append(slices.Clone(mutated[:start]), value...), mutated[end:]...)
-		if _, decodeErr := DecodeExpressStateJSON(mutated); decodeErr == nil {
+		if _, decodeErr := DecodeStateJSON(mutated); decodeErr == nil {
 			t.Fatal("accepted boarding shape", value)
 		}
 	}
@@ -195,7 +195,7 @@ func TestExpressPublicClassBindings(t *testing.T) {
 	topology.Network.Lanes = append(slices.Clone(topology.Network.Lanes), sim.Lane{ID: "group-only-link", From: topology.Network.Nodes[0].ID, To: topology.Network.Nodes[1].ID, VehicleClasses: group})
 	for _, binding := range []string{"station", "route"} {
 		t.Run(binding, func(t *testing.T) {
-			assembler, createErr := NewStreamAssemblerVersion(topology, 4)
+			assembler, createErr := NewStreamAssembler(topology)
 			if createErr != nil {
 				t.Fatal(createErr)
 			}
@@ -221,16 +221,14 @@ func TestExpressPublicClassBindings(t *testing.T) {
 	}
 }
 
-func TestExpressNegotiatedVersions(t *testing.T) {
-	topology, _ := expressGuardFrame(t)
-	if _, err := NewStreamAssemblerVersion(topology, FoundationStreamVersion); err == nil {
-		t.Fatal("foundation negotiation accepted Express topology")
-	}
+func TestExpressHelloMarkers(t *testing.T) {
 	for _, raw := range []string{
-		`{"kind":"hello","version":4,"serverStart":"source"}`,
-		`{"kind":"hello","version":3,"serverStart":"source","orderContract":null}`,
-		`{"kind":"hello","version":3,"serverStart":"source","textEncoding":""}`,
-		`{"kind":"hello","version":4,"serverStart":"source","orderContract":"express-v1","textEncoding":"order-text-base64-v1","TextEncoding":"order-text-base64-v1"}`,
+		`{"kind":"hello","version":6,"serverStart":"source","orderContract":null}`,
+		`{"kind":"hello","version":6,"serverStart":"source","orderContract":""}`,
+		`{"kind":"hello","version":6,"serverStart":"source","orderContract":"other"}`,
+		`{"kind":"hello","version":6,"serverStart":"source","textEncoding":""}`,
+		`{"kind":"hello","version":6,"serverStart":"source","orderContract":"express-v1","orderContract":"express-v1"}`,
+		`{"kind":"hello","version":6,"serverStart":"source","orderContract":"express-v1","OrderContract":"express-v1"}`,
 	} {
 		if _, err := DecodeStreamHello([]byte(raw)); err == nil {
 			t.Fatal("accepted contradictory hello", raw)

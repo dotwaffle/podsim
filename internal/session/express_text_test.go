@@ -55,7 +55,7 @@ func FuzzExpressPublicDecode(f *testing.F) {
 		if len(raw) > 8192 {
 			t.Skip()
 		}
-		envelope, err := DecodeStreamJSONVersion([]byte(raw), 4)
+		envelope, err := DecodeStreamJSON([]byte(raw))
 		if err != nil {
 			return
 		}
@@ -63,7 +63,7 @@ func FuzzExpressPublicDecode(f *testing.F) {
 		if err != nil {
 			t.Fatal("accepted data cannot encode", err)
 		}
-		if _, err = DecodeStreamJSONVersion(encoded, 4); err != nil {
+		if _, err = DecodeStreamJSON(encoded); err != nil {
 			t.Fatal("accepted data cannot decode again", err)
 		}
 	})

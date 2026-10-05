@@ -5,40 +5,21 @@ import (
 	jsonv2 "encoding/json/v2"
 	"errors"
 	"fmt"
-	"net/http"
-	"strings"
 
 	"github.com/dotwaffle/podsim/internal/project"
 	"github.com/dotwaffle/podsim/internal/sim"
 )
 
-// ExpressStateEnvelope binds packed dynamic state to its topology.
-type ExpressStateEnvelope struct {
-	OrderContract sim.OrderContract `json:"orderContract"`
-	TextEncoding  string            `json:"textEncoding"`
-	Topology      TopologySnapshot  `json:"topology"`
-	Frame         StreamFrame       `json:"frame"`
-}
-
-// EncodeStreamJSON encodes a publication under its explicit field contract.
+// EncodeStreamJSON encodes a publication with packed order text. The
+// envelope markers must agree with the frame.
 func EncodeStreamJSON(e StreamEnvelope) ([]byte, error) {
-	if e.OrderContract == "" {
-		if e.TextEncoding != "" {
-			return nil, errors.New("foundation envelope contains text encoding")
-		}
-	} else if e.OrderContract != sim.ExpressOrderContract || e.TextEncoding != ExpressTextEncoding {
-		return nil, errors.New("invalid Express envelope markers")
+	if err := sim.ValidateOrderContract(e.OrderContract); err != nil {
+		return nil, err
 	}
 	if err := validateEncodedContract(e); err != nil {
 		return nil, err
 	}
-	var data []byte
-	var err error
-	if e.OrderContract == "" {
-		data, err = json.Marshal(e)
-	} else {
-		data, err = jsonv2.Marshal(e, json.DefaultOptionsV1(), packedRequestOptions())
-	}
+	data, err := jsonv2.Marshal(e, json.DefaultOptionsV1(), packedRequestOptions())
 	if err == nil && len(data) > MaxStreamJSON {
 		err = errors.New("state JSON exceeds supported limit")
 	}
@@ -111,7 +92,7 @@ func validateEnvelopeContract(e StreamEnvelope, previous StreamFrame) error {
 	if err := sim.ValidateOrderContract(contract); err != nil {
 		return err
 	}
-	if e.OrderContract != contract || (contract == sim.ExpressOrderContract && e.TextEncoding != ExpressTextEncoding) || (contract == "" && e.TextEncoding != "") {
+	if e.OrderContract != contract {
 		return errors.New("publication order contract mismatch")
 	}
 	if coupling != "" {
@@ -130,11 +111,6 @@ func validateEnvelopeContract(e StreamEnvelope, previous StreamFrame) error {
 // uses it before it reads the version.
 func expressSavedLimits() jsonLimits {
 	return savedLimits(contractMarkers{order: sim.ExpressOrderContract})
-}
-
-// expressStreamLimits bound hello 4 documents and the Express HTTP state.
-func expressStreamLimits() jsonLimits {
-	return streamLimits(contractMarkers{order: sim.ExpressOrderContract})
 }
 
 func (file *stateFile) validateWireContract() error {
@@ -166,126 +142,23 @@ func preflightExpressTopology(config project.Config, serverStart, epoch string, 
 	return nil
 }
 
-// EncodeExpressStateJSON encodes a compact same-source HTTP state.
-func EncodeExpressStateJSON(topology TopologySnapshot, frame StreamFrame) ([]byte, error) {
-	if topology.OrderContract != sim.ExpressOrderContract || frame.State.Simulation.OrderContract != topology.OrderContract {
-		return nil, errors.New("HTTP state requires Express contract")
-	}
-	assembler, err := NewStreamAssemblerVersion(topology, ExpressStreamVersion)
-	if err != nil {
-		return nil, err
-	}
-	if _, err = assembler.State(frame); err != nil {
-		return nil, err
-	}
-	topologyBytes, err := json.Marshal(topology)
-	if err != nil {
-		return nil, err
-	}
-	if len(topologyBytes) > project.MaxFileBytes+4096 {
-		return nil, errors.New("HTTP topology exceeds supported limit")
-	}
-	data, err := jsonv2.Marshal(ExpressStateEnvelope{sim.ExpressOrderContract, ExpressTextEncoding, topology, frame}, json.DefaultOptionsV1(), packedRequestOptions())
-	if err == nil && len(data) > MaxStreamJSON {
-		err = errors.New("HTTP state exceeds supported limit")
-	}
-	return data, err
-}
-
-// DecodeExpressStateJSON validates packed HTTP state before publishing native data.
-func DecodeExpressStateJSON(raw []byte) (State, error) {
-	if len(raw) > MaxStreamJSON {
-		return State{}, errors.New("HTTP state exceeds supported limit")
-	}
-	if err := prescanJSON(raw, expressStreamLimits()); err != nil {
-		return State{}, err
-	}
-	if err := scanContractMarkers(raw, true, true); err != nil {
-		return State{}, err
-	}
-	markers := contractMarkers{order: sim.ExpressOrderContract}
-	if err := scanStreamBoardingMembers(raw, markers); err != nil {
-		return State{}, err
-	}
-	if err := scanStreamServiceMembers(raw, markers); err != nil {
-		return State{}, err
-	}
-	if err := scanPackedOrders(raw); err != nil {
-		return State{}, err
-	}
-	var envelope ExpressStateEnvelope
-	if err := jsonv2.Unmarshal(raw, &envelope, json.DefaultOptionsV1(), jsonv2.MatchCaseInsensitiveNames(false), jsonv2.RejectUnknownMembers(true), packedDecodeOptions()); err != nil {
-		return State{}, err
-	}
-	assembler, err := NewStreamAssemblerVersion(envelope.Topology, ExpressStreamVersion)
-	if err != nil {
-		return State{}, err
-	}
-	return assembler.State(envelope.Frame)
-}
-
-func (s *Session) stateHTTP(w http.ResponseWriter, r *http.Request) {
-	s.mu.Lock()
-	if err := s.couplingError(); err != nil {
-		s.mu.Unlock()
-		writeError(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-	if project.HasCouplingContract(s.project) {
-		s.couplingStateHTTP(w, r)
-		return
-	}
-	if s.project.OrderContract != sim.ExpressOrderContract {
-		frame := stateFrame(s.state())
-		err := s.couplingError()
-		s.mu.Unlock()
-		if err != nil {
-			writeError(w, err.Error(), http.StatusInternalServerError)
-			return
-		}
-		writeJSON(w, frame)
-		return
-	}
-	accepted := false
-	for part := range strings.SplitSeq(r.Header.Get("Accept"), ",") {
-		if strings.TrimSpace(part) == ExpressMediaType {
-			accepted = true
-		}
-	}
-	if !accepted {
-		s.mu.Unlock()
-		writeError(w, "use the Express state media type", http.StatusNotAcceptable)
-		return
-	}
-	topology := s.topologyLocked()
-	frame, err := s.presentationFrameLocked()
-	s.mu.Unlock()
-	if err != nil {
-		writeError(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-	data, err := EncodeExpressStateJSON(topology, frame)
-	if err != nil {
-		writeError(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-	w.Header().Set("Content-Type", ExpressMediaType)
-	w.Header().Set("Vary", "Accept")
-	_, _ = w.Write(data)
-}
-
-// StreamHello selects one field contract for the connection.
+// StreamHello opens a connection. Its contract markers select the
+// optional sections of every publication on the connection. The hello has
+// no other members, so that a client of an earlier version can decode it,
+// record the build and refuse the version.
 type StreamHello struct {
 	Kind             string               `json:"kind"`
 	Version          int                  `json:"version"`
 	Build            string               `json:"build"`
 	ServerStart      string               `json:"serverStart"`
 	OrderContract    sim.OrderContract    `json:"orderContract,omitzero"`
-	TextEncoding     string               `json:"textEncoding,omitzero"`
 	CouplingContract sim.CouplingContract `json:"couplingContract,omitzero"`
 }
 
-// DecodeStreamHello rejects unknown, duplicate, and contradictory negotiation.
+// DecodeStreamHello rejects unknown, duplicate, and contradictory
+// negotiation, and every version other than StreamVersion. On an error it
+// returns the members that it decoded, so that the client can record the
+// build of a server of another version.
 func DecodeStreamHello(raw []byte) (StreamHello, error) {
 	var hello StreamHello
 	if len(raw) > 4096 {
@@ -297,10 +170,10 @@ func DecodeStreamHello(raw []byte) (StreamHello, error) {
 	if hello.Kind != "hello" || hello.ServerStart == "" {
 		return hello, errors.New("unsupported state stream protocol")
 	}
-	if hello.Version < FoundationStreamVersion || hello.Version > StreamVersion {
+	if hello.Version != StreamVersion {
 		return hello, fmt.Errorf("unsupported state stream version %d", hello.Version)
 	}
-	markers := streamVersionMarkers(hello.Version, hello.OrderContract)
+	markers := contractMarkers{order: hello.OrderContract, coupling: hello.CouplingContract}
 	if markers.coupling != "" {
 		if err := scanCouplingStreamJSON(raw); err != nil {
 			return hello, err
@@ -308,16 +181,8 @@ func DecodeStreamHello(raw []byte) (StreamHello, error) {
 	} else if err := scanStreamServiceMembers(raw, markers); err != nil {
 		return hello, err
 	}
-	packed := markers.order == sim.ExpressOrderContract
-	if err := scanContractMarkers(raw, packed, packed); err != nil {
+	if err := scanContractMarkers(raw, markers.order == sim.ExpressOrderContract, textRefused); err != nil {
 		return hello, err
 	}
 	return hello, nil
-}
-
-func streamTextEncoding(contract sim.OrderContract) string {
-	if contract == sim.ExpressOrderContract {
-		return ExpressTextEncoding
-	}
-	return ""
 }

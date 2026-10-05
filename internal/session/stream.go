@@ -369,7 +369,7 @@ func (p *statePublisher) publish(ctx context.Context, need, capture bool) error 
 			stream = rand.Text()
 			seq = 1
 		}
-		e := StreamEnvelope{CouplingContract: frame.State.Simulation.CouplingContract, OrderContract: frame.State.Simulation.OrderContract, TextEncoding: streamTextEncoding(frame.State.Simulation.OrderContract), Kind: "delta", Stream: stream, Sequence: seq, Base: p.sequence, Source: sourceOf(frame), Build: frame.State.Build}
+		e := StreamEnvelope{CouplingContract: frame.State.Simulation.CouplingContract, OrderContract: frame.State.Simulation.OrderContract, Kind: "delta", Stream: stream, Sequence: seq, Base: p.sequence, Source: sourceOf(frame), Build: frame.State.Build}
 		if reset {
 			e.Kind = "full"
 			e.Base = 0
@@ -427,7 +427,7 @@ func (p *statePublisher) publish(ctx context.Context, need, capture bool) error 
 	}
 	p.mu.Unlock()
 	if need && !hasFull {
-		e := StreamEnvelope{CouplingContract: p.frame.State.Simulation.CouplingContract, OrderContract: p.frame.State.Simulation.OrderContract, TextEncoding: streamTextEncoding(p.frame.State.Simulation.OrderContract), Kind: "full", Stream: p.stream, Sequence: p.sequence, Source: sourceOf(p.frame), Build: p.frame.State.Build, Full: &p.frame}
+		e := StreamEnvelope{CouplingContract: p.frame.State.Simulation.CouplingContract, OrderContract: p.frame.State.Simulation.OrderContract, Kind: "full", Stream: p.stream, Sequence: p.sequence, Source: sourceOf(p.frame), Build: p.frame.State.Build, Full: &p.frame}
 		b, err := p.retain(ctx, e)
 		if err != nil {
 			return err
@@ -500,21 +500,12 @@ func (s *Session) streamHTTP(w http.ResponseWriter, r *http.Request) {
 	s.mu.Lock()
 	contract := s.project.OrderContract
 	coupling := s.project.CouplingContract
-	hello := StreamHello{Kind: "hello", Version: FoundationStreamVersion, Build: s.build, ServerStart: s.serverStart}
+	hello := StreamHello{Kind: "hello", Version: StreamVersion, Build: s.build, ServerStart: s.serverStart, OrderContract: contract, CouplingContract: coupling}
 	s.mu.Unlock()
 	p.mu.Lock()
 	c.orderContract = contract
 	c.couplingContract = coupling
 	p.mu.Unlock()
-	if contract == sim.ExpressOrderContract {
-		hello.Version = ExpressStreamVersion
-		hello.OrderContract = contract
-		hello.TextEncoding = ExpressTextEncoding
-	}
-	if coupling != "" {
-		hello.Version = CouplingStreamVersion
-		hello.CouplingContract = coupling
-	}
 	helloData, marshalErr := json.Marshal(hello)
 	if marshalErr != nil {
 		return

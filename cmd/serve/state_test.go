@@ -649,9 +649,14 @@ func getFrame(t *testing.T, client *http.Client, address string) restartFrame {
 	if err != nil {
 		t.Fatal(err)
 	}
-	var frame restartFrame
-	doJSON(t, client, request, &frame)
-	return frame
+	request.Header.Set("Accept", session.StateMediaType)
+	var envelope struct {
+		Frame struct {
+			State restartFrame `json:"state"`
+		} `json:"frame"`
+	}
+	doJSON(t, client, request, &envelope)
+	return envelope.Frame.State
 }
 
 // postCommand sends command to the server at address and returns the reply.

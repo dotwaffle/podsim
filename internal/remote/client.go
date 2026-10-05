@@ -180,19 +180,13 @@ var errResponseTooLarge = errors.New("server response exceeds supported limit")
 
 // responseLimit returns the largest response body for path. The server
 // writes a plain JSON body with an encoder that adds a newline, so a plain
-// limit is one byte more than the largest document.
-//
-// The server does not limit a plain /api/state body. It contains the full
-// lane IDs of each route, so a large fleet with long IDs can be larger than
-// any stream frame. This client reads plain state only in tests, and it
-// rejects a larger body instead of reading it.
-func responseLimit(path string, qualified bool) int64 {
-	switch {
-	case qualified:
+// limit is one byte more than the largest document. The state reply has
+// no newline.
+func responseLimit(path string) int64 {
+	switch path {
+	case "/api/state":
 		return session.MaxStreamJSON
-	case path == "/api/state":
-		return session.MaxStreamJSON + 1
-	case path == "/api/topology":
+	case "/api/topology":
 		return session.MaxTopologyJSON + 1
 	default:
 		// A command reply has a short error text and a few numbers.
@@ -212,22 +206,16 @@ func readResponse(body io.Reader, limit int64) ([]byte, error) {
 	return raw, nil
 }
 
-// decodeQualifiedState decodes an Express or coupling HTTP state into
-// target. It changes target only when the state is valid.
-func decodeQualifiedState(media string, raw []byte, target any) error {
-	var state session.State
-	var err error
-	if media == session.CouplingMediaType {
-		state, err = session.DecodeCouplingStateJSON(raw)
-	} else {
-		state, err = session.DecodeExpressStateJSON(raw)
-	}
-	if err != nil {
-		return err
-	}
+// decodeState decodes an HTTP state into target. It changes target only
+// when the state is valid.
+func decodeState(raw []byte, target any) error {
 	destination, ok := target.(*session.State)
 	if !ok {
-		return errors.New("qualified HTTP state needs a native state target")
+		return errors.New("HTTP state needs a native state target")
+	}
+	state, err := session.DecodeStateJSON(raw)
+	if err != nil {
+		return err
 	}
 	*destination = state
 	return nil
@@ -246,8 +234,7 @@ func (c *Client) exchange(ctx context.Context, method, path string, body []byte,
 		req.Header.Set("Content-Type", "application/json")
 	}
 	if path == "/api/state" {
-		req.Header.Set("Accept", session.ExpressMediaType)
-		req.Header.Add("Accept", session.CouplingMediaType)
+		req.Header.Set("Accept", session.StateMediaType)
 	}
 	response, err := c.http.Do(req)
 	if err != nil {
@@ -257,28 +244,18 @@ func (c *Client) exchange(ctx context.Context, method, path string, body []byte,
 	if response.StatusCode != http.StatusOK && response.StatusCode != http.StatusConflict {
 		return &statusError{code: response.StatusCode}
 	}
-	qualified := false
-	var media string
 	if path == "/api/state" {
-		var mediaErr error
-		media, _, mediaErr = mime.ParseMediaType(response.Header.Get("Content-Type"))
-		qualified = mediaErr == nil && (media == session.ExpressMediaType || media == session.CouplingMediaType)
+		// A server of another version replies with another media type.
+		if media, _, mediaErr := mime.ParseMediaType(response.Header.Get("Content-Type")); mediaErr != nil || media != session.StateMediaType {
+			return errors.New("server state reply has an unsupported media type")
+		}
 	}
-	raw, err := readResponse(response.Body, responseLimit(path, qualified))
+	raw, err := readResponse(response.Body, responseLimit(path))
 	if err != nil {
 		return err
 	}
-	if qualified {
-		return decodeQualifiedState(media, raw, target)
-	}
 	if path == "/api/state" {
-		// Bound the plain state before the marker walk and the typed decode read it.
-		if err := session.PrescanStateFrameJSON(raw); err != nil {
-			return err
-		}
-		if err := rejectUnqualifiedStateMarkers(raw); err != nil {
-			return err
-		}
+		return decodeState(raw, target)
 	}
 	if topology, ok := target.(*session.TopologySnapshot); ok {
 		// The topology decoder bounds the document before it parses it. A

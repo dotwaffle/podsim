@@ -4,8 +4,6 @@ import (
 	"bytes"
 	"encoding/json"
 	"math"
-	"net/http"
-	"net/http/httptest"
 	"os"
 	"reflect"
 	"slices"
@@ -56,7 +54,7 @@ func TestExpressSaveStreamHTTPRoundTrip(t *testing.T) {
 	if reply.ErrorCode != "" {
 		t.Fatal(reply)
 	}
-	assembler, err := NewStreamAssemblerVersion(shared.Topology(), ExpressStreamVersion)
+	assembler, err := NewStreamAssembler(shared.Topology())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -97,12 +95,12 @@ func TestExpressSaveStreamHTTPRoundTrip(t *testing.T) {
 		if err != nil || loaded.result.Tier != sim.RestorePhysical {
 			t.Fatalf("physical restore: %v %+v", err, loaded.result)
 		}
-		e := StreamEnvelope{OrderContract: sim.ExpressOrderContract, TextEncoding: ExpressTextEncoding, Kind: "full", Stream: "test", Sequence: 1, Source: sourceOf(frame), Build: frame.State.Build, Full: &frame}
+		e := StreamEnvelope{OrderContract: sim.ExpressOrderContract, Kind: "full", Stream: "test", Sequence: 1, Source: sourceOf(frame), Build: frame.State.Build, Full: &frame}
 		raw, err := EncodeStreamJSON(e)
 		if err != nil {
 			t.Fatal(err)
 		}
-		got, err := DecodeStreamJSONVersion(raw, 4)
+		got, err := DecodeStreamJSON(raw)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -113,11 +111,11 @@ func TestExpressSaveStreamHTTPRoundTrip(t *testing.T) {
 		if !reflect.DeepEqual(frame, accepted) {
 			t.Fatal("stream semantic round trip changed")
 		}
-		httpRaw, err := EncodeExpressStateJSON(shared.Topology(), frame)
+		httpRaw, err := EncodeStateJSON(shared.Topology(), frame)
 		if err != nil {
 			t.Fatal(err)
 		}
-		state, err := DecodeExpressStateJSON(httpRaw)
+		state, err := DecodeStateJSON(httpRaw)
 		if err != nil || state.Simulation.Vehicles[0].Riders[0].PartySize != 20 {
 			t.Fatalf("HTTP: %v", err)
 		}
@@ -141,7 +139,7 @@ func TestExpressMarkersAndAtomicAssembly(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	e := StreamEnvelope{OrderContract: sim.ExpressOrderContract, TextEncoding: ExpressTextEncoding, Kind: "full", Stream: "test", Sequence: math.MaxUint64, Source: sourceOf(frame), Full: &frame}
+	e := StreamEnvelope{OrderContract: sim.ExpressOrderContract, Kind: "full", Stream: "test", Sequence: math.MaxUint64, Source: sourceOf(frame), Full: &frame}
 	raw, err := EncodeStreamJSON(e)
 	if err != nil {
 		t.Fatal(err)
@@ -149,23 +147,23 @@ func TestExpressMarkersAndAtomicAssembly(t *testing.T) {
 	for _, mutate := range []func([]byte) []byte{
 		func(b []byte) []byte { return bytes.Replace(b, []byte(`"orderContract":"express-v1",`), nil, 1) },
 		func(b []byte) []byte {
-			return bytes.Replace(b, []byte(`"textEncoding":"order-text-base64-v1"`), []byte(`"textEncoding":null`), 1)
+			return bytes.Replace(b, []byte(`"orderContract":"express-v1"`), []byte(`"orderContract":"express-v1","textEncoding":"order-text-base64-v1"`), 1)
 		},
 		func(b []byte) []byte {
 			return bytes.Replace(b, []byte(`"orderContract":"express-v1"`), []byte(`"orderContract":"other"`), 1)
 		},
 		func(b []byte) []byte {
-			return bytes.Replace(b, []byte(`"textEncoding":"order-text-base64-v1"`), []byte(`"textEncoding":"order-text-base64-v1","textEncoding":"order-text-base64-v1"`), 1)
+			return bytes.Replace(b, []byte(`"orderContract":"express-v1"`), []byte(`"orderContract":"express-v1","orderContract":"express-v1"`), 1)
 		},
 	} {
-		if _, decodeErr := DecodeStreamJSONVersion(mutate(raw), 4); decodeErr == nil {
+		if _, decodeErr := DecodeStreamJSON(mutate(raw)); decodeErr == nil {
 			t.Fatal("accepted bad markers")
 		}
 	}
-	if _, decodeErr := DecodeStreamJSONVersion(raw, FoundationStreamVersion); decodeErr == nil {
-		t.Fatal("foundation family accepted Express")
+	if _, decodeErr := DecodeStreamJSON(raw); decodeErr != nil {
+		t.Fatal("refused the Express publication", decodeErr)
 	}
-	assembler, err := NewStreamAssemblerVersion(shared.Topology(), 4)
+	assembler, err := NewStreamAssembler(shared.Topology())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -186,27 +184,7 @@ func TestExpressMarkersAndAtomicAssembly(t *testing.T) {
 	}
 }
 
-func TestExpressHTTPNegotiationAndTripMarker(t *testing.T) {
-	shared := expressSession(t)
-	handler := shared.Handler("missing")
-	for _, accept := range []string{"", ExpressMediaType} {
-		r := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/api/state", http.NoBody)
-		r.Header.Set("Accept", accept)
-		w := httptest.NewRecorder()
-		handler.ServeHTTP(w, r)
-		if accept == "" {
-			if w.Code != http.StatusNotAcceptable {
-				t.Fatal(w.Code)
-			}
-		} else {
-			if w.Code != 200 || w.Header().Get("Content-Type") != ExpressMediaType {
-				t.Fatal(w.Code, w.Body.String())
-			}
-			if _, err := DecodeExpressStateJSON(w.Body.Bytes()); err != nil {
-				t.Fatal(err)
-			}
-		}
-	}
+func TestExpressTripMarker(t *testing.T) {
 	for _, marker := range []string{``, `,"orderContract":"express-v1"`, `,"orderContract":null`, `,"orderContract":"other"`} {
 		raw := `{"action":"trip","origin":"harbor","destination":"market","partySize":20` + marker + `}`
 		var command Command
@@ -214,13 +192,6 @@ func TestExpressHTTPNegotiationAndTripMarker(t *testing.T) {
 		if (err == nil) != (marker == `,"orderContract":"express-v1"`) {
 			t.Fatal(raw, err)
 		}
-	}
-	foundation, _ := NewWithProject(project.Default())
-	t.Cleanup(foundation.Close)
-	w := httptest.NewRecorder()
-	foundation.Handler("missing").ServeHTTP(w, httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/api/state", http.NoBody))
-	if w.Code != 200 || strings.Contains(w.Body.String(), "orderContract") {
-		t.Fatal("foundation HTTP changed")
 	}
 }
 
@@ -237,12 +208,12 @@ func TestExpressPublicNumericRoundTrip(t *testing.T) {
 	frame.State.Simulation.PassengerDistanceMeters = 0.0000010000000000000002
 	frame.State.Simulation.EmptyDistanceMeters = math.MaxFloat64
 	frame.State.Simulation.DirectDistanceMeters = math.SmallestNonzeroFloat64
-	e := StreamEnvelope{OrderContract: sim.ExpressOrderContract, TextEncoding: ExpressTextEncoding, Kind: "full", Stream: "numeric", Sequence: math.MaxUint64, Source: sourceOf(frame), Build: frame.State.Build, Full: &frame}
+	e := StreamEnvelope{OrderContract: sim.ExpressOrderContract, Kind: "full", Stream: "numeric", Sequence: math.MaxUint64, Source: sourceOf(frame), Build: frame.State.Build, Full: &frame}
 	raw, err := EncodeStreamJSON(e)
 	if err != nil {
 		t.Fatal(err)
 	}
-	decoded, err := DecodeStreamJSONVersion(raw, 4)
+	decoded, err := DecodeStreamJSON(raw)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -250,7 +221,7 @@ func TestExpressPublicNumericRoundTrip(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	assembler, err := NewStreamAssemblerVersion(shared.Topology(), 4)
+	assembler, err := NewStreamAssembler(shared.Topology())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -261,11 +232,11 @@ func TestExpressPublicNumericRoundTrip(t *testing.T) {
 	if !reflect.DeepEqual(native.Simulation.Pending, []sim.Request{request}) || native.Simulation.Tick != frame.State.Simulation.Tick || native.Simulation.EmptyDistanceMeters != math.MaxFloat64 || native.Simulation.PassengerDistanceMeters != frame.State.Simulation.PassengerDistanceMeters || native.Simulation.DirectDistanceMeters != math.SmallestNonzeroFloat64 {
 		t.Fatal("public stream numeric or text precision changed")
 	}
-	httpRaw, err := EncodeExpressStateJSON(shared.Topology(), frame)
+	httpRaw, err := EncodeStateJSON(shared.Topology(), frame)
 	if err != nil {
 		t.Fatal(err)
 	}
-	restored, err := DecodeExpressStateJSON(httpRaw)
+	restored, err := DecodeStateJSON(httpRaw)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -293,7 +264,7 @@ func TestExpressPublicAssetRetention(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	decoded, err := DecodeStreamJSONVersion(raw, 4)
+	decoded, err := DecodeStreamJSON(raw)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -301,7 +272,7 @@ func TestExpressPublicAssetRetention(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	assembler, err := NewStreamAssemblerVersion(topology, 4)
+	assembler, err := NewStreamAssembler(topology)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -315,12 +286,12 @@ func TestExpressPublicAssetRetention(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	envelope := StreamEnvelope{OrderContract: sim.ExpressOrderContract, TextEncoding: ExpressTextEncoding, Kind: "delta", Stream: decoded.Stream, Sequence: decoded.Sequence + 1, Base: decoded.Sequence, Source: sourceOf(successor), Build: successor.State.Build, Delta: &delta}
+	envelope := StreamEnvelope{OrderContract: sim.ExpressOrderContract, Kind: "delta", Stream: decoded.Stream, Sequence: decoded.Sequence + 1, Base: decoded.Sequence, Source: sourceOf(successor), Build: successor.State.Build, Delta: &delta}
 	deltaRaw, err := EncodeStreamJSON(envelope)
 	if err != nil {
 		t.Fatal(err)
 	}
-	deltaDecoded, err := DecodeStreamJSONVersion(deltaRaw, 4)
+	deltaDecoded, err := DecodeStreamJSON(deltaRaw)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -351,7 +322,7 @@ func TestExpressPublicAssetRetention(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	httpState, err := DecodeExpressStateJSON(httpRaw)
+	httpState, err := DecodeStateJSON(httpRaw)
 	if err != nil {
 		t.Fatal(err)
 	}

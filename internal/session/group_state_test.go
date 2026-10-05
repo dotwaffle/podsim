@@ -75,7 +75,7 @@ func TestGroupRecordedRideConsumerRoundTrip(t *testing.T) {
 	for _, stations := range [][2]string{{"harbor", "market"}, {"harbor", "garden"}, {"garden", "market"}} {
 		client.mustApply(t, Command{Action: "trip", Origin: stations[0], Destination: stations[1], PartySize: 2, SharingConsent: sim.SharedConsent})
 	}
-	assembler, err := NewStreamAssemblerVersion(shared.Topology(), 3)
+	assembler, err := NewStreamAssembler(shared.Topology())
 	if err != nil {
 		t.Fatal(err)
 	}

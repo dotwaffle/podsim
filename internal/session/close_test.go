@@ -168,7 +168,9 @@ func TestClosedSessionRejectsCommandsOverHTTP(t *testing.T) {
 		t.Fatalf("command status = %d, reply = %+v", response.Code, reply)
 	}
 	response = httptest.NewRecorder()
-	handler.ServeHTTP(response, httptest.NewRequestWithContext(t.Context(), http.MethodGet, "http://example.com/api/state", http.NoBody))
+	request = httptest.NewRequestWithContext(t.Context(), http.MethodGet, "http://example.com/api/state", http.NoBody)
+	request.Header.Set("Accept", StateMediaType)
+	handler.ServeHTTP(response, request)
 	if response.Code != http.StatusOK {
 		t.Fatalf("state status = %d", response.Code)
 	}

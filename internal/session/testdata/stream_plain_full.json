@@ -1,0 +1,170 @@
+{
+  "kind": "full",
+  "stream": "coupling-test",
+  "sequence": "1",
+  "build": "golden-build",
+  "source": {
+    "serverStart": "golden-start",
+    "epoch": "golden-epoch",
+    "projectRevision": 1,
+    "generation": 1,
+    "revision": 0
+  },
+  "full": {
+    "state": {
+      "epoch": "golden-epoch",
+      "revision": 0,
+      "projectRevision": 1,
+      "generation": 1,
+      "redistribution": false,
+      "simulation": {
+        "submitted": 0,
+        "tick": 0,
+        "paused": false,
+        "vehicles": [
+          {
+            "pod": {
+              "id": "01",
+              "position": {
+                "x": 130,
+                "y": 350
+              },
+              "activity": "Ready",
+              "stationID": "harbor",
+              "berthID": "harbor-1",
+              "laneID": "",
+              "laneDistance": 0,
+              "speed": 0,
+              "occupied": false,
+              "waitReason": "",
+              "blockedBy": "",
+              "stationPhase": "At berth",
+              "maneuverStationID": "harbor"
+            },
+            "routeLaneIDs": null,
+            "relocatingTo": "",
+            "rebalancing": false
+          },
+          {
+            "pod": {
+              "id": "02",
+              "position": {
+                "x": 480,
+                "y": 70
+              },
+              "activity": "Ready",
+              "stationID": "garden",
+              "berthID": "garden-1",
+              "laneID": "",
+              "laneDistance": 0,
+              "speed": 0,
+              "occupied": false,
+              "waitReason": "",
+              "blockedBy": "",
+              "stationPhase": "At berth",
+              "maneuverStationID": "garden"
+            },
+            "routeLaneIDs": null,
+            "relocatingTo": "",
+            "rebalancing": false
+          }
+        ],
+        "berths": [
+          {
+            "id": "harbor-1",
+            "occupant": "01",
+            "reservedBy": "01"
+          },
+          {
+            "id": "garden-1",
+            "occupant": "02",
+            "reservedBy": "02"
+          },
+          {
+            "id": "market-1",
+            "occupant": "",
+            "reservedBy": ""
+          },
+          {
+            "id": "parking-1",
+            "occupant": "",
+            "reservedBy": ""
+          },
+          {
+            "id": "parking-2",
+            "occupant": "",
+            "reservedBy": ""
+          }
+        ],
+        "completed": 0,
+        "demo": false,
+        "demoError": "",
+        "pending": [
+          {
+            "sharingConsent": "private",
+            "service": "on-demand",
+            "id": 1,
+            "from": "aGFyYm9y",
+            "to": "bWFya2V0",
+            "partySize": 1,
+            "podID": "",
+            "completed": false,
+            "requestedTick": 0,
+            "dispatchReason": ""
+          }
+        ],
+        "wait": {
+          "averageSeconds": 0,
+          "maxSeconds": 0
+        },
+        "journey": {
+          "averageSeconds": 0,
+          "maxSeconds": 0
+        },
+        "passengerDistanceMeters": 0,
+        "riderDistanceMeters": 0,
+        "directDistanceMeters": 0,
+        "maxDetourRatio": 0,
+        "sharedParties": 0,
+        "sharedRidePartyLimit": 1,
+        "emptyDistanceMeters": 0,
+        "rebalanceMoves": 0
+      },
+      "speed": 1,
+      "demand": {
+        "config": {
+          "enabled": false,
+          "perMinute": 2,
+          "pattern": "balanced",
+          "seed": 1
+        },
+        "generated": 0,
+        "skipped": 0
+      },
+      "build": "golden-build",
+      "serverStart": "golden-start"
+    },
+    "routes": [
+      {
+        "identity": "0",
+        "display": null,
+        "origin": -1,
+        "lanes": null,
+        "start": "0",
+        "current": "0",
+        "before": false,
+        "after": false
+      },
+      {
+        "identity": "0",
+        "display": null,
+        "origin": -1,
+        "lanes": null,
+        "start": "0",
+        "current": "0",
+        "before": false,
+        "after": false
+      }
+    ]
+  }
+}

@@ -1318,6 +1318,10 @@ function requestCommand(init) {
   return JSON.parse(init.body);
 }
 
+// stateReply gives a response to a live state read with body and the
+// state media type.
+const stateReply = (body) => new Response(JSON.stringify(body), { headers: { "Content-Type": editor.LIVE_STATE_ACCEPT } });
+
 function fakeSession(options) {
   const commands = [];
   const live = { epoch: "epoch-1", serverStart: "start-1", revision: options.liveRevision ?? 3, generation: 5, paused: options.paused };
@@ -1339,7 +1343,7 @@ function fakeSession(options) {
   const fetch = async (url, init) => {
     if (url === "/api/project") return reply(200, { revision: live.revision, project: options.project ?? connectedScenario() });
     if (url === "/api/state") {
-      return reply(200, { epoch: live.epoch, serverStart: live.serverStart, projectRevision: live.revision, generation: live.generation, simulation: { paused: live.paused } });
+      return stateReply({ topology: {}, frame: { state: { epoch: live.epoch, serverStart: live.serverStart, projectRevision: live.revision, generation: live.generation, simulation: { paused: live.paused } }, routes: [] } });
     }
     const command = requestCommand(init);
     commands.push(command);
@@ -1744,7 +1748,7 @@ function snapshotServer(change = () => {}) {
   const fetch = async (url) => {
     urls.push(url); change(url, urls.length, live);
     if (url === "/api/project") return reply({ revision: live.revision, project: { ...connectedScenario(), name: live.name } });
-    return reply({ epoch: live.epoch, serverStart: live.serverStart, projectRevision: live.revision, generation: 5, simulation: { paused: true } });
+    return stateReply({ topology: {}, frame: { state: { epoch: live.epoch, serverStart: live.serverStart, projectRevision: live.revision, generation: 5, simulation: { paused: true } }, routes: [] } });
   };
   return { live, urls, connection: { fetch, clientID: "editor-test", sequence: 0, epoch: "" } };
 }
@@ -3018,53 +3022,130 @@ test("each live state read gives the latest server start ID, so the saved draft 
   assert.equal((await editor.readState(server.connection)).serverStart, "start-3");
 });
 
+// nested gives levels objects, each in the member next of the one
+// before. A reply with nested(n) as its topology has n + 1 levels.
+function nested(levels) {
+  let value = {};
+  for (let level = 1; level < levels; level++) value = { next: value };
+  return value;
+}
+
+// stateReplyRefusals gives the state replies that the debug capture and
+// the editor refuse because of their contract markers, a textEncoding
+// member or their size. envelope(markers) gives a valid reply with those
+// contract markers at the root, in the topology and in the simulation.
+// shell_test.cjs has the same table.
+function stateReplyRefusals(envelope) {
+  const plain = envelope();
+  const express = envelope({ orderContract: "express-v1" });
+  const coupling = envelope({ couplingContract: "compact-pair-v1" });
+  const simulation = (reply, change) => ({ ...reply, frame: { ...reply.frame, state: { ...reply.frame.state, simulation: { ...reply.frame.state.simulation, ...change } } } });
+  const without = (value, name) => Object.fromEntries(Object.entries(value).filter(([key]) => key !== name));
+  const cases = [];
+  // Earlier servers sent a textEncoding member. Its presence anywhere in
+  // the reply refuses the reply, whatever its value.
+  for (const [kind, value] of [["", "order-text-base64-v1"], ["an empty ", ""], ["a null ", null]]) {
+    cases.push(
+      [`${kind}textEncoding member at the root`, { ...express, textEncoding: value }],
+      [`${kind}textEncoding member in the frame`, { ...plain, frame: { ...plain.frame, textEncoding: value } }],
+      [`${kind}textEncoding member in the state`, { ...plain, frame: { ...plain.frame, state: { ...plain.frame.state, textEncoding: value } } }],
+      [`${kind}textEncoding member in the topology`, { ...express, topology: { ...express.topology, textEncoding: value } }],
+      [`${kind}textEncoding member in the simulation`, simulation(express, { textEncoding: value })],
+      [`${kind}textEncoding member in a route`, { ...plain, frame: { ...plain.frame, routes: [{ lanes: [], textEncoding: value }] } }],
+    );
+  }
+  cases.push(
+    // The limits of a stream document of the server.
+    ["a reply over the depth limit", { ...plain, topology: nested(64) }],
+    ["a reply with an array over the element limit", { ...plain, topology: { lanes: new Array(65537).fill(0) } }],
+    // The root, the topology and the simulation have the same markers.
+    ["an Express root with an unmarked topology and simulation", { ...plain, orderContract: "express-v1" }],
+    ["an unmarked root with an Express topology and simulation", without(express, "orderContract")],
+    ["an Express root and topology with an unmarked simulation", { ...plain, orderContract: "express-v1", topology: { orderContract: "express-v1" } }],
+    ["an unmarked Express topology", { ...express, topology: {} }],
+    ["a coupling root with an unmarked topology and simulation", { ...plain, couplingContract: "compact-pair-v1" }],
+    ["an unmarked root with a coupling topology and simulation", without(coupling, "couplingContract")],
+    ["a coupling simulation in a plain reply", simulation(plain, { couplingContract: "compact-pair-v1" })],
+    // A marker has the one value that the server sends.
+    ["an unknown order contract", envelope({ orderContract: "express-v2" })],
+    ["an empty order contract", envelope({ orderContract: "" })],
+    ["a null order contract", envelope({ orderContract: null })],
+    ["an unknown coupling contract", envelope({ couplingContract: "compact-pair-v2" })],
+    ["an empty coupling contract", envelope({ couplingContract: "" })],
+    ["a null coupling contract", envelope({ couplingContract: null })],
+    ["an unknown order contract at the root only", { ...plain, orderContract: "express-v2" }],
+  );
+  return cases;
+}
+
 test("readState accepts the reply of each project kind and gives its state", async () => {
   const state = { epoch: "epoch-1", serverStart: "start-1", projectRevision: 3, generation: 5, simulation: { paused: false }, orders: "packed" };
   const without = (key) => Object.fromEntries(Object.entries(state).filter(([name]) => name !== key));
   const invalid = "The live state reply is not valid.";
+  const unsupported = "The server replied with an unsupported media type.";
+  // envelope gives a reply with markers at the root, in the topology and
+  // in the simulation, as the server sends it.
+  const envelope = (markers = {}) => ({ ...markers, topology: { ...markers }, frame: { state: { ...state, simulation: { ...state.simulation, ...markers } }, routes: [] } });
+  const kind = (body) => ({ body, want: body.frame.state });
   const cases = [
-    { name: "a plain project", body: state, want: state },
-    { name: "an Express project", body: { orderContract: "express-v1", textEncoding: {}, topology: {}, frame: { state, routes: [] } }, want: state },
-    { name: "a version 5 project", body: { couplingContract: "compact-pair-v1", topology: {}, frame: { state, routes: [] } }, want: state },
-    { name: "an envelope without a contract", body: { frame: { state } }, wantError: invalid },
-    { name: "an envelope with an empty contract", body: { orderContract: "", frame: { state } }, wantError: invalid },
+    { name: "a plain project", ...kind(envelope()) },
+    { name: "an Express project", ...kind(envelope({ orderContract: "express-v1" })) },
+    { name: "a coupling project", ...kind(envelope({ couplingContract: "compact-pair-v1" })) },
+    { name: "a reply without a topology", body: { frame: { state, routes: [] } }, want: state },
+    { name: "a reply of the depth limit", ...kind({ ...envelope(), topology: nested(editor.MAX_STATE_DEPTH - 1) }) },
+    { name: "a reply with an array of the element limit", ...kind({ ...envelope(), topology: { lanes: new Array(editor.MAX_STATE_ELEMENTS).fill(0) } }) },
+    ...stateReplyRefusals(envelope).map(([name, body]) => ({ name, body, wantError: invalid })),
+    { name: "a plain state without the envelope", body: state, wantError: invalid },
     { name: "an envelope with a null frame", body: { orderContract: "express-v1", frame: null }, wantError: invalid },
     { name: "an envelope with a frame array", body: { couplingContract: "compact-pair-v1", frame: [state] }, wantError: invalid },
     { name: "an envelope without a state", body: { couplingContract: "compact-pair-v1", frame: { routes: [] } }, wantError: invalid },
     { name: "an envelope with a state array", body: { couplingContract: "compact-pair-v1", frame: { state: [] } }, wantError: invalid },
     { name: "an envelope with a revision only", body: { couplingContract: "compact-pair-v1", frame: { state: { projectRevision: 3 } } }, wantError: invalid },
     { name: "an envelope with a nested error", body: { orderContract: "express-v1", frame: { state: { error: "bad" } } }, wantError: invalid },
-    { name: "a plain reply that is not an object", body: [state], wantError: invalid },
-    { name: "no epoch", body: without("epoch"), wantError: invalid },
-    { name: "an empty epoch", body: { ...state, epoch: "" }, wantError: invalid },
-    { name: "no server start ID", body: without("serverStart"), wantError: invalid },
-    { name: "an empty server start ID", body: { ...state, serverStart: "" }, wantError: invalid },
-    { name: "a server start ID that is a number", body: { ...state, serverStart: 1 }, wantError: invalid },
-    { name: "a revision that is text", body: { ...state, projectRevision: "3" }, wantError: invalid },
-    { name: "a negative revision", body: { ...state, projectRevision: -1 }, wantError: invalid },
-    { name: "a fractional revision", body: { ...state, projectRevision: 3.5 }, wantError: invalid },
-    { name: "no generation", body: without("generation"), wantError: invalid },
-    { name: "no simulation", body: without("simulation"), wantError: invalid },
-    { name: "a pause flag that is text", body: { ...state, simulation: { paused: "false" } }, wantError: invalid },
+    { name: "a reply that is not an object", body: [state], wantError: invalid },
+    { name: "no epoch", body: { frame: { state: without("epoch") } }, wantError: invalid },
+    { name: "an empty epoch", body: { frame: { state: { ...state, epoch: "" } } }, wantError: invalid },
+    { name: "no server start ID", body: { frame: { state: without("serverStart") } }, wantError: invalid },
+    { name: "an empty server start ID", body: { frame: { state: { ...state, serverStart: "" } } }, wantError: invalid },
+    { name: "a server start ID that is a number", body: { frame: { state: { ...state, serverStart: 1 } } }, wantError: invalid },
+    { name: "a revision that is text", body: { frame: { state: { ...state, projectRevision: "3" } } }, wantError: invalid },
+    { name: "a negative revision", body: { frame: { state: { ...state, projectRevision: -1 } } }, wantError: invalid },
+    { name: "a fractional revision", body: { frame: { state: { ...state, projectRevision: 3.5 } } }, wantError: invalid },
+    { name: "no generation", body: { frame: { state: without("generation") } }, wantError: invalid },
+    { name: "no simulation", body: { frame: { state: without("simulation") } }, wantError: invalid },
+    { name: "a pause flag that is text", body: { frame: { state: { ...state, simulation: { paused: "false" } } } }, wantError: invalid },
+    // A server of another version replies with another media type. The
+    // editor refuses the reply before it reads the body.
+    { name: "the state media type with a parameter", media: "Application/VND.podsim.state-6+json; charset=utf-8", body: { topology: {}, frame: { state, routes: [] } }, want: state },
+    { name: "plain JSON", media: "application/json", body: { topology: {}, frame: { state, routes: [] } }, wantError: unsupported },
+    { name: "the Express media type", media: "application/vnd.podsim.express-v1+json", body: { orderContract: "express-v1", textEncoding: "order-text-base64-v1", topology: {}, frame: { state, routes: [] } }, wantError: unsupported },
+    { name: "the coupling media type", media: "application/vnd.podsim.compact-pair-v1+json", body: { couplingContract: "compact-pair-v1", topology: {}, frame: { state, routes: [] } }, wantError: unsupported },
+    { name: "an earlier state media type", media: "application/vnd.podsim.state-5+json", body: { topology: {}, frame: { state, routes: [] } }, wantError: unsupported },
+    { name: "no media type", media: null, body: { topology: {}, frame: { state, routes: [] } }, wantError: unsupported },
   ];
   for (const item of cases) {
-    const accepts = [], starts = [];
+    const accepts = [], starts = [], reads = [];
+    const media = item.media === undefined ? editor.LIVE_STATE_ACCEPT : item.media;
     const connection = {
-      fetch: async (url, init) => { accepts.push(init.headers.Accept); return { ok: true, status: 200, json: async () => item.body }; },
+      fetch: async (url, init) => {
+        accepts.push(init.headers.Accept);
+        return { ok: true, status: 200, headers: new Headers(media === null ? {} : { "Content-Type": media }), json: async () => { reads.push(url); return item.body; } };
+      },
       onServerStart: (start) => starts.push(start),
     };
     if (item.wantError) {
       await assert.rejects(editor.readState(connection), { message: item.wantError }, item.name);
       assert.deepEqual(starts, [], `${item.name}: no server start ID before the check`);
+      if (item.wantError === unsupported) assert.deepEqual(reads, [], `${item.name}: the body was read`);
     } else {
       assert.deepEqual(await editor.readState(connection), item.want, item.name);
       assert.deepEqual(starts, ["start-1"], item.name);
     }
     assert.deepEqual(accepts, [editor.LIVE_STATE_ACCEPT], item.name);
   }
-  // Each media type is one part of the header. See the Go test
+  // The header names the one state media type. See the Go test
   // TestEditorReadsLiveStateOfEachProjectKind.
-  assert.deepEqual(editor.LIVE_STATE_ACCEPT.split(",").map((part) => part.trim()), ["application/json", "application/vnd.podsim.express-v1+json", "application/vnd.podsim.compact-pair-v1+json"]);
+  assert.equal(editor.LIVE_STATE_ACCEPT, "application/vnd.podsim.state-6+json");
 });
 
 test("a failed apply tells the user to export a draft that the browser does not keep", () => {

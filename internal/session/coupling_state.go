@@ -55,7 +55,7 @@ func decodeCouplingState(raw []byte) (file stateFile, err error) {
 	if err := prescanJSON(raw, couplingSavedLimits(scan.packed)); err != nil {
 		return file, invalidState(fmt.Errorf("scan session state: %w", err))
 	}
-	if err := scanContractMarkers(raw, scan.packed, scan.packed); err != nil {
+	if err := scanContractMarkers(raw, scan.packed, savedTextMarker(scan.packed)); err != nil {
 		return file, invalidState(err)
 	}
 	if scan.packed {
@@ -162,7 +162,7 @@ func decodeCouplingTopology(data []byte) (TopologySnapshot, error) {
 	if err != nil {
 		return TopologySnapshot{}, err
 	}
-	if err := scanContractMarkers(data, scan.packed, false); err != nil {
+	if err := scanContractMarkers(data, scan.packed, textRefused); err != nil {
 		return TopologySnapshot{}, err
 	}
 	markers := contractMarkers{coupling: sim.CompactPairV1CouplingContract}

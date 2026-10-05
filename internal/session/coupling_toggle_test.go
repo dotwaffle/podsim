@@ -432,7 +432,7 @@ func TestCouplingToggleStream(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	envelope, err := DecodeStreamJSONVersion(inflated, CouplingStreamVersion)
+	envelope, err := DecodeStreamJSON(inflated)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -443,7 +443,7 @@ func TestCouplingToggleStream(t *testing.T) {
 	if err != nil || !frame.State.Simulation.CouplingEnabled || len(frame.State.Simulation.CouplingGroups) != 1 {
 		t.Fatal("full frame lost the policy or the group", err)
 	}
-	assembler, err := NewStreamAssemblerVersion(ts.s.Topology(), CouplingStreamVersion)
+	assembler, err := NewStreamAssembler(ts.s.Topology())
 	if err != nil {
 		t.Fatal(err)
 	}

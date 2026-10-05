@@ -43,3 +43,30 @@ func TestEditorMirrorsCommandLimits(t *testing.T) {
 		t.Errorf("editor SERVER_COMMAND_JSON_BYTES is %d, want MaxInflatedCommandBytes %d", got, MaxInflatedCommandBytes)
 	}
 }
+
+// TestBrowserMirrorsStreamLimits checks that the debug capture and the
+// editor refuse a state reply with the depth and element limits of a
+// stream document. MAX_STATE_DEPTH must be the depth limit and
+// MAX_STATE_ELEMENTS the element limit of streamLimits.
+func TestBrowserMirrorsStreamLimits(t *testing.T) {
+	t.Parallel()
+	limits := streamLimits(contractMarkers{})
+	for _, name := range []string{"shell.js", "editor.js"} {
+		source, err := os.ReadFile("../../web/" + name)
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, want := range []struct {
+			constant string
+			value    int64
+		}{{"MAX_STATE_DEPTH", int64(limits.depth)}, {"MAX_STATE_ELEMENTS", limits.elements}} {
+			match := regexp.MustCompile(`const ` + want.constant + ` = (\d+);`).FindSubmatch(source)
+			if match == nil {
+				t.Fatalf("web/%s has no %s value", name, want.constant)
+			}
+			if got, err := strconv.ParseInt(string(match[1]), 10, 64); err != nil || got != want.value {
+				t.Errorf("web/%s %s is %s, want %d", name, want.constant, match[1], want.value)
+			}
+		}
+	}
+}

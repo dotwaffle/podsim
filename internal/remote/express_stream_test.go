@@ -64,7 +64,7 @@ func TestExpressRemoteInvalidStateHasNoACK(t *testing.T) {
 	}
 	t.Cleanup(shared.Close)
 	request := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/api/state", http.NoBody)
-	request.Header.Set("Accept", session.ExpressMediaType)
+	request.Header.Set("Accept", session.StateMediaType)
 	response := httptest.NewRecorder()
 	shared.HandlerFS(nil).ServeHTTP(response, request)
 	var envelope struct {
@@ -75,8 +75,8 @@ func TestExpressRemoteInvalidStateHasNoACK(t *testing.T) {
 	}
 	state := shared.Frame()
 	source := session.StreamSource{ServerStart: state.ServerStart, Epoch: state.Epoch, ProjectRevision: state.ProjectRevision, Generation: state.Generation, Revision: state.Revision}
-	wire := map[string]any{"orderContract": sim.ExpressOrderContract, "textEncoding": session.ExpressTextEncoding, "kind": "full", "stream": "test-invalid", "sequence": "1", "source": source, "full": envelope.Frame}
-	decoded, err := session.DecodeStreamJSONVersion(streamJSON(t, wire), 4)
+	wire := map[string]any{"orderContract": sim.ExpressOrderContract, "kind": "full", "stream": "test-invalid", "sequence": "1", "source": source, "full": envelope.Frame}
+	decoded, err := session.DecodeStreamJSON(streamJSON(t, wire))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -104,7 +104,7 @@ func TestExpressRemoteInvalidStateHasNoACK(t *testing.T) {
 			return
 		}
 		defer func() { _ = conn.CloseNow() }()
-		hello := session.StreamHello{Kind: "hello", Version: 4, Build: "express-review", ServerStart: state.ServerStart, OrderContract: sim.ExpressOrderContract, TextEncoding: session.ExpressTextEncoding}
+		hello := session.StreamHello{Kind: "hello", Version: session.StreamVersion, Build: "express-review", ServerStart: state.ServerStart, OrderContract: sim.ExpressOrderContract}
 		if writeErr := conn.Write(r.Context(), websocket.MessageText, streamJSON(t, hello)); writeErr != nil {
 			return
 		}

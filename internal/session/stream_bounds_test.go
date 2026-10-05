@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
-	"slices"
 	"strings"
 	"testing"
 
@@ -14,19 +13,19 @@ import (
 	"github.com/dotwaffle/podsim/internal/sim"
 )
 
-// assertUnpackedStreamMaximum shows that the bounded scan accepts an
-// encoder maximum of family 3.
-func assertUnpackedStreamMaximum(t *testing.T, raw []byte) {
+// assertPlainStreamMaximum shows that the bounded scan and the decoder
+// accept an encoder maximum without contract markers.
+func assertPlainStreamMaximum(t *testing.T, raw []byte) {
 	t.Helper()
 	if raceEnabled {
 		return
 	}
-	if err := prescanJSON(raw, unpackedStreamLimits()); err != nil {
-		t.Fatalf("version %d maximum failed the bounded scan: %v", FoundationStreamVersion, err)
+	if err := prescanJSON(raw, streamLimits(contractMarkers{})); err != nil {
+		t.Fatalf("plain maximum failed the bounded scan: %v", err)
 	}
-	assertExplicitArrayBounds(t, "plain stream maximum", raw, unpackedStreamLimits())
-	if _, err := DecodeStreamJSONVersion(raw, FoundationStreamVersion); err != nil {
-		t.Fatalf("version %d maximum: %v", FoundationStreamVersion, err)
+	assertExplicitArrayBounds(t, "plain stream maximum", raw, streamLimits(contractMarkers{}))
+	if _, err := DecodeStreamJSON(raw); err != nil {
+		t.Fatalf("plain maximum: %v", err)
 	}
 }
 
@@ -36,7 +35,7 @@ func assertUnpackedStreamMaximum(t *testing.T, raw []byte) {
 // or member error.
 func TestStreamDecodeBoundsBeforeTokenScans(t *testing.T) {
 	t.Parallel()
-	zeros := func(n int) string { return "[" + strings.TrimSuffix(strings.Repeat("0,", n), ",") + "]" }
+	zeros := func(n int64) string { return "[" + strings.TrimSuffix(strings.Repeat("0,", int(n)), ",") + "]" }
 	members := func(n int) string {
 		var b strings.Builder
 		for i := range n {
@@ -45,11 +44,9 @@ func TestStreamDecodeBoundsBeforeTokenScans(t *testing.T) {
 		return b.String()
 	}
 	deep := strings.Repeat("[", 20000) + strings.Repeat("]", 20000)
-	for version := FoundationStreamVersion; version <= ExpressStreamVersion; version++ {
-		pending, riders := maxSavedTrips, sim.MaxSharedRideParties
-		if version == ExpressStreamVersion {
-			pending, riders = sim.MaxExpressWaitingTrips, sim.MaxExpressParties
-		}
+	for _, order := range []sim.OrderContract{"", sim.ExpressOrderContract} {
+		markers := contractMarkers{order: order}
+		pending, riders := markers.orderBounds()
 		tests := []struct {
 			name string
 			raw  string
@@ -71,9 +68,13 @@ func TestStreamDecodeBoundsBeforeTokenScans(t *testing.T) {
 			{"replacement pending past the order bound", `{"delta":{"groups":{"pending":` + zeros(pending+1) + `}}}`, errJSONArrayTooLong},
 		}
 		for _, test := range tests {
-			t.Run(fmt.Sprintf("version %d/%s", version, test.name), func(t *testing.T) {
+			raw := test.raw
+			if order != "" {
+				raw = `{"orderContract":"` + string(order) + `",` + raw[1:]
+			}
+			t.Run(fmt.Sprintf("order=%s/%s", order, test.name), func(t *testing.T) {
 				t.Parallel()
-				if _, err := DecodeStreamJSONVersion([]byte(test.raw), version); !errors.Is(err, test.want) {
+				if _, err := DecodeStreamJSON([]byte(raw)); !errors.Is(err, test.want) {
 					t.Fatalf("got %v, want %v", err, test.want)
 				}
 			})
@@ -81,21 +82,16 @@ func TestStreamDecodeBoundsBeforeTokenScans(t *testing.T) {
 	}
 }
 
-// decodeStreamJSONVersionUnbounded is the decoder before the bounded scan
-// moved to the start. It is the reference for decoded values.
-func decodeStreamJSONVersionUnbounded(data []byte, version int) (StreamEnvelope, error) {
-	if err := scanContractMarkers(data, version == ExpressStreamVersion, version == ExpressStreamVersion); err != nil {
+// decodeStreamJSONUnbounded is the decoder before the bounded scan moved
+// to the start. It is the reference for decoded values.
+func decodeStreamJSONUnbounded(data []byte, markers contractMarkers) (StreamEnvelope, error) {
+	express := markers.order == sim.ExpressOrderContract
+	if err := scanContractMarkers(data, express, textRefused); err != nil {
 		return StreamEnvelope{}, err
 	}
-	if version == ExpressStreamVersion {
-		if err := prescanJSON(data, expressStreamLimits()); err != nil {
-			return StreamEnvelope{}, err
-		}
-		if err := scanPackedOrders(data); err != nil {
-			return StreamEnvelope{}, err
-		}
+	if err := scanPackedOrders(data); err != nil {
+		return StreamEnvelope{}, err
 	}
-	markers := streamVersionMarkers(version, "")
 	if err := scanStreamBoardingMembers(data, markers); err != nil {
 		return StreamEnvelope{}, err
 	}
@@ -103,18 +99,13 @@ func decodeStreamJSONVersionUnbounded(data []byte, version int) (StreamEnvelope,
 		return StreamEnvelope{}, err
 	}
 	var envelope StreamEnvelope
-	var err error
-	if version == ExpressStreamVersion {
-		err = jsonv2.Unmarshal(data, &envelope, json.DefaultOptionsV1(), jsonv2.RejectUnknownMembers(true), packedDecodeOptions())
-	} else {
-		err = decodeStreamJSON(data, &envelope)
-	}
+	err := jsonv2.Unmarshal(data, &envelope, json.DefaultOptionsV1(), jsonv2.RejectUnknownMembers(true), packedDecodeOptions())
 	return envelope, err
 }
 
-// streamFamilyDocuments returns a full and a delta publication of
-// families 3 and 4.
-func streamFamilyDocuments(t *testing.T) map[int][][]byte {
+// streamFamilyDocuments returns a full and a delta publication without
+// contract markers and with the Express marker.
+func streamFamilyDocuments(t *testing.T) map[sim.OrderContract][][]byte {
 	t.Helper()
 	encode := func(e StreamEnvelope) []byte {
 		raw, err := EncodeStreamJSON(e)
@@ -128,9 +119,8 @@ func streamFamilyDocuments(t *testing.T) map[int][][]byte {
 		if err != nil {
 			t.Fatal(err)
 		}
-		marker := streamTextEncoding(order)
-		full := StreamEnvelope{OrderContract: order, TextEncoding: marker, Kind: "full", Stream: "s", Sequence: 1, Source: sourceOf(a), Build: a.State.Build, Full: &a}
-		changed := StreamEnvelope{OrderContract: order, TextEncoding: marker, Kind: "delta", Stream: "s", Sequence: 2, Base: 1, Source: sourceOf(b), Build: b.State.Build, Delta: &delta}
+		full := StreamEnvelope{OrderContract: order, Kind: "full", Stream: "s", Sequence: 1, Source: sourceOf(a), Build: a.State.Build, Full: &a}
+		changed := StreamEnvelope{OrderContract: order, Kind: "delta", Stream: "s", Sequence: 2, Base: 1, Source: sourceOf(b), Build: b.State.Build, Delta: &delta}
 		return [][]byte{encode(full), encode(changed)}
 	}
 
@@ -151,54 +141,33 @@ func streamFamilyDocuments(t *testing.T) map[int][][]byte {
 	next.State.Simulation.Tick++
 	vehicle := &next.State.Simulation.Vehicles[0]
 	vehicle.Riders, vehicle.Boardings = vehicle.Riders[1:], vehicle.Boardings[1:]
-	return map[int][][]byte{FoundationStreamVersion: foundation, ExpressStreamVersion: publications(express, next, sim.ExpressOrderContract)}
+	return map[sim.OrderContract][][]byte{"": foundation, sim.ExpressOrderContract: publications(express, next, sim.ExpressOrderContract)}
 }
 
 func TestStreamDecodeMatchesUnboundedDecoder(t *testing.T) {
 	t.Parallel()
 	families := streamFamilyDocuments(t)
-	for version, documents := range families {
+	for order, documents := range families {
 		for _, raw := range documents {
-			want, wantErr := decodeStreamJSONVersionUnbounded(raw, version)
-			got, err := DecodeStreamJSONVersion(raw, version)
+			want, wantErr := decodeStreamJSONUnbounded(raw, contractMarkers{order: order})
+			got, err := DecodeStreamJSON(raw)
 			if err != nil || wantErr != nil {
-				t.Fatalf("version %d: got %v, reference %v", version, err, wantErr)
+				t.Fatalf("order %q: got %v, reference %v", order, err, wantErr)
 			}
 			if !reflect.DeepEqual(got, want) {
-				t.Fatalf("version %d %s publication decoded to a different value", version, got.Kind)
+				t.Fatalf("order %q %s publication decoded to a different value", order, got.Kind)
 			}
 			if got.Delta != nil && (len(got.Delta.Groups) == 0 || len(got.Delta.Vehicles) == 0) {
-				t.Fatalf("version %d delta has no replacement groups or vehicles", version)
+				t.Fatalf("order %q delta has no replacement groups or vehicles", order)
 			}
 		}
 	}
 }
 
-// The plain HTTP state endpoint sends the full state frame with complete
-// routes. Its widest shape passes the bounded scan.
-func TestPrescanStateFrameJSONAcceptsServerMaximum(t *testing.T) {
-	if raceEnabled {
-		t.Skip("maximum state frame proof runs without the race detector")
-	}
-	route := project.MaxLanes + project.MaxNodes
-	frame := maximumStreamFrame(t).State
-	for i := range frame.Simulation.Vehicles {
-		v := &frame.Simulation.Vehicles[i]
-		v.Boardings = slices.Repeat([]sim.RiderBoarding{{BerthID: "b"}}, sim.MaxSharedRideParties)
-		v.RouteLaneIDs = slices.Repeat([]string{"l"}, route)
-	}
-	raw, err := json.Marshal(frame)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err = PrescanStateFrameJSON(append(raw, '\n')); err != nil {
-		t.Fatal("widest state frame failed the bounded scan", err)
-	}
-	assertExplicitArrayBounds(t, "plain HTTP state maximum", raw, stateFrameLimits())
-	t.Logf("widest state frame with one-byte lane IDs: %d bytes", len(raw)+1)
-}
-
-func TestPrescanStateFrameJSONBounds(t *testing.T) {
+// The HTTP state carries a stream frame with route windows, so its arrays
+// have the bounds of the stream. TestStreamMaximumEncoding checks the
+// widest HTTP state.
+func TestStateJSONBounds(t *testing.T) {
 	t.Parallel()
 	zeros := func(n int) string { return "[" + strings.TrimSuffix(strings.Repeat("0,", n), ",") + "]" }
 	tests := []struct {
@@ -207,16 +176,24 @@ func TestPrescanStateFrameJSONBounds(t *testing.T) {
 		want error
 	}{
 		{"deeper than the stream limit", `{"x":` + strings.Repeat("[", 65) + strings.Repeat("]", 65) + `}`, errJSONTooDeep},
-		{"vehicles past the fleet bound", `{"simulation":{"vehicles":` + zeros(project.MaxPods+1) + `}}`, errJSONArrayTooLong},
-		{"pending past the order bound", `{"simulation":{"pending":` + zeros(maxSavedTrips+1) + `}}`, errJSONArrayTooLong},
-		{"riders past the order bound", `{"simulation":{"vehicles":[{"riders":` + zeros(sim.MaxSharedRideParties+1) + `}]}}`, errJSONArrayTooLong},
-		{"route past the element limit", `{"simulation":{"vehicles":[{"routeLaneIDs":` + zeros(65537) + `}]}}`, errJSONArrayTooLong},
-		{"invalid UTF-8", "{\"epoch\":\"\xff\"}", nil},
+		{"vehicles past the fleet bound", `{"frame":{"state":{"simulation":{"vehicles":` + zeros(project.MaxPods+1) + `}}}}`, errJSONArrayTooLong},
+		{"pending past the order bound", `{"frame":{"state":{"simulation":{"pending":` + zeros(maxSavedTrips+1) + `}}}}`, errJSONArrayTooLong},
+		{"riders past the order bound", `{"frame":{"state":{"simulation":{"vehicles":[{"riders":` + zeros(sim.MaxSharedRideParties+1) + `}]}}}}`, errJSONArrayTooLong},
+		{"complete route", `{"frame":{"state":{"simulation":{"vehicles":[{"routeLaneIDs":["l"]}]}}}}`, errJSONArrayTooLong},
+		{"topology lanes past the lane bound", `{"topology":{"network":{"lanes":` + zeros(project.MaxLanes+1) + `}}}`, errJSONArrayTooLong},
+		{"invalid UTF-8", "{\"frame\":{\"state\":{\"epoch\":\"\xff\"}}}", nil},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
-			if err := PrescanStateFrameJSON([]byte(test.raw)); !errors.Is(err, test.want) {
+			_, err := DecodeStateJSON([]byte(test.raw))
+			if test.want == nil {
+				if err == nil || errors.Is(err, errJSONArrayTooLong) {
+					t.Fatalf("got %v, want a refusal of the text", err)
+				}
+				return
+			}
+			if !errors.Is(err, test.want) {
 				t.Fatalf("got %v, want %v", err, test.want)
 			}
 		})

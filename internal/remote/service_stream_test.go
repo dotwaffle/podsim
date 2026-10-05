@@ -30,7 +30,7 @@ func TestBoardingTopologyCacheRollbackAndInvalidation(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { fetches++; _ = json.NewEncoder(w).Encode(topology) }))
 	t.Cleanup(server.Close)
 	client := &Client{url: server.URL, http: server.Client()}
-	cache := streamTopology{version: 3}
+	cache := streamTopology{}
 	accepted, err := cache.state(t.Context(), client, frame)
 	if err != nil {
 		t.Fatal(err)
@@ -56,7 +56,7 @@ func TestBoardingTopologyCacheRollbackAndInvalidation(t *testing.T) {
 	if cache.assembler == first {
 		t.Fatal("new revision retained old assembler")
 	}
-	reconnected := streamTopology{version: 3}
+	reconnected := streamTopology{}
 	v.Pod.Class = sim.LegacyClass
 	if _, err := reconnected.state(t.Context(), client, frame); err != nil {
 		t.Fatal("reconnect retained old class binding", err)

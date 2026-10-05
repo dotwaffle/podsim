@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	jsonv2 "encoding/json/v2"
 	"math"
 	"net/http"
 	"net/http/httptest"
@@ -272,15 +273,13 @@ func TestStreamMaximumEncoding(t *testing.T) {
 			}
 
 			e := StreamEnvelope{Kind: "full", Stream: strings.Repeat("x", 32), Sequence: math.MaxUint64, Source: sourceOf(f), Build: f.State.Build, Full: &f}
-			data, err := json.Marshal(e)
+			data, err := EncodeStreamJSON(e)
 			if err != nil {
 				t.Fatal(err)
 			}
-			if len(data) > MaxStreamJSON {
-				t.Fatalf("full allowance exceeded: %d", len(data))
-			}
 			t.Logf("conservative full encoder fixture: %d bytes", len(data))
-			assertUnpackedStreamMaximum(t, data)
+			assertPlainStreamMaximum(t, data)
+			assertStateMaximum(t, f)
 			compressed, err := encodeStream(e)
 			if err != nil {
 				t.Fatal(err)
@@ -302,12 +301,12 @@ func TestStreamMaximumEncoding(t *testing.T) {
 			e.Full = nil
 			e.Delta = &d
 			e.Base = math.MaxUint64 - 1
-			data, err = json.Marshal(e)
-			if err != nil || len(data) > MaxStreamJSON {
-				t.Fatal("maximum delta exceeds cap", len(data), err)
+			data, err = EncodeStreamJSON(e)
+			if err != nil {
+				t.Fatal("maximum delta exceeds cap", err)
 			}
 			t.Logf("conservative delta encoder fixture: %s bytes", strconv.Itoa(len(data)))
-			assertUnpackedStreamMaximum(t, data)
+			assertPlainStreamMaximum(t, data)
 			compressed, err = encodeStream(e)
 			if err != nil {
 				t.Fatal(err)
@@ -318,6 +317,36 @@ func TestStreamMaximumEncoding(t *testing.T) {
 			}
 		})
 	}
+}
+
+// assertStateMaximum checks the HTTP state of frame, with the largest
+// topology that a project can have. The test topology is small, so the
+// check adds the topology bound in its place. The bounded scan must accept
+// the state, and its arrays must have explicit bounds.
+func assertStateMaximum(t *testing.T, frame StreamFrame) {
+	t.Helper()
+	_, fixture := streamFixture(t)
+	topology := TopologySnapshot{ProjectVersion: project.CurrentVersion, ServerStart: fixture.State.ServerStart, Epoch: fixture.State.Epoch}
+	topologyBytes, err := json.Marshal(topology)
+	if err != nil {
+		t.Fatal(err)
+	}
+	data, err := jsonv2.Marshal(StateEnvelope{Topology: topology, Frame: frame}, json.DefaultOptionsV1(), packedRequestOptions())
+	if err != nil {
+		t.Fatal(err)
+	}
+	widest := len(data) - len(topologyBytes) + project.MaxFileBytes + 4096
+	t.Logf("HTTP state: %d bytes with the test topology, %d bytes with the largest topology, %d bytes of headroom", len(data), widest, MaxStreamJSON-widest)
+	if widest > MaxStreamJSON {
+		t.Fatalf("widest HTTP state exceeds the stream limit: %d", widest)
+	}
+	if raceEnabled {
+		return
+	}
+	if err := prescanJSON(data, streamLimits(contractMarkers{})); err != nil {
+		t.Fatalf("widest HTTP state failed the bounded scan: %v", err)
+	}
+	assertExplicitArrayBounds(t, "plain HTTP state maximum", data, streamLimits(contractMarkers{}))
 }
 
 func TestStreamLatencyWindow(t *testing.T) {

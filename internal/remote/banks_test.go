@@ -21,7 +21,7 @@ import (
 
 func TestStreamBankProtocolVersions(t *testing.T) {
 	t.Parallel()
-	for _, version := range []int{1, 2, 3, 4} {
+	for _, version := range []int{1, 2, 3, 4, 5, session.StreamVersion, 7} {
 		for _, banks := range []string{"omitted", "valid", "empty", "null"} {
 			t.Run(fmt.Sprintf("hello%d/%s", version, banks), func(t *testing.T) {
 				t.Parallel()
@@ -87,17 +87,16 @@ func TestStreamBankProtocolVersions(t *testing.T) {
 				ctx, cancel := context.WithTimeout(t.Context(), 3*time.Second)
 				defer cancel()
 				err = client.receiveStream(ctx)
-				valid := version == session.FoundationStreamVersion && (banks == "omitted" || banks == "valid")
+				valid := version == session.StreamVersion && (banks == "omitted" || banks == "valid")
 				_, connected, _ := client.View()
 				if connected != valid {
 					t.Fatalf("published=%t want=%t: %v", connected, valid, err)
 				}
-				// The client rejects hello 1 and 2 from servers older than
-				// the version 3 service fields.
-				if version < session.FoundationStreamVersion && (err == nil || !strings.Contains(err.Error(), fmt.Sprintf("unsupported state stream version %d", version))) {
+				// The client rejects each hello of another version.
+				if version != session.StreamVersion && (err == nil || !strings.Contains(err.Error(), fmt.Sprintf("unsupported state stream version %d", version))) {
 					t.Fatalf("wrong rejection: %v", err)
 				}
-				if version != session.FoundationStreamVersion && fetches.Load() != 0 {
+				if version != session.StreamVersion && fetches.Load() != 0 {
 					t.Fatal("unsupported hello fetched topology")
 				}
 			})

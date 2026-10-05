@@ -27,13 +27,18 @@ The client uses these message boundaries:
 
 Every project has version 1, and the server refuses project versions 2 through 5.
 The contract markers of the project select its kind.
-`GET /api/state` has one reply shape for each project kind.
-A project without `orderContract` or `couplingContract` gets the plain state and ignores `Accept`.
-A project with `orderContract` and without `couplingContract` needs `Accept: application/vnd.podsim.express-v1+json`, and a project with `couplingContract` needs `Accept: application/vnd.podsim.compact-pair-v1+json`.
-Both replies are envelopes with the topology and a `frame` member, and the state values are in `frame.state`.
+`GET /api/state` has one reply shape for every project kind, with the media type `application/vnd.podsim.state-6+json`.
+The request must name that media type in `Accept`, with no quality value or a quality value above zero.
+A wildcard such as `*/*` does not name the media type.
 Without the media type, the request gets HTTP 406.
-A client that reads every project kind can send all three media types in one `Accept` header.
-The editor and the debug capture do this.
+The reply is an envelope with the root contract markers of the project, `topology`, and `frame`.
+The frame is a full stream frame, so the state values are in `frame.state`, and the routes are route windows (see "Shared state stream").
+The envelope has `orderContract` and `couplingContract` only when the project has them.
+The editor and the debug capture send the media type.
+They refuse a reply with another media type before they read it.
+They also refuse a reply that has a `textEncoding` member at any level, or that is over the stream limits of 64 levels and 65536 elements in an array.
+The root, `topology` and `frame.state.simulation` must have the same contract markers.
+When present, `orderContract` must be `express-v1` and `couplingContract` must be `compact-pair-v1`.
 
 All JSON member names use lowerCamel case, such as `projectRevision`, `routeLaneIDs` and `id`.
 A decoder matches member names exactly.
@@ -46,8 +51,7 @@ A request with a different method gets HTTP 405 and an `Allow` header with the m
 A `GET` endpoint also accepts `HEAD`, except the WebSocket upgrade.
 All `/api` responses have `Cache-Control: no-store`, also the error responses.
 
-HTTP state frames contain ordered lane IDs for vehicle routes.
-They do not contain lane objects or network geometry.
+The stream and the HTTP state do not contain lane objects or network geometry.
 The Go client caches topology by session epoch, project revision, and server start ID, then reconstructs the presentation state.
 It rejects a frame if matching topology is not available.
 Topology must match the frame server start ID, epoch, and project revision.
@@ -88,10 +92,20 @@ A restore rejects any other speed, including 4 and 8.
 ## Shared state stream
 
 The server sends a text hello with `version`, `build`, and `serverStart` before any binary state message.
-The version is 3 for a project without an order or coupling contract, 4 for the Express order contract without coupling, and 5 for the coupling contract.
-Clients reject versions 1 and 2, which servers sent before the version 3 service fields.
+The version is 6 for every project kind.
+The hello also has the `orderContract` and `couplingContract` markers of the project, when the project has them.
+The markers select the optional sections of each message on the connection.
+A client refuses every other version, and it records the `build` of the hello before it refuses the version.
+Then a page of an earlier build loads the files of the server.
 Each binary message contains one gzip member and one JSON envelope.
 The envelope contains `kind`, `stream`, `sequence`, `base`, `build`, and `source`.
+The envelope has the same contract markers as the hello, the full frame, and the topology.
+A client refuses an envelope whose markers differ from the markers of the hello.
+A topology whose markers differ from the markers of the hello is also refused.
+Without `couplingContract`, a message must not contain a coupling member, also with a null, false, or empty value.
+The order text of each order (`from`, `to`, `podID`, `dispatchReason`, and `serviceID`) is canonical base64 of the UTF-8 text, for every project kind.
+This includes the pending replacement group of a delta and the HTTP state.
+No message has a `textEncoding` member.
 Sequence and base use decimal strings.
 A full message omits base and carries a `full` object with `state` and `routes`.
 A delta carries replacement `groups`, vehicle changes by pod ID, and changed berths by ID.
@@ -110,7 +124,8 @@ It carries an ephemeral route identity, absolute start and current occurrences, 
 A route replacement changes identity, while a window shift preserves it.
 Motion holds the earlier position when identity changes or neither window contains the connecting path.
 The 150 ms motion buffer is unchanged.
-Simulator routes, saved states, and HTTP diagnostic frames keep their existing representation.
+Simulator routes and saved states keep their existing representation.
+The HTTP state carries the stream frame, so it has route windows, not complete routes.
 
 The connection allows 64 outstanding state messages or 8 MiB, whichever limit it reaches first.
 A larger legal message uses that window alone.
@@ -241,7 +256,7 @@ The other members depend on the action:
 | `reset` | None | Restores the project fleet and demand settings, and clears the orders. It sets the speed to 1 and keeps the pause state. |
 | `demo` | None | Resets the run, starts the traffic demo, disables automatic demand, and sets the speed to 1. It needs the unchanged example network and fleet. |
 | `demand` | `demand`: the `demand` object of a project | Replaces the demand settings of the project and increases the project revision. The server rejects it during the demo. |
-| `project` | `project`: the `project` object from `GET /api/project`. `projectRevision`: the `revision` from `GET /api/project`, an integer. `serverStart`: optional, the `serverStart` from `GET /api/state` (in `frame.state` for a project with a contract marker) when the project loaded, a string | Replaces the project and increases the project revision. The new fleet starts paused at speed 1. Two cases keep the fleet. A project that is the same as the current project changes nothing: the server keeps the project revision, the generation, and the simulation, and does not save. A train toggle is a project with `couplingContract` that changes only `couplingEnabled`. It changes only the recruitment of new trains and increases the project revision. The server keeps the fleet, its trains, the generation, the speed, the demand stream, and the `restore` key. For these two cases, a missing and an empty list of coupling sites, coupling corridors, or corridor lanes are the same. During a retained coupling fault, the server replaces the fleet in both cases. The demo fleet has no coupling contract, so a train toggle replaces the fleet until a reset ends the demo. The session must be paused, and `projectRevision` must be the current project revision. When the session is paused and `projectRevision` is not the current project revision, the command gets `stale_project`. When `serverStart` is set and is not the `serverStart` of the server process, the command gets `session_changed`. |
+| `project` | `project`: the `project` object from `GET /api/project`. `projectRevision`: the `revision` from `GET /api/project`, an integer. `serverStart`: optional, the `serverStart` from `GET /api/state` (in `frame.state`) when the project loaded, a string | Replaces the project and increases the project revision. The new fleet starts paused at speed 1. Two cases keep the fleet. A project that is the same as the current project changes nothing: the server keeps the project revision, the generation, and the simulation, and does not save. A train toggle is a project with `couplingContract` that changes only `couplingEnabled`. It changes only the recruitment of new trains and increases the project revision. The server keeps the fleet, its trains, the generation, the speed, the demand stream, and the `restore` key. For these two cases, a missing and an empty list of coupling sites, coupling corridors, or corridor lanes are the same. During a retained coupling fault, the server replaces the fleet in both cases. The demo fleet has no coupling contract, so a train toggle replaces the fleet until a reset ends the demo. The session must be paused, and `projectRevision` must be the current project revision. When the session is paused and `projectRevision` is not the current project revision, the command gets `stale_project`. When `serverStart` is set and is not the `serverStart` of the server process, the command gets `session_changed`. |
 | `checkpoint` | None | Makes a save point. |
 | `rewind` | `checkpoint`: save point ID, an integer | Restores the save point and pauses the session. |
 

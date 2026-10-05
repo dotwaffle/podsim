@@ -38,12 +38,7 @@ func TestCouplingTopologyStandalone(t *testing.T) {
 			if err := json.Unmarshal(raw, &decoded); err != nil || !reflect.DeepEqual(topology, decoded) {
 				t.Fatal("standalone topology5 facts changed", err)
 			}
-			for version := FoundationStreamVersion; version < CouplingStreamVersion; version++ {
-				if _, err := NewStreamAssemblerVersion(decoded, version); err == nil {
-					t.Fatal("standalone topology5 enabled a live stream family", version)
-				}
-			}
-			if _, err := NewStreamAssemblerVersion(decoded, CouplingStreamVersion); err != nil {
+			if _, err := NewStreamAssembler(decoded); err != nil {
 				t.Fatal("topology5 rejected its qualified assembler", err)
 			}
 			if _, err := FrameState(decoded, s.Frame()); err != nil {
