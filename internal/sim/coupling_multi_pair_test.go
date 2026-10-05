@@ -1,6 +1,7 @@
 package sim
 
 import (
+	"cmp"
 	"math"
 	"slices"
 	"strings"
@@ -18,6 +19,8 @@ type couplingMultiScenario struct {
 	prepared  *PreparedNetwork
 	contracts FleetContracts
 	trips     []couplingMultiTrip
+	// Occupied requests use PrivateConsent unless this is set.
+	consent SharingConsent
 }
 
 // Add a one-berth Compact station whose exit feeds node "a".
@@ -195,7 +198,8 @@ func (sc couplingMultiScenario) request(t *testing.T, s *Simulation, occupied bo
 			continue
 		}
 		if occupied {
-			if err := s.RequestJourneyOptions(trip.id, TripOptions{To: trip.goal, PartySize: trip.size, SharingConsent: PrivateConsent}); err != nil {
+			consent := cmp.Or(sc.consent, PrivateConsent)
+			if err := s.RequestJourneyOptions(trip.id, TripOptions{To: trip.goal, PartySize: trip.size, SharingConsent: consent}); err != nil {
 				t.Fatal(err)
 			}
 			v := s.findVehicle(trip.id)
@@ -254,7 +258,11 @@ func runCouplingMulti(t *testing.T, sc couplingMultiScenario, occupied, enabled 
 	completed := make(map[int]bool)
 	var measured float64
 	for s.tick < horizon {
+		before := couplingMemberMotions(s)
 		s.Step()
+		if err := checkCouplingMemberMotion(s, before); err != nil {
+			t.Fatalf("committed member motion at tick %d: %v", s.tick, err)
+		}
 		live := make(map[string]bool, len(s.couplingGroups))
 		members := make(map[string]string)
 		for _, g := range s.couplingGroups {
@@ -460,6 +468,37 @@ func TestCouplingMultiPairNaturalFormation(t *testing.T) {
 				})
 			}
 		}
+	}
+}
+
+// Both cabins carry SharedConsent parties. Each pair forms a train, keeps
+// its cabin facts unchanged, and completes every journey. The disabled
+// control with the same shared parties forms no train.
+func TestCouplingSharedConsentNaturalFormation(t *testing.T) {
+	t.Parallel()
+	for _, enabled := range []bool{true, false} {
+		t.Run(map[bool]string{false: "disabled", true: "enabled"}[enabled], func(t *testing.T) {
+			t.Parallel()
+			sc := couplingMultiParallel(t, 0)
+			sc.consent = SharedConsent
+			result := runCouplingMulti(t, sc, true, enabled, 36000)
+			if !enabled {
+				if len(result.groups) != 0 {
+					t.Fatal("disabled shared-consent control formed a group")
+				}
+				return
+			}
+			if len(result.groups) != 2 {
+				t.Fatalf("shared-consent fleet formed %d groups, want two", len(result.groups))
+			}
+			for _, g := range result.groups {
+				for i, riders := range g.riders {
+					if len(riders) != 1 || riders[0].SharingConsent != SharedConsent {
+						t.Fatalf("group %s cabin %d lost its shared party: %+v", g.id, i, riders)
+					}
+				}
+			}
+		})
 	}
 }
 

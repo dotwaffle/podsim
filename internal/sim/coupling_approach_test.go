@@ -188,52 +188,65 @@ func TestCouplingApproachPreparationGuards(t *testing.T) {
 	t.Parallel()
 	for _, test := range []struct {
 		name   string
-		change func(*couplingApproachPrepareInput)
+		change func(*testing.T, *couplingApproachPrepareInput)
 	}{
-		{"disabled", func(i *couplingApproachPrepareInput) { i.Enabled = false }},
-		{"virtual_off", func(i *couplingApproachPrepareInput) { i.Simulation.platooning = PlatooningOff }},
-		{"wrong_network", func(i *couplingApproachPrepareInput) { prepared := *i.Prepared; i.Prepared = &prepared }},
-		{"nil_prepared", func(i *couplingApproachPrepareInput) { i.Network.prepared, i.Prepared = nil, nil }},
-		{"unknown_corridor", func(i *couplingApproachPrepareInput) { i.CorridorID = "missing" }},
-		{"duplicate_members", func(i *couplingApproachPrepareInput) { i.Members[1] = i.Members[0] }},
-		{"imported_endpoint", func(i *couplingApproachPrepareInput) {
+		{"disabled", func(_ *testing.T, i *couplingApproachPrepareInput) { i.Enabled = false }},
+		{"virtual_off", func(_ *testing.T, i *couplingApproachPrepareInput) { i.Simulation.platooning = PlatooningOff }},
+		{"wrong_network", func(_ *testing.T, i *couplingApproachPrepareInput) { prepared := *i.Prepared; i.Prepared = &prepared }},
+		{"nil_prepared", func(_ *testing.T, i *couplingApproachPrepareInput) { i.Network.prepared, i.Prepared = nil, nil }},
+		{"unknown_corridor", func(_ *testing.T, i *couplingApproachPrepareInput) { i.CorridorID = "missing" }},
+		{"duplicate_members", func(_ *testing.T, i *couplingApproachPrepareInput) { i.Members[1] = i.Members[0] }},
+		{"imported_endpoint", func(t *testing.T, i *couplingApproachPrepareInput) {
+			t.Helper()
 			v := &i.Simulation.vehicles[0]
 			v.distance += 12
 			v.blockIndex = 2
 			couplingApproachTestPose(t, v)
 		}},
-		{"mixed_occupancy", func(i *couplingApproachPrepareInput) { i.Simulation.vehicles[1].Pod.Occupied = true }},
-		{"moving", func(i *couplingApproachPrepareInput) { i.Simulation.vehicles[0].Pod.Speed = 1 }},
-		{"wrong_class", func(i *couplingApproachPrepareInput) { i.Simulation.vehicles[0].Pod.Class = GroupClass }},
-		{"third_partner", func(i *couplingApproachPrepareInput) { i.Simulation.vehicles[1].follower = 1 }},
-		{"negative_partner", func(i *couplingApproachPrepareInput) { i.Simulation.vehicles[0].follower = -1 }},
-		{"negative_grant", func(i *couplingApproachPrepareInput) { i.Simulation.vehicles[0].reservedThrough = -1 }},
-		{"future_rear_grant", func(i *couplingApproachPrepareInput) { i.Simulation.vehicles[1].reservedThrough++ }},
-		{"larger_tail", func(i *couplingApproachPrepareInput) { i.Prepared.laneCells["ab"].tail = 20 }},
-		{"foreign_owner", func(i *couplingApproachPrepareInput) {
+		// A coherent pose 5 mm short of the staging frontier. Grants,
+		// retention, and virtual clearance stay valid.
+		{"off_staging", func(t *testing.T, i *couplingApproachPrepareInput) {
+			t.Helper()
+			v := &i.Simulation.vehicles[0]
+			v.distance -= 0.005
+			couplingApproachTestPose(t, v)
+		}},
+		{"mixed_occupancy", func(_ *testing.T, i *couplingApproachPrepareInput) { i.Simulation.vehicles[1].Pod.Occupied = true }},
+		{"moving", func(_ *testing.T, i *couplingApproachPrepareInput) { i.Simulation.vehicles[0].Pod.Speed = 1 }},
+		{"wrong_class", func(_ *testing.T, i *couplingApproachPrepareInput) { i.Simulation.vehicles[0].Pod.Class = GroupClass }},
+		{"legacy_front", func(_ *testing.T, i *couplingApproachPrepareInput) { i.Simulation.vehicles[0].Pod.Class = LegacyClass }},
+		{"legacy_rear", func(_ *testing.T, i *couplingApproachPrepareInput) { i.Simulation.vehicles[1].Pod.Class = LegacyClass }},
+		{"express_front", func(_ *testing.T, i *couplingApproachPrepareInput) { i.Simulation.vehicles[0].Pod.Class = ExpressClass }},
+		{"express_rear", func(_ *testing.T, i *couplingApproachPrepareInput) { i.Simulation.vehicles[1].Pod.Class = ExpressClass }},
+		{"third_partner", func(_ *testing.T, i *couplingApproachPrepareInput) { i.Simulation.vehicles[1].follower = 1 }},
+		{"negative_partner", func(_ *testing.T, i *couplingApproachPrepareInput) { i.Simulation.vehicles[0].follower = -1 }},
+		{"negative_grant", func(_ *testing.T, i *couplingApproachPrepareInput) { i.Simulation.vehicles[0].reservedThrough = -1 }},
+		{"future_rear_grant", func(_ *testing.T, i *couplingApproachPrepareInput) { i.Simulation.vehicles[1].reservedThrough++ }},
+		{"larger_tail", func(_ *testing.T, i *couplingApproachPrepareInput) { i.Prepared.laneCells["ab"].tail = 20 }},
+		{"foreign_owner", func(_ *testing.T, i *couplingApproachPrepareInput) {
 			for r := range i.Simulation.vehicles[1].routeReleases {
 				i.Simulation.owners[r] = podResourceOwner("foreign")
 			}
 		}},
-		{"short_retention", func(i *couplingApproachPrepareInput) {
+		{"short_retention", func(_ *testing.T, i *couplingApproachPrepareInput) {
 			for r := range i.Simulation.vehicles[1].routeReleases {
 				i.Simulation.vehicles[1].routeReleases[r]--
 			}
 		}},
-		{"nonfinite_retention", func(i *couplingApproachPrepareInput) {
+		{"nonfinite_retention", func(_ *testing.T, i *couplingApproachPrepareInput) {
 			for r := range i.Simulation.vehicles[0].routeReleases {
 				i.Simulation.vehicles[0].routeReleases[r] = math.NaN()
 			}
 		}},
-		{"pending_pickup", func(i *couplingApproachPrepareInput) {
+		{"pending_pickup", func(_ *testing.T, i *couplingApproachPrepareInput) {
 			i.Simulation.waiting = append(i.Simulation.waiting, waitingTrip{request: Request{PodID: "rear"}})
 		}},
-		{"wrong_position", func(i *couplingApproachPrepareInput) { i.Simulation.vehicles[0].Pod.Position.X++ }},
+		{"wrong_position", func(_ *testing.T, i *couplingApproachPrepareInput) { i.Simulation.vehicles[0].Pod.Position.X++ }},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
 			input := couplingApproachFixture(t, false)
-			test.change(&input)
+			test.change(t, &input)
 			owners := maps.Clone(input.Simulation.owners)
 			if _, _, err := prepareCouplingApproach(input); err == nil {
 				t.Fatal("invalid actual approach state accepted")

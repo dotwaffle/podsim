@@ -57,6 +57,9 @@ func checkCouplingApproachNativeBoundary(t *testing.T, s *Simulation) {
 	if _, err := s.SafetyObservation().Check(); err != nil {
 		t.Fatalf("native safety failed at tick %d: %v", s.tick, err)
 	}
+	if err := checkCouplingApproachHandoff(s); err != nil {
+		t.Fatalf("approach link handoff failed at tick %d: %v", s.tick, err)
+	}
 	checkIncrementalOwners(t, s)
 	view, err := s.CheckedSnapshot()
 	if err != nil || view.Tick != s.tick || view.CouplingContract != s.CouplingContract() ||

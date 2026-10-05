@@ -128,9 +128,35 @@ func nativeForeignCompactActualPlan(t *testing.T, disable bool) {
 		if _, err = bad.compactCertificates(s.compactGroups, s.compactNextGroups); !errors.Is(err, errCouplingMotionInvariant) {
 			t.Fatal("changed actual compact plan was accepted")
 		}
+		nativeForeignCompactRecomputedRecovery(t, frame, &bad, s.compactGroups, s.compactNextGroups)
 		return
 	}
 	t.Fatal("native compact plan fixture exceeded its frozen cap")
+}
+
+// A recovery recomputed from the planned states passes the recovery check.
+// Then only the local exact step can refuse a changed command.
+func nativeForeignCompactRecomputedRecovery(t *testing.T, frame, bad *nativeForeignTick, previous, next []*compactBufferGroup) {
+	t.Helper()
+	recomputed := func(f *nativeForeignTick) []*compactBufferGroup {
+		groups := cloneCompactGroups(next)
+		planned := make([]compactQueueState, len(previous[0].members))
+		for i, index := range previous[0].members {
+			planned[i] = f.facts[index].compact.state
+		}
+		recovery, err := compactQueueRecoveryAdmission(planned, groups[0].bounds)
+		if err != nil {
+			t.Fatal(err)
+		}
+		groups[0].recovery = recovery
+		return groups
+	}
+	if _, err := frame.compactCertificates(previous, recomputed(frame)); err != nil {
+		t.Fatal("unchanged compact command with a recomputed recovery was refused:", err)
+	}
+	if _, err := bad.compactCertificates(previous, recomputed(bad)); !errors.Is(err, errCouplingMotionInvariant) {
+		t.Fatal("changed compact command with a consistent recovery was accepted:", err)
+	}
 }
 
 func TestNativeForeignVirtualDrainingOwners(t *testing.T) {
