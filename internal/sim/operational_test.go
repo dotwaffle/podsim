@@ -1408,3 +1408,79 @@ func TestWithdrawnBindingRejected(t *testing.T) {
 		})
 	}
 }
+
+// TestArrivePurposes calls arrive directly for each purpose and checks the
+// complete postcondition of section 9.5 before any other operation runs.
+// Each transition happens inside arrive, so the state contract holds at
+// its return. No later pass of Step repairs the pod.
+func TestArrivePurposes(t *testing.T) {
+	t.Parallel()
+	// lastBlock steps s until pod v travels on the last block of its route.
+	lastBlock := func(t *testing.T, s *Simulation, v *vehicle) {
+		t.Helper()
+		stepUntil(t, s, "last block", func() bool { return v.Pod.Activity == Traveling && v.blockIndex+1 == v.blocks.len() })
+	}
+	t.Run("emergency unload", func(t *testing.T) {
+		t.Parallel()
+		s := incidentLegFleet(t)
+		v := boardParties(t, s, "s2", "s1")
+		travelOn(t, s, v, "s0-link")
+		v.Stops = []string{"s2", "s1"}
+		if err := s.withdrawService(v, emergencyHold); err != nil {
+			t.Fatal(err)
+		}
+		if err := s.setOperationalDestination(v, operationalTarget{purpose: opEmergencyUnload, owner: emergencyHold, interrupt: 1, station: "s1", berth: "s1-2"}); err != nil {
+			t.Fatal(err)
+		}
+		checkNow(t, s)
+		lastBlock(t, s, v)
+		s.arrive(v)
+		checkNow(t, s)
+		if v.Pod.Activity != Unloading || !v.Pod.Occupied || v.phaseTicks != unloadingTicks || v.Pod.StationID != "s1" || v.Pod.BerthID != "s1-2" ||
+			!slices.Equal(v.Stops, []string{"s2"}) || v.RelocatingTo != "" || v.buffered ||
+			v.op != (operationalDestination{purpose: opEmergencyUnload, owner: emergencyHold, interrupt: 1}) || v.RidersAboard() != 2 {
+			t.Fatalf("pod after arrive: %+v", v)
+		}
+	})
+	t.Run("refuge", func(t *testing.T) {
+		t.Parallel()
+		s := incidentLegFleet(t)
+		v := boardParties(t, s, "s2")
+		travelOn(t, s, v, "s0-link")
+		if err := s.withdrawService(v, faultHold); err != nil {
+			t.Fatal(err)
+		}
+		if err := s.setOperationalDestination(v, operationalTarget{purpose: opRefuge, owner: faultHold, station: "s1", berth: "s1-2"}); err != nil {
+			t.Fatal(err)
+		}
+		lastBlock(t, s, v)
+		s.arrive(v)
+		checkNow(t, s)
+		if v.Pod.Activity != Unloading || !v.Pod.Occupied || v.phaseTicks != 0 || v.Pod.WaitReason != refugeHolding || v.Pod.BerthID != "s1-2" ||
+			!slices.Equal(v.Stops, []string{"s2"}) || v.op != (operationalDestination{purpose: opRefuge, owner: faultHold}) || v.RidersAboard() != 1 {
+			t.Fatalf("pod after arrive: %+v", v)
+		}
+	})
+	t.Run("empty recovery", func(t *testing.T) {
+		t.Parallel()
+		s := incidentLegFleet(t)
+		v := s.findVehicle("02")
+		if err := s.startEmptyMove(v, emptyDestination{station: "s2", berth: Berth{ID: "s2-1", Node: "s2-1"}}); err != nil {
+			t.Fatal(err)
+		}
+		travelOn(t, s, v, "p-link")
+		if err := s.withdrawService(v, emergencyHold); err != nil {
+			t.Fatal(err)
+		}
+		if err := s.setOperationalDestination(v, operationalTarget{purpose: opEmptyRecovery, owner: emergencyHold, station: "s1", berth: "s1-2"}); err != nil {
+			t.Fatal(err)
+		}
+		lastBlock(t, s, v)
+		s.arrive(v)
+		checkNow(t, s)
+		if v.Pod.Activity != Idle || v.Pod.Occupied || v.phaseTicks != 0 || v.Pod.BerthID != "s1-2" || v.RelocatingTo != "" || v.released ||
+			v.Rebalancing || v.op != (operationalDestination{}) || v.withdrawn != emergencyHold {
+			t.Fatalf("pod after arrive: %+v", v)
+		}
+	})
+}
