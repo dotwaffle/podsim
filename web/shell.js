@@ -159,12 +159,14 @@
     return true;
   }
 
-  // markersAgree is true when the reply, its topology and the simulation
-  // of state have the same contract markers. Each marker that is present
-  // must have the value in CONTRACT_MARKERS. A topology that is not an
-  // object has no markers. editor.js has the same function.
+  // markersAgree is true when the reply has a topology object, and the
+  // reply, its topology and the simulation of state have the same contract
+  // markers. Each marker that is present must have the value in
+  // CONTRACT_MARKERS. The server decoder also refuses a reply without a
+  // topology object. editor.js has the same function.
   function markersAgree(reply, state) {
-    const holders = [reply, isObject(reply.topology) ? reply.topology : {}, state.simulation];
+    if (!isObject(reply.topology)) return false;
+    const holders = [reply, reply.topology, state.simulation];
     return CONTRACT_MARKERS.every(([name, allowed]) => {
       const values = holders.map((holder) => Object.hasOwn(holder, name) ? holder[name] : undefined);
       return values.every((marker) => marker === values[0] && (marker === undefined || marker === allowed));

@@ -3031,8 +3031,8 @@ function nested(levels) {
 }
 
 // stateReplyRefusals gives the state replies that the debug capture and
-// the editor refuse because of their contract markers, a textEncoding
-// member or their size. envelope(markers) gives a valid reply with those
+// the editor refuse because of their contract markers, their topology, a
+// textEncoding member or their size. envelope(markers) gives a valid reply with those
 // contract markers at the root, in the topology and in the simulation.
 // shell_test.cjs has the same table.
 function stateReplyRefusals(envelope) {
@@ -3066,6 +3066,11 @@ function stateReplyRefusals(envelope) {
     ["a coupling root with an unmarked topology and simulation", { ...plain, couplingContract: "compact-pair-v1" }],
     ["an unmarked root with a coupling topology and simulation", without(coupling, "couplingContract")],
     ["a coupling simulation in a plain reply", simulation(plain, { couplingContract: "compact-pair-v1" })],
+    // The server decoder refuses a reply without a topology object.
+    ["a reply without a topology", without(plain, "topology")],
+    ["a reply with a null topology", { ...plain, topology: null }],
+    ["a reply with a topology array", { ...plain, topology: [] }],
+    ["a reply with a topology that is text", { ...plain, topology: "topology" }],
     // A marker has the one value that the server sends.
     ["an unknown order contract", envelope({ orderContract: "express-v2" })],
     ["an empty order contract", envelope({ orderContract: "" })],
@@ -3091,7 +3096,6 @@ test("readState accepts the reply of each project kind and gives its state", asy
     { name: "a plain project", ...kind(envelope()) },
     { name: "an Express project", ...kind(envelope({ orderContract: "express-v1" })) },
     { name: "a coupling project", ...kind(envelope({ couplingContract: "compact-pair-v1" })) },
-    { name: "a reply without a topology", body: { frame: { state, routes: [] } }, want: state },
     { name: "a reply of the depth limit", ...kind({ ...envelope(), topology: nested(editor.MAX_STATE_DEPTH - 1) }) },
     { name: "a reply with an array of the element limit", ...kind({ ...envelope(), topology: { lanes: new Array(editor.MAX_STATE_ELEMENTS).fill(0) } }) },
     ...stateReplyRefusals(envelope).map(([name, body]) => ({ name, body, wantError: invalid })),
@@ -3103,17 +3107,17 @@ test("readState accepts the reply of each project kind and gives its state", asy
     { name: "an envelope with a revision only", body: { couplingContract: "compact-pair-v1", frame: { state: { projectRevision: 3 } } }, wantError: invalid },
     { name: "an envelope with a nested error", body: { orderContract: "express-v1", frame: { state: { error: "bad" } } }, wantError: invalid },
     { name: "a reply that is not an object", body: [state], wantError: invalid },
-    { name: "no epoch", body: { frame: { state: without("epoch") } }, wantError: invalid },
-    { name: "an empty epoch", body: { frame: { state: { ...state, epoch: "" } } }, wantError: invalid },
-    { name: "no server start ID", body: { frame: { state: without("serverStart") } }, wantError: invalid },
-    { name: "an empty server start ID", body: { frame: { state: { ...state, serverStart: "" } } }, wantError: invalid },
-    { name: "a server start ID that is a number", body: { frame: { state: { ...state, serverStart: 1 } } }, wantError: invalid },
-    { name: "a revision that is text", body: { frame: { state: { ...state, projectRevision: "3" } } }, wantError: invalid },
-    { name: "a negative revision", body: { frame: { state: { ...state, projectRevision: -1 } } }, wantError: invalid },
-    { name: "a fractional revision", body: { frame: { state: { ...state, projectRevision: 3.5 } } }, wantError: invalid },
-    { name: "no generation", body: { frame: { state: without("generation") } }, wantError: invalid },
-    { name: "no simulation", body: { frame: { state: without("simulation") } }, wantError: invalid },
-    { name: "a pause flag that is text", body: { frame: { state: { ...state, simulation: { paused: "false" } } } }, wantError: invalid },
+    { name: "no epoch", body: { topology: {}, frame: { state: without("epoch") } }, wantError: invalid },
+    { name: "an empty epoch", body: { topology: {}, frame: { state: { ...state, epoch: "" } } }, wantError: invalid },
+    { name: "no server start ID", body: { topology: {}, frame: { state: without("serverStart") } }, wantError: invalid },
+    { name: "an empty server start ID", body: { topology: {}, frame: { state: { ...state, serverStart: "" } } }, wantError: invalid },
+    { name: "a server start ID that is a number", body: { topology: {}, frame: { state: { ...state, serverStart: 1 } } }, wantError: invalid },
+    { name: "a revision that is text", body: { topology: {}, frame: { state: { ...state, projectRevision: "3" } } }, wantError: invalid },
+    { name: "a negative revision", body: { topology: {}, frame: { state: { ...state, projectRevision: -1 } } }, wantError: invalid },
+    { name: "a fractional revision", body: { topology: {}, frame: { state: { ...state, projectRevision: 3.5 } } }, wantError: invalid },
+    { name: "no generation", body: { topology: {}, frame: { state: without("generation") } }, wantError: invalid },
+    { name: "no simulation", body: { topology: {}, frame: { state: without("simulation") } }, wantError: invalid },
+    { name: "a pause flag that is text", body: { topology: {}, frame: { state: { ...state, simulation: { paused: "false" } } } }, wantError: invalid },
     // A server of another version replies with another media type. The
     // editor refuses the reply before it reads the body.
     { name: "the state media type with a parameter", media: "Application/VND.podsim.state-6+json; charset=utf-8", body: { topology: {}, frame: { state, routes: [] } }, want: state },

@@ -290,8 +290,8 @@ function nested(levels) {
 }
 
 // stateReplyRefusals gives the state replies that the debug capture and
-// the editor refuse because of their contract markers, a textEncoding
-// member or their size. envelope(markers) gives a valid reply with those
+// the editor refuse because of their contract markers, their topology, a
+// textEncoding member or their size. envelope(markers) gives a valid reply with those
 // contract markers at the root, in the topology and in the simulation.
 // editor_test.cjs has the same table.
 function stateReplyRefusals(envelope) {
@@ -325,6 +325,11 @@ function stateReplyRefusals(envelope) {
     ["a coupling root with an unmarked topology and simulation", { ...plain, couplingContract: "compact-pair-v1" }],
     ["an unmarked root with a coupling topology and simulation", without(coupling, "couplingContract")],
     ["a coupling simulation in a plain reply", simulation(plain, { couplingContract: "compact-pair-v1" })],
+    // The server decoder refuses a reply without a topology object.
+    ["a reply without a topology", without(plain, "topology")],
+    ["a reply with a null topology", { ...plain, topology: null }],
+    ["a reply with a topology array", { ...plain, topology: [] }],
+    ["a reply with a topology that is text", { ...plain, topology: "topology" }],
     // A marker has the one value that the server sends.
     ["an unknown order contract", envelope({ orderContract: "express-v2" })],
     ["an empty order contract", envelope({ orderContract: "" })],
@@ -354,7 +359,6 @@ test("the debug capture accepts the state reply of each project kind", () => {
     ["a plain project", envelope()],
     ["an Express project", envelope({ orderContract: "express-v1" })],
     ["a coupling project", envelope({ couplingContract: "compact-pair-v1" })],
-    ["a reply without a topology", { frame: { state, routes: [] } }],
     ["a reply of the depth limit", { ...envelope(), topology: nested(shell.MAX_STATE_DEPTH - 1) }],
     ["a reply with an array of the element limit", { ...envelope(), topology: { lanes: new Array(shell.MAX_STATE_ELEMENTS).fill(0) } }],
   ];
@@ -369,12 +373,12 @@ test("the debug capture accepts the state reply of each project kind", () => {
     ["an envelope with a revision only", { couplingContract: "compact-pair-v1", frame: { state: { projectRevision: 3 } } }],
     ["an envelope with a nested error", { orderContract: "express-v1", frame: { state: { error: "bad" } } }],
     ["a reply that is not an object", null],
-    ["no epoch", { frame: { state: { ...state, epoch: undefined } } }],
-    ["an empty epoch", { frame: { state: { ...state, epoch: "" } } }],
-    ["a revision that is text", { frame: { state: { ...state, projectRevision: "3" } } }],
-    ["no simulation", { frame: { state: { ...state, simulation: undefined } } }],
-    ["a null simulation", { frame: { state: { ...state, simulation: null } } }],
-    ["a tick that is text", { frame: { state: { ...state, simulation: { tick: "7" } } } }],
+    ["no epoch", { topology: {}, frame: { state: { ...state, epoch: undefined } } }],
+    ["an empty epoch", { topology: {}, frame: { state: { ...state, epoch: "" } } }],
+    ["a revision that is text", { topology: {}, frame: { state: { ...state, projectRevision: "3" } } }],
+    ["no simulation", { topology: {}, frame: { state: { ...state, simulation: undefined } } }],
+    ["a null simulation", { topology: {}, frame: { state: { ...state, simulation: null } } }],
+    ["a tick that is text", { topology: {}, frame: { state: { ...state, simulation: { tick: "7" } } } }],
   ];
   for (const [name, reply] of malformed) assert.throws(() => shell.captureState(reply), { message: "Invalid server state reply" }, name);
   // The editor reads the state with the same Accept header.
