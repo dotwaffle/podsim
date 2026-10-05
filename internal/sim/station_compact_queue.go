@@ -78,9 +78,10 @@ func (s *Simulation) compactGroup(v *vehicle) *compactBufferGroup {
 	return nil
 }
 
-// compactEntry accepts only a physically supported straight plain holding region.
+// compactEntry accepts only a physically supported straight plain holding
+// region. A faulted pod does not enter.
 func (s *Simulation) compactEntry(v *vehicle) (stationBufferPlan, compactQueueBounds, bool) {
-	if v.couplingID != "" {
+	if v.couplingID != "" || v.faulted {
 		return stationBufferPlan{}, compactQueueBounds{}, false
 	}
 	plan, ok := s.bufferPlan(v)

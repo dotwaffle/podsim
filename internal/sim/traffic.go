@@ -517,6 +517,11 @@ func (s *Simulation) admit() {
 		if v.couplingID != "" {
 			continue
 		}
+		if v.faulted {
+			// A faulted pod requests no grant, also as a buffer head.
+			s.reportFault(i)
+			continue
+		}
 		ready := departs(v.Pod.Activity) && v.phaseTicks == 0
 		if !ready && v.Pod.Activity != Traveling {
 			continue
@@ -748,7 +753,12 @@ func (s *Simulation) move(v *vehicle) {
 	}
 	blocks := &v.blocks
 	current := blocks.find(v.blockIndex, &blocks.cursors[podCursor])
-	next := ordinaryMoveStep(blocks, current.lane, v.distance, v.Pod.Speed, limit)
+	var next ordinaryMoveResult
+	if v.faulted {
+		next = faultMoveStep(blocks, current.lane, v.distance, v.Pod.Speed, limit, v.faultCap)
+	} else {
+		next = ordinaryMoveStep(blocks, current.lane, v.distance, v.Pod.Speed, limit)
+	}
 	s.publishVehicleTravel(v, next.distance, next.speed)
 }
 

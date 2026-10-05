@@ -492,9 +492,10 @@ func (s *Simulation) sharedLane(v, leader *vehicle, lane, leaderLane int) bool {
 }
 
 // canLink reports whether platooning is on and the traveling pod v is
-// slow, below platoonSlowFraction of the speed limit of its lane.
+// slow, below platoonSlowFraction of the speed limit of its lane. A faulted
+// pod does not link.
 func (s *Simulation) canLink(v *vehicle) bool {
-	if v.couplingID != "" || largeVehicleClass(v.Pod.Class) {
+	if v.couplingID != "" || v.faulted || largeVehicleClass(v.Pod.Class) {
 		return false
 	}
 	lane := v.blocks.find(v.blockIndex, &v.blocks.cursors[podCursor]).lane
@@ -512,9 +513,15 @@ func (s *Simulation) canLink(v *vehicle) bool {
 // pods must also be in one queue: the path distance between them must be
 // at most the link clearance plus the stopping distance at the speed
 // limit. Inside a fixed entry buffer, one holding-cell pitch also qualifies.
+// A faulted pod is not a leader or a follower, and the run of a link has no
+// lane that a fault blocks.
 func (s *Simulation) tryLink(i, ahead int) {
 	v, leader := &s.vehicles[i], &s.vehicles[ahead]
 	if s.couplingApproachMember(v.Pod.ID) || s.couplingApproachMember(leader.Pod.ID) {
+		return
+	}
+	// canLink refuses a faulted follower.
+	if leader.faulted {
 		return
 	}
 	// canLink refuses a coupled follower. A committed train admits no
@@ -549,6 +556,9 @@ func (s *Simulation) tryLink(i, ahead int) {
 		turn, fixed = behind, true
 	}
 	link, ok := s.planLink(linkPlan{v: v, leader: leader, lane: current, leaderLane: leaderLane, turn: turn, fixed: fixed})
+	if ok && s.routeBlocked(v.Route[link.lane:link.lane+link.lanes]) {
+		return
+	}
 	if ok && leaderPosition(v, leader, link)-v.distance <= max(link.clearance+stoppingDistance(limit), s.bufferRecruitmentDistance(v, leader, link)) {
 		s.link(i, ahead, link)
 	}

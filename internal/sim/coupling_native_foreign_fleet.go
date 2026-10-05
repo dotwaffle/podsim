@@ -50,6 +50,10 @@ type nativeForeignFact struct {
 	follower                        int
 	cap                             float64
 	compact                         compactBufferMotion
+	// faulted and faultCap are the fault members of the pod. A faulted
+	// pod moves with faultMoveStep, in move and in each proof.
+	faulted  bool
+	faultCap float64
 }
 
 func prepareNativeForeignFleet(s *Simulation, c *couplingMotionContext, pairs ...*couplingMotionContext) (*nativeForeignFleet, error) {
@@ -167,7 +171,7 @@ func buildNativeForeignApproachTick(s *Simulation, f *nativeForeignFleet, approa
 		if v.Pod.ID != entry.id || v.Pod.Class != entry.class || v.routeVersion != entry.routeVersion || !nativeForeignSameRoute(v.Route, entry.route) {
 			return nil, couplingMotionInvariant("native frame requires new immutable route preparation")
 		}
-		fact := nativeForeignFact{pod: v.Pod, cabin: nativeForeignCabin(v), distance: v.distance, blockIndex: v.blockIndex, through: v.reservedThrough, phaseTicks: v.phaseTicks, origin: v.origin, destination: v.destination, retained: maps.Clone(v.routeReleases), link: v.link, follower: v.follower, cap: v.platoonCap}
+		fact := nativeForeignFact{pod: v.Pod, cabin: nativeForeignCabin(v), distance: v.distance, blockIndex: v.blockIndex, through: v.reservedThrough, phaseTicks: v.phaseTicks, origin: v.origin, destination: v.destination, retained: maps.Clone(v.routeReleases), link: v.link, follower: v.follower, cap: v.platoonCap, faulted: v.faulted, faultCap: v.faultCap}
 		if len(s.compactMotions) > 0 {
 			if len(s.compactMotions) != len(s.vehicles) {
 				return nil, couplingMotionInvariant("native compact plan omits fleet members")
@@ -226,6 +230,16 @@ func nativeForeignLimit(fact nativeForeignFact, blocks *blockList) (float64, err
 		return 0, couplingMotionInvariant("native ordinary stopping cap is behind its pose")
 	}
 	return limit, nil
+}
+
+// nativeForeignStep is the motion step of a fact: faultMoveStep with the
+// fault cap of a faulted pod, and ordinaryMoveStep otherwise. move makes
+// the same choice from the same values.
+func nativeForeignStep(fact *nativeForeignFact, blocks *blockList, lane int, limit float64) ordinaryMoveResult {
+	if fact.faulted {
+		return faultMoveStep(blocks, lane, fact.distance, fact.pod.Speed, limit, fact.faultCap)
+	}
+	return ordinaryMoveStep(blocks, lane, fact.distance, fact.pod.Speed, limit)
 }
 
 func nativeForeignSameFloat(a, b float64) bool { return math.Float64bits(a) == math.Float64bits(b) }

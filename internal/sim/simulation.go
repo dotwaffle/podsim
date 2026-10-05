@@ -307,8 +307,11 @@ type vehicle struct {
 	link       platoonLink
 	follower   int
 	platoonCap float64
-	// faulted is true while a fault record names the pod.
-	faulted bool
+	// faulted is true while a fault record names the pod. faultCap is the
+	// route distance at which a faulted traveling pod stops. Fault start
+	// sets it, and the clear sets it to 0. No other code writes it.
+	faulted  bool
+	faultCap float64
 }
 
 // Simulation owns a fixed fleet and local track, junction, and berth resources.
@@ -758,6 +761,11 @@ func (s *Simulation) Step() {
 	s.stepDemo()
 	for i := range s.vehicles {
 		v := &s.vehicles[i]
+		// A faulted pod stops where it is: its phase timer does not run,
+		// and no rider alights.
+		if v.faulted {
+			continue
+		}
 		if v.phaseTicks > 0 {
 			v.phaseTicks--
 		}
@@ -811,7 +819,7 @@ func (s *Simulation) Step() {
 		if v.couplingID != "" {
 			continue
 		}
-		if departs(v.Pod.Activity) && v.phaseTicks == 0 && v.reservedThrough >= 0 {
+		if departs(v.Pod.Activity) && v.phaseTicks == 0 && v.reservedThrough >= 0 && !v.faulted {
 			if v.Pod.Activity == Boarding && s.screensSeats() {
 				s.recordDeparture(v)
 			}
@@ -874,5 +882,10 @@ func (s *Simulation) arrive(v *vehicle) {
 		}
 		// An empty recovery ends at its berth. The holds stay.
 		v.op = operationalDestination{}
+	}
+	// The fault stays, and the gates hold the pod at the berth. Its
+	// footprint is now the berth.
+	if v.faulted {
+		s.rebuildBlocked()
 	}
 }

@@ -138,6 +138,11 @@ func (s *Simulation) grantBufferedHead(in intent, plan stationBufferPlan) {
 	if group := s.compactGroup(v); group != nil {
 		return
 	}
+	// A faulted head makes no attempt. The pods behind it keep their
+	// order, because its tail and its position stay on the lane.
+	if v.faulted {
+		return
+	}
 	if !s.bufferHead(v, plan) || v.link.leader != 0 || v.follower != 0 && !s.vehicles[v.follower-1].link.buffer {
 		return
 	}

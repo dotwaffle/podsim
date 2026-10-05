@@ -242,8 +242,9 @@ var persistRules = map[reflect.Type]map[string]persistRule{
 		// ExportState, RestoreState, and the session save keep them.
 		"withdrawn": persistSave, "op": persistSave,
 		// A restore derives faulted from the fault records, which no save
-		// writes yet.
-		"faulted": persistReset,
+		// writes yet. A physical restore sets faultCap to the distance of
+		// a faulted traveling pod.
+		"faulted": persistReset, "faultCap": persistReset,
 	},
 	reflect.TypeFor[Vehicle](): {
 		"CouplingID": persistDerive,

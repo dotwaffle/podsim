@@ -53,6 +53,11 @@ func (s *Simulation) discoverCouplingApproaches() {
 		if rear.couplingID != "" || s.couplingApproachMember(rear.Pod.ID) {
 			continue
 		}
+		// A pair with a faulted pod, or with a blocked lane on its
+		// remaining route, does not approach.
+		if front.faulted || rear.faulted || s.remainingRouteBlocked(front) || s.remainingRouteBlocked(rear) {
+			continue
+		}
 		if old := s.couplingAttempts[id]; old.context != nil {
 			continue
 		}

@@ -76,8 +76,11 @@ func (frame *nativeForeignTick) prepareProof(index int, compact nativeCompactMem
 	if capErr := frame.checkPredecessorCap(index); capErr != nil {
 		return nil, capErr
 	}
+	if capErr := checkFaultCap(fact, proof.limit); capErr != nil {
+		return nil, capErr
+	}
 	proof.lane = blocks.locate(fact.blockIndex, 0)
-	proof.ordinary = ordinaryMoveStep(blocks, proof.lane, fact.distance, fact.pod.Speed, proof.limit)
+	proof.ordinary = nativeForeignStep(fact, blocks, proof.lane, proof.limit)
 	if !finite(proof.ordinary.distance) || !finite(proof.ordinary.speed) || !finite(proof.ordinary.commandedSpeed) || proof.ordinary.distance < fact.distance || proof.ordinary.distance > proof.limit || proof.ordinary.speed < 0 {
 		return nil, couplingMotionInvariant("native ordinary kernel output is invalid")
 	}
@@ -133,6 +136,24 @@ func (frame *nativeForeignTick) checkPredecessorCap(index int) error {
 	return nil
 }
 
+// checkFaultCap checks the fault members of a moving fact as
+// checkPredecessorCap checks a follower cap. Fault start fixes the cap,
+// so no frame fact can produce it again. A faulted pod keeps its cap
+// between its distance and its grant end (F3), and a pod without a fault
+// has no cap.
+func checkFaultCap(fact *nativeForeignFact, limit float64) error {
+	if !fact.faulted {
+		if fact.faultCap != 0 {
+			return couplingMotionInvariant("native pod without a fault has a fault cap")
+		}
+		return nil
+	}
+	if !finite(fact.faultCap) || fact.faultCap < fact.distance || fact.faultCap > limit {
+		return couplingMotionInvariant("native fault cap is outside its pose and grants")
+	}
+	return nil
+}
+
 func (frame *nativeForeignTick) ordinaryPosition(index int, distance float64) (Point, error) {
 	fact := &frame.facts[index]
 	blocks := &frame.fleet.entries[index].path.blocks
@@ -183,7 +204,7 @@ func checkNativeForeignSweep(sweep couplingForeignSweep) error {
 	}
 	if proof.compact.group == nil && !raw.Path.parked {
 		fact := proof.frame.facts[proof.index]
-		expected := ordinaryMoveStep(&raw.Path.blocks, proof.lane, fact.distance, fact.pod.Speed, proof.limit)
+		expected := nativeForeignStep(&fact, &raw.Path.blocks, proof.lane, proof.limit)
 		if expected != proof.ordinary {
 			return couplingMotionInvariant("native ordinary command changed after certification")
 		}

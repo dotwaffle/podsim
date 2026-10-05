@@ -504,7 +504,8 @@ func TestFaultOwnerKind(t *testing.T) {
 }
 
 // TestCheckFaults checks that CheckContract refuses each damaged fault
-// record and each faulted flag without a record.
+// record, each faulted flag without a record, a faulted pod without the
+// fault hold or in a group, and a cap outside the pod and its grants.
 func TestCheckFaults(t *testing.T) {
 	t.Parallel()
 	tests := []struct {
@@ -525,6 +526,16 @@ func TestCheckFaults(t *testing.T) {
 		{"record of a pod that is not faulted", func(s *Simulation) { s.vehicles[s.faults[1].pod].faulted = false }, "not faulted"},
 		{"faulted pod without a record", func(s *Simulation) { s.faults = s.faults[:1] }, "no fault record"},
 		{"faulted pod with no records", func(s *Simulation) { s.faults = nil; s.vehicles[0].faulted = true }, "no fault record"},
+		{"record of a pod without the fault hold", func(s *Simulation) { s.vehicles[s.faults[1].pod].withdrawn = 0 }, "no fault hold"},
+		{"faulted platoon follower", func(s *Simulation) { s.vehicles[s.faults[0].pod].link.leader = 2 }, "member of a train"},
+		{"cap behind the pod", func(s *Simulation) {
+			v := &s.vehicles[s.faults[0].pod]
+			v.faultCap = math.Nextafter(v.distance, 0)
+		}, "outside its distance"},
+		{"cap past the grants", func(s *Simulation) {
+			v := &s.vehicles[s.faults[0].pod]
+			v.faultCap = math.Nextafter(v.blocks.end(v.reservedThrough), math.Inf(1))
+		}, "outside its distance"},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
